@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>KK Phone Rental | เช็กคิวเช่ามือถือและ Lens</title>
-  <meta name="description" content="KK Phone Rental เช่ามือถือและ Lens ถ่ายคอนเสิร์ต ซูมชัด เก็บโมเมนต์ครบ จองผ่าน LINE OA" />
+  <title>KK Phone Rental | เช็กคิวเช่ามือถือ</title>
+  <meta name="description" content="KK Phone Rental เช่ามือถือถ่ายคอนเสิร์ต ซูมชัด เก็บโมเมนต์ครบ จองผ่าน LINE OA" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#0f766e" />
-  <meta property="og:title" content="KK Phone Rental | เช็กคิวเช่ามือถือและ Lens" />
-  <meta property="og:description" content="เลือกงาน ดูเครื่องหรือ Lens ที่ว่าง แล้วทัก LINE จองคิวได้เลย" />
+  <meta property="og:title" content="KK Phone Rental | เช็กคิวเช่ามือถือ" />
+  <meta property="og:description" content="เลือกงาน ดูรุ่นที่ว่าง แล้วทัก LINE จองคิวได้เลย" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://kk-phone-rental.vercel.app/" />
   <meta property="og:locale" content="th_TH" />
@@ -32,22 +32,22 @@
             <small class="brand-tagline">เช่าเถอะ อยากให้ชัด ✨</small>
           </div>
         </div>
-        <a class="follow-link" id="xLink" href="https://x.com/KK_PhoneRental" target="_blank" rel="noopener noreferrer">ฟอลร้าน = ฟรีประกัน + มัดจำ</a>
+        <a class="follow-link" id="xLink" href="https://x.com/KK_PhoneRental" target="_blank" rel="noopener">ฟอลร้าน = ฟรีประกัน + มัดจำ</a>
       </nav>
 
       <section class="hero-card" aria-labelledby="pageTitle">
         <div class="eyebrow">Phone Rental Service</div>
-        <h1 id="pageTitle">เช่ามือถือ / Lens ถ่ายคอนเสิร์ต<br>ซูมชัด เก็บโมเมนต์ครบ</h1>
-        <p class="lead">เลือกงาน → ดูคิวว่าง → เลือกเช่าเครื่อง / Lens / เช่าคู่ แล้วกดจองผ่าน LINE OA ร้านจะช่วยคอนเฟิร์มคิวและรายละเอียดให้อีกครั้ง</p>
+        <h1 id="pageTitle">เช่ามือถือถ่ายคอนเสิร์ต<br>ซูมชัด เก็บโมเมนต์ครบ</h1>
+        <p class="lead">เลือกงาน → ดูคิวว่าง → กดจองผ่าน LINE OA ร้านจะช่วยคอนเฟิร์มคิวและรายละเอียดให้อีกครั้ง</p>
         <div class="hero-actions">
-          <a class="btn btn-primary" id="lineMain" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener noreferrer">ทัก LINE จองคิว</a>
+          <a class="btn btn-primary" id="lineMain" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">ทัก LINE จองคิว</a>
           <a class="btn btn-secondary" href="#faq">คำถามที่พบบ่อย</a>
         </div>
       </section>
 
       <div class="status-bar">
-        <div class="pill" id="lastUpdated" aria-live="polite">อัปเดตล่าสุด: -</div>
-        <div class="tools" role="search" aria-label="ค้นหาและกรองงาน">
+        <div class="pill" id="lastUpdated">อัปเดตล่าสุด: -</div>
+        <div class="tools" role="search">
           <label class="sr-only" for="searchInput">ค้นหางาน</label>
           <input id="searchInput" type="search" placeholder="ค้นหาชื่องาน / สถานที่" autocomplete="off" />
           <label class="sr-only" for="statusFilter">กรองสถานะงาน</label>
@@ -55,7 +55,6 @@
             <option value="all">แสดงทุกงาน</option>
             <option value="open">เปิดจอง</option>
             <option value="phone_only">เหลือเครื่องอย่างเดียว</option>
-            <option value="lens_only">เหลือ Lens อย่างเดียว</option>
             <option value="full">เต็มแล้ว</option>
           </select>
         </div>
@@ -81,8 +80,8 @@
         <p>ยังไม่ยืนยันอัตโนมัติค่ะ ร้านจะตรวจสอบคิวและตอบกลับทาง LINE เพื่อคอนเฟิร์มอีกครั้ง</p>
       </details>
       <details>
-        <summary>ถ้าเครื่องหรือ Lens เหลือไม่เท่ากันทำยังไง?</summary>
-        <p>หน้าเว็บจะแยกให้เลยว่า "เหลือเครื่องอย่างเดียว" หรือ "เหลือ Lens อย่างเดียว" เพื่อให้จองเฉพาะอย่างได้ โดยไม่โชว์ผิดว่าเช่าคู่ยังว่างค่ะ</p>
+        <summary>ถ้าเลนส์เต็ม แต่เครื่องยังว่างทำยังไง?</summary>
+        <p>หน้าเว็บจะแสดงว่า “เหลือเครื่องอย่างเดียว” เพื่อให้จองเฉพาะมือถือได้ โดยไม่โชว์ผิดว่าเช่าคู่ยังว่างค่ะ</p>
       </details>
       <details>
         <summary>ไฟล์จาก Google Drive ไม่ชัด?</summary>
@@ -95,28 +94,29 @@
     </section>
   </main>
 
-  <!-- Booking Modal -->
-  <div class="booking-modal" id="bookingModal" hidden aria-modal="true" role="dialog" aria-labelledby="bookingTitle">
+
+
+  <div class="booking-modal" id="bookingModal" hidden>
     <div class="booking-backdrop" data-close-booking aria-hidden="true"></div>
-    <section class="booking-panel">
+    <section class="booking-panel" role="dialog" aria-modal="true" aria-labelledby="bookingTitle">
       <button class="modal-close" type="button" data-close-booking aria-label="ปิดฟอร์มจอง">×</button>
       <div class="modal-kicker">กรอกข้อมูลก่อนเด้งไป LINE OA</div>
       <h2 id="bookingTitle">ยืนยันรายละเอียดการจอง</h2>
-      <p class="modal-desc">ข้อมูลนี้จะถูกใส่ในข้อความ LINE อัตโนมัติ ร้านจะใช้คอนเฟิร์มคิวและนัดรับอุปกรณ์ค่ะ</p>
+      <p class="modal-desc">ข้อมูลนี้จะถูกใส่ในข้อความ LINE อัตโนมัติ ร้านจะใช้คอนเฟิร์มคิวและนัดรับเครื่องค่ะ</p>
       <div class="booking-summary" id="bookingSummary"></div>
-      <div id="bookingForm" class="booking-form">
+      <form id="bookingForm" class="booking-form">
         <label for="customerNickname">ชื่อเล่น <span aria-hidden="true">*</span></label>
-        <input id="customerNickname" name="nickname" type="text" autocomplete="nickname" maxlength="40" placeholder="เช่น ฟ้า / แพรว / มายด์" required aria-required="true" />
+        <input id="customerNickname" name="nickname" type="text" autocomplete="nickname" maxlength="40" placeholder="เช่น ฟ้า / แพรว / มายด์" required />
 
         <label for="customerPhone">เบอร์โทร <span aria-hidden="true">*</span></label>
-        <input id="customerPhone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="25" placeholder="เช่น 08x-xxx-xxxx" required aria-required="true" />
+        <input id="customerPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="เช่น 08x-xxx-xxxx" required />
 
-        <label for="pickupTime">เวลาที่สะดวกรับอุปกรณ์ <span aria-hidden="true">*</span></label>
-        <input id="pickupTime" name="pickup_time" type="text" maxlength="60" placeholder="เช่น 16:30 น. / ก่อนเข้างาน / หลังเลิกงาน" required aria-required="true" />
+        <label for="pickupTime">เวลาที่สะดวกรับเครื่อง <span aria-hidden="true">*</span></label>
+        <input id="pickupTime" name="pickup_time" type="text" maxlength="60" placeholder="เช่น 16:30 น. / ก่อนเข้างาน / หลังเลิกงาน" required />
 
-        <div class="form-error" id="bookingFormError" role="alert" aria-live="assertive" hidden></div>
-        <button class="btn btn-primary booking-submit" id="bookingSubmitBtn" type="button">ไป LINE OA พร้อมข้อความ</button>
-      </div>
+        <div class="form-error" id="bookingFormError" role="alert" hidden></div>
+        <button class="btn btn-primary booking-submit" type="submit">ไป LINE OA พร้อมข้อความ</button>
+      </form>
     </section>
   </div>
 
