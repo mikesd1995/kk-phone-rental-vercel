@@ -1,27 +1,39 @@
-KK Phone Rental — Netlify Upload Package
+KK Phone Rental — Vercel Upload Package (v5 Backend Ready)
 
-วิธีอัปโหลดขึ้น Netlify
-1) แตกไฟล์ ZIP นี้
-2) ลากไฟล์ทั้งหมดในโฟลเดอร์นี้ขึ้น Netlify Deploy
-3) ไฟล์หลักต้องอยู่ระดับเดียวกัน:
-   - index.html
-   - style.css
-   - script.js
-   - favicon.png
-   - apple-touch-icon.png
+ไฟล์นี้ปรับหน้าบ้านให้ใช้หลังบ้าน Google Sheet v5 แล้ว
 
-ปรับปรุงที่ทำให้แล้ว
-- แยกไฟล์ HTML / CSS / JS พร้อมอัปโหลด Netlify
-- เพิ่ม meta description ภาษาไทย
-- เพิ่ม Open Graph สำหรับ LINE/Facebook
-- เพิ่ม Twitter Card สำหรับ X
-- ใช้รูปแบรนด์เดิมเป็น og:image
-- เพิ่ม favicon และ apple-touch-icon
-- เพิ่ม preconnect ให้ Google Fonts
-- ปรับ title และ wording ให้ตรงกับหน้าเช็กคิว
-- เอา inline onclick หลักออก และใช้ addEventListener ใน script.js
-- เพิ่ม date validation กันวันที่ผิด เช่น 32/13/2026
+Google Sheet ID ที่ใช้:
+1-kFC6v0cRmLnGAq3J0FRVQ3Ua65fXwrFvr_BYGBLVbQ
 
-หมายเหตุ
-- ถ้า Netlify domain จริงไม่ใช่ https://kk-phone-rental.netlify.app/ ให้แก้ og:url ใน index.html เป็น URL จริงของเว็บ
-- ถ้ามีรูป brand-image.png บน Netlify เอง แนะนำเปลี่ยน og:image/twitter:image เป็น URL เต็มของรูปนั้น
+เว็บ Vercel ที่ตั้งค่าใน meta preview:
+https://kk-phone-rental.vercel.app/
+
+โครงสร้างที่โค้ดอ่าน:
+1) ชีต Web_Ready
+   - ใช้เป็นข้อมูลหลักสำหรับหน้าเว็บ
+   - โค้ดอ่านช่วง A4:U เพราะไฟล์ v5 มีหัวตารางจริงอยู่แถว 4
+   - คอลัมน์สำคัญ: event_id, event_name, event_date, venue, active_on_web, phone_model, phone_price, lens_price, bundle_price, available_phone_count, booking_status_for_web, action_for_web, line_message_template
+
+2) ชีต Events
+   - ใช้เสริมสำหรับรูป poster_image_url, hashtag, venue และข้อมูล metadata
+   - โค้ดอ่านช่วง A4:P
+
+สิ่งที่ต้องตั้งค่าใน Google Sheet:
+- Share เป็น Anyone with the link = Viewer
+- อย่าเปลี่ยนชื่อชีต Web_Ready และ Events
+- อย่าเปลี่ยนหัวคอลัมน์แถว 4 ถ้าไม่จำเป็น
+- งานที่ต้องการให้เว็บแสดง ให้ตั้ง active_on_web = TRUE และ action_for_web = show
+- ถ้าไม่อยากให้แสดง ให้ action_for_web = hide
+
+วิธีอัปเดต Vercel:
+1) แตก ZIP นี้
+2) อัปโหลดไฟล์ทั้งหมดทับของเดิมใน GitHub repo
+3) กด Commit changes
+4) Vercel จะ deploy ใหม่ให้อัตโนมัติ
+
+ไฟล์หลัก:
+- index.html
+- style.css
+- script.js
+- favicon.png
+- apple-touch-icon.png

@@ -1,7 +1,53 @@
-// Google Sheet and LINE OA configuration
-var SHEET_ID = "1_fjHFCSrPbel1Fy1yBeBbAvhujVTW4FcjwiN5l5sY48";
+// KK Phone Rental — Front-end for backend v5
+// Data source: Google Sheet v5, mainly the Web_Ready sheet.
+var SHEET_ID = "1-kFC6v0cRmLnGAq3J0FRVQ3Ua65fXwrFvr_BYGBLVbQ";
 var LINE_OA_ID = "@827blnmo";
+var WEB_READY_SHEET = "Web_Ready";
+var EVENTS_SHEET = "Events";
 var concertsData = [];
+
+var V5_WEB_READY_HEADERS = [
+  "event_id",
+  "event_name",
+  "event_date",
+  "event_time_start",
+  "event_time_end",
+  "venue",
+  "city",
+  "hashtags",
+  "event_status",
+  "active_on_web",
+  "phone_model",
+  "phone_price",
+  "lens_price",
+  "bundle_price",
+  "follower_promo",
+  "available_phone_count",
+  "lens_available_qty",
+  "booking_status_for_web",
+  "action_for_web",
+  "line_message_template",
+  "notes"
+];
+
+var V5_EVENTS_HEADERS = [
+  "event_id",
+  "event_name",
+  "event_date",
+  "venue",
+  "city",
+  "event_hashtag",
+  "status",
+  "active_on_web",
+  "notes",
+  "event_time_start",
+  "event_time_end",
+  "poster_image_url",
+  "booking_open_date",
+  "booking_close_date",
+  "pickup_point",
+  "line_keyword"
+];
 
 function showBrandFallback(){
   var a=document.getElementById("brandImageCard"),b=document.getElementById("brandFallback");
@@ -30,10 +76,21 @@ function timeoutSignal(ms){
   return {signal:controller.signal,clear:function(){clearTimeout(timer);}};
 }
 
+async function fetchTextWithTimeout(url,ms){
+  var t=timeoutSignal(ms||9000);
+  try{
+    var res=await fetch(url,{cache:"no-store",signal:t.signal});
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    return await res.text();
+  }finally{
+    t.clear();
+  }
+}
+
 async function fetchJsonWithTimeout(url,ms){
   var t=timeoutSignal(ms||9000);
   try{
-    var res=await fetch(url,{cache:"default",signal:t.signal});
+    var res=await fetch(url,{cache:"no-store",signal:t.signal});
     if(!res.ok)throw new Error("HTTP "+res.status);
     return await res.json();
   }finally{
@@ -55,70 +112,286 @@ async function retry(fn,tries,delay){
   throw lastError;
 }
 
-async function fetchSheet(sheetName){
-  var url="https://opensheet.elk.sh/"+SHEET_ID+"/"+encodeURIComponent(sheetName);
-  return retry(function(){return fetchJsonWithTimeout(url,9000);},2,700);
+function normalizeHeader(value){
+  return String(value||"")
+    .trim()
+    .replace(/^\uFEFF/,"")
+    .replace(/\s+/g,"_")
+    .replace(/\-/g,"_")
+    .toLowerCase();
+}
+
+function gvizDateStringToDisplay(value){
+  var m=String(value||"").match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/);
+  if(!m)return "";
+  var y=Number(m[1]);
+  var mo=Number(m[2]);
+  var d=Number(m[3]);
+  return pad2(d)+"/"+pad2(mo+1)+"/"+y;
+}
+
+function cellToValue(cell){
+  if(!cell)return "";
+  if(cell.f!==undefined&&cell.f!==null&&String(cell.f).trim()!=="")return cell.f;
+  if(cell.v===undefined||cell.v===null)return "";
+  if(typeof cell.v==="string"&&cell.v.indexOf("Date(")===0)return gvizDateStringToDisplay(cell.v);
+  return cell.v;
+}
+
+async function fetchGvizSheet(sheetName,range,defaultHeaders){
+  var url="https://docs.google.com/spreadsheets/d/"+SHEET_ID+
+    "/gviz/tq?sheet="+encodeURIComponent(sheetName)+
+    "&range="+encodeURIComponent(range)+
+    "&headers=1&tqx=out:json&_="+Date.now();
+  var text=await retry(function(){return fetchTextWithTimeout(url,10000);},2,700);
+  var match=text.match(/google\.visualization\.Query\.setResponse\(([^]+)\);?\s*$/);
+  if(!match)throw new Error("อ่านข้อมูลจาก Google Sheet ไม่ได้");
+  var payload=JSON.parse(match[1]);
+  if(payload.status&&payload.status!=="ok")throw new Error(payload.errors&&payload.errors[0]&&payload.errors[0].detailed_message||"Google Sheet error");
+  var table=payload.table||{};
+  var headers=(table.cols||[]).map(function(col,i){
+    return normalizeHeader((col&&col.label)||defaultHeaders[i]||("col_"+i));
+  });
+  var rows=(table.rows||[]).map(function(row){
+    var obj={};
+    (row.c||[]).forEach(function(cell,i){
+      obj[headers[i]||("col_"+i)]=cellToValue(cell);
+    });
+    return obj;
+  });
+  return rows.filter(function(row){
+    return Object.values(row).some(function(value){return String(value||"").trim()!=="";});
+  });
+}
+
+async function fetchOpenSheetFallback(sheetName,defaultHeaders){
+  var url="https://opensheet.elk.sh/"+SHEET_ID+"/"+encodeURIComponent(sheetName)+"?_="+Date.now();
+  var rows=await retry(function(){return fetchJsonWithTimeout(url,9000);},2,700);
+  return normalizeOpenSheetRows(rows,defaultHeaders);
+}
+
+function normalizeOpenSheetRows(rows,defaultHeaders){
+  if(!Array.isArray(rows))return [];
+  var hasDirectHeader=rows.some(function(row){return row&&row.event_id!==undefined;});
+  if(hasDirectHeader){
+    return rows.map(function(row){
+      var out={};
+      Object.keys(row||{}).forEach(function(key){out[normalizeHeader(key)]=row[key];});
+      return out;
+    });
+  }
+
+  var arrays=rows.map(function(row){return Object.values(row||{});});
+  var headerIndex=-1;
+  for(var i=0;i<arrays.length;i++){
+    if(arrays[i].some(function(value){return normalizeHeader(value)==="event_id";})){
+      headerIndex=i;
+      break;
+    }
+  }
+  if(headerIndex<0)return [];
+
+  var headers=arrays[headerIndex].map(function(value,i){return normalizeHeader(value||defaultHeaders[i]||("col_"+i));});
+  return arrays.slice(headerIndex+1).map(function(arr){
+    var obj={};
+    headers.forEach(function(h,i){obj[h]=arr[i]===undefined?"":arr[i];});
+    return obj;
+  }).filter(function(row){
+    return Object.values(row).some(function(value){return String(value||"").trim()!=="";});
+  });
+}
+
+async function fetchV5Sheet(sheetName,range,defaultHeaders){
+  try{
+    return await fetchGvizSheet(sheetName,range,defaultHeaders);
+  }catch(primaryError){
+    console.warn("GViz fetch failed, trying opensheet fallback:", sheetName, primaryError);
+    try{
+      return await fetchOpenSheetFallback(sheetName,defaultHeaders);
+    }catch(fallbackError){
+      console.error("OpenSheet fallback failed:", sheetName, fallbackError);
+      throw primaryError;
+    }
+  }
 }
 
 function getField(row,fields){
+  row=row||{};
   for(var i=0;i<fields.length;i++){
-    var f=fields[i];
-    if(row[f]!==undefined&&row[f]!==null&&row[f]!=="")return row[f];
+    var f=normalizeHeader(fields[i]);
+    if(row[f]!==undefined&&row[f]!==null&&String(row[f]).trim()!=="")return row[f];
   }
   return "";
 }
 
+function pad2(n){return String(n).padStart(2,"0");}
+
+function excelSerialToDate(serial){
+  var n=Number(serial);
+  if(!isFinite(n)||n<30000||n>70000)return null;
+  var utc=(n-25569)*86400*1000;
+  var d=new Date(utc);
+  if(isNaN(d.getTime()))return null;
+  return new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());
+}
+
+function formatDateDisplay(value){
+  if(value instanceof Date&&!isNaN(value.getTime()))return pad2(value.getDate())+"/"+pad2(value.getMonth()+1)+"/"+value.getFullYear();
+  var s=String(value||"").trim();
+  if(!s)return "";
+  if(/^\d{4,5}(\.\d+)?$/.test(s)){
+    var serialDate=excelSerialToDate(s);
+    if(serialDate)return pad2(serialDate.getDate())+"/"+pad2(serialDate.getMonth()+1)+"/"+serialDate.getFullYear();
+  }
+  var gviz=gvizDateStringToDisplay(s);
+  if(gviz)return gviz;
+  return s;
+}
+
+function toNumber(value){
+  var raw=String(value||"").replace(/[^0-9.\-]/g,"");
+  if(raw==="")return 0;
+  var n=Number(raw);
+  return isFinite(n)?n:0;
+}
+
 function formatPrice(value){
-  var raw=String(value||"").replace(/[^0-9.]/g,"");
-  var number=Number(raw);
+  var number=toNumber(value);
   if(!number)return "-";
   return number.toLocaleString()+" บาท/วัน";
 }
 
-function isAvailable(value){
-  var v=String(value||"").trim().toUpperCase();
-  return v==="TRUE"||v==="1"||v==="YES"||v==="Y"||v==="ว่าง";
+function isTruthy(value){
+  if(value===true)return true;
+  var v=String(value||"").trim().toLowerCase();
+  return v==="true"||v==="1"||v==="yes"||v==="y"||v==="show"||v==="open"||v==="ว่าง"||v==="เปิด"||v==="เปิดจอง";
+}
+
+function isExplicitFalse(value){
+  if(value===false)return true;
+  var v=String(value||"").trim().toLowerCase();
+  return v==="false"||v==="0"||v==="no"||v==="n"||v==="hide"||v==="closed"||v==="ปิด"||v==="ซ่อน";
+}
+
+function isRowAllowedOnWeb(row){
+  var active=getField(row,["active_on_web"]);
+  var action=String(getField(row,["action_for_web"])).trim().toLowerCase();
+  var status=String(getField(row,["event_status","status"])).trim().toLowerCase();
+
+  if(isExplicitFalse(active))return false;
+  if(action&&action!=="show"&&action!=="แสดง")return false;
+  if(status==="finished"||status==="closed"||status==="cancelled"||status==="ยกเลิก"||status==="จบแล้ว")return false;
+  return true;
+}
+
+function buildEventMetaMap(eventRows){
+  var map=new Map();
+  (eventRows||[]).forEach(function(row){
+    var id=String(getField(row,["event_id"])).trim();
+    if(!id)return;
+    map.set(id,{
+      id:id,
+      name:getField(row,["event_name"]),
+      date:formatDateDisplay(getField(row,["event_date"])),
+      venue:getField(row,["venue"]),
+      city:getField(row,["city"]),
+      hashtags:getField(row,["event_hashtag","hashtags"]),
+      status:getField(row,["status"]),
+      active:getField(row,["active_on_web"]),
+      img:normalizeImageUrl(getField(row,["poster_image_url","img","image","poster"])),
+      pickupPoint:getField(row,["pickup_point"]),
+      notes:getField(row,["notes"])
+    });
+  });
+  return map;
+}
+
+function makePhoneSpec(row){
+  var phonePrice=toNumber(getField(row,["phone_price"]));
+  var lensPrice=toNumber(getField(row,["lens_price"]));
+  var bundlePrice=toNumber(getField(row,["bundle_price"]));
+  var parts=[];
+  if(phonePrice)parts.push("เครื่อง "+phonePrice.toLocaleString()+".-");
+  if(lensPrice)parts.push("Lens "+lensPrice.toLocaleString()+".-");
+  if(bundlePrice)parts.push("เช่าคู่ "+bundlePrice.toLocaleString()+".-");
+  return parts.join(" · ");
+}
+
+function makePhoneNote(row){
+  var promo=getField(row,["follower_promo"]);
+  var notes=getField(row,["notes"]);
+  var values=[];
+  if(promo)values.push(promo);
+  if(notes)values.push(notes);
+  return values.join(" · ");
+}
+
+function normalizeLineTemplate(text){
+  var s=String(text||"").trim();
+  if(!s)return "";
+  try{
+    if(/%0A|%0D|%20|%E0%B8/i.test(s))return decodeURIComponent(s);
+  }catch(e){}
+  return s.replace(/\\n/g,"\n");
 }
 
 async function loadData(){
-  var result=await Promise.all([fetchSheet("concerts"),fetchSheet("phones")]);
-  var concertRows=result[0];
-  var phoneRows=result[1];
+  var results=await Promise.all([
+    fetchV5Sheet(WEB_READY_SHEET,"A4:U",V5_WEB_READY_HEADERS),
+    fetchV5Sheet(EVENTS_SHEET,"A4:P",V5_EVENTS_HEADERS).catch(function(e){console.warn("Events meta unavailable",e);return [];})
+  ]);
 
-  var concerts=concertRows.filter(function(r){return getField(r,["concert_id","id","ID","concert id"]);}).map(function(r){
-    return {
-      id:getField(r,["concert_id","id","ID","concert id"]),
-      name:getField(r,["name","event_name","ชื่องาน"]),
-      date:getField(r,["date","event_date","วันที่"]),
-      venue:getField(r,["venue","location","สถานที่"]),
-      img:normalizeImageUrl(getField(r,["img","image","poster","รูป"])),
-      phones:[]
-    };
-  });
-
+  var webRows=results[0]||[];
+  var eventMeta=buildEventMetaMap(results[1]||[]);
   var concertMap=new Map();
-  concerts.forEach(function(c){concertMap.set(String(c.id),c);});
 
-  phoneRows.forEach(function(p){
-    var cid=getField(p,["concert_id","id","ID","concert id"]);
-    if(!cid)return;
-    var concert=concertMap.get(String(cid));
-    if(!concert)return;
+  webRows.forEach(function(row){
+    if(!isRowAllowedOnWeb(row))return;
+    var id=String(getField(row,["event_id"])).trim();
+    var name=getField(row,["event_name"]);
+    if(!id||!name)return;
 
-    concert.phones.push({
-      model:getField(p,["model","phone","รุ่น"]),
-      spec:getField(p,["spec","detail","สเปค"]),
-      price:getField(p,["price","ราคา"]),
-      note:getField(p,["note","หมายเหตุ"]),
-      avail:isAvailable(getField(p,["avail","available","status","สถานะ"]))
-    });
+    var meta=eventMeta.get(id)||{};
+    if(isExplicitFalse(meta.active))return;
+
+    if(!concertMap.has(id)){
+      concertMap.set(id,{
+        id:id,
+        name:name||meta.name,
+        date:formatDateDisplay(getField(row,["event_date"])||meta.date),
+        venue:getField(row,["venue"])||meta.venue||"-",
+        city:getField(row,["city"])||meta.city||"",
+        hashtags:getField(row,["hashtags"])||meta.hashtags||"",
+        img:meta.img||"",
+        phones:[]
+      });
+    }
+
+    var concert=concertMap.get(id);
+    var availableCount=toNumber(getField(row,["available_phone_count"]));
+    var bookingStatus=String(getField(row,["booking_status_for_web"])).trim().toLowerCase();
+    var model=getField(row,["phone_model"]);
+    if(!model)return;
+
+    var phonePrice=getField(row,["phone_price"]);
+    var bundlePrice=getField(row,["bundle_price"]);
+    var displayPrice=bundlePrice||phonePrice;
+    var phone={
+      model:model,
+      spec:makePhoneSpec(row),
+      price:displayPrice,
+      phonePrice:phonePrice,
+      lensPrice:getField(row,["lens_price"]),
+      bundlePrice:bundlePrice,
+      note:makePhoneNote(row),
+      lineTemplate:normalizeLineTemplate(getField(row,["line_message_template"])),
+      avail:availableCount>0 && bookingStatus!=="เต็ม" && bookingStatus!=="full" && bookingStatus!=="hide" && bookingStatus!=="รอใส่วันที่"
+    };
+    concert.phones.push(phone);
   });
 
-  return concerts;
+  return Array.from(concertMap.values());
 }
-
-
-
 
 // Hide past events
 // ใช้วันที่จริงอัตโนมัติจากเครื่องผู้ใช้
@@ -132,14 +405,6 @@ var URL_PARAMS = new URLSearchParams(window.location.search);
 var DEBUG_MODE = URL_PARAMS.get("debug") === "1";
 var SHOW_PAST = URL_PARAMS.get("showPast") === "1";
 
-function makeValidDate(year, monthIndex, day){
-  var d = new Date(year, monthIndex, day);
-  if(d.getFullYear() !== year || d.getMonth() !== monthIndex || d.getDate() !== day){
-    return null;
-  }
-  return d;
-}
-
 function isValidDateParts(dateObj,year,monthIndex,day){
   return dateObj instanceof Date && !isNaN(dateObj.getTime()) &&
     dateObj.getFullYear()===year &&
@@ -150,6 +415,15 @@ function isValidDateParts(dateObj,year,monthIndex,day){
 function parseEventDate(dateStr){
   var s = String(dateStr || "").trim();
   if(!s) return null;
+
+  if(/^\d{4,5}(\.\d+)?$/.test(s)){
+    return excelSerialToDate(s);
+  }
+
+  if(s.indexOf("Date(")===0){
+    var display=gvizDateStringToDisplay(s);
+    if(display)return parseEventDate(display);
+  }
 
   // dd/mm/yyyy or dd-mm-yyyy
   var m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
@@ -246,9 +520,6 @@ function isDateUnreadable(concert){
   return !!(concert && concert.date && !parseEventDate(concert.date));
 }
 
-
-
-
 function getConcertSortTime(concert){
   var d = parseEventDate(concert && concert.date);
   if(!d) return Number.MAX_SAFE_INTEGER; // วันที่อ่านไม่ได้ให้ไปท้ายสุด
@@ -270,7 +541,7 @@ function sortConcertsByDateAsc(concerts){
 
 function renderConcerts(concerts){
   var el=document.getElementById("content");el.innerHTML="";
-  if(!concerts||!concerts.length){el.innerHTML='<div class="error-box">ยังไม่มีข้อมูลงานตอนนี้น้า<br><small>เพิ่มข้อมูลใน Google Sheet ได้เลย</small></div>';return;}
+  if(!concerts||!concerts.length){el.innerHTML='<div class="error-box">ยังไม่มีข้อมูลงานตอนนี้น้า<br><small>เพิ่มข้อมูลใน Google Sheet v5 ที่ชีต Web_Ready ได้เลย</small></div>';return;}
 
   var visibleConcerts = sortConcertsByDateAsc(concerts.filter(shouldShowConcert));
 
@@ -282,10 +553,10 @@ function renderConcerts(concerts){
   var grid=document.createElement("div");grid.className="poster-grid";
   visibleConcerts.forEach(function(c,i){
     var phones=c.phones||[],availablePhones=phones.filter(function(p){return p.avail;}),availableCount=availablePhones.length,available=availableCount>0;
-    var availText=available?(availableCount===1?"เหลือ 1 เครื่องสุดท้าย ✨":"ว่าง "+availableCount+" เครื่อง ✨"):"เต็มแล้วน้า 😢";
+    var availText=available?(availableCount===1?"เหลือ 1 รุ่น/เครื่องสุดท้าย ✨":"ว่าง "+availableCount+" รุ่น ✨"):"เต็มแล้วน้า 😢";
     var card=document.createElement("button");card.type="button";card.className="concert-card";card.setAttribute("aria-label","ดูเครื่องว่างสำหรับงาน "+(c.name||""));card.onclick=function(){showModal(c);};
     var imgWrap=document.createElement("div");imgWrap.className="poster-img-wrap";
-    var badge=document.createElement("div");badge.className="status-badge"+(available?"":" full");badge.textContent=available?(availableCount===1?"เหลือ 1 เครื่องสุดท้าย":"ว่างน้า"):"เต็มแล้ว";imgWrap.appendChild(badge);
+    var badge=document.createElement("div");badge.className="status-badge"+(available?"":" full");badge.textContent=available?(availableCount===1?"เหลือ 1 สุดท้าย":"ว่างน้า"):"เต็มแล้ว";imgWrap.appendChild(badge);
     var imgUrl=c.img?String(c.img).trim():"";
     if(imgUrl){var img=document.createElement("img");img.src=imgUrl;img.alt=c.name||"Event poster";img.loading="lazy";img.onerror=function(){imgWrap.innerHTML='<div class="poster-placeholder"><span>ยังไม่มีรูป</span></div>';};imgWrap.appendChild(img);}
     else{imgWrap.innerHTML='<div class="poster-placeholder"><span>ยังไม่มีรูป</span></div>';}
@@ -315,7 +586,22 @@ function renderConcerts(concerts){
 }
 
 function buildBookingMessage(concert,phone){
-  return ["สวัสดีค่ะ สนใจจองมือถือกับ KK Phone Rental ค่ะ","","งาน : "+(concert.name||"-"),"รุ่น : "+((phone&&phone.model)||"-"),"ราคา : "+formatPrice(phone&&phone.price),"วันที่ : "+(concert.date||"-"),"","ชื่อเล่น : ","เวลาที่สะดวกรับเครื่อง : "].join("\n");
+  if(phone&&phone.lineTemplate)return phone.lineTemplate;
+  var detail=(phone&&phone.spec)?("รายละเอียดราคา : "+phone.spec):"";
+  return [
+    "สวัสดีค่ะ สนใจจองมือถือกับ KK Phone Rental ค่ะ",
+    "",
+    "งาน : "+(concert.name||"-"),
+    "วันที่ : "+(concert.date||"-"),
+    "สถานที่ : "+(concert.venue||"-"),
+    "รุ่น : "+((phone&&phone.model)||"-"),
+    "ราคา : "+formatPrice(phone&&phone.price),
+    detail,
+    "",
+    "ชื่อเล่น : ",
+    "เบอร์โทร : ",
+    "เวลาที่สะดวกรับเครื่อง : "
+  ].filter(function(line){return line!==""||true;}).join("\n");
 }
 
 function getLineBookingUrl(concert,phone){
@@ -423,7 +709,8 @@ document.addEventListener("DOMContentLoaded",function(){
     concertsData=concerts;
     renderConcerts(concertsData);
   }).catch(function(e){
-    showError("โหลดข้อมูลไม่สำเร็จ<br><small>"+e.message+"</small><br><small>เช็กว่า Google Sheet แชร์เป็น Anyone with the link และมีชีตชื่อ concerts / phones</small>");
+    console.error(e);
+    showError("โหลดข้อมูลไม่สำเร็จ<br><small>เช็กว่า Google Sheet แชร์เป็น Anyone with the link และมีชีต Web_Ready / Events ตามไฟล์ v5</small><br><small>รายละเอียด: "+e.message+"</small>");
   });
 });
 document.addEventListener("keydown",function(e){
