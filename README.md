@@ -82,3 +82,11 @@ window.KK_CONFIG = {
 - ถ้า poster_image_url ใน 08_Web_Ready ว่าง แต่ 01_Events มีรูป เว็บจะยังดึงรูปได้
 - รองรับ Google Drive URL ทั้งแบบ /file/d/..., thumbnail?id=..., uc?id=... และ lh3.googleusercontent.com/d/...
 - ระบบลองโหลดรูปสำรอง 3 แบบอัตโนมัติ: drive thumbnail, lh3, และ uc export view
+
+
+## v7.4 Sheet Sync Fix
+- Frontend now fetches event data from `/api/events` first.
+- `/api/events` is a Vercel Serverless Function that reads Google Sheet server-side.
+- This avoids browser CORS issues when fetching Google gviz/CSV directly.
+- Poster images should be placed in `01_Events` column `poster_image_url`; `08_Web_Ready` column `poster_image_url` should mirror it.
+- Debug endpoint after deploy: `https://<your-domain>/api/events`

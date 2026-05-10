@@ -283,6 +283,16 @@ function buildPackageOptions(row){
 }
 
 async function loadData(){
+  // v7.4: ใช้ Vercel API เป็นทางหลัก เพื่อลดปัญหา browser CORS เวลา fetch Google Sheet โดยตรง
+  try{
+    var apiUrl=(APP_CONFIG.eventsApiUrl || "/api/events") + "?ts=" + Date.now();
+    var apiData=await fetchJsonWithTimeout(apiUrl,10000);
+    if(apiData && Array.isArray(apiData.events)) return apiData.events;
+    if(Array.isArray(apiData)) return apiData;
+  }catch(apiError){
+    console.warn("Events API failed, falling back to direct sheet fetch", apiError);
+  }
+
   var result=await Promise.all([
     fetchWebReadyRows(),
     fetchEventRows().catch(function(){return [];})

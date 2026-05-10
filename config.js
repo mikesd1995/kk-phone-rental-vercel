@@ -6,6 +6,7 @@ window.KK_CONFIG = {
   webRange: "A4:AA",
   eventSheetName: "01_Events",
   eventRange: "A4:AA",
+  eventsApiUrl: "/api/events",
   lineOAId: "@827blnmo",
   lineDirectUrl: "https://line.me/R/ti/p/%40827blnmo",
   xUrl: "https://x.com/KK_PhoneRental",
