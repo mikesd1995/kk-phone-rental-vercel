@@ -3,175 +3,59 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>KK Phone Rental | เช็กคิวเช่ามือถือ</title>
-  <meta name="description" content="KK Phone Rental เช่ามือถือถ่ายคอนเสิร์ต ซูมชัด เก็บโมเมนต์ครบ จองผ่าน LINE OA" />
-  <meta property="og:title" content="KK Phone Rental | เช็กคิวเช่ามือถือ" />
-  <meta property="og:description" content="เลือกงาน ดูรุ่นที่ว่าง แล้วทัก LINE จองคิวได้เลย" />
+  <title>KK Phone Rental | เช็กคิวเช่ามือถือและ Lens</title>
+  <meta name="description" content="KK Phone Rental เช่ามือถือและ Lens ถ่ายคอนเสิร์ต ซูมชัด เก็บโมเมนต์ครบ จองผ่าน LINE OA" />
+  <meta name="robots" content="index, follow" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta property="og:title" content="KK Phone Rental | เช็กคิวเช่ามือถือและ Lens" />
+  <meta property="og:description" content="เลือกงาน ดูเครื่องหรือ Lens ที่ว่าง แล้วทัก LINE จองคิวได้เลย" />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://kk-phone-rental.vercel.app/" />
+  <meta property="og:locale" content="th_TH" />
+  <meta property="og:image" content="https://kk-phone-rental.vercel.app/apple-touch-icon.png" />
   <meta name="twitter:card" content="summary_large_image" />
-  <style>
-    :root {
-      --kk-bg: #f7fbff;
-      --kk-card: #ffffff;
-      --kk-text: #0f172a;
-      --kk-muted: #64748b;
-      --kk-primary: #0f766e;
-      --kk-primary-dark: #115e59;
-      --kk-soft: #ccfbf1;
-      --kk-warning: #f59e0b;
-      --kk-danger: #ef4444;
-      --kk-line: #06c755;
-      --kk-border: rgba(15, 23, 42, 0.10);
-      --radius: 22px;
-      --shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--kk-text);
-      background:
-        radial-gradient(circle at top left, rgba(20,184,166,.18), transparent 32rem),
-        radial-gradient(circle at top right, rgba(59,130,246,.16), transparent 28rem),
-        var(--kk-bg);
-    }
-    a { color: inherit; }
-    .wrap { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
-    .hero { padding: 34px 0 22px; }
-    .brand {
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
-      margin-bottom: 28px;
-    }
-    .logo {
-      display: flex; align-items: center; gap: 12px; font-weight: 900; letter-spacing: -0.03em;
-    }
-    .logo-mark {
-      width: 46px; height: 46px; border-radius: 16px;
-      display: grid; place-items: center; background: linear-gradient(135deg, #0f766e, #14b8a6);
-      color: #fff; box-shadow: var(--shadow); font-size: 24px;
-    }
-    .follow-link {
-      padding: 10px 14px; border-radius: 999px; background: #fff; border: 1px solid var(--kk-border);
-      text-decoration: none; font-size: 14px; color: var(--kk-primary-dark); font-weight: 700;
-    }
-    .hero-card {
-      background: rgba(255,255,255,.82); border: 1px solid var(--kk-border);
-      box-shadow: var(--shadow); border-radius: 34px; padding: clamp(22px, 5vw, 48px);
-      overflow: hidden; position: relative;
-    }
-    .hero-card:after {
-      content: ""; position: absolute; inset: auto -80px -100px auto; width: 250px; height: 250px;
-      border-radius: 999px; background: rgba(20,184,166,.12); pointer-events: none;
-    }
-    .eyebrow { color: var(--kk-primary); font-weight: 900; margin-bottom: 10px; }
-    h1 { font-size: clamp(34px, 7vw, 68px); line-height: .98; letter-spacing: -0.06em; margin: 0 0 18px; }
-    .lead { color: #334155; font-size: clamp(16px, 2.4vw, 21px); line-height: 1.6; margin: 0 0 26px; max-width: 760px; }
-    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
-    .btn {
-      appearance: none; border: 0; cursor: pointer; border-radius: 999px; padding: 12px 18px;
-      font-weight: 850; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
-    }
-    .btn:hover { transform: translateY(-1px); }
-    .btn-primary { background: var(--kk-line); color: #fff; box-shadow: 0 12px 28px rgba(6,199,85,.28); }
-    .btn-secondary { background: #fff; color: var(--kk-primary-dark); border: 1px solid var(--kk-border); }
-    .btn-danger { background: #fee2e2; color: #991b1b; cursor: not-allowed; }
-    .status-bar {
-      margin: 22px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between;
-    }
-    .pill { padding: 9px 12px; border: 1px solid var(--kk-border); border-radius: 999px; background: rgba(255,255,255,.78); color: var(--kk-muted); font-size: 14px; }
-    .tools { display:flex; gap: 10px; flex-wrap: wrap; }
-    input[type="search"], select {
-      border: 1px solid var(--kk-border); background: #fff; border-radius: 999px; padding: 11px 14px;
-      min-width: min(100%, 230px); outline: none; font: inherit;
-    }
-    .grid {
-      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 36px;
-    }
-    .event-card {
-      background: var(--kk-card); border: 1px solid var(--kk-border); border-radius: var(--radius);
-      box-shadow: 0 12px 28px rgba(15,23,42,.08); overflow: hidden; display: flex; flex-direction: column;
-      min-height: 100%;
-    }
-    .poster {
-      height: 190px; background: linear-gradient(135deg, #0f766e, #60a5fa);
-      position: relative; display: flex; align-items: end; padding: 18px; color: #fff;
-      background-size: cover; background-position: center;
-    }
-    .poster:after { content:""; position:absolute; inset:0; background: linear-gradient(to top, rgba(15,23,42,.72), rgba(15,23,42,.04)); }
-    .poster-title { position: relative; z-index: 1; font-size: 22px; line-height: 1.2; font-weight: 900; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
-    .card-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
-    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .meta-item { background: #f8fafc; border: 1px solid var(--kk-border); border-radius: 16px; padding: 10px 12px; }
-    .meta-label { display: block; color: var(--kk-muted); font-size: 12px; margin-bottom: 3px; }
-    .meta-value { font-weight: 800; }
-    .prices { display: flex; flex-wrap: wrap; gap: 8px; }
-    .price { border-radius: 999px; padding: 8px 10px; background: var(--kk-soft); color: var(--kk-primary-dark); font-weight: 850; font-size: 13px; }
-    .badge {
-      display: inline-flex; align-items: center; width: fit-content; border-radius: 999px; padding: 8px 10px;
-      font-size: 13px; font-weight: 900;
-    }
-    .badge-open { background: #dcfce7; color: #166534; }
-    .badge-phone { background: #fef3c7; color: #92400e; }
-    .badge-full { background: #fee2e2; color: #991b1b; }
-    .note { color: var(--kk-muted); font-size: 14px; line-height: 1.55; }
-    .card-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; }
-    .empty, .error-box {
-      background: #fff; border: 1px solid var(--kk-border); border-radius: var(--radius); padding: 26px;
-      box-shadow: var(--shadow); color: var(--kk-muted); margin-bottom: 36px;
-    }
-    .faq {
-      background: #fff; border: 1px solid var(--kk-border); border-radius: 28px; padding: 24px; margin: 28px 0 50px;
-      box-shadow: 0 12px 30px rgba(15,23,42,.07);
-    }
-    .faq h2 { margin-top: 0; letter-spacing: -0.03em; }
-    details { border-top: 1px solid var(--kk-border); padding: 14px 0; }
-    summary { cursor: pointer; font-weight: 850; }
-    details p { color: var(--kk-muted); line-height: 1.65; }
-    footer { text-align: center; color: var(--kk-muted); padding: 24px 0 50px; }
-    @media (max-width: 760px) {
-      .wrap { width: min(100% - 22px, 1120px); }
-      .brand { align-items: flex-start; }
-      .grid { grid-template-columns: 1fr; }
-      .hero-card { border-radius: 26px; }
-      .poster { height: 175px; }
-      .meta { grid-template-columns: 1fr; }
-      .tools, .tools input, .tools select { width: 100%; }
-    }
-  </style>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="canonical" href="https://kk-phone-rental.vercel.app/" />
+  <link rel="preconnect" href="https://opensheet.elk.sh" crossorigin />
+  <link rel="preconnect" href="https://docs.google.com" crossorigin />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="hero">
     <div class="wrap">
-      <nav class="brand" aria-label="Top navigation">
+      <nav class="brand" aria-label="เมนูหลัก">
         <div class="logo">
-          <div class="logo-mark">📱</div>
+          <div class="logo-mark" aria-hidden="true">📱</div>
           <div>
             <div>KK Phone Rental</div>
-            <small style="color:var(--kk-muted);font-weight:700;">เช่าเถอะ อยากให้ชัด ✨</small>
+            <small class="brand-tagline">เช่าเถอะ อยากให้ชัด ✨</small>
           </div>
         </div>
-        <a class="follow-link" href="https://x.com/KK_PhoneRental" target="_blank" rel="noopener">ฟอลร้าน = ฟรีประกัน + มัดจำ</a>
+        <a class="follow-link" id="xLink" href="https://x.com/KK_PhoneRental" target="_blank" rel="noopener noreferrer">ฟอลร้าน = ฟรีประกัน + มัดจำ</a>
       </nav>
 
-      <section class="hero-card">
+      <section class="hero-card" aria-labelledby="pageTitle">
         <div class="eyebrow">Phone Rental Service</div>
-        <h1>เช่ามือถือถ่ายคอนเสิร์ต<br>ซูมชัด เก็บโมเมนต์ครบ</h1>
-        <p class="lead">เลือกงาน → ดูคิวว่าง → กดจองผ่าน LINE OA ระบบนี้อ่านจากชีต <b>08_Web_Ready</b> ของ Backend v9 โดยตรง</p>
+        <h1 id="pageTitle">เช่ามือถือ / Lens ถ่ายคอนเสิร์ต<br>ซูมชัด เก็บโมเมนต์ครบ</h1>
+        <p class="lead">เลือกงาน → ดูคิวว่าง → เลือกเช่าเครื่อง / Lens / เช่าคู่ แล้วกดจองผ่าน LINE OA ร้านจะช่วยคอนเฟิร์มคิวและรายละเอียดให้อีกครั้ง</p>
         <div class="hero-actions">
-          <a class="btn btn-primary" id="lineMain" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">ทัก LINE จองคิว</a>
+          <a class="btn btn-primary" id="lineMain" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener noreferrer">ทัก LINE จองคิว</a>
           <a class="btn btn-secondary" href="#faq">คำถามที่พบบ่อย</a>
         </div>
       </section>
 
       <div class="status-bar">
-        <div class="pill" id="lastUpdated">อัปเดตล่าสุด: -</div>
-        <div class="tools">
-          <input id="searchInput" type="search" placeholder="ค้นหาชื่องาน / สถานที่" />
-          <select id="statusFilter" aria-label="Filter">
+        <div class="pill" id="lastUpdated" aria-live="polite">อัปเดตล่าสุด: -</div>
+        <div class="tools" role="search" aria-label="ค้นหาและกรองงาน">
+          <label class="sr-only" for="searchInput">ค้นหางาน</label>
+          <input id="searchInput" type="search" placeholder="ค้นหาชื่องาน / สถานที่" autocomplete="off" />
+          <label class="sr-only" for="statusFilter">กรองสถานะงาน</label>
+          <select id="statusFilter" aria-label="กรองสถานะงาน">
             <option value="all">แสดงทุกงาน</option>
             <option value="open">เปิดจอง</option>
             <option value="phone_only">เหลือเครื่องอย่างเดียว</option>
+            <option value="lens_only">เหลือ Lens อย่างเดียว</option>
             <option value="full">เต็มแล้ว</option>
           </select>
         </div>
@@ -180,11 +64,14 @@
   </header>
 
   <main class="wrap">
-    <section id="eventsGrid" class="grid" aria-live="polite"></section>
-    <div id="messageBox" class="empty" hidden></div>
+    <noscript>
+      <div class="error-box">เว็บไซต์นี้ต้องเปิด JavaScript เพื่อเช็กคิวว่าง กรุณาเปิด JavaScript หรือทัก LINE OA ได้เลยค่ะ</div>
+    </noscript>
+    <section id="eventsGrid" class="grid" aria-live="polite" aria-label="รายการงานที่เปิดให้จอง"></section>
+    <div id="messageBox" class="empty" role="status" hidden></div>
 
-    <section id="faq" class="faq">
-      <h2>FAQ : คำถามที่พบบ่อย</h2>
+    <section id="faq" class="faq" aria-labelledby="faqTitle">
+      <h2 id="faqTitle">FAQ : คำถามที่พบบ่อย</h2>
       <details open>
         <summary>เช่ามือถือยังไง?</summary>
         <p>เลือกงานที่ต้องการ ดูสถานะคิว แล้วกดจองผ่าน LINE OA เพื่อให้ร้านคอนเฟิร์มคิวค่ะ</p>
@@ -194,8 +81,8 @@
         <p>ยังไม่ยืนยันอัตโนมัติค่ะ ร้านจะตรวจสอบคิวและตอบกลับทาง LINE เพื่อคอนเฟิร์มอีกครั้ง</p>
       </details>
       <details>
-        <summary>ถ้าเลนส์เต็ม แต่เครื่องยังว่างทำยังไง?</summary>
-        <p>ระบบ v9 จะแสดงว่า “เหลือเครื่องอย่างเดียว” เพื่อให้จองเฉพาะมือถือได้ โดยไม่โชว์ผิดว่าเช่าคู่ยังว่างค่ะ</p>
+        <summary>ถ้าเครื่องหรือ Lens เหลือไม่เท่ากันทำยังไง?</summary>
+        <p>หน้าเว็บจะแยกให้เลยว่า "เหลือเครื่องอย่างเดียว" หรือ "เหลือ Lens อย่างเดียว" เพื่อให้จองเฉพาะอย่างได้ โดยไม่โชว์ผิดว่าเช่าคู่ยังว่างค่ะ</p>
       </details>
       <details>
         <summary>ไฟล์จาก Google Drive ไม่ชัด?</summary>
@@ -208,293 +95,36 @@
     </section>
   </main>
 
+  <!-- Booking Modal -->
+  <div class="booking-modal" id="bookingModal" hidden aria-modal="true" role="dialog" aria-labelledby="bookingTitle">
+    <div class="booking-backdrop" data-close-booking aria-hidden="true"></div>
+    <section class="booking-panel">
+      <button class="modal-close" type="button" data-close-booking aria-label="ปิดฟอร์มจอง">×</button>
+      <div class="modal-kicker">กรอกข้อมูลก่อนเด้งไป LINE OA</div>
+      <h2 id="bookingTitle">ยืนยันรายละเอียดการจอง</h2>
+      <p class="modal-desc">ข้อมูลนี้จะถูกใส่ในข้อความ LINE อัตโนมัติ ร้านจะใช้คอนเฟิร์มคิวและนัดรับอุปกรณ์ค่ะ</p>
+      <div class="booking-summary" id="bookingSummary"></div>
+      <div id="bookingForm" class="booking-form">
+        <label for="customerNickname">ชื่อเล่น <span aria-hidden="true">*</span></label>
+        <input id="customerNickname" name="nickname" type="text" autocomplete="nickname" maxlength="40" placeholder="เช่น ฟ้า / แพรว / มายด์" required aria-required="true" />
+
+        <label for="customerPhone">เบอร์โทร <span aria-hidden="true">*</span></label>
+        <input id="customerPhone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="25" placeholder="เช่น 08x-xxx-xxxx" required aria-required="true" />
+
+        <label for="pickupTime">เวลาที่สะดวกรับอุปกรณ์ <span aria-hidden="true">*</span></label>
+        <input id="pickupTime" name="pickup_time" type="text" maxlength="60" placeholder="เช่น 16:30 น. / ก่อนเข้างาน / หลังเลิกงาน" required aria-required="true" />
+
+        <div class="form-error" id="bookingFormError" role="alert" aria-live="assertive" hidden></div>
+        <button class="btn btn-primary booking-submit" id="bookingSubmitBtn" type="button">ไป LINE OA พร้อมข้อความ</button>
+      </div>
+    </section>
+  </div>
+
   <footer>
     <b>KK Phone Rental</b><br />
     เช่าเถอะ อยากให้ชัด ✨
   </footer>
-
-<script>
-/**
- * KK Frontend v9 compatible with Backend v9
- * Reads sheet: 08_Web_Ready
- * Change SHEET_ID after uploading Backend v9 to Google Sheets.
- */
-const CONFIG = {
-  SHEET_ID: "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU",
-  WEB_READY_SHEET: "08_Web_Ready",
-  LINE_ADD_FRIEND_URL: "https://line.me/R/ti/p/%40827blnmo",
-  LINE_MESSAGE_URL: "https://line.me/R/oaMessage/%40827blnmo/?",
-  CACHE_BUST: true
-};
-
-const $ = (id) => document.getElementById(id);
-let allEvents = [];
-
-function normalizeKey(key) {
-  return String(key || "").trim().replace(/\s+/g, "_");
-}
-
-function parseCSV(text) {
-  const rows = [];
-  let row = [], cell = "", quote = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i], n = text[i + 1];
-    if (quote && c === '"' && n === '"') { cell += '"'; i++; continue; }
-    if (c === '"') { quote = !quote; continue; }
-    if (!quote && c === ",") { row.push(cell); cell = ""; continue; }
-    if (!quote && (c === "\n" || c === "\r")) {
-      if (c === "\r" && n === "\n") i++;
-      row.push(cell); rows.push(row); row = []; cell = "";
-      continue;
-    }
-    cell += c;
-  }
-  if (cell || row.length) { row.push(cell); rows.push(row); }
-  return rows.filter(r => r.some(v => String(v).trim() !== ""));
-}
-
-function rowsToObjects(rows) {
-  const headers = rows[0].map(normalizeKey);
-  return rows.slice(1).map(row => {
-    const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i] ?? "");
-    return obj;
-  });
-}
-
-async function fetchFromOpenSheet() {
-  const url = `https://opensheet.elk.sh/${CONFIG.SHEET_ID}/${encodeURIComponent(CONFIG.WEB_READY_SHEET)}`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`OpenSheet error ${res.status}`);
-  return await res.json();
-}
-
-async function fetchFromGVizCSV() {
-  const qs = CONFIG.CACHE_BUST ? `&t=${Date.now()}` : "";
-  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.WEB_READY_SHEET)}${qs}`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Google CSV error ${res.status}`);
-  const text = await res.text();
-  return rowsToObjects(parseCSV(text));
-}
-
-async function loadEvents() {
-  try {
-    let rows;
-    try {
-      rows = await fetchFromOpenSheet();
-    } catch (e) {
-      console.warn("OpenSheet failed, fallback to Google CSV", e);
-      rows = await fetchFromGVizCSV();
-    }
-
-    allEvents = rows
-      .map(cleanEvent)
-      .filter(e => e.event_id && e.action_for_web !== "hide")
-      .sort((a, b) => new Date(a.event_date_iso) - new Date(b.event_date_iso));
-
-    updateLastUpdated(allEvents);
-    render();
-  } catch (err) {
-    console.error(err);
-    showMessage("โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA", true);
-  }
-}
-
-function cleanEvent(row) {
-  const eventDate = row.event_date || row.event_date_text || "";
-  const eventDateText = row.event_date_text || formatDateText(eventDate);
-  const phoneCount = toNumber(row.available_phone_count);
-  const lensCount = toNumber(row.available_lens_count);
-  const action = String(row.action_for_web || "").trim();
-  const status = String(row.booking_status_for_web || "").trim();
-
-  return {
-    event_id: row.event_id || "",
-    event_name: row.event_name || "",
-    event_date: eventDate,
-    event_date_text: eventDateText,
-    event_date_iso: toISODate(eventDate, eventDateText),
-    venue: row.venue || "",
-    poster_image_url: row.poster_image_url || "",
-    header_image_url: row.header_image_url || "",
-    phone_model_display: row.phone_model_display || "",
-    phone_price: toNumber(row.phone_price),
-    lens_price: toNumber(row.lens_price),
-    bundle_price: toNumber(row.bundle_price),
-    show_lens_option: toBool(row.show_lens_option),
-    available_phone_count: phoneCount,
-    available_lens_count: lensCount,
-    booking_status_for_web: status || inferStatus(phoneCount, lensCount, toBool(row.show_lens_option)),
-    action_for_web: action || inferAction(phoneCount, lensCount, toBool(row.show_lens_option)),
-    line_message_template: row.line_message_template || "",
-    last_updated: row.last_updated || "",
-    phone_only_available: toBool(row.phone_only_available) || phoneCount > 0,
-    phone_lens_available: toBool(row.phone_lens_available) || (phoneCount > 0 && lensCount > 0),
-    web_note: row.web_note || ""
-  };
-}
-
-function toBool(v) {
-  return String(v).toLowerCase().trim() === "true" || v === true;
-}
-function toNumber(v) {
-  const n = Number(String(v || "0").replace(/,/g, ""));
-  return Number.isFinite(n) ? n : 0;
-}
-function toISODate(v, fallbackText) {
-  if (!v && fallbackText) v = fallbackText;
-  if (!v) return "9999-12-31";
-  const s = String(v).trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (m) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
-  const d = new Date(s);
-  return isNaN(d) ? "9999-12-31" : d.toISOString().slice(0,10);
-}
-function formatDateText(v) {
-  const iso = toISODate(v);
-  if (iso === "9999-12-31") return v || "-";
-  const [y,m,d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
-function inferStatus(phone, lens, showLens) {
-  if (phone <= 0) return "เต็มแล้ว";
-  if (showLens && lens <= 0) return "เหลือเครื่องอย่างเดียว";
-  return "เปิดจอง";
-}
-function inferAction(phone, lens, showLens) {
-  if (phone <= 0) return "show_full";
-  if (showLens && lens <= 0) return "show_phone_only";
-  return "show";
-}
-
-function updateLastUpdated(events) {
-  const latest = events.map(e => e.last_updated).filter(Boolean).pop();
-  $("lastUpdated").textContent = `อัปเดตล่าสุด: ${latest ? formatDateText(latest) : "-"}`;
-}
-
-function render() {
-  const q = $("searchInput").value.trim().toLowerCase();
-  const filter = $("statusFilter").value;
-
-  let events = allEvents.filter(e => {
-    const text = `${e.event_name} ${e.venue} ${e.phone_model_display}`.toLowerCase();
-    const matchText = !q || text.includes(q);
-    const matchFilter =
-      filter === "all" ||
-      (filter === "open" && e.action_for_web === "show") ||
-      (filter === "phone_only" && e.action_for_web === "show_phone_only") ||
-      (filter === "full" && e.action_for_web === "show_full");
-    return matchText && matchFilter;
-  });
-
-  const grid = $("eventsGrid");
-  grid.innerHTML = "";
-  $("messageBox").hidden = true;
-
-  if (!events.length) {
-    showMessage("ยังไม่มีงานที่ตรงกับตัวกรองตอนนี้ ทัก LINE OA มาสอบถามได้เลยน้า", false);
-    return;
-  }
-
-  events.forEach(e => grid.appendChild(eventCard(e)));
-}
-
-function eventCard(e) {
-  const card = document.createElement("article");
-  card.className = "event-card";
-
-  const poster = document.createElement("div");
-  poster.className = "poster";
-  if (e.poster_image_url) poster.style.backgroundImage = `url("${e.poster_image_url}")`;
-  poster.innerHTML = `<div class="poster-title">${escapeHTML(e.event_name)}</div>`;
-
-  const body = document.createElement("div");
-  body.className = "card-body";
-
-  const badge = statusBadge(e);
-  const prices = priceHTML(e);
-  const buttons = buttonHTML(e);
-
-  body.innerHTML = `
-    ${badge}
-    <div class="meta">
-      <div class="meta-item"><span class="meta-label">วันที่</span><span class="meta-value">${escapeHTML(e.event_date_text || "-")}</span></div>
-      <div class="meta-item"><span class="meta-label">สถานที่</span><span class="meta-value">${escapeHTML(e.venue || "-")}</span></div>
-      <div class="meta-item"><span class="meta-label">รุ่น</span><span class="meta-value">${escapeHTML(e.phone_model_display || "-")}</span></div>
-      <div class="meta-item"><span class="meta-label">คงเหลือ</span><span class="meta-value">เครื่อง ${e.available_phone_count} / Lens ${e.available_lens_count}</span></div>
-    </div>
-    ${prices}
-    ${e.web_note ? `<div class="note">${escapeHTML(e.web_note)}</div>` : ""}
-    <div class="card-actions">${buttons}</div>
-  `;
-
-  card.appendChild(poster);
-  card.appendChild(body);
-  return card;
-}
-
-function statusBadge(e) {
-  const status = e.booking_status_for_web;
-  let cls = "badge-open";
-  if (e.action_for_web === "show_phone_only") cls = "badge-phone";
-  if (e.action_for_web === "show_full") cls = "badge-full";
-  return `<div class="badge ${cls}">${escapeHTML(status)}</div>`;
-}
-
-function priceHTML(e) {
-  const bits = [];
-  if (e.phone_price) bits.push(`<span class="price">เครื่อง ${money(e.phone_price)}฿</span>`);
-  if (e.show_lens_option && e.lens_price) bits.push(`<span class="price">Lens ${money(e.lens_price)}฿</span>`);
-  if (e.show_lens_option && e.bundle_price) bits.push(`<span class="price">เช่าคู่ ${money(e.bundle_price)}฿</span>`);
-  return bits.length ? `<div class="prices">${bits.join("")}</div>` : "";
-}
-
-function buttonHTML(e) {
-  const phoneUrl = lineUrl(e, "phone_only");
-  const bundleUrl = lineUrl(e, "phone_lens_bundle");
-  const waitlistUrl = lineUrl(e, "waitlist");
-
-  if (e.action_for_web === "show_full") {
-    return `<a class="btn btn-secondary" href="${waitlistUrl}" target="_blank" rel="noopener">ถามรอบหลุด / waitlist</a>`;
-  }
-  if (e.action_for_web === "show_phone_only") {
-    return `<a class="btn btn-primary" href="${phoneUrl}" target="_blank" rel="noopener">จองเครื่องอย่างเดียว</a>
-            <a class="btn btn-secondary" href="${waitlistUrl}" target="_blank" rel="noopener">ถาม Lens รอบหลุด</a>`;
-  }
-  return `<a class="btn btn-primary" href="${bundleUrl}" target="_blank" rel="noopener">จองเครื่อง + Lens</a>
-          <a class="btn btn-secondary" href="${phoneUrl}" target="_blank" rel="noopener">จองเฉพาะเครื่อง</a>`;
-}
-
-function lineUrl(e, packageType) {
-  const packageThai = packageType === "phone_lens_bundle" ? "เครื่อง + Lens" :
-    packageType === "phone_only" ? "เฉพาะเครื่อง" : "รอบหลุด / waitlist";
-  const message = `${e.line_message_template || "สวัสดีค่ะ สนใจจองเช่ามือถือกับ KK Phone Rental"}${packageThai}
-ชื่องาน: ${e.event_name}
-วันที่: ${e.event_date_text}
-รุ่น: ${e.phone_model_display}
-รบกวนแจ้งรายละเอียดการจองเพิ่มเติมค่ะ`;
-  return `${CONFIG.LINE_MESSAGE_URL}${encodeURIComponent(message)}`;
-}
-
-function money(n) {
-  return Number(n || 0).toLocaleString("th-TH");
-}
-function escapeHTML(str) {
-  return String(str ?? "").replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-}
-function showMessage(text, isError) {
-  const box = $("messageBox");
-  box.hidden = false;
-  box.textContent = text;
-  box.className = isError ? "error-box" : "empty";
-}
-
-$("searchInput").addEventListener("input", render);
-$("statusFilter").addEventListener("change", render);
-
-loadEvents();
-</script>
+  <script defer src="config.js"></script>
+  <script defer src="script.js"></script>
 </body>
 </html>
