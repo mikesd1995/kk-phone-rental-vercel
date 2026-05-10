@@ -1,4 +1,4 @@
-// KK Phone Rental v9 — Ultimate Optimized
+// KK Phone Rental v9.1 — Ultimate Optimized + FAQ Restored
 // - Single Source of Truth (08_Web_Ready)
 // - Server-Side Filtering via Google Visualization Query
 // - SessionStorage Caching (3 minutes)
@@ -146,7 +146,6 @@ function formatDateFromSerial(serial){
   return String(d.getUTCDate()).padStart(2,"0")+"/"+String(d.getUTCMonth()+1).padStart(2,"0")+"/"+d.getUTCFullYear();
 }
 
-// 🔵 ฟังก์ชันดึงข้อมูลแบบใหม่: ใช้ Cache + Server-Side Filtering
 async function fetchWebReadyRows(){
   var cacheKey = "kk_events_cache";
   var cacheTimeKey = "kk_events_cache_time";
@@ -154,20 +153,16 @@ async function fetchWebReadyRows(){
   var cachedData = sessionStorage.getItem(cacheKey);
   var cachedTime = sessionStorage.getItem(cacheTimeKey);
 
-  // ใช้ Cache ถ้าข้อมูลยังไม่เกิน 3 นาที (180,000 มิลลิวินาที) และไม่ได้อยู่ใน DEBUG_MODE
   if (cachedData && cachedTime && (now - cachedTime < 180000) && !DEBUG_MODE) {
     return JSON.parse(cachedData);
   }
 
-  // ใช้ Google Viz Query เพื่อให้ Server ส่งมาเฉพาะข้อมูลที่จะแสดงบนเว็บเท่านั้น
-  // T = action_for_web, AA = data_health, G = active_on_web
   var query = encodeURIComponent("SELECT * WHERE T = 'show' AND AA = 'OK' AND G = TRUE");
   var url="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(WEB_SHEET_NAME)+"&range="+encodeURIComponent(WEB_RANGE)+"&tq="+query;
   
   var csv=await retry(function(){return fetchTextWithTimeout(url,9000);},2,700);
   var result = csvRowsToObjects(parseCsv(csv));
 
-  // บันทึก Cache ไว้ใช้รอบต่อไป
   sessionStorage.setItem(cacheKey, JSON.stringify(result));
   sessionStorage.setItem(cacheTimeKey, now.toString());
 
@@ -197,8 +192,6 @@ function buildPackageOptions(row){
 
 async function loadData(){
   var rows = await fetchWebReadyRows();
-  
-  // ตัด isRowVisibleOnWeb ออก เพราะ Google Server กรองข้อมูลให้เราเรียบร้อยแล้วจาก Query ด้านบน
   var concerts = rows.map(function(r){
     var eventDateText=getField(r,["event_date_text","date_text","วันที่"]);
     var eventDateRaw=getField(r,["event_date","date"]);
@@ -221,6 +214,63 @@ async function loadData(){
   return concerts;
 }
 
-// --- ส่วนจัดการการแสดงผล กรองวันที่ และ Event Listener ---
+// --- ส่วนจัดการการแสดงผล กรองวันที่ ---
 function parseEventDate(dateStr){
   var s = String(dateStr || "").trim(); if(!s) return null;
+  var m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m){
+    var d1 = parseInt(m[1],10), mo1 = parseInt(m[2],10) - 1, y1 = parseInt(m[3],10);
+    if(y1 > 2500) y1 -= 543;
+    var d = new Date(y1, mo1, d1); return (!isNaN(d.getTime())) ? d : null;
+  }
+  return null;
+}
+
+function shouldShowConcert(concert){
+  if(SHOW_PAST) return true;
+  var d = parseEventDate(concert && concert.date);
+  if(!d) return true; d.setHours(0,0,0,0); return d >= TODAY_FOR_HIDE;
+}
+
+function getConcertSortTime(concert){
+  var d = parseEventDate(concert && concert.date);
+  if(!d) return Number.MAX_SAFE_INTEGER; d.setHours(0,0,0,0); return d.getTime();
+}
+
+function sortConcertsByDateAsc(concerts){
+  return concerts.slice().sort(function(a,b){
+    var timeA = getConcertSortTime(a), timeB = getConcertSortTime(b);
+    if(timeA !== timeB) return timeA - timeB;
+    return String(a.name || "").localeCompare(String(b.name || ""), "th");
+  });
+}
+
+function getAvailablePhones(concert){ return ((concert && concert.phones) || []).filter(function(p){return p.avail;}); }
+function getAvailableCount(concert){
+  if(concert && concert.availableCount!==undefined && concert.availableCount!==null && Number(concert.availableCount)>0) return Number(concert.availableCount);
+  return getAvailablePhones(concert).length;
+}
+
+function isSoonConcert(concert){
+  var d = parseEventDate(concert && concert.date); if(!d) return false;
+  d.setHours(0,0,0,0); var diffDays = Math.round((d.getTime() - TODAY_FOR_HIDE.getTime()) / 86400000);
+  return diffDays >= 0 && diffDays <= 14;
+}
+
+function getFilteredConcerts(concerts){
+  var visible = sortConcertsByDateAsc((concerts || []).filter(shouldShowConcert));
+  if(currentFilter === "available") return visible.filter(function(c){return getAvailableCount(c) > 0;});
+  if(currentFilter === "full") return visible.filter(function(c){return getAvailableCount(c) === 0;});
+  if(currentFilter === "soon") return visible.filter(isSoonConcert);
+  return visible;
+}
+
+function renderEmptyState(message,detail){
+  var el=document.getElementById("content"); if(!el)return;
+  el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+message+'</h3><p>'+(detail||'ถ้ามีงานที่อยากเช่า สามารถทัก LINE OA มาสอบถามได้เลย')+'</p><a class="empty-line-btn" href="'+LINE_DIRECT_URL+'" target="_blank" rel="noopener">ทัก LINE OA</a></div>';
+}
+
+function updateFilterButtons(){
+  document.querySelectorAll(".filter-btn").forEach(function(btn){
+    var active = btn.getAttribute("data-filter") === currentFilter;
+    btn.classList.toggle("active
