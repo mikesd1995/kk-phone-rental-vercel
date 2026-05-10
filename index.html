@@ -1,130 +1,135 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>KK Phone Rental | เช็กคิวเช่ามือถือ</title>
-  <meta name="description" content="KK Phone Rental เช่ามือถือถ่ายคอนเสิร์ต ซูมชัด เก็บโมเมนต์ครบ จองผ่าน LINE OA" />
-  <meta name="robots" content="index, follow" />
-  <meta name="theme-color" content="#0f766e" />
-  <meta property="og:title" content="KK Phone Rental | เช็กคิวเช่ามือถือ" />
-  <meta property="og:description" content="เลือกงาน ดูรุ่นที่ว่าง แล้วทัก LINE จองคิวได้เลย" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://kk-phone-rental.vercel.app/" />
-  <meta property="og:locale" content="th_TH" />
-  <meta property="og:image" content="https://kk-phone-rental.vercel.app/apple-touch-icon.png" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <link rel="icon" type="image/png" href="favicon.png" />
-  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-  <link rel="canonical" href="https://kk-phone-rental.vercel.app/" />
-  <link rel="preconnect" href="https://opensheet.elk.sh" crossorigin />
-  <link rel="preconnect" href="https://docs.google.com" crossorigin />
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KK Phone Rental | เช็กคิวเช่ามือถือ</title>
+<meta name="description" content="เช็กคิวเช่ามือถือสำหรับงานคอนเสิร์ตและอีเวนต์กับ KK Phone Rental เลือกงาน ดูรุ่นที่ว่าง และทักจองผ่าน LINE ได้ง่าย ๆ">
+<meta name="theme-color" content="#5B8DEF">
+
+<!-- Open Graph: LINE / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="KK Phone Rental | เช็กคิวเช่ามือถือ">
+<meta property="og:description" content="เช็กคิวเช่ามือถือสำหรับงานคอนเสิร์ตและอีเวนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE กับ KK Phone Rental">
+<meta property="og:url" content="https://kk-phone-rental.netlify.app/">
+<meta property="og:image" content="https://lh3.googleusercontent.com/d/18ZoF5dQA6qOJNE-SUGlU2Mcew55DeEwM=w1400">
+<meta property="og:image:alt" content="KK Phone Rental เช่ามือถือสำหรับคอนเสิร์ตและอีเวนต์">
+<meta property="og:site_name" content="KK Phone Rental">
+<meta property="og:locale" content="th_TH">
+
+<!-- Twitter / X Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="KK Phone Rental | เช็กคิวเช่ามือถือ">
+<meta name="twitter:description" content="เช็กคิวเช่ามือถือสำหรับงานคอนเสิร์ตและอีเวนต์ ดูรุ่นที่ว่างและทักจองผ่าน LINE ได้เลย">
+<meta name="twitter:image" content="https://lh3.googleusercontent.com/d/18ZoF5dQA6qOJNE-SUGlU2Mcew55DeEwM=w1400">
+<meta name="twitter:image:alt" content="KK Phone Rental เช่ามือถือสำหรับคอนเสิร์ตและอีเวนต์">
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="hero">
-    <div class="wrap">
-      <nav class="brand" aria-label="เมนูหลัก">
-        <div class="logo">
-          <div class="logo-mark" aria-hidden="true">📱</div>
-          <div>
-            <div>KK Phone Rental</div>
-            <small class="brand-tagline">เช่าเถอะ อยากให้ชัด ✨</small>
-          </div>
-        </div>
-        <a class="follow-link" id="xLink" href="https://x.com/KK_PhoneRental" target="_blank" rel="noopener">ฟอลร้าน = ฟรีประกัน + มัดจำ</a>
-      </nav>
+<div class="wrap">
+<header>
+  <div class="brand-image-card" id="brandImageCard">
+    <img class="brand-header-img" src="https://lh3.googleusercontent.com/d/18ZoF5dQA6qOJNE-SUGlU2Mcew55DeEwM=w1400" alt="KK Phone Rental Header">
+  </div>
+  <div class="brand-fallback" id="brandFallback">
+    <img class="brand-fallback-logo" src="https://lh3.googleusercontent.com/d/18ZoF5dQA6qOJNE-SUGlU2Mcew55DeEwM=w400" alt="KK Phone Rental Logo">
+    <div class="brand-divider"></div>
+    <div class="brand-text"><h1>KK Phone Rental</h1><p>Phone Rental Service</p></div>
+  </div>
+</header>
 
-      <section class="hero-card" aria-labelledby="pageTitle">
-        <div class="eyebrow">Phone Rental Service</div>
-        <h1 id="pageTitle">เช่ามือถือถ่ายคอนเสิร์ต<br>ซูมชัด เก็บโมเมนต์ครบ</h1>
-        <p class="lead">เลือกงาน → ดูคิวว่าง → กดจองผ่าน LINE OA ร้านจะช่วยคอนเฟิร์มคิวและรายละเอียดให้อีกครั้ง</p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" id="lineMain" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">ทัก LINE จองคิว</a>
-          <a class="btn btn-secondary" href="#faq">คำถามที่พบบ่อย</a>
-        </div>
-      </section>
+<section class="value-box" aria-label="บริการเช่ามือถือถ่ายคอนเสิร์ต">
+  <h2>เช่ามือถือถ่ายคอนเสิร์ต ซูมชัด เก็บโมเมนต์ครบ</h2>
+  <p>เลือกงาน → ดูรุ่นที่ว่าง → ทักจองผ่าน LINE ไม่ต้องซื้อเครื่องใหม่ก็ได้รูปชัด 💙</p>
+</section>
 
-      <div class="status-bar">
-        <div class="pill" id="lastUpdated">อัปเดตล่าสุด: -</div>
-        <div class="tools" role="search">
-          <label class="sr-only" for="searchInput">ค้นหางาน</label>
-          <input id="searchInput" type="search" placeholder="ค้นหาชื่องาน / สถานที่" autocomplete="off" />
-          <label class="sr-only" for="statusFilter">กรองสถานะงาน</label>
-          <select id="statusFilter" aria-label="กรองสถานะงาน">
-            <option value="all">แสดงทุกงาน</option>
-            <option value="open">เปิดจอง</option>
-            <option value="phone_only">เหลือเครื่องอย่างเดียว</option>
-            <option value="full">เต็มแล้ว</option>
-          </select>
-        </div>
+<div class="quick-links">
+  <a class="quick-link" href="https://x.com/KK_PhoneRental" target="_blank" rel="noopener">💙 ฟอลร้าน = ฟรีประกัน + มัดจำ</a>
+  <button class="mini-btn" id="faq-open-btn" type="button">❔ คำถามที่พบบ่อย</button>
+</div>
+
+<div class="sec-title"><span>เลือกงานที่ใช่ ไปถ่ายคนที่ชอบ ❤️</span></div>
+
+<div class="update-note" id="update-note">อัปเดตล่าสุด: -</div>
+<div id="content"><div class="loading-wrap"><div class="spinner"></div><div class="loading-text">กำลังเช็กคิวให้น้า... 📱✨</div></div></div>
+<div class="divider"></div>
+
+<a class="line-btn" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">
+  <svg viewBox="0 0 24 24" fill="white"><path d="M20 12.5c0-4.1-4-7.5-9-7.5S2 8.4 2 12.5c0 3.7 3.3 6.8 7.7 7.4.3.1.7.2.8.5s0 .7-.1 1v.1c-.1.3-.2.8.5.5 2.9-1.2 7.1-3.7 9.6-7.1.9-1 1.5-2.5 1.5-3.9z"/></svg>
+  ทัก LINE มาจองได้เลย 💚
+</a>
+
+<footer><div class="footer-brand">KK Phone Rental</div><div class="footer-tagline">เช่าเถอะ อยากให้ชัด ✨</div><div class="trust-note">จองง่าย คุยกับร้านโดยตรงผ่าน LINE</div></footer>
+</div>
+<a class="sticky-line" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">💚 ทัก LINE จองคิว</a>
+
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">ชื่องาน</div>
+      <div class="modal-meta" id="modal-date">วันที่</div>
+      <div class="modal-meta" id="modal-venue">สถานที่</div>
+    </div>
+    <div class="modal-note"><strong>ในเซ็ตมี:</strong> มือถือ + แบตสำรอง + กระเป๋าใส่มือถือ<br>กดจองแล้ว ระบบจะพาไป LINE พร้อมข้อความจองที่ใส่รายละเอียดรุ่น/งานไว้ให้แล้ว 💚</div>
+    <div class="modal-divider"></div>
+    <div class="phone-list" id="phone-list"></div>
+    <button class="modal-close" id="modal-close" type="button">ปิด</button>
+  </div>
+</div>
+
+
+<div class="faq-overlay" id="faqOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="faq-title">
+    <div class="modal-handle"></div>
+    <div class="modal-header"><div class="modal-title" id="faq-title">FAQ : คำถามที่พบบ่อย</div></div>
+    <div class="modal-divider"></div>
+    <div class="faq-list">
+      <div class="faq-item active">
+        <button class="faq-q" type="button" aria-expanded="true">Q: เช่ามือถือยังไง? <span class="faq-plus">+</span></button>
+        <div class="faq-a">A: เลือกงานที่ต้องการ กดดูรุ่นมือถือที่ว่าง แล้วกดจองผ่าน LINE OA เพื่อให้ร้านคอนเฟิร์มคิวค่ะ</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" type="button" aria-expanded="false">Q: จองแล้วถือว่ายืนยันเลยไหม? <span class="faq-plus">+</span></button>
+        <div class="faq-a">A: ยังไม่ยืนยันอัตโนมัติค่ะ ร้านจะตรวจสอบคิวและตอบกลับทาง LINE เพื่อคอนเฟิร์มอีกครั้ง</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" type="button" aria-expanded="false">Q: รับเครื่องและส่งคืนที่ไหน? <span class="faq-plus">+</span></button>
+        <div class="faq-a">A: รับเครื่องและส่งคืนที่หน้างาน ตามจุดนัดหมายและเวลาที่ร้านแจ้งใน LINE OA ค่ะ</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" type="button" aria-expanded="false">Q: ในเซ็ตเช่ามีอะไรบ้าง? <span class="faq-plus">+</span></button>
+        <div class="faq-a">A: โดยทั่วไปจะมีมือถือ กระเป๋าใส่มือถือ แบตสำรอง และอุปกรณ์เสริมตามรุ่นที่แจ้งไว้ หากมีเลนส์เสริม ร้านจะแจ้งในรายละเอียดรุ่นนั้น ๆ ค่ะ</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" type="button" aria-expanded="false">Q: ต้องมีมัดจำไหม? <span class="faq-plus">+</span></button>
+        <div class="faq-a">A: ขึ้นอยู่กับรุ่นมือถือและเงื่อนไขของแต่ละงาน ร้านจะแจ้งยอดค่าเช่า/มัดจำให้ชัดเจนก่อนคอนเฟิร์มจองค่ะ</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" type="button" aria-expanded="false">Q: จ่ายเงินยังไง? <span class="faq-plus">+</span></button>
+        <div class="faq-a">A: ชำระตามเงื่อนไขที่ร้านแจ้งผ่าน LINE OA เช่น ชำระตอนคอนเฟิร์มคิว หรือชำระพร้อมรับเครื่อง แล้วแต่รายละเอียดของงานนั้นค่ะ</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" type="button" aria-expanded="false">Q: ไฟล์จาก Google Drive ไม่ชัด? <span class="faq-plus">+</span></button>
+        <div class="faq-a">A: ไฟล์ไม่ชัดเพราะ Google Drive Preview อาจลดคุณภาพของภาพ ต้องกดดาวน์โหลดลงเครื่องก่อน ภาพจึงจะชัดค่ะ</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q" type="button" aria-expanded="false">Q: ไฟล์จาก Google Drive เก็บไว้ได้กี่วัน? <span class="faq-plus">+</span></button>
+        <div class="faq-a">A: ร้านจะเก็บไฟล์ไว้ให้ประมาณ 30 วัน หลังจากนั้นอาจไม่สามารถเข้าถึงไฟล์ได้ แนะนำให้ดาวน์โหลดเก็บไว้ทันทีหลังได้รับลิงก์ค่ะ</div>
       </div>
     </div>
-  </header>
-
-  <main class="wrap">
-    <noscript>
-      <div class="error-box">เว็บไซต์นี้ต้องเปิด JavaScript เพื่อเช็กคิวว่าง กรุณาเปิด JavaScript หรือทัก LINE OA ได้เลยค่ะ</div>
-    </noscript>
-    <section id="eventsGrid" class="grid" aria-live="polite" aria-label="รายการงานที่เปิดให้จอง"></section>
-    <div id="messageBox" class="empty" role="status" hidden></div>
-
-    <section id="faq" class="faq" aria-labelledby="faqTitle">
-      <h2 id="faqTitle">FAQ : คำถามที่พบบ่อย</h2>
-      <details open>
-        <summary>เช่ามือถือยังไง?</summary>
-        <p>เลือกงานที่ต้องการ ดูสถานะคิว แล้วกดจองผ่าน LINE OA เพื่อให้ร้านคอนเฟิร์มคิวค่ะ</p>
-      </details>
-      <details>
-        <summary>จองแล้วถือว่ายืนยันเลยไหม?</summary>
-        <p>ยังไม่ยืนยันอัตโนมัติค่ะ ร้านจะตรวจสอบคิวและตอบกลับทาง LINE เพื่อคอนเฟิร์มอีกครั้ง</p>
-      </details>
-      <details>
-        <summary>ถ้าเลนส์เต็ม แต่เครื่องยังว่างทำยังไง?</summary>
-        <p>หน้าเว็บจะแสดงว่า “เหลือเครื่องอย่างเดียว” เพื่อให้จองเฉพาะมือถือได้ โดยไม่โชว์ผิดว่าเช่าคู่ยังว่างค่ะ</p>
-      </details>
-      <details>
-        <summary>ไฟล์จาก Google Drive ไม่ชัด?</summary>
-        <p>Google Drive Preview อาจลดคุณภาพของภาพ ต้องกดดาวน์โหลดลงเครื่องก่อน ภาพจึงจะชัดค่ะ</p>
-      </details>
-      <details>
-        <summary>ไฟล์เก็บไว้กี่วัน?</summary>
-        <p>โดยทั่วไปเก็บไว้ประมาณ 30 วัน หลังได้รับลิงก์ควรดาวน์โหลดเก็บไว้ทันทีค่ะ</p>
-      </details>
-    </section>
-  </main>
-
-
-
-  <div class="booking-modal" id="bookingModal" hidden>
-    <div class="booking-backdrop" data-close-booking aria-hidden="true"></div>
-    <section class="booking-panel" role="dialog" aria-modal="true" aria-labelledby="bookingTitle">
-      <button class="modal-close" type="button" data-close-booking aria-label="ปิดฟอร์มจอง">×</button>
-      <div class="modal-kicker">กรอกข้อมูลก่อนเด้งไป LINE OA</div>
-      <h2 id="bookingTitle">ยืนยันรายละเอียดการจอง</h2>
-      <p class="modal-desc">ข้อมูลนี้จะถูกใส่ในข้อความ LINE อัตโนมัติ ร้านจะใช้คอนเฟิร์มคิวและนัดรับเครื่องค่ะ</p>
-      <div class="booking-summary" id="bookingSummary"></div>
-      <form id="bookingForm" class="booking-form">
-        <label for="customerNickname">ชื่อเล่น <span aria-hidden="true">*</span></label>
-        <input id="customerNickname" name="nickname" type="text" autocomplete="nickname" maxlength="40" placeholder="เช่น ฟ้า / แพรว / มายด์" required />
-
-        <label for="customerPhone">เบอร์โทร <span aria-hidden="true">*</span></label>
-        <input id="customerPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="25" placeholder="เช่น 08x-xxx-xxxx" required />
-
-        <label for="pickupTime">เวลาที่สะดวกรับเครื่อง <span aria-hidden="true">*</span></label>
-        <input id="pickupTime" name="pickup_time" type="text" maxlength="60" placeholder="เช่น 16:30 น. / ก่อนเข้างาน / หลังเลิกงาน" required />
-
-        <div class="form-error" id="bookingFormError" role="alert" hidden></div>
-        <button class="btn btn-primary booking-submit" type="submit">ไป LINE OA พร้อมข้อความ</button>
-      </form>
-    </section>
+    <button class="modal-close" id="faq-close-btn" type="button">ปิด</button>
   </div>
+</div>
 
-  <footer>
-    <b>KK Phone Rental</b><br />
-    เช่าเถอะ อยากให้ชัด ✨
-  </footer>
-  <script defer src="config.js"></script>
-  <script defer src="script.js"></script>
+<script src="script.js" defer></script>
 </body>
 </html>

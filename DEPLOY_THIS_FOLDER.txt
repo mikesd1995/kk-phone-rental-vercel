@@ -1,0 +1,9 @@
+ให้ deploy ไฟล์ในโฟลเดอร์นี้ขึ้น Vercel โดยตรง
+
+สำคัญ:
+- ไฟล์ index.html ต้องอยู่ที่ root ของ deployment ไม่ใช่อยู่ในโฟลเดอร์ซ้อนอีกชั้น
+- ถ้าอัปผ่าน GitHub ให้ลบไฟล์/โฟลเดอร์เวอร์ชันเก่าที่เคยทำไว้ก่อน แล้ว commit ชุดนี้เท่านั้น
+- หลัง deploy เปิดหน้าเว็บแล้วค้นหา marker นี้ใน View Source:
+  KK_FRONTEND_V10_NETLIFY_LOOK_LOCKED_DEPLOY_ROOT
+
+ถ้าไม่เจอ marker แปลว่า Vercel ยังไม่ได้ deploy ชุดไฟล์นี้
