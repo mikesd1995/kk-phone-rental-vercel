@@ -1,7 +1,7 @@
-// KK Phone Rental v9.1 — Ultimate Optimized + FAQ Restored
+// KK Phone Rental v9.1 (Template Literals Optimized)
 // - Single Source of Truth (08_Web_Ready)
-// - Server-Side Filtering via Google Visualization Query
-// - SessionStorage Caching (3 minutes)
+// - Server-Side Filtering & Caching
+// - Fast UI Rendering (Template Literals)
 
 var APP_CONFIG = window.KK_CONFIG || {};
 var SHEET_ID = APP_CONFIG.sheetId || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
@@ -25,8 +25,7 @@ function applyConfigToDom(){
   document.querySelectorAll("a.line-btn, a.sticky-line").forEach(function(a){ a.href=LINE_DIRECT_URL; });
 }
 
-var TODAY_FOR_HIDE = new Date();
-TODAY_FOR_HIDE.setHours(0,0,0,0);
+var TODAY_FOR_HIDE = new Date(); TODAY_FOR_HIDE.setHours(0,0,0,0);
 var URL_PARAMS = new URLSearchParams(window.location.search);
 var DEBUG_MODE = URL_PARAMS.get("debug") === "1";
 var SHOW_PAST = URL_PARAMS.get("showPast") === "1";
@@ -61,14 +60,14 @@ function setImageWithFallback(img, urls){
     if(!setNext()){
       var wrap=img.parentElement; img.remove();
       if(wrap && !wrap.querySelector(".poster-placeholder")){
-        var ph=document.createElement("div"); ph.className="poster-placeholder"; ph.innerHTML='<span>ยังไม่มีรูป</span>'; wrap.appendChild(ph);
+        wrap.innerHTML += '<div class="poster-placeholder"><span>ยังไม่มีรูป</span></div>';
       }
     }
   };
   setNext();
 }
 
-// --- ส่วนดึงข้อมูล (Optimized) ---
+// --- ส่วนดึงข้อมูล ---
 function timeoutSignal(ms){
   var controller=new AbortController();
   var timer=setTimeout(function(){controller.abort();},ms);
@@ -214,7 +213,7 @@ async function loadData(){
   return concerts;
 }
 
-// --- ส่วนจัดการการแสดงผล กรองวันที่ ---
+// --- กรองวันที่ และ Event Listener ---
 function parseEventDate(dateStr){
   var s = String(dateStr || "").trim(); if(!s) return null;
   var m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
@@ -267,7 +266,14 @@ function getFilteredConcerts(concerts){
 
 function renderEmptyState(message,detail){
   var el=document.getElementById("content"); if(!el)return;
-  el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+message+'</h3><p>'+(detail||'ถ้ามีงานที่อยากเช่า สามารถทัก LINE OA มาสอบถามได้เลย')+'</p><a class="empty-line-btn" href="'+LINE_DIRECT_URL+'" target="_blank" rel="noopener">ทัก LINE OA</a></div>';
+  el.innerHTML=`
+    <div class="empty-state">
+      <div class="empty-emoji">💙</div>
+      <h3>${message}</h3>
+      <p>${detail || 'ถ้ามีงานที่อยากเช่า สามารถทัก LINE OA มาสอบถามได้เลย'}</p>
+      <a class="empty-line-btn" href="${LINE_DIRECT_URL}" target="_blank" rel="noopener">ทัก LINE OA</a>
+    </div>
+  `;
 }
 
 function updateFilterButtons(){
@@ -279,69 +285,94 @@ function updateFilterButtons(){
 
 function setFilter(filter){ currentFilter = filter || "all"; updateFilterButtons(); renderConcerts(concertsData); }
 
+// 🚀 Optimize: เปลี่ยนมาใช้วิธีเรนเดอร์แบบใหม่ (Template Literals) ทำให้เบราว์เซอร์วาด UI ไวขึ้น และแก้โค้ดง่ายขึ้นมาก
 function renderConcerts(concerts){
   var el=document.getElementById("content"); if(!el)return; el.innerHTML="";
   if(!concerts||!concerts.length){ renderEmptyState("ยังไม่มีข้อมูลงานตอนนี้น้า 💙"); return; }
+  
   var visibleConcerts = getFilteredConcerts(concerts);
   if(!visibleConcerts.length){ renderEmptyState("ยังไม่มีงานในหมวดหมู่นี้น้า 💙"); return; }
 
-  var grid=document.createElement("div"); grid.className="poster-grid";
+  var grid = document.createElement("div"); 
+  grid.className = "poster-grid";
+
   visibleConcerts.forEach(function(c){
-    var availableCount=getAvailableCount(c), available=availableCount>0;
-    var card=document.createElement("button"); card.className="concert-card"; card.onclick=function(){showModal(c);};
-    var imgWrap=document.createElement("div"); imgWrap.className="poster-img-wrap";
+    var availableCount = getAvailableCount(c);
+    var available = availableCount > 0;
     
     var badgeText = availableCount <= 0 ? "เต็มแล้ว" : (isSoonConcert(c) ? "ใกล้ถึงวันงาน" : "ว่าง " + availableCount + " เครื่อง");
-    var badge=document.createElement("div"); badge.className="status-badge"+(available?"":" full")+(isSoonConcert(c)&&available?" soon":""); badge.textContent=badgeText; imgWrap.appendChild(badge);
+    var badgeClass = "status-badge" + (available ? "" : " full") + (isSoonConcert(c) && available ? " soon" : "");
+    var availText = available ? "ว่าง " + availableCount + " เครื่อง ✨" : "เต็มแล้วน้า 😢";
+    var availClass = "pi-avail" + (available ? "" : " none");
+    var tapText = available ? "ดูรุ่นที่ว่าง / จองคิว" : "เต็มแล้ว";
+    var tapClass = "pi-tap" + (available ? "" : " full");
     
-    var imgUrl=c.img?String(c.img).trim():"";
-    if(imgUrl){
-      var img=document.createElement("img"); img.alt=c.name; img.loading="lazy";
-      setImageWithFallback(img, c.imgCandidates&&c.imgCandidates.length?c.imgCandidates:[imgUrl]);
-      imgWrap.appendChild(img);
-    }else{
-      var ph=document.createElement("div"); ph.className="poster-placeholder"; ph.innerHTML='<span>ยังไม่มีรูป</span>'; imgWrap.appendChild(ph);
+    var card = document.createElement("button"); 
+    card.className = "concert-card"; 
+    card.onclick = function(){ showModal(c); };
+    
+    // โครงสร้าง HTML แบบไม่ต้องพึ่งการสร้าง Element ทีละชิ้น
+    card.innerHTML = `
+      <div class="poster-img-wrap">
+        <div class="${badgeClass}">${badgeText}</div>
+        ${c.img ? '<img alt="Event Poster" loading="lazy">' : '<div class="poster-placeholder"><span>ยังไม่มีรูป</span></div>'}
+      </div>
+      <div class="poster-info">
+        <div class="pi-date">${c.date || ""}</div>
+        <div class="pi-name">${c.name || ""}</div>
+        <div class="${availClass}">${availText}</div>
+        <div class="${tapClass}">${tapText}</div>
+      </div>
+    `;
+    
+    if(c.img){
+      var img = card.querySelector("img");
+      setImageWithFallback(img, c.imgCandidates && c.imgCandidates.length ? c.imgCandidates : [String(c.img).trim()]);
     }
     
-    var info=document.createElement("div"); info.className="poster-info";
-    var date=document.createElement("div"); date.className="pi-date"; date.textContent=c.date||"";
-    var name=document.createElement("div"); name.className="pi-name"; name.textContent=c.name||"";
-    var avail=document.createElement("div"); avail.className="pi-avail"+(available?"":" none"); avail.textContent=available?"ว่าง "+availableCount+" เครื่อง ✨":"เต็มแล้วน้า 😢";
-    var tap=document.createElement("div"); tap.className="pi-tap"+(available?"":" full"); tap.textContent=available?"ดูรุ่นที่ว่าง / จองคิว":"เต็มแล้ว";
-    
-    info.appendChild(date); info.appendChild(name); info.appendChild(avail); info.appendChild(tap);
-    card.appendChild(imgWrap); card.appendChild(info); grid.appendChild(card);
+    grid.appendChild(card);
   });
+  
   el.appendChild(grid);
 }
 
+// 🚀 Optimize: ลดขั้นตอนสร้าง Element ในตารางรุ่นมือถือ
 function showModal(input){
   var c = (typeof input === "number") ? concertsData[input] : input; if(!c)return;
   document.getElementById("modal-title").textContent=c.name||"รายละเอียดงาน";
   document.getElementById("modal-date").textContent="📅 "+(c.date||"-");
   document.getElementById("modal-venue").textContent="📍 "+(c.venue||"-");
+  
   var list=document.getElementById("phone-list"); list.innerHTML="";
-  
   var availablePhones=getAvailablePhones(c);
-  if(!availablePhones.length){ list.innerHTML='<div class="full-booked-box">งานนี้เต็มแล้วน้า 🙏<br>ทักมาถามรอบอื่นได้เลย 💙</div>'; openModal(); return; }
   
+  if(!availablePhones.length){ 
+    list.innerHTML='<div class="full-booked-box">งานนี้เต็มแล้วน้า 🙏<br>ทักมาถามรอบอื่นได้เลย 💙</div>'; 
+    openModal(); 
+    return; 
+  }
+  
+  var htmlString = "";
   availablePhones.forEach(function(p){
-    var row=document.createElement("div"); row.className="phone-row";
-    var info=document.createElement("div"); info.className="ph-info";
-    var model=document.createElement("div"); model.className="ph-model"; model.textContent=p.model||"";
-    var spec=document.createElement("div"); spec.className="ph-spec"; spec.textContent=p.spec||"";
-    info.appendChild(model); info.appendChild(spec);
-    
-    var right=document.createElement("div"); right.className="ph-right";
-    var price=document.createElement("div"); price.className="ph-price"; price.textContent=formatPrice(p.price);
-    
+    var priceText = formatPrice(p.price);
     var msg = (c.lineTemplate||"สนใจจองเช่ามือถือค่ะ")+"\nงาน: "+c.name+"\nแพ็กเกจ: "+p.model;
     var link = "https://line.me/R/oaMessage/"+encodeURIComponent(LINE_OA_ID)+"/?"+encodeURIComponent(msg);
-    var btn=document.createElement("a"); btn.className="badge book-pill"; btn.textContent="จองรุ่นนี้"; btn.href=link; btn.target="_blank";
     
-    right.appendChild(price); right.appendChild(btn);
-    row.appendChild(info); row.appendChild(right); list.appendChild(row);
+    htmlString += `
+      <div class="phone-row">
+        <div class="ph-info">
+          <div class="ph-model">${p.model || ""}</div>
+          <div class="ph-spec">${p.spec || ""}</div>
+        </div>
+        <div class="ph-right">
+          <div class="ph-price">${priceText}</div>
+          <a class="badge book-pill" href="${link}" target="_blank">จองรุ่นนี้</a>
+        </div>
+      </div>
+    `;
   });
+  
+  list.innerHTML = htmlString;
   openModal();
 }
 
@@ -349,22 +380,9 @@ function openModal(){ document.getElementById("overlay").classList.add("active")
 function closeModal(e){ if(e && e.target!==document.getElementById("overlay"))return; document.getElementById("overlay").classList.remove("active"); document.body.style.overflow=""; }
 
 // 🔵 --- คืนชีพส่วนจัดการ FAQ --- 🔵
-function openFaq(){
-  var el=document.getElementById("faqOverlay");
-  if(el){el.classList.add("active");document.body.style.overflow="hidden";}
-}
-function closeFaq(e){
-  if(e && e.target!==document.getElementById("faqOverlay"))return;
-  var el=document.getElementById("faqOverlay");
-  if(el){el.classList.remove("active");document.body.style.overflow="";}
-}
-function toggleFaq(btn){
-  var item=btn&&btn.parentElement;
-  if(item){
-    item.classList.toggle("active");
-    btn.setAttribute("aria-expanded",item.classList.contains("active")?"true":"false");
-  }
-}
+function openFaq(){ var el=document.getElementById("faqOverlay"); if(el){el.classList.add("active");document.body.style.overflow="hidden";} }
+function closeFaq(e){ if(e && e.target!==document.getElementById("faqOverlay"))return; var el=document.getElementById("faqOverlay"); if(el){el.classList.remove("active");document.body.style.overflow="";} }
+function toggleFaq(btn){ var item=btn&&btn.parentElement; if(item){ item.classList.toggle("active"); btn.setAttribute("aria-expanded",item.classList.contains("active")?"true":"false"); } }
 
 // --- Event Listener รวบยอด ---
 document.addEventListener("DOMContentLoaded",function(){
@@ -374,25 +392,15 @@ document.addEventListener("DOMContentLoaded",function(){
     btn.addEventListener("click",function(){setFilter(btn.getAttribute("data-filter") || "all");});
   });
   
-  // Modal งาน
   var overlay=document.getElementById("overlay"); if(overlay)overlay.addEventListener("click",closeModal);
   var closeBtn=document.getElementById("modal-close"); if(closeBtn)closeBtn.addEventListener("click",function(){closeModal();});
 
-  // 🔵 ผูก Event ให้ FAQ 🔵
-  var faqOpenBtn=document.getElementById("faq-open-btn");
-  if(faqOpenBtn)faqOpenBtn.addEventListener("click",openFaq);
+  var faqOpenBtn=document.getElementById("faq-open-btn"); if(faqOpenBtn)faqOpenBtn.addEventListener("click",openFaq);
+  var faqCloseBtn=document.getElementById("faq-close-btn"); if(faqCloseBtn)faqCloseBtn.addEventListener("click",function(){closeFaq();});
 
-  var faqCloseBtn=document.getElementById("faq-close-btn");
-  if(faqCloseBtn)faqCloseBtn.addEventListener("click",function(){closeFaq();});
+  document.querySelectorAll(".faq-q").forEach(function(btn){ btn.addEventListener("click",function(){toggleFaq(btn);}); });
+  var faqOverlay=document.getElementById("faqOverlay"); if(faqOverlay)faqOverlay.addEventListener("click",closeFaq);
 
-  document.querySelectorAll(".faq-q").forEach(function(btn){
-    btn.addEventListener("click",function(){toggleFaq(btn);});
-  });
-
-  var faqOverlay=document.getElementById("faqOverlay");
-  if(faqOverlay)faqOverlay.addEventListener("click",closeFaq);
-
-  // โหลดข้อมูล
   loadData().then(function(concerts){
     concertsData=concerts; renderConcerts(concertsData);
   }).catch(function(e){
