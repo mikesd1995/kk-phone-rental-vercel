@@ -355,7 +355,16 @@ function showModal(input){
   var htmlString = "";
   availablePhones.forEach(function(p){
     var priceText = formatPrice(p.price);
-    var msg = (c.lineTemplate||"สนใจจองเช่ามือถือค่ะ")+"\nงาน: "+c.name+"\nแพ็กเกจ: "+p.model;
+    
+    // 🔵 ปรับแต่งรูปแบบข้อความสำหรับส่งไป LINE OA ตามที่คุณต้องการ 🔵
+    var msg = "งาน : " + (c.name || "-") + "\n" +
+              "สนใจจอง : " + (p.model || "-") + "\n" +
+              "ราคา : " + priceText + "\n" +
+              "วันที่ : " + (c.date || "-") + "\n\n" +
+              "ชื่อเล่น : \n" +
+              "เบอร์โทร : \n" +
+              "เวลาที่สะดวกรับเครื่อง : ";
+              
     var link = "https://line.me/R/oaMessage/"+encodeURIComponent(LINE_OA_ID)+"/?"+encodeURIComponent(msg);
     
     htmlString += `
