@@ -11,7 +11,8 @@ Static frontend สำหรับอัปโหลดขึ้น GitHub แ�
 - ปรับ empty state และ error state ให้ลูกค้าเข้าใจง่ายขึ้น
 - Optimize รูปภาพ: header eager load, poster lazy load + async decode
 - เพิ่ม canonical และปรับ social preview URL เป็น Vercel
-- คง FAQ และข้อความหน้าเว็บเวอร์ชันล่าสุดไว้แล้ว
+- คง FAQ เวอร์ชันล่าสุดไว้แล้ว
+- ลบหัวข้อยาวหน้า hero ตามคำขอล่าสุด เหลือเฉพาะขั้นตอนจอง + หมายเหตุ LINE OA
 
 ## โครงสร้างไฟล์
 
@@ -50,3 +51,18 @@ window.KK_CONFIG = {
 
 - `concerts`
 - `phones`
+
+
+## สิ่งที่ตรวจและแก้เพิ่มในไฟล์ audited
+
+- ลบ `README.txt` เดิมที่ยังพูดถึง Netlify เพื่อไม่ให้สับสนกับ GitHub/Vercel
+- ปรับข้อความ visible ทั้งหมดจาก `Line OA` เป็น `LINE OA` ให้สม่ำเสมอ
+- เพิ่มการอ่านค่า `headerImage`, `xUrl`, และลิงก์ LINE จาก `config.js` เพื่อให้แก้ข้อมูลหลักได้จากจุดเดียวมากขึ้น
+- ตรวจ syntax ของ `script.js` และ `config.js` แล้วไม่พบ syntax error
+
+## หมายเหตุสำคัญก่อน deploy
+
+1. Google Sheet ต้องเปิดแชร์แบบ Anyone with the link/viewer
+2. ต้องมี tab ชื่อ `concerts` และ `phones`
+3. รูปจาก Google Drive ต้องเปิดสิทธิ์ให้ดูได้เช่นกัน ไม่อย่างนั้น header/poster อาจไม่ขึ้น
+4. ถ้าโดเมน Vercel เปลี่ยน ให้แก้ `siteUrl` ใน `config.js` และ meta/canonical ใน `index.html` ให้ตรงกัน

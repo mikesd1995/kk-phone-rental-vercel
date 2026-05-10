@@ -10,6 +10,21 @@ var LINE_DIRECT_URL = APP_CONFIG.lineDirectUrl || "https://line.me/R/ti/p/%40827
 var concertsData = [];
 var currentFilter = "all";
 
+function applyConfigToDom(){
+  if(APP_CONFIG.headerImage){
+    var headerImg=document.querySelector(".brand-header-img");
+    if(headerImg) headerImg.src=APP_CONFIG.headerImage;
+  }
+  if(APP_CONFIG.xUrl){
+    document.querySelectorAll("a.quick-link").forEach(function(a){
+      a.href=APP_CONFIG.xUrl;
+    });
+  }
+  document.querySelectorAll("a.line-btn, a.sticky-line").forEach(function(a){
+    a.href=LINE_DIRECT_URL;
+  });
+}
+
 // Hide past events
 var TODAY_FOR_HIDE = new Date();
 TODAY_FOR_HIDE.setHours(0,0,0,0);
@@ -259,7 +274,7 @@ function getEmptyMessage(){
 function renderEmptyState(message,detail){
   var el=document.getElementById("content");
   if(!el)return;
-  el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+message+'</h3><p>'+(detail||'ถ้ามีงานที่อยากเช่า สามารถทัก Line OA มาสอบถามได้เลย')+'</p><a class="empty-line-btn" href="'+LINE_DIRECT_URL+'" target="_blank" rel="noopener">ทัก Line OA</a></div>';
+  el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+message+'</h3><p>'+(detail||'ถ้ามีงานที่อยากเช่า สามารถทัก LINE OA มาสอบถามได้เลย')+'</p><a class="empty-line-btn" href="'+LINE_DIRECT_URL+'" target="_blank" rel="noopener">ทัก LINE OA</a></div>';
 }
 
 function updateFilterButtons(){
@@ -398,7 +413,7 @@ function openModal(){
 }
 function showError(m){
   var el=document.getElementById("content");
-  if(el)el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>โหลดข้อมูลคิวไม่สำเร็จชั่วคราวน้า</h3><p>'+m+'</p><a class="empty-line-btn" href="'+LINE_DIRECT_URL+'" target="_blank" rel="noopener">ทัก Line OA มาสอบถาม</a></div>';
+  if(el)el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>โหลดข้อมูลคิวไม่สำเร็จชั่วคราวน้า</h3><p>'+m+'</p><a class="empty-line-btn" href="'+LINE_DIRECT_URL+'" target="_blank" rel="noopener">ทัก LINE OA มาสอบถาม</a></div>';
 }
 
 function openFaq(){
@@ -426,6 +441,7 @@ function initFilters(){
 }
 
 document.addEventListener("DOMContentLoaded",function(){
+  applyConfigToDom();
   setUpdateDate();
   initFilters();
 
@@ -456,7 +472,7 @@ document.addEventListener("DOMContentLoaded",function(){
     renderConcerts(concertsData);
   }).catch(function(e){
     console.error(e);
-    showError("ลองรีเฟรชอีกครั้ง หรือเช็กว่า Google Sheet แชร์เป็น Anyone with the link และมีชีตชื่อ concerts / phones");
+    showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA");
   });
 });
 
