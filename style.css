@@ -319,3 +319,109 @@ body{padding-bottom:78px}
     font-size:12.5px;
   }
 }
+
+
+/* v7 Frontend Optimized */
+.filter-bar{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:2px auto 22px;
+}
+.filter-btn{
+  appearance:none;
+  -webkit-appearance:none;
+  border:1.5px solid rgba(91,141,239,.20);
+  background:rgba(255,255,255,.72);
+  color:#5D75A0;
+  min-height:38px;
+  padding:8px 18px;
+  border-radius:999px;
+  font-family:Kanit,sans-serif;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(91,141,239,.08);
+  transition:.18s ease;
+}
+.filter-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 10px 22px rgba(91,141,239,.13);
+}
+.filter-btn.active{
+  color:#fff;
+  border-color:rgba(91,141,239,.35);
+  background:linear-gradient(180deg,#6E9DFF 0%,#5686EE 100%);
+  box-shadow:0 10px 22px rgba(91,141,239,.22);
+}
+.status-badge.soon{
+  color:#5B8DEF;
+}
+.empty-state{
+  max-width:720px;
+  margin:18px auto 0;
+  padding:34px 22px;
+  text-align:center;
+  border-radius:28px;
+  background:rgba(255,255,255,.84);
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 12px 30px rgba(91,141,239,.12);
+}
+.empty-state .empty-emoji{
+  font-size:34px;
+  margin-bottom:8px;
+}
+.empty-state h3{
+  color:var(--navy);
+  font-size:22px;
+  line-height:1.35;
+  font-weight:800;
+}
+.empty-state p{
+  margin-top:8px;
+  color:#5D75A0;
+  font-size:14px;
+  line-height:1.65;
+}
+.empty-line-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin-top:16px;
+  min-height:42px;
+  padding:10px 22px;
+  border-radius:999px;
+  background:linear-gradient(180deg,#10D964 0%,#06C755 100%);
+  color:#fff;
+  font-size:15px;
+  font-weight:800;
+  text-decoration:none;
+  box-shadow:0 10px 22px rgba(6,199,85,.24);
+}
+.error-state{
+  border-color:rgba(240,82,82,.18);
+}
+.brand-header-img{
+  background:#EEF5FF;
+}
+.poster-img-wrap img{
+  background:#EEF5FF;
+}
+.filter-btn:focus-visible,
+.empty-line-btn:focus-visible{
+  outline:3px solid rgba(91,141,239,.45);
+  outline-offset:3px;
+}
+@media(max-width:768px){
+  .filter-bar{gap:8px;margin:0 auto 18px;padding:0 6px}
+  .filter-btn{font-size:13px;min-height:36px;padding:8px 14px}
+  .empty-state{border-radius:22px;padding:28px 18px}
+  .empty-state h3{font-size:19px}
+}
+@media(max-width:390px){
+  .filter-btn{font-size:12px;padding:7px 12px}
+  .empty-state h3{font-size:17px}
+  .empty-state p{font-size:13px}
+}
