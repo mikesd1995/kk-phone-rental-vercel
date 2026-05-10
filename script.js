@@ -303,7 +303,7 @@ function renderConcerts(concerts){
   if(!el)return;
   el.innerHTML="";
   if(!concerts||!concerts.length){
-    renderEmptyState("ยังไม่มีข้อมูลงานตอนนี้น้า 💙","เพิ่มข้อมูลใน Google Sheet หลังบ้าน แล้วรีเฟรชหน้านี้ได้เลย");
+    renderEmptyState("ยังไม่มีข้อมูลงานตอนนี้น้า 💙");
     return;
   }
 
