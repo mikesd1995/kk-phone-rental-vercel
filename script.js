@@ -5,6 +5,8 @@
 
 var APP_CONFIG = window.KK_CONFIG || {};
 var SHEET_ID = APP_CONFIG.sheetId || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
+var WEB_SHEET_NAME = APP_CONFIG.webSheetName || "08_Web_Ready";
+var WEB_RANGE = APP_CONFIG.webRange || "A4:AA";
 var LINE_OA_ID = APP_CONFIG.lineOAId || "@827blnmo";
 var LINE_DIRECT_URL = APP_CONFIG.lineDirectUrl || "https://line.me/R/ti/p/%40827blnmo";
 var concertsData = [];
@@ -88,65 +90,150 @@ async function retry(fn,tries,delay){
   throw lastError;
 }
 
-async function fetchSheet(sheetName){
-  var url="https://opensheet.elk.sh/"+SHEET_ID+"/"+encodeURIComponent(sheetName);
-  return retry(function(){return fetchJsonWithTimeout(url,9000);},2,700);
-}
-
-function getField(row,fields){
-  for(var i=0;i<fields.length;i++){
-    var f=fields[i];
-    if(row[f]!==undefined&&row[f]!==null&&row[f]!=="")return row[f];
+function parseCsv(text){
+  var rows=[];
+  var row=[];
+  var value="";
+  var insideQuotes=false;
+  text=String(text||"").replace(/^\uFEFF/,"");
+  for(var i=0;i<text.length;i++){
+    var ch=text[i];
+    var next=text[i+1];
+    if(ch==='"'){
+      if(insideQuotes && next==='"'){
+        value+='"';
+        i++;
+      }else{
+        insideQuotes=!insideQuotes;
+      }
+    }else if(ch===',' && !insideQuotes){
+      row.push(value);
+      value="";
+    }else if((ch==='\n'||ch==='\r') && !insideQuotes){
+      if(ch==='\r' && next==='\n') i++;
+      row.push(value);
+      if(row.some(function(cell){return String(cell||"").trim()!=="";})) rows.push(row);
+      row=[];
+      value="";
+    }else{
+      value+=ch;
+    }
   }
-  return "";
+  row.push(value);
+  if(row.some(function(cell){return String(cell||"").trim()!=="";})) rows.push(row);
+  return rows;
 }
 
-function formatPrice(value){
-  var raw=String(value||"").replace(/[^0-9.]/g,"");
-  var number=Number(raw);
-  if(!number)return "-";
-  return number.toLocaleString()+" บาท/วัน";
+function csvRowsToObjects(rows){
+  if(!rows||rows.length<2)return [];
+  var headers=rows[0].map(function(h){return String(h||"").trim();});
+  return rows.slice(1).map(function(row){
+    var obj={};
+    headers.forEach(function(h,i){if(h)obj[h]=row[i]!==undefined?row[i]:"";});
+    return obj;
+  }).filter(function(obj){
+    return Object.keys(obj).some(function(k){return String(obj[k]||"").trim()!=="";});
+  });
 }
 
-function isAvailable(value){
+function toBool(value){
+  if(value===true)return true;
   var v=String(value||"").trim().toUpperCase();
-  return v==="TRUE"||v==="1"||v==="YES"||v==="Y"||v==="ว่าง"||v==="AVAILABLE";
+  return v==="TRUE"||v==="YES"||v==="Y"||v==="1"||v==="ว่าง"||v==="OPEN"||v==="SHOW";
+}
+
+function toNumber(value){
+  var raw=String(value||"").replace(/[^0-9.\-]/g,"");
+  var n=Number(raw);
+  return isNaN(n)?0:n;
+}
+
+function formatDateFromSerial(serial){
+  var n=Number(serial);
+  if(!n||isNaN(n))return String(serial||"");
+  var d=new Date(Date.UTC(1899,11,30)+n*86400000);
+  var dd=String(d.getUTCDate()).padStart(2,"0");
+  var mm=String(d.getUTCMonth()+1).padStart(2,"0");
+  var yyyy=d.getUTCFullYear();
+  return dd+"/"+mm+"/"+yyyy;
+}
+
+async function fetchTextWithTimeout(url,ms){
+  var t=timeoutSignal(ms||9000);
+  try{
+    var res=await fetch(url,{cache:"no-store",signal:t.signal});
+    if(!res.ok)throw new Error("HTTP "+res.status);
+    return await res.text();
+  }finally{
+    t.clear();
+  }
+}
+
+async function fetchWebReadyRows(){
+  var url="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(WEB_SHEET_NAME)+"&range="+encodeURIComponent(WEB_RANGE);
+  var csv=await retry(function(){return fetchTextWithTimeout(url,9000);},2,700);
+  return csvRowsToObjects(parseCsv(csv));
+}
+
+function isRowVisibleOnWeb(row){
+  var action=String(getField(row,["action_for_web","action","web_action"])).trim().toLowerCase();
+  var health=String(getField(row,["data_health"])).trim().toUpperCase();
+  var status=String(getField(row,["event_status","booking_status_for_web"])).trim().toLowerCase();
+  if(action && action!=="show")return false;
+  if(health && health!=="OK")return false;
+  if(status==="draft"||status==="cancelled"||status==="closed")return false;
+  return toBool(getField(row,["active_on_web","show_on_web","active"]));
+}
+
+function buildPackageOptions(row){
+  var options=[];
+  var baseModel=getField(row,["phone_model_display","model","รุ่น"])||"มือถือ";
+  var lensGroup=getField(row,["allowed_lens_group","lens_model_display","lens"]);
+  var note=getField(row,["web_note","note","หมายเหตุ"]);
+  var phonePrice=toNumber(getField(row,["phone_price","price","ราคา"]));
+  var lensPrice=toNumber(getField(row,["lens_price"]));
+  var bundlePrice=toNumber(getField(row,["bundle_price"]));
+  var eventOpen=String(getField(row,["event_status"])).trim().toLowerCase()==="open" || String(getField(row,["booking_status_for_web"])).indexOf("เปิด")>=0;
+  var phoneAvailable=toBool(getField(row,["phone_only_available"])) || toNumber(getField(row,["available_phone_count"]))>0;
+  var lensAvailable=toBool(getField(row,["lens_only_available"])) || toNumber(getField(row,["available_lens_count"]))>0;
+  var bundleAvailable=toBool(getField(row,["phone_lens_available"])) || (phoneAvailable && lensAvailable && bundlePrice>0);
+  if(phonePrice>0){
+    options.push({model:baseModel,spec:"เฉพาะมือถือ",price:phonePrice,note:note,avail:eventOpen&&phoneAvailable,packageType:"phone_only"});
+  }
+  if(lensPrice>0){
+    options.push({model:"Lens",spec:lensGroup&&lensGroup!=="NONE"?lensGroup:"เลนส์เสริม",price:lensPrice,note:note,avail:eventOpen&&lensAvailable,packageType:"lens_only"});
+  }
+  if(bundlePrice>0){
+    options.push({model:baseModel+" + Lens",spec:"มือถือ + เลนส์",price:bundlePrice,note:note,avail:eventOpen&&bundleAvailable,packageType:"phone_lens_bundle"});
+  }
+  if(!options.length){
+    options.push({model:baseModel,spec:"สอบถามแพ็กเกจผ่าน LINE OA",price:0,note:note,avail:eventOpen,packageType:"ask"});
+  }
+  return options;
 }
 
 async function loadData(){
-  var result=await Promise.all([fetchSheet("concerts"),fetchSheet("phones")]);
-  var concertRows=result[0];
-  var phoneRows=result[1];
-
-  var concerts=concertRows.filter(function(r){return getField(r,["concert_id","id","ID","concert id"]);}).map(function(r){
+  var rows=await fetchWebReadyRows();
+  var concerts=rows.filter(isRowVisibleOnWeb).map(function(r){
+    var eventDateText=getField(r,["event_date_text","date_text","วันที่"]);
+    var eventDateRaw=getField(r,["event_date","date"]);
+    var status=String(getField(r,["event_status","booking_status_for_web"])).trim().toLowerCase();
+    var availablePhoneCount=toNumber(getField(r,["available_phone_count"]));
     return {
-      id:getField(r,["concert_id","id","ID","concert id"]),
-      name:getField(r,["name","event_name","ชื่องาน"]),
-      date:getField(r,["date","event_date","วันที่"]),
+      id:getField(r,["event_id","id","ID"]),
+      name:getField(r,["event_name","name","ชื่องาน"]),
+      date:eventDateText || formatDateFromSerial(eventDateRaw),
       venue:getField(r,["venue","location","สถานที่"]),
-      img:normalizeImageUrl(getField(r,["img","image","poster","รูป"])),
-      phones:[]
+      img:normalizeImageUrl(getField(r,["poster_image_url","img","image","poster","รูป"])),
+      headerImg:normalizeImageUrl(getField(r,["header_image_url"])),
+      webNote:getField(r,["web_note","note","หมายเหตุ"]),
+      availableCount:availablePhoneCount,
+      bookingStatus:getField(r,["booking_status_for_web"]),
+      eventStatus:status,
+      lineTemplate:getField(r,["line_message_template"]),
+      phones:buildPackageOptions(r)
     };
   });
-
-  var concertMap=new Map();
-  concerts.forEach(function(c){concertMap.set(String(c.id),c);});
-
-  phoneRows.forEach(function(p){
-    var cid=getField(p,["concert_id","id","ID","concert id"]);
-    if(!cid)return;
-    var concert=concertMap.get(String(cid));
-    if(!concert)return;
-
-    concert.phones.push({
-      model:getField(p,["model","phone","รุ่น"]),
-      spec:getField(p,["spec","detail","สเปค"]),
-      price:getField(p,["price","ราคา"]),
-      note:getField(p,["note","หมายเหตุ"]),
-      avail:isAvailable(getField(p,["avail","available","status","สถานะ"]))
-    });
-  });
-
   return concerts;
 }
 
@@ -245,6 +332,7 @@ function getAvailablePhones(concert){
 }
 
 function getAvailableCount(concert){
+  if(concert && concert.availableCount!==undefined && concert.availableCount!==null && Number(concert.availableCount)>0) return Number(concert.availableCount);
   return getAvailablePhones(concert).length;
 }
 
@@ -295,7 +383,7 @@ function getStatusBadgeText(concert){
   var count = getAvailableCount(concert);
   if(count <= 0) return "เต็มแล้ว";
   if(isSoonConcert(concert)) return "ใกล้ถึงวันงาน";
-  return "ว่าง " + count + " รุ่น";
+  return "ว่าง " + count + " เครื่อง";
 }
 
 function renderConcerts(concerts){
@@ -316,7 +404,7 @@ function renderConcerts(concerts){
   var grid=document.createElement("div");grid.className="poster-grid";
   visibleConcerts.forEach(function(c){
     var availableCount=getAvailableCount(c),available=availableCount>0;
-    var availText=available?(availableCount===1?"เหลือ 1 รุ่นสุดท้าย ✨":"ว่าง "+availableCount+" รุ่น ✨"):"เต็มแล้วน้า 😢";
+    var availText=available?(availableCount===1?"เหลือ 1 เครื่องสุดท้าย ✨":"ว่าง "+availableCount+" เครื่อง ✨"):"เต็มแล้วน้า 😢";
     var card=document.createElement("button");card.type="button";card.className="concert-card";card.setAttribute("aria-label","ดูเครื่องว่างสำหรับงาน "+(c.name||""));card.onclick=function(){showModal(c);};
     var imgWrap=document.createElement("div");imgWrap.className="poster-img-wrap";
     var badge=document.createElement("div");badge.className="status-badge"+(available?"":" full")+(isSoonConcert(c)&&available?" soon":"");badge.textContent=getStatusBadgeText(c);imgWrap.appendChild(badge);
@@ -351,7 +439,8 @@ function renderConcerts(concerts){
 }
 
 function buildBookingMessage(concert,phone){
-  return ["สวัสดีค่ะ สนใจจองมือถือกับ KK Phone Rental ค่ะ","","งาน : "+(concert.name||"-"),"รุ่น : "+((phone&&phone.model)||"-"),"ราคา : "+formatPrice(phone&&phone.price),"วันที่ : "+(concert.date||"-"),"","ชื่อเล่น : ","เวลาที่สะดวกรับเครื่อง : "].join("\n");
+  var base=(concert&&concert.lineTemplate)||"สวัสดีค่ะ สนใจจองเช่ามือถือกับ KK Phone Rental ค่ะ";
+  return [base,"","งาน : "+(concert.name||"-"),"วันที่ : "+(concert.date||"-"),"สถานที่ : "+(concert.venue||"-"),"แพ็กเกจ : "+((phone&&phone.model)||"-"),"รายละเอียด : "+((phone&&phone.spec)||"-"),"ราคา : "+formatPrice(phone&&phone.price),"","ชื่อเล่น : ","เบอร์โทร : ","เวลาที่สะดวกรับเครื่อง : "].join("\n");
 }
 
 function getLineBookingUrl(concert,phone){
@@ -369,7 +458,7 @@ function getPhoneSuitability(phone){
   if(text.indexOf("ultra")>=0||text.indexOf("pro")>=0||text.indexOf("zoom")>=0){
     return "เหมาะกับ: ถ่ายคอนเสิร์ต / ซูมระยะไกล / เก็บโมเมนต์สำคัญ";
   }
-  return "เหมาะกับ: ถ่ายภาพและวิดีโอในงานอีเวนต์";
+  return "เหมาะกับ: ถ่ายภาพและวิดีโอในงานคอนเสิร์ต / แฟนมีท / อีเวนต์";
 }
 
 function showModal(input){
