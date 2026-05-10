@@ -29,13 +29,9 @@ function applyConfigToDom(){
   });
 }
 
-// Hide past events
 var TODAY_FOR_HIDE = new Date();
 TODAY_FOR_HIDE.setHours(0,0,0,0);
 
-// Owner review modes:
-// ?debug=1      = แสดง label เตือนถ้าวันที่อ่านไม่ได้
-// ?showPast=1   = แสดงงานย้อนหลังด้วย
 var URL_PARAMS = new URLSearchParams(window.location.search);
 var DEBUG_MODE = URL_PARAMS.get("debug") === "1";
 var SHOW_PAST = URL_PARAMS.get("showPast") === "1";
@@ -113,17 +109,6 @@ function timeoutSignal(ms){
   var controller=new AbortController();
   var timer=setTimeout(function(){controller.abort();},ms);
   return {signal:controller.signal,clear:function(){clearTimeout(timer);}};
-}
-
-async function fetchJsonWithTimeout(url,ms){
-  var t=timeoutSignal(ms||9000);
-  try{
-    var res=await fetch(url,{cache:"default",signal:t.signal});
-    if(!res.ok)throw new Error("HTTP "+res.status);
-    return await res.json();
-  }finally{
-    t.clear();
-  }
 }
 
 async function retry(fn,tries,delay){
@@ -245,6 +230,25 @@ function mergeRows(primary, fallback){
   return merged;
 }
 
+// 🔵 ฟังก์ชันที่เพิ่มใหม่: ใช้หาข้อมูลคอลัมน์จากชื่อที่เป็นไปได้หลายแบบ
+function getField(row, keys) {
+  if (!row) return "";
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    if (row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== "") {
+      return row[key];
+    }
+  }
+  return "";
+}
+
+// 🔵 ฟังก์ชันที่เพิ่มใหม่: แปลงตัวเลขให้มีคอมม่าและใส่หน่วย บาท/วัน
+function formatPrice(num) {
+  var n = Number(num);
+  if (isNaN(n) || n <= 0) return "0";
+  return n.toLocaleString("th-TH") + " บาท/วัน";
+}
+
 function isRowVisibleOnWeb(row){
   var action=String(getField(row,["action_for_web","action","web_action"])).trim().toLowerCase();
   var health=String(getField(row,["data_health"])).trim().toUpperCase();
@@ -267,6 +271,7 @@ function buildPackageOptions(row){
   var phoneAvailable=toBool(getField(row,["phone_only_available"])) || toNumber(getField(row,["available_phone_count"]))>0;
   var lensAvailable=toBool(getField(row,["lens_only_available"])) || toNumber(getField(row,["available_lens_count"]))>0;
   var bundleAvailable=toBool(getField(row,["phone_lens_available"])) || (phoneAvailable && lensAvailable && bundlePrice>0);
+  
   if(phonePrice>0){
     options.push({model:baseModel,spec:"เฉพาะมือถือ",price:phonePrice,note:note,avail:eventOpen&&phoneAvailable,packageType:"phone_only"});
   }
@@ -283,16 +288,6 @@ function buildPackageOptions(row){
 }
 
 async function loadData(){
-  // v7.4: ใช้ Vercel API เป็นทางหลัก เพื่อลดปัญหา browser CORS เวลา fetch Google Sheet โดยตรง
-  try{
-    var apiUrl=(APP_CONFIG.eventsApiUrl || "/api/events") + "?ts=" + Date.now();
-    var apiData=await fetchJsonWithTimeout(apiUrl,10000);
-    if(apiData && Array.isArray(apiData.events)) return apiData.events;
-    if(Array.isArray(apiData)) return apiData;
-  }catch(apiError){
-    console.warn("Events API failed, falling back to direct sheet fetch", apiError);
-  }
-
   var result=await Promise.all([
     fetchWebReadyRows(),
     fetchEventRows().catch(function(){return [];})
@@ -393,7 +388,6 @@ function parseEventDate(dateStr){
       }
     }
   }
-
   return null;
 }
 
