@@ -1,9 +1,7 @@
-// KK Phone Rental v9.2 — Fast Load Balanced (No Query Overhead)
-// - Single Source of Truth (ดึงแค่ 08_Web_Ready)
-// - เอา &tq= ออก เพื่อให้ Google พ่น CSV ทันที (โหลดไวที่สุด)
-// - JavaScript Client-side Filtering
+// KK Phone Rental v9.1 — Ultimate Optimized + FAQ Restored
+// - Single Source of Truth (08_Web_Ready)
+// - Server-Side Filtering via Google Visualization Query
 // - SessionStorage Caching (3 minutes)
-// - FAQ & UI ครบถ้วน
 
 var APP_CONFIG = window.KK_CONFIG || {};
 var SHEET_ID = APP_CONFIG.sheetId || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
@@ -15,7 +13,7 @@ var LINE_DIRECT_URL = APP_CONFIG.lineDirectUrl || "https://line.me/R/ti/p/%40827
 var concertsData = [];
 var currentFilter = "all";
 
-// --- ส่วนจัดการ UI ---
+// --- ส่วนจัดการ UI เริ่มต้น ---
 function applyConfigToDom(){
   if(APP_CONFIG.headerImage){
     var headerImg=document.querySelector(".brand-header-img");
@@ -70,7 +68,7 @@ function setImageWithFallback(img, urls){
   setNext();
 }
 
-// --- ส่วนดึงข้อมูล ---
+// --- ส่วนดึงข้อมูล (Optimized) ---
 function timeoutSignal(ms){
   var controller=new AbortController();
   var timer=setTimeout(function(){controller.abort();},ms);
@@ -148,7 +146,6 @@ function formatDateFromSerial(serial){
   return String(d.getUTCDate()).padStart(2,"0")+"/"+String(d.getUTCMonth()+1).padStart(2,"0")+"/"+d.getUTCFullYear();
 }
 
-// 🔵 โหลดข้อมูลโดยไม่ใช้ Google Query เพื่อลดภาระการคำนวณฝั่ง Server (โหลดไวขึ้น)
 async function fetchWebReadyRows(){
   var cacheKey = "kk_events_cache";
   var cacheTimeKey = "kk_events_cache_time";
@@ -160,8 +157,8 @@ async function fetchWebReadyRows(){
     return JSON.parse(cachedData);
   }
 
-  // ❌ ลบ &tq= ออก ให้รับไฟล์ CSV ดิบเลย
-  var url="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(WEB_SHEET_NAME)+"&range="+encodeURIComponent(WEB_RANGE);
+  var query = encodeURIComponent("SELECT * WHERE T = 'show' AND AA = 'OK' AND G = TRUE");
+  var url="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(WEB_SHEET_NAME)+"&range="+encodeURIComponent(WEB_RANGE)+"&tq="+query;
   
   var csv=await retry(function(){return fetchTextWithTimeout(url,9000);},2,700);
   var result = csvRowsToObjects(parseCsv(csv));
@@ -170,17 +167,6 @@ async function fetchWebReadyRows(){
   sessionStorage.setItem(cacheTimeKey, now.toString());
 
   return result;
-}
-
-// 🔵 นำฟังก์ชันคัดกรองข้อมูลของฝั่งเว็บกลับมา
-function isRowVisibleOnWeb(row){
-  var action=String(getField(row,["action_for_web","action","web_action"])).trim().toLowerCase();
-  var health=String(getField(row,["data_health"])).trim().toUpperCase();
-  var status=String(getField(row,["event_status","booking_status_for_web"])).trim().toLowerCase();
-  if(action && action!=="show")return false;
-  if(health && health!=="OK")return false;
-  if(status==="draft"||status==="cancelled"||status==="closed")return false;
-  return toBool(getField(row,["active_on_web","show_on_web","active"]));
 }
 
 function buildPackageOptions(row){
@@ -206,9 +192,7 @@ function buildPackageOptions(row){
 
 async function loadData(){
   var rows = await fetchWebReadyRows();
-  
-  // 🔵 กรองข้อมูลด้วย JavaScript เร็วกว่า
-  var concerts = rows.filter(isRowVisibleOnWeb).map(function(r){
+  var concerts = rows.map(function(r){
     var eventDateText=getField(r,["event_date_text","date_text","วันที่"]);
     var eventDateRaw=getField(r,["event_date","date"]);
     var rawPoster=getField(r,["poster_image_url","img","image","poster","รูป"]);
@@ -230,7 +214,7 @@ async function loadData(){
   return concerts;
 }
 
-// --- ส่วนจัดการการแสดงผล ---
+// --- ส่วนจัดการการแสดงผล กรองวันที่ ---
 function parseEventDate(dateStr){
   var s = String(dateStr || "").trim(); if(!s) return null;
   var m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
@@ -303,4 +287,121 @@ function renderConcerts(concerts){
 
   var grid=document.createElement("div"); grid.className="poster-grid";
   visibleConcerts.forEach(function(c){
-    var availableCount=getAvailableCount(c), available
+    var availableCount=getAvailableCount(c), available=availableCount>0;
+    var card=document.createElement("button"); card.className="concert-card"; card.onclick=function(){showModal(c);};
+    var imgWrap=document.createElement("div"); imgWrap.className="poster-img-wrap";
+    
+    var badgeText = availableCount <= 0 ? "เต็มแล้ว" : (isSoonConcert(c) ? "ใกล้ถึงวันงาน" : "ว่าง " + availableCount + " เครื่อง");
+    var badge=document.createElement("div"); badge.className="status-badge"+(available?"":" full")+(isSoonConcert(c)&&available?" soon":""); badge.textContent=badgeText; imgWrap.appendChild(badge);
+    
+    var imgUrl=c.img?String(c.img).trim():"";
+    if(imgUrl){
+      var img=document.createElement("img"); img.alt=c.name; img.loading="lazy";
+      setImageWithFallback(img, c.imgCandidates&&c.imgCandidates.length?c.imgCandidates:[imgUrl]);
+      imgWrap.appendChild(img);
+    }else{
+      var ph=document.createElement("div"); ph.className="poster-placeholder"; ph.innerHTML='<span>ยังไม่มีรูป</span>'; imgWrap.appendChild(ph);
+    }
+    
+    var info=document.createElement("div"); info.className="poster-info";
+    var date=document.createElement("div"); date.className="pi-date"; date.textContent=c.date||"";
+    var name=document.createElement("div"); name.className="pi-name"; name.textContent=c.name||"";
+    var avail=document.createElement("div"); avail.className="pi-avail"+(available?"":" none"); avail.textContent=available?"ว่าง "+availableCount+" เครื่อง ✨":"เต็มแล้วน้า 😢";
+    var tap=document.createElement("div"); tap.className="pi-tap"+(available?"":" full"); tap.textContent=available?"ดูรุ่นที่ว่าง / จองคิว":"เต็มแล้ว";
+    
+    info.appendChild(date); info.appendChild(name); info.appendChild(avail); info.appendChild(tap);
+    card.appendChild(imgWrap); card.appendChild(info); grid.appendChild(card);
+  });
+  el.appendChild(grid);
+}
+
+function showModal(input){
+  var c = (typeof input === "number") ? concertsData[input] : input; if(!c)return;
+  document.getElementById("modal-title").textContent=c.name||"รายละเอียดงาน";
+  document.getElementById("modal-date").textContent="📅 "+(c.date||"-");
+  document.getElementById("modal-venue").textContent="📍 "+(c.venue||"-");
+  var list=document.getElementById("phone-list"); list.innerHTML="";
+  
+  var availablePhones=getAvailablePhones(c);
+  if(!availablePhones.length){ list.innerHTML='<div class="full-booked-box">งานนี้เต็มแล้วน้า 🙏<br>ทักมาถามรอบอื่นได้เลย 💙</div>'; openModal(); return; }
+  
+  availablePhones.forEach(function(p){
+    var row=document.createElement("div"); row.className="phone-row";
+    var info=document.createElement("div"); info.className="ph-info";
+    var model=document.createElement("div"); model.className="ph-model"; model.textContent=p.model||"";
+    var spec=document.createElement("div"); spec.className="ph-spec"; spec.textContent=p.spec||"";
+    info.appendChild(model); info.appendChild(spec);
+    
+    var right=document.createElement("div"); right.className="ph-right";
+    var price=document.createElement("div"); price.className="ph-price"; price.textContent=formatPrice(p.price);
+    
+    var msg = (c.lineTemplate||"สนใจจองเช่ามือถือค่ะ")+"\nงาน: "+c.name+"\nแพ็กเกจ: "+p.model;
+    var link = "https://line.me/R/oaMessage/"+encodeURIComponent(LINE_OA_ID)+"/?"+encodeURIComponent(msg);
+    var btn=document.createElement("a"); btn.className="badge book-pill"; btn.textContent="จองรุ่นนี้"; btn.href=link; btn.target="_blank";
+    
+    right.appendChild(price); right.appendChild(btn);
+    row.appendChild(info); row.appendChild(right); list.appendChild(row);
+  });
+  openModal();
+}
+
+function openModal(){ document.getElementById("overlay").classList.add("active"); document.body.style.overflow="hidden"; }
+function closeModal(e){ if(e && e.target!==document.getElementById("overlay"))return; document.getElementById("overlay").classList.remove("active"); document.body.style.overflow=""; }
+
+// 🔵 --- คืนชีพส่วนจัดการ FAQ --- 🔵
+function openFaq(){
+  var el=document.getElementById("faqOverlay");
+  if(el){el.classList.add("active");document.body.style.overflow="hidden";}
+}
+function closeFaq(e){
+  if(e && e.target!==document.getElementById("faqOverlay"))return;
+  var el=document.getElementById("faqOverlay");
+  if(el){el.classList.remove("active");document.body.style.overflow="";}
+}
+function toggleFaq(btn){
+  var item=btn&&btn.parentElement;
+  if(item){
+    item.classList.toggle("active");
+    btn.setAttribute("aria-expanded",item.classList.contains("active")?"true":"false");
+  }
+}
+
+// --- Event Listener รวบยอด ---
+document.addEventListener("DOMContentLoaded",function(){
+  applyConfigToDom(); setUpdateDate();
+  
+  document.querySelectorAll(".filter-btn").forEach(function(btn){
+    btn.addEventListener("click",function(){setFilter(btn.getAttribute("data-filter") || "all");});
+  });
+  
+  // Modal งาน
+  var overlay=document.getElementById("overlay"); if(overlay)overlay.addEventListener("click",closeModal);
+  var closeBtn=document.getElementById("modal-close"); if(closeBtn)closeBtn.addEventListener("click",function(){closeModal();});
+
+  // 🔵 ผูก Event ให้ FAQ 🔵
+  var faqOpenBtn=document.getElementById("faq-open-btn");
+  if(faqOpenBtn)faqOpenBtn.addEventListener("click",openFaq);
+
+  var faqCloseBtn=document.getElementById("faq-close-btn");
+  if(faqCloseBtn)faqCloseBtn.addEventListener("click",function(){closeFaq();});
+
+  document.querySelectorAll(".faq-q").forEach(function(btn){
+    btn.addEventListener("click",function(){toggleFaq(btn);});
+  });
+
+  var faqOverlay=document.getElementById("faqOverlay");
+  if(faqOverlay)faqOverlay.addEventListener("click",closeFaq);
+
+  // โหลดข้อมูล
+  loadData().then(function(concerts){
+    concertsData=concerts; renderConcerts(concertsData);
+  }).catch(function(e){
+    var el=document.getElementById("content");
+    if(el)el.innerHTML='<div class="empty-state"><h3>โหลดข้อมูลไม่สำเร็จชั่วคราว</h3><p>ลองรีเฟรชใหม่อีกครั้งนะครับ</p></div>';
+  });
+});
+
+document.addEventListener("keydown",function(e){ 
+  if(e.key==="Escape"&&document.getElementById("overlay").classList.contains("active"))closeModal(); 
+  if(e.key==="Escape"&&document.getElementById("faqOverlay")&&document.getElementById("faqOverlay").classList.contains("active"))closeFaq();
+});
