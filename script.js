@@ -1,7 +1,40 @@
-// Google Sheet and LINE OA configuration
-var SHEET_ID = "1_fjHFCSrPbel1Fy1yBeBbAvhujVTW4FcjwiN5l5sY48";
-var LINE_OA_ID = "@827blnmo";
+// KK Phone Rental v7 — Frontend Optimized
+// - Config แยกไว้ใน config.js
+// - Filter งาน / Badge สถานะ / Empty state / Error state
+// - Lazy image + fallback image
+
+var APP_CONFIG = window.KK_CONFIG || {};
+var SHEET_ID = APP_CONFIG.sheetId || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
+var LINE_OA_ID = APP_CONFIG.lineOAId || "@827blnmo";
+var LINE_DIRECT_URL = APP_CONFIG.lineDirectUrl || "https://line.me/R/ti/p/%40827blnmo";
 var concertsData = [];
+var currentFilter = "all";
+
+function applyConfigToDom(){
+  if(APP_CONFIG.headerImage){
+    var headerImg=document.querySelector(".brand-header-img");
+    if(headerImg) headerImg.src=APP_CONFIG.headerImage;
+  }
+  if(APP_CONFIG.xUrl){
+    document.querySelectorAll("a.quick-link").forEach(function(a){
+      a.href=APP_CONFIG.xUrl;
+    });
+  }
+  document.querySelectorAll("a.line-btn, a.sticky-line").forEach(function(a){
+    a.href=LINE_DIRECT_URL;
+  });
+}
+
+// Hide past events
+var TODAY_FOR_HIDE = new Date();
+TODAY_FOR_HIDE.setHours(0,0,0,0);
+
+// Owner review modes:
+// ?debug=1      = แสดง label เตือนถ้าวันที่อ่านไม่ได้
+// ?showPast=1   = แสดงงานย้อนหลังด้วย
+var URL_PARAMS = new URLSearchParams(window.location.search);
+var DEBUG_MODE = URL_PARAMS.get("debug") === "1";
+var SHOW_PAST = URL_PARAMS.get("showPast") === "1";
 
 function showBrandFallback(){
   var a=document.getElementById("brandImageCard"),b=document.getElementById("brandFallback");
@@ -77,7 +110,7 @@ function formatPrice(value){
 
 function isAvailable(value){
   var v=String(value||"").trim().toUpperCase();
-  return v==="TRUE"||v==="1"||v==="YES"||v==="Y"||v==="ว่าง";
+  return v==="TRUE"||v==="1"||v==="YES"||v==="Y"||v==="ว่าง"||v==="AVAILABLE";
 }
 
 async function loadData(){
@@ -117,29 +150,6 @@ async function loadData(){
   return concerts;
 }
 
-
-
-
-// Hide past events
-// ใช้วันที่จริงอัตโนมัติจากเครื่องผู้ใช้
-var TODAY_FOR_HIDE = new Date();
-TODAY_FOR_HIDE.setHours(0,0,0,0);
-
-// Owner review modes:
-// ?debug=1      = แสดง label เตือนถ้าวันที่อ่านไม่ได้
-// ?showPast=1   = แสดงงานย้อนหลังด้วย
-var URL_PARAMS = new URLSearchParams(window.location.search);
-var DEBUG_MODE = URL_PARAMS.get("debug") === "1";
-var SHOW_PAST = URL_PARAMS.get("showPast") === "1";
-
-function makeValidDate(year, monthIndex, day){
-  var d = new Date(year, monthIndex, day);
-  if(d.getFullYear() !== year || d.getMonth() !== monthIndex || d.getDate() !== day){
-    return null;
-  }
-  return d;
-}
-
 function isValidDateParts(dateObj,year,monthIndex,day){
   return dateObj instanceof Date && !isNaN(dateObj.getTime()) &&
     dateObj.getFullYear()===year &&
@@ -151,7 +161,6 @@ function parseEventDate(dateStr){
   var s = String(dateStr || "").trim();
   if(!s) return null;
 
-  // dd/mm/yyyy or dd-mm-yyyy
   var m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if(m){
     var d1 = parseInt(m[1],10);
@@ -162,7 +171,6 @@ function parseEventDate(dateStr){
     return isValidDateParts(date1,y1,mo1,d1) ? date1 : null;
   }
 
-  // yyyy-mm-dd or yyyy/mm/dd
   m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
   if(m){
     var y2 = parseInt(m[1],10);
@@ -173,22 +181,7 @@ function parseEventDate(dateStr){
     return isValidDateParts(date2,y2,mo2,d2) ? date2 : null;
   }
 
-  // 09 May 2026 / 9 May 2026
-  var enMonths = {
-    jan:0,january:0,
-    feb:1,february:1,
-    mar:2,march:2,
-    apr:3,april:3,
-    may:4,
-    jun:5,june:5,
-    jul:6,july:6,
-    aug:7,august:7,
-    sep:8,sept:8,september:8,
-    oct:9,october:9,
-    nov:10,november:10,
-    dec:11,december:11
-  };
-
+  var enMonths = {jan:0,january:0,feb:1,february:1,mar:2,march:2,apr:3,april:3,may:4,jun:5,june:5,jul:6,july:6,aug:7,august:7,sep:8,sept:8,september:8,oct:9,october:9,nov:10,november:10,dec:11,december:11};
   m = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
   if(m){
     var d3 = parseInt(m[1],10);
@@ -201,22 +194,7 @@ function parseEventDate(dateStr){
     }
   }
 
-  // Thai month formats
-  var thMonths = {
-    "ม.ค.":0,"มกราคม":0,
-    "ก.พ.":1,"กุมภาพันธ์":1,
-    "มี.ค.":2,"มีนาคม":2,
-    "เม.ย.":3,"เมษายน":3,
-    "พ.ค.":4,"พฤษภาคม":4,
-    "มิ.ย.":5,"มิถุนายน":5,
-    "ก.ค.":6,"กรกฎาคม":6,
-    "ส.ค.":7,"สิงหาคม":7,
-    "ก.ย.":8,"กันยายน":8,
-    "ต.ค.":9,"ตุลาคม":9,
-    "พ.ย.":10,"พฤศจิกายน":10,
-    "ธ.ค.":11,"ธันวาคม":11
-  };
-
+  var thMonths = {"ม.ค.":0,"มกราคม":0,"ก.พ.":1,"กุมภาพันธ์":1,"มี.ค.":2,"มีนาคม":2,"เม.ย.":3,"เมษายน":3,"พ.ค.":4,"พฤษภาคม":4,"มิ.ย.":5,"มิถุนายน":5,"ก.ค.":6,"กรกฎาคม":6,"ส.ค.":7,"สิงหาคม":7,"ก.ย.":8,"กันยายน":8,"ต.ค.":9,"ตุลาคม":9,"พ.ย.":10,"พฤศจิกายน":10,"ธ.ค.":11,"ธันวาคม":11};
   for(var key in thMonths){
     if(s.indexOf(key) >= 0){
       var parts = s.split(key);
@@ -246,12 +224,9 @@ function isDateUnreadable(concert){
   return !!(concert && concert.date && !parseEventDate(concert.date));
 }
 
-
-
-
 function getConcertSortTime(concert){
   var d = parseEventDate(concert && concert.date);
-  if(!d) return Number.MAX_SAFE_INTEGER; // วันที่อ่านไม่ได้ให้ไปท้ายสุด
+  if(!d) return Number.MAX_SAFE_INTEGER;
   d.setHours(0,0,0,0);
   return d.getTime();
 }
@@ -260,35 +235,100 @@ function sortConcertsByDateAsc(concerts){
   return concerts.slice().sort(function(a,b){
     var timeA = getConcertSortTime(a);
     var timeB = getConcertSortTime(b);
-
     if(timeA !== timeB) return timeA - timeB;
-
-    // ถ้าวันเดียวกัน ให้เรียงตามชื่อเพื่อให้ลำดับนิ่ง
     return String(a.name || "").localeCompare(String(b.name || ""), "th");
   });
 }
 
+function getAvailablePhones(concert){
+  return ((concert && concert.phones) || []).filter(function(p){return p.avail;});
+}
+
+function getAvailableCount(concert){
+  return getAvailablePhones(concert).length;
+}
+
+function isSoonConcert(concert){
+  var d = parseEventDate(concert && concert.date);
+  if(!d) return false;
+  d.setHours(0,0,0,0);
+  var diffDays = Math.round((d.getTime() - TODAY_FOR_HIDE.getTime()) / 86400000);
+  return diffDays >= 0 && diffDays <= 14;
+}
+
+function getFilteredConcerts(concerts){
+  var visible = sortConcertsByDateAsc((concerts || []).filter(shouldShowConcert));
+  if(currentFilter === "available") return visible.filter(function(c){return getAvailableCount(c) > 0;});
+  if(currentFilter === "full") return visible.filter(function(c){return getAvailableCount(c) === 0;});
+  if(currentFilter === "soon") return visible.filter(isSoonConcert);
+  return visible;
+}
+
+function getEmptyMessage(){
+  if(currentFilter === "available") return "ยังไม่มีงานที่มีเครื่องว่างตอนนี้น้า 💙";
+  if(currentFilter === "full") return "ยังไม่มีงานที่เต็มแล้วตอนนี้น้า ✨";
+  if(currentFilter === "soon") return "ยังไม่มีงานใกล้ถึงใน 14 วันน้า 💙";
+  return "ยังไม่มีงานที่เปิดให้จองตอนนี้น้า 💙";
+}
+
+function renderEmptyState(message,detail){
+  var el=document.getElementById("content");
+  if(!el)return;
+  el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+message+'</h3><p>'+(detail||'ถ้ามีงานที่อยากเช่า สามารถทัก LINE OA มาสอบถามได้เลย')+'</p><a class="empty-line-btn" href="'+LINE_DIRECT_URL+'" target="_blank" rel="noopener">ทัก LINE OA</a></div>';
+}
+
+function updateFilterButtons(){
+  document.querySelectorAll(".filter-btn").forEach(function(btn){
+    var active = btn.getAttribute("data-filter") === currentFilter;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function setFilter(filter){
+  currentFilter = filter || "all";
+  updateFilterButtons();
+  renderConcerts(concertsData);
+}
+
+function getStatusBadgeText(concert){
+  var count = getAvailableCount(concert);
+  if(count <= 0) return "เต็มแล้ว";
+  if(isSoonConcert(concert)) return "ใกล้ถึงวันงาน";
+  return "ว่าง " + count + " รุ่น";
+}
+
 function renderConcerts(concerts){
-  var el=document.getElementById("content");el.innerHTML="";
-  if(!concerts||!concerts.length){el.innerHTML='<div class="error-box">ยังไม่มีข้อมูลงานตอนนี้น้า<br><small>เพิ่มข้อมูลใน Google Sheet ได้เลย</small></div>';return;}
+  var el=document.getElementById("content");
+  if(!el)return;
+  el.innerHTML="";
+  if(!concerts||!concerts.length){
+    renderEmptyState("ยังไม่มีข้อมูลงานตอนนี้น้า 💙","เพิ่มข้อมูลใน Google Sheet หลังบ้าน แล้วรีเฟรชหน้านี้ได้เลย");
+    return;
+  }
 
-  var visibleConcerts = sortConcertsByDateAsc(concerts.filter(shouldShowConcert));
-
+  var visibleConcerts = getFilteredConcerts(concerts);
   if(!visibleConcerts.length){
-    el.innerHTML='<div class="error-box">ยังไม่มีงานที่กำลังจะมาถึงตอนนี้น้า<br><small>งานที่วันที่ผ่านมาแล้วจะถูกซ่อนอัตโนมัติ</small></div>';
+    renderEmptyState(getEmptyMessage());
     return;
   }
 
   var grid=document.createElement("div");grid.className="poster-grid";
-  visibleConcerts.forEach(function(c,i){
-    var phones=c.phones||[],availablePhones=phones.filter(function(p){return p.avail;}),availableCount=availablePhones.length,available=availableCount>0;
-    var availText=available?(availableCount===1?"เหลือ 1 เครื่องสุดท้าย ✨":"ว่าง "+availableCount+" เครื่อง ✨"):"เต็มแล้วน้า 😢";
+  visibleConcerts.forEach(function(c){
+    var availableCount=getAvailableCount(c),available=availableCount>0;
+    var availText=available?(availableCount===1?"เหลือ 1 รุ่นสุดท้าย ✨":"ว่าง "+availableCount+" รุ่น ✨"):"เต็มแล้วน้า 😢";
     var card=document.createElement("button");card.type="button";card.className="concert-card";card.setAttribute("aria-label","ดูเครื่องว่างสำหรับงาน "+(c.name||""));card.onclick=function(){showModal(c);};
     var imgWrap=document.createElement("div");imgWrap.className="poster-img-wrap";
-    var badge=document.createElement("div");badge.className="status-badge"+(available?"":" full");badge.textContent=available?(availableCount===1?"เหลือ 1 เครื่องสุดท้าย":"ว่างน้า"):"เต็มแล้ว";imgWrap.appendChild(badge);
+    var badge=document.createElement("div");badge.className="status-badge"+(available?"":" full")+(isSoonConcert(c)&&available?" soon":"");badge.textContent=getStatusBadgeText(c);imgWrap.appendChild(badge);
     var imgUrl=c.img?String(c.img).trim():"";
-    if(imgUrl){var img=document.createElement("img");img.src=imgUrl;img.alt=c.name||"Event poster";img.loading="lazy";img.onerror=function(){imgWrap.innerHTML='<div class="poster-placeholder"><span>ยังไม่มีรูป</span></div>';};imgWrap.appendChild(img);}
-    else{imgWrap.innerHTML='<div class="poster-placeholder"><span>ยังไม่มีรูป</span></div>';}
+    if(imgUrl){
+      var img=document.createElement("img");
+      img.src=imgUrl;img.alt=c.name||"Event poster";img.loading="lazy";img.decoding="async";
+      img.onerror=function(){img.remove(); if(!imgWrap.querySelector(".poster-placeholder")){var ph=document.createElement("div");ph.className="poster-placeholder";ph.innerHTML='<span>ยังไม่มีรูป</span>';imgWrap.appendChild(ph);}};
+      imgWrap.appendChild(img);
+    }else{
+      var placeholder=document.createElement("div");placeholder.className="poster-placeholder";placeholder.innerHTML='<span>ยังไม่มีรูป</span>';imgWrap.appendChild(placeholder);
+    }
     var info=document.createElement("div");info.className="poster-info";
     var date=document.createElement("div");date.className="pi-date";date.textContent=c.date||"";
     var name=document.createElement("div");name.className="pi-name";name.textContent=c.name||"";
@@ -296,10 +336,6 @@ function renderConcerts(concerts){
     var tap=document.createElement("div");
     tap.className="pi-tap"+(available?"":" full");
     tap.textContent=available?"ดูรุ่นที่ว่าง / จองคิว":"เต็มแล้ว";
-    tap.style.width="100%";
-    tap.style.alignSelf="stretch";
-    tap.style.marginTop="auto";
-    tap.style.boxSizing="border-box";
     info.appendChild(date);
     if(DEBUG_MODE && isDateUnreadable(c)){
       var warn=document.createElement("div");
@@ -343,7 +379,7 @@ function showModal(input){
   document.getElementById("modal-date").textContent="📅 "+(c.date||"-");
   document.getElementById("modal-venue").textContent="📍 "+(c.venue||"-");
   var list=document.getElementById("phone-list");list.innerHTML="";
-  var availablePhones=(c.phones||[]).filter(function(p){return p.avail;});
+  var availablePhones=getAvailablePhones(c);
   if(!availablePhones.length){list.innerHTML='<div class="full-booked-box">งานนี้เต็มแล้วน้า 🙏<br>ทักมาถามรอบอื่นได้เลย 💙</div>';openModal();return;}
   availablePhones.forEach(function(p){
     var row=document.createElement("div");row.className="phone-row";
@@ -375,7 +411,10 @@ function openModal(){
   document.getElementById("overlay").classList.add("active");
   document.body.style.overflow="hidden";
 }
-function showError(m){document.getElementById("content").innerHTML='<div class="error-box">'+m+'</div>';}
+function showError(m){
+  var el=document.getElementById("content");
+  if(el)el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>โหลดข้อมูลคิวไม่สำเร็จชั่วคราวน้า</h3><p>'+m+'</p><a class="empty-line-btn" href="'+LINE_DIRECT_URL+'" target="_blank" rel="noopener">ทัก LINE OA มาสอบถาม</a></div>';
+}
 
 function openFaq(){
   var el=document.getElementById("faqOverlay");
@@ -394,8 +433,17 @@ function toggleFaq(btn){
   }
 }
 
+function initFilters(){
+  document.querySelectorAll(".filter-btn").forEach(function(btn){
+    btn.addEventListener("click",function(){setFilter(btn.getAttribute("data-filter") || "all");});
+  });
+  updateFilterButtons();
+}
+
 document.addEventListener("DOMContentLoaded",function(){
+  applyConfigToDom();
   setUpdateDate();
+  initFilters();
 
   var brandImg=document.querySelector(".brand-header-img");
   if(brandImg)brandImg.addEventListener("error",showBrandFallback);
@@ -423,9 +471,11 @@ document.addEventListener("DOMContentLoaded",function(){
     concertsData=concerts;
     renderConcerts(concertsData);
   }).catch(function(e){
-    showError("โหลดข้อมูลไม่สำเร็จ<br><small>"+e.message+"</small><br><small>เช็กว่า Google Sheet แชร์เป็น Anyone with the link และมีชีตชื่อ concerts / phones</small>");
+    console.error(e);
+    showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA");
   });
 });
+
 document.addEventListener("keydown",function(e){
   if(e.key==="Escape"&&document.getElementById("overlay").classList.contains("active"))closeModal();
   if(e.key==="Escape"&&document.getElementById("faqOverlay")&&document.getElementById("faqOverlay").classList.contains("active"))closeFaq();

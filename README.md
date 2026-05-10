@@ -1,18 +1,20 @@
-# KK Phone Rental — Frontend v9.3 Booking Form
+# KK Phone Rental v7 — Frontend Optimized
 
-Static frontend สำหรับ deploy ผ่าน Vercel และใช้งานกับ Backend v9 โดยอ่านข้อมูลจากชีต `08_Web_Ready`
+Static frontend สำหรับอัปโหลดขึ้น GitHub และ deploy ผ่าน Vercel
 
-## สรุปเวอร์ชันนี้
+## สิ่งที่ปรับใน v7
 
-v9.3 คือเวอร์ชันที่ต่อจาก v9.2 โดยเพิ่มฟอร์มก่อน redirect ไป LINE OA เพื่อให้ข้อความจองมีข้อมูลครบขึ้น:
+- เปลี่ยน Google Sheet หลังบ้านเป็นชีตใหม่: `12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU`
+- แยกค่าหลักไว้ใน `config.js`
+- เพิ่ม filter หน้าเว็บ: ทั้งหมด / ว่าง / เต็ม / ใกล้ถึง
+- เพิ่ม badge บนการ์ดงาน: ว่างกี่รุ่น / เต็มแล้ว / ใกล้ถึงวันงาน
+- ปรับ empty state และ error state ให้ลูกค้าเข้าใจง่ายขึ้น
+- Optimize รูปภาพ: header eager load, poster lazy load + async decode
+- เพิ่ม canonical และปรับ social preview URL เป็น Vercel
+- คง FAQ เวอร์ชันล่าสุดไว้แล้ว
+- ลบหัวข้อยาวหน้า hero ตามคำขอล่าสุด เหลือเฉพาะขั้นตอนจอง + หมายเหตุ LINE OA
 
-- ชื่อเล่น
-- เบอร์โทร
-- เวลาที่สะดวกรับเครื่อง
-
-ลูกค้าจะกดปุ่มจอง → กรอกข้อมูลสั้น ๆ → ระบบพาไป LINE OA พร้อมข้อความที่จัดรูปแบบให้อัตโนมัติ
-
-## ไฟล์หลัก
+## โครงสร้างไฟล์
 
 ```text
 index.html
@@ -21,78 +23,46 @@ script.js
 config.js
 favicon.png
 apple-touch-icon.png
-vercel.json
+README.md
 ```
 
-## ตั้งค่า Google Sheet
+## วิธีใช้กับ GitHub + Vercel
 
-เปิด `config.js` แล้วแก้เฉพาะจุดนี้ ถ้าใช้ชีตใหม่:
+1. แตกไฟล์ ZIP
+2. อัปโหลดไฟล์ทั้งหมดเข้า GitHub repository
+3. เชื่อม repo กับ Vercel
+4. Deploy ได้เลย เพราะเป็น static site ไม่ต้อง build command
+
+## การแก้ config หลัก
+
+เปิดไฟล์ `config.js` แล้วแก้ค่าตามต้องการ เช่น Google Sheet, LINE OA, รูปหัวเว็บ
 
 ```js
-SHEET_ID: "ใส่ Google Sheet ID ใหม่"
+window.KK_CONFIG = {
+  sheetId: "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU",
+  lineOAId: "@827blnmo",
+  lineDirectUrl: "https://line.me/R/ti/p/%40827blnmo"
+};
 ```
 
-Google Sheet ต้องแชร์เป็น `Anyone with the link` และมีชีตชื่อ `08_Web_Ready`
+## หมายเหตุ Google Sheet
 
-## Backend v9 fields ที่ frontend ใช้
+ต้องแชร์ Google Sheet เป็น Anyone with the link และมีชีตชื่อ:
 
-Frontend อ่านคอลัมน์หลักจาก `08_Web_Ready` เช่น:
-
-- `event_id`
-- `event_name`
-- `event_date` / `event_date_text`
-- `venue`
-- `poster_image_url`
-- `phone_model_display`
-- `phone_price`, `lens_price`, `bundle_price`
-- `show_lens_option`
-- `available_phone_count`, `available_lens_count`
-- `booking_status_for_web`
-- `action_for_web`
-- `line_message_template`
-- `phone_only_available`, `phone_lens_available`
-- `web_note`
-
-## action_for_web ที่รองรับ
-
-```text
-show
-show_phone_only
-show_full
-hide
-```
-
-## ข้อความ LINE ที่ระบบสร้าง
-
-ข้อความจะมีข้อมูลประมาณนี้:
-
-```text
-สวัสดีค่ะ สนใจจองเช่ามือถือกับ KK Phone Rental
-แพ็กเกจ: เครื่อง + Lens
-ชื่องาน: ...
-วันที่: ...
-สถานที่: ...
-รุ่น: ...
-ชื่อเล่น: ...
-เบอร์โทร: ...
-เวลาที่สะดวกรับเครื่อง: ...
-
-รบกวนคอนเฟิร์มคิวให้หน่อยค่ะ
-```
-
-## Deploy บน Vercel
-
-1. แตก zip
-2. อัปโหลดไฟล์ทั้งหมดเข้า GitHub repo
-3. Deploy ผ่าน Vercel ได้เลย ไม่ต้องตั้ง build command
-
-## หมายเหตุ
-
-- `config.js` เป็นจุดแก้ Sheet ID / LINE OA / X เพียงจุดเดียว
-- ค่า `HIDE_PAST_EVENTS: true` จะช่วยซ่อนงานที่เลยวันไปแล้วอีกชั้น
-- ถ้ารูปโปสเตอร์โหลดไม่ได้ เว็บจะ fallback เป็นพื้นหลังสีแบรนด์และชื่อ event โดยไม่ทำให้ card พัง
-- ฟอร์มจองตรวจชื่อเล่น เบอร์โทร และเวลารับเครื่องก่อนเด้งไป LINE OA
+- `concerts`
+- `phones`
 
 
-## V10 UI-Locked Note
-ไฟล์ชุดนี้ล็อกหน้าตา/ข้อความหลักให้เหมือน Frontend v9.3 เดิม แต่เพิ่ม logic หลังบ้านสำหรับ Backend v10 เช่น lens-only, พ.ศ., Google Drive image fallback และ LINE message ที่สะอาดขึ้น
+## สิ่งที่ตรวจและแก้เพิ่มในไฟล์ audited
+
+- ลบ `README.txt` เดิมที่ยังพูดถึง Netlify เพื่อไม่ให้สับสนกับ GitHub/Vercel
+- ปรับข้อความ visible ทั้งหมดจาก `Line OA` เป็น `LINE OA` ให้สม่ำเสมอ
+- เพิ่มการอ่านค่า `headerImage`, `xUrl`, และลิงก์ LINE จาก `config.js` เพื่อให้แก้ข้อมูลหลักได้จากจุดเดียวมากขึ้น
+- ตรวจ syntax ของ `script.js` และ `config.js` แล้วไม่พบ syntax error
+
+## หมายเหตุสำคัญก่อน deploy
+
+1. Google Sheet ต้องเปิดแชร์แบบ Anyone with the link/viewer
+2. ต้องมี tab ชื่อ `concerts` และ `phones`
+3. รูปจาก Google Drive ต้องเปิดสิทธิ์ให้ดูได้เช่นกัน ไม่อย่างนั้น header/poster อาจไม่ขึ้น
+4. ถ้าโดเมน Vercel เปลี่ยน ให้แก้ `siteUrl` ใน `config.js` และ meta/canonical ใน `index.html` ให้ตรงกัน
