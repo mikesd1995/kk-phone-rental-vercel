@@ -1,45 +1,33 @@
-# KK Phone Rental Frontend v14.6 LEAN
+# KK Phone Rental Frontend v14.7 STABLE LEAN
 
-ชุดนี้ลีนจาก frontend เดิมของร้าน และปรับให้เข้ากับ Google Sheet Backend v14.4/v14.6 contract
+เวอร์ชันนี้เป็น **stable lean**: ยึด frontend เดิมที่ใช้งานได้จริง แล้วลีนเฉพาะไฟล์รก/ไฟล์เอกสาร/ไฟล์ Apps Script ที่ไม่ควรอยู่ในโปรเจกต์ frontend ออก
 
-## ไฟล์ที่ต้องใช้จริงบน Vercel
+## ไฟล์ที่ต้องอัปขึ้น Vercel
 
 - `index.html`
 - `style.css`
 - `script.js`
 - `config.js`
-- `api/kk-data.js`
+- `manifest.json`
 - `package.json`
 - `vercel.json`
-- `manifest.json`
-- icon files
+- `api/kk-data.js`
+- รูป icon ทั้งหมด
 
-## Google Sheet ID ที่ตั้งไว้แล้ว
+## Environment Variable แนะนำบน Vercel
 
-```txt
-12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU
-```
-
-## แนะนำตอนอัป Vercel
-
-ตั้ง Environment Variable เพิ่มด้วย เพื่อให้ proxy ใช้ ID จากฝั่ง server:
-
-```txt
+```text
 GOOGLE_SHEET_ID=12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU
 ```
 
-ถ้าไม่ตั้ง ENV ระบบยังใช้ default Sheet ID ใน `api/kk-data.js` และ `config.js` ได้
+ใน `config.js` ก็ใส่ Sheet ID นี้เป็น fallback แล้ว ถ้าลืมตั้ง ENV เว็บยังพยายามอ่านจาก fallback ได้
 
-## Backend ranges
+## Backend contract
 
 - `08_Web_Ready!A4:K`
 - `09_Web_Packages!A4:M`
+- คอลัมน์ M = `raw_available_count`
 
-คอลัมน์ M คือ `raw_available_count` สำหรับตรวจ overbooking/stock ติดลบ โดย frontend จะไม่เปิดให้จอง package ที่ raw count ติดลบ
+## Note
 
-## Debug URL
-
-- `?debug=1` ไม่ใช้ session cache
-- `?direct=1` bypass Vercel API แล้วอ่าน Google Sheet ตรง
-- `?showPast=1` แสดงงานย้อนหลัง
-- `?event=EVENT_ID` เปิด modal งานนั้นอัตโนมัติ
+ห้ามใช้ `v14.6_LEAN` เป็นฐานต่อ เพราะเวอร์ชันนั้นลีนแรงเกินไปและ rewrite DOM/script เยอะ ทำให้หน้าบ้านเสี่ยงล่ม
