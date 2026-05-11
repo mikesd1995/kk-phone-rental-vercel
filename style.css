@@ -97,3 +97,6 @@ body{padding-bottom:78px}
 .filter-btn:focus-visible,.empty-line-btn:focus-visible{outline:3px solid rgba(91,141,239,.45);outline-offset:3px;}
 @media(max-width:768px){.filter-bar{gap:8px;margin:0 auto 18px;padding:0 6px} .filter-btn{font-size:13px;min-height:36px;padding:8px 14px} .empty-state{border-radius:22px;padding:28px 18px} .empty-state h3{font-size:19px}}
 @media(max-width:390px){.filter-btn{font-size:12px;padding:7px 12px} .empty-state h3{font-size:17px} .empty-state p{font-size:13px}}
+
+/* v9.2 — added pi-venue */
+.pi-venue{font-size:13px;color:#64748b;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
