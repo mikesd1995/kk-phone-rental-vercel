@@ -156,8 +156,11 @@ async function fetchWebReadyRows(){
     return JSON.parse(cachedData);
   }
 
-  var query = encodeURIComponent("SELECT * WHERE T = 'show' AND AA = 'OK' AND G = TRUE");
-  var url="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(WEB_SHEET_NAME)+"&range="+encodeURIComponent(WEB_RANGE)+"&tq="+query;
+// แก้ไขคำสั่ง Query ให้ตรงกับลำดับคอลัมน์ใหม่ในหน้า 08_Web_Ready
+// S = action_for_web (ช่องที่สั่งให้โชว์)
+// O = data_health (ช่องที่เช็กว่าข้อมูล OK ไหม)
+// G = active_on_web (ช่องที่ติ๊กถูกว่าให้โชว์)
+var query = encodeURIComponent("SELECT * WHERE S = 'show' AND O = 'OK' AND G = TRUE");  var url="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(WEB_SHEET_NAME)+"&range="+encodeURIComponent(WEB_RANGE)+"&tq="+query;
   
   var csv=await retry(function(){return fetchTextWithTimeout(url,9000);},2,700);
   var result = csvRowsToObjects(parseCsv(csv));
