@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์</title>
+  <meta name="description" content="KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA">
+  <meta name="theme-color" content="#5B8DEF">
+  <link rel="canonical" href="https://kk-phone-rental.vercel.app/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์">
+  <meta property="og:description" content="เช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และงานอื่น ๆ ดูรุ่นที่ว่างและจองผ่าน LINE OA ได้เลย">
+  <meta property="og:url" content="https://kk-phone-rental.vercel.app/">
+  <meta property="og:image" content="https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600">
+  <meta property="og:site_name" content="KK Phone Rental">
+  <meta property="og:locale" content="th_TH">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์">
+  <meta name="twitter:description" content="ดูคิวเช่ามือถือสำหรับคอนเสิร์ต แฟนมีท และอีเวนต์ จองผ่าน LINE OA">
+  <meta name="twitter:image" content="https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600">
+
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
+  <link rel="preconnect" href="https://drive.google.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <img id="heroImage" class="hero-img" alt="KK Phone Rental" loading="eager" decoding="async" fetchpriority="high">
+      <div id="heroFallback" class="hero-fallback" hidden>
+        <strong>KK Phone Rental</strong>
+        <span>เช่าเถอะ อยากให้ชัด ✨</span>
+      </div>
+    </header>
+
+    <section class="intro" aria-label="ขั้นตอนการจอง">
+      <p>เลือกงาน &gt; ดูรุ่นที่ว่าง &gt; ระบบพาไปจองผ่าน LINE OA กับแอดมิน</p>
+      <small>หากไม่มีงานที่ต้องการ สามารถสอบถามได้ใน LINE OA</small>
+    </section>
+
+    <nav class="quick-links" aria-label="ลิงก์ด่วน">
+      <a id="xLink" class="chip" target="_blank" rel="noopener">💙 ฟอลร้าน = ฟรีมัดจำ + ประกัน</a>
+      <button id="faqOpen" class="chip chip-button" type="button">❔ คำถามที่พบบ่อย</button>
+    </nav>
+
+    <div class="filters" aria-label="กรองสถานะงาน">
+      <button class="filter is-active" data-filter="all" type="button" aria-pressed="true">ทั้งหมด</button>
+      <button class="filter" data-filter="available" type="button" aria-pressed="false">ว่าง</button>
+      <button class="filter" data-filter="full" type="button" aria-pressed="false">เต็ม</button>
+      <button class="filter" data-filter="soon" type="button" aria-pressed="false">ใกล้ถึง</button>
+    </div>
+
+    <h1 class="section-title">เลือกงานที่ใช่ ไปถ่ายคนที่ชอบ ❤️</h1>
+    <p id="updatedAt" class="updated">อัปเดตล่าสุด: -</p>
+    <section id="content" aria-live="polite"></section>
+
+    <a class="line-main" data-line-link target="_blank" rel="noopener">💚 ทัก LINE มาจองได้เลย</a>
+    <footer class="footer">
+      <strong>KK Phone Rental</strong>
+      <span>เช่าเถอะ อยากให้ชัด ✨</span>
+      <small>จองง่าย คุยกับร้านโดยตรงผ่าน LINE</small>
+    </footer>
+  </main>
+
+  <a class="line-sticky" data-line-link target="_blank" rel="noopener">💚 ทัก LINE จองคิว</a>
+
+  <div id="packageModal" class="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+    <div class="modal compact">
+      <button class="close-x" type="button" data-close-modal aria-label="ปิด">×</button>
+      <h2 id="modalTitle" class="modal-title">รายละเอียดงาน</h2>
+      <p id="modalDate" class="modal-meta"></p>
+      <p id="modalVenue" class="modal-meta"></p>
+      <p class="modal-note"><strong>เลือกแพ็กเกจที่ต้องการ:</strong> กดจองแล้ว ระบบจะพาไป LINE OA พร้อมข้อความจองที่ใส่รายละเอียดไว้ให้แล้ว</p>
+      <div id="packageList" class="package-list"></div>
+      <button class="modal-close" type="button" data-close-modal>ปิด</button>
+    </div>
+  </div>
+
+  <div id="faqModal" class="overlay" role="dialog" aria-modal="true" aria-labelledby="faqTitle" hidden>
+    <div class="modal">
+      <button class="close-x" type="button" data-close-faq aria-label="ปิด">×</button>
+      <h2 id="faqTitle" class="modal-title">FAQ : คำถามที่พบบ่อย</h2>
+      <div class="faq-list">
+        <details open><summary>เช่ามือถือยังไง?</summary><p>เลือกงานที่ต้องการ กดดูรุ่นมือถือที่ว่าง ระบบจะพาไปจองผ่าน LINE OA เพื่อให้ร้านคอนเฟิร์ม</p></details>
+        <details><summary>ในเซ็ตเช่ามีอุปกรณ์อะไรให้บ้าง?</summary><p>มีตัวเครื่องมือถือ กระเป๋าใส่มือถือ และแบตสำรอง หากเช่าเลนส์เพิ่มจะมีถุงใส่เลนส์และผ้าเช็ดเลนส์ให้ด้วย</p></details>
+        <details><summary>รับเครื่องและคืนเครื่องที่ไหน?</summary><p>รับเครื่องและส่งคืนที่หน้างานเท่านั้น</p></details>
+        <details><summary>ต้องจ่ายมัดจำหรือประกันไหม?</summary><p>ช่วงโปรโมชันยังไม่เก็บค่ามัดจำและค่าประกัน เพียงแค่ฟอล X ของทางร้าน</p></details>
+        <details><summary>จ่ายเงินยังไง?</summary><p>จ่ายเงินตอนรับเครื่องที่หน้างาน</p></details>
+        <details><summary>ทำไมไฟล์จาก Google Drive ไม่ชัด?</summary><p>Google Drive Preview อาจลดคุณภาพภาพ ต้องกดดาวน์โหลดลงเครื่องก่อน ภาพจึงจะชัดเต็มคุณภาพ</p></details>
+        <details><summary>ไฟล์เก็บไว้นานไหม?</summary><p>ร้านจะเก็บไฟล์ไว้ 30 วัน หลังจบงาน แนะนำให้ดาวน์โหลดเก็บไว้ทันที</p></details>
+      </div>
+      <button class="modal-close" type="button" data-close-faq>ปิด</button>
+    </div>
+  </div>
+
+  <script src="/config.js"></script>
+  <script src="/script.js" defer></script>
+</body>
+</html>
