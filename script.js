@@ -1,16 +1,16 @@
-// KK Phone Rental v13.2 — Audited & Fixed
-// FIX 1 (Bug): buildPackagesFromSheet() ใช้ available_count จาก 03_Packages col14 จริง
+// KK Phone Rental v13.4 — Lean Audited + Optimized
+// FIX 1 (Bug): buildPackagesFromSheet() ใช้ available_count จาก 09_Web_Packages จริง
 // FIX 2 (Perf): image candidates ใช้ w600 สำหรับ grid thumbnail, w1200 เฉพาะ modal
 // NEW: GA4 event tracking (modal open, booking click)
 // NEW: manifest.json linked in index.html (ดู index.html)
-// PHASE 1 AUDIT: skeleton loading, event deep link, Thai package header normalization, safer availability fallback
+// v13.5 UX AUDIT: robust header normalization, per-event package map, bounded backend output, safer availability fallback
 
 var APP       = window.KK_CONFIG || {};
 var SHEET_ID  = APP.sheetId      || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 var WEB_SHEET = APP.webSheetName || "08_Web_Ready";
-var WEB_RANGE = APP.webRange     || "A4:X";
-var PKG_SHEET = APP.pkgSheetName || "03_Packages";
-var PKG_RANGE = APP.pkgRange     || "A4:N"; // N = available_count (col14) เพิ่มใหม่ v13
+var WEB_RANGE = APP.webRange     || "A4:K";
+var PKG_SHEET = APP.pkgSheetName || "09_Web_Packages";
+var PKG_RANGE = APP.pkgRange     || "A4:L"; // v13.4: generated package output
 var LINE_URL  = APP.lineDirectUrl|| "https://line.me/R/ti/p/%40827blnmo";
 var LINE_OA_ID = APP.lineOAId || "@827blnmo";
 var LINE_OA   = "https://line.me/R/oaMessage/" + encodeURIComponent(LINE_OA_ID) + "/?";
@@ -33,7 +33,13 @@ function toBool(v){ if(v===true||v===1)return true; var s=String(v||"").trim().t
 function fmtPrice(n){ n=toNum(n); return n>0?n.toLocaleString("th-TH")+" บาท/วัน":"ไม่ระบุ"; }
 
 // Header-safe row utilities: Google Sheets CSV may export Thai headers with line breaks.
-function compactKey(k){ return String(k||"").toLowerCase().replace(/\s+/g,"").replace(/[()]/g,"").trim(); }
+function compactKey(k){
+  return String(k||"")
+    .toLowerCase()
+    .replace(/[\s_\-()\[\].:\/\\]+/g,"")
+    .replace(/[^a-z0-9ก-๙]/g,"")
+    .trim();
+}
 function pick(obj, keys, fallbackIndex){
   var rawKeys = Object.keys(obj||{}), wanted = keys.map(compactKey);
   for(var i=0;i<rawKeys.length;i++){
@@ -46,22 +52,40 @@ function pick(obj, keys, fallbackIndex){
   return "";
 }
 function normalizePkgRow(p){
+  var status = pick(p,["package_status","package status","status","สถานะแพ็กเกจ"],9);
+  var price  = pick(p,["price","standard_price","standard price","ราคา"],7);
+  var modelDisplay = pick(p,["model_display","phone_model_display","ชื่อแสดง\nมือถือ","ชื่อแสดงมือถือ"],4);
+  var lensDisplay  = pick(p,["lens_display","lens_model_display","ชื่อแสดง\nเลนส์","ชื่อแสดงเลนส์"],6);
+  var pkgType = pick(p,["pkg_type","package_type","package type","ประเภท\nแพ็กเกจ","ประเภทแพ็กเกจ"],2);
+  var availableCount = pick(p,["available_count","available count","available_count\n(auto)","จำนวนว่าง"],8);
+
   return {
-    package_id:          pick(p,["package_id","pkg_id","รหัสแพ็กเกจ\n(Auto)","รหัสแพ็กเกจ"],0),
+    package_id:          pick(p,["package_id","pkg_id","template_id","รหัสแพ็กเกจ\n(Auto)","รหัสแพ็กเกจ"],0),
     event_id:            pick(p,["event_id","event_id\n(ตรงกับ 01_Events)"],1),
-    pkg_type:            pick(p,["pkg_type","package_type","ประเภท\nแพ็กเกจ","ประเภทแพ็กเกจ"],2),
+    pkg_type:            pkgType,
     model_group:         pick(p,["model_group","model_group\n(จาก Settings)"],3),
-    phone_model_display: pick(p,["phone_model_display","ชื่อแสดง\nมือถือ","ชื่อแสดงมือถือ"],4),
+    phone_model_display: modelDisplay,
+    model_display:       modelDisplay,
     lens_group:          pick(p,["lens_group","lens_group\n(NONE ถ้าไม่มี)"],5),
-    lens_model_display:  pick(p,["lens_model_display","ชื่อแสดง\nเลนส์","ชื่อแสดงเลนส์"],6),
+    lens_model_display:  lensDisplay,
+    lens_display:        lensDisplay,
+    price:               price,
     phone_price:         pick(p,["phone_price","ราคามือถือ\n(บาท/วัน)","ราคามือถือ"],7),
     lens_price:          pick(p,["lens_price","ราคาเลนส์\n(บาท/วัน)","ราคาเลนส์"],8),
     bundle_price:        pick(p,["bundle_price","ราคา Bundle\n(บาท/วัน)","ราคาBundle"],9),
     price_override:      pick(p,["price_override","ราคา Override\n(เว้นว่าง=ใช้จาก Events)","ราคาOverride"],10),
-    web_note:            pick(p,["web_note","หมายเหตุ\n(สำหรับเว็บ)","หมายเหตุ"],11),
+    web_note:            pick(p,["web_note","package_note","หมายเหตุ\n(สำหรับเว็บ)","หมายเหตุ"],11),
     pkg_active:          pick(p,["pkg_active","pkg_active\n(TRUE/FALSE)"],12),
-    available_count:     pick(p,["available_count","available_count\n(auto)"],13)
+    available_count:     availableCount,
+    package_status:      status,
+    sort_order:          pick(p,["sort_order"],10)
   };
+}
+function isPkgVisible(p){
+  var st=String((p&&p.package_status)||"").trim().toLowerCase();
+  if(st==="hidden"||st==="hide") return false;
+  if(hasVal(p&&p.pkg_active)) return toBool(p.pkg_active);
+  return true;
 }
 
 // ─── GA4 minimal tracker ──────────────────────────────────────────────────
@@ -187,33 +211,36 @@ function cacheGet(k){ try{ var raw=sessionStorage.getItem(k); if(!raw)return nul
 function cacheSet(k,d){ try{sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),data:d}));}catch(e){} }
 
 async function fetchWebRows(){
-  var k="kk_web_v13_2:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE; var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_web_v13_5:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE; var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchText(sheetUrl(WEB_SHEET,WEB_RANGE),9000);},2,700);
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 async function fetchPkgRows(){
-  var k="kk_pkg_v13_2:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE; var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_pkg_v13_5:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE; var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchText(sheetUrl(PKG_SHEET,PKG_RANGE),9000);},2,700);
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 
-// ─── FIX 1: buildPackagesFromSheet — ใช้ available_count จาก col14 จริง ─
+// ─── FIX 1: buildPackagesFromSheet — ใช้ available_count จาก 09_Web_Packages จริง ─
 function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
-  // phoneCnt + lensCnt มาจาก 08_Web_Ready col16/17 (ซึ่งตอนนี้ใช้ COUNTIFS เร็วแล้ว)
-  var evtPkgs=pkgRows.filter(function(p){
-    return String(p.event_id||"").trim()===String(eventId||"").trim() && toBool(p.pkg_active);
+  // phoneCnt + lensCnt มาจาก 08_Web_Ready G/H; package count มาจาก 09_Web_Packages I
+  var evtPkgs=(pkgRows||[]).filter(function(p){
+    var rowEvent = String(p.event_id||"").trim();
+    return (!rowEvent || rowEvent===String(eventId||"").trim()) && isPkgVisible(p);
   });
   if(!evtPkgs.length)return [];
 
   return evtPkgs.map(function(p){
     var pkgType      = String(p.pkg_type||"phone_only").trim();
-    var modelDisplay = String(p.phone_model_display||"มือถือ").trim();
-    var lensDisplay  = String(p.lens_model_display||p.lens_group||"").trim();
-    var note         = String(p.web_note||"").trim();
+    var modelDisplay = String(p.model_display||p.phone_model_display||"มือถือ").trim();
+    var lensDisplay  = String(p.lens_display||p.lens_model_display||p.lens_group||"").trim();
+    var note         = String(p.web_note||p.package_note||"").trim();
 
     var override = toNum(p.price_override);
+    var directPrice = toNum(p.price);
     var price;
-    if(override>0){ price=override; }
+    if(directPrice>0){ price=directPrice; }
+    else if(override>0){ price=override; }
     else if(pkgType==="phone_only"){ price=toNum(p.phone_price); }
     else if(pkgType==="lens_only"){  price=toNum(p.lens_price); }
     else{ price=toNum(p.bundle_price||p.phone_price); }
@@ -221,14 +248,21 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     var spec  = pkgType==="phone_only" ? "เฉพาะมือถือ" : pkgType==="lens_only" ? (lensDisplay||"เลนส์เสริม") : "มือถือ + เลนส์";
     var label = pkgType==="lens_only"  ? (lensDisplay||"Lens") : pkgType==="phone_lens_bundle" ? modelDisplay+" + Lens" : modelDisplay;
 
-    // FIX: ใช้ available_count จาก Sheet (col14) แทน isOpen&&price>0
-    // col14 = available_count จาก 03_Packages (ดึง VLOOKUP จาก 08_Web_Ready)
+    // FIX: ใช้ available_count จาก 09_Web_Packages แทน isOpen&&price>0
+    // available_count จาก 09_Web_Packages เป็น source of truth ต่อ package
     var sheetAvailRaw = p.available_count;
     var sheetHasAvail = hasVal(sheetAvailRaw);
     var sheetAvail = toNum(sheetAvailRaw);
+    var pkgStatus = String(p.package_status||"").trim().toLowerCase();
     var avail;
-    if(sheetHasAvail){
-      // Phase 1: 03_Packages!available_count เป็น source of truth ต่อ package
+    if(pkgStatus==="hidden"||pkgStatus==="hide"){
+      avail = false;
+    } else if(pkgStatus==="available"){
+      avail = sheetHasAvail ? sheetAvail > 0 : true;
+    } else if(pkgStatus==="full"){
+      avail = false;
+    } else if(sheetHasAvail){
+      // v13.4: 09_Web_Packages!available_count เป็น source of truth ต่อ package
       avail = sheetAvail > 0;
     } else if(pkgType==="lens_only"){
       // backward compatibility ถ้าใช้ backend เก่า
@@ -242,7 +276,7 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     // ถ้า price=0 ก็ไม่ available อยู่ดี
     if(price<=0) avail = false;
 
-    return { model:label, spec:spec, price:price, note:note, avail:avail, count:sheetAvail, type:pkgType, lensDisp:lensDisplay };
+    return { id:p.package_id||"", model:label, spec:spec, price:price, note:note, avail:avail, count:sheetAvail, type:pkgType, lensDisp:lensDisplay };
   });
 }
 
@@ -271,7 +305,7 @@ async function loadData(){
   var webRows=results[0]||[], pkgRows=results[1]||[];
 
   var pkgMap={};
-  pkgRows.forEach(function(p){ var id=String(p.event_id||"").trim(); if(!id)return; if(!pkgMap[id])pkgMap[id]=[]; if(toBool(p.pkg_active))pkgMap[id].push(p); });
+  pkgRows.forEach(function(p){ var id=String(p.event_id||"").trim(); if(!id)return; if(!pkgMap[id])pkgMap[id]=[]; if(isPkgVisible(p))pkgMap[id].push(p); });
 
   var rows=webRows.filter(function(r){ var a=String(r.action_for_web||"").trim().toLowerCase(); return a&&a!=="hide"; });
 
@@ -286,7 +320,7 @@ async function loadData(){
     var hasPkgSheet = !!(pkgMap[eventId]&&pkgMap[eventId].length>0);
     // FIX: ส่ง phoneCnt/lensCnt เข้า buildPackagesFromSheet ด้วย
     var packages = hasPkgSheet
-      ? buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt)
+      ? buildPackagesFromSheet(pkgMap[eventId] || [], eventId, phoneCnt, lensCnt)
       : buildPackagesFromWebRow(r);
 
     return {
@@ -450,14 +484,8 @@ function showModal(c){
   document.getElementById("modal-date").textContent="📅 "+(c.date||"-");
   document.getElementById("modal-venue").textContent="📍 "+(c.venue||"-");
 
-  // modal image ใช้ full size (w1200)
-  var modalImg=document.getElementById("modal-poster-img");
-  var modalWrap=document.getElementById("modal-poster-wrap");
-  if(modalImg&&modalWrap&&c.imgFull&&c.imgFull.length){
-    modalImg.alt=c.name||"Event poster";
-    modalWrap.style.display="block";
-    setImgFallback(modalImg, c.imgFull);
-  }else if(modalWrap){ modalWrap.style.display="none"; }
+  // v13.5 UX fix: ไม่แสดงรูปโปสเตอร์ซ้ำใน modal
+  // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
 
   var list=document.getElementById("phone-list"); list.innerHTML="";
   var avail=availPkgs(c);
@@ -529,7 +557,7 @@ document.addEventListener("DOMContentLoaded",function(){
         if(target){ setTimeout(function(){ showModal(target); }, 80); }
       }
     })
-    .catch(function(e){ console.error("KK v13.2:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
+    .catch(function(e){ console.error("KK v13.4:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
 });
 
 document.addEventListener("keydown",function(e){

@@ -1,11 +1,11 @@
-// KK Phone Rental v13.2 — Audited & Fixed
+// KK Phone Rental v13.4 — Lean Audited + Optimized
 window.KK_CONFIG = {
   siteUrl:       "https://kk-phone-rental.netlify.app/",
   sheetId:       "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU",
   webSheetName:  "08_Web_Ready",
-  webRange:      "A4:X",
-  pkgSheetName:  "03_Packages",
-  pkgRange:      "A4:N",           // v13.1: N = available_count ต่อ package/type/date
+  webRange:      "A4:K",
+  pkgSheetName:  "09_Web_Packages",
+  pkgRange:      "A4:L",           // v13.4: package-level output จาก 09_Web_Packages
   lineOAId:      "@827blnmo",       // ใช้สร้าง oaMessage URL อัตโนมัติ
   lineDirectUrl: "https://line.me/R/ti/p/%40827blnmo",
   xUrl:          "https://x.com/KK_PhoneRental",

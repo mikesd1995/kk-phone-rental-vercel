@@ -1,21 +1,18 @@
-# KK Phone Rental v13.2 Audit Report
+# KK Phone Rental Frontend v13.4 — Lean Compatibility Report
 
-## Fixed immediately
+## Updated for backend v13.4
 
-1. **Backend package event_id typo** — `03_Packages` rows for ANNYEONG used `EVT-20260517-ANNYE`, which did not match any row in `01_Events`. Fixed to `EVT-20260517-ANNYEONG`.
-2. **Frontend package parser bug** — `script.js` expected machine headers (`pkg_type`, `phone_model_display`), but the workbook exports Thai/newline headers. Added `normalizePkgRow()` with aliases and positional fallback.
-3. **Wrong “available unit” count** — frontend counted package choices instead of actual phone units, so 1 phone with 2 package options could show “2 เครื่อง”. Fixed to use `available_phone_count` first.
-4. **Dashboard row limit bug** — formulas only scanned rows 5:154. Expanded to 5:1000.
-5. **Asset availability bug** — `reserved` and `rented` assets were still counted as rentable. `rentable_now` now requires status `available`, and stock formulas use the helper.
-6. **Archive automation safety** — old script deleted Master rows and appended after formula placeholder rows. New script copies values to archive and clears only editable input columns `B:T`.
-7. **PWA shortcut bug** — manifest used `?filter=available`, but script ignored filter URL param. Fixed.
-8. **Site URL mismatch** — updated static canonical/OG/config URL to Netlify production URL.
+- `config.js` now reads event data from `08_Web_Ready!A4:K`.
+- `config.js` now reads package data from `09_Web_Packages!A4:L`.
+- `script.js` now supports the lean package headers: `price`, `package_status`, `model_display`, `lens_display`, `web_note`.
+- Hidden package rows are excluded when `package_status = hidden`.
+- Full package rows are kept in the data layer but not shown as bookable.
+- Existing fallback behavior for old package headers is still preserved where possible.
 
-## Needs owner confirmation
+## Backend expectations
 
-- `01_Events` row for ANNYEONG has `event_id` containing `20260517` while `event_date_text` is `16/05/2026`. I did not change this business date because it may be intentional or copied from a future campaign. Confirm before publishing.
-
-## Not done because Phase 2
-
-- Server-side booking lock / Apps Script API layer / online booking form with LockService.
-- LINE Messaging API automation.
+- Do not edit `08_Web_Ready` or `09_Web_Packages` manually.
+- Add events in `01_Events`.
+- Add physical phones/lenses in `02_Assets`.
+- Add standard packages in `03_Packages`.
+- Use `04_Event_Overrides` only for special event-level price/note/active changes.
