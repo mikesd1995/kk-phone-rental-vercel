@@ -1,6 +1,6 @@
-// KK Phone Rental v9.1 (Template Literals Optimized)
+// KK Phone Rental v9.5 (Bulletproof Edition)
 // - Single Source of Truth (08_Web_Ready)
-// - Server-Side Filtering & Caching
+// - 🚀 JavaScript Filtering (ตัดปัญหาคอลัมน์เลื่อนแล้วเว็บพังทิ้ง 100%)
 // - Fast UI Rendering (Template Literals)
 
 var APP_CONFIG = window.KK_CONFIG || {};
@@ -13,7 +13,6 @@ var LINE_DIRECT_URL = APP_CONFIG.lineDirectUrl || "https://line.me/R/ti/p/%40827
 var concertsData = [];
 var currentFilter = "all";
 
-// --- ส่วนจัดการ UI เริ่มต้น ---
 function applyConfigToDom(){
   if(APP_CONFIG.headerImage){
     var headerImg=document.querySelector(".brand-header-img");
@@ -36,7 +35,6 @@ function setUpdateDate(){
   if(el)el.textContent="อัปเดตล่าสุด: "+dd+"/"+mm+"/"+yyyy+" "+hh+":"+min;
 }
 
-// --- ส่วนจัดการรูปภาพ ---
 function extractGoogleDriveFileId(url){
   var s=String(url||"").trim(); if(!s)return "";
   var patterns=[/\/file\/d\/([^/?#]+)/,/[?&]id=([^&#]+)/,/\/thumbnail\?id=([^&#]+)/,/googleusercontent\.com\/d\/([^=/?#]+)/];
@@ -67,7 +65,6 @@ function setImageWithFallback(img, urls){
   setNext();
 }
 
-// --- ส่วนดึงข้อมูล ---
 function timeoutSignal(ms){
   var controller=new AbortController();
   var timer=setTimeout(function(){controller.abort();},ms);
@@ -94,6 +91,7 @@ async function retry(fn,tries,delay){
 function parseCsv(text){
   var rows=[], row=[], value="", insideQuotes=false;
   text=String(text||"").replace(/^\uFEFF/,"");
+  if(text.trim().toLowerCase().indexOf("<!doctype html>")===0){ return []; } // ป้องกัน Google ส่ง Error กลับมา
   for(var i=0;i<text.length;i++){
     var ch=text[i], next=text[i+1];
     if(ch==='"'){
@@ -145,6 +143,7 @@ function formatDateFromSerial(serial){
   return String(d.getUTCDate()).padStart(2,"0")+"/"+String(d.getUTCMonth()+1).padStart(2,"0")+"/"+d.getUTCFullYear();
 }
 
+// 🔥 ระบบโหลดข้อมูลแบบใหม่: ปลดล็อกข้อจำกัดคอลัมน์ของ Google 100% 🔥
 async function fetchWebReadyRows(){
   var cacheKey = "kk_events_cache";
   var cacheTimeKey = "kk_events_cache_time";
@@ -156,11 +155,8 @@ async function fetchWebReadyRows(){
     return JSON.parse(cachedData);
   }
 
-// แก้ไขคำสั่ง Query ให้ตรงกับลำดับคอลัมน์ใหม่ในหน้า 08_Web_Ready
-// S = action_for_web (ช่องที่สั่งให้โชว์)
-// O = data_health (ช่องที่เช็กว่าข้อมูล OK ไหม)
-// G = active_on_web (ช่องที่ติ๊กถูกว่าให้โชว์)
-var query = encodeURIComponent("SELECT * WHERE S = 'show' AND O = 'OK' AND G = TRUE");  var url="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(WEB_SHEET_NAME)+"&range="+encodeURIComponent(WEB_RANGE)+"&tq="+query;
+  // ลบ Query ขยะทิ้งไป ดึงข้อมูลดิบมาเลย จะได้ไม่พังเวลาคอลัมน์เลื่อน
+  var url="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(WEB_SHEET_NAME)+"&range="+encodeURIComponent(WEB_RANGE);
   
   var csv=await retry(function(){return fetchTextWithTimeout(url,9000);},2,700);
   var result = csvRowsToObjects(parseCsv(csv));
@@ -169,6 +165,15 @@ var query = encodeURIComponent("SELECT * WHERE S = 'show' AND O = 'OK' AND G = T
   sessionStorage.setItem(cacheTimeKey, now.toString());
 
   return result;
+}
+
+// 🔥 ระบบคัดกรองข้อมูลด้วยชื่อคอลัมน์ (คอลัมน์สลับยังไงก็รอด) 🔥
+function isRowVisibleOnWeb(row){
+  var action=String(getField(row,["action_for_web"])).trim().toLowerCase();
+  var health=String(getField(row,["data_health"])).trim().toUpperCase();
+  var active=toBool(getField(row,["active_on_web"]));
+  
+  return action === "show" && health === "OK" && active;
 }
 
 function buildPackageOptions(row){
@@ -194,7 +199,7 @@ function buildPackageOptions(row){
 
 async function loadData(){
   var rows = await fetchWebReadyRows();
-  var concerts = rows.map(function(r){
+  var concerts = rows.filter(isRowVisibleOnWeb).map(function(r){
     var eventDateText=getField(r,["event_date_text","date_text","วันที่"]);
     var eventDateRaw=getField(r,["event_date","date"]);
     var rawPoster=getField(r,["poster_image_url","img","image","poster","รูป"]);
@@ -216,7 +221,6 @@ async function loadData(){
   return concerts;
 }
 
-// --- กรองวันที่ และ Event Listener ---
 function parseEventDate(dateStr){
   var s = String(dateStr || "").trim(); if(!s) return null;
   var m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
@@ -288,7 +292,6 @@ function updateFilterButtons(){
 
 function setFilter(filter){ currentFilter = filter || "all"; updateFilterButtons(); renderConcerts(concertsData); }
 
-// 🚀 Optimize: เปลี่ยนมาใช้วิธีเรนเดอร์แบบใหม่ (Template Literals) ทำให้เบราว์เซอร์วาด UI ไวขึ้น และแก้โค้ดง่ายขึ้นมาก
 function renderConcerts(concerts){
   var el=document.getElementById("content"); if(!el)return; el.innerHTML="";
   if(!concerts||!concerts.length){ renderEmptyState("ยังไม่มีข้อมูลงานตอนนี้น้า 💙"); return; }
@@ -314,7 +317,6 @@ function renderConcerts(concerts){
     card.className = "concert-card"; 
     card.onclick = function(){ showModal(c); };
     
-    // โครงสร้าง HTML แบบไม่ต้องพึ่งการสร้าง Element ทีละชิ้น
     card.innerHTML = `
       <div class="poster-img-wrap">
         <div class="${badgeClass}">${badgeText}</div>
@@ -339,7 +341,6 @@ function renderConcerts(concerts){
   el.appendChild(grid);
 }
 
-// 🚀 Optimize: ลดขั้นตอนสร้าง Element ในตารางรุ่นมือถือ
 function showModal(input){
   var c = (typeof input === "number") ? concertsData[input] : input; if(!c)return;
   document.getElementById("modal-title").textContent=c.name||"รายละเอียดงาน";
@@ -358,8 +359,6 @@ function showModal(input){
   var htmlString = "";
   availablePhones.forEach(function(p){
     var priceText = formatPrice(p.price);
-    
-    // 🔵 ปรับแต่งรูปแบบข้อความสำหรับส่งไป LINE OA ตามที่คุณต้องการ 🔵
     var msg = "งาน : " + (c.name || "-") + "\n" +
               "สนใจจอง : " + (p.model || "-") + "\n" +
               "ราคา : " + priceText + "\n" +
@@ -391,12 +390,10 @@ function showModal(input){
 function openModal(){ document.getElementById("overlay").classList.add("active"); document.body.style.overflow="hidden"; }
 function closeModal(e){ if(e && e.target!==document.getElementById("overlay"))return; document.getElementById("overlay").classList.remove("active"); document.body.style.overflow=""; }
 
-// 🔵 --- คืนชีพส่วนจัดการ FAQ --- 🔵
 function openFaq(){ var el=document.getElementById("faqOverlay"); if(el){el.classList.add("active");document.body.style.overflow="hidden";} }
 function closeFaq(e){ if(e && e.target!==document.getElementById("faqOverlay"))return; var el=document.getElementById("faqOverlay"); if(el){el.classList.remove("active");document.body.style.overflow="";} }
 function toggleFaq(btn){ var item=btn&&btn.parentElement; if(item){ item.classList.toggle("active"); btn.setAttribute("aria-expanded",item.classList.contains("active")?"true":"false"); } }
 
-// --- Event Listener รวบยอด ---
 document.addEventListener("DOMContentLoaded",function(){
   applyConfigToDom(); setUpdateDate();
   
