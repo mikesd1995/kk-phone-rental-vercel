@@ -7,12 +7,12 @@
 <meta name="description" content="KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน">
 <meta name="theme-color" content="#5B8DEF">
 <meta name="keywords" content="เช่ามือถือคอนเสิร์ต, เช่ามือถือแฟนมีท, เช่ามือถือไปคอน, เช่ามือถือซูมชัด, KK Phone Rental">
-<link rel="canonical" href="https://kk-phone-rental.vercel.app/">
+<link rel="canonical" href="https://kk-phone-rental.netlify.app/">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์">
 <meta property="og:description" content="เช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และงานอื่นๆ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมินได้เลย">
-<meta property="og:url" content="https://kk-phone-rental.vercel.app/">
+<meta property="og:url" content="https://kk-phone-rental.netlify.app/">
 <meta property="og:image" content="https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600">
 <meta property="og:image:alt" content="KK Phone Rental เช่ามือถือสำหรับคอนเสิร์ตและอีเวนต์">
 <meta property="og:site_name" content="KK Phone Rental">
@@ -26,6 +26,7 @@
 
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.json">
 
 <link rel="preconnect" href="https://drive.google.com" crossorigin>
 <link rel="preconnect" href="https://googleusercontent.com" crossorigin>
@@ -54,7 +55,7 @@
 </section>
 
 <div class="quick-links">
-  <a class="quick-link" href="https://x.com/KK_PhoneRental" target="_blank" rel="noopener">💙 ฟอลร้าน = ฟรีประกัน + มัดจำ</a>
+  <a class="quick-link" href="https://x.com/KK_PhoneRental" target="_blank" rel="noopener">💙 ฟอลร้าน = ฟรีมัดจำ + ประกัน</a>
   <button class="mini-btn" id="faq-open-btn" type="button">❔ คำถามที่พบบ่อย</button>
 </div>
 
@@ -68,7 +69,7 @@
 <div class="sec-title"><span>เลือกงานที่ใช่ ไปถ่ายคนที่ชอบ ❤️</span></div>
 
 <div class="update-note" id="update-note">อัปเดตล่าสุด: -</div>
-<div id="content"><div class="loading-wrap"><div class="spinner"></div><div class="loading-text">กำลังเช็กคิวให้น้า... 📱✨</div></div></div>
+<div id="content"><div class="poster-grid skeleton-grid" aria-label="กำลังโหลดข้อมูลงาน"><div class="concert-card skeleton-card" aria-hidden="true"><div class="poster-img-wrap skeleton-poster"><span></span></div><div class="poster-info skeleton-info"><div class="sk sk-date"></div><div class="sk sk-title"></div><div class="sk sk-title short"></div><div class="sk sk-btn"></div></div></div><div class="concert-card skeleton-card" aria-hidden="true"><div class="poster-img-wrap skeleton-poster"><span></span></div><div class="poster-info skeleton-info"><div class="sk sk-date"></div><div class="sk sk-title"></div><div class="sk sk-title short"></div><div class="sk sk-btn"></div></div></div></div><div class="loading-text skeleton-loading-text">กำลังเช็กคิวให้น้า... 📱✨</div></div>
 <div class="divider"></div>
 
 <a class="line-btn" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">
@@ -88,6 +89,7 @@
       <div class="modal-meta" id="modal-date">วันที่</div>
       <div class="modal-meta" id="modal-venue">สถานที่</div>
     </div>
+    <div class="modal-poster-wrap" id="modal-poster-wrap" style="display:none"><img id="modal-poster-img" alt="Event poster" loading="lazy" decoding="async"></div>
     <div class="modal-note"><strong>เลือกแพ็กเกจที่ต้องการ:</strong> กดจองแล้ว ระบบจะพาไป LINE OA พร้อมข้อความจองที่ใส่รายละเอียดงาน/แพ็กเกจไว้ให้แล้ว 💚</div>
     <div class="modal-divider"></div>
     <div class="phone-list" id="phone-list"></div>
@@ -107,7 +109,7 @@
       </div>
       <div class="faq-item">
         <button class="faq-q" type="button" aria-expanded="false">Q: ในเซ็ตเช่ามีอุปกรณ์อะไรให้บ้าง? <span class="faq-plus">+</span></button>
-        <div class="faq-a">A: อุปกรณ์พื้นฐานที่จะมีให้ ตัวเครื่องมือถือ แบตสำรอง พัดลม ผ้าเช็ดเลนส์ และกระเป๋าสำหรับใส่อุปกรณ์ทั้งหมด (รวมถึงเลนส์ในกรณีเช่าพร้อมเลนส์)</div>
+        <div class="faq-a">A: อุปกรณ์พื้นฐานมีตัวเครื่องมือถือ กระเป๋าใส่มือถือ และแบตสำรอง หากเช่าเลนส์เพิ่มจะมีถุงใส่เลนส์และผ้าเช็ดเลนส์ให้ด้วย</div>
       </div>
       <div class="faq-item">
         <button class="faq-q" type="button" aria-expanded="false">Q: รับเครื่อง และส่งเครื่องคืนที่ไหน? <span class="faq-plus">+</span></button>
