@@ -162,13 +162,27 @@
     }
   }
 
-  async function uploadPosterIfAny(){
-    const file=$("#posterFile") && $("#posterFile").files[0];
+  async function uploadPosterFromInput(fileInput, form){
+    const input = typeof fileInput === "string" ? $(fileInput) : fileInput;
+    const file = input && input.files && input.files[0];
     if(!file) return "";
     if(file.size>3*1024*1024) throw new Error("รูปใหญ่เกินไป กรุณาใช้ไฟล์ไม่เกิน 3MB");
-    const base64=await new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(String(r.result).split(',')[1]); r.onerror=reject; r.readAsDataURL(file); });
-    const res=await api("uploadPoster",{fileName:file.name,mimeType:file.type,base64});
-    return res.url;
+
+    const base64=await new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(String(r.result||"").split(',')[1]||"");
+      r.onerror=()=>reject(new Error("อ่านไฟล์รูปไม่สำเร็จ"));
+      r.readAsDataURL(file);
+    });
+
+    const res=await api("uploadPoster",{fileName:file.name,mimeType:file.type||"image/jpeg",base64});
+    const url = res.url || res.poster_url || res.view_url || "";
+    if(!url) throw new Error("อัปโหลดรูปแล้ว แต่ไม่ได้รับ poster URL กลับมา");
+
+    if(form && form.elements && form.elements.poster_url){
+      form.elements.poster_url.value = url;
+    }
+    return url;
   }
 
   function bind(){
@@ -210,10 +224,29 @@
 
     $("#eventForm").addEventListener("submit",async ev=>{
       ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
-      try{ const p=formData(ev.target); const uploaded=await uploadPosterIfAny(); if(uploaded) p.poster_url=uploaded; await api("createEvent",p); ev.target.reset(); await refresh(); showNotice("สร้างงานสำเร็จ"); }
+      try{
+        const p=formData(ev.target);
+        const uploaded=await uploadPosterFromInput("#posterFile", ev.target);
+        if(uploaded) p.poster_url=uploaded;
+        const res=await api("createEvent",p);
+        ev.target.reset();
+        await refresh();
+        showNotice("สร้างงานสำเร็จ" + (res.poster_url ? " และบันทึกรูปเข้า 01_Events แล้ว" : ""));
+      }
       catch(e){ showNotice(e.message,"bad"); } finally{ setBusy(btn,false); }
     });
-    $("#eventUpdateForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("updateEvent",formData(ev.target)); await refresh(); showNotice("แก้งานสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
+    $("#eventUpdateForm").addEventListener("submit",async ev=>{
+      ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
+      try{
+        const p=formData(ev.target);
+        const uploaded=await uploadPosterFromInput("#updatePosterFile", ev.target);
+        if(uploaded) p.poster_url=uploaded;
+        const res=await api("updateEvent",p);
+        if($("#updatePosterFile")) $("#updatePosterFile").value="";
+        await refresh();
+        showNotice("แก้งานสำเร็จ" + (res.poster_url ? " และบันทึกรูปเข้า 01_Events แล้ว" : ""));
+      }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);}
+    });
     $("#packageForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("createPackage",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่มแพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
     $("#packageUpdateForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("updatePackage",formData(ev.target)); await refresh(); showNotice("แก้แพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
     $("#assetForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("addAssets",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่ม asset สำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });

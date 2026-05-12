@@ -169,6 +169,10 @@
                 <label>สถานที่ใหม่ <input name="venue" /></label>
                 <label>Poster URL ใหม่ <input name="poster_url" /></label>
               </div>
+              <label>หรืออัปโหลดรูป Poster ใหม่
+                <input id="updatePosterFile" type="file" accept="image/*" />
+                <small>ถ้าเลือกไฟล์ ระบบจะอัปโหลดและใส่ Poster URL ใหม่ให้อัตโนมัติก่อนบันทึก</small>
+              </label>
               <div class="row two">
                 <label>สถานะ <select name="status"><option value="">ไม่เปลี่ยน</option><option value="open">open</option><option value="closed">closed</option></select></label>
                 <label>โชว์บนเว็บ <select name="active_on_web"><option value="">ไม่เปลี่ยน</option><option value="true">TRUE</option><option value="false">FALSE</option></select></label>
