@@ -27,6 +27,31 @@
     return d.toLocaleDateString("th-TH",{year:"numeric",month:"2-digit",day:"2-digit"});
   }
   function money(v){ const n=Number(v||0); return n.toLocaleString("th-TH"); }
+  function dateValue(v){
+    if(!v) return 0;
+    const d=new Date(v);
+    return isNaN(d) ? 0 : d.getTime();
+  }
+  function textValue(v){ return String(v || "").trim().toLocaleLowerCase("th-TH"); }
+  function sortedOpenEvents(events){
+    const sort=($("#eventsSort") && $("#eventsSort").value) || "date_asc";
+    const rows=(events||[])
+      .filter(e=>String(e.status||"").toLowerCase()==="open" && e.active_on_web!==false)
+      .slice();
+    if(sort==="date_desc") rows.sort((a,b)=>dateValue(b.event_date)-dateValue(a.event_date));
+    else if(sort==="name_asc") rows.sort((a,b)=>textValue(a.event_name).localeCompare(textValue(b.event_name),"th"));
+    else rows.sort((a,b)=>dateValue(a.event_date)-dateValue(b.event_date));
+    return rows;
+  }
+  function sortedBookings(bookings){
+    const sort=($("#bookingsSort") && $("#bookingsSort").value) || "created_desc";
+    const rows=(bookings||[]).slice();
+    if(sort==="event_date_asc") rows.sort((a,b)=>(dateValue(a.event_date)-dateValue(b.event_date)) || (dateValue(b.created_at)-dateValue(a.created_at)));
+    else if(sort==="event_date_desc") rows.sort((a,b)=>(dateValue(b.event_date)-dateValue(a.event_date)) || (dateValue(b.created_at)-dateValue(a.created_at)));
+    else if(sort==="customer_asc") rows.sort((a,b)=>textValue(a.customer_name).localeCompare(textValue(b.customer_name),"th"));
+    else rows.sort((a,b)=>dateValue(b.created_at)-dateValue(a.created_at));
+    return rows;
+  }
   function findOverride(eventId, templateId){
     const d=state.data||{};
     return (d.overrides||[]).find(o=>String(o.event_id)===String(eventId)&&String(o.template_id)===String(templateId));
@@ -82,7 +107,9 @@
   function render(){
     const d=state.data||{};
     const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=d.health||[], today=d.today_working||[], customers=d.customers||[];
-    const openEvents=events.filter(e=>String(e.status||"").toLowerCase()==="open" && e.active_on_web!==false).length;
+    const openEventRows=sortedOpenEvents(events);
+    const bookingRows=sortedBookings(bookings);
+    const openEvents=openEventRows.length;
     const phones=assets.filter(a=>a.asset_type==="phone" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const lenses=assets.filter(a=>a.asset_type==="lens" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const activeBookings=bookings.filter(b=>["pending","confirmed","picked_up"].includes(String(b.booking_status||"").toLowerCase())).length;
@@ -91,13 +118,18 @@
       [openEvents,"งานเปิดอยู่"],[packages.filter(p=>p.active!==false).length,"แพ็กเกจ active"],[overrides.length,"ราคาเฉพาะงาน"],[phones,"มือถือ available"],[lenses,"เลนส์ available"],[activeBookings,"Booking active"],[today.length,"งานที่ต้องทำวันนี้"],[customers.length,"ลูกค้าที่มีประวัติ"]
     ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
 
-    $("#eventsCount").textContent=events.length+" รายการ";
+    $("#eventsCount").textContent=openEventRows.length+" รายการ";
     table($("#eventsTable"),[
-      {label:"วันที่",render:r=>esc(fmtDate(r.event_date))},{label:"งาน",key:"event_name"},{label:"สถานที่",key:"venue"},{label:"สถานะ",render:r=>`<span class="pill ${r.status==='open'?'ok':'bad'}">${esc(r.status)}</span>`},{label:"โชว์เว็บ",render:r=>r.active_on_web===false?'FALSE':'TRUE'}
-    ], events.slice(0,30));
+      {label:"วันที่",render:r=>esc(fmtDate(r.event_date))},
+      {label:"งาน",key:"event_name"},
+      {label:"สถานที่",key:"venue"},
+      {label:"สถานะ",render:r=>`<span class="pill ${r.status==='open'?'ok':'bad'}">${esc(r.status)}</span>`},
+      {label:"โชว์เว็บ",render:r=>r.active_on_web===false?'FALSE':'TRUE'}
+    ], openEventRows.slice(0,50));
 
-    $("#bookingsCount").textContent=bookings.length+" รายการ";
+    $("#bookingsCount").textContent=bookingRows.length+" รายการ";
     table($("#bookingsTable"),[
+      {label:"วันที่งาน",render:r=>esc(fmtDate(r.event_date))},
       {label:"วันที่บันทึก",render:r=>esc(fmtDate(r.created_at))},
       {label:"ลูกค้า",key:"customer_name"},
       {label:"ชื่องาน",render:r=>esc(r.event_name || r.event_id || "")},
@@ -105,7 +137,7 @@
       {label:"Phone",render:r=>esc(r.phone_model_display || r.phone_asset_id || "-")},
       {label:"Lens",render:r=>esc(r.lens_model_display || r.lens_asset_id || "-")},
       {label:"สถานะ",render:r=>`<span class="pill ${String(r.booking_status).toLowerCase()==='cancelled'?'bad':'ok'}">${esc(r.booking_status)}</span>`}
-    ], bookings.slice(0,30));
+    ], bookingRows.slice(0,50));
 
     const todayStats=$("#todayStats");
     if(todayStats){
@@ -198,6 +230,10 @@
     });
     $("#logoutBtn").addEventListener("click",()=>{ sessionStorage.removeItem("kk_admin_pin"); location.reload(); });
     $("#refreshBtn").addEventListener("click",()=>refresh().then(()=>showNotice("Refresh แล้ว")).catch(e=>showNotice(e.message,"bad")));
+    ["#eventsSort","#bookingsSort"].forEach(sel=>{
+      const el=$(sel);
+      if(el) el.addEventListener("change",()=>render());
+    });
     const cleanupBtn=$("#cleanupBtn");
     if(cleanupBtn){
       cleanupBtn.addEventListener("click", async()=>{
