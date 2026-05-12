@@ -1,3 +1,4 @@
+// KK Phone Rental Admin CRM v15.7 — Link + Booking Audit Fix
 (function(){
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -16,21 +17,51 @@
     $$('input[type="checkbox"]',form).forEach(i=>out[i.name]=i.checked);
     return out;
   }
+  function parseLocalDate(v){
+    if(!v) return null;
+    if(v instanceof Date && !isNaN(v)) return v;
+    const s=String(v).trim();
+    let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+    m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if(m){ let y=Number(m[3]); if(y>2500)y-=543; return new Date(y, Number(m[2])-1, Number(m[1])); }
+    const d=new Date(s);
+    return isNaN(d) ? null : d;
+  }
   function dateToInput(v){
-    if(!v) return "";
-    const d=new Date(v); if(isNaN(d)) return String(v).slice(0,10);
-    return d.toISOString().slice(0,10);
+    const d=parseLocalDate(v);
+    if(!d) return String(v||"").slice(0,10);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   }
   function fmtDate(v){
-    if(!v) return "";
-    const d=new Date(v); if(isNaN(d)) return String(v);
+    const d=parseLocalDate(v);
+    if(!d) return String(v||"");
     return d.toLocaleDateString("th-TH",{year:"numeric",month:"2-digit",day:"2-digit"});
+  }
+  function extractDriveFileId(url){
+    const s=String(url||"").trim();
+    const patterns=[/\/file\/d\/([a-zA-Z0-9_-]{15,})/,/[?&]id=([a-zA-Z0-9_-]{15,})/,/\/thumbnail\?id=([a-zA-Z0-9_-]{15,})/,/googleusercontent\.com\/d\/([a-zA-Z0-9_-]{15,})/,/lh[3-6]\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{15,})/];
+    for(const re of patterns){ const m=s.match(re); if(m&&m[1]) return decodeURIComponent(m[1]); }
+    if(!/^https?:\/\//i.test(s) && /^[a-zA-Z0-9_-]{20,}$/.test(s)) return s;
+    return "";
+  }
+  function normalizePosterUrl(url){
+    const s=String(url||"").trim();
+    if(!s) return "";
+    if(/drive\.google\.com\/(drive\/u\/\d+\/)?folders\//i.test(s) || /drive\.google\.com\/drive\/folders\//i.test(s)){
+      throw new Error("Poster URL ต้องเป็นลิงก์ไฟล์รูป ไม่ใช่ลิงก์โฟลเดอร์ Google Drive");
+    }
+    const id=extractDriveFileId(s);
+    if(id) return `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1200`;
+    if(/drive\.google\.com/i.test(s)){
+      throw new Error("อ่าน File ID จาก Google Drive link ไม่ได้ กรุณาใช้ลิงก์ไฟล์รูป หรือกด Upload Poster");
+    }
+    return s;
   }
   function money(v){ const n=Number(v||0); return n.toLocaleString("th-TH"); }
   function dateValue(v){
-    if(!v) return 0;
-    const d=new Date(v);
-    return isNaN(d) ? 0 : d.getTime();
+    const d=parseLocalDate(v);
+    return d ? d.getTime() : 0;
   }
   function textValue(v){ return String(v || "").trim().toLocaleLowerCase("th-TH"); }
   function sortedOpenEvents(events){
@@ -130,13 +161,14 @@
     $("#bookingsCount").textContent=bookingRows.length+" รายการ";
     table($("#bookingsTable"),[
       {label:"วันที่งาน",render:r=>esc(fmtDate(r.event_date))},
-      {label:"วันที่บันทึก",render:r=>esc(fmtDate(r.created_at))},
-      {label:"ลูกค้า",key:"customer_name"},
+      {label:"ชื่อลูกค้า",key:"customer_name"},
+      {label:"เบอร์โทร",render:r=>esc(r.customer_phone || "-")},
       {label:"ชื่องาน",render:r=>esc(r.event_name || r.event_id || "")},
       {label:"แพ็กเกจ",render:r=>esc(r.package_display || r.package_type || "")},
       {label:"Phone",render:r=>esc(r.phone_model_display || r.phone_asset_id || "-")},
       {label:"Lens",render:r=>esc(r.lens_model_display || r.lens_asset_id || "-")},
-      {label:"สถานะ",render:r=>`<span class="pill ${String(r.booking_status).toLowerCase()==='cancelled'?'bad':'ok'}">${esc(r.booking_status)}</span>`}
+      {label:"สถานะ",render:r=>`<span class="pill ${String(r.booking_status).toLowerCase()==='cancelled'?'bad':'ok'}">${esc(r.booking_status)}</span>`},
+      {label:"วันที่บันทึก",render:r=>esc(fmtDate(r.created_at))}
     ], bookingRows.slice(0,50));
 
     const todayStats=$("#todayStats");
@@ -262,6 +294,7 @@
       ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
       try{
         const p=formData(ev.target);
+        if(p.poster_url) p.poster_url=normalizePosterUrl(p.poster_url);
         const uploaded=await uploadPosterFromInput("#posterFile", ev.target);
         if(uploaded) p.poster_url=uploaded;
         const res=await api("createEvent",p);
@@ -275,6 +308,7 @@
       ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
       try{
         const p=formData(ev.target);
+        if(p.poster_url) p.poster_url=normalizePosterUrl(p.poster_url);
         const uploaded=await uploadPosterFromInput("#updatePosterFile", ev.target);
         if(uploaded) p.poster_url=uploaded;
         const res=await api("updateEvent",p);

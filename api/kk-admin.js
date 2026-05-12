@@ -1,4 +1,4 @@
-// KK Phone Rental v15.3 — Admin CRM Vercel Proxy (audited)
+// KK Phone Rental v15.7 — Admin CRM Vercel Proxy (audited)
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Required ENV on Vercel:
 // KK_ADMIN_SCRIPT_URL = Apps Script Web App URL ending /exec

@@ -1,4 +1,4 @@
-// KK Phone Rental Frontend v15.3 AUDITED OPTIMIZED — optimized from user's frontend and aligned with Backend v14.4 Bulletproof
+// KK Phone Rental Frontend v15.7 LINK + BOOKING AUDIT FIX — optimized from user's frontend and aligned with Backend v14.4 Bulletproof
 // Backend contract:
 // - 08_Web_Ready!A4:K = event-level output
 // - 09_Web_Packages!A4:N = package-level output, including M raw_available_count and N use_case
@@ -167,8 +167,16 @@ function fmtDate(s){ var d=parseDate(s); if(!d)return String(s||""); return Stri
 // ─── Image utils — FIX 2: w600 thumbnail, w1200 only for modal ───────────
 function getDriveId(url){
   var s=String(url||"").trim();
-  var pats=[/\/file\/d\/([^/?#]+)/,/[?&]id=([^&#]+)/,/\/thumbnail\?id=([^&#]+)/,/googleusercontent\.com\/d\/([^=/?#]+)/];
+  var pats=[
+    /\/file\/d\/([a-zA-Z0-9_-]{15,})/,
+    /[?&]id=([a-zA-Z0-9_-]{15,})/,
+    /\/thumbnail\?id=([a-zA-Z0-9_-]{15,})/,
+    /googleusercontent\.com\/d\/([a-zA-Z0-9_-]{15,})/,
+    /lh[3-6]\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{15,})/,
+    /uc\?export=(?:view|download)&id=([a-zA-Z0-9_-]{15,})/
+  ];
   for(var i=0;i<pats.length;i++){ var m=s.match(pats[i]); if(m&&m[1])return decodeURIComponent(m[1]).trim(); }
+  if(!/^https?:\/\//i.test(s) && /^[a-zA-Z0-9_-]{20,}$/.test(s)) return s;
   return "";
 }
 function getImgCandidates(url, size){
@@ -223,7 +231,7 @@ function csvToObjects(rows){
 function abortAfter(ms){ var c=new AbortController(); var t=setTimeout(function(){c.abort();},ms); return {signal:c.signal,clear:function(){clearTimeout(t);}}; }
 async function fetchText(url,ms){
   var ab=abortAfter(ms||9000);
-  try{ var r=await fetch(url,{cache:"default",signal:ab.signal}); if(!r.ok)throw new Error("HTTP "+r.status); return await r.text(); }
+  try{ var r=await fetch(url,{cache:"no-store",signal:ab.signal}); if(!r.ok)throw new Error("HTTP "+r.status); return await r.text(); }
   finally{ ab.clear(); }
 }
 async function withRetry(fn,tries,delay){
@@ -245,17 +253,17 @@ async function fetchSheetCsv(name,range,ms){
 }
 
 // ─── Session cache (3 min) ────────────────────────────────────────────────
-var CACHE_TTL=90000; // v15.3: shorter cache so admin price/stock changes show faster
+var CACHE_TTL=30000; // v15.7: shorter cache so newly-created events and manual poster URLs show faster
 function cacheGet(k){ try{ var raw=sessionStorage.getItem(k); if(!raw)return null; var o=JSON.parse(raw); return (Date.now()-o.ts)<CACHE_TTL?o.data:null; }catch(e){return null;} }
 function cacheSet(k,d){ try{sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),data:d}));}catch(e){} }
 
 async function fetchWebRows(){
-  var k="kk_web_v15_3:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_web_v15_7:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(WEB_SHEET,WEB_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 async function fetchPkgRows(){
-  var k="kk_pkg_v15_3:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_pkg_v15_7:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(PKG_SHEET,PKG_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
