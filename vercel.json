@@ -3,24 +3,57 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     },
     {
       "source": "/api/kk-admin",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, max-age=0"
+        }
       ]
     },
     {
       "source": "/api/kk-data",
       "headers": [
-        { "key": "Cache-Control", "value": "s-maxage=30, stale-while-revalidate=120" }
+        {
+          "key": "Cache-Control",
+          "value": "s-maxage=30, stale-while-revalidate=120"
+        }
+      ]
+    },
+    {
+      "source": "/admin",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/admin/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
       ]
     }
   ],
-  "redirects": [
-    { "source": "/admin", "destination": "/admin/", "permanent": true }
+  "rewrites": [
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    }
   ]
 }
