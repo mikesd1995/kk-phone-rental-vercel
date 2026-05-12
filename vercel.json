@@ -8,10 +8,19 @@
       ]
     },
     {
-      "source": "/api/(.*)",
+      "source": "/api/kk-admin",
       "headers": [
-        { "key": "Cache-Control", "value": "s-maxage=60, stale-while-revalidate=300" }
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
+      ]
+    },
+    {
+      "source": "/api/kk-data",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=30, stale-while-revalidate=120" }
       ]
     }
+  ],
+  "redirects": [
+    { "source": "/admin", "destination": "/admin/", "permanent": true }
   ]
 }

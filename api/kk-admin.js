@@ -1,4 +1,4 @@
-// KK Phone Rental v15.0 — Admin CRM Vercel Proxy
+// KK Phone Rental v15.3 — Admin CRM Vercel Proxy (audited)
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Required ENV on Vercel:
 // KK_ADMIN_SCRIPT_URL = Apps Script Web App URL ending /exec
@@ -9,6 +9,7 @@ function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
   res.end(JSON.stringify(body));
 }
 
@@ -17,7 +18,7 @@ function readBody(req) {
     let data = "";
     req.on("data", (chunk) => {
       data += chunk;
-      if (data.length > 5 * 1024 * 1024) {
+      if (data.length > 4 * 1024 * 1024) {
         reject(new Error("Request too large. Please keep poster images below 3 MB."));
         req.destroy();
       }
@@ -28,7 +29,12 @@ function readBody(req) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin || "";
+  const allowedOrigin = process.env.KK_SITE_ORIGIN || (process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "");
+  if (origin && (!allowedOrigin || origin === allowedOrigin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Admin-Pin");
   if (req.method === "OPTIONS") return json(res, 204, {});
@@ -45,7 +51,7 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const providedPin = String(req.headers["x-admin-pin"] || req.query.pin || "").trim();
+  const providedPin = String(req.headers["x-admin-pin"] || "").trim();
   if (providedPin !== adminPin) return json(res, 401, { ok: false, error: "Invalid admin PIN" });
 
   try {
@@ -69,7 +75,6 @@ module.exports = async function handler(req, res) {
     try { data = JSON.parse(text); }
     catch (_) { data = { ok: false, error: text || "Apps Script returned a non-JSON response" }; }
 
-    res.setHeader("Cache-Control", "no-store");
     return json(res, upstream.ok ? 200 : upstream.status, data);
   } catch (err) {
     return json(res, 500, { ok: false, error: err && err.message ? err.message : String(err) });

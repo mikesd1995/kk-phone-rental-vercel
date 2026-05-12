@@ -1,6 +1,6 @@
 {
-  "name": "kk-phone-rental-frontend-audited-fix",
-  "version": "14.12.0",
+  "name": "kk-phone-rental-frontend-v15-3-audited-optimized",
+  "version": "15.3.0",
   "private": true,
   "scripts": {
     "start": "vercel dev",

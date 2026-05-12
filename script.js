@@ -1,4 +1,4 @@
-// KK Phone Rental Frontend v14.12 AUDITED FIX — optimized from user's frontend and aligned with Backend v14.4 Bulletproof
+// KK Phone Rental Frontend v15.3 AUDITED OPTIMIZED — optimized from user's frontend and aligned with Backend v14.4 Bulletproof
 // Backend contract:
 // - 08_Web_Ready!A4:K = event-level output
 // - 09_Web_Packages!A4:N = package-level output, including M raw_available_count and N use_case
@@ -16,7 +16,7 @@ var SHEET_ID  = APP.sheetId      || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZ
 var WEB_SHEET = APP.webSheetName || "08_Web_Ready";
 var WEB_RANGE = APP.webRange     || "A4:K";
 var PKG_SHEET = APP.pkgSheetName || "09_Web_Packages";
-var PKG_RANGE = APP.pkgRange     || "A4:N"; // v14.9: M raw_available_count, N use_case from backend
+var PKG_RANGE = APP.pkgRange     || "A4:N"; // v15.3: M raw_available_count, N use_case from backend
 var LINE_URL  = APP.lineDirectUrl|| "https://line.me/R/ti/p/%40827blnmo";
 var LINE_OA_ID = APP.lineOAId || "@827blnmo";
 var LINE_OA   = "https://line.me/R/oaMessage/" + encodeURIComponent(LINE_OA_ID) + "/?";
@@ -245,17 +245,17 @@ async function fetchSheetCsv(name,range,ms){
 }
 
 // ─── Session cache (3 min) ────────────────────────────────────────────────
-var CACHE_TTL=180000;
+var CACHE_TTL=90000; // v15.3: shorter cache so admin price/stock changes show faster
 function cacheGet(k){ try{ var raw=sessionStorage.getItem(k); if(!raw)return null; var o=JSON.parse(raw); return (Date.now()-o.ts)<CACHE_TTL?o.data:null; }catch(e){return null;} }
 function cacheSet(k,d){ try{sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),data:d}));}catch(e){} }
 
 async function fetchWebRows(){
-  var k="kk_web_v14_5:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_web_v15_3:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(WEB_SHEET,WEB_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 async function fetchPkgRows(){
-  var k="kk_pkg_v14_5:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_pkg_v15_3:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(PKG_SHEET,PKG_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
@@ -396,17 +396,23 @@ function isFuture(c){ return SHOW_PAST||concertTs(c)>=TODAY_TS; }
 function isSoon(c){ var ms=concertTs(c)-TODAY_TS; return ms>=0&&ms<=14*86400000; }
 function availPkgs(c){ return (c.packages||[]).filter(function(p){return p.avail;}); }
 function availCnt(c){
-  // Audit fix: show actual unit count, not number of package choices.
-  var phone=toNum(c&&c.phoneCnt), lens=toNum(c&&c.lensCnt), ap=availPkgs(c);
-  if(phone>0) return phone;
-  if(lens>0 && ap.some(function(p){return p.type==="lens_only";})) return lens;
+  // v15.3: use package-level available_count first so hidden phone packages do not inflate card availability.
+  var ap=availPkgs(c);
+  var maxPkg=0;
+  ap.forEach(function(p){ if(hasVal(p.count)) maxPkg=Math.max(maxPkg,toNum(p.count)); });
+  if(maxPkg>0) return maxPkg;
+  var phone=toNum(c&&c.phoneCnt), lens=toNum(c&&c.lensCnt);
+  if(ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";})) return phone;
+  if(ap.some(function(p){return p.type==="lens_only";})) return lens;
   return 0;
 }
 function availTextFor(c){
-  var phone=toNum(c&&c.phoneCnt), lens=toNum(c&&c.lensCnt), cnt=availCnt(c);
+  var ap=availPkgs(c), cnt=availCnt(c);
   if(cnt<=0) return "เต็มแล้วน้า 😢";
-  if(phone>0) return cnt===1 ? "เหลือ 1 เครื่องสุดท้าย ✨" : "ว่าง "+cnt+" เครื่อง ✨";
-  if(lens>0) return "เหลือ Lens อย่างเดียว ✨";
+  var hasPhone=ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
+  var hasLensOnly=ap.some(function(p){return p.type==="lens_only";});
+  if(hasPhone) return cnt===1 ? "เหลือ 1 เครื่องสุดท้าย ✨" : "ว่าง "+cnt+" เครื่อง ✨";
+  if(hasLensOnly) return "เหลือ Lens อย่างเดียว ✨";
   return "ว่าง ✨";
 }
 
@@ -455,7 +461,7 @@ function renderEmpty(msg,detail){
   var el=document.getElementById("content"); if(!el)return;
   el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+(detail?esc(detail):'ถ้ามีงานที่อยากเช่า สามารถทัก LINE OA มาสอบถามได้เลย')+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">ทัก LINE OA</a></div>';
 }
-function getBadgeText(c){ var cnt=availCnt(c); if(cnt<=0)return "เต็มแล้ว"; if(isSoon(c))return "ใกล้ถึงวันงาน"; return toNum(c&&c.phoneCnt)>0 ? "ว่าง "+cnt+" เครื่อง" : "Lens ว่าง"; }
+function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return "เต็มแล้ว"; if(isSoon(c))return "ใกล้ถึงวันงาน"; return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? "ว่าง "+cnt+" เครื่อง" : "Lens ว่าง"; }
 
 function renderConcerts(concerts){
   var el=document.getElementById("content"); if(!el)return;
@@ -557,8 +563,12 @@ function showModal(c){
     if(p.note){var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=p.note; info.appendChild(nEl);}
     var right=document.createElement("div"); right.className="ph-right";
     var priceEl=document.createElement("div"); priceEl.className="ph-price";
-    var pt=fmtPrice(p.price); priceEl.textContent=pt.replace(" บาท/วัน","");
-    var sm=document.createElement("span"); sm.textContent=" บาท/วัน"; priceEl.appendChild(sm);
+    if(toNum(p.price)>0){
+      priceEl.textContent=toNum(p.price).toLocaleString("th-TH");
+      var sm=document.createElement("span"); sm.textContent=" บาท/วัน"; priceEl.appendChild(sm);
+    } else {
+      priceEl.textContent="สอบถามราคา";
+    }
     var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill"; bookBtn.textContent="จองรุ่นนี้";
     bookBtn.href=getBookingUrl(c,p); bookBtn.target="_blank"; bookBtn.rel="noopener";
     bookBtn.setAttribute("aria-label","จองรุ่น "+(p.model||"")+" สำหรับงาน "+(c.name||""));

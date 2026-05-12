@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./admin.css" />
+  <link rel="stylesheet" href="/admin/admin.css" />
 </head>
 <body>
   <div class="shell">
@@ -18,11 +18,12 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v15.0</span>
+          <span>Phone Rental v15.3</span>
         </div>
       </div>
       <nav>
         <button class="nav active" data-tab="overview">ภาพรวม</button>
+        <button class="nav" data-tab="today">งานวันนี้</button>
         <button class="nav" data-tab="booking">เพิ่ม Booking</button>
         <button class="nav" data-tab="events">เพิ่ม/แก้งาน</button>
         <button class="nav" data-tab="packages">แพ็กเกจ/ราคา</button>
@@ -71,6 +72,20 @@
               <div class="card-head"><h2>Booking ล่าสุด</h2><small id="bookingsCount"></small></div>
               <div class="table-wrap"><table id="bookingsTable"></table></div>
             </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-today">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>Today’s Working</h2>
+                <p class="hint">งานที่ต้องทำวันนี้ ดึงจาก event_date ของ booking และแสดงชื่อรุ่นจาก Model_Master</p>
+              </div>
+              <small id="todayCount"></small>
+            </div>
+            <div class="grid stats compact" id="todayStats"></div>
+            <div class="table-wrap"><table id="todayTable"></table></div>
           </div>
         </section>
 
@@ -190,16 +205,40 @@
               <button class="btn primary" type="submit">เพิ่มแพ็กเกจ</button>
             </form>
 
-            <form class="card form" id="packageUpdateForm">
-              <h2>แก้ราคา/ข้อความแพ็กเกจ</h2>
+            <form class="card form" id="eventPriceOverrideForm">
+              <h2>แก้ราคาเฉพาะงาน</h2>
+              <p class="hint">ใช้ส่วนนี้เมื่ออยากให้ราคา/ข้อความของแพ็กเกจเปลี่ยนเฉพาะงานที่เลือก โดยไม่กระทบราคาหลักของทุกงาน</p>
+              <label>เลือกงาน <select name="event_id" data-source="events" required></select></label>
               <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select></label>
               <div class="row two">
-                <label>ราคาใหม่ <input name="standard_price" type="number" min="0" step="1" /></label>
+                <label>ราคาเฉพาะงานนี้ <input name="override_price" type="number" min="0" step="1" placeholder="เช่น 1290" /></label>
+                <label>Active เฉพาะงานนี้
+                  <select name="active_override">
+                    <option value="">ไม่เปลี่ยน</option>
+                    <option value="true">เปิดขาย</option>
+                    <option value="false">ซ่อนแพ็กเกจนี้ในงานนี้</option>
+                  </select>
+                </label>
+              </div>
+              <div class="row two">
+                <label>Sort Order เฉพาะงาน <input name="sort_order_override" type="number" min="0" step="1" placeholder="ว่างไว้ได้" /></label>
+                <label>Note เฉพาะงาน <input name="override_note" placeholder="ว่างไว้ได้" /></label>
+              </div>
+              <label>Use Case เฉพาะงาน <textarea name="use_case_override" rows="3" placeholder="ถ้าว่าง จะใช้ข้อความหลักจากแพ็กเกจ"></textarea></label>
+              <button class="btn secondary" type="submit">บันทึกราคาเฉพาะงาน</button>
+            </form>
+
+            <form class="card form" id="packageUpdateForm">
+              <h2>แก้ราคาหลักของแพ็กเกจ</h2>
+              <p class="hint">ส่วนนี้จะกระทบทุกงานที่ไม่ได้ตั้งราคาเฉพาะงานไว้</p>
+              <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select></label>
+              <div class="row two">
+                <label>ราคาหลักใหม่ <input name="standard_price" type="number" min="0" step="1" /></label>
                 <label>ชื่อแสดงใหม่ <input name="display_name" /></label>
               </div>
-              <label>Use Case ใหม่ <textarea name="use_case" rows="3"></textarea></label>
+              <label>Use Case หลักใหม่ <textarea name="use_case" rows="3"></textarea></label>
               <label>Active <select name="active"><option value="">ไม่เปลี่ยน</option><option value="true">TRUE</option><option value="false">FALSE</option></select></label>
-              <button class="btn secondary" type="submit">บันทึกการแก้ไข</button>
+              <button class="btn ghost" type="submit">บันทึกราคาหลัก</button>
             </form>
           </div>
         </section>
@@ -234,15 +273,29 @@
         </section>
 
         <section class="tab-panel" id="tab-health">
-          <div class="card">
-            <div class="card-head"><h2>Health Check</h2><small>อ่านจาก 10_Admin_Health_Check</small></div>
-            <div class="table-wrap"><table id="healthTable"></table></div>
+          <div class="grid two-col">
+            <div class="card">
+              <div class="card-head"><h2>Health Check</h2><small>อ่านจาก 10_Admin_Health_Check</small></div>
+              <div class="table-wrap"><table id="healthTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Archive / Customer Stats</h2>
+                  <p class="hint">ย้าย booking/event เก่ากว่า 30 วันไป Archive และอัปเดตจำนวนครั้งที่ลูกค้าเคยเช่า</p>
+                </div>
+              </div>
+              <button class="btn secondary" id="cleanupBtn" type="button">Run 30-day Archive Cleanup</button>
+              <p class="hint">แนะนำให้กดเมนู KK Admin &gt; CRM: Install Daily Cleanup Trigger ใน Google Sheet เพื่อให้ระบบทำงานอัตโนมัติทุกวัน</p>
+              <div class="card-head"><h2>Customer Stats</h2><small id="customerStatsCount"></small></div>
+              <div class="table-wrap"><table id="customerStatsTable"></table></div>
+            </div>
           </div>
         </section>
       </div>
     </main>
   </div>
 
-  <script src="./admin.js"></script>
+  <script src="/admin/admin.js"></script>
 </body>
 </html>

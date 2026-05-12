@@ -1,4 +1,4 @@
-// KK Phone Rental v14.12 — Vercel Serverless Google Sheets CSV Proxy
+// KK Phone Rental v15.3 — Vercel Serverless Google Sheets CSV Proxy (audited)
 // Required on Vercel: Environment Variable GOOGLE_SHEET_ID = your new Google Sheet ID
 
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
@@ -42,13 +42,13 @@ module.exports = async function handler(req, res) {
 
   try {
     const upstream = await fetch(url, {
-      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/14.12" },
+      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/15.3" },
     });
     const text = await upstream.text();
     if (!upstream.ok) {
       return send(res, upstream.status, text || "Google Sheets upstream error");
     }
-    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
+    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=120");
     return send(res, 200, text, "text/csv; charset=utf-8");
   } catch (err) {
     return send(res, 502, "Proxy fetch failed: " + (err && err.message ? err.message : String(err)));

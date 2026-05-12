@@ -1,7 +1,7 @@
 (function(){
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null };
+  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false };
 
   function showNotice(msg, type="ok"){
     const n=$("#notice");
@@ -27,6 +27,22 @@
     return d.toLocaleDateString("th-TH",{year:"numeric",month:"2-digit",day:"2-digit"});
   }
   function money(v){ const n=Number(v||0); return n.toLocaleString("th-TH"); }
+  function findOverride(eventId, templateId){
+    const d=state.data||{};
+    return (d.overrides||[]).find(o=>String(o.event_id)===String(eventId)&&String(o.template_id)===String(templateId));
+  }
+  function populateEventOverrideForm(){
+    const form=$("#eventPriceOverrideForm");
+    if(!form || !state.data) return;
+    const eventId=form.elements.event_id && form.elements.event_id.value;
+    const templateId=form.elements.template_id && form.elements.template_id.value;
+    const o=findOverride(eventId, templateId);
+    form.elements.override_price.value=o && o.override_price!==undefined && o.override_price!==null ? o.override_price : "";
+    form.elements.active_override.value=o && o.active_override!=="" && o.active_override!==undefined ? String(o.active_override) : "";
+    form.elements.override_note.value=o ? (o.override_note||"") : "";
+    form.elements.sort_order_override.value=o ? (o.sort_order_override||"") : "";
+    form.elements.use_case_override.value=o ? (o.use_case_override||"") : "";
+  }
 
   async function api(action, payload={}){
     const res=await fetch("/api/kk-admin",{
@@ -39,10 +55,13 @@
     return data;
   }
 
+  function esc(v){
+    return String(v ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+  }
   function table(el, cols, rows){
     if(!el) return;
     if(!rows || !rows.length){ el.innerHTML='<tr><td class="muted">ไม่มีข้อมูล</td></tr>'; return; }
-    el.innerHTML='<thead><tr>'+cols.map(c=>`<th>${c.label}</th>`).join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>`<td>${c.render?c.render(r):(r[c.key]??"")}</td>`).join('')+'</tr>').join('')+'</tbody>';
+    el.innerHTML='<thead><tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>`<td>${c.render?c.render(r):esc(r[c.key]??"")}</td>`).join('')+'</tr>').join('')+'</tbody>';
   }
 
   function fillSelects(){
@@ -57,43 +76,90 @@
       sel.innerHTML='<option value="">เลือกแพ็กเกจ</option>'+(data.packages||[]).filter(p=>p.active!==false).map(p=>`<option value="${p.template_id}">${p.display_name||p.template_id} · ${money(p.standard_price)}฿</option>`).join('');
       if(current) sel.value=current;
     });
+    populateEventOverrideForm();
   }
 
   function render(){
     const d=state.data||{};
-    const events=d.events||[], packages=d.packages||[], assets=d.assets||[], bookings=d.bookings||[], health=d.health||[];
+    const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=d.health||[], today=d.today_working||[], customers=d.customers||[];
     const openEvents=events.filter(e=>String(e.status||"").toLowerCase()==="open" && e.active_on_web!==false).length;
     const phones=assets.filter(a=>a.asset_type==="phone" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const lenses=assets.filter(a=>a.asset_type==="lens" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const activeBookings=bookings.filter(b=>["pending","confirmed","picked_up"].includes(String(b.booking_status||"").toLowerCase())).length;
+    const unpaidToday=today.filter(b=>String(b.payment_status||"").toLowerCase()!=="paid").length;
     $("#statsGrid").innerHTML=[
-      [openEvents,"งานเปิดอยู่"],[packages.filter(p=>p.active!==false).length,"แพ็กเกจ active"],[phones,"มือถือ available"],[lenses,"เลนส์ available"],[activeBookings,"Booking active"]
-    ].map(s=>`<div class="card stat"><strong>${s[0]}</strong><span>${s[1]}</span></div>`).join('');
+      [openEvents,"งานเปิดอยู่"],[packages.filter(p=>p.active!==false).length,"แพ็กเกจ active"],[overrides.length,"ราคาเฉพาะงาน"],[phones,"มือถือ available"],[lenses,"เลนส์ available"],[activeBookings,"Booking active"],[today.length,"งานที่ต้องทำวันนี้"],[customers.length,"ลูกค้าที่มีประวัติ"]
+    ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
 
     $("#eventsCount").textContent=events.length+" รายการ";
     table($("#eventsTable"),[
-      {label:"วันที่",render:r=>fmtDate(r.event_date)},{label:"งาน",key:"event_name"},{label:"สถานที่",key:"venue"},{label:"สถานะ",render:r=>`<span class="pill ${r.status==='open'?'ok':'bad'}">${r.status}</span>`},{label:"โชว์เว็บ",render:r=>r.active_on_web===false?'FALSE':'TRUE'}
+      {label:"วันที่",render:r=>esc(fmtDate(r.event_date))},{label:"งาน",key:"event_name"},{label:"สถานที่",key:"venue"},{label:"สถานะ",render:r=>`<span class="pill ${r.status==='open'?'ok':'bad'}">${esc(r.status)}</span>`},{label:"โชว์เว็บ",render:r=>r.active_on_web===false?'FALSE':'TRUE'}
     ], events.slice(0,30));
 
     $("#bookingsCount").textContent=bookings.length+" รายการ";
     table($("#bookingsTable"),[
-      {label:"วันที่บันทึก",render:r=>fmtDate(r.created_at)},{label:"ลูกค้า",key:"customer_name"},{label:"งาน",key:"event_id"},{label:"แพ็กเกจ",key:"package_type"},{label:"Phone",key:"phone_asset_id"},{label:"Lens",key:"lens_asset_id"},{label:"สถานะ",key:"booking_status"}
+      {label:"วันที่บันทึก",render:r=>esc(fmtDate(r.created_at))},
+      {label:"ลูกค้า",key:"customer_name"},
+      {label:"ชื่องาน",render:r=>esc(r.event_name || r.event_id || "")},
+      {label:"แพ็กเกจ",render:r=>esc(r.package_display || r.package_type || "")},
+      {label:"Phone",render:r=>esc(r.phone_model_display || r.phone_asset_id || "-")},
+      {label:"Lens",render:r=>esc(r.lens_model_display || r.lens_asset_id || "-")},
+      {label:"สถานะ",render:r=>`<span class="pill ${String(r.booking_status).toLowerCase()==='cancelled'?'bad':'ok'}">${esc(r.booking_status)}</span>`}
     ], bookings.slice(0,30));
+
+    const todayStats=$("#todayStats");
+    if(todayStats){
+      todayStats.innerHTML=[
+        [today.length,"Booking วันนี้"],
+        [today.filter(b=>["pending","confirmed"].includes(String(b.booking_status||"").toLowerCase())).length,"ต้องเตรียมส่งมอบ"],
+        [today.filter(b=>String(b.booking_status||"").toLowerCase()==="picked_up").length,"รอรับคืน"],
+        [unpaidToday,"ยังไม่ paid"]
+      ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
+    }
+    if($("#todayCount")) $("#todayCount").textContent=(d.today_key?("วันที่ "+fmtDate(d.today_key)+" · "):"")+today.length+" รายการ";
+    table($("#todayTable"),[
+      {label:"งาน",render:r=>esc(r.event_name || r.event_id || "")},
+      {label:"ลูกค้า",key:"customer_name"},
+      {label:"ติดต่อ",render:r=>esc([r.customer_contact,r.customer_phone].filter(Boolean).join(" / "))},
+      {label:"Phone",render:r=>esc(r.phone_model_display || r.phone_asset_id || "-")},
+      {label:"Lens",render:r=>esc(r.lens_model_display || r.lens_asset_id || "-")},
+      {label:"Pickup",render:r=>esc(r.pickup_time || "-")},
+      {label:"Payment",render:r=>`<span class="pill ${String(r.payment_status).toLowerCase()==='paid'?'ok':'bad'}">${esc(r.payment_status||'')}</span>`},
+      {label:"สิ่งที่ต้องทำ",key:"work_task"},
+      {label:"Note",key:"note"}
+    ], today);
 
     $("#assetsCount").textContent=assets.length+" รายการ";
     table($("#assetsTable"),[
-      {label:"ID",key:"asset_id"},{label:"Type",key:"asset_type"},{label:"Group",key:"model_group"},{label:"Serial",key:"serial"},{label:"Status",key:"status"},{label:"Rentable",render:r=>r.rentable===false?'FALSE':'TRUE'}
+      {label:"ID",key:"asset_id"},{label:"Type",key:"asset_type"},{label:"Model Display",render:r=>esc(r.model_display || r.model_group || "")},{label:"Group",key:"model_group"},{label:"Serial",key:"serial"},{label:"Status",key:"status"},{label:"Rentable",render:r=>r.rentable===false?'FALSE':'TRUE'}
     ], assets.slice(0,80));
 
     table($("#healthTable"),[
-      {label:"Check",key:"check"},{label:"Status",render:r=>`<span class="pill ${String(r.status).toLowerCase().includes('ok')?'ok':String(r.status).toLowerCase().includes('check')?'bad':''}">${r.status||''}</span>`},{label:"Detail",key:"detail"},{label:"Note",key:"note"}
+      {label:"Check",key:"check"},{label:"Status",render:r=>`<span class="pill ${String(r.status).toLowerCase().includes('ok')?'ok':String(r.status).toLowerCase().includes('check')?'bad':''}">${esc(r.status||'')}</span>`},{label:"Detail",key:"detail"},{label:"Note",key:"note"}
     ], health);
+
+    if($("#customerStatsCount")) $("#customerStatsCount").textContent=customers.length+" รายการ";
+    table($("#customerStatsTable"),[
+      {label:"ลูกค้า",key:"customer_name"},
+      {label:"ติดต่อ",render:r=>esc([r.customer_contact,r.customer_phone].filter(Boolean).join(" / "))},
+      {label:"เช่าแล้ว",render:r=>esc(r.rental_count||0)},
+      {label:"เช่าล่าสุด",render:r=>esc(fmtDate(r.last_rental_date))},
+      {label:"งานล่าสุด",key:"last_event_name"}
+    ], customers.slice(0,50));
 
     fillSelects();
   }
 
   async function refresh(){
-    const data=await api("snapshot"); state.data=data.data; render();
+    if(state.loading) return;
+    state.loading=true;
+    try{
+      const data=await api("snapshot");
+      state.data=data.data||{};
+      render();
+    } finally {
+      state.loading=false;
+    }
   }
 
   async function uploadPosterIfAny(){
@@ -118,6 +184,29 @@
     });
     $("#logoutBtn").addEventListener("click",()=>{ sessionStorage.removeItem("kk_admin_pin"); location.reload(); });
     $("#refreshBtn").addEventListener("click",()=>refresh().then(()=>showNotice("Refresh แล้ว")).catch(e=>showNotice(e.message,"bad")));
+    const cleanupBtn=$("#cleanupBtn");
+    if(cleanupBtn){
+      cleanupBtn.addEventListener("click", async()=>{
+        if(!confirm("ย้าย booking/event เก่ากว่า 30 วันไป Archive และอัปเดต Customer Stats ใช่ไหม?")) return;
+        setBusy(cleanupBtn,true);
+        try{
+          const res=await api("cleanupOldData",{});
+          await refresh();
+          showNotice(`Cleanup สำเร็จ: bookings ${res.archived_bookings||0}, events ${res.archived_events||0}, overrides ${res.archived_overrides||0}, customer stats ${res.customer_stats_updated||0}`);
+        }catch(e){ showNotice(e.message,"bad"); }
+        finally{ setBusy(cleanupBtn,false); }
+      });
+    }
+
+    const overrideForm=$("#eventPriceOverrideForm");
+    if(overrideForm){
+      $$('select', overrideForm).forEach(sel=>sel.addEventListener("change", populateEventOverrideForm));
+      overrideForm.addEventListener("submit",async ev=>{
+        ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
+        try{ await api("upsertEventOverride",formData(ev.target)); await refresh(); showNotice("บันทึกราคาเฉพาะงานสำเร็จ"); }
+        catch(e){ showNotice(e.message,"bad"); } finally{ setBusy(btn,false); }
+      });
+    }
 
     $("#eventForm").addEventListener("submit",async ev=>{
       ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
