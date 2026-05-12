@@ -1,7 +1,7 @@
-// KK Phone Rental Frontend v14.7 STABLE LEAN — optimized from user's frontend and aligned with Backend v14.4 Bulletproof
+// KK Phone Rental Frontend v14.12 AUDITED FIX — optimized from user's frontend and aligned with Backend v14.4 Bulletproof
 // Backend contract:
 // - 08_Web_Ready!A4:K = event-level output
-// - 09_Web_Packages!A4:M = package-level output, including M raw_available_count
+// - 09_Web_Packages!A4:N = package-level output, including M raw_available_count and N use_case
 // Improvements:
 // - Vercel API proxy with direct Google Sheets fallback
 // - Safer package mapping so raw_available_count is not mistaken for pkg_active
@@ -9,11 +9,14 @@
 // - Keeps existing v13.5 compact modal and 2-column card UX
 
 var APP       = window.KK_CONFIG || {};
+var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
+var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน";
+var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
 var SHEET_ID  = APP.sheetId      || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 var WEB_SHEET = APP.webSheetName || "08_Web_Ready";
 var WEB_RANGE = APP.webRange     || "A4:K";
 var PKG_SHEET = APP.pkgSheetName || "09_Web_Packages";
-var PKG_RANGE = APP.pkgRange     || "A4:M"; // v14.4: includes M raw_available_count
+var PKG_RANGE = APP.pkgRange     || "A4:N"; // v14.9: M raw_available_count, N use_case from backend
 var LINE_URL  = APP.lineDirectUrl|| "https://line.me/R/ti/p/%40827blnmo";
 var LINE_OA_ID = APP.lineOAId || "@827blnmo";
 var LINE_OA   = "https://line.me/R/oaMessage/" + encodeURIComponent(LINE_OA_ID) + "/?";
@@ -36,6 +39,8 @@ function toNum(v){ var n=Number(String(v||"").replace(/[^0-9.\-]/g,"")); return 
 function hasVal(v){ return v!==undefined && v!==null && String(v).trim()!==""; }
 function toBool(v){ if(v===true||v===1)return true; var s=String(v||"").trim().toUpperCase(); return s==="TRUE"||s==="YES"||s==="1"||s==="ว่าง"||s==="OPEN"||s==="SHOW"; }
 function fmtPrice(n){ n=toNum(n); return n>0?n.toLocaleString("th-TH")+" บาท/วัน":"ไม่ระบุ"; }
+function fmtPriceLine(n){ n=toNum(n); return n>0?n.toLocaleString("th-TH")+" บาท":"ไม่ระบุ"; }
+function lineVal(v){ var s=String(v||"").replace(/\s+/g," ").trim(); return s||"-"; }
 
 // Header-safe row utilities: Google Sheets CSV may export Thai headers with line breaks.
 function compactKey(k){
@@ -60,7 +65,7 @@ function normalizePkgRow(p){
   // Backend v14.4 headers:
   // A package_id, B event_id, C package_type, D model_group, E model_display,
   // F lens_group, G lens_display, H price, I available_count, J package_status,
-  // K sort_order, L web_note, M raw_available_count
+  // K sort_order, L web_note, M raw_available_count, N use_case
   var status = pick(p,["package_status","package status","status","สถานะแพ็กเกจ"],9);
   var price  = pick(p,["price","standard_price","standard price","ราคา"],7);
   var modelDisplay = pick(p,["model_display","phone_model_display","ชื่อแสดง\nมือถือ","ชื่อแสดงมือถือ"],4);
@@ -68,6 +73,7 @@ function normalizePkgRow(p){
   var pkgType = pick(p,["pkg_type","package_type","package type","ประเภท\nแพ็กเกจ","ประเภทแพ็กเกจ"],2);
   var availableCount = pick(p,["available_count","available count","available_count\n(auto)","จำนวนว่าง"],8);
   var rawAvailableCount = pick(p,["raw_available_count","raw available count","raw_available_count\n(auto)","จำนวนว่างดิบ"],12);
+  var useCase = pick(p,["use_case","use case","use_case_note","เหมาะกับ","ข้อความเหมาะกับ"],13);
 
   return {
     package_id:          pick(p,["package_id","pkg_id","template_id","รหัสแพ็กเกจ\n(Auto)","รหัสแพ็กเกจ"],0),
@@ -85,6 +91,7 @@ function normalizePkgRow(p){
     pkg_active:          pick(p,["pkg_active","pkg_active\n(TRUE/FALSE)"]),
     available_count:     availableCount,
     raw_available_count: rawAvailableCount,
+    use_case:            useCase,
     package_status:      status,
     sort_order:          pick(p,["sort_order"],10)
   };
@@ -109,8 +116,21 @@ function setMeta(attr, key, val){
   }catch(e){}
 }
 function eventUrl(c){
-  try{ var u=new URL(window.location.href); u.searchParams.set("event", c.id||""); return u.toString(); }
-  catch(e){ return window.location.href; }
+  try{ var u=new URL(homeUrl()); u.searchParams.set("event", c.id||""); return u.toString(); }
+  catch(e){ return (APP.siteUrl || window.location.href); }
+}
+function resetMeta(){
+  try{
+    document.title = DEFAULT_TITLE;
+    setMeta("name","description",DEFAULT_DESCRIPTION);
+    setMeta("property","og:title",DEFAULT_TITLE);
+    setMeta("property","og:description",DEFAULT_DESCRIPTION);
+    setMeta("property","og:url",APP.siteUrl || homeUrl());
+    setMeta("property","og:image",DEFAULT_OG_IMAGE);
+    setMeta("name","twitter:title",DEFAULT_TITLE);
+    setMeta("name","twitter:description",DEFAULT_DESCRIPTION);
+    setMeta("name","twitter:image",DEFAULT_OG_IMAGE);
+  }catch(e){}
 }
 function updateMetaForEvent(c){
   if(!c)return;
@@ -254,6 +274,7 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     var modelDisplay = String(p.model_display||p.phone_model_display||"มือถือ").trim();
     var lensDisplay  = String(p.lens_display||p.lens_model_display||p.lens_group||"").trim();
     var note         = String(p.web_note||p.package_note||"").trim();
+    var useCase      = String(p.use_case||"").trim();
 
     var override = toNum(p.price_override);
     var directPrice = toNum(p.price);
@@ -299,7 +320,7 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     if(price<=0) avail = false;
     if(rawHasAvail && rawAvail < 0) avail = false;
 
-    return { id:p.package_id||"", model:label, spec:spec, price:price, note:note, avail:avail, count:sheetAvail, rawCount:rawAvail, type:pkgType, lensDisp:lensDisplay, sort:toNum(p.sort_order) };
+    return { id:p.package_id||"", model:label, spec:spec, price:price, note:note, useCase:useCase, avail:avail, count:sheetAvail, rawCount:rawAvail, type:pkgType, lensDisp:lensDisplay, sort:toNum(p.sort_order) };
   });
 }
 
@@ -313,10 +334,10 @@ function buildPackagesFromWebRow(r){
   var phoneAvail = r.phone_only_available!==undefined ? toBool(r.phone_only_available) : toNum(r.available_phone_count)>0;
   var lensAvail  = r.lens_only_available!==undefined  ? toBool(r.lens_only_available)  : toNum(r.available_lens_count)>0;
   var bundleAvail= r.phone_lens_available!==undefined ? toBool(r.phone_lens_available) : (phoneAvail&&lensAvail&&bPrice>0);
-  if(pPrice>0)pkgs.push({model:model, spec:"เฉพาะมือถือ",  price:pPrice, note:note, avail:phoneAvail, type:"phone_only"});
-  if(lPrice>0)pkgs.push({model:"Lens",spec:lens&&lens!=="NONE"?lens:"เลนส์เสริม",price:lPrice,note:note,avail:lensAvail,type:"lens_only"});
-  if(bPrice>0)pkgs.push({model:model+" + Lens",spec:"มือถือ + เลนส์",price:bPrice,note:note,avail:bundleAvail,type:"phone_lens_bundle"});
-  if(!pkgs.length)pkgs.push({model:model,spec:"สอบถามแพ็กเกจผ่าน LINE OA",price:0,note:note,avail:true,type:"ask"});
+  if(pPrice>0)pkgs.push({model:model, spec:"เฉพาะมือถือ",  price:pPrice, note:note, useCase:String(r.use_case||"").trim(), avail:phoneAvail, type:"phone_only"});
+  if(lPrice>0)pkgs.push({model:"Lens",spec:lens&&lens!=="NONE"?lens:"เลนส์เสริม",price:lPrice,note:note,useCase:String(r.use_case||"").trim(),avail:lensAvail,type:"lens_only"});
+  if(bPrice>0)pkgs.push({model:model+" + Lens",spec:"มือถือ + เลนส์",price:bPrice,note:note,useCase:String(r.use_case||"").trim(),avail:bundleAvail,type:"phone_lens_bundle"});
+  if(!pkgs.length)pkgs.push({model:model,spec:"สอบถามแพ็กเกจผ่าน LINE OA",price:0,note:note,useCase:String(r.use_case||"").trim(),avail:true,type:"ask"});
   return pkgs;
 }
 
@@ -405,11 +426,12 @@ function emptyMsg(){
 
 // ─── DOM ──────────────────────────────────────────────────────────────────
 function applyConfig(){
+  DEFAULT_OG_IMAGE = APP.headerImage || DEFAULT_OG_IMAGE;
   if(APP.siteUrl){
     var canonical=document.querySelector('link[rel="canonical"]'); if(canonical)canonical.href=APP.siteUrl;
-    setMeta("property","og:url",APP.siteUrl);
   }
-  if(APP.headerImage){var h=document.querySelector(".brand-header-img");if(h)h.src=APP.headerImage;setMeta("property","og:image",APP.headerImage);setMeta("name","twitter:image",APP.headerImage);}
+  if(APP.headerImage){var h=document.querySelector(".brand-header-img");if(h)h.src=APP.headerImage;}
+  resetMeta();
   if(APP.xUrl){document.querySelectorAll("a.quick-link").forEach(function(a){a.href=APP.xUrl;});}
   document.querySelectorAll("a.line-btn,a.sticky-line").forEach(function(a){a.href=LINE_URL;});
 }
@@ -487,25 +509,26 @@ function renderConcerts(concerts){
 
 // ─── Modal ────────────────────────────────────────────────────────────────
 function buildBookingMsg(c,p){
-  var base=c.lineTemplate||"สวัสดีค่ะ สนใจจองเช่ามือถือกับ KK Phone Rental ค่ะ";
-  return [base,"","งาน : "+(c.name||"-"),"วันที่ : "+(c.date||"-"),"สถานที่ : "+(c.venue||"-"),
-    "แพ็กเกจ : "+((p&&p.model)||"-"),"รายละเอียด : "+((p&&p.spec)||"-"),"ราคา : "+(p?fmtPrice(p.price):"-"),
-    "","ชื่อเล่น : ","เบอร์โทร : ","เวลาที่สะดวกรับเครื่อง : "].join("\n");
+  // v14.12: keep LINE OA message short and package-specific.
+  // Do not prepend backend line_message_template because that already contains event data and causes duplicated text.
+  return [
+    "สนใจเช่า "+lineVal(p&&p.model),
+    "งาน : "+lineVal(c&&c.name),
+    "วันที่ : "+lineVal(c&&c.date),
+    "ราคา : "+fmtPriceLine(p&&p.price),
+    "",
+    "ชื่อเล่น : ",
+    "เบอร์โทร : ",
+    "เวลาที่สะดวกรับเครื่อง : "
+  ].join("\n");
 }
 function getBookingUrl(c,p){ return LINE_OA+encodeURIComponent(buildBookingMsg(c,p)); }
-function getSuitability(p){
-  var t=(String((p&&p.model)||"")+String((p&&p.spec)||"")).toLowerCase();
-  if(t.indexOf("lens")>=0||t.indexOf("zeiss")>=0||t.indexOf("x300")>=0)return "เหมาะกับ: ถ่ายเวทีไกล / ซูมศิลปิน / วิดีโอคอนเสิร์ต";
-  if(t.indexOf("ultra")>=0||t.indexOf("pro")>=0||t.indexOf("zoom")>=0)return "เหมาะกับ: ถ่ายคอนเสิร์ต / ซูมระยะไกล / เก็บโมเมนต์สำคัญ";
-  return "เหมาะกับ: ถ่ายภาพและวิดีโอในงานคอนเสิร์ต / แฟนมีท / อีเวนต์";
-}
-
 function showModal(c){
   if(!c)return;
   // NEW: GA4 track modal open
   track("view_event_packages",{event_name:c.name, available:availCnt(c)});
   updateMetaForEvent(c);
-  try{ if(c.id){ var u=new URL(window.location.href); u.searchParams.set("event",c.id); window.history.replaceState(null,"",u.toString()); } }catch(e){}
+  setEventUrl(c.id);
 
   document.getElementById("modal-title").textContent=c.name||"รายละเอียดงาน";
   document.getElementById("modal-date").textContent="📅 "+(c.date||"-");
@@ -529,8 +552,8 @@ function showModal(c){
     var info=document.createElement("div"); info.className="ph-info";
     var mEl=document.createElement("div"); mEl.className="ph-model"; mEl.textContent=p.model||"";
     var sEl=document.createElement("div"); sEl.className="ph-spec";  sEl.textContent=p.spec||"";
-    var uEl=document.createElement("div"); uEl.className="ph-usecase"; uEl.textContent=getSuitability(p);
-    info.appendChild(mEl); info.appendChild(sEl); info.appendChild(uEl);
+    info.appendChild(mEl); info.appendChild(sEl);
+    if(p.useCase){var uEl=document.createElement("div"); uEl.className="ph-usecase"; uEl.textContent=p.useCase; info.appendChild(uEl);}
     if(p.note){var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=p.note; info.appendChild(nEl);}
     var right=document.createElement("div"); right.className="ph-right";
     var priceEl=document.createElement("div"); priceEl.className="ph-price";
@@ -550,12 +573,36 @@ function showModal(c){
   openModal();
 }
 
-function openModal(){document.getElementById("overlay").classList.add("active");document.body.style.overflow="hidden";}
-function closeModal(e){if(e&&e.target!==document.getElementById("overlay"))return;document.getElementById("overlay").classList.remove("active");document.body.style.overflow="";}
+var PACKAGE_CLOSE_SELECTOR = "#modal-close,#modal-x-btn,[data-modal-close=\"package\"]";
+var FAQ_CLOSE_SELECTOR = "#faq-close-btn,#faq-x-btn,[data-modal-close=\"faq\"]";
+function lockBody(){document.body.style.overflow="hidden";}
+function unlockBodyIfNoModal(){var ov=document.getElementById("overlay"), fo=document.getElementById("faqOverlay");if(!(ov&&ov.classList.contains("active"))&&!(fo&&fo.classList.contains("active")))document.body.style.overflow="";}
+function homeUrl(){return window.location.origin + "/";}
+function setEventUrl(eventId){
+  try{
+    if(!eventId)return;
+    var u=new URL(homeUrl());
+    u.searchParams.set("event",String(eventId));
+    window.history.replaceState(null,"",u.toString());
+  }catch(e){}
+}
+function clearEventParam(){
+  try{
+    // v14.11: always reset back to the clean homepage URL when package modal is closed.
+    // This prevents refresh from reopening the same event modal.
+    if(window.location.search||window.location.hash||window.location.pathname!=="/"){
+      window.history.replaceState(null,"",homeUrl());
+    }else{
+      window.history.replaceState(null,"",homeUrl());
+    }
+  }catch(e){}
+}
+function openModal(){var el=document.getElementById("overlay");if(el){el.classList.add("active");lockBody();}}
+function closeModal(e){var el=document.getElementById("overlay");if(e&&el&&e.target!==el&&!e.target.closest(PACKAGE_CLOSE_SELECTOR))return;if(el)el.classList.remove("active");clearEventParam();resetMeta();unlockBodyIfNoModal();}
 function showError(m){var el=document.getElementById("content");if(el)el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>โหลดข้อมูลคิวไม่สำเร็จชั่วคราวน้า</h3><p>'+esc(m)+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">ทัก LINE OA มาสอบถาม</a></div>';}
 
-function openFaq(){var el=document.getElementById("faqOverlay");if(el){el.classList.add("active");document.body.style.overflow="hidden";}}
-function closeFaq(e){if(e&&e.target!==document.getElementById("faqOverlay"))return;var el=document.getElementById("faqOverlay");if(el){el.classList.remove("active");document.body.style.overflow="";}}
+function openFaq(){var el=document.getElementById("faqOverlay");if(el){el.classList.add("active");lockBody();}}
+function closeFaq(e){var el=document.getElementById("faqOverlay");if(e&&el&&e.target!==el&&!e.target.closest(FAQ_CLOSE_SELECTOR))return;if(el)el.classList.remove("active");unlockBodyIfNoModal();}
 function toggleFaq(btn){var item=btn&&btn.parentElement;if(item){item.classList.toggle("active");btn.setAttribute("aria-expanded",item.classList.contains("active")?"true":"false");}}
 
 function setFilter(f){
@@ -570,11 +617,32 @@ document.addEventListener("DOMContentLoaded",function(){
   setFilter(currentFilter);
   var bImg=document.querySelector(".brand-header-img"); if(bImg)bImg.addEventListener("error",showBrandFallback);
   var faqBtn=document.getElementById("faq-open-btn"); if(faqBtn)faqBtn.addEventListener("click",openFaq);
-  var faqClose=document.getElementById("faq-close-btn"); if(faqClose)faqClose.addEventListener("click",function(){closeFaq();});
   document.querySelectorAll(".faq-q").forEach(function(b){b.addEventListener("click",function(){toggleFaq(b);});});
   var ov=document.getElementById("overlay"); if(ov)ov.addEventListener("click",closeModal);
   var fov=document.getElementById("faqOverlay"); if(fov)fov.addEventListener("click",closeFaq);
-  var mb=document.getElementById("modal-close"); if(mb)mb.addEventListener("click",function(){closeModal();});
+  document.querySelectorAll("#overlay .modal,.faq-overlay .modal").forEach(function(m){m.addEventListener("click",function(e){e.stopPropagation();});});
+  function bindClose(selector,fn){
+    document.querySelectorAll(selector).forEach(function(el){
+      ["click","touchend"].forEach(function(evt){
+        el.addEventListener(evt,function(e){e.preventDefault();e.stopPropagation();fn();},{passive:false});
+      });
+    });
+  }
+  bindClose(PACKAGE_CLOSE_SELECTOR,closeModal);
+  bindClose(FAQ_CLOSE_SELECTOR,closeFaq);
+  // Capture-phase close handler keeps close buttons working inside LINE/mobile browsers.
+  document.addEventListener("click",function(e){
+    if(e.target.closest(FAQ_CLOSE_SELECTOR)){e.preventDefault();e.stopPropagation();closeFaq();return;}
+    if(e.target.closest(PACKAGE_CLOSE_SELECTOR)){e.preventDefault();e.stopPropagation();closeModal();return;}
+  },true);
+  window.addEventListener("popstate",function(){
+    var ov=document.getElementById("overlay");
+    if(ov&&ov.classList.contains("active")&&!new URL(window.location.href).searchParams.get("event")){
+      ov.classList.remove("active");
+      resetMeta();
+      unlockBodyIfNoModal();
+    }
+  });
 
   loadData().then(function(data){
       concertsData=data;
@@ -582,14 +650,15 @@ document.addEventListener("DOMContentLoaded",function(){
       if(REQUESTED_EVENT){
         var target=concertsData.find(function(c){return String(c.id)===REQUESTED_EVENT;});
         if(target){ setTimeout(function(){ showModal(target); }, 80); }
+        else{ clearEventParam(); }
       }
     })
-    .catch(function(e){ console.error("KK v14.5:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
+    .catch(function(e){ console.error("KK v14.12:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
 });
 
 document.addEventListener("keydown",function(e){
   if(e.key==="Escape"){
-    if(document.getElementById("overlay").classList.contains("active"))closeModal();
+    var ov=document.getElementById("overlay"); if(ov&&ov.classList.contains("active"))closeModal();
     var fo=document.getElementById("faqOverlay"); if(fo&&fo.classList.contains("active"))closeFaq();
   }
 });

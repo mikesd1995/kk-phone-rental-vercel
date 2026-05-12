@@ -7,12 +7,12 @@
 <meta name="description" content="KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน">
 <meta name="theme-color" content="#5B8DEF">
 <meta name="keywords" content="เช่ามือถือคอนเสิร์ต, เช่ามือถือแฟนมีท, เช่ามือถือไปคอน, เช่ามือถือซูมชัด, KK Phone Rental">
-<link rel="canonical" href="https://kk-phone-rental.netlify.app/">
+<link rel="canonical" href="https://kk-phone-rental.vercel.app/">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์">
 <meta property="og:description" content="เช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และงานอื่นๆ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมินได้เลย">
-<meta property="og:url" content="https://kk-phone-rental.netlify.app/">
+<meta property="og:url" content="https://kk-phone-rental.vercel.app/">
 <meta property="og:image" content="https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600">
 <meta property="og:image:alt" content="KK Phone Rental เช่ามือถือสำหรับคอนเสิร์ตและอีเวนต์">
 <meta property="og:site_name" content="KK Phone Rental">
@@ -33,7 +33,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -83,23 +83,25 @@
 
 <div class="overlay" id="overlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button class="modal-x" id="modal-x-btn" type="button" data-modal-close="package" aria-label="ปิดหน้าต่าง">×</button>
     <div class="modal-handle"></div>
     <div class="modal-header">
       <div class="modal-title" id="modal-title">ชื่องาน</div>
       <div class="modal-meta" id="modal-date">วันที่</div>
       <div class="modal-meta" id="modal-venue">สถานที่</div>
     </div>
-    <div class="modal-note"><strong>เลือกแพ็กเกจที่ต้องการ:</strong> กดจองแล้ว ระบบจะพาไป LINE OA พร้อมข้อความจองที่ใส่รายละเอียดงาน/แพ็กเกจไว้ให้แล้ว 💚</div>
+    <div class="modal-note"><strong>เลือกแพ็กเกจที่ต้องการ:</strong> กดจองแล้ว ระบบจะพาไป LINE OA พร้อมข้อความจองแบบสั้น ๆ ที่แก้ต่อได้ทันที 💚</div>
     <div class="modal-divider"></div>
     <div class="phone-list" id="phone-list"></div>
-    <button class="modal-close" id="modal-close" type="button">ปิด</button>
+    <button class="modal-close" id="modal-close" type="button" data-modal-close="package">ปิด</button>
   </div>
 </div>
 
 <div class="faq-overlay" id="faqOverlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="faq-title">
+    <button class="modal-x" id="faq-x-btn" type="button" data-modal-close="faq" aria-label="ปิด FAQ">×</button>
     <div class="modal-handle"></div>
-    <div class="modal-header"><div class="modal-title" id="faq-title">FAQ : คำถามที่พบบ่อย</div></div>
+    <div class="modal-header"><div class="modal-title" id="faq-title">FAQ · คำถามที่พบบ่อย</div></div>
     <div class="modal-divider"></div>
     <div class="faq-list">
       <div class="faq-item active">
@@ -135,7 +137,7 @@
         <div class="faq-a">A: ร้านจะเก็บไฟล์ไว้ให้ประมาณ 30 วัน หลังจากนั้นจะไม่สามารถเข้าถึงไฟล์ได้ แนะนำให้ดาวน์โหลดเก็บไว้ทันทีหลังได้รับลิงก์ค่ะ</div>
       </div>
     </div>
-    <button class="modal-close" id="faq-close-btn" type="button">ปิด</button>
+    <button class="modal-close" id="faq-close-btn" type="button" data-modal-close="faq">ปิด</button>
   </div>
 </div>
 

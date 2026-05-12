@@ -6,5 +6,5 @@
 - ไม่ rewrite DOM id ใหม่
 - ไม่ตัด block UI/FAQ/modal ที่ script เดิมอ้างอยู่
 - คง Vercel proxy `api/kk-data.js`
-- คง mapping `09_Web_Packages!A4:M` สำหรับ backend v14.6
+- คง mapping `09_Web_Packages!A4:N` สำหรับ backend v14.9
 - ลีนเฉพาะไฟล์ที่ไม่เกี่ยวกับการ deploy เช่น audit/changelog/apps script archive

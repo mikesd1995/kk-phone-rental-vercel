@@ -1,4 +1,4 @@
-// KK Phone Rental Frontend v14.7 STABLE LEAN — aligned with Google Sheet Backend v14.4 Bulletproof
+// KK Phone Rental Frontend v14.12 AUDITED FIX — aligned with Google Sheet Backend v14.4 Bulletproof
 // ใช้ไฟล์นี้เป็นจุดตั้งค่าหลักของเว็บ Vercel
 window.KK_CONFIG = {
   // เปลี่ยนเป็นโดเมน Vercel/custom domain จริงของร้าน หลัง deploy แล้ว
@@ -8,11 +8,11 @@ window.KK_CONFIG = {
   // ถ้า deploy บน Vercel แนะนำให้ตั้ง Environment Variable: GOOGLE_SHEET_ID
   sheetId:       "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU",
 
-  // Backend v14.4 source of truth
+  // Backend v14.12 source of truth
   webSheetName:  "08_Web_Ready",
   webRange:      "A4:K",
   pkgSheetName:  "09_Web_Packages",
-  pkgRange:      "A4:M", // v14.4 เพิ่ม M = raw_available_count
+  pkgRange:      "A4:N", // v14.12: N = use_case จาก backend
 
   // Vercel API Proxy: ลด CORS/Google Sheet throttle และซ่อน Sheet ID ผ่าน ENV ได้
   useVercelApi:  true,
