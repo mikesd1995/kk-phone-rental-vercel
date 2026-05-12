@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>KK Admin CRM Dashboard</title>
+  <link rel="icon" href="/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./admin.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">KK</div>
+        <div>
+          <strong>Admin CRM</strong>
+          <span>Phone Rental v15.0</span>
+        </div>
+      </div>
+      <nav>
+        <button class="nav active" data-tab="overview">ภาพรวม</button>
+        <button class="nav" data-tab="booking">เพิ่ม Booking</button>
+        <button class="nav" data-tab="events">เพิ่ม/แก้งาน</button>
+        <button class="nav" data-tab="packages">แพ็กเกจ/ราคา</button>
+        <button class="nav" data-tab="assets">มือถือ/เลนส์</button>
+        <button class="nav" data-tab="health">Health Check</button>
+        <button class="nav muted" id="logoutBtn" type="button">ออกจากระบบ</button>
+      </nav>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1>KK Phone Rental · Admin CRM</h1>
+          <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
+        </div>
+        <div class="top-actions">
+          <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
+          <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
+        </div>
+      </header>
+
+      <section id="loginPanel" class="card login-card">
+        <h2>เข้าสู่ระบบ Admin</h2>
+        <p>กรอก PIN ที่ตั้งไว้ใน Vercel Environment Variable: <code>KK_ADMIN_PIN</code></p>
+        <div class="row two">
+          <label>Admin PIN
+            <input id="pinInput" type="password" autocomplete="current-password" placeholder="เช่น 123456" />
+          </label>
+          <div class="login-actions">
+            <button id="loginBtn" class="btn primary" type="button">เข้าใช้งาน</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="appPanel" class="hidden">
+        <div id="notice" class="notice hidden"></div>
+
+        <section class="tab-panel active" id="tab-overview">
+          <div class="grid stats" id="statsGrid"></div>
+          <div class="grid two-col">
+            <div class="card">
+              <div class="card-head"><h2>งานที่เปิดอยู่</h2><small id="eventsCount"></small></div>
+              <div class="table-wrap"><table id="eventsTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>Booking ล่าสุด</h2><small id="bookingsCount"></small></div>
+              <div class="table-wrap"><table id="bookingsTable"></table></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-booking">
+          <form class="card form" id="bookingForm">
+            <h2>เพิ่ม Booking แบบ Auto Assign</h2>
+            <p class="hint">ระบบจะเช็กงาน/แพ็กเกจ/สต็อก และล็อกข้อมูลก่อนเขียนลงชีต ลดปัญหาจองซ้ำ</p>
+            <div class="row three">
+              <label>งาน
+                <select name="event_id" data-source="events" required></select>
+              </label>
+              <label>แพ็กเกจ
+                <select name="template_id" data-source="packages" required></select>
+              </label>
+              <label>สถานะ Booking
+                <select name="booking_status">
+                  <option value="confirmed">confirmed</option>
+                  <option value="pending">pending</option>
+                  <option value="cancelled">cancelled</option>
+                </select>
+              </label>
+            </div>
+            <div class="row three">
+              <label>ชื่อลูกค้า <input name="customer_name" required placeholder="เช่น Mint" /></label>
+              <label>X / LINE <input name="customer_contact" placeholder="@handle หรือ LINE" /></label>
+              <label>เบอร์โทร <input name="customer_phone" inputmode="tel" /></label>
+            </div>
+            <div class="row three">
+              <label>ช่องทาง
+                <select name="contact_channel"><option>LINE</option><option>X</option><option>Facebook</option><option>Instagram</option></select>
+              </label>
+              <label>สถานะชำระเงิน
+                <select name="payment_status"><option value="unpaid">unpaid</option><option value="partial">partial</option><option value="paid">paid</option></select>
+              </label>
+              <label>ยอดรับแล้ว <input name="amount_received" type="number" min="0" step="1" value="0" /></label>
+            </div>
+            <div class="row two">
+              <label>ระบุมือถือเอง ถ้าไม่ใส่ ระบบหาให้ <input name="phone_asset_id" placeholder="เช่น PHONE-001" /></label>
+              <label>ระบุเลนส์เอง ถ้าไม่ใส่ ระบบหาให้ <input name="lens_asset_id" placeholder="เช่น LENS-001" /></label>
+            </div>
+            <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
+            <button class="btn primary" type="submit">บันทึก Booking</button>
+          </form>
+        </section>
+
+        <section class="tab-panel" id="tab-events">
+          <div class="grid two-col">
+            <form class="card form" id="eventForm">
+              <h2>เพิ่มงานใหม่</h2>
+              <div class="row two">
+                <label>ชื่องาน <input name="event_name" required placeholder="เช่น [안녕, BANGKOK] MUSIC FESTIVAL" /></label>
+                <label>วันที่ <input name="event_date" required type="date" /></label>
+              </div>
+              <div class="row two">
+                <label>สถานที่ <input name="venue" required placeholder="Bangkok" /></label>
+                <label>Poster URL <input name="poster_url" placeholder="Google Drive / thumbnail / image URL" /></label>
+              </div>
+              <div class="row two">
+                <label>หรืออัปโหลดรูป Poster ไป Google Drive
+                  <input id="posterFile" type="file" accept="image/*" />
+                  <small>ต้องตั้ง Script Property <code>KK_POSTER_FOLDER_ID</code> ก่อน ใช้รูปไม่เกิน 3MB</small>
+                </label>
+                <label>สถานะ
+                  <select name="status"><option value="open">open</option><option value="closed">closed</option></select>
+                </label>
+              </div>
+              <label class="check"><input name="active_on_web" type="checkbox" checked /> เปิดโชว์หน้าเว็บ</label>
+              <label>Note <textarea name="note" rows="3"></textarea></label>
+              <button class="btn primary" type="submit">สร้างงาน</button>
+            </form>
+
+            <form class="card form" id="eventUpdateForm">
+              <h2>แก้งานเดิม</h2>
+              <label>เลือกงาน <select name="event_id" data-source="events" required></select></label>
+              <div class="row two">
+                <label>ชื่องานใหม่ <input name="event_name" /></label>
+                <label>วันที่ใหม่ <input name="event_date" type="date" /></label>
+              </div>
+              <div class="row two">
+                <label>สถานที่ใหม่ <input name="venue" /></label>
+                <label>Poster URL ใหม่ <input name="poster_url" /></label>
+              </div>
+              <div class="row two">
+                <label>สถานะ <select name="status"><option value="">ไม่เปลี่ยน</option><option value="open">open</option><option value="closed">closed</option></select></label>
+                <label>โชว์บนเว็บ <select name="active_on_web"><option value="">ไม่เปลี่ยน</option><option value="true">TRUE</option><option value="false">FALSE</option></select></label>
+              </div>
+              <label>Note ใหม่ <textarea name="note" rows="3"></textarea></label>
+              <button class="btn secondary" type="submit">บันทึกการแก้ไข</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-packages">
+          <div class="grid two-col">
+            <form class="card form" id="packageForm">
+              <h2>เพิ่มแพ็กเกจ/ราคา</h2>
+              <div class="row two">
+                <label>Template ID <input name="template_id" placeholder="ว่างไว้ให้ระบบสร้างได้" /></label>
+                <label>ชื่อแสดงบนเว็บ <input name="display_name" required placeholder="Vivo X300 Pro + Lens" /></label>
+              </div>
+              <div class="row two">
+                <label>ประเภท
+                  <select name="package_type" required>
+                    <option value="phone_only">phone_only</option>
+                    <option value="lens_only">lens_only</option>
+                    <option value="phone_lens_bundle">phone_lens_bundle</option>
+                  </select>
+                </label>
+                <label>ราคา <input name="standard_price" required type="number" min="0" step="1" /></label>
+              </div>
+              <div class="row two">
+                <label>Model Group <input name="model_group" placeholder="VIVO_X300_PRO" /></label>
+                <label>Lens Group <input name="lens_group" placeholder="ZEISS_235X หรือ NONE" /></label>
+              </div>
+              <label>Use Case / ข้อความขาย <textarea name="use_case" rows="3" placeholder="ถ้าว่าง หน้าเว็บจะไม่แสดง"></textarea></label>
+              <label class="check"><input name="active" type="checkbox" checked /> เปิดใช้งานแพ็กเกจ</label>
+              <button class="btn primary" type="submit">เพิ่มแพ็กเกจ</button>
+            </form>
+
+            <form class="card form" id="packageUpdateForm">
+              <h2>แก้ราคา/ข้อความแพ็กเกจ</h2>
+              <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select></label>
+              <div class="row two">
+                <label>ราคาใหม่ <input name="standard_price" type="number" min="0" step="1" /></label>
+                <label>ชื่อแสดงใหม่ <input name="display_name" /></label>
+              </div>
+              <label>Use Case ใหม่ <textarea name="use_case" rows="3"></textarea></label>
+              <label>Active <select name="active"><option value="">ไม่เปลี่ยน</option><option value="true">TRUE</option><option value="false">FALSE</option></select></label>
+              <button class="btn secondary" type="submit">บันทึกการแก้ไข</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-assets">
+          <div class="grid two-col">
+            <form class="card form" id="assetForm">
+              <h2>เพิ่มมือถือ / เลนส์ หลายรายการ</h2>
+              <div class="row two">
+                <label>ประเภท
+                  <select name="asset_type" required><option value="phone">phone</option><option value="lens">lens</option></select>
+                </label>
+                <label>จำนวน <input name="quantity" type="number" min="1" max="50" value="1" required /></label>
+              </div>
+              <div class="row two">
+                <label>Model / Lens Group <input name="model_group" required placeholder="VIVO_X300_PRO หรือ ZEISS_235X" /></label>
+                <label>Serial Prefix <input name="serial_prefix" placeholder="เช่น VIVOX300" /></label>
+              </div>
+              <div class="row two">
+                <label>สถานะ <select name="status"><option value="available">available</option><option value="repair">repair</option><option value="inactive">inactive</option></select></label>
+                <label class="check"><input name="rentable" type="checkbox" checked /> rentable</label>
+              </div>
+              <label>Note <textarea name="notes" rows="3"></textarea></label>
+              <button class="btn primary" type="submit">เพิ่ม Asset</button>
+            </form>
+
+            <div class="card">
+              <div class="card-head"><h2>Assets ล่าสุด</h2><small id="assetsCount"></small></div>
+              <div class="table-wrap"><table id="assetsTable"></table></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-health">
+          <div class="card">
+            <div class="card-head"><h2>Health Check</h2><small>อ่านจาก 10_Admin_Health_Check</small></div>
+            <div class="table-wrap"><table id="healthTable"></table></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="./admin.js"></script>
+</body>
+</html>
