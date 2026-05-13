@@ -1,4 +1,4 @@
-// KK Phone Rental v16.0_PHASE1_STABILIZED — Admin CRM Vercel Proxy
+// KK Phone Rental v16.2_FULL_AUDIT_STABLE — Admin CRM Vercel Proxy
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Required ENV on Vercel:
 // GOOGLE_SHEET_ID      = same Spreadsheet ID used by Apps Script
@@ -8,7 +8,8 @@
 // Optional ENV:
 // KK_SITE_ORIGIN       = https://kk-phone-rental.vercel.app or custom domain
 
-const KK_APP_VERSION = "v16.0_PHASE1_STABILIZED";
+const KK_APP_VERSION = "v16.2_FULL_AUDIT_STABLE";
+const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -49,12 +50,14 @@ module.exports = async function handler(req, res) {
   const scriptUrl = String(process.env.KK_ADMIN_SCRIPT_URL || "").trim();
   const apiKey = String(process.env.KK_ADMIN_API_KEY || "").trim();
   const adminPin = String(process.env.KK_ADMIN_PIN || "").trim();
-  const frontendSheetId = String(process.env.GOOGLE_SHEET_ID || "").trim();
+  const envSheetId = String(process.env.GOOGLE_SHEET_ID || "").trim();
+  const frontendSheetId = envSheetId || DEFAULT_SHEET_ID;
+  const sheetIdSource = envSheetId ? "env" : "default-fallback";
 
-  if (!scriptUrl || !apiKey || !adminPin || !frontendSheetId) {
+  if (!scriptUrl || !apiKey || !adminPin) {
     return json(res, 500, {
       ok: false,
-      error: "Admin API is not configured. Set GOOGLE_SHEET_ID, KK_ADMIN_SCRIPT_URL, KK_ADMIN_API_KEY and KK_ADMIN_PIN in Vercel Environment Variables."
+      error: "Admin API is not configured. Set KK_ADMIN_SCRIPT_URL, KK_ADMIN_API_KEY and KK_ADMIN_PIN in Vercel Environment Variables."
     });
   }
 
@@ -73,7 +76,8 @@ module.exports = async function handler(req, res) {
     const upstreamPayload = Object.assign({}, payload, {
       apiKey,
       proxyVersion: KK_APP_VERSION,
-      frontendSheetId
+      frontendSheetId,
+      sheetIdSource
     });
     const upstream = await fetch(scriptUrl, {
       method: "POST",
@@ -88,9 +92,11 @@ module.exports = async function handler(req, res) {
 
     if (data && data.ok && payload && payload.action === "snapshot") {
       data.frontend_sheet_id = frontendSheetId;
+      data.frontend_sheet_id_source = sheetIdSource;
       data.frontend_proxy_version = KK_APP_VERSION;
       if (data.data) {
         data.data.frontend_sheet_id = frontendSheetId;
+        data.data.frontend_sheet_id_source = sheetIdSource;
         data.data.frontend_proxy_version = KK_APP_VERSION;
       }
     }

@@ -1,7 +1,7 @@
-// KK Phone Rental Admin CRM v16.0_PHASE1_STABILIZED — Phase 1 stability baseline
+// KK Phone Rental Admin CRM v16.2_FULL_AUDIT_STABLE — Phase 1 stability baseline
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.0_PHASE1_STABILIZED";
-  const EXPECTED_BACKEND_VERSION = "v16.0_PHASE1_STABILIZED";
+  const KK_ADMIN_UI_VERSION = "v16.2_FULL_AUDIT_STABLE";
+  const EXPECTED_BACKEND_VERSION = "v16.2_FULL_AUDIT_STABLE";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "" };
@@ -135,7 +135,7 @@
       const x=d.phase1_diagnostics;
       rows.push({check:"ENV · KK_POSTER_FOLDER_ID", status:x.poster_folder_id_set ? "OK" : "CHECK", detail:x.poster_folder_id_set ? "set" : "missing", note:"Needed for Upload Poster"});
       rows.push({check:"Log Sheets", status:x.log_sheets_ready ? "OK" : "CHECK", detail:x.log_sheets_ready ? "15/16 logs ready" : "missing", note:"Run KK Admin > Setup/Repair Named Ranges"});
-      rows.push({check:"Direct fallback", status:x.direct_fallback_disabled ? "OK" : "CHECK", detail:x.direct_fallback_disabled ? "disabled" : "not confirmed", note:"Phase 1 production should use /api/kk-data only"});
+      rows.push({check:"Read fallback", status:x.direct_fallback_disabled ? "CHECK" : "OK", detail:x.direct_fallback_disabled ? "disabled" : "emergency fallback available", note:x.direct_fallback_disabled ? "Public website may go blank if /api/kk-data fails" : "API-first, but site can recover if Vercel ENV/API fails"});
     }
     return rows;
   }

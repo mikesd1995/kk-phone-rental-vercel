@@ -1,25 +1,18 @@
-# KK Phone Rental Frontend v16.0_PHASE1_STABILIZED
+# Frontend Deploy — v16.2_FULL_AUDIT_STABLE
 
-Phase 1 production baseline.
+Deploy this `frontend` folder to Vercel.
 
-## Deploy to Vercel
-
-Upload/deploy the entire `frontend` folder.
-
-## Required Environment Variables
+## Required Vercel ENV
 
 ```text
-GOOGLE_SHEET_ID=<same spreadsheet id used by Apps Script>
-KK_ADMIN_SCRIPT_URL=<Apps Script Web App /exec URL>
+GOOGLE_SHEET_ID=12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU
+KK_ADMIN_SCRIPT_URL=<Apps Script /exec URL>
 KK_ADMIN_API_KEY=<Apps Script API key>
 KK_ADMIN_PIN=<Admin PIN>
-KK_SITE_ORIGIN=https://kk-phone-rental.vercel.app
 ```
 
-## Important changes
+## Data loading behavior
 
-- Direct Google Sheets fallback is disabled in `config.js`.
-- `/api/kk-data` no longer has a hardcoded Sheet ID fallback.
-- `/api/kk-admin` sends `frontendSheetId` and version to Apps Script for health checking.
-- Admin > Health Check shows version and Sheet ID mismatch warnings.
-- Website CSS and visual layout were not changed.
+The public site uses `/api/kk-data` first. If the proxy fails or returns invalid CSV headers, the browser falls back to the read-only Google Sheets URL from `config.js`.
+
+This protects the public homepage from going blank when the proxy is misconfigured or returns invalid content.

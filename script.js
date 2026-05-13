@@ -1,19 +1,19 @@
-// KK Phone Rental Frontend v16.0_PHASE1_STABILIZED — Phase 1 stability baseline
+// KK Phone Rental Frontend v16.2_FULL_AUDIT_STABLE — Phase 1 recovery-stable baseline
 // Backend contract:
 // - 08_Web_Ready!A4:K = event-level output
 // - 09_Web_Packages!A4:N = package-level output, including M raw_available_count and N use_case
 // Improvements:
-// - Vercel API proxy only in production; direct Google Sheets fallback disabled by config
+// - Vercel API proxy first, with read-only Google Sheets fallback for outage recovery
 // - Safer package mapping so raw_available_count is not mistaken for pkg_active
 // - Availability uses package_status + available_count, with raw negative protection
 // - Keeps existing compact modal and 2-column card UX
 
 var APP       = window.KK_CONFIG || {};
-var KK_APP_VERSION = APP.appVersion || "v16.0_PHASE1_STABILIZED";
+var KK_APP_VERSION = APP.appVersion || "v16.2_FULL_AUDIT_STABLE";
 var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
 var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน";
 var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
-var SHEET_ID  = APP.sheetId      || "";
+var SHEET_ID  = APP.sheetId      || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 var WEB_SHEET = APP.webSheetName || "08_Web_Ready";
 var WEB_RANGE = APP.webRange     || "A4:K";
 var PKG_SHEET = APP.pkgSheetName || "09_Web_Packages";
@@ -240,17 +240,32 @@ async function withRetry(fn,tries,delay){
   for(var i=0;i<tries;i++){ try{return await fn();}catch(e){err=e;if(i<tries-1)await new Promise(function(r){setTimeout(r,delay);});} }
   throw err;
 }
-function directSheetUrl(name,range){ if(!SHEET_ID) throw new Error("Direct Google Sheet fallback is disabled. Please check /api/kk-data and GOOGLE_SHEET_ID on Vercel."); return "https://docs.google.com/spreadsheets/d/"+encodeURIComponent(SHEET_ID)+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now(); }
+function directSheetUrl(name,range){ if(!SHEET_ID) throw new Error("Direct Google Sheet fallback is not configured. Please check config.js sheetId or /api/kk-data."); return "https://docs.google.com/spreadsheets/d/"+encodeURIComponent(SHEET_ID)+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now(); }
 function apiSheetUrl(name,range){ return API_ENDPOINT+"?sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now(); }
+function csvHeaderLooksValid(name,text){
+  var rows=parseCsv(text);
+  if(!rows.length)return false;
+  var headers=rows[0].map(function(h){return String(h||"").trim().toLowerCase();});
+  if(name===WEB_SHEET) return headers.indexOf("event_id")>=0 && headers.indexOf("action_for_web")>=0 && headers.indexOf("poster_image_url")>=0;
+  if(name===PKG_SHEET) return headers.indexOf("package_id")>=0 && headers.indexOf("event_id")>=0 && headers.indexOf("available_count")>=0;
+  return true;
+}
+async function fetchValidatedSheetCsv(url,name,range,ms,sourceLabel){
+  var text=await fetchText(url,ms||9000);
+  if(!csvHeaderLooksValid(name,text)){
+    throw new Error("Invalid CSV header from "+sourceLabel+" for "+name+" "+range);
+  }
+  return text;
+}
 async function fetchSheetCsv(name,range,ms){
   if(USE_API){
-    try{ return await fetchText(apiSheetUrl(name,range),ms||9000); }
+    try{ return await fetchValidatedSheetCsv(apiSheetUrl(name,range),name,range,ms||9000,"/api/kk-data"); }
     catch(e){
-      console.warn("KK proxy failed; direct Google Sheets fallback is disabled in Phase 1", e);
+      console.warn("KK proxy failed or returned invalid CSV; falling back to read-only Google Sheets", e);
       if(APP.disableDirectFallback) throw e;
     }
   }
-  return await fetchText(directSheetUrl(name,range),ms||9000);
+  return await fetchValidatedSheetCsv(directSheetUrl(name,range),name,range,ms||9000,"direct Google Sheets");
 }
 
 // ─── Session cache ───────────────────────────────────────────────────────
@@ -259,12 +274,12 @@ function cacheGet(k){ try{ var raw=sessionStorage.getItem(k); if(!raw)return nul
 function cacheSet(k,d){ try{sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),data:d}));}catch(e){} }
 
 async function fetchWebRows(){
-  var k="kk_web_v16_0_phase1:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_web_v16_2_full_audit:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(WEB_SHEET,WEB_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 async function fetchPkgRows(){
-  var k="kk_pkg_v16_0_phase1:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_pkg_v16_2_full_audit:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(PKG_SHEET,PKG_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
@@ -671,7 +686,7 @@ document.addEventListener("DOMContentLoaded",function(){
         else{ clearEventParam(); }
       }
     })
-    .catch(function(e){ console.error("KK v16.0_PHASE1_STABILIZED:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
+    .catch(function(e){ console.error("KK v16.2_FULL_AUDIT_STABLE:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
 });
 
 document.addEventListener("keydown",function(e){
