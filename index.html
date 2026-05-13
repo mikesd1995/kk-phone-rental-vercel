@@ -59,16 +59,14 @@
   <button class="mini-btn" id="faq-open-btn" type="button">❔ คำถามที่พบบ่อย</button>
 </div>
 
-<div class="filter-group month-filter-group" aria-label="เลือกเดือนของงาน">
-  <div class="filter-label">เลือกเดือน</div>
-  <div class="filter-bar month-filter-bar" id="month-filter-bar" aria-label="เลือกเดือน">
-    <button class="filter-btn active" type="button" data-month="all" aria-pressed="true">ทุกเดือน</button>
-  </div>
-</div>
-
-<div class="filter-group status-filter-group" aria-label="กรองสถานะงาน">
-  <div class="filter-label">สถานะงาน</div>
-  <div class="filter-bar status-filter-bar" aria-label="กรองสถานะงาน">
+<div class="filter-group status-filter-group" aria-label="เลือกเดือนและกรองสถานะงาน">
+  <div class="filter-bar status-filter-bar" aria-label="เลือกเดือนและกรองสถานะงาน">
+    <label class="month-select-wrap" for="month-filter-select">
+      <span class="sr-only">เลือกเดือน</span>
+      <select class="month-select" id="month-filter-select" aria-label="เลือกเดือน">
+        <option value="all">เลือกเดือน</option>
+      </select>
+    </label>
     <button class="filter-btn active" type="button" data-filter="all" aria-pressed="true">งานทั้งหมด</button>
     <button class="filter-btn" type="button" data-filter="available" aria-pressed="false">งานว่าง</button>
     <button class="filter-btn" type="button" data-filter="full" aria-pressed="false">งานเต็ม</button>

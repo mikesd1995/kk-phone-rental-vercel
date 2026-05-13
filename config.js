@@ -1,8 +1,8 @@
-// KK Phone Rental Frontend v16.4_MONTH_FILTER_UI
+// KK Phone Rental Frontend v16.4.1_MONTH_DROPDOWN_FILTER
 // Recovery-stable baseline: API-first, but keeps a read-only emergency Google Sheets fallback so the public site does not go blank if Vercel ENV/API is missing.
 window.KK_CONFIG = {
-  appVersion:    "v16.4_MONTH_FILTER_UI",
-  expectedAdminApiVersion: "v16.4_MONTH_FILTER_UI",
+  appVersion:    "v16.4.1_MONTH_DROPDOWN_FILTER",
+  expectedAdminApiVersion: "v16.4.1_MONTH_DROPDOWN_FILTER",
   siteUrl:       "https://kk-phone-rental.vercel.app/",
 
   // Emergency read-only fallback used only when /api/kk-data fails or when opening ?direct=1.

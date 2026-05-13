@@ -1,4 +1,4 @@
-// KK Phone Rental Frontend v16.4_MONTH_FILTER_UI — Phase 1 recovery-stable baseline
+// KK Phone Rental Frontend v16.4.1_MONTH_DROPDOWN_FILTER — Phase 1 recovery-stable baseline
 // Backend contract:
 // - 08_Web_Ready!A4:K = event-level output
 // - 09_Web_Packages!A4:N = package-level output, including M raw_available_count and N use_case
@@ -7,10 +7,10 @@
 // - Safer package mapping so raw_available_count is not mistaken for pkg_active
 // - Availability uses package_status + available_count, with raw negative protection
 // - Keeps existing compact modal and 2-column card UX
-// - Adds dynamic month selector and removes soon-only filter button
+// - Adds month dropdown selector and removes soon-only filter button
 
 var APP       = window.KK_CONFIG || {};
-var KK_APP_VERSION = APP.appVersion || "v16.4_MONTH_FILTER_UI";
+var KK_APP_VERSION = APP.appVersion || "v16.4.1_MONTH_DROPDOWN_FILTER";
 var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
 var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน";
 var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
@@ -503,28 +503,24 @@ function renderEmpty(msg,detail){
 }
 function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return "เต็มแล้ว"; if(isSoon(c))return "ใกล้ถึงวันงาน"; return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? "ว่าง "+cnt+" เครื่อง" : "Lens ว่าง"; }
 
-function renderMonthButtons(concerts){
-  var bar=document.getElementById("month-filter-bar"); if(!bar)return;
+function renderMonthSelect(concerts){
+  var sel=document.getElementById("month-filter-select"); if(!sel)return;
   var opts=getMonthOptions(concerts);
   if(currentMonth!=="all" && opts.indexOf(currentMonth)<0) currentMonth="all";
-  bar.innerHTML="";
-  function addBtn(key,label){
-    var btn=document.createElement("button");
-    btn.className="filter-btn";
-    btn.type="button";
-    btn.setAttribute("data-month",key);
-    btn.setAttribute("aria-pressed",key===currentMonth?"true":"false");
-    btn.classList.toggle("active",key===currentMonth);
-    btn.textContent=label;
-    btn.addEventListener("click",function(){setMonth(key);});
-    bar.appendChild(btn);
+  sel.innerHTML="";
+  function addOpt(key,label){
+    var opt=document.createElement("option");
+    opt.value=key;
+    opt.textContent=label;
+    sel.appendChild(opt);
   }
-  addBtn("all","ทุกเดือน");
-  opts.forEach(function(key){addBtn(key,monthLabel(key));});
+  addOpt("all","เลือกเดือน");
+  opts.forEach(function(key){addOpt(key,monthLabel(key));});
+  sel.value=currentMonth;
 }
 
 function renderConcerts(concerts){
-  renderMonthButtons(concerts);
+  renderMonthSelect(concerts);
   var el=document.getElementById("content"); if(!el)return;
   el.innerHTML="";
   if(!concerts||!concerts.length){renderEmpty("ยังไม่มีข้อมูลงานตอนนี้น้า 💙");return;}
@@ -682,13 +678,16 @@ function setFilter(f){
 }
 function setMonth(month){
   currentMonth=/^\d{4}-\d{2}$/.test(month)?month:"all";
-  document.querySelectorAll("[data-month]").forEach(function(b){var a=b.getAttribute("data-month")===currentMonth;b.classList.toggle("active",a);b.setAttribute("aria-pressed",a?"true":"false");});
+  var sel=document.getElementById("month-filter-select");
+  if(sel) sel.value=currentMonth;
   if(concertsData&&concertsData.length) renderConcerts(concertsData);
 }
 
 document.addEventListener("DOMContentLoaded",function(){
   applyConfig(); setUpdateDate(); renderLoadingSkeleton(4);
   document.querySelectorAll("[data-filter]").forEach(function(b){b.addEventListener("click",function(){setFilter(b.getAttribute("data-filter")||"all");});});
+  var monthSelect=document.getElementById("month-filter-select");
+  if(monthSelect) monthSelect.addEventListener("change",function(){setMonth(monthSelect.value||"all");});
   setFilter(currentFilter);
   var bImg=document.querySelector(".brand-header-img"); if(bImg)bImg.addEventListener("error",showBrandFallback);
   var faqBtn=document.getElementById("faq-open-btn"); if(faqBtn)faqBtn.addEventListener("click",openFaq);
@@ -728,7 +727,7 @@ document.addEventListener("DOMContentLoaded",function(){
         else{ clearEventParam(); }
       }
     })
-    .catch(function(e){ console.error("KK v16.4_MONTH_FILTER_UI:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
+    .catch(function(e){ console.error("KK v16.4.1_MONTH_DROPDOWN_FILTER:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
 });
 
 document.addEventListener("keydown",function(e){
