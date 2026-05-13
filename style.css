@@ -183,3 +183,11 @@ button,input,select,textarea{font:inherit;}
 @media(max-width:600px){.modal-x{width:38px;height:38px;font-size:26px;top:12px;right:14px}.faq-overlay .modal-title,.overlay .modal-title{padding-right:42px}}
 
 .modal-header{padding-right:68px;}
+
+/* v16.4 month selector: keeps existing filter button style, adds labels and horizontal month scroll */
+.filter-group{margin:0 auto 14px;text-align:center;}
+.filter-label{font-size:13px;font-weight:700;color:#6B7FA6;margin:0 0 8px;}
+.month-filter-bar{max-width:100%;overflow-x:auto;justify-content:flex-start;flex-wrap:nowrap;padding:2px 6px 8px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;}
+.month-filter-bar .filter-btn{white-space:nowrap;flex:0 0 auto;}
+.status-filter-group{margin-bottom:18px;}
+@media(min-width:769px){.month-filter-bar{justify-content:center;}}
