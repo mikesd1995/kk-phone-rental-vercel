@@ -30,7 +30,7 @@ var URL_PARAMS = new URLSearchParams(window.location.search);
 var DEBUG_MODE = URL_PARAMS.get("debug")==="1";
 var SHOW_PAST  = URL_PARAMS.get("showPast")==="1";
 var REQUESTED_EVENT = String(URL_PARAMS.get("event") || URL_PARAMS.get("e") || "").trim();
-var REQUESTED_FILTER = String(URL_PARAMS.get("filter") || "all").trim().toLowerCase();
+var REQUESTED_FILTER = String(URL_PARAMS.get("filter") || "available").trim().toLowerCase();
 var currentFilter = ["all","available","full","soon"].indexOf(REQUESTED_FILTER)>=0 ? REQUESTED_FILTER : "all";
 var PRELOADED_IMAGES = {};
 
