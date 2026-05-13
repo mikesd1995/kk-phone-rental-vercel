@@ -1,4 +1,4 @@
-// KK Phone Rental Admin CRM v15.7 — Link + Booking Audit Fix
+// KK Phone Rental Admin CRM v15.8 — Poster Public + Web Ready Audit Fix
 (function(){
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -40,7 +40,7 @@
   }
   function extractDriveFileId(url){
     const s=String(url||"").trim();
-    const patterns=[/\/file\/d\/([a-zA-Z0-9_-]{15,})/,/[?&]id=([a-zA-Z0-9_-]{15,})/,/\/thumbnail\?id=([a-zA-Z0-9_-]{15,})/,/googleusercontent\.com\/d\/([a-zA-Z0-9_-]{15,})/,/lh[3-6]\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{15,})/];
+    const patterns=[/\/file\/d\/([a-zA-Z0-9_-]{15,})/,/[?&]id=([a-zA-Z0-9_-]{15,})/,/\/thumbnail\?id=([a-zA-Z0-9_-]{15,})/,/googleusercontent\.com\/d\/([a-zA-Z0-9_-]{15,})/,/lh[3-6]\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{15,})/,/uc\?export=(?:view|download)&id=([a-zA-Z0-9_-]{15,})/];
     for(const re of patterns){ const m=s.match(re); if(m&&m[1]) return decodeURIComponent(m[1]); }
     if(!/^https?:\/\//i.test(s) && /^[a-zA-Z0-9_-]{20,}$/.test(s)) return s;
     return "";
@@ -114,6 +114,15 @@
   function esc(v){
     return String(v ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
   }
+  function opt(value, label){
+    return `<option value="${esc(value)}">${esc(label)}</option>`;
+  }
+  function posterSyncText(res){
+    if(!res || !res.poster_url) return "";
+    if(res.web_ready_found && res.web_ready_poster_url) return " และรูปพร้อมแสดงบนหน้าเว็บแล้ว";
+    if(res.web_ready_found && !res.web_ready_poster_url) return " แต่ 08_Web_Ready ยังไม่พบรูป";
+    return " และบันทึกรูปแล้ว";
+  }
   function table(el, cols, rows){
     if(!el) return;
     if(!rows || !rows.length){ el.innerHTML='<tr><td class="muted">ไม่มีข้อมูล</td></tr>'; return; }
@@ -124,12 +133,16 @@
     const data=state.data||{};
     $$('select[data-source="events"]').forEach(sel=>{
       const current=sel.value;
-      sel.innerHTML='<option value="">เลือกงาน</option>'+(data.events||[]).filter(e=>String(e.status||"").toLowerCase()!=="closed").map(e=>`<option value="${e.event_id}">${e.event_name} · ${fmtDate(e.event_date)}</option>`).join('');
+      sel.innerHTML='<option value="">เลือกงาน</option>'+(data.events||[])
+        .filter(e=>String(e.status||"").toLowerCase()!=="closed")
+        .map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}`)).join('');
       if(current) sel.value=current;
     });
     $$('select[data-source="packages"]').forEach(sel=>{
       const current=sel.value;
-      sel.innerHTML='<option value="">เลือกแพ็กเกจ</option>'+(data.packages||[]).filter(p=>p.active!==false).map(p=>`<option value="${p.template_id}">${p.display_name||p.template_id} · ${money(p.standard_price)}฿</option>`).join('');
+      sel.innerHTML='<option value="">เลือกแพ็กเกจ</option>'+(data.packages||[])
+        .filter(p=>p.active!==false)
+        .map(p=>opt(p.template_id, `${p.display_name||p.template_id} · ${money(p.standard_price)}฿`)).join('');
       if(current) sel.value=current;
     });
     populateEventOverrideForm();
@@ -231,6 +244,7 @@
     const file = input && input.files && input.files[0];
     if(!file) return "";
     if(file.size>3*1024*1024) throw new Error("รูปใหญ่เกินไป กรุณาใช้ไฟล์ไม่เกิน 3MB");
+    if(file.type && !/^image\/(jpeg|jpg|png|webp)$/i.test(file.type)) throw new Error("รองรับเฉพาะรูป JPG, PNG หรือ WEBP");
 
     const base64=await new Promise((resolve,reject)=>{
       const r=new FileReader();
@@ -240,6 +254,7 @@
     });
 
     const res=await api("uploadPoster",{fileName:file.name,mimeType:file.type||"image/jpeg",base64});
+    if(res.sharing_warning) throw new Error("อัปโหลดรูปแล้ว แต่ตั้งค่าแชร์ public ไม่สำเร็จ: "+res.sharing_warning);
     const url = res.url || res.poster_url || res.view_url || "";
     if(!url) throw new Error("อัปโหลดรูปแล้ว แต่ไม่ได้รับ poster URL กลับมา");
 
@@ -300,7 +315,7 @@
         const res=await api("createEvent",p);
         ev.target.reset();
         await refresh();
-        showNotice("สร้างงานสำเร็จ" + (res.poster_url ? " และบันทึกรูปเข้า 01_Events แล้ว" : ""));
+        showNotice("สร้างงานสำเร็จ" + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : ""));
       }
       catch(e){ showNotice(e.message,"bad"); } finally{ setBusy(btn,false); }
     });
@@ -314,7 +329,7 @@
         const res=await api("updateEvent",p);
         if($("#updatePosterFile")) $("#updatePosterFile").value="";
         await refresh();
-        showNotice("แก้งานสำเร็จ" + (res.poster_url ? " และบันทึกรูปเข้า 01_Events แล้ว" : ""));
+        showNotice("แก้งานสำเร็จ" + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : ""));
       }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);}
     });
     $("#packageForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("createPackage",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่มแพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });

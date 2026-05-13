@@ -1,4 +1,4 @@
-// KK Phone Rental v15.7 — Admin CRM Vercel Proxy (audited)
+// KK Phone Rental v15.8 — Admin CRM Vercel Proxy (audited)
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Required ENV on Vercel:
 // KK_ADMIN_SCRIPT_URL = Apps Script Web App URL ending /exec
@@ -18,7 +18,7 @@ function readBody(req) {
     let data = "";
     req.on("data", (chunk) => {
       data += chunk;
-      if (data.length > 4 * 1024 * 1024) {
+      if (data.length > 6 * 1024 * 1024) {
         reject(new Error("Request too large. Please keep poster images below 3 MB."));
         req.destroy();
       }
@@ -74,6 +74,10 @@ module.exports = async function handler(req, res) {
     let data;
     try { data = JSON.parse(text); }
     catch (_) { data = { ok: false, error: text || "Apps Script returned a non-JSON response" }; }
+
+    if (data && data.ok && payload && payload.action === "snapshot") {
+      data.frontend_sheet_id = String(process.env.GOOGLE_SHEET_ID || "");
+    }
 
     return json(res, upstream.ok ? 200 : upstream.status, data);
   } catch (err) {

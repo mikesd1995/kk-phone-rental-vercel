@@ -1,4 +1,4 @@
-// KK Phone Rental Frontend v15.7 LINK + BOOKING AUDIT FIX — optimized from user's frontend and aligned with Backend v14.4 Bulletproof
+// KK Phone Rental Frontend v15.8 LINK + POSTER PUBLIC + WEB READY AUDIT FIX — optimized from user's frontend and aligned with Backend v14.4 Bulletproof
 // Backend contract:
 // - 08_Web_Ready!A4:K = event-level output
 // - 09_Web_Packages!A4:N = package-level output, including M raw_available_count and N use_case
@@ -253,17 +253,17 @@ async function fetchSheetCsv(name,range,ms){
 }
 
 // ─── Session cache (3 min) ────────────────────────────────────────────────
-var CACHE_TTL=30000; // v15.7: shorter cache so newly-created events and manual poster URLs show faster
+var CACHE_TTL=15000; // v15.8: shorter cache so newly-created events and poster URLs show faster
 function cacheGet(k){ try{ var raw=sessionStorage.getItem(k); if(!raw)return null; var o=JSON.parse(raw); return (Date.now()-o.ts)<CACHE_TTL?o.data:null; }catch(e){return null;} }
 function cacheSet(k,d){ try{sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),data:d}));}catch(e){} }
 
 async function fetchWebRows(){
-  var k="kk_web_v15_7:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_web_v15_8:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(WEB_SHEET,WEB_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 async function fetchPkgRows(){
-  var k="kk_pkg_v15_7:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_pkg_v15_8:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(PKG_SHEET,PKG_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
@@ -365,7 +365,6 @@ async function loadData(){
     var eventId    = String(r.event_id||"").trim();
     var rawDate    = r.event_date_text||"";
     var rawPoster  = String(r.poster_image_url||"").trim();
-    var evtStatus  = String(r.event_status||"").toLowerCase();
     var phoneCnt   = toNum(r.available_phone_count);
     var lensCnt    = toNum(r.available_lens_count);
 
@@ -671,7 +670,7 @@ document.addEventListener("DOMContentLoaded",function(){
         else{ clearEventParam(); }
       }
     })
-    .catch(function(e){ console.error("KK v14.12:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
+    .catch(function(e){ console.error("KK v15.8:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
 });
 
 document.addEventListener("keydown",function(e){

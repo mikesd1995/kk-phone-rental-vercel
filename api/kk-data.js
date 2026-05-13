@@ -1,4 +1,4 @@
-// KK Phone Rental v15.7 — Vercel Serverless Google Sheets CSV Proxy (audited)
+// KK Phone Rental v15.8 — Vercel Serverless Google Sheets CSV Proxy (audited)
 // Required on Vercel: Environment Variable GOOGLE_SHEET_ID = your new Google Sheet ID
 
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
@@ -27,6 +27,7 @@ module.exports = async function handler(req, res) {
   // Use ENV first. DEFAULT_SHEET_ID keeps the frontend working even if ENV is not set yet.
   // Do not accept arbitrary sheetId from query to avoid using this proxy for unrelated sheets.
   const sheetId = String(process.env.GOOGLE_SHEET_ID || DEFAULT_SHEET_ID).trim();
+  res.setHeader("X-KK-Sheet-ID", sheetId);
 
   if (!sheetId) {
     return send(res, 500, "Missing GOOGLE_SHEET_ID environment variable");
@@ -48,7 +49,7 @@ module.exports = async function handler(req, res) {
     if (!upstream.ok) {
       return send(res, upstream.status, text || "Google Sheets upstream error");
     }
-    res.setHeader("Cache-Control", "s-maxage=20, stale-while-revalidate=60");
+    res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=45");
     return send(res, 200, text, "text/csv; charset=utf-8");
   } catch (err) {
     return send(res, 502, "Proxy fetch failed: " + (err && err.message ? err.message : String(err)));
