@@ -505,8 +505,7 @@ function renderConcerts(concerts){
   vis.forEach(function(c,idx){
     var cnt=availCnt(c), avail=cnt>0;
     var availText=availTextFor(c);
-    var pkgCount=(c.packages||[]).length;
-    var pkgHint=c.hasPkgSheet&&pkgCount>1?" ("+pkgCount+" แพ็กเกจ)":"";
+var pkgHint="";
 
     var card=document.createElement("button"); card.type="button"; card.className="concert-card";
     card.setAttribute("aria-label","ดูเครื่องว่างสำหรับงาน "+c.name);
