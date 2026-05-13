@@ -1,6 +1,6 @@
 {
-  "name": "kk-phone-rental-frontend-v15-6-admin-sort-fix",
-  "version": "15.6.0",
+  "name": "kk-phone-rental-frontend-v16-0-phase1-stabilized",
+  "version": "16.0.0",
   "private": true,
   "scripts": {
     "start": "vercel dev",

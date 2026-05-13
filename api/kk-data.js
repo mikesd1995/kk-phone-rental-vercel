@@ -1,7 +1,7 @@
-// KK Phone Rental v15.8 — Vercel Serverless Google Sheets CSV Proxy (audited)
-// Required on Vercel: Environment Variable GOOGLE_SHEET_ID = your new Google Sheet ID
+// KK Phone Rental v16.0_PHASE1_STABILIZED — Vercel Serverless Google Sheets CSV Proxy
+// Phase 1: production must read through this proxy only. No hardcoded Sheet ID fallback.
 
-const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
+const KK_APP_VERSION = "v16.0_PHASE1_STABILIZED";
 
 const ALLOWED = {
   "08_Web_Ready": new Set(["A4:K"]),
@@ -12,6 +12,7 @@ function send(res, status, body, contentType = "text/plain; charset=utf-8") {
   res.statusCode = status;
   res.setHeader("Content-Type", contentType);
   res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-KK-App-Version", KK_APP_VERSION);
   res.end(body);
 }
 
@@ -24,13 +25,11 @@ module.exports = async function handler(req, res) {
 
   const sheet = String(req.query.sheet || "").trim();
   const range = String(req.query.range || "").trim();
-  // Use ENV first. DEFAULT_SHEET_ID keeps the frontend working even if ENV is not set yet.
-  // Do not accept arbitrary sheetId from query to avoid using this proxy for unrelated sheets.
-  const sheetId = String(process.env.GOOGLE_SHEET_ID || DEFAULT_SHEET_ID).trim();
-  res.setHeader("X-KK-Sheet-ID", sheetId);
+  const sheetId = String(process.env.GOOGLE_SHEET_ID || "").trim();
+  res.setHeader("X-KK-Sheet-ID", sheetId ? sheetId.slice(0, 8) + "…" : "missing");
 
   if (!sheetId) {
-    return send(res, 500, "Missing GOOGLE_SHEET_ID environment variable");
+    return send(res, 500, "Missing GOOGLE_SHEET_ID environment variable. Direct fallback is disabled in v16.0 Phase 1.");
   }
   if (!ALLOWED[sheet] || !ALLOWED[sheet].has(range)) {
     return send(res, 400, "Sheet/range not allowed");
@@ -43,7 +42,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const upstream = await fetch(url, {
-      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/15.7" },
+      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.0-Phase1" },
     });
     const text = await upstream.text();
     if (!upstream.ok) {

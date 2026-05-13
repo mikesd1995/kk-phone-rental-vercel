@@ -98,11 +98,11 @@ body{padding-bottom:78px}
 @media(max-width:768px){.filter-bar{gap:8px;margin:0 auto 18px;padding:0 6px} .filter-btn{font-size:13px;min-height:36px;padding:8px 14px} .empty-state{border-radius:22px;padding:28px 18px} .empty-state h3{font-size:19px}}
 @media(max-width:390px){.filter-btn{font-size:12px;padding:7px 12px} .empty-state h3{font-size:17px} .empty-state p{font-size:13px}}
 
-/* v9.2 — added pi-venue */
+/* Phase 1 baseline — pi-venue */
 .pi-venue{font-size:13px;color:#64748b;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 
-/* v13.1 Phase 1 — loading skeleton + modal poster */
+/* Phase 1 baseline — loading skeleton + modal poster */
 .skeleton-grid{margin-top:0;}
 .skeleton-card{pointer-events:none;overflow:hidden;position:relative;background:rgba(255,255,255,.78);}
 .skeleton-card:before{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent);animation:skeletonShimmer 1.2s infinite;z-index:2;}
@@ -121,7 +121,7 @@ body{padding-bottom:78px}
 @media(max-width:600px){.modal-poster-wrap{margin-left:12px;margin-right:12px;border-radius:18px}.modal-poster-wrap img{max-height:240px}.skeleton-loading-text{font-size:13px}}
 
 
-/* v13.5 UX fix — compact modal, no poster inside event detail modal */
+/* Phase 1 baseline — compact modal, no poster inside event detail modal */
 #overlay{padding:16px;align-items:center;justify-content:center;}
 #overlay .modal{
   width:min(640px, calc(100vw - 32px));
@@ -162,14 +162,14 @@ body{padding-bottom:78px}
 }
 
 
-/* v14.8 backend-driven text + modal close stability */
+/* Phase 1 baseline — backend-driven text + modal close stability */
 .modal-close{position:relative;z-index:2;touch-action:manipulation;}
 .faq-overlay .modal-close,#overlay .modal-close{font-weight:600;}
 .faq-q,.modal-title,.ph-model{font-weight:700;}
 .ph-usecase{font-size:13px;color:#4A6090;margin-top:3px;line-height:1.5;}
 
 
-/* v14.10 stable fix: line message + font + close buttons */
+/* Phase 1 baseline — line message + font + close buttons */
 html{font-family:var(--font-main);}
 button,input,select,textarea{font:inherit;}
 .modal{position:relative;}

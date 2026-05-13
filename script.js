@@ -1,27 +1,28 @@
-// KK Phone Rental Frontend v15.8 LINK + POSTER PUBLIC + WEB READY AUDIT FIX — optimized from user's frontend and aligned with Backend v14.4 Bulletproof
+// KK Phone Rental Frontend v16.0_PHASE1_STABILIZED — Phase 1 stability baseline
 // Backend contract:
 // - 08_Web_Ready!A4:K = event-level output
 // - 09_Web_Packages!A4:N = package-level output, including M raw_available_count and N use_case
 // Improvements:
-// - Vercel API proxy with direct Google Sheets fallback
+// - Vercel API proxy only in production; direct Google Sheets fallback disabled by config
 // - Safer package mapping so raw_available_count is not mistaken for pkg_active
 // - Availability uses package_status + available_count, with raw negative protection
-// - Keeps existing v13.5 compact modal and 2-column card UX
+// - Keeps existing compact modal and 2-column card UX
 
 var APP       = window.KK_CONFIG || {};
+var KK_APP_VERSION = APP.appVersion || "v16.0_PHASE1_STABILIZED";
 var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
 var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน";
 var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
-var SHEET_ID  = APP.sheetId      || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
+var SHEET_ID  = APP.sheetId      || "";
 var WEB_SHEET = APP.webSheetName || "08_Web_Ready";
 var WEB_RANGE = APP.webRange     || "A4:K";
 var PKG_SHEET = APP.pkgSheetName || "09_Web_Packages";
-var PKG_RANGE = APP.pkgRange     || "A4:N"; // v15.3: M raw_available_count, N use_case from backend
+var PKG_RANGE = APP.pkgRange     || "A4:N"; // M raw_available_count, N use_case from backend
 var LINE_URL  = APP.lineDirectUrl|| "https://line.me/R/ti/p/%40827blnmo";
 var LINE_OA_ID = APP.lineOAId || "@827blnmo";
 var LINE_OA   = "https://line.me/R/oaMessage/" + encodeURIComponent(LINE_OA_ID) + "/?";
 var API_ENDPOINT = APP.apiEndpoint || "/api/kk-data";
-var USE_API = APP.useVercelApi !== false && typeof window !== "undefined" && window.location.protocol !== "file:" && (new URLSearchParams(window.location.search)).get("direct") !== "1";
+var USE_API = APP.useVercelApi !== false && typeof window !== "undefined" && window.location.protocol !== "file:" && !(APP.disableDirectFallback !== true && (new URLSearchParams(window.location.search)).get("direct") === "1");
 
 var concertsData  = [];
 var TODAY_TS = (function(){ var d=new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
@@ -62,7 +63,7 @@ function pick(obj, keys, fallbackIndex){
   return "";
 }
 function normalizePkgRow(p){
-  // Backend v14.4 headers:
+  // Backend package headers:
   // A package_id, B event_id, C package_type, D model_group, E model_display,
   // F lens_group, G lens_display, H price, I available_count, J package_status,
   // K sort_order, L web_note, M raw_available_count, N use_case
@@ -87,7 +88,7 @@ function normalizePkgRow(p){
     lens_display:        lensDisplay,
     price:               price,
     web_note:            pick(p,["web_note","package_note","หมายเหตุ\n(สำหรับเว็บ)","หมายเหตุ"],11),
-    // ห้าม fallback เป็น index 12 เพราะ v14.4 column M คือ raw_available_count ไม่ใช่ active flag
+    // ห้าม fallback เป็น index 12 เพราะ column M คือ raw_available_count ไม่ใช่ active flag
     pkg_active:          pick(p,["pkg_active","pkg_active\n(TRUE/FALSE)"]),
     available_count:     availableCount,
     raw_available_count: rawAvailableCount,
@@ -239,31 +240,31 @@ async function withRetry(fn,tries,delay){
   for(var i=0;i<tries;i++){ try{return await fn();}catch(e){err=e;if(i<tries-1)await new Promise(function(r){setTimeout(r,delay);});} }
   throw err;
 }
-function directSheetUrl(name,range){ return "https://docs.google.com/spreadsheets/d/"+encodeURIComponent(SHEET_ID)+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now(); }
+function directSheetUrl(name,range){ if(!SHEET_ID) throw new Error("Direct Google Sheet fallback is disabled. Please check /api/kk-data and GOOGLE_SHEET_ID on Vercel."); return "https://docs.google.com/spreadsheets/d/"+encodeURIComponent(SHEET_ID)+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now(); }
 function apiSheetUrl(name,range){ return API_ENDPOINT+"?sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now(); }
 async function fetchSheetCsv(name,range,ms){
   if(USE_API){
     try{ return await fetchText(apiSheetUrl(name,range),ms||9000); }
     catch(e){
-      console.warn("KK proxy failed; falling back to direct Google Sheets", e);
+      console.warn("KK proxy failed; direct Google Sheets fallback is disabled in Phase 1", e);
       if(APP.disableDirectFallback) throw e;
     }
   }
   return await fetchText(directSheetUrl(name,range),ms||9000);
 }
 
-// ─── Session cache (3 min) ────────────────────────────────────────────────
-var CACHE_TTL=15000; // v15.8: shorter cache so newly-created events and poster URLs show faster
+// ─── Session cache ───────────────────────────────────────────────────────
+var CACHE_TTL=15000; // Short cache so newly-created events and poster URLs show faster
 function cacheGet(k){ try{ var raw=sessionStorage.getItem(k); if(!raw)return null; var o=JSON.parse(raw); return (Date.now()-o.ts)<CACHE_TTL?o.data:null; }catch(e){return null;} }
 function cacheSet(k,d){ try{sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),data:d}));}catch(e){} }
 
 async function fetchWebRows(){
-  var k="kk_web_v15_8:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_web_v16_0_phase1:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(WEB_SHEET,WEB_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 async function fetchPkgRows(){
-  var k="kk_pkg_v15_8:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_pkg_v16_0_phase1:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(PKG_SHEET,PKG_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
@@ -313,7 +314,7 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     } else if(pkgStatus==="full"){
       avail = false;
     } else if(sheetHasAvail){
-      // v13.4: 09_Web_Packages!available_count เป็น source of truth ต่อ package
+      // 09_Web_Packages!available_count เป็น source of truth ต่อ package
       avail = sheetAvail > 0;
     } else if(pkgType==="lens_only"){
       // backward compatibility ถ้าใช้ backend เก่า
@@ -403,7 +404,7 @@ function isFuture(c){ return SHOW_PAST||concertTs(c)>=TODAY_TS; }
 function isSoon(c){ var ms=concertTs(c)-TODAY_TS; return ms>=0&&ms<=14*86400000; }
 function availPkgs(c){ return (c.packages||[]).filter(function(p){return p.avail;}); }
 function availCnt(c){
-  // v15.3: use package-level available_count first so hidden phone packages do not inflate card availability.
+  // Use package-level available_count first so hidden phone packages do not inflate card availability.
   var ap=availPkgs(c);
   var maxPkg=0;
   ap.forEach(function(p){ if(hasVal(p.count)) maxPkg=Math.max(maxPkg,toNum(p.count)); });
@@ -522,7 +523,7 @@ function renderConcerts(concerts){
 
 // ─── Modal ────────────────────────────────────────────────────────────────
 function buildBookingMsg(c,p){
-  // v14.12: keep LINE OA message short and package-specific.
+  // Keep LINE OA message short and package-specific.
   // Do not prepend backend line_message_template because that already contains event data and causes duplicated text.
   return [
     "สนใจเช่า "+lineVal(p&&p.model),
@@ -547,7 +548,7 @@ function showModal(c){
   document.getElementById("modal-date").textContent="📅 "+(c.date||"-");
   document.getElementById("modal-venue").textContent="📍 "+(c.venue||"-");
 
-  // v13.5 UX fix: ไม่แสดงรูปโปสเตอร์ซ้ำใน modal
+  // UX fix: ไม่แสดงรูปโปสเตอร์ซ้ำใน modal
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
 
   var list=document.getElementById("phone-list"); list.innerHTML="";
@@ -605,7 +606,7 @@ function setEventUrl(eventId){
 }
 function clearEventParam(){
   try{
-    // v14.11: always reset back to the clean homepage URL when package modal is closed.
+    // Always reset back to the clean homepage URL when package modal is closed.
     // This prevents refresh from reopening the same event modal.
     if(window.location.search||window.location.hash||window.location.pathname!=="/"){
       window.history.replaceState(null,"",homeUrl());
@@ -670,7 +671,7 @@ document.addEventListener("DOMContentLoaded",function(){
         else{ clearEventParam(); }
       }
     })
-    .catch(function(e){ console.error("KK v15.8:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
+    .catch(function(e){ console.error("KK v16.0_PHASE1_STABILIZED:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
 });
 
 document.addEventListener("keydown",function(e){

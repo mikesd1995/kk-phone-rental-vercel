@@ -1,8 +1,10 @@
-// KK Phone Rental Admin CRM v15.8 — Poster Public + Web Ready Audit Fix
+// KK Phone Rental Admin CRM v16.0_PHASE1_STABILIZED — Phase 1 stability baseline
 (function(){
+  const KK_ADMIN_UI_VERSION = "v16.0_PHASE1_STABILIZED";
+  const EXPECTED_BACKEND_VERSION = "v16.0_PHASE1_STABILIZED";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false };
+  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "" };
 
   function showNotice(msg, type="ok"){
     const n=$("#notice");
@@ -117,11 +119,35 @@
   function opt(value, label){
     return `<option value="${esc(value)}">${esc(label)}</option>`;
   }
+  function versionDiagnosticsRows(data){
+    const d=data||{};
+    const rows=[];
+    const backendVersion = d.admin_api_version || (d.phase1_diagnostics && d.phase1_diagnostics.admin_api_version) || "";
+    const proxyVersion = d.frontend_proxy_version || "";
+    const spreadsheetId = d.spreadsheet_id || "";
+    const frontendSheetId = d.frontend_sheet_id || "";
+    const sameSheet = spreadsheetId && frontendSheetId && spreadsheetId === frontendSheetId;
+    rows.push({check:"Version · Admin UI", status: KK_ADMIN_UI_VERSION===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:KK_ADMIN_UI_VERSION, note:"Expected "+EXPECTED_BACKEND_VERSION});
+    rows.push({check:"Version · Vercel Proxy", status: proxyVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:proxyVersion || "missing", note:"Expected "+EXPECTED_BACKEND_VERSION});
+    rows.push({check:"Version · Apps Script", status: backendVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:backendVersion || "missing", note:"Deploy Apps Script latest version if not matching"});
+    rows.push({check:"Sheet ID · Frontend vs Apps Script", status: sameSheet ? "OK" : "CHECK", detail:(frontendSheetId||"missing")+" / "+(spreadsheetId||"missing"), note:sameSheet ? "Same backend" : "GOOGLE_SHEET_ID may not match Apps Script spreadsheet"});
+    if(d.phase1_diagnostics){
+      const x=d.phase1_diagnostics;
+      rows.push({check:"ENV · KK_POSTER_FOLDER_ID", status:x.poster_folder_id_set ? "OK" : "CHECK", detail:x.poster_folder_id_set ? "set" : "missing", note:"Needed for Upload Poster"});
+      rows.push({check:"Log Sheets", status:x.log_sheets_ready ? "OK" : "CHECK", detail:x.log_sheets_ready ? "15/16 logs ready" : "missing", note:"Run KK Admin > Setup/Repair Named Ranges"});
+      rows.push({check:"Direct fallback", status:x.direct_fallback_disabled ? "OK" : "CHECK", detail:x.direct_fallback_disabled ? "disabled" : "not confirmed", note:"Phase 1 production should use /api/kk-data only"});
+    }
+    return rows;
+  }
   function posterSyncText(res){
     if(!res || !res.poster_url) return "";
-    if(res.web_ready_found && res.web_ready_poster_url) return " และรูปพร้อมแสดงบนหน้าเว็บแล้ว";
+    if(res.web_ready_found && res.web_ready_poster_url) return " และบันทึกรูปลง Web Ready แล้ว";
     if(res.web_ready_found && !res.web_ready_poster_url) return " แต่ 08_Web_Ready ยังไม่พบรูป";
     return " และบันทึกรูปแล้ว";
+  }
+  function posterWarningText(res){
+    const warning = (res && res.poster_public_warning) || state.posterWarning || "";
+    return warning ? " หมายเหตุ: ระบบอัปโหลดรูปแล้ว แต่ตั้ง public อัตโนมัติไม่ได้ ถ้ารูปไม่ขึ้น ให้ตั้งค่าโฟลเดอร์รูปเป็น Share > Anyone with the link > Viewer" : "";
   }
   function table(el, cols, rows){
     if(!el) return;
@@ -150,7 +176,7 @@
 
   function render(){
     const d=state.data||{};
-    const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=d.health||[], today=d.today_working||[], customers=d.customers||[];
+    const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=versionDiagnosticsRows(d).concat(d.health||[]), today=d.today_working||[], customers=d.customers||[];
     const openEventRows=sortedOpenEvents(events);
     const bookingRows=sortedBookings(bookings);
     const openEvents=openEventRows.length;
@@ -234,6 +260,13 @@
       const data=await api("snapshot");
       state.data=data.data||{};
       render();
+      const backendVersion = state.data.admin_api_version || (state.data.phase1_diagnostics && state.data.phase1_diagnostics.admin_api_version) || "";
+      if(backendVersion && backendVersion !== EXPECTED_BACKEND_VERSION){
+        showNotice("Version ไม่ตรงกัน: Admin UI "+EXPECTED_BACKEND_VERSION+" แต่ Apps Script "+backendVersion, "bad");
+      }
+      if(state.data.spreadsheet_id && state.data.frontend_sheet_id && state.data.spreadsheet_id !== state.data.frontend_sheet_id){
+        showNotice("GOOGLE_SHEET_ID ใน Vercel ไม่ตรงกับ Spreadsheet ที่ Apps Script ใช้", "bad");
+      }
     } finally {
       state.loading=false;
     }
@@ -253,8 +286,12 @@
       r.readAsDataURL(file);
     });
 
+    state.posterWarning = "";
     const res=await api("uploadPoster",{fileName:file.name,mimeType:file.type||"image/jpeg",base64});
-    if(res.sharing_warning) throw new Error("อัปโหลดรูปแล้ว แต่ตั้งค่าแชร์ public ไม่สำเร็จ: "+res.sharing_warning);
+    if(res.sharing_warning){
+      state.posterWarning = res.sharing_warning;
+      console.warn("KK poster public warning", res.sharing_warning);
+    }
     const url = res.url || res.poster_url || res.view_url || "";
     if(!url) throw new Error("อัปโหลดรูปแล้ว แต่ไม่ได้รับ poster URL กลับมา");
 
@@ -315,7 +352,8 @@
         const res=await api("createEvent",p);
         ev.target.reset();
         await refresh();
-        showNotice("สร้างงานสำเร็จ" + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : ""));
+        showNotice("สร้างงานสำเร็จ" + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : "") + posterWarningText(res));
+        state.posterWarning = "";
       }
       catch(e){ showNotice(e.message,"bad"); } finally{ setBusy(btn,false); }
     });
@@ -329,7 +367,8 @@
         const res=await api("updateEvent",p);
         if($("#updatePosterFile")) $("#updatePosterFile").value="";
         await refresh();
-        showNotice("แก้งานสำเร็จ" + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : ""));
+        showNotice("แก้งานสำเร็จ" + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : "") + posterWarningText(res));
+        state.posterWarning = "";
       }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);}
     });
     $("#packageForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("createPackage",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่มแพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });

@@ -1,16 +1,22 @@
-// KK Phone Rental v15.8 — Admin CRM Vercel Proxy (audited)
+// KK Phone Rental v16.0_PHASE1_STABILIZED — Admin CRM Vercel Proxy
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Required ENV on Vercel:
-// KK_ADMIN_SCRIPT_URL = Apps Script Web App URL ending /exec
-// KK_ADMIN_API_KEY    = secret generated in Google Apps Script menu
-// KK_ADMIN_PIN        = PIN that admin types on /admin
+// GOOGLE_SHEET_ID      = same Spreadsheet ID used by Apps Script
+// KK_ADMIN_SCRIPT_URL  = Apps Script Web App URL ending /exec
+// KK_ADMIN_API_KEY     = secret generated in Google Apps Script menu
+// KK_ADMIN_PIN         = PIN that admin types on /admin
+// Optional ENV:
+// KK_SITE_ORIGIN       = https://kk-phone-rental.vercel.app or custom domain
+
+const KK_APP_VERSION = "v16.0_PHASE1_STABILIZED";
 
 function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-KK-App-Version", KK_APP_VERSION);
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-  res.end(JSON.stringify(body));
+  res.end(JSON.stringify(Object.assign({ proxy_version: KK_APP_VERSION }, body || {})));
 }
 
 function readBody(req) {
@@ -31,7 +37,7 @@ function readBody(req) {
 module.exports = async function handler(req, res) {
   const origin = req.headers.origin || "";
   const allowedOrigin = process.env.KK_SITE_ORIGIN || (process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "");
-  if (origin && (!allowedOrigin || origin === allowedOrigin)) {
+  if (origin && allowedOrigin && origin === allowedOrigin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
   }
@@ -43,11 +49,12 @@ module.exports = async function handler(req, res) {
   const scriptUrl = String(process.env.KK_ADMIN_SCRIPT_URL || "").trim();
   const apiKey = String(process.env.KK_ADMIN_API_KEY || "").trim();
   const adminPin = String(process.env.KK_ADMIN_PIN || "").trim();
+  const frontendSheetId = String(process.env.GOOGLE_SHEET_ID || "").trim();
 
-  if (!scriptUrl || !apiKey || !adminPin) {
+  if (!scriptUrl || !apiKey || !adminPin || !frontendSheetId) {
     return json(res, 500, {
       ok: false,
-      error: "Admin API is not configured. Set KK_ADMIN_SCRIPT_URL, KK_ADMIN_API_KEY and KK_ADMIN_PIN in Vercel Environment Variables."
+      error: "Admin API is not configured. Set GOOGLE_SHEET_ID, KK_ADMIN_SCRIPT_URL, KK_ADMIN_API_KEY and KK_ADMIN_PIN in Vercel Environment Variables."
     });
   }
 
@@ -63,7 +70,11 @@ module.exports = async function handler(req, res) {
       payload = raw ? JSON.parse(raw) : {};
     }
 
-    const upstreamPayload = Object.assign({}, payload, { apiKey });
+    const upstreamPayload = Object.assign({}, payload, {
+      apiKey,
+      proxyVersion: KK_APP_VERSION,
+      frontendSheetId
+    });
     const upstream = await fetch(scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -76,7 +87,12 @@ module.exports = async function handler(req, res) {
     catch (_) { data = { ok: false, error: text || "Apps Script returned a non-JSON response" }; }
 
     if (data && data.ok && payload && payload.action === "snapshot") {
-      data.frontend_sheet_id = String(process.env.GOOGLE_SHEET_ID || "");
+      data.frontend_sheet_id = frontendSheetId;
+      data.frontend_proxy_version = KK_APP_VERSION;
+      if (data.data) {
+        data.data.frontend_sheet_id = frontendSheetId;
+        data.data.frontend_proxy_version = KK_APP_VERSION;
+      }
     }
 
     return json(res, upstream.ok ? 200 : upstream.status, data);
