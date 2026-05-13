@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.2_FULL_AUDIT_STABLE</title>
+  <title>KK Admin CRM Dashboard v16.3_ADMIN_UX_UI_CLEANUP</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.2</span>
+          <span>Phone Rental v16.3 · UX Clean</span>
         </div>
       </div>
       <nav>
@@ -41,6 +41,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
+          <span class="top-badge" title="Admin UI version">v16.3 · UX Clean</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -117,7 +118,7 @@
 
         <section class="tab-panel" id="tab-booking">
           <form class="card form" id="bookingForm">
-            <h2>เพิ่ม Booking แบบ Auto Assign</h2>
+            <div class="form-title"><span class="eyebrow">Booking</span><h2>เพิ่ม Booking แบบ Auto Assign</h2></div>
             <p class="hint">ระบบจะเช็กงาน/แพ็กเกจ/สต็อก และล็อกข้อมูลก่อนเขียนลงชีต ลดปัญหาจองซ้ำ</p>
             <div class="row three">
               <label>งาน
@@ -160,14 +161,14 @@
         <section class="tab-panel" id="tab-events">
           <div class="grid two-col">
             <form class="card form" id="eventForm">
-              <h2>เพิ่มงานใหม่</h2>
+              <div class="form-title"><span class="eyebrow">Event</span><h2>เพิ่มงานใหม่</h2></div>
               <div class="row two">
                 <label>ชื่องาน <input name="event_name" required placeholder="เช่น [안녕, BANGKOK] MUSIC FESTIVAL" /></label>
                 <label>วันที่ <input name="event_date" required type="date" /></label>
               </div>
               <div class="row two">
                 <label>สถานที่ <input name="venue" required placeholder="Bangkok" /></label>
-                <label>Poster URL <input name="poster_url" placeholder="Google Drive file link / thumbnail / direct image URL" /></label>
+                <label>Poster URL <input name="poster_url" placeholder="Google Drive file link / thumbnail / direct image URL" /><small>วางลิงก์ไฟล์รูป Google Drive ได้โดยตรง หรือปล่อยว่างถ้าจะอัปโหลดรูปจากเครื่อง</small></label>
               </div>
               <div class="row two">
                 <label>หรืออัปโหลดรูป Poster ไป Google Drive
@@ -184,7 +185,7 @@
             </form>
 
             <form class="card form" id="eventUpdateForm">
-              <h2>แก้งานเดิม</h2>
+              <div class="form-title"><span class="eyebrow">Edit Event</span><h2>แก้งานเดิม</h2></div>
               <label>เลือกงาน <select name="event_id" data-source="events" required></select></label>
               <div class="row two">
                 <label>ชื่องานใหม่ <input name="event_name" /></label>
@@ -192,7 +193,7 @@
               </div>
               <div class="row two">
                 <label>สถานที่ใหม่ <input name="venue" /></label>
-                <label>Poster URL ใหม่ <input name="poster_url" placeholder="Google Drive file link / thumbnail / direct image URL" /></label>
+                <label>Poster URL ใหม่ <input name="poster_url" placeholder="Google Drive file link / thumbnail / direct image URL" /><small>ถ้าวางลิงก์ใหม่ ระบบจะใช้รูปนี้แทนรูปเดิม</small></label>
               </div>
               <label>หรืออัปโหลดรูป Poster ใหม่
                 <input id="updatePosterFile" type="file" accept="image/*" />
@@ -211,7 +212,7 @@
         <section class="tab-panel" id="tab-packages">
           <div class="grid two-col">
             <form class="card form" id="packageForm">
-              <h2>เพิ่มแพ็กเกจ/ราคา</h2>
+              <div class="form-title"><span class="eyebrow">Package</span><h2>เพิ่มแพ็กเกจ/ราคา</h2></div>
               <div class="row two">
                 <label>Template ID <input name="template_id" placeholder="ว่างไว้ให้ระบบสร้างได้" /></label>
                 <label>ชื่อแสดงบนเว็บ <input name="display_name" required placeholder="Vivo X300 Pro + Lens" /></label>
@@ -236,7 +237,7 @@
             </form>
 
             <form class="card form" id="eventPriceOverrideForm">
-              <h2>แก้ราคาเฉพาะงาน</h2>
+              <div class="form-title"><span class="eyebrow">Override</span><h2>แก้ราคาเฉพาะงาน</h2></div>
               <p class="hint">ใช้ส่วนนี้เมื่ออยากให้ราคา/ข้อความของแพ็กเกจเปลี่ยนเฉพาะงานที่เลือก โดยไม่กระทบราคาหลักของทุกงาน</p>
               <label>เลือกงาน <select name="event_id" data-source="events" required></select></label>
               <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select></label>
@@ -259,7 +260,7 @@
             </form>
 
             <form class="card form" id="packageUpdateForm">
-              <h2>แก้ราคาหลักของแพ็กเกจ</h2>
+              <div class="form-title"><span class="eyebrow">Master Price</span><h2>แก้ราคาหลักของแพ็กเกจ</h2></div>
               <p class="hint">ส่วนนี้จะกระทบทุกงานที่ไม่ได้ตั้งราคาเฉพาะงานไว้</p>
               <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select></label>
               <div class="row two">
@@ -276,7 +277,7 @@
         <section class="tab-panel" id="tab-assets">
           <div class="grid two-col">
             <form class="card form" id="assetForm">
-              <h2>เพิ่มมือถือ / เลนส์ หลายรายการ</h2>
+              <div class="form-title"><span class="eyebrow">Asset</span><h2>เพิ่มมือถือ / เลนส์ หลายรายการ</h2></div>
               <div class="row two">
                 <label>ประเภท
                   <select name="asset_type" required><option value="phone">phone</option><option value="lens">lens</option></select>

@@ -1,7 +1,7 @@
-// KK Phone Rental Admin CRM v16.2_FULL_AUDIT_STABLE — Phase 1 stability baseline
+// KK Phone Rental Admin CRM v16.3_ADMIN_UX_UI_CLEANUP — Phase 1 stability baseline
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.2_FULL_AUDIT_STABLE";
-  const EXPECTED_BACKEND_VERSION = "v16.2_FULL_AUDIT_STABLE";
+  const KK_ADMIN_UI_VERSION = "v16.3_ADMIN_UX_UI_CLEANUP";
+  const EXPECTED_BACKEND_VERSION = "v16.3_ADMIN_UX_UI_CLEANUP";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "" };
@@ -9,10 +9,20 @@
   function showNotice(msg, type="ok"){
     const n=$("#notice");
     if(!n) return alert(msg);
-    n.textContent=msg; n.className="notice "+type;
-    clearTimeout(showNotice.t); showNotice.t=setTimeout(()=>n.classList.add("hidden"),7000);
+    n.textContent=msg;
+    n.className="notice "+type;
+    n.classList.remove("hidden");
+    n.setAttribute("role", type==="bad" ? "alert" : "status");
+    clearTimeout(showNotice.t);
+    showNotice.t=setTimeout(()=>n.classList.add("hidden"),9000);
   }
-  function setBusy(btn, busy){ if(!btn) return; btn.disabled=!!busy; btn.dataset.old=btn.dataset.old||btn.textContent; btn.textContent=busy?"กำลังบันทึก...":btn.dataset.old; }
+  function setBusy(btn, busy){
+    if(!btn) return;
+    btn.disabled=!!busy;
+    btn.classList.toggle("is-busy", !!busy);
+    btn.dataset.old=btn.dataset.old||btn.textContent;
+    btn.textContent=busy?"กำลังบันทึก...":btn.dataset.old;
+  }
   function formData(form){
     const out={};
     new FormData(form).forEach((v,k)=>{ out[k]=typeof v==="string"?v.trim():v; });
@@ -302,10 +312,18 @@
   }
 
   function bind(){
-    $$(".nav[data-tab]").forEach(btn=>btn.addEventListener("click",()=>{
-      $$(".nav").forEach(b=>b.classList.remove("active")); btn.classList.add("active");
-      $$(".tab-panel").forEach(p=>p.classList.remove("active")); $("#tab-"+btn.dataset.tab).classList.add("active");
-    }));
+    $$(".nav[data-tab]").forEach(btn=>{
+      btn.setAttribute("aria-controls", "tab-"+btn.dataset.tab);
+      btn.setAttribute("aria-pressed", btn.classList.contains("active") ? "true" : "false");
+      btn.addEventListener("click",()=>{
+        $$(".nav[data-tab]").forEach(b=>{ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); });
+        btn.classList.add("active"); btn.setAttribute("aria-pressed","true");
+        $$(".tab-panel").forEach(p=>p.classList.remove("active"));
+        const panel=$("#tab-"+btn.dataset.tab);
+        if(panel) panel.classList.add("active");
+        window.scrollTo({top:0,behavior:"smooth"});
+      });
+    });
     $("#loginBtn").addEventListener("click", async()=>{
       state.pin=$("#pinInput").value.trim(); if(!state.pin) return alert("กรุณากรอก PIN");
       sessionStorage.setItem("kk_admin_pin",state.pin);
