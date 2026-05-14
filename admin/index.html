@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.3_ADMIN_UX_UI_CLEANUP</title>
+  <title>KK Admin CRM Dashboard v16.4.2_ADMIN_BOOKING_AVAILABLE_ONLY</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.3 · UX Clean</span>
+          <span>Phone Rental v16.4.2 · Booking Guard</span>
         </div>
       </div>
       <nav>
@@ -41,7 +41,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.3 · UX Clean</span>
+          <span class="top-badge" title="Admin UI version">v16.4.2 · Booking Guard</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -123,9 +123,11 @@
             <div class="row three">
               <label>งาน
                 <select name="event_id" data-source="events" required></select>
+                <small>แสดงเฉพาะงานที่ยังมีแพ็กเกจว่าง เพื่อกันเพิ่ม Booking ในวันที่เต็มแล้ว</small>
               </label>
               <label>แพ็กเกจ
                 <select name="template_id" data-source="packages" required></select>
+                <small>หลังเลือกงาน ระบบจะแสดงเฉพาะแพ็กเกจที่ยังว่าง</small>
               </label>
               <label>สถานะ Booking
                 <select name="booking_status">

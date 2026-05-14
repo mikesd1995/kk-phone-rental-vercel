@@ -1,7 +1,7 @@
-// KK Phone Rental Admin CRM v16.3_ADMIN_UX_UI_CLEANUP — Phase 1 stability baseline
+// KK Phone Rental Admin CRM v16.4.2_ADMIN_BOOKING_AVAILABLE_ONLY — Phase 1 stability baseline
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.3_ADMIN_UX_UI_CLEANUP";
-  const EXPECTED_BACKEND_VERSION = "v16.3_ADMIN_UX_UI_CLEANUP";
+  const KK_ADMIN_UI_VERSION = "v16.4.2_ADMIN_BOOKING_AVAILABLE_ONLY";
+  const EXPECTED_BACKEND_VERSION = "v16.4.2_ADMIN_BOOKING_AVAILABLE_ONLY";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "" };
@@ -95,6 +95,72 @@
     else rows.sort((a,b)=>dateValue(b.created_at)-dateValue(a.created_at));
     return rows;
   }
+  function toNum(v){
+    if(v===null || v===undefined || v==='') return 0;
+    const n=Number(String(v).replace(/,/g,'').trim());
+    return Number.isFinite(n) ? n : 0;
+  }
+  function isActiveEvent(e){
+    return String(e && e.status || '').toLowerCase() !== 'closed' && e && e.active_on_web !== false;
+  }
+  function isWebPackageBookable(p){
+    const st=String(p && p.package_status || '').toLowerCase().trim();
+    return !!p && (st==='available' || st==='open') && toNum(p.available_count)>0 && toNum(p.price)>0;
+  }
+  function webPackagesForEvent(eventId){
+    const d=state.data||{};
+    const id=String(eventId||'').trim();
+    return (d.web_packages||[]).filter(p=>String(p.event_id||'').trim()===id);
+  }
+  function bookableWebPackagesForEvent(eventId){
+    return webPackagesForEvent(eventId).filter(isWebPackageBookable);
+  }
+  function hasWebPackageSource(){
+    const d=state.data||{};
+    return Array.isArray(d.web_packages) && d.web_packages.length>0;
+  }
+  function eventHasBookablePackage(eventId){
+    return !hasWebPackageSource() || bookableWebPackagesForEvent(eventId).length>0;
+  }
+  function packageLabelFromWebRow(wp){
+    const d=state.data||{};
+    const byId={};
+    (d.packages||[]).forEach(p=>{ byId[String(p.template_id||'').trim()] = p; });
+    const pkg=byId[String(wp.package_id||'').trim()] || {};
+    const base=pkg.display_name || wp.package_id || wp.package_type || 'แพ็กเกจ';
+    const price=toNum(wp.price || pkg.standard_price);
+    const left=toNum(wp.available_count);
+    return `${base} · ${money(price)}฿ · เหลือ ${left}`;
+  }
+  function populateBookingPackages(){
+    const form=$("#bookingForm");
+    if(!form || !state.data) return;
+    const eventSel=form.elements.event_id;
+    const pkgSel=form.elements.template_id;
+    if(!eventSel || !pkgSel) return;
+    const current=pkgSel.value;
+    const eventId=eventSel.value;
+    if(hasWebPackageSource()){
+      const rows=bookableWebPackagesForEvent(eventId);
+      if(!eventId){
+        pkgSel.innerHTML='<option value="">เลือกงานก่อน</option>';
+        pkgSel.disabled=true;
+      }else if(!rows.length){
+        pkgSel.innerHTML='<option value="">งานนี้เต็มแล้ว / ไม่มีแพ็กเกจว่าง</option>';
+        pkgSel.disabled=true;
+      }else{
+        pkgSel.disabled=false;
+        pkgSel.innerHTML='<option value="">เลือกแพ็กเกจที่ยังว่าง</option>'+rows.map(p=>opt(p.package_id, packageLabelFromWebRow(p))).join('');
+        if(current && rows.some(p=>String(p.package_id)===String(current))) pkgSel.value=current;
+      }
+    }else{
+      pkgSel.disabled=false;
+      pkgSel.innerHTML='<option value="">เลือกแพ็กเกจ</option>'+(state.data.packages||[])
+        .filter(p=>p.active!==false)
+        .map(p=>opt(p.template_id, `${p.display_name||p.template_id} · ${money(p.standard_price)}฿`)).join('');
+      if(current) pkgSel.value=current;
+    }
+  }
   function findOverride(eventId, templateId){
     const d=state.data||{};
     return (d.overrides||[]).find(o=>String(o.event_id)===String(eventId)&&String(o.template_id)===String(templateId));
@@ -169,18 +235,25 @@
     const data=state.data||{};
     $$('select[data-source="events"]').forEach(sel=>{
       const current=sel.value;
-      sel.innerHTML='<option value="">เลือกงาน</option>'+(data.events||[])
+      const isBooking=!!sel.closest("#bookingForm");
+      const rows=(data.events||[])
         .filter(e=>String(e.status||"").toLowerCase()!=="closed")
-        .map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}`)).join('');
-      if(current) sel.value=current;
+        .filter(e=>!isBooking || (isActiveEvent(e) && eventHasBookablePackage(e.event_id)));
+      const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : "เลือกงาน";
+      const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : placeholder;
+      sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+
+        rows.map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}`)).join('');
+      if(current && rows.some(e=>String(e.event_id)===String(current))) sel.value=current;
     });
     $$('select[data-source="packages"]').forEach(sel=>{
+      if(sel.closest("#bookingForm")) return;
       const current=sel.value;
       sel.innerHTML='<option value="">เลือกแพ็กเกจ</option>'+(data.packages||[])
         .filter(p=>p.active!==false)
         .map(p=>opt(p.template_id, `${p.display_name||p.template_id} · ${money(p.standard_price)}฿`)).join('');
       if(current) sel.value=current;
     });
+    populateBookingPackages();
     populateEventOverrideForm();
   }
 
@@ -336,6 +409,8 @@
       const el=$(sel);
       if(el) el.addEventListener("change",()=>render());
     });
+    const bookingEventSelect=$("#bookingForm select[name='event_id']");
+    if(bookingEventSelect) bookingEventSelect.addEventListener("change", populateBookingPackages);
     const cleanupBtn=$("#cleanupBtn");
     if(cleanupBtn){
       cleanupBtn.addEventListener("click", async()=>{
@@ -392,7 +467,23 @@
     $("#packageForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("createPackage",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่มแพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
     $("#packageUpdateForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("updatePackage",formData(ev.target)); await refresh(); showNotice("แก้แพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
     $("#assetForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("addAssets",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่ม asset สำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
-    $("#bookingForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ const res=await api("createBooking",formData(ev.target)); ev.target.reset(); await refresh(); showNotice(`บันทึก Booking สำเร็จ: Phone ${res.phone_asset_id||'-'} / Lens ${res.lens_asset_id||'-'}`); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
+    $("#bookingForm").addEventListener("submit",async ev=>{
+      ev.preventDefault();
+      const btn=ev.submitter;
+      setBusy(btn,true);
+      try{
+        const payload=formData(ev.target);
+        if(hasWebPackageSource()){
+          if(!eventHasBookablePackage(payload.event_id)) throw new Error("งานนี้เต็มแล้วหรือไม่มีแพ็กเกจว่าง กรุณา Refresh แล้วเลือกงานใหม่");
+          const okPkg=bookableWebPackagesForEvent(payload.event_id).some(p=>String(p.package_id)===String(payload.template_id));
+          if(!okPkg) throw new Error("แพ็กเกจนี้เต็มแล้วหรือถูกซ่อน กรุณาเลือกแพ็กเกจที่ยังว่าง");
+        }
+        const res=await api("createBooking",payload);
+        ev.target.reset();
+        await refresh();
+        showNotice(`บันทึก Booking สำเร็จ: Phone ${res.phone_asset_id||'-'} / Lens ${res.lens_asset_id||'-'}`);
+      }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);}
+    });
   }
 
   bind();
