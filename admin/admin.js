@@ -1,7 +1,7 @@
-// KK Phone Rental Admin CRM v16.4.2_ADMIN_BOOKING_AVAILABLE_ONLY — Phase 1 stability baseline
+// KK Phone Rental Admin CRM v16.4.4_BOOKING_TEMPLATE_ID_FIX — Phase 1 stability baseline
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.2_ADMIN_BOOKING_AVAILABLE_ONLY";
-  const EXPECTED_BACKEND_VERSION = "v16.4.2_ADMIN_BOOKING_AVAILABLE_ONLY";
+  const KK_ADMIN_UI_VERSION = "v16.4.4_BOOKING_TEMPLATE_ID_FIX";
+  const EXPECTED_BACKEND_VERSION = "v16.4.4_BOOKING_TEMPLATE_ID_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "" };
@@ -76,6 +76,13 @@
     return d ? d.getTime() : 0;
   }
   function textValue(v){ return String(v || "").trim().toLocaleLowerCase("th-TH"); }
+  function eventSelectSortValue(e){
+    const t=dateValue(e && e.event_date);
+    return t || Number.MAX_SAFE_INTEGER;
+  }
+  function compareEventsByDateAsc(a,b){
+    return (eventSelectSortValue(a)-eventSelectSortValue(b)) || textValue(a && a.event_name).localeCompare(textValue(b && b.event_name),"th") || String(a && a.event_id || "").localeCompare(String(b && b.event_id || ""));
+  }
   function sortedOpenEvents(events){
     const sort=($("#eventsSort") && $("#eventsSort").value) || "date_asc";
     const rows=(events||[])
@@ -112,6 +119,15 @@
     const id=String(eventId||'').trim();
     return (d.web_packages||[]).filter(p=>String(p.event_id||'').trim()===id);
   }
+  function templateIdFromWebPackage(wp){
+    const pkgId=String(wp && wp.package_id || '').trim();
+    const eventId=String(wp && wp.event_id || '').trim();
+    if(wp && wp.template_id) return String(wp.template_id).trim();
+    const tplPos=pkgId.indexOf('TPL-');
+    if(tplPos>=0) return pkgId.slice(tplPos);
+    if(eventId && pkgId.indexOf(eventId+'-')===0) return pkgId.slice(eventId.length+1);
+    return pkgId;
+  }
   function bookableWebPackagesForEvent(eventId){
     return webPackagesForEvent(eventId).filter(isWebPackageBookable);
   }
@@ -126,8 +142,9 @@
     const d=state.data||{};
     const byId={};
     (d.packages||[]).forEach(p=>{ byId[String(p.template_id||'').trim()] = p; });
-    const pkg=byId[String(wp.package_id||'').trim()] || {};
-    const base=pkg.display_name || wp.package_id || wp.package_type || 'แพ็กเกจ';
+    const templateId=templateIdFromWebPackage(wp);
+    const pkg=byId[templateId] || {};
+    const base=pkg.display_name || wp.model_display || templateId || wp.package_type || 'แพ็กเกจ';
     const price=toNum(wp.price || pkg.standard_price);
     const left=toNum(wp.available_count);
     return `${base} · ${money(price)}฿ · เหลือ ${left}`;
@@ -150,8 +167,8 @@
         pkgSel.disabled=true;
       }else{
         pkgSel.disabled=false;
-        pkgSel.innerHTML='<option value="">เลือกแพ็กเกจที่ยังว่าง</option>'+rows.map(p=>opt(p.package_id, packageLabelFromWebRow(p))).join('');
-        if(current && rows.some(p=>String(p.package_id)===String(current))) pkgSel.value=current;
+        pkgSel.innerHTML='<option value="">เลือกแพ็กเกจที่ยังว่าง</option>'+rows.map(p=>opt(templateIdFromWebPackage(p), packageLabelFromWebRow(p))).join('');
+        if(current && rows.some(p=>String(templateIdFromWebPackage(p))===String(current))) pkgSel.value=current;
       }
     }else{
       pkgSel.disabled=false;
@@ -238,7 +255,8 @@
       const isBooking=!!sel.closest("#bookingForm");
       const rows=(data.events||[])
         .filter(e=>String(e.status||"").toLowerCase()!=="closed")
-        .filter(e=>!isBooking || (isActiveEvent(e) && eventHasBookablePackage(e.event_id)));
+        .filter(e=>!isBooking || (isActiveEvent(e) && eventHasBookablePackage(e.event_id)))
+        .sort(compareEventsByDateAsc);
       const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : "เลือกงาน";
       const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : placeholder;
       sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+
@@ -475,7 +493,7 @@
         const payload=formData(ev.target);
         if(hasWebPackageSource()){
           if(!eventHasBookablePackage(payload.event_id)) throw new Error("งานนี้เต็มแล้วหรือไม่มีแพ็กเกจว่าง กรุณา Refresh แล้วเลือกงานใหม่");
-          const okPkg=bookableWebPackagesForEvent(payload.event_id).some(p=>String(p.package_id)===String(payload.template_id));
+          const okPkg=bookableWebPackagesForEvent(payload.event_id).some(p=>String(templateIdFromWebPackage(p))===String(payload.template_id));
           if(!okPkg) throw new Error("แพ็กเกจนี้เต็มแล้วหรือถูกซ่อน กรุณาเลือกแพ็กเกจที่ยังว่าง");
         }
         const res=await api("createBooking",payload);
