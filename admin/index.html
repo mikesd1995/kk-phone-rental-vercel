@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.4.2_ADMIN_BOOKING_AVAILABLE_ONLY</title>
+  <title>KK Admin CRM Dashboard v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,13 +19,14 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.4.2 · Booking Guard</span>
+          <span>Phone Rental v16.4.5 · Edit Booking</span>
         </div>
       </div>
       <nav>
         <button class="nav active" data-tab="overview">ภาพรวม</button>
         <button class="nav" data-tab="today">งานวันนี้</button>
         <button class="nav" data-tab="booking">เพิ่ม Booking</button>
+        <button class="nav" data-tab="edit-booking">แก้ Booking</button>
         <button class="nav" data-tab="events">เพิ่ม/แก้งาน</button>
         <button class="nav" data-tab="packages">แพ็กเกจ/ราคา</button>
         <button class="nav" data-tab="assets">มือถือ/เลนส์</button>
@@ -41,7 +42,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.4.2 · Booking Guard</span>
+          <span class="top-badge" title="Admin UI version">v16.4.5 · Edit Booking</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -157,6 +158,58 @@
             </div>
             <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
             <button class="btn primary" type="submit">บันทึก Booking</button>
+          </form>
+        </section>
+
+        <section class="tab-panel" id="tab-edit-booking">
+          <form class="card form" id="bookingEditForm">
+            <div class="form-title"><span class="eyebrow">Edit Booking</span><h2>แก้ / ยกเลิก Booking</h2></div>
+            <p class="hint">ใช้เมื่อลูกค้าขอแก้ข้อมูลหรือยกเลิก หากเปลี่ยนสถานะเป็น cancelled ระบบจะปล่อยคิวกลับตามสูตร backend</p>
+            <label>เลือก Booking
+              <select name="row_number" required></select>
+              <small>รายการเรียงตาม Booking ล่าสุด เลือกแล้วระบบจะเติมข้อมูลเดิมให้แก้ไข</small>
+            </label>
+            <div class="row three">
+              <label>สถานะ Booking
+                <select name="booking_status" required>
+                  <option value="confirmed">confirmed</option>
+                  <option value="pending">pending</option>
+                  <option value="picked_up">picked_up</option>
+                  <option value="returned">returned</option>
+                  <option value="cancelled">cancelled</option>
+                </select>
+              </label>
+              <label>สถานะชำระเงิน
+                <select name="payment_status">
+                  <option value="unpaid">unpaid</option>
+                  <option value="partial">partial</option>
+                  <option value="paid">paid</option>
+                  <option value="refunded">refunded</option>
+                </select>
+              </label>
+              <label>ยอดรับแล้ว <input name="amount_received" type="number" min="0" step="1" /></label>
+            </div>
+            <div class="row three">
+              <label>ชื่อลูกค้า <input name="customer_name" required /></label>
+              <label>X / LINE <input name="customer_contact" /></label>
+              <label>เบอร์โทร <input name="customer_phone" inputmode="tel" /></label>
+            </div>
+            <div class="row three">
+              <label>ช่องทาง
+                <select name="contact_channel">
+                  <option>LINE</option>
+                  <option>X</option>
+                  <option>Facebook</option>
+                  <option>Instagram</option>
+                </select>
+              </label>
+              <label>เวลารับเครื่อง <input name="pickup_time" placeholder="เช่น 17:30" /></label>
+              <label class="readonly-note">Asset ที่ล็อกไว้
+                <input value="แก้ asset โดยตรงในชีตเท่านั้น" disabled />
+              </label>
+            </div>
+            <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
+            <button class="btn secondary" type="submit">บันทึกการแก้ Booking</button>
           </form>
         </section>
 

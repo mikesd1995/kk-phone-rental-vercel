@@ -1,7 +1,7 @@
-// KK Phone Rental Admin CRM v16.4.4_BOOKING_TEMPLATE_ID_FIX — Phase 1 stability baseline
+// KK Phone Rental Admin CRM v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX — Phase 1 stability baseline
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.4_BOOKING_TEMPLATE_ID_FIX";
-  const EXPECTED_BACKEND_VERSION = "v16.4.4_BOOKING_TEMPLATE_ID_FIX";
+  const KK_ADMIN_UI_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
+  const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "" };
@@ -102,6 +102,20 @@
     else rows.sort((a,b)=>dateValue(b.created_at)-dateValue(a.created_at));
     return rows;
   }
+  function startOfToday(){
+    const d=new Date();
+    d.setHours(0,0,0,0);
+    return d;
+  }
+  function isTodayOrFuture(v){
+    const d=parseLocalDate(v);
+    if(!d) return false;
+    d.setHours(0,0,0,0);
+    return d.getTime()>=startOfToday().getTime();
+  }
+  function bookingLabel(b){
+    return `${fmtDate(b.event_date)} · ${b.event_name||b.event_id||''} · ${b.customer_name||'-'} · ${b.booking_status||''}`;
+  }
   function toNum(v){
     if(v===null || v===undefined || v==='') return 0;
     const n=Number(String(v).replace(/,/g,'').trim());
@@ -195,6 +209,33 @@
     form.elements.use_case_override.value=o ? (o.use_case_override||"") : "";
   }
 
+  function populateBookingEditForm(){
+    const form=$("#bookingEditForm");
+    if(!form || !state.data) return;
+    const sel=form.elements.row_number;
+    if(!sel) return;
+    const rows=sortedBookings(state.data.bookings||[]);
+    const current=sel.value;
+    sel.innerHTML='<option value="">เลือก Booking ที่ต้องการแก้ / ยกเลิก</option>'+
+      rows.map(b=>opt(b.row_number, bookingLabel(b))).join('');
+    if(current && rows.some(b=>String(b.row_number)===String(current))) sel.value=current;
+    const b=rows.find(x=>String(x.row_number)===String(sel.value));
+    const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
+    if(!b){
+      ["booking_status","customer_name","customer_contact","customer_phone","contact_channel","payment_status","amount_received","pickup_time","booking_note"].forEach(k=>set(k,""));
+      return;
+    }
+    set("booking_status", b.booking_status || "confirmed");
+    set("customer_name", b.customer_name || "");
+    set("customer_contact", b.customer_contact || "");
+    set("customer_phone", b.customer_phone || "");
+    set("contact_channel", b.contact_channel || "LINE");
+    set("payment_status", b.payment_status || "unpaid");
+    set("amount_received", b.amount_received || 0);
+    set("pickup_time", b.pickup_time || "");
+    set("booking_note", b.note || "");
+  }
+
   async function api(action, payload={}){
     const res=await fetch("/api/kk-admin",{
       method:"POST",
@@ -255,7 +296,7 @@
       const isBooking=!!sel.closest("#bookingForm");
       const rows=(data.events||[])
         .filter(e=>String(e.status||"").toLowerCase()!=="closed")
-        .filter(e=>!isBooking || (isActiveEvent(e) && eventHasBookablePackage(e.event_id)))
+        .filter(e=>!isBooking || (isActiveEvent(e) && isTodayOrFuture(e.event_date) && eventHasBookablePackage(e.event_id)))
         .sort(compareEventsByDateAsc);
       const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : "เลือกงาน";
       const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : placeholder;
@@ -273,6 +314,7 @@
     });
     populateBookingPackages();
     populateEventOverrideForm();
+    populateBookingEditForm();
   }
 
   function render(){
@@ -429,6 +471,8 @@
     });
     const bookingEventSelect=$("#bookingForm select[name='event_id']");
     if(bookingEventSelect) bookingEventSelect.addEventListener("change", populateBookingPackages);
+    const bookingEditSelect=$("#bookingEditForm select[name='row_number']");
+    if(bookingEditSelect) bookingEditSelect.addEventListener("change", populateBookingEditForm);
     const cleanupBtn=$("#cleanupBtn");
     if(cleanupBtn){
       cleanupBtn.addEventListener("click", async()=>{
@@ -502,6 +546,21 @@
         showNotice(`บันทึก Booking สำเร็จ: Phone ${res.phone_asset_id||'-'} / Lens ${res.lens_asset_id||'-'}`);
       }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);}
     });
+    const bookingEditForm=$("#bookingEditForm");
+    if(bookingEditForm){
+      bookingEditForm.addEventListener("submit",async ev=>{
+        ev.preventDefault();
+        const btn=ev.submitter;
+        setBusy(btn,true);
+        try{
+          const payload=formData(ev.target);
+          if(!payload.row_number) throw new Error("กรุณาเลือก Booking ที่ต้องการแก้");
+          const res=await api("updateBooking", payload);
+          await refresh();
+          showNotice(`แก้ Booking สำเร็จ: row ${res.row_number}`);
+        }catch(e){ showNotice(e.message,"bad"); }finally{ setBusy(btn,false); }
+      });
+    }
   }
 
   bind();
