@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.4.12_ADMIN_CRM_FULL_AUDIT_FIX — Full admin CRM audit fix
+// KK Phone Rental Admin CRM v16.4.13_ADMIN_PRO_UI_POLISH — Professional admin UX/UI polish
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.12_ADMIN_CRM_FULL_AUDIT_FIX";
+  const KK_ADMIN_UI_VERSION = "v16.4.13_ADMIN_PRO_UI_POLISH";
   const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
