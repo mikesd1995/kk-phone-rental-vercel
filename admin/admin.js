@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.4.11_EDIT_EVENT_FILTER_FIX — Admin UX/UI refresh
+// KK Phone Rental Admin CRM v16.4.12_ADMIN_CRM_FULL_AUDIT_FIX — Full admin CRM audit fix
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.11_EDIT_EVENT_FILTER_FIX";
+  const KK_ADMIN_UI_VERSION = "v16.4.12_ADMIN_CRM_FULL_AUDIT_FIX";
   const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -120,7 +120,8 @@
   }
   function isUnpaidPayment(status){
     const s=String(status||"").toLowerCase().trim();
-    return s && !["paid","refunded"].includes(s);
+    // Blank payment status should still be treated as unpaid, otherwise Action Center misses follow-up items.
+    return !["paid","refunded"].includes(s);
   }
   function actionSeverity(type){
     if(type==="payment" || type==="return" || type==="data") return "bad";
@@ -296,8 +297,20 @@
     const n=Number(String(v).replace(/,/g,'').trim());
     return Number.isFinite(n) ? n : 0;
   }
+  function isEventOpen(e){
+    return String(e && e.status || '').toLowerCase().trim() === 'open';
+  }
   function isActiveEvent(e){
-    return String(e && e.status || '').toLowerCase() !== 'closed' && e && e.active_on_web !== false;
+    // Admin operational dropdowns should only show events that are actually open and active on web.
+    return !!e && isEventOpen(e) && e.active_on_web !== false;
+  }
+  function findEventById(eventId){
+    const id=String(eventId||'').trim();
+    return ((state.data||{}).events||[]).find(e=>String(e.event_id||'').trim()===id) || null;
+  }
+  function findPackageByTemplateId(templateId){
+    const id=String(templateId||'').trim();
+    return ((state.data||{}).packages||[]).find(p=>String(p.template_id||'').trim()===id) || null;
   }
   function isWebPackageBookable(p){
     const st=String(p && p.package_status || '').toLowerCase().trim();
@@ -382,6 +395,41 @@
     form.elements.override_note.value=o ? (o.override_note||"") : "";
     form.elements.sort_order_override.value=o ? (o.sort_order_override||"") : "";
     form.elements.use_case_override.value=o ? (o.use_case_override||"") : "";
+  }
+
+  function populateEventUpdateForm(){
+    const form=$("#eventUpdateForm");
+    if(!form || !state.data) return;
+    const eventId=form.elements.event_id && form.elements.event_id.value;
+    const e=findEventById(eventId);
+    const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
+    if(!e){
+      ["event_name","event_date","venue","poster_url","status","active_on_web","note"].forEach(k=>set(k,""));
+      return;
+    }
+    set("event_name", e.event_name || "");
+    set("event_date", dateToInput(e.event_date));
+    set("venue", e.venue || "");
+    set("poster_url", e.poster_url || "");
+    set("status", String(e.status||"").toLowerCase() || "open");
+    set("active_on_web", e.active_on_web===false ? "false" : "true");
+    set("note", e.note || "");
+  }
+
+  function populatePackageUpdateForm(){
+    const form=$("#packageUpdateForm");
+    if(!form || !state.data) return;
+    const templateId=form.elements.template_id && form.elements.template_id.value;
+    const p=findPackageByTemplateId(templateId);
+    const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
+    if(!p){
+      ["standard_price","display_name","use_case","active"].forEach(k=>set(k,""));
+      return;
+    }
+    set("standard_price", p.standard_price || 0);
+    set("display_name", p.display_name || "");
+    set("use_case", p.use_case || "");
+    set("active", p.active===false ? "false" : "true");
   }
 
   function populateBookingEditForm(){
@@ -472,13 +520,14 @@
       const isOverride=!!sel.closest("#eventPriceOverrideForm");
       const isEditEvent=!!sel.closest("#eventUpdateForm");
       const rows=(data.events||[])
-        .filter(e=>String(e.status||"").toLowerCase()!=="closed")
-        // Booking: show only current/upcoming events that still have bookable packages.
+        .filter(e=>String(e.event_id||"").trim())
+        // Booking: show only current/upcoming open events that still have bookable packages.
         .filter(e=>!isBooking || (isActiveEvent(e) && isTodayOrFuture(e.event_date) && eventHasBookablePackage(e.event_id)))
-        // Price override: do not show past events, because changing old event pricing causes confusion.
+        // Price override: show only current/upcoming open events, not past/closed/draft events.
         .filter(e=>!isOverride || (isActiveEvent(e) && isTodayOrFuture(e.event_date)))
-        // Edit Event: show only current/upcoming active events to prevent accidental edits on past events.
+        // Edit Event: show only current/upcoming open events to prevent accidental edits on past events.
         .filter(e=>!isEditEvent || (isActiveEvent(e) && isTodayOrFuture(e.event_date)))
+        .filter(e=>(isBooking||isOverride||isEditEvent) || String(e.status||"").toLowerCase().trim()!=="closed")
         .sort(compareEventsByDateAsc);
       const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : (isOverride ? "เลือกงานวันนี้/อนาคต" : (isEditEvent ? "เลือกงานวันนี้/อนาคต" : "เลือกงาน"));
       const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : (isOverride ? "ไม่มีงานวันนี้/อนาคตให้แก้ราคา" : (isEditEvent ? "ไม่มีงานวันนี้/อนาคตให้แก้ไข" : placeholder));
@@ -496,6 +545,8 @@
     });
     populateBookingPackages();
     populateEventOverrideForm();
+    populateEventUpdateForm();
+    populatePackageUpdateForm();
     populateBookingEditForm();
   }
 
@@ -630,7 +681,7 @@
       render();
       const backendVersion = state.data.admin_api_version || (state.data.phase1_diagnostics && state.data.phase1_diagnostics.admin_api_version) || "";
       if(backendVersion && backendVersion !== EXPECTED_BACKEND_VERSION){
-        showNotice("Version ไม่ตรงกัน: Admin UI "+EXPECTED_BACKEND_VERSION+" แต่ Apps Script "+backendVersion, "bad");
+        showNotice("Version ไม่ตรงกัน: Admin UI "+KK_ADMIN_UI_VERSION+" / Expected Apps Script "+EXPECTED_BACKEND_VERSION+" แต่ Apps Script จริงคือ "+backendVersion, "bad");
       }
       if(state.data.spreadsheet_id && state.data.frontend_sheet_id && state.data.spreadsheet_id !== state.data.frontend_sheet_id){
         showNotice("GOOGLE_SHEET_ID ใน Vercel ไม่ตรงกับ Spreadsheet ที่ Apps Script ใช้", "bad");
@@ -718,6 +769,10 @@
     });
     const bookingEventSelect=$("#bookingForm select[name='event_id']");
     if(bookingEventSelect) bookingEventSelect.addEventListener("change", populateBookingPackages);
+    const eventUpdateSelect=$("#eventUpdateForm select[name='event_id']");
+    if(eventUpdateSelect) eventUpdateSelect.addEventListener("change", populateEventUpdateForm);
+    const packageUpdateSelect=$("#packageUpdateForm select[name='template_id']");
+    if(packageUpdateSelect) packageUpdateSelect.addEventListener("change", populatePackageUpdateForm);
     const bookingEditSelect=$("#bookingEditForm select[name='row_number']");
     if(bookingEditSelect) bookingEditSelect.addEventListener("change", populateBookingEditForm);
     const cleanupBtn=$("#cleanupBtn");

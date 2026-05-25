@@ -134,3 +134,10 @@ tbody tr:nth-child(even) td{background:rgba(248,251,255,.55)}
   .card-head{display:grid}.mini-tools{display:grid}.mini-tools .mini-control{min-width:0}
   .form-note{font-size:13px}
 }
+
+
+/* v16.4.12 Admin full audit fixes */
+.mini-btn.active{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff}
+.readonly-note input:disabled,input:disabled,select:disabled,textarea:disabled{background:#f1f5f9;color:#64748b;cursor:not-allowed}
+select option{font-weight:500;color:#0f172a}
+.form small{max-width:720px}

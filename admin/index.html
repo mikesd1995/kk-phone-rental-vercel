@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.4.8_ADMIN_UX_UI_REFRESH</title>
+  <title>KK Admin CRM Dashboard v16.4.12_ADMIN_CRM_FULL_AUDIT_FIX</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.4.8 · UX Refresh</span>
+          <span>Phone Rental v16.4.12 · Admin Audit</span>
         </div>
       </div>
       <nav aria-label="Admin sections">
@@ -43,7 +43,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.4.8 · UX Refresh</span>
+          <span class="top-badge" title="Admin UI version">v16.4.12 · Admin Audit</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -310,7 +310,7 @@
 
             <form class="card form" id="eventUpdateForm">
               <div class="form-title"><span class="eyebrow">Edit Event</span><h2>แก้งานเดิม</h2></div>
-              <label>เลือกงาน <select name="event_id" data-source="events" required></select></label>
+              <label>เลือกงาน <select name="event_id" data-source="events" required></select><small>แสดงเฉพาะงานวันนี้/อนาคตที่ยัง open เพื่อกันแก้งานย้อนหลังโดยไม่ตั้งใจ</small></label>
               <div class="row two">
                 <label>ชื่องานใหม่ <input name="event_name" /></label>
                 <label>วันที่ใหม่ <input name="event_date" type="date" /></label>
@@ -363,7 +363,7 @@
             <form class="card form" id="eventPriceOverrideForm">
               <div class="form-title"><span class="eyebrow">Override</span><h2>แก้ราคาเฉพาะงาน</h2></div>
               <p class="hint">ใช้ส่วนนี้เมื่ออยากให้ราคา/ข้อความของแพ็กเกจเปลี่ยนเฉพาะงานที่เลือก โดยไม่กระทบราคาหลักของทุกงาน</p>
-              <label>เลือกงาน <select name="event_id" data-source="events" required></select></label>
+              <label>เลือกงาน <select name="event_id" data-source="events" required></select><small>แสดงเฉพาะงานวันนี้/อนาคตที่ยัง open เพื่อกันแก้งานย้อนหลังโดยไม่ตั้งใจ</small></label>
               <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select></label>
               <div class="row two">
                 <label>ราคาเฉพาะงานนี้ <input name="override_price" type="number" min="0" step="1" placeholder="เช่น 1290" /></label>
@@ -386,7 +386,7 @@
             <form class="card form" id="packageUpdateForm">
               <div class="form-title"><span class="eyebrow">Master Price</span><h2>แก้ราคาหลักของแพ็กเกจ</h2></div>
               <p class="hint">ส่วนนี้จะกระทบทุกงานที่ไม่ได้ตั้งราคาเฉพาะงานไว้</p>
-              <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select></label>
+              <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select><small>เลือกแล้วระบบจะเติมราคาหลัก/ชื่อ/Use Case เดิมให้แก้</small></label>
               <div class="row two">
                 <label>ราคาหลักใหม่ <input name="standard_price" type="number" min="0" step="1" /></label>
                 <label>ชื่อแสดงใหม่ <input name="display_name" /></label>
