@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.4.6_ADMIN_CUSTOMER_HISTORY — Admin CRM customer history patch
+// KK Phone Rental Admin CRM v16.4.7_ADMIN_CRM_OPTIMIZED — Admin CRM customer history patch
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.6_ADMIN_CUSTOMER_HISTORY";
+  const KK_ADMIN_UI_VERSION = "v16.4.7_ADMIN_CRM_OPTIMIZED";
   const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -103,6 +103,61 @@
     else if(sort==="customer_asc") rows.sort((a,b)=>textValue(a.customer_name).localeCompare(textValue(b.customer_name),"th"));
     else rows.sort((a,b)=>dateValue(b.created_at)-dateValue(a.created_at));
     return rows;
+  }
+  function containsQuery(row, fields, query){
+    const q=String(query||"").trim().toLowerCase();
+    if(!q) return true;
+    return fields.map(k=>String(row && row[k] || "")).join(" ").toLowerCase().includes(q);
+  }
+  function daysFromToday(v){
+    const d=parseLocalDate(v);
+    if(!d) return null;
+    d.setHours(0,0,0,0);
+    return Math.round((d.getTime()-startOfToday().getTime())/86400000);
+  }
+  function isActiveBookingStatus(status){
+    return ["pending","confirmed","picked_up"].includes(String(status||"").toLowerCase().trim());
+  }
+  function isUnpaidPayment(status){
+    const s=String(status||"").toLowerCase().trim();
+    return s && !["paid","refunded"].includes(s);
+  }
+  function actionSeverity(type){
+    if(type==="payment" || type==="return" || type==="data") return "bad";
+    if(type==="upcoming") return "warn";
+    return "ok";
+  }
+  function buildActionRows(data){
+    const d=data||{};
+    const rows=[];
+    const bookings=d.bookings||[];
+    const events=d.events||[];
+    bookings.forEach(b=>{
+      const st=String(b.booking_status||"").toLowerCase().trim();
+      if(st==="cancelled" || st==="returned") return;
+      if(isUnpaidPayment(b.payment_status)){
+        rows.push({type:"payment", priority:1, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), task:"ตามชำระเงิน", ref:bookingCustomerKey(b)});
+      }
+      if(st==="picked_up"){
+        rows.push({type:"return", priority:2, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), task:"รอรับคืน / ตรวจเครื่อง", ref:bookingCustomerKey(b)});
+      }
+      const diff=daysFromToday(b.event_date);
+      if(isActiveBookingStatus(st) && diff!==null && diff>=0 && diff<=7){
+        rows.push({type:"upcoming", priority:3, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), task:diff===0?"งานวันนี้":"งานใน "+diff+" วัน", ref:bookingCustomerKey(b)});
+      }
+    });
+    events.forEach(e=>{
+      if(!isActiveEvent(e) || !isTodayOrFuture(e.event_date)) return;
+      const health=String(e.data_health||"").trim().toLowerCase();
+      const missing=[];
+      if(health && health!=="ok") missing.push("data_health: "+e.data_health);
+      if(!String(e.poster_url||"").trim()) missing.push("ไม่มีรูป");
+      if(!String(e.venue||"").trim()) missing.push("ไม่มีสถานที่");
+      if(missing.length){
+        rows.push({type:"data", priority:4, date:e.event_date, title:e.event_name||e.event_id||"", customer:"-", contact:"-", task:missing.join(" / "), ref:""});
+      }
+    });
+    return rows.sort((a,b)=>(a.priority-b.priority) || (dateValue(a.date)-dateValue(b.date)) || String(a.title).localeCompare(String(b.title),"th"));
   }
   function customerKeyFromRecord(name, contact, phone){
     const p=String(phone||"").replace(/\D+/g,"");
@@ -436,8 +491,13 @@
   function render(){
     const d=state.data||{};
     const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=versionDiagnosticsRows(d).concat(d.health||[]), today=d.today_working||[], customers=d.customers||[];
-    const openEventRows=sortedOpenEvents(events);
-    const bookingRows=sortedBookings(bookings);
+    const openEventRowsAll=sortedOpenEvents(events);
+    const bookingRowsAll=sortedBookings(bookings);
+    const eventsQ=($("#eventsSearch") && $("#eventsSearch").value) || "";
+    const bookingsQ=($("#bookingsSearch") && $("#bookingsSearch").value) || "";
+    const openEventRows=openEventRowsAll.filter(r=>containsQuery(r,["event_name","venue","event_id"],eventsQ));
+    const bookingRows=bookingRowsAll.filter(r=>containsQuery(r,["customer_name","customer_phone","customer_contact","event_name","event_id","package_display","package_type"],bookingsQ));
+    const actionRows=buildActionRows(d);
     const customerHistory=customerHistoryRows(bookings, customers);
     const openEvents=openEventRows.length;
     const phones=assets.filter(a=>a.asset_type==="phone" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
@@ -448,7 +508,27 @@
       [openEvents,"งานเปิดอยู่"],[packages.filter(p=>p.active!==false).length,"แพ็กเกจ active"],[overrides.length,"ราคาเฉพาะงาน"],[phones,"มือถือ available"],[lenses,"เลนส์ available"],[activeBookings,"Booking active"],[today.length,"งานที่ต้องทำวันนี้"],[customerHistory.length,"ลูกค้าที่มีประวัติ"]
     ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
 
-    $("#eventsCount").textContent=openEventRows.length+" รายการ";
+    const actionStats=$("#actionStats");
+    if(actionStats){
+      actionStats.innerHTML=[
+        [actionRows.filter(r=>r.type==="payment").length,"ต้องตามเงิน"],
+        [actionRows.filter(r=>r.type==="return").length,"รอรับคืน"],
+        [actionRows.filter(r=>r.type==="upcoming").length,"งานใน 7 วัน"],
+        [actionRows.filter(r=>r.type==="data").length,"ข้อมูลต้องเช็ก"]
+      ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
+    }
+    if($("#actionCount")) $("#actionCount").textContent=actionRows.length+" รายการที่ควรเช็ก";
+    table($("#actionTable"),[
+      {label:"ประเภท",render:r=>`<span class="pill ${actionSeverity(r.type)}">${esc(r.type==="payment"?"ตามเงิน":r.type==="return"?"รับคืน":r.type==="upcoming"?"ใกล้ถึง":"ข้อมูล")}</span>`},
+      {label:"วันที่",render:r=>esc(fmtDate(r.date))},
+      {label:"รายการ",render:r=>esc(r.title)},
+      {label:"ลูกค้า",render:r=>esc(r.customer)},
+      {label:"ติดต่อ",render:r=>esc(r.contact)},
+      {label:"สิ่งที่ต้องทำ",render:r=>esc(r.task)},
+      {label:"CRM",render:r=>r.ref?`<button class="mini-btn" type="button" data-customer-key="${esc(r.ref)}">ดูลูกค้า</button>`:"-"}
+    ], actionRows.slice(0,30));
+
+    $("#eventsCount").textContent=(openEventRows.length===openEventRowsAll.length?openEventRows.length:(openEventRows.length+" / "+openEventRowsAll.length))+" รายการ";
     table($("#eventsTable"),[
       {label:"วันที่",render:r=>esc(fmtDate(r.event_date))},
       {label:"งาน",key:"event_name"},
@@ -457,7 +537,7 @@
       {label:"โชว์เว็บ",render:r=>r.active_on_web===false?'FALSE':'TRUE'}
     ], openEventRows.slice(0,50));
 
-    $("#bookingsCount").textContent=bookingRows.length+" รายการ";
+    $("#bookingsCount").textContent=(bookingRows.length===bookingRowsAll.length?bookingRows.length:(bookingRows.length+" / "+bookingRowsAll.length))+" รายการ";
     table($("#bookingsTable"),[
       {label:"วันที่งาน",render:r=>esc(fmtDate(r.event_date))},
       {label:"ชื่อลูกค้า",key:"customer_name"},
@@ -602,6 +682,10 @@
     ["#eventsSort","#bookingsSort"].forEach(sel=>{
       const el=$(sel);
       if(el) el.addEventListener("change",()=>render());
+    });
+    ["#eventsSearch","#bookingsSearch"].forEach(sel=>{
+      const el=$(sel);
+      if(el) el.addEventListener("input",()=>render());
     });
     const customerSearch=$("#customerSearch");
     if(customerSearch) customerSearch.addEventListener("input",()=>render());

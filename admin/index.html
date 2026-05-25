@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.4.6_ADMIN_CUSTOMER_HISTORY</title>
+  <title>KK Admin CRM Dashboard v16.4.7_ADMIN_CRM_OPTIMIZED</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.4.6 · Customer History</span>
+          <span>Phone Rental v16.4.7 · CRM Optimized</span>
         </div>
       </div>
       <nav>
@@ -43,7 +43,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.4.6 · Customer History</span>
+          <span class="top-badge" title="Admin UI version">v16.4.7 · CRM Optimized</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -67,6 +67,20 @@
 
         <section class="tab-panel active" id="tab-overview">
           <div class="grid stats" id="statsGrid"></div>
+
+          <div class="card action-card">
+            <div class="card-head">
+              <div>
+                <span class="eyebrow">Action Center</span>
+                <h2>สิ่งที่ต้องจัดการ</h2>
+                <p class="hint">รวมงานที่ควรเช็กก่อน เช่น ยังไม่ชำระเงิน รอรับคืน งานใกล้ถึง และงานที่ข้อมูลยังไม่สมบูรณ์</p>
+              </div>
+              <small id="actionCount"></small>
+            </div>
+            <div class="grid stats compact action-kpi" id="actionStats"></div>
+            <div class="table-wrap action-table-wrap"><table id="actionTable"></table></div>
+          </div>
+
           <div class="grid two-col">
             <div class="card">
               <div class="card-head">
@@ -74,13 +88,18 @@
                   <h2>งานที่เปิดอยู่</h2>
                   <small id="eventsCount"></small>
                 </div>
-                <label class="mini-control">จัดเรียง
-                  <select id="eventsSort">
-                    <option value="date_asc">วันที่ใกล้สุดก่อน</option>
-                    <option value="date_desc">วันที่ไกลสุดก่อน</option>
-                    <option value="name_asc">ชื่องาน A-Z</option>
-                  </select>
-                </label>
+                <div class="mini-tools">
+                  <label class="mini-control">ค้นหา
+                    <input id="eventsSearch" class="mini-search" type="search" placeholder="ชื่องาน / สถานที่" />
+                  </label>
+                  <label class="mini-control">จัดเรียง
+                    <select id="eventsSort">
+                      <option value="date_asc">วันที่ใกล้สุดก่อน</option>
+                      <option value="date_desc">วันที่ไกลสุดก่อน</option>
+                      <option value="name_asc">ชื่องาน A-Z</option>
+                    </select>
+                  </label>
+                </div>
               </div>
               <div class="table-wrap"><table id="eventsTable"></table></div>
             </div>
@@ -90,14 +109,19 @@
                   <h2>Booking ล่าสุด</h2>
                   <small id="bookingsCount"></small>
                 </div>
-                <label class="mini-control">จัดเรียง
-                  <select id="bookingsSort">
-                    <option value="created_desc">วันที่บันทึกล่าสุด</option>
-                    <option value="event_date_asc">วันงานใกล้สุดก่อน</option>
-                    <option value="event_date_desc">วันงานไกลสุดก่อน</option>
-                    <option value="customer_asc">ชื่อลูกค้า A-Z</option>
-                  </select>
-                </label>
+                <div class="mini-tools">
+                  <label class="mini-control">ค้นหา
+                    <input id="bookingsSearch" class="mini-search" type="search" placeholder="ลูกค้า / เบอร์ / งาน" />
+                  </label>
+                  <label class="mini-control">จัดเรียง
+                    <select id="bookingsSort">
+                      <option value="created_desc">วันที่บันทึกล่าสุด</option>
+                      <option value="event_date_asc">วันงานใกล้สุดก่อน</option>
+                      <option value="event_date_desc">วันงานไกลสุดก่อน</option>
+                      <option value="customer_asc">ชื่อลูกค้า A-Z</option>
+                    </select>
+                  </label>
+                </div>
               </div>
               <div class="table-wrap"><table id="bookingsTable"></table></div>
             </div>
