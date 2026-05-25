@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.4.10_OVERRIDE_EVENT_FILTER_FIX — Admin UX/UI refresh
+// KK Phone Rental Admin CRM v16.4.11_EDIT_EVENT_FILTER_FIX — Admin UX/UI refresh
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.10_OVERRIDE_EVENT_FILTER_FIX";
+  const KK_ADMIN_UI_VERSION = "v16.4.11_EDIT_EVENT_FILTER_FIX";
   const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -470,15 +470,18 @@
       const current=sel.value;
       const isBooking=!!sel.closest("#bookingForm");
       const isOverride=!!sel.closest("#eventPriceOverrideForm");
+      const isEditEvent=!!sel.closest("#eventUpdateForm");
       const rows=(data.events||[])
         .filter(e=>String(e.status||"").toLowerCase()!=="closed")
         // Booking: show only current/upcoming events that still have bookable packages.
         .filter(e=>!isBooking || (isActiveEvent(e) && isTodayOrFuture(e.event_date) && eventHasBookablePackage(e.event_id)))
         // Price override: do not show past events, because changing old event pricing causes confusion.
         .filter(e=>!isOverride || (isActiveEvent(e) && isTodayOrFuture(e.event_date)))
+        // Edit Event: show only current/upcoming active events to prevent accidental edits on past events.
+        .filter(e=>!isEditEvent || (isActiveEvent(e) && isTodayOrFuture(e.event_date)))
         .sort(compareEventsByDateAsc);
-      const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : (isOverride ? "เลือกงานวันนี้/อนาคต" : "เลือกงาน");
-      const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : (isOverride ? "ไม่มีงานวันนี้/อนาคตให้แก้ราคา" : placeholder);
+      const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : (isOverride ? "เลือกงานวันนี้/อนาคต" : (isEditEvent ? "เลือกงานวันนี้/อนาคต" : "เลือกงาน"));
+      const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : (isOverride ? "ไม่มีงานวันนี้/อนาคตให้แก้ราคา" : (isEditEvent ? "ไม่มีงานวันนี้/อนาคตให้แก้ไข" : placeholder));
       sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+
         rows.map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}`)).join('');
       if(current && rows.some(e=>String(e.event_id)===String(current))) sel.value=current;
