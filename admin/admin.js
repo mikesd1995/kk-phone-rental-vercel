@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.4.8_ADMIN_UX_UI_REFRESH — Admin UX/UI refresh
+// KK Phone Rental Admin CRM v16.4.10_OVERRIDE_EVENT_FILTER_FIX — Admin UX/UI refresh
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.8_ADMIN_UX_UI_REFRESH";
+  const KK_ADMIN_UI_VERSION = "v16.4.10_OVERRIDE_EVENT_FILTER_FIX";
   const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -226,9 +226,13 @@
   }
   function setActiveCustomer(customerKey){
     state.selectedCustomerKey=String(customerKey||"");
+    const nav=$('.nav[data-tab="customers"]');
+    if(nav && !nav.classList.contains("active")) nav.click();
     render();
-    const panel=$("#tab-customers");
-    if(panel) panel.scrollIntoView({behavior:"smooth", block:"start"});
+    const detail=$("#customerDetailCard") || $("#tab-customers");
+    if(detail){
+      setTimeout(()=>detail.scrollIntoView({behavior:"smooth", block:"start"}), 40);
+    }
   }
   function renderCustomerDetail(customerHistory){
     const detailName=$("#customerDetailName"), detailMeta=$("#customerDetailMeta"), checklist=$("#customerChecklist"), tableEl=$("#customerBookingsTable");
@@ -465,12 +469,16 @@
     $$('select[data-source="events"]').forEach(sel=>{
       const current=sel.value;
       const isBooking=!!sel.closest("#bookingForm");
+      const isOverride=!!sel.closest("#eventPriceOverrideForm");
       const rows=(data.events||[])
         .filter(e=>String(e.status||"").toLowerCase()!=="closed")
+        // Booking: show only current/upcoming events that still have bookable packages.
         .filter(e=>!isBooking || (isActiveEvent(e) && isTodayOrFuture(e.event_date) && eventHasBookablePackage(e.event_id)))
+        // Price override: do not show past events, because changing old event pricing causes confusion.
+        .filter(e=>!isOverride || (isActiveEvent(e) && isTodayOrFuture(e.event_date)))
         .sort(compareEventsByDateAsc);
-      const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : "เลือกงาน";
-      const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : placeholder;
+      const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : (isOverride ? "เลือกงานวันนี้/อนาคต" : "เลือกงาน");
+      const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : (isOverride ? "ไม่มีงานวันนี้/อนาคตให้แก้ราคา" : placeholder);
       sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+
         rows.map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}`)).join('');
       if(current && rows.some(e=>String(e.event_id)===String(current))) sel.value=current;
@@ -603,7 +611,7 @@
       {label:"เช่าแล้ว",render:r=>`<strong>${esc(r.rental_count||0)}</strong> ครั้ง`},
       {label:"เช่าล่าสุด",render:r=>esc(fmtDate(r.last_rental_date))},
       {label:"งานล่าสุด",key:"last_event_name"},
-      {label:"ดู",render:r=>`<button class="mini-btn" type="button" data-customer-key="${esc(r.customer_key)}">ดูประวัติ</button>`}
+      {label:"ดู",render:r=>`<button class="mini-btn${String(state.selectedCustomerKey)===String(r.customer_key)?' active':''}" type="button" data-customer-key="${esc(r.customer_key)}">ดูประวัติ</button>`}
     ], filteredCustomers.slice(0,100));
     renderCustomerDetail(customerHistory);
 
@@ -701,9 +709,9 @@
       if(!btn) return;
       const key=btn.getAttribute("data-customer-key")||"";
       if(!key) return;
-      state.selectedCustomerKey=key;
-      const nav=$('.nav[data-tab="customers"]');
-      if(nav) nav.click(); else renderCustomerDetail(customerHistoryRows((state.data&&state.data.bookings)||[], (state.data&&state.data.customers)||[]));
+      ev.preventDefault();
+      ev.stopPropagation();
+      setActiveCustomer(key);
     });
     const bookingEventSelect=$("#bookingForm select[name='event_id']");
     if(bookingEventSelect) bookingEventSelect.addEventListener("change", populateBookingPackages);
