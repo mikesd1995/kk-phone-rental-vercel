@@ -1,10 +1,10 @@
-// KK Phone Rental Admin CRM v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX — Phase 1 stability baseline
+// KK Phone Rental Admin CRM v16.4.6_ADMIN_CUSTOMER_HISTORY — Admin CRM customer history patch
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
+  const KK_ADMIN_UI_VERSION = "v16.4.6_ADMIN_CUSTOMER_HISTORY";
   const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "" };
+  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "" };
 
   function showNotice(msg, type="ok"){
     const n=$("#notice");
@@ -151,6 +151,73 @@
     });
     return Array.from(map.values()).sort((a,b)=>(toNum(b.rental_count)-toNum(a.rental_count)) || (dateValue(b.last_rental_date)-dateValue(a.last_rental_date)) || textValue(a.customer_name).localeCompare(textValue(b.customer_name),"th"));
   }
+  function bookingCustomerKey(b){
+    return customerKeyFromRecord(b && b.customer_name, b && b.customer_contact, b && b.customer_phone);
+  }
+  function bookingMatchesCustomer(b, customer){
+    if(!b || !customer) return false;
+    const key=String(customer.customer_key||"");
+    if(key && bookingCustomerKey(b)===key) return true;
+    const p=String(customer.customer_phone||"").replace(/\D+/g,"");
+    if(p && String(b.customer_phone||"").replace(/\D+/g,"")===p) return true;
+    const c=String(customer.customer_contact||"").trim().toLowerCase();
+    if(c && String(b.customer_contact||"").trim().toLowerCase()===c) return true;
+    const n=String(customer.customer_name||"").trim().toLowerCase().replace(/\s+/g," ");
+    return !!n && String(b.customer_name||"").trim().toLowerCase().replace(/\s+/g," ")===n;
+  }
+  function customerBookings(customer){
+    const d=state.data||{};
+    return sortedBookings((d.bookings||[]).filter(b=>bookingMatchesCustomer(b, customer)));
+  }
+  function setActiveCustomer(customerKey){
+    state.selectedCustomerKey=String(customerKey||"");
+    render();
+    const panel=$("#tab-customers");
+    if(panel) panel.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+  function renderCustomerDetail(customerHistory){
+    const detailName=$("#customerDetailName"), detailMeta=$("#customerDetailMeta"), checklist=$("#customerChecklist"), tableEl=$("#customerBookingsTable");
+    if(!detailName || !checklist || !tableEl) return;
+    const rows=customerHistory||[];
+    let customer=rows.find(c=>String(c.customer_key)===String(state.selectedCustomerKey));
+    if(!customer && rows.length){
+      customer=rows[0];
+      state.selectedCustomerKey=String(customer.customer_key||"");
+    }
+    if(!customer){
+      detailName.textContent="ยังไม่มีประวัติลูกค้า";
+      if(detailMeta) detailMeta.textContent="เมื่อมี booking ระบบจะแสดงประวัติและจำนวนครั้งที่เช่าตรงนี้";
+      checklist.innerHTML="";
+      table(tableEl,[{label:"ข้อมูล",render:()=>"ยังไม่มีข้อมูล"}],[]);
+      return;
+    }
+    const bookings=customerBookings(customer);
+    const active=bookings.filter(b=>["pending","confirmed","picked_up"].includes(String(b.booking_status||"").toLowerCase())).length;
+    const cancelled=bookings.filter(b=>String(b.booking_status||"").toLowerCase()==="cancelled").length;
+    const paid=bookings.filter(b=>String(b.payment_status||"").toLowerCase()==="paid").length;
+    detailName.textContent=customer.customer_name || "ไม่ระบุชื่อ";
+    if(detailMeta) detailMeta.textContent=[customer.customer_phone, customer.customer_contact].filter(Boolean).join(" / ") || "ไม่มีเบอร์หรือ LINE ในระบบ";
+    checklist.innerHTML=[
+      [customer.rental_count||0,"เช่ารวม"],
+      [bookings.length,"booking ที่พบ"],
+      [active,"กำลัง active"],
+      [cancelled,"ยกเลิก"],
+      [paid,"paid"],
+      [fmtDate(customer.last_rental_date)||"-","เช่าล่าสุด"]
+    ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
+    table(tableEl,[
+      {label:"วันที่งาน",render:r=>esc(fmtDate(r.event_date))},
+      {label:"งาน",render:r=>esc(r.event_name || r.event_id || "")},
+      {label:"แพ็กเกจ",render:r=>esc(r.package_display || r.package_type || r.template_id || "")},
+      {label:"Phone",render:r=>esc(r.phone_model_display || r.phone_asset_id || "-")},
+      {label:"Lens",render:r=>esc(r.lens_model_display || r.lens_asset_id || "-")},
+      {label:"Booking",render:r=>`<span class="pill ${String(r.booking_status).toLowerCase()==='cancelled'?'bad':'ok'}">${esc(r.booking_status||'')}</span>`},
+      {label:"Payment",render:r=>`<span class="pill ${String(r.payment_status).toLowerCase()==='paid'?'ok':'bad'}">${esc(r.payment_status||'')}</span>`},
+      {label:"รับแล้ว",render:r=>esc(money(r.amount_received||0))},
+      {label:"Note",render:r=>esc(r.note || r.booking_note || "")}
+    ], bookings);
+  }
+
   function startOfToday(){
     const d=new Date();
     d.setHours(0,0,0,0);
@@ -310,7 +377,7 @@
     const spreadsheetId = d.spreadsheet_id || "";
     const frontendSheetId = d.frontend_sheet_id || "";
     const sameSheet = spreadsheetId && frontendSheetId && spreadsheetId === frontendSheetId;
-    rows.push({check:"Version · Admin UI", status: KK_ADMIN_UI_VERSION===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:KK_ADMIN_UI_VERSION, note:"Expected "+EXPECTED_BACKEND_VERSION});
+    rows.push({check:"Version · Admin UI", status:"OK", detail:KK_ADMIN_UI_VERSION, note:"Admin-only patch; backend expected "+EXPECTED_BACKEND_VERSION});
     rows.push({check:"Version · Vercel Proxy", status: proxyVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:proxyVersion || "missing", note:"Expected "+EXPECTED_BACKEND_VERSION});
     rows.push({check:"Version · Apps Script", status: backendVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:backendVersion || "missing", note:"Deploy Apps Script latest version if not matching"});
     rows.push({check:"Sheet ID · Frontend vs Apps Script", status: sameSheet ? "OK" : "CHECK", detail:(frontendSheetId||"missing")+" / "+(spreadsheetId||"missing"), note:sameSheet ? "Same backend" : "GOOGLE_SHEET_ID may not match Apps Script spreadsheet"});
@@ -400,7 +467,8 @@
       {label:"Phone",render:r=>esc(r.phone_model_display || r.phone_asset_id || "-")},
       {label:"Lens",render:r=>esc(r.lens_model_display || r.lens_asset_id || "-")},
       {label:"สถานะ",render:r=>`<span class="pill ${String(r.booking_status).toLowerCase()==='cancelled'?'bad':'ok'}">${esc(r.booking_status)}</span>`},
-      {label:"วันที่บันทึก",render:r=>esc(fmtDate(r.created_at))}
+      {label:"วันที่บันทึก",render:r=>esc(fmtDate(r.created_at))},
+      {label:"CRM",render:r=>`<button class="mini-btn" type="button" data-customer-key="${esc(bookingCustomerKey(r))}">ดูประวัติ</button>`}
     ], bookingRows.slice(0,50));
 
     const todayStats=$("#todayStats");
@@ -440,8 +508,24 @@
       {label:"ติดต่อ",render:r=>esc([r.customer_contact,r.customer_phone].filter(Boolean).join(" / "))},
       {label:"เช่าแล้ว",render:r=>esc(r.rental_count||0)},
       {label:"เช่าล่าสุด",render:r=>esc(fmtDate(r.last_rental_date))},
-      {label:"งานล่าสุด",key:"last_event_name"}
+      {label:"งานล่าสุด",key:"last_event_name"},
+      {label:"CRM",render:r=>`<button class="mini-btn" type="button" data-customer-key="${esc(r.customer_key)}">ดูประวัติ</button>`}
     ], customerHistory.slice(0,50));
+
+    const q=String((document.getElementById("customerSearch")||{}).value||"").trim().toLowerCase();
+    const filteredCustomers=customerHistory.filter(c=>{
+      const hay=[c.customer_name,c.customer_contact,c.customer_phone,c.last_event_name].join(" ").toLowerCase();
+      return !q || hay.includes(q);
+    });
+    table($("#customersTable"),[
+      {label:"ลูกค้า",key:"customer_name"},
+      {label:"เบอร์/LINE",render:r=>esc([r.customer_phone,r.customer_contact].filter(Boolean).join(" / "))},
+      {label:"เช่าแล้ว",render:r=>`<strong>${esc(r.rental_count||0)}</strong> ครั้ง`},
+      {label:"เช่าล่าสุด",render:r=>esc(fmtDate(r.last_rental_date))},
+      {label:"งานล่าสุด",key:"last_event_name"},
+      {label:"ดู",render:r=>`<button class="mini-btn" type="button" data-customer-key="${esc(r.customer_key)}">ดูประวัติ</button>`}
+    ], filteredCustomers.slice(0,100));
+    renderCustomerDetail(customerHistory);
 
     fillSelects();
   }
@@ -518,6 +602,17 @@
     ["#eventsSort","#bookingsSort"].forEach(sel=>{
       const el=$(sel);
       if(el) el.addEventListener("change",()=>render());
+    });
+    const customerSearch=$("#customerSearch");
+    if(customerSearch) customerSearch.addEventListener("input",()=>render());
+    document.addEventListener("click",ev=>{
+      const btn=ev.target.closest("[data-customer-key]");
+      if(!btn) return;
+      const key=btn.getAttribute("data-customer-key")||"";
+      if(!key) return;
+      state.selectedCustomerKey=key;
+      const nav=$('.nav[data-tab="customers"]');
+      if(nav) nav.click(); else renderCustomerDetail(customerHistoryRows((state.data&&state.data.bookings)||[], (state.data&&state.data.customers)||[]));
     });
     const bookingEventSelect=$("#bookingForm select[name='event_id']");
     if(bookingEventSelect) bookingEventSelect.addEventListener("change", populateBookingPackages);

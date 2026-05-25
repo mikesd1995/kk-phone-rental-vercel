@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX</title>
+  <title>KK Admin CRM Dashboard v16.4.6_ADMIN_CUSTOMER_HISTORY</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.4.5 · Edit Booking</span>
+          <span>Phone Rental v16.4.6 · Customer History</span>
         </div>
       </div>
       <nav>
@@ -27,6 +27,7 @@
         <button class="nav" data-tab="today">งานวันนี้</button>
         <button class="nav" data-tab="booking">เพิ่ม Booking</button>
         <button class="nav" data-tab="edit-booking">แก้ Booking</button>
+        <button class="nav" data-tab="customers">ประวัติลูกค้า</button>
         <button class="nav" data-tab="events">เพิ่ม/แก้งาน</button>
         <button class="nav" data-tab="packages">แพ็กเกจ/ราคา</button>
         <button class="nav" data-tab="assets">มือถือ/เลนส์</button>
@@ -42,7 +43,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.4.5 · Edit Booking</span>
+          <span class="top-badge" title="Admin UI version">v16.4.6 · Customer History</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -211,6 +212,35 @@
             <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
             <button class="btn secondary" type="submit">บันทึกการแก้ Booking</button>
           </form>
+        </section>
+
+        <section class="tab-panel" id="tab-customers">
+          <div class="grid two-col">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <span class="eyebrow">CRM</span>
+                  <h2>ประวัติลูกค้า</h2>
+                  <p class="hint">ค้นหาลูกค้าจากชื่อ / เบอร์ / LINE แล้วกด “ดูประวัติ” เพื่อดูว่าเช่ากี่ครั้งและเคยจองงานไหนบ้าง</p>
+                </div>
+              </div>
+              <label>ค้นหาลูกค้า
+                <input id="customerSearch" type="search" placeholder="เช่น Mint, 08xxxxxxx, @line" />
+              </label>
+              <div class="table-wrap customer-list-wrap"><table id="customersTable"></table></div>
+            </div>
+            <div class="card customer-detail-card" id="customerDetailCard">
+              <div class="card-head">
+                <div>
+                  <span class="eyebrow">Checklist</span>
+                  <h2 id="customerDetailName">เลือก ลูกค้า เพื่อดูประวัติ</h2>
+                  <p class="hint" id="customerDetailMeta">ระบบจะรวมจาก Booking ปัจจุบัน และ Customer Stats ถ้ามีข้อมูล archive แล้ว</p>
+                </div>
+              </div>
+              <div class="grid stats compact customer-kpi" id="customerChecklist"></div>
+              <div class="table-wrap"><table id="customerBookingsTable"></table></div>
+            </div>
+          </div>
         </section>
 
         <section class="tab-panel" id="tab-events">
