@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.4.7_ADMIN_CRM_OPTIMIZED — Admin CRM customer history patch
+// KK Phone Rental Admin CRM v16.4.8_ADMIN_UX_UI_REFRESH — Admin UX/UI refresh
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.7_ADMIN_CRM_OPTIMIZED";
+  const KK_ADMIN_UI_VERSION = "v16.4.8_ADMIN_UX_UI_REFRESH";
   const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -670,6 +670,13 @@
         if(panel) panel.classList.add("active");
         window.scrollTo({top:0,behavior:"smooth"});
       });
+    });
+    document.addEventListener("click", ev=>{
+      const jump=ev.target.closest("[data-tab-jump]");
+      if(!jump) return;
+      const tab=jump.getAttribute("data-tab-jump");
+      const nav=$(`.nav[data-tab="${tab}"]`);
+      if(nav) nav.click();
     });
     $("#loginBtn").addEventListener("click", async()=>{
       state.pin=$("#pinInput").value.trim(); if(!state.pin) return alert("กรุณากรอก PIN");

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.4.7_ADMIN_CRM_OPTIMIZED</title>
+  <title>KK Admin CRM Dashboard v16.4.8_ADMIN_UX_UI_REFRESH</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,19 +19,19 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.4.7 · CRM Optimized</span>
+          <span>Phone Rental v16.4.8 · UX Refresh</span>
         </div>
       </div>
-      <nav>
-        <button class="nav active" data-tab="overview">ภาพรวม</button>
-        <button class="nav" data-tab="today">งานวันนี้</button>
-        <button class="nav" data-tab="booking">เพิ่ม Booking</button>
-        <button class="nav" data-tab="edit-booking">แก้ Booking</button>
-        <button class="nav" data-tab="customers">ประวัติลูกค้า</button>
-        <button class="nav" data-tab="events">เพิ่ม/แก้งาน</button>
-        <button class="nav" data-tab="packages">แพ็กเกจ/ราคา</button>
-        <button class="nav" data-tab="assets">มือถือ/เลนส์</button>
-        <button class="nav" data-tab="health">Health Check</button>
+      <nav aria-label="Admin sections">
+        <button class="nav active" type="button" data-tab="overview">ภาพรวม</button>
+        <button class="nav" type="button" data-tab="today">งานวันนี้</button>
+        <button class="nav" type="button" data-tab="booking">เพิ่ม Booking</button>
+        <button class="nav" type="button" data-tab="edit-booking">แก้ Booking</button>
+        <button class="nav" type="button" data-tab="customers">ประวัติลูกค้า</button>
+        <button class="nav" type="button" data-tab="events">เพิ่ม/แก้งาน</button>
+        <button class="nav" type="button" data-tab="packages">แพ็กเกจ/ราคา</button>
+        <button class="nav" type="button" data-tab="assets">มือถือ/เลนส์</button>
+        <button class="nav" type="button" data-tab="health">Health Check</button>
         <button class="nav muted" id="logoutBtn" type="button">ออกจากระบบ</button>
       </nav>
     </aside>
@@ -43,7 +43,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.4.7 · CRM Optimized</span>
+          <span class="top-badge" title="Admin UI version">v16.4.8 · UX Refresh</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -66,6 +66,19 @@
         <div id="notice" class="notice hidden"></div>
 
         <section class="tab-panel active" id="tab-overview">
+          <div class="card quickbar" aria-label="Quick actions">
+            <div>
+              <span class="eyebrow">Quick Actions</span>
+              <h2>งานที่ใช้บ่อย</h2>
+              <p class="hint">กดเข้าฟอร์มหลักได้ทันที ลดเวลาหาเมนูเวลาใช้งานบนมือถือ</p>
+            </div>
+            <div class="quick-actions">
+              <button class="btn primary" type="button" data-tab-jump="booking">+ เพิ่ม Booking</button>
+              <button class="btn secondary" type="button" data-tab-jump="edit-booking">แก้ / ยกเลิก Booking</button>
+              <button class="btn ghost" type="button" data-tab-jump="customers">ดูประวัติลูกค้า</button>
+              <button class="btn ghost" type="button" data-tab-jump="events">เพิ่ม / แก้งาน</button>
+            </div>
+          </div>
           <div class="grid stats" id="statsGrid"></div>
 
           <div class="card action-card">
@@ -144,8 +157,9 @@
 
         <section class="tab-panel" id="tab-booking">
           <form class="card form" id="bookingForm">
-            <div class="form-title"><span class="eyebrow">Booking</span><h2>เพิ่ม Booking แบบ Auto Assign</h2></div>
-            <p class="hint">ระบบจะเช็กงาน/แพ็กเกจ/สต็อก และล็อกข้อมูลก่อนเขียนลงชีต ลดปัญหาจองซ้ำ</p>
+            <div class="form-title"><span class="eyebrow">Booking</span><h2>เพิ่ม Booking</h2></div>
+            <p class="hint">เลือกเฉพาะงานที่ยังไม่เต็มและยังไม่ย้อนหลัง ระบบจะเช็กแพ็กเกจ/สต็อกก่อนบันทึกเพื่อลดปัญหาจองซ้ำ</p>
+            <div class="form-note ok-note">เช็กก่อนบันทึก: เลือกงาน → เลือกแพ็กเกจ → กรอกชื่อลูกค้า/เบอร์ → บันทึก Booking</div>
             <div class="row three">
               <label>งาน
                 <select name="event_id" data-source="events" required></select>
@@ -190,6 +204,7 @@
           <form class="card form" id="bookingEditForm">
             <div class="form-title"><span class="eyebrow">Edit Booking</span><h2>แก้ / ยกเลิก Booking</h2></div>
             <p class="hint">ใช้เมื่อลูกค้าขอแก้ข้อมูลหรือยกเลิก หากเปลี่ยนสถานะเป็น cancelled ระบบจะปล่อยคิวกลับตามสูตร backend</p>
+            <div class="form-note warn-note">ถ้าลูกค้าเปลี่ยนงานหรือเปลี่ยนแพ็กเกจ แนะนำให้ยกเลิก booking เดิม แล้วสร้าง booking ใหม่ เพื่อกันสต็อกผิด</div>
             <label>เลือก Booking
               <select name="row_number" required></select>
               <small>รายการเรียงตาม Booking ล่าสุด เลือกแล้วระบบจะเติมข้อมูลเดิมให้แก้ไข</small>
