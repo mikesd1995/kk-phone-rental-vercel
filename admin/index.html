@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.4.13_ADMIN_PRO_UI_POLISH</title>
+  <title>KK Admin CRM Dashboard v16.4.14_EDIT_BOOKING_PAST_FILTER</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.4.13 · Pro UI</span>
+          <span>Phone Rental v16.4.14 · Pro UI</span>
         </div>
       </div>
       <nav aria-label="Admin sections">
@@ -43,7 +43,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.4.13 · Pro UI</span>
+          <span class="top-badge" title="Admin UI version">v16.4.14 · Booking Filter</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -207,7 +207,7 @@
             <div class="form-note warn-note">ถ้าลูกค้าเปลี่ยนงานหรือเปลี่ยนแพ็กเกจ แนะนำให้ยกเลิก booking เดิม แล้วสร้าง booking ใหม่ เพื่อกันสต็อกผิด</div>
             <label>เลือก Booking
               <select name="row_number" required></select>
-              <small>รายการเรียงตาม Booking ล่าสุด เลือกแล้วระบบจะเติมข้อมูลเดิมให้แก้ไข</small>
+              <small>แสดงเฉพาะ booking วันนี้/อนาคต และ booking เก่าที่ยังไม่ returned/cancelled เพื่อกันรายการปิดแล้วค้างใน dropdown</small>
             </label>
             <div class="row three">
               <label>สถานะ Booking

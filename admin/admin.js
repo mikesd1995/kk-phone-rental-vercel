@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.4.13_ADMIN_PRO_UI_POLISH — Professional admin UX/UI polish
+// KK Phone Rental Admin CRM v16.4.14_EDIT_BOOKING_PAST_FILTER — Hide closed past bookings from Edit Booking
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.13_ADMIN_PRO_UI_POLISH";
+  const KK_ADMIN_UI_VERSION = "v16.4.14_EDIT_BOOKING_PAST_FILTER";
   const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -117,6 +117,17 @@
   }
   function isActiveBookingStatus(status){
     return ["pending","confirmed","picked_up"].includes(String(status||"").toLowerCase().trim());
+  }
+  function isClosedBookingStatus(status){
+    return ["cancelled","returned"].includes(String(status||"").toLowerCase().trim());
+  }
+  function shouldShowInEditBooking(b){
+    // Edit Booking should stay focused on work that can still change operations.
+    // Hide past bookings that are already closed (returned/cancelled), but keep overdue active rows
+    // so admins can still mark them returned/cancelled if they forgot to update the status.
+    if(!b) return false;
+    if(isTodayOrFuture(b.event_date)) return true;
+    return !isClosedBookingStatus(b.booking_status);
   }
   function isUnpaidPayment(status){
     const s=String(status||"").toLowerCase().trim();
@@ -437,9 +448,9 @@
     if(!form || !state.data) return;
     const sel=form.elements.row_number;
     if(!sel) return;
-    const rows=sortedBookings(state.data.bookings||[]);
+    const rows=sortedBookings((state.data.bookings||[]).filter(shouldShowInEditBooking));
     const current=sel.value;
-    sel.innerHTML='<option value="">เลือก Booking ที่ต้องการแก้ / ยกเลิก</option>'+
+    sel.innerHTML='<option value="">เลือก Booking ที่ยังต้องแก้ / ยกเลิก</option>'+
       rows.map(b=>opt(b.row_number, bookingLabel(b))).join('');
     if(current && rows.some(b=>String(b.row_number)===String(current))) sel.value=current;
     const b=rows.find(x=>String(x.row_number)===String(sel.value));
