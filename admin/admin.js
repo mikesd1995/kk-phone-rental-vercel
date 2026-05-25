@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.4.14_EDIT_BOOKING_PAST_FILTER — Hide closed past bookings from Edit Booking
+// KK Phone Rental Admin CRM v16.4.15_EDIT_BOOKING_CANCELLED_HIDE_FIX — Hide closed past bookings from Edit Booking
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.14_EDIT_BOOKING_PAST_FILTER";
+  const KK_ADMIN_UI_VERSION = "v16.4.15_EDIT_BOOKING_CANCELLED_HIDE_FIX";
   const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -122,12 +122,13 @@
     return ["cancelled","returned"].includes(String(status||"").toLowerCase().trim());
   }
   function shouldShowInEditBooking(b){
-    // Edit Booking should stay focused on work that can still change operations.
-    // Hide past bookings that are already closed (returned/cancelled), but keep overdue active rows
-    // so admins can still mark them returned/cancelled if they forgot to update the status.
+    // Edit Booking should stay focused on bookings that still need action.
+    // Closed bookings must never appear here, even when the event date is today/future.
+    // Keep overdue active rows so admins can still mark them returned/cancelled if they forgot.
     if(!b) return false;
+    if(isClosedBookingStatus(b.booking_status)) return false;
     if(isTodayOrFuture(b.event_date)) return true;
-    return !isClosedBookingStatus(b.booking_status);
+    return isActiveBookingStatus(b.booking_status);
   }
   function isUnpaidPayment(status){
     const s=String(status||"").toLowerCase().trim();
