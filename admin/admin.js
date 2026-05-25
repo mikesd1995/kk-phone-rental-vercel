@@ -87,6 +87,8 @@
     const sort=($("#eventsSort") && $("#eventsSort").value) || "date_asc";
     const rows=(events||[])
       .filter(e=>String(e.status||"").toLowerCase()==="open" && e.active_on_web!==false)
+      // Dashboard should show only current/upcoming open events. Past events stay in Sheet for history/archive, but should not appear as "งานที่เปิดอยู่".
+      .filter(e=>isTodayOrFuture(e.event_date))
       .slice();
     if(sort==="date_desc") rows.sort((a,b)=>dateValue(b.event_date)-dateValue(a.event_date));
     else if(sort==="name_asc") rows.sort((a,b)=>textValue(a.event_name).localeCompare(textValue(b.event_name),"th"));
@@ -101,6 +103,53 @@
     else if(sort==="customer_asc") rows.sort((a,b)=>textValue(a.customer_name).localeCompare(textValue(b.customer_name),"th"));
     else rows.sort((a,b)=>dateValue(b.created_at)-dateValue(a.created_at));
     return rows;
+  }
+  function customerKeyFromRecord(name, contact, phone){
+    const p=String(phone||"").replace(/\D+/g,"");
+    if(p) return "phone:"+p;
+    const c=String(contact||"").trim().toLowerCase();
+    if(c) return "contact:"+c;
+    const n=String(name||"").trim().toLowerCase().replace(/\s+/g," ");
+    return n ? "name:"+n : "";
+  }
+  function customerHistoryRows(bookings, customerStats){
+    const map=new Map();
+    function ensure(key){
+      if(!map.has(key)) map.set(key,{customer_key:key,customer_name:"",customer_contact:"",customer_phone:"",rental_count:0,first_rental_date:"",last_rental_date:"",last_event_name:"",last_booking_status:""});
+      return map.get(key);
+    }
+    (customerStats||[]).forEach(c=>{
+      const key=String(c.customer_key||"").trim() || customerKeyFromRecord(c.customer_name,c.customer_contact,c.customer_phone);
+      if(!key) return;
+      const item=ensure(key);
+      item.customer_name=c.customer_name||item.customer_name;
+      item.customer_contact=c.customer_contact||item.customer_contact;
+      item.customer_phone=c.customer_phone||item.customer_phone;
+      item.rental_count+=toNum(c.rental_count);
+      item.first_rental_date=c.first_rental_date||item.first_rental_date;
+      item.last_rental_date=c.last_rental_date||item.last_rental_date;
+      item.last_event_name=c.last_event_name||item.last_event_name;
+      item.last_booking_status=c.last_booking_status||item.last_booking_status;
+    });
+    (bookings||[]).forEach(b=>{
+      const st=String(b.booking_status||"").toLowerCase().trim();
+      if(st==="cancelled") return;
+      const key=customerKeyFromRecord(b.customer_name,b.customer_contact,b.customer_phone);
+      if(!key) return;
+      const item=ensure(key);
+      item.customer_name=b.customer_name||item.customer_name;
+      item.customer_contact=b.customer_contact||item.customer_contact;
+      item.customer_phone=b.customer_phone||item.customer_phone;
+      item.rental_count+=1;
+      const rentalDate=b.event_date||b.created_at||"";
+      if(rentalDate && (!item.first_rental_date || dateValue(rentalDate)<dateValue(item.first_rental_date))) item.first_rental_date=rentalDate;
+      if(rentalDate && (!item.last_rental_date || dateValue(rentalDate)>=dateValue(item.last_rental_date))){
+        item.last_rental_date=rentalDate;
+        item.last_event_name=b.event_name||item.last_event_name;
+        item.last_booking_status=b.booking_status||item.last_booking_status;
+      }
+    });
+    return Array.from(map.values()).sort((a,b)=>(toNum(b.rental_count)-toNum(a.rental_count)) || (dateValue(b.last_rental_date)-dateValue(a.last_rental_date)) || textValue(a.customer_name).localeCompare(textValue(b.customer_name),"th"));
   }
   function startOfToday(){
     const d=new Date();
@@ -322,13 +371,14 @@
     const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=versionDiagnosticsRows(d).concat(d.health||[]), today=d.today_working||[], customers=d.customers||[];
     const openEventRows=sortedOpenEvents(events);
     const bookingRows=sortedBookings(bookings);
+    const customerHistory=customerHistoryRows(bookings, customers);
     const openEvents=openEventRows.length;
     const phones=assets.filter(a=>a.asset_type==="phone" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const lenses=assets.filter(a=>a.asset_type==="lens" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const activeBookings=bookings.filter(b=>["pending","confirmed","picked_up"].includes(String(b.booking_status||"").toLowerCase())).length;
     const unpaidToday=today.filter(b=>String(b.payment_status||"").toLowerCase()!=="paid").length;
     $("#statsGrid").innerHTML=[
-      [openEvents,"งานเปิดอยู่"],[packages.filter(p=>p.active!==false).length,"แพ็กเกจ active"],[overrides.length,"ราคาเฉพาะงาน"],[phones,"มือถือ available"],[lenses,"เลนส์ available"],[activeBookings,"Booking active"],[today.length,"งานที่ต้องทำวันนี้"],[customers.length,"ลูกค้าที่มีประวัติ"]
+      [openEvents,"งานเปิดอยู่"],[packages.filter(p=>p.active!==false).length,"แพ็กเกจ active"],[overrides.length,"ราคาเฉพาะงาน"],[phones,"มือถือ available"],[lenses,"เลนส์ available"],[activeBookings,"Booking active"],[today.length,"งานที่ต้องทำวันนี้"],[customerHistory.length,"ลูกค้าที่มีประวัติ"]
     ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
 
     $("#eventsCount").textContent=openEventRows.length+" รายการ";
@@ -384,14 +434,14 @@
       {label:"Check",key:"check"},{label:"Status",render:r=>`<span class="pill ${String(r.status).toLowerCase().includes('ok')?'ok':String(r.status).toLowerCase().includes('check')?'bad':''}">${esc(r.status||'')}</span>`},{label:"Detail",key:"detail"},{label:"Note",key:"note"}
     ], health);
 
-    if($("#customerStatsCount")) $("#customerStatsCount").textContent=customers.length+" รายการ";
+    if($("#customerStatsCount")) $("#customerStatsCount").textContent=customerHistory.length+" รายการ";
     table($("#customerStatsTable"),[
       {label:"ลูกค้า",key:"customer_name"},
       {label:"ติดต่อ",render:r=>esc([r.customer_contact,r.customer_phone].filter(Boolean).join(" / "))},
       {label:"เช่าแล้ว",render:r=>esc(r.rental_count||0)},
       {label:"เช่าล่าสุด",render:r=>esc(fmtDate(r.last_rental_date))},
       {label:"งานล่าสุด",key:"last_event_name"}
-    ], customers.slice(0,50));
+    ], customerHistory.slice(0,50));
 
     fillSelects();
   }
