@@ -1,9 +1,13 @@
 {
-  "name": "kk-phone-rental-frontend-v16-2-full-audit-stable",
-  "version": "16.2.0",
+  "name": "kk-phone-rental",
+  "version": "16.6.2",
   "private": true,
   "scripts": {
     "start": "vercel dev",
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "check": "node --check script.js && node --check admin/admin.js && node --check api/kk-admin.js && node --check api/kk-data.js"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

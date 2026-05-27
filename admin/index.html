@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.4.15_EDIT_BOOKING_CANCELLED_HIDE_FIX</title>
+  <title>KK Admin CRM Dashboard v16.6.2_LINE_AUDITED</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.4.15 · Pro UI</span>
+          <span>Phone Rental v16.6.2 · Audited</span>
         </div>
       </div>
       <nav aria-label="Admin sections">
@@ -43,7 +43,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.4.15 · Booking Fix</span>
+          <span class="top-badge" title="Admin UI version">v16.6.2 · Audited</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -244,8 +244,12 @@
                 </select>
               </label>
               <label>เวลารับเครื่อง <input name="pickup_time" placeholder="เช่น 17:30" /></label>
-              <label class="readonly-note">Asset ที่ล็อกไว้
-                <input value="แก้ asset โดยตรงในชีตเท่านั้น" disabled />
+              <label>Phone Asset <input name="phone_asset_id" placeholder="เช่น PHONE-001 / ว่างได้" /></label>
+            </div>
+            <div class="row two">
+              <label>Lens Asset <input name="lens_asset_id" placeholder="เช่น LENS-001 / ว่างได้" /></label>
+              <label class="readonly-note">คำเตือน
+                <input value="ระบบจะเช็กซ้ำว่า Asset ไม่ถูกจองชนวันเดียวกัน" disabled />
               </label>
             </div>
             <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>

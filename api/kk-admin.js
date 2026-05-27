@@ -1,4 +1,4 @@
-// KK Phone Rental v16.2_FULL_AUDIT_STABLE — Admin CRM Vercel Proxy
+// KK Phone Rental v16.6.2_LINE_AUDITED — Admin CRM Vercel Proxy
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Required ENV on Vercel:
 // GOOGLE_SHEET_ID      = same Spreadsheet ID used by Apps Script
@@ -8,7 +8,7 @@
 // Optional ENV:
 // KK_SITE_ORIGIN       = https://kk-phone-rental.vercel.app or custom domain
 
-const KK_APP_VERSION = "v16.2_FULL_AUDIT_STABLE";
+const KK_APP_VERSION = "v16.6.2_LINE_AUDITED";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 function json(res, status, body) {
@@ -28,6 +28,7 @@ function readBody(req) {
       if (data.length > 6 * 1024 * 1024) {
         reject(new Error("Request too large. Please keep poster images below 3 MB."));
         req.destroy();
+        return;
       }
     });
     req.on("end", () => resolve(data));
@@ -37,8 +38,13 @@ function readBody(req) {
 
 module.exports = async function handler(req, res) {
   const origin = req.headers.origin || "";
-  const allowedOrigin = process.env.KK_SITE_ORIGIN || (process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "");
-  if (origin && allowedOrigin && origin === allowedOrigin) {
+  const configuredOrigins = String(process.env.KK_SITE_ORIGIN || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const vercelOrigin = process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "";
+  const allowedOrigins = new Set([...configuredOrigins, vercelOrigin].filter(Boolean));
+  if (origin && allowedOrigins.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
   }
@@ -70,7 +76,14 @@ module.exports = async function handler(req, res) {
       payload = { action: String(req.query.action || "snapshot") };
     } else {
       const raw = await readBody(req);
-      payload = raw ? JSON.parse(raw) : {};
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        return json(res, 400, { ok: false, error: "JSON request body must be an object" });
+      }
+      } catch (_) {
+        return json(res, 400, { ok: false, error: "Invalid JSON request body" });
+      }
     }
 
     const upstreamPayload = Object.assign({}, payload, {

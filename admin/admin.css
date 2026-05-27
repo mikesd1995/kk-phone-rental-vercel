@@ -80,7 +80,7 @@ code{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:1px 6
 @media(max-width:1180px){.customer-detail-card{position:relative;top:auto}.customer-kpi.stats.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.customer-kpi.stats.compact{grid-template-columns:1fr}}
 
-/* v16.4.8 Admin CRM optimization */
+/* v16.6.2_LINE_AUDITED*/
 .action-card{border-color:#dbeafe;background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(248,251,255,.92))}
 .action-kpi.stats.compact{grid-template-columns:repeat(4,minmax(0,1fr));margin:10px 0 14px}
 .action-table-wrap{max-height:420px}
@@ -92,7 +92,7 @@ code{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:1px 6
 @media(max-width:560px){.action-kpi.stats.compact{grid-template-columns:1fr}.mini-tools,.mini-tools .mini-control{width:100%;max-width:none}}
 
 
-/* v16.4.8 Admin UX/UI refresh */
+/* v16.6.2_LINE_AUDITED/UI refresh */
 :root{
   --focus:0 0 0 4px rgba(55,125,255,.14);
 }
@@ -136,13 +136,13 @@ tbody tr:nth-child(even) td{background:rgba(248,251,255,.55)}
 }
 
 
-/* v16.4.12 Admin full audit fixes */
+/* v16.6.2_LINE_AUDITED*/
 .mini-btn.active{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff}
 .readonly-note input:disabled,input:disabled,select:disabled,textarea:disabled{background:#f1f5f9;color:#64748b;cursor:not-allowed}
 select option{font-weight:500;color:#0f172a}
 .form small{max-width:720px}
 
-/* v16.4.13 Admin professional UI polish
+/* v16.6.2_LINE_AUDITED
    Scope: visual/UX only. No booking or backend logic changed. */
 :root{
   --bg:#f4f7fb;

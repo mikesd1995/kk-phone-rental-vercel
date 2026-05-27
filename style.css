@@ -184,7 +184,7 @@ button,input,select,textarea{font:inherit;}
 
 .modal-header{padding-right:68px;}
 
-/* v16.4.1 month dropdown: month selection sits before status filters */
+/* v16.6.2_LINE_AUDITED: month selection sits before status filters */
 .filter-group{margin:0 auto 18px;text-align:center;}
 .status-filter-bar{align-items:center;}
 .month-select-wrap{position:relative;display:inline-flex;align-items:center;flex:0 0 auto;}

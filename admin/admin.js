@@ -1,7 +1,8 @@
-// KK Phone Rental Admin CRM v16.4.15_EDIT_BOOKING_CANCELLED_HIDE_FIX — Hide closed past bookings from Edit Booking
+// KK Phone Rental Admin CRM v16.6.2_LINE_AUDITED — Hide closed past bookings from Edit Booking
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.4.15_EDIT_BOOKING_CANCELLED_HIDE_FIX";
-  const EXPECTED_BACKEND_VERSION = "v16.4.5_ADMIN_EDIT_BOOKING_FILTER_FIX";
+  const KK_ADMIN_UI_VERSION = "v16.6.2_LINE_AUDITED";
+  const EXPECTED_BACKEND_VERSION = "v16.6.2_LINE_AUDITED";
+  const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "" };
@@ -457,7 +458,7 @@
     const b=rows.find(x=>String(x.row_number)===String(sel.value));
     const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
     if(!b){
-      ["booking_status","customer_name","customer_contact","customer_phone","contact_channel","payment_status","amount_received","pickup_time","booking_note"].forEach(k=>set(k,""));
+      ["booking_status","customer_name","customer_contact","customer_phone","contact_channel","payment_status","amount_received","pickup_time","phone_asset_id","lens_asset_id","booking_note"].forEach(k=>set(k,""));
       return;
     }
     set("booking_status", b.booking_status || "confirmed");
@@ -468,6 +469,8 @@
     set("payment_status", b.payment_status || "unpaid");
     set("amount_received", b.amount_received || 0);
     set("pickup_time", b.pickup_time || "");
+    set("phone_asset_id", b.phone_asset_id || "");
+    set("lens_asset_id", b.lens_asset_id || "");
     set("booking_note", b.note || "");
   }
 
@@ -496,9 +499,9 @@
     const spreadsheetId = d.spreadsheet_id || "";
     const frontendSheetId = d.frontend_sheet_id || "";
     const sameSheet = spreadsheetId && frontendSheetId && spreadsheetId === frontendSheetId;
-    rows.push({check:"Version · Admin UI", status:"OK", detail:KK_ADMIN_UI_VERSION, note:"Admin-only patch; backend expected "+EXPECTED_BACKEND_VERSION});
-    rows.push({check:"Version · Vercel Proxy", status: proxyVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:proxyVersion || "missing", note:"Expected "+EXPECTED_BACKEND_VERSION});
-    rows.push({check:"Version · Apps Script", status: backendVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:backendVersion || "missing", note:"Deploy Apps Script latest version if not matching"});
+    rows.push({check:"Version · Admin UI", status:"OK", detail:KK_ADMIN_UI_VERSION, note:"Line-by-line audited frontend/admin package"});
+    rows.push({check:"Version · Vercel Proxy", status: proxyVersion===EXPECTED_PROXY_VERSION ? "OK" : "CHECK", detail:proxyVersion || "missing", note:"Expected "+EXPECTED_PROXY_VERSION});
+    rows.push({check:"Version · Apps Script", status: backendVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:backendVersion || "missing", note:"Expected "+EXPECTED_BACKEND_VERSION+". Deploy Apps Script latest version if not matching"});
     rows.push({check:"Sheet ID · Frontend vs Apps Script", status: sameSheet ? "OK" : "CHECK", detail:(frontendSheetId||"missing")+" / "+(spreadsheetId||"missing"), note:sameSheet ? "Same backend" : "GOOGLE_SHEET_ID may not match Apps Script spreadsheet"});
     if(d.phase1_diagnostics){
       const x=d.phase1_diagnostics;
@@ -565,8 +568,9 @@
   function render(){
     const d=state.data||{};
     const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=versionDiagnosticsRows(d).concat(d.health||[]), today=d.today_working||[], customers=d.customers||[];
+    const currentBookings=(d.current_bookings&&d.current_bookings.length?d.current_bookings:bookings.filter(shouldShowInEditBooking));
     const openEventRowsAll=sortedOpenEvents(events);
-    const bookingRowsAll=sortedBookings(bookings);
+    const bookingRowsAll=sortedBookings(currentBookings);
     const eventsQ=($("#eventsSearch") && $("#eventsSearch").value) || "";
     const bookingsQ=($("#bookingsSearch") && $("#bookingsSearch").value) || "";
     const openEventRows=openEventRowsAll.filter(r=>containsQuery(r,["event_name","venue","event_id"],eventsQ));
@@ -576,7 +580,7 @@
     const openEvents=openEventRows.length;
     const phones=assets.filter(a=>a.asset_type==="phone" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const lenses=assets.filter(a=>a.asset_type==="lens" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
-    const activeBookings=bookings.filter(b=>["pending","confirmed","picked_up"].includes(String(b.booking_status||"").toLowerCase())).length;
+    const activeBookings=currentBookings.filter(b=>["pending","confirmed","picked_up"].includes(String(b.booking_status||"").toLowerCase())).length;
     const unpaidToday=today.filter(b=>String(b.payment_status||"").toLowerCase()!=="paid").length;
     $("#statsGrid").innerHTML=[
       [openEvents,"งานเปิดอยู่"],[packages.filter(p=>p.active!==false).length,"แพ็กเกจ active"],[overrides.length,"ราคาเฉพาะงาน"],[phones,"มือถือ available"],[lenses,"เลนส์ available"],[activeBookings,"Booking active"],[today.length,"งานที่ต้องทำวันนี้"],[customerHistory.length,"ลูกค้าที่มีประวัติ"]
@@ -752,14 +756,17 @@
       const nav=$(`.nav[data-tab="${tab}"]`);
       if(nav) nav.click();
     });
-    $("#loginBtn").addEventListener("click", async()=>{
+    const loginBtn=$("#loginBtn");
+    if(loginBtn) loginBtn.addEventListener("click", async()=>{
       state.pin=$("#pinInput").value.trim(); if(!state.pin) return alert("กรุณากรอก PIN");
       sessionStorage.setItem("kk_admin_pin",state.pin);
       try{ await refresh(); $("#loginPanel").classList.add("hidden"); $("#appPanel").classList.remove("hidden"); showNotice("โหลดข้อมูลสำเร็จ"); }
       catch(e){ showNotice(e.message,"bad"); }
     });
-    $("#logoutBtn").addEventListener("click",()=>{ sessionStorage.removeItem("kk_admin_pin"); location.reload(); });
-    $("#refreshBtn").addEventListener("click",()=>refresh().then(()=>showNotice("Refresh แล้ว")).catch(e=>showNotice(e.message,"bad")));
+    const logoutBtn=$("#logoutBtn");
+    if(logoutBtn) logoutBtn.addEventListener("click",()=>{ sessionStorage.removeItem("kk_admin_pin"); location.reload(); });
+    const refreshBtn=$("#refreshBtn");
+    if(refreshBtn) refreshBtn.addEventListener("click",()=>refresh().then(()=>showNotice("Refresh แล้ว")).catch(e=>showNotice(e.message,"bad")));
     ["#eventsSort","#bookingsSort"].forEach(sel=>{
       const el=$(sel);
       if(el) el.addEventListener("change",()=>render());
@@ -811,7 +818,8 @@
       });
     }
 
-    $("#eventForm").addEventListener("submit",async ev=>{
+    const eventForm=$("#eventForm");
+    if(eventForm) eventForm.addEventListener("submit",async ev=>{
       ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
       try{
         const p=formData(ev.target);
@@ -826,7 +834,8 @@
       }
       catch(e){ showNotice(e.message,"bad"); } finally{ setBusy(btn,false); }
     });
-    $("#eventUpdateForm").addEventListener("submit",async ev=>{
+    const eventUpdateForm=$("#eventUpdateForm");
+    if(eventUpdateForm) eventUpdateForm.addEventListener("submit",async ev=>{
       ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
       try{
         const p=formData(ev.target);
@@ -840,10 +849,14 @@
         state.posterWarning = "";
       }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);}
     });
-    $("#packageForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("createPackage",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่มแพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
-    $("#packageUpdateForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("updatePackage",formData(ev.target)); await refresh(); showNotice("แก้แพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
-    $("#assetForm").addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("addAssets",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่ม asset สำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
-    $("#bookingForm").addEventListener("submit",async ev=>{
+    const packageForm=$("#packageForm");
+    if(packageForm) packageForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("createPackage",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่มแพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
+    const packageUpdateForm=$("#packageUpdateForm");
+    if(packageUpdateForm) packageUpdateForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("updatePackage",formData(ev.target)); await refresh(); showNotice("แก้แพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
+    const assetForm=$("#assetForm");
+    if(assetForm) assetForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("addAssets",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่ม asset สำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
+    const bookingForm=$("#bookingForm");
+    if(bookingForm) bookingForm.addEventListener("submit",async ev=>{
       ev.preventDefault();
       const btn=ev.submitter;
       setBusy(btn,true);
@@ -878,5 +891,5 @@
   }
 
   bind();
-  if(state.pin){ $("#pinInput").value=state.pin; $("#loginBtn").click(); }
+  if(state.pin && $("#pinInput") && $("#loginBtn")){ $("#pinInput").value=state.pin; $("#loginBtn").click(); }
 })();

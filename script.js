@@ -1,4 +1,4 @@
-// KK Phone Rental Frontend v16.4.1_MONTH_DROPDOWN_FILTER — Phase 1 recovery-stable baseline
+// KK Phone Rental Frontend v16.6.2_LINE_AUDITED — Phase 1 recovery-stable baseline
 // Backend contract:
 // - 08_Web_Ready!A4:K = event-level output
 // - 09_Web_Packages!A4:N = package-level output, including M raw_available_count and N use_case
@@ -10,7 +10,7 @@
 // - Adds month dropdown selector and removes soon-only filter button
 
 var APP       = window.KK_CONFIG || {};
-var KK_APP_VERSION = APP.appVersion || "v16.4.1_MONTH_DROPDOWN_FILTER";
+var KK_APP_VERSION = APP.appVersion || "v16.6.2_LINE_AUDITED";
 var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
 var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน";
 var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
@@ -278,12 +278,12 @@ function cacheGet(k){ try{ var raw=sessionStorage.getItem(k); if(!raw)return nul
 function cacheSet(k,d){ try{sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),data:d}));}catch(e){} }
 
 async function fetchWebRows(){
-  var k="kk_web_v16_2_full_audit:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_web_v16_6_2_line_audited:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(WEB_SHEET,WEB_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 async function fetchPkgRows(){
-  var k="kk_pkg_v16_2_full_audit:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_pkg_v16_6_2_line_audited:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(PKG_SHEET,PKG_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
@@ -297,7 +297,11 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
   });
   if(!evtPkgs.length)return [];
 
-  return evtPkgs.sort(function(a,b){ return toNum(a.sort_order)-toNum(b.sort_order); }).map(function(p){
+  return evtPkgs.sort(function(a,b){
+    var sa=hasVal(a.sort_order)?toNum(a.sort_order):999999;
+    var sb=hasVal(b.sort_order)?toNum(b.sort_order):999999;
+    return sa-sb || String(a.package_id||"").localeCompare(String(b.package_id||""));
+  }).map(function(p){
     var pkgType      = String(p.pkg_type||"phone_only").trim();
     var modelDisplay = String(p.model_display||p.phone_model_display||"มือถือ").trim();
     var lensDisplay  = String(p.lens_display||p.lens_model_display||p.lens_group||"").trim();
@@ -383,7 +387,7 @@ async function loadData(){
 
   return rows.map(function(r){
     var eventId    = String(r.event_id||"").trim();
-    var rawDate    = r.event_date_text||"";
+    var rawDate    = r.event_date_text || r.event_date || r.date || "";
     var rawPoster  = String(r.poster_image_url||"").trim();
     var phoneCnt   = toNum(r.available_phone_count);
     var lensCnt    = toNum(r.available_lens_count);
@@ -727,7 +731,7 @@ document.addEventListener("DOMContentLoaded",function(){
         else{ clearEventParam(); }
       }
     })
-    .catch(function(e){ console.error("KK v16.4.1_MONTH_DROPDOWN_FILTER:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
+    .catch(function(e){ console.error("KK v16.6.2_LINE_AUDITED:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
 });
 
 document.addEventListener("keydown",function(e){

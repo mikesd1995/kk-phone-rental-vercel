@@ -1,7 +1,7 @@
-// KK Phone Rental v16.2_FULL_AUDIT_STABLE — Vercel Serverless Google Sheets CSV Proxy
+// KK Phone Rental v16.6.2_LINE_AUDITED — Vercel Serverless Google Sheets CSV Proxy
 // Production reads through this proxy first. If GOOGLE_SHEET_ID is missing, it falls back to the known read-only sheet ID to prevent public-site outages.
 
-const KK_APP_VERSION = "v16.2_FULL_AUDIT_STABLE";
+const KK_APP_VERSION = "v16.6.2_LINE_AUDITED";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 const ALLOWED = {
@@ -36,8 +36,8 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return send(res, 204, "");
   if (req.method !== "GET") return send(res, 405, "Method Not Allowed");
 
-  const sheet = String(req.query.sheet || "").trim();
-  const range = String(req.query.range || "").trim();
+  const sheet = Array.isArray(req.query.sheet) ? "" : String(req.query.sheet || "").trim();
+  const range = Array.isArray(req.query.range) ? "" : String(req.query.range || "").trim();
   const envSheetId = String(process.env.GOOGLE_SHEET_ID || "").trim();
   const sheetId = envSheetId || DEFAULT_SHEET_ID;
   const usingDefault = !envSheetId;
@@ -58,7 +58,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const upstream = await fetch(url, {
-      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.2-Full-Audit-Stable" },
+      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.6.2-Line-Audited" },
     });
     const text = await upstream.text();
     if (!upstream.ok) {

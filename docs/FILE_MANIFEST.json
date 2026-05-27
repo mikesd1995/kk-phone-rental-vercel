@@ -1,0 +1,142 @@
+[
+  {
+    "path": ".env.example",
+    "size_bytes": 453,
+    "sha256": "33c6f368a110f2ca9b31fc6f1f6b50a84ec7389b92aafbdaaa92283b0055b123"
+  },
+  {
+    "path": ".gitignore",
+    "size_bytes": 102,
+    "sha256": "a86c8df97dbddefe6743e79b03bc856015d193a66f665950f8b8c5ae7d38b44e"
+  },
+  {
+    "path": "README.md",
+    "size_bytes": 1835,
+    "sha256": "6c9b355fc64905f3fe26c71c8bcc4b3d594ce542e21c2f0dd32a5dfe80d29ecb"
+  },
+  {
+    "path": "README_DEPLOY.md",
+    "size_bytes": 751,
+    "sha256": "a019500af080d21fcda1e50e935922c1b7e229f937d84aef7508b14423929d2e"
+  },
+  {
+    "path": "admin/admin.css",
+    "size_bytes": 19899,
+    "sha256": "24238fda0484b9bc2fe1106d34ce5a99e54d34115fa53318394181caa275566d"
+  },
+  {
+    "path": "admin/admin.js",
+    "size_bytes": 53622,
+    "sha256": "978ce56860f924ee307676640d5ae4773751b4c5a3382f2774e31f295f05eaf3"
+  },
+  {
+    "path": "admin/index.html",
+    "size_bytes": 30976,
+    "sha256": "471d87ba2fa1483a5c95b0b42bbd065fa6c697cb2ce266fbaf50a86d4b912fbf"
+  },
+  {
+    "path": "api/kk-admin.js",
+    "size_bytes": 4819,
+    "sha256": "4ffc57f62ae18c9ca4efd473bbf9fbec15fce355ba0c5591ac7b8b8d5e6f33fd"
+  },
+  {
+    "path": "api/kk-data.js",
+    "size_bytes": 3376,
+    "sha256": "861f88b369d700ed612cb5af69d9ce841e1241c5c849050aad48fceadbcf4ade"
+  },
+  {
+    "path": "apple-touch-icon.png",
+    "size_bytes": 1789,
+    "sha256": "408d722a94be54a753b54135334d53f61274b141706a7b8db786d1ef8e551878"
+  },
+  {
+    "path": "apps-script/Code.gs",
+    "size_bytes": 75796,
+    "sha256": "6493b039d1dff8c1f5b4237aa84f0e59aa51e9dddced3542c58e29ad534077bd"
+  },
+  {
+    "path": "apps-script/appsscript.json",
+    "size_bytes": 369,
+    "sha256": "bc71b550173c52b2668f590fd245ae8d874450b44a0cce539e36fb931d5969f8"
+  },
+  {
+    "path": "config.js",
+    "size_bytes": 1674,
+    "sha256": "8acb14025decadf97525bd522d73a0d963915e98be47084bf9e499adebcef444"
+  },
+  {
+    "path": "docs/AUDIT_REPORT_v16_6_2_line_by_line.md",
+    "size_bytes": 529273,
+    "sha256": "cb8e508d6d5ef6327b645904ba5fbcdd5c2a7d766dc49309b8cd3bc5473bd7bc"
+  },
+  {
+    "path": "docs/AUDIT_SUMMARY_v16_6_2.md",
+    "size_bytes": 1131,
+    "sha256": "d331da95a46963156b7451900bab2e1cea88aca19c4835ebe464f8bbeaa241a5"
+  },
+  {
+    "path": "docs/CLEANUP_REPORT.md",
+    "size_bytes": 2174,
+    "sha256": "35fd448b8ce8ad3d6841d669aa5f1ce4974a27fda2188205b4d896e8a82113e1"
+  },
+  {
+    "path": "docs/FILE_MANIFEST.json",
+    "size_bytes": 2467,
+    "sha256": "a04a460687c93e9c0b6e2d2d13acf77ce248f9f56cdf1e1f2238c0d2bc979fb4"
+  },
+  {
+    "path": "docs/PROJECT_STRUCTURE.md",
+    "size_bytes": 1440,
+    "sha256": "0e9621430ccf415001dcaaef9b5eeef07f0802313425fff89633fdfc30b44b2a"
+  },
+  {
+    "path": "docs/README_DEPLOY_ORIGINAL.md",
+    "size_bytes": 603,
+    "sha256": "022d92611da7624afd85f2f88cc6b4c8fb571d1f2cb3fca48d2efdff4522e7b8"
+  },
+  {
+    "path": "favicon.png",
+    "size_bytes": 711,
+    "sha256": "6be6121bd3a76eef7828b4f236719fcdc2f61e15bcddaa9c142f7065834619e9"
+  },
+  {
+    "path": "icon-192.png",
+    "size_bytes": 7189,
+    "sha256": "92c0f18102c36417098d4dc36c54f14d2e47d27b58be75a437cd8ba7499b631e"
+  },
+  {
+    "path": "icon-512.png",
+    "size_bytes": 34138,
+    "sha256": "7e8b78a906d749fb6f7610e4c657e73c85242648f883767c43c8a0c4ce15e572"
+  },
+  {
+    "path": "index.html",
+    "size_bytes": 13689,
+    "sha256": "33503020fa70a14ec66ffdb18bb43ed47b83b3f388a1826da302682365d7905f"
+  },
+  {
+    "path": "manifest.json",
+    "size_bytes": 1190,
+    "sha256": "5bc7eeb5650e6ac35029b886940fdcb0e1cc41b60f1178b0f8a392a68f788e95"
+  },
+  {
+    "path": "package.json",
+    "size_bytes": 323,
+    "sha256": "fabd5fb01d0477c97064d4ec7349b5edd1607ee2c1f04851f7097069bced4fc7"
+  },
+  {
+    "path": "script.js",
+    "size_bytes": 44858,
+    "sha256": "da3271c045f98344260addb042300b140ff0908a9ab054d16089dc3150fb759f"
+  },
+  {
+    "path": "style.css",
+    "size_bytes": 27152,
+    "sha256": "1a2b8c3cdbbe14f996a66873a072ead29528379a1c7e399897e163a70f799962"
+  },
+  {
+    "path": "vercel.json",
+    "size_bytes": 1092,
+    "sha256": "ab98870d470ac63c0be30580e4dd880aafb8e4019e41e08a6c3737e468147fd1"
+  }
+]
