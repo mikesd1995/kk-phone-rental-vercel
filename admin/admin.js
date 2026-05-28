@@ -150,14 +150,14 @@
       const st=String(b.booking_status||"").toLowerCase().trim();
       if(st==="cancelled" || st==="returned") return;
       if(isUnpaidPayment(b.payment_status)){
-        rows.push({type:"payment", priority:1, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), task:"ตามชำระเงิน", ref:bookingCustomerKey(b)});
+        rows.push({type:"payment", priority:1, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", task:"ตามชำระเงิน", ref:bookingCustomerKey(b)});
       }
       if(st==="picked_up"){
-        rows.push({type:"return", priority:2, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), task:"รอรับคืน / ตรวจเครื่อง", ref:bookingCustomerKey(b)});
+        rows.push({type:"return", priority:2, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", task:"รอรับคืน / ตรวจเครื่อง", ref:bookingCustomerKey(b)});
       }
       const diff=daysFromToday(b.event_date);
       if(isActiveBookingStatus(st) && diff!==null && diff>=0 && diff<=7){
-        rows.push({type:"upcoming", priority:3, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), task:diff===0?"งานวันนี้":"งานใน "+diff+" วัน", ref:bookingCustomerKey(b)});
+        rows.push({type:"upcoming", priority:3, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", task:diff===0?"งานวันนี้":"งานใน "+diff+" วัน", ref:bookingCustomerKey(b)});
       }
     });
     events.forEach(e=>{
@@ -599,6 +599,7 @@
     table($("#actionTable"),[
       {label:"ประเภท",render:r=>`<span class="pill ${actionSeverity(r.type)}">${esc(r.type==="payment"?"ตามเงิน":r.type==="return"?"รับคืน":r.type==="upcoming"?"ใกล้ถึง":"ข้อมูล")}</span>`},
       {label:"วันที่",render:r=>esc(fmtDate(r.date))},
+      {label:"เวลารับ",render:r=>esc(r.pickup_time || "-")},
       {label:"รายการ",render:r=>esc(r.title)},
       {label:"ลูกค้า",render:r=>esc(r.customer)},
       {label:"ติดต่อ",render:r=>esc(r.contact)},
