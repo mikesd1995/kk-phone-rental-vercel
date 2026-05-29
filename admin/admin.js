@@ -1,11 +1,11 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE2 — Operation Command Center
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3 — Reports & Asset Intelligence
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE2";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE2";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3";
   const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "" };
+  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue" };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
     ["payment","ตามเงิน"], ["prep","เตรียม/ส่งมอบ"], ["return","รับคืน"], ["upload","อัปโหลด/ปิดงาน"], ["data","ข้อมูลผิด"], ["risk","เสี่ยง"]
@@ -527,6 +527,170 @@
     ], bookings);
   }
 
+
+  function normalizeBookingStatus(status){
+    return String(status||"").toLowerCase().trim();
+  }
+  function isRevenueBooking(b){
+    const st=normalizeBookingStatus(b && b.booking_status);
+    const pay=String(b && b.payment_status || "").toLowerCase().trim();
+    if(["cancelled","no_show"].includes(st) || pay==="refunded") return false;
+    if(["picked_up","returned","uploaded","completed"].includes(st)) return true;
+    return toNum(b && b.amount_received)>0;
+  }
+  function reportDateRange(){
+    const now=startOfToday();
+    let start=null, end=null, label="ข้อมูลทั้งหมด";
+    const range=state.reportRange||"all";
+    if(range==="this_month"){
+      start=new Date(now.getFullYear(), now.getMonth(), 1);
+      end=new Date(now.getFullYear(), now.getMonth()+1, 0);
+      label="เดือนนี้";
+    }else if(range==="next_30"){
+      start=new Date(now); end=new Date(now); end.setDate(end.getDate()+30); label="30 วันข้างหน้า";
+    }else if(range==="last_90"){
+      start=new Date(now); start.setDate(start.getDate()-90); end=new Date(now); label="ย้อนหลัง 90 วัน";
+    }else if(range==="custom"){
+      start=parseLocalDate(state.reportStart); end=parseLocalDate(state.reportEnd); label="กำหนดเอง";
+    }
+    if(start) start.setHours(0,0,0,0);
+    if(end) end.setHours(23,59,59,999);
+    return {start,end,label};
+  }
+  function bookingInReportRange(b){
+    const r=reportDateRange();
+    const d=parseLocalDate(b && b.event_date);
+    if(!d) return false;
+    if(r.start && d.getTime()<r.start.getTime()) return false;
+    if(r.end && d.getTime()>r.end.getTime()) return false;
+    return true;
+  }
+  function bookingIncludedInReport(b){
+    const st=normalizeBookingStatus(b && b.booking_status);
+    if(!bookingInReportRange(b)) return false;
+    if(state.reportStatusMode==="completed_only") return st==="completed";
+    if(state.reportStatusMode==="all_non_cancelled") return !["cancelled","no_show"].includes(st);
+    return isRevenueBooking(b);
+  }
+  function groupAdd(map, key, seed, amount){
+    const id=String(key||"-");
+    if(!map.has(id)) map.set(id, Object.assign({key:id, bookings:0, revenue:0, paid:0, unpaid:0, completed:0, active:0}, seed||{}));
+    const row=map.get(id);
+    row.bookings += 1;
+    row.revenue += amount || 0;
+    return row;
+  }
+  function buildReportModel(data){
+    const d=data||{};
+    const bookings=(d.bookings||[]).filter(bookingIncludedInReport);
+    const allInRange=(d.bookings||[]).filter(bookingInReportRange).filter(b=>!["cancelled","no_show"].includes(normalizeBookingStatus(b.booking_status)));
+    const eventMap=new Map(), packageMap=new Map(), assetMap=new Map(), customerMap=new Map();
+    let totalRevenue=0, paidCount=0, unpaidCount=0, completedCount=0, activeCount=0;
+    bookings.forEach(b=>{
+      const amount=toNum(b.amount_received);
+      totalRevenue += amount;
+      const payment=String(b.payment_status||"").toLowerCase().trim();
+      const st=normalizeBookingStatus(b.booking_status);
+      if(payment==="paid") paidCount += 1; else unpaidCount += 1;
+      if(st==="completed") completedCount += 1;
+      if(["pending","confirmed","prepared","picked_up","returned","uploaded"].includes(st)) activeCount += 1;
+      const ev=groupAdd(eventMap, b.event_id || b.event_name, {event_id:b.event_id||"", event_name:b.event_name||b.event_id||"", event_date:b.event_date||""}, amount);
+      if(payment==="paid") ev.paid += 1; else ev.unpaid += 1;
+      const pkg=groupAdd(packageMap, b.package_display || b.package_type, {package_display:b.package_display||b.package_type||"-", package_type:b.package_type||""}, amount);
+      if(payment==="paid") pkg.paid += 1; else pkg.unpaid += 1;
+      [[b.phone_asset_id,b.phone_model_display,"phone"],[b.lens_asset_id,b.lens_model_display,"lens"]].forEach(([assetId,label,type])=>{
+        if(!assetId) return;
+        const a=groupAdd(assetMap, assetId, {asset_id:assetId, asset_type:type, model_display:label||assetId}, amount);
+        a.last_event_date = !a.last_event_date || dateValue(b.event_date)>dateValue(a.last_event_date) ? b.event_date : a.last_event_date;
+        a.last_customer = dateValue(b.event_date)>=dateValue(a.last_event_date||b.event_date) ? (b.customer_name||"") : a.last_customer;
+      });
+      const ck=bookingCustomerKey(b) || b.customer_name || b.customer_phone || "-";
+      const c=groupAdd(customerMap, ck, {customer_key:ck, customer_name:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / ")}, amount);
+      c.last_event_date = !c.last_event_date || dateValue(b.event_date)>dateValue(c.last_event_date) ? b.event_date : c.last_event_date;
+      c.last_event_name = dateValue(b.event_date)>=dateValue(c.last_event_date||b.event_date) ? (b.event_name||"") : c.last_event_name;
+    });
+    const events=[...eventMap.values()].sort((a,b)=>b.revenue-a.revenue || b.bookings-a.bookings || dateValue(b.event_date)-dateValue(a.event_date));
+    const packages=[...packageMap.values()].sort((a,b)=>b.revenue-a.revenue || b.bookings-a.bookings);
+    const assets=[...assetMap.values()].sort((a,b)=>b.bookings-a.bookings || b.revenue-a.revenue);
+    const customers=[...customerMap.values()].sort((a,b)=>b.revenue-a.revenue || b.bookings-a.bookings);
+    const repeatCustomers=customers.filter(c=>c.bookings>=2).length;
+    const avgRevenue=bookings.length ? totalRevenue/bookings.length : 0;
+    const assetsAvailable=(d.assets||[]).filter(a=>a.rentable!==false && String(a.status||"").toLowerCase()!=="inactive").length;
+    const utilizedAssets=assets.length;
+    const utilizationRate=assetsAvailable ? Math.round((utilizedAssets/assetsAvailable)*100) : 0;
+    return {bookings, allInRange, events, packages, assets, customers, totalRevenue, paidCount, unpaidCount, completedCount, activeCount, repeatCustomers, avgRevenue, assetsAvailable, utilizedAssets, utilizationRate};
+  }
+  function reportInsightRows(model, data){
+    const d=data||{};
+    const rows=[];
+    const overduePayments=(d.bookings||[]).filter(b=>bookingInReportRange(b) && isUnpaidPayment(b.payment_status) && !isClosedBookingStatus(b.booking_status)).length;
+    const missingPickup=(d.bookings||[]).filter(b=>bookingInReportRange(b) && !String(b.pickup_time||"").trim() && !isClosedBookingStatus(b.booking_status)).length;
+    const topEvent=model.events[0];
+    const topAsset=model.assets[0];
+    const topPackage=model.packages[0];
+    if(topEvent) rows.push({level:"ok", title:"งานที่สร้างรายรับสูงสุด", detail:`${topEvent.event_name} · ${money(topEvent.revenue)} บาท · ${topEvent.bookings} booking`});
+    if(topPackage) rows.push({level:"ok", title:"แพ็กเกจที่ทำเงินดีที่สุด", detail:`${topPackage.package_display} · ${money(topPackage.revenue)} บาท · ${topPackage.bookings} booking`});
+    if(topAsset) rows.push({level:"ok", title:"Asset ที่ถูกใช้งานสูงสุด", detail:`${topAsset.asset_id} · ${topAsset.bookings} ครั้ง · รายรับเกี่ยวข้อง ${money(topAsset.revenue)} บาท`});
+    if(overduePayments) rows.push({level:"bad", title:"ยังมีรายการต้องตามเงิน", detail:`พบ ${overduePayments} booking ที่ยังไม่ paid/refunded และยังไม่ปิดงาน`});
+    if(missingPickup) rows.push({level:"warn", title:"ยังมี booking ไม่มีเวลารับเครื่อง", detail:`พบ ${missingPickup} booking ในช่วงรายงานที่ควรใส่ pickup_time เพื่อลดการลืมส่งมอบ`});
+    if(model.utilizationRate>=80) rows.push({level:"ok", title:"Asset utilization สูง", detail:`ใช้ asset ${model.utilizedAssets}/${model.assetsAvailable} รายการในช่วงรายงาน (${model.utilizationRate}%) อาจเริ่มดูความคุ้มค่าการซื้อเพิ่ม`});
+    if(model.repeatCustomers) rows.push({level:"ok", title:"มีลูกค้าเช่าซ้ำ", detail:`พบลูกค้าเช่าซ้ำ ${model.repeatCustomers} ราย ควรใช้ VIP/Good Customer badge ทำโปรกลับมาเช่าอีก`});
+    if(!rows.length) rows.push({level:"warn", title:"ยังไม่มีข้อมูลพอสำหรับ Insight", detail:"เลือกช่วงข้อมูลอื่น หรือเพิ่ม booking ที่มีจำนวนเงินรับแล้วเพื่อให้รายงานมีความหมายมากขึ้น"});
+    return rows;
+  }
+  function renderReports(data){
+    const model=buildReportModel(data||{});
+    const r=reportDateRange();
+    const scopeParts=[r.label];
+    if(r.start) scopeParts.push(fmtDate(r.start));
+    if(r.end) scopeParts.push("ถึง "+fmtDate(r.end));
+    if($("#reportScopeLabel")) $("#reportScopeLabel").textContent=scopeParts.join(" · ");
+    if($("#reportKpis")){
+      $("#reportKpis").innerHTML=[
+        `<div><strong>${esc(money(model.totalRevenue))}</strong><span>ยอดรับจริง</span></div>`,
+        `<div><strong>${esc(model.bookings.length)}</strong><span>Booking ที่นับรายงาน</span></div>`,
+        `<div><strong>${esc(model.completedCount)}</strong><span>Completed</span></div>`,
+        `<div><strong>${esc(model.repeatCustomers)}</strong><span>ลูกค้าเช่าซ้ำ</span></div>`,
+        `<div><strong>${esc(model.utilizationRate)}%</strong><span>Asset utilization</span></div>`,
+        `<div><strong>${esc(money(Math.round(model.avgRevenue)))}</strong><span>รายรับเฉลี่ย / booking</span></div>`
+      ].join("");
+    }
+    if($("#eventPerformanceCount")) $("#eventPerformanceCount").textContent=model.events.length+" งาน";
+    table($("#eventPerformanceTable"),[
+      {label:"งาน",render:x=>`<strong>${esc(x.event_name)}</strong><br><small>${esc(fmtDate(x.event_date))}</small>`},
+      {label:"Booking",render:x=>esc(x.bookings)},
+      {label:"Paid/Unpaid",render:x=>esc(`${x.paid}/${x.unpaid}`)},
+      {label:"ยอดรับ",render:x=>esc(money(x.revenue))}
+    ], model.events.slice(0,50));
+    if($("#packagePerformanceCount")) $("#packagePerformanceCount").textContent=model.packages.length+" แพ็กเกจ";
+    table($("#packagePerformanceTable"),[
+      {label:"แพ็กเกจ",render:x=>esc(x.package_display)},
+      {label:"Booking",render:x=>esc(x.bookings)},
+      {label:"Paid/Unpaid",render:x=>esc(`${x.paid}/${x.unpaid}`)},
+      {label:"ยอดรับ",render:x=>esc(money(x.revenue))}
+    ], model.packages.slice(0,50));
+    if($("#assetUtilizationCount")) $("#assetUtilizationCount").textContent=model.assets.length+" asset ถูกใช้";
+    table($("#assetUtilizationTable"),[
+      {label:"Asset",render:x=>`<strong>${esc(x.asset_id)}</strong><br><small>${esc(x.model_display||x.asset_type)}</small>`},
+      {label:"ใช้",render:x=>esc(x.bookings+" ครั้ง")},
+      {label:"ล่าสุด",render:x=>esc(fmtDate(x.last_event_date))},
+      {label:"ยอดรับเกี่ยวข้อง",render:x=>esc(money(x.revenue))}
+    ], model.assets.slice(0,80));
+    if($("#customerPerformanceCount")) $("#customerPerformanceCount").textContent=model.customers.length+" ลูกค้า";
+    table($("#customerPerformanceTable"),[
+      {label:"ลูกค้า",render:x=>`<strong>${esc(x.customer_name)}</strong><br><small>${esc(x.contact||'-')}</small>`},
+      {label:"เช่า",render:x=>esc(x.bookings+" ครั้ง")},
+      {label:"ล่าสุด",render:x=>esc(fmtDate(x.last_event_date))},
+      {label:"ยอดรับ",render:x=>esc(money(x.revenue))}
+    ], model.customers.slice(0,80));
+    const insights=reportInsightRows(model, data||{});
+    if($("#insightCount")) $("#insightCount").textContent=insights.length+" insight";
+    const box=$("#reportInsights");
+    if(box){
+      box.innerHTML=insights.map(x=>`<div class="insight-item ${esc(x.level)}"><strong>${esc(x.title)}</strong><span>${esc(x.detail)}</span></div>`).join("");
+    }
+  }
+
   function startOfToday(){
     const d=new Date();
     d.setHours(0,0,0,0);
@@ -803,6 +967,7 @@
 
   function render(){
     const d=state.data||{};
+    ["reportRange","reportStart","reportEnd","reportStatusMode"].forEach(id=>{ const el=$("#"+id); if(el && state[id]!==undefined && el.value!==state[id]) el.value=state[id]; });
     const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=versionDiagnosticsRows(d).concat(d.health||[]), today=d.today_working||[], customers=d.customers||[];
     const currentBookings=(d.current_bookings&&d.current_bookings.length?d.current_bookings:bookings.filter(shouldShowInEditBooking));
     const openEventRowsAll=sortedOpenEvents(events);
@@ -926,6 +1091,7 @@
       {label:"ดู",render:r=>`<button class="mini-btn${String(state.selectedCustomerKey)===String(r.customer_key)?' active':''}" type="button" data-customer-key="${esc(r.customer_key)}">ดูประวัติ</button>`}
     ], filteredCustomers.slice(0,100));
     renderCustomerDetail(customerHistory);
+    renderReports(d);
 
     fillSelects();
   }
@@ -1030,6 +1196,12 @@
         const el=$("#actionSearch");
         if(el){ el.focus(); const n=el.value.length; try{ el.setSelectionRange(n,n); }catch(_){} }
       }
+    });
+    [["reportRange","reportRange"],["reportStart","reportStart"],["reportEnd","reportEnd"],["reportStatusMode","reportStatusMode"]].forEach(([id,key])=>{
+      const el=$("#"+id);
+      if(!el) return;
+      el.addEventListener("change",()=>{ state[key]=el.value||""; render(); });
+      el.addEventListener("input",()=>{ state[key]=el.value||""; render(); });
     });
     const customerSearch=$("#customerSearch");
     if(customerSearch) customerSearch.addEventListener("input",()=>render());

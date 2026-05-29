@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE2</title>
+  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.7.0 · CRM Pro Phase 2</span>
+          <span>Phone Rental v16.7.0 · CRM Pro Phase 3</span>
         </div>
       </div>
       <nav aria-label="Admin sections">
@@ -31,6 +31,7 @@
         <button class="nav" type="button" data-tab="events">เพิ่ม/แก้งาน</button>
         <button class="nav" type="button" data-tab="packages">แพ็กเกจ/ราคา</button>
         <button class="nav" type="button" data-tab="assets">มือถือ/เลนส์</button>
+        <button class="nav" type="button" data-tab="reports">รายงาน</button>
         <button class="nav" type="button" data-tab="health">Health Check</button>
         <button class="nav muted" id="logoutBtn" type="button">ออกจากระบบ</button>
       </nav>
@@ -43,7 +44,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.7.0 · CRM Pro Phase 2</span>
+          <span class="top-badge" title="Admin UI version">v16.7.0 · CRM Pro Phase 3</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -77,6 +78,7 @@
               <button class="btn secondary" type="button" data-tab-jump="edit-booking">แก้ / ยกเลิก Booking</button>
               <button class="btn ghost" type="button" data-tab-jump="customers">ดูประวัติลูกค้า</button>
               <button class="btn ghost" type="button" data-tab-jump="events">เพิ่ม / แก้งาน</button>
+              <button class="btn ghost" type="button" data-tab-jump="reports">รายงาน</button>
             </div>
           </div>
           <div class="grid stats" id="statsGrid"></div>
@@ -439,6 +441,75 @@
               <div class="card-head"><h2>Assets ล่าสุด</h2><small id="assetsCount"></small></div>
               <div class="table-wrap"><table id="assetsTable"></table></div>
             </div>
+          </div>
+        </section>
+
+
+        <section class="tab-panel" id="tab-reports">
+          <div class="card report-hero">
+            <div class="card-head">
+              <div>
+                <span class="eyebrow">Phase 3</span>
+                <h2>Reports & Asset Intelligence</h2>
+                <p class="hint">สรุปยอดรับจริง รายได้ตามงาน/แพ็กเกจ การใช้งานเครื่อง ลูกค้าเช่าซ้ำ และรายการที่ควรตรวจสอบก่อนตัดสินใจซื้อเครื่องเพิ่ม</p>
+              </div>
+              <small id="reportScopeLabel">ข้อมูลทั้งหมด</small>
+            </div>
+            <div class="report-filter-grid">
+              <label class="mini-control">ช่วงข้อมูล
+                <select id="reportRange">
+                  <option value="all">ทั้งหมด</option>
+                  <option value="this_month">เดือนนี้</option>
+                  <option value="next_30">30 วันข้างหน้า</option>
+                  <option value="last_90">ย้อนหลัง 90 วัน</option>
+                  <option value="custom">กำหนดเอง</option>
+                </select>
+              </label>
+              <label class="mini-control">ตั้งแต่
+                <input id="reportStart" class="mini-search" type="date" />
+              </label>
+              <label class="mini-control">ถึง
+                <input id="reportEnd" class="mini-search" type="date" />
+              </label>
+              <label class="mini-control">สถานะที่นับรายงาน
+                <select id="reportStatusMode">
+                  <option value="active_revenue">เช่าจริง/รับเงินจริง</option>
+                  <option value="all_non_cancelled">ทุก booking ที่ไม่ยกเลิก</option>
+                  <option value="completed_only">completed เท่านั้น</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid stats compact" id="reportKpis"></div>
+          </div>
+
+          <div class="grid two-col report-grid">
+            <div class="card">
+              <div class="card-head"><h2>Event Performance</h2><small id="eventPerformanceCount"></small></div>
+              <div class="table-wrap"><table id="eventPerformanceTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>Package Performance</h2><small id="packagePerformanceCount"></small></div>
+              <div class="table-wrap"><table id="packagePerformanceTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>Asset Utilization</h2><small id="assetUtilizationCount"></small></div>
+              <div class="table-wrap"><table id="assetUtilizationTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>Customer Performance</h2><small id="customerPerformanceCount"></small></div>
+              <div class="table-wrap"><table id="customerPerformanceTable"></table></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>Data / Business Insights</h2>
+                <p class="hint">ระบบตรวจจากข้อมูล booking จริง ไม่สร้าง mock data และไม่แก้ข้อมูลลูกค้า</p>
+              </div>
+              <small id="insightCount"></small>
+            </div>
+            <div id="reportInsights" class="insight-list"></div>
           </div>
         </section>
 
