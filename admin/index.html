@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE1</title>
+  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE2</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.7.0 · CRM Pro</span>
+          <span>Phone Rental v16.7.0 · CRM Pro Phase 2</span>
         </div>
       </div>
       <nav aria-label="Admin sections">
@@ -43,7 +43,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.7.0 · CRM Pro</span>
+          <span class="top-badge" title="Admin UI version">v16.7.0 · CRM Pro Phase 2</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -85,12 +85,13 @@
             <div class="card-head">
               <div>
                 <span class="eyebrow">Action Center</span>
-                <h2>สิ่งที่ต้องจัดการ</h2>
-                <p class="hint">รวมงานที่ควรเช็กก่อน เช่น ยังไม่ชำระเงิน รอรับคืน งานใกล้ถึง และงานที่ข้อมูลยังไม่สมบูรณ์</p>
+                <h2>Operation Command Center</h2>
+                <p class="hint">สั่งงานประจำวันจากหน้าเดียว: ตามเงิน เตรียมเครื่อง รับคืน อัปโหลด ปิดงาน และเช็กข้อมูลเสี่ยง</p>
               </div>
               <small id="actionCount"></small>
             </div>
             <div class="grid stats compact action-kpi" id="actionStats"></div>
+            <div id="actionToolbar" class="action-toolbar"></div>
             <div class="table-wrap action-table-wrap"><table id="actionTable"></table></div>
           </div>
 
@@ -173,6 +174,7 @@
                 <select name="booking_status">
                   <option value="confirmed">confirmed</option>
                   <option value="pending">pending</option>
+                  <option value="prepared">prepared</option>
                   <option value="cancelled">cancelled</option>
                 </select>
               </label>
@@ -208,15 +210,19 @@
             <div class="form-note warn-note">ถ้าลูกค้าเปลี่ยนงานหรือเปลี่ยนแพ็กเกจ แนะนำให้ยกเลิก booking เดิม แล้วสร้าง booking ใหม่ เพื่อกันสต็อกผิด</div>
             <label>เลือก Booking
               <select name="row_number" required></select>
-              <small>แสดงเฉพาะ booking วันนี้/อนาคต และ booking เก่าที่ยังไม่ returned/cancelled เพื่อกันรายการปิดแล้วค้างใน dropdown</small>
+              <small>แสดงเฉพาะ booking ที่ยังต้องดำเนินการ ส่วน completed/cancelled/no_show จะถูกซ่อนเพื่อลดรายการค้าง</small>
             </label>
             <div class="row three">
               <label>สถานะ Booking
                 <select name="booking_status" required>
                   <option value="confirmed">confirmed</option>
                   <option value="pending">pending</option>
+                  <option value="prepared">prepared</option>
                   <option value="picked_up">picked_up</option>
                   <option value="returned">returned</option>
+                  <option value="uploaded">uploaded</option>
+                  <option value="completed">completed</option>
+                  <option value="no_show">no_show</option>
                   <option value="cancelled">cancelled</option>
                 </select>
               </label>

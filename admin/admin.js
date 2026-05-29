@@ -1,11 +1,15 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE1 — Hide closed past bookings from Edit Booking
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE2 — Operation Command Center
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE1";
-  const EXPECTED_BACKEND_VERSION = "v16.6.2_LINE_AUDITED";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE2";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE2";
   const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "" };
+  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "" };
+  const OPERATION_FILTERS = [
+    ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
+    ["payment","ตามเงิน"], ["prep","เตรียม/ส่งมอบ"], ["return","รับคืน"], ["upload","อัปโหลด/ปิดงาน"], ["data","ข้อมูลผิด"], ["risk","เสี่ยง"]
+  ];
 
   function showNotice(msg, type="ok"){
     const n=$("#notice");
@@ -117,19 +121,21 @@
     return Math.round((d.getTime()-startOfToday().getTime())/86400000);
   }
   function isActiveBookingStatus(status){
-    return ["pending","confirmed","picked_up"].includes(String(status||"").toLowerCase().trim());
+    return ["pending","confirmed","prepared","picked_up"].includes(String(status||"").toLowerCase().trim());
+  }
+  function isWorkflowOpenStatus(status){
+    return ["pending","confirmed","prepared","picked_up","returned","uploaded"].includes(String(status||"").toLowerCase().trim());
   }
   function isClosedBookingStatus(status){
-    return ["cancelled","returned"].includes(String(status||"").toLowerCase().trim());
+    return ["cancelled","completed","no_show"].includes(String(status||"").toLowerCase().trim());
   }
   function shouldShowInEditBooking(b){
-    // Edit Booking should stay focused on bookings that still need action.
-    // Closed bookings must never appear here, even when the event date is today/future.
-    // Keep overdue active rows so admins can still mark them returned/cancelled if they forgot.
+    // Edit Booking focuses on rows that can still be operated on.
+    // completed/cancelled/no_show are final. returned/uploaded remain visible so admin can upload/close workflow.
     if(!b) return false;
     if(isClosedBookingStatus(b.booking_status)) return false;
     if(isTodayOrFuture(b.event_date)) return true;
-    return isActiveBookingStatus(b.booking_status);
+    return isWorkflowOpenStatus(b.booking_status);
   }
   function isUnpaidPayment(status){
     const s=String(status||"").toLowerCase().trim();
@@ -137,27 +143,60 @@
     return !["paid","refunded"].includes(s);
   }
   function actionSeverity(type){
-    if(type==="payment" || type==="return" || type==="data") return "bad";
-    if(type==="upcoming") return "warn";
+    if(type==="payment" || type==="return" || type==="data" || type==="risk") return "bad";
+    if(type==="prep" || type==="upcoming" || type==="upload" || type==="close") return "warn";
     return "ok";
+  }
+  function actionTypeLabel(type){
+    return ({payment:"ตามเงิน", prep:"เตรียม/ส่งมอบ", upcoming:"ใกล้ถึง", return:"รับคืน", upload:"อัปโหลด", close:"ปิดงาน", data:"ข้อมูล", risk:"เสี่ยง"})[type] || type || "-";
   }
   function buildActionRows(data){
     const d=data||{};
     const rows=[];
     const bookings=d.bookings||[];
     const events=d.events||[];
+    const pushBooking=(b, extra)=>{
+      rows.push(Object.assign({
+        row_number:b.row_number,
+        booking_status:b.booking_status,
+        payment_status:b.payment_status,
+        amount_received:b.amount_received,
+        date:b.event_date,
+        title:b.event_name||b.event_id||"",
+        customer:b.customer_name||"-",
+        contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "),
+        pickup_time:b.pickup_time||"",
+        package_display:b.package_display||b.package_type||"",
+        asset:[b.phone_asset_id,b.lens_asset_id].filter(Boolean).join(" / "),
+        ref:bookingCustomerKey(b)
+      }, extra||{}));
+    };
     bookings.forEach(b=>{
       const st=String(b.booking_status||"").toLowerCase().trim();
-      if(st==="cancelled" || st==="returned") return;
+      const diff=daysFromToday(b.event_date);
+      if(["cancelled","completed","no_show"].includes(st)) return;
+      const hasContact=String(b.customer_phone||"").trim() || String(b.customer_contact||"").trim();
+      if(!hasContact){
+        pushBooking(b,{type:"data", priority:1, task:"ข้อมูลติดต่อไม่ครบ", risk_flag:true});
+      }
       if(isUnpaidPayment(b.payment_status)){
-        rows.push({type:"payment", priority:1, row_number:b.row_number, booking_status:b.booking_status, payment_status:b.payment_status, amount_received:b.amount_received, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", package_display:b.package_display||b.package_type||"", asset:[b.phone_asset_id,b.lens_asset_id].filter(Boolean).join(" / "), task:"ตามชำระเงิน", ref:bookingCustomerKey(b)});
+        pushBooking(b,{type:"payment", priority:1, task:"ตามชำระเงิน", risk_flag:true});
+      }
+      if(isActiveBookingStatus(st) && diff!==null && diff>=0 && diff<=7 && !String(b.pickup_time||"").trim()){
+        pushBooking(b,{type:"data", priority:2, task:"ยังไม่มีเวลารับเครื่อง", risk_flag:true});
+      }
+      if(["pending","confirmed","prepared"].includes(st) && diff!==null && diff>=0 && diff<=7){
+        const task=st==="pending" ? "ยืนยัน booking / นัดเวลา" : (st==="prepared" ? "พร้อมส่งมอบ / รอลูกค้ารับ" : (diff===0 ? "งานวันนี้: เตรียมส่งมอบ" : "งานใน "+diff+" วัน: เตรียมเครื่อง"));
+        pushBooking(b,{type:"prep", priority: diff===0 ? 2 : 3, task});
       }
       if(st==="picked_up"){
-        rows.push({type:"return", priority:2, row_number:b.row_number, booking_status:b.booking_status, payment_status:b.payment_status, amount_received:b.amount_received, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", package_display:b.package_display||b.package_type||"", asset:[b.phone_asset_id,b.lens_asset_id].filter(Boolean).join(" / "), task:"รอรับคืน / ตรวจเครื่อง", ref:bookingCustomerKey(b)});
+        pushBooking(b,{type:"return", priority:1, task:"รอรับคืน / ตรวจเครื่อง"});
       }
-      const diff=daysFromToday(b.event_date);
-      if(isActiveBookingStatus(st) && diff!==null && diff>=0 && diff<=7){
-        rows.push({type:"upcoming", priority:3, row_number:b.row_number, booking_status:b.booking_status, payment_status:b.payment_status, amount_received:b.amount_received, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", package_display:b.package_display||b.package_type||"", asset:[b.phone_asset_id,b.lens_asset_id].filter(Boolean).join(" / "), task:diff===0?"งานวันนี้":"งานใน "+diff+" วัน", ref:bookingCustomerKey(b)});
+      if(st==="returned"){
+        pushBooking(b,{type:"upload", priority:2, task:"อัปโหลดไฟล์ / ส่ง Drive link"});
+      }
+      if(st==="uploaded"){
+        pushBooking(b,{type:"close", priority:3, task:"ยืนยันส่ง link แล้ว / ปิดงาน"});
       }
     });
     events.forEach(e=>{
@@ -168,10 +207,48 @@
       if(!String(e.poster_url||"").trim()) missing.push("ไม่มีรูป");
       if(!String(e.venue||"").trim()) missing.push("ไม่มีสถานที่");
       if(missing.length){
-        rows.push({type:"data", priority:4, date:e.event_date, title:e.event_name||e.event_id||"", customer:"-", contact:"-", task:missing.join(" / "), ref:""});
+        rows.push({type:"data", priority:4, date:e.event_date, title:e.event_name||e.event_id||"", customer:"-", contact:"-", pickup_time:"", package_display:"", asset:"", booking_status:"", payment_status:"", task:missing.join(" / "), ref:""});
       }
     });
     return rows.sort((a,b)=>(a.priority-b.priority) || (dateValue(a.date)-dateValue(b.date)) || String(a.title).localeCompare(String(b.title),"th"));
+  }
+  function actionMatchesFilter(r, filter){
+    const f=filter||"all";
+    if(f==="all") return true;
+    const diff=daysFromToday(r.date);
+    if(f==="today") return diff===0;
+    if(f==="tomorrow") return diff===1;
+    if(f==="week") return diff!==null && diff>=0 && diff<=7;
+    if(f==="risk") return !!r.risk_flag || r.type==="payment" || r.type==="return" || r.type==="data";
+    if(f==="upload") return r.type==="upload" || r.type==="close";
+    return r.type===f;
+  }
+  function filterActionRows(rows){
+    const q=String(state.actionSearch||"").trim().toLowerCase();
+    return (rows||[])
+      .filter(r=>actionMatchesFilter(r, state.actionFilter))
+      .filter(r=>!q || [r.title,r.customer,r.contact,r.task,r.asset,r.package_display,r.pickup_time].join(" ").toLowerCase().includes(q));
+  }
+  function renderActionToolbar(rows){
+    const box=$("#actionToolbar");
+    if(!box) return;
+    const all=rows||[];
+    const counts={
+      all:all.length,
+      today:all.filter(r=>daysFromToday(r.date)===0).length,
+      tomorrow:all.filter(r=>daysFromToday(r.date)===1).length,
+      week:all.filter(r=>{ const d=daysFromToday(r.date); return d!==null && d>=0 && d<=7; }).length,
+      payment:all.filter(r=>r.type==="payment").length,
+      prep:all.filter(r=>r.type==="prep").length,
+      return:all.filter(r=>r.type==="return").length,
+      upload:all.filter(r=>r.type==="upload" || r.type==="close").length,
+      data:all.filter(r=>r.type==="data").length,
+      risk:all.filter(r=>r.risk_flag || r.type==="payment" || r.type==="return" || r.type==="data").length
+    };
+    box.innerHTML=`<div class="action-filter-buttons">${OPERATION_FILTERS.map(([key,label])=>`<button class="mini-btn ${state.actionFilter===key?'active':''}" type="button" data-action-filter="${esc(key)}">${esc(label)} <span>${esc(counts[key]||0)}</span></button>`).join('')}</div>
+      <label class="mini-control action-search">ค้นหาใน Command Center
+        <input id="actionSearch" class="mini-search" type="search" placeholder="งาน / ลูกค้า / เบอร์ / asset / task" value="${esc(state.actionSearch||'')}" />
+      </label>`;
   }
   function customerKeyFromRecord(name, contact, phone){
     const p=String(phone||"").replace(/\D+/g,"");
@@ -202,14 +279,14 @@
     });
     (bookings||[]).forEach(b=>{
       const st=String(b.booking_status||"").toLowerCase().trim();
-      if(st==="cancelled") return;
+      if(["cancelled","no_show"].includes(st)) return;
       const key=customerKeyFromRecord(b.customer_name,b.customer_contact,b.customer_phone);
       if(!key) return;
       const item=ensure(key);
       item.customer_name=b.customer_name||item.customer_name;
       item.customer_contact=b.customer_contact||item.customer_contact;
       item.customer_phone=b.customer_phone||item.customer_phone;
-      item.rental_count+=1;
+      if(["picked_up","returned","uploaded","completed"].includes(st)) item.rental_count+=1;
       const rentalDate=b.event_date||b.created_at||"";
       if(rentalDate && (!item.first_rental_date || dateValue(rentalDate)<dateValue(item.first_rental_date))) item.first_rental_date=rentalDate;
       if(rentalDate && (!item.last_rental_date || dateValue(rentalDate)>=dateValue(item.last_rental_date))){
@@ -320,6 +397,9 @@
     if(type==='payment') return `สวัสดีค่ะ ${name} ขอแจ้งเตือนเรื่องยอดชำระสำหรับงาน ${event} วันที่ ${date} ค่ะ หากชำระแล้วสามารถส่งสลิปกลับมาได้เลยนะคะ`;
     if(type==='pickup') return `สวัสดีค่ะ ${name} ยืนยันนัดรับเครื่องสำหรับงาน ${event} วันที่ ${date} เวลา ${pickup} นะคะ`;
     if(type==='return') return `สวัสดีค่ะ ${name} หลังจบงาน ${event} รบกวนคืนเครื่องตามจุดนัดหมาย และรอแอดมินตรวจเครื่อง/เลนส์ก่อนปิดงานนะคะ`;
+    if(type==='upload') return `สวัสดีค่ะ ${name} แอดมินกำลังอัปโหลดไฟล์จากงาน ${event} วันที่ ${date} ให้นะคะ หากเสร็จแล้วจะส่งลิงก์ Google Drive ให้ค่ะ`;
+    if(type==='close') return `สวัสดีค่ะ ${name} แอดมินส่งลิงก์ไฟล์งาน ${event} เรียบร้อยแล้วค่ะ ขอบคุณมากนะคะ`;
+    if(type==='prep') return `สวัสดีค่ะ ${name} แอดมินขอยืนยัน booking งาน ${event} วันที่ ${date} เวลารับ ${pickup} นะคะ`;
     return `สวัสดีค่ะ ${name} ขอสรุป booking งาน ${event} วันที่ ${date} เวลารับ ${pickup} ค่ะ`;
   }
   function openBookingEdit(rowNumber){
@@ -336,7 +416,9 @@
   function actionPriority(r){
     if(r.type==='payment') return {label:'P1', cls:'bad', title:'ต้องตามเงินก่อนส่งมอบ'};
     if(r.type==='return') return {label:'P1', cls:'bad', title:'เครื่องอยู่กับลูกค้า ต้องรับคืน/ตรวจ'};
-    if(r.type==='data') return {label:'P2', cls:'warn', title:'ข้อมูลไม่ครบ ควรแก้ก่อนขึ้นเว็บ/ก่อนวันงาน'};
+    if(r.type==='data') return {label:'P2', cls:'warn', title:'ข้อมูลไม่ครบ ควรแก้ก่อนวันงาน'};
+    if(r.type==='upload') return {label:'P2', cls:'warn', title:'ลูกค้าคืนเครื่องแล้ว ต้องอัปโหลดไฟล์'};
+    if(r.type==='close') return {label:'P3', cls:'ok', title:'อัปโหลดแล้ว เหลือปิดงาน'};
     return {label:'P3', cls:'warn', title:'งานใกล้ถึง ควรเตรียมเครื่อง'};
   }
   function actionButtons(r){
@@ -345,9 +427,13 @@
     const buttons=[];
     buttons.push(`<button class="mini-btn" type="button" data-edit-booking-row="${esc(r.row_number)}">แก้</button>`);
     buttons.push(`<button class="mini-btn" type="button" data-customer-key="${esc(r.ref)}">CRM</button>`);
-    if(isUnpaidPayment(r.payment_status)) buttons.push(`<button class="mini-btn" type="button" data-quick-action="paid" data-row="${esc(r.row_number)}">Paid</button>`);
-    if(['pending','confirmed'].includes(st)) buttons.push(`<button class="mini-btn" type="button" data-quick-action="picked_up" data-row="${esc(r.row_number)}">รับแล้ว</button>`);
+    if(isUnpaidPayment(r.payment_status)) buttons.push(`<button class="mini-btn danger-soft" type="button" data-quick-action="paid" data-row="${esc(r.row_number)}">Paid</button>`);
+    if(['pending','confirmed'].includes(st)) buttons.push(`<button class="mini-btn" type="button" data-quick-action="prepared" data-row="${esc(r.row_number)}">เตรียมแล้ว</button>`);
+    if(['pending','confirmed','prepared'].includes(st)) buttons.push(`<button class="mini-btn" type="button" data-quick-action="picked_up" data-row="${esc(r.row_number)}">รับแล้ว</button>`);
     if(st==='picked_up') buttons.push(`<button class="mini-btn" type="button" data-quick-action="returned" data-row="${esc(r.row_number)}">คืนแล้ว</button>`);
+    if(st==='returned') buttons.push(`<button class="mini-btn" type="button" data-quick-action="uploaded" data-row="${esc(r.row_number)}">อัปโหลดแล้ว</button>`);
+    if(st==='uploaded') buttons.push(`<button class="mini-btn" type="button" data-quick-action="completed" data-row="${esc(r.row_number)}">ปิดงาน</button>`);
+    if(!['returned','uploaded','completed'].includes(st)) buttons.push(`<button class="mini-btn warn-soft" type="button" data-quick-action="no_show" data-row="${esc(r.row_number)}">No-show</button>`);
     buttons.push(`<button class="mini-btn" type="button" data-copy-line="${esc(r.type)}" data-row="${esc(r.row_number)}">LINE</button>`);
     return `<div class="inline-actions">${buttons.join('')}</div>`;
   }
@@ -434,7 +520,7 @@
       {label:"เวลารับ",render:r=>esc(r.pickup_time || "-")},
       {label:"แพ็กเกจ",render:r=>esc(r.package_display || r.package_type || r.template_id || "")},
       {label:"Asset",render:r=>esc([r.phone_asset_id,r.lens_asset_id].filter(Boolean).join(" / ") || "-")},
-      {label:"Booking",render:r=>`<span class="pill ${String(r.booking_status).toLowerCase()==='cancelled'?'bad':(String(r.booking_status).toLowerCase()==='returned'?'ok':'warn')}">${esc(bookingLifecycleLabel(r.booking_status))}</span>`},
+      {label:"Booking",render:r=>{ const st=String(r.booking_status||'').toLowerCase(); const cls=['cancelled','no_show'].includes(st)?'bad':(['returned','uploaded','completed'].includes(st)?'ok':'warn'); return `<span class="pill ${cls}">${esc(bookingLifecycleLabel(r.booking_status))}</span>`; }},
       {label:"Payment",render:r=>`<span class="pill ${String(r.payment_status).toLowerCase()==='paid'?'ok':'bad'}">${esc(r.payment_status||'')}</span>`},
       {label:"รับแล้ว",render:r=>esc(money(r.amount_received||0))},
       {label:"Action",render:r=>`<div class="inline-actions"><button class="mini-btn" type="button" data-edit-booking-row="${esc(r.row_number||'')}">แก้</button><button class="mini-btn" type="button" data-copy-line="summary" data-row="${esc(r.row_number||'')}">LINE</button></div>`}
@@ -726,11 +812,13 @@
     const openEventRows=openEventRowsAll.filter(r=>containsQuery(r,["event_name","venue","event_id"],eventsQ));
     const bookingRows=bookingRowsAll.filter(r=>containsQuery(r,["customer_name","customer_phone","customer_contact","event_name","event_id","package_display","package_type"],bookingsQ));
     const actionRows=buildActionRows(d);
+    const shownActionRows=filterActionRows(actionRows);
+    renderActionToolbar(actionRows);
     const customerHistory=customerHistoryRows(bookings, customers);
     const openEvents=openEventRows.length;
     const phones=assets.filter(a=>a.asset_type==="phone" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const lenses=assets.filter(a=>a.asset_type==="lens" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
-    const activeBookings=currentBookings.filter(b=>["pending","confirmed","picked_up"].includes(String(b.booking_status||"").toLowerCase())).length;
+    const activeBookings=currentBookings.filter(b=>isWorkflowOpenStatus(b.booking_status)).length;
     const unpaidToday=today.filter(b=>String(b.payment_status||"").toLowerCase()!=="paid").length;
     $("#statsGrid").innerHTML=[
       [openEvents,"งานเปิดอยู่"],[packages.filter(p=>p.active!==false).length,"แพ็กเกจ active"],[overrides.length,"ราคาเฉพาะงาน"],[phones,"มือถือ available"],[lenses,"เลนส์ available"],[activeBookings,"Booking active"],[today.length,"งานที่ต้องทำวันนี้"],[customerHistory.length,"ลูกค้าที่มีประวัติ"]
@@ -740,15 +828,16 @@
     if(actionStats){
       actionStats.innerHTML=[
         [actionRows.filter(r=>r.type==="payment").length,"ต้องตามเงิน"],
+        [actionRows.filter(r=>r.type==="prep").length,"เตรียม/ส่งมอบ"],
         [actionRows.filter(r=>r.type==="return").length,"รอรับคืน"],
-        [actionRows.filter(r=>r.type==="upcoming").length,"งานใน 7 วัน"],
+        [actionRows.filter(r=>r.type==="upload" || r.type==="close").length,"อัปโหลด/ปิดงาน"],
         [actionRows.filter(r=>r.type==="data").length,"ข้อมูลต้องเช็ก"]
       ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
     }
-    if($("#actionCount")) $("#actionCount").textContent=actionRows.length+" รายการที่ควรเช็ก";
+    if($("#actionCount")) $("#actionCount").textContent=shownActionRows.length+" / "+actionRows.length+" รายการที่ควรเช็ก";
     table($("#actionTable"),[
       {label:"Priority",render:r=>{ const p=actionPriority(r); return `<span class="pill ${p.cls}" title="${esc(p.title)}">${esc(p.label)}</span>`; }},
-      {label:"ประเภท",render:r=>`<span class="pill ${actionSeverity(r.type)}">${esc(r.type==="payment"?"ตามเงิน":r.type==="return"?"รับคืน":r.type==="upcoming"?"ใกล้ถึง":"ข้อมูล")}</span>`},
+      {label:"ประเภท",render:r=>`<span class="pill ${actionSeverity(r.type)}">${esc(actionTypeLabel(r.type))}</span>`},
       {label:"วันที่",render:r=>esc(fmtDate(r.date))},
       {label:"เวลารับ",render:r=>esc(r.pickup_time || "-")},
       {label:"รายการ",render:r=>`<strong>${esc(r.title)}</strong><br><small>${esc(r.package_display||'')}</small>`},
@@ -757,7 +846,7 @@
       {label:"สถานะ",render:r=>`${esc(bookingLifecycleLabel(r.booking_status||''))}<br><small>Payment: ${esc(r.payment_status||'-')}</small>`},
       {label:"สิ่งที่ต้องทำ",render:r=>esc(r.task)},
       {label:"Action",render:r=>actionButtons(r)}
-    ], actionRows.slice(0,40));
+    ], shownActionRows.slice(0,60));
 
     $("#eventsCount").textContent=(openEventRows.length===openEventRowsAll.length?openEventRows.length:(openEventRows.length+" / "+openEventRowsAll.length))+" รายการ";
     table($("#eventsTable"),[
@@ -777,7 +866,7 @@
       {label:"แพ็กเกจ",render:r=>esc(r.package_display || r.package_type || "")},
       {label:"Phone",render:r=>esc(r.phone_model_display || r.phone_asset_id || "-")},
       {label:"Lens",render:r=>esc(r.lens_model_display || r.lens_asset_id || "-")},
-      {label:"สถานะ",render:r=>`<span class="pill ${String(r.booking_status).toLowerCase()==='cancelled'?'bad':'ok'}">${esc(r.booking_status)}</span>`},
+      {label:"สถานะ",render:r=>{ const st=String(r.booking_status||'').toLowerCase(); const cls=['cancelled','no_show'].includes(st)?'bad':(['returned','uploaded','completed'].includes(st)?'ok':'warn'); return `<span class="pill ${cls}">${esc(bookingLifecycleLabel(r.booking_status))}</span>`; }},
       {label:"วันที่บันทึก",render:r=>esc(fmtDate(r.created_at))},
       {label:"CRM",render:r=>`<button class="mini-btn" type="button" data-customer-key="${esc(bookingCustomerKey(r))}">ดูประวัติ</button>`}
     ], bookingRows.slice(0,50));
@@ -786,7 +875,7 @@
     if(todayStats){
       todayStats.innerHTML=[
         [today.length,"Booking วันนี้"],
-        [today.filter(b=>["pending","confirmed"].includes(String(b.booking_status||"").toLowerCase())).length,"ต้องเตรียมส่งมอบ"],
+        [today.filter(b=>["pending","confirmed","prepared"].includes(String(b.booking_status||"").toLowerCase())).length,"เตรียม/ส่งมอบ"],
         [today.filter(b=>String(b.booking_status||"").toLowerCase()==="picked_up").length,"รอรับคืน"],
         [unpaidToday,"ยังไม่ paid"]
       ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
@@ -928,6 +1017,20 @@
       const el=$(sel);
       if(el) el.addEventListener("input",()=>render());
     });
+    document.addEventListener("click", ev=>{
+      const btn=ev.target.closest("[data-action-filter]");
+      if(!btn) return;
+      state.actionFilter=btn.getAttribute("data-action-filter")||"all";
+      render();
+    });
+    document.addEventListener("input", ev=>{
+      if(ev.target && ev.target.id==="actionSearch"){
+        state.actionSearch=ev.target.value||"";
+        render();
+        const el=$("#actionSearch");
+        if(el){ el.focus(); const n=el.value.length; try{ el.setSelectionRange(n,n); }catch(_){} }
+      }
+    });
     const customerSearch=$("#customerSearch");
     if(customerSearch) customerSearch.addEventListener("input",()=>render());
     document.addEventListener("click",ev=>{
@@ -968,10 +1071,23 @@
       if(action==="paid"){
         if(toNum(b.amount_received)<=0 && !confirm("Booking นี้ยอดรับแล้วยังเป็น 0 ต้องการเปลี่ยนสถานะเป็น paid อยู่ใช่ไหม?")) return;
         payload.payment_status="paid"; label="สถานะชำระเงินเป็น paid";
+      }else if(action==="prepared"){
+        payload.booking_status="prepared"; label="สถานะเป็นเตรียมเครื่องแล้ว";
       }else if(action==="picked_up"){
         payload.booking_status="picked_up"; label="สถานะเป็นรับเครื่องแล้ว";
       }else if(action==="returned"){
         payload.booking_status="returned"; label="สถานะเป็นคืนเครื่องแล้ว";
+      }else if(action==="uploaded"){
+        payload.booking_status="uploaded"; label="สถานะเป็นอัปโหลดไฟล์แล้ว";
+      }else if(action==="completed"){
+        if(!confirm("ปิดงานนี้เป็น completed ใช่ไหม? รายการจะหายจาก Action Center")) return;
+        payload.booking_status="completed"; label="ปิดงาน completed";
+      }else if(action==="no_show"){
+        if(!confirm("เปลี่ยน booking นี้เป็น no_show ใช่ไหม?")) return;
+        payload.booking_status="no_show"; label="สถานะเป็น no_show";
+      }else if(action==="cancelled"){
+        if(!confirm("ยกเลิก booking นี้ใช่ไหม?")) return;
+        payload.booking_status="cancelled"; label="สถานะเป็น cancelled";
       }else return;
       setBusy(quick,true);
       try{ await api("updateBooking", payload); await refresh(); showNotice("อัปเดตสำเร็จ: "+label); }

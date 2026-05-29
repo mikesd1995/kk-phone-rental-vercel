@@ -311,3 +311,15 @@ tbody tr:nth-child(even) td{background:#fbfdff}
 .timeline{display:grid;gap:10px;margin-bottom:14px}.timeline-item{position:relative;display:flex;gap:10px;border:1px solid #e2e8f0;border-radius:16px;padding:11px;background:#fff}.timeline-dot{width:12px;height:12px;border-radius:999px;margin-top:5px;background:#94a3b8;box-shadow:0 0 0 4px #f1f5f9;flex:0 0 auto}.timeline-item.ok .timeline-dot{background:#10b981;box-shadow:0 0 0 4px #d1fae5}.timeline-item.warn .timeline-dot{background:#f59e0b;box-shadow:0 0 0 4px #fef3c7}.timeline-item.bad .timeline-dot{background:#ef4444;box-shadow:0 0 0 4px #fee2e2}.timeline-item.info .timeline-dot{background:#3b82f6;box-shadow:0 0 0 4px #dbeafe}.timeline-main{display:grid;gap:2px}.timeline-main span,.timeline-main small{color:#64748b}.timeline-main strong{color:#0f172a}.empty-note{border:1px dashed #cbd5e1;border-radius:16px;padding:14px;color:#64748b;background:#f8fafc;text-align:center}
 .inline-actions{display:flex;flex-wrap:wrap;gap:6px}.inline-actions .mini-btn{min-height:32px;padding:6px 9px;font-size:12px}.action-table-wrap table td{vertical-align:middle}.action-table-wrap table small{color:#64748b;font-weight:600}.pill.info{border-color:#bfdbfe;background:#dbeafe;color:#1d4ed8}
 @media(max-width:720px){.crm-profile-card{align-items:flex-start}.section-title-row{display:grid}.inline-actions .mini-btn{flex:1 1 auto}}
+
+
+/* v16.7.0_CRM_PRO_PHASE2 — Operation Command Center */
+.action-toolbar{display:grid;gap:12px;margin:14px 0 16px;padding:14px;border:1px solid #dbeafe;background:linear-gradient(180deg,#eff6ff 0%,#fff 100%);border-radius:18px}
+.action-filter-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.action-filter-buttons .mini-btn{display:inline-flex;align-items:center;gap:6px;font-weight:900}
+.action-filter-buttons .mini-btn span{display:inline-grid;place-items:center;min-width:24px;height:22px;border-radius:999px;background:rgba(255,255,255,.75);border:1px solid rgba(148,163,184,.35);font-size:12px}
+.action-search{max-width:520px}.action-search input{width:100%}
+.mini-btn.danger-soft{border-color:#fca5a5;background:#fef2f2;color:#991b1b}
+.mini-btn.warn-soft{border-color:#fcd34d;background:#fffbeb;color:#92400e}
+.action-table-wrap table td:nth-child(10){min-width:260px}
+@media(max-width:720px){.action-filter-buttons .mini-btn{flex:1 1 auto;justify-content:center}.action-search{max-width:none}}
