@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3</title>
+  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3_5_UI</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,21 +19,24 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.7.0 · CRM Pro Phase 3</span>
+          <span>Phone Rental v16.7.0 · CRM Pro Phase 3.5</span>
         </div>
       </div>
-      <nav aria-label="Admin sections">
-        <button class="nav active" type="button" data-tab="overview">ภาพรวม</button>
-        <button class="nav" type="button" data-tab="today">งานวันนี้</button>
-        <button class="nav" type="button" data-tab="booking">เพิ่ม Booking</button>
-        <button class="nav" type="button" data-tab="edit-booking">แก้ Booking</button>
-        <button class="nav" type="button" data-tab="customers">ประวัติลูกค้า</button>
-        <button class="nav" type="button" data-tab="events">เพิ่ม/แก้งาน</button>
-        <button class="nav" type="button" data-tab="packages">แพ็กเกจ/ราคา</button>
-        <button class="nav" type="button" data-tab="assets">มือถือ/เลนส์</button>
-        <button class="nav" type="button" data-tab="reports">รายงาน</button>
-        <button class="nav" type="button" data-tab="health">Health Check</button>
-        <button class="nav muted" id="logoutBtn" type="button">ออกจากระบบ</button>
+      <nav aria-label="Admin sections" class="admin-nav">
+        <span class="nav-section-label">Command</span>
+        <button class="nav active" type="button" data-tab="overview" data-icon="OV">ภาพรวม</button>
+        <button class="nav" type="button" data-tab="today" data-icon="TD">งานวันนี้</button>
+        <button class="nav" type="button" data-tab="booking" data-icon="BK">เพิ่ม Booking</button>
+        <button class="nav" type="button" data-tab="edit-booking" data-icon="ED">แก้ Booking</button>
+        <span class="nav-section-label">CRM & Operations</span>
+        <button class="nav" type="button" data-tab="customers" data-icon="CM">ประวัติลูกค้า</button>
+        <button class="nav" type="button" data-tab="events" data-icon="EV">เพิ่ม/แก้งาน</button>
+        <button class="nav" type="button" data-tab="packages" data-icon="PK">แพ็กเกจ/ราคา</button>
+        <button class="nav" type="button" data-tab="assets" data-icon="AS">มือถือ/เลนส์</button>
+        <button class="nav" type="button" data-tab="reports" data-icon="RP">รายงาน</button>
+        <span class="nav-section-label">System</span>
+        <button class="nav" type="button" data-tab="health" data-icon="HC">Health Check</button>
+        <button class="nav muted" id="logoutBtn" type="button" data-icon="LO">ออกจากระบบ</button>
       </nav>
     </aside>
 
@@ -41,10 +44,17 @@
       <header class="topbar">
         <div>
           <h1>KK Phone Rental · Admin CRM</h1>
-          <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
+          <p>จัดการงาน ราคา สต็อก Booking CRM และรายงานธุรกิจในหน้าหลังบ้านเดียว</p>
+          <div class="top-meta" aria-label="Admin status">
+            <span class="meta-chip">Live Google Sheet Sync</span>
+            <span class="meta-chip">CRM 360°</span>
+            <span class="meta-chip">Operation Command Center</span>
+            <span class="meta-chip">อัปเดตล่าสุด: <strong id="uiLastRefresh">-</strong></span>
+          </div>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.7.0 · CRM Pro Phase 3</span>
+          <span class="top-badge" title="Admin UI version">v16.7.0 · CRM Pro Phase 3.5</span>
+          <button id="densityBtn" class="btn ghost" type="button" title="สลับโหมดตารางแน่น/โปร่ง">Compact</button>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -67,6 +77,19 @@
         <div id="notice" class="notice hidden"></div>
 
         <section class="tab-panel active" id="tab-overview">
+          <div class="card pro-hero" aria-label="CRM Pro workspace overview">
+            <div class="pro-hero-copy">
+              <span class="eyebrow">CRM Pro Workspace</span>
+              <h2>หลังบ้านแบบมืออาชีพ: ดูภาพรวม จัดการงาน และตามลูกค้าจากหน้าเดียว</h2>
+              <p class="hint">Phase 3.5 ปรับ UX/UI ให้เหมือนระบบ SaaS มากขึ้น: เมนูแบ่งกลุ่ม, status strip, compact mode, keyboard shortcut และ table readability ที่ดีขึ้น</p>
+            </div>
+            <div class="pro-hero-metrics" aria-label="Professional admin highlights">
+              <span>Command Center</span>
+              <span>Customer 360°</span>
+              <span>Asset Intelligence</span>
+            </div>
+          </div>
+
           <div class="card quickbar" aria-label="Quick actions">
             <div>
               <span class="eyebrow">Quick Actions</span>

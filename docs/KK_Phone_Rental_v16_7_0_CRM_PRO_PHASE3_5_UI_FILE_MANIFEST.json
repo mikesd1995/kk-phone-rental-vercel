@@ -1,0 +1,201 @@
+{
+  "package": "v16.7.0_CRM_PRO_PHASE3_5_UI",
+  "generated_at": "2026-05-29T09:11:33.198635Z",
+  "files": [
+    {
+      "path": ".env.example",
+      "bytes": 453,
+      "sha256": "33c6f368a110f2ca9b31fc6f1f6b50a84ec7389b92aafbdaaa92283b0055b123"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 102,
+      "sha256": "a86c8df97dbddefe6743e79b03bc856015d193a66f665950f8b8c5ae7d38b44e"
+    },
+    {
+      "path": ".vercelignore",
+      "bytes": 56,
+      "sha256": "c34c7490b03e88caa9d182cb9b6e8724f778d7009f3bc60cdb0d1d5e9b3e45f5"
+    },
+    {
+      "path": "README.md",
+      "bytes": 871,
+      "sha256": "0ddde6f05aa429540567eccbea4e035d8578c793978837aca770877fad8b12ef"
+    },
+    {
+      "path": "README_DEPLOY.md",
+      "bytes": 608,
+      "sha256": "833635be904347cb1de5eadd3ae371f5c294da6cb5fce6f1c17c6176c88c2d51"
+    },
+    {
+      "path": "admin/admin.css",
+      "bytes": 29322,
+      "sha256": "903b930e8e2cd6d0a57257545afce42d2cb77a28f0b3bc0b90fd6195f083aa4b"
+    },
+    {
+      "path": "admin/admin.js",
+      "bytes": 91932,
+      "sha256": "ba0646a5c079c563d9fcf976824b1a0eadd1974c4f741664c2516493ff3d5789"
+    },
+    {
+      "path": "admin/index.html",
+      "bytes": 37917,
+      "sha256": "eb1b5c5be79f3950d1c6b2c4331863ead25ee570cfeb969aa06cac2e1f2408e1"
+    },
+    {
+      "path": "api/kk-admin.js",
+      "bytes": 5328,
+      "sha256": "053e75881d7cf09af34fbc4ce23ec567e1f367a995dd7815452efec2a3fce1dc"
+    },
+    {
+      "path": "api/kk-data.js",
+      "bytes": 3853,
+      "sha256": "be30b77f84249d82cd4204118f6da943c7f14bbbddb97edecdac750ebfff0624"
+    },
+    {
+      "path": "apple-touch-icon.png",
+      "bytes": 1789,
+      "sha256": "408d722a94be54a753b54135334d53f61274b141706a7b8db786d1ef8e551878"
+    },
+    {
+      "path": "apps-script/Code.gs",
+      "bytes": 76690,
+      "sha256": "75a410c5a88a13c0dcf9434f3050e521b98bf81b540ad0f3e8186c1545093883"
+    },
+    {
+      "path": "apps-script/appsscript.json",
+      "bytes": 369,
+      "sha256": "bc71b550173c52b2668f590fd245ae8d874450b44a0cce539e36fb931d5969f8"
+    },
+    {
+      "path": "config.js",
+      "bytes": 1674,
+      "sha256": "8acb14025decadf97525bd522d73a0d963915e98be47084bf9e499adebcef444"
+    },
+    {
+      "path": "docs/AUDIT_REPORT_v16_6_2_line_by_line.md",
+      "bytes": 529273,
+      "sha256": "cb8e508d6d5ef6327b645904ba5fbcdd5c2a7d766dc49309b8cd3bc5473bd7bc"
+    },
+    {
+      "path": "docs/AUDIT_SUMMARY_v16_6_2.md",
+      "bytes": 1131,
+      "sha256": "d331da95a46963156b7451900bab2e1cea88aca19c4835ebe464f8bbeaa241a5"
+    },
+    {
+      "path": "docs/CLEANUP_REPORT.md",
+      "bytes": 2174,
+      "sha256": "35fd448b8ce8ad3d6841d669aa5f1ce4974a27fda2188205b4d896e8a82113e1"
+    },
+    {
+      "path": "docs/CRM_PRO_PHASE1_PHASE2_AUDIT_REPORT.md",
+      "bytes": 5026,
+      "sha256": "6325f82bc772bf6fdefcc28279384478f3fa39f249222914dbde9edbce53ef83"
+    },
+    {
+      "path": "docs/CRM_PRO_PHASE1_PHASE2_FILE_MANIFEST.json",
+      "bytes": 6003,
+      "sha256": "4a55dbdb73e7ae6d72a5a2c3d89ab2ba4f4d5da37b5182a190b58c639767933c"
+    },
+    {
+      "path": "docs/CRM_PRO_PHASE1_PHASE2_FULL_LINE_AUDIT.csv",
+      "bytes": 2481037,
+      "sha256": "10d10d76d413ee03e4bae1c67589388c561eb6f44837499358aa392ff5f6089f"
+    },
+    {
+      "path": "docs/CRM_PRO_PHASE3_5_UI_AUDIT_REPORT.md",
+      "bytes": 2575,
+      "sha256": "f8a724e013c4a0794b17ed4985c9605075eaede47218fe403150cf55e9654cda"
+    },
+    {
+      "path": "docs/CRM_PRO_PHASE3_5_UI_FILE_MANIFEST.json",
+      "bytes": 5729,
+      "sha256": "a8b2c37f45a7a93924b470895e4a0deaf27c19ebe606b809863f68e194031adf"
+    },
+    {
+      "path": "docs/CRM_PRO_PHASE3_5_UI_FULL_LINE_AUDIT.csv",
+      "bytes": 2368716,
+      "sha256": "3b8d0c74fbc7c0527f6b575b6000a13605553e95ce0a832dcbdfc7a72c35455d"
+    },
+    {
+      "path": "docs/CRM_PRO_PHASE3_AUDIT_REPORT.md",
+      "bytes": 2623,
+      "sha256": "8816034a75f15a2f16c30e13161adc16c3bad517110aec211ac8cd2a51d88071"
+    },
+    {
+      "path": "docs/CRM_PRO_PHASE3_FILE_MANIFEST.json",
+      "bytes": 5716,
+      "sha256": "04dbb0f824b0421c619c99c5b859f96e1d01c76207df453567cf78255aea8b52"
+    },
+    {
+      "path": "docs/CRM_PRO_PHASE3_FULL_LINE_AUDIT.csv",
+      "bytes": 2542703,
+      "sha256": "e73d30d4661842eb0fb65e3278ac4b48a926c60e412b55caad7b718396427089"
+    },
+    {
+      "path": "docs/FILE_MANIFEST.json",
+      "bytes": 4110,
+      "sha256": "76e26c6d20a1c64ce04b85ba8c7ac26dcb1e37d76e11c077a35f90ea6d6d44b2"
+    },
+    {
+      "path": "docs/PROJECT_STRUCTURE.md",
+      "bytes": 1440,
+      "sha256": "0e9621430ccf415001dcaaef9b5eeef07f0802313425fff89633fdfc30b44b2a"
+    },
+    {
+      "path": "docs/README_DEPLOY_ORIGINAL.md",
+      "bytes": 603,
+      "sha256": "022d92611da7624afd85f2f88cc6b4c8fb571d1f2cb3fca48d2efdff4522e7b8"
+    },
+    {
+      "path": "docs/SYNTAX_CHECK_v16_6_2.txt",
+      "bytes": 114,
+      "sha256": "4b5003e45ffe31c3071020225a7b41e1428b1cc6d594e8e2fbead80ee3162f60"
+    },
+    {
+      "path": "favicon.png",
+      "bytes": 711,
+      "sha256": "6be6121bd3a76eef7828b4f236719fcdc2f61e15bcddaa9c142f7065834619e9"
+    },
+    {
+      "path": "icon-192.png",
+      "bytes": 7189,
+      "sha256": "92c0f18102c36417098d4dc36c54f14d2e47d27b58be75a437cd8ba7499b631e"
+    },
+    {
+      "path": "icon-512.png",
+      "bytes": 34138,
+      "sha256": "7e8b78a906d749fb6f7610e4c657e73c85242648f883767c43c8a0c4ce15e572"
+    },
+    {
+      "path": "index.html",
+      "bytes": 13689,
+      "sha256": "33503020fa70a14ec66ffdb18bb43ed47b83b3f388a1826da302682365d7905f"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 1190,
+      "sha256": "5bc7eeb5650e6ac35029b886940fdcb0e1cc41b60f1178b0f8a392a68f788e95"
+    },
+    {
+      "path": "package.json",
+      "bytes": 323,
+      "sha256": "a7d1bfbb4832adbedd71e3b7ad1e5fd3f69f5519993fa5ed4ec4e6e31ec764d5"
+    },
+    {
+      "path": "script.js",
+      "bytes": 44858,
+      "sha256": "da3271c045f98344260addb042300b140ff0908a9ab054d16089dc3150fb759f"
+    },
+    {
+      "path": "style.css",
+      "bytes": 27152,
+      "sha256": "1a2b8c3cdbbe14f996a66873a072ead29528379a1c7e399897e163a70f799962"
+    },
+    {
+      "path": "vercel.json",
+      "bytes": 2031,
+      "sha256": "4d45b448a8f209dcf7ba89890c902e1aa4f08c1a1ed342e91aa262d4c4f9935b"
+    }
+  ]
+}

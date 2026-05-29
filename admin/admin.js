@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3 — Reports & Asset Intelligence
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_5_UI — UX/UI Professional Polish
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_5_UI";
   const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3";
   const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
@@ -20,6 +20,23 @@
     n.setAttribute("role", type==="bad" ? "alert" : "status");
     clearTimeout(showNotice.t);
     showNotice.t=setTimeout(()=>n.classList.add("hidden"),9000);
+  }
+  function updateUiLastRefresh(){
+    const el=$("#uiLastRefresh");
+    if(!el) return;
+    const now=new Date();
+    el.textContent=now.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"});
+  }
+  function applyDensityMode(){
+    const compact=localStorage.getItem("kk_admin_compact_mode")==="1";
+    document.body.classList.toggle("compact-mode", compact);
+    const btn=$("#densityBtn");
+    if(btn) btn.textContent=compact ? "Comfort" : "Compact";
+  }
+  function focusSmartSearch(){
+    const activePanel=$(".tab-panel.active");
+    const target=(activePanel && activePanel.querySelector('input[type="search"], #actionSearch')) || $("#eventsSearch") || $("#customerSearch");
+    if(target){ target.focus(); target.select && target.select(); }
   }
   function setBusy(btn, busy){
     if(!btn) return;
@@ -1168,13 +1185,27 @@
     if(loginBtn) loginBtn.addEventListener("click", async()=>{
       state.pin=$("#pinInput").value.trim(); if(!state.pin) return alert("กรุณากรอก PIN");
       sessionStorage.setItem("kk_admin_pin",state.pin);
-      try{ await refresh(); $("#loginPanel").classList.add("hidden"); $("#appPanel").classList.remove("hidden"); showNotice("โหลดข้อมูลสำเร็จ"); }
+      try{ await refresh(); updateUiLastRefresh(); $("#loginPanel").classList.add("hidden"); $("#appPanel").classList.remove("hidden"); showNotice("โหลดข้อมูลสำเร็จ"); }
       catch(e){ showNotice(e.message,"bad"); }
     });
     const logoutBtn=$("#logoutBtn");
     if(logoutBtn) logoutBtn.addEventListener("click",()=>{ sessionStorage.removeItem("kk_admin_pin"); location.reload(); });
     const refreshBtn=$("#refreshBtn");
-    if(refreshBtn) refreshBtn.addEventListener("click",()=>refresh().then(()=>showNotice("Refresh แล้ว")).catch(e=>showNotice(e.message,"bad")));
+    if(refreshBtn) refreshBtn.addEventListener("click",()=>refresh().then(()=>{ updateUiLastRefresh(); showNotice("Refresh แล้ว"); }).catch(e=>showNotice(e.message,"bad")));
+    const densityBtn=$("#densityBtn");
+    if(densityBtn) densityBtn.addEventListener("click",()=>{
+      const current=localStorage.getItem("kk_admin_compact_mode")==="1";
+      localStorage.setItem("kk_admin_compact_mode", current ? "0" : "1");
+      applyDensityMode();
+    });
+    document.addEventListener("keydown", ev=>{
+      const tag=(ev.target && ev.target.tagName || "").toLowerCase();
+      const typing=tag==="input" || tag==="textarea" || tag==="select" || (ev.target && ev.target.isContentEditable);
+      if((ev.key==="/" && !typing) || ((ev.ctrlKey||ev.metaKey) && String(ev.key).toLowerCase()==="k")){
+        ev.preventDefault();
+        focusSmartSearch();
+      }
+    });
     ["#eventsSort","#bookingsSort"].forEach(sel=>{
       const el=$(sel);
       if(el) el.addEventListener("change",()=>render());
@@ -1370,6 +1401,8 @@
     }
   }
 
+  applyDensityMode();
+  updateUiLastRefresh();
   bind();
   if(state.pin && $("#pinInput") && $("#loginBtn")){ $("#pinInput").value=state.pin; $("#loginBtn").click(); }
 })();
