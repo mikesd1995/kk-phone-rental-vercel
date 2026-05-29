@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.6.2_LINE_AUDITED</title>
+  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE1</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.6.2 · Audited</span>
+          <span>Phone Rental v16.7.0 · CRM Pro</span>
         </div>
       </div>
       <nav aria-label="Admin sections">
@@ -43,7 +43,7 @@
           <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.6.2 · Audited</span>
+          <span class="top-badge" title="Admin UI version">v16.7.0 · CRM Pro</span>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -264,8 +264,8 @@
               <div class="card-head">
                 <div>
                   <span class="eyebrow">CRM</span>
-                  <h2>ประวัติลูกค้า</h2>
-                  <p class="hint">ค้นหาลูกค้าจากชื่อ / เบอร์ / LINE แล้วกด “ดูประวัติ” เพื่อดูว่าเช่ากี่ครั้งและเคยจองงานไหนบ้าง</p>
+                  <h2>Customer 360°</h2>
+                  <p class="hint">ค้นหาลูกค้าเพื่อดู Trust Score, timeline, รายได้, สถานะจ่ายเงิน และความเสี่ยงก่อนส่งมอบเครื่อง</p>
                 </div>
               </div>
               <label>ค้นหาลูกค้า
@@ -281,7 +281,11 @@
                   <p class="hint" id="customerDetailMeta">ระบบจะรวมจาก Booking ปัจจุบัน และ Customer Stats ถ้ามีข้อมูล archive แล้ว</p>
                 </div>
               </div>
+              <div id="customerProfileSummary" class="crm-profile-summary"></div>
               <div class="grid stats compact customer-kpi" id="customerChecklist"></div>
+              <div id="customerRiskPanel" class="crm-risk-panel"></div>
+              <div id="customerTimeline" class="crm-timeline-wrap"></div>
+              <div class="section-title-row"><h3>Booking History</h3><small>กด “แก้” เพื่อเปิดรายการในหน้า Edit Booking หรือกด “LINE” เพื่อ copy ข้อความสรุป</small></div>
               <div class="table-wrap"><table id="customerBookingsTable"></table></div>
             </div>
           </div>

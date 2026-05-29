@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.6.2_LINE_AUDITED — Hide closed past bookings from Edit Booking
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE1 — Hide closed past bookings from Edit Booking
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.6.2_LINE_AUDITED";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE1";
   const EXPECTED_BACKEND_VERSION = "v16.6.2_LINE_AUDITED";
   const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
@@ -150,14 +150,14 @@
       const st=String(b.booking_status||"").toLowerCase().trim();
       if(st==="cancelled" || st==="returned") return;
       if(isUnpaidPayment(b.payment_status)){
-        rows.push({type:"payment", priority:1, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", task:"ตามชำระเงิน", ref:bookingCustomerKey(b)});
+        rows.push({type:"payment", priority:1, row_number:b.row_number, booking_status:b.booking_status, payment_status:b.payment_status, amount_received:b.amount_received, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", package_display:b.package_display||b.package_type||"", asset:[b.phone_asset_id,b.lens_asset_id].filter(Boolean).join(" / "), task:"ตามชำระเงิน", ref:bookingCustomerKey(b)});
       }
       if(st==="picked_up"){
-        rows.push({type:"return", priority:2, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", task:"รอรับคืน / ตรวจเครื่อง", ref:bookingCustomerKey(b)});
+        rows.push({type:"return", priority:2, row_number:b.row_number, booking_status:b.booking_status, payment_status:b.payment_status, amount_received:b.amount_received, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", package_display:b.package_display||b.package_type||"", asset:[b.phone_asset_id,b.lens_asset_id].filter(Boolean).join(" / "), task:"รอรับคืน / ตรวจเครื่อง", ref:bookingCustomerKey(b)});
       }
       const diff=daysFromToday(b.event_date);
       if(isActiveBookingStatus(st) && diff!==null && diff>=0 && diff<=7){
-        rows.push({type:"upcoming", priority:3, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", task:diff===0?"งานวันนี้":"งานใน "+diff+" วัน", ref:bookingCustomerKey(b)});
+        rows.push({type:"upcoming", priority:3, row_number:b.row_number, booking_status:b.booking_status, payment_status:b.payment_status, amount_received:b.amount_received, date:b.event_date, title:b.event_name||b.event_id||"", customer:b.customer_name||"-", contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "), pickup_time:b.pickup_time||"", package_display:b.package_display||b.package_type||"", asset:[b.phone_asset_id,b.lens_asset_id].filter(Boolean).join(" / "), task:diff===0?"งานวันนี้":"งานใน "+diff+" วัน", ref:bookingCustomerKey(b)});
       }
     });
     events.forEach(e=>{
@@ -238,6 +238,134 @@
     const d=state.data||{};
     return sortedBookings((d.bookings||[]).filter(b=>bookingMatchesCustomer(b, customer)));
   }
+  function findBookingByRow(rowNumber){
+    const row=String(rowNumber||'').trim();
+    return ((state.data||{}).bookings||[]).find(b=>String(b.row_number||'')===row) || null;
+  }
+  function bookingLifecycleRank(status){
+    const s=String(status||'').toLowerCase().trim();
+    const map={pending:1,confirmed:2,prepared:3,picked_up:4,returned:5,uploaded:6,completed:7,cancelled:0,no_show:0};
+    return map[s] || 0;
+  }
+  function bookingLifecycleLabel(status){
+    const s=String(status||'').toLowerCase().trim();
+    return ({pending:'รอยืนยัน',confirmed:'ยืนยันแล้ว',prepared:'เตรียมเครื่อง',picked_up:'รับเครื่องแล้ว',returned:'คืนเครื่องแล้ว',uploaded:'อัปโหลดแล้ว',completed:'ปิดงานแล้ว',cancelled:'ยกเลิก',no_show:'ไม่มาตามนัด'})[s] || (status||'-');
+  }
+  function trustProfile(analytics){
+    const a=analytics||{};
+    let score=50;
+    score += Math.min(toNum(a.completed_count), 8) * 6;
+    score += Math.min(toNum(a.paid_count), 8) * 3;
+    score -= Math.min(toNum(a.cancelled_count), 6) * 8;
+    score -= Math.min(toNum(a.unpaid_active_count), 5) * 10;
+    score -= Math.min(toNum(a.missing_contact_count), 4) * 7;
+    score = Math.max(0, Math.min(100, score));
+    let level='New', cls='new', note='ลูกค้าใหม่/ข้อมูลยังไม่พอ ให้เช็กข้อมูลให้ครบก่อนส่งมอบ';
+    if(score>=85){ level='VIP / Trusted'; cls='vip'; note='ประวัติดีมาก เหมาะสำหรับสิทธิ์ลูกค้าเก่าหรือ no deposit ตามเงื่อนไขร้าน'; }
+    else if(score>=70){ level='Good'; cls='good'; note='ลูกค้าความเสี่ยงต่ำ มีประวัติใช้งานได้ดี'; }
+    else if(score<45){ level='Watchlist'; cls='risk'; note='ควรเช็กข้อมูล/การชำระเงิน/การรับคืนให้ละเอียดก่อนส่งมอบ'; }
+    else if(a.unpaid_active_count || a.missing_contact_count){ level='Need Verify'; cls='verify'; note='มีข้อมูลหรือการชำระเงินที่ต้องตรวจสอบก่อนวันงาน'; }
+    return {score, level, cls, note};
+  }
+  function customerAnalytics(customer, bookings){
+    const rows=bookings||[];
+    const activeStatuses=['pending','confirmed','picked_up','prepared'];
+    const completedStatuses=['returned','uploaded','completed'];
+    const completed=rows.filter(b=>completedStatuses.includes(String(b.booking_status||'').toLowerCase()));
+    const active=rows.filter(b=>activeStatuses.includes(String(b.booking_status||'').toLowerCase()));
+    const cancelled=rows.filter(b=>String(b.booking_status||'').toLowerCase()==='cancelled');
+    const paid=rows.filter(b=>String(b.payment_status||'').toLowerCase()==='paid');
+    const unpaidActive=active.filter(b=>isUnpaidPayment(b.payment_status));
+    const upcoming=rows.filter(b=>{ const d=daysFromToday(b.event_date); return d!==null && d>=0 && activeStatuses.includes(String(b.booking_status||'').toLowerCase()); });
+    const missingContact=rows.filter(b=>!String(b.customer_phone||'').trim() && !String(b.customer_contact||'').trim());
+    const missingPickup=upcoming.filter(b=>!String(b.pickup_time||'').trim());
+    const missingAsset=upcoming.filter(b=>!String(b.phone_asset_id||'').trim() && /phone/i.test(String(b.package_type||'')));
+    const totalRevenue=rows.reduce((sum,b)=>sum+toNum(b.amount_received),0);
+    const last=rows.slice().sort((a,b)=>dateValue(b.event_date)-dateValue(a.event_date))[0] || {};
+    const first=rows.slice().sort((a,b)=>dateValue(a.event_date)-dateValue(b.event_date))[0] || {};
+    return {
+      booking_count: rows.length,
+      active_count: active.length,
+      completed_count: Math.max(completed.length, toNum(customer && customer.rental_count)),
+      cancelled_count: cancelled.length,
+      paid_count: paid.length,
+      unpaid_active_count: unpaidActive.length,
+      upcoming_count: upcoming.length,
+      missing_contact_count: missingContact.length,
+      missing_pickup_count: missingPickup.length,
+      missing_asset_count: missingAsset.length,
+      total_revenue: totalRevenue,
+      last_event_date: last.event_date || (customer && customer.last_rental_date) || '',
+      first_event_date: first.event_date || (customer && customer.first_rental_date) || '',
+      last_event_name: last.event_name || (customer && customer.last_event_name) || '',
+      last_status: last.booking_status || (customer && customer.last_booking_status) || ''
+    };
+  }
+  function customerQualityIssues(customer, bookings, analytics){
+    const a=analytics||customerAnalytics(customer, bookings||[]);
+    const issues=[];
+    if(!String(customer && customer.customer_phone || '').trim() && !String(customer && customer.customer_contact || '').trim()) issues.push({type:'bad', text:'ไม่มีเบอร์หรือ LINE/X หลักในโปรไฟล์'});
+    if(a.unpaid_active_count) issues.push({type:'bad', text:`มี booking active ที่ยังไม่ paid ${a.unpaid_active_count} รายการ`});
+    if(a.missing_pickup_count) issues.push({type:'warn', text:`มีงานอนาคตที่ยังไม่มีเวลารับเครื่อง ${a.missing_pickup_count} รายการ`});
+    if(a.missing_asset_count) issues.push({type:'warn', text:`มีงานอนาคตที่ยังไม่ได้ล็อก asset ${a.missing_asset_count} รายการ`});
+    if(a.cancelled_count>=2) issues.push({type:'warn', text:`มีประวัติยกเลิก ${a.cancelled_count} ครั้ง ควรเช็กก่อนให้สิทธิ์พิเศษ`});
+    if(!issues.length) issues.push({type:'ok', text:'ข้อมูลหลักครบ ไม่มีรายการเสี่ยงเด่นจาก booking ปัจจุบัน'});
+    return issues;
+  }
+  function crmLineMessage(b, type){
+    const name=b.customer_name || 'คุณลูกค้า';
+    const event=b.event_name || b.event_id || '-';
+    const date=fmtDate(b.event_date) || '-';
+    const pickup=b.pickup_time || '-';
+    if(type==='payment') return `สวัสดีค่ะ ${name} ขอแจ้งเตือนเรื่องยอดชำระสำหรับงาน ${event} วันที่ ${date} ค่ะ หากชำระแล้วสามารถส่งสลิปกลับมาได้เลยนะคะ`;
+    if(type==='pickup') return `สวัสดีค่ะ ${name} ยืนยันนัดรับเครื่องสำหรับงาน ${event} วันที่ ${date} เวลา ${pickup} นะคะ`;
+    if(type==='return') return `สวัสดีค่ะ ${name} หลังจบงาน ${event} รบกวนคืนเครื่องตามจุดนัดหมาย และรอแอดมินตรวจเครื่อง/เลนส์ก่อนปิดงานนะคะ`;
+    return `สวัสดีค่ะ ${name} ขอสรุป booking งาน ${event} วันที่ ${date} เวลารับ ${pickup} ค่ะ`;
+  }
+  function openBookingEdit(rowNumber){
+    const nav=$('.nav[data-tab="edit-booking"]');
+    if(nav) nav.click();
+    setTimeout(()=>{
+      const form=$('#bookingEditForm');
+      if(!form || !form.elements.row_number) return;
+      form.elements.row_number.value=String(rowNumber||'');
+      populateBookingEditForm();
+      form.scrollIntoView({behavior:'smooth', block:'start'});
+    },60);
+  }
+  function actionPriority(r){
+    if(r.type==='payment') return {label:'P1', cls:'bad', title:'ต้องตามเงินก่อนส่งมอบ'};
+    if(r.type==='return') return {label:'P1', cls:'bad', title:'เครื่องอยู่กับลูกค้า ต้องรับคืน/ตรวจ'};
+    if(r.type==='data') return {label:'P2', cls:'warn', title:'ข้อมูลไม่ครบ ควรแก้ก่อนขึ้นเว็บ/ก่อนวันงาน'};
+    return {label:'P3', cls:'warn', title:'งานใกล้ถึง ควรเตรียมเครื่อง'};
+  }
+  function actionButtons(r){
+    if(!r || !r.row_number) return r.ref ? `<button class="mini-btn" type="button" data-customer-key="${esc(r.ref)}">CRM</button>` : '-';
+    const st=String(r.booking_status||'').toLowerCase();
+    const buttons=[];
+    buttons.push(`<button class="mini-btn" type="button" data-edit-booking-row="${esc(r.row_number)}">แก้</button>`);
+    buttons.push(`<button class="mini-btn" type="button" data-customer-key="${esc(r.ref)}">CRM</button>`);
+    if(isUnpaidPayment(r.payment_status)) buttons.push(`<button class="mini-btn" type="button" data-quick-action="paid" data-row="${esc(r.row_number)}">Paid</button>`);
+    if(['pending','confirmed'].includes(st)) buttons.push(`<button class="mini-btn" type="button" data-quick-action="picked_up" data-row="${esc(r.row_number)}">รับแล้ว</button>`);
+    if(st==='picked_up') buttons.push(`<button class="mini-btn" type="button" data-quick-action="returned" data-row="${esc(r.row_number)}">คืนแล้ว</button>`);
+    buttons.push(`<button class="mini-btn" type="button" data-copy-line="${esc(r.type)}" data-row="${esc(r.row_number)}">LINE</button>`);
+    return `<div class="inline-actions">${buttons.join('')}</div>`;
+  }
+  function lifecycleTimeline(bookings){
+    if(!bookings || !bookings.length) return '<div class="empty-note">ยังไม่มี timeline</div>';
+    return bookings.slice(0,12).map(b=>{
+      const st=String(b.booking_status||'').toLowerCase();
+      const cls=st==='cancelled'?'bad':(st==='returned'||st==='completed'||st==='uploaded'?'ok':(isUnpaidPayment(b.payment_status)?'warn':'info'));
+      return `<div class="timeline-item ${cls}">
+        <div class="timeline-dot"></div>
+        <div class="timeline-main">
+          <strong>${esc(fmtDate(b.event_date))} · ${esc(b.event_name||b.event_id||'')}</strong>
+          <span>${esc(bookingLifecycleLabel(b.booking_status))} · ${esc(b.package_display||b.package_type||'-')} · รับ ${esc(b.pickup_time||'-')}</span>
+          <small>Payment: ${esc(b.payment_status||'-')} · Phone: ${esc(b.phone_asset_id||'-')} · Lens: ${esc(b.lens_asset_id||'-')}</small>
+        </div>
+      </div>`;
+    }).join('');
+  }
   function setActiveCustomer(customerKey){
     state.selectedCustomerKey=String(customerKey||"");
     const nav=$('.nav[data-tab="customers"]');
@@ -250,6 +378,7 @@
   }
   function renderCustomerDetail(customerHistory){
     const detailName=$("#customerDetailName"), detailMeta=$("#customerDetailMeta"), checklist=$("#customerChecklist"), tableEl=$("#customerBookingsTable");
+    const profile=$("#customerProfileSummary"), riskPanel=$("#customerRiskPanel"), timeline=$("#customerTimeline");
     if(!detailName || !checklist || !tableEl) return;
     const rows=customerHistory||[];
     let customer=rows.find(c=>String(c.customer_key)===String(state.selectedCustomerKey));
@@ -259,35 +388,56 @@
     }
     if(!customer){
       detailName.textContent="ยังไม่มีประวัติลูกค้า";
-      if(detailMeta) detailMeta.textContent="เมื่อมี booking ระบบจะแสดงประวัติและจำนวนครั้งที่เช่าตรงนี้";
+      if(detailMeta) detailMeta.textContent="เมื่อมี booking ระบบจะแสดง Customer 360, trust score, timeline และรายการที่ต้องจัดการตรงนี้";
       checklist.innerHTML="";
+      if(profile) profile.innerHTML='<div class="empty-note">ยังไม่มีข้อมูลลูกค้า</div>';
+      if(riskPanel) riskPanel.innerHTML='';
+      if(timeline) timeline.innerHTML='';
       table(tableEl,[{label:"ข้อมูล",render:()=>"ยังไม่มีข้อมูล"}],[]);
       return;
     }
     const bookings=customerBookings(customer);
-    const active=bookings.filter(b=>["pending","confirmed","picked_up"].includes(String(b.booking_status||"").toLowerCase())).length;
-    const cancelled=bookings.filter(b=>String(b.booking_status||"").toLowerCase()==="cancelled").length;
-    const paid=bookings.filter(b=>String(b.payment_status||"").toLowerCase()==="paid").length;
+    const analytics=customerAnalytics(customer, bookings);
+    const trust=trustProfile(analytics);
+    const issues=customerQualityIssues(customer, bookings, analytics);
     detailName.textContent=customer.customer_name || "ไม่ระบุชื่อ";
     if(detailMeta) detailMeta.textContent=[customer.customer_phone, customer.customer_contact].filter(Boolean).join(" / ") || "ไม่มีเบอร์หรือ LINE ในระบบ";
+    if(profile){
+      profile.innerHTML=`<div class="crm-profile-card">
+        <div class="crm-avatar">${esc(String(customer.customer_name||'KK').slice(0,2).toUpperCase())}</div>
+        <div class="crm-profile-main">
+          <div class="crm-profile-line"><strong>${esc(customer.customer_name||'ไม่ระบุชื่อ')}</strong><span class="trust-badge ${esc(trust.cls)}">${esc(trust.level)} · ${esc(trust.score)}/100</span></div>
+          <div class="crm-contact-line">${esc([customer.customer_phone,customer.customer_contact].filter(Boolean).join(' · ') || 'ยังไม่มีข้อมูลติดต่อ')}</div>
+          <div class="crm-note-line">${esc(trust.note)}</div>
+        </div>
+      </div>`;
+    }
     checklist.innerHTML=[
-      [customer.rental_count||0,"เช่ารวม"],
-      [bookings.length,"booking ที่พบ"],
-      [active,"กำลัง active"],
-      [cancelled,"ยกเลิก"],
-      [paid,"paid"],
-      [fmtDate(customer.last_rental_date)||"-","เช่าล่าสุด"]
+      [analytics.completed_count,"เช่าสำเร็จ"],
+      [analytics.booking_count,"Booking ทั้งหมด"],
+      [analytics.active_count,"Active ตอนนี้"],
+      [analytics.cancelled_count,"ยกเลิก"],
+      [money(analytics.total_revenue),"ยอดรับรวม"],
+      [fmtDate(analytics.last_event_date)||"-","ล่าสุด"]
     ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
+    if(riskPanel){
+      riskPanel.innerHTML=`<div class="crm-risk-grid">
+        ${issues.map(i=>`<div class="risk-chip ${esc(i.type)}">${esc(i.text)}</div>`).join('')}
+      </div>`;
+    }
+    if(timeline){
+      timeline.innerHTML=`<div class="section-title-row"><h3>Customer Timeline</h3><small>เรียงจากล่าสุด ใช้ดูพฤติกรรมลูกค้าและงานที่ค้าง</small></div><div class="timeline">${lifecycleTimeline(bookings)}</div>`;
+    }
     table(tableEl,[
       {label:"วันที่งาน",render:r=>esc(fmtDate(r.event_date))},
       {label:"งาน",render:r=>esc(r.event_name || r.event_id || "")},
+      {label:"เวลารับ",render:r=>esc(r.pickup_time || "-")},
       {label:"แพ็กเกจ",render:r=>esc(r.package_display || r.package_type || r.template_id || "")},
-      {label:"Phone",render:r=>esc(r.phone_model_display || r.phone_asset_id || "-")},
-      {label:"Lens",render:r=>esc(r.lens_model_display || r.lens_asset_id || "-")},
-      {label:"Booking",render:r=>`<span class="pill ${String(r.booking_status).toLowerCase()==='cancelled'?'bad':'ok'}">${esc(r.booking_status||'')}</span>`},
+      {label:"Asset",render:r=>esc([r.phone_asset_id,r.lens_asset_id].filter(Boolean).join(" / ") || "-")},
+      {label:"Booking",render:r=>`<span class="pill ${String(r.booking_status).toLowerCase()==='cancelled'?'bad':(String(r.booking_status).toLowerCase()==='returned'?'ok':'warn')}">${esc(bookingLifecycleLabel(r.booking_status))}</span>`},
       {label:"Payment",render:r=>`<span class="pill ${String(r.payment_status).toLowerCase()==='paid'?'ok':'bad'}">${esc(r.payment_status||'')}</span>`},
       {label:"รับแล้ว",render:r=>esc(money(r.amount_received||0))},
-      {label:"Note",render:r=>esc(r.note || r.booking_note || "")}
+      {label:"Action",render:r=>`<div class="inline-actions"><button class="mini-btn" type="button" data-edit-booking-row="${esc(r.row_number||'')}">แก้</button><button class="mini-btn" type="button" data-copy-line="summary" data-row="${esc(r.row_number||'')}">LINE</button></div>`}
     ], bookings);
   }
 
@@ -597,15 +747,17 @@
     }
     if($("#actionCount")) $("#actionCount").textContent=actionRows.length+" รายการที่ควรเช็ก";
     table($("#actionTable"),[
+      {label:"Priority",render:r=>{ const p=actionPriority(r); return `<span class="pill ${p.cls}" title="${esc(p.title)}">${esc(p.label)}</span>`; }},
       {label:"ประเภท",render:r=>`<span class="pill ${actionSeverity(r.type)}">${esc(r.type==="payment"?"ตามเงิน":r.type==="return"?"รับคืน":r.type==="upcoming"?"ใกล้ถึง":"ข้อมูล")}</span>`},
       {label:"วันที่",render:r=>esc(fmtDate(r.date))},
       {label:"เวลารับ",render:r=>esc(r.pickup_time || "-")},
-      {label:"รายการ",render:r=>esc(r.title)},
-      {label:"ลูกค้า",render:r=>esc(r.customer)},
-      {label:"ติดต่อ",render:r=>esc(r.contact)},
+      {label:"รายการ",render:r=>`<strong>${esc(r.title)}</strong><br><small>${esc(r.package_display||'')}</small>`},
+      {label:"Asset",render:r=>esc(r.asset || "-")},
+      {label:"ลูกค้า/ติดต่อ",render:r=>`<strong>${esc(r.customer)}</strong><br><small>${esc(r.contact||'-')}</small>`},
+      {label:"สถานะ",render:r=>`${esc(bookingLifecycleLabel(r.booking_status||''))}<br><small>Payment: ${esc(r.payment_status||'-')}</small>`},
       {label:"สิ่งที่ต้องทำ",render:r=>esc(r.task)},
-      {label:"CRM",render:r=>r.ref?`<button class="mini-btn" type="button" data-customer-key="${esc(r.ref)}">ดูลูกค้า</button>`:"-"}
-    ], actionRows.slice(0,30));
+      {label:"Action",render:r=>actionButtons(r)}
+    ], actionRows.slice(0,40));
 
     $("#eventsCount").textContent=(openEventRows.length===openEventRowsAll.length?openEventRows.length:(openEventRows.length+" / "+openEventRowsAll.length))+" รายการ";
     table($("#eventsTable"),[
@@ -786,6 +938,45 @@
       ev.preventDefault();
       ev.stopPropagation();
       setActiveCustomer(key);
+    });
+    document.addEventListener("click",async ev=>{
+      const editBtn=ev.target.closest("[data-edit-booking-row]");
+      if(editBtn){
+        ev.preventDefault(); ev.stopPropagation();
+        openBookingEdit(editBtn.getAttribute("data-edit-booking-row"));
+        return;
+      }
+      const copyBtn=ev.target.closest("[data-copy-line]");
+      if(copyBtn){
+        ev.preventDefault(); ev.stopPropagation();
+        const b=findBookingByRow(copyBtn.getAttribute("data-row"));
+        if(!b) return showNotice("ไม่พบ booking สำหรับ copy message", "bad");
+        const msg=crmLineMessage(b, copyBtn.getAttribute("data-copy-line"));
+        try{ await navigator.clipboard.writeText(msg); showNotice("Copy ข้อความ LINE แล้ว"); }
+        catch(_){ showNotice(msg, "warn"); }
+        return;
+      }
+      const quick=ev.target.closest("[data-quick-action]");
+      if(!quick) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const action=quick.getAttribute("data-quick-action");
+      const row=quick.getAttribute("data-row");
+      const b=findBookingByRow(row);
+      if(!b) return showNotice("ไม่พบ booking ที่ต้องการอัปเดต", "bad");
+      let payload={row_number:row};
+      let label="";
+      if(action==="paid"){
+        if(toNum(b.amount_received)<=0 && !confirm("Booking นี้ยอดรับแล้วยังเป็น 0 ต้องการเปลี่ยนสถานะเป็น paid อยู่ใช่ไหม?")) return;
+        payload.payment_status="paid"; label="สถานะชำระเงินเป็น paid";
+      }else if(action==="picked_up"){
+        payload.booking_status="picked_up"; label="สถานะเป็นรับเครื่องแล้ว";
+      }else if(action==="returned"){
+        payload.booking_status="returned"; label="สถานะเป็นคืนเครื่องแล้ว";
+      }else return;
+      setBusy(quick,true);
+      try{ await api("updateBooking", payload); await refresh(); showNotice("อัปเดตสำเร็จ: "+label); }
+      catch(e){ showNotice(e.message,"bad"); }
+      finally{ setBusy(quick,false); }
     });
     const bookingEventSelect=$("#bookingForm select[name='event_id']");
     if(bookingEventSelect) bookingEventSelect.addEventListener("change", populateBookingPackages);
