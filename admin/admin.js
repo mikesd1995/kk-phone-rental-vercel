@@ -1,6 +1,6 @@
 // KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_5_UI — UX/UI Professional Polish
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_5_UI";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_5_2_PICKUP_TIME_DISPLAY_FIX";
   const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3";
   const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
@@ -71,6 +71,30 @@
     const d=parseLocalDate(v);
     if(!d) return String(v||"");
     return d.toLocaleDateString("th-TH",{year:"numeric",month:"2-digit",day:"2-digit"});
+  }
+  function fmtPickupTime(v){
+    if(v===null || v===undefined) return "";
+    if(v instanceof Date && !isNaN(v)){
+      return `${String(v.getHours()).padStart(2,"0")}:${String(v.getMinutes()).padStart(2,"0")}`;
+    }
+    const raw=String(v).trim();
+    if(!raw) return "";
+    // Google Sheets/Apps Script may serialize time-only cells as 1899-12-30T16:30:00.000Z.
+    // Display only the clock part and do not timezone-shift it in the browser.
+    let m=raw.match(/^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})?$/);
+    if(m) return `${m[1]}:${m[2]}`;
+    m=raw.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::\d{2})?(?:\s|$)/);
+    if(m) return `${String(Number(m[1])).padStart(2,"0")}:${m[2]}`;
+    if(/^\d+(?:\.\d+)?$/.test(raw)){
+      const n=Number(raw);
+      if(n>=0 && n<1){
+        const total=Math.round(n*24*60);
+        const hh=String(Math.floor(total/60)%24).padStart(2,"0");
+        const mm=String(total%60).padStart(2,"0");
+        return `${hh}:${mm}`;
+      }
+    }
+    return raw;
   }
   function extractDriveFileId(url){
     const s=String(url||"").trim();
@@ -182,7 +206,7 @@
         title:b.event_name||b.event_id||"",
         customer:b.customer_name||"-",
         contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "),
-        pickup_time:b.pickup_time||"",
+        pickup_time:fmtPickupTime(b.pickup_time),
         package_display:b.package_display||b.package_type||"",
         asset:[b.phone_asset_id,b.lens_asset_id].filter(Boolean).join(" / "),
         ref:bookingCustomerKey(b)
@@ -410,7 +434,7 @@
     const name=b.customer_name || 'คุณลูกค้า';
     const event=b.event_name || b.event_id || '-';
     const date=fmtDate(b.event_date) || '-';
-    const pickup=b.pickup_time || '-';
+    const pickup=fmtPickupTime(b.pickup_time) || '-';
     if(type==='payment') return `สวัสดีค่ะ ${name} ขอแจ้งเตือนเรื่องยอดชำระสำหรับงาน ${event} วันที่ ${date} ค่ะ หากชำระแล้วสามารถส่งสลิปกลับมาได้เลยนะคะ`;
     if(type==='pickup') return `สวัสดีค่ะ ${name} ยืนยันนัดรับเครื่องสำหรับงาน ${event} วันที่ ${date} เวลา ${pickup} นะคะ`;
     if(type==='return') return `สวัสดีค่ะ ${name} หลังจบงาน ${event} รบกวนคืนเครื่องตามจุดนัดหมาย และรอแอดมินตรวจเครื่อง/เลนส์ก่อนปิดงานนะคะ`;
@@ -463,7 +487,7 @@
         <div class="timeline-dot"></div>
         <div class="timeline-main">
           <strong>${esc(fmtDate(b.event_date))} · ${esc(b.event_name||b.event_id||'')}</strong>
-          <span>${esc(bookingLifecycleLabel(b.booking_status))} · ${esc(b.package_display||b.package_type||'-')} · รับ ${esc(b.pickup_time||'-')}</span>
+          <span>${esc(bookingLifecycleLabel(b.booking_status))} · ${esc(b.package_display||b.package_type||'-')} · รับ ${esc(fmtPickupTime(b.pickup_time)||'-')}</span>
           <small>Payment: ${esc(b.payment_status||'-')} · Phone: ${esc(b.phone_asset_id||'-')} · Lens: ${esc(b.lens_asset_id||'-')}</small>
         </div>
       </div>`;
@@ -534,7 +558,7 @@
     table(tableEl,[
       {label:"วันที่งาน",render:r=>esc(fmtDate(r.event_date))},
       {label:"งาน",render:r=>esc(r.event_name || r.event_id || "")},
-      {label:"เวลารับ",render:r=>esc(r.pickup_time || "-")},
+      {label:"เวลารับ",render:r=>esc(fmtPickupTime(r.pickup_time) || "-")},
       {label:"แพ็กเกจ",render:r=>esc(r.package_display || r.package_type || r.template_id || "")},
       {label:"Asset",render:r=>esc([r.phone_asset_id,r.lens_asset_id].filter(Boolean).join(" / ") || "-")},
       {label:"Booking",render:r=>{ const st=String(r.booking_status||'').toLowerCase(); const cls=['cancelled','no_show'].includes(st)?'bad':(['returned','uploaded','completed'].includes(st)?'ok':'warn'); return `<span class="pill ${cls}">${esc(bookingLifecycleLabel(r.booking_status))}</span>`; }},
@@ -885,7 +909,7 @@
     set("contact_channel", b.contact_channel || "LINE");
     set("payment_status", b.payment_status || "unpaid");
     set("amount_received", b.amount_received || 0);
-    set("pickup_time", b.pickup_time || "");
+    set("pickup_time", fmtPickupTime(b.pickup_time));
     set("phone_asset_id", b.phone_asset_id || "");
     set("lens_asset_id", b.lens_asset_id || "");
     set("booking_note", b.note || "");
@@ -1021,7 +1045,7 @@
       {label:"Priority",render:r=>{ const p=actionPriority(r); return `<span class="pill ${p.cls}" title="${esc(p.title)}">${esc(p.label)}</span>`; }},
       {label:"ประเภท",render:r=>`<span class="pill ${actionSeverity(r.type)}">${esc(actionTypeLabel(r.type))}</span>`},
       {label:"วันที่",render:r=>esc(fmtDate(r.date))},
-      {label:"เวลารับ",render:r=>esc(r.pickup_time || "-")},
+      {label:"เวลารับ",render:r=>esc(fmtPickupTime(r.pickup_time) || "-")},
       {label:"รายการ",render:r=>`<strong>${esc(r.title)}</strong><br><small>${esc(r.package_display||'')}</small>`},
       {label:"Asset",render:r=>esc(r.asset || "-")},
       {label:"ลูกค้า/ติดต่อ",render:r=>`<strong>${esc(r.customer)}</strong><br><small>${esc(r.contact||'-')}</small>`},
@@ -1069,7 +1093,7 @@
       {label:"ติดต่อ",render:r=>esc([r.customer_contact,r.customer_phone].filter(Boolean).join(" / "))},
       {label:"Phone",render:r=>esc(r.phone_model_display || r.phone_asset_id || "-")},
       {label:"Lens",render:r=>esc(r.lens_model_display || r.lens_asset_id || "-")},
-      {label:"Pickup",render:r=>esc(r.pickup_time || "-")},
+      {label:"Pickup",render:r=>esc(fmtPickupTime(r.pickup_time) || "-")},
       {label:"Payment",render:r=>`<span class="pill ${String(r.payment_status).toLowerCase()==='paid'?'ok':'bad'}">${esc(r.payment_status||'')}</span>`},
       {label:"สิ่งที่ต้องทำ",key:"work_task"},
       {label:"Note",key:"note"}
