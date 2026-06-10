@@ -520,3 +520,30 @@ html,body{max-width:100%;overflow-x:hidden}
 @media(max-width:420px){
   .top-meta{grid-template-columns:1fr}.top-actions,.quick-actions{grid-template-columns:1fr}.brand span{max-width:250px}.eyebrow{font-size:10.5px}.topbar h1{font-size:19px!important}.btn,.mini-btn{font-size:12px}.table-wrap table{min-width:700px}.action-table-wrap table{min-width:900px}
 }
+
+/* Phase 3.6: inline event price override on Create Event */
+.inline-price-panel{
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:14px;
+  background:linear-gradient(180deg,rgba(37,99,235,.06),rgba(255,255,255,.82));
+  margin:8px 0 14px;
+}
+.inline-price-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.inline-price-head strong{display:block;font-size:14px;color:var(--ink);}
+.inline-price-head small{display:block;margin-top:4px;color:var(--muted);line-height:1.45;}
+.inline-price-list{display:grid;gap:10px;}
+.create-price-row{
+  display:grid;
+  grid-template-columns:minmax(170px,1.25fr) minmax(130px,.7fr) minmax(120px,.65fr) minmax(150px,1fr);
+  align-items:end;
+  gap:10px;
+  padding:12px;
+  border:1px solid rgba(148,163,184,.35);
+  border-radius:16px;
+  background:rgba(255,255,255,.9);
+}
+.create-price-meta strong{display:block;font-size:13px;}
+.create-price-meta small{display:block;margin-top:4px;color:var(--muted);line-height:1.35;}
+.btn.small{padding:8px 10px;font-size:12px;border-radius:12px;}
+@media (max-width:760px){.inline-price-head{display:block}.inline-price-head .btn{margin-top:10px;width:100%}.create-price-row{grid-template-columns:1fr}}

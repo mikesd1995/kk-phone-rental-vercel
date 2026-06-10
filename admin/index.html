@@ -44,17 +44,10 @@
       <header class="topbar">
         <div>
           <h1>KK Phone Rental · Admin CRM</h1>
-          <p>จัดการงาน ราคา สต็อก Booking CRM และรายงานธุรกิจในหน้าหลังบ้านเดียว</p>
-          <div class="top-meta" aria-label="Admin status">
-            <span class="meta-chip">Live Google Sheet Sync</span>
-            <span class="meta-chip">CRM 360°</span>
-            <span class="meta-chip">Operation Command Center</span>
-            <span class="meta-chip">อัปเดตล่าสุด: <strong id="uiLastRefresh">-</strong></span>
-          </div>
+          <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
         </div>
         <div class="top-actions">
           <span class="top-badge" title="Admin UI version">v16.7.0 · CRM Pro Phase 3.5</span>
-          <button id="densityBtn" class="btn ghost" type="button" title="สลับโหมดตารางแน่น/โปร่ง">Compact</button>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
         </div>
@@ -344,8 +337,18 @@
                 </label>
               </div>
               <label class="check"><input name="active_on_web" type="checkbox" checked /> เปิดโชว์หน้าเว็บ</label>
+              <div class="inline-price-panel" aria-labelledby="createEventPriceTitle">
+                <div class="inline-price-head">
+                  <div>
+                    <strong id="createEventPriceTitle">ตั้งราคาแพ็กเกจของงานนี้ทันที</strong>
+                    <small>ใส่เฉพาะแพ็กเกจที่ต้องการ override ระบบจะสร้างงานและบันทึกราคาเฉพาะงานให้ในครั้งเดียว</small>
+                  </div>
+                  <button class="btn ghost small" type="button" id="resetCreateEventPrices">ล้างราคาเฉพาะงาน</button>
+                </div>
+                <div id="createEventPriceOverrides" class="inline-price-list">กำลังโหลดแพ็กเกจ...</div>
+              </div>
               <label>Note <textarea name="note" rows="3"></textarea></label>
-              <button class="btn primary" type="submit">สร้างงาน</button>
+              <button class="btn primary" type="submit">สร้างงาน + ราคา</button>
             </form>
 
             <form class="card form" id="eventUpdateForm">

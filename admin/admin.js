@@ -1,7 +1,7 @@
 // KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_5_UI — UX/UI Professional Polish
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_5_2_PICKUP_TIME_DISPLAY_FIX";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_INLINE_EVENT_PRICE";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_INLINE_EVENT_PRICE";
   const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -851,6 +851,61 @@
     form.elements.use_case_override.value=o ? (o.use_case_override||"") : "";
   }
 
+  function activeMasterPackages(){
+    const d=state.data||{};
+    return (d.packages||[])
+      .filter(p=>String(p.template_id||"").trim() && p.active!==false)
+      .slice()
+      .sort((a,b)=>String(a.package_type||"").localeCompare(String(b.package_type||"")) || String(a.display_name||a.template_id).localeCompare(String(b.display_name||b.template_id),"th"));
+  }
+  function renderCreateEventPriceOverrides(){
+    const box=$("#createEventPriceOverrides");
+    if(!box) return;
+    const rows=activeMasterPackages();
+    if(!rows.length){
+      box.innerHTML='<div class="empty-state">ยังไม่มีแพ็กเกจหลักที่เปิดใช้งาน กรุณาเพิ่มแพ็กเกจก่อน</div>';
+      return;
+    }
+    box.innerHTML=rows.map(p=>{
+      const tpl=String(p.template_id||"").trim();
+      const label=p.display_name||tpl;
+      const type=p.package_type||"package";
+      const standard=money(p.standard_price||0);
+      const ph=p.standard_price || '1290';
+      return `<div class="create-price-row" data-template-id="${esc(tpl)}">
+        <div class="create-price-meta">
+          <strong>${esc(label)}</strong>
+          <small>${esc(type)} · ราคาหลัก ${standard}฿</small>
+        </div>
+        <label>ราคาเฉพาะงาน <input data-field="override_price" type="number" min="0" step="1" placeholder="เช่น ${esc(ph)}" /></label>
+        <label>สถานะ
+          <select data-field="active_override">
+            <option value="">ใช้ค่าหลัก</option>
+            <option value="true">เปิดขาย</option>
+            <option value="false">ซ่อน</option>
+          </select>
+        </label>
+        <label>Note <input data-field="override_note" placeholder="เช่น โปรเฉพาะงานนี้" /></label>
+      </div>`;
+    }).join('');
+  }
+  function resetCreateEventPriceOverrides(){
+    $$("#createEventPriceOverrides input, #createEventPriceOverrides select").forEach(el=>{ el.value=""; });
+  }
+  function collectCreateEventPriceOverrides(){
+    return $$("#createEventPriceOverrides .create-price-row").map(row=>{
+      const get=f=>{ const el=row.querySelector(`[data-field="${f}"]`); return el ? String(el.value||"").trim() : ""; };
+      return {
+        template_id:String(row.dataset.templateId||"").trim(),
+        override_price:get("override_price"),
+        active_override:get("active_override"),
+        override_note:get("override_note"),
+        sort_order_override:"",
+        use_case_override:""
+      };
+    }).filter(o=>o.template_id && (o.override_price!=="" || o.active_override!=="" || o.override_note!=="" || o.sort_order_override!=="" || o.use_case_override!==""));
+  }
+
   function populateEventUpdateForm(){
     const form=$("#eventUpdateForm");
     if(!form || !state.data) return;
@@ -1004,6 +1059,7 @@
     populateEventUpdateForm();
     populatePackageUpdateForm();
     populateBookingEditForm();
+    renderCreateEventPriceOverrides();
   }
 
   function render(){
@@ -1361,14 +1417,20 @@
         if(p.poster_url) p.poster_url=normalizePosterUrl(p.poster_url);
         const uploaded=await uploadPosterFromInput("#posterFile", ev.target);
         if(uploaded) p.poster_url=uploaded;
+        p.event_price_overrides=collectCreateEventPriceOverrides();
         const res=await api("createEvent",p);
         ev.target.reset();
+        resetCreateEventPriceOverrides();
         await refresh();
-        showNotice("สร้างงานสำเร็จ" + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : "") + posterWarningText(res));
+        const priceText=res.overrides_created ? ` · บันทึกราคาเฉพาะงาน ${res.overrides_created} แพ็กเกจ` : "";
+        showNotice("สร้างงานสำเร็จ" + priceText + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : "") + posterWarningText(res));
         state.posterWarning = "";
       }
       catch(e){ showNotice(e.message,"bad"); } finally{ setBusy(btn,false); }
     });
+    const resetCreateEventPrices=$("#resetCreateEventPrices");
+    if(resetCreateEventPrices) resetCreateEventPrices.addEventListener("click", resetCreateEventPriceOverrides);
+
     const eventUpdateForm=$("#eventUpdateForm");
     if(eventUpdateForm) eventUpdateForm.addEventListener("submit",async ev=>{
       ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
