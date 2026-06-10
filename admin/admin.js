@@ -1,7 +1,7 @@
 // KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_5_UI — UX/UI Professional Polish
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_INLINE_EVENT_PRICE";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_INLINE_EVENT_PRICE";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_1_ASSET_STATUS_FIX";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_1_ASSET_STATUS_FIX";
   const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -1156,8 +1156,27 @@
     ], today);
 
     $("#assetsCount").textContent=assets.length+" รายการ";
+    const assetStatusOptions=["available","repair","inactive"];
+    const renderAssetStatus=r=>{
+      const current=String(r.status||"available").toLowerCase().trim() || "available";
+      const opts=assetStatusOptions.map(st=>`<option value="${esc(st)}" ${current===st?'selected':''}>${esc(st)}</option>`).join('');
+      return `<select class="mini-select asset-status-select" data-asset-status="${esc(r.asset_id||'')}">${opts}</select>`;
+    };
+    const renderAssetRentable=r=>{
+      const raw = r.rentable_setting;
+      const checked = raw === false ? "" : "checked";
+      const effective = r.rentable===false ? "not rentable" : "rentable";
+      return `<label class="asset-rentable-toggle"><input type="checkbox" data-asset-rentable="${esc(r.asset_id||'')}" ${checked} /> <span>${esc(effective)}</span></label>`;
+    };
     table($("#assetsTable"),[
-      {label:"ID",key:"asset_id"},{label:"Type",key:"asset_type"},{label:"Model Display",render:r=>esc(r.model_display || r.model_group || "")},{label:"Group",key:"model_group"},{label:"Serial",key:"serial"},{label:"Status",key:"status"},{label:"Rentable",render:r=>r.rentable===false?'FALSE':'TRUE'}
+      {label:"ID",key:"asset_id"},
+      {label:"Type",key:"asset_type"},
+      {label:"Model Display",render:r=>esc(r.model_display || r.model_group || "")},
+      {label:"Group",key:"model_group"},
+      {label:"Serial",key:"serial"},
+      {label:"Status",render:renderAssetStatus},
+      {label:"Rentable",render:renderAssetRentable},
+      {label:"Action",render:r=>`<button class="mini-btn" type="button" data-update-asset="${esc(r.asset_id||'')}">บันทึก</button>`}
     ], assets.slice(0,80));
 
     table($("#healthTable"),[
@@ -1326,6 +1345,23 @@
       setActiveCustomer(key);
     });
     document.addEventListener("click",async ev=>{
+      const assetBtn=ev.target.closest("[data-update-asset]");
+      if(assetBtn){
+        ev.preventDefault(); ev.stopPropagation();
+        const assetId=assetBtn.getAttribute("data-update-asset")||"";
+        if(!assetId) return showNotice("ไม่พบ asset_id ที่ต้องการอัปเดต", "bad");
+        const statusEl=$$('[data-asset-status]').find(el=>el.getAttribute('data-asset-status')===assetId);
+        const rentableEl=$$('[data-asset-rentable]').find(el=>el.getAttribute('data-asset-rentable')===assetId);
+        const payload={asset_id:assetId, status:statusEl ? statusEl.value : "available", rentable: rentableEl ? rentableEl.checked : true};
+        setBusy(assetBtn,true);
+        try{
+          const res=await api("updateAsset", payload);
+          await refresh();
+          showNotice(`อัปเดต Asset ${assetId} สำเร็จ${res.active_booking_warning ? ' · หมายเหตุ: '+res.active_booking_warning : ''}`, res.active_booking_warning ? "warn" : "ok");
+        }catch(e){ showNotice(e.message,"bad"); }
+        finally{ setBusy(assetBtn,false); }
+        return;
+      }
       const editBtn=ev.target.closest("[data-edit-booking-row]");
       if(editBtn){
         ev.preventDefault(); ev.stopPropagation();

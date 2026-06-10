@@ -547,3 +547,28 @@ html,body{max-width:100%;overflow-x:hidden}
 .create-price-meta small{display:block;margin-top:4px;color:var(--muted);line-height:1.35;}
 .btn.small{padding:8px 10px;font-size:12px;border-radius:12px;}
 @media (max-width:760px){.inline-price-head{display:block}.inline-price-head .btn{margin-top:10px;width:100%}.create-price-row{grid-template-columns:1fr}}
+
+
+/* v16.7.0 Phase 3.6.1 — Asset status inline controls */
+.asset-status-select{
+  min-width:112px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+  font-weight:800;
+  color:var(--text);
+}
+.asset-rentable-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  white-space:nowrap;
+  font-weight:800;
+  color:var(--muted);
+}
+.asset-rentable-toggle input{
+  width:16px;
+  height:16px;
+  accent-color:var(--primary);
+}
