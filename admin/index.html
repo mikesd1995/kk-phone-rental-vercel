@@ -317,38 +317,67 @@
 
         <section class="tab-panel" id="tab-events">
           <div class="grid two-col">
-            <form class="card form" id="eventForm">
-              <div class="form-title"><span class="eyebrow">Event</span><h2>เพิ่มงานใหม่</h2></div>
-              <div class="row two">
-                <label>ชื่องาน <input name="event_name" required placeholder="เช่น [안녕, BANGKOK] MUSIC FESTIVAL" /></label>
-                <label>วันที่ <input name="event_date" required type="date" /></label>
+            <form class="card form event-form-pro" id="eventForm">
+              <div class="form-title pro-form-title">
+                <span class="eyebrow">Event</span>
+                <h2>เพิ่มงานใหม่</h2>
+                <p class="hint">กรอกข้อมูลงานให้จบในหน้าเดียว และเลือกตั้งราคาเฉพาะงานได้เฉพาะเมื่อจำเป็น</p>
               </div>
-              <div class="row two">
-                <label>สถานที่ <input name="venue" required placeholder="Bangkok" /></label>
-                <label>Poster URL <input name="poster_url" placeholder="Google Drive file link / thumbnail / direct image URL" /><small>วางลิงก์ไฟล์รูป Google Drive ได้โดยตรง หรือปล่อยว่างถ้าจะอัปโหลดรูปจากเครื่อง</small></label>
-              </div>
-              <div class="row two">
-                <label>หรืออัปโหลดรูป Poster ไป Google Drive
-                  <input id="posterFile" type="file" accept="image/*" />
-                  <small>ต้องตั้ง Script Property <code>KK_POSTER_FOLDER_ID</code> ก่อน ใช้รูปไม่เกิน 3MB</small>
-                </label>
-                <label>สถานะ
-                  <select name="status"><option value="open">open</option><option value="closed">closed</option></select>
-                </label>
-              </div>
-              <label class="check"><input name="active_on_web" type="checkbox" checked /> เปิดโชว์หน้าเว็บ</label>
-              <div class="inline-price-panel" aria-labelledby="createEventPriceTitle">
-                <div class="inline-price-head">
-                  <div>
-                    <strong id="createEventPriceTitle">ตั้งราคาแพ็กเกจของงานนี้ทันที</strong>
-                    <small>ใส่เฉพาะแพ็กเกจที่ต้องการ override ระบบจะสร้างงานและบันทึกราคาเฉพาะงานให้ในครั้งเดียว</small>
-                  </div>
-                  <button class="btn ghost small" type="button" id="resetCreateEventPrices">ล้างราคาเฉพาะงาน</button>
+
+              <div class="form-section">
+                <div class="section-kicker"><span>1</span><div><strong>ข้อมูลงาน</strong><small>ข้อมูลหลักที่ใช้แสดงบนหน้าเว็บและหลังบ้าน</small></div></div>
+                <div class="row two">
+                  <label>ชื่องาน <input name="event_name" required placeholder="เช่น [안녕, BANGKOK] MUSIC FESTIVAL" /></label>
+                  <label>วันที่ <input name="event_date" required type="date" /></label>
                 </div>
-                <div id="createEventPriceOverrides" class="inline-price-list">กำลังโหลดแพ็กเกจ...</div>
+                <div class="row two">
+                  <label>สถานที่ <input name="venue" required placeholder="Bangkok" /></label>
+                  <label>สถานะ
+                    <select name="status"><option value="open">open</option><option value="closed">closed</option></select>
+                  </label>
+                </div>
+                <label class="check pro-check"><input name="active_on_web" type="checkbox" checked /> เปิดโชว์หน้าเว็บ <small>ถ้ายังไม่พร้อมขาย ให้เอาติ๊กออกก่อน</small></label>
               </div>
-              <label>Note <textarea name="note" rows="3"></textarea></label>
-              <button class="btn primary" type="submit">สร้างงาน + ราคา</button>
+
+              <div class="form-section">
+                <div class="section-kicker"><span>2</span><div><strong>Poster</strong><small>เลือกอย่างใดอย่างหนึ่ง: วาง URL หรืออัปโหลดรูป</small></div></div>
+                <div class="row two">
+                  <label>Poster URL <input name="poster_url" placeholder="Google Drive file link / thumbnail / direct image URL" /></label>
+                  <label>Upload Poster
+                    <input id="posterFile" type="file" accept="image/*" />
+                    <small>รองรับไฟล์ไม่เกิน 3MB และต้องตั้ง <code>KK_POSTER_FOLDER_ID</code></small>
+                  </label>
+                </div>
+              </div>
+
+              <div class="inline-price-panel collapsed" aria-labelledby="createEventPriceTitle">
+                <div class="inline-price-head compact-head">
+                  <label class="price-toggle">
+                    <input id="eventPriceToggle" type="checkbox" />
+                    <span>
+                      <strong id="createEventPriceTitle">ตั้งราคาเฉพาะงาน</strong>
+                      <small id="createEventPriceSummary">ปิดอยู่ · ใช้ราคาหลักทั้งหมด</small>
+                    </span>
+                  </label>
+                  <div class="price-head-actions">
+                    <button class="btn ghost small" type="button" id="resetCreateEventPrices">ล้างราคา</button>
+                  </div>
+                </div>
+                <div id="createEventPriceAdvanced" class="price-advanced hidden">
+                  <div class="price-helper">ใส่เฉพาะแพ็กเกจที่ต้องการ override ถ้าปล่อยว่าง ระบบจะใช้ราคาหลัก</div>
+                  <div id="createEventPriceOverrides" class="inline-price-list compact-price-list">กำลังโหลดแพ็กเกจ...</div>
+                </div>
+              </div>
+
+              <div class="form-section note-section">
+                <div class="section-kicker"><span>3</span><div><strong>Note</strong><small>หมายเหตุหลังบ้าน ไม่บังคับ</small></div></div>
+                <label class="sr-label">Note <textarea name="note" rows="2" placeholder="เช่น รับเครื่องหน้าฮอลล์ / โปรเฉพาะงานนี้"></textarea></label>
+              </div>
+
+              <div class="form-action-bar">
+                <button class="btn ghost" type="reset">ล้างฟอร์ม</button>
+                <button class="btn primary" type="submit" id="createEventSubmitBtn">สร้างงาน</button>
+              </div>
             </form>
 
             <form class="card form" id="eventUpdateForm">

@@ -572,3 +572,184 @@ html,body{max-width:100%;overflow-x:hidden}
   height:16px;
   accent-color:var(--primary);
 }
+
+/* v16.7.0 Phase 3.6.2 — CRM form UX polish / professional create event flow */
+.event-form-pro{
+  gap:14px;
+  overflow:hidden;
+}
+.pro-form-title{
+  padding-bottom:12px;
+  border-bottom:1px solid var(--line);
+}
+.pro-form-title .hint{margin:0;max-width:680px;}
+.form-section{
+  display:grid;
+  gap:13px;
+  padding:14px;
+  border:1px solid rgba(226,232,240,.9);
+  border-radius:20px;
+  background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,252,.78));
+}
+.section-kicker{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin-bottom:1px;
+}
+.section-kicker>span{
+  width:26px;
+  height:26px;
+  border-radius:10px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,var(--brand),var(--brand2));
+  color:#fff;
+  font-size:12px;
+  font-weight:900;
+  flex:0 0 auto;
+  box-shadow:0 8px 18px rgba(37,99,235,.22);
+}
+.section-kicker strong{display:block;font-size:15px;color:var(--ink);line-height:1.15;}
+.section-kicker small{display:block;margin-top:3px;color:var(--muted);font-weight:500;line-height:1.35;}
+.pro-check{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 10px;
+  align-items:center;
+  background:#fff;
+}
+.pro-check small{flex-basis:100%;margin-left:27px;font-size:12px;color:var(--muted);}
+.note-section textarea{min-height:72px;}
+.form-action-bar{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  position:sticky;
+  bottom:12px;
+  z-index:3;
+  padding:10px;
+  border:1px solid rgba(226,232,240,.92);
+  border-radius:18px;
+  background:rgba(255,255,255,.88);
+  backdrop-filter:blur(14px);
+  box-shadow:0 18px 36px rgba(15,23,42,.10);
+}
+.form-action-bar .btn.primary{min-width:180px;}
+.inline-price-panel{
+  padding:12px;
+  background:linear-gradient(180deg,rgba(239,246,255,.92),rgba(255,255,255,.94));
+  border-radius:20px;
+  margin:0;
+}
+.inline-price-panel.collapsed{
+  background:#fff;
+  border-style:dashed;
+  box-shadow:none;
+}
+.inline-price-head.compact-head{
+  align-items:center;
+  margin:0;
+}
+.price-toggle{
+  display:flex;
+  align-items:center;
+  grid-template-columns:none;
+  gap:12px;
+  margin:0;
+  cursor:pointer;
+}
+.price-toggle input{
+  width:20px;
+  min-height:20px;
+  accent-color:var(--brand);
+  flex:0 0 auto;
+}
+.price-toggle strong{font-size:15px;line-height:1.15;}
+.price-toggle small{font-size:12.5px;line-height:1.35;}
+.price-head-actions{display:flex;align-items:center;gap:8px;}
+.price-advanced{display:grid;gap:10px;margin-top:12px;}
+.price-helper{
+  padding:9px 11px;
+  border-radius:13px;
+  background:#eef6ff;
+  color:#335475;
+  font-size:12.5px;
+  font-weight:600;
+  line-height:1.45;
+}
+.inline-price-list.compact-price-list{gap:8px;}
+.create-price-row.compact{
+  grid-template-columns:minmax(180px,1.15fr) minmax(112px,.55fr) minmax(112px,.55fr) minmax(136px,.78fr);
+  gap:8px;
+  padding:10px;
+  border-radius:15px;
+  align-items:center;
+}
+.create-price-row.compact .create-price-meta strong{font-size:13px;line-height:1.25;}
+.create-price-row.compact .create-price-meta small{font-size:12px;margin-top:2px;}
+.create-price-row.compact .mini-field{
+  gap:5px;
+  font-size:12.2px;
+  color:#475569;
+}
+.create-price-row.compact .mini-field>span{font-weight:800;}
+.create-price-row.compact input,
+.create-price-row.compact select{
+  min-height:38px;
+  padding:8px 10px;
+  border-radius:12px;
+  font-size:13px;
+}
+.compact-empty{padding:12px;border-radius:14px;}
+
+/* CRM polish: clearer cards and tables without changing workflow logic */
+.customer-detail-card,
+.action-card,
+.report-card{
+  border-color:rgba(191,219,254,.85);
+}
+.customer-detail-card .card-head,
+.action-card .card-head,
+.report-card .card-head{
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(226,232,240,.75);
+}
+.crm-profile-summary,
+.crm-risk-panel,
+.crm-timeline-wrap{
+  border-radius:18px;
+}
+.action-toolbar,
+.report-toolbar,
+.quickbar{
+  border-color:rgba(191,219,254,.75);
+  box-shadow:0 12px 28px rgba(15,23,42,.045);
+}
+body.compact-mode .form-section{padding:11px;gap:10px;}
+body.compact-mode .section-kicker small{display:none;}
+body.compact-mode .create-price-row.compact input,
+body.compact-mode .create-price-row.compact select{min-height:34px;}
+
+@media(max-width:980px){
+  .form-action-bar{bottom:8px;}
+  .create-price-row.compact{grid-template-columns:1fr 1fr;}
+  .create-price-row.compact .create-price-meta{grid-column:1/-1;}
+  .create-price-row.compact .note-field{grid-column:1/-1;}
+}
+@media(max-width:560px){
+  .event-form-pro{gap:12px;}
+  .form-section{padding:12px;border-radius:18px;}
+  .section-kicker>span{width:24px;height:24px;border-radius:9px;}
+  .inline-price-head.compact-head{display:flex;gap:10px;}
+  .price-head-actions .btn{width:auto;min-height:36px;padding:7px 10px;}
+  .create-price-row.compact{grid-template-columns:1fr;}
+  .form-action-bar{
+    display:grid;
+    grid-template-columns:1fr;
+    bottom:6px;
+    padding:9px;
+  }
+  .form-action-bar .btn{width:100%;}
+  .form-action-bar .btn.primary{min-width:0;}
+}

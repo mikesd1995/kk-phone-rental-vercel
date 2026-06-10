@@ -1,6 +1,6 @@
 // KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_5_UI — UX/UI Professional Polish
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_1_ASSET_STATUS_FIX";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_2_CRM_FORM_UX_POLISH";
   const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_1_ASSET_STATUS_FIX";
   const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
@@ -863,7 +863,8 @@
     if(!box) return;
     const rows=activeMasterPackages();
     if(!rows.length){
-      box.innerHTML='<div class="empty-state">ยังไม่มีแพ็กเกจหลักที่เปิดใช้งาน กรุณาเพิ่มแพ็กเกจก่อน</div>';
+      box.innerHTML='<div class="empty-state compact-empty">ยังไม่มีแพ็กเกจหลักที่เปิดใช้งาน กรุณาเพิ่มแพ็กเกจก่อน</div>';
+      updateCreateEventPriceUi();
       return;
     }
     box.innerHTML=rows.map(p=>{
@@ -872,27 +873,60 @@
       const type=p.package_type||"package";
       const standard=money(p.standard_price||0);
       const ph=p.standard_price || '1290';
-      return `<div class="create-price-row" data-template-id="${esc(tpl)}">
+      return `<div class="create-price-row compact" data-template-id="${esc(tpl)}">
         <div class="create-price-meta">
           <strong>${esc(label)}</strong>
           <small>${esc(type)} · ราคาหลัก ${standard}฿</small>
         </div>
-        <label>ราคาเฉพาะงาน <input data-field="override_price" type="number" min="0" step="1" placeholder="เช่น ${esc(ph)}" /></label>
-        <label>สถานะ
+        <label class="mini-field"><span>ราคาเฉพาะงาน</span><input data-field="override_price" type="number" min="0" step="1" placeholder="${esc(ph)}" /></label>
+        <label class="mini-field"><span>สถานะ</span>
           <select data-field="active_override">
             <option value="">ใช้ค่าหลัก</option>
             <option value="true">เปิดขาย</option>
             <option value="false">ซ่อน</option>
           </select>
         </label>
-        <label>Note <input data-field="override_note" placeholder="เช่น โปรเฉพาะงานนี้" /></label>
+        <label class="mini-field note-field"><span>Note</span><input data-field="override_note" placeholder="โปร/เงื่อนไข" /></label>
       </div>`;
     }).join('');
+    $$("#createEventPriceOverrides input, #createEventPriceOverrides select").forEach(el=>{
+      el.addEventListener("input", updateCreateEventPriceUi);
+      el.addEventListener("change", updateCreateEventPriceUi);
+    });
+    updateCreateEventPriceUi();
+  }
+  function eventPriceToggleEnabled(){
+    const toggle=$("#eventPriceToggle");
+    return !!(toggle && toggle.checked);
+  }
+  function updateCreateEventPriceUi(){
+    const toggle=$("#eventPriceToggle");
+    const advanced=$("#createEventPriceAdvanced");
+    const panel=advanced ? advanced.closest(".inline-price-panel") : null;
+    const summary=$("#createEventPriceSummary");
+    const submit=$("#createEventSubmitBtn");
+    const enabled=eventPriceToggleEnabled();
+    if(advanced) advanced.classList.toggle("hidden", !enabled);
+    if(panel) panel.classList.toggle("collapsed", !enabled);
+    const changed=$$("#createEventPriceOverrides .create-price-row").filter(row=>{
+      return ["override_price","active_override","override_note"].some(f=>{
+        const el=row.querySelector(`[data-field="${f}"]`);
+        return el && String(el.value||"").trim()!=="";
+      });
+    }).length;
+    if(summary){
+      summary.textContent = enabled
+        ? (changed ? `เปิดอยู่ · ตั้งราคาแล้ว ${changed} แพ็กเกจ` : "เปิดอยู่ · ยังไม่ได้ใส่ราคาเฉพาะงาน")
+        : "ปิดอยู่ · ใช้ราคาหลักทั้งหมด";
+    }
+    if(submit) submit.textContent = enabled && changed ? "สร้างงาน + ตั้งราคา" : "สร้างงาน";
   }
   function resetCreateEventPriceOverrides(){
     $$("#createEventPriceOverrides input, #createEventPriceOverrides select").forEach(el=>{ el.value=""; });
+    updateCreateEventPriceUi();
   }
   function collectCreateEventPriceOverrides(){
+    if(!eventPriceToggleEnabled()) return [];
     return $$("#createEventPriceOverrides .create-price-row").map(row=>{
       const get=f=>{ const el=row.querySelector(`[data-field="${f}"]`); return el ? String(el.value||"").trim() : ""; };
       return {
@@ -1456,6 +1490,8 @@
         p.event_price_overrides=collectCreateEventPriceOverrides();
         const res=await api("createEvent",p);
         ev.target.reset();
+        const toggle=$("#eventPriceToggle");
+        if(toggle) toggle.checked=false;
         resetCreateEventPriceOverrides();
         await refresh();
         const priceText=res.overrides_created ? ` · บันทึกราคาเฉพาะงาน ${res.overrides_created} แพ็กเกจ` : "";
@@ -1466,6 +1502,9 @@
     });
     const resetCreateEventPrices=$("#resetCreateEventPrices");
     if(resetCreateEventPrices) resetCreateEventPrices.addEventListener("click", resetCreateEventPriceOverrides);
+    const eventPriceToggle=$("#eventPriceToggle");
+    if(eventPriceToggle) eventPriceToggle.addEventListener("change", updateCreateEventPriceUi);
+    if(eventForm) eventForm.addEventListener("reset",()=>setTimeout(updateCreateEventPriceUi,0));
 
     const eventUpdateForm=$("#eventUpdateForm");
     if(eventUpdateForm) eventUpdateForm.addEventListener("submit",async ev=>{
