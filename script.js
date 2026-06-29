@@ -10,7 +10,7 @@
 // - Adds month dropdown selector and removes soon-only filter button
 
 var APP       = window.KK_CONFIG || {};
-var KK_APP_VERSION = APP.appVersion || "v16.6.2_LINE_AUDITED";
+var KK_APP_VERSION = APP.appVersion || "v16.7.0_CRM_PRO_PHASE3_6_12_CANONICAL_OVERRIDE_JOIN_FIX";
 var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
 var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน";
 var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
@@ -265,6 +265,12 @@ async function fetchSheetCsv(name,range,ms){
   if(USE_API){
     try{ return await fetchValidatedSheetCsv(apiSheetUrl(name,range),name,range,ms||9000,"/api/kk-data"); }
     catch(e){
+      // IMPORTANT: package prices may be patched by /api/kk-data from 04_Event_Overrides.
+      // Falling back to direct 09_Web_Packages can show old standard prices even when Admin saved an override.
+      if(name===PKG_SHEET && URL_PARAMS.get("direct")!=="1"){
+        console.error("KK package proxy failed; not falling back to direct sheet because it can bypass price overrides", e);
+        throw e;
+      }
       console.warn("KK proxy failed or returned invalid CSV; falling back to read-only Google Sheets", e);
       if(APP.disableDirectFallback) throw e;
     }
@@ -274,7 +280,7 @@ async function fetchSheetCsv(name,range,ms){
 
 // ─── Session cache ───────────────────────────────────────────────────────
 var CACHE_TTL=15000; // Short cache so newly-created events and poster URLs show faster
-var PKG_CACHE_TTL=0; // Phase 3.6.11: package price override must be live from /api/kk-data // Package prices/availability can change from Admin override, keep this almost live.
+var PKG_CACHE_TTL=0; // Phase 3.6.12: package price override must be live from /api/kk-data canonical join.
 function cacheGet(k,ttl){ try{ var raw=sessionStorage.getItem(k); if(!raw)return null; var o=JSON.parse(raw); var maxAge=(typeof ttl==="number"?ttl:CACHE_TTL); return (Date.now()-o.ts)<maxAge?o.data:null; }catch(e){return null;} }
 function cacheSet(k,d){ try{sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),data:d}));}catch(e){} }
 
@@ -284,7 +290,7 @@ async function fetchWebRows(){
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 async function fetchPkgRows(){
-  var k="kk_pkg_v16_7_0_phase3_6_11:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k,PKG_CACHE_TTL); if(!DEBUG_MODE&&c)return c;
+  var k="kk_pkg_v16_7_0_phase3_6_12:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k,PKG_CACHE_TTL); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(PKG_SHEET,PKG_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }

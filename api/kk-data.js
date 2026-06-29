@@ -1,12 +1,14 @@
 // KK Phone Rental v16.6.2_LINE_AUDITED — Vercel Serverless Google Sheets CSV Proxy
 // Production reads through this proxy first. If GOOGLE_SHEET_ID is missing, it falls back to the known read-only sheet ID to prevent public-site outages.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_11_PUBLIC_OVERRIDE_PROXY_FIX";
+const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_12_CANONICAL_OVERRIDE_JOIN_FIX";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 const ALLOWED = {
   "08_Web_Ready": new Set(["A4:K"]),
   "09_Web_Packages": new Set(["A4:N", "A4:M", "A4:L"]),
+  "03_Packages": new Set(["A4:J"]),
+  "04_Event_Overrides": new Set(["A4:G"]),
 };
 
 function csvHeaderLooksValid(sheet, text) {
@@ -94,6 +96,33 @@ function templateIdFromPackageId(packageId, eventId) {
   return pkg;
 }
 
+function canonicalLensGroup(v) {
+  const raw = String(v || "").trim();
+  const k = compactKey(raw);
+  if (!k || k === "none" || k === "ไม่มี") return "NONE";
+  // G2 was removed from the database, but keep this normalized so old override/package rows
+  // do not split the public selling package. This affects pricing keys only, not asset stock.
+  if (["zeiss235x", "vivozeiss235x", "235x", "g1", "g2", "lensvivo", "lensvivo235x", "zeiss235", "zeiss2x35"].includes(k)) {
+    return "LENS_VIVO_2_35X";
+  }
+  return raw.toUpperCase();
+}
+
+function canonicalModelGroup(v) {
+  const raw = String(v || "").trim();
+  const k = compactKey(raw);
+  if (!k || k === "none" || k === "ไม่มี") return "NONE";
+  if (["vivox300pro", "x300pro", "vivox300prophone"].includes(k)) return "VIVO_X300_PRO";
+  return raw.toUpperCase();
+}
+
+function canonicalPackageKey(type, modelGroup, lensGroup) {
+  const t = String(type || "").trim().toLowerCase();
+  const m = canonicalModelGroup(modelGroup);
+  const l = canonicalLensGroup(lensGroup);
+  return [t, m, l].join("|");
+}
+
 async function fetchSheetCsvRaw(sheetId, sheet, range, timeoutMs) {
   const url = "https://docs.google.com/spreadsheets/d/" + encodeURIComponent(sheetId) +
     "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(sheet) +
@@ -107,15 +136,50 @@ async function fetchSheetCsvRaw(sheetId, sheet, range, timeoutMs) {
   return text;
 }
 
-function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv) {
+function buildPackageLookup(packageCsv) {
+  const rows = parseCsv(packageCsv);
+  const byTemplate = new Map();
+  const byDisplayKey = new Map();
+  if (rows.length < 2) return { byTemplate, byDisplayKey };
+  const h = rows[0];
+  const iTpl = findHeader(h, ["template_id", "package_id", "pkg_id"], 0);
+  const iModel = findHeader(h, ["model_group", "phone_group"], 1);
+  const iType = findHeader(h, ["package_type", "pkg_type"], 2);
+  const iLens = findHeader(h, ["lens_group"], 3);
+  const iDisplay = findHeader(h, ["display_name", "model_display", "package_name"], 5);
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const tpl = String(r[iTpl] || "").trim();
+    if (!tpl) continue;
+    const rec = {
+      template_id: tpl,
+      model_group: String(r[iModel] || "").trim(),
+      package_type: String(r[iType] || "").trim(),
+      lens_group: String(r[iLens] || "").trim(),
+      display_name: String(r[iDisplay] || "").trim(),
+    };
+    rec.canonical_key = canonicalPackageKey(rec.package_type, rec.model_group, rec.lens_group);
+    byTemplate.set(tpl, rec);
+    if (rec.display_name) byDisplayKey.set(compactKey(rec.display_name), rec);
+  }
+  return { byTemplate, byDisplayKey };
+}
+
+function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv, packageCsv) {
   const webRows = parseCsv(webCsv);
   const ovRows = parseCsv(overrideCsv);
-  if (webRows.length < 2 || ovRows.length < 2) return { csv: webCsv, applied: 0, hidden: 0 };
+  const pkgLookup = buildPackageLookup(packageCsv || "");
+  if (webRows.length < 2 || ovRows.length < 2) return { csv: webCsv, applied: 0, hidden: 0, canonical: 0, exact: 0 };
 
   const wh = webRows[0];
   const oh = ovRows[0];
   const wPackageId = findHeader(wh, ["package_id", "pkg_id"], 0);
   const wEventId = findHeader(wh, ["event_id"], 1);
+  const wType = findHeader(wh, ["package_type", "pkg_type"], 2);
+  const wModel = findHeader(wh, ["model_group"], 3);
+  const wModelDisplay = findHeader(wh, ["model_display", "display_name"], 4);
+  const wLens = findHeader(wh, ["lens_group"], 5);
+  const wLensDisplay = findHeader(wh, ["lens_display"], 6);
   const wPrice = findHeader(wh, ["price", "ราคา"], 7);
   const wStatus = findHeader(wh, ["package_status", "status"], 9);
   const wSort = findHeader(wh, ["sort_order"], 10);
@@ -131,10 +195,12 @@ function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv) {
   const oUseCase = findHeader(oh, ["use_case_override", "use_case"], 6);
 
   if (wPackageId < 0 || wEventId < 0 || wPrice < 0 || oEventId < 0 || oTemplateId < 0) {
-    return { csv: webCsv, applied: 0, hidden: 0 };
+    return { csv: webCsv, applied: 0, hidden: 0, canonical: 0, exact: 0 };
   }
 
-  const latest = new Map();
+  // Latest override wins, both by exact template_id and by canonical sellable package key.
+  const latestByTemplate = new Map();
+  const latestByCanonical = new Map();
   for (let i = 1; i < ovRows.length; i++) {
     const r = ovRows[i] || [];
     const ev = String(r[oEventId] || "").trim();
@@ -142,16 +208,45 @@ function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv) {
     if (!ev || !tpl) continue;
     const hasAny = [oPrice, oActive, oNote, oSort, oUseCase].some(idx => idx >= 0 && String(r[idx] || "").trim() !== "");
     if (!hasAny) continue;
-    latest.set(ev + "||" + tpl, r); // last row wins, matching Apps Script LOOKUP behavior.
+    latestByTemplate.set(ev + "||" + tpl, r);
+    const pkg = pkgLookup.byTemplate.get(tpl);
+    if (pkg && pkg.canonical_key) latestByCanonical.set(ev + "||" + pkg.canonical_key, r);
   }
 
   let applied = 0;
   let hidden = 0;
+  let exact = 0;
+  let canonical = 0;
+
   for (let i = 1; i < webRows.length; i++) {
     const r = webRows[i] || [];
     const ev = String(r[wEventId] || "").trim();
-    const tpl = templateIdFromPackageId(r[wPackageId], ev);
-    const ov = latest.get(ev + "||" + tpl);
+    const packageId = String(r[wPackageId] || "").trim();
+    const tpl = templateIdFromPackageId(packageId, ev);
+
+    let ov = latestByTemplate.get(ev + "||" + tpl) || latestByTemplate.get(ev + "||" + packageId);
+    let matchedExact = !!ov;
+
+    if (!ov) {
+      let canonicalKey = "";
+      const pkgFromTemplate = pkgLookup.byTemplate.get(tpl) || pkgLookup.byTemplate.get(packageId);
+      if (pkgFromTemplate) {
+        canonicalKey = pkgFromTemplate.canonical_key;
+      } else {
+        // 09_Web_Packages already carries enough structure for a canonical match.
+        canonicalKey = canonicalPackageKey(r[wType], r[wModel], r[wLens]);
+        // If old rows use display labels instead of groups, fall back through display map.
+        if (!latestByCanonical.has(ev + "||" + canonicalKey)) {
+          const displayKey = compactKey([r[wModelDisplay], r[wLensDisplay]].filter(Boolean).join(" "));
+          const displayPkg = pkgLookup.byDisplayKey.get(displayKey) || pkgLookup.byDisplayKey.get(compactKey(r[wModelDisplay])) || pkgLookup.byDisplayKey.get(compactKey(r[wLensDisplay]));
+          if (displayPkg) canonicalKey = displayPkg.canonical_key;
+        }
+      }
+      ov = latestByCanonical.get(ev + "||" + canonicalKey);
+      if (ov) canonical++;
+    } else {
+      exact++;
+    }
     if (!ov) continue;
 
     if (oPrice >= 0 && String(ov[oPrice] || "").trim() !== "") { r[wPrice] = String(ov[oPrice]).trim(); applied++; }
@@ -165,7 +260,7 @@ function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv) {
       r[wStatus] = "available";
     }
   }
-  return { csv: toCsv(webRows), applied, hidden };
+  return { csv: toCsv(webRows), applied, hidden, canonical, exact };
 }
 
 function send(res, status, body, contentType = "text/plain; charset=utf-8") {
@@ -217,10 +312,13 @@ module.exports = async function handler(req, res) {
     if (sheet === "09_Web_Packages") {
       try {
         const overrideCsv = await fetchSheetCsvRaw(sheetId, "04_Event_Overrides", "A4:G", 12000);
-        const transformed = applyEventOverridesToWebPackagesCsv(text, overrideCsv);
+        const packageCsv = await fetchSheetCsvRaw(sheetId, "03_Packages", "A4:J", 12000);
+        const transformed = applyEventOverridesToWebPackagesCsv(text, overrideCsv, packageCsv);
         text = transformed.csv;
         res.setHeader("X-KK-Override-Applied-Rows", String(transformed.applied || 0));
         res.setHeader("X-KK-Override-Hidden-Rows", String(transformed.hidden || 0));
+        res.setHeader("X-KK-Override-Exact-Rows", String(transformed.exact || 0));
+        res.setHeader("X-KK-Override-Canonical-Rows", String(transformed.canonical || 0));
       } catch (joinErr) {
         // Do not break the public site if override sheet is temporarily unavailable.
         // The sheet formula remains the fallback source.
