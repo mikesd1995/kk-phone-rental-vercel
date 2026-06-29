@@ -1,7 +1,7 @@
 // KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_5_UI — UX/UI Professional Polish
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_2_CRM_FORM_UX_POLISH";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_1_ASSET_STATUS_FIX";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_6_ASSET_DELETE_GUARD";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_6_ASSET_DELETE_GUARD";
   const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -1210,7 +1210,7 @@
       {label:"Serial",key:"serial"},
       {label:"Status",render:renderAssetStatus},
       {label:"Rentable",render:renderAssetRentable},
-      {label:"Action",render:r=>`<button class="mini-btn" type="button" data-update-asset="${esc(r.asset_id||'')}">บันทึก</button>`}
+      {label:"Action",render:r=>`<div class="inline-actions asset-actions"><button class="mini-btn" type="button" data-update-asset="${esc(r.asset_id||'')}">บันทึก</button><button class="mini-btn danger-soft" type="button" data-delete-asset="${esc(r.asset_id||'')}">ลบ</button></div>`}
     ], assets.slice(0,80));
 
     table($("#healthTable"),[
@@ -1394,6 +1394,22 @@
           showNotice(`อัปเดต Asset ${assetId} สำเร็จ${res.active_booking_warning ? ' · หมายเหตุ: '+res.active_booking_warning : ''}`, res.active_booking_warning ? "warn" : "ok");
         }catch(e){ showNotice(e.message,"bad"); }
         finally{ setBusy(assetBtn,false); }
+        return;
+      }
+      const deleteAssetBtn=ev.target.closest("[data-delete-asset]");
+      if(deleteAssetBtn){
+        ev.preventDefault(); ev.stopPropagation();
+        const assetId=deleteAssetBtn.getAttribute("data-delete-asset")||"";
+        if(!assetId) return showNotice("ไม่พบ asset_id ที่ต้องการลบ", "bad");
+        const ok=confirm(`ต้องการลบ Asset ${assetId} ใช่ไหม?\n\nระบบจะลบได้เฉพาะ asset ที่ยังไม่เคยถูกใช้ใน booking เท่านั้น ถ้าเคยใช้งานแล้วควรเปลี่ยนเป็น inactive แทนเพื่อเก็บประวัติให้ถูกต้อง`);
+        if(!ok) return;
+        setBusy(deleteAssetBtn,true);
+        try{
+          await api("deleteAsset", {asset_id:assetId});
+          await refresh();
+          showNotice(`ลบ Asset ${assetId} สำเร็จ`);
+        }catch(e){ showNotice(e.message,"bad"); }
+        finally{ setBusy(deleteAssetBtn,false); }
         return;
       }
       const editBtn=ev.target.closest("[data-edit-booking-row]");
