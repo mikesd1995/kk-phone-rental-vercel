@@ -1,7 +1,7 @@
 // KK Phone Rental v16.6.2_LINE_AUDITED — Vercel Serverless Google Sheets CSV Proxy
 // Production reads through this proxy first. If GOOGLE_SHEET_ID is missing, it falls back to the known read-only sheet ID to prevent public-site outages.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_12_CANONICAL_OVERRIDE_JOIN_FIX";
+const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_13_STRICT_ZEISS_G1_STOCK_FIX";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 const ALLOWED = {
@@ -96,15 +96,21 @@ function templateIdFromPackageId(packageId, eventId) {
   return pkg;
 }
 
+function isRetiredG2LensGroup(v) {
+  const k = compactKey(v);
+  return k === "g2" || k === "g๒";
+}
+
 function canonicalLensGroup(v) {
   const raw = String(v || "").trim();
   const k = compactKey(raw);
   if (!k || k === "none" || k === "ไม่มี") return "NONE";
-  // G2 was removed from the database, but keep this normalized so old override/package rows
-  // do not split the public selling package. This affects pricing keys only, not asset stock.
-  if (["zeiss235x", "vivozeiss235x", "235x", "g1", "g2", "lensvivo", "lensvivo235x", "zeiss235", "zeiss2x35"].includes(k)) {
+  // Strict production stock policy: only ZEISS_2_35X / G1 are sellable public lens stock.
+  // G2/G_2 is deliberately NOT mapped to the public Lens Vivo package.
+  if (["zeiss235x", "vivozeiss235x", "235x", "g1", "lensvivo", "lensvivo235x", "zeiss235", "zeiss2x35"].includes(k)) {
     return "LENS_VIVO_2_35X";
   }
+  if (isRetiredG2LensGroup(raw)) return "RETIRED_G2_DO_NOT_SELL";
   return raw.toUpperCase();
 }
 
@@ -129,7 +135,7 @@ async function fetchSheetCsvRaw(sheetId, sheet, range, timeoutMs) {
     "&range=" + encodeURIComponent(range) +
     "&t=" + Date.now();
   const upstream = await fetchWithTimeout(url, {
-    headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.7.0-Override-Join" },
+    headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.7.0-Strict-Zeiss-G1" },
   }, timeoutMs || 12000);
   const text = await upstream.text();
   if (!upstream.ok) throw new Error("Google Sheets upstream error for " + sheet + ": " + upstream.status + " " + text.slice(0, 160));
@@ -166,10 +172,10 @@ function buildPackageLookup(packageCsv) {
 }
 
 function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv, packageCsv) {
-  const webRows = parseCsv(webCsv);
+  let webRows = parseCsv(webCsv);
   const ovRows = parseCsv(overrideCsv);
   const pkgLookup = buildPackageLookup(packageCsv || "");
-  if (webRows.length < 2 || ovRows.length < 2) return { csv: webCsv, applied: 0, hidden: 0, canonical: 0, exact: 0 };
+  if (webRows.length < 2 || ovRows.length < 2) return { csv: webCsv, applied: 0, hidden: 0, canonical: 0, exact: 0, retiredG2: 0 };
 
   const wh = webRows[0];
   const oh = ovRows[0];
@@ -195,8 +201,25 @@ function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv, packageCsv) {
   const oUseCase = findHeader(oh, ["use_case_override", "use_case"], 6);
 
   if (wPackageId < 0 || wEventId < 0 || wPrice < 0 || oEventId < 0 || oTemplateId < 0) {
-    return { csv: webCsv, applied: 0, hidden: 0, canonical: 0, exact: 0 };
+    return { csv: webCsv, applied: 0, hidden: 0, canonical: 0, exact: 0, retiredG2: 0 };
   }
+
+  // Remove retired G2/G_2 public package rows completely. Current production stock should be
+  // 2× VIVO_X300_PRO phones + ZEISS_2_35X/G1 lenses only. G2 rows in old packages or web output
+  // must not make events look full, alter availability, or receive public price overrides.
+  const filteredWebRows = [webRows[0]];
+  let retiredG2 = 0;
+  for (let i = 1; i < webRows.length; i++) {
+    const r = webRows[i] || [];
+    const ev = String(r[wEventId] || "").trim();
+    const packageId = String(r[wPackageId] || "").trim();
+    const tpl = templateIdFromPackageId(packageId, ev);
+    const pkg = pkgLookup.byTemplate.get(tpl) || pkgLookup.byTemplate.get(packageId);
+    const lensGroup = (pkg && pkg.lens_group) || r[wLens] || r[wLensDisplay] || "";
+    if (isRetiredG2LensGroup(lensGroup)) { retiredG2++; continue; }
+    filteredWebRows.push(r);
+  }
+  webRows = filteredWebRows;
 
   // Latest override wins, both by exact template_id and by canonical sellable package key.
   const latestByTemplate = new Map();
@@ -260,7 +283,7 @@ function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv, packageCsv) {
       r[wStatus] = "available";
     }
   }
-  return { csv: toCsv(webRows), applied, hidden, canonical, exact };
+  return { csv: toCsv(webRows), applied, hidden, canonical, exact, retiredG2 };
 }
 
 function send(res, status, body, contentType = "text/plain; charset=utf-8") {
@@ -300,7 +323,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const upstream = await fetchWithTimeout(url, {
-      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.6.2-Line-Audited" },
+      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.7.0-Strict-Zeiss-G1" },
     }, 12000);
     let text = await upstream.text();
     if (!upstream.ok) {
@@ -319,6 +342,7 @@ module.exports = async function handler(req, res) {
         res.setHeader("X-KK-Override-Hidden-Rows", String(transformed.hidden || 0));
         res.setHeader("X-KK-Override-Exact-Rows", String(transformed.exact || 0));
         res.setHeader("X-KK-Override-Canonical-Rows", String(transformed.canonical || 0));
+        res.setHeader("X-KK-Retired-G2-Rows", String(transformed.retiredG2 || 0));
       } catch (joinErr) {
         // Do not break the public site if override sheet is temporarily unavailable.
         // The sheet formula remains the fallback source.
