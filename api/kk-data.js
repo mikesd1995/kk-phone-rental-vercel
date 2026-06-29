@@ -1,7 +1,7 @@
 // KK Phone Rental v16.6.2_LINE_AUDITED — Vercel Serverless Google Sheets CSV Proxy
 // Production reads through this proxy first. If GOOGLE_SHEET_ID is missing, it falls back to the known read-only sheet ID to prevent public-site outages.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_13_STRICT_ZEISS_G1_STOCK_FIX";
+const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_14_PUBLIC_PACKAGE_RESTORE";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 const ALLOWED = {
@@ -96,96 +96,18 @@ function templateIdFromPackageId(packageId, eventId) {
   return pkg;
 }
 
-function isRetiredG2LensGroup(v) {
-  const k = compactKey(v);
-  return k === "g2" || k === "g๒";
-}
 
-function canonicalLensGroup(v) {
-  const raw = String(v || "").trim();
-  const k = compactKey(raw);
-  if (!k || k === "none" || k === "ไม่มี") return "NONE";
-  // Strict production stock policy: only ZEISS_2_35X / G1 are sellable public lens stock.
-  // G2/G_2 is deliberately NOT mapped to the public Lens Vivo package.
-  if (["zeiss235x", "vivozeiss235x", "235x", "g1", "lensvivo", "lensvivo235x", "zeiss235", "zeiss2x35"].includes(k)) {
-    return "LENS_VIVO_2_35X";
-  }
-  if (isRetiredG2LensGroup(raw)) return "RETIRED_G2_DO_NOT_SELL";
-  return raw.toUpperCase();
-}
-
-function canonicalModelGroup(v) {
-  const raw = String(v || "").trim();
-  const k = compactKey(raw);
-  if (!k || k === "none" || k === "ไม่มี") return "NONE";
-  if (["vivox300pro", "x300pro", "vivox300prophone"].includes(k)) return "VIVO_X300_PRO";
-  return raw.toUpperCase();
-}
-
-function canonicalPackageKey(type, modelGroup, lensGroup) {
-  const t = String(type || "").trim().toLowerCase();
-  const m = canonicalModelGroup(modelGroup);
-  const l = canonicalLensGroup(lensGroup);
-  return [t, m, l].join("|");
-}
-
-async function fetchSheetCsvRaw(sheetId, sheet, range, timeoutMs) {
-  const url = "https://docs.google.com/spreadsheets/d/" + encodeURIComponent(sheetId) +
-    "/gviz/tq?tqx=out:csv&sheet=" + encodeURIComponent(sheet) +
-    "&range=" + encodeURIComponent(range) +
-    "&t=" + Date.now();
-  const upstream = await fetchWithTimeout(url, {
-    headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.7.0-Strict-Zeiss-G1" },
-  }, timeoutMs || 12000);
-  const text = await upstream.text();
-  if (!upstream.ok) throw new Error("Google Sheets upstream error for " + sheet + ": " + upstream.status + " " + text.slice(0, 160));
-  return text;
-}
-
-function buildPackageLookup(packageCsv) {
-  const rows = parseCsv(packageCsv);
-  const byTemplate = new Map();
-  const byDisplayKey = new Map();
-  if (rows.length < 2) return { byTemplate, byDisplayKey };
-  const h = rows[0];
-  const iTpl = findHeader(h, ["template_id", "package_id", "pkg_id"], 0);
-  const iModel = findHeader(h, ["model_group", "phone_group"], 1);
-  const iType = findHeader(h, ["package_type", "pkg_type"], 2);
-  const iLens = findHeader(h, ["lens_group"], 3);
-  const iDisplay = findHeader(h, ["display_name", "model_display", "package_name"], 5);
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i] || [];
-    const tpl = String(r[iTpl] || "").trim();
-    if (!tpl) continue;
-    const rec = {
-      template_id: tpl,
-      model_group: String(r[iModel] || "").trim(),
-      package_type: String(r[iType] || "").trim(),
-      lens_group: String(r[iLens] || "").trim(),
-      display_name: String(r[iDisplay] || "").trim(),
-    };
-    rec.canonical_key = canonicalPackageKey(rec.package_type, rec.model_group, rec.lens_group);
-    byTemplate.set(tpl, rec);
-    if (rec.display_name) byDisplayKey.set(compactKey(rec.display_name), rec);
-  }
-  return { byTemplate, byDisplayKey };
-}
-
-function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv, packageCsv) {
-  let webRows = parseCsv(webCsv);
+function applySafeEventOverridesToWebPackagesCsv(webCsv, overrideCsv) {
+  const webRows = parseCsv(webCsv);
   const ovRows = parseCsv(overrideCsv);
-  const pkgLookup = buildPackageLookup(packageCsv || "");
-  if (webRows.length < 2 || ovRows.length < 2) return { csv: webCsv, applied: 0, hidden: 0, canonical: 0, exact: 0, retiredG2: 0 };
+  if (webRows.length < 2 || ovRows.length < 2) {
+    return { csv: webCsv, applied: 0, hidden: 0, exact: 0 };
+  }
 
   const wh = webRows[0];
   const oh = ovRows[0];
   const wPackageId = findHeader(wh, ["package_id", "pkg_id"], 0);
   const wEventId = findHeader(wh, ["event_id"], 1);
-  const wType = findHeader(wh, ["package_type", "pkg_type"], 2);
-  const wModel = findHeader(wh, ["model_group"], 3);
-  const wModelDisplay = findHeader(wh, ["model_display", "display_name"], 4);
-  const wLens = findHeader(wh, ["lens_group"], 5);
-  const wLensDisplay = findHeader(wh, ["lens_display"], 6);
   const wPrice = findHeader(wh, ["price", "ราคา"], 7);
   const wStatus = findHeader(wh, ["package_status", "status"], 9);
   const wSort = findHeader(wh, ["sort_order"], 10);
@@ -201,29 +123,14 @@ function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv, packageCsv) {
   const oUseCase = findHeader(oh, ["use_case_override", "use_case"], 6);
 
   if (wPackageId < 0 || wEventId < 0 || wPrice < 0 || oEventId < 0 || oTemplateId < 0) {
-    return { csv: webCsv, applied: 0, hidden: 0, canonical: 0, exact: 0, retiredG2: 0 };
+    return { csv: webCsv, applied: 0, hidden: 0, exact: 0 };
   }
 
-  // Remove retired G2/G_2 public package rows completely. Current production stock should be
-  // 2× VIVO_X300_PRO phones + ZEISS_2_35X/G1 lenses only. G2 rows in old packages or web output
-  // must not make events look full, alter availability, or receive public price overrides.
-  const filteredWebRows = [webRows[0]];
-  let retiredG2 = 0;
-  for (let i = 1; i < webRows.length; i++) {
-    const r = webRows[i] || [];
-    const ev = String(r[wEventId] || "").trim();
-    const packageId = String(r[wPackageId] || "").trim();
-    const tpl = templateIdFromPackageId(packageId, ev);
-    const pkg = pkgLookup.byTemplate.get(tpl) || pkgLookup.byTemplate.get(packageId);
-    const lensGroup = (pkg && pkg.lens_group) || r[wLens] || r[wLensDisplay] || "";
-    if (isRetiredG2LensGroup(lensGroup)) { retiredG2++; continue; }
-    filteredWebRows.push(r);
-  }
-  webRows = filteredWebRows;
-
-  // Latest override wins, both by exact template_id and by canonical sellable package key.
+  // Emergency restore rule:
+  // The public proxy must NEVER delete package rows. Stock filtering/compatibility belongs in
+  // Google Sheet formulas + Apps Script repair, not in the Vercel CSV proxy. The proxy only overlays
+  // event-specific overrides if it can match them safely.
   const latestByTemplate = new Map();
-  const latestByCanonical = new Map();
   for (let i = 1; i < ovRows.length; i++) {
     const r = ovRows[i] || [];
     const ev = String(r[oEventId] || "").trim();
@@ -232,58 +139,37 @@ function applyEventOverridesToWebPackagesCsv(webCsv, overrideCsv, packageCsv) {
     const hasAny = [oPrice, oActive, oNote, oSort, oUseCase].some(idx => idx >= 0 && String(r[idx] || "").trim() !== "");
     if (!hasAny) continue;
     latestByTemplate.set(ev + "||" + tpl, r);
-    const pkg = pkgLookup.byTemplate.get(tpl);
-    if (pkg && pkg.canonical_key) latestByCanonical.set(ev + "||" + pkg.canonical_key, r);
   }
 
   let applied = 0;
   let hidden = 0;
   let exact = 0;
-  let canonical = 0;
-
   for (let i = 1; i < webRows.length; i++) {
     const r = webRows[i] || [];
     const ev = String(r[wEventId] || "").trim();
     const packageId = String(r[wPackageId] || "").trim();
     const tpl = templateIdFromPackageId(packageId, ev);
-
-    let ov = latestByTemplate.get(ev + "||" + tpl) || latestByTemplate.get(ev + "||" + packageId);
-    let matchedExact = !!ov;
-
-    if (!ov) {
-      let canonicalKey = "";
-      const pkgFromTemplate = pkgLookup.byTemplate.get(tpl) || pkgLookup.byTemplate.get(packageId);
-      if (pkgFromTemplate) {
-        canonicalKey = pkgFromTemplate.canonical_key;
-      } else {
-        // 09_Web_Packages already carries enough structure for a canonical match.
-        canonicalKey = canonicalPackageKey(r[wType], r[wModel], r[wLens]);
-        // If old rows use display labels instead of groups, fall back through display map.
-        if (!latestByCanonical.has(ev + "||" + canonicalKey)) {
-          const displayKey = compactKey([r[wModelDisplay], r[wLensDisplay]].filter(Boolean).join(" "));
-          const displayPkg = pkgLookup.byDisplayKey.get(displayKey) || pkgLookup.byDisplayKey.get(compactKey(r[wModelDisplay])) || pkgLookup.byDisplayKey.get(compactKey(r[wLensDisplay]));
-          if (displayPkg) canonicalKey = displayPkg.canonical_key;
-        }
-      }
-      ov = latestByCanonical.get(ev + "||" + canonicalKey);
-      if (ov) canonical++;
-    } else {
-      exact++;
-    }
+    const ov = latestByTemplate.get(ev + "||" + tpl) || latestByTemplate.get(ev + "||" + packageId);
     if (!ov) continue;
+    exact++;
 
-    if (oPrice >= 0 && String(ov[oPrice] || "").trim() !== "") { r[wPrice] = String(ov[oPrice]).trim(); applied++; }
+    if (oPrice >= 0 && String(ov[oPrice] || "").trim() !== "") {
+      r[wPrice] = String(ov[oPrice]).trim();
+      applied++;
+    }
     if (oSort >= 0 && wSort >= 0 && String(ov[oSort] || "").trim() !== "") r[wSort] = String(ov[oSort]).trim();
     if (oNote >= 0 && wNote >= 0 && String(ov[oNote] || "").trim() !== "") r[wNote] = String(ov[oNote]).trim();
     if (oUseCase >= 0 && wUseCase >= 0 && String(ov[oUseCase] || "").trim() !== "") r[wUseCase] = String(ov[oUseCase]).trim();
 
     const active = oActive >= 0 ? normalizeBoolText(ov[oActive]) : "";
-    if (active === "FALSE" && wStatus >= 0) { r[wStatus] = "hidden"; hidden++; }
-    else if (active === "TRUE" && wStatus >= 0 && ["hidden", "hide"].includes(String(r[wStatus] || "").trim().toLowerCase())) {
+    if (active === "FALSE" && wStatus >= 0) {
+      r[wStatus] = "hidden";
+      hidden++;
+    } else if (active === "TRUE" && wStatus >= 0 && ["hidden", "hide"].includes(String(r[wStatus] || "").trim().toLowerCase())) {
       r[wStatus] = "available";
     }
   }
-  return { csv: toCsv(webRows), applied, hidden, canonical, exact, retiredG2 };
+  return { csv: toCsv(webRows), applied, hidden, exact };
 }
 
 function send(res, status, body, contentType = "text/plain; charset=utf-8") {
@@ -323,7 +209,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const upstream = await fetchWithTimeout(url, {
-      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.7.0-Strict-Zeiss-G1" },
+      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.7.0-Package-Restore" },
     }, 12000);
     let text = await upstream.text();
     if (!upstream.ok) {
@@ -334,19 +220,18 @@ module.exports = async function handler(req, res) {
     }
     if (sheet === "09_Web_Packages") {
       try {
-        const overrideCsv = await fetchSheetCsvRaw(sheetId, "04_Event_Overrides", "A4:G", 12000);
-        const packageCsv = await fetchSheetCsvRaw(sheetId, "03_Packages", "A4:J", 12000);
-        const transformed = applyEventOverridesToWebPackagesCsv(text, overrideCsv, packageCsv);
+        const overrideCsv = await fetchSheetCsvRaw(sheetId, "04_Event_Overrides", "A4:G", 10000);
+        const transformed = applySafeEventOverridesToWebPackagesCsv(text, overrideCsv);
         text = transformed.csv;
         res.setHeader("X-KK-Override-Applied-Rows", String(transformed.applied || 0));
         res.setHeader("X-KK-Override-Hidden-Rows", String(transformed.hidden || 0));
         res.setHeader("X-KK-Override-Exact-Rows", String(transformed.exact || 0));
-        res.setHeader("X-KK-Override-Canonical-Rows", String(transformed.canonical || 0));
-        res.setHeader("X-KK-Retired-G2-Rows", String(transformed.retiredG2 || 0));
+        res.setHeader("X-KK-Package-Restore", "safe-no-row-delete");
       } catch (joinErr) {
-        // Do not break the public site if override sheet is temporarily unavailable.
-        // The sheet formula remains the fallback source.
+        // Emergency production rule: never break the public package feed because an optional
+        // override join failed. Return original 09_Web_Packages instead of empty packages.
         res.setHeader("X-KK-Override-Join-Warning", String(joinErr && joinErr.message || joinErr).slice(0, 180));
+        res.setHeader("X-KK-Package-Restore", "original-feed-fallback");
       }
       res.setHeader("Cache-Control", "no-store, max-age=0, must-revalidate");
     } else {
