@@ -1,7 +1,7 @@
 // KK Phone Rental v16.6.2_LINE_AUDITED — Vercel Serverless Google Sheets CSV Proxy
 // Production reads through this proxy first. If GOOGLE_SHEET_ID is missing, it falls back to the known read-only sheet ID to prevent public-site outages.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_14_PUBLIC_PACKAGE_RESTORE";
+const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_15_PRICE_SOURCE_RESTORE";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 const ALLOWED = {
@@ -209,7 +209,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const upstream = await fetchWithTimeout(url, {
-      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.7.0-Package-Restore" },
+      headers: { "User-Agent": "KK-Phone-Rental-Vercel-Proxy/16.7.0-Price-Source-Restore" },
     }, 12000);
     let text = await upstream.text();
     if (!upstream.ok) {
@@ -219,20 +219,12 @@ module.exports = async function handler(req, res) {
       return send(res, 502, "Google Sheets returned invalid CSV header for " + sheet + ". Check GOOGLE_SHEET_ID, sheet name, sharing, and range.");
     }
     if (sheet === "09_Web_Packages") {
-      try {
-        const overrideCsv = await fetchSheetCsvRaw(sheetId, "04_Event_Overrides", "A4:G", 10000);
-        const transformed = applySafeEventOverridesToWebPackagesCsv(text, overrideCsv);
-        text = transformed.csv;
-        res.setHeader("X-KK-Override-Applied-Rows", String(transformed.applied || 0));
-        res.setHeader("X-KK-Override-Hidden-Rows", String(transformed.hidden || 0));
-        res.setHeader("X-KK-Override-Exact-Rows", String(transformed.exact || 0));
-        res.setHeader("X-KK-Package-Restore", "safe-no-row-delete");
-      } catch (joinErr) {
-        // Emergency production rule: never break the public package feed because an optional
-        // override join failed. Return original 09_Web_Packages instead of empty packages.
-        res.setHeader("X-KK-Override-Join-Warning", String(joinErr && joinErr.message || joinErr).slice(0, 180));
-        res.setHeader("X-KK-Package-Restore", "original-feed-fallback");
-      }
+      // Phase 3.6.15 emergency price sanity rule:
+      // Public prices must come from the already-calculated 09_Web_Packages sheet only.
+      // The proxy must not rewrite, overlay, hide, or canonical-join package rows because that
+      // caused prices to drift across events/packages. Override application belongs in Apps Script
+      // formulas that write 09_Web_Packages!H.
+      res.setHeader("X-KK-Package-Price-Source", "09_Web_Packages-direct-no-proxy-override");
       res.setHeader("Cache-Control", "no-store, max-age=0, must-revalidate");
     } else {
       res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=45");
