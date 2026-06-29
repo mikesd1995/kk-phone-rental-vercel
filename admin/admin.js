@@ -1487,7 +1487,12 @@
 
     const overrideForm=$("#eventPriceOverrideForm");
     if(overrideForm){
-      $$('select', overrideForm).forEach(sel=>sel.addEventListener("change", populateEventOverrideForm));
+      // Only event/package selectors should reload the saved override.
+      // Do NOT bind active_override here; otherwise selecting "เปิดขาย" / "ซ่อน"
+      // immediately calls populateEventOverrideForm() and resets the user's choice back to the saved value.
+      [overrideForm.elements.event_id, overrideForm.elements.template_id].filter(Boolean).forEach(sel=>{
+        sel.addEventListener("change", populateEventOverrideForm);
+      });
       overrideForm.addEventListener("submit",async ev=>{
         ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
         try{ await api("upsertEventOverride",formData(ev.target)); await refresh(); showNotice("บันทึกราคาเฉพาะงานสำเร็จ"); }
