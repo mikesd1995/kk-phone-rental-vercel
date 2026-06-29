@@ -274,7 +274,8 @@ async function fetchSheetCsv(name,range,ms){
 
 // ─── Session cache ───────────────────────────────────────────────────────
 var CACHE_TTL=15000; // Short cache so newly-created events and poster URLs show faster
-function cacheGet(k){ try{ var raw=sessionStorage.getItem(k); if(!raw)return null; var o=JSON.parse(raw); return (Date.now()-o.ts)<CACHE_TTL?o.data:null; }catch(e){return null;} }
+var PKG_CACHE_TTL=2500; // Package prices/availability can change from Admin override, keep this almost live.
+function cacheGet(k,ttl){ try{ var raw=sessionStorage.getItem(k); if(!raw)return null; var o=JSON.parse(raw); var maxAge=(typeof ttl==="number"?ttl:CACHE_TTL); return (Date.now()-o.ts)<maxAge?o.data:null; }catch(e){return null;} }
 function cacheSet(k,d){ try{sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),data:d}));}catch(e){} }
 
 async function fetchWebRows(){
@@ -283,7 +284,7 @@ async function fetchWebRows(){
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 async function fetchPkgRows(){
-  var k="kk_pkg_v16_6_2_line_audited:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_pkg_v16_7_0_phase3_6_5:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k,PKG_CACHE_TTL); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(PKG_SHEET,PKG_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
