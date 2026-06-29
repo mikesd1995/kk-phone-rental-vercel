@@ -284,7 +284,7 @@ async function fetchWebRows(){
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 async function fetchPkgRows(){
-  var k="kk_pkg_v16_7_0_phase3_6_5:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k,PKG_CACHE_TTL); if(!DEBUG_MODE&&c)return c;
+  var k="kk_pkg_v16_7_0_phase3_6_7:"+SHEET_ID+":"+PKG_SHEET+":"+PKG_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k,PKG_CACHE_TTL); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(PKG_SHEET,PKG_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }

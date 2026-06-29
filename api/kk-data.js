@@ -1,7 +1,7 @@
 // KK Phone Rental v16.6.2_LINE_AUDITED — Vercel Serverless Google Sheets CSV Proxy
 // Production reads through this proxy first. If GOOGLE_SHEET_ID is missing, it falls back to the known read-only sheet ID to prevent public-site outages.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_5_OVERRIDE_PRICE_REFRESH_FIX";
+const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_7_OVERRIDE_PRICE_APPLY_FIX";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 const ALLOWED = {
