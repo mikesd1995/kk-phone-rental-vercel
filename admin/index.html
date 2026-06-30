@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3_7_ADMIN_CRM_UI</title>
+  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3_8_SYSTEM_HEALTH_GUARD</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.7.0 · CRM Pro 3.7</span>
+          <span>Phone Rental v16.7.0 · CRM Pro 3.8</span>
         </div>
       </div>
       <nav aria-label="Admin sections" class="admin-nav">
@@ -35,7 +35,7 @@
         <button class="nav" type="button" data-tab="assets" data-icon="AS">มือถือ/เลนส์</button>
         <button class="nav" type="button" data-tab="reports" data-icon="RP">รายงาน</button>
         <span class="nav-section-label">System</span>
-        <button class="nav" type="button" data-tab="health" data-icon="HC">Health Check</button>
+        <button class="nav" type="button" data-tab="health" data-icon="HC">System Guard</button>
         <button class="nav muted" id="logoutBtn" type="button" data-icon="LO">ออกจากระบบ</button>
       </nav>
     </aside>
@@ -53,7 +53,7 @@
           </div>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.7.0 · CRM Pro 3.7 UI</span>
+          <span class="top-badge" title="Admin UI version">v16.7.0 · System Guard</span>
           <button id="densityBtn" class="btn secondary" type="button">Compact</button>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
@@ -576,9 +576,26 @@
         </section>
 
         <section class="tab-panel" id="tab-health">
+          <div class="card system-guard-card">
+            <div class="card-head">
+              <div>
+                <span class="eyebrow">System Guard</span>
+                <h2>ตรวจระบบก่อนใช้งานจริง</h2>
+                <p class="hint">เช็ก Apps Script URL, Sheet ID, API Key, Poster Folder, public feed และวงจรราคา override เพื่อลด error แบบ HTML/Google Drive หรือราคาไม่ตรงหน้าบ้าน</p>
+              </div>
+              <div class="inline-actions">
+                <button class="btn primary" id="runSystemGuardBtn" type="button">Run Live Check</button>
+                <button class="btn secondary" id="copySystemGuardBtn" type="button">Copy Result</button>
+              </div>
+            </div>
+            <div id="systemGuardGrid" class="grid stats compact system-guard-grid"></div>
+            <p class="hint" id="systemGuardLastRun">ยังไม่ได้ run live check</p>
+            <div class="table-wrap"><table id="systemGuardTable"></table></div>
+          </div>
+
           <div class="grid two-col">
             <div class="card">
-              <div class="card-head"><h2>Health Check</h2><small>อ่านจาก 10_Admin_Health_Check</small></div>
+              <div class="card-head"><h2>Sheet Health Check</h2><small>อ่านจาก 10_Admin_Health_Check + Version Diagnostics</small></div>
               <div class="table-wrap"><table id="healthTable"></table></div>
             </div>
             <div class="card">

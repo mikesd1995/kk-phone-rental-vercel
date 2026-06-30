@@ -1,11 +1,11 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_7_ADMIN_CRM_UI — Admin/CRM Professional UX Polish
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_8_SYSTEM_HEALTH_GUARD — Admin/CRM System Guard
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_7_ADMIN_CRM_UI";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_17_OVERRIDE_SAVE_ISOLATION_FIX";
-  const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_8_SYSTEM_HEALTH_GUARD";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_7_1_POSTER_PRICE_PRESERVE_FIX";
+  const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_8_SYSTEM_HEALTH_GUARD";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue" };
+  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
     ["payment","ตามเงิน"], ["prep","เตรียม/ส่งมอบ"], ["return","รับคืน"], ["upload","อัปโหลด/ปิดงาน"], ["data","ข้อมูลผิด"], ["risk","เสี่ยง"]
@@ -1057,6 +1057,77 @@
     el.innerHTML='<thead><tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>`<td>${c.render?c.render(r):esc(r[c.key]??"")}</td>`).join('')+'</tr>').join('')+'</tbody>';
   }
 
+
+  function systemStatusClass(status){
+    const s=String(status||"").toUpperCase();
+    if(s==="OK") return "ok";
+    if(s==="WARN" || s==="CHECK") return "warn";
+    return "bad";
+  }
+
+  function buildSnapshotGuardRows(data){
+    const d=data||{};
+    const diag=d.phase1_diagnostics||{};
+    const rows=[];
+    const backendVersion=d.admin_api_version || diag.admin_api_version || "";
+    const proxyVersion=d.frontend_proxy_version || "";
+    const spreadsheetId=d.spreadsheet_id || diag.spreadsheet_id || "";
+    const frontendSheetId=d.frontend_sheet_id || diag.frontend_sheet_id || "";
+    rows.push({label:"Admin UI Version",status:"OK",detail:KK_ADMIN_UI_VERSION,suggestion:""});
+    rows.push({label:"Apps Script Version",status:backendVersion===EXPECTED_BACKEND_VERSION?"OK":"WARN",detail:backendVersion||"missing",suggestion:backendVersion===EXPECTED_BACKEND_VERSION?"":"Deploy Apps Script latest stable Code.gs"});
+    rows.push({label:"Vercel Proxy Version",status:proxyVersion===EXPECTED_PROXY_VERSION?"OK":"WARN",detail:proxyVersion||"missing",suggestion:proxyVersion===EXPECTED_PROXY_VERSION?"":"Redeploy Vercel with latest api/kk-admin.js"});
+    rows.push({label:"Sheet ID Match",status:(spreadsheetId&&frontendSheetId&&spreadsheetId===frontendSheetId)?"OK":"FAIL",detail:(spreadsheetId||"missing")+" / "+(frontendSheetId||"missing"),suggestion:"GOOGLE_SHEET_ID in Vercel must match Apps Script spreadsheet"});
+    if(diag.poster_folder_id_set!==undefined) rows.push({label:"Poster Folder",status:diag.poster_folder_id_set?"OK":"WARN",detail:diag.poster_folder_id_set?"set":"missing",suggestion:"Set Script Property KK_POSTER_FOLDER_ID before uploading posters"});
+    if(diag.log_sheets_ready!==undefined) rows.push({label:"Audit/Error Logs",status:diag.log_sheets_ready?"OK":"WARN",detail:diag.log_sheets_ready?"ready":"missing",suggestion:"Run setup/repair in Google Sheet menu"});
+    return rows;
+  }
+
+  function currentSystemGuardRows(){
+    if(state.systemHealth && state.systemHealth.rows) return state.systemHealth.rows;
+    return buildSnapshotGuardRows(state.data||{});
+  }
+
+  function renderSystemGuard(){
+    const rows=currentSystemGuardRows();
+    const grid=$("#systemGuardGrid");
+    if(grid){
+      const ok=rows.filter(r=>String(r.status).toUpperCase()==="OK").length;
+      const warn=rows.filter(r=>["WARN","CHECK"].includes(String(r.status).toUpperCase())).length;
+      const fail=rows.filter(r=>String(r.status).toUpperCase()==="FAIL").length;
+      grid.innerHTML=[
+        [ok,"OK"],[warn,"ต้องเช็ก"],[fail,"ผิดปกติ"],[rows.length,"รายการตรวจ"]
+      ].map(s=>`<div class="card stat system-stat ${s[1]==='ผิดปกติ'&&s[0]>0?'danger':s[1]==='ต้องเช็ก'&&s[0]>0?'warning':''}"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
+    }
+    const last=$("#systemGuardLastRun");
+    if(last){
+      last.textContent=state.systemHealth && state.systemHealth.generated_at
+        ? "Live check ล่าสุด: "+new Date(state.systemHealth.generated_at).toLocaleString("th-TH")
+        : "แสดงจาก snapshot ล่าสุด กด Run Live Check เพื่อเช็ก Vercel ENV / Apps Script / public feeds แบบสด";
+    }
+    table($("#systemGuardTable"),[
+      {label:"Check",render:r=>esc(r.label||r.check||r.key||"")},
+      {label:"Status",render:r=>`<span class="pill ${systemStatusClass(r.status)}">${esc(r.status||"")}</span>`},
+      {label:"Detail",render:r=>esc(r.detail||"")},
+      {label:"สิ่งที่ควรทำ",render:r=>esc(r.suggestion||r.note||"")}
+    ], rows);
+  }
+
+  async function runSystemGuard(btn){
+    if(btn) setBusy(btn,true);
+    try{
+      const res=await api("systemHealth",{});
+      state.systemHealth=res.data||null;
+      renderSystemGuard();
+      const fail=(state.systemHealth && state.systemHealth.summary && state.systemHealth.summary.fail)||0;
+      const warn=(state.systemHealth && state.systemHealth.summary && state.systemHealth.summary.warn)||0;
+      showNotice(fail?`System Guard พบ ${fail} จุดผิดปกติ ต้องแก้ก่อนใช้งานจริง`:(warn?`System Guard พบ ${warn} จุดที่ควรเช็ก`:`System Guard ผ่านทั้งหมด`), fail?"bad":(warn?"warn":"ok"));
+    }catch(e){
+      showNotice(e.message,"bad");
+    }finally{
+      if(btn) setBusy(btn,false);
+    }
+  }
+
   function fillSelects(){
     const data=state.data||{};
     $$('select[data-source="events"]').forEach(sel=>{
@@ -1216,6 +1287,7 @@
     table($("#healthTable"),[
       {label:"Check",key:"check"},{label:"Status",render:r=>`<span class="pill ${String(r.status).toLowerCase().includes('ok')?'ok':String(r.status).toLowerCase().includes('check')?'bad':''}">${esc(r.status||'')}</span>`},{label:"Detail",key:"detail"},{label:"Note",key:"note"}
     ], health);
+    renderSystemGuard();
 
     if($("#customerStatsCount")) $("#customerStatsCount").textContent=customerHistory.length+" รายการ";
     table($("#customerStatsTable"),[
@@ -1484,6 +1556,16 @@
         finally{ setBusy(cleanupBtn,false); }
       });
     }
+
+    const systemGuardBtn=$("#runSystemGuardBtn");
+    if(systemGuardBtn) systemGuardBtn.addEventListener("click",()=>runSystemGuard(systemGuardBtn));
+    const copySystemGuardBtn=$("#copySystemGuardBtn");
+    if(copySystemGuardBtn) copySystemGuardBtn.addEventListener("click",async()=>{
+      const rows=currentSystemGuardRows();
+      const text=rows.map(r=>`${r.status||''} | ${r.label||r.check||r.key||''} | ${r.detail||''} | ${r.suggestion||r.note||''}`).join("\n");
+      try{ await navigator.clipboard.writeText(text); showNotice("Copy System Guard result แล้ว"); }
+      catch(_){ showNotice(text,"warn"); }
+    });
 
     const overrideForm=$("#eventPriceOverrideForm");
     if(overrideForm){

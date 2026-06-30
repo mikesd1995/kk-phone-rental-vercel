@@ -904,3 +904,26 @@ body.compact-mode .card{padding:16px!important}body.compact-mode th,body.compact
 @media(max-width:560px){
   .top-meta{grid-template-columns:1fr 1fr}.top-actions{grid-template-columns:1fr}.quick-actions{grid-template-columns:1fr}.meta-chip{font-size:11px}.card-head h2,.form-title h2{font-size:18px}.stat strong{font-size:27px}.table-wrap{border-radius:16px}.form-action-bar{position:sticky;bottom:6px}.inline-actions{gap:6px}.mini-btn{font-size:12px;min-height:32px}.topbar h1{font-size:20px!important}
 }
+
+/* v16.7.0 Phase 3.8 — System Health & Config Guard */
+.system-guard-card{
+  border-color:#bfdbfe;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,251,255,.94)),
+    radial-gradient(circle at 98% 0%,rgba(59,130,246,.14),transparent 34%);
+}
+.system-guard-card .card-head{gap:14px}
+.system-guard-card .inline-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.system-guard-grid{margin:14px 0 8px}
+.system-stat.warning{border-color:#fde68a;background:linear-gradient(180deg,#fff,#fffbeb)}
+.system-stat.warning strong{color:#b45309}
+.system-stat.danger{border-color:#fecaca;background:linear-gradient(180deg,#fff,#fef2f2)}
+.system-stat.danger strong{color:#b91c1c}
+#systemGuardTable td:nth-child(1){font-weight:900;color:#0f172a;min-width:190px}
+#systemGuardTable td:nth-child(3){max-width:420px;word-break:break-word}
+#systemGuardTable td:nth-child(4){color:#667085;min-width:240px}
+@media(max-width:720px){
+  .system-guard-card .inline-actions{display:grid;width:100%;grid-template-columns:1fr}
+  .system-guard-card .inline-actions .btn{width:100%}
+  #systemGuardTable{min-width:760px}
+}
