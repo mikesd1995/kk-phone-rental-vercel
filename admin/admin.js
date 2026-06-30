@@ -1,7 +1,7 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_5_UI — UX/UI Professional Polish
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_7_ADMIN_CRM_UI — Admin/CRM Professional UX Polish
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_6_ASSET_DELETE_GUARD";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_6_ASSET_DELETE_GUARD";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_7_ADMIN_CRM_UI";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_17_OVERRIDE_SAVE_ISOLATION_FIX";
   const EXPECTED_PROXY_VERSION = "v16.6.2_LINE_AUDITED";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
