@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3_8_SYSTEM_HEALTH_GUARD</title>
+  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,7 +19,7 @@
         <div class="logo">KK</div>
         <div>
           <strong>Admin CRM</strong>
-          <span>Phone Rental v16.7.0 · CRM Pro 3.8</span>
+          <span>Phone Rental v16.7.0 · CRM Pro 3.9</span>
         </div>
       </div>
       <nav aria-label="Admin sections" class="admin-nav">
@@ -32,6 +32,7 @@
         <button class="nav" type="button" data-tab="customers" data-icon="CM">ประวัติลูกค้า</button>
         <button class="nav" type="button" data-tab="events" data-icon="EV">เพิ่ม/แก้งาน</button>
         <button class="nav" type="button" data-tab="packages" data-icon="PK">แพ็กเกจ/ราคา</button>
+        <button class="nav" type="button" data-tab="pricing" data-icon="PC">Pricing Center</button>
         <button class="nav" type="button" data-tab="assets" data-icon="AS">มือถือ/เลนส์</button>
         <button class="nav" type="button" data-tab="reports" data-icon="RP">รายงาน</button>
         <span class="nav-section-label">System</span>
@@ -53,7 +54,7 @@
           </div>
         </div>
         <div class="top-actions">
-          <span class="top-badge" title="Admin UI version">v16.7.0 · System Guard</span>
+          <span class="top-badge" title="Admin UI version">v16.7.0 · Pricing Center</span>
           <button id="densityBtn" class="btn secondary" type="button">Compact</button>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
           <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
@@ -474,6 +475,49 @@
               <label>Active <select name="active"><option value="">ไม่เปลี่ยน</option><option value="true">TRUE</option><option value="false">FALSE</option></select></label>
               <button class="btn ghost" type="submit">บันทึกราคาหลัก</button>
             </form>
+          </div>
+        </section>
+
+
+        <section class="tab-panel" id="tab-pricing">
+          <div class="card hero-card pricing-hero">
+            <div>
+              <span class="eyebrow">Pricing Center</span>
+              <h2>ศูนย์ควบคุมราคาหน้าบ้าน</h2>
+              <p class="hint">รวมราคาหลัก ราคาเฉพาะงาน และราคาที่ลูกค้าเห็นจริงจาก 09_Web_Packages ในหน้าเดียว เพื่อลดปัญหาราคาเด้ง/ราคาสลับงาน</p>
+            </div>
+            <div class="hero-actions">
+              <button class="btn secondary" type="button" id="pricingRefreshBtn">Refresh ราคา</button>
+              <button class="btn ghost" type="button" id="pricingCopyBtn">Copy Summary</button>
+            </div>
+          </div>
+
+          <div class="card pricing-control-card">
+            <div class="row three">
+              <label>เลือกงาน
+                <select id="pricingEventFilter"></select>
+              </label>
+              <label>ค้นหาแพ็กเกจ
+                <input id="pricingSearch" type="search" placeholder="เช่น Lens, phone, 1290" />
+              </label>
+              <label>มุมมอง
+                <select id="pricingScope">
+                  <option value="selected">เฉพาะงานที่เลือก</option>
+                  <option value="upcoming">ทุกงานเปิดอยู่/อนาคต</option>
+                  <option value="mismatch">เฉพาะรายการที่ราคาหน้าบ้านไม่ตรง</option>
+                </select>
+              </label>
+            </div>
+            <div class="price-kpis" id="pricingKpis"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h2>ราคาที่ลูกค้าเห็นจริง</h2>
+              <small id="pricingCenterCount"></small>
+            </div>
+            <div class="table-wrap pricing-table-wrap"><table id="pricingCenterTable"></table></div>
+            <p class="hint pricing-help">สถานะ OK = ราคาใน 09_Web_Packages ตรงกับราคาที่ควรใช้ · CHECK = ควรกด Apply หรือเปิดฟอร์ม override เพื่อตรวจ</p>
           </div>
         </section>
 

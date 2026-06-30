@@ -1,11 +1,11 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_8_SYSTEM_HEALTH_GUARD — Admin/CRM System Guard
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER — Pricing Center
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_8_SYSTEM_HEALTH_GUARD";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER";
   const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_7_1_POSTER_PRICE_PRESERVE_FIX";
-  const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_8_SYSTEM_HEALTH_GUARD";
+  const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null };
+  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected" };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
     ["payment","ตามเงิน"], ["prep","เตรียม/ส่งมอบ"], ["return","รับคืน"], ["upload","อัปโหลด/ปิดงาน"], ["data","ข้อมูลผิด"], ["risk","เสี่ยง"]
@@ -836,7 +836,7 @@
   }
   function findOverride(eventId, templateId){
     const d=state.data||{};
-    return (d.overrides||[]).find(o=>String(o.event_id)===String(eventId)&&String(o.template_id)===String(templateId));
+    return latestOverride(eventId, templateId);
   }
   function populateEventOverrideForm(){
     const form=$("#eventPriceOverrideForm");
@@ -1167,6 +1167,123 @@
     renderCreateEventPriceOverrides();
   }
 
+
+  function normalizePriceGroup(v){
+    const s=String(v||"").toUpperCase().trim().replace(/\s+/g,"_");
+    if(["ZEISS_2_35X","ZEISS_235X","ZEISS_2.35X","G1","LENS_VIVO","LENS_VIVO_2_35X"].includes(s)) return "LENS_VIVO_2_35X";
+    if(!s || s==="NONE" || s==="-") return "NONE";
+    return s;
+  }
+  function canonicalPackageKey(row){
+    const type=String(row && (row.package_type||row.type) || "").toLowerCase().trim();
+    const model=String(row && (row.model_group||row.phone_group) || "").toUpperCase().trim() || "NONE";
+    const lens=normalizePriceGroup(row && (row.lens_group||row.lensGroup));
+    return [type, model, lens].join("|");
+  }
+  function latestOverride(eventId, templateId){
+    const d=state.data||{};
+    const eid=String(eventId||"").trim();
+    const tpl=String(templateId||"").trim();
+    const rows=(d.overrides||[]).filter(o=>String(o.event_id||"").trim()===eid && String(o.template_id||"").trim()===tpl);
+    return rows.length ? rows[rows.length-1] : null;
+  }
+  function latestOverrideByCanonical(eventId, pkg){
+    const exact=latestOverride(eventId, pkg && pkg.template_id);
+    if(exact) return exact;
+    const d=state.data||{};
+    const eid=String(eventId||"").trim();
+    const key=canonicalPackageKey(pkg||{});
+    const packageByTemplate={};
+    (d.packages||[]).forEach(p=>{ packageByTemplate[String(p.template_id||"").trim()]=p; });
+    const rows=(d.overrides||[]).filter(o=>{
+      if(String(o.event_id||"").trim()!==eid) return false;
+      const base=packageByTemplate[String(o.template_id||"").trim()];
+      return base && canonicalPackageKey(base)===key;
+    });
+    return rows.length ? rows[rows.length-1] : null;
+  }
+  function webPackageFor(eventId, pkg){
+    const eid=String(eventId||"").trim();
+    const tpl=String(pkg && pkg.template_id || "").trim();
+    const rows=webPackagesForEvent(eid);
+    return rows.find(w=>templateIdFromWebPackage(w)===tpl) || rows.find(w=>canonicalPackageKey(w)===canonicalPackageKey(pkg||{})) || null;
+  }
+  function expectedPriceFor(eventId, pkg){
+    const o=latestOverrideByCanonical(eventId, pkg);
+    const raw=o && o.override_price!==undefined && o.override_price!==null && String(o.override_price).trim()!=="" ? o.override_price : pkg.standard_price;
+    return toNum(raw);
+  }
+  function pricingRows(data){
+    const d=data||{};
+    const events=(d.events||[]).filter(e=>isActiveEvent(e) && isTodayOrFuture(e.event_date)).slice().sort(compareEventsByDateAsc);
+    const packages=(d.packages||[]).filter(p=>p.active!==false && String(p.template_id||"").trim());
+    if(!state.pricingEventFilter && events.length) state.pricingEventFilter=events[0].event_id;
+    const q=String(state.pricingSearch||"").trim().toLowerCase();
+    const rows=[];
+    events.forEach(e=>{
+      packages.forEach(pkg=>{
+        const o=latestOverrideByCanonical(e.event_id, pkg);
+        const wp=webPackageFor(e.event_id, pkg);
+        const master=toNum(pkg.standard_price);
+        const expected=expectedPriceFor(e.event_id, pkg);
+        const publicPrice=wp ? toNum(wp.price) : 0;
+        const overrideHasPrice=!!(o && o.override_price!==undefined && o.override_price!==null && String(o.override_price).trim()!=="");
+        const activeOverride=o && o.active_override!==undefined && o.active_override!==null && String(o.active_override).trim()!=="" ? String(o.active_override).trim() : "";
+        const hiddenByOverride=activeOverride.toLowerCase()==="false";
+        const isMismatch=wp ? (publicPrice!==expected) : false;
+        const status=hiddenByOverride ? "HIDDEN" : (!wp ? "NO WEB ROW" : (isMismatch ? "CHECK" : "OK"));
+        const row={event:e, pkg, override:o, web:wp, master, expected, publicPrice, overrideHasPrice, activeOverride, hiddenByOverride, isMismatch, status};
+        const hay=[e.event_name,e.event_id,pkg.display_name,pkg.template_id,pkg.package_type,pkg.model_group,pkg.lens_group,master,expected,publicPrice,status].join(" ").toLowerCase();
+        if(q && !hay.includes(q)) return;
+        rows.push(row);
+      });
+    });
+    let filtered=rows;
+    if(state.pricingScope==="mismatch") filtered=rows.filter(r=>r.status!=="OK" && r.status!=="HIDDEN");
+    else if(state.pricingScope!=="upcoming") filtered=rows.filter(r=>String(r.event.event_id)===String(state.pricingEventFilter));
+    return filtered;
+  }
+  function renderPricingCenter(data){
+    const eventSel=$("#pricingEventFilter");
+    if(eventSel){
+      const events=(data.events||[]).filter(e=>isActiveEvent(e) && isTodayOrFuture(e.event_date)).slice().sort(compareEventsByDateAsc);
+      if(!state.pricingEventFilter && events.length) state.pricingEventFilter=events[0].event_id;
+      const current=state.pricingEventFilter;
+      eventSel.innerHTML=events.length ? events.map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}`)).join("") : '<option value="">ไม่มีงานเปิดอยู่</option>';
+      if(current && events.some(e=>String(e.event_id)===String(current))) eventSel.value=current;
+      else if(events[0]){ eventSel.value=events[0].event_id; state.pricingEventFilter=events[0].event_id; }
+    }
+    const rows=pricingRows(data||{});
+    const allRows=pricingRows(Object.assign({}, data||{}));
+    const mismatch=allRows.filter(r=>r.status!=="OK" && r.status!=="HIDDEN").length;
+    const overrides=allRows.filter(r=>r.overrideHasPrice || r.activeOverride).length;
+    const visible=rows.filter(r=>r.web && !r.hiddenByOverride).length;
+    if($("#pricingKpis")) $("#pricingKpis").innerHTML=[
+      [rows.length,"แถวที่แสดง"], [overrides,"ราคาเฉพาะงาน"], [mismatch,"ควรเช็ก"], [visible,"แพ็กเกจบนเว็บ"]
+    ].map(x=>`<div><strong>${esc(x[0])}</strong><span>${esc(x[1])}</span></div>`).join("");
+    if($("#pricingCenterCount")) $("#pricingCenterCount").textContent=`${rows.length} รายการ · CHECK ${mismatch}`;
+    table($("#pricingCenterTable"),[
+      {label:"งาน",render:r=>`<strong>${esc(r.event.event_name)}</strong><br><small>${esc(fmtDate(r.event.event_date))}</small>`},
+      {label:"แพ็กเกจ",render:r=>`<strong>${esc(r.pkg.display_name||r.pkg.template_id)}</strong><br><small>${esc(r.pkg.package_type||"")} · ${esc(r.pkg.template_id||"")}</small>`},
+      {label:"ราคาหลัก",render:r=>`${esc(money(r.master))}฿`},
+      {label:"Override",render:r=>r.overrideHasPrice ? `<strong>${esc(money(r.override.override_price))}฿</strong><br><small>${esc(r.activeOverride||"ไม่เปลี่ยน")}</small>` : `<span class="muted">ใช้ราคาหลัก</span>`},
+      {label:"ลูกค้าเห็นจริง",render:r=>r.web ? `<strong>${esc(money(r.publicPrice))}฿</strong><br><small>เหลือ ${esc(r.web.available_count||0)} · ${esc(r.web.package_status||"")}</small>` : `<span class="pill warn">ไม่มี Web row</span>`},
+      {label:"สถานะ",render:r=>`<span class="pill ${r.status==="OK"?"ok":(r.status==="HIDDEN"?"warn":"bad")}">${esc(r.status)}</span><br><small>ควรเป็น ${esc(money(r.expected))}฿</small>`},
+      {label:"Action",render:r=>`<div class="row-actions"><button class="btn tiny ghost" type="button" data-pricing-edit="${esc(r.event.event_id)}|${esc(r.pkg.template_id)}">เปิดฟอร์ม</button>${r.override?`<button class="btn tiny secondary" type="button" data-pricing-apply="${esc(r.event.event_id)}|${esc(r.pkg.template_id)}">Apply</button>`:""}</div>`}
+    ], rows.slice(0,120));
+  }
+  function pricingSummaryText(){
+    return pricingRows(state.data||{}).map(r=>[
+      r.status,
+      r.event.event_name,
+      fmtDate(r.event.event_date),
+      r.pkg.display_name||r.pkg.template_id,
+      `master=${money(r.master)}`,
+      `override=${r.overrideHasPrice?money(r.override.override_price):"-"}`,
+      `public=${r.web?money(r.publicPrice):"NO_WEB_ROW"}`
+    ].join(" | ")).join("\n");
+  }
+
   function render(){
     const d=state.data||{};
     ["reportRange","reportStart","reportEnd","reportStatusMode"].forEach(id=>{ const el=$("#"+id); if(el && state[id]!==undefined && el.value!==state[id]) el.value=state[id]; });
@@ -1314,6 +1431,7 @@
     ], filteredCustomers.slice(0,100));
     renderCustomerDetail(customerHistory);
     renderReports(d);
+    renderPricingCenter(d);
 
     fillSelects();
   }
@@ -1439,6 +1557,53 @@
       el.addEventListener("change",()=>{ state[key]=el.value||""; render(); });
       el.addEventListener("input",()=>{ state[key]=el.value||""; render(); });
     });
+
+    [["pricingEventFilter","pricingEventFilter"],["pricingSearch","pricingSearch"],["pricingScope","pricingScope"]].forEach(([id,key])=>{
+      const el=$("#"+id);
+      if(!el) return;
+      el.addEventListener(id==="pricingSearch" ? "input" : "change",()=>{ state[key]=el.value||""; render(); });
+    });
+    const pricingRefreshBtn=$("#pricingRefreshBtn");
+    if(pricingRefreshBtn) pricingRefreshBtn.addEventListener("click",()=>refresh().then(()=>showNotice("Refresh Pricing Center แล้ว")).catch(e=>showNotice(e.message,"bad")));
+    const pricingCopyBtn=$("#pricingCopyBtn");
+    if(pricingCopyBtn) pricingCopyBtn.addEventListener("click",async()=>{
+      const text=pricingSummaryText();
+      try{ await navigator.clipboard.writeText(text); showNotice("Copy Pricing Summary แล้ว"); }
+      catch(_){ showNotice(text||"ไม่มีข้อมูลราคา", "warn"); }
+    });
+    document.addEventListener("click",async ev=>{
+      const edit=ev.target.closest("[data-pricing-edit]");
+      const apply=ev.target.closest("[data-pricing-apply]");
+      if(!edit && !apply) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const raw=(edit||apply).getAttribute(edit?"data-pricing-edit":"data-pricing-apply")||"";
+      const [eventId, templateId]=raw.split("|");
+      const pkg=findPackageByTemplateId(templateId);
+      const override=latestOverrideByCanonical(eventId, pkg||{template_id:templateId});
+      if(edit){
+        const nav=$('.nav[data-tab="packages"]'); if(nav) nav.click();
+        const form=$("#eventPriceOverrideForm");
+        if(form){ form.elements.event_id.value=eventId||""; form.elements.template_id.value=templateId||""; populateEventOverrideForm(); form.scrollIntoView({behavior:"smooth",block:"center"}); }
+        return;
+      }
+      if(!override) return showNotice("รายการนี้ยังไม่มี override ให้ Apply", "warn");
+      const btn=apply; setBusy(btn,true);
+      try{
+        await api("upsertEventOverride", {
+          event_id:eventId,
+          template_id:templateId,
+          override_price: override.override_price ?? "",
+          active_override: override.active_override ?? "",
+          override_note: override.override_note ?? "",
+          sort_order_override: override.sort_order_override ?? "",
+          use_case_override: override.use_case_override ?? ""
+        });
+        await refresh();
+        showNotice("Apply ราคาเข้า Web Packages แล้ว");
+      }catch(e){ showNotice(e.message,"bad"); }
+      finally{ setBusy(btn,false); }
+    });
+
     const customerSearch=$("#customerSearch");
     if(customerSearch) customerSearch.addEventListener("input",()=>render());
     document.addEventListener("click",ev=>{
