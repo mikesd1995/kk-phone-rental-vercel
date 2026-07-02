@@ -549,9 +549,16 @@ function renderConcerts(concerts){
     var availText=availTextFor(c);
     var pkgHint="";
 
-    var card=document.createElement("button"); card.type="button"; card.className="concert-card";
-    card.setAttribute("aria-label","ดูเครื่องว่างสำหรับงาน "+c.name);
-    card.onclick=function(){ showModal(c); };
+    var card=document.createElement("button"); card.type="button"; card.className="concert-card"+(avail?"":" waitlist-card");
+    card.setAttribute("aria-label", avail ? ("ดูเครื่องว่างสำหรับงาน "+c.name) : ("จองคิวหลุดสำหรับงาน "+c.name));
+    card.onclick=function(){
+      if(!avail){
+        track("waitlist_card_click",{event_name:c.name, available:0, source:"card"});
+        window.open(getWaitlistUrl(c,null), "_blank", "noopener");
+        return;
+      }
+      showModal(c);
+    };
 
     var imgWrap=document.createElement("div"); imgWrap.className="poster-img-wrap";
     var badge=document.createElement("div"); badge.className="status-badge"+(avail?"":" full")+(isSoon(c)&&avail?" soon":""); badge.textContent=getBadgeText(c); imgWrap.appendChild(badge);
@@ -636,7 +643,7 @@ function showModal(c){
     waitBtn.setAttribute("aria-label","จองคิวหลุดสำหรับงาน "+(c.name||""));
     waitBtn.onclick=function(e){
       e.stopPropagation();
-      track("waitlist_click",{event_name:c.name, available:0});
+      track("waitlist_click",{event_name:c.name, available:0, source:"modal"});
     };
     fullBox.appendChild(waitBtn);
     list.appendChild(fullBox);

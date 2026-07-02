@@ -203,3 +203,25 @@ button,input,select,textarea{font:inherit;}
 .waitlist-line-btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:11px 24px;border-radius:999px;background:linear-gradient(180deg,#10D964 0%,#06C755 100%);color:#fff;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 10px 24px rgba(6,199,85,.25);}
 .waitlist-line-btn:focus-visible{outline:3px solid rgba(6,199,85,.35);outline-offset:3px;}
 @media(max-width:600px){.waitlist-box span{font-size:13px}.waitlist-line-btn{width:100%;font-size:14px;padding-left:16px;padding-right:16px}}
+
+/* Phase 3.9.4 — Desktop waitlist CTA visibility + direct LINE action */
+.concert-card.waitlist-card .pi-tap.full{
+  background:linear-gradient(180deg,#10D964 0%,#06C755 100%);
+  color:#fff;
+  border:0;
+  box-shadow:0 10px 24px rgba(6,199,85,.25);
+}
+.concert-card.waitlist-card .pi-avail.none{
+  color:#D94B4B;
+}
+.concert-card.waitlist-card:hover .pi-tap.full{
+  filter:brightness(.98);
+  transform:translateY(-1px);
+}
+.concert-card.waitlist-card:focus-visible .pi-tap.full{
+  outline:3px solid rgba(6,199,85,.35);
+  outline-offset:3px;
+}
+@media(min-width:769px){
+  .concert-card.waitlist-card .pi-tap.full{min-height:48px;font-size:15.5px;}
+}
