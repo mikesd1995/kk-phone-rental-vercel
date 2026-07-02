@@ -195,3 +195,11 @@ button,input,select,textarea{font:inherit;}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 @media(max-width:768px){.month-select{font-size:13px;min-height:36px;padding:8px 34px 8px 14px;max-width:150px}.month-select-wrap::after{right:14px}}
 @media(max-width:390px){.month-select{font-size:12px;padding:7px 32px 7px 12px;max-width:132px}}
+
+
+/* Phase 3.9.3 — Public waitlist CTA for full events */
+.waitlist-box{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;}
+.waitlist-box span{display:block;margin-top:7px;color:#58709A;font-size:14px;line-height:1.65;font-weight:500;}
+.waitlist-line-btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:11px 24px;border-radius:999px;background:linear-gradient(180deg,#10D964 0%,#06C755 100%);color:#fff;font-size:15px;font-weight:800;text-decoration:none;box-shadow:0 10px 24px rgba(6,199,85,.25);}
+.waitlist-line-btn:focus-visible{outline:3px solid rgba(6,199,85,.35);outline-offset:3px;}
+@media(max-width:600px){.waitlist-box span{font-size:13px}.waitlist-line-btn{width:100%;font-size:14px;padding-left:16px;padding-right:16px}}

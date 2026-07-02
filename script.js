@@ -456,7 +456,7 @@ function availCnt(c){
 }
 function availTextFor(c){
   var ap=availPkgs(c), cnt=availCnt(c);
-  if(cnt<=0) return "เต็มแล้วน้า 😢";
+  if(cnt<=0) return "เต็มแล้วน้า 😢 จองคิวหลุดได้";
   var hasPhone=ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
   var hasLensOnly=ap.some(function(p){return p.type==="lens_only";});
   if(hasPhone) return cnt===1 ? "เหลือ 1 เครื่องสุดท้าย ✨" : "ว่าง "+cnt+" เครื่อง ✨";
@@ -474,7 +474,7 @@ function filtered(concerts){
 function emptyMsg(){
   var m = currentMonth!=="all" ? "ในเดือน "+monthLabel(currentMonth)+" " : "";
   if(currentFilter==="available")return "ยังไม่มีงานที่มีเครื่องว่าง"+m+"น้า 💙";
-  if(currentFilter==="full")     return "ยังไม่มีงานที่เต็มแล้ว"+m+"น้า ✨";
+  if(currentFilter==="full")     return "ยังไม่มีงานที่เปิดรอคิวหลุด"+m+"น้า ✨";
   return "ยังไม่มีงานที่เปิดให้จอง"+m+"น้า 💙";
 }
 
@@ -509,7 +509,7 @@ function renderEmpty(msg,detail){
   var el=document.getElementById("content"); if(!el)return;
   el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+(detail?esc(detail):'ถ้ามีงานที่อยากเช่า สามารถทัก LINE OA มาสอบถามได้เลย')+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">ทัก LINE OA</a></div>';
 }
-function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return "เต็มแล้ว"; if(isSoon(c))return "ใกล้ถึงวันงาน"; return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? "ว่าง "+cnt+" เครื่อง" : "Lens ว่าง"; }
+function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return "คิวเต็ม"; if(isSoon(c))return "ใกล้ถึงวันงาน"; return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? "ว่าง "+cnt+" เครื่อง" : "Lens ว่าง"; }
 
 function renderMonthSelect(concerts){
   var sel=document.getElementById("month-filter-select"); if(!sel)return;
@@ -570,7 +570,7 @@ function renderConcerts(concerts){
     var dateEl=document.createElement("div"); dateEl.className="pi-date"; dateEl.textContent=c.date||"";
     var nameEl=document.createElement("div"); nameEl.className="pi-name"; nameEl.textContent=c.name||"";
     var availEl=document.createElement("div"); availEl.className="pi-avail"+(avail?"":" none"); availEl.textContent=availText+pkgHint;
-    var tap=document.createElement("div"); tap.className="pi-tap"+(avail?"":" full"); tap.textContent=avail?"ดูรุ่นที่ว่าง / จองคิว":"เต็มแล้ว";
+    var tap=document.createElement("div"); tap.className="pi-tap"+(avail?"":" full"); tap.textContent=avail?"ดูรุ่นที่ว่าง / จองคิว":"จองคิวหลุด";
     info.appendChild(dateEl); info.appendChild(nameEl); info.appendChild(availEl); info.appendChild(tap);
     card.appendChild(imgWrap); card.appendChild(info); grid.appendChild(card);
   });
@@ -593,6 +593,19 @@ function buildBookingMsg(c,p){
   ].join("\n");
 }
 function getBookingUrl(c,p){ return LINE_OA+encodeURIComponent(buildBookingMsg(c,p)); }
+function buildWaitlistMsg(c,p){
+  return [
+    "ขอจองคิวหลุด",
+    "งาน : "+lineVal(c&&c.name),
+    "วันที่ : "+lineVal(c&&c.date),
+    "แพ็กเกจที่สนใจ : "+lineVal(p&&p.model),
+    "",
+    "ชื่อเล่น : ",
+    "เบอร์โทร : ",
+    "ถ้ามีคิวหลุด รบกวนแจ้งกลับด้วยค่ะ"
+  ].join("\n");
+}
+function getWaitlistUrl(c,p){ return LINE_OA+encodeURIComponent(buildWaitlistMsg(c,p)); }
 function showModal(c){
   if(!c)return;
   // NEW: GA4 track modal open
@@ -611,7 +624,22 @@ function showModal(c){
   var avail=availPkgs(c);
 
   if(!avail.length){
-    list.innerHTML='<div class="full-booked-box">งานนี้เต็มแล้วน้า 🙏<br>ทักมาถามรอบอื่นได้เลย 💙</div>';
+    var fullBox=document.createElement("div");
+    fullBox.className="full-booked-box waitlist-box";
+    fullBox.innerHTML='งานนี้เต็มแล้วน้า 🙏<br><span>กดจองคิวหลุดไว้ได้เลย ถ้ามีลูกค้ายกเลิก ร้านจะได้เช็กคิวให้</span>';
+    var waitBtn=document.createElement("a");
+    waitBtn.className="waitlist-line-btn";
+    waitBtn.href=getWaitlistUrl(c,null);
+    waitBtn.target="_blank";
+    waitBtn.rel="noopener";
+    waitBtn.textContent="จองคิวหลุดผ่าน LINE";
+    waitBtn.setAttribute("aria-label","จองคิวหลุดสำหรับงาน "+(c.name||""));
+    waitBtn.onclick=function(e){
+      e.stopPropagation();
+      track("waitlist_click",{event_name:c.name, available:0});
+    };
+    fullBox.appendChild(waitBtn);
+    list.appendChild(fullBox);
     openModal(); return;
   }
 
