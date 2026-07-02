@@ -220,7 +220,10 @@
               </label>
             </div>
             <div class="row three">
-              <label>ยอดรับแล้ว <input name="amount_received" type="number" min="0" step="1" value="0" /></label>
+              <label>ยอดรับแล้ว
+                <input name="amount_received" type="number" min="0" step="1" value="0" />
+                <small id="bookingAmountAutoHint">เลือกแพ็กเกจแล้วระบบจะเติมราคาที่ลูกค้าเห็นจริงให้อัตโนมัติ แต่ยังแก้เลขเองได้</small>
+              </label>
               <label>ระบุมือถือเอง ถ้าไม่ใส่ ระบบหาให้ <input name="phone_asset_id" placeholder="เช่น PHONE-001" /></label>
               <label>ระบุเลนส์เอง ถ้าไม่ใส่ ระบบหาให้ <input name="lens_asset_id" placeholder="เช่น LENS-001" /></label>
             </div>

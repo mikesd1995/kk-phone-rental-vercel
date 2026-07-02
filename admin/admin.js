@@ -1,6 +1,6 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER — Pricing Center
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_2_BOOKING_PRICE_AUTOFILL — Booking price autofill
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_2_BOOKING_PRICE_AUTOFILL";
   const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_7_1_POSTER_PRICE_PRESERVE_FIX";
   const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER";
   const $ = (sel, root=document) => root.querySelector(sel);
@@ -804,6 +804,53 @@
     const price=toNum(wp.price || pkg.standard_price);
     const left=toNum(wp.available_count);
     return `${base} · ${money(price)}฿ · เหลือ ${left}`;
+  }
+
+  function bookingSelectedPackagePrice(){
+    const form=$("#bookingForm");
+    if(!form || !state.data) return null;
+    const eventId=String(form.elements.event_id && form.elements.event_id.value || "").trim();
+    const templateId=String(form.elements.template_id && form.elements.template_id.value || "").trim();
+    if(!eventId || !templateId) return null;
+    const pkg=findPackageByTemplateId(templateId) || {template_id:templateId};
+    const webRows=bookableWebPackagesForEvent(eventId);
+    const wp=webRows.find(p=>String(templateIdFromWebPackage(p))===templateId) || webPackageFor(eventId, pkg);
+    if(wp && toNum(wp.price)>0){
+      return {price:toNum(wp.price), source:"ราคาหน้าบ้านจริง", template_id:templateId};
+    }
+    const o=latestOverrideByCanonical(eventId, pkg);
+    if(o && String(o.override_price||"").trim()!==""){
+      return {price:toNum(o.override_price), source:"ราคาเฉพาะงาน", template_id:templateId};
+    }
+    if(pkg && toNum(pkg.standard_price)>0){
+      return {price:toNum(pkg.standard_price), source:"ราคาหลัก", template_id:templateId};
+    }
+    return null;
+  }
+
+  function updateBookingAmountHint(info){
+    const hint=$("#bookingAmountAutoHint");
+    if(!hint) return;
+    if(info && toNum(info.price)>0){
+      hint.textContent=`Auto จาก${info.source}: ${money(info.price)}฿ · แก้เลขเองได้ถ้ามีโปร/ส่วนลด`;
+      hint.classList.remove("warn");
+    }else{
+      hint.textContent="เลือกแพ็กเกจแล้วระบบจะเติมราคาที่ลูกค้าเห็นจริงให้อัตโนมัติ แต่ยังแก้เลขเองได้";
+      hint.classList.add("warn");
+    }
+  }
+
+  function autofillBookingAmountFromPackage(){
+    const form=$("#bookingForm");
+    if(!form || !form.elements.amount_received) return;
+    const info=bookingSelectedPackagePrice();
+    updateBookingAmountHint(info);
+    if(!info || toNum(info.price)<=0) return;
+    // Always refill when package changes. Admin can type a new amount after selecting the package
+    // for promos, discounts, partial payment, or special cases.
+    form.elements.amount_received.value=String(info.price);
+    form.elements.amount_received.dataset.autoPrice=String(info.price);
+    form.elements.amount_received.dataset.autoPriceSource=info.source||"";
   }
   function populateBookingPackages(){
     const form=$("#bookingForm");
@@ -1701,7 +1748,11 @@
       finally{ setBusy(quick,false); }
     });
     const bookingEventSelect=$("#bookingForm select[name='event_id']");
-    if(bookingEventSelect) bookingEventSelect.addEventListener("change", populateBookingPackages);
+    if(bookingEventSelect) bookingEventSelect.addEventListener("change", ()=>{ populateBookingPackages(); autofillBookingAmountFromPackage(); });
+    const bookingPackageSelect=$("#bookingForm select[name='template_id']");
+    if(bookingPackageSelect) bookingPackageSelect.addEventListener("change", autofillBookingAmountFromPackage);
+    const bookingAmountInput=$("#bookingForm input[name='amount_received']");
+    if(bookingAmountInput) bookingAmountInput.addEventListener("input", ()=>updateBookingAmountHint(bookingSelectedPackagePrice()));
     const eventUpdateSelect=$("#eventUpdateForm select[name='event_id']");
     if(eventUpdateSelect) eventUpdateSelect.addEventListener("change", populateEventUpdateForm);
     const packageUpdateSelect=$("#packageUpdateForm select[name='template_id']");
@@ -1801,6 +1852,7 @@
       const btn=ev.submitter;
       setBusy(btn,true);
       try{
+        if(String(ev.target.elements.amount_received && ev.target.elements.amount_received.value || "").trim()==="") autofillBookingAmountFromPackage();
         const payload=formData(ev.target);
         if(hasWebPackageSource()){
           if(!eventHasBookablePackage(payload.event_id)) throw new Error("งานนี้เต็มแล้วหรือไม่มีแพ็กเกจว่าง กรุณา Refresh แล้วเลือกงานใหม่");
