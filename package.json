@@ -1,6 +1,6 @@
 {
   "name": "kk-phone-rental",
-  "version": "16.7.0",
+  "version": "16.7.0-stable.2026.06.29",
   "private": true,
   "scripts": {
     "start": "vercel dev",

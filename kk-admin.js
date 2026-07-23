@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER</title>
+  <base href="/admin/" />
+  <link rel="icon" href="/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin/admin.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">KK</div>
+        <div>
+          <strong>Admin CRM</strong>
+          <span>Phone Rental v16.7.0 · CRM Pro 3.9</span>
+        </div>
+      </div>
+      <nav aria-label="Admin sections" class="admin-nav">
+        <span class="nav-section-label">Command</span>
+        <button class="nav active" type="button" data-tab="overview" data-icon="OV">ภาพรวม</button>
+        <button class="nav" type="button" data-tab="today" data-icon="TD">งานวันนี้</button>
+        <button class="nav" type="button" data-tab="booking" data-icon="BK">เพิ่ม Booking</button>
+        <button class="nav" type="button" data-tab="edit-booking" data-icon="ED">แก้ Booking</button>
+        <span class="nav-section-label">CRM & Operations</span>
+        <button class="nav" type="button" data-tab="customers" data-icon="CM">ประวัติลูกค้า</button>
+        <button class="nav" type="button" data-tab="events" data-icon="EV">เพิ่ม/แก้งาน</button>
+        <button class="nav" type="button" data-tab="packages" data-icon="PK">แพ็กเกจ/ราคา</button>
+        <button class="nav" type="button" data-tab="pricing" data-icon="PC">Pricing Center</button>
+        <button class="nav" type="button" data-tab="assets" data-icon="AS">มือถือ/เลนส์</button>
+        <button class="nav" type="button" data-tab="reports" data-icon="RP">รายงาน</button>
+        <span class="nav-section-label">System</span>
+        <button class="nav" type="button" data-tab="health" data-icon="HC">System Guard</button>
+        <button class="nav muted" id="logoutBtn" type="button" data-icon="LO">ออกจากระบบ</button>
+      </nav>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1>KK Phone Rental · Admin CRM</h1>
+          <p>จัดการงาน ราคา สต็อก และ Booking โดยเขียนเข้า Google Sheet อัตโนมัติ</p>
+          <div class="top-meta" aria-label="Admin workspace status">
+            <span class="meta-chip live">Live Sheet Sync</span>
+            <span class="meta-chip">CRM 360°</span>
+            <span class="meta-chip">Command Center</span>
+            <span class="meta-chip">Refresh <b id="uiLastRefresh">--:--</b></span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span class="top-badge" title="Admin UI version">v16.7.0 · Pricing Center</span>
+          <button id="densityBtn" class="btn secondary" type="button">Compact</button>
+          <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
+          <a class="btn ghost" href="/" target="_blank" rel="noopener">ดูหน้าเว็บ</a>
+        </div>
+      </header>
+
+      <section id="loginPanel" class="card login-card">
+        <h2>เข้าสู่ระบบ Admin</h2>
+        <p>กรอก PIN ที่ตั้งไว้ใน Vercel Environment Variable: <code>KK_ADMIN_PIN</code></p>
+        <div class="row two">
+          <label>Admin PIN
+            <input id="pinInput" type="password" autocomplete="current-password" placeholder="เช่น 123456" />
+          </label>
+          <div class="login-actions">
+            <button id="loginBtn" class="btn primary" type="button">เข้าใช้งาน</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="appPanel" class="hidden">
+        <div id="notice" class="notice hidden"></div>
+
+        <section class="tab-panel active" id="tab-overview">
+          <div class="card pro-hero" aria-label="CRM Pro workspace overview">
+            <div class="pro-hero-copy">
+              <span class="eyebrow">CRM Pro Workspace</span>
+              <h2>หลังบ้านแบบมืออาชีพ: ดูภาพรวม จัดการงาน และตามลูกค้าจากหน้าเดียว</h2>
+              <p class="hint">Phase 3.7 ปรับ UX/UI หลังบ้านให้เป็นระบบมากขึ้น: ลำดับสายตาชัดขึ้น, ตารางอ่านง่ายขึ้น, ฟอร์มไม่ล้น, CRM card/progress ดูมืออาชีพกว่าเดิม</p>
+            </div>
+            <div class="pro-hero-metrics" aria-label="Professional admin highlights">
+              <span>Command Center</span>
+              <span>Customer 360°</span>
+              <span>Asset Intelligence</span>
+            </div>
+          </div>
+
+          <div class="card quickbar" aria-label="Quick actions">
+            <div>
+              <span class="eyebrow">Quick Actions</span>
+              <h2>งานที่ใช้บ่อย</h2>
+              <p class="hint">กดเข้าฟอร์มหลักได้ทันที ลดเวลาหาเมนูเวลาใช้งานบนมือถือ</p>
+            </div>
+            <div class="quick-actions">
+              <button class="btn primary" type="button" data-tab-jump="booking">+ เพิ่ม Booking</button>
+              <button class="btn secondary" type="button" data-tab-jump="edit-booking">แก้ / ยกเลิก Booking</button>
+              <button class="btn ghost" type="button" data-tab-jump="customers">ดูประวัติลูกค้า</button>
+              <button class="btn ghost" type="button" data-tab-jump="events">เพิ่ม / แก้งาน</button>
+              <button class="btn ghost" type="button" data-tab-jump="reports">รายงาน</button>
+            </div>
+          </div>
+          <div class="grid stats" id="statsGrid"></div>
+
+          <div class="card action-card">
+            <div class="card-head">
+              <div>
+                <span class="eyebrow">Action Center</span>
+                <h2>Operation Command Center</h2>
+                <p class="hint">สั่งงานประจำวันจากหน้าเดียว: ตามเงิน เตรียมเครื่อง รับคืน อัปโหลด ปิดงาน และเช็กข้อมูลเสี่ยง</p>
+              </div>
+              <small id="actionCount"></small>
+            </div>
+            <div class="grid stats compact action-kpi" id="actionStats"></div>
+            <div id="actionToolbar" class="action-toolbar"></div>
+            <div class="table-wrap action-table-wrap"><table id="actionTable"></table></div>
+          </div>
+
+          <div class="grid two-col">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>งานที่เปิดอยู่</h2>
+                  <small id="eventsCount"></small>
+                </div>
+                <div class="mini-tools">
+                  <label class="mini-control">ค้นหา
+                    <input id="eventsSearch" class="mini-search" type="search" placeholder="ชื่องาน / สถานที่" />
+                  </label>
+                  <label class="mini-control">จัดเรียง
+                    <select id="eventsSort">
+                      <option value="date_asc">วันที่ใกล้สุดก่อน</option>
+                      <option value="date_desc">วันที่ไกลสุดก่อน</option>
+                      <option value="name_asc">ชื่องาน A-Z</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div class="table-wrap"><table id="eventsTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Booking ล่าสุด</h2>
+                  <small id="bookingsCount"></small>
+                </div>
+                <div class="mini-tools">
+                  <label class="mini-control">ค้นหา
+                    <input id="bookingsSearch" class="mini-search" type="search" placeholder="ลูกค้า / เบอร์ / งาน" />
+                  </label>
+                  <label class="mini-control">จัดเรียง
+                    <select id="bookingsSort">
+                      <option value="created_desc">วันที่บันทึกล่าสุด</option>
+                      <option value="event_date_asc">วันงานใกล้สุดก่อน</option>
+                      <option value="event_date_desc">วันงานไกลสุดก่อน</option>
+                      <option value="customer_asc">ชื่อลูกค้า A-Z</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div class="table-wrap"><table id="bookingsTable"></table></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-today">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>Today’s Working</h2>
+                <p class="hint">งานที่ต้องทำวันนี้ ดึงจาก event_date ของ booking และแสดงชื่อรุ่นจาก Model_Master</p>
+              </div>
+              <small id="todayCount"></small>
+            </div>
+            <div class="grid stats compact" id="todayStats"></div>
+            <div class="table-wrap"><table id="todayTable"></table></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-booking">
+          <form class="card form" id="bookingForm">
+            <div class="form-title"><span class="eyebrow">Booking</span><h2>เพิ่ม Booking</h2></div>
+            <p class="hint">เลือกเฉพาะงานที่ยังไม่เต็มและยังไม่ย้อนหลัง ระบบจะเช็กแพ็กเกจ/สต็อกก่อนบันทึกเพื่อลดปัญหาจองซ้ำ</p>
+            <div class="form-note ok-note">เช็กก่อนบันทึก: เลือกงาน → เลือกแพ็กเกจ → กรอกชื่อลูกค้า/เบอร์/เวลารับเครื่อง → บันทึก Booking</div>
+            <div class="row three">
+              <label>งาน
+                <select name="event_id" data-source="events" required></select>
+                <small>แสดงเฉพาะงานที่ยังมีแพ็กเกจว่าง เพื่อกันเพิ่ม Booking ในวันที่เต็มแล้ว</small>
+              </label>
+              <label>แพ็กเกจ
+                <select name="template_id" data-source="packages" required></select>
+                <small>หลังเลือกงาน ระบบจะแสดงเฉพาะแพ็กเกจที่ยังว่าง</small>
+              </label>
+              <label>สถานะ Booking
+                <select name="booking_status">
+                  <option value="confirmed">confirmed</option>
+                  <option value="pending">pending</option>
+                  <option value="prepared">prepared</option>
+                  <option value="cancelled">cancelled</option>
+                </select>
+              </label>
+            </div>
+            <div class="row three">
+              <label>ชื่อลูกค้า <input name="customer_name" required placeholder="เช่น Mint" /></label>
+              <label>X / LINE <input name="customer_contact" placeholder="@handle หรือ LINE" /></label>
+              <label>เบอร์โทร <input name="customer_phone" inputmode="tel" /></label>
+            </div>
+            <div class="row three">
+              <label>ช่องทาง
+                <select name="contact_channel"><option>LINE</option><option>X</option><option>Facebook</option><option>Instagram</option></select>
+              </label>
+              <label>เวลารับเครื่อง <input name="pickup_time" placeholder="เช่น 17:30" /></label>
+              <label>สถานะชำระเงิน
+                <select name="payment_status"><option value="unpaid">unpaid</option><option value="partial">partial</option><option value="paid">paid</option></select>
+              </label>
+            </div>
+            <div class="row three">
+              <label>ยอดรับแล้ว
+                <input name="amount_received" type="number" min="0" step="1" value="0" />
+                <small id="bookingAmountAutoHint">เลือกแพ็กเกจแล้วระบบจะเติมราคาที่ลูกค้าเห็นจริงให้อัตโนมัติ แต่ยังแก้เลขเองได้</small>
+              </label>
+              <label>ระบุมือถือเอง ถ้าไม่ใส่ ระบบหาให้ <input name="phone_asset_id" placeholder="เช่น PHONE-001" /></label>
+              <label>ระบุเลนส์เอง ถ้าไม่ใส่ ระบบหาให้ <input name="lens_asset_id" placeholder="เช่น LENS-001" /></label>
+            </div>
+            <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
+            <button class="btn primary" type="submit">บันทึก Booking</button>
+          </form>
+        </section>
+
+        <section class="tab-panel" id="tab-edit-booking">
+          <form class="card form" id="bookingEditForm">
+            <div class="form-title"><span class="eyebrow">Edit Booking</span><h2>แก้ / ยกเลิก Booking</h2></div>
+            <p class="hint">ใช้เมื่อลูกค้าขอแก้ข้อมูลหรือยกเลิก หากเปลี่ยนสถานะเป็น cancelled ระบบจะปล่อยคิวกลับตามสูตร backend</p>
+            <div class="form-note warn-note">ถ้าลูกค้าเปลี่ยนงานหรือเปลี่ยนแพ็กเกจ แนะนำให้ยกเลิก booking เดิม แล้วสร้าง booking ใหม่ เพื่อกันสต็อกผิด</div>
+            <label>เลือก Booking
+              <select name="row_number" required></select>
+              <small>แสดงเฉพาะ booking ที่ยังต้องดำเนินการ ส่วน completed/cancelled/no_show จะถูกซ่อนเพื่อลดรายการค้าง</small>
+            </label>
+            <div class="row three">
+              <label>สถานะ Booking
+                <select name="booking_status" required>
+                  <option value="confirmed">confirmed</option>
+                  <option value="pending">pending</option>
+                  <option value="prepared">prepared</option>
+                  <option value="picked_up">picked_up</option>
+                  <option value="returned">returned</option>
+                  <option value="uploaded">uploaded</option>
+                  <option value="completed">completed</option>
+                  <option value="no_show">no_show</option>
+                  <option value="cancelled">cancelled</option>
+                </select>
+              </label>
+              <label>สถานะชำระเงิน
+                <select name="payment_status">
+                  <option value="unpaid">unpaid</option>
+                  <option value="partial">partial</option>
+                  <option value="paid">paid</option>
+                  <option value="refunded">refunded</option>
+                </select>
+              </label>
+              <label>ยอดรับแล้ว <input name="amount_received" type="number" min="0" step="1" /></label>
+            </div>
+            <div class="row three">
+              <label>ชื่อลูกค้า <input name="customer_name" required /></label>
+              <label>X / LINE <input name="customer_contact" /></label>
+              <label>เบอร์โทร <input name="customer_phone" inputmode="tel" /></label>
+            </div>
+            <div class="row three">
+              <label>ช่องทาง
+                <select name="contact_channel">
+                  <option>LINE</option>
+                  <option>X</option>
+                  <option>Facebook</option>
+                  <option>Instagram</option>
+                </select>
+              </label>
+              <label>เวลารับเครื่อง <input name="pickup_time" placeholder="เช่น 17:30" /></label>
+              <label>Phone Asset <input name="phone_asset_id" placeholder="เช่น PHONE-001 / ว่างได้" /></label>
+            </div>
+            <div class="row two">
+              <label>Lens Asset <input name="lens_asset_id" placeholder="เช่น LENS-001 / ว่างได้" /></label>
+              <label class="readonly-note">คำเตือน
+                <input value="ระบบจะเช็กซ้ำว่า Asset ไม่ถูกจองชนวันเดียวกัน" disabled />
+              </label>
+            </div>
+            <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
+            <button class="btn secondary" type="submit">บันทึกการแก้ Booking</button>
+          </form>
+        </section>
+
+        <section class="tab-panel" id="tab-customers">
+          <div class="grid two-col">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <span class="eyebrow">CRM</span>
+                  <h2>Customer 360°</h2>
+                  <p class="hint">ค้นหาลูกค้าเพื่อดู Trust Score, timeline, รายได้, สถานะจ่ายเงิน และความเสี่ยงก่อนส่งมอบเครื่อง</p>
+                </div>
+              </div>
+              <label>ค้นหาลูกค้า
+                <input id="customerSearch" type="search" placeholder="เช่น Mint, 08xxxxxxx, @line" />
+              </label>
+              <div class="table-wrap customer-list-wrap"><table id="customersTable"></table></div>
+            </div>
+            <div class="card customer-detail-card" id="customerDetailCard">
+              <div class="card-head">
+                <div>
+                  <span class="eyebrow">Checklist</span>
+                  <h2 id="customerDetailName">เลือก ลูกค้า เพื่อดูประวัติ</h2>
+                  <p class="hint" id="customerDetailMeta">ระบบจะรวมจาก Booking ปัจจุบัน และ Customer Stats ถ้ามีข้อมูล archive แล้ว</p>
+                </div>
+              </div>
+              <div id="customerProfileSummary" class="crm-profile-summary"></div>
+              <div class="grid stats compact customer-kpi" id="customerChecklist"></div>
+              <div id="customerRiskPanel" class="crm-risk-panel"></div>
+              <div id="customerTimeline" class="crm-timeline-wrap"></div>
+              <div class="section-title-row"><h3>Booking History</h3><small>กด “แก้” เพื่อเปิดรายการในหน้า Edit Booking หรือกด “LINE” เพื่อ copy ข้อความสรุป</small></div>
+              <div class="table-wrap"><table id="customerBookingsTable"></table></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-events">
+          <div class="grid two-col">
+            <form class="card form event-form-pro" id="eventForm">
+              <div class="form-title pro-form-title">
+                <span class="eyebrow">Event</span>
+                <h2>เพิ่มงานใหม่</h2>
+                <p class="hint">กรอกข้อมูลงานให้จบในหน้าเดียว และเลือกตั้งราคาเฉพาะงานได้เฉพาะเมื่อจำเป็น</p>
+              </div>
+
+              <div class="form-section">
+                <div class="section-kicker"><span>1</span><div><strong>ข้อมูลงาน</strong><small>ข้อมูลหลักที่ใช้แสดงบนหน้าเว็บและหลังบ้าน</small></div></div>
+                <div class="row two">
+                  <label>ชื่องาน <input name="event_name" required placeholder="เช่น [안녕, BANGKOK] MUSIC FESTIVAL" /></label>
+                  <label>วันที่ <input name="event_date" required type="date" /></label>
+                </div>
+                <div class="row two">
+                  <label>สถานที่ <input name="venue" required placeholder="Bangkok" /></label>
+                  <label>สถานะ
+                    <select name="status"><option value="open">open</option><option value="closed">closed</option></select>
+                  </label>
+                </div>
+                <label class="check pro-check"><input name="active_on_web" type="checkbox" checked /> เปิดโชว์หน้าเว็บ <small>ถ้ายังไม่พร้อมขาย ให้เอาติ๊กออกก่อน</small></label>
+              </div>
+
+              <div class="form-section">
+                <div class="section-kicker"><span>2</span><div><strong>Poster</strong><small>เลือกอย่างใดอย่างหนึ่ง: วาง URL หรืออัปโหลดรูป</small></div></div>
+                <div class="row two">
+                  <label>Poster URL <input name="poster_url" placeholder="Google Drive file link / thumbnail / direct image URL" /></label>
+                  <label>Upload Poster
+                    <input id="posterFile" type="file" accept="image/*" />
+                    <small>รองรับไฟล์ไม่เกิน 3MB และต้องตั้ง <code>KK_POSTER_FOLDER_ID</code></small>
+                  </label>
+                </div>
+              </div>
+
+              <div class="inline-price-panel collapsed" aria-labelledby="createEventPriceTitle">
+                <div class="inline-price-head compact-head">
+                  <label class="price-toggle">
+                    <input id="eventPriceToggle" type="checkbox" />
+                    <span>
+                      <strong id="createEventPriceTitle">ตั้งราคาเฉพาะงาน</strong>
+                      <small id="createEventPriceSummary">ปิดอยู่ · ใช้ราคาหลักทั้งหมด</small>
+                    </span>
+                  </label>
+                  <div class="price-head-actions">
+                    <button class="btn ghost small" type="button" id="resetCreateEventPrices">ล้างราคา</button>
+                  </div>
+                </div>
+                <div id="createEventPriceAdvanced" class="price-advanced hidden">
+                  <div class="price-helper">ใส่เฉพาะแพ็กเกจที่ต้องการ override ถ้าปล่อยว่าง ระบบจะใช้ราคาหลัก</div>
+                  <div id="createEventPriceOverrides" class="inline-price-list compact-price-list">กำลังโหลดแพ็กเกจ...</div>
+                </div>
+              </div>
+
+              <div class="form-section note-section">
+                <div class="section-kicker"><span>3</span><div><strong>Note</strong><small>หมายเหตุหลังบ้าน ไม่บังคับ</small></div></div>
+                <label class="sr-label">Note <textarea name="note" rows="2" placeholder="เช่น รับเครื่องหน้าฮอลล์ / โปรเฉพาะงานนี้"></textarea></label>
+              </div>
+
+              <div class="form-action-bar">
+                <button class="btn ghost" type="reset">ล้างฟอร์ม</button>
+                <button class="btn primary" type="submit" id="createEventSubmitBtn">สร้างงาน</button>
+              </div>
+            </form>
+
+            <form class="card form" id="eventUpdateForm">
+              <div class="form-title"><span class="eyebrow">Edit Event</span><h2>แก้งานเดิม</h2></div>
+              <label>เลือกงาน <select name="event_id" data-source="events" required></select><small>แสดงเฉพาะงานวันนี้/อนาคตที่ยัง open เพื่อกันแก้งานย้อนหลังโดยไม่ตั้งใจ</small></label>
+              <div class="row two">
+                <label>ชื่องานใหม่ <input name="event_name" /></label>
+                <label>วันที่ใหม่ <input name="event_date" type="date" /></label>
+              </div>
+              <div class="row two">
+                <label>สถานที่ใหม่ <input name="venue" /></label>
+                <label>Poster URL ใหม่ <input name="poster_url" placeholder="Google Drive file link / thumbnail / direct image URL" /><small>ถ้าวางลิงก์ใหม่ ระบบจะใช้รูปนี้แทนรูปเดิม</small></label>
+              </div>
+              <label>หรืออัปโหลดรูป Poster ใหม่
+                <input id="updatePosterFile" type="file" accept="image/*" />
+                <small>ถ้าเลือกไฟล์ ระบบจะอัปโหลดและใส่ Poster URL ใหม่ให้อัตโนมัติก่อนบันทึก</small>
+              </label>
+              <div class="row two">
+                <label>สถานะ <select name="status"><option value="">ไม่เปลี่ยน</option><option value="open">open</option><option value="closed">closed</option></select></label>
+                <label>โชว์บนเว็บ <select name="active_on_web"><option value="">ไม่เปลี่ยน</option><option value="true">TRUE</option><option value="false">FALSE</option></select></label>
+              </div>
+              <label>Note ใหม่ <textarea name="note" rows="3"></textarea></label>
+              <button class="btn secondary" type="submit">บันทึกการแก้ไข</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-packages">
+          <div class="grid two-col">
+            <form class="card form" id="packageForm">
+              <div class="form-title"><span class="eyebrow">Package</span><h2>เพิ่มแพ็กเกจ/ราคา</h2></div>
+              <div class="row two">
+                <label>Template ID <input name="template_id" placeholder="ว่างไว้ให้ระบบสร้างได้" /></label>
+                <label>ชื่อแสดงบนเว็บ <input name="display_name" required placeholder="Vivo X300 Pro + Lens" /></label>
+              </div>
+              <div class="row two">
+                <label>ประเภท
+                  <select name="package_type" required>
+                    <option value="phone_only">phone_only</option>
+                    <option value="lens_only">lens_only</option>
+                    <option value="phone_lens_bundle">phone_lens_bundle</option>
+                  </select>
+                </label>
+                <label>ราคา <input name="standard_price" required type="number" min="0" step="1" /></label>
+              </div>
+              <div class="row two">
+                <label>Model Group <input name="model_group" placeholder="VIVO_X300_PRO" /></label>
+                <label>Lens Group <input name="lens_group" placeholder="ZEISS_235X หรือ NONE" /></label>
+              </div>
+              <label>Use Case / ข้อความขาย <textarea name="use_case" rows="3" placeholder="ถ้าว่าง หน้าเว็บจะไม่แสดง"></textarea></label>
+              <label class="check"><input name="active" type="checkbox" checked /> เปิดใช้งานแพ็กเกจ</label>
+              <button class="btn primary" type="submit">เพิ่มแพ็กเกจ</button>
+            </form>
+
+            <form class="card form" id="eventPriceOverrideForm">
+              <div class="form-title"><span class="eyebrow">Override</span><h2>แก้ราคาเฉพาะงาน</h2></div>
+              <p class="hint">ใช้ส่วนนี้เมื่ออยากให้ราคา/ข้อความของแพ็กเกจเปลี่ยนเฉพาะงานที่เลือก โดยไม่กระทบราคาหลักของทุกงาน</p>
+              <label>เลือกงาน <select name="event_id" data-source="events" required></select><small>แสดงเฉพาะงานวันนี้/อนาคตที่ยัง open เพื่อกันแก้งานย้อนหลังโดยไม่ตั้งใจ</small></label>
+              <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select></label>
+              <div class="row two">
+                <label>ราคาเฉพาะงานนี้ <input name="override_price" type="number" min="0" step="1" placeholder="เช่น 1290" /></label>
+                <label>Active เฉพาะงานนี้
+                  <select name="active_override">
+                    <option value="">ไม่เปลี่ยน</option>
+                    <option value="true">เปิดขาย</option>
+                    <option value="false">ซ่อนแพ็กเกจนี้ในงานนี้</option>
+                  </select>
+                </label>
+              </div>
+              <div class="row two">
+                <label>Sort Order เฉพาะงาน <input name="sort_order_override" type="number" min="0" step="1" placeholder="ว่างไว้ได้" /></label>
+                <label>Note เฉพาะงาน <input name="override_note" placeholder="ว่างไว้ได้" /></label>
+              </div>
+              <label>Use Case เฉพาะงาน <textarea name="use_case_override" rows="3" placeholder="ถ้าว่าง จะใช้ข้อความหลักจากแพ็กเกจ"></textarea></label>
+              <button class="btn secondary" type="submit">บันทึกราคาเฉพาะงาน</button>
+            </form>
+
+            <form class="card form" id="packageUpdateForm">
+              <div class="form-title"><span class="eyebrow">Master Price</span><h2>แก้ราคาหลักของแพ็กเกจ</h2></div>
+              <p class="hint">ส่วนนี้จะกระทบทุกงานที่ไม่ได้ตั้งราคาเฉพาะงานไว้</p>
+              <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select><small>เลือกแล้วระบบจะเติมราคาหลัก/ชื่อ/Use Case เดิมให้แก้</small></label>
+              <div class="row two">
+                <label>ราคาหลักใหม่ <input name="standard_price" type="number" min="0" step="1" /></label>
+                <label>ชื่อแสดงใหม่ <input name="display_name" /></label>
+              </div>
+              <label>Use Case หลักใหม่ <textarea name="use_case" rows="3"></textarea></label>
+              <label>Active <select name="active"><option value="">ไม่เปลี่ยน</option><option value="true">TRUE</option><option value="false">FALSE</option></select></label>
+              <button class="btn ghost" type="submit">บันทึกราคาหลัก</button>
+            </form>
+          </div>
+        </section>
+
+
+        <section class="tab-panel" id="tab-pricing">
+          <div class="card hero-card pricing-hero">
+            <div>
+              <span class="eyebrow">Pricing Center</span>
+              <h2>ศูนย์ควบคุมราคาหน้าบ้าน</h2>
+              <p class="hint">รวมราคาหลัก ราคาเฉพาะงาน และราคาที่ลูกค้าเห็นจริงจาก 09_Web_Packages ในหน้าเดียว เพื่อลดปัญหาราคาเด้ง/ราคาสลับงาน</p>
+            </div>
+            <div class="hero-actions">
+              <button class="btn secondary" type="button" id="pricingRefreshBtn">Refresh ราคา</button>
+              <button class="btn ghost" type="button" id="pricingCopyBtn">Copy Summary</button>
+            </div>
+          </div>
+
+          <div class="card pricing-control-card">
+            <div class="row three">
+              <label>เลือกงาน
+                <select id="pricingEventFilter"></select>
+              </label>
+              <label>ค้นหาแพ็กเกจ
+                <input id="pricingSearch" type="search" placeholder="เช่น Lens, phone, 1290" />
+              </label>
+              <label>มุมมอง
+                <select id="pricingScope">
+                  <option value="selected">เฉพาะงานที่เลือก</option>
+                  <option value="upcoming">ทุกงานเปิดอยู่/อนาคต</option>
+                  <option value="mismatch">เฉพาะรายการที่ราคาหน้าบ้านไม่ตรง</option>
+                </select>
+              </label>
+            </div>
+            <div class="price-kpis" id="pricingKpis"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h2>ราคาที่ลูกค้าเห็นจริง</h2>
+              <small id="pricingCenterCount"></small>
+            </div>
+            <div class="table-wrap pricing-table-wrap"><table id="pricingCenterTable"></table></div>
+            <p class="hint pricing-help">สถานะ OK = ราคาใน 09_Web_Packages ตรงกับราคาที่ควรใช้ · CHECK = ควรกด Apply หรือเปิดฟอร์ม override เพื่อตรวจ</p>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-assets">
+          <div class="grid two-col">
+            <form class="card form" id="assetForm">
+              <div class="form-title"><span class="eyebrow">Asset</span><h2>เพิ่มมือถือ / เลนส์ หลายรายการ</h2></div>
+              <div class="row two">
+                <label>ประเภท
+                  <select name="asset_type" required><option value="phone">phone</option><option value="lens">lens</option></select>
+                </label>
+                <label>จำนวน <input name="quantity" type="number" min="1" max="50" value="1" required /></label>
+              </div>
+              <div class="row two">
+                <label>Model / Lens Group <input name="model_group" required placeholder="VIVO_X300_PRO หรือ ZEISS_235X" /></label>
+                <label>Serial Prefix <input name="serial_prefix" placeholder="เช่น VIVOX300" /></label>
+              </div>
+              <div class="row two">
+                <label>สถานะ <select name="status"><option value="available">available</option><option value="repair">repair</option><option value="inactive">inactive</option></select></label>
+                <label class="check"><input name="rentable" type="checkbox" checked /> rentable</label>
+              </div>
+              <label>Note <textarea name="notes" rows="3"></textarea></label>
+              <button class="btn primary" type="submit">เพิ่ม Asset</button>
+            </form>
+
+            <div class="card">
+              <div class="card-head"><h2>Assets ล่าสุด</h2><small id="assetsCount"></small></div>
+              <div class="table-wrap"><table id="assetsTable"></table></div>
+            </div>
+          </div>
+        </section>
+
+
+        <section class="tab-panel" id="tab-reports">
+          <div class="card report-hero">
+            <div class="card-head">
+              <div>
+                <span class="eyebrow">Phase 3</span>
+                <h2>Reports & Asset Intelligence</h2>
+                <p class="hint">สรุปยอดรับจริง รายได้ตามงาน/แพ็กเกจ การใช้งานเครื่อง ลูกค้าเช่าซ้ำ และรายการที่ควรตรวจสอบก่อนตัดสินใจซื้อเครื่องเพิ่ม</p>
+              </div>
+              <small id="reportScopeLabel">ข้อมูลทั้งหมด</small>
+            </div>
+            <div class="report-filter-grid">
+              <label class="mini-control">ช่วงข้อมูล
+                <select id="reportRange">
+                  <option value="all">ทั้งหมด</option>
+                  <option value="this_month">เดือนนี้</option>
+                  <option value="next_30">30 วันข้างหน้า</option>
+                  <option value="last_90">ย้อนหลัง 90 วัน</option>
+                  <option value="custom">กำหนดเอง</option>
+                </select>
+              </label>
+              <label class="mini-control">ตั้งแต่
+                <input id="reportStart" class="mini-search" type="date" />
+              </label>
+              <label class="mini-control">ถึง
+                <input id="reportEnd" class="mini-search" type="date" />
+              </label>
+              <label class="mini-control">สถานะที่นับรายงาน
+                <select id="reportStatusMode">
+                  <option value="active_revenue">เช่าจริง/รับเงินจริง</option>
+                  <option value="all_non_cancelled">ทุก booking ที่ไม่ยกเลิก</option>
+                  <option value="completed_only">completed เท่านั้น</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid stats compact" id="reportKpis"></div>
+          </div>
+
+          <div class="grid two-col report-grid">
+            <div class="card">
+              <div class="card-head"><h2>Event Performance</h2><small id="eventPerformanceCount"></small></div>
+              <div class="table-wrap"><table id="eventPerformanceTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>Package Performance</h2><small id="packagePerformanceCount"></small></div>
+              <div class="table-wrap"><table id="packagePerformanceTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>Asset Utilization</h2><small id="assetUtilizationCount"></small></div>
+              <div class="table-wrap"><table id="assetUtilizationTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>Customer Performance</h2><small id="customerPerformanceCount"></small></div>
+              <div class="table-wrap"><table id="customerPerformanceTable"></table></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>Data / Business Insights</h2>
+                <p class="hint">ระบบตรวจจากข้อมูล booking จริง ไม่สร้าง mock data และไม่แก้ข้อมูลลูกค้า</p>
+              </div>
+              <small id="insightCount"></small>
+            </div>
+            <div id="reportInsights" class="insight-list"></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-health">
+          <div class="card system-guard-card">
+            <div class="card-head">
+              <div>
+                <span class="eyebrow">System Guard</span>
+                <h2>ตรวจระบบก่อนใช้งานจริง</h2>
+                <p class="hint">เช็ก Apps Script URL, Sheet ID, API Key, Poster Folder, public feed และวงจรราคา override เพื่อลด error แบบ HTML/Google Drive หรือราคาไม่ตรงหน้าบ้าน</p>
+              </div>
+              <div class="inline-actions">
+                <button class="btn primary" id="runSystemGuardBtn" type="button">Run Live Check</button>
+                <button class="btn secondary" id="copySystemGuardBtn" type="button">Copy Result</button>
+              </div>
+            </div>
+            <div id="systemGuardGrid" class="grid stats compact system-guard-grid"></div>
+            <p class="hint" id="systemGuardLastRun">ยังไม่ได้ run live check</p>
+            <div class="table-wrap"><table id="systemGuardTable"></table></div>
+          </div>
+
+          <div class="grid two-col">
+            <div class="card">
+              <div class="card-head"><h2>Sheet Health Check</h2><small>อ่านจาก 10_Admin_Health_Check + Version Diagnostics</small></div>
+              <div class="table-wrap"><table id="healthTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Archive / Customer Stats</h2>
+                  <p class="hint">ย้าย booking/event เก่ากว่า 30 วันไป Archive และอัปเดตจำนวนครั้งที่ลูกค้าเคยเช่า</p>
+                </div>
+              </div>
+              <button class="btn secondary" id="cleanupBtn" type="button">Run 30-day Archive Cleanup</button>
+              <p class="hint">แนะนำให้กดเมนู KK Admin &gt; CRM: Install Daily Cleanup Trigger ใน Google Sheet เพื่อให้ระบบทำงานอัตโนมัติทุกวัน</p>
+              <div class="card-head"><h2>Customer Stats</h2><small id="customerStatsCount"></small></div>
+              <div class="table-wrap"><table id="customerStatsTable"></table></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+</body>
+</html>
