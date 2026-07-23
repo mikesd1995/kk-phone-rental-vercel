@@ -36,15 +36,302 @@ var currentFilter = ["all","available","full"].indexOf(REQUESTED_FILTER)>=0 ? RE
 var REQUESTED_MONTH = String(URL_PARAMS.get("month") || "all").trim().toLowerCase();
 var currentMonth = /^\d{4}-\d{2}$/.test(REQUESTED_MONTH) ? REQUESTED_MONTH : "all";
 var TH_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+var EN_MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 var PRELOADED_IMAGES = {};
+var REQUESTED_LANG = String(URL_PARAMS.get("lang")||"").trim().toLowerCase();
+var currentLang = (REQUESTED_LANG==="en"||REQUESTED_LANG==="th") ? REQUESTED_LANG : getStoredLanguage();
+var activeModalEvent = null;
+
+var I18N = {
+  th: {
+    meta_title:"KK Phone Rental | เช่ามือถือและเลนส์สำหรับคอนเสิร์ต แฟนมีต และอีเวนต์",
+    meta_description:"KK Phone Rental บริการเช่ามือถือและเลนส์สำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ ดูคิวว่างและจองผ่าน LINE OA",
+    event_meta_description:"เช่ามือถือหรือเลนส์สำหรับงาน {event} วันที่ {date} ดูแพ็กเกจและจองผ่าน LINE OA",
+    brand_subtitle:"Phone & Lens Rental Service",
+    value_steps:"เลือกงาน > ดูอุปกรณ์และแพ็กเกจที่ว่าง > ระบบพาไปจองผ่าน LINE OA กับแอดมิน",
+    value_note:"( หากไม่มีงานที่ต้องการ สามารถสอบถามได้ใน LINE OA )",
+    follow_promo:"💙 ฟอลร้าน = ฟรีมัดจำ + ประกัน",
+    faq_button:"❔ คำถามที่พบบ่อย",
+    language_aria:"เลือกภาษา",
+    filter_group_aria:"เลือกเดือนและกรองสถานะงาน",
+    select_month:"เลือกเดือน",
+    filter_all:"งานทั้งหมด",
+    filter_available:"งานว่าง",
+    filter_waitlist:"จองคิวหลุด",
+    section_title:"เลือกงานที่ใช่ ไปถ่ายคนที่ชอบ ❤️",
+    updated_prefix:"อัปเดตล่าสุด",
+    loading_aria:"กำลังโหลดข้อมูลงาน",
+    loading_text:"กำลังเช็กคิวให้น้า... 📱✨",
+    line_book:"ทัก LINE มาจองได้เลย 💚",
+    sticky_line:"ทัก LINE จองคิว",
+    footer_tagline:"เช่าเถอะ อยากให้ชัด ✨",
+    footer_trust:"จองง่าย คุยกับร้านโดยตรงผ่าน LINE",
+    modal_close_aria:"ปิดหน้าต่าง",
+    modal_title_placeholder:"ชื่องาน",
+    modal_date_placeholder:"วันที่",
+    modal_venue_placeholder:"สถานที่",
+    modal_note_strong:"เลือกแพ็กเกจที่ต้องการ:",
+    modal_note_body:"ถ้างานยังว่างให้กดจองแพ็กเกจนี้ ถ้างานเต็มให้กดจองคิวหลุดผ่าน LINE ได้เลย 💚",
+    close:"ปิด",
+    faq_close_aria:"ปิด FAQ",
+    faq_title:"FAQ · คำถามที่พบบ่อย",
+    faq_q1:"Q: เช่าอุปกรณ์ยังไง?",
+    faq_a1:"A: เลือกงานที่ต้องการ กดดูอุปกรณ์และแพ็กเกจที่ว่าง ระบบจะพาไปจองผ่าน LINE OA เพื่อให้ร้านคอนเฟิร์ม",
+    faq_q2:"Q: ในเซ็ตเช่ามีอุปกรณ์อะไรให้บ้าง?",
+    faq_a2:"A: อุปกรณ์พื้นฐานมีตัวเครื่องมือถือ กระเป๋าใส่มือถือ และแบตสำรอง หากเช่าเลนส์เพิ่มจะมีถุงใส่เลนส์และผ้าเช็ดเลนส์ให้ด้วย",
+    faq_q3:"Q: รับอุปกรณ์และคืนอุปกรณ์ที่ไหน?",
+    faq_a3:"A: รับและคืนอุปกรณ์ที่หน้างานเท่านั้น",
+    faq_q4:"Q: ต้องจ่ายมัดจำและค่าประกันอุปกรณ์ไหม?",
+    faq_a4:"A: ตอนนี้ร้านยังอยู่ในช่วงโปรโมชั่น จึงไม่เก็บค่ามัดจำและค่าประกัน เพียงฟอล X ของทางร้าน",
+    faq_q5:"Q: การจ่ายเงินต้องจ่ายยังไง?",
+    faq_a5:"A: จ่ายเงินตอนรับอุปกรณ์ที่หน้างาน",
+    faq_q6:"Q: เอกสารที่ใช้ในการเช่ายืมมีอะไรบ้าง?",
+    faq_a6:"A: รูปถ่ายบัตรประชาชน ใบขับขี่ หรือ Passport คู่กับหลักฐานการเข้างาน และถ่ายคู่กับอุปกรณ์ที่เช่ายืมตอนรับอุปกรณ์อีกครั้ง",
+    faq_q7:"Q: ทำไมไฟล์จาก Google Drive ไม่ชัด?",
+    faq_a7:"A: Google Drive Preview อาจลดคุณภาพของภาพ ต้องกดดาวน์โหลดลงเครื่องก่อน ภาพจึงจะชัด",
+    faq_q8:"Q: ไฟล์บน Google Drive เก็บไว้ได้กี่วัน?",
+    faq_a8:"A: ร้านจะเก็บไฟล์ไว้ประมาณ 30 วัน หลังจากนั้นจะไม่สามารถเข้าถึงไฟล์ได้ แนะนำให้ดาวน์โหลดทันทีหลังได้รับลิงก์ค่ะ",
+    every_month:"ทุกเดือน",
+    full_availability:"เต็มแล้วน้า 😢 จองคิวหลุดได้",
+    one_phone_left:"เหลือ 1 เครื่องสุดท้าย ✨",
+    phones_available:"ว่าง {count} เครื่อง ✨",
+    lens_only_available:"เหลือ Lens อย่างเดียว ✨",
+    available:"ว่าง ✨",
+    empty_available:"ยังไม่มีงานที่มีอุปกรณ์ว่าง{month}น้า 💙",
+    empty_waitlist:"ยังไม่มีงานที่เปิดรอคิวหลุด{month}น้า ✨",
+    empty_all:"ยังไม่มีงานที่เปิดให้จอง{month}น้า 💙",
+    in_month:"ในเดือน {month} ",
+    no_event_data:"ยังไม่มีข้อมูลงานตอนนี้น้า 💙",
+    empty_detail:"ถ้ามีงานที่อยากเช่า สามารถทัก LINE OA มาสอบถามได้เลย",
+    contact_line:"ทัก LINE OA",
+    badge_full:"คิวเต็ม",
+    badge_soon:"ใกล้ถึงวันงาน",
+    badge_available:"ว่าง {count} เครื่อง",
+    badge_lens:"Lens ว่าง",
+    card_aria_available:"ดูอุปกรณ์ที่ว่างสำหรับงาน {event}",
+    card_aria_waitlist:"จองคิวหลุดสำหรับงาน {event}",
+    no_image:"ยังไม่มีรูป",
+    tap_available:"ดูอุปกรณ์ที่ว่าง / จองคิว",
+    tap_waitlist:"จองคิวหลุด",
+    pkg_phone_only:"เฉพาะมือถือ",
+    pkg_lens_only:"เลนส์เสริม",
+    pkg_bundle:"มือถือ + เลนส์",
+    pkg_ask:"สอบถามแพ็กเกจผ่าน LINE OA",
+    ask_price:"สอบถามราคา",
+    per_day:" บาท/วัน",
+    book_this:"จองแพ็กเกจนี้",
+    book_aria:"จอง {package} สำหรับงาน {event}",
+    full_title:"งานนี้เต็มแล้วน้า 🙏",
+    full_body:"กดจองคิวหลุดไว้ได้เลย ถ้ามีลูกค้ายกเลิก ร้านจะได้เช็กคิวให้",
+    waitlist_line:"จองคิวหลุดผ่าน LINE",
+    waitlist_aria:"จองคิวหลุดสำหรับงาน {event}",
+    event_details:"รายละเอียดงาน",
+    booking_interest:"สนใจเช่า {package}",
+    line_event:"งาน",
+    line_date:"วันที่",
+    line_price:"ราคา",
+    line_nickname:"ชื่อเล่น",
+    line_phone:"เบอร์โทร",
+    line_pickup:"เวลาที่สะดวกรับอุปกรณ์",
+    waitlist_title:"ขอจองคิวหลุด",
+    line_package:"แพ็กเกจที่สนใจ",
+    waitlist_note:"ถ้ามีคิวหลุด รบกวนแจ้งกลับด้วยค่ะ",
+    unspecified:"ไม่ระบุ",
+    error_title:"โหลดข้อมูลคิวไม่สำเร็จชั่วคราวน้า",
+    error_detail:"ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA",
+    error_line:"ทัก LINE OA มาสอบถาม"
+  },
+  en: {
+    meta_title:"KK Phone Rental | Phone & Lens Rental for Concerts and Events",
+    meta_description:"Rent a phone or lens for concerts, fan meetings and events. Check available packages and book directly with KK Phone Rental via LINE OA.",
+    event_meta_description:"Rent a phone or lens for {event} on {date}. View available packages and book via LINE OA.",
+    brand_subtitle:"Phone & Lens Rental Service",
+    value_steps:"Choose an event > Check available equipment and packages > Book directly with our admin via LINE OA",
+    value_note:"( Can't find your event? Message us on LINE OA. )",
+    follow_promo:"💙 Follow us = No deposit + Free insurance",
+    faq_button:"❔ Frequently Asked Questions",
+    language_aria:"Choose language",
+    filter_group_aria:"Choose a month and filter event availability",
+    select_month:"Select month",
+    filter_all:"All Events",
+    filter_available:"Available",
+    filter_waitlist:"Join Waitlist",
+    section_title:"Choose your event and capture every favorite moment ❤️",
+    updated_prefix:"Last updated",
+    loading_aria:"Loading events",
+    loading_text:"Checking availability... 📱✨",
+    line_book:"Book via LINE 💚",
+    sticky_line:"Book via LINE",
+    footer_tagline:"Rent it. Capture it clearly. ✨",
+    footer_trust:"Easy booking — talk directly with us on LINE",
+    modal_close_aria:"Close window",
+    modal_title_placeholder:"Event name",
+    modal_date_placeholder:"Date",
+    modal_venue_placeholder:"Venue",
+    modal_note_strong:"Choose a package:",
+    modal_note_body:"Book an available package, or join the LINE waitlist when the event is fully booked. 💚",
+    close:"Close",
+    faq_close_aria:"Close FAQ",
+    faq_title:"FAQ · Frequently Asked Questions",
+    faq_q1:"Q: How do I rent equipment?",
+    faq_a1:"A: Choose your event, check the available equipment and package, then continue to LINE OA so our admin can confirm your booking.",
+    faq_q2:"Q: What is included in the rental set?",
+    faq_a2:"A: A phone rental includes the phone, a carrying pouch and a power bank. An add-on lens rental also includes a lens pouch and cleaning cloth.",
+    faq_q3:"Q: Where do I pick up and return the equipment?",
+    faq_a3:"A: Equipment pick-up and return are available at the event venue only.",
+    faq_q4:"Q: Is a deposit or equipment insurance fee required?",
+    faq_a4:"A: During the current promotion, the deposit and insurance fee are waived when you follow our X account.",
+    faq_q5:"Q: When do I pay?",
+    faq_a5:"A: Payment is made when you pick up the equipment at the event venue.",
+    faq_q6:"Q: What documents are required?",
+    faq_a6:"A: A photo of your Thai ID card, driving licence or passport together with your event-entry proof, plus another photo with the rented equipment at pick-up.",
+    faq_q7:"Q: Why do files look blurry in Google Drive?",
+    faq_a7:"A: Google Drive Preview may reduce image quality. Download the file to your device to view the full-quality version.",
+    faq_q8:"Q: How long are files stored on Google Drive?",
+    faq_a8:"A: Files are stored for approximately 30 days. Please download them as soon as you receive the link.",
+    every_month:"Every month",
+    full_availability:"Fully booked 😢 Join the waitlist",
+    one_phone_left:"Only 1 phone left ✨",
+    phones_available:"{count} phones available ✨",
+    lens_only_available:"Lens-only package available ✨",
+    available:"Available ✨",
+    empty_available:"No equipment is available {month}yet 💙",
+    empty_waitlist:"No events are currently accepting waitlist requests {month}✨",
+    empty_all:"No events are open for booking {month}yet 💙",
+    in_month:"in {month} ",
+    no_event_data:"No event information is available right now 💙",
+    empty_detail:"Message us on LINE OA if you would like to ask about another event.",
+    contact_line:"Message us on LINE OA",
+    badge_full:"Fully Booked",
+    badge_soon:"Coming Soon",
+    badge_available:"{count} Available",
+    badge_lens:"Lens Available",
+    card_aria_available:"View available equipment for {event}",
+    card_aria_waitlist:"Join the waitlist for {event}",
+    no_image:"No image",
+    tap_available:"View Equipment / Book",
+    tap_waitlist:"Join Waitlist",
+    pkg_phone_only:"Phone only",
+    pkg_lens_only:"Add-on lens",
+    pkg_bundle:"Phone + Lens",
+    pkg_ask:"Ask about packages via LINE OA",
+    ask_price:"Ask for price",
+    per_day:" THB/day",
+    book_this:"Book This Package",
+    book_aria:"Book {package} for {event}",
+    full_title:"This event is fully booked 🙏",
+    full_body:"Join the waitlist and we will check for you if another customer cancels.",
+    waitlist_line:"Join Waitlist via LINE",
+    waitlist_aria:"Join the waitlist for {event}",
+    event_details:"Event details",
+    booking_interest:"Interested in renting {package}",
+    line_event:"Event",
+    line_date:"Date",
+    line_price:"Price",
+    line_nickname:"Nickname",
+    line_phone:"Phone number",
+    line_pickup:"Preferred equipment pick-up time",
+    waitlist_title:"Join waitlist",
+    line_package:"Interested package",
+    waitlist_note:"Please let me know if a slot becomes available.",
+    unspecified:"Not specified",
+    error_title:"Unable to load availability right now",
+    error_detail:"Please refresh the page or contact us via LINE OA.",
+    error_line:"Contact us via LINE OA"
+  }
+};
+
+function getStoredLanguage(){
+  try{ var v=localStorage.getItem("kk_public_language"); return v==="en"?"en":"th"; }catch(e){ return "th"; }
+}
+function tr(key, vars){
+  var dict=I18N[currentLang]||I18N.th;
+  var out=String(dict[key]!==undefined?dict[key]:(I18N.th[key]!==undefined?I18N.th[key]:key));
+  Object.keys(vars||{}).forEach(function(k){out=out.replace(new RegExp("\\{"+k+"\\}","g"),String(vars[k]));});
+  return out;
+}
+function setText(selector,key,vars){var el=document.querySelector(selector);if(el)el.textContent=tr(key,vars);}
+function setAttr(selector,attr,key,vars){var el=document.querySelector(selector);if(el)el.setAttribute(attr,tr(key,vars));}
+function setFaqLanguage(index,qKey,aKey){
+  var item=document.querySelector("#faqOverlay .faq-item:nth-child("+index+")"); if(!item)return;
+  var q=item.querySelector(".faq-q"), a=item.querySelector(".faq-a");
+  if(q)q.innerHTML=esc(tr(qKey))+' <span class="faq-plus">+</span>';
+  if(a)a.textContent=tr(aKey);
+}
+function updateLanguageButtons(){
+  var sw=document.getElementById("language-switch"); if(sw)sw.setAttribute("aria-label",tr("language_aria"));
+  document.querySelectorAll("[data-lang]").forEach(function(btn){
+    var active=btn.getAttribute("data-lang")===currentLang;
+    btn.classList.toggle("active",active); btn.setAttribute("aria-pressed",active?"true":"false");
+  });
+}
+function applyStaticLanguage(){
+  document.documentElement.lang=currentLang;
+  setText(".brand-text p","brand_subtitle");
+  setText(".value-box p:not(.value-note)","value_steps");
+  setText(".value-box .value-note","value_note");
+  setText("a.quick-link","follow_promo");
+  setText("#faq-open-btn","faq_button");
+  document.querySelectorAll(".filter-group,.status-filter-bar").forEach(function(el){el.setAttribute("aria-label",tr("filter_group_aria"));});
+  setAttr("#month-filter-select","aria-label","select_month");
+  setText('[data-filter="all"]',"filter_all");
+  setText('[data-filter="available"]',"filter_available");
+  setText('[data-filter="full"]',"filter_waitlist");
+  setText(".sec-title span","section_title");
+  setText("#line-btn-label","line_book");
+  setText("#sticky-line-label","sticky_line");
+  setText("footer .footer-tagline","footer_tagline");
+  setText("footer .trust-note","footer_trust");
+  setAttr("#modal-x-btn","aria-label","modal_close_aria");
+  setText("#modal-title","modal_title_placeholder");
+  setText("#modal-date","modal_date_placeholder");
+  setText("#modal-venue","modal_venue_placeholder");
+  var note=document.querySelector(".modal-note"); if(note)note.innerHTML="<strong>"+esc(tr("modal_note_strong"))+"</strong> "+esc(tr("modal_note_body"));
+  setText("#modal-close","close");
+  setAttr("#faq-x-btn","aria-label","faq_close_aria");
+  setText("#faq-title","faq_title");
+  for(var i=1;i<=8;i++)setFaqLanguage(i,"faq_q"+i,"faq_a"+i);
+  setText("#faq-close-btn","close");
+  updateLanguageButtons();
+}
+function updateLanguageUrl(){
+  try{
+    var u=new URL(window.location.href);
+    if(currentLang==="en")u.searchParams.set("lang","en"); else u.searchParams.delete("lang");
+    window.history.replaceState(null,"",u.toString());
+  }catch(e){}
+}
+function applyLanguage(lang,options){
+  options=options||{};
+  currentLang=lang==="en"?"en":"th";
+  if(options.save!==false){try{localStorage.setItem("kk_public_language",currentLang);}catch(e){}}
+  if(options.updateUrl!==false)updateLanguageUrl();
+  applyStaticLanguage();
+  resetMeta();
+  setUpdateDate();
+  if(concertsData&&concertsData.length)renderConcerts(concertsData);
+  var ov=document.getElementById("overlay");
+  if(activeModalEvent&&ov&&ov.classList.contains("active"))showModal(activeModalEvent,{skipTrack:true});
+}
+function bindLanguageSwitch(){
+  document.querySelectorAll("[data-lang]").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var next=btn.getAttribute("data-lang")==="en"?"en":"th";
+      if(next===currentLang)return;
+      applyLanguage(next);
+      track("language_change",{language:next});
+    });
+  });
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function toNum(v){ var n=Number(String(v||"").replace(/[^0-9.\-]/g,"")); return isNaN(n)?0:n; }
 function hasVal(v){ return v!==undefined && v!==null && String(v).trim()!==""; }
 function toBool(v){ if(v===true||v===1)return true; var s=String(v||"").trim().toUpperCase(); return s==="TRUE"||s==="YES"||s==="1"||s==="ว่าง"||s==="OPEN"||s==="SHOW"; }
-function fmtPrice(n){ n=toNum(n); return n>0?n.toLocaleString("th-TH")+" บาท/วัน":"ไม่ระบุ"; }
-function fmtPriceLine(n){ n=toNum(n); return n>0?n.toLocaleString("th-TH")+" บาท":"ไม่ระบุ"; }
+function numberLocale(){return currentLang==="en"?"en-US":"th-TH";}
+function fmtPrice(n){ n=toNum(n); return n>0?(currentLang==="en"?n.toLocaleString(numberLocale())+" THB/day":n.toLocaleString(numberLocale())+" บาท/วัน"):tr("unspecified"); }
+function fmtPriceLine(n){ n=toNum(n); return n>0?(currentLang==="en"?n.toLocaleString(numberLocale())+" THB":n.toLocaleString(numberLocale())+" บาท"):tr("unspecified"); }
 function lineVal(v){ var s=String(v||"").replace(/\s+/g," ").trim(); return s||"-"; }
 
 // Header-safe row utilities: Google Sheets CSV may export Thai headers with line breaks.
@@ -126,21 +413,22 @@ function eventUrl(c){
 }
 function resetMeta(){
   try{
-    document.title = DEFAULT_TITLE;
-    setMeta("name","description",DEFAULT_DESCRIPTION);
-    setMeta("property","og:title",DEFAULT_TITLE);
-    setMeta("property","og:description",DEFAULT_DESCRIPTION);
+    var title=tr("meta_title"), desc=tr("meta_description");
+    document.title = title;
+    setMeta("name","description",desc);
+    setMeta("property","og:title",title);
+    setMeta("property","og:description",desc);
     setMeta("property","og:url",APP.siteUrl || homeUrl());
     setMeta("property","og:image",DEFAULT_OG_IMAGE);
-    setMeta("name","twitter:title",DEFAULT_TITLE);
-    setMeta("name","twitter:description",DEFAULT_DESCRIPTION);
+    setMeta("name","twitter:title",title);
+    setMeta("name","twitter:description",desc);
     setMeta("name","twitter:image",DEFAULT_OG_IMAGE);
   }catch(e){}
 }
 function updateMetaForEvent(c){
   if(!c)return;
   var title=(c.name?c.name+" | ":"")+"KK Phone Rental";
-  var desc="เช่ามือถือถ่ายงาน "+(c.name||"คอนเสิร์ต")+" วันที่ "+(c.date||"-")+" ดูแพ็กเกจและจองผ่าน LINE OA";
+  var desc=tr("event_meta_description",{event:c.name||tr("event_details"),date:c.date||"-"});
   document.title=title;
   setMeta("name","description",desc);
   setMeta("property","og:title",title);
@@ -431,9 +719,10 @@ function isFuture(c){ return SHOW_PAST||concertTs(c)>=TODAY_TS; }
 function isSoon(c){ var ms=concertTs(c)-TODAY_TS; return ms>=0&&ms<=14*86400000; }
 function monthKey(c){ var d=parseDate(c&&c.rawDate); if(!d)return ""; return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 function monthLabel(key){
-  var m=String(key||"").match(/^(\d{4})-(\d{2})$/); if(!m)return "ทุกเดือน";
+  var m=String(key||"").match(/^(\d{4})-(\d{2})$/); if(!m)return tr("every_month");
   var year=parseInt(m[1],10), mo=parseInt(m[2],10)-1;
-  return (TH_MONTHS_SHORT[mo]||m[2])+" "+year;
+  var months=currentLang==="en"?EN_MONTHS_SHORT:TH_MONTHS_SHORT;
+  return (months[mo]||m[2])+" "+year;
 }
 function getMonthOptions(concerts){
   var seen={}, out=[];
@@ -456,26 +745,26 @@ function availCnt(c){
 }
 function availTextFor(c){
   var ap=availPkgs(c), cnt=availCnt(c);
-  if(cnt<=0) return "เต็มแล้วน้า 😢 จองคิวหลุดได้";
+  if(cnt<=0) return tr("full_availability");
   var hasPhone=ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
   var hasLensOnly=ap.some(function(p){return p.type==="lens_only";});
-  if(hasPhone) return cnt===1 ? "เหลือ 1 เครื่องสุดท้าย ✨" : "ว่าง "+cnt+" เครื่อง ✨";
-  if(hasLensOnly) return "เหลือ Lens อย่างเดียว ✨";
-  return "ว่าง ✨";
+  if(hasPhone) return cnt===1 ? tr("one_phone_left") : tr("phones_available",{count:cnt});
+  if(hasLensOnly) return tr("lens_only_available");
+  return tr("available");
 }
 
 function filtered(concerts){
-  var vis=concerts.filter(isFuture).sort(function(a,b){return concertTs(a)-concertTs(b)||a.name.localeCompare(b.name,"th");});
+  var vis=concerts.filter(isFuture).sort(function(a,b){return concertTs(a)-concertTs(b)||a.name.localeCompare(b.name,currentLang==="en"?"en":"th");});
   if(currentMonth!=="all") vis=vis.filter(function(c){return monthKey(c)===currentMonth;});
   if(currentFilter==="available")return vis.filter(function(c){return availCnt(c)>0;});
   if(currentFilter==="full")     return vis.filter(function(c){return availCnt(c)===0;});
   return vis;
 }
 function emptyMsg(){
-  var m = currentMonth!=="all" ? "ในเดือน "+monthLabel(currentMonth)+" " : "";
-  if(currentFilter==="available")return "ยังไม่มีงานที่มีเครื่องว่าง"+m+"น้า 💙";
-  if(currentFilter==="full")     return "ยังไม่มีงานที่เปิดรอคิวหลุด"+m+"น้า ✨";
-  return "ยังไม่มีงานที่เปิดให้จอง"+m+"น้า 💙";
+  var m = currentMonth!=="all" ? tr("in_month",{month:monthLabel(currentMonth)}) : "";
+  if(currentFilter==="available")return tr("empty_available",{month:m});
+  if(currentFilter==="full")     return tr("empty_waitlist",{month:m});
+  return tr("empty_all",{month:m});
 }
 
 // ─── DOM ──────────────────────────────────────────────────────────────────
@@ -491,25 +780,25 @@ function applyConfig(){
 }
 function setUpdateDate(){
   var n=new Date(); var el=document.getElementById("update-note");
-  if(el)el.textContent="อัปเดตล่าสุด: "+String(n.getDate()).padStart(2,"0")+"/"+String(n.getMonth()+1).padStart(2,"0")+"/"+n.getFullYear()+" "+String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
+  if(el)el.textContent=tr("updated_prefix")+": "+String(n.getDate()).padStart(2,"0")+"/"+String(n.getMonth()+1).padStart(2,"0")+"/"+n.getFullYear()+" "+String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
 }
 function showBrandFallback(){var a=document.getElementById("brandImageCard"),b=document.getElementById("brandFallback");if(a)a.style.display="none";if(b)b.style.display="flex";}
 
 function renderLoadingSkeleton(count){
   var el=document.getElementById("content"); if(!el)return;
   count=count||4;
-  var html='<div class="poster-grid skeleton-grid" aria-label="กำลังโหลดข้อมูลงาน">';
+  var html='<div class="poster-grid skeleton-grid" aria-label="'+esc(tr("loading_aria"))+'">';
   for(var i=0;i<count;i++){
     html+='<div class="concert-card skeleton-card" aria-hidden="true"><div class="poster-img-wrap skeleton-poster"><span></span></div><div class="poster-info skeleton-info"><div class="sk sk-date"></div><div class="sk sk-title"></div><div class="sk sk-title short"></div><div class="sk sk-btn"></div></div></div>';
   }
-  html+='</div><div class="loading-text skeleton-loading-text">กำลังเช็กคิวให้น้า... 📱✨</div>';
+  html+='</div><div class="loading-text skeleton-loading-text">'+esc(tr("loading_text"))+'</div>';
   el.innerHTML=html;
 }
 function renderEmpty(msg,detail){
   var el=document.getElementById("content"); if(!el)return;
-  el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+(detail?esc(detail):'ถ้ามีงานที่อยากเช่า สามารถทัก LINE OA มาสอบถามได้เลย')+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">ทัก LINE OA</a></div>';
+  el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+esc(detail||tr("empty_detail"))+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("contact_line"))+'</a></div>';
 }
-function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return "คิวเต็ม"; if(isSoon(c))return "ใกล้ถึงวันงาน"; return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? "ว่าง "+cnt+" เครื่อง" : "Lens ว่าง"; }
+function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return tr("badge_full"); if(isSoon(c))return tr("badge_soon"); return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? tr("badge_available",{count:cnt}) : tr("badge_lens"); }
 
 function renderMonthSelect(concerts){
   var sel=document.getElementById("month-filter-select"); if(!sel)return;
@@ -522,7 +811,7 @@ function renderMonthSelect(concerts){
     opt.textContent=label;
     sel.appendChild(opt);
   }
-  addOpt("all","เลือกเดือน");
+  addOpt("all",tr("select_month"));
   opts.forEach(function(key){addOpt(key,monthLabel(key));});
   sel.value=currentMonth;
 }
@@ -531,7 +820,7 @@ function renderConcerts(concerts){
   renderMonthSelect(concerts);
   var el=document.getElementById("content"); if(!el)return;
   el.innerHTML="";
-  if(!concerts||!concerts.length){renderEmpty("ยังไม่มีข้อมูลงานตอนนี้น้า 💙");return;}
+  if(!concerts||!concerts.length){renderEmpty(tr("no_event_data"));return;}
   var vis=filtered(concerts);
   if(!vis.length){renderEmpty(emptyMsg());return;}
 
@@ -550,7 +839,7 @@ function renderConcerts(concerts){
     var pkgHint="";
 
     var card=document.createElement("button"); card.type="button"; card.className="concert-card"+(avail?"":" waitlist-card");
-    card.setAttribute("aria-label", avail ? ("ดูเครื่องว่างสำหรับงาน "+c.name) : ("จองคิวหลุดสำหรับงาน "+c.name));
+    card.setAttribute("aria-label", avail ? tr("card_aria_available",{event:c.name}) : tr("card_aria_waitlist",{event:c.name}));
     card.onclick=function(){
       if(!avail){
         track("waitlist_card_click",{event_name:c.name, available:0, source:"card"});
@@ -570,14 +859,14 @@ function renderConcerts(concerts){
       img.loading=idx===0?"eager":"lazy"; img.decoding="async";
       setImgFallback(img, c.imgThumb&&c.imgThumb.length?c.imgThumb:[imgUrl]); imgWrap.appendChild(img);
     } else {
-      var ph=document.createElement("div"); ph.className="poster-placeholder"; ph.innerHTML="<span>ยังไม่มีรูป</span>"; imgWrap.appendChild(ph);
+      var ph=document.createElement("div"); ph.className="poster-placeholder"; ph.innerHTML="<span>"+esc(tr("no_image"))+"</span>"; imgWrap.appendChild(ph);
     }
 
     var info=document.createElement("div"); info.className="poster-info";
     var dateEl=document.createElement("div"); dateEl.className="pi-date"; dateEl.textContent=c.date||"";
     var nameEl=document.createElement("div"); nameEl.className="pi-name"; nameEl.textContent=c.name||"";
     var availEl=document.createElement("div"); availEl.className="pi-avail"+(avail?"":" none"); availEl.textContent=availText+pkgHint;
-    var tap=document.createElement("div"); tap.className="pi-tap"+(avail?"":" full"); tap.textContent=avail?"ดูรุ่นที่ว่าง / จองคิว":"จองคิวหลุด";
+    var tap=document.createElement("div"); tap.className="pi-tap"+(avail?"":" full"); tap.textContent=avail?tr("tap_available"):tr("tap_waitlist");
     info.appendChild(dateEl); info.appendChild(nameEl); info.appendChild(availEl); info.appendChild(tap);
     card.appendChild(imgWrap); card.appendChild(info); grid.appendChild(card);
   });
@@ -585,42 +874,52 @@ function renderConcerts(concerts){
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────
+function packageSpecForLanguage(p){
+  if(!p)return "";
+  if(p.type==="phone_only")return tr("pkg_phone_only");
+  if(p.type==="lens_only")return p.lensDisp||tr("pkg_lens_only");
+  if(p.type==="phone_lens_bundle")return tr("pkg_bundle");
+  if(p.type==="ask")return tr("pkg_ask");
+  return p.spec||"";
+}
 function buildBookingMsg(c,p){
   // Keep LINE OA message short and package-specific.
-  // Do not prepend backend line_message_template because that already contains event data and causes duplicated text.
+  // The pick-up field intentionally says "equipment" so lens-only rentals are covered.
   return [
-    "สนใจเช่า "+lineVal(p&&p.model),
-    "งาน : "+lineVal(c&&c.name),
-    "วันที่ : "+lineVal(c&&c.date),
-    "ราคา : "+fmtPriceLine(p&&p.price),
+    tr("booking_interest",{package:lineVal(p&&p.model)}),
+    tr("line_event")+" : "+lineVal(c&&c.name),
+    tr("line_date")+" : "+lineVal(c&&c.date),
+    tr("line_price")+" : "+fmtPriceLine(p&&p.price),
     "",
-    "ชื่อเล่น : ",
-    "เบอร์โทร : ",
-    "เวลาที่สะดวกรับเครื่อง : "
+    tr("line_nickname")+" : ",
+    tr("line_phone")+" : ",
+    tr("line_pickup")+" : "
   ].join("\n");
 }
 function getBookingUrl(c,p){ return LINE_OA+encodeURIComponent(buildBookingMsg(c,p)); }
 function buildWaitlistMsg(c,p){
   return [
-    "ขอจองคิวหลุด",
-    "งาน : "+lineVal(c&&c.name),
-    "วันที่ : "+lineVal(c&&c.date),
-    "แพ็กเกจที่สนใจ : "+lineVal(p&&p.model),
+    tr("waitlist_title"),
+    tr("line_event")+" : "+lineVal(c&&c.name),
+    tr("line_date")+" : "+lineVal(c&&c.date),
+    tr("line_package")+" : "+lineVal(p&&p.model),
     "",
-    "ชื่อเล่น : ",
-    "เบอร์โทร : ",
-    "ถ้ามีคิวหลุด รบกวนแจ้งกลับด้วยค่ะ"
+    tr("line_nickname")+" : ",
+    tr("line_phone")+" : ",
+    tr("waitlist_note")
   ].join("\n");
 }
 function getWaitlistUrl(c,p){ return LINE_OA+encodeURIComponent(buildWaitlistMsg(c,p)); }
-function showModal(c){
+function showModal(c,options){
   if(!c)return;
+  options=options||{};
+  activeModalEvent=c;
   // NEW: GA4 track modal open
-  track("view_event_packages",{event_name:c.name, available:availCnt(c)});
+  if(!options.skipTrack)track("view_event_packages",{event_name:c.name, available:availCnt(c)});
   updateMetaForEvent(c);
   setEventUrl(c.id);
 
-  document.getElementById("modal-title").textContent=c.name||"รายละเอียดงาน";
+  document.getElementById("modal-title").textContent=c.name||tr("event_details");
   document.getElementById("modal-date").textContent="📅 "+(c.date||"-");
   document.getElementById("modal-venue").textContent="📍 "+(c.venue||"-");
 
@@ -633,14 +932,14 @@ function showModal(c){
   if(!avail.length){
     var fullBox=document.createElement("div");
     fullBox.className="full-booked-box waitlist-box";
-    fullBox.innerHTML='งานนี้เต็มแล้วน้า 🙏<br><span>กดจองคิวหลุดไว้ได้เลย ถ้ามีลูกค้ายกเลิก ร้านจะได้เช็กคิวให้</span>';
+    fullBox.innerHTML=esc(tr("full_title"))+'<br><span>'+esc(tr("full_body"))+'</span>';
     var waitBtn=document.createElement("a");
     waitBtn.className="waitlist-line-btn";
     waitBtn.href=getWaitlistUrl(c,null);
     waitBtn.target="_blank";
     waitBtn.rel="noopener";
-    waitBtn.textContent="จองคิวหลุดผ่าน LINE";
-    waitBtn.setAttribute("aria-label","จองคิวหลุดสำหรับงาน "+(c.name||""));
+    waitBtn.textContent=tr("waitlist_line");
+    waitBtn.setAttribute("aria-label",tr("waitlist_aria",{event:c.name||""}));
     waitBtn.onclick=function(e){
       e.stopPropagation();
       track("waitlist_click",{event_name:c.name, available:0, source:"modal"});
@@ -656,21 +955,21 @@ function showModal(c){
     icon.innerHTML='<svg viewBox="0 0 28 28" fill="none"><rect x="6" y="3" width="16" height="22" rx="3" stroke="#5B8DEF" stroke-width="1.8"/><rect x="10" y="6" width="8" height="1.5" rx="0.75" fill="#5B8DEF"/><circle cx="14" cy="22" r="1.2" fill="#5B8DEF"/></svg>';
     var info=document.createElement("div"); info.className="ph-info";
     var mEl=document.createElement("div"); mEl.className="ph-model"; mEl.textContent=p.model||"";
-    var sEl=document.createElement("div"); sEl.className="ph-spec";  sEl.textContent=p.spec||"";
+    var sEl=document.createElement("div"); sEl.className="ph-spec";  sEl.textContent=packageSpecForLanguage(p);
     info.appendChild(mEl); info.appendChild(sEl);
     if(p.useCase){var uEl=document.createElement("div"); uEl.className="ph-usecase"; uEl.textContent=p.useCase; info.appendChild(uEl);}
     if(p.note){var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=p.note; info.appendChild(nEl);}
     var right=document.createElement("div"); right.className="ph-right";
     var priceEl=document.createElement("div"); priceEl.className="ph-price";
     if(toNum(p.price)>0){
-      priceEl.textContent=toNum(p.price).toLocaleString("th-TH");
-      var sm=document.createElement("span"); sm.textContent=" บาท/วัน"; priceEl.appendChild(sm);
+      priceEl.textContent=toNum(p.price).toLocaleString(numberLocale());
+      var sm=document.createElement("span"); sm.textContent=tr("per_day"); priceEl.appendChild(sm);
     } else {
-      priceEl.textContent="สอบถามราคา";
+      priceEl.textContent=tr("ask_price");
     }
-    var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill"; bookBtn.textContent="จองรุ่นนี้";
+    var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill"; bookBtn.textContent=tr("book_this");
     bookBtn.href=getBookingUrl(c,p); bookBtn.target="_blank"; bookBtn.rel="noopener";
-    bookBtn.setAttribute("aria-label","จองรุ่น "+(p.model||"")+" สำหรับงาน "+(c.name||""));
+    bookBtn.setAttribute("aria-label",tr("book_aria",{package:p.model||"",event:c.name||""}));
     // NEW: GA4 track booking click
     bookBtn.onclick=function(e){
       e.stopPropagation();
@@ -692,23 +991,20 @@ function setEventUrl(eventId){
     if(!eventId)return;
     var u=new URL(homeUrl());
     u.searchParams.set("event",String(eventId));
+    if(currentLang==="en")u.searchParams.set("lang","en");
     window.history.replaceState(null,"",u.toString());
   }catch(e){}
 }
 function clearEventParam(){
   try{
-    // Always reset back to the clean homepage URL when package modal is closed.
-    // This prevents refresh from reopening the same event modal.
-    if(window.location.search||window.location.hash||window.location.pathname!=="/"){
-      window.history.replaceState(null,"",homeUrl());
-    }else{
-      window.history.replaceState(null,"",homeUrl());
-    }
+    var u=new URL(homeUrl());
+    if(currentLang==="en")u.searchParams.set("lang","en");
+    window.history.replaceState(null,"",u.toString());
   }catch(e){}
 }
 function openModal(){var el=document.getElementById("overlay");if(el){el.classList.add("active");lockBody();}}
-function closeModal(e){var el=document.getElementById("overlay");if(e&&el&&e.target!==el&&!e.target.closest(PACKAGE_CLOSE_SELECTOR))return;if(el)el.classList.remove("active");clearEventParam();resetMeta();unlockBodyIfNoModal();}
-function showError(m){var el=document.getElementById("content");if(el)el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>โหลดข้อมูลคิวไม่สำเร็จชั่วคราวน้า</h3><p>'+esc(m)+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">ทัก LINE OA มาสอบถาม</a></div>';}
+function closeModal(e){var el=document.getElementById("overlay");if(e&&el&&e.target!==el&&!e.target.closest(PACKAGE_CLOSE_SELECTOR))return;if(el)el.classList.remove("active");activeModalEvent=null;clearEventParam();resetMeta();unlockBodyIfNoModal();}
+function showError(m){var el=document.getElementById("content");if(el)el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div>';}
 
 function openFaq(){var el=document.getElementById("faqOverlay");if(el){el.classList.add("active");lockBody();}}
 function closeFaq(e){var el=document.getElementById("faqOverlay");if(e&&el&&e.target!==el&&!e.target.closest(FAQ_CLOSE_SELECTOR))return;if(el)el.classList.remove("active");unlockBodyIfNoModal();}
@@ -727,6 +1023,8 @@ function setMonth(month){
 }
 
 document.addEventListener("DOMContentLoaded",function(){
+  bindLanguageSwitch();
+  applyStaticLanguage();
   applyConfig(); setUpdateDate(); renderLoadingSkeleton(4);
   document.querySelectorAll("[data-filter]").forEach(function(b){b.addEventListener("click",function(){setFilter(b.getAttribute("data-filter")||"all");});});
   var monthSelect=document.getElementById("month-filter-select");
@@ -770,7 +1068,7 @@ document.addEventListener("DOMContentLoaded",function(){
         else{ clearEventParam(); }
       }
     })
-    .catch(function(e){ console.error("KK v16.6.2_LINE_AUDITED:",e); showError("ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA"); });
+    .catch(function(e){ console.error("KK v16.7.0_PHASE3_9_5_BILINGUAL:",e); showError(tr("error_detail")); });
 });
 
 document.addEventListener("keydown",function(e){

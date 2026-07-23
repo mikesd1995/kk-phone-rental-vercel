@@ -1,0 +1,24 @@
+# KK Phone Rental v16.7.0 — Phase 3.9.5 Public Bilingual TH/EN Lite
+
+## Scope
+Frontend-only bilingual upgrade based on Phase 3.9.4. No Google Sheet, Apps Script, Admin/CRM, price, stock, or booking-allocation logic was changed.
+
+## Changed files
+- `index.html`
+- `script.js`
+- `style.css`
+
+## Added
+- TH / ENG language switch on the public website.
+- Language preference stored in `localStorage` (`kk_public_language`).
+- Optional `?lang=en` URL support.
+- Thai/English translations for filters, buttons, availability, modal, FAQ, empty/error states, metadata, booking CTA, and waitlist CTA.
+- English LINE booking and waitlist messages when English is selected.
+- LINE booking field changed from **เวลาที่สะดวกรับเครื่อง** to **เวลาที่สะดวกรับอุปกรณ์**. English uses **Preferred equipment pick-up time**.
+- FAQ wording updated to cover phone-only, lens-only, and bundle rentals.
+
+## Google Sheet impact
+None. Event names, venues, package names, web notes, and use-case text continue to display exactly as stored in Google Sheet. Adding English columns is not required for this Lite phase.
+
+## Deployment
+Replace the three public frontend files and redeploy Vercel. Apps Script does not need to be redeployed. Hard refresh once after deployment.
