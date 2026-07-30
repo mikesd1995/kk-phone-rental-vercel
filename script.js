@@ -733,14 +733,27 @@ function getMonthOptions(concerts){
 }
 function availPkgs(c){ return (c.packages||[]).filter(function(p){return p.avail;}); }
 function availCnt(c){
-  // Use package-level available_count first so hidden phone packages do not inflate card availability.
+  // Card count must follow the inventory type shown in the badge.
+  // Do not take the maximum across phone and lens-only packages: after one phone is booked,
+  // lens stock may still be 2 and would incorrectly display "2 phones available".
   var ap=availPkgs(c);
-  var maxPkg=0;
-  ap.forEach(function(p){ if(hasVal(p.count)) maxPkg=Math.max(maxPkg,toNum(p.count)); });
-  if(maxPkg>0) return maxPkg;
-  var phone=toNum(c&&c.phoneCnt), lens=toNum(c&&c.lensCnt);
-  if(ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";})) return phone;
-  if(ap.some(function(p){return p.type==="lens_only";})) return lens;
+  var phonePkgs=ap.filter(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
+  var lensPkgs=ap.filter(function(p){return p.type==="lens_only";});
+
+  if(phonePkgs.length){
+    var phonePkgMax=0;
+    phonePkgs.forEach(function(p){ if(hasVal(p.count)) phonePkgMax=Math.max(phonePkgMax,toNum(p.count)); });
+    if(phonePkgMax>0) return phonePkgMax;
+    return toNum(c&&c.phoneCnt);
+  }
+
+  if(lensPkgs.length){
+    var lensPkgMax=0;
+    lensPkgs.forEach(function(p){ if(hasVal(p.count)) lensPkgMax=Math.max(lensPkgMax,toNum(p.count)); });
+    if(lensPkgMax>0) return lensPkgMax;
+    return toNum(c&&c.lensCnt);
+  }
+
   return 0;
 }
 function availTextFor(c){
