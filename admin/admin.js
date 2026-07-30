@@ -1,7 +1,7 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_2_BOOKING_PRICE_AUTOFILL — Booking price autofill
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_5_5_PREPARED_ASSET_RESERVATION_FIX — prepared asset assignment and reservation visibility
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_2_BOOKING_PRICE_AUTOFILL";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_7_1_POSTER_PRICE_PRESERVE_FIX";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_5_PREPARED_ASSET_RESERVATION_FIX";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_5_PREPARED_ASSET_RESERVATION_FIX";
   const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -164,6 +164,19 @@
   function isActiveBookingStatus(status){
     return ["pending","confirmed","prepared","picked_up"].includes(String(status||"").toLowerCase().trim());
   }
+  function packageNeedsPhone(packageType){
+    const t=String(packageType||"").toLowerCase().trim();
+    return t==="phone_only" || t==="phone_lens_bundle";
+  }
+  function packageNeedsLens(packageType){
+    const t=String(packageType||"").toLowerCase().trim();
+    return t==="lens_only" || t==="phone_lens_bundle";
+  }
+  function bookingMissingRequiredAsset(b){
+    if(!b) return false;
+    return (packageNeedsPhone(b.package_type) && !String(b.phone_asset_id||"").trim()) ||
+      (packageNeedsLens(b.package_type) && !String(b.lens_asset_id||"").trim());
+  }
   function isWorkflowOpenStatus(status){
     return ["pending","confirmed","prepared","picked_up","returned","uploaded"].includes(String(status||"").toLowerCase().trim());
   }
@@ -208,6 +221,9 @@
         contact:[b.customer_contact,b.customer_phone].filter(Boolean).join(" / "),
         pickup_time:fmtPickupTime(b.pickup_time),
         package_display:b.package_display||b.package_type||"",
+        package_type:b.package_type||"",
+        phone_asset_id:b.phone_asset_id||"",
+        lens_asset_id:b.lens_asset_id||"",
         asset:[b.phone_asset_id,b.lens_asset_id].filter(Boolean).join(" / "),
         ref:bookingCustomerKey(b)
       }, extra||{}));
@@ -470,6 +486,7 @@
     buttons.push(`<button class="mini-btn" type="button" data-customer-key="${esc(r.ref)}">CRM</button>`);
     if(isUnpaidPayment(r.payment_status)) buttons.push(`<button class="mini-btn danger-soft" type="button" data-quick-action="paid" data-row="${esc(r.row_number)}">Paid</button>`);
     if(['pending','confirmed'].includes(st)) buttons.push(`<button class="mini-btn" type="button" data-quick-action="prepared" data-row="${esc(r.row_number)}">เตรียมแล้ว</button>`);
+    if(['prepared','picked_up'].includes(st) && bookingMissingRequiredAsset(r)) buttons.push(`<button class="mini-btn warn-soft" type="button" data-quick-action="assign_assets" data-row="${esc(r.row_number)}">จัด Asset</button>`);
     if(['pending','confirmed','prepared'].includes(st)) buttons.push(`<button class="mini-btn" type="button" data-quick-action="picked_up" data-row="${esc(r.row_number)}">รับแล้ว</button>`);
     if(st==='picked_up') buttons.push(`<button class="mini-btn" type="button" data-quick-action="returned" data-row="${esc(r.row_number)}">คืนแล้ว</button>`);
     if(st==='returned') buttons.push(`<button class="mini-btn" type="button" data-quick-action="uploaded" data-row="${esc(r.row_number)}">อัปโหลดแล้ว</button>`);
@@ -1331,6 +1348,24 @@
     ].join(" | ")).join("\n");
   }
 
+  function activeAssetReservations(bookings, assetId, assetType){
+    const key=assetType==="lens" ? "lens_asset_id" : "phone_asset_id";
+    return (bookings||[])
+      .filter(b=>isActiveBookingStatus(b.booking_status) && String(b[key]||"").trim()===String(assetId||"").trim())
+      .slice()
+      .sort((a,b)=>{
+        const da=parseLocalDate(a.event_date), db=parseLocalDate(b.event_date);
+        return (da?da.getTime():0)-(db?db.getTime():0);
+      });
+  }
+  function renderAssetReservation(asset, bookings){
+    const rows=activeAssetReservations(bookings, asset.asset_id, String(asset.asset_type||"").toLowerCase());
+    if(!rows.length) return `<span class="pill ok">ยังไม่ถูกจัดให้ Booking</span><br><small>สถานะ available หมายถึงสภาพอุปกรณ์พร้อมใช้งาน ไม่ใช่คิวว่างทุกวัน</small>`;
+    const first=rows[0];
+    const more=rows.length>1 ? ` +${rows.length-1} คิว` : "";
+    return `<span class="pill warn">จอง ${esc(fmtDate(first.event_date))}${esc(more)}</span><br><small>${esc(first.event_name||first.event_id||"-")} · ${esc(first.customer_name||"-")} · ${esc(bookingLifecycleLabel(first.booking_status))}</small>`;
+  }
+
   function render(){
     const d=state.data||{};
     ["reportRange","reportStart","reportEnd","reportStatusMode"].forEach(id=>{ const el=$("#"+id); if(el && state[id]!==undefined && el.value!==state[id]) el.value=state[id]; });
@@ -1349,10 +1384,12 @@
     const openEvents=openEventRows.length;
     const phones=assets.filter(a=>a.asset_type==="phone" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const lenses=assets.filter(a=>a.asset_type==="lens" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
+    const reservedPhoneAssets=new Set(bookings.filter(b=>isActiveBookingStatus(b.booking_status) && String(b.phone_asset_id||"").trim()).map(b=>String(b.phone_asset_id).trim())).size;
+    const reservedLensAssets=new Set(bookings.filter(b=>isActiveBookingStatus(b.booking_status) && String(b.lens_asset_id||"").trim()).map(b=>String(b.lens_asset_id).trim())).size;
     const activeBookings=currentBookings.filter(b=>isWorkflowOpenStatus(b.booking_status)).length;
     const unpaidToday=today.filter(b=>String(b.payment_status||"").toLowerCase()!=="paid").length;
     $("#statsGrid").innerHTML=[
-      [openEvents,"งานเปิดอยู่"],[packages.filter(p=>p.active!==false).length,"แพ็กเกจ active"],[overrides.length,"ราคาเฉพาะงาน"],[phones,"มือถือ available"],[lenses,"เลนส์ available"],[activeBookings,"Booking active"],[today.length,"งานที่ต้องทำวันนี้"],[customerHistory.length,"ลูกค้าที่มีประวัติ"]
+      [openEvents,"งานเปิดอยู่"],[packages.filter(p=>p.active!==false).length,"แพ็กเกจ active"],[overrides.length,"ราคาเฉพาะงาน"],[phones,"มือถือพร้อมใช้งาน"],[reservedPhoneAssets,"มือถือถูกจัดให้ Booking"],[lenses,"เลนส์พร้อมใช้งาน"],[reservedLensAssets,"เลนส์ถูกจัดให้ Booking"],[activeBookings,"Booking active"],[today.length,"งานที่ต้องทำวันนี้"],[customerHistory.length,"ลูกค้าที่มีประวัติ"]
     ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
 
     const actionStats=$("#actionStats");
@@ -1443,7 +1480,8 @@
       {label:"Model Display",render:r=>esc(r.model_display || r.model_group || "")},
       {label:"Group",key:"model_group"},
       {label:"Serial",key:"serial"},
-      {label:"Status",render:renderAssetStatus},
+      {label:"สภาพอุปกรณ์",render:renderAssetStatus},
+      {label:"การจองตามวันงาน",render:r=>renderAssetReservation(r, bookings)},
       {label:"Rentable",render:renderAssetRentable},
       {label:"Action",render:r=>`<div class="inline-actions asset-actions"><button class="mini-btn" type="button" data-update-asset="${esc(r.asset_id||'')}">บันทึก</button><button class="mini-btn danger-soft" type="button" data-delete-asset="${esc(r.asset_id||'')}">ลบ</button></div>`}
     ], assets.slice(0,80));
@@ -1725,7 +1763,9 @@
         if(toNum(b.amount_received)<=0 && !confirm("Booking นี้ยอดรับแล้วยังเป็น 0 ต้องการเปลี่ยนสถานะเป็น paid อยู่ใช่ไหม?")) return;
         payload.payment_status="paid"; label="สถานะชำระเงินเป็น paid";
       }else if(action==="prepared"){
-        payload.booking_status="prepared"; label="สถานะเป็นเตรียมเครื่องแล้ว";
+        payload.booking_status="prepared"; label="สถานะเป็นเตรียมอุปกรณ์แล้ว และจัด Asset ให้ booking";
+      }else if(action==="assign_assets"){
+        payload.booking_status=String(b.booking_status||"prepared").toLowerCase().trim() || "prepared"; label="จัด Asset ให้ booking แล้ว";
       }else if(action==="picked_up"){
         payload.booking_status="picked_up"; label="สถานะเป็นรับเครื่องแล้ว";
       }else if(action==="returned"){

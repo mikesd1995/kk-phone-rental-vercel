@@ -1,0 +1,14 @@
+{
+  "apps-script/Code.gs": {
+    "bytes": 108155,
+    "sha256": "393cfa7c563d90ae45fd62b5bc70dc36c088aa820cbba912d089c2659ee715b5"
+  },
+  "admin/admin.js": {
+    "bytes": 124504,
+    "sha256": "9d64c3e927d8036289856741cbc245e77b902b1aa787256a007c709f05f96c18"
+  },
+  "admin/index.html": {
+    "bytes": 44795,
+    "sha256": "69fb9bb2f838228b5ed36a80cf60a95a5fb27a734bf05ff26e08a7ee7aec780a"
+  }
+}
