@@ -10,7 +10,7 @@
 // - Adds month dropdown selector and removes soon-only filter button
 
 var APP       = window.KK_CONFIG || {};
-var KK_APP_VERSION = APP.appVersion || "v16.7.0_CRM_PRO_PHASE3_6_15_PRICE_SOURCE_RESTORE";
+var KK_APP_VERSION = APP.appVersion || "v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_FIX";
 var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
 var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน";
 var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
@@ -564,13 +564,13 @@ async function fetchSheetCsv(name,range,ms){
 }
 
 // ─── Session cache ───────────────────────────────────────────────────────
-var CACHE_TTL=15000; // Short cache so newly-created events and poster URLs show faster
+var CACHE_TTL=0; // Stock and booking availability must refresh live after admin changes.
 var PKG_CACHE_TTL=0; // Phase 3.6.12: package price override must be live from /api/kk-data canonical join.
 function cacheGet(k,ttl){ try{ var raw=sessionStorage.getItem(k); if(!raw)return null; var o=JSON.parse(raw); var maxAge=(typeof ttl==="number"?ttl:CACHE_TTL); return (Date.now()-o.ts)<maxAge?o.data:null; }catch(e){return null;} }
 function cacheSet(k,d){ try{sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),data:d}));}catch(e){} }
 
 async function fetchWebRows(){
-  var k="kk_web_v16_6_2_line_audited:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k); if(!DEBUG_MODE&&c)return c;
+  var k="kk_web_v16_7_0_phase3_9_5_4_stock_live:"+SHEET_ID+":"+WEB_SHEET+":"+WEB_RANGE+":"+(USE_API?"api":"direct"); var c=cacheGet(k,CACHE_TTL); if(!DEBUG_MODE&&c)return c;
   var t=await withRetry(function(){return fetchSheetCsv(WEB_SHEET,WEB_RANGE,9000);},2,700);
   var d=csvToObjects(parseCsv(t)); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
@@ -690,6 +690,23 @@ async function loadData(){
       ? buildPackagesFromSheet(pkgMap[eventId] || [], eventId, phoneCnt, lensCnt)
       : buildPackagesFromWebRow(r);
 
+    // Shared-inventory guard: all phone packages consume the same phone pool and all
+    // lens packages consume the same lens pool. Clamp every package to the event-level
+    // stock from 08_Web_Ready so one package row cannot make a booked phone reappear.
+    packages = packages.map(function(p){
+      if(p.type==="phone_only"){
+        p.avail = p.avail && phoneCnt>0;
+        p.count = phoneCnt;
+      } else if(p.type==="lens_only"){
+        p.avail = p.avail && lensCnt>0;
+        p.count = lensCnt;
+      } else if(p.type==="phone_lens_bundle"){
+        p.avail = p.avail && phoneCnt>0 && lensCnt>0;
+        p.count = Math.min(phoneCnt,lensCnt);
+      }
+      return p;
+    });
+
     return {
       id:           eventId,
       name:         String(r.event_name||"").trim(),
@@ -733,27 +750,14 @@ function getMonthOptions(concerts){
 }
 function availPkgs(c){ return (c.packages||[]).filter(function(p){return p.avail;}); }
 function availCnt(c){
-  // Card count must follow the inventory type shown in the badge.
-  // Do not take the maximum across phone and lens-only packages: after one phone is booked,
-  // lens stock may still be 2 and would incorrectly display "2 phones available".
+  // Event-level stock is the canonical shared pool. Never use MAX(package counts):
+  // phone_only and phone_lens_bundle draw from the same phones, so taking MAX can
+  // make a booked phone appear available again.
   var ap=availPkgs(c);
-  var phonePkgs=ap.filter(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
-  var lensPkgs=ap.filter(function(p){return p.type==="lens_only";});
-
-  if(phonePkgs.length){
-    var phonePkgMax=0;
-    phonePkgs.forEach(function(p){ if(hasVal(p.count)) phonePkgMax=Math.max(phonePkgMax,toNum(p.count)); });
-    if(phonePkgMax>0) return phonePkgMax;
-    return toNum(c&&c.phoneCnt);
-  }
-
-  if(lensPkgs.length){
-    var lensPkgMax=0;
-    lensPkgs.forEach(function(p){ if(hasVal(p.count)) lensPkgMax=Math.max(lensPkgMax,toNum(p.count)); });
-    if(lensPkgMax>0) return lensPkgMax;
-    return toNum(c&&c.lensCnt);
-  }
-
+  var hasPhone=ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
+  var hasLensOnly=ap.some(function(p){return p.type==="lens_only";});
+  if(hasPhone) return Math.max(0,toNum(c&&c.phoneCnt));
+  if(hasLensOnly) return Math.max(0,toNum(c&&c.lensCnt));
   return 0;
 }
 function availTextFor(c){

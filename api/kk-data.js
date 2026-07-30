@@ -1,7 +1,7 @@
 // KK Phone Rental v16.6.2_LINE_AUDITED — Vercel Serverless Google Sheets CSV Proxy
 // Production reads through this proxy first. If GOOGLE_SHEET_ID is missing, it falls back to the known read-only sheet ID to prevent public-site outages.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_6_15_PRICE_SOURCE_RESTORE";
+const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_FIX";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 const ALLOWED = {
@@ -219,16 +219,12 @@ module.exports = async function handler(req, res) {
       return send(res, 502, "Google Sheets returned invalid CSV header for " + sheet + ". Check GOOGLE_SHEET_ID, sheet name, sharing, and range.");
     }
     if (sheet === "09_Web_Packages") {
-      // Phase 3.6.15 emergency price sanity rule:
-      // Public prices must come from the already-calculated 09_Web_Packages sheet only.
-      // The proxy must not rewrite, overlay, hide, or canonical-join package rows because that
-      // caused prices to drift across events/packages. Override application belongs in Apps Script
-      // formulas that write 09_Web_Packages!H.
+      // Public prices and stock come directly from the calculated Web Packages sheet.
       res.setHeader("X-KK-Package-Price-Source", "09_Web_Packages-direct-no-proxy-override");
-      res.setHeader("Cache-Control", "no-store, max-age=0, must-revalidate");
-    } else {
-      res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=45");
     }
+    // Availability must update immediately after add/edit/cancel booking. Do not serve
+    // a cached 08_Web_Ready or 09_Web_Packages response with yesterday's/previous stock.
+    res.setHeader("Cache-Control", "no-store, max-age=0, must-revalidate");
     return send(res, 200, text, "text/csv; charset=utf-8");
   } catch (err) {
     const msg = err && err.name === "AbortError"
