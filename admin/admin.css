@@ -968,3 +968,28 @@ body.compact-mode .card{padding:16px!important}body.compact-mode th,body.compact
 @media (max-width: 520px){
   .price-kpis{grid-template-columns:1fr}
 }
+
+
+/* v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY — bulk event package visibility */
+.bulk-visibility-box{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:14px;
+  border:1px solid #dbeafe;
+  border-radius:16px;
+  background:linear-gradient(180deg,#f8fbff,#fff);
+}
+.bulk-visibility-box>div:first-child{display:grid;gap:4px;min-width:0}
+.bulk-visibility-box strong{font-size:14px;color:#0f172a}
+.bulk-visibility-box small{font-size:12px;line-height:1.55;color:var(--muted)}
+.bulk-visibility-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.bulk-visibility-actions .btn{min-height:38px;padding:8px 13px;font-size:13px;white-space:nowrap}
+.btn.danger-soft{background:#fff1f2;color:#be123c;border:1px solid #fecdd3}
+.btn.danger-soft:hover{background:#ffe4e6}
+@media(max-width:720px){
+  .bulk-visibility-box{align-items:stretch;display:grid}
+  .bulk-visibility-actions{display:grid;grid-template-columns:1fr}
+  .bulk-visibility-actions .btn{width:100%;white-space:normal}
+}

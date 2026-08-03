@@ -1,8 +1,8 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_5_5_PREPARED_ASSET_RESERVATION_FIX — prepared asset assignment and reservation visibility
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY — one-click event package visibility controls
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_6_TIMEOUT_PERFORMANCE_GUARD";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_6_TIMEOUT_PERFORMANCE_GUARD";
-  const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_6_TIMEOUT_PERFORMANCE_GUARD";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY";
+  const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected" };
@@ -1835,6 +1835,31 @@
         ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
         try{ await api("upsertEventOverride",formData(ev.target)); await refresh(); showNotice("บันทึกราคาเฉพาะงานสำเร็จ"); }
         catch(e){ showNotice(e.message,"bad"); } finally{ setBusy(btn,false); }
+      });
+
+      $$("[data-bulk-event-visibility]", overrideForm).forEach(btn=>{
+        btn.addEventListener("click",async()=>{
+          const eventId=String(overrideForm.elements.event_id && overrideForm.elements.event_id.value || "").trim();
+          if(!eventId) return showNotice("กรุณาเลือกงานก่อนจัดการแพ็กเกจทั้งงาน","warn");
+          const mode=String(btn.getAttribute("data-bulk-event-visibility")||"").trim();
+          const label=mode==="hide" ? "ซ่อนทุกแพ็กเกจ" : (mode==="show" ? "เปิดทุกแพ็กเกจ" : "คืนสถานะตามแพ็กเกจหลัก");
+          const event=((state.data&&state.data.events)||[]).find(e=>String(e.event_id||"")===eventId);
+          const eventName=event ? (event.event_name||eventId) : eventId;
+          const detail=mode==="hide"
+            ? "ลูกค้าจะไม่เห็นแพ็กเกจใดของงานนี้บนหน้าบ้าน"
+            : (mode==="show"
+              ? "ทุกแพ็กเกจหลักที่เปิดใช้งานจะถูกเปิดในงานนี้"
+              : "ระบบจะล้างเฉพาะสถานะเปิด/ซ่อนของงานนี้ แล้วกลับไปใช้สถานะจากแพ็กเกจหลัก");
+          if(!window.confirm(`${label}\nงาน: ${eventName}\n\n${detail}\n\nราคาและข้อความ override เดิมจะยังอยู่`)) return;
+          setBusy(btn,true);
+          try{
+            const res=await api("bulkSetEventPackageVisibility",{event_id:eventId,mode});
+            await refresh();
+            const count=Number(res.packages_updated||0);
+            showNotice(`${label}สำเร็จ ${count} แพ็กเกจ`);
+          }catch(e){ showNotice(e.message,"bad"); }
+          finally{ setBusy(btn,false); }
+        });
       });
     }
 

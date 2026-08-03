@@ -4,13 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER</title>
+  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/admin/admin.css?v=3.9.5.5" />
+  <link rel="stylesheet" href="/admin/admin.css?v=3.9.5.7" />
 </head>
 <body>
   <div class="shell">
@@ -447,6 +447,17 @@
               <div class="form-title"><span class="eyebrow">Override</span><h2>แก้ราคาเฉพาะงาน</h2></div>
               <p class="hint">ใช้ส่วนนี้เมื่ออยากให้ราคา/ข้อความของแพ็กเกจเปลี่ยนเฉพาะงานที่เลือก โดยไม่กระทบราคาหลักของทุกงาน</p>
               <label>เลือกงาน <select name="event_id" data-source="events" required></select><small>แสดงเฉพาะงานวันนี้/อนาคตที่ยัง open เพื่อกันแก้งานย้อนหลังโดยไม่ตั้งใจ</small></label>
+              <div class="bulk-visibility-box" aria-label="จัดการการแสดงแพ็กเกจทั้งงาน">
+                <div>
+                  <strong>จัดการแพ็กเกจทั้งงาน</strong>
+                  <small>ซ่อนหรือเปิดทุกแพ็กเกจของงานที่เลือกได้ในครั้งเดียว โดยราคาและข้อความเฉพาะงานเดิมจะไม่ถูกลบ</small>
+                </div>
+                <div class="bulk-visibility-actions">
+                  <button class="btn danger-soft" type="button" data-bulk-event-visibility="hide">ซ่อนทุกแพ็กเกจ</button>
+                  <button class="btn secondary" type="button" data-bulk-event-visibility="show">เปิดทุกแพ็กเกจ</button>
+                  <button class="btn ghost" type="button" data-bulk-event-visibility="inherit">ใช้สถานะจากแพ็กเกจหลัก</button>
+                </div>
+              </div>
               <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select></label>
               <div class="row two">
                 <label>ราคาเฉพาะงานนี้ <input name="override_price" type="number" min="0" step="1" placeholder="เช่น 1290" /></label>
@@ -663,6 +674,6 @@
     </main>
   </div>
 
-  <script src="/admin/admin.js?v=3.9.5.5"></script>
+  <script src="/admin/admin.js?v=3.9.5.7"></script>
 </body>
 </html>

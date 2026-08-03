@@ -1,0 +1,22 @@
+{
+  "admin/index.html": {
+    "bytes": 45970,
+    "sha256": "11a9fbce1739d0075168890d4f0088cfa50c12df8f18982579d96d35b6a13fd7"
+  },
+  "admin/admin.js": {
+    "bytes": 126591,
+    "sha256": "b5a80cacbc85c666f7d174655bcf8c2eaedd1d9f6320ebc573e770720d95a9b5"
+  },
+  "admin/admin.css": {
+    "bytes": 53271,
+    "sha256": "4bc50697b2e4d02b400c79cd11f9a153d3d2ab182cea689cfa53ed9d5af19f58"
+  },
+  "apps-script/Code.gs": {
+    "bytes": 110773,
+    "sha256": "84759ffc3ad4f71eef2b110df7ed3569421a096ce3e9a0e0695156454b32d59f"
+  },
+  "api/kk-admin.js": {
+    "bytes": 14944,
+    "sha256": "ec10067d10c6603b6b0f228d933ba448d178dbce227d405c4827eb8759095d0d"
+  }
+}

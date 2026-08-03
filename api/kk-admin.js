@@ -1,8 +1,8 @@
-// KK Phone Rental v16.7.0_CRM_PRO_PHASE3_8_SYSTEM_HEALTH_GUARD — Admin CRM Vercel Proxy
+// KK Phone Rental v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY — Admin CRM Vercel Proxy
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Adds System Guard diagnostics for Apps Script URL / Sheet ID / public feed / override pipeline.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_6_TIMEOUT_PERFORMANCE_GUARD";
+const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 function json(res, status, body) {
