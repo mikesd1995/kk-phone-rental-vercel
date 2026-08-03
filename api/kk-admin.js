@@ -1,8 +1,8 @@
-// KK Phone Rental v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY — Admin CRM Vercel Proxy
+// KK Phone Rental v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX — Admin CRM Vercel Proxy
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Adds System Guard diagnostics for Apps Script URL / Sheet ID / public feed / override pipeline.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY";
+const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 function json(res, status, body) {
@@ -24,7 +24,7 @@ function fetchWithTimeout(url, options, timeoutMs) {
 function timeoutForAction(action) {
   const key = String(action || '').trim();
   if (key === 'phase1Health') return 20000;
-  if (key === 'snapshot') return 50000;
+  if (key === 'snapshot') return 55000;
   if (key === 'uploadPoster') return 55000;
   return 45000;
 }
@@ -287,8 +287,8 @@ module.exports = async function handler(req, res) {
   const providedPin = String(req.headers["x-admin-pin"] || "").trim();
   if (providedPin !== adminPin) return json(res, 401, { ok: false, error: "Invalid admin PIN" });
 
+  let payload = {};
   try {
-    let payload = {};
     if (req.method === "GET") {
       const url = new URL(req.url || "/api/kk-admin", "http://localhost");
       payload = { action: String(url.searchParams.get("action") || "snapshot") };
@@ -362,9 +362,18 @@ module.exports = async function handler(req, res) {
 
     return json(res, upstream.ok ? 200 : upstream.status, data);
   } catch (err) {
-    const msg = err && err.name === "AbortError"
-      ? "Apps Script request timed out for action " + String((typeof payload !== 'undefined' && payload && payload.action) || 'unknown') + ". The proxy waited up to " + String(timeoutForAction(typeof payload !== 'undefined' && payload ? payload.action : '')) + " ms. Please retry once; if it repeats, check Apps Script Executions and sheet calculation load."
+    const action = String((payload && payload.action) || (req.method === "GET" ? "snapshot" : "unknown"));
+    const timeoutMs = timeoutForAction(action);
+    const isTimeout = !!(err && err.name === "AbortError");
+    const msg = isTimeout
+      ? "Apps Script request timed out for action " + action + ". The proxy waited up to " + String(timeoutMs) + " ms. Please retry once; if it repeats, check Apps Script Executions and sheet calculation load."
       : (err && err.message ? err.message : String(err));
-    return json(res, 500, { ok: false, error: msg });
+    return json(res, 500, {
+      ok: false,
+      error: msg,
+      error_code: isTimeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_ERROR",
+      action,
+      timeout_ms: timeoutMs
+    });
   }
 };

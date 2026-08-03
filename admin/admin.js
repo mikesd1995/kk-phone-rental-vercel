@@ -1,8 +1,8 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY — one-click event package visibility controls
+// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX — one-click event package visibility controls
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY";
-  const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_7_BULK_EVENT_PACKAGE_VISIBILITY";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX";
+  const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected" };
@@ -1069,14 +1069,32 @@
   }
 
   async function api(action, payload={}){
-    const res=await fetch("/api/kk-admin",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","X-Admin-Pin":state.pin},
-      body:JSON.stringify(Object.assign({action},payload))
-    });
-    const data=await res.json().catch(()=>({ok:false,error:"Invalid server response"}));
-    if(!data.ok) throw new Error(data.error||"Request failed");
-    return data;
+    const maxAttempts=action==="snapshot" ? 2 : 1;
+    let lastError=null;
+    for(let attempt=1; attempt<=maxAttempts; attempt++){
+      try{
+        const res=await fetch("/api/kk-admin",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","X-Admin-Pin":state.pin},
+          body:JSON.stringify(Object.assign({action},payload))
+        });
+        const data=await res.json().catch(()=>({ok:false,error:"Invalid server response"}));
+        if(!data.ok){
+          const err=new Error(data.error||"Request failed");
+          err.code=data.error_code||"";
+          err.action=data.action||action;
+          throw err;
+        }
+        return data;
+      }catch(err){
+        lastError=err;
+        const retryable=action==="snapshot" && attempt<maxAttempts &&
+          (err.code==="UPSTREAM_TIMEOUT" || /timed out/i.test(String(err.message||"")));
+        if(!retryable) throw err;
+        await new Promise(resolve=>setTimeout(resolve,1200));
+      }
+    }
+    throw lastError||new Error("Request failed");
   }
 
   function esc(v){
