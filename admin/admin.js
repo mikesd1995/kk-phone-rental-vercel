@@ -1,8 +1,8 @@
 // KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_5_5_PREPARED_ASSET_RESERVATION_FIX — prepared asset assignment and reservation visibility
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_5_PREPARED_ASSET_RESERVATION_FIX";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_5_PREPARED_ASSET_RESERVATION_FIX";
-  const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_PRICING_CENTER";
+  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_6_TIMEOUT_PERFORMANCE_GUARD";
+  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_6_TIMEOUT_PERFORMANCE_GUARD";
+  const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_6_TIMEOUT_PERFORMANCE_GUARD";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected" };

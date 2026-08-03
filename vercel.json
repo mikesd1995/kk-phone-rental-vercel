@@ -113,5 +113,10 @@
       "source": "/admin",
       "destination": "/admin/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/kk-admin.js": {
+      "maxDuration": 60
+    }
+  }
 }

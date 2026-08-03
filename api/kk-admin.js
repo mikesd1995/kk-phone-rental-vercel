@@ -2,7 +2,7 @@
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Adds System Guard diagnostics for Apps Script URL / Sheet ID / public feed / override pipeline.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_8_SYSTEM_HEALTH_GUARD";
+const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_6_TIMEOUT_PERFORMANCE_GUARD";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 function json(res, status, body) {
@@ -16,9 +16,17 @@ function json(res, status, body) {
 
 function fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs || 25000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs || 50000);
   return fetch(url, Object.assign({}, options || {}, { signal: controller.signal }))
     .finally(() => clearTimeout(timer));
+}
+
+function timeoutForAction(action) {
+  const key = String(action || '').trim();
+  if (key === 'phase1Health') return 20000;
+  if (key === 'snapshot') return 50000;
+  if (key === 'uploadPoster') return 55000;
+  return 45000;
 }
 
 function readBody(req) {
@@ -320,11 +328,14 @@ module.exports = async function handler(req, res) {
       frontendSheetId,
       sheetIdSource
     });
+    const actionTimeoutMs = timeoutForAction(payload.action);
+    const upstreamStartedAt = Date.now();
     const upstream = await fetchWithTimeout(scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(upstreamPayload),
-    }, 25000);
+    }, actionTimeoutMs);
+    const upstreamElapsedMs = Date.now() - upstreamStartedAt;
 
     const contentType = upstream.headers.get("content-type") || "";
     const text = await upstream.text();
@@ -344,11 +355,15 @@ module.exports = async function handler(req, res) {
         data.data.frontend_proxy_version = KK_APP_VERSION;
       }
     }
+    if (data && typeof data === 'object') {
+      data.proxy_upstream_ms = upstreamElapsedMs;
+      data.proxy_timeout_ms = actionTimeoutMs;
+    }
 
     return json(res, upstream.ok ? 200 : upstream.status, data);
   } catch (err) {
     const msg = err && err.name === "AbortError"
-      ? "Apps Script request timed out. Please try again; if it repeats, check Apps Script deployment and sheet performance."
+      ? "Apps Script request timed out for action " + String((typeof payload !== 'undefined' && payload && payload.action) || 'unknown') + ". The proxy waited up to " + String(timeoutForAction(typeof payload !== 'undefined' && payload ? payload.action : '')) + " ms. Please retry once; if it repeats, check Apps Script Executions and sheet calculation load."
       : (err && err.message ? err.message : String(err));
     return json(res, 500, { ok: false, error: msg });
   }
