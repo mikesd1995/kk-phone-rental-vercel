@@ -5,7 +5,7 @@
   const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX";
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected" };
+  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
     ["payment","ตามเงิน"], ["prep","เตรียม/ส่งมอบ"], ["return","รับคืน"], ["upload","อัปโหลด/ปิดงาน"], ["data","ข้อมูลผิด"], ["risk","เสี่ยง"]
@@ -746,6 +746,105 @@
     const box=$("#reportInsights");
     if(box){
       box.innerHTML=insights.map(x=>`<div class="insight-item ${esc(x.level)}"><strong>${esc(x.title)}</strong><span>${esc(x.detail)}</span></div>`).join("");
+    }
+  }
+
+  function rentalPercent(value){
+    const n=Number(value||0);
+    return (n*100).toLocaleString("th-TH",{minimumFractionDigits:1,maximumFractionDigits:1})+"%";
+  }
+  function rentalBarList(el, rows, labelKey, valueKey){
+    if(!el) return;
+    const list=Array.isArray(rows)?rows:[];
+    if(!list.length){ el.innerHTML='<div class="muted">ยังไม่มีข้อมูล</div>'; return; }
+    const max=Math.max(1,...list.map(r=>Number(r[valueKey]||0)));
+    el.innerHTML=list.map(r=>{
+      const value=Number(r[valueKey]||0);
+      const width=Math.max(1,(value/max)*100);
+      return `<div class="rental-bar-row"><div class="rental-bar-label" title="${esc(r[labelKey]||'-')}">${esc(r[labelKey]||'-')}</div><div class="rental-bar-track"><div class="rental-bar-fill" style="width:${width}%"></div></div><div class="rental-bar-value">${esc(value)}</div></div>`;
+    }).join("");
+  }
+  function renderRentalAnalytics(){
+    const status=$("#rentalAnalyticsStatus");
+    if(state.rentalAnalyticsLoading){ if(status){ status.className="rental-analytics-status"; status.textContent="กำลังโหลด Rental Analytics..."; } return; }
+    if(state.rentalAnalyticsError){
+      if(status){ status.className="rental-analytics-status bad"; status.textContent="Rental Analytics โหลดไม่สำเร็จ: "+state.rentalAnalyticsError+" · ส่วนอื่นของ DCRM ยังใช้งานได้ตามปกติ"; }
+      return;
+    }
+    const d=state.rentalAnalytics;
+    if(!d){ if(status) status.textContent="ยังไม่ได้โหลด Rental Analytics"; return; }
+    const m=d.metrics||{};
+    if(status){ status.className="rental-analytics-status ok"; status.textContent=`อัปเดตแล้ว · ${d.generated_at?new Date(d.generated_at).toLocaleString("th-TH"):""} · Analytics เป็น Read-only`; }
+    const kpis=$("#rentalAnalyticsKpis");
+    if(kpis){
+      kpis.innerHTML=[
+        [m.unique_customers||0,"ลูกค้าไม่ซ้ำ"],
+        [m.non_cancelled_bookings||0,"คิวไม่ยกเลิก"],
+        [m.completed_bookings||0,"Completed"],
+        [m.active_bookings||0,"Active"],
+        [m.repeat_customers||0,"ลูกค้าเช่าซ้ำ"],
+        [Number(m.avg_bookings_per_customer||0).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2}),"เฉลี่ยครั้ง / ลูกค้า"],
+        [money(m.amount_received||0)+"฿","ยอดรับแล้วตามข้อมูล"],
+        [rentalPercent(m.cancellation_rate||0),"Cancellation Rate"],
+        [rentalPercent(m.repeat_customer_rate||0),"Repeat Customer Rate"],
+        [rentalPercent(m.organizer_coverage_rate||0),"Organizer Coverage"]
+      ].map(x=>`<div><strong>${esc(x[0])}</strong><span>${esc(x[1])}</span></div>`).join("");
+    }
+    const snap=$("#rentalAnalyticsSnapshot");
+    if(snap){
+      const peak=d.peak_month ? `${d.peak_month.month} · ${d.peak_month.customers} คน` : "—";
+      const topEvent=d.top_event ? `${d.top_event.event_name} · ${d.top_event.customers} คน` : "—";
+      const topOrg=d.top_organizer ? `${d.top_organizer.organizer} · ${d.top_organizer.customers} คน` : "—";
+      const range=d.range && d.range.start ? `${d.range.start} → ${d.range.end}` : "—";
+      snap.innerHTML=[['เดือนพีค',peak],['งานอันดับ 1',topEvent],['ค่าย/ผู้จัดอันดับ 1',topOrg],['ช่วงข้อมูล',range]].map(x=>`<div><span>${esc(x[0])}</span><strong>${esc(x[1])}</strong></div>`).join("");
+    }
+    rentalBarList($("#rentalMonthlyBars"),(d.monthly||[]).slice().sort((a,b)=>String(a.month).localeCompare(String(b.month))),"month","customers");
+    rentalBarList($("#rentalOrganizerBars"),(d.organizer_mix||[]).filter(x=>x.organizer!=="ยังไม่ระบุ / Unknown").slice(0,10),"organizer","customers");
+    rentalBarList($("#rentalPackageBars"),(d.package_mix||[]).slice(0,10),"package_type","bookings");
+    rentalBarList($("#rentalStatusBars"),(d.status_mix||[]).slice(0,10),"status","bookings");
+    const coverage=$("#rentalOrganizerCoverage");
+    if(coverage) coverage.textContent=`ระบุได้ ${rentalPercent(m.organizer_coverage_rate||0)} · Unknown ${m.organizer_unknown_bookings||0} คิว`;
+    table($("#rentalTopEventsTable"),[
+      {label:"งาน",render:r=>`<strong>${esc(r.event_name||'-')}</strong><br><small>${esc(r.organizer||'ยังไม่ระบุ / Unknown')}</small>`},
+      {label:"ลูกค้า",render:r=>esc(r.customers||0)},
+      {label:"Booking",render:r=>esc(r.bookings||0)},
+      {label:"ยอดรับ",render:r=>esc(money(r.amount_received||0))+"฿"}
+    ],(d.top_events||[]).slice(0,15));
+    table($("#rentalOrganizerTable"),[
+      {label:"ค่าย / ผู้จัด",render:r=>`<strong>${esc(r.organizer||'-')}</strong><br><small>${esc(r.mapping_summary||'')}</small>`},
+      {label:"ลูกค้า",render:r=>esc(r.customers||0)},
+      {label:"Booking",render:r=>esc(r.bookings||0)},
+      {label:"งาน",render:r=>esc(r.events||0)},
+      {label:"ยอดรับ",render:r=>esc(money(r.amount_received||0))+"฿"}
+    ],(d.organizer_mix||[]).filter(r=>r.organizer!=="ยังไม่ระบุ / Unknown").slice(0,20));
+    const q=$("#rentalAnalyticsQuality");
+    if(q){
+      const notes=Array.isArray(d.definitions)?d.definitions:[];
+      q.innerHTML=notes.map((text,i)=>`<div class="insight-item ${i===0?'ok':''}"><strong>${i===0?'หลักการนับ':'หมายเหตุ '+i}</strong><span>${esc(text)}</span></div>`).join("");
+    }
+  }
+  async function rentalAnalyticsApi(){
+    const res=await fetch("/api/kk-rental-dashboard",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","X-Admin-Pin":state.pin},
+      body:JSON.stringify({})
+    });
+    const data=await res.json().catch(()=>({ok:false,error:"Invalid Rental Analytics response"}));
+    if(!data.ok) throw new Error(data.error||"Rental Analytics request failed");
+    return data.data||{};
+  }
+  async function loadRentalAnalytics(){
+    if(!state.pin || state.rentalAnalyticsLoading) return;
+    state.rentalAnalyticsLoading=true;
+    state.rentalAnalyticsError="";
+    renderRentalAnalytics();
+    try{
+      state.rentalAnalytics=await rentalAnalyticsApi();
+    }catch(err){
+      state.rentalAnalyticsError=err && err.message ? err.message : String(err);
+    }finally{
+      state.rentalAnalyticsLoading=false;
+      renderRentalAnalytics();
     }
   }
 
@@ -1535,6 +1634,7 @@
     renderCustomerDetail(customerHistory);
     renderReports(d);
     renderPricingCenter(d);
+    renderRentalAnalytics();
 
     fillSelects();
   }
@@ -1546,6 +1646,7 @@
       const data=await api("snapshot");
       state.data=data.data||{};
       render();
+      loadRentalAnalytics();
       const backendVersion = state.data.admin_api_version || (state.data.phase1_diagnostics && state.data.phase1_diagnostics.admin_api_version) || "";
       if(backendVersion && backendVersion !== EXPECTED_BACKEND_VERSION){
         showNotice("Version ไม่ตรงกัน: Admin UI "+KK_ADMIN_UI_VERSION+" / Expected Apps Script "+EXPECTED_BACKEND_VERSION+" แต่ Apps Script จริงคือ "+backendVersion, "bad");
@@ -1618,6 +1719,8 @@
     if(logoutBtn) logoutBtn.addEventListener("click",()=>{ sessionStorage.removeItem("kk_admin_pin"); location.reload(); });
     const refreshBtn=$("#refreshBtn");
     if(refreshBtn) refreshBtn.addEventListener("click",()=>refresh().then(()=>{ updateUiLastRefresh(); showNotice("Refresh แล้ว"); }).catch(e=>showNotice(e.message,"bad")));
+    const rentalAnalyticsRefreshBtn=$("#rentalAnalyticsRefreshBtn");
+    if(rentalAnalyticsRefreshBtn) rentalAnalyticsRefreshBtn.addEventListener("click",()=>loadRentalAnalytics());
     const densityBtn=$("#densityBtn");
     if(densityBtn) densityBtn.addEventListener("click",()=>{
       const current=localStorage.getItem("kk_admin_compact_mode")==="1";

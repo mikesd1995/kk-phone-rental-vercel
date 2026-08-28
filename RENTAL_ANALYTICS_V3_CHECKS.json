@@ -1,0 +1,65 @@
+{
+  "admin/admin.js": {
+    "ok": true,
+    "stderr": ""
+  },
+  "api/kk-rental-dashboard.js": {
+    "ok": true,
+    "stderr": ""
+  },
+  "api/kk-admin.js": {
+    "ok": true,
+    "stderr": ""
+  },
+  "api/kk-data.js": {
+    "ok": true,
+    "stderr": ""
+  },
+  "script.js": {
+    "ok": true,
+    "stderr": ""
+  },
+  "npm run check": {
+    "ok": true,
+    "stdout": "\n> kk-phone-rental@16.7.0-stable.2026.06.29 check\n> node --check script.js && node --check admin/admin.js && node --check api/kk-admin.js && node --check api/kk-data.js\n\n",
+    "stderr": ""
+  },
+  "html_duplicate_ids": {
+    "ok": true,
+    "duplicates": []
+  },
+  "protected_files": {
+    "index.html": {
+      "unchanged": true,
+      "sha256": "e15904d7c9694e7b6d7a3638fe73512856c678cde8faa1a8d54941c861c20bd3"
+    },
+    "script.js": {
+      "unchanged": true,
+      "sha256": "8828f29bb8ed16efe10b420c22188a1dfe883e6a596e588d4cfe9da060c2a482"
+    },
+    "style.css": {
+      "unchanged": true,
+      "sha256": "fde5e8db269326205eddf2e2da5e9a587742fe4263cac50431057fa584710c89"
+    },
+    "config.js": {
+      "unchanged": true,
+      "sha256": "1a6ccb778420f5e9241e61b97925171f7ab2f3c990759dbc1299a812ee4ccf63"
+    },
+    "api/kk-data.js": {
+      "unchanged": true,
+      "sha256": "73c3f9ddb3f79960099904e6499d99bd59b071dfdd4fefd6f8123476c584b067"
+    },
+    "api/kk-admin.js": {
+      "unchanged": true,
+      "sha256": "62e998fb25fa72089cd2c23829627b8686cec2d40350e6a90db8fedc02e2f199"
+    },
+    "apps-script/Code.gs": {
+      "unchanged": true,
+      "sha256": "a71e31502cf1bd08e8df97a7f2c67de693230ff78ebd64263299ad23d975ce71"
+    },
+    "vercel.json": {
+      "unchanged": true,
+      "sha256": "eaa30a3008f6876dd620f3d15d4013ddf79ec02a7f41aedf6dc4722d9defc71a"
+    }
+  }
+}

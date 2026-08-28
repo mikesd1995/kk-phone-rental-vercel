@@ -1,0 +1,18 @@
+{
+  "package": "KK_PHONE_RENTAL_DCRM_RENTAL_ANALYTICS_INTEGRATED_V3",
+  "baseline": "user-uploaded kk-phone-rental-vercel-main (1).zip",
+  "changed_files": [
+    "admin/index.html",
+    "admin/admin.js",
+    "admin/admin.css",
+    "api/kk-rental-dashboard.js"
+  ],
+  "public_files_changed": [],
+  "apps_script_changed": false,
+  "google_sheet_schema_changed": false,
+  "notes": [
+    "Rental Analytics is integrated inside existing Reports tab",
+    "New API is read-only and PIN-protected",
+    "Organizer analytics uses explicit metadata/tags when present, conservative inference otherwise, with coverage disclosed"
+  ]
+}

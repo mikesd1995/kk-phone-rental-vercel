@@ -566,6 +566,58 @@
 
 
         <section class="tab-panel" id="tab-reports">
+          <div class="card rental-analytics-hero">
+            <div class="card-head">
+              <div>
+                <span class="eyebrow">Rental Analytics</span>
+                <h2>ภาพรวมลูกค้าที่เช่า &amp; Demand ตามงาน/ค่าย/ผู้จัด</h2>
+                <p class="hint">อ่านข้อมูล Current + Booking Archive แบบ Read-only เพื่อดูเดือนพีค งานที่มีคนเช่าเยอะ และค่าย/ผู้จัดที่ควรโฟกัส โดยไม่แก้ Booking / ราคา / Stock</p>
+              </div>
+              <div class="inline-actions">
+                <span class="pill ok">READ ONLY</span>
+                <button class="btn secondary" id="rentalAnalyticsRefreshBtn" type="button">Refresh Analytics</button>
+              </div>
+            </div>
+            <div id="rentalAnalyticsStatus" class="rental-analytics-status">กำลังโหลด Rental Analytics...</div>
+            <div id="rentalAnalyticsKpis" class="rental-analytics-kpis"></div>
+            <div id="rentalAnalyticsSnapshot" class="rental-analytics-snapshot"></div>
+          </div>
+
+          <div class="grid two-col rental-analytics-grid">
+            <div class="card">
+              <div class="card-head"><div><span class="eyebrow">Monthly Demand</span><h2>คนเช่ารายเดือน</h2></div><small>อิง Event Date</small></div>
+              <div id="rentalMonthlyBars" class="rental-bars"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><span class="eyebrow">Organizer Focus</span><h2>ค่าย / ผู้จัดที่มีคนเช่าเยอะ</h2></div><small id="rentalOrganizerCoverage"></small></div>
+              <div id="rentalOrganizerBars" class="rental-bars rental-bars-wide"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><span class="eyebrow">Product Mix</span><h2>Package Mix</h2></div></div>
+              <div id="rentalPackageBars" class="rental-bars rental-bars-wide"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><span class="eyebrow">Booking Health</span><h2>Booking Status Mix</h2></div></div>
+              <div id="rentalStatusBars" class="rental-bars rental-bars-wide"></div>
+            </div>
+          </div>
+
+          <div class="grid two-col rental-analytics-grid">
+            <div class="card">
+              <div class="card-head"><div><span class="eyebrow">Top Events</span><h2>งานที่มีคนเช่าเยอะที่สุด</h2></div><small>ลูกค้าไม่ซ้ำ / งาน</small></div>
+              <div class="table-wrap"><table id="rentalTopEventsTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><span class="eyebrow">Top Organizers</span><h2>ค่าย / ผู้จัดที่ควรโฟกัส</h2></div><small>เรียงตามลูกค้าไม่ซ้ำ</small></div>
+              <div class="table-wrap"><table id="rentalOrganizerTable"></table></div>
+            </div>
+          </div>
+
+          <div class="card rental-analytics-quality">
+            <div class="card-head"><div><span class="eyebrow">Data Quality</span><h2>วิธีนับและความครอบคลุมผู้จัด</h2></div></div>
+            <div id="rentalAnalyticsQuality" class="insight-list"></div>
+          </div>
+
           <div class="card report-hero">
             <div class="card-head">
               <div>
