@@ -1,0 +1,32 @@
+{
+  "version": "V4 TALENT AFFILIATION PRIMARY",
+  "runtime_changed_files": [
+    "admin/index.html",
+    "admin/admin.js",
+    "api/kk-rental-dashboard.js"
+  ],
+  "public_files_changed": false,
+  "apps_script_changed": false,
+  "files": [
+    {
+      "path": "README_RENTAL_ANALYTICS_V4.md",
+      "sha256": "2d8880778176e389190b49f4412ab4ba26297c04353073590dc015da7482336b"
+    },
+    {
+      "path": "RENTAL_ANALYTICS_V4_CHECKS.json",
+      "sha256": "239fafab99fd6b10d6c82b5570be5d844a8bb4ea05827efadeb221ee4d236ad2"
+    },
+    {
+      "path": "admin/admin.js",
+      "sha256": "c605ea014a8b2a34050eae9235e1dfc14f5b51059a83a165ee10735bbf0df79a"
+    },
+    {
+      "path": "admin/index.html",
+      "sha256": "84d1a7fcd5387e55df2de8f873ee2b02d96d8fa7d0c9857728a358452b557f6e"
+    },
+    {
+      "path": "api/kk-rental-dashboard.js",
+      "sha256": "a42cdc176e092058eef5f5ff0e92baa4fdca2a7afff8dc2a597a194a67a24ae5"
+    }
+  ]
+}

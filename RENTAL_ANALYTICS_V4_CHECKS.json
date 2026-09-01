@@ -1,0 +1,22 @@
+{
+  "admin/admin.js": {
+    "syntax_ok": true,
+    "stderr": ""
+  },
+  "api/kk-rental-dashboard.js": {
+    "syntax_ok": true,
+    "stderr": ""
+  },
+  "admin/index.html": {
+    "duplicate_ids": [],
+    "duplicate_id_check_ok": true,
+    "rental_tab_present": true,
+    "talent_affiliation_text": true
+  },
+  "protected_scope": {
+    "public_files_changed": false,
+    "apps_script_changed": false,
+    "api_kk_data_changed": false,
+    "api_kk_admin_changed": false
+  }
+}

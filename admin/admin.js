@@ -787,36 +787,36 @@
         [money(m.amount_received||0)+"฿","ยอดรับแล้วตามข้อมูล"],
         [rentalPercent(m.cancellation_rate||0),"Cancellation Rate"],
         [rentalPercent(m.repeat_customer_rate||0),"Repeat Customer Rate"],
-        [rentalPercent(m.organizer_coverage_rate||0),"Organizer Coverage"]
+        [rentalPercent(m.affiliation_coverage_rate||0),"Affiliation Coverage"]
       ].map(x=>`<div><strong>${esc(x[0])}</strong><span>${esc(x[1])}</span></div>`).join("");
     }
     const snap=$("#rentalAnalyticsSnapshot");
     if(snap){
       const peak=d.peak_month ? `${d.peak_month.month} · ${d.peak_month.customers} คน` : "—";
       const topEvent=d.top_event ? `${d.top_event.event_name} · ${d.top_event.customers} คน` : "—";
-      const topOrg=d.top_organizer ? `${d.top_organizer.organizer} · ${d.top_organizer.customers} คน` : "—";
+      const topOrg=d.top_affiliation ? `${d.top_affiliation.affiliation} · ${d.top_affiliation.customers} คน` : "—";
       const range=d.range && d.range.start ? `${d.range.start} → ${d.range.end}` : "—";
-      snap.innerHTML=[['เดือนพีค',peak],['งานอันดับ 1',topEvent],['ค่าย/ผู้จัดอันดับ 1',topOrg],['ช่วงข้อมูล',range]].map(x=>`<div><span>${esc(x[0])}</span><strong>${esc(x[1])}</strong></div>`).join("");
+      snap.innerHTML=[['เดือนพีค',peak],['งานอันดับ 1',topEvent],['ค่าย/สังกัดอันดับ 1',topOrg],['ช่วงข้อมูล',range]].map(x=>`<div><span>${esc(x[0])}</span><strong>${esc(x[1])}</strong></div>`).join("");
     }
     rentalBarList($("#rentalMonthlyBars"),(d.monthly||[]).slice().sort((a,b)=>String(a.month).localeCompare(String(b.month))),"month","customers");
-    rentalBarList($("#rentalOrganizerBars"),(d.organizer_mix||[]).filter(x=>x.organizer!=="ยังไม่ระบุ / Unknown").slice(0,10),"organizer","customers");
+    rentalBarList($("#rentalOrganizerBars"),(d.affiliation_mix||[]).filter(x=>x.affiliation!=="ยังไม่ระบุ / Unknown").slice(0,10),"affiliation","customers");
     rentalBarList($("#rentalPackageBars"),(d.package_mix||[]).slice(0,10),"package_type","bookings");
     rentalBarList($("#rentalStatusBars"),(d.status_mix||[]).slice(0,10),"status","bookings");
     const coverage=$("#rentalOrganizerCoverage");
-    if(coverage) coverage.textContent=`ระบุได้ ${rentalPercent(m.organizer_coverage_rate||0)} · Unknown ${m.organizer_unknown_bookings||0} คิว`;
+    if(coverage) coverage.textContent=`ระบุได้ ${rentalPercent(m.affiliation_coverage_rate||0)} · Unknown ${m.affiliation_unknown_bookings||0} คิว`;
     table($("#rentalTopEventsTable"),[
-      {label:"งาน",render:r=>`<strong>${esc(r.event_name||'-')}</strong><br><small>${esc(r.organizer||'ยังไม่ระบุ / Unknown')}</small>`},
+      {label:"งาน",render:r=>`<strong>${esc(r.event_name||'-')}</strong><br><small>${esc(r.affiliation||'ยังไม่ระบุ / Unknown')}</small>`},
       {label:"ลูกค้า",render:r=>esc(r.customers||0)},
       {label:"Booking",render:r=>esc(r.bookings||0)},
       {label:"ยอดรับ",render:r=>esc(money(r.amount_received||0))+"฿"}
     ],(d.top_events||[]).slice(0,15));
     table($("#rentalOrganizerTable"),[
-      {label:"ค่าย / ผู้จัด",render:r=>`<strong>${esc(r.organizer||'-')}</strong><br><small>${esc(r.mapping_summary||'')}</small>`},
+      {label:"ค่าย / สังกัดศิลปิน",render:r=>`<strong>${esc(r.affiliation||'-')}</strong><br><small>${esc(r.mapping_summary||'')}</small>`},
       {label:"ลูกค้า",render:r=>esc(r.customers||0)},
       {label:"Booking",render:r=>esc(r.bookings||0)},
       {label:"งาน",render:r=>esc(r.events||0)},
       {label:"ยอดรับ",render:r=>esc(money(r.amount_received||0))+"฿"}
-    ],(d.organizer_mix||[]).filter(r=>r.organizer!=="ยังไม่ระบุ / Unknown").slice(0,20));
+    ],(d.affiliation_mix||[]).filter(r=>r.affiliation!=="ยังไม่ระบุ / Unknown").slice(0,20));
     const q=$("#rentalAnalyticsQuality");
     if(q){
       const notes=Array.isArray(d.definitions)?d.definitions:[];
