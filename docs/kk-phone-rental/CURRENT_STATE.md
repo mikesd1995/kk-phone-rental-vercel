@@ -1,12 +1,15 @@
 # KK Phone Rental — Current State Checkpoint
 
-Checkpoint: 2026-09-04 01:05 Asia/Bangkok
+Checkpoint: 2026-09-04 01:25 Asia/Bangkok
 Branch: `skills/x-scanner-v2`
 
 > Live highest Active `_Policy_Registry`, Machine SOT, provider/runtime state and exact readback are authoritative. This file is a continuity mirror only.
 
-Full system audit: `docs/kk-phone-rental/FULL_SYSTEM_AUDIT_2026-09-04.md`
-Previous phase audit: `docs/kk-phone-rental/PHASE_AUDIT_2026-09-03.md`
+Detailed references:
+
+- Full system audit: `docs/kk-phone-rental/FULL_SYSTEM_AUDIT_2026-09-04.md`
+- Previous phase audit: `docs/kk-phone-rental/PHASE_AUDIT_2026-09-03.md`
+- Temporary Telegram button bridge: `docs/kk-phone-rental/TEMP_TELEGRAM_INLINE_UI_BRIDGE_2026-09-04.md`
 
 ## Operating workflow
 
@@ -16,223 +19,196 @@ Do not rebuild Core v1. Fail closed when authority, ownership, fencing, provider
 
 ## Overall state
 
-**Classification: SAFE CORE / PHASE A COMPLETE / BUSINESS-CONTENT-INTEGRATION PARTIAL / NOT END-TO-END COMPLETE.**
+**Classification: SAFE CORE / PHASE A COMPLETE / TEMP TELEGRAM UI BRIDGE CONFIGURED / PHASE C-D CANONICAL RUNTIME STILL INCOMPLETE.**
 
-- Core v1: runtime verified and preserved.
+- Core v1: `RUNTIME_VERIFIED / COMPLETE / PRESERVE`.
 - Phase A: `RUNTIME STEADY-STATE VERIFIED / COMPLETE`.
-- Scheduled Scanner, Verifier and Canary are currently enabled.
-- Phase C/D remains blocked before canonical command routing by Make access plus five unreconciled preview inputs.
-- A second authoritative operational data domain was confirmed: the Web/CRM backend spreadsheet used by GitHub/Vercel.
+- Scanner, Verifier and Canary Scheduled Tasks are enabled.
+- Phase B remains partial because live CRM/booking/inventory truth is not yet governed into Event Machine-SOT Business Brain decisions.
+- Phase C content generation is local/synthetic PASS with real DRAFT staging content.
+- Phase D canonical runtime remains incomplete because Make scenario `5988323` is inaccessible through the current identity.
+- Phase E X publish remains provider-runtime pending.
+- Phase F CRM/booking backend is real and operational but unified AI/CRM E2E is incomplete.
+- Phase G remains staging-only.
 
-## Authority and data domains
+## Data authority
 
-### AI/Event/Policy Machine SOT
+### AI / Event / Policy Machine SOT
 
 Spreadsheet: `1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo`
 
-Exactly one Active policy: `v4.9.2 BALANCED SOURCE COVERAGE`.
+Exactly one Active policy remains `v4.9.2 BALANCED SOURCE COVERAGE`.
 
-Current company semantic: Thai performer => talent agency/label/management; foreign performer => local organizer/promoter; organizer remains separately captured.
-
-### Web/CRM/Booking backend
+### Web / CRM / Booking backend
 
 Spreadsheet: `12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU`
-Title: `KK Phone rental backend`.
 
-This is the real application/CRM backend used by `api/kk-data.js` and contains bookings, events, assets, packages, web output, customer stats and admin health/error logs.
+This is the application/CRM backend used by GitHub/Vercel for bookings, events, assets, packages, web output, customer/admin health and related operational data.
 
-Important architecture conclusion: Event/AI Machine SOT and Web/CRM backend are separate data domains. Their authority/synchronization boundary must be explicit.
+The two data domains must remain explicit; do not create a second canonical inventory/booking writer.
 
 ## Core v1
 
-Status: **RUNTIME_VERIFIED / COMPLETE / PRESERVE**.
+Canonical verified chain remains:
 
 `Scanner -> Verifier -> Google Sheet -> Notification Ledger -> Telegram + LINE`
 
 No Core-v1 rebuild was performed.
 
-## Phase A runtime stability
+## Runtime / Make containment
 
-Status: **RUNTIME STEADY-STATE VERIFIED / COMPLETE**.
+### `5911509 — 01_KK_GEMINI_SCOUT`
 
-Evidence includes:
+Must remain **INACTIVE / CONTAINED**.
 
-- ordinary Scanner 20:00 run, fencing v202, actual coverage/readback, lease released;
-- ordinary following Verifier 20:30 run, fencing v201, correct no-operational-packet semantics, lease released;
-- subsequent Verifier monotonic fencing through v204 with readback/release;
-- manual Scanner cutover validation v203 released correctly;
-- missed slots preserved as gaps rather than fabricated backfills;
-- no competing Scanner/Verifier writer proven during cutover observation.
+Fresh audit confirmed legacy bypasses still exist in that scenario, including direct AI/GPT-result owner transport and historical quarantine-to-SENT behavior. Do not reactivate it as a production transport path.
 
-At the full-audit start Scanner and Verifier tasks had drifted to disabled. After confirming no active role-lock conflict, Scanner was re-enabled first and Verifier second. Exact task-state readback confirmed both enabled; Canary remains enabled.
+### `5901592 — 02_KK_TELEGRAM_CONTROL`
 
-Current cadence:
+Status: **ACTIVE**.
 
-- Scanner: hourly `:00`.
-- Verifier: hourly `:30`.
-- Canary: daily 08:15 Asia/Bangkok.
+It remains the visible Telegram owner-intake scenario. On 2026-09-04 a temporary compatibility bridge was added because the owner explicitly requested usable inline buttons before Codex completes the canonical Phase-D migration.
 
-## Make / owner transport
-
-### `5911509` — `01_KK_GEMINI_SCOUT`
-
-Status: **INACTIVE / CONTAINED**.
-
-During the full audit it was unexpectedly found active again. Fresh blueprint inspection confirmed legacy P0 bypasses still existed:
-
-- direct `_AI_Inbox`/GPT result -> Telegram;
-- historical `HOLD_TRANSPORT_QUARANTINE` -> Telegram -> mark `SENT`.
-
-Action taken: deactivated again; config/history preserved. The fact that it was externally reactivated is a governance P0 that still needs root-cause/retirement work.
-
-### `5901592` — `02_KK_TELEGRAM_CONTROL`
-
-Status: **ACTIVE owner intake/acknowledgement**.
-
-Its `/team` route writes `_AI_Inbox` and acknowledges; it does not populate the canonical `_Command_Queue`. Do not substitute it for Phase C/D.
+Temporary Make lastEdit after patch: `2026-09-03T18:23:18.631Z`.
 
 ### `5988323`
 
-Exact Phase C/D scenario remains inaccessible through current Make identity. Direct access requires `organization view` permission. Do not claim it is deleted.
+Still the canonical Phase C/D owner-control target.
 
-## Phase C/D routing
+Current Make identity cannot read it because provider access requires `organization view`. Do not claim it is deleted and do not permanently substitute `5901592` for it.
 
-Status: **BLOCKED BEFORE CANONICAL COMMAND/JOB ROUTING**.
+## Temporary Telegram Inline Preview UI Bridge
 
-Five historical `/team PREVIEW 1c830e214878f883a92e5f42` inputs remain `_AI_Inbox=NEW` with Telegram message IDs 201, 203, 205, 207 and 218.
+Status: **CONFIG_READBACK_PASS / PROVIDER RUNTIME BUTTON EXERCISE PENDING**.
 
-Exact token reconciliation previously showed zero matching rows in `_Command_Queue`, `_Job_Queue_STAGING` and `_Decision_Inbox`.
+Changes applied to scenario `5901592`:
 
-A real `_Content_Workspace_STAGING` draft exists but remains `EXTERNAL_SEND_AUTHORIZED=false` and `PRODUCTION_PUBLISH_AUTHORIZED=false`.
+1. Generic `/team` intake route now excludes `/team PREVIEW` so testing the temporary preview path does not create a sixth historical `_AI_Inbox=NEW` duplicate.
+2. New module 20 reads `_Content_Staging` by callback token and requires `STATUS=DRAFT`.
+3. New module 21 sends the three content variants with a Telegram Inline Keyboard.
+4. Buttons now configured:
+   - `1️⃣ เลือกแบบ 1`
+   - `2️⃣ เลือกแบบ 2`
+   - `3️⃣ เลือกแบบ 3`
+   - `✅ อนุมัติ`
+   - `✏️ แก้ไข`
+   - `❌ ปฏิเสธ`
+   - `🚫 ยกเลิก`
+5. New module 22 records button intent into `_Command_Queue` with `STATUS=RECEIVED_TEMP_UI` and explicit no-publish/no-LINE/no-customer guards.
+6. New module 23 calls Telegram `answerCallbackQuery` so pressed buttons receive acknowledgement instead of remaining in a loading state.
 
-No sixth preview injection is allowed.
+Callback payloads are token-bound (`KKC|S1|...`, `KKC|APP|...`, etc.).
 
-## Phase B / CRM integration
+### Temporary bridge safety boundary
 
-Status: **PARTIAL**.
+The bridge does **not**:
 
-The CRM backend clearly contains real booking/assets/package availability, but Event Machine SOT `_Inventory_Collision` still carries many `inventory feed unavailable` / `CRM feed unavailable` states.
+- set `EXTERNAL_SEND_AUTHORIZED=true`;
+- set `PRODUCTION_PUBLISH_AUTHORIZED=true`;
+- perform true canonical SELECT/APPROVE state transitions;
+- publish X;
+- send LINE/customer messages;
+- release Notification Ledger quarantine;
+- make Phase D COMPLETE.
 
-Main remaining Phase-B integration requirement: define an authority-safe CRM -> Machine-SOT read/projection contract so Business Brain can use real availability/collision data without creating a competing canonical inventory writer.
+The temporary APPROVE button records owner intent only and acknowledges `staging only, ยังไม่ publish`.
 
-## CRM health audit and fix
+Previously sent Telegram messages cannot gain inline buttons retroactively. A new `/team PREVIEW <token>` delivery is required to exercise the patched UI.
 
-`10_Admin_Health_Check` previously reported `Booking risk not OK = 128`.
+Current known DRAFT token available for controlled exercise:
 
-Root cause: the formula counted formula-filled blank rows in `00_Master_Booking`, not 128 real bad bookings.
+`1c830e214878f883a92e5f42`
 
-Safe fix applied: gate the count on raw nonblank `event_id` column D.
+Expected command:
 
-Exact readback after fix: **3 / CHECK**.
+`/team PREVIEW 1c830e214878f883a92e5f42`
 
-The remaining three are real historical completed bookings with missing customer/contact. They were preserved; no values were invented.
+Because PREVIEW is now excluded from the legacy generic TEAM route, this test should not create the historical sixth `_AI_Inbox` duplicate. After one button press, verify one `RECEIVED_TEMP_UI` row in `_Command_Queue` and verify production authorization fields remain false.
 
-Other current CRM notes:
+## Existing historical preview issue
 
-- one asset is marked unavailable and needs operations confirmation;
-- Error Log includes recent safe-fail write-lock contention around admin price override;
-- CRM spreadsheet timezone is `Etc/GMT`, not Asia/Bangkok. Do not change it without dedicated formula/Apps-Script/date regression.
+Five earlier preview requests remain unreconciled in `_AI_Inbox=NEW` with Telegram message IDs:
 
-## GitHub / application audit
+- 201
+- 203
+- 205
+- 207
+- 218
 
-Repo: `mikesd1995/kk-phone-rental-vercel`.
-Branch: `skills/x-scanner-v2`.
-Draft PR #1 remains open/unmerged. No `main` merge authorized.
+These historical rows must be reconciled during canonical Phase-D migration. Do not rewrite them merely to make status appear clean.
 
-### Analytics semantic drift
+## Codex migration requirement for Phase D
 
-Rental Analytics V4 still treats talent affiliation as primary and intentionally excludes organizer/promoter as primary. This conflicts with current Machine-SOT foreign-performer semantics.
+When `5988323` access is restored, Codex must:
 
-CRM `01_Events` currently has no organizer/promoter/company field, so do not patch this with guessed heuristics. Required fix is an authoritative Event-SOT -> analytics projection/join, then update dashboard semantics.
+1. audit the exact canonical blueprint;
+2. implement the inline keyboard there;
+3. bind callbacks to exact `token + content version + Telegram chat + Telegram message_id + approval fingerprint`;
+4. enforce stale and duplicate callback rejection;
+5. implement true SELECT / APPROVE / REVISE / REJECT / CANCEL transitions under protected-write/readback rules;
+6. keep X publishing behind downstream creative/provider gates;
+7. reconcile any `RECEIVED_TEMP_UI` rows from the temporary bridge;
+8. remove/disable Make modules 20–23 from `5901592` after canonical runtime UAT passes;
+9. restore `5901592` to owner-intake-only scope so two Phase-D callback writers are never active simultaneously.
 
-### Syntax check coverage fix
+## Phase B / CRM gap
 
-Existing `npm run check` omitted the rental analytics files.
+The real CRM backend contains booking, asset and package availability, but Event Machine SOT Business Brain still has historical `inventory feed unavailable` / `CRM feed unavailable` states.
 
-Branch-only update now checks:
+Required architectural fix: create an authority-safe read/projection contract from CRM backend to Event Machine-SOT decisions without creating a competing inventory writer.
 
-- `admin/rental-analytics.js`
-- `api/kk-rental-dashboard.js`
+## CRM health fix already applied
 
-in addition to existing JavaScript files.
+`Booking risk not OK` false count was corrected from 128 to 3 by gating the health formula on real nonblank booking rows. The remaining three historical records were preserved; no customer data was invented.
 
-Commit: `e7cfcebacaf2c91b48177173a631713ef5ef608a`.
+Other CRM items still requiring dedicated work:
 
-Readback confirms package.json contains the expanded command. This change improves check coverage but does **not** prove the command has executed/passed; no such claim is made.
+- one unavailable asset needs operations confirmation;
+- recent admin price-override lock contention needs review;
+- spreadsheet timezone remains `Etc/GMT` and must not be changed without regression testing.
 
-## Phase status
+## GitHub / application state
 
-- Core v1 — **RUNTIME_VERIFIED / COMPLETE**.
-- A Runtime Stability — **RUNTIME STEADY-STATE VERIFIED / COMPLETE**.
-- B Business Brain — **PARTIAL; live CRM/inventory not unified into Machine-SOT decisions**.
-- C Content + Creative — **LOCAL/SYNTHETIC PASS; runtime UAT blocked before command routing**.
-- D Telegram Owner Control — **LOCAL/SYNTHETIC PASS; runtime UAT blocked before command routing**.
-- E X Publish — **LOCAL/SYNTHETIC PASS; provider runtime pending**.
-- F LINE / Booking / KYC — **PARTIAL; real CRM operational but unified AI/CRM E2E incomplete**.
-- G Outcome Learning — **STAGING ONLY; `_Business_Outcome` currently header-only**.
+Repo: `mikesd1995/kk-phone-rental-vercel`
+Branch: `skills/x-scanner-v2`
+
+Draft PR #1 remains unmerged. No `main` merge is authorized.
+
+Known application gap: Rental Analytics V4 company/affiliation semantics still conflict with current Machine-SOT foreign-performer organizer/promoter rules. Do not fix with guessed heuristics; project authoritative company/organizer data first.
+
+Syntax-check coverage was already expanded on this branch to include rental analytics JavaScript files, but a config change is not by itself runtime/CI PASS evidence.
 
 ## X Scanner V2.1
 
 Status: **STAGING_REVIEWED / NOT RUNTIME INSTALLED**.
 
-- on-demand only;
-- exact-event first;
-- existing `EVIDENCE_VERIFIER` promotion gate;
-- `CONTENT_GATE=PASS` before three variants;
-- no hourly Core hook;
-- no automatic publish/owner-send;
-- Draft PR only, no `main` merge.
+On-demand only, exact-event first, existing `EVIDENCE_VERIFIER` promotion gate, `CONTENT_GATE=PASS`, no hourly Core hook and no automatic publish/owner-send.
 
-## Canary
+## Current priority order
 
-Current `_Canary_Suite` contains enabled synthetic tests through CANARY-51. Historical rows report synthetic expected-match results with Production Writes 0.
+### P0
 
-The current scheduled Canary prompt is stricter and now requires independent assertion evidence, enabled-definition identity/completeness gates and exact readback. Historical synthetic PASS must not be retroactively described as production/provider PASS or as satisfying the new stronger evidence standard without a new compliant run.
+1. Keep `5911509` inactive and determine why it was externally reactivated.
+2. Restore Make organization/team access to canonical scenario `5988323`.
+3. Runtime-exercise the temporary button UI once, verify `_Command_Queue` staging readback and zero production authorization mutation.
+4. Reconcile the five historical preview inputs during canonical Phase-D migration.
 
-## Current P0
+### P1
 
-1. Restore Make organization/team access to exact scenario `5988323`.
-2. Reconcile the five existing preview inputs before any new preview.
-3. Keep legacy `5911509` inactive and determine why it was externally reactivated; permanently retire/neutralize the bypass through controlled migration, not ad-hoc deletion.
-
-## Current P1
-
-1. CRM/booking/assets -> Event Machine-SOT availability/collision integration.
-2. Analytics company semantics using authoritative projected company/organizer data.
-3. Dedicated CRM timezone regression before any timezone change.
-4. CRM write-lock/contention review.
-5. Confirm whether the one unavailable asset is intentional maintenance/inactive state.
-6. One compliant hardened Canary scheduled run/readback.
-7. Real Canva design/source binding after C/D runtime preview.
-8. One controlled X provider publish/readback after exact content + creative approval.
-9. Booking/KYC/LINE E2E and subsequent live outcome capture.
-
-## Changes applied in full audit 2026-09-04
-
-1. Re-deactivated unsafe Make `01_KK_GEMINI_SCOUT` after detecting reactivation.
-2. Re-enabled migrated Scanner and Verifier after Phase A steady-state proof; exact task readback confirmed enabled.
-3. Upgraded Phase A to COMPLETE from live scheduled fencing/readback/release evidence.
-4. Discovered and documented the second Web/CRM backend data domain used by GitHub/Vercel.
-5. Fixed CRM Health Check false booking-risk count from 128 to 3 with exact readback.
-6. Expanded GitHub syntax-check coverage to both rental analytics JavaScript files on branch only.
-7. Added `FULL_SYSTEM_AUDIT_2026-09-04.md` documenting target user requirements, full target flow, actual architecture, gaps, fixes and next work order.
+1. CRM/booking/assets -> Event Machine-SOT governed availability/collision integration.
+2. Canonical Phase C/D runtime UAT under `5988323`.
+3. Real Canva design/source binding.
+4. Controlled X provider publish/readback after exact content + creative approval.
+5. Booking/KYC/LINE E2E.
+6. Live Outcome Learning.
 
 ## Explicit non-actions
 
 - No Core v1 rebuild.
 - No merge to `main`.
-- No sixth preview.
-- No substitute Make worker.
+- No true production approval/publish from the temporary Telegram bridge.
+- No X/LINE/customer send from temporary callbacks.
 - No bulk quarantine release.
-- No invented CRM/customer data.
-- No blind CRM timezone change.
-- No heuristic organizer/company fabrication.
-- No production X/customer/provider send to manufacture PASS.
-
-## Next Exact Action
-
-1. Maintain Scanner/Verifier/Canary operation and verify no unexpected task/scenario drift.
-2. Restore `5988323` Make visibility and audit its exact blueprint before any controlled run.
-3. Reconcile the five preview inputs and perform exactly one Phase C/D runtime UAT.
-4. Define and test a read-only/governed CRM inventory/booking projection into Machine-SOT collision/business decisions.
-5. Then proceed C/D -> real Canva binding -> controlled X publish -> Booking/KYC/LINE E2E -> live Outcome Learning.
+- No invented CRM/customer/event data.
+- No blind timezone change.
+- No claim that Phase D is complete until canonical runtime UAT passes.
