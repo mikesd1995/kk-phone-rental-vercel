@@ -1,26 +1,29 @@
 # KK Phone Rental — Full Phase Audit
 
 Snapshot: 2026-09-03 16:20 Asia/Bangkok
+Latest addendum: 2026-09-03 18:50 Asia/Bangkok
 Branch: `skills/x-scanner-v2`
 
 > This audit is a continuity/checkpoint document only. Live Machine SOT, highest Active `_Policy_Registry`, provider state and verified readback remain authoritative.
 
 ## Executive status
 
-Current project position: **Core v1 complete; Phase A closeout / Phase C-D pre-runtime-UAT.**
+Current project position: **Core v1 complete; Phase A controlled cutover proof passed with one normal steady-state cycle still to observe; Phase C-D pre-runtime-UAT remains blocked before canonical command routing.**
 
-The project is not blocked by missing design work. Most later-phase logic exists locally/synthetically. The blocking work is runtime ownership, provider access and controlled readback.
+The project is not blocked by missing design work. Most later-phase logic exists locally/synthetically. The blocking work is now concentrated in Phase C/D Make access/routing plus final Phase A steady-state observation.
 
 ### What is production-verified
 
 - Core Scanner -> Verifier -> Google Sheet -> Notification Ledger -> Telegram + LINE is runtime verified.
 - Current Machine SOT has exactly one Active `POLICY_VERSION`: `v4.9.2 BALANCED SOURCE COVERAGE`.
-- Scanner/Verifier runtime today has preserved monotonic fencing and exact readback through Scanner lease v199 at the 16:00 window.
+- Scanner/Verifier runtime preserves monotonic fencing and exact readback.
+- Controlled Verifier proof reached lease v199 and released cleanly.
+- Controlled Scanner proof reached lease v200 and released cleanly with Manifest/Status/Coverage readback.
 - Current business semantics are Sep-1 rules: Thai performer => talent agency/label; foreign performer => local organizer/promoter; organizer and talent affiliation remain separate facts.
 
 ### What is not runtime-verified yet
 
-- New-account single-runner cutover.
+- One ordinary post-reenable Scanner `:00` + Verifier `:30` steady-state pair before Phase A is fully closed.
 - Phase C content runtime preview.
 - Phase D Telegram owner callback lifecycle.
 - Canva runtime binding with a real persisted design/source poster.
@@ -33,41 +36,72 @@ The project is not blocked by missing design work. Most later-phase logic exists
 | Phase | Current audited status | Evidence | Main remaining gate |
 |---|---|---|---|
 | Core v1 | **RUNTIME_VERIFIED / COMPLETE** | Dual-channel same-alert receipt proof; Core status PASS | Preserve; do not rebuild |
-| A — Runtime Stability | **MOST CORE CONTROLS BUILT / CLOSEOUT IN PROGRESS** | Fencing/readback/transaction controls live; Scanner v199 released; legacy Make bypass identified and contained | Prove one authoritative Scanner + one authoritative Verifier after cutover; clean stale implementation-lock governance without fabricating history |
+| A — Runtime Stability | **CONTROLLED CUTOVER PROOF PASS; STEADY-STATE OBSERVATION PENDING** | Pause-window showed no independent legacy rows; Verifier v199 FINISHED/released; Scanner v200 FINISHED/released with exact Status/Coverage | Observe next ordinary scheduled `:00` + `:30` after re-enable |
 | B — Business Brain | **PARTIAL / LOGIC STRONG, UNIFIED RUNTIME NOT PROVEN** | Event truth, ticket, company semantics live; CANARY-26 PASS synthetic | Unified pricing + inventory + customer + risk + approval runtime envelope and live inventory feed |
-| C — Content + Creative | **LOCAL/SYNTHETIC PASS; RUNTIME UAT NOT COMPLETE** | 3-variant local 59/59; CANARY-30/40/41/42/43/44 PASS synthetic; X Scanner V2.1 staging reviewed | One real runtime preview receipt, then Canva runtime input binding |
-| D — Telegram Owner Control | **LOCAL/SYNTHETIC PASS; RUNTIME UAT NOT COMPLETE** | 19/19 blueprint local; CANARY-31/45 PASS synthetic | Exact live WAITING_APPROVAL + select/approve/revise/reject/cancel readback |
+| C — Content + Creative | **LOCAL/SYNTHETIC PASS; RUNTIME UAT BLOCKED BEFORE COMMAND ROUTING** | 3-variant local 59/59; CANARY-30/40/41/42/43/44 PASS synthetic; X Scanner V2.1 staging reviewed | Restore exact Make 5988323 access and canonical preview routing |
+| D — Telegram Owner Control | **LOCAL/SYNTHETIC PASS; RUNTIME UAT BLOCKED BEFORE COMMAND ROUTING** | 19/19 blueprint local; CANARY-31/45 PASS synthetic | Exact live WAITING_APPROVAL + select/approve/revise/reject/cancel readback |
 | E — X Publish | **LOCAL/SYNTHETIC PASS; RUNTIME PENDING** | Adapter 14/14; CANARY-27/32/47/48 PASS synthetic | Exact approved copy+creative -> controlled provider post -> post_id + canonical URL readback |
 | F — LINE OA / Booking / KYC | **PARTIAL** | LINE owner transport Core pass; booking safety CANARY-28 synthetic PASS | Live inventory/booking state, no-oversell E2E, KYC reference-only runtime, customer LINE AI remains deferred |
 | G — Outcome Learning | **LOCAL/SYNTHETIC PASS / STAGING ONLY** | CANARY-29 PASS synthetic; `_Business_Outcome` currently header-only | First completed C-E runtime origin row, then lineage-safe outcome append/readback |
 
 ## P0 control audit
 
-### 1. Single-runner cutover — still not proven
+### 1. Single-runner cutover — materially reconciled
 
-Current ChatGPT scheduled tasks:
+The migrated Scanner/Verifier were intentionally paused to test whether another writer continued independently.
 
-- `KK Discovery Scanner — Current Policy`: **disabled/paused**.
-- `KK GPT Verifier — Current Policy`: **disabled/paused**.
-- `KK Canary Safety — Enabled Suite`: **enabled**.
+Observed while paused:
 
-Live Machine SOT today shows Scanner/Verifier activity through:
+- no independent Verifier boundary at 16:30;
+- no independent Scanner boundary at 17:00;
+- no independent Verifier boundary at 17:30;
+- no independent Scanner boundary at 18:00.
 
-- Scanner 15:00 COMPETITOR DEEP — lease v198 released.
-- Verifier 15:30 — lease v198 released.
-- Scanner 16:00 heartbeat — lease v199 released.
+This is evidence against a hidden continuing legacy hourly writer.
 
-The first new ChatGPT Scanner run occurred around the same time as the 16:00 Manifest. Because the Machine SOT does not carry the ChatGPT task ID, attribution of that exact run remains ambiguous. New Scanner/Verifier remain paused until a later expected window proves whether another runner continues independently.
+At 18:30 a controlled Verifier run executed:
 
-### 2. Legacy Make owner-transport bypass — contained in this audit
+- Run: `GPTV492-20260903T183258`;
+- lease/fencing v199;
+- policy exact-one v4.9.2;
+- packet gate exact0 / `NO_OPERATIONAL_PACKET`;
+- no retroactive 16:30/17:30 fabrication;
+- no protected business/Audit/Ledger/provider/owner mutation;
+- lease released and Manifest FINISHED after readback.
 
-Make environment currently visible through the connected account:
+At 18:44 a controlled Scanner one-shot catch-up executed:
 
-- Scenario `5911509` — `01_KK_GEMINI_SCOUT`.
-- Scenario `5901592` — `02_KK_TELEGRAM_CONTROL`.
-- Exact Phase C/D scenario `5988323` is **not visible in the currently connected team/private space**.
+- Run: `SCV492-20260903T184424`;
+- lease/fencing v200 / `SC-492-20260903T184424-200`;
+- exact-one v4.9.2;
+- 18:00 `VENUE_TICKET_AGENCY_DELTA` catch-up;
+- `_Run_Lock` RELEASED at 18:48:32;
+- `_Run_Manifest` FINISHED at 18:48:32;
+- `_Scan_Status` exact current 18:00 row, FINISHED, Change Count 0;
+- `_Run_Coverage` exact 3 actual source attempts, all Partial rather than falsely claiming Full;
+- REIRIE Ticketmaster unchanged;
+- ORBIT/SPACE official listing unchanged with authority/show-time gaps preserved;
+- MILK LOVE authorized TTM date/venue/sale checkpoint unchanged while direct exact GMMTV detail remains unresolved;
+- no candidate/raw work packet, final lifecycle/monthly/pricing, Ledger/Audit/provider/owner outbound mutation;
+- 17:00 gap preserved without fabrication.
 
-`01_KK_GEMINI_SCOUT` contained two P0-conflicting active transport paths:
+After both controlled proofs and lease release:
+
+1. Scanner Scheduled Task was enabled first and exact task-state readback confirmed enabled.
+2. Verifier Scheduled Task was enabled second and exact task-state readback confirmed enabled.
+3. Canary remains enabled.
+
+**Audit judgment:** single-runner cutover ambiguity is no longer a P0 unknown in the same form as the 16:20 snapshot. It is now **controlled proof PASS with final ordinary scheduled steady-state verification pending**. Phase A must not be called fully complete until the next normal `:00` Scanner and subsequent `:30` Verifier run cleanly with monotonic fencing and no competing writer.
+
+### 2. Legacy Make owner-transport bypass — contained
+
+Make environment visible through the connected account:
+
+- Scenario `5911509` — `01_KK_GEMINI_SCOUT`: inactive.
+- Scenario `5901592` — `02_KK_TELEGRAM_CONTROL`: active.
+- Exact Phase C/D scenario `5988323`: not readable through this connected identity; direct scenario read returns `organization view` permission error.
+
+`01_KK_GEMINI_SCOUT` contained two P0-conflicting transport paths:
 
 1. `_AI_Inbox` rows tagged `[GPT_RESULT_READY]` -> direct Telegram `Report GPT Result` -> mark `[GPT_RESULT_SENT]`.
 2. `_Notification_Ledger` rows in `HOLD_TRANSPORT_QUARANTINE` -> direct Telegram -> mark `SENT`.
@@ -79,32 +113,66 @@ These conflict with active Machine-SOT rules:
 - `OWNER_OUTBOUND_TRANSPORT_QUARANTINE`
 - `CORE_V1_PRE_ACTIVATION_BACKLOG_POLICY` (`HISTORICAL_HOLD_TRANSPORT_QUARANTINE_NEVER_AUTO_SEND`)
 
-**Safety action performed:** scenario `5911509` was deactivated. Configuration/history were preserved; no modules were deleted and rollback remains possible by re-activation if a later approved migration requires it.
+**Safety action already performed:** scenario `5911509` remains deactivated. Configuration/history are preserved; no modules were deleted.
 
-`02_KK_TELEGRAM_CONTROL` remains active because it is owner command intake/acknowledgement and is not treated as an autonomous business-alert transport replacement.
+## Make / Phase C-D blocker — root cause narrowed
 
-## Make / Phase C-D blocker
+The migration target remains exact scenario `5988323`, one controlled Run once, OFF outside UAT.
 
-The previous migration target remains scenario `5988323`, one controlled Run once, OFF outside UAT.
+Current evidence:
 
-Current connector reconciliation changes the diagnosis:
+- Make connection itself works.
+- `5901592` is readable and its connections are healthy.
+- Direct `scenario_get(5988323)` fails with an organization-view permission error.
+- Therefore the only safe claim is: **the current Make identity cannot inspect/execute exact scenario 5988323**. Do not claim it is globally absent.
 
-- The connected Make environment is reachable.
-- However, scenario `5988323` is not present in the team or private space visible to this connection.
-- Therefore the current blocker is best classified as **environment/account/team visibility mismatch**, not merely an execution permission error.
-- Do not substitute legacy `5901592` for the Phase C/D staging blueprint.
+### `02_KK_TELEGRAM_CONTROL` blueprint diagnosis
 
-Five historical `/team PREVIEW 1c830e214878f883a92e5f42` inputs remain unreconciled in `_AI_Inbox`; another preview must not be injected until routing/state is reconciled.
+A fresh read-only audit confirmed the `/team` path in `5901592` is only an intake adapter:
+
+`Telegram WatchUpdates -> /team route -> Search TEAM Duplicate in _AI_Inbox -> Add TEAM Inbox Row -> Telegram acknowledgement`
+
+It writes `_AI_Inbox` with:
+
+- `Source=TELEGRAM_TEAM`;
+- `Status=NEW`;
+- Inbox ID based on Telegram message ID;
+- raw text/caption and Telegram chat/message IDs.
+
+It does **not** write `_Command_Queue`, `_Job_Queue_STAGING`, or `_Decision_Inbox` and therefore is not the Phase C/D worker/router.
+
+Do not patch `5901592` into a replacement for `5988323`; doing so would create architecture drift merely to force a UAT PASS.
+
+### Five preview inputs
+
+Five historical `/team PREVIEW 1c830e214878f883a92e5f42` inputs remain `_AI_Inbox=NEW`:
+
+- message 201
+- message 203
+- message 205
+- message 207
+- message 218
+
+Exact token searches at 18:50 returned zero matching rows in:
+
+- `_Command_Queue`;
+- `_Job_Queue_STAGING`;
+- `_Decision_Inbox`.
+
+Therefore the preview commands are blocked **before canonical command/job/decision routing**, not stuck inside an active worker.
+
+No sixth preview request is allowed.
+
+The persistent `MAKE_SCENARIO_AUDITOR` spec requires scenario audit before Phase C/D activation/modification, controlled Run once with scenario OFF outside test, and provider/readback evidence before PASS. The `TELEGRAM_OWNER_CONTROL` spec requires exact token + chat/message + content-version binding and fail-closed stale/duplicate callbacks.
 
 ## GitHub audit
 
 Repository: `mikesd1995/kk-phone-rental-vercel`
 
-- `main` remains at `16f20b49ce650e8eb9fc2a98bb35cd11ff80208d`.
-- `skills/x-scanner-v2` is ahead by 9 commits, behind by 0 before this audit document commit.
-- Draft PR #1 remains open and unmerged.
-- Existing PR changes before this audit were eight X Scanner V2.1 skill files plus `CURRENT_STATE.md`.
-- No Core v1/Production source file was changed by the X Scanner workstream.
+- Draft PR #1 remains open/unmerged.
+- Branch remains `skills/x-scanner-v2`.
+- No Core-v1/Production source file has been merged by this workstream.
+- Current State and this audit are continuity mirrors only; Machine SOT remains authoritative.
 
 ### GitHub semantic drift still open
 
@@ -114,40 +182,36 @@ Do not use Rental Analytics V4 semantics as current business authority until rec
 
 ## Skill inventory audit
 
-Persistent ChatGPT Library `/Skills` now contains the complete original **18-skill set** requested for migration convenience:
+Persistent ChatGPT Library `/Skills` contains the complete original **18-skill set** requested for migration convenience:
 
 - 17 Starter Pack skills.
 - 1 on-demand `x-content-competitor-pricing-scanner` skill.
-
-This means **Library-uploaded = 18/18** for the original requested set.
 
 Important distinction:
 
 - Library upload != Runtime Installed.
 - X Scanner V2.1 eight-skill revised pack remains staging/GitHub work and does not imply runtime installation.
-- The original 17 Starter specs retain their own readiness statuses; they are not automatically promoted because the files exist in Library.
+- Original Starter specs retain their own readiness states.
 
 ## Runtime/data-quality gaps
 
 ### Stale implementation locks
 
-`_Run_Lock` still contains historical `CODEX_IMPLEMENTATION` rows whose Status remains `ACTIVE` despite expired lock windows, including rows from Aug 28/Aug 31 and a Sep 3 implementation lease that expired at 15:54.
-
-Do not retroactively rewrite these rows by hand. Treat as a governance/data-quality gap: cleanup must use the current reconciliation/lock recovery contract so historical evidence is not fabricated.
+`_Run_Lock` contains historical `CODEX_IMPLEMENTATION` rows whose status remained ACTIVE after expired windows in prior audits. Do not retroactively rewrite those rows by hand. Cleanup must use the formal reconciliation/recovery contract so historical evidence is preserved.
 
 ### Inventory feed
 
-`_Inventory_Collision` still contains many `inventory feed unavailable` / `CRM feed unavailable` states. This is why Phase B/F cannot be called unified runtime complete even though no-oversell/KYC logic passes deterministic canaries.
+`_Inventory_Collision` contains `inventory feed unavailable` / `CRM feed unavailable` states. Phase B/F therefore cannot be called unified runtime complete.
 
 ### Outcome table
 
-`_Business_Outcome` contains only the header in current readback. Phase G therefore remains staging-only; no live learning claims are valid yet.
+`_Business_Outcome` had only the header in current audit readback. Phase G remains staging-only; no live-learning claim is valid yet.
 
 ## X Scanner V2.1 status
 
 Status: **STAGING_REVIEWED / SAFE FOR REVIEW, NOT RUNTIME INSTALLED**.
 
-Guardrails now present:
+Guardrails present:
 
 - on-demand only; no Core scanner schedule mutation
 - exact-event evidence first
@@ -157,29 +221,36 @@ Guardrails now present:
 - `CONTENT_GATE=PASS` required before the existing three-variant engine
 - no Production write/publish/notification side effect from the scanner skill
 
-## Changes made during this audit
+## Changes made during the full 3 Sep audit
 
-1. Re-read Starter Pack phase/current-state/audit-gap documents.
-2. Re-read live `_Policy_Registry`, `_Core_V1_Status`, `_Run_Manifest`, `_Run_Lock`, `_Canary_Suite`, `_Inventory_Collision`, `_Business_Outcome` and current scheduled tasks.
-3. Confirmed exactly one Active policy version (`v4.9.2`).
-4. Confirmed current Scanner fencing/readback through lease v199.
-5. Confirmed original 18/18 skills are present in Library.
-6. Audited connected Make environment and both visible scenarios.
-7. Identified active legacy direct-owner transport paths in `01_KK_GEMINI_SCOUT`.
-8. **Deactivated `01_KK_GEMINI_SCOUT` (5911509)** as reversible P0 containment.
-9. Kept `02_KK_TELEGRAM_CONTROL` active as owner command intake.
-10. Kept new ChatGPT Scanner and Verifier paused.
-11. Kept Canary enabled.
-12. Left `main` unmodified and PR #1 draft/unmerged.
-13. Did not inject another `/team PREVIEW`.
+1. Re-read migration/current-state/phase materials and live authority.
+2. Confirmed exactly one Active policy version (`v4.9.2`).
+3. Audited connected Make environment and visible scenarios.
+4. Identified and contained legacy direct-owner transport in `5911509`.
+5. Preserved `5901592` as intake only.
+6. Kept `main` unmerged and X Scanner V2.1 staging-only.
+7. Paused Scanner/Verifier to obtain no-overlap evidence.
+8. Observed no independent legacy Scanner/Verifier boundaries in the pause-window slots.
+9. Verified controlled Verifier v199 FINISHED/released with NO_OPERATIONAL_PACKET and no protected mutation.
+10. Detected Scanner v200 active and did not compete with its fenced lease.
+11. Verified v200 release, Manifest FINISHED, exact Scan Status and three actual Coverage rows.
+12. Re-enabled Scanner first with task-state readback.
+13. Re-enabled Verifier second with task-state readback.
+14. Audited `5901592` modules/mappings and proved `/team` only writes `_AI_Inbox` + acknowledgement.
+15. Retried exact `5988323` and confirmed current identity is blocked by organization-view permission.
+16. Proved the preview token has zero Command/Job/Decision matches.
+17. Did not inject another preview, did not reactivate legacy bypass, did not merge main, and did not manufacture provider/business writes.
 
 ## Current blockers by priority
 
 ### P0
 
-1. **Single-runner identity/cutover proof** — must observe a post-pause scheduled window and determine whether another Scanner/Verifier runner continues.
-2. **Make 5988323 environment visibility** — locate/reconnect the exact organization/team/account that owns it.
-3. **Reconcile five historical preview inputs** before any sixth preview request.
+1. **Make 5988323 access** — reconnect/grant the exact organization/team/account permission needed to inspect the existing scenario.
+2. **Preview routing reconciliation** — five `_AI_Inbox=NEW` requests have not entered Command/Job/Decision routing; no sixth injection.
+
+### Phase A final observation gate
+
+3. Observe the next ordinary scheduled Scanner `:00` and following Verifier `:30` after re-enable. If both complete with monotonic fencing/readback and no competing writer, Phase A can be marked Runtime Steady-State Verified / Complete.
 
 ### P1
 
@@ -196,11 +267,9 @@ Guardrails now present:
 
 ## Next exact action
 
-**Do not re-enable the new Scanner/Verifier yet.**
-
-At the next expected Scanner/Verifier window after this audit, read `_Run_Manifest` and `_Run_Lock` while the new ChatGPT Scanner/Verifier remain paused:
-
-- if new Scanner/Verifier rows still appear, another runner is proven active; identify and disable that runner first;
-- if no rows appear, the paused new tasks are likely the only current runner and can be re-enabled one role at a time with first-run fencing/readback proof.
-
-In parallel, reconnect the Make organization/team that owns scenario `5988323`; do not substitute `5901592`.
+1. Observe the next ordinary Scanner `:00` Machine-SOT boundary after re-enable and require fencing > v200, exact Manifest/Status/Coverage, release/readback, and no competing writer.
+2. Observe the subsequent ordinary Verifier `:30` boundary and require its fenced lease/readback plus correct packet-selection behavior.
+3. If both pass, close Phase A as `RUNTIME STEADY-STATE VERIFIED / COMPLETE`.
+4. In parallel, reconnect or grant Make access to the organization/team containing exact scenario `5988323`.
+5. Audit that exact scenario before execution; do not substitute `5901592`.
+6. Reconcile the five existing preview inputs, then perform exactly one controlled Phase C/D Runtime UAT with `WAITING_APPROVAL` + exact Telegram message/version readback and zero X/LINE/customer send.
