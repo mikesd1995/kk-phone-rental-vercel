@@ -1,194 +1,148 @@
 # KK Phone Rental — Current State Checkpoint
 
-Checkpoint: 2026-09-03 16:13 Asia/Bangkok
+Checkpoint: 2026-09-03 16:22 Asia/Bangkok
 Branch: `skills/x-scanner-v2`
 
-> This file is a progress checkpoint for migration/workstream continuity. It does not override the live Machine SOT. If this file conflicts with the highest Active `_Policy_Registry`, current Machine SOT runtime state, or newer provider/readback evidence, the newer live authority wins.
+> Live Machine SOT, highest Active `_Policy_Registry`, provider state and readback evidence are authoritative. This checkpoint is a continuity mirror only.
+
+Full detailed audit: `docs/kk-phone-rental/PHASE_AUDIT_2026-09-03.md`.
 
 ## Operating workflow
 
-Use this sequence for every continued workstream:
-
 `READ DOC -> RECONCILE LIVE STATE -> EXECUTE NEXT ACTION -> READBACK/VERIFY -> WRITE BACK DOC -> SET NEXT ACTION`
 
-Do not rebuild Core v1. Continue from the latest verified state and fail closed when authority, ownership, fencing, provider access, or runtime evidence is ambiguous.
+Do not rebuild Core v1. Fail closed when authority, ownership, fencing, provider access or runtime evidence is ambiguous.
 
-## Documents read before this checkpoint
+## Current position
 
-The migration Starter Pack was read/reconciled before performing the work in this checkpoint, including:
+**Core v1: RUNTIME_VERIFIED / COMPLETE.**
 
-- `00_READ_ME_FIRST.md`
-- `01_CODEX_BOOTSTRAP_PROMPT.md`
-- `02_PROJECT_CURRENT_STATE.md`
-- `04_SOURCE_OF_TRUTH_MAP.md`
-- `05_ACTIVE_RULES_AND_POLICIES.md`
-- `10_SKILL_CATALOG.md`
-- `12_PHASE_HISTORY_AND_STATUS.md`
-- `14_MIGRATION_CHECKLIST.md`
-- `15_AUDIT_GAPS_UNVERIFIED.md`
-- `17_GITHUB_STATE.md`
-- `21_VERIFICATION_REPORT.md`
+Current work position: **Phase A closeout / Phase C-D pre-runtime-UAT.**
 
-These files remain migration/reference material; live Machine SOT/provider/readback evidence is authoritative when newer.
+The project is not waiting on core design. The remaining blockers are runtime ownership/cutover proof, exact Make environment access, and controlled provider readback.
 
-## Live authority reconciliation
+## Live authority
 
-### Machine SOT
+- Machine SOT: `KK Phone Rental — Event Tracker Aug–Dec 2569`.
+- Spreadsheet ID: `1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo`.
+- Exactly one Active `POLICY_VERSION`: `v4.9.2 BALANCED SOURCE COVERAGE`.
+- `_Policy_Registry` overrides stale `_Scan_Control` mirror/business-text drift.
+- Current company semantic: Thai performer => talent agency/label; foreign performer => local organizer/promoter; organizer remains separately captured.
+- Core owner outbound remains Notification-Ledger-only.
 
-- Spreadsheet: `KK Phone Rental — Event Tracker Aug–Dec 2569`
-- Spreadsheet ID: `1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo`
-- Live `_Policy_Registry` confirms exactly one Active `POLICY_VERSION`: `v4.9.2 BALANCED SOURCE COVERAGE`.
-- `_Policy_Registry` wins over `_Scan_Control` mirror drift and stale automation prompts.
-- Live competitor boundary remains `SCANNER_RAW_VERIFIER_FINAL`.
-- KK Phone Rental own listings are excluded from competitor evidence.
-- Exact-event range requires at least 2 independent competitors; median requires at least 3.
+## Core v1
 
-### Core v1
-
-Core v1 remains treated as `RUNTIME_VERIFIED / COMPLETE` and was not rebuilt or modified in this workstream.
-
-Existing chain remains:
+Preserved and unchanged:
 
 `Scanner -> Verifier -> Google Sheet -> Notification Ledger -> Telegram + LINE`
 
-No Core-v1 architecture replacement was created.
+Core v1 remains dual-channel runtime verified and must not be rebuilt.
 
-## Runtime runner reconciliation — P0 single-runner state
+## Runner / single-runner state
 
-Live `_Run_Manifest` shows continuous Scanner/Verifier execution through 2026-09-03 before and during this migration window.
+Current ChatGPT Scheduled Tasks:
 
-Recent observed evidence includes:
+- `KK Discovery Scanner — Current Policy`: **PAUSED/DISABLED**.
+- `KK GPT Verifier — Current Policy`: **PAUSED/DISABLED**.
+- `KK Canary Safety — Enabled Suite`: **ENABLED**.
 
-- Scanner `SCV492-20260903T145731` — 15:00 COMPETITOR DEEP — `FINISHED` at 15:06:20.
-- Verifier `GPTV492-20260903T152829` — two competitor packets frozen/adjudicated — final completion recorded at 15:33.
-- Scanner `SCV492-20260903T155820` — 16:00 heartbeat — `FINISHED` at 15:59:10.
+Live Machine SOT on 3 Sep shows Scanner/Verifier runtime through:
 
-The new ChatGPT Scheduled Task `KK Discovery Scanner — Current Policy` also recorded its first run at approximately 15:59 ICT. Because the Machine SOT Manifest does not expose the ChatGPT task ID, the source of the 16:00 Manifest cannot be attributed safely to old vs new runner from this evidence alone.
+- Scanner 15:00 — lease v198 released.
+- Verifier 15:30 — lease v198 released.
+- Scanner 16:00 — lease v199 released.
 
-Therefore **single-runner cutover is NOT VERIFIED**.
+Because the first new ChatGPT Scanner run occurred at approximately the 16:00 window and Machine SOT does not record the ChatGPT task ID, exact ownership of that 16:00 run cannot be attributed safely.
 
-Safety action taken in this checkpoint:
+**Single-runner cutover remains NOT VERIFIED.** Keep new Scanner/Verifier paused until a later expected window proves whether another runner continues.
 
-- New `KK Discovery Scanner — Current Policy`: **PAUSED/DISABLED** after its first observed run.
-- New `KK GPT Verifier — Current Policy`: **PAUSED/DISABLED**.
-- `KK Canary Safety — Enabled Suite`: **ENABLED**; it is not treated as a competing production writer and its prompt must not create synthetic production writes.
+## Make containment and Phase C/D access
 
-Do not re-enable the new Scanner or Verifier until the prior runner is identified/disabled or conclusively proven to be the same runner, followed by no-overlap readback.
+Connected Make environment currently exposes:
 
-## X Scanner V2.1 workstream
+- `5911509` — `01_KK_GEMINI_SCOUT`.
+- `5901592` — `02_KK_TELEGRAM_CONTROL`.
+- exact Phase C/D scenario `5988323` is not visible in the connected team/private space.
 
-Status: `SAFE_TO_INSTALL` after adjustment, but not merged to `main`.
+During the 16:20 audit, `01_KK_GEMINI_SCOUT` was confirmed to contain active legacy transport bypasses:
 
-GitHub:
+- direct `_AI_Inbox` GPT-result -> Telegram send;
+- `HOLD_TRANSPORT_QUARANTINE` Ledger row -> Telegram send -> `SENT`.
 
-- Repository: `mikesd1995/kk-phone-rental-vercel`
-- Branch: `skills/x-scanner-v2`
-- Draft PR: `#1 Add on-demand X scanner v2.1 skills`
-- Base remains `main`.
-- `main` has not been merged or modified by this workstream.
+These conflict with current P0 ledger-only/quarantine rules.
 
-Eight skills were added under `ai/skills/<skill>/SKILL.md`:
+**Action taken:** scenario `5911509` was deactivated as reversible containment. Its configuration/history were preserved.
 
-1. `x-content-competitor-pricing-scanner`
-2. `event-web-research-orchestrator`
-3. `social-media-event-scanner`
-4. `poster-media-fact-extractor`
-5. `official-hashtag-verifier`
-6. `competitor-rental-hunter`
-7. `competitor-price-evidence-ranker`
-8. `scan-completeness-auditor`
+`02_KK_TELEGRAM_CONTROL` remains active as owner command intake/acknowledgement. Do not substitute it for Phase C/D scenario `5988323`.
 
-V2.1 changes include:
+The Make blocker is now classified as **environment/account/team visibility mismatch for scenario 5988323**.
 
-- on-demand only; no hourly Core Discovery Scanner hook
-- canonical trigger: `ขอโพสงานนี้บน X`
-- dependency cycles removed
-- existing `EVIDENCE_VERIFIER` remains the promotion gate for event facts and competitor evidence
-- existing `CONTENT_THREE_VARIANT_ENGINE` runs only after `CONTENT_GATE=PASS`
-- source states remain distinct: `CHECKED / BLOCKED / NOT_ACCESSIBLE`
-- no guessing date/time/venue/hashtag/link/competitor price/access success
-- exact-event competitor evidence before comparable fallback
-- no Production write/publish/notification side effect from the scanner skill
+## Phase status
 
-Static replay/regression result: 12/12 checks passed; dependency graph has 0 cycles.
+- Core v1 — **RUNTIME_VERIFIED / COMPLETE**.
+- A Runtime Stability — **MOST CORE CONTROLS BUILT / CLOSEOUT IN PROGRESS**.
+- B Business Brain — **PARTIAL / unified runtime domain not proven**.
+- C Content + Creative — **LOCAL/SYNTHETIC PASS; runtime UAT pending**.
+- D Telegram Owner Control — **LOCAL/SYNTHETIC PASS; runtime UAT pending**.
+- E X Publish — **LOCAL/SYNTHETIC PASS; runtime pending**.
+- F LINE OA / Booking / KYC — **PARTIAL**.
+- G Outcome Learning — **LOCAL/SYNTHETIC PASS / STAGING ONLY**; `_Business_Outcome` current readback is header-only.
 
-## Phase C/D Runtime UAT
+## X Scanner V2.1
 
-Status: `BLOCKED / NOT EXECUTED IN THIS CHECKPOINT`.
+Status: **STAGING_REVIEWED / NOT RUNTIME INSTALLED**.
 
-Exact target remains:
+- Draft PR #1 remains open/unmerged.
+- No Core/Production source file changed by this workstream.
+- Eight V2.1 skill files remain on branch for review.
+- Exact-event-first, no invented facts/hashtags/prices/links/access success.
+- Existing verifier remains promotion gate.
+- `CONTENT_GATE=PASS` required before three-variant generation.
+- No schedule/Core/Production side effect from the on-demand skill.
 
-- command/token: `/team PREVIEW 1c830e214878f883a92e5f42`
-- Make scenario: `5988323`
-- controlled `Run once` only
-- scenario OFF outside UAT
+## Skill Library
 
-Current blocker:
+Persistent `/Skills` now contains the complete original requested **18/18** set:
 
-The connected Make account cannot read/run scenario `5988323`; provider response requires admin permission `organization view`.
+- 17 Starter Pack skills;
+- 1 on-demand X content/competitor/pricing scanner.
 
-Do not substitute legacy scenario `5901592`.
+Library presence does **not** mean Runtime Installed.
 
-Live `_AI_Inbox` already contains five prior rows for the exact preview token, Telegram message IDs:
+## GitHub drift
 
-- 201
-- 203
-- 205
-- 207
-- 218
+`main` still contains Rental Analytics V4 semantics that make talent affiliation primary and intentionally exclude organizer/promoter as primary. This conflicts with the Sep-1 foreign-performer rule in Machine SOT.
 
-All were observed as `NEW`. No matching token was found during reconciliation in `_Command_Queue`, `_Decision_Inbox`, `_Notification_Ledger`, or `_Job_Queue_STAGING`.
+Do not treat Rental Analytics V4 business-company semantics as current authority until reconciled.
 
-Therefore another `/team PREVIEW` was intentionally not injected.
+## Remaining P0
 
-Required successful UAT readback remains:
+1. Prove single-runner ownership after the new Scanner/Verifier pause.
+2. Reconnect the Make organization/team that owns scenario `5988323`.
+3. Reconcile the five historical `/team PREVIEW 1c830e214878f883a92e5f42` inputs before any sixth injection.
 
-- Telegram `message_id`
-- exact `WAITING_APPROVAL` row
-- exact preview/token/version binding
-- no X publish
-- no LINE/customer send
-- scenario returned OFF outside UAT
+## Important P1
 
-## Known drift / unresolved items
+- Canva: persist real design ID/link + source poster and perform one runtime draft binding after C/D preview.
+- X: one controlled provider publish/readback only after exact content+creative approval.
+- Booking/Business Brain: connect live CRM/inventory; many `_Inventory_Collision` rows still report unavailable CRM/inventory feed.
+- Price Integrity v3.9.5.9: prepared/unverified; never assume deployed.
+- Analytics semantic reconciliation with Sep-1 company rules.
 
-1. **P0 — single-runner cutover not verified.** New Scanner/Verifier are paused to prevent overlap until old/runtime runner ownership is reconciled.
-2. **P0 — Phase C/D runtime UAT blocked by Make permission** for exact scenario `5988323`.
-3. **P0 — five unreconciled preview requests** already exist in `_AI_Inbox`; do not create a sixth until their routing state is resolved.
-4. `_Scan_Control` is a lower-authority mirror and contains stale business-semantic material relative to the newer Sep-1 company semantics. Do not let it override `_Policy_Registry`; repair only through an explicitly approved reconciliation scope.
-5. X Scanner V2.1 remains Draft-PR only; Runtime Installed status is not implied by branch files.
-6. `main` must remain unmerged until owner approval.
-
-## Changes made in this checkpoint
-
-- Re-read migration/current-state documents before continued work.
-- Reconciled live `_Policy_Registry`, `_Scan_Control`, `_Run_Manifest`, `_Run_Lock`, UAT queues and current Scheduled Tasks.
-- Confirmed live runtime activity through 2026-09-03.
-- Paused the new Discovery Scanner after detecting that single-runner cutover could not be proven.
-- Kept the new GPT Verifier paused.
-- Kept Canary Safety enabled.
-- Preserved Core v1 and Production behavior.
-- Preserved Make scenario state; no Run once was executed.
-- Preserved the five existing preview requests; no sixth request was created.
-- Kept PR #1 draft and `main` unmerged.
-
-## Explicitly NOT done
+## Explicit non-actions
 
 - No merge to `main`.
 - No Core v1 rebuild.
-- No replacement Scanner/Queue/Sheet architecture.
-- No new `/team PREVIEW` injection.
-- No Make `5988323` execution or activation.
-- No legacy `5901592` substitution.
-- No direct owner send.
-- No manual protected Machine-SOT business mutation to force a PASS.
+- No sixth `/team PREVIEW` injection.
+- No substitution of `5901592` for `5988323`.
+- No direct protected Machine-SOT business mutation to force PASS.
+- No Runtime Installed claim for Library/GitHub skill files.
 
 ## Next Exact Action
 
-**Single-Runner Reconciliation before any runner re-enable.**
+Keep new ChatGPT Scanner/Verifier paused and inspect the next expected Machine-SOT Scanner/Verifier window:
 
-With the new ChatGPT Scanner and Verifier paused, observe the next expected live Scanner/Verifier windows in Machine SOT. If fresh Manifest rows continue to appear, that proves another/legacy runner is still active. Identify and disable that runner, wait for any active lease to finish, verify no further old-runner Manifest/lock activity, then enable the new runner one role at a time and verify its first run/readback before proceeding.
+- if fresh rows appear, another runner is proven active; identify and disable it, then wait for lease completion;
+- if no rows appear, re-enable the new roles one at a time and verify first-run fencing/readback.
 
-After single-runner cutover is proven, restore access to Make scenario `5988323`, reconcile the five existing preview rows, and execute exactly one controlled Phase C/D Runtime UAT.
-
-After each material step, update this file with actual readback evidence and replace `Next Exact Action` with the next single safe action.
+In parallel, reconnect the Make organization/team containing exact scenario `5988323`, then reconcile the five existing preview inputs before one controlled Phase C/D Runtime UAT.
