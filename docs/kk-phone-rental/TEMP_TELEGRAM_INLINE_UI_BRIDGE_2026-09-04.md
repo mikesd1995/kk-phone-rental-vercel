@@ -1,51 +1,41 @@
 # KK Phone Rental — Temporary Telegram Inline Preview UI Bridge
 
 Date: 2026-09-04 Asia/Bangkok
-Status: **TEMPORARY COMPATIBILITY BRIDGE / STAGING-ONLY CALLBACKS**
+Status: **TEMPORARY COMPATIBILITY BRIDGE / TELEGRAM PREVIEW RUNTIME PASS / CALLBACK RUNTIME TEST PENDING**
 Canonical Phase-D owner-control target remains Make scenario `5988323`.
 
-## Why this temporary bridge exists
+## Purpose
 
-The owner requested Telegram preview choices to have real inline buttons instead of requiring manual `1 / 2 / 3` typing. The canonical Phase C/D Make scenario `5988323` is still inaccessible to the current Make identity because provider access requires `organization view` permission.
+The owner requested real Telegram Inline Keyboard controls for the three content choices before Codex completes the canonical Phase-D migration. The canonical scenario `5988323` remains inaccessible to the current Make identity because provider access requires `organization view` permission.
 
-The currently visible active intake scenario `5901592 — 02_KK_TELEGRAM_CONTROL` previously accepted `/team` messages into `_AI_Inbox` but had no `callback_query` route and no inline keyboard for content preview messages.
+This bridge lives temporarily inside `5901592 — 02_KK_TELEGRAM_CONTROL`. It is not the final owner-control architecture and must be removed after canonical Phase-D runtime UAT passes.
 
-This bridge was added only so the owner can receive and press Telegram Inline Keyboard buttons now. It is explicitly **not** the final Phase-D implementation.
+## Temporary runtime design
 
-## Runtime change applied
+### Generic TEAM route containment
 
-Scenario: `5901592 — 02_KK_TELEGRAM_CONTROL`
-Current Make lastEdit after lookup fix: `2026-09-03T18:35:05.288Z`
-Scenario state after readback: **ACTIVE**.
-
-### Route-D change
-
-Module `15 — Search TEAM Duplicates` excludes commands starting with `/team PREVIEW` from the old generic TEAM intake route.
-
-Reason: avoid creating a sixth duplicate `_AI_Inbox=NEW` preview row while the five historical preview inputs remain unreconciled.
+Module `15 — Search TEAM Duplicates` excludes `/team PREVIEW` so preview tests do not create new legacy `_AI_Inbox` rows.
 
 ### Module 20 — Content lookup
 
 `google-sheets:filterRows`
 
-- Reads the live tab `_Content_Workspace_STAGING` from the Event/AI Machine SOT.
-- Accepts owner-only `/team PREVIEW <callback-token>` in Telegram chat `-5405977132`.
-- Matches callback token in column O and requires `STATUS=DRAFT`.
-- Limit = 1.
+- Live sheet: `_Content_Workspace_STAGING`
+- Owner-only `/team PREVIEW <callback-token>`
+- Telegram chat: `-5405977132`
+- Callback token match in column O
+- Requires `STATUS=DRAFT`
+- Limit 1
 
-The first implementation mistakenly referenced `_Content_Staging`. A real Telegram runtime test then failed at module 20 with:
+The first implementation mistakenly referenced `_Content_Staging`. Runtime exercise failed with:
 
 `400: INVALID_ARGUMENT - Unable to parse range: '_Content_Staging'!O2:O1000000`
 
-Live spreadsheet metadata subsequently proved the actual tab name is `_Content_Workspace_STAGING` with 2,000 rows and 30 columns. The DRAFT row and token were read back directly from that live tab, with both `EXTERNAL_SEND_AUTHORIZED=false` and `PRODUCTION_PUBLISH_AUTHORIZED=false`.
+Live spreadsheet metadata proved the real tab is `_Content_Workspace_STAGING` with 2,000 rows and 30 columns. Module 20 was corrected to that live tab.
 
-Safe fix applied: module 20 was repointed from `_Content_Staging` to `_Content_Workspace_STAGING`. Make accepted the patch with no patch errors. A new owner Telegram update is still required to runtime-exercise the repaired route because this scenario is webhook/event-driven and Make cannot synthesize the owner's incoming Telegram message.
+### Module 21 — Telegram preview + Inline Keyboard
 
-### Module 21 — Telegram preview with Inline Keyboard
-
-`telegram:SendReplyMessage`
-
-The preview renders the three content bodies and attaches these inline actions:
+The preview renders three variants and these buttons:
 
 - `1️⃣ เลือกแบบ 1`
 - `2️⃣ เลือกแบบ 2`
@@ -65,81 +55,102 @@ Callback payloads are token-bound:
 - `KKC|REJ|<callback-token>`
 - `KKC|CAN|<callback-token>`
 
-The preview warns that this is a temporary staging-only bridge and does not authorize X/LINE/customer publishing.
+### Module 22 — Temporary callback staging intake
 
-### Module 22 — Callback staging intake
-
-Owner-only Telegram callbacks are appended to `_Command_Queue` with:
+Owner callbacks append to `_Command_Queue` with:
 
 - `STATUS=RECEIVED_TEMP_UI`
 - `REQUESTED_OUTCOME=TEMP_PHASE_D_UI_CALLBACK`
-- callback token preserved in `RAW_COMMAND`
-- callback query ID and preview message ID preserved in `NOTES`
+- callback token preserved
+- callback query ID and preview Telegram message ID preserved
 - `temporary_compatibility_path=true`
 - `canonical_phase_d_scenario=5988323`
-- `no_external_publish=true`
-- `no_line_send=true`
-- `no_customer_send=true`
+- no X publish
+- no LINE/customer send
 
-### Module 23 — Telegram callback acknowledgement
+### Module 23 — Callback acknowledgement
 
-`telegram:UniversalAPICall` calls `answerCallbackQuery` so button presses do not remain spinning in Telegram.
+Calls Telegram `answerCallbackQuery` so a pressed button receives an acknowledgement. Temporary APPROVE acknowledgement explicitly states staging-only and not published.
 
-Approval acknowledgement explicitly says it is staging-only and not published.
+## Runtime exercise result — PASS for preview delivery
 
-## Safety boundary
+### First exercise
 
-This temporary bridge does **not**:
+The owner sent `/team PREVIEW 1c830e214878f883a92e5f42`.
 
-- set `_Content_Workspace_STAGING.EXTERNAL_SEND_AUTHORIZED=true`;
-- set `_Content_Workspace_STAGING.PRODUCTION_PUBLISH_AUTHORIZED=true`;
-- publish to X;
-- send LINE/customer messages;
-- release historical Notification Ledger quarantine;
-- claim canonical Phase-D completion;
-- replace scenario `5988323` as the target architecture.
+The update reached module 20 but failed because of the stale `_Content_Staging` tab reference. No Telegram preview was sent and no production mutation occurred.
 
-The callback path records owner intent only.
+### Repair
 
-## Verification state
+Module 20 was repointed to the live `_Content_Workspace_STAGING` tab. The prior failed run had placed Make scenario `5901592` into `error` state, so the scenario was explicitly re-activated. Make confirmed it was active again.
 
-Confirmed:
+### Second exercise / provider readback
 
-- `5901592` remains the active Telegram owner-intake scenario;
-- modules `20`, `21`, `22`, `23` exist;
-- inline keyboard JSON is configured;
-- callback staging intake is configured;
-- `answerCallbackQuery` is configured;
-- live spreadsheet metadata confirms `_Content_Workspace_STAGING` exists with rowCount 2000 / columnCount 30;
-- live DRAFT row contains callback token `1c830e214878f883a92e5f42`;
-- production authorization fields remain false;
-- the failed first button exercise reached module 20 through the intended PREVIEW route and stopped before any Telegram preview send or production mutation;
-- module 20 has now been corrected to the live tab name.
+After re-activation, Make successfully executed the repaired preview flow:
 
-Current classification: **LOOKUP ROOT CAUSE FIXED / REPAIRED ROUTE RUNTIME RETEST PENDING**.
+`Telegram WatchUpdates -> module 20 content lookup -> module 21 SendReplyMessage`
 
-## Runtime retest
+Provider output proved the Telegram message contained a real `reply_markup.inline_keyboard` with all seven configured buttons.
 
-Send:
+Successful Telegram provider message IDs:
 
-`/team PREVIEW 1c830e214878f883a92e5f42`
+- `224`
+- `225`
 
-Expected repaired flow:
+Both messages contained version `CONTENT|NONTENCORE|20261003-04|X|V1` and callback token `1c830e214878f883a92e5f42`.
 
-Telegram owner update -> PREVIEW compatibility route -> `_Content_Workspace_STAGING` token/DRAFT lookup -> Telegram message with 7 inline buttons.
+### Why two previews were sent
 
-After one button press, verify exactly one `RECEIVED_TEMP_UI` row in `_Command_Queue`, callback acknowledgement, no sixth historical `_AI_Inbox` preview duplicate, and no production authorization/publish state change.
+Make re-activation replayed the earlier failed Telegram delivery while also processing the newer accepted owner delivery. This produced two successful preview executions at nearly the same time and therefore two equivalent Telegram preview messages.
 
-## Codex cleanup / migration requirement
+This is a temporary-bridge idempotency/stale-message limitation and is additional evidence that the canonical Phase-D implementation must bind callbacks to exact `token + version + Telegram message_id + approval fingerprint` and reject stale/duplicate callbacks.
 
-When access to canonical scenario `5988323` is restored, Codex should:
+For temporary testing, use the latest preview (`message_id=225`) and ignore the older duplicate (`224`).
 
-1. audit the exact canonical Phase-D blueprint;
-2. implement inline keyboard and callback handling there with exact `token + version + Telegram chat + Telegram message_id + approval fingerprint` binding;
-3. enforce stale/duplicate callback rejection;
-4. implement true SELECT/APPROVE/REVISE/REJECT/CANCEL transitions under canonical protected-write/readback rules;
-5. ensure APPROVE still does not publish until downstream creative/X gates authorize it;
-6. reconcile any `RECEIVED_TEMP_UI` rows created by this bridge;
-7. remove/disable modules 20–23 and restore `5901592` to owner-intake-only scope after canonical runtime UAT passes.
+## Safety readback after runtime delivery
 
-Do not leave two Phase-D callback writers active after cutover.
+Exact live readback confirmed:
+
+- `_AI_Inbox` still contains exactly the same five historical matching preview requests only: Telegram message IDs `201`, `203`, `205`, `207`, `218`.
+- No sixth `_AI_Inbox` duplicate was created by the temporary PREVIEW route.
+- `_Content_Workspace_STAGING.STATUS` remains `DRAFT`.
+- `EXTERNAL_SEND_AUTHORIZED=false`.
+- `PRODUCTION_PUBLISH_AUTHORIZED=false`.
+- No X publish, LINE/customer send, or quarantine release occurred.
+
+Current classification:
+
+**TELEGRAM INLINE PREVIEW = PROVIDER RUNTIME PASS**
+
+**TEMPORARY CALLBACK ACTION = CONFIGURED / BUTTON-PRESS RUNTIME TEST PENDING**
+
+Canonical Phase D remains incomplete.
+
+## Next controlled test
+
+Press exactly one button on the latest Telegram preview (`message_id=225`). Recommended first test: `1️⃣ เลือกแบบ 1`.
+
+Then verify:
+
+1. exactly one new `_Command_Queue` row with `STATUS=RECEIVED_TEMP_UI`;
+2. callback query ID and Telegram preview message ID are preserved;
+3. Telegram callback acknowledgement succeeds;
+4. `_Content_Workspace_STAGING` production authorization fields remain false;
+5. no X/LINE/customer provider action occurs.
+
+Do not use temporary `✅ อนุมัติ` as production authorization; it records owner intent only.
+
+## Codex cleanup / canonical migration requirement
+
+When access to scenario `5988323` is restored, Codex must:
+
+1. audit its exact canonical Phase-D blueprint;
+2. implement Inline Keyboard there;
+3. bind callbacks to exact `token + content version + Telegram chat + Telegram message_id + approval fingerprint`;
+4. reject stale and duplicate preview/callback messages;
+5. implement true SELECT / APPROVE / REVISE / REJECT / CANCEL protected state transitions with exact readback;
+6. keep X publishing behind downstream creative/provider gates;
+7. reconcile temporary `RECEIVED_TEMP_UI` rows;
+8. remove/disable temporary modules 20–23 from `5901592`;
+9. restore `5901592` to owner-intake-only scope;
+10. never leave two Phase-D callback writers active after cutover.
