@@ -5,7 +5,8 @@
   "scripts": {
     "start": "vercel dev",
     "deploy": "vercel --prod",
-    "check": "node --check script.js && node --check admin/admin.js && node --check admin/rental-analytics.js && node --check api/kk-admin.js && node --check api/kk-data.js && node --check api/kk-rental-dashboard.js"
+    "test:governed": "node scripts/kk-crm-projection.test.js && node scripts/kk-booking-intake-guard.test.js && node scripts/kk-outcome-projector.test.js",
+    "check": "node --check script.js && node --check admin/admin.js && node --check admin/rental-analytics.js && node --check api/kk-admin.js && node --check api/kk-data.js && node --check api/kk-rental-dashboard.js && node --check lib/kk-crm-projection.js && node --check lib/kk-booking-intake-guard.js && node --check lib/kk-outcome-projector.js && node --check scripts/kk-crm-projection.test.js && node --check scripts/kk-booking-intake-guard.test.js && node --check scripts/kk-outcome-projector.test.js && npm run test:governed"
   },
   "engines": {
     "node": ">=20"
