@@ -1,12 +1,15 @@
 # KK Phone Rental — Current State Checkpoint
 
-Checkpoint: 2026-09-05 23:31 Asia/Bangkok  
+Checkpoint: 2026-09-06 03:20 Asia/Bangkok  
 Branch: `skills/x-scanner-v2`
 
 > Live highest Active `_Policy_Registry`, Machine SOT, canonical CRM/backend, automation/provider state and exact readback are authoritative. This file is a continuity mirror only.
 
 Astra review handoff:
 `docs/kk-phone-rental/ASTRA_REVIEW_READY_2026-09-05.md`
+
+Control-plane evidence:
+`docs/kk-phone-rental/CONTROL_PLANE_OFF_DRIFT_EVIDENCE_2026-09-05.md`
 
 ## Continuation rule
 
@@ -16,7 +19,7 @@ Do not restart completed phases, rebuild Core v1 without evidence, create compet
 
 ## Current classification
 
-**CORE SAFE / GOVERNED ENGINEERING SYNCHRONIZED THROUGH v4.9.4 / EXTERNAL-PERMISSION-DEPLOYMENT-FUTURE-EVIDENCE GATES FAIL-CLOSED.**
+**CORE SAFE / GOVERNED ENGINEERING SYNCHRONIZED THROUGH v4.9.4 / KNOWN CODE-ONLY BACKLOG CLOSED / EXTERNAL-PERMISSION-DEPLOYMENT-FUTURE-EVIDENCE GATES FAIL-CLOSED / CONTROL-PLANE ROOT CAUSE OPEN.**
 
 ## Authority
 
@@ -28,6 +31,8 @@ Latest live read resolves exactly one Active policy:
 `v4.9.4 COMPETITOR DISCOVERY & SOURCE PERSISTENCE`
 
 v4.9.4 inherits v4.9.3 fresh/current-market semantics and adds reverse competitor event discovery, per-active-source attempt coverage, unknown-event normalize/dedup/geo/authority routing, parse-before-geo-suppression for accessed feeds, recurring official source persistence, known-source event-gap audit and concrete learned-miss repair/readback requirements.
+
+No later repository mutation attributable to an Astra review was found after the prior Astra-ready checkpoint; this continuation therefore reconciled from live v4.9.4 state rather than assuming unseen Astra changes.
 
 ## Phase A — Core Scanner / Verifier / Canary
 
@@ -42,14 +47,36 @@ Recent v4.9.4 Scanner runtime:
 - `SCV494-20260905T195907-OWNER-YEAREND-RESCAN`: Candidate18, PriceEvidence7, Current7, SourcePersistence5, 17 new signals + 1 cancellation/update.
 - `SCV494-20260905T221900-OWNER-SEPT-DEEP`: Candidate21, PriceEvidence16, Current16, Registry6, 17 new signals + 4 reconciliation gaps, collision audit complete.
 
-No final business/provider/owner write was manufactured by those Scanner runs.
+Recent v4.9.4 Verifier runtime:
+- `GPTV494-20260905T233021`: one FAREWELL identity packet processed as fail-closed hold; exact AI/reconciliation readback passed; Verifier lease v217 released; no protected business/provider/owner mutation.
 
-### Control-plane drift
+No final business/provider/owner write was manufactured by these runs.
 
-Unexpected Scanner/Verifier OFF drift recurred during finalization: live automation read showed Scanner=false and Verifier=false while Canary=true. The canonical Scanner and Verifier tasks were re-enabled with no duplicate/watchdog. Exact recurrence evidence is stored in `_Reconciliation_Log` as:
-`RECON|CONTROL_PLANE|OFF_DRIFT|20260905T2329`.
+### Control-plane drift — P0 open root cause
 
-Actor/root cause remains unproven. Active P0 rule forbids Scanner/Verifier self-disable/self-pause/self-reschedule/task create-delete/cross-runner task management. Continue observation; do not attribute an actor without evidence.
+Unexpected Scanner/Verifier OFF drift recurred again on 2026-09-06.
+
+Fresh pre-repair automation state:
+- Scanner `is_enabled=false`, metadata `updated_at=2026-09-06T00:03:12+07:00`.
+- Verifier `is_enabled=false`, metadata `updated_at=2026-09-06T01:29:35+07:00`.
+- Canary `is_enabled=true`.
+
+The canonical Scanner and Verifier tasks were restored only; no duplicate/watchdog was created.
+
+Exact post-repair readback at approximately 03:15 Asia/Bangkok:
+- Scanner = enabled
+- Verifier = enabled
+- Canary = enabled
+- paused_count = 0
+
+New Machine-SOT reconciliation evidence:
+`RECON|CONTROL_PLANE|OFF_DRIFT|20260906T0315`
+
+Prior evidence remains:
+- `RECON|CONTROL_PLANE|OFF_DRIFT|20260905T2329`
+- `RECON|CONTROL_PLANE|VERIFIER_POSTRUN_OFF|20260905T2335`
+
+The prior Verifier post-run correlation remains valid historical evidence, but the new recurrence is broader and does not justify attributing the root cause to Verifier completion alone. Actor/root cause remains unproven. Active P0 policy forbids Scanner/Verifier self-disable/self-pause/self-reschedule/task create-delete/cross-runner task management.
 
 ## Phase B — Business Brain / CRM / current market
 
@@ -75,18 +102,31 @@ Current protections include:
 - same-time conflicting latest observations fail closed;
 - v4.9.4 reverse-discovery route distinguishes known vs unknown event signals, in-area candidate verification vs out-of-area observability, source persistence and learned-miss completion.
 
-## v4.9.4 engineering synchronization
+## Governed CI
 
-Added:
-- `lib/kk-competitor-discovery-contract.js`
-- `scripts/kk-competitor-discovery-contract.test.js`
+Current branch head before this checkpoint series was `87d9f54ac6cf22606da98630049fc2d293596684`.
 
-Updated:
-- governed `package.json` check/test chain;
-- `COMPETITOR_RENTAL_HUNTER` for separate reverse-discovery and known-event pricing modes;
-- `SCAN_COMPLETENESS_AUDITOR` for reverse-discovery/source-persistence completeness.
+GitHub Actions run `33978395836` completed `SUCCESS` for that engineering head and executed syntax checks plus the complete governed regression suite:
 
-GitHub Actions run `33977945285` completed `SUCCESS` for head `0696cec94baa27e55e18f23d858cf946f8526682`. Prior governed baseline was 188 deterministic assertions; the new discovery contract adds 26, for 214 declared governed assertions in the synchronized suite. This is code/CI evidence, not runtime/provider proof.
+- CRM Projection 18/18
+- Booking/KYC intake 33/33
+- Outcome 24/24
+- Company semantics 6/6
+- Rental analytics company 13/13
+- Rental dashboard 5/5
+- Creative binding 14/14
+- X publish 21/21
+- Booking timeout 5/5
+- Booking writer idempotency 12/12
+- Xama KYC adapter 12/12
+- Competitor current market 25/25
+- Competitor discovery contract 26/26
+
+Total: **214/214 deterministic assertions PASS**, plus configured syntax checks.
+
+This is code/CI evidence, not provider/runtime proof.
+
+The latest commits after that successful engineering head are continuity/evidence documentation updates; verify their CI before a future code mutation or final merge review.
 
 ## NONT V2 — protected approved content
 
@@ -109,7 +149,7 @@ Guard requires exact approved version/body hash + official/authorized source evi
 Target visual:
 `FINAL MAIN KEY VISUAL — ARENA ENCORE : THE PERSONA`.
 
-Exact authorized raw image bytes/hash remain unavailable through current safe routes. Older May/BITEC or generic NONT assets remain rejected.
+Public textual evidence continues to confirm the target visual/event identity, but exact authorized raw image bytes/hash remain unavailable through current safe routes. Older May/BITEC or generic NONT assets remain rejected.
 
 State: `WAITING_EVIDENCE / BLOCKED_EXTERNAL`.
 
@@ -117,7 +157,7 @@ State: `WAITING_EVIDENCE / BLOCKED_EXTERNAL`.
 
 Temporary `5901592 — 02_KK_TELEGRAM_CONTROL` remains compatibility-only.
 
-Canonical `5988323` fresh access attempt still fails:
+Canonical `5988323` fresh access attempt on 2026-09-06 still fails:
 `Insufficient rights, admin permission "organization view" is needed.`
 
 Do not create a competing canonical scenario. Cut over only after access + controlled UAT + exact provider/state readback.
@@ -129,7 +169,7 @@ X publish guard requires exact approved content + creative/source/Canva binding 
 PostPeer request:
 `4e3be806-f7bc-4f0a-99da-268d2f112b51`
 
-Latest fresh check: `PENDING`.
+Fresh 2026-09-06 check: `PENDING`.
 
 No production post ID/URL/receipt exists.
 
@@ -140,13 +180,17 @@ Booking implementation contains writer-side durable idempotency:
 
 Vercel ambiguous `createBooking` timeout remains fail-closed with reconciliation required and no blind retry.
 
-**Canonical Apps Script production deployment/runtime proof remains external deployment work.**
+Repository Apps Script source exists under:
+- `apps-script/Code.gs`
+- `apps-script/BookingIdempotency.gs`
+
+No `.clasp.json` is present and the currently connected Google Drive surface exposes no Apps Script project/deployment target. Plugin discovery also found no compatible Apps Script deployment connector. Therefore canonical Apps Script production deployment/runtime proof remains external deployment work; do not create a replacement project merely to obtain a PASS.
 
 Xama request:
-`20005b08-4698-490a-b168-58a982f3c545` — latest check `PENDING`.
+`20005b08-4698-490a-b168-58a982f3c545` — fresh check `PENDING`.
 
 LINE request:
-`2dbe7ba5-061c-45e2-8f98-6822cf2eb50b` — latest check `PENDING`.
+`2dbe7ba5-061c-45e2-8f98-6822cf2eb50b` — fresh check `PENDING`.
 
 No provider receipt means no provider/runtime success claim.
 
@@ -158,25 +202,29 @@ State: `WAITING_EVIDENCE`, not an engineering failure.
 
 ## Current implementation fencing
 
-Implementation lease during this finalization:
-- holder `CHATGPT-20260905T223727-V494`
+Current continuation lease:
+- holder `CHATGPT-20260906T031733-CONTINUE`
 - scope `CODEX_IMPLEMENTATION / AUTONOMOUS_BUILD`
-- Lease Version `177`
-- token `CX-20260905T223727-V494-V177`
+- Lease Version `178`
+- token `CX-20260906T031733-CONTINUE-V178`
+- acquired `2026-09-06T03:17:33+07:00`
+- lease until `2026-09-06T04:07:33+07:00`
 
-The current session must exact-readback and release v177 before pausing. Future sessions must read `_Run_Lock` fresh and acquire a new monotonic version if needed; never reuse v177.
+The current session must exact-readback and release v178 before pausing. Future sessions must read `_Run_Lock` fresh and acquire a new monotonic version if needed; never reuse v178.
 
 ## GitHub
 
 Repo: `mikesd1995/kk-phone-rental-vercel`  
 Branch: `skills/x-scanner-v2`  
-PR #1: keep **Draft / Open / Unmerged**.
+PR #1: **Draft / Open / Unmerged / mergeable**.
 
 Do not merge `main` without explicit owner approval.
 
+Vercel preview status on the prior engineering head is `success/Ready`; preview deployment is not proof of external provider integrations.
+
 ## Remaining frontier
 
-No known material code-only backlog from the identified B–G/v4.9.4 scope remains after this synchronization.
+No known material code-only backlog from the identified B–G/v4.9.4 scope remains after reconciliation.
 
 ### BLOCKED_EXTERNAL / BLOCKED_HUMAN
 1. Deploy canonical Apps Script booking-idempotency overlay and obtain production runtime/readback proof.
@@ -189,8 +237,8 @@ No known material code-only backlog from the identified B–G/v4.9.4 scope remai
 ### WAITING_EVIDENCE
 7. Real completed eligible event for Phase-G POST_EVENT_FINAL.
 
-### OBSERVE
-8. Continue evidence-based control-plane OFF-drift observation; root cause remains open.
+### P0 CONTROL-PLANE OBSERVATION
+8. Current Scanner/Verifier state has been repaired to enabled, but recurrent OFF-drift root cause remains open and requires evidence/audit visibility beyond currently exposed task-state metadata. Do not add a duplicate scheduler/watchdog as a workaround.
 
 ## Explicit non-actions
 
