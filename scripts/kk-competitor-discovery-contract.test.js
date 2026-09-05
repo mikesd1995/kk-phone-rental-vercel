@@ -1,0 +1,32 @@
+'use strict';
+const assert=require('assert');
+const {normalizeAlias,eventIdentity,classifyCompetitorSignal,geoRoute,sourcePersistenceDecision,discoveryCoverage,learnedMissGate}=require('../lib/kk-competitor-discovery-contract');
+
+(function aliasNormalization(){assert.equal(normalizeAlias('#CAT EXPO-P'),'cat expo p');assert.equal(normalizeAlias('  CATEXPOP  '),'catexpop');})();
+(function identityKeepsDateVenue(){const a=eventIdentity({event_name:'CAT EXPO',event_date:'2026-09-05',venue:'Chiang Mai'});const b=eventIdentity({event_name:'CAT EXPO',event_date:'2026-12-01',venue:'Bangkok'});assert.notEqual(a.key,b.key);})();
+(function unknownSignalRoutes(){const o=classifyCompetitorSignal({source_account:'@shop',event_name:'New Show',event_date:'2026-10-01',venue:'Bangkok',access_state:'CHECKED'},{known_event_keys:[]});assert.equal(o.decision,'UNKNOWN_EVENT_SIGNAL');assert.equal(o.next_step,'NORMALIZE_DEDUP_GEO_THEN_AUTHORITY_VERIFY');})();
+(function knownSignalRoutes(){const s={source_account:'@shop',event_name:'Known Show',event_date:'2026-10-01',venue:'Bangkok',access_state:'CHECKED'};const key=eventIdentity(s).key;const o=classifyCompetitorSignal(s,{known_event_keys:[key]});assert.equal(o.decision,'KNOWN_EVENT_SIGNAL');assert.equal(o.next_step,'KNOWN_EVENT_PRICE_AVAILABILITY_PATH');})();
+(function blockedSourceIsAccessOnly(){const o=classifyCompetitorSignal({source_account:'@shop',event_name:'Signal',access_state:'BLOCKED'});assert.equal(o.decision,'ACCESS_ONLY');})();
+(function inaccessibleSourceIsAccessOnly(){const o=classifyCompetitorSignal({source_account:'@shop',event_name:'Signal',access_state:'NOT_ACCESSIBLE'});assert.equal(o.decision,'ACCESS_ONLY');})();
+(function partialCanStillSurfaceSignal(){const o=classifyCompetitorSignal({source_account:'@shop',event_name:'Signal',access_state:'PARTIAL'});assert.equal(o.decision,'UNKNOWN_EVENT_SIGNAL');})();
+(function missingSourceFailsClosed(){const o=classifyCompetitorSignal({event_name:'Signal'});assert.equal(o.decision,'HOLD');assert(o.reasons.includes('MISSING_SOURCE'));})();
+(function missingEventFailsClosed(){const o=classifyCompetitorSignal({source_account:'@shop'});assert.equal(o.decision,'HOLD');assert(o.reasons.includes('MISSING_EVENT_SIGNAL'));})();
+(function invalidAccessFailsClosed(){const o=classifyCompetitorSignal({source_account:'@shop',event_name:'Signal',access_state:'PASS'});assert.equal(o.decision,'HOLD');assert(o.reasons.includes('INVALID_ACCESS_STATE'));})();
+(function inAreaCandidate(){const o=geoRoute({geo_status:'IN_AREA'});assert.equal(o.route,'CANDIDATE_AUTHORITY_VERIFY');assert.equal(o.business_eligible,true);})();
+(function outAreaObserveOnly(){const o=geoRoute({geo_status:'OUT_OF_AREA'});assert.equal(o.route,'OBSERVABILITY_ONLY');assert.equal(o.business_eligible,false);})();
+(function unresolvedGeoHolds(){assert.equal(geoRoute({}).route,'GEO_UNRESOLVED_HOLD');})();
+(function persistVerifiedRecurring(){const o=sourcePersistenceDecision({official_verified:true,recurring:true,source_name:'Cat Radio',direct_url:'https://thisiscat.com/events/',media_route:'events'});assert.equal(o.decision,'UPSERT_DIRECT_SOURCE_MAP');assert.equal(o.direct_url,'https://thisiscat.com/events');assert.equal(o.requires_exact_readback,true);})();
+(function unverifiedNotPersisted(){assert.equal(sourcePersistenceDecision({official_verified:false,recurring:true,source_name:'X',direct_url:'https://x.test'}).decision,'DO_NOT_PERSIST');})();
+(function oneOffNotPersisted(){assert.equal(sourcePersistenceDecision({official_verified:true,recurring:false,source_name:'X',direct_url:'https://x.test'}).decision,'DO_NOT_PERSIST');})();
+(function duplicateSourceNoop(){const o=sourcePersistenceDecision({official_verified:true,recurring:true,source_name:'Cat Radio',direct_url:'https://thisiscat.com/events/'},[{direct_url:'https://thisiscat.com/events'}]);assert.equal(o.decision,'ALREADY_PRESENT');})();
+(function persistenceMissingIdentityHolds(){assert.equal(sourcePersistenceDecision({official_verified:true,recurring:true,source_name:'Cat Radio'}).decision,'HOLD');})();
+(function coverageComplete(){const o=discoveryCoverage([{source_id:'A',active:true},{source_id:'B',active:'TRUE'}],[{source_id:'A',result:'NO_NEW_EVENT'},{source_id:'B',result:'FOUND_NEW_EVENT'}]);assert.equal(o.complete,true);assert.equal(o.scan_state,'COMPLETE');})();
+(function coverageBlockedStillAttempted(){const o=discoveryCoverage([{source_id:'A',active:true}],[{source_id:'A',result:'BLOCKED'}]);assert.equal(o.complete,true);assert.equal(o.attempted_source_count,1);})();
+(function coverageMissingIsPartial(){const o=discoveryCoverage([{source_id:'A',active:true},{source_id:'B',active:true}],[{source_id:'A',result:'PARTIAL'}]);assert.equal(o.complete,false);assert.equal(o.scan_state,'PARTIAL');assert.deepEqual(o.missing,['B']);})();
+(function invalidResultIsPartial(){const o=discoveryCoverage([{source_id:'A',active:true}],[{source_id:'A',result:'PASS'}]);assert.equal(o.complete,false);assert.equal(o.invalid[0].result,'PASS');})();
+(function inactiveSourceExcluded(){const o=discoveryCoverage([{source_id:'A',active:false},{source_id:'B',active:'FALSE'}],[]);assert.equal(o.active_source_count,0);assert.equal(o.complete,true);})();
+(function learnedMissNeedsRepair(){const o=learnedMissGate({status:'LEARNED',registry_action:'ADD_SOURCE'});assert.equal(o.ok,false);assert.equal(o.status,'OPEN_REPAIR');})();
+(function learnedMissNeedsReadback(){const o=learnedMissGate({status:'LEARNED',registry_action:'ADD_SOURCE',exact_readback:true});assert.equal(o.ok,true);assert.equal(o.status,'LEARNED');})();
+(function openRepairPassesThrough(){const o=learnedMissGate({status:'OPEN_REPAIR'});assert.equal(o.ok,true);assert.equal(o.status,'OPEN_REPAIR');})();
+
+console.log('kk-competitor-discovery-contract: 26/26 PASS');
