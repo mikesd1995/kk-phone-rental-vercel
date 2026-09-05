@@ -100,6 +100,30 @@ test('stale history is not promoted into current projection', () => {
   assert.strictEqual(projection.length, 0);
 });
 
+test('newest conflict-held observation supersedes older fresh history', () => {
+  const projection = resolveCurrentProjection([
+    row({ current_bundle_price: 1200, last_checked: '2026-09-05T17:00:00+07:00', fresh_until: FUTURE, source_evidence_row: 90 }),
+    row({ current_bundle_price: 990, last_checked: '2026-09-05T18:00:00+07:00', freshness: 'CONFLICT_HOLD', source_evidence_row: 100 })
+  ], { now: NOW });
+  assert.strictEqual(projection.length, 0);
+});
+
+test('newest expired observation cannot resurrect older still-fresh history', () => {
+  const projection = resolveCurrentProjection([
+    row({ current_bundle_price: 1200, last_checked: '2026-09-05T16:00:00+07:00', fresh_until: FUTURE, source_evidence_row: 90 }),
+    row({ current_bundle_price: 990, last_checked: '2026-09-05T18:00:00+07:00', fresh_until: '2026-09-05T18:20:00+07:00', source_evidence_row: 100 })
+  ], { now: NOW });
+  assert.strictEqual(projection.length, 0);
+});
+
+test('ambiguous same-time latest observations fail closed', () => {
+  const projection = resolveCurrentProjection([
+    row({ current_bundle_price: 990, last_checked: '2026-09-05T18:00:00+07:00', source_evidence_row: 100 }),
+    row({ current_bundle_price: 1090, last_checked: '2026-09-05T18:00:00+07:00', source_evidence_row: 101 })
+  ], { now: NOW });
+  assert.strictEqual(projection.length, 0);
+});
+
 test('event identity is isolated', () => {
   const result = assessCurrentExactMarket([
     row({ competitor_account: 'A' }),
