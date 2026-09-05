@@ -1,0 +1,11 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const path=require('path');
+const source=fs.readFileSync(path.join(__dirname,'..','api','kk-rental-dashboard.js'),'utf8');
+assert(source.includes("require('../lib/kk-rental-analytics-company')"),'dashboard must use governed company resolver');
+assert(!source.includes('AFFILIATION_RULES'),'event-name affiliation hard-code must not return');
+assert(!source.includes('inferAffiliation('),'event-name affiliation inference must not return');
+assert(source.includes('READ ONLY'),'dashboard must preserve read-only boundary declaration');
+assert(source.includes('explicit structured field/note → _Artist_Registry unique alias match → Unknown'),'dashboard must document fail-closed company semantics');
+console.log('kk-rental-dashboard-contract: 5/5 PASS');
