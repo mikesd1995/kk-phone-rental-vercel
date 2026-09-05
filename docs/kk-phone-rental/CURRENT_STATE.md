@@ -1,274 +1,259 @@
 # KK Phone Rental — Current State Checkpoint
 
-Checkpoint: 2026-09-05 12:50 Asia/Bangkok  
+Checkpoint: 2026-09-05 18:55 Asia/Bangkok  
 Branch: `skills/x-scanner-v2`
 
-> Highest compatible Active `_Policy_Registry`, live Machine SOT, canonical CRM/backend, runtime/provider evidence and exact readback are authoritative. This file is a continuity mirror only.
+> Live highest Active `_Policy_Registry`, Machine SOT, canonical CRM/backend, runtime/provider evidence and exact readback are authoritative. This file is a continuity mirror only.
+
+Read next for detailed change history and Astra transition context:
+`docs/kk-phone-rental/ASTRA_TRANSITION_HANDOFF_2026-09-05.md`
 
 ## Continuation rule
 
-`READ CHECKPOINT -> RESOLVE ACTIVE POLICY -> RECONCILE LOCKS/LIVE STATE -> EXECUTE NEXT SAFE ACTION -> EXACT READBACK/VERIFY -> UPDATE CHECKPOINT -> CONTINUE`
+`READ CHECKPOINT -> RESOLVE ACTIVE POLICY -> RECONCILE LIVE LOCKS/STATE -> EXECUTE NEXT SAFE ACTION -> EXACT READBACK/VERIFY -> CHECKPOINT -> CONTINUE`
 
-Do not restart the project, rebuild Core v1, create competing writers, fake missed runs, or promote CI/synthetic evidence to provider/runtime proof.
+Never restart completed phases, rebuild Core v1 without evidence, create competing writers, fake missed runs, or promote CI/synthetic evidence to runtime/provider proof.
 
 ## Current classification
 
-**CORE SAFE / GOVERNED IMPLEMENTATION HARDENED / REAL RUNTIME EVIDENCE PRESERVED / EXTERNAL PROVIDER-PERMISSION-DEPLOYMENT-EVIDENCE GATES FAIL-CLOSED.**
+**CORE SAFE / GOVERNED IMPLEMENTATION HARDENED / v4.9.3 CURRENT-MARKET RUNTIME ACTIVE / EXTERNAL PROVIDER-PERMISSION-DEPLOYMENT-FUTURE-EVIDENCE GATES FAIL-CLOSED.**
 
-- Core v1: `RUNTIME_VERIFIED / COMPLETE / PRESERVE`.
-- Phase A Scanner/Verifier: implementation/runtime contract complete; real 09:00 Scanner + 09:30 Verifier proof preserved; recurring unexplained automation OFF drift remains P0. Existing canonical task IDs were restored again at this checkpoint.
-- Phase B Business Brain/CRM projection: exact identity/model-capacity read-only projection hardened.
-- Phase C Content: NONT V2 owner-approved exact Theme variant remains valid; production publish flags remain false.
-- Phase C Creative: binding guard hardened; exact official NONT Arena Encore raw visual bytes/hash and final Canva binding remain unproven.
-- Phase D temporary Telegram compatibility: provider-proven/stale-callback gated; canonical `5988323` remains blocked by Make organization-view permission.
-- Phase E X: publish guard hardened; PostPeer authorization remains pending; no production post/receipt exists.
-- Phase F Booking/KYC: intake guard + canonical writer-side idempotency implementation complete on branch. Apps Script deployment/runtime proof still required before production Exactly-Once may be claimed. KYC authority remains unconfigured.
-- Phase F LINE: LINE OA authorization remains pending.
-- Phase G Outcome: projector hardened; final real post-event evidence is not yet available, so no fake `_Business_Outcome` row exists.
-
-## Authority
+### Authority
 
 Machine SOT: `1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo`  
 CRM SOT: `12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU`
 
-Fresh live policy read resolved exactly one Active `POLICY_VERSION`:
-`v4.9.2 BALANCED SOURCE COVERAGE`.
+Fresh live policy read resolves exactly one Active POLICY_VERSION:
 
-CRM remains the canonical booking/inventory writer. Machine SOT consumes governed projection and must not become a competing CRM writer.
+`v4.9.3 PRICE FRESHNESS & CURRENT MARKET`
 
-## Current implementation fencing
+v4.9.3 inherits unchanged v4.9.2 controls and changes competitor pricing semantics:
+- append-only `_Price_Evidence` history;
+- `_Competitor_Price_Current` replaceable current projection;
+- current fresh exact-event evidence first for owner queries/X/rent recommendations;
+- stale/superseded/conflict-held current offers excluded;
+- history is lineage/trend only, never silent fallback;
+- exact current projection source-lineage/readback required;
+- owner/manual price override remains authoritative; no auto-undercut.
 
-Historical implementation leases are audit evidence and must not be deleted/reused.
+CRM remains canonical booking/inventory writer.
 
-- v172 stale-recovered/released.
-- v173 stale-recovered/released.
-- v174 stale-recovered/released after expiry. A too-broad update briefly cleared some v174 historical cells; they were immediately restored from exact prior readback evidence. Future lock repairs must use exact cell/row writes only.
-- current lease at this checkpoint:
-  - holder: `CHATGPT-20260905T123751-CONTINUE`
-  - lock/scope: `CODEX_IMPLEMENTATION / AUTONOMOUS_BUILD`
-  - lease version: `175`
-  - fencing token: `CX-20260905T123751-CONTINUE-V175`
-  - acquired: `2026-09-05T12:37:51+07:00`
-  - lease until: `2026-09-05T13:27:51+07:00`
-
-Before any later protected write, re-read `_Run_Lock`. Never reuse v175 after expiry.
-
-## Phase A — canonical runners
+## Phase A — Core Scanner / Verifier / Canary
 
 Canonical IDs only:
-- Scanner `6a992c91ba688191ad428cbdc2e8cf35` — hourly `:00`.
-- Verifier `6a992d4d0c248191914e6c73c4f17db4` — hourly `:30`.
-- Canary `6a992bbe16d081918553ca3eb7f81058` — daily `08:15` Asia/Bangkok.
+- Scanner `6a992c91ba688191ad428cbdc2e8cf35`
+- Verifier `6a992d4d0c248191914e6c73c4f17db4`
+- Canary `6a992bbe16d081918553ca3eb7f81058`
 
-At the start of this work period Scanner and Verifier were disabled again while Canary remained enabled. Existing Scanner and Verifier IDs were restored to `enabled=true` again; exact automation readback showed all three enabled. No duplicate/watchdog schedule was created.
+Latest targeted automation read: all three enabled. No duplicate/watchdog schedule exists.
 
-### Real runtime proof
+Core v1 remains `RUNTIME_VERIFIED / COMPLETE / PRESERVE`.
 
-Scanner `SCV492-20260905T090033`:
-- v4.9.2 exact-one;
-- real scheduled runtime;
-- `PARTIAL` coverage retained honestly;
-- BTS ARIRANG work packet staged;
-- exact readback/completion boundary passed;
-- lease released / Manifest FINISHED;
-- no provider/public/customer/owner write.
+Recent v4.9.3 price-runtime evidence:
+- `SCV493-20260905T180100-OWNER-PRICE`: FINISHED, 40/40 event attempts, 11 history observations, current projection exact-read with lineage, no final KK price/outbound/provider write.
+- `SCV493-20260905T182300-OWNER-YEAREND-PRICE`: FINISHED, 29/29 year-end attempts, 9 history observations, current projection exact-read with lineage, no final KK price/outbound/provider write.
 
-Verifier `GPTV492-20260905T093007`:
-- processed BTS ARIRANG packet;
-- authorized Live Nation Tero evidence verified 3/5/6 Dec 2026 Rajamangala shows and SOLD_OUT state;
-- foreign-event Company semantics use local organizer/promoter `Live Nation Tero`;
-- canonical lifecycle/projection transaction + exact readback/reconciliation passed;
-- v213 released / Manifest FINISHED;
-- no fabricated outbound.
+`_Competitor_Price_Current` is live with FRESH and fail-closed conflict states. Public-source coverage remains honestly PARTIAL where appropriate.
 
-Later runs preserved missed Scanner windows as gaps and allowed valid no-op Verifier boundaries. Recurring task-disable actor/root cause remains unproven; never assign blame without evidence.
+Recurring historical Scanner/Verifier OFF drift remains an observed control-plane problem with actor/root cause unproven. Active P0 rule forbids Scanner/Verifier self-disable, self-pause, self-reschedule, task create/delete and cross-runner task management. Continue evidence-based observation only; do not create competing scheduler/watchdog architecture.
 
-## Phase B — CRM / Company / Analytics
+## Phase B — Business Brain / CRM / Current Market
 
-Governed modules:
+Governed modules include:
 - `lib/kk-crm-projection.js`
 - `lib/kk-company-semantics.js`
 - `lib/kk-rental-analytics-company.js`
-- `api/kk-rental-dashboard.js`
+- `lib/kk-competitor-current-market.js`
 
-Current strict behavior:
+Current protections:
 - exact Machine↔CRM identity, no fuzzy join;
-- current/fresh snapshot requirement;
-- exact physical phone/lens model capacity;
-- inactive G2 not counted rentable;
+- exact phone/lens model capacity;
+- inactive assets excluded;
 - no PII projection;
-- Thai performer -> authoritative talent affiliation/label/management;
-- foreign performer -> authoritative local organizer/promoter;
-- ambiguous company -> `UNKNOWN`;
-- legacy event-name company guessing removed from authoritative Rental Analytics path.
+- Thai talent uses verified affiliation; foreign performer uses verified local organizer/promoter; ambiguous => UNKNOWN;
+- legacy event-name company guessing removed from authoritative analytics;
+- current competitor price requires exact Event+competitor+package identity, freshness/TTL and source lineage;
+- >=2 independent current fresh shops for exact range; >=3 for median;
+- self listing excluded;
+- non-bookable offer excluded from active market stats;
+- newest invalid/conflict/expired observation cannot resurrect an older superseded price;
+- same-time conflicting latest observations fail closed;
+- current projection exact readback checks event/shop/package/price/freshness/source lineage.
 
-## NONT V2 protected content truth
+## NONT V2 — protected approved content
 
-Version: `CONTENT|NONTENCORE|20261003-04|X|V2`
+`CONTENT|NONTENCORE|20261003-04|X|V2`
 
+Fresh live readback:
 - `STATUS=APPROVED`
-- variant `1`
-- angle `THEME`
-- Telegram message `229`
-- callback token `2a268b61b806d5df8d45311c`
-- approval fingerprint `305d014bbec42d057960ec9d71475ec87cd75498f6dd37a81ca58ff30f6b89f7`
-- `LAST_ACTION=APPROVED_VARIANT_1`
+- Variant 1 / `THEME`
+- Telegram message 229
+- campaign price 1,190 THB
+- CRM standard bundle remains separate 1,290 THB
 - `EXTERNAL_SEND_AUTHORIZED=FALSE`
 - `PRODUCTION_PUBLISH_AUTHORIZED=FALSE`
 
-Campaign copy price `1,190฿`; CRM standard bundle remains separate `1,290฿`.
+The approved row was created under v4.9.2 and remains immutable historical approval evidence; do not silently rewrite its Policy Version.
+
+v4.9.3 NONT exact-event current-price refresh at 18:07:30 returned:
+`PARTIAL_NO_PACKAGE_SPECIFIC_FRESH_PRICE`.
+Generic start-price listings were not promoted to X300 Pro+Lens current market.
+
+Therefore old competitor observations are history only; no current market range/median claim is allowed. The 1,190 campaign price is an independently approved manual campaign price and the current copy makes no competitor-market claim. Final publish still requires current-policy revalidation plus all creative/provider/authorization gates.
 
 ## Phase C — Creative
 
-Production binding requires exact approved content/version/body hash + official/authorized source asset reference + source evidence reference + SHA-256 + Canva design ID + final creative SHA-256/binding.
+Guard is hardened for exact approved version/body hash + official/authorized source evidence/ref + source SHA-256 + Canva design ID + final creative SHA-256.
 
-The exact Encore visual is known by official title `FINAL MAIN KEY VISUAL — ARENA ENCORE : THE PERSONA`, but currently accessible sources have not yielded safe exact authorized raw image bytes/hash. Unrelated historical/generic posters remain rejected. No creative PASS may be manufactured.
+Desired official NONT visual is identified as:
+`FINAL MAIN KEY VISUAL — ARENA ENCORE : THE PERSONA`.
+
+Available routes still have not yielded safe exact authorized raw bytes/hash. Search repeatedly surfaces older May/BITEC or unrelated NONT creatives; those remain rejected.
+
+Creative = `WAITING_EVIDENCE / BLOCKED_EXTERNAL`, not PASS.
 
 ## Phase D — Telegram / Make
 
-Temporary compatibility:
-`5901592 — 02_KK_TELEGRAM_CONTROL`
+Temporary `5901592 — 02_KK_TELEGRAM_CONTROL` remains compatibility-only with provider-proven callback/edit evidence and stale-state protection.
 
-Provider-proven callback path remains temporary, with exact token/chat/message/owner binding, callback dedup and stale-state gate.
-
-Canonical:
-`5988323`
-
-Fresh access still fails:
+Canonical `5988323` remains blocked for current identity:
 `Insufficient rights, admin permission "organization view" is needed.`
 
-Make environment visible to the current connection:
-- organization `KK Phone Auto` (`8618622`)
-- team `My Team` (`2671496`)
-- private space `2671497`
-
-Scenario list under the accessible team shows `5901592`, `6144260`, `5911509`; direct `scenario_get(5988323)` is permission-blocked. Do not create a competing canonical scenario.
+Do not create a competing canonical scenario. Cut over only after access + controlled UAT + exact provider/state readback.
 
 ## Phase E — X
 
-Guard requires exact approved copy + exact creative/source/Canva scope + production authorization + idempotency + provider acknowledgment + `post_id` + canonical `https://x.com/<account>/status/<post_id>` + timestamp/evidence/readback.
+Guard requires exact approved text + exact creative/source/Canva binding + production authorization + idempotency + provider acknowledgment + post ID + canonical x.com URL + provider timestamp/evidence + exact text/media hash readback.
 
-Candidate provider: PostPeer.  
-Authorization request: `4e3be806-f7bc-4f0a-99da-268d2f112b51`  
-Fresh status: `PENDING`.
+PostPeer authorization request:
+`4e3be806-f7bc-4f0a-99da-268d2f112b51`
 
-No production X post, post ID, canonical URL or provider receipt exists.
+Latest checked: `PENDING`.
 
-## Phase F — Booking Exactly-Once
+No production post ID/URL/receipt exists.
 
-### Intake/proxy boundary
+## Phase F — Booking Exactly-Once / KYC / LINE
 
-`api/kk-admin.js` treats an upstream `createBooking` timeout as ambiguous:
-- `BOOKING_WRITE_AMBIGUOUS_RECONCILE_REQUIRED`
-- `retry_safe=false`
-- `reconciliation_required=true`
-- no blind retry.
+### Booking writer
 
-### Canonical writer implementation — now complete on branch
+`apps-script/BookingIdempotency.gs` implements canonical writer-side durable idempotency:
+`request_id + canonical fingerprint -> PREPARED -> reserved target row/assets -> write -> exact booking-row readback -> COMMITTED receipt`.
 
-New file:
-`apps-script/BookingIdempotency.gs`
+Dedicated non-PII receipt surface: `17_Booking_Request_Receipts`.
 
-It overrides the legacy canonical create writer inside the Apps Script DocumentLock boundary and adds durable non-PII request receipts in:
-`17_Booking_Request_Receipts`
+Ambiguous Vercel `createBooking` timeout remains fail-closed:
+`BOOKING_WRITE_AMBIGUOUS_RECONCILE_REQUIRED`, `retry_safe=false`, `reconciliation_required=true`.
 
-Writer contract:
-`request_id + canonical request SHA-256 -> PREPARED -> exact reserved target row + assigned assets -> booking write -> exact booking-row fingerprint readback -> COMMITTED`
-
-Properties:
-- request-id reuse with different booking intent fails closed;
-- deterministic fallback key protects legacy admin callers;
-- PREPARED requests reconcile exact target-row fingerprint before retry mutation;
-- matching prior write is finalized, not duplicated;
-- nonmatching occupied target row fails reconciliation;
-- receipt exact-readback assertions;
-- receipt history preserves errors;
-- no raw customer name/contact/phone stored in receipt surface;
-- DocumentLock always released in `finally`.
-
-Implementation commits:
-- `4147c10b42d278ac506cbc5f0bf43b9bb4d4b4db` — writer overlay
-- `efcef4f387f8c071b1ce411447f05abd5ee4e05c` — contract tests
-- `ba7d282d1ef0bdeb02f3369e7cbdcdf1e3bda5eb` — governed CI integration
-
-**Do not call this deployed/runtime-complete yet.** Current remaining gate is deployment into the canonical Apps Script project + real runtime/readback proof.
+Implementation/CI is complete. **Apps Script production deployment/runtime proof is still required**; current authorized tooling does not expose that deployment path.
 
 ### KYC
 
-Current Make discovery confirms Klippa DocHorizon can parse identity documents and Twilio Verify verifies contact channels, but neither parsing nor OTP alone is governed KYC approval authority under current policy. A KYC provider or formally governed manual attestation authority is still required. Do not weaken the gate merely to complete Phase F.
+Governed Xama adapter exists:
+- `lib/kk-kyc-xama-adapter.js`
+- `scripts/kk-kyc-xama-adapter.test.js`
 
-### LINE
+It emits minimal non-PII attestation and requires explicit accepted decision allowlists plus optional real face-match evidence.
 
-LINE OA request: `2dbe7ba5-061c-45e2-8f98-6822cf2eb50b`  
-Fresh status: `PENDING`.
+Xama authorization request:
+`20005b08-4698-490a-b168-58a982f3c545`
 
-Owner LINE and customer LINE remain separate boundaries.
+Latest checked: `PENDING`.
+
+### LINE customer flow
+
+LINE OA authorization request:
+`2dbe7ba5-061c-45e2-8f98-6822cf2eb50b`
+
+Latest checked: `PENDING`.
+
+No provider receipt => no customer SENT claim.
 
 ## Phase G — Outcome
 
-No synthetic outcome is written. Final Business Outcome requires exact Machine↔CRM crosswalk, real event completion, POST_EVENT_FINAL observation, no active/unresolved booking, valid CRM final snapshot and provider X evidence if X performance is claimed. Future-event dependency is genuine and cannot be fabricated away.
+Outcome projector is hardened, but final `_Business_Outcome` requires a genuinely completed eligible event, exact Machine↔CRM crosswalk, real POST_EVENT_FINAL CRM state and no unresolved active booking. No synthetic/future outcome is written.
+
+This phase is `WAITING_EVIDENCE`, not an engineering failure.
 
 ## Governed CI — latest proof
 
-Workflow run: `33947982334`  
-Conclusion: `SUCCESS`.
+Latest verified workflow after v4.9.3 superseded-history hardening:
+`33964652860` — `SUCCESS`.
 
-Exact suite results:
-- CRM projection **18/18**
-- Booking/KYC **33/33**
-- Outcome **24/24**
-- Company semantics **6/6**
-- Rental Analytics company semantics **13/13**
-- Rental dashboard contract **5/5**
-- Creative binding **14/14**
-- X publish **21/21**
-- booking ambiguous-timeout **5/5**
-- canonical booking writer idempotency **12/12**
+- CRM projection 18/18
+- Booking/KYC 33/33
+- Outcome 24/24
+- Company semantics 6/6
+- Rental Analytics company 13/13
+- Rental dashboard contract 5/5
+- Creative binding 14/14
+- X publish 21/21
+- Booking ambiguous-timeout 5/5
+- Booking writer idempotency 12/12
+- Xama KYC adapter 12/12
+- Competitor current-market 25/25
 
-**Total: 151/151 governed assertions PASS**, plus configured syntax checks.
+**Total: 188/188 governed assertions PASS**, plus configured syntax checks.
 
-This is implementation/CI proof, not Apps Script/provider/public production proof.
+This is code/CI evidence, not provider/deployment/production proof.
 
-## GitHub / PR
+## Current implementation fencing
+
+Historical implementation leases are immutable audit evidence.
+
+Current finalization run uses:
+- holder `CHATGPT-20260905T184723-CONTINUE`
+- scope `CODEX_IMPLEMENTATION / AUTONOMOUS_BUILD`
+- Lease Version `176`
+- token `CX-20260905T184723-CONTINUE-V176`
+
+The finalizer must exact-readback and release v176 before pausing. Any future session must re-read `_Run_Lock` and acquire a fresh monotonic lease if needed; never reuse v176.
+
+## GitHub
 
 Repo: `mikesd1995/kk-phone-rental-vercel`  
 Branch: `skills/x-scanner-v2`  
-PR #1: Draft / Open / Unmerged.  
-Current head: `ba7d282d1ef0bdeb02f3369e7cbdcdf1e3bda5eb`
+PR #1: **Draft / Open / Unmerged**.
 
-Do not merge `main` without explicit owner approval.
+Current branch includes:
+- booking exactly-once writer overlay/tests;
+- Xama KYC adapter/tests;
+- v4.9.3 current-market resolver/tests;
+- current-market pricing/content skill updates;
+- Astra transition handoff.
 
-## Current executable frontier
+Read current head live; do not rely on a cached SHA.
 
-1. Observe the next Scanner/Verifier scheduled boundaries and capture recurrence of OFF drift with evidence; restore canonical IDs only, no duplicate watcher/schedule.
-2. Deploy `apps-script/BookingIdempotency.gs` through the canonical Apps Script deployment path when authorized tooling/access is available; then perform controlled exact replay/conflict/readback validation without creating fake customer data.
-3. Continue exact authorized NONT Encore media retrieval; never substitute old/generic poster.
-4. Resolve Make organization-view permission for `5988323`, then inspect/cut over canonical Phase D.
-5. Once PostPeer authorization + Creative + production flags pass, wire X provider and require real provider receipt.
-6. Configure governed KYC authority; ID parsing/OTP alone remain insufficient.
-7. Once LINE OA authorization completes, wire customer messaging after canonical booking truth.
-8. Wait for a genuinely completed eligible event before final Phase-G outcome projection.
+No merge to `main` without explicit owner approval.
 
-## External / human / future blockers
+## Executable frontier after this checkpoint
 
-- Make organization-view permission for `5988323`.
-- PostPeer authorization pending.
-- LINE OA authorization pending.
-- Apps Script deployment/runtime access for the new writer overlay.
-- exact official NONT Encore source bytes/hash not currently retrievable through available authorized route.
-- governed KYC approval authority not configured.
-- final Phase-G evidence depends on an eligible event finishing.
+No known material code-only implementation blocker remains unaddressed from the current identified backlog. Remaining work requires external permission/authorization/deployment or future real evidence:
+
+### BLOCKED_EXTERNAL / BLOCKED_HUMAN
+1. Deploy canonical Apps Script booking writer overlay and obtain real runtime/readback proof.
+2. Obtain exact authorized NONT Arena Encore visual bytes/hash and complete Canva binding.
+3. Grant organization-view access to canonical Make Phase D `5988323` and perform controlled cutover/UAT.
+4. Complete PostPeer authorization; then wire/publish only after creative + production gates pass.
+5. Complete Xama authorization; then run real governed KYC validation.
+6. Complete LINE OA authorization; then run customer delivery with provider receipt.
+
+### WAITING_EVIDENCE
+7. Wait for a genuinely completed eligible event before final Phase-G outcome projection.
+
+### OBSERVE
+8. Observe control-plane OFF drift under the active self-mutation prohibition; investigate only with evidence if it recurs.
 
 ## Explicit non-actions
 
 - no Core v1 rebuild;
-- no duplicate Scanner/Verifier/Canary or watchdog schedule;
+- no duplicate Scanner/Verifier/Canary/watchdog;
 - no fake backfill/Manifest/provider receipt;
-- no competing canonical Phase-D scenario;
-- no merge to `main`;
+- no competing canonical Phase D;
+- no main merge;
 - no bulk HOLD release;
-- no direct CRM production booking write around the canonical writer;
-- no fake customer/KYC/outcome data;
-- no PII copied to Machine SOT/docs/receipt surface;
-- no generic/old creative promoted as official;
-- no public X/LINE/customer send merely to obtain PASS.
+- no direct CRM booking around canonical writer;
+- no fake customer/KYC/outcome;
+- no PII copied to Machine SOT/docs/receipt;
+- no generic/old creative promoted;
+- no stale historical competitor price promoted as current;
+- no public X/LINE send merely to obtain PASS.
