@@ -60,6 +60,22 @@ Therefore:
 - do **not** narrow the root cause to Verifier completion alone;
 - do **not** attribute the action to Verifier code, Scanner code, the automation platform, another agent, Make, Codex, Astra, or any human without control-plane audit evidence identifying the writer/action.
 
+## Current platform hypothesis — not root-cause proof
+
+OpenAI's current Scheduled Tasks help documentation states that scheduled tasks may pause when they are inactive, require additional user action, or when the associated chat is deleted; it also states that unattended tasks may automatically pause after a period of inactivity.
+
+Reference:
+`https://help.openai.com/en/articles/10291617-scheduled-tasks-in-chatgpt`
+
+This documented platform behavior is **compatible with an external control-plane pause hypothesis**, but the currently exposed task metadata does not identify which condition, if any, caused the KK Scanner/Verifier disable events.
+
+Consequently:
+
+- treat platform auto-pause as a candidate cause, not a proven cause;
+- do not change business/runtime policy to compensate for it;
+- do not add a duplicate watchdog or competing scheduler merely to mask it;
+- if the recurrence continues, use control-plane/audit visibility or platform support evidence to distinguish an automatic pause from an agent-issued/user-issued mutation.
+
 ## Current repair state
 
 At the latest exact readback in the 2026-09-06 continuation session, all three canonical tasks were enabled.
@@ -70,9 +86,11 @@ The repair is current-state recovery only. It does not prove the underlying root
 
 Treat this as an unresolved P0 control-plane reliability defect. Investigate narrowly:
 
-- whether the scheduled-task execution environment has automatic disable/completion semantics;
+- whether documented Scheduled Tasks auto-pause semantics apply to these tasks;
+- whether either task was classified as inactive or requiring additional user action;
+- whether the associated task chat was removed or otherwise invalidated;
 - whether any agent/tool action issued after or between runs can mutate `is_enabled`;
-- whether task history/audit metadata exposes the mutation actor;
+- whether task history/audit metadata exposes the mutation actor/reason;
 - whether task `updated_at` timestamps can be correlated with execution boundaries or external tool calls;
 - whether prompt-level control can materially prevent a self-issued disable;
 - whether a safe platform/control-plane fix exists without creating a competing scheduler/watchdog.
