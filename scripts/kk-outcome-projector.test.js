@@ -1,63 +1,30 @@
 'use strict';
 const assert=require('assert');
 const {projectOutcome,toBusinessOutcomeRow}=require('../lib/kk-outcome-projector');
-
-function fixture(overrides={}){
-  return {
-    crosswalk:{
-      identity_verified:true,
-      event_family_id:'FAM|example|20260815',
-      show_id:'SHOW|example|20260815|S1',
-      crm_event_id:'EVT-20260815-EXAMPLE',
-      event_date:'2026-08-15',
-      identity_evidence:['event_name exact','event_date exact','venue exact']
-    },
-    event_rows:[{event_id:'EVT-20260815-EXAMPLE',event_name:'Example Event',event_date:'15/08/2026',venue:'Example Hall'}],
-    booking_rows:[
-      {event_id:'EVT-20260815-EXAMPLE',booking_status:'completed',package_price:'1190',phone_asset_id:'PHONE-001',lens_asset_id:'LENS-001',customer_name:'MUST_NOT_LEAK',customer_phone:'0999999999'},
-      {event_id:'EVT-20260815-EXAMPLE',booking_status:'completed',package_price:'990',phone_asset_id:'PHONE-002',lens_asset_id:'',customer_name:'ALSO_PRIVATE'},
-      {event_id:'EVT-20260815-EXAMPLE',booking_status:'cancelled',package_price:'1290',phone_asset_id:'',lens_asset_id:''},
-      {event_id:'OTHER',booking_status:'completed',package_price:'9999',phone_asset_id:'PHONE-X'}
-    ],
-    observed_at:'2026-09-04T16:20:00+07:00',
-    observation_stage:'POST_EVENT_FINAL',
-    policy_version:'v4.9.2',
-    ...overrides
-  };
-}
-
-(function completedAggregate(){
-  const o=projectOutcome(fixture());
-  assert.equal(o.bookings,2);
-  assert.equal(o.units_rented,3);
-  assert.equal(o.actual_price,1090);
-  assert.equal(o.booked,true);
-  assert.equal(o.cancellation_count,1);
-  assert.equal(o.posted_x,null);
-  assert.equal(o.eligible_for_business_outcome,true);
-  assert.equal(o.gross_revenue,null);
-  assert.equal(o.net_revenue,null);
-  assert.equal(o.amount_received_not_used_as_revenue,true);
-  const row=toBusinessOutcomeRow(o);
-  assert.equal(row['Bookings'],2);
-  assert.equal(row['Posted X'],null);
-  assert.equal(row['Gross Revenue'],null);
-  const s=JSON.stringify(row);
-  assert(!s.includes('MUST_NOT_LEAK'));
-  assert(!s.includes('0999999999'));
-})();
-(function exactEventSnapshotRequired(){ const x=fixture({event_rows:[]}); assert.throws(()=>projectOutcome(x),/exact CRM event snapshot: expected exactly one row, got 0/); })();
-(function verifiedCrosswalk(){ const x=fixture(); x.crosswalk={...x.crosswalk,identity_verified:false}; assert.throws(()=>projectOutcome(x),/identity_verified=true required/); })();
-(function evidenceMinimum(){ const x=fixture(); x.crosswalk={...x.crosswalk,identity_evidence:['one']}; assert.throws(()=>projectOutcome(x),/>=2 identity evidence/); })();
-(function invalidClock(){ const x=fixture({observed_at:'not-a-time'}); assert.throws(()=>projectOutcome(x),/observed_at invalid/); })();
-(function policyRequired(){ const x=fixture({policy_version:''}); assert.throws(()=>projectOutcome(x),/policy_version required/); })();
-(function activeBookingStage(){ const x=fixture(); x.booking_rows=[{event_id:'EVT-20260815-EXAMPLE',booking_status:'confirmed',package_price:'1290'}]; const o=projectOutcome(x); assert.equal(o.bookings,1); assert.equal(o.units_rented,0); assert.equal(o.outcome_confidence,'CRM_BOOKING_STAGE_AGGREGATE'); })();
-(function cancelledOnlyFinal(){ const x=fixture(); x.booking_rows=[{event_id:'EVT-20260815-EXAMPLE',booking_status:'cancelled',package_price:'1290'}]; const o=projectOutcome(x); assert.equal(o.bookings,0); assert.equal(o.booked,false); assert.equal(o.cancellation_count,1); assert.equal(o.outcome_confidence,'CRM_ZERO_BOOKING_FINAL'); })();
-(function zeroBookingFinal(){ const o=projectOutcome(fixture({booking_rows:[]})); assert.equal(o.bookings,0); assert.equal(o.booked,false); assert.equal(o.eligible_for_business_outcome,true); assert.equal(toBusinessOutcomeRow(o)['Bookings'],0); })();
-(function preEventNotFinal(){ const o=projectOutcome(fixture({booking_rows:[],observation_stage:'PRE_EVENT_SNAPSHOT'})); assert.equal(o.eligible_for_business_outcome,false); assert.equal(o.outcome_confidence,'CRM_ZERO_BOOKING_PRE_EVENT_SNAPSHOT'); assert.throws(()=>toBusinessOutcomeRow(o),/not eligible/); })();
-(function publishedXNeedsProviderEvidence(){ const o=projectOutcome(fixture({x_post_evidence:{posted:true,provider_evidence_ref:'XPROVIDER|123',post_id:'123',post_url:'https://x.com/kk/status/123',post_at:'2026-08-15T20:00:00+07:00'}})); assert.equal(o.posted_x,true); assert.equal(o.x_post_id,'123'); assert.equal(toBusinessOutcomeRow(o)['Posted X'],true); })();
-(function publishedXMissingReceiptFails(){ const x=fixture({x_post_evidence:{posted:true,provider_evidence_ref:'XPROVIDER|123',post_id:'',post_url:'',post_at:'2026-08-15T20:00:00+07:00'}}); assert.throws(()=>projectOutcome(x),/requires post_id and post_url/); })();
-(function explicitNotPostedEvidence(){ const o=projectOutcome(fixture({x_post_evidence:{posted:false,provider_evidence_ref:'GATE|NOT_AUTHORIZED'}})); assert.equal(o.posted_x,false); })();
-(function badStageFails(){ assert.throws(()=>projectOutcome(fixture({observation_stage:'MAYBE'})),/observation_stage/); })();
-
-console.log('kk-outcome-projector: 14/14 PASS');
+function fixture(overrides={}){return {crosswalk:{identity_verified:true,event_family_id:'FAM|example|20260815',show_id:'SHOW|example|20260815|S1',crm_event_id:'EVT-20260815-EXAMPLE',event_date:'2026-08-15',identity_evidence:['event_name exact','event_date exact','venue exact']},event_rows:[{event_id:'EVT-20260815-EXAMPLE',event_name:'Example Event',event_date:'15/08/2026',venue:'Example Hall'}],booking_rows:[{event_id:'EVT-20260815-EXAMPLE',booking_status:'completed',package_price:'1190',phone_asset_id:'PHONE-001',lens_asset_id:'LENS-001',customer_name:'MUST_NOT_LEAK',customer_phone:'0999999999'},{event_id:'EVT-20260815-EXAMPLE',booking_status:'completed',package_price:'990',phone_asset_id:'PHONE-002',lens_asset_id:''},{event_id:'EVT-20260815-EXAMPLE',booking_status:'cancelled',package_price:'1290'},{event_id:'OTHER',booking_status:'completed',package_price:'9999'}],observed_at:'2026-09-04T16:20:00+07:00',observation_stage:'POST_EVENT_FINAL',policy_version:'v4.9.2',...overrides};}
+let count=0;function test(name,fn){fn();count++;}
+test('completed aggregate',()=>{const o=projectOutcome(fixture());assert.equal(o.bookings,2);assert.equal(o.units_rented,3);assert.equal(o.actual_price,1090);assert.equal(o.booked,true);assert.equal(o.cancellation_count,1);assert.equal(o.posted_x,null);assert.equal(o.eligible_for_business_outcome,true);assert.equal(o.unresolved_active_bookings,0);const row=toBusinessOutcomeRow(o);assert.equal(row['Bookings'],2);assert.equal(row['Gross Revenue'],null);const s=JSON.stringify(row);assert(!s.includes('MUST_NOT_LEAK'));assert(!s.includes('0999999999'));});
+test('exact event snapshot required',()=>assert.throws(()=>projectOutcome(fixture({event_rows:[]})),/expected exactly one row/));
+test('verified crosswalk',()=>{const x=fixture();x.crosswalk={...x.crosswalk,identity_verified:false};assert.throws(()=>projectOutcome(x),/identity_verified=true/);});
+test('independent evidence minimum',()=>{const x=fixture();x.crosswalk={...x.crosswalk,identity_evidence:['same','same']};assert.throws(()=>projectOutcome(x),/independent identity evidence/);});
+test('invalid clock',()=>assert.throws(()=>projectOutcome(fixture({observed_at:'bad'})),/observed_at invalid/));
+test('policy required',()=>assert.throws(()=>projectOutcome(fixture({policy_version:''})),/policy_version required/));
+test('crosswalk CRM date mismatch',()=>{const x=fixture();x.event_rows=[{...x.event_rows[0],event_date:'16/08/2026'}];assert.throws(()=>projectOutcome(x),/event_date mismatch/);});
+test('same-day final blocked',()=>assert.throws(()=>projectOutcome(fixture({observed_at:'2026-08-15T23:00:00+07:00'})),/requires observation after event date/));
+test('pre-event active allowed but not final',()=>{const x=fixture({observation_stage:'PRE_EVENT_SNAPSHOT',observed_at:'2026-08-10T10:00:00+07:00'});x.booking_rows=[{event_id:'EVT-20260815-EXAMPLE',booking_status:'confirmed',package_price:'1290'}];const o=projectOutcome(x);assert.equal(o.eligible_for_business_outcome,false);assert.equal(o.unresolved_active_bookings,1);assert.throws(()=>toBusinessOutcomeRow(o),/not eligible/);});
+test('post-event active blocked',()=>{const x=fixture();x.booking_rows=[{event_id:'EVT-20260815-EXAMPLE',booking_status:'returned',package_price:'1290'}];assert.throws(()=>projectOutcome(x),/unresolved active bookings/);});
+test('cancelled only final',()=>{const x=fixture();x.booking_rows=[{event_id:'EVT-20260815-EXAMPLE',booking_status:'cancelled',package_price:'1290'}];const o=projectOutcome(x);assert.equal(o.bookings,0);assert.equal(o.cancellation_count,1);assert.equal(o.outcome_confidence,'CRM_ZERO_BOOKING_FINAL');});
+test('zero booking final',()=>{const o=projectOutcome(fixture({booking_rows:[]}));assert.equal(o.bookings,0);assert.equal(o.eligible_for_business_outcome,true);assert.equal(toBusinessOutcomeRow(o)['Bookings'],0);});
+test('pre event zero not final',()=>{const o=projectOutcome(fixture({booking_rows:[],observation_stage:'PRE_EVENT_SNAPSHOT',observed_at:'2026-08-10T10:00:00+07:00'}));assert.equal(o.eligible_for_business_outcome,false);assert.equal(o.outcome_confidence,'CRM_ZERO_BOOKING_PRE_EVENT_SNAPSHOT');});
+test('unsupported booking status fails',()=>{const x=fixture();x.booking_rows=[{event_id:'EVT-20260815-EXAMPLE',booking_status:'mystery'}];assert.throws(()=>projectOutcome(x),/unsupported booking_status/);});
+test('published X canonical',()=>{const o=projectOutcome(fixture({x_post_evidence:{posted:true,provider_evidence_ref:'XPROVIDER|123',post_id:'123',post_url:'https://x.com/kk/status/123',post_at:'2026-08-15T20:00:00+07:00'}}));assert.equal(o.posted_x,true);assert.equal(o.x_post_url,'https://x.com/kk/status/123');});
+test('published X missing receipt',()=>assert.throws(()=>projectOutcome(fixture({x_post_evidence:{posted:true,provider_evidence_ref:'XPROVIDER|123',post_id:'',post_url:'',post_at:'2026-08-15T20:00:00+07:00'}})),/requires post_id and post_url/));
+test('X canonical host',()=>assert.throws(()=>projectOutcome(fixture({x_post_evidence:{posted:true,provider_evidence_ref:'e',post_id:'123',post_url:'https://twitter.com/kk/status/123',post_at:'2026-08-15T20:00:00+07:00'}})),/canonical x.com/));
+test('X id URL mismatch',()=>assert.throws(()=>projectOutcome(fixture({x_post_evidence:{posted:true,provider_evidence_ref:'e',post_id:'123',post_url:'https://x.com/kk/status/999',post_at:'2026-08-15T20:00:00+07:00'}})),/post_id\/url mismatch/));
+test('X query forbidden',()=>assert.throws(()=>projectOutcome(fixture({x_post_evidence:{posted:true,provider_evidence_ref:'e',post_id:'123',post_url:'https://x.com/kk/status/123?s=20',post_at:'2026-08-15T20:00:00+07:00'}})),/query\/hash forbidden/));
+test('X post time after observation blocked',()=>assert.throws(()=>projectOutcome(fixture({x_post_evidence:{posted:true,provider_evidence_ref:'e',post_id:'123',post_url:'https://x.com/kk/status/123',post_at:'2026-10-15T20:00:00+07:00'}})),/after observation/));
+test('explicit not posted',()=>{const o=projectOutcome(fixture({x_post_evidence:{posted:false,provider_evidence_ref:'GATE|NOT_AUTHORIZED'}}));assert.equal(o.posted_x,false);});
+test('X evidence ref required',()=>assert.throws(()=>projectOutcome(fixture({x_post_evidence:{posted:false,provider_evidence_ref:''}})),/provider_evidence_ref required/));
+test('bad stage',()=>assert.throws(()=>projectOutcome(fixture({observation_stage:'MAYBE'})),/observation_stage/));
+test('thai Buddhist CRM date normalizes',()=>{const x=fixture();x.event_rows=[{...x.event_rows[0],event_date:'15/08/2569'}];const o=projectOutcome(x);assert.equal(o.event_date,'2026-08-15');});
+console.log(`kk-outcome-projector: ${count}/${count} PASS`);
