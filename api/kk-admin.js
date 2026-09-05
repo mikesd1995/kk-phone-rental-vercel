@@ -1,8 +1,8 @@
-// KK Phone Rental v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX — Admin CRM Vercel Proxy
+// KK Phone Rental v16.7.0_CRM_PRO_PHASE3_9_5_9_BOOKING_TIMEOUT_FAIL_CLOSED — Admin CRM Vercel Proxy
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Adds System Guard diagnostics for Apps Script URL / Sheet ID / public feed / override pipeline.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX";
+const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_9_BOOKING_TIMEOUT_FAIL_CLOSED";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 function json(res, status, body) {
@@ -365,13 +365,18 @@ module.exports = async function handler(req, res) {
     const action = String((payload && payload.action) || (req.method === "GET" ? "snapshot" : "unknown"));
     const timeoutMs = timeoutForAction(action);
     const isTimeout = !!(err && err.name === "AbortError");
-    const msg = isTimeout
-      ? "Apps Script request timed out for action " + action + ". The proxy waited up to " + String(timeoutMs) + " ms. Please retry once; if it repeats, check Apps Script Executions and sheet calculation load."
-      : (err && err.message ? err.message : String(err));
+    const isAmbiguousCreateBooking = isTimeout && action === "createBooking";
+    const msg = isAmbiguousCreateBooking
+      ? "Apps Script timed out while creating a booking. The write result is ambiguous. DO NOT retry this booking blindly. Reconcile the CRM booking state first; retry only after writer-side idempotency/readback proves no booking was created."
+      : (isTimeout
+        ? "Apps Script request timed out for action " + action + ". The proxy waited up to " + String(timeoutMs) + " ms. Please retry once; if it repeats, check Apps Script Executions and sheet calculation load."
+        : (err && err.message ? err.message : String(err)));
     return json(res, 500, {
       ok: false,
       error: msg,
-      error_code: isTimeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_ERROR",
+      error_code: isAmbiguousCreateBooking ? "BOOKING_WRITE_AMBIGUOUS_RECONCILE_REQUIRED" : (isTimeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_ERROR"),
+      retry_safe: isAmbiguousCreateBooking ? false : undefined,
+      reconciliation_required: isAmbiguousCreateBooking ? true : undefined,
       action,
       timeout_ms: timeoutMs
     });
