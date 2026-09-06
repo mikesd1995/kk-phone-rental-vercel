@@ -29,10 +29,15 @@ Final continuation then closed the remaining material Rental Analytics integrati
 - Data Quality text now matches this fail-closed behavior;
 - `kk-rental-dashboard-contract.test.js` now has 8 assertions including Current>Archive precedence and rejection of `Thai/unspecified` semantics.
 
-Code head with this final fix:
+Final material code head:
 `56849fdc4ad77d5c4f65bda97e0cbe0757b20f71`.
 
-GitHub Actions run `34035213499` = `SUCCESS`; syntax and governed regression checks passed for that exact code head. Subsequent commits are checkpoint/handoff documentation only and must remain green before any merge review.
+Code-head GitHub Actions run `34035213499` = `SUCCESS`.
+
+Complete checkpoint/Astra-handoff head immediately before this documentation record:
+`1ec274e8f1ce082b2aabe97ed18e40f322779eb8`.
+
+Latest-head GitHub Actions run `34035480136` = `SUCCESS`; syntax and governed regression checks passed. CI is implementation evidence, not provider/production proof.
 
 ## Core runtime evidence to preserve
 
@@ -64,7 +69,7 @@ Historical stale implementation leases were reconciled without deleting history:
 Final continuation used v180:
 `CX-20260906T200300-CONTINUE-V180`.
 
-Before Astra performs any protected mutation, read `_Run_Lock` fresh. v180 must be released by the continuation session before handoff and must never be reused. New work uses the next live monotonic version only.
+Before Astra performs any protected mutation, read `_Run_Lock` fresh. v180 is released by the continuation session at handoff and must never be reused. New work uses the next live monotonic version only.
 
 ## Phase states
 
