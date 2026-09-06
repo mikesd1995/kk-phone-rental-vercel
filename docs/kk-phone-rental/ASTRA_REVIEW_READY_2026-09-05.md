@@ -21,23 +21,19 @@ It inherits v4.9.3 fresh/current competitor-market semantics and all prior singl
 
 Astra hardened company classification so missing/UNKNOWN performer origin does not promote an affiliation from explicit label or Artist Registry alias.
 
-Final continuation then closed the remaining material Rental Analytics integration gap:
-- Archive metadata is loaded before Current metadata, so Current has final authority for the same event ID.
+Final continuation closed the remaining material Rental Analytics integration gap:
+- Archive metadata loads before Current metadata, so Current has final authority for the same event ID.
 - confirmed THAI origin → talent affiliation;
 - confirmed FOREIGN origin → local organizer/promoter;
 - missing/UNKNOWN origin → Unknown;
-- Data Quality text now matches this fail-closed behavior;
-- `kk-rental-dashboard-contract.test.js` now has 8 assertions including Current>Archive precedence and rejection of `Thai/unspecified` semantics.
+- Data Quality text matches this fail-closed behavior;
+- `kk-rental-dashboard-contract.test.js` has 8 assertions including Current>Archive precedence and rejection of `Thai/unspecified` semantics.
 
 Final material code head:
 `56849fdc4ad77d5c4f65bda97e0cbe0757b20f71`.
-
 Code-head GitHub Actions run `34035213499` = `SUCCESS`.
 
-Complete checkpoint/Astra-handoff head immediately before this documentation record:
-`1ec274e8f1ce082b2aabe97ed18e40f322779eb8`.
-
-Latest-head GitHub Actions run `34035480136` = `SUCCESS`; syntax and governed regression checks passed. CI is implementation evidence, not provider/production proof.
+All later commits are continuity/checkpoint documentation only. Read current PR head and latest CI fresh before review; do not infer provider/runtime proof from CI.
 
 ## Core runtime evidence to preserve
 
@@ -66,10 +62,7 @@ Historical stale implementation leases were reconciled without deleting history:
 - v178 → RELEASED / stale-reconciled.
 - v179 Astra lease → RELEASED / stale-reconciled.
 
-Final continuation used v180:
-`CX-20260906T200300-CONTINUE-V180`.
-
-Before Astra performs any protected mutation, read `_Run_Lock` fresh. v180 is released by the continuation session at handoff and must never be reused. New work uses the next live monotonic version only.
+Final continuation lease is v180 `CX-20260906T200300-CONTINUE-V180`. The continuation session releases it with exact Machine-SOT readback before stopping. Astra must read `_Run_Lock` live and never reuse v180. New work uses the next live monotonic version only.
 
 ## Phase states
 
