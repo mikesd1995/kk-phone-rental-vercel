@@ -1,6 +1,6 @@
 # KK Phone Rental — Current State Checkpoint
 
-Checkpoint: 2026-09-06 20:11 Asia/Bangkok  
+Checkpoint: 2026-09-06 20:13 Asia/Bangkok  
 Branch: `skills/x-scanner-v2`  
 PR: #1 Draft / Open / Unmerged
 
@@ -55,10 +55,15 @@ Final integration review found and closed one material Rental Analytics gap:
 - Data Quality definitions now match the fail-closed origin rule: confirmed THAI → talent affiliation; confirmed FOREIGN → local organizer/promoter; missing/UNKNOWN origin → Unknown.
 - dashboard contract increased from 5 to 8 assertions covering resolver use, no heuristic inference, read-only boundary, missing-origin fail-closed semantics, Current>Archive precedence and removal of `Thai/unspecified` wording.
 
-Latest engineering head before this checkpoint documentation commit:
+Final code head for the material fix:
 `56849fdc4ad77d5c4f65bda97e0cbe0757b20f71`.
 
-GitHub Actions run `34035213499` completed `SUCCESS`; the `Syntax and governed regression checks` job passed for that exact code head. CI remains implementation evidence, not provider/production proof.
+Code-head GitHub Actions run `34035213499` completed `SUCCESS`; syntax and governed regression checks passed.
+
+Final documentation/handoff head before this CI-record commit:
+`491df1fb94b035ea3f8ff349c2156374b2d0e997`.
+
+Latest-head GitHub Actions run `34035411060` completed `SUCCESS`; syntax and governed regression checks passed for the complete code + checkpoint/Astra handoff state. CI remains implementation evidence, not provider/production proof.
 
 ## B — CRM / Business Brain / current market
 
