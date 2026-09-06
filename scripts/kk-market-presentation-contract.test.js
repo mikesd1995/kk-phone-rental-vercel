@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('assert');
-const {priceObservationPersistenceGate,monthlyMarketSummary,sameShopPackagePriceChange}=require('../lib/kk-market-presentation-contract');
+const {priceObservationPersistenceGate,monthlyMarketSummary,sameShopPackagePriceChange,rentalOpportunityTier,monthlyCompare,monthlyNormalizerGate,priceOnlyMonthlyReorderRequired}=require('../lib/kk-market-presentation-contract');
 let n=0;const eq=(a,b,m)=>{assert.deepStrictEqual(a,b,m);n++;};const ok=(v,m)=>{assert(v,m);n++;};
 const NOW='2026-09-07T02:45:00+07:00';
 function row(over={}){return Object.assign({event_key:'EVENT|x|20261001',competitor_account:'shop-a',package_key:'VIVO_X300_PRO+LENS',current_bundle_price:900,last_checked:'2026-09-07T02:40:00+07:00',fresh_until:'2026-09-08T02:40:00+07:00',freshness:'FRESH',queue_status:'OPEN',source_evidence_row:10,exact_event:true},over);}
@@ -15,4 +15,10 @@ s=monthlyMarketSummary([], [], {now:NOW,event_key:'EVENT|x|20261001',package_key
 let ch=sameShopPackagePriceChange(row({last_checked:'2026-09-07T01:00:00+07:00',current_bundle_price:1000}),row({last_checked:'2026-09-07T02:00:00+07:00',current_bundle_price:900}),{now:NOW});ok(ch.price_updated&&ch.visual==='PURPLE'&&ch.delta===-100,'same shop package recent delta flags purple');
 ch=sameShopPackagePriceChange(row({competitor_account:'shop-a',current_bundle_price:1000}),row({competitor_account:'shop-b',current_bundle_price:900}),{now:NOW});ok(!ch.price_updated,'new competitor is not a price-change event');
 ch=sameShopPackagePriceChange(row({package_key:'VIVO_X300_PRO+LENS',current_bundle_price:1000}),row({package_key:'VIVO_X300_PRO',current_bundle_price:900}),{now:NOW});ok(!ch.price_updated,'different package is not same-package change');
+
+eq(rentalOpportunityTier(96,'ACTIVE'),'S+','95-100 maps S+');eq(rentalOpportunityTier(92,'ACTIVE'),'S','90-94 maps S');eq(rentalOpportunityTier(87,'ACTIVE'),'A+','85-89 maps A+');eq(rentalOpportunityTier(82,'ACTIVE'),'A','80-84 maps A');eq(rentalOpportunityTier(77,'ACTIVE'),'B+','75-79 maps B+');eq(rentalOpportunityTier(20,'ACTIVE'),'B','1-74 maps B');eq(rentalOpportunityTier('', 'ACTIVE'),'PENDING','unresolved score remains pending');eq(rentalOpportunityTier(99,'CANCELLED'),'HOLD','lifecycle override beats score');eq(rentalOpportunityTier(99,'SKIP — External Phone Lens prohibited'),'SKIP','skip override beats score');
+const sameDate=[{start_date_iso:'2026-09-19',score:'',status:'ACTIVE',event_name:'Pending'},{start_date_iso:'2026-09-19',score:84,status:'ACTIVE',event_name:'Scored'},{start_date_iso:'2026-09-19',score:99,status:'CANCELLED',event_name:'Hold'}].sort(monthlyCompare);eq(sameDate.map(x=>x.event_name),['Scored','Pending','Hold'],'same-date order scored then pending then hold');
+ok(monthlyNormalizerGate({duplicate_event_key:0,canonical_monthly_gap:0,sort_order_pass:true,tier_mapping_pass:true,color_rule_present:true,week_separator_pass:true,formula_ref_error:0,full_row_integrity_pass:true}).can_commit,'all monthly invariants allow commit');
+ok(!monthlyNormalizerGate({duplicate_event_key:1,sort_order_pass:true,tier_mapping_pass:true,color_rule_present:true,week_separator_pass:true,full_row_integrity_pass:true}).can_commit,'duplicate event key blocks commit');
+ok(!priceOnlyMonthlyReorderRequired({price_current_changed:true}),'price-only change does not reorder row');ok(priceOnlyMonthlyReorderRequired({price_current_changed:true,score_changed:true}),'sort-key change permits reorder');
 console.log(`kk-market-presentation-contract: ${n}/${n} PASS`);
