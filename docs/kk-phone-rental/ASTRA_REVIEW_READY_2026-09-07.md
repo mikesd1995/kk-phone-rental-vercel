@@ -2,173 +2,121 @@
 
 ## Purpose
 
-This is a continuation/review handoff, not a restart request. Live Machine SOT + exactly one highest Active policy + canonical provider/backend state + runtime/exact-readback evidence remain authoritative.
-
-Astra should perform a bounded transition/review against the current live state and preserve runtime-proven architecture unless fresh evidence proves a defect.
+Continuation/review handoff only. Do not restart the architecture. Live Machine SOT + exactly one highest Active policy + CRM/provider/runtime exact readback outrank this document.
 
 ## Read first
 
-1. `docs/kk-phone-rental/CURRENT_STATE.md`
-2. Live Machine SOT `_Policy_Registry`
-3. Live `_Run_Lock`, `_Write_Transaction`, `_Run_Manifest`, `_Reconciliation_Log`
-4. Canonical Scanner / Verifier / Canary task states
-5. PR #1 current head + final-head governed CI
-6. Current external authorization/permission state only where relevant
+1. `docs/kk-phone-rental/FULL_SYSTEM_AUDIT_2026-09-07.md`
+2. `docs/kk-phone-rental/CURRENT_STATE.md`
+3. live `_Policy_Registry`, `_Run_Lock`, `_Write_Transaction`, `_Run_Manifest`, `_Reconciliation_Log`
+4. current `_AI_Inbox` READY packet count
+5. canonical Scanner / Verifier / Canary task states
+6. PR #1 final head + governed CI
+7. external authorization/permission state only when relevant
 
-## Current authority
+## Current live authority at handoff refresh
 
-Fresh handoff read resolves exactly one Active policy:
+Exactly one Active policy:
+`v4.9.9 OWNER MORNING BRIEF & CHANNEL SPLIT`.
 
-`v4.9.7 MAX RECALL OPPORTUNITY DISCOVERY`
+Do not freeze this version for future runs. Fresh live authority wins.
 
-Do not freeze this version in future runtime logic. Fresh live authority wins.
+Inherited/current invariants:
+- v4.9.5 deterministic Candidate↔AI atomic handoff;
+- v4.9.6 stable-key mutation and canonical↔monthly closure;
+- v4.9.7 A/B/C/D max-recall discovery, section-level coverage, competitor consensus and zero-unaccounted signals;
+- v4.9.8 existing 01:00 Ultra-Deep, Coverage Debt retry ladder, overnight Verifier drain, 06:30 high-value closure, near-term targeted price refresh, monthly normalizer/tier/sort/week/no-jitter rules;
+- v4.9.9 Ledger-only owner outbound, LINE executive/critical + Telegram detail split, deterministic daily morning brief including zero-change proof, provider ACK before SENT, exact price-change semantics.
 
-Important inherited/current invariants now represented in governed code:
+## Current runtime frontier
 
-- v4.9.5: deterministic Candidate↔AI packet handoff; no Candidate READY without matching READY packet; orphan reconciliation before Verifier no-op; eligible canonical→monthly exact1 or explicit non-promotion.
-- v4.9.6: stable-key protected mutations; row number is address only; Verifier normal FINISHED requires READY lineage gap=0, canonical/monthly gap=0, unresolved PREPARED/COMMITTING=0; bidirectional monthly↔canonical audit.
-- v4.9.7: same source-family breadth through current year; A/B/C/D multipass discovery; source-section proof; competitor consensus P0 alarm; zero unaccounted in-area signals; recall before score; explicit backlog holds; honest partial-external completion.
-- v4.9.7 price persistence: verified exact-event vivo X300 Pro + Lens observation history→current projection; monthly market 1=Reference, 2=Range, >=3=Range+Median; STALE/no-history semantics; same event/shop/package delta only for PRICE UPDATED.
+### Scanner
+`SCV499-20260907T050000` ran under v4.9.9 and finished `FINISHED_PARTIAL` after the same-day Destiny P0 authority recheck. Direct The Mall Thailand X was 403; fresh indexed official reproduction remained consistent. No new packet/final business/outbound write was invented.
 
-## Runtime recovery completed immediately before handoff
+### Verifier
+Prior v230 recovery transaction `TX|V498|PREASTRA_FINAL_PACKET_DRAIN|20260907T041040` is COMMITTED and had READY/VERIFYING=0 at completion.
 
-### Stale owner year-end drain
+Afterward the v4.9.8 Ultra-Deep UAT created a newer legitimate backlog: `_AI_Inbox.Packet Status=READY_FOR_VERIFIER` exact8 at the latest handoff read. They include same-day P0 Destiny plus Hunter/Pooh/The Touch opportunities. No unresolved PREPARED or COMMITTING transaction exists.
 
-Original run:
-`GPTV497-20260906T235800-OWNER-YEAREND-DRAIN`
+Do not create a competing Verifier. Fresh-read whether the existing scheduled Verifier has drained these packets before taking any protected action.
 
-It was found with:
-- expired Verifier lease v224;
-- Manifest still RUNNING;
-- 12 MAXRECALL Candidate↔AI lineages still operationally READY;
-- no completed canonical v4.9.7 drain evidence.
+## Owner notification transport
 
-The state was not backfilled as success.
+Historical provider evidence exists for Ledger-backed owner Telegram/LINE UATs.
 
-### Deterministic recovery
+v4.9.9 Telegram Ledger consumer is Make scenario `6176241`, active, polling every 900 seconds, Google/Telegram connections OK, and successful current no-work polls after two initial `Aundefined:Zundefined` configuration errors.
 
-Recovery run:
-`GPTV497-20260907T023821-OWNER-YEAREND-DRAIN-R2`
+Concrete open defect from audit:
+- current success path writes SENT only after Telegram message_id;
+- but the active design does not expose an explicit failure→`RETRY_WAIT` Ledger update path;
+- Attempt Count is hard-coded to 1 instead of incrementing prior attempts.
 
-Verifier lease:
-- version 225
-- token `VF-497-20260907T023821-225`
-- safely RELEASED at 2026-09-07 02:42 +07
+Governed repo contract/tests now encode the intended fail-closed semantics. Treat the live Make fix as a controlled-UAT task; do not guess-edit an active owner transport.
 
-Transaction:
-`TX|YEAREND|V497_BACKLOG_HOLD_DRAIN|20260907T023821`
+No `KK-BRIEF-20260907-AM` row existed at the 05:16 read; this was not late because the morning brief window had not arrived.
 
-Final exact state:
-- transaction `COMMITTED`;
-- Candidate rows124-135 exact12 => `WATCHING`;
-- original Retry At / Blocked Reason retained for every Candidate;
-- AI rows198-209 exact12 => `COMPLETED_HOLD`;
-- AI ChatGPT Result remains blank;
-- stable Event Family + Show/Showset + Work Packet identity preserved;
-- old Manifest => `FINISHED_PARTIAL`;
-- no canonical Lifecycle/monthly/pricing/Notification/provider/owner success was invented.
+## Engineering sync
 
-Reconciliation:
-`RECON|GPTV497|20260907T0242|YEAREND_HOLD_DRAIN_RECOVERY`
+v4.9.8 final checkpoint head `2adb33491385d1ddf8eea8c91334a024e9e37412` had `KK Governed Checks` run `34062179057` => success.
 
-The 12 events remain due-watch/backlog evidence, not silently discarded opportunities. Reopen only when current material evidence satisfies the relevant authority/rule/ticket/market gate.
+New v4.9.9 files now added:
+- `lib/kk-owner-notification-contract.js`
+- `scripts/kk-owner-notification-contract.test.js`
+- governed package checks updated.
 
-## Engineering sync completed for review
+Final v4.9.9 head needs its own green CI before the new contract is `CI_PASS`.
 
-New governed contracts:
+## CRM / booking / timezone
 
-- `lib/kk-discovery-closure-contract.js`
-- `scripts/kk-discovery-closure-contract.test.js`
-- `lib/kk-market-presentation-contract.js`
-- `scripts/kk-market-presentation-contract.test.js`
+CRM health readback is all green. Active physical capacity remains PHONE-001/002 + ZEISS LENS-001/004; G2 LENS-002 is intentionally inactive.
 
-Updated governed skill contracts:
+Booking exactly-once source remains implementation-complete but canonical Apps Script deployment/runtime is still unverified.
 
-- `ai/skills/event-web-research-orchestrator/SKILL.md`
-- `ai/skills/competitor-rental-hunter/SKILL.md`
-- `ai/skills/scan-completeness-auditor/SKILL.md`
+CRM spreadsheet timezone remains `Etc/GMT` while Machine SOT is `Asia/Bangkok`; review this as a controlled configuration migration only after pre/post formula and Apps Script serialization impact analysis.
 
-Updated `package.json` runs both new suites in governed CI.
+## Canary
 
-Latest material code head before checkpoint docs:
-`a006e9f2d49d3b39d2df9500596fafd45ab544ba`
+CANARY-48 definition was corrected to `1 Theme / 2 Artist / 3 Fandom` but its historical FAIL must remain until fresh isolated proof. CANARY-52..64 and v4.9.9 CANARY-65..68 also await their first/current isolated execution.
 
-GitHub Actions run:
-`34055996625`
+## External/future gates
 
-Result:
-`completed / success`
-
-Final documentation head created after that run must also be verified green before this handoff is considered closed. CI is code evidence only, not runtime/provider proof.
+Fresh checks at audit:
+- PostPeer/X => PENDING
+- Xama => PENDING
+- customer LINE => PENDING
+- canonical interactive Make `5988323` => organization-view permission historically blocked
+- Apps Script production booking deployment => unverified
+- exact authorized NONT creative source bytes/hash => unavailable
+- Outcome => waits genuine POST_EVENT_FINAL evidence
 
 ## Preserve
 
-Do not rebuild merely for style:
-
-- Core v1 Scanner→Verifier architecture and canonical task IDs;
-- live Machine SOT authority and single-writer/fencing/transaction semantics;
-- CRM canonical booking/inventory ownership;
-- append-only competitor price evidence + replaceable current projection;
-- confirmed-origin Company semantics and Current>Archive metadata precedence;
+Do not rebuild or duplicate:
+- Scanner/Verifier/Canary;
+- locking/fencing/transaction architecture;
+- CRM canonical booking/inventory writer;
+- Notification Ledger owner boundary;
+- append-only price evidence/current projection model;
 - immutable content approval lineage;
-- Creative/X publish guards;
-- booking exactly-once implementation/no-blind-retry behavior;
-- KYC adapter privacy boundary;
-- Outcome fail-closed POST_EVENT_FINAL boundary.
+- creative/X guards;
+- KYC privacy boundary;
+- Outcome fail-closed boundary.
 
-Do not create a duplicate Scanner, Verifier, Canary, watchdog, canonical Make scenario, Apps Script writer or notification transport.
-
-## Remaining external/future gates
-
-Fresh handoff checks:
-
-- PostPeer/X request `4e3be806-f7bc-4f0a-99da-268d2f112b51` => `PENDING`
-- Xama request `20005b08-4698-490a-b168-58a982f3c545` => `PENDING`
-- LINE request `2dbe7ba5-061c-45e2-8f98-6822cf2eb50b` => `PENDING`
-
-Still require fresh verification before action:
-
-- Make canonical Phase-D scenario `5988323`: historically organization-view permission blocked; do not create a competing canonical scenario.
-- Canonical Apps Script deployment: repository has booking exactly-once source, but current tools have not exposed the existing production project/deployment target. Do not create a replacement writer merely to claim deployment.
-- NONT Arena Encore Creative: exact authorized raw source bytes/hash remain required before source-safe Canva/X binding.
-- Phase G: wait for a genuinely eligible completed event and POST_EVENT_FINAL evidence.
-
-## P0 control-plane issue
-
-Unexpected Scanner/Verifier OFF drift has recurred historically. Actor/root cause remains unproven.
-
-Review rule:
-- fresh-read canonical task state;
-- restore only the exact existing canonical ID when live evidence shows unexpected OFF and no legitimate owner/control reason exists;
-- retain evidence of the drift;
-- do not add a watchdog/duplicate scheduler;
-- do not attribute actor without control-plane audit evidence.
-
-## Implementation lease at checkpoint
-
-Current engineering sync lease while this document is being written:
-
-- holder `CHATGPT-20260907T024341-V497-SYNC`
-- version `185`
-- token `CX-497-20260907T024341-SYNC-V185`
-
-The handoff session must release v185 after final docs/PR/final-head CI/task-state checks. Astra must fresh-read `_Run_Lock` and never reuse v185.
+No main merge without explicit owner approval.
 
 ## Astra first actions
 
-1. Fresh-read exactly one Active policy and latest `_Run_Lock`.
-2. Confirm v185 is RELEASED and no other valid implementation writer owns the required scope.
-3. Fresh-read PR #1 head and its final-head CI; keep PR Draft/Open/Unmerged.
-4. Fresh-read Scanner/Verifier/Canary states; preserve canonical IDs only.
-5. Review the new closure/market contracts for concrete defects, not stylistic rewrites.
-6. Recheck PostPeer/Xama/LINE/Make/Apps-Script/creative gates; continue immediately if any external dependency is now genuinely available.
-7. Do not rerun a full migration/audit of unchanged components.
-8. Do not claim Production E2E COMPLETE while provider/deployment/future evidence gates remain unresolved.
+1. Fresh-resolve exactly one Active policy.
+2. Fresh-read current implementation/Scanner/Verifier locks and current READY packet count.
+3. Confirm the audit implementation lease is RELEASED before protected engineering writes.
+4. Confirm existing Verifier handles the exact8 backlog; do not compete with it.
+5. Review the v4.9.9 notification contract and active Make `6176241` failure/retry gap.
+6. Verify final-head CI and keep PR #1 Draft/Open/Unmerged.
+7. Recheck external gates only when material.
+8. Do not call Production E2E complete without provider/deployment/future evidence.
 
 ## Handoff classification
 
-Target after final lease/CI/task readback:
+**ENGINEERING_NEAR_READY_FOR_ASTRA_REVIEW / CURRENT_RUNTIME_CLOSURE_AND_NOTIFIER_FAILURE_PATH_OPEN**
 
-**ENGINEERING_READY_FOR_ASTRA_REVIEW**
-
-This means current safe code-only work is closed and externally blocked/future-evidence scopes remain explicit. It does not mean every provider/production path has been proven.
+This classification is intentionally narrower than “done”: Core is proven, but the fresh exact8 backlog, v4.9.9 morning/notification runtime and external production gates still need real evidence.
