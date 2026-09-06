@@ -1,6 +1,6 @@
 # KK Phone Rental — Current State Checkpoint
 
-Checkpoint: 2026-09-06 20:13 Asia/Bangkok  
+Checkpoint: 2026-09-06 20:15 Asia/Bangkok  
 Branch: `skills/x-scanner-v2`  
 PR: #1 Draft / Open / Unmerged
 
@@ -55,28 +55,18 @@ Final integration review found and closed one material Rental Analytics gap:
 - Data Quality definitions now match the fail-closed origin rule: confirmed THAI → talent affiliation; confirmed FOREIGN → local organizer/promoter; missing/UNKNOWN origin → Unknown.
 - dashboard contract increased from 5 to 8 assertions covering resolver use, no heuristic inference, read-only boundary, missing-origin fail-closed semantics, Current>Archive precedence and removal of `Thai/unspecified` wording.
 
-Final code head for the material fix:
+Final material code head:
 `56849fdc4ad77d5c4f65bda97e0cbe0757b20f71`.
 
 Code-head GitHub Actions run `34035213499` completed `SUCCESS`; syntax and governed regression checks passed.
 
-Final documentation/handoff head before this CI-record commit:
-`491df1fb94b035ea3f8ff349c2156374b2d0e997`.
+Astra-handoff checkpoint head `491df1fb94b035ea3f8ff349c2156374b2d0e997` also passed GitHub Actions run `34035411060`.
 
-Latest-head GitHub Actions run `34035411060` completed `SUCCESS`; syntax and governed regression checks passed for the complete code + checkpoint/Astra handoff state. CI remains implementation evidence, not provider/production proof.
+All CI evidence is implementation evidence, not provider/production proof.
 
 ## B — CRM / Business Brain / current market
 
-Preserve:
-- exact Machine↔CRM identity; no fuzzy joins;
-- exact phone/lens model capacity;
-- no PII projection;
-- Thai confirmed-origin talent affiliation / foreign confirmed-origin local organizer semantics; unknown origin remains Unknown;
-- current event metadata overrides archive metadata;
-- append-only price history + replaceable current projection;
-- exact Event+Competitor+Package identity, freshness/TTL/source lineage;
-- stale/superseded/conflict-held/own-shop rows excluded;
-- reverse competitor discovery remains discovery-only until authority verification.
+Preserve exact Machine↔CRM identity, no fuzzy joins, exact physical capacity, no PII projection, confirmed-origin company semantics, Current>Archive metadata authority, append-only competitor price history and fresh current projection with exact lineage/readback.
 
 ## C — Content / Creative
 
@@ -86,25 +76,20 @@ Creative remains `WAITING_EVIDENCE / BLOCKED_EXTERNAL`: exact authorized raw byt
 
 ## D — Telegram / Make
 
-Temporary `5901592` remains compatibility-only.
-
-Canonical `5988323` remains inaccessible to the current Make identity because required organization-level visibility is unavailable. Do not create a competing canonical scenario.
+Temporary `5901592` remains compatibility-only. Canonical `5988323` remains inaccessible to the current Make identity because required organization-level visibility is unavailable. Do not create a competing canonical scenario.
 
 ## E — X
 
-PostPeer authorization request `4e3be806-f7bc-4f0a-99da-268d2f112b51` remains pending as of the latest check. No production X post ID/canonical URL/provider receipt exists.
+PostPeer authorization request `4e3be806-f7bc-4f0a-99da-268d2f112b51` remains pending at latest check. No production X post ID/canonical URL/provider receipt exists.
 
 ## F — Booking / KYC / LINE
 
-Booking source contains writer-side durable idempotency:
-`request_id + canonical fingerprint -> PREPARED -> reserved target/assets -> write -> exact booking-row readback -> COMMITTED receipt`.
-
-Ambiguous create timeout fails closed with reconciliation required and no blind retry.
+Booking source contains writer-side durable idempotency and ambiguous timeout remains fail-closed with reconciliation required and no blind retry.
 
 Production Apps Script deployment/runtime proof remains external because no connected canonical Apps Script deployment target is exposed through current tools. Do not create a replacement project.
 
-Xama request `20005b08-4698-490a-b168-58a982f3c545`: pending at latest check.  
-LINE request `2dbe7ba5-061c-45e2-8f98-6822cf2eb50b`: pending at latest check.
+Xama request `20005b08-4698-490a-b168-58a982f3c545`: pending.  
+LINE request `2dbe7ba5-061c-45e2-8f98-6822cf2eb50b`: pending.
 
 ## G — Outcome
 
@@ -115,47 +100,35 @@ State: `WAITING_EVIDENCE`, not an engineering failure.
 ## Implementation fencing
 
 Historical expired implementation leases were reconciled without deleting history:
-- v178 `CHATGPT-20260906T031733-CONTINUE` → RELEASED / stale-reconciled.
-- v179 `CODEX-20260906T164444-ASTRA` → RELEASED / stale-reconciled.
+- v178 → RELEASED / stale-reconciled.
+- v179 Astra lease → RELEASED / stale-reconciled.
 
 Finalization lease:
-- holder `CHATGPT-20260906T200300-CONTINUE`
-- Lease Version `180`
-- token `CX-20260906T200300-CONTINUE-V180`
+- v180 `CX-20260906T200300-CONTINUE-V180`
 - acquired `2026-09-06T20:03:00+07:00`
-- lease until `2026-09-06T20:53:00+07:00`
+- expiry `2026-09-06T20:53:00+07:00`
 
-The active session must release v180 with exact Machine-SOT readback before pause/handoff. Future protected implementation work must read `_Run_Lock` fresh and use a new monotonic version; never reuse v180.
+The continuation session releases v180 immediately after final PR/CI/task verification. Astra must read `_Run_Lock` live and never reuse v180.
 
 ## Remaining genuine gates
 
 ### BLOCKED_EXTERNAL / BLOCKED_HUMAN
-1. Deploy canonical Apps Script booking-idempotency overlay and obtain production runtime/readback proof.
-2. Obtain exact authorized NONT Encore visual bytes/hash and complete Canva binding.
-3. Grant Make organization-level access to canonical `5988323`; controlled UAT/cutover.
-4. Complete PostPeer authorization; publish only after Creative + production authorization gates.
-5. Complete Xama authorization and run real governed KYC validation.
-6. Complete LINE authorization and obtain real delivery/provider receipt.
+1. Canonical Apps Script booking-idempotency deploy + production runtime/readback proof.
+2. Exact authorized NONT Encore visual bytes/hash + Canva binding.
+3. Make organization-level access to canonical `5988323` + controlled UAT/cutover.
+4. PostPeer authorization + real provider receipt after Creative/production gates.
+5. Xama authorization + real governed KYC validation.
+6. LINE authorization + real customer delivery/provider receipt.
 
 ### WAITING_EVIDENCE
 7. Real completed eligible event for Phase-G POST_EVENT_FINAL.
 
 ### P0 CONTROL PLANE
-8. Root cause / mutation actor for recurrent Scanner/Verifier OFF drift remains unproven. Current task state is repaired. Investigate only with control-plane/platform audit evidence; do not add a competing scheduler/watchdog.
+8. Root cause / mutation actor for recurrent Scanner/Verifier OFF drift remains unproven. Current task state is repaired; do not add a competing scheduler/watchdog.
 
 ## Explicit non-actions
 
-- no Core v1 rebuild;
-- no duplicate Scanner/Verifier/Canary/watchdog;
-- no fake historical backfill or provider receipt;
-- no competing canonical Phase D;
-- no `main` merge;
-- no direct CRM booking around canonical writer;
-- no fake customer/KYC/outcome;
-- no PII copied into Machine SOT/docs/receipt;
-- no generic/old creative promoted;
-- no stale historical competitor price promoted as current;
-- no public X/LINE action merely to create a success signal.
+No Core rebuild, duplicate runner/watchdog, fake historical backfill/provider receipt, competing Phase D, `main` merge, direct CRM booking bypass, fake customer/KYC/outcome, PII propagation, generic creative promotion, stale competitor-price promotion or public action merely to produce a success signal.
 
 ## Astra review entry point
 
