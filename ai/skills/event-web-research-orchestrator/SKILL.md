@@ -38,6 +38,14 @@ When the current Active policy assigns this orchestrator to an Ultra-Deep Scanne
 
 Event distance changes re-fetch cadence only. It must not remove source families from the discovery universe.
 
+## v4.9.8 nightly Ultra-Deep / morning closure
+- The existing Scanner's 01:00 Asia/Bangkok run is the mandatory full-year 4-pass Ultra-Deep sweep; do not create another runner or timer.
+- A timer firing is not completion. `FULL` requires A/B/C/D coverage evidence, every required source-family attempt accounted, zero unaccounted in-area signals, and no blocked required route silently promoted to checked.
+- A blocked/inaccessible required route creates explicit Coverage Debt. Preserve it for the existing 03:00 fallback/due retry and 06:00 Venue+Ticket/negative retry ladder.
+- Nightly P0/P1/material P2 signals must enter deterministic Candidate↔packet lineage for the existing 01:30..06:30 Verifier chain. Discovery does not self-promote canonical/monthly truth.
+- By the 06:30 boundary, a high-value nightly signal must be canonical/monthly exact1 or explicit current HOLD with Next Watch. Hidden high-value backlog is a closure gap.
+- For a new/material P0/P1 event within 14 days, request targeted exact-event vivo X300 Pro + Lens refresh only when exact-bundle market is missing/stale. The broad daily 15:00 market deep remains separate.
+
 ## Signal accounting / anomaly rules
 - Every extracted in-area in-year signal must end as an existing link, deterministic Candidate+packet handoff, duplicate, out-of-area, explicit HOLD or explicit SUPPRESS.
 - Unaccounted signal exact0 is required for normal Scanner FINISHED.
@@ -84,3 +92,6 @@ Event distance changes re-fetch cadence only. It must not remove source families
 - root-only access on sectioned source => PARTIAL
 - >=2 independent competitor businesses mention unknown event => P0 backcheck
 - every in-area signal accounted before Scanner FINISHED
+- nightly blocked required source => explicit debt + retry ladder, never FULL
+- nightly high-value hidden at 06:30 => closure HOLD
+- new/material <=14d P0/P1 missing/stale exact bundle => targeted overnight price refresh
