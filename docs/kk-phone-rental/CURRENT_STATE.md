@@ -1,14 +1,16 @@
 # KK Phone Rental — Current State Checkpoint
 
-Checkpoint: 2026-09-07 02:49 Asia/Bangkok  
+Checkpoint: 2026-09-07 04:46 Asia/Bangkok  
 Branch: `skills/x-scanner-v2`  
 PR: #1 Draft / Open / Unmerged
 
-> Live highest Active `_Policy_Registry`, Machine SOT, canonical CRM/backend, automation/provider state and exact readback are authoritative. This file is a compact continuity mirror for continuation/review only.
+> Live Machine SOT, exactly one highest Active `_Policy_Registry`, CRM SOT, canonical provider/backend state and exact runtime/readback evidence are authoritative. This file is a continuity mirror only.
 
 ## Classification
 
-**ENGINEERING SYNCHRONIZED THROUGH LIVE v4.9.7 / CORE PRESERVED / KNOWN SAFE CODE-ONLY BACKLOG CLOSED / STALE YEAR-END DRAIN RECOVERED FAIL-CLOSED / EXTERNAL-PERMISSION-AUTHORIZATION-DEPLOYMENT-FUTURE-EVIDENCE GATES REMAIN / P0 CONTROL-PLANE ROOT CAUSE OPEN.**
+**LIVE v4.9.8 / CORE PRESERVED / GOVERNED ENGINEERING SYNCHRONIZED TO NIGHTLY+MORNING+MONTHLY-NORMALIZER CONTRACTS / CURRENT UAT RECALL BACKLOG EXACT8 PENDING EXISTING VERIFIER / EXTERNAL PERMISSION-AUTHORIZATION-DEPLOYMENT-FUTURE-EVIDENCE GATES REMAIN / CONTROL-PLANE ROOT CAUSE OPEN.**
+
+Detailed audit: `docs/kk-phone-rental/FULL_SYSTEM_AUDIT_2026-09-07.md`.
 
 ## Authority
 
@@ -16,162 +18,172 @@ Machine SOT: `1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo`
 CRM SOT: `12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU`
 
 Fresh live read resolves exactly one Active policy:
-`v4.9.7 MAX RECALL OPPORTUNITY DISCOVERY`.
+`v4.9.8 NIGHTLY ULTRA-DEEP & MORNING CLOSURE`.
 
-v4.9.7 inherits:
-- v4.9.6 stable-key mutation + Scanner/Verifier closure invariants;
-- v4.9.5 atomic Candidate↔AI handoff + orphan recovery + monthly completion gate;
-- v4.9.4 reverse competitor discovery/source persistence;
-- v4.9.3 current-market freshness/source-lineage rules.
+v4.9.8 inherits v4.9.7 max-recall, v4.9.6 stable-key closure, v4.9.5 atomic Candidate↔AI handoff, v4.9.4 competitor discovery/source persistence and v4.9.3 current-market freshness.
 
-Current v4.9.7 additionally requires:
-- identical discovery-family breadth across the in-year horizon; distance changes re-fetch cadence only;
-- four Ultra-Deep passes: official universe, opportunity-keyword universe, reverse competitor discovery, negative cross-source audit;
-- root/profile-only access never counts FULL when due route/section attempts are required;
-- >=2 independent competitor businesses mentioning the same unknown in-area event => P0 authority-backcheck gap;
-- zero unaccounted extracted in-area in-year signals before normal Scanner FINISHED;
-- recall/accounting before business scoring;
-- owner deep-sweep backlog drained to canonical truth or explicit current HOLD + next-watch lineage;
-- honest `PASS_WITH_PARTIAL_EXTERNAL_COVERAGE` where inaccessible external sources prevent total coverage.
+Current v4.9.8 additionally governs:
+- existing Scanner 01:00 full-year A/B/C/D Ultra-Deep;
+- required source-family attempt accounting and explicit Coverage Debt;
+- 03:00/06:00 blocked-route retry ladder;
+- nightly priority handoff into existing Verifier chain;
+- 06:30 canonical/monthly or explicit HOLD+Next-Watch closure for high-value signals;
+- targeted exact-bundle refresh for new/material P0/P1 <=14d when current market is missing/stale;
+- monthly score/tier/lifecycle override, deterministic Start_Date_ISO ordering, week separators, stable-key exact1 projection and completion gates;
+- price-only monthly updates must not reorder unless another sort key changes.
 
-Price-persistence rules added live on 2026-09-07 require verified exact-event vivo X300 Pro + Lens observations to append `_Price_Evidence`, then update `_Competitor_Price_Current` with exact lineage/readback. Monthly M:R is a derived market view: 1 fresh shop=Reference, 2=Range, >=3=Range+Median; no fresh current + history=STALE; no exact-bundle history=`NO EXACT BUNDLE YET`; purple `PRICE UPDATED` only for same event+same competitor+same package non-zero recent price delta.
-
-## Core A — Scanner / Verifier / Canary
+## Core runners
 
 Canonical task IDs only:
 - Scanner `6a992c91ba688191ad428cbdc2e8cf35`
 - Verifier `6a992d4d0c248191914e6c73c4f17db4`
 - Canary `6a992bbe16d081918553ca3eb7f81058`
 
-Core v1 remains `RUNTIME_VERIFIED / COMPLETE / PRESERVE`.
+Fresh task read: all three canonical runners are enabled. No duplicate Scanner/Verifier/Canary/watchdog was created.
 
-Recent material runtime sequence:
-- v4.9.5 September recovery transaction `TX|SEPTEMBER|RECOVERY_PROMOTION|20260906T2216` COMMITTED after exact readback: 28/28 September work packets terminal, 23 visible monthly projections exact1, 5 explicit non-promotions.
-- v4.9.6 `SCV496-20260906T224500-MONTHLY-LINEAGE`: nine future September monthly-only events received deterministic Candidate+packet lineage after exact dual readback.
-- v4.9.6 `SCV496-20260906T225500-FINAL-WEB-SWEEP`: three fresh Eventpop signals received deterministic handoff; the Scanner lease later required stale reconciliation and no retroactive FINISHED claim was fabricated.
-- v4.9.7 `SCV497-20260906T234739-OWNER-YEAREND-MAXRECALL`: exact12 new Candidate↔AI handoffs committed; external-web universe remained PARTIAL.
-- `CHATGPT-20260907T023150-PRICE-PERSIST`: live v4.9.7 price-persistence/monthly-market rules installed; existing Scanner and Verifier tasks enabled; no new schedules created.
+Core v1 Scanner→Verifier→canonical/projection→Notification Ledger remains runtime-proven and preserved.
 
-### v4.9.7 stale year-end Verifier drain recovery
+## Latest runtime truth
 
-The owner-triggered Verifier drain `GPTV497-20260906T235800-OWNER-YEAREND-DRAIN` was found with an expired v224 lease, a RUNNING Manifest and 12 operational READY Candidate+packet lineages. It was not retroactively called successful.
+### Verifier pre-Astra recovery
 
-Recovery under fresh Verifier v225:
-`GPTV497-20260907T023821-OWNER-YEAREND-DRAIN-R2`
+`GPTV497-20260907T035745-PREASTRA-FINAL-RECOVERY`
 
 Transaction:
-`TX|YEAREND|V497_BACKLOG_HOLD_DRAIN|20260907T023821`
+`TX|V498|PREASTRA_FINAL_PACKET_DRAIN|20260907T041040` => `COMMITTED`.
 
-Exact final evidence:
-- stale implementation v183 => RELEASED by reconciliation;
-- stale Verifier v224 => RELEASED by reconciliation;
-- Candidate rows124-135 exact12 => `WATCHING`, preserving original Retry At + Blocked Reason;
-- AI rows198-209 exact12 => `COMPLETED_HOLD`, Processed At `2026-09-07T02:40:00+07:00`, Packet Status `COMPLETED_HOLD`, ChatGPT Result blank;
-- original owner-drain Manifest => `FINISHED_PARTIAL` at `2026-09-07T02:42:00+07:00`;
-- recovery transaction => `COMMITTED`, Recovery State `COMPLETE`, result `COMMITTED_AFTER_STABLE_KEY_EXACT_READBACK`;
-- recovery Verifier lease v225 => RELEASED at `02:42`;
-- no canonical Lifecycle/monthly/pricing/Notification/provider/owner mutation was invented to close the backlog.
+Exact results:
+- R3 14 packets canonicalized as VERIFIED/VERIFIED_HOLD according to evidence;
+- FUJII KAZE Bangkok canonicalized `CANCELLED/CANCELLED` from explicit official correction using TR-012;
+- stale R3 transaction preserved as RECOVERED;
+- operational READY/VERIFYING reached zero at completion;
+- v230 lease released.
 
-The 12 events remain explicit watches/holds for their current authority/date/rule/ticket/market reasons. Subsequent due watches may reopen only on material evidence.
+### v4.9.8 Ultra-Deep UAT
 
-## Engineering / governed contracts
+`SCV498-20260907T040800-OWNER-ULTRADEEP-UAT`
 
-Development branch now carries code-level contracts matching live v4.9.5–v4.9.7 semantics:
+Result: `FINISHED_PARTIAL`, because direct X/IG external coverage remained partial.
+
+Actual Scanner outcome:
+- A/B/C/D passes executed;
+- 4 previously untracked event families / 8 shows staged;
+- Candidate↔AI exact8;
+- Destiny current exact-bundle observations 550/590 persisted with lineage;
+- four source-map/miss-learning repairs persisted;
+- no final canonical/monthly/provider/owner write from Scanner;
+- v223 released.
+
+Fresh audit read at 04:46: AI rows250–257 remain `READY_FOR_VERIFIER` exact8. These were created after v230 and are current legitimate Verifier work, not a rollback. Do not create a competing verifier; require a later canonical Verifier run/readback.
+
+## Engineering contracts
+
+Development branch now includes live-compatible v4.9.8 governed contracts:
 
 - `lib/kk-discovery-closure-contract.js`
-  - deterministic Work Packet identity;
-  - Candidate READY requires matching READY packet;
-  - orphan READY detection;
-  - stable-key mutation gate;
-  - Verifier finish closure;
-  - A/B/C/D multipass coverage;
-  - source-section coverage/root-only PARTIAL;
-  - competitor-consensus P0 alarms;
-  - zero-unaccounted signal accounting;
-  - year-end `PASS_WITH_PARTIAL_EXTERNAL_COVERAGE` semantics.
-- `scripts/kk-discovery-closure-contract.test.js`
+  - existing atomic handoff/stable identity/closure/multipass rules;
+  - nightly Ultra-Deep completion;
+  - Coverage Debt retry windows;
+  - morning high-value closure;
+  - targeted <=14d P0/P1 market refresh trigger.
 - `lib/kk-market-presentation-contract.js`
-  - exact X300 Pro + Lens observation persistence gate;
-  - 1/2/3+ independent-shop monthly market summary semantics;
-  - STALE/no-exact-bundle display state;
-  - same-event/shop/package recent price-change rule.
-- `scripts/kk-market-presentation-contract.test.js`
+  - exact market summary/persistence;
+  - S+/S/A+/A/B+/B/PENDING tier mapping;
+  - lifecycle HOLD/SKIP override;
+  - deterministic monthly ordering;
+  - monthly normalizer completion gate;
+  - price-only no-jitter rule.
+- corresponding governed tests.
 
-Updated skills:
+Skills synchronized to v4.9.8:
 - `EVENT_WEB_RESEARCH_ORCHESTRATOR`
 - `COMPETITOR_RENTAL_HUNTER`
 - `SCAN_COMPLETENESS_AUDITOR`
 
-`package.json` now includes both new governed suites in `test:governed` and syntax `check`.
+`package.json` already runs both governed suites in `test:governed` and `check`.
 
-Code head `a006e9f2d49d3b39d2df9500596fafd45ab544ba` passed GitHub Actions run `34055996625` (`KK Governed Checks`) with conclusion `success`, including both new v4.9.7 contract suites. CI is implementation evidence, not provider/production proof. Later documentation/checkpoint commits require their own final-head CI readback before handoff.
+Final-head CI for the v4.9.8 sync must be read green before `CI_PASS` is claimed for this checkpoint.
 
-## B — CRM / Business Brain / Market
+## Audit repairs completed
 
-Preserve exact Machine↔CRM identity, no fuzzy joins, exact physical capacity, no PII projection, confirmed-origin Company semantics, Current>Archive event metadata authority, append-only price history and replaceable fresh current projection with exact Event+Competitor+Package identity/source lineage.
+1. Historical Verifier v212 stale-labelled ACTIVE row reconciled to RELEASED; history preserved.
+2. CRM Admin Health Check corrected so intentionally inactive assets and completed/cancelled booking history do not create current false-positive risk.
+3. CANARY-48 expected variant order corrected to canonical `1 Theme / 2 Artist / 3 Fandom`; historical FAIL remains until a new independent Canary run.
+4. v4.9.8 nightly/morning/monthly-normalizer governed code/tests/skill contracts added.
+5. Fresh external state rechecked.
 
-Scanner may persist only the current-policy-authorized verified competitor price observation/current projection path. Final KK pricing/business decision remains Verifier/owner governed.
+## CRM / booking
 
-## C — Content / Creative
+CRM current health readback is green after health-check semantic correction. Physical asset truth was not mutated.
 
-NONT V2 remains immutable owner-approved content evidence with Variant 1 / THEME and campaign price 1,190 THB. Publication remains fail-closed until live gates pass.
+Booking exactly-once source remains implementation-complete: request ID + canonical fingerprint -> PREPARED receipt -> exact asset bind -> canonical write -> exact fingerprint readback -> COMMITTED; ambiguous create timeout is fail-closed/no blind retry.
 
-Creative remains `WAITING_EVIDENCE / BLOCKED_EXTERNAL`: exact authorized raw bytes/hash for `FINAL MAIN KEY VISUAL — ARENA ENCORE : THE PERSONA` are still unavailable through current safe routes. Do not substitute old/generic art.
+Production Apps Script deployment/runtime remains unverified because the existing canonical deployment target is not exposed through current tools. Do not create a replacement writer.
 
-## D — Telegram / Make
+Material configuration audit item: CRM spreadsheet metadata timezone is `Etc/GMT` while operating policy is Asia/Bangkok. Do not blind-change; audit NOW/TODAY/date serial/Apps-Script serialization impacts first.
 
-Temporary `5901592` remains compatibility-only. Canonical `5988323` remains blocked by organization-level visibility unless a fresh Make read proves otherwise. Do not create a competing canonical scenario.
+## Market / pricing
 
-## E — X
+Current consumer logic rejects expired TTL even if a stored current-row `Freshness` text still says `FRESH`; historical/stale data cannot silently become current. Some stored textual freshness values lag TTL and remain observability hygiene debt for the authorized Scanner/current-projection path.
 
-PostPeer request `4e3be806-f7bc-4f0a-99da-268d2f112b51`: fresh state `PENDING`. No production X post ID/canonical URL/provider receipt is claimed.
+## Canary
 
-## F — Booking / KYC / LINE
+CANARY-48 definition drift is repaired but its prior FAIL is preserved. Newer Enabled v4.9.6–v4.9.8 canaries, including 52–64, require a fresh isolated scheduled execution/readback before PASS is claimed.
 
-Booking writer-side exactly-once implementation exists in repository and ambiguous create timeout remains fail-closed/no blind retry. Production proof still requires deployment into the existing canonical Apps Script project and runtime/readback evidence; current tools expose no canonical Apps Script deployment target. Do not create a replacement writer.
+## Owner notifications / content
 
-Xama request `20005b08-4698-490a-b168-58a982f3c545`: fresh state `PENDING`.  
-LINE request `2dbe7ba5-061c-45e2-8f98-6822cf2eb50b`: fresh state `PENDING`.
+Existing owner Telegram+LINE business-alert path has provider receipt evidence in Core status. This must not be confused with customer LINE authorization.
 
-## G — Outcome
+Three-variant content remains canonical `1 Theme / 2 Artist / 3 Fandom`. Canonical Make scenario `5988323` remains organization-view permission blocked; no competing Phase-D scenario may be created.
 
-Outcome projector implementation is hardened. Final `_Business_Outcome` requires a genuinely completed eligible event + exact Machine↔CRM crosswalk + POST_EVENT_FINAL + no unresolved active booking. This remains `WAITING_EVIDENCE`, not an engineering defect.
+## Creative / X / KYC / customer LINE / Outcome
+
+- NONT creative: exact authorized source bytes/hash still required; `BLOCKED_EXTERNAL`.
+- PostPeer request `4e3be806-f7bc-4f0a-99da-268d2f112b51`: `PENDING`; no real X post receipt claimed.
+- Xama request `20005b08-4698-490a-b168-58a982f3c545`: `PENDING`.
+- customer LINE request `2dbe7ba5-061c-45e2-8f98-6822cf2eb50b`: `PENDING`.
+- Outcome: implementation guarded; genuine POST_EVENT_FINAL evidence still future-dependent.
 
 ## P0 control-plane drift
 
-Recurring unexpected Scanner/Verifier disable drift has historical evidence. Actor/root cause remains unproven. Do not attribute it to a runner, platform, Make, model or human without control-plane audit evidence. Repair only canonical IDs when live state proves unexpected OFF and no legitimate owner reason exists; never add a duplicate scheduler/watchdog.
+Repeated historical Scanner/Verifier OFF drift is real. Root cause/actor remains unproven. Restore only the exact canonical task when current evidence proves unexpected OFF; never add a watchdog/duplicate scheduler and never attribute an actor without control-plane evidence.
 
 ## Current implementation fencing
 
-Implementation sync session:
-- holder `CHATGPT-20260907T024341-V497-SYNC`
-- lease version `185`
-- token `CX-497-20260907T024341-SYNC-V185`
-- acquired `2026-09-07T02:43:41+07:00`
-- lease until `2026-09-07T03:33:41+07:00`
+Audit sync session:
+- holder `CHATGPT-20260907T043121-V498-AUDIT`
+- lease version `189`
+- token `CX-498-20260907T043121-AUDIT-V189`
+- acquired `2026-09-07T04:31:21+07:00`
+- lease until `2026-09-07T05:21:21+07:00`
 
-This session must release v185 after final documentation/PR/final-head CI/task-state verification. Astra must fresh-read `_Run_Lock` and never reuse v185.
+This session must release v189 after docs/PR/final-head CI/readback. Astra must fresh-read and never reuse the token.
 
-## Remaining genuine gates
+## Current genuine gates
 
-### BLOCKED_EXTERNAL / BLOCKED_HUMAN
-1. Canonical Apps Script booking-idempotency deployment + production runtime/readback proof.
-2. Exact authorized NONT Encore visual bytes/hash + Canva binding.
-3. Make organization-level access to canonical `5988323` + controlled UAT/cutover.
-4. PostPeer authorization + real X provider receipt only after Creative/production gates.
-5. Xama authorization + real governed KYC validation.
-6. LINE authorization + real customer delivery/provider receipt.
-
-### WAITING_EVIDENCE
-7. Real completed eligible event for Phase-G POST_EVENT_FINAL.
-
-### P0 CONTROL PLANE
-8. Mutation actor/root cause for recurrent Scanner/Verifier OFF drift remains unproven.
+1. Existing Verifier must drain/adjudicate the fresh UAT READY exact8.
+2. First scheduled v4.9.8 01:00→06:30 cycle needs real runtime proof.
+3. New/changed Canary definitions require real isolated rerun.
+4. CRM timezone needs controlled impact audit before migration.
+5. P0 control-plane OFF drift root cause remains open.
+6. Canonical Apps Script production deployment/readback.
+7. Make organization permission for 5988323.
+8. Exact NONT source visual bytes/hash.
+9. PostPeer authorization + later X provider receipt.
+10. Xama authorization + real KYC evidence.
+11. customer LINE authorization + real delivery receipt.
+12. real completed eligible event for POST_EVENT_FINAL Outcome.
 
 ## Explicit non-actions
 
-No Core rebuild, duplicate runner/watchdog, fake historical backfill/provider receipt, competing Phase D, `main` merge, direct CRM booking bypass, fake customer/KYC/outcome, PII propagation, generic creative promotion, stale price promotion or public action merely to create a success signal.
+No Core rebuild, duplicate runner/watchdog, fake backfill/provider receipt, competing Make/Apps Script writer, `main` merge, fake customer/KYC/outcome, PII propagation, generic creative substitution, stale price promotion or public action solely to manufacture success evidence.
 
 ## Astra review entry point
 
-Read this file first, then `ASTRA_REVIEW_READY_2026-09-07.md`, then live `_Policy_Registry`, `_Run_Lock`, canonical task states and PR head/CI. Preserve runtime-proven Core and review only material defects/external gates. Do not restart the project or repeat broad audits on unchanged components.
+Read:
+1. `FULL_SYSTEM_AUDIT_2026-09-07.md`
+2. this file
+3. `ASTRA_REVIEW_READY_2026-09-07.md`
+4. fresh live `_Policy_Registry`, `_Run_Lock`, `_Write_Transaction`, `_Run_Manifest`, current READY packet count, canonical task state and final PR head/CI.
+
+Preserve proven Core and focus Astra review on concrete defects, open runtime gates and external evidence rather than restarting architecture design.
