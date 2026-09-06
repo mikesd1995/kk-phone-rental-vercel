@@ -7,5 +7,8 @@ assert(source.includes("require('../lib/kk-rental-analytics-company')"),'dashboa
 assert(!source.includes('AFFILIATION_RULES'),'event-name affiliation hard-code must not return');
 assert(!source.includes('inferAffiliation('),'event-name affiliation inference must not return');
 assert(source.includes('READ ONLY'),'dashboard must preserve read-only boundary declaration');
-assert(source.includes('explicit structured field/note → _Artist_Registry unique alias match → Unknown'),'dashboard must document fail-closed company semantics');
-console.log('kk-rental-dashboard-contract: 5/5 PASS');
+assert(source.includes('missing/UNKNOWN origin หรือหลักฐานไม่พอ → Unknown'),'dashboard must document fail-closed origin semantics');
+assert(source.includes('[["archive",archiveCsv],["current",currentCsv]]'),'current event metadata must override archive metadata');
+assert(!source.includes('Thai/unspecified'),'unspecified origin must never be described as Thai authority');
+assert(source.includes('Event metadata precedence = Current > Archive'),'dashboard must document current-over-archive authority');
+console.log('kk-rental-dashboard-contract: 8/8 PASS');
