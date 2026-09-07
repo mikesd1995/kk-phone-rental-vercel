@@ -46,8 +46,12 @@ eq(nightly.coverage_debt,1,'blocked route creates explicit debt');
 ok(c.nightlySourceDebtRetry({coverage_debt:1}).required,'coverage debt requires retry ladder');
 eq(c.nightlySourceDebtRetry({coverage_debt:1}).next_windows.length,2,'debt retains 03 and 06 retry windows');
 
-eq(c.morningRevenueClosure({hidden_high_value_signals:0,explicit_hold_missing_next_watch:0,unresolved_prepared_committing:0}).status,'READY','morning closes only with zero hidden backlog');
+eq(c.morningRevenueClosure({hidden_high_value_signals:0,explicit_hold_missing_next_watch:0,explicit_hold_overdue_next_watch:0,unresolved_prepared_committing:0}).status,'READY','morning closes only with zero hidden backlog and current watch lineage');
 eq(c.morningRevenueClosure({hidden_high_value_signals:1}).status,'HOLD','hidden high-value signal blocks morning readiness');
+let morning=c.morningRevenueClosure({explicit_hold_overdue_next_watch:1});
+ok(!morning.ready&&morning.status==='HOLD'&&morning.reasons.includes('HOLD_NEXT_WATCH_OVERDUE'),'expired Next Watch cannot satisfy morning high-value hold closure');
+morning=c.morningRevenueClosure({overdue_next_watch:2});
+ok(!morning.ready&&morning.reasons.includes('HOLD_NEXT_WATCH_OVERDUE'),'legacy/current caller alias for overdue watch remains fail-closed');
 ok(c.nightlyPriceRefreshRequired({priority_class:'P1',is_new_event:true,days_until_event:7,exact_bundle_missing:true}),'new near-term P1 missing exact bundle triggers targeted price refresh');
 ok(!c.nightlyPriceRefreshRequired({priority_class:'P2',is_new_event:true,days_until_event:7,exact_bundle_missing:true}),'P2 does not trigger v4.9.8 targeted overnight price rule');
 ok(!c.nightlyPriceRefreshRequired({priority_class:'P1',is_new_event:true,days_until_event:30,exact_bundle_missing:true}),'far P1 does not trigger overnight near-term price refresh');
