@@ -34,4 +34,45 @@ ok(!day.healthy&&day.status==='PARTIAL_MATERIALIZATION','partial planner materia
 
 eq(c.plannerDayHealth({dedicated_windows_due:0}).status,'NO_DEDICATED_WINDOWS_DUE','no dedicated window is not a planner failure');
 
+let watch=c.dueWatchMaterializationGate({
+  now:'2026-09-07T11:42:00+07:00',
+  candidate_rows:[
+    {status:'WATCHING',show_id:'SHOW|A',next_watch_at:'2026-09-07T11:00:00+07:00',required_for_current_policy:true},
+    {status:'WATCHING',show_id:'SHOW|B',next_watch_at:'2026-09-07T13:00:00+07:00',required_for_current_policy:true}
+  ],
+  materialized_identity_keys:['SHOW|A']
+});
+ok(watch.ok&&watch.due_watch_count===1&&watch.materialized_due_count===1,'due policy-selected watch passes only after current-window materialization; future watch is not due');
+
+watch=c.dueWatchMaterializationGate({
+  now:'2026-09-07T11:42:00+07:00',
+  candidate_rows:[{status:'WATCHING / AUTHORITY_HOLD',show_id:'SHOW|P0',next_watch_at:'2026-09-07T05:00:00+07:00',required_for_current_policy:true}],
+  materialized_identity_keys:[]
+});
+ok(!watch.ok&&watch.status==='DUE_WATCH_MATERIALIZATION_GAP'&&watch.missing_materialization[0]==='SHOW|P0','overdue required watch without current materialization blocks clean completion');
+
+watch=c.dueWatchMaterializationGate({
+  now:'2026-09-07T11:42:00+07:00',
+  candidate_rows:[{status:'WATCHING',show_id:'SHOW|LOW',next_watch_at:'2026-09-07T05:00:00+07:00',required_for_current_policy:false}],
+  materialized_identity_keys:[]
+});
+ok(watch.ok&&watch.required_watch_count===0&&watch.due_watch_count===0,'policy selection remains external to the contract; non-required watches do not become hard-coded backlog policy');
+
+watch=c.dueWatchMaterializationGate({
+  now:'2026-09-07T11:42:00+07:00',
+  candidate_rows:[{status:'WATCHING',next_watch_at:'2026-09-07T05:00:00+07:00',required_for_current_policy:true}],
+  materialized_identity_keys:[]
+});
+ok(!watch.ok&&watch.missing_identity.length===1,'due required watch without stable identity fails closed');
+
+watch=c.dueWatchMaterializationGate({
+  now:'2026-09-07T11:42:00+07:00',
+  candidate_rows:[{status:'WATCHING',show_id:'SHOW|BADTIME',next_watch_at:'not-a-time',required_for_current_policy:true}],
+  materialized_identity_keys:['SHOW|BADTIME']
+});
+ok(!watch.ok&&watch.invalid_next_watch[0]==='SHOW|BADTIME','invalid required Next Watch timestamp cannot be treated as current hold coverage');
+
+watch=c.dueWatchMaterializationGate({now:'bad-now',candidate_rows:[],materialized_identity_keys:[]});
+ok(!watch.ok&&watch.status==='INVALID_NOW','invalid authoritative time fails closed');
+
 console.log(`kk-planner-materialization-contract: ${n}/${n} PASS`);
