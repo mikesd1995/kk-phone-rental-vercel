@@ -7,7 +7,7 @@ function fixture(overrides={}){
   const body='exact approved body';
   const base={
     content:{status:'APPROVED',version_id:'CONTENT|NONT|V2',approval_fingerprint:'a'.repeat(64),selected_body:body,external_send_authorized:true,production_publish_authorized:true},
-    creative_binding:{status:'CREATIVE_BOUND_READY',content_version_id:'CONTENT|NONT|V2',approval_fingerprint:'a'.repeat(64),creative_hash:'c'.repeat(64),canva_design_id:'DA_TEST',source_asset_hash:'b'.repeat(64)},
+    creative_binding:{status:'CREATIVE_BOUND_READY',content_version_id:'CONTENT|NONT|V2',approval_fingerprint:'a'.repeat(64),selected_body_sha256:h(body),creative_hash:'c'.repeat(64),canva_design_id:'DA_TEST',source_asset_hash:'b'.repeat(64)},
     idempotency_key:'X|CONTENT|NONT|V2|1',prior_publish_records:[]
   };
   return {...base,...overrides};
