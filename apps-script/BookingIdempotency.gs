@@ -193,6 +193,25 @@ function kkBookingTargetRowState_(targetRow) {
   };
 }
 
+function kkAssertBookingIdUnique_(bookingId, targetRow) {
+  const id = kkBookingCanonicalText_(bookingId);
+  const target = Number(targetRow || 0);
+  if (!id) throw new Error('BOOKING_ID_MISSING: canonical booking_id exact readback is blank');
+  if (target < 5) throw new Error('BOOKING_ID_TARGET_ROW_INVALID');
+
+  const sh = kkSheet_(KK.bookings);
+  const last = Math.max(sh.getLastRow(), 5);
+  const ids = sh.getRange(5, 1, last - 4, 1).getDisplayValues();
+  const matchedRows = [];
+  for (let i = 0; i < ids.length; i++) {
+    if (kkBookingCanonicalText_(ids[i][0]) === id) matchedRows.push(i + 5);
+  }
+  if (matchedRows.length !== 1 || matchedRows[0] !== target) {
+    throw new Error('BOOKING_ID_NOT_GLOBALLY_UNIQUE: ' + id + ' rows=' + matchedRows.join(','));
+  }
+  return true;
+}
+
 function kkFinalizePreparedBookingReceipt_(receiptSheet, receipt) {
   const target = kkBookingTargetRowState_(receipt.target_row);
   if (!target.has_data) return null;
@@ -201,6 +220,7 @@ function kkFinalizePreparedBookingReceipt_(receiptSheet, receipt) {
   if (!receipt.write_fingerprint || actualWriteFingerprint !== receipt.write_fingerprint) {
     throw new Error('BOOKING_REQUEST_RECONCILIATION_REQUIRED: PREPARED target row is occupied by non-matching booking data');
   }
+  kkAssertBookingIdUnique_(target.booking_id, receipt.target_row);
 
   const result = {
     row_number: receipt.target_row,
@@ -380,6 +400,7 @@ kkApiCreateBooking_ = function(payload) {
     if (storedFingerprint !== writeFingerprint) {
       throw new Error('Booking write exact readback fingerprint mismatch');
     }
+    kkAssertBookingIdUnique_(stored.booking_id, targetRow);
 
     const result = {
       row_number: targetRow,
