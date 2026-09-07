@@ -68,6 +68,21 @@ test('reconciles PREPARED receipt against exact booking-row fingerprint before r
   assert(source.includes('PREPARED target row is occupied by non-matching booking data'), 'nonmatching target fail-closed error missing');
 });
 
+test('requires canonical booking_id to be globally unique before COMMIT', () => {
+  assert(source.includes('function kkAssertBookingIdUnique_'), 'booking-id uniqueness helper missing');
+  assert(source.includes('BOOKING_ID_NOT_GLOBALLY_UNIQUE'), 'duplicate booking-id fail-closed error missing');
+  assert(source.includes('matchedRows.length !== 1 || matchedRows[0] !== target'), 'exact-one target identity check missing');
+});
+
+test('applies booking-id uniqueness gate to fresh writes and PREPARED recovery', () => {
+  const recoveredGate = source.indexOf('kkAssertBookingIdUnique_(target.booking_id, receipt.target_row)');
+  const recoveredCommit = source.indexOf("'COMMITTED'", recoveredGate);
+  assert(recoveredGate >= 0 && recoveredCommit > recoveredGate, 'PREPARED recovery can commit before global booking-id uniqueness check');
+  const freshGate = source.indexOf('kkAssertBookingIdUnique_(stored.booking_id, targetRow)');
+  const freshCommit = source.lastIndexOf("'COMMITTED'");
+  assert(freshGate >= 0 && freshCommit > freshGate, 'fresh booking can commit before global booking-id uniqueness check');
+});
+
 test('exact-readbacks the booking row before COMMIT', () => {
   const writePos = source.indexOf('getRange(targetRow, 2, 1, 19).setValues');
   const readPos = source.indexOf('const stored = kkBookingTargetRowState_(targetRow)', writePos);
