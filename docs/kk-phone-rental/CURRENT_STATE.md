@@ -1,6 +1,6 @@
 # KK Phone Rental — Current State Checkpoint
 
-Checkpoint: 2026-09-07 05:16 Asia/Bangkok  
+Checkpoint: 2026-09-07 08:35 Asia/Bangkok  
 Branch: `skills/x-scanner-v2`  
 PR: #1 Draft / Open / Unmerged
 
@@ -8,159 +8,143 @@ PR: #1 Draft / Open / Unmerged
 
 ## Classification
 
-**LIVE v4.9.9 / CORE PRESERVED / v4.9.8 NIGHTLY+MONTHLY RULES INHERITED / OWNER LEDGER CHANNEL SPLIT LIVE / CURRENT UAT READY BACKLOG EXACT8 PENDING EXISTING VERIFIER / TELEGRAM FAILURE-RETRY HARDENING OPEN / EXTERNAL DEPLOYMENT-AUTHORIZATION-FUTURE EVIDENCE GATES REMAIN / CONTROL-PLANE ROOT CAUSE OPEN.**
+**LIVE v4.9.9 / CORE BUSINESS TRUTH PRESERVED / P0 CONTROL-PLANE POST-RUN DISABLE INCIDENT OPEN / P0 05:30 VERIFIER MIRROR DEFECT REPAIRED / P0 06:30+07:30 MORNING SLA MISSED / P1 SCANNER PLANNER MATERIALIZATION BROKEN / P1 TELEGRAM FAILURE-RETRY PATH INCOMPLETE / EXTERNAL DEPLOYMENT-AUTHORIZATION-FUTURE EVIDENCE GATES REMAIN.**
 
-Detailed second-pass audit: `docs/kk-phone-rental/FULL_SYSTEM_AUDIT_2026-09-07.md`.
+Detailed audit: `docs/kk-phone-rental/FULL_SYSTEM_AUDIT_R3_2026-09-07.md`.
 
 ## Authority
 
 Machine SOT: `1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo`  
 CRM SOT: `12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU`
 
-Fresh live read resolves exactly one Active policy:
+Fresh audit resolves exactly one Active policy:
 `v4.9.9 OWNER MORNING BRIEF & CHANNEL SPLIT`.
 
-v4.9.9 inherits compatible v4.9.8 nightly Ultra-Deep/morning closure/monthly normalizer, v4.9.7 max-recall, v4.9.6 stable-key closure, v4.9.5 atomic Candidate↔AI handoff, v4.9.4 competitor discovery/source persistence and v4.9.3 current-market rules.
+Compatible inherited rules remain active: v4.9.8 nightly/morning/monthly normalizer, v4.9.7 max recall, v4.9.6 stable-key closure, v4.9.5 atomic Candidate↔AI handoff/orphan recovery, v4.9.4 source persistence, v4.9.3 current-market freshness.
 
-Current v4.9.9 additionally governs:
-- authoritative owner outbound only from `_Notification_Ledger`;
-- LINE executive summary/critical route and Telegram detailed-action route;
-- exactly one LINE morning brief per Bangkok date at the governed morning window, including zero-change proof;
-- deterministic `KK-BRIEF-YYYYMMDD-AM` dedup;
-- same event+same shop+same package nonzero delta only for owner `PRICE_CHANGED` count;
-- provider acknowledgement + provider message ID + accepted/sent timestamp before SENT;
-- Telegram Ledger consumer runtime through Make scenario `6176241`;
-- existing Apps Script LINE Ledger consumer remains authoritative for owner LINE.
+## P0 control-plane incident
 
-## Core runners
-
-Canonical task IDs only:
+Canonical task IDs:
 - Scanner `6a992c91ba688191ad428cbdc2e8cf35`
 - Verifier `6a992d4d0c248191914e6c73c4f17db4`
 - Canary `6a992bbe16d081918553ca3eb7f81058`
 
-Fresh task read: all three are enabled. No duplicate Scanner/Verifier/Canary/watchdog was created.
+Observed current-day pattern:
+- Verifier disabled after 05:30 -> 06:30/07:30 boundaries absent.
+- Scanner disabled after 07:00 -> 08:00 boundary absent.
+- Verifier re-enabled ~08:19; 08:30 produced no Machine-SOT lease/Manifest, then task disabled again around 08:31.
+- Canary produced valid isolated 08:15 SOT results, then task disabled around 08:24.
 
-## Latest runtime
+Exact canonical IDs were re-enabled when found OFF. No watchdog/duplicate scheduler was created. Actor/root cause remains unproven.
 
-### Scanner v4.9.9 05:00
+Reconciliation evidence:
+- `RECON|CONTROL_PLANE|OFF_DRIFT|20260907T0819`
+- `RECON|CONTROL_PLANE|POSTRUN_DISABLE_RECURRENCE|20260907T0831`
+- `RECON|VERIFIER|MISSED_RUNTIME_BOUNDARY|20260907T0830`
 
-`SCV499-20260907T050000` => `FINISHED_PARTIAL`.
+## Verifier 05:30 repair
 
-- same-day P0 Destiny authority checkpoint executed;
-- canonical direct X access returned 403;
-- fresh indexed official The Mall Group reproduction still supports 7 Sep 18:00, M FASHION HALL 1, The Mall Lifestore Bangkapi;
-- Run_Coverage + Source_Health + Scan_Status exact readback passed;
-- Scanner v224 released;
-- no duplicate packet, canonical/monthly/final price/Notification/provider/owner mutation.
+Run `GPTV499-20260907T053300` had lease v231 RELEASED and AI rows250–257 terminal `COMPLETED_HOLD`, but Candidate rows137–144 remained `READY_FOR_VERIFIER` and the Manifest remained `RUNNING`.
 
-### Current Verifier backlog
+Audit R3 repaired only the proven mirror/closure inconsistency:
+- Candidate exact8 => `WATCHING` with identity/retry/next-watch/blocked-reason preserved;
+- Manifest => `FINISHED_PARTIAL`, Finished At 05:38:30;
+- reconciliation `RECON|GPTV499|20260907T0821|HANDOFF_TERMINAL_MIRROR_REPAIR`;
+- no canonical/monthly/pricing/Notification/provider mutation.
 
-Fresh `_AI_Inbox.Packet Status` exact READY rows250–257 = **8** from the v4.9.8 Ultra-Deep UAT:
-- Destiny Clinic x Inn-Ongsa;
-- HUNTER flagship Thailand;
-- Pooh Graduation Celebration 2026;
-- The Touch Oom&Bam, Milk, Emi, Ling-Orm, Tay shows.
+Exact readback passed.
 
-The preceding v230 transaction `TX|V498|PREASTRA_FINAL_PACKET_DRAIN|20260907T041040` was COMMITTED and had reduced operational READY/VERIFYING to zero before these eight newer packets were created.
+## Morning SLA
 
-At 05:16 no later Verifier Machine-SOT manifest/lease boundary was visible after v230. The canonical Verifier task is enabled and its next ordinary boundary is later; do not create a competing writer. Unresolved `_Write_Transaction` PREPARED=0 and COMMITTING=0.
+Active policy requires 06:30 high-value closure and exactly one 07:30 LINE morning brief (`KK-BRIEF-YYYYMMDD-AM`), including zero-change proof.
 
-## Monthly / market
+Today:
+- no 06:30 Verifier Manifest;
+- no 07:30 Verifier Manifest;
+- no `KK-BRIEF-20260907-AM` Ledger row.
 
-All Aug–Dec monthly tabs retain S+/S/A+/A/B+/B/HOLD-SKIP/PENDING conditional formats, market FRESH/STALE/NO EXACT displays and purple PRICE UPDATED rule. September readback is chronological with weekly separators and correctly shows many expired market observations as `STALE — รอ refetch` with Fresh Shops=0.
+Classification: `MORNING_CLOSURE_SLA_MISSED`. Do not fabricate retroactive success. Reconciliation remains OPEN.
 
-The eight fresh UAT events are not yet visible as final monthly truth because they remain Verifier READY; this is a current closure backlog, not a projection writer failure proven independently.
+## Scanner / planner
 
-## Owner notification runtime
+Current-day Scanner boundaries before the OFF incident include 03:00, 04:00, owner 04:08 Ultra-Deep UAT, 05:00, 06:00 and 07:00. External authority remains honestly PARTIAL where direct X/ticket routes are blocked. 08:00 was absent because Scanner was OFF.
 
-Historical real provider evidence exists for owner Telegram and LINE Ledger-backed UATs, including NONT Telegram `message_id=194`, NONT LINE provider message ID `629895730266112207`, and content approval Telegram `message_id=229`.
+`_Scan_Planner` current-day rows are exact0 while manifests repeatedly use `PLANNER_FALLBACK`, including a dedicated 06:00 window. This violates the active inherited requirement that dedicated windows materialize current planner rows; fallback is exception only.
 
-Current v4.9.9 Telegram Ledger consumer:
-- Make scenario `6176241` `03_KK_OWNER_TELEGRAM_LEDGER_TRANSPORT`;
-- active, 900-second polling;
-- filters `_Notification_Ledger` for Transport=`TELEGRAM_OWNER_ALERTS` and Status=`QUEUED`;
-- Telegram and Google connections currently OK;
-- success path writes SENT only after Telegram message_id.
+Audit did not create retroactive fake planner rows. Engineering regression guard added:
+- `lib/kk-planner-materialization-contract.js`
+- `scripts/kk-planner-materialization-contract.test.js`
 
-Audit defect: initial consumer runs produced `Aundefined:Zundefined` errors before the row-number mapping was corrected; subsequent automatic runs are successful. Current design still lacks an explicit failure→`RETRY_WAIT` Ledger update path and hard-codes Attempt Count=1 instead of incrementing prior attempts. Governed v4.9.9 notification contract/tests were added in repo; live Make failure-path patch requires controlled UAT and must not be guessed on an active owner transport.
-
-No `KK-BRIEF-20260907-AM` Ledger row exists yet at 05:16; this is not late because the governed morning brief window is later.
-
-## Engineering / CI
-
-v4.9.8 final checkpoint head `2adb33491385d1ddf8eea8c91334a024e9e37412` has GitHub Actions `KK Governed Checks` run `34062179057` => completed/success.
-
-New v4.9.9 governed files added after that CI:
-- `lib/kk-owner-notification-contract.js`
-- `scripts/kk-owner-notification-contract.test.js`
-- package governed suite/check updated.
-
-These encode:
-- zero-change morning LINE proof;
-- deterministic morning ID;
-- LINE/Telegram critical routing;
-- same-identity price-change semantics;
-- provider ACK before SENT;
-- failure→RETRY_WAIT;
-- attempt-count increment semantics;
-- Telegram consumer design audit.
-
-Final-head v4.9.9 CI must be green before `CI_PASS` is claimed for the new notification contract.
-
-## CRM / booking
-
-Fresh CRM Health Check: all listed checks = 0/OK. The previous formula corrections excluding intentionally inactive assets and completed/cancelled historical bookings remain in effect.
-
-Current physical rentable assets:
-- PHONE-001 / PHONE-002 VIVO_X300_PRO active;
-- LENS-001 / LENS-004 ZEISS_2_35X active;
-- LENS-002 G2 intentionally inactive.
-
-Booking exactly-once implementation remains repository-complete; canonical Apps Script production deployment/runtime remains unverified.
-
-CRM spreadsheet timezone remains `Etc/GMT` while Machine SOT is `Asia/Bangkok`; this remains a controlled-migration risk. Do not blind-change before NOW/TODAY/date-serial/Apps-Script serialization impact comparison.
+Runtime planner materialization in the existing Scanner remains OPEN.
 
 ## Canary
 
-`CANARY-48` definition is repaired to canonical `1 Theme / 2 Artist / 3 Fandom`, but historical FAIL remains until fresh isolated execution.
+Current run `CANARY|20260907|0815|AUTO499`:
+- enabled/current result count exact68;
+- workspace exact68;
+- all current results PASS;
+- Production Writes=0;
+- matching `_Write_Transaction` exact0.
 
-Enabled but not yet freshly run: CANARY-52..64 plus new v4.9.9 CANARY-65..68. In particular CANARY-67 directly covers no-provider-ack => never SENT / RETRY_WAIT. Next scheduled Canary is the proper runtime proof path.
+Classification: `CANARY_SYNTHETIC_PASS_68_OF_68`, not production/provider proof.
 
-## External / future gates
+## Owner Telegram Make transport
+
+Scenario `6176241` is active every 900s with Google/Telegram connections OK. Fresh design remains:
+`filterRows QUEUED Telegram -> Telegram send -> success update`.
+
+Open live defect:
+- no explicit send-failure error handler writes `RETRY_WAIT`;
+- success mapper hard-codes Attempt Count=`1` instead of incrementing prior value.
+
+Current queue/retry rows are empty, so successful polling does not prove failure-path compliance. Patch only via controlled failure UAT; do not send a real owner message merely to manufacture proof.
+
+Canonical interactive Make `5988323` remains blocked by `organization view` permission.
+
+## CRM / booking
+
+Fresh CRM health checks are all 0/OK. Rentable assets remain PHONE-001/002 + ZEISS LENS-001/004; G2 LENS-002 remains intentionally inactive.
+
+CRM timezone remains `Etc/GMT` while Machine operating timezone is `Asia/Bangkok`; controlled impact audit is required before migration.
+
+Booking exactly-once source/CI remains implementation evidence. Canonical Apps Script production deployment/runtime remains unverified.
+
+## External/future gates
 
 Fresh checks:
-- PostPeer/X request `4e3be806-f7bc-4f0a-99da-268d2f112b51` => PENDING;
-- Xama `20005b08-4698-490a-b168-58a982f3c545` => PENDING;
-- customer LINE `2dbe7ba5-061c-45e2-8f98-6822cf2eb50b` => PENDING;
-- canonical interactive Phase-D Make `5988323` remains historically organization-view permission blocked;
-- canonical Apps Script booking deployment target still unproven;
-- NONT exact authorized creative bytes/hash still unavailable;
-- Outcome still waits for genuine POST_EVENT_FINAL evidence.
+- PostPeer/X authorization => PENDING;
+- Xama => PENDING;
+- customer LINE => PENDING;
+- Make 5988323 => permission blocked;
+- Apps Script production deployment target => unverified;
+- NONT exact authorized source bytes/hash => unavailable;
+- `_Business_Outcome` => header-only, correctly waiting for genuine POST_EVENT_FINAL evidence.
 
-## Control-plane
+## GitHub / CI
 
-Historical unexpected Scanner/Verifier OFF drift is real but actor/root cause is unproven. Current canonical tasks are enabled. Never add a duplicate watchdog/scheduler solely to mask this.
+Previous v4.9.9 head `f666aed57ae1068382bc488d0f0f1f1e1a20bf5a` had `KK Governed Checks` run `34063692740` success with 291 explicit assertions.
+
+Audit R3 adds planner-materialization contract/tests and this checkpoint. The final R3 head must receive its own green governed CI before `CI_PASS` is claimed for R3.
+
+PR #1 must stay Draft/Open/Unmerged; main untouched without explicit owner approval.
 
 ## Current implementation fencing
 
-Audit round-2 session retains the same valid engineering lease:
-- holder `CHATGPT-20260907T043121-V498-AUDIT`
-- scope `FULL_SYSTEM_AUDIT_SYNC`
-- version `189`
-- token `CX-498-20260907T043121-AUDIT-V189`
-- heartbeat refreshed `2026-09-07T05:15:37+07:00`
-- lease extended to `2026-09-07T06:05:00+07:00`
+Audit R3 repair lease:
+- holder `CHATGPT-20260907T082031-V499-AUDITR3`
+- scope `FULL_SYSTEM_AUDIT_R3_REPAIR`
+- version `190`
+- token `CX-499-20260907T082031-AUDITR3-V190`
 
-Release v189 after final v4.9.9 docs/PR/final-head CI/readback. Never reuse after release.
+Release v190 after final docs/PR/final-head CI/control-plane readback. Never reuse after release.
 
 ## Immediate priority
 
-1. Existing Verifier drains/adjudicates READY exact8 before the 06:30 high-value closure boundary; Destiny is same-day P0.
-2. Harden Telegram Ledger consumer failure/retry/attempt-count behavior through controlled Make UAT; do not patch by guess.
-3. Verify one daily LINE morning brief at the governed window, including zero-change semantics if applicable.
-4. Run next Canary enabled snapshot including 48 and 52–68.
-5. Controlled CRM timezone impact audit.
-6. Resolve external provider/deployment gates when genuinely available.
+1. P0 control-plane post-run disable recurrence; preserve evidence and restore exact canonical IDs only.
+2. Recover current/future Verifier boundaries through the canonical task; never backfill missed 06:30/07:30/08:30 as PASS.
+3. Implement current-day planner materialization in existing Scanner path before dedicated windows.
+4. Patch Make 6176241 failure→RETRY_WAIT + attempt increment using controlled failure UAT.
+5. Audit CRM timezone impact before migration.
+6. Close external provider/deployment/creative/future Outcome gates only with real evidence.
 
-No main merge, public/customer/provider action, fake evidence or competing writer was introduced by this audit sync.
+No public/customer/provider action, fake canonical truth, fake price, fake morning brief, duplicate runner or main merge was introduced by Audit R3.
