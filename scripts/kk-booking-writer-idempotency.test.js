@@ -74,6 +74,32 @@ test('requires canonical booking_id to be globally unique before COMMIT', () => 
   assert(source.includes('matchedRows.length !== 1 || matchedRows[0] !== target'), 'exact-one target identity check missing');
 });
 
+test('preflights date-based booking id before any B:T business write', () => {
+  const preflightPos = source.indexOf('const expectedBookingId = kkExpectedBookingIdBeforeWrite_(event.event_date, targetRow)');
+  const bookingWritePos = source.indexOf('getRange(targetRow, 2, 1, 19).setValues');
+  assert(source.includes('function kkExpectedBookingIdBeforeWrite_'), 'prewrite booking-id helper missing');
+  assert(source.includes('BOOKING_ID_PREWRITE_FORMULA_UNSAFE'), 'unsafe target formula fail-closed gate missing');
+  assert(source.includes('BOOKING_ID_PREWRITE_COLLISION'), 'prewrite collision fail-closed gate missing');
+  assert(preflightPos >= 0 && bookingWritePos > preflightPos, 'B:T business write can occur before booking-id preflight');
+});
+
+test('requires booking id exact readback to match the preflight reservation', () => {
+  const writePos = source.indexOf('getRange(targetRow, 2, 1, 19).setValues');
+  const expectedReadbackPos = source.indexOf('stored.booking_id !== expectedBookingId', writePos);
+  const globalUniquePos = source.indexOf('kkAssertBookingIdUnique_(stored.booking_id, targetRow)', writePos);
+  assert(expectedReadbackPos > writePos, 'expected booking-id readback comparison missing after write');
+  assert(source.includes('BOOKING_ID_READBACK_MISMATCH'), 'booking-id exact readback mismatch gate missing');
+  assert(globalUniquePos > expectedReadbackPos, 'global uniqueness check must follow exact expected-id readback');
+});
+
+test('prevents a second request from stealing another PREPARED target row', () => {
+  const reserveGate = source.indexOf('kkAssertBookingTargetNotReserved_(receiptSheet, targetRow, requestId)');
+  const bookingWritePos = source.indexOf('getRange(targetRow, 2, 1, 19).setValues');
+  assert(source.includes('function kkAssertBookingTargetNotReserved_'), 'PREPARED target reservation helper missing');
+  assert(source.includes('BOOKING_TARGET_ROW_RESERVED_BY_OTHER_PREPARED_REQUEST'), 'reserved-target fail-closed error missing');
+  assert(reserveGate >= 0 && bookingWritePos > reserveGate, 'reserved-target gate must precede business write');
+});
+
 test('applies booking-id uniqueness gate to fresh writes and PREPARED recovery', () => {
   const recoveredGate = source.indexOf('kkAssertBookingIdUnique_(target.booking_id, receipt.target_row)');
   const recoveredCommit = source.indexOf("'COMMITTED'", recoveredGate);
