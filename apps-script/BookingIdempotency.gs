@@ -212,6 +212,60 @@ function kkAssertBookingIdUnique_(bookingId, targetRow) {
   return true;
 }
 
+function kkBookingDateKey_(eventDate) {
+  const d = eventDate instanceof Date ? eventDate : new Date(eventDate);
+  if (isNaN(d.getTime())) throw new Error('BOOKING_ID_EVENT_DATE_INVALID');
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyyMMdd');
+}
+
+function kkAssertBookingTargetNotReserved_(receiptSheet, targetRow, requestId) {
+  const target = Number(targetRow || 0);
+  if (target < 5) throw new Error('BOOKING_ID_TARGET_ROW_INVALID');
+  if (!receiptSheet || receiptSheet.getLastRow() < 2) return true;
+  const rows = receiptSheet.getRange(2, 1, receiptSheet.getLastRow() - 1, KK_BOOKING_RECEIPT_HEADERS.length).getValues();
+  for (let i = 0; i < rows.length; i++) {
+    const status = kkBookingCanonicalText_(rows[i][2]).toUpperCase();
+    const reservedTarget = Number(rows[i][3] || 0);
+    const reservedRequestId = kkBookingCanonicalText_(rows[i][0]);
+    if (status === 'PREPARED' && reservedTarget === target && reservedRequestId !== requestId) {
+      throw new Error('BOOKING_TARGET_ROW_RESERVED_BY_OTHER_PREPARED_REQUEST: row=' + target);
+    }
+  }
+  return true;
+}
+
+function kkExpectedBookingIdBeforeWrite_(eventDate, targetRow) {
+  const target = Number(targetRow || 0);
+  if (target < 5) throw new Error('BOOKING_ID_TARGET_ROW_INVALID');
+
+  const sh = kkSheet_(KK.bookings);
+  const formula = String(sh.getRange(target, 1).getFormula() || '');
+  const compact = formula.replace(/\s+/g, '').toUpperCase();
+  const targetRef = 'D' + target;
+  if (!formula || compact.indexOf('SUMPRODUCT') < 0 || compact.indexOf('VLOOKUP') < 0 || compact.indexOf(targetRef) < 0) {
+    throw new Error('BOOKING_ID_PREWRITE_FORMULA_UNSAFE: target row ' + target + ' must use date-aware SUMPRODUCT booking-id formula');
+  }
+
+  const dateKey = kkBookingDateKey_(eventDate);
+  const prefix = 'BK-' + dateKey + '-';
+  const last = Math.max(sh.getLastRow(), 5);
+  const ids = sh.getRange(5, 1, last - 4, 1).getDisplayValues();
+  let sameDateCount = 0;
+  const existing = {};
+  for (let i = 0; i < ids.length; i++) {
+    const id = kkBookingCanonicalText_(ids[i][0]);
+    if (!id) continue;
+    existing[id] = true;
+    if (id.indexOf(prefix) === 0) sameDateCount += 1;
+  }
+
+  const expected = prefix + String(sameDateCount + 1).padStart(3, '0');
+  if (existing[expected]) {
+    throw new Error('BOOKING_ID_PREWRITE_COLLISION: ' + expected);
+  }
+  return expected;
+}
+
 function kkFinalizePreparedBookingReceipt_(receiptSheet, receipt) {
   const target = kkBookingTargetRowState_(receipt.target_row);
   if (!target.has_data) return null;
@@ -351,6 +405,7 @@ kkApiCreateBooking_ = function(payload) {
       ? activeReceipt.target_row
       : kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
 
+    kkAssertBookingTargetNotReserved_(receiptSheet, targetRow, requestId);
     const existingTarget = kkBookingTargetRowState_(targetRow);
     if (existingTarget.has_data) {
       if (activeReceipt && kkBookingWriteFingerprint_(existingTarget.row_b_to_t) === activeReceipt.write_fingerprint) {
@@ -391,6 +446,11 @@ kkApiCreateBooking_ = function(payload) {
       kkAssertBookingReceipt_(activeReceipt, 'PREPARED', requestId, requestFingerprint);
     }
 
+    // The booking_id formula lives in column A while the business write targets
+    // B:T. Validate the target formula and reserve the exact expected globally
+    // unique ID before any booking business cells are mutated.
+    const expectedBookingId = kkExpectedBookingIdBeforeWrite_(event.event_date, targetRow);
+
     kkSheet_(KK.bookings).getRange(targetRow, 2, 1, 19).setValues([bookingValues]);
     SpreadsheetApp.flush();
 
@@ -399,6 +459,9 @@ kkApiCreateBooking_ = function(payload) {
     const storedFingerprint = kkBookingWriteFingerprint_(stored.row_b_to_t);
     if (storedFingerprint !== writeFingerprint) {
       throw new Error('Booking write exact readback fingerprint mismatch');
+    }
+    if (stored.booking_id !== expectedBookingId) {
+      throw new Error('BOOKING_ID_READBACK_MISMATCH: expected ' + expectedBookingId + ' got ' + stored.booking_id);
     }
     kkAssertBookingIdUnique_(stored.booking_id, targetRow);
 
