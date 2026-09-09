@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "repair/independent-engineering-20260908": false
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

@@ -26,4 +26,8 @@ test('creative hash required',()=>{const x=fixture();x.creative_asset={...x.crea
 test('canva required',()=>{const x=fixture();x.creative_asset={...x.creative_asset,canva_design_id:''};assert.throws(()=>bindCreative(x),/canva_design_id required/);});
 test('generic blocked',()=>{const x=fixture();x.creative_asset={...x.creative_asset,placeholder_or_generic:true};assert.throws(()=>bindCreative(x),/placeholder\/generic/);});
 test('body mutation invalidates binding',()=>{const x=fixture();x.approved_content={...x.approved_content,selected_body:'changed after approval'};assert.throws(()=>bindCreative(x),/body hash mismatch/);});
+test('approved whitespace is part of the immutable creative lineage',()=>{
+  const x=fixture();const body='  exact approved body\n';x.approved_content.selected_body=body;x.creative_asset.selected_body_sha256=crypto.createHash('sha256').update(body).digest('hex');
+  assert.equal(bindCreative(x).selected_body,body);
+});
 console.log(`kk-creative-binding-guard: ${n}/${n} PASS`);

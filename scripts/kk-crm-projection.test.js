@@ -51,4 +51,10 @@ test('duplicate bundle fails exact one',()=>{const x=fixture();x.package_rows.pu
 test('unsupported status fails',()=>{const x=fixture();x.package_rows.find(r=>r.package_type==='phone_lens_bundle').status='maybe';assert.throws(()=>buildProjection(x),/status unsupported/);});
 test('mixed event package rows cannot affect exact event',()=>{const x=fixture();x.package_rows.push({event_id:'OTHER',package_type:'phone_lens_bundle',model_group:'BAD',lens_group:'BAD',available_qty:'999',status:'available'});const o=buildProjection(x);assert.equal(o.bundle_available,2);});
 test('invalid clock fails',()=>{assert.throws(()=>buildProjection(fixture({now_ms:'bad'})),/invalid clock/);});
+test('missing physical inventory read cannot authorize positive capacity',()=>{const x=fixture();delete x.asset_rows;assert.throws(()=>buildProjection(x),/asset_rows/);});
+test('explicitly empty inventory cannot prove positive capacity',()=>{assert.throws(()=>buildProjection(fixture({asset_rows:[]})),/physical|exact phone-model/);});
+test('duplicate asset identity cannot double physical capacity',()=>{const x=fixture();x.asset_rows[1]={...x.asset_rows[0]};assert.throws(()=>buildProjection(x),/asset.*identity/i);});
+test('missing asset identity requires reconciliation',()=>{const x=fixture();delete x.asset_rows[0].asset_id;assert.throws(()=>buildProjection(x),/asset.*identity/i);});
+test('array count is not integer evidence',()=>{const x=fixture();x.web_ready_rows[0].available_phone_count=[2];assert.throws(()=>buildProjection(x),/integer/);});
+test('array boolean is not rentable evidence',()=>{const x=fixture();x.asset_rows[0].rentable_now=[true];assert.throws(()=>buildProjection(x),/rentable/);});
 console.log(`kk-crm-projection: ${count}/${count} PASS`);

@@ -2,7 +2,7 @@
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Adds System Guard diagnostics for Apps Script URL / Sheet ID / public feed / override pipeline.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_9_BOOKING_TIMEOUT_FAIL_CLOSED";
+const KK_APP_VERSION = "v16.7.0_INDEPENDENT_SAFE_REPAIR_20260909";
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 function json(res, status, body) {
@@ -18,7 +18,27 @@ function fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs || 50000);
   return fetch(url, Object.assign({}, options || {}, { signal: controller.signal }))
+    .then(async response => {
+      // Keep the deadline active until the body is received, not just headers.
+      const text = await response.text();
+      return { ok: response.ok, status: response.status, headers: response.headers, text: async () => text };
+    })
     .finally(() => clearTimeout(timer));
+}
+
+const READ_ONLY_ACTIONS = new Set(['snapshot', 'phase1Health', 'systemHealth']);
+
+function ambiguousWriteResult(action) {
+  return {
+    ok: false,
+    error: action === 'createBooking'
+      ? 'The booking write result is ambiguous. DO NOT retry this booking blindly. Reconcile the booking and request receipt first.'
+      : 'The write result is ambiguous. Do not repeat this command. Reconcile the intended changes against the current records first.',
+    error_code: action === 'createBooking' ? 'BOOKING_WRITE_AMBIGUOUS_RECONCILE_REQUIRED' : 'WRITE_AMBIGUOUS_RECONCILE_REQUIRED',
+    retry_safe: false,
+    reconciliation_required: true,
+    action
+  };
 }
 
 function timeoutForAction(action) {
@@ -288,6 +308,7 @@ module.exports = async function handler(req, res) {
   if (providedPin !== adminPin) return json(res, 401, { ok: false, error: "Invalid admin PIN" });
 
   let payload = {};
+  let upstreamDispatched = false;
   try {
     if (req.method === "GET") {
       const url = new URL(req.url || "/api/kk-admin", "http://localhost");
@@ -304,6 +325,10 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    payload.action = String(payload.action || 'snapshot').trim();
+    if (req.method === 'GET' && !READ_ONLY_ACTIONS.has(payload.action)) {
+      return json(res, 405, { ok: false, error: 'Write actions require POST', retry_safe: false });
+    }
     if (payload.action === "systemHealth") {
       const health = await buildSystemHealth(payload, { scriptUrl, apiKey, adminPin, envSheetId, frontendSheetId, sheetIdSource });
       return json(res, health.ok ? 200 : 200, health);
@@ -330,10 +355,12 @@ module.exports = async function handler(req, res) {
     });
     const actionTimeoutMs = timeoutForAction(payload.action);
     const upstreamStartedAt = Date.now();
+    const serializedPayload = JSON.stringify(upstreamPayload);
+    upstreamDispatched = true;
     const upstream = await fetchWithTimeout(scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(upstreamPayload),
+      body: serializedPayload,
     }, actionTimeoutMs);
     const upstreamElapsedMs = Date.now() - upstreamStartedAt;
 
@@ -343,6 +370,12 @@ module.exports = async function handler(req, res) {
     try { data = JSON.parse(text); }
     catch (_) {
       data = { ok: false, error: compactNonJsonError(text, contentType, safeUrlHost(scriptUrl)) };
+    }
+    // An upstream exception/error response can also occur AFTER a partial write.
+    // Without a writer receipt proving no mutation, it must not authorize retry.
+    if (!READ_ONLY_ACTIONS.has(payload.action) &&
+        (!upstream.ok || !data || Array.isArray(data) || data.ok !== true)) {
+      return json(res, 502, ambiguousWriteResult(payload.action));
     }
 
     if (data && data.ok && payload && payload.action === "snapshot") {
@@ -365,18 +398,16 @@ module.exports = async function handler(req, res) {
     const action = String((payload && payload.action) || (req.method === "GET" ? "snapshot" : "unknown"));
     const timeoutMs = timeoutForAction(action);
     const isTimeout = !!(err && err.name === "AbortError");
-    const isAmbiguousCreateBooking = isTimeout && action === "createBooking";
-    const msg = isAmbiguousCreateBooking
-      ? "Apps Script timed out while creating a booking. The write result is ambiguous. DO NOT retry this booking blindly. Reconcile the CRM booking state first; retry only after writer-side idempotency/readback proves no booking was created."
-      : (isTimeout
-        ? "Apps Script request timed out for action " + action + ". The proxy waited up to " + String(timeoutMs) + " ms. Please retry once; if it repeats, check Apps Script Executions and sheet calculation load."
-        : (err && err.message ? err.message : String(err)));
+    if (upstreamDispatched && !READ_ONLY_ACTIONS.has(action)) {
+      return json(res, 502, ambiguousWriteResult(action));
+    }
+    const msg = isTimeout ? 'Read request timed out. Refresh the current state before continuing.' : 'Request failed. Check the current state before continuing.';
     return json(res, 500, {
       ok: false,
       error: msg,
-      error_code: isAmbiguousCreateBooking ? "BOOKING_WRITE_AMBIGUOUS_RECONCILE_REQUIRED" : (isTimeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_ERROR"),
-      retry_safe: isAmbiguousCreateBooking ? false : undefined,
-      reconciliation_required: isAmbiguousCreateBooking ? true : undefined,
+      error_code: isTimeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_ERROR",
+      retry_safe: READ_ONLY_ACTIONS.has(action),
+      reconciliation_required: false,
       action,
       timeout_ms: timeoutMs
     });

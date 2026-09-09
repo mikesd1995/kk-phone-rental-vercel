@@ -70,8 +70,8 @@ test('FULL queue is not bookable by default', () => {
   assert.strictEqual(queueIsBookable(row({ queue_status: 'FULL' })), false);
 });
 
-test('mixed showset queue with AVAILABLE remains bookable', () => {
-  assert.strictEqual(queueIsBookable(row({ queue_status: 'SEP19_VIVO_FULL|SEP20_AVAILABLE' })), true);
+test('mixed showset availability requires exact show evidence rather than ANY available substring', () => {
+  assert.strictEqual(queueIsBookable(row({ queue_status: 'SEP19_VIVO_FULL|SEP20_AVAILABLE' })), false);
 });
 
 test('latest valid observation wins current projection', () => {

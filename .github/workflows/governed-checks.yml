@@ -1,6 +1,8 @@
 name: KK Governed Checks
 
 on:
+  push:
+    branches: [repair/independent-engineering-20260908]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -15,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Use Node.js 20
         uses: actions/setup-node@v6

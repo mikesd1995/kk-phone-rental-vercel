@@ -23,8 +23,9 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
 
-test('overrides canonical createBooking writer inside Apps Script boundary', () => {
-  assert(source.includes('kkApiCreateBooking_ = function(payload)'), 'canonical writer override missing');
+test('exports unique canonical receipt writer for explicit dispatch', () => {
+  assert(source.includes('function kkBookingCreateWithReceipt_(payload)'), 'canonical receipt writer missing');
+  assert(!source.includes('kkApiCreateBooking_ ='), 'file-order-dependent override is forbidden');
   assert(source.includes("kkAcquireDocumentLock_('create booking idempotent'"), 'DocumentLock boundary missing');
 });
 
@@ -75,7 +76,7 @@ test('requires canonical booking_id to be globally unique before COMMIT', () => 
 });
 
 test('preflights date-based booking id before any B:T business write', () => {
-  const preflightPos = source.indexOf('const expectedBookingId = kkExpectedBookingIdBeforeWrite_(event.event_date, targetRow)');
+  const preflightPos = source.indexOf('const expectedBookingId = kkExpectedBookingIdBeforeWrite_(event.event_date, targetRow, eventId)');
   const bookingWritePos = source.indexOf('getRange(targetRow, 2, 1, 19).setValues');
   assert(source.includes('function kkExpectedBookingIdBeforeWrite_'), 'prewrite booking-id helper missing');
   assert(source.includes('BOOKING_ID_PREWRITE_FORMULA_UNSAFE'), 'unsafe target formula fail-closed gate missing');
@@ -96,7 +97,7 @@ test('prevents a second request from stealing another PREPARED target row', () =
   const reserveGate = source.indexOf('kkAssertBookingTargetNotReserved_(receiptSheet, targetRow, requestId)');
   const bookingWritePos = source.indexOf('getRange(targetRow, 2, 1, 19).setValues');
   assert(source.includes('function kkAssertBookingTargetNotReserved_'), 'PREPARED target reservation helper missing');
-  assert(source.includes('BOOKING_TARGET_ROW_RESERVED_BY_OTHER_PREPARED_REQUEST'), 'reserved-target fail-closed error missing');
+  assert(source.includes('BOOKING_TARGET_OR_ID_RESERVED_BY_OTHER_PREPARED_REQUEST'), 'reserved-target fail-closed error missing');
   assert(reserveGate >= 0 && bookingWritePos > reserveGate, 'reserved-target gate must precede business write');
 });
 
@@ -130,8 +131,8 @@ test('preserves receipt lineage on error instead of clearing history', () => {
   assert(!source.includes('deleteSheet'), 'idempotency overlay must not delete receipt history');
 });
 
-test('releases DocumentLock in finally', () => {
-  assert(source.includes('finally {\n    lock.releaseLock();\n  }'), 'lock release missing');
+test('retains finally lock release in LF and CRLF checkouts', () => {
+  assert(/finally \{\r?\n    lock\.releaseLock\(\);\r?\n  \}/.test(source), 'lock release missing');
 });
 
 test('does not store raw booking payload in receipt result JSON', () => {
@@ -139,5 +140,5 @@ test('does not store raw booking payload in receipt result JSON', () => {
   assert(!source.includes('JSON.stringify(p)'), 'raw payload must not be persisted');
 });
 
-console.log(`\n${passed}/${total} booking writer idempotency assertions PASS`);
+console.log(`\n${passed}/${total} booking writer structural assertions PASS (not transaction/runtime proof; see runtime invariant suites)`);
 if (passed !== total) process.exitCode = 1;

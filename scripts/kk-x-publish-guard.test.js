@@ -6,6 +6,7 @@ const h=v=>crypto.createHash('sha256').update(String(v)).digest('hex');
 function fixture(overrides={}){
   const body='exact approved body';
   const base={
+    target_account:'kk',
     content:{status:'APPROVED',version_id:'CONTENT|NONT|V2',approval_fingerprint:'a'.repeat(64),selected_body:body,external_send_authorized:true,production_publish_authorized:true},
     creative_binding:{status:'CREATIVE_BOUND_READY',content_version_id:'CONTENT|NONT|V2',approval_fingerprint:'a'.repeat(64),selected_body_sha256:h(body),creative_hash:'c'.repeat(64),canva_design_id:'DA_TEST',source_asset_hash:'b'.repeat(64)},
     idempotency_key:'X|CONTENT|NONT|V2|1',prior_publish_records:[]
@@ -34,4 +35,15 @@ test('post id URL match',()=>{const req=authorizeXPublish(fixture());assert.thro
 test('provider evidence explicit',()=>{const req=authorizeXPublish(fixture());assert.throws(()=>verifyProviderPublish(req,{ok:true,post_id:'123',post_url:'https://x.com/kk/status/123',received_at:'2026-09-04T17:30:00+07:00',provider_evidence_ref:'',exact_text_sha256:req.exact_text_sha256,creative_hash:req.creative_hash}),/provider_evidence_ref/);});
 test('text hash match',()=>{const req=authorizeXPublish(fixture());assert.throws(()=>verifyProviderPublish(req,{ok:true,post_id:'123',post_url:'https://x.com/kk/status/123',received_at:'2026-09-04T17:30:00+07:00',provider_evidence_ref:'e',exact_text_sha256:'d'.repeat(64),creative_hash:req.creative_hash}),/text readback hash mismatch/);});
 test('creative hash match',()=>{const req=authorizeXPublish(fixture());assert.throws(()=>verifyProviderPublish(req,{ok:true,post_id:'123',post_url:'https://x.com/kk/status/123',received_at:'2026-09-04T17:30:00+07:00',provider_evidence_ref:'e',exact_text_sha256:req.exact_text_sha256,creative_hash:'d'.repeat(64)}),/creative readback hash mismatch/);});
+test('missing publish history is not an explicitly empty ledger read',()=>{const v=fixture();delete v.prior_publish_records;assert.throws(()=>authorizeXPublish(v),/readback required/);});
+test('new retry key cannot republish the same approved scope',()=>{
+  const request=authorizeXPublish(fixture());
+  const prior={idempotency_key:'another-key',publish_scope_fingerprint:request.publish_scope_fingerprint,post_id:'123',post_url:'https://x.com/kk/status/123',provider_evidence_ref:'synthetic-only'};
+  assert.equal(authorizeXPublish(fixture({prior_publish_records:[prior]})).decision,'DUPLICATE_NO_PUBLISH');
+});
+test('exact approved whitespace is preserved and hashed, never trimmed',()=>{
+  const v=fixture();const body='  exact approved body\n';v.content.selected_body=body;v.creative_binding.selected_body_sha256=h(body);
+  const request=authorizeXPublish(v);assert.equal(request.exact_text,body);assert.equal(request.exact_text_sha256,h(body));
+});
+test('array-shaped true is not production authorization',()=>{const v=fixture();v.content.production_publish_authorized=[true];assert.throws(()=>authorizeXPublish(v),/PRODUCTION_PUBLISH/);});
 console.log(`kk-x-publish-guard: ${count}/${count} PASS`);

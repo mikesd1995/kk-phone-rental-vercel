@@ -11,7 +11,7 @@ ok(!p.price_changed&&p.new_market_evidence,'new competitor is market evidence no
 let b=c.morningBriefPlan({bangkok_date:'2026-09-07',counts:{new_events:0,new_p0_p1:0,competitor_price_changed:0,ticket_state_changed:0,other_material:0,scan_health:1}});
 ok(b.line_required&&b.zero_change&&!b.telegram_detail_required,'zero change still requires one LINE proof and no Telegram details');
 eq(b.line_notification_id,'KK-BRIEF-20260907-AM','morning brief id deterministic');
-b=c.morningBriefPlan({bangkok_date:'2026-09-07',counts:{new_events:1}});ok(b.telegram_detail_required&&!b.zero_change,'business change enables Telegram detail');
+b=c.morningBriefPlan({bangkok_date:'2026-09-07',counts:{new_events:1,new_p0_p1:0,competitor_price_changed:0,ticket_state_changed:0,other_material:0}});ok(b.telegram_detail_required&&!b.zero_change,'verified business change enables Telegram detail');
 
 eq(c.ownerRoute('CANCELLED').critical,true,'cancelled is critical dual route');eq(c.ownerRoute('COMPETITOR_PRICE_CHANGED').critical,false,'routine price change is morning route');
 

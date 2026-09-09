@@ -71,4 +71,8 @@ test('array nested raw PII blocked',()=>{const x=fixture({evidence:[{passport:'P
 test('fingerprint stable',()=>{assert.equal(bookingIntentFingerprint(fixture()),bookingIntentFingerprint(fixture()));});
 test('fingerprint changes exact intent',()=>{const a=bookingIntentFingerprint(fixture());const b=bookingIntentFingerprint(fixture({crm_event_id:'EVT-OTHER',availability_projection:{...fixture().availability_projection,crm_event_id:'EVT-OTHER'},package_rows:[{event_id:'EVT-OTHER',template_id:'TPL-VIVO-X300-PRO-BUNDLE',package_type:'phone_lens_bundle',available_qty:2,status:'available'}]}));assert.notEqual(a,b);});
 
+test('missing prior-request read cannot stand in for an empty ledger',()=>{const x=fixture();delete x.prior_requests;assert.throws(()=>authorizeBooking(x),/prior_requests/);});
+test('unsupported package type cannot bypass all physical capacity gates',()=>{const x=fixture({package_type:'unknown'});x.package_rows[0].package_type='unknown';x.availability_projection.phone_available=0;x.availability_projection.lens_available=0;assert.throws(()=>authorizeBooking(x),/package_type/);});
+test('array-shaped quantity is not evidence',()=>{const x=fixture();x.package_rows[0].available_qty=[2];assert.throws(()=>authorizeBooking(x),/integer/);});
+test('timestamps without timezone are not freshness evidence',()=>{const x=fixture();x.availability_projection.source_checked_at='2026-09-04T16:55:00';assert.throws(()=>authorizeBooking(x),/source_checked_at/);});
 console.log(`kk-booking-intake-guard: ${count}/${count} PASS`);

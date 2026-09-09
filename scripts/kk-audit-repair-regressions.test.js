@@ -24,7 +24,7 @@ function publishFixture() {
     creative_hash: hash('AUDIT_SYNTH_CREATIVE'), canva_design_id: 'AUDIT_SYNTH_CANVA',
     source_evidence_ref: 'AUDIT_SYNTH_EVIDENCE' };
   return { content, input: { content, creative_binding: bindCreative({ approved_content: content, creative_asset: asset }),
-    idempotency_key: 'AUDIT_SYNTH_NO_SEND', prior_publish_records: [] } };
+    target_account: 'AUDIT_SYNTH', idempotency_key: 'AUDIT_SYNTH_NO_SEND', prior_publish_records: [] } };
 }
 const cases = [];
 const test = (name, run) => cases.push([name, run]);
@@ -45,8 +45,11 @@ test('canonical business identity retains precedence over projection alias', () 
 for (const status of ['UNAVAILABLE', 'SEP19_UNAVAILABLE|SEP20_FULL', 'CLOSED', 'PAUSED']) {
   test('queue rejects ' + status, () => assert.equal(market.queueIsBookable({ queue_status: status }), false));
 }
-for (const status of ['OPEN', 'AVAILABLE', 'REOPENED', 'SEP19_VIVO_FULL|SEP20_AVAILABLE', 'SEP19_UNAVAILABLE|SEP20_OPEN']) {
+for (const status of ['OPEN', 'AVAILABLE', 'REOPENED']) {
   test('queue preserves ' + status, () => assert.equal(market.queueIsBookable({ queue_status: status }), true));
+}
+for (const status of ['SEP19_VIVO_FULL|SEP20_AVAILABLE', 'SEP19_UNAVAILABLE|SEP20_OPEN']) {
+  test('mixed-show queue requires per-show evidence ' + status, () => assert.equal(market.queueIsBookable({ queue_status: status }), false));
 }
 for (const [label, fields] of [
   ['stale', { freshness: 'STALE' }],
@@ -124,7 +127,7 @@ test('same-scope receipt still suppresses repeat publication', () => {
   const f = publishFixture();
   const request = authorizeXPublish(f.input);
   const prior = { idempotency_key: f.input.idempotency_key, publish_scope_fingerprint: request.publish_scope_fingerprint,
-    post_id: 'SYNTHETIC', post_url: 'https://x.com/AUDIT_SYNTH/status/SYNTHETIC', provider_evidence_ref: 'SYNTHETIC_TEST_ONLY' };
+    post_id: '123', post_url: 'https://x.com/AUDIT_SYNTH/status/123', provider_evidence_ref: 'SYNTHETIC_TEST_ONLY' };
   assert.equal(authorizeXPublish({ ...f.input, prior_publish_records: [prior] }).decision, 'DUPLICATE_NO_PUBLISH');
 });
 let failed = 0;

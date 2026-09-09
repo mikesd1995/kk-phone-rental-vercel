@@ -1,8 +1,8 @@
 /**
  * KK Phone Rental — canonical booking create idempotency overlay.
  *
- * This file intentionally overrides kkApiCreateBooking_ from Code.gs without
- * changing the legacy CRM sheet layout. It adds a non-PII durable request
+ * Code.gs explicitly dispatches to kkBookingCreateWithReceipt_ without relying
+ * on file evaluation order. This adds a non-PII durable request
  * receipt inside the canonical Apps Script writer boundary.
  *
  * Receipt states:
@@ -98,7 +98,7 @@ function kkEnsureBookingReceiptSheet_() {
     sh = ss.insertSheet(KK_BOOKING_RECEIPT_SHEET);
     sh.getRange(1, 1, 1, KK_BOOKING_RECEIPT_HEADERS.length).setValues([KK_BOOKING_RECEIPT_HEADERS]);
     sh.setFrozenRows(1);
-    return sh;
+    SpreadsheetApp.flush();
   }
 
   const current = sh.getRange(1, 1, 1, KK_BOOKING_RECEIPT_HEADERS.length).getDisplayValues()[0];
@@ -114,12 +114,14 @@ function kkFindBookingReceipt_(sh, requestId) {
   const id = kkBookingCanonicalText_(requestId);
   if (!id || sh.getLastRow() < 2) return null;
   const rows = sh.getRange(2, 1, sh.getLastRow() - 1, KK_BOOKING_RECEIPT_HEADERS.length).getValues();
+  const matches = [];
   for (let i = rows.length - 1; i >= 0; i--) {
     if (kkBookingCanonicalText_(rows[i][0]) === id) {
-      return { row_number: i + 2, values: rows[i] };
+      matches.push({ row_number: i + 2, values: rows[i] });
     }
   }
-  return null;
+  if (matches.length > 1) throw new Error('BOOKING_RECEIPT_NOT_EXACT1: duplicate request identity requires reconciliation');
+  return matches[0] || null;
 }
 
 function kkBookingReceiptObject_(found) {
@@ -146,11 +148,20 @@ function kkBookingReceiptObject_(found) {
 }
 
 function kkWriteBookingReceipt_(sh, rowNumber, values) {
+  if (!Number.isInteger(rowNumber) || rowNumber < 2 || values.length !== KK_BOOKING_RECEIPT_HEADERS.length) {
+    throw new Error('BOOKING_RECEIPT_TARGET_OR_WIDTH_INVALID');
+  }
+  // The enclosing canonical writer must still own the lock after every read.
+  if (!kkScriptLockFrame_ || !kkScriptLockFrame_.lock.hasLock()) throw new Error('SCRIPT_LOCK_OWNERSHIP_LOST');
+  if (values.some(v => typeof v === 'string' && /^\s*=/.test(v))) throw new Error('BOOKING_RECEIPT_FORMULA_INPUT_REJECTED');
   sh.getRange(rowNumber, 1, 1, KK_BOOKING_RECEIPT_HEADERS.length).setValues([values]);
   SpreadsheetApp.flush();
+  const actual = sh.getRange(rowNumber, 1, 1, KK_BOOKING_RECEIPT_HEADERS.length).getValues()[0];
+  const canonical = row => JSON.stringify(row.map(v => v instanceof Date ? v.toISOString() : (v == null ? '' : v)));
+  if (canonical(actual) !== canonical(values)) throw new Error('BOOKING_RECEIPT_FULL_READBACK_MISMATCH');
   return kkBookingReceiptObject_({
     row_number: rowNumber,
-    values: sh.getRange(rowNumber, 1, 1, KK_BOOKING_RECEIPT_HEADERS.length).getValues()[0]
+    values: actual
   });
 }
 
@@ -163,25 +174,28 @@ function kkAssertBookingReceipt_(receipt, expectedStatus, requestId, requestFing
 }
 
 function kkBookingStoredResult_(receipt) {
-  let parsed = {};
-  if (receipt && receipt.result_json) {
-    try { parsed = JSON.parse(receipt.result_json); }
-    catch (_) { parsed = {}; }
-  }
-  return Object.assign({}, parsed, {
-    row_number: Number(parsed.row_number || (receipt && receipt.target_row) || 0),
-    booking_id: parsed.booking_id || (receipt && receipt.booking_id) || '',
-    phone_asset_id: parsed.phone_asset_id || (receipt && receipt.phone_asset_id) || '',
-    lens_asset_id: parsed.lens_asset_id || (receipt && receipt.lens_asset_id) || '',
-    request_id: receipt ? receipt.request_id : '',
-    request_fingerprint: receipt ? receipt.request_fingerprint : '',
+  let parsed;
+  try { parsed = JSON.parse(receipt.result_json); }
+  catch (_) { throw new Error('BOOKING_COMMITTED_RECEIPT_RECONCILIATION_REQUIRED'); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !receipt.booking_id ||
+      !Number.isInteger(receipt.target_row) || receipt.target_row < 5 || receipt.target_row > 1000 ||
+      ['booking_id','phone_asset_id','lens_asset_id','request_id','request_fingerprint'].some(k => parsed[k] !== receipt[k]) ||
+      parsed.row_number !== receipt.target_row) throw new Error('BOOKING_COMMITTED_RECEIPT_RECONCILIATION_REQUIRED');
+  kkAssertBookingIdUnique_(receipt.booking_id, receipt.target_row);
+  return {
+    row_number: receipt.target_row,
+    booking_id: receipt.booking_id,
+    phone_asset_id: receipt.phone_asset_id,
+    lens_asset_id: receipt.lens_asset_id,
+    request_id: receipt.request_id,
+    request_fingerprint: receipt.request_fingerprint,
     idempotent_replay: true
-  });
+  };
 }
 
 function kkBookingTargetRowState_(targetRow) {
   const row = Number(targetRow || 0);
-  if (row < 5) throw new Error('Invalid booking receipt target_row');
+  if (!Number.isInteger(row) || row < 5 || row > 1000) throw new Error('Invalid booking receipt target_row');
   const sh = kkSheet_(KK.bookings);
   const values = sh.getRange(row, 1, 1, 20).getValues()[0];
   const hasData = values.some(function(v) { return !kkBlank_(v); });
@@ -213,12 +227,12 @@ function kkAssertBookingIdUnique_(bookingId, targetRow) {
 }
 
 function kkBookingDateKey_(eventDate) {
-  const d = eventDate instanceof Date ? eventDate : new Date(eventDate);
-  if (isNaN(d.getTime())) throw new Error('BOOKING_ID_EVENT_DATE_INVALID');
-  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyyMMdd');
+  if (!(eventDate instanceof Date) || isNaN(eventDate.getTime())) throw new Error('BOOKING_ID_EVENT_DATE_INVALID');
+  // Match the spreadsheet TEXT(date) formula, not the script/account timezone.
+  return Utilities.formatDate(eventDate, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'yyyyMMdd');
 }
 
-function kkAssertBookingTargetNotReserved_(receiptSheet, targetRow, requestId) {
+function kkAssertBookingTargetNotReserved_(receiptSheet, targetRow, requestId, expectedBookingId) {
   const target = Number(targetRow || 0);
   if (target < 5) throw new Error('BOOKING_ID_TARGET_ROW_INVALID');
   if (!receiptSheet || receiptSheet.getLastRow() < 2) return true;
@@ -227,52 +241,84 @@ function kkAssertBookingTargetNotReserved_(receiptSheet, targetRow, requestId) {
     const status = kkBookingCanonicalText_(rows[i][2]).toUpperCase();
     const reservedTarget = Number(rows[i][3] || 0);
     const reservedRequestId = kkBookingCanonicalText_(rows[i][0]);
-    if (status === 'PREPARED' && reservedTarget === target && reservedRequestId !== requestId) {
-      throw new Error('BOOKING_TARGET_ROW_RESERVED_BY_OTHER_PREPARED_REQUEST: row=' + target);
+    if (status === 'PREPARED' && reservedRequestId !== requestId) {
+      if (!reservedRequestId || !Number.isInteger(reservedTarget) || reservedTarget < 5 || !rows[i][11]) {
+        throw new Error('BOOKING_REQUEST_RECONCILIATION_REQUIRED: malformed or legacy PREPARED reservation');
+      }
+      if (reservedTarget === target || (expectedBookingId && rows[i][11] === expectedBookingId)) {
+        throw new Error('BOOKING_TARGET_OR_ID_RESERVED_BY_OTHER_PREPARED_REQUEST');
+      }
     }
   }
   return true;
 }
 
-function kkExpectedBookingIdBeforeWrite_(eventDate, targetRow) {
+function kkNextAppendBookingRow_() {
+  const sh = kkSheet_(KK.bookings);
+  const last = Math.max(sh.getLastRow(), 5);
+  const rows = sh.getRange(5, 2, last - 4, 19).getValues();
+  let target = 5;
+  rows.forEach((r, i) => { if (r.some(v => !kkBlank_(v))) target = i + 6; });
+  if (target > Math.min(1000, sh.getMaxRows())) throw new Error('BOOKING_FORMULA_CAPACITY_EXHAUSTED');
+  return target;
+}
+
+function kkExpectedBookingIdBeforeWrite_(eventDate, targetRow, eventId) {
   const target = Number(targetRow || 0);
-  if (target < 5) throw new Error('BOOKING_ID_TARGET_ROW_INVALID');
+  if (!Number.isInteger(target) || target < 5 || target > 1000) throw new Error('BOOKING_ID_TARGET_ROW_INVALID');
+  // COUNTIF is case-insensitive and interprets wildcards/numeric criteria.
+  // Only unambiguous text keys are modelled; do not guess other coercions.
+  if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(String(eventId || ''))) throw new Error('BOOKING_ID_EVENT_KEY_UNSUPPORTED');
 
   const sh = kkSheet_(KK.bookings);
   const formula = String(sh.getRange(target, 1).getFormula() || '');
-  const compact = formula.replace(/\s+/g, '').toUpperCase();
-  const targetRef = 'D' + target;
-  if (!formula || compact.indexOf('SUMPRODUCT') < 0 || compact.indexOf('VLOOKUP') < 0 || compact.indexOf(targetRef) < 0) {
-    throw new Error('BOOKING_ID_PREWRITE_FORMULA_UNSAFE: target row ' + target + ' must use date-aware SUMPRODUCT booking-id formula');
+  const d = 'D' + target;
+  const knownFormula = '=IF(' + d + '="","",IFERROR("BK-"&TEXT(VLOOKUP(' + d + ',\'01_Events\'!$A$5:$C$1000,3,FALSE),"yyyymmdd")&"-"&TEXT(COUNTIF($D$5:' + d + ',' + d + '),"000"),"CHECK EVENT"))';
+  if (formula !== knownFormula) {
+    throw new Error('BOOKING_ID_PREWRITE_FORMULA_UNSAFE: unverified formula semantics');
   }
-
+  const events = kkSheet_(KK.events).getRange(5, 1, 996, 3).getValues().filter(r => String(r[0]).toUpperCase() === eventId.toUpperCase());
+  if (events.length !== 1 || !(events[0][2] instanceof Date) || events[0][2].getTime() !== eventDate.getTime()) {
+    throw new Error('BOOKING_ID_EVENT_LOOKUP_NOT_EXACT1');
+  }
   const dateKey = kkBookingDateKey_(eventDate);
   const prefix = 'BK-' + dateKey + '-';
   const last = Math.max(sh.getLastRow(), 5);
-  const ids = sh.getRange(5, 1, last - 4, 1).getDisplayValues();
-  let sameDateCount = 0;
-  const existing = {};
-  for (let i = 0; i < ids.length; i++) {
-    const id = kkBookingCanonicalText_(ids[i][0]);
-    if (!id) continue;
-    existing[id] = true;
-    if (id.indexOf(prefix) === 0) sameDateCount += 1;
+  const rows = sh.getRange(5, 1, last - 4, 20).getValues();
+  let sameEventCount = 0;
+  const existing = new Set();
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i], physicalRow = i + 5;
+    const id = kkBookingCanonicalText_(r[0]);
+    if (physicalRow >= target && r.slice(1).some(v => !kkBlank_(v))) {
+      throw new Error('BOOKING_ID_APPEND_ONLY_REQUIRED: insertion may renumber existing formula identities');
+    }
+    if (id) {
+      if (existing.has(id)) throw new Error('BOOKING_ID_EXISTING_DUPLICATE_RECONCILIATION_REQUIRED');
+      existing.add(id);
+    }
+    if (physicalRow < target && String(r[3]).toUpperCase() === eventId.toUpperCase()) sameEventCount++;
   }
-
-  const expected = prefix + String(sameDateCount + 1).padStart(3, '0');
-  if (existing[expected]) {
+  const expected = prefix + String(sameEventCount + 1).padStart(3, '0');
+  if (existing.has(expected)) {
     throw new Error('BOOKING_ID_PREWRITE_COLLISION: ' + expected);
   }
   return expected;
 }
 
 function kkFinalizePreparedBookingReceipt_(receiptSheet, receipt) {
+  // Historic PREPARED rows did not persist expected identity. Never infer it
+  // from the possibly incorrect business row during recovery.
+  if (!receipt.booking_id) throw new Error('BOOKING_REQUEST_RECONCILIATION_REQUIRED: PREPARED expected booking ID missing');
   const target = kkBookingTargetRowState_(receipt.target_row);
   if (!target.has_data) return null;
 
   const actualWriteFingerprint = kkBookingWriteFingerprint_(target.row_b_to_t);
   if (!receipt.write_fingerprint || actualWriteFingerprint !== receipt.write_fingerprint) {
     throw new Error('BOOKING_REQUEST_RECONCILIATION_REQUIRED: PREPARED target row is occupied by non-matching booking data');
+  }
+  if (target.booking_id !== receipt.booking_id) {
+    throw new Error('BOOKING_ID_READBACK_MISMATCH: PREPARED recovery differs from reserved identity');
   }
   kkAssertBookingIdUnique_(target.booking_id, receipt.target_row);
 
@@ -310,18 +356,19 @@ function kkFinalizePreparedBookingReceipt_(receiptSheet, receipt) {
 function kkBookingMarkReceiptError_(receiptSheet, receipt, err) {
   if (!receipt || !receipt.row_number) return;
   try {
-    const msg = err && err.message ? String(err.message) : String(err || '');
+    const match = String(err && err.message || '').match(/^([A-Z][A-Z0-9_]{3,80})(?=:|$)/);
+    const msg = match ? match[1] : 'BOOKING_OPERATION_FAILED';
     const current = receiptSheet.getRange(receipt.row_number, 1, 1, KK_BOOKING_RECEIPT_HEADERS.length).getValues()[0];
+    if (current[0] !== receipt.request_id || current[1] !== receipt.request_fingerprint || current[2] !== 'PREPARED') return;
     current[14] = msg.slice(0, 1000);
-    receiptSheet.getRange(receipt.row_number, 1, 1, KK_BOOKING_RECEIPT_HEADERS.length).setValues([current]);
-    SpreadsheetApp.flush();
+    kkWriteBookingReceipt_(receiptSheet, receipt.row_number, current);
   } catch (_) {
     // Never hide/replace the original booking error because receipt diagnostics failed.
   }
 }
 
 // Override the legacy create writer with durable writer-side idempotency.
-kkApiCreateBooking_ = function(payload) {
+function kkBookingCreateWithReceipt_(payload) {
   const lock = kkAcquireDocumentLock_('create booking idempotent', 12000);
   let receiptSheet = null;
   let activeReceipt = null;
@@ -384,6 +431,7 @@ kkApiCreateBooking_ = function(payload) {
     kkAssertWebPackageBookable_(eventId, templateId);
 
     const pkgType = kkBookingCanonicalText_(pkg.package_type).toLowerCase();
+    if (!['phone_only','lens_only','phone_lens_bundle'].includes(pkgType)) throw new Error('BOOKING_PACKAGE_TYPE_UNSUPPORTED');
 
     if (activeReceipt) {
       phoneAssetId = activeReceipt.phone_asset_id;
@@ -401,9 +449,11 @@ kkApiCreateBooking_ = function(payload) {
       }
     }
 
+    if ((pkgType !== 'lens_only' && !phoneAssetId) || (pkgType !== 'phone_only' && !lensAssetId)) throw new Error('BOOKING_REQUIRED_ASSET_MISSING');
+
     const targetRow = activeReceipt
       ? activeReceipt.target_row
-      : kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
+      : kkNextAppendBookingRow_();
 
     kkAssertBookingTargetNotReserved_(receiptSheet, targetRow, requestId);
     const existingTarget = kkBookingTargetRowState_(targetRow);
@@ -419,6 +469,12 @@ kkApiCreateBooking_ = function(payload) {
       pkgType, phoneAssetId, lensAssetId, pickupTime, '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ];
     const writeFingerprint = kkBookingWriteFingerprint_(bookingValues);
+    if (bookingValues.some(v => typeof v === 'string' && /^\s*=/.test(v))) throw new Error('BOOKING_FORMULA_INPUT_REJECTED');
+    const expectedBookingId = kkExpectedBookingIdBeforeWrite_(event.event_date, targetRow, eventId);
+    kkAssertBookingTargetNotReserved_(receiptSheet, targetRow, requestId, expectedBookingId);
+    if (activeReceipt && activeReceipt.booking_id !== expectedBookingId) {
+      throw new Error('BOOKING_REQUEST_RECONCILIATION_REQUIRED: expected booking identity changed before resume');
+    }
 
     if (activeReceipt) {
       if (activeReceipt.write_fingerprint !== writeFingerprint) {
@@ -438,7 +494,7 @@ kkApiCreateBooking_ = function(payload) {
         templateId,
         new Date(),
         '',
-        '',
+        expectedBookingId,
         '',
         KK_ADMIN_VERSION,
         ''
@@ -449,8 +505,9 @@ kkApiCreateBooking_ = function(payload) {
     // The booking_id formula lives in column A while the business write targets
     // B:T. Validate the target formula and reserve the exact expected globally
     // unique ID before any booking business cells are mutated.
-    const expectedBookingId = kkExpectedBookingIdBeforeWrite_(event.event_date, targetRow);
-
+    lock.assertHeld();
+    if (kkBookingTargetRowState_(targetRow).has_data) throw new Error('BOOKING_TARGET_CHANGED_BEFORE_WRITE');
+    if (kkExpectedBookingIdBeforeWrite_(event.event_date, targetRow, eventId) !== expectedBookingId) throw new Error('BOOKING_ID_CHANGED_BEFORE_WRITE');
     kkSheet_(KK.bookings).getRange(targetRow, 2, 1, 19).setValues([bookingValues]);
     SpreadsheetApp.flush();
 
@@ -497,10 +554,11 @@ kkApiCreateBooking_ = function(payload) {
     return result;
   } catch (err) {
     if (receiptSheet && activeReceipt && activeReceipt.status === 'PREPARED') {
-      kkBookingMarkReceiptError_(receiptSheet, activeReceipt, err);
+      try { lock.assertHeld(); kkBookingMarkReceiptError_(receiptSheet, activeReceipt, err); }
+      catch (_) { /* Ownership loss: no diagnostic write and preserve original error. */ }
     }
     throw err;
   } finally {
     lock.releaseLock();
   }
-};
+}

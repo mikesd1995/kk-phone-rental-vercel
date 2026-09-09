@@ -9,6 +9,7 @@ function throws(fn,needle){let e=null;try{fn();}catch(err){e=err;}ok(e,'expected
 const now=Date.parse('2026-09-05T06:00:00Z');
 function base(){return {
   customer_ref:'CUST-OPAQUE-001',
+  request_binding:{verified:true,provider_request_id:'ONB-123',subject_ref:'CUST-OPAQUE-001',evidence_ref:'SYNTHETIC_REQUEST_BINDING'},
   now_ms:now,
   provider_policy:{
     authority:'XAMA_ONBOARDING_V1',
@@ -58,5 +59,9 @@ t('rejects future verification timestamp',()=>{const x=base();x.provider_result.
 t('rejects unexpected authority alias',()=>{const x=base();x.provider_policy.authority='OCR_ONLY';throws(()=>xamaToKycAttestation(x),'unexpected Xama authority');});
 t('does not return provider personal fields',()=>{const a=xamaToKycAttestation(base());for(const k of ['document_given_names','document_last_name','passport_number','date_of_birth','street'])ok(!(k in a),`returned ${k}`);});
 
+t('report URLs never leave provider boundary',()=>{const x=base();x.provider_result.data.report_link='https://provider.invalid/report?token=PRIVATE_REPORT_TOKEN';ok(!JSON.stringify(xamaToKycAttestation(x)).includes('PRIVATE_REPORT_TOKEN'),'signed report token leaked');});
+t('malformed face-match policy cannot disable the gate',()=>{const x=base();x.provider_policy.require_face_match='TRUE';x.provider_policy.face_match_evidence_verified=false;throws(()=>xamaToKycAttestation(x),'require_face_match');});
+t('missing request to subject binding cannot attest arbitrary customer',()=>{const x=base();delete x.request_binding;throws(()=>xamaToKycAttestation(x),'request binding');});
+t('wrong subject or provider request binding is refused',()=>{for(const key of ['subject_ref','provider_request_id']){const x=base();x.request_binding[key]='OTHER';throws(()=>xamaToKycAttestation(x),'request binding');}});
 console.log(`\n${passed}/${total} Xama KYC adapter assertions PASS`);
 if(passed!==total)process.exitCode=1;

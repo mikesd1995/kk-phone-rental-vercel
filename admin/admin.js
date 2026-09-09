@@ -1149,6 +1149,7 @@
       rows.map(b=>opt(b.row_number, bookingLabel(b))).join('');
     if(current && rows.some(b=>String(b.row_number)===String(current))) sel.value=current;
     const b=rows.find(x=>String(x.row_number)===String(sel.value));
+    form.bookingBinding = b ? {booking_id:b.booking_id, expected_revision:b.revision, row_number:b.row_number} : null;
     const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
     if(!b){
       ["booking_status","customer_name","customer_contact","customer_phone","contact_channel","payment_status","amount_received","pickup_time","phone_asset_id","lens_asset_id","booking_note"].forEach(k=>set(k,""));
@@ -1878,7 +1879,7 @@
       const row=quick.getAttribute("data-row");
       const b=findBookingByRow(row);
       if(!b) return showNotice("ไม่พบ booking ที่ต้องการอัปเดต", "bad");
-      let payload={row_number:row};
+      let payload={row_number:row, booking_id:b.booking_id, expected_revision:b.revision};
       let label="";
       if(action==="paid"){
         if(toNum(b.amount_received)<=0 && !confirm("Booking นี้ยอดรับแล้วยังเป็น 0 ต้องการเปลี่ยนสถานะเป็น paid อยู่ใช่ไหม?")) return;
@@ -2060,6 +2061,11 @@
         try{
           const payload=formData(ev.target);
           if(!payload.row_number) throw new Error("กรุณาเลือก Booking ที่ต้องการแก้");
+          const binding=ev.target.bookingBinding;
+          if(!binding || String(binding.row_number)!==String(payload.row_number) || !binding.booking_id || !binding.expected_revision) {
+            throw new Error("ข้อมูล Booking ไม่ครบหรือเปลี่ยนไปแล้ว กรุณา Refresh แล้วเลือกใหม่");
+          }
+          Object.assign(payload, binding);
           const res=await api("updateBooking", payload);
           await refresh();
           showNotice(`แก้ Booking สำเร็จ: row ${res.row_number}`);
