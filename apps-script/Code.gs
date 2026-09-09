@@ -95,8 +95,9 @@ function kkSafeStringify_(value, maxLen) {
 }
 
 function kkEnsurePhase1Sheets() {
-  kkEnsureCrmArchiveSheets_();
-  kkEnsureAdminLogSheets_();
+  const lock = kkAcquireDocumentLock_('phase1 schema setup', 20000);
+  try { kkEnsureCrmArchiveSheets_(); kkEnsureAdminLogSheets_(); }
+  finally { lock.releaseLock(); }
   kkSafeAlert_('Phase 1 sheets are ready:\n- ' + KK.adminAuditLog + '\n- ' + KK.adminErrorLog);
 }
 
@@ -403,9 +404,13 @@ function kkDrivePermissionApiSetAnyone_(fileId) {
     muteHttpExceptions: true
   });
   const code = resp.getResponseCode();
-  if ((code >= 200 && code < 300) || code === 409) return { ok: true, status: code, method: 'Drive API' };
-  const body = String(resp.getContentText() || '').slice(0, 500);
-  throw new Error('Drive API HTTP ' + code + (body ? ': ' + body : ''));
+  if (code >= 200 && code < 300) return { ok: true, status: code, method: 'Drive API' };
+  throw new Error('DRIVE_PERMISSION_HTTP_' + code);
+}
+
+function kkDrivePublicReadback_(file) {
+  return file.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK &&
+    file.getSharingPermission() === DriveApp.Permission.VIEW;
 }
 
 function kkEnsureDriveFilePublic_(fileId, options) {
@@ -419,6 +424,7 @@ function kkEnsureDriveFilePublic_(fileId, options) {
     viewUrl = file.getUrl();
     try {
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      if (!kkDrivePublicReadback_(file)) throw new Error('DRIVE_PERMISSION_READBACK_MISMATCH');
       return {
         file_id: id,
         view_url: viewUrl,
@@ -426,14 +432,15 @@ function kkEnsureDriveFilePublic_(fileId, options) {
         sharing_warning: ''
       };
     } catch (shareErr) {
-      errors.push('DriveApp.setSharing: ' + (shareErr && shareErr.message ? shareErr.message : String(shareErr)));
+      errors.push('DRIVE_SHARING_NOT_VERIFIED');
     }
   } catch (fileErr) {
-    errors.push('DriveApp.getFileById: ' + (fileErr && fileErr.message ? fileErr.message : String(fileErr)));
+    errors.push('DRIVE_FILE_NOT_READABLE');
   }
 
   try {
     kkDrivePermissionApiSetAnyone_(id);
+    if (!kkDrivePublicReadback_(DriveApp.getFileById(id))) throw new Error('DRIVE_PERMISSION_READBACK_MISMATCH');
     if (!viewUrl) {
       try { viewUrl = DriveApp.getFileById(id).getUrl(); } catch (ignore) {}
     }
@@ -444,7 +451,7 @@ function kkEnsureDriveFilePublic_(fileId, options) {
       sharing_warning: ''
     };
   } catch (apiErr) {
-    errors.push('Drive API permissions.create: ' + (apiErr && apiErr.message ? apiErr.message : String(apiErr)));
+    errors.push('DRIVE_PERMISSION_READBACK_NOT_VERIFIED');
   }
 
   return {

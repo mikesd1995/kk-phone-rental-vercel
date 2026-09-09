@@ -202,4 +202,12 @@ test('watch clock without offset or with invalid calendar date is not authoritat
   const planner=require('../lib/kk-planner-materialization-contract');
   for(const now of ['2026-09-09T10:00:00','2026-02-30T10:00:00Z'])assert.equal(planner.dueWatchMaterializationGate({candidate_rows:[],now}).ok,false);
 });
+test('sharing setter success alone cannot claim public access verified',()=>{
+  const c=context();let actual='PRIVATE';const file={getUrl:()=> 'https://drive.google.com/file/d/SYNTHETIC/view',setSharing:()=>{},getSharingAccess:()=>actual,getSharingPermission:()=> 'VIEW'};
+  c.DriveApp={getFileById:()=>file,Access:{ANYONE_WITH_LINK:'ANYONE_WITH_LINK'},Permission:{VIEW:'VIEW'}};c.kkDrivePermissionApiSetAnyone_=()=>({ok:true});
+  assert.equal(c.kkEnsureDriveFilePublic_('SYNTHETIC',{}).public_checked,false);actual='ANYONE_WITH_LINK';assert.equal(c.kkEnsureDriveFilePublic_('SYNTHETIC',{}).public_checked,true);
+});
+test('manual schema setup joins the canonical lock and releases before UI',()=>{
+  const c=context();let held=false;c.kkAcquireDocumentLock_=()=>{held=true;return {releaseLock:()=>{held=false;}};};c.kkEnsureCrmArchiveSheets_=()=>assert.equal(held,true);c.kkEnsureAdminLogSheets_=()=>assert.equal(held,true);c.kkSafeAlert_=()=>assert.equal(held,false);c.kkEnsurePhase1Sheets();
+});
 console.log(`${count} repair boundary invariant groups passed (local only)`);
