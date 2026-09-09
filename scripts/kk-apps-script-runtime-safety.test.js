@@ -100,4 +100,9 @@ test('canonical dispatch survives either Apps Script file evaluation order',()=>
     assert.equal(c.kkApiCreateBooking_({request_id:'synthetic'}),'synthetic');assert.equal(calls,1);
   }
 });
+test('manual asset reassignment validates the package model before business write',()=>{
+  const {c,sh,row}=fixture();const original=c.kkGetValues_;c.kkGetValues_=(name,...args)=>name==='02_Assets'?[['ASSET','phone','WRONG_MODEL','','available','',true]]:original(name,...args);
+  c.kkGetPackageSpecByType_=()=>({model_group:'EXPECTED_MODEL',lens_group:'NONE'});c.kkBookedAssetIdsForDate_=()=>({phone:{},lens:{}});
+  assert.throws(()=>c.kkApiUpdateBooking_({booking_id:'BK-B',row_number:5,expected_revision:c.kkBookingRevision_(row),phone_asset_id:'ASSET'}),/model/i);assert.equal(sh.writes,0);
+});
 console.log(`${count} Apps Script runtime-safety assertions passed (local synthetic services only)`);

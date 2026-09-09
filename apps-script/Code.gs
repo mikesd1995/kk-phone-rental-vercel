@@ -2293,8 +2293,10 @@ function kkApiUpdateBooking_(payload) {
     kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date);
 
     if (kkActiveHold_(nextStatus)) {
-      if (next[9]) kkValidateManualAsset_(next[9], 'phone', '', event.event_date, row);
-      if (next[10]) kkValidateManualAsset_(next[10], 'lens', '', event.event_date, row);
+      const assignmentsChanged = next[9] !== current[9] || next[10] !== current[10];
+      const spec = assignmentsChanged ? kkGetPackageSpecByType_(next[8]) : null;
+      if (next[9]) kkValidateManualAsset_(next[9], 'phone', spec ? spec.model_group : '', event.event_date, row);
+      if (next[10]) kkValidateManualAsset_(next[10], 'lens', spec ? spec.lens_group : '', event.event_date, row);
     }
     kkAssertBookingAssetsNotDoubleBooked_(row, next, nextStatus);
 

@@ -30,4 +30,5 @@ test('approved whitespace is part of the immutable creative lineage',()=>{
   const x=fixture();const body='  exact approved body\n';x.approved_content.selected_body=body;x.creative_asset.selected_body_sha256=crypto.createHash('sha256').update(body).digest('hex');
   assert.equal(bindCreative(x).selected_body,body);
 });
+test('missing or malformed placeholder classification fails closed',()=>{for(const value of [undefined,null,[],[true],{},'unknown']){const x=fixture();x.creative_asset.placeholder_or_generic=value;assert.throws(()=>bindCreative(x),/explicitly false/);}});
 console.log(`kk-creative-binding-guard: ${n}/${n} PASS`);

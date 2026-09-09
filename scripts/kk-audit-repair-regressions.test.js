@@ -21,7 +21,7 @@ function publishFixture() {
   const asset = { content_version_id: content.version_id, approval_fingerprint: content.approval_fingerprint,
     selected_body_sha256: hash(content.selected_body), source_authority: 'OFFICIAL_EVENT',
     source_asset_ref: 'AUDIT_SYNTH_SOURCE', source_asset_hash: hash('AUDIT_SYNTH_SOURCE'),
-    creative_hash: hash('AUDIT_SYNTH_CREATIVE'), canva_design_id: 'AUDIT_SYNTH_CANVA',
+    creative_hash: hash('AUDIT_SYNTH_CREATIVE'), canva_design_id: 'AUDIT_SYNTH_CANVA', placeholder_or_generic: false,
     source_evidence_ref: 'AUDIT_SYNTH_EVIDENCE' };
   return { content, input: { content, creative_binding: bindCreative({ approved_content: content, creative_asset: asset }),
     target_account: 'AUDIT_SYNTH', idempotency_key: 'AUDIT_SYNTH_NO_SEND', prior_publish_records: [] } };
