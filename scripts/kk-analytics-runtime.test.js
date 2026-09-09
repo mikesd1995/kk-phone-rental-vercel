@@ -12,4 +12,10 @@ test('conflicting duplicate booking is not silently aggregated',()=>assert.throw
 test('helper schema cannot use positional fallback on wrong headers',()=>assert.throws(()=>c.parseHelper('wrong,schema\nsecret,value',{},[]),/SCHEMA/));
 test('missing booking identity cannot become a count',()=>assert.throws(()=>c.aggregate([{...row,booking_id:''}]),/BOOKING_IDENTITY/));
 test('unverified status cannot become a non-cancelled rental',()=>assert.throws(()=>c.aggregate([{...row,status:'mystery'}]),/BOOKING_STATUS/));
+test('metadata schema cannot guess columns from their physical positions',()=>assert.throws(()=>c.eventMetadata('wrong,headers\nEV-1,Wrong','',''),/SCHEMA/));
+test('invalid optional artist registry cannot invent an affiliation',()=>assert.equal(c.registryAffiliationRules('wrong,headers,here,and,there\nArtist,Alias,English,Other,Agency').length,0));
+test('duplicate event identity within one metadata source is rejected',()=>assert.throws(()=>c.eventMetadata('event_id,event_name,event_note\nEV-1,First,\nEV-1,Second,','',[]),/IDENTITY/));
+test('current event metadata still wins over historical archive',()=>{const o=c.eventMetadata('event_id,event_name,event_note\nEV-1,Current,','event_id,event_name,event_note\nEV-1,Old,',[]);assert.equal(o['EV-1'].event_name,'Current');});
+test('two event IDs with the same display name remain separate events',()=>{const o=c.aggregate([row,{...row,booking_id:'BK-2',event_id:'EV-2'}]);assert.equal(o.top_events.length,2);});
+test('dictionary-like names are data and cannot collide with object prototypes',()=>{const o=c.aggregate([{...row,event_name:'__proto__',affiliation:'constructor',package_type:'__proto__',customer_key:'__proto__'}]);assert.equal(o.metrics.unique_customers,1);assert.equal(o.affiliation_mix[0].bookings,1);assert.equal(o.package_mix[0].bookings,1);});
 console.log(`${count} analytics runtime invariants passed (local synthetic only)`);

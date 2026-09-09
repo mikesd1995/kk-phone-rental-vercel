@@ -210,4 +210,14 @@ test('sharing setter success alone cannot claim public access verified',()=>{
 test('manual schema setup joins the canonical lock and releases before UI',()=>{
   const c=context();let held=false;c.kkAcquireDocumentLock_=()=>{held=true;return {releaseLock:()=>{held=false;}};};c.kkEnsureCrmArchiveSheets_=()=>assert.equal(held,true);c.kkEnsureAdminLogSheets_=()=>assert.equal(held,true);c.kkSafeAlert_=()=>assert.equal(held,false);c.kkEnsurePhase1Sheets();
 });
+test('dashboard result echo is serialized and read back without retrying a committed event',()=>{
+  for(const mode of ['ok','mismatch','busy','release']){
+    const c=context();let held=false,created=0,writes=0,message='';
+    c.kkApiCreateEvent_=()=>{created++;return {event_id:'EV-COMMITTED'};};
+    c.kkAcquireDocumentLock_=()=>{if(mode==='busy')throw Error('busy');held=true;return {assertHeld:()=>assert.equal(held,true),releaseLock:()=>{held=false;if(mode==='release')throw Error('release');}};};
+    c.kkRange_=name=>name==='KK_EVENT_CREATED_ID'?{setValue:()=>{assert.equal(held,true);writes++;},getValue:()=>mode==='mismatch'?'OTHER':'EV-COMMITTED'}:{getValues:()=>[]};
+    c.SpreadsheetApp.getUi=()=>({alert:text=>{assert.equal(held,false);message=text;}});
+    c.kkCreateEventFromDashboard();assert.equal(created,1);assert.equal(writes,mode==='busy'?0:1);assert.match(message,/EV-COMMITTED/);if(mode!=='ok')assert.match(message,/Do not create again/);
+  }
+});
 console.log(`${count} repair boundary invariant groups passed (local only)`);

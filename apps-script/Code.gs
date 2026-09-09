@@ -1005,8 +1005,8 @@ function kkCreateEventFromDashboard() {
     note: v[4], status: v[5] || 'open', active_on_web: kkBlank_(v[6]) ? true : kkIsTrue_(v[6]),
     event_price_overrides: overrides
   });
-  kkRange_('KK_EVENT_CREATED_ID', KK.dashboard, 'B13').setValue(result.event_id);
-  SpreadsheetApp.getUi().alert('Created event: ' + result.event_id);
+  let echoOk = false, echoLock; try { echoLock = kkAcquireDocumentLock_('dashboard event result', 1000); const target = kkRange_('KK_EVENT_CREATED_ID', KK.dashboard, 'B13'); echoLock.assertHeld(); target.setValue(result.event_id); SpreadsheetApp.flush(); echoOk = target.getValue() === result.event_id; } catch (_) { /* Event already committed: failed noncanonical UI echo must never invite a new create. */ } finally { if (echoLock) { try { echoLock.releaseLock(); } catch (_) { echoOk = false; } } }
+  SpreadsheetApp.getUi().alert('Created event: ' + result.event_id + (echoOk ? '' : '\nDashboard result cell not verified. Do not create again; refresh using the event ID above.'));
 }
 
 function kkNextAssetIds_(assetType, qty) {
