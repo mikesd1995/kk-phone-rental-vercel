@@ -176,7 +176,7 @@ Affected/current suites include:
 
 All pre-existing governed suites in the same chain also passed.
 
-Report-only continuation was rechecked twice: run #110 (`34458088224`) completed `SUCCESS`, and the final pre-this-lineage report head was rechecked by run #111 (`34458265987`) with `SUCCESS`.
+Documentation-only continuation was also rechecked successfully by run #110 (`34458088224`), run #111 (`34458265987`), and run #112 (`34458364369`).
 
 Classification: `KK-G3 CI_PASS` for the development-plane observer hardening. This is not a claim that the live scheduler is `RUNTIME_PASS` or `PRODUCTION_STABLE`.
 
