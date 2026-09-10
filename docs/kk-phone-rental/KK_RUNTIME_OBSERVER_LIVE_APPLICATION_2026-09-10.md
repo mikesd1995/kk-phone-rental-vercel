@@ -176,7 +176,7 @@ Affected/current suites include:
 
 All pre-existing governed suites in the same chain also passed.
 
-The initial report-only head `93d1ba5d10822f5ffeee9e78b78fbfbe26017671` was then rechecked by `KK Governed Checks` run `34458088224` / run #110 and also completed `SUCCESS` before this evidence note was appended.
+Report-only continuation was rechecked twice: run #110 (`34458088224`) completed `SUCCESS`, and the final pre-this-lineage report head was rechecked by run #111 (`34458265987`) with `SUCCESS`.
 
 Classification: `KK-G3 CI_PASS` for the development-plane observer hardening. This is not a claim that the live scheduler is `RUNTIME_PASS` or `PRODUCTION_STABLE`.
 
