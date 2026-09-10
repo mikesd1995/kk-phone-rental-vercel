@@ -31,6 +31,8 @@ function healthy(overrides={}){
 let result=c.runtimeAcceptance(healthy());
 ok(result.accepted&&result.status==='PASS','healthy natural occurrence passes');
 eq(result.reasons,[],'healthy occurrence has no reasons');
+result=c.runtimeAcceptance(healthy({task_enabled_before:'TRUE',task_enabled_after:'TRUE',scheduled_trigger_observed:'TRUE',lease_acquired:'TRUE',manifest_frozen_before_mutation:'TRUE',terminal_manifest:'TRUE',lease_released:'TRUE'}));
+ok(result.accepted,'sheet-style TRUE strings are accepted as positive evidence');
 
 result=c.runtimeAcceptance(healthy({expected_occurrence:false,task_enabled_before:false}));
 eq(result.status,'NOT_DUE','not-due observation is not treated as a failure');
@@ -46,6 +48,8 @@ result=c.runtimeAcceptance(healthy({lease_acquired:false}));
 ok(result.reasons.includes('LEASE_NOT_ACQUIRED'),'missing lease blocks runtime acceptance');
 result=c.runtimeAcceptance(healthy({lease_version:100,previous_lease_version:100}));
 ok(result.reasons.includes('NON_MONOTONIC_FENCE'),'equal lease version is not strictly monotonic');
+result=c.runtimeAcceptance(healthy({lease_version:0,previous_lease_version:0}));
+ok(result.reasons.includes('NON_MONOTONIC_FENCE'),'missing or zero fence version fails closed');
 result=c.runtimeAcceptance(healthy({duplicate_fence_observed:true}));
 ok(result.reasons.includes('DUPLICATE_FENCE'),'duplicate fence blocks acceptance');
 result=c.runtimeAcceptance(healthy({manifest_count:0}));
@@ -108,5 +112,7 @@ gate=c.releaseEvidenceGate({architecture_approved:true,ready_for_implementation:
 eq(gate.gate,'KK-G4 RUNTIME_PASS','runtime proof advances to G4');
 gate=c.releaseEvidenceGate({architecture_approved:true,ready_for_implementation:true,implementation_pass:true,ci_pass:true,runtime_pass:true,provider_pass:true,production_stable:true});
 eq(gate.gate,'KK-G6 PRODUCTION_STABLE','full evidence ladder reaches G6');
+gate=c.releaseEvidenceGate({architecture_approved:false,ready_for_implementation:true,implementation_pass:true,ci_pass:true,runtime_pass:true});
+eq(gate.gate,'KK-G0 REQUIREMENT_DEFINED','release gates cannot skip architecture approval');
 
 console.log(`kk-runtime-acceptance-contract: ${n}/${n} PASS`);
