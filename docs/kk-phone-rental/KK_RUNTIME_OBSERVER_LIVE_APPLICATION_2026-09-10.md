@@ -163,7 +163,7 @@ No production scheduler/task mutation was performed by these GitHub changes.
 
 ## CI evidence
 
-`KK Governed Checks` run `34457875130` / run #109 completed `SUCCESS` on the resulting PR merge state.
+`KK Governed Checks` run `34457875130` / run #109 completed `SUCCESS` on the code-bearing head.
 
 Affected/current suites include:
 
@@ -175,6 +175,8 @@ Affected/current suites include:
 - `kk-runtime-live-evidence-regression: 27/27 PASS`
 
 All pre-existing governed suites in the same chain also passed.
+
+The initial report-only head `93d1ba5d10822f5ffeee9e78b78fbfbe26017671` was then rechecked by `KK Governed Checks` run `34458088224` / run #110 and also completed `SUCCESS` before this evidence note was appended.
 
 Classification: `KK-G3 CI_PASS` for the development-plane observer hardening. This is not a claim that the live scheduler is `RUNTIME_PASS` or `PRODUCTION_STABLE`.
 
