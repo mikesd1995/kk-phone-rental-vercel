@@ -2,7 +2,9 @@ name: KK Governed Checks
 
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - skills/x-scanner-v2
   workflow_dispatch:
 
 permissions:
