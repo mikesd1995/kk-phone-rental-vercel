@@ -1,7 +1,7 @@
 # KK Phone Rental — Controlled Scheduler Migration & Cutover Contract v1
 
 Date: 2026-09-10 Asia/Bangkok
-Status: DEVELOPMENT-PLANE DESIGN / NO PRODUCTION CANDIDATE SCHEDULER CREATED
+Status: S0 IMPLEMENTED / S1 BLOCKED_EXTERNAL_CAPACITY / NO PRODUCTION CANDIDATE ACTIVE
 Authority: live Machine SOT + exactly one highest Active Policy remain production truth.
 
 ## Why this exists
@@ -37,9 +37,26 @@ Required artifacts:
 - Machine SOT authority preserved;
 - shared canonical lease/fencing source;
 - rollback plan;
-- no provider/customer side effects.
+- no provider/customer side effects;
+- provider/runtime capacity sufficient to activate a shadow candidate without disabling any production scenario;
+- candidate clock independent from the current ChatGPT recurring-task control plane.
 
 Exit: implementation-ready shadow design only.
+
+### Current S0 candidate
+
+Make was selected as the first scheduler candidate because it is operationally independent from the current ChatGPT recurring-task control plane and an existing production Make scheduled transport already demonstrates repeated automatic schedule execution.
+
+Two no-write observer candidate scenarios were constructed only for capacity probing:
+
+- `6224679` in team `2671496`
+- `6224686` in private space `2671497`
+
+Both candidates contain only execution-scoped `util:SetVariable2` timestamp/`SHADOW_NO_WRITE` markers and have no Google Sheets, Telegram, provider, Machine SOT, lease or production-writer connection.
+
+Both activation attempts were rejected by Make with `Maximum number of active scenarios has been exceeded`. They remain inactive. No active production Make scenario was disabled to manufacture capacity.
+
+S0 design/configuration therefore passes, but S1 runtime shadow has not started.
 
 ## Phase S1 — Shadow clock
 
@@ -47,21 +64,25 @@ Candidate scheduler is allowed to compute/emit read-only expected-occurrence evi
 
 Requirements:
 
+- provider/runtime capacity available before activation;
+- candidate clock independent from the current recurring-task control plane;
 - production writes disabled;
 - production Scanner/Verifier lease acquisition disabled;
 - same occurrence identity semantics as canonical schedule;
 - no task enable/disable mutation;
-- no Make/provider/customer mutation;
+- no Make provider/customer mutation outside the isolated shadow candidate;
 - compare expected occurrence, launch latency and missed occurrence detection against current canonical scheduler;
 - minimum six consecutive matching shadow observations per role before cutover can even be considered.
 
-Any mismatch resets the clean shadow streak.
+Any mismatch resets the clean shadow streak. Provider capacity failure is a blocking condition, not a reason to disable an existing production scenario merely to free a slot.
 
 ## Phase S2 — Cutover readiness
 
 Before an owner can approve cutover:
 
 - shadow requirements pass;
+- candidate runtime capacity remains available;
+- independent clock semantics proven;
 - no active protected writer lock;
 - unresolved PREPARED/COMMITTING = 0;
 - rollback plan exact and tested in non-production;
@@ -74,14 +95,15 @@ Config success is not cutover proof.
 
 Required order:
 
-1. Verify no active role writer lease.
-2. Verify unresolved PREPARED/COMMITTING = 0.
-3. Disable old scheduler for that role.
-4. Exact-read old scheduler disabled.
-5. Enable candidate scheduler for that role.
-6. Exact-read candidate scheduler enabled.
-7. On first natural occurrence, candidate derives the next canonical lease version from the shared Machine-SOT history.
-8. Require full natural runtime evidence: policy exact1, lease/fence, one canonical Manifest, governed work/no-op, exact readback, terminal state, lease release.
+1. Verify candidate runtime capacity and independent-clock status.
+2. Verify no active role writer lease.
+3. Verify unresolved PREPARED/COMMITTING = 0.
+4. Disable old scheduler for that role.
+5. Exact-read old scheduler disabled.
+6. Enable candidate scheduler for that role.
+7. Exact-read candidate scheduler enabled.
+8. On first natural occurrence, candidate derives the next canonical lease version from the shared Machine-SOT history.
+9. Require full natural runtime evidence: policy exact1, lease/fence, one canonical Manifest, governed work/no-op, exact readback, terminal state, lease release.
 
 The candidate must never be enabled for production writes before exact proof that the old scheduler is disabled.
 
@@ -119,17 +141,40 @@ If candidate-disabled proof is missing, rollback re-enable of the old scheduler 
 ## Evidence ladder
 
 - DESIGN_PASS: contract and threat model exist.
+- S0_CONFIG_PASS: isolated candidate configuration validates and contains no production write path.
+- S1_BLOCKED_EXTERNAL_CAPACITY: candidate cannot be activated because provider capacity is unavailable; no runtime claim permitted.
 - SHADOW_PASS: minimum clean no-write observations pass.
 - CUTOVER_READY: deterministic gates pass; owner approval still required.
 - RUNTIME_PASS: natural post-cutover role runs pass.
 - SOAK_PASS: consecutive and 24h reliability evidence pass.
 - PRODUCTION_STABLE: only after business/runtime/provider gates required by the wider KK release model are also satisfied.
 
-## Current 2026-09-10 trigger evidence
+## Baseline before migration — 2026-09-10
 
-The design is justified by repeated `TASK_DISABLED_AFTER` / control-plane recurrence. Separately, the 16:00 Scanner Manifest field-shift defect was repaired by header-name addressing and a later 17:00 natural Scanner produced a schema-valid canonical Manifest and released lease; that repair does not explain or close the scheduler disable recurrence.
+Natural runtime itself is currently functional, but recurring-task persistence is not reliable:
 
-Therefore scheduler migration is now a controlled reliability workstream, not a reactionary replacement task.
+- 17:00 Scanner produced canonical Manifest5078, lease v269 released, Candidate↔AI 25=25, then the canonical Scanner task was observed OFF and manually re-enabled.
+- 17:30 Verifier produced canonical Manifest5079, lease v258 released, processed=1 / held=1 / remaining=24, then the canonical Verifier task was later observed OFF.
+- 18:00 Scanner produced canonical Manifest5080, lease v270 released, Candidate↔AI 24=24, then the canonical Scanner task was later observed OFF.
+
+This is the pre-migration baseline. Root cause remains UNKNOWN. Re-enable remains mitigation only.
+
+Independent Make scheduler liveness is better in the observed comparison window, but it is not yet a KK shadow scheduler proof: scenario `6176241` recorded eight consecutive automatic successful scheduled executions between 16:14 and 17:59 Asia/Bangkok while remaining active. Those executions prove Make clock liveness for that existing scenario only; they do not prove Scanner/Verifier occurrence equivalence, no-write shadow semantics, or cutover readiness.
+
+## Current blocker and decision
+
+Do not deactivate production Make scenarios `5901592` or `6176241` merely to free an active-scenario slot. Doing so would improve the experiment by degrading the live business system and would invalidate the safety objective.
+
+Current strict classification:
+
+`S0_CONFIG_PASS / S1_BLOCKED_EXTERNAL_CAPACITY / CONTROL_PLANE_BASELINE_FAIL / NO_CUTOVER`
+
+Next acceptable paths are:
+
+1. obtain Make active-scenario capacity and activate exactly one isolated no-write shadow candidate; or
+2. select another genuinely independent scheduler/runtime that can satisfy the same no-write shadow contract.
+
+Only after at least six clean matching shadow observations per role may S2 be considered.
 
 ## Third-party tooling boundary
 
