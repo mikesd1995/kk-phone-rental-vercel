@@ -89,30 +89,41 @@ eq(sli.percent,50,'SLI percent is deterministic');
 const scannerRuns=[];
 for(let i=1;i<=6;i++) scannerRuns.push(healthy({runner_type:'SCANNER',lease_version:100+i,previous_lease_version:99+i}));
 let soak=c.runnerSoak(scannerRuns,{runner_type:'SCANNER',min_consecutive:6});
-ok(soak.stable&&soak.max_streak===6,'six clean natural Scanner runs satisfy minimum soak');
+ok(soak.stable&&soak.current_streak===6,'six clean natural Scanner runs satisfy minimum soak');
 
 const manualRuns=scannerRuns.map((x,i)=>i===2?Object.assign({},x,{manual_rescue:true}):x);
 soak=c.runnerSoak(manualRuns,{runner_type:'SCANNER',min_consecutive:6});
-ok(!soak.stable&&soak.manual_rescues===1,'manual rescue invalidates measured soak');
+ok(!soak.stable&&soak.manual_rescues===1&&soak.current_streak===3,'manual rescue resets the active soak window');
 
 const brokenRuns=scannerRuns.map((x,i)=>i===4?Object.assign({},x,{task_enabled_after:false}):x);
 soak=c.runnerSoak(brokenRuns,{runner_type:'SCANNER',min_consecutive:6});
-ok(!soak.stable&&soak.p0_failures===1,'P0 failure invalidates soak');
+ok(!soak.stable&&soak.p0_failures===1&&soak.current_streak===1,'P0 failure resets the active soak window');
+
+const recoveredRuns=[healthy({runner_type:'SCANNER',task_enabled_after:false,lease_version:90,previous_lease_version:89})];
+for(let i=1;i<=6;i++) recoveredRuns.push(healthy({runner_type:'SCANNER',lease_version:110+i,previous_lease_version:109+i}));
+soak=c.runnerSoak(recoveredRuns,{runner_type:'SCANNER',min_consecutive:6});
+ok(soak.stable&&soak.current_streak===6&&soak.failures===1,'historical failure does not poison a later clean six-run soak');
+
+const withNotDue=[healthy({runner_type:'SCANNER',expected_occurrence:false}),...scannerRuns];
+soak=c.runnerSoak(withNotDue,{runner_type:'SCANNER',min_consecutive:6});
+ok(soak.stable&&soak.observed===6,'NOT_DUE observations are excluded from soak continuity');
 
 const verifierRuns=[];
 for(let i=1;i<=6;i++) verifierRuns.push(healthy({runner_type:'VERIFIER',lease_version:200+i,previous_lease_version:199+i}));
 let combined=c.combinedRunnerSoak([...scannerRuns,...verifierRuns],{min_consecutive:6});
 ok(combined.stable&&combined.status==='CORE_RUNNERS_SOAK_PASS','Scanner and Verifier both require clean soak');
 combined=c.combinedRunnerSoak([...scannerRuns,...verifierRuns.slice(0,5)],{min_consecutive:6});
-ok(!combined.stable&&combined.verifier.max_streak===5,'five Verifier runs are insufficient');
+ok(!combined.stable&&combined.verifier.current_streak===5,'five Verifier runs are insufficient');
 
-let gate=c.releaseEvidenceGate({architecture_approved:true,ready_for_implementation:true,implementation_pass:true,ci_pass:true});
-eq(gate.gate,'KK-G3 CI_PASS','CI gate requires implementation and CI');
-gate=c.releaseEvidenceGate({architecture_approved:true,ready_for_implementation:true,implementation_pass:true,ci_pass:true,runtime_pass:true});
+let gate=c.releaseEvidenceGate({requirement_defined:true,architecture_approved:true,ready_for_implementation:true,implementation_pass:true,ci_pass:true});
+eq(gate.gate,'KK-G3 CI_PASS','CI gate requires ordered requirement architecture implementation and CI');
+gate=c.releaseEvidenceGate({requirement_defined:true,architecture_approved:true,ready_for_implementation:true,implementation_pass:true,ci_pass:true,runtime_pass:true});
 eq(gate.gate,'KK-G4 RUNTIME_PASS','runtime proof advances to G4');
-gate=c.releaseEvidenceGate({architecture_approved:true,ready_for_implementation:true,implementation_pass:true,ci_pass:true,runtime_pass:true,provider_pass:true,production_stable:true});
+gate=c.releaseEvidenceGate({requirement_defined:true,architecture_approved:true,ready_for_implementation:true,implementation_pass:true,ci_pass:true,runtime_pass:true,provider_pass:true,production_stable:true});
 eq(gate.gate,'KK-G6 PRODUCTION_STABLE','full evidence ladder reaches G6');
-gate=c.releaseEvidenceGate({architecture_approved:false,ready_for_implementation:true,implementation_pass:true,ci_pass:true,runtime_pass:true});
+gate=c.releaseEvidenceGate({requirement_defined:false,architecture_approved:true,ready_for_implementation:true,implementation_pass:true,ci_pass:true,runtime_pass:true});
+eq(gate.gate,'KK-G-1 NOT_READY','release ladder fails closed when requirement is undefined');
+gate=c.releaseEvidenceGate({requirement_defined:true,architecture_approved:false,ready_for_implementation:true,implementation_pass:true,ci_pass:true,runtime_pass:true});
 eq(gate.gate,'KK-G0 REQUIREMENT_DEFINED','release gates cannot skip architecture approval');
 
 console.log(`kk-runtime-acceptance-contract: ${n}/${n} PASS`);
