@@ -8,6 +8,8 @@ const eq=(a,b,m)=>{assert.deepStrictEqual(a,b,m);n++;};
 function base(){return {
   role:'SCANNER',
   candidate_scheduler_id:'sandbox-clock-1',
+  candidate_runtime_capacity_available:true,
+  independent_clock:true,
   candidate_production_write_enabled:false,
   shadow_occurrences:6,
   shadow_mismatches:0,
@@ -30,6 +32,10 @@ let r=c.shadowReadiness(base());
 ok(r.ready,'shadow readiness passes with six clean no-write occurrences');
 eq(r.decision,'ALLOW_SHADOW_COMPLETE','shadow completion decision');
 
+r=c.shadowReadiness({...base(),candidate_runtime_capacity_available:false});
+ok(!r.ready&&r.reasons.includes('CANDIDATE_RUNTIME_CAPACITY_REQUIRED'),'shadow cannot pass when candidate runtime capacity is unavailable');
+r=c.shadowReadiness({...base(),independent_clock:false});
+ok(!r.ready&&r.reasons.includes('INDEPENDENT_CLOCK_REQUIRED'),'shadow clock must be independent from current control plane');
 r=c.shadowReadiness({...base(),candidate_production_write_enabled:true});
 ok(!r.ready&&r.reasons.includes('SHADOW_MUST_BE_NO_WRITE'),'shadow cannot write production');
 r=c.shadowReadiness({...base(),shadow_occurrences:5});
@@ -67,9 +73,14 @@ ok(!r.valid,'separate fencing source denied');
 r=c.cutoverAuthorization(base());
 ok(r.allowed,'fully proven controlled cutover may be authorized');
 eq(r.decision,'ALLOW_CONTROLLED_CUTOVER','cutover decision explicit');
-eq(r.sequence[2],'DISABLE_OLD_SCHEDULER_AND_EXACT_READBACK','old scheduler disabled before candidate enable');
-eq(r.sequence[3],'ENABLE_CANDIDATE_SCHEDULER_AND_EXACT_READBACK','candidate enable follows old disable');
+eq(r.sequence[0],'VERIFY_CANDIDATE_RUNTIME_CAPACITY_AND_INDEPENDENT_CLOCK','candidate capacity/independence checked first');
+eq(r.sequence[3],'DISABLE_OLD_SCHEDULER_AND_EXACT_READBACK','old scheduler disabled before candidate enable');
+eq(r.sequence[4],'ENABLE_CANDIDATE_SCHEDULER_AND_EXACT_READBACK','candidate enable follows old disable');
 
+r=c.cutoverAuthorization({...base(),candidate_runtime_capacity_available:false});
+ok(!r.allowed&&r.reasons.includes('CANDIDATE_RUNTIME_CAPACITY_REQUIRED'),'cutover denied when provider capacity blocks candidate runtime');
+r=c.cutoverAuthorization({...base(),independent_clock:false});
+ok(!r.allowed&&r.reasons.includes('INDEPENDENT_CLOCK_REQUIRED'),'cutover denied when candidate is not an independent clock');
 r=c.cutoverAuthorization({...base(),explicit_owner_approval:false});
 ok(!r.allowed&&r.reasons.includes('OWNER_APPROVAL_REQUIRED'),'owner approval required');
 r=c.cutoverAuthorization({...base(),old_scheduler_disabled_readback:false});
