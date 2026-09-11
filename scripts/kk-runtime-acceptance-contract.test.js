@@ -50,6 +50,21 @@ result=c.runtimeAcceptance(healthy({lease_version:100,previous_lease_version:100
 ok(result.reasons.includes('NON_MONOTONIC_FENCE'),'equal lease version is not strictly monotonic');
 result=c.runtimeAcceptance(healthy({lease_version:0,previous_lease_version:0}));
 ok(result.reasons.includes('NON_MONOTONIC_FENCE'),'missing or zero fence version fails closed');
+
+let fence=c.fenceHistoryGate({lock_max_version:260,manifest_max_version:261,transaction_max_version:261,proposed_lease_version:261});
+ok(!fence.accepted&&fence.reasons.includes('FENCE_NOT_MAX_PLUS_ONE'),'real duplicate-v261 pattern is rejected from cross-surface maximum');
+eq(fence.expected_next,262,'cross-surface history computes v262 as next safe Verifier lease');
+fence=c.fenceHistoryGate({lock_max_version:260,manifest_max_version:261,transaction_max_version:261,proposed_lease_version:262});
+ok(fence.accepted,'v262 passes when cross-surface maximum is v261');
+fence=c.fenceHistoryGate({lock_max_version:261,manifest_max_version:261,transaction_max_version:259,proposed_lease_version:262});
+ok(fence.accepted,'a legitimately lagging transaction surface does not block MAX+1');
+fence=c.fenceHistoryGate({lock_max_version:261,manifest_max_version:261,transaction_max_version:261,proposed_lease_version:262,same_occurrence_conflict:true});
+ok(!fence.accepted&&fence.reasons.includes('FENCE_HISTORY_CONFLICT'),'same-occurrence conflicting fence evidence fails closed');
+result=c.runtimeAcceptance(healthy({lease_version:261,previous_lease_version:260,lock_max_version:260,manifest_max_version:261,transaction_max_version:261,proposed_lease_version:261}));
+ok(result.reasons.includes('FENCE_NOT_MAX_PLUS_ONE'),'runtime acceptance rejects a lease that is monotonic only against a stale single surface');
+result=c.runtimeAcceptance(healthy({lease_version:262,previous_lease_version:260,lock_max_version:260,manifest_max_version:261,transaction_max_version:261,proposed_lease_version:262}));
+ok(result.accepted,'runtime acceptance permits exact MAX+1 across canonical surfaces');
+
 result=c.runtimeAcceptance(healthy({duplicate_fence_observed:true}));
 ok(result.reasons.includes('DUPLICATE_FENCE'),'duplicate fence blocks acceptance');
 result=c.runtimeAcceptance(healthy({manifest_count:0}));
