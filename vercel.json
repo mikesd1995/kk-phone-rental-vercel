@@ -3,108 +3,76 @@
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        }
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     },
     {
       "source": "/api/kk-admin",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
-        }
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
       ]
     },
     {
       "source": "/api/kk-data",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "s-maxage=15, stale-while-revalidate=45"
-        }
+        { "key": "Cache-Control", "value": "s-maxage=15, stale-while-revalidate=45" }
       ]
     },
     {
       "source": "/admin",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
     },
     {
       "source": "/admin/",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
     },
     {
       "source": "/admin/(.*)",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
-        }
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
       ]
     },
     {
       "source": "/admin/index.html",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
-        }
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
       ]
     },
     {
       "source": "/script.js",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, max-age=0, must-revalidate"
-        }
+        { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
       ]
     },
     {
       "source": "/config.js",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, max-age=0, must-revalidate"
-        }
+        { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
       ]
     },
     {
       "source": "/style.css",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, max-age=0, must-revalidate"
-        }
+        { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
       ]
     },
     {
       "source": "/index.html",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, max-age=0"
-        }
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
       ]
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/kk-admin",
+      "destination": "/api/kk-admin-guard"
+    },
     {
       "source": "/",
       "destination": "/index.html"
@@ -115,8 +83,7 @@
     }
   ],
   "functions": {
-    "api/kk-admin.js": {
-      "maxDuration": 60
-    }
+    "api/kk-admin.js": { "maxDuration": 60 },
+    "api/kk-admin-guard.js": { "maxDuration": 60 }
   }
 }
