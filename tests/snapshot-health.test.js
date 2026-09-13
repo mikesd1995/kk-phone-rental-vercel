@@ -10,12 +10,43 @@ const good = () => ({
   current_bookings:[{booking_id:'b',booking_status:'confirmed'}],
   assets:[{asset_id:'p'}], spreadsheet_id:'test-sheet',admin_api_version:H.BACKEND
 });
+const bulk = (n=10) => ({
+  events:Array.from({length:n},(_,i)=>({event_id:'e'+i,event_date:'2026-10-01',status:'open'})),
+  bookings:Array.from({length:n},(_,i)=>({booking_id:'b'+i,event_date:'2026-10-01',booking_status:'confirmed'})),
+  current_bookings:Array.from({length:n},(_,i)=>({booking_id:'b'+i,event_date:'2026-10-01',booking_status:'confirmed'})),
+  assets:Array.from({length:n},(_,i)=>({asset_id:'a'+i})),
+  spreadsheet_id:'test-sheet',admin_api_version:H.BACKEND
+});
 
 test('reject malformed, partial, null and unexpected zero snapshots',()=>{
   for(const d of [null,{}, {...good(),assets:{}}, {...good(),events:[null]}]) assert.equal(H.assess(d).ok,false);
   assert.equal(H.assess({...good(),bookings:[],current_bookings:[]},good()).ok,false);
   assert.equal(H.assess({...good(),events:[]}).ok,false);
   assert.equal(H.assess(good()).ok,true);
+});
+test('reject missing and duplicate stable IDs',()=>{
+  const missing=good();missing.events=[{event_id:''}];
+  assert.equal(H.assess(missing).ok,false);
+  assert.match(H.assess(missing).issues.join(' '),/missing event_id/);
+  const duplicate=good();duplicate.bookings=[
+    {booking_id:'dup',booking_status:'confirmed'},
+    {booking_id:'dup',booking_status:'confirmed'}
+  ];
+  duplicate.current_bookings=[{booking_id:'dup',booking_status:'confirmed'}];
+  assert.equal(H.assess(duplicate).ok,false);
+  assert.match(H.assess(duplicate).issues.join(' '),/duplicate booking_id dup/);
+});
+test('reject correlated partial snapshot collapse and warn on isolated sharp drop',()=>{
+  const previous=bulk(10);
+  const partial=bulk(3);
+  const h=H.assess(partial,previous);
+  assert.equal(h.ok,false);
+  assert.match(h.issues.join(' '),/correlated snapshot count collapse/);
+  const isolated=bulk(10);
+  isolated.events=isolated.events.slice(0,3);
+  const isolatedHealth=H.assess(isolated,previous);
+  assert.equal(isolatedHealth.ok,true);
+  assert.match(isolatedHealth.warnings.join(' '),/events: count dropped sharply 10→3/);
 });
 test('empty system is explicitly uncertain; legitimately closed work may be zero',()=>{
   const empty={events:[],bookings:[],current_bookings:[],assets:[]};
@@ -31,6 +62,13 @@ test('derive all open bookings despite a nonempty but incomplete current_booking
   assert.equal(H.assess(d).warnings.length,1);
   assert.equal(H.currentBookings(d).length,2);
   assert.equal(H.todayBookings(d,'2026-09-13').length,1);
+});
+test('warn when current_bookings contains an unknown booking id',()=>{
+  const d=good();
+  d.current_bookings.push({booking_id:'ghost',booking_status:'confirmed'});
+  const h=H.assess(d);
+  assert.equal(h.ok,true);
+  assert.match(h.warnings.join(' '),/not present in bookings/);
 });
 test('Bangkok day rolls over while UTC is still the previous day',()=>{
   assert.equal(H.bangkokDay(new Date('2026-09-12T17:01:00Z')),'2026-09-13');
@@ -67,6 +105,16 @@ test('UI rejects zero without losing prior data; auth rejection clears data',asy
   await assert.rejects(h.refresh(),/Snapshot rejected/);assert.equal(h.state.data,first);
   context.fetch=async()=>({ok:false,status:401,json:async()=>({ok:false,error:'Invalid PIN'})});
   await assert.rejects(h.refresh(),/Invalid PIN/);assert.equal(h.state.data,null);
+});
+test('UI preserves prior data when a correlated partial snapshot is rejected',async()=>{
+  const {context,h}=browser();
+  const initial=bulk(10);
+  context.fetch=async()=>({ok:true,status:200,json:async()=>({ok:true,data:initial})});
+  await h.refresh();const first=h.state.data;
+  context.fetch=async()=>({ok:true,status:200,json:async()=>({ok:true,data:bulk(3)})});
+  await assert.rejects(h.refresh(),/correlated snapshot count collapse/);
+  assert.equal(h.state.data,first);
+  assert.equal(h.getStatus().stale,true);
 });
 test('Overview includes open unpublished future events, excludes closed and past',()=>{
   const {h}=browser();
