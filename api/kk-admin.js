@@ -1,8 +1,9 @@
-// KK Phone Rental v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX — Admin CRM Vercel Proxy
+// KK Phone Rental — Snapshot Resilience 1 Admin CRM Vercel Proxy
 // Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
 // Adds System Guard diagnostics for Apps Script URL / Sheet ID / public feed / override pipeline.
 
-const KK_APP_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX";
+const SnapshotHealth = require("../admin/snapshot-health.js");
+const KK_APP_VERSION = SnapshotHealth.VERSION;
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
 function json(res, status, body) {
@@ -14,17 +15,20 @@ function json(res, status, body) {
   res.end(JSON.stringify(Object.assign({ proxy_version: KK_APP_VERSION }, body || {})));
 }
 
-function fetchWithTimeout(url, options, timeoutMs) {
+async function fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs || 50000);
-  return fetch(url, Object.assign({}, options || {}, { signal: controller.signal }))
-    .finally(() => clearTimeout(timer));
+  try {
+    const response = await fetch(url, Object.assign({}, options || {}, { signal: controller.signal }));
+    const body = await response.text();
+    return { ok: response.ok, status: response.status, headers: response.headers, text: async () => body };
+  } finally { clearTimeout(timer); }
 }
 
 function timeoutForAction(action) {
   const key = String(action || '').trim();
   if (key === 'phase1Health') return 20000;
-  if (key === 'snapshot') return 55000;
+  if (key === 'snapshot' || key === 'snapshotHealth') return 55000;
   if (key === 'uploadPoster') return 55000;
   return 45000;
 }
@@ -323,6 +327,7 @@ module.exports = async function handler(req, res) {
     }
 
     const upstreamPayload = Object.assign({}, payload, {
+      action: payload.action === "snapshotHealth" ? "snapshot" : payload.action,
       apiKey,
       proxyVersion: KK_APP_VERSION,
       frontendSheetId,
@@ -345,6 +350,23 @@ module.exports = async function handler(req, res) {
       data = { ok: false, error: compactNonJsonError(text, contentType, safeUrlHost(scriptUrl)) };
     }
 
+    if (["snapshot", "snapshotHealth"].includes(payload.action)) {
+      const health = SnapshotHealth.assess(data && data.ok && upstream.ok ? data.data : null);
+      health.latency_ms = Date.now() - upstreamStartedAt;
+      health.checked_at = new Date().toISOString();
+      health.backend_version = data && data.data && data.data.admin_api_version || data && data.admin_api_version || "";
+      health.proxy_version = KK_APP_VERSION;
+      if (health.backend_version !== SnapshotHealth.BACKEND) health.warnings.push("Apps Script revision differs from observed 9_5_9; inspect deployed source, never downgrade to repository 9_5_8");
+      if (data && data.data && data.data.spreadsheet_id !== frontendSheetId) {
+        health.ok = false;
+        health.issues.push("Snapshot spreadsheet_id does not match configured sheet");
+      }
+      if (payload.action === "snapshotHealth") {
+        return json(res, 200, {ok:true, data:health});
+      }
+      if (!health.ok) return json(res, 502, {ok:false, error:"Snapshot rejected: "+health.issues.join("; "), error_code:"INVALID_SNAPSHOT", snapshot_health:health});
+      data.snapshot_health = health;
+    }
     if (data && data.ok && payload && payload.action === "snapshot") {
       data.frontend_sheet_id = frontendSheetId;
       data.frontend_sheet_id_source = sheetIdSource;

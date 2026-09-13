@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>KK Admin CRM Dashboard v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX</title>
+  <title>KK Admin CRM Dashboard — Snapshot Resilience 1</title>
   <base href="/admin/" />
   <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -74,6 +74,7 @@
         </div>
       </section>
 
+      <div id="snapshotStatus" role="status" aria-live="polite" class="card" style="border:2px solid #64748b;padding:12px;margin-bottom:12px" hidden></div>
       <div id="appPanel" class="hidden">
         <div id="notice" class="notice hidden"></div>
 
@@ -726,6 +727,7 @@
     </main>
   </div>
 
-  <script src="/admin/admin.js?v=3.9.5.8"></script>
+  <script src="/admin/snapshot-health.js?v=resilience-1"></script>
+  <script src="/admin/admin.js?v=resilience-1"></script>
 </body>
 </html>
