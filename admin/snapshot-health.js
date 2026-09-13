@@ -3,13 +3,20 @@
   else root.KKSnapshotHealth = factory();
 })(typeof globalThis !== 'undefined' ? globalThis : this, function(){
   'use strict';
-  const VERSION = 'admin-snapshot-resilience-2';
+  const VERSION = 'admin-snapshot-resilience-3';
   const BACKEND = 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX';
   const KEYS = ['events','bookings','current_bookings','assets'];
   const ID_FIELDS = {events:'event_id', bookings:'booking_id', current_bookings:'booking_id', assets:'asset_id'};
   const COLLAPSE_KEYS = ['events','bookings','assets'];
   const COLLAPSE_MIN_PREVIOUS = 8;
   const COLLAPSE_RATIO = 0.35;
+  const SOURCE_COUNT_MIN = 4;
+  const SOURCE_WARN_RATIO = 0.75;
+  const SOURCE_COUNT_CHECKS = {
+    events:'Source count — Events',
+    bookings:'Source count — Bookings',
+    assets:'Source count — Assets'
+  };
   const status = value => String(value || '').trim().toLowerCase();
   const workflowOpen = b => ['pending','confirmed','prepared','picked_up','returned','uploaded'].includes(status(b.booking_status));
 
@@ -44,6 +51,54 @@
     return out;
   }
 
+  function sourceCountMap(data){
+    const out = {};
+    if(!data || !Array.isArray(data.health)) return out;
+    const labelToKey = {};
+    Object.entries(SOURCE_COUNT_CHECKS).forEach(([key,label])=>{ labelToKey[label.toLowerCase()] = key; });
+    for(const row of data.health){
+      const label = String(row && row.check || '').trim().toLowerCase();
+      const key = labelToKey[label];
+      if(!key) continue;
+      const raw = row && row.count !== undefined ? row.count : row && row.status;
+      const n = Number(raw);
+      if(Number.isFinite(n) && n >= 0 && Math.floor(n) === n) out[key] = n;
+    }
+    return out;
+  }
+
+  function applySourceCountCrossCheck(data, counts, issues, warnings){
+    if(!data || !Array.isArray(data.health) || !data.health.length) return {};
+    const sourceCounts = sourceCountMap(data);
+    const present = Object.keys(sourceCounts);
+    if(!present.length){
+      warnings.push('independent source-count rows missing from Admin Health Check; first-load partial-read protection degraded');
+      return sourceCounts;
+    }
+    const missing = COLLAPSE_KEYS.filter(key=>sourceCounts[key] === undefined);
+    if(missing.length) warnings.push('independent source-count incomplete: missing ' + missing.join(', '));
+
+    for(const key of present){
+      if(!COLLAPSE_KEYS.includes(key)) continue;
+      const source = sourceCounts[key];
+      const snapshot = counts[key];
+      if(typeof snapshot !== 'number') continue;
+      if(source > 0 && snapshot === 0){
+        issues.push(key + ': snapshot zero but independent source count is ' + source);
+        continue;
+      }
+      if(source >= SOURCE_COUNT_MIN && snapshot > 0){
+        const ratio = snapshot / source;
+        if(ratio <= COLLAPSE_RATIO){
+          issues.push(key + ': first-load/source count mismatch ' + snapshot + '/' + source + ' (' + Math.round(ratio*100) + '%)');
+        } else if(ratio < SOURCE_WARN_RATIO){
+          warnings.push(key + ': snapshot count lower than independent source ' + snapshot + '/' + source + '; verify archive/read path');
+        }
+      }
+    }
+    return sourceCounts;
+  }
+
   function assess(data, previous){
     const counts = {}, issues = [], warnings = [];
     for(const key of KEYS){
@@ -59,6 +114,7 @@
       }
     }
 
+    let sourceCounts = {};
     if(!issues.length){
       if(data.events.length === 0 && (data.bookings.length || (Array.isArray(data.web_ready) && data.web_ready.length))){
         issues.push('events: zero despite booking/public-feed evidence');
@@ -71,6 +127,8 @@
         const x = collapses[0];
         warnings.push(x.key + ': count dropped sharply ' + x.before + '→' + x.after + '; verify archive/read path');
       }
+
+      sourceCounts = applySourceCountCrossCheck(data, counts, issues, warnings);
 
       const active = data.bookings.filter(workflowOpen);
       const currentIds = new Set(data.current_bookings.map(b=>String(b.booking_id)));
@@ -86,7 +144,7 @@
       }
       if(KEYS.every(k=>counts[k]===0)) warnings.push('All snapshot counts are zero; no independent evidence confirms an empty system');
     }
-    return {ok:issues.length===0, counts, issues, warnings};
+    return {ok:issues.length===0, counts, source_counts:sourceCounts, issues, warnings};
   }
 
   function bangkokDay(now){
@@ -97,5 +155,5 @@
     return currentBookings(data).filter(b=>String(b.event_date || '').slice(0,10)===(day || bangkokDay()))
       .sort((a,b)=>String(a.pickup_time||'').localeCompare(String(b.pickup_time||'')));
   }
-  return {VERSION, BACKEND, KEYS, ID_FIELDS, assess, workflowOpen, bangkokDay, currentBookings, todayBookings};
+  return {VERSION, BACKEND, KEYS, ID_FIELDS, SOURCE_COUNT_CHECKS, assess, sourceCountMap, workflowOpen, bangkokDay, currentBookings, todayBookings};
 });
