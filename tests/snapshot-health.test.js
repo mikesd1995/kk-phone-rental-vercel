@@ -17,6 +17,13 @@ const bulk = (n=10) => ({
   assets:Array.from({length:n},(_,i)=>({asset_id:'a'+i})),
   spreadsheet_id:'test-sheet',admin_api_version:H.BACKEND
 });
+const withSourceCounts = (data, counts) => Object.assign({}, data, {
+  health:[
+    {check:'Source count — Events',status:counts.events,detail:'INFO'},
+    {check:'Source count — Bookings',status:counts.bookings,detail:'INFO'},
+    {check:'Source count — Assets',status:counts.assets,detail:'INFO'}
+  ]
+});
 
 test('reject malformed, partial, null and unexpected zero snapshots',()=>{
   for(const d of [null,{}, {...good(),assets:{}}, {...good(),events:[null]}]) assert.equal(H.assess(d).ok,false);
@@ -47,6 +54,32 @@ test('reject correlated partial snapshot collapse and warn on isolated sharp dro
   const isolatedHealth=H.assess(isolated,previous);
   assert.equal(isolatedHealth.ok,true);
   assert.match(isolatedHealth.warnings.join(' '),/events: count dropped sharply 10→3/);
+});
+test('independent Health Check counts protect first load without previous browser state',()=>{
+  const source={events:20,bookings:12,assets:5};
+  const partial=withSourceCounts(bulk(3),source);
+  partial.assets=partial.assets.slice(0,1);
+  const h=H.assess(partial);
+  assert.equal(h.ok,false);
+  assert.deepEqual(h.source_counts,source);
+  assert.match(h.issues.join(' '),/first-load\/source count mismatch/);
+});
+test('healthy independent counts pass and medium mismatch warns instead of hard fail',()=>{
+  const healthy=withSourceCounts(bulk(10),{events:10,bookings:10,assets:10});
+  const hh=H.assess(healthy);
+  assert.equal(hh.ok,true);
+  assert.deepEqual(hh.source_counts,{events:10,bookings:10,assets:10});
+  const warn=withSourceCounts(bulk(6),{events:10,bookings:6,assets:6});
+  const hw=H.assess(warn);
+  assert.equal(hw.ok,true);
+  assert.match(hw.warnings.join(' '),/events: snapshot count lower than independent source 6\/10/);
+});
+test('partial Health Check count surface warns but does not fail a valid snapshot',()=>{
+  const d=bulk(10);
+  d.health=[{check:'Source count — Events',status:10,detail:'INFO'}];
+  const h=H.assess(d);
+  assert.equal(h.ok,true);
+  assert.match(h.warnings.join(' '),/independent source-count incomplete/);
 });
 test('empty system is explicitly uncertain; legitimately closed work may be zero',()=>{
   const empty={events:[],bookings:[],current_bookings:[],assets:[]};
@@ -114,6 +147,15 @@ test('UI preserves prior data when a correlated partial snapshot is rejected',as
   context.fetch=async()=>({ok:true,status:200,json:async()=>({ok:true,data:bulk(3)})});
   await assert.rejects(h.refresh(),/correlated snapshot count collapse/);
   assert.equal(h.state.data,first);
+  assert.equal(h.getStatus().stale,true);
+});
+test('UI rejects first-load partial snapshot when Health Check counts disagree',async()=>{
+  const {context,h}=browser();
+  const partial=withSourceCounts(bulk(3),{events:20,bookings:12,assets:5});
+  partial.assets=partial.assets.slice(0,1);
+  context.fetch=async()=>({ok:true,status:200,json:async()=>({ok:true,data:partial})});
+  await assert.rejects(h.refresh(),/first-load\/source count mismatch/);
+  assert.equal(h.state.data,null);
   assert.equal(h.getStatus().stale,true);
 });
 test('Overview includes open unpublished future events, excludes closed and past',()=>{
