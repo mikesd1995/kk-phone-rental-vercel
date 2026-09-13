@@ -55,3 +55,22 @@ Suggested staging checks: successful refresh; block snapshot request and confirm
 ## Rollback considerations
 
 Revert this single change commit or restore the prior Vercel deployment as one unit (Admin JS, helper, HTML, proxy). Do not roll back Apps Script or Sheets. Rolling back removes fallback/guards and reintroduces the original empty-snapshot risk. Last Known Good is memory-only and disappears on reload. A legitimate external removal of all events/bookings/assets will trigger the nonzero-to-zero guard in an existing page; independently verify that change, then reload to establish a new baseline.
+
+
+## Deployment follow-up — 2026-09-13
+
+The sections above describe the initial implementation stage. On the user's subsequent instruction to proceed, PR #3 was marked ready and merged into main with expected-head verification.
+
+- Implementation commit: c98b27d9f1945e7659b1514c6181513b516e4d32.
+- Merge commit: 13320d13cf3fbe55e2484bfa719f5719d95760b7.
+- PR: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/3.
+- Vercel reports success for the merge commit: https://vercel.com/mikesd1995s-projects/kk-phone-rental-vercel/CpRKhtwyo6wdJQtKLsXwZ2mGS9hX.
+- Live https://kk-phone-rental.vercel.app/admin/ returned HTTP 200 with title “KK Admin CRM Dashboard — Snapshot Resilience 1” and the new helper script reference.
+- Live /admin/snapshot-health.js returned 200 and contains admin-snapshot-resilience-1.
+- Live /admin/admin.js returned 200 and contains the stale-data guard.
+- Live /api/kk-admin?action=snapshotHealth without credentials returned 401 and X-KK-App-Version: admin-snapshot-resilience-1. Authentication remains enforced; no upstream data was accessed by this smoke check.
+- Regression tests rerun before merge: 10 passed, 0 failed; Admin/proxy syntax checks also passed.
+
+The Vercel release is now verified at the public serving layer. Authenticated live snapshot counts, upstream latency, actual Apps Script revision, and end-to-end rendered operational data remain UNVERIFIED because no Admin session/PIN was available to this run. No claim is made that the complete production Live Check passed.
+
+Apps Script source/deployment and Google Sheet data remain untouched. No Apps Script deployment is required. Rollback remains restoration of the previous Vercel release (or reverting PR #3); do not revert Apps Script or Sheet data. This follow-up changes only this audit document.
