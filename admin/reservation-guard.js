@@ -3,7 +3,7 @@
   else root.KKReservationGuard=factory(root.KKOperationsEngine);
 })(typeof globalThis!=='undefined'?globalThis:this,function(Ops){
   'use strict';
-  const VERSION='admin-p1-reservation-guard-2';
+  const VERSION='admin-p1-reservation-guard-3';
   const DEFAULT_END_HOUR=6;
   const text=v=>String(v==null?'':v).trim();
   const lower=v=>text(v).toLowerCase();
