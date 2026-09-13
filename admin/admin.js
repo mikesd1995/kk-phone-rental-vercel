@@ -1,8 +1,9 @@
-// KK Phone Rental Admin CRM v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX — one-click event package visibility controls
+// KK Phone Rental Admin CRM — Snapshot Resilience 1
 (function(){
-  const KK_ADMIN_UI_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX";
-  const EXPECTED_BACKEND_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX";
-  const EXPECTED_PROXY_VERSION = "v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX";
+  const KK_ADMIN_UI_VERSION = KKSnapshotHealth.VERSION;
+  const EXPECTED_BACKEND_VERSION = KKSnapshotHealth.BACKEND;
+  const EXPECTED_PROXY_VERSION = KKSnapshotHealth.VERSION;
+  let snapshotState = { stale: false, checkedAt: null, goodAt: null, health: null, error: "" };
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false };
@@ -24,7 +25,7 @@
   function updateUiLastRefresh(){
     const el=$("#uiLastRefresh");
     if(!el) return;
-    const now=new Date();
+    const now=snapshotState.goodAt ? new Date(snapshotState.goodAt) : new Date();
     el.textContent=now.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"});
   }
   function applyDensityMode(){
@@ -132,7 +133,7 @@
   function sortedOpenEvents(events){
     const sort=($("#eventsSort") && $("#eventsSort").value) || "date_asc";
     const rows=(events||[])
-      .filter(e=>String(e.status||"").toLowerCase()==="open" && e.active_on_web!==false)
+      .filter(e=>String(e.status||"").trim().toLowerCase()==="open")
       // Dashboard should show only current/upcoming open events. Past events stay in Sheet for history/archive, but should not appear as "งานที่เปิดอยู่".
       .filter(e=>isTodayOrFuture(e.event_date))
       .slice();
@@ -849,7 +850,7 @@
   }
 
   function startOfToday(){
-    const d=new Date();
+    const d=parseLocalDate(KKSnapshotHealth.bangkokDay());
     d.setHours(0,0,0,0);
     return d;
   }
@@ -1168,6 +1169,7 @@
   }
 
   async function api(action, payload={}){
+    if(snapshotState.stale && !["snapshot","snapshotHealth","systemHealth","phase1Health"].includes(action)) throw new Error("ข้อมูลเก่า: กรุณา Refresh ให้สำเร็จก่อนบันทึก");
     const maxAttempts=action==="snapshot" ? 2 : 1;
     let lastError=null;
     for(let attempt=1; attempt<=maxAttempts; attempt++){
@@ -1178,9 +1180,10 @@
           body:JSON.stringify(Object.assign({action},payload))
         });
         const data=await res.json().catch(()=>({ok:false,error:"Invalid server response"}));
-        if(!data.ok){
+        if(!res.ok || (!data.ok && !(action==="systemHealth" && data.data && data.data.rows))){
           const err=new Error(data.error||"Request failed");
           err.code=data.error_code||"";
+          err.httpStatus=res.status;
           err.action=data.action||action;
           throw err;
         }
@@ -1212,7 +1215,7 @@
     const sameSheet = spreadsheetId && frontendSheetId && spreadsheetId === frontendSheetId;
     rows.push({check:"Version · Admin UI", status:"OK", detail:KK_ADMIN_UI_VERSION, note:"Line-by-line audited frontend/admin package"});
     rows.push({check:"Version · Vercel Proxy", status: proxyVersion===EXPECTED_PROXY_VERSION ? "OK" : "CHECK", detail:proxyVersion || "missing", note:"Expected "+EXPECTED_PROXY_VERSION});
-    rows.push({check:"Version · Apps Script", status: backendVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:backendVersion || "missing", note:"Expected "+EXPECTED_BACKEND_VERSION+". Deploy Apps Script latest version if not matching"});
+    rows.push({check:"Version · Apps Script", status: backendVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:backendVersion || "missing", note:"Expected "+EXPECTED_BACKEND_VERSION+". Verify the deployed source; never overwrite deployed 9_5_9 with repository 9_5_8"});
     rows.push({check:"Sheet ID · Frontend vs Apps Script", status: sameSheet ? "OK" : "CHECK", detail:(frontendSheetId||"missing")+" / "+(spreadsheetId||"missing"), note:sameSheet ? "Same backend" : "GOOGLE_SHEET_ID may not match Apps Script spreadsheet"});
     if(d.phase1_diagnostics){
       const x=d.phase1_diagnostics;
@@ -1255,11 +1258,14 @@
     const spreadsheetId=d.spreadsheet_id || diag.spreadsheet_id || "";
     const frontendSheetId=d.frontend_sheet_id || diag.frontend_sheet_id || "";
     rows.push({label:"Admin UI Version",status:"OK",detail:KK_ADMIN_UI_VERSION,suggestion:""});
-    rows.push({label:"Apps Script Version",status:backendVersion===EXPECTED_BACKEND_VERSION?"OK":"WARN",detail:backendVersion||"missing",suggestion:backendVersion===EXPECTED_BACKEND_VERSION?"":"Deploy Apps Script latest stable Code.gs"});
+    rows.push({label:"Apps Script Version",status:backendVersion===EXPECTED_BACKEND_VERSION?"OK":"WARN",detail:backendVersion||"missing",suggestion:backendVersion===EXPECTED_BACKEND_VERSION?"":"Verify deployed source; do not deploy repository 9_5_8 over 9_5_9"});
     rows.push({label:"Vercel Proxy Version",status:proxyVersion===EXPECTED_PROXY_VERSION?"OK":"WARN",detail:proxyVersion||"missing",suggestion:proxyVersion===EXPECTED_PROXY_VERSION?"":"Redeploy Vercel with latest api/kk-admin.js"});
     rows.push({label:"Sheet ID Match",status:(spreadsheetId&&frontendSheetId&&spreadsheetId===frontendSheetId)?"OK":"FAIL",detail:(spreadsheetId||"missing")+" / "+(frontendSheetId||"missing"),suggestion:"GOOGLE_SHEET_ID in Vercel must match Apps Script spreadsheet"});
     if(diag.poster_folder_id_set!==undefined) rows.push({label:"Poster Folder",status:diag.poster_folder_id_set?"OK":"WARN",detail:diag.poster_folder_id_set?"set":"missing",suggestion:"Set Script Property KK_POSTER_FOLDER_ID before uploading posters"});
     if(diag.log_sheets_ready!==undefined) rows.push({label:"Audit/Error Logs",status:diag.log_sheets_ready?"OK":"WARN",detail:diag.log_sheets_ready?"ready":"missing",suggestion:"Run setup/repair in Google Sheet menu"});
+    const h=KKSnapshotHealth.assess(d);
+    for(const key of KKSnapshotHealth.KEYS) rows.push({label:"Snapshot · "+key,status:h.counts[key]===null ? "FAIL" : h.counts[key]===0 ? "WARN" : "OK",detail:String(h.counts[key] ?? "invalid")+" rows",suggestion:""});
+    rows.push({label:"Snapshot freshness",status:snapshotState.stale ? "FAIL" : "OK",detail:snapshotState.error || snapshotState.goodAt || "Not loaded",suggestion:snapshotState.stale ? "Refresh successfully before making changes" : ""});
     return rows;
   }
 
@@ -1296,8 +1302,17 @@
   async function runSystemGuard(btn){
     if(btn) setBusy(btn,true);
     try{
-      const res=await api("systemHealth",{});
-      state.systemHealth=res.data||null;
+      const startedAt=Date.now();
+      const results=await Promise.allSettled([api("systemHealth",{}), api("snapshotHealth",{})]);
+      const base=results[0].status==="fulfilled" ? results[0].value.data : null;
+      const rows=base && Array.isArray(base.rows) ? base.rows.slice() : [{label:"System Health",status:"FAIL",detail:results[0].reason?.message || "Invalid health response"}];
+      const snap=results[1].status==="fulfilled" ? results[1].value.data : null;
+      for(const key of KKSnapshotHealth.KEYS) rows.push({label:"Snapshot · "+key,status:!snap || snap.counts[key]===null ? "FAIL" : snap.counts[key]===0 ? "WARN" : "OK",detail:snap ? String(snap.counts[key])+" rows" : results[1].reason?.message || "No response"});
+      rows.push({label:"Snapshot validation",status:!snap || !snap.ok ? "FAIL" : snap.warnings.length ? "WARN" : "OK",detail:snap ? snap.issues.concat(snap.warnings).join("; ") || "Valid snapshot" : "Snapshot unavailable"});
+      rows.push({label:"Snapshot latency",status:snap ? "OK" : "FAIL",detail:snap ? snap.latency_ms+" ms (proxy round trip)" : "No snapshot measurement"});
+      rows.push({label:"Live Check latency",status:"OK",detail:(Date.now()-startedAt)+" ms (browser round trip)"});
+      rows.push({label:"Versions · UI / Proxy / Apps Script",status:snap && snap.proxy_version===KK_ADMIN_UI_VERSION && snap.backend_version===EXPECTED_BACKEND_VERSION ? "OK" : "WARN",detail:KK_ADMIN_UI_VERSION+" / "+(snap?.proxy_version||"unknown")+" / "+(snap?.backend_version||"unknown"),suggestion:"Inspect deployed source on mismatch; never deploy repo 9_5_8 over deployed 9_5_9."});
+      state.systemHealth={generated_at:new Date().toISOString(),rows,summary:{fail:rows.filter(r=>r.status==="FAIL").length,warn:rows.filter(r=>r.status==="WARN").length}};
       renderSystemGuard();
       const fail=(state.systemHealth && state.systemHealth.summary && state.systemHealth.summary.fail)||0;
       const warn=(state.systemHealth && state.systemHealth.summary && state.systemHealth.summary.warn)||0;
@@ -1486,8 +1501,8 @@
   function render(){
     const d=state.data||{};
     ["reportRange","reportStart","reportEnd","reportStatusMode"].forEach(id=>{ const el=$("#"+id); if(el && state[id]!==undefined && el.value!==state[id]) el.value=state[id]; });
-    const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=versionDiagnosticsRows(d).concat(d.health||[]), today=d.today_working||[], customers=d.customers||[];
-    const currentBookings=(d.current_bookings&&d.current_bookings.length?d.current_bookings:bookings.filter(shouldShowInEditBooking));
+    const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=versionDiagnosticsRows(d).concat(d.health||[]), today=KKSnapshotHealth.todayBookings(d), customers=d.customers||[];
+    const currentBookings=KKSnapshotHealth.currentBookings(d);
     const openEventRowsAll=sortedOpenEvents(events);
     const bookingRowsAll=sortedBookings(currentBookings);
     const eventsQ=($("#eventsSearch") && $("#eventsSearch").value) || "";
@@ -1498,7 +1513,7 @@
     const shownActionRows=filterActionRows(actionRows);
     renderActionToolbar(actionRows);
     const customerHistory=customerHistoryRows(bookings, customers);
-    const openEvents=openEventRows.length;
+    const openEvents=openEventRowsAll.length;
     const phones=assets.filter(a=>a.asset_type==="phone" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const lenses=assets.filter(a=>a.asset_type==="lens" && a.rentable!==false && String(a.status||"").toLowerCase()==="available").length;
     const reservedPhoneAssets=new Set(bookings.filter(b=>isActiveBookingStatus(b.booking_status) && String(b.phone_asset_id||"").trim()).map(b=>String(b.phone_asset_id).trim())).size;
@@ -1639,12 +1654,36 @@
     fillSelects();
   }
 
+  function renderSnapshotStatus(){
+    const el=$("#snapshotStatus");
+    if(!el) return;
+    const h=snapshotState.health;
+    const counts=h ? Object.entries(h.counts).map(([k,v])=>k+": "+(v===null?"invalid":v)).join(" · ") : "";
+    el.hidden=false;
+    el.style.borderColor=snapshotState.stale ? "#dc2626" : "#64748b";
+    el.textContent=(snapshotState.stale ? (state.data ? "กำลังแสดง Last Known Good Snapshot — ข้อมูลเก่า ห้ามใช้ยืนยันความว่างจน Refresh สำเร็จ" : "โหลด Snapshot ไม่สำเร็จ — ยังยืนยันไม่ได้ว่าระบบไม่มีข้อมูล") : "Snapshot ล่าสุดผ่านการตรวจ")+
+      " | สำเร็จล่าสุด: "+(snapshotState.goodAt ? new Date(snapshotState.goodAt).toLocaleString("th-TH") : "ยังไม่มี")+
+      " | เวลาเรียกจริง: "+(snapshotState.latencyMs ?? "-")+" ms | "+counts+
+      (snapshotState.error ? " | "+snapshotState.error : "")+
+      (h && h.warnings.length ? " | คำเตือน: "+h.warnings.join("; ") : "");
+  }
+
   async function refresh(){
     if(state.loading) return;
     state.loading=true;
+    const startedAt=Date.now();
     try{
       const data=await api("snapshot");
-      state.data=data.data||{};
+      const health=KKSnapshotHealth.assess(data.data, state.data);
+      snapshotState.checkedAt=new Date().toISOString();
+      snapshotState.health=health;
+      if(!health.ok) throw new Error("Snapshot rejected: "+health.issues.join("; "));
+      state.data=data.data;
+      snapshotState.stale=false;
+      snapshotState.error="";
+      snapshotState.goodAt=snapshotState.checkedAt;
+      snapshotState.latencyMs=Date.now()-startedAt;
+      renderSnapshotStatus();
       render();
       loadRentalAnalytics();
       const backendVersion = state.data.admin_api_version || (state.data.phase1_diagnostics && state.data.phase1_diagnostics.admin_api_version) || "";
@@ -1654,6 +1693,18 @@
       if(state.data.spreadsheet_id && state.data.frontend_sheet_id && state.data.spreadsheet_id !== state.data.frontend_sheet_id){
         showNotice("GOOGLE_SHEET_ID ใน Vercel ไม่ตรงกับ Spreadsheet ที่ Apps Script ใช้", "bad");
       }
+    } catch(err) {
+      snapshotState.checkedAt=new Date().toISOString();
+      snapshotState.stale=true;
+      snapshotState.error=err.message;
+      snapshotState.latencyMs=Date.now()-startedAt;
+      if(err.httpStatus===401 || err.httpStatus===403){
+        state.data=null;
+        $("#appPanel").classList.add("hidden");
+        $("#loginPanel").classList.remove("hidden");
+      }
+      renderSnapshotStatus();
+      throw err;
     } finally {
       state.loading=false;
     }
@@ -1710,6 +1761,7 @@
     });
     const loginBtn=$("#loginBtn");
     if(loginBtn) loginBtn.addEventListener("click", async()=>{
+      if(state.pin!==$("#pinInput").value.trim()){ state.data=null; snapshotState.goodAt=null; }
       state.pin=$("#pinInput").value.trim(); if(!state.pin) return alert("กรุณากรอก PIN");
       sessionStorage.setItem("kk_admin_pin",state.pin);
       try{ await refresh(); updateUiLastRefresh(); $("#loginPanel").classList.add("hidden"); $("#appPanel").classList.remove("hidden"); showNotice("โหลดข้อมูลสำเร็จ"); }
