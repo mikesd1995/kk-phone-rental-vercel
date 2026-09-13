@@ -1,0 +1,33 @@
+name: Admin Regression
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  admin-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax checks
+        run: npm run check
+
+      - name: Regression tests
+        run: npm test
