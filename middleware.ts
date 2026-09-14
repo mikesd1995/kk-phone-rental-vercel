@@ -54,6 +54,22 @@ export default async function middleware(request:Request){
       }
     });
   }
+
+  // Do not expose the legacy static document as an alternate entry point.
+  // Signed-in users are normalized through /admin/app so the session bridge
+  // (logout + expiry fail-closed behavior) is always present.
+  if(url.pathname==='/admin/index.html'){
+    const app=new URL('/admin/app',request.url);
+    app.search='';
+    return new Response(null,{
+      status:307,
+      headers:{
+        Location:app.toString(),
+        'Cache-Control':'no-store, no-cache, must-revalidate, max-age=0'
+      }
+    });
+  }
+
   return next();
 }
 
