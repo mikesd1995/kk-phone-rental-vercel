@@ -71,7 +71,7 @@
   "rewrites": [
     {
       "source": "/api/kk-admin",
-      "destination": "/api/kk-admin-snapshot-v5"
+      "destination": "/api/kk-admin-snapshot-v6"
     },
     {
       "source": "/",
@@ -85,6 +85,7 @@
   "functions": {
     "api/kk-admin.js": { "maxDuration": 60 },
     "api/kk-admin-guard.js": { "maxDuration": 60 },
-    "api/kk-admin-snapshot-v5.js": { "maxDuration": 60 }
+    "api/kk-admin-snapshot-v5.js": { "maxDuration": 60 },
+    "api/kk-admin-snapshot-v6.js": { "maxDuration": 60 }
   }
 }
