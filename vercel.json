@@ -14,6 +14,18 @@
       ]
     },
     {
+      "source": "/api/kk-rental-dashboard",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
+      ]
+    },
+    {
+      "source": "/api/kk-intelligence-health",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" }
+      ]
+    },
+    {
       "source": "/api/kk-data",
       "headers": [
         { "key": "Cache-Control", "value": "s-maxage=15, stale-while-revalidate=45" }
@@ -74,6 +86,10 @@
       "destination": "/api/kk-admin-snapshot-v6"
     },
     {
+      "source": "/api/kk-rental-dashboard",
+      "destination": "/api/kk-rental-dashboard-v5"
+    },
+    {
       "source": "/",
       "destination": "/index.html"
     },
@@ -86,6 +102,8 @@
     "api/kk-admin.js": { "maxDuration": 60 },
     "api/kk-admin-guard.js": { "maxDuration": 60 },
     "api/kk-admin-snapshot-v5.js": { "maxDuration": 60 },
-    "api/kk-admin-snapshot-v6.js": { "maxDuration": 60 }
+    "api/kk-admin-snapshot-v6.js": { "maxDuration": 60 },
+    "api/kk-rental-dashboard-v5.js": { "maxDuration": 60 },
+    "api/kk-intelligence-health.js": { "maxDuration": 30 }
   }
 }
