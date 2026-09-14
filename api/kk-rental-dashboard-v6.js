@@ -1,15 +1,17 @@
 'use strict';
 
-// KK Phone Rental — Rental Analytics v6
-// Adds a freshness gate in front of the private CRM read model. A stale or
-// incomplete CRM snapshot never silently replaces Core operational truth.
+// KK Phone Rental — Rental Analytics v6 / Phase 2C
+// Private CRM analytics require BOTH freshness and live Core↔CRM reconciliation.
+// Any mismatch falls back to Core unless strict private-only acceptance is enabled.
 const v5Handler=require('./kk-rental-dashboard-v5');
 const legacyHandler=require('./kk-rental-dashboard');
 const privateSheets=require('./lib/private-google-sheets');
 const crmFreshness=require('./lib/crm-freshness');
+const crmReconciliation=require('./lib/crm-reconciliation');
 
 const DEFAULT_CRM_SHEET_ID='1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
 const DEFAULT_CORE_SHEET_ID='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
+const CRITICAL_RANGE='_Rental_Dashboard_Data!A1:O1000';
 
 function json(res,status,body){
   res.statusCode=status;
@@ -32,7 +34,7 @@ function captureLegacy(req){
     try{await legacyHandler(req,fake);}catch(err){reject(err);}
   });
 }
-async function coreFallback(req,res,reason,freshness){
+async function coreFallback(req,res,reason,freshness,reconciliation){
   const legacy=await captureLegacy(req);
   let body={};
   try{body=JSON.parse(legacy.body||'{}');}
@@ -41,7 +43,7 @@ async function coreFallback(req,res,reason,freshness){
     body.data.data_source={
       mode:'core_fallback',
       private_reader:false,
-      fallback_reason:reason||'CRM_FRESHNESS_NOT_READY',
+      fallback_reason:reason||'CRM_PRIVATE_READ_NOT_READY',
       core_sheet_id:String(process.env.GOOGLE_SHEET_ID||DEFAULT_CORE_SHEET_ID).trim(),
       crm_sheet_id:String(process.env.KK_CRM_SHEET_ID||DEFAULT_CRM_SHEET_ID).trim(),
       crm_freshness:freshness?{
@@ -49,11 +51,19 @@ async function coreFallback(req,res,reason,freshness){
         last_synced_at:freshness.last_synced_at,
         age_minutes:freshness.age_minutes,
         max_age_minutes:freshness.max_age_minutes
+      }:null,
+      crm_reconciliation:reconciliation?{
+        code:reconciliation.code,
+        core_row_count:reconciliation.core_row_count,
+        crm_row_count:reconciliation.crm_row_count,
+        core_hash:reconciliation.core_hash,
+        crm_hash:reconciliation.crm_hash
       }:null
     };
   }
   return json(res,legacy.status||200,body);
 }
+function strictPrivate(){return String(process.env.KK_CRM_REQUIRE_PRIVATE||'').trim()==='1';}
 
 module.exports=async function handler(req,res){
   if(req.method==='OPTIONS') return json(res,204,{});
@@ -61,26 +71,44 @@ module.exports=async function handler(req,res){
   const a=auth(req); if(!a.ok) return json(res,a.status,{ok:false,error:a.error});
 
   const crmSheetId=String(process.env.KK_CRM_SHEET_ID||DEFAULT_CRM_SHEET_ID).trim();
+  const coreSheetId=String(process.env.GOOGLE_SHEET_ID||DEFAULT_CORE_SHEET_ID).trim();
   const env=Object.assign({},process.env,{KK_CRM_SHEET_ID:crmSheetId});
   const cfg=privateSheets.configState(env);
-  if(!cfg.configured) return v5Handler(req,res);
+  if(!cfg.configured) return coreFallback(req,res,'CRM_READER_NOT_CONFIGURED',null,null);
 
   const maxAgeMin=crmFreshness.maxAgeMinutes(env);
+  let freshness=null;
   try{
     const manifestValues=await privateSheets.readValues({sheetId:crmSheetId,range:'00_Data_Source_Manifest!A1:D25',env});
-    const freshness=crmFreshness.assessManifest(manifestValues,{maxAgeMin});
-    if(freshness.fresh) return v5Handler(req,res);
-    if(String(process.env.KK_CRM_REQUIRE_PRIVATE||'').trim()==='1'){
-      return json(res,503,{ok:false,error:'CRM read model is not fresh enough for private-only mode',error_code:freshness.code});
+    freshness=crmFreshness.assessManifest(manifestValues,{maxAgeMin});
+    if(!freshness.fresh){
+      if(strictPrivate()) return json(res,503,{ok:false,error:'CRM read model is not fresh enough for private-only mode',error_code:freshness.code});
+      return coreFallback(req,res,freshness.code,freshness,null);
     }
-    return coreFallback(req,res,freshness.code,freshness);
   }catch(err){
     const code=String((err&&err.code)||'CRM_MANIFEST_READ_FAILED');
-    if(String(process.env.KK_CRM_REQUIRE_PRIVATE||'').trim()==='1'){
-      return json(res,503,{ok:false,error:'CRM freshness check failed',error_code:code});
+    if(strictPrivate()) return json(res,503,{ok:false,error:'CRM freshness check failed',error_code:code});
+    return coreFallback(req,res,code,null,null);
+  }
+
+  try{
+    const [coreValues,crmValues]=await Promise.all([
+      crmReconciliation.fetchPublicValues({sheetId:coreSheetId,sheet:'_Rental_Dashboard_Data',range:'A1:O1000'}),
+      privateSheets.readValues({sheetId:crmSheetId,range:CRITICAL_RANGE,env})
+    ]);
+    const reconciliation=crmReconciliation.compare(coreValues,crmValues,{requireData:true});
+    if(!reconciliation.ok){
+      if(strictPrivate()){
+        return json(res,503,{ok:false,error:'CRM read model failed Core reconciliation',error_code:reconciliation.code,reconciliation:{core_row_count:reconciliation.core_row_count,crm_row_count:reconciliation.crm_row_count}});
+      }
+      return coreFallback(req,res,reconciliation.code,freshness,reconciliation);
     }
-    return coreFallback(req,res,code,null);
+    return v5Handler(req,res);
+  }catch(err){
+    const code=String((err&&err.code)||'CRM_RECONCILIATION_UNAVAILABLE');
+    if(strictPrivate()) return json(res,503,{ok:false,error:'CRM reconciliation check failed',error_code:code});
+    return coreFallback(req,res,code,freshness,null);
   }
 };
 
-module.exports._test={auth,coreFallback};
+module.exports._test={auth,coreFallback,strictPrivate};

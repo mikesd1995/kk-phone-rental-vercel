@@ -2,9 +2,11 @@
 
 const privateSheets = require('./lib/private-google-sheets');
 const crmFreshness = require('./lib/crm-freshness');
+const crmReconciliation = require('./lib/crm-reconciliation');
 
 const DEFAULT_CRM_SHEET_ID = '1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
 const DEFAULT_CORE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
+const CRITICAL_RANGE = '_Rental_Dashboard_Data!A1:O1000';
 
 function json(res,status,body){
   res.statusCode=status;
@@ -47,6 +49,7 @@ module.exports=async function handler(req,res){
       core_status:'ACTIVE_SOT',
       crm_status:'SHADOW_PRIVATE',
       private_analytics_eligible:false,
+      reconciliation_status:'NOT_RUN_READER_PENDING',
       suggestion:'Configure a read-only Google service account and share only the CRM/Intelligence sheet with that service account. Do not make the CRM sheet public.'
     })});
   }
@@ -62,16 +65,35 @@ module.exports=async function handler(req,res){
     const manifestSecondary=manifest.secondary_sheet_id && manifest.secondary_sheet_id.value;
     const manifestCore=manifest.core_sheet_id && manifest.core_sheet_id.value;
     const idMatch=(manifestSecondary===crmSheetId && manifestCore===coreSheetId);
+
+    let reconciliation=null;
+    let reconciliationError='';
+    if(idMatch && freshness.fresh){
+      try{
+        const [coreValues,crmValues]=await Promise.all([
+          crmReconciliation.fetchPublicValues({sheetId:coreSheetId,sheet:'_Rental_Dashboard_Data',range:'A1:O1000'}),
+          privateSheets.readValues({sheetId:crmSheetId,range:CRITICAL_RANGE,env})
+        ]);
+        reconciliation=crmReconciliation.compare(coreValues,crmValues,{requireData:true});
+      }catch(err){
+        reconciliationError=String((err&&err.code)||'CRM_RECONCILIATION_UNAVAILABLE');
+      }
+    }
+
     let status='CHECK_MANIFEST';
-    if(idMatch && freshness.fresh) status='READY_PRIVATE_READ_FRESH';
-    else if(idMatch && freshness.code==='CRM_SYNC_STALE') status='CHECK_SYNC_STALE';
-    else if(idMatch) status='CHECK_SYNC_NOT_READY';
+    if(idMatch && !freshness.fresh && freshness.code==='CRM_SYNC_STALE') status='CHECK_SYNC_STALE';
+    else if(idMatch && !freshness.fresh) status='CHECK_SYNC_NOT_READY';
+    else if(idMatch && freshness.fresh && reconciliationError) status='CHECK_RECON_UNAVAILABLE';
+    else if(idMatch && freshness.fresh && reconciliation && !reconciliation.ok) status='CHECK_RECON_MISMATCH';
+    else if(idMatch && freshness.fresh && reconciliation && reconciliation.ok) status='READY_PRIVATE_READ_RECONCILED';
+
+    const eligible=!!(idMatch && freshness.fresh && reconciliation && reconciliation.ok && !reconciliationError);
     return json(res,200,{ok:true,data:Object.assign(base,{
       status,
       core_status:'ACTIVE_SOT',
       crm_status:'PRIVATE_READ_OK',
       runtime_cutover:false,
-      private_analytics_eligible:idMatch&&freshness.fresh,
+      private_analytics_eligible:eligible,
       latency_ms:Date.now()-started,
       manifest_id_match:idMatch,
       manifest_architecture:(manifest.architecture_version&&manifest.architecture_version.value)||'',
@@ -80,7 +102,14 @@ module.exports=async function handler(req,res){
       sync_status:freshness.code,
       last_synced_at:freshness.last_synced_at,
       sync_age_minutes:freshness.age_minutes,
-      sync_state:freshness.sync_state
+      sync_state:freshness.sync_state,
+      reconciliation_status:reconciliationError || (reconciliation&&reconciliation.code) || 'NOT_RUN_UNTIL_FRESH',
+      reconciliation:reconciliation?{
+        core_row_count:reconciliation.core_row_count,
+        crm_row_count:reconciliation.crm_row_count,
+        core_hash:reconciliation.core_hash,
+        crm_hash:reconciliation.crm_hash
+      }:null
     })});
   }catch(err){
     const code=String((err&&err.code)||'CRM_PRIVATE_READ_FAILED');
@@ -92,6 +121,7 @@ module.exports=async function handler(req,res){
       private_analytics_eligible:false,
       latency_ms:Date.now()-started,
       error_code:code,
+      reconciliation_status:'NOT_RUN_PRIVATE_READ_FAILED',
       suggestion:'Keep Core-only runtime. Verify service-account access to the private CRM sheet; do not open the sheet publicly.'
     })});
   }
