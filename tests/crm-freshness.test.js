@@ -55,10 +55,12 @@ test('max staleness configuration is bounded',()=>{
   assert.equal(freshness.maxAgeMinutes({KK_CRM_MAX_STALENESS_MINUTES:'x'}),30);
 });
 
-test('production analytics route is freshness-gated through v6',()=>{
+test('production analytics route is session-protected and freshness-gated through v6',()=>{
   const vercel=JSON.parse(fs.readFileSync(path.join(__dirname,'..','vercel.json'),'utf8'));
   const route=(vercel.rewrites||[]).find(x=>x.source==='/api/kk-rental-dashboard');
-  assert.equal(route.destination,'/api/kk-rental-dashboard-v6');
+  assert.equal(route.destination,'/api/kk-rental-dashboard-session-proxy');
+  const sessionProxy=fs.readFileSync(path.join(__dirname,'..','api','kk-rental-dashboard-session-proxy.js'),'utf8');
+  assert.match(sessionProxy,/require\('\.\/kk-rental-dashboard-v6\.js'\)/);
   const source=fs.readFileSync(path.join(__dirname,'..','api','kk-rental-dashboard-v6.js'),'utf8');
   assert.match(source,/CRM_SYNC_STALE|crmFreshness/);
   assert.match(source,/core_fallback/);
