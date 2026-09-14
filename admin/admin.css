@@ -1,185 +1,242 @@
-@import url('/admin/admin-ux-v1.css?v=20260914-2');
+@import url('/admin/admin-ux-v2.css?v=20260914-3');
 
-/* KK Phone Rental — Admin UX/UI Polish v2
-   Presentation-only refinement layered on top of v1.
-   No API, JS behavior, Sheet schema or business-rule changes. */
+/* KK Phone Rental — Admin UX v3 / Operations-first
+   Presentation-only operational redesign layered on v2.
+   Goal: faster scanning, clearer action priority, denser workflows, safer mobile use.
+   No API, Apps Script, Sheet schema, business rules, Booking/Event guards or automation changes. */
 
 :root{
-  --ux2-max:1600px;
-  --ux2-shadow-key:0 1px 2px rgba(15,23,42,.03),0 10px 28px rgba(15,23,42,.06);
-  --ux2-shadow-float:0 18px 42px rgba(15,23,42,.12);
-  --ux2-ring:0 0 0 3px rgba(37,99,235,.16);
+  --ux3-bg:#f3f6fa;
+  --ux3-surface:#ffffff;
+  --ux3-surface-soft:#f8fafc;
+  --ux3-ink:#0f172a;
+  --ux3-muted:#64748b;
+  --ux3-line:#dfe6ee;
+  --ux3-line-strong:#cbd5e1;
+  --ux3-primary:#1d4ed8;
+  --ux3-primary-soft:#eff6ff;
+  --ux3-success:#15803d;
+  --ux3-success-soft:#f0fdf4;
+  --ux3-warning:#b45309;
+  --ux3-warning-soft:#fffbeb;
+  --ux3-danger:#b91c1c;
+  --ux3-danger-soft:#fef2f2;
+  --ux3-radius:14px;
+  --ux3-radius-sm:10px;
+  --ux3-shadow:0 1px 2px rgba(15,23,42,.03),0 8px 24px rgba(15,23,42,.055);
+  --ux3-shadow-raised:0 12px 34px rgba(15,23,42,.09);
+  --ux3-ring:0 0 0 3px rgba(29,78,216,.14);
 }
 
-/* Keep large displays readable instead of stretching operational content edge-to-edge. */
-.tab-panel{max-width:var(--ux2-max)!important;margin-inline:auto!important}
-#loginPanel{max-width:720px!important}
+body{background:var(--ux3-bg)!important;color:var(--ux3-ink)!important}
+main{min-width:0!important}
 
-/* Navigation hierarchy: quieter labels, clearer current location. */
-.sidebar{border-right:1px solid rgba(148,163,184,.08)!important}
-.nav-section-label{opacity:.82!important}
-.nav{position:relative!important;letter-spacing:-.005em!important}
-.nav.active::after{
-  content:"";position:absolute;right:8px;top:50%;width:5px;height:5px;
-  border-radius:999px;background:#2563eb;transform:translateY(-50%);
+/* Workspace chrome */
+.topbar{position:sticky!important;top:0!important;z-index:24!important;background:rgba(243,246,250,.92)!important;backdrop-filter:blur(14px) saturate(130%)!important;border-bottom:1px solid rgba(203,213,225,.82)!important;margin-bottom:16px!important}
+.topbar h1{font-size:20px!important;letter-spacing:-.025em!important}
+.topbar p{font-size:12px!important;color:var(--ux3-muted)!important;margin-top:3px!important}
+.top-meta{gap:6px!important;margin-top:8px!important}
+.meta-chip{background:#fff!important;border:1px solid var(--ux3-line)!important;color:#475569!important;box-shadow:none!important}
+.meta-chip.live{background:var(--ux3-success-soft)!important;border-color:#bbf7d0!important;color:#166534!important}
+.top-badge{background:#0f172a!important;color:#e2e8f0!important;border-color:#0f172a!important}
+.sidebar{background:#0b1220!important}
+.brand{border-bottom-color:rgba(148,163,184,.15)!important}
+.brand strong{letter-spacing:-.015em!important}
+.nav-section-label{font-size:9px!important;letter-spacing:.14em!important;color:#64748b!important;margin-top:12px!important}
+.nav{border-radius:9px!important;min-height:39px!important;color:#cbd5e1!important}
+.nav:hover{background:rgba(148,163,184,.10)!important;color:#fff!important}
+.nav.active{background:#172554!important;color:#fff!important;box-shadow:inset 3px 0 0 #3b82f6!important}
+.nav.active::after{right:10px!important;background:#60a5fa!important}
+
+/* Card language */
+.card{border:1px solid var(--ux3-line)!important;border-radius:var(--ux3-radius)!important;background:var(--ux3-surface)!important;box-shadow:none!important}
+.card:hover{border-color:#d3dce7!important;box-shadow:var(--ux3-shadow)!important}
+.card-head{gap:12px!important}
+.card-head h2,.form-title h2{letter-spacing:-.02em!important;color:#111827!important}
+.eyebrow{color:#475569!important;letter-spacing:.11em!important;font-size:9px!important}
+.hint,small{color:#64748b!important}
+
+/* Overview = operations hierarchy */
+#tab-overview.active{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:14px!important}
+#tab-overview:not(.active){display:none!important}
+#tab-overview > .pro-hero{order:1!important}
+#tab-overview > #statsGrid{order:2!important}
+#tab-overview > .action-card{order:3!important}
+#tab-overview > .quickbar{order:4!important}
+#tab-overview > .grid.two-col{order:5!important}
+
+.pro-hero{min-height:auto!important;padding:18px 20px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:18px!important;background:#fff!important;border-color:#d7e0ea!important;box-shadow:none!important}
+.pro-hero::before{content:"";position:absolute!important;inset:0 auto 0 0!important;width:4px!important;background:#1d4ed8!important;border-radius:14px 0 0 14px!important}
+.pro-hero h2{font-size:20px!important;line-height:1.35!important;margin:3px 0 4px!important;max-width:840px!important}
+.pro-hero .hint{font-size:11px!important;line-height:1.55!important;max-width:920px!important;margin:0!important}
+.pro-hero-metrics{justify-content:flex-end!important;gap:6px!important;max-width:360px!important}
+.pro-hero-metrics span{padding:6px 9px!important;border:1px solid #dbe4ee!important;background:#f8fafc!important;border-radius:999px!important;font-size:10px!important;color:#475569!important}
+
+/* KPI rail */
+#statsGrid{display:grid!important;grid-template-columns:repeat(5,minmax(120px,1fr))!important;gap:8px!important}
+#statsGrid .stat{min-height:78px!important;padding:12px 13px!important;border-radius:11px!important;background:#fff!important;border-color:#e2e8f0!important}
+#statsGrid .stat::before{width:2px!important;background:#bfdbfe!important}
+#statsGrid .stat strong{font-size:24px!important;line-height:1!important;color:#0f172a!important}
+#statsGrid .stat span{font-size:10px!important;color:#64748b!important;margin-top:7px!important;font-weight:650!important}
+
+/* Action Center = primary surface */
+.action-card{border:1px solid #cbd9eb!important;border-left:4px solid var(--ux3-primary)!important;box-shadow:var(--ux3-shadow)!important;padding:18px!important}
+.action-card .card-head{margin-bottom:12px!important;padding-bottom:12px!important;border-bottom:1px solid #e6edf5!important}
+.action-card .card-head h2{font-size:19px!important}
+.action-card .card-head .hint{max-width:840px!important}
+#actionStats{grid-template-columns:repeat(5,minmax(110px,1fr))!important;gap:7px!important;margin-bottom:10px!important}
+#actionStats .stat{min-height:66px!important;padding:10px 11px!important;background:#f8fafc!important;border-color:#e2e8f0!important}
+#actionToolbar{display:flex!important;flex-wrap:wrap!important;gap:7px!important;padding:10px!important;margin:8px 0 10px!important;background:#f8fafc!important;border:1px solid #e2e8f0!important;border-radius:10px!important}
+.action-table-wrap{max-height:460px!important;border:1px solid #dfe6ee!important}
+#actionTable thead th{background:#f1f5f9!important}
+#actionTable tbody tr:hover td{background:#eff6ff!important}
+
+/* Quick actions utility dock */
+.quickbar{padding:13px 16px!important;display:grid!important;grid-template-columns:minmax(210px,.55fr) minmax(0,1.45fr)!important;align-items:center!important;gap:14px!important;background:#f8fafc!important;box-shadow:none!important}
+.quickbar h2{font-size:15px!important;margin:1px 0 2px!important}
+.quickbar .hint{font-size:10px!important;margin:0!important}
+.quick-actions{justify-content:flex-end!important;gap:7px!important}
+.quick-actions .btn{min-height:36px!important;padding:8px 11px!important;font-size:11px!important}
+
+/* Operational tables */
+#tab-overview > .grid.two-col{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:14px!important}
+#tab-overview > .grid.two-col > .card{padding:16px!important;min-width:0!important}
+#tab-overview .mini-tools{background:#f8fafc!important;border:1px solid #e2e8f0!important;border-radius:10px!important;padding:7px!important}
+#eventsTable,#bookingsTable{font-size:11px!important}
+#eventsTable th,#bookingsTable th{font-size:9px!important;text-transform:uppercase!important;letter-spacing:.055em!important;color:#64748b!important}
+.table-wrap{border:1px solid #e2e8f0!important;border-radius:10px!important;background:#fff!important;overflow:auto!important}
+table{border-collapse:separate!important;border-spacing:0!important}
+th{position:sticky!important;top:0!important;background:#f8fafc!important;color:#475569!important;font-size:10px!important;font-weight:800!important;letter-spacing:.025em!important}
+th,td{padding:10px 11px!important;border-bottom-color:#edf1f5!important}
+tbody tr:last-child td{border-bottom:0!important}
+tbody tr:nth-child(even) td{background:#fbfcfe!important}
+tbody tr:hover td{background:#eff6ff!important}
+.action-table-wrap th:first-child,.action-table-wrap td:first-child,#tab-today .table-wrap th:first-child,#tab-today .table-wrap td:first-child{position:sticky!important;left:0!important;z-index:3!important}
+.action-table-wrap td:first-child,#tab-today .table-wrap td:first-child{background:#fff!important}
+.action-table-wrap tr:nth-child(even) td:first-child,#tab-today tr:nth-child(even) td:first-child{background:#fbfcfe!important}
+
+/* Semantic states */
+.pill{font-size:9px!important;font-weight:800!important;border-radius:999px!important;padding:4px 7px!important}
+.pill.ok{background:var(--ux3-success-soft)!important;color:#166534!important;border-color:#bbf7d0!important}
+.pill.warn{background:var(--ux3-warning-soft)!important;color:#92400e!important;border-color:#fde68a!important}
+.pill.bad{background:var(--ux3-danger-soft)!important;color:#991b1b!important;border-color:#fecaca!important}
+.notice{border-radius:10px!important;box-shadow:var(--ux3-shadow)!important}
+
+/* Forms = workflow surfaces */
+.form{border-color:#d9e2ec!important;box-shadow:none!important}
+.form-title{padding-bottom:12px!important;margin-bottom:4px!important;border-bottom:1px solid #edf1f5!important}
+.form-section{background:#fbfcfe!important;border:1px solid #e2e8f0!important;border-radius:12px!important;padding:15px!important;margin-top:11px!important}
+.section-kicker{align-items:center!important;margin-bottom:12px!important}
+.section-kicker > span{display:grid!important;place-items:center!important;width:28px!important;height:28px!important;min-width:28px!important;border-radius:8px!important;background:#172554!important;color:#fff!important;font-size:11px!important;font-weight:800!important}
+.section-kicker strong{color:#0f172a!important;font-size:12px!important}
+.section-kicker small{display:block!important;margin-top:2px!important;font-size:10px!important}
+.form-note{border-radius:9px!important;font-size:11px!important}
+input,select,textarea{border-color:#cfd8e3!important;border-radius:9px!important;background:#fff!important;min-height:41px!important;box-shadow:none!important}
+textarea{min-height:76px!important}
+input:hover,select:hover,textarea:hover{border-color:#aebdce!important}
+input:focus,select:focus,textarea:focus{border-color:#2563eb!important;box-shadow:var(--ux3-ring)!important;outline:none!important}
+input:invalid:not(:placeholder-shown){border-color:#dc8b8b!important}
+label{font-size:11px!important;font-weight:700!important;color:#334155!important}
+label small{font-weight:500!important;line-height:1.45!important}
+.form-action-bar{position:sticky!important;bottom:10px!important;z-index:8!important;background:rgba(255,255,255,.94)!important;backdrop-filter:blur(10px)!important;border:1px solid #dfe6ee!important;border-radius:11px!important;padding:10px!important;box-shadow:0 8px 24px rgba(15,23,42,.08)!important}
+
+/* Event workflow */
+#tab-events > .grid.two-col{grid-template-columns:minmax(0,1.32fr) minmax(330px,.68fr)!important;align-items:start!important;gap:16px!important}
+#eventForm{border-top:3px solid #2563eb!important;box-shadow:var(--ux3-shadow)!important}
+#eventUpdateForm{background:#fbfcfe!important;position:sticky!important;top:96px!important}
+#eventUpdateForm .form-title{border-bottom-color:#e2e8f0!important}
+.inline-price-panel{border-radius:12px!important;border-color:#dfe6ee!important;background:#fff!important}
+
+/* Booking workflow */
+#tab-booking #bookingForm{max-width:1320px!important;margin-inline:auto!important;border-top:3px solid #2563eb!important;box-shadow:var(--ux3-shadow)!important}
+#tab-booking #bookingForm > .row{padding:9px 0!important;border-bottom:1px dashed #e8edf3!important}
+#tab-booking #bookingForm > .row:last-of-type{border-bottom:0!important}
+#tab-edit-booking .card,#tab-today .card{border-top:3px solid #475569!important}
+.customer-detail-card{border-top:3px solid #475569!important}
+.crm-profile-summary,.crm-risk-panel,.crm-timeline-wrap{border-radius:11px!important}
+#tab-health .card{box-shadow:none!important}
+#systemGuardGrid .stat{background:#f8fafc!important}
+
+/* Buttons */
+.btn{border-radius:9px!important;min-height:38px!important;font-weight:750!important;letter-spacing:-.005em!important}
+.btn.primary{background:#1d4ed8!important;border-color:#1d4ed8!important;box-shadow:0 1px 2px rgba(29,78,216,.18)!important}
+.btn.primary:hover{background:#1e40af!important;border-color:#1e40af!important;box-shadow:0 7px 18px rgba(29,78,216,.17)!important}
+.btn.secondary{background:#fff!important;border-color:#cbd5e1!important;color:#1e293b!important}
+.btn.secondary:hover{background:#f8fafc!important;border-color:#94a3b8!important}
+.btn.ghost{background:transparent!important;border-color:transparent!important;color:#475569!important}
+.btn.ghost:hover{background:#eef2f7!important;border-color:#e2e8f0!important}
+.btn.danger-soft{background:#fff7f7!important;color:#b91c1c!important;border-color:#fecaca!important}
+.btn:focus-visible,.nav:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:none!important;box-shadow:var(--ux3-ring)!important}
+
+/* Dense operations mode */
+body.compact-mode .card,body.compact .card{border-radius:10px!important}
+body.compact-mode th,body.compact-mode td,body.compact th,body.compact td{padding:7px 9px!important}
+body.compact-mode #statsGrid .stat,body.compact #statsGrid .stat{min-height:64px!important;padding:9px 10px!important}
+body.compact-mode #statsGrid .stat strong,body.compact #statsGrid .stat strong{font-size:20px!important}
+body.compact-mode .form-section,body.compact .form-section{padding:11px!important}
+
+@media(max-width:1180px){
+  #statsGrid{grid-template-columns:repeat(4,minmax(120px,1fr))!important}
+  #actionStats{grid-template-columns:repeat(4,minmax(105px,1fr))!important}
+  #tab-events > .grid.two-col{grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr)!important}
+  .pro-hero-metrics{max-width:280px!important}
 }
-.nav.muted{opacity:.82!important}
 
-/* Header becomes an operational toolbar, not a marketing hero. */
-.topbar{min-height:78px!important}
-.topbar h1{font-size:21px!important}
-.topbar p{max-width:680px!important}
-.top-actions .btn,.top-actions .top-badge{white-space:nowrap!important}
-#refreshBtn::before{content:"↻";font-size:14px;line-height:1}
-
-/* Key cards: less motion, stronger information hierarchy. */
-.card{transition:border-color .12s ease,box-shadow .12s ease!important}
-.card:hover{box-shadow:var(--ux2-shadow-key)!important}
-.pro-hero{padding:22px 24px!important;box-shadow:var(--ux2-shadow-float)!important}
-.pro-hero-copy{max-width:920px!important}
-.pro-hero-metrics{display:flex!important;flex-wrap:wrap!important}
-.quickbar{box-shadow:none!important}
-.action-card{border-left:3px solid #2563eb!important;box-shadow:var(--ux2-shadow-key)!important}
-.action-card .card-head{padding-bottom:10px!important;border-bottom:1px solid #eef2f7!important}
-
-/* KPI cards read as metrics, not generic cards. */
-.stat{position:relative!important;overflow:hidden!important}
-.stat::before{
-  content:"";position:absolute;inset:0 auto 0 0;width:3px;background:#dbeafe;
-}
-.stat strong{font-variant-numeric:tabular-nums!important;letter-spacing:-.035em!important}
-.stat span{line-height:1.35!important}
-
-/* Form workflow polish. */
-.form-title{gap:3px!important}
-.form-title + .hint{margin-top:-2px!important}
-.form > .row{position:relative!important}
-.form > .row + .row{padding-top:2px!important}
-label{line-height:1.35!important}
-input,select,textarea{caret-color:#2563eb!important}
-input:disabled,select:disabled,textarea:disabled{
-  background:#f8fafc!important;color:#94a3b8!important;cursor:not-allowed!important;
-}
-.check{align-self:end!important;min-height:40px!important}
-.form > .btn.primary{justify-self:start!important;min-width:142px!important}
-
-/* Buttons: make primary vs secondary decisions immediately obvious. */
-.btn.primary{box-shadow:0 1px 2px rgba(37,99,235,.18)!important}
-.btn.primary:hover{box-shadow:0 6px 14px rgba(37,99,235,.16)!important}
-.btn.ghost:hover{background:#f8fafc!important;border-color:#cbd5e1!important}
-.btn:active{transform:translateY(1px)!important}
-.btn:disabled{filter:saturate(.65)!important}
-
-/* Tables: operational density, stable scan lines, better empty state. */
-.table-wrap{position:relative!important}
-th{
-  top:0!important;z-index:2!important;
-  box-shadow:0 1px 0 #e2e8f0!important;
-}
-td{color:#334155!important}
-tbody tr{transition:background .1s ease!important}
-tbody tr:hover td{background:#f1f5ff!important}
-tbody td[colspan]{
-  text-align:center!important;padding:30px 18px!important;color:#94a3b8!important;
-  white-space:normal!important;font-size:12px!important;background:#fff!important;
-}
-.table-wrap:focus-within{border-color:#bfdbfe!important;box-shadow:var(--ux2-ring)!important}
-.pill{letter-spacing:.01em!important}
-
-/* Search/filter controls should look like a utility bar. */
-.mini-tools{gap:8px!important}
-.mini-control{font-weight:700!important}
-.mini-search{padding-left:12px!important}
-.mini-search::placeholder{color:#94a3b8!important}
-
-/* Notifications and health states should read like system messages. */
-.notice{border-left-width:3px!important}
-.notice.ok{border-left-color:#16a34a!important}
-.notice.warn{border-left-color:#d97706!important}
-.notice.bad{border-left-color:#dc2626!important}
-#snapshotStatus{border-left:3px solid #64748b!important}
-
-/* Secure login surface. */
-.login-card{position:relative!important;overflow:hidden!important;padding-top:44px!important}
-.login-card::before{
-  content:"SECURE ADMIN WORKSPACE";
-  position:absolute;left:0;right:0;top:0;height:30px;
-  display:flex;align-items:center;padding:0 18px;
-  background:#0f172a;color:#cbd5e1;
-  font-size:9px;font-weight:800;letter-spacing:.13em;
-}
-.login-card .row.two{align-items:end!important}
-.login-actions .btn{min-width:132px!important}
-
-/* Make tab transitions calmer for a business application. */
-.tab-panel.active{animation:ux2PanelIn .14s ease-out!important}
-@keyframes ux2PanelIn{from{opacity:.72;transform:translateY(2px)}to{opacity:1;transform:none}}
-
-/* Compact mode: meaningfully denser without harming scanability. */
-body.compact .topbar{min-height:68px!important;padding-top:12px!important;padding-bottom:12px!important}
-body.compact .card{border-radius:12px!important}
-body.compact table{font-size:11.5px!important}
-body.compact .form-note{padding:8px 10px!important}
-
-/* Tablet/mobile: convert the tall sidebar into a horizontal operations switcher. */
 @media(max-width:980px){
-  .sidebar{
-    position:sticky!important;top:0!important;z-index:30!important;
-    padding:10px 12px!important;
-  }
-  .brand{margin-bottom:8px!important;padding-bottom:9px!important}
-  .brand span{display:none!important}
-  .sidebar nav{
-    display:flex!important;grid-template-columns:none!important;gap:6px!important;
-    overflow-x:auto!important;overscroll-behavior-x:contain!important;
-    scroll-snap-type:x proximity!important;padding-bottom:2px!important;
-  }
-  .nav-section-label{display:none!important}
-  .nav{
-    flex:0 0 auto!important;min-height:36px!important;padding:8px 10px!important;
-    white-space:nowrap!important;scroll-snap-align:start!important;
-  }
-  .nav.muted{margin-top:0!important;border-top:0!important}
-  .topbar{position:relative!important}
-  .tab-panel{max-width:none!important}
-  .top-actions{width:100%!important;justify-content:flex-start!important}
+  .topbar{position:relative!important;top:auto!important;background:transparent!important;backdrop-filter:none!important}
+  .sidebar nav{scrollbar-width:none!important}
+  .sidebar nav::-webkit-scrollbar{display:none!important}
+  #statsGrid{grid-template-columns:repeat(3,minmax(120px,1fr))!important}
+  #actionStats{grid-template-columns:repeat(3,minmax(105px,1fr))!important}
+  #tab-overview > .grid.two-col{grid-template-columns:1fr!important}
+  #tab-events > .grid.two-col{grid-template-columns:1fr!important}
+  #eventUpdateForm{position:relative!important;top:auto!important}
+  .pro-hero{align-items:flex-start!important}
+  .pro-hero-metrics{display:none!important}
+  .quickbar{grid-template-columns:1fr!important}
+  .quick-actions{justify-content:flex-start!important}
 }
 
 @media(max-width:680px){
-  .sidebar{padding:9px 10px!important}
-  .brand{display:flex!important;margin:0 0 7px!important}
-  .logo{width:36px!important;height:36px!important;border-radius:9px!important}
-  .brand strong{font-size:13px!important}
-  .topbar{gap:10px!important}
-  .topbar p{display:none!important}
-  .top-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-  .top-actions .btn{width:100%!important}
-  .pro-hero{padding:18px!important}
-  .pro-hero-metrics{display:none!important}
-  .card-head{align-items:flex-start!important}
-  .table-wrap{border-radius:10px!important}
-  .form > .btn.primary{width:100%!important;justify-self:stretch!important}
-  .login-card{margin-top:4vh!important;padding:42px 16px 18px!important}
-  .login-card .row.two{grid-template-columns:1fr!important}
-  .login-actions .btn{width:100%!important}
+  main{padding-inline:10px!important}
+  .topbar{padding:12px 4px!important;margin-bottom:10px!important}
+  .topbar h1{font-size:17px!important}
+  .top-meta{overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important}
+  .top-meta::-webkit-scrollbar{display:none!important}
+  .meta-chip{flex:0 0 auto!important}
+  #tab-overview.active{gap:10px!important}
+  .pro-hero{padding:14px 15px!important;border-radius:12px!important}
+  .pro-hero h2{font-size:17px!important}
+  .pro-hero .hint{display:none!important}
+  #statsGrid{display:flex!important;overflow-x:auto!important;gap:7px!important;scroll-snap-type:x proximity!important;scrollbar-width:none!important;padding-bottom:2px!important}
+  #statsGrid::-webkit-scrollbar{display:none!important}
+  #statsGrid .stat{flex:0 0 132px!important;scroll-snap-align:start!important;min-height:68px!important}
+  #statsGrid .stat strong{font-size:21px!important}
+  #actionStats{display:flex!important;overflow-x:auto!important;scrollbar-width:none!important;gap:7px!important}
+  #actionStats::-webkit-scrollbar{display:none!important}
+  #actionStats .stat{flex:0 0 126px!important}
+  .action-card{padding:13px!important;border-left-width:3px!important}
+  #actionToolbar{overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important}
+  #actionToolbar::-webkit-scrollbar{display:none!important}
+  #actionToolbar > *{flex:0 0 auto!important}
+  .quickbar{padding:12px!important}
+  .quick-actions{display:flex!important;overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important}
+  .quick-actions::-webkit-scrollbar{display:none!important}
+  .quick-actions .btn{flex:0 0 auto!important;min-height:40px!important}
+  .card{border-radius:12px!important}
+  .form-section{padding:12px!important}
+  .form-action-bar{bottom:6px!important;padding:8px!important}
+  input,select,textarea,.btn,.nav{min-height:44px!important}
+  .table-wrap{border-radius:9px!important}
+  th,td{padding:9px!important}
 }
 
 @media(max-width:440px){
-  .sidebar nav{gap:5px!important}
-  .nav{font-size:12px!important;padding-inline:9px!important}
-  .top-actions{grid-template-columns:1fr!important}
-  .card{padding:13px!important}
-  .pro-hero{padding:16px!important}
-  .pro-hero h2{font-size:18px!important}
-  tbody td[colspan]{padding:24px 12px!important}
+  main{padding-inline:8px!important}
+  .action-card .card-head h2{font-size:17px!important}
+  .pro-hero{padding:13px!important}
+  .quickbar > div:first-child .hint{display:none!important}
+  .form-title h2{font-size:18px!important}
 }
 
-/* Respect OS-level motion preferences. */
-@media(prefers-reduced-motion:reduce){
-  *,*::before,*::after{
-    scroll-behavior:auto!important;
-    animation-duration:.001ms!important;
-    animation-iteration-count:1!important;
-    transition-duration:.001ms!important;
-  }
-}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
