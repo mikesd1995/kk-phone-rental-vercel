@@ -6,7 +6,10 @@ const crmReconciliation = require('./lib/crm-reconciliation');
 
 const DEFAULT_CRM_SHEET_ID = '1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
 const DEFAULT_CORE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
-const CRITICAL_RANGE = '_Rental_Dashboard_Data!A1:O1000';
+const RUNTIME_DATASETS={
+  rental_dashboard_data:{sheet:'_Rental_Dashboard_Data',range:'A1:O1000',privateRange:'_Rental_Dashboard_Data!A1:O1000',requireData:true},
+  event_archive:{sheet:'13_Event_Archive',range:'A1:Z1000',privateRange:'13_Event_Archive!A1:Z1000',requireData:false}
+};
 
 function json(res,status,body){
   res.statusCode=status;
@@ -22,6 +25,28 @@ function auth(req){
   if(!expected) return {ok:false,status:500,error:'KK_ADMIN_PIN is not configured'};
   if(provided!==expected) return {ok:false,status:401,error:'Invalid admin PIN'};
   return {ok:true};
+}
+function safeDatasetDiagnostics(reconciliation){
+  if(!reconciliation || !reconciliation.datasets) return null;
+  const out={};
+  for(const [name,d] of Object.entries(reconciliation.datasets)){
+    out[name]={code:d.code,core_row_count:d.core_row_count,crm_row_count:d.crm_row_count,core_hash:d.core_hash,crm_hash:d.crm_hash};
+  }
+  return out;
+}
+async function reconcileRuntimeDatasets({coreSheetId,crmSheetId,env}){
+  const entries=Object.entries(RUNTIME_DATASETS);
+  const reads=[];
+  for(const [,cfg] of entries){
+    reads.push(crmReconciliation.fetchPublicValues({sheetId:coreSheetId,sheet:cfg.sheet,range:cfg.range}));
+    reads.push(privateSheets.readValues({sheetId:crmSheetId,range:cfg.privateRange,env}));
+  }
+  const values=await Promise.all(reads);
+  const results={};
+  entries.forEach(([name,cfg],i)=>{
+    results[name]=crmReconciliation.compare(values[i*2],values[i*2+1],{requireData:cfg.requireData});
+  });
+  return crmReconciliation.combine(results);
 }
 
 module.exports=async function handler(req,res){
@@ -57,7 +82,7 @@ module.exports=async function handler(req,res){
   const started=Date.now();
   try{
     const [manifestValues,kpiValues]=await Promise.all([
-      privateSheets.readValues({sheetId:crmSheetId,range:'00_Data_Source_Manifest!A1:D25',env}),
+      privateSheets.readValues({sheetId:crmSheetId,range:'00_Data_Source_Manifest!A1:D30',env}),
       privateSheets.readValues({sheetId:crmSheetId,range:'00_Rental_Dashboard!B4:B4',env})
     ]);
     const freshness=crmFreshness.assessManifest(manifestValues,{maxAgeMin});
@@ -70,11 +95,7 @@ module.exports=async function handler(req,res){
     let reconciliationError='';
     if(idMatch && freshness.fresh){
       try{
-        const [coreValues,crmValues]=await Promise.all([
-          crmReconciliation.fetchPublicValues({sheetId:coreSheetId,sheet:'_Rental_Dashboard_Data',range:'A1:O1000'}),
-          privateSheets.readValues({sheetId:crmSheetId,range:CRITICAL_RANGE,env})
-        ]);
-        reconciliation=crmReconciliation.compare(coreValues,crmValues,{requireData:true});
+        reconciliation=await reconcileRuntimeDatasets({coreSheetId,crmSheetId,env});
       }catch(err){
         reconciliationError=String((err&&err.code)||'CRM_RECONCILIATION_UNAVAILABLE');
       }
@@ -104,12 +125,8 @@ module.exports=async function handler(req,res){
       sync_age_minutes:freshness.age_minutes,
       sync_state:freshness.sync_state,
       reconciliation_status:reconciliationError || (reconciliation&&reconciliation.code) || 'NOT_RUN_UNTIL_FRESH',
-      reconciliation:reconciliation?{
-        core_row_count:reconciliation.core_row_count,
-        crm_row_count:reconciliation.crm_row_count,
-        core_hash:reconciliation.core_hash,
-        crm_hash:reconciliation.crm_hash
-      }:null
+      failed_dataset:(reconciliation&&reconciliation.failed_dataset)||'',
+      reconciliation_datasets:safeDatasetDiagnostics(reconciliation)
     })});
   }catch(err){
     const code=String((err&&err.code)||'CRM_PRIVATE_READ_FAILED');
@@ -126,3 +143,5 @@ module.exports=async function handler(req,res){
     })});
   }
 };
+
+module.exports._test={reconcileRuntimeDatasets,RUNTIME_DATASETS};

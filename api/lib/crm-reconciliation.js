@@ -51,6 +51,27 @@ function compare(coreValues,crmValues,{requireData=true}={}){
   return Object.assign(base,{ok:true,code:'CRM_RECON_OK'});
 }
 
+function combine(namedResults){
+  const datasets={};
+  let failure=null;
+  for(const [name,result] of Object.entries(namedResults||{})){
+    const r=result||{ok:false,code:'CRM_RECON_RESULT_MISSING',core_row_count:0,crm_row_count:0,core_hash:'',crm_hash:''};
+    datasets[name]={
+      ok:!!r.ok,
+      code:String(r.code||''),
+      core_row_count:Number(r.core_row_count||0),
+      crm_row_count:Number(r.crm_row_count||0),
+      core_hash:String(r.core_hash||''),
+      crm_hash:String(r.crm_hash||'')
+    };
+    if(!failure && !r.ok) failure={dataset:name,code:String(r.code||'CRM_RECON_FAILED')};
+  }
+  const names=Object.keys(datasets);
+  if(!names.length) return {ok:false,code:'CRM_RECON_DATASETS_MISSING',failed_dataset:'',datasets};
+  if(failure) return {ok:false,code:failure.code,failed_dataset:failure.dataset,datasets};
+  return {ok:true,code:'CRM_RECON_ALL_OK',failed_dataset:'',datasets};
+}
+
 function parseCsv(text){
   const rows=[]; let row=[],value='',quoted=false;
   const s=String(text||'').replace(/^\uFEFF/,'');
@@ -89,4 +110,4 @@ async function fetchPublicValues({sheetId,sheet,range,fetchImpl=global.fetch,tim
   }
 }
 
-module.exports={normalizeCell,canonicalRows,snapshot,compare,parseCsv,fetchPublicValues};
+module.exports={normalizeCell,canonicalRows,snapshot,compare,combine,parseCsv,fetchPublicValues};
