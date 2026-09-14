@@ -1,333 +1,185 @@
-@import url('/admin/admin-base.css?v=20260914-1');
+@import url('/admin/admin-ux-v1.css?v=20260914-2');
 
-/* KK Phone Rental — Admin UX/UI Refresh v1
-   Presentation-only layer. Keeps all existing DOM IDs, business logic and API flows intact. */
+/* KK Phone Rental — Admin UX/UI Polish v2
+   Presentation-only refinement layered on top of v1.
+   No API, JS behavior, Sheet schema or business-rule changes. */
 
 :root{
-  --ux-bg:#f4f7fb;
-  --ux-surface:#ffffff;
-  --ux-surface-subtle:#f8fafc;
-  --ux-sidebar:#0f172a;
-  --ux-sidebar-2:#111c31;
-  --ux-text:#0f172a;
-  --ux-muted:#64748b;
-  --ux-line:#e2e8f0;
-  --ux-line-strong:#cbd5e1;
-  --ux-primary:#2563eb;
-  --ux-primary-strong:#1d4ed8;
-  --ux-primary-soft:#eff6ff;
-  --ux-success:#16a34a;
-  --ux-success-soft:#f0fdf4;
-  --ux-warning:#d97706;
-  --ux-warning-soft:#fffbeb;
-  --ux-danger:#dc2626;
-  --ux-danger-soft:#fef2f2;
-  --ux-radius:16px;
-  --ux-radius-sm:10px;
-  --ux-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px rgba(15,23,42,.05);
-  --ux-shadow-raised:0 14px 34px rgba(15,23,42,.10);
+  --ux2-max:1600px;
+  --ux2-shadow-key:0 1px 2px rgba(15,23,42,.03),0 10px 28px rgba(15,23,42,.06);
+  --ux2-shadow-float:0 18px 42px rgba(15,23,42,.12);
+  --ux2-ring:0 0 0 3px rgba(37,99,235,.16);
 }
 
-html{background:var(--ux-bg)}
-body{
-  background:var(--ux-bg)!important;
-  color:var(--ux-text)!important;
-  font-family:"Noto Sans Thai",Kanit,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;
-  letter-spacing:0;
-}
+/* Keep large displays readable instead of stretching operational content edge-to-edge. */
+.tab-panel{max-width:var(--ux2-max)!important;margin-inline:auto!important}
+#loginPanel{max-width:720px!important}
 
-/* --- App shell / navigation ------------------------------------------------ */
-.shell{grid-template-columns:252px minmax(0,1fr)!important}
-.sidebar{
-  background:linear-gradient(180deg,var(--ux-sidebar),var(--ux-sidebar-2))!important;
-  border-right:0!important;
-  box-shadow:12px 0 34px rgba(15,23,42,.10)!important;
-  padding:20px 14px!important;
+/* Navigation hierarchy: quieter labels, clearer current location. */
+.sidebar{border-right:1px solid rgba(148,163,184,.08)!important}
+.nav-section-label{opacity:.82!important}
+.nav{position:relative!important;letter-spacing:-.005em!important}
+.nav.active::after{
+  content:"";position:absolute;right:8px;top:50%;width:5px;height:5px;
+  border-radius:999px;background:#2563eb;transform:translateY(-50%);
 }
-.brand{
-  border-bottom:1px solid rgba(255,255,255,.10)!important;
-  margin:0 4px 18px!important;
-  padding:4px 4px 18px!important;
-}
-.logo{
-  width:44px!important;height:44px!important;border-radius:12px!important;
-  background:#fff!important;color:#0f172a!important;
-  box-shadow:0 6px 18px rgba(0,0,0,.22)!important;
-  font-size:14px!important;letter-spacing:.08em!important;
-}
-.brand strong{color:#fff!important;font-size:15px!important;font-weight:700!important}
-.brand span{color:#94a3b8!important;font-size:11px!important;line-height:1.45!important}
-.nav-section-label{
-  color:#64748b!important;
-  font-size:10px!important;font-weight:800!important;letter-spacing:.12em!important;text-transform:uppercase!important;
-  padding:14px 10px 6px!important;
-}
-.admin-nav{gap:4px!important}
-.nav{
-  color:#cbd5e1!important;
-  min-height:40px!important;
-  border-radius:10px!important;
-  padding:9px 11px!important;
-  font-size:13px!important;font-weight:600!important;
-  transform:none!important;box-shadow:none!important;
-}
-.nav::before{width:6px!important;height:6px!important;background:#475569!important}
-.nav:hover{background:rgba(255,255,255,.07)!important;color:#fff!important;transform:none!important}
-.nav.active{
-  background:#fff!important;color:#0f172a!important;
-  box-shadow:0 6px 18px rgba(0,0,0,.18)!important;
-}
-.nav.active::before{background:var(--ux-primary)!important;transform:scale(1.15)!important}
-.nav.muted{border-top:1px solid rgba(255,255,255,.10)!important;color:#94a3b8!important;margin-top:10px!important}
+.nav.muted{opacity:.82!important}
 
-/* --- Main workspace -------------------------------------------------------- */
-main{padding:0 28px 32px!important;background:var(--ux-bg)!important}
-.topbar{
-  margin:0 -28px 22px!important;
-  padding:18px 28px!important;
-  min-height:86px!important;
-  align-items:center!important;
-  background:rgba(255,255,255,.96)!important;
-  border-bottom:1px solid var(--ux-line)!important;
-  box-shadow:0 1px 0 rgba(15,23,42,.02)!important;
-  backdrop-filter:blur(12px)!important;
-}
-.topbar h1{font-size:23px!important;font-weight:750!important;letter-spacing:-.025em!important;color:#0f172a!important}
-.topbar p{font-size:13px!important;margin-top:3px!important;line-height:1.5!important;color:var(--ux-muted)!important}
-.top-meta{margin-top:8px!important;gap:6px!important}
-.meta-chip{
-  min-height:24px!important;padding:3px 8px!important;border-radius:6px!important;
-  border:1px solid var(--ux-line)!important;background:#fff!important;
-  color:#64748b!important;font-size:10px!important;font-weight:700!important;
-  box-shadow:none!important;
-}
-.meta-chip.live{background:var(--ux-success-soft)!important;border-color:#bbf7d0!important;color:#15803d!important}
-.top-badge{
-  min-height:36px!important;padding:0 11px!important;border-radius:8px!important;
-  box-shadow:none!important;background:var(--ux-surface-subtle)!important;
-  font-size:11px!important;color:#475569!important;
-}
-.top-actions{gap:8px!important}
+/* Header becomes an operational toolbar, not a marketing hero. */
+.topbar{min-height:78px!important}
+.topbar h1{font-size:21px!important}
+.topbar p{max-width:680px!important}
+.top-actions .btn,.top-actions .top-badge{white-space:nowrap!important}
+#refreshBtn::before{content:"↻";font-size:14px;line-height:1}
 
-/* --- Buttons --------------------------------------------------------------- */
-.btn{
-  min-height:38px!important;border-radius:9px!important;padding:8px 13px!important;
-  font-size:12px!important;font-weight:700!important;
-  box-shadow:none!important;transform:none!important;
-  transition:background .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease!important;
-}
-.btn:hover{transform:none!important;box-shadow:0 4px 10px rgba(15,23,42,.08)!important}
-.btn.primary{background:var(--ux-primary)!important;color:#fff!important}
-.btn.primary:hover{background:var(--ux-primary-strong)!important}
-.btn.secondary{background:var(--ux-primary-soft)!important;color:#1d4ed8!important;border:1px solid #dbeafe!important}
-.btn.ghost{background:#fff!important;border:1px solid var(--ux-line)!important;color:#334155!important}
-.mini-btn{border-radius:8px!important;padding:6px 9px!important;background:var(--ux-primary-soft)!important;color:#1d4ed8!important;font-size:11px!important}
+/* Key cards: less motion, stronger information hierarchy. */
+.card{transition:border-color .12s ease,box-shadow .12s ease!important}
+.card:hover{box-shadow:var(--ux2-shadow-key)!important}
+.pro-hero{padding:22px 24px!important;box-shadow:var(--ux2-shadow-float)!important}
+.pro-hero-copy{max-width:920px!important}
+.pro-hero-metrics{display:flex!important;flex-wrap:wrap!important}
+.quickbar{box-shadow:none!important}
+.action-card{border-left:3px solid #2563eb!important;box-shadow:var(--ux2-shadow-key)!important}
+.action-card .card-head{padding-bottom:10px!important;border-bottom:1px solid #eef2f7!important}
 
-/* --- Cards / information hierarchy --------------------------------------- */
-.card{
-  background:var(--ux-surface)!important;
-  border:1px solid var(--ux-line)!important;
-  border-radius:var(--ux-radius)!important;
-  box-shadow:var(--ux-shadow)!important;
-  padding:18px!important;margin-bottom:16px!important;
-  transform:none!important;
+/* KPI cards read as metrics, not generic cards. */
+.stat{position:relative!important;overflow:hidden!important}
+.stat::before{
+  content:"";position:absolute;inset:0 auto 0 0;width:3px;background:#dbeafe;
 }
-.card:hover{border-color:var(--ux-line-strong)!important;transform:none!important}
-.card h2{font-size:17px!important;font-weight:750!important;letter-spacing:-.015em!important;color:#0f172a!important}
-.card-head{margin-bottom:14px!important;align-items:center!important}
-.card-head small,.hint{font-size:12px!important;color:var(--ux-muted)!important;line-height:1.55!important}
-.eyebrow{
-  border-radius:6px!important;background:var(--ux-primary-soft)!important;
-  color:#1d4ed8!important;padding:4px 7px!important;
-  font-size:9px!important;font-weight:800!important;letter-spacing:.10em!important;
-}
-.pro-hero{
-  position:relative!important;overflow:hidden!important;
-  background:linear-gradient(120deg,#0f172a 0%,#172554 58%,#1e3a8a 100%)!important;
-  border:0!important;color:#fff!important;padding:24px!important;
-  box-shadow:0 14px 30px rgba(15,23,42,.18)!important;
-}
-.pro-hero::after{
-  content:"";position:absolute;inset:auto -70px -100px auto;width:260px;height:260px;border-radius:50%;
-  background:rgba(96,165,250,.16);pointer-events:none;
-}
-.pro-hero h2{color:#fff!important;font-size:22px!important;max-width:760px!important}
-.pro-hero .hint{color:#cbd5e1!important;max-width:850px!important}
-.pro-hero .eyebrow{background:rgba(255,255,255,.12)!important;color:#dbeafe!important}
-.pro-hero-metrics{gap:8px!important}
-.pro-hero-metrics span{
-  background:rgba(255,255,255,.10)!important;border:1px solid rgba(255,255,255,.12)!important;
-  color:#e2e8f0!important;border-radius:8px!important;padding:8px 10px!important;font-size:11px!important;
-}
-.quickbar{
-  background:#fff!important;border:1px solid var(--ux-line)!important;
-  align-items:center!important;padding:16px 18px!important;
-}
-.quickbar h2{font-size:16px!important}
-.quick-actions{gap:7px!important}
-.action-card{background:#fff!important;border-color:var(--ux-line)!important}
+.stat strong{font-variant-numeric:tabular-nums!important;letter-spacing:-.035em!important}
+.stat span{line-height:1.35!important}
 
-/* --- KPI cards ------------------------------------------------------------- */
-.grid{gap:14px!important}
-.stats{gap:12px!important;margin-bottom:16px!important}
-.stat{
-  min-height:102px!important;padding:15px!important;
-  background:#fff!important;border:1px solid var(--ux-line)!important;
-  border-radius:14px!important;box-shadow:0 1px 2px rgba(15,23,42,.03)!important;
+/* Form workflow polish. */
+.form-title{gap:3px!important}
+.form-title + .hint{margin-top:-2px!important}
+.form > .row{position:relative!important}
+.form > .row + .row{padding-top:2px!important}
+label{line-height:1.35!important}
+input,select,textarea{caret-color:#2563eb!important}
+input:disabled,select:disabled,textarea:disabled{
+  background:#f8fafc!important;color:#94a3b8!important;cursor:not-allowed!important;
 }
-.stat strong{font-size:27px!important;font-weight:760!important;color:#0f172a!important}
-.stat span{margin-top:6px!important;font-size:11px!important;color:#64748b!important}
+.check{align-self:end!important;min-height:40px!important}
+.form > .btn.primary{justify-self:start!important;min-width:142px!important}
 
-/* --- Forms ----------------------------------------------------------------- */
-.form{gap:14px!important}
-.form.card{padding:20px!important}
-.form.card:focus-within{border-color:#bfdbfe!important;box-shadow:0 0 0 3px rgba(37,99,235,.06),var(--ux-shadow)!important}
-.form-title{border-bottom:1px solid var(--ux-line)!important;padding-bottom:13px!important;margin-bottom:2px!important}
-.form-title h2{font-size:19px!important}
-.row{gap:12px!important}
-label{gap:6px!important;font-size:12px!important;font-weight:700!important;color:#334155!important}
-label small{font-size:10.5px!important;color:#64748b!important;line-height:1.45!important}
-input,select,textarea{
-  min-height:40px!important;border:1px solid #cbd5e1!important;
-  border-radius:9px!important;padding:9px 11px!important;
-  background:#fff!important;color:#0f172a!important;font-size:13px!important;
-  box-shadow:inset 0 1px 1px rgba(15,23,42,.02)!important;
-}
-input:hover,select:hover,textarea:hover{border-color:#94a3b8!important}
-input:focus,select:focus,textarea:focus{
-  border-color:#60a5fa!important;box-shadow:0 0 0 3px rgba(37,99,235,.10)!important;background:#fff!important;
-}
-textarea{min-height:92px!important}
-.check{
-  background:var(--ux-surface-subtle)!important;border:1px solid var(--ux-line)!important;
-  border-radius:10px!important;padding:9px 11px!important;
-}
-.form-note{
-  border-radius:10px!important;padding:10px 12px!important;
-  background:var(--ux-surface-subtle)!important;font-size:11.5px!important;
-}
-.form-note.ok-note{background:var(--ux-success-soft)!important;border-color:#bbf7d0!important;color:#166534!important}
-.form-note.warn-note{background:var(--ux-warning-soft)!important;border-color:#fde68a!important;color:#92400e!important}
+/* Buttons: make primary vs secondary decisions immediately obvious. */
+.btn.primary{box-shadow:0 1px 2px rgba(37,99,235,.18)!important}
+.btn.primary:hover{box-shadow:0 6px 14px rgba(37,99,235,.16)!important}
+.btn.ghost:hover{background:#f8fafc!important;border-color:#cbd5e1!important}
+.btn:active{transform:translateY(1px)!important}
+.btn:disabled{filter:saturate(.65)!important}
 
-/* Make create/edit flows feel like structured workflows */
-#tab-booking .form,#tab-edit-booking .form,#tab-events .form{
-  border-top:3px solid #dbeafe!important;
-}
-#tab-booking .form-title,#tab-edit-booking .form-title,#tab-events .form-title{position:relative!important}
-#tab-booking .form-title::after,#tab-edit-booking .form-title::after,#tab-events .form-title::after{
-  content:"ข้อมูลที่บันทึกจะถูกตรวจสอบก่อนส่งไปยังระบบจริง";
-  display:block;margin-top:2px;color:#64748b;font-size:10.5px;font-weight:500;
-}
-
-/* --- Tables ---------------------------------------------------------------- */
-.table-wrap{
-  border:1px solid var(--ux-line)!important;border-radius:12px!important;
-  background:#fff!important;box-shadow:none!important;
-  max-height:590px!important;
-}
-table{font-size:12px!important}
-th,td{padding:10px 10px!important;border-bottom:1px solid #edf2f7!important}
+/* Tables: operational density, stable scan lines, better empty state. */
+.table-wrap{position:relative!important}
 th{
-  background:#f8fafc!important;color:#475569!important;
-  font-size:10.5px!important;text-transform:none!important;font-weight:800!important;
-  letter-spacing:.01em!important;
+  top:0!important;z-index:2!important;
+  box-shadow:0 1px 0 #e2e8f0!important;
 }
-tbody tr:nth-child(even) td{background:#fbfdff!important}
-tbody tr:hover td{background:#eff6ff!important}
-.pill{
-  border-radius:6px!important;padding:4px 7px!important;font-size:10px!important;font-weight:800!important;
-  background:#eef2ff!important;color:#4338ca!important;
+td{color:#334155!important}
+tbody tr{transition:background .1s ease!important}
+tbody tr:hover td{background:#f1f5ff!important}
+tbody td[colspan]{
+  text-align:center!important;padding:30px 18px!important;color:#94a3b8!important;
+  white-space:normal!important;font-size:12px!important;background:#fff!important;
 }
-.pill.ok{background:var(--ux-success-soft)!important;color:#15803d!important}
-.pill.warn{background:var(--ux-warning-soft)!important;color:#b45309!important}
-.pill.bad{background:var(--ux-danger-soft)!important;color:#b91c1c!important}
-.mini-control{font-size:11px!important;color:#64748b!important;min-width:170px!important}
-.mini-control select,.mini-search{min-height:36px!important;padding:7px 10px!important;background:#fff!important}
+.table-wrap:focus-within{border-color:#bfdbfe!important;box-shadow:var(--ux2-ring)!important}
+.pill{letter-spacing:.01em!important}
 
-/* --- Alerts / system states ------------------------------------------------ */
-.notice{
-  border-radius:10px!important;padding:11px 13px!important;
-  box-shadow:0 6px 16px rgba(15,23,42,.06)!important;
-  font-size:12px!important;font-weight:600!important;
-}
-.notice.ok{background:var(--ux-success-soft)!important;border-color:#bbf7d0!important;color:#166534!important}
-.notice.warn{background:var(--ux-warning-soft)!important;border-color:#fde68a!important;color:#92400e!important}
-.notice.bad{background:var(--ux-danger-soft)!important;border-color:#fecaca!important;color:#991b1b!important}
-#snapshotStatus{
-  border-radius:10px!important;border-width:1px!important;
-  box-shadow:var(--ux-shadow)!important;background:#fff!important;
-}
+/* Search/filter controls should look like a utility bar. */
+.mini-tools{gap:8px!important}
+.mini-control{font-weight:700!important}
+.mini-search{padding-left:12px!important}
+.mini-search::placeholder{color:#94a3b8!important}
 
-/* --- Login ----------------------------------------------------------------- */
-.login-card{
-  max-width:680px!important;margin:8vh auto 0!important;
-  padding:28px!important;border-radius:18px!important;
-  box-shadow:var(--ux-shadow-raised)!important;
-}
-.login-card h2{font-size:22px!important}
+/* Notifications and health states should read like system messages. */
+.notice{border-left-width:3px!important}
+.notice.ok{border-left-color:#16a34a!important}
+.notice.warn{border-left-color:#d97706!important}
+.notice.bad{border-left-color:#dc2626!important}
+#snapshotStatus{border-left:3px solid #64748b!important}
 
-/* --- Scrollbars ------------------------------------------------------------ */
-*{scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
-.table-wrap::-webkit-scrollbar{height:8px!important;width:8px!important}
-.table-wrap::-webkit-scrollbar-thumb{background:#cbd5e1!important;border-radius:999px!important}
-.table-wrap::-webkit-scrollbar-track{background:#f8fafc!important}
-
-/* --- Accessibility / focus ------------------------------------------------ */
-input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{
-  outline:2px solid transparent!important;box-shadow:0 0 0 3px rgba(37,99,235,.18)!important;
+/* Secure login surface. */
+.login-card{position:relative!important;overflow:hidden!important;padding-top:44px!important}
+.login-card::before{
+  content:"SECURE ADMIN WORKSPACE";
+  position:absolute;left:0;right:0;top:0;height:30px;
+  display:flex;align-items:center;padding:0 18px;
+  background:#0f172a;color:#cbd5e1;
+  font-size:9px;font-weight:800;letter-spacing:.13em;
 }
+.login-card .row.two{align-items:end!important}
+.login-actions .btn{min-width:132px!important}
 
-/* --- Responsive ------------------------------------------------------------ */
-@media(max-width:1180px){
-  .shell{grid-template-columns:220px minmax(0,1fr)!important}
-  main{padding:0 20px 28px!important}
-  .topbar{margin:0 -20px 20px!important;padding:16px 20px!important}
-}
+/* Make tab transitions calmer for a business application. */
+.tab-panel.active{animation:ux2PanelIn .14s ease-out!important}
+@keyframes ux2PanelIn{from{opacity:.72;transform:translateY(2px)}to{opacity:1;transform:none}}
+
+/* Compact mode: meaningfully denser without harming scanability. */
+body.compact .topbar{min-height:68px!important;padding-top:12px!important;padding-bottom:12px!important}
+body.compact .card{border-radius:12px!important}
+body.compact table{font-size:11.5px!important}
+body.compact .form-note{padding:8px 10px!important}
+
+/* Tablet/mobile: convert the tall sidebar into a horizontal operations switcher. */
 @media(max-width:980px){
-  .shell{grid-template-columns:1fr!important}
   .sidebar{
-    position:relative!important;height:auto!important;padding:12px!important;
-    border-bottom:0!important;box-shadow:0 8px 22px rgba(15,23,42,.12)!important;
+    position:sticky!important;top:0!important;z-index:30!important;
+    padding:10px 12px!important;
   }
-  .brand{padding-bottom:12px!important;margin-bottom:10px!important}
-  .sidebar nav{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
-  .nav-section-label{grid-column:1/-1!important;padding:10px 6px 3px!important}
-  .nav{background:rgba(255,255,255,.04)!important;justify-content:flex-start!important}
-  .nav.active{background:#fff!important}
-  main{padding:0 14px 24px!important}
-  .topbar{margin:0 -14px 16px!important;padding:14px!important;position:relative!important}
-  .topbar h1{font-size:20px!important}
-  .top-meta{display:none!important}
-  .pro-hero{padding:20px!important}
-  .pro-hero h2{font-size:19px!important}
-  .quickbar{align-items:flex-start!important;flex-direction:column!important}
-  .quick-actions{justify-content:flex-start!important}
-}
-@media(max-width:680px){
-  .sidebar nav{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-  .top-actions{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%!important}
-  .top-badge{grid-column:1/-1!important;width:100%!important;justify-content:center!important}
-  .card{padding:14px!important;border-radius:12px!important}
-  .pro-hero{border-radius:14px!important}
-  .stats,.stats.compact,.action-kpi.stats.compact{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-  .row.two,.row.three{grid-template-columns:1fr!important}
-  .mini-tools{width:100%!important}
-  .mini-tools .mini-control{width:100%!important;max-width:none!important}
-  .quick-actions{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%!important}
-  .quick-actions .btn{width:100%!important}
-  .table-wrap{max-height:500px!important}
-}
-@media(max-width:440px){
-  .sidebar nav{grid-template-columns:1fr!important}
-  .stats,.stats.compact,.action-kpi.stats.compact{grid-template-columns:1fr!important}
-  .quick-actions{grid-template-columns:1fr!important}
-  .top-actions{grid-template-columns:1fr!important}
-  th,td{padding:9px 8px!important;font-size:11px!important}
-  .stat{min-height:88px!important}
+  .brand{margin-bottom:8px!important;padding-bottom:9px!important}
+  .brand span{display:none!important}
+  .sidebar nav{
+    display:flex!important;grid-template-columns:none!important;gap:6px!important;
+    overflow-x:auto!important;overscroll-behavior-x:contain!important;
+    scroll-snap-type:x proximity!important;padding-bottom:2px!important;
+  }
+  .nav-section-label{display:none!important}
+  .nav{
+    flex:0 0 auto!important;min-height:36px!important;padding:8px 10px!important;
+    white-space:nowrap!important;scroll-snap-align:start!important;
+  }
+  .nav.muted{margin-top:0!important;border-top:0!important}
+  .topbar{position:relative!important}
+  .tab-panel{max-width:none!important}
+  .top-actions{width:100%!important;justify-content:flex-start!important}
 }
 
-/* Compact mode should stay intentionally dense, not visually broken. */
-body.compact .card{padding:14px!important;margin-bottom:12px!important}
-body.compact th,body.compact td{padding:7px 8px!important}
-body.compact .stat{min-height:84px!important;padding:12px!important}
-body.compact input,body.compact select{min-height:36px!important;padding-top:7px!important;padding-bottom:7px!important}
+@media(max-width:680px){
+  .sidebar{padding:9px 10px!important}
+  .brand{display:flex!important;margin:0 0 7px!important}
+  .logo{width:36px!important;height:36px!important;border-radius:9px!important}
+  .brand strong{font-size:13px!important}
+  .topbar{gap:10px!important}
+  .topbar p{display:none!important}
+  .top-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .top-actions .btn{width:100%!important}
+  .pro-hero{padding:18px!important}
+  .pro-hero-metrics{display:none!important}
+  .card-head{align-items:flex-start!important}
+  .table-wrap{border-radius:10px!important}
+  .form > .btn.primary{width:100%!important;justify-self:stretch!important}
+  .login-card{margin-top:4vh!important;padding:42px 16px 18px!important}
+  .login-card .row.two{grid-template-columns:1fr!important}
+  .login-actions .btn{width:100%!important}
+}
+
+@media(max-width:440px){
+  .sidebar nav{gap:5px!important}
+  .nav{font-size:12px!important;padding-inline:9px!important}
+  .top-actions{grid-template-columns:1fr!important}
+  .card{padding:13px!important}
+  .pro-hero{padding:16px!important}
+  .pro-hero h2{font-size:18px!important}
+  tbody td[colspan]{padding:24px 12px!important}
+}
+
+/* Respect OS-level motion preferences. */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    scroll-behavior:auto!important;
+    animation-duration:.001ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.001ms!important;
+  }
+}
