@@ -1,0 +1,118 @@
+@import url('/admin/admin-ux-v1.css?v=20260914-2');
+
+/* KK Phone Rental — Admin UX/UI Polish v2
+   Presentation-only refinement layered on top of v1.
+   No API, JS behavior, Sheet schema or business-rule changes. */
+
+:root{
+  --ux2-max:1600px;
+  --ux2-shadow-key:0 1px 2px rgba(15,23,42,.03),0 10px 28px rgba(15,23,42,.06);
+  --ux2-shadow-float:0 18px 42px rgba(15,23,42,.12);
+  --ux2-ring:0 0 0 3px rgba(37,99,235,.16);
+}
+
+.tab-panel{max-width:var(--ux2-max)!important;margin-inline:auto!important}
+#loginPanel{max-width:720px!important}
+.sidebar{border-right:1px solid rgba(148,163,184,.08)!important}
+.nav-section-label{opacity:.82!important}
+.nav{position:relative!important;letter-spacing:-.005em!important}
+.nav.active::after{content:"";position:absolute;right:8px;top:50%;width:5px;height:5px;border-radius:999px;background:#2563eb;transform:translateY(-50%)}
+.nav.muted{opacity:.82!important}
+.topbar{min-height:78px!important}
+.topbar h1{font-size:21px!important}
+.topbar p{max-width:680px!important}
+.top-actions .btn,.top-actions .top-badge{white-space:nowrap!important}
+#refreshBtn::before{content:"↻";font-size:14px;line-height:1}
+.card{transition:border-color .12s ease,box-shadow .12s ease!important}
+.card:hover{box-shadow:var(--ux2-shadow-key)!important}
+.pro-hero{padding:22px 24px!important;box-shadow:var(--ux2-shadow-float)!important}
+.pro-hero-copy{max-width:920px!important}
+.pro-hero-metrics{display:flex!important;flex-wrap:wrap!important}
+.quickbar{box-shadow:none!important}
+.action-card{border-left:3px solid #2563eb!important;box-shadow:var(--ux2-shadow-key)!important}
+.action-card .card-head{padding-bottom:10px!important;border-bottom:1px solid #eef2f7!important}
+.stat{position:relative!important;overflow:hidden!important}
+.stat::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:#dbeafe}
+.stat strong{font-variant-numeric:tabular-nums!important;letter-spacing:-.035em!important}
+.stat span{line-height:1.35!important}
+.form-title{gap:3px!important}
+.form-title + .hint{margin-top:-2px!important}
+.form > .row{position:relative!important}
+.form > .row + .row{padding-top:2px!important}
+label{line-height:1.35!important}
+input,select,textarea{caret-color:#2563eb!important}
+input:disabled,select:disabled,textarea:disabled{background:#f8fafc!important;color:#94a3b8!important;cursor:not-allowed!important}
+.check{align-self:end!important;min-height:40px!important}
+.form > .btn.primary{justify-self:start!important;min-width:142px!important}
+.btn.primary{box-shadow:0 1px 2px rgba(37,99,235,.18)!important}
+.btn.primary:hover{box-shadow:0 6px 14px rgba(37,99,235,.16)!important}
+.btn.ghost:hover{background:#f8fafc!important;border-color:#cbd5e1!important}
+.btn:active{transform:translateY(1px)!important}
+.btn:disabled{filter:saturate(.65)!important}
+.table-wrap{position:relative!important}
+th{top:0!important;z-index:2!important;box-shadow:0 1px 0 #e2e8f0!important}
+td{color:#334155!important}
+tbody tr{transition:background .1s ease!important}
+tbody tr:hover td{background:#f1f5ff!important}
+tbody td[colspan]{text-align:center!important;padding:30px 18px!important;color:#94a3b8!important;white-space:normal!important;font-size:12px!important;background:#fff!important}
+.table-wrap:focus-within{border-color:#bfdbfe!important;box-shadow:var(--ux2-ring)!important}
+.pill{letter-spacing:.01em!important}
+.mini-tools{gap:8px!important}
+.mini-control{font-weight:700!important}
+.mini-search{padding-left:12px!important}
+.mini-search::placeholder{color:#94a3b8!important}
+.notice{border-left-width:3px!important}
+.notice.ok{border-left-color:#16a34a!important}
+.notice.warn{border-left-color:#d97706!important}
+.notice.bad{border-left-color:#dc2626!important}
+#snapshotStatus{border-left:3px solid #64748b!important}
+.login-card{position:relative!important;overflow:hidden!important;padding-top:44px!important}
+.login-card::before{content:"SECURE ADMIN WORKSPACE";position:absolute;left:0;right:0;top:0;height:30px;display:flex;align-items:center;padding:0 18px;background:#0f172a;color:#cbd5e1;font-size:9px;font-weight:800;letter-spacing:.13em}
+.login-card .row.two{align-items:end!important}
+.login-actions .btn{min-width:132px!important}
+.tab-panel.active{animation:ux2PanelIn .14s ease-out!important}
+@keyframes ux2PanelIn{from{opacity:.72;transform:translateY(2px)}to{opacity:1;transform:none}}
+body.compact .topbar{min-height:68px!important;padding-top:12px!important;padding-bottom:12px!important}
+body.compact .card{border-radius:12px!important}
+body.compact table{font-size:11.5px!important}
+body.compact .form-note{padding:8px 10px!important}
+@media(max-width:980px){
+  .sidebar{position:sticky!important;top:0!important;z-index:30!important;padding:10px 12px!important}
+  .brand{margin-bottom:8px!important;padding-bottom:9px!important}
+  .brand span{display:none!important}
+  .sidebar nav{display:flex!important;grid-template-columns:none!important;gap:6px!important;overflow-x:auto!important;overscroll-behavior-x:contain!important;scroll-snap-type:x proximity!important;padding-bottom:2px!important}
+  .nav-section-label{display:none!important}
+  .nav{flex:0 0 auto!important;min-height:36px!important;padding:8px 10px!important;white-space:nowrap!important;scroll-snap-align:start!important}
+  .nav.muted{margin-top:0!important;border-top:0!important}
+  .topbar{position:relative!important}
+  .tab-panel{max-width:none!important}
+  .top-actions{width:100%!important;justify-content:flex-start!important}
+}
+@media(max-width:680px){
+  .sidebar{padding:9px 10px!important}
+  .brand{display:flex!important;margin:0 0 7px!important}
+  .logo{width:36px!important;height:36px!important;border-radius:9px!important}
+  .brand strong{font-size:13px!important}
+  .topbar{gap:10px!important}
+  .topbar p{display:none!important}
+  .top-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .top-actions .btn{width:100%!important}
+  .pro-hero{padding:18px!important}
+  .pro-hero-metrics{display:none!important}
+  .card-head{align-items:flex-start!important}
+  .table-wrap{border-radius:10px!important}
+  .form > .btn.primary{width:100%!important;justify-self:stretch!important}
+  .login-card{margin-top:4vh!important;padding:42px 16px 18px!important}
+  .login-card .row.two{grid-template-columns:1fr!important}
+  .login-actions .btn{width:100%!important}
+}
+@media(max-width:440px){
+  .sidebar nav{gap:5px!important}
+  .nav{font-size:12px!important;padding-inline:9px!important}
+  .top-actions{grid-template-columns:1fr!important}
+  .card{padding:13px!important}
+  .pro-hero{padding:16px!important}
+  .pro-hero h2{font-size:18px!important}
+  tbody td[colspan]{padding:24px 12px!important}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
