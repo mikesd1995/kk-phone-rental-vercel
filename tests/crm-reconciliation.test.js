@@ -59,10 +59,12 @@ test('multi-dataset reconciliation passes only when every runtime dataset matche
   assert.equal(x.code,'CRM_RECON_ALL_OK');
 });
 
-test('production analytics route remains v6 and covers all private v5 datasets',()=>{
+test('production analytics route remains session-protected v6 and covers all private v5 datasets',()=>{
   const vercel=JSON.parse(fs.readFileSync(path.join(__dirname,'..','vercel.json'),'utf8'));
   const route=(vercel.rewrites||[]).find(x=>x.source==='/api/kk-rental-dashboard');
-  assert.equal(route.destination,'/api/kk-rental-dashboard-v6');
+  assert.equal(route.destination,'/api/kk-rental-dashboard-session-proxy');
+  const sessionProxy=fs.readFileSync(path.join(__dirname,'..','api','kk-rental-dashboard-session-proxy.js'),'utf8');
+  assert.match(sessionProxy,/require\('\.\/kk-rental-dashboard-v6\.js'\)/);
   const source=fs.readFileSync(path.join(__dirname,'..','api','kk-rental-dashboard-v6.js'),'utf8');
   assert.match(source,/rental_dashboard_data/);
   assert.match(source,/event_archive/);
