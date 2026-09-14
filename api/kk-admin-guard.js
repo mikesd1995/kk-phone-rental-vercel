@@ -1,7 +1,7 @@
-// KK Phone Rental — Booking Reservation Hard Guard v2 + Event Create Integrity Guard v2
-// Booking writes get a fresh read-only snapshot preflight before delegating to the
-// existing Admin proxy. Event creation preflights duplicate identity and blocks
-// accidental past-dated events before any upstream business write.
+// KK Phone Rental — Booking Reservation Hard Guard v2 + Event Create Integrity Guard v3 Lean
+// Booking writes keep the existing fresh read-only snapshot preflight.
+// Event creation uses a bounded lightweight event index when completeness is proven,
+// and automatically falls back to the existing full snapshot guard on any uncertainty.
 
 const { Readable } = require('stream');
 const LegacyAdmin = require('./kk-admin.js');
@@ -9,10 +9,12 @@ const SnapshotHealth = require('../admin/snapshot-health.js');
 const ReservationGuard = require('../admin/reservation-guard.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
-const EVENT_GUARD_VERSION = 'event-create-integrity-2';
+const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
+const EVENT_FEED_TIMEOUT_MS = 6500;
+const EVENT_FEED_MIN_ROWS = 10;
 
 function reply(res,status,body){
   res.statusCode=status;
@@ -194,6 +196,102 @@ function prepareCreateEventPayload(payload){
   return {payload:next,publish_default_applied:missing};
 }
 
+function parseCsv(text){
+  const rows=[];
+  let row=[];
+  let cell='';
+  let quoted=false;
+  const input=String(text||'').replace(/^\uFEFF/,'');
+  for(let i=0;i<input.length;i++){
+    const ch=input[i];
+    if(quoted){
+      if(ch==='"'&&input[i+1]==='"'){ cell+='"'; i++; }
+      else if(ch==='"') quoted=false;
+      else cell+=ch;
+      continue;
+    }
+    if(ch==='"') quoted=true;
+    else if(ch===','){ row.push(cell); cell=''; }
+    else if(ch==='\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
+    else if(ch!=='\r') cell+=ch;
+  }
+  if(cell!==''||row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function gvizCsvUrl(sheetId,sheet,range){
+  const params=new URLSearchParams({tqx:'out:csv',sheet,range,t:String(Date.now())});
+  return 'https://docs.google.com/spreadsheets/d/'+encodeURIComponent(sheetId)+'/gviz/tq?'+params.toString();
+}
+
+async function fetchTextWithTimeout(url,timeoutMs){
+  const waitMs=Number(timeoutMs||EVENT_FEED_TIMEOUT_MS);
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),waitMs);
+  try{
+    const r=await fetch(url,{signal:controller.signal});
+    const text=await r.text();
+    if(!r.ok) throw new Error('event feed HTTP '+r.status);
+    if(/<!doctype html|<html/i.test(text)) throw new Error('event feed returned HTML');
+    return text;
+  }finally{ clearTimeout(timer); }
+}
+
+function eventRowsFromCsv(text){
+  const rows=parseCsv(text).filter(r=>r.some(v=>String(v||'').trim()));
+  if(!rows.length) throw new Error('event feed is empty');
+  const header=rows[0].map(v=>String(v||'').trim().toLowerCase());
+  const id=header.indexOf('event_id');
+  const name=header.indexOf('event_name');
+  const eventDate=header.indexOf('event_date')>=0?header.indexOf('event_date'):header.indexOf('event_date_text');
+  const venue=header.indexOf('venue');
+  const action=header.indexOf('action_for_web');
+  if(id<0||name<0||eventDate<0||venue<0) throw new Error('event feed header mismatch');
+  return rows.slice(1)
+    .filter(r=>String(r[id]||'').trim())
+    .map(r=>({
+      event_id:String(r[id]||'').trim(),
+      event_name:r[name]||'',
+      event_date:r[eventDate]||'',
+      venue:r[venue]||'',
+      active_on_web:action>=0?String(r[action]||'').trim().toLowerCase()!=='hide':undefined,
+      status:''
+    }));
+}
+
+function sourceEventCountFromCsv(text){
+  const rows=parseCsv(text);
+  const hit=rows.find(r=>String(r[0]||'').trim().toLowerCase()==='source count — events'.toLowerCase());
+  if(!hit) throw new Error('event source-count row missing');
+  const n=Number(String(hit[1]||'').replace(/,/g,'').trim());
+  if(!Number.isFinite(n)||n<0||Math.floor(n)!==n) throw new Error('event source-count invalid');
+  return n;
+}
+
+function validateLeanEventIndex(events,expected){
+  if(!Array.isArray(events)) throw new Error('event index invalid');
+  if(events.length<EVENT_FEED_MIN_ROWS) throw new Error('event index unexpectedly small: '+events.length);
+  if(Number(expected)!==events.length) throw new Error('event index/source count mismatch: '+events.length+'/'+expected);
+  const ids=new Set();
+  for(const event of events){
+    const id=String(event&&event.event_id||'').trim();
+    if(!id) throw new Error('event index row missing event_id');
+    if(ids.has(id)) throw new Error('event index duplicate event_id: '+id);
+    ids.add(id);
+  }
+  return {events,expected:Number(expected)};
+}
+
+async function fetchLeanEventIndex(sheetId){
+  const startedAt=Date.now();
+  const [eventCsv,healthCsv]=await Promise.all([
+    fetchTextWithTimeout(gvizCsvUrl(sheetId,'08_Web_Ready','A4:J500'),EVENT_FEED_TIMEOUT_MS),
+    fetchTextWithTimeout(gvizCsvUrl(sheetId,'10_Admin_Health_Check','A4:B40'),EVENT_FEED_TIMEOUT_MS)
+  ]);
+  const checked=validateLeanEventIndex(eventRowsFromCsv(eventCsv),sourceEventCountFromCsv(healthCsv));
+  return {events:checked.events,expected:checked.expected,latency_ms:Date.now()-startedAt};
+}
+
 module.exports=async function handler(req,res){
   if(req.method!=='POST') return LegacyAdmin(req,res);
 
@@ -233,14 +331,29 @@ module.exports=async function handler(req,res){
   const sheetId=envSheetId||DEFAULT_SHEET_ID;
   if(!scriptUrl||!apiKey) return reply(res,503,{ok:false,error:(bookingGuarded?'Booking':'Event')+' preflight unavailable: Admin upstream is not configured',error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'});
 
-  let snapshot;
-  try{
-    snapshot=await fetchFreshSnapshot({scriptUrl,apiKey,sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},eventGuarded?30000:18000);
-  }catch(err){
-    return reply(res,503,{ok:false,error:(bookingGuarded?'Booking':'Event')+' preflight unavailable; write blocked: '+(err&&err.message?err.message:String(err)),error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'});
-  }
-
   if(eventGuarded){
+    let snapshot;
+    let preflightMode='LEAN_GVIZ';
+    let preflightMs=0;
+    try{
+      const lean=await fetchLeanEventIndex(sheetId);
+      snapshot={events:lean.events};
+      preflightMs=lean.latency_ms;
+      res.setHeader('X-KK-Event-Preflight-Rows',String(lean.events.length));
+    }catch(leanErr){
+      preflightMode='FULL_SNAPSHOT_FALLBACK';
+      const fallbackStartedAt=Date.now();
+      try{
+        snapshot=await fetchFreshSnapshot({scriptUrl,apiKey,sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},30000);
+        preflightMs=Date.now()-fallbackStartedAt;
+        res.setHeader('X-KK-Event-Preflight-Fallback',String(leanErr&&leanErr.message?leanErr.message:leanErr).slice(0,180));
+      }catch(err){
+        return reply(res,503,{ok:false,error:'Event preflight unavailable; write blocked: '+(err&&err.message?err.message:String(err)),error_code:'EVENT_PREFLIGHT_UNAVAILABLE'});
+      }
+    }
+
+    res.setHeader('X-KK-Event-Preflight',preflightMode);
+    res.setHeader('X-KK-Event-Preflight-MS',String(preflightMs));
     const duplicate=findDuplicateEvent(snapshot,payload);
     if(duplicate){
       const active=duplicate.active_on_web!==false&&String(duplicate.active_on_web||'').toLowerCase()!=='false';
@@ -256,13 +369,21 @@ module.exports=async function handler(req,res){
           active_on_web:duplicate.active_on_web,
           status:duplicate.status
         },
-        recommended_action:'updateEvent'
+        recommended_action:'updateEvent',
+        preflight_mode:preflightMode
       });
     }
     const prepared=prepareCreateEventPayload(payload);
     if(prepared.publish_default_applied) res.setHeader('X-KK-Event-Publish-Default','TRUE');
     res.setHeader('X-KK-Event-Guard','PASS');
     return LegacyAdmin(clonedRequest(req,JSON.stringify(prepared.payload)),res);
+  }
+
+  let snapshot;
+  try{
+    snapshot=await fetchFreshSnapshot({scriptUrl,apiKey,sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},18000);
+  }catch(err){
+    return reply(res,503,{ok:false,error:'Booking preflight unavailable; write blocked: '+(err&&err.message?err.message:String(err)),error_code:'BOOKING_PREFLIGHT_UNAVAILABLE'});
   }
 
   let assessment;
@@ -280,4 +401,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(clonedRequest(req,raw),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex};
