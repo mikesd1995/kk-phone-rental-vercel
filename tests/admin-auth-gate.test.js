@@ -10,6 +10,7 @@ const auth=require('../api/lib/admin-session.js');
 const proxy=require('../api/lib/admin-session-proxy.js');
 const authEndpoint=require('../api/kk-admin-auth.js');
 const adminApp=require('../api/kk-admin-app.js');
+const adminStatic=require('../api/kk-admin-static.js');
 
 function read(rel){ return fs.readFileSync(path.join(root,rel),'utf8'); }
 
@@ -134,20 +135,35 @@ test('signed-in admin HTML always receives the session bridge before legacy admi
   assert.ok(healthPos<adminPos);
 });
 
-test('routing sends public admin to minimal gate and protected app/API to session-aware handlers',()=>{
+test('admin asset proxy rejects traversal and normalizes safe paths',()=>{
+  assert.equal(adminStatic._test.cleanRelative('admin.js'),'admin.js');
+  assert.equal(adminStatic._test.cleanRelative('nested/file.css'),'nested/file.css');
+  assert.equal(adminStatic._test.cleanRelative('../package.json'),'');
+  assert.equal(adminStatic._test.cleanRelative('%2e%2e%2fpackage.json'),'');
+  assert.equal(adminStatic._test.cleanRelative('..\\package.json'),'');
+  assert.equal(adminStatic._test.contentType('x.js'),'application/javascript; charset=utf-8');
+});
+
+test('routing sends public admin to minimal gate and protected app/assets/APIs to session-aware handlers',()=>{
   const config=JSON.parse(read('vercel.json'));
   const rewrites=new Map(config.rewrites.map(x=>[x.source,x.destination]));
   assert.equal(rewrites.get('/admin'),'/admin-login.html');
   assert.equal(rewrites.get('/admin/'),'/admin-login.html');
   assert.equal(rewrites.get('/admin/app'),'/api/kk-admin-app');
+  assert.equal(rewrites.get('/admin/:path*'),'/api/kk-admin-static?path=:path*');
   assert.equal(rewrites.get('/api/kk-admin'),'/api/kk-admin-session-proxy');
   assert.equal(rewrites.get('/api/kk-rental-dashboard'),'/api/kk-rental-dashboard-session-proxy');
 
-  const middleware=read('middleware.ts');
-  assert.match(middleware,/matcher:\['\/admin','\/admin\/:path\*'\]/);
-  assert.match(middleware,/__Host-kk_admin_session/);
-  assert.match(middleware,/url\.pathname==='\/admin\/index\.html'/);
-  assert.match(middleware,/new URL\('\/admin\/app'/);
+  const staticSource=read('api/kk-admin-static.js');
+  assert.match(staticSource,/auth\.hasValidSession\(req\)/);
+  assert.match(staticSource,/rel==='index\.html'/);
+  assert.equal(fs.existsSync(path.join(root,'middleware.ts')),false);
+});
+
+test('admin app and asset functions include protected static files in their Vercel bundles',()=>{
+  const config=JSON.parse(read('vercel.json'));
+  assert.equal(config.functions['api/kk-admin-app.js'].includeFiles,'admin/**');
+  assert.equal(config.functions['api/kk-admin-static.js'].includeFiles,'admin/**');
 });
 
 test('security headers keep admin surfaces uncacheable, unindexed and non-frameable',()=>{
