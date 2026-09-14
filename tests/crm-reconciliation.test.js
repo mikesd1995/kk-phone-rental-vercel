@@ -40,14 +40,37 @@ test('CSV parser preserves quoted values',()=>{
   assert.deepEqual(rows,[['a','b'],['x,y','z"q']]);
 });
 
-test('production analytics route remains v6 with reconciliation guard',()=>{
+test('multi-dataset reconciliation blocks when any private runtime dataset differs',()=>{
+  const ok=recon.compare(base,base,{requireData:true});
+  const bad=recon.compare([['event_id'],['E1']],[['event_id'],['E2']],{requireData:false});
+  const x=recon.combine({rental_dashboard_data:ok,event_archive:bad});
+  assert.equal(x.ok,false);
+  assert.equal(x.failed_dataset,'event_archive');
+  assert.equal(x.code,'CRM_RECON_HASH_MISMATCH');
+  assert.equal(x.datasets.rental_dashboard_data.ok,true);
+  assert.equal(x.datasets.event_archive.ok,false);
+});
+
+test('multi-dataset reconciliation passes only when every runtime dataset matches',()=>{
+  const a=recon.compare(base,base,{requireData:true});
+  const b=recon.compare([['event_id'],['E1']],[['event_id'],['E1']],{requireData:false});
+  const x=recon.combine({rental_dashboard_data:a,event_archive:b});
+  assert.equal(x.ok,true);
+  assert.equal(x.code,'CRM_RECON_ALL_OK');
+});
+
+test('production analytics route remains v6 and covers all private v5 datasets',()=>{
   const vercel=JSON.parse(fs.readFileSync(path.join(__dirname,'..','vercel.json'),'utf8'));
   const route=(vercel.rewrites||[]).find(x=>x.source==='/api/kk-rental-dashboard');
   assert.equal(route.destination,'/api/kk-rental-dashboard-v6');
   const source=fs.readFileSync(path.join(__dirname,'..','api','kk-rental-dashboard-v6.js'),'utf8');
-  assert.match(source,/crmReconciliation\.compare/);
+  assert.match(source,/rental_dashboard_data/);
+  assert.match(source,/event_archive/);
+  assert.match(source,/13_Event_Archive/);
+  assert.match(source,/crmReconciliation\.combine/);
   assert.match(source,/coreFallback/);
   const health=fs.readFileSync(path.join(__dirname,'..','api','kk-intelligence-health.js'),'utf8');
+  assert.match(health,/reconciliation_datasets/);
   assert.match(health,/READY_PRIVATE_READ_RECONCILED/);
   assert.match(health,/private_analytics_eligible:eligible/);
 });
