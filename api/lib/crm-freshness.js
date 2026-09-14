@@ -29,7 +29,7 @@ function normalizeTimestamp(value){
 function assessManifest(values,{nowMs=Date.now(),maxAgeMin=30}={}){
   const manifest=manifestMap(values);
   const sync=manifest.last_synced_at||null;
-  const syncState=String((manifest.sync_state&&manifest.sync_state.value)||(manifest.auto_sync&&manifest.auto_sync.value)||'').trim().toUpperCase();
+  const syncState=String((manifest.sync_state&&manifest.sync_state.value)||(manifest.auto_sync&&manifest.auto_sync.value)||(sync&&sync.status)||'').trim().toUpperCase();
   const ts=sync?normalizeTimestamp(sync.value):null;
   const base={
     manifest,
