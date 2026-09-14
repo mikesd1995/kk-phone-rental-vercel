@@ -48,11 +48,31 @@ test('explicit non-ready sync state blocks an otherwise recent snapshot',()=>{
   assert.equal(x.code,'CRM_SYNC_STATE_NOT_READY');
 });
 
-test('max staleness configuration is bounded',()=>{
+test('max staleness configuration is bounded and defaults to hourly-safe 75 minutes',()=>{
+  assert.equal(freshness.maxAgeMinutes({}),75);
   assert.equal(freshness.maxAgeMinutes({KK_CRM_MAX_STALENESS_MINUTES:'2'}),5);
   assert.equal(freshness.maxAgeMinutes({KK_CRM_MAX_STALENESS_MINUTES:'45'}),45);
   assert.equal(freshness.maxAgeMinutes({KK_CRM_MAX_STALENESS_MINUTES:'9999'}),1440);
-  assert.equal(freshness.maxAgeMinutes({KK_CRM_MAX_STALENESS_MINUTES:'x'}),30);
+  assert.equal(freshness.maxAgeMinutes({KK_CRM_MAX_STALENESS_MINUTES:'x'}),75);
+});
+
+test('default freshness window covers the hourly :10 verified sync cadence',()=>{
+  const now=Date.parse('2026-09-15T03:10:00+07:00');
+  const x=freshness.assessManifest(manifest('2026-09-15T02:05:00+07:00','SYNCED'),{nowMs:now});
+  assert.equal(x.fresh,true);
+  assert.equal(x.code,'CRM_SYNC_FRESH');
+  assert.equal(x.age_minutes,65);
+  assert.equal(x.max_age_minutes,75);
+});
+
+test('descriptive auto_sync value does not override a SYNCED last_synced_at status',()=>{
+  const now=Date.parse('2026-09-15T03:10:00+07:00');
+  const rows=manifest('2026-09-15T03:07:49+07:00','SYNCED');
+  rows.splice(4,0,['auto_sync','CHATGPT_TASK_HOURLY','ACTIVE_RUNTIME_PROVEN','']);
+  const x=freshness.assessManifest(rows,{nowMs:now});
+  assert.equal(x.sync_state,'SYNCED');
+  assert.equal(x.fresh,true);
+  assert.equal(x.code,'CRM_SYNC_FRESH');
 });
 
 test('production analytics route is freshness-gated through v6',()=>{

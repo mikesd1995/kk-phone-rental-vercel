@@ -1,5 +1,7 @@
 'use strict';
 
+const DEFAULT_MAX_AGE_MINUTES=75;
+
 function manifestMap(values){
   const out={};
   for(const row of (values||[]).slice(1)){
@@ -11,8 +13,8 @@ function manifestMap(values){
 }
 
 function maxAgeMinutes(env=process.env){
-  const raw=Number(String((env&&env.KK_CRM_MAX_STALENESS_MINUTES)||'30').trim());
-  if(!Number.isFinite(raw)) return 30;
+  const raw=Number(String((env&&env.KK_CRM_MAX_STALENESS_MINUTES)||String(DEFAULT_MAX_AGE_MINUTES)).trim());
+  if(!Number.isFinite(raw)) return DEFAULT_MAX_AGE_MINUTES;
   return Math.min(1440,Math.max(5,Math.round(raw)));
 }
 
@@ -26,10 +28,19 @@ function normalizeTimestamp(value){
   return Number.isFinite(n)?n:null;
 }
 
-function assessManifest(values,{nowMs=Date.now(),maxAgeMin=30}={}){
+function resolveSyncState(manifest,sync){
+  const explicit=String((manifest.sync_state&&manifest.sync_state.value)||'').trim().toUpperCase();
+  if(explicit) return explicit;
+  const rowStatus=String((sync&&sync.status)||'').trim().toUpperCase();
+  if(rowStatus) return rowStatus;
+  const legacy=String((manifest.auto_sync&&manifest.auto_sync.status)||'').trim().toUpperCase();
+  return legacy;
+}
+
+function assessManifest(values,{nowMs=Date.now(),maxAgeMin=DEFAULT_MAX_AGE_MINUTES}={}){
   const manifest=manifestMap(values);
   const sync=manifest.last_synced_at||null;
-  const syncState=String((manifest.sync_state&&manifest.sync_state.value)||(manifest.auto_sync&&manifest.auto_sync.value)||(sync&&sync.status)||'').trim().toUpperCase();
+  const syncState=resolveSyncState(manifest,sync);
   const ts=sync?normalizeTimestamp(sync.value):null;
   const base={
     manifest,
@@ -49,4 +60,4 @@ function assessManifest(values,{nowMs=Date.now(),maxAgeMin=30}={}){
   return Object.assign(base,{fresh:true,code:'CRM_SYNC_FRESH'});
 }
 
-module.exports={manifestMap,maxAgeMinutes,normalizeTimestamp,assessManifest};
+module.exports={DEFAULT_MAX_AGE_MINUTES,manifestMap,maxAgeMinutes,normalizeTimestamp,resolveSyncState,assessManifest};
