@@ -1,6 +1,7 @@
 // KK Phone Rental — Snapshot Contract Classifier v6
-// Thin safety wrapper over v5. Does not handle secrets or business data directly.
+// Thin safety wrapper over v5 plus signed Admin session gate.
 const V5 = require('./kk-admin-snapshot-v5.js');
+const AdminSecurity = require('../server/admin-session.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-contract-repair-v6';
 const REQUIRED = ['events','bookings','current_bookings','assets'];
@@ -48,6 +49,10 @@ function enrich(body){
 }
 
 module.exports=async function handler(req,res){
+  const gate=AdminSecurity.gateMode(req);
+  if(gate) return AdminSecurity.handleGate(req,res,gate);
+  if(!AdminSecurity.authorizeApi(req,res)) return;
+
   const action=requestAction(req);
   let raw='';
   const originalEnd=res.end.bind(res);
