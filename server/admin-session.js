@@ -167,6 +167,10 @@ async function bodyOf(req){
 }
 
 function gateMode(req){
+  if(req&&req.query&&req.query.__kk_gate!==undefined){
+    const raw=Array.isArray(req.query.__kk_gate)?req.query.__kk_gate[0]:req.query.__kk_gate;
+    return String(raw||'').trim().toLowerCase();
+  }
   try{
     const u=new URL(req&&req.url||'/','http://localhost');
     return String(u.searchParams.get('__kk_gate')||'').trim().toLowerCase();
