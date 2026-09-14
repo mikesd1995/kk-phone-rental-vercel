@@ -8,6 +8,14 @@ test('event dates normalize to one identity day',()=>{
   assert.equal(T.normalizeEventDate('15/09/2569'),'2026-09-15');
 });
 
+test('Bangkok event guard identifies accidental past dates without blocking today or future dates',()=>{
+  const now=new Date('2026-09-14T09:53:00Z'); // 16:53 in Bangkok
+  assert.equal(T.bangkokTodayISO(now),'2026-09-14');
+  assert.equal(T.isPastEventDate('17/06/2026',now),true);
+  assert.equal(T.isPastEventDate('14/09/2026',now),false);
+  assert.equal(T.isPastEventDate('17/09/2026',now),false);
+});
+
 test('duplicate finder catches same event/date/venue even when hidden',()=>{
   const e={event_id:'EVT-OLD',event_name:'LABX GRAND OPENING DEXX THE EXPERIENCE 4TH ANNIVERSARY',event_date:'15/09/2026',venue:'centralwOrld',active_on_web:false};
   const found=T.findDuplicateEvent({events:[e]},{event_name:e.event_name,event_date:'2026-09-15',venue:'centralworld'});
