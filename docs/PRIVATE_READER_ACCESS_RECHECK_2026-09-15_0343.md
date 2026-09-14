@@ -1,6 +1,7 @@
 # KK Phone Rental — Private Reader Access Recheck
 
 Time: 2026-09-15 03:43 Asia/Bangkok
+Updated: 2026-09-15 03:49 Asia/Bangkok
 
 ## Purpose
 
@@ -18,14 +19,32 @@ This cross-check makes a project-name mismatch unlikely.
 
 ## Live Vercel authorization recheck
 
-A direct Vercel project lookup was attempted with:
+The following live checks were performed against the connected Vercel integration:
 
-- project slug: `kk-phone-rental-vercel`
-- team/workspace slug: `mikesd1995s-projects`
+1. Team/workspace listing returned no accessible teams.
+2. Direct Agent Runs project discovery for `mikesd1995s-projects` returned **403 Forbidden** with `You don't have permission to access this resource.`
+3. Direct project lookup using:
+   - project slug: `kk-phone-rental-vercel`
+   - team/workspace slug: `mikesd1995s-projects`
+   returned **403 Forbidden**.
 
-Result: **403 Forbidden**.
+This is stronger evidence than an empty team listing alone: the request path resolves to the expected workspace/project context, while the connected identity is not authorized to inspect it.
 
-This is stronger evidence than an empty team listing: the Vercel integration can resolve the request path but the connected identity is not authorized to read that project/workspace.
+## Deployment pipeline cross-check
+
+The latest repository commit at the time of this recheck was:
+
+- `030cc6be0f9cf7ea1578cd9fb6c98e89514c717e` — `Record Vercel private reader access recheck`
+
+GitHub's combined commit status reports:
+
+- context: `Vercel`
+- state: `success`
+- target workspace/project path: `mikesd1995s-projects/kk-phone-rental-vercel`
+
+This proves the GitHub→Vercel deployment integration is functioning and that the workspace/project identity is correct. It does **not** prove Private Reader environment credentials are configured, nor does it prove authenticated Private Reader runtime acceptance. Those still require authorized Vercel project/env/log access or an authenticated production health check.
+
+No GitHub Actions workflow run was associated with this docs-only commit; the successful deployment evidence comes from the Vercel commit status.
 
 ## Corroborating repository evidence
 
@@ -48,23 +67,38 @@ The following remain intentionally unchanged:
 - No Booking/Event/Asset/Package/Pricing/Web/Settings/Operations data was modified.
 - No Apps Script was modified or deployed.
 
+## What improved in this recheck
+
+Before this update, the evidence established only that the connected Vercel identity could not inspect the project. This update adds an independent deployment-side proof:
+
+- the project identity is now corroborated by GitHub's successful Vercel deployment status;
+- the deployment pipeline itself is proven healthy;
+- the remaining issue is narrowed to Vercel connector authorization for project/env/log inspection;
+- no evidence currently points to a deployment failure, CRM synchronization failure, or Private Reader code defect.
+
+This materially reduces the remaining diagnostic scope and avoids unnecessary changes to working production components.
+
 ## Required next gate
 
 Production Private Reader acceptance can continue only after the Vercel connection is authorized for the workspace/project. Then perform, in order:
 
-1. verify production deployment identity;
+1. verify production deployment identity and currently promoted deployment;
 2. verify required env names without exposing secret values;
 3. verify `KK_CRM_SHEET_ID` and supported read-only service-account credential presence;
 4. run authenticated `/api/kk-intelligence-health`;
 5. require fresh manifest + successful Core↔CRM runtime reconciliation + `private_analytics_eligible=true`;
 6. verify normal Rental Analytics reports `data_source.mode=crm_private`;
 7. run a controlled strict-private acceptance test;
-8. only after all checks pass, advance private-reader acceptance state.
+8. restore intended production strictness after the controlled test;
+9. only after all checks pass, advance private-reader acceptance state.
 
 ## Changes made in this recheck
 
 - Re-resolved the target Vercel project from independent repository evidence.
-- Performed a direct project authorization test and captured the 403 result.
-- Cross-checked the same Vercel-access limitation against the current Admin hardening PR.
+- Repeated live Vercel authorization checks at team, Agent Runs discovery and direct-project levels.
+- Captured explicit 403 authorization failures.
+- Verified the latest GitHub commit has Vercel deployment status `success`.
+- Confirmed the successful deployment status targets the same `mikesd1995s-projects/kk-phone-rental-vercel` workspace/project identity.
+- Checked for associated GitHub Actions workflow runs; none were present for the docs-only commit.
 - Preserved all production fail-safe states and data.
-- Added this audit record only.
+- Updated this audit record only; no production env, spreadsheet dataset, credential, Apps Script or transactional-data change was made.
