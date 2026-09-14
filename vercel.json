@@ -126,17 +126,18 @@
     },
     {
       "source": "/admin/app",
-      "destination": "/admin/index.html"
+      "destination": "/api/kk-admin-app"
     },
     {
       "source": "/admin/app/",
-      "destination": "/admin/index.html"
+      "destination": "/api/kk-admin-app"
     }
   ],
   "functions": {
     "api/kk-admin.js": { "maxDuration": 60 },
     "api/kk-admin-guard.js": { "maxDuration": 60 },
     "api/kk-admin-auth.js": { "maxDuration": 10 },
+    "api/kk-admin-app.js": { "maxDuration": 10 },
     "api/kk-admin-session-proxy.js": { "maxDuration": 60 },
     "api/kk-admin-snapshot-v5.js": { "maxDuration": 60 },
     "api/kk-admin-snapshot-v6.js": { "maxDuration": 60 },
