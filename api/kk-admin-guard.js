@@ -1,7 +1,7 @@
-// KK Phone Rental — Booking Reservation Hard Guard v2 + Event Create Integrity Guard v1
+// KK Phone Rental — Booking Reservation Hard Guard v2 + Event Create Integrity Guard v2
 // Booking writes get a fresh read-only snapshot preflight before delegating to the
-// existing Admin proxy. Event creation also preflights duplicate identity so an
-// already-created hidden event is edited instead of being duplicated with a --2 ID.
+// existing Admin proxy. Event creation preflights duplicate identity and blocks
+// accidental past-dated events before any upstream business write.
 
 const { Readable } = require('stream');
 const LegacyAdmin = require('./kk-admin.js');
@@ -9,7 +9,7 @@ const SnapshotHealth = require('../admin/snapshot-health.js');
 const ReservationGuard = require('../admin/reservation-guard.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
-const EVENT_GUARD_VERSION = 'event-create-integrity-1';
+const EVENT_GUARD_VERSION = 'event-create-integrity-2';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
@@ -157,6 +157,20 @@ function normalizeEventDate(value){
   return isNaN(d)?'':d.toISOString().slice(0,10);
 }
 
+function bangkokTodayISO(now){
+  const d=now instanceof Date?now:new Date(now||Date.now());
+  const parts=new Intl.DateTimeFormat('en-US',{
+    timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'
+  }).formatToParts(d);
+  const get=type=>parts.find(p=>p.type===type)?.value||'';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+function isPastEventDate(value,now){
+  const eventDate=normalizeEventDate(value);
+  return !!eventDate && eventDate<bangkokTodayISO(now);
+}
+
 function findDuplicateEvent(snapshot,payload){
   const wantedName=normalizeIdentityText(payload&&payload.event_name);
   const wantedDate=normalizeEventDate(payload&&payload.event_date);
@@ -201,6 +215,17 @@ module.exports=async function handler(req,res){
   const providedPin=String(req.headers&&req.headers['x-admin-pin']||'').trim();
   if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'});
   if(providedPin!==adminPin) return reply(res,401,{ok:false,error:'Invalid admin PIN'});
+
+  if(eventGuarded&&isPastEventDate(payload.event_date)){
+    return reply(res,422,{
+      ok:false,
+      error:'วันที่งานเป็นอดีต กรุณาตรวจวัน/เดือน/ปีอีกครั้งก่อนสร้างงาน',
+      error_code:'EVENT_DATE_IN_PAST',
+      event_date:normalizeEventDate(payload.event_date),
+      today_bangkok:bangkokTodayISO(),
+      recommended_action:'correctEventDate'
+    });
+  }
 
   const scriptUrl=String(process.env.KK_ADMIN_SCRIPT_URL||'').trim();
   const apiKey=String(process.env.KK_ADMIN_API_KEY||'').trim();
@@ -255,4 +280,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(clonedRequest(req,raw),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,normalizeIdentityText,normalizeEventDate,findDuplicateEvent,prepareCreateEventPayload};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload};
