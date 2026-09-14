@@ -1,6 +1,7 @@
-// KK Phone Rental — Booking Reservation Hard Guard v2
-// Wrapper for /api/kk-admin. Booking writes get a fresh read-only snapshot preflight
-// before delegating to the existing Admin proxy. Non-booking actions are unchanged.
+// KK Phone Rental — Booking Reservation Hard Guard v2 + Event Create Integrity Guard v1
+// Booking writes get a fresh read-only snapshot preflight before delegating to the
+// existing Admin proxy. Event creation also preflights duplicate identity so an
+// already-created hidden event is edited instead of being duplicated with a --2 ID.
 
 const { Readable } = require('stream');
 const LegacyAdmin = require('./kk-admin.js');
@@ -8,15 +9,18 @@ const SnapshotHealth = require('../admin/snapshot-health.js');
 const ReservationGuard = require('../admin/reservation-guard.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
+const EVENT_GUARD_VERSION = 'event-create-integrity-1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
-const GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
+const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
+const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 
 function reply(res,status,body){
   res.statusCode=status;
   res.setHeader('Content-Type','application/json; charset=utf-8');
   res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
   res.setHeader('X-KK-Booking-Guard-Version',GUARD_VERSION);
-  res.end(JSON.stringify(Object.assign({guard_version:GUARD_VERSION},body||{})));
+  res.setHeader('X-KK-Event-Guard-Version',EVENT_GUARD_VERSION);
+  res.end(JSON.stringify(Object.assign({guard_version:GUARD_VERSION,event_guard_version:EVENT_GUARD_VERSION},body||{})));
 }
 
 function readBody(req){
@@ -39,9 +43,10 @@ function clonedRequest(req,raw){
   return clone;
 }
 
-async function fetchFreshSnapshot(env){
+async function fetchFreshSnapshot(env,timeoutMs){
+  const waitMs=Number(timeoutMs||18000);
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),18000);
+  const timer=setTimeout(()=>controller.abort(),waitMs);
   try{
     const r=await fetch(env.scriptUrl,{
       method:'POST',
@@ -119,6 +124,62 @@ function evaluate(snapshot,payload){
   return {proposal,result:ReservationGuard.preflight(snapshot,proposal,{defaultEndHour:ReservationGuard.DEFAULT_END_HOUR})};
 }
 
+function normalizeIdentityText(value){
+  return String(value===undefined||value===null?'':value)
+    .normalize('NFKC')
+    .trim()
+    .toLocaleLowerCase('en-US')
+    .replace(/[\s\-_.,/\\()[\]{}:;'"`]+/g,'');
+}
+
+function normalizeEventDate(value){
+  if(value instanceof Date&&!isNaN(value)) return value.toISOString().slice(0,10);
+  const raw=String(value===undefined||value===null?'':value).trim();
+  if(!raw) return '';
+  if(/^\d+(?:\.\d+)?$/.test(raw)){
+    const n=Number(raw);
+    if(n>1000&&n<100000){
+      const ms=Date.UTC(1899,11,30)+Math.round(n*86400000);
+      return new Date(ms).toISOString().slice(0,10);
+    }
+  }
+  let m=raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if(m){
+    let y=Number(m[1]); if(y>2500)y-=543;
+    return `${String(y).padStart(4,'0')}-${String(Number(m[2])).padStart(2,'0')}-${String(Number(m[3])).padStart(2,'0')}`;
+  }
+  m=raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if(m){
+    let y=Number(m[3]); if(y>2500)y-=543;
+    return `${String(y).padStart(4,'0')}-${String(Number(m[2])).padStart(2,'0')}-${String(Number(m[1])).padStart(2,'0')}`;
+  }
+  const d=new Date(raw);
+  return isNaN(d)?'':d.toISOString().slice(0,10);
+}
+
+function findDuplicateEvent(snapshot,payload){
+  const wantedName=normalizeIdentityText(payload&&payload.event_name);
+  const wantedDate=normalizeEventDate(payload&&payload.event_date);
+  const wantedVenue=normalizeIdentityText(payload&&payload.venue);
+  if(!wantedName||!wantedDate) return null;
+  return (snapshot.events||[]).find(event=>{
+    if(normalizeIdentityText(event&&event.event_name)!==wantedName) return false;
+    if(normalizeEventDate(event&&event.event_date)!==wantedDate) return false;
+    const existingVenue=normalizeIdentityText(event&&event.venue);
+    // Same name + same date is already highly specific. When both venues are known,
+    // require venue equality to avoid blocking legitimately distinct same-day venues.
+    if(wantedVenue&&existingVenue&&wantedVenue!==existingVenue) return false;
+    return true;
+  })||null;
+}
+
+function prepareCreateEventPayload(payload){
+  const next=Object.assign({},payload||{});
+  const missing=!Object.prototype.hasOwnProperty.call(next,'active_on_web')||next.active_on_web===null||next.active_on_web==='';
+  if(missing) next.active_on_web=true;
+  return {payload:next,publish_default_applied:missing};
+}
+
 module.exports=async function handler(req,res){
   if(req.method!=='POST') return LegacyAdmin(req,res);
 
@@ -129,26 +190,59 @@ module.exports=async function handler(req,res){
   let payload;
   try{ payload=raw?JSON.parse(raw):{}; }
   catch(_){ return LegacyAdmin(clonedRequest(req,raw),res); }
-  if(!payload||typeof payload!=='object'||Array.isArray(payload)||!GUARDED_ACTIONS.has(String(payload.action||''))){
+  const action=String(payload&&payload.action||'');
+  const bookingGuarded=BOOKING_GUARDED_ACTIONS.has(action);
+  const eventGuarded=EVENT_GUARDED_ACTIONS.has(action);
+  if(!payload||typeof payload!=='object'||Array.isArray(payload)||(!bookingGuarded&&!eventGuarded)){
     return LegacyAdmin(clonedRequest(req,raw),res);
   }
 
   const adminPin=String(process.env.KK_ADMIN_PIN||'').trim();
   const providedPin=String(req.headers&&req.headers['x-admin-pin']||'').trim();
-  if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:'BOOKING_PREFLIGHT_UNAVAILABLE'});
+  if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'});
   if(providedPin!==adminPin) return reply(res,401,{ok:false,error:'Invalid admin PIN'});
 
   const scriptUrl=String(process.env.KK_ADMIN_SCRIPT_URL||'').trim();
   const apiKey=String(process.env.KK_ADMIN_API_KEY||'').trim();
   const envSheetId=String(process.env.GOOGLE_SHEET_ID||'').trim();
   const sheetId=envSheetId||DEFAULT_SHEET_ID;
-  if(!scriptUrl||!apiKey) return reply(res,503,{ok:false,error:'Booking preflight unavailable: Admin upstream is not configured',error_code:'BOOKING_PREFLIGHT_UNAVAILABLE'});
+  if(!scriptUrl||!apiKey) return reply(res,503,{ok:false,error:(bookingGuarded?'Booking':'Event')+' preflight unavailable: Admin upstream is not configured',error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'});
+
+  let snapshot;
+  try{
+    snapshot=await fetchFreshSnapshot({scriptUrl,apiKey,sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},eventGuarded?30000:18000);
+  }catch(err){
+    return reply(res,503,{ok:false,error:(bookingGuarded?'Booking':'Event')+' preflight unavailable; write blocked: '+(err&&err.message?err.message:String(err)),error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'});
+  }
+
+  if(eventGuarded){
+    const duplicate=findDuplicateEvent(snapshot,payload);
+    if(duplicate){
+      const active=duplicate.active_on_web!==false&&String(duplicate.active_on_web||'').toLowerCase()!=='false';
+      return reply(res,409,{
+        ok:false,
+        error:'มีงานชื่อนี้ในวันเดียวกันอยู่แล้ว กรุณาแก้ Event เดิมแทนการสร้างซ้ำ'+(active?'':' (Event เดิมยังซ่อนจากเว็บอยู่)'),
+        error_code:'EVENT_DUPLICATE',
+        existing_event:{
+          event_id:String(duplicate.event_id||''),
+          event_name:String(duplicate.event_name||''),
+          event_date:duplicate.event_date||'',
+          venue:String(duplicate.venue||''),
+          active_on_web:duplicate.active_on_web,
+          status:duplicate.status
+        },
+        recommended_action:'updateEvent'
+      });
+    }
+    const prepared=prepareCreateEventPayload(payload);
+    if(prepared.publish_default_applied) res.setHeader('X-KK-Event-Publish-Default','TRUE');
+    res.setHeader('X-KK-Event-Guard','PASS');
+    return LegacyAdmin(clonedRequest(req,JSON.stringify(prepared.payload)),res);
+  }
 
   let assessment;
-  try{
-    const snapshot=await fetchFreshSnapshot({scriptUrl,apiKey,sheetId,sheetIdSource:envSheetId?'env':'default-fallback'});
-    assessment=evaluate(snapshot,payload);
-  }catch(err){
+  try{ assessment=evaluate(snapshot,payload); }
+  catch(err){
     return reply(res,503,{ok:false,error:'Booking preflight unavailable; write blocked: '+(err&&err.message?err.message:String(err)),error_code:'BOOKING_PREFLIGHT_UNAVAILABLE'});
   }
 
@@ -161,4 +255,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(clonedRequest(req,raw),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,normalizeIdentityText,normalizeEventDate,findDuplicateEvent,prepareCreateEventPayload};
