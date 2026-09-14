@@ -6,11 +6,7 @@ const fs=require('fs');
 const path=require('path');
 
 const root=path.join(__dirname,'..');
-const auth=require('../api/lib/admin-session.js');
-const proxy=require('../api/lib/admin-session-proxy.js');
-const authEndpoint=require('../api/kk-admin-auth.js');
-const adminApp=require('../api/kk-admin-app.js');
-const adminStatic=require('../api/kk-admin-static.js');
+const auth=require('../server/admin-session.js');
 
 function read(rel){ return fs.readFileSync(path.join(root,rel),'utf8'); }
 
@@ -24,7 +20,9 @@ function mockRes(){
   };
 }
 
-function req(headers={}){ return {method:'POST',headers:Object.assign({},headers)}; }
+function req(headers={},method='POST'){
+  return {method,headers:Object.assign({},headers),url:'/'};
+}
 
 async function withEnv(values,fn){
   const old={};
@@ -54,7 +52,7 @@ test('public admin gate exposes only PIN access, not CRM navigation or environme
 test('browser storage keeps only a session sentinel and never persists submitted PIN',()=>{
   const html=read('admin-login.html');
   const bridge=read('admin/session-bridge.js');
-  assert.match(html,/const markAuthenticated=\(\)=>sessionStorage\.setItem\('kk_admin_pin','__SESSION__'\)/);
+  assert.match(html,/sessionStorage\.setItem\('kk_admin_pin','__SESSION__'\)/);
   assert.doesNotMatch(html,/sessionStorage\.setItem\([^\n]*value/);
   assert.match(bridge,/const SENTINEL='__SESSION__'/);
   assert.doesNotMatch(bridge,/KK_ADMIN_PIN/);
@@ -63,11 +61,11 @@ test('browser storage keeps only a session sentinel and never persists submitted
 test('signed session token validates, rejects tampering and carries hardened cookie flags',async()=>{
   await withEnv({KK_ADMIN_PIN:'unit-test-pin',KK_ADMIN_SESSION_SECRET:'unit-test-session-secret'},async()=>{
     const now=Date.now();
-    const token=auth.issueToken(now);
-    assert.equal(auth.verifyToken(token,now+1000),true);
-    assert.equal(auth.verifyToken(token.slice(0,-1)+(token.endsWith('0')?'1':'0'),now+1000),false);
-    assert.equal(auth.verifyToken(token,now+auth.SESSION_TTL_SECONDS*1000+2000),false);
-    const cookie=auth.sessionCookie(token);
+    const token=auth._test.issueToken(now);
+    assert.equal(auth._test.verifyToken(token,now+1000),true);
+    assert.equal(auth._test.verifyToken(token.slice(0,-1)+(token.endsWith('0')?'1':'0'),now+1000),false);
+    assert.equal(auth._test.verifyToken(token,now+auth.SESSION_TTL_SECONDS*1000+2000),false);
+    const cookie=auth._test.sessionCookie(token);
     assert.match(cookie,/^__Host-kk_admin_session=/);
     assert.match(cookie,/; Path=\//);
     assert.match(cookie,/; HttpOnly/);
@@ -80,53 +78,50 @@ test('signed session token validates, rejects tampering and carries hardened coo
 test('failed attempts are temporarily blocked after five failures',()=>{
   auth._test.attempts.clear();
   const r=req({'x-forwarded-for':'203.0.113.10'});
-  for(let i=0;i<4;i++) assert.equal(auth.recordFailure(r).allowed,true);
-  const fifth=auth.recordFailure(r);
+  for(let i=0;i<4;i++) assert.equal(auth._test.recordFailure(r).allowed,true);
+  const fifth=auth._test.recordFailure(r);
   assert.equal(fifth.allowed,false);
   assert.ok(fifth.retryAfter>0);
   auth._test.attempts.clear();
 });
 
-test('session proxy accepts signed cookie, injects server PIN, and rejects anonymous requests',async()=>{
+test('signed session authorizes Admin API and injects server PIN without exposing it to browser storage',async()=>{
   await withEnv({KK_ADMIN_PIN:'server-only-pin',KK_ADMIN_SESSION_SECRET:'proxy-test-secret'},async()=>{
-    let seen='';
-    const wrapped=proxy.wrap(async(r,res)=>{ seen=r.headers['x-admin-pin']; res.statusCode=200; res.end('ok'); });
-    const token=auth.issueToken();
-    const goodReq=req({cookie:`${auth.COOKIE_NAME}=${token}`,'x-admin-pin':'__SESSION__','x-forwarded-for':'203.0.113.20'});
-    const goodRes=mockRes();
-    await wrapped(goodReq,goodRes);
-    assert.equal(goodRes.statusCode,200);
-    assert.equal(goodRes.body,'ok');
-    assert.equal(seen,'server-only-pin');
+    const token=auth._test.issueToken();
+    const r=req({cookie:`${auth.COOKIE_NAME}=${token}`,'x-admin-pin':'__SESSION__','x-forwarded-for':'203.0.113.20'});
+    const res=mockRes();
+    assert.equal(auth.authorizeApi(r,res),true);
+    assert.equal(r.headers['x-admin-pin'],'server-only-pin');
+  });
+});
 
+test('anonymous Admin API is rejected and correct legacy PIN remains compatible',async()=>{
+  await withEnv({KK_ADMIN_PIN:'legacy-client-pin',KK_ADMIN_SESSION_SECRET:'legacy-test-secret'},async()=>{
     auth._test.attempts.clear();
     const badRes=mockRes();
-    await wrapped(req({'x-forwarded-for':'203.0.113.21'}),badRes);
+    assert.equal(auth.authorizeApi(req({'x-forwarded-for':'203.0.113.21'}),badRes),false);
     assert.equal(badRes.statusCode,401);
     assert.match(badRes.body,/Unauthorized/);
+
+    const legacyRes=mockRes();
+    assert.equal(auth.authorizeApi(req({'x-admin-pin':'legacy-client-pin','x-forwarded-for':'203.0.113.30'}),legacyRes),true);
     auth._test.attempts.clear();
   });
 });
 
-test('legacy API clients with the correct server PIN remain compatible',async()=>{
-  await withEnv({KK_ADMIN_PIN:'legacy-client-pin',KK_ADMIN_SESSION_SECRET:'legacy-test-secret'},async()=>{
-    let called=false;
-    const wrapped=proxy.wrap(async(_r,res)=>{ called=true; res.statusCode=204; res.end(); });
-    const res=mockRes();
-    await wrapped(req({'x-admin-pin':'legacy-client-pin','x-forwarded-for':'203.0.113.30'}),res);
-    assert.equal(called,true);
-    assert.equal(res.statusCode,204);
-  });
+test('same-origin auth checks reject a foreign browser origin',()=>{
+  assert.equal(auth._test.sameOrigin({headers:{origin:'https://kk-phone-rental.vercel.app',host:'kk-phone-rental.vercel.app'}}),true);
+  assert.equal(auth._test.sameOrigin({headers:{origin:'https://evil.example',host:'kk-phone-rental.vercel.app'}}),false);
+  assert.equal(auth._test.sameOrigin({headers:{host:'kk-phone-rental.vercel.app'}}),true);
 });
 
-test('auth endpoint enforces same-origin browser requests',()=>{
-  assert.equal(authEndpoint._test.sameOrigin({headers:{origin:'https://kk-phone-rental.vercel.app',host:'kk-phone-rental.vercel.app'}}),true);
-  assert.equal(authEndpoint._test.sameOrigin({headers:{origin:'https://evil.example',host:'kk-phone-rental.vercel.app'}}),false);
-  assert.equal(authEndpoint._test.sameOrigin({headers:{host:'kk-phone-rental.vercel.app'}}),true);
+test('gate mode supports Vercel rewrite query objects and URL query strings',()=>{
+  assert.equal(auth.gateMode({query:{__kk_gate:'auth'},url:'/api/kk-admin-snapshot-v6'}),'auth');
+  assert.equal(auth.gateMode({url:'/api/kk-admin-snapshot-v6?__kk_gate=asset'}),'asset');
 });
 
-test('signed-in admin HTML always receives the session bridge before legacy admin bootstrap',()=>{
-  const html=adminApp._test.loadHtml();
+test('signed-in Admin HTML receives the session bridge before legacy Admin bootstrap',()=>{
+  const html=auth._test.loadAdminHtml();
   const bridgePos=html.indexOf('/admin/session-bridge.js');
   const healthPos=html.indexOf('/admin/snapshot-health.js');
   const adminPos=html.indexOf('/admin/admin.js');
@@ -135,38 +130,44 @@ test('signed-in admin HTML always receives the session bridge before legacy admi
   assert.ok(healthPos<adminPos);
 });
 
-test('admin asset proxy rejects traversal and normalizes safe paths',()=>{
-  assert.equal(adminStatic._test.cleanRelative('admin.js'),'admin.js');
-  assert.equal(adminStatic._test.cleanRelative('nested/file.css'),'nested/file.css');
-  assert.equal(adminStatic._test.cleanRelative('../package.json'),'');
-  assert.equal(adminStatic._test.cleanRelative('%2e%2e%2fpackage.json'),'');
-  assert.equal(adminStatic._test.cleanRelative('..\\package.json'),'');
-  assert.equal(adminStatic._test.contentType('x.js'),'application/javascript; charset=utf-8');
+test('Admin asset path handling rejects traversal and normalizes safe paths',()=>{
+  assert.equal(auth._test.cleanRelative('admin.js'),'admin.js');
+  assert.equal(auth._test.cleanRelative('nested/file.css'),'nested/file.css');
+  assert.equal(auth._test.cleanRelative('../package.json'),'');
+  assert.equal(auth._test.cleanRelative('%2e%2e%2fpackage.json'),'');
+  assert.equal(auth._test.cleanRelative('..\\package.json'),'');
+  assert.equal(auth._test.contentType('x.js'),'application/javascript; charset=utf-8');
 });
 
-test('routing sends public admin to minimal gate and protected app/assets/APIs to session-aware handlers',()=>{
+test('routing reuses existing v6 functions for login, app, assets and protected APIs',()=>{
   const config=JSON.parse(read('vercel.json'));
   const rewrites=new Map(config.rewrites.map(x=>[x.source,x.destination]));
   assert.equal(rewrites.get('/admin'),'/admin-login.html');
   assert.equal(rewrites.get('/admin/'),'/admin-login.html');
-  assert.equal(rewrites.get('/admin/app'),'/api/kk-admin-app');
-  assert.equal(rewrites.get('/admin/:path*'),'/api/kk-admin-static?path=:path*');
-  assert.equal(rewrites.get('/api/kk-admin'),'/api/kk-admin-session-proxy');
-  assert.equal(rewrites.get('/api/kk-rental-dashboard'),'/api/kk-rental-dashboard-session-proxy');
+  assert.equal(rewrites.get('/admin/app'),'/api/kk-admin-snapshot-v6?__kk_gate=app');
+  assert.equal(rewrites.get('/admin/:path*'),'/api/kk-admin-snapshot-v6?__kk_gate=asset&path=:path*');
+  assert.equal(rewrites.get('/api/kk-admin-auth'),'/api/kk-admin-snapshot-v6?__kk_gate=auth');
+  assert.equal(rewrites.get('/api/kk-admin'),'/api/kk-admin-snapshot-v6');
+  assert.equal(rewrites.get('/api/kk-rental-dashboard'),'/api/kk-rental-dashboard-v6');
+  assert.equal(config.functions['api/kk-admin-snapshot-v6.js'].includeFiles,'admin/**');
 
-  const staticSource=read('api/kk-admin-static.js');
-  assert.match(staticSource,/auth\.hasValidSession\(req\)/);
-  assert.match(staticSource,/rel==='index\.html'/);
-  assert.equal(fs.existsSync(path.join(root,'middleware.ts')),false);
+  const adminV6=read('api/kk-admin-snapshot-v6.js');
+  const rentalV6=read('api/kk-rental-dashboard-v6.js');
+  assert.match(adminV6,/AdminSecurity\.gateMode\(req\)/);
+  assert.match(adminV6,/AdminSecurity\.authorizeApi\(req,res\)/);
+  assert.match(rentalV6,/AdminSecurity\.authorizeApi\(req,res\)/);
 });
 
-test('admin app and asset functions include protected static files in their Vercel bundles',()=>{
-  const config=JSON.parse(read('vercel.json'));
-  assert.equal(config.functions['api/kk-admin-app.js'].includeFiles,'admin/**');
-  assert.equal(config.functions['api/kk-admin-static.js'].includeFiles,'admin/**');
+test('security consolidation does not add obsolete Vercel function entry files',()=>{
+  for(const rel of [
+    'api/kk-admin-auth.js','api/kk-admin-app.js','api/kk-admin-static.js',
+    'api/kk-admin-session-proxy.js','api/kk-rental-dashboard-session-proxy.js',
+    'api/lib/admin-session.js','api/lib/admin-session-proxy.js'
+  ]) assert.equal(fs.existsSync(path.join(root,rel)),false,`${rel} must stay outside the API function budget`);
+  assert.equal(fs.existsSync(path.join(root,'server','admin-session.js')),true);
 });
 
-test('security headers keep admin surfaces uncacheable, unindexed and non-frameable',()=>{
+test('security headers keep Admin surfaces uncacheable, unindexed and non-frameable',()=>{
   const config=JSON.parse(read('vercel.json'));
   const bySource=new Map(config.headers.map(x=>[x.source,new Map(x.headers.map(h=>[h.key.toLowerCase(),h.value]))]));
   for(const source of ['/admin','/admin/','/admin/(.*)','/admin-login.html']){
