@@ -87,7 +87,7 @@
     },
     {
       "source": "/api/kk-rental-dashboard",
-      "destination": "/api/kk-rental-dashboard-v5"
+      "destination": "/api/kk-rental-dashboard-v6"
     },
     {
       "source": "/",
@@ -104,6 +104,7 @@
     "api/kk-admin-snapshot-v5.js": { "maxDuration": 60 },
     "api/kk-admin-snapshot-v6.js": { "maxDuration": 60 },
     "api/kk-rental-dashboard-v5.js": { "maxDuration": 60 },
+    "api/kk-rental-dashboard-v6.js": { "maxDuration": 60 },
     "api/kk-intelligence-health.js": { "maxDuration": 30 }
   }
 }
