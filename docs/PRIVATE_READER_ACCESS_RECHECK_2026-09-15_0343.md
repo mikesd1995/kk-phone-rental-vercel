@@ -1,7 +1,7 @@
 # KK Phone Rental — Private Reader Access Recheck
 
 Time: 2026-09-15 03:43 Asia/Bangkok
-Updated: 2026-09-15 07:27 Asia/Bangkok
+Updated: 2026-09-15 08:33 Asia/Bangkok
 
 ## Purpose
 
@@ -12,33 +12,37 @@ Recheck the remaining Production Private Reader blocker after the full 8-dataset
 - GitHub repository: `mikesd1995/kk-phone-rental-vercel`
 - Repository default Vercel homepage: `https://kk-phone-rental-vercel.vercel.app`
 - Frontend production alias in `config.js`: `https://kk-phone-rental.vercel.app/`
-- Historical Vercel workspace slug observed in repository audit records: `mikesd1995s-projects`
+- Vercel workspace slug: `mikesd1995s-projects`
+- Vercel team ID disclosed by the Vercel authorization error: `team_uaeOdVIjXMSW690ZM2wPuJyt`
 - Intended Vercel project slug: `kk-phone-rental-vercel`
 
 ## Live Vercel authorization recheck
 
-At 07:27 Asia/Bangkok, direct project lookup was repeated using project slug `kk-phone-rental-vercel` and workspace slug `mikesd1995s-projects`.
+At 08:33 Asia/Bangkok, authorization was rechecked at multiple levels.
 
-Result: **403 Forbidden**.
+1. `list_teams` returned an empty team set for the currently connected Vercel identity.
+2. Agent Runs project discovery for `mikesd1995s-projects` returned **403 Forbidden** with `You don't have permission to access this resource.`
+3. Direct project lookup for `kk-phone-rental-vercel` under `mikesd1995s-projects` returned **403 Forbidden**.
+4. Direct deployment listing returned a more specific Vercel authorization response: the connector is **not authorized for scope `mikesd1995s-projects` and must re-authenticate to this scope or use a token with access to this scope**. The response also identified team ID `team_uaeOdVIjXMSW690ZM2wPuJyt`, with SAML not enforced.
 
-The connected Vercel identity still cannot inspect project settings, production environment-variable presence, deployments/logs through the project API, or run the remaining connector-side Private Reader acceptance sequence. No project ID, team ID, environment value, credential, or secret was guessed.
+This materially improves root-cause precision. The remaining blocker is no longer merely classified as a generic project-read 403; Vercel itself identifies a scope-authorization/re-authentication requirement for the exact workspace.
+
+No token, credential, project ID, environment value, or secret was guessed or requested in chat.
 
 ## Deployment evidence
 
-The latest `main` commit before this recheck was `496bd506b9e7480f46ad5327ded3856f89d04880` (`Extend private reader access recheck with deployment evidence`). Earlier readback had already proven its Vercel deployment status succeeded.
+Main commit `9965a4959a4edb468516186601d86ac11cefb924` (`Record Vercel private reader access recheck`) has a GitHub Vercel combined status of **success**, targeting `mikesd1995s-projects/kk-phone-rental-vercel`.
 
-A separate current Admin hardening PR (#29), head `399ca6ebe15585eeb43d450528b09af45f1f13d1`, is mergeable and GitHub's Vercel status for that exact head is also **success**, targeting the same `mikesd1995s-projects/kk-phone-rental-vercel` workspace/project. This is useful independent evidence that Vercel continues accepting builds for the correct project even while this ChatGPT Vercel connector lacks project-read authorization.
-
-The Admin PR is not merged by this Private Reader recheck and is not treated as Private Reader acceptance evidence.
+This proves the GitHub→Vercel deployment integration remains functional for the intended project. It does not grant this ChatGPT Vercel connector management access and does not prove Private Reader runtime acceptance.
 
 ## Current diagnosis
 
-The evidence now cleanly separates two planes:
+The evidence cleanly separates two planes:
 
-- **Deployment plane:** healthy; GitHub→Vercel statuses are succeeding for the identified project.
-- **Management/acceptance plane from this connector:** blocked by Vercel authorization (403).
+- **Deployment plane:** healthy; GitHub→Vercel deployment succeeds for the identified project.
+- **Management/acceptance plane from this connector:** blocked because the current Vercel authorization is not authenticated to workspace scope `mikesd1995s-projects`.
 
-Therefore there is still no evidence requiring changes to CRM synchronization, freshness logic, reconciliation logic, Apps Script, transactional data, or the Private Reader implementation itself.
+There is no evidence requiring changes to CRM synchronization, freshness logic, reconciliation logic, Apps Script, transactional data, or the Private Reader implementation itself.
 
 ## Safety decision
 
@@ -56,18 +60,21 @@ The following remain intentionally unchanged:
 - No Booking/Event/Asset/Package/Pricing/Web/Settings/Operations data is modified.
 - No Apps Script is modified or deployed.
 - No Vercel environment variable or secret is modified.
-- PR #29 is not merged as part of this work.
+- No Admin hardening PR is merged as part of this work.
 
-## What improved in the 07:27 recheck
+## What improved in the 08:33 recheck
 
-- Reconfirmed that the authorization blocker persists rather than silently assuming the connection recovered.
-- Added a fresh independent successful Vercel preview/deployment signal from PR #29 on the same workspace/project.
-- Further isolated the fault domain to connector management authorization rather than deployment availability.
-- Preserved safe Core fallback and avoided unnecessary production mutations.
+- Reconfirmed the blocker at team, Agent Runs, project and deployment API levels.
+- Obtained Vercel's exact remediation classification: re-authenticate the connection to workspace scope `mikesd1995s-projects` (or use an already-authorized token through an appropriate secure connection path).
+- Captured the authoritative team ID from Vercel's own error response, eliminating another identity ambiguity.
+- Reconfirmed latest main deployment status is successful, separating deployment health from management authorization.
+- Preserved safe Core fallback and avoided unrelated production changes.
 
 ## Required next gate
 
-Once the Vercel connection is actually authorized for the project, continue in this order:
+The next external prerequisite is to re-authorize/reconnect the Vercel integration so the connected identity has access to workspace `mikesd1995s-projects`. Do not paste Vercel tokens or service-account secrets into chat.
+
+Once workspace authorization is available, continue in this order:
 
 1. verify current production deployment identity and promoted commit;
 2. inspect required environment-variable names without exposing secret values;
@@ -83,9 +90,10 @@ Once the Vercel connection is actually authorized for the project, continue in t
 
 ## Changes made in this recheck
 
-- Repeated direct live Vercel project authorization lookup; still 403.
-- Checked latest repository state.
-- Checked current PR #29 state and exact-head Vercel status; preview/deployment status is success.
-- Kept PR #29 unmerged.
+- Repeated live Vercel team discovery.
+- Repeated Agent Runs workspace authorization check.
+- Repeated direct project authorization lookup.
+- Added direct deployment-list authorization check, which produced the exact workspace re-authentication requirement and team ID.
+- Rechecked latest main GitHub→Vercel deployment status; success.
 - Preserved all production fail-safe states and data.
 - Updated this audit record only.
