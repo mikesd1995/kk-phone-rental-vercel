@@ -26,9 +26,30 @@ const TYPES={
   '.woff2':'font/woff2'
 };
 let cachedAdminHtml='';
+let cachedSigningSource='';
+let cachedSigningKey=null;
 
-function secret(){
-  return String(process.env.KK_ADMIN_SESSION_SECRET||process.env.KK_ADMIN_PIN||'').trim();
+function signingKey(){
+  const sessionSecret=String(process.env.KK_ADMIN_SESSION_SECRET||'').trim();
+  const pin=String(process.env.KK_ADMIN_PIN||'').trim();
+  const source=sessionSecret ? `secret:${sessionSecret}` : (pin ? `pin:${pin}` : '');
+  if(!source) return null;
+  if(source===cachedSigningSource && cachedSigningKey) return cachedSigningKey;
+
+  let key;
+  if(sessionSecret){
+    key=crypto.createHash('sha256').update('kk-admin-session-secret-v2\0').update(sessionSecret).digest();
+  }else{
+    // Backward-compatible rollout when a dedicated session secret is not yet
+    // provisioned. A slow KDF materially raises the cost of offline guessing
+    // compared with using a human-entered PIN directly as an HMAC key.
+    key=crypto.scryptSync(pin,'kk-phone-rental-admin-session-v2',32,{
+      N:16384,r:8,p:1,maxmem:64*1024*1024
+    });
+  }
+  cachedSigningSource=source;
+  cachedSigningKey=key;
+  return key;
 }
 
 function safeEqual(a,b){
@@ -38,26 +59,28 @@ function safeEqual(a,b){
   return crypto.timingSafeEqual(aa,bb);
 }
 
-function signExpiry(exp){
-  const key=secret();
-  if(!key) return '';
-  return crypto.createHmac('sha256',key).update(`kk-admin:v1:${exp}`).digest('hex');
+function signExpiry(exp,nonce){
+  const key=signingKey();
+  if(!key||!nonce) return '';
+  return crypto.createHmac('sha256',key).update(`kk-admin:v2:${exp}:${nonce}`).digest('hex');
 }
 
 function issueToken(nowMs=Date.now()){
   const exp=Math.floor(nowMs/1000)+SESSION_TTL_SECONDS;
-  return `v1.${exp}.${signExpiry(exp)}`;
+  const nonce=crypto.randomBytes(16).toString('base64url');
+  return `v2.${exp}.${nonce}.${signExpiry(exp,nonce)}`;
 }
 
 function verifyToken(token,nowMs=Date.now()){
   const parts=String(token||'').trim().split('.');
-  if(parts.length!==3||parts[0]!=='v1') return false;
+  if(parts.length!==4||parts[0]!=='v2') return false;
   const exp=Number(parts[1]);
-  if(!Number.isInteger(exp)) return false;
+  const nonce=String(parts[2]||'');
+  if(!Number.isInteger(exp)||!/^[A-Za-z0-9_-]{22}$/.test(nonce)) return false;
   const now=Math.floor(nowMs/1000);
   if(exp<=now||exp>now+SESSION_TTL_SECONDS+60) return false;
-  const expected=signExpiry(exp);
-  return !!expected&&safeEqual(parts[2],expected);
+  const expected=signExpiry(exp,nonce);
+  return !!expected&&safeEqual(parts[3],expected);
 }
 
 function parseCookies(req){
@@ -210,9 +233,13 @@ function loadAdminHtml(){
   if(cachedAdminHtml) return cachedAdminHtml;
   const file=path.join(ADMIN_ROOT,'index.html');
   const source=fs.readFileSync(file,'utf8');
-  const marker='<script src="/admin/snapshot-health.js?v=resilience-1"></script>';
-  if(!source.includes(marker)) throw new Error('Admin bootstrap marker not found');
-  cachedAdminHtml=source.replace(marker,'<script src="/admin/session-bridge.js?v=auth-gate-2"></script>\n  '+marker);
+  const scriptMarker='<script src="/admin/snapshot-health.js?v=resilience-1"></script>';
+  const loginMarker='<section id="loginPanel" class="card login-card">';
+  if(!source.includes(scriptMarker)) throw new Error('Admin bootstrap marker not found');
+  if(!source.includes(loginMarker)) throw new Error('Admin login compatibility marker not found');
+  cachedAdminHtml=source
+    .replace(loginMarker,'<section id="loginPanel" class="card login-card hidden" aria-hidden="true">')
+    .replace(scriptMarker,'<script src="/admin/session-bridge.js?v=auth-gate-3"></script>\n  '+scriptMarker);
   return cachedAdminHtml;
 }
 
@@ -348,6 +375,7 @@ module.exports={
   _test:{
     attempts,
     clientKey,
+    signingKey,
     signExpiry,
     safeEqual,
     issueToken,
