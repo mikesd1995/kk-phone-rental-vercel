@@ -292,7 +292,41 @@ async function fetchLeanEventIndex(sheetId){
   return {events:checked.events,expected:checked.expected,latency_ms:Date.now()-startedAt};
 }
 
+function instrumentLegacyTiming(res,meta){
+  const delegateStartedAt=Date.now();
+  const requestStartedAt=Number(meta&&meta.requestStartedAt)||delegateStartedAt;
+  const action=String(meta&&meta.action||'').slice(0,40);
+  const preflightMs=Number(meta&&meta.preflightMs);
+  const originalWriteHead=res&&res.writeHead;
+  const originalWrite=res&&res.write;
+  const originalEnd=res&&res.end;
+  let stamped=false;
+  function stamp(){
+    if(stamped) return;
+    stamped=true;
+    const now=Date.now();
+    const upstreamMs=Math.max(0,now-delegateStartedAt);
+    const totalMs=Math.max(0,now-requestStartedAt);
+    try{
+      if(action) res.setHeader('X-KK-Admin-Action',action);
+      if(Number.isFinite(preflightMs)&&preflightMs>=0) res.setHeader('X-KK-Admin-Preflight-MS',String(Math.round(preflightMs)));
+      res.setHeader('X-KK-Admin-Upstream-MS',String(upstreamMs));
+      res.setHeader('X-KK-Admin-Total-MS',String(totalMs));
+      const timing=[];
+      if(Number.isFinite(preflightMs)&&preflightMs>=0) timing.push('preflight;dur='+Math.round(preflightMs));
+      timing.push('upstream;dur='+upstreamMs);
+      timing.push('total;dur='+totalMs);
+      res.setHeader('Server-Timing',timing.join(', '));
+    }catch(_){}
+  }
+  if(typeof originalWriteHead==='function') res.writeHead=function(...args){ stamp(); return originalWriteHead.apply(this,args); };
+  if(typeof originalWrite==='function') res.write=function(...args){ stamp(); return originalWrite.apply(this,args); };
+  if(typeof originalEnd==='function') res.end=function(...args){ stamp(); return originalEnd.apply(this,args); };
+  return {started_at:delegateStartedAt,stamp};
+}
+
 module.exports=async function handler(req,res){
+  const requestStartedAt=Date.now();
   if(req.method!=='POST') return LegacyAdmin(req,res);
 
   let raw='';
@@ -376,13 +410,20 @@ module.exports=async function handler(req,res){
     const prepared=prepareCreateEventPayload(payload);
     if(prepared.publish_default_applied) res.setHeader('X-KK-Event-Publish-Default','TRUE');
     res.setHeader('X-KK-Event-Guard','PASS');
+    instrumentLegacyTiming(res,{requestStartedAt,action,preflightMs});
     return LegacyAdmin(clonedRequest(req,JSON.stringify(prepared.payload)),res);
   }
 
   let snapshot;
+  const bookingPreflightStartedAt=Date.now();
+  let bookingPreflightMs=0;
   try{
     snapshot=await fetchFreshSnapshot({scriptUrl,apiKey,sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},18000);
+    bookingPreflightMs=Date.now()-bookingPreflightStartedAt;
+    res.setHeader('X-KK-Booking-Preflight-MS',String(bookingPreflightMs));
   }catch(err){
+    bookingPreflightMs=Date.now()-bookingPreflightStartedAt;
+    res.setHeader('X-KK-Booking-Preflight-MS',String(bookingPreflightMs));
     return reply(res,503,{ok:false,error:'Booking preflight unavailable; write blocked: '+(err&&err.message?err.message:String(err)),error_code:'BOOKING_PREFLIGHT_UNAVAILABLE'});
   }
 
@@ -398,7 +439,8 @@ module.exports=async function handler(req,res){
 
   res.setHeader('X-KK-Booking-Guard','PASS');
   res.setHeader('X-KK-Reservation-Mode',assessment.result.window&&assessment.result.window.mode||'none');
+  instrumentLegacyTiming(res,{requestStartedAt,action,preflightMs:bookingPreflightMs});
   return LegacyAdmin(clonedRequest(req,raw),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,instrumentLegacyTiming};
