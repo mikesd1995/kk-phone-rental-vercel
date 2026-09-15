@@ -3,7 +3,7 @@
   const KK_ADMIN_UI_VERSION = KKSnapshotHealth.VERSION;
   const EXPECTED_BACKEND_VERSION = KKSnapshotHealth.BACKEND;
   const EXPECTED_PROXY_VERSION = KKSnapshotHealth.VERSION;
-  let snapshotState = { stale: false, checkedAt: null, goodAt: null, health: null, error: "" };
+  let snapshotState = { stale: false, checkedAt: null, goodAt: null, health: null, error: "", writePending: false, writePendingReason: "" };
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false };
@@ -1665,7 +1665,8 @@
       " | สำเร็จล่าสุด: "+(snapshotState.goodAt ? new Date(snapshotState.goodAt).toLocaleString("th-TH") : "ยังไม่มี")+
       " | เวลาเรียกจริง: "+(snapshotState.latencyMs ?? "-")+" ms | "+counts+
       (snapshotState.error ? " | "+snapshotState.error : "")+
-      (h && h.warnings.length ? " | คำเตือน: "+h.warnings.join("; ") : "");
+      (h && h.warnings.length ? " | คำเตือน: "+h.warnings.join("; ") : "")+
+      (snapshotState.writePending ? " | บันทึกล่าสุดสำเร็จแล้ว · กำลัง Sync Snapshot เบื้องหลัง" : "");
   }
 
   async function refresh(){
@@ -1681,6 +1682,8 @@
       state.data=data.data;
       snapshotState.stale=false;
       snapshotState.error="";
+      snapshotState.writePending=false;
+      snapshotState.writePendingReason="";
       snapshotState.goodAt=snapshotState.checkedAt;
       snapshotState.latencyMs=Date.now()-startedAt;
       renderSnapshotStatus();
@@ -1708,6 +1711,34 @@
     } finally {
       state.loading=false;
     }
+  }
+
+  let postWriteRefreshTimer=null;
+  function schedulePostWriteRefresh(reason="write", attempt=0){
+    snapshotState.writePending=true;
+    snapshotState.writePendingReason=String(reason||"write");
+    renderSnapshotStatus();
+    if(postWriteRefreshTimer) clearTimeout(postWriteRefreshTimer);
+    const delay=attempt===0 ? 120 : 500;
+    postWriteRefreshTimer=setTimeout(async()=>{
+      postWriteRefreshTimer=null;
+      if(state.loading){
+        if(attempt<8) return schedulePostWriteRefresh(reason,attempt+1);
+        snapshotState.error="บันทึกสำเร็จแล้ว แต่ Snapshot ยังไม่ Sync อัตโนมัติ กรุณากด Refresh";
+        renderSnapshotStatus();
+        return;
+      }
+      try{
+        await refresh();
+        updateUiLastRefresh();
+      }catch(err){
+        snapshotState.writePending=true;
+        snapshotState.writePendingReason=String(reason||"write");
+        snapshotState.error="บันทึกสำเร็จแล้ว แต่ Refresh เบื้องหลังไม่สำเร็จ: "+(err&&err.message?err.message:String(err));
+        renderSnapshotStatus();
+        showNotice("บันทึกสำเร็จแล้ว แต่ Sync หน้าจอล่าสุดไม่สำเร็จ กรุณากด Refresh","warn");
+      }
+    },delay);
   }
 
   async function uploadPosterFromInput(fileInput, form){
@@ -2050,7 +2081,7 @@
         const toggle=$("#eventPriceToggle");
         if(toggle) toggle.checked=false;
         resetCreateEventPriceOverrides();
-        await refresh();
+        schedulePostWriteRefresh("createEvent");
         const priceText=res.overrides_created ? ` · บันทึกราคาเฉพาะงาน ${res.overrides_created} แพ็กเกจ` : "";
         showNotice("สร้างงานสำเร็จ" + priceText + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : "") + posterWarningText(res));
         state.posterWarning = "";
