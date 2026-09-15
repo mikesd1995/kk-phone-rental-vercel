@@ -6,57 +6,91 @@ Pull request: #29 — `Harden Admin login with signed session gate`
 
 ## Current state
 
-The hardening implementation remains staged on PR #29 and Production is unchanged. The branch preserves the hourly-safe CRM freshness/reconciliation stack and does not introduce additional `/api` entry files; Admin auth/app/assets reuse the existing v6 function path.
+The hardened Admin authentication implementation is staged on PR #29. Production remains unchanged and the PR is intentionally unmerged pending the authorized browser smoke test.
 
-A deeper repository audit performed after the earlier green validation discovered five obsolete root-level source artifacts that sat outside the protected `/admin` route tree. They have now been deleted and CI contains a regression guard to prevent their return. Session tokens were also upgraded to randomized v2 format and the PIN-only signing fallback now derives key material with scrypt instead of using the raw PIN directly. The authenticated Admin response now hides the obsolete inline login panel on first paint.
+The branch preserves the hourly-safe CRM freshness/reconciliation stack and does not introduce additional `/api` entry files. Admin auth/app/assets reuse the existing v6 function path.
 
-Because those are security-relevant changes made after the previously proven run #69, **the previous green result is historical evidence only; the final head must pass CI and Vercel Preview again before merge**.
+A deeper repository audit after the first green validation found five obsolete root-level Admin/internal source artifacts outside the protected route tree. They were removed, session tokens were upgraded to randomized v2 format, the PIN-only signing fallback was strengthened with scrypt key derivation, and the authenticated Admin response now hides the obsolete inline login panel on first paint.
 
-## Previously proven validation results
+## Proven automated validation at hardened head
 
-Before the final source-surface/token hardening pass:
+Validated security/code head before this status-only documentation commit: `9d11b6cf5bd780588f70edb73b574fd4f924da68`.
 
-- GitHub Admin Regression run #68: **PASS**, including 96 passed / 0 failed / 0 skipped.
-- GitHub Admin Regression run #69 on the then-current documentation head: **PASS**.
-- Vercel Preview: **READY / SUCCESS**.
-- PR #29 mergeability at that time: **mergeable=true**.
-- Previous iterative PR #27: **closed unmerged** and superseded by PR #29.
+- GitHub Admin Regression run #81: **PASS**.
+  - Syntax checks: **PASS**.
+  - Regression tests: **PASS**.
+  - Total: **98 passed, 0 failed, 0 cancelled, 0 skipped**.
+  - The first 15 security-focused tests all passed, including:
+    - minimal public gate / no CRM navigation disclosure;
+    - obsolete root-level source files absent;
+    - real PIN not persisted in browser storage;
+    - randomized v2 session token format and tamper/expiry rejection;
+    - PIN-only fallback derives 32-byte signing key material and does not directly reuse the raw PIN;
+    - five-failure temporary blocking;
+    - signed-session API authorization and server-side PIN injection;
+    - anonymous API rejection and trusted legacy-PIN compatibility;
+    - same-origin login validation;
+    - Vercel rewrite-query mode handling;
+    - session bridge injection and hidden obsolete inline login panel;
+    - path traversal rejection;
+    - consolidated existing-v6 routing;
+    - no obsolete extra Vercel function entry files;
+    - no-store/noindex/frame-denial headers.
+- Existing operational/CRM regressions also passed in the same run, including Booking capacity guards, Admin UX/DOM contracts, CRM freshness, reconciliation, private-reader safety, event guards, reservation guards, snapshot validation, and proxy diagnostics.
+- Vercel status for hardened head `9d11b6c...`: **SUCCESS — deployment completed**.
+- PR #29 mergeability at the hardened-head check: **mergeable=true**.
+- Previous iterative PR #27 remains **closed unmerged** and superseded by PR #29.
 
-These results demonstrate the architecture was deployable, but they do not substitute for validation of the newest security commits.
+## Additional cleanup proven by the audit
 
-## New security changes awaiting final-head proof
+Removed from the branch/deployment surface:
 
-- Removed obsolete public root artifacts: `kk-admin.js`, `admin.js`, `index (1).html`, `download`, `download (2)`.
-- Added CI regression coverage requiring those paths to remain absent.
-- Changed session tokens from deterministic expiry-based `v1` format to randomized `v2.<expiry>.<128-bit nonce>.<signature>` format.
-- Added scrypt derivation when a dedicated `KK_ADMIN_SESSION_SECRET` is not configured, so the human PIN is not used directly as an HMAC key.
-- Kept the preferred production recommendation to provision a separate high-entropy `KK_ADMIN_SESSION_SECRET`.
-- Hid the legacy inline Admin login panel in authenticated HTML before first paint while preserving the DOM for compatibility.
-- Added tests for randomized same-second sessions, PIN-derived fallback key material, hidden legacy login panel, and obsolete-root-source absence.
+- `kk-admin.js` — obsolete full Admin HTML duplicate.
+- `admin.js` — obsolete root Admin stylesheet duplicate.
+- `index (1).html` — obsolete root Admin JavaScript artifact.
+- `download` — obsolete Admin proxy source artifact.
+- `download (2)` — obsolete CSV proxy source artifact.
+
+CI now fails if any of those five root paths reappear.
 
 ## Runtime acceptance limitation
 
-The connected Vercel credential used by this session has previously returned `403 Forbidden` when attempting to open/fetch the team-scoped Preview URL. Therefore a real HTTP/browser smoke test of the Preview routes from this environment is not claimed unless that access condition changes.
+The connected Vercel credential used by this session still cannot open/fetch the team-scoped Preview URL and previously returned `403 Forbidden` while checking deployment access. Therefore an actual browser-level HTTP smoke test of the Preview authentication flow is **not claimed**.
 
-A successful Vercel build means the Preview deployed; it does not by itself prove the browser-level auth flow. Because this is an authentication/security change, Production merge remains withheld until the authorized Preview smoke test is completed.
+This is distinct from deployment health: Vercel's GitHub status reports the hardened Preview deployment completed successfully. The unresolved item is permission to interact with that Preview as an authorized browser, not a build failure.
 
 ## Exact remaining acceptance sequence
 
-1. Require GitHub Admin Regression to pass at the latest PR #29 head.
-2. Require Vercel Preview to report deployment success at the same/latest head.
-3. Confirm PR #29 remains mergeable against current `main`.
-4. Open the latest PR #29 Preview `/admin` in an authorized browser.
-5. Confirm the anonymous page shows only the PIN gate and no CRM/Admin workspace navigation.
-6. While logged out, verify `/admin/admin.js` and `/admin/index.html` do not return protected Admin source.
-7. Verify `/kk-admin.js`, `/admin.js`, `/index%20(1).html`, `/download`, and `/download%20(2)` do not expose the deleted obsolete source.
-8. Call/open the normal Admin API path without a valid Admin session and confirm it is rejected.
-9. Enter the existing Admin PIN manually. Do not copy the PIN into GitHub, logs, chat, or source code.
-10. Confirm `/admin/app` loads the existing Admin workspace without flashing the old inline login card and normal Snapshot/Booking/Event/Rental Analytics reads still work.
-11. Click logout and confirm the signed session is cleared and the browser returns to `/admin`.
-12. Only after the above passes, merge PR #29 and repeat the minimal smoke test against Production.
+1. Open the latest PR #29 Vercel Preview `/admin` in an authorized browser.
+2. Confirm the anonymous page shows only the PIN gate and no CRM/Admin workspace navigation.
+3. While logged out, verify `/admin/admin.js` and `/admin/index.html` do not return protected Admin source.
+4. Verify `/kk-admin.js`, `/admin.js`, `/index%20(1).html`, `/download`, and `/download%20(2)` no longer expose their obsolete source.
+5. Call/open the normal Admin API path without a valid Admin session and confirm it is rejected.
+6. Enter the existing Admin PIN manually. Do not copy the PIN into GitHub, logs, chat, or source code.
+7. Confirm `/admin/app` loads the existing Admin workspace without flashing the old inline login card.
+8. Confirm Snapshot / Booking / Event / Rental Analytics still read/work normally.
+9. Click logout and confirm the signed session is cleared and the browser returns to `/admin`.
+10. Only after the above passes, merge PR #29 and repeat the minimal smoke test against Production.
+
+## Security design status
+
+- Minimal public PIN gate: **implemented + tested**.
+- Real Admin PIN removed from normal browser storage: **implemented + tested**.
+- Signed HttpOnly/Secure/SameSite=Strict session cookie: **implemented + tested**.
+- Random per-session 128-bit nonce: **implemented + tested**.
+- Dedicated `KK_ADMIN_SESSION_SECRET` support: **implemented**; provisioning remains recommended when Vercel environment access is available.
+- Safer PIN-only fallback using scrypt-derived signing key material: **implemented + tested**.
+- Protected Admin HTML/assets: **implemented + tested at unit/routing level**.
+- Root-level obsolete source cleanup: **implemented + regression-guarded**.
+- Path traversal protection: **implemented + tested**.
+- Same-origin auth check: **implemented + tested**.
+- Best-effort 5-failure / 15-minute throttling: **implemented + tested**.
+- No-store/noindex/frame-denial/CSP: **implemented + tested**.
+- Existing trusted `X-Admin-Pin` compatibility: **preserved + tested**.
+- CRM freshness/reconciliation behavior, including the 75-minute hourly-safe default: **preserved + tested**.
 
 ## Merge decision
 
-**FINAL AUTOMATED REVALIDATION IN PROGRESS — NOT MERGED TO PRODUCTION.**
+**AUTOMATED SECURITY / REGRESSION / VERCEL BUILD GATES GREEN — MANUAL AUTHORIZED PREVIEW SMOKE TEST STILL REQUIRED — NOT MERGED TO PRODUCTION.**
 
-Do not change this record to READY until the newest GitHub Regression and Vercel Preview statuses are proven green.
+This documentation update records the proven results only. Because it is a documentation-only commit after the validated security head, CI/Vercel should still be allowed to run on the resulting PR head and must remain green before merge.
