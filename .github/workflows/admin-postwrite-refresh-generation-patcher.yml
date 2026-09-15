@@ -1,0 +1,76 @@
+name: Admin Post-write Refresh Generation Hardening
+
+on:
+  push:
+    branches:
+      - admin-postwrite-refresh-lean-20260915
+    paths:
+      - .github/workflows/admin-postwrite-refresh-generation-patcher.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: admin-postwrite-refresh-lean-20260915
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Harden write-generation semantics
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('admin/admin.js')
+          s=p.read_text(encoding='utf-8')
+          reps=[
+            ('  let snapshotState = { stale: false, checkedAt: null, goodAt: null, health: null, error: "", writePending: false, writePendingReason: "" };',
+             '  let snapshotState = { stale: false, checkedAt: null, goodAt: null, health: null, error: "", writePending: false, writePendingReason: "", writeGeneration: 0 };'),
+            ('    state.loading=true;\n    const startedAt=Date.now();',
+             '    state.loading=true;\n    const startedAt=Date.now();\n    const writeGenerationAtStart=Number(snapshotState.writeGeneration||0);'),
+            ('      snapshotState.error="";\n      snapshotState.writePending=false;\n      snapshotState.writePendingReason="";\n      snapshotState.goodAt=snapshotState.checkedAt;',
+             '      snapshotState.error="";\n      if(writeGenerationAtStart>=Number(snapshotState.writeGeneration||0)){\n        snapshotState.writePending=false;\n        snapshotState.writePendingReason="";\n      }\n      snapshotState.goodAt=snapshotState.checkedAt;'),
+            ('  function schedulePostWriteRefresh(reason="write", attempt=0){\n    snapshotState.writePending=true;',
+             '  function schedulePostWriteRefresh(reason="write", attempt=0){\n    if(attempt===0) snapshotState.writeGeneration=Number(snapshotState.writeGeneration||0)+1;\n    snapshotState.writePending=true;')
+          ]
+          for old,new in reps:
+            c=s.count(old)
+            if c!=1: raise SystemExit(f'expected one match, found {c}: {old[:100]}')
+            s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+
+          t=Path('tests/admin-postwrite-refresh-lean.test.js')
+          x=t.read_text(encoding='utf-8')
+          marker="test('successful snapshot refresh clears pending-write marker',()=>{"
+          if x.count(marker)!=1: raise SystemExit('test marker mismatch')
+          x=x.replace(marker,"test('refresh started before the latest write cannot clear pending state',()=>{\n  assert.match(src,/const writeGenerationAtStart=Number\\(snapshotState\\.writeGeneration\\|\\|0\\)/);\n  assert.match(src,/if\\(attempt===0\\) snapshotState\\.writeGeneration=Number\\(snapshotState\\.writeGeneration\\|\\|0\\)\\+1/);\n  assert.match(src,/if\\(writeGenerationAtStart>=Number\\(snapshotState\\.writeGeneration\\|\\|0\\)\\)/);\n});\n\n"+marker,1)
+          old='    assert.match(src,/snapshotState\\.writePending=false;\\s*snapshotState\\.writePendingReason="";\\s*snapshotState\\.goodAt=snapshotState\\.checkedAt;/);'
+          new='    assert.match(src,/if\\(writeGenerationAtStart>=Number\\(snapshotState\\.writeGeneration\\|\\|0\\)\\)\\{\\s*snapshotState\\.writePending=false;\\s*snapshotState\\.writePendingReason="";/);'
+          if x.count(old)!=1: raise SystemExit('clear-pending assertion mismatch')
+          x=x.replace(old,new,1)
+          t.write_text(x,encoding='utf-8')
+
+          d=Path('docs/ADMIN_POSTWRITE_REFRESH_LEAN_2026-09-15.md')
+          y=d.read_text(encoding='utf-8')
+          anchor='- Background refresh retries only while another refresh is already active, with a bounded retry count.\n'
+          if y.count(anchor)!=1: raise SystemExit('doc anchor mismatch')
+          y=y.replace(anchor,anchor+'- A monotonic write-generation token prevents an older in-flight refresh from clearing the pending marker for a newer write.\n',1)
+          d.write_text(y,encoding='utf-8')
+          PY
+      - run: npm run check
+      - run: npm test
+      - name: Remove one-shot patcher and commit
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/admin-postwrite-refresh-generation-patcher.yml
+          git add admin/admin.js tests/admin-postwrite-refresh-lean.test.js docs/ADMIN_POSTWRITE_REFRESH_LEAN_2026-09-15.md
+          git commit -m "Harden post-write refresh generation ordering"
+          git push origin HEAD:admin-postwrite-refresh-lean-20260915
