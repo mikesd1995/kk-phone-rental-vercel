@@ -9,8 +9,11 @@ const SESSION_TTL_SECONDS=8*60*60;
 const FAILURE_WINDOW_MS=15*60*1000;
 const FAILURE_LIMIT=5;
 const BLOCK_MS=15*60*1000;
+const MAX_AUTH_BODY_BYTES=4096;
 const attempts=new Map();
 const ADMIN_ROOT=path.resolve(process.cwd(),'admin');
+let ADMIN_REAL_ROOT=ADMIN_ROOT;
+try{ ADMIN_REAL_ROOT=fs.realpathSync(ADMIN_ROOT); }catch(_){ }
 const TYPES={
   '.css':'text/css; charset=utf-8',
   '.js':'application/javascript; charset=utf-8',
@@ -26,15 +29,17 @@ const TYPES={
   '.woff2':'font/woff2'
 };
 let cachedAdminHtml='';
-let cachedSigningSource='';
+let cachedSigningFingerprint='';
 let cachedSigningKey=null;
 
 function signingKey(){
   const sessionSecret=String(process.env.KK_ADMIN_SESSION_SECRET||'').trim();
   const pin=String(process.env.KK_ADMIN_PIN||'').trim();
-  const source=sessionSecret ? `secret:${sessionSecret}` : (pin ? `pin:${pin}` : '');
-  if(!source) return null;
-  if(source===cachedSigningSource && cachedSigningKey) return cachedSigningKey;
+  const material=sessionSecret||pin;
+  if(!material) return null;
+  const kind=sessionSecret?'secret':'pin';
+  const fingerprint=kind+':'+crypto.createHash('sha256').update(material).digest('hex');
+  if(fingerprint===cachedSigningFingerprint&&cachedSigningKey) return cachedSigningKey;
 
   let key;
   if(sessionSecret){
@@ -47,15 +52,14 @@ function signingKey(){
       N:16384,r:8,p:1,maxmem:64*1024*1024
     });
   }
-  cachedSigningSource=source;
+  cachedSigningFingerprint=fingerprint;
   cachedSigningKey=key;
   return key;
 }
 
 function safeEqual(a,b){
-  const aa=Buffer.from(String(a||''),'utf8');
-  const bb=Buffer.from(String(b||''),'utf8');
-  if(aa.length!==bb.length) return false;
+  const aa=crypto.createHash('sha256').update(String(a||''),'utf8').digest();
+  const bb=crypto.createHash('sha256').update(String(b||''),'utf8').digest();
   return crypto.timingSafeEqual(aa,bb);
 }
 
@@ -100,15 +104,23 @@ function hasValidSession(req){
   return verifyToken(parseCookies(req)[COOKIE_NAME]);
 }
 
-function hasValidLegacyPin(req){
-  const expected=String(process.env.KK_ADMIN_PIN||'').trim();
-  const provided=String(req&&req.headers&&req.headers['x-admin-pin']||'').trim();
-  return !!expected&&safeEqual(provided,expected);
+function legacyPin(req){
+  return String(req&&req.headers&&req.headers['x-admin-pin']||'').trim();
 }
 
-function clientKey(req){
+function hasValidLegacyPin(req){
+  const expected=String(process.env.KK_ADMIN_PIN||'').trim();
+  const provided=legacyPin(req);
+  return !!expected&&!!provided&&safeEqual(provided,expected);
+}
+
+function clientIp(req){
   const forwarded=String(req&&req.headers&&req.headers['x-forwarded-for']||'').split(',')[0].trim();
   return forwarded||String(req&&req.headers&&req.headers['x-real-ip']||'').trim()||'unknown';
+}
+
+function clientKey(req,scope='login'){
+  return `${scope}:${clientIp(req)}`;
 }
 
 function cleanEntry(entry,now){
@@ -118,8 +130,8 @@ function cleanEntry(entry,now){
   return entry;
 }
 
-function rateState(req,now=Date.now()){
-  const key=clientKey(req);
+function rateState(req,now=Date.now(),scope='login'){
+  const key=clientKey(req,scope);
   const entry=cleanEntry(attempts.get(key),now);
   if(!entry){ attempts.delete(key); return {allowed:true,key,retryAfter:0}; }
   if(entry.blockedUntil&&entry.blockedUntil>now){
@@ -128,16 +140,16 @@ function rateState(req,now=Date.now()){
   return {allowed:true,key,retryAfter:0};
 }
 
-function recordFailure(req,now=Date.now()){
-  const key=clientKey(req);
+function recordFailure(req,now=Date.now(),scope='login'){
+  const key=clientKey(req,scope);
   const entry=cleanEntry(attempts.get(key),now)||{count:0,firstFailureAt:now,blockedUntil:0};
   entry.count+=1;
   if(entry.count>=FAILURE_LIMIT) entry.blockedUntil=now+BLOCK_MS;
   attempts.set(key,entry);
-  return rateState(req,now);
+  return rateState(req,now,scope);
 }
 
-function clearFailures(req){ attempts.delete(clientKey(req)); }
+function clearFailures(req,scope='login'){ attempts.delete(clientKey(req,scope)); }
 
 function sessionCookie(token){
   return `${COOKIE_NAME}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_TTL_SECONDS}`;
@@ -157,6 +169,10 @@ function hardenAdminResponse(res){
   noStore(res);
   res.setHeader('X-Robots-Tag','noindex, nofollow, noarchive');
   res.setHeader('X-Frame-Options','DENY');
+  res.setHeader('Referrer-Policy','no-referrer');
+  res.setHeader('Cross-Origin-Opener-Policy','same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy','same-origin');
+  res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=(), payment=(), usb=()');
 }
 
 function json(res,status,body){
@@ -169,21 +185,35 @@ function json(res,status,body){
 function sameOrigin(req){
   const origin=String(req&&req.headers&&req.headers.origin||'').trim();
   if(!origin) return true;
-  const host=String(req&&req.headers&&(req.headers['x-forwarded-host']||req.headers.host)||'').trim();
+  const host=String(req&&req.headers&&(req.headers['x-forwarded-host']||req.headers.host)||'').split(',')[0].trim();
+  const forwardedProto=String(req&&req.headers&&req.headers['x-forwarded-proto']||'').split(',')[0].trim().toLowerCase();
   if(!host) return false;
-  try{ return new URL(origin).host===host; }
-  catch(_){ return false; }
+  try{
+    const parsed=new URL(origin);
+    if(parsed.host!==host) return false;
+    if(forwardedProto&&parsed.protocol!==`${forwardedProto}:`) return false;
+    return true;
+  }catch(_){ return false; }
+}
+
+function bodySize(value){
+  try{ return Buffer.byteLength(typeof value==='string'?value:JSON.stringify(value),'utf8'); }
+  catch(_){ return MAX_AUTH_BODY_BYTES+1; }
 }
 
 async function bodyOf(req){
-  if(req.body&&typeof req.body==='object') return req.body;
+  if(req.body&&typeof req.body==='object'){
+    if(bodySize(req.body)>MAX_AUTH_BODY_BYTES) throw new Error('request_too_large');
+    return req.body;
+  }
   if(typeof req.body==='string'&&req.body.trim()){
+    if(bodySize(req.body)>MAX_AUTH_BODY_BYTES) throw new Error('request_too_large');
     try{ return JSON.parse(req.body); }catch(_){ return {}; }
   }
   let raw='';
   for await(const chunk of req){
     raw+=chunk;
-    if(raw.length>4096) throw new Error('request_too_large');
+    if(Buffer.byteLength(raw,'utf8')>MAX_AUTH_BODY_BYTES) throw new Error('request_too_large');
   }
   if(!raw) return {};
   try{ return JSON.parse(raw); }catch(_){ return {}; }
@@ -220,6 +250,19 @@ function cleanRelative(input){
   return normalized;
 }
 
+function resolveAdminFile(rel){
+  const file=path.resolve(ADMIN_ROOT,rel);
+  if(file===ADMIN_ROOT||!file.startsWith(ADMIN_ROOT+path.sep)) return '';
+  let real;
+  try{ real=fs.realpathSync(file); }
+  catch(_){ return ''; }
+  if(real===ADMIN_REAL_ROOT||!real.startsWith(ADMIN_REAL_ROOT+path.sep)) return '';
+  let stat;
+  try{ stat=fs.statSync(real); }
+  catch(_){ return ''; }
+  return stat.isFile()?real:'';
+}
+
 function contentType(file){ return TYPES[path.extname(file).toLowerCase()]||'application/octet-stream'; }
 
 function redirect(res,to){
@@ -239,7 +282,7 @@ function loadAdminHtml(){
   if(!source.includes(loginMarker)) throw new Error('Admin login compatibility marker not found');
   cachedAdminHtml=source
     .replace(loginMarker,'<section id="loginPanel" class="card login-card hidden" aria-hidden="true">')
-    .replace(scriptMarker,'<script src="/admin/session-bridge.js?v=auth-gate-3"></script>\n  '+scriptMarker);
+    .replace(scriptMarker,'<script src="/admin/session-bridge.js?v=auth-gate-4"></script>\n  '+scriptMarker);
   return cachedAdminHtml;
 }
 
@@ -261,7 +304,7 @@ async function handleAuth(req,res){
     return json(res,200,{ok:true,authenticated:false});
   }
 
-  const rate=rateState(req);
+  const rate=rateState(req,Date.now(),'login');
   if(!rate.allowed){
     res.setHeader('Retry-After',String(rate.retryAfter));
     return json(res,429,{ok:false,error:'ลองใหม่ภายหลัง'});
@@ -271,12 +314,12 @@ async function handleAuth(req,res){
   const provided=String(payload.pin||'').trim();
   if(!expected) return json(res,503,{ok:false,error:'Admin access is unavailable'});
   if(!safeEqual(provided,expected)){
-    const next=recordFailure(req);
+    const next=recordFailure(req,Date.now(),'login');
     if(!next.allowed) res.setHeader('Retry-After',String(next.retryAfter));
     return json(res,next.allowed?401:429,{ok:false,error:next.allowed?'PIN ไม่ถูกต้อง':'ลองใหม่ภายหลัง'});
   }
 
-  clearFailures(req);
+  clearFailures(req,'login');
   res.setHeader('Set-Cookie',sessionCookie(issueToken()));
   return json(res,200,{ok:true,authenticated:true});
 }
@@ -295,7 +338,7 @@ function handleApp(req,res){
   catch(_){ res.statusCode=500; return res.end('Admin workspace unavailable'); }
   res.statusCode=200;
   res.setHeader('Content-Type','text/html; charset=utf-8');
-  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   if(req.method==='HEAD') return res.end();
   return res.end(html);
 }
@@ -312,15 +355,8 @@ function handleAsset(req,res){
   const rel=cleanRelative(queryPath(req));
   if(!rel){ res.statusCode=404; return res.end('Not found'); }
   if(rel==='index.html') return redirect(res,'/admin/app');
-  const file=path.resolve(ADMIN_ROOT,rel);
-  if(file===ADMIN_ROOT||!file.startsWith(ADMIN_ROOT+path.sep)){
-    res.statusCode=404;
-    return res.end('Not found');
-  }
-  let stat;
-  try{ stat=fs.statSync(file); }
-  catch(_){ res.statusCode=404; return res.end('Not found'); }
-  if(!stat.isFile()){ res.statusCode=404; return res.end('Not found'); }
+  const file=resolveAdminFile(rel);
+  if(!file){ res.statusCode=404; return res.end('Not found'); }
   res.statusCode=200;
   res.setHeader('Content-Type',contentType(file));
   if(req.method==='HEAD') return res.end();
@@ -332,7 +368,9 @@ async function handleGate(req,res,mode){
   if(m==='auth') return handleAuth(req,res);
   if(m==='app') return handleApp(req,res);
   if(m==='asset') return handleAsset(req,res);
-  return false;
+  hardenAdminResponse(res);
+  res.statusCode=404;
+  return res.end('Not found');
 }
 
 function authorizeApi(req,res){
@@ -342,22 +380,29 @@ function authorizeApi(req,res){
   if(!expected){ json(res,503,{ok:false,error:'Admin access is unavailable'}); return false; }
 
   if(hasValidSession(req)){
-    clearFailures(req);
+    clearFailures(req,'login');
+    clearFailures(req,'legacy-api');
     req.headers=Object.assign({},req.headers||{}, {'x-admin-pin':expected});
     return true;
   }
   if(hasValidLegacyPin(req)){
-    clearFailures(req);
+    clearFailures(req,'legacy-api');
     return true;
   }
 
-  const rate=rateState(req);
+  const provided=legacyPin(req);
+  if(!provided){
+    json(res,401,{ok:false,error:'Unauthorized'});
+    return false;
+  }
+
+  const rate=rateState(req,Date.now(),'legacy-api');
   if(!rate.allowed){
     res.setHeader('Retry-After',String(rate.retryAfter));
     json(res,429,{ok:false,error:'Too many authentication attempts'});
     return false;
   }
-  const next=recordFailure(req);
+  const next=recordFailure(req,Date.now(),'legacy-api');
   if(!next.allowed) res.setHeader('Retry-After',String(next.retryAfter));
   json(res,next.allowed?401:429,{ok:false,error:'Unauthorized'});
   return false;
@@ -374,6 +419,7 @@ module.exports={
   noStore,
   _test:{
     attempts,
+    clientIp,
     clientKey,
     signingKey,
     signExpiry,
@@ -388,10 +434,13 @@ module.exports={
     clearSessionCookie,
     sameOrigin,
     bodyOf,
+    bodySize,
     cleanRelative,
+    resolveAdminFile,
     contentType,
     queryPath,
     loadAdminHtml,
-    ADMIN_ROOT
+    ADMIN_ROOT,
+    ADMIN_REAL_ROOT
   }
 };
