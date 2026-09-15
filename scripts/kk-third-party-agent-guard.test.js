@@ -127,6 +127,11 @@ eq(r.sensitive_environment_keys,[
 ],'only sensitive environment key names are surfaced');
 
 r=g.evaluateThirdPartyAction({
+  operation:'READ',branch:'integration/ai-engineering-model-v1',environment_keys:['AWS_REGION','GOOGLE_CLOUD_PROJECT']
+});
+ok(r.allowed,'non-secret provider configuration names are not overclassified as credentials');
+
+r=g.evaluateThirdPartyAction({
   operation:'READ',branch:'integration/ai-engineering-model-v1',environment_keys:['OPENAI_API_KEY=super-secret-value']
 });
 ok(!r.allowed&&r.reasons.includes('ENVIRONMENT_KEY_NAME_INVALID'),'key=value input is malformed and denied rather than echoing a value');
@@ -166,6 +171,7 @@ r=g.evaluateThirdPartyAction({});
 ok(!r.allowed&&r.reasons.includes('OPERATION_REQUIRED'),'missing operation fails closed');
 
 ok(g.pathMatches('scripts/dev/foo.js','scripts/dev/**'),'recursive owned path rule matches');
+ok(g.pathMatches('scripts/dev/foo.js','scripts/dev/*'),'legacy star-prefix owned rule remains compatible');
 ok(!g.pathMatches('scripts/foo.js','scripts/dev/**'),'owned path rule does not overmatch');
 ok(!g.pathMatches('scripts/dev/../prod.js','scripts/dev/**'),'path matcher rejects traversal-like input');
 ok(!g.pathMatches('scripts//dev/foo.js','scripts/dev/**'),'path matcher rejects duplicate separators');
