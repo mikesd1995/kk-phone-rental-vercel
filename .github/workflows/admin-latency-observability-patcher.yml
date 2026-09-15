@@ -1,0 +1,213 @@
+name: Admin Latency Observability Patcher
+
+on:
+  push:
+    branches:
+      - admin-latency-observability-v1-20260915
+    paths:
+      - .github/workflows/admin-latency-observability-patcher.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: admin-latency-observability-v1-20260915
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply exact latency telemetry patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('api/kk-admin-guard.js')
+          s=p.read_text(encoding='utf-8')
+
+          anchor="""  return {events:checked.events,expected:checked.expected,latency_ms:Date.now()-startedAt};
+}
+
+module.exports=async function handler(req,res){
+  if(req.method!=='POST') return LegacyAdmin(req,res);
+"""
+          replacement="""  return {events:checked.events,expected:checked.expected,latency_ms:Date.now()-startedAt};
+}
+
+function instrumentLegacyTiming(res,meta){
+  const delegateStartedAt=Date.now();
+  const requestStartedAt=Number(meta&&meta.requestStartedAt)||delegateStartedAt;
+  const action=String(meta&&meta.action||'').slice(0,40);
+  const preflightMs=Number(meta&&meta.preflightMs);
+  const originalWriteHead=res&&res.writeHead;
+  const originalWrite=res&&res.write;
+  const originalEnd=res&&res.end;
+  let stamped=false;
+  function stamp(){
+    if(stamped) return;
+    stamped=true;
+    const now=Date.now();
+    const upstreamMs=Math.max(0,now-delegateStartedAt);
+    const totalMs=Math.max(0,now-requestStartedAt);
+    try{
+      if(action) res.setHeader('X-KK-Admin-Action',action);
+      if(Number.isFinite(preflightMs)&&preflightMs>=0) res.setHeader('X-KK-Admin-Preflight-MS',String(Math.round(preflightMs)));
+      res.setHeader('X-KK-Admin-Upstream-MS',String(upstreamMs));
+      res.setHeader('X-KK-Admin-Total-MS',String(totalMs));
+      const timing=[];
+      if(Number.isFinite(preflightMs)&&preflightMs>=0) timing.push('preflight;dur='+Math.round(preflightMs));
+      timing.push('upstream;dur='+upstreamMs);
+      timing.push('total;dur='+totalMs);
+      res.setHeader('Server-Timing',timing.join(', '));
+    }catch(_){}
+  }
+  if(typeof originalWriteHead==='function') res.writeHead=function(...args){ stamp(); return originalWriteHead.apply(this,args); };
+  if(typeof originalWrite==='function') res.write=function(...args){ stamp(); return originalWrite.apply(this,args); };
+  if(typeof originalEnd==='function') res.end=function(...args){ stamp(); return originalEnd.apply(this,args); };
+  return {started_at:delegateStartedAt,stamp};
+}
+
+module.exports=async function handler(req,res){
+  const requestStartedAt=Date.now();
+  if(req.method!=='POST') return LegacyAdmin(req,res);
+"""
+          if s.count(anchor)!=1: raise SystemExit(f'handler anchor count={s.count(anchor)}')
+          s=s.replace(anchor,replacement,1)
+
+          old_event="""    if(prepared.publish_default_applied) res.setHeader('X-KK-Event-Publish-Default','TRUE');
+    res.setHeader('X-KK-Event-Guard','PASS');
+    return LegacyAdmin(clonedRequest(req,JSON.stringify(prepared.payload)),res);
+"""
+          new_event="""    if(prepared.publish_default_applied) res.setHeader('X-KK-Event-Publish-Default','TRUE');
+    res.setHeader('X-KK-Event-Guard','PASS');
+    instrumentLegacyTiming(res,{requestStartedAt,action,preflightMs});
+    return LegacyAdmin(clonedRequest(req,JSON.stringify(prepared.payload)),res);
+"""
+          if s.count(old_event)!=1: raise SystemExit(f'event delegate count={s.count(old_event)}')
+          s=s.replace(old_event,new_event,1)
+
+          old_booking="""  let snapshot;
+  try{
+    snapshot=await fetchFreshSnapshot({scriptUrl,apiKey,sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},18000);
+  }catch(err){
+    return reply(res,503,{ok:false,error:'Booking preflight unavailable; write blocked: '+(err&&err.message?err.message:String(err)),error_code:'BOOKING_PREFLIGHT_UNAVAILABLE'});
+  }
+"""
+          new_booking="""  let snapshot;
+  const bookingPreflightStartedAt=Date.now();
+  let bookingPreflightMs=0;
+  try{
+    snapshot=await fetchFreshSnapshot({scriptUrl,apiKey,sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},18000);
+    bookingPreflightMs=Date.now()-bookingPreflightStartedAt;
+    res.setHeader('X-KK-Booking-Preflight-MS',String(bookingPreflightMs));
+  }catch(err){
+    bookingPreflightMs=Date.now()-bookingPreflightStartedAt;
+    res.setHeader('X-KK-Booking-Preflight-MS',String(bookingPreflightMs));
+    return reply(res,503,{ok:false,error:'Booking preflight unavailable; write blocked: '+(err&&err.message?err.message:String(err)),error_code:'BOOKING_PREFLIGHT_UNAVAILABLE'});
+  }
+"""
+          if s.count(old_booking)!=1: raise SystemExit(f'booking preflight count={s.count(old_booking)}')
+          s=s.replace(old_booking,new_booking,1)
+
+          old_booking_delegate="""  res.setHeader('X-KK-Booking-Guard','PASS');
+  res.setHeader('X-KK-Reservation-Mode',assessment.result.window&&assessment.result.window.mode||'none');
+  return LegacyAdmin(clonedRequest(req,raw),res);
+};
+"""
+          new_booking_delegate="""  res.setHeader('X-KK-Booking-Guard','PASS');
+  res.setHeader('X-KK-Reservation-Mode',assessment.result.window&&assessment.result.window.mode||'none');
+  instrumentLegacyTiming(res,{requestStartedAt,action,preflightMs:bookingPreflightMs});
+  return LegacyAdmin(clonedRequest(req,raw),res);
+};
+"""
+          if s.count(old_booking_delegate)!=1: raise SystemExit(f'booking delegate count={s.count(old_booking_delegate)}')
+          s=s.replace(old_booking_delegate,new_booking_delegate,1)
+
+          old_export="""module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex};
+"""
+          new_export="""module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,instrumentLegacyTiming};
+"""
+          if s.count(old_export)!=1: raise SystemExit(f'test export count={s.count(old_export)}')
+          s=s.replace(old_export,new_export,1)
+          p.write_text(s,encoding='utf-8')
+
+          Path('tests/admin-latency-observability.test.js').write_text(r'''const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const guard=require('../api/kk-admin-guard.js');
+const instrumentLegacyTiming=guard._test.instrumentLegacyTiming;
+
+function fakeResponse(){
+  const headers={};
+  return {
+    headers,
+    setHeader(k,v){ headers[k]=String(v); },
+    writeHead(){ return this; },
+    write(){ return true; },
+    end(){ return this; }
+  };
+}
+
+test('delegate timing stamps segmented headers before response starts',()=>{
+  const realNow=Date.now;
+  let now=1000;
+  Date.now=()=>now;
+  try{
+    const res=fakeResponse();
+    instrumentLegacyTiming(res,{requestStartedAt:900,action:'createEvent',preflightMs:25});
+    now=1200;
+    res.writeHead(200);
+    assert.equal(res.headers['X-KK-Admin-Action'],'createEvent');
+    assert.equal(res.headers['X-KK-Admin-Preflight-MS'],'25');
+    assert.equal(res.headers['X-KK-Admin-Upstream-MS'],'200');
+    assert.equal(res.headers['X-KK-Admin-Total-MS'],'300');
+    assert.equal(res.headers['Server-Timing'],'preflight;dur=25, upstream;dur=200, total;dur=300');
+  }finally{ Date.now=realNow; }
+});
+
+test('timing stamp is idempotent across writeHead/write/end',()=>{
+  const realNow=Date.now;
+  let now=2000;
+  Date.now=()=>now;
+  try{
+    const res=fakeResponse();
+    instrumentLegacyTiming(res,{requestStartedAt:1900,action:'createBooking',preflightMs:50});
+    now=2100; res.write('x');
+    now=2600; res.end();
+    assert.equal(res.headers['X-KK-Admin-Upstream-MS'],'100');
+    assert.equal(res.headers['X-KK-Admin-Total-MS'],'200');
+  }finally{ Date.now=realNow; }
+});
+
+test('guarded event and booking paths both install delegate telemetry',()=>{
+  const src=fs.readFileSync(path.join(__dirname,'..','api','kk-admin-guard.js'),'utf8');
+  const calls=[...src.matchAll(/instrumentLegacyTiming\(res,\{requestStartedAt,action,preflightMs(?::bookingPreflightMs)?\}\)/g)];
+  assert.equal(calls.length,2);
+  assert.match(src,/X-KK-Booking-Preflight-MS/);
+  assert.match(src,/X-KK-Admin-Upstream-MS/);
+  assert.match(src,/X-KK-Admin-Total-MS/);
+  assert.match(src,/Server-Timing/);
+});
+''',encoding='utf-8')
+
+          Path('docs/ADMIN_LATENCY_OBSERVABILITY_V1_2026-09-15.md').write_text('''# Admin Latency Observability v1 — 2026-09-15\n\n## Goal\nSegment guarded Admin write latency without changing booking/event business semantics or Apps Script.\n\n## Baseline from `15_Admin_Audit_Log`\nRecent bounded audit sample (`A750:J1000`):\n- `createEvent`: n=26, median 13.80s, p90 17.71s, max 24.66s.\n- `createBooking`: n=17, median 8.13s, p90 9.77s, max 11.63s.\n\nThese audit durations are useful historical operation timings but do not separate Vercel preflight from delegated upstream/write time or total guarded request time.\n\n## Change\nFor guarded `createEvent`, `createBooking`, and `updateBooking` responses, add non-sensitive timing headers immediately before the delegated response begins:\n- `X-KK-Admin-Action`\n- `X-KK-Admin-Preflight-MS`\n- `X-KK-Admin-Upstream-MS`\n- `X-KK-Admin-Total-MS`\n- `Server-Timing: preflight;dur=..., upstream;dur=..., total;dur=...`\n\nBooking also gains `X-KK-Booking-Preflight-MS`. Existing Event preflight headers remain unchanged.\n\n## Safety\n- Timing only; no request/response business payload mutation.\n- No customer/event/booking identifiers are emitted by the new headers.\n- No Apps Script source/deploy.\n- No Sheet business-row mutation.\n- No Scanner/Verifier/Canary/Make change.\n- Existing collision/event guards remain authoritative.\n\n## Why this helps\nA real authorized Admin write can now show whether latency is dominated by guard preflight, the delegated Legacy Admin/Apps Script path, or total proxy time. This gives evidence for the later 9_5_9 lock-critical-section fix instead of guessing from end-to-end symptoms.\n''',encoding='utf-8')
+          PY
+      - name: Syntax check
+        run: npm run check
+      - name: Full regression
+        run: npm test
+      - name: Remove one-shot patcher and commit verified result
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/admin-latency-observability-patcher.yml
+          git add api/kk-admin-guard.js tests/admin-latency-observability.test.js docs/ADMIN_LATENCY_OBSERVABILITY_V1_2026-09-15.md
+          git commit -m "Add guarded Admin latency telemetry"
+          git push origin HEAD:admin-latency-observability-v1-20260915
