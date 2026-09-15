@@ -27,6 +27,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
           p=Path('admin/admin.js')
           s=p.read_text(encoding='utf-8')
           reps=[
@@ -40,31 +41,59 @@ jobs:
              '  function schedulePostWriteRefresh(reason="write", attempt=0){\n    if(attempt===0) snapshotState.writeGeneration=Number(snapshotState.writeGeneration||0)+1;\n    snapshotState.writePending=true;')
           ]
           for old,new in reps:
-            c=s.count(old)
-            if c!=1: raise SystemExit(f'expected one match, found {c}: {old[:100]}')
+            count=s.count(old)
+            if count!=1:
+              raise SystemExit(f'expected exactly one source match, found {count}: {old[:120]}')
             s=s.replace(old,new,1)
           p.write_text(s,encoding='utf-8')
 
-          t=Path('tests/admin-postwrite-refresh-lean.test.js')
-          x=t.read_text(encoding='utf-8')
-          marker="test('successful snapshot refresh clears pending-write marker',()=>{"
-          if x.count(marker)!=1: raise SystemExit('test marker mismatch')
-          x=x.replace(marker,"test('refresh started before the latest write cannot clear pending state',()=>{\n  assert.match(src,/const writeGenerationAtStart=Number\\(snapshotState\\.writeGeneration\\|\\|0\\)/);\n  assert.match(src,/if\\(attempt===0\\) snapshotState\\.writeGeneration=Number\\(snapshotState\\.writeGeneration\\|\\|0\\)\\+1/);\n  assert.match(src,/if\\(writeGenerationAtStart>=Number\\(snapshotState\\.writeGeneration\\|\\|0\\)\\)/);\n});\n\n"+marker,1)
-          old='    assert.match(src,/snapshotState\\.writePending=false;\\s*snapshotState\\.writePendingReason="";\\s*snapshotState\\.goodAt=snapshotState\\.checkedAt;/);'
-          new='    assert.match(src,/if\\(writeGenerationAtStart>=Number\\(snapshotState\\.writeGeneration\\|\\|0\\)\\)\\{\\s*snapshotState\\.writePending=false;\\s*snapshotState\\.writePendingReason="";/);'
-          if x.count(old)!=1: raise SystemExit('clear-pending assertion mismatch')
-          x=x.replace(old,new,1)
-          t.write_text(x,encoding='utf-8')
+          Path('tests/admin-postwrite-refresh-lean.test.js').write_text(r'''const test=require('node:test');
+          const assert=require('node:assert/strict');
+          const fs=require('node:fs');
+          const src=fs.readFileSync(require('node:path').join(__dirname,'..','admin','admin.js'),'utf8');
 
-          d=Path('docs/ADMIN_POSTWRITE_REFRESH_LEAN_2026-09-15.md')
-          y=d.read_text(encoding='utf-8')
-          anchor='- Background refresh retries only while another refresh is already active, with a bounded retry count.\n'
-          if y.count(anchor)!=1: raise SystemExit('doc anchor mismatch')
-          y=y.replace(anchor,anchor+'- A monotonic write-generation token prevents an older in-flight refresh from clearing the pending marker for a newer write.\n',1)
-          d.write_text(y,encoding='utf-8')
+          function createEventBlock(){
+            const start=src.indexOf('const eventForm=$("#eventForm")');
+            const end=src.indexOf('const resetCreateEventPrices=$("#resetCreateEventPrices")',start);
+            assert.ok(start>=0 && end>start,'createEvent handler block must exist');
+            return src.slice(start,end);
+          }
+
+          test('createEvent no longer blocks success UI on full snapshot refresh',()=>{
+            const block=createEventBlock();
+            assert.match(block,/const res=await api\("createEvent",p\)/);
+            assert.match(block,/schedulePostWriteRefresh\("createEvent"\)/);
+            assert.doesNotMatch(block,/await refresh\(\)/);
+            assert.ok(block.indexOf('schedulePostWriteRefresh("createEvent")') < block.indexOf('showNotice("สร้างงานสำเร็จ"'));
+          });
+
+          test('post-write refresh is bounded, fail-visible, and keeps snapshot safety state',()=>{
+            assert.match(src,/function schedulePostWriteRefresh\(reason="write", attempt=0\)/);
+            assert.match(src,/if\(attempt<8\) return schedulePostWriteRefresh\(reason,attempt\+1\)/);
+            assert.match(src,/snapshotState\.writePending=true/);
+            assert.match(src,/Snapshot ยังไม่ Sync อัตโนมัติ กรุณากด Refresh/);
+            assert.match(src,/Sync หน้าจอล่าสุดไม่สำเร็จ กรุณากด Refresh/);
+          });
+
+          test('refresh started before the latest write cannot clear pending state',()=>{
+            assert.match(src,/writeGeneration:\s*0/);
+            assert.match(src,/const writeGenerationAtStart=Number\(snapshotState\.writeGeneration\|\|0\)/);
+            assert.match(src,/if\(attempt===0\) snapshotState\.writeGeneration=Number\(snapshotState\.writeGeneration\|\|0\)\+1/);
+            assert.match(src,/if\(writeGenerationAtStart>=Number\(snapshotState\.writeGeneration\|\|0\)\)\{\s*snapshotState\.writePending=false;\s*snapshotState\.writePendingReason="";/);
+          });
+
+          test('verified refresh clears the pending marker and status exposes background convergence',()=>{
+            assert.match(src,/snapshotState\.goodAt=snapshotState\.checkedAt/);
+            assert.match(src,/กำลัง Sync Snapshot เบื้องหลัง/);
+          });
+          ''',encoding='utf-8')
+
+          Path('docs/ADMIN_POSTWRITE_REFRESH_LEAN_2026-09-15.md').write_text('''# Admin Post-write Refresh Lean — 2026-09-15\n\n## Goal\nRelease the Create Event submit path immediately after the authoritative createEvent write returns, rather than waiting for a second full Admin snapshot before showing success and releasing the submit button.\n\n## Change\n- Create Event still performs the normal createEvent API write and all server-side guards.\n- After a successful write, the UI schedules the existing full snapshot refresh asynchronously instead of awaiting it inside the submit transaction.\n- Snapshot status shows a pending background-sync marker until a verified refresh succeeds.\n- Background refresh retries only while another refresh is already active, with a bounded retry count.\n- A monotonic write-generation token prevents an older in-flight refresh from clearing the pending marker for a newer write.\n- If background sync fails, the UI keeps the pending safety signal and tells the operator to press Refresh.\n\n## Safety boundary\n- Only Create Event post-write refresh behavior changes.\n- No Booking create/update path changes.\n- No Apps Script source or deployment changes.\n- No Google Sheet business-data mutation from this code change.\n- No Scanner/Verifier/Canary/Make changes.\n- Existing snapshot health validation remains authoritative; this change does not manufacture a successful snapshot.\n\n## Expected UX improvement\nThe Create Event button and success confirmation no longer wait for the second full snapshot after the write. The full snapshot still runs for eventual verified UI convergence, but outside the blocking submit path.\n\n## Acceptance\n- Exact source replacement count = 1 for every patch point.\n- Node syntax check passes.\n- Full repository test suite passes.\n- PR CI and Vercel Preview must pass before merge.\n- Post-merge Main CI and GitHub Vercel status must pass.\n- Browser-level authenticated acceptance is not claimed while the connected Vercel workspace scope remains unauthorized.\n''',encoding='utf-8')
           PY
-      - run: npm run check
-      - run: npm test
+      - name: Syntax check
+        run: npm run check
+      - name: Full regression
+        run: npm test
       - name: Remove one-shot patcher and commit
         shell: bash
         run: |
