@@ -1,49 +1,47 @@
 # KK Phone Rental — Private Reader Access Recheck
 
 Time: 2026-09-15 03:43 Asia/Bangkok
-Updated: 2026-09-15 10:04 Asia/Bangkok
+Updated: 2026-09-15 10:04+ Asia/Bangkok
 
 ## Purpose
 
-Recheck the remaining Production Private Reader blocker after the full 8-dataset Core→CRM values-only read model acceptance had already passed.
+Recheck the remaining Production Private Reader blocker after the full 8-dataset Core→CRM values-only read model acceptance had already passed, and attempt the deepest safe runtime check available without credentials or production mutation.
 
 ## Confirmed identity
 
 - GitHub repository: `mikesd1995/kk-phone-rental-vercel`
 - Repository default Vercel homepage: `https://kk-phone-rental-vercel.vercel.app`
-- Frontend production alias in `config.js`: `https://kk-phone-rental.vercel.app/`
+- Frontend production alias: `https://kk-phone-rental.vercel.app/`
 - Vercel workspace slug: `mikesd1995s-projects`
 - Vercel team ID disclosed by Vercel: `team_uaeOdVIjXMSW690ZM2wPuJyt`
 - Intended Vercel project slug: `kk-phone-rental-vercel`
 
-## 10:04 live authorization recheck
+## Latest live authorization and runtime checks
 
-The authorization gate was tested again rather than assuming the previous state persisted.
+1. Deployment listing was retried using authoritative team ID `team_uaeOdVIjXMSW690ZM2wPuJyt`.
+2. Vercel again returned **403 Forbidden** with exact scope `mikesd1995s-projects` and remediation to re-authenticate to that scope or use an authorized secure connection/token.
+3. A direct Vercel-authenticated fetch was then attempted against production health URL `https://kk-phone-rental.vercel.app/api/kk-intelligence-health`.
+4. That runtime fetch could not even reach application health evaluation because Vercel first attempted to resolve/check deployment access and was itself blocked by the same **403 Forbidden** authorization boundary.
 
-1. Current Vercel team discovery still returns an empty team set.
-2. Deployment listing was retried using the authoritative Vercel team ID `team_uaeOdVIjXMSW690ZM2wPuJyt` rather than only the workspace slug.
-3. Vercel again returned **403 Forbidden** and explicitly reported:
-   - scope: `mikesd1995s-projects`
-   - team ID: `team_uaeOdVIjXMSW690ZM2wPuJyt`
-   - `saml=false`
-   - `enforced=false`
-   - remediation: re-authenticate to this scope or use a token/connection with access to this scope.
+This adds a useful negative control: the blocker is not limited to project-list/deployment-list management endpoints. The connector also cannot traverse its Vercel-authenticated deployment-fetch path to the production health endpoint. Therefore an authenticated Private Reader health acceptance cannot be truthfully claimed from the current connection.
 
-Using the authoritative team ID and receiving the same workspace-scope authorization failure eliminates slug resolution as a plausible cause. The blocker is the connected Vercel identity's workspace authorization state.
-
-No token, credential, environment value, service-account secret, or Admin PIN was requested or exposed.
+No Admin PIN, Vercel token, Google service-account secret, environment value, or other credential was requested, guessed, logged, or exposed.
 
 ## Deployment evidence
 
-The immediately preceding audit commit `43c72cb1246b03d33fe8f1d74fc9afe4a0e18576` (`Record exact Vercel re-auth scope blocker`) has GitHub Vercel status **success**, with the target under `mikesd1995s-projects/kk-phone-rental-vercel`.
+The preceding audit commit `43c72cb1246b03d33fe8f1d74fc9afe4a0e18576` has GitHub Vercel status **success**, targeting `mikesd1995s-projects/kk-phone-rental-vercel`.
 
-Therefore GitHub→Vercel deployment continues to function while connector-side management access remains unauthorized. Deployment health and connector authorization are conclusively separate gates.
+Thus the evidence remains internally consistent:
+
+- GitHub→Vercel deployment plane: healthy.
+- ChatGPT Vercel management/deployment-fetch plane: unauthorized for the workspace.
+- Private Reader runtime acceptance: not yet executable through the current connection.
 
 ## Current diagnosis
 
 **ROOT CAUSE: VERCEL CONNECTOR WORKSPACE-SCOPE AUTHORIZATION MISSING**
 
-Current evidence does not support changing CRM sync, freshness, reconciliation, Core fallback, Private Reader code, Apps Script, transactional datasets, or project/workspace naming.
+The latest runtime-fetch test strengthens this diagnosis. There is no evidence supporting changes to CRM sync, freshness, reconciliation, Core fallback, Private Reader code, Apps Script, transactional datasets, or project/workspace naming.
 
 ## Safety decision
 
@@ -52,24 +50,24 @@ Current evidence does not support changing CRM sync, freshness, reconciliation, 
 Intentionally unchanged:
 
 - Core Operations remains Production SOT.
-- CRM/Intelligence remains a private values-only read model.
+- CRM/Intelligence remains the private values-only read model.
 - `private_reader_runtime` remains pending/safe fallback.
 - `private_analytics_acceptance` remains blocked pending authorized production-reader acceptance.
 - `runtime_cutover` remains pending/blocked.
-- `last_synced_at` is not advanced by an authorization recheck.
-- `KK_CRM_REQUIRE_PRIVATE` is not enabled without health acceptance.
+- `last_synced_at` is not advanced by authorization/runtime-access rechecks.
+- `KK_CRM_REQUIRE_PRIVATE` is not enabled without successful health acceptance.
 - No Booking/Event/Asset/Package/Pricing/Web/Settings/Operations data is modified.
 - No Apps Script is modified/deployed.
 - No Vercel environment variable or secret is modified.
 - No unrelated PR is merged.
 
-## What improved in the 10:04 recheck
+## What improved in this recheck
 
-- Re-tested access with Vercel's authoritative team ID, not just the human-readable workspace slug.
-- Received the same scope-specific 403, eliminating workspace-slug lookup/resolution as a remaining hypothesis.
-- Reconfirmed the prior audit commit itself deployed successfully through GitHub→Vercel.
-- Narrowed remediation to one external action: authorize/reconnect the Vercel integration to `mikesd1995s-projects`.
-- Avoided risky or irrelevant changes to working production layers.
+- Reconfirmed workspace-scope authorization failure using authoritative team ID.
+- Extended validation from management APIs to the Vercel-authenticated production deployment-fetch path.
+- Demonstrated that the health endpoint cannot yet be evaluated through this connection because Vercel authorization fails before application-level health evaluation.
+- Prevented a false `private_analytics_eligible` or cutover claim.
+- Preserved safe Core fallback and all production data boundaries.
 
 ## Required external prerequisite
 
@@ -77,8 +75,8 @@ Re-authorize/reconnect the Vercel integration so its connected identity can acce
 
 ## Acceptance sequence after authorization
 
-1. Read the currently promoted production deployment and commit.
-2. Inspect required environment-variable names without exposing secret values.
+1. Read currently promoted production deployment and commit.
+2. Inspect required environment-variable names/presence without exposing secret values.
 3. Verify `KK_CRM_SHEET_ID` targets the private CRM & Intelligence spreadsheet.
 4. Verify supported read-only Google service-account credentials are present.
 5. Keep strict-private disabled for initial health acceptance.
@@ -91,9 +89,8 @@ Re-authorize/reconnect the Vercel integration so its connected identity can acce
 
 ## Changes made in this recheck
 
-- Re-ran live Vercel team discovery.
-- Re-ran deployment authorization using the authoritative team ID.
-- Captured the repeated exact workspace-scope 403 and remediation.
-- Verified the preceding audit commit's Vercel deployment succeeded.
-- Preserved every production fail-safe state.
+- Re-ran deployment authorization using authoritative Vercel team ID.
+- Attempted Vercel-authenticated fetch of the production intelligence-health endpoint.
+- Recorded that the runtime fetch is blocked at Vercel authorization before application health can be evaluated.
+- Preserved every production fail-safe state and made no business-data/runtime configuration mutation.
 - Updated this audit record only.
