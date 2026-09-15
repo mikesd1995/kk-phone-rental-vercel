@@ -19,25 +19,83 @@ let r=g.evaluateThirdPartyAction({
   path:'docs/kk-phone-rental/KK_AGENT_NOTE.md',
   owned_paths:OWNED,
   production_target:false,
+  production_credentials_present:false,
   environment_keys:[],
   network_exposure:'NONE'
 });
-ok(r.allowed,'owned development-plane doc write is allowed');
+ok(r.allowed,'owned development-plane doc write is allowed with explicit non-production declarations');
 
 r=g.evaluateThirdPartyAction({
-  operation:'WRITE',write:true,branch:'main',path:'docs/kk-phone-rental/KK_AGENT_NOTE.md',owned_paths:OWNED
+  operation:'WRITE',write:true,branch:'main',path:'docs/kk-phone-rental/KK_AGENT_NOTE.md',owned_paths:OWNED,
+  production_target:false,production_credentials_present:false,network_exposure:'NONE'
 });
 ok(!r.allowed&&r.reasons.includes('PROTECTED_BRANCH_WRITE_PROHIBITED'),'main write is denied');
 
 r=g.evaluateThirdPartyAction({
-  operation:'WRITE',write:true,branch:'skills/x-scanner-v2',path:'docs/kk-phone-rental/KK_AGENT_NOTE.md',owned_paths:OWNED
+  operation:'WRITE',write:true,branch:'refs/heads/main',path:'docs/kk-phone-rental/KK_AGENT_NOTE.md',owned_paths:OWNED,
+  production_target:false,production_credentials_present:false,network_exposure:'NONE'
+});
+ok(!r.allowed&&r.reasons.includes('PROTECTED_BRANCH_WRITE_PROHIBITED'),'refs/heads/main normalizes to protected main');
+
+r=g.evaluateThirdPartyAction({
+  operation:'WRITE',write:true,branch:'skills/x-scanner-v2',path:'docs/kk-phone-rental/KK_AGENT_NOTE.md',owned_paths:OWNED,
+  production_target:false,production_credentials_present:false,network_exposure:'NONE'
 });
 ok(!r.allowed&&r.reasons.includes('PROTECTED_BRANCH_WRITE_PROHIBITED'),'canonical dev branch is protected from third-party direct writes');
 
 r=g.evaluateThirdPartyAction({
-  operation:'WRITE',write:true,branch:'integration/ai-engineering-model-v1',path:'api/kk-admin.js',owned_paths:OWNED
+  operation:'WRITE',write:true,branch:'integration/ai-engineering-model-v1',path:'api/kk-admin.js',owned_paths:OWNED,
+  production_target:false,production_credentials_present:false,network_exposure:'NONE'
 });
 ok(!r.allowed&&r.reasons.includes('PATH_OUTSIDE_OWNERSHIP'),'unowned production-adjacent file is denied');
+
+r=g.evaluateThirdPartyAction({
+  operation:'WRITE',write:true,branch:'integration/ai-engineering-model-v1',path:'docs/kk-phone-rental/../../api/kk-admin.js',owned_paths:OWNED,
+  production_target:false,production_credentials_present:false,network_exposure:'NONE'
+});
+ok(!r.allowed&&r.reasons.includes('WRITE_PATH_INVALID')&&r.reasons.includes('PATH_OUTSIDE_OWNERSHIP'),'traversal-like owned-prefix path is denied');
+
+r=g.evaluateThirdPartyAction({
+  operation:'WRITE',write:true,branch:'integration/ai-engineering-model-v1',path:'docs\\kk-phone-rental\\..\\..\\api\\kk-admin.js',owned_paths:OWNED,
+  production_target:false,production_credentials_present:false,network_exposure:'NONE'
+});
+ok(!r.allowed&&r.reasons.includes('WRITE_PATH_INVALID'),'backslash traversal path is denied after separator normalization');
+
+r=g.evaluateThirdPartyAction({
+  operation:'WRITE',write:true,branch:'integration/ai-engineering-model-v1',path:'/docs/kk-phone-rental/KK_AGENT_NOTE.md',owned_paths:OWNED,
+  production_target:false,production_credentials_present:false,network_exposure:'NONE'
+});
+ok(!r.allowed&&r.reasons.includes('WRITE_PATH_INVALID'),'absolute path is denied');
+
+r=g.evaluateThirdPartyAction({
+  operation:'WRITE',write:true,branch:'integration/ai-engineering-model-v1',path:'docs//kk-phone-rental/KK_AGENT_NOTE.md',owned_paths:OWNED,
+  production_target:false,production_credentials_present:false,network_exposure:'NONE'
+});
+ok(!r.allowed&&r.reasons.includes('WRITE_PATH_INVALID'),'duplicate separators are denied');
+
+r=g.evaluateThirdPartyAction({
+  operation:'WRITE',write:true,branch:'integration/ai-engineering-model-v1',path:'docs/%2e%2e/api/kk-admin.js',owned_paths:OWNED,
+  production_target:false,production_credentials_present:false,network_exposure:'NONE'
+});
+ok(!r.allowed&&r.reasons.includes('WRITE_PATH_INVALID'),'encoded traversal-like path is denied');
+
+r=g.evaluateThirdPartyAction({
+  operation:'WRITE',write:true,branch:'integration/ai-engineering-model-v1',path:'docs/kk-phone-rental/KK_AGENT_NOTE.md',owned_paths:OWNED,
+  production_credentials_present:false,network_exposure:'NONE'
+});
+ok(!r.allowed&&r.reasons.includes('PRODUCTION_TARGET_DECLARATION_REQUIRED'),'generic write cannot omit production-target declaration');
+
+r=g.evaluateThirdPartyAction({
+  operation:'WRITE',write:true,branch:'integration/ai-engineering-model-v1',path:'docs/kk-phone-rental/KK_AGENT_NOTE.md',owned_paths:OWNED,
+  production_target:false,network_exposure:'NONE'
+});
+ok(!r.allowed&&r.reasons.includes('PRODUCTION_CREDENTIAL_DECLARATION_REQUIRED'),'generic write cannot omit credential declaration');
+
+r=g.evaluateThirdPartyAction({
+  operation:'WRITE',write:true,branch:'integration/ai-engineering-model-v1',path:'docs/kk-phone-rental/KK_AGENT_NOTE.md',owned_paths:OWNED,
+  production_target:false,production_credentials_present:false
+});
+ok(!r.allowed&&r.reasons.includes('NETWORK_EXPOSURE_DECLARATION_REQUIRED'),'generic write cannot omit network-exposure declaration');
 
 r=g.evaluateThirdPartyAction({operation:'MERGE_MAIN',branch:'integration/ai-engineering-model-v1'});
 ok(!r.allowed&&r.reasons.includes('FORBIDDEN_OPERATION:MERGE_MAIN'),'merge main is categorically denied');
@@ -58,8 +116,26 @@ r=g.evaluateThirdPartyAction({
   operation:'READ',branch:'integration/ai-engineering-model-v1',environment_keys:['GITHUB_TOKEN']
 });
 ok(!r.allowed&&r.reasons.includes('PRODUCTION_OR_SENSITIVE_CREDENTIALS_PRESENT'),'sensitive environment key blocks action');
-
 eq(r.sensitive_environment_keys,['GITHUB_TOKEN'],'sensitive key is surfaced by name only');
+
+r=g.evaluateThirdPartyAction({
+  operation:'READ',branch:'integration/ai-engineering-model-v1',environment_keys:['STRIPE_API_KEY','SERVICE_ACCESS_TOKEN','APP_CLIENT_SECRET','SIGNING_PRIVATE_KEY','AWS_SECRET_ACCESS_KEY','GOOGLE_APPLICATION_CREDENTIALS']
+});
+ok(!r.allowed&&r.reasons.includes('PRODUCTION_OR_SENSITIVE_CREDENTIALS_PRESENT'),'common suffix and provider credential aliases are blocked');
+eq(r.sensitive_environment_keys,[
+  'STRIPE_API_KEY','SERVICE_ACCESS_TOKEN','APP_CLIENT_SECRET','SIGNING_PRIVATE_KEY','AWS_SECRET_ACCESS_KEY','GOOGLE_APPLICATION_CREDENTIALS'
+],'only sensitive environment key names are surfaced');
+
+r=g.evaluateThirdPartyAction({
+  operation:'READ',branch:'integration/ai-engineering-model-v1',environment_keys:['OPENAI_API_KEY=super-secret-value']
+});
+ok(!r.allowed&&r.reasons.includes('ENVIRONMENT_KEY_NAME_INVALID'),'key=value input is malformed and denied rather than echoing a value');
+eq(r.sensitive_environment_keys,[],'malformed key=value input never surfaces secret-bearing text');
+
+r=g.evaluateThirdPartyAction({
+  operation:'READ',branch:'integration/ai-engineering-model-v1',environment_keys:{OPENAI_API_KEY:'secret'}
+});
+ok(!r.allowed&&r.reasons.includes('ENVIRONMENT_KEYS_MALFORMED'),'non-array environment key context fails closed');
 
 r=g.evaluateThirdPartyAction({
   operation:'READ',branch:'integration/ai-engineering-model-v1',production_credentials_present:true
@@ -86,9 +162,16 @@ r=g.evaluateThirdPartyAction({
 });
 ok(!r.allowed&&r.reasons.includes('GLOBAL_AGENT_PATCH_PROHIBITED'),'global agent patching is denied');
 
+r=g.evaluateThirdPartyAction({});
+ok(!r.allowed&&r.reasons.includes('OPERATION_REQUIRED'),'missing operation fails closed');
+
 ok(g.pathMatches('scripts/dev/foo.js','scripts/dev/**'),'recursive owned path rule matches');
 ok(!g.pathMatches('scripts/foo.js','scripts/dev/**'),'owned path rule does not overmatch');
+ok(!g.pathMatches('scripts/dev/../prod.js','scripts/dev/**'),'path matcher rejects traversal-like input');
+ok(!g.pathMatches('scripts//dev/foo.js','scripts/dev/**'),'path matcher rejects duplicate separators');
+ok(!g.pathMatches('/scripts/dev/foo.js','scripts/dev/**'),'path matcher rejects absolute input');
 ok(g.isProtectedBranch('main'),'main is protected');
+ok(g.isProtectedBranch('refs/heads/main'),'fully-qualified main ref is protected');
 ok(!g.isProtectedBranch('integration/ai-engineering-model-v1'),'integration branch is not protected');
 
 let stage=g.integrationStageGate({stage:'B',passed_stages:['A']});
@@ -97,7 +180,6 @@ stage=g.integrationStageGate({stage:'D',passed_stages:['A','B']});
 ok(!stage.allowed&&stage.reasons.includes('STAGE_A_B_C_REQUIRED'),'Stage D cannot skip C');
 stage=g.integrationStageGate({stage:'D',passed_stages:['A','B','C']});
 ok(stage.allowed,'Stage D allowed only after A/B/C');
-
 eq(g.reviewTier({operation:'PUBLISH_X'}),'BLOCKED','forbidden operation review tier is BLOCKED');
 eq(g.reviewTier({runtime_control_plane:true}),'AUDIT','runtime control-plane change requires audit tier');
 eq(g.reviewTier({code_change:true}),'PARENT_VERIFY','ordinary code change requires parent verification');
