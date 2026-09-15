@@ -49,6 +49,12 @@ test('public admin gate exposes only PIN access, not CRM navigation or environme
   ]) assert.equal(html.includes(forbidden),false,`gate must not expose ${forbidden}`);
 });
 
+test('obsolete root-level Admin source artifacts cannot remain on the public static surface',()=>{
+  for(const rel of ['kk-admin.js','admin.js','index (1).html','download','download (2)']){
+    assert.equal(fs.existsSync(path.join(root,rel)),false,`${rel} must not be publicly deployable`);
+  }
+});
+
 test('browser storage keeps only a session sentinel and never persists submitted PIN',()=>{
   const html=read('admin-login.html');
   const bridge=read('admin/session-bridge.js');
@@ -58,10 +64,13 @@ test('browser storage keeps only a session sentinel and never persists submitted
   assert.doesNotMatch(bridge,/KK_ADMIN_PIN/);
 });
 
-test('signed session token validates, rejects tampering and carries hardened cookie flags',async()=>{
+test('signed session token is randomized, validates, rejects tampering and carries hardened cookie flags',async()=>{
   await withEnv({KK_ADMIN_PIN:'unit-test-pin',KK_ADMIN_SESSION_SECRET:'unit-test-session-secret'},async()=>{
     const now=Date.now();
     const token=auth._test.issueToken(now);
+    const second=auth._test.issueToken(now);
+    assert.match(token,/^v2\.\d+\.[A-Za-z0-9_-]{22}\.[a-f0-9]{64}$/);
+    assert.notEqual(token,second,'same-second sessions must have independent random nonces');
     assert.equal(auth._test.verifyToken(token,now+1000),true);
     assert.equal(auth._test.verifyToken(token.slice(0,-1)+(token.endsWith('0')?'1':'0'),now+1000),false);
     assert.equal(auth._test.verifyToken(token,now+auth.SESSION_TTL_SECONDS*1000+2000),false);
@@ -72,6 +81,18 @@ test('signed session token validates, rejects tampering and carries hardened coo
     assert.match(cookie,/; Secure/);
     assert.match(cookie,/; SameSite=Strict/);
     assert.match(cookie,/; Max-Age=28800$/);
+  });
+});
+
+test('PIN-only rollout fallback still validates sessions without using the raw PIN as HMAC key',async()=>{
+  await withEnv({KK_ADMIN_PIN:'fallback-pin',KK_ADMIN_SESSION_SECRET:undefined},async()=>{
+    const now=Date.now();
+    const token=auth._test.issueToken(now);
+    assert.equal(auth._test.verifyToken(token,now+1000),true);
+    const key=auth._test.signingKey();
+    assert.equal(Buffer.isBuffer(key),true);
+    assert.equal(key.length,32);
+    assert.notEqual(key.toString('utf8'),'fallback-pin');
   });
 });
 
@@ -120,7 +141,7 @@ test('gate mode supports Vercel rewrite query objects and URL query strings',()=
   assert.equal(auth.gateMode({url:'/api/kk-admin-snapshot-v6?__kk_gate=asset'}),'asset');
 });
 
-test('signed-in Admin HTML receives the session bridge before legacy Admin bootstrap',()=>{
+test('signed-in Admin HTML receives the session bridge and keeps the obsolete inline login panel hidden',()=>{
   const html=auth._test.loadAdminHtml();
   const bridgePos=html.indexOf('/admin/session-bridge.js');
   const healthPos=html.indexOf('/admin/snapshot-health.js');
@@ -128,6 +149,7 @@ test('signed-in Admin HTML receives the session bridge before legacy Admin boots
   assert.ok(bridgePos>=0);
   assert.ok(bridgePos<healthPos);
   assert.ok(healthPos<adminPos);
+  assert.match(html,/id="loginPanel" class="card login-card hidden" aria-hidden="true"/);
 });
 
 test('Admin asset path handling rejects traversal and normalizes safe paths',()=>{
