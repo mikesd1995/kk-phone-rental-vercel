@@ -75,11 +75,12 @@ test('descriptive auto_sync value does not override a SYNCED last_synced_at stat
   assert.equal(x.code,'CRM_SYNC_FRESH');
 });
 
-test('production analytics route is freshness-gated through v6',()=>{
+test('production analytics route is signed-session protected and freshness-gated through v6',()=>{
   const vercel=JSON.parse(fs.readFileSync(path.join(__dirname,'..','vercel.json'),'utf8'));
   const route=(vercel.rewrites||[]).find(x=>x.source==='/api/kk-rental-dashboard');
   assert.equal(route.destination,'/api/kk-rental-dashboard-v6');
   const source=fs.readFileSync(path.join(__dirname,'..','api','kk-rental-dashboard-v6.js'),'utf8');
+  assert.match(source,/AdminSecurity\.authorizeApi\(req,res\)/);
   assert.match(source,/CRM_SYNC_STALE|crmFreshness/);
   assert.match(source,/core_fallback/);
   assert.match(source,/KK_CRM_REQUIRE_PRIVATE/);

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <meta name="referrer" content="no-referrer" />
+  <title>KK Admin</title>
+  <link rel="stylesheet" href="/admin-login.css" />
+</head>
+<body>
+  <main>
+    <form id="adminGate" novalidate>
+      <div class="mark" aria-hidden="true">KK</div>
+      <label for="pin">Admin PIN</label>
+      <input id="pin" name="pin" type="password" inputmode="numeric" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Admin PIN" maxlength="64" required />
+      <button id="submitBtn" type="submit">เข้าสู่ระบบ</button>
+      <p id="status" role="alert" aria-live="polite"></p>
+    </form>
+  </main>
+  <script>  (()=>{
+    const form=document.getElementById('adminGate');
+    const pin=document.getElementById('pin');
+    const btn=document.getElementById('submitBtn');
+    const status=document.getElementById('status');
+    const markAuthenticated=()=>sessionStorage.setItem('kk_admin_pin','__SESSION__');
+    const clearLocalAuth=()=>sessionStorage.removeItem('kk_admin_pin');
+    const enter=()=>{ markAuthenticated(); pin.value=''; location.replace('/admin/app'); };
+
+    async function checkSession(){
+      clearLocalAuth();
+      try{
+        const res=await fetch('/api/kk-admin-auth',{method:'GET',credentials:'same-origin',cache:'no-store'});
+        const data=await res.json().catch(()=>({}));
+        if(res.ok && data.authenticated) return enter();
+      }catch(_){ }
+      document.body.classList.add('ready');
+      setTimeout(()=>pin.focus(),0);
+    }
+
+    form.addEventListener('submit',async ev=>{
+      ev.preventDefault();
+      const value=pin.value.trim();
+      if(!value){ status.textContent='กรุณากรอก PIN'; pin.focus(); return; }
+      btn.disabled=true;
+      status.textContent='';
+      try{
+        const res=await fetch('/api/kk-admin-auth',{
+          method:'POST',
+          credentials:'same-origin',
+          cache:'no-store',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({pin:value})
+        });
+        const data=await res.json().catch(()=>({}));
+        if(res.ok && data.authenticated) return enter();
+        clearLocalAuth();
+        status.textContent=res.status===429 ? 'ลองใหม่ภายหลัง' : 'PIN ไม่ถูกต้อง';
+        pin.select();
+      }catch(_){
+        clearLocalAuth();
+        status.textContent='ไม่สามารถเข้าสู่ระบบได้';
+      }finally{
+        btn.disabled=false;
+      }
+    });
+
+    checkSession();
+  })();</script>
+</body>
+</html>
