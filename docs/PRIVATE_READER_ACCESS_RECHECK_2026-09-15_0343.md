@@ -1,99 +1,99 @@
 # KK Phone Rental — Private Reader Access Recheck
 
 Time: 2026-09-15 03:43 Asia/Bangkok
-Updated: 2026-09-15 08:33 Asia/Bangkok
+Updated: 2026-09-15 10:29+ Asia/Bangkok
 
 ## Purpose
 
-Recheck the remaining Production Private Reader blocker after the full 8-dataset Core→CRM values-only read model acceptance had already passed.
+Recheck the remaining Production Private Reader blocker after the full 8-dataset Core→CRM values-only read model acceptance passed, including a fresh post-remediation authorization probe before making any production change.
 
 ## Confirmed identity
 
 - GitHub repository: `mikesd1995/kk-phone-rental-vercel`
 - Repository default Vercel homepage: `https://kk-phone-rental-vercel.vercel.app`
-- Frontend production alias in `config.js`: `https://kk-phone-rental.vercel.app/`
+- Frontend production alias: `https://kk-phone-rental.vercel.app/`
 - Vercel workspace slug: `mikesd1995s-projects`
-- Vercel team ID disclosed by the Vercel authorization error: `team_uaeOdVIjXMSW690ZM2wPuJyt`
+- Vercel team ID disclosed by Vercel: `team_uaeOdVIjXMSW690ZM2wPuJyt`
 - Intended Vercel project slug: `kk-phone-rental-vercel`
 
-## Live Vercel authorization recheck
+## Fresh post-remediation authorization probe
 
-At 08:33 Asia/Bangkok, authorization was rechecked at multiple levels.
+The connector state was checked again from scratch before assuming that the previous authorization problem had been fixed.
 
-1. `list_teams` returned an empty team set for the currently connected Vercel identity.
-2. Agent Runs project discovery for `mikesd1995s-projects` returned **403 Forbidden** with `You don't have permission to access this resource.`
-3. Direct project lookup for `kk-phone-rental-vercel` under `mikesd1995s-projects` returned **403 Forbidden**.
-4. Direct deployment listing returned a more specific Vercel authorization response: the connector is **not authorized for scope `mikesd1995s-projects` and must re-authenticate to this scope or use a token with access to this scope**. The response also identified team ID `team_uaeOdVIjXMSW690ZM2wPuJyt`, with SAML not enforced.
+1. Vercel team discovery still returns an empty team set: `teams=[]`.
+2. Deployment listing was immediately retried using authoritative team ID `team_uaeOdVIjXMSW690ZM2wPuJyt` and project `kk-phone-rental-vercel`.
+3. Vercel again returned **403 Forbidden** with explicit scope `mikesd1995s-projects` and message requiring re-authentication to that scope or an authorized secure connection/token.
 
-This materially improves root-cause precision. The remaining blocker is no longer merely classified as a generic project-read 403; Vercel itself identifies a scope-authorization/re-authentication requirement for the exact workspace.
+Therefore the current ChatGPT↔Vercel connection has **not yet acquired workspace authorization**. This is a live recheck, not a conclusion copied from the previous audit.
 
-No token, credential, project ID, environment value, or secret was guessed or requested in chat.
+## Previously exhausted connector-side inspection surfaces
 
-## Deployment evidence
+The same authorization boundary has already been observed on:
 
-Main commit `9965a4959a4edb468516186601d86ac11cefb924` (`Record Vercel private reader access recheck`) has a GitHub Vercel combined status of **success**, targeting `mikesd1995s-projects/kk-phone-rental-vercel`.
+- project lookup;
+- deployment listing;
+- Vercel-authenticated protected deployment fetch;
+- production runtime error aggregation;
+- production runtime logs;
+- attempted path to `/api/kk-intelligence-health` before application-level health evaluation.
 
-This proves the GitHub→Vercel deployment integration remains functional for the intended project. It does not grant this ChatGPT Vercel connector management access and does not prove Private Reader runtime acceptance.
+No Admin PIN, Vercel token, Google service-account secret, environment value, or other credential was requested, guessed, logged, or exposed.
 
 ## Current diagnosis
 
-The evidence cleanly separates two planes:
+**ROOT CAUSE: VERCEL CONNECTOR WORKSPACE-SCOPE AUTHORIZATION MISSING**
 
-- **Deployment plane:** healthy; GitHub→Vercel deployment succeeds for the identified project.
-- **Management/acceptance plane from this connector:** blocked because the current Vercel authorization is not authenticated to workspace scope `mikesd1995s-projects`.
-
-There is no evidence requiring changes to CRM synchronization, freshness logic, reconciliation logic, Apps Script, transactional data, or the Private Reader implementation itself.
+The latest probe confirms the prerequisite is still unresolved. There is no evidence supporting changes to CRM sync, freshness, reconciliation, Core fallback, Private Reader code, Apps Script, transactional datasets, or project/workspace naming.
 
 ## Safety decision
 
 **BLOCKED_SAFE — NO PRIVATE READER CUTOVER**
 
-The following remain intentionally unchanged:
+Intentionally unchanged:
 
 - Core Operations remains Production SOT.
 - CRM/Intelligence remains the private values-only read model.
 - `private_reader_runtime` remains pending/safe fallback.
 - `private_analytics_acceptance` remains blocked pending authorized production-reader acceptance.
 - `runtime_cutover` remains pending/blocked.
-- `last_synced_at` is not advanced by this authorization recheck.
-- `KK_CRM_REQUIRE_PRIVATE` is not enabled merely to manufacture acceptance evidence.
+- `last_synced_at` is not advanced by authorization probes.
+- `KK_CRM_REQUIRE_PRIVATE` is not enabled without successful health acceptance.
 - No Booking/Event/Asset/Package/Pricing/Web/Settings/Operations data is modified.
-- No Apps Script is modified or deployed.
+- No Apps Script is modified/deployed.
 - No Vercel environment variable or secret is modified.
-- No Admin hardening PR is merged as part of this work.
+- No unrelated PR is merged.
 
-## What improved in the 08:33 recheck
+## What improved in this recheck
 
-- Reconfirmed the blocker at team, Agent Runs, project and deployment API levels.
-- Obtained Vercel's exact remediation classification: re-authenticate the connection to workspace scope `mikesd1995s-projects` (or use an already-authorized token through an appropriate secure connection path).
-- Captured the authoritative team ID from Vercel's own error response, eliminating another identity ambiguity.
-- Reconfirmed latest main deployment status is successful, separating deployment health from management authorization.
-- Preserved safe Core fallback and avoided unrelated production changes.
+- Revalidated authorization from the current connector state rather than relying on stale evidence.
+- Confirmed team discovery still exposes no authorized workspace.
+- Confirmed authoritative Team-ID deployment access still fails at exactly the required workspace scope.
+- Avoided unsafe production changes while the prerequisite remains unmet.
+- Preserved the known-good Core fallback and acceptance gates.
 
-## Required next gate
+## Required external prerequisite
 
-The next external prerequisite is to re-authorize/reconnect the Vercel integration so the connected identity has access to workspace `mikesd1995s-projects`. Do not paste Vercel tokens or service-account secrets into chat.
+Re-authorize/reconnect the Vercel integration so its connected identity can access workspace `mikesd1995s-projects` / team `team_uaeOdVIjXMSW690ZM2wPuJyt`. Authorization must be completed through the account/plugin UI; secrets must not be pasted into chat.
 
-Once workspace authorization is available, continue in this order:
+## Acceptance sequence after authorization
 
-1. verify current production deployment identity and promoted commit;
-2. inspect required environment-variable names without exposing secret values;
-3. verify `KK_CRM_SHEET_ID` points to the private CRM & Intelligence spreadsheet;
-4. verify a supported read-only Google service-account credential is present;
-5. keep strict-private disabled for the first health check;
-6. POST authenticated `/api/kk-intelligence-health`;
-7. require reader configured, manifest IDs match, sync fresh, all runtime reconciliation passes, `private_analytics_eligible=true`, and status `READY_PRIVATE_READ_RECONCILED`;
-8. verify normal Rental Analytics returns `data_source.mode=crm_private` while Core remains authoritative fallback;
-9. perform a controlled `KK_CRM_REQUIRE_PRIVATE=1` strict-private acceptance test;
-10. restore intended production strictness after the test;
-11. only after all gates pass, advance Private Reader acceptance/runtime state with a proven timestamp.
+1. Confirm `list_teams` or direct project/deployment access now resolves the intended workspace.
+2. Read currently promoted production deployment and commit.
+3. Inspect required environment-variable names/presence without exposing secret values.
+4. Verify `KK_CRM_SHEET_ID` targets the private CRM & Intelligence spreadsheet.
+5. Verify supported read-only Google service-account credentials are present.
+6. Keep strict-private disabled for initial health acceptance.
+7. POST authenticated `/api/kk-intelligence-health`.
+8. Require reader configured, manifest IDs match, freshness passes, all runtime reconciliation passes, `private_analytics_eligible=true`, status `READY_PRIVATE_READ_RECONCILED`.
+9. Call normal Rental Analytics and require `data_source.mode=crm_private`, preserving Core as authoritative fallback.
+10. Perform controlled `KK_CRM_REQUIRE_PRIVATE=1` strict-private acceptance.
+11. Restore intended production strictness after the test.
+12. Only after every gate passes, advance Private Reader acceptance/runtime state with a proven timestamp.
 
 ## Changes made in this recheck
 
-- Repeated live Vercel team discovery.
-- Repeated Agent Runs workspace authorization check.
-- Repeated direct project authorization lookup.
-- Added direct deployment-list authorization check, which produced the exact workspace re-authentication requirement and team ID.
-- Rechecked latest main GitHub→Vercel deployment status; success.
-- Preserved all production fail-safe states and data.
+- Re-ran Vercel team discovery.
+- Re-ran deployment authorization using the authoritative Vercel team ID.
+- Captured the still-active exact workspace-scope 403.
+- Preserved every production fail-safe state and made no business-data/runtime configuration mutation.
 - Updated this audit record only.
