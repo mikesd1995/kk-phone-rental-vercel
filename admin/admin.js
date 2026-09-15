@@ -3,7 +3,7 @@
   const KK_ADMIN_UI_VERSION = KKSnapshotHealth.VERSION;
   const EXPECTED_BACKEND_VERSION = KKSnapshotHealth.BACKEND;
   const EXPECTED_PROXY_VERSION = KKSnapshotHealth.VERSION;
-  let snapshotState = { stale: false, checkedAt: null, goodAt: null, health: null, error: "", writePending: false, writePendingReason: "" };
+  let snapshotState = { stale: false, checkedAt: null, goodAt: null, health: null, error: "", writePending: false, writePendingReason: "", writeGeneration: 0 };
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false };
@@ -1673,6 +1673,7 @@
     if(state.loading) return;
     state.loading=true;
     const startedAt=Date.now();
+    const writeGenerationAtStart=Number(snapshotState.writeGeneration||0);
     try{
       const data=await api("snapshot");
       const health=KKSnapshotHealth.assess(data.data, state.data);
@@ -1682,8 +1683,10 @@
       state.data=data.data;
       snapshotState.stale=false;
       snapshotState.error="";
-      snapshotState.writePending=false;
-      snapshotState.writePendingReason="";
+      if(writeGenerationAtStart>=Number(snapshotState.writeGeneration||0)){
+        snapshotState.writePending=false;
+        snapshotState.writePendingReason="";
+      }
       snapshotState.goodAt=snapshotState.checkedAt;
       snapshotState.latencyMs=Date.now()-startedAt;
       renderSnapshotStatus();
@@ -1715,6 +1718,7 @@
 
   let postWriteRefreshTimer=null;
   function schedulePostWriteRefresh(reason="write", attempt=0){
+    if(attempt===0) snapshotState.writeGeneration=Number(snapshotState.writeGeneration||0)+1;
     snapshotState.writePending=true;
     snapshotState.writePendingReason=String(reason||"write");
     renderSnapshotStatus();

@@ -8,7 +8,8 @@ Release the Create Event submit path immediately after the authoritative createE
 - After a successful write, the UI schedules the existing full snapshot refresh asynchronously instead of awaiting it inside the submit transaction.
 - Snapshot status shows a pending background-sync marker until a verified refresh succeeds.
 - Background refresh retries only while another refresh is already active, with a bounded retry count.
-- If background sync fails, the UI keeps the pending/stale safety signal and tells the operator to press Refresh.
+- A monotonic write-generation token prevents an older in-flight refresh from clearing the pending marker for a newer write.
+- If background sync fails, the UI keeps the pending safety signal and tells the operator to press Refresh.
 
 ## Safety boundary
 - Only Create Event post-write refresh behavior changes.

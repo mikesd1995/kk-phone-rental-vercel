@@ -26,7 +26,14 @@ test('post-write refresh is bounded, fail-visible, and keeps snapshot safety sta
   assert.match(src,/Sync หน้าจอล่าสุดไม่สำเร็จ กรุณากด Refresh/);
 });
 
-test('successful snapshot refresh clears pending-write marker',()=>{
-  assert.match(src,/snapshotState\.writePending=false;\s*snapshotState\.writePendingReason="";\s*snapshotState\.goodAt=snapshotState\.checkedAt;/);
+test('refresh started before the latest write cannot clear pending state',()=>{
+  assert.match(src,/writeGeneration:\s*0/);
+  assert.match(src,/const writeGenerationAtStart=Number\(snapshotState\.writeGeneration\|\|0\)/);
+  assert.match(src,/if\(attempt===0\) snapshotState\.writeGeneration=Number\(snapshotState\.writeGeneration\|\|0\)\+1/);
+  assert.match(src,/if\(writeGenerationAtStart>=Number\(snapshotState\.writeGeneration\|\|0\)\)\{\s*snapshotState\.writePending=false;\s*snapshotState\.writePendingReason="";/);
+});
+
+test('verified refresh clears the pending marker and status exposes background convergence',()=>{
+  assert.match(src,/snapshotState\.goodAt=snapshotState\.checkedAt/);
   assert.match(src,/กำลัง Sync Snapshot เบื้องหลัง/);
 });
