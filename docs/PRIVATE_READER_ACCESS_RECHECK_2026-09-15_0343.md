@@ -1,7 +1,7 @@
 # KK Phone Rental — Private Reader Access Recheck
 
 Time: 2026-09-15 03:43 Asia/Bangkok
-Updated: 2026-09-15 03:49 Asia/Bangkok
+Updated: 2026-09-15 07:27 Asia/Bangkok
 
 ## Purpose
 
@@ -15,90 +15,77 @@ Recheck the remaining Production Private Reader blocker after the full 8-dataset
 - Historical Vercel workspace slug observed in repository audit records: `mikesd1995s-projects`
 - Intended Vercel project slug: `kk-phone-rental-vercel`
 
-This cross-check makes a project-name mismatch unlikely.
-
 ## Live Vercel authorization recheck
 
-The following live checks were performed against the connected Vercel integration:
+At 07:27 Asia/Bangkok, direct project lookup was repeated using project slug `kk-phone-rental-vercel` and workspace slug `mikesd1995s-projects`.
 
-1. Team/workspace listing returned no accessible teams.
-2. Direct Agent Runs project discovery for `mikesd1995s-projects` returned **403 Forbidden** with `You don't have permission to access this resource.`
-3. Direct project lookup using:
-   - project slug: `kk-phone-rental-vercel`
-   - team/workspace slug: `mikesd1995s-projects`
-   returned **403 Forbidden**.
+Result: **403 Forbidden**.
 
-This is stronger evidence than an empty team listing alone: the request path resolves to the expected workspace/project context, while the connected identity is not authorized to inspect it.
+The connected Vercel identity still cannot inspect project settings, production environment-variable presence, deployments/logs through the project API, or run the remaining connector-side Private Reader acceptance sequence. No project ID, team ID, environment value, credential, or secret was guessed.
 
-## Deployment pipeline cross-check
+## Deployment evidence
 
-The latest repository commit at the time of this recheck was:
+The latest `main` commit before this recheck was `496bd506b9e7480f46ad5327ded3856f89d04880` (`Extend private reader access recheck with deployment evidence`). Earlier readback had already proven its Vercel deployment status succeeded.
 
-- `030cc6be0f9cf7ea1578cd9fb6c98e89514c717e` — `Record Vercel private reader access recheck`
+A separate current Admin hardening PR (#29), head `399ca6ebe15585eeb43d450528b09af45f1f13d1`, is mergeable and GitHub's Vercel status for that exact head is also **success**, targeting the same `mikesd1995s-projects/kk-phone-rental-vercel` workspace/project. This is useful independent evidence that Vercel continues accepting builds for the correct project even while this ChatGPT Vercel connector lacks project-read authorization.
 
-GitHub's combined commit status reports:
+The Admin PR is not merged by this Private Reader recheck and is not treated as Private Reader acceptance evidence.
 
-- context: `Vercel`
-- state: `success`
-- target workspace/project path: `mikesd1995s-projects/kk-phone-rental-vercel`
+## Current diagnosis
 
-This proves the GitHub→Vercel deployment integration is functioning and that the workspace/project identity is correct. It does **not** prove Private Reader environment credentials are configured, nor does it prove authenticated Private Reader runtime acceptance. Those still require authorized Vercel project/env/log access or an authenticated production health check.
+The evidence now cleanly separates two planes:
 
-No GitHub Actions workflow run was associated with this docs-only commit; the successful deployment evidence comes from the Vercel commit status.
+- **Deployment plane:** healthy; GitHub→Vercel statuses are succeeding for the identified project.
+- **Management/acceptance plane from this connector:** blocked by Vercel authorization (403).
 
-## Corroborating repository evidence
-
-The repository's current open Admin hardening PR also records that the connected Vercel credential cannot read the team's build logs and that a usable preview could not be validated through that connection. This independently supports the same authorization/access-path diagnosis.
+Therefore there is still no evidence requiring changes to CRM synchronization, freshness logic, reconciliation logic, Apps Script, transactional data, or the Private Reader implementation itself.
 
 ## Safety decision
 
 **BLOCKED_SAFE — NO PRIVATE READER CUTOVER**
 
-No attempt was made to guess or inject production environment variables, service-account secrets, or project IDs. No strict-private switch was enabled.
-
 The following remain intentionally unchanged:
 
 - Core Operations remains Production SOT.
-- CRM/Intelligence stays a private values-only read model.
+- CRM/Intelligence remains the private values-only read model.
 - `private_reader_runtime` remains pending/safe fallback.
-- `private_analytics_acceptance` remains blocked pending production reader access.
+- `private_analytics_acceptance` remains blocked pending authorized production-reader acceptance.
 - `runtime_cutover` remains pending/blocked.
-- `last_synced_at` is not advanced by this access recheck.
-- No Booking/Event/Asset/Package/Pricing/Web/Settings/Operations data was modified.
-- No Apps Script was modified or deployed.
+- `last_synced_at` is not advanced by this authorization recheck.
+- `KK_CRM_REQUIRE_PRIVATE` is not enabled merely to manufacture acceptance evidence.
+- No Booking/Event/Asset/Package/Pricing/Web/Settings/Operations data is modified.
+- No Apps Script is modified or deployed.
+- No Vercel environment variable or secret is modified.
+- PR #29 is not merged as part of this work.
 
-## What improved in this recheck
+## What improved in the 07:27 recheck
 
-Before this update, the evidence established only that the connected Vercel identity could not inspect the project. This update adds an independent deployment-side proof:
-
-- the project identity is now corroborated by GitHub's successful Vercel deployment status;
-- the deployment pipeline itself is proven healthy;
-- the remaining issue is narrowed to Vercel connector authorization for project/env/log inspection;
-- no evidence currently points to a deployment failure, CRM synchronization failure, or Private Reader code defect.
-
-This materially reduces the remaining diagnostic scope and avoids unnecessary changes to working production components.
+- Reconfirmed that the authorization blocker persists rather than silently assuming the connection recovered.
+- Added a fresh independent successful Vercel preview/deployment signal from PR #29 on the same workspace/project.
+- Further isolated the fault domain to connector management authorization rather than deployment availability.
+- Preserved safe Core fallback and avoided unnecessary production mutations.
 
 ## Required next gate
 
-Production Private Reader acceptance can continue only after the Vercel connection is authorized for the workspace/project. Then perform, in order:
+Once the Vercel connection is actually authorized for the project, continue in this order:
 
-1. verify production deployment identity and currently promoted deployment;
-2. verify required env names without exposing secret values;
-3. verify `KK_CRM_SHEET_ID` and supported read-only service-account credential presence;
-4. run authenticated `/api/kk-intelligence-health`;
-5. require fresh manifest + successful Core↔CRM runtime reconciliation + `private_analytics_eligible=true`;
-6. verify normal Rental Analytics reports `data_source.mode=crm_private`;
-7. run a controlled strict-private acceptance test;
-8. restore intended production strictness after the controlled test;
-9. only after all checks pass, advance private-reader acceptance state.
+1. verify current production deployment identity and promoted commit;
+2. inspect required environment-variable names without exposing secret values;
+3. verify `KK_CRM_SHEET_ID` points to the private CRM & Intelligence spreadsheet;
+4. verify a supported read-only Google service-account credential is present;
+5. keep strict-private disabled for the first health check;
+6. POST authenticated `/api/kk-intelligence-health`;
+7. require reader configured, manifest IDs match, sync fresh, all runtime reconciliation passes, `private_analytics_eligible=true`, and status `READY_PRIVATE_READ_RECONCILED`;
+8. verify normal Rental Analytics returns `data_source.mode=crm_private` while Core remains authoritative fallback;
+9. perform a controlled `KK_CRM_REQUIRE_PRIVATE=1` strict-private acceptance test;
+10. restore intended production strictness after the test;
+11. only after all gates pass, advance Private Reader acceptance/runtime state with a proven timestamp.
 
 ## Changes made in this recheck
 
-- Re-resolved the target Vercel project from independent repository evidence.
-- Repeated live Vercel authorization checks at team, Agent Runs discovery and direct-project levels.
-- Captured explicit 403 authorization failures.
-- Verified the latest GitHub commit has Vercel deployment status `success`.
-- Confirmed the successful deployment status targets the same `mikesd1995s-projects/kk-phone-rental-vercel` workspace/project identity.
-- Checked for associated GitHub Actions workflow runs; none were present for the docs-only commit.
+- Repeated direct live Vercel project authorization lookup; still 403.
+- Checked latest repository state.
+- Checked current PR #29 state and exact-head Vercel status; preview/deployment status is success.
+- Kept PR #29 unmerged.
 - Preserved all production fail-safe states and data.
-- Updated this audit record only; no production env, spreadsheet dataset, credential, Apps Script or transactional-data change was made.
+- Updated this audit record only.
