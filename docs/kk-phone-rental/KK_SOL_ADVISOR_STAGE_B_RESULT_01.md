@@ -47,7 +47,8 @@ A fourth hardening opportunity was confirmed: malformed or absent operation/envi
 ### Credential handling
 
 - Expanded sensitive suffix detection to common forms including `API_KEY`, `ACCESS_TOKEN`, `AUTH_TOKEN`, `BEARER_TOKEN`, `CLIENT_SECRET`, `PRIVATE_KEY`, `SECRET_ACCESS_KEY`, `ACCESS_KEY_ID`, `PASSWORD`, `TOKEN`, `SECRET`, and credential-name forms.
-- Added provider-family aliases for GitHub, Vercel, LINE, Telegram, XAMA, Make, Google, OpenAI, Anthropic, AWS, Azure, and Cloudflare.
+- Added explicit provider credential aliases for GitHub, Vercel, LINE, Telegram, XAMA, Make, OpenAI, Anthropic, AWS, Google Application Credentials, Azure client secret, and Cloudflare credential forms.
+- Kept non-secret provider configuration such as `AWS_REGION` and `GOOGLE_CLOUD_PROJECT` from being overclassified.
 - Added strict environment-key-name validation.
 - A malformed `KEY=value` entry is denied and is not echoed through `sensitive_environment_keys`, preventing secret-bearing text from appearing in diagnostics.
 - Non-array environment-key context is explicitly denied.
@@ -59,6 +60,7 @@ A fourth hardening opportunity was confirmed: malformed or absent operation/envi
 - Added path normalization/validation before ownership matching.
 - Rejects traversal segments, absolute paths, Windows-drive absolute forms, duplicate separators, backslash traversal after normalization, and percent-encoded dot/slash/backslash forms.
 - Owned recursive matching now evaluates only validated canonical-like relative paths.
+- Preserved compatibility for both existing `/**` rules and legacy `*` prefix ownership rules.
 
 ### Write fail-closed declarations
 
@@ -81,7 +83,7 @@ Local deterministic verification before branch push:
 
 - `node --check lib/kk-third-party-agent-guard.js` — PASS
 - `node --check scripts/kk-third-party-agent-guard.test.js` — PASS
-- guard regression suite — `46/46 PASS`
+- guard regression suite — `48/48 PASS`
 
 The expanded suite includes explicit regressions for:
 
@@ -100,6 +102,8 @@ The expanded suite includes explicit regressions for:
 - malformed `KEY=value` secret-bearing input
 - non-array environment-key context
 - absent operation
+- compatibility of legacy `*` ownership rules
+- false-positive protection for non-secret provider configuration names
 
 ## Security/authority impact
 
@@ -112,14 +116,21 @@ Expected improvement:
 - generic-write ambiguity: removed for the covered contract;
 - secret-value diagnostic exposure from malformed key input: reduced;
 - branch reference ambiguity for protected `main`: reduced;
-- missing required context: changed from implicit allow to deterministic deny.
+- missing required context: changed from implicit allow to deterministic deny;
+- compatibility risk from over-broad credential/provider matching and legacy `*` path rules: explicitly regression-tested.
+
+## Governed CI mechanics
+
+The Stage B PR normally targets `integration/ai-engineering-model-v1`, but that branch's current `KK Governed Checks` trigger is restricted to `main`. The parent did not modify workflow files because they are outside this task's owned scope.
+
+For exact-head CI only, Draft PR #33 may be temporarily retargeted to `skills/x-scanner-v2`, whose governed workflow accepts pull requests to that base. A metadata-only base retarget is not a merge or deployment. After exact-head CI evidence is collected, the PR base must be restored to `integration/ai-engineering-model-v1`.
 
 ## Remaining gates
 
 This artifact is not final Stage B acceptance. Remaining gates are:
 
 1. governed CI must pass on the exact final sandbox head;
-2. complete diff must remain limited to the three owned files;
+2. complete diff against the intended integration base must remain limited to the three owned files;
 3. no production/provider mutation may occur;
 4. actual pinned Sol Advisor runtime must later execute the task if the purpose is to evaluate Sol Advisor itself rather than only the KK guard;
 5. the parent must not merge or deploy this branch merely because branch tests pass.
