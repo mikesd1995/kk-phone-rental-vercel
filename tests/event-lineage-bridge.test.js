@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const B=require('../api/lib/event-lineage-bridge.js');
+const B=require('../server/event-lineage-bridge.js');
 
 function row(date,core,extra={}){
   return Object.assign({
