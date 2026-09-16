@@ -35,8 +35,10 @@ test('one Core event cannot map to multiple Tracker show instances',()=>{
   assert.throws(()=>B.validateLineageSet([a,b]),/Core event maps to multiple Tracker show instances/);
 });
 
-test('Core EVT date must match explicit Tracker event date',()=>{
-  assert.throws(()=>B.buildLineageRecord(row('2026-10-23','EVT-20261024-LYKN-REFLEXION')),/does not match event_date/);
+test('Core event ID is opaque and may retain an earlier embedded date',()=>{
+  const mapped=B.buildLineageRecord(row('2026-10-23','EVT-20261025-LYKN-REFLEXION-CONCERT-2'));
+  assert.equal(mapped.event_date,'2026-10-23');
+  assert.equal(mapped.core_event_id,'EVT-20261025-LYKN-REFLEXION-CONCERT-2');
 });
 
 test('ticket SOLD_OUT never implicitly changes rental lifecycle',()=>{
@@ -61,12 +63,12 @@ test('same mapping input produces the same lineage key',()=>{
 
 test('resolver returns only the explicitly mapped Core event',()=>{
   const rows=[
-    row('2026-10-23','EVT-20261023-LYKN-REFLEXION'),
+    row('2026-10-23','EVT-20261025-LYKN-REFLEXION-CONCERT-2'),
     row('2026-10-24','EVT-20261024-LYKN-REFLEXION')
   ];
   assert.equal(B.resolveCoreEventId(rows,{
     event_family_id:'FAM|lykn-reflexion|20261023-25',
     tracker_show_id:'SHOWSET|lykn-reflexion|20261023-25',
-    event_date:'2026-10-24'
-  }),'EVT-20261024-LYKN-REFLEXION');
+    event_date:'2026-10-23'
+  }),'EVT-20261025-LYKN-REFLEXION-CONCERT-2');
 });
