@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 
-const MAPPING_VERSION = 'tracker-core-lineage-v1';
+const MAPPING_VERSION = 'tracker-core-lineage-v1.1';
 
 function requiredText(value, field){
   const text = String(value == null ? '' : value).trim();
@@ -57,12 +57,6 @@ function showInstanceId(trackerShowId, eventDate){
   return showId.startsWith('SHOWSET|') ? `${showId}|DATE|${date}` : showId;
 }
 
-function coreEventDate(coreEventId){
-  const id = assertCoreEventId(coreEventId);
-  const m = id.match(/^EVT-(\d{4})(\d{2})(\d{2})(?:-|$)/);
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
-}
-
 function stableLineageKey({eventFamilyId, showInstance, eventDate, coreEventId}){
   return crypto.createHash('sha256')
     .update([MAPPING_VERSION,eventFamilyId,showInstance,eventDate,coreEventId].join('\n'))
@@ -75,10 +69,6 @@ function buildLineageRecord(input){
   const eventDate = normalizeEventDate(input && input.event_date);
   const coreEventId = assertCoreEventId(input && input.core_event_id);
   const showInstance = showInstanceId(trackerShowId, eventDate);
-  const idDate = coreEventDate(coreEventId);
-  if(idDate && idDate !== eventDate){
-    throw new Error(`core_event_id date ${idDate} does not match event_date ${eventDate}`);
-  }
   const ticketLifecycle = String((input && input.ticket_lifecycle) || '').trim() || null;
   const rentalLifecycle = String((input && input.rental_lifecycle) || '').trim() || null;
   const record = {
@@ -87,6 +77,9 @@ function buildLineageRecord(input){
     tracker_show_id: trackerShowId,
     show_instance_id: showInstance,
     event_date: eventDate,
+    // Core IDs are opaque immutable identities. Their text may contain a date
+    // from creation/original scheduling, but that embedded text is not current
+    // event-date authority after a legitimate date change.
     core_event_id: coreEventId,
     // Ticket and rental lifecycle are deliberately independent. SOLD_OUT on a
     // ticket surface must never implicitly close rental inventory/availability.
@@ -142,7 +135,6 @@ module.exports = {
   MAPPING_VERSION,
   normalizeEventDate,
   showInstanceId,
-  coreEventDate,
   buildLineageRecord,
   validateLineageSet,
   resolveCoreEventId
