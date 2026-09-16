@@ -1,83 +1,77 @@
 # KK Phone Rental — Notification Remediation — 2026-09-16
 
 ## Scope
-Current-production investigation and bounded remediation of owner notifications (Telegram + LINE), upstream notification materialization, and durable operational evidence. No customer/public send and no replacement production writer were authorized or created.
+Current-production investigation and bounded remediation of owner notifications (Telegram + LINE), upstream notification materialization, Make quota behavior, and recurring Scanner/Verifier control-plane failure. No customer/public send, replacement production writer, watchdog, competing LINE sender, or stale Apps Script deployment was authorized or created.
 
 ## Current authoritative policy
-- Exactly one active POLICY_VERSION was fresh-read from `_Policy_Registry`: `v4.9.15 AUTONOMOUS CLOSURE & OWNER NOTIFICATION HARDENING`.
-- `OWNER_LEDGER_TRANSPORT_LIVE`: owner outbound is Ledger-only. Telegram = Make Ledger consumer; LINE = existing Apps Script Ledger consumer.
-- `LINE_LEDGER_CONSUMER_RUNTIME`: existing authoritative LINE consumer is Apps Script `runKKLineMonitor`; do not introduce a second LINE sender.
-- `PROVIDER_ACK_GATE_V499`: `SENT` requires provider acceptance evidence/id and sent timestamp; failures remain retryable, not falsely SENT.
-- `BRIEF_LEDGER_MATERIALIZATION_V415`: the natural 07:30 Verifier occurrence must materialize exactly one LINE MORNING_BRIEF, including a zero-change proof; a missed brief may only be recovered later as explicit `LATE_RECOVERY`.
+- Exactly one active `POLICY_VERSION`: `v4.9.15 AUTONOMOUS CLOSURE & OWNER NOTIFICATION HARDENING`.
+- Owner outbound is `_Notification_Ledger` only.
+- Telegram authoritative consumer = Make scenario `6176241`.
+- LINE authoritative consumer = existing Apps Script `runKKLineMonitor`; a second LINE sender is prohibited.
+- `SENT` requires provider acceptance evidence/id and sent timestamp.
+- Natural 07:30 Verifier must materialize exactly one LINE MORNING_BRIEF, including zero-change proof; a missed brief may only be recovered later as `LATE_RECOVERY`.
 
-## Findings
+## Telegram / Make findings and repair
+- Scenario `6176241` (`03_KK_OWNER_TELEGRAM_LEDGER_TRANSPORT`) still uses the intended 900-second polling trigger and healthy Google + Telegram connections.
+- Prior owner-only UAT row `UAT|TRANSPORT|TG|20260914T1635` is `SENT`, Attempt=1, HTTP200, provider `message_id=234`. Make execution `f045eecc668241bc92fc4e3d15fd0d4b` ran filterRows → Telegram send → Ledger update successfully.
+- Historical Sep 6 Make errors showed an older Google Sheets range defect containing `_Notification_Ledger!Aundefined:Zundefined`. Fresh current module config proves that undefined-range defect is no longer present: spreadsheet, sheet and row mappings are populated.
+- A smaller schema drift remained: current `_Notification_Ledger` is exactly 23 columns `A:W`, while scenario modules 1, 3 and 4 still used `tableFirstRow=A1:Z1`.
+- Bounded repair performed on the existing scenario only: modules 1, 3 and 4 changed `tableFirstRow` from `A1:Z1` to `A1:W1`. Filters, field mappings, Telegram chat, provider-ACK semantics, error-handler retry logic and 15-minute cadence were left unchanged. Make accepted the atomic patch; new scenario lastEdit is `2026-09-16T04:13:40.096Z`.
+- Durable Machine-SOT readback is `_Reconciliation_Log` row 948: `CHANGELOG|NOTIFICATION|MAKE-LEDGER-SCHEMA-HARDENING|20260916T1116`.
+- Live post-patch send acceptance cannot execute yet: Make organization `KK Phone Auto` is paused because included credits/operations are exhausted.
+- Execution history proves scenario 6176241 continued succeeding approximately every 15 minutes through 15:01 ICT on Sep 15; the Make quota-exhaustion notice followed at about 15:02 ICT. Empty-queue polls consume 1 credit each, so the polling lane consumes capacity even when no Telegram message is sent.
+- Active-state Make topology remains narrow: `6176241` polling transport + `5901592` Telegram webhook control. CRM/temp/scout scenarios are inactive. No unnecessary active temporary scenario was found to disable.
 
-### Telegram
-- Make scenario `6176241` (`03_KK_OWNER_TELEGRAM_LEDGER_TRANSPORT`) is configured correctly as a 900-second `_Notification_Ledger` poller for `TELEGRAM_OWNER_ALERTS` rows in `QUEUED` / due `RETRY_WAIT`.
-- Google and Telegram Make connections report `ok`.
-- Prior UAT row 40 (`UAT|TRANSPORT|TG|20260914T1635`) is `SENT`, Attempt=1, HTTP=200, provider `message_id=234` — proving the transport path worked previously.
-- Current Make run attempt on 2026-09-16 was rejected by Make with: `Scenario cannot be run because its organization or team is paused. Resolve the exceeded operations or data transfer limit and try again.`
-- Separate account evidence from Make identifies the concrete cause: organization `KK Phone Auto` has used all included credits on the current Free plan, and scenarios were paused.
-- Therefore the present Telegram outage is account-level Make credit exhaustion, not a Telegram mapping/credential defect.
+## LINE findings
+- Owner-only UAT row `UAT|TRANSPORT|LINE|20260914T1636` remains `QUEUED`, Attempt=0, no last attempt and no provider ACK. This is consumer-side stale/broken evidence, not merely an empty producer queue.
+- Repository `apps-script/Code.gs` does not contain `runKKLineMonitor` and is older than observed production Apps Script 9_5_9. Connected Drive surfaces do not expose an accessible live Apps Script project/source copy.
+- No repository/Drive backup of the exact live 9_5_9 implementation was found. GitHub Issue #9 remains the recovery authority.
+- Issue #9 was updated in this pass to record that live 9_5_9 recovery now blocks LINE transport repair as well as booking atomicity. Required LINE acceptance after recovery: identify exact `runKKLineMonitor`, bound project and trigger, inspect execution/provider state, then run one deterministic owner-only Ledger UAT and require provider ACK + exact Ledger `SENT` readback.
+- No second LINE sender and no stale repo Apps Script deployment were created.
 
-### LINE
-- Current policy explicitly binds LINE to the existing Apps Script `runKKLineMonitor` Ledger-only route and forbids a competing second LINE sender.
-- Current UAT row 41 (`UAT|TRANSPORT|LINE|20260914T1636`) remains `QUEUED`, Attempt=0, with no provider ACK as of fresh read on 2026-09-16.
-- `_Core_V1_Status` already classifies LINE as `CURRENT_UAT_QUEUED_PROVIDER_PENDING`.
-- `_Reconciliation_Log` contains the original queue evidence (`RECON|NOTIFICATION|LINE-UAT-QUEUED|20260914T1636`) but no later ACK/closure for that UAT.
-- The repository `apps-script/Code.gs` does not contain `runKKLineMonitor`; the repository Apps Script source is known to be older than the production 9_5_9 source. No accessible Drive Apps Script project was found through the connected Drive surface.
-- Therefore the current LINE consumer must be treated as broken/stale until the live Apps Script source/trigger is recovered and inspected. Replacing production from the stale repository copy is prohibited.
-
-### Upstream producer / scheduler
-- `_Notification_Ledger` had no row created on 2026-09-16 at the investigation read.
-- `_Run_Manifest` had one 2026-09-16 entry at the initial read: Verifier scheduled 03:30 but actually started 04:28, finished `FINISHED_PARTIAL`, and explicitly reported no eligible NEW_EVENT/material-change Ledger staging due.
-- Durable Machine-SOT reconciliation now proves repeated current-day control-plane failure, not merely missing notification consumption:
-  - Scanner 04:00 missed after task OFF immediately before boundary.
-  - Verifier was switched OFF during the late 04:28–04:33 governed runtime.
-  - Scanner 05:00 had no evidenced runtime and was OFF.
-  - Verifier 07:30 had no natural runtime, task changed OFF, and the on-time LINE Morning Brief was not materialized.
-  - Scanner 08:00 and 09:00 missed with task-OFF recurrence; Canary 08:15 also missed.
-  - Verifier 08:30 missed.
-  - Verifier 09:30 remained enabled around the boundary but produced no Machine-SOT runtime, then became OFF at 09:34.
-  - Scanner 10:00 and Verifier 10:30 again produced no Machine-SOT runtime and subsequently became OFF.
-- Canonical Scanner and Verifier tasks have been manually restored to their same existing IDs after no-writer validation by the control-plane remediation lane; current registry readback shows them enabled, but natural acceptance remains `0/6` for both roles and their `last_run_time` remains historical Sep14 metadata. Manual re-enable is mitigation, not proof of repair.
-- Root actor/mechanism for the recurring task OFF/no-runtime behavior remains `UNKNOWN`. Existing forensic notes identify platform pause/approval as a plausible class only; there is no direct evidence sufficient to attribute the cause.
-- Therefore owner-channel silence has three independent layers: Make transport capacity failure, stale/broken LINE consumer acceptance, and upstream natural Scanner/Verifier scheduling/materialization failure.
+## Upstream producer / scheduler findings
+- At the initial investigation read, `_Notification_Ledger` had no Sep 16 materialization and `_Run_Manifest` contained only a late 03:30 Verifier occurrence that actually began 04:28 and ended `FINISHED_PARTIAL` without eligible NEW/material notification staging.
+- Durable Machine-SOT evidence today proves repeated control-plane failure: Scanner 04:00, 05:00, 08:00, 09:00, 10:00 and 11:00 lacked valid natural runtime; Verifier 07:30, 08:30, 09:30 and 10:30 lacked valid natural runtime; Canary missed 08:15; the 07:30 on-time Morning Brief was not materialized.
+- The 11:00 Scanner recurrence was observed live during this remediation: registry showed the exact current Scanner task OFF with `updated_at=2026-09-16T11:00:50+07:00`; fresh `_Run_Lock`, `_Run_Manifest` and `_Scan_Status` reads showed no 11:00 runtime boundary and no current valid writer. The same Scanner ID was re-enabled at 11:19:37 ICT with prompt/cadence/ID unchanged. The missed 11:00 occurrence remains MISSED/NOT_PROVEN. Durable readback is `_Reconciliation_Log` row 949.
+- Current registry after mitigation: Scanner ON, Verifier ON, Canary ON, Control Plane Guard OFF. Manual re-enable is eligibility restoration only; Scanner and Verifier acceptance remain `0/6` consecutive natural cycles.
+- The root actor/mechanism remains `UNKNOWN`. Historical prompt compaction/hardening was already performed Sep 10–11 and recurrence continued afterward, so prompt length/stale embedded policy is not a newly supported root cause.
+- Google Drive plugin permission currently allows all actions, which weakens the ordinary ask-before-write hypothesis. A separate Scheduled Task (`Merge PR 30 Gate`) has a fresh successful run today, showing account-level Scheduled Tasks are not globally down. Platform pause/additional-action classes remain hypotheses only because the task registry exposes no actor/pause-reason telemetry.
+- GitHub Issue #14 was updated with today’s recurrence through 11:00, the narrowed hypotheses, and continued `0/6 + 0/6` acceptance requirement.
 
 ## Changes performed in this remediation pass
-1. Fresh-read the live Notification Ledger, active Policy Registry, Core v1 status, Run Manifest, Reconciliation evidence, current Make scenario topology/connections, and current task registry instead of relying on historical chat state.
-2. Verified Telegram Make scenario wiring and both live connection states.
-3. Attempted to restore/run Telegram transport. Make confirmed the scenario is already active-state, but execution is blocked at organization/team level by exhausted quota/credits.
-4. Confirmed the canonical Scanner/Verifier tasks are currently enabled after prior controlled same-ID mitigation; did not create a watchdog, duplicate task, replacement runner, or alter cadence/prompt.
-5. Did **not** mark any Telegram or LINE row `SENT` without provider ACK.
-6. Did **not** create a second LINE sender because live policy requires a single authoritative Apps Script consumer.
-7. Did **not** deploy repository `apps-script/Code.gs` because it lacks the current LINE runtime and is older than known production source.
-8. Did **not** fabricate the missed 07:30 Morning Brief or any missed Scanner/Verifier runtime boundary.
-9. Created an isolated operations branch/document and Draft PR so the investigation and safety decisions are durably recorded without modifying production code or `main` directly.
-10. Crosschecked existing `_Reconciliation_Log` records rather than appending duplicate incidents; the Machine SOT already contains current durable entries for Make pause, LINE UAT, Morning Brief miss, and repeated task-off/no-runtime recurrence.
+1. Fresh-read live policy, Notification Ledger, Run Manifest, Run Lock, Scan Status, Reconciliation evidence, Make topology/module config/execution history, task registry and connected-app permissions.
+2. Proved Telegram’s current blocking condition is Make organization quota, not Telegram credential/mapping failure.
+3. Reconciled historical `Aundefined:Zundefined` evidence against current config and confirmed that older defect is already removed.
+4. Patched existing Make scenario 6176241 modules 1/3/4 from `A1:Z1` to exact canonical `A1:W1`; no topology/cadence/filter/provider mapping change.
+5. Logged the Make schema hardening durably in Machine SOT row 948 and exact-read it back.
+6. Detected a new 11:00 Scanner OFF/no-runtime recurrence, verified no current protected writer, re-enabled only the same canonical Scanner ID, and preserved 11:00 as a missed occurrence.
+7. Logged the 11:00 control-plane incident durably in Machine SOT row 949 and exact-read it back.
+8. Updated GitHub Issue #14 (scheduler recurrence) and Issue #9 (live Apps Script / LINE recovery) with current evidence and safety boundaries.
+9. Kept Draft PR #40 as a documentation-only remediation record; production code and `main` remain unchanged by this branch.
+10. Preserved provider-ACK truth: no Telegram/LINE row was marked `SENT` without provider evidence, and no historical missed runtime was backfilled as PASS.
 
 ## Before vs after
 | Area | Before | After this pass |
 |---|---|---|
-| Telegram root cause | Appeared as paused/no notifications | Proven account-level Make credit exhaustion; scenario config and provider connection separately verified |
-| LINE root cause | No Make LINE scenario, unclear transport ownership | Correct ownership resolved: Apps Script `runKKLineMonitor`; current UAT proven stale/broken with Attempt=0, ACK absent |
-| Upstream notifications | Silence could be blamed only on transports | Proven repeated natural scheduler/runtime failure through 10:30 plus missed on-time 07:30 Morning Brief |
-| Task state | Repeated manual recoveries were easy to mistake for repair | Current tasks are ON, but acceptance remains 0/6 and root cause remains open; no false stability claim |
-| Delivery truth | Risk of treating scenario execution/config as success | Provider-ACK gate preserved; no false SENT state introduced |
-| Production safety | Temptation to add second LINE sender, deploy stale Apps Script, or add a watchdog | Unsafe actions explicitly avoided; single-consumer and no-competing-runner boundaries preserved |
-| Auditability | Findings existed across chat/tool output and scattered SOT rows | Durable repo remediation record + Draft PR added, cross-referencing current Machine-SOT evidence |
+| Telegram transport config | Historically proven but current range width drifted beyond Ledger schema | Existing scenario aligned exactly to `A:W`; filters/mappings/retry/provider-ACK logic preserved |
+| Historical Make range defect | Sep 6 evidence included `Aundefined:Zundefined` | Current config proven fully populated; undefined-range defect is not present now |
+| Make capacity diagnosis | Generic paused/no-send symptom | Quota exhaustion correlated to real execution cutoff; empty polls proven to consume credits |
+| LINE ownership | Easy to misdiagnose as missing Make scenario | Single authoritative Apps Script consumer confirmed; current UAT remains consumer-stale |
+| Scheduler recurrence | Evidence through 10:30 | New 11:00 Scanner recurrence captured, safely same-ID mitigated, and durably logged |
+| Root-cause hypotheses | Broad | Prompt-hardening and ordinary Drive approval explanations weakened; global scheduler outage also weakened; root actor still UNKNOWN |
+| Auditability | Evidence spread across tools/issues | Machine SOT rows 948–949 + GitHub Issues #9/#14 + Draft PR #40 record the current repair state |
 
-## Open blockers / required next controlled actions
-- **Make credits:** account owner must restore available Make credits/plan capacity. Immediately afterward, run scenario 6176241 once and require exact execution + Ledger/provider readback before Telegram is declared restored.
-- **LINE live source/trigger:** recover the exact production Apps Script 9_5_9 source or inspect its bound project/trigger directly; locate `runKKLineMonitor`, verify the time-driven trigger exists/enabled, inspect execution failures and LINE credential/endpoint state, then re-run the existing row 41 or a new deterministic owner-only UAT without creating a competing sender.
-- **Scheduler/control plane:** preserve the same canonical Scanner/Verifier IDs and no-watchdog policy. A true repair requires evidence explaining/stopping the recurring OFF/no-runtime behavior, followed by at least 6 consecutive natural cycles per role with valid Machine-SOT runtime proof and task state still ON afterward. Manual re-enable does not count.
-- **Notification producer acceptance:** after scheduler stability, require natural Verifier materialization of eligible dual-channel Ledger rows and a valid 07:30 Morning Brief. Missed historical boundaries must remain historical misses; late recovery must be labeled honestly.
-- **Architecture follow-up:** the 15-minute Make polling transport consumes credits even when the Telegram queue is empty. After current service is restored, redesign this lane toward an event-driven or quota-bounded transport under the same Ledger/provider-ACK contract; do not weaken notification truth semantics merely to save credits.
+## Open blockers / next controlled acceptance
+- **Make capacity:** restore Make account execution capacity. Then run scenario 6176241 once and require a real execution plus provider ACK/Ledger readback. Until then the A:W patch is config-readback PASS, not runtime-provider PASS.
+- **LINE live source/trigger:** recover exact production Apps Script 9_5_9 or inspect the bound project directly. Do not deploy repository 9_5_8 and do not add a second sender.
+- **Scheduler/control plane:** same canonical Scanner/Verifier IDs only, Guard OFF. A true repair still requires the cause of repeated task OFF/no-runtime behavior to stop and at least 6 consecutive natural cycles per role with valid Machine-SOT runtime evidence and the task remaining ON afterward.
+- **Notification producer acceptance:** after scheduler stability, prove natural dual-channel Ledger staging and the 07:30 Morning Brief contract. Historical misses remain misses; later recovery must be labeled honestly.
+- **Make efficiency redesign:** 15-minute empty polling costs credits. Redesign toward event-driven or explicitly quota-bounded transport only as a controlled architecture change after current service is restored; do not silently reduce alert latency or weaken provider-ACK truth.
 
 ## Current verdict
 `SAFE_DEGRADED / NOTIFICATION E2E NOT RESTORED`
 
-- Telegram: transport implementation and credential path are proven historically, but current execution is blocked by Make organization credit/quota exhaustion.
-- LINE: current owner-only UAT remains queued with zero attempts; exact live Apps Script runtime/trigger is not accessible from the current connected surfaces and must be recovered before safe repair.
-- Upstream: current scheduled Scanner/Verifier runtime remains unreliable, the 07:30 Morning Brief was missed, and natural acceptance is still 0/6 for both roles despite current same-ID tasks being enabled.
-- No false PASS, retroactive runtime, duplicate sender, watchdog, provider success, or production Apps Script deployment is claimed.
+- Telegram: scenario implementation is now schema-aligned and historically provider-proven, but current runtime is blocked by Make quota exhaustion.
+- LINE: UAT remains queued/Attempt0; live 9_5_9 consumer source/trigger is inaccessible and must be recovered before safe repair.
+- Upstream: recurring Scanner/Verifier control-plane persistence remains unreliable; 11:00 Scanner failed again and acceptance remains 0/6 for both roles.
+- No false PASS, retroactive runtime, duplicate sender, watchdog, provider success, stale Apps Script deployment, or production code merge is claimed.
