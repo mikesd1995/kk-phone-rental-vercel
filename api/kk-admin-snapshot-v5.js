@@ -6,9 +6,11 @@ const { Readable } = require('stream');
 const GuardAdmin = require('./kk-admin-guard.js');
 const SnapshotHealth = require('../admin/snapshot-health.js');
 
-const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5';
+const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const SNAPSHOT_ACTIONS = new Set(['snapshot', 'snapshotHealth']);
+const REQUIRED_SNAPSHOT_KEYS = ['events', 'bookings', 'current_bookings', 'assets'];
+const ENVELOPE_KEYS = ['data', 'snapshot', 'result', 'payload'];
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -91,6 +93,83 @@ function requestAction(req, payload) {
     return String(u.searchParams.get('action') || 'snapshot');
   }
   return String(payload && payload.action || '');
+}
+
+function isObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasRequiredSnapshotArrays(value) {
+  return isObject(value) && REQUIRED_SNAPSHOT_KEYS.every(key => Array.isArray(value[key]));
+}
+
+function firstMetadata(sources, key) {
+  for (const source of sources) {
+    if (!isObject(source)) continue;
+    const value = source[key];
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+  }
+  return '';
+}
+
+function normalizeSnapshotEnvelope(body, frontendSheetId) {
+  if (!isObject(body)) return null;
+  const queue = [{ value: body, path: '$', ancestors: [] }];
+  const visited = new Set();
+
+  while (queue.length) {
+    const node = queue.shift();
+    if (!isObject(node.value) || visited.has(node.value)) continue;
+    visited.add(node.value);
+
+    if (hasRequiredSnapshotArrays(node.value)) {
+      const metadataSources = [node.value].concat(node.ancestors.slice().reverse(), [body]);
+      const normalized = Object.assign({}, node.value);
+      if (!normalized.spreadsheet_id) normalized.spreadsheet_id = firstMetadata(metadataSources, 'spreadsheet_id');
+      if (!normalized.admin_api_version) normalized.admin_api_version = firstMetadata(metadataSources, 'admin_api_version');
+
+      if (!frontendSheetId || String(normalized.spreadsheet_id || '').trim() === String(frontendSheetId).trim()) {
+        return { data: normalized, path: node.path };
+      }
+    }
+
+    const depth = node.path.split('.').length - 1;
+    if (depth >= 3) continue;
+    for (const key of ENVELOPE_KEYS) {
+      if (!isObject(node.value[key])) continue;
+      queue.push({
+        value: node.value[key],
+        path: node.path + '.' + key,
+        ancestors: node.ancestors.concat(node.value)
+      });
+    }
+  }
+  return null;
+}
+
+function objectShape(value) {
+  if (!isObject(value)) return { type: Array.isArray(value) ? 'array' : typeof value };
+  const keys = Object.keys(value).slice(0, 24);
+  const types = {};
+  for (const key of keys) {
+    const v = value[key];
+    types[key] = Array.isArray(v) ? 'array' : (v === null ? 'null' : typeof v);
+  }
+  return { keys, types };
+}
+
+function snapshotEnvelopeDiagnostics(body) {
+  const data = isObject(body) ? body.data : null;
+  const nestedData = isObject(data) ? data.data : null;
+  const snapshot = isObject(data) ? data.snapshot : null;
+  const result = isObject(data) ? data.result : null;
+  return {
+    root: objectShape(body),
+    data: objectShape(data),
+    nested_data: objectShape(nestedData),
+    snapshot: objectShape(snapshot),
+    result: objectShape(result)
+  };
 }
 
 async function handleSnapshot(req, res, payload, action) {
@@ -189,16 +268,21 @@ async function handleSnapshot(req, res, payload, action) {
       error: 'Apps Script returned ok=true but snapshot data is missing',
       error_code: 'SNAPSHOT_PAYLOAD_MISSING',
       upstream_status: upstream.status,
+      upstream_contract: snapshotEnvelopeDiagnostics(data),
       proxy_upstream_ms: elapsed,
       proxy_timeout_ms: 55000
     });
   }
+
+  const normalized = normalizeSnapshotEnvelope(data, frontendSheetId);
+  if (normalized) data.data = normalized.data;
 
   const health = SnapshotHealth.assess(data.data);
   health.latency_ms = elapsed;
   health.checked_at = new Date().toISOString();
   health.backend_version = data.data.admin_api_version || data.admin_api_version || '';
   health.proxy_version = SnapshotHealth.VERSION;
+  health.contract_path = normalized ? normalized.path : '$.data';
   if (health.backend_version !== SnapshotHealth.BACKEND) {
     health.warnings.push('Apps Script revision differs from observed 9_5_9; inspect deployed source, never downgrade to repository 9_5_8');
   }
@@ -222,6 +306,7 @@ async function handleSnapshot(req, res, payload, action) {
       error: 'Snapshot rejected: ' + health.issues.join('; '),
       error_code: 'INVALID_SNAPSHOT',
       snapshot_health: health,
+      upstream_contract: snapshotEnvelopeDiagnostics(data),
       proxy_upstream_ms: elapsed,
       proxy_timeout_ms: 55000
     });
@@ -268,4 +353,12 @@ module.exports = async function handler(req, res) {
   return handleSnapshot(req, res, payload, action);
 };
 
-module.exports._test = { looksLikeAppsScriptUrl, compactNonJsonError, requestAction, handleSnapshot };
+module.exports._test = {
+  looksLikeAppsScriptUrl,
+  compactNonJsonError,
+  requestAction,
+  handleSnapshot,
+  normalizeSnapshotEnvelope,
+  snapshotEnvelopeDiagnostics,
+  hasRequiredSnapshotArrays
+};
