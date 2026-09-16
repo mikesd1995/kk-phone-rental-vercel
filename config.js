@@ -1,13 +1,10 @@
 // KK Phone Rental Frontend v16.6.2_LINE_AUDITED
-// Recovery-stable baseline: API-first, but keeps a read-only emergency Google Sheets fallback so the public site does not go blank if Vercel ENV/API is missing.
+// Public-data browser hardening: the customer browser reads only through /api/kk-data.
+// The server proxy remains the transition boundary until the private service-account reader is accepted.
 window.KK_CONFIG = {
   appVersion:    "v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_FIX",
   expectedAdminApiVersion: "v16.6.2_LINE_AUDITED",
   siteUrl:       "https://kk-phone-rental.vercel.app/",
-
-  // Emergency read-only fallback used only when /api/kk-data fails or when opening ?direct=1.
-  // This keeps the public site recoverable when GOOGLE_SHEET_ID or the proxy response is unavailable.
-  sheetId:       "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU",
 
   webSheetName:  "08_Web_Ready",
   webRange:      "A4:K",
@@ -16,7 +13,8 @@ window.KK_CONFIG = {
 
   useVercelApi:  true,
   apiEndpoint:   "/api/kk-data",
-  disableDirectFallback: false,
+  disableDirectFallback: true,
+  publicDataMode: "api-only",
 
   lineOAId:      "@827blnmo",
   lineDirectUrl: "https://line.me/R/ti/p/%40827blnmo",
@@ -26,6 +24,55 @@ window.KK_CONFIG = {
   // GA4: ใส่ Measurement ID ที่ได้จาก Google Analytics 4 Console
   // ga4Id: "G-XXXXXXXXXX"
 };
+
+// Transitional browser guard.
+// config.js is a defer script loaded before script.js. Registering this listener here means it
+// runs first at DOMContentLoaded, after script.js has defined its legacy globals but before the
+// script.js data-loader listener runs. This disables every browser-side direct-Sheets fallback,
+// including the historical package exception, without rewriting the large recovery-stable script.
+(function installApiOnlyPublicDataGuard(){
+  function enforceApiOnly(){
+    try{
+      if(window.KK_CONFIG){
+        delete window.KK_CONFIG.sheetId;
+        window.KK_CONFIG.useVercelApi = true;
+        window.KK_CONFIG.disableDirectFallback = true;
+        window.KK_CONFIG.publicDataMode = "api-only";
+      }
+
+      // Replace legacy global runtime state only after script.js has created it.
+      if("SHEET_ID" in window) window.SHEET_ID = "api-only";
+      if("USE_API" in window) window.USE_API = true;
+
+      if(typeof window.apiSheetUrl !== "function" || typeof window.fetchValidatedSheetCsv !== "function"){
+        throw new Error("Public data API helpers are unavailable");
+      }
+
+      window.directSheetUrl = function(){
+        throw new Error("Direct Google Sheets browser access is disabled; use /api/kk-data");
+      };
+
+      window.fetchSheetCsv = async function(name, range, ms){
+        return await window.fetchValidatedSheetCsv(
+          window.apiSheetUrl(name, range),
+          name,
+          range,
+          ms || 9000,
+          "/api/kk-data"
+        );
+      };
+
+      window.__KK_PUBLIC_DATA_GUARD__ = "api-only";
+    }catch(err){
+      window.__KK_PUBLIC_DATA_GUARD__ = "failed";
+      console.error("KK public-data API-only guard failed", err);
+    }
+  }
+
+  if(typeof document !== "undefined"){
+    document.addEventListener("DOMContentLoaded", enforceApiOnly, {once:true});
+  }
+})();
 
 // GA4 loader — โหลด async ไม่บล็อก render
 (function(){
