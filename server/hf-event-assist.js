@@ -62,7 +62,7 @@ function eventCandidateText(candidate = {}) {
 function embeddingInput(text, model) {
   const clean = boundedText(text);
   if (!clean) return '';
-  return /(^|\\/)e5|multilingual-e5/i.test(cleanText(model)) ? `query: ${clean}` : clean;
+  return /e5/i.test(cleanText(model)) ? `query: ${clean}` : clean;
 }
 
 function exactIsoDate(candidate = {}) {
@@ -73,7 +73,7 @@ function exactIsoDate(candidate = {}) {
     candidate.start_date
   ].map(cleanText).filter(Boolean);
   for (const value of values) {
-    const match = value.match(/(?:^|\\D)(20\\d{2}-\\d{2}-\\d{2})(?:\\D|$)/);
+    const match = value.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
     if (match) return match[1];
   }
   return '';
