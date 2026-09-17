@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const HF = require('../server/hf-event-assist.js');
 
 function fakeResponse(body, status = 200) {
@@ -148,4 +150,22 @@ test('different explicit Show IDs are protected from semantic auto-dedup', () =>
 
 test('non-E5 custom embedding model does not receive E5 query prefix', () => {
   assert.equal(HF.embeddingInput('Example Event', 'thenlper/gte-large'), 'Example Event');
+});
+
+
+test('benchmark fixture is bounded, unique and uses supported labels', () => {
+  const fixturePath = path.resolve(__dirname, 'fixtures/hf-event-assist-benchmark.json');
+  const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+  const candidates = fixture.candidates || [];
+  assert.equal(candidates.length, 14);
+  assert.equal(new Set(candidates.map(item => item.candidate_id)).size, candidates.length);
+  for (const item of candidates) {
+    if (item.expected_label) assert.equal(HF.EVENT_LABELS.includes(item.expected_label), true);
+  }
+  const groups = new Map();
+  for (const item of candidates) {
+    if (!item.duplicate_group) continue;
+    groups.set(item.duplicate_group, (groups.get(item.duplicate_group) || 0) + 1);
+  }
+  assert.equal([...groups.values()].every(count => count >= 2), true);
 });
