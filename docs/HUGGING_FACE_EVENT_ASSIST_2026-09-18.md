@@ -237,3 +237,104 @@ Current state remains:
 - production integration disabled;
 - PR #44 remains DRAFT;
 - no Machine SOT write or production task mutation performed by the HF work.
+
+
+## V1.3 credential-safety and live-UAT readiness hardening — 2026-09-18
+
+### Live authority re-check
+
+The live Machine SOT was re-read before this hardening pass. Highest Active policy remains:
+
+- `v4.9.15 AUTONOMOUS CLOSURE & OWNER NOTIFICATION HARDENING`
+
+The live registry also contains the Sep 17–18 control-plane forensic gates for post-acquire writer recheck, task-state attribution, own-runtime disable recurrence, and launcher/runtime-boundary divergence. This HF pass therefore made no Scanner/Verifier/Canary task mutation and no policy mutation.
+
+### Hugging Face account/model evidence
+
+The connected Hugging Face OAuth context was verified as authenticated. The plugin exposes read/jobs scopes but not a generic secret-management or direct inference-token export surface.
+
+Hub metadata was read directly for the two configured models:
+
+- `MoritzLaurer/ModernBERT-large-zeroshot-v2.0`
+  - task: text-classification
+  - library: transformers
+  - Hugging Face Inference provider: live
+- `intfloat/multilingual-e5-large`
+  - task: feature-extraction
+  - library: sentence-transformers
+  - multilingual metadata explicitly includes `th`
+  - Hugging Face and DeepInfra inference providers: live
+
+### HF Jobs execution attempt
+
+A bounded Hugging Face Jobs probe was attempted without printing any credential value. The service returned:
+
+- `402 Payment Required`
+
+No benchmark quality result was inferred from that failure. No fallback through an untrusted third-party Space was used.
+
+### Secret-redaction hardening
+
+`server/hf-event-assist.js` now redacts:
+- an exact configured HF token if echoed in a remote error;
+- bearer credential text returned by a provider.
+
+The adapter must never surface the configured token through provider error messages.
+
+### Benchmark call-budget and failure hardening
+
+`scripts/hf-event-assist-benchmark.js` now:
+- uses an explicit live-call budget (`HF_UAT_MAX_CALLS`, default 20);
+- computes planned calls before external access;
+- fails closed before any call if the plan exceeds the budget;
+- records attempted-call count;
+- records per-classification and embedding latency;
+- returns a structured `LIVE_BENCHMARK_FAILED` report on provider/model failures;
+- redacts secrets from failure output;
+- triggers a final serialized-output secret-leak guard;
+- keeps `production_writes=0`, `final_truth_mutation=false`, and `notification_sends=0`.
+
+### Zero-network readiness checker
+
+Added:
+
+- `scripts/hf-event-assist-readiness.js`
+- npm command: `npm run hf:assist:readiness`
+
+It performs zero network calls and checks:
+- enable flag;
+- presence of an HF token without exposing its value;
+- safe model-ID format;
+- fixture size / planned call count;
+- UAT call-budget ceiling.
+
+Possible status:
+- `BLOCKED`
+- `READY_FOR_LIVE_UAT`
+
+A READY result authorizes only execution of the bounded benchmark; it does not authorize Scanner wiring or production activation.
+
+### CI additions
+
+The existing Admin Regression workflow now validates both:
+1. disabled benchmark harness safety; and
+2. zero-network UAT readiness contract.
+
+The CI readiness check requires:
+- `status=BLOCKED` while the feature is explicitly disabled;
+- `network_calls=0`;
+- `production_writes=0`;
+- `final_truth_mutation=false`;
+- `notification_sends=0`;
+- blocker includes `HF_EVENT_ASSIST_DISABLED`.
+
+### Production impact of V1.3
+
+Still zero:
+- Machine SOT business writes;
+- Candidate/AI/Lifecycle/monthly/pricing mutations;
+- policy mutation;
+- Scanner/Verifier/Canary recurring task mutation;
+- LINE/Telegram sends;
+- production Vercel promotion;
+- HF recurring production activation.
