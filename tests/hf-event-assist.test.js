@@ -169,3 +169,35 @@ test('benchmark fixture is bounded, unique and uses supported labels', () => {
   }
   assert.equal([...groups.values()].every(count => count >= 2), true);
 });
+
+
+test('redacts echoed HF credentials from remote error surfaces', async () => {
+  const token = 'hf_super_secret_test_token';
+  const fetchImpl = async () => fakeResponse({
+    error: `Authorization failed for Bearer ${token}; token=${token}`
+  }, 401);
+
+  let caught;
+  try {
+    await HF.classifyEventCandidate({name:'Secret Leak Test Event'}, {
+      env:{HF_EVENT_ASSIST_ENABLED:'true'},
+      token,
+      fetchImpl
+    });
+  } catch (error) {
+    caught = error;
+  }
+
+  assert.ok(caught);
+  const message = String(caught && caught.message || caught);
+  assert.equal(message.includes(token), false);
+  assert.match(message, /\[REDACTED\]/);
+});
+
+test('redactSecret removes explicit token and bearer credential text', () => {
+  const token = 'hf_example_token_123';
+  const value = `failure Bearer ${token} direct=${token}`;
+  const redacted = HF.redactSecret(value, token);
+  assert.equal(redacted.includes(token), false);
+  assert.match(redacted, /\[REDACTED\]/);
+});
