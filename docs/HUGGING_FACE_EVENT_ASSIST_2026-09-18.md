@@ -338,3 +338,100 @@ Still zero:
 - LINE/Telegram sends;
 - production Vercel promotion;
 - HF recurring production activation.
+
+
+## V1.4 controlled GitHub live-UAT execution attempt — 2026-09-18
+
+### Manual-only execution route added
+
+Added:
+
+- `.github/workflows/hf-event-assist-live-uat.yml`
+
+The workflow:
+- has no schedule;
+- does not run on ordinary pushes;
+- triggers only on the PR `ready_for_review` transition;
+- checks out the exact PR head SHA;
+- runs `npm run check` and `npm test` before UAT;
+- runs the zero-network readiness checker first;
+- sources `HF_TOKEN` only from GitHub Actions secrets;
+- caps planned live calls with `HF_UAT_MAX_CALLS=20`;
+- runs the bounded benchmark only after readiness passes;
+- uploads only redacted JSON UAT evidence;
+- enforces the quality gate after the artifact is preserved;
+- has read-only repository contents permission;
+- performs no Machine SOT, Scanner, Verifier, Canary, pricing, monthly, LINE or Telegram mutation.
+
+### Workflow verification before trigger
+
+The workflow addition passed:
+
+- Admin Regression run #155: SUCCESS.
+
+The PR was then intentionally moved from Draft to Ready for review to trigger exactly one controlled UAT attempt.
+
+### Live UAT run #1
+
+Workflow:
+- `HF Event Assist Live UAT`
+- run ID: `35289177526`
+- head SHA: `74644fd6979980608c1cba069f7e2c49b0c695dc`
+
+Pre-UAT repository verification:
+- checkout: PASS
+- Node setup: PASS
+- `npm run check`: PASS
+- `npm test`: PASS
+
+Zero-network readiness result:
+- `candidate_count=14`
+- `planned_live_calls=15`
+- `max_live_calls=20`
+- `hf_enabled=true`
+- `hf_token_present=false`
+- blocker: `HF_TOKEN_MISSING`
+- `status=BLOCKED`
+- `network_calls=0`
+- `production_writes=0`
+- `final_truth_mutation=false`
+- `notification_sends=0`
+
+Because preflight failed closed:
+- the live benchmark step was SKIPPED;
+- live Hugging Face inference calls remained zero;
+- the final quality gate was not executed;
+- no live classification/embedding score was fabricated.
+
+### Evidence artifact
+
+Artifact:
+- name: `hf-event-assist-live-uat-35289177526`
+- artifact ID: `10525876337`
+- SHA-256 digest: `c984c4e95c3651c6c0b03385a1ddf0b8c9a4d5c443eaa30ca937fa8bfc21b88a`
+- retention expiry: 2026-10-17
+
+The artifact contains the redacted readiness evidence generated before any external model call.
+
+### PR state restored
+
+After the controlled attempt proved that the GitHub Actions inference secret is missing, PR #44 was converted back to Draft.
+
+Current blocker is now proven rather than inferred:
+
+- GitHub Actions repository secret `HF_TOKEN` is not available to the UAT workflow.
+
+No attempt was made to:
+- expose or copy the Hugging Face OAuth credential from the connected plugin;
+- commit a token;
+- place a token in logs/PR/docs;
+- bypass the missing secret using a public/community Space;
+- lower the quality or identity-safety gate.
+
+### Next valid external action
+
+Add an inference-capable Hugging Face access token as the GitHub Actions repository secret named:
+
+`HF_TOKEN`
+
+Then retrigger the same Draft -> Ready-for-review UAT boundary. The workflow will first re-run zero-network readiness, then execute at most the bounded call plan if and only if the secret is present.
