@@ -7,15 +7,20 @@ const DEFAULT_TIMEOUT_MS = 8000;
 const DEFAULT_MAX_RESPONSE_BYTES = 1_000_000;
 const DEFAULT_DUPLICATE_THRESHOLD = 0.92;
 
-const EVENT_LABELS = Object.freeze([
-  'CONCERT',
-  'FAN_MEETING',
-  'FAN_SIGN',
-  'FAN_SCREENING',
-  'FESTIVAL',
-  'PREMIERE',
-  'OTHER'
-]);
+const ZERO_SHOT_LABEL_MAP = Object.freeze({
+  'concert': 'CONCERT',
+  'fan meeting': 'FAN_MEETING',
+  'fan sign': 'FAN_SIGN',
+  'fan screening': 'FAN_SCREENING',
+  'festival': 'FESTIVAL',
+  'premiere': 'PREMIERE',
+  'graduation event': 'GRADUATION',
+  'brand event': 'BRAND_EVENT',
+  'artist appearance': 'ARTIST_APPEARANCE',
+  'other event': 'OTHER'
+});
+
+const EVENT_LABELS = Object.freeze([...new Set(Object.values(ZERO_SHOT_LABEL_MAP))]);
 
 function cleanText(value) {
   return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
@@ -43,7 +48,7 @@ function eventCandidateText(candidate = {}) {
     candidate.name || candidate.event_name || candidate.title,
     candidate.artist || candidate.artists,
     candidate.venue,
-    candidate.date || candidate.start_date || candidate.start_date_iso,
+    candidate.event_date_iso || candidate.start_date_iso || candidate.date || candidate.start_date,
     candidate.source_text || candidate.text || candidate.caption,
     candidate.hashtags
   ];
@@ -52,6 +57,46 @@ function eventCandidateText(candidate = {}) {
     .map(cleanText)
     .filter(Boolean)
     .join(' | '));
+}
+
+function embeddingInput(text, model) {
+  const clean = boundedText(text);
+  if (!clean) return '';
+  return /(^|\\/)e5|multilingual-e5/i.test(cleanText(model)) ? `query: ${clean}` : clean;
+}
+
+function exactIsoDate(candidate = {}) {
+  const values = [
+    candidate.event_date_iso,
+    candidate.start_date_iso,
+    candidate.date,
+    candidate.start_date
+  ].map(cleanText).filter(Boolean);
+  for (const value of values) {
+    const match = value.match(/(?:^|\\D)(20\\d{2}-\\d{2}-\\d{2})(?:\\D|$)/);
+    if (match) return match[1];
+  }
+  return '';
+}
+
+function hardIdentityConflict(left = {}, right = {}) {
+  const leftShow = cleanText(left.show_id);
+  const rightShow = cleanText(right.show_id);
+  if (leftShow && rightShow && leftShow !== rightShow) return 'SHOW_ID_MISMATCH';
+
+  const leftDate = exactIsoDate(left);
+  const rightDate = exactIsoDate(right);
+  if (leftDate && rightDate && leftDate !== rightDate) return 'EVENT_DATE_MISMATCH';
+
+  return '';
+}
+
+function assistConfidence(score) {
+  const value = Number(score);
+  if (!Number.isFinite(value)) return 'UNKNOWN';
+  if (value >= 0.75) return 'HIGH';
+  if (value >= 0.55) return 'MEDIUM';
+  return 'LOW';
 }
 
 function isEnabled(env = process.env) {
@@ -130,10 +175,11 @@ async function hfJsonRequest({
 function normalizeZeroShot(output) {
   if (!Array.isArray(output)) throw new Error('invalid zero-shot response');
   return output
-    .map(item => ({
-      label: cleanText(item && item.label).toUpperCase(),
-      score: Number(item && item.score)
-    }))
+    .map(item => {
+      const raw = cleanText(item && item.label).toLowerCase().replace(/_/g, ' ');
+      const label = ZERO_SHOT_LABEL_MAP[raw] || raw.toUpperCase().replace(/\\s+/g, '_');
+      return { label, score: Number(item && item.score) };
+    })
     .filter(item => EVENT_LABELS.includes(item.label) && Number.isFinite(item.score))
     .sort((a, b) => b.score - a.score);
 }
@@ -155,7 +201,8 @@ async function classifyEventCandidate(candidate, options = {}) {
     payload: {
       inputs: input,
       parameters: {
-        candidate_labels: EVENT_LABELS,
+        candidate_labels: Object.keys(ZERO_SHOT_LABEL_MAP),
+        hypothesis_template: 'This is a {} event.',
         multi_label: false
       }
     }
@@ -169,6 +216,7 @@ async function classifyEventCandidate(candidate, options = {}) {
     model,
     top_label: ranked[0].label,
     top_score: ranked[0].score,
+    confidence_band: assistConfidence(ranked[0].score),
     ranked,
     authoritative: false,
     verifier_required: true,
@@ -200,9 +248,10 @@ async function embedEventCandidates(candidates, options = {}) {
     throw new Error('candidates must contain 1..64 items');
   }
 
-  const inputs = candidates.map(eventCandidateText);
-  if (inputs.some(x => !x)) throw new Error('all candidates require non-empty text');
+  const rawInputs = candidates.map(eventCandidateText);
+  if (rawInputs.some(x => !x)) throw new Error('all candidates require non-empty text');
   const model = options.model || env.HF_EMBED_MODEL || DEFAULT_EMBED_MODEL;
+  const inputs = rawInputs.map(text => embeddingInput(text, model));
   const output = await hfJsonRequest({
     token,
     model,
@@ -256,19 +305,34 @@ function duplicatePairs(candidates, vectors, options = {}) {
   }
 
   const pairs = [];
+  const conflicts = [];
   for (let i = 0; i < vectors.length; i++) {
     for (let j = i + 1; j < vectors.length; j++) {
       const similarity = cosineSimilarity(vectors[i], vectors[j]);
-      if (similarity >= threshold) {
-        pairs.push({
-          left_index: i,
-          right_index: j,
-          left_key: cleanText(candidates[i] && (candidates[i].candidate_id || candidates[i].show_id || candidates[i].name)),
-          right_key: cleanText(candidates[j] && (candidates[j].candidate_id || candidates[j].show_id || candidates[j].name)),
-          similarity: Number(similarity.toFixed(6)),
-          disposition: 'POSSIBLE_DUPLICATE_REQUIRES_VERIFIER'
+      if (similarity < threshold) continue;
+
+      const conflict = hardIdentityConflict(candidates[i], candidates[j]);
+      const item = {
+        left_index: i,
+        right_index: j,
+        left_key: cleanText(candidates[i] && (candidates[i].candidate_id || candidates[i].show_id || candidates[i].name)),
+        right_key: cleanText(candidates[j] && (candidates[j].candidate_id || candidates[j].show_id || candidates[j].name)),
+        similarity: Number(similarity.toFixed(6))
+      };
+
+      if (conflict) {
+        conflicts.push({
+          ...item,
+          conflict,
+          disposition: 'SIMILAR_BUT_DISTINCT_IDENTITY_REQUIRES_VERIFIER'
         });
+        continue;
       }
+
+      pairs.push({
+        ...item,
+        disposition: 'POSSIBLE_DUPLICATE_REQUIRES_VERIFIER'
+      });
     }
   }
   return {
@@ -276,6 +340,7 @@ function duplicatePairs(candidates, vectors, options = {}) {
     task: 'EVENT_DEDUP_ASSIST',
     threshold,
     pairs,
+    conflicts,
     authoritative: false,
     verifier_required: true,
     production_writes: 0
@@ -287,7 +352,12 @@ module.exports = {
   DEFAULT_EMBED_MODEL,
   DEFAULT_DUPLICATE_THRESHOLD,
   EVENT_LABELS,
+  ZERO_SHOT_LABEL_MAP,
   eventCandidateText,
+  embeddingInput,
+  exactIsoDate,
+  hardIdentityConflict,
+  assistConfidence,
   endpointForModel,
   isEnabled,
   classifyEventCandidate,
