@@ -107,6 +107,13 @@ function configuredToken(env = process.env) {
   return cleanText(env.HF_TOKEN);
 }
 
+function redactSecret(value, secret = '') {
+  let text = String(value == null ? '' : value);
+  const token = String(secret || '');
+  if (token) text = text.split(token).join('[REDACTED]');
+  return text.replace(/Bearer\s+[^\s"'\x60,;]+/gi, 'Bearer [REDACTED]');
+}
+
 function skipped(reason) {
   return {
     status: 'SKIPPED',
@@ -166,7 +173,7 @@ async function hfJsonRequest({
   }
 
   if (!response.ok) {
-    const remote = cleanText(parsed && (parsed.error || parsed.message));
+    const remote = redactSecret(cleanText(parsed && (parsed.error || parsed.message)), token);
     throw new Error(`Hugging Face HTTP ${response.status}${remote ? `: ${remote}` : ''}`);
   }
   return parsed;
@@ -358,6 +365,7 @@ module.exports = {
   exactIsoDate,
   hardIdentityConflict,
   assistConfidence,
+  redactSecret,
   endpointForModel,
   isEnabled,
   classifyEventCandidate,
