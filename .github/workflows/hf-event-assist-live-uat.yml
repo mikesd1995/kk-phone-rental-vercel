@@ -1,0 +1,110 @@
+name: HF Event Assist Live UAT
+
+on:
+  pull_request:
+    types: [ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hf-event-assist-live-uat-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  live-uat:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify exact HF UAT code
+        run: |
+          npm run check
+          npm test
+
+      - name: Zero-network live-UAT preflight
+        env:
+          HF_EVENT_ASSIST_ENABLED: "true"
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_UAT_MAX_CALLS: "20"
+        run: |
+          node scripts/hf-event-assist-readiness.js > /tmp/hf-readiness.json
+          cat /tmp/hf-readiness.json
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('/tmp/hf-readiness.json','utf8'));if(r.status!=='READY_FOR_LIVE_UAT'||r.network_calls!==0||r.production_writes!==0||r.final_truth_mutation!==false||r.notification_sends!==0){console.error(r);process.exit(1)}"
+
+      - name: Run bounded live HF benchmark
+        id: live
+        env:
+          HF_EVENT_ASSIST_ENABLED: "true"
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_UAT_MAX_CALLS: "20"
+        run: |
+          set +e
+          node scripts/hf-event-assist-benchmark.js > /tmp/hf-live-benchmark.json
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ -f /tmp/hf-live-benchmark.json ]; then
+            cat /tmp/hf-live-benchmark.json
+          fi
+          exit 0
+
+      - name: Upload redacted UAT evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hf-event-assist-live-uat-${{ github.run_id }}
+          path: |
+            /tmp/hf-readiness.json
+            /tmp/hf-live-benchmark.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce live quality gate
+        env:
+          LIVE_EXIT_CODE: ${{ steps.live.outputs.exit_code }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = '/tmp/hf-live-benchmark.json';
+          if (!fs.existsSync(path)) {
+            console.error('HF live benchmark report missing');
+            process.exit(1);
+          }
+          const r = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const exitCode = Number(process.env.LIVE_EXIT_CODE || -1);
+          const pass =
+            exitCode === 0 &&
+            r.status === 'LIVE_BENCHMARK_COMPLETE' &&
+            r.quality_gate_pass === true &&
+            r.production_writes === 0 &&
+            r.final_truth_mutation === false &&
+            r.notification_sends === 0 &&
+            Number(r.live_hf_calls) <= Number(r.max_live_calls);
+          if (!pass) {
+            console.error(r);
+            process.exit(1);
+          }
+          console.log(JSON.stringify({
+            status: r.status,
+            quality_gate_pass: r.quality_gate_pass,
+            classification_accuracy: r.classification && r.classification.accuracy,
+            duplicate_recall: r.dedup && r.dedup.duplicate_recall,
+            false_positive_pairs: r.dedup && r.dedup.false_positive_pairs && r.dedup.false_positive_pairs.length,
+            live_hf_calls: r.live_hf_calls,
+            max_live_calls: r.max_live_calls,
+            production_writes: r.production_writes,
+            notification_sends: r.notification_sends
+          }, null, 2));
+          NODE
