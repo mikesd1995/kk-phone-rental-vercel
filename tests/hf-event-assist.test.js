@@ -49,12 +49,18 @@ test('event classification normalizes ranking and preserves verifier authority',
   assert.equal(calls[0].init.headers.authorization, 'Bearer test-token');
 });
 
-test('embedding assist returns vectors but never final truth', async () => {
-  const fetchImpl = async () => fakeResponse([[1,0,0],[0.98,0.1,0]]);
+test('embedding assist applies E5 query prefix and never becomes final truth', async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({url, init});
+    return fakeResponse([[1,0,0],[0.98,0.1,0]]);
+  };
   const result = await HF.embedEventCandidates(
     [{name:'Event A'},{name:'Event A 2026'}],
     {env:{HF_EVENT_ASSIST_ENABLED:'true'}, token:'test-token', fetchImpl}
   );
+  const payload = JSON.parse(calls[0].init.body);
+  assert.equal(payload.inputs.every(value => value.startsWith('query: ')), true);
   assert.equal(result.vectors.length, 2);
   assert.equal(result.authoritative, false);
   assert.equal(result.production_writes, 0);
@@ -86,4 +92,60 @@ test('remote errors do not silently become decisions', async () => {
     }),
     /HTTP 503/
   );
+});
+
+
+test('classification exposes KK-specific opportunity labels without making them authoritative', async () => {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({url, init});
+    return fakeResponse([
+      {label:'graduation event', score:0.82},
+      {label:'artist appearance', score:0.10},
+      {label:'other event', score:0.08}
+    ]);
+  };
+  const result = await HF.classifyEventCandidate(
+    {name:'Pooh Graduation Celebration 2026', venue:'Samyan Mitrtown'},
+    {env:{HF_EVENT_ASSIST_ENABLED:'true'}, token:'test-token', fetchImpl}
+  );
+  const payload = JSON.parse(calls[0].init.body);
+  assert.equal(payload.parameters.candidate_labels.includes('graduation event'), true);
+  assert.equal(payload.parameters.candidate_labels.includes('brand event'), true);
+  assert.equal(result.top_label, 'GRADUATION');
+  assert.equal(result.confidence_band, 'HIGH');
+  assert.equal(result.authoritative, false);
+});
+
+test('high semantic similarity with different exact ISO dates is not put in duplicate bucket', () => {
+  const result = HF.duplicatePairs(
+    [
+      {candidate_id:'NONT-S1', event_date_iso:'2026-10-03', name:'NONT TANONT ARENA ENCORE'},
+      {candidate_id:'NONT-S2', event_date_iso:'2026-10-04', name:'NONT TANONT ARENA ENCORE'}
+    ],
+    [[1,0],[0.999,0.001]],
+    {threshold:0.92}
+  );
+  assert.equal(result.pairs.length, 0);
+  assert.equal(result.conflicts.length, 1);
+  assert.equal(result.conflicts[0].conflict, 'EVENT_DATE_MISMATCH');
+  assert.equal(result.conflicts[0].disposition, 'SIMILAR_BUT_DISTINCT_IDENTITY_REQUIRES_VERIFIER');
+});
+
+test('different explicit Show IDs are protected from semantic auto-dedup', () => {
+  const result = HF.duplicatePairs(
+    [
+      {candidate_id:'SHOW-A', show_id:'SHOW|event|20261010|S1', name:'Same Event'},
+      {candidate_id:'SHOW-B', show_id:'SHOW|event|20261010|S2', name:'Same Event'}
+    ],
+    [[1,0],[1,0]],
+    {threshold:0.92}
+  );
+  assert.equal(result.pairs.length, 0);
+  assert.equal(result.conflicts.length, 1);
+  assert.equal(result.conflicts[0].conflict, 'SHOW_ID_MISMATCH');
+});
+
+test('non-E5 custom embedding model does not receive E5 query prefix', () => {
+  assert.equal(HF.embeddingInput('Example Event', 'thenlper/gte-large'), 'Example Event');
 });
