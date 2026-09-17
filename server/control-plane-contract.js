@@ -41,6 +41,36 @@ function recordRole(record){
   return text(value(record,'role','Role','scope_key','scopeKey','Scope Key')).toUpperCase();
 }
 
+function lockShapeProblems(record){
+  const required=[
+    ['holder_run_id','holderRunId','Holder Run ID','run_id','runId','Run ID'],
+    ['status','Status'],
+    ['acquired_at','acquiredAt','Acquired At'],
+    ['lease_until','leaseUntil','Lease Until'],
+    ['lease_version','leaseVersion','Lease Version'],
+    ['fencing_token','fencingToken','Fencing Token']
+  ];
+  const labels=['run_id','status','acquired_at','lease_until','lease_version','fencing_token'];
+  const missing=[];
+  required.forEach((keys,index)=>{
+    if(!text(value(record,...keys))) missing.push(labels[index]);
+  });
+  return missing;
+}
+
+function malformedRuntimeLocks(rows,roles){
+  const allowed=new Set((roles||[]).map(x=>text(x).toUpperCase()));
+  return (rows||[]).filter(row=>{
+    const role=recordRole(row);
+    if(allowed.size && !allowed.has(role)) return false;
+    return recordRunId(row) && lockShapeProblems(row).length>0;
+  }).map(row=>({
+    run_id:recordRunId(row),
+    role:recordRole(row),
+    missing:lockShapeProblems(row)
+  }));
+}
+
 function exactHeaderCheck(actual, expected, label){
   if(!Array.isArray(actual)) throw new Error(label + ' headers must be an array');
   if(actual.length !== expected.length){
@@ -122,6 +152,10 @@ function analyzeNaturalOccurrence(input={}){
 
   const coreLocks=(input.core_locks||[]).filter(row=>recordRole(row)==='CORE');
   const roleLocks=(input.role_locks||[]).filter(row=>recordRole(row)===role);
+  const malformed=malformedRuntimeLocks(
+    [...coreLocks,...roleLocks],
+    ['CORE',role]
+  );
   const common=commonRuntimeIds(coreLocks,roleLocks);
 
   const result={
@@ -140,6 +174,14 @@ function analyzeNaturalOccurrence(input={}){
   if(!beforeEnabled){
     result.classification='TASK_OFF_BEFORE_BOUNDARY';
     result.blockers.push('canonical recurring task was OFF before the scheduled boundary');
+    return result;
+  }
+
+  if(malformed.length){
+    result.classification='MALFORMED_RUNTIME_LOCK_RECORD';
+    result.blockers.push(...malformed.map(x=>
+      `${x.role} lock ${x.run_id} missing: ${x.missing.join(',')}`
+    ));
     return result;
   }
 
@@ -232,6 +274,8 @@ module.exports={
   assertManifestHeaders,
   assertTransactionHeaders,
   assertStrictlyMonotonicFence,
+  lockShapeProblems,
+  malformedRuntimeLocks,
   analyzeNaturalOccurrence,
   auditSnapshot
 };
