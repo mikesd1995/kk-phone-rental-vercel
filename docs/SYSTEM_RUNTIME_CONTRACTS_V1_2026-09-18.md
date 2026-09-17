@@ -26,7 +26,7 @@ This change is intentionally zero-production-write.
 - canonical task remains ON after runtime;
 - only then is a natural occurrence an acceptance candidate.
 
-It also freezes the canonical 22-column Manifest and 23-column Write Transaction header contracts and checks strict `MAX+1` fencing.
+It also freezes the canonical 22-column Manifest and 23-column Write Transaction header contracts, checks strict `MAX+1` fencing, and rejects partially appended lock rows as malformed evidence rather than treating them as valid active writers. This regression was added after the 2026-09-18 04:30 Verifier occurrence left only the CORE scope/run identity without status, lease, fence, role lock, Manifest, or transaction.
 
 ### Event Bridge replay
 
@@ -63,6 +63,7 @@ New tests cover:
 - launcher-only / missing Machine-SOT runtime;
 - missing Manifest;
 - task turning OFF after a real runtime;
+- half-materialized runtime lock records (for example CORE lock identity written without status/lease/fence);
 - unresolved transaction;
 - duplicate runtime identity;
 - acceptance counting;
