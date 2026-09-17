@@ -201,3 +201,39 @@ Not performed by this hardening pass:
 - no final event/monthly/pricing mutation.
 
 The next valid gate is a controlled live Hugging Face benchmark using a credential with Inference Providers permission. Do not merge/activate solely from mocked or preview-build evidence.
+
+
+## V1.2 CI/UAT readiness checkpoint — 2026-09-18
+
+### Additional controls added
+
+- Existing GitHub workflow `.github/workflows/admin-regression.yml` now executes the HF benchmark harness in an explicit disabled mode.
+- The CI step fails if the harness reports anything other than:
+  - `PREPARED_NOT_EXECUTED`
+  - `live_hf_calls=0`
+  - `production_writes=0`
+  - `final_truth_mutation=false`
+  - `notification_sends=0`
+- Added `docs/HUGGING_FACE_EVENT_ASSIST_UAT_RUNBOOK_2026-09-18.md` with controlled live-UAT preflight, quality gate, fail-closed rules, evidence requirements and rollback.
+
+### CI evidence
+
+- Admin Regression run #144: SUCCESS after adding the HF benchmark safety step.
+- The job's dedicated `HF benchmark harness safety check` step completed successfully.
+- Admin Regression run #145: SUCCESS on the subsequent head containing the UAT runbook.
+
+### External capability check
+
+A ChatGPT Hugging Face plugin is available in the plugin directory for inspecting models, datasets, Spaces and research. It is not currently installed. Installing that plugin can improve model inspection workflows, but it does not replace the inference credential required by the live benchmark.
+
+### Current unresolved external dependency
+
+No connected tool in this execution context exposes a safe read/write surface for the project's Hugging Face inference secret. Therefore the live benchmark was not fabricated or bypassed.
+
+Current state remains:
+- code/staging hardened;
+- CI green;
+- live benchmark prepared;
+- production integration disabled;
+- PR #44 remains DRAFT;
+- no Machine SOT write or production task mutation performed by the HF work.
