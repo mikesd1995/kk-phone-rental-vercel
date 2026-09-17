@@ -111,5 +111,5 @@ test('passes a healthy snapshot and attaches snapshot health metadata', async ()
   assert.equal(out.body.data.events.length, 1);
   assert.equal(out.body.snapshot_health.ok, true);
   assert.equal(out.body.data.frontend_sheet_id, process.env.GOOGLE_SHEET_ID);
-  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5');
+  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.1');
 });
