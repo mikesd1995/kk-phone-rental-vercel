@@ -4,7 +4,15 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const C=require('../server/control-plane-contract.js');
 
-const released=(scope,run)=>({scope_key:scope,holder_run_id:run,status:'RELEASED'});
+const released=(scope,run)=>({
+  scope_key:scope,
+  holder_run_id:run,
+  status:'RELEASED',
+  acquired_at:'2026-09-18T06:00:01+07:00',
+  lease_until:'2026-09-18T06:20:01+07:00',
+  lease_version:300,
+  fencing_token:'TEST-FENCE-300'
+});
 const manifest=(role,run,status='FINISHED_PARTIAL')=>({role,run_id:run,status});
 
 function base(role='SCANNER'){
@@ -63,6 +71,22 @@ test('launcher metadata without Machine-SOT boundary is never runtime proof',()=
   const r=C.analyzeNaturalOccurrence(x);
   assert.equal(r.classification,'LAUNCHER_METADATA_ADVANCED_RUNTIME_BOUNDARY_MISSING');
   assert.equal(r.runtime_proven,false);
+});
+
+test('half-materialized CORE lock append is a malformed runtime boundary, not an active valid lock',()=>{
+  const x=base('VERIFIER');
+  x.core_locks=[{
+    scope_key:'CORE',
+    holder_run_id:'GPTV415-20260918T043203-SCHEDULED-0430'
+  }];
+  x.role_locks=[];
+  x.manifests=[];
+  const r=C.analyzeNaturalOccurrence(x);
+  assert.equal(r.classification,'MALFORMED_RUNTIME_LOCK_RECORD');
+  assert.equal(r.runtime_proven,false);
+  assert.equal(r.acceptance_candidate,false);
+  assert.match(r.blockers.join(' '),/status/);
+  assert.match(r.blockers.join(' '),/fencing_token/);
 });
 
 test('runtime with no exact Manifest fails closed',()=>{
