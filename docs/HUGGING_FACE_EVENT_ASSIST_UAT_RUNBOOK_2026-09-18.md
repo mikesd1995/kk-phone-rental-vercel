@@ -162,3 +162,92 @@ Record only non-secret evidence:
 - PASS/FAIL decision and reason.
 
 Never persist the HF token or Authorization header.
+
+
+## V1.3 readiness and execution route
+
+Before any live benchmark, run:
+
+```bash
+npm run hf:assist:readiness
+```
+
+The readiness command performs zero network calls.
+
+Expected blocked state when no controlled credential is available:
+
+```text
+status = BLOCKED
+network_calls = 0
+production_writes = 0
+final_truth_mutation = false
+notification_sends = 0
+```
+
+Expected ready state only when all local preconditions are satisfied:
+
+```text
+status = READY_FOR_LIVE_UAT
+network_calls = 0
+```
+
+A READY status means only that the bounded benchmark may be executed.
+
+### Call budget
+
+Default maximum:
+
+```text
+HF_UAT_MAX_CALLS=20
+```
+
+The current 14-candidate fixture plans 15 calls:
+- 14 zero-shot classification requests;
+- 1 batch embedding request.
+
+If planned calls exceed the configured maximum, the benchmark must stop before external access with:
+
+```text
+status = BLOCKED_CALL_BUDGET
+live_hf_calls = 0
+```
+
+### Credential handling
+
+The credential must exist only in an approved secret/environment surface.
+
+Never:
+- put `HF_TOKEN` in source;
+- commit it to GitHub;
+- paste it into PR/documentation;
+- emit it to logs;
+- store it in Machine SOT;
+- attach it to benchmark JSON.
+
+The adapter redacts an exact configured token and bearer credential text from remote provider errors. The benchmark also checks the final serialized report for an exact-token leak.
+
+### Hugging Face Jobs limitation observed
+
+The connected Hugging Face account is authenticated, but a bounded Jobs probe returned:
+
+```text
+402 Payment Required
+```
+
+Therefore Jobs is not an approved execution route for this UAT in the current account state.
+
+Do not route the benchmark through arbitrary public/community Spaces merely to bypass the Jobs/payment boundary.
+
+Use a controlled environment that can securely provide the inference credential to the existing benchmark script.
+
+### Structured failure
+
+If any live provider/model call fails, preserve a non-secret report with:
+
+```text
+status = LIVE_BENCHMARK_FAILED
+quality_gate_pass = false
+activation_recommendation = KEEP_DISABLED_AND_INVESTIGATE
+```
+
+The report may include the redacted error and number of attempted calls, but never the token.
