@@ -122,3 +122,82 @@ V1 adds no schema, queue, scheduler, or final-write dependency, so rollback requ
 - no automatic canonical merge;
 - no direct production Sheet writes;
 - no new Runner, schedule, queue, watchdog, notifier, or coding agent.
+
+
+## V1.1 hardening and execution log — 2026-09-18
+
+### Changes applied after initial staging
+
+1. E5 embedding quality fix
+   - `intfloat/multilingual-e5-large` now receives the model-recommended `query: ` prefix for symmetric semantic-similarity work.
+   - Custom non-E5 embedding models are not forced to use that prefix.
+
+2. Classification taxonomy expanded for KK discovery
+   - Canonical outputs now include `GRADUATION`, `BRAND_EVENT`, and `ARTIST_APPEARANCE` in addition to concert/fan-event/festival/premiere classes.
+   - Hugging Face receives natural-language candidate labels such as `fan meeting` and `graduation event`, then the adapter maps them back to canonical machine labels.
+   - A confidence band (HIGH/MEDIUM/LOW) is exposed only as advisory metadata; low confidence never causes automatic rejection.
+
+3. False-positive dedup protection
+   - High embedding similarity no longer enters the ordinary duplicate bucket when exact ISO event dates conflict.
+   - High similarity also stays out of the ordinary duplicate bucket when explicit Show IDs conflict.
+   - These cases are emitted separately as `SIMILAR_BUT_DISTINCT_IDENTITY_REQUIRES_VERIFIER`.
+   - No automatic merge/delete is introduced.
+
+4. Bounded KK benchmark fixture
+   - Added 14 event-level candidates covering concert, fan meeting, fan sign, fan screening, festival, premiere, graduation, brand event, artist appearance, known duplicate variants, and multi-show same-name/date-conflict cases.
+   - Fixtures are syntheticized from KK event/miss patterns and contain no customer/booking PII.
+
+5. Zero-write benchmark harness
+   - Added `scripts/hf-event-assist-benchmark.js`.
+   - It measures classification accuracy, expected duplicate recall, false-positive duplicate pairs, and identity-conflict handling.
+   - Quality gate target for a controlled live run: classification accuracy >= 0.80, duplicate recall >= 0.90, false-positive duplicate pairs = 0.
+   - The harness performs zero Machine SOT writes, zero final-truth mutation, and zero notification sends.
+   - If HF is disabled or no token is available, it exits as `PREPARED_NOT_EXECUTED` rather than fabricating quality results.
+
+6. Repository checks
+   - `package.json` now syntax-checks the benchmark script.
+   - Added `npm run hf:assist:benchmark`.
+   - Benchmark fixture integrity is covered by the regression test file.
+
+### Defect found and corrected during hardening
+
+A connector-escaping defect briefly produced malformed regular expressions in the staged adapter. It was detected by explicit syntax parsing before merge/production activation and fixed in commit history. Post-fix syntax validation passed for:
+- `server/hf-event-assist.js`
+- `tests/hf-event-assist.test.js`
+- `scripts/hf-event-assist-benchmark.js`
+- `scripts/hf-event-assist-dry-run.js`
+
+Post-fix pure regression checks passed for:
+- E5 query prefix;
+- non-E5 no-prefix behavior;
+- exact-date identity conflict;
+- Show-ID identity conflict;
+- conflict exclusion from duplicate bucket;
+- conflict observability;
+- same-date semantic duplicate eligibility.
+
+A mocked Hugging Face request also confirmed:
+- canonical `GRADUATION` mapping;
+- HIGH confidence-band mapping;
+- natural-language candidate labels;
+- fixed `https://router.huggingface.co` host;
+- E5 `query: ` prefix;
+- `authoritative=false`;
+- `production_writes=0`.
+
+### Current activation state
+
+Still disabled for recurring production use.
+
+Not performed by this hardening pass:
+- no production Scanner wiring;
+- no recurring task mutation;
+- no Machine SOT row write;
+- no policy activation/change;
+- no Apps Script deployment;
+- no Make/provider send;
+- no LINE/Telegram notification;
+- no production Vercel environment-variable mutation;
+- no final event/monthly/pricing mutation.
+
+The next valid gate is a controlled live Hugging Face benchmark using a credential with Inference Providers permission. Do not merge/activate solely from mocked or preview-build evidence.
