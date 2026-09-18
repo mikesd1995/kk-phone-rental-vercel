@@ -4,7 +4,7 @@
 // and automatically falls back to the existing full snapshot guard on any uncertainty.
 
 const { Readable } = require('stream');
-const LegacyAdmin = require('./kk-admin.js');
+const LegacyAdmin = require('../server/admin-proxy.js');
 const SnapshotHealth = require('../admin/snapshot-health.js');
 const ReservationGuard = require('../admin/reservation-guard.js');
 
