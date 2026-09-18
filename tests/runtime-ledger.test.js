@@ -76,3 +76,54 @@ test('ledger fails closed when enabled but not configured',async()=>{
     err=>err.code==='RUNTIME_LEDGER_NOT_CONFIGURED'
   );
 });
+
+
+test('witness expectation read is bounded, service-only and does not place secret in URL',async()=>{
+  let captured;
+  const fetchImpl=async(url,options)=>{
+    captured={url,options};
+    return {
+      ok:true,
+      status:200,
+      async json(){ return [row]; }
+    };
+  };
+  const result=await L.listExpectations({env,fetchImpl,role:'SCANNER',mode:'WITNESS_ONLY',limit:24});
+  assert.equal(result.ok,true);
+  assert.equal(result.rows.length,1);
+  assert.equal(captured.options.method,'GET');
+  assert.equal(captured.options.headers.apikey,env.SUPABASE_SERVICE_ROLE_KEY);
+  assert.equal(captured.options.headers.Authorization,`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
+  assert.doesNotMatch(captured.url,/server-only-test-key/);
+  assert.match(captured.url,/role=eq\.SCANNER/);
+  assert.match(captured.url,/mode=eq\.WITNESS_ONLY/);
+  assert.match(captured.url,/limit=24/);
+  assert.match(captured.url,/scheduled_at\.desc/);
+});
+
+test('witness expectation read rejects non-array protocol responses',async()=>{
+  await assert.rejects(
+    L.listExpectations({
+      env,
+      fetchImpl:async()=>({
+        ok:true,
+        status:200,
+        async json(){ return {unexpected:true}; }
+      })
+    }),
+    err=>err.code==='RUNTIME_LEDGER_RESPONSE_INVALID'
+  );
+});
+
+test('witness expectation read rejects unsupported role before network access',async()=>{
+  let called=false;
+  await assert.rejects(
+    L.listExpectations({
+      env,
+      role:'CANARY',
+      fetchImpl:async()=>{ called=true; throw new Error('must not fetch'); }
+    }),
+    err=>err.code==='RUNTIME_LEDGER_ROLE_INVALID'
+  );
+  assert.equal(called,false);
+});
