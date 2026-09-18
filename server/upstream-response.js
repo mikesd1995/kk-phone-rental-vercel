@@ -1,6 +1,6 @@
 'use strict';
 
-function classifyNonJsonResponse(text, contentType, urlHost) {
+function classifyNonJsonResponse(text, contentType, urlHost, httpStatus) {
   const raw = String(text || '');
   const ct = String(contentType || '').toLowerCase();
   const host = String(urlHost || '').toLowerCase();
@@ -21,6 +21,15 @@ function classifyNonJsonResponse(text, contentType, urlHost) {
       code: 'GOOGLE_DRIVE_DOCS_HTML',
       message: 'Apps Script URL resolved to a Google Drive/Docs page instead of JSON.',
       suggestion: 'Copy the current Apps Script Web App URL from Deploy > Manage deployments. It must be the /macros/s/.../exec URL, not a Drive, Docs, Sheet, editor, or /dev URL.'
+    };
+  }
+
+  const status = Number(httpStatus || 0);
+  if (host === 'script.google.com' && status === 404 && (/<!doctype html|<html/i.test(raw) || ct.includes('text/html'))) {
+    return {
+      code: 'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND',
+      message: 'Apps Script Web App deployment returned HTTP 404 HTML. The configured /exec deployment is missing, retired, or no longer valid.',
+      suggestion: 'Open the bound Apps Script project, use Deploy > Manage deployments, copy the active Web app /exec URL, update Vercel KK_ADMIN_SCRIPT_URL, then redeploy and rerun System Guard. Do not deploy the repository 9_5_8 source over the observed 9_5_9 production backend.'
     };
   }
 
