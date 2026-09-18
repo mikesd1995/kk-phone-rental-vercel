@@ -31,3 +31,17 @@ jobs:
 
       - name: Regression tests
         run: npm test
+
+      - name: HF benchmark harness safety check
+        env:
+          HF_EVENT_ASSIST_ENABLED: 'false'
+        run: |
+          npm run hf:assist:benchmark > hf-benchmark-disabled.json
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('hf-benchmark-disabled.json','utf8'));if(r.status!=='PREPARED_NOT_EXECUTED'||r.live_hf_calls!==0||r.production_writes!==0||r.final_truth_mutation!==false||r.notification_sends!==0){console.error(r);process.exit(1)}"
+
+      - name: HF readiness stays fail-closed without activation
+        env:
+          HF_EVENT_ASSIST_ENABLED: 'false'
+        run: |
+          npm run hf:assist:readiness > hf-readiness-disabled.json
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('hf-readiness-disabled.json','utf8'));if(r.status!=='BLOCKED'||r.network_calls!==0||r.production_writes!==0||r.final_truth_mutation!==false||r.notification_sends!==0){console.error(r);process.exit(1)}"
