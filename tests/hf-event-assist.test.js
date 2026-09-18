@@ -201,3 +201,23 @@ test('redactSecret removes explicit token and bearer credential text', () => {
   assert.equal(redacted.includes(token), false);
   assert.match(redacted, /\[REDACTED\]/);
 });
+
+
+test('manual UAT workflow stays zero-write, bounded, and explicit', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../.github/workflows/hf-event-assist-uat.yml'), 'utf8');
+
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /RUN_HF_ZERO_WRITE_UAT/);
+  assert.match(workflow, /HF_UAT_MAX_CALLS/);
+  assert.match(workflow, /secrets\.HF_TOKEN/);
+  assert.match(workflow, /hf-event-assist-readiness\.js/);
+  assert.match(workflow, /hf-event-assist-benchmark\.js/);
+  assert.match(workflow, /production_writes!==0/);
+  assert.match(workflow, /final_truth_mutation!==false/);
+  assert.match(workflow, /notification_sends!==0/);
+  assert.doesNotMatch(workflow, /schedule:/);
+  assert.doesNotMatch(workflow, /push:/);
+  assert.doesNotMatch(workflow, /pull_request:/);
+});
