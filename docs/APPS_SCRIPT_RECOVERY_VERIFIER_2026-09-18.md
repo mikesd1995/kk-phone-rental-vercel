@@ -45,6 +45,7 @@ https://script.google.com/macros/s/<deployment-id>/exec
 It rejects:
 
 - non-HTTPS URLs;
+- URLs with embedded username/password credentials;
 - non-`script.google.com` hosts;
 - `/dev` URLs;
 - editor / Drive / Sheet URLs;
@@ -54,10 +55,10 @@ The report contains only SHA-256-derived fingerprints for correlation, not the d
 
 ### Read-only probe mode
 
-Normal mode sends exactly one read-only Apps Script action:
+Normal mode sends exactly one read-only Apps Script health action used by the production System Guard path:
 
 ```json
-{"action":"snapshotHealth","apiKey":"<from environment>"}
+{"action":"phase1Health","apiKey":"<from environment>"}
 ```
 
 The report is intentionally bounded. It can include:
@@ -67,6 +68,8 @@ The report is intentionally bounded. It can include:
 - existing non-JSON failure classification;
 - safe version/revision fields;
 - URL/deployment fingerprints.
+
+`phase1Health` is preferred over `snapshot` so recovery verification does not request booking/customer snapshot data.
 
 It does not emit:
 
