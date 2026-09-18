@@ -88,7 +88,9 @@ test('reports non-JSON Apps Script response as upstream protocol failure', async
 
   assert.equal(out.res.statusCode, 502);
   assert.equal(out.body.error_code, 'SNAPSHOT_UPSTREAM_NON_JSON');
-  assert.match(out.body.error, /HTML instead of JSON/);
+  assert.equal(out.body.upstream_failure_class, 'GOOGLE_AUTH_HTML');
+  assert.match(out.body.error, /sign-in\/auth page instead of JSON/);
+  assert.match(out.body.suggestion, /incognito/i);
 });
 
 test('keeps INVALID_SNAPSHOT only for ok=true payloads whose snapshot shape is actually invalid', async () => {
