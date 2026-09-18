@@ -2,7 +2,7 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const H=require('../api/kk-scanner-witness-health');
+const H=require('../api/kk-scanner-dispatch');
 
 test('witness health is safely disabled by default',()=>{
   const s=H._test.snapshot({});
