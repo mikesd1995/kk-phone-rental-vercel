@@ -5,6 +5,7 @@
 const { Readable } = require('stream');
 const GuardAdmin = require('./kk-admin-guard.js');
 const SnapshotHealth = require('../admin/snapshot-health.js');
+const UpstreamResponse = require('../server/upstream-response.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -63,16 +64,7 @@ function safeUrlHost(value) {
 }
 
 function compactNonJsonError(text, contentType, urlHost) {
-  const raw = String(text || '');
-  const titleMatch = raw.match(/<title>([^<]+)<\/title>/i);
-  const title = titleMatch ? titleMatch[1].trim() : 'Non-JSON response';
-  if (/drive|docs\.google|google drive/i.test(raw) || /drive|docs\.google/i.test(String(urlHost))) {
-    return 'Apps Script URL seems to point to Google Drive/Docs or returned a Google Drive page, not JSON. Check KK_ADMIN_SCRIPT_URL in Vercel.';
-  }
-  if (/<!doctype html|<html/i.test(raw)) {
-    return 'Apps Script returned HTML instead of JSON (' + title + '). Check Web App deployment URL and access setting.';
-  }
-  return 'Apps Script returned a non-JSON response' + (contentType ? ' (' + contentType + ')' : '') + '.';
+  return UpstreamResponse.classifyNonJsonResponse(text, contentType, urlHost).message;
 }
 
 async function fetchWithTimeout(url, options, timeoutMs) {
@@ -240,22 +232,35 @@ async function handleSnapshot(req, res, payload, action) {
   try {
     data = JSON.parse(upstream.body);
   } catch (_) {
+    const failure = UpstreamResponse.classifyNonJsonResponse(upstream.body, contentType, safeUrlHost(scriptUrl));
+    console.warn('KK_ADMIN_SNAPSHOT_UPSTREAM_PROTOCOL', JSON.stringify(UpstreamResponse.safeProtocolLog({
+      code: failure.code,
+      status: upstream.status,
+      content_type: contentType,
+      host: safeUrlHost(scriptUrl),
+      action: 'snapshot'
+    })));
     return json(res, 502, {
       ok: false,
-      error: compactNonJsonError(upstream.body, contentType, safeUrlHost(scriptUrl)),
+      error: failure.message,
       error_code: 'SNAPSHOT_UPSTREAM_NON_JSON',
+      upstream_failure_class: failure.code,
       upstream_status: upstream.status,
+      suggestion: failure.suggestion,
       proxy_upstream_ms: elapsed,
       proxy_timeout_ms: 55000
     });
   }
 
   if (!upstream.ok || !data || data.ok !== true) {
+    const upstreamStatus = Number(upstream.status || 0);
+    const retryable = upstreamStatus === 429 || upstreamStatus === 408 || upstreamStatus >= 500;
     return json(res, upstream.ok ? 502 : upstream.status, {
       ok: false,
       error: data && data.error ? String(data.error) : 'Apps Script snapshot request failed',
       error_code: 'SNAPSHOT_UPSTREAM_FAILED',
       upstream_status: upstream.status,
+      retryable,
       backend_version: data && (data.admin_api_version || (data.data && data.data.admin_api_version)) || '',
       proxy_upstream_ms: elapsed,
       proxy_timeout_ms: 55000
