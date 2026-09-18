@@ -1184,14 +1184,22 @@
           const err=new Error(data.error||"Request failed");
           err.code=data.error_code||"";
           err.httpStatus=res.status;
+          err.upstreamStatus=Number(data.upstream_status||0);
+          err.upstreamFailureClass=String(data.upstream_failure_class||"");
+          err.retryable=data.retryable===true;
           err.action=data.action||action;
           throw err;
         }
         return data;
       }catch(err){
         lastError=err;
+        const transientStatus=Number(err.upstreamStatus||err.httpStatus||0);
         const retryable=action==="snapshot" && attempt<maxAttempts &&
-          (err.code==="UPSTREAM_TIMEOUT" || /timed out/i.test(String(err.message||"")));
+          (err.code==="UPSTREAM_TIMEOUT" ||
+           err.code==="UPSTREAM_ERROR" ||
+           err.retryable===true ||
+           transientStatus===408 || transientStatus===429 || transientStatus>=500 ||
+           /timed out/i.test(String(err.message||"")));
         if(!retryable) throw err;
         await new Promise(resolve=>setTimeout(resolve,1200));
       }
@@ -1307,16 +1315,39 @@
       const base=results[0].status==="fulfilled" ? results[0].value.data : null;
       const rows=base && Array.isArray(base.rows) ? base.rows.slice() : [{label:"System Health",status:"FAIL",detail:results[0].reason?.message || "Invalid health response"}];
       const snap=results[1].status==="fulfilled" ? results[1].value.data : null;
-      for(const key of KKSnapshotHealth.KEYS) rows.push({label:"Snapshot · "+key,status:!snap || snap.counts[key]===null ? "FAIL" : snap.counts[key]===0 ? "WARN" : "OK",detail:snap ? String(snap.counts[key])+" rows" : results[1].reason?.message || "No response"});
-      rows.push({label:"Snapshot validation",status:!snap || !snap.ok ? "FAIL" : snap.warnings.length ? "WARN" : "OK",detail:snap ? snap.issues.concat(snap.warnings).join("; ") || "Valid snapshot" : "Snapshot unavailable"});
-      rows.push({label:"Snapshot latency",status:snap ? "OK" : "FAIL",detail:snap ? snap.latency_ms+" ms (proxy round trip)" : "No snapshot measurement"});
+      const snapshotError=results[1].status==="rejected" ? results[1].reason : null;
+      const upstreamRoot=rows.find(r=>r && r.status==="FAIL" && (r.key==="apps_script_json" || r.key==="apps_script_reachable" || r.key==="admin_script_url" || r.key==="admin_api_key"));
+      const blockedByUpstream=!snap && !!upstreamRoot;
+      const blockedDetail=blockedByUpstream
+        ? "Blocked by upstream root cause: "+String(upstreamRoot.detail||upstreamRoot.label||"Apps Script unavailable")
+        : (snapshotError?.message || "Snapshot unavailable");
+
+      for(const key of KKSnapshotHealth.KEYS){
+        rows.push({
+          label:"Snapshot · "+key,
+          status:!snap ? (blockedByUpstream ? "WARN" : "FAIL") : snap.counts[key]===null ? "FAIL" : snap.counts[key]===0 ? "WARN" : "OK",
+          detail:snap ? String(snap.counts[key])+" rows" : blockedDetail,
+          suggestion:blockedByUpstream ? "แก้ Apps Script upstream จุดเดียวก่อน แล้ว Run Live Check ใหม่; รายการนี้เป็นผลกระทบตาม ไม่ใช่ root cause แยก" : ""
+        });
+      }
+      rows.push({
+        label:"Snapshot validation",
+        status:!snap ? (blockedByUpstream ? "WARN" : "FAIL") : !snap.ok ? "FAIL" : snap.warnings.length ? "WARN" : "OK",
+        detail:snap ? snap.issues.concat(snap.warnings).join("; ") || "Valid snapshot" : blockedDetail,
+        suggestion:blockedByUpstream ? "Snapshot ยังตรวจไม่ได้จนกว่า Apps Script จะคืน JSON ปกติ" : ""
+      });
+      rows.push({
+        label:"Snapshot latency",
+        status:snap ? "OK" : (blockedByUpstream ? "WARN" : "FAIL"),
+        detail:snap ? snap.latency_ms+" ms (proxy round trip)" : blockedDetail
+      });
       rows.push({label:"Live Check latency",status:"OK",detail:(Date.now()-startedAt)+" ms (browser round trip)"});
       rows.push({label:"Versions · UI / Proxy / Apps Script",status:snap && snap.proxy_version===KK_ADMIN_UI_VERSION && snap.backend_version===EXPECTED_BACKEND_VERSION ? "OK" : "WARN",detail:KK_ADMIN_UI_VERSION+" / "+(snap?.proxy_version||"unknown")+" / "+(snap?.backend_version||"unknown"),suggestion:"Inspect deployed source on mismatch; never deploy repo 9_5_8 over deployed 9_5_9."});
       state.systemHealth={generated_at:new Date().toISOString(),rows,summary:{fail:rows.filter(r=>r.status==="FAIL").length,warn:rows.filter(r=>r.status==="WARN").length}};
       renderSystemGuard();
       const fail=(state.systemHealth && state.systemHealth.summary && state.systemHealth.summary.fail)||0;
       const warn=(state.systemHealth && state.systemHealth.summary && state.systemHealth.summary.warn)||0;
-      showNotice(fail?`System Guard พบ ${fail} จุดผิดปกติ ต้องแก้ก่อนใช้งานจริง`:(warn?`System Guard พบ ${warn} จุดที่ควรเช็ก`:`System Guard ผ่านทั้งหมด`), fail?"bad":(warn?"warn":"ok"));
+      showNotice(fail?`System Guard พบ ${fail} root/independent failure และ ${warn} จุดผลกระทบ/ควรเช็ก`:(warn?`System Guard พบ ${warn} จุดที่ควรเช็ก`:`System Guard ผ่านทั้งหมด`), fail?"bad":(warn?"warn":"ok"));
     }catch(e){
       showNotice(e.message,"bad");
     }finally{
