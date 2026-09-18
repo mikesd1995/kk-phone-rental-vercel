@@ -25,6 +25,9 @@ function validateAppsScriptExecUrl(value) {
   if (url.protocol !== 'https:') {
     return { ok: false, code: 'APPS_SCRIPT_URL_NOT_HTTPS', message: 'Apps Script Web App URL must use HTTPS.' };
   }
+  if (url.username || url.password) {
+    return { ok: false, code: 'APPS_SCRIPT_URL_HAS_CREDENTIALS', message: 'Apps Script Web App URL must not contain embedded credentials.' };
+  }
   if (url.hostname.toLowerCase() !== 'script.google.com') {
     return { ok: false, code: 'APPS_SCRIPT_URL_WRONG_HOST', message: 'Apps Script Web App URL must use script.google.com.' };
   }
@@ -54,7 +57,7 @@ function pickSafeBackendMetadata(json) {
   const roots = [json, json && json.data, json && json.result, json && json.payload].filter(
     (x) => x && typeof x === 'object' && !Array.isArray(x)
   );
-  const safeKeys = ['version', 'backend', 'backend_version', 'backend_revision', 'script_version'];
+  const safeKeys = ['version', 'admin_api_version', 'backend', 'backend_version', 'backend_revision', 'script_version'];
   const metadata = {};
 
   for (const root of roots) {
@@ -117,7 +120,7 @@ async function verifyAppsScriptUpstream(options = {}) {
       ok: false,
       stage: 'configuration',
       classification: 'APPS_SCRIPT_API_KEY_MISSING',
-      message: 'KK_ADMIN_API_KEY is required for the read-only snapshotHealth probe.',
+      message: 'KK_ADMIN_API_KEY is required for the read-only phase1Health probe.',
       ...base
     };
   }
@@ -141,7 +144,7 @@ async function verifyAppsScriptUpstream(options = {}) {
     response = await fetchImpl(scriptUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'snapshotHealth', apiKey }),
+      body: JSON.stringify({ action: 'phase1Health', apiKey }),
       signal: controller.signal,
       redirect: 'follow'
     });
@@ -152,8 +155,8 @@ async function verifyAppsScriptUpstream(options = {}) {
       stage: 'transport',
       classification: error && error.name === 'AbortError' ? 'APPS_SCRIPT_PROBE_TIMEOUT' : 'APPS_SCRIPT_TRANSPORT_ERROR',
       message: error && error.name === 'AbortError'
-        ? 'Read-only snapshotHealth probe timed out.'
-        : 'Read-only snapshotHealth probe failed at transport level.',
+        ? 'Read-only phase1Health probe timed out.'
+        : 'Read-only phase1Health probe failed at transport level.',
       ...base
     };
   } finally {
