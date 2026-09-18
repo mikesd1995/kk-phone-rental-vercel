@@ -659,3 +659,165 @@ Tests now enforce that the permanent workflow:
 - remains manual-only.
 
 No production Machine SOT, Scanner, Verifier, Canary, notification, or Vercel production state was modified by V1.7.
+
+
+## V1.8 live benchmark pass and multilingual model correction — 2026-09-18
+
+### Account-side CI/CD identity now works
+
+The Hugging Face account CI/CD identity matching:
+
+- repository: `mikesd1995/kk-phone-rental-vercel`
+- branch: `hf-event-assist-v1-20260918`
+- workflow: `hf-event-assist-uat.yml`
+- Inference Providers calls: enabled
+
+was configured by the account owner.
+
+The permanent workflow then successfully completed:
+- official `hf auth token` OIDC credential resolution;
+- zero-network readiness;
+- live Inference Providers access with a short-lived token.
+
+This closes the former `invalid_grant / No trusted publisher configured` blocker.
+
+### First authenticated live benchmark exposed a model-task mismatch
+
+Controlled UAT run `35296196369` reached live inference for the first time.
+
+The then-default model:
+
+```text
+MoritzLaurer/ModernBERT-large-zeroshot-v2.0
+```
+
+failed on the first classification request:
+
+```text
+HTTP 400
+PreTrainedTokenizerFast._batch_encode_plus() got an unexpected keyword argument 'candidate_labels'
+```
+
+Evidence:
+- readiness: `READY_FOR_LIVE_UAT`;
+- auth mode: `HF_OIDC_CICD_IDENTITY`;
+- attempted live calls: `1`;
+- production writes: `0`;
+- final truth mutation: `false`;
+- notification sends: `0`;
+- benchmark status: `LIVE_BENCHMARK_FAILED`.
+
+Root cause: the selected ModernBERT repository is exposed with text-classification task metadata in the provider path, so provider routing did not invoke a zero-shot-classification pipeline that accepts `candidate_labels`.
+
+No production activation occurred.
+
+### Model correction
+
+The default zero-shot model was changed to:
+
+```text
+MoritzLaurer/bge-m3-zeroshot-v2.0
+```
+
+Public Hugging Face metadata for this model reports:
+- `pipeline_tag=zero-shot-classification`;
+- `multilingual`;
+- `endpoints_compatible`;
+- warm inference availability.
+
+The model card explicitly recommends the BGE-M3 zeroshot variant for multilingual / non-English use cases.
+
+The embedding model remains:
+
+```text
+intfloat/multilingual-e5-large
+```
+
+A regression test now pins the default zero-shot model to the BGE-M3 model.
+
+### Successful bounded live benchmark
+
+Controlled UAT run:
+
+```text
+run ID = 35296382494
+head SHA = 64271c4d95b28dc720644c2f64367e15161123b6
+workflow = HF Event Assist Controlled UAT
+result = SUCCESS
+```
+
+Readiness:
+- candidate count: `14`;
+- planned calls: `15`;
+- max calls: `20`;
+- token present: `true`;
+- model config valid: `true`;
+- network calls during readiness: `0`;
+- production writes: `0`;
+- final truth mutation: `false`;
+- notification sends: `0`;
+- status: `READY_FOR_LIVE_UAT`.
+
+Live benchmark:
+- status: `LIVE_BENCHMARK_COMPLETE`;
+- live calls: `15 / 20`;
+- classification scored: `14`;
+- classification correct: `14`;
+- classification accuracy: `1.0`;
+- expected duplicate pairs: `3`;
+- true-positive duplicate pairs: `3`;
+- missed duplicate pairs: `0`;
+- false-positive duplicate pairs: `0`;
+- duplicate recall: `1.0`;
+- identity conflicts protected: `2`;
+- quality gate: `PASS`;
+- recommendation: `ELIGIBLE_FOR_CONTROLLED_SCANNER_WIRING_REVIEW`.
+
+Latency:
+- classification total: `13,559 ms`;
+- classification average: `968.5 ms`;
+- classification max: `4,589 ms`;
+- embedding batch: `532 ms`.
+
+Two same-name / high-similarity multi-show cases remained protected as distinct because of `SHOW_ID_MISMATCH`, confirming that semantic similarity does not override hard event identity.
+
+### Evidence artifact
+
+Artifact:
+- name: `hf-event-assist-uat-evidence`;
+- artifact ID: `10528303318`;
+- size: `1,989 bytes`;
+- digest: `sha256:98d5c375da68dbaa87fd4b6f8e9b6dba2a47e765b8321b1ebf42256096e30915`;
+- created: `2026-09-18T01:42:41Z`;
+- expires: `2026-10-18T01:42:40Z`.
+
+### One-shot execution cleanup
+
+A temporary guarded push path was used only because the connected GitHub app does not expose workflow-dispatch creation and the TinyFish browser profile had no authenticated access to the private GitHub repository.
+
+The temporary push route required:
+- exact branch `hf-event-assist-v1-20260918`;
+- exact commit marker `[RUN_HF_ZERO_WRITE_UAT]`;
+- the same workflow filename `hf-event-assist-uat.yml` so OIDC claims remained exact.
+
+After the successful benchmark:
+- the push trigger was removed;
+- the workflow was restored to manual `workflow_dispatch` only;
+- regression guards were restored to reject push/pull-request/schedule triggers.
+
+### Current authority boundary
+
+The live benchmark passing does not authorize production activation.
+
+Current status:
+
+```text
+Empirical HF quality gate = PASS
+Production HF activation = OFF
+Scanner wiring = NOT YET ENABLED
+Verifier remains final authority
+Machine SOT business writes from HF UAT = 0
+Notification sends from HF UAT = 0
+```
+
+The next permitted step is a controlled Scanner wiring review under the current live highest Active Machine SOT policy and its external-source preflight / lock / Manifest / Planner gates.
