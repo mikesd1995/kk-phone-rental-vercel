@@ -144,7 +144,7 @@ Production witness acceptance is a later gate and must not be inferred from repo
 
 ## Witness readiness health
 
-`GET /api/kk-scanner-witness-health` returns configuration presence only; it never returns secrets.
+`GET /api/kk-scanner-dispatch` returns configuration presence only; it never returns secrets.
 
 Expected disabled state before cutover:
 
