@@ -105,3 +105,60 @@ test('JSON application error stays explicit and body is not copied to report', a
   assert.equal(report.error_code, 'UNAUTHORIZED');
   assert.equal(JSON.stringify(report).includes('secret detail'), false);
 });
+
+
+test('HTTP 200 JSON without explicit ok=true fails closed as unverified contract', async () => {
+  const report = await V.verifyAppsScriptUpstream({
+    scriptUrl: 'https://script.google.com/macros/s/AKfycb-wrong-json/exec',
+    apiKey: 'key',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ message: 'not the KK Apps Script contract' })
+    })
+  });
+
+  assert.equal(report.ok, false);
+  assert.equal(report.stage, 'json_response');
+  assert.equal(report.classification, 'APPS_SCRIPT_JSON_CONTRACT_UNVERIFIED');
+});
+
+test('ok=true JSON without backend identity fails closed', async () => {
+  const report = await V.verifyAppsScriptUpstream({
+    scriptUrl: 'https://script.google.com/macros/s/AKfycb-no-version/exec',
+    apiKey: 'key',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ ok: true })
+    })
+  });
+
+  assert.equal(report.ok, false);
+  assert.equal(report.stage, 'identity');
+  assert.equal(report.classification, 'APPS_SCRIPT_BACKEND_IDENTITY_MISSING');
+});
+
+test('known stale backend version is rejected instead of accepted as a healthy candidate', async () => {
+  const stale = 'v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX';
+  const expected = 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX';
+  const report = await V.verifyAppsScriptUpstream({
+    scriptUrl: 'https://script.google.com/macros/s/AKfycb-stale/exec',
+    apiKey: 'key',
+    expectedBackend: expected,
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ ok: true, admin_api_version: stale })
+    })
+  });
+
+  assert.equal(report.ok, false);
+  assert.equal(report.stage, 'identity');
+  assert.equal(report.classification, 'APPS_SCRIPT_BACKEND_MISMATCH');
+  assert.equal(report.expected_backend, expected);
+  assert.equal(report.observed_backend, stale);
+});

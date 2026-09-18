@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const UpstreamResponse = require('../server/upstream-response.js');
+const SnapshotHealth = require('../admin/snapshot-health.js');
 
 const DEFAULT_TIMEOUT_MS = 15000;
 
@@ -82,11 +83,22 @@ function safeJsonStatus(json) {
   return out;
 }
 
+function pickObservedBackendVersion(metadata) {
+  const source = metadata && typeof metadata === 'object' ? metadata : {};
+  const keys = ['admin_api_version', 'backend_version', 'backend_revision', 'script_version', 'version', 'backend'];
+  for (const key of keys) {
+    const value = String(source[key] || '').trim();
+    if (value) return value;
+  }
+  return '';
+}
+
 async function verifyAppsScriptUpstream(options = {}) {
   const scriptUrl = String(options.scriptUrl || '').trim();
   const apiKey = String(options.apiKey || '').trim();
   const validateOnly = Boolean(options.validateOnly);
   const timeoutMs = Number(options.timeoutMs || DEFAULT_TIMEOUT_MS);
+  const expectedBackend = String(options.expectedBackend || SnapshotHealth.BACKEND || '').trim();
   const fetchImpl = options.fetchImpl || globalThis.fetch;
 
   const urlCheck = validateAppsScriptExecUrl(scriptUrl);
@@ -190,15 +202,65 @@ async function verifyAppsScriptUpstream(options = {}) {
   }
 
   const status = safeJsonStatus(json);
-  return {
-    ok: response.ok && status.ok !== false,
-    stage: 'json_response',
-    classification: status.ok === false ? 'APPS_SCRIPT_JSON_APP_ERROR' : 'APPS_SCRIPT_JSON_RESPONSE',
+  const backendMetadata = pickSafeBackendMetadata(json);
+  const observedBackend = pickObservedBackendVersion(backendMetadata);
+  const responseBase = {
     upstream_status: Number(response.status || 0),
     content_type: contentType,
-    ...status,
-    backend_metadata: pickSafeBackendMetadata(json),
+    ...(status.error_code ? { error_code: status.error_code } : {}),
+    ...(status.status ? { status: status.status } : {}),
+    backend_metadata: backendMetadata,
     ...base
+  };
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      stage: 'json_response',
+      classification: 'APPS_SCRIPT_HTTP_ERROR_JSON',
+      ...responseBase
+    };
+  }
+
+  if (status.ok !== true) {
+    return {
+      ok: false,
+      stage: 'json_response',
+      classification: status.ok === false
+        ? 'APPS_SCRIPT_JSON_APP_ERROR'
+        : 'APPS_SCRIPT_JSON_CONTRACT_UNVERIFIED',
+      ...responseBase
+    };
+  }
+
+  if (!observedBackend) {
+    return {
+      ok: false,
+      stage: 'identity',
+      classification: 'APPS_SCRIPT_BACKEND_IDENTITY_MISSING',
+      expected_backend: expectedBackend,
+      ...responseBase
+    };
+  }
+
+  if (expectedBackend && observedBackend !== expectedBackend) {
+    return {
+      ok: false,
+      stage: 'identity',
+      classification: 'APPS_SCRIPT_BACKEND_MISMATCH',
+      expected_backend: expectedBackend,
+      observed_backend: observedBackend,
+      ...responseBase
+    };
+  }
+
+  return {
+    ok: true,
+    stage: 'identity',
+    classification: 'APPS_SCRIPT_JSON_RESPONSE',
+    expected_backend: expectedBackend,
+    observed_backend: observedBackend,
+    ...responseBase
   };
 }
 
@@ -246,5 +308,6 @@ module.exports = {
   fingerprint,
   validateAppsScriptExecUrl,
   pickSafeBackendMetadata,
+  pickObservedBackendVersion,
   verifyAppsScriptUpstream
 };
