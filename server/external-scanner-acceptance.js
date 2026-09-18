@@ -89,8 +89,9 @@ function evaluateWitnessWindow(rows=[],options={}){
 
   const validated=(Array.isArray(rows)?rows:[]).map(row=>validateWitnessRow(row,{receiveLagMs}));
   const valid=validated.filter(x=>x.ok && Number.isFinite(x.scheduled_ms));
+  const observed=validated.filter(x=>Number.isFinite(x.scheduled_ms));
 
-  if(valid.length===0){
+  if(observed.length===0){
     return {
       ok:false,
       classification:'WITNESS_STREAK_EMPTY',
@@ -111,7 +112,7 @@ function evaluateWitnessWindow(rows=[],options={}){
     bySchedule.set(item.scheduled_ms,list);
   }
 
-  const latestMs=Math.max(...valid.map(x=>x.scheduled_ms));
+  const latestMs=Math.max(...observed.map(x=>x.scheduled_ms));
   const windowStartMs=latestMs-(required-1)*HOUR_MS;
   const expected=[];
   for(let i=0;i<required;i++) expected.push(windowStartMs+i*HOUR_MS);
