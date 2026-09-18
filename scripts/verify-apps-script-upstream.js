@@ -207,7 +207,8 @@ async function verifyAppsScriptUpstream(options = {}) {
   const responseBase = {
     upstream_status: Number(response.status || 0),
     content_type: contentType,
-    ...status,
+    ...(status.error_code ? { error_code: status.error_code } : {}),
+    ...(status.status ? { status: status.status } : {}),
     backend_metadata: backendMetadata,
     ...base
   };
