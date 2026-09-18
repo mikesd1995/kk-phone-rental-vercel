@@ -259,7 +259,12 @@ test('routing reuses existing v6 functions for login, app, assets and protected 
   assert.equal(rewrites.get('/api/kk-admin'),'/api/kk-admin-snapshot-v6');
   assert.equal(rewrites.get('/api/kk-rental-dashboard'),'/api/kk-rental-dashboard-v6');
   assert.equal(config.functions['api/kk-admin-snapshot-v6.js'].includeFiles,'admin/**');
+  assert.equal(fs.existsSync(path.join(root,'api','kk-admin.js')),false,'physical /api/kk-admin function must not shadow the v6 rewrite');
+  assert.equal(fs.existsSync(path.join(root,'server','admin-proxy.js')),true,'legacy upstream proxy must live outside api/');
+  assert.equal(config.functions['api/kk-admin.js'],undefined,'shadowing function must not be configured');
 
+  const guard=read('api/kk-admin-guard.js');
+  assert.match(guard,/require\('\.\.\/server\/admin-proxy\.js'\)/);
   const adminV6=read('api/kk-admin-snapshot-v6.js');
   const rentalV6=read('api/kk-rental-dashboard-v6.js');
   assert.match(adminV6,/AdminSecurity\.gateMode\(req\)/);
@@ -274,6 +279,8 @@ test('security consolidation stays within current Vercel API function budget',()
     'api/lib/admin-session.js','api/lib/admin-session-proxy.js'
   ]) assert.equal(fs.existsSync(path.join(root,rel)),false,`${rel} must stay outside the API function budget`);
   assert.equal(fs.existsSync(path.join(root,'server','admin-session.js')),true);
+  assert.equal(fs.existsSync(path.join(root,'server','admin-proxy.js')),true);
+  assert.equal(fs.existsSync(path.join(root,'api','kk-admin.js')),false,'route shadow regression: api/kk-admin.js must stay absent');
   const apiJs=recursiveJsFiles(path.join(root,'api'));
   assert.ok(apiJs.length<=12,`Vercel Hobby API function surface regressed to ${apiJs.length} JS files: ${apiJs.join(', ')}`);
 });
