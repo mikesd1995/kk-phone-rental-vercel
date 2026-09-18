@@ -821,3 +821,136 @@ Notification sends from HF UAT = 0
 ```
 
 The next permitted step is a controlled Scanner wiring review under the current live highest Active Machine SOT policy and its external-source preflight / lock / Manifest / Planner gates.
+
+
+## V1.9 controlled Scanner wiring staging review — 2026-09-18
+
+### Scope
+
+After V1.8 passed the live empirical quality gate, the next step was limited to repository-level Scanner integration staging. No production Scanner task/prompt, Machine SOT business row, recurring task state or Vercel production target was modified.
+
+Dedicated evidence document:
+
+```text
+docs/HF_SCANNER_WIRING_REVIEW_2026-09-18.md
+```
+
+Tracking:
+- Issue #46 = Controlled Scanner wiring review for Hugging Face Event Assist
+- Issue #47 = Scanner/Verifier task-persistence blocker before HF production activation
+
+### New executable wiring contract
+
+Added:
+
+```text
+server/hf-scanner-wiring-contract.js
+server/hf-scanner-adapter.js
+tests/hf-scanner-wiring-contract.test.js
+tests/hf-scanner-adapter.test.js
+```
+
+The wiring contract is pure / zero-write and requires exact runtime evidence before permitting one advisory external HF call.
+
+Required gates:
+1. `HF_EVENT_ASSIST_ENABLED=true`;
+2. nonblank Scanner Run ID and Candidate identity;
+3. exactly one Active policy;
+4. zero pre-acquire conflicting writers;
+5. exactly one held CORE shared-writer lock with fence;
+6. exactly one held Scanner role lock with fence;
+7. explicit post-acquire writer recheck;
+8. zero post-acquire conflicting writers;
+9. exactly one frozen Scanner Manifest;
+10. Manifest policy matches Active policy;
+11. Manifest fencing token matches Scanner role lock;
+12. exactly one Planner item for the run;
+13. exactly one authorized Planner item.
+
+Failure of any gate prevents the HF adapter from invoking network inference.
+
+### Authority boundary
+
+HF result acceptance requires:
+
+```text
+status = ASSISTED
+authoritative = false
+verifier_required = true
+production_writes = 0
+```
+
+Any HF result that attempts final authority, final truth mutation, production writes or notification sends is rejected.
+
+The generated handoff remains:
+
+```text
+handoff_state = READY_FOR_VERIFIER
+route = EXISTING_SCANNER_TO_VERIFIER_HANDOFF
+authoritative = false
+verifier_required = true
+direct_business_write_allowed = false
+direct_notification_allowed = false
+```
+
+Provider errors produce no fabricated decision or handoff.
+
+### Production-import isolation
+
+A regression test recursively checks current production API/admin entrypoints and fails if they import the staged `hf-scanner-adapter`.
+
+Therefore the adapter is executable and composable for review but is not silently production-wired.
+
+### Regression evidence
+
+Staging head before documentation-only checkpoint:
+
+```text
+7a6cd7ccd82ceda5c00a986cfbd46eff2ba32438
+```
+
+Admin Regression #191:
+
+```text
+tests = 187
+pass = 187
+fail = 0
+```
+
+HF benchmark harness safety: PASS.
+HF live-UAT readiness contract: PASS.
+Production-import isolation: PASS.
+
+Vercel Preview for the staging head: READY, preview target only.
+
+### Live authority / task-registry read-only finding
+
+Machine SOT highest Active policy remained:
+
+```text
+v4.9.15 AUTONOMOUS CLOSURE & OWNER NOTIFICATION HARDENING
+```
+
+Read-only task-registry inspection observed:
+- canonical Scanner = OFF;
+- canonical Verifier = OFF;
+- Canary = OFF.
+
+No task state or prompt was changed.
+
+This is not attributed to any actor/root cause by this review. Current v4.9.15 already defines own-runtime-disable / launcher-boundary / attribution controls.
+
+The task-persistence dependency is tracked separately in Issue #47 and blocks HF production activation.
+
+### Current verdict
+
+```text
+HF live quality gate = PASS
+Scanner HF repository staging contract = PASS
+Scanner HF adapter composition = PASS
+Production entrypoint integration = NOT ENABLED
+Canonical Scanner task persistence = BLOCKED / separate control-plane dependency
+HF production activation = OFF
+```
+
+The next permitted feature step is production-runtime integration review only after the canonical task-persistence blocker is accepted under current live Machine SOT governance.
