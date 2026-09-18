@@ -287,7 +287,6 @@ async function runGuardedScannerHfAssist(input = {}, options = {}) {
       hf_call_count: 1,
       status: 'HF_ASSIST_UNAVAILABLE_NONAUTHORITATIVE',
       error_class: text(error && (error.code || error.name)) || 'ERROR',
-      error_message: text(error && error.message) || 'HF assist failed',
       blockers: ['HF_ASSIST_CALL_FAILED']
     };
   }
