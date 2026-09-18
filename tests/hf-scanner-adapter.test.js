@@ -16,6 +16,7 @@ function fakeResponse(body, status = 200) {
 function baseInput(overrides = {}) {
   const runId = 'SCV415-20260918T100000-ADAPTER';
   return {
+    evidence_schema: 'SCANNER_HF_GATE_SNAPSHOT_V1',
     run_id: runId,
     candidate_binding_run_id: runId,
     evidence_checked_at: '2026-09-18T10:00:10+07:00',
