@@ -14,6 +14,14 @@ test('classifies Drive/Docs responses separately from generic HTML',()=>{
   assert.match(x.suggestion,/macros\/s\/\.\.\.\/exec/);
 });
 
+test('classifies missing Apps Script deployment separately from generic HTML',()=>{
+  const x=U.classifyNonJsonResponse('<html><head><title>Page not found</title></head><body>Not Found</body></html>','text/html','script.google.com',404);
+  assert.equal(x.code,'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND');
+  assert.match(x.message,/HTTP 404/i);
+  assert.match(x.suggestion,/KK_ADMIN_SCRIPT_URL/);
+  assert.match(x.suggestion,/9_5_8/);
+});
+
 test('classifies generic HTML and opaque non-JSON responses',()=>{
   const html=U.classifyNonJsonResponse('<html><title>Temporary Error</title></html>','text/html','script.google.com');
   assert.equal(html.code,'GENERIC_HTML_RESPONSE');
