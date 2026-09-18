@@ -8,6 +8,8 @@ function baseInput(overrides = {}) {
   const runId = 'SCV415-20260918T090000-UAT';
   return {
     run_id: runId,
+    candidate_binding_run_id: runId,
+    evidence_checked_at: '2026-09-18T09:00:10+07:00',
     candidate: {
       candidate_id: 'CAND-001',
       name: 'LYKN Concert',
@@ -22,6 +24,8 @@ function baseInput(overrides = {}) {
         scope: 'CORE_SHARED_WRITER',
         run_id: runId,
         status: 'HELD',
+        acquired_at: '2026-09-18T09:00:00+07:00',
+        lock_until: '2026-09-18T09:20:00+07:00',
         fencing_token: '101'
       }
     ],
@@ -30,15 +34,19 @@ function baseInput(overrides = {}) {
         scope: 'SCANNER',
         run_id: runId,
         status: 'HELD',
+        acquired_at: '2026-09-18T09:00:01+07:00',
+        lock_until: '2026-09-18T09:20:00+07:00',
         fencing_token: '202'
       }
     ],
     post_acquire_writer_recheck: true,
+    post_acquire_writer_recheck_at: '2026-09-18T09:00:02+07:00',
     post_acquire_conflicting_writers: [],
     manifests: [
       {
         run_id: runId,
         role: 'SCANNER',
+        created_at: '2026-09-18T09:00:03+07:00',
         frozen_at: '2026-09-18T09:00:05+07:00',
         policy_version: 'v4.9.15',
         fencing_token: '202'
@@ -48,6 +56,7 @@ function baseInput(overrides = {}) {
       {
         run_id: runId,
         authorized: true,
+        planned_at: '2026-09-18T09:00:04+07:00',
         work_item_id: 'PLAN-001'
       }
     ],
@@ -189,7 +198,7 @@ test('Scanner Manifest must be frozen and policy-aligned', async () => {
     assistFn: async () => { calls++; return assistedClassification(); }
   });
 
-  assert.equal(result.preflight.blockers.includes('SCANNER_MANIFEST_NOT_FROZEN'), true);
+  assert.equal(result.preflight.blockers.includes('SCANNER_MANIFEST_NOT_FROZEN_OR_TIME_INVALID'), true);
   assert.equal(result.preflight.blockers.includes('SCANNER_MANIFEST_POLICY_MISMATCH'), true);
   assert.equal(calls, 0);
 });
@@ -393,4 +402,118 @@ test('pure Scanner wiring contract never exposes a direct business-write target'
     assert.equal(serialized.includes(forbidden), false);
   }
   assert.equal(result.handoff.route, 'EXISTING_SCANNER_TO_VERIFIER_HANDOFF');
+});
+
+
+test('expired CORE lease blocks HF even when status and fence look valid', async () => {
+  let calls = 0;
+  const input = baseInput({
+    core_locks: [{
+      scope:'CORE_SHARED_WRITER',
+      run_id:'SCV415-20260918T090000-UAT',
+      status:'HELD',
+      acquired_at:'2026-09-18T08:50:00+07:00',
+      lock_until:'2026-09-18T09:00:09+07:00',
+      fencing_token:'101'
+    }]
+  });
+  const result = await Wiring.runGuardedScannerHfAssist(input, {
+    env:envEnabled(),
+    assistFn:async () => { calls++; return assistedClassification(); }
+  });
+  assert.equal(result.preflight.blockers.includes('CORE_SHARED_WRITER_STALE_OR_TIME_INVALID'), true);
+  assert.equal(calls, 0);
+});
+
+test('expired Scanner lease blocks HF before external access', async () => {
+  let calls = 0;
+  const input = baseInput({
+    scanner_locks: [{
+      scope:'SCANNER',
+      run_id:'SCV415-20260918T090000-UAT',
+      status:'HELD',
+      acquired_at:'2026-09-18T08:50:00+07:00',
+      lock_until:'2026-09-18T09:00:09+07:00',
+      fencing_token:'202'
+    }]
+  });
+  const result = await Wiring.runGuardedScannerHfAssist(input, {
+    env:envEnabled(),
+    assistFn:async () => { calls++; return assistedClassification(); }
+  });
+  assert.equal(result.preflight.blockers.includes('SCANNER_ROLE_LOCK_STALE_OR_TIME_INVALID'), true);
+  assert.equal(calls, 0);
+});
+
+test('candidate must be explicitly bound to the current Scanner run', async () => {
+  let calls = 0;
+  const input = baseInput({ candidate_binding_run_id:'OTHER-RUN' });
+  const result = await Wiring.runGuardedScannerHfAssist(input, {
+    env:envEnabled(),
+    assistFn:async () => { calls++; return assistedClassification(); }
+  });
+  assert.equal(result.preflight.blockers.includes('CANDIDATE_RUN_BINDING_MISMATCH'), true);
+  assert.equal(calls, 0);
+});
+
+test('post-acquire writer recheck timestamp must follow lock acquisition', async () => {
+  let calls = 0;
+  const input = baseInput({
+    post_acquire_writer_recheck_at:'2026-09-18T08:59:59+07:00'
+  });
+  const result = await Wiring.runGuardedScannerHfAssist(input, {
+    env:envEnabled(),
+    assistFn:async () => { calls++; return assistedClassification(); }
+  });
+  assert.equal(result.preflight.blockers.includes('POST_ACQUIRE_WRITER_RECHECK_BEFORE_LOCK_ACQUISITION'), true);
+  assert.equal(calls, 0);
+});
+
+test('Manifest frozen after evidence snapshot is rejected', async () => {
+  let calls = 0;
+  const input = baseInput({
+    manifests:[{
+      run_id:'SCV415-20260918T090000-UAT',
+      role:'SCANNER',
+      created_at:'2026-09-18T09:00:03+07:00',
+      frozen_at:'2026-09-18T09:00:11+07:00',
+      policy_version:'v4.9.15',
+      fencing_token:'202'
+    }]
+  });
+  const result = await Wiring.runGuardedScannerHfAssist(input, {
+    env:envEnabled(),
+    assistFn:async () => { calls++; return assistedClassification(); }
+  });
+  assert.equal(result.preflight.blockers.includes('SCANNER_MANIFEST_FROZEN_AFTER_EVIDENCE_SNAPSHOT'), true);
+  assert.equal(calls, 0);
+});
+
+test('Planner evidence cannot come from the future relative to the snapshot', async () => {
+  let calls = 0;
+  const input = baseInput({
+    planner_items:[{
+      run_id:'SCV415-20260918T090000-UAT',
+      authorized:true,
+      planned_at:'2026-09-18T09:00:11+07:00',
+      work_item_id:'P-FUTURE'
+    }]
+  });
+  const result = await Wiring.runGuardedScannerHfAssist(input, {
+    env:envEnabled(),
+    assistFn:async () => { calls++; return assistedClassification(); }
+  });
+  assert.equal(result.preflight.blockers.includes('SCANNER_PLANNER_PLANNED_AFTER_EVIDENCE_SNAPSHOT'), true);
+  assert.equal(calls, 0);
+});
+
+test('invalid evidence snapshot timestamp fails closed before HF', async () => {
+  let calls = 0;
+  const input = baseInput({ evidence_checked_at:'not-a-time' });
+  const result = await Wiring.runGuardedScannerHfAssist(input, {
+    env:envEnabled(),
+    assistFn:async () => { calls++; return assistedClassification(); }
+  });
+  assert.equal(result.preflight.blockers.includes('EVIDENCE_CHECKED_AT_INVALID'), true);
+  assert.equal(calls, 0);
 });
