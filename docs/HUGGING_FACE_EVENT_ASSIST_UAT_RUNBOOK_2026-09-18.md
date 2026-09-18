@@ -251,3 +251,69 @@ activation_recommendation = KEEP_DISABLED_AND_INVESTIGATE
 ```
 
 The report may include the redacted error and number of attempted calls, but never the token.
+
+
+## V1.4 manual GitHub controlled-UAT execution surface
+
+A dedicated manual-only workflow now exists:
+
+- `.github/workflows/hf-event-assist-uat.yml`
+- workflow name: `HF Event Assist Controlled UAT`
+
+This workflow is intentionally not triggered by push, pull request, cron, Scanner cadence, or production runtime.
+
+### Authorization gate
+
+The operator must manually dispatch the workflow and type exactly:
+
+```text
+RUN_HF_ZERO_WRITE_UAT
+```
+
+The operator must also set the maximum allowed live calls. The default is 20.
+
+### Credential surface
+
+The workflow reads only the repository Actions secret:
+
+```text
+secrets.HF_TOKEN
+```
+
+The secret is injected only into:
+1. the zero-network readiness step; and
+2. the bounded live benchmark step.
+
+It is not written into source, PR text, artifacts, Machine SOT, or Vercel environment variables by this workflow.
+
+If the secret is absent, readiness must remain BLOCKED and the workflow fails before the benchmark performs external inference.
+
+### Execution order
+
+1. Checkout exact requested ref.
+2. Node 20 setup.
+3. Full syntax/regression checks.
+4. Zero-network readiness gate.
+5. Bounded live benchmark.
+6. Upload non-secret JSON evidence for 30 days.
+
+The benchmark result is rejected if:
+- status is not `LIVE_BENCHMARK_COMPLETE`;
+- production writes are nonzero;
+- final truth mutation is not false;
+- notification sends are nonzero;
+- actual live calls exceed the configured maximum.
+
+### Important authority boundary
+
+A successful workflow run is empirical model/UAT evidence only.
+
+It does not:
+- merge PR #44;
+- enable recurring HF use;
+- mutate Scanner/Verifier/Canary;
+- mutate Machine SOT;
+- promote a Vercel production deployment;
+- authorize final business truth.
+
+Scanner integration still requires a separate controlled wiring review under the live highest Active Machine SOT policy.
