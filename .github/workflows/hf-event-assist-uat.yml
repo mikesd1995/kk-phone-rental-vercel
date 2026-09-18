@@ -1,0 +1,94 @@
+name: HF Event Assist Controlled UAT
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_zero_write_uat:
+        description: 'Type RUN_HF_ZERO_WRITE_UAT to authorize bounded external inference only'
+        required: true
+        type: string
+      max_live_calls:
+        description: 'Maximum HF inference calls allowed for this UAT'
+        required: true
+        default: '20'
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: hf-event-assist-controlled-uat
+  cancel-in-progress: false
+
+jobs:
+  controlled-hf-uat:
+    if: ${{ inputs.confirm_zero_write_uat == 'RUN_HF_ZERO_WRITE_UAT' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HF_EVENT_ASSIST_ENABLED: 'true'
+      HF_UAT_MAX_CALLS: ${{ inputs.max_live_calls }}
+      HF_OIDC_RESOURCE: 'Mikesd1995'
+    steps:
+      - name: Checkout exact requested ref
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax and regression tests
+        run: |
+          npm run check
+          npm test
+
+      - name: Resolve short-lived HF inference credential
+        env:
+          HF_TOKEN_SECRET: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${HF_TOKEN_SECRET:-}" ]; then
+            echo "::add-mask::$HF_TOKEN_SECRET"
+            echo "HF_TOKEN=$HF_TOKEN_SECRET" >> "$GITHUB_ENV"
+            echo "HF_AUTH_MODE=GITHUB_ACTIONS_SECRET" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          curl -LsSf https://hf.co/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+          if ! hf_token="$("$HOME/.local/bin/hf" auth token)"; then
+            echo "HF_OIDC_CICD_IDENTITY_MISSING_OR_MISMATCH" >&2
+            exit 1
+          fi
+
+          test -n "$hf_token"
+          echo "::add-mask::$hf_token"
+          echo "HF_TOKEN=$hf_token" >> "$GITHUB_ENV"
+          echo "HF_AUTH_MODE=HF_OIDC_CICD_IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Zero-network readiness gate
+        run: |
+          node scripts/hf-event-assist-readiness.js > hf-readiness.json
+          cat hf-readiness.json
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('hf-readiness.json','utf8'));if(r.status!=='READY_FOR_LIVE_UAT'||r.network_calls!==0||r.production_writes!==0||r.final_truth_mutation!==false||r.notification_sends!==0){console.error(r);process.exit(1)}"
+
+      - name: Bounded live benchmark
+        run: |
+          node scripts/hf-event-assist-benchmark.js > hf-benchmark.json
+          cat hf-benchmark.json
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('hf-benchmark.json','utf8'));if(r.status!=='LIVE_BENCHMARK_COMPLETE'||r.production_writes!==0||r.final_truth_mutation!==false||r.notification_sends!==0||r.live_hf_calls>r.max_live_calls){console.error(r);process.exit(1)}"
+
+      - name: Upload non-secret UAT evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hf-event-assist-uat-evidence
+          path: |
+            hf-readiness.json
+            hf-benchmark.json
+          if-no-files-found: warn
+          retention-days: 30
