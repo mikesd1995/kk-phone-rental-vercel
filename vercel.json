@@ -47,13 +47,6 @@
       ]
     },
     {
-      "source": "/api/kk-scanner-witness-health",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" },
-        { "key": "X-Robots-Tag", "value": "noindex, nofollow, noarchive" }
-      ]
-    },
-    {
       "source": "/admin-login.css",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, max-age=0" },
@@ -190,7 +183,6 @@
     "api/kk-rental-dashboard-v5.js": { "maxDuration": 60 },
     "api/kk-rental-dashboard-v6.js": { "maxDuration": 60 },
     "api/kk-intelligence-health.js": { "maxDuration": 30 },
-    "api/kk-scanner-dispatch.js": { "maxDuration": 10 },
-    "api/kk-scanner-witness-health.js": { "maxDuration": 10 }
+    "api/kk-scanner-dispatch.js": { "maxDuration": 10 }
   }
 }
