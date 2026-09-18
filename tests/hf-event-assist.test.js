@@ -262,3 +262,8 @@ test('controlled UAT workflow contains no custom direct token-exchange implement
   assert.match(workflow, /HF_TOKEN_SECRET: \$\{\{ secrets\.HF_TOKEN \}\}/);
   assert.match(workflow, /::add-mask::\$hf_token/);
 });
+
+
+test('default zero-shot model is multilingual and provider-task compatible', () => {
+  assert.equal(HF.DEFAULT_ZERO_SHOT_MODEL, 'MoritzLaurer/bge-m3-zeroshot-v2.0');
+});
