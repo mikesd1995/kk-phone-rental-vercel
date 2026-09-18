@@ -384,3 +384,58 @@ The workflow must still pass:
 - quality gate.
 
 A credential-exchange success alone is not production approval.
+
+
+## V1.7 account-side CI/CD identity checklist
+
+The permanent workflow now uses the official Hugging Face CLI for OIDC authentication.
+
+### One-time Hugging Face account action
+
+In the `Mikesd1995` account:
+
+1. Open Settings → Authentication.
+2. Open CI/CD Access.
+3. Add a GitHub Actions identity.
+4. Set exact claims:
+   - repository: `mikesd1995/kk-phone-rental-vercel`
+   - branch: `hf-event-assist-v1-20260918`
+   - workflow: `hf-event-assist-uat.yml`
+5. Enable `Allow Inference Providers calls`.
+6. Save the identity.
+
+Do not create a broad repository-only identity when branch/workflow pinning is available.
+
+### Permanent UAT execution after identity creation
+
+Run the GitHub Actions workflow:
+
+```text
+HF Event Assist Controlled UAT
+```
+
+Inputs:
+
+```text
+confirm_zero_write_uat = RUN_HF_ZERO_WRITE_UAT
+max_live_calls = 20
+```
+
+Expected auth behavior when no `HF_TOKEN` secret exists:
+
+```text
+GitHub OIDC
+→ official hf CLI
+→ hf auth token
+→ short-lived user token
+→ readiness
+→ bounded benchmark
+```
+
+If the CI/CD identity does not match the exact GitHub claims, the auth step fails before readiness and before any Inference Providers request.
+
+### Connected-agent limitation
+
+The current Hugging Face connector is authenticated but exposes no account-settings write operation. Its OAuth context is read/jobs-oriented. Therefore creation of the CI/CD Access identity is not performed through this connector.
+
+This is intentionally treated as an explicit operator/account boundary rather than bypassed with session scraping or an unmanaged long-lived token.
