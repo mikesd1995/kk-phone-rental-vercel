@@ -165,10 +165,15 @@ function analyzeNaturalOccurrence(input={}){
     task_after_enabled:afterEnabled,
     launcher_advanced:launched,
     runtime_run_id:null,
+    runtime_boundary_proven:false,
     runtime_proven:false,
+    runtime_body_classification:null,
+    task_persistence_classification:null,
+    task_persistence_ok:null,
     acceptance_candidate:false,
     classification:null,
-    blockers:[]
+    blockers:[],
+    persistence_blockers:[]
   };
 
   if(!beforeEnabled){
@@ -208,17 +213,28 @@ function analyzeNaturalOccurrence(input={}){
     return result;
   }
 
+  result.runtime_boundary_proven=true;
+  result.task_persistence_ok=afterEnabled;
+  result.task_persistence_classification=afterEnabled
+    ? 'TASK_REMAINED_ON_AFTER_RUNTIME_BOUNDARY'
+    : 'TASK_PERSISTENCE_FAILED_AFTER_RUNTIME_BOUNDARY';
+  if(!afterEnabled){
+    result.persistence_blockers.push('canonical recurring task did not remain ON after a proven runtime boundary');
+  }
+
   const manifests=(input.manifests||[]).filter(row=>
     recordRunId(row)===runId && recordRole(row)===role
   );
   if(manifests.length!==1){
     result.classification='RUNTIME_MANIFEST_IDENTITY_NOT_EXACT1';
+    result.runtime_body_classification=result.classification;
     result.blockers.push(`expected one ${role} Manifest for runtime, found ${manifests.length}`);
     return result;
   }
 
   if(!TERMINAL_MANIFEST_STATUSES.has(recordStatus(manifests[0]))){
     result.classification='RUNTIME_MANIFEST_NOT_TERMINAL';
+    result.runtime_body_classification=result.classification;
     result.blockers.push('Manifest is not in an accepted terminal state');
     return result;
   }
@@ -227,6 +243,7 @@ function analyzeNaturalOccurrence(input={}){
   const ownedRole=roleLocks.filter(row=>recordRunId(row)===runId);
   if([...ownedCore,...ownedRole].some(row=>recordStatus(row)!=='RELEASED')){
     result.classification='RUNTIME_LOCKS_NOT_RELEASED';
+    result.runtime_body_classification=result.classification;
     result.blockers.push('owned CORE/role lock did not exact-read RELEASED');
     return result;
   }
@@ -234,11 +251,13 @@ function analyzeNaturalOccurrence(input={}){
   const unresolved=unresolvedTransactions(input.transactions||[],runId);
   if(unresolved.length){
     result.classification='RUNTIME_TRANSACTION_UNRESOLVED';
+    result.runtime_body_classification=result.classification;
     result.blockers.push(`unresolved PREPARED/COMMITTING transactions: ${unresolved.length}`);
     return result;
   }
 
   result.runtime_proven=true;
+  result.runtime_body_classification='RUNTIME_BODY_TERMINAL_CLEAN';
 
   if(!afterEnabled){
     result.classification='TASK_PERSISTENCE_FAILED_AFTER_RUNTIME';
