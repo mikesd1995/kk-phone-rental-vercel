@@ -260,3 +260,11 @@ test('controlled UAT workflow contains no custom direct token-exchange implement
 test('default zero-shot model is multilingual and provider-task compatible', () => {
   assert.equal(HF.DEFAULT_ZERO_SHOT_MODEL, 'MoritzLaurer/bge-m3-zeroshot-v2.0');
 });
+
+
+test('automatic PR-triggered live UAT workflow is absent', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const p = path.resolve(__dirname, '../.github/workflows/hf-event-assist-live-uat.yml');
+  assert.equal(fs.existsSync(p), false);
+});
