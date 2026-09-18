@@ -232,7 +232,7 @@ async function handleSnapshot(req, res, payload, action) {
   try {
     data = JSON.parse(upstream.body);
   } catch (_) {
-    const failure = UpstreamResponse.classifyNonJsonResponse(upstream.body, contentType, safeUrlHost(scriptUrl));
+    const failure = UpstreamResponse.classifyNonJsonResponse(upstream.body, contentType, safeUrlHost(scriptUrl), upstream.status);
     console.warn('KK_ADMIN_SNAPSHOT_UPSTREAM_PROTOCOL', JSON.stringify(UpstreamResponse.safeProtocolLog({
       code: failure.code,
       status: upstream.status,
