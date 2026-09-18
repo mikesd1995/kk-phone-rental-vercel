@@ -93,6 +93,20 @@ test('reports non-JSON Apps Script response as upstream protocol failure', async
   assert.match(out.body.suggestion, /incognito/i);
 });
 
+test('preserves HTTP 404 Apps Script deployment-not-found as the upstream root cause', async () => {
+  mockUpstream({ ok: false, status: 404, contentType: 'text/html; charset=utf-8', body: '<html><title>Page not found</title><body>Not Found</body></html>' });
+  const out = responseCapture();
+  await handler(reqFor('snapshotHealth'), out.res);
+
+  assert.equal(out.res.statusCode, 502);
+  assert.equal(out.body.error_code, 'SNAPSHOT_UPSTREAM_NON_JSON');
+  assert.equal(out.body.upstream_failure_class, 'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND');
+  assert.equal(out.body.upstream_status, 404);
+  assert.match(out.body.error, /deployment returned HTTP 404/i);
+  assert.match(out.body.suggestion, /Manage deployments/);
+  assert.equal(String(out.body.error).includes('missing or invalid array'), false);
+});
+
 test('keeps INVALID_SNAPSHOT only for ok=true payloads whose snapshot shape is actually invalid', async () => {
   mockUpstream({ body: { ok: true, data: { spreadsheet_id: process.env.GOOGLE_SHEET_ID } } });
   const out = responseCapture();
