@@ -457,3 +457,55 @@ Properties:
 - no merge or activation authority.
 
 A missing `HF_TOKEN` secret fails at readiness before live inference. Secret presence/value cannot be read through the connected GitHub tool and is therefore not assumed.
+
+
+## V1.5 first controlled live-UAT attempt — 2026-09-18
+
+A one-shot branch-only GitHub Actions trigger was created to execute the remaining controlled UAT without modifying production runtime. The trigger required the exact commit marker `[RUN_HF_ZERO_WRITE_UAT]`, used `HF_UAT_MAX_CALLS=20`, and had no Scanner/Verifier/Canary/Machine-SOT write path.
+
+### Run evidence
+
+GitHub Actions:
+- workflow: `HF Event Assist One-Shot UAT`
+- run ID: `35290015708`
+- head SHA: `ce777202537fd2b07b5d3d917a7bd8b567897427`
+
+Pre-inference validation:
+- full regression suite: `159/159 PASS`
+- syntax checks: PASS
+- zero-network readiness executed
+- readiness result: `BLOCKED`
+- blocker: `HF_TOKEN_MISSING`
+- `hf_token_present=false`
+- bounded live benchmark: SKIPPED
+- live inference calls: `0`
+- production writes: `0`
+- final-truth mutation: `false`
+- notification sends: `0`
+
+This is a successful fail-closed safety result, not a model-quality result. No classification accuracy, duplicate recall, latency, or provider reliability score may be inferred from this run.
+
+### Preserved evidence
+
+Artifact:
+- name: `hf-event-assist-one-shot-uat-evidence`
+- artifact ID: `10526022424`
+- size: `544 bytes`
+- digest: `sha256:8524242fe4d34490925e6823beef2bf20ee8f4794b6ef41acfdeb3de238ddd3a`
+- expires: `2026-10-18T00:10:12Z`
+
+### One-shot trigger cleanup
+
+After the fail-closed result was captured, the temporary push-trigger workflow was deleted from the branch. The permanent manual-only workflow `.github/workflows/hf-event-assist-uat.yml` remains the canonical future execution surface.
+
+No production activation, merge, Machine SOT mutation, recurring-task mutation, or provider notification was performed.
+
+### Current blocker
+
+The exact remaining blocker is now proven rather than assumed:
+
+```text
+GitHub Actions secret HF_TOKEN is not configured for this repository/workflow context.
+```
+
+A future live UAT must first place a valid Hugging Face Inference Providers credential into the approved GitHub Actions secret named `HF_TOKEN`. The credential value must never be committed, logged, pasted into PR text, or written to Machine SOT.
