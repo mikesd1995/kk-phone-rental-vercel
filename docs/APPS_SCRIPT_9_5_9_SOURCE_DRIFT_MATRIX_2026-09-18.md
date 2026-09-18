@@ -15,6 +15,21 @@ This matrix records what is actually known from the connected repository, Google
 
 The repository source must therefore be treated as **non-authoritative for production deployment**.
 
+
+## Branch archaeology
+
+A targeted read of `apps-script/Code.gs` across 14 relevant repository branches was performed after the default-branch search. Branches included the event-integrity, lean Admin, reservation guard, snapshot repair/resilience, deploy-safety, old AI integration, production-foundation, notification-remediation and historical repair lines.
+
+Result:
+- 13/14 inspected branches report `v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX`;
+- the older historical repair branch reports `v16.7.0_INDEPENDENT_SAFE_REPAIR_20260909`;
+- 0/14 contain a 9_5_9 Apps Script source;
+- 0/14 contain `runKKLineMonitor`;
+- 0/14 contain `payload.return_time` persistence;
+- 0/14 contain backend createEvent duplicate detection.
+
+This materially weakens the possibility that the live 9_5_9 source is merely stranded on one of the known relevant Git branches. It does not prove absence from deleted/unlisted refs, local machines, Apps Script version history, or the bound Apps Script project itself.
+
 ## Capability drift matrix
 
 | Capability | Repo 9_5_8 | Production 9_5_9 | Current safe interpretation |
