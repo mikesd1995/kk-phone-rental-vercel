@@ -14,6 +14,7 @@ test('accepts only canonical Apps Script Web App /exec URLs', () => {
   assert.equal(V.validateAppsScriptExecUrl('https://script.google.com/macros/s/AKfycb-test-deployment/dev').code, 'APPS_SCRIPT_URL_NOT_EXEC');
   assert.equal(V.validateAppsScriptExecUrl('https://docs.google.com/spreadsheets/d/example/edit').code, 'APPS_SCRIPT_URL_WRONG_HOST');
   assert.equal(V.validateAppsScriptExecUrl('http://script.google.com/macros/s/test/exec').code, 'APPS_SCRIPT_URL_NOT_HTTPS');
+  assert.equal(V.validateAppsScriptExecUrl('https://user:pass@script.google.com/macros/s/test/exec').code, 'APPS_SCRIPT_URL_HAS_CREDENTIALS');
   assert.equal(V.validateAppsScriptExecUrl('https://script.google.com/macros/s/test/exec?x=1').code, 'APPS_SCRIPT_URL_HAS_QUERY_OR_FRAGMENT');
 });
 
@@ -34,7 +35,7 @@ test('read-only probe preserves Apps Script 404 as deployment-not-found without 
     scriptUrl: 'https://script.google.com/macros/s/AKfycb-missing/exec',
     apiKey: secret,
     fetchImpl: async (_url, options) => {
-      assert.equal(JSON.parse(options.body).action, 'snapshotHealth');
+      assert.equal(JSON.parse(options.body).action, 'phase1Health');
       assert.equal(JSON.parse(options.body).apiKey, secret);
       return {
         ok: false,
@@ -64,7 +65,7 @@ test('healthy JSON probe emits only bounded health metadata and no business payl
       headers: { get: () => 'application/json; charset=utf-8' },
       text: async () => JSON.stringify({
         ok: true,
-        version: 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+        admin_api_version: 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
         data: {
           backend_revision: 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
           customer_name: 'DO_NOT_PRINT',
@@ -76,7 +77,7 @@ test('healthy JSON probe emits only bounded health metadata and no business payl
 
   assert.equal(report.ok, true);
   assert.equal(report.classification, 'APPS_SCRIPT_JSON_RESPONSE');
-  assert.equal(report.backend_metadata.version, 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX');
+  assert.equal(report.backend_metadata.admin_api_version, 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX');
   assert.equal(report.backend_metadata.backend_revision, 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX');
   const serialized = JSON.stringify(report);
   assert.equal(serialized.includes('DO_NOT_PRINT'), false);
