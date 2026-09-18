@@ -439,3 +439,96 @@ If the CI/CD identity does not match the exact GitHub claims, the auth step fail
 The current Hugging Face connector is authenticated but exposes no account-settings write operation. Its OAuth context is read/jobs-oriented. Therefore creation of the CI/CD Access identity is not performed through this connector.
 
 This is intentionally treated as an explicit operator/account boundary rather than bypassed with session scraping or an unmanaged long-lived token.
+
+
+## V1.8 post-benchmark state and next gate
+
+The Hugging Face account CI/CD identity is now configured and the official OIDC credential flow has been proven in GitHub Actions.
+
+### Proven live-UAT result
+
+Successful run:
+
+```text
+Run ID: 35296382494
+Head SHA: 64271c4d95b28dc720644c2f64367e15161123b6
+Status: SUCCESS
+Quality gate: PASS
+```
+
+Models:
+
+```text
+Zero-shot: MoritzLaurer/bge-m3-zeroshot-v2.0
+Embedding: intfloat/multilingual-e5-large
+```
+
+Metrics:
+
+```text
+classification accuracy = 1.0 (14/14)
+duplicate recall = 1.0 (3/3)
+false-positive duplicate pairs = 0
+missed duplicate pairs = 0
+identity conflicts protected = 2
+classification avg latency = 968.5 ms
+classification max latency = 4,589 ms
+embedding batch latency = 532 ms
+live calls = 15
+max allowed calls = 20
+production writes = 0
+final truth mutation = false
+notification sends = 0
+```
+
+Evidence artifact:
+
+```text
+Artifact ID: 10528303318
+Digest: sha256:98d5c375da68dbaa87fd4b6f8e9b6dba2a47e765b8321b1ebf42256096e30915
+Expires: 2026-10-18T01:42:40Z
+```
+
+### Model compatibility lesson
+
+Do not restore `MoritzLaurer/ModernBERT-large-zeroshot-v2.0` as the default provider zero-shot model without a fresh provider-compatibility proof.
+
+The first authenticated benchmark reached the provider but failed with:
+
+```text
+PreTrainedTokenizerFast._batch_encode_plus()
+got an unexpected keyword argument 'candidate_labels'
+```
+
+The default was therefore changed to `MoritzLaurer/bge-m3-zeroshot-v2.0`, whose Hub metadata reports `pipeline_tag=zero-shot-classification` and multilingual support.
+
+### Manual-only workflow restored
+
+After the successful one-shot UAT:
+- temporary push trigger removed;
+- permanent workflow restored to `workflow_dispatch` only;
+- test guard restored to reject push / pull_request / schedule triggers.
+
+Future UATs should use the permanent manual workflow when an authenticated GitHub UI/API dispatch surface is available.
+
+### Next allowed step
+
+A passing live benchmark means only:
+
+```text
+ELIGIBLE_FOR_CONTROLLED_SCANNER_WIRING_REVIEW
+```
+
+Before any production Scanner external HF call:
+1. re-read highest Active Machine SOT policy;
+2. establish exact no-conflict preflight;
+3. acquire/read back CORE shared writer;
+4. acquire/read back Scanner role/fencing lock;
+5. freeze exact Manifest;
+6. exact-read Planner and require exact1 authorized work item;
+7. only then permit external HF access;
+8. HF output remains advisory and must enter existing staging/handoff;
+9. Verifier remains final business authority;
+10. rollback remains `HF_EVENT_ASSIST_ENABLED=false`.
+
+No benchmark result alone authorizes merge, recurring enablement, or final business writes.
