@@ -954,3 +954,82 @@ HF production activation = OFF
 ```
 
 The next permitted feature step is production-runtime integration review only after the canonical task-persistence blocker is accepted under current live Machine SOT governance.
+
+
+## V1.10 pre-production evidence freshness and merge hardening — 2026-09-18
+
+### Runtime-evidence freshness gates
+
+Scanner HF preflight now requires normalized snapshot schema:
+
+SCANNER_HF_GATE_SNAPSHOT_V1
+
+New fail-closed checks:
+- evidence snapshot timestamp must parse;
+- Candidate must be explicitly bound to the current Scanner Run ID;
+- CORE lease must contain valid Acquired At / Lock Until and be live at the evidence snapshot;
+- Scanner role lease must contain valid Acquired At / Lock Until and be live at the evidence snapshot;
+- post-acquire writer recheck must have a valid timestamp;
+- post-acquire recheck cannot precede role-lock acquisition;
+- post-acquire recheck cannot be later than the evidence snapshot;
+- Manifest Created/Frozen timestamps must be valid and ordered;
+- Manifest cannot be frozen before the Scanner role lock;
+- Manifest cannot be frozen after the evidence snapshot;
+- Planner Planned At cannot be later than the evidence snapshot.
+
+This prevents stale or temporally impossible runtime rows from authorizing an HF external call merely because status/fence text appears valid.
+
+### Normalized-evidence boundary
+
+Live _Scan_Planner physical rows use Plan ID / Run Key / Decision / Planned At and do not directly match the internal adapter snapshot shape.
+
+The production caller must normalize live policy evidence into SCANNER_HF_GATE_SNAPSHOT_V1 before calling the adapter.
+
+Raw Sheet rows are rejected.
+
+### Workflow surface reduction
+
+Removed obsolete:
+.github/workflows/hf-event-assist-live-uat.yml
+
+Reason:
+- it triggered on PR ready_for_review;
+- it duplicated the proven manual OIDC UAT workflow;
+- it created unnecessary accidental-provider-call surface.
+
+The only controlled UAT workflow remains manual workflow_dispatch.
+
+Regression coverage now prevents reintroduction of the automatic PR-triggered live-UAT workflow.
+
+### Acceptance / rollback documentation
+
+Added:
+- docs/HF_PRODUCTION_ACCEPTANCE_PACK_2026-09-18.md
+- docs/HF_PR44_MERGE_READINESS_AUDIT_2026-09-18.md
+
+The acceptance pack separates:
+- task-persistence acceptance;
+- repository merge readiness;
+- normalized runtime evidence;
+- approved integration surface;
+- controlled first production occurrence;
+- observability;
+- abort conditions;
+- rollback.
+
+Merge and production activation remain separate decisions.
+
+### Natural acceptance automation
+
+A one-time read-only acceptance check is scheduled after the 2026-09-18 Asia/Bangkok Verifier 09:30 and Scanner 10:00 natural boundaries.
+
+It must not mutate task state or business truth and must keep HF production disabled unless both natural occurrences are proven.
+
+### Current safe state
+
+HF live quality = PASS
+Scanner repository staging = PASS
+Production adapter import = blocked by regression
+Canonical Scanner/Verifier same-ID mitigation = applied
+Natural task persistence = pending
+HF production activation = OFF
