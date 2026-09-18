@@ -107,6 +107,7 @@ function authorizedPlannerItem(row, expectedRunId) {
 function scannerExternalAccessPreflight(input = {}, options = {}) {
   const env = options.env || process.env;
   const blockers = [];
+  const evidenceSchema = text(input.evidence_schema);
   const expectedRunId = text(input.run_id);
   const cid = candidateId(input.candidate || {});
   const candidateBindingRunId = text(input.candidate_binding_run_id);
@@ -114,6 +115,7 @@ function scannerExternalAccessPreflight(input = {}, options = {}) {
 
   const report = {
     contract_version: 'scanner-hf-wiring-v1',
+    evidence_schema: evidenceSchema || null,
     role: 'SCANNER',
     run_id: expectedRunId || null,
     candidate_id: cid || null,
@@ -135,6 +137,7 @@ function scannerExternalAccessPreflight(input = {}, options = {}) {
     return report;
   }
 
+  if (evidenceSchema !== 'SCANNER_HF_GATE_SNAPSHOT_V1') blockers.push('EVIDENCE_SCHEMA_NOT_ACCEPTED');
   if (!expectedRunId) blockers.push('RUN_ID_MISSING');
   if (!cid) blockers.push('CANDIDATE_ID_MISSING');
   if (!Number.isFinite(evidenceAtMs)) blockers.push('EVIDENCE_CHECKED_AT_INVALID');
