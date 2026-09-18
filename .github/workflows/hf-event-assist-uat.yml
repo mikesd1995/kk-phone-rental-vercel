@@ -12,6 +12,9 @@ on:
         required: true
         default: '20'
         type: string
+  push:
+    branches:
+      - hf-event-assist-v1-20260918
 
 permissions:
   contents: read
@@ -23,12 +26,12 @@ concurrency:
 
 jobs:
   controlled-hf-uat:
-    if: ${{ inputs.confirm_zero_write_uat == 'RUN_HF_ZERO_WRITE_UAT' }}
+    if: ${{ inputs.confirm_zero_write_uat == 'RUN_HF_ZERO_WRITE_UAT' || contains(github.event.head_commit.message, '[RUN_HF_ZERO_WRITE_UAT]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       HF_EVENT_ASSIST_ENABLED: 'true'
-      HF_UAT_MAX_CALLS: ${{ inputs.max_live_calls }}
+      HF_UAT_MAX_CALLS: ${{ inputs.max_live_calls || '20' }}
       HF_OIDC_RESOURCE: 'Mikesd1995'
     steps:
       - name: Checkout exact requested ref
