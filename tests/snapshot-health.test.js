@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const {Readable} = require('node:stream');
 const H = require('../admin/snapshot-health.js');
+const U = require('../server/upstream-response.js');
 const good = () => ({
   events:[{event_id:'e',event_date:'2026-09-13',status:'open',active_on_web:false}],
   bookings:[{booking_id:'b',event_date:'2026-09-13',booking_status:'confirmed'}],
@@ -110,7 +111,7 @@ test('Bangkok day rolls over while UTC is still the previous day',()=>{
 function browser(){
   let source=fs.readFileSync(require.resolve('../admin/admin.js'),'utf8');
   source=source.slice(0,source.lastIndexOf('  applyDensityMode();'))+
-    'globalThis.hooks={state,refresh,api,sortedOpenEvents,startOfToday,getStatus:()=>snapshotState}; render=()=>{}; loadRentalAnalytics=()=>{}; showNotice=()=>{};})();';
+    'globalThis.hooks={state,refresh,api,runSystemGuard,sortedOpenEvents,startOfToday,getStatus:()=>snapshotState}; render=()=>{}; renderSystemGuard=()=>{}; loadRentalAnalytics=()=>{}; showNotice=()=>{};})();';
   const elements=new Map();
   const context={KKSnapshotHealth:H,sessionStorage:{getItem:()=>''},document:{querySelector:sel=>{
     if(!elements.has(sel)) elements.set(sel,{textContent:'',style:{},classList:{add(){},remove(){}}});
@@ -167,9 +168,38 @@ test('Overview includes open unpublished future events, excludes closed and past
   ]);
   assert.equal(rows.length,1);
 });
+test('System Guard reports one upstream root failure and marks dependent snapshot checks as warnings',async()=>{
+  const {context,h}=browser();
+  context.fetch=async(_url,options)=>{
+    const action=JSON.parse(options.body).action;
+    if(action==='systemHealth'){
+      return {
+        ok:true,status:200,
+        json:async()=>({ok:false,data:{rows:[{key:'apps_script_json',label:'Apps Script JSON Response',status:'FAIL',detail:'Apps Script returned a Google sign-in/auth page instead of JSON. [GOOGLE_AUTH_HTML; HTTP 200]'}]}})
+      };
+    }
+    if(action==='snapshotHealth'){
+      return {
+        ok:false,status:502,
+        json:async()=>({ok:false,error:'Apps Script returned a Google sign-in/auth page instead of JSON.',error_code:'SNAPSHOT_UPSTREAM_NON_JSON',upstream_failure_class:'GOOGLE_AUTH_HTML',upstream_status:200})
+      };
+    }
+    throw new Error('unexpected action '+action);
+  };
+  await h.runSystemGuard();
+  const rows=h.state.systemHealth.rows;
+  assert.equal(rows.filter(r=>r.status==='FAIL').length,1);
+  for(const key of H.KEYS){
+    const row=rows.find(r=>r.label==='Snapshot · '+key);
+    assert.equal(row.status,'WARN');
+    assert.match(row.detail,/Blocked by upstream root cause/);
+  }
+  assert.equal(rows.find(r=>r.label==='Snapshot validation').status,'WARN');
+  assert.equal(rows.find(r=>r.label==='Snapshot latency').status,'WARN');
+});
 
 function proxy(fetchImpl){
-  const context={module:{exports:{}},require:()=>H,process:{env:{KK_ADMIN_PIN:'test',KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/test/exec',KK_ADMIN_API_KEY:'test',GOOGLE_SHEET_ID:'test-sheet'}},URL,URLSearchParams,AbortController,setTimeout,clearTimeout,fetch:fetchImpl};
+  const context={module:{exports:{}},require:(id)=>String(id).includes('upstream-response')?U:H,process:{env:{KK_ADMIN_PIN:'test',KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/test/exec',KK_ADMIN_API_KEY:'test',GOOGLE_SHEET_ID:'test-sheet'}},URL,URLSearchParams,AbortController,setTimeout,clearTimeout,fetch:fetchImpl};
   vm.createContext(context);vm.runInContext(fs.readFileSync(require.resolve('../api/kk-admin.js'),'utf8'),context);
   return async(action,pin='test')=>{
     const req=Readable.from([JSON.stringify({action})]);req.method='POST';req.headers={'x-admin-pin':pin};
