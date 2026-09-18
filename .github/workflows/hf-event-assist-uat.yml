@@ -49,6 +49,7 @@ jobs:
           HF_TOKEN_SECRET: ${{ secrets.HF_TOKEN }}
         run: |
           set -euo pipefail
+
           if [ -n "${HF_TOKEN_SECRET:-}" ]; then
             echo "::add-mask::$HF_TOKEN_SECRET"
             echo "HF_TOKEN=$HF_TOKEN_SECRET" >> "$GITHUB_ENV"
@@ -56,42 +57,18 @@ jobs:
             exit 0
           fi
 
-          request_url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https%3A%2F%2Fhuggingface.co"
-          oidc_token="$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "$request_url" | jq -r '.value')"
-          test -n "$oidc_token"
-          echo "::add-mask::$oidc_token"
+          curl -LsSf https://hf.co/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-          payload="$(jq -n \
-            --arg subject_token "$oidc_token" \
-            --arg resource "$HF_OIDC_RESOURCE" \
-            '{
-              grant_type:"urn:ietf:params:oauth:grant-type:token-exchange",
-              subject_token_type:"urn:ietf:params:oauth:token-type:id_token",
-              subject_token:$subject_token,
-              resource:$resource
-            }')"
-
-          http_code="$(curl --silent --show-error \
-            --output /tmp/hf-oidc-exchange.json \
-            --write-out '%{http_code}' \
-            -X POST 'https://huggingface.co/oauth/token' \
-            -H 'Content-Type: application/json' \
-            --data "$payload")"
-
-          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-            jq '{error, error_description, request_id}' /tmp/hf-oidc-exchange.json 2>/dev/null || true
-            echo "HF OIDC exchange failed with HTTP $http_code" >&2
+          if ! hf_token="$("$HOME/.local/bin/hf" auth token)"; then
+            echo "HF_OIDC_CICD_IDENTITY_MISSING_OR_MISMATCH" >&2
             exit 1
           fi
 
-          hf_token="$(jq -r '.access_token // empty' /tmp/hf-oidc-exchange.json)"
           test -n "$hf_token"
           echo "::add-mask::$hf_token"
           echo "HF_TOKEN=$hf_token" >> "$GITHUB_ENV"
           echo "HF_AUTH_MODE=HF_OIDC_CICD_IDENTITY" >> "$GITHUB_ENV"
-          rm -f /tmp/hf-oidc-exchange.json
 
       - name: Zero-network readiness gate
         run: |
