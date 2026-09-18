@@ -221,3 +221,23 @@ test('manual UAT workflow stays zero-write, bounded, and explicit', () => {
   assert.doesNotMatch(workflow, /push:/);
   assert.doesNotMatch(workflow, /pull_request:/);
 });
+
+
+test('controlled UAT workflow prefers short-lived OIDC credentials with secret fallback', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../.github/workflows/hf-event-assist-uat.yml'), 'utf8');
+
+  assert.match(workflow, /id-token:\s*write/);
+  assert.match(workflow, /HF_OIDC_RESOURCE:\s*'Mikesd1995'/);
+  assert.match(workflow, /ACTIONS_ID_TOKEN_REQUEST_URL/);
+  assert.match(workflow, /https:\/\/huggingface\.co\/oauth\/token/);
+  assert.match(workflow, /urn:ietf:params:oauth:grant-type:token-exchange/);
+  assert.match(workflow, /HF_AUTH_MODE=HF_OIDC_CICD_IDENTITY/);
+  assert.match(workflow, /HF_AUTH_MODE=GITHUB_ACTIONS_SECRET/);
+  assert.match(workflow, /secrets\.HF_TOKEN/);
+  assert.match(workflow, /::add-mask::/);
+  assert.doesNotMatch(workflow, /schedule:/);
+  assert.doesNotMatch(workflow, /push:/);
+  assert.doesNotMatch(workflow, /pull_request:/);
+});
