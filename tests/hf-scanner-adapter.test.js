@@ -17,6 +17,8 @@ function baseInput(overrides = {}) {
   const runId = 'SCV415-20260918T100000-ADAPTER';
   return {
     run_id: runId,
+    candidate_binding_run_id: runId,
+    evidence_checked_at: '2026-09-18T10:00:10+07:00',
     candidate: {
       candidate_id: 'CAND-ADAPTER-001',
       name: 'LYKN Reflexion Concert',
@@ -29,26 +31,33 @@ function baseInput(overrides = {}) {
       scope:'CORE_SHARED_WRITER',
       run_id:runId,
       status:'HELD',
+      acquired_at:'2026-09-18T10:00:00+07:00',
+      lock_until:'2026-09-18T10:20:00+07:00',
       fencing_token:'301'
     }],
     scanner_locks: [{
       scope:'SCANNER',
       run_id:runId,
       status:'HELD',
+      acquired_at:'2026-09-18T10:00:01+07:00',
+      lock_until:'2026-09-18T10:20:00+07:00',
       fencing_token:'302'
     }],
     post_acquire_writer_recheck: true,
+    post_acquire_writer_recheck_at: '2026-09-18T10:00:02+07:00',
     post_acquire_conflicting_writers: [],
     manifests: [{
       run_id:runId,
       role:'SCANNER',
-      frozen_at:'2026-09-18T10:00:03+07:00',
+      created_at:'2026-09-18T10:00:03+07:00',
+      frozen_at:'2026-09-18T10:00:05+07:00',
       policy_version:'v4.9.15',
       fencing_token:'302'
     }],
     planner_items: [{
       run_id:runId,
       authorized:true,
+      planned_at:'2026-09-18T10:00:04+07:00',
       work_item_id:'PLAN-ADAPTER-001'
     }],
     ...overrides
