@@ -81,7 +81,7 @@ SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-The service role must remain server-only.
+Prefer the current Supabase secret API key (`sb_secret_...`) and keep it server-only. `SUPABASE_SERVICE_ROLE_KEY` remains a temporary compatibility fallback for existing projects. The Postgres `service_role` database role used in grants is distinct from the legacy API-key naming.
 
 ## External Scanner ingress environment contract
 
@@ -140,3 +140,22 @@ Repository staging PASS requires:
 - zero production business writes
 
 Production witness acceptance is a later gate and must not be inferred from repository CI.
+
+
+## Witness readiness health
+
+`GET /api/kk-scanner-witness-health` returns configuration presence only; it never returns secrets.
+
+Expected disabled state before cutover:
+
+```json
+{
+  "external_scanner_enabled": false,
+  "runtime_ledger_enabled": false,
+  "ready_for_witness": false,
+  "scanner_execution_capable": false,
+  "business_writes_capable": false
+}
+```
+
+The endpoint is an operational readiness probe, not runtime acceptance. `ready_for_witness=true` only means the environment configuration gates are present; it does not prove Cloudflare delivery, Supabase insertion, or six consecutive witness occurrences.
