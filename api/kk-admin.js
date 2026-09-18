@@ -3,6 +3,7 @@
 // Adds System Guard diagnostics for Apps Script URL / Sheet ID / public feed / override pipeline.
 
 const SnapshotHealth = require("../admin/snapshot-health.js");
+const UpstreamResponse = require("../server/upstream-response.js");
 const KK_APP_VERSION = SnapshotHealth.VERSION;
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
@@ -64,16 +65,7 @@ function looksLikeAppsScriptUrl(value) {
 }
 
 function compactNonJsonError(text, contentType, urlHost) {
-  const raw = String(text || "");
-  const titleMatch = raw.match(/<title>([^<]+)<\/title>/i);
-  const title = titleMatch ? titleMatch[1].trim() : "Non-JSON response";
-  if (/drive|docs\.google|google drive/i.test(raw) || /drive|docs\.google/i.test(String(urlHost))) {
-    return "Apps Script URL seems to point to Google Drive/Docs or returned a Google Drive page, not JSON. Check KK_ADMIN_SCRIPT_URL in Vercel.";
-  }
-  if (/<!doctype html|<html/i.test(raw)) {
-    return "Apps Script returned HTML instead of JSON (" + title + "). Check Web App deployment URL and access setting.";
-  }
-  return "Apps Script returned a non-JSON response" + (contentType ? " (" + contentType + ")" : "") + ".";
+  return UpstreamResponse.classifyNonJsonResponse(text, contentType, urlHost).message;
 }
 
 function gvizCsvUrl(sheetId, sheet, range) {
@@ -167,12 +159,20 @@ async function buildSystemHealth(payload, env) {
           upstreamData && upstreamData.ok ? "" : (upstreamData && upstreamData.error ? upstreamData.error : "Check Apps Script deployment/API key.")
         ));
       } catch (_) {
+        const failure = UpstreamResponse.classifyNonJsonResponse(text, contentType, scriptHost);
+        console.warn("KK_ADMIN_UPSTREAM_PROTOCOL", JSON.stringify(UpstreamResponse.safeProtocolLog({
+          code: failure.code,
+          status: upstream.status,
+          content_type: contentType,
+          host: scriptHost,
+          action: "phase1Health"
+        })));
         rows.push(diagnosticRow(
           "apps_script_json",
           "Apps Script JSON Response",
           "FAIL",
-          compactNonJsonError(text, contentType, scriptHost),
-          "Copy the latest Apps Script Web App URL from Deploy > Manage deployments and put it in KK_ADMIN_SCRIPT_URL."
+          failure.message + " [" + failure.code + "; HTTP " + String(upstream.status || "unknown") + "]",
+          failure.suggestion
         ));
       }
     } catch (err) {
@@ -347,7 +347,21 @@ module.exports = async function handler(req, res) {
     let data;
     try { data = JSON.parse(text); }
     catch (_) {
-      data = { ok: false, error: compactNonJsonError(text, contentType, safeUrlHost(scriptUrl)) };
+      const failure = UpstreamResponse.classifyNonJsonResponse(text, contentType, safeUrlHost(scriptUrl));
+      console.warn("KK_ADMIN_UPSTREAM_PROTOCOL", JSON.stringify(UpstreamResponse.safeProtocolLog({
+        code: failure.code,
+        status: upstream.status,
+        content_type: contentType,
+        host: safeUrlHost(scriptUrl),
+        action: payload.action
+      })));
+      data = {
+        ok: false,
+        error: failure.message,
+        error_code: "UPSTREAM_NON_JSON",
+        upstream_failure_class: failure.code,
+        upstream_status: upstream.status
+      };
     }
 
     if (["snapshot", "snapshotHealth"].includes(payload.action)) {
