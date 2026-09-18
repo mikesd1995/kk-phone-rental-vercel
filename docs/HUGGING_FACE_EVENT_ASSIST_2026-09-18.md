@@ -435,3 +435,25 @@ Add an inference-capable Hugging Face access token as the GitHub Actions reposit
 `HF_TOKEN`
 
 Then retrigger the same Draft -> Ready-for-review UAT boundary. The workflow will first re-run zero-network readiness, then execute at most the bounded call plan if and only if the secret is present.
+
+
+## V1.4 controlled UAT execution surface — 2026-09-18
+
+Added a manual-only GitHub Actions workflow, `.github/workflows/hf-event-assist-uat.yml`, to close the execution-surface gap without changing production architecture.
+
+Properties:
+- manual `workflow_dispatch` only;
+- explicit `RUN_HF_ZERO_WRITE_UAT` confirmation;
+- operator-configurable bounded call ceiling, default 20;
+- repository `HF_TOKEN` Actions secret is the only supported credential input;
+- full syntax/regression suite runs before inference;
+- zero-network readiness must pass before inference;
+- bounded benchmark is the only live external stage;
+- non-secret readiness/benchmark evidence is retained as a 30-day workflow artifact;
+- no push, pull-request, cron, Scanner, Verifier, or Canary trigger;
+- no Machine SOT write;
+- no notification send;
+- no production deployment/promotion;
+- no merge or activation authority.
+
+A missing `HF_TOKEN` secret fails at readiness before live inference. Secret presence/value cannot be read through the connected GitHub tool and is therefore not assumed.
