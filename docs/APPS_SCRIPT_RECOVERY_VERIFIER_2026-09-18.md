@@ -8,7 +8,7 @@ This change adds a deterministic read-only verifier for candidate Apps Script We
 
 ## Why this exists
 
-Production currently classifies the Admin upstream as `APPS_SCRIPT_DEPLOYMENT_NOT_FOUND`: Vercel reaches `script.google.com`, receives HTTP 404, and receives HTML instead of JSON.
+Prior production evidence established the Admin upstream symptom as HTTP 404 HTML from `script.google.com`, and PR #57 added the explicit `APPS_SCRIPT_DEPLOYMENT_NOT_FOUND` classification. A fresh authenticated post-PR #57 upstream probe is still pending, so this document does not claim that the 404 has been newly reproduced on the latest deployment.
 
 Connected-source recovery was repeated on 2026-09-18:
 
