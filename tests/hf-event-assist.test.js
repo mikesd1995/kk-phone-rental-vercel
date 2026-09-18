@@ -6,13 +6,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const HF = require('../server/hf-event-assist.js');
 
-function assertControlledUatPushGuard(workflow) {
-  const hasPush = /(?:^|\n)  push:\s*(?:\n|$)/m.test(workflow);
-  if (!hasPush) return;
-  assert.match(workflow, /push:\s*\n\s*branches:\s*\n\s*- hf-event-assist-v1-20260918/);
-  assert.match(workflow, /contains\(github\.event\.head_commit\.message, '\[RUN_HF_ZERO_WRITE_UAT\]'\)/);
-}
-
 function fakeResponse(body, status = 200) {
   return {
     ok: status >= 200 && status < 300,
@@ -225,7 +218,7 @@ test('manual UAT workflow stays zero-write, bounded, and explicit', () => {
   assert.match(workflow, /final_truth_mutation!==false/);
   assert.match(workflow, /notification_sends!==0/);
   assert.doesNotMatch(workflow, /schedule:/);
-  assertControlledUatPushGuard(workflow);
+  assert.doesNotMatch(workflow, /push:/);
   assert.doesNotMatch(workflow, /pull_request:/);
 });
 
@@ -245,7 +238,7 @@ test('controlled UAT workflow prefers short-lived OIDC credentials with secret f
   assert.match(workflow, /secrets\.HF_TOKEN/);
   assert.match(workflow, /::add-mask::/);
   assert.doesNotMatch(workflow, /schedule:/);
-  assertControlledUatPushGuard(workflow);
+  assert.doesNotMatch(workflow, /push:/);
   assert.doesNotMatch(workflow, /pull_request:/);
 });
 
