@@ -178,5 +178,7 @@ All changes are isolated to this branch/PR. Rollback is a normal Git revert of t
 - Vercel preview deployment `dpl_46YpnH7VNsMQopoQDmg68feTVegG` completed successfully and reached `READY`.
 - The commit status for the branch head is `success` from Vercel.
 - The preview Admin login page returned HTTP 200 with the expected no-store/security headers.
-- No GitHub Actions workflow run exists for this commit, so this record does **not** claim that the repository's full `npm test` suite ran in CI. Production merge remains gated on explicit test/acceptance evidence or review.
-- Production was not changed by this PR at the time of this record.
+- GitHub Actions `Admin Regression` run #211 completed successfully for branch head `121ae60acf4cba150c1ed2a4131a3c4586c24dc9`.
+- The workflow's `Syntax checks` step (`npm run check`) passed.
+- The workflow's `Regression tests` step (`npm test`) passed.
+- Production was not changed by this PR at the time of this record; the remaining gate is live Apps Script endpoint/access verification and production acceptance.
