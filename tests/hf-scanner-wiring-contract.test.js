@@ -7,6 +7,7 @@ const Wiring = require('../server/hf-scanner-wiring-contract.js');
 function baseInput(overrides = {}) {
   const runId = 'SCV415-20260918T090000-UAT';
   return {
+    evidence_schema: 'SCANNER_HF_GATE_SNAPSHOT_V1',
     run_id: runId,
     candidate_binding_run_id: runId,
     evidence_checked_at: '2026-09-18T09:00:10+07:00',
@@ -515,5 +516,17 @@ test('invalid evidence snapshot timestamp fails closed before HF', async () => {
     assistFn:async () => { calls++; return assistedClassification(); }
   });
   assert.equal(result.preflight.blockers.includes('EVIDENCE_CHECKED_AT_INVALID'), true);
+  assert.equal(calls, 0);
+});
+
+
+test('unnormalized evidence snapshot is rejected before HF access', async () => {
+  let calls = 0;
+  const input = baseInput({ evidence_schema:'RAW_SHEET_ROWS' });
+  const result = await Wiring.runGuardedScannerHfAssist(input, {
+    env:envEnabled(),
+    assistFn:async () => { calls++; return assistedClassification(); }
+  });
+  assert.equal(result.preflight.blockers.includes('EVIDENCE_SCHEMA_NOT_ACCEPTED'), true);
   assert.equal(calls, 0);
 });
