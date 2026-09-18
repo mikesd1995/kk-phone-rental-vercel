@@ -46,7 +46,11 @@ test('cross-surface fencing requires strict max+1',()=>{
 
 test('clean natural occurrence becomes an acceptance candidate',()=>{
   const r=C.analyzeNaturalOccurrence(base('SCANNER'));
+  assert.equal(r.runtime_boundary_proven,true);
   assert.equal(r.runtime_proven,true);
+  assert.equal(r.runtime_body_classification,'RUNTIME_BODY_TERMINAL_CLEAN');
+  assert.equal(r.task_persistence_ok,true);
+  assert.equal(r.task_persistence_classification,'TASK_REMAINED_ON_AFTER_RUNTIME_BOUNDARY');
   assert.equal(r.acceptance_candidate,true);
   assert.equal(r.classification,'PASS_ACCEPTANCE_CANDIDATE');
 });
@@ -100,7 +104,11 @@ test('terminal runtime does not pass persistence acceptance if task turns OFF',(
   const x=base('VERIFIER');
   x.task_after.enabled=false;
   const r=C.analyzeNaturalOccurrence(x);
+  assert.equal(r.runtime_boundary_proven,true);
   assert.equal(r.runtime_proven,true);
+  assert.equal(r.runtime_body_classification,'RUNTIME_BODY_TERMINAL_CLEAN');
+  assert.equal(r.task_persistence_ok,false);
+  assert.equal(r.task_persistence_classification,'TASK_PERSISTENCE_FAILED_AFTER_RUNTIME_BOUNDARY');
   assert.equal(r.acceptance_candidate,false);
   assert.equal(r.classification,'TASK_PERSISTENCE_FAILED_AFTER_RUNTIME');
 });
@@ -131,4 +139,33 @@ test('snapshot audit counts only actual acceptance candidates',()=>{
   assert.equal(r.scanner_acceptance_candidates,1);
   assert.equal(r.verifier_acceptance_candidates,0);
   assert.equal(r.pass,false);
+});
+
+
+test('Verifier body failure and task persistence failure are reported independently',()=>{
+  const x=base('VERIFIER');
+  const run=x.core_locks[0].holder_run_id;
+  x.manifests=[manifest('VERIFIER',run,'FROZEN')];
+  x.task_after.enabled=false;
+  const r=C.analyzeNaturalOccurrence(x);
+  assert.equal(r.runtime_boundary_proven,true);
+  assert.equal(r.runtime_proven,false);
+  assert.equal(r.classification,'RUNTIME_MANIFEST_NOT_TERMINAL');
+  assert.equal(r.runtime_body_classification,'RUNTIME_MANIFEST_NOT_TERMINAL');
+  assert.equal(r.task_persistence_ok,false);
+  assert.equal(r.task_persistence_classification,'TASK_PERSISTENCE_FAILED_AFTER_RUNTIME_BOUNDARY');
+  assert.match(r.persistence_blockers.join(' '),/did not remain ON/);
+});
+
+test('Scanner pre-Manifest failure still preserves independent task persistence verdict',()=>{
+  const x=base('SCANNER');
+  x.manifests=[];
+  x.task_after.enabled=false;
+  const r=C.analyzeNaturalOccurrence(x);
+  assert.equal(r.runtime_boundary_proven,true);
+  assert.equal(r.runtime_proven,false);
+  assert.equal(r.classification,'RUNTIME_MANIFEST_IDENTITY_NOT_EXACT1');
+  assert.equal(r.runtime_body_classification,'RUNTIME_MANIFEST_IDENTITY_NOT_EXACT1');
+  assert.equal(r.task_persistence_ok,false);
+  assert.equal(r.task_persistence_classification,'TASK_PERSISTENCE_FAILED_AFTER_RUNTIME_BOUNDARY');
 });
