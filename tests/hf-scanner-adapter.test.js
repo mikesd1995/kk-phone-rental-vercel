@@ -142,3 +142,32 @@ test('provider failure returns no advisory handoff and no fabricated Scanner dec
   assert.equal(result.final_truth_mutation, false);
   assert.equal(result.notification_sends, 0);
 });
+
+
+test('staged Scanner HF adapter is not imported by production entrypoints', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.resolve(__dirname, '..');
+  const files = [];
+
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, {withFileTypes:true})) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile() && entry.name.endsWith('.js')) files.push(full);
+    }
+  }
+
+  walk(path.join(root, 'api'));
+  walk(path.join(root, 'admin'));
+  files.push(path.join(root, 'script.js'));
+
+  for (const file of files) {
+    const source = fs.readFileSync(file, 'utf8');
+    assert.equal(
+      source.includes('hf-scanner-adapter'),
+      false,
+      `production entrypoint imports staged HF Scanner adapter: ${path.relative(root, file)}`
+    );
+  }
+});
