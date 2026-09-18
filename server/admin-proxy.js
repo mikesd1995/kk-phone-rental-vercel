@@ -159,7 +159,7 @@ async function buildSystemHealth(payload, env) {
           upstreamData && upstreamData.ok ? "" : (upstreamData && upstreamData.error ? upstreamData.error : "Check Apps Script deployment/API key.")
         ));
       } catch (_) {
-        const failure = UpstreamResponse.classifyNonJsonResponse(text, contentType, scriptHost);
+        const failure = UpstreamResponse.classifyNonJsonResponse(text, contentType, scriptHost, upstream.status);
         console.warn("KK_ADMIN_UPSTREAM_PROTOCOL", JSON.stringify(UpstreamResponse.safeProtocolLog({
           code: failure.code,
           status: upstream.status,
@@ -347,7 +347,7 @@ module.exports = async function handler(req, res) {
     let data;
     try { data = JSON.parse(text); }
     catch (_) {
-      const failure = UpstreamResponse.classifyNonJsonResponse(text, contentType, safeUrlHost(scriptUrl));
+      const failure = UpstreamResponse.classifyNonJsonResponse(text, contentType, safeUrlHost(scriptUrl), upstream.status);
       console.warn("KK_ADMIN_UPSTREAM_PROTOCOL", JSON.stringify(UpstreamResponse.safeProtocolLog({
         code: failure.code,
         status: upstream.status,
