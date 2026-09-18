@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const H=require('../api/kk-scanner-dispatch');
 
 test('witness health is safely disabled by default',()=>{
-  const s=H._test.snapshot({});
+  const s=H._test.readinessSnapshot({});
   assert.equal(s.external_scanner_enabled,false);
   assert.equal(s.runtime_ledger_enabled,false);
   assert.equal(s.ready_for_witness,false);
@@ -14,7 +14,7 @@ test('witness health is safely disabled by default',()=>{
 });
 
 test('witness health becomes ready only when every config gate is present',()=>{
-  const s=H._test.snapshot({
+  const s=H._test.readinessSnapshot({
     KK_EXTERNAL_SCANNER_ENABLED:'true',
     KK_EXTERNAL_SCANNER_MODE:'witness',
     KK_EXTERNAL_SCANNER_SECRET:'hmac-secret',
@@ -29,7 +29,7 @@ test('witness health becomes ready only when every config gate is present',()=>{
 });
 
 test('missing HMAC secret keeps witness not ready',()=>{
-  const s=H._test.snapshot({
+  const s=H._test.readinessSnapshot({
     KK_EXTERNAL_SCANNER_ENABLED:'true',
     KK_EXTERNAL_SCANNER_MODE:'witness',
     KK_RUNTIME_LEDGER_ENABLED:'true',
