@@ -589,3 +589,73 @@ The workflow should then receive a short-lived token with `inference-api` permis
 The temporary OIDC push-trigger workflow was removed immediately after evidence capture. Only the manual `workflow_dispatch` controlled-UAT workflow remains as the intended execution surface.
 
 No production Scanner/Verifier/Canary task, policy, Machine SOT business row, Vercel production deployment, or notification transport was changed.
+
+
+## V1.7 official HF CLI OIDC path and account-write boundary — 2026-09-18
+
+### Permanent workflow simplified to the official Hugging Face OIDC flow
+
+The canonical manual workflow `.github/workflows/hf-event-assist-uat.yml` no longer contains a custom direct RFC 8693 HTTP token-exchange implementation.
+
+If the optional repository secret `HF_TOKEN` is absent, the workflow now:
+
+1. installs the official Hugging Face CLI from `https://hf.co/cli/install.sh`;
+2. keeps `HF_OIDC_RESOURCE=Mikesd1995`;
+3. calls `hf auth token`;
+4. relies on GitHub Actions `id-token: write` and the official Hugging Face client to mint/exchange the OIDC identity;
+5. masks the short-lived token;
+6. exports it only to subsequent readiness/benchmark steps.
+
+This matches Hugging Face's current Trusted Publishers guidance and reduces bespoke authentication code.
+
+### Authentication fallback order
+
+```text
+1. GitHub Actions secret HF_TOKEN (only if explicitly configured)
+2. Official hf CLI OIDC / CI-CD identity flow
+```
+
+The preferred path remains OIDC because the exchanged account token expires after 60 minutes and can be limited to `gated-repos + inference-api`.
+
+### Connector authority boundary verified
+
+The connected Hugging Face account is authenticated as `Mikesd1995`, but the connector OAuth scopes exposed in this execution context are:
+
+```text
+jobs
+openid
+profile
+read-mcp
+read-repos
+```
+
+There is no account-settings write scope or CI/CD-identity management action exposed by the connector.
+
+Therefore the agent cannot legitimately create or modify the account's Authentication → CI/CD Access entry through the connected app. This is an authority boundary, not a code blocker, and must not be bypassed by scraping session cookies, inventing credentials, or storing a long-lived token in source.
+
+### Required account-side identity remains
+
+The Hugging Face account must contain one GitHub Actions CI/CD identity matching the permanent workflow claims:
+
+```text
+repository = mikesd1995/kk-phone-rental-vercel
+branch = hf-event-assist-v1-20260918
+workflow = hf-event-assist-uat.yml
+Allow Inference Providers calls = enabled
+```
+
+After that account setting exists, the permanent manual workflow can exchange GitHub OIDC for a short-lived inference-capable token without any repository HF secret.
+
+### Regression hardening
+
+Tests now enforce that the permanent workflow:
+- uses `id-token: write`;
+- installs the official `hf` CLI;
+- uses `hf auth token`;
+- preserves explicit secret fallback;
+- masks the exchanged token;
+- does not contain the direct `/oauth/token` implementation;
+- does not read the GitHub OIDC metadata endpoint directly;
+- remains manual-only.
+
+No production Machine SOT, Scanner, Verifier, Canary, notification, or Vercel production state was modified by V1.7.
