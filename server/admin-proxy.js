@@ -1,5 +1,5 @@
-// KK Phone Rental — Snapshot Resilience 1 Admin CRM Vercel Proxy
-// Browser -> /api/kk-admin -> Apps Script Web App -> Google Sheet
+// KK Phone Rental — Legacy Admin upstream proxy core (non-routable server module)
+// Invoked behind the signed-session/guard adapters; not a public Vercel route.
 // Adds System Guard diagnostics for Apps Script URL / Sheet ID / public feed / override pipeline.
 
 const SnapshotHealth = require("../admin/snapshot-health.js");

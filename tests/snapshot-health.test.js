@@ -200,7 +200,7 @@ test('System Guard reports one upstream root failure and marks dependent snapsho
 
 function proxy(fetchImpl){
   const context={module:{exports:{}},require:(id)=>String(id).includes('upstream-response')?U:H,process:{env:{KK_ADMIN_PIN:'test',KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/test/exec',KK_ADMIN_API_KEY:'test',GOOGLE_SHEET_ID:'test-sheet'}},URL,URLSearchParams,AbortController,setTimeout,clearTimeout,fetch:fetchImpl};
-  vm.createContext(context);vm.runInContext(fs.readFileSync(require.resolve('../api/kk-admin.js'),'utf8'),context);
+  vm.createContext(context);vm.runInContext(fs.readFileSync(require.resolve('../server/admin-proxy.js'),'utf8'),context);
   return async(action,pin='test')=>{
     const req=Readable.from([JSON.stringify({action})]);req.method='POST';req.headers={'x-admin-pin':pin};
     let body;const res={setHeader(){},end(v){body=JSON.parse(v);}};
