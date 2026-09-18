@@ -98,3 +98,33 @@ HF production activation = OFF
 external Scanner HF production import = NONE
 classification = BLOCKED_SAFE
 ```
+
+
+## Validation evidence
+
+Exact-head validation after the staging fixes:
+
+- branch head before this documentation checkpoint: `8b861bd613eb81149e8e64f2b6ff7705ede22d9b`;
+- Admin Regression run: `35371592036`;
+- syntax checks: PASS;
+- regression tests: **237/237 PASS, 0 fail**;
+- HF benchmark disabled-path gate: PASS;
+- benchmark state: `PREPARED_NOT_EXECUTED`;
+- benchmark blocker: `HF_EVENT_ASSIST_DISABLED`;
+- HF readiness fail-closed gate: PASS;
+- readiness state: `BLOCKED`;
+- external HF network calls during CI: 0;
+- production/business writes during CI: 0;
+- final-truth mutation: false;
+- notification sends: 0.
+
+Vercel Preview status is currently blocked by the Vercel account build-rate limit. The GitHub deployment status target resolves to the Vercel `upgradeToPro=build-rate-limit` surface rather than a code/build error. This is tracked as an external validation blocker and is not treated as a successful Preview.
+
+## Corrections made during this staging pass
+
+Two defects were found by CI and corrected without weakening the safety contract:
+
+1. The initial port omitted the manual controlled UAT workflow while the regression suite intentionally required that workflow to exist. The workflow was restored from the reviewed PR #44 version. It remains `workflow_dispatch` only, bounded, zero-write, and has no push/PR/schedule trigger.
+2. The first current-main CI wrapper used `npm run ... > json`, causing npm banner text to contaminate the JSON artifact. The workflow was corrected to invoke the Node scripts directly and preserve strict JSON validation.
+
+Neither correction changed HF authority, production import behavior, task state, Machine SOT, production environment variables, or production deployment.
