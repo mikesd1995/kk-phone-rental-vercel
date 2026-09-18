@@ -317,3 +317,70 @@ It does not:
 - authorize final business truth.
 
 Scanner integration still requires a separate controlled wiring review under the live highest Active Machine SOT policy.
+
+
+## V1.6 preferred keyless OIDC setup
+
+The preferred credential path is now a Hugging Face account CI/CD identity rather than a long-lived repository secret.
+
+### Hugging Face account configuration
+
+In Hugging Face account settings:
+
+1. Open Authentication.
+2. Open CI/CD Access.
+3. Add a GitHub Actions identity.
+4. Pin claims to:
+   - repository: `mikesd1995/kk-phone-rental-vercel`
+   - branch: `hf-event-assist-v1-20260918`
+   - workflow: `hf-event-assist-uat.yml`
+5. Enable `Allow Inference Providers calls`.
+
+The resulting exchanged token is short-lived (60 minutes) and carries `inference-api` only when the option above is enabled.
+
+### Permanent workflow credential resolution
+
+The manual workflow resolves credentials in this order:
+
+1. repository Actions secret `HF_TOKEN`, if explicitly configured;
+2. otherwise GitHub OIDC → Hugging Face account CI/CD identity token exchange.
+
+The OIDC route is preferred because it avoids a long-lived secret.
+
+### Proven current state
+
+A one-shot OIDC probe on 2026-09-18 produced:
+
+```text
+HTTP 400
+invalid_grant
+No trusted publisher configured for user 'Mikesd1995' matching this OIDC token
+```
+
+This means GitHub OIDC issuance worked, but the Hugging Face account-side identity is not yet configured for the tested claims.
+
+No benchmark inference call was made.
+
+### Re-run after account configuration
+
+After adding the CI/CD identity, run the permanent GitHub Actions workflow:
+
+```text
+HF Event Assist Controlled UAT
+```
+
+Input:
+
+```text
+confirm_zero_write_uat = RUN_HF_ZERO_WRITE_UAT
+max_live_calls = 20
+```
+
+The workflow must still pass:
+- full regression;
+- credential exchange;
+- zero-network readiness;
+- bounded live benchmark;
+- quality gate.
+
+A credential-exchange success alone is not production approval.
