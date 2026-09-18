@@ -1,6 +1,6 @@
 'use strict';
 
-const DEFAULT_ZERO_SHOT_MODEL = 'MoritzLaurer/ModernBERT-large-zeroshot-v2.0';
+const DEFAULT_ZERO_SHOT_MODEL = 'MoritzLaurer/bge-m3-zeroshot-v2.0';
 const DEFAULT_EMBED_MODEL = 'intfloat/multilingual-e5-large';
 const HF_ROUTER_PREFIX = 'https://router.huggingface.co/hf-inference/models/';
 const DEFAULT_TIMEOUT_MS = 8000;
