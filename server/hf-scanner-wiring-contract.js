@@ -61,6 +61,13 @@ function policyVersion(record) {
   return text(value(record, 'policy_version', 'policyVersion', 'Policy Version', 'POLICY_VERSION', 'version', 'Version'));
 }
 
+function timeValue(record, ...keys) {
+  const raw = text(value(record, ...keys));
+  if (!raw) return null;
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) ? ms : null;
+}
+
 function candidateId(candidate) {
   return text(value(candidate, 'candidate_id', 'candidateId', 'Candidate ID', 'show_id', 'showId', 'Show ID'));
 }
@@ -73,11 +80,21 @@ function isActivePolicy(row) {
   return truthyFlag(value(row, 'active', 'is_active', 'isActive', 'Active', 'enabled', 'Enabled'));
 }
 
-function isHeldLock(row, acceptedScopes, expectedRunId) {
+function matchingHeldLock(row, acceptedScopes, expectedRunId) {
   return acceptedScopes.has(scope(row)) &&
     runId(row) === expectedRunId &&
     HELD_STATUSES.has(status(row)) &&
     Boolean(fence(row));
+}
+
+function isFreshHeldLock(row, acceptedScopes, expectedRunId, evidenceAtMs) {
+  if (!matchingHeldLock(row, acceptedScopes, expectedRunId)) return false;
+  const acquiredAt = timeValue(row, 'acquired_at', 'acquiredAt', 'Acquired At');
+  const lockUntil = timeValue(row, 'lock_until', 'lockUntil', 'Lock Until');
+  return acquiredAt !== null &&
+    lockUntil !== null &&
+    acquiredAt <= evidenceAtMs &&
+    lockUntil > evidenceAtMs;
 }
 
 function authorizedPlannerItem(row, expectedRunId) {
@@ -92,6 +109,8 @@ function scannerExternalAccessPreflight(input = {}, options = {}) {
   const blockers = [];
   const expectedRunId = text(input.run_id);
   const cid = candidateId(input.candidate || {});
+  const candidateBindingRunId = text(input.candidate_binding_run_id);
+  const evidenceAtMs = Date.parse(text(input.evidence_checked_at));
 
   const report = {
     contract_version: 'scanner-hf-wiring-v1',
@@ -99,6 +118,7 @@ function scannerExternalAccessPreflight(input = {}, options = {}) {
     run_id: expectedRunId || null,
     candidate_id: cid || null,
     policy_version: null,
+    evidence_checked_at: Number.isFinite(evidenceAtMs) ? new Date(evidenceAtMs).toISOString() : null,
     hf_feature_enabled: isFeatureEnabled(env),
     external_hf_access_allowed: false,
     network_calls: 0,
@@ -117,6 +137,9 @@ function scannerExternalAccessPreflight(input = {}, options = {}) {
 
   if (!expectedRunId) blockers.push('RUN_ID_MISSING');
   if (!cid) blockers.push('CANDIDATE_ID_MISSING');
+  if (!Number.isFinite(evidenceAtMs)) blockers.push('EVIDENCE_CHECKED_AT_INVALID');
+  if (!candidateBindingRunId) blockers.push('CANDIDATE_RUN_BINDING_MISSING');
+  else if (expectedRunId && candidateBindingRunId !== expectedRunId) blockers.push('CANDIDATE_RUN_BINDING_MISMATCH');
 
   const policies = (input.active_policies || []).filter(isActivePolicy);
   if (policies.length !== 1) {
@@ -129,13 +152,34 @@ function scannerExternalAccessPreflight(input = {}, options = {}) {
   const preConflicts = input.pre_acquire_conflicting_writers || [];
   if (preConflicts.length) blockers.push(`PRE_ACQUIRE_WRITER_CONFLICT:${preConflicts.length}`);
 
-  const coreLocks = (input.core_locks || []).filter(row => isHeldLock(row, CORE_SCOPES, expectedRunId));
+  const matchingCoreLocks = (input.core_locks || []).filter(row => matchingHeldLock(row, CORE_SCOPES, expectedRunId));
+  const coreLocks = Number.isFinite(evidenceAtMs)
+    ? matchingCoreLocks.filter(row => isFreshHeldLock(row, CORE_SCOPES, expectedRunId, evidenceAtMs))
+    : [];
+  if (matchingCoreLocks.length === 1 && coreLocks.length === 0) blockers.push('CORE_SHARED_WRITER_STALE_OR_TIME_INVALID');
   if (coreLocks.length !== 1) blockers.push(`CORE_SHARED_WRITER_NOT_EXACT1:${coreLocks.length}`);
 
-  const scannerLocks = (input.scanner_locks || []).filter(row => isHeldLock(row, SCANNER_SCOPES, expectedRunId));
+  const matchingScannerLocks = (input.scanner_locks || []).filter(row => matchingHeldLock(row, SCANNER_SCOPES, expectedRunId));
+  const scannerLocks = Number.isFinite(evidenceAtMs)
+    ? matchingScannerLocks.filter(row => isFreshHeldLock(row, SCANNER_SCOPES, expectedRunId, evidenceAtMs))
+    : [];
+  if (matchingScannerLocks.length === 1 && scannerLocks.length === 0) blockers.push('SCANNER_ROLE_LOCK_STALE_OR_TIME_INVALID');
   if (scannerLocks.length !== 1) blockers.push(`SCANNER_ROLE_LOCK_NOT_EXACT1:${scannerLocks.length}`);
 
   if (input.post_acquire_writer_recheck !== true) blockers.push('POST_ACQUIRE_WRITER_RECHECK_MISSING');
+  const recheckAtMs = Date.parse(text(input.post_acquire_writer_recheck_at));
+  if (!Number.isFinite(recheckAtMs)) {
+    blockers.push('POST_ACQUIRE_WRITER_RECHECK_AT_INVALID');
+  } else if (Number.isFinite(evidenceAtMs) && recheckAtMs > evidenceAtMs) {
+    blockers.push('POST_ACQUIRE_WRITER_RECHECK_AFTER_EVIDENCE_SNAPSHOT');
+  } else {
+    const acquiredTimes = [...coreLocks, ...scannerLocks]
+      .map(row => timeValue(row, 'acquired_at', 'acquiredAt', 'Acquired At'))
+      .filter(Number.isFinite);
+    if (acquiredTimes.length === 2 && recheckAtMs < Math.max(...acquiredTimes)) {
+      blockers.push('POST_ACQUIRE_WRITER_RECHECK_BEFORE_LOCK_ACQUISITION');
+    }
+  }
   const postConflicts = input.post_acquire_conflicting_writers || [];
   if (postConflicts.length) blockers.push(`POST_ACQUIRE_WRITER_CONFLICT:${postConflicts.length}`);
 
@@ -146,10 +190,20 @@ function scannerExternalAccessPreflight(input = {}, options = {}) {
     blockers.push(`SCANNER_MANIFEST_NOT_EXACT1:${manifests.length}`);
   } else {
     const manifest = manifests[0];
-    const frozenAt = text(value(manifest, 'frozen_at', 'frozenAt', 'Frozen At'));
+    const createdAtMs = timeValue(manifest, 'created_at', 'createdAt', 'Created At');
+    const frozenAtMs = timeValue(manifest, 'frozen_at', 'frozenAt', 'Frozen At');
     const manifestPolicy = policyVersion(manifest);
     const manifestFence = fence(manifest);
-    if (!frozenAt) blockers.push('SCANNER_MANIFEST_NOT_FROZEN');
+    if (frozenAtMs === null) blockers.push('SCANNER_MANIFEST_NOT_FROZEN_OR_TIME_INVALID');
+    if (createdAtMs === null) blockers.push('SCANNER_MANIFEST_CREATED_AT_INVALID');
+    if (createdAtMs !== null && frozenAtMs !== null && createdAtMs > frozenAtMs) blockers.push('SCANNER_MANIFEST_TIME_ORDER_INVALID');
+    if (Number.isFinite(evidenceAtMs) && frozenAtMs !== null && frozenAtMs > evidenceAtMs) blockers.push('SCANNER_MANIFEST_FROZEN_AFTER_EVIDENCE_SNAPSHOT');
+    const scannerAcquiredAt = scannerLocks.length === 1
+      ? timeValue(scannerLocks[0], 'acquired_at', 'acquiredAt', 'Acquired At')
+      : null;
+    if (scannerAcquiredAt !== null && frozenAtMs !== null && frozenAtMs < scannerAcquiredAt) {
+      blockers.push('SCANNER_MANIFEST_FROZEN_BEFORE_ROLE_LOCK');
+    }
     if (!manifestPolicy) blockers.push('SCANNER_MANIFEST_POLICY_MISSING');
     if (report.policy_version && manifestPolicy && manifestPolicy !== report.policy_version) {
       blockers.push('SCANNER_MANIFEST_POLICY_MISMATCH');
@@ -162,6 +216,11 @@ function scannerExternalAccessPreflight(input = {}, options = {}) {
 
   const plannerMatches = (input.planner_items || []).filter(row => runId(row) === expectedRunId);
   const authorized = plannerMatches.filter(row => authorizedPlannerItem(row, expectedRunId));
+  for (const item of authorized) {
+    const plannedAtMs = timeValue(item, 'planned_at', 'plannedAt', 'Planned At');
+    if (plannedAtMs === null) blockers.push('SCANNER_PLANNER_PLANNED_AT_INVALID');
+    else if (Number.isFinite(evidenceAtMs) && plannedAtMs > evidenceAtMs) blockers.push('SCANNER_PLANNER_PLANNED_AFTER_EVIDENCE_SNAPSHOT');
+  }
   if (plannerMatches.length !== 1) blockers.push(`SCANNER_PLANNER_ITEM_NOT_EXACT1:${plannerMatches.length}`);
   if (authorized.length !== 1) blockers.push(`SCANNER_PLANNER_AUTHORIZED_NOT_EXACT1:${authorized.length}`);
 
