@@ -509,3 +509,83 @@ GitHub Actions secret HF_TOKEN is not configured for this repository/workflow co
 ```
 
 A future live UAT must first place a valid Hugging Face Inference Providers credential into the approved GitHub Actions secret named `HF_TOKEN`. The credential value must never be committed, logged, pasted into PR text, or written to Machine SOT.
+
+
+## V1.6 OIDC credential probe and keyless UAT hardening — 2026-09-18
+
+### Canonical UAT credential strategy changed
+
+The permanent manual workflow `.github/workflows/hf-event-assist-uat.yml` now prefers a short-lived Hugging Face token minted through GitHub Actions OIDC. A repository Actions secret named `HF_TOKEN` remains a fallback only.
+
+The workflow now requests:
+
+```text
+permissions:
+  contents: read
+  id-token: write
+```
+
+Credential order:
+1. if repository secret `HF_TOKEN` exists, use it;
+2. otherwise request a GitHub OIDC ID token with audience `https://huggingface.co`;
+3. exchange it at `https://huggingface.co/oauth/token` for the user resource `Mikesd1995`;
+4. mask the temporary token before exporting it to later steps;
+5. run readiness, then bounded benchmark.
+
+The OIDC token / exchanged HF token is never written to source, PR text, Machine SOT, or benchmark JSON.
+
+### Why OIDC is preferred
+
+Hugging Face current Trusted Publishers documentation supports account CI/CD identities that mint 60-minute user-scoped tokens. When `Allow Inference Providers calls` is enabled, exchanged tokens include the `inference-api` scope while remaining read-only for Hub resources. This removes the need to store a long-lived HF token in GitHub.
+
+### One-shot OIDC probe evidence
+
+A temporary branch-only OIDC probe was executed after full regression.
+
+GitHub Actions:
+- workflow: `HF Event Assist One-Shot OIDC UAT`
+- run ID: `35290217934`
+- head SHA: `3ece417fe7bf0ee97d03efaff255e34cf874fa41`
+
+Pre-exchange result:
+- syntax/regression: PASS
+- test count: `160`
+- passed: `160`
+- failed: `0`
+
+GitHub OIDC token acquisition succeeded far enough to perform the Hugging Face token exchange. Hugging Face rejected the exchange:
+
+```text
+HTTP 400
+error = invalid_grant
+error_description = No trusted publisher configured for user 'Mikesd1995' matching this OIDC token
+```
+
+Therefore:
+- readiness step: SKIPPED;
+- benchmark step: SKIPPED;
+- live Hugging Face inference calls: `0`;
+- Machine SOT writes: `0`;
+- final truth mutations: `0`;
+- notification sends: `0`.
+
+This proves the exact current blocker is Hugging Face account-side CI/CD identity configuration, not GitHub OIDC issuance, repository tests, benchmark code, or model selection.
+
+### Required Hugging Face CI/CD identity for the permanent workflow
+
+Configure the Hugging Face account Authentication → CI/CD Access entry for GitHub Actions and pin it to:
+
+```text
+GitHub repository: mikesd1995/kk-phone-rental-vercel
+branch: hf-event-assist-v1-20260918
+workflow: hf-event-assist-uat.yml
+Allow Inference Providers calls: enabled
+```
+
+The workflow should then receive a short-lived token with `inference-api` permission. Inference usage remains billed/rate-limited against the Hugging Face account.
+
+### One-shot cleanup
+
+The temporary OIDC push-trigger workflow was removed immediately after evidence capture. Only the manual `workflow_dispatch` controlled-UAT workflow remains as the intended execution surface.
+
+No production Scanner/Verifier/Canary task, policy, Machine SOT business row, Vercel production deployment, or notification transport was changed.
