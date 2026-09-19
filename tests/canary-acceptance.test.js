@@ -57,6 +57,7 @@ test('accepts scenario-specific zero-write synthetic proof with natural attribut
     run_id:'CANARY|20260919|0815|TEST',
     definition_snapshot_frozen:true,
     definition_snapshot_drift:false,
+    evidence_surface:{permission_snapshot_verified:true,anyone_writer:false,domain_writer:false,unexpected_writer_count:0},
     definitions:[definition()],
     workspace:[workspace()],
     provenance:provenance()
@@ -92,6 +93,7 @@ test('accepts definition-specific frozen marker without requiring expected-resul
     run_id:'CANARY|20260919|0815|TEST',
     definition_snapshot_frozen:true,
     definition_snapshot_drift:false,
+    evidence_surface:{permission_snapshot_verified:true,anyone_writer:false,domain_writer:false,unexpected_writer_count:0},
     definitions:[definition()],
     workspace:[ws],
     provenance:provenance()
@@ -112,6 +114,45 @@ test('requires explicit frozen definition snapshot and clean drift state',()=>{
   assert.ok(r.structural_errors.includes('DEFINITION_SNAPSHOT_DRIFT_STATE_NOT_CLEAN'));
 });
 
+
+test('broad anonymous writer permission makes Canary evidence surface untrusted',()=>{
+  const r=A.auditCanarySnapshot({
+    run_id:'CANARY|20260919|0815|TEST',
+    definition_snapshot_frozen:true,
+    definition_snapshot_drift:false,
+    evidence_surface:{
+      permission_snapshot_verified:true,
+      anyone_writer:true,
+      domain_writer:false,
+      unexpected_writer_count:0
+    },
+    definitions:[definition()],
+    workspace:[workspace()],
+    provenance:provenance()
+  });
+  assert.equal(r.structural_completeness,true);
+  assert.equal(r.scenario_specific_assertions,true);
+  assert.equal(r.zero_production_writes,true);
+  assert.equal(r.evidence_surface_trusted,false);
+  assert.equal(r.synthetic_acceptance,false);
+  assert.equal(r.classification,'CANARY_ASSERTION_PASS_EVIDENCE_SURFACE_UNTRUSTED');
+  assert.ok(r.evidence_surface_reasons.includes('EVIDENCE_SURFACE_ANYONE_WRITER'));
+});
+
+test('missing permission snapshot fails evidence-surface trust closed',()=>{
+  const r=A.auditCanarySnapshot({
+    run_id:'CANARY|20260919|0815|TEST',
+    definition_snapshot_frozen:true,
+    definition_snapshot_drift:false,
+    definitions:[definition()],
+    workspace:[workspace()],
+    provenance:provenance()
+  });
+  assert.equal(r.evidence_surface_trusted,false);
+  assert.equal(r.synthetic_acceptance,false);
+  assert.ok(r.evidence_surface_reasons.includes('EVIDENCE_SURFACE_PERMISSION_SNAPSHOT_UNVERIFIED'));
+});
+
 test('rejects the Sep18-style generic frozen boundary and safe-branch markers',()=>{
   const ws=workspace();
   ws.input_state='isolated current-run scenario branch for CANARY-01';
@@ -123,6 +164,7 @@ test('rejects the Sep18-style generic frozen boundary and safe-branch markers',(
     run_id:'CANARY|20260919|0815|TEST',
     definition_snapshot_frozen:true,
     definition_snapshot_drift:false,
+    evidence_surface:{permission_snapshot_verified:true,anyone_writer:false,domain_writer:false,unexpected_writer_count:0},
     definitions:[definition()],
     workspace:[ws],
     provenance:provenance()
@@ -146,6 +188,7 @@ test('rejects any production write count above zero',()=>{
     run_id:'CANARY|20260919|0815|TEST',
     definition_snapshot_frozen:true,
     definition_snapshot_drift:false,
+    evidence_surface:{permission_snapshot_verified:true,anyone_writer:false,domain_writer:false,unexpected_writer_count:0},
     definitions:[definition()],
     workspace:[ws],
     provenance:provenance()
@@ -178,6 +221,7 @@ test('requires exact enabled/workspace set equality',()=>{
     run_id:'CANARY|20260919|0815|TEST',
     definition_snapshot_frozen:true,
     definition_snapshot_drift:false,
+    evidence_surface:{permission_snapshot_verified:true,anyone_writer:false,domain_writer:false,unexpected_writer_count:0},
     definitions:[d1,d2],
     workspace:[workspace('CANARY-01')],
     provenance:provenance()
@@ -197,6 +241,7 @@ test('scenario-specific synthetic proof does not imply natural scheduler attribu
     run_id:'CANARY|20260919|0815|TEST',
     definition_snapshot_frozen:true,
     definition_snapshot_drift:false,
+    evidence_surface:{permission_snapshot_verified:true,anyone_writer:false,domain_writer:false,unexpected_writer_count:0},
     definitions:[definition()],
     workspace:[workspace()],
     provenance:p
@@ -237,6 +282,7 @@ test('actual decision cannot simply copy expected text',()=>{
     run_id:'CANARY|20260919|0815|TEST',
     definition_snapshot_frozen:true,
     definition_snapshot_drift:false,
+    evidence_surface:{permission_snapshot_verified:true,anyone_writer:false,domain_writer:false,unexpected_writer_count:0},
     definitions:[definition()],
     workspace:[ws],
     provenance:provenance()
@@ -252,6 +298,7 @@ test('synthetic entity must be bound to the enabled isolation namespace',()=>{
     run_id:'CANARY|20260919|0815|TEST',
     definition_snapshot_frozen:true,
     definition_snapshot_drift:false,
+    evidence_surface:{permission_snapshot_verified:true,anyone_writer:false,domain_writer:false,unexpected_writer_count:0},
     definitions:[definition()],
     workspace:[ws],
     provenance:provenance()
