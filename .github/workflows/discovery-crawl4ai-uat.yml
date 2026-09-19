@@ -1,0 +1,55 @@
+name: Discovery Crawl4AI UAT
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RUN_CRAWL4AI_ZERO_WRITE_UAT'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: discovery-crawl4ai-uat-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  crawl4ai-zero-write-uat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Require explicit zero-write confirmation
+        shell: bash
+        run: |
+          if [ "${{ inputs.confirm }}" != "RUN_CRAWL4AI_ZERO_WRITE_UAT" ]; then
+            echo "Confirmation mismatch"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Crawl4AI
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'crawl4ai==0.9.3'
+          crawl4ai-setup
+
+      - name: Crawl fixed official sources
+        run: python scripts/discovery-crawl4ai-uat.py
+
+      - name: Upload non-secret evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: discovery-crawl4ai-uat-${{ github.run_id }}
+          path: crawl4ai-uat-report.json
+          if-no-files-found: warn
+          retention-days: 14
