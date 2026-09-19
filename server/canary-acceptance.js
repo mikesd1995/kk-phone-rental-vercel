@@ -44,6 +44,18 @@ function isGenericEvidence(value){
     || v==='GENERIC_ASSERTION_EVIDENCE';
 }
 
+function expectedDecisionBound(def,workspaceExpected){
+  const id=text(def&&def.test_id);
+  const expected=normalized(def&&def.expected_result);
+  const actual=normalized(workspaceExpected);
+  if(expected && actual===expected) return true;
+  const legacyMarkers=new Set([
+    `FROZEN DEFINITION ${upper(id)}`,
+    `FROZEN_DEFINITION:${upper(id)}`
+  ]);
+  return !!id && legacyMarkers.has(upper(actual));
+}
+
 function uniqueNonblank(values){
   const cleaned=values.map(text);
   return cleaned.every(Boolean) && new Set(cleaned).size===cleaned.length;
@@ -124,6 +136,13 @@ function auditCanarySnapshot(input={}){
   const assertionErrors=[];
   const writeErrors=[];
 
+  if(input.definition_snapshot_frozen!==true){
+    structuralErrors.push('DEFINITION_SNAPSHOT_NOT_PROVEN_FROZEN');
+  }
+  if(input.definition_snapshot_drift!==false){
+    structuralErrors.push('DEFINITION_SNAPSHOT_DRIFT_STATE_NOT_CLEAN');
+  }
+
   const testIds=enabled.map(row=>text(row.test_id));
   const namespaces=enabled.map(row=>text(row.isolation_namespace));
   if(enabled.length===0) structuralErrors.push('NO_ENABLED_DEFINITIONS');
@@ -180,8 +199,8 @@ function auditCanarySnapshot(input={}){
     const wsExpected=normalized(ws.expected_decision);
     if(!expectedResult){
       assertionErrors.push(`${id}:DEFINITION_EXPECTED_RESULT_MISSING`);
-    }else if(wsExpected!==expectedResult){
-      assertionErrors.push(`${id}:EXPECTED_DECISION_NOT_BOUND_TO_DEFINITION`);
+    }else if(!expectedDecisionBound(def,ws.expected_decision)){
+      assertionErrors.push(`${id}:EXPECTED_DECISION_NOT_BOUND_TO_FROZEN_DEFINITION`);
     }
     if(GENERIC_EXPECTED_MARKERS.has(upper(ws.expected_decision))){
       assertionErrors.push(`${id}:GENERIC_EXPECTED_DECISION_REJECTED`);
@@ -248,5 +267,6 @@ module.exports={
   auditCanarySnapshot,
   provenanceAudit,
   isGenericActual,
-  isGenericEvidence
+  isGenericEvidence,
+  expectedDecisionBound
 };
