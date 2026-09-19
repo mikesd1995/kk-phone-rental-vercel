@@ -29,6 +29,78 @@ async function parseJsonSafe(response){
   }
 }
 
+function boundedLimit(value,fallback=24){
+  const n=Number(value);
+  if(!Number.isInteger(n) || n<1) return fallback;
+  return Math.min(n,200);
+}
+
+function serviceHeaders(env){
+  return {
+    apikey:env.SUPABASE_SERVICE_ROLE_KEY,
+    Authorization:`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+  };
+}
+
+async function listExpectations({
+  env=process.env,
+  fetchImpl=global.fetch,
+  role='SCANNER',
+  mode='WITNESS_ONLY',
+  limit=24
+}={}){
+  const cfg=configState(env);
+  if(!cfg.enabled){
+    throw Object.assign(new Error('runtime ledger is disabled'),{code:'RUNTIME_LEDGER_DISABLED'});
+  }
+  if(!cfg.configured){
+    throw Object.assign(new Error('runtime ledger is not configured'),{code:'RUNTIME_LEDGER_NOT_CONFIGURED'});
+  }
+  if(typeof fetchImpl!=='function'){
+    throw Object.assign(new Error('fetch implementation unavailable'),{code:'RUNTIME_LEDGER_FETCH_UNAVAILABLE'});
+  }
+
+  const safeRole=text(role).toUpperCase();
+  const safeMode=text(mode).toUpperCase();
+  if(!['SCANNER','VERIFIER'].includes(safeRole)){
+    throw Object.assign(new Error('unsupported runtime ledger role'),{code:'RUNTIME_LEDGER_ROLE_INVALID'});
+  }
+  if(!/^[A-Z0-9_]{3,64}$/.test(safeMode)){
+    throw Object.assign(new Error('runtime ledger mode invalid'),{code:'RUNTIME_LEDGER_MODE_INVALID'});
+  }
+
+  const params=new URLSearchParams({
+    select:'occurrence_id,role,scheduled_at,issued_at,source,trigger_version,nonce,payload_hash,status,mode,received_at',
+    role:`eq.${safeRole}`,
+    mode:`eq.${safeMode}`,
+    order:'scheduled_at.desc',
+    limit:String(boundedLimit(limit))
+  });
+  const endpoint=`${cfg.url}/rest/v1/kk_runtime_expectations?${params.toString()}`;
+  const response=await fetchImpl(endpoint,{
+    method:'GET',
+    headers:{
+      ...serviceHeaders(env),
+      Accept:'application/json'
+    }
+  });
+  const body=await parseJsonSafe(response);
+  if(!response.ok){
+    const error=Object.assign(new Error('runtime ledger read failed'),{
+      code:'RUNTIME_LEDGER_READ_FAILED',
+      status:response.status
+    });
+    if(body && typeof body==='object') error.remote_code=body.code||'';
+    throw error;
+  }
+  if(!Array.isArray(body)){
+    throw Object.assign(new Error('runtime ledger response was not an array'),{
+      code:'RUNTIME_LEDGER_RESPONSE_INVALID'
+    });
+  }
+  return {ok:true,rows:body};
+}
+
 async function recordExpectation({env=process.env,fetchImpl=global.fetch,row}){
   const cfg=configState(env);
   if(!cfg.enabled){
@@ -45,8 +117,7 @@ async function recordExpectation({env=process.env,fetchImpl=global.fetch,row}){
   const response=await fetchImpl(endpoint,{
     method:'POST',
     headers:{
-      apikey:env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization:`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      ...serviceHeaders(env),
       'Content-Type':'application/json',
       Prefer:'resolution=ignore-duplicates,return=representation'
     },
@@ -70,4 +141,4 @@ async function recordExpectation({env=process.env,fetchImpl=global.fetch,row}){
   };
 }
 
-module.exports={configState,recordExpectation};
+module.exports={configState,listExpectations,recordExpectation};
