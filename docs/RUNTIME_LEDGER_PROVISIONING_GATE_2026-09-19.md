@@ -23,6 +23,12 @@ The connected organization is `mikesd1995's projects`. Project creation must rem
 
 Supabase's 2026 Data API change requires explicit grants for newly created public tables as new-project defaults no longer auto-expose those tables. The staging schema therefore does not rely on default privileges.
 
+## Fresh-project requirement
+
+V1 is intentionally a one-time fresh-project provisioning script. If any KK runtime-ledger table already exists, the transaction aborts with `KK_RUNTIME_LEDGER_PROVISIONING_REQUIRES_FRESH_PROJECT`.
+
+This prevents `CREATE ... IF NOT EXISTS` from silently accepting an older, drifted, or partially provisioned schema.
+
 ## V1 least-privilege contract
 
 Before granting anything, the schema explicitly revokes table access from:
@@ -46,7 +52,8 @@ Append ledgers:
 - UPDATE/DELETE denied unless explicitly required by a later reviewed schema version
 
 Identity sequences:
-- only the three ledger-owned identity sequences receive `service_role` USAGE/SELECT
+- only the three ledger-owned identity sequences receive `service_role` USAGE
+- SELECT/UPDATE on those sequences remains denied
 - no `ALL SEQUENCES IN public` grant is allowed
 
 ## Data-integrity contract
