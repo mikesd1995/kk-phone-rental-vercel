@@ -4,7 +4,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {Readable}=require('node:stream');
 const Bridge=require('../server/admin-make-bridge.js');
-const Verify=require('../api/kk-admin-make-verify.js');
+const MakeGate=require('../server/admin-make-gate.js');
+const Verify=MakeGate.handleVerify;
 
 const KEY='test-api-key';
 const NOW=new Date('2026-09-20T03:00:00+07:00');
