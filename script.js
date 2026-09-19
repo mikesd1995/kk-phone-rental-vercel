@@ -473,7 +473,8 @@ function getDriveId(url){
   return "";
 }
 function getImgCandidates(url, size){
-  // FIX: size param — "thumb" = w600 (grid), "full" = w1200 (modal)
+  // Keep Drive thumbnail as the primary path because it is the proven production baseline.
+  // "thumb" = w600 (grid), "full" = w1200 (modal)
   var sz = size==="full" ? "w1200" : "w600";
   var s=String(url||"").trim(); if(!s)return [];
   var id=getDriveId(s);
@@ -484,18 +485,87 @@ function getImgCandidates(url, size){
   ];
   return [s];
 }
-function setImgFallback(img, urls){
-  urls=(urls||[]).filter(Boolean); var idx=0;
-  function next(){
-    if(idx>=urls.length){
-      if(img.id==="modal-poster-img"){ img.style.display="none"; return; }
-      var w=img.parentElement; img.remove();
-      if(w&&!w.querySelector(".poster-placeholder")){ var ph=document.createElement("div"); ph.className="poster-placeholder"; ph.innerHTML="<span>ยังไม่มีรูป</span>"; w.appendChild(ph); }
-      return;
-    }
-    img.style.display="block"; img.src=urls[idx++];
+function setImgFallbackWhenVisible(img, urls, options){
+  options=options||{};
+  if(typeof img._kkCancelImageVisibilityFallback==="function") img._kkCancelImageVisibilityFallback();
+  if(typeof IntersectionObserver==="undefined"){
+    setImgFallback(img,urls,options); return;
   }
-  img.onerror=function(){ next(); }; next();
+  var started=false;
+  var observer=new IntersectionObserver(function(entries){
+    for(var i=0;i<entries.length;i++){
+      if(entries[i].isIntersecting||entries[i].intersectionRatio>0){
+        if(started)return;
+        started=true;
+        observer.disconnect();
+        img._kkCancelImageVisibilityFallback=null;
+        setImgFallback(img,urls,options);
+        return;
+      }
+    }
+  },{rootMargin:options.rootMargin||"600px 0px"});
+  observer.observe(img);
+  img._kkCancelImageVisibilityFallback=function(){
+    if(!started) observer.disconnect();
+  };
+}
+
+function setImgFallback(img, urls, options){
+  options=options||{};
+  var seen={};
+  urls=(urls||[]).filter(function(url){
+    var v=String(url||"").trim();
+    if(!v||seen[v])return false;
+    seen[v]=true; return true;
+  });
+  var idx=0, attempt=0, timer=null, settled=false;
+  var timeoutMs=Math.max(1000,Number(options.timeoutMs||5000));
+
+  // Modal image is reused across events. Cancel any older timeout/handler chain first,
+  // otherwise a slow request from the previous event can overwrite the new poster.
+  if(typeof img._kkCancelImageFallback==="function") img._kkCancelImageFallback();
+
+  function clearTimer(){ if(timer){ clearTimeout(timer); timer=null; } }
+  function cancel(){
+    settled=true; clearTimer();
+    img.onerror=null; img.onload=null;
+  }
+  img._kkCancelImageFallback=cancel;
+
+  function exhausted(){
+    cancel();
+    if(img.id==="modal-poster-img"){ img.style.display="none"; return; }
+    var w=img.parentElement;
+    if(typeof img.remove==="function") img.remove();
+    if(w&&!w.querySelector(".poster-placeholder")){
+      var ph=document.createElement("div"); ph.className="poster-placeholder";
+      ph.innerHTML="<span>ยังไม่มีรูป</span>"; w.appendChild(ph);
+    }
+  }
+  function next(){
+    if(settled)return;
+    clearTimer();
+    if(idx>=urls.length){ exhausted(); return; }
+    var url=urls[idx++], token=++attempt;
+    img.style.display="block";
+    img.onload=function(){
+      if(settled||token!==attempt)return;
+      clearTimer(); settled=true;
+      img.onerror=null; img.onload=null;
+    };
+    img.onerror=function(){
+      if(settled||token!==attempt)return;
+      next();
+    };
+    img.src=url;
+    timer=setTimeout(function(){
+      if(settled||token!==attempt)return;
+      // Safari/iOS can leave a Google image request pending without firing onerror.
+      // Advance to the next candidate after a bounded wait.
+      next();
+    },timeoutMs);
+  }
+  next();
 }
 
 // ─── CSV + fetch ──────────────────────────────────────────────────────────
@@ -843,10 +913,11 @@ function renderConcerts(concerts){
 
   var grid=document.createElement("div"); grid.className="poster-grid";
 
-  // LCP improvement: preload รูปงานแรกครั้งเดียวต่อ URL
-  if(vis[0]&&vis[0].img&&!PRELOADED_IMAGES[vis[0].img]){
-    PRELOADED_IMAGES[vis[0].img]=true;
-    var lnk=document.createElement("link"); lnk.rel="preload"; lnk.as="image"; lnk.href=vis[0].img;
+  // LCP improvement: preload the same CDN candidate that the first card will use.
+  var firstPoster=vis[0]&&vis[0].imgThumb&&vis[0].imgThumb[0] ? vis[0].imgThumb[0] : (vis[0]&&vis[0].img ? vis[0].img : "");
+  if(firstPoster&&!PRELOADED_IMAGES[firstPoster]){
+    PRELOADED_IMAGES[firstPoster]=true;
+    var lnk=document.createElement("link"); lnk.rel="preload"; lnk.as="image"; lnk.href=firstPoster;
     document.head.appendChild(lnk);
   }
 
@@ -872,9 +943,19 @@ function renderConcerts(concerts){
     var imgUrl=c.img?String(c.img).trim():"";
     if(imgUrl){
       var img=document.createElement("img"); img.alt=c.name||"Event poster";
-      // FIX: ใช้ thumb candidates (w600) สำหรับ grid
-      img.loading=idx===0?"eager":"lazy"; img.decoding="async";
-      setImgFallback(img, c.imgThumb&&c.imgThumb.length?c.imgThumb:[imgUrl]); imgWrap.appendChild(img);
+      // Keep the first viewport worth of posters eager. Remaining cards stay lazy.
+      // Timeout failover handles Safari/iOS requests that remain pending without onerror.
+      img.loading=idx<6?"eager":"lazy"; img.decoding="async";
+      if("fetchPriority" in img) img.fetchPriority=idx<2?"high":"auto";
+      imgWrap.appendChild(img);
+      var imgCandidates=c.imgThumb&&c.imgThumb.length?c.imgThumb:[imgUrl];
+      if(idx<6){
+        setImgFallback(img,imgCandidates,{timeoutMs:4000});
+      }else{
+        // Do not start a timeout while a native-lazy image is still off-screen.
+        // Start the fallback chain when the card is near the viewport.
+        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px"});
+      }
     } else {
       var ph=document.createElement("div"); ph.className="poster-placeholder"; ph.innerHTML="<span>"+esc(tr("no_image"))+"</span>"; imgWrap.appendChild(ph);
     }
