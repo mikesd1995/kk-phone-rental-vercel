@@ -79,8 +79,47 @@ test('OIDC bridge remote auth failure remains zero-write and secret-safe',async(
   assert.doesNotMatch(JSON.stringify(result),/header\.payload\.signature/);
 });
 
-test('scanner dispatcher exposes OIDC probe without enabling Scanner or business writes',async()=>{
+test('scanner dispatcher keeps OIDC probe disabled by default and never invokes bridge',async()=>{
   const original=Bridge.probe;
+  let called=false;
+  Bridge.probe=async()=>{called=true;throw new Error('must not call');};
+  const previous=process.env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED;
+  delete process.env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED;
+  try{
+    const req={
+      method:'GET',
+      query:{probe:'ledger-oidc'},
+      headers:{},
+      url:'/api/kk-scanner-dispatch?probe=ledger-oidc'
+    };
+    let status=0;
+    let body='';
+    const res={
+      set statusCode(value){status=value;},
+      get statusCode(){return status;},
+      setHeader(){},
+      end(v){body=String(v||'');}
+    };
+    await Handler(req,res);
+    const parsed=JSON.parse(body);
+    assert.equal(status,503);
+    assert.equal(parsed.ok,false);
+    assert.equal(parsed.data.runtime_ledger_oidc_probe_enabled,false);
+    assert.equal(parsed.runtime_ledger_oidc_probe.attempted,false);
+    assert.equal(parsed.runtime_ledger_oidc_probe.error_code,'OIDC_PROBE_DISABLED');
+    assert.equal(parsed.runtime_ledger_oidc_probe.business_writes,0);
+    assert.equal(called,false);
+  }finally{
+    Bridge.probe=original;
+    if(previous===undefined) delete process.env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED;
+    else process.env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED=previous;
+  }
+});
+
+test('scanner dispatcher exposes explicitly enabled OIDC probe without enabling Scanner or business writes',async()=>{
+  const original=Bridge.probe;
+  const previous=process.env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED;
+  process.env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED='true';
   Bridge.probe=async()=>({
     attempted:true,
     ok:true,
@@ -117,6 +156,8 @@ test('scanner dispatcher exposes OIDC probe without enabling Scanner or business
     assert.equal(parsed.runtime_ledger_oidc_probe.business_writes,0);
   }finally{
     Bridge.probe=original;
+    if(previous===undefined) delete process.env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED;
+    else process.env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED=previous;
   }
 });
 
@@ -132,9 +173,19 @@ test('Supabase Edge Function contract is exact-production, read-only and secret-
   assert.match(source,/ENVIRONMENT = "production"/);
   assert.match(source,/npm:jose@6\.2\.4/);
   assert.match(source,/SUPABASE_SECRET_KEYS/);
+  assert.match(source,/OIDC_REQUEST_CONTRACT_INVALID/);
+  assert.match(source,/body\?\.probe === "runtime-ledger"/);
+  assert.match(source,/body\?\.version === "v1"/);
   assert.match(source,/method: "GET"/);
   assert.match(source,/limit: "1"/);
   assert.match(source,/business_writes: 0/g);
   assert.doesNotMatch(source,/method:\s*"(?:POST|PUT|PATCH|DELETE)"[\s\S]*rest\/v1\/kk_runtime_expectations/i);
   assert.doesNotMatch(source,/insert\s*\(|update\s*\(|delete\s*\(/i);
+
+  const config=fs.readFileSync(
+    path.join(__dirname,'..','supabase','config.toml'),
+    'utf8'
+  );
+  assert.match(config,/\[functions\.kk-runtime-ledger-oidc-probe\]/);
+  assert.match(config,/verify_jwt\s*=\s*false/);
 });
