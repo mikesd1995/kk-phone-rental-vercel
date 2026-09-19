@@ -15,6 +15,7 @@ const ALLOWED_ISSUERS = new Set([
 ]);
 const JWKS = createRemoteJWKSet(
   new URL("https://oidc.vercel.com/.well-known/jwks"),
+  { timeoutDuration: 3000 },
 );
 
 function json(status: number, body: Record<string, unknown>) {
@@ -124,6 +125,7 @@ async function boundedLedgerRead() {
         apikey: key,
         Accept: "application/json",
       },
+      signal: AbortSignal.timeout(3000),
     },
   );
   if (!response.ok) {
