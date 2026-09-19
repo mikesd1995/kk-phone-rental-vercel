@@ -97,9 +97,13 @@ begin
       raise exception 'KK_RUNTIME_LEDGER_VERIFY: missing sequence public.%', seq_name;
     end if;
 
-    if not has_sequence_privilege('service_role', 'public.' || seq_name, 'USAGE')
-       or not has_sequence_privilege('service_role', 'public.' || seq_name, 'SELECT') then
-      raise exception 'KK_RUNTIME_LEDGER_VERIFY: service_role sequence grants missing on public.%', seq_name;
+    if not has_sequence_privilege('service_role', 'public.' || seq_name, 'USAGE') then
+      raise exception 'KK_RUNTIME_LEDGER_VERIFY: service_role sequence USAGE missing on public.%', seq_name;
+    end if;
+
+    if has_sequence_privilege('service_role', 'public.' || seq_name, 'SELECT')
+       or has_sequence_privilege('service_role', 'public.' || seq_name, 'UPDATE') then
+      raise exception 'KK_RUNTIME_LEDGER_VERIFY: service_role sequence privilege broader than USAGE on public.%', seq_name;
     end if;
 
     if has_sequence_privilege('anon', 'public.' || seq_name, 'USAGE')
