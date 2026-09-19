@@ -4,7 +4,19 @@
 
 begin;
 
-create table if not exists public.kk_runtime_expectations (
+-- Fresh dedicated-project gate. Never silently reuse or partially overlay an existing ledger.
+do $
+begin
+  if to_regclass('public.kk_runtime_expectations') is not null
+     or to_regclass('public.kk_runtime_observations') is not null
+     or to_regclass('public.kk_task_state_events') is not null
+     or to_regclass('public.kk_control_plane_incidents') is not null then
+    raise exception 'KK_RUNTIME_LEDGER_PROVISIONING_REQUIRES_FRESH_PROJECT';
+  end if;
+end
+$;
+
+create table public.kk_runtime_expectations (
   occurrence_id text primary key,
   role text not null check (role in ('SCANNER','VERIFIER')),
   scheduled_at timestamptz not null,
@@ -13,7 +25,7 @@ create table if not exists public.kk_runtime_expectations (
   trigger_version text not null,
   nonce text not null check (nonce ~ '^[-A-Za-z0-9_:.]{16,128}
 
-create table if not exists public.kk_runtime_observations (
+create table public.kk_runtime_observations (
   id bigint generated always as identity primary key,
   occurrence_id text not null references public.kk_runtime_expectations(occurrence_id) on delete restrict,
   observed_at timestamptz not null default now(),
@@ -24,7 +36,7 @@ create table if not exists public.kk_runtime_observations (
   details jsonb not null default '{}'::jsonb
 );
 
-create table if not exists public.kk_task_state_events (
+create table public.kk_task_state_events (
   id bigint generated always as identity primary key,
   task_id text not null,
   role text not null check (role in ('SCANNER','VERIFIER','CANARY','OTHER')),
@@ -37,7 +49,7 @@ create table if not exists public.kk_task_state_events (
   evidence_hash text check (evidence_hash is null or evidence_hash ~ '^[0-9a-f]{64}$')
 );
 
-create table if not exists public.kk_control_plane_incidents (
+create table public.kk_control_plane_incidents (
   id bigint generated always as identity primary key,
   incident_key text not null unique,
   role text not null check (role in ('SCANNER','VERIFIER','CANARY','CONTROL')),
@@ -51,13 +63,13 @@ create table if not exists public.kk_control_plane_incidents (
   recorded_at timestamptz not null default now()
 );
 
-create index if not exists kk_runtime_observations_occurrence_idx
+create index kk_runtime_observations_occurrence_idx
   on public.kk_runtime_observations (occurrence_id, observed_at);
 
-create index if not exists kk_task_state_events_role_time_idx
+create index kk_task_state_events_role_time_idx
   on public.kk_task_state_events (role, observed_at desc);
 
-create index if not exists kk_control_plane_incidents_time_idx
+create index kk_control_plane_incidents_time_idx
   on public.kk_control_plane_incidents (occurred_at desc);
 
 alter table public.kk_runtime_expectations enable row level security;
@@ -86,9 +98,9 @@ revoke all on sequence public.kk_runtime_observations_id_seq from public, anon, 
 revoke all on sequence public.kk_task_state_events_id_seq from public, anon, authenticated, service_role;
 revoke all on sequence public.kk_control_plane_incidents_id_seq from public, anon, authenticated, service_role;
 
-grant usage, select on sequence public.kk_runtime_observations_id_seq to service_role;
-grant usage, select on sequence public.kk_task_state_events_id_seq to service_role;
-grant usage, select on sequence public.kk_control_plane_incidents_id_seq to service_role;
+grant usage on sequence public.kk_runtime_observations_id_seq to service_role;
+grant usage on sequence public.kk_task_state_events_id_seq to service_role;
+grant usage on sequence public.kk_control_plane_incidents_id_seq to service_role;
 
 comment on table public.kk_runtime_expectations is
   'External clock expectations for KK control-plane occurrences. No business truth.';
@@ -103,7 +115,7 @@ commit;
 ),
   payload_hash text not null check (payload_hash ~ '^[0-9a-f]{64}
 
-create table if not exists public.kk_runtime_observations (
+create table public.kk_runtime_observations (
   id bigint generated always as identity primary key,
   occurrence_id text not null references public.kk_runtime_expectations(occurrence_id) on delete restrict,
   observed_at timestamptz not null default now(),
@@ -114,7 +126,7 @@ create table if not exists public.kk_runtime_observations (
   details jsonb not null default '{}'::jsonb
 );
 
-create table if not exists public.kk_task_state_events (
+create table public.kk_task_state_events (
   id bigint generated always as identity primary key,
   task_id text not null,
   role text not null check (role in ('SCANNER','VERIFIER','CANARY','OTHER')),
@@ -127,7 +139,7 @@ create table if not exists public.kk_task_state_events (
   evidence_hash text check (evidence_hash is null or evidence_hash ~ '^[0-9a-f]{64}$')
 );
 
-create table if not exists public.kk_control_plane_incidents (
+create table public.kk_control_plane_incidents (
   id bigint generated always as identity primary key,
   incident_key text not null unique,
   role text not null check (role in ('SCANNER','VERIFIER','CANARY','CONTROL')),
@@ -141,13 +153,13 @@ create table if not exists public.kk_control_plane_incidents (
   recorded_at timestamptz not null default now()
 );
 
-create index if not exists kk_runtime_observations_occurrence_idx
+create index kk_runtime_observations_occurrence_idx
   on public.kk_runtime_observations (occurrence_id, observed_at);
 
-create index if not exists kk_task_state_events_role_time_idx
+create index kk_task_state_events_role_time_idx
   on public.kk_task_state_events (role, observed_at desc);
 
-create index if not exists kk_control_plane_incidents_time_idx
+create index kk_control_plane_incidents_time_idx
   on public.kk_control_plane_incidents (occurred_at desc);
 
 alter table public.kk_runtime_expectations enable row level security;
@@ -185,7 +197,7 @@ commit;
   unique (nonce)
 );
 
-create table if not exists public.kk_runtime_observations (
+create table public.kk_runtime_observations (
   id bigint generated always as identity primary key,
   occurrence_id text not null references public.kk_runtime_expectations(occurrence_id) on delete restrict,
   observed_at timestamptz not null default now(),
@@ -196,7 +208,7 @@ create table if not exists public.kk_runtime_observations (
   details jsonb not null default '{}'::jsonb
 );
 
-create table if not exists public.kk_task_state_events (
+create table public.kk_task_state_events (
   id bigint generated always as identity primary key,
   task_id text not null,
   role text not null check (role in ('SCANNER','VERIFIER','CANARY','OTHER')),
@@ -209,7 +221,7 @@ create table if not exists public.kk_task_state_events (
   evidence_hash text check (evidence_hash is null or evidence_hash ~ '^[0-9a-f]{64}$')
 );
 
-create table if not exists public.kk_control_plane_incidents (
+create table public.kk_control_plane_incidents (
   id bigint generated always as identity primary key,
   incident_key text not null unique,
   role text not null check (role in ('SCANNER','VERIFIER','CANARY','CONTROL')),
@@ -223,13 +235,13 @@ create table if not exists public.kk_control_plane_incidents (
   recorded_at timestamptz not null default now()
 );
 
-create index if not exists kk_runtime_observations_occurrence_idx
+create index kk_runtime_observations_occurrence_idx
   on public.kk_runtime_observations (occurrence_id, observed_at);
 
-create index if not exists kk_task_state_events_role_time_idx
+create index kk_task_state_events_role_time_idx
   on public.kk_task_state_events (role, observed_at desc);
 
-create index if not exists kk_control_plane_incidents_time_idx
+create index kk_control_plane_incidents_time_idx
   on public.kk_control_plane_incidents (occurred_at desc);
 
 alter table public.kk_runtime_expectations enable row level security;
