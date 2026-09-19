@@ -75,6 +75,26 @@ function isoMs(value){
   return Number.isFinite(ms)?ms:null;
 }
 
+function evidenceSurfaceAudit(surface={}){
+  const reasons=[];
+  const verified=surface.permission_snapshot_verified===true;
+  const anyoneWriter=surface.anyone_writer===true;
+  const domainWriter=surface.domain_writer===true;
+  const unexpectedWriterCount=Number(surface.unexpected_writer_count);
+
+  if(!verified) reasons.push('EVIDENCE_SURFACE_PERMISSION_SNAPSHOT_UNVERIFIED');
+  if(anyoneWriter) reasons.push('EVIDENCE_SURFACE_ANYONE_WRITER');
+  if(domainWriter) reasons.push('EVIDENCE_SURFACE_DOMAIN_WRITER');
+  if(Number.isFinite(unexpectedWriterCount) && unexpectedWriterCount>0){
+    reasons.push('EVIDENCE_SURFACE_UNEXPECTED_WRITER');
+  }
+
+  return {
+    trusted:reasons.length===0,
+    reasons
+  };
+}
+
 function provenanceAudit(provenance={},runId=''){
   const reasons=[];
   const taskId=text(provenance.task_id);
@@ -230,12 +250,18 @@ function auditCanarySnapshot(input={}){
   const structuralCompleteness=structuralErrors.length===0;
   const zeroProductionWrites=writeErrors.length===0;
   const scenarioSpecificAssertions=assertionErrors.length===0;
-  const syntheticAcceptance=structuralCompleteness && zeroProductionWrites && scenarioSpecificAssertions;
+  const evidenceSurface=evidenceSurfaceAudit(input.evidence_surface||{});
+  const syntheticAcceptance=structuralCompleteness &&
+    zeroProductionWrites &&
+    scenarioSpecificAssertions &&
+    evidenceSurface.trusted;
 
   const provenance=provenanceAudit(input.provenance||{},runId);
   let classification='CANARY_ACCEPTANCE_FAIL';
   if(structuralCompleteness && zeroProductionWrites && !scenarioSpecificAssertions){
     classification='CANARY_STRUCTURAL_PASS_ASSERTION_EVIDENCE_REJECTED';
+  }else if(structuralCompleteness && zeroProductionWrites && scenarioSpecificAssertions && !evidenceSurface.trusted){
+    classification='CANARY_ASSERTION_PASS_EVIDENCE_SURFACE_UNTRUSTED';
   }else if(syntheticAcceptance && !provenance.natural_runtime_attribution){
     classification='CANARY_SYNTHETIC_ACCEPTED_RUNTIME_UNATTRIBUTED';
   }else if(syntheticAcceptance && provenance.natural_runtime_attribution){
@@ -250,6 +276,8 @@ function auditCanarySnapshot(input={}){
     structural_completeness:structuralCompleteness,
     scenario_specific_assertions:scenarioSpecificAssertions,
     zero_production_writes:zeroProductionWrites,
+    evidence_surface_trusted:evidenceSurface.trusted,
+    evidence_surface_reasons:evidenceSurface.reasons,
     synthetic_acceptance:syntheticAcceptance,
     natural_runtime_attribution:provenance.natural_runtime_attribution,
     classification,
@@ -268,5 +296,6 @@ module.exports={
   provenanceAudit,
   isGenericActual,
   isGenericEvidence,
-  expectedDecisionBound
+  expectedDecisionBound,
+  evidenceSurfaceAudit
 };
