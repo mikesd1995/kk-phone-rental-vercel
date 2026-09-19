@@ -10,7 +10,7 @@ test('CSV parser preserves quoted commas and escaped quotes',()=>{
 
 test('rowsAsObjects locates a header below title rows',()=>{
   const rows=F.rowsAsObjects('"title"\n\n"id","name"\n"1","A"\n','id');
-  assert.equal(rows.length,1); assert.equal(rows[0].id,'1'); assert.equal(rows[0].name,'A');
+  assert.equal(rows.length,1); assert.equal(rows[0].id,'1'); assert.equal(rows[0].name,'A'); assert.equal(rows[0].__row_number,4);
 });
 
 
@@ -58,4 +58,11 @@ test('buildFromRaw creates required arrays and forces degraded read-only mode',(
 test('buildSnapshot rejects HTML or missing schema through mocked GViz reads',async()=>{
   const fetchImpl=async(url)=>({ok:true,status:200,text:async()=>url.includes('01_Events')?'<html>login</html>':'"x"\n'});
   await assert.rejects(()=>F.buildSnapshot({sheetId:'sheet',fetchImpl}),/returned HTML|schema header/i);
+});
+
+
+test('range-aligned row numbers preserve physical Sheet coordinates',()=>{
+  const rows=F.rowsAsObjects('\"booking_id\",\"event_id\"\n\"BK1\",\"EV1\"\n\"BK2\",\"EV2\"\n','booking_id',4);
+  assert.equal(rows[0].__row_number,5);
+  assert.equal(rows[1].__row_number,6);
 });
