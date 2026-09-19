@@ -1169,7 +1169,9 @@
   }
 
   async function api(action, payload={}){
-    if(snapshotState.stale && !["snapshot","snapshotHealth","systemHealth","phase1Health"].includes(action)) throw new Error("ข้อมูลเก่า: กรุณา Refresh ให้สำเร็จก่อนบันทึก");
+    const readOnlyActions=["snapshot","snapshotHealth","systemHealth","phase1Health"];
+    if(state.data && state.data.degraded_read_only && !readOnlyActions.includes(action)) throw new Error("ระบบอยู่ในโหมดอ่านอย่างเดียวชั่วคราว เพราะ Apps Script ยังไม่พร้อม — ดูข้อมูลได้ แต่การบันทึก/แก้ไขถูกปิดเพื่อความปลอดภัย");
+    if(snapshotState.stale && !readOnlyActions.includes(action)) throw new Error("ข้อมูลเก่า: กรุณา Refresh ให้สำเร็จก่อนบันทึก");
     const maxAttempts=action==="snapshot" ? 2 : 1;
     let lastError=null;
     for(let attempt=1; attempt<=maxAttempts; attempt++){
@@ -1692,7 +1694,8 @@
     const counts=h ? Object.entries(h.counts).map(([k,v])=>k+": "+(v===null?"invalid":v)).join(" · ") : "";
     el.hidden=false;
     el.style.borderColor=snapshotState.stale ? "#dc2626" : "#64748b";
-    el.textContent=(snapshotState.stale ? (state.data ? "กำลังแสดง Last Known Good Snapshot — ข้อมูลเก่า ห้ามใช้ยืนยันความว่างจน Refresh สำเร็จ" : "โหลด Snapshot ไม่สำเร็จ — ยังยืนยันไม่ได้ว่าระบบไม่มีข้อมูล") : "Snapshot ล่าสุดผ่านการตรวจ")+
+    const degraded=!!(state.data && state.data.degraded_read_only);
+    el.textContent=(snapshotState.stale ? (state.data ? "กำลังแสดง Last Known Good Snapshot — ข้อมูลเก่า ห้ามใช้ยืนยันความว่างจน Refresh สำเร็จ" : "โหลด Snapshot ไม่สำเร็จ — ยังยืนยันไม่ได้ว่าระบบไม่มีข้อมูล") : (degraded ? "โหมดอ่านอย่างเดียว — โหลดข้อมูลตรงจาก Google Sheet สำเร็จ แต่การบันทึกถูกปิดจนกว่า Apps Script จะกลับมา" : "Snapshot ล่าสุดผ่านการตรวจ"))+
       " | สำเร็จล่าสุด: "+(snapshotState.goodAt ? new Date(snapshotState.goodAt).toLocaleString("th-TH") : "ยังไม่มี")+
       " | เวลาเรียกจริง: "+(snapshotState.latencyMs ?? "-")+" ms | "+counts+
       (snapshotState.error ? " | "+snapshotState.error : "")+
