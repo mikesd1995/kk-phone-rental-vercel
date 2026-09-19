@@ -485,6 +485,31 @@ function getImgCandidates(url, size){
   ];
   return [s];
 }
+function setImgFallbackWhenVisible(img, urls, options){
+  options=options||{};
+  if(typeof img._kkCancelImageVisibilityFallback==="function") img._kkCancelImageVisibilityFallback();
+  if(typeof IntersectionObserver==="undefined"){
+    setImgFallback(img,urls,options); return;
+  }
+  var started=false;
+  var observer=new IntersectionObserver(function(entries){
+    for(var i=0;i<entries.length;i++){
+      if(entries[i].isIntersecting||entries[i].intersectionRatio>0){
+        if(started)return;
+        started=true;
+        observer.disconnect();
+        img._kkCancelImageVisibilityFallback=null;
+        setImgFallback(img,urls,options);
+        return;
+      }
+    }
+  },{rootMargin:options.rootMargin||"600px 0px"});
+  observer.observe(img);
+  img._kkCancelImageVisibilityFallback=function(){
+    if(!started) observer.disconnect();
+  };
+}
+
 function setImgFallback(img, urls, options){
   options=options||{};
   var seen={};
@@ -922,8 +947,15 @@ function renderConcerts(concerts){
       // Timeout failover handles Safari/iOS requests that remain pending without onerror.
       img.loading=idx<6?"eager":"lazy"; img.decoding="async";
       if("fetchPriority" in img) img.fetchPriority=idx<2?"high":"auto";
-      setImgFallback(img, c.imgThumb&&c.imgThumb.length?c.imgThumb:[imgUrl], {timeoutMs:idx<6?4000:6000});
       imgWrap.appendChild(img);
+      var imgCandidates=c.imgThumb&&c.imgThumb.length?c.imgThumb:[imgUrl];
+      if(idx<6){
+        setImgFallback(img,imgCandidates,{timeoutMs:4000});
+      }else{
+        // Do not start a timeout while a native-lazy image is still off-screen.
+        // Start the fallback chain when the card is near the viewport.
+        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px"});
+      }
     } else {
       var ph=document.createElement("div"); ph.className="poster-placeholder"; ph.innerHTML="<span>"+esc(tr("no_image"))+"</span>"; imgWrap.appendChild(ph);
     }

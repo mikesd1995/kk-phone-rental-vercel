@@ -12,13 +12,21 @@ function extractFunction(name,nextMarker){
   assert.notEqual(end,-1,'missing next marker after '+name);
   return source.slice(start,end);
 }
-const sandbox={setTimeout,clearTimeout,encodeURIComponent,console,document:{
+let observerInstance=null;
+class FakeIntersectionObserver{
+  constructor(cb,options){this.cb=cb;this.options=options;this.disconnected=false;observerInstance=this;}
+  observe(img){this.img=img;}
+  disconnect(){this.disconnected=true;}
+  trigger(isIntersecting){this.cb([{isIntersecting,intersectionRatio:isIntersecting?1:0,target:this.img}]);}
+}
+const sandbox={setTimeout,clearTimeout,encodeURIComponent,console,IntersectionObserver:FakeIntersectionObserver,document:{
   createElement(){return {className:'',innerHTML:''};}
 }};
 vm.createContext(sandbox);
 vm.runInContext(
   extractFunction('getDriveId','function getImgCandidates')+
-  extractFunction('getImgCandidates','function setImgFallback')+
+  extractFunction('getImgCandidates','function setImgFallbackWhenVisible')+
+  extractFunction('setImgFallbackWhenVisible','function setImgFallback')+
   extractFunction('setImgFallback','\n\n// ─── CSV'),
   sandbox
 );
@@ -77,8 +85,24 @@ test('reusing one image element cancels the previous fallback chain',async()=>{
   img._kkCancelImageFallback();
 });
 
-test('storefront renders first six posters eagerly and aligns preload with first thumb candidate',()=>{
+test('lazy fallback does not start timeout chain until image approaches viewport',async()=>{
+  const img=fakeImg();
+  observerInstance=null;
+  sandbox.setImgFallbackWhenVisible(img,['lazy-a','lazy-b'],{timeoutMs:1000,rootMargin:'600px 0px'});
+  assert.ok(observerInstance);
+  assert.equal(img.src,'');
+  await sleep(1050);
+  assert.equal(img.src,'');
+  observerInstance.trigger(true);
+  assert.equal(img.src,'lazy-a');
+  await sleep(1050);
+  assert.equal(img.src,'lazy-b');
+  img._kkCancelImageFallback();
+});
+
+test('storefront renders first six posters eagerly and defers timeout chain for later cards',()=>{
   assert.match(source,/img\.loading=idx<6\?"eager":"lazy"/);
   assert.match(source,/firstPoster=vis\[0\].*imgThumb\[0\]/);
-  assert.match(source,/timeoutMs:idx<6\?4000:6000/);
+  assert.match(source,/if\(idx<6\)[\s\S]*setImgFallback\(img,imgCandidates,\{timeoutMs:4000\}\)/);
+  assert.match(source,/setImgFallbackWhenVisible\(img,imgCandidates,\{timeoutMs:6000,rootMargin:"600px 0px"\}\)/);
 });
