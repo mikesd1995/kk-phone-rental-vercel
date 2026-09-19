@@ -15,6 +15,7 @@ test('OIDC bridge endpoint is pinned to canonical runtime-ledger project',()=>{
     Bridge.endpoint(),
     'https://zehlsagzrpromtfqqflt.supabase.co/functions/v1/kk-runtime-ledger-oidc-probe'
   );
+  assert.equal(Bridge.OIDC_BRIDGE_TIMEOUT_MS,4000);
 });
 
 test('missing Vercel OIDC token fails closed before network access',async()=>{
@@ -58,6 +59,7 @@ test('OIDC bridge forwards token only in Authorization header and returns aggreg
   assert.equal(result.business_writes,0);
   assert.equal(captured.options.method,'POST');
   assert.equal(captured.options.headers.Authorization,`Bearer ${TOKEN}`);
+  assert.ok(captured.options.signal instanceof AbortSignal);
   assert.doesNotMatch(captured.url,/header\.payload\.signature/);
   assert.doesNotMatch(JSON.stringify(result),/header\.payload\.signature/);
 });
@@ -172,6 +174,8 @@ test('Supabase Edge Function contract is exact-production, read-only and secret-
   assert.match(source,/PROJECT_ID = "prj_snbAmpya7YGmOuMbv1o8T16ouxl6"/);
   assert.match(source,/ENVIRONMENT = "production"/);
   assert.match(source,/npm:jose@6\.2\.4/);
+  assert.match(source,/timeoutDuration:\s*3000/);
+  assert.match(source,/AbortSignal\.timeout\(3000\)/);
   assert.match(source,/SUPABASE_SECRET_KEYS/);
   assert.match(source,/OIDC_REQUEST_CONTRACT_INVALID/);
   assert.match(source,/body\?\.probe === "runtime-ledger"/);
