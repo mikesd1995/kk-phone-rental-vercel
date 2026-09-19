@@ -8,6 +8,8 @@ test('private values parser locates header and rows',()=>{
   assert.equal(rows.length,1);
   assert.equal(rows[0].id,'1');
   assert.equal(rows[0].name,'A');
+  assert.equal(rows[0].__row_number,4);
+  assert.equal(rows[0].__row_number,4);
 });
 
 test('private-reader-required fails closed when credentials are absent',async()=>{
@@ -42,4 +44,10 @@ test('public reader remains transitional fallback when private reader is absent'
   assert.equal(s.snapshot_source,'direct-sheet-gviz-readonly-fallback');
   assert.equal(s.fallback_private_attempted,false);
   assert.equal(s.degraded_read_only,true);
+});
+
+
+test('private parser maps physical rows from a ranged read',()=>{
+  const rows=F.valuesAsObjects([['booking_id','event_id'],['BK1','EV1']],'booking_id',4);
+  assert.equal(rows[0].__row_number,5);
 });
