@@ -6,7 +6,8 @@ const L=require('../server/runtime-ledger');
 
 const env={
   KK_RUNTIME_LEDGER_ENABLED:'true',
-  SUPABASE_URL:'https://example.supabase.co',
+  KK_RUNTIME_LEDGER_PROJECT_REF:'zehlsagzrpromtfqqflt',
+  SUPABASE_URL:'https://zehlsagzrpromtfqqflt.supabase.co',
   SUPABASE_SECRET_KEY:'sb_secret_server-only-test-key'
 };
 
@@ -30,9 +31,57 @@ test('runtime ledger stays disabled unless explicitly enabled',()=>{
 });
 
 test('runtime ledger requires Supabase URL plus a server-only credential',()=>{
-  const s=L.configState({KK_RUNTIME_LEDGER_ENABLED:'true',SUPABASE_URL:'https://example.supabase.co'});
+  const s=L.configState({
+    KK_RUNTIME_LEDGER_ENABLED:'true',
+    KK_RUNTIME_LEDGER_PROJECT_REF:'zehlsagzrpromtfqqflt',
+    SUPABASE_URL:'https://zehlsagzrpromtfqqflt.supabase.co'
+  });
   assert.equal(s.enabled,true);
   assert.equal(s.configured,false);
+});
+
+test('runtime ledger project ref binding is required',()=>{
+  const s=L.configState({
+    KK_RUNTIME_LEDGER_ENABLED:'true',
+    SUPABASE_URL:'https://zehlsagzrpromtfqqflt.supabase.co',
+    SUPABASE_SECRET_KEY:'sb_secret_server-only'
+  });
+  assert.equal(s.project_ref_configured,false);
+  assert.equal(s.project_binding_matches,false);
+  assert.equal(s.configured,false);
+});
+
+test('runtime ledger fails closed when Supabase URL project ref mismatches canonical binding',()=>{
+  const s=L.configState({
+    KK_RUNTIME_LEDGER_ENABLED:'true',
+    KK_RUNTIME_LEDGER_PROJECT_REF:'zehlsagzrpromtfqqflt',
+    SUPABASE_URL:'https://unxangvmhjtlqmiiuurw.supabase.co',
+    SUPABASE_SECRET_KEY:'sb_secret_server-only'
+  });
+  assert.equal(s.project_ref_configured,true);
+  assert.equal(s.url_project_ref_resolved,true);
+  assert.equal(s.project_binding_matches,false);
+  assert.equal(s.configured,false);
+});
+
+test('runtime ledger fails closed when Supabase URL host cannot resolve a project ref',()=>{
+  const s=L.configState({
+    KK_RUNTIME_LEDGER_ENABLED:'true',
+    KK_RUNTIME_LEDGER_PROJECT_REF:'zehlsagzrpromtfqqflt',
+    SUPABASE_URL:'https://example.invalid',
+    SUPABASE_SECRET_KEY:'sb_secret_server-only'
+  });
+  assert.equal(s.url_project_ref_resolved,false);
+  assert.equal(s.project_binding_matches,false);
+  assert.equal(s.configured,false);
+});
+
+test('runtime ledger resolves canonical Supabase project ref from URL',()=>{
+  assert.equal(
+    L.projectRefFromUrl('https://zehlsagzrpromtfqqflt.supabase.co/'),
+    'zehlsagzrpromtfqqflt'
+  );
+  assert.equal(L.projectRefFromUrl('not a url'),'');
 });
 
 test('new Supabase secret key is preferred over legacy service_role key',()=>{
@@ -139,6 +188,25 @@ test('witness expectation read rejects unsupported role before network access',a
       fetchImpl:async()=>{ called=true; throw new Error('must not fetch'); }
     }),
     err=>err.code==='RUNTIME_LEDGER_ROLE_INVALID'
+  );
+  assert.equal(called,false);
+});
+
+
+test('runtime ledger binding mismatch prevents network access',async()=>{
+  let called=false;
+  await assert.rejects(
+    L.recordExpectation({
+      env:{
+        KK_RUNTIME_LEDGER_ENABLED:'true',
+        KK_RUNTIME_LEDGER_PROJECT_REF:'zehlsagzrpromtfqqflt',
+        SUPABASE_URL:'https://unxangvmhjtlqmiiuurw.supabase.co',
+        SUPABASE_SECRET_KEY:'sb_secret_server-only'
+      },
+      fetchImpl:async()=>{ called=true; throw new Error('must not fetch'); },
+      row
+    }),
+    err=>err.code==='RUNTIME_LEDGER_NOT_CONFIGURED'
   );
   assert.equal(called,false);
 });
