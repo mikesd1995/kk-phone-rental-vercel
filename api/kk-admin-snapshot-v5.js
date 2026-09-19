@@ -181,6 +181,9 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
     health.warnings = Array.isArray(health.warnings) ? health.warnings : [];
     health.warnings.push('Apps Script unavailable; Admin is using direct Google Sheet read-only fallback. All writes are blocked until Apps Script recovery.');
     if (trigger && trigger.code) health.warnings.push('Fallback trigger: ' + String(trigger.code));
+    health.fallback_reader = snapshot.fallback_reader || '';
+    health.fallback_private_attempted = !!snapshot.fallback_private_attempted;
+    health.fallback_private_error_code = snapshot.fallback_private_error_code || '';
 
     if (!health.ok) {
       return json(res, 502, {
@@ -191,6 +194,19 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
         snapshot_health: health
       });
     }
+    console.info('KK_ADMIN_DIRECT_SHEET_FALLBACK', JSON.stringify({
+      action,
+      trigger_code: String(trigger && trigger.code || ''),
+      upstream_status: Number(trigger && trigger.upstream_status || 0),
+      fallback_reader: String(snapshot.fallback_reader || ''),
+      snapshot_source: String(snapshot.snapshot_source || ''),
+      events: Array.isArray(snapshot.events) ? snapshot.events.length : null,
+      bookings: Array.isArray(snapshot.bookings) ? snapshot.bookings.length : null,
+      current_bookings: Array.isArray(snapshot.current_bookings) ? snapshot.current_bookings.length : null,
+      assets: Array.isArray(snapshot.assets) ? snapshot.assets.length : null,
+      latency_ms: Number(health.latency_ms || 0)
+    }));
+
     if (action === 'snapshotHealth') {
       return json(res, 200, {
         ok: true,
