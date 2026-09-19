@@ -31,6 +31,8 @@ function normalizeRow(row={}){
     issued_at:text(row.issued_at),
     source:text(row.source),
     trigger_version:text(row.trigger_version),
+    nonce:text(row.nonce),
+    payload_hash:text(row.payload_hash).toLowerCase(),
     status:text(row.status),
     mode:text(row.mode),
     received_at:text(row.received_at)
@@ -49,6 +51,22 @@ function validateWitnessRow(row={},options={}){
   if(r.trigger_version!==Runtime.VERSION) reasons.push('TRIGGER_VERSION');
   if(r.mode!=='WITNESS_ONLY') reasons.push('MODE');
   if(!ALLOWED_STATUS.has(r.status)) reasons.push('STATUS');
+  if(!/^[-A-Za-z0-9_:.]{16,128}$/.test(r.nonce)) reasons.push('NONCE');
+  if(!/^[0-9a-f]{64}$/.test(r.payload_hash)){
+    reasons.push('PAYLOAD_HASH_FORMAT');
+  }else{
+    const canonical=Runtime.canonicalizeEnvelope({
+      version:r.trigger_version,
+      role:r.role,
+      occurrence_id:r.occurrence_id,
+      scheduled_at:r.scheduled_at,
+      issued_at:r.issued_at,
+      nonce:r.nonce,
+      source:r.source
+    });
+    const expectedHash=Runtime.sha256(canonical);
+    if(r.payload_hash!==expectedHash) reasons.push('PAYLOAD_HASH');
+  }
 
   let scheduledMs=Number.NaN;
   try{
