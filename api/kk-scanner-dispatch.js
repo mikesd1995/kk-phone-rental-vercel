@@ -2,6 +2,7 @@
 
 const Runtime=require('../server/external-scanner-runtime');
 const Ledger=require('../server/runtime-ledger');
+const OidcBridge=require('../server/runtime-ledger-oidc-bridge');
 
 function text(value){
   return String(value==null?'':value).trim();
@@ -125,14 +126,31 @@ module.exports=async function handler(req,res){
   if(req.method==='OPTIONS') return json(res,204,{});
   if(req.method==='GET'){
     const readiness=readinessSnapshot(process.env);
-    if(queryValue(req,'probe').toLowerCase()!=='ledger'){
+    const probeMode=queryValue(req,'probe').toLowerCase();
+    if(!probeMode){
       return json(res,200,{ok:true,data:readiness});
     }
-    const probe=await ledgerConnectivityProbe({env:process.env});
-    return json(res,probe.ok?200:503,{
-      ok:probe.ok,
+    if(probeMode==='ledger'){
+      const probe=await ledgerConnectivityProbe({env:process.env});
+      return json(res,probe.ok?200:503,{
+        ok:probe.ok,
+        data:readiness,
+        runtime_ledger_probe:probe
+      });
+    }
+    if(probeMode==='ledger-oidc'){
+      const probe=await OidcBridge.probe({env:process.env});
+      return json(res,probe.ok?200:503,{
+        ok:probe.ok,
+        data:readiness,
+        runtime_ledger_oidc_probe:probe
+      });
+    }
+    return json(res,400,{
+      ok:false,
+      error_code:'UNKNOWN_PROBE',
       data:readiness,
-      runtime_ledger_probe:probe
+      business_writes:0
     });
   }
   if(req.method!=='POST') return json(res,405,{ok:false,error_code:'METHOD_NOT_ALLOWED'});
