@@ -70,7 +70,7 @@ async function listExpectations({
   }
 
   const params=new URLSearchParams({
-    select:'occurrence_id,role,scheduled_at,issued_at,source,trigger_version,status,mode,received_at',
+    select:'occurrence_id,role,scheduled_at,issued_at,source,trigger_version,nonce,payload_hash,status,mode,received_at',
     role:`eq.${safeRole}`,
     mode:`eq.${safeMode}`,
     order:'scheduled_at.desc',
