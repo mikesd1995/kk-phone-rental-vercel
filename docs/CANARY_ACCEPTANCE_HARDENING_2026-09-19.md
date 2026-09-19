@@ -147,3 +147,33 @@ This hardening:
 - does not turn synthetic PASS into production/provider proof.
 
 A future Canary run must produce scenario-specific assertion evidence before receiving synthetic acceptance. Natural scheduler credit additionally requires canonical task identity/state and scheduled-window attribution; a workspace timestamp by itself is insufficient.
+
+
+## Evidence-surface permission integrity
+
+Fresh Google Drive file metadata on 2026-09-19 reports the Event Tracker workbook permission set includes:
+
+- owner: the connected owner account;
+- broad permission: `type=anyone`, `role=writer`, `allowFileDiscovery=false`.
+
+This is a material evidence-integrity defect. It does **not** prove that an anonymous user wrote the Sep16/Sep18 Canary rows, but it means the Sheet cannot be treated as an exclusively governed evidence surface while that permission exists.
+
+A public GViz read baseline was verified before any permission attempt, confirming the workbook is intentionally reachable without authentication for read compatibility. Repository inspection found public GViz consumers are read-only, and no Vercel direct Google Sheets write implementation was found. Therefore the least-disruptive permission target is:
+
+`Anyone with the link: Viewer`
+
+rather than disabling link access entirely, until private-reader migration is completed.
+
+A guarded browser attempt was made to change only `Anyone with the link: Editor -> Viewer`. The browser profile was not authenticated to Google, so the run stopped before opening/modifying Share settings. Observed mutation count: **0**.
+
+PR #74 now treats workbook permission state as part of Canary evidence acceptance:
+
+- permission snapshot must be explicitly verified;
+- `anyone_writer=true` => evidence surface untrusted;
+- domain-wide writer access => evidence surface untrusted;
+- unexpected writer grants => evidence surface untrusted;
+- missing permission snapshot => fail closed.
+
+While the current broad writer permission remains, even scenario-specific synthetic assertions must not receive strict synthetic acceptance because the evidence surface is forgeable outside the canonical task boundary.
+
+This permission gate is separate from production/provider proof and separate from natural scheduler attribution.
