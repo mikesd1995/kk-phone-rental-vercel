@@ -293,3 +293,355 @@ html,body{max-width:100%;}
   html[lang="en"] .ph-right{grid-template-columns:1fr;}
   html[lang="en"] .book-pill{min-height:40px;}
 }
+
+
+/* ========================================================================
+   KK PHONE RENTAL — PUBLIC BRAND REFRESH 2026-09-19
+   Scope: public storefront only. No booking/data/admin behavior changes.
+   Visual direction: electric cobalt + ice blue + subtle violet concert glow.
+   ======================================================================== */
+:root{
+  --blue:#0B5CFF;
+  --blue-strong:#0848D8;
+  --blue-deep:#082B8F;
+  --blue2:#F2F7FF;
+  --blue3:#D4E4FF;
+  --electric:#3A7BFF;
+  --violet:#6653FF;
+  --ice:#F8FBFF;
+  --navy:#071A3F;
+  --text:#10244D;
+  --soft:#6E86B5;
+  --brand-glow:rgba(11,92,255,.24);
+  --brand-violet-glow:rgba(102,83,255,.17);
+}
+
+html{background:#DDEAFF;}
+
+body{
+  background:
+    radial-gradient(circle at 8% -4%,rgba(41,119,255,.42),transparent 27%),
+    radial-gradient(circle at 92% 1%,rgba(99,80,255,.30),transparent 29%),
+    radial-gradient(circle at 50% 22%,rgba(255,255,255,.97),rgba(237,245,255,.88) 38%,transparent 62%),
+    linear-gradient(165deg,#EAF3FF 0%,#F9FCFF 43%,#DCE9FF 100%);
+}
+
+body:before{
+  opacity:.9;
+  background-image:
+    linear-gradient(rgba(31,102,255,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(31,102,255,.055) 1px,transparent 1px);
+  background-size:46px 46px;
+}
+
+body:after{
+  content:"";
+  position:fixed;
+  z-index:0;
+  inset:-18vh -12vw auto;
+  height:52vh;
+  pointer-events:none;
+  background:
+    linear-gradient(111deg,transparent 16%,rgba(255,255,255,.24) 18%,transparent 23%),
+    linear-gradient(73deg,transparent 73%,rgba(255,255,255,.20) 77%,transparent 82%);
+  filter:blur(1px);
+  opacity:.72;
+}
+
+.wrap{max-width:1120px;padding-left:14px;padding-right:14px;}
+
+header{
+  position:relative;
+  isolation:isolate;
+  padding:24px 0 10px;
+}
+
+header:before{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  left:5%;
+  right:5%;
+  top:6px;
+  height:72%;
+  border-radius:999px;
+  background:
+    radial-gradient(circle at 22% 45%,rgba(35,112,255,.34),transparent 35%),
+    radial-gradient(circle at 82% 38%,rgba(109,80,255,.27),transparent 35%);
+  filter:blur(32px);
+}
+
+.brand-image-card{
+  position:relative;
+  max-width:940px;
+  border-radius:28px;
+  border:1px solid rgba(164,202,255,.82);
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.96),rgba(239,246,255,.92));
+  box-shadow:
+    0 20px 55px rgba(4,50,148,.18),
+    0 0 0 1px rgba(255,255,255,.82) inset,
+    0 0 42px rgba(47,109,255,.10);
+}
+
+.brand-image-card:after{
+  content:"";
+  pointer-events:none;
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.36) 49%,transparent 61%);
+  transform:translateX(-62%);
+  opacity:.45;
+}
+
+.brand-header-img{
+  filter:saturate(1.13) contrast(1.035);
+  background:#EAF3FF;
+}
+
+.brand-fallback{
+  border:1px solid rgba(150,193,255,.72);
+  background:linear-gradient(135deg,#fff 0%,#F1F7FF 72%,#E8EEFF 100%);
+  box-shadow:0 18px 48px rgba(4,50,148,.17);
+}
+.brand-divider{background:linear-gradient(180deg,transparent,#7FB0FF,transparent);}
+.brand-text h1{color:var(--navy);}
+.brand-text p{color:#5D79B3;}
+
+.value-box{
+  max-width:900px;
+  margin-top:17px;
+  border:1px solid rgba(131,181,255,.65);
+  background:
+    radial-gradient(circle at 15% 20%,rgba(89,148,255,.13),transparent 34%),
+    linear-gradient(135deg,rgba(255,255,255,.93),rgba(241,247,255,.89));
+  box-shadow:
+    0 13px 32px rgba(15,77,190,.11),
+    0 1px 0 rgba(255,255,255,.95) inset;
+}
+.value-box p{color:#425E92;font-weight:600;}
+.value-box .value-note{color:#6983AF;}
+
+.quick-links{margin-top:13px;}
+.quick-link,.mini-btn,.language-switch{
+  border-color:rgba(42,111,240,.24);
+  background:rgba(248,251,255,.86);
+  box-shadow:
+    0 10px 24px rgba(14,74,190,.10),
+    0 1px 0 rgba(255,255,255,.95) inset;
+  backdrop-filter:blur(12px);
+}
+.quick-link,.mini-btn{color:#0A55E8;}
+.quick-link:hover,.mini-btn:hover{
+  border-color:rgba(11,92,255,.40);
+  background:#fff;
+  transform:translateY(-1px);
+}
+.lang-btn.active{
+  background:linear-gradient(135deg,#0B5CFF 0%,#336FFF 55%,#6653FF 100%);
+  box-shadow:0 8px 18px rgba(11,92,255,.23);
+}
+
+.filter-group{margin-bottom:20px;}
+.filter-bar{gap:9px;}
+.filter-btn,.month-select{
+  border-color:rgba(42,111,240,.22);
+  background:rgba(248,251,255,.84);
+  color:#5874A7;
+  box-shadow:0 8px 20px rgba(14,74,190,.08);
+  backdrop-filter:blur(10px);
+}
+.filter-btn:hover,.month-select:hover{
+  border-color:rgba(11,92,255,.38);
+  box-shadow:0 11px 25px rgba(11,92,255,.13);
+}
+.filter-btn.active{
+  border-color:rgba(85,106,255,.42);
+  background:linear-gradient(135deg,#075BFF 0%,#2D70FF 58%,#6555FF 100%);
+  box-shadow:
+    0 11px 24px rgba(11,92,255,.24),
+    0 0 20px rgba(102,83,255,.09);
+}
+.month-select-wrap::after{color:#0B5CFF;}
+
+.sec-title{
+  color:#0B5CFF;
+  margin-top:30px;
+}
+.sec-title:before,.sec-title:after{
+  background:linear-gradient(90deg,transparent,#70A7FF,rgba(109,90,255,.55),transparent);
+}
+.sec-title span{
+  border-color:rgba(129,179,255,.60);
+  background:rgba(250,252,255,.86);
+  color:#0C45B4;
+  box-shadow:0 9px 24px rgba(11,92,255,.10);
+  backdrop-filter:blur(10px);
+}
+
+.update-note{color:#6B83B1;}
+
+.poster-grid{gap:16px;}
+
+.concert-card{
+  border:1px solid rgba(128,180,255,.58);
+  background:linear-gradient(180deg,#FFFFFF 0%,#F6F9FF 100%);
+  box-shadow:
+    0 16px 38px rgba(7,55,151,.15),
+    0 0 0 1px rgba(255,255,255,.80) inset;
+  transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;
+}
+.concert-card:hover{
+  transform:translateY(-5px);
+  border-color:rgba(11,92,255,.48);
+  box-shadow:
+    0 22px 48px rgba(7,55,151,.20),
+    0 0 28px rgba(75,102,255,.08);
+}
+
+.poster-img-wrap{
+  background:linear-gradient(135deg,#EAF3FF,#DAE8FF);
+}
+.poster-img-wrap:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  box-shadow:inset 0 -44px 54px rgba(7,31,84,.08);
+}
+
+.status-badge{
+  border:1px solid rgba(255,255,255,.84);
+  background:rgba(255,255,255,.92);
+  backdrop-filter:blur(8px);
+  box-shadow:0 8px 22px rgba(5,36,100,.15);
+}
+
+.poster-info{
+  border-top-color:rgba(133,181,255,.28);
+  background:
+    radial-gradient(circle at 100% 0%,rgba(76,124,255,.11),transparent 39%),
+    linear-gradient(180deg,#FFFFFF 0%,#F8FAFF 100%);
+}
+.pi-date{
+  color:#0B55E9;
+  background:linear-gradient(135deg,#E8F2FF,#EEF1FF);
+  border:1px solid rgba(72,132,245,.14);
+}
+.pi-name{color:#0A1D43;}
+.pi-venue{color:#647EAD;}
+.pi-tap{
+  background:linear-gradient(135deg,#075BFF 0%,#3175FF 56%,#6254FF 100%);
+  box-shadow:
+    0 10px 22px rgba(11,92,255,.27),
+    0 1px 0 rgba(255,255,255,.25) inset;
+}
+.concert-card:hover .pi-tap{filter:brightness(1.035);}
+
+.poster-placeholder,
+.skeleton-poster{
+  background:linear-gradient(135deg,#EDF5FF 0%,#DAE8FF 60%,#EAE7FF 100%);
+}
+
+.empty-state{
+  border-color:rgba(131,181,255,.55);
+  background:linear-gradient(135deg,rgba(255,255,255,.94),rgba(240,247,255,.90));
+  box-shadow:0 16px 38px rgba(7,55,151,.13);
+}
+
+.divider{
+  background:linear-gradient(90deg,transparent,#67A2FF,#7868FF,#67A2FF,transparent);
+  opacity:.72;
+}
+
+.line-btn{
+  border:1px solid rgba(255,255,255,.50);
+  box-shadow:
+    0 14px 32px rgba(6,199,85,.28),
+    0 0 0 5px rgba(11,92,255,.055);
+}
+
+.sticky-line{
+  border:1px solid rgba(255,255,255,.50);
+  box-shadow:
+    0 14px 32px rgba(6,199,85,.33),
+    0 0 0 4px rgba(15,79,214,.09);
+}
+
+footer{
+  color:#0B2352;
+  text-shadow:0 1px 0 rgba(255,255,255,.72);
+}
+footer .footer-tagline{
+  color:#0A59F0;
+  background:linear-gradient(90deg,#075BFF,#5364FF,#075BFF);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.trust-note{color:#6881AE;}
+
+.overlay,.faq-overlay{
+  background:rgba(3,20,57,.58);
+  backdrop-filter:blur(10px);
+}
+
+.modal{
+  border:1px solid rgba(134,181,255,.55);
+  background:
+    radial-gradient(circle at 100% 0%,rgba(91,96,255,.09),transparent 35%),
+    linear-gradient(180deg,#FFFFFF,#F6F9FF);
+  box-shadow:0 26px 72px rgba(1,26,79,.30);
+}
+.modal-handle{background:linear-gradient(90deg,#7BB0FF,#675BFF);}
+.modal-x{
+  color:#0A57EB;
+  background:linear-gradient(135deg,#EBF4FF,#EEEFFF);
+}
+.modal-x:hover{background:#DCEAFF;}
+.modal-note,.phone-row,.faq-item{
+  border-color:rgba(126,178,255,.46);
+  background:linear-gradient(135deg,#F1F7FF,#F7F7FF);
+}
+.ph-icon{
+  box-shadow:0 5px 16px rgba(11,92,255,.13);
+}
+.ph-price{color:#0A58EC;}
+.modal-close{
+  border-color:rgba(84,139,244,.30);
+  color:#526D9E;
+}
+
+.concert-card.waitlist-card .pi-tap.full,
+.waitlist-line-btn,
+.empty-line-btn{
+  box-shadow:0 10px 24px rgba(6,199,85,.24),0 0 0 3px rgba(11,92,255,.045);
+}
+
+.skeleton-card{
+  border-color:rgba(126,178,255,.28);
+  background:rgba(247,251,255,.82);
+}
+.sk{
+  background:linear-gradient(90deg,#DDEBFF,#F7FAFF,#E6E6FF,#DDEBFF);
+  background-size:220% 100%;
+}
+
+@media(max-width:768px){
+  .wrap{padding-left:10px;padding-right:10px;}
+  header{padding-top:16px;}
+  .brand-image-card{
+    border-radius:22px;
+    box-shadow:0 15px 38px rgba(4,50,148,.16);
+  }
+  .value-box{margin-top:12px;}
+  .poster-grid{gap:12px;}
+  .concert-card{border-radius:20px;}
+}
+
+@media(max-width:390px){
+  .brand-image-card{border-radius:18px;}
+  .poster-grid{gap:9px;}
+  .concert-card{box-shadow:0 12px 28px rgba(7,55,151,.14);}
+}
