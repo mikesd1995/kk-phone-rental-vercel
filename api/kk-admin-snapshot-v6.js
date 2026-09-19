@@ -2,6 +2,7 @@
 // Thin safety wrapper over v5 plus signed Admin session gate.
 const V5 = require('./kk-admin-snapshot-v5.js');
 const AdminSecurity = require('../server/admin-session.js');
+const AdminMakeGate = require('../server/admin-make-gate.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-contract-repair-v6';
 const REQUIRED = ['events','bookings','current_bookings','assets'];
@@ -50,6 +51,8 @@ function enrich(body){
 
 module.exports=async function handler(req,res){
   const gate=AdminSecurity.gateMode(req);
+  if(gate==='make-verify') return AdminMakeGate.handleVerify(req,res);
+  if(gate==='make-health') return AdminMakeGate.handleHealth(req,res);
   if(gate) return AdminSecurity.handleGate(req,res,gate);
   if(!AdminSecurity.authorizeApi(req,res)) return;
 
