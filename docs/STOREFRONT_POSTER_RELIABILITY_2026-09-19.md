@@ -9,8 +9,8 @@ A live full-page browser diagnostic checked 32 currently rendered event cards an
 The previous image fallback advanced only on the browser `error` event. Safari/iOS and mobile networks can leave Google-hosted image requests pending for a long time without firing `error`, so the fallback chain may never advance.
 
 ## Changes
-- prefer `lh3.googleusercontent.com` as the first Drive image candidate to avoid an extra thumbnail redirect;
-- retain Drive thumbnail and `uc?export=view` as independent fallback candidates;
+- retain the proven production Drive thumbnail URL as the first candidate;
+- retain `lh3.googleusercontent.com` and `uc?export=view` as independent fallback candidates;
 - add bounded timeout failover (4s for first six cards, 6s for later lazy cards);
 - cancel stale timers/handlers when a reused modal image starts loading a new event;
 - preload the exact first thumbnail candidate rather than the original source URL;
@@ -20,3 +20,7 @@ The previous image fallback advanced only on the browser `error` event. Safari/i
 
 ## Safety
 No event, booking, price, Sheet, Apps Script, Admin, Scanner, Verifier, Canary, Make, HF or customer data is mutated by this change.
+
+
+## Additional live evidence
+Targeted Drive metadata checks on representative posters (including one card observed as problematic and several controls) show the files are shared broadly and are image/jpeg objects, so the intermittent rendering problem is not explained by missing file visibility. A separate security finding is that sampled poster files currently expose an `anyone: writer` permission; that permission should be reduced through the Drive governance workstream, but it is not required to make the images render.

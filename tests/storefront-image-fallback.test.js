@@ -40,11 +40,11 @@ function fakeImg(){
 }
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
-test('Drive poster candidates prefer googleusercontent CDN then retain two fallbacks',()=>{
+test('Drive poster candidates keep the proven thumbnail path first and retain two fallbacks',()=>{
   const urls=sandbox.getImgCandidates('https://drive.google.com/thumbnail?id=12345678901234567890&sz=w1200','thumb');
   assert.equal(urls.length,3);
-  assert.match(urls[0],/^https:\/\/lh3\.googleusercontent\.com\/d\//);
-  assert.match(urls[1],/^https:\/\/drive\.google\.com\/thumbnail/);
+  assert.match(urls[0],/^https:\/\/drive\.google\.com\/thumbnail/);
+  assert.match(urls[1],/^https:\/\/lh3\.googleusercontent\.com\/d\//);
   assert.match(urls[2],/^https:\/\/drive\.google\.com\/uc\?/);
 });
 

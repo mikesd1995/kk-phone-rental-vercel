@@ -473,14 +473,14 @@ function getDriveId(url){
   return "";
 }
 function getImgCandidates(url, size){
-  // Prefer Google image CDN directly to avoid an extra Drive thumbnail redirect.
+  // Keep Drive thumbnail as the primary path because it is the proven production baseline.
   // "thumb" = w600 (grid), "full" = w1200 (modal)
   var sz = size==="full" ? "w1200" : "w600";
   var s=String(url||"").trim(); if(!s)return [];
   var id=getDriveId(s);
   if(id)return [
-    "https://lh3.googleusercontent.com/d/"+encodeURIComponent(id)+"="+sz,
     "https://drive.google.com/thumbnail?id="+encodeURIComponent(id)+"&sz="+sz,
+    "https://lh3.googleusercontent.com/d/"+encodeURIComponent(id)+"="+sz,
     "https://drive.google.com/uc?export=view&id="+encodeURIComponent(id)
   ];
   return [s];
