@@ -28,9 +28,9 @@ test('fallback GViz ranges start at each real schema header row',()=>{
 });
 
 test('production-style title rows demonstrate why A1 GViz inference is unsafe',()=>{
-  const inferred='"01_Events — Lean Event Master event_id","event_name"\\n"EV1","Test"\\n';
+  const inferred='"01_Events — Lean Event Master event_id","event_name"\n"EV1","Test"\n';
   assert.throws(()=>F.rowsAsObjects(inferred,'event_id'),/header not found/i);
-  const aligned='"event_id","event_name"\\n"EV1","Test"\\n';
+  const aligned='"event_id","event_name"\n"EV1","Test"\n';
   const rows=F.rowsAsObjects(aligned,'event_id');
   assert.equal(rows[0].event_id,'EV1');
 });
