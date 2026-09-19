@@ -26,7 +26,7 @@ vm.createContext(sandbox);
 vm.runInContext(
   extractFunction('getDriveId','function getImgCandidates')+
   extractFunction('getImgCandidates','function setImgFallbackWhenVisible')+
-  extractFunction('setImgFallbackWhenVisible','function setImgFallback')+
+  extractFunction('setImgFallbackWhenVisible','function setImgFallback(img')+
   extractFunction('setImgFallback','\n\n// ─── CSV'),
   sandbox
 );
