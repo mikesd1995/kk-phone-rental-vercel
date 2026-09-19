@@ -117,17 +117,25 @@ async function boundedLedgerRead() {
     order: "scheduled_at.desc",
     limit: "1",
   });
-  const response = await fetch(
-    `${url}/rest/v1/kk_runtime_expectations?${params.toString()}`,
-    {
-      method: "GET",
-      headers: {
-        apikey: key,
-        Accept: "application/json",
+  let response: Response;
+  try {
+    response = await fetch(
+      `${url}/rest/v1/kk_runtime_expectations?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          apikey: key,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(3000),
       },
-      signal: AbortSignal.timeout(3000),
-    },
-  );
+    );
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      throw new Error("LEDGER_READ_TIMEOUT");
+    }
+    throw new Error("LEDGER_READ_TRANSPORT_FAILED");
+  }
   if (!response.ok) {
     throw new Error("LEDGER_READ_FAILED");
   }
