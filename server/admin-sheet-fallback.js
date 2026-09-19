@@ -4,20 +4,20 @@
 // This module NEVER writes. It reconstructs the Admin snapshot from Google Sheets
 // only when the Apps Script snapshot upstream is unavailable.
 const privateSheets = require('../api/lib/private-google-sheets.js');
-const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v2';
+const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 
 const SPECS = {
-  events:       { sheet:'01_Events', range:'A1:I1000', header:'event_id' },
-  bookings:     { sheet:'00_Master_Booking', range:'A1:T2000', header:'booking_id' },
-  assets:       { sheet:'02_Assets', range:'A1:G500', header:'asset_id' },
-  packages:     { sheet:'03_Packages', range:'A1:J500', header:'template_id' },
-  overrides:    { sheet:'04_Event_Overrides', range:'A1:G2000', header:'event_id' },
-  web_ready:    { sheet:'08_Web_Ready', range:'A1:K1000', header:'event_id' },
-  web_packages: { sheet:'09_Web_Packages', range:'A1:N3000', header:'package_id' },
+  events:       { sheet:'01_Events', range:'A4:I1000', header:'event_id' },
+  bookings:     { sheet:'00_Master_Booking', range:'A4:T2000', header:'booking_id' },
+  assets:       { sheet:'02_Assets', range:'A4:G500', header:'asset_id' },
+  packages:     { sheet:'03_Packages', range:'A4:J500', header:'template_id' },
+  overrides:    { sheet:'04_Event_Overrides', range:'A4:G2000', header:'event_id' },
+  web_ready:    { sheet:'08_Web_Ready', range:'A4:K1000', header:'event_id' },
+  web_packages: { sheet:'09_Web_Packages', range:'A4:N3000', header:'package_id' },
   customers:    { sheet:'11_Customer_Stats', range:'A1:H1000', header:'customer_key' },
-  health:       { sheet:'10_Admin_Health_Check', range:'A1:D500', header:'Check' },
-  model_master: { sheet:'Model_Master', range:'A1:E500', header:'model_group' }
+  health:       { sheet:'10_Admin_Health_Check', range:'A4:D500', header:'Check' },
+  model_master: { sheet:'Model_Master', range:'A4:E500', header:'model_group' }
 };
 
 function parseCsv(text){
@@ -82,13 +82,35 @@ function gvizUrl(sheetId,spec){
 }
 async function readSpecPublic(sheetId,key,fetchImpl){
   const spec=SPECS[key];
-  const r=await fetchWithTimeout(gvizUrl(sheetId,spec),fetchImpl,12000);
+  let r;
+  try{
+    r=await fetchWithTimeout(gvizUrl(sheetId,spec),fetchImpl,12000);
+  }catch(err){
+    if(!err.code) err.code=err && err.name==='AbortError' ? 'FALLBACK_GVIZ_TIMEOUT' : 'FALLBACK_GVIZ_FETCH_FAILED';
+    err.dataset=key;
+    throw err;
+  }
   const text=await r.text();
-  if(!r.ok) throw new Error('Fallback GViz '+spec.sheet+' HTTP '+r.status);
-  if(/<html[\s>]/i.test(text)) throw new Error('Fallback GViz '+spec.sheet+' returned HTML');
-  return rowsAsObjects(text,spec.header);
+  if(!r.ok){
+    const err=new Error('Fallback GViz '+spec.sheet+' HTTP '+r.status);
+    err.code='FALLBACK_GVIZ_HTTP_'+String(r.status||'UNKNOWN');
+    err.dataset=key;
+    throw err;
+  }
+  if(/<html[\s>]/i.test(text)){
+    const err=new Error('Fallback GViz '+spec.sheet+' returned HTML');
+    err.code='FALLBACK_GVIZ_HTML';
+    err.dataset=key;
+    throw err;
+  }
+  try{
+    return rowsAsObjects(text,spec.header);
+  }catch(err){
+    if(!err.code) err.code='FALLBACK_SCHEMA_HEADER_MISSING';
+    err.dataset=key;
+    throw err;
+  }
 }
-
 function valuesAsObjects(values,requiredHeader){
   const rows=Array.isArray(values)?values:[];
   const headerIndex=rows.findIndex(r=>Array.isArray(r) && r.some(v=>String(v||'').trim()===requiredHeader));
