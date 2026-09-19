@@ -36,8 +36,10 @@ It:
 - requires a Vercel OIDC bearer token;
 - requires the exact JSON request contract `{"probe":"runtime-ledger","version":"v1"}`;
 - verifies signature, issuer, audience, subject, owner/team ID, project ID/name and production environment;
+- bounds remote Vercel JWKS retrieval to 3 seconds;
 - reads the canonical Supabase secret from the Edge Function's built-in `SUPABASE_SECRET_KEYS` environment;
 - performs exactly one bounded GET against `kk_runtime_expectations` for `SCANNER / WITNESS_ONLY`;
+- bounds that Data API read to 3 seconds;
 - returns only aggregate row count and non-secret status;
 - performs zero inserts, updates or deletes;
 - never returns the OIDC token, Supabase URL or secret key.
@@ -54,7 +56,7 @@ This diagnostic is **disabled by default**. It requires the non-secret productio
 
 When the gate is absent/false, the dispatcher returns `OIDC_PROBE_DISABLED` without reading or forwarding a Vercel OIDC token and without making a network call. This prevents an unauthenticated public request from using the production function as a confused-deputy probe trigger.
 
-When explicitly enabled, this path reads the short-lived Vercel runtime OIDC token and calls the canonical Edge Function. It does not depend on `KK_RUNTIME_LEDGER_ENABLED`, `SUPABASE_SECRET_KEY`, or the external Scanner HMAC because it is only a bounded connectivity/authentication diagnostic.
+When explicitly enabled, this path reads the short-lived Vercel runtime OIDC token and calls the canonical Edge Function. The Vercel-to-Supabase bridge call is bounded to 4 seconds so an unavailable downstream cannot consume an unbounded function wait. It does not depend on `KK_RUNTIME_LEDGER_ENABLED`, `SUPABASE_SECRET_KEY`, or the external Scanner HMAC because it is only a bounded connectivity/authentication diagnostic.
 
 The direct `?probe=ledger` path remains unchanged.
 
