@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { Readable } = require('stream');
 
 const handler = require('../api/kk-admin-snapshot-v5.js');
+const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 
 const ORIGINAL_ENV = { ...process.env };
 const ORIGINAL_FETCH = global.fetch;
@@ -150,6 +151,9 @@ test('uses direct-Sheet read-only fallback when Apps Script deployment is missin
     }
     const u = new URL(String(url));
     const sheet = u.searchParams.get('sheet');
+    const spec = Object.values(AdminSheetFallback.SPECS).find(item => item.sheet === sheet);
+    assert.ok(spec, 'unexpected fallback sheet '+sheet);
+    assert.equal(u.searchParams.get('range'), spec.range);
     assert.ok(Object.prototype.hasOwnProperty.call(csv, sheet), 'unexpected fallback sheet '+sheet);
     return { ok:true, status:200, headers:{get:()=> 'text/csv'}, async text(){ return csv[sheet]; } };
   };
