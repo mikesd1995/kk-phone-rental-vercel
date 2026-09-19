@@ -26,12 +26,15 @@ Only the KK Phone Rental Vercel production workload is accepted:
 
 The Edge Function accepts only the two issuer modes documented by Vercel: the team issuer and Global issuer. The JWT signature is verified against Vercel JWKS before exact claims are accepted.
 
+Supabase Edge Functions normally require a Supabase-valid JWT before the handler runs. Because this function intentionally receives a **Vercel** OIDC JWT, `supabase/config.toml` sets `verify_jwt = false` for this function only. Authentication is not skipped: the handler itself performs Vercel JWKS signature verification plus exact issuer/audience/subject/team/project/environment checks before any ledger read.
+
 ## Edge Function
 
 `kk-runtime-ledger-oidc-probe` is deliberately read-only.
 
 It:
 - requires a Vercel OIDC bearer token;
+- requires the exact JSON request contract `{"probe":"runtime-ledger","version":"v1"}`;
 - verifies signature, issuer, audience, subject, owner/team ID, project ID/name and production environment;
 - reads the canonical Supabase secret from the Edge Function's built-in `SUPABASE_SECRET_KEYS` environment;
 - performs exactly one bounded GET against `kk_runtime_expectations` for `SCANNER / WITNESS_ONLY`;
@@ -45,7 +48,13 @@ Production dispatcher supports:
 
 `GET /api/kk-scanner-dispatch?probe=ledger-oidc`
 
-This path reads the short-lived Vercel runtime OIDC token and calls the canonical Edge Function. It does not depend on `KK_RUNTIME_LEDGER_ENABLED`, `SUPABASE_SECRET_KEY`, or the external Scanner HMAC because it is only a bounded connectivity/authentication diagnostic.
+This diagnostic is **disabled by default**. It requires the non-secret production gate:
+
+`KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED=true`
+
+When the gate is absent/false, the dispatcher returns `OIDC_PROBE_DISABLED` without reading or forwarding a Vercel OIDC token and without making a network call. This prevents an unauthenticated public request from using the production function as a confused-deputy probe trigger.
+
+When explicitly enabled, this path reads the short-lived Vercel runtime OIDC token and calls the canonical Edge Function. It does not depend on `KK_RUNTIME_LEDGER_ENABLED`, `SUPABASE_SECRET_KEY`, or the external Scanner HMAC because it is only a bounded connectivity/authentication diagnostic.
 
 The direct `?probe=ledger` path remains unchanged.
 
