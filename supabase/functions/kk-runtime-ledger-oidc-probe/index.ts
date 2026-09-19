@@ -45,6 +45,17 @@ function bearer(req: Request) {
   return match ? match[1].trim() : "";
 }
 
+async function validProbeRequest(req: Request) {
+  const contentType = req.headers.get("content-type") || "";
+  if (!/^application\/json(?:;|$)/i.test(contentType)) return false;
+  try {
+    const body = await req.json();
+    return body?.probe === "runtime-ledger" && body?.version === "v1";
+  } catch {
+    return false;
+  }
+}
+
 async function verifyVercelIdentity(token: string) {
   let unverified: Record<string, unknown>;
   try {
@@ -140,6 +151,17 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     const code = err instanceof Error ? err.message : "OIDC_VERIFY_FAILED";
     return fail(401, code);
+  }
+
+  if (!(await validProbeRequest(req))) {
+    return json(400, {
+      ok: false,
+      error_code: "OIDC_REQUEST_CONTRACT_INVALID",
+      authenticated: true,
+      read_only: true,
+      bounded_limit: 1,
+      business_writes: 0,
+    });
   }
 
   let rowCount = 0;
