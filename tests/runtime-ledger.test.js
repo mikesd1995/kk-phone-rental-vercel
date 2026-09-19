@@ -84,6 +84,20 @@ test('runtime ledger resolves canonical Supabase project ref from URL',()=>{
   assert.equal(L.projectRefFromUrl('not a url'),'');
 });
 
+test('runtime ledger rejects noncanonical Supabase URL shapes',()=>{
+  for(const value of [
+    'http://zehlsagzrpromtfqqflt.supabase.co',
+    'https://zehlsagzrpromtfqqflt.supabase.co:443',
+    'https://zehlsagzrpromtfqqflt.supabase.co/rest/v1',
+    'https://zehlsagzrpromtfqqflt.supabase.co?x=1',
+    'https://zehlsagzrpromtfqqflt.supabase.co#x',
+    'https://user@zehlsagzrpromtfqqflt.supabase.co',
+    'https://short.supabase.co'
+  ]){
+    assert.equal(L.projectRefFromUrl(value),'',value);
+  }
+});
+
 test('new Supabase secret key is preferred over legacy service_role key',()=>{
   const s=L.resolveServerKey({
     SUPABASE_SECRET_KEY:'sb_secret_new',
