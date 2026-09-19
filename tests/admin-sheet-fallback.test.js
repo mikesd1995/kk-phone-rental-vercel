@@ -13,6 +13,28 @@ test('rowsAsObjects locates a header below title rows',()=>{
   assert.equal(rows.length,1); assert.equal(rows[0].id,'1'); assert.equal(rows[0].name,'A');
 });
 
+
+test('fallback GViz ranges start at each real schema header row',()=>{
+  assert.equal(F.SPECS.events.range,'A4:I1000');
+  assert.equal(F.SPECS.bookings.range,'A4:T2000');
+  assert.equal(F.SPECS.assets.range,'A4:G500');
+  assert.equal(F.SPECS.packages.range,'A4:J500');
+  assert.equal(F.SPECS.overrides.range,'A4:G2000');
+  assert.equal(F.SPECS.web_ready.range,'A4:K1000');
+  assert.equal(F.SPECS.web_packages.range,'A4:N3000');
+  assert.equal(F.SPECS.customers.range,'A1:H1000');
+  assert.equal(F.SPECS.health.range,'A4:D500');
+  assert.equal(F.SPECS.model_master.range,'A4:E500');
+});
+
+test('production-style title rows demonstrate why A1 GViz inference is unsafe',()=>{
+  const inferred='"01_Events — Lean Event Master event_id","event_name"\n"EV1","Test"\n';
+  assert.throws(()=>F.rowsAsObjects(inferred,'event_id'),/header not found/i);
+  const aligned='"event_id","event_name"\n"EV1","Test"\n';
+  const rows=F.rowsAsObjects(aligned,'event_id');
+  assert.equal(rows[0].event_id,'EV1');
+});
+
 test('buildFromRaw creates required arrays and forces degraded read-only mode',()=>{
   const raw={
     events:[{event_id:'EV1',event_name:'Test',event_date:'19/09/2026',venue:'X',event_status:'open',active_on_web:'TRUE'}],

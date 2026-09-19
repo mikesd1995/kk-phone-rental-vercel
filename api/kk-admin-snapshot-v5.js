@@ -228,6 +228,15 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
   } catch (err) {
     const originalCode = trigger && trigger.error_code ? String(trigger.error_code) : 'DIRECT_SHEET_FALLBACK_FAILED';
     const originalError = trigger && trigger.error ? String(trigger.error) : 'Apps Script unavailable and direct-Sheet read-only fallback failed';
+    const fallbackErrorCode = String(err && err.code || (err && err.name === 'AbortError' ? 'FALLBACK_TIMEOUT' : 'DIRECT_SHEET_FALLBACK_FAILED'));
+    const fallbackDataset = String(err && err.dataset || '');
+    console.warn('KK_ADMIN_DIRECT_SHEET_FALLBACK_FAILED', JSON.stringify({
+      action,
+      trigger_code: String(trigger && trigger.code || ''),
+      upstream_status: Number(trigger && trigger.upstream_status || 0),
+      fallback_error_code: fallbackErrorCode,
+      fallback_dataset: fallbackDataset
+    }));
     return json(res, 502, {
       ok: false,
       error: originalError,
@@ -236,6 +245,8 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       upstream_status: Number(trigger && trigger.upstream_status || 0),
       suggestion: trigger && trigger.suggestion ? String(trigger.suggestion) : '',
       fallback_error: err && err.message ? err.message : String(err),
+      fallback_error_code: fallbackErrorCode,
+      fallback_dataset: fallbackDataset,
       fallback_attempted: true
     });
   }
