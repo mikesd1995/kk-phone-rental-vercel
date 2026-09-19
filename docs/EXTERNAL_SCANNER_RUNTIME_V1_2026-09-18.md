@@ -78,10 +78,12 @@ All remain unset/disabled until the dedicated KK project is identified:
 ```
 KK_RUNTIME_LEDGER_ENABLED=false
 SUPABASE_URL=
+SUPABASE_SECRET_KEY=
+# Legacy compatibility only:
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-The service role must remain server-only.
+Prefer the current Supabase secret API key (`sb_secret_...`) and keep it server-only. `SUPABASE_SERVICE_ROLE_KEY` remains a compatibility fallback for existing projects. Database grants still target the Postgres `service_role` role; API-key naming and database-role naming are separate concerns.
 
 ## External Scanner ingress environment contract
 
@@ -140,3 +142,17 @@ Repository staging PASS requires:
 - zero production business writes
 
 Production witness acceptance is a later gate and must not be inferred from repository CI.
+
+
+## Witness readiness probe
+
+`GET /api/kk-scanner-dispatch` returns configuration-presence/readiness state only and never returns secret values.
+
+The probe keeps:
+
+- `scanner_execution_capable=false`
+- `business_writes_capable=false`
+
+in Witness V1. `ready_for_witness=true` means only that the environment configuration gates are present. It does not prove Cloudflare delivery, Supabase insertion, a six-occurrence witness streak, Scanner runtime acceptance, or production cutover authorization.
+
+Readiness is intentionally folded into the existing dispatcher function so the Vercel Hobby API function surface does not increase.
