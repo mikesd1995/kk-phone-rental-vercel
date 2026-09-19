@@ -152,6 +152,14 @@
       "destination": "/api/kk-admin-snapshot-v6?__kk_gate=auth"
     },
     {
+      "source": "/api/kk-admin-make-verify",
+      "destination": "/api/kk-admin-snapshot-v6?__kk_gate=make-verify"
+    },
+    {
+      "source": "/api/kk-admin-make-health",
+      "destination": "/api/kk-admin-snapshot-v6?__kk_gate=make-health"
+    },
+    {
       "source": "/",
       "destination": "/index.html"
     },
