@@ -58,6 +58,20 @@ function normalizePath(value){
   return String(value||'').trim().replace(/^\/+/, '');
 }
 
+const ACTION_SHEETS={
+  healthProbe:'10_Admin_Health_Check',
+  createEvent:'01_Events',updateEvent:'01_Events',
+  createPackage:'03_Packages',updatePackage:'03_Packages',
+  upsertEventOverride:'04_Event_Overrides',bulkSetEventPackageVisibility:'04_Event_Overrides',
+  addAssets:'02_Assets',updateAsset:'02_Assets',deleteAsset:'02_Assets',
+  createBooking:'00_Master_Booking',updateBooking:'00_Master_Booking'
+};
+
+function pathTargetsSheet(url,sheet){
+  const needle="/values/'"+String(sheet)+"'!";
+  return String(url||'').includes(needle);
+}
+
 function validatePlan(plan){
   const p=plan||{};
   const action=String(p.action||'').trim();
@@ -66,6 +80,8 @@ function validatePlan(plan){
   const writeUrl=normalizePath(p.write_url);
   const prefix='spreadsheets/'+CORE_SHEET_ID+'/values/';
   if(!readUrl.startsWith(prefix)||!writeUrl.startsWith(prefix)) return {ok:false,code:'BRIDGE_SHEET_PATH_NOT_ALLOWED'};
+  const expectedSheet=ACTION_SHEETS[action];
+  if(!expectedSheet||!pathTargetsSheet(readUrl,expectedSheet)||!pathTargetsSheet(writeUrl,expectedSheet)) return {ok:false,code:'BRIDGE_ACTION_SHEET_MISMATCH'};
   const method=String(p.write_method||'').trim().toUpperCase();
   if(action==='healthProbe'){
     if(method!=='GET'||readUrl!==writeUrl) return {ok:false,code:'BRIDGE_HEALTH_PLAN_INVALID'};
@@ -138,7 +154,7 @@ async function callBridge(plan,options={}){
 }
 
 module.exports={
-  VERSION,PROTOCOL,CORE_SHEET_ID,MAX_CLOCK_SKEW_MS,ALLOWED_ACTIONS,
+  VERSION,PROTOCOL,CORE_SHEET_ID,MAX_CLOCK_SKEW_MS,ALLOWED_ACTIONS,ACTION_SHEETS,
   sha256,stableValuesHash,canonical,sign,timingSafeHexEqual,
   validatePlan,buildEnvelope,verifyEnvelope,healthPlan,callBridge
 };
