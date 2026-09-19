@@ -2,6 +2,7 @@
 
 const OIDC_LEDGER_PROJECT_REF='zehlsagzrpromtfqqflt';
 const OIDC_LEDGER_FUNCTION='kk-runtime-ledger-oidc-probe';
+const OIDC_BRIDGE_TIMEOUT_MS=4000;
 
 function text(value){
   return String(value==null?'':value).trim();
@@ -54,7 +55,8 @@ async function probe({
         'Content-Type':'application/json',
         Accept:'application/json'
       },
-      body:JSON.stringify({probe:'runtime-ledger',version:'v1'})
+      body:JSON.stringify({probe:'runtime-ledger',version:'v1'}),
+      signal:AbortSignal.timeout(OIDC_BRIDGE_TIMEOUT_MS)
     });
   }catch(_err){
     return {
@@ -95,6 +97,7 @@ async function probe({
 module.exports={
   OIDC_LEDGER_PROJECT_REF,
   OIDC_LEDGER_FUNCTION,
+  OIDC_BRIDGE_TIMEOUT_MS,
   endpoint,
   oidcToken,
   probe
