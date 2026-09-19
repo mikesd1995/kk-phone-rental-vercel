@@ -55,6 +55,8 @@ function provenance(){
 test('accepts scenario-specific zero-write synthetic proof with natural attribution',()=>{
   const r=A.auditCanarySnapshot({
     run_id:'CANARY|20260919|0815|TEST',
+    definition_snapshot_frozen:true,
+    definition_snapshot_drift:false,
     definitions:[definition()],
     workspace:[workspace()],
     provenance:provenance()
@@ -82,6 +84,34 @@ test('natural Canary attribution does not invent a mandatory Run_Lock or reconci
   });
 });
 
+
+test('accepts definition-specific frozen marker without requiring expected-result text copy',()=>{
+  const ws=workspace();
+  ws.expected_decision='frozen definition CANARY-01';
+  const r=A.auditCanarySnapshot({
+    run_id:'CANARY|20260919|0815|TEST',
+    definition_snapshot_frozen:true,
+    definition_snapshot_drift:false,
+    definitions:[definition()],
+    workspace:[ws],
+    provenance:provenance()
+  });
+  assert.equal(r.scenario_specific_assertions,true);
+  assert.equal(r.synthetic_acceptance,true);
+});
+
+test('requires explicit frozen definition snapshot and clean drift state',()=>{
+  const r=A.auditCanarySnapshot({
+    run_id:'CANARY|20260919|0815|TEST',
+    definitions:[definition()],
+    workspace:[workspace()],
+    provenance:provenance()
+  });
+  assert.equal(r.structural_completeness,false);
+  assert.ok(r.structural_errors.includes('DEFINITION_SNAPSHOT_NOT_PROVEN_FROZEN'));
+  assert.ok(r.structural_errors.includes('DEFINITION_SNAPSHOT_DRIFT_STATE_NOT_CLEAN'));
+});
+
 test('rejects the Sep18-style generic frozen boundary and safe-branch markers',()=>{
   const ws=workspace();
   ws.input_state='isolated current-run scenario branch for CANARY-01';
@@ -91,6 +121,8 @@ test('rejects the Sep18-style generic frozen boundary and safe-branch markers',(
 
   const r=A.auditCanarySnapshot({
     run_id:'CANARY|20260919|0815|TEST',
+    definition_snapshot_frozen:true,
+    definition_snapshot_drift:false,
     definitions:[definition()],
     workspace:[ws],
     provenance:provenance()
@@ -100,7 +132,7 @@ test('rejects the Sep18-style generic frozen boundary and safe-branch markers',(
   assert.equal(r.scenario_specific_assertions,false);
   assert.equal(r.synthetic_acceptance,false);
   assert.equal(r.classification,'CANARY_STRUCTURAL_PASS_ASSERTION_EVIDENCE_REJECTED');
-  assert.ok(r.assertion_errors.includes('CANARY-01:EXPECTED_DECISION_NOT_BOUND_TO_DEFINITION'));
+  assert.ok(r.assertion_errors.includes('CANARY-01:EXPECTED_DECISION_NOT_BOUND_TO_FROZEN_DEFINITION'));
   assert.ok(r.assertion_errors.includes('CANARY-01:GENERIC_EXPECTED_DECISION_REJECTED'));
   assert.ok(r.assertion_errors.includes('CANARY-01:SCENARIO_SPECIFIC_INPUT_STATE_REQUIRED'));
   assert.ok(r.assertion_errors.includes('CANARY-01:SCENARIO_SPECIFIC_SYNTHETIC_EVIDENCE_REQUIRED'));
@@ -112,6 +144,8 @@ test('rejects any production write count above zero',()=>{
   ws.actual_write_count='1';
   const r=A.auditCanarySnapshot({
     run_id:'CANARY|20260919|0815|TEST',
+    definition_snapshot_frozen:true,
+    definition_snapshot_drift:false,
     definitions:[definition()],
     workspace:[ws],
     provenance:provenance()
@@ -142,6 +176,8 @@ test('requires exact enabled/workspace set equality',()=>{
   d2.isolation_namespace='TEST|CANARY-02';
   const r=A.auditCanarySnapshot({
     run_id:'CANARY|20260919|0815|TEST',
+    definition_snapshot_frozen:true,
+    definition_snapshot_drift:false,
     definitions:[d1,d2],
     workspace:[workspace('CANARY-01')],
     provenance:provenance()
@@ -159,6 +195,8 @@ test('scenario-specific synthetic proof does not imply natural scheduler attribu
 
   const r=A.auditCanarySnapshot({
     run_id:'CANARY|20260919|0815|TEST',
+    definition_snapshot_frozen:true,
+    definition_snapshot_drift:false,
     definitions:[definition()],
     workspace:[workspace()],
     provenance:p
@@ -197,6 +235,8 @@ test('actual decision cannot simply copy expected text',()=>{
   ws.actual_decision=ws.expected_decision;
   const r=A.auditCanarySnapshot({
     run_id:'CANARY|20260919|0815|TEST',
+    definition_snapshot_frozen:true,
+    definition_snapshot_drift:false,
     definitions:[definition()],
     workspace:[ws],
     provenance:provenance()
@@ -210,6 +250,8 @@ test('synthetic entity must be bound to the enabled isolation namespace',()=>{
   ws.synthetic_entity_id='OTHER|ENTITY';
   const r=A.auditCanarySnapshot({
     run_id:'CANARY|20260919|0815|TEST',
+    definition_snapshot_frozen:true,
+    definition_snapshot_drift:false,
     definitions:[definition()],
     workspace:[ws],
     provenance:provenance()
