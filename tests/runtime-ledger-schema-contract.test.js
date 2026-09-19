@@ -75,3 +75,14 @@ test('runtime ledger SQL keeps dollar-quoted fail-closed blocks intact',()=>{
   assert.match(verifySql,/\$\$;/);
   assert.match(verifySql,/KK_RUNTIME_LEDGER_VERIFY: PASS/);
 });
+
+
+test('runtime ledger verifier avoids PL/pgSQL variable shadowing',()=>{
+  assert.doesNotMatch(verifySql,/\btable_name\s+text\s*;/i);
+  assert.doesNotMatch(verifySql,/\bcol_name\s+text\s*;/i);
+  assert.doesNotMatch(verifySql,/\bseq_name\s+text\s*;/i);
+  assert.match(verifySql,/from\s+information_schema\.columns\s+c/i);
+  assert.match(verifySql,/c\.table_name\s*=\s*'kk_runtime_expectations'/i);
+  assert.match(verifySql,/foreach\s+v_table_name\s+in/i);
+  assert.match(verifySql,/foreach\s+v_seq_name\s+in/i);
+});
