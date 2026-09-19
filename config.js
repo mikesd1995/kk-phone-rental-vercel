@@ -19,7 +19,7 @@ window.KK_CONFIG = {
   lineOAId:      "@827blnmo",
   lineDirectUrl: "https://line.me/R/ti/p/%40827blnmo",
   xUrl:          "https://x.com/KK_PhoneRental",
-  headerImage:   "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600"
+  headerImage:   "/assets/kk-brand-hero-light-2026.webp"
 
   // GA4: ใส่ Measurement ID ที่ได้จาก Google Analytics 4 Console
   // ga4Id: "G-XXXXXXXXXX"
