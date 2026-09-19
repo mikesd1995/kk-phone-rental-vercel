@@ -77,6 +77,7 @@ All remain unset/disabled until the dedicated KK project is identified:
 
 ```
 KK_RUNTIME_LEDGER_ENABLED=false
+KK_RUNTIME_LEDGER_PROJECT_REF=zehlsagzrpromtfqqflt
 SUPABASE_URL=
 SUPABASE_SECRET_KEY=
 # Legacy compatibility only:
@@ -84,6 +85,8 @@ SUPABASE_SERVICE_ROLE_KEY=
 ```
 
 Prefer the current Supabase secret API key (`sb_secret_...`) and keep it server-only. `SUPABASE_SERVICE_ROLE_KEY` remains a compatibility fallback for existing projects. Database grants still target the Postgres `service_role` role; API-key naming and database-role naming are separate concerns.
+
+The canonical project-binding gate requires `SUPABASE_URL` to resolve to the exact ref in `KK_RUNTIME_LEDGER_PROJECT_REF`. Missing or mismatched binding fails closed before any ledger network call.
 
 ## External Scanner ingress environment contract
 
