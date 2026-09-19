@@ -129,3 +129,41 @@ test('passes a healthy snapshot and attaches snapshot health metadata', async ()
   assert.equal(out.body.data.frontend_sheet_id, process.env.GOOGLE_SHEET_ID);
   assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.1');
 });
+
+
+test('uses direct-Sheet read-only fallback when Apps Script deployment is missing and GViz is healthy', async () => {
+  const csv = {
+    '01_Events': '"event_id","event_name","event_date","venue","poster_image_url","event_status","active_on_web","event_note","data_health"\n"EV1","Test","19/09/2026","Venue","","open","TRUE","","OK"\n',
+    '00_Master_Booking': '"booking_id","created_at","booking_status","event_id","customer_name","customer_contact","customer_phone","channel","package_type","phone_asset_id","lens_asset_id","pickup_time","return_time","payment_status","amount_received","return_status","file_transfer_status","drive_link","damage_fee","staff_note"\n"BK1","","confirmed","EV1","A","","","LINE","phone_only","P1","","12:00","","paid","690","","","","0",""\n',
+    '02_Assets': '"asset_id","asset_type","model_group","serial_no","status","notes","rentable_now"\n"P1","phone","VIVO_X300_PRO","","available","","TRUE"\n',
+    '03_Packages': '"template_id","model_group","package_type","lens_group","standard_price","display_name","package_note","active","sort_order","use_case"\n"TPL1","VIVO_X300_PRO","phone_only","NONE","690","Vivo X300 Pro","","TRUE","1",""\n',
+    '04_Event_Overrides': '"event_id","template_id","override_price","active_override","override_note","sort_order_override","use_case_override"\n',
+    '08_Web_Ready': '"event_id","event_name","event_date_text","venue","poster_image_url","event_note","available_phone_count","available_lens_count","booking_status_for_web","action_for_web","line_message_template"\n',
+    '09_Web_Packages': '"package_id","event_id","package_type","model_group","model_display","lens_group","lens_display","price","available_count","package_status","sort_order","web_note","raw_available_count","use_case"\n',
+    '11_Customer_Stats': '"customer_key","customer_name","customer_contact","customer_phone","rental_count","first_rental_date","last_rental_date","last_event_name"\n',
+    '10_Admin_Health_Check': '"Check","Count","Status","What to fix"\n"Source count — Events","1","OK",""\n"Source count — Bookings","1","OK",""\n"Source count — Assets","1","OK",""\n',
+    'Model_Master': '"model_group","model_display","asset_type","active","notes"\n"VIVO_X300_PRO","Vivo X300 Pro","phone","TRUE",""\n'
+  };
+  global.fetch = async (url) => {
+    if (String(url).startsWith('https://script.google.com/')) {
+      return { ok:false, status:404, headers:{get:()=> 'text/html; charset=utf-8'}, async text(){ return '<html><title>Page not found</title></html>'; } };
+    }
+    const u = new URL(String(url));
+    const sheet = u.searchParams.get('sheet');
+    assert.ok(Object.prototype.hasOwnProperty.call(csv, sheet), 'unexpected fallback sheet '+sheet);
+    return { ok:true, status:200, headers:{get:()=> 'text/csv'}, async text(){ return csv[sheet]; } };
+  };
+  const out=responseCapture();
+  await handler(reqFor('snapshot'),out.res);
+  assert.equal(out.res.statusCode,200);
+  assert.equal(out.body.ok,true);
+  assert.equal(out.body.degraded_read_only,true);
+  assert.equal(out.body.data.degraded_read_only,true);
+  assert.equal(out.body.data.write_actions_enabled,false);
+  assert.equal(out.body.data.events.length,1);
+  assert.equal(out.body.data.bookings.length,1);
+  assert.equal(out.body.data.current_bookings.length,1);
+  assert.equal(out.body.data.assets.length,1);
+  assert.equal(out.body.snapshot_health.ok,true);
+  assert.equal(out.body.fallback_trigger.upstream_failure_class,'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND');
+});

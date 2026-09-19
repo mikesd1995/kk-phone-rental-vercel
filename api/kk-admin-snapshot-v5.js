@@ -6,6 +6,7 @@ const { Readable } = require('stream');
 const GuardAdmin = require('./kk-admin-guard.js');
 const SnapshotHealth = require('../admin/snapshot-health.js');
 const UpstreamResponse = require('../server/upstream-response.js');
+const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -164,6 +165,66 @@ function snapshotEnvelopeDiagnostics(body) {
   };
 }
 
+async function respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, trigger, startedAt) {
+  try {
+    const snapshot = await AdminSheetFallback.buildSnapshot({ sheetId: frontendSheetId });
+    snapshot.frontend_sheet_id = frontendSheetId;
+    snapshot.frontend_sheet_id_source = sheetIdSource;
+    snapshot.frontend_proxy_version = SnapshotHealth.VERSION;
+    const health = SnapshotHealth.assess(snapshot);
+    health.latency_ms = Date.now() - startedAt;
+    health.checked_at = new Date().toISOString();
+    health.backend_version = snapshot.admin_api_version || '';
+    health.proxy_version = SnapshotHealth.VERSION;
+    health.degraded_read_only = true;
+    health.snapshot_source = snapshot.snapshot_source;
+    health.warnings = Array.isArray(health.warnings) ? health.warnings : [];
+    health.warnings.push('Apps Script unavailable; Admin is using direct Google Sheet read-only fallback. All writes are blocked until Apps Script recovery.');
+    if (trigger && trigger.code) health.warnings.push('Fallback trigger: ' + String(trigger.code));
+
+    if (!health.ok) {
+      return json(res, 502, {
+        ok: false,
+        error: 'Direct-Sheet fallback rejected: ' + health.issues.join('; '),
+        error_code: 'DIRECT_SHEET_FALLBACK_INVALID',
+        fallback_trigger: trigger || {},
+        snapshot_health: health
+      });
+    }
+    if (action === 'snapshotHealth') {
+      return json(res, 200, {
+        ok: true,
+        data: health,
+        degraded_read_only: true,
+        snapshot_source: snapshot.snapshot_source,
+        fallback_trigger: trigger || {}
+      });
+    }
+    return json(res, 200, {
+      ok: true,
+      data: snapshot,
+      snapshot_health: health,
+      degraded_read_only: true,
+      snapshot_source: snapshot.snapshot_source,
+      fallback_trigger: trigger || {},
+      proxy_upstream_ms: Date.now() - startedAt
+    });
+  } catch (err) {
+    const originalCode = trigger && trigger.error_code ? String(trigger.error_code) : 'DIRECT_SHEET_FALLBACK_FAILED';
+    const originalError = trigger && trigger.error ? String(trigger.error) : 'Apps Script unavailable and direct-Sheet read-only fallback failed';
+    return json(res, 502, {
+      ok: false,
+      error: originalError,
+      error_code: originalCode,
+      upstream_failure_class: trigger && trigger.upstream_failure_class ? String(trigger.upstream_failure_class) : (trigger && trigger.code ? String(trigger.code) : ''),
+      upstream_status: Number(trigger && trigger.upstream_status || 0),
+      suggestion: trigger && trigger.suggestion ? String(trigger.suggestion) : '',
+      fallback_error: err && err.message ? err.message : String(err),
+      fallback_attempted: true
+    });
+  }
+}
+
 async function handleSnapshot(req, res, payload, action) {
   const adminPin = String(process.env.KK_ADMIN_PIN || '').trim();
   const providedPin = String(req.headers && req.headers['x-admin-pin'] || '').trim();
@@ -215,15 +276,13 @@ async function handleSnapshot(req, res, payload, action) {
     }, 55000);
   } catch (err) {
     const isTimeout = !!(err && err.name === 'AbortError');
-    return json(res, 500, {
-      ok: false,
+    return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
+      code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
+      error_code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
       error: isTimeout
         ? 'Apps Script request timed out for snapshot. The proxy waited up to 55000 ms.'
-        : (err && err.message ? err.message : String(err)),
-      error_code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
-      proxy_upstream_ms: Date.now() - startedAt,
-      proxy_timeout_ms: 55000
-    });
+        : (err && err.message ? err.message : String(err))
+    }, startedAt);
   }
 
   const elapsed = Date.now() - startedAt;
@@ -240,6 +299,18 @@ async function handleSnapshot(req, res, payload, action) {
       host: safeUrlHost(scriptUrl),
       action: 'snapshot'
     })));
+    const fallbackEligible = ['APPS_SCRIPT_DEPLOYMENT_NOT_FOUND','GOOGLE_AUTH_HTML','GOOGLE_DRIVE_DOCS_HTML'].includes(String(failure.code || '')) ||
+      [408,429].includes(Number(upstream.status || 0)) || Number(upstream.status || 0) >= 500;
+    if (fallbackEligible) {
+      return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
+        code: failure.code || 'SNAPSHOT_UPSTREAM_NON_JSON',
+        error_code: 'SNAPSHOT_UPSTREAM_NON_JSON',
+        error: failure.message,
+        upstream_failure_class: failure.code || '',
+        upstream_status: Number(upstream.status || 0),
+        suggestion: failure.suggestion || ''
+      }, startedAt);
+    }
     return json(res, 502, {
       ok: false,
       error: failure.message,
@@ -255,6 +326,14 @@ async function handleSnapshot(req, res, payload, action) {
   if (!upstream.ok || !data || data.ok !== true) {
     const upstreamStatus = Number(upstream.status || 0);
     const retryable = upstreamStatus === 429 || upstreamStatus === 408 || upstreamStatus >= 500;
+    if (retryable) {
+      return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
+        code: 'SNAPSHOT_UPSTREAM_FAILED',
+        error_code: 'SNAPSHOT_UPSTREAM_FAILED',
+        error: data && data.error ? String(data.error) : 'Apps Script snapshot request failed',
+        upstream_status: upstreamStatus
+      }, startedAt);
+    }
     return json(res, upstream.ok ? 502 : upstream.status, {
       ok: false,
       error: data && data.error ? String(data.error) : 'Apps Script snapshot request failed',
@@ -365,5 +444,6 @@ module.exports._test = {
   handleSnapshot,
   normalizeSnapshotEnvelope,
   snapshotEnvelopeDiagnostics,
-  hasRequiredSnapshotArrays
+  hasRequiredSnapshotArrays,
+  respondWithDirectSheetFallback
 };
