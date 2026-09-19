@@ -62,8 +62,12 @@ Historical Sheet rows are not rewritten.
 
 The task registry does not report a Sep18 natural Canary run. Searches found:
 - no exact `AUTO4915` reconciliation record;
-- no Sep18 08xx matching Canary runtime lock;
-- task registry `last_run_time` still points to Sep14.
+- task registry `last_run_time` still points to Sep14;
+- no task-registry evidence binding the Sep18 rows to the canonical daily 08:15 launcher.
+
+A historical cross-check strengthens the separation between workspace rows and canonical scheduler proof: Sep16 contains 68 scenario-specific Canary workspace rows at 08:15, while the later control-plane maintenance record at 08:20 explicitly records that the canonical Canary 08:15 task was OFF and that the natural runtime boundary was not proven. Therefore workspace timestamp/cardinality alone cannot establish scheduled-task provenance.
+
+`_Run_Lock` is useful forensic evidence for control-plane maintenance, but the canonical Canary launcher does not define a Canary runtime lock as a mandatory execution gate. The acceptance auditor therefore does **not** invent a mandatory Canary `_Run_Lock` requirement.
 
 Accordingly, the Sep18 workspace evidence must not be called a proven natural scheduled run.
 
@@ -94,11 +98,12 @@ This does not prove who or what produced the rows. Actor/mechanism remains UNKNO
    - explicit `PRODUCTION=0` boundary
 
 4. **Natural runtime attribution**
-   - exact task ID
-   - task proven ON after run
-   - matching run lock exact1
-   - matching reconciliation evidence
-   - task last-run timestamp bound to run window
+   - exact canonical task ID and title
+   - task proven ON immediately before and after the natural occurrence
+   - scheduled occurrence timestamp bound to the recorded run window
+   - task registry `last_run_time` bound to that same run window
+   - run ID bound to the audited snapshot
+   - optional lock/reconciliation evidence may be recorded for forensics but is not a Canary execution requirement unless a later active policy explicitly makes it one
 
 Synthetic proof and natural-scheduler proof are deliberately separate.
 
@@ -124,4 +129,4 @@ This hardening:
 - does not enable HF/Make/Cloudflare;
 - does not turn synthetic PASS into production/provider proof.
 
-A future Canary run must produce scenario-specific assertion evidence before receiving synthetic acceptance.
+A future Canary run must produce scenario-specific assertion evidence before receiving synthetic acceptance. Natural scheduler credit additionally requires canonical task identity/state and scheduled-window attribution; a workspace timestamp by itself is insufficient.
