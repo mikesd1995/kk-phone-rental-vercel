@@ -44,8 +44,9 @@ test('runtime ledger V1 remains witness-only and nonce-constrained',()=>{
   assert.match(sql,/unique\s*\(nonce\)/i);
 });
 
-test('service_role sequence grants are limited to the three ledger identity sequences',()=>{
-  const grants=[...sql.matchAll(/grant\s+usage\s*,\s*select\s+on\s+sequence\s+public\.([a-z0-9_]+)\s+to\s+service_role/gi)]
+test('service_role sequence grants are usage-only and limited to the three ledger identity sequences',()=>{
+  assert.doesNotMatch(sql,/grant\s+usage\s*,\s*select\s+on\s+sequence/i);
+  const grants=[...sql.matchAll(/grant\s+usage\s+on\s+sequence\s+public\.([a-z0-9_]+)\s+to\s+service_role/gi)]
     .map(m=>m[1])
     .sort();
   assert.deepEqual(grants,[
@@ -53,4 +54,11 @@ test('service_role sequence grants are limited to the three ledger identity sequ
     'kk_runtime_observations_id_seq',
     'kk_task_state_events_id_seq'
   ]);
+});
+
+
+test('runtime ledger provisioning aborts instead of overlaying existing ledger tables',()=>{
+  assert.match(sql,/KK_RUNTIME_LEDGER_PROVISIONING_REQUIRES_FRESH_PROJECT/);
+  assert.doesNotMatch(sql,/create\s+table\s+if\s+not\s+exists\s+public\.kk_/i);
+  assert.doesNotMatch(sql,/create\s+index\s+if\s+not\s+exists\s+kk_/i);
 });
