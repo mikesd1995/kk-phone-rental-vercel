@@ -210,11 +210,17 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       proxy_upstream_ms: Date.now() - startedAt
     });
   } catch (err) {
+    const originalCode = trigger && trigger.error_code ? String(trigger.error_code) : 'DIRECT_SHEET_FALLBACK_FAILED';
+    const originalError = trigger && trigger.error ? String(trigger.error) : 'Apps Script unavailable and direct-Sheet read-only fallback failed';
     return json(res, 502, {
       ok: false,
-      error: 'Apps Script unavailable and direct-Sheet read-only fallback failed: ' + (err && err.message ? err.message : String(err)),
-      error_code: 'DIRECT_SHEET_FALLBACK_FAILED',
-      fallback_trigger: trigger || {}
+      error: originalError,
+      error_code: originalCode,
+      upstream_failure_class: trigger && trigger.upstream_failure_class ? String(trigger.upstream_failure_class) : (trigger && trigger.code ? String(trigger.code) : ''),
+      upstream_status: Number(trigger && trigger.upstream_status || 0),
+      suggestion: trigger && trigger.suggestion ? String(trigger.suggestion) : '',
+      fallback_error: err && err.message ? err.message : String(err),
+      fallback_attempted: true
     });
   }
 }
@@ -271,7 +277,11 @@ async function handleSnapshot(req, res, payload, action) {
   } catch (err) {
     const isTimeout = !!(err && err.name === 'AbortError');
     return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
-      code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR'
+      code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
+      error_code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
+      error: isTimeout
+        ? 'Apps Script request timed out for snapshot. The proxy waited up to 55000 ms.'
+        : (err && err.message ? err.message : String(err))
     }, startedAt);
   }
 
@@ -294,7 +304,11 @@ async function handleSnapshot(req, res, payload, action) {
     if (fallbackEligible) {
       return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
         code: failure.code || 'SNAPSHOT_UPSTREAM_NON_JSON',
-        upstream_status: Number(upstream.status || 0)
+        error_code: 'SNAPSHOT_UPSTREAM_NON_JSON',
+        error: failure.message,
+        upstream_failure_class: failure.code || '',
+        upstream_status: Number(upstream.status || 0),
+        suggestion: failure.suggestion || ''
       }, startedAt);
     }
     return json(res, 502, {
@@ -315,6 +329,8 @@ async function handleSnapshot(req, res, payload, action) {
     if (retryable) {
       return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
         code: 'SNAPSHOT_UPSTREAM_FAILED',
+        error_code: 'SNAPSHOT_UPSTREAM_FAILED',
+        error: data && data.error ? String(data.error) : 'Apps Script snapshot request failed',
         upstream_status: upstreamStatus
       }, startedAt);
     }
