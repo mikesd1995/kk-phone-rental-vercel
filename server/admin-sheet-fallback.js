@@ -3,7 +3,8 @@
 // KK Phone Rental — emergency Admin direct-Sheet read-only snapshot fallback.
 // This module NEVER writes. It reconstructs the Admin snapshot from Google Sheets
 // only when the Apps Script snapshot upstream is unavailable.
-const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v1';
+const privateSheets = require('../api/lib/private-google-sheets.js');
+const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v2';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 
 const SPECS = {
@@ -79,7 +80,7 @@ function fetchWithTimeout(url, fetchImpl, timeoutMs){
 function gvizUrl(sheetId,spec){
   return 'https://docs.google.com/spreadsheets/d/'+encodeURIComponent(sheetId)+'/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(spec.sheet)+'&range='+encodeURIComponent(spec.range)+'&t='+Date.now();
 }
-async function readSpec(sheetId,key,fetchImpl){
+async function readSpecPublic(sheetId,key,fetchImpl){
   const spec=SPECS[key];
   const r=await fetchWithTimeout(gvizUrl(sheetId,spec),fetchImpl,12000);
   const text=await r.text();
@@ -88,13 +89,40 @@ async function readSpec(sheetId,key,fetchImpl){
   return rowsAsObjects(text,spec.header);
 }
 
+function valuesAsObjects(values,requiredHeader){
+  const rows=Array.isArray(values)?values:[];
+  const headerIndex=rows.findIndex(r=>Array.isArray(r) && r.some(v=>String(v||'').trim()===requiredHeader));
+  if(headerIndex<0) throw new Error('Fallback private schema header not found: '+requiredHeader);
+  const headers=(rows[headerIndex]||[]).map(v=>String(v||'').trim());
+  const out=[];
+  for(let i=headerIndex+1;i<rows.length;i++){
+    const r=Array.isArray(rows[i])?rows[i]:[];
+    if(!r.some(v=>String(v||'').trim()!=='')) continue;
+    const o={__row_number:i+1};
+    headers.forEach((h,j)=>{ if(h) o[h]=r[j]===undefined?'':r[j]; });
+    out.push(o);
+  }
+  return out;
+}
+
+async function readSpecPrivate(sheetId,key,env,fetchImpl){
+  const spec=SPECS[key];
+  const values=await privateSheets.readValues({
+    sheetId,
+    range:spec.sheet+'!'+spec.range,
+    env,
+    fetchImpl
+  });
+  return valuesAsObjects(values,spec.header);
+}
+
 function modelMap(rows){
   const map={};
   rows.forEach(r=>{ const k=String(r.model_group||'').trim(); if(k) map[k]={model_group:k,model_display:r.model_display||k,asset_type:String(r.asset_type||'').toLowerCase(),active:bool(r.active),notes:r.notes||''}; });
   return map;
 }
 
-function buildFromRaw(raw,sheetId,startedAt){
+function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
   const models=modelMap(raw.model_master);
   const events=raw.events.filter(r=>r.event_id).map(r=>({
     event_id:String(r.event_id||'').trim(), event_name:r.event_name||'', event_date:date(r.event_date),
@@ -176,24 +204,59 @@ function buildFromRaw(raw,sheetId,startedAt){
     events,packages,overrides,assets,bookings,current_bookings:current,web_ready:webReady,web_packages:webPackages,
     today_working:todayWorking,today_key:today,model_master:Object.keys(models).map(k=>models[k]),customers,health,
     generated_at:new Date().toISOString(),spreadsheet_id:sheetId,admin_api_version:FALLBACK_VERSION,
-    degraded_read_only:true,snapshot_source:'direct-sheet-gviz-readonly-fallback',write_actions_enabled:false,
+    degraded_read_only:true,snapshot_source:transportMeta.snapshot_source||'direct-sheet-gviz-readonly-fallback',
+    fallback_reader:transportMeta.fallback_reader||'public-gviz',
+    fallback_private_attempted:!!transportMeta.fallback_private_attempted,
+    fallback_private_error_code:transportMeta.fallback_private_error_code||'',
+    write_actions_enabled:false,
     phase1_diagnostics:{fallback_mode:true,frontend_sheet_id:sheetId,spreadsheet_id:sheetId,admin_api_version:FALLBACK_VERSION},
     performance:{snapshot_ms:Date.now()-startedAt,range_mode:'direct-sheet-gviz-readonly-fallback'}
   };
 }
 
+function isTrue(v){ return ['1','true','yes','on'].includes(String(v||'').trim().toLowerCase()); }
+
 async function buildSnapshot(options={}){
-  const sheetId=String(options.sheetId||process.env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
+  const env=options.env||process.env;
+  const sheetId=String(options.sheetId||env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
   const fetchImpl=options.fetchImpl||fetch;
   if(!sheetId) throw new Error('Fallback sheet id missing');
   const startedAt=Date.now();
   const keys=Object.keys(SPECS);
-  const values=await Promise.all(keys.map(k=>readSpec(sheetId,k,fetchImpl)));
+  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE);
+  const privateConfigured=!!privateSheets.credentialsFromEnv(env);
+  let values=null;
+  let transportMeta={snapshot_source:'direct-sheet-gviz-readonly-fallback',fallback_reader:'public-gviz',fallback_private_attempted:false,fallback_private_error_code:''};
+
+  if(privateConfigured){
+    transportMeta.fallback_private_attempted=true;
+    try{
+      values=await Promise.all(keys.map(k=>readSpecPrivate(sheetId,k,env,fetchImpl)));
+      transportMeta.snapshot_source='direct-sheet-private-service-account-readonly-fallback';
+      transportMeta.fallback_reader='private-service-account';
+    }catch(err){
+      transportMeta.fallback_private_error_code=String((err&&err.code)||'PRIVATE_FALLBACK_READ_FAILED');
+      if(requirePrivate) throw err;
+      values=null;
+    }
+  }else if(requirePrivate){
+    const err=new Error('Private Admin fallback reader is required but not configured');
+    err.code='ADMIN_FALLBACK_PRIVATE_READER_NOT_CONFIGURED';
+    throw err;
+  }
+
+  if(!values){
+    values=await Promise.all(keys.map(k=>readSpecPublic(sheetId,k,fetchImpl)));
+  }
+
   const raw={}; keys.forEach((k,i)=>{raw[k]=values[i];});
   for(const key of ['events','bookings','assets']){
     if(!Array.isArray(raw[key])) throw new Error('Fallback required dataset missing: '+key);
   }
-  return buildFromRaw(raw,sheetId,startedAt);
+  return buildFromRaw(raw,sheetId,startedAt,transportMeta);
 }
 
-module.exports={FALLBACK_VERSION,SPECS,parseCsv,rowsAsObjects,buildFromRaw,buildSnapshot,bangkokDay};
+module.exports={
+  FALLBACK_VERSION,SPECS,parseCsv,rowsAsObjects,valuesAsObjects,
+  buildFromRaw,buildSnapshot,bangkokDay,isTrue
+};
