@@ -169,3 +169,176 @@ test('Scanner pre-Manifest failure still preserves independent task persistence 
   assert.equal(r.task_persistence_ok,false);
   assert.equal(r.task_persistence_classification,'TASK_PERSISTENCE_FAILED_AFTER_RUNTIME_BOUNDARY');
 });
+
+
+test('Verifier Manifest readback permits only bounded transient invisibility then exact immutable identity',()=>{
+  const expected={
+    manifest_id:'M-GPTV415-20260918T093000',
+    run_id:'GPTV415-20260918T093000-SCHEDULED-0930',
+    role:'VERIFIER',
+    fencing_token:'VERIFIER280'
+  };
+  const r=C.evaluateManifestAppendReadback({
+    expected,
+    max_attempts:3,
+    attempts:[
+      [],
+      [{...expected,status:'FROZEN'}]
+    ]
+  });
+  assert.equal(r.ok,true);
+  assert.equal(r.classification,'MANIFEST_READBACK_CONFIRMED');
+  assert.equal(r.attempt,2);
+});
+
+test('Verifier Manifest readback rejects identity drift immediately',()=>{
+  const expected={
+    manifest_id:'M-GPTV415-20260918T093000',
+    run_id:'GPTV415-20260918T093000-SCHEDULED-0930',
+    role:'VERIFIER',
+    fencing_token:'VERIFIER280'
+  };
+  const r=C.evaluateManifestAppendReadback({
+    expected,
+    attempts:[[
+      {...expected,fencing_token:'VERIFIER281'}
+    ]]
+  });
+  assert.equal(r.ok,false);
+  assert.equal(r.classification,'MANIFEST_READBACK_IDENTITY_MISMATCH');
+  assert.deepEqual(r.mismatch_fields,['fencing_token']);
+});
+
+test('Verifier Manifest readback rejects duplicate matches and never chooses one',()=>{
+  const expected={
+    manifest_id:'M-GPTV415-20260918T093000',
+    run_id:'GPTV415-20260918T093000-SCHEDULED-0930',
+    role:'VERIFIER',
+    fencing_token:'VERIFIER280'
+  };
+  const r=C.evaluateManifestAppendReadback({
+    expected,
+    attempts:[[
+      {...expected},
+      {...expected}
+    ]]
+  });
+  assert.equal(r.ok,false);
+  assert.equal(r.classification,'MANIFEST_READBACK_NOT_EXACT1');
+  assert.equal(r.row_count,2);
+});
+
+test('Verifier Manifest readback fails closed when append stays invisible within retry bound',()=>{
+  const expected={
+    manifest_id:'M-GPTV415-20260918T093000',
+    run_id:'GPTV415-20260918T093000-SCHEDULED-0930',
+    role:'VERIFIER',
+    fencing_token:'VERIFIER280'
+  };
+  const r=C.evaluateManifestAppendReadback({
+    expected,
+    max_attempts:3,
+    attempts:[[],[],[]]
+  });
+  assert.equal(r.ok,false);
+  assert.equal(r.classification,'MANIFEST_READBACK_NOT_VISIBLE_WITHIN_BOUND');
+  assert.equal(r.attempts_observed,3);
+});
+
+function due(work_id,target,source_state,evidence_id){
+  return {
+    work_id,
+    target_occurrence_id:target,
+    source_state,
+    evidence_id,
+    due:true
+  };
+}
+
+test('Scanner due-work denominator resolves all governed buckets in deterministic priority order',()=>{
+  const occurrence='SCV415-20260918T100256-SCHEDULED-1000';
+  const r=C.resolveScannerDueWorkDenominator({
+    occurrence_id:occurrence,
+    buckets:{
+      p0_preemption:[due('P0-2',occurrence,'ACTIVE_P0','EV-P0-2'),due('P0-1',occurrence,'ACTIVE_P0','EV-P0-1')],
+      current_pack:[due('CUR-1',occurrence,'RESERVED_CURRENT_PACK','EV-CUR-1')],
+      missed_pack_catch_forward:[due('MISS-1',occurrence,'ELIGIBLE_CATCH_FORWARD','EV-MISS-1')],
+      regression_debt:[due('REG-1',occurrence,'OPEN_REGRESSION_DEBT','EV-REG-1')]
+    }
+  });
+  assert.equal(r.ok,true);
+  assert.equal(r.classification,'SCANNER_DUE_WORK_RESOLVED');
+  assert.equal(r.denominator,5);
+  assert.deepEqual(
+    r.planner.map(x=>x.work_id),
+    ['P0-1','P0-2','CUR-1','MISS-1','REG-1']
+  );
+});
+
+test('Scanner due-work denominator requires every bucket to be explicitly evidenced',()=>{
+  const occurrence='SCV415-20260918T100256-SCHEDULED-1000';
+  const r=C.resolveScannerDueWorkDenominator({
+    occurrence_id:occurrence,
+    buckets:{
+      p0_preemption:[],
+      current_pack:[],
+      missed_pack_catch_forward:[]
+    }
+  });
+  assert.equal(r.ok,false);
+  assert.equal(r.classification,'SCANNER_DUE_WORK_BUCKET_MISSING');
+  assert.equal(r.denominator,null);
+  assert.equal(r.planner,null);
+  assert.match(r.blockers.join(' '),/regression_debt/);
+});
+
+test('Scanner due-work denominator rejects duplicate work across evidence classes',()=>{
+  const occurrence='SCV415-20260918T100256-SCHEDULED-1000';
+  const r=C.resolveScannerDueWorkDenominator({
+    occurrence_id:occurrence,
+    buckets:{
+      p0_preemption:[due('SAME-1',occurrence,'ACTIVE_P0','EV-P0')],
+      current_pack:[due('SAME-1',occurrence,'RESERVED_CURRENT_PACK','EV-CUR')],
+      missed_pack_catch_forward:[],
+      regression_debt:[]
+    }
+  });
+  assert.equal(r.ok,false);
+  assert.equal(r.classification,'SCANNER_DUE_WORK_EVIDENCE_INVALID');
+  assert.equal(r.denominator,null);
+  assert.match(r.blockers.join(' '),/duplicate work_id SAME-1/);
+});
+
+test('Scanner due-work denominator rejects wrong occurrence binding instead of catch-all fallback',()=>{
+  const occurrence='SCV415-20260918T100256-SCHEDULED-1000';
+  const r=C.resolveScannerDueWorkDenominator({
+    occurrence_id:occurrence,
+    buckets:{
+      p0_preemption:[],
+      current_pack:[due('CUR-1','SCV415-OTHER','RESERVED_CURRENT_PACK','EV-CUR')],
+      missed_pack_catch_forward:[],
+      regression_debt:[]
+    }
+  });
+  assert.equal(r.ok,false);
+  assert.equal(r.classification,'SCANNER_DUE_WORK_EVIDENCE_INVALID');
+  assert.equal(r.planner,null);
+  assert.match(r.blockers.join(' '),/target_occurrence_mismatch/);
+});
+
+test('Scanner explicit four-bucket empty evidence produces governed no-op instead of silent fallback',()=>{
+  const occurrence='SCV415-20260918T100256-SCHEDULED-1000';
+  const r=C.resolveScannerDueWorkDenominator({
+    occurrence_id:occurrence,
+    buckets:{
+      p0_preemption:[],
+      current_pack:[],
+      missed_pack_catch_forward:[],
+      regression_debt:[]
+    }
+  });
+  assert.equal(r.ok,true);
+  assert.equal(r.classification,'SCANNER_DUE_WORK_EVIDENCED_NO_OP');
+  assert.equal(r.denominator,0);
+  assert.deepEqual(r.planner,[]);
+});

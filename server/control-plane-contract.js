@@ -270,6 +270,243 @@ function analyzeNaturalOccurrence(input={}){
   return result;
 }
 
+
+const SCANNER_DUE_BUCKETS = Object.freeze({
+  p0_preemption:'ACTIVE_P0',
+  current_pack:'RESERVED_CURRENT_PACK',
+  missed_pack_catch_forward:'ELIGIBLE_CATCH_FORWARD',
+  regression_debt:'OPEN_REGRESSION_DEBT'
+});
+
+const SCANNER_DUE_ORDER = Object.freeze([
+  'p0_preemption',
+  'current_pack',
+  'missed_pack_catch_forward',
+  'regression_debt'
+]);
+
+function manifestIdentity(record={}){
+  return {
+    manifest_id:text(value(record,'manifest_id','manifestId','Manifest ID')),
+    run_id:recordRunId(record),
+    role:recordRole(record),
+    fencing_token:text(value(record,'fencing_token','fencingToken','Fencing Token'))
+  };
+}
+
+function evaluateManifestAppendReadback(input={}){
+  const expected=manifestIdentity(input.expected||{});
+  const missing=Object.entries(expected).filter(([,v])=>!v).map(([k])=>k);
+  if(missing.length){
+    throw new Error('expected Manifest immutable identity missing: '+missing.join(','));
+  }
+
+  const maxAttempts=input.max_attempts===undefined ? 3 : Number(input.max_attempts);
+  if(!Number.isInteger(maxAttempts) || maxAttempts<1 || maxAttempts>5){
+    throw new Error('max_attempts must be an integer from 1 to 5');
+  }
+
+  const attempts=input.attempts;
+  if(!Array.isArray(attempts) || attempts.length===0){
+    return {
+      ok:false,
+      classification:'MANIFEST_READBACK_ATTEMPTS_MISSING',
+      attempts_observed:0,
+      max_attempts:maxAttempts
+    };
+  }
+  if(attempts.length>maxAttempts){
+    return {
+      ok:false,
+      classification:'MANIFEST_READBACK_BOUND_EXCEEDED',
+      attempts_observed:attempts.length,
+      max_attempts:maxAttempts
+    };
+  }
+
+  for(let index=0;index<attempts.length;index+=1){
+    const rows=attempts[index];
+    if(!Array.isArray(rows)){
+      return {
+        ok:false,
+        classification:'MANIFEST_READBACK_ATTEMPT_INVALID',
+        attempt:index+1,
+        max_attempts:maxAttempts
+      };
+    }
+    if(rows.length===0) continue;
+    if(rows.length!==1){
+      return {
+        ok:false,
+        classification:'MANIFEST_READBACK_NOT_EXACT1',
+        attempt:index+1,
+        row_count:rows.length,
+        max_attempts:maxAttempts
+      };
+    }
+
+    const actual=manifestIdentity(rows[0]);
+    const mismatch=Object.keys(expected).filter(key=>actual[key]!==expected[key]);
+    if(mismatch.length){
+      return {
+        ok:false,
+        classification:'MANIFEST_READBACK_IDENTITY_MISMATCH',
+        attempt:index+1,
+        mismatch_fields:mismatch,
+        max_attempts:maxAttempts
+      };
+    }
+
+    return {
+      ok:true,
+      classification:'MANIFEST_READBACK_CONFIRMED',
+      attempt:index+1,
+      row_count:1,
+      max_attempts:maxAttempts
+    };
+  }
+
+  return {
+    ok:false,
+    classification:'MANIFEST_READBACK_NOT_VISIBLE_WITHIN_BOUND',
+    attempts_observed:attempts.length,
+    max_attempts:maxAttempts
+  };
+}
+
+function scannerDueRecord(row,bucket,occurrenceId){
+  const workId=text(value(row,'work_id','workId','Work ID'));
+  const evidenceId=text(value(row,'evidence_id','evidenceId','Evidence ID'));
+  const targetOccurrenceId=text(value(row,'target_occurrence_id','targetOccurrenceId','Target Occurrence ID'));
+  const sourceState=text(value(row,'source_state','sourceState','Source State')).toUpperCase();
+  const dueValue=value(row,'due','Due');
+  const due=dueValue===true || text(dueValue).toUpperCase()==='TRUE';
+  const expectedState=SCANNER_DUE_BUCKETS[bucket];
+  const problems=[];
+  if(!workId) problems.push('work_id');
+  if(!evidenceId) problems.push('evidence_id');
+  if(!targetOccurrenceId) problems.push('target_occurrence_id');
+  if(targetOccurrenceId && targetOccurrenceId!==occurrenceId) problems.push('target_occurrence_mismatch');
+  if(!due) problems.push('due_not_true');
+  if(sourceState!==expectedState) problems.push('source_state_mismatch');
+  return {
+    work_id:workId,
+    category:bucket,
+    evidence_id:evidenceId,
+    target_occurrence_id:targetOccurrenceId,
+    source_state:sourceState,
+    problems
+  };
+}
+
+function resolveScannerDueWorkDenominator(input={}){
+  const occurrenceId=text(input.occurrence_id);
+  if(!occurrenceId) throw new Error('occurrence_id is required');
+
+  const buckets=input.buckets;
+  if(!buckets || typeof buckets!=='object' || Array.isArray(buckets)){
+    return {
+      ok:false,
+      classification:'SCANNER_DUE_WORK_BUCKETS_MISSING',
+      denominator:null,
+      planner:null,
+      blockers:['buckets object is required']
+    };
+  }
+
+  const supplied=Object.keys(buckets);
+  const unknown=supplied.filter(key=>!SCANNER_DUE_ORDER.includes(key));
+  if(unknown.length){
+    return {
+      ok:false,
+      classification:'SCANNER_DUE_WORK_BUCKET_UNKNOWN',
+      denominator:null,
+      planner:null,
+      blockers:unknown.map(key=>'unknown due-work bucket: '+key)
+    };
+  }
+
+  const missing=SCANNER_DUE_ORDER.filter(key=>!Object.prototype.hasOwnProperty.call(buckets,key));
+  if(missing.length){
+    return {
+      ok:false,
+      classification:'SCANNER_DUE_WORK_BUCKET_MISSING',
+      denominator:null,
+      planner:null,
+      blockers:missing.map(key=>'missing explicit due-work bucket: '+key)
+    };
+  }
+
+  const planner=[];
+  const blockers=[];
+  const seen=new Map();
+  const bucketCounts={};
+
+  for(const bucket of SCANNER_DUE_ORDER){
+    const rows=buckets[bucket];
+    if(!Array.isArray(rows)){
+      blockers.push(bucket+' must be an array');
+      bucketCounts[bucket]=null;
+      continue;
+    }
+    bucketCounts[bucket]=rows.length;
+    for(const row of rows){
+      const normalized=scannerDueRecord(row||{},bucket,occurrenceId);
+      if(normalized.problems.length){
+        blockers.push(
+          bucket+':'+(normalized.work_id||'<blank>')+' invalid '+normalized.problems.join(',')
+        );
+        continue;
+      }
+      if(seen.has(normalized.work_id)){
+        blockers.push(
+          'duplicate work_id '+normalized.work_id+' across '+seen.get(normalized.work_id)+' and '+bucket
+        );
+        continue;
+      }
+      seen.set(normalized.work_id,bucket);
+      planner.push(normalized);
+    }
+  }
+
+  if(blockers.length){
+    return {
+      ok:false,
+      classification:'SCANNER_DUE_WORK_EVIDENCE_INVALID',
+      denominator:null,
+      planner:null,
+      bucket_counts:bucketCounts,
+      blockers
+    };
+  }
+
+  planner.sort((a,b)=>{
+    const priority=SCANNER_DUE_ORDER.indexOf(a.category)-SCANNER_DUE_ORDER.indexOf(b.category);
+    if(priority!==0) return priority;
+    return a.work_id.localeCompare(b.work_id);
+  });
+
+  if(planner.length===0){
+    return {
+      ok:true,
+      classification:'SCANNER_DUE_WORK_EVIDENCED_NO_OP',
+      denominator:0,
+      planner:[],
+      bucket_counts:bucketCounts,
+      blockers:[]
+    };
+  }
+
+  return {
+    ok:true,
+    classification:'SCANNER_DUE_WORK_RESOLVED',
+    denominator:planner.length,
+    planner,
+    bucket_counts:bucketCounts,
+    blockers:[]
+  };
+}
+
 function auditSnapshot(snapshot={}){
   if(snapshot.manifest_headers) assertManifestHeaders(snapshot.manifest_headers);
   if(snapshot.transaction_headers) assertTransactionHeaders(snapshot.transaction_headers);
@@ -290,11 +527,15 @@ module.exports={
   MANIFEST_HEADERS,
   TRANSACTION_HEADERS,
   TERMINAL_MANIFEST_STATUSES,
+  SCANNER_DUE_BUCKETS,
+  SCANNER_DUE_ORDER,
   assertManifestHeaders,
   assertTransactionHeaders,
   assertStrictlyMonotonicFence,
   lockShapeProblems,
   malformedRuntimeLocks,
+  evaluateManifestAppendReadback,
+  resolveScannerDueWorkDenominator,
   analyzeNaturalOccurrence,
   auditSnapshot
 };
