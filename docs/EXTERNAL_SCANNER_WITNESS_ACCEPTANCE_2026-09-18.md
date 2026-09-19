@@ -41,7 +41,7 @@ npm run audit:scanner-witness
 npm run audit:scanner-witness -- --required=6 --limit=24
 ```
 
-The command is read-only. It reads only the bounded control-plane fields from `kk_runtime_expectations` through the server-only service-role credential already required by the staged ledger adapter.
+The command is read-only. It reads only the bounded control-plane fields from `kk_runtime_expectations`, including the nonce and payload hash required to re-verify persisted trigger integrity, through the server-only service-role credential already required by the staged ledger adapter.
 
 It does not read or print business data.
 
@@ -57,6 +57,8 @@ Each row must satisfy:
 - mode = `WITNESS_ONLY`
 - status is an allowed runtime-ledger state
 - `occurrence_id` exactly matches `scheduled_at`
+- nonce format is valid
+- stored `payload_hash` is valid SHA-256 and exactly recomputes from the canonical persisted trigger envelope
 - receipt timing remains inside the bounded ingress window
 - no duplicate scheduled slot
 - no missing hourly slot
