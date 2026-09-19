@@ -159,3 +159,22 @@ Expected disabled state before cutover:
 ```
 
 The endpoint is an operational readiness probe, not runtime acceptance. `ready_for_witness=true` only means the environment configuration gates are present; it does not prove Cloudflare delivery, Supabase insertion, or six consecutive witness occurrences.
+
+
+## 2026-09-19 infrastructure discovery checkpoint
+
+Fresh connected-infrastructure discovery was performed without restoring or mutating any external service.
+
+Observed Supabase account state:
+- organization: `mikesd1995's projects`
+- only visible project: `supabase-cerulean-arrow`
+- project ref: `dthnyuontxeoikhjrjaw`
+- region: `ap-southeast-1`
+- status: `INACTIVE`
+- created: `2026-03-29T07:13:52.872993Z`
+
+No repository or control-plane evidence currently proves that this project is the dedicated KK runtime-ledger project. It must therefore remain untrusted for cutover purposes: no restore, schema application, credential use, or data mutation is authorized from name/account proximity alone.
+
+Current Supabase documentation also recommends new server-side secret keys (`sb_secret_...`) over legacy `service_role` API keys; the PR #65 runtime-ledger resolver follows that direction while retaining a compatibility fallback.
+
+External witness cutover remains blocked until a dedicated KK Supabase project is positively identified or explicitly created/authorized, then independently verified for schema/RLS/grants before any witness enablement.
