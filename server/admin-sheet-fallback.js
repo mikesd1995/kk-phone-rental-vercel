@@ -8,16 +8,16 @@ const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 
 const SPECS = {
-  events:       { sheet:'01_Events', range:'A4:I1000', header:'event_id' },
-  bookings:     { sheet:'00_Master_Booking', range:'A4:T2000', header:'booking_id' },
-  assets:       { sheet:'02_Assets', range:'A4:G500', header:'asset_id' },
-  packages:     { sheet:'03_Packages', range:'A4:J500', header:'template_id' },
-  overrides:    { sheet:'04_Event_Overrides', range:'A4:G2000', header:'event_id' },
-  web_ready:    { sheet:'08_Web_Ready', range:'A4:K1000', header:'event_id' },
-  web_packages: { sheet:'09_Web_Packages', range:'A4:N3000', header:'package_id' },
-  customers:    { sheet:'11_Customer_Stats', range:'A1:H1000', header:'customer_key' },
-  health:       { sheet:'10_Admin_Health_Check', range:'A4:D500', header:'Check' },
-  model_master: { sheet:'Model_Master', range:'A4:E500', header:'model_group' }
+  events:       { sheet:'01_Events', range:'A4:I1000', header:'event_id', startRow:4 },
+  bookings:     { sheet:'00_Master_Booking', range:'A4:T2000', header:'booking_id', startRow:4 },
+  assets:       { sheet:'02_Assets', range:'A4:G500', header:'asset_id', startRow:4 },
+  packages:     { sheet:'03_Packages', range:'A4:J500', header:'template_id', startRow:4 },
+  overrides:    { sheet:'04_Event_Overrides', range:'A4:G2000', header:'event_id', startRow:4 },
+  web_ready:    { sheet:'08_Web_Ready', range:'A4:K1000', header:'event_id', startRow:4 },
+  web_packages: { sheet:'09_Web_Packages', range:'A4:N3000', header:'package_id', startRow:4 },
+  customers:    { sheet:'11_Customer_Stats', range:'A1:H1000', header:'customer_key', startRow:1 },
+  health:       { sheet:'10_Admin_Health_Check', range:'A4:D500', header:'Check', startRow:4 },
+  model_master: { sheet:'Model_Master', range:'A4:E500', header:'model_group', startRow:4 }
 };
 
 function parseCsv(text){
@@ -40,7 +40,7 @@ function parseCsv(text){
   return rows;
 }
 
-function rowsAsObjects(csv, requiredHeader){
+function rowsAsObjects(csv, requiredHeader, startRow=1){
   const rows=parseCsv(csv);
   const headerIndex=rows.findIndex(r=>r.some(v=>String(v||'').trim()===requiredHeader));
   if(headerIndex<0) throw new Error('Fallback schema header not found: '+requiredHeader);
@@ -49,7 +49,7 @@ function rowsAsObjects(csv, requiredHeader){
   for(let i=headerIndex+1;i<rows.length;i++){
     const r=rows[i];
     if(!r.some(v=>String(v||'').trim()!=='')) continue;
-    const o={__row_number:i+1};
+    const o={__row_number:Number(startRow||1)+i};
     headers.forEach((h,j)=>{ if(h) o[h]=r[j]===undefined?'':r[j]; });
     out.push(o);
   }
@@ -104,14 +104,14 @@ async function readSpecPublic(sheetId,key,fetchImpl){
     throw err;
   }
   try{
-    return rowsAsObjects(text,spec.header);
+    return rowsAsObjects(text,spec.header,spec.startRow||1);
   }catch(err){
     if(!err.code) err.code='FALLBACK_SCHEMA_HEADER_MISSING';
     err.dataset=key;
     throw err;
   }
 }
-function valuesAsObjects(values,requiredHeader){
+function valuesAsObjects(values,requiredHeader,startRow=1){
   const rows=Array.isArray(values)?values:[];
   const headerIndex=rows.findIndex(r=>Array.isArray(r) && r.some(v=>String(v||'').trim()===requiredHeader));
   if(headerIndex<0) throw new Error('Fallback private schema header not found: '+requiredHeader);
@@ -120,7 +120,7 @@ function valuesAsObjects(values,requiredHeader){
   for(let i=headerIndex+1;i<rows.length;i++){
     const r=Array.isArray(rows[i])?rows[i]:[];
     if(!r.some(v=>String(v||'').trim()!=='')) continue;
-    const o={__row_number:i+1};
+    const o={__row_number:Number(startRow||1)+i};
     headers.forEach((h,j)=>{ if(h) o[h]=r[j]===undefined?'':r[j]; });
     out.push(o);
   }
@@ -135,7 +135,7 @@ async function readSpecPrivate(sheetId,key,env,fetchImpl){
     env,
     fetchImpl
   });
-  return valuesAsObjects(values,spec.header);
+  return valuesAsObjects(values,spec.header,spec.startRow||1);
 }
 
 function modelMap(rows){
