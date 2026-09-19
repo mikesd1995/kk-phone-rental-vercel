@@ -60,3 +60,11 @@ Even if the OIDC probe passes:
 - native Scanner/Verifier remain OFF under v4.9.19.
 
 A later reviewed stage may decide whether OIDC should replace the static-secret Vercel-to-Supabase path for Witness V1 writes. That is explicitly outside this stage.
+
+## Acceptance semantics
+
+A successful OIDC probe proves only this bounded chain:
+
+`Vercel production workload identity -> Vercel JWKS verification -> exact KK production claims -> canonical Supabase Edge Function -> one bounded ledger read`.
+
+It earns **zero** Scanner/Verifier/witness streak credit and is not evidence that Cloudflare scheduling, occurrence insertion, Machine-SOT runtime, or business execution works. The direct static-secret path remains available as a reviewed fallback until a later explicit cutover decision; this PR does not delete or silently replace it.
