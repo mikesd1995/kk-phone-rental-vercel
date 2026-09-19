@@ -44,11 +44,13 @@ function readinessSnapshot(env=process.env){
   const externalScannerEnabled=enabled(env.KK_EXTERNAL_SCANNER_ENABLED);
   const mode=text(env.KK_EXTERNAL_SCANNER_MODE).toLowerCase()||'unset';
   const hmacSecretConfigured=!!text(env.KK_EXTERNAL_SCANNER_SECRET);
+  const oidcProbeEnabled=enabled(env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED);
   return {
     phase:'EXTERNAL_SCANNER_WITNESS_V1',
     external_scanner_enabled:externalScannerEnabled,
     mode,
     hmac_secret_configured:hmacSecretConfigured,
+    runtime_ledger_oidc_probe_enabled:oidcProbeEnabled,
     runtime_ledger_enabled:ledger.enabled,
     runtime_ledger_configured:ledger.configured,
     supabase_url_configured:ledger.url_configured,
@@ -139,6 +141,21 @@ module.exports=async function handler(req,res){
       });
     }
     if(probeMode==='ledger-oidc'){
+      if(!readiness.runtime_ledger_oidc_probe_enabled){
+        const probe={
+          attempted:false,
+          ok:false,
+          error_code:'OIDC_PROBE_DISABLED',
+          read_only:true,
+          bounded_limit:1,
+          business_writes:0
+        };
+        return json(res,503,{
+          ok:false,
+          data:readiness,
+          runtime_ledger_oidc_probe:probe
+        });
+      }
       const probe=await OidcBridge.probe({env:process.env});
       return json(res,probe.ok?200:503,{
         ok:probe.ok,
