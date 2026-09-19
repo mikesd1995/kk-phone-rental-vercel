@@ -9,6 +9,7 @@ test('private values parser locates header and rows',()=>{
   assert.equal(rows[0].id,'1');
   assert.equal(rows[0].name,'A');
   assert.equal(rows[0].__row_number,4);
+  assert.equal(rows[0].__row_number,4);
 });
 
 test('private-reader-required fails closed when credentials are absent',async()=>{
