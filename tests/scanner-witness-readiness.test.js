@@ -19,7 +19,8 @@ test('witness readiness requires every configuration gate',()=>{
     KK_EXTERNAL_SCANNER_MODE:'witness',
     KK_EXTERNAL_SCANNER_SECRET:'hmac-secret',
     KK_RUNTIME_LEDGER_ENABLED:'true',
-    SUPABASE_URL:'https://example.supabase.co',
+    KK_RUNTIME_LEDGER_PROJECT_REF:'zehlsagzrpromtfqqflt',
+    SUPABASE_URL:'https://zehlsagzrpromtfqqflt.supabase.co',
     SUPABASE_SECRET_KEY:'sb_secret_server-only'
   });
   assert.equal(s.ready_for_witness,true);
@@ -33,8 +34,29 @@ test('missing HMAC secret keeps witness not ready',()=>{
     KK_EXTERNAL_SCANNER_ENABLED:'true',
     KK_EXTERNAL_SCANNER_MODE:'witness',
     KK_RUNTIME_LEDGER_ENABLED:'true',
-    SUPABASE_URL:'https://example.supabase.co',
+    KK_RUNTIME_LEDGER_PROJECT_REF:'zehlsagzrpromtfqqflt',
+    SUPABASE_URL:'https://zehlsagzrpromtfqqflt.supabase.co',
     SUPABASE_SECRET_KEY:'sb_secret_server-only'
   });
   assert.equal(s.ready_for_witness,false);
+});
+
+
+test('project binding mismatch keeps witness not ready',()=>{
+  const s=H._test.readinessSnapshot({
+    KK_EXTERNAL_SCANNER_ENABLED:'true',
+    KK_EXTERNAL_SCANNER_MODE:'witness',
+    KK_EXTERNAL_SCANNER_SECRET:'hmac-secret',
+    KK_RUNTIME_LEDGER_ENABLED:'true',
+    KK_RUNTIME_LEDGER_PROJECT_REF:'zehlsagzrpromtfqqflt',
+    SUPABASE_URL:'https://unxangvmhjtlqmiiuurw.supabase.co',
+    SUPABASE_SECRET_KEY:'sb_secret_server-only'
+  });
+  assert.equal(s.runtime_ledger_configured,false);
+  assert.equal(s.supabase_project_ref_configured,true);
+  assert.equal(s.supabase_url_project_ref_resolved,true);
+  assert.equal(s.supabase_project_binding_matches,false);
+  assert.equal(s.ready_for_witness,false);
+  assert.equal(s.scanner_execution_capable,false);
+  assert.equal(s.business_writes_capable,false);
 });

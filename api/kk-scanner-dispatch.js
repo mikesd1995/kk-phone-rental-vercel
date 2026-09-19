@@ -40,6 +40,9 @@ function readinessSnapshot(env=process.env){
     supabase_url_configured:ledger.url_configured,
     supabase_server_key_configured:ledger.server_key_configured,
     supabase_key_mode:ledger.key_mode,
+    supabase_project_ref_configured:ledger.project_ref_configured,
+    supabase_url_project_ref_resolved:ledger.url_project_ref_resolved,
+    supabase_project_binding_matches:ledger.project_binding_matches,
     ready_for_witness:(
       externalScannerEnabled &&
       mode==='witness' &&

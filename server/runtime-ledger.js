@@ -16,16 +16,38 @@ function resolveServerKey(env=process.env){
   return {value:'',mode:'none'};
 }
 
+function projectRefFromUrl(value){
+  const raw=text(value).replace(/\/+$/,'');
+  if(!raw) return '';
+  try{
+    const parsed=new URL(raw);
+    if(parsed.protocol!=='https:' || parsed.username || parsed.password || parsed.port) return '';
+    if((parsed.pathname && parsed.pathname!=='/') || parsed.search || parsed.hash) return '';
+    const host=parsed.hostname.toLowerCase();
+    const match=host.match(/^([a-z0-9]{20})\.supabase\.co$/);
+    return match?match[1]:'';
+  }catch(_err){
+    return '';
+  }
+}
+
 function configState(env=process.env){
   const enabled=bool(env.KK_RUNTIME_LEDGER_ENABLED);
   const url=text(env.SUPABASE_URL).replace(/\/+$/,'');
   const serverKey=resolveServerKey(env);
+  const expectedProjectRef=text(env.KK_RUNTIME_LEDGER_PROJECT_REF).toLowerCase();
+  const actualProjectRef=projectRefFromUrl(url);
+  const projectRefConfigured=!!expectedProjectRef;
+  const projectBindingMatches=projectRefConfigured && !!actualProjectRef && actualProjectRef===expectedProjectRef;
   return {
     enabled,
-    configured:enabled && !!url && !!serverKey.value,
+    configured:enabled && !!url && !!serverKey.value && projectBindingMatches,
     url_configured:!!url,
     server_key_configured:!!serverKey.value,
     key_mode:serverKey.mode,
+    project_ref_configured:projectRefConfigured,
+    url_project_ref_resolved:!!actualProjectRef,
+    project_binding_matches:projectBindingMatches,
     table:'kk_runtime_expectations'
   };
 }
@@ -151,4 +173,4 @@ async function recordExpectation({env=process.env,fetchImpl=global.fetch,row}){
   };
 }
 
-module.exports={configState,listExpectations,recordExpectation,resolveServerKey};
+module.exports={configState,listExpectations,recordExpectation,resolveServerKey,projectRefFromUrl};
