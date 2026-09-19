@@ -7,7 +7,7 @@ const L=require('../server/runtime-ledger');
 const env={
   KK_RUNTIME_LEDGER_ENABLED:'true',
   SUPABASE_URL:'https://example.supabase.co',
-  SUPABASE_SERVICE_ROLE_KEY:'server-only-test-key'
+  SUPABASE_SECRET_KEY:'sb_secret_server-only-test-key'
 };
 
 const row={
@@ -29,10 +29,25 @@ test('runtime ledger stays disabled unless explicitly enabled',()=>{
   assert.equal(s.configured,false);
 });
 
-test('runtime ledger requires both Supabase URL and service-role credential',()=>{
+test('runtime ledger requires Supabase URL plus a server-only credential',()=>{
   const s=L.configState({KK_RUNTIME_LEDGER_ENABLED:'true',SUPABASE_URL:'https://example.supabase.co'});
   assert.equal(s.enabled,true);
   assert.equal(s.configured,false);
+});
+
+test('new Supabase secret key is preferred over legacy service_role key',()=>{
+  const s=L.resolveServerKey({
+    SUPABASE_SECRET_KEY:'sb_secret_new',
+    SUPABASE_SERVICE_ROLE_KEY:'legacy-key'
+  });
+  assert.equal(s.mode,'secret');
+  assert.equal(s.value,'sb_secret_new');
+});
+
+test('legacy service_role remains a compatibility fallback',()=>{
+  const s=L.resolveServerKey({SUPABASE_SERVICE_ROLE_KEY:'legacy-key'});
+  assert.equal(s.mode,'legacy_service_role');
+  assert.equal(s.value,'legacy-key');
 });
 
 test('expectation insert uses service-only REST call and returns inserted row',async()=>{
@@ -50,9 +65,9 @@ test('expectation insert uses service-only REST call and returns inserted row',a
   assert.equal(result.inserted,true);
   assert.equal(result.idempotent_duplicate,false);
   assert.match(captured.url,/\/rest\/v1\/kk_runtime_expectations\?on_conflict=occurrence_id$/);
-  assert.equal(captured.options.headers.apikey,env.SUPABASE_SERVICE_ROLE_KEY);
-  assert.equal(captured.options.headers.Authorization,`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
-  assert.doesNotMatch(captured.url,/server-only-test-key/);
+  assert.equal(captured.options.headers.apikey,env.SUPABASE_SECRET_KEY);
+  assert.equal(captured.options.headers.Authorization,`Bearer ${env.SUPABASE_SECRET_KEY}`);
+  assert.doesNotMatch(captured.url,/sb_secret_server-only-test-key/);
 });
 
 test('duplicate occurrence is idempotent when Supabase returns no new representation',async()=>{
@@ -92,9 +107,9 @@ test('witness expectation read is bounded, service-only and does not place secre
   assert.equal(result.ok,true);
   assert.equal(result.rows.length,1);
   assert.equal(captured.options.method,'GET');
-  assert.equal(captured.options.headers.apikey,env.SUPABASE_SERVICE_ROLE_KEY);
-  assert.equal(captured.options.headers.Authorization,`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
-  assert.doesNotMatch(captured.url,/server-only-test-key/);
+  assert.equal(captured.options.headers.apikey,env.SUPABASE_SECRET_KEY);
+  assert.equal(captured.options.headers.Authorization,`Bearer ${env.SUPABASE_SECRET_KEY}`);
+  assert.doesNotMatch(captured.url,/sb_secret_server-only-test-key/);
   assert.match(captured.url,/role=eq\.SCANNER/);
   assert.match(captured.url,/mode=eq\.WITNESS_ONLY/);
   assert.match(captured.url,/limit=24/);
