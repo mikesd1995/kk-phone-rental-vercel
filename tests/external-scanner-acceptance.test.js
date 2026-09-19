@@ -7,17 +7,28 @@ const R=require('../server/external-scanner-runtime');
 
 function row(hour,status='EXPECTED'){
   const scheduled=`2026-09-18T${String(hour).padStart(2,'0')}:00:00+07:00`;
-  return {
+  const out={
     occurrence_id:R.occurrenceIdFor(scheduled),
     role:'SCANNER',
     scheduled_at:scheduled,
     issued_at:`2026-09-18T${String(hour).padStart(2,'0')}:00:05+07:00`,
+    nonce:`nonce-20260918T${String(hour).padStart(2,'0')}0000-01`,
     source:R.SOURCE,
     trigger_version:R.VERSION,
     status,
     mode:'WITNESS_ONLY',
     received_at:`2026-09-18T${String(hour).padStart(2,'0')}:00:06+07:00`
   };
+  out.payload_hash=R.sha256(R.canonicalizeEnvelope({
+    version:out.trigger_version,
+    role:out.role,
+    occurrence_id:out.occurrence_id,
+    scheduled_at:out.scheduled_at,
+    issued_at:out.issued_at,
+    nonce:out.nonce,
+    source:out.source
+  }));
+  return out;
 }
 
 test('six recent consecutive witness expectations pass only the clock witness gate',()=>{
@@ -89,4 +100,21 @@ test('receive timestamp far outside ingress window is invalid',()=>{
   const checked=A.validateWitnessRow(bad);
   assert.equal(checked.ok,false);
   assert.ok(checked.reasons.includes('RECEIVE_LAG'));
+});
+
+
+test('tampered persisted envelope is rejected when payload hash no longer matches',()=>{
+  const bad=row(23);
+  bad.nonce='nonce-20260918T230000-99';
+  const checked=A.validateWitnessRow(bad);
+  assert.equal(checked.ok,false);
+  assert.ok(checked.reasons.includes('PAYLOAD_HASH'));
+});
+
+test('malformed payload hash is rejected before witness streak counting',()=>{
+  const bad=row(23);
+  bad.payload_hash='not-a-sha256';
+  const checked=A.validateWitnessRow(bad);
+  assert.equal(checked.ok,false);
+  assert.ok(checked.reasons.includes('PAYLOAD_HASH_FORMAT'));
 });
