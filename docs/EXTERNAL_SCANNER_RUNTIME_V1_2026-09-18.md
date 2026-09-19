@@ -81,7 +81,7 @@ SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-The service role must remain server-only.
+Prefer the current Supabase secret API key (`sb_secret_...`) and keep it server-only. `SUPABASE_SERVICE_ROLE_KEY` remains a temporary compatibility fallback for existing projects. The Postgres `service_role` database role used in grants is distinct from the legacy API-key naming.
 
 ## External Scanner ingress environment contract
 
@@ -140,3 +140,41 @@ Repository staging PASS requires:
 - zero production business writes
 
 Production witness acceptance is a later gate and must not be inferred from repository CI.
+
+
+## Witness readiness health
+
+`GET /api/kk-scanner-dispatch` returns configuration presence only; it never returns secrets.
+
+Expected disabled state before cutover:
+
+```json
+{
+  "external_scanner_enabled": false,
+  "runtime_ledger_enabled": false,
+  "ready_for_witness": false,
+  "scanner_execution_capable": false,
+  "business_writes_capable": false
+}
+```
+
+The endpoint is an operational readiness probe, not runtime acceptance. `ready_for_witness=true` only means the environment configuration gates are present; it does not prove Cloudflare delivery, Supabase insertion, or six consecutive witness occurrences.
+
+
+## 2026-09-19 infrastructure discovery checkpoint
+
+Fresh connected-infrastructure discovery was performed without restoring or mutating any external service.
+
+Observed Supabase account state:
+- organization: `mikesd1995's projects`
+- only visible project: `supabase-cerulean-arrow`
+- project ref: `dthnyuontxeoikhjrjaw`
+- region: `ap-southeast-1`
+- status: `INACTIVE`
+- created: `2026-03-29T07:13:52.872993Z`
+
+No repository or control-plane evidence currently proves that this project is the dedicated KK runtime-ledger project. It must therefore remain untrusted for cutover purposes: no restore, schema application, credential use, or data mutation is authorized from name/account proximity alone.
+
+Current Supabase documentation also recommends new server-side secret keys (`sb_secret_...`) over legacy `service_role` API keys; the PR #65 runtime-ledger resolver follows that direction while retaining a compatibility fallback.
+
+External witness cutover remains blocked until a dedicated KK Supabase project is positively identified or explicitly created/authorized, then independently verified for schema/RLS/grants before any witness enablement.
