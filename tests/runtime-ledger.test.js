@@ -84,10 +84,17 @@ test('runtime ledger resolves canonical Supabase project ref from URL',()=>{
   assert.equal(L.projectRefFromUrl('not a url'),'');
 });
 
+test('default HTTPS port remains canonical',()=>{
+  assert.equal(
+    L.projectRefFromUrl('https://zehlsagzrpromtfqqflt.supabase.co:443'),
+    'zehlsagzrpromtfqqflt'
+  );
+});
+
 test('runtime ledger rejects noncanonical Supabase URL shapes',()=>{
   for(const value of [
     'http://zehlsagzrpromtfqqflt.supabase.co',
-    'https://zehlsagzrpromtfqqflt.supabase.co:443',
+    'https://zehlsagzrpromtfqqflt.supabase.co:8443',
     'https://zehlsagzrpromtfqqflt.supabase.co/rest/v1',
     'https://zehlsagzrpromtfqqflt.supabase.co?x=1',
     'https://zehlsagzrpromtfqqflt.supabase.co#x',
