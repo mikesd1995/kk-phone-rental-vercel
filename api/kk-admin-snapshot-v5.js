@@ -8,7 +8,8 @@ const SnapshotHealth = require('../admin/snapshot-health.js');
 const UpstreamResponse = require('../server/upstream-response.js');
 const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 
-const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.1';
+const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.2';
+const SNAPSHOT_UPSTREAM_TIMEOUT_MS = 12000;
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const SNAPSHOT_ACTIONS = new Set(['snapshot', 'snapshotHealth']);
 const REQUIRED_SNAPSHOT_KEYS = ['events', 'bookings', 'current_bookings', 'assets'];
@@ -166,12 +167,15 @@ function snapshotEnvelopeDiagnostics(body) {
 }
 
 async function respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, trigger, startedAt) {
+  const fallbackStartedAt = Date.now();
   try {
     const snapshot = await AdminSheetFallback.buildSnapshot({ sheetId: frontendSheetId });
     snapshot.frontend_sheet_id = frontendSheetId;
     snapshot.frontend_sheet_id_source = sheetIdSource;
     snapshot.frontend_proxy_version = SnapshotHealth.VERSION;
     const health = SnapshotHealth.assess(snapshot);
+    const fallbackMs = Date.now() - fallbackStartedAt;
+    const upstreamMs = Number(trigger && trigger.upstream_ms || 0);
     health.latency_ms = Date.now() - startedAt;
     health.checked_at = new Date().toISOString();
     health.backend_version = snapshot.admin_api_version || '';
@@ -204,6 +208,8 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       bookings: Array.isArray(snapshot.bookings) ? snapshot.bookings.length : null,
       current_bookings: Array.isArray(snapshot.current_bookings) ? snapshot.current_bookings.length : null,
       assets: Array.isArray(snapshot.assets) ? snapshot.assets.length : null,
+      upstream_ms: upstreamMs,
+      fallback_ms: fallbackMs,
       latency_ms: Number(health.latency_ms || 0)
     }));
 
@@ -213,7 +219,11 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
         data: health,
         degraded_read_only: true,
         snapshot_source: snapshot.snapshot_source,
-        fallback_trigger: trigger || {}
+        fallback_trigger: trigger || {},
+        proxy_upstream_ms: upstreamMs,
+        fallback_ms: fallbackMs,
+        proxy_round_trip_ms: Number(health.latency_ms || 0),
+        proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS
       });
     }
     return json(res, 200, {
@@ -223,7 +233,10 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       degraded_read_only: true,
       snapshot_source: snapshot.snapshot_source,
       fallback_trigger: trigger || {},
-      proxy_upstream_ms: Date.now() - startedAt
+      proxy_upstream_ms: upstreamMs,
+      fallback_ms: fallbackMs,
+      proxy_round_trip_ms: Number(health.latency_ms || 0),
+      proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS
     });
   } catch (err) {
     const originalCode = trigger && trigger.error_code ? String(trigger.error_code) : 'DIRECT_SHEET_FALLBACK_FAILED';
@@ -235,7 +248,8 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       trigger_code: String(trigger && trigger.code || ''),
       upstream_status: Number(trigger && trigger.upstream_status || 0),
       fallback_error_code: fallbackErrorCode,
-      fallback_dataset: fallbackDataset
+      fallback_dataset: fallbackDataset,
+      fallback_ms: Date.now() - fallbackStartedAt
     }));
     return json(res, 502, {
       ok: false,
@@ -300,15 +314,16 @@ async function handleSnapshot(req, res, payload, action) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(upstreamPayload)
-    }, 55000);
+    }, SNAPSHOT_UPSTREAM_TIMEOUT_MS);
   } catch (err) {
     const isTimeout = !!(err && err.name === 'AbortError');
     return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
       code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
       error_code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
       error: isTimeout
-        ? 'Apps Script request timed out for snapshot. The proxy waited up to 55000 ms.'
-        : (err && err.message ? err.message : String(err))
+        ? 'Apps Script request timed out for snapshot. The proxy waited up to ' + String(SNAPSHOT_UPSTREAM_TIMEOUT_MS) + ' ms.'
+        : (err && err.message ? err.message : String(err)),
+      upstream_ms: Date.now() - startedAt
     }, startedAt);
   }
 
@@ -335,7 +350,8 @@ async function handleSnapshot(req, res, payload, action) {
         error: failure.message,
         upstream_failure_class: failure.code || '',
         upstream_status: Number(upstream.status || 0),
-        suggestion: failure.suggestion || ''
+        suggestion: failure.suggestion || '',
+        upstream_ms: elapsed
       }, startedAt);
     }
     return json(res, 502, {
@@ -346,7 +362,7 @@ async function handleSnapshot(req, res, payload, action) {
       upstream_status: upstream.status,
       suggestion: failure.suggestion,
       proxy_upstream_ms: elapsed,
-      proxy_timeout_ms: 55000
+      proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS
     });
   }
 
@@ -358,7 +374,8 @@ async function handleSnapshot(req, res, payload, action) {
         code: 'SNAPSHOT_UPSTREAM_FAILED',
         error_code: 'SNAPSHOT_UPSTREAM_FAILED',
         error: data && data.error ? String(data.error) : 'Apps Script snapshot request failed',
-        upstream_status: upstreamStatus
+        upstream_status: upstreamStatus,
+        upstream_ms: elapsed
       }, startedAt);
     }
     return json(res, upstream.ok ? 502 : upstream.status, {
@@ -369,7 +386,7 @@ async function handleSnapshot(req, res, payload, action) {
       retryable,
       backend_version: data && (data.admin_api_version || (data.data && data.data.admin_api_version)) || '',
       proxy_upstream_ms: elapsed,
-      proxy_timeout_ms: 55000
+      proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS
     });
   }
 
@@ -381,7 +398,7 @@ async function handleSnapshot(req, res, payload, action) {
       upstream_status: upstream.status,
       upstream_contract: snapshotEnvelopeDiagnostics(data),
       proxy_upstream_ms: elapsed,
-      proxy_timeout_ms: 55000
+      proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS
     });
   }
 
@@ -407,7 +424,7 @@ async function handleSnapshot(req, res, payload, action) {
       ok: true,
       data: health,
       proxy_upstream_ms: elapsed,
-      proxy_timeout_ms: 55000
+      proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS
     });
   }
 
@@ -419,7 +436,7 @@ async function handleSnapshot(req, res, payload, action) {
       snapshot_health: health,
       upstream_contract: snapshotEnvelopeDiagnostics(data),
       proxy_upstream_ms: elapsed,
-      proxy_timeout_ms: 55000
+      proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS
     });
   }
 
@@ -472,5 +489,6 @@ module.exports._test = {
   normalizeSnapshotEnvelope,
   snapshotEnvelopeDiagnostics,
   hasRequiredSnapshotArrays,
-  respondWithDirectSheetFallback
+  respondWithDirectSheetFallback,
+  SNAPSHOT_UPSTREAM_TIMEOUT_MS
 };

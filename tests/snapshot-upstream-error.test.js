@@ -70,6 +70,11 @@ test.afterEach(() => {
   global.fetch = ORIGINAL_FETCH;
 });
 
+
+test('caps snapshot upstream wait before entering safe read-only fallback', () => {
+  assert.equal(handler._test.SNAPSHOT_UPSTREAM_TIMEOUT_MS, 12000);
+});
+
 test('preserves Apps Script JSON error instead of rewriting it as missing arrays', async () => {
   mockUpstream({ body: { ok: false, error: 'API key mismatch' } });
   const out = responseCapture();
@@ -128,7 +133,7 @@ test('passes a healthy snapshot and attaches snapshot health metadata', async ()
   assert.equal(out.body.data.events.length, 1);
   assert.equal(out.body.snapshot_health.ok, true);
   assert.equal(out.body.data.frontend_sheet_id, process.env.GOOGLE_SHEET_ID);
-  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.1');
+  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.2');
 });
 
 
@@ -170,4 +175,8 @@ test('uses direct-Sheet read-only fallback when Apps Script deployment is missin
   assert.equal(out.body.data.assets.length,1);
   assert.equal(out.body.snapshot_health.ok,true);
   assert.equal(out.body.fallback_trigger.upstream_failure_class,'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND');
+  assert.equal(out.body.proxy_timeout_ms,12000);
+  assert.equal(typeof out.body.proxy_upstream_ms,'number');
+  assert.equal(typeof out.body.fallback_ms,'number');
+  assert.equal(typeof out.body.proxy_round_trip_ms,'number');
 });
