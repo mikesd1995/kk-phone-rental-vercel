@@ -25,6 +25,19 @@ function bodyObject(req){
   return {};
 }
 
+function queryValue(req,key){
+  if(req && req.query && Object.prototype.hasOwnProperty.call(req.query,key)){
+    const value=req.query[key];
+    return Array.isArray(value)?text(value[0]):text(value);
+  }
+  try{
+    const parsed=new URL(String(req&&req.url||'/'),'https://kk-local.invalid');
+    return text(parsed.searchParams.get(key));
+  }catch(_err){
+    return '';
+  }
+}
+
 function readinessSnapshot(env=process.env){
   const ledger=Ledger.configState(env);
   const externalScannerEnabled=enabled(env.KK_EXTERNAL_SCANNER_ENABLED);
@@ -51,9 +64,74 @@ function readinessSnapshot(env=process.env){
   };
 }
 
+async function ledgerConnectivityProbe({
+  env=process.env,
+  listExpectations=Ledger.listExpectations
+}={}){
+  const ledger=Ledger.configState(env);
+  if(!ledger.enabled){
+    return {
+      attempted:false,
+      ok:false,
+      error_code:'RUNTIME_LEDGER_DISABLED',
+      read_only:true,
+      bounded_limit:1,
+      business_writes:0
+    };
+  }
+  if(!ledger.configured){
+    return {
+      attempted:false,
+      ok:false,
+      error_code:'RUNTIME_LEDGER_NOT_CONFIGURED',
+      read_only:true,
+      bounded_limit:1,
+      business_writes:0
+    };
+  }
+
+  try{
+    const result=await listExpectations({
+      env,
+      role:'SCANNER',
+      mode:'WITNESS_ONLY',
+      limit:1
+    });
+    return {
+      attempted:true,
+      ok:true,
+      row_count:Array.isArray(result&&result.rows)?result.rows.length:0,
+      read_only:true,
+      bounded_limit:1,
+      business_writes:0
+    };
+  }catch(err){
+    return {
+      attempted:true,
+      ok:false,
+      error_code:String(err&&err.code||'RUNTIME_LEDGER_PROBE_FAILED'),
+      remote_status:Number.isInteger(err&&err.status)?err.status:null,
+      read_only:true,
+      bounded_limit:1,
+      business_writes:0
+    };
+  }
+}
+
 module.exports=async function handler(req,res){
   if(req.method==='OPTIONS') return json(res,204,{});
-  if(req.method==='GET') return json(res,200,{ok:true,data:readinessSnapshot(process.env)});
+  if(req.method==='GET'){
+    const readiness=readinessSnapshot(process.env);
+    if(queryValue(req,'probe').toLowerCase()!=='ledger'){
+      return json(res,200,{ok:true,data:readiness});
+    }
+    const probe=await ledgerConnectivityProbe({env:process.env});
+    return json(res,probe.ok?200:503,{
+      ok:probe.ok,
+      data:readiness,
+      runtime_ledger_probe:probe
+    });
+  }
   if(req.method!=='POST') return json(res,405,{ok:false,error_code:'METHOD_NOT_ALLOWED'});
 
   const env=process.env;
@@ -133,4 +211,10 @@ module.exports=async function handler(req,res){
   }
 };
 
-module.exports._test={bodyObject,enabled,readinessSnapshot};
+module.exports._test={
+  bodyObject,
+  enabled,
+  queryValue,
+  readinessSnapshot,
+  ledgerConnectivityProbe
+};
