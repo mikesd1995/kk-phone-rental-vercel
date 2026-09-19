@@ -606,6 +606,7 @@ footer .footer-tagline{
   .concert-card{border-radius:20px;}
 }
 @media(max-width:390px){
+  .wrap{padding-left:7px;padding-right:7px;}
   .brand-image-card{border-radius:18px;}
   .poster-grid{gap:9px;}
   .concert-card{box-shadow:0 11px 25px rgba(52,110,170,.11);}
