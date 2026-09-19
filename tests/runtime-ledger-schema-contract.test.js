@@ -75,3 +75,26 @@ test('runtime ledger SQL keeps dollar-quoted fail-closed blocks intact',()=>{
   assert.match(verifySql,/\$\$;/);
   assert.match(verifySql,/KK_RUNTIME_LEDGER_VERIFY: PASS/);
 });
+
+
+test('runtime ledger verifier avoids PL/pgSQL and information_schema name ambiguity',()=>{
+  assert.match(verifySql,/declare\s+[\s\S]*v_table_name\s+text;/i);
+  assert.match(verifySql,/from\s+information_schema\.columns\s+as\s+cols/i);
+  assert.match(verifySql,/cols\.table_name='kk_runtime_expectations'/i);
+  assert.doesNotMatch(verifySql,/declare[\s\S]*\btable_name\s+text;/i);
+});
+
+test('runtime ledger verifier checks incident UPDATE privileges column-by-column',()=>{
+  for(const column of [
+    'classification',
+    'severity',
+    'occurrence_id',
+    'run_id',
+    'root_cause_state',
+    'evidence'
+  ]){
+    assert.match(verifySql,new RegExp(`'${column}'`));
+  }
+  assert.match(verifySql,/incidents table-wide UPDATE must remain denied/i);
+  assert.match(verifySql,/unexpected incident UPDATE grant on column/i);
+});

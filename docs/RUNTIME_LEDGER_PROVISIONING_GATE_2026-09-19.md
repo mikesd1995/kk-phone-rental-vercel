@@ -2,13 +2,24 @@
 
 ## Status
 
-**PROVISIONING HARDENED / DEDICATED PROJECT NOT YET CREATED OR SELECTED**
+**DEDICATED PROJECT PROVISIONED / WITNESS RUNTIME STILL OFF**
 
 This gate prepares the Supabase runtime-ledger layer used by the external Scanner witness. It does not activate the witness clock, Scanner business execution, HF, Make, or any ChatGPT recurring task.
 
-## Current Supabase discovery
+## Dedicated project
 
-The connected account exposes one project:
+A dedicated project was created after explicit owner approval and a confirmed project cost of USD 0/month:
+
+- name: `kk-phone-rental-runtime-ledger`
+- project ref: `zehlsagzrpromtfqqflt`
+- region: `ap-southeast-1`
+- status at creation: `ACTIVE_HEALTHY`
+
+The prior project remains separate and untouched.
+
+## Previous Supabase discovery
+
+The connected account previously exposed one project:
 
 - `supabase-cerulean-arrow`
 - region: `ap-southeast-1`
@@ -67,6 +78,23 @@ V1 expectations are restricted to:
 
 Production Scanner execution requires a separately reviewed schema/runtime version. It must not be smuggled into V1 by changing a mode string.
 
+## Provisioning execution
+
+The merged V1 schema with repository content SHA `768695890c2bf970b763fba3ec1c1a61ffa1e739` was applied to the dedicated project as migration `kk_runtime_ledger_v1`.
+
+Fresh-project preflight confirmed all four `kk_runtime_*` / control-plane tables were absent before migration.
+
+A rolled-back `SET LOCAL ROLE service_role` privilege probe proved:
+- expectation insert succeeds;
+- status-only update succeeds;
+- observation/task-state/incident append succeeds;
+- incident approved-field update succeeds;
+- expectation source mutation is denied;
+- expectation DELETE is denied;
+- incident role mutation is denied.
+
+Post-probe row counts returned to exactly zero for all four tables.
+
 ## Provisioning verification
 
 After applying the staging schema to an explicitly selected dedicated KK project, execute:
@@ -83,7 +111,11 @@ It fails closed if:
 - required targeted sequence grants are missing;
 - nonce uniqueness or WITNESS_ONLY enforcement is missing.
 
-Only after this SQL returns `KK_RUNTIME_LEDGER_VERIFY: PASS` should Security/Performance Advisors and bounded Data API runtime probes be run.
+An initial live verifier execution exposed PostgreSQL error 42702 because the PL/pgSQL variable `table_name` collided with `information_schema.columns.table_name`. The verifier was corrected to use `v_table_name` / qualified `cols.table_name`, and live execution then completed without exception. The corrected verifier also checks incident UPDATE privileges column-by-column.
+
+Security Advisor currently reports four INFO-only `rls_enabled_no_policy` findings. This is expected for V1 because `anon` and `authenticated` are explicitly revoked and the server-only role bypasses RLS. No public policy is intentionally created.
+
+Performance Advisor currently reports three INFO-only unused indexes. The ledger is newly provisioned with zero persistent rows, so index usage has not yet occurred. Do not remove these indexes until real witness traffic exists and usage can be evaluated.
 
 ## Activation boundary
 
