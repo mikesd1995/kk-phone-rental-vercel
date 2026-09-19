@@ -8,15 +8,24 @@ function bool(value){
   return ['1','true','yes','on'].includes(text(value).toLowerCase());
 }
 
+function resolveServerKey(env=process.env){
+  const secretKey=text(env.SUPABASE_SECRET_KEY);
+  if(secretKey) return {value:secretKey,mode:'secret'};
+  const legacyServiceRoleKey=text(env.SUPABASE_SERVICE_ROLE_KEY);
+  if(legacyServiceRoleKey) return {value:legacyServiceRoleKey,mode:'legacy_service_role'};
+  return {value:'',mode:'none'};
+}
+
 function configState(env=process.env){
   const enabled=bool(env.KK_RUNTIME_LEDGER_ENABLED);
   const url=text(env.SUPABASE_URL).replace(/\/+$/,'');
-  const serviceRoleKey=text(env.SUPABASE_SERVICE_ROLE_KEY);
+  const serverKey=resolveServerKey(env);
   return {
     enabled,
-    configured:enabled && !!url && !!serviceRoleKey,
+    configured:enabled && !!url && !!serverKey.value,
     url_configured:!!url,
-    service_role_configured:!!serviceRoleKey,
+    server_key_configured:!!serverKey.value,
+    key_mode:serverKey.mode,
     table:'kk_runtime_expectations'
   };
 }
@@ -36,9 +45,10 @@ function boundedLimit(value,fallback=24){
 }
 
 function serviceHeaders(env){
+  const serverKey=resolveServerKey(env).value;
   return {
-    apikey:env.SUPABASE_SERVICE_ROLE_KEY,
-    Authorization:`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+    apikey:serverKey,
+    Authorization:`Bearer ${serverKey}`
   };
 }
 
@@ -141,4 +151,4 @@ async function recordExpectation({env=process.env,fetchImpl=global.fetch,row}){
   };
 }
 
-module.exports={configState,listExpectations,recordExpectation};
+module.exports={configState,listExpectations,recordExpectation,resolveServerKey};
