@@ -85,11 +85,13 @@ module.exports=async function handler(req,res){
       if(!Array.isArray(values)) return json(res,502,{ok:false,error_code:'BRIDGE_HEALTH_READBACK_INVALID'});
       return json(res,200,{ok:true,stage,action:verified.action,request_id:String(input.request_id||'')});
     }
+    if(!Array.isArray(values)) return json(res,502,{ok:false,error_code:'BRIDGE_READBACK_MISSING'});
     const expected=String(input.after_hash||'');
-    if(!expected||!Array.isArray(values)) return json(res,502,{ok:false,error_code:'BRIDGE_READBACK_MISSING'});
-    const actualHash=Bridge.stableValuesHash(values);
-    if(actualHash!==expected) return json(res,502,{ok:false,error_code:'BRIDGE_READBACK_MISMATCH'});
-    return json(res,200,{ok:true,stage,action:verified.action,request_id:String(input.request_id||'')});
+    if(expected){
+      const actualHash=Bridge.stableValuesHash(values);
+      if(actualHash!==expected) return json(res,502,{ok:false,error_code:'BRIDGE_READBACK_MISMATCH'});
+    }
+    return json(res,200,{ok:true,stage,action:verified.action,request_id:String(input.request_id||''),values_returned:values.length});
   }
 
   return json(res,400,{ok:false,error_code:'BRIDGE_STAGE_INVALID'});
