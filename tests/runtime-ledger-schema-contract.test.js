@@ -31,8 +31,11 @@ test('runtime ledger staging SQL clears project-default table grants before exac
 test('expectations table permits service_role UPDATE only on status',()=>{
   assert.match(sql,/grant\s+select\s*,\s*insert\s+on\s+table\s+public\.kk_runtime_expectations\s+to\s+service_role/i);
   assert.match(sql,/grant\s+update\s*\(\s*status\s*\)\s+on\s+table\s+public\.kk_runtime_expectations\s+to\s+service_role/i);
-  assert.doesNotMatch(sql,/grant\s+[^;]*update[^;]*on\s+table\s+public\.kk_runtime_expectations\s+to\s+service_role/i,
-    'broad expectations UPDATE grant must not return');
+  assert.doesNotMatch(
+    sql,
+    /grant\s+(?:select\s*,\s*insert\s*,\s*)?update\s+on\s+table\s+public\.kk_runtime_expectations\s+to\s+service_role/i,
+    'table-wide expectations UPDATE grant must not return'
+  );
 });
 
 test('runtime ledger V1 remains witness-only and nonce-constrained',()=>{
