@@ -128,3 +128,12 @@ Two defects were found by CI and corrected without weakening the safety contract
 2. The first current-main CI wrapper used `npm run ... > json`, causing npm banner text to contaminate the JSON artifact. The workflow was corrected to invoke the Node scripts directly and preserve strict JSON validation.
 
 Neither correction changed HF authority, production import behavior, task state, Machine SOT, production environment variables, or production deployment.
+
+
+## 2026-09-19 exact-head Preview revalidation checkpoint
+
+A fresh Vercel deployment inventory read shows the project is accepting Preview builds again: the same HF staging branch has a READY Preview deployment for intermediate commit `1b2473fd2cf02eb91c98226b4177df4f1b347faf`.
+
+The PR head `288b777b4bff4dd3ca5b1bf62228f9d9b28f9d59` still carries the older GitHub Vercel status pointing to the account build-rate-limit surface, so exact-head Preview acceptance is still not claimed from that stale status.
+
+This documentation-only checkpoint intentionally creates a new branch head so Vercel/GitHub can re-evaluate the exact current branch under the now-observed available Preview capacity. It does not change runtime code, HF gates, production configuration, Machine SOT, task state, provider behavior, or business data.
