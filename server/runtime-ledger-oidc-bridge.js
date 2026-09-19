@@ -58,11 +58,11 @@ async function probe({
       body:JSON.stringify({probe:'runtime-ledger',version:'v1'}),
       signal:AbortSignal.timeout(OIDC_BRIDGE_TIMEOUT_MS)
     });
-  }catch(_err){
+  }catch(err){
     return {
       attempted:true,
       ok:false,
-      error_code:'OIDC_BRIDGE_TRANSPORT_FAILED',
+      error_code:String(err&&err.name)==='TimeoutError'?'OIDC_BRIDGE_TIMEOUT':'OIDC_BRIDGE_TRANSPORT_FAILED',
       read_only:true,
       bounded_limit:1,
       business_writes:0
