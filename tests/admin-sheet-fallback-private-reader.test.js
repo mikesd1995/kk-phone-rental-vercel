@@ -32,6 +32,9 @@ test('public reader remains transitional fallback when private reader is absent'
   };
   const fetchImpl=async url=>{
     const u=new URL(String(url)); const sheet=u.searchParams.get('sheet');
+    const spec=Object.values(F.SPECS).find(item=>item.sheet===sheet);
+    assert.ok(spec,'unexpected fallback sheet '+sheet);
+    assert.equal(u.searchParams.get('range'),spec.range);
     return {ok:true,status:200,async text(){return csv[sheet];}};
   };
   const s=await F.buildSnapshot({sheetId:'sheet',env:{},fetchImpl});
