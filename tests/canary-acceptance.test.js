@@ -39,11 +39,16 @@ function provenance(){
   return {
     run_id:'CANARY|20260919|0815|TEST',
     task_id:'canary-task-id',
+    expected_task_id:'canary-task-id',
+    task_title:'KK Canary Safety — Enabled Suite',
+    expected_task_title:'KK Canary Safety — Enabled Suite',
+    task_enabled_before:true,
     task_enabled_after:true,
+    scheduled_at:'2026-09-19T08:15:00+07:00',
     task_last_run_time:'2026-09-19T08:15:30+07:00',
     run_at:'2026-09-19T08:15:10+07:00',
-    matching_lock_count:1,
-    matching_reconciliation_count:1
+    matching_lock_count:0,
+    matching_reconciliation_count:0
   };
 }
 
@@ -62,6 +67,19 @@ test('accepts scenario-specific zero-write synthetic proof with natural attribut
   assert.equal(r.classification,'CANARY_SYNTHETIC_ACCEPTED_NATURAL_ATTRIBUTED');
   assert.equal(r.production_or_provider_proof,false);
   assert.equal(r.production_cutover_authorized,false);
+});
+
+test('natural Canary attribution does not invent a mandatory Run_Lock or reconciliation gate',()=>{
+  const p=provenance();
+  p.matching_lock_count=0;
+  p.matching_reconciliation_count=0;
+  const r=A.provenanceAudit(p,'CANARY|20260919|0815|TEST');
+  assert.equal(r.natural_runtime_attribution,true);
+  assert.equal(r.reasons.length,0);
+  assert.deepEqual(r.optional_evidence,{
+    matching_lock_count:0,
+    matching_reconciliation_count:0
+  });
 });
 
 test('rejects the Sep18-style generic frozen boundary and safe-branch markers',()=>{
@@ -135,10 +153,9 @@ test('requires exact enabled/workspace set equality',()=>{
 
 test('scenario-specific synthetic proof does not imply natural scheduler attribution',()=>{
   const p=provenance();
+  p.task_enabled_before=false;
   p.task_enabled_after=false;
   p.task_last_run_time='2026-09-14T08:19:00+07:00';
-  p.matching_lock_count=0;
-  p.matching_reconciliation_count=0;
 
   const r=A.auditCanarySnapshot({
     run_id:'CANARY|20260919|0815|TEST',
@@ -149,10 +166,30 @@ test('scenario-specific synthetic proof does not imply natural scheduler attribu
   assert.equal(r.synthetic_acceptance,true);
   assert.equal(r.natural_runtime_attribution,false);
   assert.equal(r.classification,'CANARY_SYNTHETIC_ACCEPTED_RUNTIME_UNATTRIBUTED');
+  assert.ok(r.provenance_reasons.includes('TASK_NOT_PROVEN_ON_BEFORE_RUN'));
   assert.ok(r.provenance_reasons.includes('TASK_NOT_PROVEN_ON_AFTER_RUN'));
-  assert.ok(r.provenance_reasons.includes('MATCHING_RUN_LOCK_EXACT1_REQUIRED'));
-  assert.ok(r.provenance_reasons.includes('MATCHING_RECONCILIATION_REQUIRED'));
   assert.ok(r.provenance_reasons.includes('TASK_LAST_RUN_NOT_BOUND_TO_RUN_WINDOW'));
+  assert.ok(!r.provenance_reasons.includes('MATCHING_RUN_LOCK_EXACT1_REQUIRED'));
+  assert.ok(!r.provenance_reasons.includes('MATCHING_RECONCILIATION_REQUIRED'));
+});
+
+test('rejects a run that is not bound to the scheduled Canary window',()=>{
+  const p=provenance();
+  p.run_at='2026-09-19T10:00:00+07:00';
+  p.task_last_run_time='2026-09-19T10:00:05+07:00';
+  const r=A.provenanceAudit(p,'CANARY|20260919|0815|TEST');
+  assert.equal(r.natural_runtime_attribution,false);
+  assert.ok(r.reasons.includes('RUN_NOT_BOUND_TO_SCHEDULED_WINDOW'));
+});
+
+test('rejects task identity drift for natural attribution',()=>{
+  const p=provenance();
+  p.task_id='different-task';
+  p.task_title='Different Canary';
+  const r=A.provenanceAudit(p,'CANARY|20260919|0815|TEST');
+  assert.equal(r.natural_runtime_attribution,false);
+  assert.ok(r.reasons.includes('TASK_ID_MISMATCH'));
+  assert.ok(r.reasons.includes('TASK_TITLE_MISMATCH'));
 });
 
 test('actual decision cannot simply copy expected text',()=>{
