@@ -21,8 +21,10 @@ function projectRefFromUrl(value){
   if(!raw) return '';
   try{
     const parsed=new URL(raw);
+    if(parsed.protocol!=='https:' || parsed.username || parsed.password || parsed.port) return '';
+    if((parsed.pathname && parsed.pathname!=='/') || parsed.search || parsed.hash) return '';
     const host=parsed.hostname.toLowerCase();
-    const match=host.match(/^([a-z0-9]+)\.supabase\.co$/);
+    const match=host.match(/^([a-z0-9]{20})\.supabase\.co$/);
     return match?match[1]:'';
   }catch(_err){
     return '';
