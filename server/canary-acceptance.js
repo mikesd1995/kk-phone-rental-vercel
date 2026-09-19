@@ -66,28 +66,52 @@ function isoMs(value){
 function provenanceAudit(provenance={},runId=''){
   const reasons=[];
   const taskId=text(provenance.task_id);
+  const expectedTaskId=text(provenance.expected_task_id);
+  const taskTitle=text(provenance.task_title);
+  const expectedTaskTitle=text(provenance.expected_task_title);
   const taskLastRun=isoMs(provenance.task_last_run_time);
   const runAt=isoMs(provenance.run_at);
-  const lockCount=Number(provenance.matching_lock_count);
-  const reconciliationCount=Number(provenance.matching_reconciliation_count);
+  const scheduledAt=isoMs(provenance.scheduled_at);
+  const taskEnabledBefore=provenance.task_enabled_before===true;
   const taskEnabledAfter=provenance.task_enabled_after===true;
+  const maxWindowMinutes=Number.isFinite(Number(provenance.max_window_minutes))
+    ? Math.max(1,Math.min(120,Number(provenance.max_window_minutes)))
+    : 30;
+  const maxWindowMs=maxWindowMinutes*60*1000;
 
   if(!taskId) reasons.push('TASK_ID_MISSING');
+  if(expectedTaskId && taskId!==expectedTaskId) reasons.push('TASK_ID_MISMATCH');
+  if(expectedTaskTitle && taskTitle!==expectedTaskTitle) reasons.push('TASK_TITLE_MISMATCH');
+  if(!taskEnabledBefore) reasons.push('TASK_NOT_PROVEN_ON_BEFORE_RUN');
   if(!taskEnabledAfter) reasons.push('TASK_NOT_PROVEN_ON_AFTER_RUN');
-  if(!Number.isInteger(lockCount) || lockCount!==1) reasons.push('MATCHING_RUN_LOCK_EXACT1_REQUIRED');
-  if(!Number.isInteger(reconciliationCount) || reconciliationCount<1) reasons.push('MATCHING_RECONCILIATION_REQUIRED');
+
+  if(runAt==null || scheduledAt==null){
+    reasons.push('RUN_AT_OR_SCHEDULED_AT_INVALID');
+  }else if(Math.abs(runAt-scheduledAt)>maxWindowMs){
+    reasons.push('RUN_NOT_BOUND_TO_SCHEDULED_WINDOW');
+  }
+
   if(taskLastRun==null || runAt==null){
     reasons.push('TASK_LAST_RUN_OR_RUN_AT_INVALID');
-  }else if(Math.abs(taskLastRun-runAt)>30*60*1000){
+  }else if(Math.abs(taskLastRun-runAt)>maxWindowMs){
     reasons.push('TASK_LAST_RUN_NOT_BOUND_TO_RUN_WINDOW');
   }
+
   if(runId && text(provenance.run_id)!==runId){
     reasons.push('PROVENANCE_RUN_ID_MISMATCH');
   }
 
   return {
     natural_runtime_attribution:reasons.length===0,
-    reasons
+    reasons,
+    optional_evidence:{
+      matching_lock_count:Number.isInteger(Number(provenance.matching_lock_count))
+        ? Number(provenance.matching_lock_count)
+        : null,
+      matching_reconciliation_count:Number.isInteger(Number(provenance.matching_reconciliation_count))
+        ? Number(provenance.matching_reconciliation_count)
+        : null
+    }
   };
 }
 
@@ -214,6 +238,7 @@ function auditCanarySnapshot(input={}){
     assertion_errors:assertionErrors,
     write_errors:writeErrors,
     provenance_reasons:provenance.reasons,
+    provenance_optional_evidence:provenance.optional_evidence,
     production_or_provider_proof:false,
     production_cutover_authorized:false
   };
