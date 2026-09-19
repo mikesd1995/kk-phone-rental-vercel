@@ -2,11 +2,11 @@ name: Discovery Crawl4AI UAT
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'scripts/discovery-crawl4ai-uat.py'
-      - '.github/workflows/discovery-crawl4ai-uat.yml'
+    inputs:
+      confirm:
+        description: 'Type RUN_CRAWL4AI_ZERO_WRITE_UAT'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,6 +20,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Require explicit zero-write confirmation
+        shell: bash
+        run: |
+          if [ "${{ inputs.confirm }}" != "RUN_CRAWL4AI_ZERO_WRITE_UAT" ]; then
+            echo "Confirmation mismatch"
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -28,10 +36,10 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Crawl4AI
+      - name: Install pinned Crawl4AI
         run: |
           python -m pip install --upgrade pip
-          python -m pip install crawl4ai
+          python -m pip install 'crawl4ai==0.9.3'
           crawl4ai-setup
 
       - name: Crawl fixed official sources
