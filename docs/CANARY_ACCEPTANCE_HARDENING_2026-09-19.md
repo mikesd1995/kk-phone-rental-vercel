@@ -73,6 +73,22 @@ Accordingly, the Sep18 workspace evidence must not be called a proven natural sc
 
 This does not prove who or what produced the rows. Actor/mechanism remains UNKNOWN.
 
+### Revision-history timing proof
+
+Google Drive revision history narrows the Sep16 provenance further:
+- revision `3673` at 2026-09-16 07:47:13 Asia/Bangkok did not contain `CANARY|20260916|0815|AUTO4915`;
+- control-plane reconciliation at 08:21:48 recorded the canonical 08:15 Canary task OFF, `last_run_time` still Sep14, and no Canary workspace evidence at that observation;
+- revision `3684` at 08:40:00 contains the 68 Suite rows plus 68 Workspace rows for `AUTO4915`.
+
+Therefore the Sep16 `Ran At=08:15` cell value is not creation-time provenance. The rows appeared in the Drive revision stream after the missed natural occurrence had already been recorded.
+
+For Sep18:
+- revision `3874` at 07:02:33 did not contain the Sep18 run;
+- revision `3876` at 08:18:38 contains exactly the 68 Suite updates plus 68 Workspace rows for `CANARY|20260918|0817|AUTO4915`;
+- the task registry still does not advance the canonical Canary `last_run_time` beyond Sep14.
+
+Revision metadata reports the connected owner's Google account as the revision-level modifier. Google explicitly exposes that only as revision-level attribution, not per-row or process attribution, so it must not be used to name the writer process.
+
 ## Executable acceptance contract added
 
 `server/canary-acceptance.js` separates four gates:
@@ -85,8 +101,9 @@ This does not prove who or what produced the rows. Actor/mechanism remains UNKNO
    - one run identity
 
 2. **Scenario-specific assertion evidence**
-   - workspace Expected Decision must bind to the definition Expected Result
-   - generic `FROZEN_DEFINITION_BOUNDARY` is rejected
+   - the run input must explicitly prove that the enabled definition snapshot was frozen at start and that final drift state is clean
+   - workspace Expected Decision must bind to that frozen definition either by exact Expected Result or a definition-specific marker such as `frozen definition CANARY-01`
+   - generic `FROZEN_DEFINITION_BOUNDARY` is rejected because it does not identify the frozen definition
    - generic `CANARY_XX_SAFE_BRANCH_ASSERTED` is rejected
    - Input State and Synthetic Evidence must be scenario-specific
    - Actual cannot simply copy Expected text
