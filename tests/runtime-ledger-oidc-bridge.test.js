@@ -64,6 +64,19 @@ test('OIDC bridge forwards token only in Authorization header and returns aggreg
   assert.doesNotMatch(JSON.stringify(result),/header\.payload\.signature/);
 });
 
+test('OIDC bridge timeout is classified fail-closed and remains zero-write',async()=>{
+  const err=new Error('timed out');
+  err.name='TimeoutError';
+  const result=await Bridge.probe({
+    env:{VERCEL_OIDC_TOKEN:TOKEN},
+    fetchImpl:async()=>{throw err;}
+  });
+  assert.equal(result.ok,false);
+  assert.equal(result.attempted,true);
+  assert.equal(result.error_code,'OIDC_BRIDGE_TIMEOUT');
+  assert.equal(result.business_writes,0);
+});
+
 test('OIDC bridge remote auth failure remains zero-write and secret-safe',async()=>{
   const result=await Bridge.probe({
     env:{VERCEL_OIDC_TOKEN:TOKEN},
@@ -176,6 +189,8 @@ test('Supabase Edge Function contract is exact-production, read-only and secret-
   assert.match(source,/npm:jose@6\.2\.4/);
   assert.match(source,/timeoutDuration:\s*3000/);
   assert.match(source,/AbortSignal\.timeout\(3000\)/);
+  assert.match(source,/LEDGER_READ_TIMEOUT/);
+  assert.match(source,/LEDGER_READ_TRANSPORT_FAILED/);
   assert.match(source,/SUPABASE_SECRET_KEYS/);
   assert.match(source,/OIDC_REQUEST_CONTRACT_INVALID/);
   assert.match(source,/body\?\.probe === "runtime-ledger"/);
