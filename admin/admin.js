@@ -1687,19 +1687,28 @@
     fillSelects();
   }
 
+  function compactSnapshotWarnings(warnings){
+    return (Array.isArray(warnings)?warnings:[])
+      .map(w=>String(w||"").replace(/;\\s*sample\\b.*$/i,"").trim())
+      .filter(Boolean);
+  }
+
   function renderSnapshotStatus(){
     const el=$("#snapshotStatus");
     if(!el) return;
     const h=snapshotState.health;
     const counts=h ? Object.entries(h.counts).map(([k,v])=>k+": "+(v===null?"invalid":v)).join(" · ") : "";
+    const fullWarnings=h && Array.isArray(h.warnings) ? h.warnings : [];
+    const compactWarnings=compactSnapshotWarnings(fullWarnings);
     el.hidden=false;
-    el.style.borderColor=snapshotState.stale ? "#dc2626" : "#64748b";
+    el.style.borderColor=snapshotState.stale ? "#dc2626" : (compactWarnings.length ? "#d97706" : "#64748b");
+    el.title=fullWarnings.join("\n");
     const degraded=!!(state.data && state.data.degraded_read_only);
     el.textContent=(snapshotState.stale ? (state.data ? "กำลังแสดง Last Known Good Snapshot — ข้อมูลเก่า ห้ามใช้ยืนยันความว่างจน Refresh สำเร็จ" : "โหลด Snapshot ไม่สำเร็จ — ยังยืนยันไม่ได้ว่าระบบไม่มีข้อมูล") : (degraded ? "โหมดอ่านอย่างเดียว — โหลดข้อมูลตรงจาก Google Sheet สำเร็จ แต่การบันทึกถูกปิดจนกว่า Apps Script จะกลับมา" : "Snapshot ล่าสุดผ่านการตรวจ"))+
       " | สำเร็จล่าสุด: "+(snapshotState.goodAt ? new Date(snapshotState.goodAt).toLocaleString("th-TH") : "ยังไม่มี")+
       " | เวลาเรียกจริง: "+(snapshotState.latencyMs ?? "-")+" ms | "+counts+
       (snapshotState.error ? " | "+snapshotState.error : "")+
-      (h && h.warnings.length ? " | คำเตือน: "+h.warnings.join("; ") : "");
+      (compactWarnings.length ? " | คำเตือนข้อมูล "+compactWarnings.length+" รายการ: "+compactWarnings.join(" · ") : "");
   }
 
   async function refresh(){
@@ -2157,5 +2166,15 @@
   applyDensityMode();
   updateUiLastRefresh();
   bind();
-  if(state.pin && $("#pinInput") && $("#loginBtn")){ $("#pinInput").value=state.pin; $("#loginBtn").click(); }
+  if(state.pin && $("#pinInput") && $("#loginBtn")){
+    $("#pinInput").value=state.pin;
+    // /admin/app is already protected by the signed server session. Reveal the
+    // workspace shell immediately so a slow/degraded snapshot cannot strand the
+    // operator on a blank authenticated page. Auth failures still hide it in refresh().
+    if(state.pin==="__SESSION__"){
+      $("#loginPanel").classList.add("hidden");
+      $("#appPanel").classList.remove("hidden");
+    }
+    $("#loginBtn").click();
+  }
 })();
