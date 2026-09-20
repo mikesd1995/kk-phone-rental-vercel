@@ -156,18 +156,14 @@
     const active=source.filter(workflowOpen);
     const missingPickup=active.filter(b=>!String(b&&b.pickup_time||'').trim());
     const missingReturn=active.filter(b=>!String(b&&b.return_time||'').trim());
-    const warnings=[];
-    if(missingPickup.length||missingReturn.length){
-      warnings.push(
-        'bookings: active timing incomplete; pickup_time missing '+missingPickup.length+'/'+active.length+
-        ', return_time missing '+missingReturn.length+'/'+active.length
-      );
-    }
     return {
       active_count:active.length,
       missing_pickup_time_count:missingPickup.length,
       missing_return_time_count:missingReturn.length,
-      warnings
+      pickup_time_policy:'OPTIONAL_TBD',
+      return_time_policy:'OPTIONAL',
+      fallback_policy:'00:00 event day to 06:00 next day when pickup/return are unknown',
+      warnings:[]
     };
   }
 
@@ -311,7 +307,10 @@
       booking_timing:{
         active_count:bookingTiming.active_count,
         missing_pickup_time_count:bookingTiming.missing_pickup_time_count,
-        missing_return_time_count:bookingTiming.missing_return_time_count
+        missing_return_time_count:bookingTiming.missing_return_time_count,
+        pickup_time_policy:bookingTiming.pickup_time_policy,
+        return_time_policy:bookingTiming.return_time_policy,
+        fallback_policy:bookingTiming.fallback_policy
       },
       issues,
       warnings

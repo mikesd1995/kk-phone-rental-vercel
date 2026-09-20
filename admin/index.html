@@ -187,7 +187,7 @@
           <form class="card form" id="bookingForm">
             <div class="form-title"><span class="eyebrow">Booking</span><h2>เพิ่ม Booking</h2></div>
             <p class="hint">เลือกเฉพาะงานที่ยังไม่เต็มและยังไม่ย้อนหลัง ระบบจะเช็กแพ็กเกจ/สต็อกก่อนบันทึกเพื่อลดปัญหาจองซ้ำ</p>
-            <div class="form-note ok-note">เช็กก่อนบันทึก: เลือกงาน → เลือกแพ็กเกจ → กรอกชื่อลูกค้า/เบอร์/เวลารับเครื่อง → บันทึก Booking</div>
+            <div class="form-note ok-note">เช็กก่อนบันทึก: เลือกงาน → เลือกแพ็กเกจ → กรอกข้อมูลลูกค้า → ถ้ารู้เวลารับค่อยใส่ → บันทึก Booking</div>
             <div class="row three">
               <label>งาน
                 <select name="event_id" data-source="events" required></select>
@@ -215,7 +215,7 @@
               <label>ช่องทาง
                 <select name="contact_channel"><option>LINE</option><option>X</option><option>Facebook</option><option>Instagram</option></select>
               </label>
-              <label>เวลารับเครื่อง <input name="pickup_time" type="time" step="60" required /><small>บังคับสำหรับ Booking ใหม่ เพื่อให้ระบบคำนวณ reservation window ได้แม่นขึ้น</small></label>
+              <label>เวลารับเครื่อง <input name="pickup_time" type="time" step="60" /><small>ยังไม่ชัวร์เว้นว่างได้ (TBD) ระบบจะกันคิวตั้งแต่ 00:00 ของวันงานจนถึง 06:00 วันถัดไป</small></label>
               <label>สถานะชำระเงิน
                 <select name="payment_status"><option value="unpaid">unpaid</option><option value="partial">partial</option><option value="paid">paid</option></select>
               </label>

@@ -10,9 +10,9 @@ The existing Admin proxy remains unchanged. The wrapper delegates every non-book
 
 ## Reservation window policy
 - Source date: booking `event_date`.
-- **New Booking creation requires an explicit valid `pickup_time` (HH:MM) at the Vercel guard and in the Admin form.**
-- Historical rows that predate this rule may still have a missing `pickup_time`; their existing fallback behavior remains unchanged until the operator supplies an authoritative time.
-- Start: `pickup_time` when present; historical missing values still fall back to 00:00 Bangkok time.
+- `pickup_time` is optional/TBD because customers may not know the exact pickup time when booking.
+- Start: explicit `pickup_time` when present; otherwise 00:00 Bangkok time on the event day.
+- `return_time` is optional because event end times vary; when absent, reservation remains conservative through 06:00 Bangkok time on the next day.
 - Explicit `return_time`: same-day return when later than pickup; next-day return when return clock time is earlier/equal to pickup.
 - Missing `return_time`: conservative fallback through 06:00 Bangkok time on the next day.
 - `picked_up` with no return evidence: treated as open-ended until workflow status changes.
@@ -22,7 +22,7 @@ The current live Admin snapshot does not expose persisted `return_time`; therefo
 ## Fail-closed behavior
 For `createBooking` and `updateBooking`:
 1. Validate Admin PIN before preflight.
-2. For `createBooking`, reject missing/invalid `pickup_time` with HTTP 422 **before any upstream read or write**.
+2. For `createBooking`, allow blank `pickup_time` as TBD; reject only a non-empty invalid time before any upstream read/write.
 3. Fetch a fresh snapshot directly from the configured Apps Script deployment.
 3. Run Snapshot Resilience validation and spreadsheet-id match.
 4. Resolve the proposed package/event/current booking.
@@ -33,7 +33,6 @@ For `createBooking` and `updateBooking`:
 9. Only a passing request is delegated to the existing Admin write proxy.
 
 ## Errors enforced
-- `BOOKING_PICKUP_TIME_REQUIRED`
 - `BOOKING_PICKUP_TIME_INVALID`
 - `PHONE_CAPACITY_EXCEEDED`
 - `LENS_CAPACITY_EXCEEDED`
@@ -61,10 +60,14 @@ Remove the `/api/kk-admin` rewrite to `/api/kk-admin-guard`, leaving the existin
 
 ## 2026-09-21 timing-hardening follow-up
 
-Production data audit found 5 active bookings:
-- 2 are missing `pickup_time`;
-- all 5 are missing `return_time`.
+Operational clarification: customers may not know pickup time when booking, and event end times vary.
 
-No times were invented or backfilled. The server-side create guard now prevents any **new** booking from adding another missing pickup time. The Admin create form also uses a required `type="time"` input.
+Final policy:
+- `pickup_time` is optional/TBD;
+- `return_time` is optional;
+- unknown pickup reserves from 00:00 on the event day;
+- unknown return reserves through 06:00 on the next day;
+- `picked_up` without return evidence remains open-ended;
+- missing optional times are informational, not data-integrity failures.
 
-`return_time` remains a separate backend limitation: the current live Admin API contract does not prove end-to-end persistence/exposure of return time, so Vercel continues to use the conservative next-day 06:00 fallback rather than trust a request-only value.
+No historical booking time is invented or backfilled.
