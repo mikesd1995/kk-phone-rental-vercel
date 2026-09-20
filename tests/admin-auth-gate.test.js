@@ -175,6 +175,39 @@ test('signed session authorizes Admin API and injects server PIN without exposin
   });
 });
 
+test('signed session remains authorized even when the runtime request headers cannot be replaced',async()=>{
+  await withEnv({KK_ADMIN_PIN:'server-only-pin',KK_ADMIN_SESSION_SECRET:'immutable-header-secret'},async()=>{
+    const token=auth._test.issueToken();
+    const originalHeaders={cookie:`${auth.COOKIE_NAME}=${token}`,'x-admin-pin':'__SESSION__','x-forwarded-for':'203.0.113.25'};
+    const r={method:'POST',url:'/'};
+    Object.defineProperty(r,'headers',{get(){ return originalHeaders; },configurable:false});
+    const res=mockRes();
+    assert.equal(auth.authorizeApi(r,res),true);
+    assert.equal(originalHeaders['x-admin-pin'],'__SESSION__');
+    assert.equal(auth.isAuthorizedRequest(r),true);
+  });
+});
+
+test('Rental Analytics trusts only the server authorization marker for signed-session internal chaining',()=>{
+  const v6=read('api/kk-rental-dashboard-v6.js');
+  const v5=read('api/kk-rental-dashboard-v5.js');
+  const legacy=read('api/kk-rental-dashboard.js');
+  assert.match(v6,/AdminSecurity\.isAuthorizedRequest\(req\)/);
+  assert.match(v5,/AdminSecurity\.isAuthorizedRequest\(req\)/);
+  assert.match(legacy,/AdminSecurity\.isAuthorizedRequest\(req\)/);
+  assert.match(v5,/provided!==expected/);
+  assert.match(legacy,/provided!==expected/);
+});
+
+test('signed-session Admin bootstrap reveals the protected workspace and compacts snapshot warning evidence',()=>{
+  const admin=read('admin/admin.js');
+  assert.match(admin,/state\.pin==="__SESSION__"/);
+  assert.match(admin,/#appPanel"\)\.classList\.remove\("hidden"\)/);
+  assert.match(admin,/compactSnapshotWarnings/);
+  assert.match(admin,/replace\(\/;\\s\*sample\\b\.\*\$\/i/);
+  assert.doesNotMatch(admin,/h\.warnings\.join\("; "\)/);
+});
+
 test('anonymous Admin API is rejected and correct legacy PIN remains compatible',async()=>{
   await withEnv({KK_ADMIN_PIN:'legacy-client-pin',KK_ADMIN_SESSION_SECRET:'legacy-test-secret'},async()=>{
     auth._test.attempts.clear();
