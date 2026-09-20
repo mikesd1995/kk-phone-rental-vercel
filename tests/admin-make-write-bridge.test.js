@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const {Readable}=require('node:stream');
 const Bridge=require('../server/admin-make-bridge.js');
 const MakeGate=require('../server/admin-make-gate.js');
-const Verify=MakeGate.handleVerify;
+const Verify=MakeGate._test.handleVerifyActive;
 
 const KEY='test-api-key';
 const NOW=new Date('2026-09-20T03:00:00+07:00');
@@ -110,4 +110,39 @@ test('verifier accepts exact write readback hash',async t=>{
   await Verify(req(env,'application/x-www-form-urlencoded'),out);
   assert.equal(out.statusCode,200);
   assert.equal(out.json().ok,true);
+});
+
+
+test('bridge runtime is quarantined while Make Free-plan credits are exhausted',()=>{
+  assert.equal(MakeGate._test.BRIDGE_RUNTIME_ENABLED,false);
+  const body=MakeGate._test.quarantineBody();
+  assert.equal(body.error_code,'BRIDGE_RUNTIME_QUARANTINED');
+  assert.equal(body.reason,'MAKE_FREE_CREDITS_EXHAUSTED');
+  assert.equal(body.recheck_date,'2026-10-10');
+  assert.equal(body.write_actions_enabled,false);
+});
+
+test('quarantined verifier rejects before signature or Google execution',async()=>{
+  const out=res();
+  await MakeGate.handleVerify(req({stage:'authorize'}),out);
+  assert.equal(out.statusCode,503);
+  assert.equal(out.json().error_code,'BRIDGE_RUNTIME_QUARANTINED');
+});
+
+test('quarantined health probe does not call Make transport',async()=>{
+  const original=Bridge.callBridge;
+  let called=false;
+  Bridge.callBridge=async()=>{called=true;throw new Error('must not call');};
+  try{
+    const r=Readable.from([]);
+    r.method='GET';
+    r.headers={};
+    const out=res();
+    await MakeGate.handleHealth(r,out);
+    assert.equal(out.statusCode,503);
+    assert.equal(out.json().error_code,'BRIDGE_RUNTIME_QUARANTINED');
+    assert.equal(called,false);
+  }finally{
+    Bridge.callBridge=original;
+  }
 });
