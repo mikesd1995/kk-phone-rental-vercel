@@ -2,7 +2,7 @@
 
 ## Outcome
 
-This checkpoint closes the remaining logical event duplicate and prevents future bookings from being created without an explicit pickup time.
+This checkpoint closes the remaining logical event duplicate. The booking-time policy was subsequently corrected to match real operations: pickup and return times are optional/TBD, protected by conservative reservation fallbacks.
 
 Current identity state after production readback:
 - Events: 71
@@ -43,18 +43,21 @@ Five active bookings were read:
 
 No time was invented or written.
 
-## Prevention change
+## Booking-time policy correction
 
-New Booking creation now requires `pickup_time` twice:
-1. Admin HTML uses a required `type="time"` field.
-2. `api/kk-admin-guard.js` rejects missing or invalid pickup time before any upstream snapshot fetch or Apps Script write.
+Operational clarification: customers may not know the pickup time when they book, and event end times are not fixed.
 
-Error codes:
-- `BOOKING_PICKUP_TIME_REQUIRED`
-- `BOOKING_PICKUP_TIME_INVALID`
+Final policy:
+- `pickup_time` = optional / TBD;
+- `return_time` = optional;
+- blank pickup => reservation begins 00:00 on event day;
+- blank return => reservation remains held through 06:00 next day;
+- `picked_up` without return evidence remains open-ended;
+- non-empty malformed pickup time is rejected;
+- missing optional times are not treated as data-health failures.
 
-Policy header:
-`X-KK-Booking-Timing-Policy: booking-timing-create-pickup-required-1`
+Admin HTML no longer requires pickup time. The Vercel guard identifies the policy as:
+`X-KK-Booking-Timing-Policy: booking-timing-optional-safe-fallback-2`.
 
 Existing historical rows are not silently changed.
 
@@ -65,11 +68,11 @@ Existing historical rows are not silently changed.
 - `booking_timing.missing_pickup_time_count`
 - `booking_timing.missing_return_time_count`
 
-Incomplete active booking timing produces a warning, not a transport-health failure.
+Missing pickup/return counts remain observable, but they are informational under the optional-time policy and do not generate a snapshot warning or transport-health failure.
 
-## Return-time limitation
+## Return-time policy
 
-The current live backend does not yet prove end-to-end persistence/exposure of submitted `return_time`. The Vercel guard therefore still uses its conservative fallback through 06:00 on the next Bangkok day. This avoids trusting a value that may not be persisted.
+`return_time` is not required for operational correctness because event end times vary. When it is absent, the reservation guard intentionally uses the conservative fallback through 06:00 on the next Bangkok day. No return time needs to be invented merely to clear a health warning.
 
 ## Timezone audit
 
