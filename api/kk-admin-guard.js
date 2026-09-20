@@ -10,7 +10,7 @@ const ReservationGuard = require('../admin/reservation-guard.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
-const BOOKING_TIMING_POLICY_VERSION = 'booking-timing-create-pickup-required-1';
+const BOOKING_TIMING_POLICY_VERSION = 'booking-timing-optional-safe-fallback-2';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
@@ -129,15 +129,14 @@ function evaluate(snapshot,payload){
 }
 
 function validateCreateBookingTiming(payload){
-  if(String(payload&&payload.action||'')!=='createBooking') return {ok:true};
+  if(String(payload&&payload.action||'')!=='createBooking') return {ok:true,mode:'not-create'};
   const pickup=String(payload&&payload.pickup_time||'').trim();
   if(!pickup){
     return {
-      ok:false,
-      status:422,
-      error_code:'BOOKING_PICKUP_TIME_REQUIRED',
-      error:'กรุณาระบุเวลารับเครื่องก่อนสร้าง Booking เพื่อให้ระบบคำนวณ reservation window ได้ถูกต้อง',
-      recommended_action:'setPickupTime'
+      ok:true,
+      pickup_time:'',
+      mode:'fallback-day-start',
+      note:'pickup_time is optional/TBD; reservation starts at 00:00 on event day'
     };
   }
   if(ReservationGuard.timeMinutes(pickup)===null){
@@ -145,11 +144,11 @@ function validateCreateBookingTiming(payload){
       ok:false,
       status:422,
       error_code:'BOOKING_PICKUP_TIME_INVALID',
-      error:'เวลารับเครื่องไม่ถูกต้อง กรุณาใช้รูปแบบ HH:MM เช่น 17:30',
-      recommended_action:'correctPickupTime'
+      error:'เวลารับเครื่องไม่ถูกต้อง กรุณาใช้รูปแบบ HH:MM เช่น 17:30 หรือเว้นว่างถ้าลูกค้ายังไม่ยืนยัน',
+      recommended_action:'correctOrClearPickupTime'
     };
   }
-  return {ok:true,pickup_time:pickup};
+  return {ok:true,pickup_time:pickup,mode:'explicit-pickup'};
 }
 
 function normalizeIdentityText(value){
@@ -351,6 +350,7 @@ module.exports=async function handler(req,res){
         recommended_action:timing.recommended_action
       });
     }
+    res.setHeader('X-KK-Booking-Pickup-Mode',timing.mode||'unknown');
   }
 
   if(eventGuarded&&isPastEventDate(payload.event_date)){
