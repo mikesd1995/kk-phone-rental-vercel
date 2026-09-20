@@ -167,6 +167,35 @@ The connected Vercel action surface available to this session still exposes no P
 
 Do **not** substitute static Supabase keys, enable witness mode, or bypass the rollback contract. The live OIDC acceptance remains pending until an owner-authorized Vercel env-write execution surface is available. No secret should be pasted into chat or committed to GitHub.
 
+## Owner-authenticated browser execution attempt — 2026-09-21 ICT
+
+A bounded browser attempt was started against the Vercel project dashboard with the same fail-closed acceptance plan.
+
+Result:
+
+- Vercel redirected to the login page;
+- no authenticated browser profile was available;
+- the vault contained no usable Vercel credential/session;
+- no Project Environment Variable could be read or mutated from the dashboard;
+- no Production deployment was created;
+- no OIDC flag mutation occurred;
+- no Scanner/Verifier/Canary or Machine-SOT mutation occurred.
+
+Post-attempt readback proved the Production baseline is unchanged:
+
+- Production deployment remains `dpl_5unNJqJLXzSAqRTUq6tvpTPEqg4W`;
+- Production Git SHA remains `f88f8c0bf641b7ab0a37891f87a515477edaaa24`;
+- `runtime_ledger_oidc_probe_enabled=false`;
+- `external_scanner_enabled=false`;
+- `scanner_execution_capable=false`;
+- `business_writes_capable=false`.
+
+The browser agent reported `ROLLBACK_NOT_PROVEN` because it could not authenticate, but this must **not** be interpreted as a partial mutation: preflight never reached the env-write step. The correct classification is:
+
+`OIDC_ACCEPTANCE_BLOCKED_BEFORE_MUTATION_BY_VERCEL_AUTH`
+
+Live acceptance still requires an owner-authenticated Vercel surface (for example a local `vercel login` CLI session) that can temporarily change only `KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED` and then prove rollback.
+
 ## Intended next sequence
 
 1. Merge the Control Plane persistence auditor only after its own CI + Preview gate passes.
