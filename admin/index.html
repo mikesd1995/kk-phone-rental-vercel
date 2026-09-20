@@ -215,7 +215,7 @@
               <label>ช่องทาง
                 <select name="contact_channel"><option>LINE</option><option>X</option><option>Facebook</option><option>Instagram</option></select>
               </label>
-              <label>เวลารับเครื่อง <input name="pickup_time" placeholder="เช่น 17:30" /></label>
+              <label>เวลารับเครื่อง <input name="pickup_time" type="time" step="60" required /><small>บังคับสำหรับ Booking ใหม่ เพื่อให้ระบบคำนวณ reservation window ได้แม่นขึ้น</small></label>
               <label>สถานะชำระเงิน
                 <select name="payment_status"><option value="unpaid">unpaid</option><option value="partial">partial</option><option value="paid">paid</option></select>
               </label>
