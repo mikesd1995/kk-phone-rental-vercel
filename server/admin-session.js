@@ -11,6 +11,7 @@ const FAILURE_LIMIT=5;
 const BLOCK_MS=15*60*1000;
 const MAX_AUTH_BODY_BYTES=4096;
 const AUTHORIZED_REQUEST=Symbol.for('kk-phone-rental.admin.authorized-request.v1');
+const authorizedRequests=new WeakSet();
 const attempts=new Map();
 const ADMIN_ROOT=path.resolve(process.cwd(),'admin');
 let ADMIN_REAL_ROOT=ADMIN_ROOT;
@@ -106,17 +107,24 @@ function hasValidSession(req){
 }
 
 function markAuthorizedRequest(req){
-  if(!req) return false;
+  if(!req || (typeof req!=='object' && typeof req!=='function')) return false;
   try{
-    Object.defineProperty(req,AUTHORIZED_REQUEST,{value:true,configurable:false,enumerable:false,writable:false});
+    authorizedRequests.add(req);
     return true;
   }catch(_){
-    try{ req[AUTHORIZED_REQUEST]=true; return true; }catch(__){ return false; }
+    try{
+      Object.defineProperty(req,AUTHORIZED_REQUEST,{value:true,configurable:false,enumerable:false,writable:false});
+      return true;
+    }catch(__){
+      try{ req[AUTHORIZED_REQUEST]=true; return true; }catch(___){ return false; }
+    }
   }
 }
 
 function isAuthorizedRequest(req){
-  return !!(req && req[AUTHORIZED_REQUEST]===true);
+  if(!req || (typeof req!=='object' && typeof req!=='function')) return false;
+  try{ if(authorizedRequests.has(req)) return true; }catch(_){ }
+  return !!req[AUTHORIZED_REQUEST];
 }
 
 function legacyPin(req){
