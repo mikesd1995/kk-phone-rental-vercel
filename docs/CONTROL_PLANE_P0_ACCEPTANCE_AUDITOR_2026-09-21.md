@@ -103,3 +103,8 @@ The ChatGPT task registry exposes raw `prompt` text rather than a precomputed pr
 - raw `prompt`, from which SHA-256 is derived internally.
 
 This keeps exact prompt-identity checking usable against live registry snapshots without requiring callers to precompute a fingerprint and without returning the raw prompt in audit output. A changed raw prompt produces a different fingerprint and fails `TASK_IDENTITY_DRIFT`.
+
+
+## Preview retry checkpoint — 2026-09-21 03:18 ICT
+
+A fresh Vercel Preview retry was intentionally triggered only for PR #111 after project deployment capacity was observed to recover. This checkpoint changes no runtime logic or acceptance semantics. The resulting new PR head must earn its own exact-head Admin Regression PASS and exact-head Vercel Preview READY before merge. Older green checks and older Preview artifacts do not authorize merge.
