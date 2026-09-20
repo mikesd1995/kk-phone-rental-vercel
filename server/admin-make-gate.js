@@ -2,6 +2,20 @@
 
 const Bridge=require('./admin-make-bridge.js');
 
+const BRIDGE_RUNTIME_ENABLED=false;
+const BRIDGE_RUNTIME_REASON='MAKE_FREE_CREDITS_EXHAUSTED';
+const BRIDGE_RECHECK_DATE='2026-10-10';
+
+function quarantineBody(){
+  return {
+    ok:false,
+    error_code:'BRIDGE_RUNTIME_QUARANTINED',
+    reason:BRIDGE_RUNTIME_REASON,
+    recheck_date:BRIDGE_RECHECK_DATE,
+    write_actions_enabled:false
+  };
+}
+
 function json(res,status,body){
   res.statusCode=status;
   res.setHeader('Content-Type','application/json; charset=utf-8');
@@ -44,6 +58,7 @@ function extractWriteValues(raw){
 
 async function handleVerify(req,res){
   if(req.method!=='POST') return json(res,405,{ok:false,error_code:'METHOD_NOT_ALLOWED'});
+  if(!BRIDGE_RUNTIME_ENABLED) return json(res,503,quarantineBody());
   let input;
   try{
     const raw=await readBody(req);
@@ -92,6 +107,7 @@ async function handleVerify(req,res){
 
 async function handleHealth(req,res){
   if(req.method!=='GET'&&req.method!=='POST') return json(res,405,{ok:false,error_code:'METHOD_NOT_ALLOWED'});
+  if(!BRIDGE_RUNTIME_ENABLED) return json(res,503,quarantineBody());
   const started=Date.now();
   try{
     const result=await Bridge.callBridge(Bridge.healthPlan(),{timeoutMs:15000});
@@ -112,4 +128,4 @@ async function handleHealth(req,res){
   }
 }
 
-module.exports={handleVerify,handleHealth,_test:{parseBody,extractWriteValues}};
+module.exports={handleVerify,handleHealth,_test:{parseBody,extractWriteValues,quarantineBody,BRIDGE_RUNTIME_ENABLED,BRIDGE_RUNTIME_REASON,BRIDGE_RECHECK_DATE}};
