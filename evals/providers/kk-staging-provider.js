@@ -23,8 +23,8 @@ module.exports = class KKStagingEvalProvider {
       return {error:'KK_EVAL_ENDPOINT must use HTTPS unless it is localhost'};
     }
 
-    if(/prod|production/i.test(url.hostname+url.pathname) && process.env.KK_EVAL_ALLOW_PRODUCTION!=='EXPLICITLY_DENIED_BY_DEFAULT'){
-      return {error:'production-looking eval endpoint is blocked by default'};
+    if(/(^|[.-])(prod|production)([.-]|$)|\/prod(?:uction)?(?:\/|$)/i.test(url.hostname+url.pathname)){
+      return {error:'production-looking eval endpoint is blocked'};
     }
 
     const controller=new AbortController();
