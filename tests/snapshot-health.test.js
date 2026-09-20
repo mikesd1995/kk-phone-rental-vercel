@@ -7,13 +7,13 @@ const H = require('../admin/snapshot-health.js');
 const U = require('../server/upstream-response.js');
 const good = () => ({
   events:[{event_id:'e',event_date:'2026-09-13',status:'open',active_on_web:false}],
-  bookings:[{booking_id:'b',event_date:'2026-09-13',booking_status:'confirmed'}],
+  bookings:[{booking_id:'b',event_date:'2026-09-13',booking_status:'confirmed',pickup_time:'12:00',return_time:'18:00'}],
   current_bookings:[{booking_id:'b',booking_status:'confirmed'}],
   assets:[{asset_id:'p'}], spreadsheet_id:'test-sheet',admin_api_version:H.BACKEND
 });
 const bulk = (n=10) => ({
   events:Array.from({length:n},(_,i)=>({event_id:'e'+i,event_date:'2026-10-01',status:'open'})),
-  bookings:Array.from({length:n},(_,i)=>({booking_id:'b'+i,event_date:'2026-10-01',booking_status:'confirmed'})),
+  bookings:Array.from({length:n},(_,i)=>({booking_id:'b'+i,event_date:'2026-10-01',booking_status:'confirmed',pickup_time:'12:00',return_time:'18:00'})),
   current_bookings:Array.from({length:n},(_,i)=>({booking_id:'b'+i,event_date:'2026-10-01',booking_status:'confirmed'})),
   assets:Array.from({length:n},(_,i)=>({asset_id:'a'+i})),
   spreadsheet_id:'test-sheet',admin_api_version:H.BACKEND
@@ -91,7 +91,7 @@ test('empty system is explicitly uncertain; legitimately closed work may be zero
 });
 test('derive all open bookings despite a nonempty but incomplete current_bookings',()=>{
   const d=good();
-  d.bookings.push({booking_id:'b2',event_date:'2026-09-12',booking_status:' Returned '});
+  d.bookings.push({booking_id:'b2',event_date:'2026-09-12',booking_status:' Returned ',pickup_time:'12:00',return_time:'18:00'});
   d.bookings.push({booking_id:'b3',event_date:'2026-09-13',booking_status:'cancelled'});
   assert.equal(H.assess(d).warnings.length,1);
   assert.equal(H.currentBookings(d).length,2);
