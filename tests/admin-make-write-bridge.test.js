@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const {Readable}=require('node:stream');
 const Bridge=require('../server/admin-make-bridge.js');
 const MakeGate=require('../server/admin-make-gate.js');
-const Verify=MakeGate.handleVerify;
+const Verify=MakeGate._test.handleVerifyActive;
 
 const KEY='test-api-key';
 const NOW=new Date('2026-09-20T03:00:00+07:00');
@@ -124,7 +124,7 @@ test('bridge runtime is quarantined while Make Free-plan credits are exhausted',
 
 test('quarantined verifier rejects before signature or Google execution',async()=>{
   const out=res();
-  await Verify(req({stage:'authorize'}),out);
+  await MakeGate.handleVerify(req({stage:'authorize'}),out);
   assert.equal(out.statusCode,503);
   assert.equal(out.json().error_code,'BRIDGE_RUNTIME_QUARANTINED');
 });
