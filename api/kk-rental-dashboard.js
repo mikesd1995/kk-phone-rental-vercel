@@ -1,6 +1,7 @@
 // KK Phone Rental — Rental Analytics v3 (READ ONLY, isolated from public and admin write APIs)
 // Reads aggregate-helper/event metadata through Google Sheets gviz. Returns aggregate metrics only; no PII leaves this endpoint.
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
+const AdminSecurity = require('../server/admin-session.js');
 
 function json(res,status,body){
   res.statusCode=status;
@@ -185,7 +186,7 @@ module.exports=async function handler(req,res){
   const expected=String(process.env.KK_ADMIN_PIN||"").trim();
   const provided=String(req.headers["x-admin-pin"]||"").trim();
   if(!expected) return json(res,500,{ok:false,error:"KK_ADMIN_PIN is not configured"});
-  if(provided!==expected) return json(res,401,{ok:false,error:"Invalid admin PIN"});
+  if(!AdminSecurity.isAuthorizedRequest(req) && provided!==expected) return json(res,401,{ok:false,error:"Invalid admin PIN"});
   const sheetId=String(process.env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
   const trackerId=String(process.env.KK_EVENT_TRACKER_SHEET_ID||"1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo").trim();
   try{
