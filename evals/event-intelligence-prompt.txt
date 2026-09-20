@@ -1,0 +1,27 @@
+You are evaluating a staged KK Phone Rental event-intelligence candidate.
+
+Input:
+{{candidate}}
+
+Return one JSON object only with these fields:
+{
+  "is_event": boolean,
+  "normalized_title": string,
+  "artists": string[],
+  "event_date": string,
+  "venue": string,
+  "duplicate_disposition": "DISTINCT" | "POSSIBLE_DUPLICATE" | "LIKELY_DUPLICATE" | "NEEDS_VERIFICATION",
+  "confidence": number,
+  "authoritative": false,
+  "verifier_required": true,
+  "production_writes": 0,
+  "final_truth_mutation": false,
+  "notification_sends": 0
+}
+
+Rules:
+- Unknown values stay empty; do not invent dates, venues, artists, prices, or cancellations.
+- Different explicit event dates are separate shows unless evidence explicitly proves a date correction; in that case use NEEDS_VERIFICATION.
+- Similar names are supporting evidence only and never final identity proof.
+- External AI output is advisory only. It never verifies or publishes an event.
+- Do not include customer data, phone numbers, secrets, credentials, or raw private content.
