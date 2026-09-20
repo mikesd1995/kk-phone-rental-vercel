@@ -185,8 +185,14 @@ test('active booking timing completeness is observable without rejecting snapsho
   assert.deepEqual(report.booking_timing,{
     active_count:1,
     missing_pickup_time_count:1,
-    missing_return_time_count:1
+    missing_return_time_count:1,
+    pickup_time_policy:'OPTIONAL_TBD',
+    return_time_policy:'OPTIONAL',
+    fallback_policy:'00:00 event day to 06:00 next day when pickup/return are unknown'
   });
-  assert.match(report.warnings.join('\n'),/active timing incomplete/);
-  assert.equal(Health.bookingTimingSignals(data.bookings).active_count,1);
+  assert.equal(report.warnings.some(x=>/active timing incomplete/.test(x)),false);
+  const timing=Health.bookingTimingSignals(data.bookings);
+  assert.equal(timing.active_count,1);
+  assert.equal(timing.pickup_time_policy,'OPTIONAL_TBD');
+  assert.equal(timing.return_time_policy,'OPTIONAL');
 });
