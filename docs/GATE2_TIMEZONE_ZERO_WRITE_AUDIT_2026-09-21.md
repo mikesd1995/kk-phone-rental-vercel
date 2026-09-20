@@ -93,3 +93,20 @@ Required evidence before mutation:
 The production workbook also records `gate2TimezoneZeroWriteAudit` in `15_Admin_Audit_Log`.
 
 No business rows, pricing, booking values, customer data, secrets, Apps Script source/deployment, Scanner, Verifier, Canary, Make workflow, or Machine SOT were changed by this timezone audit.
+
+
+## Additional authentication evidence
+
+A second read-only browser attempt targeted the production Admin page at `https://kk-phone-rental.vercel.app/admin/`.
+
+Result:
+- Admin authenticated session: **false**
+- System Guard run: **false**
+- Admin PIN was not guessed, entered, or retrieved
+- no production write was attempted
+
+Combined with the earlier Google Apps Script browser attempt, both available authenticated read paths are currently unavailable to the connected automation profile:
+1. Google account authentication is unavailable for Apps Script Project Settings / Triggers.
+2. Admin signed session / PIN is unavailable for System Guard diagnostics.
+
+Therefore timezone migration remains intentionally fail-closed rather than inferring a production configuration and mutating the workbook.
