@@ -181,6 +181,7 @@ test('signed session remains authorized even when the runtime request headers ca
     const originalHeaders={cookie:`${auth.COOKIE_NAME}=${token}`,'x-admin-pin':'__SESSION__','x-forwarded-for':'203.0.113.25'};
     const r={method:'POST',url:'/'};
     Object.defineProperty(r,'headers',{get(){ return originalHeaders; },configurable:false});
+    Object.preventExtensions(r);
     const res=mockRes();
     assert.equal(auth.authorizeApi(r,res),true);
     assert.equal(originalHeaders['x-admin-pin'],'__SESSION__');
