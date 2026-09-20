@@ -26,6 +26,7 @@ function json(res,status,body){
   res.end(JSON.stringify(body||{}));
 }
 function auth(req){
+  if(AdminSecurity.isAuthorizedRequest(req)) return {ok:true};
   const expected=String(process.env.KK_ADMIN_PIN||'').trim();
   const provided=String((req.headers&&req.headers['x-admin-pin'])||'').trim();
   if(!expected) return {ok:false,status:500,error:'KK_ADMIN_PIN is not configured'};
