@@ -198,3 +198,15 @@ This change does not:
 `GATE_2 = BLOCKED_SAFE / P0 OPEN`
 
 The next authoritative Gate 2 step still requires an owner-authenticated Google Apps Script session to recover and preserve exact live 9_5_9 before any backend patch/deploy.
+
+## Follow-up execution — 2026-09-20
+
+The checkpoint above is historical diagnostic evidence. Owner access subsequently recovered the exact 9_5_9 source/deployment and production-safe repair was executed.
+
+See `docs/GATE2_DATA_INTEGRITY_REPAIR_EXECUTION_2026-09-20.md` for the authoritative execution record.
+
+Post-repair readback:
+- event_id/date drift: **3 → 0**
+- logical duplicate groups: **2 → 1**
+- live event count: **73 → 72** because one unused hidden LABX duplicate was archived with its overrides
+- remaining MITH duplicate: **REVIEW_REQUIRED**, not auto-merged because poster/package semantics differ
