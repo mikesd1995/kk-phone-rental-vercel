@@ -204,7 +204,7 @@ test('signed-session Admin bootstrap reveals the protected workspace and compact
   assert.match(admin,/state\.pin==="__SESSION__"/);
   assert.match(admin,/#appPanel"\)\.classList\.remove\("hidden"\)/);
   assert.match(admin,/compactSnapshotWarnings/);
-  assert.match(admin,/replace\(\/;\\s\*sample\\b\.\*\$\/i/);
+  assert.match(admin,/compactWarnings=compactSnapshotWarnings\(fullWarnings\)/);
   assert.doesNotMatch(admin,/h\.warnings\.join\("; "\)/);
 });
 
