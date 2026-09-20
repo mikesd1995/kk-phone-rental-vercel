@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - oidc-production-acceptance-temp-20260920
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/oidc-production-acceptance-temp.yml'
 
 permissions:
   contents: read
