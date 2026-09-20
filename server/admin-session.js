@@ -10,6 +10,7 @@ const FAILURE_WINDOW_MS=15*60*1000;
 const FAILURE_LIMIT=5;
 const BLOCK_MS=15*60*1000;
 const MAX_AUTH_BODY_BYTES=4096;
+const AUTHORIZED_REQUEST=Symbol.for('kk-phone-rental.admin.authorized-request.v1');
 const attempts=new Map();
 const ADMIN_ROOT=path.resolve(process.cwd(),'admin');
 let ADMIN_REAL_ROOT=ADMIN_ROOT;
@@ -102,6 +103,20 @@ function parseCookies(req){
 
 function hasValidSession(req){
   return verifyToken(parseCookies(req)[COOKIE_NAME]);
+}
+
+function markAuthorizedRequest(req){
+  if(!req) return false;
+  try{
+    Object.defineProperty(req,AUTHORIZED_REQUEST,{value:true,configurable:false,enumerable:false,writable:false});
+    return true;
+  }catch(_){
+    try{ req[AUTHORIZED_REQUEST]=true; return true; }catch(__){ return false; }
+  }
+}
+
+function isAuthorizedRequest(req){
+  return !!(req && req[AUTHORIZED_REQUEST]===true);
 }
 
 function legacyPin(req){
@@ -382,11 +397,15 @@ function authorizeApi(req,res){
   if(hasValidSession(req)){
     clearFailures(req,'login');
     clearFailures(req,'legacy-api');
-    req.headers=Object.assign({},req.headers||{}, {'x-admin-pin':expected});
+    markAuthorizedRequest(req);
+    // Preserve trusted legacy downstream compatibility when the runtime permits
+    // request-header replacement, but never depend on that mutation for signed sessions.
+    try{ req.headers=Object.assign({},req.headers||{}, {'x-admin-pin':expected}); }catch(_){ }
     return true;
   }
   if(hasValidLegacyPin(req)){
     clearFailures(req,'legacy-api');
+    markAuthorizedRequest(req);
     return true;
   }
 
@@ -416,6 +435,8 @@ module.exports={
   authorizeApi,
   hasValidSession,
   hasValidLegacyPin,
+  markAuthorizedRequest,
+  isAuthorizedRequest,
   noStore,
   _test:{
     attempts,
