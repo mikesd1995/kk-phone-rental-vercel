@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: KK Phone Rental event-intelligence staging evaluation
+tags:
+  project: kk-phone-rental
+  authority: advisory-only
+  environment: staging-eval
+
+prompts:
+  - file://evals/event-intelligence-prompt.txt
+
+providers:
+  - id: file://evals/providers/kk-staging-provider.js
+    label: kk-staging-eval
+
+tests: file://evals/event-intelligence-tests.yaml
