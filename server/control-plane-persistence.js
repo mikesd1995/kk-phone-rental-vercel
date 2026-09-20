@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto=require('node:crypto');
 const Control=require('./control-plane-contract.js');
 
 const NATURAL_ORIGIN='NATURAL_SCHEDULED';
@@ -29,13 +30,28 @@ function roleOf(value_){
   return text(value_).toUpperCase();
 }
 
+function sha256(value_){
+  return crypto.createHash('sha256').update(String(value_),'utf8').digest('hex');
+}
+
+function promptFingerprint(record={}){
+  const explicit=text(value(
+    record,
+    'prompt_fingerprint','promptFingerprint','prompt_hash','promptHash','Prompt Fingerprint'
+  ));
+  if(explicit) return explicit;
+  const prompt=value(record,'prompt','Prompt');
+  if(prompt===undefined || prompt===null) return '';
+  return sha256(String(prompt));
+}
+
 function taskIdentity(record={}){
   return {
     task_id:text(value(record,'task_id','taskId','jawbone_id','jawboneId','id','Task ID')),
     title:text(value(record,'title','Title')),
     cadence:text(value(record,'cadence','schedule','rrule','Cadence','Schedule')),
     timezone:text(value(record,'timezone','time_zone','timeZone','tz','Timezone')),
-    prompt_fingerprint:text(value(record,'prompt_fingerprint','promptFingerprint','prompt_hash','promptHash','Prompt Fingerprint'))
+    prompt_fingerprint:promptFingerprint(record)
   };
 }
 
@@ -391,6 +407,8 @@ module.exports={
   DEFAULT_REQUIRED,
   HOUR_MS,
   REQUIRED_TASK_IDENTITY_FIELDS,
+  sha256,
+  promptFingerprint,
   taskIdentity,
   sameTaskIdentity,
   evaluateNaturalOccurrence,
