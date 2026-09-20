@@ -38,6 +38,119 @@
     return issues;
   }
 
+  function normalizeEventIdentityText(value){
+    return String(value === undefined || value === null ? '' : value)
+      .normalize('NFKC')
+      .trim()
+      .toLocaleLowerCase('en-US')
+      .replace(/[\s\-_.,/\\()[\]{}:;'"`]+/g,'');
+  }
+
+  function normalizeEventDate(value){
+    if(value instanceof Date && !isNaN(value)) return value.toISOString().slice(0,10);
+    const raw=String(value === undefined || value === null ? '' : value).trim();
+    if(!raw) return '';
+    if(/^\d+(?:\.\d+)?$/.test(raw)){
+      const n=Number(raw);
+      if(n>1000 && n<100000){
+        const ms=Date.UTC(1899,11,30)+Math.round(n*86400000);
+        return new Date(ms).toISOString().slice(0,10);
+      }
+    }
+    let m=raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if(m){
+      let y=Number(m[1]); if(y>2500)y-=543;
+      return `${String(y).padStart(4,'0')}-${String(Number(m[2])).padStart(2,'0')}-${String(Number(m[3])).padStart(2,'0')}`;
+    }
+    m=raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if(m){
+      let y=Number(m[3]); if(y>2500)y-=543;
+      return `${String(y).padStart(4,'0')}-${String(Number(m[2])).padStart(2,'0')}-${String(Number(m[1])).padStart(2,'0')}`;
+    }
+    const d=new Date(raw);
+    return isNaN(d)?'':d.toISOString().slice(0,10);
+  }
+
+  function eventIdentitySignals(rows){
+    const source=Array.isArray(rows)?rows:[];
+    const groups=[];
+    const idDateDrift=[];
+
+    for(const row of source){
+      const eventId=String(row && row.event_id || '').trim();
+      const eventName=String(row && row.event_name || '').trim();
+      const eventDate=normalizeEventDate(row && row.event_date);
+      const venue=String(row && row.venue || '').trim();
+      const normalizedName=normalizeEventIdentityText(eventName);
+      const normalizedVenue=normalizeEventIdentityText(venue);
+
+      if(normalizedName && eventDate){
+        let group=groups.find(g=>{
+          if(g.normalized_name!==normalizedName || g.event_date!==eventDate) return false;
+          if(g.normalized_venue && normalizedVenue && g.normalized_venue!==normalizedVenue) return false;
+          return true;
+        });
+        if(!group){
+          group={
+            normalized_name:normalizedName,
+            event_date:eventDate,
+            normalized_venue:normalizedVenue,
+            event_ids:[],
+            event_name:eventName,
+            venue
+          };
+          groups.push(group);
+        }
+        group.event_ids.push(eventId || '(missing event_id)');
+      }
+
+      const idMatch=eventId.match(/^EVT-(\d{4})(\d{2})(\d{2})-/);
+      if(idMatch && eventDate){
+        const idDate=`${idMatch[1]}-${idMatch[2]}-${idMatch[3]}`;
+        if(idDate!==eventDate){
+          idDateDrift.push({event_id:eventId, id_date:idDate, event_date:eventDate});
+        }
+      }
+    }
+
+    const logicalDuplicateGroups=groups
+      .filter(g=>g.event_ids.length>1)
+      .map(g=>({
+        event_ids:g.event_ids.slice(),
+        event_name:g.event_name,
+        event_date:g.event_date,
+        venue:g.venue
+      }));
+
+    const warnings=[];
+    if(logicalDuplicateGroups.length){
+      const sample=logicalDuplicateGroups.slice(0,2)
+        .map(g=>g.event_ids.slice(0,3).join(' / '))
+        .join('; ');
+      warnings.push(
+        'events: logical duplicate identity groups ' + logicalDuplicateGroups.length +
+        ' by normalized name/date/venue; sample ' + sample
+      );
+    }
+    if(idDateDrift.length){
+      const sample=idDateDrift.slice(0,3)
+        .map(x=>x.event_id + '→' + x.event_date)
+        .join(', ');
+      warnings.push(
+        'events: event_id/date drift ' + idDateDrift.length +
+        '; sample ' + sample
+      );
+    }
+
+    return {
+      logical_duplicate_group_count:logicalDuplicateGroups.length,
+      logical_duplicate_groups:logicalDuplicateGroups.slice(0,5),
+      id_date_drift_count:idDateDrift.length,
+      id_date_drift:idDateDrift.slice(0,10),
+      warnings
+    };
+  }
+
   function collapseSignals(data, previous){
     if(!previous) return [];
     const out = [];
@@ -101,6 +214,13 @@
 
   function assess(data, previous){
     const counts = {}, issues = [], warnings = [];
+    let eventIntegrity = {
+      logical_duplicate_group_count:0,
+      logical_duplicate_groups:[],
+      id_date_drift_count:0,
+      id_date_drift:[],
+      warnings:[]
+    };
     for(const key of KEYS){
       const rows = data && data[key];
       counts[key] = Array.isArray(rows) ? rows.length : null;
@@ -144,7 +264,23 @@
       }
       if(KEYS.every(k=>counts[k]===0)) warnings.push('All snapshot counts are zero; no independent evidence confirms an empty system');
     }
-    return {ok:issues.length===0, counts, source_counts:sourceCounts, issues, warnings};
+    if(data && Array.isArray(data.events)){
+      eventIntegrity = eventIdentitySignals(data.events);
+      warnings.push(...eventIntegrity.warnings);
+    }
+    return {
+      ok:issues.length===0,
+      counts,
+      source_counts:sourceCounts,
+      event_integrity:{
+        logical_duplicate_group_count:eventIntegrity.logical_duplicate_group_count,
+        logical_duplicate_groups:eventIntegrity.logical_duplicate_groups,
+        id_date_drift_count:eventIntegrity.id_date_drift_count,
+        id_date_drift:eventIntegrity.id_date_drift
+      },
+      issues,
+      warnings
+    };
   }
 
   function bangkokDay(now){
@@ -155,5 +291,5 @@
     return currentBookings(data).filter(b=>String(b.event_date || '').slice(0,10)===(day || bangkokDay()))
       .sort((a,b)=>String(a.pickup_time||'').localeCompare(String(b.pickup_time||'')));
   }
-  return {VERSION, BACKEND, KEYS, ID_FIELDS, SOURCE_COUNT_CHECKS, assess, sourceCountMap, workflowOpen, bangkokDay, currentBookings, todayBookings};
+  return {VERSION, BACKEND, KEYS, ID_FIELDS, SOURCE_COUNT_CHECKS, assess, sourceCountMap, workflowOpen, bangkokDay, currentBookings, todayBookings, normalizeEventIdentityText, normalizeEventDate, eventIdentitySignals};
 });
