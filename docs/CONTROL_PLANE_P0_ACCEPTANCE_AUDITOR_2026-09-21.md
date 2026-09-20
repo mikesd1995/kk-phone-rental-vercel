@@ -32,7 +32,7 @@ A counted Scanner or Verifier occurrence must now prove all of the following:
    - Title;
    - Cadence;
    - Timezone;
-   - Prompt fingerprint.
+   - Prompt fingerprint. If a live task snapshot supplies only raw `prompt`, the auditor derives SHA-256 internally; raw prompt text is not emitted in the audit result.
 6. Before/current/after enabled state is explicit boolean `true`.
 7. Existing Machine-SOT runtime acceptance still passes:
    - exact CORE + role boundary;
@@ -93,3 +93,13 @@ This change performs:
 - Apps Script deploys: `0`
 - HF activation: `0`
 - provider/customer sends: `0`
+
+
+## Live task-registry compatibility
+
+The ChatGPT task registry exposes raw `prompt` text rather than a precomputed prompt fingerprint. The auditor therefore accepts either:
+
+- `prompt_fingerprint` / compatible explicit fingerprint field; or
+- raw `prompt`, from which SHA-256 is derived internally.
+
+This keeps exact prompt-identity checking usable against live registry snapshots without requiring callers to precompute a fingerprint and without returning the raw prompt in audit output. A changed raw prompt produces a different fingerprint and fails `TASK_IDENTITY_DRIFT`.
