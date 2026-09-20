@@ -2,6 +2,7 @@
 
 const Runtime=require('../server/external-scanner-runtime');
 const Ledger=require('../server/runtime-ledger');
+const OidcBridge=require('../server/runtime-ledger-oidc-bridge');
 
 function text(value){
   return String(value==null?'':value).trim();
@@ -43,11 +44,13 @@ function readinessSnapshot(env=process.env){
   const externalScannerEnabled=enabled(env.KK_EXTERNAL_SCANNER_ENABLED);
   const mode=text(env.KK_EXTERNAL_SCANNER_MODE).toLowerCase()||'unset';
   const hmacSecretConfigured=!!text(env.KK_EXTERNAL_SCANNER_SECRET);
+  const oidcProbeEnabled=enabled(env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED);
   return {
     phase:'EXTERNAL_SCANNER_WITNESS_V1',
     external_scanner_enabled:externalScannerEnabled,
     mode,
     hmac_secret_configured:hmacSecretConfigured,
+    runtime_ledger_oidc_probe_enabled:oidcProbeEnabled,
     runtime_ledger_enabled:ledger.enabled,
     runtime_ledger_configured:ledger.configured,
     supabase_url_configured:ledger.url_configured,
@@ -125,14 +128,46 @@ module.exports=async function handler(req,res){
   if(req.method==='OPTIONS') return json(res,204,{});
   if(req.method==='GET'){
     const readiness=readinessSnapshot(process.env);
-    if(queryValue(req,'probe').toLowerCase()!=='ledger'){
+    const probeMode=queryValue(req,'probe').toLowerCase();
+    if(!probeMode){
       return json(res,200,{ok:true,data:readiness});
     }
-    const probe=await ledgerConnectivityProbe({env:process.env});
-    return json(res,probe.ok?200:503,{
-      ok:probe.ok,
+    if(probeMode==='ledger'){
+      const probe=await ledgerConnectivityProbe({env:process.env});
+      return json(res,probe.ok?200:503,{
+        ok:probe.ok,
+        data:readiness,
+        runtime_ledger_probe:probe
+      });
+    }
+    if(probeMode==='ledger-oidc'){
+      if(!readiness.runtime_ledger_oidc_probe_enabled){
+        const probe={
+          attempted:false,
+          ok:false,
+          error_code:'OIDC_PROBE_DISABLED',
+          read_only:true,
+          bounded_limit:1,
+          business_writes:0
+        };
+        return json(res,503,{
+          ok:false,
+          data:readiness,
+          runtime_ledger_oidc_probe:probe
+        });
+      }
+      const probe=await OidcBridge.probe({env:process.env});
+      return json(res,probe.ok?200:503,{
+        ok:probe.ok,
+        data:readiness,
+        runtime_ledger_oidc_probe:probe
+      });
+    }
+    return json(res,400,{
+      ok:false,
+      error_code:'UNKNOWN_PROBE',
       data:readiness,
-      runtime_ledger_probe:probe
+      business_writes:0
     });
   }
   if(req.method!=='POST') return json(res,405,{ok:false,error_code:'METHOD_NOT_ALLOWED'});
