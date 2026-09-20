@@ -90,3 +90,12 @@ test('wrong project or workspace identity is rejected',()=>{
   assert.ok(r.blockers.includes('TEAM_ID_MISMATCH'));
   assert.ok(r.blockers.includes('PROJECT_NAME_MISMATCH'));
 });
+
+
+test('missing exact current-main CI proof independently blocks execution',()=>{
+  const s=ready();
+  s.repository_gates.main_ci_pass=false;
+  const r=P.prepareOidcAcceptancePackage(s);
+  assert.equal(r.ready_to_execute,false);
+  assert.ok(r.blockers.includes('CURRENT_MAIN_CI_NOT_PASS'));
+});
