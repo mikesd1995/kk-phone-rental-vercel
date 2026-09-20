@@ -1,0 +1,43 @@
+name: TEMP Final OIDC Acceptance
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/oidc-final-acceptance-temp.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oidc-final-acceptance-temp
+  cancel-in-progress: false
+
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require pre-existing Vercel token
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN_MISSING"
+            exit 78
+          fi
+          echo "::add-mask::$VERCEL_TOKEN"
+          echo "VERCEL_TOKEN_PRESENT"
+
+      - name: Run exact-current production OIDC acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/accept-oidc-production.js \
+            --source-deployment dpl_FzmREEgnL7wdRAx9fx7NuRkvfQvA \
+            --expected-sha 5adb71a6cc285113049a767c4f8535b9c304d032
