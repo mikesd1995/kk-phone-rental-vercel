@@ -56,9 +56,8 @@ function extractWriteValues(raw){
   return null;
 }
 
-async function handleVerify(req,res){
+async function handleVerifyActive(req,res){
   if(req.method!=='POST') return json(res,405,{ok:false,error_code:'METHOD_NOT_ALLOWED'});
-  if(!BRIDGE_RUNTIME_ENABLED) return json(res,503,quarantineBody());
   let input;
   try{
     const raw=await readBody(req);
@@ -105,6 +104,12 @@ async function handleVerify(req,res){
   return json(res,400,{ok:false,error_code:'BRIDGE_STAGE_INVALID'});
 }
 
+async function handleVerify(req,res){
+  if(req.method!=='POST') return json(res,405,{ok:false,error_code:'METHOD_NOT_ALLOWED'});
+  if(!BRIDGE_RUNTIME_ENABLED) return json(res,503,quarantineBody());
+  return handleVerifyActive(req,res);
+}
+
 async function handleHealth(req,res){
   if(req.method!=='GET'&&req.method!=='POST') return json(res,405,{ok:false,error_code:'METHOD_NOT_ALLOWED'});
   if(!BRIDGE_RUNTIME_ENABLED) return json(res,503,quarantineBody());
@@ -128,4 +133,4 @@ async function handleHealth(req,res){
   }
 }
 
-module.exports={handleVerify,handleHealth,_test:{parseBody,extractWriteValues,quarantineBody,BRIDGE_RUNTIME_ENABLED,BRIDGE_RUNTIME_REASON,BRIDGE_RECHECK_DATE}};
+module.exports={handleVerify,handleHealth,_test:{parseBody,extractWriteValues,handleVerifyActive,quarantineBody,BRIDGE_RUNTIME_ENABLED,BRIDGE_RUNTIME_REASON,BRIDGE_RECHECK_DATE}};
