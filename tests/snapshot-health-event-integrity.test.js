@@ -18,7 +18,7 @@ test('logical duplicate detection matches normalized name/date/venue identity',(
   const report=Health.assess(snapshot([
     {
       event_id:'EVT-20260915-LABX-A',
-      event_name:'LABX GRAND OPENING — DEXX',
+      event_name:'LABX GRAND OPENING - DEXX',
       event_date:'15/09/2026',
       venue:'centralWorld'
     },
