@@ -159,3 +159,46 @@ test('duplicate natural boundary is rejected instead of choosing one occurrence'
   assert.equal(r.pass,false);
   assert.equal(r.verifier.detail_classification,'PERSISTENCE_WINDOW_DUPLICATE_SLOT');
 });
+
+
+test('live task-registry prompt can be fingerprinted without precomputed prompt_fingerprint',()=>{
+  const s=snapshot();
+  for(const task of Object.values(s.canonical_tasks)){
+    const role=task.task_id.startsWith('scanner')?'SCANNER':'VERIFIER';
+    delete task.prompt_fingerprint;
+    task.prompt=`${role} canonical live-SOT launcher`;
+  }
+  for(const row of s.occurrences){
+    const prompt=`${row.role} canonical live-SOT launcher`;
+    for(const task of [row.task_before,row.task_after]){
+      delete task.prompt_fingerprint;
+      task.prompt=prompt;
+    }
+  }
+  const r=P.auditPersistenceSnapshot(s);
+  assert.equal(r.pass,true);
+  assert.match(r.scanner.occurrences[0].task_id,/scanner-current-id/);
+});
+
+test('raw prompt drift inside a natural occurrence is rejected after fingerprint derivation',()=>{
+  const s=snapshot();
+  for(const task of Object.values(s.canonical_tasks)){
+    delete task.prompt_fingerprint;
+    task.prompt=task.task_id.startsWith('scanner')
+      ?'SCANNER canonical live-SOT launcher'
+      :'VERIFIER canonical live-SOT launcher';
+  }
+  for(const row of s.occurrences){
+    const prompt=`${row.role} canonical live-SOT launcher`;
+    for(const task of [row.task_before,row.task_after]){
+      delete task.prompt_fingerprint;
+      task.prompt=prompt;
+    }
+  }
+  const row=s.occurrences.find(x=>x.role==='SCANNER'&&x.scheduled_at.includes('13:00'));
+  row.task_after.prompt='SCANNER mutated launcher prompt';
+  const r=P.auditPersistenceSnapshot(s);
+  assert.equal(r.pass,false);
+  assert.equal(r.scanner.acceptance_credit,0);
+  assert.ok(r.scanner.rejected_occurrences.some(x=>x.classification==='TASK_IDENTITY_DRIFT'));
+});
