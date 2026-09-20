@@ -77,6 +77,29 @@ function withEnv(t){
   t.after(()=>{ process.env=old; });
 }
 
+test('server wrapper rejects createBooking without pickup_time before any upstream call',async t=>{
+  withEnv(t); const oldFetch=global.fetch; let calls=0;
+  global.fetch=async()=>{calls++; throw new Error('should not fetch');};
+  t.after(()=>{global.fetch=oldFetch;});
+  const out=res();
+  await Guard(req({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',phone_asset_id:'PHONE-001'}),out);
+  assert.equal(out.statusCode,422);
+  assert.equal(JSON.parse(out.body).error_code,'BOOKING_PICKUP_TIME_REQUIRED');
+  assert.equal(out.headers['X-KK-Booking-Timing-Policy'],'booking-timing-create-pickup-required-1');
+  assert.equal(calls,0);
+});
+
+test('server wrapper rejects invalid createBooking pickup_time before any upstream call',async t=>{
+  withEnv(t); const oldFetch=global.fetch; let calls=0;
+  global.fetch=async()=>{calls++; throw new Error('should not fetch');};
+  t.after(()=>{global.fetch=oldFetch;});
+  const out=res();
+  await Guard(req({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',pickup_time:'25:99',phone_asset_id:'PHONE-001'}),out);
+  assert.equal(out.statusCode,422);
+  assert.equal(JSON.parse(out.body).error_code,'BOOKING_PICKUP_TIME_INVALID');
+  assert.equal(calls,0);
+});
+
 test('server wrapper blocks a conflicting createBooking before legacy write',async t=>{
   withEnv(t); const oldFetch=global.fetch; let calls=0;
   global.fetch=async()=>{calls++; return response({ok:true,data:snapshot()});};
@@ -100,6 +123,7 @@ test('server wrapper delegates a non-conflicting createBooking after preflight',
   await Guard(req({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',pickup_time:'08:00',phone_asset_id:'PHONE-001'}),out);
   assert.equal(out.statusCode,200);
   assert.equal(out.headers['X-KK-Booking-Guard'],'PASS');
+  assert.equal(out.headers['X-KK-Booking-Timing-Policy'],'booking-timing-create-pickup-required-1');
   assert.equal(JSON.parse(out.body).ok,true);
   assert.equal(calls,2);
 });

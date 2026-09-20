@@ -10,6 +10,7 @@ const ReservationGuard = require('../admin/reservation-guard.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
+const BOOKING_TIMING_POLICY_VERSION = 'booking-timing-create-pickup-required-1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
@@ -22,6 +23,7 @@ function reply(res,status,body){
   res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
   res.setHeader('X-KK-Booking-Guard-Version',GUARD_VERSION);
   res.setHeader('X-KK-Event-Guard-Version',EVENT_GUARD_VERSION);
+  res.setHeader('X-KK-Booking-Timing-Policy',BOOKING_TIMING_POLICY_VERSION);
   res.end(JSON.stringify(Object.assign({guard_version:GUARD_VERSION,event_guard_version:EVENT_GUARD_VERSION},body||{})));
 }
 
@@ -124,6 +126,30 @@ function updateProposal(snapshot,payload){
 function evaluate(snapshot,payload){
   const proposal=payload.action==='createBooking'?createProposal(snapshot,payload):updateProposal(snapshot,payload);
   return {proposal,result:ReservationGuard.preflight(snapshot,proposal,{defaultEndHour:ReservationGuard.DEFAULT_END_HOUR})};
+}
+
+function validateCreateBookingTiming(payload){
+  if(String(payload&&payload.action||'')!=='createBooking') return {ok:true};
+  const pickup=String(payload&&payload.pickup_time||'').trim();
+  if(!pickup){
+    return {
+      ok:false,
+      status:422,
+      error_code:'BOOKING_PICKUP_TIME_REQUIRED',
+      error:'กรุณาระบุเวลารับเครื่องก่อนสร้าง Booking เพื่อให้ระบบคำนวณ reservation window ได้ถูกต้อง',
+      recommended_action:'setPickupTime'
+    };
+  }
+  if(ReservationGuard.timeMinutes(pickup)===null){
+    return {
+      ok:false,
+      status:422,
+      error_code:'BOOKING_PICKUP_TIME_INVALID',
+      error:'เวลารับเครื่องไม่ถูกต้อง กรุณาใช้รูปแบบ HH:MM เช่น 17:30',
+      recommended_action:'correctPickupTime'
+    };
+  }
+  return {ok:true,pickup_time:pickup};
 }
 
 function normalizeIdentityText(value){
@@ -314,6 +340,19 @@ module.exports=async function handler(req,res){
   if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'});
   if(providedPin!==adminPin) return reply(res,401,{ok:false,error:'Invalid admin PIN'});
 
+  if(bookingGuarded){
+    res.setHeader('X-KK-Booking-Timing-Policy',BOOKING_TIMING_POLICY_VERSION);
+    const timing=validateCreateBookingTiming(payload);
+    if(!timing.ok){
+      return reply(res,timing.status,{
+        ok:false,
+        error:timing.error,
+        error_code:timing.error_code,
+        recommended_action:timing.recommended_action
+      });
+    }
+  }
+
   if(eventGuarded&&isPastEventDate(payload.event_date)){
     return reply(res,422,{
       ok:false,
@@ -401,4 +440,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(clonedRequest(req,raw),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex};

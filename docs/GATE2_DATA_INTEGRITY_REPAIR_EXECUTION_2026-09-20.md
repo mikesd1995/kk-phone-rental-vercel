@@ -1,6 +1,6 @@
 # Gate 2 Data Integrity Repair Execution — 2026-09-20
 
-Status: **PARTIALLY REPAIRED / ONE DUPLICATE GROUP REQUIRES BUSINESS REVIEW**
+Status: **EVENT IDENTITY CLEAN / BOOKING TIMING + TIMEZONE READINESS REMAIN**
 
 This document records the production-safe Gate 2 repair carried out after Apps Script recovery. The repair intentionally separates objective identity corrections from ambiguous business decisions.
 
@@ -42,26 +42,30 @@ Archived before clearing:
 
 The archived event's generated Web Ready row became blank as expected. Two hard-coded generated price cells left behind in `09_Web_Packages!H62` and `H64` were restored to blank-safe formulas so a future event cannot inherit stale LABX prices.
 
-### MITH — intentionally not auto-merged
+### MITH — resolved on 2026-09-21
 
-The two 2026-09-16 MITH rows have the same normalized name/date/venue, but their business state is not equivalent:
-- different poster assets;
-- the `-2` record explicitly hides the lens package while the base record does not;
-- neither record currently has a booking reference.
+A second audit established sufficient lineage evidence to choose the `-2` row as canonical:
+- the base event was created earlier with `web_ready_action=hide` and only two overrides;
+- the `-2` event was created later after a new poster upload with `web_ready_action=show` and three overrides, including an explicit lens hide;
+- neither identity had booking/archive/dashboard references.
 
-There is no evidence-safe automatic canonical choice, so this group remains **REVIEW_REQUIRED**. No row or price was changed for MITH.
+Before mutation, a second full workbook backup was created:
+- `KK Phone rental backend - PRE_MITH_DEDUP_2026-09-21_0030`
+- spreadsheet id `1ECiflYWHzo63MsN22EFeN2G1K3UuzDyBmdeR09pcAEQ`
 
-Result: **logical duplicate groups 2 → 1**, with the remaining group explicitly held for business review.
+The base MITH event row 44 was archived to `13_Event_Archive!103`; its override rows 155:156 were archived to `14_Event_Override_Archive!254:255`; the live base row/overrides were cleared. The `-2` event remains the live canonical row. Generated price cells `09_Web_Packages!H122` and `H124` were restored from hardcoded values to blank-safe formulas.
+
+Result: **logical duplicate groups 1 → 0**.
 
 ## Post-repair readback
 
-Independent reads after mutation:
-- live Events: 72
+Independent reads after the 2026-09-21 follow-up:
+- live Events: 71
 - Bookings: 26
 - current workflow-open bookings: 5
 - Assets: 5
 - event_id/date drift: 0
-- logical duplicate groups: 1
+- logical duplicate groups: 0
 - Health Check duplicate event_id: 0
 - Health Check duplicate overrides: 0
 - Health Check booking risk: 0
@@ -111,3 +115,22 @@ node scripts/verify-event-integrity.js snapshot.json
 ```
 
 A logical duplicate remains a human/business review item until its poster/package semantics and references are explicitly resolved.
+
+
+## 2026-09-21 booking timing and timezone audit
+
+Active booking timing remains incomplete:
+- active bookings: 5;
+- missing `pickup_time`: 2 (`BK-20261023-001`, `BK-20261025-001`);
+- missing `return_time`: 5 / 5.
+
+No booking time was invented. A new Vercel/Admin hardening change requires a valid pickup time for all future `createBooking` requests.
+
+Timezone remains intentionally **CHECK**, not changed:
+- spreadsheet metadata: `Etc/GMT`;
+- business timezone: `Asia/Bangkok`;
+- audited critical Sheet ranges contained 0 `NOW()`/`TODAY()` formulas;
+- recovered Apps Script formats date keys/API timestamps with `Session.getScriptTimeZone()`;
+- an installed-cleanup helper is defined with a daily `atHour(3)` trigger.
+
+Changing the spreadsheet timezone alone would not prove alignment with the Apps Script project timezone and could alter historical timestamp presentation. The timezone write is therefore held until project timezone and historical timestamp rendering are verified together.

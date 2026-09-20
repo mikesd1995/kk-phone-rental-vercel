@@ -151,6 +151,26 @@
     };
   }
 
+  function bookingTimingSignals(rows){
+    const source=Array.isArray(rows)?rows:[];
+    const active=source.filter(workflowOpen);
+    const missingPickup=active.filter(b=>!String(b&&b.pickup_time||'').trim());
+    const missingReturn=active.filter(b=>!String(b&&b.return_time||'').trim());
+    const warnings=[];
+    if(missingPickup.length||missingReturn.length){
+      warnings.push(
+        'bookings: active timing incomplete; pickup_time missing '+missingPickup.length+'/'+active.length+
+        ', return_time missing '+missingReturn.length+'/'+active.length
+      );
+    }
+    return {
+      active_count:active.length,
+      missing_pickup_time_count:missingPickup.length,
+      missing_return_time_count:missingReturn.length,
+      warnings
+    };
+  }
+
   function collapseSignals(data, previous){
     if(!previous) return [];
     const out = [];
@@ -221,6 +241,12 @@
       id_date_drift:[],
       warnings:[]
     };
+    let bookingTiming = {
+      active_count:0,
+      missing_pickup_time_count:0,
+      missing_return_time_count:0,
+      warnings:[]
+    };
     for(const key of KEYS){
       const rows = data && data[key];
       counts[key] = Array.isArray(rows) ? rows.length : null;
@@ -268,6 +294,10 @@
       eventIntegrity = eventIdentitySignals(data.events);
       warnings.push(...eventIntegrity.warnings);
     }
+    if(data && Array.isArray(data.bookings)){
+      bookingTiming = bookingTimingSignals(data.bookings);
+      warnings.push(...bookingTiming.warnings);
+    }
     return {
       ok:issues.length===0,
       counts,
@@ -277,6 +307,11 @@
         logical_duplicate_groups:eventIntegrity.logical_duplicate_groups,
         id_date_drift_count:eventIntegrity.id_date_drift_count,
         id_date_drift:eventIntegrity.id_date_drift
+      },
+      booking_timing:{
+        active_count:bookingTiming.active_count,
+        missing_pickup_time_count:bookingTiming.missing_pickup_time_count,
+        missing_return_time_count:bookingTiming.missing_return_time_count
       },
       issues,
       warnings
@@ -291,5 +326,5 @@
     return currentBookings(data).filter(b=>String(b.event_date || '').slice(0,10)===(day || bangkokDay()))
       .sort((a,b)=>String(a.pickup_time||'').localeCompare(String(b.pickup_time||'')));
   }
-  return {VERSION, BACKEND, KEYS, ID_FIELDS, SOURCE_COUNT_CHECKS, assess, sourceCountMap, workflowOpen, bangkokDay, currentBookings, todayBookings, normalizeEventIdentityText, normalizeEventDate, eventIdentitySignals};
+  return {VERSION, BACKEND, KEYS, ID_FIELDS, SOURCE_COUNT_CHECKS, assess, sourceCountMap, workflowOpen, bangkokDay, currentBookings, todayBookings, normalizeEventIdentityText, normalizeEventDate, eventIdentitySignals, bookingTimingSignals};
 });

@@ -148,3 +148,45 @@ test('multiple live-like anomalies are bounded in evidence output',()=>{
   assert.ok(signals.id_date_drift.length<=10);
   assert.ok(signals.warnings.length<=2);
 });
+
+
+test('active booking timing completeness is observable without rejecting snapshot transport',()=>{
+  const data=snapshot([{
+    event_id:'EVT-20261023-LYKN',
+    event_name:'LYKN',
+    event_date:'23/10/2026',
+    venue:'IMPACT Arena'
+  }]);
+  const active={
+    booking_id:'BK-ACTIVE',
+    booking_status:'confirmed',
+    event_id:'EVT-20261023-LYKN',
+    event_date:'2026-10-23',
+    package_type:'phone_only',
+    pickup_time:'',
+    return_time:''
+  };
+  data.bookings=[
+    active,
+    {
+      booking_id:'BK-DONE',
+      booking_status:'completed',
+      event_id:'EVT-20261023-LYKN',
+      event_date:'2026-10-23',
+      package_type:'phone_only',
+      pickup_time:'',
+      return_time:''
+    }
+  ];
+  data.current_bookings=[active];
+
+  const report=Health.assess(data);
+  assert.equal(report.ok,true);
+  assert.deepEqual(report.booking_timing,{
+    active_count:1,
+    missing_pickup_time_count:1,
+    missing_return_time_count:1
+  });
+  assert.match(report.warnings.join('\n'),/active timing incomplete/);
+  assert.equal(Health.bookingTimingSignals(data.bookings).active_count,1);
+});
