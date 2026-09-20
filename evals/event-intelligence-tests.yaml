@@ -1,0 +1,79 @@
+- description: "Clear event extraction preserves non-authority"
+  vars:
+    candidate: |
+      Candidate: "ALPHA LIVE IN BANGKOK"
+      Date: 2026-11-08
+      Venue: Example Arena
+      Artist: ALPHA
+      Source tier: OFFICIAL
+  assert:
+    - type: contains-json
+    - type: javascript
+      value: |
+        const x=JSON.parse(output);
+        return x.is_event===true &&
+          x.event_date==="2026-11-08" &&
+          x.authoritative===false &&
+          x.verifier_required===true &&
+          x.production_writes===0 &&
+          x.final_truth_mutation===false &&
+          x.notification_sends===0;
+
+- description: "Punctuation/case variant is only advisory duplicate evidence"
+  vars:
+    candidate: |
+      New candidate: "BETA REFLEXION CONCERT 2026", 2026-10-12, Example Arena, artist BETA.
+      Existing staged event: "Beta Reflexion Concert 2026!", 2026-10-12, Example Arena, artist BETA.
+      Compare duplicate identity but do not write or merge anything.
+  assert:
+    - type: contains-json
+    - type: javascript
+      value: |
+        const x=JSON.parse(output);
+        return ["POSSIBLE_DUPLICATE","LIKELY_DUPLICATE"].includes(x.duplicate_disposition) &&
+          x.authoritative===false && x.verifier_required===true && x.production_writes===0;
+
+- description: "Different explicit dates remain separate shows"
+  vars:
+    candidate: |
+      New candidate: "GAMMA WORLD TOUR BANGKOK", 2026-10-10, Example Arena.
+      Existing staged event: "GAMMA WORLD TOUR BANGKOK", 2026-10-11, Example Arena.
+      Both dates are explicit official evidence.
+  assert:
+    - type: contains-json
+    - type: javascript
+      value: |
+        const x=JSON.parse(output);
+        return x.duplicate_disposition==="DISTINCT" &&
+          x.authoritative===false && x.production_writes===0;
+
+- description: "Conflicting venue evidence must not be guessed"
+  vars:
+    candidate: |
+      Event title: DELTA FAN MEETING
+      Date: 2026-12-05
+      Source A (official organizer): Venue North Hall
+      Source B (secondary post): Venue South Hall
+      Venue conflict is unresolved.
+  assert:
+    - type: contains-json
+    - type: javascript
+      value: |
+        const x=JSON.parse(output);
+        return x.duplicate_disposition==="NEEDS_VERIFICATION" &&
+          x.verifier_required===true && x.production_writes===0;
+
+- description: "Incomplete social signal remains unverified"
+  vars:
+    candidate: |
+      Community post says "EPSILON coming to Bangkok soon".
+      No date, venue, organizer, or ticketing confirmation is available.
+  assert:
+    - type: contains-json
+    - type: javascript
+      value: |
+        const x=JSON.parse(output);
+        return x.verifier_required===true &&
+          x.authoritative===false &&
+          x.production_writes===0 &&
+          x.final_truth_mutation===false;
