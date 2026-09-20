@@ -1,0 +1,190 @@
+name: Temporary OIDC Production Acceptance
+
+on:
+  push:
+    branches:
+      - oidc-production-acceptance-temp-20260920
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oidc-production-acceptance-temp-20260920
+  cancel-in-progress: false
+
+jobs:
+  bounded-oidc-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+      TEAM_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+      PROJECT_NAME: kk-phone-rental-vercel
+      ORIGINAL_DEPLOYMENT_ID: dpl_TegLX3p6yTQ34SRFo2xKXy6BhyDT
+      PRODUCTION_URL: https://kk-phone-rental.vercel.app
+    steps:
+      - name: Require pre-existing Vercel token
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "::error::VERCEL_TOKEN_MISSING"
+            exit 78
+          fi
+          echo "::add-mask::$VERCEL_TOKEN"
+          echo "VERCEL_TOKEN_PRESENT"
+
+      - name: Run bounded OIDC acceptance with automatic rollback
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          api_base="https://api.vercel.com"
+          current_deployment="$ORIGINAL_DEPLOYMENT_ID"
+          cleanup_started=0
+
+          upsert_flag() {
+            local value="$1"
+            local code
+            code="$(curl -sS -o /tmp/env-response.json -w '%{http_code}' \
+              -X POST "$api_base/v10/projects/$PROJECT_ID/env?upsert=true&teamId=$TEAM_ID" \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "[{\"key\":\"KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED\",\"value\":\"$value\",\"type\":\"plain\",\"target\":[\"production\"],\"comment\":\"Temporary bounded OIDC acceptance 2026-09-20\"}]")"
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::VERCEL_ENV_UPSERT_FAILED_HTTP_$code"
+              return 1
+            fi
+            echo "OIDC_PROBE_FLAG_SET_$value"
+          }
+
+          redeploy_from() {
+            local source_id="$1"
+            local code deployment_id state
+            code="$(curl -sS -o /tmp/deploy-response.json -w '%{http_code}' \
+              -X POST "$api_base/v13/deployments?teamId=$TEAM_ID&forceNew=1" \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "{\"name\":\"$PROJECT_NAME\",\"deploymentId\":\"$source_id\",\"target\":\"production\"}")"
+            if [ "$code" != "200" ] && [ "$code" != "201" ]; then
+              echo "::error::VERCEL_REDEPLOY_FAILED_HTTP_$code"
+              return 1
+            fi
+            deployment_id="$(jq -r '.id // empty' /tmp/deploy-response.json)"
+            if [ -z "$deployment_id" ]; then
+              echo "::error::VERCEL_REDEPLOY_ID_MISSING"
+              return 1
+            fi
+            echo "REDEPLOY_CREATED=$deployment_id" >&2
+            for _ in $(seq 1 60); do
+              curl -sS \
+                -H "Authorization: Bearer $VERCEL_TOKEN" \
+                "$api_base/v13/deployments/$deployment_id?teamId=$TEAM_ID" \
+                -o /tmp/deployment-state.json
+              state="$(jq -r '.readyState // .state // empty' /tmp/deployment-state.json)"
+              if [ "$state" = "READY" ]; then
+                echo "$deployment_id"
+                return 0
+              fi
+              if [ "$state" = "ERROR" ] || [ "$state" = "CANCELED" ]; then
+                echo "::error::VERCEL_REDEPLOY_TERMINAL_$state"
+                return 1
+              fi
+              sleep 5
+            done
+            echo "::error::VERCEL_REDEPLOY_TIMEOUT"
+            return 1
+          }
+
+          wait_readiness_flag() {
+            local expected="$1"
+            local code
+            for _ in $(seq 1 24); do
+              code="$(curl -sS -o /tmp/readiness.json -w '%{http_code}' "$PRODUCTION_URL/api/kk-scanner-dispatch")"
+              if [ "$code" = "200" ]; then
+                local actual
+                actual="$(jq -r '.data.runtime_ledger_oidc_probe_enabled // false' /tmp/readiness.json)"
+                if [ "$actual" = "$expected" ]; then
+                  jq -e '.data.external_scanner_enabled == false and .data.scanner_execution_capable == false and .data.business_writes_capable == false' /tmp/readiness.json >/dev/null
+                  echo "READINESS_FLAG_$expected"
+                  return 0
+                fi
+              fi
+              sleep 5
+            done
+            echo "::error::READINESS_FLAG_NOT_$expected"
+            return 1
+          }
+
+          cleanup() {
+            local rc=$?
+            if [ "$cleanup_started" -eq 1 ]; then
+              exit "$rc"
+            fi
+            cleanup_started=1
+            set +e
+            echo "ROLLBACK_START"
+            upsert_flag false
+            rollback_deployment="$(redeploy_from "$ORIGINAL_DEPLOYMENT_ID")"
+            rollback_rc=$?
+            if [ "$rollback_rc" -eq 0 ]; then
+              current_deployment="$rollback_deployment"
+              wait_readiness_flag false
+              readiness_rc=$?
+            else
+              readiness_rc=1
+            fi
+            echo "ROLLBACK_END"
+            if [ "$rollback_rc" -ne 0 ] || [ "$readiness_rc" -ne 0 ]; then
+              echo "::error::ROLLBACK_VERIFICATION_FAILED"
+              exit 1
+            fi
+            exit "$rc"
+          }
+
+          trap cleanup EXIT
+
+          upsert_flag true
+          enabled_deployment="$(redeploy_from "$ORIGINAL_DEPLOYMENT_ID")"
+          current_deployment="$enabled_deployment"
+          wait_readiness_flag true
+
+          probe_code="$(curl -sS -o /tmp/oidc-probe.json -w '%{http_code}' "$PRODUCTION_URL/api/kk-scanner-dispatch?probe=ledger-oidc")"
+          if [ "$probe_code" != "200" ]; then
+            echo "::error::OIDC_PROBE_HTTP_$probe_code"
+            jq '{ok,error_code,runtime_ledger_oidc_probe:{attempted,ok,error_code,authenticated,read_only,bounded_limit,business_writes}}' /tmp/oidc-probe.json 2>/dev/null || true
+            exit 1
+          fi
+
+          jq -e '
+            .ok == true and
+            .data.runtime_ledger_oidc_probe_enabled == true and
+            .data.external_scanner_enabled == false and
+            .data.scanner_execution_capable == false and
+            .data.business_writes_capable == false and
+            .runtime_ledger_oidc_probe.ok == true and
+            .runtime_ledger_oidc_probe.authenticated == true and
+            .runtime_ledger_oidc_probe.read_only == true and
+            .runtime_ledger_oidc_probe.bounded_limit == 1 and
+            .runtime_ledger_oidc_probe.business_writes == 0
+          ' /tmp/oidc-probe.json >/dev/null
+
+          jq '{
+            ok,
+            external_scanner_enabled: .data.external_scanner_enabled,
+            oidc_probe_enabled: .data.runtime_ledger_oidc_probe_enabled,
+            scanner_execution_capable: .data.scanner_execution_capable,
+            business_writes_capable: .data.business_writes_capable,
+            probe: {
+              ok: .runtime_ledger_oidc_probe.ok,
+              authenticated: .runtime_ledger_oidc_probe.authenticated,
+              row_count: .runtime_ledger_oidc_probe.row_count,
+              read_only: .runtime_ledger_oidc_probe.read_only,
+              bounded_limit: .runtime_ledger_oidc_probe.bounded_limit,
+              business_writes: .runtime_ledger_oidc_probe.business_writes
+            }
+          }' /tmp/oidc-probe.json > /tmp/oidc-acceptance-safe.json
+
+          cat /tmp/oidc-acceptance-safe.json
+          echo "OIDC_ACCEPTANCE_PASS"
