@@ -138,7 +138,34 @@ Fresh evidence already proven outside this branch:
 
 The remaining required evidence is the bounded **production OIDC acceptance with rollback**.
 
-That acceptance is currently blocked operationally because Vercel exact-head Preview/deployment capacity is returning a build-rate-limit status. The block must not be bypassed by enabling witness mode directly.
+### Fresh production dispatcher readback — 2026-09-21 ICT
+
+The production dispatcher returned HTTP 200 with the fail-closed baseline intact:
+
+- `external_scanner_enabled=false`;
+- `runtime_ledger_oidc_probe_enabled=false`;
+- `scanner_execution_capable=false`;
+- `business_writes_capable=false`;
+- `ready_for_witness=false`.
+
+It also reported the static runtime-ledger service-role path as unconfigured:
+
+- `runtime_ledger_enabled=false`;
+- `runtime_ledger_configured=false`;
+- `supabase_url_configured=false`;
+- `supabase_server_key_configured=false`.
+
+These static-service-role fields are **not** a prerequisite for the OIDC probe. The OIDC bridge is a separate path: it uses Vercel's `VERCEL_OIDC_TOKEN` and calls the pinned canonical Supabase Edge Function `kk-runtime-ledger-oidc-probe` at project `zehlsagzrpromtfqqflt`. No Supabase service-role secret is required in Vercel for that bounded OIDC acceptance.
+
+A regression test now locks this separation so a future change cannot incorrectly require the static Supabase service-role configuration before OIDC acceptance.
+
+### Current operational blocker
+
+Vercel account/project read access is now working and a newly-created Preview deployment was observed `READY`, so the earlier build-rate-limit condition is no longer treated as the sole current blocker.
+
+The connected Vercel action surface available to this session still exposes no Project Environment Variable write action. Therefore this session cannot honestly execute the live acceptance sequence that must temporarily set only `KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED=true`, redeploy the exact production source, perform one bounded read-only probe, restore the flag to false, redeploy the same source, and exact-read the rollback.
+
+Do **not** substitute static Supabase keys, enable witness mode, or bypass the rollback contract. The live OIDC acceptance remains pending until an owner-authorized Vercel env-write execution surface is available. No secret should be pasted into chat or committed to GitHub.
 
 ## Intended next sequence
 
