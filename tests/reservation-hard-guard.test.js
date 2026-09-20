@@ -77,16 +77,31 @@ function withEnv(t){
   t.after(()=>{ process.env=old; });
 }
 
-test('server wrapper rejects createBooking without pickup_time before any upstream call',async t=>{
+test('createBooking without pickup_time is allowed into conservative reservation preflight',async t=>{
   withEnv(t); const oldFetch=global.fetch; let calls=0;
-  global.fetch=async()=>{calls++; throw new Error('should not fetch');};
+  global.fetch=async()=>{calls++; return response({ok:true,data:snapshot()});};
   t.after(()=>{global.fetch=oldFetch;});
   const out=res();
   await Guard(req({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',phone_asset_id:'PHONE-001'}),out);
-  assert.equal(out.statusCode,422);
-  assert.equal(JSON.parse(out.body).error_code,'BOOKING_PICKUP_TIME_REQUIRED');
-  assert.equal(out.headers['X-KK-Booking-Timing-Policy'],'booking-timing-create-pickup-required-1');
-  assert.equal(calls,0);
+  // Existing prior-day booking is reserved through 06:00, while unknown pickup starts
+  // at 00:00. The request is accepted as TBD timing but safely collision-blocked.
+  assert.equal(out.statusCode,409);
+  assert.equal(JSON.parse(out.body).error_code,'BOOKING_COLLISION');
+  assert.equal(out.headers['X-KK-Booking-Timing-Policy'],'booking-timing-optional-safe-fallback-2');
+  assert.equal(out.headers['X-KK-Booking-Pickup-Mode'],'fallback-day-start');
+  assert.equal(calls,1);
+});
+
+test('timing validator treats blank pickup as optional TBD state',()=>{
+  assert.deepEqual(
+    Guard._test.validateCreateBookingTiming({action:'createBooking',pickup_time:''}),
+    {
+      ok:true,
+      pickup_time:'',
+      mode:'fallback-day-start',
+      note:'pickup_time is optional/TBD; reservation starts at 00:00 on event day'
+    }
+  );
 });
 
 test('server wrapper rejects invalid createBooking pickup_time before any upstream call',async t=>{
@@ -123,7 +138,7 @@ test('server wrapper delegates a non-conflicting createBooking after preflight',
   await Guard(req({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',pickup_time:'08:00',phone_asset_id:'PHONE-001'}),out);
   assert.equal(out.statusCode,200);
   assert.equal(out.headers['X-KK-Booking-Guard'],'PASS');
-  assert.equal(out.headers['X-KK-Booking-Timing-Policy'],'booking-timing-create-pickup-required-1');
+  assert.equal(out.headers['X-KK-Booking-Timing-Policy'],'booking-timing-optional-safe-fallback-2');
   assert.equal(JSON.parse(out.body).ok,true);
   assert.equal(calls,2);
 });
