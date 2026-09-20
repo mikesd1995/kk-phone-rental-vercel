@@ -76,6 +76,20 @@ test('current live state without completed OIDC acceptance remains blocked',()=>
   assert.ok(r.blockers.includes('OIDC_PRODUCTION_ACCEPTANCE_NOT_PROVEN'));
 });
 
+
+test('OIDC bridge acceptance does not depend on static Supabase service-role configuration in Vercel',()=>{
+  const s=base();
+  s.production_readiness.runtime_ledger_enabled=false;
+  s.production_readiness.runtime_ledger_configured=false;
+  s.production_readiness.supabase_url_configured=false;
+  s.production_readiness.supabase_server_key_configured=false;
+  s.production_readiness.supabase_project_ref_configured=false;
+  s.production_readiness.supabase_project_binding_matches=false;
+  const r=Gate.evaluateTransitionPreflight(s);
+  assert.equal(r.candidate_ready,true);
+  assert.equal(r.classification,'WITNESS_TRANSITION_POLICY_CANDIDATE_READY');
+});
+
 test('native Scanner must remain explicitly OFF before any external witness transition',()=>{
   const s=base();
   s.native_scanner.enabled=true;
