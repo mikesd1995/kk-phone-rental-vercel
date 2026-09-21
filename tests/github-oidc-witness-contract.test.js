@@ -48,7 +48,7 @@ test('scheduled GitHub witness clock uses OIDC only and has no secret dependency
     path.join(root,'.github','workflows','kk-external-witness-clock.yml'),
     'utf8'
   );
-  assert.match(source,/cron:\s*'0 \* \* \* \*'/);
+  assert.match(source,/cron:\s*'7 \* \* \* \*'/);
   assert.match(source,/id-token:\s*write/);
   assert.match(source,/ACTIONS_ID_TOKEN_REQUEST_URL/);
   assert.match(source,/ACTIONS_ID_TOKEN_REQUEST_TOKEN/);
