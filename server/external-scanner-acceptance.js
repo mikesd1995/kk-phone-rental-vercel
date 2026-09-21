@@ -8,6 +8,14 @@ const DEFAULT_REQUIRED=6;
 const DEFAULT_FRESHNESS_MS=90*60*1000;
 const DEFAULT_RECEIVE_LAG_MS=25*60*1000;
 const ALLOWED_STATUS=new Set(['EXPECTED','STARTED','TERMINAL']);
+const GITHUB_WITNESS_SOURCE='GITHUB_ACTIONS_CRON';
+const GITHUB_WITNESS_VERSION='kk-scanner-github-witness-v1';
+
+function supportedSourceVersion(source,version){
+  if(source===Runtime.SOURCE) return version===Runtime.VERSION;
+  if(source===GITHUB_WITNESS_SOURCE) return version===GITHUB_WITNESS_VERSION;
+  return false;
+}
 
 function text(value){
   return String(value==null?'':value).trim();
@@ -47,8 +55,8 @@ function validateWitnessRow(row={},options={}){
   const reasons=[];
 
   if(r.role!=='SCANNER') reasons.push('ROLE');
-  if(r.source!==Runtime.SOURCE) reasons.push('SOURCE');
-  if(r.trigger_version!==Runtime.VERSION) reasons.push('TRIGGER_VERSION');
+  if(![Runtime.SOURCE,GITHUB_WITNESS_SOURCE].includes(r.source)) reasons.push('SOURCE');
+  if(!supportedSourceVersion(r.source,r.trigger_version)) reasons.push('TRIGGER_VERSION');
   if(r.mode!=='WITNESS_ONLY') reasons.push('MODE');
   if(!ALLOWED_STATUS.has(r.status)) reasons.push('STATUS');
   if(!/^[-A-Za-z0-9_:.]{16,128}$/.test(r.nonce)) reasons.push('NONCE');
@@ -196,6 +204,9 @@ module.exports={
   DEFAULT_REQUIRED,
   DEFAULT_FRESHNESS_MS,
   DEFAULT_RECEIVE_LAG_MS,
+  GITHUB_WITNESS_SOURCE,
+  GITHUB_WITNESS_VERSION,
+  supportedSourceVersion,
   validateWitnessRow,
   evaluateWitnessWindow
 };

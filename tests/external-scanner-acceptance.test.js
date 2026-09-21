@@ -118,3 +118,44 @@ test('malformed payload hash is rejected before witness streak counting',()=>{
   assert.equal(checked.ok,false);
   assert.ok(checked.reasons.includes('PAYLOAD_HASH_FORMAT'));
 });
+
+test('six consecutive GitHub OIDC witness expectations satisfy the same witness-only gate',()=>{
+  const source=A.GITHUB_WITNESS_SOURCE;
+  const version=A.GITHUB_WITNESS_VERSION;
+  const rows=[18,19,20,21,22,23].map(h=>{
+    const scheduled=`2026-09-18T${String(h).padStart(2,'0')}:00:00+07:00`;
+    const issued=`2026-09-18T${String(h).padStart(2,'0')}:00:05+07:00`;
+    const nonce=`gh-123456-${h}-20260918${String(h).padStart(2,'0')}0000`;
+    const row={
+      occurrence_id:R.occurrenceIdFor(scheduled),
+      role:'SCANNER',
+      scheduled_at:scheduled,
+      issued_at:issued,
+      nonce,
+      source,
+      trigger_version:version,
+      status:'EXPECTED',
+      mode:'WITNESS_ONLY',
+      received_at:`2026-09-18T${String(h).padStart(2,'0')}:00:06+07:00`
+    };
+    row.payload_hash=R.sha256(R.canonicalizeEnvelope({
+      version,
+      role:row.role,
+      occurrence_id:row.occurrence_id,
+      scheduled_at:row.scheduled_at,
+      issued_at:row.issued_at,
+      nonce:row.nonce,
+      source:row.source
+    }));
+    return row;
+  });
+  const result=A.evaluateWitnessWindow(rows,{
+    required:6,
+    nowMs:Date.parse('2026-09-18T23:20:00+07:00')
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.classification,'WITNESS_STREAK_PASS');
+  assert.equal(result.consecutive,6);
+  assert.equal(result.scanner_runtime_acceptance,false);
+  assert.equal(result.production_cutover_authorized,false);
+});
