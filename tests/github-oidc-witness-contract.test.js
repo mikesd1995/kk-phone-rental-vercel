@@ -73,7 +73,7 @@ test('witness control migration defaults disabled and is service-role only',()=>
   );
   assert.match(source,/github_oidc_witness_v1/);
   assert.match(source,/enabled boolean not null default false/);
-  assert.match(source,/values \('github_oidc_witness_v1', false/);
+  assert.match(source,/values\s*\(\s*'github_oidc_witness_v1'\s*,\s*false/);
   assert.match(source,/enable row level security/);
   assert.match(source,/revoke all on table public\.kk_control_plane_config from public, anon, authenticated/);
   assert.match(source,/grant select, update on table public\.kk_control_plane_config to service_role/);
