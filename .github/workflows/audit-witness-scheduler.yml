@@ -1,0 +1,49 @@
+name: Audit Witness Scheduler State
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit-witness-scheduler:
+    if: >-
+      ${{
+        github.event.issue.number == 47 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.body == '/audit-witness-scheduler'
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Audit workflow registration and natural schedule inventory
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPORT_PATH: witness-scheduler-audit.json
+        run: |
+          set -euo pipefail
+          node scripts/audit-github-witness-scheduler.js
+
+      - name: Upload secret-safe diagnostic
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: witness-scheduler-audit-${{ github.run_id }}
+          path: witness-scheduler-audit.json
+          if-no-files-found: warn
+          retention-days: 14
