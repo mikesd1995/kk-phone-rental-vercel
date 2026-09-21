@@ -10,7 +10,7 @@ function base(){
     native_scanner:{
       task_id:'6aacec5fa7f48191b439dbe2308b69cf',
       enabled:false,
-      cadence:'RRULE:FREQ=HOURLY;BYMINUTE=0',
+      cadence:'BEGIN:VEVENT\nDTSTART;TZID=Asia/Bangkok:20260918T150000\nRRULE:FREQ=HOURLY;BYMINUTE=0;BYSECOND=0\nEND:VEVENT',
       timezone:'Asia/Bangkok'
     },
     production_readiness:{
@@ -175,4 +175,27 @@ test('policy ambiguity or a future policy version cannot be silently treated as 
   const r=Gate.evaluateTransitionPreflight(s);
   assert.ok(r.blockers.includes('ACTIVE_POLICY_NOT_EXACT1'));
   assert.ok(r.blockers.includes('BASELINE_POLICY_NOT_V419'));
+});
+
+
+test('canonical Scanner cadence accepts the actual VEVENT representation',()=>{
+  assert.equal(
+    Gate.canonicalScannerCadence(
+      'BEGIN:VEVENT\nDTSTART;TZID=Asia/Bangkok:20260918T150000\nRRULE:FREQ=HOURLY;BYMINUTE=0;BYSECOND=0\nEND:VEVENT'
+    ),
+    true
+  );
+});
+
+test('canonical Scanner cadence accepts equivalent RRULE without explicit BYSECOND',()=>{
+  assert.equal(Gate.canonicalScannerCadence('RRULE:FREQ=HOURLY;BYMINUTE=0'),true);
+  assert.equal(Gate.canonicalScannerCadence('RRULE:FREQ=HOURLY;INTERVAL=1;BYMINUTE=0;BYSECOND=0'),true);
+});
+
+test('canonical Scanner cadence rejects material recurrence drift while ignoring representation differences',()=>{
+  assert.equal(Gate.canonicalScannerCadence('RRULE:FREQ=HOURLY;BYMINUTE=5;BYSECOND=0'),false);
+  assert.equal(Gate.canonicalScannerCadence('RRULE:FREQ=HOURLY;INTERVAL=2;BYMINUTE=0;BYSECOND=0'),false);
+  assert.equal(Gate.canonicalScannerCadence('RRULE:FREQ=HOURLY;BYMINUTE=0;BYSECOND=15'),false);
+  assert.equal(Gate.canonicalScannerCadence('RRULE:FREQ=HOURLY;COUNT=6;BYMINUTE=0;BYSECOND=0'),false);
+  assert.equal(Gate.canonicalScannerCadence('RRULE:FREQ=DAILY;BYMINUTE=0;BYSECOND=0'),false);
 });

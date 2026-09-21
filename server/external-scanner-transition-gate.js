@@ -3,7 +3,7 @@
 const BASELINE_POLICY_VERSION='v4.9.19';
 const CANONICAL_SCANNER_ID='6aacec5fa7f48191b439dbe2308b69cf';
 const CANONICAL_LEDGER_PROJECT_REF='zehlsagzrpromtfqqflt';
-const CANONICAL_SCANNER_CADENCE='RRULE:FREQ=HOURLY;BYMINUTE=0';
+const CANONICAL_SCANNER_CADENCE='HOURLY_TOP_OF_HOUR';
 const CANONICAL_TIMEZONE='Asia/Bangkok';
 const NEXT_POLICY_LABEL='v4.9.20 EXTERNAL SCANNER WITNESS TRANSITION';
 
@@ -18,6 +18,31 @@ function bool(value){
 function nonNegativeInt(value){
   const n=Number(value);
   return Number.isInteger(n) && n>=0 ? n : null;
+}
+
+function canonicalScannerCadence(value){
+  const raw=text(value);
+  if(!raw) return false;
+  const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  let rruleLine=lines.find(line=>line.startsWith('RRULE:')) || (raw.startsWith('RRULE:')?raw:'');
+  if(!rruleLine) return false;
+  const spec=rruleLine.slice('RRULE:'.length);
+  const fields={};
+  for(const piece of spec.split(';')){
+    const idx=piece.indexOf('=');
+    if(idx<=0) return false;
+    const key=piece.slice(0,idx).trim().toUpperCase();
+    const val=piece.slice(idx+1).trim().toUpperCase();
+    if(!key || !val || Object.prototype.hasOwnProperty.call(fields,key)) return false;
+    fields[key]=val;
+  }
+  if(fields.FREQ!=='HOURLY') return false;
+  if(fields.BYMINUTE!=='0') return false;
+  if(fields.BYSECOND!==undefined && fields.BYSECOND!=='0') return false;
+  if(fields.INTERVAL!==undefined && fields.INTERVAL!=='1') return false;
+  const allowed=new Set(['FREQ','BYMINUTE','BYSECOND','INTERVAL']);
+  if(Object.keys(fields).some(key=>!allowed.has(key))) return false;
+  return true;
 }
 
 function allZeroLedgerRows(ledger={}){
@@ -54,7 +79,7 @@ function evaluateTransitionPreflight(snapshot={}){
   if(bool(scanner.enabled)!==false){
     blockers.push('NATIVE_SCANNER_NOT_EXPLICITLY_OFF');
   }
-  if(text(scanner.cadence)!==CANONICAL_SCANNER_CADENCE){
+  if(!canonicalScannerCadence(scanner.cadence)){
     blockers.push('NATIVE_SCANNER_CADENCE_DRIFT');
   }
   if(text(scanner.timezone)!==CANONICAL_TIMEZONE){
@@ -159,6 +184,7 @@ module.exports={
   CANONICAL_LEDGER_PROJECT_REF,
   CANONICAL_SCANNER_CADENCE,
   CANONICAL_TIMEZONE,
+  canonicalScannerCadence,
   NEXT_POLICY_LABEL,
   evaluateTransitionPreflight
 };
