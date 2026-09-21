@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kk-scanner-clock-acceptance",
+  "main": "kk-scanner-clock.mjs",
+  "compatibility_date": "2026-09-18",
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
+  "vars": {
+    "KK_SCANNER_DISPATCH_URL": "https://kk-phone-rental.vercel.app/api/kk-scanner-dispatch"
+  }
+}
