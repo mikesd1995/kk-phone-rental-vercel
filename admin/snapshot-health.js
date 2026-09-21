@@ -167,6 +167,90 @@
     };
   }
 
+  function storefrontIntegritySignals(data, today){
+    const events=Array.isArray(data&&data.events)?data.events:[];
+    const webReady=Array.isArray(data&&data.web_ready)?data.web_ready:[];
+    const webPackages=Array.isArray(data&&data.web_packages)?data.web_packages:[];
+    const eventIds=new Set(events.map(e=>String(e&&e.event_id||'').trim()).filter(Boolean));
+    const day=today||bangkokDay();
+
+    const invalidPackageRows=webPackages.filter(p=>{
+      return !String(p&&p.package_id||'').trim() ||
+        !String(p&&p.event_id||'').trim() ||
+        !String(p&&p.package_type||'').trim();
+    });
+    const orphanPackages=webPackages.filter(p=>{
+      const id=String(p&&p.event_id||'').trim();
+      return id && eventIds.size>0 && !eventIds.has(id);
+    });
+    const negativeAvailability=webPackages.filter(p=>{
+      const raw=p&&p.raw_available_count;
+      const effective=p&&p.available_count;
+      return (raw!==''&&raw!==null&&raw!==undefined&&Number(raw)<0) ||
+        (effective!==''&&effective!==null&&effective!==undefined&&Number(effective)<0);
+    });
+    const publishedReady=webReady.filter(r=>{
+      const action=String(r&&r.action_for_web||'show').trim().toLowerCase();
+      const active=r&&r.active_on_web;
+      return action!=='hide' && active!==false && String(active).toLowerCase()!=='false';
+    });
+    const missingPoster=publishedReady.filter(r=>!String(r&&r.poster_image_url||r&&r.poster_url||'').trim());
+    const publishedPast=publishedReady.filter(r=>{
+      const date=normalizeEventDate(r&& (r.event_date||r.event_date_text||r.date));
+      return !!date && date<day;
+    });
+    const orphanReady=webReady.filter(r=>{
+      const id=String(r&&r.event_id||'').trim();
+      return id && eventIds.size>0 && !eventIds.has(id);
+    });
+
+    const venueGroups=new Map();
+    events.forEach(e=>{
+      const venue=String(e&&e.venue||'').trim();
+      if(!venue)return;
+      const key=venue.normalize('NFKC').toLocaleLowerCase('en-US').replace(/[\s._-]+/g,'');
+      if(!key)return;
+      if(!venueGroups.has(key))venueGroups.set(key,new Set());
+      venueGroups.get(key).add(venue);
+    });
+    const venueVariants=[...venueGroups.entries()]
+      .filter(([,values])=>values.size>1)
+      .map(([key,values])=>({key,variants:[...values].slice(0,5)}));
+
+    const warnings=[];
+    const push=(count,label,sample)=>{
+      if(!count)return;
+      warnings.push('storefront: '+label+' '+count+(sample&&sample.length?'; sample '+sample.slice(0,3).join(', '):''));
+    };
+    push(invalidPackageRows.length,'invalid web package identity rows',invalidPackageRows.map(p=>String(p&&p.package_id||'(blank)')));
+    push(orphanPackages.length,'orphan web packages',orphanPackages.map(p=>String(p&&p.event_id||'')));
+    push(negativeAvailability.length,'negative package availability rows',negativeAvailability.map(p=>String(p&&p.package_id||'')));
+    push(missingPoster.length,'published events missing poster',missingPoster.map(r=>String(r&&r.event_id||'')));
+    push(publishedPast.length,'published past events',publishedPast.map(r=>String(r&&r.event_id||'')));
+    push(orphanReady.length,'orphan web-ready events',orphanReady.map(r=>String(r&&r.event_id||'')));
+    if(venueVariants.length){
+      warnings.push('storefront: venue naming variants '+venueVariants.length+'; sample '+venueVariants.slice(0,3).map(v=>v.variants.join(' / ')).join(', '));
+    }
+
+    return {
+      invalid_package_identity_count:invalidPackageRows.length,
+      orphan_package_count:orphanPackages.length,
+      negative_availability_count:negativeAvailability.length,
+      missing_poster_count:missingPoster.length,
+      published_past_event_count:publishedPast.length,
+      orphan_web_ready_count:orphanReady.length,
+      venue_variant_group_count:venueVariants.length,
+      samples:{
+        invalid_packages:invalidPackageRows.slice(0,5).map(p=>String(p&&p.package_id||'')),
+        orphan_packages:orphanPackages.slice(0,5).map(p=>String(p&&p.event_id||'')),
+        missing_posters:missingPoster.slice(0,5).map(r=>String(r&&r.event_id||'')),
+        published_past_events:publishedPast.slice(0,5).map(r=>String(r&&r.event_id||'')),
+        venue_variants:venueVariants.slice(0,5)
+      },
+      warnings
+    };
+  }
+
   function collapseSignals(data, previous){
     if(!previous) return [];
     const out = [];
@@ -243,6 +327,7 @@
       missing_return_time_count:0,
       warnings:[]
     };
+    let storefrontIntegrity = storefrontIntegritySignals(data||{});
     for(const key of KEYS){
       const rows = data && data[key];
       counts[key] = Array.isArray(rows) ? rows.length : null;
@@ -294,6 +379,8 @@
       bookingTiming = bookingTimingSignals(data.bookings);
       warnings.push(...bookingTiming.warnings);
     }
+    storefrontIntegrity = storefrontIntegritySignals(data||{});
+    warnings.push(...storefrontIntegrity.warnings);
     return {
       ok:issues.length===0,
       counts,
@@ -312,6 +399,16 @@
         return_time_policy:bookingTiming.return_time_policy,
         fallback_policy:bookingTiming.fallback_policy
       },
+      storefront_integrity:{
+        invalid_package_identity_count:storefrontIntegrity.invalid_package_identity_count,
+        orphan_package_count:storefrontIntegrity.orphan_package_count,
+        negative_availability_count:storefrontIntegrity.negative_availability_count,
+        missing_poster_count:storefrontIntegrity.missing_poster_count,
+        published_past_event_count:storefrontIntegrity.published_past_event_count,
+        orphan_web_ready_count:storefrontIntegrity.orphan_web_ready_count,
+        venue_variant_group_count:storefrontIntegrity.venue_variant_group_count,
+        samples:storefrontIntegrity.samples
+      },
       issues,
       warnings
     };
@@ -325,5 +422,5 @@
     return currentBookings(data).filter(b=>String(b.event_date || '').slice(0,10)===(day || bangkokDay()))
       .sort((a,b)=>String(a.pickup_time||'').localeCompare(String(b.pickup_time||'')));
   }
-  return {VERSION, BACKEND, KEYS, ID_FIELDS, SOURCE_COUNT_CHECKS, assess, sourceCountMap, workflowOpen, bangkokDay, currentBookings, todayBookings, normalizeEventIdentityText, normalizeEventDate, eventIdentitySignals, bookingTimingSignals};
+  return {VERSION, BACKEND, KEYS, ID_FIELDS, SOURCE_COUNT_CHECKS, assess, sourceCountMap, workflowOpen, bangkokDay, currentBookings, todayBookings, normalizeEventIdentityText, normalizeEventDate, eventIdentitySignals, bookingTimingSignals, storefrontIntegritySignals};
 });
