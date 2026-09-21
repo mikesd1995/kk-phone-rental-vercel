@@ -18,6 +18,11 @@ test('storefront search filters name, venue, date and event note and persists q 
   assert.match(storefront,/search_results/);
 });
 
+test('event modal URL updates preserve active browse state instead of rebuilding from home',()=>{
+  assert.match(storefront,/var u=new URL\(window\.location\.href\);\n    u\.searchParams\.delete\("e"\);\n    u\.searchParams\.set\("event"/);
+  assert.match(storefront,/u\.searchParams\.delete\("event"\);\n    u\.searchParams\.delete\("e"\)/);
+});
+
 test('storefront package and FAQ dialogs manage initial focus, tab trap and focus return',()=>{
   assert.match(storefront,/var packageFocusReturn=null/);
   assert.match(storefront,/var faqFocusReturn=null/);
