@@ -117,3 +117,18 @@ Witness persistence acceptance, even if later 6/6, proves runtime-clock persiste
 Rollback remains:
 
 `HF_EVENT_ASSIST_ENABLED=false`
+
+
+## Exact-head Preview retry checkpoint
+
+A later Vercel inventory read showed Preview capacity had resumed for another HF staging branch commit, while this PR head still carried the earlier account build-rate-limit status.
+
+This documentation-only commit intentionally creates a new exact branch head so Vercel can re-evaluate the canonical latest-main HF staging PR.
+
+No runtime code, package behavior, CI policy, HF gate, Production environment, Machine SOT, Scanner/Verifier task state, provider access, or business data is changed by this checkpoint.
+
+Merge still requires:
+- branch 0 behind current main;
+- Admin Regression PASS;
+- exact-new-head Vercel Preview READY;
+- unchanged zero-write / HF-disabled safety posture.
