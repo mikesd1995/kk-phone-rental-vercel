@@ -75,6 +75,7 @@ test.afterEach(() => {
 
 test('caps snapshot upstream wait before entering safe read-only fallback', () => {
   assert.equal(handler._test.SNAPSHOT_UPSTREAM_TIMEOUT_MS, 12000);
+  assert.equal(handler._test.WRITE_HEALTH_TIMEOUT_MS, 4000);
 });
 
 test('preserves Apps Script JSON error instead of rewriting it as missing arrays', async () => {
@@ -226,6 +227,40 @@ test('keeps writes blocked when lightweight write-path identity does not match p
   assert.equal(out.body.data.degraded_read_only, true);
   assert.equal(out.body.data.write_actions_enabled, false);
 });
+
+
+test('keeps writes blocked when lightweight write-path reports a different backend Sheet', async () => {
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  mockUpstream({
+    body: {
+      ok: true,
+      data: {
+        admin_api_version: 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+        spreadsheet_id: 'different-sheet-id'
+      }
+    }
+  });
+
+  const out = responseCapture();
+  await handler._test.respondWithDirectSheetFallback(
+    out.res,
+    'snapshot',
+    process.env.GOOGLE_SHEET_ID,
+    'env',
+    { code: 'UPSTREAM_TIMEOUT', error_code: 'UPSTREAM_TIMEOUT', upstream_ms: 12001 },
+    Date.now(),
+    process.env.KK_ADMIN_SCRIPT_URL,
+    process.env.KK_ADMIN_API_KEY
+  );
+
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.degraded_read_only, true);
+  assert.equal(out.body.write_actions_enabled, false);
+  assert.equal(out.body.write_path_health.ok, false);
+  assert.equal(out.body.write_path_health.error_code, 'WRITE_HEALTH_IDENTITY_MISMATCH');
+  assert.equal(out.body.write_path_health.spreadsheet_id, 'different-sheet-id');
+});
+
 
 test('uses direct-Sheet read-only fallback when Apps Script deployment is missing and GViz is healthy', async () => {
   const csv = {
