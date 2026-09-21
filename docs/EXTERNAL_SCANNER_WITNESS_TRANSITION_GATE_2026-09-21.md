@@ -193,3 +193,8 @@ This repository change itself performs:
 - business writes: 0
 - HF activation: 0
 - provider/customer sends: 0
+
+
+## Preview retry checkpoint — 2026-09-21 morning ICT
+
+A fresh Vercel Preview retry was intentionally triggered only for the current-main witness-transition PR after the prior build-rate-limit block. This checkpoint changes no runtime logic, authority, or transition semantics. The resulting new PR head must independently earn exact-head Admin Regression PASS and exact-head Vercel Preview READY, remain zero commits behind current main, and retain the exact three-file scope before merge. Older green checks or older preview artifacts are not merge authority.
