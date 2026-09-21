@@ -1168,16 +1168,19 @@ function homeUrl(){return window.location.origin + "/";}
 function setEventUrl(eventId){
   try{
     if(!eventId)return;
-    var u=new URL(homeUrl());
+    var u=new URL(window.location.href);
+    u.searchParams.delete("e");
     u.searchParams.set("event",String(eventId));
-    if(currentLang==="en")u.searchParams.set("lang","en");
+    if(currentLang==="en")u.searchParams.set("lang","en");else u.searchParams.delete("lang");
     window.history.replaceState(null,"",u.toString());
   }catch(e){}
 }
 function clearEventParam(){
   try{
-    var u=new URL(homeUrl());
-    if(currentLang==="en")u.searchParams.set("lang","en");
+    var u=new URL(window.location.href);
+    u.searchParams.delete("event");
+    u.searchParams.delete("e");
+    if(currentLang==="en")u.searchParams.set("lang","en");else u.searchParams.delete("lang");
     window.history.replaceState(null,"",u.toString());
   }catch(e){}
 }
@@ -1270,8 +1273,11 @@ document.addEventListener("DOMContentLoaded",function(){
     var ov=document.getElementById("overlay");
     if(ov&&ov.classList.contains("active")&&!new URL(window.location.href).searchParams.get("event")){
       ov.classList.remove("active");
+      activeModalEvent=null;
       resetMeta();
       unlockBodyIfNoModal();
+      restoreFocus(packageFocusReturn);
+      packageFocusReturn=null;
     }
   });
 
