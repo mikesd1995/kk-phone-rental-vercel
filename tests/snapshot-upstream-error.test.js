@@ -7,6 +7,7 @@ const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 
 const ORIGINAL_ENV = { ...process.env };
 const ORIGINAL_FETCH = global.fetch;
+const ORIGINAL_BUILD_SNAPSHOT = AdminSheetFallback.buildSnapshot;
 
 function reqFor(action, pin='1234') {
   const req = Readable.from([JSON.stringify({ action })]);
@@ -68,11 +69,13 @@ test.beforeEach(() => {
 test.afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
   global.fetch = ORIGINAL_FETCH;
+  AdminSheetFallback.buildSnapshot = ORIGINAL_BUILD_SNAPSHOT;
 });
 
 
 test('caps snapshot upstream wait before entering safe read-only fallback', () => {
   assert.equal(handler._test.SNAPSHOT_UPSTREAM_TIMEOUT_MS, 12000);
+  assert.equal(handler._test.WRITE_HEALTH_TIMEOUT_MS, 4000);
 });
 
 test('preserves Apps Script JSON error instead of rewriting it as missing arrays', async () => {
@@ -133,7 +136,129 @@ test('passes a healthy snapshot and attaches snapshot health metadata', async ()
   assert.equal(out.body.data.events.length, 1);
   assert.equal(out.body.snapshot_health.ok, true);
   assert.equal(out.body.data.frontend_sheet_id, process.env.GOOGLE_SHEET_ID);
-  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.2');
+  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.3');
+});
+
+
+function minimalFallbackSnapshot() {
+  return {
+    events: [{ event_id: 'EVT-1', event_name: 'Test', event_date: '2026-09-21', venue: 'Venue' }],
+    bookings: [{ booking_id: 'BK-1', booking_status: 'confirmed', event_id: 'EVT-1' }],
+    current_bookings: [{ booking_id: 'BK-1', booking_status: 'confirmed', event_id: 'EVT-1' }],
+    assets: [{ asset_id: 'PHONE-1' }],
+    health: [],
+    spreadsheet_id: process.env.GOOGLE_SHEET_ID,
+    admin_api_version: AdminSheetFallback.FALLBACK_VERSION,
+    degraded_read_only: true,
+    write_actions_enabled: false,
+    snapshot_source: 'direct-sheet-gviz-readonly-fallback',
+    fallback_reader: 'public-gviz',
+    fallback_private_attempted: false,
+    fallback_private_error_code: ''
+  };
+}
+
+test('keeps writes enabled when fallback read is used but lightweight write-path health passes', async () => {
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  mockUpstream({
+    body: {
+      ok: true,
+      data: {
+        admin_api_version: 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+        spreadsheet_id: process.env.GOOGLE_SHEET_ID
+      }
+    }
+  });
+
+  const out = responseCapture();
+  await handler._test.respondWithDirectSheetFallback(
+    out.res,
+    'snapshot',
+    process.env.GOOGLE_SHEET_ID,
+    'env',
+    { code: 'UPSTREAM_TIMEOUT', error_code: 'UPSTREAM_TIMEOUT', upstream_ms: 12001 },
+    Date.now(),
+    process.env.KK_ADMIN_SCRIPT_URL,
+    process.env.KK_ADMIN_API_KEY
+  );
+
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.ok, true);
+  assert.equal(out.body.read_degraded, true);
+  assert.equal(out.body.degraded_read_only, false);
+  assert.equal(out.body.write_actions_enabled, true);
+  assert.equal(out.body.write_path_health.ok, true);
+  assert.equal(out.body.data.read_degraded, true);
+  assert.equal(out.body.data.degraded_read_only, false);
+  assert.equal(out.body.data.write_actions_enabled, true);
+  assert.equal(out.body.snapshot_health.write_actions_enabled, true);
+});
+
+test('keeps writes blocked when lightweight write-path identity does not match production', async () => {
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  mockUpstream({
+    body: {
+      ok: true,
+      data: {
+        admin_api_version: 'v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX',
+        spreadsheet_id: process.env.GOOGLE_SHEET_ID
+      }
+    }
+  });
+
+  const out = responseCapture();
+  await handler._test.respondWithDirectSheetFallback(
+    out.res,
+    'snapshot',
+    process.env.GOOGLE_SHEET_ID,
+    'env',
+    { code: 'UPSTREAM_TIMEOUT', error_code: 'UPSTREAM_TIMEOUT', upstream_ms: 12001 },
+    Date.now(),
+    process.env.KK_ADMIN_SCRIPT_URL,
+    process.env.KK_ADMIN_API_KEY
+  );
+
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.ok, true);
+  assert.equal(out.body.degraded_read_only, true);
+  assert.equal(out.body.write_actions_enabled, false);
+  assert.equal(out.body.write_path_health.ok, false);
+  assert.equal(out.body.write_path_health.error_code, 'WRITE_HEALTH_IDENTITY_MISMATCH');
+  assert.equal(out.body.data.degraded_read_only, true);
+  assert.equal(out.body.data.write_actions_enabled, false);
+});
+
+
+test('keeps writes blocked when lightweight write-path reports a different backend Sheet', async () => {
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  mockUpstream({
+    body: {
+      ok: true,
+      data: {
+        admin_api_version: 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+        spreadsheet_id: 'different-sheet-id'
+      }
+    }
+  });
+
+  const out = responseCapture();
+  await handler._test.respondWithDirectSheetFallback(
+    out.res,
+    'snapshot',
+    process.env.GOOGLE_SHEET_ID,
+    'env',
+    { code: 'UPSTREAM_TIMEOUT', error_code: 'UPSTREAM_TIMEOUT', upstream_ms: 12001 },
+    Date.now(),
+    process.env.KK_ADMIN_SCRIPT_URL,
+    process.env.KK_ADMIN_API_KEY
+  );
+
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.degraded_read_only, true);
+  assert.equal(out.body.write_actions_enabled, false);
+  assert.equal(out.body.write_path_health.ok, false);
+  assert.equal(out.body.write_path_health.error_code, 'WRITE_HEALTH_IDENTITY_MISMATCH');
+  assert.equal(out.body.write_path_health.spreadsheet_id, 'different-sheet-id');
 });
 
 
