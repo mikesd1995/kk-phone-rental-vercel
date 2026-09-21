@@ -1,0 +1,105 @@
+# Current Control Plane Live Blockers — 2026-09-21
+
+Status: **READ-ONLY CHECKPOINT / POST-#117**
+
+## Fresh Machine-SOT authority
+
+- spreadsheet: KK Phone Rental — Event Tracker 2569
+- spreadsheet timezone: Asia/Bangkok
+- POLICY_VERSION rows inspected: 22
+- active POLICY_VERSION count: 1
+- active version: v4.9.19
+- active row: 320
+- rule value: v4.9.19 CANONICAL MINIMAL LAUNCHER
+
+## Fresh task registry
+
+Canonical Scanner:
+- ID: 6aacec5fa7f48191b439dbe2308b69cf
+- cadence: hourly :00
+- timezone: Asia/Bangkok
+- enabled: false
+
+Canonical Verifier:
+- ID: 6aacec85e5508191b26894565fbc3787
+- cadence: hourly :30
+- timezone: Asia/Bangkok
+- enabled: false
+
+Canary remains disabled.
+
+No task state was mutated by this readiness refresh.
+
+## Repository state
+
+Current main at preparation:
+
+`be51313bb640bebb9ef5b482e83bdd688c1a7df3`
+
+Merged control-plane prerequisites:
+- #111 persistence auditor
+- #116 current-main witness transition gate
+
+Unrelated #117 also merged after #116 and changed only Admin/TBD pickup-time surfaces plus its documentation/tests. It does not overlap the readiness-pack files.
+
+Exact-main Admin Regression push run #400:
+- **342/342 PASS**
+- syntax PASS
+- conclusion success
+
+## Production deployment
+
+Exact-current-main production at preparation:
+
+- deployment ID: `dpl_9k4GhSGfqtJx5Zh2yHwNioWreYqn`
+- target: production
+- state: READY
+- branch: main
+- deployed SHA: `be51313bb640bebb9ef5b482e83bdd688c1a7df3`
+
+This exact deployment is evidence only for this exact main. Once the readiness pack merges and main advances, a new exact-current-main production deployment must be proven.
+
+## Production fail-closed readiness
+
+The most recent production readiness readback remains fail closed:
+
+- external_scanner_enabled=false
+- mode=unset
+- hmac_secret_configured=false
+- runtime_ledger_oidc_probe_enabled=false
+- runtime_ledger_enabled=false
+- runtime_ledger_configured=false
+- ready_for_witness=false
+- scanner_execution_capable=false
+- business_writes_capable=false
+
+A fresh readiness read is still required again after the readiness pack merges and before OIDC acceptance.
+
+## Current OIDC blocker
+
+The readiness/evidence package is not yet merged on current main.
+
+Therefore:
+
+`READINESS_PACK_NOT_MERGED`
+
+is an explicit blocker.
+
+After this pack merges, fresh evidence must prove:
+
+1. readiness pack merged on exact current main;
+2. exact-current-main push CI PASS;
+3. exact-current-main production deployment READY;
+4. production Scanner baseline still fail closed;
+5. no task/Machine-SOT/HF/business authority drift.
+
+## Mutation accounting
+
+This refresh performs:
+
+- task mutations: 0
+- Machine-SOT writes: 0
+- Vercel environment changes: 0
+- Supabase mutations: 0
+- business writes: 0
+- HF activation: 0
