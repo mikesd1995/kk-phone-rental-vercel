@@ -70,7 +70,7 @@ test('preview builds when the ignored-build guard itself changes', () => {
 });
 
 test('preview builds for unknown paths instead of guessing they are safe', () => {
-  const result = decide('unknown-change', ['scripts/new-runtime-helper.js']);
+  const result = decide('unknown-change', ['tools/new-runtime-helper.js']);
   assert.equal(result.ignore, false);
   assert.equal(result.reason, 'RUNTIME_OR_UNKNOWN_CHANGE');
 });
