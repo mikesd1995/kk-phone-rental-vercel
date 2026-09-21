@@ -10,6 +10,7 @@ const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.2';
 const SNAPSHOT_UPSTREAM_TIMEOUT_MS = 12000;
+const WRITE_HEALTH_TIMEOUT_MS = 4000;
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const SNAPSHOT_ACTIONS = new Set(['snapshot', 'snapshotHealth']);
 const REQUIRED_SNAPSHOT_KEYS = ['events', 'bookings', 'current_bookings', 'assets'];
@@ -78,6 +79,73 @@ async function fetchWithTimeout(url, options, timeoutMs) {
     return { ok: response.ok, status: response.status, headers: response.headers, body };
   } finally {
     clearTimeout(timer);
+  }
+}
+
+async function probeWritePath(scriptUrl, apiKey, frontendSheetId, sheetIdSource) {
+  const startedAt = Date.now();
+  try {
+    const upstream = await fetchWithTimeout(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'phase1Health',
+        apiKey,
+        proxyVersion: SnapshotHealth.VERSION,
+        frontendSheetId,
+        sheetIdSource
+      })
+    }, WRITE_HEALTH_TIMEOUT_MS);
+
+    const contentType = upstream.headers && upstream.headers.get ? (upstream.headers.get('content-type') || '') : '';
+    let data;
+    try {
+      data = JSON.parse(upstream.body);
+    } catch (_) {
+      const failure = UpstreamResponse.classifyNonJsonResponse(
+        upstream.body,
+        contentType,
+        safeUrlHost(scriptUrl),
+        upstream.status
+      );
+      return {
+        checked: true,
+        ok: false,
+        status: Number(upstream.status || 0),
+        latency_ms: Date.now() - startedAt,
+        error_code: failure.code || 'WRITE_HEALTH_NON_JSON',
+        backend_version: '',
+        spreadsheet_id: ''
+      };
+    }
+
+    const health = isObject(data && data.data) ? data.data : (isObject(data) ? data : {});
+    const backendVersion = String(health.admin_api_version || data.admin_api_version || '').trim();
+    const spreadsheetId = String(health.spreadsheet_id || '').trim();
+    const sameSheet = !!spreadsheetId && spreadsheetId === String(frontendSheetId || '').trim();
+    const expectedVersion = String(SnapshotHealth.BACKEND || '').trim();
+    const versionOk = !!backendVersion && backendVersion === expectedVersion;
+    const ok = !!(upstream.ok && data && data.ok === true && sameSheet && versionOk);
+
+    return {
+      checked: true,
+      ok,
+      status: Number(upstream.status || 0),
+      latency_ms: Date.now() - startedAt,
+      error_code: ok ? '' : 'WRITE_HEALTH_IDENTITY_MISMATCH',
+      backend_version: backendVersion,
+      spreadsheet_id: spreadsheetId
+    };
+  } catch (err) {
+    return {
+      checked: true,
+      ok: false,
+      status: 0,
+      latency_ms: Date.now() - startedAt,
+      error_code: err && err.name === 'AbortError' ? 'WRITE_HEALTH_TIMEOUT' : 'WRITE_HEALTH_ERROR',
+      backend_version: '',
+      spreadsheet_id: ''
+    };
   }
 }
 
@@ -166,10 +234,18 @@ function snapshotEnvelopeDiagnostics(body) {
   };
 }
 
-async function respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, trigger, startedAt) {
+async function respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, trigger, startedAt, scriptUrl, apiKey) {
   const fallbackStartedAt = Date.now();
   try {
-    const snapshot = await AdminSheetFallback.buildSnapshot({ sheetId: frontendSheetId });
+    const [snapshot, writePathHealth] = await Promise.all([
+      AdminSheetFallback.buildSnapshot({ sheetId: frontendSheetId }),
+      probeWritePath(scriptUrl, apiKey, frontendSheetId, sheetIdSource)
+    ]);
+    const writeActionsEnabled = !!(writePathHealth && writePathHealth.ok);
+    snapshot.read_degraded = true;
+    snapshot.degraded_read_only = !writeActionsEnabled;
+    snapshot.write_actions_enabled = writeActionsEnabled;
+    snapshot.write_path_health = writePathHealth;
     snapshot.frontend_sheet_id = frontendSheetId;
     snapshot.frontend_sheet_id_source = sheetIdSource;
     snapshot.frontend_proxy_version = SnapshotHealth.VERSION;
@@ -180,10 +256,15 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
     health.checked_at = new Date().toISOString();
     health.backend_version = snapshot.admin_api_version || '';
     health.proxy_version = SnapshotHealth.VERSION;
-    health.degraded_read_only = true;
+    health.read_degraded = true;
+    health.degraded_read_only = !writeActionsEnabled;
+    health.write_actions_enabled = writeActionsEnabled;
+    health.write_path_health = writePathHealth;
     health.snapshot_source = snapshot.snapshot_source;
     health.warnings = Array.isArray(health.warnings) ? health.warnings : [];
-    health.warnings.push('Apps Script unavailable; Admin is using direct Google Sheet read-only fallback. All writes are blocked until Apps Script recovery.');
+    health.warnings.push(writeActionsEnabled
+      ? 'Apps Script snapshot is slow/unavailable; Admin is reading from direct Google Sheet fallback, but lightweight Apps Script write-path health passed so writes remain enabled.'
+      : 'Apps Script snapshot is slow/unavailable and lightweight write-path health did not pass; Admin is using direct Google Sheet read-only fallback and writes remain blocked.');
     if (trigger && trigger.code) health.warnings.push('Fallback trigger: ' + String(trigger.code));
     health.fallback_reader = snapshot.fallback_reader || '';
     health.fallback_private_attempted = !!snapshot.fallback_private_attempted;
@@ -210,14 +291,20 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       assets: Array.isArray(snapshot.assets) ? snapshot.assets.length : null,
       upstream_ms: upstreamMs,
       fallback_ms: fallbackMs,
-      latency_ms: Number(health.latency_ms || 0)
+      latency_ms: Number(health.latency_ms || 0),
+      write_health_ok: writeActionsEnabled,
+      write_health_ms: Number(writePathHealth && writePathHealth.latency_ms || 0),
+      write_health_error_code: String(writePathHealth && writePathHealth.error_code || '')
     }));
 
     if (action === 'snapshotHealth') {
       return json(res, 200, {
         ok: true,
         data: health,
-        degraded_read_only: true,
+        degraded_read_only: !writeActionsEnabled,
+        write_actions_enabled: writeActionsEnabled,
+        read_degraded: true,
+        write_path_health: writePathHealth,
         snapshot_source: snapshot.snapshot_source,
         fallback_trigger: trigger || {},
         proxy_upstream_ms: upstreamMs,
@@ -230,7 +317,10 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       ok: true,
       data: snapshot,
       snapshot_health: health,
-      degraded_read_only: true,
+      degraded_read_only: !writeActionsEnabled,
+      write_actions_enabled: writeActionsEnabled,
+      read_degraded: true,
+      write_path_health: writePathHealth,
       snapshot_source: snapshot.snapshot_source,
       fallback_trigger: trigger || {},
       proxy_upstream_ms: upstreamMs,
@@ -324,7 +414,7 @@ async function handleSnapshot(req, res, payload, action) {
         ? 'Apps Script request timed out for snapshot. The proxy waited up to ' + String(SNAPSHOT_UPSTREAM_TIMEOUT_MS) + ' ms.'
         : (err && err.message ? err.message : String(err)),
       upstream_ms: Date.now() - startedAt
-    }, startedAt);
+    }, startedAt, scriptUrl, apiKey);
   }
 
   const elapsed = Date.now() - startedAt;
@@ -352,7 +442,7 @@ async function handleSnapshot(req, res, payload, action) {
         upstream_status: Number(upstream.status || 0),
         suggestion: failure.suggestion || '',
         upstream_ms: elapsed
-      }, startedAt);
+      }, startedAt, scriptUrl, apiKey);
     }
     return json(res, 502, {
       ok: false,
@@ -376,7 +466,7 @@ async function handleSnapshot(req, res, payload, action) {
         error: data && data.error ? String(data.error) : 'Apps Script snapshot request failed',
         upstream_status: upstreamStatus,
         upstream_ms: elapsed
-      }, startedAt);
+      }, startedAt, scriptUrl, apiKey);
     }
     return json(res, upstream.ok ? 502 : upstream.status, {
       ok: false,
@@ -490,5 +580,7 @@ module.exports._test = {
   snapshotEnvelopeDiagnostics,
   hasRequiredSnapshotArrays,
   respondWithDirectSheetFallback,
-  SNAPSHOT_UPSTREAM_TIMEOUT_MS
+  probeWritePath,
+  SNAPSHOT_UPSTREAM_TIMEOUT_MS,
+  WRITE_HEALTH_TIMEOUT_MS
 };
