@@ -1,0 +1,88 @@
+name: Private Reader Read-Only Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RUN_PRIVATE_READER_ACCEPTANCE'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-private-reader-read-only-acceptance
+  cancel-in-progress: false
+
+jobs:
+  private-reader-acceptance:
+    if: ${{ inputs.confirm == 'RUN_PRIVATE_READER_ACCEPTANCE' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      KK_CRM_SHEET_ID: '1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU'
+      GOOGLE_SHEET_ID: '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU'
+      KK_CRM_MAX_STALENESS_MINUTES: '75'
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+
+    steps:
+      - name: Checkout exact main dispatch
+        uses: actions/checkout@v7
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Require main branch and read-only credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          if [ -z "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" ] && { [ -z "${GOOGLE_SERVICE_ACCOUNT_EMAIL:-}" ] || [ -z "${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:-}" ]; }; then
+            echo "::error::PRIVATE_READER_SECRET_MISSING"
+            exit 78
+          fi
+          if [ -n "${GOOGLE_SERVICE_ACCOUNT_EMAIL:-}" ]; then
+            echo "::add-mask::$GOOGLE_SERVICE_ACCOUNT_EMAIL"
+          fi
+          if [ -n "${GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:-}" ]; then
+            echo "::add-mask::$GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"
+          fi
+          if [ -n "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" ]; then
+            echo "::add-mask::$GOOGLE_SERVICE_ACCOUNT_JSON"
+          fi
+
+      - name: Targeted private-reader acceptance regression
+        run: node --test tests/private-reader-acceptance.test.js
+
+      - name: Run read-only 8-dataset acceptance
+        id: acceptance
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/accept-private-reader.js > private-reader-acceptance.json
+          code=$?
+          cat private-reader-acceptance.json
+          exit $code
+
+      - name: Upload secret-safe acceptance evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: private-reader-acceptance-${{ github.run_id }}
+          path: private-reader-acceptance.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Require terminal read-only acceptance
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.acceptance.outcome }}" = "success"
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('private-reader-acceptance.json','utf8'));if(r.result!=='PASS_PRIVATE_READER_RECONCILED'||r.writes!==0||r.expected_dataset_count!==8||!r.reconciliation||r.reconciliation.dataset_count!==8){console.error(r);process.exit(1)}"
