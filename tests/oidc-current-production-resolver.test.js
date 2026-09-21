@@ -68,7 +68,7 @@ test('resolver requires a canonical 40-char SHA',()=>{
   );
 });
 
-test('Vercel list resolution is GET-only and secret-safe',async()=>{
+test('Vercel list resolution uses documented v6 endpoint, is GET-only, and secret-safe',async()=>{
   const calls=[];
   const transport={
     async request(method,path,body){
@@ -80,7 +80,7 @@ test('Vercel list resolution is GET-only and secret-safe',async()=>{
   assert.equal(out.deployment_id,'dpl_exact');
   assert.equal(calls.length,1);
   assert.equal(calls[0].method,'GET');
-  assert.match(calls[0].path,/\/v13\/deployments\?/);
+  assert.match(calls[0].path,/\/v6\/deployments\?/);
   assert.match(calls[0].path,/target=production/);
   assert.equal(calls[0].body,undefined);
 });

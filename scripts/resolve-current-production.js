@@ -89,7 +89,7 @@ async function listDeployments(transport){
     limit:'100',
     teamId:TEAM_ID
   });
-  const body=await transport.request('GET',`/v13/deployments?${qs.toString()}`);
+  const body=await transport.request('GET',`/v6/deployments?${qs.toString()}`);
   const deployments=Array.isArray(body&&body.deployments)?body.deployments:[];
   assert(deployments.length>0,'DEPLOYMENT_LIST_EMPTY');
   return deployments;
