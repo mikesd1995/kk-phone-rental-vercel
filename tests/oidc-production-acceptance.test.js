@@ -289,3 +289,102 @@ test('http transport does not expose token in request URL or response evidence',
   assert.doesNotMatch(seen[0].url,/top-secret-token/);
   assert.equal(seen[0].opts.headers.Authorization,'Bearer top-secret-token');
 });
+
+
+test('parseArgs accepts explicit rollback-only mode',()=>{
+  assert.deepEqual(
+    Tool.parseArgs(['--source-deployment',SOURCE,'--expected-sha',SHA,'--rollback-only']),
+    {sourceDeploymentId:SOURCE,expectedCommitSha:SHA,rollbackOnly:true}
+  );
+});
+
+test('rollback-only is a zero-mutation no-op when production flag is already false',async()=>{
+  const calls=[];
+  const transport={
+    mode:'TEST',
+    async request(method,path,body){
+      calls.push({method,path,body});
+      if(method==='GET' && path.includes('/v13/deployments/')){
+        return {readyState:'READY',meta:{githubCommitSha:SHA}};
+      }
+      throw new Error('unexpected mutation');
+    }
+  };
+  const evidence=await Tool.runRollback({
+    transport,
+    fetchImpl:async url=>{
+      assert.equal(url,Tool.PRODUCTION_URL+'/api/kk-scanner-dispatch');
+      return response(200,readiness(false));
+    },
+    sourceDeploymentId:SOURCE,
+    expectedCommitSha:SHA,
+    sleepImpl:async()=>{}
+  });
+  assert.equal(evidence.result,'ROLLBACK_ALREADY_SAFE');
+  assert.equal(evidence.rollback.ok,true);
+  assert.equal(evidence.rollback.oidc_probe_enabled,false);
+  assert.equal(evidence.mutations.length,0);
+  assert.equal(calls.filter(c=>c.method==='POST').length,0);
+});
+
+test('rollback-only restores a true probe flag using the exact source deployment',async()=>{
+  const calls=[];
+  const transport={
+    mode:'TEST',
+    async request(method,path,body){
+      calls.push({method,path,body});
+      if(method==='GET' && path.includes('/v13/deployments/')){
+        return {readyState:'READY',meta:{githubCommitSha:SHA}};
+      }
+      if(method==='POST' && path.includes('/env?')) return {ok:true};
+      if(method==='POST' && path.startsWith('/v13/deployments?')) return {id:'dpl_rollback'};
+      throw new Error('unexpected');
+    }
+  };
+  let reads=0;
+  const evidence=await Tool.runRollback({
+    transport,
+    fetchImpl:async url=>{
+      assert.equal(url,Tool.PRODUCTION_URL+'/api/kk-scanner-dispatch');
+      reads+=1;
+      return response(200,readiness(reads===1));
+    },
+    sourceDeploymentId:SOURCE,
+    expectedCommitSha:SHA,
+    sleepImpl:async()=>{}
+  });
+  assert.equal(evidence.result,'ROLLBACK_PASS');
+  assert.equal(evidence.rollback.ok,true);
+  assert.equal(evidence.rollback.oidc_probe_enabled,false);
+  const envCalls=calls.filter(c=>c.method==='POST' && c.path.includes('/env?'));
+  assert.equal(envCalls.length,1);
+  assert.equal(envCalls[0].body.length,1);
+  assert.equal(envCalls[0].body[0].key,Tool.FLAG_KEY);
+  assert.equal(envCalls[0].body[0].value,'false');
+  const deployCalls=calls.filter(c=>c.method==='POST' && c.path.startsWith('/v13/deployments?'));
+  assert.equal(deployCalls.length,1);
+  assert.equal(deployCalls[0].body.deploymentId,SOURCE);
+});
+
+test('rollback-only rejects stale source SHA before any mutation',async()=>{
+  let mutated=false;
+  const transport={
+    mode:'TEST',
+    async request(method){
+      if(method==='GET') return {readyState:'READY',meta:{githubCommitSha:'b'.repeat(40)}};
+      mutated=true;
+      return {};
+    }
+  };
+  await assert.rejects(
+    Tool.runRollback({
+      transport,
+      fetchImpl:async()=>response(200,readiness(true)),
+      sourceDeploymentId:SOURCE,
+      expectedCommitSha:SHA,
+      sleepImpl:async()=>{}
+    }),
+    /SOURCE_DEPLOYMENT_SHA_MISMATCH/
+  );
+  assert.equal(mutated,false);
+});

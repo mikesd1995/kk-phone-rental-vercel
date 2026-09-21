@@ -45,6 +45,7 @@ function parseArgs(argv){
     if(arg==='--source-deployment') out.sourceDeploymentId=text(argv[++i]);
     else if(arg==='--expected-sha') out.expectedCommitSha=text(argv[++i]);
     else if(arg==='--dry-run') out.dryRun=true;
+    else if(arg==='--rollback-only') out.rollbackOnly=true;
     else if(arg==='--help') out.help=true;
     else throw Object.assign(new Error('UNKNOWN_ARGUMENT'),{code:'UNKNOWN_ARGUMENT',argument:arg});
   }
@@ -126,10 +127,19 @@ async function readProbe(fetchImpl=global.fetch){
   return {status:res.status,body};
 }
 
-function validateReadiness(data,expectedFlag){
+function validateSafetyInvariant(data){
   assert(data.external_scanner_enabled===false,'EXTERNAL_SCANNER_MUST_REMAIN_OFF');
   assert(data.scanner_execution_capable===false,'SCANNER_EXECUTION_MUST_REMAIN_OFF');
   assert(data.business_writes_capable===false,'BUSINESS_WRITES_MUST_REMAIN_OFF');
+  assert(
+    data.runtime_ledger_oidc_probe_enabled===true || data.runtime_ledger_oidc_probe_enabled===false,
+    'OIDC_FLAG_READBACK_INVALID'
+  );
+  return data.runtime_ledger_oidc_probe_enabled;
+}
+
+function validateReadiness(data,expectedFlag){
+  validateSafetyInvariant(data);
   assert(data.runtime_ledger_oidc_probe_enabled===expectedFlag,'OIDC_FLAG_READBACK_MISMATCH');
 }
 
@@ -330,6 +340,79 @@ async function runAcceptance({
   return evidence;
 }
 
+async function runRollback({
+  transport,
+  fetchImpl=global.fetch,
+  sourceDeploymentId,
+  expectedCommitSha,
+  sleepImpl=sleep
+}={}){
+  assert(transport && typeof transport.request==='function','VERCEL_AUTH_REQUIRED');
+  assert(text(sourceDeploymentId),'SOURCE_DEPLOYMENT_REQUIRED');
+  assert(/^[0-9a-f]{40}$/i.test(text(expectedCommitSha)),'EXPECTED_SHA_REQUIRED');
+
+  const evidence={
+    schema:'KK_OIDC_PRODUCTION_ROLLBACK_V1',
+    project_id:PROJECT_ID,
+    team_id:TEAM_ID,
+    source_deployment_id:text(sourceDeploymentId),
+    expected_commit_sha:text(expectedCommitSha),
+    transport_mode:text(transport.mode)||'CUSTOM',
+    mutations:[],
+    rollback:null,
+    result:'NOT_RUN'
+  };
+
+  const source=await getDeployment(transport,sourceDeploymentId);
+  const sourceState=deploymentState(source);
+  const sourceSha=text(source.meta && source.meta.githubCommitSha);
+  assert(sourceState==='READY','SOURCE_DEPLOYMENT_NOT_READY');
+  assert(sourceSha===expectedCommitSha,'SOURCE_DEPLOYMENT_SHA_MISMATCH');
+
+  const before=await readReadiness(fetchImpl);
+  const flagBefore=validateSafetyInvariant(before);
+  evidence.preflight={
+    source_state:sourceState,
+    source_sha:sourceSha,
+    external_scanner_enabled:false,
+    oidc_probe_enabled:flagBefore,
+    scanner_execution_capable:false,
+    business_writes_capable:false
+  };
+
+  if(flagBefore===false){
+    evidence.rollback={
+      ok:true,
+      already_safe:true,
+      external_scanner_enabled:false,
+      oidc_probe_enabled:false,
+      scanner_execution_capable:false,
+      business_writes_capable:false
+    };
+    evidence.result='ROLLBACK_ALREADY_SAFE';
+    return evidence;
+  }
+
+  await setFlag(transport,false);
+  evidence.mutations.push('OIDC_PROBE_FLAG_FALSE');
+
+  const rollbackDeploymentId=await redeploy(transport,sourceDeploymentId);
+  evidence.rollback_deployment_id=rollbackDeploymentId;
+  evidence.mutations.push('PRODUCTION_REDEPLOY_WITH_FLAG_FALSE');
+  await waitDeployment(transport,rollbackDeploymentId,{sleepImpl});
+
+  const restored=await waitReadinessFlag(fetchImpl,false,{sleepImpl});
+  evidence.rollback={
+    ok:true,
+    external_scanner_enabled:restored.external_scanner_enabled,
+    oidc_probe_enabled:restored.runtime_ledger_oidc_probe_enabled,
+    scanner_execution_capable:restored.scanner_execution_capable,
+    business_writes_capable:restored.business_writes_capable
+  };
+  evidence.result='ROLLBACK_PASS';
+  return evidence;
+}
+
 function help(){
   return `Usage:
   node scripts/accept-oidc-production.js \\
@@ -354,13 +437,19 @@ async function main(){
   }
   const transport=chooseTransport();
   assert(transport,'VERCEL_AUTH_REQUIRED');
-  const evidence=await runAcceptance({
-    transport,
-    sourceDeploymentId:args.sourceDeploymentId,
-    expectedCommitSha:args.expectedCommitSha,
-    dryRun:args.dryRun,
-    logger:msg=>process.stderr.write(`${msg}\n`)
-  });
+  const evidence=args.rollbackOnly
+    ? await runRollback({
+        transport,
+        sourceDeploymentId:args.sourceDeploymentId,
+        expectedCommitSha:args.expectedCommitSha
+      })
+    : await runAcceptance({
+        transport,
+        sourceDeploymentId:args.sourceDeploymentId,
+        expectedCommitSha:args.expectedCommitSha,
+        dryRun:args.dryRun,
+        logger:msg=>process.stderr.write(`${msg}\n`)
+      });
   process.stdout.write(JSON.stringify(redact(evidence),null,2)+'\n');
 }
 
@@ -387,10 +476,12 @@ module.exports={
   httpTransport,
   cliTransport,
   chooseTransport,
+  validateSafetyInvariant,
   validateReadiness,
   validateProbe,
   deploymentState,
   waitDeployment,
   waitReadinessFlag,
-  runAcceptance
+  runAcceptance,
+  runRollback
 };
