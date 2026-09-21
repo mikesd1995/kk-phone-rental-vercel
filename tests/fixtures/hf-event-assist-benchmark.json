@@ -1,0 +1,127 @@
+{
+  "version": "kk-hf-benchmark-v1",
+  "source_note": "Syntheticized event-level regression fixtures based on KK event/miss patterns; no customer or booking PII.",
+  "candidates": [
+    {
+      "candidate_id": "LYKN-A",
+      "name": "LYKN REFLEXION CONCERT",
+      "event_date_iso": "2026-10-23",
+      "venue": "IMPACT",
+      "source_text": "concert performance",
+      "expected_label": "CONCERT",
+      "duplicate_group": "LYKN-20261023"
+    },
+    {
+      "candidate_id": "LYKN-B",
+      "name": "#LYKNReflexionConcert — LYKN live at IMPACT",
+      "event_date_iso": "2026-10-23",
+      "venue": "IMPACT",
+      "source_text": "live concert show",
+      "expected_label": "CONCERT",
+      "duplicate_group": "LYKN-20261023"
+    },
+    {
+      "candidate_id": "GONGYOO-A",
+      "name": "2026 GONG YOO Asia Fan Meeting Tour <The Long Take> in Bangkok",
+      "event_date_iso": "2026-10-10",
+      "venue": "One Bangkok Forum",
+      "source_text": "fan meeting tour in Bangkok",
+      "expected_label": "FAN_MEETING",
+      "duplicate_group": "GONGYOO-20261010"
+    },
+    {
+      "candidate_id": "GONGYOO-B",
+      "name": "GONG YOO THE LONG TAKE BANGKOK FAN MEETING",
+      "event_date_iso": "2026-10-10",
+      "venue": "One Bangkok Forum",
+      "source_text": "meet fans in Bangkok",
+      "expected_label": "FAN_MEETING",
+      "duplicate_group": "GONGYOO-20261010"
+    },
+    {
+      "candidate_id": "POOH-GRAD",
+      "name": "Pooh Graduation Celebration 2026",
+      "event_date_iso": "2026-09-12",
+      "venue": "Samyan Mitrtown",
+      "source_text": "graduation celebration with fans",
+      "expected_label": "GRADUATION"
+    },
+    {
+      "candidate_id": "PURIKU-BUS",
+      "name": "PURIKU x BUS : SHINE YOUR PASSION EVENT",
+      "event_date_iso": "2026-09-15",
+      "venue": "Parade Square, One Bangkok",
+      "source_text": "brand activation with BUS artist appearance",
+      "expected_label": "BRAND_EVENT"
+    },
+    {
+      "candidate_id": "HUNTER-APPEAR",
+      "name": "HUNTER 1st Flagship Store in Thailand — Special Artist Appearance",
+      "event_date_iso": "2026-09-10",
+      "venue": "ICONSIAM",
+      "source_text": "four artists appear at store opening",
+      "expected_label": "ARTIST_APPEARANCE"
+    },
+    {
+      "candidate_id": "FINAL-EP-SCREEN",
+      "name": "Don't Be Too Emotional — Final Episode Fan Screening",
+      "event_date_iso": "2026-09-20",
+      "venue": "Bangkok",
+      "source_text": "fan screening final episode",
+      "expected_label": "FAN_SCREENING"
+    },
+    {
+      "candidate_id": "FANSIGN-1",
+      "name": "Exclusive Fan Sign Event",
+      "event_date_iso": "2026-10-18",
+      "venue": "Bangkok",
+      "source_text": "fansign signing session with artists",
+      "expected_label": "FAN_SIGN"
+    },
+    {
+      "candidate_id": "FEST-1",
+      "name": "Bangkok Music Festival 2026",
+      "event_date_iso": "2026-11-07",
+      "venue": "Bangkok",
+      "source_text": "multi-artist music festival",
+      "expected_label": "FESTIVAL"
+    },
+    {
+      "candidate_id": "PREMIERE-1",
+      "name": "Series Premiere with Cast",
+      "event_date_iso": "2026-10-02",
+      "venue": "Bangkok",
+      "source_text": "official premiere and cast appearance",
+      "expected_label": "PREMIERE"
+    },
+    {
+      "candidate_id": "NONT-S1-A",
+      "name": "NONT TANONT ARENA ENCORE",
+      "event_date_iso": "2026-10-03",
+      "show_id": "SHOW|nont|20261003|S1",
+      "venue": "IMPACT Arena",
+      "source_text": "concert day 1",
+      "expected_label": "CONCERT",
+      "duplicate_group": "NONT-20261003"
+    },
+    {
+      "candidate_id": "NONT-S1-B",
+      "name": "NONT TANONT ARENA ENCORE — 3 OCT",
+      "event_date_iso": "2026-10-03",
+      "show_id": "SHOW|nont|20261003|S1",
+      "venue": "IMPACT Arena",
+      "source_text": "live concert first show",
+      "expected_label": "CONCERT",
+      "duplicate_group": "NONT-20261003"
+    },
+    {
+      "candidate_id": "NONT-S2",
+      "name": "NONT TANONT ARENA ENCORE",
+      "event_date_iso": "2026-10-04",
+      "show_id": "SHOW|nont|20261004|S2",
+      "venue": "IMPACT Arena",
+      "source_text": "concert day 2",
+      "expected_label": "CONCERT"
+    }
+  ]
+}
