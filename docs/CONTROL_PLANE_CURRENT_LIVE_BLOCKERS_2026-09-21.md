@@ -103,3 +103,19 @@ This refresh performs:
 - Supabase mutations: 0
 - business writes: 0
 - HF activation: 0
+
+
+## Exact-current-main Production retry checkpoint — 2026-09-21 09:58 ICT
+
+Current main `4da5acbb9fa54dee3ed8baec55812d25e35c43e4` has Admin Regression #412 PASS (417/417) but no exact-main Vercel deployment because the Git integration returned `build-rate-limit` after PR #123 merged.
+
+This documentation-only checkpoint intentionally creates a fresh exact branch head so Vercel can re-evaluate deployment capacity without changing runtime code, Scanner/Verifier authority, Machine SOT, HF production state, business writes, Supabase state, or Vercel environment variables.
+
+Merge remains fail-closed and requires the new exact head to independently prove:
+- Admin Regression PASS;
+- Vercel Preview READY;
+- behind current main = 0;
+- exact documentation-only scope;
+- secret scan clean.
+
+If merged, the resulting new main must independently receive a READY production deployment before it may be used as source authority for bounded OIDC acceptance. Older production artifacts remain invalid for that acceptance.
