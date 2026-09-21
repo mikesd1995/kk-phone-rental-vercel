@@ -57,6 +57,8 @@ test('scheduled GitHub witness clock uses OIDC only and has no secret dependency
   assert.doesNotMatch(source,/workflow_dispatch/);
   assert.doesNotMatch(source,/secrets\./);
   assert.doesNotMatch(source,/VERCEL_TOKEN|SUPABASE_SECRET_KEY|CLOUDFLARE/);
+  assert.match(source,/Math\.floor\(now\/HOUR_MS\)\*HOUR_MS/);
+  assert.match(source,/occurrence_id:'SCANNER\|'\+scheduled_at/);
 });
 
 test('Supabase config keeps custom OIDC verification at the function boundary',()=>{
@@ -77,4 +79,17 @@ test('witness control migration defaults disabled and is service-role only',()=>
   assert.match(source,/enable row level security/);
   assert.match(source,/revoke all on table public\.kk_control_plane_config from public, anon, authenticated/);
   assert.match(source,/grant select, update on table public\.kk_control_plane_config to service_role/);
+});
+
+
+test('witness scheduler avoids minute zero while preserving top-hour occurrence semantics',()=>{
+  const source=fs.readFileSync(
+    path.join(root,'.github','workflows','kk-external-witness-clock.yml'),
+    'utf8'
+  );
+  assert.match(source,/cron:\s*'7 \* \* \* \*'/);
+  assert.doesNotMatch(source,/cron:\s*'0 \* \* \* \*'/);
+  assert.match(source,/const scheduled=Math\.floor\(now\/HOUR_MS\)\*HOUR_MS;/);
+  assert.match(source,/scheduled_at=bangkokIso\(scheduled\)/);
+  assert.match(source,/issued_at:bangkokIso\(now\)/);
 });

@@ -1,7 +1,7 @@
 # GitHub OIDC Witness V2 — Zero-Cost External Clock
 
 Date: 2026-09-21
-Status: STAGED / NOT ACTIVE UNTIL EXPLICIT MACHINE-SOT POLICY
+Status: v4.9.22 SCHEDULER RELIABILITY TRANSITION
 
 ## Purpose
 
@@ -27,9 +27,9 @@ This path is intentionally separate from Scanner business execution.
 
 The workflow has schedule only:
 
-`0 * * * *`
+`7 * * * *`
 
-No `workflow_dispatch` exists. The Edge Function also requires the GitHub OIDC claim `event_name=schedule`, so a manual GitHub run cannot earn witness credit.
+The natural GitHub scheduler fires at minute `:07` to avoid the documented top-of-hour high-load window. The workflow still floors the represented `scheduled_at` to the exact top-of-hour Bangkok slot, so a run around 22:07 represents the 22:00 occurrence. No `workflow_dispatch` exists. The Edge Function also requires the GitHub OIDC claim `event_name=schedule`, so a manual GitHub run cannot earn witness credit.
 
 Persisted source/version:
 
@@ -56,3 +56,20 @@ Six consecutive valid natural expectations still prove only external clock persi
 ## Rollback
 
 First set `kk_control_plane_config.github_oidc_witness_v1=false` and exact-read it. This immediately makes the Edge Function reject future witness writes. Then remove/disable the scheduled workflow on default branch under an explicit rollback commit/policy. The Edge Function may remain deployed inert. Preserve ledger evidence; never delete or backfill rows.
+
+
+## v4.9.22 scheduler reliability change
+
+The initial v4.9.21 default-branch schedule used `0 * * * *`. After activation, no natural GitHub schedule run and no runtime expectation were observed across multiple eligible top-of-hour windows. No row is backfilled and no missed slot receives acceptance credit.
+
+v4.9.22 changes only the natural trigger minute:
+
+- before: `0 * * * *`
+- after: `7 * * * *`
+- represented occurrence remains exact top-of-hour Bangkok time;
+- issued time remains the actual run time;
+- existing Edge receive-lag and issued-skew gates remain unchanged;
+- source/version remain `GITHUB_ACTIONS_CRON` / `kk-scanner-github-witness-v1`;
+- Scanner execution, business writes, HF, Verifier and Canary authority remain unchanged and unauthorized.
+
+Acceptance restarts at 0/6 from the first valid natural `:07` scheduled run after activation. Missed v4.9.21 slots are preserved as historical absence and are never backfilled.
