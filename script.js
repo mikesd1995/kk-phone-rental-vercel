@@ -26,7 +26,33 @@ var API_ENDPOINT = APP.apiEndpoint || "/api/kk-data";
 var USE_API = APP.useVercelApi !== false && typeof window !== "undefined" && window.location.protocol !== "file:" && !(APP.disableDirectFallback !== true && (new URLSearchParams(window.location.search)).get("direct") === "1");
 
 var concertsData  = [];
-var TODAY_TS = (function(){ var d=new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+
+function bangkokParts(now){
+  var parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Bangkok",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(now||new Date());
+  var out={};
+  parts.forEach(function(p){if(p.type!=="literal")out[p.type]=p.value;});
+  return out;
+}
+function bangkokDayKey(now){
+  var p=bangkokParts(now);
+  return p.year+"-"+p.month+"-"+p.day;
+}
+function bangkokMidnightTs(dayKey){
+  return Date.parse(String(dayKey||"")+"T00:00:00+07:00");
+}
+function eventDateKey(raw){
+  var value=String(raw||"").trim();
+  if(!value)return "";
+  if(/^\d{5}$/.test(value))return new Date(Date.UTC(1899,11,30)+Number(value)*86400000).toISOString().slice(0,10);
+  var m=value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m){var y=Number(m[3]);if(y>2500)y-=543;return String(y).padStart(4,"0")+"-"+String(Number(m[2])).padStart(2,"0")+"-"+String(Number(m[1])).padStart(2,"0");}
+  m=value.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(m){var y2=Number(m[1]);if(y2>2500)y2-=543;return String(y2).padStart(4,"0")+"-"+String(Number(m[2])).padStart(2,"0")+"-"+String(Number(m[3])).padStart(2,"0");}
+  var d=parseDate(value);
+  if(!d)return "";
+  return String(d.getFullYear()).padStart(4,"0")+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+var TODAY_TS = bangkokMidnightTs(bangkokDayKey(new Date()));
 var URL_PARAMS = new URLSearchParams(window.location.search);
 var DEBUG_MODE = URL_PARAMS.get("debug")==="1";
 var SHOW_PAST  = URL_PARAMS.get("showPast")==="1";
@@ -50,7 +76,7 @@ var I18N = {
     brand_subtitle:"Phone & Lens Rental Service",
     value_steps:"เลือกงาน > ดูอุปกรณ์และแพ็กเกจที่ว่าง > ระบบพาไปจองผ่าน LINE OA กับแอดมิน",
     value_note:"( หากไม่มีงานที่ต้องการ สามารถสอบถามได้ใน LINE OA )",
-    follow_promo:"💙 ฟอลร้าน = ฟรีมัดจำ + ประกัน",
+    follow_promo:"💙 ฟอล X ร้าน = ไม่ต้องวางมัดจำ + ฟรีประกันเครื่อง",
     faq_button:"❔ คำถามที่พบบ่อย",
     language_aria:"เลือกภาษา",
     filter_group_aria:"เลือกเดือนและกรองสถานะงาน",
@@ -59,7 +85,7 @@ var I18N = {
     filter_available:"งานว่าง",
     filter_waitlist:"จองคิวหลุด",
     section_title:"เลือกงานที่ใช่ ไปถ่ายคนที่ชอบ ❤️",
-    updated_prefix:"อัปเดตล่าสุด",
+    updated_prefix:"ตรวจสอบข้อมูลเมื่อ",
     loading_aria:"กำลังโหลดข้อมูลงาน",
     loading_text:"กำลังเช็กคิวให้น้า... 📱✨",
     line_book:"ทัก LINE มาจองได้เลย 💚",
@@ -130,6 +156,7 @@ var I18N = {
     booking_interest:"สนใจเช่า {package}",
     line_event:"งาน",
     line_date:"วันที่",
+    line_venue:"สถานที่",
     line_price:"ราคา",
     line_nickname:"ชื่อเล่น",
     line_phone:"เบอร์โทร",
@@ -158,7 +185,7 @@ var I18N = {
     filter_available:"Available",
     filter_waitlist:"Join Waitlist",
     section_title:"Choose your event and capture every favorite moment ❤️",
-    updated_prefix:"Last updated",
+    updated_prefix:"Data checked at",
     loading_aria:"Loading events",
     loading_text:"Checking availability... 📱✨",
     line_book:"Book via LINE 💚",
@@ -229,6 +256,7 @@ var I18N = {
     booking_interest:"Interested in renting {package}",
     line_event:"Event",
     line_date:"Date",
+    line_venue:"Venue",
     line_price:"Price",
     line_nickname:"Nickname",
     line_phone:"Phone number",
@@ -790,7 +818,7 @@ async function loadData(){
       img:          getImgCandidates(rawPoster,"thumb")[0]||"",
       imgThumb:     getImgCandidates(rawPoster,"thumb"),
       imgFull:      getImgCandidates(rawPoster,"full"), // เฉพาะ modal
-      webNote:      String(r.web_note||"").trim(),
+      webNote:      String(r.event_note||r.web_note||"").trim(),
       phoneCnt:     phoneCnt,
       lensCnt:      lensCnt,
       bookingStatus:String(r.booking_status_for_web||"").trim(),
@@ -803,11 +831,11 @@ async function loadData(){
 }
 
 // ─── Concert logic ────────────────────────────────────────────────────────
-function concertTs(c){ var d=parseDate(c.rawDate); if(!d)return Number.MAX_SAFE_INTEGER; d.setHours(0,0,0,0); return d.getTime(); }
+function concertTs(c){ var key=eventDateKey(c&&c.rawDate); return key?bangkokMidnightTs(key):Number.MAX_SAFE_INTEGER; }
 function isFuture(c){ return SHOW_PAST||concertTs(c)>=TODAY_TS; }
 function isToday(c){ return concertTs(c)===TODAY_TS; }
 function isSoon(c){ var ms=concertTs(c)-TODAY_TS; return ms>=0&&ms<=14*86400000; }
-function monthKey(c){ var d=parseDate(c&&c.rawDate); if(!d)return ""; return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function monthKey(c){ var key=eventDateKey(c&&c.rawDate); return key?key.slice(0,7):""; }
 function monthLabel(key){
   var m=String(key||"").match(/^(\d{4})-(\d{2})$/); if(!m)return tr("every_month");
   var year=parseInt(m[1],10), mo=parseInt(m[2],10)-1;
@@ -869,8 +897,8 @@ function applyConfig(){
   document.querySelectorAll("a.line-btn,a.sticky-line").forEach(function(a){a.href=LINE_URL;});
 }
 function setUpdateDate(){
-  var n=new Date(); var el=document.getElementById("update-note");
-  if(el)el.textContent=tr("updated_prefix")+": "+String(n.getDate()).padStart(2,"0")+"/"+String(n.getMonth()+1).padStart(2,"0")+"/"+n.getFullYear()+" "+String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
+  var p=bangkokParts(new Date()); var el=document.getElementById("update-note");
+  if(el)el.textContent=tr("updated_prefix")+": "+p.day+"/"+p.month+"/"+p.year+" "+p.hour+":"+p.minute+" (Bangkok)";
 }
 function showBrandFallback(){var a=document.getElementById("brandImageCard"),b=document.getElementById("brandFallback");if(a)a.style.display="none";if(b)b.style.display="flex";}
 
@@ -990,6 +1018,7 @@ function buildBookingMsg(c,p){
     tr("booking_interest",{package:lineVal(p&&p.model)}),
     tr("line_event")+" : "+lineVal(c&&c.name),
     tr("line_date")+" : "+lineVal(c&&c.date),
+    tr("line_venue")+" : "+lineVal(c&&c.venue),
     tr("line_price")+" : "+fmtPriceLine(p&&p.price),
     "",
     tr("line_nickname")+" : ",
@@ -1003,6 +1032,7 @@ function buildWaitlistMsg(c,p){
     tr("waitlist_title"),
     tr("line_event")+" : "+lineVal(c&&c.name),
     tr("line_date")+" : "+lineVal(c&&c.date),
+    tr("line_venue")+" : "+lineVal(c&&c.venue),
     tr("line_package")+" : "+lineVal(p&&p.model),
     "",
     tr("line_nickname")+" : ",
@@ -1022,7 +1052,17 @@ function showModal(c,options){
 
   document.getElementById("modal-title").textContent=c.name||tr("event_details");
   document.getElementById("modal-date").textContent="📅 "+(c.date||"-");
-  document.getElementById("modal-venue").textContent="📍 "+(c.venue||"-");
+  var venueEl=document.getElementById("modal-venue");
+  venueEl.textContent="📍 "+(c.venue||"-");
+  var eventNoteEl=document.getElementById("modal-event-note");
+  if(!eventNoteEl){
+    eventNoteEl=document.createElement("div");
+    eventNoteEl.id="modal-event-note";
+    eventNoteEl.className="modal-meta";
+    venueEl.insertAdjacentElement("afterend",eventNoteEl);
+  }
+  eventNoteEl.textContent=c.webNote?"ℹ️ "+c.webNote:"";
+  eventNoteEl.hidden=!c.webNote;
 
   // UX fix: ไม่แสดงรูปโปสเตอร์ซ้ำใน modal
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
@@ -1111,15 +1151,27 @@ function openFaq(){var el=document.getElementById("faqOverlay");if(el){el.classL
 function closeFaq(e){var el=document.getElementById("faqOverlay");if(e&&el&&e.target!==el&&!e.target.closest(FAQ_CLOSE_SELECTOR))return;if(el)el.classList.remove("active");unlockBodyIfNoModal();}
 function toggleFaq(btn){var item=btn&&btn.parentElement;if(item){item.classList.toggle("active");btn.setAttribute("aria-expanded",item.classList.contains("active")?"true":"false");}}
 
-function setFilter(f){
+function syncBrowseUrl(){
+  try{
+    var u=new URL(window.location.href);
+    if(currentFilter==="all")u.searchParams.delete("filter");else u.searchParams.set("filter",currentFilter);
+    if(currentMonth==="all")u.searchParams.delete("month");else u.searchParams.set("month",currentMonth);
+    window.history.replaceState(null,"",u.toString());
+  }catch(e){}
+}
+function setFilter(f,options){
+  options=options||{};
   currentFilter=["all","available","full"].indexOf(f)>=0?f:"all";
   document.querySelectorAll("[data-filter]").forEach(function(b){var a=b.getAttribute("data-filter")===currentFilter;b.classList.toggle("active",a);b.setAttribute("aria-pressed",a?"true":"false");});
+  if(options.updateUrl)syncBrowseUrl();
   if(concertsData&&concertsData.length) renderConcerts(concertsData);
 }
-function setMonth(month){
+function setMonth(month,options){
+  options=options||{};
   currentMonth=/^\d{4}-\d{2}$/.test(month)?month:"all";
   var sel=document.getElementById("month-filter-select");
   if(sel) sel.value=currentMonth;
+  if(options.updateUrl)syncBrowseUrl();
   if(concertsData&&concertsData.length) renderConcerts(concertsData);
 }
 
@@ -1127,9 +1179,9 @@ document.addEventListener("DOMContentLoaded",function(){
   bindLanguageSwitch();
   applyStaticLanguage();
   applyConfig(); setUpdateDate(); renderLoadingSkeleton(4);
-  document.querySelectorAll("[data-filter]").forEach(function(b){b.addEventListener("click",function(){setFilter(b.getAttribute("data-filter")||"all");});});
+  document.querySelectorAll("[data-filter]").forEach(function(b){b.addEventListener("click",function(){setFilter(b.getAttribute("data-filter")||"all",{updateUrl:true});});});
   var monthSelect=document.getElementById("month-filter-select");
-  if(monthSelect) monthSelect.addEventListener("change",function(){setMonth(monthSelect.value||"all");});
+  if(monthSelect) monthSelect.addEventListener("change",function(){setMonth(monthSelect.value||"all",{updateUrl:true});});
   setFilter(currentFilter);
   var bImg=document.querySelector(".brand-header-img"); if(bImg)bImg.addEventListener("error",showBrandFallback);
   var faqBtn=document.getElementById("faq-open-btn"); if(faqBtn)faqBtn.addEventListener("click",openFaq);
