@@ -54,6 +54,21 @@ test('preview builds when package or Vercel configuration changes', () => {
   assert.equal(decide('vercel-fix', ['vercel.json']).ignore, false);
 });
 
+test('preview skips CLI and workflow tooling changes under scripts', () => {
+  const result = decide('oidc-tooling', [
+    'scripts/resolve-current-production.js',
+    'scripts/accept-oidc-production.js'
+  ]);
+  assert.equal(result.ignore, true);
+  assert.equal(result.reason, 'SAFE_PREVIEW_ONLY_CHANGE');
+});
+
+test('preview builds when the ignored-build guard itself changes', () => {
+  const result = decide('guard-change', ['scripts/vercel-ignore-build.js']);
+  assert.equal(result.ignore, false);
+  assert.deepEqual(result.build_required_files, ['scripts/vercel-ignore-build.js']);
+});
+
 test('preview builds for unknown paths instead of guessing they are safe', () => {
   const result = decide('unknown-change', ['scripts/new-runtime-helper.js']);
   assert.equal(result.ignore, false);
