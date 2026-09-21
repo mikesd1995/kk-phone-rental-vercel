@@ -18,10 +18,46 @@ test('OIDC bridge endpoint is pinned to canonical runtime-ledger project',()=>{
   assert.equal(Bridge.OIDC_BRIDGE_TIMEOUT_MS,4000);
 });
 
+test('OIDC bridge uses Vercel request-context-aware helper instead of direct env token access',()=>{
+  const source=fs.readFileSync(
+    path.join(__dirname,'..','server','runtime-ledger-oidc-bridge.js'),
+    'utf8'
+  );
+  assert.match(source,/require\('@vercel\/functions\/oidc'\)/);
+  assert.match(source,/getVercelOidcToken/);
+  assert.doesNotMatch(source,/process\.env\.VERCEL_OIDC_TOKEN/);
+  assert.doesNotMatch(source,/x-vercel-oidc-token/i);
+});
+
+test('OIDC token resolver delegates to the supported helper and never exposes the token in metadata',async()=>{
+  let calls=0;
+  const token=await Bridge.resolveOidcToken({
+    getTokenImpl:async()=>{
+      calls+=1;
+      return TOKEN;
+    }
+  });
+  assert.equal(calls,1);
+  assert.equal(token,TOKEN);
+});
+
 test('missing Vercel OIDC token fails closed before network access',async()=>{
   let called=false;
   const result=await Bridge.probe({
-    env:{},
+    getTokenImpl:async()=>'',
+    fetchImpl:async()=>{called=true;throw new Error('must not call');}
+  });
+  assert.equal(result.attempted,false);
+  assert.equal(result.ok,false);
+  assert.equal(result.error_code,'VERCEL_OIDC_TOKEN_MISSING');
+  assert.equal(result.business_writes,0);
+  assert.equal(called,false);
+});
+
+test('OIDC helper failure fails closed before network access',async()=>{
+  let called=false;
+  const result=await Bridge.probe({
+    getTokenImpl:async()=>{throw new Error('request context unavailable');},
     fetchImpl:async()=>{called=true;throw new Error('must not call');}
   });
   assert.equal(result.attempted,false);
@@ -34,7 +70,7 @@ test('missing Vercel OIDC token fails closed before network access',async()=>{
 test('OIDC bridge forwards token only in Authorization header and returns aggregate result',async()=>{
   let captured;
   const result=await Bridge.probe({
-    env:{VERCEL_OIDC_TOKEN:TOKEN},
+    getTokenImpl:async()=>TOKEN,
     fetchImpl:async(url,options)=>{
       captured={url,options};
       return {
@@ -68,7 +104,7 @@ test('OIDC bridge timeout is classified fail-closed and remains zero-write',asyn
   const err=new Error('timed out');
   err.name='TimeoutError';
   const result=await Bridge.probe({
-    env:{VERCEL_OIDC_TOKEN:TOKEN},
+    getTokenImpl:async()=>TOKEN,
     fetchImpl:async()=>{throw err;}
   });
   assert.equal(result.ok,false);
@@ -77,9 +113,20 @@ test('OIDC bridge timeout is classified fail-closed and remains zero-write',asyn
   assert.equal(result.business_writes,0);
 });
 
+test('OIDC bridge transport failure is classified fail-closed and remains zero-write',async()=>{
+  const result=await Bridge.probe({
+    getTokenImpl:async()=>TOKEN,
+    fetchImpl:async()=>{throw new Error('network unavailable');}
+  });
+  assert.equal(result.ok,false);
+  assert.equal(result.attempted,true);
+  assert.equal(result.error_code,'OIDC_BRIDGE_TRANSPORT_FAILED');
+  assert.equal(result.business_writes,0);
+});
+
 test('OIDC bridge remote auth failure remains zero-write and secret-safe',async()=>{
   const result=await Bridge.probe({
-    env:{VERCEL_OIDC_TOKEN:TOKEN},
+    getTokenImpl:async()=>TOKEN,
     fetchImpl:async()=>({
       ok:false,
       status:401,
