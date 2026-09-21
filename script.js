@@ -61,6 +61,7 @@ var REQUESTED_FILTER = String(URL_PARAMS.get("filter") || "all").trim().toLowerC
 var currentFilter = ["all","available","full"].indexOf(REQUESTED_FILTER)>=0 ? REQUESTED_FILTER : "all";
 var REQUESTED_MONTH = String(URL_PARAMS.get("month") || "all").trim().toLowerCase();
 var currentMonth = /^\d{4}-\d{2}$/.test(REQUESTED_MONTH) ? REQUESTED_MONTH : "all";
+var currentSearch = String(URL_PARAMS.get("q") || "").trim();
 var TH_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 var EN_MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 var PRELOADED_IMAGES = {};
@@ -80,6 +81,10 @@ var I18N = {
     faq_button:"❔ คำถามที่พบบ่อย",
     language_aria:"เลือกภาษา",
     filter_group_aria:"เลือกเดือนและกรองสถานะงาน",
+    search_placeholder:"ค้นหาชื่องาน / ศิลปิน / สถานที่",
+    search_aria:"ค้นหางาน ศิลปิน หรือสถานที่",
+    search_empty:"ไม่พบงานที่ตรงกับคำค้น “{query}”",
+    search_results:"พบ {count} งาน",
     select_month:"เลือกเดือน",
     filter_all:"งานทั้งหมด",
     filter_available:"งานว่าง",
@@ -180,6 +185,10 @@ var I18N = {
     faq_button:"❔ Frequently Asked Questions",
     language_aria:"Choose language",
     filter_group_aria:"Choose a month and filter event availability",
+    search_placeholder:"Search event / artist / venue",
+    search_aria:"Search events, artists or venues",
+    search_empty:"No events match “{query}”",
+    search_results:"{count} events found",
     select_month:"Select month",
     filter_all:"All Events",
     filter_available:"Available",
@@ -303,6 +312,8 @@ function applyStaticLanguage(){
   setText("a.quick-link","follow_promo");
   setText("#faq-open-btn","faq_button");
   document.querySelectorAll(".filter-group,.status-filter-bar").forEach(function(el){el.setAttribute("aria-label",tr("filter_group_aria"));});
+  setAttr("#event-search","placeholder","search_placeholder");
+  setAttr("#event-search","aria-label","search_aria");
   setAttr("#month-filter-select","aria-label","select_month");
   setText('[data-filter="all"]',"filter_all");
   setText('[data-filter="available"]',"filter_available");
@@ -871,14 +882,24 @@ function availTextFor(c){
   return tr("available");
 }
 
+function normalizeSearchText(value){
+  return String(value||"").normalize("NFKC").toLocaleLowerCase(currentLang==="en"?"en":"th").replace(/\s+/g," ").trim();
+}
 function filtered(concerts){
   var vis=concerts.filter(isFuture).sort(function(a,b){return concertTs(a)-concertTs(b)||a.name.localeCompare(b.name,currentLang==="en"?"en":"th");});
   if(currentMonth!=="all") vis=vis.filter(function(c){return monthKey(c)===currentMonth;});
+  if(currentSearch){
+    var q=normalizeSearchText(currentSearch);
+    vis=vis.filter(function(c){
+      return normalizeSearchText([c.name,c.venue,c.date,c.webNote].join(" ")).includes(q);
+    });
+  }
   if(currentFilter==="available")return vis.filter(function(c){return availCnt(c)>0;});
   if(currentFilter==="full")     return vis.filter(function(c){return availCnt(c)===0;});
   return vis;
 }
 function emptyMsg(){
+  if(currentSearch)return tr("search_empty",{query:currentSearch});
   var m = currentMonth!=="all" ? tr("in_month",{month:monthLabel(currentMonth)}) : "";
   if(currentFilter==="available")return tr("empty_available",{month:m});
   if(currentFilter==="full")     return tr("empty_waitlist",{month:m});
@@ -938,8 +959,10 @@ function renderConcerts(concerts){
   renderMonthSelect(concerts);
   var el=document.getElementById("content"); if(!el)return;
   el.innerHTML="";
-  if(!concerts||!concerts.length){renderEmpty(tr("no_event_data"));return;}
+  var countEl=document.getElementById("event-search-count");
+  if(!concerts||!concerts.length){if(countEl)countEl.textContent="";renderEmpty(tr("no_event_data"));return;}
   var vis=filtered(concerts);
+  if(countEl)countEl.textContent=currentSearch?tr("search_results",{count:vis.length}):"";
   if(!vis.length){renderEmpty(emptyMsg());return;}
 
   var grid=document.createElement("div"); grid.className="poster-grid";
@@ -1124,6 +1147,21 @@ function showModal(c,options){
 
 var PACKAGE_CLOSE_SELECTOR = "#modal-close,#modal-x-btn,[data-modal-close=\"package\"]";
 var FAQ_CLOSE_SELECTOR = "#faq-close-btn,#faq-x-btn,[data-modal-close=\"faq\"]";
+var packageFocusReturn=null;
+var faqFocusReturn=null;
+function focusableIn(el){
+  if(!el)return [];
+  return Array.prototype.slice.call(el.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'))
+    .filter(function(x){return !x.hidden && x.offsetParent!==null;});
+}
+function focusDialog(el,preferred){
+  var target=preferred&&el?el.querySelector(preferred):null;
+  var list=focusableIn(el);
+  (target||list[0]||el).focus&& (target||list[0]||el).focus();
+}
+function restoreFocus(target){
+  if(target&&document.contains(target)&&typeof target.focus==="function")target.focus();
+}
 function lockBody(){document.body.style.overflow="hidden";}
 function unlockBodyIfNoModal(){var ov=document.getElementById("overlay"), fo=document.getElementById("faqOverlay");if(!(ov&&ov.classList.contains("active"))&&!(fo&&fo.classList.contains("active")))document.body.style.overflow="";}
 function homeUrl(){return window.location.origin + "/";}
@@ -1143,12 +1181,25 @@ function clearEventParam(){
     window.history.replaceState(null,"",u.toString());
   }catch(e){}
 }
-function openModal(){var el=document.getElementById("overlay");if(el){el.classList.add("active");lockBody();}}
-function closeModal(e){var el=document.getElementById("overlay");if(e&&el&&e.target!==el&&!e.target.closest(PACKAGE_CLOSE_SELECTOR))return;if(el)el.classList.remove("active");activeModalEvent=null;clearEventParam();resetMeta();unlockBodyIfNoModal();}
+function openModal(){
+  var el=document.getElementById("overlay");
+  if(el){packageFocusReturn=document.activeElement;el.classList.add("active");lockBody();setTimeout(function(){focusDialog(el,"#modal-x-btn");},0);}
+}
+function closeModal(e){
+  var el=document.getElementById("overlay");if(e&&el&&e.target!==el&&!e.target.closest(PACKAGE_CLOSE_SELECTOR))return;
+  if(el)el.classList.remove("active");activeModalEvent=null;clearEventParam();resetMeta();unlockBodyIfNoModal();
+  restoreFocus(packageFocusReturn);packageFocusReturn=null;
+}
 function showError(m){var el=document.getElementById("content");if(el)el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div>';}
 
-function openFaq(){var el=document.getElementById("faqOverlay");if(el){el.classList.add("active");lockBody();}}
-function closeFaq(e){var el=document.getElementById("faqOverlay");if(e&&el&&e.target!==el&&!e.target.closest(FAQ_CLOSE_SELECTOR))return;if(el)el.classList.remove("active");unlockBodyIfNoModal();}
+function openFaq(){
+  var el=document.getElementById("faqOverlay");
+  if(el){faqFocusReturn=document.activeElement;el.classList.add("active");lockBody();setTimeout(function(){focusDialog(el,"#faq-x-btn");},0);}
+}
+function closeFaq(e){
+  var el=document.getElementById("faqOverlay");if(e&&el&&e.target!==el&&!e.target.closest(FAQ_CLOSE_SELECTOR))return;
+  if(el)el.classList.remove("active");unlockBodyIfNoModal();restoreFocus(faqFocusReturn);faqFocusReturn=null;
+}
 function toggleFaq(btn){var item=btn&&btn.parentElement;if(item){item.classList.toggle("active");btn.setAttribute("aria-expanded",item.classList.contains("active")?"true":"false");}}
 
 function syncBrowseUrl(){
@@ -1156,6 +1207,7 @@ function syncBrowseUrl(){
     var u=new URL(window.location.href);
     if(currentFilter==="all")u.searchParams.delete("filter");else u.searchParams.set("filter",currentFilter);
     if(currentMonth==="all")u.searchParams.delete("month");else u.searchParams.set("month",currentMonth);
+    if(currentSearch)u.searchParams.set("q",currentSearch);else u.searchParams.delete("q");
     window.history.replaceState(null,"",u.toString());
   }catch(e){}
 }
@@ -1174,6 +1226,12 @@ function setMonth(month,options){
   if(options.updateUrl)syncBrowseUrl();
   if(concertsData&&concertsData.length) renderConcerts(concertsData);
 }
+function setSearch(value,options){
+  options=options||{};
+  currentSearch=String(value||"").trim();
+  if(options.updateUrl)syncBrowseUrl();
+  if(concertsData&&concertsData.length)renderConcerts(concertsData);
+}
 
 document.addEventListener("DOMContentLoaded",function(){
   bindLanguageSwitch();
@@ -1182,6 +1240,11 @@ document.addEventListener("DOMContentLoaded",function(){
   document.querySelectorAll("[data-filter]").forEach(function(b){b.addEventListener("click",function(){setFilter(b.getAttribute("data-filter")||"all",{updateUrl:true});});});
   var monthSelect=document.getElementById("month-filter-select");
   if(monthSelect) monthSelect.addEventListener("change",function(){setMonth(monthSelect.value||"all",{updateUrl:true});});
+  var eventSearch=document.getElementById("event-search");
+  if(eventSearch){
+    eventSearch.value=currentSearch;
+    eventSearch.addEventListener("input",function(){setSearch(eventSearch.value,{updateUrl:true});});
+  }
   setFilter(currentFilter);
   var bImg=document.querySelector(".brand-header-img"); if(bImg)bImg.addEventListener("error",showBrandFallback);
   var faqBtn=document.getElementById("faq-open-btn"); if(faqBtn)faqBtn.addEventListener("click",openFaq);
@@ -1228,5 +1291,15 @@ document.addEventListener("keydown",function(e){
   if(e.key==="Escape"){
     var ov=document.getElementById("overlay"); if(ov&&ov.classList.contains("active"))closeModal();
     var fo=document.getElementById("faqOverlay"); if(fo&&fo.classList.contains("active"))closeFaq();
+    return;
+  }
+  if(e.key==="Tab"){
+    var activeOverlay=document.querySelector(".faq-overlay.active")||document.querySelector(".overlay.active");
+    if(!activeOverlay)return;
+    var list=focusableIn(activeOverlay);
+    if(!list.length){e.preventDefault();return;}
+    var first=list[0],last=list[list.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
   }
 });
