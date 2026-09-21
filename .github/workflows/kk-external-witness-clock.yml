@@ -1,0 +1,79 @@
+name: KK External Witness Clock V2
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: kk-external-witness-clock-v2
+  cancel-in-progress: false
+
+jobs:
+  witness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Emit one GitHub-OIDC witness expectation
+        shell: bash
+        env:
+          EDGE_URL: https://zehlsagzrpromtfqqflt.supabase.co/functions/v1/kk-runtime-ledger-github-witness
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const EDGE_URL=process.env.EDGE_URL;
+          const requestUrl=process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+          const requestToken=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+          if(!EDGE_URL || !requestUrl || !requestToken) throw new Error('GITHUB_OIDC_CONTEXT_MISSING');
+
+          const tokenUrl=requestUrl + (requestUrl.includes('?')?'&':'?') +
+            'audience=' + encodeURIComponent(EDGE_URL);
+          const tokenResponse=await fetch(tokenUrl,{
+            headers:{Authorization:'Bearer '+requestToken}
+          });
+          if(!tokenResponse.ok) throw new Error('GITHUB_OIDC_TOKEN_REQUEST_FAILED_'+tokenResponse.status);
+          const tokenBody=await tokenResponse.json();
+          const token=String(tokenBody.value||'');
+          if(!token) throw new Error('GITHUB_OIDC_TOKEN_EMPTY');
+
+          const HOUR_MS=60*60*1000;
+          const BANGKOK_OFFSET_MS=7*60*60*1000;
+          const now=Date.now();
+          const scheduled=Math.floor(now/HOUR_MS)*HOUR_MS;
+          const bangkokIso=(ms)=>new Date(ms+BANGKOK_OFFSET_MS).toISOString().replace(/\.\d{3}Z$/,'+07:00');
+          const scheduled_at=bangkokIso(scheduled);
+          const TOP_HOUR_BANGKOK=/^\d{4}-\d{2}-\d{2}T\d{2}:00:00\+07:00$/;
+          if(!TOP_HOUR_BANGKOK.test(scheduled_at)) throw new Error('WITNESS_SCHEDULE_FORMAT_INVALID');
+          const body={
+            version:'kk-scanner-github-witness-v1',
+            role:'SCANNER',
+            occurrence_id:'SCANNER|'+scheduled_at,
+            scheduled_at,
+            issued_at:bangkokIso(now),
+            source:'GITHUB_ACTIONS_CRON'
+          };
+
+          const response=await fetch(EDGE_URL,{
+            method:'POST',
+            headers:{
+              Authorization:'Bearer '+token,
+              'Content-Type':'application/json',
+              Accept:'application/json'
+            },
+            body:JSON.stringify(body)
+          });
+          const responseBody=await response.json().catch(()=>({}));
+          if(!response.ok || responseBody.ok!==true){
+            throw new Error('WITNESS_EDGE_REJECTED_'+response.status+'_'+String(responseBody.error_code||'UNKNOWN'));
+          }
+          if(responseBody.business_writes!==0 || responseBody.scanner_execution_started!==false){
+            throw new Error('WITNESS_AUTHORITY_BOUNDARY_VIOLATION');
+          }
+          console.log('GITHUB_OIDC_WITNESS_ACCEPTED');
+          console.log('ledger_inserted='+String(responseBody.ledger_inserted===true));
+          console.log('idempotent_duplicate='+String(responseBody.idempotent_duplicate===true));
+          console.log('business_writes=0');
+          NODE
