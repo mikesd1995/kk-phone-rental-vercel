@@ -119,3 +119,12 @@ Merge remains fail-closed and requires the new exact head to independently prove
 - secret scan clean.
 
 If merged, the resulting new main must independently receive a READY production deployment before it may be used as source authority for bounded OIDC acceptance. Older production artifacts remain invalid for that acceptance.
+
+
+## Post-#134 exact-main Production retry checkpoint — 2026-09-21 19:17 ICT
+
+Current main `1eaf85c9decc1657228f8cb8f9321f30f54037b2` includes the zero-cost owner-comment OIDC dispatcher and its documented Vercel deployment-list endpoint fix. Main Admin Regression #433 is PASS, but the Git integration currently reports `build-rate-limit` and no exact-current-main Production deployment exists.
+
+This documentation-only checkpoint performs one bounded capacity retry. It changes no runtime logic, Machine SOT, Scanner/Verifier/Canary task state, Supabase data, Vercel environment variables, Cloudflare state, witness runtime, HF Production, or business data.
+
+Merge requires exact-head CI PASS, exact-head Vercel Preview READY, zero commits behind current main, exact one-file documentation scope, and a clean secret scan. If merged, the resulting new main must independently receive a READY Production deployment before Witness configuration or OIDC evidence can be treated as exact-current-main authority.
