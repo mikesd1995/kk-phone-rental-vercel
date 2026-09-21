@@ -111,7 +111,7 @@ test('Bangkok day rolls over while UTC is still the previous day',()=>{
 function browser(){
   let source=fs.readFileSync(require.resolve('../admin/admin.js'),'utf8');
   source=source.slice(0,source.lastIndexOf('  applyDensityMode();'))+
-    'globalThis.hooks={state,refresh,api,runSystemGuard,sortedOpenEvents,startOfToday,getStatus:()=>snapshotState}; render=()=>{}; renderSystemGuard=()=>{}; loadRentalAnalytics=()=>{}; showNotice=()=>{};})();';
+    'globalThis.hooks={state,refresh,api,runSystemGuard,sortedOpenEvents,startOfToday,buildActionRows,actionMatchesFilter,reportInsightRows,getStatus:()=>snapshotState}; render=()=>{}; renderSystemGuard=()=>{}; loadRentalAnalytics=()=>{}; showNotice=()=>{};})();';
   const elements=new Map();
   const context={KKSnapshotHealth:H,sessionStorage:{getItem:()=>''},document:{querySelector:sel=>{
     if(!elements.has(sel)) elements.set(sel,{textContent:'',style:{},classList:{add(){},remove(){}}});
@@ -167,6 +167,28 @@ test('Overview includes open unpublished future events, excludes closed and past
     {event_date:'2000-01-01',status:'open'}
   ]);
   assert.equal(rows.length,1);
+});
+test('TBD pickup stays informational and does not become a risk/data error',()=>{
+  const {h}=browser();
+  const d=new Date(); d.setDate(d.getDate()+1);
+  const eventDate=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  const booking={
+    row_number:7, booking_id:'BK-TBD', event_id:'EV-TBD', event_name:'TBD Event', event_date:eventDate,
+    booking_status:'confirmed', payment_status:'paid', pickup_time:'', customer_name:'A', customer_phone:'0800000000',
+    package_type:'phone_only', phone_asset_id:'PHONE-001'
+  };
+  const actionRows=h.buildActionRows({bookings:[booking],events:[]});
+  assert.equal(actionRows.some(r=>r.type==='data' && /เวลารับ/.test(r.task||'')),false);
+  const prep=actionRows.find(r=>r.type==='prep');
+  assert.ok(prep);
+  assert.match(prep.task,/TBD/);
+  assert.equal(h.actionMatchesFilter(prep,'risk'),false);
+
+  const insights=h.reportInsightRows({events:[],packages:[],assets:[],customers:[],repeatCustomers:0,utilizationRate:0,assetsAvailable:0,utilizedAssets:0},{bookings:[booking]});
+  const info=insights.find(x=>/TBD/.test(x.title||''));
+  assert.ok(info);
+  assert.equal(info.level,'info');
+  assert.match(info.detail,/เว้นว่างได้ตาม policy/);
 });
 test('System Guard reports one upstream root failure and marks dependent snapshot checks as warnings',async()=>{
   const {context,h}=browser();

@@ -49,3 +49,16 @@ This policy change does not:
 - change Scanner/Verifier/Canary/Make/Machine SOT.
 
 Timezone remains a separate CHECK until Apps Script project timezone and historical timestamp rendering are verified together with Spreadsheet timezone.
+
+
+## Admin operational UI consistency
+
+A post-Gate-2 sweep found two Admin UI surfaces that still described a missing pickup time as a warning/risk even though the final booking policy allows pickup time to remain TBD.
+
+Corrected behavior:
+- Command Center no longer creates a separate `data/risk` row just because `pickup_time` is blank.
+- For bookings within 7 days, the existing preparation task includes an operational reminder: `เวลารับยัง TBD — ยืนยันเมื่อใกล้งาน`.
+- Report Insights classifies missing pickup time as `info`, not `warn`.
+- The report explicitly says the field may remain blank until the customer confirms and that the conservative reservation fallback remains active.
+
+This preserves the useful near-event reminder without misclassifying a valid TBD state as data corruption or booking risk.

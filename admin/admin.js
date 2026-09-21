@@ -240,11 +240,10 @@
       if(isUnpaidPayment(b.payment_status)){
         pushBooking(b,{type:"payment", priority:1, task:"ตามชำระเงิน", risk_flag:true});
       }
-      if(isActiveBookingStatus(st) && diff!==null && diff>=0 && diff<=7 && !String(b.pickup_time||"").trim()){
-        pushBooking(b,{type:"data", priority:2, task:"ยังไม่มีเวลารับเครื่อง", risk_flag:true});
-      }
       if(["pending","confirmed","prepared"].includes(st) && diff!==null && diff>=0 && diff<=7){
-        const task=st==="pending" ? "ยืนยัน booking / นัดเวลา" : (st==="prepared" ? "พร้อมส่งมอบ / รอลูกค้ารับ" : (diff===0 ? "งานวันนี้: เตรียมส่งมอบ" : "งานใน "+diff+" วัน: เตรียมเครื่อง"));
+        const pickupTbd=!String(b.pickup_time||"").trim();
+        let task=st==="pending" ? "ยืนยัน booking / นัดเวลา" : (st==="prepared" ? "พร้อมส่งมอบ / รอลูกค้ารับ" : (diff===0 ? "งานวันนี้: เตรียมส่งมอบ" : "งานใน "+diff+" วัน: เตรียมเครื่อง"));
+        if(pickupTbd) task += " / เวลารับยัง TBD — ยืนยันเมื่อใกล้งาน";
         pushBooking(b,{type:"prep", priority: diff===0 ? 2 : 3, task});
       }
       if(st==="picked_up"){
@@ -691,7 +690,7 @@
     if(topPackage) rows.push({level:"ok", title:"แพ็กเกจที่ทำเงินดีที่สุด", detail:`${topPackage.package_display} · ${money(topPackage.revenue)} บาท · ${topPackage.bookings} booking`});
     if(topAsset) rows.push({level:"ok", title:"Asset ที่ถูกใช้งานสูงสุด", detail:`${topAsset.asset_id} · ${topAsset.bookings} ครั้ง · รายรับเกี่ยวข้อง ${money(topAsset.revenue)} บาท`});
     if(overduePayments) rows.push({level:"bad", title:"ยังมีรายการต้องตามเงิน", detail:`พบ ${overduePayments} booking ที่ยังไม่ paid/refunded และยังไม่ปิดงาน`});
-    if(missingPickup) rows.push({level:"warn", title:"ยังมี booking ไม่มีเวลารับเครื่อง", detail:`พบ ${missingPickup} booking ในช่วงรายงานที่ควรใส่ pickup_time เพื่อลดการลืมส่งมอบ`});
+    if(missingPickup) rows.push({level:"info", title:"เวลารับเครื่องยัง TBD", detail:`พบ ${missingPickup} booking ในช่วงรายงานที่ยังไม่ยืนยันเวลารับ ซึ่งเว้นว่างได้ตาม policy; ระบบกันคิวแบบ conservative อยู่แล้ว และค่อยใส่เวลาเมื่อยืนยันกับลูกค้า`});
     if(model.utilizationRate>=80) rows.push({level:"ok", title:"Asset utilization สูง", detail:`ใช้ asset ${model.utilizedAssets}/${model.assetsAvailable} รายการในช่วงรายงาน (${model.utilizationRate}%) อาจเริ่มดูความคุ้มค่าการซื้อเพิ่ม`});
     if(model.repeatCustomers) rows.push({level:"ok", title:"มีลูกค้าเช่าซ้ำ", detail:`พบลูกค้าเช่าซ้ำ ${model.repeatCustomers} ราย ควรใช้ VIP/Good Customer badge ทำโปรกลับมาเช่าอีก`});
     if(!rows.length) rows.push({level:"warn", title:"ยังไม่มีข้อมูลพอสำหรับ Insight", detail:"เลือกช่วงข้อมูลอื่น หรือเพิ่ม booking ที่มีจำนวนเงินรับแล้วเพื่อให้รายงานมีความหมายมากขึ้น"});
