@@ -8,7 +8,7 @@ const SnapshotHealth = require('../admin/snapshot-health.js');
 const UpstreamResponse = require('../server/upstream-response.js');
 const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 
-const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.2';
+const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.3';
 const SNAPSHOT_UPSTREAM_TIMEOUT_MS = 12000;
 const WRITE_HEALTH_TIMEOUT_MS = 4000;
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
