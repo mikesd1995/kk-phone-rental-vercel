@@ -12,8 +12,32 @@ function endpoint(){
   return `https://${OIDC_LEDGER_PROJECT_REF}.supabase.co/functions/v1/${OIDC_LEDGER_FUNCTION}`;
 }
 
-function oidcToken(env=process.env){
-  return text(env.VERCEL_OIDC_TOKEN);
+async function officialVercelOidcToken(){
+  let oidc;
+  try{
+    // @vercel/functions already exists in this project. Its OIDC re-export delegates
+    // to Vercel's supported request-context-aware token resolver.
+    oidc=require('@vercel/functions/oidc');
+  }catch(_err){
+    return '';
+  }
+  if(!oidc || typeof oidc.getVercelOidcToken!=='function') return '';
+  try{
+    return text(await oidc.getVercelOidcToken());
+  }catch(_err){
+    return '';
+  }
+}
+
+async function resolveOidcToken({
+  getTokenImpl=officialVercelOidcToken
+}={}){
+  if(typeof getTokenImpl!=='function') return '';
+  try{
+    return text(await getTokenImpl());
+  }catch(_err){
+    return '';
+  }
 }
 
 async function parseJsonSafe(response){
@@ -21,10 +45,10 @@ async function parseJsonSafe(response){
 }
 
 async function probe({
-  env=process.env,
-  fetchImpl=global.fetch
+  fetchImpl=global.fetch,
+  getTokenImpl=officialVercelOidcToken
 }={}){
-  const token=oidcToken(env);
+  const token=await resolveOidcToken({getTokenImpl});
   if(!token){
     return {
       attempted:false,
@@ -99,6 +123,7 @@ module.exports={
   OIDC_LEDGER_FUNCTION,
   OIDC_BRIDGE_TIMEOUT_MS,
   endpoint,
-  oidcToken,
+  officialVercelOidcToken,
+  resolveOidcToken,
   probe
 };
