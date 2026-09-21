@@ -22,6 +22,26 @@
     clearTimeout(showNotice.t);
     showNotice.t=setTimeout(()=>n.classList.add("hidden"),9000);
   }
+  function eventNameLint(value){
+    const name=String(value||"").normalize("NFKC");
+    const warnings=[];
+    const count=ch=>(name.split(ch).length-1);
+    if(/\s{2,}/.test(name)) warnings.push("มีช่องว่างติดกันหลายตัว");
+    if(count("“")!==count("”")) warnings.push("เครื่องหมายคำพูด “ ” เปิด/ปิดไม่ครบ");
+    if(count('"')%2!==0) warnings.push('เครื่องหมายคำพูด " มีจำนวนไม่ครบคู่');
+    [["(",")"],["[","]"],["{","}"]].forEach(pair=>{
+      if(count(pair[0])!==count(pair[1])) warnings.push("วงเล็บ "+pair[0]+" "+pair[1]+" เปิด/ปิดไม่ครบ");
+    });
+    if(name.length>140) warnings.push("ชื่องานยาวเกิน 140 ตัวอักษร");
+    if(/^[\s\-–—:|/]+|[\s\-–—:|/]+$/.test(name)) warnings.push("มีเครื่องหมายคั่นอยู่ต้นหรือท้ายชื่อ");
+    return warnings;
+  }
+  function confirmEventNameLint(value){
+    const warnings=eventNameLint(value);
+    if(!warnings.length)return true;
+    return window.confirm("พบรายละเอียดชื่อ Event ที่ควรตรวจอีกครั้ง:\n\n• "+warnings.join("\n• ")+"\n\nกด OK เพื่อบันทึกต่อ หรือ Cancel เพื่อกลับไปแก้ชื่อ");
+  }
+
   function updateUiLastRefresh(){
     const el=$("#uiLastRefresh");
     if(!el) return;
@@ -1258,6 +1278,48 @@
     return "bad";
   }
 
+  function storefrontGuardRows(integrity){
+    const sf=integrity||{};
+    const rows=[];
+    const row=(label,count,detail,suggestion)=>rows.push({
+      label,
+      status:Number(count||0)>0?"WARN":"OK",
+      detail:Number(count||0)>0 ? detail : "0 issues",
+      suggestion:Number(count||0)>0 ? suggestion : ""
+    });
+    row(
+      "Storefront · Package identity",
+      sf.invalid_package_identity_count,
+      String(sf.invalid_package_identity_count||0)+" invalid package rows",
+      "ตรวจ 09_Web_Packages ให้ package_id / event_id / package_type ครบ; public proxy จะกรองแถวผิดออก"
+    );
+    row(
+      "Storefront · Event/package mapping",
+      Number(sf.orphan_package_count||0)+Number(sf.orphan_web_ready_count||0),
+      String(sf.orphan_package_count||0)+" orphan packages · "+String(sf.orphan_web_ready_count||0)+" orphan web-ready events",
+      "ตรวจ event_id ให้ตรงกับ Event master ก่อนเปิดขาย"
+    );
+    row(
+      "Storefront · Availability",
+      sf.negative_availability_count,
+      String(sf.negative_availability_count||0)+" negative availability rows",
+      "ตรวจสูตร stock/availability และอย่าปล่อยค่าติดลบสู่ public feed"
+    );
+    row(
+      "Storefront · Published event quality",
+      Number(sf.missing_poster_count||0)+Number(sf.published_past_event_count||0),
+      String(sf.missing_poster_count||0)+" missing posters · "+String(sf.published_past_event_count||0)+" published past events",
+      "เติม poster หรือซ่อน/ปิดงานที่พ้นวันแล้วก่อนลูกค้าเห็น"
+    );
+    row(
+      "Storefront · Venue canonicalization",
+      sf.venue_variant_group_count,
+      String(sf.venue_variant_group_count||0)+" venue naming variant groups",
+      "ใช้ชื่อ Venue เดิมจาก suggestion list เพื่อลดชื่อซ้ำใน Search และ Analytics"
+    );
+    return rows;
+  }
+
   function buildSnapshotGuardRows(data){
     const d=data||{};
     const diag=d.phase1_diagnostics||{};
@@ -1274,6 +1336,7 @@
     if(diag.log_sheets_ready!==undefined) rows.push({label:"Audit/Error Logs",status:diag.log_sheets_ready?"OK":"WARN",detail:diag.log_sheets_ready?"ready":"missing",suggestion:"Run setup/repair in Google Sheet menu"});
     const h=KKSnapshotHealth.assess(d);
     for(const key of KKSnapshotHealth.KEYS) rows.push({label:"Snapshot · "+key,status:h.counts[key]===null ? "FAIL" : h.counts[key]===0 ? "WARN" : "OK",detail:String(h.counts[key] ?? "invalid")+" rows",suggestion:""});
+    rows.push(...storefrontGuardRows(h.storefront_integrity));
     rows.push({label:"Snapshot freshness",status:snapshotState.stale ? "FAIL" : "OK",detail:snapshotState.error || snapshotState.goodAt || "Not loaded",suggestion:snapshotState.stale ? "Refresh successfully before making changes" : ""});
     return rows;
   }
@@ -1337,6 +1400,8 @@
         detail:snap ? snap.issues.concat(snap.warnings).join("; ") || "Valid snapshot" : blockedDetail,
         suggestion:blockedByUpstream ? "Snapshot ยังตรวจไม่ได้จนกว่า Apps Script จะคืน JSON ปกติ" : ""
       });
+      if(snap&&snap.storefront_integrity) rows.push(...storefrontGuardRows(snap.storefront_integrity));
+      else if(state.data) rows.push(...storefrontGuardRows(KKSnapshotHealth.assess(state.data).storefront_integrity));
       rows.push({
         label:"Snapshot latency",
         status:snap ? "OK" : (blockedByUpstream ? "WARN" : "FAIL"),
@@ -1530,8 +1595,51 @@
     return `<span class="pill warn">จอง ${esc(fmtDate(first.event_date))}${esc(more)}</span><br><small>${esc(first.event_name||first.event_id||"-")} · ${esc(first.customer_name||"-")} · ${esc(bookingLifecycleLabel(first.booking_status))}</small>`;
   }
 
+
+  function populateEntrySuggestions(data){
+    const d=data||{};
+    const venueList=$("#venueOptions");
+    if(venueList){
+      const seen=new Set();
+      const venues=(d.events||[])
+        .map(e=>String(e&&e.venue||"").trim())
+        .filter(Boolean)
+        .filter(v=>{const key=v.toLocaleLowerCase("en-US");if(seen.has(key))return false;seen.add(key);return true;})
+        .sort((a,b)=>a.localeCompare(b,"en"));
+      venueList.replaceChildren(...venues.map(v=>{
+        const o=document.createElement("option");
+        o.value=v;
+        return o;
+      }));
+    }
+
+    function fillAssetList(id,type){
+      const list=$(id);
+      if(!list)return;
+      const rows=(d.assets||[])
+        .filter(a=>String(a&&a.asset_type||"").toLowerCase()===type)
+        .sort((a,b)=>{
+          const ar=String(a&&a.status||"").toLowerCase()==="available"?0:1;
+          const br=String(b&&b.status||"").toLowerCase()==="available"?0:1;
+          return ar-br || String(a&&a.asset_id||"").localeCompare(String(b&&b.asset_id||""));
+        });
+      list.replaceChildren(...rows.map(a=>{
+        const o=document.createElement("option");
+        o.value=String(a.asset_id||"").trim();
+        const model=String(a.model_display||a.model_group||"").trim();
+        const status=String(a.status||"-").trim();
+        const rentable=a.rentable===false?"not rentable":"rentable";
+        o.label=[model,status,rentable].filter(Boolean).join(" · ");
+        return o;
+      }).filter(o=>o.value));
+    }
+    fillAssetList("#phoneAssetOptions","phone");
+    fillAssetList("#lensAssetOptions","lens");
+  }
+
   function render(){
     const d=state.data||{};
+    populateEntrySuggestions(d);
     ["reportRange","reportStart","reportEnd","reportStatusMode"].forEach(id=>{ const el=$("#"+id); if(el && state[id]!==undefined && el.value!==state[id]) el.value=state[id]; });
     const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=versionDiagnosticsRows(d).concat(d.health||[]), today=KKSnapshotHealth.todayBookings(d), customers=d.customers||[];
     const currentBookings=KKSnapshotHealth.currentBookings(d);
@@ -2080,9 +2188,11 @@
 
     const eventForm=$("#eventForm");
     if(eventForm) eventForm.addEventListener("submit",async ev=>{
-      ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
+      ev.preventDefault();
+      const p=formData(ev.target);
+      if(!confirmEventNameLint(p.event_name)) return;
+      const btn=ev.submitter; setBusy(btn,true);
       try{
-        const p=formData(ev.target);
         if(p.poster_url) p.poster_url=normalizePosterUrl(p.poster_url);
         const uploaded=await uploadPosterFromInput("#posterFile", ev.target);
         if(uploaded) p.poster_url=uploaded;
@@ -2107,9 +2217,11 @@
 
     const eventUpdateForm=$("#eventUpdateForm");
     if(eventUpdateForm) eventUpdateForm.addEventListener("submit",async ev=>{
-      ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
+      ev.preventDefault();
+      const p=formData(ev.target);
+      if(p.event_name && !confirmEventNameLint(p.event_name)) return;
+      const btn=ev.submitter; setBusy(btn,true);
       try{
-        const p=formData(ev.target);
         if(p.poster_url) p.poster_url=normalizePosterUrl(p.poster_url);
         const uploaded=await uploadPosterFromInput("#updatePosterFile", ev.target);
         if(uploaded) p.poster_url=uploaded;

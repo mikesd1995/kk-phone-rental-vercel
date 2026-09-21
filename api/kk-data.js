@@ -14,14 +14,75 @@ const KK_APP_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_F
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 
 const ALLOWED = {
+  // Customer-facing derived feeds only. Internal package templates and event override tables
+  // must never be exposed through this unauthenticated endpoint.
   '08_Web_Ready': new Set(['A4:K']),
   '09_Web_Packages': new Set(['A4:N', 'A4:M', 'A4:L']),
-  '03_Packages': new Set(['A4:J']),
-  '04_Event_Overrides': new Set(['A4:G']),
 };
 
 function isTrue(value) {
   return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+}
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let quoted = false;
+  const input = String(text || '').replace(/^\uFEFF/, '');
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (quoted) {
+      if (ch === '"' && input[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (ch === '"') {
+        quoted = false;
+      } else {
+        cell += ch;
+      }
+      continue;
+    }
+    if (ch === '"') quoted = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else if (ch !== '\r') cell += ch;
+  }
+  if (cell !== '' || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows;
+}
+
+function csvCell(value) {
+  const text = String(value == null ? '' : value);
+  return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+}
+
+function serializeCsvRows(rows) {
+  return rows.map(row => row.map(csvCell).join(',')).join('\n');
+}
+
+function sanitizePublicCsv(sheet, text) {
+  const rows = parseCsvRows(text);
+  if (!rows.length) return {text: String(text || ''), dropped: 0};
+  const header = rows[0].map(v => String(v || '').trim().toLowerCase());
+  const idx = name => header.indexOf(name);
+  let required = [];
+  if (sheet === '08_Web_Ready') required = ['event_id', 'event_name'];
+  if (sheet === '09_Web_Packages') required = ['package_id', 'event_id', 'package_type'];
+  if (!required.length) return {text: String(text || ''), dropped: 0};
+
+  const requiredIndexes = required.map(idx);
+  if (requiredIndexes.some(i => i < 0)) return {text: String(text || ''), dropped: 0};
+
+  const body = rows.slice(1);
+  const kept = body.filter(row => requiredIndexes.every(i => String(row[i] || '').trim() !== ''));
+  return {
+    text: serializeCsvRows([rows[0], ...kept]),
+    dropped: body.length - kept.length,
+  };
 }
 
 function csvHeaderLooksValid(sheet, text) {
@@ -145,6 +206,12 @@ module.exports = async function handler(req, res) {
     return send(res, 502, 'Google Sheets returned an invalid public-data schema.');
   }
 
+  const sanitized = sanitizePublicCsv(sheet, text);
+  text = sanitized.text;
+  if (sanitized.dropped > 0) {
+    res.setHeader('X-KK-Public-Rows-Dropped', String(sanitized.dropped));
+  }
+
   res.setHeader('X-KK-Sheet-Source', source);
   if (sheet === '09_Web_Packages') {
     res.setHeader('X-KK-Package-Price-Source', '09_Web_Packages-direct-no-proxy-override');
@@ -156,6 +223,9 @@ module.exports = async function handler(req, res) {
 module.exports._test = {
   ALLOWED,
   isTrue,
+  parseCsvRows,
+  serializeCsvRows,
+  sanitizePublicCsv,
   csvHeaderLooksValid,
   privateReaderConfigured,
 };
