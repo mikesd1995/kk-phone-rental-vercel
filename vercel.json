@@ -1,4 +1,6 @@
-{\n  "ignoreCommand": "node scripts/vercel-ignore-build.js",\n  "headers": [
+{
+  "ignoreCommand": "node scripts/vercel-ignore-build.js",
+  "headers": [
     {
       "source": "/(.*)",
       "headers": [
