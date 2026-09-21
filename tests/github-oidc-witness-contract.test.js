@@ -4,6 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const vm=require('node:vm');
 
 const root=path.resolve(__dirname,'..');
 
@@ -92,4 +93,24 @@ test('witness scheduler avoids minute zero while preserving top-hour occurrence 
   assert.match(source,/const scheduled=Math\.floor\(now\/HOUR_MS\)\*HOUR_MS;/);
   assert.match(source,/scheduled_at=bangkokIso\(scheduled\)/);
   assert.match(source,/issued_at:bangkokIso\(now\)/);
+});
+
+
+test('witness workflow emits Edge-compatible second-precision Bangkok timestamps',()=>{
+  const source=fs.readFileSync(
+    path.join(root,'.github','workflows','kk-external-witness-clock.yml'),
+    'utf8'
+  );
+  const offsetLine=source.match(/const BANGKOK_OFFSET_MS=[^;]+;/)?.[0];
+  const isoLine=source.match(/const bangkokIso=\(ms\)=>[^;]+;/)?.[0];
+  assert.ok(offsetLine,'BANGKOK_OFFSET_MS helper missing');
+  assert.ok(isoLine,'bangkokIso helper missing');
+  const bangkokIso=vm.runInNewContext(
+    `${offsetLine}\n${isoLine}\nbangkokIso`
+  );
+  const rendered=bangkokIso(Date.parse('2026-09-21T15:00:00Z'));
+  assert.equal(rendered,'2026-09-21T22:00:00+07:00');
+  assert.doesNotMatch(rendered,/\.\d{3}\+07:00$/);
+  assert.match(source,/WITNESS_SCHEDULE_FORMAT_INVALID/);
+  assert.match(source,/TOP_HOUR_BANGKOK\.test\(scheduled_at\)/);
 });
