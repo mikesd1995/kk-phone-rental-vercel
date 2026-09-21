@@ -6,6 +6,7 @@ const SAFE_PREVIEW_ONLY_PATTERNS = [
   /^\.github\//,
   /^docs\//,
   /^tests\//,
+  /^scripts\//,
   /^README(?:\..*)?$/i,
   /^[^/]+\.md$/i
 ];
@@ -19,6 +20,7 @@ function normalizeFiles(files) {
 
 function isSafePreviewOnlyPath(file) {
   const normalized = String(file || '').trim().replace(/^\.\//, '');
+  if (normalized === 'scripts/vercel-ignore-build.js') return false;
   return SAFE_PREVIEW_ONLY_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
