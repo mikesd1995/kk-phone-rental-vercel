@@ -20,8 +20,10 @@ test('workflow is owner-only and Issue #47 exact-command scoped',()=>{
 
 test('workflow requires exact-current-main Production and prior exact-SHA OIDC proof',()=>{
   assert.match(source,/resolve-current-production\.js/);
-  assert.match(source,/Bounded OIDC Production Acceptance/);
+  assert.match(source,/bounded-oidc-production-acceptance\.yml\/runs/);
+  assert.match(source,/bounded-oidc-acceptance-\$RUN_ID/);
   assert.match(source,/PASS_AND_ROLLED_BACK/);
+  assert.match(source,/OIDC_ACCEPTANCE_SHA_MISMATCH/);
   assert.match(source,/oidc-final-main-sha\.txt/);
 });
 
