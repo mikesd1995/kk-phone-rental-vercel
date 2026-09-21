@@ -105,6 +105,7 @@ var I18N = {
     empty_detail:"ถ้ามีงานที่อยากเช่า สามารถทัก LINE OA มาสอบถามได้เลย",
     contact_line:"ทัก LINE OA",
     badge_full:"คิวเต็ม",
+    badge_today:"งานวันนี้",
     badge_soon:"ใกล้ถึงวันงาน",
     badge_available:"ว่าง {count} เครื่อง",
     badge_lens:"Lens ว่าง",
@@ -203,6 +204,7 @@ var I18N = {
     empty_detail:"Message us on LINE OA if you would like to ask about another event.",
     contact_line:"Message us on LINE OA",
     badge_full:"Fully Booked",
+    badge_today:"Today",
     badge_soon:"Coming Soon",
     badge_available:"{count} Available",
     badge_lens:"Lens Available",
@@ -803,6 +805,7 @@ async function loadData(){
 // ─── Concert logic ────────────────────────────────────────────────────────
 function concertTs(c){ var d=parseDate(c.rawDate); if(!d)return Number.MAX_SAFE_INTEGER; d.setHours(0,0,0,0); return d.getTime(); }
 function isFuture(c){ return SHOW_PAST||concertTs(c)>=TODAY_TS; }
+function isToday(c){ return concertTs(c)===TODAY_TS; }
 function isSoon(c){ var ms=concertTs(c)-TODAY_TS; return ms>=0&&ms<=14*86400000; }
 function monthKey(c){ var d=parseDate(c&&c.rawDate); if(!d)return ""; return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 function monthLabel(key){
@@ -885,7 +888,7 @@ function renderEmpty(msg,detail){
   var el=document.getElementById("content"); if(!el)return;
   el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+esc(detail||tr("empty_detail"))+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("contact_line"))+'</a></div>';
 }
-function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return tr("badge_full"); if(isSoon(c))return tr("badge_soon"); return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? tr("badge_available",{count:cnt}) : tr("badge_lens"); }
+function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return tr("badge_full"); if(isToday(c))return tr("badge_today"); if(isSoon(c))return tr("badge_soon"); return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? tr("badge_available",{count:cnt}) : tr("badge_lens"); }
 
 function renderMonthSelect(concerts){
   var sel=document.getElementById("month-filter-select"); if(!sel)return;
