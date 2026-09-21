@@ -1530,8 +1530,51 @@
     return `<span class="pill warn">จอง ${esc(fmtDate(first.event_date))}${esc(more)}</span><br><small>${esc(first.event_name||first.event_id||"-")} · ${esc(first.customer_name||"-")} · ${esc(bookingLifecycleLabel(first.booking_status))}</small>`;
   }
 
+
+  function populateEntrySuggestions(data){
+    const d=data||{};
+    const venueList=$("#venueOptions");
+    if(venueList){
+      const seen=new Set();
+      const venues=(d.events||[])
+        .map(e=>String(e&&e.venue||"").trim())
+        .filter(Boolean)
+        .filter(v=>{const key=v.toLocaleLowerCase("en-US");if(seen.has(key))return false;seen.add(key);return true;})
+        .sort((a,b)=>a.localeCompare(b,"en"));
+      venueList.replaceChildren(...venues.map(v=>{
+        const o=document.createElement("option");
+        o.value=v;
+        return o;
+      }));
+    }
+
+    function fillAssetList(id,type){
+      const list=$(id);
+      if(!list)return;
+      const rows=(d.assets||[])
+        .filter(a=>String(a&&a.asset_type||"").toLowerCase()===type)
+        .sort((a,b)=>{
+          const ar=String(a&&a.status||"").toLowerCase()==="available"?0:1;
+          const br=String(b&&b.status||"").toLowerCase()==="available"?0:1;
+          return ar-br || String(a&&a.asset_id||"").localeCompare(String(b&&b.asset_id||""));
+        });
+      list.replaceChildren(...rows.map(a=>{
+        const o=document.createElement("option");
+        o.value=String(a.asset_id||"").trim();
+        const model=String(a.model_display||a.model_group||"").trim();
+        const status=String(a.status||"-").trim();
+        const rentable=a.rentable===false?"not rentable":"rentable";
+        o.label=[model,status,rentable].filter(Boolean).join(" · ");
+        return o;
+      }).filter(o=>o.value));
+    }
+    fillAssetList("#phoneAssetOptions","phone");
+    fillAssetList("#lensAssetOptions","lens");
+  }
+
   function render(){
     const d=state.data||{};
+    populateEntrySuggestions(d);
     ["reportRange","reportStart","reportEnd","reportStatusMode"].forEach(id=>{ const el=$("#"+id); if(el && state[id]!==undefined && el.value!==state[id]) el.value=state[id]; });
     const events=d.events||[], packages=d.packages||[], overrides=d.overrides||[], assets=d.assets||[], bookings=d.bookings||[], health=versionDiagnosticsRows(d).concat(d.health||[]), today=KKSnapshotHealth.todayBookings(d), customers=d.customers||[];
     const currentBookings=KKSnapshotHealth.currentBookings(d);
