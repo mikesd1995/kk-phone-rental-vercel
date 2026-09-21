@@ -1,0 +1,280 @@
+name: Zero-Cost Witness Config Apply Rollback Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type ACCEPT_ZERO_COST_WITNESS_CONFIG'
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  actions: read
+  issues: read
+
+concurrency:
+  group: kk-zero-cost-witness-config-acceptance
+  cancel-in-progress: false
+
+jobs:
+  witness-config-acceptance:
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 47 &&
+          github.event.comment.user.login == github.repository_owner &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.body == '/accept-witness-config-zero-cost'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Require authorized trigger
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_CONFIRM: ${{ inputs.confirm }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_LOGIN: ${{ github.event.comment.user.login }}
+          COMMENT_ASSOCIATION: ${{ github.event.comment.author_association }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            test "$MANUAL_CONFIRM" = "ACCEPT_ZERO_COST_WITNESS_CONFIG"
+            test "$GITHUB_REF" = "refs/heads/main"
+          else
+            test "$EVENT_NAME" = "issue_comment"
+            test "$ISSUE_NUMBER" = "47"
+            test "$COMMENT_LOGIN" = "$REPOSITORY_OWNER"
+            test "$COMMENT_ASSOCIATION" = "OWNER"
+            test "$COMMENT_BODY" = "/accept-witness-config-zero-cost"
+          fi
+
+      - name: Checkout current main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Require zero-cost acceptance credentials
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          KK_EXTERNAL_SCANNER_SECRET: ${{ secrets.KK_EXTERNAL_SCANNER_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          for name in VERCEL_TOKEN SUPABASE_SECRET_KEY KK_EXTERNAL_SCANNER_SECRET CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "${name}_MISSING"
+              exit 1
+            fi
+            echo "${name}_PRESENT"
+          done
+
+      - name: Pin exact current main
+        id: main_preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          CURRENT_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$CHECKED_OUT_SHA" = "$CURRENT_MAIN"
+          echo "current_main=$CURRENT_MAIN" >> "$GITHUB_OUTPUT"
+
+      - name: Targeted acceptance regression tests
+        run: |
+          node --test tests/witness-config-zero-cost.test.js
+          node --test tests/witness-config-zero-cost-workflow.test.js
+          node --test tests/oidc-current-production-resolver.test.js
+
+      - name: Resolve exact current-main READY Production
+        id: source
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          EXPECTED_SHA: ${{ steps.main_preflight.outputs.current_main }}
+        run: |
+          set -euo pipefail
+          node scripts/resolve-current-production.js             --expected-sha "$EXPECTED_SHA"             > witness-source-deployment.json
+          SOURCE_ID="$(node -e "const r=require('./witness-source-deployment.json');process.stdout.write(r.deployment_id)")"
+          test -n "$SOURCE_ID"
+          echo "deployment_id=$SOURCE_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve exact-SHA successful OIDC acceptance
+        id: oidc_proof
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ steps.main_preflight.outputs.current_main }}
+        run: |
+          set -euo pipefail
+          RUN_ID="$(
+            gh api               --method GET               "repos/$GITHUB_REPOSITORY/actions/workflows/bounded-oidc-production-acceptance.yml/runs"               -f status=success               -f per_page=50             | jq -r --arg sha "$EXPECTED_SHA"                 '.workflow_runs[] | select(.head_sha==$sha and .conclusion=="success") | .id'             | head -n1
+          )"
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "CURRENT_MAIN_OIDC_ACCEPTANCE_NOT_FOUND"
+            exit 1
+          fi
+          rm -rf oidc-proof
+          mkdir -p oidc-proof
+          gh run download "$RUN_ID"             --repo "$GITHUB_REPOSITORY"             --name "bounded-oidc-acceptance-$RUN_ID"             --dir oidc-proof
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Verify downloaded OIDC evidence contract
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.main_preflight.outputs.current_main }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const expected=process.env.EXPECTED_SHA;
+          const acceptance=JSON.parse(fs.readFileSync('oidc-proof/oidc-acceptance-report.json','utf8'));
+          const rollback=JSON.parse(fs.readFileSync('oidc-proof/oidc-rollback-report.json','utf8'));
+          const finalMain=fs.readFileSync('oidc-proof/oidc-final-main-sha.txt','utf8').trim();
+
+          if(acceptance.expected_commit_sha!==expected) throw new Error('OIDC_ACCEPTANCE_SHA_MISMATCH');
+          if(acceptance.result!=='PASS_AND_ROLLED_BACK') throw new Error('OIDC_ACCEPTANCE_NOT_PASS_AND_ROLLED_BACK');
+          if(acceptance.probe?.authenticated!==true) throw new Error('OIDC_PROBE_NOT_AUTHENTICATED');
+          if(acceptance.probe?.read_only!==true) throw new Error('OIDC_PROBE_NOT_READ_ONLY');
+          if(Number(acceptance.probe?.bounded_limit)!==1) throw new Error('OIDC_PROBE_LIMIT_INVALID');
+          if(Number(acceptance.probe?.business_writes)!==0) throw new Error('OIDC_PROBE_BUSINESS_WRITES_NONZERO');
+          if(acceptance.rollback?.ok!==true) throw new Error('OIDC_ACCEPTANCE_ROLLBACK_NOT_OK');
+          if(acceptance.rollback?.external_scanner_enabled!==false) throw new Error('OIDC_ROLLBACK_EXTERNAL_SCANNER_NOT_OFF');
+          if(acceptance.rollback?.oidc_probe_enabled!==false) throw new Error('OIDC_ROLLBACK_FLAG_NOT_OFF');
+          if(acceptance.rollback?.scanner_execution_capable!==false) throw new Error('OIDC_ROLLBACK_SCANNER_EXECUTION_NOT_OFF');
+          if(acceptance.rollback?.business_writes_capable!==false) throw new Error('OIDC_ROLLBACK_BUSINESS_WRITES_NOT_OFF');
+          if(!['ROLLBACK_ALREADY_SAFE','ROLLBACK_PASS'].includes(rollback.result)) throw new Error('OIDC_INDEPENDENT_ROLLBACK_NOT_SAFE');
+          if(finalMain!==expected) throw new Error('OIDC_FINAL_MAIN_MISMATCH');
+          console.log('EXACT_CURRENT_MAIN_OIDC_PASS_AND_ROLLED_BACK');
+          NODE
+
+      - name: Zero-mutation witness-config dry run
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          KK_EXTERNAL_SCANNER_SECRET: ${{ secrets.KK_EXTERNAL_SCANNER_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          EXPECTED_SHA: ${{ steps.main_preflight.outputs.current_main }}
+          SOURCE_ID: ${{ steps.source.outputs.deployment_id }}
+        run: |
+          set -euo pipefail
+          node scripts/accept-witness-config-zero-cost.js             --source-deployment "$SOURCE_ID"             --expected-sha "$EXPECTED_SHA"             --run-id "$GITHUB_RUN_ID"             --state-file witness-config-state.json             --dry-run             > witness-config-dry-run-report.json
+
+      - name: Recheck main immediately before mutation
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.main_preflight.outputs.current_main }}
+        run: |
+          set -euo pipefail
+          CURRENT_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$CURRENT_MAIN" = "$EXPECTED_SHA"
+
+      - name: Run zero-cost witness-config apply/readback/rollback
+        id: acceptance
+        continue-on-error: true
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          KK_EXTERNAL_SCANNER_SECRET: ${{ secrets.KK_EXTERNAL_SCANNER_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          EXPECTED_SHA: ${{ steps.main_preflight.outputs.current_main }}
+          SOURCE_ID: ${{ steps.source.outputs.deployment_id }}
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30s 18m             node scripts/accept-witness-config-zero-cost.js               --source-deployment "$SOURCE_ID"               --expected-sha "$EXPECTED_SHA"               --run-id "$GITHUB_RUN_ID"               --state-file witness-config-state.json             > witness-config-acceptance-report.json             2> witness-config-acceptance.log
+
+      - name: Enforce independent rollback recovery
+        id: rollback
+        if: ${{ always() && steps.source.outputs.deployment_id != '' && steps.main_preflight.outputs.current_main != '' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          EXPECTED_SHA: ${{ steps.main_preflight.outputs.current_main }}
+          SOURCE_ID: ${{ steps.source.outputs.deployment_id }}
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=30s 8m             node scripts/accept-witness-config-zero-cost.js               --source-deployment "$SOURCE_ID"               --expected-sha "$EXPECTED_SHA"               --run-id "$GITHUB_RUN_ID"               --state-file witness-config-state.json               --rollback-only             > witness-config-rollback-report.json             2> witness-config-rollback.log
+
+      - name: Record final main head
+        id: main_postflight
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CURRENT_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          echo "current_main=$CURRENT_MAIN" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$CURRENT_MAIN" > witness-config-final-main-sha.txt
+
+      - name: Upload secret-safe witness acceptance evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: witness-config-zero-cost-${{ github.run_id }}
+          path: |
+            witness-source-deployment.json
+            witness-config-dry-run-report.json
+            witness-config-acceptance-report.json
+            witness-config-acceptance.log
+            witness-config-rollback-report.json
+            witness-config-rollback.log
+            witness-config-state.json
+            witness-config-final-main-sha.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Require terminal zero-cost apply and rollback success
+        if: ${{ always() }}
+        shell: bash
+        env:
+          ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
+          ROLLBACK_OUTCOME: ${{ steps.rollback.outcome }}
+          EXPECTED_SHA: ${{ steps.main_preflight.outputs.current_main }}
+          FINAL_MAIN: ${{ steps.main_postflight.outputs.current_main }}
+        run: |
+          set -euo pipefail
+          test "$ACCEPTANCE_OUTCOME" = "success"
+          test "$ROLLBACK_OUTCOME" = "success"
+          test "$FINAL_MAIN" = "$EXPECTED_SHA"
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const acceptance=JSON.parse(fs.readFileSync('witness-config-acceptance-report.json','utf8'));
+          const rollback=JSON.parse(fs.readFileSync('witness-config-rollback-report.json','utf8'));
+
+          if(acceptance.result!=='WITNESS_CONFIG_APPLY_AND_ROLLED_BACK_PASS') process.exit(1);
+          if(!acceptance.rollback?.ok) process.exit(1);
+          if(acceptance.rollback?.external_scanner_enabled!==false) process.exit(1);
+          if(acceptance.rollback?.scanner_execution_capable!==false) process.exit(1);
+          if(acceptance.rollback?.business_writes_capable!==false) process.exit(1);
+          if(acceptance.ledger_probe?.business_writes!==0) process.exit(1);
+          if(acceptance.post_worker?.external_scanner_enabled!==false) process.exit(1);
+          if(acceptance.post_worker?.ready_for_witness!==false) process.exit(1);
+          if(acceptance.post_worker?.ledger_row_count!==0) process.exit(1);
+          if(!['WITNESS_CONFIG_ROLLBACK_ALREADY_SAFE','WITNESS_CONFIG_ROLLBACK_PASS'].includes(rollback.result)) process.exit(1);
+          if(rollback.rollback?.worker_absent!==true) process.exit(1);
+          if(rollback.rollback?.tagged_env_count!==0) process.exit(1);
+          console.log('WITNESS_CONFIG_APPLY_AND_ROLLED_BACK_PASS');
+          NODE
