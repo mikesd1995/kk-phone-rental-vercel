@@ -32,7 +32,7 @@ test('routing middleware blocks source-only deployment paths that were observabl
 
 test('middleware helper is pinned as a production dependency',()=>{
   const pkg=JSON.parse(read('package.json'));
-  assert.equal(pkg.dependencies['@vercel/functions'],'3.9.7');
+  assert.equal(pkg.dependencies['@vercel/functions'],'3.9.8');
 });
 
 test('the legacy rewrite-only configuration is not accepted as the Admin security boundary',()=>{
