@@ -35,7 +35,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=brand-final-20260920-v1">
+<link rel="stylesheet" href="style.css?v=detail-hardening-phase2-20260922">
 </head>
 <body>
 <div class="wrap">
@@ -63,6 +63,15 @@
     <span class="lang-divider" aria-hidden="true">/</span>
     <button class="lang-btn" type="button" data-lang="en" aria-pressed="false">ENG</button>
   </div>
+</div>
+
+<div class="event-search-shell">
+  <label class="event-search-wrap" for="event-search">
+    <span class="sr-only">ค้นหางาน ศิลปิน หรือสถานที่</span>
+    <span class="event-search-icon" aria-hidden="true">⌕</span>
+    <input id="event-search" class="event-search" type="search" autocomplete="off" spellcheck="false" placeholder="ค้นหาชื่องาน / ศิลปิน / สถานที่" aria-label="ค้นหางาน ศิลปิน หรือสถานที่" />
+  </label>
+  <div class="event-search-count" id="event-search-count" aria-live="polite"></div>
 </div>
 
 <div class="filter-group status-filter-group" aria-label="เลือกเดือนและกรองสถานะงาน">
@@ -155,6 +164,6 @@
 </div>
 
 <script src="config.js" defer></script>
-<script src="script.js?v=detail-hardening-20260922" defer></script>
+<script src="script.js?v=detail-hardening-phase2-20260922" defer></script>
 </body>
 </html>
