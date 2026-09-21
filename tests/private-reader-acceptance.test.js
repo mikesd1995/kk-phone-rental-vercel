@@ -200,3 +200,18 @@ test('exit codes distinguish pass, missing credential and gated failures',()=>{
   assert.equal(Tool.exitCodeFor('BLOCKED_SYNC_NOT_FRESH'),2);
   assert.equal(Tool.exitCodeFor('BLOCKED_RECONCILIATION'),5);
 });
+
+
+test('manual private-reader workflow remains dispatch-only and zero-write',()=>{
+  const fs=require('fs');
+  const path=require('path');
+  const yaml=fs.readFileSync(path.resolve(__dirname,'../.github/workflows/private-reader-acceptance.yml'),'utf8');
+  assert.match(yaml,/workflow_dispatch:/);
+  assert.doesNotMatch(yaml,/\n\s+schedule:/);
+  assert.doesNotMatch(yaml,/\n\s+push:/);
+  assert.doesNotMatch(yaml,/\n\s+pull_request:/);
+  assert.match(yaml,/RUN_PRIVATE_READER_ACCEPTANCE/);
+  assert.match(yaml,/accept-private-reader\.js/);
+  assert.match(yaml,/writes!==0/);
+  assert.doesNotMatch(yaml,/spreadsheets(?!\.readonly)/);
+});
