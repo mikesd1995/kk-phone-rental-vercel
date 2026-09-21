@@ -32,6 +32,10 @@ test('GitHub OIDC witness path is witness-only and writes only runtime expectati
   assert.match(source,/SOURCE = "GITHUB_ACTIONS_CRON"/);
   assert.match(source,/VERSION = "kk-scanner-github-witness-v1"/);
   assert.match(source,/MODE = "WITNESS_ONLY"/);
+  assert.match(source,/rest\/v1\/kk_control_plane_config/);
+  assert.match(source,/CONTROL_KEY = "github_oidc_witness_v1"/);
+  assert.match(source,/WITNESS_KILL_SWITCH_DISABLED/);
+  assert.match(source,/body\.length !== 1/);
   assert.match(source,/rest\/v1\/kk_runtime_expectations/);
   assert.match(source,/resolution=ignore-duplicates/);
   assert.match(source,/business_writes: 0/g);
@@ -59,4 +63,18 @@ test('Supabase config keeps custom OIDC verification at the function boundary',(
   const source=fs.readFileSync(path.join(root,'supabase','config.toml'),'utf8');
   assert.match(source,/\[functions\.kk-runtime-ledger-github-witness\]/);
   assert.match(source,/verify_jwt\s*=\s*false/);
+});
+
+
+test('witness control migration defaults disabled and is service-role only',()=>{
+  const source=fs.readFileSync(
+    path.join(root,'supabase','migrations','20260921193000_github_oidc_witness_control.sql'),
+    'utf8'
+  );
+  assert.match(source,/github_oidc_witness_v1/);
+  assert.match(source,/enabled boolean not null default false/);
+  assert.match(source,/values \('github_oidc_witness_v1', false/);
+  assert.match(source,/enable row level security/);
+  assert.match(source,/revoke all on table public\.kk_control_plane_config from public, anon, authenticated/);
+  assert.match(source,/grant select, update on table public\.kk_control_plane_config to service_role/);
 });

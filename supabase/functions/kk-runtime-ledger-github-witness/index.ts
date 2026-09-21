@@ -17,6 +17,7 @@ const VERSION = "kk-scanner-github-witness-v1";
 const ROLE = "SCANNER";
 const SOURCE = "GITHUB_ACTIONS_CRON";
 const MODE = "WITNESS_ONLY";
+const CONTROL_KEY = "github_oidc_witness_v1";
 const TOP_HOUR_BANGKOK =
   /^\d{4}-\d{2}-\d{2}T\d{2}:00:00\+07:00$/;
 const MAX_RECEIVE_LAG_MS = 25 * 60 * 1000;
@@ -188,12 +189,50 @@ async function readTrigger(req: Request) {
   return { version, role, source, scheduledAt, issuedAt, occurrence };
 }
 
-async function recordExpectation(row: Record<string, unknown>) {
+function internalRuntime() {
   const url = (Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
   const key = secretKey();
-  if (!url || !key) {
-    throw new Error("SUPABASE_INTERNAL_CREDENTIALS_MISSING");
+  if (!url || !key) throw new Error("SUPABASE_INTERNAL_CREDENTIALS_MISSING");
+  return { url, key };
+}
+
+async function witnessEnabled() {
+  const { url, key } = internalRuntime();
+  const params = new URLSearchParams({
+    select: "enabled",
+    key: `eq.${CONTROL_KEY}`,
+    limit: "2",
+  });
+  let response: Response;
+  try {
+    response = await fetch(
+      `${url}/rest/v1/kk_control_plane_config?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(3000),
+      },
+    );
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      throw new Error("WITNESS_GATE_READ_TIMEOUT");
+    }
+    throw new Error("WITNESS_GATE_READ_TRANSPORT_FAILED");
   }
+  if (!response.ok) throw new Error("WITNESS_GATE_READ_FAILED");
+  const body = await response.json();
+  if (!Array.isArray(body) || body.length !== 1) {
+    throw new Error("WITNESS_GATE_CARDINALITY_INVALID");
+  }
+  return body[0]?.enabled === true;
+}
+
+async function recordExpectation(row: Record<string, unknown>) {
+  const { url, key } = internalRuntime();
 
   let response: Response;
   try {
@@ -242,6 +281,16 @@ Deno.serve(async (req: Request) => {
     trigger = await readTrigger(req);
   } catch (err) {
     return fail(400, err instanceof Error ? err.message : "TRIGGER_INVALID", true);
+  }
+
+  let enabled = false;
+  try {
+    enabled = await witnessEnabled();
+  } catch (err) {
+    return fail(503, err instanceof Error ? err.message : "WITNESS_GATE_READ_FAILED", true);
+  }
+  if (!enabled) {
+    return fail(503, "WITNESS_KILL_SWITCH_DISABLED", true);
   }
 
   const runId = String(identity.run_id);
