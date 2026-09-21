@@ -3,3 +3,8 @@
 # Supabase gateway verification must be disabled so the function can
 # verify Vercel signature + exact production claims in handler code.
 verify_jwt = false
+
+[functions.kk-runtime-ledger-github-witness]
+# GitHub Actions presents a GitHub OIDC JWT. The function performs custom
+# issuer/JWKS/audience/repository/workflow/event verification in handler code.
+verify_jwt = false
