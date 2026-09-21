@@ -134,3 +134,16 @@ This repository package performs:
 - Scanner/Verifier/Canary mutations = 0
 - HF activation = 0
 - customer/provider sends = 0
+
+
+## Exact-head Preview retry checkpoint
+
+The first exact-head Vercel status for this fresh current-main port was blocked by the account `build-rate-limit` after Admin Regression passed 427/427.
+
+This documentation-only checkpoint intentionally advances the PR head once so Vercel can re-evaluate Preview capacity. It changes no acceptance logic, credential handling, runtime import, Sheet access, or Production authority.
+
+The PR remains unmergeable by policy until the new exact head independently receives:
+- Admin Regression PASS;
+- Vercel Preview READY;
+- 0 behind current main;
+- clean secret/review checks.
