@@ -11,7 +11,8 @@ This watch is intentionally **not an AI agent**. Deployment-state polling, SHA l
 GitHub Actions workflow:
 
 - `.github/workflows/rental-analytics-production-watch.yml`
-- schedule: hourly at minute 17
+- immediate trigger: every push to `main`
+- schedule: hourly at minute 17 as a recovery/monitoring clock
 - manual `workflow_dispatch` remains available
 - concurrency is single-flight
 
