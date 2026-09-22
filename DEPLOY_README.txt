@@ -9,7 +9,7 @@ Verified source state:
 - Recovered baseline reports v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX.
 - The recovery artifact was captured before behavior changes and committed as a dedicated provenance commit.
 - The review branch adds return_time persistence plus reservation-window collision hardening on top of recovered 9_5_9.
-- The staged behavior candidate is versioned `v16.7.0_CRM_PRO_PHASE3_9_5_10_RETURN_TIME_ATOMICITY_CANDIDATE`; this version is NOT live.
+- The staged behavior candidate is versioned `v16.7.0_CRM_PRO_PHASE3_9_5_11_TIMEZONE_GUARD_CANDIDATE`; this version is NOT live.
 - Production Apps Script remains the authoritative live deployment until controlled acceptance completes.
 - GitHub issue #9 tracks source recovery/equivalence and deployment authorization.
 
@@ -41,6 +41,10 @@ STAGED GATE 2 BEHAVIOR:
 - picked_up with no return_time is treated as open-ended.
 - physical asset collision checks run inside the same Apps Script DocumentLock immediately before writes and include overlapping cross-day windows.
 - Vercel booking preflight uses the same return_time semantics.
+- phase1Health reports Apps Script Project timezone, Spreadsheet timezone, and installed project-trigger inventory without exposing API-key values.
+- every Apps Script mutation path is fail-closed with TIMEZONE_ALIGNMENT_REQUIRED unless both Apps Script and Spreadsheet timezone equal Asia/Bangkok.
+- snapshot and phase1Health remain read-only diagnostic paths while timezone alignment is unresolved.
+- trigger-object diagnostics prove handler inventory only; the daily cleanup trigger's exact local execution hour still requires owner-authenticated Triggers UI verification.
 
 VERCEL / FRONTEND
 - Vercel changes continue through pull request review and current CI/Preview gates.
