@@ -1,10 +1,10 @@
 /**
  * RECOVERY HOTFIX 2026-09-20: reduce Apps Script Sheet-service round trips; business/API contract unchanged.
- * KK Phone Rental Backend v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX
+ * KK Phone Rental Backend v16.7.0_CRM_PRO_PHASE3_9_5_10_RETURN_TIME_ATOMICITY_CANDIDATE
  * Phase 1 recovery-stable baseline + audited booking/override guards + dynamic range optimization
  * Keep in sync with backend sheets: Dashboard K31:K42, Web Packages A4:N, use_case_override in 04_Event_Overrides!G.
  */
-const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX';
+const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_10_RETURN_TIME_ATOMICITY_CANDIDATE';
 const KK_PHASE1_DIRECT_FALLBACK_DISABLED = false;
 
 // 2026-09-20 recovery hotfix: cache Spreadsheet/Sheet handles per Apps Script execution.
