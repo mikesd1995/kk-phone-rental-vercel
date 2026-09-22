@@ -919,10 +919,9 @@ function kkGetPackageSpecByType_(packageType) {
   throw new Error('No package master found for package_type: ' + wanted);
 }
 
-function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventDate) {
+
+function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventDate, excludeRow) {
   const status = String(nextStatus || '').toLowerCase().trim();
-  // Pending/confirmed bookings reserve stock by package count. A physical Asset ID is
-  // assigned only when admin prepares or hands over the equipment.
   if (!['prepared', 'picked_up'].includes(status)) return bookingRow;
 
   const next = bookingRow;
@@ -933,10 +932,10 @@ function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventD
 
   const spec = kkGetPackageSpecByType_(packageType);
   if (needsPhone && !String(next[9] || '').trim()) {
-    next[9] = kkFindAvailableAsset_('phone', spec.model_group, eventDate);
+    next[9] = kkFindAvailableAsset_('phone', spec.model_group, eventDate, next, excludeRow);
   }
   if (needsLens && !String(next[10] || '').trim()) {
-    next[10] = kkFindAvailableAsset_('lens', spec.lens_group, eventDate);
+    next[10] = kkFindAvailableAsset_('lens', spec.lens_group, eventDate, next, excludeRow);
   }
   return next;
 }
@@ -947,6 +946,92 @@ function kkEventDateMap_() {
   return map;
 }
 
+const KK_BUSINESS_TIME_ZONE = 'Asia/Bangkok';
+const KK_RESERVATION_FALLBACK_END_HOUR = 6;
+
+function kkBookingTimeMinutes_(value) {
+  if (value === '' || value === null || typeof value === 'undefined') return null;
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    const h = Number(Utilities.formatDate(value, KK_BUSINESS_TIME_ZONE, 'H'));
+    const m = Number(Utilities.formatDate(value, KK_BUSINESS_TIME_ZONE, 'm'));
+    return h * 60 + m;
+  }
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  let match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!match) match = raw.match(/T(\d{2}):(\d{2})(?::\d{2})?/);
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59 ? h * 60 + m : null;
+}
+
+function kkValidateBookingClock_(value, fieldName) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (kkBookingTimeMinutes_(raw) === null) throw new Error(fieldName + ' must use HH:MM, for example 17:30');
+  return raw;
+}
+
+function kkBookingDayKey_(eventDate) {
+  if (!eventDate) return '';
+  const d = kkDateObj_(eventDate);
+  if (!d || isNaN(d.getTime())) return '';
+  return Utilities.formatDate(d, KK_BUSINESS_TIME_ZONE, 'yyyy-MM-dd');
+}
+
+function kkBookingReservationWindow_(bookingRow, eventDates) {
+  if (!bookingRow) return null;
+  const eventId = String(bookingRow[3] || '').trim();
+  const day = kkBookingDayKey_(eventDates && eventDates[eventId]);
+  if (!day) return null;
+  const pickupMin = kkBookingTimeMinutes_(bookingRow[11]);
+  const returnMin = kkBookingTimeMinutes_(bookingRow[12]);
+  const start = Date.parse(day + 'T00:00:00+07:00') + (pickupMin === null ? 0 : pickupMin) * 60000;
+  let end;
+  let mode = 'explicit';
+  if (returnMin !== null) {
+    end = Date.parse(day + 'T00:00:00+07:00') +
+      ((pickupMin !== null && returnMin <= pickupMin) ? 86400000 : 0) +
+      returnMin * 60000;
+    if (end <= start) end = start + 60000;
+  } else if (String(bookingRow[2] || '').toLowerCase().trim() === 'picked_up') {
+    end = Date.parse('2099-12-31T23:59:00+07:00');
+    mode = 'picked-up-open-ended';
+  } else {
+    end = Date.parse(day + 'T00:00:00+07:00') + 86400000 + KK_RESERVATION_FALLBACK_END_HOUR * 3600000;
+    mode = 'fallback-next-day-06:00';
+  }
+  return { start_ms: start, end_ms: end, mode: mode };
+}
+
+function kkBookingWindowsOverlap_(a, b) {
+  return !!(a && b && a.start_ms < b.end_ms && b.start_ms < a.end_ms);
+}
+
+function kkBookedAssetIdsForWindow_(bookingRow, excludeRow) {
+  const eventDates = kkEventDateMap_();
+  const targetWindow = kkBookingReservationWindow_(bookingRow, eventDates);
+  if (!targetWindow) throw new Error('Booking reservation window cannot be resolved');
+  const booked = { phone: {}, lens: {} };
+  const skipRow = Number(excludeRow || 0);
+  const rows = kkGetValues_(KK.bookings, 5, 1, 20);
+  rows.forEach((r, i) => {
+    const sourceRow = i + 5;
+    if (skipRow && sourceRow === skipRow) return;
+    if (!kkActiveHold_(r[2])) return;
+    const otherWindow = kkBookingReservationWindow_(r, eventDates);
+    if (!kkBookingWindowsOverlap_(targetWindow, otherWindow)) return;
+    const phoneId = String(r[9] || '').trim();
+    const lensId = String(r[10] || '').trim();
+    if (phoneId) booked.phone[phoneId] = true;
+    if (lensId) booked.lens[lensId] = true;
+  });
+  return booked;
+}
+
+// Legacy date-only helper remains for non-booking callers. Booking create/update paths
+// pass bookingRow so cross-day reservation overlap is authoritative.
 function kkBookedAssetIdsForDate_(eventDate, excludeRow) {
   const eventDates = kkEventDateMap_();
   const booked = { phone: {}, lens: {} };
@@ -967,11 +1052,13 @@ function kkBookedAssetIdsForDate_(eventDate, excludeRow) {
   return booked;
 }
 
-function kkFindAvailableAsset_(assetType, modelGroup, eventDate) {
+function kkFindAvailableAsset_(assetType, modelGroup, eventDate, bookingRow, excludeRow) {
   const type = String(assetType || '').toLowerCase();
   const model = String(modelGroup || '').trim();
   if (!model || model === 'NONE') return '';
-  const booked = kkBookedAssetIdsForDate_(eventDate);
+  const booked = bookingRow
+    ? kkBookedAssetIdsForWindow_(bookingRow, excludeRow)
+    : kkBookedAssetIdsForDate_(eventDate, excludeRow);
   const rows = kkGetValues_(KK.assets, 5, 1, 7);
   for (const r of rows) {
     const assetId = String(r[0] || '').trim();
@@ -983,16 +1070,18 @@ function kkFindAvailableAsset_(assetType, modelGroup, eventDate) {
     if (booked[type] && booked[type][assetId]) continue;
     return assetId;
   }
-  throw new Error(`No available ${type} asset for model ${model} on ${kkDateKey_(eventDate)}`);
+  throw new Error(`No available ${type} asset for model ${model} in reservation window`);
 }
 
-function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, excludeRow) {
+function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, excludeRow, bookingRow) {
   assetId = String(assetId || '').trim();
   if (!assetId) return;
   const type = String(assetType || '').toLowerCase().trim();
   const model = String(modelGroup || '').trim();
   const rows = kkGetValues_(KK.assets, 5, 1, 7);
-  const booked = kkBookedAssetIdsForDate_(eventDate, excludeRow);
+  const booked = bookingRow
+    ? kkBookedAssetIdsForWindow_(bookingRow, excludeRow)
+    : kkBookedAssetIdsForDate_(eventDate, excludeRow);
   let found = false;
 
   for (const r of rows) {
@@ -1006,7 +1095,7 @@ function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, exclu
     if (rowType !== type) throw new Error(`${assetId} is not a ${type} asset`);
     if (!kkAssetModelMatches_(type, rowModel, model)) throw new Error(`${assetId} model is ${rowModel}, expected compatible ${model}`);
     if (!rentable) throw new Error(`${assetId} is not rentable/available`);
-    if (booked[type] && booked[type][assetId]) throw new Error(`${assetId} is already booked on ${kkDateKey_(eventDate)}`);
+    if (booked[type] && booked[type][assetId]) throw new Error(`${assetId} is already booked in an overlapping reservation window`);
     return;
   }
   if (!found) throw new Error(`Asset not found: ${assetId}`);
@@ -1132,6 +1221,7 @@ function kkUpdateAccessoryStockFromDashboard() {
   ui.alert('Updated accessory rows: ' + count);
 }
 
+
 function kkAddQuickBookingFromDashboard() {
   const ui = SpreadsheetApp.getUi();
   try {
@@ -1150,18 +1240,10 @@ function kkAddQuickBookingFromDashboard() {
     const bookingNote = bookingInputs[11];
 
     kkEnsureLensCompatibilityPatchInstalled_();
-    if (!eventId || !templateId || !customerName) {
-      throw new Error('Please fill event_id, template_id, customer_name');
-    }
-    if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) {
-      throw new Error('Invalid booking_status');
-    }
-    if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) {
-      throw new Error('Invalid payment_status');
-    }
-    if (isNaN(amountReceived) || amountReceived < 0) {
-      throw new Error('amount_received must be a number and cannot be negative');
-    }
+    if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id, customer_name');
+    if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) throw new Error('Invalid booking_status');
+    if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) throw new Error('Invalid payment_status');
+    if (isNaN(amountReceived) || amountReceived < 0) throw new Error('amount_received must be a number and cannot be negative');
 
     templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
     const event = kkGetEventById_(eventId);
@@ -1173,20 +1255,31 @@ function kkAddQuickBookingFromDashboard() {
     kkAssertWebPackageBookable_(eventId, templateId);
 
     const pkgType = String(pkg.package_type || '').toLowerCase().trim();
-    if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date);
-    if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date);
+    const proposed = new Array(20).fill('');
+    proposed[2] = bookingStatus;
+    proposed[3] = eventId;
+    proposed[8] = pkgType;
+    proposed[9] = phoneAssetId;
+    proposed[10] = lensAssetId;
+    proposed[11] = '';
+    proposed[12] = '';
 
+    if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date, 0, proposed);
+    if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date, 0, proposed);
     if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) {
-      phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
+      phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date, proposed, 0);
+      proposed[9] = phoneAssetId;
     }
     if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) {
-      lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
+      lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date, proposed, 0);
+      proposed[10] = lensAssetId;
     }
+    kkAssertBookingAssetsNotDoubleBooked_(0, proposed, bookingStatus);
 
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
     kkSheet_(KK.bookings).getRange(row, 2, 1, 19).setValues([[
-        new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
-        pkgType, phoneAssetId, lensAssetId, '', '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
+      new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
+      pkgType, phoneAssetId, lensAssetId, '', '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ]]);
     kkRange_('KK_QUICK_BOOKING_ASSIGNED_ASSETS', KK.dashboard, 'K38:K39').setValues([[phoneAssetId], [lensAssetId]]);
     ui.alert(
@@ -1197,7 +1290,6 @@ function kkAddQuickBookingFromDashboard() {
     ui.alert(`❌ เกิดข้อผิดพลาด:\n${error.message}`);
   }
 }
-
 function kkConvertEventDriveUrls() {
   const range = kkGetDynamicRange_(KK.events, 5, 5, 1);
   if (!range) return kkSafeAlert_('No events to convert.');
@@ -1580,6 +1672,7 @@ function kkApiSnapshot_(payload) {
         lens_model_display: lens.model_display || lensId || '',
         lens_model_group: lens.model_group || '',
         pickup_time: r[11] || '',
+        return_time: r[12] || '',
         payment_status: r[13] || '',
         amount_received: r[14] || 0,
         work_task: work_task,
@@ -2230,15 +2323,16 @@ function kkFindBookingRow_(rowNumber, bookingId) {
   throw new Error('Booking not found: ' + id);
 }
 
+
 function kkAssertBookingAssetsNotDoubleBooked_(rowNumber, bookingRow, nextStatus) {
   if (!kkActiveHold_(nextStatus)) return;
   const eventId = String(bookingRow[3] || '').trim();
   const phoneId = String(bookingRow[9] || '').trim();
-  const lensId = String(bookingRow[10] || '').trim();  if (!eventId) throw new Error('Booking missing event_id');
-  const event = kkGetEventById_(eventId);
-  const booked = kkBookedAssetIdsForDate_(event.event_date, rowNumber);
-  if (phoneId && booked.phone[phoneId]) throw new Error('Cannot reactivate booking: phone is already booked on this event date: ' + phoneId);
-  if (lensId && booked.lens[lensId]) throw new Error('Cannot reactivate booking: lens is already booked on this event date: ' + lensId);
+  const lensId = String(bookingRow[10] || '').trim();
+  if (!eventId) throw new Error('Booking missing event_id');
+  const booked = kkBookedAssetIdsForWindow_(bookingRow, rowNumber);
+  if (phoneId && booked.phone[phoneId]) throw new Error('Cannot reserve booking: phone overlaps another active reservation: ' + phoneId);
+  if (lensId && booked.lens[lensId]) throw new Error('Cannot reserve booking: lens overlaps another active reservation: ' + lensId);
 }
 
 function kkApiCreateBooking_(payload) {
@@ -2253,16 +2347,17 @@ function kkApiCreateBooking_(payload) {
     const bookingStatus = String(payload.booking_status || 'confirmed').toLowerCase().trim();
     let phoneAssetId = String(payload.phone_asset_id || '').trim();
     let lensAssetId = String(payload.lens_asset_id || '').trim();
-    const pickupTime = String(payload.pickup_time || '').trim();
+    const pickupTime = kkValidateBookingClock_(payload.pickup_time, 'pickup_time');
+    const returnTime = kkValidateBookingClock_(payload.return_time, 'return_time');
     const paymentStatus = String(payload.payment_status || 'unpaid').toLowerCase().trim();
     const amountReceived = kkApiNumber_(payload.amount_received, 'amount_received', true) || 0;
     const bookingNote = payload.booking_note || '';
-    
+
     kkEnsureLensCompatibilityPatchInstalled_();
     if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id and customer_name');
     if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) throw new Error('Invalid booking_status');
     if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) throw new Error('Invalid payment_status');
-    
+
     templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
     const event = kkGetEventById_(eventId);
     if (kkIsPastEventDate_(event.event_date)) throw new Error('Cannot create booking for a past event date: ' + kkApiDate_(event.event_date));
@@ -2273,17 +2368,39 @@ function kkApiCreateBooking_(payload) {
     kkAssertWebPackageBookable_(eventId, templateId);
 
     const pkgType = String(pkg.package_type || '').toLowerCase().trim();
-    if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date);
-    if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date);
-    if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
-    if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
-    
+    const proposed = new Array(20).fill('');
+    proposed[2] = bookingStatus;
+    proposed[3] = eventId;
+    proposed[8] = pkgType;
+    proposed[9] = phoneAssetId;
+    proposed[10] = lensAssetId;
+    proposed[11] = pickupTime;
+    proposed[12] = returnTime;
+
+    if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date, 0, proposed);
+    if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date, 0, proposed);
+    if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) {
+      phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date, proposed, 0);
+      proposed[9] = phoneAssetId;
+    }
+    if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) {
+      lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date, proposed, 0);
+      proposed[10] = lensAssetId;
+    }
+    kkAssertBookingAssetsNotDoubleBooked_(0, proposed, bookingStatus);
+
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
     kkSheet_(KK.bookings).getRange(row, 2, 1, 19).setValues([[
       new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
-      pkgType, phoneAssetId, lensAssetId, pickupTime, '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
+      pkgType, phoneAssetId, lensAssetId, pickupTime, returnTime, paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ]]);
-    return { row_number: row, phone_asset_id: phoneAssetId, lens_asset_id: lensAssetId };
+    return {
+      row_number: row,
+      phone_asset_id: phoneAssetId,
+      lens_asset_id: lensAssetId,
+      pickup_time: pickupTime,
+      return_time: returnTime
+    };
   } finally {
     lock.releaseLock();
   }
@@ -2296,7 +2413,7 @@ function kkApiUpdateBooking_(payload) {
     const sh = kkSheet_(KK.bookings);
     const current = sh.getRange(row, 1, 1, 20).getValues()[0];
     if (!current[0] && !current[3]) throw new Error('Booking row is empty: ' + row);
-    
+
     const nextStatus = String(payload.booking_status || current[2] || '').toLowerCase().trim();
     const paymentStatus = String(payload.payment_status || current[13] || '').toLowerCase().trim();
     const amountReceived = payload.amount_received === undefined || payload.amount_received === '' ? current[14] : kkApiNumber_(payload.amount_received, 'amount_received', true);
@@ -2312,7 +2429,8 @@ function kkApiUpdateBooking_(payload) {
     if (payload.contact_channel !== undefined && payload.contact_channel !== '') next[7] = payload.contact_channel || 'LINE';
     if (payload.phone_asset_id !== undefined) next[9] = String(payload.phone_asset_id || '').trim();
     if (payload.lens_asset_id !== undefined) next[10] = String(payload.lens_asset_id || '').trim();
-    if (payload.pickup_time !== undefined) next[11] = payload.pickup_time || '';
+    if (payload.pickup_time !== undefined) next[11] = kkValidateBookingClock_(payload.pickup_time, 'pickup_time');
+    if (payload.return_time !== undefined) next[12] = kkValidateBookingClock_(payload.return_time, 'return_time');
     if (payload.payment_status !== undefined && payload.payment_status !== '') next[13] = paymentStatus;
     if (payload.amount_received !== undefined && payload.amount_received !== '') next[14] = amountReceived;
     if (payload.booking_note !== undefined) next[19] = payload.booking_note || '';
@@ -2321,30 +2439,35 @@ function kkApiUpdateBooking_(payload) {
     const eventId = String(next[3] || '').trim();
     const event = kkGetEventById_(eventId);
 
-    // Critical workflow guard: older bookings may reserve package stock correctly but
-    // still have blank physical Asset IDs. When admin clicks “เตรียมแล้ว” (prepared)
-    // or “รับแล้ว” (picked_up), assign the missing phone/lens automatically.
-    kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date);
+    kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date, row);
 
     if (kkActiveHold_(nextStatus)) {
-      if (next[9]) kkValidateManualAsset_(next[9], 'phone', '', event.event_date, row);
-      if (next[10]) kkValidateManualAsset_(next[10], 'lens', '', event.event_date, row);
+      if (next[9]) kkValidateManualAsset_(next[9], 'phone', '', event.event_date, row, next);
+      if (next[10]) kkValidateManualAsset_(next[10], 'lens', '', event.event_date, row, next);
     }
     kkAssertBookingAssetsNotDoubleBooked_(row, next, nextStatus);
 
     sh.getRange(row, 3).setValue(next[2]);
     sh.getRange(row, 5, 1, 4).setValues([[next[4], next[5], next[6], next[7]]]);
     sh.getRange(row, 10, 1, 2).setValues([[next[9], next[10]]]);
-    sh.getRange(row, 12).setValue(next[11]);
+    sh.getRange(row, 12, 1, 2).setValues([[next[11], next[12]]]);
     sh.getRange(row, 14, 1, 2).setValues([[next[13], next[14]]]);
     sh.getRange(row, 20).setValue(next[19]);
 
-    return { row_number: row, booking_id: current[0] || '', booking_status: next[2], payment_status: next[13], phone_asset_id: next[9], lens_asset_id: next[10] };
+    return {
+      row_number: row,
+      booking_id: current[0] || '',
+      booking_status: next[2],
+      payment_status: next[13],
+      phone_asset_id: next[9],
+      lens_asset_id: next[10],
+      pickup_time: next[11] || '',
+      return_time: next[12] || ''
+    };
   } finally {
     lock.releaseLock();
   }
 }
-
 function kkEnsureSheetWithHeaders_(name, headers) {
   const ss = SpreadsheetApp.getActive();
   let sh = ss.getSheetByName(name);
