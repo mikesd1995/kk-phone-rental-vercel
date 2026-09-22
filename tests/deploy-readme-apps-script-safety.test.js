@@ -15,7 +15,7 @@ function fn(name){
 }
 
 test('review branch is based on recovered production 9_5_9 source but remains deploy fail-closed', () => {
-  assert.match(codeGs,/v16\.7\.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX/);
+  assert.match(codeGs,/v16\.7\.0_CRM_PRO_PHASE3_9_5_10_RETURN_TIME_ATOMICITY_CANDIDATE/);
   assert.doesNotMatch(codeGs,/v16\.7\.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX/);
 
   assert.match(deployReadme,/9_5_9/i);
