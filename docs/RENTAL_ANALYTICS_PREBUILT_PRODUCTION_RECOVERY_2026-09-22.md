@@ -56,6 +56,14 @@ Owner-only comment on PR #164:
 
 A manual workflow dispatch exists as a backup and requires the explicit confirmation string `RUN_RENTAL_ANALYTICS_PREBUILT_PROD`.
 
+## Protected candidate acceptance
+
+Unaliased Production-target candidates inherit Vercel Authentication. Plain `curl` therefore receives the protection redirect instead of the application response.
+
+Candidate acceptance uses `vercel curl` with the existing secret-scoped Vercel token. This authenticates the verification request while keeping Deployment Protection enabled. The workflow does not disable protection and does not create or publish a shareable bypass URL/token.
+
+This was added after recovery run `35754969450` built exact main successfully and created READY candidate `dpl_EDL12198th8kCcKiraDgERfKhjC5`, but its plain-curl candidate probe returned `Redirecting...` and correctly stopped before promotion.
+
 ## Rollback
 
 If the live post-promotion probes fail, the workflow calls Vercel's promote endpoint for the previously serving Production deployment. Because promotion does not rebuild, rollback is not dependent on hosted build capacity.
