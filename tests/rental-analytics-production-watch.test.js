@@ -131,4 +131,6 @@ test('workflow grants read access to commit statuses and uses a shell-safe summa
   assert.match(workflow,/\n\s*pull-requests:\s*write\s*\n/);
   assert.doesNotMatch(workflow,/node\s+-\s+<<['"]?NODE['"]?\s+>>\s+["']?\$GITHUB_STEP_SUMMARY/);
   assert.match(workflow,/node\s+-e\s+['"]/);
+  assert.match(workflow,/kk-rental-analytics-production-watch-fingerprint:/);
+  assert.match(workflow,/legacyFingerprint=.*State fingerprint:/);
 });

@@ -105,3 +105,15 @@ No Vercel deployment, secret, Admin credential, Sheet, Apps Script, Scanner, Ver
 The second push-triggered run (`35735369981`) successfully completed the read-only status lookup and watcher execution, classifying the live state as `BLOCKED_BUILD_RATE_LIMIT` with zero Production/business writes. Publishing the single durable PR #164 state comment then returned HTTP 403 because PR issue-comment access also requires Pull Requests permission for this token.
 
 Remediation: add only `pull-requests: write` so the workflow can list/create/update the one marker comment on PR #164. The watcher logic itself did not require a code change.
+
+### Anti-spam fingerprint remediation
+
+A controlled rerun of the now-healthy watcher proved the state itself was stable, but it still updated the existing PR comment and uploaded a second artifact. The SHA-256 fingerprint value was identical; the defect was only in parsing the Markdown line because the bold formatting inserted `**` between the label and value.
+
+Remediation:
+
+- add a hidden machine-readable fingerprint marker to the durable comment
+- retain a tolerant legacy parser so the existing comment migrates without duplication
+- keep the human-readable fingerprint line for operator inspection
+
+After one migration update, identical material state must produce a true no-op: no comment edit and no changed-state artifact.
