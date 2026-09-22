@@ -11,6 +11,12 @@ test('external web content cannot authorize a capability', () => {
   });
   assert.equal(result.allowed, false);
   assert.equal(result.classification, 'UNTRUSTED_DATA_CANNOT_AUTHORIZE_ACTION');
+
+  const objectiveChange = G.evaluateExternalInstruction({
+    source_type: 'EMAIL',
+    requested_objective_change: true
+  });
+  assert.equal(objectiveChange.allowed, false);
 });
 
 test('lower policy cannot re-allow a capability denied by a higher policy', () => {
@@ -55,6 +61,18 @@ test('hard governance capabilities cannot be self-assigned', () => {
     () => G.assertCapabilityNotHardGovernance('permission.modify'),
     (error) => error && error.code === 'HARD_GOVERNANCE_DENIED'
   );
+  assert.throws(
+    () => G.assertCapabilityNotHardGovernance('secret.read.runtime'),
+    (error) => error && error.code === 'HARD_GOVERNANCE_DENIED'
+  );
+});
+
+test('an explicit empty lower allow-list means deny-all, not inherit-all', () => {
+  const resolved = G.resolvePolicyLayers([
+    { level: 'PLATFORM_HARD', allow: ['github.read', 'web.search'], permission_ceiling: 'P4' },
+    { level: 'PROJECT', allow: [], permission_ceiling: 'P4' }
+  ]);
+  assert.deepEqual(resolved.allow, []);
 });
 
 test('R4 and R5 changes require human approval', () => {
