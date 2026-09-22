@@ -8,7 +8,8 @@ const SnapshotHealth = require('../admin/snapshot-health.js');
 const UpstreamResponse = require('../server/upstream-response.js');
 const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 
-const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.4';
+const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.5';
+const DEFAULT_READ_MODE = 'direct-sheet-primary';
 const SNAPSHOT_UPSTREAM_TIMEOUT_MS = 12000;
 const WRITE_HEALTH_TIMEOUT_MS = 4000;
 const UPSTREAM_CIRCUIT_TTL_MS = 30000;
@@ -71,6 +72,11 @@ function looksLikeAppsScriptUrl(value) {
 function safeUrlHost(value) {
   try { return new URL(String(value || '')).host || ''; }
   catch (_) { return ''; }
+}
+
+function adminReadMode(env = process.env) {
+  const requested = String(env.KK_ADMIN_READ_MODE || '').trim().toLowerCase();
+  return requested === 'apps-script-first' ? 'apps-script-first' : DEFAULT_READ_MODE;
 }
 
 function isDeterministicUpstreamFailure(code) {
@@ -295,7 +301,8 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
   const fallbackStartedAt = Date.now();
   try {
     const failureClass = String(trigger && (trigger.upstream_failure_class || trigger.code) || '');
-    const skipWriteProbe = isDeterministicUpstreamFailure(failureClass);
+    const primaryRead = !!(trigger && trigger.primary_read);
+    const skipWriteProbe = isDeterministicUpstreamFailure(failureClass) || !looksLikeAppsScriptUrl(scriptUrl) || !apiKey;
     const [snapshot, writePathHealth] = await Promise.all([
       AdminSheetFallback.buildSnapshot({ sheetId: frontendSheetId }),
       skipWriteProbe
@@ -303,7 +310,8 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
         : probeWritePath(scriptUrl, apiKey, frontendSheetId, sheetIdSource)
     ]);
     const writeActionsEnabled = !!(writePathHealth && writePathHealth.ok);
-    snapshot.read_degraded = true;
+    snapshot.read_degraded = !primaryRead;
+    snapshot.read_mode = primaryRead ? DEFAULT_READ_MODE : 'apps-script-fallback';
     snapshot.degraded_read_only = !writeActionsEnabled;
     snapshot.write_actions_enabled = writeActionsEnabled;
     snapshot.write_path_health = writePathHealth;
@@ -317,16 +325,21 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
     health.checked_at = new Date().toISOString();
     health.backend_version = snapshot.admin_api_version || '';
     health.proxy_version = SnapshotHealth.VERSION;
-    health.read_degraded = true;
+    health.read_degraded = !primaryRead;
+    health.read_mode = primaryRead ? DEFAULT_READ_MODE : 'apps-script-fallback';
     health.degraded_read_only = !writeActionsEnabled;
     health.write_actions_enabled = writeActionsEnabled;
     health.write_path_health = writePathHealth;
     health.snapshot_source = snapshot.snapshot_source;
     health.warnings = Array.isArray(health.warnings) ? health.warnings : [];
-    health.warnings.push(writeActionsEnabled
-      ? 'Apps Script snapshot is slow/unavailable; Admin is reading from direct Google Sheet fallback, but lightweight Apps Script write-path health passed so writes remain enabled.'
-      : 'Apps Script snapshot is slow/unavailable and lightweight write-path health did not pass; Admin is using direct Google Sheet read-only fallback and writes remain blocked.');
-    if (trigger && trigger.code) health.warnings.push('Fallback trigger: ' + String(trigger.code));
+    health.warnings.push(primaryRead
+      ? (writeActionsEnabled
+        ? 'Admin reads directly from Google Sheet as the primary path; lightweight Apps Script write-path health passed so writes remain enabled during the writer migration.'
+        : 'Admin reads directly from Google Sheet as the primary path; the legacy Apps Script write path is not healthy, so writes remain blocked until an authenticated direct writer is accepted.')
+      : (writeActionsEnabled
+        ? 'Apps Script snapshot is slow/unavailable; Admin is reading from direct Google Sheet fallback, but lightweight Apps Script write-path health passed so writes remain enabled.'
+        : 'Apps Script snapshot is slow/unavailable and lightweight write-path health did not pass; Admin is using direct Google Sheet read-only fallback and writes remain blocked.'));
+    if (trigger && trigger.code && !primaryRead) health.warnings.push('Fallback trigger: ' + String(trigger.code));
     health.fallback_reader = snapshot.fallback_reader || '';
     health.fallback_private_attempted = !!snapshot.fallback_private_attempted;
     health.fallback_private_error_code = snapshot.fallback_private_error_code || '';
@@ -340,8 +353,10 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
         snapshot_health: health
       });
     }
-    console.info('KK_ADMIN_DIRECT_SHEET_FALLBACK', JSON.stringify({
+    res.setHeader('X-KK-Admin-Read-Mode', primaryRead ? DEFAULT_READ_MODE : 'apps-script-fallback');
+    console.info(primaryRead ? 'KK_ADMIN_DIRECT_SHEET_PRIMARY' : 'KK_ADMIN_DIRECT_SHEET_FALLBACK', JSON.stringify({
       action,
+      read_mode: primaryRead ? DEFAULT_READ_MODE : 'apps-script-fallback',
       trigger_code: String(trigger && trigger.code || ''),
       upstream_status: Number(trigger && trigger.upstream_status || 0),
       fallback_reader: String(snapshot.fallback_reader || ''),
@@ -366,14 +381,15 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
         data: health,
         degraded_read_only: !writeActionsEnabled,
         write_actions_enabled: writeActionsEnabled,
-        read_degraded: true,
+        read_degraded: !primaryRead,
+        read_mode: primaryRead ? DEFAULT_READ_MODE : 'apps-script-fallback',
         write_path_health: writePathHealth,
         snapshot_source: snapshot.snapshot_source,
         fallback_trigger: trigger || {},
         proxy_upstream_ms: upstreamMs,
         fallback_ms: fallbackMs,
         proxy_round_trip_ms: Number(health.latency_ms || 0),
-        proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS,
+        proxy_timeout_ms: primaryRead ? WRITE_HEALTH_TIMEOUT_MS : SNAPSHOT_UPSTREAM_TIMEOUT_MS,
         fallback_cache_status: String(snapshot.fallback_cache_status || ''),
         upstream_circuit_open: !!(trigger && trigger.circuit_open)
       });
@@ -384,14 +400,15 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       snapshot_health: health,
       degraded_read_only: !writeActionsEnabled,
       write_actions_enabled: writeActionsEnabled,
-      read_degraded: true,
+      read_degraded: !primaryRead,
+      read_mode: primaryRead ? DEFAULT_READ_MODE : 'apps-script-fallback',
       write_path_health: writePathHealth,
       snapshot_source: snapshot.snapshot_source,
       fallback_trigger: trigger || {},
       proxy_upstream_ms: upstreamMs,
       fallback_ms: fallbackMs,
       proxy_round_trip_ms: Number(health.latency_ms || 0),
-      proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS,
+      proxy_timeout_ms: primaryRead ? WRITE_HEALTH_TIMEOUT_MS : SNAPSHOT_UPSTREAM_TIMEOUT_MS,
       fallback_cache_status: String(snapshot.fallback_cache_status || ''),
       upstream_circuit_open: !!(trigger && trigger.circuit_open)
     });
@@ -440,6 +457,19 @@ async function handleSnapshot(req, res, payload, action) {
   const envSheetId = String(process.env.GOOGLE_SHEET_ID || '').trim();
   const frontendSheetId = envSheetId || DEFAULT_SHEET_ID;
   const sheetIdSource = envSheetId ? 'env' : 'default-fallback';
+  const readMode = adminReadMode(process.env);
+
+  if (readMode === DEFAULT_READ_MODE) {
+    return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
+      code: 'DIRECT_SHEET_PRIMARY',
+      error_code: '',
+      error: '',
+      upstream_failure_class: '',
+      upstream_status: 0,
+      upstream_ms: 0,
+      primary_read: true
+    }, Date.now(), scriptUrl, apiKey);
+  }
 
   if (!scriptUrl || !apiKey) {
     return json(res, 500, {
@@ -673,5 +703,7 @@ module.exports._test = {
   openUpstreamCircuit,
   activeUpstreamCircuit,
   clearUpstreamCircuit,
-  skippedWritePathHealth
+  skippedWritePathHealth,
+  adminReadMode,
+  DEFAULT_READ_MODE
 };
