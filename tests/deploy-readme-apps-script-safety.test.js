@@ -15,7 +15,7 @@ function fn(name){
 }
 
 test('review branch is based on recovered production 9_5_9 source but remains deploy fail-closed', () => {
-  assert.match(codeGs,/v16\.7\.0_CRM_PRO_PHASE3_9_5_10_RETURN_TIME_ATOMICITY_CANDIDATE/);
+  assert.match(codeGs,/v16\.7\.0_CRM_PRO_PHASE3_9_5_11_TIMEZONE_GUARD_CANDIDATE/);
   assert.doesNotMatch(codeGs,/v16\.7\.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX/);
 
   assert.match(deployReadme,/9_5_9/i);
@@ -76,6 +76,44 @@ test('Admin UI and edit population expose return_time in the staged flow', () =>
   assert.ok(fields.length>=2,'create and edit booking forms must both expose return_time');
   assert.match(adminJs,/set\("return_time",\s*fmtPickupTime\(b\.return_time\)\)/);
   assert.match(adminJs,/\["booking_status"[^\]]*"return_time"/);
+});
+
+test('Apps Script diagnostics expose timezone and installed-trigger inventory without secrets', () => {
+  assert.match(codeGs,/function\s+kkTimeZoneDiagnostics_\s*\(/);
+  assert.match(codeGs,/Session\.getScriptTimeZone\(\)/);
+  assert.match(codeGs,/getSpreadsheetTimeZone\(\)/);
+  assert.match(codeGs,/function\s+kkProjectTriggerDiagnostics_\s*\(/);
+  assert.match(codeGs,/ScriptApp\.getProjectTriggers\(\)/);
+  assert.match(codeGs,/cleanup_handler_count/);
+  assert.match(codeGs,/schedule_hour_verifiable:\s*false/);
+
+  const phase=fn('kkPhase1Diagnostics_');
+  assert.match(phase,/script_time_zone/);
+  assert.match(phase,/spreadsheet_time_zone/);
+  assert.match(phase,/time_zone_aligned/);
+  assert.match(phase,/project_triggers/);
+  assert.doesNotMatch(phase,/KK_ADMIN_API_KEY[^\n]*getProperty[^\n]*\)/,
+    'phase1Health must report key presence only, not return a secret value');
+});
+
+test('Apps Script mutations fail closed when timezone alignment is not proven', () => {
+  assert.match(codeGs,/function\s+kkAssertWriteTimeZonesAligned_\s*\(/);
+  assert.match(codeGs,/TIMEZONE_ALIGNMENT_REQUIRED/);
+  const post=fn('doPost');
+  const guard=post.indexOf("kkAssertWriteTimeZonesAligned_()");
+  const dispatch=post.indexOf("switch (action)");
+  assert.ok(guard>=0 && dispatch>guard,'timezone guard must execute before write dispatch');
+  assert.match(post,/action !== 'snapshot'/);
+  assert.match(post,/action !== 'phase1Health'/);
+});
+
+test('Vercel System Health surfaces timezone and trigger evidence', () => {
+  const proxy=fs.readFileSync(path.join(root,'server','admin-proxy.js'),'utf8');
+  assert.match(proxy,/time_zone_alignment/);
+  assert.match(proxy,/cleanup_trigger_inventory/);
+  assert.match(proxy,/apps_script_time_zone/);
+  assert.match(proxy,/spreadsheet_time_zone/);
+  assert.match(proxy,/Expected exactly one kkCleanupOldData30DaysAuto installed trigger/);
 });
 
 test('production-only capabilities are not invented by source recovery', () => {
