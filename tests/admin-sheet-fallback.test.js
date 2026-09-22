@@ -66,3 +66,28 @@ test('range-aligned row numbers preserve physical Sheet coordinates',()=>{
   assert.equal(rows[0].__row_number,5);
   assert.equal(rows[1].__row_number,6);
 });
+
+
+test('coalesces concurrent direct-Sheet fallback reads and briefly reuses the snapshot',async()=>{
+  F.clearSnapshotCache();
+  let calls=0;
+  const fetchImpl=async(url)=>{
+    calls++;
+    await new Promise(resolve=>setTimeout(resolve,5));
+    const u=new URL(String(url));
+    const sheet=u.searchParams.get('sheet');
+    const spec=Object.values(F.SPECS).find(x=>x.sheet===sheet);
+    assert.ok(spec,'unexpected fallback sheet '+sheet);
+    return {ok:true,status:200,text:async()=>JSON.stringify(spec.header)+'\\n'};
+  };
+  const opts={sheetId:'sheet-cache-test',env:{},fetchImpl,cacheTtlMs:2000};
+  const [a,b]=await Promise.all([F.buildSnapshot(opts),F.buildSnapshot(opts)]);
+  assert.equal(calls,Object.keys(F.SPECS).length);
+  assert.deepEqual(new Set([a.fallback_cache_status,b.fallback_cache_status]),new Set(['miss','coalesced']));
+  const third=await F.buildSnapshot(opts);
+  assert.equal(third.fallback_cache_status,'hit');
+  assert.equal(calls,Object.keys(F.SPECS).length);
+  assert.equal(third.degraded_read_only,true);
+  assert.equal(third.write_actions_enabled,false);
+  F.clearSnapshotCache();
+});
