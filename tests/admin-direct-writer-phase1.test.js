@@ -61,10 +61,9 @@ test('updateEvent planner is update-in-place, preserves web price cells, and ref
   assert.equal(p.mutations[0].values[3],'New Venue');
   assert.equal(p.mutations[0].values[5],'closed');
   assert.equal(p.mutations[0].values[6],false);
-  assert.equal(p.mutations[1].sheet,'09_Web_Packages');
-  assert.equal(p.mutations[1].column,8);
-  assert.equal(p.mutations[1].values[0],'=IF(B5="","",890)');
-  assert.equal(p.readbacks[1].render,'FORMULA');
+  assert.equal(p.mutations.length,1);
+  assert.equal(p.readbacks.length,1);
+  assert.equal(p.mutations.some(x=>x.sheet==='09_Web_Packages'),false);
 
   const legacy=Phase1.buildUpdateEventPlan({
     action:'updateEvent',event_id:'EVT-1',poster_url:'https://drive.google.com/new'
