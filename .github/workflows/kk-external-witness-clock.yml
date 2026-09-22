@@ -2,7 +2,9 @@ name: KK External Witness Clock V2
 
 on:
   schedule:
-    - cron: '7 * * * *'
+    # v4.9.24: one workflow/provider with two natural delivery attempts per hour.
+    # Both attempts floor to the same exact Bangkok top-of-hour occurrence.
+    - cron: '7,13 * * * *'
 
 permissions:
   contents: read
