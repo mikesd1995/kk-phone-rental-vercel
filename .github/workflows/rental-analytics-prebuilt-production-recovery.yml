@@ -264,12 +264,16 @@ jobs:
       - name: Candidate route acceptance before traffic switch
         shell: bash
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           CANDIDATE_URL: ${{ steps.candidate.outputs.url }}
         run: |
           set -euo pipefail
-          AUTH_STATUS="$(curl -sS -o candidate-auth.json -w '%{http_code}' "$CANDIDATE_URL/api/kk-admin-auth")"
-          ANALYTICS_STATUS="$(curl -sS -o candidate-analytics.json -w '%{http_code}' "$CANDIDATE_URL/api/kk-rental-dashboard")"
-          STORE_STATUS="$(curl -sS -o /dev/null -w '%{http_code}' "$CANDIDATE_URL/")"
+          # Unaliased Production-target candidates are protected by Vercel Authentication.
+          # Use Vercel-authenticated curl instead of weakening Deployment Protection or
+          # generating a shareable bypass token.
+          AUTH_STATUS="$(npx vercel curl "$CANDIDATE_URL/api/kk-admin-auth" --token="$VERCEL_TOKEN" -sS -o candidate-auth.json -w '%{http_code}')"
+          ANALYTICS_STATUS="$(npx vercel curl "$CANDIDATE_URL/api/kk-rental-dashboard" --token="$VERCEL_TOKEN" -sS -o candidate-analytics.json -w '%{http_code}')"
+          STORE_STATUS="$(npx vercel curl "$CANDIDATE_URL/" --token="$VERCEL_TOKEN" -sS -o /dev/null -w '%{http_code}')"
           test "$AUTH_STATUS" = "200"
           test "$ANALYTICS_STATUS" = "401"
           test "$STORE_STATUS" = "200"
