@@ -1,0 +1,452 @@
+name: Rental Analytics Prebuilt Production Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RUN_RENTAL_ANALYTICS_PREBUILT_PROD'
+        required: true
+        type: string
+      approved_sha:
+        description: 'Exact current main SHA approved for Production'
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: kk-rental-analytics-prebuilt-production-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover-production:
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 164 &&
+          github.event.comment.user.login == github.repository_owner &&
+          github.event.comment.author_association == 'OWNER' &&
+          startsWith(github.event.comment.body, '/run-rental-analytics-prebuilt ')
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    env:
+      VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+      VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+      VERCEL_PROJECT_NAME: kk-phone-rental-vercel
+      PRODUCTION_URL: https://kk-phone-rental.vercel.app
+      RENTAL_ANALYTICS_FIX_SHA: 061da369297dbce1042cc4822edf9f93956e3776
+
+    steps:
+      - name: Require explicit owner authorization
+        id: authz
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_CONFIRM: ${{ inputs.confirm }}
+          MANUAL_SHA: ${{ inputs.approved_sha }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_LOGIN: ${{ github.event.comment.user.login }}
+          COMMENT_ASSOCIATION: ${{ github.event.comment.author_association }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            test "$MANUAL_CONFIRM" = "RUN_RENTAL_ANALYTICS_PREBUILT_PROD"
+            APPROVED_SHA="$MANUAL_SHA"
+          else
+            test "$EVENT_NAME" = "issue_comment"
+            test "$ISSUE_NUMBER" = "164"
+            test "$COMMENT_LOGIN" = "$REPOSITORY_OWNER"
+            test "$COMMENT_ASSOCIATION" = "OWNER"
+            APPROVED_SHA="$(printf '%s' "$COMMENT_BODY" | sed -nE 's#^/run-rental-analytics-prebuilt ([0-9a-f]{40})$#\1#p')"
+          fi
+          printf '%s' "$APPROVED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          echo "approved_sha=$APPROVED_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact approved main
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.authz.outputs.approved_sha }}
+          fetch-depth: 0
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Pin exact current main and fix lineage
+        id: pin
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ steps.authz.outputs.approved_sha }}
+        run: |
+          set -euo pipefail
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          CURRENT_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$CHECKED_OUT_SHA" = "$APPROVED_SHA"
+          test "$CURRENT_MAIN" = "$APPROVED_SHA"
+          git merge-base --is-ancestor "$RENTAL_ANALYTICS_FIX_SHA" "$APPROVED_SHA"
+          echo "sha=$APPROVED_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Re-run source acceptance gates
+        run: |
+          set -euo pipefail
+          npm run check
+          npm test
+          test ! -e api/kk-rental-dashboard.js
+          test -f server/rental-dashboard-core.js
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const config=JSON.parse(fs.readFileSync('vercel.json','utf8'));
+          const route=(config.rewrites||[]).find(x=>x.source==='/api/kk-rental-dashboard');
+          if(!route || route.destination!=='/api/kk-rental-dashboard-v6') process.exit(1);
+          const v6=fs.readFileSync('api/kk-rental-dashboard-v6.js','utf8');
+          if(!v6.includes("../server/rental-dashboard-core.js")) process.exit(1);
+          NODE
+
+      - name: Require Vercel token without exposing it
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}"
+
+      - name: Resolve currently serving Production for rollback
+        id: previous
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE' > previous-production.json
+          const token=process.env.VERCEL_TOKEN;
+          const team=process.env.VERCEL_ORG_ID;
+          const project=process.env.VERCEL_PROJECT_ID;
+          const u=new URL('https://api.vercel.com/v6/deployments');
+          u.searchParams.set('projectId',project);
+          u.searchParams.set('target','production');
+          u.searchParams.set('limit','50');
+          u.searchParams.set('teamId',team);
+          const res=await fetch(u,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});
+          if(!res.ok) throw new Error('VERCEL_DEPLOYMENT_LIST_HTTP_'+res.status);
+          const body=await res.json();
+          const list=(body.deployments||[]).filter(d=>
+            String(d.target||'').toLowerCase()==='production' &&
+            String(d.readyState||d.state||'').toUpperCase()==='READY'
+          ).sort((a,b)=>Number(b.created||b.createdAt||0)-Number(a.created||a.createdAt||0));
+          if(!list.length) throw new Error('NO_READY_PRODUCTION');
+          const d=list[0];
+          process.stdout.write(JSON.stringify({
+            id:String(d.id||d.uid||''),
+            sha:String(d.meta&&d.meta.githubCommitSha||''),
+            state:String(d.readyState||d.state||''),
+            url:String(d.url||'')
+          },null,2));
+          NODE
+          PREVIOUS_ID="$(node -e "const r=require('./previous-production.json');process.stdout.write(r.id)")"
+          PREVIOUS_SHA="$(node -e "const r=require('./previous-production.json');process.stdout.write(r.sha)")"
+          printf '%s' "$PREVIOUS_ID" | grep -Eq '^dpl_[A-Za-z0-9]+$'
+          echo "id=$PREVIOUS_ID" >> "$GITHUB_OUTPUT"
+          echo "sha=$PREVIOUS_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Install and record Vercel CLI
+        id: cli
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save vercel@latest >/dev/null
+          VERSION="$(npx vercel --version | tail -n1 | tr -d '\r')"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Pull Production settings into ephemeral runner only
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+          npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN" >/tmp/vercel-pull.log 2>&1
+          test -f .vercel/project.json
+          # Do not print or archive pulled environment files.
+          find .vercel -maxdepth 1 -type f -name '.env*' -print0 | xargs -0 -r chmod 600
+
+      - name: Build exact main locally with Production settings
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          npx vercel build --prod --token="$VERCEL_TOKEN" >/tmp/vercel-build.log 2>&1
+          test -f .vercel/output/config.json
+          test -d .vercel/output
+          node -e "const fs=require('node:fs');JSON.parse(fs.readFileSync('.vercel/output/config.json','utf8'));"
+
+      - name: Recheck main before any Vercel mutation
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ steps.authz.outputs.approved_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$CURRENT_MAIN" = "$APPROVED_SHA"
+
+      - name: Create unaliased prebuilt Production candidate
+        id: candidate
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          APPROVED_SHA: ${{ steps.authz.outputs.approved_sha }}
+        run: |
+          set -euo pipefail
+          npx vercel deploy \
+            --prebuilt \
+            --prod \
+            --skip-domain \
+            --yes \
+            --meta "kkRecovery=rental-analytics-route-shadow" \
+            --meta "approvedSha=$APPROVED_SHA" \
+            --token="$VERCEL_TOKEN" \
+            > candidate-deploy.out 2> candidate-deploy.err
+          CANDIDATE_URL="$(grep -Eo 'https://[^[:space:]]+\.vercel\.app' candidate-deploy.out | tail -n1)"
+          test -n "$CANDIDATE_URL"
+          echo "url=$CANDIDATE_URL" >> "$GITHUB_OUTPUT"
+          echo "$CANDIDATE_URL" > candidate-url.txt
+
+      - name: Resolve and validate candidate deployment
+        id: candidate_meta
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CANDIDATE_URL: ${{ steps.candidate.outputs.url }}
+          APPROVED_SHA: ${{ steps.authz.outputs.approved_sha }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE' > candidate-deployment.json
+          const token=process.env.VERCEL_TOKEN;
+          const host=new URL(process.env.CANDIDATE_URL).hostname;
+          const team=process.env.VERCEL_ORG_ID;
+          const res=await fetch('https://api.vercel.com/v13/deployments/'+encodeURIComponent(host)+'?teamId='+encodeURIComponent(team),{
+            headers:{Authorization:'Bearer '+token,Accept:'application/json'}
+          });
+          if(!res.ok) throw new Error('CANDIDATE_LOOKUP_HTTP_'+res.status);
+          const d=await res.json();
+          const state=String(d.readyState||d.state||'').toUpperCase();
+          if(state!=='READY') throw new Error('CANDIDATE_NOT_READY_'+state);
+          const id=String(d.id||d.uid||'');
+          if(!/^dpl_[A-Za-z0-9]+$/.test(id)) throw new Error('CANDIDATE_ID_INVALID');
+          const approved=String(d.meta&&d.meta.approvedSha||'');
+          if(approved && approved!==process.env.APPROVED_SHA) throw new Error('CANDIDATE_APPROVED_SHA_MISMATCH');
+          process.stdout.write(JSON.stringify({
+            id,
+            state,
+            url:String(d.url||host),
+            git_sha:String(d.meta&&d.meta.githubCommitSha||''),
+            approved_sha_meta:approved
+          },null,2));
+          NODE
+          CANDIDATE_ID="$(node -e "const r=require('./candidate-deployment.json');process.stdout.write(r.id)")"
+          echo "id=$CANDIDATE_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Candidate route acceptance before traffic switch
+        shell: bash
+        env:
+          CANDIDATE_URL: ${{ steps.candidate.outputs.url }}
+        run: |
+          set -euo pipefail
+          AUTH_STATUS="$(curl -sS -o candidate-auth.json -w '%{http_code}' "$CANDIDATE_URL/api/kk-admin-auth")"
+          ANALYTICS_STATUS="$(curl -sS -o candidate-analytics.json -w '%{http_code}' "$CANDIDATE_URL/api/kk-rental-dashboard")"
+          STORE_STATUS="$(curl -sS -o /dev/null -w '%{http_code}' "$CANDIDATE_URL/")"
+          test "$AUTH_STATUS" = "200"
+          test "$ANALYTICS_STATUS" = "401"
+          test "$STORE_STATUS" = "200"
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const auth=JSON.parse(fs.readFileSync('candidate-auth.json','utf8'));
+          const analytics=JSON.parse(fs.readFileSync('candidate-analytics.json','utf8'));
+          if(auth.ok!==true || auth.authenticated!==false) process.exit(1);
+          if(analytics.ok!==false || analytics.error!=='Unauthorized') process.exit(1);
+          NODE
+
+      - name: Final exact-main gate
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ steps.authz.outputs.approved_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$CURRENT_MAIN" = "$APPROVED_SHA"
+
+      - name: Promote accepted candidate to Production traffic
+        id: promote
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CANDIDATE_ID: ${{ steps.candidate_meta.outputs.id }}
+        run: |
+          set -euo pipefail
+          HTTP_CODE="$(curl -sS -o promote-response.json -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H 'Content-Type: application/json' \
+            "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/promote/$CANDIDATE_ID?teamId=$VERCEL_ORG_ID")"
+          case "$HTTP_CODE" in
+            200|201|202) ;;
+            *) echo "Promotion failed with HTTP $HTTP_CODE"; exit 1 ;;
+          esac
+          echo "promoted=true" >> "$GITHUB_OUTPUT"
+
+      - name: Verify live Production; rollback on any mismatch
+        id: live
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CANDIDATE_ID: ${{ steps.candidate_meta.outputs.id }}
+          PREVIOUS_ID: ${{ steps.previous.outputs.id }}
+        run: |
+          set -euo pipefail
+          rollback() {
+            echo "Live verification failed; restoring previous Production deployment."
+            CODE="$(curl -sS -o rollback-response.json -w '%{http_code}' \
+              -X POST \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              -H 'Content-Type: application/json' \
+              "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/promote/$PREVIOUS_ID?teamId=$VERCEL_ORG_ID" || true)"
+            case "$CODE" in
+              200|201|202) echo "rollback_requested=true" >> "$GITHUB_OUTPUT" ;;
+              *) echo "ROLLBACK_PROMOTE_FAILED_HTTP_$CODE" ;;
+            esac
+          }
+          trap 'rollback' ERR
+
+          # Give Vercel alias propagation a bounded window.
+          OK=0
+          for i in $(seq 1 30); do
+            AUTH_STATUS="$(curl -sS -o live-auth.json -w '%{http_code}' "$PRODUCTION_URL/api/kk-admin-auth" || true)"
+            ANALYTICS_STATUS="$(curl -sS -o live-analytics.json -w '%{http_code}' "$PRODUCTION_URL/api/kk-rental-dashboard" || true)"
+            if [ "$AUTH_STATUS" = "200" ] && [ "$ANALYTICS_STATUS" = "401" ]; then
+              if node - <<'NODE'
+              const fs=require('node:fs');
+              try{
+                const auth=JSON.parse(fs.readFileSync('live-auth.json','utf8'));
+                const analytics=JSON.parse(fs.readFileSync('live-analytics.json','utf8'));
+                process.exit(auth.ok===true && auth.authenticated===false && analytics.ok===false && analytics.error==='Unauthorized' ? 0 : 1);
+              }catch(_){ process.exit(1); }
+              NODE
+              then
+                OK=1
+                break
+              fi
+            fi
+            sleep 4
+          done
+          test "$OK" = "1"
+
+          node - <<'NODE' > live-production.json
+          const token=process.env.VERCEL_TOKEN;
+          const team=process.env.VERCEL_ORG_ID;
+          const project=process.env.VERCEL_PROJECT_ID;
+          const candidate=process.env.CANDIDATE_ID;
+          const u=new URL('https://api.vercel.com/v6/deployments');
+          u.searchParams.set('projectId',project);
+          u.searchParams.set('target','production');
+          u.searchParams.set('limit','20');
+          u.searchParams.set('teamId',team);
+          const res=await fetch(u,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});
+          if(!res.ok) throw new Error('LIVE_DEPLOYMENT_LIST_HTTP_'+res.status);
+          const body=await res.json();
+          const hit=(body.deployments||[]).find(d=>String(d.id||d.uid||'')===candidate);
+          if(!hit) throw new Error('PROMOTED_CANDIDATE_NOT_IN_PRODUCTION_LIST');
+          process.stdout.write(JSON.stringify({
+            id:String(hit.id||hit.uid||''),
+            state:String(hit.readyState||hit.state||''),
+            sha:String(hit.meta&&hit.meta.githubCommitSha||''),
+            approved_sha_meta:String(hit.meta&&hit.meta.approvedSha||'')
+          },null,2));
+          NODE
+          trap - ERR
+          echo "verified=true" >> "$GITHUB_OUTPUT"
+
+      - name: Write secret-safe recovery report
+        if: ${{ always() }}
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ steps.authz.outputs.approved_sha }}
+          PREVIOUS_ID: ${{ steps.previous.outputs.id }}
+          PREVIOUS_SHA: ${{ steps.previous.outputs.sha }}
+          CANDIDATE_URL: ${{ steps.candidate.outputs.url }}
+          CANDIDATE_ID: ${{ steps.candidate_meta.outputs.id }}
+          PROMOTED: ${{ steps.promote.outputs.promoted }}
+          VERIFIED: ${{ steps.live.outputs.verified }}
+          ROLLBACK_REQUESTED: ${{ steps.live.outputs.rollback_requested }}
+          CLI_VERSION: ${{ steps.cli.outputs.version }}
+        run: |
+          node - <<'NODE' > rental-analytics-production-recovery.json
+          const report={
+            schema:'KK_RENTAL_ANALYTICS_PREBUILT_PRODUCTION_RECOVERY_V1',
+            checked_at:new Date().toISOString(),
+            approved_sha:process.env.APPROVED_SHA||'',
+            previous_production:{id:process.env.PREVIOUS_ID||'',sha:process.env.PREVIOUS_SHA||''},
+            candidate:{id:process.env.CANDIDATE_ID||'',url:process.env.CANDIDATE_URL||''},
+            vercel_cli_version:process.env.CLI_VERSION||'',
+            promoted:process.env.PROMOTED==='true',
+            live_verified:process.env.VERIFIED==='true',
+            rollback_requested:process.env.ROLLBACK_REQUESTED==='true',
+            safety:{
+              admin_pin_used:false,
+              admin_session_secret_used:false,
+              google_sheet_writes:0,
+              apps_script_writes:0,
+              business_writes:0,
+              scanner_verifier_canary_mutations:0,
+              build_location:'github_actions_ephemeral_runner',
+              production_candidate_created_unaliased:true
+            }
+          };
+          process.stdout.write(JSON.stringify(report,null,2));
+          NODE
+          cat rental-analytics-production-recovery.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload secret-safe recovery evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rental-analytics-prebuilt-production-recovery-${{ github.run_id }}
+          path: |
+            previous-production.json
+            candidate-deployment.json
+            candidate-url.txt
+            candidate-auth.json
+            candidate-analytics.json
+            live-auth.json
+            live-analytics.json
+            live-production.json
+            rental-analytics-production-recovery.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Require terminal verified state
+        if: ${{ always() }}
+        shell: bash
+        env:
+          PROMOTED: ${{ steps.promote.outputs.promoted }}
+          VERIFIED: ${{ steps.live.outputs.verified }}
+          ROLLBACK_REQUESTED: ${{ steps.live.outputs.rollback_requested }}
+        run: |
+          set -euo pipefail
+          test "$PROMOTED" = "true"
+          test "$VERIFIED" = "true"
+          test "${ROLLBACK_REQUESTED:-false}" != "true"
