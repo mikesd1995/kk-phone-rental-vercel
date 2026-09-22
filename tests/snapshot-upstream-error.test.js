@@ -64,12 +64,16 @@ function validSnapshot() {
 
 test.beforeEach(() => {
   setEnv();
+  handler._test.clearUpstreamCircuit();
+  if (AdminSheetFallback.clearSnapshotCache) AdminSheetFallback.clearSnapshotCache();
 });
 
 test.afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
   global.fetch = ORIGINAL_FETCH;
   AdminSheetFallback.buildSnapshot = ORIGINAL_BUILD_SNAPSHOT;
+  handler._test.clearUpstreamCircuit();
+  if (AdminSheetFallback.clearSnapshotCache) AdminSheetFallback.clearSnapshotCache();
 });
 
 
@@ -136,7 +140,7 @@ test('passes a healthy snapshot and attaches snapshot health metadata', async ()
   assert.equal(out.body.data.events.length, 1);
   assert.equal(out.body.snapshot_health.ok, true);
   assert.equal(out.body.data.frontend_sheet_id, process.env.GOOGLE_SHEET_ID);
-  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.3');
+  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.4');
 });
 
 
@@ -304,4 +308,51 @@ test('uses direct-Sheet read-only fallback when Apps Script deployment is missin
   assert.equal(typeof out.body.proxy_upstream_ms,'number');
   assert.equal(typeof out.body.fallback_ms,'number');
   assert.equal(typeof out.body.proxy_round_trip_ms,'number');
+});
+
+
+test('skips redundant write-health probe after deterministic Apps Script deployment failure', async () => {
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  let upstreamCalls = 0;
+  global.fetch = async () => {
+    upstreamCalls++;
+    throw new Error('write-health probe should have been skipped');
+  };
+  const out = responseCapture();
+  await handler._test.respondWithDirectSheetFallback(
+    out.res,
+    'snapshot',
+    process.env.GOOGLE_SHEET_ID,
+    'env',
+    {
+      code: 'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND',
+      error_code: 'SNAPSHOT_UPSTREAM_NON_JSON',
+      upstream_failure_class: 'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND',
+      upstream_status: 404,
+      upstream_ms: 25
+    },
+    Date.now(),
+    process.env.KK_ADMIN_SCRIPT_URL,
+    process.env.KK_ADMIN_API_KEY
+  );
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.ok, true);
+  assert.equal(out.body.write_actions_enabled, false);
+  assert.equal(out.body.write_path_health.checked, false);
+  assert.equal(out.body.write_path_health.skipped, true);
+  assert.equal(out.body.write_path_health.error_code, 'WRITE_HEALTH_UPSTREAM_UNAVAILABLE');
+  assert.equal(upstreamCalls, 0);
+});
+
+test('upstream circuit is URL-scoped and expires fail-safe', () => {
+  const url = process.env.KK_ADMIN_SCRIPT_URL;
+  const other = 'https://script.google.com/macros/s/other-deployment/exec';
+  handler._test.clearUpstreamCircuit();
+  assert.equal(handler._test.activeUpstreamCircuit(url, 1000), null);
+  handler._test.openUpstreamCircuit(url, 'UPSTREAM_TIMEOUT', 1000);
+  const active = handler._test.activeUpstreamCircuit(url, 1001);
+  assert.equal(active.code, 'UPSTREAM_TIMEOUT');
+  assert.equal(active.retry_after_ms, handler._test.UPSTREAM_CIRCUIT_TTL_MS - 1);
+  assert.equal(handler._test.activeUpstreamCircuit(other, 1001), null);
+  assert.equal(handler._test.activeUpstreamCircuit(url, 1000 + handler._test.UPSTREAM_CIRCUIT_TTL_MS + 1), null);
 });
