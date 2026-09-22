@@ -7,6 +7,7 @@ const { Readable } = require('stream');
 const LegacyAdmin = require('../server/admin-proxy.js');
 const SnapshotHealth = require('../admin/snapshot-health.js');
 const ReservationGuard = require('../admin/reservation-guard.js');
+const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -49,25 +50,30 @@ function clonedRequest(req,raw){
 
 async function fetchFreshSnapshot(env,timeoutMs){
   const waitMs=Number(timeoutMs||18000);
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),waitMs);
+  let timer=null;
+  const timeout=new Promise((_,reject)=>{
+    timer=setTimeout(()=>{
+      const err=new Error('Direct-Sheet preflight timed out');
+      err.code='DIRECT_SHEET_PREFLIGHT_TIMEOUT';
+      reject(err);
+    },waitMs);
+  });
   try{
-    const r=await fetch(env.scriptUrl,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'snapshot',apiKey:env.apiKey,proxyVersion:SnapshotHealth.VERSION,frontendSheetId:env.sheetId,sheetIdSource:env.sheetIdSource}),
-      signal:controller.signal
-    });
-    const text=await r.text();
-    let parsed;
-    try{ parsed=JSON.parse(text); }
-    catch(_){ throw new Error('Fresh snapshot preflight returned non-JSON'); }
-    if(!r.ok||!parsed||!parsed.ok||!parsed.data) throw new Error(parsed&&parsed.error?parsed.error:'Fresh snapshot preflight failed');
-    const health=SnapshotHealth.assess(parsed.data);
-    if(!health.ok) throw new Error('Fresh snapshot rejected: '+health.issues.join('; '));
-    if(parsed.data.spreadsheet_id&&parsed.data.spreadsheet_id!==env.sheetId) throw new Error('Fresh snapshot spreadsheet_id mismatch');
-    return parsed.data;
-  }finally{ clearTimeout(timer); }
+    const snapshot=await Promise.race([
+      AdminSheetFallback.buildSnapshot({
+        sheetId:env.sheetId,
+        env:process.env,
+        cache:false
+      }),
+      timeout
+    ]);
+    const health=SnapshotHealth.assess(snapshot);
+    if(!health.ok) throw new Error('Fresh direct-Sheet snapshot rejected: '+health.issues.join('; '));
+    if(snapshot.spreadsheet_id&&snapshot.spreadsheet_id!==env.sheetId) throw new Error('Fresh direct-Sheet snapshot spreadsheet_id mismatch');
+    return snapshot;
+  }finally{
+    if(timer) clearTimeout(timer);
+  }
 }
 
 function normalizedTemplateId(raw,eventId){
@@ -368,7 +374,8 @@ module.exports=async function handler(req,res){
   const apiKey=String(process.env.KK_ADMIN_API_KEY||'').trim();
   const envSheetId=String(process.env.GOOGLE_SHEET_ID||'').trim();
   const sheetId=envSheetId||DEFAULT_SHEET_ID;
-  if(!scriptUrl||!apiKey) return reply(res,503,{ok:false,error:(bookingGuarded?'Booking':'Event')+' preflight unavailable: Admin upstream is not configured',error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'});
+  // Preflight no longer depends on Apps Script. Actual writes still delegate to the
+  // guarded legacy writer until the authenticated direct writer passes acceptance.
 
   if(eventGuarded){
     let snapshot;
@@ -383,7 +390,7 @@ module.exports=async function handler(req,res){
       preflightMode='FULL_SNAPSHOT_FALLBACK';
       const fallbackStartedAt=Date.now();
       try{
-        snapshot=await fetchFreshSnapshot({scriptUrl,apiKey,sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},30000);
+        snapshot=await fetchFreshSnapshot({sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},30000);
         preflightMs=Date.now()-fallbackStartedAt;
         res.setHeader('X-KK-Event-Preflight-Fallback',String(leanErr&&leanErr.message?leanErr.message:leanErr).slice(0,180));
       }catch(err){
@@ -420,7 +427,8 @@ module.exports=async function handler(req,res){
 
   let snapshot;
   try{
-    snapshot=await fetchFreshSnapshot({scriptUrl,apiKey,sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},18000);
+    snapshot=await fetchFreshSnapshot({sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},18000);
+    res.setHeader('X-KK-Booking-Preflight','DIRECT_SHEET');
   }catch(err){
     return reply(res,503,{ok:false,error:'Booking preflight unavailable; write blocked: '+(err&&err.message?err.message:String(err)),error_code:'BOOKING_PREFLIGHT_UNAVAILABLE'});
   }
