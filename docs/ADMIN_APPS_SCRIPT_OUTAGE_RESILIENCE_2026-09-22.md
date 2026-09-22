@@ -107,3 +107,24 @@ toward:
 `first failure detection -> safe fallback -> short circuit for repeated reads`
 
 It reduces blast radius and latency during an Apps Script incident. It does not replace the required owner-authenticated recovery of the canonical Apps Script deployment.
+
+
+## Production activation retry checkpoint — 2026-09-22 17:11 ICT
+
+Post-merge Production remained pinned to old deployment `dpl_8Uksu863a6TspwVmHXmKxo9nBQ8j` / commit `9588391d8caa7e40eb1381dc98e86b6873f155ae` after the original main deployment attempt was blocked by Vercel daily deployment quota.
+
+Fresh runtime evidence demonstrates the upstream is genuinely intermittent:
+- 2026-09-22 16:48 ICT: `phase1Health` received Google HTTP 404 HTML classified `APPS_SCRIPT_DEPLOYMENT_NOT_FOUND`;
+- 2026-09-22 17:09 ICT: snapshot upstream still timed out after ~12s and write-health timed out after ~4s;
+- 2026-09-22 17:11 ICT: snapshot still timed out after ~12s, but lightweight write-health succeeded in ~1.24s (`write_health_ok=true`), reducing fallback round trip to ~13.27s on the old runtime.
+
+This alternating 404 / timeout / healthy lightweight write probe proves the observed "works sometimes, fails sometimes" behavior is upstream/deployment-path instability, not an Admin UI crash.
+
+A fresh Preview deployment was observed READY after the earlier daily-quota block, so this documentation-only main checkpoint intentionally retriggers Vercel's normal Production build from current `main`. No runtime/API/server source is changed by this checkpoint. The purpose is to deploy the already-validated resilience runtime from PR #162 with Production environment configuration rather than promoting a Preview artifact whose Admin environment was not proven equivalent.
+
+Safety:
+- no Apps Script deployment or URL guess;
+- no Vercel secret/environment mutation;
+- no Google Sheet business-row mutation;
+- no Sheet timezone or Apps Script trigger mutation;
+- no Scanner/Verifier/Canary/HF activation.
