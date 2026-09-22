@@ -64,6 +64,20 @@ test('quick booking also passes the reservation-window guard', () => {
   assert.match(quick,/kkAssertBookingAssetsNotDoubleBooked_\(0, proposed, bookingStatus\)/);
 });
 
+
+test('recovered Apps Script source parses under the repository Node syntax baseline', () => {
+  assert.doesNotThrow(() => new Function(codeGs));
+});
+
+test('Admin UI and edit population expose return_time in the staged flow', () => {
+  const html=fs.readFileSync(path.join(root,'admin','index.html'),'utf8');
+  const adminJs=fs.readFileSync(path.join(root,'admin','admin.js'),'utf8');
+  const fields=[...html.matchAll(/name="return_time"/g)];
+  assert.ok(fields.length>=2,'create and edit booking forms must both expose return_time');
+  assert.match(adminJs,/set\("return_time",\s*fmtPickupTime\(b\.return_time\)\)/);
+  assert.match(adminJs,/\["booking_status"[^\]]*"return_time"/);
+});
+
 test('production-only capabilities are not invented by source recovery', () => {
   assert.doesNotMatch(codeGs,/function\s+runKKLineMonitor\s*\(/,
     'source recovery must not invent a LINE consumer that is absent from recovered 9_5_9');
