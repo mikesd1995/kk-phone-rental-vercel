@@ -3,7 +3,8 @@
 // Adds System Guard diagnostics for Apps Script URL / Sheet ID / public feed / override pipeline.
 
 const SnapshotHealth = require("../admin/snapshot-health.js");
-const UpstreamResponse = require("../server/upstream-response.js");\nconst DirectWriterPhase1 = require("./admin-direct-writer-phase1.js");
+const UpstreamResponse = require("../server/upstream-response.js");
+const DirectWriterPhase1 = require("./admin-direct-writer-phase1.js");
 const KK_APP_VERSION = SnapshotHealth.VERSION;
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
