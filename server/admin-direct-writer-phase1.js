@@ -494,6 +494,28 @@ async function verifyAudit(requestId,{token,fetchImpl=global.fetch}={}){
   throw err;
 }
 
+async function findAuditRequest(requestId,{token,fetchImpl=global.fetch}={}){
+  const wanted=String(requestId||'');
+  if(!wanted) return null;
+  const rows=await readValues('15_Admin_Audit_Log!A:J',{token,fetchImpl});
+  for(let i=rows.length-1;i>=Math.max(0,rows.length-500);i--){
+    const row=rows[i]||[];
+    const summary=row[5];
+    if(typeof summary!=='string'||!summary.includes(wanted)) continue;
+    try{
+      const parsed=JSON.parse(summary);
+      if(String(parsed.request_id||'')!==wanted) continue;
+      return {
+        row_number:i+1,
+        action:String(row[2]||''),
+        status:String(row[3]||''),
+        result:parsed
+      };
+    }catch(_){}
+  }
+  return null;
+}
+
 function validRequestId(value){
   const v=text(value);
   return /^[A-Za-z0-9._:-]{8,128}$/.test(v)?v:'';
@@ -507,7 +529,8 @@ async function tryExecute(payload,options={}){
   if(!state.configured_actions.includes(action)) return {handled:false,reason:'ACTION_NOT_ROUTED',state};
   if(!state.writer_ready) return {handled:false,reason:'WRITER_NOT_READY',state};
 
-  const requestId=validRequestId(payload&&payload.request_id)||crypto.randomUUID();
+  const suppliedRequestId=validRequestId(payload&&payload.request_id);
+  const requestId=suppliedRequestId||crypto.randomUUID();
   const fetchImpl=options.fetchImpl||global.fetch;
   const tokenProvider=options.tokenProvider||DirectWriter.getAccessToken;
   const load=options.loadModel||loadModel;
@@ -515,8 +538,26 @@ async function tryExecute(payload,options={}){
   const batch=options.executeBatch||executeBatch;
   const verify=options.verifyReadbacks||verifyReadbacks;
   const verifyAuditFn=options.verifyAudit||verifyAudit;
+  const findAudit=options.findAuditRequest||findAuditRequest;
 
   const token=await tokenProvider({env,fetchImpl});
+  if(suppliedRequestId){
+    const prior=await findAudit(requestId,{token,fetchImpl,env});
+    if(prior && prior.status==='OK' && prior.action===action){
+      return {
+        handled:true,status:200,request_id:requestId,
+        body:{
+          ok:true,
+          data:Object.assign({},prior.result||{},{request_id:requestId,audit_row_number:prior.row_number,idempotent_replay:true}),
+          direct_writer:true,
+          direct_writer_version:VERSION,
+          write_transport:'direct-google-sheets',
+          no_legacy_fallback:true,
+          idempotent_replay:true
+        }
+      };
+    }
+  }
   const model=await load(action,{token,fetchImpl,env});
   const plan=buildPlan(payload||{},model);
   if(plan.legacy_required) return {handled:false,reason:plan.reason||'LEGACY_REQUIRED',state,request_id:requestId};
@@ -553,5 +594,5 @@ module.exports={
   normalizeEventDate,dateSerial,dateTimeSerial,priceLensCanonical,webRowMatchesTemplate,
   webPackagePriceFormula,buildUpdateEventPlan,buildUpdatePackagePlan,buildOverridePlan,buildPlan,
   extendedValue,cellData,updateCellsRequest,auditRow,appendAuditRequest,requestsForPlan,
-  readValues,loadModel,sheetMap,executeBatch,rowsEqual,verifyReadbacks,verifyAudit,validRequestId,tryExecute
+  readValues,loadModel,sheetMap,executeBatch,rowsEqual,verifyReadbacks,verifyAudit,findAuditRequest,validRequestId,tryExecute
 };
