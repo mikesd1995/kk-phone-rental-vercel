@@ -9,6 +9,7 @@ Verified source state:
 - Recovered baseline reports v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX.
 - The recovery artifact was captured before behavior changes and committed as a dedicated provenance commit.
 - The review branch adds return_time persistence plus reservation-window collision hardening on top of recovered 9_5_9.
+- The staged behavior candidate is versioned `v16.7.0_CRM_PRO_PHASE3_9_5_10_RETURN_TIME_ATOMICITY_CANDIDATE`; this version is NOT live.
 - Production Apps Script remains the authoritative live deployment until controlled acceptance completes.
 - GitHub issue #9 tracks source recovery/equivalence and deployment authorization.
 
