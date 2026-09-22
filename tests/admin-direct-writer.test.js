@@ -56,7 +56,9 @@ test('action/range allowlist preserves formula columns and rejects arbitrary she
   assert.equal(W.validateTarget('createBooking','00_Master_Booking!A25:T25').ok,false);
   assert.equal(W.validateTarget('createEvent','01_Events!A25:H25').ok,true);
   assert.equal(W.validateTarget('createEvent','01_Events!A25:I25').ok,false);
+  assert.equal(W.validateTarget('createEvent','01_Events!AA25:AH25').ok,false);
   assert.equal(W.validateTarget('upsertEventOverride','04_Event_Overrides!A25:G25').ok,true);
+  assert.equal(W.validateTarget('upsertEventOverride','04_Event_Overrides!AA25:AG25').ok,false);
   assert.equal(W.validateTarget('auditLog','15_Admin_Audit_Log!A25:J25').ok,true);
   assert.equal(W.validateTarget('createBooking','Settings!B25:T25').ok,false);
   assert.equal(W.validateTarget('deleteAsset','02_Assets!A5:G5').ok,false);
