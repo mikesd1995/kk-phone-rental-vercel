@@ -78,7 +78,7 @@ test('coalesces concurrent direct-Sheet fallback reads and briefly reuses the sn
     const sheet=u.searchParams.get('sheet');
     const spec=Object.values(F.SPECS).find(x=>x.sheet===sheet);
     assert.ok(spec,'unexpected fallback sheet '+sheet);
-    return {ok:true,status:200,text:async()=>JSON.stringify(spec.header)+'\\n'};
+    return {ok:true,status:200,text:async()=>JSON.stringify(spec.header)+'\n'};
   };
   const opts={sheetId:'sheet-cache-test',env:{},fetchImpl,cacheTtlMs:2000};
   const [a,b]=await Promise.all([F.buildSnapshot(opts),F.buildSnapshot(opts)]);
