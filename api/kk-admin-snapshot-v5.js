@@ -7,6 +7,7 @@ const GuardAdmin = require('./kk-admin-guard.js');
 const SnapshotHealth = require('../admin/snapshot-health.js');
 const UpstreamResponse = require('../server/upstream-response.js');
 const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
+const AdminDirectWriter = require('../server/admin-direct-writer.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.5';
 const DEFAULT_READ_MODE = 'direct-sheet-primary';
@@ -360,6 +361,7 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
     snapshot.write_path_health = writePathHealth;
     snapshot.write_health_cache_status = String(writePathHealth && writePathHealth.cache_status || '');
     snapshot.write_health_cache_age_ms = Number(writePathHealth && writePathHealth.cache_age_ms || 0);
+    snapshot.direct_writer_state = AdminDirectWriter.state(process.env);
     snapshot.frontend_sheet_id = frontendSheetId;
     snapshot.frontend_sheet_id_source = sheetIdSource;
     snapshot.frontend_proxy_version = SnapshotHealth.VERSION;
@@ -377,6 +379,7 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
     health.write_path_health = writePathHealth;
     health.write_health_cache_status = String(writePathHealth && writePathHealth.cache_status || '');
     health.write_health_cache_age_ms = Number(writePathHealth && writePathHealth.cache_age_ms || 0);
+    health.direct_writer_state = snapshot.direct_writer_state;
     health.snapshot_source = snapshot.snapshot_source;
     health.warnings = Array.isArray(health.warnings) ? health.warnings : [];
     health.warnings.push(primaryRead
@@ -435,6 +438,7 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
         write_path_health: writePathHealth,
         write_health_cache_status: String(writePathHealth && writePathHealth.cache_status || ''),
         write_health_cache_age_ms: Number(writePathHealth && writePathHealth.cache_age_ms || 0),
+        direct_writer_state: snapshot.direct_writer_state,
         snapshot_source: snapshot.snapshot_source,
         fallback_trigger: trigger || {},
         proxy_upstream_ms: upstreamMs,
@@ -456,6 +460,7 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       write_path_health: writePathHealth,
       write_health_cache_status: String(writePathHealth && writePathHealth.cache_status || ''),
       write_health_cache_age_ms: Number(writePathHealth && writePathHealth.cache_age_ms || 0),
+      direct_writer_state: snapshot.direct_writer_state,
       snapshot_source: snapshot.snapshot_source,
       fallback_trigger: trigger || {},
       proxy_upstream_ms: upstreamMs,
