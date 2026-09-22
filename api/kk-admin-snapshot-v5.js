@@ -11,6 +11,13 @@ const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.3';
 const SNAPSHOT_UPSTREAM_TIMEOUT_MS = 12000;
 const WRITE_HEALTH_TIMEOUT_MS = 4000;
+const UPSTREAM_CIRCUIT_TTL_MS = 30000;
+const DETERMINISTIC_UPSTREAM_FAILURES = new Set([
+  'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND',
+  'GOOGLE_AUTH_HTML',
+  'GOOGLE_DRIVE_DOCS_HTML'
+]);
+let upstreamCircuit = { script_url: '', code: '', until_ms: 0 };
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const SNAPSHOT_ACTIONS = new Set(['snapshot', 'snapshotHealth']);
 const REQUIRED_SNAPSHOT_KEYS = ['events', 'bookings', 'current_bookings', 'assets'];
@@ -64,6 +71,56 @@ function looksLikeAppsScriptUrl(value) {
 function safeUrlHost(value) {
   try { return new URL(String(value || '')).host || ''; }
   catch (_) { return ''; }
+}
+
+function isDeterministicUpstreamFailure(code) {
+  return DETERMINISTIC_UPSTREAM_FAILURES.has(String(code || ''));
+}
+
+function openUpstreamCircuit(scriptUrl, code, nowMs = Date.now()) {
+  const normalizedUrl = String(scriptUrl || '').trim();
+  const normalizedCode = String(code || '').trim();
+  if (!normalizedUrl || !normalizedCode) return null;
+  upstreamCircuit = {
+    script_url: normalizedUrl,
+    code: normalizedCode,
+    until_ms: Number(nowMs) + UPSTREAM_CIRCUIT_TTL_MS
+  };
+  return Object.assign({}, upstreamCircuit);
+}
+
+function activeUpstreamCircuit(scriptUrl, nowMs = Date.now()) {
+  const normalizedUrl = String(scriptUrl || '').trim();
+  if (!normalizedUrl || upstreamCircuit.script_url !== normalizedUrl) return null;
+  if (Number(upstreamCircuit.until_ms || 0) <= Number(nowMs)) {
+    upstreamCircuit = { script_url: '', code: '', until_ms: 0 };
+    return null;
+  }
+  return {
+    code: upstreamCircuit.code,
+    retry_after_ms: Math.max(0, Number(upstreamCircuit.until_ms) - Number(nowMs))
+  };
+}
+
+function clearUpstreamCircuit(scriptUrl) {
+  const normalizedUrl = String(scriptUrl || '').trim();
+  if (!normalizedUrl || upstreamCircuit.script_url === normalizedUrl) {
+    upstreamCircuit = { script_url: '', code: '', until_ms: 0 };
+  }
+}
+
+function skippedWritePathHealth(trigger) {
+  return {
+    checked: false,
+    skipped: true,
+    ok: false,
+    status: Number(trigger && trigger.upstream_status || 0),
+    latency_ms: 0,
+    error_code: 'WRITE_HEALTH_UPSTREAM_UNAVAILABLE',
+    failure_class: String(trigger && (trigger.upstream_failure_class || trigger.code) || ''),
+    backend_version: '',
+    spreadsheet_id: ''
+  };
 }
 
 function compactNonJsonError(text, contentType, urlHost) {
@@ -237,9 +294,13 @@ function snapshotEnvelopeDiagnostics(body) {
 async function respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, trigger, startedAt, scriptUrl, apiKey) {
   const fallbackStartedAt = Date.now();
   try {
+    const failureClass = String(trigger && (trigger.upstream_failure_class || trigger.code) || '');
+    const skipWriteProbe = isDeterministicUpstreamFailure(failureClass);
     const [snapshot, writePathHealth] = await Promise.all([
       AdminSheetFallback.buildSnapshot({ sheetId: frontendSheetId }),
-      probeWritePath(scriptUrl, apiKey, frontendSheetId, sheetIdSource)
+      skipWriteProbe
+        ? Promise.resolve(skippedWritePathHealth(trigger))
+        : probeWritePath(scriptUrl, apiKey, frontendSheetId, sheetIdSource)
     ]);
     const writeActionsEnabled = !!(writePathHealth && writePathHealth.ok);
     snapshot.read_degraded = true;
@@ -294,7 +355,9 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       latency_ms: Number(health.latency_ms || 0),
       write_health_ok: writeActionsEnabled,
       write_health_ms: Number(writePathHealth && writePathHealth.latency_ms || 0),
-      write_health_error_code: String(writePathHealth && writePathHealth.error_code || '')
+      write_health_error_code: String(writePathHealth && writePathHealth.error_code || ''),
+      fallback_cache_status: String(snapshot.fallback_cache_status || ''),
+      upstream_circuit_open: !!(trigger && trigger.circuit_open)
     }));
 
     if (action === 'snapshotHealth') {
@@ -310,7 +373,9 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
         proxy_upstream_ms: upstreamMs,
         fallback_ms: fallbackMs,
         proxy_round_trip_ms: Number(health.latency_ms || 0),
-        proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS
+        proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS,
+        fallback_cache_status: String(snapshot.fallback_cache_status || ''),
+        upstream_circuit_open: !!(trigger && trigger.circuit_open)
       });
     }
     return json(res, 200, {
@@ -326,7 +391,9 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       proxy_upstream_ms: upstreamMs,
       fallback_ms: fallbackMs,
       proxy_round_trip_ms: Number(health.latency_ms || 0),
-      proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS
+      proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS,
+      fallback_cache_status: String(snapshot.fallback_cache_status || ''),
+      upstream_circuit_open: !!(trigger && trigger.circuit_open)
     });
   } catch (err) {
     const originalCode = trigger && trigger.error_code ? String(trigger.error_code) : 'DIRECT_SHEET_FALLBACK_FAILED';
@@ -398,6 +465,20 @@ async function handleSnapshot(req, res, payload, action) {
   });
 
   const startedAt = Date.now();
+  const circuit = activeUpstreamCircuit(scriptUrl, startedAt);
+  if (circuit) {
+    return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
+      code: circuit.code,
+      error_code: 'UPSTREAM_CIRCUIT_OPEN',
+      error: 'Apps Script upstream circuit is temporarily open after a recent failure; serving the safe direct-Sheet fallback without repeating the full upstream wait.',
+      upstream_failure_class: circuit.code,
+      upstream_status: 0,
+      upstream_ms: 0,
+      circuit_open: true,
+      circuit_retry_after_ms: circuit.retry_after_ms
+    }, startedAt, scriptUrl, apiKey);
+  }
+
   let upstream;
   try {
     upstream = await fetchWithTimeout(scriptUrl, {
@@ -407,6 +488,7 @@ async function handleSnapshot(req, res, payload, action) {
     }, SNAPSHOT_UPSTREAM_TIMEOUT_MS);
   } catch (err) {
     const isTimeout = !!(err && err.name === 'AbortError');
+    if (isTimeout) openUpstreamCircuit(scriptUrl, 'UPSTREAM_TIMEOUT');
     return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
       code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
       error_code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
@@ -434,6 +516,7 @@ async function handleSnapshot(req, res, payload, action) {
     const fallbackEligible = ['APPS_SCRIPT_DEPLOYMENT_NOT_FOUND','GOOGLE_AUTH_HTML','GOOGLE_DRIVE_DOCS_HTML'].includes(String(failure.code || '')) ||
       [408,429].includes(Number(upstream.status || 0)) || Number(upstream.status || 0) >= 500;
     if (fallbackEligible) {
+      if (isDeterministicUpstreamFailure(failure.code)) openUpstreamCircuit(scriptUrl, failure.code);
       return respondWithDirectSheetFallback(res, action, frontendSheetId, sheetIdSource, {
         code: failure.code || 'SNAPSHOT_UPSTREAM_NON_JSON',
         error_code: 'SNAPSHOT_UPSTREAM_NON_JSON',
@@ -479,6 +562,8 @@ async function handleSnapshot(req, res, payload, action) {
       proxy_timeout_ms: SNAPSHOT_UPSTREAM_TIMEOUT_MS
     });
   }
+
+  clearUpstreamCircuit(scriptUrl);
 
   if (!data.data || typeof data.data !== 'object' || Array.isArray(data.data)) {
     return json(res, 502, {
@@ -582,5 +667,11 @@ module.exports._test = {
   respondWithDirectSheetFallback,
   probeWritePath,
   SNAPSHOT_UPSTREAM_TIMEOUT_MS,
-  WRITE_HEALTH_TIMEOUT_MS
+  WRITE_HEALTH_TIMEOUT_MS,
+  UPSTREAM_CIRCUIT_TTL_MS,
+  isDeterministicUpstreamFailure,
+  openUpstreamCircuit,
+  activeUpstreamCircuit,
+  clearUpstreamCircuit,
+  skippedWritePathHealth
 };
