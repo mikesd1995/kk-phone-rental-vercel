@@ -142,3 +142,70 @@ Rollback is repository-only:
 - revert the added commits.
 
 No production rollback is necessary because production was not mutated.
+
+
+## Validation evidence
+
+### Initial CI finding
+
+The first PR CI run correctly failed one newly added regression:
+
+- workflow: Admin Regression #471;
+- syntax checks: PASS;
+- tests: 478 PASS / 1 FAIL;
+- failing invariant: unknown policy level must fail closed.
+
+Root cause:
+
+Policy-level validation was occurring from the Array.sort comparator. With only one layer the comparator did not execute, so an unknown single policy level could bypass validation.
+
+Correction:
+
+- validate every policy level before sorting;
+- validate permission ceilings before policy resolution;
+- add regression coverage for the single-layer case.
+
+The same hardening pass also added:
+
+- prefix-aware hard-governance blocking;
+- explicit lower-level empty allow-list = deny-all;
+- external objective/secret/approval requests treated as control attempts;
+- capability candidates require an explicit target class;
+- fact verification timestamps must parse as real dates;
+- promotion must explicitly prove zero production writes during evaluation.
+
+### Final CI
+
+Final PR CI:
+
+- workflow: Admin Regression #475;
+- syntax checks: PASS;
+- regression tests: 481 / 481 PASS;
+- failures: 0;
+- HF benchmark harness safety check: PASS;
+- HF readiness fail-closed check: PASS.
+
+### Preview
+
+Vercel created branch previews with target=null only.
+
+Latest verified branch preview state: READY.
+
+No production deployment was requested or performed by this hardening pass.
+
+## Review score snapshot
+
+These scores distinguish design quality from implementation coverage.
+
+- Architecture / governance design: 8.9 / 10
+- Safety / fail-closed discipline: 9.2 / 10
+- Regression / audit discipline: 9.0 / 10
+- Self-improvement governance: 8.6 / 10
+- Reusability / project isolation design: 8.5 / 10
+- Runtime agent implementation completeness: 5.8 / 10
+- Multi-model/tool routing implementation completeness: 4.5 / 10
+- Persistent memory/skill registry implementation completeness: 4.5 / 10
+
+Interpretation:
+
+The project is strong enough to freeze the governance direction, but the reusable AI platform itself is not yet complete. The next work should build Phase-0 persistence and execution primitives rather than add more model providers.
