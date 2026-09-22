@@ -99,3 +99,9 @@ Remediation:
 - add regression coverage that requires the status permission and rejects the broken summary-heredoc pattern
 
 No Vercel deployment, secret, Admin credential, Sheet, Apps Script, Scanner, Verifier, Canary or business data was changed by this remediation.
+
+### Second-run permission remediation
+
+The second push-triggered run (`35735369981`) successfully completed the read-only status lookup and watcher execution, classifying the live state as `BLOCKED_BUILD_RATE_LIMIT` with zero Production/business writes. Publishing the single durable PR #164 state comment then returned HTTP 403 because PR issue-comment access also requires Pull Requests permission for this token.
+
+Remediation: add only `pull-requests: write` so the workflow can list/create/update the one marker comment on PR #164. The watcher logic itself did not require a code change.

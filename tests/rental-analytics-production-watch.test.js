@@ -128,6 +128,7 @@ test('read-only transport rejects non-GET methods',async()=>{
 test('workflow grants read access to commit statuses and uses a shell-safe summary writer',()=>{
   const workflow=fs.readFileSync('.github/workflows/rental-analytics-production-watch.yml','utf8');
   assert.match(workflow,/\n\s*statuses:\s*read\s*\n/);
+  assert.match(workflow,/\n\s*pull-requests:\s*write\s*\n/);
   assert.doesNotMatch(workflow,/node\s+-\s+<<['"]?NODE['"]?\s+>>\s+["']?\$GITHUB_STEP_SUMMARY/);
   assert.match(workflow,/node\s+-e\s+['"]/);
 });
