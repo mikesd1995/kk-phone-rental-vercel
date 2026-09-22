@@ -7,11 +7,14 @@ const GuardAdmin = require('./kk-admin-guard.js');
 const SnapshotHealth = require('../admin/snapshot-health.js');
 const UpstreamResponse = require('../server/upstream-response.js');
 const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
+const AdminDirectWriter = require('../server/admin-direct-writer.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.5';
 const DEFAULT_READ_MODE = 'direct-sheet-primary';
 const SNAPSHOT_UPSTREAM_TIMEOUT_MS = 12000;
 const WRITE_HEALTH_TIMEOUT_MS = 4000;
+const WRITE_HEALTH_OK_CACHE_TTL_MS = 15000;
+const WRITE_HEALTH_FAIL_CACHE_TTL_MS = 5000;
 const UPSTREAM_CIRCUIT_TTL_MS = 30000;
 const DETERMINISTIC_UPSTREAM_FAILURES = new Set([
   'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND',
@@ -19,6 +22,7 @@ const DETERMINISTIC_UPSTREAM_FAILURES = new Set([
   'GOOGLE_DRIVE_DOCS_HTML'
 ]);
 let upstreamCircuit = { script_url: '', code: '', until_ms: 0 };
+let writeHealthCache = { key: '', at_ms: 0, until_ms: 0, result: null };
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const SNAPSHOT_ACTIONS = new Set(['snapshot', 'snapshotHealth']);
 const REQUIRED_SNAPSHOT_KEYS = ['events', 'bookings', 'current_bookings', 'assets'];
@@ -125,8 +129,43 @@ function skippedWritePathHealth(trigger) {
     error_code: 'WRITE_HEALTH_UPSTREAM_UNAVAILABLE',
     failure_class: String(trigger && (trigger.upstream_failure_class || trigger.code) || ''),
     backend_version: '',
-    spreadsheet_id: ''
+    spreadsheet_id: '',
+    cache_status: 'skipped',
+    cache_age_ms: 0
   };
+}
+
+function writeHealthCacheKey(scriptUrl, sheetId) {
+  return String(scriptUrl || '').trim() + '|' + String(sheetId || '').trim();
+}
+
+function activeWriteHealthCache(scriptUrl, sheetId, nowMs = Date.now()) {
+  const key = writeHealthCacheKey(scriptUrl, sheetId);
+  if (!key || writeHealthCache.key !== key || !writeHealthCache.result) return null;
+  if (Number(writeHealthCache.until_ms || 0) <= Number(nowMs)) {
+    writeHealthCache = { key: '', at_ms: 0, until_ms: 0, result: null };
+    return null;
+  }
+  return Object.assign({}, writeHealthCache.result, {
+    cache_status: 'hit',
+    cache_age_ms: Math.max(0, Number(nowMs) - Number(writeHealthCache.at_ms || 0))
+  });
+}
+
+function rememberWriteHealth(scriptUrl, sheetId, result, nowMs = Date.now()) {
+  const value = Object.assign({}, result || {});
+  const ttl = value.ok ? WRITE_HEALTH_OK_CACHE_TTL_MS : WRITE_HEALTH_FAIL_CACHE_TTL_MS;
+  writeHealthCache = {
+    key: writeHealthCacheKey(scriptUrl, sheetId),
+    at_ms: Number(nowMs),
+    until_ms: Number(nowMs) + ttl,
+    result: value
+  };
+  return Object.assign({}, value, { cache_status: 'miss', cache_age_ms: 0 });
+}
+
+function clearWriteHealthCache() {
+  writeHealthCache = { key: '', at_ms: 0, until_ms: 0, result: null };
 }
 
 function compactNonJsonError(text, contentType, urlHost) {
@@ -303,11 +342,16 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
     const failureClass = String(trigger && (trigger.upstream_failure_class || trigger.code) || '');
     const primaryRead = !!(trigger && trigger.primary_read);
     const skipWriteProbe = isDeterministicUpstreamFailure(failureClass) || !looksLikeAppsScriptUrl(scriptUrl) || !apiKey;
+    const cachedWriteHealth = skipWriteProbe ? null : activeWriteHealthCache(scriptUrl, frontendSheetId);
+    const writeHealthPromise = skipWriteProbe
+      ? Promise.resolve(skippedWritePathHealth(trigger))
+      : (cachedWriteHealth
+        ? Promise.resolve(cachedWriteHealth)
+        : probeWritePath(scriptUrl, apiKey, frontendSheetId, sheetIdSource)
+            .then(result => rememberWriteHealth(scriptUrl, frontendSheetId, result)));
     const [snapshot, writePathHealth] = await Promise.all([
       AdminSheetFallback.buildSnapshot({ sheetId: frontendSheetId }),
-      skipWriteProbe
-        ? Promise.resolve(skippedWritePathHealth(trigger))
-        : probeWritePath(scriptUrl, apiKey, frontendSheetId, sheetIdSource)
+      writeHealthPromise
     ]);
     const writeActionsEnabled = !!(writePathHealth && writePathHealth.ok);
     snapshot.read_degraded = !primaryRead;
@@ -315,6 +359,9 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
     snapshot.degraded_read_only = !writeActionsEnabled;
     snapshot.write_actions_enabled = writeActionsEnabled;
     snapshot.write_path_health = writePathHealth;
+    snapshot.write_health_cache_status = String(writePathHealth && writePathHealth.cache_status || '');
+    snapshot.write_health_cache_age_ms = Number(writePathHealth && writePathHealth.cache_age_ms || 0);
+    snapshot.direct_writer_state = AdminDirectWriter.state(process.env);
     snapshot.frontend_sheet_id = frontendSheetId;
     snapshot.frontend_sheet_id_source = sheetIdSource;
     snapshot.frontend_proxy_version = SnapshotHealth.VERSION;
@@ -330,6 +377,9 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
     health.degraded_read_only = !writeActionsEnabled;
     health.write_actions_enabled = writeActionsEnabled;
     health.write_path_health = writePathHealth;
+    health.write_health_cache_status = String(writePathHealth && writePathHealth.cache_status || '');
+    health.write_health_cache_age_ms = Number(writePathHealth && writePathHealth.cache_age_ms || 0);
+    health.direct_writer_state = snapshot.direct_writer_state;
     health.snapshot_source = snapshot.snapshot_source;
     health.warnings = Array.isArray(health.warnings) ? health.warnings : [];
     health.warnings.push(primaryRead
@@ -371,6 +421,8 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       write_health_ok: writeActionsEnabled,
       write_health_ms: Number(writePathHealth && writePathHealth.latency_ms || 0),
       write_health_error_code: String(writePathHealth && writePathHealth.error_code || ''),
+      write_health_cache_status: String(writePathHealth && writePathHealth.cache_status || ''),
+      write_health_cache_age_ms: Number(writePathHealth && writePathHealth.cache_age_ms || 0),
       fallback_cache_status: String(snapshot.fallback_cache_status || ''),
       upstream_circuit_open: !!(trigger && trigger.circuit_open)
     }));
@@ -384,6 +436,9 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
         read_degraded: !primaryRead,
         read_mode: primaryRead ? DEFAULT_READ_MODE : 'apps-script-fallback',
         write_path_health: writePathHealth,
+        write_health_cache_status: String(writePathHealth && writePathHealth.cache_status || ''),
+        write_health_cache_age_ms: Number(writePathHealth && writePathHealth.cache_age_ms || 0),
+        direct_writer_state: snapshot.direct_writer_state,
         snapshot_source: snapshot.snapshot_source,
         fallback_trigger: trigger || {},
         proxy_upstream_ms: upstreamMs,
@@ -403,6 +458,9 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       read_degraded: !primaryRead,
       read_mode: primaryRead ? DEFAULT_READ_MODE : 'apps-script-fallback',
       write_path_health: writePathHealth,
+      write_health_cache_status: String(writePathHealth && writePathHealth.cache_status || ''),
+      write_health_cache_age_ms: Number(writePathHealth && writePathHealth.cache_age_ms || 0),
+      direct_writer_state: snapshot.direct_writer_state,
       snapshot_source: snapshot.snapshot_source,
       fallback_trigger: trigger || {},
       proxy_upstream_ms: upstreamMs,
@@ -698,12 +756,17 @@ module.exports._test = {
   probeWritePath,
   SNAPSHOT_UPSTREAM_TIMEOUT_MS,
   WRITE_HEALTH_TIMEOUT_MS,
+  WRITE_HEALTH_OK_CACHE_TTL_MS,
+  WRITE_HEALTH_FAIL_CACHE_TTL_MS,
   UPSTREAM_CIRCUIT_TTL_MS,
   isDeterministicUpstreamFailure,
   openUpstreamCircuit,
   activeUpstreamCircuit,
   clearUpstreamCircuit,
   skippedWritePathHealth,
+  activeWriteHealthCache,
+  rememberWriteHealth,
+  clearWriteHealthCache,
   adminReadMode,
   DEFAULT_READ_MODE
 };
