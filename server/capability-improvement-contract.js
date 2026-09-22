@@ -63,6 +63,9 @@ function validateImprovementCandidate(candidate = {}) {
   if (!CANDIDATE_TYPES.has(type)) {
     return { ok: false, reason: 'CANDIDATE_TYPE_INVALID' };
   }
+  if (!target) {
+    return { ok: false, reason: 'TARGET_CLASS_REQUIRED' };
+  }
   if (FORBIDDEN_SELF_MODIFICATION.has(target)) {
     return { ok: false, reason: 'SELF_MODIFICATION_FORBIDDEN' };
   }
@@ -103,7 +106,8 @@ function validateFactCandidate(candidate = {}) {
     ? [...new Set(candidate.evidence_ids.map(text).filter(Boolean))]
     : [];
   if (evidence.length < 1) return { ok: false, reason: 'FACT_REQUIRES_EVIDENCE' };
-  if (!text(candidate.last_verified_at)) return { ok: false, reason: 'FACT_VERIFICATION_TIME_REQUIRED' };
+  const verifiedAt = Date.parse(text(candidate.last_verified_at));
+  if (!Number.isFinite(verifiedAt)) return { ok: false, reason: 'FACT_VERIFICATION_TIME_INVALID' };
   return { ok: true, reason: null };
 }
 
@@ -117,8 +121,8 @@ function evaluatePromotion(input = {}) {
   if (input.critical_regression === true) {
     return { promote: false, reason: 'CRITICAL_REGRESSION' };
   }
-  if (input.production_writes_during_eval && Number(input.production_writes_during_eval) !== 0) {
-    return { promote: false, reason: 'EVAL_MUST_BE_ZERO_PRODUCTION_WRITE' };
+  if (input.production_writes_during_eval === undefined || Number(input.production_writes_during_eval) !== 0) {
+    return { promote: false, reason: 'EVAL_MUST_PROVE_ZERO_PRODUCTION_WRITE' };
   }
 
   const samples = Number(input.sample_size);
