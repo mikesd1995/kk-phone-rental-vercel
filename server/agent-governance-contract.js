@@ -131,6 +131,7 @@ function resolvePolicyLayers(layers) {
       level,
       level_index: levelIndex,
       allow: uniq(layer.allow),
+      has_allow: Object.prototype.hasOwnProperty.call(layer, 'allow'),
       deny: uniq(layer.deny),
       permission_ceiling: permissionCeiling
     };
@@ -148,7 +149,7 @@ function resolvePolicyLayers(layers) {
 
     if (effectiveAllow === null) {
       effectiveAllow = new Set(layer.allow);
-    } else if (layer.allow.length) {
+    } else if (layer.has_allow) {
       effectiveAllow = new Set(layer.allow.filter((capability) => effectiveAllow.has(capability)));
     }
 
@@ -183,9 +184,24 @@ function assertNoPrivilegeEscalation(currentPermission, requestedPermission) {
   return true;
 }
 
-function assertCapabilityNotHardGovernance(capability) {
+function isHardGovernanceCapability(capability) {
   const name = text(capability);
-  if (HARD_GOVERNANCE_CAPABILITIES.has(name)) {
+  if (HARD_GOVERNANCE_CAPABILITIES.has(name)) return true;
+  return [
+    'policy.modify.',
+    'permission.',
+    'secret.',
+    'owner.identity.',
+    'approval.requirement.',
+    'audit.delete',
+    'kill_switch.',
+    'billing.authority.',
+    'production.guardrail.'
+  ].some((prefix) => name.startsWith(prefix));
+}
+
+function assertCapabilityNotHardGovernance(capability) {
+  if (isHardGovernanceCapability(capability)) {
     const error = new Error('hard governance capability cannot be self-assigned or self-modified');
     error.code = 'HARD_GOVERNANCE_DENIED';
     throw error;
@@ -236,9 +252,16 @@ function validateApproval(approval, change, now = Date.now()) {
 function evaluateExternalInstruction(input = {}) {
   const sourceType = text(input.source_type).toUpperCase();
   const requestedCapability = text(input.requested_capability);
+  const requestsControl = Boolean(
+    requestedCapability ||
+    input.requested_policy_change ||
+    input.requested_objective_change ||
+    input.requested_secret ||
+    input.requested_approval
+  );
   const trust = classifyTrust(sourceType);
 
-  if (trust === TRUST_CLASSES.EXTERNAL_DATA && requestedCapability) {
+  if (trust === TRUST_CLASSES.EXTERNAL_DATA && requestsControl) {
     return {
       allowed: false,
       trust,
@@ -264,6 +287,7 @@ module.exports = {
   resolvePolicyLayers,
   capabilityAllowed,
   assertNoPrivilegeEscalation,
+  isHardGovernanceCapability,
   assertCapabilityNotHardGovernance,
   requiresHumanApproval,
   changeHash,
