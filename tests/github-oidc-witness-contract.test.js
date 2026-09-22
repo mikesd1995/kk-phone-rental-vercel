@@ -49,7 +49,7 @@ test('scheduled GitHub witness clock uses OIDC only and has no secret dependency
     path.join(root,'.github','workflows','kk-external-witness-clock.yml'),
     'utf8'
   );
-  assert.match(source,/cron:\s*'7 \* \* \* \*'/);
+  assert.match(source,/cron:\s*'13 \* \* \* \*'/);
   assert.match(source,/id-token:\s*write/);
   assert.match(source,/ACTIONS_ID_TOKEN_REQUEST_URL/);
   assert.match(source,/ACTIONS_ID_TOKEN_REQUEST_TOKEN/);
@@ -83,16 +83,21 @@ test('witness control migration defaults disabled and is service-role only',()=>
 });
 
 
-test('witness scheduler avoids minute zero while preserving top-hour occurrence semantics',()=>{
+test('witness scheduler uses one off-top-hour cron inside the 25-minute ingress gate',()=>{
   const source=fs.readFileSync(
     path.join(root,'.github','workflows','kk-external-witness-clock.yml'),
     'utf8'
   );
-  assert.match(source,/cron:\s*'7 \* \* \* \*'/);
+  const cronMatches=[...source.matchAll(/cron:\s*'(\d+) \* \* \* \*'/g)];
+  assert.equal(cronMatches.length,1);
+  assert.equal(Number(cronMatches[0][1]),13);
+  assert.ok(Number(cronMatches[0][1])>10);
+  assert.ok(Number(cronMatches[0][1])<25);
   assert.doesNotMatch(source,/cron:\s*'0 \* \* \* \*'/);
   assert.match(source,/const scheduled=Math\.floor\(now\/HOUR_MS\)\*HOUR_MS;/);
   assert.match(source,/scheduled_at=bangkokIso\(scheduled\)/);
   assert.match(source,/issued_at:bangkokIso\(now\)/);
+  assert.match(source,/dispatch_offset_minutes=/);
 });
 
 
