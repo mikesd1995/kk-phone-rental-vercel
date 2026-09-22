@@ -52,6 +52,14 @@ test('lessons require repeated observations, evidence, confidence and independen
   }).reason, 'LESSON_REQUIRES_MULTIPLE_OBSERVATIONS');
 });
 
+test('improvement candidate requires an explicit target class', () => {
+  assert.equal(C.validateImprovementCandidate({
+    candidate_id: 'cand-target',
+    source_run_id: 'run-1',
+    candidate_type: 'SKILL'
+  }).reason, 'TARGET_CLASS_REQUIRED');
+});
+
 test('facts require evidence and last verification time', () => {
   assert.equal(C.validateFactCandidate({
     evidence_ids: ['ev-1'],
@@ -81,10 +89,19 @@ test('promotion requires safety, independent evaluation, enough samples and impr
   assert.equal(C.evaluatePromotion({
     hard_safety_pass: true,
     independent_evaluator_pass: true,
+    production_writes_during_eval: 0,
     sample_size: 5,
     minimum_sample_size: 100,
     primary_metric_delta: 20
   }).reason, 'INSUFFICIENT_SAMPLE_SIZE');
+
+  assert.equal(C.evaluatePromotion({
+    hard_safety_pass: true,
+    independent_evaluator_pass: true,
+    sample_size: 200,
+    minimum_sample_size: 100,
+    primary_metric_delta: 20
+  }).reason, 'EVAL_MUST_PROVE_ZERO_PRODUCTION_WRITE');
 });
 
 test('learning can create candidates but cannot rewrite hard governance', () => {
