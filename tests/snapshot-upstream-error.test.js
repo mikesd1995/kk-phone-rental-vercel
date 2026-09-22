@@ -45,6 +45,7 @@ function setEnv() {
   process.env.KK_ADMIN_API_KEY = 'api-key';
   process.env.KK_ADMIN_SCRIPT_URL = 'https://script.google.com/macros/s/test-deployment/exec';
   process.env.GOOGLE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
+  process.env.KK_ADMIN_READ_MODE = 'apps-script-first';
 }
 
 function validSnapshot() {
@@ -140,7 +141,7 @@ test('passes a healthy snapshot and attaches snapshot health metadata', async ()
   assert.equal(out.body.data.events.length, 1);
   assert.equal(out.body.snapshot_health.ok, true);
   assert.equal(out.body.data.frontend_sheet_id, process.env.GOOGLE_SHEET_ID);
-  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.4');
+  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.5');
 });
 
 
@@ -355,4 +356,67 @@ test('upstream circuit is URL-scoped and expires fail-safe', () => {
   assert.equal(active.retry_after_ms, handler._test.UPSTREAM_CIRCUIT_TTL_MS - 1);
   assert.equal(handler._test.activeUpstreamCircuit(other, 1001), null);
   assert.equal(handler._test.activeUpstreamCircuit(url, 1000 + handler._test.UPSTREAM_CIRCUIT_TTL_MS + 1), null);
+});
+
+
+test('direct-Sheet is the default primary snapshot path and skips the 12s Apps Script snapshot call', async () => {
+  process.env.KK_ADMIN_READ_MODE = 'direct-sheet-primary';
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  const actions = [];
+  global.fetch = async (_url, options) => {
+    const body = JSON.parse(String(options && options.body || '{}'));
+    actions.push(body.action || '');
+    return {
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json; charset=utf-8' },
+      async text() {
+        return JSON.stringify({
+          ok: true,
+          data: {
+            admin_api_version: 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+            spreadsheet_id: process.env.GOOGLE_SHEET_ID
+          }
+        });
+      }
+    };
+  };
+  const out = responseCapture();
+  await handler(reqFor('snapshot'), out.res);
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.ok, true);
+  assert.equal(out.body.read_degraded, false);
+  assert.equal(out.body.read_mode, 'direct-sheet-primary');
+  assert.equal(out.body.data.read_degraded, false);
+  assert.equal(out.body.data.read_mode, 'direct-sheet-primary');
+  assert.equal(out.body.proxy_upstream_ms, 0);
+  assert.equal(out.body.fallback_trigger.code, 'DIRECT_SHEET_PRIMARY');
+  assert.equal(out.body.write_actions_enabled, true);
+  assert.deepEqual(actions, ['phase1Health']);
+  assert.equal(out.headers['x-kk-admin-read-mode'], 'direct-sheet-primary');
+});
+
+test('direct-Sheet primary read remains available when legacy Apps Script configuration is missing', async () => {
+  process.env.KK_ADMIN_READ_MODE = 'direct-sheet-primary';
+  delete process.env.KK_ADMIN_SCRIPT_URL;
+  delete process.env.KK_ADMIN_API_KEY;
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  let networkCalls = 0;
+  global.fetch = async () => { networkCalls++; throw new Error('legacy Apps Script should not be required for primary reads'); };
+  const out = responseCapture();
+  await handler(reqFor('snapshot'), out.res);
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.ok, true);
+  assert.equal(out.body.read_degraded, false);
+  assert.equal(out.body.read_mode, 'direct-sheet-primary');
+  assert.equal(out.body.degraded_read_only, true);
+  assert.equal(out.body.write_actions_enabled, false);
+  assert.equal(out.body.write_path_health.skipped, true);
+  assert.equal(networkCalls, 0);
+});
+
+test('apps-script-first remains an explicit rollback mode', () => {
+  assert.equal(handler._test.adminReadMode({}), 'direct-sheet-primary');
+  assert.equal(handler._test.adminReadMode({KK_ADMIN_READ_MODE:'apps-script-first'}), 'apps-script-first');
+  assert.equal(handler._test.adminReadMode({KK_ADMIN_READ_MODE:'unknown'}), 'direct-sheet-primary');
 });
