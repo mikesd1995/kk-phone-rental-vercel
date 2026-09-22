@@ -85,6 +85,11 @@ var I18N = {
     search_aria:"ค้นหางาน ศิลปิน หรือสถานที่",
     search_empty:"ไม่พบงานที่ตรงกับคำค้น “{query}”",
     search_results:"พบ {count} งาน",
+    browse_results:"แสดง {count} งาน",
+    clear_filters:"ล้างตัวกรอง",
+    card_venue:"📍 {venue}",
+    card_price_from:"แพ็กเกจเริ่ม {price}฿",
+    card_price_ask:"สอบถามราคา",
     select_month:"เลือกเดือน",
     filter_all:"งานทั้งหมด",
     filter_available:"งานว่าง",
@@ -189,6 +194,11 @@ var I18N = {
     search_aria:"Search events, artists or venues",
     search_empty:"No events match “{query}”",
     search_results:"{count} events found",
+    browse_results:"Showing {count} events",
+    clear_filters:"Clear filters",
+    card_venue:"📍 {venue}",
+    card_price_from:"Packages from ฿{price}",
+    card_price_ask:"Ask for price",
     select_month:"Select month",
     filter_all:"All Events",
     filter_available:"Available",
@@ -318,6 +328,7 @@ function applyStaticLanguage(){
   setText('[data-filter="all"]',"filter_all");
   setText('[data-filter="available"]',"filter_available");
   setText('[data-filter="full"]',"filter_waitlist");
+  setText("#clear-browse-btn","clear_filters");
   setText(".sec-title span","section_title");
   setText("#line-btn-label","line_book");
   setText("#sticky-line-label","sticky_line");
@@ -881,6 +892,27 @@ function availTextFor(c){
   if(hasLensOnly) return tr("lens_only_available");
   return tr("available");
 }
+function startingPriceFor(c){
+  var min=0;
+  (c&&c.packages||[]).forEach(function(p){
+    var n=toNum(p&&p.price);
+    if(n>0&&(min===0||n<min))min=n;
+  });
+  return min;
+}
+function cardPriceText(c){
+  var p=startingPriceFor(c);
+  return p>0 ? tr("card_price_from",{price:p.toLocaleString(numberLocale())}) : tr("card_price_ask");
+}
+function hasBrowseFilters(){
+  return currentSearch!=="" || currentMonth!=="all" || currentFilter!=="all";
+}
+function updateBrowseChrome(count){
+  var countEl=document.getElementById("event-search-count");
+  if(countEl)countEl.textContent=currentSearch?tr("search_results",{count:count}):tr("browse_results",{count:count});
+  var clearEl=document.getElementById("clear-browse-btn");
+  if(clearEl)clearEl.hidden=!hasBrowseFilters();
+}
 
 function normalizeSearchText(value){
   return String(value||"").normalize("NFKC").toLocaleLowerCase(currentLang==="en"?"en":"th").replace(/\s+/g," ").trim();
@@ -959,10 +991,9 @@ function renderConcerts(concerts){
   renderMonthSelect(concerts);
   var el=document.getElementById("content"); if(!el)return;
   el.innerHTML="";
-  var countEl=document.getElementById("event-search-count");
-  if(!concerts||!concerts.length){if(countEl)countEl.textContent="";renderEmpty(tr("no_event_data"));return;}
+  if(!concerts||!concerts.length){updateBrowseChrome(0);renderEmpty(tr("no_event_data"));return;}
   var vis=filtered(concerts);
-  if(countEl)countEl.textContent=currentSearch?tr("search_results",{count:vis.length}):"";
+  updateBrowseChrome(vis.length);
   if(!vis.length){renderEmpty(emptyMsg());return;}
 
   var grid=document.createElement("div"); grid.className="poster-grid";
@@ -980,7 +1011,8 @@ function renderConcerts(concerts){
     var availText=availTextFor(c);
     var pkgHint="";
 
-    var card=document.createElement("button"); card.type="button"; card.className="concert-card"+(avail?"":" waitlist-card");
+    var lowStock=avail&&cnt===1;
+    var card=document.createElement("button"); card.type="button"; card.className="concert-card"+(avail?"":" waitlist-card")+(lowStock?" low-stock-card":"");
     card.setAttribute("aria-label", avail ? tr("card_aria_available",{event:c.name}) : tr("card_aria_waitlist",{event:c.name}));
     card.onclick=function(){
       if(!avail){
@@ -1017,9 +1049,13 @@ function renderConcerts(concerts){
     var info=document.createElement("div"); info.className="poster-info";
     var dateEl=document.createElement("div"); dateEl.className="pi-date"; dateEl.textContent=c.date||"";
     var nameEl=document.createElement("div"); nameEl.className="pi-name"; nameEl.textContent=c.name||"";
-    var availEl=document.createElement("div"); availEl.className="pi-avail"+(avail?"":" none"); availEl.textContent=availText+pkgHint;
+    var metaEl=document.createElement("div"); metaEl.className="pi-meta";
+    var venueEl=document.createElement("div"); venueEl.className="pi-venue"; venueEl.textContent=tr("card_venue",{venue:c.venue||tr("unspecified")});
+    var priceEl=document.createElement("div"); priceEl.className="pi-price"; priceEl.textContent=cardPriceText(c);
+    metaEl.appendChild(venueEl); metaEl.appendChild(priceEl);
+    var availEl=document.createElement("div"); availEl.className="pi-avail"+(avail?(lowStock?" low":""):" none"); availEl.textContent=availText+pkgHint;
     var tap=document.createElement("div"); tap.className="pi-tap"+(avail?"":" full"); tap.textContent=avail?tr("tap_available"):tr("tap_waitlist");
-    info.appendChild(dateEl); info.appendChild(nameEl); info.appendChild(availEl); info.appendChild(tap);
+    info.appendChild(dateEl); info.appendChild(nameEl); info.appendChild(metaEl); info.appendChild(availEl); info.appendChild(tap);
     card.appendChild(imgWrap); card.appendChild(info); grid.appendChild(card);
   });
   el.appendChild(grid);
@@ -1235,6 +1271,20 @@ function setSearch(value,options){
   if(options.updateUrl)syncBrowseUrl();
   if(concertsData&&concertsData.length)renderConcerts(concertsData);
 }
+function clearBrowseFilters(){
+  currentFilter="all";
+  currentMonth="all";
+  currentSearch="";
+  document.querySelectorAll("[data-filter]").forEach(function(b){
+    var active=b.getAttribute("data-filter")==="all";
+    b.classList.toggle("active",active);
+    b.setAttribute("aria-pressed",active?"true":"false");
+  });
+  var sel=document.getElementById("month-filter-select"); if(sel)sel.value="all";
+  var search=document.getElementById("event-search"); if(search)search.value="";
+  syncBrowseUrl();
+  if(concertsData&&concertsData.length)renderConcerts(concertsData); else updateBrowseChrome(0);
+}
 
 document.addEventListener("DOMContentLoaded",function(){
   bindLanguageSwitch();
@@ -1248,6 +1298,8 @@ document.addEventListener("DOMContentLoaded",function(){
     eventSearch.value=currentSearch;
     eventSearch.addEventListener("input",function(){setSearch(eventSearch.value,{updateUrl:true});});
   }
+  var clearBrowse=document.getElementById("clear-browse-btn");
+  if(clearBrowse)clearBrowse.addEventListener("click",clearBrowseFilters);
   setFilter(currentFilter);
   var bImg=document.querySelector(".brand-header-img"); if(bImg)bImg.addEventListener("error",showBrandFallback);
   var faqBtn=document.getElementById("faq-open-btn"); if(faqBtn)faqBtn.addEventListener("click",openFaq);

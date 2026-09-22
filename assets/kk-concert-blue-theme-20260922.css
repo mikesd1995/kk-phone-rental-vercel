@@ -545,3 +545,163 @@ input:focus-visible{
     animation:none !important;
   }
 }
+
+
+/* =========================================================
+   STOREFRONT UX HARDENING — 2026-09-22
+   Above-the-fold compression, event decision metadata,
+   low-stock hierarchy, clear filters, mobile readability.
+   ========================================================= */
+
+/* Show useful content sooner without changing the information architecture. */
+header{padding-top:6px;}
+.value-box{
+  margin-top:14px;
+  padding:11px 16px;
+}
+.quick-links{
+  margin:8px 0 14px;
+  gap:8px;
+}
+.event-search-shell{
+  margin:10px auto 8px;
+}
+.filter-group{
+  margin-bottom:10px;
+}
+.filter-bar{
+  margin-bottom:10px;
+}
+.sec-title{
+  margin:16px 0 10px;
+}
+.update-note{
+  margin:-2px 0 12px;
+}
+
+/* Persistent result count + explicit reset state. */
+.event-search-count{
+  min-height:20px;
+  text-align:center;
+  font-weight:600;
+}
+.filter-clear-btn{
+  appearance:none;
+  -webkit-appearance:none;
+  min-height:38px;
+  padding:8px 14px;
+  border-radius:999px;
+  border:1px dashed rgba(47,128,237,.24);
+  background:rgba(255,255,255,.72);
+  color:#56708F;
+  font-family:var(--font-main);
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:var(--kk-shadow-xs);
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease;
+}
+.filter-clear-btn:hover{
+  transform:translateY(-1px);
+  background:#fff;
+  border-color:rgba(47,128,237,.38);
+  box-shadow:var(--kk-shadow-sm);
+}
+.filter-clear-btn[hidden]{
+  display:none !important;
+}
+
+/* Event cards: surface venue and a truthful "package from" price before modal open. */
+.pi-meta{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px 10px;
+  margin-top:1px;
+}
+.pi-venue{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#66809E;
+  font-size:13px;
+  font-weight:500;
+}
+.pi-price{
+  color:var(--kk-blue-800);
+  font-size:13px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.pi-avail{
+  color:#0DAA51;
+}
+.pi-avail.low{
+  color:#C78300;
+  background:rgba(255,187,51,.11);
+  border:1px solid rgba(216,150,18,.18);
+  border-radius:10px;
+  padding:5px 8px;
+  width:fit-content;
+}
+.low-stock-card{
+  border-color:rgba(216,150,18,.20);
+}
+.pi-avail.none{
+  color:#E45151;
+}
+
+/* Keep primary CTA easy to tap on devices with a home indicator. */
+@media(max-width:768px){
+  body{
+    background-attachment:scroll;
+  }
+  .sticky-line{
+    bottom:max(12px,env(safe-area-inset-bottom));
+  }
+  .poster-info{
+    gap:7px;
+  }
+  .pi-meta{
+    grid-template-columns:1fr;
+    gap:3px;
+  }
+  .pi-venue,
+  .pi-price{
+    font-size:12px;
+  }
+  .pi-price{
+    justify-self:start;
+  }
+}
+
+/* Very narrow phones prioritize legibility over density. */
+@media(max-width:360px){
+  .poster-grid{
+    grid-template-columns:1fr;
+    gap:14px;
+  }
+  .poster-img-wrap{
+    aspect-ratio:3/4;
+  }
+  .poster-info{
+    min-height:0;
+    padding:13px 13px 15px;
+  }
+  .pi-date{
+    font-size:15px;
+  }
+  .pi-name{
+    font-size:16px;
+  }
+  .pi-venue,
+  .pi-price,
+  .pi-avail{
+    font-size:13px;
+  }
+  .pi-tap{
+    font-size:13px;
+    padding:10px 0;
+  }
+}
