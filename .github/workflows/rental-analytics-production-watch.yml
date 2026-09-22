@@ -111,9 +111,10 @@ jobs:
               owner,repo,issue_number,per_page:100
             });
             const previous=comments.find(c=>String(c.body||'').includes(marker));
-            const previousFingerprint=previous
-              ? (String(previous.body||'').match(/State fingerprint: `([0-9a-f]{64})`/)||[])[1]
-              : '';
+            const previousBody=previous?String(previous.body||''):'';
+            const markerFingerprint=(previousBody.match(/<!-- kk-rental-analytics-production-watch-fingerprint:([0-9a-f]{64}) -->/)||[])[1];
+            const legacyFingerprint=(previousBody.match(/State fingerprint:[^0-9a-f]*([0-9a-f]{64})/i)||[])[1];
+            const previousFingerprint=markerFingerprint||legacyFingerprint||'';
             if(previousFingerprint===report.state_fingerprint){
               core.info('Material state unchanged; no GitHub comment update.');
               core.setOutput('changed','false');
@@ -124,6 +125,7 @@ jobs:
             const attempt=report.latest_production_attempt||{};
             const lines=[
               marker,
+              `<!-- kk-rental-analytics-production-watch-fingerprint:${report.state_fingerprint} -->`,
               '## Rental Analytics Production Watch',
               '',
               `**State:** \`${report.state}\`  `,
