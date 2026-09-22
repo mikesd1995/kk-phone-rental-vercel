@@ -2,10 +2,7 @@ name: KK External Witness Clock V2
 
 on:
   schedule:
-    # GitHub documents that scheduled runs can be delayed or dropped during high load,
-    # especially near the start of the hour. Keep one scheduler, but move farther away
-    # from the top of the hour while staying inside the 25-minute witness ingress gate.
-    - cron: '13 * * * *'
+    - cron: '7 * * * *'
 
 permissions:
   contents: read
@@ -50,7 +47,6 @@ jobs:
           const scheduled_at=bangkokIso(scheduled);
           const TOP_HOUR_BANGKOK=/^\d{4}-\d{2}-\d{2}T\d{2}:00:00\+07:00$/;
           if(!TOP_HOUR_BANGKOK.test(scheduled_at)) throw new Error('WITNESS_SCHEDULE_FORMAT_INVALID');
-          console.log('dispatch_offset_minutes='+String(Math.floor((now-scheduled)/60000)));
           const body={
             version:'kk-scanner-github-witness-v1',
             role:'SCANNER',
