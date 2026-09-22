@@ -157,6 +157,7 @@ test('tryExecute performs one atomic batch and exact readback only after every a
   },{
     env:activeEnv({KK_ADMIN_DIRECT_WRITER_PHASE1_ACTIONS:'updatePackage'}),
     tokenProvider:async()=> 'token',
+    findAuditRequest:async()=>null,
     loadModel:async()=>({packages:[['TPL-PHONE','VIVO_X300_PRO','phone_only','NONE',890,'Phone','',true,10,'']]}),
     sheetMap:async()=>({
       '01_Events':11,'03_Packages':12,'04_Event_Overrides':13,'09_Web_Packages':14,'15_Admin_Audit_Log':15
@@ -197,6 +198,7 @@ test('direct execution failure is marked no-fallback instead of silently retryin
     },{
       env:activeEnv({KK_ADMIN_DIRECT_WRITER_PHASE1_ACTIONS:'updatePackage'}),
       tokenProvider:async()=> 'token',
+      findAuditRequest:async()=>null,
       loadModel:async()=>({packages:[['TPL-PHONE','VIVO_X300_PRO','phone_only','NONE',890,'Phone','',true,10,'']]}),
       sheetMap:async()=>({
         '01_Events':11,'03_Packages':12,'04_Event_Overrides':13,'09_Web_Packages':14,'15_Admin_Audit_Log':15
@@ -261,4 +263,38 @@ test('Admin proxy never falls through to Apps Script after an accepted direct ro
   assert.equal(body.mutation_committed,true);
   assert.equal(out.headers['X-KK-Admin-Direct-No-Fallback'],'TRUE');
   assert.equal(upstreamCalls,0);
+});
+
+
+test('request_id replay returns prior accepted result without a second business mutation',async()=>{
+  let loadCalls=0,batchCalls=0;
+  const result=await Phase1.tryExecute({
+    action:'updatePackage',template_id:'TPL-PHONE',standard_price:790,request_id:'req-replay-12345'
+  },{
+    env:activeEnv({KK_ADMIN_DIRECT_WRITER_PHASE1_ACTIONS:'updatePackage'}),
+    tokenProvider:async()=> 'token',
+    findAuditRequest:async id=>({
+      row_number:1201,
+      action:'updatePackage',
+      status:'OK',
+      result:{template_id:'TPL-PHONE',row_number:5,request_id:id}
+    }),
+    loadModel:async()=>{loadCalls++;return {};},
+    executeBatch:async()=>{batchCalls++;return {};}
+  });
+  assert.equal(result.handled,true);
+  assert.equal(result.body.idempotent_replay,true);
+  assert.equal(result.body.data.idempotent_replay,true);
+  assert.equal(result.body.data.audit_row_number,1201);
+  assert.equal(loadCalls,0);
+  assert.equal(batchCalls,0);
+});
+
+test('Admin UI assigns one request_id per write call and allows only accepted direct actions during legacy outage',()=>{
+  const fs=require('node:fs');
+  const ui=fs.readFileSync(require.resolve('../admin/admin.js'),'utf8');
+  assert.match(ui,/function directPhase1ActionAvailable\(action\)/);
+  assert.match(ui,/direct_writer_phase1_state/);
+  assert.match(ui,/outbound\.request_id=adminRequestId\(\)/);
+  assert.match(ui,/degraded_read_only[\s\S]{0,400}!directPhase1/);
 });
