@@ -1,11 +1,12 @@
 /**
  * RECOVERY HOTFIX 2026-09-20: reduce Apps Script Sheet-service round trips; business/API contract unchanged.
- * KK Phone Rental Backend v16.7.0_CRM_PRO_PHASE3_9_5_10_RETURN_TIME_ATOMICITY_CANDIDATE
+ * KK Phone Rental Backend v16.7.0_CRM_PRO_PHASE3_9_5_11_TIMEZONE_GUARD_CANDIDATE
  * Phase 1 recovery-stable baseline + audited booking/override guards + dynamic range optimization
  * Keep in sync with backend sheets: Dashboard K31:K42, Web Packages A4:N, use_case_override in 04_Event_Overrides!G.
  */
-const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_10_RETURN_TIME_ATOMICITY_CANDIDATE';
+const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_11_TIMEZONE_GUARD_CANDIDATE';
 const KK_PHASE1_DIRECT_FALLBACK_DISABLED = false;
+const KK_BUSINESS_TIME_ZONE = 'Asia/Bangkok';
 
 // 2026-09-20 recovery hotfix: cache Spreadsheet/Sheet handles per Apps Script execution.
 // This does not cache business data and does not persist between requests.
@@ -165,13 +166,76 @@ function kkSheetExists_(name) {
   return !!kkSpreadsheet_().getSheetByName(name);
 }
 
+function kkTimeZoneDiagnostics_() {
+  const scriptTimeZone = String(Session.getScriptTimeZone() || '').trim();
+  const spreadsheetTimeZone = String(kkSpreadsheet_().getSpreadsheetTimeZone() || '').trim();
+  const scriptOk = scriptTimeZone === KK_BUSINESS_TIME_ZONE;
+  const spreadsheetOk = spreadsheetTimeZone === KK_BUSINESS_TIME_ZONE;
+  return {
+    business_time_zone: KK_BUSINESS_TIME_ZONE,
+    script_time_zone: scriptTimeZone,
+    spreadsheet_time_zone: spreadsheetTimeZone,
+    script_time_zone_ok: scriptOk,
+    spreadsheet_time_zone_ok: spreadsheetOk,
+    time_zone_aligned: scriptOk && spreadsheetOk
+  };
+}
+
+function kkProjectTriggerDiagnostics_() {
+  try {
+    const triggers = ScriptApp.getProjectTriggers().map(trigger => ({
+      handler_function: String(trigger.getHandlerFunction() || ''),
+      event_type: String(trigger.getEventType() || ''),
+      trigger_source: String(trigger.getTriggerSource() || '')
+    }));
+    return {
+      available: true,
+      count: triggers.length,
+      cleanup_handler_count: triggers.filter(t => t.handler_function === 'kkCleanupOldData30DaysAuto').length,
+      schedule_hour_verifiable: false,
+      triggers: triggers
+    };
+  } catch (err) {
+    return {
+      available: false,
+      count: null,
+      cleanup_handler_count: null,
+      schedule_hour_verifiable: false,
+      triggers: [],
+      error: err && err.message ? String(err.message).slice(0, 300) : String(err).slice(0, 300)
+    };
+  }
+}
+
+function kkAssertWriteTimeZonesAligned_() {
+  const diagnostic = kkTimeZoneDiagnostics_();
+  if (!diagnostic.time_zone_aligned) {
+    throw new Error(
+      'TIMEZONE_ALIGNMENT_REQUIRED: write blocked until Apps Script and Spreadsheet time zones both equal ' +
+      KK_BUSINESS_TIME_ZONE +
+      ' (script=' + (diagnostic.script_time_zone || 'unknown') +
+      ', spreadsheet=' + (diagnostic.spreadsheet_time_zone || 'unknown') + ')'
+    );
+  }
+  return diagnostic;
+}
+
 function kkPhase1Diagnostics_(payload) {
   const props = PropertiesService.getScriptProperties();
   const frontendSheetId = payload && payload.frontendSheetId ? String(payload.frontendSheetId).trim() : '';
   const spreadsheetId = kkSpreadsheet_().getId();
+  const timeZone = kkTimeZoneDiagnostics_();
+  const projectTriggers = kkProjectTriggerDiagnostics_();
   return {
     admin_api_version: KK_ADMIN_VERSION,
     spreadsheet_id: spreadsheetId,
+    business_time_zone: timeZone.business_time_zone,
+    script_time_zone: timeZone.script_time_zone,
+    spreadsheet_time_zone: timeZone.spreadsheet_time_zone,
+    script_time_zone_ok: timeZone.script_time_zone_ok,
+    spreadsheet_time_zone_ok: timeZone.spreadsheet_time_zone_ok,
+    time_zone_aligned: timeZone.time_zone_aligned,
+    project_triggers: projectTriggers,
     frontend_sheet_id: frontendSheetId,
     frontend_backend_same_sheet: !!frontendSheetId && frontendSheetId === spreadsheetId,
     admin_api_key_set: !!String(props.getProperty('KK_ADMIN_API_KEY') || '').trim(),
@@ -946,7 +1010,6 @@ function kkEventDateMap_() {
   return map;
 }
 
-const KK_BUSINESS_TIME_ZONE = 'Asia/Bangkok';
 const KK_RESERVATION_FALLBACK_END_HOUR = 6;
 
 function kkBookingTimeMinutes_(value) {
@@ -1362,6 +1425,12 @@ function doPost(e) {
     keyOk = true;
     action = String(payload.action || '').trim();
     let result;
+
+    // All mutation paths are fail-closed on time-zone alignment. Read-only
+    // snapshot/phase1Health remain available so operators can diagnose the mismatch.
+    if (action && action !== 'snapshot' && action !== 'phase1Health') {
+      kkAssertWriteTimeZonesAligned_();
+    }
 
     switch (action) {
       case 'snapshot': result = kkApiSnapshot_(payload); break;
