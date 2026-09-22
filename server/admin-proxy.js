@@ -4,6 +4,7 @@
 
 const SnapshotHealth = require("../admin/snapshot-health.js");
 const UpstreamResponse = require("../server/upstream-response.js");
+const DirectWriterPhase1 = require("./admin-direct-writer-phase1.js");
 const KK_APP_VERSION = SnapshotHealth.VERSION;
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
@@ -131,6 +132,18 @@ async function buildSystemHealth(payload, env) {
     env.adminPin ? "OK" : "FAIL",
     env.adminPin ? "set" : "missing",
     env.adminPin ? "" : "Set KK_ADMIN_PIN in Vercel Environment Variables."
+  ));
+
+  const directWriterPhase1 = DirectWriterPhase1.routingState(process.env);
+  rows.push(diagnosticRow(
+    "direct_writer_phase1",
+    "Direct Google Writer Phase 1",
+    directWriterPhase1.ready ? "OK" : "WARN",
+    "writer_ready=" + String(directWriterPhase1.writer_ready) +
+      "; actions=" + (directWriterPhase1.configured_actions.length ? directWriterPhase1.configured_actions.join(",") : "none"),
+    directWriterPhase1.ready
+      ? ""
+      : "Staged fail-closed. Provision a Google writer identity, pass the write probe, then explicitly allowlist Phase-1 actions."
   ));
 
   let upstreamData = null;
@@ -311,6 +324,38 @@ module.exports = async function handler(req, res) {
     if (payload.action === "systemHealth") {
       const health = await buildSystemHealth(payload, { scriptUrl, apiKey, adminPin, envSheetId, frontendSheetId, sheetIdSource });
       return json(res, health.ok ? 200 : 200, health);
+    }
+
+    if (req.method === "POST" && DirectWriterPhase1.SUPPORTED_ACTIONS.includes(String(payload.action || ""))) {
+      let directResult;
+      try {
+        directResult = await DirectWriterPhase1.tryExecute(payload, { env: process.env, fetchImpl: global.fetch });
+      } catch (err) {
+        res.setHeader("X-KK-Admin-Write-Transport", "DIRECT_GOOGLE_SHEETS");
+        res.setHeader("X-KK-Admin-Direct-No-Fallback", "TRUE");
+        const code = String(err && err.code || "DIRECT_PHASE1_WRITE_FAILED");
+        const status =
+          code === "DIRECT_PHASE1_VALIDATION_FAILED" ? 422 :
+          code.endsWith("_NOT_FOUND") ? 404 :
+          502;
+        return json(res, status, {
+          ok: false,
+          error: err && err.message ? err.message : "Direct Google Sheets write failed",
+          error_code: code,
+          action: String(payload.action || ""),
+          write_transport: "direct-google-sheets",
+          no_legacy_fallback: true,
+          mutation_committed: !!(err && err.mutation_committed),
+          direct_writer_version: DirectWriterPhase1.VERSION
+        });
+      }
+      if (directResult && directResult.handled) {
+        res.setHeader("X-KK-Admin-Write-Transport", "DIRECT_GOOGLE_SHEETS");
+        res.setHeader("X-KK-Admin-Direct-No-Fallback", "TRUE");
+        return json(res, Number(directResult.status || 200), directResult.body);
+      }
+      res.setHeader("X-KK-Admin-Write-Transport", "LEGACY_APPS_SCRIPT");
+      res.setHeader("X-KK-Admin-Direct-Skip", String(directResult && directResult.reason || "NOT_ROUTED").slice(0, 120));
     }
 
     if (!scriptUrl || !apiKey) {
