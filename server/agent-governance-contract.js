@@ -121,12 +121,20 @@ function resolvePolicyLayers(layers) {
     throw error;
   }
 
-  const normalized = layers.map((layer) => ({
-    level: text(layer.level).toUpperCase(),
-    allow: uniq(layer.allow),
-    deny: uniq(layer.deny),
-    permission_ceiling: text(layer.permission_ceiling || 'P6').toUpperCase()
-  })).sort((a, b) => policyLevelIndex(a.level) - policyLevelIndex(b.level));
+  const normalized = layers.map((layer) => {
+    const level = text(layer.level).toUpperCase();
+    const levelIndex = policyLevelIndex(level);
+    const permissionCeiling = text(layer.permission_ceiling || 'P6').toUpperCase();
+    permissionRank(permissionCeiling);
+
+    return {
+      level,
+      level_index: levelIndex,
+      allow: uniq(layer.allow),
+      deny: uniq(layer.deny),
+      permission_ceiling: permissionCeiling
+    };
+  }).sort((a, b) => a.level_index - b.level_index);
 
   const denied = new Set();
   let effectiveAllow = null;
