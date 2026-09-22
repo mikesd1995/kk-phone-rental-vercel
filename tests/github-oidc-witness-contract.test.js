@@ -49,7 +49,7 @@ test('scheduled GitHub witness clock uses OIDC only and has no secret dependency
     path.join(root,'.github','workflows','kk-external-witness-clock.yml'),
     'utf8'
   );
-  assert.match(source,/cron:\s*'7 \* \* \* \*'/);
+  assert.match(source,/cron:\s*'7,13 \* \* \* \*'/);
   assert.match(source,/id-token:\s*write/);
   assert.match(source,/ACTIONS_ID_TOKEN_REQUEST_URL/);
   assert.match(source,/ACTIONS_ID_TOKEN_REQUEST_TOKEN/);
@@ -68,7 +68,6 @@ test('Supabase config keeps custom OIDC verification at the function boundary',(
   assert.match(source,/verify_jwt\s*=\s*false/);
 });
 
-
 test('witness control migration defaults disabled and is service-role only',()=>{
   const source=fs.readFileSync(
     path.join(root,'supabase','migrations','20260921193000_github_oidc_witness_control.sql'),
@@ -82,19 +81,30 @@ test('witness control migration defaults disabled and is service-role only',()=>
   assert.match(source,/grant select, update on table public\.kk_control_plane_config to service_role/);
 });
 
-
-test('witness scheduler avoids minute zero while preserving top-hour occurrence semantics',()=>{
+test('v4.9.24 witness scheduler uses one workflow schedule expression with two natural attempts',()=>{
   const source=fs.readFileSync(
     path.join(root,'.github','workflows','kk-external-witness-clock.yml'),
     'utf8'
   );
-  assert.match(source,/cron:\s*'7 \* \* \* \*'/);
-  assert.doesNotMatch(source,/cron:\s*'0 \* \* \* \*'/);
+  const cronMatches=[...source.matchAll(/cron:\s*'([^']+)'/g)];
+  assert.equal(cronMatches.length,1);
+  assert.equal(cronMatches[0][1],'7,13 * * * *');
+  assert.doesNotMatch(source,/workflow_dispatch/);
   assert.match(source,/const scheduled=Math\.floor\(now\/HOUR_MS\)\*HOUR_MS;/);
   assert.match(source,/scheduled_at=bangkokIso\(scheduled\)/);
+  assert.match(source,/occurrence_id:'SCANNER\|'\+scheduled_at/);
   assert.match(source,/issued_at:bangkokIso\(now\)/);
 });
 
+test('runtime ledger schema caps persisted witness rows at one per occurrence and role/hour',()=>{
+  const source=fs.readFileSync(
+    path.join(root,'supabase','staging','kk-runtime-ledger-v1.sql'),
+    'utf8'
+  );
+  assert.match(source,/occurrence_id text primary key/);
+  assert.match(source,/unique \(role, scheduled_at\)/);
+  assert.match(source,/unique \(nonce\)/);
+});
 
 test('witness workflow emits Edge-compatible second-precision Bangkok timestamps',()=>{
   const source=fs.readFileSync(
