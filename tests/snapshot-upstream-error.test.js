@@ -66,6 +66,7 @@ function validSnapshot() {
 test.beforeEach(() => {
   setEnv();
   handler._test.clearUpstreamCircuit();
+  if (handler._test.clearWriteHealthCache) handler._test.clearWriteHealthCache();
   if (AdminSheetFallback.clearSnapshotCache) AdminSheetFallback.clearSnapshotCache();
 });
 
@@ -74,6 +75,7 @@ test.afterEach(() => {
   global.fetch = ORIGINAL_FETCH;
   AdminSheetFallback.buildSnapshot = ORIGINAL_BUILD_SNAPSHOT;
   handler._test.clearUpstreamCircuit();
+  if (handler._test.clearWriteHealthCache) handler._test.clearWriteHealthCache();
   if (AdminSheetFallback.clearSnapshotCache) AdminSheetFallback.clearSnapshotCache();
 });
 
@@ -419,4 +421,61 @@ test('apps-script-first remains an explicit rollback mode', () => {
   assert.equal(handler._test.adminReadMode({}), 'direct-sheet-primary');
   assert.equal(handler._test.adminReadMode({KK_ADMIN_READ_MODE:'apps-script-first'}), 'apps-script-first');
   assert.equal(handler._test.adminReadMode({KK_ADMIN_READ_MODE:'unknown'}), 'direct-sheet-primary');
+});
+
+
+test('write-health cache reuses a recent healthy identity result and expires on schedule',()=>{
+  const url=process.env.KK_ADMIN_SCRIPT_URL;
+  const sheet=process.env.GOOGLE_SHEET_ID;
+  const remembered=handler._test.rememberWriteHealth(url,sheet,{
+    checked:true,skipped:false,ok:true,status:200,latency_ms:120,
+    error_code:'',failure_class:'',backend_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+    spreadsheet_id:sheet
+  },1000);
+  assert.equal(remembered.cache_status,'miss');
+  const hit=handler._test.activeWriteHealthCache(url,sheet,1001);
+  assert.equal(hit.ok,true);
+  assert.equal(hit.cache_status,'hit');
+  assert.equal(hit.cache_age_ms,1);
+  assert.equal(handler._test.activeWriteHealthCache(url,sheet,1000+handler._test.WRITE_HEALTH_OK_CACHE_TTL_MS+1),null);
+});
+
+test('write-health cache uses a shorter TTL for failures',()=>{
+  const url=process.env.KK_ADMIN_SCRIPT_URL;
+  const sheet=process.env.GOOGLE_SHEET_ID;
+  handler._test.rememberWriteHealth(url,sheet,{
+    checked:true,skipped:false,ok:false,status:0,latency_ms:4000,
+    error_code:'WRITE_HEALTH_TIMEOUT',failure_class:'UPSTREAM_TIMEOUT',backend_version:'',spreadsheet_id:''
+  },2000);
+  const hit=handler._test.activeWriteHealthCache(url,sheet,2001);
+  assert.equal(hit.ok,false);
+  assert.equal(hit.cache_status,'hit');
+  assert.equal(handler._test.activeWriteHealthCache(url,sheet,2000+handler._test.WRITE_HEALTH_FAIL_CACHE_TTL_MS+1),null);
+});
+
+test('direct primary snapshots reuse one recent write-health probe on the same warm runtime',async()=>{
+  process.env.KK_ADMIN_READ_MODE='direct-sheet-primary';
+  AdminSheetFallback.buildSnapshot=async()=>minimalFallbackSnapshot();
+  let phase1Calls=0;
+  global.fetch=async(_url,options)=>{
+    const body=JSON.parse(String(options&&options.body||'{}'));
+    if(body.action==='phase1Health') phase1Calls++;
+    return {
+      ok:true,status:200,headers:{get:()=> 'application/json; charset=utf-8'},
+      async text(){return JSON.stringify({ok:true,data:{
+        admin_api_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+        spreadsheet_id:process.env.GOOGLE_SHEET_ID
+      }});}
+    };
+  };
+
+  const a=responseCapture();
+  await handler(reqFor('snapshot'),a.res);
+  const b=responseCapture();
+  await handler(reqFor('snapshot'),b.res);
+  assert.equal(a.res.statusCode,200);
+  assert.equal(b.res.statusCode,200);
+  assert.equal(phase1Calls,1);
+  assert.equal(a.body.write_health_cache_status,'miss');
+  assert.equal(b.body.write_health_cache_status,'hit');
 });
