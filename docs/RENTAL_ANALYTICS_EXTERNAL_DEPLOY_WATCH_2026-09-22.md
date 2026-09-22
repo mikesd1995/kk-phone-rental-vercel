@@ -82,3 +82,20 @@ After: GitHub's scheduler owns the deterministic watch. ChatGPT task capacity re
 ## Rollback
 
 Delete or disable `.github/workflows/rental-analytics-production-watch.yml`. The watcher has no business-data migration, secret change or Production mutation to roll back. The script/tests/docs can be reverted independently.
+
+## First-run remediation
+
+The first push-triggered run on main (`35734879675`) correctly made zero Production or business mutations, but its orchestration failed before the watcher script ran.
+
+Two workflow-only defects were identified from GitHub Actions logs:
+
+- the workflow token did not have `statuses: read`, so the read-only commit-status request returned HTTP 403
+- the job-summary shell block used a nested heredoc terminator that Bash interpreted as unterminated
+
+Remediation:
+
+- grant only `statuses: read` in addition to the existing `contents: read` and `issues: write`
+- replace the fragile summary heredoc with a non-interactive `node -e` writer
+- add regression coverage that requires the status permission and rejects the broken summary-heredoc pattern
+
+No Vercel deployment, secret, Admin credential, Sheet, Apps Script, Scanner, Verifier, Canary or business data was changed by this remediation.

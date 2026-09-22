@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   issues: write
+  statuses: read
 
 concurrency:
   group: kk-rental-analytics-production-watch
@@ -169,17 +170,7 @@ jobs:
         shell: bash
         run: |
           if [ -f rental-analytics-production-watch.json ]; then
-            node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
-            const r=require('./rental-analytics-production-watch.json');
-            console.log('## Rental Analytics Production Watch');
-            console.log('');
-            console.log('- State: `'+r.state+'`');
-            console.log('- Severity: `'+r.severity+'`');
-            console.log('- Production contains fix: `'+String(r.production_contains_fix)+'`');
-            console.log('- Production matches current main: `'+String(r.production_matches_current_main)+'`');
-            console.log('- Production writes: `0`');
-            console.log('- Business writes: `0`');
-            NODE
+            node -e 'const r=require("./rental-analytics-production-watch.json"); const lines=["## Rental Analytics Production Watch","", "- State: "+r.state, "- Severity: "+r.severity, "- Production contains fix: "+String(r.production_contains_fix), "- Production matches current main: "+String(r.production_matches_current_main), "- Production writes: 0", "- Business writes: 0"]; process.stdout.write(lines.join("\\n")+"\\n");' >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Fail only on an unsafe or contradictory runtime state
