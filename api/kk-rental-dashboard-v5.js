@@ -3,7 +3,7 @@
 // KK Phone Rental — Rental Analytics v5
 // Dual-domain read path: private CRM/Intelligence when service-account auth is ready,
 // otherwise preserve the existing Core analytics endpoint as an explicit fallback.
-const legacyHandler = require('./kk-rental-dashboard');
+const legacyHandler = require('../server/rental-dashboard-core.js');
 const privateSheets = require('./lib/private-google-sheets');
 const AdminSecurity = require('../server/admin-session.js');
 

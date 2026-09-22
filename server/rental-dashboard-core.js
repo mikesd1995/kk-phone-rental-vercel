@@ -1,7 +1,7 @@
-// KK Phone Rental — Rental Analytics v3 (READ ONLY, isolated from public and admin write APIs)
+// KK Phone Rental — Rental Analytics Core v3 (READ ONLY, internal server module)
 // Reads aggregate-helper/event metadata through Google Sheets gviz. Returns aggregate metrics only; no PII leaves this endpoint.
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
-const AdminSecurity = require('../server/admin-session.js');
+const AdminSecurity = require('./admin-session.js');
 
 function json(res,status,body){
   res.statusCode=status;
