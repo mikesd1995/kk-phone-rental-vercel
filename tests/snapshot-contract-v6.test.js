@@ -43,6 +43,7 @@ function setEnv() {
   process.env.KK_ADMIN_API_KEY = 'api-key';
   process.env.KK_ADMIN_SCRIPT_URL = 'https://script.google.com/macros/s/test-deployment/exec';
   process.env.GOOGLE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
+  process.env.KK_ADMIN_READ_MODE = 'apps-script-first';
 }
 
 function validSnapshot() {
