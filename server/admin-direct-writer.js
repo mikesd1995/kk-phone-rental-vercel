@@ -98,24 +98,32 @@ const ACTION_SHEETS=Object.freeze({
   auditLog:'15_Admin_Audit_Log'
 });
 
+function columnNumber(label){
+  const s=String(label||'').trim().toUpperCase();
+  if(!/^[A-Z]+$/.test(s)) return 0;
+  let n=0;
+  for(const ch of s) n=n*26+(ch.charCodeAt(0)-64);
+  return n;
+}
+
 function validateTarget(action,range){
   const sheet=ACTION_SHEETS[String(action||'')];
   if(!sheet) return {ok:false,code:'DIRECT_WRITER_ACTION_NOT_ALLOWED'};
   const value=String(range||'').trim();
   const m=value.match(/^'?([^'!]+)'?!([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
   if(!m||m[1]!==sheet) return {ok:false,code:'DIRECT_WRITER_RANGE_NOT_ALLOWED'};
+  const startCol=columnNumber(m[2]),endCol=columnNumber(m[4]);
   const startRow=Number(m[3]),endRow=Number(m[5]);
-  if(!Number.isInteger(startRow)||!Number.isInteger(endRow)||startRow<1||endRow<startRow||endRow-startRow>50){
+  if(!startCol||!endCol||startCol>endCol||!Number.isInteger(startRow)||!Number.isInteger(endRow)||startRow<1||endRow<startRow||endRow-startRow>50){
     return {ok:false,code:'DIRECT_WRITER_RANGE_NOT_ALLOWED'};
   }
-  if(action==='createBooking'||action==='updateBooking'){
-    if(m[2]<'B'||m[4]>'T') return {ok:false,code:'DIRECT_WRITER_RANGE_NOT_ALLOWED'};
-  }else if(action==='createEvent'||action==='updateEvent'){
-    if(m[2]<'A'||m[4]>'H') return {ok:false,code:'DIRECT_WRITER_RANGE_NOT_ALLOWED'};
-  }else if(action==='upsertEventOverride'){
-    if(m[2]<'A'||m[4]>'G') return {ok:false,code:'DIRECT_WRITER_RANGE_NOT_ALLOWED'};
-  }else if(action==='auditLog'){
-    if(m[2]!=='A'||m[4]!=='J') return {ok:false,code:'DIRECT_WRITER_RANGE_NOT_ALLOWED'};
+  const bounds={
+    createBooking:[2,20],updateBooking:[2,20],
+    createEvent:[1,8],updateEvent:[1,8],
+    upsertEventOverride:[1,7],auditLog:[1,10]
+  }[action];
+  if(!bounds||startCol<bounds[0]||endCol>bounds[1]){
+    return {ok:false,code:'DIRECT_WRITER_RANGE_NOT_ALLOWED'};
   }
   return {ok:true,sheet,range:value};
 }
@@ -156,5 +164,5 @@ function resetTokenCache(){tokenCache={token:'',expiresAt:0,fingerprint:''};}
 
 module.exports={
   VERSION,CORE_SHEET_ID,WRITE_SCOPE,ACTION_SHEETS,
-  isTrue,state,createAssertion,getAccessToken,validateTarget,requireActivated,updateValues,resetTokenCache
+  isTrue,state,createAssertion,getAccessToken,columnNumber,validateTarget,requireActivated,updateValues,resetTokenCache
 };
