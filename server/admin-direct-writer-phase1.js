@@ -204,18 +204,12 @@ function buildUpdateEventPlan(payload,data){
   const sheetRow=SHEET_START_ROWS['01_Events']+hit.index;
   const mutations=[mutation('01_Events',sheetRow,1,next)];
   const readbacks=[readback(`01_Events!A${sheetRow}:H${sheetRow}`,next)];
-  let preserved=0;
-  const webRows=data.web||[];
-  const formulaRows=data.webPriceFormula||[];
-  webRows.forEach((row,i)=>{
-    const x=padRow(row,14);
-    if(text(x[1])!==eventId||!text(x[0])) return;
-    const priceFormula=(formulaRows[i]&&formulaRows[i][0]!==undefined)?formulaRows[i][0]:x[7];
-    const physical=SHEET_START_ROWS['09_Web_Packages']+i;
-    mutations.push(mutation('09_Web_Packages',physical,8,[priceFormula]));
-    readbacks.push(readback(`09_Web_Packages!H${physical}:H${physical}`,[priceFormula],'FORMULA'));
-    preserved++;
-  });
+  // Unlike the Apps Script implementation, the direct writer does not run any
+  // full-column price repair while updating an Event. Therefore the safest way
+  // to preserve manual/formula package prices is to not write column H at all.
+  const preserved=(data.web||[])
+    .map(row=>padRow(row,14))
+    .filter(row=>text(row[1])===eventId&&text(row[0])).length;
 
   return {
     action:'updateEvent',
@@ -417,12 +411,11 @@ async function readValues(range,{token,render='UNFORMATTED_VALUE',fetchImpl=glob
 async function loadModel(action,{token,fetchImpl=global.fetch}={}){
   const base={events:[],packages:[],overrides:[],web:[],webPriceFormula:[]};
   if(action==='updateEvent'){
-    const [events,web,webPriceFormula]=await Promise.all([
+    const [events,web]=await Promise.all([
       readValues('01_Events!A5:H1000',{token,fetchImpl}),
-      readValues('09_Web_Packages!A5:N3000',{token,fetchImpl}),
-      readValues('09_Web_Packages!H5:H3000',{token,render:'FORMULA',fetchImpl})
+      readValues('09_Web_Packages!A5:N3000',{token,fetchImpl})
     ]);
-    return Object.assign(base,{events,web,webPriceFormula});
+    return Object.assign(base,{events,web});
   }
   if(action==='updatePackage'){
     base.packages=await readValues('03_Packages!A5:J500',{token,fetchImpl});
