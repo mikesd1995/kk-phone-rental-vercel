@@ -19,7 +19,7 @@ Provenance checkpoint:
 
 Behavior changes are layered after that checkpoint and use candidate version:
 
-`v16.7.0_CRM_PRO_PHASE3_9_5_10_RETURN_TIME_ATOMICITY_CANDIDATE`
+`v16.7.0_CRM_PRO_PHASE3_9_5_11_TIMEZONE_GUARD_CANDIDATE`
 
 This candidate is **not** the live Apps Script version.
 
@@ -73,6 +73,24 @@ Create and Edit Booking forms expose optional `return_time`.
 Edit flow populates the persisted value from snapshot.
 No historical booking time is invented.
 
+### Timezone / trigger fail-closed diagnostics
+
+Fresh owner-authenticated Sheets metadata on 2026-09-22 still reports:
+- Spreadsheet locale: `th_TH`;
+- Spreadsheet timezone: `Etc/GMT`;
+- business target: `Asia/Bangkok`.
+
+The bound Apps Script Project timezone and exact installed-trigger schedule are still not directly readable through the connected Drive surface. The candidate therefore adds a zero-write `phase1Health` diagnostic contract:
+- `Session.getScriptTimeZone()`;
+- `Spreadsheet.getSpreadsheetTimeZone()`;
+- `ScriptApp.getProjectTriggers()`;
+- cleanup-handler count;
+- no API-key or secret value is returned.
+
+All mutation actions fail closed with `TIMEZONE_ALIGNMENT_REQUIRED` unless both Apps Script Project and Spreadsheet timezone are exactly `Asia/Bangkok`. `snapshot` and `phase1Health` remain available so the mismatch can be diagnosed without a business write.
+
+The Apps Script Trigger object does not prove the configured execution hour, so exact daily `03:00` local scheduling remains an owner-authenticated Triggers-UI acceptance item.
+
 ## Explicit non-goals
 
 This branch does not:
@@ -99,3 +117,14 @@ Before any live Apps Script deployment require:
 10. no synthetic business row.
 
 Until those gates pass, Production remains on live 9_5_9 and this branch stays review-only.
+
+
+## 2026-09-22 pre-migration readback checkpoint
+
+Before any timezone mutation, bounded FORMATTED_VALUE + UNFORMATTED_VALUE reads were captured for:
+- `01_Events` event IDs and event-date serials;
+- `00_Master_Booking` created_at / pickup_time / return_time values;
+- `15_Admin_Audit_Log` historical and recent timestamp serials;
+- `17_Operations_Control` booking dates, pickup times, demand/capacity values.
+
+No timezone, trigger, Apps Script deployment, business row, pricing row, or historical booking time was changed during this capture.
