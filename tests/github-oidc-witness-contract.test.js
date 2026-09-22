@@ -49,7 +49,7 @@ test('scheduled GitHub witness clock uses OIDC only and has no secret dependency
     path.join(root,'.github','workflows','kk-external-witness-clock.yml'),
     'utf8'
   );
-  assert.match(source,/cron:\s*'7 \* \* \* \*'/);
+  assert.match(source,/cron:\s*'7,13 \* \* \* \*'/);
   assert.match(source,/id-token:\s*write/);
   assert.match(source,/ACTIONS_ID_TOKEN_REQUEST_URL/);
   assert.match(source,/ACTIONS_ID_TOKEN_REQUEST_TOKEN/);
@@ -83,16 +83,20 @@ test('witness control migration defaults disabled and is service-role only',()=>
 });
 
 
-test('witness scheduler avoids minute zero while preserving top-hour occurrence semantics',()=>{
+test('witness scheduler uses one workflow expression with two natural attempts inside the ingress window',()=>{
   const source=fs.readFileSync(
     path.join(root,'.github','workflows','kk-external-witness-clock.yml'),
     'utf8'
   );
-  assert.match(source,/cron:\s*'7 \* \* \* \*'/);
-  assert.doesNotMatch(source,/cron:\s*'0 \* \* \* \*'/);
+  const cronMatches=[...source.matchAll(/cron:\s*'([^']+)'/g)];
+  assert.equal(cronMatches.length,1);
+  assert.equal(cronMatches[0][1],'7,13 * * * *');
+  assert.doesNotMatch(source,/workflow_dispatch/);
   assert.match(source,/const scheduled=Math\.floor\(now\/HOUR_MS\)\*HOUR_MS;/);
   assert.match(source,/scheduled_at=bangkokIso\(scheduled\)/);
+  assert.match(source,/occurrence_id:'SCANNER\|'\+scheduled_at/);
   assert.match(source,/issued_at:bangkokIso\(now\)/);
+  assert.match(source,/dispatch_offset_minutes=/);
 });
 
 
@@ -113,4 +117,15 @@ test('witness workflow emits Edge-compatible second-precision Bangkok timestamps
   assert.doesNotMatch(rendered,/\.\d{3}\+07:00$/);
   assert.match(source,/WITNESS_SCHEDULE_FORMAT_INVALID/);
   assert.match(source,/TOP_HOUR_BANGKOK\.test\(scheduled_at\)/);
+});
+
+
+test('runtime ledger schema enforces one persisted expectation per represented slot',()=>{
+  const source=fs.readFileSync(
+    path.join(root,'supabase','staging','kk-runtime-ledger-v1.sql'),
+    'utf8'
+  );
+  assert.match(source,/occurrence_id text primary key/);
+  assert.match(source,/unique \(role, scheduled_at\)/);
+  assert.match(source,/unique \(nonce\)/);
 });
