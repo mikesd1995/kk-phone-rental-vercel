@@ -1,10 +1,22 @@
 /**
- * KK Phone Rental Backend v16.7.0_CRM_PRO_PHASE3_6_17_OVERRIDE_SAVE_ISOLATION_FIX
+ * RECOVERY HOTFIX 2026-09-20: reduce Apps Script Sheet-service round trips; business/API contract unchanged.
+ * KK Phone Rental Backend v16.7.0_CRM_PRO_PHASE3_9_5_11_TIMEZONE_GUARD_CANDIDATE
  * Phase 1 recovery-stable baseline + audited booking/override guards + dynamic range optimization
  * Keep in sync with backend sheets: Dashboard K31:K42, Web Packages A4:N, use_case_override in 04_Event_Overrides!G.
  */
-const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX';
+const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_11_TIMEZONE_GUARD_CANDIDATE';
 const KK_PHASE1_DIRECT_FALLBACK_DISABLED = false;
+const KK_BUSINESS_TIME_ZONE = 'Asia/Bangkok';
+
+// 2026-09-20 recovery hotfix: cache Spreadsheet/Sheet handles per Apps Script execution.
+// This does not cache business data and does not persist between requests.
+let KK_ACTIVE_SPREADSHEET_CACHE_ = null;
+const KK_SHEET_HANDLE_CACHE_ = {};
+
+function kkSpreadsheet_() {
+  if (!KK_ACTIVE_SPREADSHEET_CACHE_) KK_ACTIVE_SPREADSHEET_CACHE_ = SpreadsheetApp.getActive();
+  return KK_ACTIVE_SPREADSHEET_CACHE_;
+}
 
 const KK = {
   dashboard: '00_Admin_Dashboard',
@@ -51,6 +63,7 @@ function onOpen() {
       .addSeparator()
       .addItem('Convert Event Drive Image URLs', 'kkConvertEventDriveUrls')
       .addItem('Repair Lens Stock (ZEISS/G1 only)', 'kkRepairLensCompatibilityPatch')
+      .addItem('Repair Price Integrity (Safe)', 'kkRepairPriceIntegritySafe')
       .addItem('Run Basic Health Check', 'kkRunBasicHealthCheck')
       .addSeparator()
       .addItem('CRM: Generate Admin API Key', 'kkGenerateAdminApiKey')
@@ -150,16 +163,79 @@ function kkErrorLog_(action, payload, err, startedAt) {
 }
 
 function kkSheetExists_(name) {
-  return !!SpreadsheetApp.getActive().getSheetByName(name);
+  return !!kkSpreadsheet_().getSheetByName(name);
+}
+
+function kkTimeZoneDiagnostics_() {
+  const scriptTimeZone = String(Session.getScriptTimeZone() || '').trim();
+  const spreadsheetTimeZone = String(kkSpreadsheet_().getSpreadsheetTimeZone() || '').trim();
+  const scriptOk = scriptTimeZone === KK_BUSINESS_TIME_ZONE;
+  const spreadsheetOk = spreadsheetTimeZone === KK_BUSINESS_TIME_ZONE;
+  return {
+    business_time_zone: KK_BUSINESS_TIME_ZONE,
+    script_time_zone: scriptTimeZone,
+    spreadsheet_time_zone: spreadsheetTimeZone,
+    script_time_zone_ok: scriptOk,
+    spreadsheet_time_zone_ok: spreadsheetOk,
+    time_zone_aligned: scriptOk && spreadsheetOk
+  };
+}
+
+function kkProjectTriggerDiagnostics_() {
+  try {
+    const triggers = ScriptApp.getProjectTriggers().map(trigger => ({
+      handler_function: String(trigger.getHandlerFunction() || ''),
+      event_type: String(trigger.getEventType() || ''),
+      trigger_source: String(trigger.getTriggerSource() || '')
+    }));
+    return {
+      available: true,
+      count: triggers.length,
+      cleanup_handler_count: triggers.filter(t => t.handler_function === 'kkCleanupOldData30DaysAuto').length,
+      schedule_hour_verifiable: false,
+      triggers: triggers
+    };
+  } catch (err) {
+    return {
+      available: false,
+      count: null,
+      cleanup_handler_count: null,
+      schedule_hour_verifiable: false,
+      triggers: [],
+      error: err && err.message ? String(err.message).slice(0, 300) : String(err).slice(0, 300)
+    };
+  }
+}
+
+function kkAssertWriteTimeZonesAligned_() {
+  const diagnostic = kkTimeZoneDiagnostics_();
+  if (!diagnostic.time_zone_aligned) {
+    throw new Error(
+      'TIMEZONE_ALIGNMENT_REQUIRED: write blocked until Apps Script and Spreadsheet time zones both equal ' +
+      KK_BUSINESS_TIME_ZONE +
+      ' (script=' + (diagnostic.script_time_zone || 'unknown') +
+      ', spreadsheet=' + (diagnostic.spreadsheet_time_zone || 'unknown') + ')'
+    );
+  }
+  return diagnostic;
 }
 
 function kkPhase1Diagnostics_(payload) {
   const props = PropertiesService.getScriptProperties();
   const frontendSheetId = payload && payload.frontendSheetId ? String(payload.frontendSheetId).trim() : '';
-  const spreadsheetId = SpreadsheetApp.getActive().getId();
+  const spreadsheetId = kkSpreadsheet_().getId();
+  const timeZone = kkTimeZoneDiagnostics_();
+  const projectTriggers = kkProjectTriggerDiagnostics_();
   return {
     admin_api_version: KK_ADMIN_VERSION,
     spreadsheet_id: spreadsheetId,
+    business_time_zone: timeZone.business_time_zone,
+    script_time_zone: timeZone.script_time_zone,
+    spreadsheet_time_zone: timeZone.spreadsheet_time_zone,
+    script_time_zone_ok: timeZone.script_time_zone_ok,
+    spreadsheet_time_zone_ok: timeZone.spreadsheet_time_zone_ok,
+    time_zone_aligned: timeZone.time_zone_aligned,
+    project_triggers: projectTriggers,
     frontend_sheet_id: frontendSheetId,
     frontend_backend_same_sheet: !!frontendSheetId && frontendSheetId === spreadsheetId,
     admin_api_key_set: !!String(props.getProperty('KK_ADMIN_API_KEY') || '').trim(),
@@ -187,8 +263,11 @@ function kkShowPhase1Health() {
 }
 
 function kkSheet_(name) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(name);
-  if (!sh) throw new Error('Missing sheet: ' + name);
+  const key = String(name || '');
+  if (KK_SHEET_HANDLE_CACHE_[key]) return KK_SHEET_HANDLE_CACHE_[key];
+  const sh = kkSpreadsheet_().getSheetByName(key);
+  if (!sh) throw new Error('Missing sheet: ' + key);
+  KK_SHEET_HANDLE_CACHE_[key] = sh;
   return sh;
 }
 
@@ -201,28 +280,37 @@ function kkGetDynamicRange_(sheetName, startRow, startCol, numCols) {
 }
 
 function kkGetValues_(sheetName, startRow, startCol, numCols) {
-  // Read only through the last row containing visible data in the first few
-  // requested columns. Formula-driven sheets can have formulas copied thousands
-  // of rows downward; Sheet.getLastRow() then reports those rows even when the
-  // formulas display "". Scanning up to three leading columns also avoids
-  // dropping a newly written row while its generated ID cell is still blank.
+  // Recovery performance hotfix:
+  // Use ONE Sheets service read per dataset. The previous implementation first
+  // called getDisplayValues() to find the last visible row, then called getValues()
+  // again for the same dataset. Snapshot reads touch many sheets, so that doubled
+  // remote Sheet service round-trips and could push Web App execution past the
+  // Vercel timeout. Formula cells whose evaluated value is "" are still returned
+  // as blank by getValues(), so the same trimmed-row behavior is preserved.
   const sh = kkSheet_(sheetName);
   const physicalLastRow = sh.getLastRow();
   if (physicalLastRow < startRow) return [];
 
   const scanCount = physicalLastRow - startRow + 1;
-  const scanCols = Math.min(Math.max(Number(numCols || 1), 1), 3);
-  const keyValues = sh.getRange(startRow, startCol, scanCount, scanCols).getDisplayValues();
+  const width = Math.max(Number(numCols || 1), 1);
+  const values = sh.getRange(startRow, startCol, scanCount, width).getValues();
+  const scanCols = Math.min(width, 3);
   let lastDataOffset = -1;
-  for (let i = keyValues.length - 1; i >= 0; i--) {
-    const hasVisibleData = keyValues[i].some(value => String(value || '').trim() !== '');
+  for (let i = values.length - 1; i >= 0; i--) {
+    let hasVisibleData = false;
+    for (let c = 0; c < scanCols; c++) {
+      const value = values[i][c];
+      if (value !== '' && value !== null && typeof value !== 'undefined' && String(value).trim() !== '') {
+        hasVisibleData = true;
+        break;
+      }
+    }
     if (hasVisibleData) {
       lastDataOffset = i;
       break;
     }
   }
-  if (lastDataOffset < 0) return [];
-  return sh.getRange(startRow, startCol, lastDataOffset + 1, numCols).getValues();
+  return lastDataOffset < 0 ? [] : values.slice(0, lastDataOffset + 1);
 }
 
 function kkSetupNamedRanges() {
@@ -533,8 +621,7 @@ function kkFormulaPhoneRawCount_(rowNumber) {
 
 function kkFormulaWebPackageAvailable_(rowNumber, rawMode) {
   const r = rowNumber;
-  const phoneRaw = kkFormulaPhoneRawCount_(r);
-  const lensRaw = `(${kkFormulaLensAssetCount_(r)}-${kkFormulaLensBookedCount_(r)})`;
+  const phoneRaw = kkFormulaPhoneRawCount_(r);  const lensRaw = `(${kkFormulaLensAssetCount_(r)}-${kkFormulaLensBookedCount_(r)})`;
   if (rawMode) {
     return `=IF(B${r}="","",IF(C${r}="lens_only",${lensRaw},IF(C${r}="phone_lens_bundle",MIN(${phoneRaw},${lensRaw}),${phoneRaw})))`;
   }
@@ -624,26 +711,61 @@ function kkDirectApplyOverridePriceToWebPackages_(eventId, templateId, overrideP
   const tid = kkNormalizeTemplateIdForEvent_(eid, templateId);
   const hasPrice = !(overridePrice === '' || overridePrice === null || typeof overridePrice === 'undefined');
   const priceValue = hasPrice ? Number(overridePrice) : '';
-  const targetPackage = kkGetPackageByTemplateId_(tid);
+  if (hasPrice && (!isFinite(priceValue) || priceValue < 0)) throw new Error('Invalid override price: ' + overridePrice);
 
   const startRow = 5;
   const rows = kkGetValues_(KK.webPackages, startRow, 1, 14);
-  let updated = 0;
+  const exact = [];
+  const fallback = [];
+  let targetPackage = null;
+
   rows.forEach((row, idx) => {
-    if (!kkWebPackageRowMatchesTemplate_(row, eid, tid, targetPackage)) return;
-    const sheetRow = startRow + idx;
-    const priceCell = web.getRange(sheetRow, 8); // 09_Web_Packages!H
+    const webPackageId = String(row[0] || '').trim();
+    const webEventId = String(row[1] || '').trim();
+    if (!webPackageId || webEventId !== eid) return;
+    const rowTemplateId = kkNormalizeTemplateIdForEvent_(eid, webPackageId);
+    if (rowTemplateId === tid || webPackageId === tid) {
+      exact.push({ row: row, sheetRow: startRow + idx });
+    }
+  });
+
+  // Only use package-shape fallback when there is NO exact package-id match and the
+  // fallback is unique. Older public rows can have legacy IDs, but applying one
+  // override to multiple same-shape packages is a price-bleed regression.
+  if (!exact.length) {
+    targetPackage = kkGetPackageByTemplateId_(tid);
+    rows.forEach((row, idx) => {
+      const webPackageId = String(row[0] || '').trim();
+      const webEventId = String(row[1] || '').trim();
+      if (!webPackageId || webEventId !== eid) return;
+      const rowType = String(row[2] || '').trim();
+      const rowModel = String(row[3] || '').trim();
+      const rowLens = String(row[5] || '').trim();
+      const pkgType = String(targetPackage.package_type || '').trim();
+      const pkgModel = String(targetPackage.model_group || '').trim();
+      const pkgLens = String(targetPackage.lens_group || '').trim();
+      if (rowType === pkgType && rowModel === pkgModel && kkPriceLensCanonical_(rowLens) === kkPriceLensCanonical_(pkgLens)) {
+        fallback.push({ row: row, sheetRow: startRow + idx });
+      }
+    });
+  }
+
+  const targets = exact.length ? exact : (fallback.length === 1 ? fallback : []);
+  if (!targets.length) {
+    if (fallback.length > 1) Logger.log('Price apply skipped: ambiguous legacy package mapping ' + eid + ' / ' + tid + ' matched ' + fallback.length + ' rows');
+    return 0;
+  }
+
+  targets.forEach(item => {
+    const priceCell = web.getRange(item.sheetRow, 8); // 09_Web_Packages!H
     if (hasPrice) {
-      // Write the public-facing price directly. This fixes the real issue where
-      // 04_Event_Overrides saved correctly but 09_Web_Packages!H did not visibly change.
       priceCell.setValue(priceValue);
     } else {
-      priceCell.setFormula(kkWebPackagePriceFormula_(sheetRow, tid));
+      priceCell.setFormula(kkWebPackagePriceFormula_(item.sheetRow, tid));
     }
-    updated++;
   });
   SpreadsheetApp.flush();
-  return updated;
+  return targets.length;
 }
 
 function kkRefreshWebPackagePriceForOverride_(eventId, templateId, overridePrice) {
@@ -655,6 +777,53 @@ function kkRefreshWebPackagePriceForOverride_(eventId, templateId, overridePrice
   const applied = kkDirectApplyOverridePriceToWebPackages_(eventId, templateId, overridePrice);
   SpreadsheetApp.flush();
   return applied || 0;
+}
+
+function kkRepairPriceIntegritySafe() {
+  const lock = kkAcquireDocumentLock_('safe price integrity repair', 12000);
+  try {
+    const rows = kkGetValues_(KK.overrides, 5, 1, 7)
+      .map((row, idx) => ({ row: row, sheetRow: idx + 5 }))
+      .filter(x => String(x.row[0] || '').trim() && String(x.row[1] || '').trim());
+
+    // Latest row wins for each event/template. This mirrors the public LOOKUP rule.
+    const latest = {};
+    rows.forEach(x => {
+      const eid = String(x.row[0] || '').trim();
+      const tid = kkNormalizeTemplateIdForEvent_(eid, x.row[1]);
+      latest[eid + '|' + tid] = {
+        event_id: eid,
+        template_id: tid,
+        override_price: (x.row[2] === '' || x.row[2] === null) ? '' : x.row[2],
+        sheetRow: x.sheetRow
+      };
+    });
+
+    let keys = 0;
+    let webRowsUpdated = 0;
+    let ambiguousOrMissing = 0;
+    let duplicateOverridesCleared = 0;
+    Object.keys(latest).forEach(key => {
+      keys++;
+      const item = latest[key];
+      duplicateOverridesCleared += kkClearOlderOverrideDuplicates_(item.event_id, item.template_id, item.sheetRow);
+      const updated = kkRefreshWebPackagePriceForOverride_(item.event_id, item.template_id, item.override_price);
+      if (updated) webRowsUpdated += updated;
+      else ambiguousOrMissing++;
+    });
+    SpreadsheetApp.flush();
+    kkSafeAlert_(
+      'Price Integrity Repair finished.\n' +
+      'Override keys: ' + keys + '\n' +
+      'Duplicate override rows cleared: ' + duplicateOverridesCleared + '\n' +
+      'Web price rows updated: ' + webRowsUpdated + '\n' +
+      'Ambiguous/missing mappings skipped safely: ' + ambiguousOrMissing + '\n\n' +
+      'No unrelated 09_Web_Packages!H rows were rewritten.'
+    );
+    return { override_keys: keys, duplicate_overrides_cleared: duplicateOverridesCleared, web_price_rows_updated: webRowsUpdated, ambiguous_or_missing: ambiguousOrMissing };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function kkFormulaBookingPrice_(rowNumber) {
@@ -814,10 +983,9 @@ function kkGetPackageSpecByType_(packageType) {
   throw new Error('No package master found for package_type: ' + wanted);
 }
 
-function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventDate) {
+
+function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventDate, excludeRow) {
   const status = String(nextStatus || '').toLowerCase().trim();
-  // Pending/confirmed bookings reserve stock by package count. A physical Asset ID is
-  // assigned only when admin prepares or hands over the equipment.
   if (!['prepared', 'picked_up'].includes(status)) return bookingRow;
 
   const next = bookingRow;
@@ -828,10 +996,10 @@ function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventD
 
   const spec = kkGetPackageSpecByType_(packageType);
   if (needsPhone && !String(next[9] || '').trim()) {
-    next[9] = kkFindAvailableAsset_('phone', spec.model_group, eventDate);
+    next[9] = kkFindAvailableAsset_('phone', spec.model_group, eventDate, next, excludeRow);
   }
   if (needsLens && !String(next[10] || '').trim()) {
-    next[10] = kkFindAvailableAsset_('lens', spec.lens_group, eventDate);
+    next[10] = kkFindAvailableAsset_('lens', spec.lens_group, eventDate, next, excludeRow);
   }
   return next;
 }
@@ -842,6 +1010,91 @@ function kkEventDateMap_() {
   return map;
 }
 
+const KK_RESERVATION_FALLBACK_END_HOUR = 6;
+
+function kkBookingTimeMinutes_(value) {
+  if (value === '' || value === null || typeof value === 'undefined') return null;
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    const h = Number(Utilities.formatDate(value, KK_BUSINESS_TIME_ZONE, 'H'));
+    const m = Number(Utilities.formatDate(value, KK_BUSINESS_TIME_ZONE, 'm'));
+    return h * 60 + m;
+  }
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  let match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!match) match = raw.match(/T(\d{2}):(\d{2})(?::\d{2})?/);
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59 ? h * 60 + m : null;
+}
+
+function kkValidateBookingClock_(value, fieldName) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (kkBookingTimeMinutes_(raw) === null) throw new Error(fieldName + ' must use HH:MM, for example 17:30');
+  return raw;
+}
+
+function kkBookingDayKey_(eventDate) {
+  if (!eventDate) return '';
+  const d = kkDateObj_(eventDate);
+  if (!d || isNaN(d.getTime())) return '';
+  return Utilities.formatDate(d, KK_BUSINESS_TIME_ZONE, 'yyyy-MM-dd');
+}
+
+function kkBookingReservationWindow_(bookingRow, eventDates) {
+  if (!bookingRow) return null;
+  const eventId = String(bookingRow[3] || '').trim();
+  const day = kkBookingDayKey_(eventDates && eventDates[eventId]);
+  if (!day) return null;
+  const pickupMin = kkBookingTimeMinutes_(bookingRow[11]);
+  const returnMin = kkBookingTimeMinutes_(bookingRow[12]);
+  const start = Date.parse(day + 'T00:00:00+07:00') + (pickupMin === null ? 0 : pickupMin) * 60000;
+  let end;
+  let mode = 'explicit';
+  if (returnMin !== null) {
+    end = Date.parse(day + 'T00:00:00+07:00') +
+      ((pickupMin !== null && returnMin <= pickupMin) ? 86400000 : 0) +
+      returnMin * 60000;
+    if (end <= start) end = start + 60000;
+  } else if (String(bookingRow[2] || '').toLowerCase().trim() === 'picked_up') {
+    end = Date.parse('2099-12-31T23:59:00+07:00');
+    mode = 'picked-up-open-ended';
+  } else {
+    end = Date.parse(day + 'T00:00:00+07:00') + 86400000 + KK_RESERVATION_FALLBACK_END_HOUR * 3600000;
+    mode = 'fallback-next-day-06:00';
+  }
+  return { start_ms: start, end_ms: end, mode: mode };
+}
+
+function kkBookingWindowsOverlap_(a, b) {
+  return !!(a && b && a.start_ms < b.end_ms && b.start_ms < a.end_ms);
+}
+
+function kkBookedAssetIdsForWindow_(bookingRow, excludeRow) {
+  const eventDates = kkEventDateMap_();
+  const targetWindow = kkBookingReservationWindow_(bookingRow, eventDates);
+  if (!targetWindow) throw new Error('Booking reservation window cannot be resolved');
+  const booked = { phone: {}, lens: {} };
+  const skipRow = Number(excludeRow || 0);
+  const rows = kkGetValues_(KK.bookings, 5, 1, 20);
+  rows.forEach((r, i) => {
+    const sourceRow = i + 5;
+    if (skipRow && sourceRow === skipRow) return;
+    if (!kkActiveHold_(r[2])) return;
+    const otherWindow = kkBookingReservationWindow_(r, eventDates);
+    if (!kkBookingWindowsOverlap_(targetWindow, otherWindow)) return;
+    const phoneId = String(r[9] || '').trim();
+    const lensId = String(r[10] || '').trim();
+    if (phoneId) booked.phone[phoneId] = true;
+    if (lensId) booked.lens[lensId] = true;
+  });
+  return booked;
+}
+
+// Legacy date-only helper remains for non-booking callers. Booking create/update paths
+// pass bookingRow so cross-day reservation overlap is authoritative.
 function kkBookedAssetIdsForDate_(eventDate, excludeRow) {
   const eventDates = kkEventDateMap_();
   const booked = { phone: {}, lens: {} };
@@ -862,11 +1115,13 @@ function kkBookedAssetIdsForDate_(eventDate, excludeRow) {
   return booked;
 }
 
-function kkFindAvailableAsset_(assetType, modelGroup, eventDate) {
+function kkFindAvailableAsset_(assetType, modelGroup, eventDate, bookingRow, excludeRow) {
   const type = String(assetType || '').toLowerCase();
   const model = String(modelGroup || '').trim();
   if (!model || model === 'NONE') return '';
-  const booked = kkBookedAssetIdsForDate_(eventDate);
+  const booked = bookingRow
+    ? kkBookedAssetIdsForWindow_(bookingRow, excludeRow)
+    : kkBookedAssetIdsForDate_(eventDate, excludeRow);
   const rows = kkGetValues_(KK.assets, 5, 1, 7);
   for (const r of rows) {
     const assetId = String(r[0] || '').trim();
@@ -878,16 +1133,18 @@ function kkFindAvailableAsset_(assetType, modelGroup, eventDate) {
     if (booked[type] && booked[type][assetId]) continue;
     return assetId;
   }
-  throw new Error(`No available ${type} asset for model ${model} on ${kkDateKey_(eventDate)}`);
+  throw new Error(`No available ${type} asset for model ${model} in reservation window`);
 }
 
-function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, excludeRow) {
+function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, excludeRow, bookingRow) {
   assetId = String(assetId || '').trim();
   if (!assetId) return;
   const type = String(assetType || '').toLowerCase().trim();
   const model = String(modelGroup || '').trim();
   const rows = kkGetValues_(KK.assets, 5, 1, 7);
-  const booked = kkBookedAssetIdsForDate_(eventDate, excludeRow);
+  const booked = bookingRow
+    ? kkBookedAssetIdsForWindow_(bookingRow, excludeRow)
+    : kkBookedAssetIdsForDate_(eventDate, excludeRow);
   let found = false;
 
   for (const r of rows) {
@@ -901,7 +1158,7 @@ function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, exclu
     if (rowType !== type) throw new Error(`${assetId} is not a ${type} asset`);
     if (!kkAssetModelMatches_(type, rowModel, model)) throw new Error(`${assetId} model is ${rowModel}, expected compatible ${model}`);
     if (!rentable) throw new Error(`${assetId} is not rentable/available`);
-    if (booked[type] && booked[type][assetId]) throw new Error(`${assetId} is already booked on ${kkDateKey_(eventDate)}`);
+    if (booked[type] && booked[type][assetId]) throw new Error(`${assetId} is already booked in an overlapping reservation window`);
     return;
   }
   if (!found) throw new Error(`Asset not found: ${assetId}`);
@@ -926,10 +1183,13 @@ function kkCreateEventFromDashboard() {
   const pkgRows = kkRange_('KK_EVENT_PACKAGE_ROWS', KK.dashboard, 'A17:I46').getValues();
   const overrideSheet = kkSheet_(KK.overrides);
   const writtenOverrideKeys = {};
+  const dashboardOverrides = [];
   pkgRows.forEach(row => {
     const usePkg = kkIsTrue_(row[0]);
     const templateId = String(row[1] || '').trim();
-    const overridePrice = row[4];
+    const rawOverridePrice = row[4];
+    const hasOverridePrice = !(rawOverridePrice === '' || rawOverridePrice === null || typeof rawOverridePrice === 'undefined');
+    const overridePrice = hasOverridePrice ? kkApiNumber_(rawOverridePrice, 'override_price', false) : '';
     const hide = kkIsTrue_(row[5]);
     const overrideNote = row[6];
     const sortOverride = row[7];
@@ -937,14 +1197,27 @@ function kkCreateEventFromDashboard() {
     if (!templateId) return;
     const key = eventId + '|' + templateId;
     if (writtenOverrideKeys[key]) return;
-    const shouldWrite = !usePkg || hide || overridePrice !== '' || overrideNote !== '' || sortOverride !== '' || useCaseOverride !== '';
+    const shouldWrite = !usePkg || hide || hasOverridePrice || overrideNote !== '' || sortOverride !== '' || useCaseOverride !== '';
     if (!shouldWrite) return;
     const r = kkFirstEmptyRow_(KK.overrides, 1, 5, 1, 7);
-    overrideSheet.getRange(r, 1, 1, 7).setValues([[eventId, templateId, overridePrice || '', (!usePkg || hide) ? false : '', overrideNote || '', sortOverride || '', useCaseOverride || '']]);
+    const activeOverride = (!usePkg || hide) ? false : '';
+    overrideSheet.getRange(r, 1, 1, 7).setValues([[eventId, templateId, overridePrice, activeOverride, overrideNote || '', sortOverride || '', useCaseOverride || '']]);
+    dashboardOverrides.push({
+      template_id: templateId,
+      override_price: overridePrice,
+      active_override: activeOverride,
+      override_note: overrideNote || '',
+      sort_order_override: sortOverride || '',
+      use_case_override: useCaseOverride || ''
+    });
     writtenOverrideKeys[key] = true;
   });
+
+  // Same price behavior as API create-event: only the just-created event/package
+  // rows are touched. Never rewrite 09_Web_Packages!H for unrelated events.
+  const priceApply = kkApplyCreateEventOverridePricesToWebPackages_(eventId, dashboardOverrides);
   kkRange_('KK_EVENT_CREATED_ID', KK.dashboard, 'B13').setValue(eventId);
-  ui.alert('Created event: ' + eventId);
+  ui.alert('Created event: ' + eventId + (priceApply.pending ? '\nPrice rows pending: ' + priceApply.pending : ''));
 }
 
 function kkNextAssetIds_(assetType, qty) {
@@ -995,8 +1268,7 @@ function kkUpdateAccessoryStockFromDashboard() {
   const seenThisRun = {};
   rows.forEach(row => {
     const type = String(row[0] || '').trim();
-    if (!type || seenThisRun[type]) return;
-    seenThisRun[type] = true;
+    if (!type || seenThisRun[type]) return;    seenThisRun[type] = true;
     const total = Number(row[1] || 0);
     const damaged = Number(row[2] || 0);
     const notes = row[3] || '';
@@ -1011,6 +1283,7 @@ function kkUpdateAccessoryStockFromDashboard() {
   });
   ui.alert('Updated accessory rows: ' + count);
 }
+
 
 function kkAddQuickBookingFromDashboard() {
   const ui = SpreadsheetApp.getUi();
@@ -1030,18 +1303,10 @@ function kkAddQuickBookingFromDashboard() {
     const bookingNote = bookingInputs[11];
 
     kkEnsureLensCompatibilityPatchInstalled_();
-    if (!eventId || !templateId || !customerName) {
-      throw new Error('Please fill event_id, template_id, customer_name');
-    }
-    if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) {
-      throw new Error('Invalid booking_status');
-    }
-    if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) {
-      throw new Error('Invalid payment_status');
-    }
-    if (isNaN(amountReceived) || amountReceived < 0) {
-      throw new Error('amount_received must be a number and cannot be negative');
-    }
+    if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id, customer_name');
+    if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) throw new Error('Invalid booking_status');
+    if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) throw new Error('Invalid payment_status');
+    if (isNaN(amountReceived) || amountReceived < 0) throw new Error('amount_received must be a number and cannot be negative');
 
     templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
     const event = kkGetEventById_(eventId);
@@ -1053,20 +1318,31 @@ function kkAddQuickBookingFromDashboard() {
     kkAssertWebPackageBookable_(eventId, templateId);
 
     const pkgType = String(pkg.package_type || '').toLowerCase().trim();
-    if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date);
-    if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date);
+    const proposed = new Array(20).fill('');
+    proposed[2] = bookingStatus;
+    proposed[3] = eventId;
+    proposed[8] = pkgType;
+    proposed[9] = phoneAssetId;
+    proposed[10] = lensAssetId;
+    proposed[11] = '';
+    proposed[12] = '';
 
+    if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date, 0, proposed);
+    if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date, 0, proposed);
     if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) {
-      phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
+      phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date, proposed, 0);
+      proposed[9] = phoneAssetId;
     }
     if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) {
-      lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
+      lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date, proposed, 0);
+      proposed[10] = lensAssetId;
     }
+    kkAssertBookingAssetsNotDoubleBooked_(0, proposed, bookingStatus);
 
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
     kkSheet_(KK.bookings).getRange(row, 2, 1, 19).setValues([[
-        new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
-        pkgType, phoneAssetId, lensAssetId, '', '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
+      new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
+      pkgType, phoneAssetId, lensAssetId, '', '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ]]);
     kkRange_('KK_QUICK_BOOKING_ASSIGNED_ASSETS', KK.dashboard, 'K38:K39').setValues([[phoneAssetId], [lensAssetId]]);
     ui.alert(
@@ -1077,7 +1353,6 @@ function kkAddQuickBookingFromDashboard() {
     ui.alert(`❌ เกิดข้อผิดพลาด:\n${error.message}`);
   }
 }
-
 function kkConvertEventDriveUrls() {
   const range = kkGetDynamicRange_(KK.events, 5, 5, 1);
   if (!range) return kkSafeAlert_('No events to convert.');
@@ -1151,6 +1426,12 @@ function doPost(e) {
     action = String(payload.action || '').trim();
     let result;
 
+    // All mutation paths are fail-closed on time-zone alignment. Read-only
+    // snapshot/phase1Health remain available so operators can diagnose the mismatch.
+    if (action && action !== 'snapshot' && action !== 'phase1Health') {
+      kkAssertWriteTimeZonesAligned_();
+    }
+
     switch (action) {
       case 'snapshot': result = kkApiSnapshot_(payload); break;
       case 'phase1Health': result = { data: kkPhase1Diagnostics_(payload) }; break;
@@ -1181,7 +1462,7 @@ function doGet() {
   return kkApiJson_({
     ok: true,
     version: KK_ADMIN_VERSION,
-    spreadsheet_id: SpreadsheetApp.getActive().getId(),
+    spreadsheet_id: kkSpreadsheet_().getId(),
     message: 'KK Phone Rental Admin CRM API is running. Use POST through the Vercel proxy.'
   });
 }
@@ -1460,6 +1741,7 @@ function kkApiSnapshot_(payload) {
         lens_model_display: lens.model_display || lensId || '',
         lens_model_group: lens.model_group || '',
         pickup_time: r[11] || '',
+        return_time: r[12] || '',
         payment_status: r[13] || '',
         amount_received: r[14] || 0,
         work_task: work_task,
@@ -1503,7 +1785,7 @@ function kkApiSnapshot_(payload) {
     customers: customerStats,
     health: health,
     generated_at: kkApiDateTime_(new Date()),
-    spreadsheet_id: SpreadsheetApp.getActive().getId(),
+    spreadsheet_id: kkSpreadsheet_().getId(),
     admin_api_version: KK_ADMIN_VERSION,
     frontend_sheet_id: phase1Diagnostics.frontend_sheet_id || '',
     phase1_diagnostics: phase1Diagnostics,
@@ -1555,8 +1837,7 @@ function kkNormalizeCreateEventOverrides_(rawOverrides) {
     if (!pkg.active) throw new Error('Cannot override inactive package: ' + templateId);
 
     const hasOverridePrice = !(item.override_price === '' || item.override_price === null || typeof item.override_price === 'undefined');
-    const overridePrice = hasOverridePrice ? kkApiNumber_(item.override_price, 'override_price', false) : '';
-    const activeOverride = kkApiBoolOrBlank_(item.active_override);
+    const overridePrice = hasOverridePrice ? kkApiNumber_(item.override_price, 'override_price', false) : '';    const activeOverride = kkApiBoolOrBlank_(item.active_override);
     const overrideNote = item.override_note === undefined ? '' : String(item.override_note || '');
     const sortOrderOverride = item.sort_order_override === undefined || item.sort_order_override === '' ? '' : kkApiNumber_(item.sort_order_override, 'sort_order_override', false);
     const useCaseOverride = item.use_case_override === undefined ? '' : String(item.use_case_override || '');
@@ -1696,8 +1977,19 @@ function kkSnapshotWebPackagePricesForEvent_(eventId) {
   rows.forEach((row, idx) => {
     if (String(row[1] || '').trim() !== eid) return;
     const sheetRow = idx + 5;
+    const packageId = String(row[0] || '').trim();
+    const templateId = kkNormalizeTemplateIdForEvent_(eid, packageId);
     const cell = sheet.getRange(sheetRow, 8); // 09_Web_Packages!H price
-    snapshot.push({ row: sheetRow, value: cell.getValue(), formula: cell.getFormula() });
+    snapshot.push({
+      event_id: eid,
+      package_id: packageId,
+      template_id: templateId,
+      package_type: String(row[2] || '').trim(),
+      model_group: String(row[3] || '').trim(),
+      lens_group: String(row[5] || '').trim(),
+      value: cell.getValue(),
+      formula: cell.getFormula()
+    });
   });
   return snapshot;
 }
@@ -1705,17 +1997,41 @@ function kkSnapshotWebPackagePricesForEvent_(eventId) {
 function kkRestoreWebPackagePricesForEvent_(snapshot) {
   if (!snapshot || !snapshot.length) return 0;
   const sheet = kkSheet_(KK.webPackages);
+  const currentRows = kkGetValues_(KK.webPackages, 5, 1, 14);
   let restored = 0;
+
   snapshot.forEach(item => {
-    if (!item || !item.row) return;
-    const cell = sheet.getRange(item.row, 8); // 09_Web_Packages!H price
-    // Preserve exactly what was visible before poster/event update.
-    // If it was a manually applied override value, keep that value.
-    // If it was still a formula, keep the formula.
-    if (item.formula) cell.setFormula(item.formula);
-    else cell.setValue(item.value);
-    restored++;
+    if (!item || !item.event_id) return;
+    const eid = String(item.event_id || '').trim();
+    const tid = String(item.template_id || '').trim();
+    const pid = String(item.package_id || '').trim();
+    const exact = [];
+    const canonical = [];
+
+    currentRows.forEach((row, idx) => {
+      if (String(row[1] || '').trim() !== eid) return;
+      const currentPid = String(row[0] || '').trim();
+      const currentTid = kkNormalizeTemplateIdForEvent_(eid, currentPid);
+      if (pid && currentPid === pid) exact.push(idx + 5);
+      else if (tid && currentTid === tid) canonical.push(idx + 5);
+    });
+
+    const targets = exact.length ? exact : (canonical.length === 1 ? canonical : []);
+    if (!targets.length) return;
+
+    targets.forEach(rowNumber => {
+      const cell = sheet.getRange(rowNumber, 8);
+      if (item.formula) {
+        // Never copy a formula from an old physical row to a new row because its B/A
+        // references are row-relative. Rebuild the formula for the current row instead.
+        cell.setFormula(kkWebPackagePriceFormula_(rowNumber, tid));
+      } else {
+        cell.setValue(item.value);
+      }
+      restored++;
+    });
   });
+
   if (restored) SpreadsheetApp.flush();
   return restored;
 }
@@ -2076,16 +2392,16 @@ function kkFindBookingRow_(rowNumber, bookingId) {
   throw new Error('Booking not found: ' + id);
 }
 
+
 function kkAssertBookingAssetsNotDoubleBooked_(rowNumber, bookingRow, nextStatus) {
   if (!kkActiveHold_(nextStatus)) return;
   const eventId = String(bookingRow[3] || '').trim();
   const phoneId = String(bookingRow[9] || '').trim();
   const lensId = String(bookingRow[10] || '').trim();
   if (!eventId) throw new Error('Booking missing event_id');
-  const event = kkGetEventById_(eventId);
-  const booked = kkBookedAssetIdsForDate_(event.event_date, rowNumber);
-  if (phoneId && booked.phone[phoneId]) throw new Error('Cannot reactivate booking: phone is already booked on this event date: ' + phoneId);
-  if (lensId && booked.lens[lensId]) throw new Error('Cannot reactivate booking: lens is already booked on this event date: ' + lensId);
+  const booked = kkBookedAssetIdsForWindow_(bookingRow, rowNumber);
+  if (phoneId && booked.phone[phoneId]) throw new Error('Cannot reserve booking: phone overlaps another active reservation: ' + phoneId);
+  if (lensId && booked.lens[lensId]) throw new Error('Cannot reserve booking: lens overlaps another active reservation: ' + lensId);
 }
 
 function kkApiCreateBooking_(payload) {
@@ -2100,16 +2416,17 @@ function kkApiCreateBooking_(payload) {
     const bookingStatus = String(payload.booking_status || 'confirmed').toLowerCase().trim();
     let phoneAssetId = String(payload.phone_asset_id || '').trim();
     let lensAssetId = String(payload.lens_asset_id || '').trim();
-    const pickupTime = String(payload.pickup_time || '').trim();
+    const pickupTime = kkValidateBookingClock_(payload.pickup_time, 'pickup_time');
+    const returnTime = kkValidateBookingClock_(payload.return_time, 'return_time');
     const paymentStatus = String(payload.payment_status || 'unpaid').toLowerCase().trim();
     const amountReceived = kkApiNumber_(payload.amount_received, 'amount_received', true) || 0;
     const bookingNote = payload.booking_note || '';
-    
+
     kkEnsureLensCompatibilityPatchInstalled_();
     if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id and customer_name');
     if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) throw new Error('Invalid booking_status');
     if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) throw new Error('Invalid payment_status');
-    
+
     templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
     const event = kkGetEventById_(eventId);
     if (kkIsPastEventDate_(event.event_date)) throw new Error('Cannot create booking for a past event date: ' + kkApiDate_(event.event_date));
@@ -2120,17 +2437,39 @@ function kkApiCreateBooking_(payload) {
     kkAssertWebPackageBookable_(eventId, templateId);
 
     const pkgType = String(pkg.package_type || '').toLowerCase().trim();
-    if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date);
-    if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date);
-    if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
-    if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
-    
+    const proposed = new Array(20).fill('');
+    proposed[2] = bookingStatus;
+    proposed[3] = eventId;
+    proposed[8] = pkgType;
+    proposed[9] = phoneAssetId;
+    proposed[10] = lensAssetId;
+    proposed[11] = pickupTime;
+    proposed[12] = returnTime;
+
+    if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date, 0, proposed);
+    if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date, 0, proposed);
+    if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) {
+      phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date, proposed, 0);
+      proposed[9] = phoneAssetId;
+    }
+    if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) {
+      lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date, proposed, 0);
+      proposed[10] = lensAssetId;
+    }
+    kkAssertBookingAssetsNotDoubleBooked_(0, proposed, bookingStatus);
+
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
     kkSheet_(KK.bookings).getRange(row, 2, 1, 19).setValues([[
       new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
-      pkgType, phoneAssetId, lensAssetId, pickupTime, '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
+      pkgType, phoneAssetId, lensAssetId, pickupTime, returnTime, paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ]]);
-    return { row_number: row, phone_asset_id: phoneAssetId, lens_asset_id: lensAssetId };
+    return {
+      row_number: row,
+      phone_asset_id: phoneAssetId,
+      lens_asset_id: lensAssetId,
+      pickup_time: pickupTime,
+      return_time: returnTime
+    };
   } finally {
     lock.releaseLock();
   }
@@ -2143,7 +2482,7 @@ function kkApiUpdateBooking_(payload) {
     const sh = kkSheet_(KK.bookings);
     const current = sh.getRange(row, 1, 1, 20).getValues()[0];
     if (!current[0] && !current[3]) throw new Error('Booking row is empty: ' + row);
-    
+
     const nextStatus = String(payload.booking_status || current[2] || '').toLowerCase().trim();
     const paymentStatus = String(payload.payment_status || current[13] || '').toLowerCase().trim();
     const amountReceived = payload.amount_received === undefined || payload.amount_received === '' ? current[14] : kkApiNumber_(payload.amount_received, 'amount_received', true);
@@ -2159,7 +2498,8 @@ function kkApiUpdateBooking_(payload) {
     if (payload.contact_channel !== undefined && payload.contact_channel !== '') next[7] = payload.contact_channel || 'LINE';
     if (payload.phone_asset_id !== undefined) next[9] = String(payload.phone_asset_id || '').trim();
     if (payload.lens_asset_id !== undefined) next[10] = String(payload.lens_asset_id || '').trim();
-    if (payload.pickup_time !== undefined) next[11] = payload.pickup_time || '';
+    if (payload.pickup_time !== undefined) next[11] = kkValidateBookingClock_(payload.pickup_time, 'pickup_time');
+    if (payload.return_time !== undefined) next[12] = kkValidateBookingClock_(payload.return_time, 'return_time');
     if (payload.payment_status !== undefined && payload.payment_status !== '') next[13] = paymentStatus;
     if (payload.amount_received !== undefined && payload.amount_received !== '') next[14] = amountReceived;
     if (payload.booking_note !== undefined) next[19] = payload.booking_note || '';
@@ -2168,30 +2508,35 @@ function kkApiUpdateBooking_(payload) {
     const eventId = String(next[3] || '').trim();
     const event = kkGetEventById_(eventId);
 
-    // Critical workflow guard: older bookings may reserve package stock correctly but
-    // still have blank physical Asset IDs. When admin clicks “เตรียมแล้ว” (prepared)
-    // or “รับแล้ว” (picked_up), assign the missing phone/lens automatically.
-    kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date);
+    kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date, row);
 
     if (kkActiveHold_(nextStatus)) {
-      if (next[9]) kkValidateManualAsset_(next[9], 'phone', '', event.event_date, row);
-      if (next[10]) kkValidateManualAsset_(next[10], 'lens', '', event.event_date, row);
+      if (next[9]) kkValidateManualAsset_(next[9], 'phone', '', event.event_date, row, next);
+      if (next[10]) kkValidateManualAsset_(next[10], 'lens', '', event.event_date, row, next);
     }
     kkAssertBookingAssetsNotDoubleBooked_(row, next, nextStatus);
 
     sh.getRange(row, 3).setValue(next[2]);
     sh.getRange(row, 5, 1, 4).setValues([[next[4], next[5], next[6], next[7]]]);
     sh.getRange(row, 10, 1, 2).setValues([[next[9], next[10]]]);
-    sh.getRange(row, 12).setValue(next[11]);
+    sh.getRange(row, 12, 1, 2).setValues([[next[11], next[12]]]);
     sh.getRange(row, 14, 1, 2).setValues([[next[13], next[14]]]);
     sh.getRange(row, 20).setValue(next[19]);
 
-    return { row_number: row, booking_id: current[0] || '', booking_status: next[2], payment_status: next[13], phone_asset_id: next[9], lens_asset_id: next[10] };
+    return {
+      row_number: row,
+      booking_id: current[0] || '',
+      booking_status: next[2],
+      payment_status: next[13],
+      phone_asset_id: next[9],
+      lens_asset_id: next[10],
+      pickup_time: next[11] || '',
+      return_time: next[12] || ''
+    };
   } finally {
     lock.releaseLock();
   }
 }
-
 function kkEnsureSheetWithHeaders_(name, headers) {
   const ss = SpreadsheetApp.getActive();
   let sh = ss.getSheetByName(name);
