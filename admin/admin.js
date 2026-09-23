@@ -830,14 +830,14 @@
       {label:"งาน",render:r=>`<strong>${esc(r.event_name||'-')}</strong><br><small>${esc(r.affiliation||'ยังไม่ระบุ / Unknown')}</small>`},
       {label:"ลูกค้า",render:r=>esc(r.customers||0)},
       {label:"Booking",render:r=>esc(r.bookings||0)},
-      {label:"คาดการณ์รวม",render:r=>esc(money(r.forecast_revenue??r.amount_received||0))+"฿"}
+      {label:"คาดการณ์รวม",render:r=>esc(money(r.forecast_revenue??r.amount_received??0))+"฿"}
     ],(d.top_events||[]).slice(0,15));
     table($("#rentalOrganizerTable"),[
       {label:"ค่าย / สังกัดศิลปิน",render:r=>`<strong>${esc(r.affiliation||'-')}</strong><br><small>${esc(r.mapping_summary||'')}</small>`},
       {label:"ลูกค้า",render:r=>esc(r.customers||0)},
       {label:"Booking",render:r=>esc(r.bookings||0)},
       {label:"งาน",render:r=>esc(r.events||0)},
-      {label:"คาดการณ์รวม",render:r=>esc(money(r.forecast_revenue??r.amount_received||0))+"฿"}
+      {label:"คาดการณ์รวม",render:r=>esc(money(r.forecast_revenue??r.amount_received??0))+"฿"}
     ],(d.affiliation_mix||[]).filter(r=>r.affiliation!=="ยังไม่ระบุ / Unknown").slice(0,20));
     const q=$("#rentalAnalyticsQuality");
     if(q){
