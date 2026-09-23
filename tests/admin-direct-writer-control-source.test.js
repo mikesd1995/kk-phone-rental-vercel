@@ -8,6 +8,7 @@ const path=require('node:path');
 const Control=require('../server/admin-write-control-oidc');
 const DedicatedWriter=require('../api/lib/admin-google-sheets-writer');
 const DirectWriter=require('../server/admin-direct-writer');
+const SnapshotV6=require('../api/kk-admin-snapshot-v6');
 
 test('write-control bridge is pinned to canonical Supabase project and function',()=>{
   assert.equal(Control.CONTROL_PROJECT_REF,'zehlsagzrpromtfqqflt');
@@ -81,4 +82,17 @@ test('admin write-control migrations preserve service-role-only access and singl
 
   const finalMigration=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20260922130931_admin_write_lock_single_row_return_v1.sql'),'utf8');
   assert.match(finalMigration,/if found then[\s\S]*return query select true, v_token, v_lease;[\s\S]*return;[\s\S]*end if;/i);
+});
+
+
+test('authenticated diagnostic separates control health from writer activation and remains zero-write',()=>{
+  const p=SnapshotV6._test.directWriterHealthPayload(
+    {ok:true,authenticated:true,version:'kk-admin-write-control-v1',business_writes:0,google_sheet_writes:0},
+    {ok:false,configured:false,enabled:false,error_code:'ADMIN_WRITER_NOT_CONFIGURED'}
+  );
+  assert.equal(p.ok,true);
+  assert.equal(p.stage,'WRITER_CREDENTIAL_PENDING');
+  assert.equal(p.direct_writer_ready,false);
+  assert.equal(p.business_writes,0);
+  assert.equal(p.google_sheet_writes,0);
 });
