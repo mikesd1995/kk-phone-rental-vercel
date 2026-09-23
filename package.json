@@ -17,7 +17,9 @@
     "resolve:oidc-source": "node scripts/resolve-current-production.js",
     "hf:assist:benchmark": "node scripts/hf-event-assist-benchmark.js",
     "hf:assist:readiness": "node scripts/hf-event-assist-readiness.js",
-    "hf:assist:dry-run": "node scripts/hf-event-assist-dry-run.js"
+    "hf:assist:dry-run": "node scripts/hf-event-assist-dry-run.js",
+    "check:platform": "node scripts/check-platform-syntax.js",
+    "test:platform": "node --test tests/platform/*.test.js"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"
