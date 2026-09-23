@@ -10,12 +10,15 @@ const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 const AdminDirectWriter = require('../server/admin-direct-writer.js');
 const AdminDirectWriterPhase1 = require('../server/admin-direct-writer-phase1.js');
 
-const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.5';
+const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.6';
 const DEFAULT_READ_MODE = 'direct-sheet-primary';
 const SNAPSHOT_UPSTREAM_TIMEOUT_MS = 12000;
-const WRITE_HEALTH_TIMEOUT_MS = 4000;
-const WRITE_HEALTH_OK_CACHE_TTL_MS = 15000;
-const WRITE_HEALTH_FAIL_CACHE_TTL_MS = 5000;
+const WRITE_HEALTH_TIMEOUT_MS = 10000;
+const WRITE_HEALTH_OK_CACHE_TTL_MS = 30000;
+const WRITE_HEALTH_FAIL_CACHE_TTL_MS = 8000;
+const WRITE_HEALTH_TRANSIENT_CACHE_TTL_MS = 5000;
+const WRITE_HEALTH_RECENT_GOOD_GRACE_MS = 60000;
+const WRITE_HEALTH_TRANSIENT_FAILURE_THRESHOLD = 2;
 const UPSTREAM_CIRCUIT_TTL_MS = 30000;
 const DETERMINISTIC_UPSTREAM_FAILURES = new Set([
   'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND',
@@ -24,6 +27,7 @@ const DETERMINISTIC_UPSTREAM_FAILURES = new Set([
 ]);
 let upstreamCircuit = { script_url: '', code: '', until_ms: 0 };
 let writeHealthCache = { key: '', at_ms: 0, until_ms: 0, result: null };
+let writeHealthStability = { key: '', last_ok_at_ms: 0, last_ok_result: null, transient_failures: 0 };
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const SNAPSHOT_ACTIONS = new Set(['snapshot', 'snapshotHealth']);
 const REQUIRED_SNAPSHOT_KEYS = ['events', 'bookings', 'current_bookings', 'assets'];
@@ -153,9 +157,81 @@ function activeWriteHealthCache(scriptUrl, sheetId, nowMs = Date.now()) {
   });
 }
 
+function isTransientWriteHealthFailure(result) {
+  const code = String(result && result.error_code || '');
+  return code === 'WRITE_HEALTH_TIMEOUT' || code === 'WRITE_HEALTH_ERROR';
+}
+
+function stabilizeWriteHealth(scriptUrl, sheetId, result, nowMs = Date.now()) {
+  const key = writeHealthCacheKey(scriptUrl, sheetId);
+  const value = Object.assign({}, result || {});
+  if (!key || writeHealthStability.key !== key) {
+    writeHealthStability = { key, last_ok_at_ms: 0, last_ok_result: null, transient_failures: 0 };
+  }
+
+  if (value.ok) {
+    writeHealthStability.last_ok_at_ms = Number(nowMs);
+    writeHealthStability.last_ok_result = Object.assign({}, value);
+    writeHealthStability.transient_failures = 0;
+    return Object.assign({}, value, {
+      stability_state: 'healthy',
+      transient_failures: 0,
+      grace_used: false,
+      probe_error_code: ''
+    });
+  }
+
+  if (!isTransientWriteHealthFailure(value)) {
+    writeHealthStability.last_ok_at_ms = 0;
+    writeHealthStability.last_ok_result = null;
+    writeHealthStability.transient_failures = 0;
+    return Object.assign({}, value, {
+      stability_state: 'hard-fail',
+      transient_failures: 0,
+      grace_used: false,
+      probe_error_code: String(value.error_code || '')
+    });
+  }
+
+  writeHealthStability.transient_failures += 1;
+  const lastGoodAgeMs = writeHealthStability.last_ok_at_ms
+    ? Math.max(0, Number(nowMs) - Number(writeHealthStability.last_ok_at_ms))
+    : Number.POSITIVE_INFINITY;
+  const recentGood = !!(
+    writeHealthStability.last_ok_result &&
+    lastGoodAgeMs <= WRITE_HEALTH_RECENT_GOOD_GRACE_MS
+  );
+  const belowThreshold = writeHealthStability.transient_failures < WRITE_HEALTH_TRANSIENT_FAILURE_THRESHOLD;
+
+  if (recentGood && belowThreshold) {
+    const lastGood = writeHealthStability.last_ok_result;
+    return Object.assign({}, value, {
+      ok: true,
+      error_code: '',
+      backend_version: String(lastGood.backend_version || ''),
+      spreadsheet_id: String(lastGood.spreadsheet_id || ''),
+      stability_state: 'transient-grace',
+      transient_failures: writeHealthStability.transient_failures,
+      grace_used: true,
+      probe_error_code: String(value.error_code || ''),
+      last_good_age_ms: lastGoodAgeMs
+    });
+  }
+
+  return Object.assign({}, value, {
+    stability_state: recentGood ? 'transient-fail-closed' : 'transient-no-recent-good',
+    transient_failures: writeHealthStability.transient_failures,
+    grace_used: false,
+    probe_error_code: String(value.error_code || ''),
+    last_good_age_ms: Number.isFinite(lastGoodAgeMs) ? lastGoodAgeMs : null
+  });
+}
+
 function rememberWriteHealth(scriptUrl, sheetId, result, nowMs = Date.now()) {
   const value = Object.assign({}, result || {});
-  const ttl = value.ok ? WRITE_HEALTH_OK_CACHE_TTL_MS : WRITE_HEALTH_FAIL_CACHE_TTL_MS;
+  const ttl = value.grace_used
+    ? WRITE_HEALTH_TRANSIENT_CACHE_TTL_MS
+    : (value.ok ? WRITE_HEALTH_OK_CACHE_TTL_MS : WRITE_HEALTH_FAIL_CACHE_TTL_MS);
   writeHealthCache = {
     key: writeHealthCacheKey(scriptUrl, sheetId),
     at_ms: Number(nowMs),
@@ -167,6 +243,7 @@ function rememberWriteHealth(scriptUrl, sheetId, result, nowMs = Date.now()) {
 
 function clearWriteHealthCache() {
   writeHealthCache = { key: '', at_ms: 0, until_ms: 0, result: null };
+  writeHealthStability = { key: '', last_ok_at_ms: 0, last_ok_result: null, transient_failures: 0 };
 }
 
 function compactNonJsonError(text, contentType, urlHost) {
@@ -349,6 +426,7 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       : (cachedWriteHealth
         ? Promise.resolve(cachedWriteHealth)
         : probeWritePath(scriptUrl, apiKey, frontendSheetId, sheetIdSource)
+            .then(result => stabilizeWriteHealth(scriptUrl, frontendSheetId, result))
             .then(result => rememberWriteHealth(scriptUrl, frontendSheetId, result)));
     const [snapshot, writePathHealth] = await Promise.all([
       AdminSheetFallback.buildSnapshot({ sheetId: frontendSheetId }),
@@ -392,6 +470,9 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       : (writeActionsEnabled
         ? 'Apps Script snapshot is slow/unavailable; Admin is reading from direct Google Sheet fallback, but lightweight Apps Script write-path health passed so writes remain enabled.'
         : 'Apps Script snapshot is slow/unavailable and lightweight write-path health did not pass; Admin is using direct Google Sheet read-only fallback and writes remain blocked.'));
+    if (writePathHealth && writePathHealth.grace_used) {
+      health.warnings.push('One transient Apps Script write-health failure was tolerated from a recently verified healthy identity. A second consecutive transient failure fails closed.');
+    }
     if (trigger && trigger.code && !primaryRead) health.warnings.push('Fallback trigger: ' + String(trigger.code));
     health.fallback_reader = snapshot.fallback_reader || '';
     health.fallback_private_attempted = !!snapshot.fallback_private_attempted;
@@ -424,6 +505,10 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       write_health_ok: writeActionsEnabled,
       write_health_ms: Number(writePathHealth && writePathHealth.latency_ms || 0),
       write_health_error_code: String(writePathHealth && writePathHealth.error_code || ''),
+      write_health_probe_error_code: String(writePathHealth && writePathHealth.probe_error_code || ''),
+      write_health_stability_state: String(writePathHealth && writePathHealth.stability_state || ''),
+      write_health_transient_failures: Number(writePathHealth && writePathHealth.transient_failures || 0),
+      write_health_grace_used: !!(writePathHealth && writePathHealth.grace_used),
       write_health_cache_status: String(writePathHealth && writePathHealth.cache_status || ''),
       write_health_cache_age_ms: Number(writePathHealth && writePathHealth.cache_age_ms || 0),
       fallback_cache_status: String(snapshot.fallback_cache_status || ''),
@@ -763,6 +848,9 @@ module.exports._test = {
   WRITE_HEALTH_TIMEOUT_MS,
   WRITE_HEALTH_OK_CACHE_TTL_MS,
   WRITE_HEALTH_FAIL_CACHE_TTL_MS,
+  WRITE_HEALTH_TRANSIENT_CACHE_TTL_MS,
+  WRITE_HEALTH_RECENT_GOOD_GRACE_MS,
+  WRITE_HEALTH_TRANSIENT_FAILURE_THRESHOLD,
   UPSTREAM_CIRCUIT_TTL_MS,
   isDeterministicUpstreamFailure,
   openUpstreamCircuit,
@@ -770,6 +858,8 @@ module.exports._test = {
   clearUpstreamCircuit,
   skippedWritePathHealth,
   activeWriteHealthCache,
+  isTransientWriteHealthFailure,
+  stabilizeWriteHealth,
   rememberWriteHealth,
   clearWriteHealthCache,
   adminReadMode,

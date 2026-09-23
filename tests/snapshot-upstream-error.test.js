@@ -82,7 +82,7 @@ test.afterEach(() => {
 
 test('caps snapshot upstream wait before entering safe read-only fallback', () => {
   assert.equal(handler._test.SNAPSHOT_UPSTREAM_TIMEOUT_MS, 12000);
-  assert.equal(handler._test.WRITE_HEALTH_TIMEOUT_MS, 4000);
+  assert.equal(handler._test.WRITE_HEALTH_TIMEOUT_MS, 10000);
 });
 
 test('preserves Apps Script JSON error instead of rewriting it as missing arrays', async () => {
@@ -143,7 +143,7 @@ test('passes a healthy snapshot and attaches snapshot health metadata', async ()
   assert.equal(out.body.data.events.length, 1);
   assert.equal(out.body.snapshot_health.ok, true);
   assert.equal(out.body.data.frontend_sheet_id, process.env.GOOGLE_SHEET_ID);
-  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.5');
+  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.6');
 });
 
 
@@ -438,6 +438,83 @@ test('write-health cache reuses a recent healthy identity result and expires on 
   assert.equal(hit.cache_status,'hit');
   assert.equal(hit.cache_age_ms,1);
   assert.equal(handler._test.activeWriteHealthCache(url,sheet,1000+handler._test.WRITE_HEALTH_OK_CACHE_TTL_MS+1),null);
+});
+
+
+test('write-health stability tolerates only the first transient failure after a recent verified success',()=>{
+  const url=process.env.KK_ADMIN_SCRIPT_URL;
+  const sheet=process.env.GOOGLE_SHEET_ID;
+  const healthy=handler._test.stabilizeWriteHealth(url,sheet,{
+    checked:true,skipped:false,ok:true,status:200,latency_ms:180,
+    error_code:'',backend_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+    spreadsheet_id:sheet
+  },1000);
+  assert.equal(healthy.ok,true);
+  assert.equal(healthy.stability_state,'healthy');
+
+  const first=handler._test.stabilizeWriteHealth(url,sheet,{
+    checked:true,skipped:false,ok:false,status:0,latency_ms:10000,
+    error_code:'WRITE_HEALTH_TIMEOUT',backend_version:'',spreadsheet_id:''
+  },2000);
+  assert.equal(first.ok,true);
+  assert.equal(first.grace_used,true);
+  assert.equal(first.probe_error_code,'WRITE_HEALTH_TIMEOUT');
+  assert.equal(first.transient_failures,1);
+  assert.equal(first.stability_state,'transient-grace');
+  assert.equal(first.backend_version,healthy.backend_version);
+  assert.equal(first.spreadsheet_id,sheet);
+
+  const second=handler._test.stabilizeWriteHealth(url,sheet,{
+    checked:true,skipped:false,ok:false,status:0,latency_ms:10000,
+    error_code:'WRITE_HEALTH_TIMEOUT',backend_version:'',spreadsheet_id:''
+  },3000);
+  assert.equal(second.ok,false);
+  assert.equal(second.grace_used,false);
+  assert.equal(second.transient_failures,2);
+  assert.equal(second.stability_state,'transient-fail-closed');
+  assert.equal(second.error_code,'WRITE_HEALTH_TIMEOUT');
+});
+
+test('write-health stability never masks deterministic identity or protocol failures',()=>{
+  const url=process.env.KK_ADMIN_SCRIPT_URL;
+  const sheet=process.env.GOOGLE_SHEET_ID;
+  handler._test.stabilizeWriteHealth(url,sheet,{
+    checked:true,ok:true,status:200,latency_ms:100,error_code:'',
+    backend_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',spreadsheet_id:sheet
+  },1000);
+  const hard=handler._test.stabilizeWriteHealth(url,sheet,{
+    checked:true,ok:false,status:404,latency_ms:50,
+    error_code:'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND',backend_version:'',spreadsheet_id:''
+  },1100);
+  assert.equal(hard.ok,false);
+  assert.equal(hard.grace_used,false);
+  assert.equal(hard.stability_state,'hard-fail');
+  assert.equal(hard.error_code,'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND');
+});
+
+test('write-health stability requires a recent healthy identity before transient grace',()=>{
+  const url=process.env.KK_ADMIN_SCRIPT_URL;
+  const sheet=process.env.GOOGLE_SHEET_ID;
+  const timeout=handler._test.stabilizeWriteHealth(url,sheet,{
+    checked:true,ok:false,status:0,latency_ms:10000,
+    error_code:'WRITE_HEALTH_TIMEOUT',backend_version:'',spreadsheet_id:''
+  },1000);
+  assert.equal(timeout.ok,false);
+  assert.equal(timeout.grace_used,false);
+  assert.equal(timeout.stability_state,'transient-no-recent-good');
+});
+
+test('transient-grace cache is intentionally short so a second probe arrives quickly',()=>{
+  const url=process.env.KK_ADMIN_SCRIPT_URL;
+  const sheet=process.env.GOOGLE_SHEET_ID;
+  const remembered=handler._test.rememberWriteHealth(url,sheet,{
+    checked:true,ok:true,status:0,latency_ms:10000,error_code:'',
+    probe_error_code:'WRITE_HEALTH_TIMEOUT',backend_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+    spreadsheet_id:sheet,grace_used:true,stability_state:'transient-grace',transient_failures:1
+  },5000);
+  assert.equal(remembered.cache_status,'miss');
+  assert.equal(handler._test.activeWriteHealthCache(url,sheet,5000+handler._test.WRITE_HEALTH_TRANSIENT_CACHE_TTL_MS-1).ok,true);
+  assert.equal(handler._test.activeWriteHealthCache(url,sheet,5000+handler._test.WRITE_HEALTH_TRANSIENT_CACHE_TTL_MS+1),null);
 });
 
 test('write-health cache uses a shorter TTL for failures',()=>{
