@@ -6,8 +6,8 @@ const W=require('../server/admin-direct-writer.js');
 function env(extra={}){
   return Object.assign({
     GOOGLE_SHEET_ID:W.CORE_SHEET_ID,
-    GOOGLE_SERVICE_ACCOUNT_EMAIL:'writer@example.test',
-    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'-----BEGIN PRIVATE KEY-----\nTEST\n-----END PRIVATE KEY-----'
+    GOOGLE_ADMIN_WRITER_SERVICE_ACCOUNT_EMAIL:'writer@example.test',
+    GOOGLE_ADMIN_WRITER_SERVICE_ACCOUNT_PRIVATE_KEY:'-----BEGIN PRIVATE KEY-----\nTEST\n-----END PRIVATE KEY-----'
   },extra);
 }
 
@@ -18,6 +18,21 @@ test('direct writer stays fail-closed without credentials',()=>{
   assert.equal(s.credentials_ready,false);
   assert.equal(s.ready,false);
   assert.throws(()=>W.requireActivated({GOOGLE_SHEET_ID:W.CORE_SHEET_ID}),/credentials|disabled/i);
+});
+
+
+test('generic read-only Google credentials never satisfy Direct Writer identity',()=>{
+  const s=W.state({
+    GOOGLE_SHEET_ID:W.CORE_SHEET_ID,
+    GOOGLE_SERVICE_ACCOUNT_EMAIL:'reader@example.test',
+    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'reader-key',
+    KK_ADMIN_DIRECT_WRITER_ENABLED:'1',
+    KK_ADMIN_DIRECT_WRITER_ACCEPTED:'1',
+    KK_ADMIN_DIRECT_WRITER_WRITE_PROBE_PASSED:'1'
+  });
+  assert.equal(s.credentials_ready,false);
+  assert.equal(s.auth_mode,'none');
+  assert.equal(s.ready,false);
 });
 
 test('credentials alone never activate production writes',()=>{
