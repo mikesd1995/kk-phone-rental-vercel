@@ -8,3 +8,8 @@ verify_jwt = false
 # GitHub Actions presents a GitHub OIDC JWT. The function performs custom
 # issuer/JWKS/audience/repository/workflow/event verification in handler code.
 verify_jwt = false
+
+[functions.kk-admin-write-control]
+# Vercel Production presents a Vercel OIDC JWT. The function performs exact
+# issuer/audience/subject/team/project/environment verification in handler code.
+verify_jwt = false
