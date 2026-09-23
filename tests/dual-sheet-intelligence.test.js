@@ -83,8 +83,31 @@ test('analytics aggregate remains PII-free while preserving operational metrics'
   assert.equal(out.metrics.unique_customers,1);
   assert.equal(out.metrics.non_cancelled_bookings,2);
   assert.equal(out.metrics.repeat_customers,1);
+  assert.equal(out.metrics.actual_revenue,590);
+  assert.equal(out.metrics.future_revenue,690);
+  assert.equal(out.metrics.forecast_revenue,1280);
   assert.equal(out.metrics.amount_received,1280);
   const raw=JSON.stringify(out);
   assert.equal(raw.includes('phone:111'),false);
   assert.equal(raw.includes('customer_name'),false);
+});
+
+
+test('analytics revenue split counts completed as actual and active bookings as future exactly once',()=>{
+  const rows=[
+    {source:'MASTER',booking_id:'B10',created_at:'',status:'completed',event_id:'E10',event_name:'Closed event',event_date:'2026-08-01',month:'2026-08',customer_key:'phone:a',package_type:'bundle',payment_status:'paid',amount_received:1090,affiliation:'GMMTV',affiliation_source:'explicit'},
+    {source:'MASTER',booking_id:'B11',created_at:'',status:'confirmed',event_id:'E11',event_name:'Future event',event_date:'2026-10-01',month:'2026-10',customer_key:'phone:b',package_type:'bundle',payment_status:'pending',amount_received:1290,affiliation:'GMMTV',affiliation_source:'explicit'},
+    {source:'MASTER',booking_id:'B12',created_at:'',status:'returned',event_id:'E12',event_name:'Returned not closed',event_date:'2026-09-20',month:'2026-09',customer_key:'phone:c',package_type:'phone_only',payment_status:'paid',amount_received:890,affiliation:'Domundi / Mandee',affiliation_source:'explicit'},
+    {source:'MASTER',booking_id:'B13',created_at:'',status:'cancelled',event_id:'E13',event_name:'Cancelled event',event_date:'2026-10-02',month:'2026-10',customer_key:'phone:d',package_type:'bundle',payment_status:'pending',amount_received:1590,affiliation:'SM Entertainment',affiliation_source:'explicit'},
+    {source:'MASTER',booking_id:'B14',created_at:'',status:'no_show',event_id:'E14',event_name:'No show event',event_date:'2026-09-10',month:'2026-09',customer_key:'phone:e',package_type:'bundle',payment_status:'pending',amount_received:990,affiliation:'GMMTV',affiliation_source:'explicit'}
+  ];
+  const out=analytics._test.aggregate(rows);
+  assert.equal(out.metrics.actual_revenue,1090);
+  assert.equal(out.metrics.future_revenue,2180);
+  assert.equal(out.metrics.forecast_revenue,3270);
+  assert.equal(out.metrics.amount_received,3270);
+  assert.equal(out.metrics.completed_bookings,1);
+  assert.equal(out.metrics.active_bookings,2);
+  assert.equal(out.top_events.find(x=>x.event_name==='Cancelled event'),undefined);
+  assert.equal(out.top_events.find(x=>x.event_name==='No show event').forecast_revenue,0);
 });
