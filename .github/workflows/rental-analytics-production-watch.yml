@@ -1,0 +1,193 @@
+name: Rental Analytics Production Watch
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  statuses: read
+
+concurrency:
+  group: kk-rental-analytics-production-watch
+  cancel-in-progress: true
+
+jobs:
+  watch-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Pin exact current main
+        id: main
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          CURRENT_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$CHECKED_OUT_SHA" = "$CURRENT_MAIN"
+          echo "sha=$CURRENT_MAIN" >> "$GITHUB_OUTPUT"
+
+      - name: Read Vercel commit status
+        id: vercel_status
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_MAIN: ${{ steps.main.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/commits/$CURRENT_MAIN/status" > vercel-commit-status.json
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs=require('node:fs');
+          const body=JSON.parse(fs.readFileSync('vercel-commit-status.json','utf8'));
+          const statuses=Array.isArray(body.statuses)?body.statuses:[];
+          const vercel=statuses.find(s=>String(s.context||'').toLowerCase()==='vercel')||{};
+          const safe=(v)=>String(v||'').replace(/[\r\n]/g,'');
+          console.log('state='+safe(vercel.state||'missing'));
+          console.log('url='+safe(vercel.target_url||''));
+          NODE
+
+      - name: Require read-only Vercel transport
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "VERCEL_TOKEN_MISSING"
+            exit 1
+          fi
+
+      - name: Run read-only Production watcher
+        id: watch
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CURRENT_MAIN: ${{ steps.main.outputs.sha }}
+          VERCEL_STATUS_STATE: ${{ steps.vercel_status.outputs.state }}
+          VERCEL_STATUS_URL: ${{ steps.vercel_status.outputs.url }}
+        run: |
+          set -euo pipefail
+          node scripts/watch-rental-analytics-production.js             --current-main-sha "$CURRENT_MAIN"             --vercel-status-state "$VERCEL_STATUS_STATE"             --vercel-status-url "$VERCEL_STATUS_URL"             > rental-analytics-production-watch.json
+          cat rental-analytics-production-watch.json
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const r=require('./rental-analytics-production-watch.json');
+          console.log('state='+r.state);
+          console.log('severity='+r.severity);
+          console.log('fingerprint='+r.state_fingerprint);
+          NODE
+
+      - name: Publish durable state only when materially changed
+        id: publish
+        uses: actions/github-script@v7
+        env:
+          WATCH_STATE: ${{ steps.watch.outputs.state }}
+          WATCH_SEVERITY: ${{ steps.watch.outputs.severity }}
+          WATCH_FINGERPRINT: ${{ steps.watch.outputs.fingerprint }}
+        with:
+          script: |
+            const fs=require('node:fs');
+            const report=JSON.parse(fs.readFileSync('rental-analytics-production-watch.json','utf8'));
+            const marker='<!-- kk-rental-analytics-production-watch -->';
+            const issue_number=164;
+            const {owner,repo}=context.repo;
+            const comments=await github.paginate(github.rest.issues.listComments,{
+              owner,repo,issue_number,per_page:100
+            });
+            const previous=comments.find(c=>String(c.body||'').includes(marker));
+            const previousBody=previous?String(previous.body||''):'';
+            const markerFingerprint=(previousBody.match(/<!-- kk-rental-analytics-production-watch-fingerprint:([0-9a-f]{64}) -->/)||[])[1];
+            const legacyFingerprint=(previousBody.match(/State fingerprint:[^0-9a-f]*([0-9a-f]{64})/i)||[])[1];
+            const previousFingerprint=markerFingerprint||legacyFingerprint||'';
+            if(previousFingerprint===report.state_fingerprint){
+              core.info('Material state unchanged; no GitHub comment update.');
+              core.setOutput('changed','false');
+              return;
+            }
+            const p=report.probe||{};
+            const serving=report.serving_production||{};
+            const attempt=report.latest_production_attempt||{};
+            const lines=[
+              marker,
+              `<!-- kk-rental-analytics-production-watch-fingerprint:${report.state_fingerprint} -->`,
+              '## Rental Analytics Production Watch',
+              '',
+              `**State:** \`${report.state}\`  `,
+              `**Severity:** \`${report.severity}\`  `,
+              `**Reason:** ${report.reason}  `,
+              `**Checked:** ${report.checked_at}  `,
+              `**State fingerprint:** \`${report.state_fingerprint}\``,
+              '',
+              '| Evidence | Value |',
+              '|---|---|',
+              `| Current main | \`${report.current_main_sha}\` |`,
+              `| Serving Production | \`${serving.id||'none'}\` / \`${serving.state||'none'}\` / \`${serving.sha||'none'}\` |`,
+              `| Latest Production attempt | \`${attempt.id||'none'}\` / \`${attempt.state||'none'}\` / \`${attempt.sha||'none'}\` |`,
+              `| Production contains #164 fix | \`${String(report.production_contains_fix)}\` |`,
+              `| Production matches current main | \`${String(report.production_matches_current_main)}\` |`,
+              `| GitHub Vercel status | \`${report.vercel_commit_status.state}\` |`,
+              `| Analytics HEAD probe | \`${p.analytics_head_status??'not-run'}\` |`,
+              `| Admin auth GET probe | \`${p.admin_auth_status??'not-run'}\` |`,
+              '',
+              'Safety: read-only Vercel API, no Admin PIN/session secret, no login attempt, no Production/business writes.',
+              '',
+              '_This single comment is updated only when the material state fingerprint changes._'
+            ];
+            const body=lines.join('\n');
+            if(previous){
+              await github.rest.issues.updateComment({owner,repo,comment_id:previous.id,body});
+            }else{
+              await github.rest.issues.createComment({owner,repo,issue_number,body});
+            }
+            core.setOutput('changed','true');
+
+      - name: Upload changed-state evidence
+        if: ${{ steps.publish.outputs.changed == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rental-analytics-production-watch-${{ github.run_id }}
+          path: |
+            rental-analytics-production-watch.json
+            vercel-commit-status.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Write job summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [ -f rental-analytics-production-watch.json ]; then
+            node -e 'const r=require("./rental-analytics-production-watch.json"); const lines=["## Rental Analytics Production Watch","", "- State: "+r.state, "- Severity: "+r.severity, "- Production contains fix: "+String(r.production_contains_fix), "- Production matches current main: "+String(r.production_matches_current_main), "- Production writes: 0", "- Business writes: 0"]; process.stdout.write(lines.join("\\n")+"\\n");' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Fail only on an unsafe or contradictory runtime state
+        shell: bash
+        env:
+          WATCH_STATE: ${{ steps.watch.outputs.state }}
+        run: |
+          set -euo pipefail
+          case "$WATCH_STATE" in
+            ROUTE_SHADOW_REGRESSION|ROUTE_WIRING_UNEXPECTED|ADMIN_AUTH_ROUTE_UNHEALTHY|NO_READY_PRODUCTION)
+              echo "Unsafe Production watcher state: $WATCH_STATE"
+              exit 1
+              ;;
+            *)
+              echo "Watcher state is safe/non-mutating: $WATCH_STATE"
+              ;;
+          esac

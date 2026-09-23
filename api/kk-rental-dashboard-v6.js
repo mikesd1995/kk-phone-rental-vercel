@@ -5,7 +5,7 @@
 // CRM dataset consumed by the private runtime path. Any mismatch falls back
 // to Core unless strict private-only acceptance is enabled.
 const v5Handler=require('./kk-rental-dashboard-v5');
-const legacyHandler=require('./kk-rental-dashboard');
+const legacyHandler=require('../server/rental-dashboard-core.js');
 const privateSheets=require('./lib/private-google-sheets');
 const crmFreshness=require('./lib/crm-freshness');
 const crmReconciliation=require('./lib/crm-reconciliation');

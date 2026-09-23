@@ -4,8 +4,13 @@
 // This module NEVER writes. It reconstructs the Admin snapshot from Google Sheets
 // only when the Apps Script snapshot upstream is unavailable.
 const privateSheets = require('../api/lib/private-google-sheets.js');
-const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3';
+const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3.1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
+const FALLBACK_CACHE_TTL_MS = 2000;
+const snapshotCache = new Map();
+const snapshotInflight = new Map();
+const fetchIdentity = new WeakMap();
+let nextFetchIdentity = 1;
 
 const SPECS = {
   events:       { sheet:'01_Events', range:'A4:I1000', header:'event_id', startRow:4 },
@@ -238,7 +243,28 @@ function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
 
 function isTrue(v){ return ['1','true','yes','on'].includes(String(v||'').trim().toLowerCase()); }
 
-async function buildSnapshot(options={}){
+function cloneSnapshot(value){
+  return JSON.parse(JSON.stringify(value));
+}
+
+function fetchIdentityKey(fetchImpl){
+  if((typeof fetchImpl!=='function' && typeof fetchImpl!=='object') || fetchImpl===null) return 'none';
+  if(!fetchIdentity.has(fetchImpl)) fetchIdentity.set(fetchImpl,String(nextFetchIdentity++));
+  return fetchIdentity.get(fetchImpl);
+}
+
+function snapshotCacheKey(sheetId,env,fetchImpl){
+  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE);
+  const privateConfigured=!!privateSheets.credentialsFromEnv(env);
+  return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',fetchIdentityKey(fetchImpl)].join('|');
+}
+
+function clearSnapshotCache(){
+  snapshotCache.clear();
+  snapshotInflight.clear();
+}
+
+async function buildSnapshotUncached(options={}){
   const env=options.env||process.env;
   const sheetId=String(options.sheetId||env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
   const fetchImpl=options.fetchImpl||fetch;
@@ -278,7 +304,52 @@ async function buildSnapshot(options={}){
   return buildFromRaw(raw,sheetId,startedAt,transportMeta);
 }
 
+async function buildSnapshot(options={}){
+  const env=options.env||process.env;
+  const sheetId=String(options.sheetId||env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
+  const fetchImpl=options.fetchImpl||fetch;
+  const requestedTtl=Number(options.cacheTtlMs);
+  const ttlMs=Number.isFinite(requestedTtl)?Math.max(0,requestedTtl):FALLBACK_CACHE_TTL_MS;
+  const cacheEnabled=options.cache!==false && ttlMs>0;
+  if(!cacheEnabled){
+    const uncached=await buildSnapshotUncached(options);
+    uncached.fallback_cache_status='disabled';
+    uncached.fallback_cache_age_ms=0;
+    return uncached;
+  }
+
+  const key=snapshotCacheKey(sheetId,env,fetchImpl);
+  const now=Date.now();
+  const cached=snapshotCache.get(key);
+  if(cached && now-cached.at<=ttlMs){
+    const out=cloneSnapshot(cached.value);
+    out.fallback_cache_status='hit';
+    out.fallback_cache_age_ms=Math.max(0,now-cached.at);
+    return out;
+  }
+
+  if(snapshotInflight.has(key)){
+    const out=cloneSnapshot(await snapshotInflight.get(key));
+    out.fallback_cache_status='coalesced';
+    out.fallback_cache_age_ms=0;
+    return out;
+  }
+
+  const pending=buildSnapshotUncached(options)
+    .then(snapshot=>{
+      snapshotCache.set(key,{at:Date.now(),value:cloneSnapshot(snapshot)});
+      return snapshot;
+    })
+    .finally(()=>snapshotInflight.delete(key));
+  snapshotInflight.set(key,pending);
+
+  const out=cloneSnapshot(await pending);
+  out.fallback_cache_status='miss';
+  out.fallback_cache_age_ms=0;
+  return out;
+}
+
 module.exports={
-  FALLBACK_VERSION,SPECS,parseCsv,rowsAsObjects,valuesAsObjects,
-  buildFromRaw,buildSnapshot,bangkokDay,isTrue
+  FALLBACK_VERSION,FALLBACK_CACHE_TTL_MS,SPECS,parseCsv,rowsAsObjects,valuesAsObjects,
+  buildFromRaw,buildSnapshot,buildSnapshotUncached,clearSnapshotCache,bangkokDay,isTrue
 };

@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const {Readable}=require('stream');
 const R=require('../admin/reservation-guard.js');
 const Guard=require('../api/kk-admin-guard.js');
+const AdminSheetFallback=require('../server/admin-sheet-fallback.js');
 
 const assets=[
   {asset_id:'PHONE-001',asset_type:'phone',status:'available',rentable_setting:true},
@@ -76,10 +77,15 @@ function withEnv(t){
   process.env.KK_ADMIN_PIN='1234'; process.env.KK_ADMIN_API_KEY='key'; process.env.KK_ADMIN_SCRIPT_URL='https://script.google.com/macros/s/test/exec'; process.env.GOOGLE_SHEET_ID='test-sheet';
   t.after(()=>{ process.env=old; });
 }
+function withDirectSnapshot(t,value=snapshot()){
+  const old=AdminSheetFallback.buildSnapshot;
+  AdminSheetFallback.buildSnapshot=async()=>value;
+  t.after(()=>{AdminSheetFallback.buildSnapshot=old;});
+}
 
 test('createBooking without pickup_time is allowed into conservative reservation preflight',async t=>{
-  withEnv(t); const oldFetch=global.fetch; let calls=0;
-  global.fetch=async()=>{calls++; return response({ok:true,data:snapshot()});};
+  withEnv(t); withDirectSnapshot(t); const oldFetch=global.fetch; let calls=0;
+  global.fetch=async()=>{calls++; return response({ok:true,row_number:99,admin_api_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX'});};
   t.after(()=>{global.fetch=oldFetch;});
   const out=res();
   await Guard(req({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',phone_asset_id:'PHONE-001'}),out);
@@ -89,7 +95,7 @@ test('createBooking without pickup_time is allowed into conservative reservation
   assert.equal(JSON.parse(out.body).error_code,'BOOKING_COLLISION');
   assert.equal(out.headers['X-KK-Booking-Timing-Policy'],'booking-timing-optional-safe-fallback-2');
   assert.equal(out.headers['X-KK-Booking-Pickup-Mode'],'fallback-day-start');
-  assert.equal(calls,1);
+  assert.equal(calls,0);
 });
 
 test('timing validator treats blank pickup as optional TBD state',()=>{
@@ -105,7 +111,7 @@ test('timing validator treats blank pickup as optional TBD state',()=>{
 });
 
 test('server wrapper rejects invalid createBooking pickup_time before any upstream call',async t=>{
-  withEnv(t); const oldFetch=global.fetch; let calls=0;
+  withEnv(t); withDirectSnapshot(t); const oldFetch=global.fetch; let calls=0;
   global.fetch=async()=>{calls++; throw new Error('should not fetch');};
   t.after(()=>{global.fetch=oldFetch;});
   const out=res();
@@ -116,21 +122,20 @@ test('server wrapper rejects invalid createBooking pickup_time before any upstre
 });
 
 test('server wrapper blocks a conflicting createBooking before legacy write',async t=>{
-  withEnv(t); const oldFetch=global.fetch; let calls=0;
-  global.fetch=async()=>{calls++; return response({ok:true,data:snapshot()});};
+  withEnv(t); withDirectSnapshot(t); const oldFetch=global.fetch; let calls=0;
+  global.fetch=async()=>{calls++; return response({ok:true,row_number:99,admin_api_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX'});};
   t.after(()=>{global.fetch=oldFetch;});
   const out=res();
   await Guard(req({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',pickup_time:'02:00',phone_asset_id:'PHONE-001'}),out);
   assert.equal(out.statusCode,409);
   assert.equal(JSON.parse(out.body).error_code,'BOOKING_COLLISION');
-  assert.equal(calls,1);
+  assert.equal(calls,0);
 });
 
 test('server wrapper delegates a non-conflicting createBooking after preflight',async t=>{
-  withEnv(t); const oldFetch=global.fetch; let calls=0;
+  withEnv(t); withDirectSnapshot(t); const oldFetch=global.fetch; let calls=0;
   global.fetch=async()=>{
     calls++;
-    if(calls===1) return response({ok:true,data:snapshot()});
     return response({ok:true,row_number:99,phone_asset_id:'PHONE-001',admin_api_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX'});
   };
   t.after(()=>{global.fetch=oldFetch;});
@@ -140,5 +145,21 @@ test('server wrapper delegates a non-conflicting createBooking after preflight',
   assert.equal(out.headers['X-KK-Booking-Guard'],'PASS');
   assert.equal(out.headers['X-KK-Booking-Timing-Policy'],'booking-timing-optional-safe-fallback-2');
   assert.equal(JSON.parse(out.body).ok,true);
-  assert.equal(calls,2);
+  assert.equal(calls,1);
+});
+
+
+test('booking collision preflight remains available when Apps Script configuration is missing',async t=>{
+  withEnv(t); withDirectSnapshot(t);
+  delete process.env.KK_ADMIN_SCRIPT_URL;
+  delete process.env.KK_ADMIN_API_KEY;
+  const oldFetch=global.fetch; let calls=0;
+  global.fetch=async()=>{calls++; throw new Error('legacy writer must not be reached for blocked collision');};
+  t.after(()=>{global.fetch=oldFetch;});
+  const out=res();
+  await Guard(req({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',pickup_time:'02:00',phone_asset_id:'PHONE-001'}),out);
+  assert.equal(out.statusCode,409);
+  assert.equal(JSON.parse(out.body).error_code,'BOOKING_COLLISION');
+  assert.equal(out.headers['X-KK-Booking-Preflight'],'DIRECT_SHEET');
+  assert.equal(calls,0);
 });

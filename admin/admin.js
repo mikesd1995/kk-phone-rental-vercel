@@ -1187,10 +1187,25 @@
     set("booking_note", b.note || "");
   }
 
+  function directPhase1ActionAvailable(action){
+    const s=state.data && state.data.direct_writer_phase1_state;
+    return !!(s && s.writer_ready && Array.isArray(s.configured_actions) && s.configured_actions.includes(String(action||"")));
+  }
+
+  function adminRequestId(){
+    try{
+      if(window.crypto && typeof window.crypto.randomUUID==="function") return window.crypto.randomUUID();
+    }catch(_){}
+    return "web-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,12);
+  }
+
   async function api(action, payload={}){
     const readOnlyActions=["snapshot","snapshotHealth","systemHealth","phase1Health"];
-    if(state.data && state.data.degraded_read_only && !readOnlyActions.includes(action)) throw new Error("ระบบอยู่ในโหมดอ่านอย่างเดียวชั่วคราว เพราะ Apps Script ยังไม่พร้อม — ดูข้อมูลได้ แต่การบันทึก/แก้ไขถูกปิดเพื่อความปลอดภัย");
+    const directPhase1=directPhase1ActionAvailable(action);
+    if(state.data && state.data.degraded_read_only && !readOnlyActions.includes(action) && !directPhase1) throw new Error("ระบบเขียนผ่าน Apps Script ยังไม่พร้อม และ action นี้ยังไม่ได้รับสิทธิ์ Direct Writer — ดูข้อมูลได้ แต่การบันทึกถูกปิดเพื่อความปลอดภัย");
     if(snapshotState.stale && !readOnlyActions.includes(action)) throw new Error("ข้อมูลเก่า: กรุณา Refresh ให้สำเร็จก่อนบันทึก");
+    const outbound=Object.assign({action},payload);
+    if(!readOnlyActions.includes(action) && !outbound.request_id) outbound.request_id=adminRequestId();
     const maxAttempts=action==="snapshot" ? 2 : 1;
     let lastError=null;
     for(let attempt=1; attempt<=maxAttempts; attempt++){
@@ -1198,7 +1213,7 @@
         const res=await fetch("/api/kk-admin",{
           method:"POST",
           headers:{"Content-Type":"application/json","X-Admin-Pin":state.pin},
-          body:JSON.stringify(Object.assign({action},payload))
+          body:JSON.stringify(outbound)
         });
         const data=await res.json().catch(()=>({ok:false,error:"Invalid server response"}));
         if(!res.ok || (!data.ok && !(action==="systemHealth" && data.data && data.data.rows))){
@@ -1811,7 +1826,14 @@
     el.style.borderColor=snapshotState.stale ? "#dc2626" : (compactWarnings.length ? "#d97706" : "#64748b");
     el.title=fullWarnings.join("\n");
     const degraded=!!(state.data && state.data.degraded_read_only);
-    el.textContent=(snapshotState.stale ? (state.data ? "กำลังแสดง Last Known Good Snapshot — ข้อมูลเก่า ห้ามใช้ยืนยันความว่างจน Refresh สำเร็จ" : "โหลด Snapshot ไม่สำเร็จ — ยังยืนยันไม่ได้ว่าระบบไม่มีข้อมูล") : (degraded ? "โหมดอ่านอย่างเดียว — โหลดข้อมูลตรงจาก Google Sheet สำเร็จ แต่การบันทึกถูกปิดจนกว่า Apps Script จะกลับมา" : "Snapshot ล่าสุดผ่านการตรวจ"))+
+    const directState=state.data && state.data.direct_writer_phase1_state;
+    const directActions=directState && directState.writer_ready && Array.isArray(directState.configured_actions) ? directState.configured_actions : [];
+    const runtimeStatus=degraded
+      ? (directActions.length
+        ? "โหมดผสม — อ่านจาก Google Sheet โดยตรง; Apps Script write ไม่พร้อม แต่ Direct Writer ใช้ได้สำหรับ "+directActions.join(", ")
+        : "โหมดอ่านอย่างเดียว — โหลดข้อมูลตรงจาก Google Sheet สำเร็จ แต่การบันทึกถูกปิดจนกว่า write transport ที่ยอมรับแล้วจะพร้อม")
+      : "Snapshot ล่าสุดผ่านการตรวจ";
+    el.textContent=(snapshotState.stale ? (state.data ? "กำลังแสดง Last Known Good Snapshot — ข้อมูลเก่า ห้ามใช้ยืนยันความว่างจน Refresh สำเร็จ" : "โหลด Snapshot ไม่สำเร็จ — ยังยืนยันไม่ได้ว่าระบบไม่มีข้อมูล") : runtimeStatus)+
       " | สำเร็จล่าสุด: "+(snapshotState.goodAt ? new Date(snapshotState.goodAt).toLocaleString("th-TH") : "ยังไม่มี")+
       " | เวลาเรียกจริง: "+(snapshotState.latencyMs ?? "-")+" ms | "+counts+
       (snapshotState.error ? " | "+snapshotState.error : "")+

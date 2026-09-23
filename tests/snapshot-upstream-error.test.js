@@ -45,6 +45,7 @@ function setEnv() {
   process.env.KK_ADMIN_API_KEY = 'api-key';
   process.env.KK_ADMIN_SCRIPT_URL = 'https://script.google.com/macros/s/test-deployment/exec';
   process.env.GOOGLE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
+  process.env.KK_ADMIN_READ_MODE = 'apps-script-first';
 }
 
 function validSnapshot() {
@@ -64,12 +65,18 @@ function validSnapshot() {
 
 test.beforeEach(() => {
   setEnv();
+  handler._test.clearUpstreamCircuit();
+  if (handler._test.clearWriteHealthCache) handler._test.clearWriteHealthCache();
+  if (AdminSheetFallback.clearSnapshotCache) AdminSheetFallback.clearSnapshotCache();
 });
 
 test.afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
   global.fetch = ORIGINAL_FETCH;
   AdminSheetFallback.buildSnapshot = ORIGINAL_BUILD_SNAPSHOT;
+  handler._test.clearUpstreamCircuit();
+  if (handler._test.clearWriteHealthCache) handler._test.clearWriteHealthCache();
+  if (AdminSheetFallback.clearSnapshotCache) AdminSheetFallback.clearSnapshotCache();
 });
 
 
@@ -136,7 +143,7 @@ test('passes a healthy snapshot and attaches snapshot health metadata', async ()
   assert.equal(out.body.data.events.length, 1);
   assert.equal(out.body.snapshot_health.ok, true);
   assert.equal(out.body.data.frontend_sheet_id, process.env.GOOGLE_SHEET_ID);
-  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.3');
+  assert.equal(out.headers['x-kk-snapshot-adapter-version'], 'admin-snapshot-upstream-error-v5.5');
 });
 
 
@@ -304,4 +311,171 @@ test('uses direct-Sheet read-only fallback when Apps Script deployment is missin
   assert.equal(typeof out.body.proxy_upstream_ms,'number');
   assert.equal(typeof out.body.fallback_ms,'number');
   assert.equal(typeof out.body.proxy_round_trip_ms,'number');
+});
+
+
+test('skips redundant write-health probe after deterministic Apps Script deployment failure', async () => {
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  let upstreamCalls = 0;
+  global.fetch = async () => {
+    upstreamCalls++;
+    throw new Error('write-health probe should have been skipped');
+  };
+  const out = responseCapture();
+  await handler._test.respondWithDirectSheetFallback(
+    out.res,
+    'snapshot',
+    process.env.GOOGLE_SHEET_ID,
+    'env',
+    {
+      code: 'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND',
+      error_code: 'SNAPSHOT_UPSTREAM_NON_JSON',
+      upstream_failure_class: 'APPS_SCRIPT_DEPLOYMENT_NOT_FOUND',
+      upstream_status: 404,
+      upstream_ms: 25
+    },
+    Date.now(),
+    process.env.KK_ADMIN_SCRIPT_URL,
+    process.env.KK_ADMIN_API_KEY
+  );
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.ok, true);
+  assert.equal(out.body.write_actions_enabled, false);
+  assert.equal(out.body.write_path_health.checked, false);
+  assert.equal(out.body.write_path_health.skipped, true);
+  assert.equal(out.body.write_path_health.error_code, 'WRITE_HEALTH_UPSTREAM_UNAVAILABLE');
+  assert.equal(upstreamCalls, 0);
+});
+
+test('upstream circuit is URL-scoped and expires fail-safe', () => {
+  const url = process.env.KK_ADMIN_SCRIPT_URL;
+  const other = 'https://script.google.com/macros/s/other-deployment/exec';
+  handler._test.clearUpstreamCircuit();
+  assert.equal(handler._test.activeUpstreamCircuit(url, 1000), null);
+  handler._test.openUpstreamCircuit(url, 'UPSTREAM_TIMEOUT', 1000);
+  const active = handler._test.activeUpstreamCircuit(url, 1001);
+  assert.equal(active.code, 'UPSTREAM_TIMEOUT');
+  assert.equal(active.retry_after_ms, handler._test.UPSTREAM_CIRCUIT_TTL_MS - 1);
+  assert.equal(handler._test.activeUpstreamCircuit(other, 1001), null);
+  assert.equal(handler._test.activeUpstreamCircuit(url, 1000 + handler._test.UPSTREAM_CIRCUIT_TTL_MS + 1), null);
+});
+
+
+test('direct-Sheet is the default primary snapshot path and skips the 12s Apps Script snapshot call', async () => {
+  process.env.KK_ADMIN_READ_MODE = 'direct-sheet-primary';
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  const actions = [];
+  global.fetch = async (_url, options) => {
+    const body = JSON.parse(String(options && options.body || '{}'));
+    actions.push(body.action || '');
+    return {
+      ok: true,
+      status: 200,
+      headers: { get: () => 'application/json; charset=utf-8' },
+      async text() {
+        return JSON.stringify({
+          ok: true,
+          data: {
+            admin_api_version: 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+            spreadsheet_id: process.env.GOOGLE_SHEET_ID
+          }
+        });
+      }
+    };
+  };
+  const out = responseCapture();
+  await handler(reqFor('snapshot'), out.res);
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.ok, true);
+  assert.equal(out.body.read_degraded, false);
+  assert.equal(out.body.read_mode, 'direct-sheet-primary');
+  assert.equal(out.body.data.read_degraded, false);
+  assert.equal(out.body.data.read_mode, 'direct-sheet-primary');
+  assert.equal(out.body.proxy_upstream_ms, 0);
+  assert.equal(out.body.fallback_trigger.code, 'DIRECT_SHEET_PRIMARY');
+  assert.equal(out.body.write_actions_enabled, true);
+  assert.deepEqual(actions, ['phase1Health']);
+  assert.equal(out.headers['x-kk-admin-read-mode'], 'direct-sheet-primary');
+});
+
+test('direct-Sheet primary read remains available when legacy Apps Script configuration is missing', async () => {
+  process.env.KK_ADMIN_READ_MODE = 'direct-sheet-primary';
+  delete process.env.KK_ADMIN_SCRIPT_URL;
+  delete process.env.KK_ADMIN_API_KEY;
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  let networkCalls = 0;
+  global.fetch = async () => { networkCalls++; throw new Error('legacy Apps Script should not be required for primary reads'); };
+  const out = responseCapture();
+  await handler(reqFor('snapshot'), out.res);
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.ok, true);
+  assert.equal(out.body.read_degraded, false);
+  assert.equal(out.body.read_mode, 'direct-sheet-primary');
+  assert.equal(out.body.degraded_read_only, true);
+  assert.equal(out.body.write_actions_enabled, false);
+  assert.equal(out.body.write_path_health.skipped, true);
+  assert.equal(networkCalls, 0);
+});
+
+test('apps-script-first remains an explicit rollback mode', () => {
+  assert.equal(handler._test.adminReadMode({}), 'direct-sheet-primary');
+  assert.equal(handler._test.adminReadMode({KK_ADMIN_READ_MODE:'apps-script-first'}), 'apps-script-first');
+  assert.equal(handler._test.adminReadMode({KK_ADMIN_READ_MODE:'unknown'}), 'direct-sheet-primary');
+});
+
+
+test('write-health cache reuses a recent healthy identity result and expires on schedule',()=>{
+  const url=process.env.KK_ADMIN_SCRIPT_URL;
+  const sheet=process.env.GOOGLE_SHEET_ID;
+  const remembered=handler._test.rememberWriteHealth(url,sheet,{
+    checked:true,skipped:false,ok:true,status:200,latency_ms:120,
+    error_code:'',failure_class:'',backend_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+    spreadsheet_id:sheet
+  },1000);
+  assert.equal(remembered.cache_status,'miss');
+  const hit=handler._test.activeWriteHealthCache(url,sheet,1001);
+  assert.equal(hit.ok,true);
+  assert.equal(hit.cache_status,'hit');
+  assert.equal(hit.cache_age_ms,1);
+  assert.equal(handler._test.activeWriteHealthCache(url,sheet,1000+handler._test.WRITE_HEALTH_OK_CACHE_TTL_MS+1),null);
+});
+
+test('write-health cache uses a shorter TTL for failures',()=>{
+  const url=process.env.KK_ADMIN_SCRIPT_URL;
+  const sheet=process.env.GOOGLE_SHEET_ID;
+  handler._test.rememberWriteHealth(url,sheet,{
+    checked:true,skipped:false,ok:false,status:0,latency_ms:4000,
+    error_code:'WRITE_HEALTH_TIMEOUT',failure_class:'UPSTREAM_TIMEOUT',backend_version:'',spreadsheet_id:''
+  },2000);
+  const hit=handler._test.activeWriteHealthCache(url,sheet,2001);
+  assert.equal(hit.ok,false);
+  assert.equal(hit.cache_status,'hit');
+  assert.equal(handler._test.activeWriteHealthCache(url,sheet,2000+handler._test.WRITE_HEALTH_FAIL_CACHE_TTL_MS+1),null);
+});
+
+test('direct primary snapshots reuse one recent write-health probe on the same warm runtime',async()=>{
+  process.env.KK_ADMIN_READ_MODE='direct-sheet-primary';
+  AdminSheetFallback.buildSnapshot=async()=>minimalFallbackSnapshot();
+  let phase1Calls=0;
+  global.fetch=async(_url,options)=>{
+    const body=JSON.parse(String(options&&options.body||'{}'));
+    if(body.action==='phase1Health') phase1Calls++;
+    return {
+      ok:true,status:200,headers:{get:()=> 'application/json; charset=utf-8'},
+      async text(){return JSON.stringify({ok:true,data:{
+        admin_api_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',
+        spreadsheet_id:process.env.GOOGLE_SHEET_ID
+      }});}
+    };
+  };
+
+  const a=responseCapture();
+  await handler(reqFor('snapshot'),a.res);
+  const b=responseCapture();
+  await handler(reqFor('snapshot'),b.res);
+  assert.equal(a.res.statusCode,200);
+  assert.equal(b.res.statusCode,200);
+  assert.equal(phase1Calls,1);
+  assert.equal(a.body.write_health_cache_status,'miss');
+  assert.equal(b.body.write_health_cache_status,'hit');
 });
