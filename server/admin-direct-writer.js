@@ -4,11 +4,12 @@
 // This module is deliberately NOT wired into Admin business actions yet.
 // Activation requires explicit enable + acceptance + write-probe gates and the
 // canonical Core Sheet identity. Public GViz is never used for writes.
+// Writer credentials are intentionally isolated from the generic read-only reader namespace.
 
 const crypto=require('node:crypto');
-const privateSheets=require('../api/lib/private-google-sheets.js');
+const dedicatedWriter=require('../api/lib/admin-google-sheets-writer.js');
 
-const VERSION='admin-direct-google-writer-foundation-v1';
+const VERSION='admin-direct-google-writer-foundation-v2-dedicated-identity';
 const CORE_SHEET_ID='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const WRITE_SCOPE='https://www.googleapis.com/auth/spreadsheets';
 const TOKEN_URL='https://oauth2.googleapis.com/token';
@@ -28,7 +29,7 @@ function credentialFingerprint(creds){
 }
 
 function state(env=process.env){
-  const creds=privateSheets.credentialsFromEnv(env);
+  const creds=dedicatedWriter.credentialsFromEnv(env);
   const sheetId=String(env.GOOGLE_SHEET_ID||CORE_SHEET_ID).trim();
   const enabled=isTrue(env.KK_ADMIN_DIRECT_WRITER_ENABLED);
   const accepted=isTrue(env.KK_ADMIN_DIRECT_WRITER_ACCEPTED);
@@ -36,7 +37,7 @@ function state(env=process.env){
   const canonicalSheet=sheetId===CORE_SHEET_ID;
   return {
     version:VERSION,
-    auth_mode:creds?'service_account':'none',
+    auth_mode:creds?'dedicated_service_account':'none',
     credentials_ready:!!creds,
     enabled,
     accepted,
@@ -67,7 +68,7 @@ async function getAccessToken({env=process.env,fetchImpl=global.fetch}={}){
   const s=state(env);
   if(!s.credentials_ready) throw Object.assign(new Error('Direct Google writer credentials are not configured'),{code:'DIRECT_WRITER_NOT_CONFIGURED'});
   if(typeof fetchImpl!=='function') throw new Error('fetch is not available');
-  const creds=privateSheets.credentialsFromEnv(env);
+  const creds=dedicatedWriter.credentialsFromEnv(env);
   const fingerprint=credentialFingerprint(creds);
   const now=Date.now();
   if(tokenCache.token&&tokenCache.fingerprint===fingerprint&&tokenCache.expiresAt-now>120000) return tokenCache.token;
