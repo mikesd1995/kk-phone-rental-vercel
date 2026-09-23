@@ -10,8 +10,8 @@ const Proxy=require('../server/admin-proxy.js');
 function activeEnv(extra={}){
   return Object.assign({
     GOOGLE_SHEET_ID:'12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU',
-    GOOGLE_SERVICE_ACCOUNT_EMAIL:'writer@example.test',
-    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'-----BEGIN PRIVATE KEY-----\nTEST\n-----END PRIVATE KEY-----',
+    GOOGLE_ADMIN_WRITER_SERVICE_ACCOUNT_EMAIL:'writer@example.test',
+    GOOGLE_ADMIN_WRITER_SERVICE_ACCOUNT_PRIVATE_KEY:'-----BEGIN PRIVATE KEY-----\nTEST\n-----END PRIVATE KEY-----',
     KK_ADMIN_DIRECT_WRITER_ENABLED:'1',
     KK_ADMIN_DIRECT_WRITER_ACCEPTED:'1',
     KK_ADMIN_DIRECT_WRITER_WRITE_PROBE_PASSED:'1',
