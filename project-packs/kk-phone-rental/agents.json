@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "project_id": "kk-phone-rental",
+  "workspace_id": "kk-operations",
+  "agent_version": "0.1.0",
+  "definitions": [
+    {
+      "agent_id": "kk_manager",
+      "role": "manager",
+      "version": "0.1.0",
+      "permission_ceiling": "P4",
+      "execution_enabled": false,
+      "provider": null,
+      "model_id": null
+    },
+    {
+      "agent_id": "kk_research",
+      "role": "research",
+      "version": "0.1.0",
+      "permission_ceiling": "P4",
+      "execution_enabled": false,
+      "provider": null,
+      "model_id": null
+    },
+    {
+      "agent_id": "kk_social_intelligence",
+      "role": "social_intelligence",
+      "version": "0.1.0",
+      "permission_ceiling": "P4",
+      "execution_enabled": false,
+      "provider": null,
+      "model_id": null
+    },
+    {
+      "agent_id": "kk_business_analyst",
+      "role": "business_analyst",
+      "version": "0.1.0",
+      "permission_ceiling": "P4",
+      "execution_enabled": false,
+      "provider": null,
+      "model_id": null
+    },
+    {
+      "agent_id": "kk_engineering",
+      "role": "engineering",
+      "version": "0.1.0",
+      "permission_ceiling": "P4",
+      "execution_enabled": false,
+      "provider": null,
+      "model_id": null
+    },
+    {
+      "agent_id": "kk_operations",
+      "role": "operations",
+      "version": "0.1.0",
+      "permission_ceiling": "P4",
+      "execution_enabled": false,
+      "provider": null,
+      "model_id": null
+    },
+    {
+      "agent_id": "kk_evaluator",
+      "role": "evaluator",
+      "version": "0.1.0",
+      "permission_ceiling": "P4",
+      "execution_enabled": false,
+      "provider": null,
+      "model_id": null
+    }
+  ]
+}

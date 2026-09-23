@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "project_id": "kk-phone-rental",
+  "workspace_id": "kk-operations",
+  "name": "KK Phone Rental",
+  "project_pack_version": "0.1.0",
+  "phase": "phase0",
+  "environment": "local",
+  "permission_ceiling": "P4",
+  "feature_flags": {
+    "agent_runtime": false,
+    "scheduler": false,
+    "providers": false,
+    "gateway_writes": false,
+    "self_improvement": false,
+    "production_executor": false
+  },
+  "versions": {
+    "agent": "0.1.0",
+    "skill": "0.1.0",
+    "tool_contract": "0.1.0",
+    "workflow": "0.1.0",
+    "policy": "0.1.0",
+    "eval_dataset": "0.1.0"
+  },
+  "references": {
+    "skills": [
+      {
+        "path": ".agents/skills/kk-discovery-scanner/SKILL.md",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      },
+      {
+        "path": ".agents/skills/kk-event-verifier/SKILL.md",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      },
+      {
+        "path": ".agents/skills/kk-canary-safety/SKILL.md",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      },
+      {
+        "path": ".agents/skills/kk-discovery-source-watch/SKILL.md",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      },
+      {
+        "path": ".agents/skills/kk-capability-improvement/SKILL.md",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      }
+    ],
+    "workflows": [
+      {
+        "path": "server/control-plane-persistence.js",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      },
+      {
+        "path": "server/control-plane-contract.js",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      }
+    ],
+    "evals": [
+      {
+        "path": "tests/hf-external-scanner-isolation.test.js",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      },
+      {
+        "path": "tests/discovery-source-watch-contract.test.js",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      },
+      {
+        "path": "tests/canary-acceptance.test.js",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      }
+    ],
+    "sources": [
+      {
+        "path": "docs/DISCOVERY_MESH_FOUNDATION_2026-09-20.md",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      }
+    ],
+    "adapters": [
+      {
+        "path": "server/hf-scanner-wiring-contract.js",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      },
+      {
+        "path": "server/discovery-source-watch-contract.js",
+        "version": "0.1.0",
+        "revision": "0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0"
+      }
+    ]
+  }
+}

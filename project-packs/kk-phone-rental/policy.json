@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "project_id": "kk-phone-rental",
+  "workspace_id": "kk-operations",
+  "policy_version": "0.1.0",
+  "permission_ceiling": "P4",
+  "allow_capabilities": [],
+  "deny_capabilities": [
+    "production.write",
+    "production.deploy",
+    "secret.read.raw",
+    "permission.modify",
+    "policy.modify.platform",
+    "schedule.modify",
+    "notification.send"
+  ],
+  "production_authority": false
+}
