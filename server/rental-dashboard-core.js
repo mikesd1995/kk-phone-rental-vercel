@@ -151,32 +151,105 @@ function aggregate(rows){
   for(const r of rows){const key=[r.source,r.booking_id,r.event_id,r.event_date,r.customer_key,r.created_at,r.status].join("|");if(seen.has(key))continue;seen.add(key);clean.push(r);}
   const non=clean.filter(r=>r.status!=="cancelled");
   const customers={},months={},events={},packages={},statuses={},affiliations={};
-  let received=0,completed=0,active=0,affKnown=0,affUnknown=0;
+  let actualRevenue=0,futureRevenue=0,completed=0,active=0,affKnown=0,affUnknown=0;
   const activeSet=new Set(["pending","confirmed","prepared","picked_up","returned","uploaded"]);
   for(const r of non){
-    received+=r.amount_received||0;if(r.status==="completed")completed++;if(activeSet.has(r.status))active++;if(r.customer_key)customers[r.customer_key]=(customers[r.customer_key]||0)+1;
-    const mo=r.month||eventMonth(r.event_date);if(mo){months[mo]||={month:mo,customers:new Set(),bookings:0,completed:0,amount_received:0};const x=months[mo];x.bookings++;x.amount_received+=r.amount_received||0;if(r.status==="completed")x.completed++;if(r.customer_key)x.customers.add(r.customer_key);}
-    const evKey=r.event_name||r.event_id||"Unknown";events[evKey]||={event_name:evKey,affiliation:r.affiliation,customers:new Set(),bookings:0,amount_received:0};const ev=events[evKey];ev.bookings++;ev.amount_received+=r.amount_received||0;if(r.customer_key)ev.customers.add(r.customer_key);if(ev.affiliation==="ยังไม่ระบุ / Unknown"&&r.affiliation!=="ยังไม่ระบุ / Unknown")ev.affiliation=r.affiliation;
+    const amount=r.amount_received||0;
+    const actualAmount=r.status==="completed"?amount:0;
+    const futureAmount=activeSet.has(r.status)?amount:0;
+    const forecastAmount=actualAmount+futureAmount;
+    actualRevenue+=actualAmount;
+    futureRevenue+=futureAmount;
+    if(r.status==="completed")completed++;
+    if(activeSet.has(r.status))active++;
+    if(r.customer_key)customers[r.customer_key]=(customers[r.customer_key]||0)+1;
+
+    const mo=r.month||eventMonth(r.event_date);
+    if(mo){
+      months[mo]||={month:mo,customers:new Set(),bookings:0,completed:0,actual_revenue:0,future_revenue:0,forecast_revenue:0};
+      const x=months[mo];
+      x.bookings++;
+      x.actual_revenue+=actualAmount;
+      x.future_revenue+=futureAmount;
+      x.forecast_revenue+=forecastAmount;
+      if(r.status==="completed")x.completed++;
+      if(r.customer_key)x.customers.add(r.customer_key);
+    }
+
+    const evKey=r.event_name||r.event_id||"Unknown";
+    events[evKey]||={event_name:evKey,affiliation:r.affiliation,customers:new Set(),bookings:0,actual_revenue:0,future_revenue:0,forecast_revenue:0};
+    const ev=events[evKey];
+    ev.bookings++;
+    ev.actual_revenue+=actualAmount;
+    ev.future_revenue+=futureAmount;
+    ev.forecast_revenue+=forecastAmount;
+    if(r.customer_key)ev.customers.add(r.customer_key);
+    if(ev.affiliation==="ยังไม่ระบุ / Unknown"&&r.affiliation!=="ยังไม่ระบุ / Unknown")ev.affiliation=r.affiliation;
+
     packages[r.package_type]=(packages[r.package_type]||0)+1;
-    const aff=r.affiliation||"ยังไม่ระบุ / Unknown";affiliations[aff]||={affiliation:aff,customers:new Set(),events:new Set(),bookings:0,amount_received:0,explicit:0,artist_registry:0,inferred:0,unknown:0};const a=affiliations[aff];a.bookings++;a.amount_received+=r.amount_received||0;if(r.customer_key)a.customers.add(r.customer_key);if(r.event_id||r.event_name)a.events.add(r.event_id||r.event_name);a[r.affiliation_source||"unknown"]=(a[r.affiliation_source||"unknown"]||0)+1;if(aff==="ยังไม่ระบุ / Unknown")affUnknown++;else affKnown++;
+    const aff=r.affiliation||"ยังไม่ระบุ / Unknown";
+    affiliations[aff]||={affiliation:aff,customers:new Set(),events:new Set(),bookings:0,actual_revenue:0,future_revenue:0,forecast_revenue:0,explicit:0,artist_registry:0,inferred:0,unknown:0};
+    const a=affiliations[aff];
+    a.bookings++;
+    a.actual_revenue+=actualAmount;
+    a.future_revenue+=futureAmount;
+    a.forecast_revenue+=forecastAmount;
+    if(r.customer_key)a.customers.add(r.customer_key);
+    if(r.event_id||r.event_name)a.events.add(r.event_id||r.event_name);
+    a[r.affiliation_source||"unknown"]=(a[r.affiliation_source||"unknown"]||0)+1;
+    if(aff==="ยังไม่ระบุ / Unknown")affUnknown++;else affKnown++;
   }
   for(const r of clean){const s=r.status||"blank";statuses[s]=(statuses[s]||0)+1;}
   const unique=Object.keys(customers).length,repeat=Object.values(customers).filter(n=>n>=2).length;
-  const monthly=Object.values(months).map(x=>({month:x.month,customers:x.customers.size,bookings:x.bookings,completed:x.completed,amount_received:x.amount_received})).sort((a,b)=>a.month.localeCompare(b.month));
+  const forecastRevenue=actualRevenue+futureRevenue;
+  const monthly=Object.values(months).map(x=>({
+    month:x.month,customers:x.customers.size,bookings:x.bookings,completed:x.completed,
+    actual_revenue:x.actual_revenue,future_revenue:x.future_revenue,forecast_revenue:x.forecast_revenue,
+    amount_received:x.forecast_revenue
+  })).sort((a,b)=>a.month.localeCompare(b.month));
   const peak=[...monthly].sort((a,b)=>b.customers-a.customers||b.bookings-a.bookings)[0]||null;
-  const topEvents=Object.values(events).map(x=>({event_name:x.event_name,affiliation:x.affiliation,customers:x.customers.size,bookings:x.bookings,amount_received:x.amount_received})).sort((a,b)=>b.customers-a.customers||b.bookings-a.bookings||b.amount_received-a.amount_received).slice(0,30);
+  const topEvents=Object.values(events).map(x=>({
+    event_name:x.event_name,affiliation:x.affiliation,customers:x.customers.size,bookings:x.bookings,
+    actual_revenue:x.actual_revenue,future_revenue:x.future_revenue,forecast_revenue:x.forecast_revenue,
+    amount_received:x.forecast_revenue
+  })).sort((a,b)=>b.customers-a.customers||b.bookings-a.bookings||b.forecast_revenue-a.forecast_revenue).slice(0,30);
   const packageMix=Object.entries(packages).map(([package_type,bookings])=>({package_type,bookings})).sort((a,b)=>b.bookings-a.bookings);
   const statusMix=Object.entries(statuses).map(([status,bookings])=>({status,bookings})).sort((a,b)=>b.bookings-a.bookings);
-  const affiliationMix=Object.values(affiliations).map(a=>({affiliation:a.affiliation,customers:a.customers.size,bookings:a.bookings,events:a.events.size,amount_received:a.amount_received,explicit:a.explicit||0,artist_registry:a.artist_registry||0,inferred:a.inferred||0,unknown:a.unknown||0,mapping_summary:a.affiliation==="ยังไม่ระบุ / Unknown"?"ยังระบุสังกัดไม่ได้":`explicit ${a.explicit||0} · registry ${a.artist_registry||0} · inferred ${a.inferred||0}`})).sort((a,b)=>b.customers-a.customers||b.bookings-a.bookings||b.events-a.events);
+  const affiliationMix=Object.values(affiliations).map(a=>({
+    affiliation:a.affiliation,customers:a.customers.size,bookings:a.bookings,events:a.events.size,
+    actual_revenue:a.actual_revenue,future_revenue:a.future_revenue,forecast_revenue:a.forecast_revenue,
+    amount_received:a.forecast_revenue,
+    explicit:a.explicit||0,artist_registry:a.artist_registry||0,inferred:a.inferred||0,unknown:a.unknown||0,
+    mapping_summary:a.affiliation==="ยังไม่ระบุ / Unknown"?"ยังระบุสังกัดไม่ได้":`explicit ${a.explicit||0} · registry ${a.artist_registry||0} · inferred ${a.inferred||0}`
+  })).sort((a,b)=>b.customers-a.customers||b.bookings-a.bookings||b.events-a.events);
   const topAffiliation=affiliationMix.find(a=>a.affiliation!=="ยังไม่ระบุ / Unknown")||null;
   const dates=monthly.map(x=>x.month);
-  return {generated_at:new Date().toISOString(),metrics:{unique_customers:unique,non_cancelled_bookings:non.length,completed_bookings:completed,active_bookings:active,repeat_customers:repeat,avg_bookings_per_customer:unique?non.length/unique:0,repeat_customer_rate:unique?repeat/unique:0,amount_received:received,cancellation_rate:clean.length?clean.filter(r=>r.status==="cancelled").length/clean.length:0,affiliation_coverage_rate:non.length?affKnown/non.length:0,affiliation_known_bookings:affKnown,affiliation_unknown_bookings:affUnknown},peak_month:peak,top_event:topEvents[0]||null,top_affiliation:topAffiliation,monthly,top_events:topEvents,affiliation_mix:affiliationMix,package_mix:packageMix,status_mix:statusMix,range:{start:dates[0]||"",end:dates[dates.length-1]||""},definitions:[
+  return {generated_at:new Date().toISOString(),metrics:{
+    unique_customers:unique,
+    non_cancelled_bookings:non.length,
+    completed_bookings:completed,
+    active_bookings:active,
+    repeat_customers:repeat,
+    avg_bookings_per_customer:unique?non.length/unique:0,
+    repeat_customer_rate:unique?repeat/unique:0,
+    actual_revenue:actualRevenue,
+    future_revenue:futureRevenue,
+    forecast_revenue:forecastRevenue,
+    amount_received:forecastRevenue,
+    cancellation_rate:clean.length?clean.filter(r=>r.status==="cancelled").length/clean.length:0,
+    affiliation_coverage_rate:non.length?affKnown/non.length:0,
+    affiliation_known_bookings:affKnown,
+    affiliation_unknown_bookings:affUnknown
+  },peak_month:peak,top_event:topEvents[0]||null,top_affiliation:topAffiliation,monthly,top_events:topEvents,affiliation_mix:affiliationMix,package_mix:packageMix,status_mix:statusMix,range:{start:dates[0]||"",end:dates[dates.length-1]||""},definitions:[
     "Rental Analytics เป็น READ ONLY: ไม่เขียนกลับ Booking / Event / Asset / Package / ราคา",
     "ค่าย/สังกัดใช้สังกัดของนักแสดงหรือศิลปินเป็นหลัก ไม่ใช่บริษัทผู้จัดงาน: GMMTV cast => GMMTV, Domundi talent => Domundi / Mandee, NCT => SM Entertainment เป็นต้น",
     "ลำดับข้อมูลสังกัด: explicit talent-affiliation field/note → _Artist_Registry (เมื่ออ่านได้) → conservative event-name mapping → Unknown. Event promoter/organizer ไม่ override สังกัดศิลปิน",
     `Affiliation Coverage ตอนนี้ ${non.length?((affKnown/non.length)*100).toFixed(1):"0.0"}% ของ booking ที่ไม่ยกเลิก; Unknown ${affUnknown} คิว`,
     "Top Affiliation เรียงจากลูกค้าไม่ซ้ำ → Booking → จำนวนงาน เพื่อใช้ตัดสินใจว่าจะโฟกัสค่ายใดเป็นพิเศษ",
-    "รวม Current + Booking Archive และตัด cancelled ออกจาก KPI หลัก; ยอดรับแล้ว = SUM(amount_received) ไม่ใช่รายได้ทางบัญชี",
+    "รายรับจริง = SUM(amount_received) เฉพาะ booking ที่ status=completed",
+    "รายรับในอนาคต = SUM(amount_received) เฉพาะ booking ที่ยัง Active: pending / confirmed / prepared / picked_up / returned / uploaded",
+    "คาดการณ์รายรับรวม = รายรับจริง + รายรับในอนาคต; cancelled / no_show / สถานะว่างไม่ถูกนับ และ booking หนึ่งรายการอยู่ได้เพียง bucket เดียว",
+    "metrics.amount_received คงไว้เป็น compatibility alias ของ forecast_revenue; UI ไม่แสดง field นี้ว่าเป็นยอดรับจริงอีก",
     "API response ไม่ส่งชื่อ เบอร์โทร หรือ contact ลูกค้ารายบุคคลกลับ browser"
   ]};
 }
