@@ -51,6 +51,23 @@ Protect hard identity boundaries such as:
 
 Do not merge solely because names are similar.
 
+
+## Operational packet identity and no-drop reconciliation
+
+The operational READY queue is anchored in `_AI_Inbox`, not in Candidate:
+
+- operational packet = nonblank `Work Packet ID` AND `Packet Status=READY_FOR_VERIFIER`;
+- `_Candidate_Queue` does not contain a Work Packet ID column and must never be rejected merely for lacking one;
+- join an AI packet to Candidate by exact `Show ID` first;
+- only when Show ID is unavailable, use exact `Event Family ID + event date` and require exactly one match;
+- zero or multiple matches become explicit pairing debt/HOLD. Never resolve the ambiguity with fuzzy title matching.
+
+After a safe COMMIT/HOLD, terminalize both surfaces consistently. A canonical/monthly write that leaves AI or Candidate operationally READY is a partial close with explicit stale-ready debt.
+
+For multi-day families, compute the complete discovered set of day/show instances. A family is not cleanly closed while any discovered instance lacks an explicit monthly disposition and Core lineage-or-debt disposition. Partial prefixes are explicit family-completeness debt.
+
+Run reverse reconciliation as part of closeout: a current/future Core `01_Events` / `08_Web_Ready` row with no Tracker lineage/monthly disposition is a reverse Core orphan. A Tracker-discovered show with no Core counterpart is Core-promotion debt. This Verifier may repair only Tracker canonical/monthly state within current policy; Core backend event/package/poster creation remains a separate governed Admin action.
+
 ## Acceptance output
 
 Only produce a final governed handoff when all current control-plane requirements are satisfied. External evidence must retain provenance and the final record must remain attributable to the Verifier decision, not to an AI provider.
