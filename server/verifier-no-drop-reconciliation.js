@@ -36,6 +36,7 @@ function joinCandidate(packet,candidateRows){
     const exact=(candidateRows||[]).filter(row=>showId(row)===pShow);
     if(exact.length===1) return {candidate:exact[0],method:'SHOW_ID',debt:null};
     if(exact.length>1) return {candidate:null,method:'SHOW_ID',debt:'MULTIPLE_CANDIDATE_SHOW_ID_MATCHES'};
+    return {candidate:null,method:'SHOW_ID',debt:'CANDIDATE_PAIR_MISSING'};
   }
   const pFam=familyId(packet), pDate=eventDate(packet);
   if(pFam && pDate){

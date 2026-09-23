@@ -43,6 +43,45 @@ test('exact Show ID duplication fails into explicit pairing debt instead of fuzz
   assert.equal(out.pairs[0].debt,'MULTIPLE_CANDIDATE_SHOW_ID_MATCHES');
 });
 
+test('a nonblank unmatched Show ID cannot pair to another show with the same family and date',()=>{
+  const packet=fanivalDay(1);
+  const otherShow={...candidate(1),'Show ID':candidate(2)['Show ID']};
+  const joined=R.joinCandidate(packet,[otherShow]);
+  assert.deepEqual(joined,{candidate:null,method:'SHOW_ID',debt:'CANDIDATE_PAIR_MISSING'});
+  const out=R.auditReadyPairing([packet],[otherShow]);
+  assert.equal(out.paired_count,0);
+  assert.equal(out.pairing_debt_count,1);
+  assert.equal(out.pairs[0].join_method,'SHOW_ID');
+  assert.equal(out.pairs[0].debt,'CANDIDATE_PAIR_MISSING');
+  assert.equal(out.production_writes,0);
+});
+
+test('a packet without Show ID may pair to exactly one candidate with the same family and date',()=>{
+  const packet=fanivalDay(1);
+  delete packet['Show ID'];
+  const matched=candidate(1);
+  const joined=R.joinCandidate(packet,[matched]);
+  assert.deepEqual(joined,{candidate:matched,method:'FAMILY_DATE',debt:null});
+  const out=R.auditReadyPairing([packet],[matched]);
+  assert.equal(out.paired_count,1);
+  assert.equal(out.pairing_debt_count,0);
+  assert.equal(out.pairs[0].join_method,'FAMILY_DATE');
+  assert.equal(out.production_writes,0);
+});
+
+test('a packet without Show ID keeps pairing debt when multiple candidates share its family and date',()=>{
+  const packet=fanivalDay(1);
+  delete packet['Show ID'];
+  const candidates=[candidate(1),{...candidate(1),'Show ID':candidate(2)['Show ID']}];
+  const joined=R.joinCandidate(packet,candidates);
+  assert.deepEqual(joined,{candidate:null,method:'FAMILY_DATE',debt:'MULTIPLE_CANDIDATE_FAMILY_DATE_MATCHES'});
+  const out=R.auditReadyPairing([packet],candidates);
+  assert.equal(out.paired_count,0);
+  assert.equal(out.pairing_debt_count,1);
+  assert.equal(out.pairs[0].debt,'MULTIPLE_CANDIDATE_FAMILY_DATE_MATCHES');
+  assert.equal(out.production_writes,0);
+});
+
 test('FANIVAL 13-day family stays incomplete when only 11 days have lineage disposition',()=>{
   const ai=Array.from({length:13},(_,i)=>fanivalDay(i+1));
   const candidates=Array.from({length:13},(_,i)=>candidate(i+1));
