@@ -35,6 +35,24 @@ function timeoutForAction(action) {
   return 45000;
 }
 
+function isReadOnlyAction(action) {
+  return ['snapshot','snapshotHealth','systemHealth','phase1Health'].includes(String(action || '').trim());
+}
+
+function logMutation(event, fields) {
+  const safe = Object.assign({
+    event: String(event || 'mutation'),
+    action: '',
+    request_id: '',
+    transport: '',
+    duration_ms: 0,
+    status: 0,
+    error_code: '',
+    uncertain_outcome: false
+  }, fields || {});
+  console.info('KK_ADMIN_MUTATION', JSON.stringify(safe));
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let data = "";
@@ -352,6 +370,12 @@ module.exports = async function handler(req, res) {
       if (directResult && directResult.handled) {
         res.setHeader("X-KK-Admin-Write-Transport", "DIRECT_GOOGLE_SHEETS");
         res.setHeader("X-KK-Admin-Direct-No-Fallback", "TRUE");
+        logMutation('completed', {
+          action: String(payload.action || ''),
+          request_id: String(payload.request_id || directResult.request_id || ''),
+          transport: 'direct-google-sheets',
+          status: Number(directResult.status || 200)
+        });
         return json(res, Number(directResult.status || 200), directResult.body);
       }
       res.setHeader("X-KK-Admin-Write-Transport", "LEGACY_APPS_SCRIPT");
@@ -439,6 +463,23 @@ module.exports = async function handler(req, res) {
     if (data && typeof data === 'object') {
       data.proxy_upstream_ms = upstreamElapsedMs;
       data.proxy_timeout_ms = actionTimeoutMs;
+      if (!isReadOnlyAction(payload.action)) {
+        data.write_transport = data.write_transport || 'legacy-apps-script';
+        data.request_id = data.request_id || String(payload.request_id || '');
+        data.mutation_outcome = data.ok && upstream.ok ? 'confirmed-response' : 'rejected-response';
+      }
+    }
+
+    if (!isReadOnlyAction(payload.action)) {
+      logMutation(data && data.ok && upstream.ok ? 'completed' : 'rejected', {
+        action: String(payload.action || ''),
+        request_id: String(payload.request_id || ''),
+        transport: 'legacy-apps-script',
+        duration_ms: upstreamElapsedMs,
+        status: Number(upstream.status || 0),
+        error_code: String(data && data.error_code || ''),
+        uncertain_outcome: false
+      });
     }
 
     return json(res, upstream.ok ? 200 : upstream.status, data);
@@ -449,12 +490,26 @@ module.exports = async function handler(req, res) {
     const msg = isTimeout
       ? "Apps Script request timed out for action " + action + ". The proxy waited up to " + String(timeoutMs) + " ms. Please retry once; if it repeats, check Apps Script Executions and sheet calculation load."
       : (err && err.message ? err.message : String(err));
+    if (!isReadOnlyAction(action)) {
+      logMutation('uncertain', {
+        action,
+        request_id: String(payload && payload.request_id || ''),
+        transport: 'legacy-apps-script',
+        duration_ms: timeoutMs,
+        status: 0,
+        error_code: isTimeout ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
+        uncertain_outcome: true
+      });
+    }
     return json(res, 500, {
       ok: false,
       error: msg,
       error_code: isTimeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_ERROR",
       action,
-      timeout_ms: timeoutMs
+      timeout_ms: timeoutMs,
+      request_id: String(payload && payload.request_id || ''),
+      mutation_outcome_uncertain: !isReadOnlyAction(action),
+      mutation_may_have_committed: !isReadOnlyAction(action)
     });
   }
 };
