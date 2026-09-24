@@ -241,6 +241,31 @@ test('Admin proxy can serve an accepted direct write even when Apps Script trans
   assert.equal(out.headers['X-KK-Admin-Write-Transport'],'DIRECT_GOOGLE_SHEETS');
 });
 
+test('legacy mutation timeout is returned as uncertain and is never retried by the proxy',async t=>{
+  const oldEnv={...process.env};
+  process.env.KK_ADMIN_PIN='1234';
+  process.env.KK_ADMIN_SCRIPT_URL='https://script.google.com/macros/s/test/exec';
+  process.env.KK_ADMIN_API_KEY='key';
+  const oldFetch=global.fetch;
+  let calls=0;
+  global.fetch=async()=>{
+    calls++;
+    const err=new Error('aborted');
+    err.name='AbortError';
+    throw err;
+  };
+  t.after(()=>{process.env=oldEnv;global.fetch=oldFetch;});
+  const out=res();
+  await Proxy(req({action:'updateBooking',row_number:25,booking_status:'prepared',request_id:'req-timeout-12345'}),out);
+  const body=JSON.parse(out.body);
+  assert.equal(out.statusCode,500);
+  assert.equal(body.error_code,'UPSTREAM_TIMEOUT');
+  assert.equal(body.mutation_outcome_uncertain,true);
+  assert.equal(body.mutation_may_have_committed,true);
+  assert.equal(body.request_id,'req-timeout-12345');
+  assert.equal(calls,1);
+});
+
 test('Admin proxy never falls through to Apps Script after an accepted direct route fails',async t=>{
   const oldEnv={...process.env};
   process.env.KK_ADMIN_PIN='1234';
