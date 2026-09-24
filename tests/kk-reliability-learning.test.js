@@ -2,6 +2,10 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const {spawnSync} = require('node:child_process');
 const Reliability = require('../server/kk-reliability-learning-agent.js');
 
 test('loads advisory-only memory contract', () => {
@@ -113,4 +117,26 @@ test('advisor prompt preserves authority boundary', () => {
   const prompt = Reliability.buildAdvisorPrompt(report);
   assert.match(prompt, /Never mutate production/);
   assert.match(prompt, /Never claim root cause above/);
+});
+
+test('system audit integrates reliability observations without granting write authority', () => {
+  const temp=path.join(os.tmpdir(), `kk-reliability-${process.pid}-${Date.now()}.json`);
+  fs.writeFileSync(temp, JSON.stringify({
+    reliability_observations:[
+      {code:'FAIL_REQUIRES_EXACT_IDENTITY',message:'row-position mismatch'}
+    ]
+  }));
+  try{
+    const script=path.resolve(__dirname,'../scripts/kk-system-audit.js');
+    const run=spawnSync(process.execPath,[script,temp],{encoding:'utf8'});
+    assert.equal(run.status,0,run.stderr);
+    const output=JSON.parse(run.stdout);
+    assert.equal(output.generated_by,'kk-system-audit-v3');
+    assert.equal(output.production_writes,0);
+    assert.equal(output.task_mutations,0);
+    assert.equal(output.reliability_learning.incidents[0].fingerprint_id,'IDENTITY_POSITIONAL_MISMATCH');
+    assert.equal(output.reliability_learning.safety.safe_to_auto_apply,false);
+  }finally{
+    fs.rmSync(temp,{force:true});
+  }
 });
