@@ -37,3 +37,8 @@ test('Admin UX v4 remains presentation-only for business write semantics',()=>{
   assert.doesNotMatch(css,/KK_ADMIN_SCRIPT_URL|GOOGLE_SHEET_ID|createBooking|updateBooking/);
   assert.match(js,/single-attempt only; no automatic retry/);
 });
+
+test('Admin shell never renders escaped newline tokens between structural tags',()=>{
+  assert.doesNotMatch(html,/\\n\s*</,'literal \\n before an HTML tag would render visibly in the Admin shell');
+});
+
