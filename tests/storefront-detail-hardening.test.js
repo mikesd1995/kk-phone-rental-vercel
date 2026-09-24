@@ -70,3 +70,13 @@ test('internal event notes are filtered before rendering', () => {
   assert.match(source, /var publicEventNote=sanitizePublicText\(c\.webNote\)/);
   assert.match(source, /eventNoteEl\.textContent=publicEventNote\?"ℹ️ "\+publicEventNote:""/);
 });
+
+
+test('all explicitly hidden package rows keep the event offline', () => {
+  assert.match(source, /var pkgMap=\{\}, pkgPresence=\{\};/);
+  assert.match(source, /pkgPresence\[id\]=true;/);
+  assert.match(source, /var hasPkgSheet = !!pkgPresence\[eventId\];/);
+  assert.match(source, /var hiddenByPackages = hasPkgSheet && visiblePkgRows\.length===0;/);
+  assert.match(source, /Do NOT fall back to event-level packages/);
+  assert.match(source, /\.filter\(function\(c\)\{ return !c\.hiddenByPackages; \}\);/);
+});

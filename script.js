@@ -833,8 +833,13 @@ async function loadData(){
   ]);
   var webRows=results[0]||[], pkgRows=results[1]||[];
 
-  var pkgMap={};
-  pkgRows.forEach(function(p){ var id=String(p.event_id||"").trim(); if(!id)return; if(!pkgMap[id])pkgMap[id]=[]; if(isPkgVisible(p))pkgMap[id].push(p); });
+  var pkgMap={}, pkgPresence={};
+  pkgRows.forEach(function(p){
+    var id=String(p.event_id||"").trim(); if(!id)return;
+    pkgPresence[id]=true;
+    if(!pkgMap[id])pkgMap[id]=[];
+    if(isPkgVisible(p))pkgMap[id].push(p);
+  });
 
   var rows=webRows.filter(function(r){ var a=String(r.action_for_web||"").trim().toLowerCase(); return a&&a!=="hide"; });
 
@@ -845,10 +850,13 @@ async function loadData(){
     var phoneCnt   = toNum(r.available_phone_count);
     var lensCnt    = toNum(r.available_lens_count);
 
-    var hasPkgSheet = !!(pkgMap[eventId]&&pkgMap[eventId].length>0);
-    // FIX: ส่ง phoneCnt/lensCnt เข้า buildPackagesFromSheet ด้วย
+    var hasPkgSheet = !!pkgPresence[eventId];
+    var visiblePkgRows = pkgMap[eventId] || [];
+    var hiddenByPackages = hasPkgSheet && visiblePkgRows.length===0;
+    // Important: if package rows exist but every one is explicitly hidden, that is
+    // an owner/manual visibility decision. Do NOT fall back to event-level packages.
     var packages = hasPkgSheet
-      ? buildPackagesFromSheet(pkgMap[eventId] || [], eventId, phoneCnt, lensCnt)
+      ? buildPackagesFromSheet(visiblePkgRows, eventId, phoneCnt, lensCnt)
       : buildPackagesFromWebRow(r);
 
     // Shared-inventory guard: all phone packages consume the same phone pool and all
@@ -886,9 +894,10 @@ async function loadData(){
       action:       String(r.action_for_web||"show").trim().toLowerCase(),
       lineTemplate: String(r.line_message_template||"").trim(),
       packages:     packages,
-      hasPkgSheet:  hasPkgSheet
+      hasPkgSheet:  hasPkgSheet,
+      hiddenByPackages: hiddenByPackages
     };
-  });
+  }).filter(function(c){ return !c.hiddenByPackages; });
 }
 
 // ─── Concert logic ────────────────────────────────────────────────────────
