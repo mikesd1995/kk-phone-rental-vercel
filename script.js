@@ -145,6 +145,9 @@ var I18N = {
     badge_soon:"ใกล้ถึงวันงาน",
     badge_available:"ว่าง {count} เครื่อง",
     badge_lens:"Lens ว่าง",
+    badge_inquiry:"สอบถามราคา",
+    inquiry_available:"เช็กคิว / สอบถามราคากับร้าน",
+    ask_this:"สอบถามแพ็กเกจนี้",
     card_aria_available:"ดูอุปกรณ์ที่ว่างสำหรับงาน {event}",
     card_aria_waitlist:"จองคิวหลุดสำหรับงาน {event}",
     no_image:"ยังไม่มีรูป",
@@ -254,6 +257,9 @@ var I18N = {
     badge_soon:"Coming Soon",
     badge_available:"{count} Available",
     badge_lens:"Lens Available",
+    badge_inquiry:"Ask Price",
+    inquiry_available:"Check availability / Ask for price",
+    ask_this:"Ask About This Package",
     card_aria_available:"View available equipment for {event}",
     card_aria_waitlist:"Join the waitlist for {event}",
     no_image:"No image",
@@ -719,13 +725,16 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     var pkgType      = String(p.pkg_type||"phone_only").trim();
     var modelDisplay = String(p.model_display||p.phone_model_display||"มือถือ").trim();
     var lensDisplay  = String(p.lens_display||p.lens_model_display||p.lens_group||"").trim();
-    var note         = String(p.web_note||p.package_note||"").trim();
+    var rawNote      = String(p.web_note||p.package_note||"").trim();
     var useCase      = String(p.use_case||"").trim();
+    var inquiryOnly  = /\[INQUIRY_ONLY\]/i.test(rawNote) || /(^|\b)INQUIRY_ONLY(\b|$)/i.test(useCase);
+    var note         = rawNote.replace(/\[INQUIRY_ONLY\]/ig,"").trim();
 
     var override = toNum(p.price_override);
     var directPrice = toNum(p.price);
     var price;
-    if(directPrice>0){ price=directPrice; }
+    if(inquiryOnly){ price=0; }
+    else if(directPrice>0){ price=directPrice; }
     else if(override>0){ price=override; }
     else if(pkgType==="phone_only"){ price=toNum(p.phone_price); }
     else if(pkgType==="lens_only"){  price=toNum(p.lens_price); }
@@ -762,11 +771,12 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     } else {
       avail = phoneCnt > 0;
     }
-    // ถ้า price=0 ก็ไม่ available อยู่ดี และถ้า raw_available_count ติดลบ แปลว่า overbooking/manual risk
-    if(price<=0) avail = false;
+    // ปกติ price=0 จะปิดแพ็กเกจ แต่ verified event ที่รอ commercial price ใช้ [INQUIRY_ONLY]
+    // เพื่อให้ลูกค้าเห็นงานและทัก LINE ได้โดยไม่ต้องเดาราคา และยังเคารพ stock จริง
+    if(price<=0 && !inquiryOnly) avail = false;
     if(rawHasAvail && rawAvail < 0) avail = false;
 
-    return { id:p.package_id||"", model:label, spec:spec, price:price, note:note, useCase:useCase, avail:avail, count:sheetAvail, rawCount:rawAvail, type:pkgType, lensDisp:lensDisplay, sort:toNum(p.sort_order) };
+    return { id:p.package_id||"", model:label, spec:spec, price:price, note:note, useCase:useCase, inquiryOnly:inquiryOnly, avail:avail, count:sheetAvail, rawCount:rawAvail, type:pkgType, lensDisp:lensDisplay, sort:toNum(p.sort_order) };
   });
 }
 
@@ -886,6 +896,7 @@ function availCnt(c){
 function availTextFor(c){
   var ap=availPkgs(c), cnt=availCnt(c);
   if(cnt<=0) return tr("full_availability");
+  if(ap.some(function(p){return p.inquiryOnly;})) return tr("inquiry_available");
   var hasPhone=ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
   var hasLensOnly=ap.some(function(p){return p.type==="lens_only";});
   if(hasPhone) return cnt===1 ? tr("one_phone_left") : tr("phones_available",{count:cnt});
@@ -969,7 +980,7 @@ function renderEmpty(msg,detail){
   var el=document.getElementById("content"); if(!el)return;
   el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+esc(detail||tr("empty_detail"))+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("contact_line"))+'</a></div>';
 }
-function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return tr("badge_full"); if(isToday(c))return tr("badge_today"); if(isSoon(c))return tr("badge_soon"); return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? tr("badge_available",{count:cnt}) : tr("badge_lens"); }
+function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return tr("badge_full"); if(isToday(c))return tr("badge_today"); if(isSoon(c))return tr("badge_soon"); if(ap.some(function(p){return p.inquiryOnly;}))return tr("badge_inquiry"); return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? tr("badge_available",{count:cnt}) : tr("badge_lens"); }
 
 function renderMonthSelect(concerts){
   var sel=document.getElementById("month-filter-select"); if(!sel)return;
@@ -1078,7 +1089,7 @@ function buildBookingMsg(c,p){
     tr("line_event")+" : "+lineVal(c&&c.name),
     tr("line_date")+" : "+lineVal(c&&c.date),
     tr("line_venue")+" : "+lineVal(c&&c.venue),
-    tr("line_price")+" : "+fmtPriceLine(p&&p.price),
+    tr("line_price")+" : "+((p&&p.inquiryOnly)?tr("ask_price"):fmtPriceLine(p&&p.price)),
     "",
     tr("line_nickname")+" : ",
     tr("line_phone")+" : ",
@@ -1167,7 +1178,7 @@ function showModal(c,options){
     } else {
       priceEl.textContent=tr("ask_price");
     }
-    var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill"; bookBtn.textContent=tr("book_this");
+    var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill"; bookBtn.textContent=p.inquiryOnly?tr("ask_this"):tr("book_this");
     bookBtn.href=getBookingUrl(c,p); bookBtn.target="_blank"; bookBtn.rel="noopener";
     bookBtn.setAttribute("aria-label",tr("book_aria",{package:p.model||"",event:c.name||""}));
     // NEW: GA4 track booking click

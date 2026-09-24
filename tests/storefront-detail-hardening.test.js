@@ -36,3 +36,14 @@ test('month and availability filter choices can be reflected in the URL', () => 
   assert.match(source, /searchParams\.set\("month",currentMonth\)/);
   assert.match(source, /setFilter\(b\.getAttribute\("data-filter"\)\|\|"all",\{updateUrl:true\}\)/);
 });
+
+
+test('verified promotion can expose inquiry-only events without inventing a price', () => {
+  assert.match(source, /\[INQUIRY_ONLY\]/);
+  assert.match(source, /if\(inquiryOnly\)\{ price=0; \}/);
+  assert.match(source, /if\(price<=0 && !inquiryOnly\) avail = false;/);
+  assert.match(source, /badge_inquiry:"สอบถามราคา"/);
+  assert.match(source, /inquiry_available:"เช็กคิว \/ สอบถามราคากับร้าน"/);
+  assert.match(source, /p\.inquiryOnly\?tr\("ask_this"\):tr\("book_this"\)/);
+  assert.match(source, /\(p&&p\.inquiryOnly\)\?tr\("ask_price"\):fmtPriceLine/);
+});
