@@ -433,10 +433,22 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       writeHealthPromise
     ]);
     const writeActionsEnabled = !!(writePathHealth && writePathHealth.ok);
+    const transientWriteHealth = !!(
+      writePathHealth &&
+      writePathHealth.checked &&
+      !writePathHealth.skipped &&
+      isTransientWriteHealthFailure(writePathHealth)
+    );
+    const legacyWriteAttemptAllowed = !!(!writeActionsEnabled && transientWriteHealth);
+    const writeAdmissionMode = writeActionsEnabled
+      ? 'verified'
+      : (legacyWriteAttemptAllowed ? 'transient-attempt' : 'blocked');
     snapshot.read_degraded = !primaryRead;
     snapshot.read_mode = primaryRead ? DEFAULT_READ_MODE : 'apps-script-fallback';
     snapshot.degraded_read_only = !writeActionsEnabled;
     snapshot.write_actions_enabled = writeActionsEnabled;
+    snapshot.legacy_write_attempt_allowed = legacyWriteAttemptAllowed;
+    snapshot.write_admission_mode = writeAdmissionMode;
     snapshot.write_path_health = writePathHealth;
     snapshot.write_health_cache_status = String(writePathHealth && writePathHealth.cache_status || '');
     snapshot.write_health_cache_age_ms = Number(writePathHealth && writePathHealth.cache_age_ms || 0);
@@ -456,6 +468,8 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
     health.read_mode = primaryRead ? DEFAULT_READ_MODE : 'apps-script-fallback';
     health.degraded_read_only = !writeActionsEnabled;
     health.write_actions_enabled = writeActionsEnabled;
+    health.legacy_write_attempt_allowed = legacyWriteAttemptAllowed;
+    health.write_admission_mode = writeAdmissionMode;
     health.write_path_health = writePathHealth;
     health.write_health_cache_status = String(writePathHealth && writePathHealth.cache_status || '');
     health.write_health_cache_age_ms = Number(writePathHealth && writePathHealth.cache_age_ms || 0);
@@ -466,10 +480,14 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
     health.warnings.push(primaryRead
       ? (writeActionsEnabled
         ? 'Admin reads directly from Google Sheet as the primary path; lightweight Apps Script write-path health passed so writes remain enabled during the writer migration.'
-        : 'Admin reads directly from Google Sheet as the primary path; the legacy Apps Script write path is not healthy, so writes remain blocked until an authenticated direct writer is accepted.')
+        : (legacyWriteAttemptAllowed
+          ? 'Admin reads directly from Google Sheet. Apps Script write-health is transient/uncertain, so the UI may attempt one authenticated mutation using the longer action timeout; mutations are never auto-retried.'
+          : 'Admin reads directly from Google Sheet as the primary path; the legacy Apps Script write path has a deterministic/unaccepted failure, so legacy writes remain blocked until the transport is healthy or Direct Writer is accepted.'))
       : (writeActionsEnabled
         ? 'Apps Script snapshot is slow/unavailable; Admin is reading from direct Google Sheet fallback, but lightweight Apps Script write-path health passed so writes remain enabled.'
-        : 'Apps Script snapshot is slow/unavailable and lightweight write-path health did not pass; Admin is using direct Google Sheet read-only fallback and writes remain blocked.'));
+        : (legacyWriteAttemptAllowed
+          ? 'Admin is reading from direct Google Sheet fallback. Apps Script write-health is transient/uncertain, so one authenticated mutation attempt is allowed with no automatic mutation retry.'
+          : 'Apps Script snapshot is slow/unavailable and write-path health has a deterministic/unaccepted failure; Admin is using direct Google Sheet read-only fallback and legacy writes remain blocked.')));
     if (writePathHealth && writePathHealth.grace_used) {
       health.warnings.push('One transient Apps Script write-health failure was tolerated from a recently verified healthy identity. A second consecutive transient failure fails closed.');
     }
@@ -509,6 +527,8 @@ async function respondWithDirectSheetFallback(res, action, frontendSheetId, shee
       write_health_stability_state: String(writePathHealth && writePathHealth.stability_state || ''),
       write_health_transient_failures: Number(writePathHealth && writePathHealth.transient_failures || 0),
       write_health_grace_used: !!(writePathHealth && writePathHealth.grace_used),
+      legacy_write_attempt_allowed: legacyWriteAttemptAllowed,
+      write_admission_mode: writeAdmissionMode,
       write_health_cache_status: String(writePathHealth && writePathHealth.cache_status || ''),
       write_health_cache_age_ms: Number(writePathHealth && writePathHealth.cache_age_ms || 0),
       fallback_cache_status: String(snapshot.fallback_cache_status || ''),
