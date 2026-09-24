@@ -339,3 +339,62 @@ td{font-size:10.5px!important;line-height:1.45!important}
   #actionTable th,#actionTable td{padding:7px!important}
 }
 
+/* KK Phone Rental — Admin UX v4.1 / Typography Restore
+   Restore the pre-v4 reading scale while keeping the compact v4 layout.
+   Spacing stays tighter; text returns to the more comfortable previous size. */
+.brand strong{font-size:18px!important}
+.brand span{font-size:12px!important}
+.nav-section-label{font-size:9px!important}
+.nav{font-size:13px!important}
+.nav[data-icon]::before{font-size:9px!important}
+
+.topbar p{font-size:12px!important}
+.meta-chip{font-size:11px!important}
+.top-actions .btn,.top-badge{font-size:12px!important}
+.notice{font-size:12.5px!important}
+
+/* New compact status component: keep it readable, not micro-sized. */
+.snapshot-state strong{font-size:13.5px!important}
+.snapshot-state span{font-size:11px!important}
+.snapshot-inline-meta>span{font-size:10.5px!important}
+.snapshot-details>summary{font-size:10.5px!important}
+.snapshot-details>summary::after{font-size:10px!important}
+.snapshot-counts span{font-size:10.5px!important}
+.snapshot-counts b{font-size:12px!important}
+.snapshot-technical{font-size:11px!important}
+.snapshot-warning-list strong,
+.snapshot-warning-list span,
+.snapshot-error{font-size:11px!important}
+
+/* Restore v3 reading scale on Overview / Command Center. */
+.pro-hero h2{font-size:17px!important}
+.pro-hero .hint{font-size:10.5px!important}
+.pro-hero-metrics span{font-size:9px!important}
+#statsGrid .stat strong{font-size:22px!important}
+#statsGrid .stat span{font-size:10px!important}
+.action-card .card-head h2{font-size:18px!important}
+.action-card .card-head .hint{font-size:11px!important}
+#actionStats .stat strong{font-size:20px!important}
+#actionStats .stat span{font-size:10px!important}
+.action-filter-buttons .mini-btn{font-size:10px!important}
+.action-search{font-size:10px!important}
+.action-search .mini-search{font-size:11px!important}
+#actionTable{font-size:13.5px!important}
+#actionTable th{font-size:10px!important}
+#actionTable .btn{font-size:10px!important}
+.quickbar h2{font-size:15px!important}
+.quickbar .hint{font-size:10px!important}
+.quick-actions .btn{font-size:11px!important}
+th{font-size:10px!important}
+td{font-size:13px!important}
+
+@media(max-width:680px){
+  .brand strong{font-size:16px!important}
+  .brand span{font-size:11px!important}
+  .nav{font-size:13px!important}
+  .topbar p{font-size:12.8px!important}
+  .meta-chip{font-size:11px!important}
+  .top-actions .btn,.top-badge{font-size:12px!important}
+  th,td{font-size:12.5px!important}
+}
+

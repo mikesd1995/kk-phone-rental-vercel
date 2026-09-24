@@ -42,3 +42,13 @@ test('Admin shell never renders escaped newline tokens between structural tags',
   assert.doesNotMatch(html,/\\n\s*</,'literal \\n before an HTML tag would render visibly in the Admin shell');
 });
 
+test('Admin UX v4.1 restores the previous comfortable reading scale',()=>{
+  assert.match(css,/Admin UX v4\.1 \/ Typography Restore/);
+  assert.match(css,/\.brand strong\{font-size:18px!important\}/);
+  assert.match(css,/\.nav\{font-size:13px!important\}/);
+  assert.match(css,/#statsGrid \.stat strong\{font-size:22px!important\}/);
+  assert.match(css,/#actionTable\{font-size:13\.5px!important\}/);
+  assert.match(css,/td\{font-size:13px!important\}/);
+  assert.match(html,/admin\.css\?v=ux-v41-typography-20260924/);
+});
+
