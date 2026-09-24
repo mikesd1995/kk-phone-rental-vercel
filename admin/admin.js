@@ -1941,9 +1941,8 @@
     const errorRow=snapshotState.error ? `<div class="snapshot-error">${esc(snapshotState.error)}</div>` : "";
     el.hidden=false;
     el.className=`card snapshot-status snapshot-${tone}`;
-    el.removeAttribute("style");
     el.title=title;
-    el.innerHTML=`
+    const markup=`
       <div class="snapshot-status-main">
         <div class="snapshot-state">
           <span class="snapshot-dot" aria-hidden="true"></span>
@@ -1964,6 +1963,8 @@
           </div>
         </details>
       </div>`;
+    if("innerHTML" in el) el.innerHTML=markup;
+    else el.textContent=title+" — "+subtitle;
   }
 
   async function refresh(){
