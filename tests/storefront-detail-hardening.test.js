@@ -24,10 +24,11 @@ test('booking and waitlist LINE messages include event venue', () => {
   assert.equal(venueRefs.length, 2);
 });
 
-test('public event_note is mapped and rendered in the package modal', () => {
+test('public event_note is mapped, sanitized, and rendered in the package modal', () => {
   assert.match(source, /String\(r\.event_note\|\|r\.web_note\|\|""\)\.trim\(\)/);
   assert.match(source, /modal-event-note/);
-  assert.match(source, /eventNoteEl\.textContent=c\.webNote\?"ℹ️ "\+c\.webNote:""/);
+  assert.match(source, /var publicEventNote=sanitizePublicText\(c\.webNote\)/);
+  assert.match(source, /eventNoteEl\.textContent=publicEventNote\?"ℹ️ "\+publicEventNote:""/);
 });
 
 test('month and availability filter choices can be reflected in the URL', () => {
@@ -46,4 +47,26 @@ test('verified promotion can expose inquiry-only events without inventing a pric
   assert.match(source, /inquiry_available:"เช็กคิว \/ สอบถามราคากับร้าน"/);
   assert.match(source, /p\.inquiryOnly\?tr\("ask_this"\):tr\("book_this"\)/);
   assert.match(source, /\(p&&p\.inquiryOnly\)\?tr\("ask_price"\):fmtPriceLine/);
+});
+
+
+test('internal package notes never reach the customer modal', () => {
+  assert.match(source, /function looksInternalPublicText\(raw\)/);
+  assert.match(source, /capacity\\s\*\(\?:tight\|blocked\|readback\)/);
+  assert.match(source, /function sanitizePublicText\(raw\)/);
+  assert.match(source, /var publicSubtitle=packagePublicSubtitle\(p\)/);
+  assert.doesNotMatch(source, /if\(p\.useCase\)\{var uEl=.*p\.useCase/);
+  assert.doesNotMatch(source, /if\(p\.note\)\{var nEl=.*p\.note/);
+});
+
+test('package modal has stable public fallback taglines', () => {
+  assert.match(source, /pkg_tagline_phone:"เหมาะกับถ่ายเวทีไกล ซูมชัด"/);
+  assert.match(source, /pkg_tagline_bundle:"เซ็ตครบ ประหยัดกว่า"/);
+  assert.match(source, /if\(p\.type==="phone_only"\)return tr\("pkg_tagline_phone"\)/);
+  assert.match(source, /if\(p\.type==="phone_lens_bundle"\)return tr\("pkg_tagline_bundle"\)/);
+});
+
+test('internal event notes are filtered before rendering', () => {
+  assert.match(source, /var publicEventNote=sanitizePublicText\(c\.webNote\)/);
+  assert.match(source, /eventNoteEl\.textContent=publicEventNote\?"ℹ️ "\+publicEventNote:""/);
 });

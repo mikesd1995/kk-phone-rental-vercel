@@ -157,6 +157,9 @@ var I18N = {
     pkg_lens_only:"เลนส์เสริม",
     pkg_bundle:"มือถือ + เลนส์",
     pkg_ask:"สอบถามแพ็กเกจผ่าน LINE OA",
+    pkg_tagline_phone:"เหมาะกับถ่ายเวทีไกล ซูมชัด",
+    pkg_tagline_lens:"เลนส์เสริมสำหรับซูมไกล",
+    pkg_tagline_bundle:"เซ็ตครบ ประหยัดกว่า",
     ask_price:"สอบถามราคา",
     per_day:" บาท/วัน",
     book_this:"จองแพ็กเกจนี้",
@@ -269,6 +272,9 @@ var I18N = {
     pkg_lens_only:"Add-on lens",
     pkg_bundle:"Phone + Lens",
     pkg_ask:"Ask about packages via LINE OA",
+    pkg_tagline_phone:"Great for distant-stage shots and clear zoom",
+    pkg_tagline_lens:"Extra reach for distant-stage shots",
+    pkg_tagline_bundle:"Complete set, better value",
     ask_price:"Ask for price",
     per_day:" THB/day",
     book_this:"Book This Package",
@@ -708,6 +714,27 @@ async function fetchPkgRows(){
   var d=csvToObjects(parseCsv(t)).map(normalizePkgRow); if(!DEBUG_MODE)cacheSet(k,d); return d;
 }
 
+function looksInternalPublicText(raw){
+  var s=String(raw||"").trim();
+  if(!s)return false;
+  return /(?:^|\b)v\d+(?:\.\d+){1,3}\b|capacity\s*(?:tight|blocked|readback)|exact\s+capacity|readback|owner[_\s-]?locked|core\s+promotion|promotion\s+repair|reopened\s+after|manifest|write\s+transaction|pass[_\s-]?200|policy\s+version|restored\s+\d{4}-\d{2}-\d{2}|scanner\s+raw|verifier\s+backlog/i.test(s);
+}
+function sanitizePublicText(raw){
+  var s=String(raw||"").replace(/\[INQUIRY_ONLY\]/ig,"").trim();
+  return looksInternalPublicText(s)?"":s;
+}
+function packagePublicSubtitle(p){
+  if(!p)return "";
+  var useCase=sanitizePublicText(p.useCase);
+  if(useCase)return useCase;
+  var note=sanitizePublicText(p.note);
+  if(note)return note;
+  if(p.type==="phone_only")return tr("pkg_tagline_phone");
+  if(p.type==="lens_only")return tr("pkg_tagline_lens");
+  if(p.type==="phone_lens_bundle")return tr("pkg_tagline_bundle");
+  return "";
+}
+
 // ─── FIX 1: buildPackagesFromSheet — ใช้ available_count จาก 09_Web_Packages จริง ─
 function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
   // phoneCnt + lensCnt มาจาก 08_Web_Ready G/H; package count มาจาก 09_Web_Packages I
@@ -726,9 +753,10 @@ function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
     var modelDisplay = String(p.model_display||p.phone_model_display||"มือถือ").trim();
     var lensDisplay  = String(p.lens_display||p.lens_model_display||p.lens_group||"").trim();
     var rawNote      = String(p.web_note||p.package_note||"").trim();
-    var useCase      = String(p.use_case||"").trim();
-    var inquiryOnly  = /\[INQUIRY_ONLY\]/i.test(rawNote) || /(^|\b)INQUIRY_ONLY(\b|$)/i.test(useCase);
-    var note         = rawNote.replace(/\[INQUIRY_ONLY\]/ig,"").trim();
+    var rawUseCase   = String(p.use_case||"").trim();
+    var inquiryOnly  = /\[INQUIRY_ONLY\]/i.test(rawNote) || /(^|\b)INQUIRY_ONLY(\b|$)/i.test(rawUseCase);
+    var note         = sanitizePublicText(rawNote);
+    var useCase      = sanitizePublicText(rawUseCase);
 
     var override = toNum(p.price_override);
     var directPrice = toNum(p.price);
@@ -785,15 +813,16 @@ function buildPackagesFromWebRow(r){
   var pkgs=[];
   var model=String(r.phone_model_display||r.allowed_phone_model_group||"มือถือ").trim();
   var lens=String(r.allowed_lens_group||"").trim();
-  var note=String(r.web_note||"").trim();
+  var note=sanitizePublicText(r.web_note||"");
   var pPrice=toNum(r.phone_price), lPrice=toNum(r.lens_price), bPrice=toNum(r.bundle_price);
   var phoneAvail = r.phone_only_available!==undefined ? toBool(r.phone_only_available) : toNum(r.available_phone_count)>0;
   var lensAvail  = r.lens_only_available!==undefined  ? toBool(r.lens_only_available)  : toNum(r.available_lens_count)>0;
   var bundleAvail= r.phone_lens_available!==undefined ? toBool(r.phone_lens_available) : (phoneAvail&&lensAvail&&bPrice>0);
-  if(pPrice>0)pkgs.push({model:model, spec:"เฉพาะมือถือ",  price:pPrice, note:note, useCase:String(r.use_case||"").trim(), avail:phoneAvail, type:"phone_only"});
-  if(lPrice>0)pkgs.push({model:"Lens",spec:lens&&lens!=="NONE"?lens:"เลนส์เสริม",price:lPrice,note:note,useCase:String(r.use_case||"").trim(),avail:lensAvail,type:"lens_only"});
-  if(bPrice>0)pkgs.push({model:model+" + Lens",spec:"มือถือ + เลนส์",price:bPrice,note:note,useCase:String(r.use_case||"").trim(),avail:bundleAvail,type:"phone_lens_bundle"});
-  if(!pkgs.length)pkgs.push({model:model,spec:"สอบถามแพ็กเกจผ่าน LINE OA",price:0,note:note,useCase:String(r.use_case||"").trim(),avail:true,type:"ask"});
+  var fallbackUseCase=sanitizePublicText(r.use_case||"");
+  if(pPrice>0)pkgs.push({model:model, spec:"เฉพาะมือถือ",  price:pPrice, note:note, useCase:fallbackUseCase, avail:phoneAvail, type:"phone_only"});
+  if(lPrice>0)pkgs.push({model:"Lens",spec:lens&&lens!=="NONE"?lens:"เลนส์เสริม",price:lPrice,note:note,useCase:fallbackUseCase,avail:lensAvail,type:"lens_only"});
+  if(bPrice>0)pkgs.push({model:model+" + Lens",spec:"มือถือ + เลนส์",price:bPrice,note:note,useCase:fallbackUseCase,avail:bundleAvail,type:"phone_lens_bundle"});
+  if(!pkgs.length)pkgs.push({model:model,spec:"สอบถามแพ็กเกจผ่าน LINE OA",price:0,note:note,useCase:fallbackUseCase,avail:true,type:"ask"});
   return pkgs;
 }
 
@@ -1131,8 +1160,9 @@ function showModal(c,options){
     eventNoteEl.className="modal-meta";
     venueEl.insertAdjacentElement("afterend",eventNoteEl);
   }
-  eventNoteEl.textContent=c.webNote?"ℹ️ "+c.webNote:"";
-  eventNoteEl.hidden=!c.webNote;
+  var publicEventNote=sanitizePublicText(c.webNote);
+  eventNoteEl.textContent=publicEventNote?"ℹ️ "+publicEventNote:"";
+  eventNoteEl.hidden=!publicEventNote;
 
   // UX fix: ไม่แสดงรูปโปสเตอร์ซ้ำใน modal
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
@@ -1168,8 +1198,8 @@ function showModal(c,options){
     var mEl=document.createElement("div"); mEl.className="ph-model"; mEl.textContent=p.model||"";
     var sEl=document.createElement("div"); sEl.className="ph-spec";  sEl.textContent=packageSpecForLanguage(p);
     info.appendChild(mEl); info.appendChild(sEl);
-    if(p.useCase){var uEl=document.createElement("div"); uEl.className="ph-usecase"; uEl.textContent=p.useCase; info.appendChild(uEl);}
-    if(p.note){var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=p.note; info.appendChild(nEl);}
+    var publicSubtitle=packagePublicSubtitle(p);
+    if(publicSubtitle){var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=publicSubtitle; info.appendChild(nEl);}
     var right=document.createElement("div"); right.className="ph-right";
     var priceEl=document.createElement("div"); priceEl.className="ph-price";
     if(toNum(p.price)>0){
