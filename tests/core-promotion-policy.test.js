@@ -41,13 +41,22 @@ test('missing or stale market falls back to configured standard, not inquiry-onl
   );
 });
 
-test('lens uncertainty holds bundle but keeps phone package available', () => {
+test('lens uncertainty does not block the bundle', () => {
   const plan = resolvePackagePlan({ lensRule: 'UNRESOLVED' });
   assert.equal(plan.phone.enabled, true);
   assert.equal(plan.phone.price, 890);
-  assert.equal(plan.bundle.enabled, false);
-  assert.equal(plan.bundle.reason, 'HOLD_RULE');
+  assert.equal(plan.bundle.enabled, true);
+  assert.equal(plan.bundle.price, 1090);
+  assert.equal(plan.bundle.lensRuleAdvisory, 'UNRESOLVED');
   assert.equal(plan.lensOnly.enabled, false);
+});
+
+test('even an explicit lens prohibition remains advisory for bundle availability', () => {
+  const plan = resolvePackagePlan({ lensRule: 'PROHIBITED' });
+  assert.equal(plan.phone.enabled, true);
+  assert.equal(plan.bundle.enabled, true);
+  assert.equal(plan.bundle.price, 1090);
+  assert.equal(plan.bundle.lensRuleAdvisory, 'PROHIBITED');
 });
 
 test('lens-only is disabled by default even when lens is allowed', () => {
