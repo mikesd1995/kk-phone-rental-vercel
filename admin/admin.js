@@ -1203,8 +1203,8 @@
 
   function writeAdmission(action){
     const direct=directPhase1ActionAvailable(action);
-    if(window.KKAdminWritePolicy && typeof window.KKAdminWritePolicy.admission==="function"){
-      return window.KKAdminWritePolicy.admission(state.data,direct,action);
+    if(globalThis.KKAdminWritePolicy && typeof globalThis.KKAdminWritePolicy.admission==="function"){
+      return globalThis.KKAdminWritePolicy.admission(state.data,direct,action);
     }
     if(direct) return {allowed:true,mode:"direct"};
     if(!state.data || state.data.degraded_read_only!==true) return {allowed:true,mode:"verified"};
@@ -1218,7 +1218,7 @@
   }
 
   async function reconcileUncertainBookingMutation(action,outbound,beforeSnapshot,originalError){
-    if(!window.KKAdminWritePolicy || typeof window.KKAdminWritePolicy.verifyBookingMutation!=="function") throw originalError;
+    if(!globalThis.KKAdminWritePolicy || typeof globalThis.KKAdminWritePolicy.verifyBookingMutation!=="function") throw originalError;
     if(action!=="createBooking" && action!=="updateBooking"){
       const err=new Error("คำสั่งถูกส่งไปแล้วแต่ไม่ได้รับผลยืนยันจาก write transport — ระบบจะไม่ retry อัตโนมัติ กรุณา Refresh และตรวจข้อมูลก่อนกดบันทึกซ้ำ");
       err.code="MUTATION_OUTCOME_UNCERTAIN";
@@ -1236,7 +1236,7 @@
       throw err;
     }
     const afterSnapshot=snap&&snap.data;
-    const check=window.KKAdminWritePolicy.verifyBookingMutation(action,outbound,{},beforeSnapshot,afterSnapshot);
+    const check=globalThis.KKAdminWritePolicy.verifyBookingMutation(action,outbound,{},beforeSnapshot,afterSnapshot);
     if(check.status==="committed"){
       const row=((afterSnapshot&&afterSnapshot.bookings)||[]).find(b=>String(b.row_number||"")===String(check.row_number||""))||{};
       return {
