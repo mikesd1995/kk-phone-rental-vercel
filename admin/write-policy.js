@@ -6,6 +6,10 @@
   'use strict';
 
   const TRANSIENT_CODES=new Set(['WRITE_HEALTH_TIMEOUT','WRITE_HEALTH_ERROR']);
+  const TRANSIENT_ATTEMPT_ACTIONS=new Set([
+    'createBooking','updateBooking','createEvent','updateEvent','createPackage','updatePackage',
+    'upsertEventOverride','bulkSetEventPackageVisibility','addAssets','updateAsset','deleteAsset','uploadPoster'
+  ]);
 
   function text(v){return String(v===undefined||v===null?'':v).trim();}
   function lower(v){return text(v).toLowerCase();}
@@ -22,11 +26,13 @@
     return snapshot&&snapshot.legacy_write_attempt_allowed===true || TRANSIENT_CODES.has(writeHealthCode(snapshot));
   }
 
-  function admission(snapshot,directAvailable){
+  function admission(snapshot,directAvailable,action){
     if(directAvailable) return {allowed:true,mode:'direct'};
     if(!snapshot) return {allowed:false,mode:'blocked-no-snapshot'};
     if(snapshot.degraded_read_only!==true) return {allowed:true,mode:'verified'};
-    if(transientWriteHealth(snapshot)) return {allowed:true,mode:'transient-attempt'};
+    const a=text(action);
+    const transientAllowed=a==='__status__'||TRANSIENT_ATTEMPT_ACTIONS.has(a);
+    if(transientAllowed&&transientWriteHealth(snapshot)) return {allowed:true,mode:'transient-attempt'};
     return {allowed:false,mode:'blocked'};
   }
 
@@ -94,5 +100,5 @@
     return {status:'unsupported',reason:'action-not-supported'};
   }
 
-  return {TRANSIENT_CODES,writeHealthCode,transientWriteHealth,admission,verifyBookingMutation};
+  return {TRANSIENT_CODES,TRANSIENT_ATTEMPT_ACTIONS,writeHealthCode,transientWriteHealth,admission,verifyBookingMutation};
 });
