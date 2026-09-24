@@ -289,11 +289,12 @@ test('request_id replay returns prior accepted result without a second business 
   assert.equal(batchCalls,0);
 });
 
-test('Admin UI assigns one request_id per write call and allows only accepted direct actions during legacy outage',()=>{
+test('Admin UI assigns one request_id per write call and delegates degraded admission to the fail-safe write policy',()=>{
   const fs=require('node:fs');
   const ui=fs.readFileSync(require.resolve('../admin/admin.js'),'utf8');
   assert.match(ui,/function directPhase1ActionAvailable\(action\)/);
   assert.match(ui,/direct_writer_phase1_state/);
   assert.match(ui,/outbound\.request_id=adminRequestId\(\)/);
-  assert.match(ui,/degraded_read_only[\s\S]{0,400}!directPhase1/);
+  assert.match(ui,/KKAdminWritePolicy\.admission/);
+  assert.match(ui,/Never retry a mutation automatically/);
 });
