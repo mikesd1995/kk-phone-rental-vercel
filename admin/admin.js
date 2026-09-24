@@ -1884,33 +1884,86 @@
       .filter(Boolean);
   }
 
+  function friendlySnapshotWarning(value){
+    const raw=String(value||"").trim();
+    const lower=raw.toLowerCase();
+    const count=(raw.match(/\b(\d+)\b/)||[])[1]||"";
+    if(lower.includes("published past events")) return "มีงานเก่ายังเปิดหน้าเว็บ"+(count?" "+count+" งาน":"");
+    if(lower.includes("venue naming variants")) return "ชื่อสถานที่มีหลายรูปแบบ"+(count?" "+count+" รายการ":"");
+    if(lower.includes("missing poster")) return "บางงานยังไม่มีโปสเตอร์"+(count?" "+count+" งาน":"");
+    return raw;
+  }
+
   function renderSnapshotStatus(){
     const el=$("#snapshotStatus");
     if(!el) return;
     const h=snapshotState.health;
-    const counts=h ? Object.entries(h.counts).map(([k,v])=>k+": "+(v===null?"invalid":v)).join(" · ") : "";
     const fullWarnings=h && Array.isArray(h.warnings) ? h.warnings : [];
-    const compactWarnings=compactSnapshotWarnings(fullWarnings);
-    el.hidden=false;
-    el.style.borderColor=snapshotState.stale ? "#dc2626" : (compactWarnings.length ? "#d97706" : "#64748b");
-    el.title=fullWarnings.join("\n");
+    const compactWarnings=compactSnapshotWarnings(fullWarnings).map(friendlySnapshotWarning);
     const degraded=!!(state.data && state.data.degraded_read_only);
     const directState=state.data && state.data.direct_writer_phase1_state;
     const directActions=directState && directState.writer_ready && Array.isArray(directState.configured_actions) ? directState.configured_actions : [];
     const admission=writeAdmission("__status__");
     const transientAttempt=degraded && admission.mode==="transient-attempt";
-    const runtimeStatus=degraded
-      ? (directActions.length
-        ? "โหมดผสม — อ่านจาก Google Sheet โดยตรง; Direct Writer พร้อมบาง action"
-        : (transientAttempt
-          ? "ระบบอ่านข้อมูลได้ — write health ตอบช้า/ไม่แน่ชัด แต่ยังอนุญาตบันทึกแบบ single-attempt และห้าม retry อัตโนมัติ"
-          : "โหมดอ่านอย่างเดียว — พบปัญหา write transport แบบ deterministic/ยังไม่ผ่านการยืนยัน"))
-      : "ระบบพร้อมใช้งาน";
-    el.textContent=(snapshotState.stale ? (state.data ? "กำลังแสดง Last Known Good Snapshot — ข้อมูลเก่า ห้ามใช้ยืนยันความว่างจน Refresh สำเร็จ" : "โหลด Snapshot ไม่สำเร็จ — ยังยืนยันไม่ได้ว่าระบบไม่มีข้อมูล") : runtimeStatus)+
-      " | สำเร็จล่าสุด: "+(snapshotState.goodAt ? new Date(snapshotState.goodAt).toLocaleString("th-TH") : "ยังไม่มี")+
-      " | เวลาเรียกจริง: "+(snapshotState.latencyMs ?? "-")+" ms | "+counts+
-      (snapshotState.error ? " | "+snapshotState.error : "")+
-      (compactWarnings.length ? " | คำเตือนข้อมูล "+compactWarnings.length+" รายการ: "+compactWarnings.join(" · ") : "");
+    const stale=!!snapshotState.stale;
+    const failed=stale && !state.data;
+    const tone=failed ? "bad" : (stale || (degraded && !transientAttempt && !directActions.length) ? "warn" : (compactWarnings.length ? "warn" : "ok"));
+    let title="ระบบพร้อมใช้งาน";
+    let subtitle="เชื่อมต่อ Google Sheet และอ่านข้อมูลล่าสุดแล้ว";
+    let technical="Read path พร้อมใช้งาน";
+    if(stale){
+      title=state.data ? "ข้อมูลเก่า — กรุณา Refresh" : "โหลดข้อมูลไม่สำเร็จ";
+      subtitle=state.data ? "กำลังแสดง Last Known Good Snapshot ชั่วคราว" : "ยังยืนยันสถานะข้อมูลล่าสุดไม่ได้";
+      technical=subtitle;
+    }else if(degraded && directActions.length){
+      title="ระบบพร้อมใช้งานบางส่วน";
+      subtitle="อ่านข้อมูลได้ และ Direct Writer พร้อมบางคำสั่ง";
+      technical="Mixed mode — Direct Writer actions: "+directActions.join(", ");
+    }else if(transientAttempt){
+      title="บันทึกได้แบบปลอดภัย";
+      subtitle="Write transport ตอบช้า — ระบบส่งคำสั่งครั้งเดียวและไม่ retry อัตโนมัติ";
+      technical="Transient write health — single-attempt only; no automatic retry";
+    }else if(degraded){
+      title="อ่านข้อมูลได้ • การบันทึกบางส่วนถูกปิด";
+      subtitle="ตรวจ System Guard ก่อนบันทึก";
+      technical="Deterministic write transport failure / writer acceptance pending";
+    }
+    const countLabels={events:"งาน",bookings:"Booking",current_bookings:"กำลังดำเนินการ",assets:"Asset"};
+    const countChips=h && h.counts ? Object.entries(h.counts).map(([key,value])=>{
+      const label=countLabels[key]||key;
+      return `<span><b>${esc(value===null?"—":value)}</b>${esc(label)}</span>`;
+    }).join("") : "";
+    const lastGood=snapshotState.goodAt ? new Date(snapshotState.goodAt) : null;
+    const lastTime=lastGood ? lastGood.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}) : "—";
+    const latency=snapshotState.latencyMs==null ? "—" : Math.round(Number(snapshotState.latencyMs));
+    const warningSummary=compactWarnings.length ? `<span class="snapshot-warning-count">${esc(compactWarnings.length)} จุดควรตรวจ</span>` : "";
+    const warningList=compactWarnings.length ? `<div class="snapshot-warning-list"><strong>จุดที่ควรตรวจ</strong>${compactWarnings.map(w=>`<span>${esc(w)}</span>`).join("")}</div>` : "";
+    const errorRow=snapshotState.error ? `<div class="snapshot-error">${esc(snapshotState.error)}</div>` : "";
+    el.hidden=false;
+    el.className=`card snapshot-status snapshot-${tone}`;
+    el.removeAttribute("style");
+    el.title=title;
+    el.innerHTML=`
+      <div class="snapshot-status-main">
+        <div class="snapshot-state">
+          <span class="snapshot-dot" aria-hidden="true"></span>
+          <div><strong>${esc(title)}</strong><span>${esc(subtitle)}</span></div>
+        </div>
+        <div class="snapshot-inline-meta">
+          <span>อัปเดต ${esc(lastTime)}</span>
+          <span>${esc(latency)} ms</span>
+          ${warningSummary}
+        </div>
+        <details class="snapshot-details">
+          <summary>รายละเอียด</summary>
+          <div class="snapshot-detail-body">
+            <div class="snapshot-counts">${countChips}</div>
+            <div class="snapshot-technical">${esc(technical)}</div>
+            ${warningList}
+            ${errorRow}
+          </div>
+        </details>
+      </div>`;
   }
 
   async function refresh(){
