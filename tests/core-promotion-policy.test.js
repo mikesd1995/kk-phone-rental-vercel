@@ -79,7 +79,13 @@ test('inquiry-only requires an explicit flag', () => {
 
 test('zero phone capacity blocks promotion', () => {
   assert.equal(classifyCapacity({ phoneFree: 0, lensFree: 2 }), 'CAPACITY_BLOCKED');
-  assert.equal(resolvePromotionState({ verified: true, identityExact: true, phoneFree: 0, lensFree: 2 }), 'BLOCK_CAPACITY');
+  assert.equal(resolvePromotionState({
+    verified: true,
+    identityExact: true,
+    phoneFree: 0,
+    lensFree: 2,
+    posterUrl: 'https://example.com/poster.jpg'
+  }), 'BLOCK_CAPACITY');
 });
 
 test('poster URL is required before promotion can reach ready state', () => {
