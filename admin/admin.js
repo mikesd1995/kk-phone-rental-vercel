@@ -1204,7 +1204,7 @@
   function writeAdmission(action){
     const direct=directPhase1ActionAvailable(action);
     if(window.KKAdminWritePolicy && typeof window.KKAdminWritePolicy.admission==="function"){
-      return window.KKAdminWritePolicy.admission(state.data,direct);
+      return window.KKAdminWritePolicy.admission(state.data,direct,action);
     }
     if(direct) return {allowed:true,mode:"direct"};
     if(!state.data || state.data.degraded_read_only!==true) return {allowed:true,mode:"verified"};
@@ -1219,7 +1219,12 @@
 
   async function reconcileUncertainBookingMutation(action,outbound,beforeSnapshot,originalError){
     if(!window.KKAdminWritePolicy || typeof window.KKAdminWritePolicy.verifyBookingMutation!=="function") throw originalError;
-    if(action!=="createBooking" && action!=="updateBooking") throw originalError;
+    if(action!=="createBooking" && action!=="updateBooking"){
+      const err=new Error("คำสั่งถูกส่งไปแล้วแต่ไม่ได้รับผลยืนยันจาก write transport — ระบบจะไม่ retry อัตโนมัติ กรุณา Refresh และตรวจข้อมูลก่อนกดบันทึกซ้ำ");
+      err.code="MUTATION_OUTCOME_UNCERTAIN";
+      err.cause=originalError;
+      throw err;
+    }
     await new Promise(resolve=>setTimeout(resolve,1200));
     let snap;
     try{
