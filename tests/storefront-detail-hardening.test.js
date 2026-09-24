@@ -39,7 +39,7 @@ test('month and availability filter choices can be reflected in the URL', () => 
 
 
 test('verified promotion can expose inquiry-only events without inventing a price', () => {
-  assert.match(source, /\\[INQUIRY_ONLY\\]/);
+  assert.match(source, /\[INQUIRY_ONLY\]/);
   assert.match(source, /if\(inquiryOnly\)\{ price=0; \}/);
   assert.match(source, /if\(price<=0 && !inquiryOnly\) avail = false;/);
   assert.match(source, /badge_inquiry:"สอบถามราคา"/);
