@@ -1,0 +1,122 @@
+---
+name: kk-content-strategy
+description: Project-local content strategy contract for KK Phone Rental organic reach, brand awareness, creative drafting, and performance learning.
+---
+
+# KK Content Strategy
+
+## Purpose
+
+Use this skill when drafting, reviewing, or planning KK Phone Rental content for X, the storefront, or future paid creative. The current growth goal is **qualified organic reach + brand awareness** for a small two-device inventory, not maximum raw reach and not autonomous ad spending.
+
+This skill is guidance only. It never becomes event truth, pricing truth, inventory truth, or publishing authority.
+
+## Authority and safety
+
+1. Consume verified event truth from the canonical Event/Verifier flow.
+2. Consume current approved pricing and inventory from business truth; never infer from an old post, example, memory, competitor price, or previous event.
+3. Never invent event date, venue, artist, hashtag status, price, promotion, availability, seat view, or camera outcome.
+4. Performance history is evidence for ideation, not authority. A historically strong angle must not override current facts.
+5. Every public post requires owner approval.
+6. No auto-publish, auto-schedule, auto-spend, price write, inventory write, or Machine SOT write.
+7. If event/pricing/inventory is not verified, useful educational content may still be planned only when its factual claims are independently verified; direct rental copy stays blocked.
+
+## Growth model
+
+Use a rolling content-calendar target of approximately:
+
+- **70% useful / educational / community content**
+- **30% sales / conversion content**
+
+This is a portfolio target, not a per-post quota. Do not force a sales CTA into every useful post.
+
+Primary content pillars:
+
+- `seat_view` — seat/zone/venue-view utility.
+- `photo_tips` — camera, zoom, Lens, framing, and concert-photo education.
+- `event_info` — verified venue, agenda, timing, or event information.
+- `review_proof` — customer reviews and real-use proof with permission.
+- `engagement` — genuine questions, polls, zone discussion, fan conversation.
+- `direct_rental` — explicit rental offer when verified inventory exists.
+
+Primary angles:
+
+`event_theme`, `artist`, `fandom`, `seat_view`, `lens_need`, `problem_solution`, `convenience`, `trust`.
+
+## X copy contract
+
+For direct rental posts:
+
+- First line: `📱 KK Phone Rental | #เช่ามือถือ`
+- Keep the hook event-specific, short, and natural.
+- Use current verified offer/pricing only.
+- Keep: `📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน`
+- Keep: `☁️ Google Drive 30 วัน`
+- Booking CTA: `👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/`
+- Put **3–5 strongest relevant hashtags at the end**, preferring official event/artist/brand tags.
+- Do not repeat the brand line at the bottom.
+- Add a promotion/discount line only when the promotion is currently approved and verified.
+
+For awareness/education posts, do not mechanically paste the full rental footer. Lead with utility; add a soft rental mention only if it naturally helps the reader.
+
+## Seat-view / venue simulator content
+
+A strong pattern for KK is:
+
+**Useful seat/zone insight → practical photo/zoom interpretation → optional soft rental mention**
+
+When using a seat-view or 3D venue site:
+
+- link or name the original source;
+- summarize in KK's own words;
+- do not imply the simulator is exact if the source says it is approximate;
+- confirm image/screenshot reuse rights before reposting source assets;
+- do not copy copyrighted text or imagery just because it is publicly viewable.
+
+## Performance learning
+
+Use `17_Content_Performance` in **KK Phone Rental — CRM & Intelligence** as the post-level learning table.
+
+Track at minimum:
+
+- impressions;
+- engagements and engagement rate;
+- profile visits;
+- link clicks;
+- inquiries;
+- bookings;
+- revenue;
+- spend when applicable;
+- content pillar, angle, objective, CTA and asset type.
+
+Interpret metrics by objective:
+
+- awareness → average impressions per measured post;
+- engagement → engagements / impressions;
+- consideration → (profile visits + link clicks) / impressions;
+- conversion → bookings / link clicks.
+
+Do not call an angle a reliable winner from one post. The current minimum evidence nudge is three measured posts; 3–7 is medium confidence and 8+ is high confidence.
+
+Use `19_Content_Experiments` for explicit A/B hypotheses so changes are traceable instead of anecdotal.
+
+## Draft output contract
+
+When asked to generate a content plan, return:
+
+1. objective;
+2. content pillar;
+3. content angle;
+4. hook direction;
+5. body direction;
+6. CTA type;
+7. hashtag approach;
+8. asset idea;
+9. verified facts used;
+10. unresolved blockers/assumptions.
+
+When asked for final X rental copy, produce differentiated variants rather than cosmetic rewrites, while preserving the current brand/copy contract.
+
+## Rollout rule
+
+Start manually. Capture real post results for 1–2 weeks before using performance history to materially narrow creative choices. Scale by evidence, not by component count.
