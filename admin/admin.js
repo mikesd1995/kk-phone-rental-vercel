@@ -1201,11 +1201,68 @@
     return "web-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,12);
   }
 
+  function writeAdmission(action){
+    const direct=directPhase1ActionAvailable(action);
+    if(window.KKAdminWritePolicy && typeof window.KKAdminWritePolicy.admission==="function"){
+      return window.KKAdminWritePolicy.admission(state.data,direct);
+    }
+    if(direct) return {allowed:true,mode:"direct"};
+    if(!state.data || state.data.degraded_read_only!==true) return {allowed:true,mode:"verified"};
+    return {allowed:false,mode:"blocked"};
+  }
+
+  function mutationOutcomeUncertain(err){
+    const code=String(err&&err.code||"");
+    if(code==="UPSTREAM_TIMEOUT" || code==="UPSTREAM_ERROR") return true;
+    return !!(err && err.name==="TypeError" && /fetch|network|load/i.test(String(err.message||"")));
+  }
+
+  async function reconcileUncertainBookingMutation(action,outbound,beforeSnapshot,originalError){
+    if(!window.KKAdminWritePolicy || typeof window.KKAdminWritePolicy.verifyBookingMutation!=="function") throw originalError;
+    if(action!=="createBooking" && action!=="updateBooking") throw originalError;
+    await new Promise(resolve=>setTimeout(resolve,1200));
+    let snap;
+    try{
+      snap=await api("snapshot");
+    }catch(readErr){
+      const err=new Error("ส่งคำสั่งบันทึกแล้วแต่ผลตอบกลับไม่แน่ชัด และตรวจ readback ไม่สำเร็จ — ห้ามกดบันทึกซ้ำทันที กรุณา Refresh แล้วตรวจข้อมูลก่อน");
+      err.code="MUTATION_OUTCOME_UNCERTAIN";
+      err.cause=originalError;
+      throw err;
+    }
+    const afterSnapshot=snap&&snap.data;
+    const check=window.KKAdminWritePolicy.verifyBookingMutation(action,outbound,{},beforeSnapshot,afterSnapshot);
+    if(check.status==="committed"){
+      const row=((afterSnapshot&&afterSnapshot.bookings)||[]).find(b=>String(b.row_number||"")===String(check.row_number||""))||{};
+      return {
+        ok:true,
+        row_number:check.row_number||row.row_number||"",
+        booking_id:check.booking_id||row.booking_id||"",
+        phone_asset_id:row.phone_asset_id||"",
+        lens_asset_id:row.lens_asset_id||"",
+        mutation_reconciled:true,
+        mutation_readback:check.reason||"committed"
+      };
+    }
+    if(check.status==="ambiguous"){
+      const err=new Error("ส่งคำสั่งบันทึกแล้วแต่พบข้อมูลใหม่มากกว่า 1 รายการที่ตรงกัน — ห้ามกดซ้ำ กรุณาตรวจ Booking ล่าสุดก่อน");
+      err.code="MUTATION_OUTCOME_AMBIGUOUS";
+      err.readback=check;
+      throw err;
+    }
+    const err=new Error("คำสั่งบันทึกไม่ได้รับผลยืนยัน และตรวจ readback แล้วไม่พบการเปลี่ยนแปลงที่ตรงกัน กรุณา Refresh แล้วตรวจอีกครั้งก่อนกดซ้ำ");
+    err.code="MUTATION_NOT_CONFIRMED";
+    err.readback=check;
+    throw err;
+  }
+
   async function api(action, payload={}){
     const readOnlyActions=["snapshot","snapshotHealth","systemHealth","phase1Health"];
-    const directPhase1=directPhase1ActionAvailable(action);
-    if(state.data && state.data.degraded_read_only && !readOnlyActions.includes(action) && !directPhase1) throw new Error("ระบบเขียนผ่าน Apps Script ยังไม่พร้อม และ action นี้ยังไม่ได้รับสิทธิ์ Direct Writer — ดูข้อมูลได้ แต่การบันทึกถูกปิดเพื่อความปลอดภัย");
-    if(snapshotState.stale && !readOnlyActions.includes(action)) throw new Error("ข้อมูลเก่า: กรุณา Refresh ให้สำเร็จก่อนบันทึก");
+    const isMutation=!readOnlyActions.includes(action);
+    const admission=isMutation ? writeAdmission(action) : {allowed:true,mode:"read"};
+    if(isMutation && !admission.allowed) throw new Error("ระบบเขียนถูกปิดเพราะพบปัญหา write transport แบบ deterministic/ยังไม่ผ่านการยืนยัน กรุณาแก้ System Guard ก่อนบันทึก");
+    if(snapshotState.stale && isMutation) throw new Error("ข้อมูลเก่า: กรุณา Refresh ให้สำเร็จก่อนบันทึก");
+    const beforeSnapshot=isMutation ? state.data : null;
     const outbound=Object.assign({action},payload);
     if(!readOnlyActions.includes(action) && !outbound.request_id) outbound.request_id=adminRequestId();
     const maxAttempts=action==="snapshot" ? 2 : 1;
@@ -1231,6 +1288,11 @@
         return data;
       }catch(err){
         lastError=err;
+        if(isMutation && mutationOutcomeUncertain(err)){
+          // Never retry a mutation automatically. The request may already have committed.
+          // Booking writes get one direct-Sheet readback reconciliation instead.
+          return reconcileUncertainBookingMutation(action,outbound,beforeSnapshot,err);
+        }
         const transientStatus=Number(err.upstreamStatus||err.httpStatus||0);
         const retryable=action==="snapshot" && attempt<maxAttempts &&
           (err.code==="UPSTREAM_TIMEOUT" ||
@@ -1830,11 +1892,15 @@
     const degraded=!!(state.data && state.data.degraded_read_only);
     const directState=state.data && state.data.direct_writer_phase1_state;
     const directActions=directState && directState.writer_ready && Array.isArray(directState.configured_actions) ? directState.configured_actions : [];
+    const admission=writeAdmission("__status__");
+    const transientAttempt=degraded && admission.mode==="transient-attempt";
     const runtimeStatus=degraded
       ? (directActions.length
-        ? "โหมดผสม — อ่านจาก Google Sheet โดยตรง; Apps Script write ไม่พร้อม แต่ Direct Writer ใช้ได้สำหรับ "+directActions.join(", ")
-        : "โหมดอ่านอย่างเดียว — โหลดข้อมูลตรงจาก Google Sheet สำเร็จ แต่การบันทึกถูกปิดจนกว่า write transport ที่ยอมรับแล้วจะพร้อม")
-      : "Snapshot ล่าสุดผ่านการตรวจ";
+        ? "โหมดผสม — อ่านจาก Google Sheet โดยตรง; Direct Writer พร้อมบาง action"
+        : (transientAttempt
+          ? "ระบบอ่านข้อมูลได้ — write health ตอบช้า/ไม่แน่ชัด แต่ยังอนุญาตบันทึกแบบ single-attempt และห้าม retry อัตโนมัติ"
+          : "โหมดอ่านอย่างเดียว — พบปัญหา write transport แบบ deterministic/ยังไม่ผ่านการยืนยัน"))
+      : "ระบบพร้อมใช้งาน";
     el.textContent=(snapshotState.stale ? (state.data ? "กำลังแสดง Last Known Good Snapshot — ข้อมูลเก่า ห้ามใช้ยืนยันความว่างจน Refresh สำเร็จ" : "โหลด Snapshot ไม่สำเร็จ — ยังยืนยันไม่ได้ว่าระบบไม่มีข้อมูล") : runtimeStatus)+
       " | สำเร็จล่าสุด: "+(snapshotState.goodAt ? new Date(snapshotState.goodAt).toLocaleString("th-TH") : "ยังไม่มี")+
       " | เวลาเรียกจริง: "+(snapshotState.latencyMs ?? "-")+" ms | "+counts+
