@@ -1,0 +1,390 @@
+{
+  "schema_version": "KK_RELIABILITY_MEMORY_V1",
+  "authority": "ADVISORY_ONLY",
+  "learning_contract": {
+    "auto_apply": false,
+    "production_writes": 0,
+    "task_mutations": 0,
+    "policy_mutations": 0,
+    "provider_sends": 0,
+    "merge_or_deploy": false,
+    "require_human_review_for_memory_change": true,
+    "require_regression_guard_for_learned_repair": true
+  },
+  "fingerprints": [
+    {
+      "id": "CONTROL_TIMER_WITHOUT_RUNTIME_BOUNDARY",
+      "severity": "P0",
+      "domains": [
+        "control_plane",
+        "scanner",
+        "verifier"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "UNKNOWN",
+      "match": {
+        "codes": [
+          "MISSING_RUNTIME",
+          "LAUNCHER_FIRED_RUNTIME_BOUNDARY_MISSING"
+        ],
+        "phrases_any": [
+          "task metadata advanced",
+          "timer metadata",
+          "last_run_time"
+        ],
+        "phrases_all": [
+          "no governed",
+          "manifest"
+        ]
+      },
+      "known_repair": "Keep the recurring launcher minimal and bootstrap into live Machine SOT. Judge recovery only from a future natural slot with exact shared/role locks, exactly one role Manifest, role output readback, actual monotonic timestamps and safe release.",
+      "regression_guards": [
+        "task metadata earns zero runtime credit",
+        "shared writer exact1",
+        "role lock exact1",
+        "role manifest exact1",
+        "actual monotonic timestamps",
+        "safe release exact readback"
+      ],
+      "never_do": [
+        "backfill a missed slot as PASS",
+        "clone a runner",
+        "add a watchdog",
+        "inflate the launcher prompt again"
+      ]
+    },
+    {
+      "id": "CONTROL_TASK_UNEXPECTEDLY_OFF",
+      "severity": "P0",
+      "domains": [
+        "control_plane"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "UNKNOWN",
+      "match": {
+        "codes": [
+          "TASK_OFF_RECURRENCE",
+          "UNEXPECTED_TASK_OFF"
+        ],
+        "phrases_any": [
+          "unexpectedly off",
+          "task became off",
+          "task is off"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Preserve exact task-state evidence, resolve the one policy-bound identity, and use only an explicitly authorized single-writer control-plane maintenance action. Do not let a runtime self-enable or clone tasks.",
+      "regression_guards": [
+        "exact policy-bound task identity",
+        "single maintenance writer",
+        "post-change task readback"
+      ],
+      "never_do": [
+        "runtime task self-heal outside current policy",
+        "blind same-ID re-enable loops",
+        "new replacement task without explicit policy"
+      ]
+    },
+    {
+      "id": "RUNTIME_TIMESTAMP_INTEGRITY",
+      "severity": "P0",
+      "domains": [
+        "control_plane",
+        "scanner",
+        "verifier"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "TIMESTAMP_INTEGRITY_DEBT",
+          "FUTURE_RUNTIME_TIMESTAMP",
+          "NONMONOTONIC_RUNTIME_TIMESTAMP"
+        ],
+        "phrases_any": [
+          "future-dated",
+          "future timestamp",
+          "nonmonotonic timestamp",
+          "prewrite timestamp"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Write runtime timestamps only at the actual authoritative Asia/Bangkok execution time and reject future/nonmonotonic evidence from clean-terminal acceptance.",
+      "regression_guards": [
+        "future timestamp invalidates clean terminal",
+        "monotonic per run",
+        "no retroactive fabrication"
+      ],
+      "never_do": [
+        "pre-fill planned runtime timestamps",
+        "rewrite historical incident timestamps"
+      ]
+    },
+    {
+      "id": "IDENTITY_POSITIONAL_MISMATCH",
+      "severity": "P0",
+      "domains": [
+        "core_promotion",
+        "lineage",
+        "sheets"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "FAIL_REQUIRES_EXACT_IDENTITY",
+          "IDENTITY_ROW_POSITION_MISMATCH"
+        ],
+        "phrases_any": [
+          "row-position mismatch",
+          "unrelated core event",
+          "positional identity"
+        ],
+        "phrases_all": [
+          "exact",
+          "identity"
+        ]
+      },
+      "known_repair": "Resolve and mutate by stable Show ID/event identity. If Show ID is unavailable, require exact normalized event identity plus exact date under an explicit fallback. Never treat physical row position as identity or success proof.",
+      "regression_guards": [
+        "exact Show ID match preferred",
+        "exact date required",
+        "duplicate/missing identity fails closed",
+        "post-write exact identity readback"
+      ],
+      "never_do": [
+        "resolve by row number",
+        "reuse cached physical row after structural changes",
+        "mark debt resolved from a nearby/unrelated row"
+      ]
+    },
+    {
+      "id": "CANDIDATE_AI_PAIRING_GAP",
+      "severity": "P0",
+      "domains": [
+        "scanner",
+        "verifier",
+        "handoff"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "CANDIDATE_AI_PAIRING_GAP",
+          "ORPHAN_CANDIDATE",
+          "ORPHAN_AI_PACKET",
+          "STALE_READY"
+        ],
+        "phrases_any": [
+          "candidate ai pairing",
+          "orphan candidate",
+          "orphan ai",
+          "stale ready"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Use atomic Candidate↔AI handoff, nonblank Work Packet ID, exact Candidate join by Show ID or explicit exact1 family+date fallback, and terminalize both sides consistently.",
+      "regression_guards": [
+        "Candidate↔AI exact pair",
+        "nonblank Work Packet ID",
+        "no stale READY after terminalization",
+        "reverse orphan audit"
+      ],
+      "never_do": [
+        "mark Candidate READY without operational AI packet",
+        "pair by row offset"
+      ]
+    },
+    {
+      "id": "TRACKER_CORE_PARITY_GAP",
+      "severity": "P0",
+      "domains": [
+        "tracker",
+        "core",
+        "storefront"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "CORE_PROMOTION_DEBT",
+          "OPEN_NO_EXACT_CORE_COUNTERPART",
+          "STOREFRONT_PARITY_GAP"
+        ],
+        "phrases_any": [
+          "missing core counterpart",
+          "absent from core",
+          "tracker core parity",
+          "promotion debt"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Track every eligible Tracker→Core gap as explicit lineage debt. Close only after governed Admin/Core transaction, exact Core readback, Web Ready readback, lineage exact1, audit receipt and debt close.",
+      "regression_guards": [
+        "eligible Tracker event cannot disappear silently",
+        "Core exact counterpart count checked",
+        "Web Ready readback",
+        "lineage map exact1"
+      ],
+      "never_do": [
+        "let Scanner/Verifier create Core events outside authority",
+        "close debt from presentation-only evidence"
+      ]
+    },
+    {
+      "id": "MAKE_CREDITS_EXHAUSTED",
+      "severity": "P1",
+      "domains": [
+        "make",
+        "transport",
+        "admin_bridge"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN_EXTERNAL",
+      "match": {
+        "codes": [
+          "MAKE_CREDITS_EXHAUSTED",
+          "MAKE_ORG_PAUSED_CREDITS"
+        ],
+        "phrases_any": [
+          "credits exhausted",
+          "organization or team is paused",
+          "make free-plan credits"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Treat as an external capacity blocker. Keep dependent scenarios/quarantined write paths safely paused, preserve the last proven state, and resume only after credits are available plus health/readback acceptance.",
+      "regression_guards": [
+        "do not claim provider/runtime recovery before Make executes",
+        "post-credit health/readback acceptance"
+      ],
+      "never_do": [
+        "create a bypass transport just to mask credit exhaustion",
+        "reactivate admin bridge without acceptance"
+      ]
+    },
+    {
+      "id": "APPS_SCRIPT_TRANSIENT_HEALTH_FLAP",
+      "severity": "P1",
+      "domains": [
+        "admin",
+        "apps_script"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROBABLE",
+      "match": {
+        "codes": [
+          "APPS_SCRIPT_HEALTH_FLAP",
+          "TRANSIENT_WRITE_HEALTH"
+        ],
+        "phrases_any": [
+          "health flapping",
+          "transient apps script",
+          "non-json google html"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Separate read health from mutation admission, never auto-retry writes, and reconcile uncertain outcomes with direct-Sheet readback while deterministic failures remain fail-closed.",
+      "regression_guards": [
+        "no automatic write retry",
+        "uncertain booking outcome reconciled by direct readback",
+        "second deterministic failure closes gate"
+      ],
+      "never_do": [
+        "treat transient read health as proof a write failed",
+        "retry non-idempotent mutation blindly"
+      ]
+    },
+    {
+      "id": "STALE_COMPETITOR_PRICE",
+      "severity": "P1",
+      "domains": [
+        "pricing",
+        "promotion"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "STALE_EXACT_MARKET_EXCLUDED",
+          "NO_FRESH_EXACT_MARKET"
+        ],
+        "phrases_any": [
+          "stale exact-event market",
+          "no fresh exact market",
+          "expired competitor price"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Use only fresh exact-event market evidence inside the active pricing TTL. Expired evidence stays historical; fall back to current approved store policy rather than reviving stale prices.",
+      "regression_guards": [
+        "freshness TTL checked",
+        "exact-event identity checked",
+        "price source recorded"
+      ],
+      "never_do": [
+        "copy first-seen competitor price forever",
+        "treat stale market as current"
+      ]
+    },
+    {
+      "id": "PROVIDER_ACK_MISSING",
+      "severity": "P1",
+      "domains": [
+        "notification",
+        "transport"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "PROVIDER_ACK_MISSING",
+          "SENT_WITHOUT_PROVIDER_EVIDENCE"
+        ],
+        "phrases_any": [
+          "no provider evidence",
+          "no provider ack",
+          "sent prohibited"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Keep ledger item QUEUED/RETRY/HOLD until the provider returns concrete delivery evidence. Scenario/API success alone is not SENT.",
+      "regression_guards": [
+        "provider message ID or equivalent evidence required",
+        "ledger SENT only after provider ACK"
+      ],
+      "never_do": [
+        "mark SENT from scenario success alone"
+      ]
+    },
+    {
+      "id": "DEP0169_URL_PARSE_WARNING",
+      "severity": "P2",
+      "domains": [
+        "vercel",
+        "node_runtime"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "UNKNOWN_OWNER",
+      "match": {
+        "codes": [
+          "DEP0169"
+        ],
+        "phrases_any": [
+          "url.parse()",
+          "dep0169"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Trace the caller with runtime/build diagnostics before editing application routes. Replace direct application-owned url.parse usage with WHATWG URL only when ownership is proven; if dependency-owned, upgrade or isolate the dependency instead of blind route rewrites.",
+      "regression_guards": [
+        "warning owner traced",
+        "affected routes smoke-tested",
+        "runtime warning count rechecked"
+      ],
+      "never_do": [
+        "blindly rewrite unrelated URL handling without a trace"
+      ]
+    }
+  ]
+}
