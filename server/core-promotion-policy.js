@@ -63,6 +63,11 @@ function resolvePackagePlan(input = {}) {
   };
 }
 
+function hasUsablePoster(posterUrl) {
+  const value = String(posterUrl || '').trim();
+  return /^https?:\/\//i.test(value);
+}
+
 function classifyCapacity({ phoneFree = 0, lensFree = 0 }) {
   const p = Math.max(0, Number(phoneFree) || 0);
   const l = Math.max(0, Number(lensFree) || 0);
@@ -75,6 +80,7 @@ function resolvePromotionState(input = {}) {
   if (!input.verified) return 'WAIT_VERIFIER';
   if (input.lifecycleBlocked) return 'BLOCK_LIFECYCLE';
   if (!input.identityExact) return 'HOLD_IDENTITY';
+  if (!hasUsablePoster(input.posterUrl)) return 'POSTER_MISSING_DEBT';
 
   const capacity = classifyCapacity(input);
   if (capacity === 'CAPACITY_BLOCKED') return 'BLOCK_CAPACITY';
@@ -90,6 +96,7 @@ module.exports = {
   DEFAULT_BUNDLE_PRICE,
   resolvePrice,
   resolvePackagePlan,
+  hasUsablePoster,
   classifyCapacity,
   resolvePromotionState
 };

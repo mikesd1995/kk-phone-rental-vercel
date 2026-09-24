@@ -7,6 +7,7 @@ const {
   DEFAULT_BUNDLE_PRICE,
   resolvePrice,
   resolvePackagePlan,
+  hasUsablePoster,
   classifyCapacity,
   resolvePromotionState
 } = require('../server/core-promotion-policy');
@@ -78,15 +79,35 @@ test('inquiry-only requires an explicit flag', () => {
 
 test('zero phone capacity blocks promotion', () => {
   assert.equal(classifyCapacity({ phoneFree: 0, lensFree: 2 }), 'CAPACITY_BLOCKED');
-  assert.equal(resolvePromotionState({ verified: true, identityExact: true, phoneFree: 0, lensFree: 2 }), 'BLOCK_CAPACITY');
+  assert.equal(resolvePromotionState({
+    verified: true,
+    identityExact: true,
+    phoneFree: 0,
+    lensFree: 2,
+    posterUrl: 'https://example.com/poster.jpg'
+  }), 'BLOCK_CAPACITY');
 });
 
-test('verified exact identity with capacity reaches ready state', () => {
+test('poster URL is required before promotion can reach ready state', () => {
+  assert.equal(hasUsablePoster('https://example.com/poster.jpg'), true);
+  assert.equal(hasUsablePoster(''), false);
+  assert.equal(hasUsablePoster('not-a-url'), false);
   assert.equal(resolvePromotionState({
     verified: true,
     identityExact: true,
     phoneFree: 2,
     lensFree: 2,
-    lensRule: 'VERIFIED_ALLOWED'
+    posterUrl: ''
+  }), 'POSTER_MISSING_DEBT');
+});
+
+test('verified exact identity with poster and capacity reaches ready state', () => {
+  assert.equal(resolvePromotionState({
+    verified: true,
+    identityExact: true,
+    phoneFree: 2,
+    lensFree: 2,
+    lensRule: 'VERIFIED_ALLOWED',
+    posterUrl: 'https://example.com/poster.jpg'
   }), 'READY_FOR_PROMOTION');
 });
