@@ -24,10 +24,11 @@ test('booking and waitlist LINE messages include event venue', () => {
   assert.equal(venueRefs.length, 2);
 });
 
-test('public event_note is mapped and rendered in the package modal', () => {
+test('public event_note is mapped, sanitized, and rendered in the package modal', () => {
   assert.match(source, /String\(r\.event_note\|\|r\.web_note\|\|""\)\.trim\(\)/);
   assert.match(source, /modal-event-note/);
-  assert.match(source, /eventNoteEl\.textContent=c\.webNote\?"ℹ️ "\+c\.webNote:""/);
+  assert.match(source, /var publicEventNote=sanitizePublicText\(c\.webNote\)/);
+  assert.match(source, /eventNoteEl\.textContent=publicEventNote\?"ℹ️ "\+publicEventNote:""/);
 });
 
 test('month and availability filter choices can be reflected in the URL', () => {
