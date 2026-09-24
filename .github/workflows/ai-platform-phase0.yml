@@ -2,7 +2,7 @@ name: AI Platform Phase 0
 
 on:
   pull_request:
-    branches: [main, agent-platform-hardening-v1-20260922]
+    branches: [main, agent-platform-hardening-v1-20260922, ai-platform-phase0-integration-20260923]
   push:
     branches: [ai-platform-phase0-control-plane]
 
