@@ -201,6 +201,35 @@ test('keeps writes enabled when fallback read is used but lightweight write-path
   assert.equal(out.body.snapshot_health.write_actions_enabled, true);
 });
 
+test('marks a pure write-health timeout as transient-attempt instead of deterministic read-only', async () => {
+  AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
+  handler._test.rememberWriteHealth(process.env.KK_ADMIN_SCRIPT_URL, process.env.GOOGLE_SHEET_ID, {
+    checked:true, skipped:false, ok:false, status:0, latency_ms:10000,
+    error_code:'WRITE_HEALTH_TIMEOUT', backend_version:'', spreadsheet_id:''
+  }, Date.now());
+
+  const out = responseCapture();
+  await handler._test.respondWithDirectSheetFallback(
+    out.res,
+    'snapshot',
+    process.env.GOOGLE_SHEET_ID,
+    'env',
+    { code:'DIRECT_SHEET_PRIMARY', primary_read:true, upstream_ms:0 },
+    Date.now(),
+    process.env.KK_ADMIN_SCRIPT_URL,
+    process.env.KK_ADMIN_API_KEY
+  );
+
+  assert.equal(out.res.statusCode, 200);
+  assert.equal(out.body.write_actions_enabled, false);
+  assert.equal(out.body.degraded_read_only, true);
+  assert.equal(out.body.legacy_write_attempt_allowed, true);
+  assert.equal(out.body.write_admission_mode, 'transient-attempt');
+  assert.equal(out.body.data.legacy_write_attempt_allowed, true);
+  assert.equal(out.body.data.write_admission_mode, 'transient-attempt');
+  assert.equal(out.body.snapshot_health.legacy_write_attempt_allowed, true);
+});
+
 test('keeps writes blocked when lightweight write-path identity does not match production', async () => {
   AdminSheetFallback.buildSnapshot = async () => minimalFallbackSnapshot();
   mockUpstream({
