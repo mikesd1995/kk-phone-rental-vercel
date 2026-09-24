@@ -1,5 +1,7 @@
 # Phase 0 integration rehearsal — 2026-09-23
 
+Updated on 2026-09-24 after the owner resumed the task and main advanced again.
+
 ## Purpose and scope
 
 Combine the validated governance/Phase-0 history with current main on an isolated review branch, resolve the package conflict, and validate the complete resulting source. This is an integration candidate, not production acceptance or permission to merge. The original Draft PRs #152 and #175 remain unchanged.
@@ -10,11 +12,13 @@ Combine the validated governance/Phase-0 history with current main on an isolate
 | --- | --- |
 | Common ancestor | `9588391d8caa7e40eb1381dc98e86b6873f155ae` |
 | Initial main at preparation | `bd42408bbdca1d6514c2ccdc877cb1f63fcf4f7e` |
-| Refreshed main before publication | `c04a34fb8735e97dea741b226e4f01efc178af8c` |
+| Main inspected at first publication | `c04a34fb8735e97dea741b226e4f01efc178af8c` |
+| Final refreshed main on 2026-09-24 | `fe7379a23c5cdaff247e856397f04f48d4d51416` |
 | PR #152 foundation | `0bb2c07522c706d02f1edcf6bb9cfb5c74dd96b0` |
 | PR #175 Phase 0 | `634885eead82cdd54c9c77151c6f3b04f4b6ff47` |
 | Initial local integration commit | `56c3aeae366612783afab38bb88ee1b2cba5c36a` |
 | Refreshed local integration commit | `6b48b94fe5eb8128a144cdfdf51dd8e8a4cb514f` |
+| Resume integration commit | `71aa121b48e4bd1392b25977cdf20b4c8ac34e42` |
 
 Branch: `ai-platform-phase0-integration-20260923`. The first integration commit has the exact Phase-0 and initial-main SHAs as its two parents; the refresh adds the newly advanced main without rewriting either history. No rebase, squash, force push, original-PR retarget, main merge, or rewrite of the validated histories is needed for this rehearsal.
 
@@ -22,14 +26,16 @@ Main had advanced by 18 commits from the common ancestor. These include Admin re
 
 The final pre-push refresh found four additional main commits: Rental Analytics revenue split (#176), Verifier no-drop reconciliation (#178), Admin write-health anti-flap (#179), and Direct Writer control plane (#180). These 28 changed paths, including existing Supabase migration artifacts, were inspected and retained. No live/shared database migration was executed.
 
+On resume, main had advanced once more with #182 (10 paths): Admin transient write admission, the browser write-policy module, snapshot/proxy handling, and seven tests. Those current-main changes were preserved by another additive integration commit. The original PR heads remain unchanged. Draft integration PR: [#181](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/181).
+
 ## Conflict and resolution
 
 Git's three-way integration found exactly one content conflict: the `scripts.check` line in `package.json`.
 
-- Final main's syntax checks: 55.
+- Final main's syntax checks: 56.
 - Original Phase-0 branch's syntax checks: 50.
-- Combined unique checks: 57 (the initial integration had 54).
-- Retained main-only checks: `server/rental-dashboard-core.js`, `server/admin-direct-writer.js`, `server/admin-direct-writer-phase1.js`, `scripts/vercel-ignore-build.js`, `server/admin-write-control-oidc.js`, `api/lib/admin-google-sheets-writer.js`, and `server/verifier-no-drop-reconciliation.js`.
+- Combined unique checks: 58 (earlier pinned integrations had 54 and 57).
+- Retained main-only checks: `server/rental-dashboard-core.js`, `server/admin-direct-writer.js`, `server/admin-direct-writer-phase1.js`, `scripts/vercel-ignore-build.js`, `server/admin-write-control-oidc.js`, `api/lib/admin-google-sheets-writer.js`, `server/verifier-no-drop-reconciliation.js`, and `admin/write-policy.js`.
 - Retained foundation-only checks: `server/agent-governance-contract.js` and `server/capability-improvement-contract.js`.
 - Retained Phase-0 scripts: `check:platform` and `test:platform`.
 - All other scripts, dependencies, package metadata, and `engines.node` are unchanged from the compatible inputs.
@@ -38,7 +44,7 @@ Choosing either side of the conflicted line wholesale would lose coverage from t
 
 ## Source-preservation evidence
 
-Final main contains 278 files. The candidate preserves 275 with identical Git blobs and modes; the three explicit exceptions are `package.json`, the one-line Verifier helper repair described below, and its regression-test file. All 47 newly added foundation/Phase-0 files match the original Phase-0 head exactly. The former `api/kk-rental-dashboard.js` path stays absent; the route repair under `server/rental-dashboard-core.js` is retained.
+Final main contains 281 files. The candidate preserves 278 with identical Git blobs and modes; the three explicit exceptions are `package.json`, the one-line Verifier helper repair described below, and its regression-test file. All 47 newly added foundation/Phase-0 files match the original Phase-0 head exactly. The former `api/kk-rental-dashboard.js` path stays absent; the route repair under `server/rental-dashboard-core.js` is retained.
 
 Existing operational workflows, `vercel.json`, production/API/Admin source, Scanner/Canary contracts, runtime ledger, Apps Script, Supabase files, and all existing test assertions are preserved. The current-main Verifier skill is preserved exactly; only the zero-write helper is narrowed to follow that skill's explicit identity rule. New Phase-0 code is still excluded from production import graphs; the KK Project Pack keeps all activation flags off.
 
@@ -56,20 +62,24 @@ Three targeted tests cover mismatched nonblank IDs, a missing ID with one family
 
 Local rehearsal used Node 24.13.1 on Windows:
 
-- `npm run check`: passed, all 57 existing/foundation source syntax checks.
+- `npm run check`: passed, all 58 existing/foundation source syntax checks.
 - `npm run check:platform`: passed.
 - `npm run test:platform`: 130 passed, 0 failed, 0 skipped, including real disposable SQLite migrations, rollback/reopen, transaction failure atomicity, and transitive production import isolation.
-- `npm test`: 561 passed out of 562, 0 skipped. The unchanged Admin symlink escape test failed because Windows denied fixture symlink creation with `EPERM`; this is not reported as a passing local suite.
+- `npm test`: 568 passed out of 569, 0 skipped. The unchanged Admin symlink escape test failed because Windows denied fixture symlink creation with `EPERM`; this is not reported as a passing local suite.
 - Integration-only whitespace/conflict checks passed. The full main-to-candidate diff retains five inherited Markdown hard-break spaces in the two PR #152 foundation documents; these were not silently rewritten.
 - Exact tree-preservation assertions account for the three named main-file exceptions and all 47 unchanged stack additions.
 
-The Draft PR must obtain fresh Linux results for the complete 562-test existing/foundation suite on Node 20 and the 130-test Phase-0 suite on Node 24.13.1. The existing `AI Platform Phase 0` workflow checks out and verifies the exact PR source SHA. `Admin Regression` additionally tests GitHub's synthetic PR merge revision. Record each workflow's actual source identity, conclusion, and URL in the delivery evidence; do not reuse the older 611-test result as acceptance for this integrated source.
+The Draft PR must obtain fresh Linux results for the complete 569-test existing/foundation suite on Node 20 and the 130-test Phase-0 suite on Node 24.13.1. The existing `AI Platform Phase 0` workflow checks out and verifies the exact PR source SHA. `Admin Regression` additionally tests GitHub's synthetic PR merge revision. Record each workflow's actual source identity, conclusion, and URL in the delivery evidence; do not reuse the older 611-test result as acceptance for this integrated source.
+
+The first publication head `d177c1b0e6c272c358db3d892c6a0006c6b86595` did pass [Linux CI 35878110226](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/35878110226): 562 + 130 = 692 tests, no failures/skips. [Admin Regression 35878110293](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/35878110293) also passed on synthetic merge `8021ddcb21255777b1d91f0f68f49c62971d7a24`. These are retained historical evidence, not acceptance for the resumed candidate that includes #182.
 
 ## CI and deployment boundaries
 
 Opening a Draft PR against main triggers the existing Admin Regression and AI Platform Phase 0 checks. Neither workflow requests production secrets, deployment authority, or business writes. The branch push is not a main push and no manual production/UAT workflow is dispatched.
 
 Existing scheduled witness/watch workflows operate from the repository's default branch; this rehearsal does not create a second runner or alter their schedule. The production recovery and bounded-acceptance workflows require their existing explicit triggers; no trigger comment or dispatch is sent. Existing Vercel Git integration may create a Preview for the branch. A Preview status is separate from CI and is not runtime/business acceptance.
+
+The first Preview `dpl_4TFbyhTvCdXqa3hmcdqoNmrFk7mq` was BLOCKED because the local Codex commit identity was not associated with a GitHub account, as [Vercel's PR comment](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/181#issuecomment-5797187182) confirmed. On resume, the repository's existing configured author identity was verified to match the main author and used for new additive commits. No history was rewritten, account/team permission changed, or protection disabled. Verify the resulting Preview independently; do not treat author-metadata correction as proof of deployment success.
 
 ## Review and handoff
 
