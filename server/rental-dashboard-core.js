@@ -264,10 +264,10 @@ module.exports=async function handler(req,res){
   const trackerId=String(process.env.KK_EVENT_TRACKER_SHEET_ID||"1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo").trim();
   try{
     const [helperCsv,currentEventsCsv,archiveEventsCsv,registryResult]=await Promise.all([
-      fetchCsv(sheetId,"_Rental_Dashboard_Data","A1:O2500"),
-      fetchCsv(sheetId,"01_Events","A4:Z1000"),
-      fetchCsv(sheetId,"13_Event_Archive","A1:Z1000"),
-      fetchCsv(trackerId,"_Artist_Registry","A1:E1000").then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:""}))
+      fetchCsv(sheetId,"_Rental_Dashboard_Data","A1:O"),
+      fetchCsv(sheetId,"01_Events","A4:Z"),
+      fetchCsv(sheetId,"13_Event_Archive","A1:Z"),
+      fetchCsv(trackerId,"_Artist_Registry","A1:E").then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:""}))
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
     const meta=eventMetadata(currentEventsCsv,archiveEventsCsv,registryRules);

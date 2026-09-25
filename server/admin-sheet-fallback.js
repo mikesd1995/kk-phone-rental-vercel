@@ -13,16 +13,16 @@ const fetchIdentity = new WeakMap();
 let nextFetchIdentity = 1;
 
 const SPECS = {
-  events:       { sheet:'01_Events', range:'A4:I1000', header:'event_id', startRow:4 },
-  bookings:     { sheet:'00_Master_Booking', range:'A4:T2000', header:'booking_id', startRow:4 },
-  assets:       { sheet:'02_Assets', range:'A4:G500', header:'asset_id', startRow:4 },
-  packages:     { sheet:'03_Packages', range:'A4:J500', header:'template_id', startRow:4 },
-  overrides:    { sheet:'04_Event_Overrides', range:'A4:G2000', header:'event_id', startRow:4 },
-  web_ready:    { sheet:'08_Web_Ready', range:'A4:K1000', header:'event_id', startRow:4 },
-  web_packages: { sheet:'09_Web_Packages', range:'A4:N3000', header:'package_id', startRow:4 },
-  customers:    { sheet:'11_Customer_Stats', range:'A1:H1000', header:'customer_key', startRow:1 },
-  health:       { sheet:'10_Admin_Health_Check', range:'A4:D500', header:'Check', startRow:4 },
-  model_master: { sheet:'Model_Master', range:'A4:E500', header:'model_group', startRow:4 }
+  events:       { sheet:'01_Events', range:'A4:I', header:'event_id', startRow:4 },
+  bookings:     { sheet:'00_Master_Booking', range:'A4:T', header:'booking_id', startRow:4 },
+  assets:       { sheet:'02_Assets', range:'A4:G', header:'asset_id', startRow:4 },
+  packages:     { sheet:'03_Packages', range:'A4:J', header:'template_id', startRow:4 },
+  overrides:    { sheet:'04_Event_Overrides', range:'A4:G', header:'event_id', startRow:4 },
+  web_ready:    { sheet:'08_Web_Ready', range:'A4:K', header:'event_id', startRow:4 },
+  web_packages: { sheet:'09_Web_Packages', range:'A4:N', header:'package_id', startRow:4 },
+  customers:    { sheet:'11_Customer_Stats', range:'A1:H', header:'customer_key', startRow:1 },
+  health:       { sheet:'10_Admin_Health_Check', range:'A4:D', header:'Check', startRow:4 },
+  model_master: { sheet:'Model_Master', range:'A4:E', header:'model_group', startRow:4 }
 };
 
 function parseCsv(text){

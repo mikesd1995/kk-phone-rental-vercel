@@ -14,8 +14,8 @@ const AdminSecurity=require('../server/admin-session.js');
 const DEFAULT_CRM_SHEET_ID='1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
 const DEFAULT_CORE_SHEET_ID='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const RUNTIME_DATASETS={
-  rental_dashboard_data:{sheet:'_Rental_Dashboard_Data',range:'A1:O1000',privateRange:'_Rental_Dashboard_Data!A1:O1000',requireData:true},
-  event_archive:{sheet:'13_Event_Archive',range:'A1:Z1000',privateRange:'13_Event_Archive!A1:Z1000',requireData:false}
+  rental_dashboard_data:{sheet:'_Rental_Dashboard_Data',range:'A1:O',privateRange:'_Rental_Dashboard_Data!A1:O',requireData:true},
+  event_archive:{sheet:'13_Event_Archive',range:'A1:Z',privateRange:'13_Event_Archive!A1:Z',requireData:false}
 };
 
 function json(res,status,body){

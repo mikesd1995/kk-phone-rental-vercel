@@ -169,8 +169,8 @@ function webPackagePriceFormula(rowNumber,templateId){
   const r=Number(rowNumber);
   const tid=String(templateId||'').replace(/"/g,'""');
   const tplExpr='"'+tid+'"';
-  const standardExpr=`IFERROR(VLOOKUP(${tplExpr},'03_Packages'!$A$5:$E$1000,5,FALSE),0)`;
-  return `=IF(B${r}="","",IFERROR(LOOKUP(2,1/(('04_Event_Overrides'!$A$5:$A$1000=B${r})*('04_Event_Overrides'!$B$5:$B$1000=${tplExpr})*('04_Event_Overrides'!$C$5:$C$1000<>"")),'04_Event_Overrides'!$C$5:$C$1000),${standardExpr}))`;
+  const standardExpr=`IFERROR(VLOOKUP(${tplExpr},'03_Packages'!$A$5:$E,5,FALSE),0)`;
+  return `=IF(B${r}="","",IFERROR(LOOKUP(2,1/(('04_Event_Overrides'!$A$5:$A=B${r})*('04_Event_Overrides'!$B$5:$B=${tplExpr})*('04_Event_Overrides'!$C$5:$C<>"")),'04_Event_Overrides'!$C$5:$C),${standardExpr}))`;
 }
 
 function mutation(sheet,row,column,values){
@@ -412,21 +412,21 @@ async function loadModel(action,{token,fetchImpl=global.fetch}={}){
   const base={events:[],packages:[],overrides:[],web:[],webPriceFormula:[]};
   if(action==='updateEvent'){
     const [events,web]=await Promise.all([
-      readValues('01_Events!A5:H1000',{token,fetchImpl}),
-      readValues('09_Web_Packages!A5:N3000',{token,fetchImpl})
+      readValues('01_Events!A5:H',{token,fetchImpl}),
+      readValues('09_Web_Packages!A5:N',{token,fetchImpl})
     ]);
     return Object.assign(base,{events,web});
   }
   if(action==='updatePackage'){
-    base.packages=await readValues('03_Packages!A5:J500',{token,fetchImpl});
+    base.packages=await readValues('03_Packages!A5:J',{token,fetchImpl});
     return base;
   }
   if(action==='upsertEventOverride'){
     const [events,packages,overrides,web]=await Promise.all([
-      readValues('01_Events!A5:H1000',{token,fetchImpl}),
-      readValues('03_Packages!A5:J500',{token,fetchImpl}),
-      readValues('04_Event_Overrides!A5:G2000',{token,fetchImpl}),
-      readValues('09_Web_Packages!A5:N3000',{token,fetchImpl})
+      readValues('01_Events!A5:H',{token,fetchImpl}),
+      readValues('03_Packages!A5:J',{token,fetchImpl}),
+      readValues('04_Event_Overrides!A5:G',{token,fetchImpl}),
+      readValues('09_Web_Packages!A5:N',{token,fetchImpl})
     ]);
     return Object.assign(base,{events,packages,overrides,web});
   }

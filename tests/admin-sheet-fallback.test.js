@@ -15,16 +15,16 @@ test('rowsAsObjects locates a header below title rows',()=>{
 
 
 test('fallback GViz ranges start at each real schema header row',()=>{
-  assert.equal(F.SPECS.events.range,'A4:I1000');
-  assert.equal(F.SPECS.bookings.range,'A4:T2000');
-  assert.equal(F.SPECS.assets.range,'A4:G500');
-  assert.equal(F.SPECS.packages.range,'A4:J500');
-  assert.equal(F.SPECS.overrides.range,'A4:G2000');
-  assert.equal(F.SPECS.web_ready.range,'A4:K1000');
-  assert.equal(F.SPECS.web_packages.range,'A4:N3000');
-  assert.equal(F.SPECS.customers.range,'A1:H1000');
-  assert.equal(F.SPECS.health.range,'A4:D500');
-  assert.equal(F.SPECS.model_master.range,'A4:E500');
+  assert.equal(F.SPECS.events.range,'A4:I');
+  assert.equal(F.SPECS.bookings.range,'A4:T');
+  assert.equal(F.SPECS.assets.range,'A4:G');
+  assert.equal(F.SPECS.packages.range,'A4:J');
+  assert.equal(F.SPECS.overrides.range,'A4:G');
+  assert.equal(F.SPECS.web_ready.range,'A4:K');
+  assert.equal(F.SPECS.web_packages.range,'A4:N');
+  assert.equal(F.SPECS.customers.range,'A1:H');
+  assert.equal(F.SPECS.health.range,'A4:D');
+  assert.equal(F.SPECS.model_master.range,'A4:E');
 });
 
 test('production-style title rows demonstrate why A1 GViz inference is unsafe',()=>{
@@ -90,4 +90,11 @@ test('coalesces concurrent direct-Sheet fallback reads and briefly reuses the sn
   assert.equal(third.degraded_read_only,true);
   assert.equal(third.write_actions_enabled,false);
   F.clearSnapshotCache();
+});
+
+
+test('fallback operational ranges do not reintroduce fixed row ceilings',()=>{
+  for(const key of ['events','bookings','assets','packages','overrides','web_ready','web_packages','customers','health','model_master']){
+    assert.doesNotMatch(F.SPECS[key].range,/\\d{3,}$/,'fixed row ceiling in '+key);
+  }
 });
