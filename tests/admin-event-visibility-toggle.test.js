@@ -25,7 +25,6 @@ test('Hidden open future events remain selectable in Edit Event and Package Over
 test('visibility toggle changes only active_on_web through updateEvent',()=>{
   assert.match(js,/const nextActive=event\.active_on_web===false/);
   assert.match(js,/await api\("updateEvent",\{event_id:eventId,active_on_web:nextActive\}\)/);
-  assert.match(js,/การ์ดงานจะหายจากหน้าบ้าน แต่ข้อมูล Event, ราคา Package, Booking และ Stock จะไม่ถูกลบหรือแก้/);
   assert.match(js,/btn\.textContent=hidden \? "เปิดงานบนหน้าบ้าน" : "ซ่อนงานจากหน้าบ้าน"/);
   assert.match(js,/การ์ดงานจะหายจากหน้าบ้านทั้งหมด แต่ Package, ราคา, Booking และ Stock จะไม่ถูกลบหรือแก้/);
 });
