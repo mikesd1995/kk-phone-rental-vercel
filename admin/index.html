@@ -459,7 +459,11 @@
             <form class="card form" id="eventPriceOverrideForm">
               <div class="form-title"><span class="eyebrow">Override</span><h2>แก้ราคาเฉพาะงาน</h2></div>
               <p class="hint">ใช้ส่วนนี้เมื่ออยากให้ราคา/ข้อความของแพ็กเกจเปลี่ยนเฉพาะงานที่เลือก โดยไม่กระทบราคาหลักของทุกงาน</p>
-              <label>เลือกงาน <select name="event_id" data-source="events" required></select><small>แสดงเฉพาะงานวันนี้/อนาคตที่ยัง open เพื่อกันแก้งานย้อนหลังโดยไม่ตั้งใจ</small></label>
+              <label>เลือกงาน <select name="event_id" data-source="events" required></select><small>แสดงเฉพาะงานวันนี้/อนาคตที่ยัง open · สถานะ 🟢/🟡/🔴 ในรายการช่วยบอกว่าซ่อนแพ็กเกจไปถึงไหนแล้ว</small></label>
+              <div id="eventPackageVisibilityStatus" class="hint" role="status" aria-live="polite">
+                <span class="pill">⚪ เลือกงานก่อน</span>
+                <small>ระบบจะเช็กจากแพ็กเกจที่ลูกค้าเห็นจริงบนหน้าบ้าน</small>
+              </div>
               <div class="bulk-visibility-box" aria-label="จัดการการแสดงแพ็กเกจทั้งงาน">
                 <div>
                   <strong>จัดการแพ็กเกจทั้งงาน</strong>
@@ -741,6 +745,6 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=event-visibility-v1-20260925"></script>
+  <script src="/admin/admin.js?v=package-visibility-smart-v1-20260925"></script>
 </body>
 </html>
