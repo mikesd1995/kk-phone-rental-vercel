@@ -103,6 +103,23 @@ test('lazy fallback does not start timeout chain until image approaches viewport
 test('storefront renders first six posters eagerly and defers timeout chain for later cards',()=>{
   assert.match(source,/img\.loading=idx<6\?"eager":"lazy"/);
   assert.match(source,/firstPoster=vis\[0\].*imgThumb\[0\]/);
-  assert.match(source,/if\(idx<6\)[\s\S]*setImgFallback\(img,imgCandidates,\{timeoutMs:4000\}\)/);
-  assert.match(source,/setImgFallbackWhenVisible\(img,imgCandidates,\{timeoutMs:6000,rootMargin:"600px 0px"\}\)/);
+  assert.match(source,/if\(idx<6\)[\s\S]*setImgFallback\(img,imgCandidates,\{timeoutMs:4000,onExhausted:posterFailure\}\)/);
+  assert.match(source,/setImgFallbackWhenVisible\(img,imgCandidates,\{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure\}\)/);
+});
+
+
+test('image loader can fail closed through an onExhausted hook',()=>{
+  const img=fakeImg();
+  let calls=0;
+  sandbox.setImgFallback(img,['dead'],{timeoutMs:1000,onExhausted(){calls++;}});
+  assert.equal(img.src,'dead');
+  img.onerror();
+  assert.equal(calls,1);
+  assert.equal(img.removed,false);
+});
+
+test('storefront fails closed for blank and exhausted event posters',()=>{
+  assert.match(source,/vis=vis\.filter\(function\(c\)\{ return !!\(c&&c\.img&&String\(c\.img\)\.trim\(\)\); \}\)/);
+  assert.match(source,/onExhausted:posterFailure/);
+  assert.match(source,/if\(card\.parentElement\) card\.remove\(\)/);
 });

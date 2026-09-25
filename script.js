@@ -599,6 +599,10 @@ function setImgFallback(img, urls, options){
   function exhausted(){
     cancel();
     if(img.id==="modal-poster-img"){ img.style.display="none"; return; }
+    if(typeof options.onExhausted==="function"){
+      try{ options.onExhausted(img); }catch(e){}
+      return;
+    }
     var w=img.parentElement;
     if(typeof img.remove==="function") img.remove();
     if(w&&!w.querySelector(".poster-placeholder")){
@@ -1080,6 +1084,9 @@ function renderConcerts(concerts){
   el.innerHTML="";
   if(!concerts||!concerts.length){updateBrowseChrome(0);renderEmpty(tr("no_event_data"));return;}
   var vis=filtered(concerts);
+  // Owner rule: an event without a usable poster must not render on the storefront.
+  // Blank URLs fail closed here; dead URLs fail closed after the bounded fallback chain below.
+  vis=vis.filter(function(c){ return !!(c&&c.img&&String(c.img).trim()); });
   updateBrowseChrome(vis.length);
   if(!vis.length){renderEmpty(emptyMsg());return;}
 
@@ -1122,12 +1129,18 @@ function renderConcerts(concerts){
       if("fetchPriority" in img) img.fetchPriority=idx<2?"high":"auto";
       imgWrap.appendChild(img);
       var imgCandidates=c.imgThumb&&c.imgThumb.length?c.imgThumb:[imgUrl];
+      var posterFailure=function(){
+        card.dataset.posterFailed="1";
+        if(card.parentElement) card.remove();
+        updateBrowseChrome(grid.children.length);
+        if(grid.children.length===0) renderEmpty(tr("no_event_data"));
+      };
       if(idx<6){
-        setImgFallback(img,imgCandidates,{timeoutMs:4000});
+        setImgFallback(img,imgCandidates,{timeoutMs:4000,onExhausted:posterFailure});
       }else{
         // Do not start a timeout while a native-lazy image is still off-screen.
         // Start the fallback chain when the card is near the viewport.
-        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px"});
+        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure});
       }
     } else {
       var ph=document.createElement("div"); ph.className="poster-placeholder"; ph.innerHTML="<span>"+esc(tr("no_image"))+"</span>"; imgWrap.appendChild(ph);
