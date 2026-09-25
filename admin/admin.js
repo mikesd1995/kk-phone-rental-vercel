@@ -913,6 +913,57 @@
     const id=String(eventId||'').trim();
     return (d.web_packages||[]).filter(p=>String(p.event_id||'').trim()===id);
   }
+  function packageVisibilityState(eventId){
+    const id=String(eventId||'').trim();
+    if(!id) return {kind:"none",total:0,hidden:0,visible:0};
+    const rows=webPackagesForEvent(id);
+    if(!rows.length) return {kind:"unknown",total:0,hidden:0,visible:0};
+    const hidden=rows.filter(p=>{
+      const st=String(p&&p.package_status||"").toLowerCase().trim();
+      return st==="hidden" || st==="hide";
+    }).length;
+    const total=rows.length;
+    const visible=total-hidden;
+    return {
+      kind:hidden===total ? "hidden" : (hidden===0 ? "visible" : "mixed"),
+      total,
+      hidden,
+      visible
+    };
+  }
+  function packageVisibilityLabel(stateInfo){
+    const s=stateInfo||{kind:"unknown",total:0,hidden:0,visible:0};
+    if(s.kind==="hidden") return {tone:"ok",icon:"🟢",text:`ซ่อนแล้วทุกแพ็กเกจ · ${s.hidden}/${s.total}`};
+    if(s.kind==="mixed") return {tone:"warn",icon:"🟡",text:`ซ่อนบางส่วน · ${s.hidden}/${s.total}`};
+    if(s.kind==="visible") return {tone:"bad",icon:"🔴",text:`ยังมีแพ็กเกจแสดง · ${s.visible}/${s.total}`};
+    if(s.kind==="none") return {tone:"",icon:"⚪",text:"เลือกงานก่อน"};
+    return {tone:"",icon:"⚪",text:"ยังไม่มีข้อมูล Web Package"};
+  }
+  function renderEventPackageVisibilityStatus(eventId){
+    const box=$("#eventPackageVisibilityStatus");
+    const form=$("#eventPriceOverrideForm");
+    if(!box || !form) return;
+    const info=packageVisibilityState(eventId);
+    const label=packageVisibilityLabel(info);
+    box.innerHTML=`<span class="pill ${label.tone}">${label.icon} ${esc(label.text)}</span><small>${
+      info.kind==="hidden" ? "กดซ่อนซ้ำไม่ได้แล้ว · เปิดกลับได้ด้วยปุ่มเปิดทุกแพ็กเกจ" :
+      info.kind==="mixed" ? `ยังเหลือแพ็กเกจแสดงอยู่ ${info.visible} รายการ` :
+      info.kind==="visible" ? "ยังไม่ได้ซ่อนแพ็กเกจของงานนี้" :
+      "ระบบจะเช็กจาก 09_Web_Packages หลังเลือกงาน"
+    }</small>`;
+    const hideBtn=form.querySelector('[data-bulk-event-visibility="hide"]');
+    const showBtn=form.querySelector('[data-bulk-event-visibility="show"]');
+    const inheritBtn=form.querySelector('[data-bulk-event-visibility="inherit"]');
+    if(hideBtn){
+      hideBtn.disabled=info.kind==="none" || info.kind==="hidden";
+      hideBtn.textContent=info.kind==="hidden" ? "ซ่อนแล้ว ✓" : "ซ่อนทุกแพ็กเกจ";
+    }
+    if(showBtn){
+      showBtn.disabled=info.kind==="none" || info.kind==="visible";
+      showBtn.textContent=info.kind==="visible" ? "เปิดอยู่แล้ว ✓" : "เปิดทุกแพ็กเกจ";
+    }
+    if(inheritBtn) inheritBtn.disabled=info.kind==="none";
+  }
   function templateIdFromWebPackage(wp){
     const pkgId=String(wp && wp.package_id || '').trim();
     const eventId=String(wp && wp.event_id || '').trim();
@@ -1034,6 +1085,7 @@
     form.elements.override_note.value=o ? (o.override_note||"") : "";
     form.elements.sort_order_override.value=o ? (o.sort_order_override||"") : "";
     form.elements.use_case_override.value=o ? (o.use_case_override||"") : "";
+    renderEventPackageVisibilityStatus(eventId);
   }
 
   function activeMasterPackages(){
@@ -1539,7 +1591,16 @@
       const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : (isOverride ? "เลือกงานวันนี้/อนาคต" : (isEditEvent ? "เลือกงานวันนี้/อนาคต" : "เลือกงาน"));
       const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : (isOverride ? "ไม่มีงานวันนี้/อนาคตให้แก้ราคา" : (isEditEvent ? "ไม่มีงานวันนี้/อนาคตให้แก้ไข" : placeholder));
       sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+
-        rows.map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}${isEditEvent && e.active_on_web===false ? " · ซ่อนเว็บ" : ""}`)).join('');
+        rows.map(e=>{
+          let packageMarker="";
+          if(isOverride){
+            const info=packageVisibilityState(e.event_id);
+            packageMarker=info.kind==="hidden" ? " · 🟢 ซ่อนแล้ว" :
+              (info.kind==="mixed" ? ` · 🟡 ซ่อน ${info.hidden}/${info.total}` :
+                (info.kind==="visible" ? " · 🔴 ยังแสดง" : " · ⚪ ไม่มี Web Package"));
+          }
+          return opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}${packageMarker}${isEditEvent && e.active_on_web===false ? " · ซ่อนเว็บ" : ""}`);
+        }).join('');
       if(current && rows.some(e=>String(e.event_id)===String(current))) sel.value=current;
     });
     $$('select[data-source="packages"]').forEach(sel=>{
@@ -2328,6 +2389,15 @@
           const eventId=String(overrideForm.elements.event_id && overrideForm.elements.event_id.value || "").trim();
           if(!eventId) return showNotice("กรุณาเลือกงานก่อนจัดการแพ็กเกจทั้งงาน","warn");
           const mode=String(btn.getAttribute("data-bulk-event-visibility")||"").trim();
+          const currentVisibility=packageVisibilityState(eventId);
+          if(mode==="hide" && currentVisibility.kind==="hidden"){
+            renderEventPackageVisibilityStatus(eventId);
+            return showNotice("🟢 งานนี้ซ่อนทุกแพ็กเกจอยู่แล้ว — ไม่ส่งคำสั่งซ้ำ","ok");
+          }
+          if(mode==="show" && currentVisibility.kind==="visible"){
+            renderEventPackageVisibilityStatus(eventId);
+            return showNotice("🔴 งานนี้เปิดทุกแพ็กเกจอยู่แล้ว — ไม่ส่งคำสั่งซ้ำ","ok");
+          }
           const label=mode==="hide" ? "ซ่อนทุกแพ็กเกจ" : (mode==="show" ? "เปิดทุกแพ็กเกจ" : "คืนสถานะตามแพ็กเกจหลัก");
           const event=((state.data&&state.data.events)||[]).find(e=>String(e.event_id||"")===eventId);
           const eventName=event ? (event.event_name||eventId) : eventId;
