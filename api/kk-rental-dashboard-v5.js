@@ -237,10 +237,10 @@ module.exports=async function handler(req,res){
   const started=Date.now();
   try{
     const [helperCsv,archiveEventsCsv,currentEventsCsv,registryResult]=await Promise.all([
-      privateSheets.readValuesCsv({sheetId:crmSheetId,range:'_Rental_Dashboard_Data!A1:O1000',env}),
-      privateSheets.readValuesCsv({sheetId:crmSheetId,range:'13_Event_Archive!A1:Z1000',env}),
-      fetchCsv(coreSheetId,'01_Events','A4:Z1000'),
-      fetchCsv(trackerId,'_Artist_Registry','A1:E1000').then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:''}))
+      privateSheets.readValuesCsv({sheetId:crmSheetId,range:'_Rental_Dashboard_Data!A1:O',env}),
+      privateSheets.readValuesCsv({sheetId:crmSheetId,range:'13_Event_Archive!A1:Z',env}),
+      fetchCsv(coreSheetId,'01_Events','A4:Z'),
+      fetchCsv(trackerId,'_Artist_Registry','A1:E').then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:''}))
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
     const meta=eventMetadata(currentEventsCsv,archiveEventsCsv,registryRules);
