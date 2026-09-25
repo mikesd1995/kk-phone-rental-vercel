@@ -964,6 +964,23 @@
     }
     if(inheritBtn) inheritBtn.disabled=info.kind==="none";
   }
+  function renderEventVisibilityControl(eventId){
+    const form=$("#eventPriceOverrideForm");
+    const btn=$("#eventVisibilityToggleBtn");
+    if(!form || !btn) return;
+    const event=findEventById(eventId);
+    if(!event){
+      btn.disabled=true;
+      btn.textContent="เลือกงานก่อน";
+      btn.className="btn danger-soft";
+      return;
+    }
+    const hidden=event.active_on_web===false;
+    btn.disabled=false;
+    btn.textContent=hidden ? "เปิดงานบนหน้าบ้าน" : "ซ่อนงานจากหน้าบ้าน";
+    btn.className=hidden ? "btn secondary" : "btn danger-soft";
+    btn.dataset.nextActive=hidden ? "true" : "false";
+  }
   function templateIdFromWebPackage(wp){
     const pkgId=String(wp && wp.package_id || '').trim();
     const eventId=String(wp && wp.event_id || '').trim();
@@ -1086,6 +1103,7 @@
     form.elements.sort_order_override.value=o ? (o.sort_order_override||"") : "";
     form.elements.use_case_override.value=o ? (o.use_case_override||"") : "";
     renderEventPackageVisibilityStatus(eventId);
+    renderEventVisibilityControl(eventId);
   }
 
   function activeMasterPackages(){
@@ -1182,16 +1200,9 @@
     if(!form || !state.data) return;
     const eventId=form.elements.event_id && form.elements.event_id.value;
     const e=findEventById(eventId);
-    const toggle=$("#eventVisibilityToggleBtn");
     const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
     if(!e){
       ["event_name","event_date","venue","poster_url","status","active_on_web","note"].forEach(k=>set(k,""));
-      if(toggle){
-        toggle.disabled=true;
-        toggle.textContent="เลือกงานก่อน";
-        toggle.className="btn danger-soft";
-        toggle.dataset.nextActive="";
-      }
       return;
     }
     set("event_name", e.event_name || "");
@@ -1201,13 +1212,6 @@
     set("status", String(e.status||"").toLowerCase() || "open");
     set("active_on_web", e.active_on_web===false ? "false" : "true");
     set("note", e.note || "");
-    if(toggle){
-      const hidden=e.active_on_web===false;
-      toggle.disabled=false;
-      toggle.textContent=hidden ? "เปิดงานบนหน้าบ้าน" : "ซ่อนงานจากหน้าบ้าน";
-      toggle.className=hidden ? "btn secondary" : "btn danger-soft";
-      toggle.dataset.nextActive=hidden ? "true" : "false";
-    }
   }
 
   function populatePackageUpdateForm(){
@@ -1583,7 +1587,7 @@
         // Booking: show only current/upcoming open events that still have bookable packages.
         .filter(e=>!isBooking || (isActiveEvent(e) && isTodayOrFuture(e.event_date) && eventHasBookablePackage(e.event_id)))
         // Price override: show only current/upcoming open events, not past/closed/draft events.
-        .filter(e=>!isOverride || (isActiveEvent(e) && isTodayOrFuture(e.event_date)))
+        .filter(e=>!isOverride || (isEventOpen(e) && isTodayOrFuture(e.event_date)))
         // Edit Event: show only current/upcoming open events to prevent accidental edits on past events.
         .filter(e=>!isEditEvent || (isEventOpen(e) && isTodayOrFuture(e.event_date)))
         .filter(e=>(isBooking||isOverride||isEditEvent) || String(e.status||"").toLowerCase().trim()!=="closed")
@@ -1599,7 +1603,8 @@
               (info.kind==="mixed" ? ` · 🟡 ซ่อน ${info.hidden}/${info.total}` :
                 (info.kind==="visible" ? " · 🔴 ยังแสดง" : " · ⚪ ไม่มี Web Package"));
           }
-          return opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}${packageMarker}${isEditEvent && e.active_on_web===false ? " · ซ่อนเว็บ" : ""}`);
+          const eventMarker=isOverride ? (e.active_on_web===false ? " · ⛔ การ์ดซ่อน" : " · 👁 การ์ดแสดง") : "";
+          return opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}${packageMarker}${eventMarker}${isEditEvent && e.active_on_web===false ? " · ซ่อนเว็บ" : ""}`);
         }).join('');
       if(current && rows.some(e=>String(e.event_id)===String(current))) sel.value=current;
     });
@@ -2384,7 +2389,28 @@
         catch(e){ showNotice(e.message,"bad"); } finally{ setBusy(btn,false); }
       });
 
-      $$("[data-bulk-event-visibility]", overrideForm).forEach(btn=>{
+      const eventVisibilityBtn=$("#eventVisibilityToggleBtn");
+      if(eventVisibilityBtn) eventVisibilityBtn.addEventListener("click",async()=>{
+        const eventId=String(overrideForm.elements.event_id && overrideForm.elements.event_id.value || "").trim();
+        if(!eventId) return showNotice("กรุณาเลือกงานก่อน","warn");
+        const event=findEventById(eventId);
+        if(!event) return showNotice("ไม่พบข้อมูลงาน กรุณา Refresh แล้วลองใหม่","bad");
+        const nextActive=event.active_on_web===false;
+        const actionText=nextActive ? "เปิดงานบนหน้าบ้าน" : "ซ่อนงานจากหน้าบ้าน";
+        const detail=nextActive
+          ? "การ์ดงานจะกลับมาแสดง โดยสถานะแพ็กเกจยังคงเดิม"
+          : "การ์ดงานจะหายจากหน้าบ้านทั้งหมด แต่ Package, ราคา, Booking และ Stock จะไม่ถูกลบหรือแก้";
+        if(!window.confirm(`${actionText}\nงาน: ${event.event_name||eventId}\n\n${detail}`)) return;
+        setBusy(eventVisibilityBtn,true);
+        try{
+          await api("updateEvent",{event_id:eventId,active_on_web:nextActive});
+          await refresh();
+          showNotice(actionText+"สำเร็จ");
+        }catch(e){showNotice(e.message,"bad");}
+        finally{setBusy(eventVisibilityBtn,false);}
+      });
+
+      $("[data-bulk-event-visibility]", overrideForm).forEach(btn=>{
         btn.addEventListener("click",async()=>{
           const eventId=String(overrideForm.elements.event_id && overrideForm.elements.event_id.value || "").trim();
           if(!eventId) return showNotice("กรุณาเลือกงานก่อนจัดการแพ็กเกจทั้งงาน","warn");
@@ -2467,26 +2493,6 @@
         }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);}
       });
 
-      const visibilityBtn=$("#eventVisibilityToggleBtn");
-      if(visibilityBtn) visibilityBtn.addEventListener("click",async()=>{
-        const eventId=String(eventUpdateForm.elements.event_id && eventUpdateForm.elements.event_id.value || "").trim();
-        if(!eventId) return showNotice("กรุณาเลือกงานก่อน","warn");
-        const event=findEventById(eventId);
-        if(!event) return showNotice("ไม่พบข้อมูลงาน กรุณา Refresh แล้วลองใหม่","bad");
-        const nextActive=event.active_on_web===false;
-        const actionText=nextActive ? "เปิดงานบนหน้าบ้าน" : "ซ่อนงานจากหน้าบ้าน";
-        const detail=nextActive
-          ? "การ์ดงานจะกลับมาแสดงตามสถานะคิวและแพ็กเกจปัจจุบัน"
-          : "การ์ดงานจะหายจากหน้าบ้าน แต่ข้อมูล Event, ราคา Package, Booking และ Stock จะไม่ถูกลบหรือแก้";
-        if(!window.confirm(`${actionText}\nงาน: ${event.event_name||eventId}\n\n${detail}`)) return;
-        setBusy(visibilityBtn,true);
-        try{
-          await api("updateEvent",{event_id:eventId,active_on_web:nextActive});
-          await refresh();
-          showNotice(actionText+"สำเร็จ");
-        }catch(e){showNotice(e.message,"bad");}
-        finally{setBusy(visibilityBtn,false);}
-      });
     }
     const packageForm=$("#packageForm");
     if(packageForm) packageForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("createPackage",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่มแพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
