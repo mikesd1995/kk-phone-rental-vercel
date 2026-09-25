@@ -414,15 +414,6 @@
                 <label>สถานะ <select name="status"><option value="">ไม่เปลี่ยน</option><option value="open">open</option><option value="closed">closed</option></select></label>
                 <label>โชว์บนเว็บ <select name="active_on_web"><option value="">ไม่เปลี่ยน</option><option value="true">TRUE</option><option value="false">FALSE</option></select></label>
               </div>
-              <div class="bulk-visibility-box" aria-label="จัดการการแสดงงานบนหน้าบ้าน">
-                <div>
-                  <strong>การแสดงงานบนหน้าบ้าน</strong>
-                  <small>ซ่อนเฉพาะการ์ดงาน โดยไม่ลบงาน ไม่เปลี่ยนราคา Package และไม่แตะ Booking/Stock · งานที่ซ่อนยังเลือกกลับมาเปิดได้จากหน้านี้</small>
-                </div>
-                <div class="bulk-visibility-actions">
-                  <button class="btn danger-soft" type="button" id="eventVisibilityToggleBtn" disabled>เลือกงานก่อน</button>
-                </div>
-              </div>
               <label>Note ใหม่ <textarea name="note" rows="3"></textarea></label>
               <button class="btn secondary" type="submit">บันทึกการแก้ไข</button>
             </form>
@@ -464,12 +455,13 @@
                 <span class="pill">⚪ เลือกงานก่อน</span>
                 <small>ระบบจะเช็กจากแพ็กเกจที่ลูกค้าเห็นจริงบนหน้าบ้าน</small>
               </div>
-              <div class="bulk-visibility-box" aria-label="จัดการการแสดงแพ็กเกจทั้งงาน">
+              <div class="bulk-visibility-box" aria-label="จัดการการแสดงงานและแพ็กเกจบนหน้าบ้าน">
                 <div>
-                  <strong>จัดการแพ็กเกจทั้งงาน</strong>
-                  <small>ซ่อนหรือเปิดทุกแพ็กเกจของงานที่เลือกได้ในครั้งเดียว โดยราคาและข้อความเฉพาะงานเดิมจะไม่ถูกลบ · ถ้าซ่อนทั้งหมด การ์ดงานยังอยู่เพื่อรับจองคิวหลุด</small>
+                  <strong>จัดการหน้าบ้านของงานนี้</strong>
+                  <small><b>ซ่อนงาน</b> = การ์ดงานหายจากหน้าบ้าน · <b>ซ่อนแพ็กเกจ</b> = ซ่อนตัวเลือกแพ็กเกจ แต่การ์ดงานยังอยู่ในสถานะคิวเต็มเพื่อรับจองคิวหลุด</small>
                 </div>
                 <div class="bulk-visibility-actions">
+                  <button class="btn danger-soft" type="button" id="eventVisibilityToggleBtn" disabled>เลือกงานก่อน</button>
                   <button class="btn danger-soft" type="button" data-bulk-event-visibility="hide">ซ่อนทุกแพ็กเกจ</button>
                   <button class="btn secondary" type="button" data-bulk-event-visibility="show">เปิดทุกแพ็กเกจ</button>
                   <button class="btn ghost" type="button" data-bulk-event-visibility="inherit">ใช้สถานะจากแพ็กเกจหลัก</button>
@@ -745,6 +737,6 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=package-visibility-smart-v1-20260925"></script>
+  <script src="/admin/admin.js?v=visibility-control-center-v1-20260925"></script>
 </body>
 </html>
