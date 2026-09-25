@@ -103,8 +103,8 @@ test('lazy fallback does not start timeout chain until image approaches viewport
 test('storefront renders first six posters eagerly and defers timeout chain for later cards',()=>{
   assert.match(source,/img\.loading=idx<6\?"eager":"lazy"/);
   assert.match(source,/firstPoster=vis\[0\].*imgThumb\[0\]/);
-  assert.match(source,/if\(idx<6\)[\s\S]*setImgFallback\(img,imgCandidates,\{timeoutMs:4000\}\)/);
-  assert.match(source,/setImgFallbackWhenVisible\(img,imgCandidates,\{timeoutMs:6000,rootMargin:"600px 0px"\}\)/);
+  assert.match(source,/if\(idx<6\)[\s\S]*setImgFallback\(img,imgCandidates,\{timeoutMs:4000,onExhausted:posterFailure\}\)/);
+  assert.match(source,/setImgFallbackWhenVisible\(img,imgCandidates,\{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure\}\)/);
 });
 
 
