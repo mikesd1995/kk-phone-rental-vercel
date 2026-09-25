@@ -755,6 +755,25 @@ function dedupePackageRows(pkgRows){
   return out;
 }
 
+// Apply the same last-occurrence rule to event feed rows. This keeps stale/manual
+// output from rendering duplicate event cards when a later generated row exists.
+function dedupeWebRowsByEventId(webRows){
+  var rows=Array.isArray(webRows)?webRows:[];
+  var seen=Object.create(null);
+  var out=[];
+  for(var i=rows.length-1;i>=0;i--){
+    var r=rows[i]||{};
+    var id=String(r.event_id||"").trim();
+    if(id){
+      if(seen[id])continue;
+      seen[id]=true;
+    }
+    out.push(r);
+  }
+  out.reverse();
+  return out;
+}
+
 // ─── FIX 1: buildPackagesFromSheet — ใช้ available_count จาก 09_Web_Packages จริง ─
 function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
   // phoneCnt + lensCnt มาจาก 08_Web_Ready G/H; package count มาจาก 09_Web_Packages I
@@ -861,7 +880,7 @@ async function loadData(){
     if(isPkgVisible(p))pkgMap[id].push(p);
   });
 
-  var rows=webRows.filter(function(r){ var a=String(r.action_for_web||"").trim().toLowerCase(); return a&&a!=="hide"; });
+  var rows=dedupeWebRowsByEventId(webRows).filter(function(r){ var a=String(r.action_for_web||"").trim().toLowerCase(); return a&&a!=="hide"; });
 
   return rows.map(function(r){
     var eventId    = String(r.event_id||"").trim();
