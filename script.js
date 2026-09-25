@@ -735,10 +735,30 @@ function packagePublicSubtitle(p){
   return "";
 }
 
+// Generated web-package feeds must remain one-row-per-package_id for rendering.
+// If an upstream recovery temporarily leaves duplicate IDs, keep the last occurrence:
+// 09_Web_Packages generators materialize their authoritative output after older/manual rows.
+function dedupePackageRows(pkgRows){
+  var rows=Array.isArray(pkgRows)?pkgRows:[];
+  var seen=Object.create(null);
+  var out=[];
+  for(var i=rows.length-1;i>=0;i--){
+    var p=rows[i]||{};
+    var id=String(p.package_id||"").trim();
+    if(id){
+      if(seen[id])continue;
+      seen[id]=true;
+    }
+    out.push(p);
+  }
+  out.reverse();
+  return out;
+}
+
 // ─── FIX 1: buildPackagesFromSheet — ใช้ available_count จาก 09_Web_Packages จริง ─
 function buildPackagesFromSheet(pkgRows, eventId, phoneCnt, lensCnt){
   // phoneCnt + lensCnt มาจาก 08_Web_Ready G/H; package count มาจาก 09_Web_Packages I
-  var evtPkgs=(pkgRows||[]).filter(function(p){
+  var evtPkgs=dedupePackageRows(pkgRows).filter(function(p){
     var rowEvent = String(p.event_id||"").trim();
     return (!rowEvent || rowEvent===String(eventId||"").trim()) && isPkgVisible(p);
   });
