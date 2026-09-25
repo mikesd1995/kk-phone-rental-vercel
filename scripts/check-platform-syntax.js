@@ -14,4 +14,8 @@ function walk(root) {
 }
 walk(path.join(__dirname, '..', 'platform'));
 walk(path.join(__dirname, '..', 'tests', 'platform'));
+for (const name of ['run-kk-ops-public.js','run-kk-ops-advisory.js']) {
+  const result=spawnSync(process.execPath,['--check',path.join(__dirname,name)],{stdio:'inherit',shell:false});
+  if(result.error||result.status!==0)process.exit(1);
+}
 console.log('Phase-0 syntax validation complete');

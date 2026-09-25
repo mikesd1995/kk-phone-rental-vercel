@@ -20,7 +20,9 @@
     "hf:assist:dry-run": "node scripts/hf-event-assist-dry-run.js",
     "check:platform": "node scripts/check-platform-syntax.js",
     "test:platform": "node --test tests/platform/*.test.js",
-    "ops:readonly": "node scripts/run-kk-ops-readonly.js"
+    "ops:readonly": "node scripts/run-kk-ops-readonly.js",
+    "ops:public": "node scripts/run-kk-ops-public.js",
+    "ops:advisory": "node scripts/run-kk-ops-advisory.js"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"
