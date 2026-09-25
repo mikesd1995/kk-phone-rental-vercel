@@ -1130,9 +1130,16 @@
     if(!form || !state.data) return;
     const eventId=form.elements.event_id && form.elements.event_id.value;
     const e=findEventById(eventId);
+    const toggle=$("#eventVisibilityToggleBtn");
     const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
     if(!e){
       ["event_name","event_date","venue","poster_url","status","active_on_web","note"].forEach(k=>set(k,""));
+      if(toggle){
+        toggle.disabled=true;
+        toggle.textContent="เลือกงานก่อน";
+        toggle.className="btn danger-soft";
+        toggle.dataset.nextActive="";
+      }
       return;
     }
     set("event_name", e.event_name || "");
@@ -1142,6 +1149,13 @@
     set("status", String(e.status||"").toLowerCase() || "open");
     set("active_on_web", e.active_on_web===false ? "false" : "true");
     set("note", e.note || "");
+    if(toggle){
+      const hidden=e.active_on_web===false;
+      toggle.disabled=false;
+      toggle.textContent=hidden ? "เปิดงานบนหน้าบ้าน" : "ซ่อนงานจากหน้าบ้าน";
+      toggle.className=hidden ? "btn secondary" : "btn danger-soft";
+      toggle.dataset.nextActive=hidden ? "true" : "false";
+    }
   }
 
   function populatePackageUpdateForm(){
@@ -1519,13 +1533,13 @@
         // Price override: show only current/upcoming open events, not past/closed/draft events.
         .filter(e=>!isOverride || (isActiveEvent(e) && isTodayOrFuture(e.event_date)))
         // Edit Event: show only current/upcoming open events to prevent accidental edits on past events.
-        .filter(e=>!isEditEvent || (isActiveEvent(e) && isTodayOrFuture(e.event_date)))
+        .filter(e=>!isEditEvent || (isEventOpen(e) && isTodayOrFuture(e.event_date)))
         .filter(e=>(isBooking||isOverride||isEditEvent) || String(e.status||"").toLowerCase().trim()!=="closed")
         .sort(compareEventsByDateAsc);
       const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : (isOverride ? "เลือกงานวันนี้/อนาคต" : (isEditEvent ? "เลือกงานวันนี้/อนาคต" : "เลือกงาน"));
       const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : (isOverride ? "ไม่มีงานวันนี้/อนาคตให้แก้ราคา" : (isEditEvent ? "ไม่มีงานวันนี้/อนาคตให้แก้ไข" : placeholder));
       sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+
-        rows.map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}`)).join('');
+        rows.map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}${isEditEvent && e.active_on_web===false ? " · ซ่อนเว็บ" : ""}`)).join('');
       if(current && rows.some(e=>String(e.event_id)===String(current))) sel.value=current;
     });
     $$('select[data-source="packages"]').forEach(sel=>{
@@ -2365,22 +2379,45 @@
     if(eventForm) eventForm.addEventListener("reset",()=>setTimeout(updateCreateEventPriceUi,0));
 
     const eventUpdateForm=$("#eventUpdateForm");
-    if(eventUpdateForm) eventUpdateForm.addEventListener("submit",async ev=>{
-      ev.preventDefault();
-      const p=formData(ev.target);
-      if(p.event_name && !confirmEventNameLint(p.event_name)) return;
-      const btn=ev.submitter; setBusy(btn,true);
-      try{
-        if(p.poster_url) p.poster_url=normalizePosterUrl(p.poster_url);
-        const uploaded=await uploadPosterFromInput("#updatePosterFile", ev.target);
-        if(uploaded) p.poster_url=uploaded;
-        const res=await api("updateEvent",p);
-        if($("#updatePosterFile")) $("#updatePosterFile").value="";
-        await refresh();
-        showNotice("แก้งานสำเร็จ" + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : "") + posterWarningText(res));
-        state.posterWarning = "";
-      }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);}
-    });
+    if(eventUpdateForm){
+      eventUpdateForm.addEventListener("submit",async ev=>{
+        ev.preventDefault();
+        const p=formData(ev.target);
+        if(p.event_name && !confirmEventNameLint(p.event_name)) return;
+        const btn=ev.submitter; setBusy(btn,true);
+        try{
+          if(p.poster_url) p.poster_url=normalizePosterUrl(p.poster_url);
+          const uploaded=await uploadPosterFromInput("#updatePosterFile", ev.target);
+          if(uploaded) p.poster_url=uploaded;
+          const res=await api("updateEvent",p);
+          if($("#updatePosterFile")) $("#updatePosterFile").value="";
+          await refresh();
+          showNotice("แก้งานสำเร็จ" + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : "") + posterWarningText(res));
+          state.posterWarning = "";
+        }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);}
+      });
+
+      const visibilityBtn=$("#eventVisibilityToggleBtn");
+      if(visibilityBtn) visibilityBtn.addEventListener("click",async()=>{
+        const eventId=String(eventUpdateForm.elements.event_id && eventUpdateForm.elements.event_id.value || "").trim();
+        if(!eventId) return showNotice("กรุณาเลือกงานก่อน","warn");
+        const event=findEventById(eventId);
+        if(!event) return showNotice("ไม่พบข้อมูลงาน กรุณา Refresh แล้วลองใหม่","bad");
+        const nextActive=event.active_on_web===false;
+        const actionText=nextActive ? "เปิดงานบนหน้าบ้าน" : "ซ่อนงานจากหน้าบ้าน";
+        const detail=nextActive
+          ? "การ์ดงานจะกลับมาแสดงตามสถานะคิวและแพ็กเกจปัจจุบัน"
+          : "การ์ดงานจะหายจากหน้าบ้าน แต่ข้อมูล Event, ราคา Package, Booking และ Stock จะไม่ถูกลบหรือแก้";
+        if(!window.confirm(`${actionText}\nงาน: ${event.event_name||eventId}\n\n${detail}`)) return;
+        setBusy(visibilityBtn,true);
+        try{
+          await api("updateEvent",{event_id:eventId,active_on_web:nextActive});
+          await refresh();
+          showNotice(actionText+"สำเร็จ");
+        }catch(e){showNotice(e.message,"bad");}
+        finally{setBusy(visibilityBtn,false);}
+      });
+    }
     const packageForm=$("#packageForm");
     if(packageForm) packageForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("createPackage",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่มแพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
     const packageUpdateForm=$("#packageUpdateForm");
