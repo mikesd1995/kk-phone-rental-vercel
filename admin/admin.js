@@ -1539,7 +1539,7 @@
       const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : (isOverride ? "เลือกงานวันนี้/อนาคต" : (isEditEvent ? "เลือกงานวันนี้/อนาคต" : "เลือกงาน"));
       const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : (isOverride ? "ไม่มีงานวันนี้/อนาคตให้แก้ราคา" : (isEditEvent ? "ไม่มีงานวันนี้/อนาคตให้แก้ไข" : placeholder));
       sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+
-        rows.map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}`)).join('');
+        rows.map(e=>opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}${isEditEvent && e.active_on_web===false ? " · ซ่อนเว็บ" : ""}`)).join('');
       if(current && rows.some(e=>String(e.event_id)===String(current))) sel.value=current;
     });
     $$('select[data-source="packages"]').forEach(sel=>{
