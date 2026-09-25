@@ -34,5 +34,5 @@ test('Bulk package buttons prevent redundant hide or show writes',()=>{
 test('Package visibility truth comes from storefront web package status',()=>{
   assert.match(js,/const rows=webPackagesForEvent\(id\)/);
   assert.match(js,/st==="hidden" \|\| st==="hide"/);
-  assert.match(html,/package-visibility-smart-v1-20260925/);
+  assert.match(html,/visibility-control-center-v1-20260925/);
 });
