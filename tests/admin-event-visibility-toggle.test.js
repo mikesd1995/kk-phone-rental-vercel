@@ -11,7 +11,7 @@ test('Admin exposes an explicit event storefront visibility toggle',()=>{
   assert.match(html,/id="eventVisibilityToggleBtn"/);
   assert.match(html,/ซ่อนเฉพาะการ์ดงาน/);
   assert.match(html,/งานที่ซ่อนยังเลือกกลับมาเปิดได้/);
-  assert.match(html,/admin\\.js\\?v=package-visibility-smart-v1-20260925/);
+  assert.match(html,/admin\.js\?v=package-visibility-smart-v1-20260925/);
 });
 
 test('Edit Event keeps hidden open future events selectable',()=>{
