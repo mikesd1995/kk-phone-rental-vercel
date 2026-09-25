@@ -891,9 +891,9 @@ async function loadData(){
 
     var hasPkgSheet = !!pkgPresence[eventId];
     var visiblePkgRows = pkgMap[eventId] || [];
-    var hiddenByPackages = hasPkgSheet && visiblePkgRows.length===0;
-    // Important: if package rows exist but every one is explicitly hidden, that is
-    // an owner/manual visibility decision. Do NOT fall back to event-level packages.
+    // Package visibility and event visibility are separate concerns.
+    // If every package is hidden, keep the event card online with zero bookable
+    // packages so the normal full/waitlist flow can still capture demand.
     var packages = hasPkgSheet
       ? buildPackagesFromSheet(visiblePkgRows, eventId, phoneCnt, lensCnt)
       : buildPackagesFromWebRow(r);
@@ -933,10 +933,9 @@ async function loadData(){
       action:       String(r.action_for_web||"show").trim().toLowerCase(),
       lineTemplate: String(r.line_message_template||"").trim(),
       packages:     packages,
-      hasPkgSheet:  hasPkgSheet,
-      hiddenByPackages: hiddenByPackages
+      hasPkgSheet:  hasPkgSheet
     };
-  }).filter(function(c){ return !c.hiddenByPackages; });
+  });
 }
 
 // ─── Concert logic ────────────────────────────────────────────────────────

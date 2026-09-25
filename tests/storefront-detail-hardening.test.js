@@ -72,11 +72,12 @@ test('internal event notes are filtered before rendering', () => {
 });
 
 
-test('all explicitly hidden package rows keep the event offline', () => {
+test('all explicitly hidden package rows keep the event online as waitlist', () => {
   assert.match(source, /var pkgMap=\{\}, pkgPresence=\{\};/);
   assert.match(source, /pkgPresence\[id\]=true;/);
   assert.match(source, /var hasPkgSheet = !!pkgPresence\[eventId\];/);
-  assert.match(source, /var hiddenByPackages = hasPkgSheet && visiblePkgRows\.length===0;/);
-  assert.match(source, /Do NOT fall back to event-level packages/);
-  assert.match(source, /\.filter\(function\(c\)\{ return !c\.hiddenByPackages; \}\);/);
+  assert.match(source, /Package visibility and event visibility are separate concerns/);
+  assert.doesNotMatch(source, /hiddenByPackages/);
+  assert.match(source, /if\(currentFilter==="full"\)\s+return vis\.filter\(function\(c\)\{return availCnt\(c\)===0;\}\);/);
+  assert.match(source, /window\.open\(getWaitlistUrl\(c,null\), "_blank", "noopener"\)/);
 });
