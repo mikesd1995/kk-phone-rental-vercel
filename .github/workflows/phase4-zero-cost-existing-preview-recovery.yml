@@ -1,0 +1,395 @@
+name: Phase 4 Zero Cost Existing Preview Recovery
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: kk-phase4-zero-cost-preview-promotion
+  cancel-in-progress: false
+
+jobs:
+  recover-production:
+    if: >-
+      ${{
+        github.event.issue.number == 213 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        startsWith(github.event.comment.body, '/run-phase4-zero-cost-promote ')
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+      VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+      PRODUCTION_URL: https://kk-phone-rental.vercel.app
+
+    steps:
+      - name: Parse and authorize exact recovery request
+        id: authz
+        shell: bash
+        env:
+          BODY: ${{ github.event.comment.body }}
+          LOGIN: ${{ github.event.comment.user.login }}
+          ASSOCIATION: ${{ github.event.comment.author_association }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          test "$LOGIN" = "$OWNER"
+          test "$ASSOCIATION" = "OWNER"
+          read -r CMD CANDIDATE_ID CANDIDATE_SHA APPROVED_SHA EXTRA <<<"$BODY"
+          test "$CMD" = "/run-phase4-zero-cost-promote"
+          test -z "${EXTRA:-}"
+          printf '%s' "$CANDIDATE_ID" | grep -Eq '^dpl_[A-Za-z0-9]+$'
+          printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$APPROVED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          echo "candidate_id=$CANDIDATE_ID" >> "$GITHUB_OUTPUT"
+          echo "candidate_sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
+          echo "approved_sha=$APPROVED_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact approved main
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.authz.outputs.approved_sha }}
+          fetch-depth: 0
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Require exact current main and runtime-tree equality
+        id: runtime
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ steps.authz.outputs.approved_sha }}
+          CANDIDATE_SHA: ${{ steps.authz.outputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$CURRENT_MAIN" = "$APPROVED_SHA"
+          git cat-file -e "$CANDIDATE_SHA^{commit}"
+          git diff --name-only "$CANDIDATE_SHA" "$APPROVED_SHA" -- .             ':(exclude)tests/**'             ':(exclude)docs/**'             ':(exclude).github/**'             > runtime-diff.txt
+          if [ -s runtime-diff.txt ]; then
+            echo "Runtime tree differs from the approved main:" >&2
+            cat runtime-diff.txt >&2
+            exit 1
+          fi
+          echo "runtime_equal=true" >> "$GITHUB_OUTPUT"
+
+      - name: Re-run source acceptance gates
+        run: |
+          set -euo pipefail
+          npm run check
+          npm test
+
+      - name: Require Vercel token without exposing it
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}"
+
+      - name: Install Vercel CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save vercel@latest >/dev/null
+          npx vercel --version
+
+      - name: Link project in ephemeral runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
+      - name: Inspect candidate and previous Production
+        id: deployment
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CANDIDATE_ID: ${{ steps.authz.outputs.candidate_id }}
+          CANDIDATE_SHA: ${{ steps.authz.outputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE' > deployment-check.json
+          const token=process.env.VERCEL_TOKEN;
+          const team=process.env.VERCEL_ORG_ID;
+          const project=process.env.VERCEL_PROJECT_ID;
+          const candidateId=process.env.CANDIDATE_ID;
+          const candidateSha=process.env.CANDIDATE_SHA;
+          const headers={Authorization:'Bearer '+token,Accept:'application/json'};
+          async function json(url){
+            const r=await fetch(url,{headers});
+            if(!r.ok) throw new Error('HTTP_'+r.status+' '+url);
+            return r.json();
+          }
+          const c=await json('https://api.vercel.com/v13/deployments/'+encodeURIComponent(candidateId)+'?teamId='+encodeURIComponent(team));
+          const cState=String(c.readyState||c.state||'').toUpperCase();
+          if(cState!=='READY') throw new Error('CANDIDATE_NOT_READY_'+cState);
+          if(String(c.projectId||c.project&&c.project.id||'')!==project) throw new Error('CANDIDATE_PROJECT_MISMATCH');
+          if(String(c.meta&&c.meta.githubCommitSha||'')!==candidateSha) throw new Error('CANDIDATE_SHA_MISMATCH');
+          if(String(c.target||'').toLowerCase()==='production') throw new Error('CANDIDATE_ALREADY_PRODUCTION');
+          const u=new URL('https://api.vercel.com/v6/deployments');
+          u.searchParams.set('projectId',project);
+          u.searchParams.set('target','production');
+          u.searchParams.set('limit','50');
+          u.searchParams.set('teamId',team);
+          const list=await json(u.toString());
+          const previous=(list.deployments||[])
+            .filter(d=>String(d.target||'').toLowerCase()==='production' && String(d.readyState||d.state||'').toUpperCase()==='READY')
+            .sort((a,b)=>Number(b.created||b.createdAt||0)-Number(a.created||a.createdAt||0))[0];
+          if(!previous) throw new Error('NO_READY_PRODUCTION');
+          const out={
+            candidate:{id:String(c.id||c.uid||''),url:String(c.url||''),sha:candidateSha,state:cState,ref:String(c.meta&&c.meta.githubCommitRef||'')},
+            previous:{id:String(previous.id||previous.uid||''),sha:String(previous.meta&&previous.meta.githubCommitSha||''),url:String(previous.url||'')}
+          };
+          process.stdout.write(JSON.stringify(out,null,2));
+          NODE
+          CANDIDATE_URL="$(node -e "const r=require('./deployment-check.json');process.stdout.write(r.candidate.url.startsWith('http')?r.candidate.url:'https://'+r.candidate.url)")"
+          PREVIOUS_ID="$(node -e "const r=require('./deployment-check.json');process.stdout.write(r.previous.id)")"
+          echo "candidate_url=$CANDIDATE_URL" >> "$GITHUB_OUTPUT"
+          echo "previous_id=$PREVIOUS_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Fail closed unless Preview and Production environment bindings are structurally identical
+        id: env_audit
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CANDIDATE_REF: seamless-ux-phase4-20260926
+        run: |
+          set -euo pipefail
+          node - <<'NODE' > env-target-audit.json
+          const token=process.env.VERCEL_TOKEN;
+          const team=process.env.VERCEL_ORG_ID;
+          const project=process.env.VERCEL_PROJECT_ID;
+          const branch=process.env.CANDIDATE_REF;
+          const u=new URL('https://api.vercel.com/v10/projects/'+encodeURIComponent(project)+'/env');
+          u.searchParams.set('teamId',team);
+          const res=await fetch(u,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});
+          if(!res.ok) throw new Error('ENV_LIST_HTTP_'+res.status);
+          const body=await res.json();
+          const envs=Array.isArray(body.envs)?body.envs:Array.isArray(body.data)?body.data:[];
+          const normalized=envs.map(e=>({
+            id:String(e.id||''),
+            key:String(e.key||''),
+            target:Array.isArray(e.target)?e.target.map(String):[String(e.target||'')].filter(Boolean),
+            gitBranch:String(e.gitBranch||'')
+          })).filter(e=>e.key);
+          const prodKeys=[...new Set(normalized.filter(e=>e.target.includes('production')).map(e=>e.key))].sort();
+          const unsafe=[];
+          const summary=[];
+          for(const key of prodKeys){
+            const entries=normalized.filter(e=>e.key===key && (e.target.includes('production')||e.target.includes('preview')));
+            const shared=entries.filter(e=>e.target.includes('production')&&e.target.includes('preview')&&!e.gitBranch);
+            const branchOverride=entries.filter(e=>e.target.includes('preview')&&e.gitBranch===branch);
+            const separate=entries.filter(e=>!(e.target.includes('production')&&e.target.includes('preview')) || !!e.gitBranch);
+            const safe=shared.length===1 && branchOverride.length===0 && separate.length===0;
+            summary.push({key,safe,targets:entries.map(e=>({target:e.target,gitBranch:e.gitBranch||null}))});
+            if(!safe) unsafe.push(key);
+          }
+          process.stdout.write(JSON.stringify({production_key_count:prodKeys.length,unsafe_keys:unsafe,keys:summary},null,2));
+          if(unsafe.length){
+            console.error('UNSAFE_ENV_TARGET_DRIFT:'+unsafe.join(','));
+            process.exit(2);
+          }
+          NODE
+          echo "env_structurally_equal=true" >> "$GITHUB_OUTPUT"
+
+      - name: Candidate read-only acceptance
+        id: candidate_accept
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CANDIDATE_URL: ${{ steps.deployment.outputs.candidate_url }}
+        run: |
+          set -euo pipefail
+          ROOT_STATUS="$(npx vercel curl "$CANDIDATE_URL/" --token="$VERCEL_TOKEN" -sS -o candidate-root.html -w '%{http_code}')"
+          AUTH_STATUS="$(npx vercel curl "$CANDIDATE_URL/api/kk-admin-auth" --token="$VERCEL_TOKEN" -sS -o candidate-auth.json -w '%{http_code}')"
+          ANALYTICS_STATUS="$(npx vercel curl "$CANDIDATE_URL/api/kk-rental-dashboard" --token="$VERCEL_TOKEN" -sS -o candidate-analytics.json -w '%{http_code}')"
+          DATA_STATUS="$(npx vercel curl "$CANDIDATE_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" --token="$VERCEL_TOKEN" -sS -o candidate-data.csv -w '%{http_code}')"
+          ADMIN_STATUS="$(npx vercel curl "$CANDIDATE_URL/admin" --token="$VERCEL_TOKEN" -sS -o candidate-admin.html -w '%{http_code}')"
+          test "$ROOT_STATUS" = "200"
+          test "$AUTH_STATUS" = "200"
+          test "$ANALYTICS_STATUS" = "401"
+          test "$DATA_STATUS" = "200"
+          test "$ADMIN_STATUS" = "200"
+          grep -q 'seamless-phase4-20260926' candidate-root.html
+          grep -q 'Admin' candidate-admin.html
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const auth=JSON.parse(fs.readFileSync('candidate-auth.json','utf8'));
+          const analytics=JSON.parse(fs.readFileSync('candidate-analytics.json','utf8'));
+          if(auth.ok!==true || auth.authenticated!==false) throw new Error('CANDIDATE_AUTH_SHAPE_MISMATCH');
+          if(analytics.ok!==false || analytics.error!=='Unauthorized') throw new Error('CANDIDATE_ANALYTICS_BOUNDARY_MISMATCH');
+          NODE
+
+          PROD_DATA_STATUS="$(curl -sS "$PRODUCTION_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" -o production-data.csv -w '%{http_code}')"
+          test "$PROD_DATA_STATUS" = "200"
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const crypto=require('node:crypto');
+          const clean=s=>String(s).replace(/\r\n/g,'\n').trim();
+          const a=clean(fs.readFileSync('candidate-data.csv','utf8'));
+          const b=clean(fs.readFileSync('production-data.csv','utf8'));
+          if(a!==b){
+            const ha=crypto.createHash('sha256').update(a).digest('hex');
+            const hb=crypto.createHash('sha256').update(b).digest('hex');
+            throw new Error('PUBLIC_DATA_PARITY_MISMATCH '+ha+' '+hb);
+          }
+          NODE
+          echo "candidate_accepted=true" >> "$GITHUB_OUTPUT"
+
+      - name: Final exact-main gate
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ steps.authz.outputs.approved_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT_MAIN="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$CURRENT_MAIN" = "$APPROVED_SHA"
+
+      - name: Promote existing accepted Preview without creating a deployment
+        id: promote
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CANDIDATE_ID: ${{ steps.authz.outputs.candidate_id }}
+        run: |
+          set -euo pipefail
+          CODE="$(curl -sS -o promote-response.json -w '%{http_code}'             -X POST             -H "Authorization: Bearer $VERCEL_TOKEN"             -H 'Content-Type: application/json'             "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/promote/$CANDIDATE_ID?teamId=$VERCEL_ORG_ID")"
+          case "$CODE" in 200|201|202) ;; *) echo "PROMOTE_HTTP_$CODE"; cat promote-response.json; exit 1;; esac
+          echo "promoted=true" >> "$GITHUB_OUTPUT"
+
+      - name: Verify live Phase 4; rollback on mismatch
+        id: live
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CANDIDATE_ID: ${{ steps.authz.outputs.candidate_id }}
+          PREVIOUS_ID: ${{ steps.deployment.outputs.previous_id }}
+        run: |
+          set -euo pipefail
+          rollback(){
+            echo "Acceptance failed; restoring previous Production deployment." >&2
+            CODE="$(curl -sS -o rollback-response.json -w '%{http_code}'               -X POST               -H "Authorization: Bearer $VERCEL_TOKEN"               -H 'Content-Type: application/json'               "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/promote/$PREVIOUS_ID?teamId=$VERCEL_ORG_ID" || true)"
+            case "$CODE" in 200|201|202) echo "rollback_requested=true" >> "$GITHUB_OUTPUT";; *) echo "ROLLBACK_PROMOTE_HTTP_$CODE" >&2;; esac
+          }
+          trap rollback ERR
+
+          OK=0
+          for i in $(seq 1 30); do
+            ROOT_STATUS="$(curl -sS "$PRODUCTION_URL/" -o live-root.html -w '%{http_code}' || true)"
+            AUTH_STATUS="$(curl -sS "$PRODUCTION_URL/api/kk-admin-auth" -o live-auth.json -w '%{http_code}' || true)"
+            ANALYTICS_STATUS="$(curl -sS "$PRODUCTION_URL/api/kk-rental-dashboard" -o live-analytics.json -w '%{http_code}' || true)"
+            if [ "$ROOT_STATUS" = "200" ] && [ "$AUTH_STATUS" = "200" ] && [ "$ANALYTICS_STATUS" = "401" ] && grep -q 'seamless-phase4-20260926' live-root.html; then
+              if node - <<'NODE'
+              const fs=require('node:fs');
+              try{
+                const auth=JSON.parse(fs.readFileSync('live-auth.json','utf8'));
+                const analytics=JSON.parse(fs.readFileSync('live-analytics.json','utf8'));
+                process.exit(auth.ok===true && auth.authenticated===false && analytics.ok===false && analytics.error==='Unauthorized' ? 0 : 1);
+              }catch(_){process.exit(1);}
+              NODE
+              then OK=1; break; fi
+            fi
+            sleep 4
+          done
+          test "$OK" = "1"
+
+          node - <<'NODE' > live-deployment.json
+          const token=process.env.VERCEL_TOKEN;
+          const team=process.env.VERCEL_ORG_ID;
+          const project=process.env.VERCEL_PROJECT_ID;
+          const candidate=process.env.CANDIDATE_ID;
+          const u=new URL('https://api.vercel.com/v6/deployments');
+          u.searchParams.set('projectId',project);
+          u.searchParams.set('target','production');
+          u.searchParams.set('limit','20');
+          u.searchParams.set('teamId',team);
+          const r=await fetch(u,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});
+          if(!r.ok) throw new Error('LIVE_DEPLOYMENT_LIST_HTTP_'+r.status);
+          const body=await r.json();
+          const hit=(body.deployments||[]).find(d=>String(d.id||d.uid||'')===candidate);
+          if(!hit) throw new Error('PROMOTED_PREVIEW_NOT_IN_PRODUCTION_LIST');
+          process.stdout.write(JSON.stringify({id:String(hit.id||hit.uid||''),state:String(hit.readyState||hit.state||''),sha:String(hit.meta&&hit.meta.githubCommitSha||'')},null,2));
+          NODE
+          trap - ERR
+          echo "live_verified=true" >> "$GITHUB_OUTPUT"
+
+      - name: Write secret-safe report
+        if: ${{ always() }}
+        shell: bash
+        env:
+          APPROVED_SHA: ${{ steps.authz.outputs.approved_sha }}
+          CANDIDATE_SHA: ${{ steps.authz.outputs.candidate_sha }}
+          CANDIDATE_ID: ${{ steps.authz.outputs.candidate_id }}
+          PREVIOUS_ID: ${{ steps.deployment.outputs.previous_id }}
+          RUNTIME_EQUAL: ${{ steps.runtime.outputs.runtime_equal }}
+          ENV_EQUAL: ${{ steps.env_audit.outputs.env_structurally_equal }}
+          CANDIDATE_ACCEPTED: ${{ steps.candidate_accept.outputs.candidate_accepted }}
+          PROMOTED: ${{ steps.promote.outputs.promoted }}
+          LIVE_VERIFIED: ${{ steps.live.outputs.live_verified }}
+          ROLLBACK: ${{ steps.live.outputs.rollback_requested }}
+        run: |
+          node - <<'NODE' > phase4-zero-cost-recovery.json
+          const report={
+            schema:'KK_PHASE4_ZERO_COST_EXISTING_PREVIEW_RECOVERY_V1',
+            checked_at:new Date().toISOString(),
+            approved_main_sha:process.env.APPROVED_SHA||'',
+            candidate:{id:process.env.CANDIDATE_ID||'',sha:process.env.CANDIDATE_SHA||''},
+            previous_production_id:process.env.PREVIOUS_ID||'',
+            runtime_tree_equal:process.env.RUNTIME_EQUAL==='true',
+            env_target_structure_equal:process.env.ENV_EQUAL==='true',
+            candidate_read_only_acceptance:process.env.CANDIDATE_ACCEPTED==='true',
+            promoted:process.env.PROMOTED==='true',
+            live_verified:process.env.LIVE_VERIFIED==='true',
+            rollback_requested:process.env.ROLLBACK==='true',
+            cost_strategy:'reuse_existing_ready_preview_no_new_deployment',
+            safety:{
+              new_vercel_deployment_created:false,
+              admin_pin_used:false,
+              sheet_business_writes:0,
+              apps_script_writes:0,
+              booking_price_stock_visibility_writes:0,
+              secret_values_logged:false
+            }
+          };
+          process.stdout.write(JSON.stringify(report,null,2));
+          NODE
+          cat phase4-zero-cost-recovery.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload secret-safe evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4-zero-cost-recovery-${{ github.run_id }}
+          path: |
+            runtime-diff.txt
+            deployment-check.json
+            env-target-audit.json
+            live-deployment.json
+            phase4-zero-cost-recovery.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Require accepted terminal state
+        if: ${{ always() }}
+        shell: bash
+        env:
+          PROMOTED: ${{ steps.promote.outputs.promoted }}
+          LIVE_VERIFIED: ${{ steps.live.outputs.live_verified }}
+          ROLLBACK: ${{ steps.live.outputs.rollback_requested }}
+        run: |
+          set -euo pipefail
+          test "$PROMOTED" = "true"
+          test "$LIVE_VERIFIED" = "true"
+          test "${ROLLBACK:-false}" != "true"
