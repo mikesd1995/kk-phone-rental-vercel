@@ -6,7 +6,9 @@ on:
     paths:
       - '.github/workflows/apps-script-timing-zero-write-readback.yml'
       - 'scripts/apps-script-timing-readback.js'
+      - 'scripts/vercel-production-env-read.js'
       - 'tests/apps-script-timing-readback.test.js'
+      - 'tests/vercel-production-env-read.test.js'
       - 'docs/APPS_SCRIPT_TIMING_ZERO_WRITE_READBACK_2026-09-27.md'
 
 permissions:
@@ -30,7 +32,7 @@ jobs:
           node-version: '20'
 
       - name: Regression for the zero-write probe
-        run: node --test tests/apps-script-timing-readback.test.js
+        run: node --test tests/apps-script-timing-readback.test.js tests/vercel-production-env-read.test.js
 
       - name: Require Vercel token without exposing it
         env:
@@ -51,12 +53,23 @@ jobs:
           test -f .vercel/.env.production.local
           chmod 600 .vercel/.env.production.local
 
+      - name: Retrieve decrypted Production values through read-only Vercel API
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/vercel-production-env-read.js /tmp/kk-apps-script-production.env > /tmp/vercel-env-safe-summary.json
+          test -s /tmp/kk-apps-script-production.env
+          chmod 600 /tmp/kk-apps-script-production.env
+          cat /tmp/vercel-env-safe-summary.json
+
       - name: Read Apps Script effective timing through phase1Health only
         id: probe
         shell: bash
         run: |
           set +e
-          node scripts/apps-script-timing-readback.js .vercel/.env.production.local > apps-script-timing-readback.json
+          node scripts/apps-script-timing-readback.js /tmp/kk-apps-script-production.env > apps-script-timing-readback.json
           CODE=$?
           set -e
           test -s apps-script-timing-readback.json
