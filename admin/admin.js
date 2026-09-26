@@ -5,8 +5,15 @@
   const EXPECTED_PROXY_VERSION = KKSnapshotHealth.VERSION;
   let snapshotState = { stale: false, checkedAt: null, goodAt: null, health: null, error: "" };
   const $ = (sel, root=document) => root.querySelector(sel);
-  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false };
+  const $ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  function safeSessionGet(key){
+    try{ return sessionStorage.getItem(key) || ""; }catch(_){ return ""; }
+  }
+  function safeSessionSet(key,value){
+    try{ sessionStorage.setItem(key,value); return true; }catch(_){ return false; }
+  }
+  const signedSession = typeof window!=="undefined" && window.KK_ADMIN_SIGNED_SESSION===true;
+  const state = { pin: safeSessionGet("kk_admin_pin") || (signedSession ? "__SESSION__" : ""), data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
     ["payment","ตามเงิน"], ["prep","เตรียม/ส่งมอบ"], ["return","รับคืน"], ["upload","อัปโหลด/ปิดงาน"], ["data","ข้อมูลผิด"], ["risk","เสี่ยง"]
@@ -2142,7 +2149,7 @@
     if(loginBtn) loginBtn.addEventListener("click", async()=>{
       if(state.pin!==$("#pinInput").value.trim()){ state.data=null; snapshotState.goodAt=null; }
       state.pin=$("#pinInput").value.trim(); if(!state.pin) return alert("กรุณากรอก PIN");
-      sessionStorage.setItem("kk_admin_pin",state.pin);
+      safeSessionSet("kk_admin_pin",state.pin);
       try{ await refresh(); updateUiLastRefresh(); $("#loginPanel").classList.add("hidden"); $("#appPanel").classList.remove("hidden"); showNotice("โหลดข้อมูลสำเร็จ"); }
       catch(e){ showNotice(e.message,"bad"); }
     });
@@ -2539,6 +2546,14 @@
   applyDensityMode();
   updateUiLastRefresh();
   bind();
+  // /admin/app is already authenticated by the signed HttpOnly cookie. The
+  // session bridge reveals the shell immediately; this fallback keeps bootstrap
+  // working even when browser sessionStorage is unavailable.
+  if(!state.pin && signedSession) state.pin="__SESSION__";
+  if(signedSession){
+    $("#loginPanel") && $("#loginPanel").classList.add("hidden");
+    $("#appPanel") && $("#appPanel").classList.remove("hidden");
+  }
   if(state.pin && $("#pinInput") && $("#loginBtn")){
     $("#pinInput").value=state.pin;
     // /admin/app is already protected by the signed server session. Reveal the
