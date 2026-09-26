@@ -12,7 +12,7 @@ test('Admin colocates event storefront visibility with package visibility contro
   assert.match(html,/จัดการหน้าบ้านของงานนี้/);
   assert.match(html,/<b>ซ่อนงาน<\/b> = การ์ดงานหายจากหน้าบ้าน/);
   assert.match(html,/<b>ซ่อนแพ็กเกจ<\/b> = ซ่อนตัวเลือกแพ็กเกจ/);
-  assert.match(html,/admin\.js\?v=smart-ops-v1-20260926/);
+  assert.match(html,/admin\.js\?v=hardening-v1-20260926/);
 });
 
 test('Hidden open future events remain selectable in Edit Event and Package Override',()=>{
