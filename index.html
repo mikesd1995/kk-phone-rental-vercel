@@ -77,10 +77,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=detail-hardening-phase2-20260922">
+<link rel="stylesheet" href="style.css?v=seamless-phase4-20260926">
 <link rel="stylesheet" href="/assets/kk-concert-blue-theme-20260922.css?v=20260922-ux2">
 </head>
 <body>
+<a class="skip-link" href="#event-browser">ข้ามไปดูงาน</a>
 <div class="wrap">
 <header>
   <div class="brand-image-card" id="brandImageCard">
@@ -93,6 +94,7 @@
   </div>
 </header>
 
+<main id="event-browser" tabindex="-1">
 <section class="value-box" aria-label="ขั้นตอนการจองผ่าน LINE OA">
   <p>เลือกงาน > ดูรุ่นที่ว่าง > ระบบพาไปจองผ่าน LINE OA กับแอดมิน</p>
   <p class="value-note">( หากไม่มีงานที่ต้องการสามารถสอบถามได้ใน LINE OA )</p>
@@ -108,6 +110,7 @@
   </div>
 </div>
 
+<div class="browse-controls-shell" aria-label="ค้นหาและกรองงาน">
 <div class="event-search-shell">
   <label class="event-search-wrap" for="event-search">
     <span class="sr-only">ค้นหางาน ศิลปิน หรือสถานที่</span>
@@ -131,6 +134,7 @@
     <button class="filter-clear-btn" id="clear-browse-btn" type="button" hidden>ล้างตัวกรอง</button>
   </div>
 </div>
+</div>
 
 <div class="sec-title"><span>เลือกงานที่ใช่ ไปถ่ายคนที่ชอบ ❤️</span></div>
 
@@ -142,6 +146,7 @@
   <svg viewBox="0 0 24 24" fill="white"><path d="M20 12.5c0-4.1-4-7.5-9-7.5S2 8.4 2 12.5c0 3.7 3.3 6.8 7.7 7.4.3.1.7.2.8.5s0 .7-.1 1v.1c-.1.3-.2.8.5.5 2.9-1.2 7.1-3.7 9.6-7.1.9-1 1.5-2.5 1.5-3.9z"/></svg>
   <span id="line-btn-label">ทัก LINE มาจองได้เลย 💚</span>
 </a>
+</main>
 
 <footer><div class="footer-brand">KK Phone Rental</div><div class="footer-tagline">เช่าเถอะ อยากให้ชัด ✨</div><div class="trust-note">จองง่าย คุยกับร้านโดยตรงผ่าน LINE</div></footer>
 </div>
