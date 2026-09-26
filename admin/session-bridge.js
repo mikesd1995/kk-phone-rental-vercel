@@ -8,9 +8,36 @@
   let sessionCheck=null;
   let redirecting=false;
 
+  // This script is injected only into an already-authenticated /admin/app
+  // response. Expose that fact in-memory so Admin bootstrap never depends on
+  // sessionStorage being available (Safari/iOS privacy modes can reject access).
+  window.KK_ADMIN_SIGNED_SESSION=true;
+
+  function revealAuthenticatedShell(){
+    const login=document.getElementById('loginPanel');
+    const app=document.getElementById('appPanel');
+    if(login){
+      login.classList.add('hidden');
+      login.setAttribute('aria-hidden','true');
+    }
+    if(app) app.classList.remove('hidden');
+  }
+
+  function showBootstrapFailure(){
+    const box=document.getElementById('snapshotStatus');
+    if(!box) return;
+    box.hidden=false;
+    box.className='card snapshot-status snapshot-bad';
+    box.textContent='Admin UI โหลดไม่ครบ แต่ session ยังเข้าได้ กรุณากด Refresh หน้านี้อีกครั้ง';
+  }
+
   // Never keep the real Admin PIN in browser storage. The legacy Admin UI only
   // needs a non-empty marker so it can run its existing post-load initialization.
   try{ sessionStorage.setItem('kk_admin_pin',SENTINEL); }catch(_){ }
+  revealAuthenticatedShell();
+
+  window.addEventListener('error',function(){ showBootstrapFailure(); });
+  window.addEventListener('unhandledrejection',function(){ showBootstrapFailure(); });
 
   function clearBrowserMarker(){
     try{ sessionStorage.removeItem('kk_admin_pin'); }catch(_){ }
