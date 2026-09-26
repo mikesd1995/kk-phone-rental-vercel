@@ -115,3 +115,12 @@ test('invalid Production Apps Script URL returns a secret-safe blocked report',a
     }
   );
 });
+
+
+test('Node dotenv parser handles escaped Vercel-compatible values',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'kk-node-env-'));
+  const envFile=path.join(dir,'.env.production.local');
+  fs.writeFileSync(envFile,'KK_ADMIN_SCRIPT_URL="https://script.google.com/macros/s/abc/exec"\nKK_ADMIN_API_KEY="k"\nGOOGLE_SHEET_ID="s"\n');
+  const env=R.parseEnvFile(envFile);
+  assert.equal(env.KK_ADMIN_SCRIPT_URL,'https://script.google.com/macros/s/abc/exec');
+});
