@@ -2192,6 +2192,7 @@
       {label:"Check",key:"check"},{label:"Status",render:r=>`<span class="pill ${String(r.status).toLowerCase().includes('ok')?'ok':String(r.status).toLowerCase().includes('check')?'bad':''}">${esc(r.status||'')}</span>`},{label:"Detail",key:"detail"},{label:"Note",key:"note"}
     ], health);
     renderSystemGuard();
+    renderOperationalAttention();
 
     if($("#customerStatsCount")) $("#customerStatsCount").textContent=customerHistory.length+" รายการ";
     table($("#customerStatsTable"),[
@@ -2517,7 +2518,13 @@
       setBusy(toggle,true);
       api("updateEvent",{event_id:id,active_on_web:next})
         .then(()=>refresh())
-        .then(()=>{ activateTab("packages",{scroll:false}); showNotice((next?"เปิด":"ซ่อน")+"การ์ดงานสำเร็จ"); })
+        .then(()=>{
+          activateTab("packages",{scroll:false});
+          showNotice((next?"เปิด":"ซ่อน")+"การ์ดงานสำเร็จ");
+          setAdminUndo(`${next?"เปิด":"ซ่อน"}การ์ดงานแล้ว · Undo ได้ 20 วินาที`,async()=>{
+            await api("updateEvent",{event_id:id,active_on_web:!next});
+          });
+        })
         .catch(e=>showNotice(e.message,"bad"))
         .finally(()=>setBusy(toggle,false));
     });
@@ -2686,6 +2693,8 @@
       });
     }
 
+    const undoBtn=$("#adminUndoBtn");
+    if(undoBtn) undoBtn.addEventListener("click",runAdminUndo);
     const systemGuardBtn=$("#runSystemGuardBtn");
     if(systemGuardBtn) systemGuardBtn.addEventListener("click",()=>runSystemGuard(systemGuardBtn));
     const copySystemGuardBtn=$("#copySystemGuardBtn");
@@ -2727,6 +2736,9 @@
           await api("updateEvent",{event_id:eventId,active_on_web:nextActive});
           await refresh();
           showNotice(actionText+"สำเร็จ");
+          setAdminUndo(actionText+"แล้ว · Undo ได้ 20 วินาที",async()=>{
+            await api("updateEvent",{event_id:eventId,active_on_web:!nextActive});
+          });
         }catch(e){showNotice(e.message,"bad");}
         finally{setBusy(eventVisibilityBtn,false);}
       });
@@ -2829,6 +2841,12 @@
       try{
         if(String(ev.target.elements.amount_received && ev.target.elements.amount_received.value || "").trim()==="") autofillBookingAmountFromPackage();
         const payload=formData(ev.target);
+        const leadRef=String(payload.lead_ref||"").trim().replace(/[^A-Za-z0-9_.:-]/g,"").slice(0,100);
+        delete payload.lead_ref;
+        if(leadRef){
+          const note=String(payload.booking_note||"").trim();
+          payload.booking_note=(note ? note+" " : "")+"[LEAD_REF:"+leadRef+"]";
+        }
         if(hasWebPackageSource()){
           if(!eventHasBookablePackage(payload.event_id)) throw new Error("งานนี้เต็มแล้วหรือไม่มีแพ็กเกจว่าง กรุณา Refresh แล้วเลือกงานใหม่");
           const okPkg=bookableWebPackagesForEvent(payload.event_id).some(p=>String(templateIdFromWebPackage(p))===String(payload.template_id));
@@ -2861,6 +2879,16 @@
     }
   }
 
+  window.addEventListener("error",()=>{
+    const id="ADM-"+Date.now().toString(36).toUpperCase();
+    window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;
+    showNotice(`Admin client error ${id} · ลอง Refresh หากหน้าจอทำงานไม่ครบ`,"bad");
+  });
+  window.addEventListener("unhandledrejection",()=>{
+    const id="ADM-"+Date.now().toString(36).toUpperCase();
+    window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;
+    showNotice(`Admin async error ${id} · ลอง Refresh หากหน้าจอทำงานไม่ครบ`,"bad");
+  });
   applyDensityMode();
   updateUiLastRefresh();
   bind();
