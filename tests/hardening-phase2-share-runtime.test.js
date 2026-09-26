@@ -21,7 +21,7 @@ test('event share page renders server-side social metadata and redirects humans'
   assert.match(html,/ATLAS: RISING UP CONCERT/);
   assert.match(html,/og:image[^>]+example\.com\/poster\.jpg/);
   assert.match(html,/twitter:card/);
-  assert.match(html,/location\.replace/);
+  assert.match(html,/http-equiv="refresh"/);
   assert.match(html,/\?event=EVT-20260927-ATLAS-RISING-UP-CONCERT/);
 });
 
