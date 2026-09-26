@@ -85,6 +85,55 @@ function sanitizePublicCsv(sheet, text) {
   };
 }
 
+function bangkokTodayISO(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(now);
+  const get = type => (parts.find(p => p.type === type) || {}).value || '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+function normalizePublicDate(value) {
+  const text = String(value || '').trim();
+  let m = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (m) {
+    let year = Number(m[3]);
+    if (year > 2500) year -= 543;
+    return `${String(year).padStart(4,'0')}-${String(Number(m[2])).padStart(2,'0')}-${String(Number(m[1])).padStart(2,'0')}`;
+  }
+  m = text.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  if (m) {
+    let year = Number(m[1]);
+    if (year > 2500) year -= 543;
+    return `${String(year).padStart(4,'0')}-${String(Number(m[2])).padStart(2,'0')}-${String(Number(m[3])).padStart(2,'0')}`;
+  }
+  return '';
+}
+
+function dateFromEventId(eventId) {
+  const m = String(eventId || '').match(/^EVT-(\d{4})(\d{2})(\d{2})-/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+
+function filterPastPublicCsv(sheet, text, options = {}) {
+  if (options.showPast) return {text: String(text || ''), dropped: 0};
+  const rows = parseCsvRows(text);
+  if (!rows.length) return {text: String(text || ''), dropped: 0};
+  const header = rows[0].map(v => String(v || '').trim().toLowerCase());
+  const eventIdIndex = header.indexOf('event_id');
+  const eventDateIndex = header.indexOf('event_date_text');
+  if (eventIdIndex < 0) return {text: String(text || ''), dropped: 0};
+  const today = bangkokTodayISO(options.now);
+  const body = rows.slice(1);
+  const kept = body.filter(row => {
+    let date = '';
+    if (sheet === '08_Web_Ready' && eventDateIndex >= 0) date = normalizePublicDate(row[eventDateIndex]);
+    if (!date) date = dateFromEventId(row[eventIdIndex]);
+    return !date || date >= today;
+  });
+  return {text: serializeCsvRows([rows[0], ...kept]), dropped: body.length - kept.length};
+}
+
 function csvHeaderLooksValid(sheet, text) {
   const firstLine = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/)[0] || '';
   const normalized = firstLine.toLowerCase();
@@ -150,6 +199,7 @@ module.exports = async function handler(req, res) {
 
   const sheet = Array.isArray(req.query && req.query.sheet) ? '' : String((req.query && req.query.sheet) || '').trim();
   const range = Array.isArray(req.query && req.query.range) ? '' : String((req.query && req.query.range) || '').trim();
+  const showPast = isTrue(Array.isArray(req.query && req.query.showPast) ? '' : (req.query && req.query.showPast));
   if (!ALLOWED[sheet] || !ALLOWED[sheet].has(range)) {
     return send(res, 400, 'Sheet/range not allowed');
   }
@@ -211,6 +261,11 @@ module.exports = async function handler(req, res) {
   if (sanitized.dropped > 0) {
     res.setHeader('X-KK-Public-Rows-Dropped', String(sanitized.dropped));
   }
+  const futureOnly = filterPastPublicCsv(sheet, text, {showPast});
+  text = futureOnly.text;
+  if (futureOnly.dropped > 0) {
+    res.setHeader('X-KK-Past-Rows-Dropped', String(futureOnly.dropped));
+  }
 
   res.setHeader('X-KK-Sheet-Source', source);
   if (sheet === '09_Web_Packages') {
@@ -226,6 +281,10 @@ module.exports._test = {
   parseCsvRows,
   serializeCsvRows,
   sanitizePublicCsv,
+  filterPastPublicCsv,
+  bangkokTodayISO,
+  normalizePublicDate,
+  dateFromEventId,
   csvHeaderLooksValid,
   privateReaderConfigured,
 };
