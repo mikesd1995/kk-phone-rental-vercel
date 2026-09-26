@@ -30,7 +30,7 @@ function safeConfigDiagnostics(env){
   const apiKey=String(env&&env.KK_ADMIN_API_KEY||'').trim();
   const sheetId=String(env&&env.GOOGLE_SHEET_ID||'').trim();
   let parsed=null;
-  try{parsed=new URL(rawUrl);}catch(_){}
+  try{ parsed=new URL(rawUrl); }catch(_){}
   let pathKind='unparseable';
   if(parsed){
     if(/^\/macros\/s\/[^/]+\/exec$/.test(parsed.pathname)) pathKind='canonical_exec';
@@ -39,7 +39,7 @@ function safeConfigDiagnostics(env){
     else pathKind='other';
   }
   let decoded=null;
-  try{decoded=new URL(decodeURIComponent(rawUrl));}catch(_){}
+  try{ decoded=new URL(decodeURIComponent(rawUrl)); }catch(_){}
   return {
     kk_admin_script_url_present:!!rawUrl,
     kk_admin_script_url_length:rawUrl.length,
@@ -48,8 +48,17 @@ function safeConfigDiagnostics(env){
     kk_admin_script_url_starts_https:/^https:/i.test(rawUrl),
     kk_admin_script_url_contains_scheme_separator:rawUrl.includes('://'),
     kk_admin_script_url_contains_whitespace:/\s/.test(rawUrl),
-    kk_admin_script_url_contains_backslash:rawUrl.includes('\\'),
-    kk_admin_script_url_contains_dollar:rawUrl.includes('
+    kk_admin_script_url_contains_backslash:rawUrl.includes(String.fromCharCode(92)),
+    kk_admin_script_url_contains_dollar:rawUrl.includes(String.fromCharCode(36)),
+    kk_admin_script_url_host:parsed?parsed.hostname:'',
+    kk_admin_script_url_path_kind:pathKind,
+    kk_admin_script_url_decode_once_host:decoded?decoded.hostname:'',
+    kk_admin_script_url_sha256:rawUrl?crypto.createHash('sha256').update(rawUrl).digest('hex'):'',
+    kk_admin_api_key_present:!!apiKey,
+    kk_admin_api_key_length:apiKey.length,
+    google_sheet_id_present:!!sheetId,
+    google_sheet_id_length:sheetId.length
+  };
 }
 
 function validateExecUrl(value){
