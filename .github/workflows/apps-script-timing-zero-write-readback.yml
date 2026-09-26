@@ -1,0 +1,105 @@
+name: Apps Script Timing Zero-Write Readback
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/apps-script-timing-zero-write-readback.yml'
+      - 'scripts/apps-script-timing-readback.js'
+      - 'tests/apps-script-timing-readback.test.js'
+      - 'docs/APPS_SCRIPT_TIMING_ZERO_WRITE_READBACK_2026-09-27.md'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+      VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Regression for the zero-write probe
+        run: node --test tests/apps-script-timing-readback.test.js
+
+      - name: Require Vercel token without exposing it
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}"
+
+      - name: Pull Production environment into ephemeral runner only
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm install --no-save vercel@latest >/dev/null
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+          npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN" >/tmp/vercel-pull.log 2>&1
+          test -f .vercel/.env.production.local
+          chmod 600 .vercel/.env.production.local
+
+      - name: Read Apps Script effective timing through phase1Health only
+        id: probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/apps-script-timing-readback.js .vercel/.env.production.local > apps-script-timing-readback.json
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('apps-script-timing-readback.json','utf8'));
+          if(r.safety.apps_script_writes!==0 || r.safety.sheet_business_writes!==0 || r.safety.trigger_mutations!==0 || r.safety.timezone_mutations!==0) throw new Error('ZERO_WRITE_BOUNDARY_VIOLATION');
+          if(r.timing.effective_utc_plus_7_verified!==true) throw new Error('UTC_PLUS_7_NOT_VERIFIED');
+          console.log('Apps Script effective offset verified:',r.timing.inferred_offset);
+          console.log('Named timezone explicitly exposed:',r.timing.named_timezone_explicitly_exposed);
+          console.log('Installed trigger readback exposed:',r.installed_triggers.readback_exposed_by_phase1_health);
+          NODE
+
+      - name: Publish secret-safe evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apps-script-timing-zero-write-readback-${{ github.run_id }}
+          path: apps-script-timing-readback.json
+          retention-days: 30
+
+      - name: Record secret-safe result on PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE' > /tmp/readback-comment.md
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('apps-script-timing-readback.json','utf8'));
+          const lines=[
+            '### Apps Script timing zero-write readback',
+            '',
+            '- Phase1 Health: **PASS**',
+            '- Backend/Sheet identity: **'+(r.phase1_health.frontend_backend_same_sheet?'MATCH':'MISMATCH')+'**',
+            '- Observed Apps Script effective UTC offset: **'+(r.timing.inferred_offset||'unknown')+'**',
+            '- Effective UTC+07:00 verified: **'+(r.timing.effective_utc_plus_7_verified?'YES':'NO')+'**',
+            '- Named Project timezone explicitly exposed by deployed read-only API: **'+(r.timing.named_timezone_explicitly_exposed?'YES':'NO')+'**',
+            '- Installed-trigger readback exposed by deployed read-only API: **'+(r.installed_triggers.readback_exposed_by_phase1_health?'YES':'NO')+'**',
+            '- `kkCleanupOldData30DaysAuto` directly verified: **'+(r.installed_triggers.cleanup_trigger_verified?'YES':'NO')+'**',
+            '',
+            'Safety: phase1Health only; Apps Script writes 0; Sheet business writes 0; trigger/timezone mutations 0; secret values are not included in the artifact/comment.',
+            '',
+            'Interpretation: UTC+07:00 can be empirically verified from the live Apps Script formatter. If the named timezone and trigger fields are not exposed, those two items remain fail-closed pending owner-authenticated Apps Script Project Settings/Triggers readback.'
+          ];
+          process.stdout.write(lines.join('\n'));
+          NODE
+          gh api "repos/$REPO/issues/$PR_NUMBER/comments" -f body="$(cat /tmp/readback-comment.md)" >/dev/null
