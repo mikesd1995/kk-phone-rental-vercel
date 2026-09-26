@@ -27,16 +27,24 @@ function bodyObject(req){
 }
 
 function queryValue(req,key){
-  if(req && req.query && Object.prototype.hasOwnProperty.call(req.query,key)){
-    const value=req.query[key];
-    return Array.isArray(value)?text(value[0]):text(value);
-  }
   try{
     const parsed=new URL(String(req&&req.url||'/'),'https://kk-local.invalid');
-    return text(parsed.searchParams.get(key));
-  }catch(_err){
-    return '';
-  }
+    const values=parsed.searchParams.getAll(key);
+    if(values.length>1) return '';
+    if(values.length===1) return text(values[0]);
+  }catch(_err){}
+
+  // Avoid Vercel's deprecated IncomingMessage.prototype query getter. A plain
+  // own query object remains supported for unit/local callers only.
+  try{
+    const desc=req&&Object.getOwnPropertyDescriptor(req,'query');
+    const query=desc&&Object.prototype.hasOwnProperty.call(desc,'value')?desc.value:null;
+    if(query&&typeof query==='object'&&Object.prototype.hasOwnProperty.call(query,key)){
+      const value=query[key];
+      return Array.isArray(value)?text(value[0]):text(value);
+    }
+  }catch(_err){}
+  return '';
 }
 
 function readinessSnapshot(env=process.env){
