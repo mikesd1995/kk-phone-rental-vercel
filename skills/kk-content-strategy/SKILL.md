@@ -61,6 +61,25 @@ Primary angles:
 
 event_theme, artist, fandom, seat_view, lens_need, problem_solution, convenience, trust.
 
+## Standard A — X direct-rental post order
+
+Use this as the default structure for KK Phone Rental rental posts on X:
+
+1. Brand: 📱 KK Phone Rental | #เช่ามือถือ
+2. Official/main event hashtag
+3. Event-specific hook from Content Agent
+4. Device + verified rental price
+5. Date / venue when useful
+6. Store benefits
+7. Booking CTA
+8. 3–5 strongest relevant reach hashtags
+
+Canonical order:
+
+**Brand → Event hashtag → Hook → Offer/price → Date/Venue → Benefits → Booking CTA → Reach hashtags**
+
+The hook must appear before the price block by default because the current strategy prioritizes stopping power and qualified organic reach before conversion detail. Date/venue follows the offer unless a specific event context makes earlier placement materially more useful. Do not change this order casually; deviations should be deliberate experiments and logged as such.
+
 ## X copy contract
 
 For direct rental posts:

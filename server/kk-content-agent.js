@@ -24,6 +24,8 @@ const CONTENT_ANGLES = Object.freeze([
 
 const COPY_CONTRACT = Object.freeze({
   brand_first_line: '📱 KK Phone Rental | #เช่ามือถือ',
+  direct_rental_layout: Object.freeze(['brand','event_hashtag','hook','offer','date_venue','benefits','booking_cta','reach_hashtags']),
+  direct_rental_layout_rule: 'Default X rental order is Brand → Event hashtag → Hook → Offer/price → Date/Venue → Benefits → Booking CTA → 3–5 relevant reach hashtags.',
   handoff_line: '📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน',
   file_storage_line: '☁️ Google Drive 30 วัน',
   booking_cta: '👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/',
@@ -253,6 +255,7 @@ function buildCreativePlan(input = {}, performanceRows = []) {
       'Useful/engagement content should lead with audience value. Add a rental mention only when it improves relevance.',
       'Direct rental copy is allowed only when readiness.commercial_ready is true.',
       'For a direct-rental X request, generate exactly three complete variants with different primary angles and different hook structures.',
+      'Use the Standard A direct-rental layout: Brand → Event hashtag → Hook → Offer/price → Date/Venue → Benefits → Booking CTA → reach hashtags.',
       'Do not make cosmetic rewrites: changing emoji, synonyms, or sentence order does not count as a distinct variant.',
       'Compare against anti_repeat_context.recent_posts and avoid repeated hooks, metaphors, sentence skeletons, and generic filler.',
       'All public copy requires owner review before publishing.'
@@ -278,6 +281,8 @@ function buildGenerationPrompt(plan) {
     `File storage line: ${plan.copy_contract.file_storage_line}`,
     `Booking CTA: ${plan.copy_contract.booking_cta}`,
     `Hashtag rule: ${plan.copy_contract.hashtag_rule}`,
+    `Direct-rental layout: ${JSON.stringify(plan.copy_contract.direct_rental_layout || [])}`,
+    `Direct-rental layout rule: ${plan.copy_contract.direct_rental_layout_rule || ''}`,
     `Event context: ${JSON.stringify(plan.event_context || {})}`,
     `Performance nudges: ${JSON.stringify(performanceNudges)}`,
     `Ideas: ${JSON.stringify(plan.creative_ideas)}`,
