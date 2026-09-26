@@ -2872,16 +2872,18 @@
     }
   }
 
-  window.addEventListener("error",()=>{
-    const id="ADM-"+Date.now().toString(36).toUpperCase();
-    window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;
-    showNotice(`Admin client error ${id} · ลอง Refresh หากหน้าจอทำงานไม่ครบ`,"bad");
-  });
-  window.addEventListener("unhandledrejection",()=>{
-    const id="ADM-"+Date.now().toString(36).toUpperCase();
-    window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;
-    showNotice(`Admin async error ${id} · ลอง Refresh หากหน้าจอทำงานไม่ครบ`,"bad");
-  });
+  if(typeof window!=="undefined" && window.addEventListener){
+    window.addEventListener("error",()=>{
+      const id="ADM-"+Date.now().toString(36).toUpperCase();
+      window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;
+      showNotice(`Admin client error ${id} · ลอง Refresh หากหน้าจอทำงานไม่ครบ`,"bad");
+    });
+    window.addEventListener("unhandledrejection",()=>{
+      const id="ADM-"+Date.now().toString(36).toUpperCase();
+      window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;
+      showNotice(`Admin async error ${id} · ลอง Refresh หากหน้าจอทำงานไม่ครบ`,"bad");
+    });
+  }
   applyDensityMode();
   updateUiLastRefresh();
   bind();
