@@ -23,11 +23,14 @@ test('server event-share HTML contains event social metadata',()=>{
   assert.equal(html.includes('http-equiv="refresh"'),true);
 });
 
-test('homepage contains Organization and Service structured data',()=>{
+test('homepage contains Organization, Service and visible FAQ structured data',()=>{
   const html=fs.readFileSync('index.html','utf8');
   assert.equal(html.includes('application/ld+json'),true);
   assert.equal(html.includes('"@type":"Organization"'),true);
   assert.equal(html.includes('"@type":"Service"'),true);
+  assert.equal(html.includes('"@type":"FAQPage"'),true);
+  assert.equal(html.includes('"name":"เช่ามือถือยังไง?"'),true);
+  assert.equal(html.includes('"name":"ไฟล์บน Google Drive เก็บไว้ได้กี่วัน?"'),true);
 });
 
 test('share CTA uses server event route',()=>{
