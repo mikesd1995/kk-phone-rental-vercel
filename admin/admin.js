@@ -1747,6 +1747,117 @@
       .slice()
       .sort((a,b)=>String(a.package_type||"").localeCompare(String(b.package_type||"")) || String(a.display_name||a.template_id).localeCompare(String(b.display_name||b.template_id),"th"));
   }
+  function eventBulkOverrideState(o){
+    const src=o||{};
+    const val=k=>src[k]===undefined || src[k]===null ? "" : String(src[k]);
+    return {
+      override_price:val("override_price"),
+      active_override:val("active_override"),
+      override_note:val("override_note"),
+      sort_order_override:val("sort_order_override"),
+      use_case_override:val("use_case_override")
+    };
+  }
+  function readEventBulkPriceRow(row){
+    let initial={};
+    try{ initial=JSON.parse(row.dataset.initialOverride||"{}")||{}; }catch(_){ initial={}; }
+    const get=f=>{ const el=row.querySelector(`[data-field="${f}"]`); return el ? String(el.value||"").trim() : ""; };
+    return {
+      template_id:String(row.dataset.templateId||"").trim(),
+      override_price:get("override_price"),
+      active_override:get("active_override"),
+      override_note:get("override_note"),
+      sort_order_override:String(initial.sort_order_override||""),
+      use_case_override:String(initial.use_case_override||"")
+    };
+  }
+  function collectEventBulkPriceChanges(){
+    return qsa("#bulkEventPriceOverrides .create-price-row").map(row=>{
+      const current=readEventBulkPriceRow(row);
+      let initial={};
+      try{ initial=JSON.parse(row.dataset.initialOverride||"{}")||{}; }catch(_){ initial={}; }
+      const changed=["override_price","active_override","override_note"].some(k=>String(current[k]||"")!==String(initial[k]||""));
+      return changed ? current : null;
+    }).filter(Boolean);
+  }
+  function updateEventBulkPriceUi(){
+    const form=$("#eventPriceOverrideForm");
+    const box=$("#bulkEventPriceOverrides");
+    const summary=$("#bulkEventPriceSummary");
+    const save=$("#saveBulkEventPrices");
+    const reset=$("#resetBulkEventPrices");
+    if(!form || !box) return;
+    const eventId=String(form.elements.event_id && form.elements.event_id.value || "").trim();
+    const rows=qsa("#bulkEventPriceOverrides .create-price-row");
+    const changes=collectEventBulkPriceChanges();
+    if(summary){
+      summary.textContent=!eventId
+        ? "เลือกงานก่อน แล้วแก้ราคาได้หลายแพ็กเกจในครั้งเดียว"
+        : (!rows.length ? "งานนี้ยังไม่มีแพ็กเกจหลักที่เปิดใช้งาน" : `พร้อมแก้ ${rows.length} แพ็กเกจ · เปลี่ยนแปลง ${changes.length} รายการ`);
+    }
+    if(save){
+      save.disabled=!eventId || changes.length===0;
+      save.textContent=changes.length ? `บันทึกทั้งหมด (${changes.length})` : "บันทึกทั้งหมด";
+    }
+    if(reset) reset.disabled=!eventId || changes.length===0;
+  }
+  function renderEventBulkPriceEditor(eventId){
+    const box=$("#bulkEventPriceOverrides");
+    if(!box || !state.data) return;
+    const id=String(eventId||"").trim();
+    box.dataset.eventId=id;
+    if(!id){
+      box.innerHTML='<div class="empty-state compact-empty">เลือกงานก่อนเพื่อโหลดราคาเฉพาะงานของทุกแพ็กเกจ</div>';
+      updateEventBulkPriceUi();
+      return;
+    }
+    const rows=activeMasterPackages();
+    if(!rows.length){
+      box.innerHTML='<div class="empty-state compact-empty">ยังไม่มีแพ็กเกจหลักที่เปิดใช้งาน กรุณาเพิ่มแพ็กเกจก่อน</div>';
+      updateEventBulkPriceUi();
+      return;
+    }
+    box.innerHTML=rows.map(p=>{
+      const tpl=String(p.template_id||"").trim();
+      const label=p.display_name||tpl;
+      const type=p.package_type||"package";
+      const standard=money(p.standard_price||0);
+      const current=eventBulkOverrideState(findOverride(id,tpl));
+      const initial=esc(JSON.stringify(current));
+      return `<div class="create-price-row compact" data-template-id="${esc(tpl)}" data-initial-override="${initial}">
+        <div class="create-price-meta">
+          <strong>${esc(label)}</strong>
+          <small>${esc(type)} · ราคาหลัก ${standard}฿</small>
+        </div>
+        <label class="mini-field"><span>ราคาเฉพาะงาน</span><input data-field="override_price" type="number" min="0" step="1" value="${esc(current.override_price)}" placeholder="${esc(p.standard_price||'1290')}" /></label>
+        <label class="mini-field"><span>สถานะ</span>
+          <select data-field="active_override">
+            <option value=""${current.active_override===""?" selected":""}>ใช้ค่าหลัก</option>
+            <option value="true"${current.active_override==="true"?" selected":""}>เปิดขาย</option>
+            <option value="false"${current.active_override==="false"?" selected":""}>ซ่อน</option>
+          </select>
+        </label>
+        <label class="mini-field note-field"><span>Note</span><input data-field="override_note" value="${esc(current.override_note)}" placeholder="โปร/เงื่อนไข" /></label>
+      </div>`;
+    }).join("");
+    qsa("#bulkEventPriceOverrides input, #bulkEventPriceOverrides select").forEach(el=>{
+      el.addEventListener("input",updateEventBulkPriceUi);
+      el.addEventListener("change",updateEventBulkPriceUi);
+    });
+    updateEventBulkPriceUi();
+  }
+  function restoreEventBulkPriceDraft(items){
+    (items||[]).forEach(item=>{
+      const row=qsa("#bulkEventPriceOverrides .create-price-row").find(r=>String(r.dataset.templateId||"")===String(item.template_id||""));
+      if(!row) return;
+      ["override_price","active_override","override_note"].forEach(k=>{
+        const el=row.querySelector(`[data-field="${k}"]`);
+        if(el) el.value=item[k]===undefined || item[k]===null ? "" : String(item[k]);
+      });
+    });
+    updateEventBulkPriceUi();
+  }
+
   function renderCreateEventPriceOverrides(){
     const box=$("#createEventPriceOverrides");
     if(!box) return;
@@ -2289,6 +2400,10 @@
     });
     populateBookingPackages();
     populateEventOverrideForm();
+    {
+      const bulkForm=$("#eventPriceOverrideForm");
+      renderEventBulkPriceEditor(bulkForm && bulkForm.elements.event_id ? bulkForm.elements.event_id.value : "");
+    }
     populateEventUpdateForm();
     populatePackageUpdateForm();
     populateBookingEditForm();
@@ -3247,13 +3362,61 @@
       // Only event/package selectors should reload the saved override.
       // Do NOT bind active_override here; otherwise selecting "เปิดขาย" / "ซ่อน"
       // immediately calls populateEventOverrideForm() and resets the user's choice back to the saved value.
-      [overrideForm.elements.event_id, overrideForm.elements.template_id].filter(Boolean).forEach(sel=>{
-        sel.addEventListener("change", populateEventOverrideForm);
+      if(overrideForm.elements.event_id) overrideForm.elements.event_id.addEventListener("change",()=>{
+        populateEventOverrideForm();
+        renderEventBulkPriceEditor(overrideForm.elements.event_id.value);
       });
+      if(overrideForm.elements.template_id) overrideForm.elements.template_id.addEventListener("change",populateEventOverrideForm);
       overrideForm.addEventListener("submit",async ev=>{
         ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
         try{ await api("upsertEventOverride",formData(ev.target)); markFormClean(ev.target); await refresh(); showNotice("บันทึกราคาเฉพาะงานสำเร็จ"); }
         catch(e){ showNotice(e.message,"bad"); } finally{ setBusy(btn,false); }
+      });
+
+      const bulkPriceSave=$("#saveBulkEventPrices");
+      if(bulkPriceSave) bulkPriceSave.addEventListener("click",async()=>{
+        const eventId=String(overrideForm.elements.event_id && overrideForm.elements.event_id.value || "").trim();
+        if(!eventId) return showNotice("กรุณาเลือกงานก่อน","warn");
+        const changes=collectEventBulkPriceChanges();
+        if(!changes.length) return showNotice("ยังไม่มีราคาที่เปลี่ยน","warn");
+        const event=findEventById(eventId);
+        if(!window.confirm(`บันทึกราคา/สถานะพร้อมกัน ${changes.length} แพ็กเกจ\nงาน: ${event ? (event.event_name||eventId) : eventId}\n\nระบบจะเขียนเฉพาะแพ็กเกจที่มีการเปลี่ยนแปลง`)) return;
+        setBusy(bulkPriceSave,true);
+        const failed=[];
+        let saved=0;
+        try{
+          for(const item of changes){
+            try{
+              await api("upsertEventOverride",Object.assign({event_id:eventId},item));
+              saved++;
+            }catch(err){
+              failed.push({item,error:err && err.message ? err.message : String(err)});
+            }
+          }
+          await refresh();
+          renderEventBulkPriceEditor(eventId);
+          if(failed.length){
+            restoreEventBulkPriceDraft(failed.map(x=>x.item));
+            const first=failed[0];
+            showNotice(`บันทึกได้ ${saved}/${changes.length} รายการ · เหลือ ${failed.length} รายการให้ลองใหม่${first ? " · "+first.error : ""}`,"bad");
+          }else{
+            showNotice(`บันทึกราคาหลายแพ็กเกจสำเร็จ ${saved} รายการ`);
+          }
+        }catch(e){
+          restoreEventBulkPriceDraft(changes);
+          showNotice(e.message||String(e),"bad");
+        }finally{
+          setBusy(bulkPriceSave,false);
+          updateEventBulkPriceUi();
+        }
+      });
+
+      const bulkPriceReset=$("#resetBulkEventPrices");
+      if(bulkPriceReset) bulkPriceReset.addEventListener("click",()=>{
+        const changes=collectEventBulkPriceChanges();
+        if(changes.length && !window.confirm(`ทิ้งการแก้ไข ${changes.length} รายการ แล้วคืนค่าที่บันทึกล่าสุดใช่ไหม?`)) return;
+        const eventId=String(overrideForm.elements.event_id && overrideForm.elements.event_id.value || "").trim();
+        renderEventBulkPriceEditor(eventId);
       });
 
       const eventVisibilityBtn=$("#eventVisibilityToggleBtn");
