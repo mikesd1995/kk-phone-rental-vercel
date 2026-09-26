@@ -64,7 +64,7 @@
     const box=$("#adminClientRecovery");
     if(box) box.classList.add("hidden");
   }
-  function healthAttentionRows(){
+  function rawHealthAttentionRows(){
     return (((state.data||{}).health)||[]).filter(r=>{
       const status=String(r.status||"").trim().toUpperCase();
       const check=String(r.check||"").trim();
@@ -73,6 +73,112 @@
       return true;
     });
   }
+  function healthSeverity(rows){
+    const statuses=(rows||[]).map(r=>String(r&&r.status||"").trim().toUpperCase());
+    if(statuses.includes("FAIL")) return "FAIL";
+    if(statuses.includes("WARN")) return "WARN";
+    return "CHECK";
+  }
+  function currentRentablePhoneCount(){
+    return (((state.data||{}).assets)||[]).filter(a=>{
+      const type=String(a&&a.asset_type||"").trim().toLowerCase();
+      const status=String(a&&a.status||"").trim().toLowerCase();
+      if(type!=="phone" || status==="inactive") return false;
+      if(a&&a.rentable===false) return false;
+      if(String(a&&a.rentable_setting||"").trim() && !["1","true","yes","on"].includes(String(a.rentable_setting).trim().toLowerCase())) return false;
+      return ["available","ready"].includes(status) || a&&a.rentable===true;
+    }).length;
+  }
+  function healthTriageRows(){
+    const raw=rawHealthAttentionRows();
+    const used=new Set();
+    const out=[];
+    const normalized=r=>String(r&&r.check||"").trim().toLowerCase();
+    const timing=raw.filter(r=>{
+      const c=normalized(r);
+      return c==="spreadsheet timezone" || c==="atomic reservation timing readiness";
+    });
+    if(timing.length){
+      timing.forEach(r=>used.add(r));
+      const sheet=timing.find(r=>normalized(r)==="spreadsheet timezone");
+      const zone=String(sheet&&sheet.detail||sheet&&sheet.count||"unknown").trim()||"unknown";
+      out.push({
+        key:"apps_script_timing_authority",
+        check:"Apps Script timing verification",
+        title:"Apps Script timing verification",
+        status:healthSeverity(timing),
+        gate:"EXTERNAL_AUTH",
+        detail:`Spreadsheet timezone = ${zone} · Atomic timing รอหลักฐานจาก gate เดียวกัน`,
+        action:"อ่าน Project Settings → Time zone และ Triggers ของ bound Apps Script แบบ authenticated ก่อน mutation; ห้ามเปลี่ยน timezone, reinstall trigger หรือ deploy repo Code.gs เพียงเพื่อทำให้ CHECK เขียว"
+      });
+    }
+    raw.forEach(r=>{
+      if(used.has(r)) return;
+      const c=normalized(r);
+      if(c==="accessory kit capacity shortfall"){
+        const count=Math.max(0,Number(r&&r.count||r&&r.detail||0)||0);
+        const phones=currentRentablePhoneCount();
+        out.push({
+          key:"accessory_kit_capacity",
+          check:"Accessory kit capacity",
+          title:"Accessory kit capacity",
+          status:String(r.status||"CHECK").trim().toUpperCase(),
+          gate:"PHYSICAL_STOCK",
+          detail:`Health ระบุขาด ${count||1} ชุด${phones?" · rentable phones "+phones+" เครื่อง":""}`,
+          action:"ตรวจ powerbank + phone_bag ของจริงก่อน ถ้ามีของจริงมากกว่าในชีตค่อยอัปเดต 06_Accessory_Stock; ถ้าไม่มี ห้ามเพิ่มตัวเลขเดาเพื่อปิด CHECK"
+        });
+        return;
+      }
+      out.push({
+        key:"health_"+String(r.check||"check").toLowerCase().replace(/[^a-z0-9]+/g,"_"),
+        check:r.check||"Health check",
+        title:r.check||"Health check",
+        status:String(r.status||"CHECK").trim().toUpperCase(),
+        gate:"DATA_REVIEW",
+        detail:String(r.detail||r.count||"ควรตรวจ"),
+        action:String(r.note||"ตรวจหลักฐานต้นทางก่อนแก้ข้อมูล")
+      });
+    });
+    return out;
+  }
+  function healthAttentionRows(){
+    return healthTriageRows();
+  }
+  function renderHealthTriage(){
+    const rows=healthTriageRows();
+    const summary=$("#healthTriageSummary"), list=$("#healthTriageList");
+    if(summary){
+      const external=rows.filter(r=>r.gate==="EXTERNAL_AUTH").length;
+      const physical=rows.filter(r=>r.gate==="PHYSICAL_STOCK").length;
+      const fail=rows.filter(r=>r.status==="FAIL").length;
+      summary.innerHTML=[
+        [rows.length,"Root causes"],
+        [external,"ต้องใช้ Auth"],
+        [physical,"ต้องเช็กของจริง"],
+        [fail,"FAIL"]
+      ].map(s=>`<div class="card stat ${s[1]==="FAIL"&&s[0]?"danger":""}"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join("");
+    }
+    if(list){
+      if(!rows.length){
+        list.innerHTML='<div class="health-triage-empty"><strong>ไม่มี CHECK/WARN/FAIL ที่ต้องไล่ต่อ</strong><span>Health snapshot ปัจจุบันไม่มี root cause ที่เปิดอยู่</span></div>';
+      }else{
+        list.innerHTML=rows.map(r=>`<article class="health-triage-item">
+          <div class="health-triage-head">
+            <span class="pill ${r.status==="FAIL"?"bad":"warn"}">${esc(r.status)}</span>
+            <strong>${esc(r.title)}</strong>
+            <span class="health-gate">${esc(r.gate)}</span>
+          </div>
+          <p>${esc(r.detail)}</p>
+          <small>${esc(r.action)}</small>
+        </article>`).join("");
+      }
+    }
+  }
+  function healthTriageClipboardText(){
+    const rows=healthTriageRows();
+    if(!rows.length) return "KK Health Root Cause Triage: no open CHECK/WARN/FAIL";
+    return rows.map((r,i)=>`${i+1}. [${r.status}] ${r.title}\n   Gate: ${r.gate}\n   Evidence: ${r.detail}\n   Next: ${r.action}`).join("\n\n");
+  }
   function renderOperationalAttention(){
     const box=$("#operationalAttention");
     if(!box) return;
@@ -80,10 +186,10 @@
     if(!rows.length){ box.classList.add("hidden"); return; }
     box.classList.remove("hidden");
     const title=$("#operationalAttentionTitle");
-    if(title) title.textContent=`มี ${rows.length} จุดที่ควรตรวจ`;
+    if(title) title.textContent=`มี ${rows.length} root cause ที่ควรตรวจ`;
     const items=$("#operationalAttentionItems");
     if(items){
-      items.innerHTML=rows.slice(0,4).map(r=>`<span class="pill ${String(r.status||"").toUpperCase()==="FAIL"?"bad":"warn"}">${esc(r.check||"Check")}: ${esc(r.detail||r.note||"ควรตรวจ")}</span>`).join("");
+      items.innerHTML=rows.slice(0,4).map(r=>`<span class="pill ${String(r.status||"").toUpperCase()==="FAIL"?"bad":"warn"}">${esc(r.title||r.check||"Check")}: ${esc(r.detail||"ควรตรวจ")}</span>`).join("");
       if(rows.length>4) items.innerHTML+=`<span class="pill">+${rows.length-4} รายการ</span>`;
     }
   }
@@ -2457,6 +2563,7 @@
       {label:"Check",key:"check"},{label:"Status",render:r=>`<span class="pill ${String(r.status).toLowerCase().includes('ok')?'ok':String(r.status).toLowerCase().includes('check')?'bad':''}">${esc(r.status||'')}</span>`},{label:"Detail",key:"detail"},{label:"Note",key:"note"}
     ], health);
     renderSystemGuard();
+    renderHealthTriage();
     renderOperationalAttention();
 
     if($("#customerStatsCount")) $("#customerStatsCount").textContent=customerHistory.length+" รายการ";
@@ -3087,6 +3194,12 @@
       const rows=currentSystemGuardRows();
       const text=rows.map(r=>`${r.status||''} | ${r.label||r.check||r.key||''} | ${r.detail||''} | ${r.suggestion||r.note||''}`).join("\n");
       try{ await navigator.clipboard.writeText(text); showNotice("Copy System Guard result แล้ว"); }
+      catch(_){ showNotice(text,"warn"); }
+    });
+    const copyHealthTriageBtn=$("#copyHealthTriageBtn");
+    if(copyHealthTriageBtn) copyHealthTriageBtn.addEventListener("click",async()=>{
+      const text=healthTriageClipboardText();
+      try{ await navigator.clipboard.writeText(text); showNotice("Copy Root Cause Checklist แล้ว"); }
       catch(_){ showNotice(text,"warn"); }
     });
 
