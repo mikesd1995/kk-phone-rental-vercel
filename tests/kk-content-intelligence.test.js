@@ -80,6 +80,11 @@ test('copy contract preserves current KK X brand and CTA conventions', () => {
   assert.equal(AGENT.COPY_CONTRACT.booking_cta, '👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/');
   assert.match(AGENT.COPY_CONTRACT.hashtag_rule, /3–5/);
   assert.match(AGENT.COPY_CONTRACT.brand_rule, /not repeat/i);
+  assert.deepEqual(
+    AGENT.COPY_CONTRACT.direct_rental_layout,
+    ['brand','event_hashtag','hook','offer','date_venue','benefits','booking_cta','reach_hashtags']
+  );
+  assert.match(AGENT.COPY_CONTRACT.direct_rental_layout_rule, /Brand.*Event hashtag.*Hook.*Offer\/price.*Date\/Venue.*Benefits.*Booking CTA.*reach hashtags/i);
 });
 
 test('70/30 is a rolling calendar target, not a forced per-batch quota', () => {
