@@ -23,8 +23,8 @@
     const pin=document.getElementById('pin');
     const btn=document.getElementById('submitBtn');
     const status=document.getElementById('status');
-    const markAuthenticated=()=>sessionStorage.setItem('kk_admin_pin','__SESSION__');
-    const clearLocalAuth=()=>sessionStorage.removeItem('kk_admin_pin');
+    const markAuthenticated=()=>{ try{ sessionStorage.setItem('kk_admin_pin','__SESSION__'); }catch(_){ } };
+    const clearLocalAuth=()=>{ try{ sessionStorage.removeItem('kk_admin_pin'); }catch(_){ } };
     const enter=()=>{ markAuthenticated(); pin.value=''; location.replace('/admin/app'); };
 
     async function checkSession(){
