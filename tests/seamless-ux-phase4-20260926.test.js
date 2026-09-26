@@ -85,5 +85,5 @@ test('phase 4 assets are cache-busted',()=>{
   assert.match(storeHtml,/style\.css\?v=seamless-phase4-20260926/);
   assert.match(storeHtml,/script\.js\?v=seamless-phase4-20260926/);
   assert.match(adminHtml,/admin\.css\?v=health-triage-20260926/);
-  assert.match(adminHtml,/admin\.js\?v=edit-booking-date-sort-20260926/);
+  assert.match(adminHtml,/admin\.js\?v=bulk-event-price-edit-20260927/);
 });
