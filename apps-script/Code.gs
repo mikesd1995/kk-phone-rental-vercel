@@ -1737,6 +1737,11 @@ function kkApiUpdateEvent_(payload) {
     if (payload.poster_url) current[4] = posterInfo.url;
     if (payload.status) current[5] = String(payload.status).toLowerCase().trim();
     const active = kkApiBoolOrBlank_(payload.active_on_web);
+    const currentActive = kkIsTrue_(current[6]);
+    const ownerReopenIntent = String(payload.visibility_owner_intent || '').trim() === 'explicit_owner_reopen';
+    if (currentActive === false && active === true && !ownerReopenIntent) {
+      throw new Error('EVENT_VISIBILITY_OWNER_LOCKED: owner-hidden event requires explicit owner reopen intent');
+    }
     if (active !== '') current[6] = active;
     if (payload.note !== undefined && payload.note !== '') current[7] = payload.note;
     sh.getRange(rowNumber, 1, 1, 8).setValues([current]);

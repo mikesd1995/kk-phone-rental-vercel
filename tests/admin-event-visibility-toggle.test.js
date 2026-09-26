@@ -22,11 +22,20 @@ test('Hidden open future events remain selectable in Edit Event and Package Over
   assert.match(js,/ซ่อนเว็บ/);
 });
 
-test('visibility toggle changes only active_on_web through updateEvent',()=>{
+test('visibility toggle preserves owner intent and marks explicit re-open actions',()=>{
+  assert.match(js,/function eventVisibilityPayload\(eventId,nextActive\)/);
+  assert.match(js,/visibility_owner_intent='explicit_owner_reopen'/);
   assert.match(js,/const nextActive=event\.active_on_web===false/);
-  assert.match(js,/await api\("updateEvent",\{event_id:eventId,active_on_web:nextActive\}\)/);
+  assert.match(js,/await api\("updateEvent",eventVisibilityPayload\(eventId,nextActive\)\)/);
+  assert.match(js,/api\("updateEvent",eventVisibilityPayload\(id,next\)\)/);
+  assert.match(js,/await api\("updateEvent",eventVisibilityPayload\(id,kind==="show_events"\)\)/);
   assert.match(js,/btn\.textContent=hidden \? "เปิดงานบนหน้าบ้าน" : "ซ่อนงานจากหน้าบ้าน"/);
   assert.match(js,/การ์ดงานจะหายจากหน้าบ้านทั้งหมด แต่ Package, ราคา, Booking และ Stock จะไม่ถูกลบหรือแก้/);
+});
+
+test('Edit Event only adds owner reopen intent when a hidden event is deliberately set visible',()=>{
+  assert.match(js,/currentEvent && currentEvent\.active_on_web===false/);
+  assert.match(js,/p\.visibility_owner_intent="explicit_owner_reopen"/);
 });
 
 

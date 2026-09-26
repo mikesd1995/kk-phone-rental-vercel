@@ -31,7 +31,7 @@ test('Admin Event Control Center exposes batch-safe operational visibility manag
   assert.match(adminHtml,/id="eventControlSort"/);
   assert.match(adminHtml,/id="eventControlStickyActions"/);
   assert.match(adminJs,/bulkSetEventPackageVisibility/);
-  assert.match(adminJs,/active_on_web:kind==="show_events"/);
+  assert.match(adminJs,/eventVisibilityPayload\(id,kind==="show_events"\)/);
   assert.match(adminCss,/event-control-center/);
 });
 

@@ -8,6 +8,7 @@ const LegacyAdmin = require('../server/admin-proxy.js');
 const SnapshotHealth = require('../admin/snapshot-health.js');
 const ReservationGuard = require('../admin/reservation-guard.js');
 const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
+const VisibilityGuard = require('../server/event-visibility-owner-guard.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -15,6 +16,7 @@ const BOOKING_TIMING_POLICY_VERSION = 'booking-timing-optional-safe-fallback-2';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
+const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
 const EVENT_FEED_TIMEOUT_MS = 6500;
 const EVENT_FEED_MIN_ROWS = 10;
 
@@ -336,13 +338,16 @@ module.exports=async function handler(req,res){
   const action=String(payload&&payload.action||'');
   const bookingGuarded=BOOKING_GUARDED_ACTIONS.has(action);
   const eventGuarded=EVENT_GUARDED_ACTIONS.has(action);
-  if(!payload||typeof payload!=='object'||Array.isArray(payload)||(!bookingGuarded&&!eventGuarded)){
+  const visibilityGuarded=EVENT_VISIBILITY_GUARDED_ACTIONS.has(action) &&
+    VisibilityGuard.requestedVisibility(payload)===true &&
+    !VisibilityGuard.hasExplicitOwnerReopen(payload);
+  if(!payload||typeof payload!=='object'||Array.isArray(payload)||(!bookingGuarded&&!eventGuarded&&!visibilityGuarded)){
     return LegacyAdmin(clonedRequest(req,raw),res);
   }
 
   const adminPin=String(process.env.KK_ADMIN_PIN||'').trim();
   const providedPin=String(req.headers&&req.headers['x-admin-pin']||'').trim();
-  if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'});
+  if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':(visibilityGuarded?'EVENT_VISIBILITY_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE')});
   if(providedPin!==adminPin) return reply(res,401,{ok:false,error:'Invalid admin PIN'});
 
   if(bookingGuarded){
@@ -357,6 +362,35 @@ module.exports=async function handler(req,res){
       });
     }
     res.setHeader('X-KK-Booking-Pickup-Mode',timing.mode||'unknown');
+  }
+
+  if(visibilityGuarded){
+    const envSheetId=String(process.env.GOOGLE_SHEET_ID||'').trim();
+    const sheetId=envSheetId||DEFAULT_SHEET_ID;
+    let snapshot;
+    try{
+      snapshot=await fetchFreshSnapshot({sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},18000);
+    }catch(err){
+      return reply(res,503,{
+        ok:false,
+        error:'Event visibility preflight unavailable; re-open blocked: '+(err&&err.message?err.message:String(err)),
+        error_code:'EVENT_VISIBILITY_PREFLIGHT_UNAVAILABLE',
+        recommended_action:'retryFromAdminVisibilityControl'
+      });
+    }
+    const checked=VisibilityGuard.evaluateSnapshotTransition(snapshot,payload);
+    if(!checked.ok){
+      return reply(res,409,{
+        ok:false,
+        error:'งานนี้ถูกซ่อนจากหน้าบ้านโดยเจ้าของ ระบบจะไม่เปิดกลับอัตโนมัติ',
+        error_code:checked.code,
+        event_id:checked.event_id||String(payload.event_id||''),
+        recommended_action:'reopenFromAdminVisibilityControl',
+        visibility_guard:checked
+      });
+    }
+    res.setHeader('X-KK-Event-Visibility-Guard',checked.code||'PASS');
+    return LegacyAdmin(clonedRequest(req,raw),res);
   }
 
   if(eventGuarded&&isPastEventDate(payload.event_date)){
@@ -448,4 +482,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(clonedRequest(req,raw),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard};

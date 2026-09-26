@@ -18,6 +18,16 @@ Never:
 - create a replacement Scanner, watchdog, or competing writer;
 - convert missing evidence into a positive claim.
 
+## Owner storefront visibility is immutable to Scanner
+
+An existing Core event with `active_on_web=false` is an explicit owner decision, not missing discovery coverage.
+
+- Never set `active_on_web=true` because a hidden event falls inside the current/next-week scan window.
+- Never label an owner-hidden Core event as “reactivated” or repair it into storefront visibility.
+- Discovery may report that the event exists and is owner-hidden, but `production_writes=0` remains mandatory.
+- Only an explicit owner/Admin visibility action may reopen a hidden event card.
+- When reconciling an existing event, preserve owner-hidden state exactly.
+
 Always preserve:
 - `authoritative=false`;
 - `verifier_required=true`;

@@ -1297,6 +1297,11 @@
     }
     if(inheritBtn) inheritBtn.disabled=info.kind==="none";
   }
+  function eventVisibilityPayload(eventId,nextActive){
+    const payload={event_id:String(eventId||'').trim(),active_on_web:nextActive===true};
+    if(nextActive===true) payload.visibility_owner_intent='explicit_owner_reopen';
+    return payload;
+  }
   function renderEventVisibilityControl(eventId){
     const form=$("#eventPriceOverrideForm");
     const btn=$("#eventVisibilityToggleBtn");
@@ -1597,7 +1602,7 @@
     try{
       for(const id of ids){
         if(isPackage) await api("bulkSetEventPackageVisibility",{event_id:id,mode:kind==="hide_packages"?"hide":"show"});
-        else await api("updateEvent",{event_id:id,active_on_web:kind==="show_events"});
+        else await api("updateEvent",eventVisibilityPayload(id,kind==="show_events"));
         ok++;
       }
       clearEventControlSelection({render:false});
@@ -1606,7 +1611,7 @@
       showNotice(`${actionLabel}สำเร็จ ${ok}/${ids.length} งาน · ข้าม ${skipped} งานซ้ำ`);
       if(!isPackage){
         setAdminUndo(`ทำ ${actionLabel} ${ids.length} งานแล้ว · Undo ได้ 20 วินาที`,async()=>{
-          for(const item of before) await api("updateEvent",{event_id:item.id,active_on_web:!item.row.event_hidden});
+          for(const item of before) await api("updateEvent",eventVisibilityPayload(item.id,!item.row.event_hidden));
         });
       }
     }catch(e){
@@ -3161,13 +3166,13 @@
       const next=event.active_on_web===false;
       if(!confirm((next?"เปิด":"ซ่อน")+"การ์ดงาน "+(event.event_name||id)+" ใช่ไหม?")) return;
       setBusy(toggle,true);
-      api("updateEvent",{event_id:id,active_on_web:next})
+      api("updateEvent",eventVisibilityPayload(id,next))
         .then(()=>refresh())
         .then(()=>{
           activateTab("packages",{scroll:false});
           showNotice((next?"เปิด":"ซ่อน")+"การ์ดงานสำเร็จ");
           setAdminUndo(`${next?"เปิด":"ซ่อน"}การ์ดงานแล้ว · Undo ได้ 20 วินาที`,async()=>{
-            await api("updateEvent",{event_id:id,active_on_web:!next});
+            await api("updateEvent",eventVisibilityPayload(id,!next));
           });
         })
         .catch(e=>showNotice(e.message,"bad"))
@@ -3433,11 +3438,11 @@
         if(!window.confirm(`${actionText}\nงาน: ${event.event_name||eventId}\n\n${detail}`)) return;
         setBusy(eventVisibilityBtn,true);
         try{
-          await api("updateEvent",{event_id:eventId,active_on_web:nextActive});
+          await api("updateEvent",eventVisibilityPayload(eventId,nextActive));
           await refresh();
           showNotice(actionText+"สำเร็จ");
           setAdminUndo(actionText+"แล้ว · Undo ได้ 20 วินาที",async()=>{
-            await api("updateEvent",{event_id:eventId,active_on_web:!nextActive});
+            await api("updateEvent",eventVisibilityPayload(eventId,!nextActive));
           });
         }catch(e){showNotice(e.message,"bad");}
         finally{setBusy(eventVisibilityBtn,false);}
@@ -3513,6 +3518,10 @@
       eventUpdateForm.addEventListener("submit",async ev=>{
         ev.preventDefault();
         const p=formData(ev.target);
+        const currentEvent=findEventById(p.event_id);
+        if(currentEvent && currentEvent.active_on_web===false && String(p.active_on_web||"").toLowerCase()==="true"){
+          p.visibility_owner_intent="explicit_owner_reopen";
+        }
         if(p.event_name && !confirmEventNameLint(p.event_name)) return;
         const btn=ev.submitter; setBusy(btn,true);
         try{

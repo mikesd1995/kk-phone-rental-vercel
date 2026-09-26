@@ -72,6 +72,28 @@ test('updateEvent planner is update-in-place, preserves web price cells, and ref
   assert.equal(legacy.reason,'POSTER_WRITE_REQUIRES_APPS_SCRIPT');
 });
 
+test('updateEvent planner blocks hidden-to-visible transitions without explicit owner intent',()=>{
+  const hidden=eventData();
+  hidden.events[0][6]=false;
+
+  assert.throws(
+    ()=>Phase1.buildUpdateEventPlan({
+      action:'updateEvent',
+      event_id:'EVT-1',
+      active_on_web:true
+    },hidden),
+    err=>err&&err.code==='EVENT_VISIBILITY_OWNER_LOCKED'
+  );
+
+  const allowed=Phase1.buildUpdateEventPlan({
+    action:'updateEvent',
+    event_id:'EVT-1',
+    active_on_web:true,
+    visibility_owner_intent:'explicit_owner_reopen'
+  },hidden);
+  assert.equal(allowed.mutations[0].values[6],true);
+});
+
 test('updatePackage planner preserves untouched columns and matches Apps Script update semantics',()=>{
   const data={packages:[['TPL-PHONE','VIVO_X300_PRO','phone_only','NONE',890,'Phone','note',true,10,'old']]};
   const p=Phase1.buildUpdatePackagePlan({
