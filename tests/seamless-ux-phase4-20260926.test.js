@@ -82,8 +82,8 @@ test('Admin mobile quick actions use safer tap targets and reduced motion',()=>{
 });
 
 test('phase 4 assets are cache-busted',()=>{
-  assert.match(storeHtml,/style\.css\?v=seamless-phase4-20260926/);
-  assert.match(storeHtml,/script\.js\?v=seamless-phase4-20260926/);
-  assert.match(adminHtml,/admin\.css\?v=seamless-phase4-20260926/);
-  assert.match(adminHtml,/admin\.js\?v=seamless-phase4-20260926/);
+  assert.match(storeHtml,/style\.css\?v=health-triage-20260926/);
+  assert.match(storeHtml,/script\.js\?v=health-triage-20260926/);
+  assert.match(adminHtml,/admin\.css\?v=health-triage-20260926/);
+  assert.match(adminHtml,/admin\.js\?v=health-triage-20260926/);
 });
