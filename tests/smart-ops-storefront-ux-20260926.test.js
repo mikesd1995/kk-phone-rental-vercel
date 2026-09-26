@@ -74,7 +74,9 @@ test('Storefront progressively renders 24 events and captures search misses',()=
 test('Storefront event share and contextual sticky LINE are present',()=>{
   assert.match(storeHtml,/id="event-share-btn"/);
   assert.match(storeJs,/navigator\.share/);
-  assert.match(storeJs,/a\.href=availCnt\(c\)<=0\?getWaitlistUrl\(c,null\):getEventInquiryUrl\(c\)/);
+  assert.match(storeJs,/var waitlisted=availCnt\(c\)<=0/);
+  assert.match(storeJs,/a\.href=waitlisted\?getWaitlistUrl\(c,null\):getEventInquiryUrl\(c\)/);
+  assert.match(storeJs,/event_inquiry_click/);
   assert.match(storeHtml,/script\.js\?v=seamless-phase4-20260926/);
 });
 
@@ -104,13 +106,16 @@ test('search-miss analytics are debounced and deduplicated',()=>{
   assert.doesNotMatch(storeJs,/if\(contextual\) track\("search_no_result"/);
 });
 
-test('LINE journeys carry deterministic lead references without changing Booking schema',()=>{
-  assert.match(storeJs,/function leadRef\(kind,c,p\)/);
-  assert.match(storeJs,/"Ref : "\+leadRef\("BK",c,p\)/);
-  assert.match(storeJs,/"Ref : "\+leadRef\("WL",c,p\)/);
-  assert.match(adminHtml,/name="lead_ref"/);
-  assert.match(adminJs,/delete payload\.lead_ref/);
-  assert.match(adminJs,/\[LEAD_REF:"\+leadRef\+"\]/);
+test('LINE journeys keep internal attribution out of customer-facing copy',()=>{
+  assert.doesNotMatch(storeJs,/function leadRef\(kind,c,p\)/);
+  assert.doesNotMatch(storeJs,/Ref\s*:\s*"?\s*\+?\s*leadRef/);
+  assert.doesNotMatch(storeJs,/KK-(?:BK|WL|EV|SRCH)-/);
+  assert.doesNotMatch(adminHtml,/name="lead_ref"/);
+  assert.doesNotMatch(adminJs,/payload\.lead_ref|\[LEAD_REF:/);
+  assert.match(storeJs,/track\("booking_click",\{event_id:c\.id\|\|"", event_name:c\.name, package_type:p\.type\|\|""/);
+  assert.match(storeJs,/track\("waitlist_click",\{event_id:c\.id\|\|"", event_name:c\.name, available:0, source:"modal"\}/);
+  assert.match(storeJs,/event_inquiry_click/);
+  assert.match(storeJs,/search_inquiry_click/);
 });
 
 test('analytics remains opt-in until a real Measurement ID is supplied',()=>{

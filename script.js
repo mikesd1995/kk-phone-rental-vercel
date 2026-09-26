@@ -1104,15 +1104,13 @@ function renderLoadingSkeleton(count){
 }
 function buildSearchInquiryMsg(query){
   var q=String(query||"").trim();
-  var ref="KK-SRCH-"+q.replace(/[^A-Za-z0-9ก-๙_-]/g,"-").replace(/-+/g,"-").slice(0,50);
-  if(currentLang==="en") return "Hi, I searched for "+q+" on the KK Phone Rental website but could not find the event. Do you accept rentals for this event?\n\nRef : "+ref;
-  return "สวัสดีค่ะ ค้นหางาน "+q+" ในเว็บไซต์ KK Phone Rental แต่ยังไม่พบ ขอสอบถามว่าร้านรับงานนี้ไหมคะ\n\nRef : "+ref;
+  if(currentLang==="en") return "Hi, I searched for "+q+" on the KK Phone Rental website but could not find the event. Do you accept rentals for this event?";
+  return "สวัสดีค่ะ ค้นหางาน "+q+" ในเว็บไซต์ KK Phone Rental แต่ยังไม่พบ ขอสอบถามว่าร้านรับงานนี้ไหมคะ";
 }
 function getSearchInquiryUrl(query){ return LINE_OA+encodeURIComponent(buildSearchInquiryMsg(query)); }
 function buildEventInquiryMsg(c){
-  var ref=leadRef("EV",c,null);
-  if(currentLang==="en") return "Hi, I am viewing "+lineVal(c&&c.name)+" on KK Phone Rental. Could you help me check the booking details?\n\nRef : "+ref;
-  return "สวัสดีค่ะ กำลังดูงาน "+lineVal(c&&c.name)+" บนเว็บไซต์ KK Phone Rental ขอสอบถามรายละเอียดการจองค่ะ\n\nRef : "+ref;
+  if(currentLang==="en") return "Hi, I am viewing "+lineVal(c&&c.name)+" on KK Phone Rental. Could you help me check the booking details?";
+  return "สวัสดีค่ะ กำลังดูงาน "+lineVal(c&&c.name)+" บนเว็บไซต์ KK Phone Rental ขอสอบถามรายละเอียดการจองค่ะ";
 }
 function getEventInquiryUrl(c){ return LINE_OA+encodeURIComponent(buildEventInquiryMsg(c)); }
 function renderEmpty(msg,detail){
@@ -1122,6 +1120,12 @@ function renderEmpty(msg,detail){
   var label=contextual?tr("search_line",{query:currentSearch}):tr("contact_line");
   if(contextual) queueSearchMissTrack(currentSearch);
   el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+esc(detail||tr("empty_detail"))+'</p><a class="empty-line-btn" href="'+href+'" target="_blank" rel="noopener">'+esc(label)+'</a></div>';
+  if(contextual){
+    var inquiry=el.querySelector(".empty-line-btn");
+    if(inquiry) inquiry.onclick=function(){
+      track("search_inquiry_click",{query:normalizeAnalyticsQuery(currentSearch),source:"empty_state"});
+    };
+  }
 }
 function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return tr("badge_full"); if(isToday(c))return tr("badge_today"); if(isSoon(c))return tr("badge_soon"); if(ap.some(function(p){return p.inquiryOnly;}))return tr("badge_inquiry"); return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? tr("badge_available",{count:cnt}) : tr("badge_lens"); }
 
@@ -1238,11 +1242,6 @@ function packageSpecForLanguage(p){
   if(p.type==="ask")return tr("pkg_ask");
   return p.spec||"";
 }
-function leadRef(kind,c,p){
-  var eventId=String(c&&c.id||"").replace(/[^A-Za-z0-9_-]/g,"").slice(0,80);
-  var packageType=String(p&&p.type||"").replace(/[^A-Za-z0-9_-]/g,"").slice(0,30);
-  return "KK-"+String(kind||"LEAD").toUpperCase()+"-"+eventId+(packageType?"-"+packageType:"");
-}
 function buildBookingMsg(c,p){
   // Keep LINE OA message short and package-specific.
   // The pick-up field intentionally says "equipment" so lens-only rentals are covered.
@@ -1255,9 +1254,7 @@ function buildBookingMsg(c,p){
     "",
     tr("line_nickname")+" : ",
     tr("line_phone")+" : ",
-    tr("line_pickup")+" : ",
-    "",
-    "Ref : "+leadRef("BK",c,p)
+    tr("line_pickup")+" : "
   ].join("\n");
 }
 function getBookingUrl(c,p){ return LINE_OA+encodeURIComponent(buildBookingMsg(c,p)); }
@@ -1271,9 +1268,7 @@ function buildWaitlistMsg(c,p){
     "",
     tr("line_nickname")+" : ",
     tr("line_phone")+" : ",
-    tr("waitlist_note"),
-    "",
-    "Ref : "+leadRef("WL",c,p)
+    tr("waitlist_note")
   ].join("\n");
 }
 function getWaitlistUrl(c,p){ return LINE_OA+encodeURIComponent(buildWaitlistMsg(c,p)); }
@@ -1281,7 +1276,18 @@ function showModal(c,options){
   if(!c)return;
   options=options||{};
   activeModalEvent=c;
-  document.querySelectorAll("a.sticky-line").forEach(function(a){a.href=availCnt(c)<=0?getWaitlistUrl(c,null):getEventInquiryUrl(c);});
+  document.querySelectorAll("a.sticky-line").forEach(function(a){
+    var waitlisted=availCnt(c)<=0;
+    a.href=waitlisted?getWaitlistUrl(c,null):getEventInquiryUrl(c);
+    a.onclick=function(){
+      track(waitlisted?"waitlist_click":"event_inquiry_click",{
+        event_id:c.id||"",
+        event_name:c.name||"",
+        available:availCnt(c),
+        source:"sticky_line"
+      });
+    };
+  });
   // NEW: GA4 track modal open
   if(!options.skipTrack)track("view_event_packages",{event_name:c.name, available:availCnt(c)});
   updateMetaForEvent(c);
@@ -1321,7 +1327,7 @@ function showModal(c,options){
     waitBtn.setAttribute("aria-label",tr("waitlist_aria",{event:c.name||""}));
     waitBtn.onclick=function(e){
       e.stopPropagation();
-      track("waitlist_click",{event_name:c.name, available:0, source:"modal"});
+      track("waitlist_click",{event_id:c.id||"", event_name:c.name, available:0, source:"modal"});
     };
     fullBox.appendChild(waitBtn);
     list.appendChild(fullBox);
@@ -1352,7 +1358,7 @@ function showModal(c,options){
     // NEW: GA4 track booking click
     bookBtn.onclick=function(e){
       e.stopPropagation();
-      track("booking_click",{event_name:c.name, package:p.model, price:p.price});
+      track("booking_click",{event_id:c.id||"", event_name:c.name, package_type:p.type||"", package:p.model, price:p.price, source:"modal"});
     };
     right.appendChild(priceEl); right.appendChild(bookBtn);
     row.appendChild(icon); row.appendChild(info); row.appendChild(right); list.appendChild(row);
@@ -1406,7 +1412,7 @@ function openModal(){
 function closeModal(e){
   var el=document.getElementById("overlay");if(e&&el&&e.target!==el&&!e.target.closest(PACKAGE_CLOSE_SELECTOR))return;
   if(el)el.classList.remove("active");activeModalEvent=null;clearEventParam();resetMeta();unlockBodyIfNoModal();
-  document.querySelectorAll("a.sticky-line").forEach(function(a){a.href=LINE_URL;});
+  document.querySelectorAll("a.sticky-line").forEach(function(a){a.href=LINE_URL;a.onclick=null;});
   restoreFocus(packageFocusReturn);packageFocusReturn=null;
 }
 function showError(m){

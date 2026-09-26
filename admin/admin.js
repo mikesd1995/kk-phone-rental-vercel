@@ -3228,12 +3228,6 @@
       try{
         if(String(ev.target.elements.amount_received && ev.target.elements.amount_received.value || "").trim()==="") autofillBookingAmountFromPackage();
         const payload=formData(ev.target);
-        const leadRef=String(payload.lead_ref||"").trim().replace(/[^A-Za-z0-9_.:-]/g,"").slice(0,100);
-        delete payload.lead_ref;
-        if(leadRef){
-          const note=String(payload.booking_note||"").trim();
-          payload.booking_note=(note ? note+" " : "")+"[LEAD_REF:"+leadRef+"]";
-        }
         if(hasWebPackageSource()){
           if(!eventHasBookablePackage(payload.event_id)) throw new Error("งานนี้เต็มแล้วหรือไม่มีแพ็กเกจว่าง กรุณา Refresh แล้วเลือกงานใหม่");
           const okPkg=bookableWebPackagesForEvent(payload.event_id).some(p=>String(templateIdFromWebPackage(p))===String(payload.template_id));
