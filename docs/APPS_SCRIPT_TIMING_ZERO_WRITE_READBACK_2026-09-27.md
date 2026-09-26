@@ -47,3 +47,16 @@ Expected mutation counts are zero.
 - Named timezone exposed as `Asia/Bangkok`: direct named-zone evidence exists.
 - Cleanup trigger exposed and identifies `kkCleanupOldData30DaysAuto`: direct trigger evidence exists.
 - If named timezone / trigger metadata are absent from the deployed read-only API, keep those items explicitly UNVERIFIED instead of changing settings merely to make Health green.
+
+
+## Fallback after sensitive-value placeholder detection
+
+The first Production `vercel pull` probe confirmed that all three required values were present but represented by non-URL placeholder material in the local pull. No raw value was printed. Because Vercel supports read-only environment retrieval with `decrypt=true` for an authorized project token, the workflow now uses that API only inside the ephemeral runner for these three keys:
+
+- `KK_ADMIN_SCRIPT_URL`
+- `KK_ADMIN_API_KEY`
+- `GOOGLE_SHEET_ID`
+
+Values are written to a chmod-600 temporary file, never uploaded, never echoed, and never committed. Only key presence/type/target/value length is printed. The resulting file is then consumed by the same read-only `phase1Health` probe.
+
+This is still zero-write and zero-cost: it reads existing Production configuration but does not modify it.
