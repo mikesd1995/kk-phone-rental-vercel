@@ -136,6 +136,63 @@ function filterPastPublicCsv(sheet, text, options = {}) {
   return {text: serializeCsvRows([rows[0], ...kept]), dropped: body.length - kept.length};
 }
 
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function safeShareEventId(value) {
+  const id = String(value || '').trim();
+  return /^EVT-[A-Za-z0-9_-]{6,160}$/.test(id) ? id : '';
+}
+
+function renderEventSharePage(eventId, text) {
+  const rows = parseCsvRows(text);
+  const header = (rows[0] || []).map(v => String(v || '').trim());
+  const objects = rows.slice(1).map(row => {
+    const out = {};
+    header.forEach((key, index) => { out[key] = row[index] == null ? '' : row[index]; });
+    return out;
+  });
+  const event = objects.find(row =>
+    String(row.event_id || '').trim() === eventId &&
+    String(row.action_for_web || '').trim().toLowerCase() !== 'hide'
+  ) || null;
+  const site = 'https://kk-phone-rental.vercel.app';
+  const target = site + '/?event=' + encodeURIComponent(eventId);
+  const shareUrl = site + '/event/' + encodeURIComponent(eventId);
+  const title = event && event.event_name ? event.event_name + ' | KK Phone Rental' : 'KK Phone Rental';
+  const desc = event
+    ? [event.event_name, event.event_date_text ? 'วันที่ ' + event.event_date_text : '', event.venue ? 'ที่ ' + event.venue : '', 'ดูรายละเอียดและจองผ่าน LINE OA กับ KK Phone Rental'].filter(Boolean).join(' · ').slice(0, 280)
+    : 'เช่ามือถือสำหรับคอนเสิร์ต แฟนมีท และอีเวนต์ ดูคิวว่างและจองผ่าน LINE OA';
+  const image = event && String(event.poster_image_url || '').trim()
+    ? String(event.poster_image_url).trim()
+    : site + '/assets/kk-brand-hero-final-20260920.png';
+  return '<!doctype html><html lang="th"><head>' +
+    '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<meta name="robots" content="noindex,follow">' +
+    '<title>' + escapeHtml(title) + '</title>' +
+    '<meta name="description" content="' + escapeHtml(desc) + '">' +
+    '<link rel="canonical" href="' + escapeHtml(target) + '">' +
+    '<meta http-equiv="refresh" content="0;url=' + escapeHtml(target) + '">' +
+    '<meta property="og:type" content="website">' +
+    '<meta property="og:site_name" content="KK Phone Rental">' +
+    '<meta property="og:locale" content="th_TH">' +
+    '<meta property="og:title" content="' + escapeHtml(title) + '">' +
+    '<meta property="og:description" content="' + escapeHtml(desc) + '">' +
+    '<meta property="og:url" content="' + escapeHtml(shareUrl) + '">' +
+    '<meta property="og:image" content="' + escapeHtml(image) + '">' +
+    '<meta name="twitter:card" content="summary_large_image">' +
+    '<meta name="twitter:title" content="' + escapeHtml(title) + '">' +
+    '<meta name="twitter:description" content="' + escapeHtml(desc) + '">' +
+    '<meta name="twitter:image" content="' + escapeHtml(image) + '">' +
+    '</head><body><p>กำลังเปิดรายละเอียดงาน… <a href="' + escapeHtml(target) + '">เปิด KK Phone Rental</a></p></body></html>';
+}
+
 function csvHeaderLooksValid(sheet, text) {
   const firstLine = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/)[0] || '';
   const normalized = firstLine.toLowerCase();
@@ -199,9 +256,10 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, '');
   if (req.method !== 'GET') return send(res, 405, 'Method Not Allowed');
 
-  const sheet = Array.isArray(req.query && req.query.sheet) ? '' : String((req.query && req.query.sheet) || '').trim();
-  const range = Array.isArray(req.query && req.query.range) ? '' : String((req.query && req.query.range) || '').trim();
-  const showPast = isTrue(Array.isArray(req.query && req.query.showPast) ? '' : (req.query && req.query.showPast));
+  const eventShareId = safeShareEventId(Array.isArray(req.query && req.query.eventShare) ? '' : (req.query && req.query.eventShare));
+  const sheet = eventShareId ? '08_Web_Ready' : (Array.isArray(req.query && req.query.sheet) ? '' : String((req.query && req.query.sheet) || '').trim());
+  const range = eventShareId ? 'A4:K' : (Array.isArray(req.query && req.query.range) ? '' : String((req.query && req.query.range) || '').trim());
+  const showPast = eventShareId ? false : isTrue(Array.isArray(req.query && req.query.showPast) ? '' : (req.query && req.query.showPast));
   if (!ALLOWED[sheet] || !ALLOWED[sheet].has(range)) {
     return send(res, 400, 'Sheet/range not allowed');
   }
@@ -270,6 +328,11 @@ module.exports = async function handler(req, res) {
   }
 
   res.setHeader('X-KK-Sheet-Source', source);
+  if (eventShareId) {
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+    res.setHeader('X-Robots-Tag', 'noindex, follow');
+    return send(res, 200, renderEventSharePage(eventShareId, text), 'text/html; charset=utf-8');
+  }
   if (sheet === '09_Web_Packages') {
     res.setHeader('X-KK-Package-Price-Source', '09_Web_Packages-direct-no-proxy-override');
   }
@@ -287,6 +350,9 @@ module.exports._test = {
   bangkokTodayISO,
   normalizePublicDate,
   dateFromEventId,
+  escapeHtml,
+  safeShareEventId,
+  renderEventSharePage,
   csvHeaderLooksValid,
   privateReaderConfigured,
 };
