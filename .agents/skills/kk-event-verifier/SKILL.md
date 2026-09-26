@@ -68,6 +68,19 @@ For multi-day families, compute the complete discovered set of day/show instance
 
 Run reverse reconciliation as part of closeout: a current/future Core `01_Events` / `08_Web_Ready` row with no Tracker lineage/monthly disposition is a reverse Core orphan. A Tracker-discovered show with no Core counterpart is Core-promotion debt. This Verifier may repair only Tracker canonical/monthly state within current policy; Core backend event/package/poster creation remains a separate governed Admin action.
 
+## Owner-hidden Core events
+
+Core storefront visibility is owner business intent and is outside Verifier authority.
+
+If an existing Core event has `active_on_web=false`:
+
+- treat the event as present in Core, not as missing promotion;
+- do not reopen it during no-drop reconciliation, monthly repair, or Core promotion follow-up;
+- preserve `active_on_web=false` even when the event is verified, current/future, and has valid packages;
+- only an explicit owner/Admin visibility action may transition it back to visible.
+
+A hidden Core event may still satisfy lineage/presence accounting. Hidden does not mean missing.
+
 ## Acceptance output
 
 Only produce a final governed handoff when all current control-plane requirements are satisfied. External evidence must retain provenance and the final record must remain attributable to the Verifier decision, not to an AI provider.
