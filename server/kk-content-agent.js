@@ -33,12 +33,42 @@ const COPY_CONTRACT = Object.freeze({
   brand_rule: 'Do not repeat the brand line at the bottom of the post.'
 });
 
+const ANTI_REPEAT_CONTRACT = Object.freeze({
+  recent_post_window: 12,
+  direct_rental_variant_count: 3,
+  distinct_angle_rule: 'Each direct-rental variant must use a substantively different primary angle and hook logic, not a synonym swap.',
+  recent_copy_rule: 'Do not reuse recent hook wording, sentence skeletons, metaphors, or generic filler when recent copy is provided.',
+  factuality_rule: 'Novelty never permits invented event lore. If event-specific context is not verified, use neutral factual phrasing.'
+});
+
 function bool(value) {
   return value === true;
 }
 
 function present(value) {
   return Boolean(cleanText(value));
+}
+
+function normalizeRecentPosts(input = {}) {
+  const raw = [];
+  if (Array.isArray(input.recent_posts)) raw.push(...input.recent_posts);
+  if (Array.isArray(input.recent_hooks)) raw.push(...input.recent_hooks);
+
+  const normalized = raw
+    .map(item => {
+      if (typeof item === 'string') return cleanText(item);
+      if (!item || typeof item !== 'object') return '';
+      return cleanText(item.copy || item.text || item.hook || item.content || '');
+    })
+    .filter(Boolean);
+
+  const seen = new Set();
+  return normalized.filter(item => {
+    const key = item.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, ANTI_REPEAT_CONTRACT.recent_post_window);
 }
 
 function validateInput(input = {}) {
@@ -73,6 +103,9 @@ function buildCreativeIdeas(input, readiness) {
   const event = cleanText(input.event) || '[EVENT ต้องตรวจสอบก่อนใช้]';
   const venue = cleanText(input.venue);
   const artist = cleanText(input.artist);
+  const eventThemeNotes = cleanText(input.event_theme_notes);
+  const fandomNotes = cleanText(input.fandom_notes);
+  const timingContext = cleanText(input.timing_context);
   const ideas = [];
 
   ideas.push(idea('utility-awareness', {
@@ -128,14 +161,24 @@ function buildCreativeIdeas(input, readiness) {
   }));
 
   if (readiness.commercial_ready) {
+    const contextParts = [
+      eventThemeNotes ? `event theme: ${eventThemeNotes}` : '',
+      artist ? `artist: ${artist}` : '',
+      fandomNotes ? `fandom: ${fandomNotes}` : '',
+      timingContext ? `timing: ${timingContext}` : ''
+    ].filter(Boolean);
+
     ideas.push(idea('direct-rental', {
       objective: 'conversion',
       content_pillar: 'direct_rental',
-      content_angle: 'convenience',
+      content_angle: 'event_theme',
+      alternate_angles: ['artist', 'fandom', 'convenience', 'trust'],
       sales_intent: 'direct',
       cta_type: 'book_now',
-      hook_direction: `ขายตรงแบบสั้นและผูกกับ ${event} โดยใช้ราคา ${cleanText(input.price_display)} ที่ verify แล้ว`,
-      body_direction: 'ขึ้นชื่อร้านบรรทัดแรก ใช้ข้อเสนอจริง ประโยชน์หลัก และ CTA เว็บตรงตาม copy contract',
+      hook_direction: contextParts.length
+        ? `สร้าง hook เฉพาะ ${event} จากบริบทที่ verify แล้ว (${contextParts.join(' | ')}) และห้ามวนโครงจากโพสต์ล่าสุด`
+        : `สร้าง hook เฉพาะชื่อ/คอนเซ็ปต์ที่ verify แล้วของ ${event}; ถ้าไม่มีบริบทเพิ่มให้ใช้ข้อเท็จจริงแบบกลาง ๆ แทนการแต่ง lore`,
+      body_direction: `ใช้ราคา ${cleanText(input.price_display)} ที่ verify แล้ว ขึ้นชื่อร้านบรรทัดแรก ใช้ประโยชน์หลัก และ CTA เว็บตรงตาม copy contract`,
       asset_direction: 'โปสเตอร์ธีมงาน/ศิลปิน/แฟนคลับที่ไม่หลุดธีมและมีสิทธิ์ใช้',
       publishable: true
     }));
@@ -165,13 +208,14 @@ function buildCreativePlan(input = {}, performanceRows = []) {
   });
 
   const ideas = buildCreativeIdeas(input, readiness);
+  const recentPosts = normalizeRecentPosts(input);
   const sourceNotes = [];
   if (present(input.seat_view_url)) {
     sourceNotes.push('Seat-view/simulator URL is a source reference only. Summarize in original words and confirm reuse rights before reposting screenshots or assets.');
   }
 
   return {
-    schema_version: 'KK_CONTENT_AGENT_PLAN_V1',
+    schema_version: 'KK_CONTENT_AGENT_PLAN_V2',
     mode: 'READ_ONLY_ADVISOR',
     human_approval_required: true,
     auto_publish: false,
@@ -182,10 +226,21 @@ function buildCreativePlan(input = {}, performanceRows = []) {
     event: cleanText(input.event),
     artist: cleanText(input.artist),
     venue: cleanText(input.venue),
+    event_context: {
+      event_theme_notes: cleanText(input.event_theme_notes),
+      fandom_notes: cleanText(input.fandom_notes),
+      timing_context: cleanText(input.timing_context)
+    },
     readiness,
     content_mix_target: CONTENT_MIX_TARGET,
     mix_scope: 'Use as a rolling calendar target, not a requirement that every single idea batch be exactly 70/30.',
     copy_contract: COPY_CONTRACT,
+    anti_repeat_contract: ANTI_REPEAT_CONTRACT,
+    anti_repeat_context: {
+      enabled: true,
+      recent_post_count: recentPosts.length,
+      recent_posts: recentPosts
+    },
     allowed_pillars: CONTENT_PILLARS,
     allowed_angles: CONTENT_ANGLES,
     performance_context: performance,
@@ -193,20 +248,24 @@ function buildCreativePlan(input = {}, performanceRows = []) {
     creative_ideas: ideas,
     generation_rules: [
       'Verified event truth and current approved pricing/inventory always outrank creative suggestions or historical performance.',
-      'Do not invent event facts, venue, date, price, availability, promotion, or hashtag status.',
+      'Do not invent event facts, venue, date, price, availability, promotion, hashtag status, artist lore, fandom lore, or event concept.',
       'Performance evidence is a nudge, not an automatic winner-selection system; preserve creative diversity.',
       'Useful/engagement content should lead with audience value. Add a rental mention only when it improves relevance.',
       'Direct rental copy is allowed only when readiness.commercial_ready is true.',
+      'For a direct-rental X request, generate exactly three complete variants with different primary angles and different hook structures.',
+      'Do not make cosmetic rewrites: changing emoji, synonyms, or sentence order does not count as a distinct variant.',
+      'Compare against anti_repeat_context.recent_posts and avoid repeated hooks, metaphors, sentence skeletons, and generic filler.',
       'All public copy requires owner review before publishing.'
     ]
   };
 }
 
 function buildGenerationPrompt(plan) {
-  if (!plan || plan.schema_version !== 'KK_CONTENT_AGENT_PLAN_V1') {
-    throw new Error('valid KK_CONTENT_AGENT_PLAN_V1 plan is required');
+  if (!plan || !['KK_CONTENT_AGENT_PLAN_V1', 'KK_CONTENT_AGENT_PLAN_V2'].includes(plan.schema_version)) {
+    throw new Error('valid KK_CONTENT_AGENT_PLAN_V1 or V2 plan is required');
   }
   const performanceNudges = plan.performance_context.evidence_nudges || [];
+  const antiRepeat = plan.anti_repeat_context || { enabled: false, recent_posts: [] };
   return [
     'You are the KK Phone Rental creative drafting worker.',
     'Draft Thai X content only from the verified facts provided in this plan.',
@@ -219,10 +278,14 @@ function buildGenerationPrompt(plan) {
     `File storage line: ${plan.copy_contract.file_storage_line}`,
     `Booking CTA: ${plan.copy_contract.booking_cta}`,
     `Hashtag rule: ${plan.copy_contract.hashtag_rule}`,
+    `Event context: ${JSON.stringify(plan.event_context || {})}`,
     `Performance nudges: ${JSON.stringify(performanceNudges)}`,
     `Ideas: ${JSON.stringify(plan.creative_ideas)}`,
+    `Recent copy to avoid repeating: ${JSON.stringify(antiRepeat.recent_posts || [])}`,
     `Rules: ${JSON.stringify(plan.generation_rules)}`,
-    'Return differentiated drafts. Never turn a blocked idea into publishable sales copy.'
+    'For a publishable direct-rental X request, return exactly 3 complete variants.',
+    'Variant 1, Variant 2, and Variant 3 must use different primary content angles and visibly different hook logic.',
+    'Do not reuse recent hook wording or sentence skeletons. Do not turn a blocked idea into publishable sales copy.'
   ].join('\n');
 }
 
@@ -231,6 +294,8 @@ module.exports = {
   CONTENT_PILLARS,
   CONTENT_ANGLES,
   COPY_CONTRACT,
+  ANTI_REPEAT_CONTRACT,
+  normalizeRecentPosts,
   validateInput,
   buildCreativePlan,
   buildGenerationPrompt
