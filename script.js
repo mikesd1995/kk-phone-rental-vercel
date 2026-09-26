@@ -477,6 +477,23 @@ function isPkgVisible(p){
 function track(name, params){
   try{ if(typeof gtag==="function"){ gtag("event", name, params||{}); } }catch(e){}
 }
+var SEARCH_MISS_TIMER=null;
+var LAST_SEARCH_MISS={query:"",at:0};
+function normalizeAnalyticsQuery(value){
+  return String(value||"").normalize("NFKC").replace(/\s+/g," ").trim().toLocaleLowerCase("th-TH");
+}
+function queueSearchMissTrack(query){
+  var normalized=normalizeAnalyticsQuery(query);
+  clearTimeout(SEARCH_MISS_TIMER);
+  if(normalized.length<3)return;
+  SEARCH_MISS_TIMER=setTimeout(function(){
+    var now=Date.now();
+    if(LAST_SEARCH_MISS.query===normalized && now-LAST_SEARCH_MISS.at<30000)return;
+    if(normalizeAnalyticsQuery(currentSearch)!==normalized)return;
+    LAST_SEARCH_MISS={query:normalized,at:now};
+    track("search_no_result",{query:normalized});
+  },700);
+}
 function setMeta(attr, key, val){
   try{
     if(!val)return;
@@ -487,6 +504,10 @@ function setMeta(attr, key, val){
 function eventUrl(c){
   try{ var u=new URL(homeUrl()); u.searchParams.set("event", c.id||""); return u.toString(); }
   catch(e){ return (APP.siteUrl || window.location.href); }
+}
+function eventShareUrl(c){
+  try{ return window.location.origin+"/event/"+encodeURIComponent(String(c&&c.id||"")); }
+  catch(e){ return eventUrl(c); }
 }
 function resetMeta(){
   try{
@@ -1076,13 +1097,15 @@ function renderLoadingSkeleton(count){
 }
 function buildSearchInquiryMsg(query){
   var q=String(query||"").trim();
-  if(currentLang==="en") return "Hi, I searched for "+q+" on the KK Phone Rental website but could not find the event. Do you accept rentals for this event?";
-  return "สวัสดีค่ะ ค้นหางาน "+q+" ในเว็บไซต์ KK Phone Rental แต่ยังไม่พบ ขอสอบถามว่าร้านรับงานนี้ไหมคะ";
+  var ref="KK-SRCH-"+q.replace(/[^A-Za-z0-9ก-๙_-]/g,"-").replace(/-+/g,"-").slice(0,50);
+  if(currentLang==="en") return "Hi, I searched for "+q+" on the KK Phone Rental website but could not find the event. Do you accept rentals for this event?\n\nRef : "+ref;
+  return "สวัสดีค่ะ ค้นหางาน "+q+" ในเว็บไซต์ KK Phone Rental แต่ยังไม่พบ ขอสอบถามว่าร้านรับงานนี้ไหมคะ\n\nRef : "+ref;
 }
 function getSearchInquiryUrl(query){ return LINE_OA+encodeURIComponent(buildSearchInquiryMsg(query)); }
 function buildEventInquiryMsg(c){
-  if(currentLang==="en") return "Hi, I am viewing "+lineVal(c&&c.name)+" on KK Phone Rental. Could you help me check the booking details?";
-  return "สวัสดีค่ะ กำลังดูงาน "+lineVal(c&&c.name)+" บนเว็บไซต์ KK Phone Rental ขอสอบถามรายละเอียดการจองค่ะ";
+  var ref=leadRef("EV",c,null);
+  if(currentLang==="en") return "Hi, I am viewing "+lineVal(c&&c.name)+" on KK Phone Rental. Could you help me check the booking details?\n\nRef : "+ref;
+  return "สวัสดีค่ะ กำลังดูงาน "+lineVal(c&&c.name)+" บนเว็บไซต์ KK Phone Rental ขอสอบถามรายละเอียดการจองค่ะ\n\nRef : "+ref;
 }
 function getEventInquiryUrl(c){ return LINE_OA+encodeURIComponent(buildEventInquiryMsg(c)); }
 function renderEmpty(msg,detail){
@@ -1090,7 +1113,7 @@ function renderEmpty(msg,detail){
   var contextual=!!currentSearch;
   var href=contextual?getSearchInquiryUrl(currentSearch):LINE_URL;
   var label=contextual?tr("search_line",{query:currentSearch}):tr("contact_line");
-  if(contextual) track("search_no_result",{query:currentSearch});
+  if(contextual) queueSearchMissTrack(currentSearch);
   el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+esc(detail||tr("empty_detail"))+'</p><a class="empty-line-btn" href="'+href+'" target="_blank" rel="noopener">'+esc(label)+'</a></div>';
 }
 function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return tr("badge_full"); if(isToday(c))return tr("badge_today"); if(isSoon(c))return tr("badge_soon"); if(ap.some(function(p){return p.inquiryOnly;}))return tr("badge_inquiry"); return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? tr("badge_available",{count:cnt}) : tr("badge_lens"); }
@@ -1208,6 +1231,11 @@ function packageSpecForLanguage(p){
   if(p.type==="ask")return tr("pkg_ask");
   return p.spec||"";
 }
+function leadRef(kind,c,p){
+  var eventId=String(c&&c.id||"").replace(/[^A-Za-z0-9_-]/g,"").slice(0,80);
+  var packageType=String(p&&p.type||"").replace(/[^A-Za-z0-9_-]/g,"").slice(0,30);
+  return "KK-"+String(kind||"LEAD").toUpperCase()+"-"+eventId+(packageType?"-"+packageType:"");
+}
 function buildBookingMsg(c,p){
   // Keep LINE OA message short and package-specific.
   // The pick-up field intentionally says "equipment" so lens-only rentals are covered.
@@ -1220,7 +1248,9 @@ function buildBookingMsg(c,p){
     "",
     tr("line_nickname")+" : ",
     tr("line_phone")+" : ",
-    tr("line_pickup")+" : "
+    tr("line_pickup")+" : ",
+    "",
+    "Ref : "+leadRef("BK",c,p)
   ].join("\n");
 }
 function getBookingUrl(c,p){ return LINE_OA+encodeURIComponent(buildBookingMsg(c,p)); }
@@ -1234,7 +1264,9 @@ function buildWaitlistMsg(c,p){
     "",
     tr("line_nickname")+" : ",
     tr("line_phone")+" : ",
-    tr("waitlist_note")
+    tr("waitlist_note"),
+    "",
+    "Ref : "+leadRef("WL",c,p)
   ].join("\n");
 }
 function getWaitlistUrl(c,p){ return LINE_OA+encodeURIComponent(buildWaitlistMsg(c,p)); }
@@ -1453,8 +1485,7 @@ document.addEventListener("DOMContentLoaded",function(){
     shareBtn.textContent=tr("share_event");
     shareBtn.addEventListener("click",async function(){
       if(!activeModalEvent)return;
-      var url=new URL(window.location.href); url.searchParams.set("event",activeModalEvent.id); url.searchParams.delete("e");
-      var shareData={title:activeModalEvent.name||document.title,text:(activeModalEvent.name||"")+" · "+(activeModalEvent.date||""),url:url.toString()};
+      var shareData={title:activeModalEvent.name||document.title,text:(activeModalEvent.name||"")+" · "+(activeModalEvent.date||""),url:eventShareUrl(activeModalEvent)};
       try{
         if(navigator.share){ await navigator.share(shareData); track("share_event",{event_name:activeModalEvent.name,method:"native"}); }
         else{ await navigator.clipboard.writeText(shareData.url); shareBtn.textContent=tr("share_copied"); setTimeout(function(){shareBtn.textContent=tr("share_event");},1800); track("share_event",{event_name:activeModalEvent.name,method:"copy"}); }
