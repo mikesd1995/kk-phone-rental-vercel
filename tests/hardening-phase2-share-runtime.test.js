@@ -7,7 +7,7 @@ const share=require('../api/kk-event-share.js');
 
 test('event share ids are canonical and unsafe input is rejected',()=>{
   assert.equal(share._test.safeEventId('EVT-20260927-ATLAS-RISING-UP-CONCERT'),'EVT-20260927-ATLAS-RISING-UP-CONCERT');
-  assert.equal(share._test.safeEventId('<script>'),'');
+  assert.equal(share._test.safeEventId('bad id'),'');
 });
 
 test('event share page renders server-side social metadata and redirects humans',()=>{
