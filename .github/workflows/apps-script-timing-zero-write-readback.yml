@@ -55,26 +55,38 @@ jobs:
         id: probe
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           node scripts/apps-script-timing-readback.js .vercel/.env.production.local > apps-script-timing-readback.json
+          CODE=$?
+          set -e
+          test -s apps-script-timing-readback.json
           node - <<'NODE'
           const fs=require('node:fs');
           const r=JSON.parse(fs.readFileSync('apps-script-timing-readback.json','utf8'));
           if(r.safety.apps_script_writes!==0 || r.safety.sheet_business_writes!==0 || r.safety.trigger_mutations!==0 || r.safety.timezone_mutations!==0) throw new Error('ZERO_WRITE_BOUNDARY_VIOLATION');
-          if(r.timing.effective_utc_plus_7_verified!==true) throw new Error('UTC_PLUS_7_NOT_VERIFIED');
-          console.log('Apps Script effective offset verified:',r.timing.inferred_offset);
-          console.log('Named timezone explicitly exposed:',r.timing.named_timezone_explicitly_exposed);
-          console.log('Installed trigger readback exposed:',r.installed_triggers.readback_exposed_by_phase1_health);
+          console.log('Probe status:',r.status);
+          console.log('Apps Script URL present:',r.config&&r.config.kk_admin_script_url_present);
+          console.log('Apps Script URL host:',r.config&&r.config.kk_admin_script_url_host);
+          console.log('Apps Script URL path kind:',r.config&&r.config.kk_admin_script_url_path_kind);
+          if(r.status==='READBACK_COMPLETE'){
+            console.log('Apps Script effective offset verified:',r.timing.inferred_offset);
+            console.log('Named timezone explicitly exposed:',r.timing.named_timezone_explicitly_exposed);
+            console.log('Installed trigger readback exposed:',r.installed_triggers.readback_exposed_by_phase1_health);
+          }
           NODE
+          echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
 
       - name: Publish secret-safe evidence artifact
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: apps-script-timing-zero-write-readback-${{ github.run_id }}
           path: apps-script-timing-readback.json
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Record secret-safe result on PR
+        if: ${{ always() && hashFiles('apps-script-timing-readback.json') != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -85,21 +97,39 @@ jobs:
           node - <<'NODE' > /tmp/readback-comment.md
           const fs=require('node:fs');
           const r=JSON.parse(fs.readFileSync('apps-script-timing-readback.json','utf8'));
+          const complete=r.status==='READBACK_COMPLETE';
           const lines=[
             '### Apps Script timing zero-write readback',
             '',
-            '- Phase1 Health: **PASS**',
-            '- Backend/Sheet identity: **'+(r.phase1_health.frontend_backend_same_sheet?'MATCH':'MISMATCH')+'**',
-            '- Observed Apps Script effective UTC offset: **'+(r.timing.inferred_offset||'unknown')+'**',
-            '- Effective UTC+07:00 verified: **'+(r.timing.effective_utc_plus_7_verified?'YES':'NO')+'**',
-            '- Named Project timezone explicitly exposed by deployed read-only API: **'+(r.timing.named_timezone_explicitly_exposed?'YES':'NO')+'**',
-            '- Installed-trigger readback exposed by deployed read-only API: **'+(r.installed_triggers.readback_exposed_by_phase1_health?'YES':'NO')+'**',
-            '- `kkCleanupOldData30DaysAuto` directly verified: **'+(r.installed_triggers.cleanup_trigger_verified?'YES':'NO')+'**',
+            '- Probe status: **'+String(r.status||'UNKNOWN')+'**',
+            '- Production Apps Script URL configured: **'+(r.config&&r.config.kk_admin_script_url_present?'YES':'NO')+'**',
+            '- URL host classification: **'+String(r.config&&r.config.kk_admin_script_url_host||'unparseable')+'**',
+            '- URL path classification: **'+String(r.config&&r.config.kk_admin_script_url_path_kind||'unparseable')+'**',
+            '- Phase1 Health: **'+(complete?'PASS':'NOT REACHED')+'**',
+            '- Backend/Sheet identity: **'+(complete?(r.phase1_health.frontend_backend_same_sheet?'MATCH':'MISMATCH'):'UNVERIFIED')+'**',
+            '- Observed Apps Script effective UTC offset: **'+(complete?(r.timing.inferred_offset||'unknown'):'UNVERIFIED')+'**',
+            '- Effective UTC+07:00 verified: **'+(complete&&r.timing.effective_utc_plus_7_verified?'YES':'NO')+'**',
+            '- Named Project timezone explicitly exposed by deployed read-only API: **'+(complete&&r.timing.named_timezone_explicitly_exposed?'YES':'NO')+'**',
+            '- Installed-trigger readback exposed by deployed read-only API: **'+(complete&&r.installed_triggers.readback_exposed_by_phase1_health?'YES':'NO')+'**',
+            '- `kkCleanupOldData30DaysAuto` directly verified: **'+(complete&&r.installed_triggers.cleanup_trigger_verified?'YES':'NO')+'**',
             '',
-            'Safety: phase1Health only; Apps Script writes 0; Sheet business writes 0; trigger/timezone mutations 0; secret values are not included in the artifact/comment.',
+            'Safety: read-only diagnostic path only; Apps Script writes 0; Sheet business writes 0; trigger/timezone mutations 0; raw URL, API key and Sheet ID values are never included in the artifact/comment.',
             '',
-            'Interpretation: UTC+07:00 can be empirically verified from the live Apps Script formatter. If the named timezone and trigger fields are not exposed, those two items remain fail-closed pending owner-authenticated Apps Script Project Settings/Triggers readback.'
+            complete
+              ? 'Interpretation: effective timing was observed from the live Apps Script formatter. Named timezone / installed trigger remain fail-closed unless explicitly exposed.'
+              : 'Interpretation: the Production Apps Script configuration blocked the read-only probe before any Apps Script request. No setting was changed to bypass the blocker.'
           ];
           process.stdout.write(lines.join('\n'));
           NODE
           gh api "repos/$REPO/issues/$PR_NUMBER/comments" -f body="$(cat /tmp/readback-comment.md)" >/dev/null
+
+      - name: Require completed live readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('apps-script-timing-readback.json','utf8'));
+          if(r.status!=='READBACK_COMPLETE') throw new Error('LIVE_READBACK_NOT_COMPLETED_'+String(r.error_code||'UNKNOWN'));
+          if(r.timing.effective_utc_plus_7_verified!==true) throw new Error('UTC_PLUS_7_NOT_VERIFIED');
+          NODE
