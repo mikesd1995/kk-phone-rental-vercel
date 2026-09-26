@@ -11,6 +11,100 @@ const RUNTIME_DATASETS={
   event_archive:{sheet:'13_Event_Archive',range:'A1:Z',privateRange:'13_Event_Archive!A1:Z',requireData:false}
 };
 
+const APPS_SCRIPT_TIMING_CACHE_TTL_MS=5*60*1000;
+let appsScriptTimingCache={expiresAt:0,payload:null};
+
+function canonicalAppsScriptExecUrl(value){
+  let u;
+  try{u=new URL(String(value||'').trim());}catch(_){return '';}
+  if(u.protocol!=='https:'||u.hostname!=='script.google.com') return '';
+  if(!/^\/macros\/s\/[^/]+\/exec$/.test(u.pathname)) return '';
+  if(u.search||u.hash||u.username||u.password) return '';
+  return u.toString();
+}
+function naiveLocalTimestampMs(value){
+  const m=String(value||'').trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/);
+  if(!m) return NaN;
+  return Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3]),Number(m[4]),Number(m[5]),Number(m[6]));
+}
+function inferOffsetMinutes(localStamp,beforeMs,afterMs){
+  const localMs=naiveLocalTimestampMs(localStamp);
+  if(!Number.isFinite(localMs)) return null;
+  const matches=[];
+  for(let offset=-12*60;offset<=14*60;offset+=15){
+    const absolute=localMs-offset*60000;
+    if(absolute>=beforeMs-90000&&absolute<=afterMs+90000) matches.push(offset);
+  }
+  return matches.length===1?matches[0]:null;
+}
+function offsetLabel(mins){
+  if(!Number.isFinite(mins)) return '';
+  const sign=mins>=0?'+':'-';
+  const n=Math.abs(mins);
+  return sign+String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+}
+function safeTimingPayload(status,errorCode,extra){
+  return Object.assign({
+    status:String(status||'READBACK_BLOCKED'),
+    error_code:String(errorCode||''),
+    evidence_source:'production Apps Script phase1Health.generated_at',
+    effective_utc_offset:'',
+    effective_utc_plus_7_verified:false,
+    backend_sheet_identity_verified:false,
+    named_project_timezone:'UNVERIFIED',
+    installed_triggers:'UNVERIFIED',
+    cleanup_trigger:'UNVERIFIED',
+    safety:{read_only:true,apps_script_writes:0,sheet_business_writes:0,trigger_mutations:0,timezone_mutations:0,secrets_exposed:false}
+  },extra||{});
+}
+async function appsScriptTimingReadback({env=process.env,fetchImpl=global.fetch,now=()=>Date.now(),timeoutMs=10000}={}){
+  const scriptUrl=canonicalAppsScriptExecUrl(env.KK_ADMIN_SCRIPT_URL);
+  const apiKey=String(env.KK_ADMIN_API_KEY||'').trim();
+  const sheetId=String(env.GOOGLE_SHEET_ID||DEFAULT_CORE_SHEET_ID).trim();
+  if(!scriptUrl||!apiKey||!sheetId){
+    return safeTimingPayload('CONFIG_BLOCKED','APPS_SCRIPT_TIMING_CONFIG_UNAVAILABLE');
+  }
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  const before=now();
+  try{
+    const res=await fetchImpl(scriptUrl,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'phase1Health',apiKey,frontendSheetId:sheetId}),
+      redirect:'follow',
+      signal:controller.signal
+    });
+    const after=now();
+    const text=await res.text();
+    let body;
+    try{body=JSON.parse(text);}catch(_){
+      return safeTimingPayload('READBACK_BLOCKED','PHASE1_HEALTH_NON_JSON');
+    }
+    if(!res.ok||body.ok!==true){
+      return safeTimingPayload('READBACK_BLOCKED','PHASE1_HEALTH_REJECTED');
+    }
+    const d=body&&body.data||{};
+    const offset=inferOffsetMinutes(String(d.generated_at||''),before,after);
+    const identity=String(d.spreadsheet_id||'')===sheetId && d.frontend_backend_same_sheet===true;
+    return safeTimingPayload('READBACK_COMPLETE','',{
+      effective_utc_offset:offsetLabel(offset),
+      effective_utc_plus_7_verified:offset===420,
+      backend_sheet_identity_verified:identity
+    });
+  }catch(err){
+    return safeTimingPayload('READBACK_BLOCKED',err&&err.name==='AbortError'?'PHASE1_HEALTH_TIMEOUT':'PHASE1_HEALTH_TRANSPORT_FAILED');
+  }finally{
+    clearTimeout(timer);
+  }
+}
+function timingProbeRequested(req){
+  try{
+    const u=new URL(String(req&&req.url||'/api/kk-intelligence-health'),'https://kk.invalid');
+    return u.searchParams.get('mode')==='apps-script-timing';
+  }catch(_){return false;}
+}
+
 function json(res,status,body){
   res.statusCode=status;
   res.setHeader('Content-Type','application/json; charset=utf-8');
@@ -51,6 +145,17 @@ async function reconcileRuntimeDatasets({coreSheetId,crmSheetId,env}){
 
 module.exports=async function handler(req,res){
   if(req.method==='OPTIONS') return json(res,204,{});
+  if(req.method==='GET' && timingProbeRequested(req)){
+    const now=Date.now();
+    if(appsScriptTimingCache.payload && appsScriptTimingCache.expiresAt>now){
+      res.setHeader('X-KK-Timing-Cache','HIT');
+      return json(res,200,{ok:true,data:appsScriptTimingCache.payload});
+    }
+    const payload=await appsScriptTimingReadback();
+    appsScriptTimingCache={payload,expiresAt:now+APPS_SCRIPT_TIMING_CACHE_TTL_MS};
+    res.setHeader('X-KK-Timing-Cache','MISS');
+    return json(res,200,{ok:true,data:payload});
+  }
   if(req.method!=='POST') return json(res,405,{ok:false,error:'Method not allowed'});
   const a=auth(req); if(!a.ok) return json(res,a.status,{ok:false,error:a.error});
 
@@ -144,4 +249,9 @@ module.exports=async function handler(req,res){
   }
 };
 
-module.exports._test={reconcileRuntimeDatasets,RUNTIME_DATASETS};
+module.exports._test={
+  reconcileRuntimeDatasets,RUNTIME_DATASETS,
+  canonicalAppsScriptExecUrl,naiveLocalTimestampMs,inferOffsetMinutes,offsetLabel,
+  safeTimingPayload,appsScriptTimingReadback,timingProbeRequested,
+  resetTimingCache(){appsScriptTimingCache={expiresAt:0,payload:null};}
+};
