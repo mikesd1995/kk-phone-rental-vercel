@@ -35,6 +35,8 @@ test('one-unit availability has a dedicated low-stock visual state',()=>{
 test('very narrow screens switch to a one-column event grid',()=>{
   assert.match(theme,/@media\(max-width:360px\)/);
   assert.match(theme,/\.poster-grid\s*\{\s*grid-template-columns:1fr;/);
+  const css=fs.readFileSync(path.join(root,'style.css'),'utf8');
+  assert.match(css,/@media\(max-width:400px\)/);
 });
 
 test('mobile sticky LINE CTA respects device safe-area',()=>{
@@ -43,5 +45,5 @@ test('mobile sticky LINE CTA respects device safe-area',()=>{
 
 test('new storefront assets are cache-busted',()=>{
   assert.match(html,/kk-concert-blue-theme-20260922\.css\?v=20260922-ux2/);
-  assert.match(html,/script\.js\?v=hardening-v2-20260926/);
+  assert.match(html,/script\.js\?v=seamless-phase4-20260926/);
 });

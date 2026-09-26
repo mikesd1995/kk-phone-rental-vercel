@@ -144,15 +144,100 @@
     const target=(activePanel && activePanel.querySelector('input[type="search"], #actionSearch')) || $("#eventsSearch") || $("#customerSearch");
     if(target){ target.focus(); target.select && target.select(); }
   }
+  function dirtyForms(){
+    return qsa('#appPanel form[data-dirty="1"]');
+  }
+  function dirtyFormsInActivePanel(){
+    const panel=$(".tab-panel.active");
+    return panel ? qsa('form[data-dirty="1"]',panel) : [];
+  }
+  function updateUnsavedBadge(){
+    const badge=$("#unsavedBadge");
+    if(!badge)return;
+    const count=dirtyForms().length;
+    badge.classList.toggle("hidden",count===0);
+    badge.textContent=count ? `ยังไม่บันทึก ${count} ฟอร์ม` : "มีข้อมูลยังไม่บันทึก";
+  }
+  function markFormDirty(form){
+    if(!form || form.id==="loginPanel")return;
+    form.dataset.dirty="1";
+    updateUnsavedBadge();
+  }
+  function markFormClean(form){
+    if(!form)return;
+    delete form.dataset.dirty;
+    updateUnsavedBadge();
+  }
+  function confirmDiscardDirty(targetTab){
+    const dirty=dirtyFormsInActivePanel();
+    if(!dirty.length)return true;
+    const target=String(targetTab||"").trim();
+    const ok=window.confirm(`มีข้อมูลที่ยังไม่ได้บันทึก ${dirty.length} ฟอร์ม\n\nออกจากหน้านี้ไป ${target||"เมนูอื่น"} โดยไม่บันทึกใช่ไหม?`);
+    if(ok) dirty.forEach(markFormClean);
+    return ok;
+  }
+  function setupUnsavedGuards(){
+    qsa("#appPanel form").forEach(form=>{
+      if(form.dataset.unsavedBound==="1")return;
+      form.dataset.unsavedBound="1";
+      ["input","change"].forEach(type=>form.addEventListener(type,ev=>{
+        if(ev.target && ["BUTTON"].includes(ev.target.tagName))return;
+        markFormDirty(form);
+      }));
+      form.addEventListener("reset",()=>setTimeout(()=>markFormClean(form),0));
+    });
+    updateUnsavedBadge();
+  }
+  function adminSnapshotIsStale(){
+    if(!snapshotState.goodAt)return true;
+    return Date.now()-new Date(snapshotState.goodAt).getTime()>3*60*1000;
+  }
+  function commandSearchRows(query){
+    const q=String(query||"").trim().toLocaleLowerCase("th-TH");
+    if(!q || !state.data)return [];
+    const out=[];
+    ((state.data.events)||[]).forEach(e=>{
+      const hay=[e.event_name,e.venue,e.event_id].join(" ").toLocaleLowerCase("th-TH");
+      if(hay.includes(q)) out.push({kind:"event",title:e.event_name||e.event_id,sub:[fmtDate(e.event_date),e.venue].filter(Boolean).join(" · "),id:e.event_id});
+    });
+    ((state.data.bookings)||[]).forEach(b=>{
+      const hay=[b.customer_name,b.customer_contact,b.customer_phone,b.event_name,b.event_id,b.row_number].join(" ").toLocaleLowerCase("th-TH");
+      if(hay.includes(q)) out.push({kind:"booking",title:`${b.customer_name||"Booking"} · ${b.event_name||b.event_id||""}`,sub:`Booking row ${b.row_number||"-"} · ${bookingLifecycleLabel(b.booking_status)}`,id:b.row_number});
+    });
+    ((state.data.customer_history)||[]).forEach(c=>{
+      const hay=[c.customer_name,c.customer_contact,c.customer_phone,c.last_event_name].join(" ").toLocaleLowerCase("th-TH");
+      if(hay.includes(q)) out.push({kind:"customer",title:c.customer_name||c.customer_key||"ลูกค้า",sub:[c.customer_contact,c.customer_phone,c.last_event_name].filter(Boolean).join(" · "),id:c.customer_key});
+    });
+    return out.slice(0,14);
+  }
+  function renderCommandResults(){
+    const box=$("#globalAdminSearchResults"), input=$("#globalAdminSearch");
+    if(!box||!input)return;
+    const rows=commandSearchRows(input.value);
+    if(!String(input.value||"").trim()){box.innerHTML='<div class="command-empty">พิมพ์ชื่องาน ลูกค้า เบอร์ หรือ Event ID</div>';return;}
+    if(!rows.length){box.innerHTML='<div class="command-empty">ไม่พบรายการที่ตรงกัน</div>';return;}
+    box.innerHTML=rows.map(r=>`<button class="command-result" type="button" data-command-kind="${esc(r.kind)}" data-command-id="${esc(r.id)}"><strong>${esc(r.title)}</strong><span>${esc(r.sub||"")}</span><em>${esc(r.kind==="event"?"EVENT":r.kind==="booking"?"BOOKING":"CUSTOMER")}</em></button>`).join("");
+  }
+  function openCommandPalette(){
+    const overlay=$("#commandPalette");
+    if(!overlay)return focusSmartSearch();
+    overlay.classList.remove("hidden");
+    const input=$("#globalAdminSearch");
+    if(input){input.value="";renderCommandResults();setTimeout(()=>input.focus(),0);}
+  }
+  function closeCommandPalette(){
+    const overlay=$("#commandPalette"); if(overlay)overlay.classList.add("hidden");
+  }
   function activeTabId(){
     const nav=$(".nav[data-tab].active");
     return nav ? String(nav.dataset.tab||"overview") : "overview";
   }
-  function activateTab(tab,{scroll=false,writeHash=true}={}){
+  function activateTab(tab,{scroll=false,writeHash=true,force=false}={}){
     const id=String(tab||"overview").replace(/^#/,"");
     const nav=$(`.nav[data-tab="${id}"]`);
     const panel=$("#tab-"+id);
     if(!nav || !panel) return false;
+    if(!force && activeTabId()!==id && !confirmDiscardDirty(nav.textContent||id)) return false;
     qsa(".nav[data-tab]").forEach(b=>{ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); });
     nav.classList.add("active"); nav.setAttribute("aria-pressed","true");
     qsa(".tab-panel").forEach(p=>p.classList.remove("active"));
@@ -1320,6 +1405,27 @@
   function selectedEventControlIds(){
     return [...state.eventControlSelected].filter(id=>eventControlRows().some(r=>r.event_id===id));
   }
+  function confirmBatchPreview({actionLabel,ids,skipped,rowsById,detail}){
+    const dialog=$("#batchPreviewDialog");
+    if(!dialog || typeof dialog.showModal!=="function"){
+      return Promise.resolve(confirm(`${actionLabel} ${ids.length} งานใช่ไหม?\nข้าม ${skipped} งานที่อยู่สถานะนี้แล้ว\n\n${detail}`));
+    }
+    $("#batchPreviewTitle").textContent=`${actionLabel} · ${ids.length} งาน`;
+    $("#batchPreviewImpact").textContent=detail;
+    $("#batchPreviewSkipped").textContent=skipped ? `ข้าม ${skipped} งานที่อยู่สถานะเป้าหมายแล้ว` : "ไม่มีงานซ้ำที่ต้องข้าม";
+    $("#batchPreviewList").innerHTML=ids.map(id=>{
+      const r=rowsById.get(id)||{};
+      return `<div class="batch-preview-item"><strong>${esc(r.event_name||id)}</strong><span>${esc(eventDateDisplay(r.event_date)||"")} · ${esc(r.venue||"")}</span></div>`;
+    }).join("");
+    $("#batchPreviewConfirm").textContent=`ยืนยัน ${ids.length} งาน`;
+    return new Promise(resolve=>{
+      const yes=$("#batchPreviewConfirm"), no=$("#batchPreviewCancel");
+      const finish=value=>{yes.onclick=null;no.onclick=null;try{dialog.close();}catch(_){}resolve(value);};
+      yes.onclick=()=>finish(true); no.onclick=()=>finish(false);
+      dialog.oncancel=ev=>{ev.preventDefault();finish(false);};
+      dialog.showModal();
+    });
+  }
   async function runEventControlBatch(kind){
     const selected=selectedEventControlIds();
     if(!selected.length) return showNotice("เลือกงานก่อนทำ Batch action","warn");
@@ -1341,7 +1447,7 @@
     const detail=isPackage
       ? (kind==="hide_packages"?"Package จะหาย แต่การ์ดงานยังอยู่เพื่อรับคิวหลุด":"เปิด Package กลับตามสถานะ stock ปัจจุบัน")
       : (kind==="hide_events"?"การ์ดงานจะหายจากหน้าบ้านทั้งหมด":"การ์ดงานจะกลับมา โดยสถานะ Package คงเดิม");
-    if(!confirm(`${actionLabel} ${ids.length} งานใช่ไหม?\nข้าม ${skipped} งานที่อยู่สถานะนี้แล้ว\n\n${detail}\n\nระบบจะทำทีละงานและ Refresh ตรวจผลเมื่อเสร็จ`)) return;
+    if(!(await confirmBatchPreview({actionLabel,ids,skipped,rowsById,detail}))) return;
     const before=ids.map(id=>({id,row:rowsById.get(id)}));
     let ok=0;
     try{
@@ -2607,9 +2713,34 @@
     document.addEventListener("keydown", ev=>{
       const tag=(ev.target && ev.target.tagName || "").toLowerCase();
       const typing=tag==="input" || tag==="textarea" || tag==="select" || (ev.target && ev.target.isContentEditable);
-      if((ev.key==="/" && !typing) || ((ev.ctrlKey||ev.metaKey) && String(ev.key).toLowerCase()==="k")){
-        ev.preventDefault();
-        focusSmartSearch();
+      if((ev.ctrlKey||ev.metaKey) && String(ev.key).toLowerCase()==="k"){
+        ev.preventDefault(); openCommandPalette(); return;
+      }
+      if(ev.key==="/" && !typing){ev.preventDefault();focusSmartSearch();return;}
+      if(ev.key==="Escape") closeCommandPalette();
+    });
+    const commandInput=$("#globalAdminSearch");
+    if(commandInput) commandInput.addEventListener("input",renderCommandResults);
+    const commandClose=$("#commandPaletteClose");
+    if(commandClose) commandClose.addEventListener("click",closeCommandPalette);
+    const commandOverlay=$("#commandPalette");
+    if(commandOverlay) commandOverlay.addEventListener("click",ev=>{if(ev.target===commandOverlay)closeCommandPalette();});
+    document.addEventListener("click",ev=>{
+      const result=ev.target.closest&&ev.target.closest("[data-command-kind]");
+      if(!result)return;
+      const kind=result.getAttribute("data-command-kind"), id=result.getAttribute("data-command-id");
+      closeCommandPalette();
+      if(kind==="event"){
+        activateTab("packages",{scroll:true,writeHash:true});
+        state.eventControlSearch=String(id||"");
+        const input=$("#eventControlSearch"); if(input)input.value=state.eventControlSearch;
+        state.eventControlFilter="all"; state.eventControlMonth="all"; renderEventControlCenter();
+      }else if(kind==="booking"){
+        activateTab("edit-booking",{scroll:true,writeHash:true});
+        openBookingEdit(id);
+      }else if(kind==="customer"){
+        activateTab("customers",{scroll:true,writeHash:true});
+        state.selectedCustomerKey=id; renderCustomerDetail((state.data&&state.data.customer_history)||[]);
       }
     });
     ["#eventsSort","#bookingsSort"].forEach(sel=>{
@@ -2920,7 +3051,8 @@
       catch(e){ showNotice(e.message,"bad"); }
       finally{ setBusy(quick,false); }
     });
-    const bookingEventSelect=$("#bookingForm select[name='event_id']");
+    setupUnsavedGuards();
+        const bookingEventSelect=$("#bookingForm select[name='event_id']");
     if(bookingEventSelect) bookingEventSelect.addEventListener("change", ()=>{ populateBookingPackages(); autofillBookingAmountFromPackage(); });
     const bookingPackageSelect=$("#bookingForm select[name='template_id']");
     if(bookingPackageSelect) bookingPackageSelect.addEventListener("change", autofillBookingAmountFromPackage);
@@ -2968,7 +3100,7 @@
       });
       overrideForm.addEventListener("submit",async ev=>{
         ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true);
-        try{ await api("upsertEventOverride",formData(ev.target)); await refresh(); showNotice("บันทึกราคาเฉพาะงานสำเร็จ"); }
+        try{ await api("upsertEventOverride",formData(ev.target)); markFormClean(ev.target); await refresh(); showNotice("บันทึกราคาเฉพาะงานสำเร็จ"); }
         catch(e){ showNotice(e.message,"bad"); } finally{ setBusy(btn,false); }
       });
 
@@ -3044,6 +3176,7 @@
         p.event_price_overrides=collectCreateEventPriceOverrides();
         const res=await api("createEvent",p);
         ev.target.reset();
+        markFormClean(ev.target);
         const toggle=$("#eventPriceToggle");
         if(toggle) toggle.checked=false;
         resetCreateEventPriceOverrides();
@@ -3073,6 +3206,7 @@
           if(uploaded) p.poster_url=uploaded;
           const res=await api("updateEvent",p);
           if($("#updatePosterFile")) $("#updatePosterFile").value="";
+          markFormClean(ev.target);
           await refresh();
           showNotice("แก้งานสำเร็จ" + posterSyncText(res) + (res.web_ready_action==="hide" ? " แต่สถานะตอนนี้ยังถูกซ่อนจากเว็บ" : "") + posterWarningText(res));
           state.posterWarning = "";
@@ -3081,11 +3215,11 @@
 
     }
     const packageForm=$("#packageForm");
-    if(packageForm) packageForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("createPackage",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่มแพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
+    if(packageForm) packageForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("createPackage",formData(ev.target)); ev.target.reset(); markFormClean(ev.target); await refresh(); showNotice("เพิ่มแพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
     const packageUpdateForm=$("#packageUpdateForm");
-    if(packageUpdateForm) packageUpdateForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("updatePackage",formData(ev.target)); await refresh(); showNotice("แก้แพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
+    if(packageUpdateForm) packageUpdateForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("updatePackage",formData(ev.target)); markFormClean(ev.target); await refresh(); showNotice("แก้แพ็กเกจสำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
     const assetForm=$("#assetForm");
-    if(assetForm) assetForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("addAssets",formData(ev.target)); ev.target.reset(); await refresh(); showNotice("เพิ่ม asset สำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
+    if(assetForm) assetForm.addEventListener("submit",async ev=>{ ev.preventDefault(); const btn=ev.submitter; setBusy(btn,true); try{ await api("addAssets",formData(ev.target)); ev.target.reset(); markFormClean(ev.target); await refresh(); showNotice("เพิ่ม asset สำเร็จ"); }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);} });
     const bookingForm=$("#bookingForm");
     if(bookingForm) bookingForm.addEventListener("submit",async ev=>{
       ev.preventDefault();
@@ -3107,6 +3241,7 @@
         }
         const res=await api("createBooking",payload);
         ev.target.reset();
+        markFormClean(ev.target);
         await refresh();
         showNotice(`บันทึก Booking สำเร็จ: Phone ${res.phone_asset_id||'-'} / Lens ${res.lens_asset_id||'-'}`);
       }catch(e){showNotice(e.message,"bad");}finally{setBusy(btn,false);}
@@ -3121,6 +3256,7 @@
           const payload=formData(ev.target);
           if(!payload.row_number) throw new Error("กรุณาเลือก Booking ที่ต้องการแก้");
           const res=await api("updateBooking", payload);
+          markFormClean(ev.target);
           await refresh();
           activateTab("edit-booking",{scroll:false,writeHash:true});
           const closed=["cancelled","no_show","completed"].includes(String(payload.booking_status||"").toLowerCase());
@@ -3133,6 +3269,15 @@
   }
 
   if(typeof window!=="undefined" && window.addEventListener){
+    window.addEventListener("beforeunload",ev=>{
+      if(!dirtyForms().length)return;
+      ev.preventDefault(); ev.returnValue="";
+    });
+    document.addEventListener("visibilitychange",()=>{
+      if(document.visibilityState!=="visible" || !state.pin || state.loading || !adminSnapshotIsStale())return;
+      if(dirtyForms().length){showNotice("ข้อมูล Snapshot อาจเก่า แต่ยังไม่ Refresh เพราะมีฟอร์มที่ยังไม่ได้บันทึก","warn");return;}
+      refresh().then(()=>showNotice("อัปเดตข้อมูลล่าสุดอัตโนมัติแล้ว")).catch(()=>{});
+    });
     window.addEventListener("error",()=>{
       const id="ADM-"+Date.now().toString(36).toUpperCase();
       window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;

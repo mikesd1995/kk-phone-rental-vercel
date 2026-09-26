@@ -70,6 +70,9 @@ var PRELOADED_IMAGES = {};
 var REQUESTED_LANG = String(URL_PARAMS.get("lang")||"").trim().toLowerCase();
 var currentLang = (REQUESTED_LANG==="en"||REQUESTED_LANG==="th") ? REQUESTED_LANG : getStoredLanguage();
 var activeModalEvent = null;
+var lastDataLoadAt = 0;
+var storefrontRefreshPromise = null;
+var STALE_REFRESH_MS = 3*60*1000;
 
 var I18N = {
   th: {
@@ -190,7 +193,9 @@ var I18N = {
     unspecified:"ไม่ระบุ",
     error_title:"โหลดข้อมูลคิวไม่สำเร็จชั่วคราวน้า",
     error_detail:"ลองรีเฟรชอีกครั้ง หรือสอบถามผ่าน LINE OA",
-    error_line:"ทัก LINE OA มาสอบถาม"
+    error_line:"ทัก LINE OA มาสอบถาม",
+    error_retry:"ลองโหลดข้อมูลใหม่",
+    refreshed:"อัปเดตคิวล่าสุดแล้ว"
   },
   en: {
     meta_title:"KK Phone Rental | Phone & Lens Rental for Concerts and Events",
@@ -310,7 +315,9 @@ var I18N = {
     unspecified:"Not specified",
     error_title:"Unable to load availability right now",
     error_detail:"Please refresh the page or contact us via LINE OA.",
-    error_line:"Contact us via LINE OA"
+    error_line:"Contact us via LINE OA",
+    error_retry:"Try again",
+    refreshed:"Availability refreshed"
   }
 };
 
@@ -1402,7 +1409,24 @@ function closeModal(e){
   document.querySelectorAll("a.sticky-line").forEach(function(a){a.href=LINE_URL;});
   restoreFocus(packageFocusReturn);packageFocusReturn=null;
 }
-function showError(m){var el=document.getElementById("content");if(el)el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div>';}
+function showError(m){
+  var el=document.getElementById("content"); if(!el)return;
+  el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><div class="error-actions"><button class="empty-retry-btn" id="storefront-retry-btn" type="button">'+esc(tr("error_retry"))+'</button><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div></div>';
+}
+async function refreshStorefrontData(reason){
+  if(storefrontRefreshPromise) return storefrontRefreshPromise;
+  storefrontRefreshPromise=loadData().then(function(data){
+    concertsData=data;
+    lastDataLoadAt=Date.now();
+    renderConcerts(concertsData);
+    if(reason==="retry"){
+      var note=document.getElementById("update-note");
+      if(note) note.textContent=tr("refreshed")+" · "+note.textContent;
+    }
+    return data;
+  }).finally(function(){storefrontRefreshPromise=null;});
+  return storefrontRefreshPromise;
+}
 
 function openFaq(){
   var el=document.getElementById("faqOverlay");
@@ -1480,6 +1504,13 @@ document.addEventListener("DOMContentLoaded",function(){
   }
   var clearBrowse=document.getElementById("clear-browse-btn");
   if(clearBrowse)clearBrowse.addEventListener("click",clearBrowseFilters);
+  document.addEventListener("click",function(e){
+    var retry=e.target&&e.target.closest&&e.target.closest("#storefront-retry-btn");
+    if(!retry)return;
+    retry.disabled=true;
+    retry.textContent=tr("loading_text");
+    refreshStorefrontData("retry").catch(function(err){console.error("storefront retry failed",err);showError(tr("error_detail"));});
+  });
   var shareBtn=document.getElementById("event-share-btn");
   if(shareBtn){
     shareBtn.textContent=tr("share_event");
@@ -1513,7 +1544,12 @@ document.addEventListener("DOMContentLoaded",function(){
     if(e.target.closest(FAQ_CLOSE_SELECTOR)){e.preventDefault();e.stopPropagation();closeFaq();return;}
     if(e.target.closest(PACKAGE_CLOSE_SELECTOR)){e.preventDefault();e.stopPropagation();closeModal();return;}
   },true);
-  window.addEventListener("popstate",function(){
+  document.addEventListener("visibilitychange",function(){
+    if(document.visibilityState!=="visible" || activeModalEvent)return;
+    if(lastDataLoadAt && Date.now()-lastDataLoadAt<STALE_REFRESH_MS)return;
+    refreshStorefrontData("foreground").catch(function(err){console.warn("foreground availability refresh failed",err);});
+  });
+    window.addEventListener("popstate",function(){
     var ov=document.getElementById("overlay");
     if(ov&&ov.classList.contains("active")&&!new URL(window.location.href).searchParams.get("event")){
       ov.classList.remove("active");
@@ -1527,6 +1563,7 @@ document.addEventListener("DOMContentLoaded",function(){
 
   loadData().then(function(data){
       concertsData=data;
+      lastDataLoadAt=Date.now();
       renderConcerts(concertsData);
       if(REQUESTED_EVENT){
         var target=concertsData.find(function(c){return String(c.id)===REQUESTED_EVENT;});
