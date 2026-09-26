@@ -72,6 +72,7 @@ function renderPage(eventId,event){
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(description)}">
 <link rel="canonical" href="${escapeHtml(target)}">
+<meta http-equiv="refresh" content="0;url=${escapeHtml(target)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="KK Phone Rental">
 <meta property="og:locale" content="th_TH">
@@ -87,7 +88,6 @@ function renderPage(eventId,event){
 </head>
 <body>
 <p>กำลังเปิดรายละเอียดงาน… <a href="${escapeHtml(target)}">เปิด KK Phone Rental</a></p>
-<script>location.replace(${JSON.stringify(target)});</script>
 </body>
 </html>`;
 }
