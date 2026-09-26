@@ -49,6 +49,6 @@ test('Admin UX v4.1 restores the previous comfortable reading scale',()=>{
   assert.match(css,/#statsGrid \.stat strong\{font-size:22px!important\}/);
   assert.match(css,/#actionTable\{font-size:13\.5px!important\}/);
   assert.match(css,/td\{font-size:13px!important\}/);
-  assert.match(html,/admin\.css\?v=event-control-month-v1-20260926/);
+  assert.match(html,/admin\.css\?v=seamless-phase4-20260926/);
 });
 
