@@ -235,9 +235,12 @@ test('auth body parser caps already-parsed and raw request bodies',async()=>{
   assert.deepEqual(await auth._test.bodyOf({body:{pin:'123456'}}),{pin:'123456'});
 });
 
-test('gate mode supports Vercel rewrite query objects and URL query strings',()=>{
+test('gate mode avoids platform query getters while preserving URL and plain-object compatibility',()=>{
   assert.equal(auth.gateMode({query:{__kk_gate:'auth'},url:'/api/kk-admin-snapshot-v6'}),'auth');
   assert.equal(auth.gateMode({url:'/api/kk-admin-snapshot-v6?__kk_gate=asset'}),'asset');
+  assert.equal(auth.gateMode({url:'/api/kk-admin-auth'}),'auth');
+  assert.equal(auth.gateMode({url:'/admin/app'}),'app');
+  assert.equal(auth._test.queryPath({url:'/admin/admin.js'}),'admin.js');
 });
 
 test('unknown internal gate modes fail closed with 404 instead of leaving a hanging function',async()=>{
