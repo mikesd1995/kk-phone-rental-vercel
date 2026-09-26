@@ -644,3 +644,26 @@ footer .footer-tagline{
   .browse-more-btn{width:100%;min-height:46px}
   .modal-share{min-height:44px}
 }
+
+
+/* Seamless UX phase 4 — storefront */
+.skip-link{position:fixed;left:12px;top:12px;z-index:2000;transform:translateY(-160%);background:#fff;color:var(--navy);border:1px solid var(--blue3);border-radius:999px;padding:10px 14px;font-weight:700;text-decoration:none;box-shadow:0 8px 20px rgba(26,40,69,.15)}
+.skip-link:focus{transform:none}
+#event-browser:focus{outline:none}
+.error-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.empty-retry-btn{appearance:none;border:1.5px solid var(--blue3);background:var(--blue);color:#fff;border-radius:999px;min-height:44px;padding:10px 18px;font:inherit;font-weight:800;cursor:pointer}
+.empty-retry-btn:disabled{opacity:.65;cursor:wait}
+@media(max-width:768px){
+  .browse-controls-shell{position:sticky;top:0;z-index:850;margin:0 -4px 12px;padding:8px 6px 7px;background:rgba(247,251,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid rgba(191,214,255,.75);box-shadow:0 8px 18px rgba(26,40,69,.06)}
+  .browse-controls-shell .event-search-shell{margin:0 auto 7px}
+  .browse-controls-shell .filter-group{margin:0 auto}
+  .browse-controls-shell .filter-bar{margin:0 auto 2px}
+}
+@media(max-width:400px){
+  .poster-grid{grid-template-columns:1fr}
+  .poster-info{min-height:auto}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
