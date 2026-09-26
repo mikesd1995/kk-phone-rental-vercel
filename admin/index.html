@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/admin/admin.css?v=seamless-phase4-20260926" />
+  <link rel="stylesheet" href="/admin/admin.css?v=health-triage-20260926" />
 </head>
 <body>
   <datalist id="venueOptions"></datalist>
@@ -806,6 +806,19 @@
             <div class="table-wrap"><table id="systemGuardTable"></table></div>
           </div>
 
+          <div id="healthTriageCard" class="card health-triage-card">
+            <div class="card-head">
+              <div>
+                <span class="eyebrow">Root Cause Triage</span>
+                <h2>แก้จากต้นเหตุ ไม่ไล่ปิด CHECK ทีละแถว</h2>
+                <p class="hint">รวม Health CHECK ที่มาจาก gate เดียวกัน พร้อมบอกว่าอะไรทำได้ทันที อะไรต้องรอหลักฐาน และอะไรห้ามแก้เดาเพื่อให้สถานะเขียว</p>
+              </div>
+              <button class="btn secondary" id="copyHealthTriageBtn" type="button">Copy Checklist</button>
+            </div>
+            <div id="healthTriageSummary" class="grid stats compact health-triage-summary"></div>
+            <div id="healthTriageList" class="health-triage-list"></div>
+          </div>
+
           <div class="grid two-col">
             <div class="card">
               <div class="card-head"><h2>Sheet Health Check</h2><small>อ่านจาก 10_Admin_Health_Check + Version Diagnostics</small></div>
@@ -847,6 +860,6 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=seamless-phase4-20260926"></script>
+  <script src="/admin/admin.js?v=health-triage-20260926"></script>
 </body>
 </html>
