@@ -23,3 +23,16 @@ test('Admin direct localStorage access remains confined to guarded helpers',()=>
   assert.match(adminJs,/function safeLocalSet\(key,value\)/);
   assert.match(adminJs,/function safeLocalRemove\(key\)/);
 });
+
+
+test('server query parsing avoids Vercel IncomingMessage query getter',()=>{
+  const adminSession=fs.readFileSync('server/admin-session.js','utf8');
+  const publicData=fs.readFileSync('api/kk-data.js','utf8');
+  const scanner=fs.readFileSync('api/kk-scanner-dispatch.js','utf8');
+  assert.doesNotMatch(adminSession,/\breq\.query\b/);
+  assert.doesNotMatch(publicData,/\breq\.query\b/);
+  assert.doesNotMatch(scanner,/\breq\.query\b/);
+  assert.match(adminSession,/new URL\(String\(req&&req\.url\|\|'\/ '\)|new URL\(String\(req&&req\.url\|\|'\/'\)/);
+  assert.match(publicData,/function requestQueryValue\(req, key\)/);
+  assert.match(scanner,/new URL\(String\(req&&req\.url\|\|'\/'\),/);
+});
