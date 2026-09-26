@@ -150,6 +150,34 @@ function safeShareEventId(value) {
   return /^EVT-[A-Za-z0-9_-]{6,160}$/.test(id) ? id : '';
 }
 
+function requestQueryValue(req, key) {
+  let parsed;
+  try { parsed = new URL(String(req && req.url || '/'), 'https://kk-local.invalid'); }
+  catch (_err) { parsed = new URL('/', 'https://kk-local.invalid'); }
+  const values = parsed.searchParams.getAll(key);
+  if (values.length > 1) return '';
+  if (values.length === 1) return String(values[0] || '');
+
+  // Unit-test/local compatibility only: read an own data property without
+  // touching Vercel's IncomingMessage.prototype query getter.
+  try {
+    const desc = req && Object.getOwnPropertyDescriptor(req, 'query');
+    const query = desc && Object.prototype.hasOwnProperty.call(desc, 'value') ? desc.value : null;
+    if (query && typeof query === 'object' && Object.prototype.hasOwnProperty.call(query, key)) {
+      const value = query[key];
+      return Array.isArray(value) ? '' : String(value || '');
+    }
+  } catch (_err) {}
+
+  // Preserve the public share route even if the platform exposes the original
+  // rewritten pathname rather than destination query parameters.
+  if (key === 'eventShare') {
+    const match = String(parsed.pathname || '').match(/^\/event\/(EVT-[A-Za-z0-9_-]{6,160})\/?$/);
+    if (match) return match[1];
+  }
+  return '';
+}
+
 function renderEventSharePage(eventId, text) {
   const rows = parseCsvRows(text);
   const header = (rows[0] || []).map(v => String(v || '').trim());
@@ -256,10 +284,10 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, '');
   if (req.method !== 'GET') return send(res, 405, 'Method Not Allowed');
 
-  const eventShareId = safeShareEventId(Array.isArray(req.query && req.query.eventShare) ? '' : (req.query && req.query.eventShare));
-  const sheet = eventShareId ? '08_Web_Ready' : (Array.isArray(req.query && req.query.sheet) ? '' : String((req.query && req.query.sheet) || '').trim());
-  const range = eventShareId ? 'A4:K' : (Array.isArray(req.query && req.query.range) ? '' : String((req.query && req.query.range) || '').trim());
-  const showPast = eventShareId ? false : isTrue(Array.isArray(req.query && req.query.showPast) ? '' : (req.query && req.query.showPast));
+  const eventShareId = safeShareEventId(requestQueryValue(req, 'eventShare'));
+  const sheet = eventShareId ? '08_Web_Ready' : String(requestQueryValue(req, 'sheet') || '').trim();
+  const range = eventShareId ? 'A4:K' : String(requestQueryValue(req, 'range') || '').trim();
+  const showPast = eventShareId ? false : isTrue(requestQueryValue(req, 'showPast'));
   if (!ALLOWED[sheet] || !ALLOWED[sheet].has(range)) {
     return send(res, 400, 'Sheet/range not allowed');
   }
@@ -352,6 +380,7 @@ module.exports._test = {
   dateFromEventId,
   escapeHtml,
   safeShareEventId,
+  requestQueryValue,
   renderEventSharePage,
   csvHeaderLooksValid,
   privateReaderConfigured,

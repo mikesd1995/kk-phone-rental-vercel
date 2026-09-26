@@ -151,5 +151,6 @@ test('ledger connectivity probe fail-closes without leaking server credential',a
 test('queryValue resolves ledger probe from query object or URL',()=>{
   assert.equal(H._test.queryValue({query:{probe:'ledger'}},'probe'),'ledger');
   assert.equal(H._test.queryValue({url:'/api/kk-scanner-dispatch?probe=ledger'},'probe'),'ledger');
+  assert.equal(H._test.queryValue({url:'/api/kk-scanner-dispatch?probe=one&probe=two'},'probe'),'');
   assert.equal(H._test.queryValue({url:'/api/kk-scanner-dispatch'},'probe'),'');
 });

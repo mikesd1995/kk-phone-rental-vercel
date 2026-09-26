@@ -242,25 +242,47 @@ async function bodyOf(req){
   try{ return JSON.parse(raw); }catch(_){ return {}; }
 }
 
-function gateMode(req){
-  if(req&&req.query&&req.query.__kk_gate!==undefined){
-    const raw=Array.isArray(req.query.__kk_gate)?req.query.__kk_gate[0]:req.query.__kk_gate;
-    return String(raw||'').trim().toLowerCase();
-  }
+function ownQueryValue(req,key){
   try{
-    const u=new URL(req&&req.url||'/','http://localhost');
-    return String(u.searchParams.get('__kk_gate')||'').trim().toLowerCase();
+    const desc=req&&Object.getOwnPropertyDescriptor(req,'query');
+    const query=desc&&Object.prototype.hasOwnProperty.call(desc,'value') ? desc.value : null;
+    if(!query||typeof query!=='object'||!Object.prototype.hasOwnProperty.call(query,key)) return '';
+    const value=query[key];
+    return Array.isArray(value)?String(value[0]||''):String(value||'');
   }catch(_){ return ''; }
 }
 
+function requestUrl(req){
+  try{ return new URL(String(req&&req.url||'/'),'http://localhost'); }
+  catch(_){ return new URL('/','http://localhost'); }
+}
+
+function gateMode(req){
+  const u=requestUrl(req);
+  const param=String(u.searchParams.get('__kk_gate')||'').trim().toLowerCase();
+  if(param) return param;
+  const own=String(ownQueryValue(req,'__kk_gate')||'').trim().toLowerCase();
+  if(own) return own;
+  const path=String(u.pathname||'').replace(/\/+$/,'');
+  if(path==='/api/kk-admin-auth') return 'auth';
+  if(path==='/api/kk-admin-make-verify') return 'make-verify';
+  if(path==='/api/kk-admin-make-health') return 'make-health';
+  if(path==='/admin/app') return 'app';
+  if(path.startsWith('/admin/') && path!=='/admin') return 'asset';
+  return '';
+}
+
 function queryPath(req){
-  if(req&&req.query&&req.query.path!==undefined){
-    return Array.isArray(req.query.path)?req.query.path.join('/'):String(req.query.path||'');
+  const u=requestUrl(req);
+  const fromUrl=String(u.searchParams.get('path')||'');
+  if(fromUrl) return fromUrl;
+  const own=ownQueryValue(req,'path');
+  if(own) return own;
+  const path=String(u.pathname||'');
+  if(path.startsWith('/admin/') && path!=='/admin/app' && path!=='/admin/app/'){
+    return path.slice('/admin/'.length);
   }
-  try{
-    const u=new URL(req&&req.url||'/','http://localhost');
-    return String(u.searchParams.get('path')||'');
-  }catch(_){ return ''; }
+  return '';
 }
 
 function cleanRelative(input){

@@ -50,6 +50,19 @@
     clearTimeout(showNotice.t);
     showNotice.t=setTimeout(()=>n.classList.add("hidden"),9000);
   }
+  function showAdminClientRecovery(id,kind){
+    const box=$("#adminClientRecovery");
+    if(!box) return;
+    const title=$("#adminClientRecoveryTitle");
+    const detail=$("#adminClientRecoveryDetail");
+    if(title) title.textContent=(kind==="async" ? "Admin async error " : "Admin client error ")+String(id||"");
+    if(detail) detail.textContent="Session ยังอยู่ได้ แต่ UI บางส่วนอาจทำงานไม่ครบ กดลองโหลดข้อมูลใหม่ก่อน Refresh ทั้งหน้า";
+    box.classList.remove("hidden");
+  }
+  function hideAdminClientRecovery(){
+    const box=$("#adminClientRecovery");
+    if(box) box.classList.add("hidden");
+  }
   function healthAttentionRows(){
     return (((state.data||{}).health)||[]).filter(r=>{
       const status=String(r.status||"").trim().toUpperCase();
@@ -2333,6 +2346,7 @@
       snapshotState.error="";
       snapshotState.goodAt=snapshotState.checkedAt;
       snapshotState.latencyMs=Date.now()-startedAt;
+      hideAdminClientRecovery();
       renderSnapshotStatus();
       render();
       loadRentalAnalytics();
@@ -2401,6 +2415,21 @@
       const tab=jump.getAttribute("data-tab-jump");
       const nav=$(`.nav[data-tab="${tab}"]`);
       if(nav) nav.click();
+    });
+    const recoveryRetry=$("#adminClientRetryBtn");
+    if(recoveryRetry) recoveryRetry.addEventListener("click",async()=>{
+      setBusy(recoveryRetry,true);
+      try{
+        if(!state.pin) return location.reload();
+        await refresh();
+        updateUiLastRefresh();
+        hideAdminClientRecovery();
+        showNotice("โหลดข้อมูลใหม่สำเร็จ");
+      }catch(e){
+        showNotice("Retry ไม่สำเร็จ: "+e.message,"bad");
+      }finally{
+        setBusy(recoveryRetry,false);
+      }
     });
     const loginBtn=$("#loginBtn");
     if(loginBtn) loginBtn.addEventListener("click", async()=>{
@@ -2876,12 +2905,14 @@
     window.addEventListener("error",()=>{
       const id="ADM-"+Date.now().toString(36).toUpperCase();
       window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;
-      showNotice(`Admin client error ${id} · ลอง Refresh หากหน้าจอทำงานไม่ครบ`,"bad");
+      showAdminClientRecovery(id,"client");
+      showNotice(`Admin client error ${id} · กด “ลองโหลดข้อมูลใหม่” ก่อน Refresh ทั้งหน้า`,"bad");
     });
     window.addEventListener("unhandledrejection",()=>{
       const id="ADM-"+Date.now().toString(36).toUpperCase();
       window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;
-      showNotice(`Admin async error ${id} · ลอง Refresh หากหน้าจอทำงานไม่ครบ`,"bad");
+      showAdminClientRecovery(id,"async");
+      showNotice(`Admin async error ${id} · กด “ลองโหลดข้อมูลใหม่” ก่อน Refresh ทั้งหน้า`,"bad");
     });
   }
   applyDensityMode();

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/admin/admin.css?v=hardening-v1-20260926" />
+  <link rel="stylesheet" href="/admin/admin.css?v=hardening-v3-20260926" />
 </head>
 <body>
   <datalist id="venueOptions"></datalist>
@@ -78,6 +78,14 @@
       </section>
 
       <div id="snapshotStatus" role="status" aria-live="polite" class="card snapshot-status" hidden></div>
+      <div id="adminClientRecovery" class="card admin-client-recovery hidden" role="alert" aria-live="assertive">
+        <div>
+          <span class="eyebrow">Client Recovery</span>
+          <strong id="adminClientRecoveryTitle">Admin UI ต้องโหลดใหม่</strong>
+          <small id="adminClientRecoveryDetail">พบข้อผิดพลาดฝั่ง Browser</small>
+        </div>
+        <button class="btn secondary" type="button" id="adminClientRetryBtn">ลองโหลดข้อมูลใหม่</button>
+      </div>
       <div id="appPanel" class="hidden">
         <div id="notice" class="notice hidden"></div>
 
@@ -801,6 +809,6 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=hardening-v1-20260926"></script>
+  <script src="/admin/admin.js?v=hardening-v3-20260926"></script>
 </body>
 </html>
