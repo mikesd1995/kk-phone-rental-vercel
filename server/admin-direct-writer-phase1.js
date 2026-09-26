@@ -16,6 +16,7 @@
 
 const crypto=require('node:crypto');
 const DirectWriter=require('./admin-direct-writer.js');
+const VisibilityGuard=require('./event-visibility-owner-guard.js');
 
 const VERSION='admin-direct-google-writer-phase1-v1';
 const ADMIN_SOURCE='direct-google-sheets-v1';
@@ -192,6 +193,7 @@ function buildUpdateEventPlan(payload,data){
   if(matches.length!==1) throw Object.assign(new Error('Event identity is ambiguous: '+eventId),{code:'DIRECT_PHASE1_EVENT_ID_AMBIGUOUS'});
   const hit=matches[0];
   const current=padRow(hit.row,8);
+  VisibilityGuard.assertTransition({active_on_web:current[6]},payload);
   const next=current.slice();
   if(payload.event_name) next[1]=text(payload.event_name);
   if(payload.event_date) next[2]=dateSerial(payload.event_date);
