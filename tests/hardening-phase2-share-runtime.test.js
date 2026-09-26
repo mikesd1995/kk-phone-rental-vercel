@@ -3,20 +3,16 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const share=require('../api/kk-event-share.js');
+const publicData=require('../api/kk-data.js');
 
 test('event share ids are canonical and unsafe input is rejected',()=>{
-  assert.equal(share._test.safeEventId('EVT-20260927-ATLAS-RISING-UP-CONCERT'),'EVT-20260927-ATLAS-RISING-UP-CONCERT');
-  assert.equal(share._test.safeEventId('bad id'),'');
+  assert.equal(publicData._test.safeShareEventId('EVT-20260927-ATLAS-RISING-UP-CONCERT'),'EVT-20260927-ATLAS-RISING-UP-CONCERT');
+  assert.equal(publicData._test.safeShareEventId('bad id'),'');
 });
 
 test('event share page renders server-side social metadata and redirects humans',()=>{
-  const html=share._test.renderPage('EVT-20260927-ATLAS-RISING-UP-CONCERT',{
-    event_name:'ATLAS: RISING UP CONCERT',
-    event_date_text:'27/09/2026',
-    venue:'IMPACT Arena',
-    poster_image_url:'https://example.com/poster.jpg'
-  });
+  const csv=[\n    "event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template",\n    "EVT-20260927-ATLAS-RISING-UP-CONCERT,ATLAS: RISING UP CONCERT,27/09/2026,IMPACT Arena,https://example.com/poster.jpg,,0,0,เต็มแล้ว,show_full,x"\n  ].join("\\n");\n  const html=publicData._test.renderEventSharePage('EVT-20260927-ATLAS-RISING-UP-CONCERT',csv);\n  /*
+  */
   assert.match(html,/og:title/);
   assert.match(html,/ATLAS: RISING UP CONCERT/);
   assert.match(html,/og:image[^>]+example\.com\/poster\.jpg/);
