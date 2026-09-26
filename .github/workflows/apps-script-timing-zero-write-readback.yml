@@ -39,7 +39,36 @@ jobs:
           set -euo pipefail
           test -n "${VERCEL_TOKEN:-}"
 
+      - name: Detect repository-level Apps Script diagnostic secrets
+        id: gh_secret_probe
+        env:
+          GH_SCRIPT_URL: ${{ secrets.KK_ADMIN_SCRIPT_URL }}
+          GH_API_KEY: ${{ secrets.KK_ADMIN_API_KEY }}
+          GH_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          READY=false
+          if [ -n "${GH_SCRIPT_URL:-}" ] && [ -n "${GH_API_KEY:-}" ] && [ -n "${GH_SHEET_ID:-}" ]; then READY=true; fi
+          echo "ready=$READY" >> "$GITHUB_OUTPUT"
+          echo "Repository Apps Script diagnostic secrets available: $READY"
+
+      - name: Read Apps Script timing from repository secrets when available
+        if: ${{ steps.gh_secret_probe.outputs.ready == 'true' }}
+        id: gh_secret_readback
+        env:
+          KK_ADMIN_SCRIPT_URL: ${{ secrets.KK_ADMIN_SCRIPT_URL }}
+          KK_ADMIN_API_KEY: ${{ secrets.KK_ADMIN_API_KEY }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/apps-script-timing-readback.js --process-env > apps-script-timing-readback.json
+          test -s apps-script-timing-readback.json
+          echo "completed=true" >> "$GITHUB_OUTPUT"
+
       - name: Install Vercel CLI and link project without exporting secrets
+        if: ${{ steps.gh_secret_probe.outputs.ready != 'true' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
@@ -49,6 +78,7 @@ jobs:
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
 
       - name: Read Apps Script effective timing through phase1Health only
+        if: ${{ steps.gh_secret_probe.outputs.ready != 'true' }}
         id: probe
         shell: bash
         env:
