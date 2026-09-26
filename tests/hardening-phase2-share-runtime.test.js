@@ -45,3 +45,19 @@ test('runtime warning tracer is installed before heavy endpoint dependencies',()
   assert.match(admin,/runtime-warning-tracer/);
   assert.match(fs.readFileSync('server/runtime-warning-tracer.js','utf8'),/DEP0169/);
 });
+
+
+test('event social share route is wired at the server boundary',()=>{
+  const vercel=fs.readFileSync('vercel.json','utf8');
+  assert.match(vercel,/"source": "\/event\/:eventId"/);
+  assert.match(vercel,/"destination": "\/api\/kk-event-share\?event=:eventId"/);
+});
+
+test('Admin regression runs on both pull requests and pushes to main',()=>{
+  const workflow=fs.readFileSync('.github/workflows/admin-regression.yml','utf8');
+  assert.match(workflow,/pull_request:/);
+  assert.match(workflow,/push:/);
+  assert.match(workflow,/branches:\s*\[main\]/);
+  assert.match(workflow,/npm run check/);
+  assert.match(workflow,/npm test/);
+});
