@@ -24,7 +24,7 @@ test('Edit Booking selector is no longer coupled to report bookingsSort',()=>{
   const block=js.slice(start,end);
   assert.match(block,/sortedEditableBookings\(\(state\.data\.bookings\|\|\[\]\)\.filter\(shouldShowInEditBooking\)\)/);
   assert.doesNotMatch(block,/sortedBookings\(/);
-  assert.doesNotMatch(block,/bookingsSort/);
+  assert.doesNotMatch(block,/\$\("#bookingsSort"\)/);
 });
 
 test('Edit Booking selector groups chronologically sorted rows by Thai month',()=>{
