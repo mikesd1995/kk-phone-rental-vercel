@@ -74,7 +74,9 @@ test('Storefront progressively renders 24 events and captures search misses',()=
 test('Storefront event share and contextual sticky LINE are present',()=>{
   assert.match(storeHtml,/id="event-share-btn"/);
   assert.match(storeJs,/navigator\.share/);
-  assert.match(storeJs,/a\.href=availCnt\(c\)<=0\?getWaitlistUrl\(c,null\):getEventInquiryUrl\(c\)/);
+  assert.match(storeJs,/var waitlisted=availCnt\(c\)<=0/);
+  assert.match(storeJs,/a\.href=waitlisted\?getWaitlistUrl\(c,null\):getEventInquiryUrl\(c\)/);
+  assert.match(storeJs,/event_inquiry_click/);
   assert.match(storeHtml,/script\.js\?v=seamless-phase4-20260926/);
 });
 
