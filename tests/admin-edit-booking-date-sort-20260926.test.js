@@ -46,5 +46,5 @@ test('Edit Booking help text explains date ordering and final-status exclusion',
 });
 
 test('Edit Booking Admin JS uses a dedicated cache key',()=>{
-  assert.match(html,/admin\.js\?v=edit-booking-date-sort-20260926/);
+  assert.match(html,/admin\.js\?v=bulk-event-price-edit-20260927/);
 });
