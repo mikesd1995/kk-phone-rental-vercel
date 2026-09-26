@@ -21,6 +21,24 @@ This skill is guidance only. It never becomes event truth, pricing truth, invent
 6. No auto-publish, auto-schedule, auto-spend, price write, inventory write, or Machine SOT write.
 7. If event/pricing/inventory is not verified, useful educational content may still be planned only when its factual claims are independently verified; direct rental copy stays blocked.
 
+## Mandatory routing for X content
+
+Any request equivalent to **“ขอโพสปล่อยเช่างานนี้บน X”**, **“ขอโพสต์งานนี้บน X”**, or another KK content/caption request must route through:
+
+**verified business truth → Content Strategy → Content Agent → anti-repeat check → owner review**
+
+For direct-rental X posts:
+
+- current event, pricing, displayed offer, and inventory must pass verification;
+- the Content Agent must receive recent post/hook context when available;
+- generate **exactly 3 substantively different variants**;
+- each variant must use a different primary angle and hook structure;
+- cosmetic rewrites (emoji swap, synonym swap, sentence reordering) do not count;
+- avoid recycling recent hooks, metaphors, sentence skeletons, and generic filler;
+- if event-specific context is not verified, stay neutral rather than inventing artist/fandom/event lore.
+
+The request router is server/kk-content-request-router.js. Direct-rental requests fail closed when commercial truth is incomplete.
+
 ## Growth model
 
 Use a rolling content-calendar target of approximately:
@@ -32,27 +50,27 @@ This is a portfolio target, not a per-post quota. Do not force a sales CTA into 
 
 Primary content pillars:
 
-- `seat_view` — seat/zone/venue-view utility.
-- `photo_tips` — camera, zoom, Lens, framing, and concert-photo education.
-- `event_info` — verified venue, agenda, timing, or event information.
-- `review_proof` — customer reviews and real-use proof with permission.
-- `engagement` — genuine questions, polls, zone discussion, fan conversation.
-- `direct_rental` — explicit rental offer when verified inventory exists.
+- seat_view — seat/zone/venue-view utility.
+- photo_tips — camera, zoom, Lens, framing, and concert-photo education.
+- event_info — verified venue, agenda, timing, or event information.
+- review_proof — customer reviews and real-use proof with permission.
+- engagement — genuine questions, polls, zone discussion, fan conversation.
+- direct_rental — explicit rental offer when verified inventory exists.
 
 Primary angles:
 
-`event_theme`, `artist`, `fandom`, `seat_view`, `lens_need`, `problem_solution`, `convenience`, `trust`.
+event_theme, artist, fandom, seat_view, lens_need, problem_solution, convenience, trust.
 
 ## X copy contract
 
 For direct rental posts:
 
-- First line: `📱 KK Phone Rental | #เช่ามือถือ`
+- First line: 📱 KK Phone Rental | #เช่ามือถือ
 - Keep the hook event-specific, short, and natural.
 - Use current verified offer/pricing only.
-- Keep: `📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน`
-- Keep: `☁️ Google Drive 30 วัน`
-- Booking CTA: `👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/`
+- Keep: 📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน
+- Keep: ☁️ Google Drive 30 วัน
+- Booking CTA: 👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
 - Put **3–5 strongest relevant hashtags at the end**, preferring official event/artist/brand tags.
 - Do not repeat the brand line at the bottom.
 - Add a promotion/discount line only when the promotion is currently approved and verified.
@@ -75,19 +93,9 @@ When using a seat-view or 3D venue site:
 
 ## Performance learning
 
-Use `17_Content_Performance` in **KK Phone Rental — CRM & Intelligence** as the post-level learning table.
+Use 17_Content_Performance in **KK Phone Rental — CRM & Intelligence** as the post-level learning table.
 
-Track at minimum:
-
-- impressions;
-- engagements and engagement rate;
-- profile visits;
-- link clicks;
-- inquiries;
-- bookings;
-- revenue;
-- spend when applicable;
-- content pillar, angle, objective, CTA and asset type.
+Track at minimum impressions, engagements, engagement rate, profile visits, link clicks, inquiries, bookings, revenue, spend when applicable, content pillar, angle, objective, CTA and asset type.
 
 Interpret metrics by objective:
 
@@ -98,24 +106,13 @@ Interpret metrics by objective:
 
 Do not call an angle a reliable winner from one post. The current minimum evidence nudge is three measured posts; 3–7 is medium confidence and 8+ is high confidence.
 
-Use `19_Content_Experiments` for explicit A/B hypotheses so changes are traceable instead of anecdotal.
+Use 19_Content_Experiments for explicit A/B hypotheses so changes are traceable instead of anecdotal.
 
 ## Draft output contract
 
-When asked to generate a content plan, return:
+When asked to generate a content plan, return objective, content pillar, content angle, hook direction, body direction, CTA type, hashtag approach, asset idea, verified facts used, and unresolved blockers/assumptions.
 
-1. objective;
-2. content pillar;
-3. content angle;
-4. hook direction;
-5. body direction;
-6. CTA type;
-7. hashtag approach;
-8. asset idea;
-9. verified facts used;
-10. unresolved blockers/assumptions.
-
-When asked for final X rental copy, produce differentiated variants rather than cosmetic rewrites, while preserving the current brand/copy contract.
+When asked for final X rental copy, produce three differentiated variants rather than cosmetic rewrites, while preserving the current brand/copy contract.
 
 ## Rollout rule
 
