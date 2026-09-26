@@ -1870,7 +1870,7 @@
     const sel=form.elements.row_number;
     if(!sel) return;
     // Edit Booking has its own deterministic operational order.
-    // Do not reuse the report/table sorter: changing #bookingsSort elsewhere must never reshuffle this selector.
+    // Do not reuse the report/table sorter: changing another Booking view must never reshuffle this selector.
     const rows=sortedEditableBookings((state.data.bookings||[]).filter(shouldShowInEditBooking));
     const current=sel.value;
     sel.innerHTML=renderEditBookingOptions(rows);
