@@ -5,8 +5,15 @@
   const EXPECTED_PROXY_VERSION = KKSnapshotHealth.VERSION;
   let snapshotState = { stale: false, checkedAt: null, goodAt: null, health: null, error: "" };
   const $ = (sel, root=document) => root.querySelector(sel);
-  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const state = { pin: sessionStorage.getItem("kk_admin_pin") || "", data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false };
+  const qsa = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  function safeSessionGet(key){
+    try{ return sessionStorage.getItem(key) || ""; }catch(_){ return ""; }
+  }
+  function safeSessionSet(key,value){
+    try{ sessionStorage.setItem(key,value); return true; }catch(_){ return false; }
+  }
+  const signedSession = typeof window!=="undefined" && window.KK_ADMIN_SIGNED_SESSION===true;
+  const state = { pin: safeSessionGet("kk_admin_pin") || (signedSession ? "__SESSION__" : ""), data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
     ["payment","ตามเงิน"], ["prep","เตรียม/ส่งมอบ"], ["return","รับคืน"], ["upload","อัปโหลด/ปิดงาน"], ["data","ข้อมูลผิด"], ["risk","เสี่ยง"]
@@ -69,7 +76,7 @@
   function formData(form){
     const out={};
     new FormData(form).forEach((v,k)=>{ out[k]=typeof v==="string"?v.trim():v; });
-    $$('input[type="checkbox"]',form).forEach(i=>out[i.name]=i.checked);
+    qsa('input[type="checkbox"]',form).forEach(i=>out[i.name]=i.checked);
     return out;
   }
   function parseLocalDate(v){
@@ -1144,7 +1151,7 @@
         <label class="mini-field note-field"><span>Note</span><input data-field="override_note" placeholder="โปร/เงื่อนไข" /></label>
       </div>`;
     }).join('');
-    $$("#createEventPriceOverrides input, #createEventPriceOverrides select").forEach(el=>{
+    qsa("#createEventPriceOverrides input, #createEventPriceOverrides select").forEach(el=>{
       el.addEventListener("input", updateCreateEventPriceUi);
       el.addEventListener("change", updateCreateEventPriceUi);
     });
@@ -1163,7 +1170,7 @@
     const enabled=eventPriceToggleEnabled();
     if(advanced) advanced.classList.toggle("hidden", !enabled);
     if(panel) panel.classList.toggle("collapsed", !enabled);
-    const changed=$$("#createEventPriceOverrides .create-price-row").filter(row=>{
+    const changed=qsa("#createEventPriceOverrides .create-price-row").filter(row=>{
       return ["override_price","active_override","override_note"].some(f=>{
         const el=row.querySelector(`[data-field="${f}"]`);
         return el && String(el.value||"").trim()!=="";
@@ -1177,12 +1184,12 @@
     if(submit) submit.textContent = enabled && changed ? "สร้างงาน + ตั้งราคา" : "สร้างงาน";
   }
   function resetCreateEventPriceOverrides(){
-    $$("#createEventPriceOverrides input, #createEventPriceOverrides select").forEach(el=>{ el.value=""; });
+    qsa("#createEventPriceOverrides input, #createEventPriceOverrides select").forEach(el=>{ el.value=""; });
     updateCreateEventPriceUi();
   }
   function collectCreateEventPriceOverrides(){
     if(!eventPriceToggleEnabled()) return [];
-    return $$("#createEventPriceOverrides .create-price-row").map(row=>{
+    return qsa("#createEventPriceOverrides .create-price-row").map(row=>{
       const get=f=>{ const el=row.querySelector(`[data-field="${f}"]`); return el ? String(el.value||"").trim() : ""; };
       return {
         template_id:String(row.dataset.templateId||"").trim(),
@@ -1577,7 +1584,7 @@
 
   function fillSelects(){
     const data=state.data||{};
-    $$('select[data-source="events"]').forEach(sel=>{
+    qsa('select[data-source="events"]').forEach(sel=>{
       const current=sel.value;
       const isBooking=!!sel.closest("#bookingForm");
       const isOverride=!!sel.closest("#eventPriceOverrideForm");
@@ -1608,7 +1615,7 @@
         }).join('');
       if(current && rows.some(e=>String(e.event_id)===String(current))) sel.value=current;
     });
-    $$('select[data-source="packages"]').forEach(sel=>{
+    qsa('select[data-source="packages"]').forEach(sel=>{
       if(sel.closest("#bookingForm")) return;
       const current=sel.value;
       sel.innerHTML='<option value="">เลือกแพ็กเกจ</option>'+(data.packages||[])
@@ -2119,13 +2126,13 @@
   }
 
   function bind(){
-    $$(".nav[data-tab]").forEach(btn=>{
+    qsa(".nav[data-tab]").forEach(btn=>{
       btn.setAttribute("aria-controls", "tab-"+btn.dataset.tab);
       btn.setAttribute("aria-pressed", btn.classList.contains("active") ? "true" : "false");
       btn.addEventListener("click",()=>{
-        $$(".nav[data-tab]").forEach(b=>{ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); });
+        qsa(".nav[data-tab]").forEach(b=>{ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); });
         btn.classList.add("active"); btn.setAttribute("aria-pressed","true");
-        $$(".tab-panel").forEach(p=>p.classList.remove("active"));
+        qsa(".tab-panel").forEach(p=>p.classList.remove("active"));
         const panel=$("#tab-"+btn.dataset.tab);
         if(panel) panel.classList.add("active");
         window.scrollTo({top:0,behavior:"smooth"});
@@ -2142,7 +2149,7 @@
     if(loginBtn) loginBtn.addEventListener("click", async()=>{
       if(state.pin!==$("#pinInput").value.trim()){ state.data=null; snapshotState.goodAt=null; }
       state.pin=$("#pinInput").value.trim(); if(!state.pin) return alert("กรุณากรอก PIN");
-      sessionStorage.setItem("kk_admin_pin",state.pin);
+      safeSessionSet("kk_admin_pin",state.pin);
       try{ await refresh(); updateUiLastRefresh(); $("#loginPanel").classList.add("hidden"); $("#appPanel").classList.remove("hidden"); showNotice("โหลดข้อมูลสำเร็จ"); }
       catch(e){ showNotice(e.message,"bad"); }
     });
@@ -2258,8 +2265,8 @@
         ev.preventDefault(); ev.stopPropagation();
         const assetId=assetBtn.getAttribute("data-update-asset")||"";
         if(!assetId) return showNotice("ไม่พบ asset_id ที่ต้องการอัปเดต", "bad");
-        const statusEl=$$('[data-asset-status]').find(el=>el.getAttribute('data-asset-status')===assetId);
-        const rentableEl=$$('[data-asset-rentable]').find(el=>el.getAttribute('data-asset-rentable')===assetId);
+        const statusEl=qsa('[data-asset-status]').find(el=>el.getAttribute('data-asset-status')===assetId);
+        const rentableEl=qsa('[data-asset-rentable]').find(el=>el.getAttribute('data-asset-rentable')===assetId);
         const payload={asset_id:assetId, status:statusEl ? statusEl.value : "available", rentable: rentableEl ? rentableEl.checked : true};
         setBusy(assetBtn,true);
         try{
@@ -2539,6 +2546,14 @@
   applyDensityMode();
   updateUiLastRefresh();
   bind();
+  // /admin/app is already authenticated by the signed HttpOnly cookie. The
+  // session bridge reveals the shell immediately; this fallback keeps bootstrap
+  // working even when browser sessionStorage is unavailable.
+  if(!state.pin && signedSession) state.pin="__SESSION__";
+  if(signedSession){
+    $("#loginPanel") && $("#loginPanel").classList.add("hidden");
+    $("#appPanel") && $("#appPanel").classList.remove("hidden");
+  }
   if(state.pin && $("#pinInput") && $("#loginBtn")){
     $("#pinInput").value=state.pin;
     // /admin/app is already protected by the signed server session. Reveal the

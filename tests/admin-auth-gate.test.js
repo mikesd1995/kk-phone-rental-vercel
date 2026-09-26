@@ -259,6 +259,28 @@ test('signed-in Admin HTML receives the session bridge and keeps the obsolete in
   assert.match(html,/id="loginPanel" class="card login-card hidden" aria-hidden="true"/);
 });
 
+test('signed-session bootstrap does not depend on sessionStorage availability',()=>{
+  const bridge=read('admin/session-bridge.js');
+  const admin=read('admin/admin.js');
+  const login=read('admin-login.html');
+  assert.match(bridge,/window\.KK_ADMIN_SIGNED_SESSION=true/);
+  assert.match(bridge,/revealAuthenticatedShell\(\)/);
+  assert.match(bridge,/app\.classList\.remove\('hidden'\)/);
+  assert.match(admin,/function safeSessionGet\(key\)/);
+  assert.match(admin,/signedSession \? "__SESSION__" : ""/);
+  assert.match(admin,/if\(!state\.pin && signedSession\) state\.pin="__SESSION__"/);
+  assert.doesNotMatch(admin,/pin: sessionStorage\.getItem/);
+  assert.match(login,/try\{ sessionStorage\.setItem\('kk_admin_pin','__SESSION__'\); \}catch\(_\)\{ \}/);
+});
+
+test('authenticated shell exposes a visible recovery status on client bootstrap errors',()=>{
+  const bridge=read('admin/session-bridge.js');
+  assert.match(bridge,/function showBootstrapFailure\(\)/);
+  assert.match(bridge,/window\.addEventListener\('error'/);
+  assert.match(bridge,/window\.addEventListener\('unhandledrejection'/);
+  assert.match(bridge,/Admin UI โหลดไม่ครบ แต่ session ยังเข้าได้/);
+});
+
 test('Admin asset path handling rejects traversal and resolves only real files under Admin root',()=>{
   assert.equal(auth._test.cleanRelative('admin.js'),'admin.js');
   assert.equal(auth._test.cleanRelative('nested/file.css'),'nested/file.css');
