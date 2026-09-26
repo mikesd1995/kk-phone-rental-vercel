@@ -461,31 +461,49 @@
               <label class="mini-control">ค้นหา
                 <input id="eventControlSearch" class="mini-search" type="search" placeholder="ชื่องาน / สถานที่ / Event ID" />
               </label>
+              <label class="mini-control">เดือน
+                <select id="eventControlMonth" aria-label="เลือกเดือนของ Event Control Center"></select>
+              </label>
               <label class="mini-control">สถานะ
                 <select id="eventControlFilter">
-                  <option value="needs_action">ต้องจัดการ</option>
+                  <option value="needs_action">ต้องจัดการจริง</option>
                   <option value="all">ทั้งหมด</option>
                   <option value="all_hidden">🟢 ซ่อนแพ็กเกจครบ</option>
                   <option value="partial">🟡 ซ่อนบางส่วน</option>
                   <option value="visible">🔴 ยังมีแพ็กเกจแสดง</option>
-                  <option value="event_hidden">⛔ การ์ดซ่อน</option>
+                  <option value="event_hidden">⛔ การ์ดไม่แสดง</option>
                   <option value="full">คิวเต็ม</option>
                 </select>
               </label>
-              <div class="bulk-visibility-actions event-control-batch">
-                <button class="btn danger-soft" type="button" id="controlBatchHidePackages">ซ่อน Package ที่เลือก</button>
-                <button class="btn secondary" type="button" id="controlBatchShowPackages">เปิด Package ที่เลือก</button>
-                <button class="btn danger-soft" type="button" id="controlBatchHideEvents">ซ่อนการ์ดงานที่เลือก</button>
-                <button class="btn secondary" type="button" id="controlBatchShowEvents">เปิดการ์ดงานที่เลือก</button>
-              </div>
+              <label class="mini-control">เรียง
+                <select id="eventControlSort">
+                  <option value="date_asc">วันที่ใกล้สุด</option>
+                  <option value="date_desc">วันที่ไกลสุด</option>
+                  <option value="package_attention">Package ที่ต้องจัดการก่อน</option>
+                </select>
+              </label>
             </div>
+            <div id="eventControlSummary" class="event-control-summary" aria-live="polite"></div>
             <div class="event-control-selection">
               <label class="check"><input id="eventControlSelectVisible" type="checkbox" /> เลือกงานที่แสดงในหน้านี้</label>
-              <small id="eventControlSelectedCount">เลือก 0 งาน</small>
+              <div class="event-control-selection-actions">
+                <button class="btn ghost small" type="button" id="eventControlSelectedOnly">ดูเฉพาะที่เลือก</button>
+                <button class="btn ghost small" type="button" id="eventControlClearSelected">ล้างที่เลือก</button>
+                <small id="eventControlSelectedCount">เลือก 0 / 12 งาน</small>
+              </div>
             </div>
             <div class="table-wrap event-control-table-wrap"><table id="eventControlTable"></table></div>
             <div class="table-more"><button class="btn ghost" type="button" id="eventControlLoadMoreBtn">แสดงงานเพิ่ม</button></div>
-            <p class="hint">เพื่อความปลอดภัย Batch write จำกัดครั้งละ 12 งาน และจะ Refresh/readback หลังทำครบทุกงาน</p>
+            <div id="eventControlStickyActions" class="event-control-sticky-actions hidden" aria-label="Batch actions สำหรับงานที่เลือก">
+              <strong id="eventControlStickyCount">เลือก 0 / 12 งาน</strong>
+              <div class="bulk-visibility-actions event-control-batch">
+                <button class="btn danger-soft" type="button" data-event-control-batch="hide_packages">ซ่อน Package</button>
+                <button class="btn secondary" type="button" data-event-control-batch="show_packages">เปิด Package</button>
+                <button class="btn danger-soft" type="button" data-event-control-batch="hide_events">ซ่อนการ์ด</button>
+                <button class="btn secondary" type="button" data-event-control-batch="show_events">เปิดการ์ด</button>
+              </div>
+            </div>
+            <p class="hint">เลือกได้สูงสุด 12 งานต่อรอบ · ระบบจะข้ามงานที่อยู่สถานะเป้าหมายแล้ว และ Refresh/readback หลังทำครบทุกงาน</p>
           </div>
 
           <div class="grid two-col">
@@ -809,6 +827,6 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=hardening-v3-20260926"></script>
+  <script src="/admin/admin.js?v=event-control-month-v1-20260926"></script>
 </body>
 </html>
