@@ -117,8 +117,8 @@ function blockedReport(errorCode,config,nowMs){
   };
 }
 
-async function run({envFile,fetchImpl=global.fetch,now=()=>Date.now()}){
-  const env=parseEnvFile(envFile);
+async function run({envFile,envObject,fetchImpl=global.fetch,now=()=>Date.now()}){
+  const env=envObject || (envFile==='--process-env' ? process.env : parseEnvFile(envFile));
   const config=safeConfigDiagnostics(env);
   let scriptUrl;
   try{scriptUrl=validateExecUrl(env.KK_ADMIN_SCRIPT_URL);}
@@ -222,7 +222,7 @@ async function run({envFile,fetchImpl=global.fetch,now=()=>Date.now()}){
 
 async function main(){
   const envFile=process.argv[2];
-  if(!envFile) throw new Error('Usage: node scripts/apps-script-timing-readback.js <vercel-env-file>');
+  if(!envFile) throw new Error('Usage: node scripts/apps-script-timing-readback.js <vercel-env-file|--process-env>');
   try{
     const report=await run({envFile});
     process.stdout.write(JSON.stringify(report,null,2)+'\n');
