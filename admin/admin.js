@@ -1131,6 +1131,13 @@
     }
     if($("#eventControlCount")) $("#eventControlCount").textContent=`${Math.min(shown.length,rows.length)} / ${rows.length} งาน`;
     if($("#eventControlSelectedCount")) $("#eventControlSelectedCount").textContent=`เลือก ${state.eventControlSelected.size} งาน`;
+    const selectVisible=$("#eventControlSelectVisible");
+    if(selectVisible){
+      const shownIds=shown.map(r=>r.event_id);
+      const selectedShown=shownIds.filter(id=>state.eventControlSelected.has(id)).length;
+      selectVisible.checked=shownIds.length>0 && selectedShown===shownIds.length;
+      selectVisible.indeterminate=selectedShown>0 && selectedShown<shownIds.length;
+    }
     table(tableEl,[
       {label:"เลือก",render:r=>`<input type="checkbox" data-control-select="${esc(r.event_id)}" ${state.eventControlSelected.has(r.event_id)?"checked":""} aria-label="เลือก ${esc(r.event_name)}" />`},
       {label:"วันที่",render:r=>esc(fmtDate(r.event_date))},
@@ -1148,29 +1155,52 @@
     return [...state.eventControlSelected].filter(id=>filteredEventControlRows().some(r=>r.event_id===id));
   }
   async function runEventControlBatch(kind){
-    const ids=selectedEventControlIds();
-    if(!ids.length) return showNotice("เลือกงานก่อนทำ Batch action","warn");
-    if(ids.length>12) return showNotice("เพื่อความปลอดภัย Batch ได้ครั้งละไม่เกิน 12 งาน กรุณาแบ่งทำเป็นชุด","warn");
+    const selected=selectedEventControlIds();
+    if(!selected.length) return showNotice("เลือกงานก่อนทำ Batch action","warn");
+    const rowsById=new Map(eventControlRows().map(r=>[r.event_id,r]));
+    const shouldChange=id=>{
+      const r=rowsById.get(id); if(!r)return false;
+      if(kind==="hide_packages") return r.pkg.kind!=="hidden" && r.pkg.kind!=="unknown";
+      if(kind==="show_packages") return r.pkg.kind!=="visible" && r.pkg.kind!=="unknown";
+      if(kind==="hide_events") return !r.event_hidden;
+      if(kind==="show_events") return r.event_hidden;
+      return false;
+    };
+    const ids=selected.filter(shouldChange);
+    const skipped=selected.length-ids.length;
+    if(!ids.length) return showNotice("งานที่เลือกอยู่ในสถานะนี้แล้วทั้งหมด — ไม่ส่งคำสั่งซ้ำ","ok");
+    if(ids.length>12) return showNotice("เพื่อความปลอดภัย Batch ที่ต้องเปลี่ยนจริงได้ครั้งละไม่เกิน 12 งาน กรุณาแบ่งทำเป็นชุด","warn");
     const isPackage=kind==="hide_packages" || kind==="show_packages";
     const actionLabel=kind==="hide_packages"?"ซ่อน Package":kind==="show_packages"?"เปิด Package":kind==="hide_events"?"ซ่อนการ์ดงาน":"เปิดการ์ดงาน";
     const detail=isPackage
       ? (kind==="hide_packages"?"Package จะหาย แต่การ์ดงานยังอยู่เพื่อรับคิวหลุด":"เปิด Package กลับตามสถานะ stock ปัจจุบัน")
       : (kind==="hide_events"?"การ์ดงานจะหายจากหน้าบ้านทั้งหมด":"การ์ดงานจะกลับมา โดยสถานะ Package คงเดิม");
-    if(!confirm(`${actionLabel} ${ids.length} งานใช่ไหม?\n\n${detail}\n\nระบบจะทำทีละงานและ Refresh ตรวจผลเมื่อเสร็จ`)) return;
+    if(!confirm(`${actionLabel} ${ids.length} งานใช่ไหม?\nข้าม ${skipped} งานที่อยู่สถานะนี้แล้ว\n\n${detail}\n\nระบบจะทำทีละงานและ Refresh ตรวจผลเมื่อเสร็จ`)) return;
+    const before=ids.map(id=>({id,row:rowsById.get(id)}));
     let ok=0;
     try{
       for(const id of ids){
-        if(isPackage){
-          await api("bulkSetEventPackageVisibility",{event_id:id,mode:kind==="hide_packages"?"hide":"show"});
-        }else{
-          await api("updateEvent",{event_id:id,active_on_web:kind==="show_events"});
-        }
+        if(isPackage) await api("bulkSetEventPackageVisibility",{event_id:id,mode:kind==="hide_packages"?"hide":"show"});
+        else await api("updateEvent",{event_id:id,active_on_web:kind==="show_events"});
         ok++;
       }
       state.eventControlSelected.clear();
       await refresh();
       activateTab("packages",{scroll:false});
-      showNotice(`${actionLabel}สำเร็จ ${ok}/${ids.length} งาน`);
+      showNotice(`${actionLabel}สำเร็จ ${ok}/${ids.length} งาน · ข้าม ${skipped} งานซ้ำ`);
+      if(!isPackage){
+        setAdminUndo(`ทำ ${actionLabel} ${ids.length} งานแล้ว · Undo ได้ 20 วินาที`,async()=>{
+          for(const item of before) await api("updateEvent",{event_id:item.id,active_on_web:!item.row.event_hidden});
+        });
+      }else{
+        const exactUndo=before.every(item=>kind==="hide_packages" ? item.row.pkg.kind==="visible" : item.row.pkg.kind==="hidden");
+        if(exactUndo){
+          setAdminUndo(`ทำ ${actionLabel} ${ids.length} งานแล้ว · Undo ได้ 20 วินาที`,async()=>{
+            const inverse=kind==="hide_packages"?"show":"hide";
+            for(const item of before) await api("bulkSetEventPackageVisibility",{event_id:item.id,mode:inverse});
+          });
+        }
+      }
     }catch(e){
       await refresh().catch(()=>{});
       activateTab("packages",{scroll:false});
@@ -1772,6 +1802,39 @@
     }
   }
 
+  function normalizeSearchText(value){
+    return String(value||"").normalize("NFKC").toLocaleLowerCase("th-TH").replace(/\s+/g," ").trim();
+  }
+  function ensureEventSelectSearch(sel,rows,labelFor){
+    if(!sel || !Array.isArray(rows) || rows.length<25) return;
+    let input=sel.previousElementSibling;
+    if(!(input && input.classList && input.classList.contains("event-select-search"))){
+      input=document.createElement("input");
+      input.type="search";
+      input.className="event-select-search";
+      input.placeholder="ค้นหางานก่อนเลือก";
+      input.setAttribute("aria-label","ค้นหารายการงาน");
+      sel.parentNode.insertBefore(input,sel);
+      input.addEventListener("input",()=>{
+        const all=Array.isArray(sel.__kkEventRows)?sel.__kkEventRows:[];
+        const q=normalizeSearchText(input.value);
+        const selected=String(sel.value||"");
+        const matches=!q?all:all.filter(e=>normalizeSearchText(sel.__kkEventLabelFor(e)).includes(q));
+        const visible=matches.slice(0,80);
+        const selectedRow=selected && all.find(e=>String(e.event_id)===selected);
+        if(selectedRow && !visible.some(e=>String(e.event_id)===selected)) visible.unshift(selectedRow);
+        const placeholder=sel.__kkPlaceholder||"เลือกงาน";
+        sel.innerHTML=`<option value="">${esc(matches.length?placeholder:"ไม่พบงานที่ค้นหา")}</option>`+
+          visible.map(e=>opt(e.event_id,sel.__kkEventLabelFor(e))).join("");
+        if(selected && visible.some(e=>String(e.event_id)===selected)) sel.value=selected;
+      });
+    }
+    sel.__kkEventRows=rows.slice();
+    sel.__kkEventLabelFor=labelFor;
+    sel.__kkPlaceholder=sel.options&&sel.options[0]?sel.options[0].textContent:"เลือกงาน";
+    input.hidden=false;
+  }
+
   function fillSelects(){
     const data=state.data||{};
     qsa('select[data-source="events"]').forEach(sel=>{
@@ -1791,19 +1854,20 @@
         .sort(compareEventsByDateAsc);
       const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : (isOverride ? "เลือกงานวันนี้/อนาคต" : (isEditEvent ? "เลือกงานวันนี้/อนาคต" : "เลือกงาน"));
       const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : (isOverride ? "ไม่มีงานวันนี้/อนาคตให้แก้ราคา" : (isEditEvent ? "ไม่มีงานวันนี้/อนาคตให้แก้ไข" : placeholder));
-      sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+
-        rows.map(e=>{
-          let packageMarker="";
-          if(isOverride){
-            const info=packageVisibilityState(e.event_id);
-            packageMarker=info.kind==="hidden" ? " · 🟢 ซ่อนแล้ว" :
-              (info.kind==="mixed" ? ` · 🟡 ซ่อน ${info.hidden}/${info.total}` :
-                (info.kind==="visible" ? " · 🔴 ยังแสดง" : " · ⚪ ไม่มี Web Package"));
-          }
-          const eventMarker=isOverride ? (e.active_on_web===false ? " · ⛔ การ์ดซ่อน" : " · 👁 การ์ดแสดง") : "";
-          return opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}${packageMarker}${eventMarker}${isEditEvent && e.active_on_web===false ? " · ซ่อนเว็บ" : ""}`);
-        }).join('');
+      const labelFor=e=>{
+        let packageMarker="";
+        if(isOverride){
+          const info=packageVisibilityState(e.event_id);
+          packageMarker=info.kind==="hidden" ? " · 🟢 ซ่อนแล้ว" :
+            (info.kind==="mixed" ? ` · 🟡 ซ่อน ${info.hidden}/${info.total}` :
+              (info.kind==="visible" ? " · 🔴 ยังแสดง" : " · ⚪ ไม่มี Web Package"));
+        }
+        const eventMarker=isOverride ? (e.active_on_web===false ? " · ⛔ การ์ดซ่อน" : " · 👁 การ์ดแสดง") : "";
+        return `${e.event_name} · ${fmtDate(e.event_date)}${packageMarker}${eventMarker}${isEditEvent && e.active_on_web===false ? " · ซ่อนเว็บ" : ""}`;
+      };
+      sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+rows.map(e=>opt(e.event_id,labelFor(e))).join('');
       if(current && rows.some(e=>String(e.event_id)===String(current))) sel.value=current;
+      ensureEventSelectSearch(sel,rows,labelFor);
     });
     qsa('select[data-source="packages"]').forEach(sel=>{
       if(sel.closest("#bookingForm")) return;
