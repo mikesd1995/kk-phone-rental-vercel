@@ -8,7 +8,7 @@ function targetsOf(entry){
   return Array.isArray(entry&&entry.target)?entry.target.map(String):[String(entry&&entry.target||'')].filter(Boolean);
 }
 
-function selectProductionEnv(envs,key){
+function selectProductionEntry(envs,key){
   const matches=(envs||[]).filter(e=>
     String(e&&e.key||'')===key &&
     targetsOf(e).includes('production') &&
@@ -20,13 +20,44 @@ function selectProductionEnv(envs,key){
     throw err;
   }
   const e=matches[0];
-  const value=String(e.value==null?'':e.value);
+  return {
+    id:String(e.id||''),
+    key,
+    value:String(e.value==null?'':e.value),
+    type:String(e.type||''),
+    target:targetsOf(e)
+  };
+}
+
+async function getProjectEnvById({token,teamId,projectId,id,fetchImpl}){
+  if(!id) throw new Error('PRODUCTION_ENV_ID_MISSING');
+  const u=new URL('https://api.vercel.com/v1/projects/'+encodeURIComponent(projectId)+'/env/'+encodeURIComponent(id));
+  u.searchParams.set('teamId',teamId);
+  const res=await fetchImpl(u.toString(),{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});
+  const text=await res.text();
+  if(!res.ok) throw new Error('VERCEL_ENV_VALUE_HTTP_'+res.status);
+  let body;
+  try{body=JSON.parse(text);}catch(_){throw new Error('VERCEL_ENV_VALUE_NON_JSON');}
+  return body;
+}
+
+async function resolveProductionEntry({entry,token,teamId,projectId,fetchImpl}){
+  if(entry.value) return entry;
+  const exact=await getProjectEnvById({token,teamId,projectId,id:entry.id,fetchImpl});
+  const value=String(exact&&exact.value==null?'':exact.value);
   if(!value){
-    const err=new Error('PRODUCTION_ENV_'+key+'_EMPTY');
-    err.safe={key,count:1,type:String(e.type||''),value_length:0};
+    const err=new Error('PRODUCTION_ENV_'+entry.key+'_EMPTY_AFTER_EXACT_READ');
+    err.safe={key:entry.key,id_present:!!entry.id,type:String(exact&&exact.type||entry.type||''),decrypted:exact&&exact.decrypted===true};
     throw err;
   }
-  return {key,value,type:String(e.type||''),target:targetsOf(e)};
+  return {
+    id:entry.id,
+    key:entry.key,
+    value,
+    type:String(exact&&exact.type||entry.type||''),
+    target:entry.target,
+    decrypted:exact&&exact.decrypted===true
+  };
 }
 
 async function retrieveProductionEnv({token,teamId,projectId,fetchImpl=global.fetch}){
@@ -41,8 +72,12 @@ async function retrieveProductionEnv({token,teamId,projectId,fetchImpl=global.fe
   let body;
   try{body=JSON.parse(text);}catch(_){throw new Error('VERCEL_ENV_READ_NON_JSON');}
   const envs=Array.isArray(body.envs)?body.envs:Array.isArray(body.data)?body.data:[];
-  const selected=REQUIRED_KEYS.map(key=>selectProductionEnv(envs,key));
-  return Object.fromEntries(selected.map(x=>[x.key,x]));
+  const out={};
+  for(const key of REQUIRED_KEYS){
+    const entry=selectProductionEntry(envs,key);
+    out[key]=await resolveProductionEntry({entry,token,teamId,projectId,fetchImpl});
+  }
+  return out;
 }
 
 function writeEnvFile(file,selected){
@@ -57,7 +92,14 @@ function writeEnvFile(file,selected){
 function safeSummary(selected){
   return Object.fromEntries(REQUIRED_KEYS.map(key=>{
     const x=selected[key]||{};
-    return [key,{present:!!x.value,type:String(x.type||''),target:x.target||[],value_length:String(x.value||'').length}];
+    return [key,{
+      present:!!x.value,
+      id_present:!!x.id,
+      type:String(x.type||''),
+      target:x.target||[],
+      decrypted:x.decrypted===true,
+      value_length:String(x.value||'').length
+    }];
   }));
 }
 
@@ -76,4 +118,4 @@ async function main(){
 if(require.main===module){
   main().catch(err=>{console.error(String(err&&err.message||err));process.exitCode=1;});
 }
-module.exports={REQUIRED_KEYS,targetsOf,selectProductionEnv,retrieveProductionEnv,writeEnvFile,safeSummary};
+module.exports={REQUIRED_KEYS,targetsOf,selectProductionEntry,getProjectEnvById,resolveProductionEntry,retrieveProductionEnv,writeEnvFile,safeSummary};
