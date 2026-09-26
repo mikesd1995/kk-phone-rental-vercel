@@ -33,7 +33,8 @@
     pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false,
     actionLimit:60, eventLimit:50, bookingLimit:50, pricingLimit:120,
     eventControlLimit:30, eventControlFilter:"needs_action", eventControlSearch:"",
-    eventControlSelected:new Set(), lastUndo:null
+    eventControlMonth:safeSessionGet("kk_admin_event_control_month") || "", eventControlSort:"date_asc",
+    eventControlSelectedOnly:false, eventControlSelected:new Set(), lastUndo:null
   };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
@@ -1088,6 +1089,43 @@
     const id=String(eventId||"").trim();
     return (((state.data||{}).web_ready)||[]).find(r=>String(r.event_id||"").trim()===id) || null;
   }
+  function eventMonthKey(v){
+    const d=parseLocalDate(v);
+    if(!d) return "";
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+  }
+  function eventMonthLabel(key){
+    if(key==="all") return "ทุกเดือน";
+    const m=String(key||"").match(/^(\d{4})-(\d{2})$/);
+    if(!m) return key||"ทุกเดือน";
+    return new Date(Number(m[1]),Number(m[2])-1,1).toLocaleDateString("th-TH",{month:"long",year:"numeric"});
+  }
+  function eventDayKey(v){
+    const d=parseLocalDate(v);
+    if(!d) return "";
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+  function eventDateDisplay(v){
+    const d=parseLocalDate(v);
+    if(!d) return fmtDate(v);
+    return `${d.toLocaleDateString("th-TH",{day:"numeric",month:"short"})} · ${d.toLocaleDateString("th-TH",{weekday:"short"})}`;
+  }
+  function webReadyForEvent(eventId){
+    const id=String(eventId||"").trim();
+    return (((state.data||{}).web_ready)||[]).find(r=>String(r.event_id||"").trim()===id) || null;
+  }
+  function effectiveStorefrontState(event,web){
+    if(!event) return {kind:"blocked_event",tone:"bad",icon:"⚠️",label:"ไม่พบ Event"};
+    if(event.active_on_web===false) return {kind:"owner_hidden",tone:"bad",icon:"⛔",label:"เจ้าของซ่อน"};
+    const health=String(event.data_health||"").trim().toUpperCase();
+    if(health && health!=="OK") return {kind:"blocked_health",tone:"bad",icon:"⚠️",label:"Data Health"};
+    if(!web) return {kind:"blocked_web",tone:"bad",icon:"⚠️",label:"ไม่มี Web Ready"};
+    const poster=String(web.poster_image_url||"").trim();
+    if(!poster) return {kind:"blocked_poster",tone:"bad",icon:"⚠️",label:"ไม่มี Poster"};
+    const action=String(web.action_for_web||"").trim().toLowerCase();
+    if(!action || action==="hide") return {kind:"blocked_web",tone:"bad",icon:"⚠️",label:action==="hide"?"Web Ready = hide":"Web Ready ไม่พร้อม"};
+    return {kind:"visible",tone:"ok",icon:"👁",label:"แสดงจริง"};
+  }
   function eventControlRows(){
     const events=((state.data||{}).events||[])
       .filter(e=>isEventOpen(e) && isTodayOrFuture(e.event_date))
@@ -1100,25 +1138,78 @@
       const phones=toNum(web&&web.available_phone_count);
       const lenses=toNum(web&&web.available_lens_count);
       const full=(phones<=0 && lenses<=0) || String(web&&web.action_for_web||"").toLowerCase()==="show_full";
-      const eventHidden=event.active_on_web===false;
-      const poster=String((web&&web.poster_image_url)||event.poster_url||"").trim();
-      return {event_id:id,event_name:event.event_name||id,event_date:event.event_date,venue:event.venue||"",
-        event_hidden:eventHidden,pkg,phones,lenses,full,poster_ok:!!poster};
+      const posterUrl=String(web&&web.poster_image_url||"").trim();
+      const sourcePoster=String(event.poster_url||"").trim();
+      const effective=effectiveStorefrontState(event,web);
+      return {
+        event_id:id,event_name:event.event_name||id,event_date:event.event_date,venue:event.venue||"",
+        month_key:eventMonthKey(event.event_date),day_key:eventDayKey(event.event_date),
+        event_hidden:event.active_on_web===false,effective,pkg,phones,lenses,full,
+        poster_url:posterUrl,source_poster_url:sourcePoster,
+        poster_state:posterUrl ? "web_ready" : (sourcePoster ? "source_only" : "missing"),
+        needs_action:pkg.kind==="mixed" || pkg.kind==="unknown" || String(effective.kind).startsWith("blocked_")
+      };
     });
   }
-  function filteredEventControlRows(){
+  function eventControlMonths(rows){
+    const counts=new Map();
+    (rows||[]).forEach(r=>{ if(r.month_key) counts.set(r.month_key,(counts.get(r.month_key)||0)+1); });
+    return [...counts.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  }
+  function ensureEventControlMonth(rows){
+    const months=eventControlMonths(rows).map(x=>x[0]);
+    if(state.eventControlMonth==="all") return months;
+    if(state.eventControlMonth && months.includes(state.eventControlMonth)) return months;
+    const current=eventMonthKey(startOfToday());
+    state.eventControlMonth=months.includes(current) ? current : (months[0]||"all");
+    safeSessionSet("kk_admin_event_control_month",state.eventControlMonth);
+    return months;
+  }
+  function syncEventControlMonthSelect(allRows){
+    const sel=$("#eventControlMonth");
+    if(!sel) return;
+    const months=ensureEventControlMonth(allRows);
+    const counts=new Map(eventControlMonths(allRows));
+    sel.innerHTML='<option value="all">ทุกเดือน ('+allRows.length+')</option>'+
+      months.map(key=>opt(key,`${eventMonthLabel(key)} (${counts.get(key)||0})`)).join("");
+    sel.value=state.eventControlMonth||"all";
+  }
+  function scopedEventControlRows(){
+    const all=eventControlRows();
+    ensureEventControlMonth(all);
     const q=String(state.eventControlSearch||"").trim().toLocaleLowerCase("th-TH");
-    const filter=state.eventControlFilter||"needs_action";
-    return eventControlRows().filter(r=>{
+    return all.filter(r=>{
+      if(state.eventControlMonth && state.eventControlMonth!=="all" && r.month_key!==state.eventControlMonth) return false;
       if(q && ![r.event_name,r.venue,r.event_id].join(" ").toLocaleLowerCase("th-TH").includes(q)) return false;
+      return true;
+    });
+  }
+  function eventControlAttentionRank(r){
+    if(String(r.effective&&r.effective.kind||"").startsWith("blocked_")) return 0;
+    if(r.pkg.kind==="unknown") return 1;
+    if(r.pkg.kind==="mixed") return 2;
+    if(r.pkg.kind==="visible") return 3;
+    return 4;
+  }
+  function filteredEventControlRows(){
+    const filter=state.eventControlFilter||"needs_action";
+    let rows=scopedEventControlRows().filter(r=>{
       if(filter==="all") return true;
       if(filter==="all_hidden") return r.pkg.kind==="hidden";
       if(filter==="partial") return r.pkg.kind==="mixed";
       if(filter==="visible") return r.pkg.kind==="visible";
-      if(filter==="event_hidden") return r.event_hidden;
+      if(filter==="event_hidden") return r.effective.kind!=="visible";
       if(filter==="full") return r.full;
-      return r.event_hidden || r.pkg.kind!=="hidden" || !r.poster_ok;
+      return r.needs_action;
     });
+    if(state.eventControlSelectedOnly) rows=rows.filter(r=>state.eventControlSelected.has(r.event_id));
+    const sort=state.eventControlSort||"date_asc";
+    rows=rows.slice().sort((a,b)=>{
+      if(sort==="date_desc") return compareEventsByDateAsc(b,a);
+      if(sort==="package_attention") return eventControlAttentionRank(a)-eventControlAttentionRank(b) || compareEventsByDateAsc(a,b);
+      return compareEventsByDateAsc(a,b);
+    });
+    return rows;
   }
   function eventControlStatusPill(r){
     if(r.pkg.kind==="hidden") return '<span class="pill ok">🟢 ซ่อนครบ '+esc(r.pkg.hidden)+'/'+esc(r.pkg.total)+'</span>';
@@ -1126,46 +1217,108 @@
     if(r.pkg.kind==="visible") return '<span class="pill bad">🔴 ยังแสดง '+esc(r.pkg.visible)+'/'+esc(r.pkg.total)+'</span>';
     return '<span class="pill">⚪ ไม่มี Web Package</span>';
   }
+  function storefrontStatusPill(r){
+    const e=r.effective||{tone:"bad",icon:"⚠️",label:"ไม่ทราบสถานะ"};
+    return `<span class="pill ${esc(e.tone)}">${esc(e.icon)} ${esc(e.label)}</span>`;
+  }
+  function posterStatusPill(r){
+    if(r.poster_state==="web_ready") return '<span class="pill ok">มี URL</span>';
+    if(r.poster_state==="source_only") return '<span class="pill warn">ยังไม่เข้า Web Ready</span>';
+    return '<span class="pill bad">ขาด URL</span>';
+  }
+  function eventControlFilterLabel(){
+    const sel=$("#eventControlFilter");
+    const option=sel&&sel.options&&sel.selectedIndex>=0 ? sel.options[sel.selectedIndex] : null;
+    return option ? option.textContent : (state.eventControlFilter||"ทั้งหมด");
+  }
+  function clearEventControlSelection({render=true}={}){
+    state.eventControlSelected.clear();
+    state.eventControlSelectedOnly=false;
+    if(render) renderEventControlCenter();
+  }
   function renderEventControlCenter(){
     const tableEl=$("#eventControlTable");
     if(!tableEl || !state.data) return;
     const all=eventControlRows();
+    syncEventControlMonthSelect(all);
+    const filterSelect=$("#eventControlFilter"); if(filterSelect) filterSelect.value=state.eventControlFilter||"needs_action";
+    const sortSelect=$("#eventControlSort"); if(sortSelect) sortSelect.value=state.eventControlSort||"date_asc";
+    const scoped=scopedEventControlRows();
     const rows=filteredEventControlRows();
-    const shown=rows.slice(0,state.eventControlLimit);
+    const shownRaw=rows.slice(0,state.eventControlLimit);
+    const shown=shownRaw.map((r,i)=>{
+      const prev=i>0 ? shownRaw[i-1] : null;
+      return Object.assign({},r,{__rowClass:!prev || prev.day_key!==r.day_key ? "event-date-group-start" : ""});
+    });
     const stats=$("#eventControlStats");
     if(stats){
-      const hidden=all.filter(r=>r.pkg.kind==="hidden").length;
-      const partial=all.filter(r=>r.pkg.kind==="mixed").length;
-      const visible=all.filter(r=>r.pkg.kind==="visible").length;
-      const cardsHidden=all.filter(r=>r.event_hidden).length;
-      stats.innerHTML=[
-        [hidden,"🟢 Package ซ่อนครบ"],[partial,"🟡 ซ่อนบางส่วน"],[visible,"🔴 ยังแสดง"],[cardsHidden,"⛔ การ์ดซ่อน"]
-      ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join("");
+      const hidden=scoped.filter(r=>r.pkg.kind==="hidden").length;
+      const partial=scoped.filter(r=>r.pkg.kind==="mixed").length;
+      const visible=scoped.filter(r=>r.pkg.kind==="visible").length;
+      const cardsHidden=scoped.filter(r=>r.effective.kind!=="visible").length;
+      const items=[
+        ["all_hidden",hidden,"🟢 Package ซ่อนครบ"],
+        ["partial",partial,"🟡 ซ่อนบางส่วน"],
+        ["visible",visible,"🔴 ยังแสดง"],
+        ["event_hidden",cardsHidden,"⛔ การ์ดไม่แสดง"]
+      ];
+      stats.innerHTML=items.map(s=>`<button type="button" class="card stat event-control-stat ${state.eventControlFilter===s[0]?"active":""}" data-control-stat-filter="${esc(s[0])}"><strong>${esc(s[1])}</strong><span>${esc(s[2])}</span></button>`).join("");
+    }
+    const monthText=eventMonthLabel(state.eventControlMonth||"all");
+    const summary=$("#eventControlSummary");
+    if(summary){
+      const searchText=String(state.eventControlSearch||"").trim();
+      summary.textContent=`${monthText} · ${eventControlFilterLabel()}${searchText?" · ค้นหา “"+searchText+"”":""} · ${rows.length} งาน`;
     }
     if($("#eventControlCount")) $("#eventControlCount").textContent=`${Math.min(shown.length,rows.length)} / ${rows.length} งาน`;
-    if($("#eventControlSelectedCount")) $("#eventControlSelectedCount").textContent=`เลือก ${state.eventControlSelected.size} งาน`;
+    const selectedCount=state.eventControlSelected.size;
+    if($("#eventControlSelectedCount")) $("#eventControlSelectedCount").textContent=`เลือก ${selectedCount} / 12 งาน`;
+    const sticky=$("#eventControlStickyActions");
+    if(sticky) sticky.classList.toggle("hidden",selectedCount===0);
+    if($("#eventControlStickyCount")) $("#eventControlStickyCount").textContent=`เลือก ${selectedCount} / 12 งาน`;
+    const selectedOnlyBtn=$("#eventControlSelectedOnly");
+    if(selectedOnlyBtn){
+      selectedOnlyBtn.disabled=selectedCount===0;
+      selectedOnlyBtn.textContent=state.eventControlSelectedOnly ? "แสดงทั้งหมดใน Filter" : "ดูเฉพาะที่เลือก";
+      selectedOnlyBtn.classList.toggle("active",state.eventControlSelectedOnly);
+    }
+    const clearBtn=$("#eventControlClearSelected");
+    if(clearBtn) clearBtn.disabled=selectedCount===0;
     const selectVisible=$("#eventControlSelectVisible");
     if(selectVisible){
       const shownIds=shown.map(r=>r.event_id);
       const selectedShown=shownIds.filter(id=>state.eventControlSelected.has(id)).length;
       selectVisible.checked=shownIds.length>0 && selectedShown===shownIds.length;
       selectVisible.indeterminate=selectedShown>0 && selectedShown<shownIds.length;
+      selectVisible.disabled=!shownIds.length;
     }
     table(tableEl,[
       {label:"เลือก",render:r=>`<input type="checkbox" data-control-select="${esc(r.event_id)}" ${state.eventControlSelected.has(r.event_id)?"checked":""} aria-label="เลือก ${esc(r.event_name)}" />`},
-      {label:"วันที่",render:r=>esc(fmtDate(r.event_date))},
+      {label:"วันที่",render:r=>`<strong>${esc(eventDateDisplay(r.event_date))}</strong>`},
       {label:"งาน",render:r=>`<strong>${esc(r.event_name)}</strong><br><small>${esc(r.venue||r.event_id)}</small>`},
-      {label:"การ์ด",render:r=>r.event_hidden?'<span class="pill bad">⛔ ซ่อน</span>':'<span class="pill ok">👁 แสดง</span>'},
+      {label:"การ์ดจริง",render:r=>storefrontStatusPill(r)},
       {label:"Package",render:r=>eventControlStatusPill(r)},
       {label:"คิว",render:r=>r.full?'<span class="pill warn">เต็ม / Waitlist</span>':`<span class="pill ok">Phone ${esc(r.phones)} · Lens ${esc(r.lenses)}</span>`},
-      {label:"Poster",render:r=>r.poster_ok?'<span class="pill ok">พร้อม</span>':'<span class="pill bad">ขาด Poster</span>'},
-      {label:"Action",render:r=>`<div class="inline-actions"><button class="mini-btn" type="button" data-control-open-override="${esc(r.event_id)}">จัดการ</button><button class="mini-btn ${r.event_hidden?"":"warn-soft"}" type="button" data-control-toggle-event="${esc(r.event_id)}">${r.event_hidden?"เปิดการ์ด":"ซ่อนการ์ด"}</button></div>`}
+      {label:"Poster",render:r=>posterStatusPill(r)},
+      {label:"Action",render:r=>{
+        const pkgMode=r.pkg.kind==="hidden" ? "show" : "hide";
+        const pkgLabel=r.pkg.kind==="hidden" ? "เปิด Package" : (r.pkg.kind==="mixed" ? "ซ่อนให้ครบ" : "ซ่อน Package");
+        const preview=r.effective.kind==="visible"
+          ? `<button class="mini-btn" type="button" data-control-preview-event="${esc(r.event_id)}">ดูหน้าเว็บ</button>`
+          : `<button class="mini-btn" type="button" disabled title="${esc(r.effective.label)}">ดูหน้าเว็บ</button>`;
+        return `<div class="inline-actions">
+          <button class="mini-btn" type="button" data-control-open-override="${esc(r.event_id)}">แก้ราคา/Package</button>
+          <button class="mini-btn" type="button" data-control-toggle-packages="${esc(r.event_id)}" data-mode="${pkgMode}">${esc(pkgLabel)}</button>
+          <button class="mini-btn ${r.event_hidden?"":"warn-soft"}" type="button" data-control-toggle-event="${esc(r.event_id)}">${r.event_hidden?"เปิดการ์ด":"ซ่อนการ์ด"}</button>
+          ${preview}
+        </div>`;
+      }}
     ],shown);
     const more=$("#eventControlLoadMoreBtn");
     if(more){ more.hidden=shown.length>=rows.length; more.textContent=`แสดงเพิ่ม (${Math.max(0,rows.length-shown.length)})`; }
   }
   function selectedEventControlIds(){
-    return [...state.eventControlSelected].filter(id=>filteredEventControlRows().some(r=>r.event_id===id));
+    return [...state.eventControlSelected].filter(id=>eventControlRows().some(r=>r.event_id===id));
   }
   async function runEventControlBatch(kind){
     const selected=selectedEventControlIds();
@@ -1197,7 +1350,7 @@
         else await api("updateEvent",{event_id:id,active_on_web:kind==="show_events"});
         ok++;
       }
-      state.eventControlSelected.clear();
+      clearEventControlSelection({render:false});
       await refresh();
       activateTab("packages",{scroll:false});
       showNotice(`${actionLabel}สำเร็จ ${ok}/${ids.length} งาน · ข้าม ${skipped} งานซ้ำ`);
@@ -1653,7 +1806,7 @@
     if(!el) return;
     if(!rows || !rows.length){ el.innerHTML='<tr><td class="muted">ไม่มีข้อมูล</td></tr>'; return; }
     el.innerHTML='<thead><tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr></thead><tbody>'+
-      rows.map(r=>'<tr>'+cols.map(c=>`<td data-label="${esc(c.label)}">${c.render?c.render(r):esc(r[c.key]??"")}</td>`).join('')+'</tr>').join('')+'</tbody>';
+      rows.map(r=>`<tr class="${esc(r&&r.__rowClass||"")}">`+cols.map(c=>`<td data-label="${esc(c.label)}">${c.render?c.render(r):esc(r[c.key]??"")}</td>`).join('')+'</tr>').join('')+'</tbody>';
   }
 
 
@@ -2497,37 +2650,115 @@
       const el=$("#"+id);
       if(el) el.addEventListener("click",()=>{ state[key]+=step; render(); });
     });
+    const resetEventControlScope=()=>{
+      state.eventControlLimit=30;
+      clearEventControlSelection({render:false});
+    };
     const controlSearch=$("#eventControlSearch");
-    if(controlSearch) controlSearch.addEventListener("input",()=>{ state.eventControlSearch=controlSearch.value||""; state.eventControlLimit=30; renderEventControlCenter(); });
+    if(controlSearch) controlSearch.addEventListener("input",()=>{
+      state.eventControlSearch=controlSearch.value||"";
+      resetEventControlScope();
+      renderEventControlCenter();
+    });
+    const controlMonth=$("#eventControlMonth");
+    if(controlMonth) controlMonth.addEventListener("change",()=>{
+      state.eventControlMonth=controlMonth.value||"all";
+      safeSessionSet("kk_admin_event_control_month",state.eventControlMonth);
+      resetEventControlScope();
+      renderEventControlCenter();
+    });
     const controlFilter=$("#eventControlFilter");
-    if(controlFilter) controlFilter.addEventListener("change",()=>{ state.eventControlFilter=controlFilter.value||"needs_action"; state.eventControlLimit=30; state.eventControlSelected.clear(); renderEventControlCenter(); });
+    if(controlFilter) controlFilter.addEventListener("change",()=>{
+      state.eventControlFilter=controlFilter.value||"needs_action";
+      resetEventControlScope();
+      renderEventControlCenter();
+    });
+    const controlSort=$("#eventControlSort");
+    if(controlSort) controlSort.addEventListener("change",()=>{
+      state.eventControlSort=controlSort.value||"date_asc";
+      state.eventControlLimit=30;
+      renderEventControlCenter();
+    });
     const selectVisible=$("#eventControlSelectVisible");
     if(selectVisible) selectVisible.addEventListener("change",()=>{
       const rows=filteredEventControlRows().slice(0,state.eventControlLimit);
-      rows.forEach(r=>selectVisible.checked ? state.eventControlSelected.add(r.event_id) : state.eventControlSelected.delete(r.event_id));
+      if(selectVisible.checked){
+        const remaining=Math.max(0,12-state.eventControlSelected.size);
+        const addable=rows.filter(r=>!state.eventControlSelected.has(r.event_id));
+        addable.slice(0,remaining).forEach(r=>state.eventControlSelected.add(r.event_id));
+        if(addable.length>remaining) showNotice("เลือกได้สูงสุด 12 งานต่อรอบ — เลือกให้เฉพาะ 12 งานแรก","warn");
+      }else{
+        rows.forEach(r=>state.eventControlSelected.delete(r.event_id));
+      }
+      renderEventControlCenter();
+    });
+    const clearSelected=$("#eventControlClearSelected");
+    if(clearSelected) clearSelected.addEventListener("click",()=>clearEventControlSelection());
+    const selectedOnly=$("#eventControlSelectedOnly");
+    if(selectedOnly) selectedOnly.addEventListener("click",()=>{
+      if(!state.eventControlSelected.size) return showNotice("ยังไม่ได้เลือกงาน","warn");
+      state.eventControlSelectedOnly=!state.eventControlSelectedOnly;
+      state.eventControlLimit=30;
       renderEventControlCenter();
     });
     document.addEventListener("change",ev=>{
       const cb=ev.target && ev.target.closest && ev.target.closest("[data-control-select]");
       if(!cb) return;
       const id=String(cb.getAttribute("data-control-select")||"");
-      if(cb.checked) state.eventControlSelected.add(id); else state.eventControlSelected.delete(id);
-      if($("#eventControlSelectedCount")) $("#eventControlSelectedCount").textContent=`เลือก ${state.eventControlSelected.size} งาน`;
-    });
-    const batchMap={
-      controlBatchHidePackages:"hide_packages", controlBatchShowPackages:"show_packages",
-      controlBatchHideEvents:"hide_events", controlBatchShowEvents:"show_events"
-    };
-    Object.entries(batchMap).forEach(([id,kind])=>{
-      const el=$("#"+id);
-      if(el) el.addEventListener("click",()=>runEventControlBatch(kind));
+      if(cb.checked){
+        if(!state.eventControlSelected.has(id) && state.eventControlSelected.size>=12){
+          cb.checked=false;
+          showNotice("เลือกได้สูงสุด 12 งานต่อรอบ กรุณาทำ Batch ชุดนี้ก่อน","warn");
+          return renderEventControlCenter();
+        }
+        state.eventControlSelected.add(id);
+      }else state.eventControlSelected.delete(id);
+      if(!state.eventControlSelected.size) state.eventControlSelectedOnly=false;
+      renderEventControlCenter();
     });
     document.addEventListener("click",ev=>{
+      const stat=ev.target.closest && ev.target.closest("[data-control-stat-filter]");
+      if(!stat) return;
+      state.eventControlFilter=stat.getAttribute("data-control-stat-filter")||"all";
+      const filterEl=$("#eventControlFilter"); if(filterEl) filterEl.value=state.eventControlFilter;
+      resetEventControlScope();
+      renderEventControlCenter();
+    });
+    qsa("[data-event-control-batch]").forEach(el=>{
+      el.addEventListener("click",()=>runEventControlBatch(el.getAttribute("data-event-control-batch")||""));
+    });
+    document.addEventListener("click",async ev=>{
       const openBtn=ev.target.closest && ev.target.closest("[data-control-open-override]");
       if(openBtn){
         const id=openBtn.getAttribute("data-control-open-override")||"";
         const form=$("#eventPriceOverrideForm");
         if(form && form.elements.event_id){ form.elements.event_id.value=id; populateEventOverrideForm(); form.scrollIntoView({behavior:"smooth",block:"start"}); }
+        return;
+      }
+      const preview=ev.target.closest && ev.target.closest("[data-control-preview-event]");
+      if(preview){
+        const id=preview.getAttribute("data-control-preview-event")||"";
+        if(id) window.open("/?event="+encodeURIComponent(id),"_blank","noopener");
+        return;
+      }
+      const pkgToggle=ev.target.closest && ev.target.closest("[data-control-toggle-packages]");
+      if(pkgToggle){
+        const id=pkgToggle.getAttribute("data-control-toggle-packages")||"";
+        const mode=pkgToggle.getAttribute("data-mode")==="show" ? "show" : "hide";
+        const event=findEventById(id);
+        if(!event) return showNotice("ไม่พบงานที่เลือก","bad");
+        const info=packageVisibilityState(id);
+        if(mode==="hide" && info.kind==="hidden") return showNotice("งานนี้ซ่อน Package ครบอยู่แล้ว","ok");
+        if(mode==="show" && info.kind==="visible") return showNotice("งานนี้เปิด Package อยู่แล้ว","ok");
+        if(!confirm((mode==="hide"?"ซ่อน":"เปิด")+" Package ทั้งงาน "+(event.event_name||id)+" ใช่ไหม?")) return;
+        setBusy(pkgToggle,true);
+        try{
+          await api("bulkSetEventPackageVisibility",{event_id:id,mode});
+          await refresh();
+          activateTab("packages",{scroll:false});
+          showNotice((mode==="hide"?"ซ่อน":"เปิด")+" Package สำเร็จ");
+        }catch(e){ showNotice(e.message,"bad"); }
+        finally{ setBusy(pkgToggle,false); }
         return;
       }
       const toggle=ev.target.closest && ev.target.closest("[data-control-toggle-event]");

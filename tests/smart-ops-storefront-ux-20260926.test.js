@@ -23,10 +23,13 @@ test('booking cancellation cannot fall through to native form navigation',()=>{
 
 test('Admin Event Control Center exposes batch-safe operational visibility management',()=>{
   assert.match(adminHtml,/id="eventControlTable"/);
-  assert.match(adminHtml,/id="controlBatchHidePackages"/);
-  assert.match(adminHtml,/id="controlBatchHideEvents"/);
+  assert.match(adminHtml,/data-event-control-batch="hide_packages"/);
+  assert.match(adminHtml,/data-event-control-batch="hide_events"/);
   assert.match(adminJs,/function renderEventControlCenter\(\)/);
   assert.match(adminJs,/if\(ids\.length>12\)/);
+  assert.match(adminHtml,/id="eventControlMonth"/);
+  assert.match(adminHtml,/id="eventControlSort"/);
+  assert.match(adminHtml,/id="eventControlStickyActions"/);
   assert.match(adminJs,/bulkSetEventPackageVisibility/);
   assert.match(adminJs,/active_on_web:kind==="show_events"/);
   assert.match(adminCss,/event-control-center/);
