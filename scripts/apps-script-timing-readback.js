@@ -7,7 +7,7 @@ function parseEnvFile(file){
   const raw=fs.readFileSync(file,'utf8');
   for(const line of raw.split(/\r?\n/)){
     if(!line || /^\s*#/.test(line)) continue;
-    const m=line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    const m=line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
     if(!m) continue;
     let v=m[2].trim();
     if(v.startsWith('"') && v.endsWith('"')){
@@ -18,6 +18,32 @@ function parseEnvFile(file){
     out[m[1]]=v;
   }
   return out;
+}
+
+function safeConfigDiagnostics(env){
+  const rawUrl=String(env&&env.KK_ADMIN_SCRIPT_URL||'').trim();
+  const apiKey=String(env&&env.KK_ADMIN_API_KEY||'').trim();
+  const sheetId=String(env&&env.GOOGLE_SHEET_ID||'').trim();
+  let parsed=null;
+  try{parsed=new URL(rawUrl);}catch(_){}
+  let pathKind='unparseable';
+  if(parsed){
+    if(/^\/macros\/s\/[^/]+\/exec$/.test(parsed.pathname)) pathKind='canonical_exec';
+    else if(/\/dev$/.test(parsed.pathname)) pathKind='dev';
+    else if(/\/exec\/?$/.test(parsed.pathname)) pathKind='exec_noncanonical';
+    else pathKind='other';
+  }
+  return {
+    kk_admin_script_url_present:!!rawUrl,
+    kk_admin_script_url_length:rawUrl.length,
+    kk_admin_script_url_https:!!parsed && parsed.protocol==='https:',
+    kk_admin_script_url_host:parsed?parsed.hostname:'',
+    kk_admin_script_url_path_kind:pathKind,
+    kk_admin_api_key_present:!!apiKey,
+    kk_admin_api_key_length:apiKey.length,
+    google_sheet_id_present:!!sheetId,
+    google_sheet_id_length:sheetId.length
+  };
 }
 
 function validateExecUrl(value){
@@ -69,7 +95,22 @@ function flattenDiagnosticFields(value,path='',out=[]){
 
 async function run({envFile,fetchImpl=global.fetch,now=()=>Date.now()}){
   const env=parseEnvFile(envFile);
-  const scriptUrl=validateExecUrl(env.KK_ADMIN_SCRIPT_URL);
+  const config=safeConfigDiagnostics(env);
+  let scriptUrl;
+  try{scriptUrl=validateExecUrl(env.KK_ADMIN_SCRIPT_URL);}
+  catch(err){
+    err.report={
+      schema:'KK_APPS_SCRIPT_TIMING_ZERO_WRITE_READBACK_V1',
+      observed_at_utc:new Date(now()).toISOString(),
+      status:'CONFIG_BLOCKED',
+      error_code:String(err&&err.message||'APPS_SCRIPT_URL_INVALID'),
+      config,
+      timing:{effective_utc_plus_7_verified:false,named_timezone_explicitly_exposed:false,named_timezone_verified:false},
+      installed_triggers:{readback_exposed_by_phase1_health:false,cleanup_trigger_verified:false,expected_handler:'kkCleanupOldData30DaysAuto',evidence_fields:[]},
+      safety:{action:'none',read_only:true,apps_script_writes:0,sheet_business_writes:0,trigger_mutations:0,timezone_mutations:0,secrets_logged:false}
+    };
+    throw err;
+  }
   const apiKey=String(env.KK_ADMIN_API_KEY||'').trim();
   const sheetId=String(env.GOOGLE_SHEET_ID||'').trim();
   if(!apiKey) throw new Error('APPS_SCRIPT_API_KEY_MISSING');
@@ -99,6 +140,8 @@ async function run({envFile,fetchImpl=global.fetch,now=()=>Date.now()}){
   const report={
     schema:'KK_APPS_SCRIPT_TIMING_ZERO_WRITE_READBACK_V1',
     observed_at_utc:new Date(after).toISOString(),
+    status:'READBACK_COMPLETE',
+    config,
     request_window_utc:{started_at:new Date(before).toISOString(),finished_at:new Date(after).toISOString(),latency_ms:after-before},
     phase1_health:{
       ok:true,
@@ -158,4 +201,4 @@ async function main(){
 }
 
 if(require.main===module) main();
-module.exports={parseEnvFile,validateExecUrl,naiveLocalTimestampMs,inferOffsetMinutes,offsetLabel,flattenDiagnosticFields,run};
+module.exports={parseEnvFile,safeConfigDiagnostics,validateExecUrl,naiveLocalTimestampMs,inferOffsetMinutes,offsetLabel,flattenDiagnosticFields,run};
