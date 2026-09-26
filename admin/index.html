@@ -273,7 +273,7 @@
             <div class="form-note warn-note">ถ้าลูกค้าเปลี่ยนงานหรือเปลี่ยนแพ็กเกจ แนะนำให้ยกเลิก booking เดิม แล้วสร้าง booking ใหม่ เพื่อกันสต็อกผิด</div>
             <label>เลือก Booking
               <select name="row_number" required></select>
-              <small>แสดงเฉพาะ booking ที่ยังต้องดำเนินการ ส่วน completed/cancelled/no_show จะถูกซ่อนเพื่อลดรายการค้าง</small>
+              <small>แสดงเฉพาะ Booking ที่ยังต้องดำเนินการ · เรียงตามวันงานใกล้สุดและแยกเป็นรายเดือน · completed/cancelled/no_show จะถูกซ่อน</small>
             </label>
             <div class="row three">
               <label>สถานะ Booking
@@ -860,6 +860,6 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=health-triage-20260926"></script>
+  <script src="/admin/admin.js?v=edit-booking-date-sort-20260926"></script>
 </body>
 </html>

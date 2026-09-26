@@ -466,6 +466,44 @@
     else rows.sort((a,b)=>dateValue(b.created_at)-dateValue(a.created_at));
     return rows;
   }
+  function editBookingDateSortValue(b){
+    const t=dateValue(b && b.event_date);
+    return t || Number.MAX_SAFE_INTEGER;
+  }
+  function compareEditBookingsByEventDate(a,b){
+    return (editBookingDateSortValue(a)-editBookingDateSortValue(b)) ||
+      textValue(a && (a.event_name||a.event_id)).localeCompare(textValue(b && (b.event_name||b.event_id)),"th") ||
+      textValue(a && a.customer_name).localeCompare(textValue(b && b.customer_name),"th") ||
+      (Number(a && a.row_number || Number.MAX_SAFE_INTEGER)-Number(b && b.row_number || Number.MAX_SAFE_INTEGER));
+  }
+  function sortedEditableBookings(bookings){
+    return (bookings||[]).slice().sort(compareEditBookingsByEventDate);
+  }
+  function editBookingMonthKey(v){
+    const d=parseLocalDate(v);
+    if(!d) return "unknown";
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+  }
+  function editBookingMonthLabel(v){
+    const d=parseLocalDate(v);
+    if(!d) return "ไม่ระบุวันที่";
+    return d.toLocaleDateString("th-TH",{month:"long",year:"numeric"});
+  }
+  function renderEditBookingOptions(rows){
+    let html='<option value="">เลือก Booking ที่ยังต้องแก้ / ยกเลิก</option>';
+    let openGroup="";
+    (rows||[]).forEach(b=>{
+      const key=editBookingMonthKey(b.event_date);
+      if(key!==openGroup){
+        if(openGroup) html+="</optgroup>";
+        html+=`<optgroup label="${esc(editBookingMonthLabel(b.event_date))}">`;
+        openGroup=key;
+      }
+      html+=opt(b.row_number, bookingLabel(b));
+    });
+    if(openGroup) html+="</optgroup>";
+    return html;
+  }
   function containsQuery(row, fields, query){
     const q=String(query||"").trim().toLowerCase();
     if(!q) return true;
@@ -1831,10 +1869,11 @@
     if(!form || !state.data) return;
     const sel=form.elements.row_number;
     if(!sel) return;
-    const rows=sortedBookings((state.data.bookings||[]).filter(shouldShowInEditBooking));
+    // Edit Booking has its own deterministic operational order.
+    // Do not reuse the report/table sorter: changing another Booking view must never reshuffle this selector.
+    const rows=sortedEditableBookings((state.data.bookings||[]).filter(shouldShowInEditBooking));
     const current=sel.value;
-    sel.innerHTML='<option value="">เลือก Booking ที่ยังต้องแก้ / ยกเลิก</option>'+
-      rows.map(b=>opt(b.row_number, bookingLabel(b))).join('');
+    sel.innerHTML=renderEditBookingOptions(rows);
     if(current && rows.some(b=>String(b.row_number)===String(current))) sel.value=current;
     const b=rows.find(x=>String(x.row_number)===String(sel.value));
     const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
