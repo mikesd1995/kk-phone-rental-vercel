@@ -28,3 +28,26 @@ test('visibility toggle changes only active_on_web through updateEvent',()=>{
   assert.match(js,/btn\.textContent=hidden \? "เปิดงานบนหน้าบ้าน" : "ซ่อนงานจากหน้าบ้าน"/);
   assert.match(js,/การ์ดงานจะหายจากหน้าบ้านทั้งหมด แต่ Package, ราคา, Booking และ Stock จะไม่ถูกลบหรือแก้/);
 });
+
+
+test('Admin storage bootstrap is safe when localStorage is unavailable',()=>{
+  assert.match(js,/function safeLocalGet\(key\)/);
+  assert.match(js,/function safeLocalSet\(key,value\)/);
+  assert.match(js,/const compact=safeLocalGet\("kk_admin_compact_mode"\)==="1"/);
+  assert.doesNotMatch(js,/const compact=localStorage\.getItem/);
+  assert.doesNotMatch(js,/const current=localStorage\.getItem/);
+});
+
+test('Admin Overview surfaces actionable health and reversible actions',()=>{
+  assert.match(html,/id="operationalAttention"/);
+  assert.match(html,/id="adminUndoBar"/);
+  assert.match(js,/function renderOperationalAttention\(\)/);
+  assert.match(js,/function setAdminUndo\(label,undo\)/);
+  assert.match(js,/function runAdminUndo\(\)/);
+});
+
+test('large event selectors get search without changing form payload semantics',()=>{
+  assert.match(js,/function ensureEventSelectSearch\(sel,rows,labelFor\)/);
+  assert.match(js,/ค้นหางานก่อนเลือก/);
+  assert.match(js,/ensureEventSelectSearch\(sel,rows,labelFor\)/);
+});
