@@ -75,3 +75,43 @@ test('trigger evidence remains unverified when deployed phase1Health exposes non
   assert.equal(report.installed_triggers.readback_exposed_by_phase1_health,false);
   assert.equal(report.installed_triggers.cleanup_trigger_verified,false);
 });
+
+
+test('Vercel-style export lines are parsed and config diagnostics never reveal values',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'kk-env-'));
+  const envFile=path.join(dir,'.env.production.local');
+  fs.writeFileSync(envFile,[
+    'export KK_ADMIN_SCRIPT_URL="https://script.google.com/macros/s/abc/exec"',
+    'export KK_ADMIN_API_KEY="do-not-leak"',
+    'export GOOGLE_SHEET_ID="sheet-secret"'
+  ].join('\n'));
+  const env=R.parseEnvFile(envFile);
+  const d=R.safeConfigDiagnostics(env);
+  assert.equal(d.kk_admin_script_url_present,true);
+  assert.equal(d.kk_admin_script_url_host,'script.google.com');
+  assert.equal(d.kk_admin_script_url_path_kind,'canonical_exec');
+  assert.equal(d.kk_admin_api_key_present,true);
+  assert.equal(d.google_sheet_id_present,true);
+  assert.doesNotMatch(JSON.stringify(d),/do-not-leak|sheet-secret|macros\/s\/abc/);
+});
+
+test('invalid Production Apps Script URL returns a secret-safe blocked report',async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'kk-invalid-env-'));
+  const envFile=path.join(dir,'.env.production.local');
+  fs.writeFileSync(envFile,[
+    'KK_ADMIN_SCRIPT_URL="not-a-url"',
+    'KK_ADMIN_API_KEY="secret-key"',
+    'GOOGLE_SHEET_ID="secret-sheet"'
+  ].join('\n'));
+  await assert.rejects(
+    ()=>R.run({envFile,fetchImpl:async()=>{throw new Error('must not fetch');},now:()=>Date.parse('2026-09-26T19:30:00Z')}),
+    err=>{
+      assert.equal(err.message,'APPS_SCRIPT_URL_INVALID');
+      assert.equal(err.report.status,'CONFIG_BLOCKED');
+      assert.equal(err.report.config.kk_admin_script_url_present,true);
+      assert.equal(err.report.safety.apps_script_writes,0);
+      assert.doesNotMatch(JSON.stringify(err.report),/secret-key|secret-sheet/);
+      return true;
+    }
+  );
+});
