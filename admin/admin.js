@@ -15,6 +15,15 @@
   function safeSessionRemove(key){
     try{ sessionStorage.removeItem(key); return true; }catch(_){ return false; }
   }
+  function safeLocalGet(key){
+    try{ return localStorage.getItem(key) || ""; }catch(_){ return ""; }
+  }
+  function safeLocalSet(key,value){
+    try{ localStorage.setItem(key,value); return true; }catch(_){ return false; }
+  }
+  function safeLocalRemove(key){
+    try{ localStorage.removeItem(key); return true; }catch(_){ return false; }
+  }
   const signedSession = typeof window!=="undefined" && window.KK_ADMIN_SIGNED_SESSION===true;
   const state = {
     pin: safeSessionGet("kk_admin_pin") || (signedSession ? "__SESSION__" : ""),
@@ -24,7 +33,7 @@
     pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false,
     actionLimit:60, eventLimit:50, bookingLimit:50, pricingLimit:120,
     eventControlLimit:30, eventControlFilter:"needs_action", eventControlSearch:"",
-    eventControlSelected:new Set()
+    eventControlSelected:new Set(), lastUndo:null
   };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
@@ -40,6 +49,49 @@
     n.setAttribute("role", type==="bad" ? "alert" : "status");
     clearTimeout(showNotice.t);
     showNotice.t=setTimeout(()=>n.classList.add("hidden"),9000);
+  }
+  function healthAttentionRows(){
+    return (((state.data||{}).health)||[]).filter(r=>{
+      const status=String(r.status||"").trim().toUpperCase();
+      const check=String(r.check||"").trim();
+      if(!["CHECK","WARN","FAIL"].includes(status)) return false;
+      if(/^Source count/i.test(check)) return false;
+      return true;
+    });
+  }
+  function renderOperationalAttention(){
+    const box=$("#operationalAttention");
+    if(!box) return;
+    const rows=healthAttentionRows();
+    if(!rows.length){ box.classList.add("hidden"); return; }
+    box.classList.remove("hidden");
+    const title=$("#operationalAttentionTitle");
+    if(title) title.textContent=`มี ${rows.length} จุดที่ควรตรวจ`;
+    const items=$("#operationalAttentionItems");
+    if(items){
+      items.innerHTML=rows.slice(0,4).map(r=>`<span class="pill ${String(r.status||"").toUpperCase()==="FAIL"?"bad":"warn"}">${esc(r.check||"Check")}: ${esc(r.detail||r.note||"ควรตรวจ")}</span>`).join("");
+      if(rows.length>4) items.innerHTML+=`<span class="pill">+${rows.length-4} รายการ</span>`;
+    }
+  }
+  function setAdminUndo(label,undo){
+    state.lastUndo=typeof undo==="function" ? {label:String(label||"ย้อนกลับการเปลี่ยนแปลง"),undo} : null;
+    const bar=$("#adminUndoBar"), textEl=$("#adminUndoText");
+    if(!bar) return;
+    if(!state.lastUndo){ bar.classList.add("hidden"); return; }
+    if(textEl) textEl.textContent=state.lastUndo.label;
+    bar.classList.remove("hidden");
+    clearTimeout(setAdminUndo.t);
+    setAdminUndo.t=setTimeout(()=>{ state.lastUndo=null; bar.classList.add("hidden"); },20000);
+  }
+  async function runAdminUndo(){
+    const item=state.lastUndo;
+    if(!item || typeof item.undo!=="function") return;
+    state.lastUndo=null;
+    const bar=$("#adminUndoBar"); if(bar)bar.classList.add("hidden");
+    const btn=$("#adminUndoBtn"); if(btn)setBusy(btn,true);
+    try{ await item.undo(); await refresh(); showNotice("Undo สำเร็จ"); }
+    catch(e){ showNotice("Undo ไม่สำเร็จ: "+e.message,"bad"); }
+    finally{ if(btn)setBusy(btn,false); }
   }
   function eventNameLint(value){
     const name=String(value||"").normalize("NFKC");
@@ -68,7 +120,7 @@
     el.textContent=now.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"});
   }
   function applyDensityMode(){
-    const compact=localStorage.getItem("kk_admin_compact_mode")==="1";
+    const compact=safeLocalGet("kk_admin_compact_mode")==="1";
     document.body.classList.toggle("compact-mode", compact);
     const btn=$("#densityBtn");
     if(btn) btn.textContent=compact ? "Comfort" : "Compact";
@@ -2308,8 +2360,8 @@
     if(rentalAnalyticsRefreshBtn) rentalAnalyticsRefreshBtn.addEventListener("click",()=>loadRentalAnalytics());
     const densityBtn=$("#densityBtn");
     if(densityBtn) densityBtn.addEventListener("click",()=>{
-      const current=localStorage.getItem("kk_admin_compact_mode")==="1";
-      localStorage.setItem("kk_admin_compact_mode", current ? "0" : "1");
+      const current=safeLocalGet("kk_admin_compact_mode")==="1";
+      safeLocalSet("kk_admin_compact_mode", current ? "0" : "1");
       applyDensityMode();
     });
     document.addEventListener("keydown", ev=>{
