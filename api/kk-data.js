@@ -8,6 +8,8 @@
 // This lets production migrate the Core workbook to private access without coupling the cutover
 // to an unverified credential/configuration change.
 
+const {installRuntimeWarningTracer}=require('../server/runtime-warning-tracer');
+installRuntimeWarningTracer('kk-data');
 const privateSheets = require('./lib/private-google-sheets');
 
 const KK_APP_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_FIX';
