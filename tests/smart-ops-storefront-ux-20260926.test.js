@@ -72,7 +72,7 @@ test('Storefront event share and contextual sticky LINE are present',()=>{
   assert.match(storeHtml,/id="event-share-btn"/);
   assert.match(storeJs,/navigator\.share/);
   assert.match(storeJs,/a\.href=availCnt\(c\)<=0\?getWaitlistUrl\(c,null\):getEventInquiryUrl\(c\)/);
-  assert.match(storeHtml,/script\.js\?v=seamless-v1-20260926/);
+  assert.match(storeHtml,/script\.js\?v=hardening-v2-20260926/);
 });
 
 test('Public feed drops parseable past events by default and can opt into showPast',()=>{
@@ -90,4 +90,28 @@ test('Public feed drops parseable past events by default and can opt into showPa
   const debug=publicData._test.filterPastPublicCsv('08_Web_Ready',eventCsv,{showPast:true,now:new Date('2026-09-26T00:00:00+07:00')});
   assert.equal(debug.dropped,0);
   assert.match(debug.text,/EVT-20260920-OLD/);
+});
+
+
+test('search-miss analytics are debounced and deduplicated',()=>{
+  assert.match(storeJs,/function queueSearchMissTrack\(query\)/);
+  assert.match(storeJs,/normalized\.length<3/);
+  assert.match(storeJs,/now-LAST_SEARCH_MISS\.at<30000/);
+  assert.match(storeJs,/queueSearchMissTrack\(currentSearch\)/);
+  assert.doesNotMatch(storeJs,/if\(contextual\) track\("search_no_result"/);
+});
+
+test('LINE journeys carry deterministic lead references without changing Booking schema',()=>{
+  assert.match(storeJs,/function leadRef\(kind,c,p\)/);
+  assert.match(storeJs,/"Ref : "\+leadRef\("BK",c,p\)/);
+  assert.match(storeJs,/"Ref : "\+leadRef\("WL",c,p\)/);
+  assert.match(adminHtml,/name="lead_ref"/);
+  assert.match(adminJs,/delete payload\.lead_ref/);
+  assert.match(adminJs,/\[LEAD_REF:"\+leadRef\+"\]/);
+});
+
+test('analytics remains opt-in until a real Measurement ID is supplied',()=>{
+  const config=fs.readFileSync(path.join(root,'config.js'),'utf8');
+  assert.match(config,/ga4Id:\s*"G-XXXXXXXXXX"/);
+  assert.doesNotMatch(config,/^\s*ga4Id:\s*"G-[A-Z0-9]+"\s*,?/m);
 });

@@ -15,6 +15,15 @@
   function safeSessionRemove(key){
     try{ sessionStorage.removeItem(key); return true; }catch(_){ return false; }
   }
+  function safeLocalGet(key){
+    try{ return localStorage.getItem(key) || ""; }catch(_){ return ""; }
+  }
+  function safeLocalSet(key,value){
+    try{ localStorage.setItem(key,value); return true; }catch(_){ return false; }
+  }
+  function safeLocalRemove(key){
+    try{ localStorage.removeItem(key); return true; }catch(_){ return false; }
+  }
   const signedSession = typeof window!=="undefined" && window.KK_ADMIN_SIGNED_SESSION===true;
   const state = {
     pin: safeSessionGet("kk_admin_pin") || (signedSession ? "__SESSION__" : ""),
@@ -24,7 +33,7 @@
     pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false,
     actionLimit:60, eventLimit:50, bookingLimit:50, pricingLimit:120,
     eventControlLimit:30, eventControlFilter:"needs_action", eventControlSearch:"",
-    eventControlSelected:new Set()
+    eventControlSelected:new Set(), lastUndo:null
   };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
@@ -40,6 +49,49 @@
     n.setAttribute("role", type==="bad" ? "alert" : "status");
     clearTimeout(showNotice.t);
     showNotice.t=setTimeout(()=>n.classList.add("hidden"),9000);
+  }
+  function healthAttentionRows(){
+    return (((state.data||{}).health)||[]).filter(r=>{
+      const status=String(r.status||"").trim().toUpperCase();
+      const check=String(r.check||"").trim();
+      if(!["CHECK","WARN","FAIL"].includes(status)) return false;
+      if(/^Source count/i.test(check)) return false;
+      return true;
+    });
+  }
+  function renderOperationalAttention(){
+    const box=$("#operationalAttention");
+    if(!box) return;
+    const rows=healthAttentionRows();
+    if(!rows.length){ box.classList.add("hidden"); return; }
+    box.classList.remove("hidden");
+    const title=$("#operationalAttentionTitle");
+    if(title) title.textContent=`มี ${rows.length} จุดที่ควรตรวจ`;
+    const items=$("#operationalAttentionItems");
+    if(items){
+      items.innerHTML=rows.slice(0,4).map(r=>`<span class="pill ${String(r.status||"").toUpperCase()==="FAIL"?"bad":"warn"}">${esc(r.check||"Check")}: ${esc(r.detail||r.note||"ควรตรวจ")}</span>`).join("");
+      if(rows.length>4) items.innerHTML+=`<span class="pill">+${rows.length-4} รายการ</span>`;
+    }
+  }
+  function setAdminUndo(label,undo){
+    state.lastUndo=typeof undo==="function" ? {label:String(label||"ย้อนกลับการเปลี่ยนแปลง"),undo} : null;
+    const bar=$("#adminUndoBar"), textEl=$("#adminUndoText");
+    if(!bar) return;
+    if(!state.lastUndo){ bar.classList.add("hidden"); return; }
+    if(textEl) textEl.textContent=state.lastUndo.label;
+    bar.classList.remove("hidden");
+    clearTimeout(setAdminUndo.t);
+    setAdminUndo.t=setTimeout(()=>{ state.lastUndo=null; bar.classList.add("hidden"); },20000);
+  }
+  async function runAdminUndo(){
+    const item=state.lastUndo;
+    if(!item || typeof item.undo!=="function") return;
+    state.lastUndo=null;
+    const bar=$("#adminUndoBar"); if(bar)bar.classList.add("hidden");
+    const btn=$("#adminUndoBtn"); if(btn)setBusy(btn,true);
+    try{ await item.undo(); await refresh(); showNotice("Undo สำเร็จ"); }
+    catch(e){ showNotice("Undo ไม่สำเร็จ: "+e.message,"bad"); }
+    finally{ if(btn)setBusy(btn,false); }
   }
   function eventNameLint(value){
     const name=String(value||"").normalize("NFKC");
@@ -68,7 +120,7 @@
     el.textContent=now.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"});
   }
   function applyDensityMode(){
-    const compact=localStorage.getItem("kk_admin_compact_mode")==="1";
+    const compact=safeLocalGet("kk_admin_compact_mode")==="1";
     document.body.classList.toggle("compact-mode", compact);
     const btn=$("#densityBtn");
     if(btn) btn.textContent=compact ? "Comfort" : "Compact";
@@ -1079,6 +1131,13 @@
     }
     if($("#eventControlCount")) $("#eventControlCount").textContent=`${Math.min(shown.length,rows.length)} / ${rows.length} งาน`;
     if($("#eventControlSelectedCount")) $("#eventControlSelectedCount").textContent=`เลือก ${state.eventControlSelected.size} งาน`;
+    const selectVisible=$("#eventControlSelectVisible");
+    if(selectVisible){
+      const shownIds=shown.map(r=>r.event_id);
+      const selectedShown=shownIds.filter(id=>state.eventControlSelected.has(id)).length;
+      selectVisible.checked=shownIds.length>0 && selectedShown===shownIds.length;
+      selectVisible.indeterminate=selectedShown>0 && selectedShown<shownIds.length;
+    }
     table(tableEl,[
       {label:"เลือก",render:r=>`<input type="checkbox" data-control-select="${esc(r.event_id)}" ${state.eventControlSelected.has(r.event_id)?"checked":""} aria-label="เลือก ${esc(r.event_name)}" />`},
       {label:"วันที่",render:r=>esc(fmtDate(r.event_date))},
@@ -1096,29 +1155,44 @@
     return [...state.eventControlSelected].filter(id=>filteredEventControlRows().some(r=>r.event_id===id));
   }
   async function runEventControlBatch(kind){
-    const ids=selectedEventControlIds();
-    if(!ids.length) return showNotice("เลือกงานก่อนทำ Batch action","warn");
-    if(ids.length>12) return showNotice("เพื่อความปลอดภัย Batch ได้ครั้งละไม่เกิน 12 งาน กรุณาแบ่งทำเป็นชุด","warn");
+    const selected=selectedEventControlIds();
+    if(!selected.length) return showNotice("เลือกงานก่อนทำ Batch action","warn");
+    const rowsById=new Map(eventControlRows().map(r=>[r.event_id,r]));
+    const shouldChange=id=>{
+      const r=rowsById.get(id); if(!r)return false;
+      if(kind==="hide_packages") return r.pkg.kind!=="hidden" && r.pkg.kind!=="unknown";
+      if(kind==="show_packages") return r.pkg.kind!=="visible" && r.pkg.kind!=="unknown";
+      if(kind==="hide_events") return !r.event_hidden;
+      if(kind==="show_events") return r.event_hidden;
+      return false;
+    };
+    const ids=selected.filter(shouldChange);
+    const skipped=selected.length-ids.length;
+    if(!ids.length) return showNotice("งานที่เลือกอยู่ในสถานะนี้แล้วทั้งหมด — ไม่ส่งคำสั่งซ้ำ","ok");
+    if(ids.length>12) return showNotice("เพื่อความปลอดภัย Batch ที่ต้องเปลี่ยนจริงได้ครั้งละไม่เกิน 12 งาน กรุณาแบ่งทำเป็นชุด","warn");
     const isPackage=kind==="hide_packages" || kind==="show_packages";
     const actionLabel=kind==="hide_packages"?"ซ่อน Package":kind==="show_packages"?"เปิด Package":kind==="hide_events"?"ซ่อนการ์ดงาน":"เปิดการ์ดงาน";
     const detail=isPackage
       ? (kind==="hide_packages"?"Package จะหาย แต่การ์ดงานยังอยู่เพื่อรับคิวหลุด":"เปิด Package กลับตามสถานะ stock ปัจจุบัน")
       : (kind==="hide_events"?"การ์ดงานจะหายจากหน้าบ้านทั้งหมด":"การ์ดงานจะกลับมา โดยสถานะ Package คงเดิม");
-    if(!confirm(`${actionLabel} ${ids.length} งานใช่ไหม?\n\n${detail}\n\nระบบจะทำทีละงานและ Refresh ตรวจผลเมื่อเสร็จ`)) return;
+    if(!confirm(`${actionLabel} ${ids.length} งานใช่ไหม?\nข้าม ${skipped} งานที่อยู่สถานะนี้แล้ว\n\n${detail}\n\nระบบจะทำทีละงานและ Refresh ตรวจผลเมื่อเสร็จ`)) return;
+    const before=ids.map(id=>({id,row:rowsById.get(id)}));
     let ok=0;
     try{
       for(const id of ids){
-        if(isPackage){
-          await api("bulkSetEventPackageVisibility",{event_id:id,mode:kind==="hide_packages"?"hide":"show"});
-        }else{
-          await api("updateEvent",{event_id:id,active_on_web:kind==="show_events"});
-        }
+        if(isPackage) await api("bulkSetEventPackageVisibility",{event_id:id,mode:kind==="hide_packages"?"hide":"show"});
+        else await api("updateEvent",{event_id:id,active_on_web:kind==="show_events"});
         ok++;
       }
       state.eventControlSelected.clear();
       await refresh();
       activateTab("packages",{scroll:false});
-      showNotice(`${actionLabel}สำเร็จ ${ok}/${ids.length} งาน`);
+      showNotice(`${actionLabel}สำเร็จ ${ok}/${ids.length} งาน · ข้าม ${skipped} งานซ้ำ`);
+      if(!isPackage){
+        setAdminUndo(`ทำ ${actionLabel} ${ids.length} งานแล้ว · Undo ได้ 20 วินาที`,async()=>{
+          for(const item of before) await api("updateEvent",{event_id:item.id,active_on_web:!item.row.event_hidden});
+        });
+      }
     }catch(e){
       await refresh().catch(()=>{});
       activateTab("packages",{scroll:false});
@@ -1720,6 +1794,40 @@
     }
   }
 
+  function normalizeSearchText(value){
+    return String(value||"").normalize("NFKC").toLocaleLowerCase("th-TH").replace(/\s+/g," ").trim();
+  }
+  function ensureEventSelectSearch(sel,rows,labelFor){
+    if(!sel || !Array.isArray(rows) || rows.length<25) return;
+    let input=sel.previousElementSibling;
+    if(!(input && input.classList && input.classList.contains("event-select-search"))){
+      input=document.createElement("input");
+      input.type="search";
+      input.className="event-select-search";
+      input.placeholder="ค้นหางานก่อนเลือก";
+      input.setAttribute("aria-label","ค้นหารายการงาน");
+      sel.parentNode.insertBefore(input,sel);
+      input.addEventListener("input",()=>{
+        const all=Array.isArray(sel.__kkEventRows)?sel.__kkEventRows:[];
+        const q=normalizeSearchText(input.value);
+        const selected=String(sel.value||"");
+        const matches=!q?all:all.filter(e=>normalizeSearchText(sel.__kkEventLabelFor(e)).includes(q));
+        const visible=matches.slice(0,80);
+        const selectedRow=selected && all.find(e=>String(e.event_id)===selected);
+        if(selectedRow && !visible.some(e=>String(e.event_id)===selected)) visible.unshift(selectedRow);
+        const placeholder=sel.__kkPlaceholder||"เลือกงาน";
+        sel.innerHTML=`<option value="">${esc(matches.length?placeholder:"ไม่พบงานที่ค้นหา")}</option>`+
+          visible.map(e=>opt(e.event_id,sel.__kkEventLabelFor(e))).join("");
+        if(selected && visible.some(e=>String(e.event_id)===selected)) sel.value=selected;
+      });
+    }
+    sel.__kkEventRows=rows.slice();
+    sel.__kkEventLabelFor=labelFor;
+    sel.__kkPlaceholder=sel.options&&sel.options[0]?sel.options[0].textContent:"เลือกงาน";
+    input.hidden=false;
+    if(String(input.value||"").trim()) input.dispatchEvent(new Event("input"));
+  }
+
   function fillSelects(){
     const data=state.data||{};
     qsa('select[data-source="events"]').forEach(sel=>{
@@ -1739,19 +1847,20 @@
         .sort(compareEventsByDateAsc);
       const placeholder=isBooking ? "เลือกงานที่ยังว่าง" : (isOverride ? "เลือกงานวันนี้/อนาคต" : (isEditEvent ? "เลือกงานวันนี้/อนาคต" : "เลือกงาน"));
       const emptyText=isBooking ? "ไม่มีงานที่ว่างให้จอง" : (isOverride ? "ไม่มีงานวันนี้/อนาคตให้แก้ราคา" : (isEditEvent ? "ไม่มีงานวันนี้/อนาคตให้แก้ไข" : placeholder));
-      sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+
-        rows.map(e=>{
-          let packageMarker="";
-          if(isOverride){
-            const info=packageVisibilityState(e.event_id);
-            packageMarker=info.kind==="hidden" ? " · 🟢 ซ่อนแล้ว" :
-              (info.kind==="mixed" ? ` · 🟡 ซ่อน ${info.hidden}/${info.total}` :
-                (info.kind==="visible" ? " · 🔴 ยังแสดง" : " · ⚪ ไม่มี Web Package"));
-          }
-          const eventMarker=isOverride ? (e.active_on_web===false ? " · ⛔ การ์ดซ่อน" : " · 👁 การ์ดแสดง") : "";
-          return opt(e.event_id, `${e.event_name} · ${fmtDate(e.event_date)}${packageMarker}${eventMarker}${isEditEvent && e.active_on_web===false ? " · ซ่อนเว็บ" : ""}`);
-        }).join('');
+      const labelFor=e=>{
+        let packageMarker="";
+        if(isOverride){
+          const info=packageVisibilityState(e.event_id);
+          packageMarker=info.kind==="hidden" ? " · 🟢 ซ่อนแล้ว" :
+            (info.kind==="mixed" ? ` · 🟡 ซ่อน ${info.hidden}/${info.total}` :
+              (info.kind==="visible" ? " · 🔴 ยังแสดง" : " · ⚪ ไม่มี Web Package"));
+        }
+        const eventMarker=isOverride ? (e.active_on_web===false ? " · ⛔ การ์ดซ่อน" : " · 👁 การ์ดแสดง") : "";
+        return `${e.event_name} · ${fmtDate(e.event_date)}${packageMarker}${eventMarker}${isEditEvent && e.active_on_web===false ? " · ซ่อนเว็บ" : ""}`;
+      };
+      sel.innerHTML=`<option value="">${esc(rows.length ? placeholder : emptyText)}</option>`+rows.map(e=>opt(e.event_id,labelFor(e))).join('');
       if(current && rows.some(e=>String(e.event_id)===String(current))) sel.value=current;
+      ensureEventSelectSearch(sel,rows,labelFor);
     });
     qsa('select[data-source="packages"]').forEach(sel=>{
       if(sel.closest("#bookingForm")) return;
@@ -2076,6 +2185,7 @@
       {label:"Check",key:"check"},{label:"Status",render:r=>`<span class="pill ${String(r.status).toLowerCase().includes('ok')?'ok':String(r.status).toLowerCase().includes('check')?'bad':''}">${esc(r.status||'')}</span>`},{label:"Detail",key:"detail"},{label:"Note",key:"note"}
     ], health);
     renderSystemGuard();
+    renderOperationalAttention();
 
     if($("#customerStatsCount")) $("#customerStatsCount").textContent=customerHistory.length+" รายการ";
     table($("#customerStatsTable"),[
@@ -2308,8 +2418,8 @@
     if(rentalAnalyticsRefreshBtn) rentalAnalyticsRefreshBtn.addEventListener("click",()=>loadRentalAnalytics());
     const densityBtn=$("#densityBtn");
     if(densityBtn) densityBtn.addEventListener("click",()=>{
-      const current=localStorage.getItem("kk_admin_compact_mode")==="1";
-      localStorage.setItem("kk_admin_compact_mode", current ? "0" : "1");
+      const current=safeLocalGet("kk_admin_compact_mode")==="1";
+      safeLocalSet("kk_admin_compact_mode", current ? "0" : "1");
       applyDensityMode();
     });
     document.addEventListener("keydown", ev=>{
@@ -2401,7 +2511,13 @@
       setBusy(toggle,true);
       api("updateEvent",{event_id:id,active_on_web:next})
         .then(()=>refresh())
-        .then(()=>{ activateTab("packages",{scroll:false}); showNotice((next?"เปิด":"ซ่อน")+"การ์ดงานสำเร็จ"); })
+        .then(()=>{
+          activateTab("packages",{scroll:false});
+          showNotice((next?"เปิด":"ซ่อน")+"การ์ดงานสำเร็จ");
+          setAdminUndo(`${next?"เปิด":"ซ่อน"}การ์ดงานแล้ว · Undo ได้ 20 วินาที`,async()=>{
+            await api("updateEvent",{event_id:id,active_on_web:!next});
+          });
+        })
         .catch(e=>showNotice(e.message,"bad"))
         .finally(()=>setBusy(toggle,false));
     });
@@ -2570,6 +2686,8 @@
       });
     }
 
+    const undoBtn=$("#adminUndoBtn");
+    if(undoBtn) undoBtn.addEventListener("click",runAdminUndo);
     const systemGuardBtn=$("#runSystemGuardBtn");
     if(systemGuardBtn) systemGuardBtn.addEventListener("click",()=>runSystemGuard(systemGuardBtn));
     const copySystemGuardBtn=$("#copySystemGuardBtn");
@@ -2611,6 +2729,9 @@
           await api("updateEvent",{event_id:eventId,active_on_web:nextActive});
           await refresh();
           showNotice(actionText+"สำเร็จ");
+          setAdminUndo(actionText+"แล้ว · Undo ได้ 20 วินาที",async()=>{
+            await api("updateEvent",{event_id:eventId,active_on_web:!nextActive});
+          });
         }catch(e){showNotice(e.message,"bad");}
         finally{setBusy(eventVisibilityBtn,false);}
       });
@@ -2713,6 +2834,12 @@
       try{
         if(String(ev.target.elements.amount_received && ev.target.elements.amount_received.value || "").trim()==="") autofillBookingAmountFromPackage();
         const payload=formData(ev.target);
+        const leadRef=String(payload.lead_ref||"").trim().replace(/[^A-Za-z0-9_.:-]/g,"").slice(0,100);
+        delete payload.lead_ref;
+        if(leadRef){
+          const note=String(payload.booking_note||"").trim();
+          payload.booking_note=(note ? note+" " : "")+"[LEAD_REF:"+leadRef+"]";
+        }
         if(hasWebPackageSource()){
           if(!eventHasBookablePackage(payload.event_id)) throw new Error("งานนี้เต็มแล้วหรือไม่มีแพ็กเกจว่าง กรุณา Refresh แล้วเลือกงานใหม่");
           const okPkg=bookableWebPackagesForEvent(payload.event_id).some(p=>String(templateIdFromWebPackage(p))===String(payload.template_id));
@@ -2745,6 +2872,18 @@
     }
   }
 
+  if(typeof window!=="undefined" && window.addEventListener){
+    window.addEventListener("error",()=>{
+      const id="ADM-"+Date.now().toString(36).toUpperCase();
+      window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;
+      showNotice(`Admin client error ${id} · ลอง Refresh หากหน้าจอทำงานไม่ครบ`,"bad");
+    });
+    window.addEventListener("unhandledrejection",()=>{
+      const id="ADM-"+Date.now().toString(36).toUpperCase();
+      window.__KK_ADMIN_LAST_CLIENT_ERROR_ID__=id;
+      showNotice(`Admin async error ${id} · ลอง Refresh หากหน้าจอทำงานไม่ครบ`,"bad");
+    });
+  }
   applyDensityMode();
   updateUiLastRefresh();
   bind();

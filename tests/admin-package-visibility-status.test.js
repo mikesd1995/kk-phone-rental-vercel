@@ -34,5 +34,14 @@ test('Bulk package buttons prevent redundant hide or show writes',()=>{
 test('Package visibility truth comes from storefront web package status',()=>{
   assert.match(js,/const rows=webPackagesForEvent\(id\)/);
   assert.match(js,/st==="hidden" \|\| st==="hide"/);
-  assert.match(html,/smart-ops-v1-20260926/);
+  assert.match(html,/hardening-v1-20260926/);
+});
+
+
+test('Event Control selection stays synchronized and batch skips redundant writes',()=>{
+  assert.match(js,/selectVisible\.indeterminate=selectedShown>0/);
+  assert.match(js,/const ids=selected\.filter\(shouldChange\)/);
+  assert.match(js,/งานที่เลือกอยู่ในสถานะนี้แล้วทั้งหมด — ไม่ส่งคำสั่งซ้ำ/);
+  assert.doesNotMatch(js,/const exactUndo=before\.every/);
+  assert.match(js,/if\(!isPackage\)\{/);
 });

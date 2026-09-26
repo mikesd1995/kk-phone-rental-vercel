@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/admin/admin.css?v=ux-v41-typography-20260924" />
+  <link rel="stylesheet" href="/admin/admin.css?v=hardening-v1-20260926" />
 </head>
 <body>
   <datalist id="venueOptions"></datalist>
@@ -108,6 +108,18 @@
               <button class="btn ghost" type="button" data-tab-jump="events">เพิ่ม / แก้งาน</button>
               <button class="btn ghost" type="button" data-tab-jump="reports">รายงาน</button>
             </div>
+          </div>
+          <div id="operationalAttention" class="card operational-attention hidden" role="status" aria-live="polite">
+            <div>
+              <span class="eyebrow">System Attention</span>
+              <strong id="operationalAttentionTitle">มีจุดที่ควรตรวจ</strong>
+              <div id="operationalAttentionItems" class="operational-attention-items"></div>
+            </div>
+            <button class="btn ghost" type="button" data-tab-jump="health">เปิด System Guard</button>
+          </div>
+          <div id="adminUndoBar" class="card admin-undo-bar hidden" role="status" aria-live="polite">
+            <span id="adminUndoText"></span>
+            <button class="btn secondary" type="button" id="adminUndoBtn">Undo</button>
           </div>
           <div class="grid stats" id="statsGrid"></div>
 
@@ -231,7 +243,13 @@
               <label>ระบุมือถือเอง ถ้าไม่ใส่ ระบบหาให้ <input name="phone_asset_id" list="phoneAssetOptions" placeholder="พิมพ์หรือเลือก Asset" /><small>รายการแนะนำแสดงรุ่นและสถานะล่าสุดจาก Snapshot</small></label>
               <label>ระบุเลนส์เอง ถ้าไม่ใส่ ระบบหาให้ <input name="lens_asset_id" list="lensAssetOptions" placeholder="พิมพ์หรือเลือก Asset" /></label>
             </div>
-            <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
+            <div class="row two">
+              <label>Lead Ref จากหน้าเว็บ / LINE
+                <input name="lead_ref" autocomplete="off" placeholder="เช่น KK-WL-EVT-..." />
+                <small>ถ้ามีรหัส Ref ในข้อความ LINE ให้วางที่นี่ ระบบจะเก็บใน Note โดยไม่เปลี่ยนโครงสร้าง Sheet</small>
+              </label>
+              <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
+            </div>
             <button class="btn primary" type="submit">บันทึก Booking</button>
           </form>
         </section>
@@ -783,6 +801,6 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=smart-ops-v1-20260926"></script>
+  <script src="/admin/admin.js?v=hardening-v1-20260926"></script>
 </body>
 </html>
