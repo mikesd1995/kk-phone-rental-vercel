@@ -1192,14 +1192,6 @@
         setAdminUndo(`ทำ ${actionLabel} ${ids.length} งานแล้ว · Undo ได้ 20 วินาที`,async()=>{
           for(const item of before) await api("updateEvent",{event_id:item.id,active_on_web:!item.row.event_hidden});
         });
-      }else{
-        const exactUndo=before.every(item=>kind==="hide_packages" ? item.row.pkg.kind==="visible" : item.row.pkg.kind==="hidden");
-        if(exactUndo){
-          setAdminUndo(`ทำ ${actionLabel} ${ids.length} งานแล้ว · Undo ได้ 20 วินาที`,async()=>{
-            const inverse=kind==="hide_packages"?"show":"hide";
-            for(const item of before) await api("bulkSetEventPackageVisibility",{event_id:item.id,mode:inverse});
-          });
-        }
       }
     }catch(e){
       await refresh().catch(()=>{});
@@ -1833,6 +1825,7 @@
     sel.__kkEventLabelFor=labelFor;
     sel.__kkPlaceholder=sel.options&&sel.options[0]?sel.options[0].textContent:"เลือกงาน";
     input.hidden=false;
+    if(String(input.value||"").trim()) input.dispatchEvent(new Event("input"));
   }
 
   function fillSelects(){
