@@ -440,3 +440,16 @@ td{font-size:13px!important}
   #eventControlTable .inline-actions,#actionTable .inline-actions{display:flex;flex-wrap:wrap;gap:6px}
   .advanced-pricing-details>summary{min-height:44px;display:flex;align-items:center;justify-content:space-between}
 }
+
+
+/* Hardening Phase 2 — operational attention, searchable selects, undo */
+.operational-attention{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-left:4px solid #f59e0b!important;background:#fffbeb!important;margin-bottom:12px!important}
+.operational-attention.hidden,.admin-undo-bar.hidden{display:none!important}
+.operational-attention-items{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.admin-undo-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;border-left:4px solid #2563eb!important;background:#eff6ff!important;margin-bottom:12px!important}
+.event-select-search{width:100%;margin:6px 0 7px;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font:inherit}
+.event-select-search:focus{outline:2px solid rgba(37,99,235,.18);border-color:#2563eb}
+@media(max-width:680px){
+  .operational-attention,.admin-undo-bar{flex-direction:column}
+  .operational-attention .btn,.admin-undo-bar .btn{width:100%}
+}
