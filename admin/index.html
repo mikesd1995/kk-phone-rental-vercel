@@ -556,8 +556,26 @@
                   <button class="btn ghost" type="button" data-bulk-event-visibility="inherit">ใช้สถานะจากแพ็กเกจหลัก</button>
                 </div>
               </div>
+
+              <div class="inline-price-panel" aria-labelledby="bulkEventPriceTitle">
+                <div class="inline-price-head compact-head">
+                  <div>
+                    <strong id="bulkEventPriceTitle">แก้ราคาหลายแพ็กเกจ</strong>
+                    <small id="bulkEventPriceSummary">เลือกงานก่อน แล้วแก้ราคาได้หลายแพ็กเกจในครั้งเดียว</small>
+                  </div>
+                  <div class="price-head-actions">
+                    <button class="btn ghost small" type="button" id="resetBulkEventPrices" disabled>คืนค่าเดิม</button>
+                    <button class="btn primary small" type="button" id="saveBulkEventPrices" disabled>บันทึกทั้งหมด</button>
+                  </div>
+                </div>
+                <div class="price-advanced">
+                  <div class="price-helper">แก้เฉพาะช่องที่ต้องการเปลี่ยน แล้วกด “บันทึกทั้งหมด” ครั้งเดียว · ช่องว่าง = ใช้ราคาหลัก/ค่าหลักของแพ็กเกจ</div>
+                  <div id="bulkEventPriceOverrides" class="inline-price-list compact-price-list">เลือกงานก่อนเพื่อโหลดราคา...</div>
+                </div>
+              </div>
+
               <details class="advanced-pricing-details">
-                <summary>แก้ราคา / รายละเอียดแพ็กเกจขั้นสูง</summary>
+                <summary>แก้ทีละแพ็กเกจ / รายละเอียดขั้นสูง</summary>
                 <div class="advanced-pricing-body">
               <label>เลือกแพ็กเกจ <select name="template_id" data-source="packages" required></select></label>
               <div class="row two">
@@ -860,6 +878,6 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=edit-booking-date-sort-20260926"></script>
+  <script src="/admin/admin.js?v=bulk-event-price-edit-20260927"></script>
 </body>
 </html>
