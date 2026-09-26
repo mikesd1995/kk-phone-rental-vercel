@@ -26,7 +26,7 @@ test('candidate runtime tree must equal current main outside tests docs and work
   assert.match(w,/'\:\(exclude\)tests\/\*\*'/);
   assert.match(w,/'\:\(exclude\)docs\/\*\*'/);
   assert.match(w,/'\:\(exclude\)\.github\/\*\*'/);
-  assert.match(w,/test -s runtime-diff\.txt/);
+  assert.match(w,/\[ -s runtime-diff\.txt \]/);
 });
 
 test('preview promotion fails closed on env target drift and branch overrides',()=>{
