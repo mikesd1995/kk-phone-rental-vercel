@@ -60,3 +60,12 @@ The first Production `vercel pull` probe confirmed that all three required value
 Values are written to a chmod-600 temporary file, never uploaded, never echoed, and never committed. Only key presence/type/target/value length is printed. The resulting file is then consumed by the same read-only `phase1Health` probe.
 
 This is still zero-write and zero-cost: it reads existing Production configuration but does not modify it.
+
+
+## Second fallback: Vercel env run
+
+The read API confirmed that these Production variables are stored as sensitive values and are intentionally not returned as plaintext to the project token, even through exact env-id retrieval. To avoid weakening or rewriting those secrets, the audit uses Vercel's zero-write `vercel env run -e production` mechanism instead.
+
+That command injects the existing Production environment into one ephemeral process without printing or persisting the values. The timing probe reads them only from `process.env` and still sends exactly one read-only `phase1Health` request.
+
+No Vercel environment value is changed or downgraded from sensitive storage.
