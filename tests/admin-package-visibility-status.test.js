@@ -42,5 +42,6 @@ test('Event Control selection stays synchronized and batch skips redundant write
   assert.match(js,/selectVisible\.indeterminate=selectedShown>0/);
   assert.match(js,/const ids=selected\.filter\(shouldChange\)/);
   assert.match(js,/งานที่เลือกอยู่ในสถานะนี้แล้วทั้งหมด — ไม่ส่งคำสั่งซ้ำ/);
-  assert.match(js,/const exactUndo=before\.every/);
+  assert.doesNotMatch(js,/const exactUndo=before\.every/);
+  assert.match(js,/if\(!isPackage\)\{/);
 });
