@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const PERF = require('../server/kk-content-performance.js');
 const AGENT = require('../server/kk-content-agent.js');
+const ROUTER = require('../server/kk-content-request-router.js');
 
 const performanceRows = [
   {Status:'measured', Content_Pillar:'seat_view', Content_Angle:'seat_view', Impressions:10000, Engagements:500, Profile_Visits:100, Link_Clicks:50, Bookings:1},
@@ -101,10 +102,80 @@ test('seat-view source is treated as reference and screenshot reuse requires rig
 test('generation prompt cannot silently promote a blocked idea', () => {
   const plan = AGENT.buildCreativePlan({event:'Example', verified_event:false}, []);
   const prompt = AGENT.buildGenerationPrompt(plan);
-  assert.match(prompt, /Never turn a blocked idea into publishable sales copy/);
+  assert.match(prompt, /Do not turn a blocked idea into publishable sales copy/);
   assert.match(prompt, /Commercial ready: false/);
 });
 
 test('invalid performance objective fails instead of guessing', () => {
   assert.throws(() => PERF.summarizePerformance([], {objective:'viral'}), /unsupported objective/);
+});
+
+test('anti-repeat context keeps recent copy and requires three distinct rental variants', () => {
+  const plan = AGENT.buildCreativePlan({
+    event:'Example Concert',
+    verified_event:true,
+    verified_pricing:true,
+    price_display:'vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
+    inventory_available:true,
+    recent_posts:[
+      'โลกของ Example กำลังจะเริ่มแล้ว',
+      {hook:'ใครมีบัตรวันไหน ร้านเปิดคิวครบทุกวัน'}
+    ]
+  }, []);
+  const prompt = AGENT.buildGenerationPrompt(plan);
+  assert.equal(plan.anti_repeat_context.recent_post_count, 2);
+  assert.equal(plan.anti_repeat_contract.direct_rental_variant_count, 3);
+  assert.match(prompt, /exactly 3 complete variants/i);
+  assert.match(prompt, /โลกของ Example/);
+  assert.match(prompt, /different primary content angles/i);
+});
+
+test('router recognizes Thai X rental requests and forces Content Strategy + Agent path', () => {
+  assert.equal(
+    ROUTER.detectContentIntent('ขอโพสปล่อยเช่างานนี้บน x INK WARUNTORN'),
+    'direct_rental_x'
+  );
+
+  const routed = ROUTER.routeContentRequest({
+    message:'ขอโพสปล่อยเช่างานนี้บน x INK WARUNTORN',
+    input:{
+      event:'INK WARUNTORN Synthphony Concert',
+      verified_event:true,
+      verified_pricing:true,
+      price_display:'vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
+      inventory_available:true
+    }
+  });
+
+  assert.equal(routed.matched, true);
+  assert.equal(routed.route, 'KK_CONTENT_STRATEGY_AGENT');
+  assert.equal(routed.content_gate, 'PASS');
+  assert.equal(routed.strategy_required, true);
+  assert.equal(routed.anti_repeat_required, true);
+  assert.equal(routed.three_variant_engine_required, true);
+  assert.equal(routed.production_writes, 0);
+  assert.equal(routed.publishes, 0);
+});
+
+test('router fail-closes direct rental when current commercial truth is incomplete', () => {
+  const routed = ROUTER.routeContentRequest({
+    message:'ขอโพสต์ปล่อยเช่างานนี้บน X',
+    input:{
+      event:'Example Concert',
+      verified_event:true,
+      verified_pricing:false,
+      inventory_available:true
+    }
+  });
+  assert.equal(routed.content_gate, 'BLOCKED');
+  assert.equal(routed.plan.readiness.commercial_ready, false);
+});
+
+test('router does not hijack non-content requests', () => {
+  const routed = ROUTER.routeContentRequest({
+    message:'ตรวจสอบราคาคู่แข่งงานนี้แบบละเอียด'
+  });
+  assert.equal(routed.matched, false);
+  assert.equal(routed.route, 'NO_CONTENT_AGENT');
+  assert.equal(routed.content_gate, 'NOT_APPLICABLE');
 });
