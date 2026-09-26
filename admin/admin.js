@@ -1863,7 +1863,12 @@
     if($("#pricingKpis")) $("#pricingKpis").innerHTML=[
       [rows.length,"แถวที่แสดง"], [overrides,"ราคาเฉพาะงาน"], [mismatch,"ควรเช็ก"], [visible,"แพ็กเกจบนเว็บ"]
     ].map(x=>`<div><strong>${esc(x[0])}</strong><span>${esc(x[1])}</span></div>`).join("");
-    if($("#pricingCenterCount")) $("#pricingCenterCount").textContent=`${rows.length} รายการ · CHECK ${mismatch}`;
+    if($("#pricingCenterCount")) $("#pricingCenterCount").textContent=`${Math.min(state.pricingLimit,rows.length)} / ${rows.length} รายการ · CHECK ${mismatch}`;
+    const pricingMore=$("#pricingLoadMoreBtn");
+    if(pricingMore){
+      pricingMore.hidden=Math.min(state.pricingLimit,rows.length)>=rows.length;
+      if(!pricingMore.hidden) pricingMore.textContent=`แสดงราคาเพิ่ม (${Math.max(0,rows.length-state.pricingLimit)})`;
+    }
     table($("#pricingCenterTable"),[
       {label:"งาน",render:r=>`<strong>${esc(r.event.event_name)}</strong><br><small>${esc(fmtDate(r.event.event_date))}</small>`},
       {label:"แพ็กเกจ",render:r=>`<strong>${esc(r.pkg.display_name||r.pkg.template_id)}</strong><br><small>${esc(r.pkg.package_type||"")} · ${esc(r.pkg.template_id||"")}</small>`},
@@ -2110,8 +2115,6 @@
     setMore("#actionLoadMoreBtn",Math.min(state.actionLimit,shownActionRows.length),shownActionRows.length);
     setMore("#eventsLoadMoreBtn",Math.min(state.eventLimit,openEventRows.length),openEventRows.length);
     setMore("#bookingsLoadMoreBtn",Math.min(state.bookingLimit,bookingRows.length),bookingRows.length);
-    const pricingRowsNow=pricingRows(d||{});
-    setMore("#pricingLoadMoreBtn",Math.min(state.pricingLimit,pricingRowsNow.length),pricingRowsNow.length);
 
     fillSelects();
   }
