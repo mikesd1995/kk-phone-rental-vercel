@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/admin/admin.css?v=event-control-month-v1-20260926" />
+  <link rel="stylesheet" href="/admin/admin.css?v=seamless-phase4-20260926" />
 </head>
 <body>
   <datalist id="venueOptions"></datalist>
@@ -34,8 +34,8 @@
         <span class="nav-section-label">CRM & Operations</span>
         <button class="nav" type="button" data-tab="customers" data-icon="CM">ประวัติลูกค้า</button>
         <button class="nav" type="button" data-tab="events" data-icon="EV">เพิ่ม/แก้งาน</button>
-        <button class="nav" type="button" data-tab="packages" data-icon="PK">แพ็กเกจ/ราคา</button>
-        <button class="nav" type="button" data-tab="pricing" data-icon="PC">Pricing Center</button>
+        <button class="nav" type="button" data-tab="packages" data-icon="PK">ราคา &amp; หน้าบ้าน</button>
+        <button class="nav" type="button" data-tab="pricing" data-icon="PC">ตรวจสอบราคา</button>
         <button class="nav" type="button" data-tab="assets" data-icon="AS">มือถือ/เลนส์</button>
         <button class="nav" type="button" data-tab="reports" data-icon="RP">รายงาน</button>
         <span class="nav-section-label">System</span>
@@ -57,6 +57,7 @@
           </div>
         </div>
         <div class="top-actions">
+          <span id="unsavedBadge" class="top-badge unsaved-badge hidden">มีข้อมูลยังไม่บันทึก</span>
           <span class="top-badge" title="Admin UI version">v16.7.0 · Pricing Center</span>
           <button id="densityBtn" class="btn secondary" type="button">Compact</button>
           <button id="refreshBtn" class="btn secondary" type="button">Refresh</button>
@@ -211,22 +212,14 @@
             <div class="form-title"><span class="eyebrow">Booking</span><h2>เพิ่ม Booking</h2></div>
             <p class="hint">เลือกเฉพาะงานที่ยังไม่เต็มและยังไม่ย้อนหลัง ระบบจะเช็กแพ็กเกจ/สต็อกก่อนบันทึกเพื่อลดปัญหาจองซ้ำ</p>
             <div class="form-note ok-note">เช็กก่อนบันทึก: เลือกงาน → เลือกแพ็กเกจ → กรอกข้อมูลลูกค้า → ถ้ารู้เวลารับค่อยใส่ → บันทึก Booking</div>
-            <div class="row three">
+            <div class="row two">
               <label>งาน
                 <select name="event_id" data-source="events" required></select>
-                <small>แสดงเฉพาะงานที่ยังมีแพ็กเกจว่าง เพื่อกันเพิ่ม Booking ในวันที่เต็มแล้ว</small>
+                <small>แสดงเฉพาะงานที่ยังมีแพ็กเกจว่าง</small>
               </label>
               <label>แพ็กเกจ
                 <select name="template_id" data-source="packages" required></select>
-                <small>หลังเลือกงาน ระบบจะแสดงเฉพาะแพ็กเกจที่ยังว่าง</small>
-              </label>
-              <label>สถานะ Booking
-                <select name="booking_status">
-                  <option value="confirmed">confirmed</option>
-                  <option value="pending">pending</option>
-                  <option value="prepared">prepared</option>
-                  <option value="cancelled">cancelled</option>
-                </select>
+                <small>ระบบแสดงเฉพาะแพ็กเกจที่ยังจองได้</small>
               </label>
             </div>
             <div class="row three">
@@ -234,30 +227,44 @@
               <label>X / LINE <input name="customer_contact" placeholder="@handle หรือ LINE" /></label>
               <label>เบอร์โทร <input name="customer_phone" inputmode="tel" /></label>
             </div>
-            <div class="row three">
-              <label>ช่องทาง
-                <select name="contact_channel"><option>LINE</option><option>X</option><option>Facebook</option><option>Instagram</option></select>
-              </label>
-              <label>เวลารับเครื่อง <input name="pickup_time" type="time" step="60" /><small>ยังไม่ชัวร์เว้นว่างได้ (TBD) ระบบจะกันคิวตั้งแต่ 00:00 ของวันงานจนถึง 06:00 วันถัดไป</small></label>
+            <div class="row two">
               <label>สถานะชำระเงิน
-                <select name="payment_status"><option value="unpaid">unpaid</option><option value="partial">partial</option><option value="paid">paid</option></select>
+                <select name="payment_status"><option value="unpaid">ยังไม่จ่าย</option><option value="partial">จ่ายบางส่วน</option><option value="paid">จ่ายแล้ว</option></select>
               </label>
-            </div>
-            <div class="row three">
               <label>ยอดรับแล้ว
                 <input name="amount_received" type="number" min="0" step="1" value="0" />
-                <small id="bookingAmountAutoHint">เลือกแพ็กเกจแล้วระบบจะเติมราคาที่ลูกค้าเห็นจริงให้อัตโนมัติ แต่ยังแก้เลขเองได้</small>
+                <small id="bookingAmountAutoHint">ระบบเติมราคาหน้าบ้านให้อัตโนมัติ แต่แก้เองได้</small>
               </label>
-              <label>ระบุมือถือเอง ถ้าไม่ใส่ ระบบหาให้ <input name="phone_asset_id" list="phoneAssetOptions" placeholder="พิมพ์หรือเลือก Asset" /><small>รายการแนะนำแสดงรุ่นและสถานะล่าสุดจาก Snapshot</small></label>
-              <label>ระบุเลนส์เอง ถ้าไม่ใส่ ระบบหาให้ <input name="lens_asset_id" list="lensAssetOptions" placeholder="พิมพ์หรือเลือก Asset" /></label>
             </div>
-            <div class="row two">
-              <label>Lead Ref จากหน้าเว็บ / LINE
-                <input name="lead_ref" autocomplete="off" placeholder="เช่น KK-WL-EVT-..." />
-                <small>ถ้ามีรหัส Ref ในข้อความ LINE ให้วางที่นี่ ระบบจะเก็บใน Note โดยไม่เปลี่ยนโครงสร้าง Sheet</small>
-              </label>
-              <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
-            </div>
+            <details class="booking-advanced-details">
+              <summary>ตัวเลือกเพิ่มเติม</summary>
+              <div class="booking-advanced-body">
+                <div class="row three">
+                  <label>สถานะ Booking
+                    <select name="booking_status">
+                      <option value="confirmed">ยืนยันแล้ว</option>
+                      <option value="pending">รอยืนยัน</option>
+                      <option value="prepared">เตรียมอุปกรณ์แล้ว</option>
+                      <option value="cancelled">ยกเลิก</option>
+                    </select>
+                  </label>
+                  <label>ช่องทาง
+                    <select name="contact_channel"><option>LINE</option><option>X</option><option>Facebook</option><option>Instagram</option></select>
+                  </label>
+                  <label>เวลารับเครื่อง <input name="pickup_time" type="time" step="60" /><small>ไม่ชัวร์เว้นว่างได้ (TBD)</small></label>
+                </div>
+                <div class="row two">
+                  <label>ระบุมือถือเอง ถ้าไม่ใส่ ระบบหาให้ <input name="phone_asset_id" list="phoneAssetOptions" placeholder="พิมพ์หรือเลือก Asset" /></label>
+                  <label>ระบุเลนส์เอง ถ้าไม่ใส่ ระบบหาให้ <input name="lens_asset_id" list="lensAssetOptions" placeholder="พิมพ์หรือเลือก Asset" /></label>
+                </div>
+                <div class="row two">
+                  <label>Lead Ref จากหน้าเว็บ / LINE
+                    <input name="lead_ref" autocomplete="off" placeholder="เช่น KK-WL-EVT-..." />
+                  </label>
+                  <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
+                </div>
+              </div>
+            </details>
             <button class="btn primary" type="submit">บันทึก Booking</button>
           </form>
         </section>
@@ -825,8 +832,24 @@
     </main>
   </div>
 
+  <div id="commandPalette" class="admin-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="commandPaletteTitle">
+    <div class="admin-dialog command-dialog">
+      <div class="dialog-head"><div><span class="eyebrow">Global Search</span><h2 id="commandPaletteTitle">ค้นหาทั้งระบบ</h2></div><button id="commandPaletteClose" class="mini-btn" type="button">ปิด</button></div>
+      <input id="globalAdminSearch" type="search" autocomplete="off" placeholder="ค้นหา Event / Booking / ลูกค้า..." aria-label="ค้นหาทั้งระบบ" />
+      <div id="globalAdminSearchResults" class="command-results"></div>
+    </div>
+  </div>
+
+  <dialog id="batchPreviewDialog" class="batch-preview-dialog">
+    <div class="dialog-head"><div><span class="eyebrow">Batch Preview</span><h2 id="batchPreviewTitle">ตรวจรายการก่อนยืนยัน</h2></div></div>
+    <p id="batchPreviewImpact" class="hint"></p>
+    <div id="batchPreviewList" class="batch-preview-list"></div>
+    <p id="batchPreviewSkipped" class="hint"></p>
+    <div class="dialog-actions"><button id="batchPreviewCancel" class="btn ghost" type="button">ยกเลิก</button><button id="batchPreviewConfirm" class="btn primary" type="button">ยืนยัน</button></div>
+  </dialog>
+
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=event-control-month-v1-20260926"></script>
+  <script src="/admin/admin.js?v=seamless-phase4-20260926"></script>
 </body>
 </html>
