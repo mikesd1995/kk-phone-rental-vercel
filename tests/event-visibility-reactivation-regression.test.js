@@ -6,6 +6,7 @@ const fs=require('node:fs');
 
 const api=fs.readFileSync('api/kk-admin-guard.js','utf8');
 const admin=fs.readFileSync('admin/admin.js','utf8');
+const apps=fs.readFileSync('apps-script/Code.gs','utf8');
 const scanner=fs.readFileSync('.agents/skills/kk-discovery-scanner/SKILL.md','utf8');
 const verifier=fs.readFileSync('.agents/skills/kk-event-verifier/SKILL.md','utf8');
 
@@ -22,6 +23,12 @@ test('Admin UI marks only deliberate owner re-open actions with owner intent',()
   assert.match(admin,/visibility_owner_intent='explicit_owner_reopen'/);
   assert.match(admin,/eventVisibilityPayload\(eventId,nextActive\)/);
   assert.match(admin,/p\.visibility_owner_intent="explicit_owner_reopen"/);
+});
+
+test('Apps Script writer also rejects implicit hidden-to-visible transitions',()=>{
+  assert.match(apps,/ownerReopenIntent/);
+  assert.match(apps,/EVENT_VISIBILITY_OWNER_LOCKED/);
+  assert.match(apps,/explicit_owner_reopen/);
 });
 
 test('Scanner and Verifier contracts preserve owner-hidden Core events',()=>{
