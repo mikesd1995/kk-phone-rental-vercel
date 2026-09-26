@@ -12,8 +12,20 @@
   function safeSessionSet(key,value){
     try{ sessionStorage.setItem(key,value); return true; }catch(_){ return false; }
   }
+  function safeSessionRemove(key){
+    try{ sessionStorage.removeItem(key); return true; }catch(_){ return false; }
+  }
   const signedSession = typeof window!=="undefined" && window.KK_ADMIN_SIGNED_SESSION===true;
-  const state = { pin: safeSessionGet("kk_admin_pin") || (signedSession ? "__SESSION__" : ""), data: null, loading: false, posterWarning: "", selectedCustomerKey: "", actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "", reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "", pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false };
+  const state = {
+    pin: safeSessionGet("kk_admin_pin") || (signedSession ? "__SESSION__" : ""),
+    data: null, loading: false, posterWarning: "", selectedCustomerKey: "",
+    actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "",
+    reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "",
+    pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false,
+    actionLimit:60, eventLimit:50, bookingLimit:50, pricingLimit:120,
+    eventControlLimit:30, eventControlFilter:"needs_action", eventControlSearch:"",
+    eventControlSelected:new Set()
+  };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
     ["payment","ตามเงิน"], ["prep","เตรียม/ส่งมอบ"], ["return","รับคืน"], ["upload","อัปโหลด/ปิดงาน"], ["data","ข้อมูลผิด"], ["risk","เสี่ยง"]
@@ -65,6 +77,25 @@
     const activePanel=$(".tab-panel.active");
     const target=(activePanel && activePanel.querySelector('input[type="search"], #actionSearch')) || $("#eventsSearch") || $("#customerSearch");
     if(target){ target.focus(); target.select && target.select(); }
+  }
+  function activeTabId(){
+    const nav=$(".nav[data-tab].active");
+    return nav ? String(nav.dataset.tab||"overview") : "overview";
+  }
+  function activateTab(tab,{scroll=false,writeHash=true}={}){
+    const id=String(tab||"overview").replace(/^#/,"");
+    const nav=$(`.nav[data-tab="${id}"]`);
+    const panel=$("#tab-"+id);
+    if(!nav || !panel) return false;
+    qsa(".nav[data-tab]").forEach(b=>{ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); });
+    nav.classList.add("active"); nav.setAttribute("aria-pressed","true");
+    qsa(".tab-panel").forEach(p=>p.classList.remove("active"));
+    panel.classList.add("active");
+    if(writeHash){
+      try{ history.replaceState(null,"",location.pathname+location.search+"#"+id); }catch(_){}
+    }
+    if(scroll) window.scrollTo({top:0,behavior:"smooth"});
+    return true;
   }
   function setBusy(btn, busy){
     if(!btn) return;
@@ -988,6 +1019,112 @@
     btn.className=hidden ? "btn secondary" : "btn danger-soft";
     btn.dataset.nextActive=hidden ? "true" : "false";
   }
+  function webReadyForEvent(eventId){
+    const id=String(eventId||"").trim();
+    return (((state.data||{}).web_ready)||[]).find(r=>String(r.event_id||"").trim()===id) || null;
+  }
+  function eventControlRows(){
+    const events=((state.data||{}).events||[])
+      .filter(e=>isEventOpen(e) && isTodayOrFuture(e.event_date))
+      .slice()
+      .sort(compareEventsByDateAsc);
+    return events.map(event=>{
+      const id=String(event.event_id||"").trim();
+      const pkg=packageVisibilityState(id);
+      const web=webReadyForEvent(id);
+      const phones=toNum(web&&web.available_phone_count);
+      const lenses=toNum(web&&web.available_lens_count);
+      const full=(phones<=0 && lenses<=0) || String(web&&web.action_for_web||"").toLowerCase()==="show_full";
+      const eventHidden=event.active_on_web===false;
+      const poster=String((web&&web.poster_image_url)||event.poster_url||"").trim();
+      return {event_id:id,event_name:event.event_name||id,event_date:event.event_date,venue:event.venue||"",
+        event_hidden:eventHidden,pkg,phones,lenses,full,poster_ok:!!poster};
+    });
+  }
+  function filteredEventControlRows(){
+    const q=String(state.eventControlSearch||"").trim().toLocaleLowerCase("th-TH");
+    const filter=state.eventControlFilter||"needs_action";
+    return eventControlRows().filter(r=>{
+      if(q && ![r.event_name,r.venue,r.event_id].join(" ").toLocaleLowerCase("th-TH").includes(q)) return false;
+      if(filter==="all") return true;
+      if(filter==="all_hidden") return r.pkg.kind==="hidden";
+      if(filter==="partial") return r.pkg.kind==="mixed";
+      if(filter==="visible") return r.pkg.kind==="visible";
+      if(filter==="event_hidden") return r.event_hidden;
+      if(filter==="full") return r.full;
+      return r.event_hidden || r.pkg.kind!=="hidden" || !r.poster_ok;
+    });
+  }
+  function eventControlStatusPill(r){
+    if(r.pkg.kind==="hidden") return '<span class="pill ok">🟢 ซ่อนครบ '+esc(r.pkg.hidden)+'/'+esc(r.pkg.total)+'</span>';
+    if(r.pkg.kind==="mixed") return '<span class="pill warn">🟡 ซ่อน '+esc(r.pkg.hidden)+'/'+esc(r.pkg.total)+'</span>';
+    if(r.pkg.kind==="visible") return '<span class="pill bad">🔴 ยังแสดง '+esc(r.pkg.visible)+'/'+esc(r.pkg.total)+'</span>';
+    return '<span class="pill">⚪ ไม่มี Web Package</span>';
+  }
+  function renderEventControlCenter(){
+    const tableEl=$("#eventControlTable");
+    if(!tableEl || !state.data) return;
+    const all=eventControlRows();
+    const rows=filteredEventControlRows();
+    const shown=rows.slice(0,state.eventControlLimit);
+    const stats=$("#eventControlStats");
+    if(stats){
+      const hidden=all.filter(r=>r.pkg.kind==="hidden").length;
+      const partial=all.filter(r=>r.pkg.kind==="mixed").length;
+      const visible=all.filter(r=>r.pkg.kind==="visible").length;
+      const cardsHidden=all.filter(r=>r.event_hidden).length;
+      stats.innerHTML=[
+        [hidden,"🟢 Package ซ่อนครบ"],[partial,"🟡 ซ่อนบางส่วน"],[visible,"🔴 ยังแสดง"],[cardsHidden,"⛔ การ์ดซ่อน"]
+      ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join("");
+    }
+    if($("#eventControlCount")) $("#eventControlCount").textContent=`${Math.min(shown.length,rows.length)} / ${rows.length} งาน`;
+    if($("#eventControlSelectedCount")) $("#eventControlSelectedCount").textContent=`เลือก ${state.eventControlSelected.size} งาน`;
+    table(tableEl,[
+      {label:"เลือก",render:r=>`<input type="checkbox" data-control-select="${esc(r.event_id)}" ${state.eventControlSelected.has(r.event_id)?"checked":""} aria-label="เลือก ${esc(r.event_name)}" />`},
+      {label:"วันที่",render:r=>esc(fmtDate(r.event_date))},
+      {label:"งาน",render:r=>`<strong>${esc(r.event_name)}</strong><br><small>${esc(r.venue||r.event_id)}</small>`},
+      {label:"การ์ด",render:r=>r.event_hidden?'<span class="pill bad">⛔ ซ่อน</span>':'<span class="pill ok">👁 แสดง</span>'},
+      {label:"Package",render:r=>eventControlStatusPill(r)},
+      {label:"คิว",render:r=>r.full?'<span class="pill warn">เต็ม / Waitlist</span>':`<span class="pill ok">Phone ${esc(r.phones)} · Lens ${esc(r.lenses)}</span>`},
+      {label:"Poster",render:r=>r.poster_ok?'<span class="pill ok">พร้อม</span>':'<span class="pill bad">ขาด Poster</span>'},
+      {label:"Action",render:r=>`<div class="inline-actions"><button class="mini-btn" type="button" data-control-open-override="${esc(r.event_id)}">จัดการ</button><button class="mini-btn ${r.event_hidden?"":"warn-soft"}" type="button" data-control-toggle-event="${esc(r.event_id)}">${r.event_hidden?"เปิดการ์ด":"ซ่อนการ์ด"}</button></div>`}
+    ],shown);
+    const more=$("#eventControlLoadMoreBtn");
+    if(more){ more.hidden=shown.length>=rows.length; more.textContent=`แสดงเพิ่ม (${Math.max(0,rows.length-shown.length)})`; }
+  }
+  function selectedEventControlIds(){
+    return [...state.eventControlSelected].filter(id=>filteredEventControlRows().some(r=>r.event_id===id));
+  }
+  async function runEventControlBatch(kind){
+    const ids=selectedEventControlIds();
+    if(!ids.length) return showNotice("เลือกงานก่อนทำ Batch action","warn");
+    if(ids.length>12) return showNotice("เพื่อความปลอดภัย Batch ได้ครั้งละไม่เกิน 12 งาน กรุณาแบ่งทำเป็นชุด","warn");
+    const isPackage=kind==="hide_packages" || kind==="show_packages";
+    const actionLabel=kind==="hide_packages"?"ซ่อน Package":kind==="show_packages"?"เปิด Package":kind==="hide_events"?"ซ่อนการ์ดงาน":"เปิดการ์ดงาน";
+    const detail=isPackage
+      ? (kind==="hide_packages"?"Package จะหาย แต่การ์ดงานยังอยู่เพื่อรับคิวหลุด":"เปิด Package กลับตามสถานะ stock ปัจจุบัน")
+      : (kind==="hide_events"?"การ์ดงานจะหายจากหน้าบ้านทั้งหมด":"การ์ดงานจะกลับมา โดยสถานะ Package คงเดิม");
+    if(!confirm(`${actionLabel} ${ids.length} งานใช่ไหม?\n\n${detail}\n\nระบบจะทำทีละงานและ Refresh ตรวจผลเมื่อเสร็จ`)) return;
+    let ok=0;
+    try{
+      for(const id of ids){
+        if(isPackage){
+          await api("bulkSetEventPackageVisibility",{event_id:id,mode:kind==="hide_packages"?"hide":"show"});
+        }else{
+          await api("updateEvent",{event_id:id,active_on_web:kind==="show_events"});
+        }
+        ok++;
+      }
+      state.eventControlSelected.clear();
+      await refresh();
+      activateTab("packages",{scroll:false});
+      showNotice(`${actionLabel}สำเร็จ ${ok}/${ids.length} งาน`);
+    }catch(e){
+      await refresh().catch(()=>{});
+      activateTab("packages",{scroll:false});
+      showNotice(`${actionLabel}สำเร็จ ${ok}/${ids.length} ก่อนหยุด: ${e.message}`,"bad");
+    }
+  }
   function templateIdFromWebPackage(wp){
     const pkgId=String(wp && wp.package_id || '').trim();
     const eventId=String(wp && wp.event_id || '').trim();
@@ -1428,7 +1565,8 @@
   function table(el, cols, rows){
     if(!el) return;
     if(!rows || !rows.length){ el.innerHTML='<tr><td class="muted">ไม่มีข้อมูล</td></tr>'; return; }
-    el.innerHTML='<thead><tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>`<td>${c.render?c.render(r):esc(r[c.key]??"")}</td>`).join('')+'</tr>').join('')+'</tbody>';
+    el.innerHTML='<thead><tr>'+cols.map(c=>`<th>${esc(c.label)}</th>`).join('')+'</tr></thead><tbody>'+
+      rows.map(r=>'<tr>'+cols.map(c=>`<td data-label="${esc(c.label)}">${c.render?c.render(r):esc(r[c.key]??"")}</td>`).join('')+'</tr>').join('')+'</tbody>';
   }
 
 
@@ -1725,7 +1863,12 @@
     if($("#pricingKpis")) $("#pricingKpis").innerHTML=[
       [rows.length,"แถวที่แสดง"], [overrides,"ราคาเฉพาะงาน"], [mismatch,"ควรเช็ก"], [visible,"แพ็กเกจบนเว็บ"]
     ].map(x=>`<div><strong>${esc(x[0])}</strong><span>${esc(x[1])}</span></div>`).join("");
-    if($("#pricingCenterCount")) $("#pricingCenterCount").textContent=`${rows.length} รายการ · CHECK ${mismatch}`;
+    if($("#pricingCenterCount")) $("#pricingCenterCount").textContent=`${Math.min(state.pricingLimit,rows.length)} / ${rows.length} รายการ · CHECK ${mismatch}`;
+    const pricingMore=$("#pricingLoadMoreBtn");
+    if(pricingMore){
+      pricingMore.hidden=Math.min(state.pricingLimit,rows.length)>=rows.length;
+      if(!pricingMore.hidden) pricingMore.textContent=`แสดงราคาเพิ่ม (${Math.max(0,rows.length-state.pricingLimit)})`;
+    }
     table($("#pricingCenterTable"),[
       {label:"งาน",render:r=>`<strong>${esc(r.event.event_name)}</strong><br><small>${esc(fmtDate(r.event.event_date))}</small>`},
       {label:"แพ็กเกจ",render:r=>`<strong>${esc(r.pkg.display_name||r.pkg.template_id)}</strong><br><small>${esc(r.pkg.package_type||"")} · ${esc(r.pkg.template_id||"")}</small>`},
@@ -1734,7 +1877,7 @@
       {label:"ลูกค้าเห็นจริง",render:r=>r.web ? `<strong>${esc(money(r.publicPrice))}฿</strong><br><small>เหลือ ${esc(r.web.available_count||0)} · ${esc(r.web.package_status||"")}</small>` : `<span class="pill warn">ไม่มี Web row</span>`},
       {label:"สถานะ",render:r=>`<span class="pill ${r.status==="OK"?"ok":(r.status==="HIDDEN"?"warn":"bad")}">${esc(r.status)}</span><br><small>ควรเป็น ${esc(money(r.expected))}฿</small>`},
       {label:"Action",render:r=>`<div class="row-actions"><button class="btn tiny ghost" type="button" data-pricing-edit="${esc(r.event.event_id)}|${esc(r.pkg.template_id)}">เปิดฟอร์ม</button>${r.override?`<button class="btn tiny secondary" type="button" data-pricing-apply="${esc(r.event.event_id)}|${esc(r.pkg.template_id)}">Apply</button>`:""}</div>`}
-    ], rows.slice(0,120));
+    ], rows.slice(0,state.pricingLimit));
   }
   function pricingSummaryText(){
     return pricingRows(state.data||{}).map(r=>[
@@ -1845,7 +1988,7 @@
         [actionRows.filter(r=>r.type==="data").length,"ข้อมูลต้องเช็ก"]
       ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
     }
-    if($("#actionCount")) $("#actionCount").textContent=shownActionRows.length+" / "+actionRows.length+" รายการที่ควรเช็ก";
+    if($("#actionCount")) $("#actionCount").textContent=Math.min(state.actionLimit,shownActionRows.length)+" / "+shownActionRows.length+" รายการที่ควรเช็ก";
     table($("#actionTable"),[
       {label:"Priority",render:r=>{ const p=actionPriority(r); return `<span class="pill ${p.cls}" title="${esc(p.title)}">${esc(p.label)}</span>`; }},
       {label:"ประเภท",render:r=>`<span class="pill ${actionSeverity(r.type)}">${esc(actionTypeLabel(r.type))}</span>`},
@@ -1857,18 +2000,18 @@
       {label:"สถานะ",render:r=>`${esc(bookingLifecycleLabel(r.booking_status||''))}<br><small>Payment: ${esc(r.payment_status||'-')}</small>`},
       {label:"สิ่งที่ต้องทำ",render:r=>esc(r.task)},
       {label:"Action",render:r=>actionButtons(r)}
-    ], shownActionRows.slice(0,60));
+    ], shownActionRows.slice(0,state.actionLimit));
 
-    $("#eventsCount").textContent=(openEventRows.length===openEventRowsAll.length?openEventRows.length:(openEventRows.length+" / "+openEventRowsAll.length))+" รายการ";
+    $("#eventsCount").textContent=Math.min(state.eventLimit,openEventRows.length)+" / "+openEventRows.length+" รายการ";
     table($("#eventsTable"),[
       {label:"วันที่",render:r=>esc(fmtDate(r.event_date))},
       {label:"งาน",key:"event_name"},
       {label:"สถานที่",key:"venue"},
       {label:"สถานะ",render:r=>`<span class="pill ${r.status==='open'?'ok':'bad'}">${esc(r.status)}</span>`},
       {label:"โชว์เว็บ",render:r=>r.active_on_web===false?'FALSE':'TRUE'}
-    ], openEventRows.slice(0,50));
+    ], openEventRows.slice(0,state.eventLimit));
 
-    $("#bookingsCount").textContent=(bookingRows.length===bookingRowsAll.length?bookingRows.length:(bookingRows.length+" / "+bookingRowsAll.length))+" รายการ";
+    $("#bookingsCount").textContent=Math.min(state.bookingLimit,bookingRows.length)+" / "+bookingRows.length+" รายการ";
     table($("#bookingsTable"),[
       {label:"วันที่งาน",render:r=>esc(fmtDate(r.event_date))},
       {label:"ชื่อลูกค้า",key:"customer_name"},
@@ -1880,7 +2023,7 @@
       {label:"สถานะ",render:r=>{ const st=String(r.booking_status||'').toLowerCase(); const cls=['cancelled','no_show'].includes(st)?'bad':(['returned','uploaded','completed'].includes(st)?'ok':'warn'); return `<span class="pill ${cls}">${esc(bookingLifecycleLabel(r.booking_status))}</span>`; }},
       {label:"วันที่บันทึก",render:r=>esc(fmtDate(r.created_at))},
       {label:"CRM",render:r=>`<button class="mini-btn" type="button" data-customer-key="${esc(bookingCustomerKey(r))}">ดูประวัติ</button>`}
-    ], bookingRows.slice(0,50));
+    ], bookingRows.slice(0,state.bookingLimit));
 
     const todayStats=$("#todayStats");
     if(todayStats){
@@ -1961,6 +2104,17 @@
     renderReports(d);
     renderPricingCenter(d);
     renderRentalAnalytics();
+    renderEventControlCenter();
+
+    const setMore=(id,shown,total)=>{
+      const btn=$(id);
+      if(!btn) return;
+      btn.hidden=shown>=total;
+      if(!btn.hidden) btn.textContent=`แสดงเพิ่ม (${Math.max(0,total-shown)})`;
+    };
+    setMore("#actionLoadMoreBtn",Math.min(state.actionLimit,shownActionRows.length),shownActionRows.length);
+    setMore("#eventsLoadMoreBtn",Math.min(state.eventLimit,openEventRows.length),openEventRows.length);
+    setMore("#bookingsLoadMoreBtn",Math.min(state.bookingLimit,bookingRows.length),bookingRows.length);
 
     fillSelects();
   }
@@ -2129,14 +2283,7 @@
     qsa(".nav[data-tab]").forEach(btn=>{
       btn.setAttribute("aria-controls", "tab-"+btn.dataset.tab);
       btn.setAttribute("aria-pressed", btn.classList.contains("active") ? "true" : "false");
-      btn.addEventListener("click",()=>{
-        qsa(".nav[data-tab]").forEach(b=>{ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); });
-        btn.classList.add("active"); btn.setAttribute("aria-pressed","true");
-        qsa(".tab-panel").forEach(p=>p.classList.remove("active"));
-        const panel=$("#tab-"+btn.dataset.tab);
-        if(panel) panel.classList.add("active");
-        window.scrollTo({top:0,behavior:"smooth"});
-      });
+      btn.addEventListener("click",()=>activateTab(btn.dataset.tab,{scroll:true,writeHash:true}));
     });
     document.addEventListener("click", ev=>{
       const jump=ev.target.closest("[data-tab-jump]");
@@ -2154,7 +2301,7 @@
       catch(e){ showNotice(e.message,"bad"); }
     });
     const logoutBtn=$("#logoutBtn");
-    if(logoutBtn) logoutBtn.addEventListener("click",()=>{ sessionStorage.removeItem("kk_admin_pin"); location.reload(); });
+    if(logoutBtn) logoutBtn.addEventListener("click",()=>{ safeSessionRemove("kk_admin_pin"); location.reload(); });
     const refreshBtn=$("#refreshBtn");
     if(refreshBtn) refreshBtn.addEventListener("click",()=>refresh().then(()=>{ updateUiLastRefresh(); showNotice("Refresh แล้ว"); }).catch(e=>showNotice(e.message,"bad")));
     const rentalAnalyticsRefreshBtn=$("#rentalAnalyticsRefreshBtn");
@@ -2206,6 +2353,57 @@
       const el=$("#"+id);
       if(!el) return;
       el.addEventListener(id==="pricingSearch" ? "input" : "change",()=>{ state[key]=el.value||""; render(); });
+    });
+    [["actionLoadMoreBtn","actionLimit",40],["eventsLoadMoreBtn","eventLimit",50],["bookingsLoadMoreBtn","bookingLimit",50],["pricingLoadMoreBtn","pricingLimit",120],["eventControlLoadMoreBtn","eventControlLimit",30]].forEach(([id,key,step])=>{
+      const el=$("#"+id);
+      if(el) el.addEventListener("click",()=>{ state[key]+=step; render(); });
+    });
+    const controlSearch=$("#eventControlSearch");
+    if(controlSearch) controlSearch.addEventListener("input",()=>{ state.eventControlSearch=controlSearch.value||""; state.eventControlLimit=30; renderEventControlCenter(); });
+    const controlFilter=$("#eventControlFilter");
+    if(controlFilter) controlFilter.addEventListener("change",()=>{ state.eventControlFilter=controlFilter.value||"needs_action"; state.eventControlLimit=30; state.eventControlSelected.clear(); renderEventControlCenter(); });
+    const selectVisible=$("#eventControlSelectVisible");
+    if(selectVisible) selectVisible.addEventListener("change",()=>{
+      const rows=filteredEventControlRows().slice(0,state.eventControlLimit);
+      rows.forEach(r=>selectVisible.checked ? state.eventControlSelected.add(r.event_id) : state.eventControlSelected.delete(r.event_id));
+      renderEventControlCenter();
+    });
+    document.addEventListener("change",ev=>{
+      const cb=ev.target && ev.target.closest && ev.target.closest("[data-control-select]");
+      if(!cb) return;
+      const id=String(cb.getAttribute("data-control-select")||"");
+      if(cb.checked) state.eventControlSelected.add(id); else state.eventControlSelected.delete(id);
+      if($("#eventControlSelectedCount")) $("#eventControlSelectedCount").textContent=`เลือก ${state.eventControlSelected.size} งาน`;
+    });
+    const batchMap={
+      controlBatchHidePackages:"hide_packages", controlBatchShowPackages:"show_packages",
+      controlBatchHideEvents:"hide_events", controlBatchShowEvents:"show_events"
+    };
+    Object.entries(batchMap).forEach(([id,kind])=>{
+      const el=$("#"+id);
+      if(el) el.addEventListener("click",()=>runEventControlBatch(kind));
+    });
+    document.addEventListener("click",ev=>{
+      const openBtn=ev.target.closest && ev.target.closest("[data-control-open-override]");
+      if(openBtn){
+        const id=openBtn.getAttribute("data-control-open-override")||"";
+        const form=$("#eventPriceOverrideForm");
+        if(form && form.elements.event_id){ form.elements.event_id.value=id; populateEventOverrideForm(); form.scrollIntoView({behavior:"smooth",block:"start"}); }
+        return;
+      }
+      const toggle=ev.target.closest && ev.target.closest("[data-control-toggle-event]");
+      if(!toggle) return;
+      const id=toggle.getAttribute("data-control-toggle-event")||"";
+      const event=findEventById(id);
+      if(!event) return showNotice("ไม่พบงานที่เลือก","bad");
+      const next=event.active_on_web===false;
+      if(!confirm((next?"เปิด":"ซ่อน")+"การ์ดงาน "+(event.event_name||id)+" ใช่ไหม?")) return;
+      setBusy(toggle,true);
+      api("updateEvent",{event_id:id,active_on_web:next})
+        .then(()=>refresh())
+        .then(()=>{ activateTab("packages",{scroll:false}); showNotice((next?"เปิด":"ซ่อน")+"การ์ดงานสำเร็จ"); })
+        .catch(e=>showNotice(e.message,"bad"))
+        .finally(()=>setBusy(toggle,false));
     });
     const pricingRefreshBtn=$("#pricingRefreshBtn");
     if(pricingRefreshBtn) pricingRefreshBtn.addEventListener("click",()=>refresh().then(()=>showNotice("Refresh Pricing Center แล้ว")).catch(e=>showNotice(e.message,"bad")));
@@ -2417,7 +2615,7 @@
         finally{setBusy(eventVisibilityBtn,false);}
       });
 
-      $("[data-bulk-event-visibility]", overrideForm).forEach(btn=>{
+      qsa("[data-bulk-event-visibility]", overrideForm).forEach(btn=>{
         btn.addEventListener("click",async()=>{
           const eventId=String(overrideForm.elements.event_id && overrideForm.elements.event_id.value || "").trim();
           if(!eventId) return showNotice("กรุณาเลือกงานก่อนจัดการแพ็กเกจทั้งงาน","warn");
@@ -2537,7 +2735,11 @@
           if(!payload.row_number) throw new Error("กรุณาเลือก Booking ที่ต้องการแก้");
           const res=await api("updateBooking", payload);
           await refresh();
-          showNotice(`แก้ Booking สำเร็จ: row ${res.row_number}`);
+          activateTab("edit-booking",{scroll:false,writeHash:true});
+          const closed=["cancelled","no_show","completed"].includes(String(payload.booking_status||"").toLowerCase());
+          showNotice(closed
+            ? `อัปเดต Booking สำเร็จ: ${payload.booking_status} · อยู่หน้าแก้ Booking ต่อและคิวถูกคำนวณใหม่แล้ว`
+            : `แก้ Booking สำเร็จ: row ${res.row_number}`);
         }catch(e){ showNotice(e.message,"bad"); }finally{ setBusy(btn,false); }
       });
     }
@@ -2546,6 +2748,8 @@
   applyDensityMode();
   updateUiLastRefresh();
   bind();
+  const requestedTab=String(location.hash||"").replace(/^#/,"");
+  if(requestedTab) activateTab(requestedTab,{scroll:false,writeHash:false});
   // /admin/app is already authenticated by the signed HttpOnly cookie. The
   // session bridge reveals the shell immediately; this fallback keeps bootstrap
   // working even when browser sessionStorage is unavailable.

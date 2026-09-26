@@ -62,6 +62,8 @@ var currentFilter = ["all","available","full"].indexOf(REQUESTED_FILTER)>=0 ? RE
 var REQUESTED_MONTH = String(URL_PARAMS.get("month") || "all").trim().toLowerCase();
 var currentMonth = /^\d{4}-\d{2}$/.test(REQUESTED_MONTH) ? REQUESTED_MONTH : "all";
 var currentSearch = String(URL_PARAMS.get("q") || "").trim();
+var BROWSE_PAGE_SIZE = 24;
+var browseLimit = BROWSE_PAGE_SIZE;
 var TH_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 var EN_MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 var PRELOADED_IMAGES = {};
@@ -87,6 +89,11 @@ var I18N = {
     search_results:"พบ {count} งาน",
     browse_results:"แสดง {count} งาน",
     clear_filters:"ล้างตัวกรอง",
+    load_more:"แสดงงานเพิ่มเติม ({count})",
+    card_waitlist:"คิวเต็ม · เปิดรับจองคิวหลุด",
+    search_line:"ถามร้านเรื่อง “{query}”",
+    share_event:"แชร์งานนี้",
+    share_copied:"คัดลอกลิงก์งานแล้ว",
     card_venue:"📍 {venue}",
     card_price_from:"แพ็กเกจเริ่ม {price}฿",
     card_price_ask:"สอบถามราคา",
@@ -202,6 +209,11 @@ var I18N = {
     search_results:"{count} events found",
     browse_results:"Showing {count} events",
     clear_filters:"Clear filters",
+    load_more:"Show more events ({count})",
+    card_waitlist:"Fully booked · Join the waitlist",
+    search_line:"Ask us about “{query}”",
+    share_event:"Share this event",
+    share_copied:"Event link copied",
     card_venue:"📍 {venue}",
     card_price_from:"Packages from ฿{price}",
     card_price_ask:"Ask for price",
@@ -352,6 +364,7 @@ function applyStaticLanguage(){
   setText("#modal-venue","modal_venue_placeholder");
   var note=document.querySelector(".modal-note"); if(note)note.innerHTML="<strong>"+esc(tr("modal_note_strong"))+"</strong> "+esc(tr("modal_note_body"));
   setText("#modal-close","close");
+  setText("#event-share-btn","share_event");
   setAttr("#faq-x-btn","aria-label","faq_close_aria");
   setText("#faq-title","faq_title");
   for(var i=1;i<=8;i++)setFaqLanguage(i,"faq_q"+i,"faq_a"+i);
@@ -671,7 +684,11 @@ async function withRetry(fn,tries,delay){
   throw err;
 }
 function directSheetUrl(name,range){ if(!SHEET_ID) throw new Error("Direct Google Sheet fallback is not configured. Please check config.js sheetId or /api/kk-data."); return "https://docs.google.com/spreadsheets/d/"+encodeURIComponent(SHEET_ID)+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now(); }
-function apiSheetUrl(name,range){ return API_ENDPOINT+"?sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now(); }
+function apiSheetUrl(name,range){
+  var url=API_ENDPOINT+"?sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now();
+  if(SHOW_PAST) url+="&showPast=1";
+  return url;
+}
 function csvHeaderLooksValid(name,text){
   var rows=parseCsv(text);
   if(!rows.length)return false;
@@ -992,6 +1009,7 @@ function startingPriceFor(c){
   return min;
 }
 function cardPriceText(c){
+  if(availCnt(c)<=0) return tr("card_waitlist");
   var p=startingPriceFor(c);
   return p>0 ? tr("card_price_from",{price:p.toLocaleString(numberLocale())}) : tr("card_price_ask");
 }
@@ -1056,9 +1074,24 @@ function renderLoadingSkeleton(count){
   html+='</div><div class="loading-text skeleton-loading-text">'+esc(tr("loading_text"))+'</div>';
   el.innerHTML=html;
 }
+function buildSearchInquiryMsg(query){
+  var q=String(query||"").trim();
+  if(currentLang==="en") return "Hi, I searched for "+q+" on the KK Phone Rental website but could not find the event. Do you accept rentals for this event?";
+  return "สวัสดีค่ะ ค้นหางาน "+q+" ในเว็บไซต์ KK Phone Rental แต่ยังไม่พบ ขอสอบถามว่าร้านรับงานนี้ไหมคะ";
+}
+function getSearchInquiryUrl(query){ return LINE_OA+encodeURIComponent(buildSearchInquiryMsg(query)); }
+function buildEventInquiryMsg(c){
+  if(currentLang==="en") return "Hi, I am viewing "+lineVal(c&&c.name)+" on KK Phone Rental. Could you help me check the booking details?";
+  return "สวัสดีค่ะ กำลังดูงาน "+lineVal(c&&c.name)+" บนเว็บไซต์ KK Phone Rental ขอสอบถามรายละเอียดการจองค่ะ";
+}
+function getEventInquiryUrl(c){ return LINE_OA+encodeURIComponent(buildEventInquiryMsg(c)); }
 function renderEmpty(msg,detail){
   var el=document.getElementById("content"); if(!el)return;
-  el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+esc(detail||tr("empty_detail"))+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("contact_line"))+'</a></div>';
+  var contextual=!!currentSearch;
+  var href=contextual?getSearchInquiryUrl(currentSearch):LINE_URL;
+  var label=contextual?tr("search_line",{query:currentSearch}):tr("contact_line");
+  if(contextual) track("search_no_result",{query:currentSearch});
+  el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+esc(detail||tr("empty_detail"))+'</p><a class="empty-line-btn" href="'+href+'" target="_blank" rel="noopener">'+esc(label)+'</a></div>';
 }
 function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return tr("badge_full"); if(isToday(c))return tr("badge_today"); if(isSoon(c))return tr("badge_soon"); if(ap.some(function(p){return p.inquiryOnly;}))return tr("badge_inquiry"); return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? tr("badge_available",{count:cnt}) : tr("badge_lens"); }
 
@@ -1091,16 +1124,18 @@ function renderConcerts(concerts){
   if(!vis.length){renderEmpty(emptyMsg());return;}
 
   var grid=document.createElement("div"); grid.className="poster-grid";
+  var totalMatches=vis.length;
+  var page=vis.slice(0,browseLimit);
 
   // LCP improvement: preload the same CDN candidate that the first card will use.
-  var firstPoster=vis[0]&&vis[0].imgThumb&&vis[0].imgThumb[0] ? vis[0].imgThumb[0] : (vis[0]&&vis[0].img ? vis[0].img : "");
+  var firstPoster=page[0]&&page[0].imgThumb&&page[0].imgThumb[0] ? page[0].imgThumb[0] : (page[0]&&page[0].img ? page[0].img : "");
   if(firstPoster&&!PRELOADED_IMAGES[firstPoster]){
     PRELOADED_IMAGES[firstPoster]=true;
     var lnk=document.createElement("link"); lnk.rel="preload"; lnk.as="image"; lnk.href=firstPoster;
     document.head.appendChild(lnk);
   }
 
-  vis.forEach(function(c,idx){
+  page.forEach(function(c,idx){
     var cnt=availCnt(c), avail=cnt>0;
     var availText=availTextFor(c);
     var pkgHint="";
@@ -1109,11 +1144,7 @@ function renderConcerts(concerts){
     var card=document.createElement("button"); card.type="button"; card.className="concert-card"+(avail?"":" waitlist-card")+(lowStock?" low-stock-card":"");
     card.setAttribute("aria-label", avail ? tr("card_aria_available",{event:c.name}) : tr("card_aria_waitlist",{event:c.name}));
     card.onclick=function(){
-      if(!avail){
-        track("waitlist_card_click",{event_name:c.name, available:0, source:"card"});
-        window.open(getWaitlistUrl(c,null), "_blank", "noopener");
-        return;
-      }
+      if(!avail) track("waitlist_card_open",{event_name:c.name, available:0, source:"card"});
       showModal(c);
     };
 
@@ -1159,6 +1190,13 @@ function renderConcerts(concerts){
     card.appendChild(imgWrap); card.appendChild(info); grid.appendChild(card);
   });
   el.appendChild(grid);
+  if(page.length<totalMatches){
+    var moreWrap=document.createElement("div"); moreWrap.className="browse-more";
+    var more=document.createElement("button"); more.type="button"; more.className="browse-more-btn"; more.id="browse-more-btn";
+    more.textContent=tr("load_more",{count:totalMatches-page.length});
+    more.onclick=function(){ browseLimit+=BROWSE_PAGE_SIZE; renderConcerts(concerts); };
+    moreWrap.appendChild(more); el.appendChild(moreWrap);
+  }
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────
@@ -1204,6 +1242,7 @@ function showModal(c,options){
   if(!c)return;
   options=options||{};
   activeModalEvent=c;
+  document.querySelectorAll("a.sticky-line").forEach(function(a){a.href=availCnt(c)<=0?getWaitlistUrl(c,null):getEventInquiryUrl(c);});
   // NEW: GA4 track modal open
   if(!options.skipTrack)track("view_event_packages",{event_name:c.name, available:availCnt(c)});
   updateMetaForEvent(c);
@@ -1328,6 +1367,7 @@ function openModal(){
 function closeModal(e){
   var el=document.getElementById("overlay");if(e&&el&&e.target!==el&&!e.target.closest(PACKAGE_CLOSE_SELECTOR))return;
   if(el)el.classList.remove("active");activeModalEvent=null;clearEventParam();resetMeta();unlockBodyIfNoModal();
+  document.querySelectorAll("a.sticky-line").forEach(function(a){a.href=LINE_URL;});
   restoreFocus(packageFocusReturn);packageFocusReturn=null;
 }
 function showError(m){var el=document.getElementById("content");if(el)el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div>';}
@@ -1354,6 +1394,7 @@ function syncBrowseUrl(){
 function setFilter(f,options){
   options=options||{};
   currentFilter=["all","available","full"].indexOf(f)>=0?f:"all";
+  if(!options.preserveLimit) browseLimit=BROWSE_PAGE_SIZE;
   document.querySelectorAll("[data-filter]").forEach(function(b){var a=b.getAttribute("data-filter")===currentFilter;b.classList.toggle("active",a);b.setAttribute("aria-pressed",a?"true":"false");});
   if(options.updateUrl)syncBrowseUrl();
   if(concertsData&&concertsData.length) renderConcerts(concertsData);
@@ -1361,6 +1402,7 @@ function setFilter(f,options){
 function setMonth(month,options){
   options=options||{};
   currentMonth=/^\d{4}-\d{2}$/.test(month)?month:"all";
+  if(!options.preserveLimit) browseLimit=BROWSE_PAGE_SIZE;
   var sel=document.getElementById("month-filter-select");
   if(sel) sel.value=currentMonth;
   if(options.updateUrl)syncBrowseUrl();
@@ -1369,6 +1411,7 @@ function setMonth(month,options){
 function setSearch(value,options){
   options=options||{};
   currentSearch=String(value||"").trim();
+  if(!options.preserveLimit) browseLimit=BROWSE_PAGE_SIZE;
   if(options.updateUrl)syncBrowseUrl();
   if(concertsData&&concertsData.length)renderConcerts(concertsData);
 }
@@ -1376,6 +1419,7 @@ function clearBrowseFilters(){
   currentFilter="all";
   currentMonth="all";
   currentSearch="";
+  browseLimit=BROWSE_PAGE_SIZE;
   document.querySelectorAll("[data-filter]").forEach(function(b){
     var active=b.getAttribute("data-filter")==="all";
     b.classList.toggle("active",active);
@@ -1386,6 +1430,9 @@ function clearBrowseFilters(){
   syncBrowseUrl();
   if(concertsData&&concertsData.length)renderConcerts(concertsData); else updateBrowseChrome(0);
 }
+
+window.addEventListener("error",function(e){track("client_error",{surface:"storefront",message:String(e&&e.message||"unknown").slice(0,120)});});
+window.addEventListener("unhandledrejection",function(e){track("client_error",{surface:"storefront",message:String(e&&e.reason&&e.reason.message||e&&e.reason||"promise").slice(0,120)});});
 
 document.addEventListener("DOMContentLoaded",function(){
   bindLanguageSwitch();
@@ -1401,6 +1448,19 @@ document.addEventListener("DOMContentLoaded",function(){
   }
   var clearBrowse=document.getElementById("clear-browse-btn");
   if(clearBrowse)clearBrowse.addEventListener("click",clearBrowseFilters);
+  var shareBtn=document.getElementById("event-share-btn");
+  if(shareBtn){
+    shareBtn.textContent=tr("share_event");
+    shareBtn.addEventListener("click",async function(){
+      if(!activeModalEvent)return;
+      var url=new URL(window.location.href); url.searchParams.set("event",activeModalEvent.id); url.searchParams.delete("e");
+      var shareData={title:activeModalEvent.name||document.title,text:(activeModalEvent.name||"")+" · "+(activeModalEvent.date||""),url:url.toString()};
+      try{
+        if(navigator.share){ await navigator.share(shareData); track("share_event",{event_name:activeModalEvent.name,method:"native"}); }
+        else{ await navigator.clipboard.writeText(shareData.url); shareBtn.textContent=tr("share_copied"); setTimeout(function(){shareBtn.textContent=tr("share_event");},1800); track("share_event",{event_name:activeModalEvent.name,method:"copy"}); }
+      }catch(e){ if(e&&e.name!=="AbortError") console.warn("share event failed",e); }
+    });
+  }
   setFilter(currentFilter);
   var bImg=document.querySelector(".brand-header-img"); if(bImg)bImg.addEventListener("error",showBrandFallback);
   var faqBtn=document.getElementById("faq-open-btn"); if(faqBtn)faqBtn.addEventListener("click",openFaq);
