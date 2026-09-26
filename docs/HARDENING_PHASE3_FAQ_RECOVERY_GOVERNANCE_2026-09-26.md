@@ -58,3 +58,21 @@ The following are not safe to invent or auto-fix:
 ## Production safety boundary
 
 No existing Booking, Event, Package, price, Stock, Asset, Archive row, Sheet business value, Apps Script project setting, trigger, secret, or environment variable is mutated by this phase.
+
+## DEP0169 root cause closed in source
+
+The Phase 2 tracer produced bounded Production stack evidence:
+
+- `kk-admin-snapshot-v6`: Vercel `IncomingMessage.get` -> `server/admin-session.js gateMode()`
+- `kk-data`: Vercel `IncomingMessage.get` -> `api/kk-data.js` query parsing
+- the deprecated `url.parse()` call itself is inside Vercel's `/opt/rust/nodejs.js` request-query getter, not repository source.
+
+Phase 3 therefore removes direct runtime access to `req.query` from:
+
+- `server/admin-session.js`
+- `api/kk-data.js`
+- `api/kk-scanner-dispatch.js`
+
+Query parsing now uses the WHATWG `URL` API from `req.url`, with safe own-property compatibility for local/unit callers. Admin gate and Event share routes also have pathname fallbacks so rewrites remain fail-safe.
+
+Production acceptance must verify the same Admin/public/Event-share requests no longer emit a new `KK_DEP0169_TRACE`.
