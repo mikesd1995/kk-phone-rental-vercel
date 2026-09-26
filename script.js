@@ -364,6 +364,7 @@ function applyStaticLanguage(){
   setText("#modal-venue","modal_venue_placeholder");
   var note=document.querySelector(".modal-note"); if(note)note.innerHTML="<strong>"+esc(tr("modal_note_strong"))+"</strong> "+esc(tr("modal_note_body"));
   setText("#modal-close","close");
+  setText("#event-share-btn","share_event");
   setAttr("#faq-x-btn","aria-label","faq_close_aria");
   setText("#faq-title","faq_title");
   for(var i=1;i<=8;i++)setFaqLanguage(i,"faq_q"+i,"faq_a"+i);
