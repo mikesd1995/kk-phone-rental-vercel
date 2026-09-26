@@ -79,5 +79,7 @@ test('all explicitly hidden package rows keep the event online as waitlist', () 
   assert.match(source, /Package visibility and event visibility are separate concerns/);
   assert.doesNotMatch(source, /hiddenByPackages/);
   assert.match(source, /if\(currentFilter==="full"\)\s+return vis\.filter\(function\(c\)\{return availCnt\(c\)===0;\}\);/);
-  assert.match(source, /window\.open\(getWaitlistUrl\(c,null\), "_blank", "noopener"\)/);
+  assert.match(source, /if\(!avail\) track\("waitlist_card_open"/);
+  assert.match(source, /showModal\(c\);/);
+  assert.doesNotMatch(source, /waitlist_card_click/);
 });
