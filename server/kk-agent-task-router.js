@@ -11,8 +11,9 @@ const CreativeProduction = require('./kk-creative-production.js');
 const FullDiscovery = require('./kk-full-discovery-worker.js');
 const CommercialPrep = require('./kk-discovery-commercial-prep.js');
 const StorefrontPromotion = require('./kk-verifier-storefront-promotion.js');
+const UltraDeepV3 = require('./kk-ultra-deep-v3.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V6';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V7';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -46,6 +47,18 @@ async function executeTask(taskType, input = {}, options = {}) {
           CreativeProduction.buildCreativeBrief(input.brief || input),
           input.result || {}
         )
+      };
+
+    case 'plan_ultra_deep_scan':
+      return {
+        invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner'],
+        result: UltraDeepV3.planGapSearch(input.observations || [], input.options || {})
+      };
+
+    case 'accept_ultra_deep_scan':
+      return {
+        invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner', 'kk-event-verifier'],
+        result: UltraDeepV3.acceptance(input)
       };
 
     case 'scan_event':
