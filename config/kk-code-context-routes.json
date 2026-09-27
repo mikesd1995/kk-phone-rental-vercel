@@ -127,27 +127,36 @@
         "mobile",
         "ux",
         "ui",
-        "homepage"
+        "homepage",
+        "ux reviewer",
+        "visual qa",
+        "sticky controls",
+        "responsive design"
       ],
       "files": [
         "script.js",
         "index.html",
         "style.css",
         "api/kk-data.js",
-        "server/event-visibility-owner-guard.js"
+        "server/event-visibility-owner-guard.js",
+        "server/kk-storefront-ux-reviewer.js",
+        "config/kk-storefront-ux-policy.json"
       ],
       "tests": [
         "tests/storefront-detail-hardening.test.js",
         "tests/storefront-image-fallback.test.js",
         "tests/storefront-ux-ui-20260922.test.js",
-        "tests/smart-ops-storefront-ux-20260926.test.js"
+        "tests/smart-ops-storefront-ux-20260926.test.js",
+        "tests/kk-storefront-ux-reviewer.test.js"
       ],
       "skills": [
         ".agents/skills/kk-code-change/SKILL.md",
-        ".agents/skills/kk-code-review/SKILL.md"
+        ".agents/skills/kk-code-review/SKILL.md",
+        "skills/kk-storefront-ux/SKILL.md"
       ],
       "docs": [
-        "docs/STOREFRONT_ADMIN_DETAIL_HARDENING_2026-09-22.md"
+        "docs/STOREFRONT_ADMIN_DETAIL_HARDENING_2026-09-22.md",
+        "docs/KK_STOREFRONT_UX_REVIEWER_V1_2026-09-27.md"
       ]
     },
     {
