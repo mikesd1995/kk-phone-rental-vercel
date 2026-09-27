@@ -71,3 +71,26 @@ All invocation rows remain `production_writes=0` and `publishes=0`.
 3. ChatGPT cannot be forced across every independent chat until this private Gateway is installed as a callable ChatGPT connector/tool.
 
 These remain visible as blocked routes, not hidden technical debt.
+
+## Supabase migration applied
+
+Production runtime-ledger project received:
+
+- `20260927025019_agent_invocation_ledger_unified_routes_v2`
+
+Verified after migration:
+
+```
+anon SELECT             false
+authenticated SELECT    false
+service_role SELECT     true
+service_role INSERT     true
+service_role UPDATE     false
+service_role DELETE     false
+owner-review forced-true constraint removed
+production_writes=0 constraint preserved
+publishes=0 constraint preserved
+rows at verification    0
+```
+
+The owner-review constraint was intentionally relaxed only because internal read-only audits do not require owner approval. Public content still sets `owner_review_required=true` in the Content route.
