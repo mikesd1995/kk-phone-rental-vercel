@@ -144,6 +144,9 @@ test('decision ledger strips non-approved metrics and rejects business writes',(
   assert.deepEqual(checked.errors,[]);
   assert.deepEqual(checked.row.metrics,{impressions:12000,bookings:3});
   assert.equal(Object.hasOwn(checked.row,'customer_name'),false);
+  assert.equal(DecisionLedger.safeSubjectRef('EVT-123'),true);
+  assert.equal(DecisionLedger.safeSubjectRef('name@example.com'),false);
+  assert.equal(DecisionLedger.safeSubjectRef('0999999999'),false);
 
   const unsafe=DecisionLedger.validateRow({
     decision_id:'dec_event_0002',
@@ -224,4 +227,16 @@ test('Agent Gateway requires Operating Partner invocation evidence',async()=>{
   assert.deepEqual(result.invocation.invoked_agents,['kk-operating-partner']);
   assert.equal(result.production_writes,0);
   assert.equal(result.publishes,0);
+});
+
+
+test('latest owner decision wins in event-sourced learning history',()=>{
+  const history=[
+    {decision_id:'dec_latest_0001',event_type:'RECOMMENDATION',decision_type:'content',recommendation_code:'SEAT_VIEW'},
+    {decision_id:'dec_latest_0001',event_type:'OWNER_DECISION',decision_type:'content',owner_action:'DEFERRED'},
+    {decision_id:'dec_latest_0001',event_type:'OWNER_DECISION',decision_type:'content',owner_action:'MODIFIED'},
+    {decision_id:'dec_latest_0001',event_type:'OUTCOME',decision_type:'content',outcome_score:80}
+  ];
+  const summary=Partner.learningSummary(history);
+  assert.deepEqual(summary.stats[0].owner_actions,['MODIFIED']);
 });
