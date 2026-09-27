@@ -13,6 +13,7 @@ const AgentGateway = require('../server/kk-agent-gateway.js');
 const AgentLedger = require('../server/kk-agent-invocation-ledger.js');
 const AgentRegistry = require('../server/kk-agent-registry.js');
 const AgentOrchestration = require('../server/kk-agent-orchestration.js');
+const DecisionLedger = require('../server/kk-decision-ledger.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -388,6 +389,7 @@ module.exports=async function handler(req,res){
           gateway_version:AgentGateway.GATEWAY_VERSION,
           registry:AgentRegistry.publicRegistry(),
           ledger:ledgerState,
+          decision_ledger:DecisionLedger.configState(),
           coverage,
           production_writes:0,
           publishes:0
