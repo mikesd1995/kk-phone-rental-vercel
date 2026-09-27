@@ -20,7 +20,7 @@ let maxFiles=0;
 for(const item of fixture.cases||[]){
   const pack=CodeIntel.contextPack(item.task,{root});
   const routes=new Set(pack.matched_routes.map(x=>x.id));
-  const files=new Set(pack.selected_files.map(x=>x.path));
+  const files=new Set([...pack.selected_files.map(x=>x.path),...(pack.targeted_tests||[])]);
   const expected=item.expected_routes||[];
   const must=item.must_include||[];
   const routeCaseHits=expected.filter(x=>routes.has(x)).length;
@@ -36,6 +36,7 @@ for(const item of fixture.cases||[]){
     task:item.task,
     routes:[...routes],
     selected_files:pack.selected_files.map(x=>x.path),
+    targeted_tests:pack.targeted_tests,
     context_tokens:pack.estimated_context_tokens,
     route_recall:expected.length?routeCaseHits/expected.length:1,
     required_file_recall:must.length?fileCaseHits/must.length:1
