@@ -83,3 +83,12 @@ test('all explicitly hidden package rows keep the event online as waitlist', () 
   assert.match(source, /showModal\(c\);/);
   assert.doesNotMatch(source, /waitlist_card_click/);
 });
+
+
+test('machine-style customer text is blocked generically, not by one incident token', () => {
+  assert.match(source, /var machineToken=/);
+  assert.match(source, /ALL_CAPS snake-case operational tokens/);
+  assert.match(source, /OWNER_PRICE_ADJUST_2026-09-28_BIG_EVENT_COLLISION/);
+  assert.match(source, /machine\[_\\s-\]\?sot/);
+  assert.match(source, /override\[_\\s-\]\?\(\?:note\|reason\)/);
+});
