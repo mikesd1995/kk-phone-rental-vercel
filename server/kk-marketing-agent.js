@@ -69,12 +69,19 @@ function plan(input={},performanceRows=[]){
     evidence_state:evidenceState,
     measured_posts:perf.measured_posts,
     performance_nudges:perf.evidence_nudges,
+    winner_selection:{
+      mode:'INTERNAL_3_TO_SINGLE_FINAL',
+      public_output_count:1,
+      target:obj==='conversion'?'OBJECTIVE_AWARE_REACH_AND_CONVERSION':'EXPECTED_QUALIFIED_REACH',
+      evidence_state:evidenceState,
+      rule:'Generate three internal candidates, QA them, then rank and expose one final winner. Never claim the selected copy is guaranteed to maximize reach.'
+    },
     strategy_handoff:{
       objective:obj,
       campaign_mode:mode,
       opportunity_score:opportunity.score,
       priority_context:opportunity.reasons,
-      instruction:'Content Strategy selects pillar/angle from this marketing brief; Content Agent writes the copy. Marketing Agent does not write final copy.'
+      instruction:'Content Strategy selects pillar/angle from this marketing brief; Content Agent drafts three internal candidates; QA validates them; Content Selector ranks them against this objective and exposes one final winner. Marketing Agent does not write final copy.'
     },
     safety:SAFETY,
     interpretation_rule:'Marketing guidance may prioritize what/when/objective, but never overrides verified event truth, approved pricing, inventory truth, owner-hidden visibility, or human approval.'
