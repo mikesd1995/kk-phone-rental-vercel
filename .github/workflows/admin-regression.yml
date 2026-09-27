@@ -35,6 +35,9 @@ jobs:
       - name: Code Intelligence retrieval benchmark
         run: npm run code:benchmark
 
+      - name: Operating Partner signal contract benchmark
+        run: npm run operating-partner:signals:benchmark
+
       - name: HF benchmark harness safety check
         env:
           HF_EVENT_ASSIST_ENABLED: 'false'
