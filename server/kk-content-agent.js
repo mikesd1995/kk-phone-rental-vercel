@@ -298,7 +298,7 @@ function buildGenerationPrompt(plan) {
     'For a publishable direct-rental X request, draft exactly 3 INTERNAL candidates; do not present all three as public output.',
     'Candidate 1, Candidate 2, and Candidate 3 must use different primary content angles and visibly different hook logic.',
     'For each candidate, include selector metrics (0–100): hook_strength, event_fandom_relevance, timing_relevance, novelty, hashtag_relevance, readability, and commercial_relevance when objective=conversion.',
-    'The downstream selector will choose exactly one winner. Only that winner is shown to the owner.'
+    'The downstream selector will choose exactly one winner. Only that winner is shown to the owner.',
     'Do not reuse recent hook wording or sentence skeletons. Do not turn a blocked idea into publishable sales copy.'
   ].join('\n');
 }
