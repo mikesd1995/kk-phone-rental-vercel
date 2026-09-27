@@ -1,0 +1,25 @@
+{
+  "schema_version": "KK_CODE_INTELLIGENCE_BASELINE_V1",
+  "accepted_at": "2026-09-27",
+  "benchmark_fixture": "tests/fixtures/kk-code-intelligence-benchmark.json",
+  "ci_run_number": 699,
+  "source_commit_sha": "051e2fba49bd031fa78f48664bb20cff40a5f149",
+  "cases": 8,
+  "route_recall": 1,
+  "required_file_recall": 1,
+  "average_context_tokens": 11046,
+  "max_context_tokens": 11934,
+  "max_selected_files": 8,
+  "configured_limits": {
+    "max_context_tokens": 12000,
+    "max_selected_files": 10
+  },
+  "full_regression": {
+    "passed": 723,
+    "failed": 0
+  },
+  "hf_semantic_retrieval": {
+    "enabled": false,
+    "activation_rule": "Must beat deterministic v1 on checked-in benchmark without lowering required-file recall or weakening safety-critical retrieval."
+  }
+}
