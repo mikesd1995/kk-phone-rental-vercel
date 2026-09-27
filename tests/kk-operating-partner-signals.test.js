@@ -136,3 +136,22 @@ test('checked-in signal benchmark cases remain deterministic',()=>{
     assert.equal(actual,item.expect,item.name);
   }
 });
+
+
+test('non-opportunity aggregate signals cannot inflate opportunity evidence confidence',()=>{
+  const result=Signals.opportunityInputs([
+    base(),
+    base({
+      signal_id:'sig_revenue_001',
+      signal_type:'revenue',
+      source_class:'VERIFIED_INTERNAL',
+      source_ref:'SRC-REV-001',
+      confidence:100,
+      metrics:{actual_revenue_thb:60000,future_revenue_thb:20000,forecast_revenue_thb:80000}
+    })
+  ],{nowMs:NOW});
+  assert.equal(result.valid_signal_count,1);
+  assert.equal(result.rejected_signal_count,1);
+  assert.equal(result.subjects[0].evidence_confidence,90);
+  assert.equal(result.rejected[0].errors.includes('NON_OPPORTUNITY_SIGNAL'),true);
+});
