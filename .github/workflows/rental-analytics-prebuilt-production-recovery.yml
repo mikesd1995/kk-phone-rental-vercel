@@ -272,11 +272,12 @@ jobs:
           # Use Vercel-authenticated curl instead of weakening Deployment Protection or
           # generating a shareable bypass token.
           # Current Vercel CLI curl syntax expects a deployment path plus --deployment.
-          # Native curl flags such as -sS/-o/-w are parsed as Vercel CLI flags and break
-          # with newer CLI releases, so capture the response body with shell redirection.
-          npx vercel curl /api/kk-admin-auth --deployment "$CANDIDATE_URL" --token="$VERCEL_TOKEN" > candidate-auth.json
-          npx vercel curl /api/kk-rental-dashboard --deployment "$CANDIDATE_URL" --token="$VERCEL_TOKEN" > candidate-analytics.json || true
-          npx vercel curl / --deployment "$CANDIDATE_URL" --token="$VERCEL_TOKEN" > candidate-root.html
+          # VERCEL_TOKEN is already supplied via the environment; passing --token after
+          # "vercel curl" is forwarded to native curl by CLI 60.x and fails as unknown.
+          # Native curl flags such as -sS/-o/-w are also avoided; capture bodies by redirect.
+          npx vercel curl /api/kk-admin-auth --deployment "$CANDIDATE_URL" > candidate-auth.json
+          npx vercel curl /api/kk-rental-dashboard --deployment "$CANDIDATE_URL" > candidate-analytics.json || true
+          npx vercel curl / --deployment "$CANDIDATE_URL" > candidate-root.html
           node - <<'NODE'
           const fs=require('node:fs');
           const auth=JSON.parse(fs.readFileSync('candidate-auth.json','utf8'));
