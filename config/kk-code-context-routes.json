@@ -69,7 +69,8 @@
         "tests/admin-auth-gate.test.js",
         "tests/admin-operations.test.js",
         "tests/snapshot-contract-v6.test.js",
-        "tests/snapshot-health.test.js"
+        "tests/snapshot-health.test.js",
+        "tests/admin-edit-booking-date-sort-20260926.test.js"
       ],
       "skills": [
         ".agents/skills/kk-code-change/SKILL.md",
