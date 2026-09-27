@@ -8,6 +8,39 @@
   },
   "routes": [
     {
+      "id": "operating_partner",
+      "keywords": [
+        "operating partner",
+        "chief of staff",
+        "คู่คิด",
+        "opportunity",
+        "decision ledger",
+        "decision feedback",
+        "daily brief",
+        "business brain",
+        "growth agent",
+        "ร้านควรทำอะไร",
+        "priority วันนี้"
+      ],
+      "files": [
+        "server/kk-operating-partner.js",
+        "server/kk-decision-ledger.js",
+        "server/kk-agent-task-router.js",
+        "server/kk-agent-registry.js"
+      ],
+      "tests": [
+        "tests/kk-operating-partner.test.js",
+        "tests/kk-agent-gateway.test.js"
+      ],
+      "skills": [
+        "skills/kk-operating-partner/SKILL.md",
+        ".agents/skills/kk-code-review/SKILL.md"
+      ],
+      "docs": [
+        "docs/KK_OPERATING_PARTNER_PHASE1_2026-09-27.md"
+      ]
+    },
+    {
       "id": "agent_orchestration",
       "keywords": [
         "agent gateway",
