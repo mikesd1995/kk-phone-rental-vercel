@@ -150,3 +150,63 @@ test('public package feed drops rows that have prices but no package identity', 
     global.fetch = originalFetch;
   }
 });
+
+
+test('public text boundary strips operational tokens from package and event notes', () => {
+  const samples = [
+    'WEEKDAY_FALLBACK_HIGH_FANDOM_2026-09-28',
+    'OWNER_PRICE_ADJUST_2026-09-28_BIG_EVENT_COLLISION',
+    'EXACT_EVENT_COMPETITOR_690_2026-09-28',
+    'PROVISIONAL_MARKET_BENCHMARK_2026-09-28',
+    'PROVISIONAL_BIG_EVENT_COLLISION_2026-09-28',
+    'WEEKDAY_FANDOM_TIER_2026-09-28',
+  ];
+
+  const packageCsv = [
+    'package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case',
+    ...samples.map((token, index) => `PKG-${index},EVT-1,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,790,2,available,${index + 1},${token},2,`),
+    'PKG-SAFE,EVT-1,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,790,2,available,99,เหมาะกับถ่ายเวทีไกล ซูมชัด,2,เก็บช็อตศิลปินชัดขึ้น',
+  ].join('\n');
+
+  const cleanedPackages = handler._test.sanitizePublicCsv('09_Web_Packages', packageCsv);
+  assert.equal(cleanedPackages.redacted, samples.length);
+  for (const token of samples) assert.doesNotMatch(cleanedPackages.text, new RegExp(token));
+  assert.match(cleanedPackages.text, /เหมาะกับถ่ายเวทีไกล ซูมชัด/);
+  assert.match(cleanedPackages.text, /เก็บช็อตศิลปินชัดขึ้น/);
+
+  const eventCsv = [
+    'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template',
+    'EVT-1,Event,04/10/2026,Siam Paragon,,OWNER_PRICE_ADJUST_2026-09-28_BIG_EVENT_COLLISION,2,2,เปิดจอง,show,ข้อความจองสำหรับลูกค้า',
+  ].join('\n');
+  const cleanedEvents = handler._test.sanitizePublicCsv('08_Web_Ready', eventCsv);
+  assert.equal(cleanedEvents.redacted, 1);
+  assert.doesNotMatch(cleanedEvents.text, /OWNER_PRICE_ADJUST/);
+  assert.match(cleanedEvents.text, /ข้อความจองสำหรับลูกค้า/);
+});
+
+test('public-data response reports redacted customer-facing fields', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => [
+      'package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case',
+      'PKG-1,EVT-1,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,790,2,available,10,OWNER_PRICE_ADJUST_2026-09-28_BIG_EVENT_COLLISION,2,',
+    ].join('\n'),
+  });
+  try {
+    await withEnv(withoutPrivateCredentials({
+      GOOGLE_SHEET_ID: 'sheet-test-123',
+      KK_PUBLIC_SHEET_REQUIRE_PRIVATE: undefined,
+    }), async () => {
+      const res = fakeRes({rejectNonAsciiHeaders: true});
+      await handler({method: 'GET', query: {sheet: '09_Web_Packages', range: 'A4:N'}}, res);
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.headers['x-kk-public-fields-redacted'], '1');
+      assert.doesNotMatch(res.body, /OWNER_PRICE_ADJUST/);
+      assert.match(res.body, /PKG-1,EVT-1,phone_only/);
+    });
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
