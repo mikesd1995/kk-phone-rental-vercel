@@ -32,3 +32,33 @@ test('worker does not fabricate candidates when provider fails',async()=>{
  assert.equal(r.handoff.candidate_count,0);
  assert.equal(r.production_writes,0);
 });
+
+function obsTier(id,tier,state='UNCHANGED'){
+ const hash=Watch.sha256(id);
+ return {observation_id:id,provider:'EXA',source_tier:tier,state,source_url:'https://'+id+'.example/events',observed_at:NOW,content_hash:hash,previous_content_hash:state==='UNCHANGED'?hash:null};
+}
+
+test('ultra deep scan fails closed when brand/social/calendar coverage is missing',async()=>{
+ const r=await Worker.runFullDiscovery({scan_mode:'ULTRA_DEEP',observations:[obsTier('official','OFFICIAL')]},{sourceWatchOptions:{nowMs:Date.parse(NOW)}});
+ assert.equal(r.status,'BLOCKED_INCOMPLETE_SOURCE_COVERAGE');
+ assert.equal(r.handoff.handoff_state,'HOLD_FOR_COVERAGE');
+ assert.ok(r.source_coverage.missing_source_tiers.includes('BRAND_SPONSOR'));
+ assert.ok(r.source_coverage.missing_source_tiers.includes('SOCIAL'));
+ assert.ok(r.source_coverage.missing_source_tiers.includes('PUBLIC_CALENDAR'));
+ assert.equal(r.production_writes,0);
+});
+
+test('ultra deep regression keeps brand and mall fan activations discoverable',async()=>{
+ const tiers=Worker.ULTRA_DEEP_REQUIRED_SOURCE_TIERS;
+ const observations=tiers.map((tier,i)=>obsTier('src'+i,tier,i<3?'NEW':'UNCHANGED'));
+ const provider_results=tiers.map((tier,i)=>i===0?result({title:'THE PINK AURA',event_date:'2026-09-28',venue:'centralwOrld',artist:['PP Krit'],source_url:'https://brand.example/pink-aura',confidence:.95}):i===1?result({title:'MINMIN x TeeTeePor - THE FROZEN CANDY LAND',event_date:'2026-09-30',venue:'Union Mall',artist:['TeeTee','Por'],source_url:'https://ticket.example/frozen-candy',confidence:.95}):i===2?result({title:'M Lifestore Sport Day After Match - TeeTee/Por',event_date:'2026-10-01',venue:'The Mall Lifestore',artist:['TeeTee','Por'],source_url:'https://venue.example/sport-day',confidence:.95}):result({candidates:[]});
+ const r=await Worker.runFullDiscovery({scan_mode:'ULTRA_DEEP',observations,provider_results},{sourceWatchOptions:{nowMs:Date.parse(NOW)}});
+ assert.equal(r.status,'READY_FOR_VERIFIER');
+ assert.equal(r.source_coverage.complete,true);
+ assert.equal(r.source_coverage.coverage_percent,100);
+ const titles=r.handoff.candidates.map(c=>c.title);
+ assert.ok(titles.includes('THE PINK AURA'));
+ assert.ok(titles.includes('MINMIN x TeeTeePor - THE FROZEN CANDY LAND'));
+ assert.ok(titles.includes('M Lifestore Sport Day After Match - TeeTee/Por'));
+ assert.equal(r.production_writes,0);
+});
