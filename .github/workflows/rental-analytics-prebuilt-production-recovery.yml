@@ -357,14 +357,7 @@ jobs:
             AUTH_STATUS="$(curl -sS -o live-auth.json -w '%{http_code}' "$PRODUCTION_URL/api/kk-admin-auth" || true)"
             ANALYTICS_STATUS="$(curl -sS -o live-analytics.json -w '%{http_code}' "$PRODUCTION_URL/api/kk-rental-dashboard" || true)"
             if [ "$AUTH_STATUS" = "200" ] && [ "$ANALYTICS_STATUS" = "401" ]; then
-              if node - <<'NODE'
-              const fs=require('node:fs');
-              try{
-                const auth=JSON.parse(fs.readFileSync('live-auth.json','utf8'));
-                const analytics=JSON.parse(fs.readFileSync('live-analytics.json','utf8'));
-                process.exit(auth.ok===true && auth.authenticated===false && analytics.ok===false && analytics.error==='Unauthorized' ? 0 : 1);
-              }catch(_){ process.exit(1); }
-              NODE
+              if node -e "const fs=require('node:fs');try{const auth=JSON.parse(fs.readFileSync('live-auth.json','utf8'));const analytics=JSON.parse(fs.readFileSync('live-analytics.json','utf8'));process.exit(auth.ok===true&&auth.authenticated===false&&analytics.ok===false&&analytics.error==='Unauthorized'?0:1)}catch(_){process.exit(1)}"
               then
                 OK=1
                 break
