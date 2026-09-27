@@ -229,7 +229,8 @@
         "seat view",
         "twitter",
         "reach",
-        "คอนเทนต์"
+        "คอนเทนต์",
+        "content agent"
       ],
       "files": [
         "server/kk-content-agent.js",
