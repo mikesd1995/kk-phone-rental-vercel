@@ -132,7 +132,8 @@ test('anti-repeat context keeps recent copy and requires three distinct rental v
   const prompt = AGENT.buildGenerationPrompt(plan);
   assert.equal(plan.anti_repeat_context.recent_post_count, 2);
   assert.equal(plan.anti_repeat_contract.direct_rental_variant_count, 3);
-  assert.match(prompt, /exactly 3 complete variants/i);
+  assert.equal(plan.anti_repeat_contract.public_output_count, 1);
+  assert.match(prompt, /3 INTERNAL candidates/i);
   assert.match(prompt, /โลกของ Example/);
   assert.match(prompt, /different primary content angles/i);
 });
@@ -155,13 +156,18 @@ test('router recognizes Thai X rental requests and forces Content Strategy + Age
   });
 
   assert.equal(routed.matched, true);
-  assert.equal(routed.route, 'KK_MARKETING_TO_CONTENT_STRATEGY_AGENT');
+  assert.equal(routed.route, 'KK_MARKETING_TO_CONTENT_SINGLE_WINNER');
   assert.equal(routed.content_gate, 'PASS');
   assert.equal(routed.strategy_required, true);
   assert.equal(routed.qa_required, true);
+  assert.equal(routed.selector_required, true);
+  assert.equal(routed.selector_version, 'KK_CONTENT_SELECTOR_V1');
   assert.equal(routed.qa_gate_version, 'KK_CONTENT_QA_GATE_V1');
   assert.equal(routed.anti_repeat_required, true);
   assert.equal(routed.three_variant_engine_required, true);
+  assert.equal(routed.internal_candidate_count, 3);
+  assert.equal(routed.public_output_count, 1);
+  assert.equal(routed.public_output_mode, 'SINGLE_FINAL_POST');
   assert.equal(routed.production_writes, 0);
   assert.equal(routed.publishes, 0);
 });
