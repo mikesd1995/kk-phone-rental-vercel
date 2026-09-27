@@ -8,6 +8,7 @@ const vm=require('node:vm');
 
 const storefront=fs.readFileSync(path.join(__dirname,'..','script.js'),'utf8');
 const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+const style=fs.readFileSync(path.join(__dirname,'..','style.css'),'utf8');
 const admin=fs.readFileSync(path.join(__dirname,'..','admin','admin.js'),'utf8');
 
 test('storefront search filters name, venue, date and event note and persists q in URL',()=>{
@@ -16,6 +17,14 @@ test('storefront search filters name, venue, date and event note and persists q 
   assert.match(storefront,/\[c\.name,c\.venue,c\.date,c\.webNote\]\.join\(" "\)/);
   assert.match(storefront,/u\.searchParams\.set\("q",currentSearch\)/);
   assert.match(storefront,/search_results/);
+});
+
+test('storefront keeps search controls iOS-safe to prevent persistent focus zoom',()=>{
+  assert.match(html,/<meta name="viewport" content="width=device-width,initial-scale=1">/);
+  assert.match(style,/\.event-search\{[^}]*font-size:16px/);
+  assert.match(style,/@media\(max-width:600px\)\{[\s\S]*?\.event-search\{[^}]*font-size:16px/);
+  assert.match(style,/@media\(max-width:768px\)\{\.month-select\{font-size:16px/);
+  assert.match(style,/-webkit-text-size-adjust:100%/);
 });
 
 test('event modal URL updates preserve active browse state instead of rebuilding from home',()=>{
