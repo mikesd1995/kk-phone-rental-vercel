@@ -5,8 +5,27 @@ const Verifier = require('./verifier-no-drop-reconciliation.js');
 const Canary = require('./canary-acceptance.js');
 const Reliability = require('./kk-reliability-learning-agent.js');
 const HfAdapter = require('./hf-scanner-adapter.js');
+const OperatingPartner = require('./kk-operating-partner.js');
+const DecisionLedger = require('./kk-decision-ledger.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V1';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V2';
+
+async function resolveDecisionHistory(input, options){
+  if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
+  const historyFn=typeof options.decisionHistoryFn==='function'
+    ? options.decisionHistoryFn
+    : async()=>DecisionLedger.listEvents({env:options.env||process.env,limit:200});
+  try{
+    const result=await historyFn();
+    return {rows:Array.isArray(result&&result.rows)?result.rows:[],status:'READBACK_COMPLETE'};
+  }catch(error){
+    return {
+      rows:[],
+      status:'READBACK_DEGRADED',
+      error_code:String(error&&(error.code||error.name)||'DECISION_HISTORY_READ_FAILED')
+    };
+  }
+}
 
 async function executeTask(taskType, input = {}, options = {}) {
   switch (String(taskType || '').trim().toLowerCase()) {
@@ -40,6 +59,49 @@ async function executeTask(taskType, input = {}, options = {}) {
       };
     }
 
+    case 'operating_partner_brief': {
+      const history=await resolveDecisionHistory(input,options);
+      const result=OperatingPartner.buildDailyBrief({...input,decision_history:history.rows});
+      result.learning_readback={status:history.status,error_code:history.error_code||'',rows:history.rows.length};
+      return {
+        invoked_agents:['kk-operating-partner'],
+        result
+      };
+    }
+
+    case 'opportunity_review':
+      return {
+        invoked_agents:['kk-operating-partner'],
+        result:OperatingPartner.analyzeOpportunities(input.opportunities||[])
+      };
+
+    case 'decision_feedback': {
+      const checked=DecisionLedger.validateRow(input);
+      if(checked.errors.length){
+        throw Object.assign(new Error('decision feedback invalid'),{
+          code:'DECISION_FEEDBACK_INVALID',
+          blockers:checked.errors
+        });
+      }
+      const writer=typeof options.decisionLedgerFn==='function'
+        ? options.decisionLedgerFn
+        : row=>DecisionLedger.recordEvent({env:options.env||process.env,row});
+      const receipt=await writer(checked.row);
+      return {
+        invoked_agents:['kk-operating-partner'],
+        result:{
+          schema_version:'KK_DECISION_FEEDBACK_RESULT_V1',
+          status:'RECORDED',
+          receipt,
+          evaluation:checked.row.event_type==='OUTCOME'
+            ? OperatingPartner.evaluateDecisionOutcome(checked.row)
+            : null,
+          production_writes:0,
+          publishes:0
+        }
+      };
+    }
+
     case 'hf_event_assist':
       return {
         invoked_agents: ['hf-event-assist'],
@@ -55,5 +117,6 @@ async function executeTask(taskType, input = {}, options = {}) {
 
 module.exports = {
   TASK_ROUTER_VERSION,
+  resolveDecisionHistory,
   executeTask
 };

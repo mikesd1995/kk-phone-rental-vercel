@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V2';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V3';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -53,6 +53,14 @@ const AGENTS = Object.freeze({
     runtime_state: 'LIVE_AUDIT_AND_CALLABLE',
     surface: 'SYSTEM_AUDIT_AND_AGENT_GATEWAY',
     production_writes: 0
+  }),
+  'kk-operating-partner': Object.freeze({
+    version: 'KK_OPERATING_PARTNER_V1',
+    authority: 'ADVISORY_DECISION_SUPPORT',
+    runtime_state: 'CALLABLE_LEARNING_ADVISOR',
+    surface: 'AGENT_GATEWAY',
+    production_writes: 0,
+    note: 'May score opportunities, prepare owner briefs and record bounded decision-learning events. Cannot publish, price-write, contact customers, merge, deploy, or change Machine SOT.'
   }),
   'hf-event-assist': Object.freeze({
     version: 'scanner-hf-advisory-v1',
@@ -123,6 +131,33 @@ const ROUTES = Object.freeze({
     request_type: 'HF_EVENT_ASSIST',
     required_agents: Object.freeze(['hf-event-assist']),
     downstream_agents: Object.freeze(['kk-event-verifier']),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
+  operating_partner_brief: Object.freeze({
+    route_id: 'OPERATING_PARTNER_DAILY_BRIEF',
+    request_type: 'OPERATING_PARTNER_BRIEF',
+    required_agents: Object.freeze(['kk-operating-partner']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: true,
+    persistent_invocation_evidence_required: true
+  }),
+  opportunity_review: Object.freeze({
+    route_id: 'OPERATING_PARTNER_OPPORTUNITY_REVIEW',
+    request_type: 'OPPORTUNITY_REVIEW',
+    required_agents: Object.freeze(['kk-operating-partner']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: true,
+    persistent_invocation_evidence_required: true
+  }),
+  decision_feedback: Object.freeze({
+    route_id: 'OPERATING_PARTNER_DECISION_FEEDBACK',
+    request_type: 'DECISION_FEEDBACK',
+    required_agents: Object.freeze(['kk-operating-partner']),
+    downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true
@@ -226,6 +261,7 @@ function publicRegistry() {
       'scan_event is not yet a live full discovery worker; current external scanner runtime is witness-only.',
       'verify_event final governed commit worker is not exposed through this gateway; only no-drop verifier audit is callable.',
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
+      'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',
       'ChatGPT cross-chat enforcement still requires an installed connector/tool that calls this private gateway.'
     ]
   };
