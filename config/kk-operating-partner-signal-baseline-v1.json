@@ -1,0 +1,17 @@
+{
+  "schema_version": "KK_OPERATING_PARTNER_SIGNAL_BASELINE_V1",
+  "accepted_at": "2026-09-27",
+  "ci_run_number": 721,
+  "source_commit_sha": "763eeed7c227988c38daa907fd7e091758fdbad7",
+  "cases": 5,
+  "passed": 5,
+  "failed": 0,
+  "checks": {
+    "fresh_verified_event": "PASS",
+    "fresh_competitor_evidence": "PASS",
+    "stale_inventory_fail_closed": "PASS",
+    "pii_like_subject_ref_rejected": "PASS",
+    "unknown_metric_dropped": "PASS"
+  },
+  "activation_rule": "This baseline validates the signal contract only. It does not authorize live adapters or merge. Live adapters remain gated on P0 closure plus shadow-mode calibration."
+}
