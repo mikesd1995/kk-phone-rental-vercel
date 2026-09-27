@@ -1,0 +1,100 @@
+{
+  "schema_version": "KK_OPERATING_PARTNER_SIGNAL_BENCHMARK_V1",
+  "now": "2026-09-27T11:45:00+07:00",
+  "cases": [
+    {
+      "name": "fresh verified event demand",
+      "expect": "ACCEPT",
+      "signal": {
+        "signal_id": "sig_evt_001",
+        "signal_type": "event_demand",
+        "subject_ref": "EVT-DEMO-001",
+        "observed_at": "2026-09-27T11:30:00+07:00",
+        "source_class": "OFFICIAL",
+        "source_ref": "SRC-EVT-001",
+        "confidence": 92,
+        "metrics": {
+          "demand_score": 90,
+          "content_reach_score": 88,
+          "source_count": 4,
+          "official_source_count": 2
+        }
+      }
+    },
+    {
+      "name": "fresh competitor evidence",
+      "expect": "ACCEPT",
+      "signal": {
+        "signal_id": "sig_market_001",
+        "signal_type": "competitor_market",
+        "subject_ref": "EVT-DEMO-001",
+        "observed_at": "2026-09-27T10:00:00+07:00",
+        "source_class": "COMPETITOR_EVIDENCE",
+        "source_ref": "SRC-MKT-001",
+        "confidence": 78,
+        "metrics": {
+          "competition_gap_score": 82,
+          "margin_signal_score": 74,
+          "competitor_count": 5,
+          "exact_price_sample_count": 4,
+          "median_price_thb": 890,
+          "kk_price_thb": 890
+        }
+      }
+    },
+    {
+      "name": "stale inventory must reject from portfolio",
+      "expect": "STALE",
+      "signal": {
+        "signal_id": "sig_inv_old",
+        "signal_type": "inventory_capacity",
+        "subject_ref": "EVT-DEMO-001",
+        "observed_at": "2026-09-27T08:00:00+07:00",
+        "source_class": "VERIFIED_INTERNAL",
+        "source_ref": "SRC-INV-001",
+        "confidence": 99,
+        "metrics": {
+          "inventory_fit_score": 95,
+          "capacity_total": 3,
+          "capacity_available": 3,
+          "utilization_rate": 0
+        }
+      }
+    },
+    {
+      "name": "pii-like subject ref rejected",
+      "expect": "INVALID",
+      "signal": {
+        "signal_id": "sig_cust_001",
+        "signal_type": "customer_cohort",
+        "subject_ref": "0999999999",
+        "observed_at": "2026-09-27T11:40:00+07:00",
+        "source_class": "VERIFIED_INTERNAL",
+        "source_ref": "SRC-COHORT-001",
+        "confidence": 90,
+        "metrics": {
+          "cohort_size": 2,
+          "followup_due_count": 2
+        }
+      }
+    },
+    {
+      "name": "unknown metric stripped",
+      "expect": "ACCEPT_WITH_DROP",
+      "signal": {
+        "signal_id": "sig_content_001",
+        "signal_type": "content_performance",
+        "subject_ref": "EVT-DEMO-001",
+        "observed_at": "2026-09-27T11:00:00+07:00",
+        "source_class": "MEASURED_ANALYTICS",
+        "source_ref": "SRC-CONTENT-001",
+        "confidence": 85,
+        "metrics": {
+          "content_reach_score": 91,
+          "impressions": 18000,
+          "phone": 9999999999
+        }
+      }
+    }
+  ]
+}
