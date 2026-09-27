@@ -48,6 +48,12 @@ function sanitizeMetrics(value){
   return out;
 }
 function validHash(value){ return /^[0-9a-f]{64}$/.test(text(value)); }
+function safeSubjectRef(value){
+  const v=text(value);
+  if(!/^[A-Za-z0-9_.:-]{0,160}$/.test(v)) return false;
+  if(/^\+?[0-9]{8,15}$/.test(v)) return false;
+  return true;
+}
 function normalizeRow(row={}){
   const decisionId=text(row.decision_id);
   const eventType=text(row.event_type).toUpperCase();
@@ -81,6 +87,7 @@ function validateRow(input={}){
   if(!/^dle_[A-Za-z0-9_-]{16,96}$/.test(row.event_id)) errors.push('EVENT_ID_INVALID');
   if(!/^dec_[A-Za-z0-9_-]{8,96}$/.test(row.decision_id)) errors.push('DECISION_ID_INVALID');
   if(!EVENT_TYPES.has(row.event_type)) errors.push('EVENT_TYPE_INVALID');
+  if(!safeSubjectRef(row.subject_ref)) errors.push('SUBJECT_REF_UNSAFE');
   if(!DECISION_TYPES.has(row.decision_type)) errors.push('DECISION_TYPE_INVALID');
   if(!OWNER_ACTIONS.has(row.owner_action)) errors.push('OWNER_ACTION_INVALID');
   for(const [key,value] of [['confidence',row.confidence],['expected_score',row.expected_score],['outcome_score',row.outcome_score]]){
@@ -133,5 +140,5 @@ async function listEvents({env=process.env,fetchImpl=global.fetch,limit=200,deci
 
 module.exports={
   TABLE,EVENT_TYPES,DECISION_TYPES,OWNER_ACTIONS,ALLOWED_METRICS,
-  configState,sanitizeMetrics,normalizeRow,validateRow,recordEvent,listEvents
+  configState,sanitizeMetrics,safeSubjectRef,normalizeRow,validateRow,recordEvent,listEvents
 };
