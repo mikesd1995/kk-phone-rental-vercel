@@ -207,3 +207,24 @@ Phase 2 should wire measured growth signals:
 Phase 3 should add customer/operations cohorts and storefront behavior.
 
 Phase 4 may allow controlled self-improvement proposals for weights, skills, prompts and code, but promotion must remain benchmarked, reviewed and reversible.
+
+
+## Production Decision Ledger migrations
+
+Applied to kk-phone-rental-runtime-ledger:
+
+- 20260927041525_operating_partner_decision_ledger_v1
+- 20260927041635_operating_partner_decision_privacy_hardening_v1
+
+Post-migration readback confirmed:
+
+    RLS                     enabled
+    anon SELECT             false
+    authenticated SELECT    false
+    service_role SELECT     true
+    service_role INSERT     true
+    service_role UPDATE     false
+    service_role DELETE     false
+    rows after validation   0
+
+The privacy-hardening migration enforces the numeric metric-key whitelist at database level and restricts subject_ref to non-PII identifier syntax. Transactional validation confirmed phone-like refs, email-like refs and unknown metric keys are rejected.
