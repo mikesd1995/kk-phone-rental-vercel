@@ -67,13 +67,28 @@ Every KK content request must pass through `kk-marketing-agent` before Content S
 
 Canonical chain:
 
-**Marketing Agent → Content Strategy Agent → Content Agent → Owner Review**
+**Marketing Agent → Content Strategy Agent → Content Agent → Content QA Gate → Owner Review**
 
 Marketing Agent owns the pre-content decision layer: objective, campaign mode, opportunity/urgency context, and performance-informed priority. Content Strategy owns pillar/angle/structure. Content Agent owns hook/copy variants.
 
 Marketing Agent is `READ_ONLY_ADVISOR`. It cannot publish, spend ads, change prices, change inventory, reopen hidden events, or mutate Machine SOT. Verified business truth always wins.
 
 When `17_Content_Performance` has no measured rows, Marketing Agent must identify its state as `RULE_BASED_COLD_START`; it must not invent performance evidence.
+
+## Mandatory pre-publish QA gate
+
+Every generated direct-rental X variant must pass `kk-content-qa` before Owner Review.
+
+Fail closed when any of these are true:
+
+- event hashtags have not been verified for the current event context;
+- copy uses a hashtag that was synthesized from an event name or is absent from the verified hashtag set;
+- canonical date or venue is repeated in the hook and the Date/Venue block without a deliberate timing reason;
+- Standard A ordering is broken;
+- event, pricing, or inventory truth is unverified;
+- the direct-rental batch does not contain exactly three variants.
+
+The QA gate is a read-only validator. It never publishes or mutates business truth.
 
 ## Standard A — X direct-rental post order
 
