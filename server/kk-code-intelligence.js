@@ -114,6 +114,11 @@ function loadRoutes(root=path.resolve(__dirname,'..')){
 
 function normalizeTask(task){ return String(task||'').trim().toLowerCase(); }
 
+function keywordMatches(normalized,keyword){
+  if(!keyword) return false;
+  if(/^[a-z0-9_-]{1,3}$/.test(keyword)){
+    const escaped=keyword.replace(/[.*+?^${}()|[\\]\\]/g,'\\function normalizeTask(task){ return String(task||'').trim().toLowerCase(); }
+
 function routeScores(task,routes){
   const normalized=normalizeTask(task);
   return routes.map(route=>{
@@ -121,7 +126,20 @@ function routeScores(task,routes){
     const matched=[];
     for(const raw of route.keywords||[]){
       const keyword=String(raw||'').toLowerCase();
-      if(keyword && normalized.includes(keyword)){
+      if(keyword && normalized.includes(keyword)){');
+    return new RegExp('(?:^|[^a-z0-9_])'+escaped+'(?:$|[^a-z0-9_])','i').test(normalized);
+  }
+  return normalized.includes(keyword);
+}
+
+function routeScores(task,routes){
+  const normalized=normalizeTask(task);
+  return routes.map(route=>{
+    let score=0;
+    const matched=[];
+    for(const raw of route.keywords||[]){
+      const keyword=String(raw||'').toLowerCase();
+      if(keywordMatches(normalized,keyword)){
         score += Math.max(2,Math.min(12,Math.ceil(keyword.length/3)));
         matched.push(raw);
       }
@@ -141,8 +159,8 @@ function addCandidate(map,file,score,reason,repoMap){
 function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFiles,maxEstimatedTokens}={}){
   const routes=loadRoutes(root);
   const map=repoMap||buildRepoMap(root);
-  const maxFileCount=Number(maxFiles||routes.defaults?.max_files||12);
-  const budget=Number(maxEstimatedTokens||routes.defaults?.max_estimated_tokens||18000);
+  const maxFileCount=Number(maxFiles||routes.defaults?.max_files||10);
+  const budget=Number(maxEstimatedTokens||routes.defaults?.max_estimated_tokens||12000);
   const largeChars=Number(routes.defaults?.large_file_chars||32000);
   const scoredRoutes=routeScores(task,routes.routes);
   const activeRoutes=scoredRoutes.slice(0,3);
@@ -168,7 +186,7 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
   for(const candidate of [...candidates.values()]){
     const node=map.nodes[candidate.path];
     for(const dep of node.dependencies||[]) addCandidate(candidates,dep,candidate.score-18,'dependency:'+candidate.path,map);
-    for(const rev of (node.reverse_dependencies||[]).slice(0,5)) addCandidate(candidates,rev,candidate.score-25,'dependent:'+candidate.path,map);
+    for(const rev of (node.reverse_dependencies||[]).filter(file=>/^(admin|api|server|cloudflare|supabase\/functions)\//.test(file)).slice(0,3)) addCandidate(candidates,rev,candidate.score-25,'dependent:'+candidate.path,map);
   }
 
   const sorted=[...candidates.values()].sort((a,b)=>b.score-a.score || a.path.localeCompare(b.path));
@@ -179,7 +197,7 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
     const node=map.nodes[item.path];
     const estimated=node.estimated_tokens||0;
     const large=node.size>largeChars;
-    const allocated=large?Math.min(estimated,3500):estimated;
+    const allocated=large?Math.min(estimated,2500):estimated;
     if(tokens+allocated>budget) continue;
     selected.push({
       ...item,
@@ -229,6 +247,7 @@ module.exports={
   parseSymbols,
   buildRepoMap,
   loadRoutes,
+  keywordMatches,
   routeScores,
   contextPack,
   targetedTestCommand
