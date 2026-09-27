@@ -45,5 +45,5 @@ test('mobile sticky LINE CTA respects device safe-area',()=>{
 
 test('new storefront assets are cache-busted',()=>{
   assert.match(html,/kk-concert-blue-theme-20260922\.css\?v=20260922-ux2/);
-  assert.match(html,/script\.js\?v=storefront-recovery-20260928-7379f6a/);
+  assert.match(html,/script\.js\?v=public-text-leak-guard-20260928/);
 });
