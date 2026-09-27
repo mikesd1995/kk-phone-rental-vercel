@@ -1,0 +1,86 @@
+{
+  "schema_version": "KK_PROJECT_CLOSURE_BACKLOG_V1",
+  "generated_for_date": "2026-09-27",
+  "rule": "Do not merge Phase 2 runtime wiring until P0 natural Scanner/Verifier acceptance and exact-current-main Production acceptance are both complete.",
+  "items": [
+    {
+      "id": "P0-NATURAL-SCANNER-VERIFIER",
+      "priority": "P0",
+      "state": "WAITING_FOR_SCHEDULED_ACCEPTANCE",
+      "owner_surface": "ChatGPT automation + Machine SOT",
+      "acceptance": "Natural Scanner then Verifier durable evidence; manual owner runs earn zero credit."
+    },
+    {
+      "id": "P0-CURRENT-MAIN-PRODUCTION",
+      "priority": "P0",
+      "state": "BLOCKED_EXTERNAL_QUOTA",
+      "owner_surface": "Vercel",
+      "acceptance": "Production serves exact current main; full baseline PASS/PARTIAL/BLOCKED/NOT_WIRED recorded."
+    },
+    {
+      "id": "P1-PHASE2-SIGNAL-CONTRACTS",
+      "priority": "P1",
+      "state": "PREPARED_ON_NON_PROD_BRANCH",
+      "owner_surface": "GitHub branch",
+      "acceptance": "Signal contract benchmark PASS; no runtime/live feed integration; PR remains unmerged until P0 closes."
+    },
+    {
+      "id": "P1-VERIFIED-EVENT-ADAPTER",
+      "priority": "P1",
+      "state": "READY_TO_BUILD_AFTER_P0",
+      "source": "Machine SOT verified event truth",
+      "output": "event_demand signals"
+    },
+    {
+      "id": "P1-CONTENT-PERFORMANCE-ADAPTER",
+      "priority": "P1",
+      "state": "READY_TO_BUILD_AFTER_P0",
+      "source": "server/kk-content-performance.js",
+      "output": "content_performance signals"
+    },
+    {
+      "id": "P1-INVENTORY-BOOKING-ADAPTER",
+      "priority": "P1",
+      "state": "READY_TO_BUILD_AFTER_P0",
+      "source": "Admin snapshot/business truth",
+      "output": "inventory_capacity + booking_velocity aggregate signals"
+    },
+    {
+      "id": "P1-REVENUE-ADAPTER",
+      "priority": "P1",
+      "state": "READY_TO_BUILD_AFTER_P0",
+      "source": "server/rental-dashboard-core.js",
+      "output": "revenue aggregate signal"
+    },
+    {
+      "id": "P1-COMPETITOR-FEED",
+      "priority": "P1",
+      "state": "DESIGN_NEEDED",
+      "source": "current competitor research workflow",
+      "output": "competitor_market signal",
+      "blocker": "No persistent normalized evidence feed yet."
+    },
+    {
+      "id": "P1-CUSTOMER-COHORT-ADAPTER",
+      "priority": "P1",
+      "state": "DESIGN_NEEDED",
+      "source": "Admin/CRM state",
+      "output": "PII-free customer_cohort signal",
+      "blocker": "Must aggregate before Operating Partner ingestion."
+    },
+    {
+      "id": "P1-STOREFRONT-ANALYTICS",
+      "priority": "P1",
+      "state": "NOT_WIRED",
+      "source": "none selected",
+      "output": "storefront_behavior signal",
+      "blocker": "Choose privacy-safe analytics source before implementation."
+    },
+    {
+      "id": "P2-CONTROLLED-SELF-IMPROVEMENT",
+      "priority": "P2",
+      "state": "DEFERRED_UNTIL_MEASURED_OUTCOMES",
+      "acceptance": "Minimum measured Decision Ledger sample + benchmarked reversible proposals only."
+    }
+  ]
+}
