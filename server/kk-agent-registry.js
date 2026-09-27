@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V9';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V10';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -17,6 +17,14 @@ const AGENTS = Object.freeze({
     runtime_state: 'CALLABLE',
     surface: 'AGENT_GATEWAY',
     production_writes: 0
+  }),
+  'kk-commercial-evidence': Object.freeze({
+    version: 'KK_DISCOVERY_COMMERCIAL_PREP_V1',
+    authority: 'STAGING_ONLY',
+    runtime_state: 'CALLABLE_EVIDENCE_GATED',
+    surface: 'AGENT_GATEWAY',
+    production_writes: 0,
+    note: 'Requires at least three independent exact-event competitor price sources and a verified HTTPS poster source before a candidate can advance to final Verifier.'
   }),
   'kk-event-verifier': Object.freeze({
     version: 'verifier-no-drop-reconciliation-v1',
@@ -219,6 +227,15 @@ const ROUTES = Object.freeze({
     downstream_agents: Object.freeze(['kk-event-verifier']),
     runtime_available: true,
     provider_executor_required: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
+  prepare_event_commercial: Object.freeze({
+    route_id: 'EVENT_COMMERCIAL_EVIDENCE_PREP',
+    request_type: 'EVENT_COMMERCIAL_PREP',
+    required_agents: Object.freeze(['kk-commercial-evidence']),
+    downstream_agents: Object.freeze(['kk-event-verifier']),
+    runtime_available: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true
   }),
