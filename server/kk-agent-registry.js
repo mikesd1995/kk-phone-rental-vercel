@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V7';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V8';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -86,6 +86,14 @@ const AGENTS = Object.freeze({
     production_writes: 0,
     note: 'Locks supplied references, plans image/motion production, and fails closed on identity/reference QA. Cannot publish or mutate business data.'
   }),
+  'kk-storefront-ux-reviewer': Object.freeze({
+    version: 'KK_STOREFRONT_UX_REVIEWER_V1',
+    authority: 'READ_ONLY_DESIGN_ADVISOR',
+    runtime_state: 'CALLABLE_REVIEW_AND_VISUAL_QA',
+    surface: 'AGENT_GATEWAY',
+    production_writes: 0,
+    note: 'Reviews supplied viewport/layout metrics and screenshot observations, creates scoped responsive UX recommendations, and fails closed on missing/unsafe visual evidence. Cannot mutate business truth, merge, deploy, or publish.'
+  }),
   'hf-event-assist': Object.freeze({
     version: 'scanner-hf-advisory-v1',
     authority: 'NONAUTHORITATIVE_ADVISORY',
@@ -127,6 +135,24 @@ const ROUTES = Object.freeze({
     route_id: 'CREATIVE_MEDIA_QA',
     request_type: 'CREATIVE_QA_REQUEST',
     required_agents: Object.freeze(['kk-creative-production']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: true,
+    persistent_invocation_evidence_required: true
+  }),
+  storefront_ux_review: Object.freeze({
+    route_id: 'STOREFRONT_UX_REVIEW',
+    request_type: 'STOREFRONT_UX_REVIEW',
+    required_agents: Object.freeze(['kk-storefront-ux-reviewer']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: true,
+    persistent_invocation_evidence_required: true
+  }),
+  storefront_visual_qa: Object.freeze({
+    route_id: 'STOREFRONT_VISUAL_QA',
+    request_type: 'STOREFRONT_VISUAL_QA',
+    required_agents: Object.freeze(['kk-storefront-ux-reviewer']),
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: true,
@@ -304,6 +330,7 @@ function publicRegistry() {
       'verify_event final governed commit worker is not exposed through this gateway; only no-drop verifier audit is callable.',
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
       'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',
+      'Storefront UX Reviewer V1 consumes supplied viewport/layout metrics and screenshot observations; autonomous browser screenshot capture/vision inference is not wired yet, so source tests alone are not final visual proof.',
       'ChatGPT cross-chat enforcement still requires an installed connector/tool that calls this private gateway.'
     ]
   };
