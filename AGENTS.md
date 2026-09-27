@@ -81,3 +81,8 @@ The deterministic retrieval baseline is intentionally zero-cost and local:
       -> targeted tests
 
 Do not enable a semantic/Hugging Face code retriever until it beats this baseline on a checked-in benchmark for relevance, token cost and false-negative rate.
+
+
+## Deep Scan full-loop execution
+
+For Deep Scan / Ultra Deep Scan requests, follow `docs/DEEP_SCAN_FULL_LOOP_EXECUTION_CONTRACT_V1_2026-09-28.md`. Treat one user scan request as authorization to continue through all safe pipeline stages without requiring repeated conversational `continue` prompts. Stop mutations only at the contract's hard-stop conditions; try approved fallback paths first and report the blocker precisely.
