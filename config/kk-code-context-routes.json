@@ -45,7 +45,13 @@
       "docs": [
         "docs/KK_OPERATING_PARTNER_PHASE1_2026-09-27.md",
         "docs/KK_OPERATING_PARTNER_PHASE2_PREP_2026-09-27.md",
-        "docs/KK_PRODUCTION_BASELINE_RUNBOOK_2026-09-27.md"
+        "docs/KK_PRODUCTION_BASELINE_RUNBOOK_2026-09-27.md",
+        "config/kk-operating-partner-signal-sources-v1.json",
+        "config/kk-operating-partner-adapter-acceptance-v1.json",
+        "config/kk-operating-partner-signal-baseline-v1.json",
+        "config/kk-project-closure-backlog-v1.json",
+        "docs/KK_OPERATING_PARTNER_PHASE2_ADAPTER_CALIBRATION_2026-09-27.md",
+        "docs/KK_ENGINEERING_HEALTH_BACKLOG_2026-09-27.md"
       ]
     },
     {
