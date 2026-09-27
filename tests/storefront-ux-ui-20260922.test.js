@@ -36,7 +36,7 @@ test('very narrow screens switch to a one-column event grid',()=>{
   assert.match(theme,/@media\(max-width:360px\)/);
   assert.match(theme,/\.poster-grid\s*\{\s*grid-template-columns:1fr;/);
   const css=fs.readFileSync(path.join(root,'style.css'),'utf8');
-  assert.match(css,/@media\(max-width:400px\)/);
+  assert.match(css,/@media\(max-width:340px\)/);
 });
 
 test('mobile sticky LINE CTA respects device safe-area',()=>{
