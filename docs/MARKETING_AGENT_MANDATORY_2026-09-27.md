@@ -6,7 +6,7 @@ Marketing Agent is mandatory immediately for KK content requests.
 
 Canonical content chain:
 
-**Marketing Agent → Content Strategy Agent → Content Agent → Owner Review**
+**Marketing Agent → Content Strategy Agent → Content Agent → Content QA Gate → Content Selector → Owner Review**
 
 ## Responsibility split
 
@@ -21,7 +21,13 @@ Decides the pre-content marketing brief:
 Chooses content pillar, angle, structure and strategic creative direction.
 
 ### Content Agent
-Writes the final hook/copy variants under the approved content contract and anti-repeat rules.
+Drafts three differentiated internal candidates under the approved content contract and anti-repeat rules.
+
+### Content QA Gate
+Fail-closes unverified hashtags, duplicate canonical date/venue, broken Standard A structure, incomplete commercial truth, and invalid/duplicate candidate batches.
+
+### Content Selector
+Ranks the three QA-passing candidates against the Marketing objective and exposes exactly one final post. The score is an estimate, never a guarantee of maximum reach.
 
 ## Cold start
 
@@ -42,6 +48,6 @@ It cannot override verified event truth, pricing, inventory, owner-hidden visibi
 
 ## Enforcement
 
-Registry V6 requires `kk-marketing-agent`, `kk-content-strategy`, and `kk-content-agent` for both direct rental X and general content draft routes.
+Registry V8 requires `kk-marketing-agent`, `kk-content-strategy`, `kk-content-agent`, `kk-content-qa`, and `kk-content-selector` for direct-rental X. General content drafts retain Marketing + Strategy + Content + QA without forcing rental winner selection.
 
-Gateway only records the three agents as invoked when the router actually produced a Marketing Agent plan. A bypass therefore fails the required-agent gate instead of silently continuing.
+For direct-rental X, the public output contract is `SINGLE_FINAL_POST` with exactly one owner-facing post. The three candidates remain internal unless the owner explicitly asks to inspect alternatives. A bypass fails the required-agent gate instead of silently continuing.

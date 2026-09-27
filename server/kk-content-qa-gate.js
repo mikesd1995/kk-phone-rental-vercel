@@ -38,8 +38,25 @@ function validatePost(post,input={}){
  const h=validateHashtags(post,input);errors.push(...h.errors);const d=validateDuplicateFacts(post,input);errors.push(...d.errors);const s=validateStandardA(post,input);errors.push(...s.errors);
  return {schema_version:VERSION,gate:errors.length?'BLOCKED':'PASS',publishable:errors.length===0,owner_review_required:true,errors:uniq(errors),hashtag_check:h,duplicate_fact_check:d,standard_a_check:s,safety:SAFETY};
 }
+function candidateCopy(item){
+ if(item&&typeof item==='object') return text(item.copy);
+ return text(item);
+}
 function validateVariants(posts=[],input={}){
- const results=(Array.isArray(posts)?posts:[]).map(post=>validatePost(post,input)),errors=[];if(results.length!==3)errors.push('DIRECT_RENTAL_REQUIRES_EXACTLY_3_VARIANTS');results.forEach((r,i)=>r.errors.forEach(e=>errors.push('VARIANT_'+(i+1)+':'+e)));
+ const list=Array.isArray(posts)?posts:[];
+ const copies=list.map(candidateCopy);
+ const results=copies.map(post=>validatePost(post,input));
+ const errors=[];
+ if(results.length!==3) errors.push('DIRECT_RENTAL_REQUIRES_EXACTLY_3_INTERNAL_CANDIDATES');
+ const uniqueCopies=new Set(copies.map(x=>normalizeToken(x)).filter(Boolean));
+ if(copies.length===3&&uniqueCopies.size!==3) errors.push('DUPLICATE_INTERNAL_CANDIDATE_COPY');
+ const objectCandidates=list.filter(x=>x&&typeof x==='object');
+ if(objectCandidates.length===3){
+   const angles=objectCandidates.map(x=>text(x.angle).toLowerCase());
+   if(angles.some(x=>!x)) errors.push('CANDIDATE_ANGLE_MISSING');
+   else if(new Set(angles).size!==3) errors.push('DUPLICATE_INTERNAL_CANDIDATE_ANGLE');
+ }
+ results.forEach((r,i)=>r.errors.forEach(e=>errors.push('CANDIDATE_'+(i+1)+':'+e)));
  return {schema_version:VERSION,gate:errors.length?'BLOCKED':'PASS',publishable:errors.length===0,errors,results,safety:SAFETY};
 }
-module.exports={VERSION,SAFETY,hashtags,dateTokens,venueTokens,occurrences,verifiedHashtagSet,validateHashtags,validateDuplicateFacts,validateStandardA,validatePost,validateVariants};
+module.exports={VERSION,SAFETY,hashtags,dateTokens,venueTokens,occurrences,verifiedHashtagSet,validateHashtags,validateDuplicateFacts,validateStandardA,validatePost,candidateCopy,validateVariants};

@@ -132,7 +132,8 @@ test('anti-repeat context keeps recent copy and requires three distinct rental v
   const prompt = AGENT.buildGenerationPrompt(plan);
   assert.equal(plan.anti_repeat_context.recent_post_count, 2);
   assert.equal(plan.anti_repeat_contract.direct_rental_variant_count, 3);
-  assert.match(prompt, /exactly 3 complete variants/i);
+  assert.equal(plan.anti_repeat_contract.public_output_count, 1);
+  assert.match(prompt, /3 INTERNAL candidates/i);
   assert.match(prompt, /โลกของ Example/);
   assert.match(prompt, /different primary content angles/i);
 });
@@ -155,13 +156,18 @@ test('router recognizes Thai X rental requests and forces Content Strategy + Age
   });
 
   assert.equal(routed.matched, true);
-  assert.equal(routed.route, 'KK_MARKETING_TO_CONTENT_STRATEGY_AGENT');
+  assert.equal(routed.route, 'KK_MARKETING_TO_CONTENT_SINGLE_WINNER');
   assert.equal(routed.content_gate, 'PASS');
   assert.equal(routed.strategy_required, true);
   assert.equal(routed.qa_required, true);
+  assert.equal(routed.selector_required, true);
+  assert.equal(routed.selector_version, 'KK_CONTENT_SELECTOR_V1');
   assert.equal(routed.qa_gate_version, 'KK_CONTENT_QA_GATE_V1');
   assert.equal(routed.anti_repeat_required, true);
   assert.equal(routed.three_variant_engine_required, true);
+  assert.equal(routed.internal_candidate_count, 3);
+  assert.equal(routed.public_output_count, 1);
+  assert.equal(routed.public_output_mode, 'SINGLE_FINAL_POST');
   assert.equal(routed.production_writes, 0);
   assert.equal(routed.publishes, 0);
 });
@@ -187,4 +193,92 @@ test('router does not hijack non-content requests', () => {
   assert.equal(routed.matched, false);
   assert.equal(routed.route, 'NO_CONTENT_AGENT');
   assert.equal(routed.content_gate, 'NOT_APPLICABLE');
+});
+
+
+test('finalizer exposes exactly one selected post after three candidates pass QA', () => {
+  const input={
+    event:'Example Concert',
+    venue:'Example Hall',
+    date_display:'3 ต.ค.',
+    verified_event:true,
+    verified_pricing:true,
+    price_display:'vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
+    inventory_available:true,
+    official_event_hashtag:'#ExampleConcert',
+    verified_hashtags:['#ExampleConcert','#ArtistExample','#เช่ามือถือ']
+  };
+  const post=hook=>`📱 KK Phone Rental | #เช่ามือถือ
+
+🔥 #ExampleConcert
+
+${hook}
+
+🎤 vivo X300 Pro 690฿ | เพิ่ม Lens +200฿
+📍 3 ต.ค. | Example Hall
+
+💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ
+📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน
+☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน
+👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
+
+#ArtistExample`;
+  const candidates=[
+    {id:'a',angle:'event_theme',copy:post('Hook A'),metrics:{hook_strength:70,event_fandom_relevance:85,timing_relevance:70,novelty:80,hashtag_relevance:100,readability:90}},
+    {id:'b',angle:'fandom',copy:post('Hook B'),metrics:{hook_strength:95,event_fandom_relevance:95,timing_relevance:80,novelty:90,hashtag_relevance:100,readability:92}},
+    {id:'c',angle:'trust',copy:post('Hook C'),metrics:{hook_strength:75,event_fandom_relevance:80,timing_relevance:70,novelty:85,hashtag_relevance:100,readability:95}}
+  ];
+  const result=ROUTER.finalizeGeneratedCandidates({
+    candidates,
+    input,
+    marketingPlan:{objective:'awareness',measured_posts:0}
+  });
+  assert.equal(result.gate,'PASS');
+  assert.equal(result.public_output_count,1);
+  assert.equal(result.final_post,post('Hook B'));
+  assert.equal(result.selection.winner.id,'b');
+});
+
+test('finalizer blocks public output when any internal candidate fails QA', () => {
+  const input={
+    event:'Example Concert',
+    venue:'Example Hall',
+    date_display:'3 ต.ค.',
+    verified_event:true,
+    verified_pricing:true,
+    price_display:'vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
+    inventory_available:true,
+    official_event_hashtag:'#ExampleConcert',
+    verified_hashtags:['#ExampleConcert','#ArtistExample','#เช่ามือถือ']
+  };
+  const good=`📱 KK Phone Rental | #เช่ามือถือ
+
+🔥 #ExampleConcert
+
+Hook A
+
+🎤 vivo X300 Pro 690฿ | เพิ่ม Lens +200฿
+📍 3 ต.ค. | Example Hall
+
+💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ
+📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน
+☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน
+👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
+
+#ArtistExample`;
+  const bad=good.replace('Hook A','3 ต.ค. Hook duplicate date');
+  const metrics={hook_strength:80,event_fandom_relevance:80,timing_relevance:80,novelty:80,hashtag_relevance:100,readability:90};
+  const result=ROUTER.finalizeGeneratedCandidates({
+    candidates:[
+      {id:'a',angle:'event_theme',copy:good,metrics},
+      {id:'b',angle:'fandom',copy:bad,metrics},
+      {id:'c',angle:'trust',copy:good.replace('Hook A','Hook C'),metrics}
+    ],
+    input,
+    marketingPlan:{objective:'awareness',measured_posts:0}
+  });
+  assert.equal(result.gate,'BLOCKED');
+  assert.equal(result.blocker,'CONTENT_QA_FAILED');
+  assert.equal(result.public_output_count,0);
+  assert.equal(result.final_post,undefined);
 });

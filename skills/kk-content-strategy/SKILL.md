@@ -25,14 +25,15 @@ This skill is guidance only. It never becomes event truth, pricing truth, invent
 
 Any request equivalent to **“ขอโพสปล่อยเช่างานนี้บน X”**, **“ขอโพสต์งานนี้บน X”**, or another KK content/caption request must route through:
 
-**verified business truth → Content Strategy → Content Agent → anti-repeat check → owner review**
+**verified business truth → Marketing Agent → Content Strategy → Content Agent → Content QA Gate → Content Selector → Owner Review**
 
 For direct-rental X posts:
 
 - current event, pricing, displayed offer, and inventory must pass verification;
 - the Content Agent must receive recent post/hook context when available;
-- generate **exactly 3 substantively different variants**;
-- each variant must use a different primary angle and hook structure;
+- generate **exactly 3 substantively different internal candidates**;
+- each internal candidate must use a different primary angle and hook structure;
+- do not expose all three candidates by default; after QA, Content Selector must rank them and expose exactly **1 final post**;
 - cosmetic rewrites (emoji swap, synonym swap, sentence reordering) do not count;
 - avoid recycling recent hooks, metaphors, sentence skeletons, and generic filler;
 - if event-specific context is not verified, stay neutral rather than inventing artist/fandom/event lore.
@@ -67,9 +68,9 @@ Every KK content request must pass through `kk-marketing-agent` before Content S
 
 Canonical chain:
 
-**Marketing Agent → Content Strategy Agent → Content Agent → Content QA Gate → Owner Review**
+**Marketing Agent → Content Strategy Agent → Content Agent → Content QA Gate → Content Selector → Owner Review**
 
-Marketing Agent owns the pre-content decision layer: objective, campaign mode, opportunity/urgency context, and performance-informed priority. Content Strategy owns pillar/angle/structure. Content Agent owns hook/copy variants.
+Marketing Agent owns the pre-content decision layer: objective, campaign mode, opportunity/urgency context, and performance-informed priority. Content Strategy owns pillar/angle/structure. Content Agent drafts three internal candidates. Content QA validates all three. Content Selector ranks only QA-passing candidates against the Marketing objective and exposes one final post.
 
 Marketing Agent is `READ_ONLY_ADVISOR`. It cannot publish, spend ads, change prices, change inventory, reopen hidden events, or mutate Machine SOT. Verified business truth always wins.
 
@@ -77,7 +78,7 @@ When `17_Content_Performance` has no measured rows, Marketing Agent must identif
 
 ## Mandatory pre-publish QA gate
 
-Every generated direct-rental X variant must pass `kk-content-qa` before Owner Review.
+Every generated direct-rental X internal candidate must pass `kk-content-qa` before selection.
 
 Fail closed when any of these are true:
 
@@ -86,9 +87,31 @@ Fail closed when any of these are true:
 - canonical date or venue is repeated in the hook and the Date/Venue block without a deliberate timing reason;
 - Standard A ordering is broken;
 - event, pricing, or inventory truth is unverified;
-- the direct-rental batch does not contain exactly three variants.
+- the direct-rental batch does not contain exactly three distinct internal candidates;
+- any internal candidate fails QA; selection must not proceed until all three pass.
 
 The QA gate is a read-only validator. It never publishes or mutates business truth.
+
+## Mandatory single-winner selection
+
+For direct-rental X requests, the owner-facing output is **one final post only**.
+
+The system still generates three candidates internally so Marketing/Strategy can compare genuinely different angles. After all three pass QA, `kk-content-selector` ranks them against the current Marketing objective.
+
+Default awareness/reach weighting:
+
+- Hook / stop-scroll strength: 30%
+- Event + fandom relevance: 25%
+- Timing relevance: 15%
+- Novelty / anti-repeat: 15%
+- Verified hashtag relevance: 10%
+- Readability on X: 5%
+
+For conversion-oriented campaigns, the selector shifts weight toward timing and commercial relevance while preserving hook/event relevance.
+
+When `17_Content_Performance` has fewer than three measured posts for useful evidence, selection remains `RULE_BASED_COLD_START`. Do not claim the chosen post is guaranteed to have the highest reach. It is the highest-scoring candidate under the current verified context and available evidence.
+
+Public output contract: `SINGLE_FINAL_POST`, count = 1. Do not show alternatives unless the owner explicitly asks to inspect them.
 
 ## Standard A — X direct-rental post order
 
@@ -160,7 +183,7 @@ Use 19_Content_Experiments for explicit A/B hypotheses so changes are traceable 
 
 When asked to generate a content plan, return objective, content pillar, content angle, hook direction, body direction, CTA type, hashtag approach, asset idea, verified facts used, and unresolved blockers/assumptions.
 
-When asked for final X rental copy, produce three differentiated variants rather than cosmetic rewrites, while preserving the current brand/copy contract.
+When asked for final X rental copy, generate three differentiated candidates internally, run QA + objective-aware selection, then return only the single selected final post. Show alternatives only when the owner explicitly requests them.
 
 ## Rollout rule
 
