@@ -75,7 +75,7 @@ body{padding-bottom:78px}
 .faq-overlay{display:none;position:fixed;inset:0;z-index:1000;background:rgba(26,40,69,.48);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:18px}.faq-overlay.active{display:flex}
 .faq-overlay .modal{max-width:760px}.faq-overlay .modal-title{font-size:24px;font-weight:700;line-height:1.3}.faq-list{padding:0 20px;display:grid;gap:12px}.faq-item{background:rgba(238,245,255,.72);border:1px solid rgba(191,214,255,.9);border-radius:18px;overflow:hidden;transition:all .2s ease}.faq-q{width:100%;background:transparent;border:0;text-align:left;padding:16px 18px;color:var(--navy);font-size:15px;font-weight:700;font-family:var(--font-main);cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center;line-height:1.45}.faq-a{display:none;padding:0 18px 16px;color:#58709A;font-size:13px;line-height:1.7;font-weight:400}.faq-item.active .faq-a{display:block}.faq-plus{color:var(--blue);font-weight:700;font-size:16px;flex-shrink:0}.faq-item.active .faq-plus{transform:rotate(45deg)}.faq-overlay .modal-close{font-size:16px;color:#58709A}
 .modal-note strong{color:var(--navy)}
-@media(max-width:768px){body{padding-bottom:82px}.value-box{border-radius:20px}.value-box p{font-size:14px}.value-box .value-note{font-size:12px}.line-btn{display:none}.sticky-line{display:flex}.mini-btn{font-size:14px;min-height:40px;padding:9px 16px}.faq-overlay{padding:12px}.faq-overlay .modal-title{font-size:22px}.faq-q{font-size:14px;padding:14px 16px}.faq-a{font-size:12.5px;padding:0 16px 14px}}
+@media(max-width:768px){body{padding-bottom:82px}.value-box{border-radius:20px}.value-box p{font-size:14px}.value-box .value-note{font-size:12px}.line-btn{display:none}.sticky-line{display:flex}.mini-btn{font-size:14px;min-height:44px;padding:9px 16px}.faq-overlay{padding:12px}.faq-overlay .modal-title{font-size:22px}.faq-q{font-size:14px;padding:14px 16px}.faq-a{font-size:12.5px;padding:0 16px 14px}}
 @media(max-width:390px){.mini-btn{font-size:13px;width:100%;max-width:280px}.value-box h2{font-size:18px}.value-box p{font-size:13px}.value-box .value-note{font-size:11.5px}.faq-overlay .modal-title{font-size:20px}.faq-q{font-size:13.5px}.faq-a{font-size:12.5px}}
 
 .quick-link{white-space:nowrap;}
@@ -237,7 +237,7 @@ button,input,select,textarea{font:inherit;}
 html[lang="en"] .value-box p,html[lang="en"] .modal-note,html[lang="en"] .faq-a{line-height:1.55}
 html[lang="en"] .filter-btn{letter-spacing:.1px}
 html[lang="en"] .book-pill{min-width:132px}
-@media(max-width:768px){.language-switch{min-height:40px}.lang-btn{min-width:45px;min-height:30px;font-size:12.5px;padding:5px 9px}html[lang="en"] .book-pill{min-width:114px;max-width:126px}}
+@media(max-width:768px){.language-switch{min-height:44px;padding-top:0;padding-bottom:0}.lang-btn{min-width:45px;min-height:44px;font-size:12.5px;padding:5px 9px}html[lang="en"] .book-pill{min-width:114px;max-width:126px}}
 @media(max-width:390px){.language-switch{width:100%;max-width:280px}.lang-btn{flex:1}html[lang="en"] .filter-btn{font-size:11.5px;padding-left:10px;padding-right:10px}html[lang="en"] .book-pill{min-width:106px;max-width:118px;font-size:10.8px}}
 
 
@@ -284,6 +284,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
     width:min(100%,360px);
     margin-left:auto;
     margin-right:auto;
+    margin-bottom:18px;
   }
   .quick-link{grid-column:1/-1;width:100%;}
   .mini-btn,.language-switch{width:100%;}
