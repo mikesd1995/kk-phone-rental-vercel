@@ -153,7 +153,7 @@ test('router recognizes Thai X rental requests and forces Content Strategy + Age
   });
 
   assert.equal(routed.matched, true);
-  assert.equal(routed.route, 'KK_CONTENT_STRATEGY_AGENT');
+  assert.equal(routed.route, 'KK_MARKETING_TO_CONTENT_STRATEGY_AGENT');
   assert.equal(routed.content_gate, 'PASS');
   assert.equal(routed.strategy_required, true);
   assert.equal(routed.anti_repeat_required, true);
