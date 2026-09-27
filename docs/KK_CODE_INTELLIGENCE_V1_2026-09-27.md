@@ -188,3 +188,22 @@ After:
       -> expand only when evidence requires it
 
 The benchmark result recorded by CI is the source of truth for actual v1 retrieval size/recall.
+
+## Accepted benchmark — CI #699
+
+Final deterministic v1 benchmark:
+
+    cases                   8
+    route recall            100%
+    required-file recall    100%
+    average context         11,046 estimated tokens
+    max context             11,934 estimated tokens
+    max selected files      8
+    configured ceiling      12,000 tokens / 10 files
+    full regression         723 / 723 PASS
+    HF safety               PASS
+    HF disabled readiness   PASS
+
+An earlier passing 18k baseline averaged 16,927 estimated tokens with a 17,933 max and 12 selected files. Route precision, separate test/skill/doc surfaces, short-keyword boundary matching and filtered reverse dependencies reduced average selected source context by about 35% while keeping route and required-file recall at 100%.
+
+This accepted result is also recorded in config/kk-code-intelligence-baseline-v1.json for future semantic/HF comparisons.
