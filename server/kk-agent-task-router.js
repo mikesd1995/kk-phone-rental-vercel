@@ -12,10 +12,11 @@ const CreativeProduction = require('./kk-creative-production.js');
 const FullDiscovery = require('./kk-full-discovery-worker.js');
 const CommercialPrep = require('./kk-discovery-commercial-prep.js');
 const StorefrontPromotion = require('./kk-verifier-storefront-promotion.js');
+const StorefrontExecutor = require('./kk-governed-storefront-executor.js');
 const UltraDeepV3 = require('./kk-ultra-deep-v3.js');
 const UltraDeepProvider = require('./kk-ultra-deep-provider-executor.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V9';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V10';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -96,6 +97,17 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-event-verifier'],
         result: StorefrontPromotion.preparePromotion(input)
+      };
+
+    case 'execute_storefront_promotion':
+      return {
+        invoked_agents: ['kk-event-verifier'],
+        result: await StorefrontExecutor.execute(input.plan || input, {
+          env: options.env || process.env,
+          fetchImpl: options.fetchImpl || global.fetch,
+          readbackFn: options.storefrontReadbackFn,
+          correlationId: input.correlation_id || options.correlationId || ''
+        })
       };
 
     case 'verify_storefront_readback':
