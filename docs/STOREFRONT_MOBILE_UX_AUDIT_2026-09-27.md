@@ -83,3 +83,10 @@ Automated browser screenshot capture is not yet wired. Therefore GitHub source/r
 - The stale assertion was corrected rather than reverting the UX change.
 - GitHub Admin Regression run #751: PASS at commit `eef96561b041e541db283c0a8e6b6fd84c4b9f0b`.
 - This documentation checkpoint records the successful retry and intentionally gives Vercel one fresh opportunity to evaluate Preview capacity.
+
+
+## Preview recheck checkpoint
+
+A separate stacked visual-QA branch received a new READY Vercel Preview after the earlier build-rate-limit window. This documentation-only checkpoint intentionally retriggers PR #237 without changing storefront runtime code, pricing, booking logic, data sources, or agent behavior.
+
+Acceptance remains unchanged: the new exact-head Preview must be READY and visually inspected before merge.
