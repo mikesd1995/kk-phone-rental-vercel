@@ -66,24 +66,59 @@ function serializeCsvRows(rows) {
   return rows.map(row => row.map(csvCell).join(',')).join('\n');
 }
 
+function looksInternalPublicText(value) {
+  const text = String(value == null ? '' : value).normalize('NFKC').trim();
+  if (!text) return false;
+
+  // Fail closed on machine-readable/internal annotations. Customer-facing prose should
+  // never contain long ALL_CAPS snake-case operational tokens such as
+  // OWNER_PRICE_ADJUST_2026-09-28_BIG_EVENT_COLLISION.
+  const machineToken = /(?:^|[\s([{])(?:[A-Z][A-Z0-9-]{1,})(?:_[A-Z0-9-]+){2,}(?=$|[\s)\]}.,;:])/;
+  if (machineToken.test(text)) return true;
+
+  return /(?:^|\b)v\d+(?:\.\d+){1,3}\b|capacity\s*(?:tight|blocked|readback)|exact\s+capacity|readback|owner[_\s-]?locked|core\s+promotion|promotion\s+repair|reopened\s+after|manifest|write\s+transaction|pass[_\s-]?200|policy\s+version|restored\s+\d{4}-\d{2}-\d{2}|scanner\s+raw|verifier\s+backlog|machine[_\s-]?sot|manual[_\s-]?cutover|internal[_\s-]?(?:note|only)|override[_\s-]?(?:note|reason)/i.test(text);
+}
+
+function sanitizePublicTextValue(value) {
+  const text = String(value == null ? '' : value).replace(/\[INQUIRY_ONLY\]/ig, '').trim();
+  return looksInternalPublicText(text) ? '' : text;
+}
+
 function sanitizePublicCsv(sheet, text) {
   const rows = parseCsvRows(text);
-  if (!rows.length) return {text: String(text || ''), dropped: 0};
+  if (!rows.length) return {text: String(text || ''), dropped: 0, redacted: 0};
   const header = rows[0].map(v => String(v || '').trim().toLowerCase());
   const idx = name => header.indexOf(name);
   let required = [];
   if (sheet === '08_Web_Ready') required = ['event_id', 'event_name'];
   if (sheet === '09_Web_Packages') required = ['package_id', 'event_id', 'package_type'];
-  if (!required.length) return {text: String(text || ''), dropped: 0};
+  if (!required.length) return {text: String(text || ''), dropped: 0, redacted: 0};
 
   const requiredIndexes = required.map(idx);
-  if (requiredIndexes.some(i => i < 0)) return {text: String(text || ''), dropped: 0};
+  if (requiredIndexes.some(i => i < 0)) return {text: String(text || ''), dropped: 0, redacted: 0};
+
+  const publicTextFields = sheet === '08_Web_Ready'
+    ? ['event_note', 'line_message_template']
+    : ['web_note', 'package_note', 'use_case'];
+  const publicTextIndexes = publicTextFields.map(idx).filter(i => i >= 0);
 
   const body = rows.slice(1);
   const kept = body.filter(row => requiredIndexes.every(i => String(row[i] || '').trim() !== ''));
+  let redacted = 0;
+  const cleaned = kept.map(row => {
+    const next = row.slice();
+    for (const i of publicTextIndexes) {
+      const before = String(next[i] == null ? '' : next[i]);
+      const after = sanitizePublicTextValue(before);
+      if (before.trim() && !after) redacted++;
+      next[i] = after;
+    }
+    return next;
+  });
   return {
-    text: serializeCsvRows([rows[0], ...kept]),
+    text: serializeCsvRows([rows[0], ...cleaned]),
     dropped: body.length - kept.length,
+    redacted,
   };
 }
 
@@ -349,6 +384,9 @@ module.exports = async function handler(req, res) {
   if (sanitized.dropped > 0) {
     res.setHeader('X-KK-Public-Rows-Dropped', String(sanitized.dropped));
   }
+  if (sanitized.redacted > 0) {
+    res.setHeader('X-KK-Public-Fields-Redacted', String(sanitized.redacted));
+  }
   const futureOnly = filterPastPublicCsv(sheet, text, {showPast});
   text = futureOnly.text;
   if (futureOnly.dropped > 0) {
@@ -373,6 +411,8 @@ module.exports._test = {
   isTrue,
   parseCsvRows,
   serializeCsvRows,
+  looksInternalPublicText,
+  sanitizePublicTextValue,
   sanitizePublicCsv,
   filterPastPublicCsv,
   bangkokTodayISO,
