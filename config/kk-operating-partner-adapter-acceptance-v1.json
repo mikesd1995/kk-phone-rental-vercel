@@ -1,0 +1,127 @@
+{
+  "schema_version": "KK_OPERATING_PARTNER_ADAPTER_ACCEPTANCE_V1",
+  "activation_rule": "Adapters may be implemented after P0 closes. Each adapter must pass shadow-mode comparison before its signals can affect owner recommendations.",
+  "adapters": [
+    {
+      "id": "verified_event_adapter",
+      "order": 1,
+      "source": "Machine SOT verified event truth",
+      "signal_types": [
+        "event_demand"
+      ],
+      "mode_on_first_release": "SHADOW_READ_ONLY",
+      "acceptance": [
+        "100% sampled subject refs resolve to the exact verified event identity",
+        "0 owner-hidden events are implicitly reopened or treated as promotional",
+        "stale/unverified event evidence is excluded",
+        "no business write is available from the adapter"
+      ]
+    },
+    {
+      "id": "content_performance_adapter",
+      "order": 2,
+      "source": "server/kk-content-performance.js compatible rows",
+      "signal_types": [
+        "content_performance"
+      ],
+      "mode_on_first_release": "SHADOW_READ_ONLY",
+      "acceptance": [
+        "measured-post filter matches existing content-performance summary",
+        "missing analytics is classified as insufficient evidence",
+        "sample size/confidence is preserved",
+        "no content publication authority"
+      ]
+    },
+    {
+      "id": "inventory_booking_adapter",
+      "order": 3,
+      "source": "Admin snapshot/business truth aggregates",
+      "signal_types": [
+        "inventory_capacity",
+        "booking_velocity"
+      ],
+      "mode_on_first_release": "SHADOW_READ_ONLY",
+      "acceptance": [
+        "aggregate capacity matches current business truth for sampled event dates",
+        "cancelled/no_show/unknown booking states do not inflate active demand",
+        "customer-level PII never leaves the adapter",
+        "availability older than TTL is rejected"
+      ]
+    },
+    {
+      "id": "revenue_adapter",
+      "order": 4,
+      "source": "server/rental-dashboard-core.js aggregate contract",
+      "signal_types": [
+        "revenue"
+      ],
+      "mode_on_first_release": "SHADOW_READ_ONLY",
+      "acceptance": [
+        "actual revenue uses completed only",
+        "future revenue uses only approved active states",
+        "forecast equals actual plus future",
+        "no customer identity fields are emitted"
+      ]
+    },
+    {
+      "id": "system_health_adapter",
+      "order": 5,
+      "source": "Reliability/Agent Gateway/runtime/deployment evidence",
+      "signal_types": [
+        "system_health"
+      ],
+      "mode_on_first_release": "SHADOW_READ_ONLY",
+      "acceptance": [
+        "P0/P1 system risks can outrank growth opportunities",
+        "timer-only evidence cannot mark Scanner/Verifier healthy",
+        "unknown root cause remains unknown",
+        "no repair mutation from the adapter"
+      ]
+    },
+    {
+      "id": "competitor_market_adapter",
+      "order": 6,
+      "source": "persistent competitor evidence feed to be designed",
+      "signal_types": [
+        "competitor_market"
+      ],
+      "mode_on_first_release": "BLOCKED_UNTIL_SOURCE_DESIGN",
+      "acceptance": [
+        "exact-event competitor samples include timestamp and evidence source",
+        "stale samples are excluded",
+        "sample count is visible",
+        "absence of evidence is not interpreted as no competition"
+      ]
+    },
+    {
+      "id": "customer_cohort_adapter",
+      "order": 7,
+      "source": "Admin/CRM aggregate state",
+      "signal_types": [
+        "customer_cohort"
+      ],
+      "mode_on_first_release": "BLOCKED_UNTIL_PII_SAFE_AGGREGATION",
+      "acceptance": [
+        "only aggregate cohort counts leave the adapter",
+        "no name phone email address payment or raw message",
+        "freshness and CRM sync state are visible",
+        "recommendations prepare follow-up but never send it"
+      ]
+    },
+    {
+      "id": "storefront_behavior_adapter",
+      "order": 8,
+      "source": "privacy-safe analytics source not selected",
+      "signal_types": [
+        "storefront_behavior"
+      ],
+      "mode_on_first_release": "NOT_WIRED",
+      "acceptance": [
+        "analytics source chosen with privacy review",
+        "search and CTA metrics are aggregate",
+        "no raw query contains customer PII",
+        "no UX change auto-deploy authority"
+      ]
+    }
+  ]
+}
