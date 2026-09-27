@@ -9,8 +9,9 @@ const OperatingPartner = require('./kk-operating-partner.js');
 const DecisionLedger = require('./kk-decision-ledger.js');
 const CreativeProduction = require('./kk-creative-production.js');
 const FullDiscovery = require('./kk-full-discovery-worker.js');
+const CommercialPrep = require('./kk-discovery-commercial-prep.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V4';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V5';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -53,6 +54,12 @@ async function executeTask(taskType, input = {}, options = {}) {
           discoverFn: options.discoveryProviderFn,
           sourceWatchOptions: options.sourceWatchOptions || {}
         })
+      };
+
+    case 'prepare_event_commercial':
+      return {
+        invoked_agents: ['kk-commercial-evidence'],
+        result: CommercialPrep.prepareBatch(input)
       };
 
     case 'source_watch_check':
