@@ -101,6 +101,63 @@ function routeContentRequest({
   };
 }
 
+function finalizeGeneratedCandidates({
+  candidates = [],
+  input = {},
+  marketingPlan = {}
+} = {}) {
+  const qa = ContentQa.validateVariants(candidates, input);
+  if (qa.gate !== 'PASS') {
+    return {
+      schema_version: 'KK_CONTENT_FINALIZATION_V1',
+      gate: 'BLOCKED',
+      blocker: 'CONTENT_QA_FAILED',
+      public_output_mode: 'SINGLE_FINAL_POST',
+      public_output_count: 0,
+      qa,
+      selection: null
+    };
+  }
+
+  const annotated = candidates.map((candidate, index) => {
+    const source = candidate && typeof candidate === 'object'
+      ? candidate
+      : { id: 'candidate-' + (index + 1), angle: 'unspecified', copy: String(candidate || '') };
+    return {
+      ...source,
+      qa_gate: qa.results[index] && qa.results[index].gate || 'BLOCKED'
+    };
+  });
+
+  const selection = ContentSelector.selectWinner(annotated, {
+    objective: marketingPlan.objective || input.primary_objective || 'awareness',
+    measured_posts: marketingPlan.measured_posts || 0
+  });
+
+  if (selection.gate !== 'PASS' || !selection.winner) {
+    return {
+      schema_version: 'KK_CONTENT_FINALIZATION_V1',
+      gate: 'BLOCKED',
+      blocker: 'CONTENT_SELECTION_FAILED',
+      public_output_mode: 'SINGLE_FINAL_POST',
+      public_output_count: 0,
+      qa,
+      selection
+    };
+  }
+
+  return {
+    schema_version: 'KK_CONTENT_FINALIZATION_V1',
+    gate: 'PASS',
+    blocker: '',
+    public_output_mode: 'SINGLE_FINAL_POST',
+    public_output_count: 1,
+    qa,
+    selection,
+    final_post: selection.winner.copy
+  };
+}
+
 module.exports = {
   DIRECT_RENTAL_PATTERNS,
   CONTENT_DRAFT_PATTERNS,
@@ -108,5 +165,6 @@ module.exports = {
   routeContentRequest,
   validateGeneratedVariants: ContentQa.validateVariants,
   validateGeneratedPost: ContentQa.validatePost,
-  selectFinalPost: ContentSelector.selectWinner
+  selectFinalPost: ContentSelector.selectWinner,
+  finalizeGeneratedCandidates
 };
