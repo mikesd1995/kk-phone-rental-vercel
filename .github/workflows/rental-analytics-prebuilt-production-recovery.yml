@@ -271,18 +271,20 @@ jobs:
           # Unaliased Production-target candidates are protected by Vercel Authentication.
           # Use Vercel-authenticated curl instead of weakening Deployment Protection or
           # generating a shareable bypass token.
-          AUTH_STATUS="$(npx vercel curl "$CANDIDATE_URL/api/kk-admin-auth" --token="$VERCEL_TOKEN" -sS -o candidate-auth.json -w '%{http_code}')"
-          ANALYTICS_STATUS="$(npx vercel curl "$CANDIDATE_URL/api/kk-rental-dashboard" --token="$VERCEL_TOKEN" -sS -o candidate-analytics.json -w '%{http_code}')"
-          STORE_STATUS="$(npx vercel curl "$CANDIDATE_URL/" --token="$VERCEL_TOKEN" -sS -o /dev/null -w '%{http_code}')"
-          test "$AUTH_STATUS" = "200"
-          test "$ANALYTICS_STATUS" = "401"
-          test "$STORE_STATUS" = "200"
+          # Current Vercel CLI curl syntax expects a deployment path plus --deployment.
+          # Native curl flags such as -sS/-o/-w are parsed as Vercel CLI flags and break
+          # with newer CLI releases, so capture the response body with shell redirection.
+          npx vercel curl /api/kk-admin-auth --deployment "$CANDIDATE_URL" --token="$VERCEL_TOKEN" > candidate-auth.json
+          npx vercel curl /api/kk-rental-dashboard --deployment "$CANDIDATE_URL" --token="$VERCEL_TOKEN" > candidate-analytics.json || true
+          npx vercel curl / --deployment "$CANDIDATE_URL" --token="$VERCEL_TOKEN" > candidate-root.html
           node - <<'NODE'
           const fs=require('node:fs');
           const auth=JSON.parse(fs.readFileSync('candidate-auth.json','utf8'));
           const analytics=JSON.parse(fs.readFileSync('candidate-analytics.json','utf8'));
-          if(auth.ok!==true || auth.authenticated!==false) process.exit(1);
-          if(analytics.ok!==false || analytics.error!=='Unauthorized') process.exit(1);
+          const root=fs.readFileSync('candidate-root.html','utf8');
+          if(auth.ok!==true || auth.authenticated!==false) throw new Error('CANDIDATE_AUTH_SHAPE_MISMATCH');
+          if(analytics.ok!==false || analytics.error!=='Unauthorized') throw new Error('CANDIDATE_ANALYTICS_BOUNDARY_MISMATCH');
+          if(!/<!doctype html|<html/i.test(root)) throw new Error('CANDIDATE_STOREFRONT_NOT_HTML');
           NODE
 
       - name: Final exact-main gate
