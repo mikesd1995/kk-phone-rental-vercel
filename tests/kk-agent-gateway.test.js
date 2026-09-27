@@ -25,7 +25,7 @@ function goodPayload() {
 }
 
 test('registry V2 keeps content mandatory and exposes operational route truth', () => {
-  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V2');
+  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V3');
   const content = Registry.routeForIntent('direct_rental_x');
   assert.deepEqual(content.required_agents, ['kk-content-strategy', 'kk-content-agent']);
   assert.equal(content.runtime_available, true);
