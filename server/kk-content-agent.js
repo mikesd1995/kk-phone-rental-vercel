@@ -260,7 +260,7 @@ function buildCreativePlan(input = {}, performanceRows = []) {
       'Direct rental copy is allowed only when readiness.commercial_ready is true.',
       'For a direct-rental X request, generate exactly three internal candidates with different primary angles and different hook structures. Do not expose all candidates to the owner.',
       'Each internal candidate must include selector metrics from 0–100 for hook_strength, event_fandom_relevance, timing_relevance, novelty, hashtag_relevance, readability, and commercial_relevance when the marketing objective is conversion.',
-      'After QA, the selector chooses exactly one final post for Owner Review. Public output must contain only that winner unless the owner explicitly asks to inspect alternatives.'
+      'After QA, the selector chooses exactly one final post for Owner Review. Public output must contain only that winner unless the owner explicitly asks to inspect alternatives.',
       'Use the Standard A direct-rental layout: Brand → Event hashtag → Hook → Offer/price → Date/Venue → Benefits → Booking CTA → reach hashtags.',
       'Do not make cosmetic rewrites: changing emoji, synonyms, or sentence order does not count as a distinct variant.',
       'Compare against anti_repeat_context.recent_posts and avoid repeated hooks, metaphors, sentence skeletons, and generic filler.',
