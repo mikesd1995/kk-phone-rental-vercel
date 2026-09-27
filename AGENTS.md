@@ -28,7 +28,8 @@ For a repo/dependency map:
 6. Run targeted tests selected by Code Intelligence.
 7. Run full regression when the context pack requires it or the change crosses subsystem/security/business-write boundaries.
 8. Read back external state after any authorized external mutation.
-9. Record material architecture/runtime changes in a dated doc.\n10. For material changes, evaluate `server/kk-engineering-execution-gate.js`; do not call the work accepted while any required phase is missing.
+9. Record material architecture/runtime changes in a dated doc.
+10. For material changes, evaluate `server/kk-engineering-execution-gate.js`; do not call the work accepted while any required phase is missing.
 
 Do not repeatedly read the full repo, all docs, or all tests unless the task truly spans them.
 
@@ -57,7 +58,8 @@ Do not repeatedly read the full repo, all docs, or all tests unless the task tru
 - Preserve working behavior outside requested scope.
 - No speculative refactors mixed into bug fixes.
 - Do not weaken a safety gate or test merely to make CI green.
-- If the first approach fails, identify the failing boundary and use a second evidence-based approach. Do not repeat the same patch hypothesis without new evidence.\n- Material fixes require Planner -> Implementer -> independent Reviewer separation. External coding-agent tooling may fill the Reviewer/Debugger role when connected; otherwise use the repository review skill as a distinct pass.
+- If the first approach fails, identify the failing boundary and use a second evidence-based approach. Do not repeat the same patch hypothesis without new evidence.
+- Material fixes require Planner -> Implementer -> independent Reviewer separation. External coding-agent tooling may fill the Reviewer/Debugger role when connected; otherwise use the repository review skill as a distinct pass.
 - New abstractions require a concrete reuse or safety benefit.
 - Every material bug fix should add or strengthen a regression guard.
 - Avoid new runtime dependencies when Node built-ins are sufficient.
