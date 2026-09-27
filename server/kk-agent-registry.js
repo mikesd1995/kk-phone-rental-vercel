@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V14';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V15';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -29,10 +29,10 @@ const AGENTS = Object.freeze({
   'kk-event-verifier': Object.freeze({
     version: 'verifier-no-drop-reconciliation-v1',
     authority: 'GOVERNED_VERIFICATION_SUPPORT',
-    runtime_state: 'CALLABLE_AUDIT_ONLY',
+    runtime_state: 'CALLABLE_GOVERNED_PROMOTION',
     surface: 'AGENT_GATEWAY',
     production_writes: 0,
-    note: 'No-drop reconciliation is callable; final Verifier business commit remains outside this gateway.'
+    note: 'No-drop reconciliation and governed storefront promotion are callable. Promotion can only execute an approved READY_FOR_GOVERNED_ADMIN_CREATE plan through the existing authenticated Admin createEvent guard.'
   }),
   'kk-canary-safety': Object.freeze({
     version: '2026-09-27',
@@ -294,6 +294,15 @@ const ROUTES = Object.freeze({
     owner_review_required: false,
     persistent_invocation_evidence_required: true
   }),
+  execute_storefront_promotion: Object.freeze({
+    route_id: 'VERIFIER_GOVERNED_STOREFRONT_EXECUTION',
+    request_type: 'EVENT_PROMOTION_EXECUTION',
+    required_agents: Object.freeze(['kk-event-verifier']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
   verify_storefront_readback: Object.freeze({
     route_id: 'VERIFIER_STOREFRONT_READBACK',
     request_type: 'EVENT_PROMOTION_READBACK',
@@ -390,7 +399,7 @@ function publicRegistry() {
     route_health: routeHealth(),
     known_gaps: [
       'Ultra Deep provider execution is callable through the Agent Gateway, but each real provider remains explicitly binding-gated; recurring autonomous public-web discovery is not accepted until provider binding/runtime acceptance passes.',
-      'verify_event final governed commit worker is not exposed through this gateway; only no-drop verifier audit is callable.',
+      'Legacy verify_event remains disabled; governed storefront create is exposed only through execute_storefront_promotion after READY_FOR_GOVERNED_ADMIN_CREATE.',
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
       'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',
       'ChatGPT cross-chat enforcement still requires an installed connector/tool that calls this private gateway.'
