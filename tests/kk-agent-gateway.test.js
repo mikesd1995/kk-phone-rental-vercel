@@ -24,18 +24,18 @@ function goodPayload() {
   };
 }
 
-test('registry V2 keeps content mandatory and exposes operational route truth', () => {
-  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V3');
+test('registry keeps content mandatory and exposes provider-gated scanner truth', () => {
+  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V5');
   const content = Registry.routeForIntent('direct_rental_x');
   assert.deepEqual(content.required_agents, ['kk-content-strategy', 'kk-content-agent']);
   assert.equal(content.runtime_available, true);
 
   const scan = Registry.routeForIntent('scan_event');
-  assert.equal(scan.runtime_available, false);
-  assert.equal(scan.blocked_reason, 'FULL_SCANNER_WORKER_NOT_WIRED');
+  assert.equal(scan.runtime_available, true);
+  assert.equal(scan.provider_executor_required, true);
   assert.deepEqual(scan.downstream_agents, ['kk-event-verifier']);
 
-  assert.equal(Registry.AGENTS['kk-discovery-scanner'].runtime_state, 'WITNESS_ONLY_NOT_SCANNING');
+  assert.equal(Registry.AGENTS['kk-discovery-scanner'].runtime_state, 'CALLABLE_PROVIDER_GATED');
   assert.equal(Registry.AGENTS['kk-reliability-learning'].runtime_state, 'LIVE_AUDIT_AND_CALLABLE');
 });
 
@@ -126,17 +126,22 @@ test('verifier and reliability operational tasks are callable through one gatewa
   assert.equal(reliability.result.safety.production_writes,0);
 });
 
-test('full scan and final verifier routes fail honestly instead of claiming nonexistent runtime', async () => {
+test('full scan worker is callable with controlled provider results while final verifier remains blocked', async () => {
   const rows=[];
   const ledgerFn=async row=>{rows.push(row);return {ok:true,inserted:true,invocation_id:row.invocation_id};};
 
+  const now='2026-09-27T02:00:00.000Z';
   const scan=await Gateway.executeAgentRequest({
     task_type:'scan_event',
-    input:{query:'concerts in Thailand'}
-  },{ledgerFn});
-  assert.equal(scan.status,'BLOCKED_RUNTIME_NOT_AVAILABLE');
-  assert.equal(scan.blocker,'FULL_SCANNER_WORKER_NOT_WIRED');
-  assert.equal(scan.result,null);
+    input:{
+      observations:[{observation_id:'scan-obs-1',provider:'EXA',source_tier:'OFFICIAL',state:'NEW',source_url:'https://example.com/events',observed_at:now,content_hash:'a'.repeat(64)}],
+      provider_results:[{authoritative:false,verifier_required:true,production_writes:0,final_truth_mutation:false,notification_sends:0,candidates:[{title:'Example Concert',event_date:'2026-10-10',venue:'Hall',artist:['A'],source_url:'https://example.com/event'}]}]
+    }
+  },{ledgerFn,sourceWatchOptions:{nowMs:Date.parse(now)}});
+  assert.equal(scan.status,'RECORDED');
+  assert.equal(scan.result.status,'READY_FOR_VERIFIER');
+  assert.equal(scan.result.handoff.candidate_count,1);
+  assert.deepEqual(scan.invocation.invoked_agents,['kk-discovery-source-watch','kk-discovery-scanner']);
 
   const verify=await Gateway.executeAgentRequest({
     task_type:'verify_event',
