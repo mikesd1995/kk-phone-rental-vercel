@@ -3,6 +3,7 @@
 const { buildCreativePlan, buildGenerationPrompt } = require('./kk-content-agent.js');
 const MarketingAgent = require('./kk-marketing-agent.js');
 const ContentQa = require('./kk-content-qa-gate.js');
+const ContentSelector = require('./kk-content-selector.js');
 
 const DIRECT_RENTAL_PATTERNS = Object.freeze([
   /ขอ(?:โพส|โพสต์).*ปล่อยเช่า/i,
@@ -76,7 +77,7 @@ function routeContentRequest({
   return {
     schema_version: 'KK_CONTENT_REQUEST_ROUTE_V1',
     matched: true,
-    route: 'KK_MARKETING_TO_CONTENT_STRATEGY_AGENT',
+    route: 'KK_MARKETING_TO_CONTENT_SINGLE_WINNER',
     marketing_required: true,
     marketing_plan: marketingPlan,
     intent,
@@ -84,9 +85,14 @@ function routeContentRequest({
     strategy_required: true,
     qa_required: true,
     qa_gate_version: ContentQa.VERSION,
+    selector_required: directRental,
+    selector_version: directRental ? ContentSelector.VERSION : '',
     qa_requirements: directRental ? ['VERIFIED_HASHTAGS','NO_DUPLICATE_DATE_VENUE','STANDARD_A','VERIFIED_EVENT_PRICE_INVENTORY','EXACTLY_3_VARIANTS'] : ['STANDARD_A_WHEN_APPLICABLE'],
     anti_repeat_required: true,
     three_variant_engine_required: directRental,
+    internal_candidate_count: directRental ? 3 : 0,
+    public_output_count: directRental ? 1 : 0,
+    public_output_mode: directRental ? 'SINGLE_FINAL_POST' : 'STANDARD_CONTENT_OUTPUT',
     owner_review_required: true,
     production_writes: 0,
     publishes: 0,
@@ -101,5 +107,6 @@ module.exports = {
   detectContentIntent,
   routeContentRequest,
   validateGeneratedVariants: ContentQa.validateVariants,
-  validateGeneratedPost: ContentQa.validatePost
+  validateGeneratedPost: ContentQa.validatePost,
+  selectFinalPost: ContentSelector.selectWinner
 };
