@@ -232,8 +232,8 @@ const ROUTES = Object.freeze({
   accept_ultra_deep_scan: Object.freeze({
     route_id: 'ULTRA_DEEP_V3_ACCEPTANCE',
     request_type: 'EVENT_DISCOVERY_ACCEPTANCE',
-    required_agents: Object.freeze(['kk-discovery-source-watch', 'kk-discovery-scanner', 'kk-event-verifier']),
-    downstream_agents: Object.freeze(['kk-commercial-evidence']),
+    required_agents: Object.freeze(['kk-discovery-source-watch', 'kk-discovery-scanner']),
+    downstream_agents: Object.freeze(['kk-commercial-evidence', 'kk-event-verifier']),
     runtime_available: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true
