@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V13';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V14';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -173,6 +173,24 @@ const ROUTES = Object.freeze({
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
+  engineering_reliability_guard: Object.freeze({
+    route_id: 'ENGINEERING_RELIABILITY_GUARD',
+    request_type: 'ENGINEERING_RELIABILITY_GUARD',
+    required_agents: Object.freeze(['kk-reliability-learning']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
+  evaluate_reliability_repair: Object.freeze({
+    route_id: 'ENGINEERING_RELIABILITY_REPAIR_ACCEPTANCE',
+    request_type: 'ENGINEERING_RELIABILITY_REPAIR_ACCEPTANCE',
+    required_agents: Object.freeze(['kk-reliability-learning']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: true,
     persistent_invocation_evidence_required: true
   }),
   reliability_audit: Object.freeze({
