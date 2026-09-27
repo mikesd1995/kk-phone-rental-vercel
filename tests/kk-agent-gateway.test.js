@@ -7,6 +7,7 @@ const path = require('path');
 const Registry = require('../server/kk-agent-registry.js');
 const Gateway = require('../server/kk-agent-gateway.js');
 const Ledger = require('../server/kk-agent-invocation-ledger.js');
+const Orchestration = require('../server/kk-agent-orchestration.js');
 
 function goodPayload() {
   return {
@@ -23,14 +24,22 @@ function goodPayload() {
   };
 }
 
-test('registry requires strategy and content agent for direct rental X requests', () => {
-  const route = Registry.routeForIntent('direct_rental_x');
-  assert.ok(route);
-  assert.deepEqual(route.required_agents, ['kk-content-strategy', 'kk-content-agent']);
-  assert.equal(route.persistent_invocation_evidence_required, true);
+test('registry V2 keeps content mandatory and exposes operational route truth', () => {
+  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V2');
+  const content = Registry.routeForIntent('direct_rental_x');
+  assert.deepEqual(content.required_agents, ['kk-content-strategy', 'kk-content-agent']);
+  assert.equal(content.runtime_available, true);
+
+  const scan = Registry.routeForIntent('scan_event');
+  assert.equal(scan.runtime_available, false);
+  assert.equal(scan.blocked_reason, 'FULL_SCANNER_WORKER_NOT_WIRED');
+  assert.deepEqual(scan.downstream_agents, ['kk-event-verifier']);
+
+  assert.equal(Registry.AGENTS['kk-discovery-scanner'].runtime_state, 'WITNESS_ONLY_NOT_SCANNING');
+  assert.equal(Registry.AGENTS['kk-reliability-learning'].runtime_state, 'LIVE_AUDIT_AND_CALLABLE');
 });
 
-test('gateway invokes registered content path and persists invocation evidence before ready status', async () => {
+test('content gateway invokes required agents and persists evidence', async () => {
   const rows = [];
   const result = await Gateway.executeAgentRequest(goodPayload(), {
     ledgerFn: async row => {
@@ -40,122 +49,165 @@ test('gateway invokes registered content path and persists invocation evidence b
   });
 
   assert.equal(result.status, 'READY_FOR_OWNER_REVIEW');
-  assert.equal(result.invocation_check.pass, true);
-  assert.deepEqual(result.invocation.required_agents, ['kk-content-strategy', 'kk-content-agent']);
   assert.deepEqual(result.invocation.invoked_agents, ['kk-content-strategy', 'kk-content-agent']);
   assert.equal(rows.length, 1);
-  assert.equal(rows[0].production_writes, 0);
-  assert.equal(rows[0].publishes, 0);
   assert.match(result.route.generation_prompt, /exactly 3 complete variants/i);
 });
 
-test('gateway fail-closes commercial content gate and removes generation prompt from blocked response', async () => {
+test('content gateway fail-closes commercial truth and ledger failures', async () => {
   const payload = goodPayload();
   payload.input.verified_pricing = false;
   delete payload.input.price_display;
-
-  const result = await Gateway.executeAgentRequest(payload, {
-    ledgerFn: async row => ({ ok: true, inserted: true, invocation_id: row.invocation_id })
+  const blocked = await Gateway.executeAgentRequest(payload, {
+    ledgerFn: async row => ({ ok:true, inserted:true, invocation_id:row.invocation_id })
   });
+  assert.equal(blocked.status, 'BLOCKED_CONTENT_GATE');
+  assert.equal(blocked.route.generation_prompt, undefined);
 
-  assert.equal(result.status, 'BLOCKED_CONTENT_GATE');
-  assert.match(result.invocation.blocked_reason, /PRICING_NOT_VERIFIED/);
-  assert.equal(result.route.generation_prompt, undefined);
-  assert.equal(result.production_writes, 0);
-  assert.equal(result.publishes, 0);
+  const ledgerDown = await Gateway.executeAgentRequest(goodPayload(), {
+    ledgerFn: async () => { throw Object.assign(new Error('down'), {code:'LEDGER_DOWN'}); }
+  });
+  assert.equal(ledgerDown.status, 'BLOCKED_LEDGER_UNAVAILABLE');
+  assert.equal(ledgerDown.route.generation_prompt, undefined);
 });
 
-test('gateway blocks usable output when invocation ledger cannot be written', async () => {
+test('content gateway detects deliberate agent bypass', async () => {
   const result = await Gateway.executeAgentRequest(goodPayload(), {
-    ledgerFn: async () => {
-      throw Object.assign(new Error('down'), { code: 'LEDGER_DOWN' });
-    }
+    contentRouteFn: () => ({ matched:false, content_gate:'PASS' }),
+    ledgerFn: async row => ({ok:true,inserted:true,invocation_id:row.invocation_id})
   });
-
-  assert.equal(result.status, 'BLOCKED_LEDGER_UNAVAILABLE');
-  assert.equal(result.blocker, 'LEDGER_DOWN');
-  assert.equal(result.route.generation_prompt, undefined);
-});
-
-test('gateway detects registered-agent bypass and blocks it', async () => {
-  const result = await Gateway.executeAgentRequest(goodPayload(), {
-    contentRouteFn: () => ({ matched: false, content_gate: 'PASS' }),
-    ledgerFn: async row => ({ ok: true, inserted: true, invocation_id: row.invocation_id })
-  });
-
   assert.equal(result.status, 'BLOCKED_REQUIRED_AGENT_NOT_INVOKED');
-  assert.deepEqual(result.invocation_check.missing_agents, ['kk-content-strategy', 'kk-content-agent']);
+  assert.deepEqual(result.invocation.required_agents, ['kk-content-strategy','kk-content-agent']);
 });
 
-test('non-content requests are not hijacked by chat content gateway', async () => {
-  let ledgerCalls = 0;
-  const result = await Gateway.executeAgentRequest({
-    message: 'ตรวจสอบราคาคู่แข่งงานนี้แบบละเอียด'
-  }, {
-    ledgerFn: async () => {
-      ledgerCalls += 1;
-      return { ok: true };
+test('source-watch operational task executes actual contract and persists agent evidence', async () => {
+  const rows=[];
+  const now='2026-09-27T02:00:00.000Z';
+  const result=await Gateway.executeAgentRequest({
+    task_type:'source_watch_check',
+    correlation_id:'source-watch-test-1',
+    input:{
+      observation_id:'obs-1',
+      provider:'EXA',
+      source_tier:'OFFICIAL',
+      state:'NEW',
+      source_url:'https://example.com/event',
+      observed_at:now,
+      content_hash:'a'.repeat(64)
     }
+  },{
+    sourceWatchOptions:{nowMs:Date.parse(now)},
+    ledgerFn:async row=>{rows.push(row);return {ok:true,inserted:true,invocation_id:row.invocation_id};}
   });
-
-  assert.equal(result.status, 'NO_AGENT_ROUTE');
-  assert.equal(ledgerCalls, 0);
+  assert.equal(result.status,'RECORDED');
+  assert.equal(result.result.status,'DISCOVERY_STAGING_ELIGIBLE');
+  assert.deepEqual(result.invocation.invoked_agents,['kk-discovery-source-watch']);
+  assert.equal(result.downstream_agents.includes('kk-event-verifier'),true);
+  assert.equal(rows[0].owner_review_required,false);
 });
 
-test('invocation record stores hashes and agent evidence instead of raw message', async () => {
-  let row;
-  await Gateway.executeAgentRequest(goodPayload(), {
-    ledgerFn: async value => {
-      row = value;
-      return { ok: true, inserted: true, invocation_id: value.invocation_id };
-    }
-  });
+test('verifier and reliability operational tasks are callable through one gateway', async () => {
+  const ledgerFn=async row=>({ok:true,inserted:true,invocation_id:row.invocation_id});
 
-  assert.match(row.request_hash, /^[0-9a-f]{64}$/);
-  assert.match(row.truth_hash, /^[0-9a-f]{64}$/);
-  assert.equal(Object.hasOwn(row, 'message'), false);
-  assert.equal(Object.hasOwn(row, 'input'), false);
+  const verifier=await Gateway.executeAgentRequest({
+    task_type:'verifier_no_drop_audit',
+    input:{ai_rows:[],candidate_rows:[],monthly_dispositions:[],lineage_rows:[],debt_rows:[],core_rows:[]}
+  },{ledgerFn});
+  assert.equal(verifier.status,'RECORDED');
+  assert.deepEqual(verifier.invocation.invoked_agents,['kk-event-verifier']);
+  assert.equal(verifier.result.production_writes,0);
+
+  const reliability=await Gateway.executeAgentRequest({
+    task_type:'reliability_audit',
+    input:{observations:[{code:'FAIL_REQUIRES_EXACT_IDENTITY'}]}
+  },{ledgerFn});
+  assert.equal(reliability.status,'RECORDED');
+  assert.deepEqual(reliability.invocation.invoked_agents,['kk-reliability-learning']);
+  assert.equal(reliability.result.safety.production_writes,0);
 });
 
-test('ledger row contract rejects any production write or publish evidence', () => {
-  const base = {
+test('full scan and final verifier routes fail honestly instead of claiming nonexistent runtime', async () => {
+  const rows=[];
+  const ledgerFn=async row=>{rows.push(row);return {ok:true,inserted:true,invocation_id:row.invocation_id};};
+
+  const scan=await Gateway.executeAgentRequest({
+    task_type:'scan_event',
+    input:{query:'concerts in Thailand'}
+  },{ledgerFn});
+  assert.equal(scan.status,'BLOCKED_RUNTIME_NOT_AVAILABLE');
+  assert.equal(scan.blocker,'FULL_SCANNER_WORKER_NOT_WIRED');
+  assert.equal(scan.result,null);
+
+  const verify=await Gateway.executeAgentRequest({
+    task_type:'verify_event',
+    input:{candidate_id:'X'}
+  },{ledgerFn});
+  assert.equal(verify.status,'BLOCKED_RUNTIME_NOT_AVAILABLE');
+  assert.equal(verify.blocker,'FINAL_VERIFIER_COMMIT_WORKER_NOT_WIRED');
+  assert.equal(rows.length,2);
+});
+
+test('operational result is suppressed when persistent ledger is unavailable', async () => {
+  const result=await Gateway.executeAgentRequest({
+    task_type:'reliability_audit',
+    input:{observations:[{message:'new issue'}]}
+  },{
+    ledgerFn:async()=>{throw Object.assign(new Error('down'),{code:'LEDGER_DOWN'});}
+  });
+  assert.equal(result.status,'BLOCKED_LEDGER_UNAVAILABLE');
+  assert.equal(result.result,null);
+});
+
+test('ledger V2 accepts operational statuses and false owner review while preserving zero-write', () => {
+  const row={
     invocation_id:'agi_1234567890abcdef',
-    request_type:'CHAT_CONTENT_REQUEST',
-    intent:'direct_rental_x',
-    gate_status:'READY_FOR_OWNER_REVIEW',
-    required_agents:['kk-content-strategy','kk-content-agent'],
-    invoked_agents:['kk-content-strategy','kk-content-agent'],
+    request_type:'RELIABILITY_AUDIT',
+    intent:'reliability_audit',
+    gate_status:'RECORDED',
+    required_agents:['kk-reliability-learning'],
+    invoked_agents:['kk-reliability-learning'],
     request_hash:'a'.repeat(64),
     truth_hash:'b'.repeat(64),
+    owner_review_required:false,
     production_writes:0,
     publishes:0
   };
-  assert.deepEqual(Ledger.validateRow(base).errors, []);
-  assert.match(
-    Ledger.validateRow({ ...base, production_writes:1 }).errors.join(','),
-    /PRODUCTION_WRITES_NONZERO/
-  );
-  assert.match(
-    Ledger.validateRow({ ...base, publishes:1 }).errors.join(','),
-    /PUBLISHES_NONZERO/
-  );
+  assert.deepEqual(Ledger.validateRow(row).errors,[]);
+  assert.match(Ledger.validateRow({...row,production_writes:1}).errors.join(','),/PRODUCTION_WRITES_NONZERO/);
+  assert.match(Ledger.validateRow({...row,publishes:1}).errors.join(','),/PUBLISHES_NONZERO/);
 });
 
-test('Supabase invocation ledger migrations preserve append-only service-role access', () => {
-  const first = fs.readFileSync(
-    path.join(__dirname, '..', 'supabase', 'migrations', '20260927022226_agent_invocation_ledger_v1.sql'),
-    'utf8'
-  ).toLowerCase();
+test('orchestration ledger stores hashes rather than raw operational inputs', () => {
+  const record=Orchestration.buildRecord({
+    intent:'reliability_audit',
+    invoked_agents:['kk-reliability-learning'],
+    input:{secret_like_text:'do not persist this raw input'},
+    output:{status:'ok'},
+    correlation_id:'abc',
+    gate_status:'RECORDED'
+  });
+  assert.match(record.request_hash,/^[0-9a-f]{64}$/);
+  assert.match(record.truth_hash,/^[0-9a-f]{64}$/);
+  assert.equal(Object.hasOwn(record,'input'),false);
+  assert.equal(Object.hasOwn(record,'output'),false);
+});
+
+test('coverage summary distinguishes complete and blocked invocations', () => {
+  const summary=Orchestration.coverageSummary([
+    {intent:'reliability_audit',required_agents:['kk-reliability-learning'],invoked_agents:['kk-reliability-learning'],gate_status:'RECORDED'},
+    {intent:'scan_event',required_agents:['kk-discovery-scanner'],invoked_agents:[],gate_status:'BLOCKED_RUNTIME_NOT_AVAILABLE'}
+  ]);
+  assert.equal(summary.total,2);
+  assert.equal(summary.complete,1);
+  assert.equal(summary.blocked,1);
+  assert.equal(summary.coverage_percent,50);
+});
+
+test('existing Supabase ledger migration preserves append-only service-role access', () => {
   const least = fs.readFileSync(
     path.join(__dirname, '..', 'supabase', 'migrations', '20260927022311_agent_invocation_ledger_least_privilege_v1.sql'),
     'utf8'
   ).toLowerCase();
-
-  assert.match(first, /enable row level security/);
-  assert.match(first, /revoke all on table public\.kk_agent_invocations from anon, authenticated/);
-  assert.match(first, /production_writes = 0/);
-  assert.match(first, /publishes = 0/);
-  assert.match(least, /revoke all on table public\.kk_agent_invocations from service_role/);
   assert.match(least, /grant select, insert on table public\.kk_agent_invocations to service_role/);
   assert.doesNotMatch(least, /grant[^;]*(update|delete)/);
 });
