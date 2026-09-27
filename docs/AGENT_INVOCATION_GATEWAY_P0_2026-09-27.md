@@ -112,3 +112,26 @@ Security contract:
 This repository change creates an enforceable private HTTP entrypoint, but it does **not** automatically install that entrypoint as a ChatGPT custom connector/plugin. A ChatGPT surface still needs an explicit connector/tool integration before every independent chat can be technically forced through this endpoint.
 
 Do not describe this as full cross-chat ChatGPT enforcement until that connector is installed and verified.
+
+## Applied Supabase migrations
+
+Production runtime-ledger project: `kk-phone-rental-runtime-ledger`.
+
+- `20260927022226_agent_invocation_ledger_v1.sql`
+- `20260927022311_agent_invocation_ledger_least_privilege_v1.sql`
+
+The second migration is intentional. Verification after the first migration showed the existing Supabase project default privileges still left `service_role` with UPDATE/DELETE. The follow-up explicitly revoked all service-role privileges and re-granted only SELECT + INSERT.
+
+Verified final privileges:
+
+```
+anon SELECT             false
+authenticated SELECT    false
+service_role SELECT     true
+service_role INSERT     true
+service_role UPDATE     false
+service_role DELETE     false
+RLS                     true
+deny-public policy      present
+rows after migration    0
+```

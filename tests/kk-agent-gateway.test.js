@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
 const Registry = require('../server/kk-agent-registry.js');
 const Gateway = require('../server/kk-agent-gateway.js');
 const Ledger = require('../server/kk-agent-invocation-ledger.js');
@@ -137,4 +139,23 @@ test('ledger row contract rejects any production write or publish evidence', () 
     Ledger.validateRow({ ...base, publishes:1 }).errors.join(','),
     /PUBLISHES_NONZERO/
   );
+});
+
+test('Supabase invocation ledger migrations preserve append-only service-role access', () => {
+  const first = fs.readFileSync(
+    path.join(__dirname, '..', 'supabase', 'migrations', '20260927022226_agent_invocation_ledger_v1.sql'),
+    'utf8'
+  ).toLowerCase();
+  const least = fs.readFileSync(
+    path.join(__dirname, '..', 'supabase', 'migrations', '20260927022311_agent_invocation_ledger_least_privilege_v1.sql'),
+    'utf8'
+  ).toLowerCase();
+
+  assert.match(first, /enable row level security/);
+  assert.match(first, /revoke all on table public\.kk_agent_invocations from anon, authenticated/);
+  assert.match(first, /production_writes = 0/);
+  assert.match(first, /publishes = 0/);
+  assert.match(least, /revoke all on table public\.kk_agent_invocations from service_role/);
+  assert.match(least, /grant select, insert on table public\.kk_agent_invocations to service_role/);
+  assert.doesNotMatch(least, /grant[^;]*(update|delete)/);
 });
