@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V12';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V13';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -229,6 +229,16 @@ const ROUTES = Object.freeze({
     owner_review_required: false,
     persistent_invocation_evidence_required: true
   }),
+  execute_ultra_deep_gaps: Object.freeze({
+    route_id: 'ULTRA_DEEP_V3_PROVIDER_EXECUTION',
+    request_type: 'EVENT_DISCOVERY_PROVIDER_EXECUTION',
+    required_agents: Object.freeze(['kk-discovery-source-watch', 'kk-discovery-scanner']),
+    downstream_agents: Object.freeze(['hf-event-assist', 'kk-commercial-evidence', 'kk-event-verifier']),
+    runtime_available: true,
+    provider_executor_required: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
   accept_ultra_deep_scan: Object.freeze({
     route_id: 'ULTRA_DEEP_V3_ACCEPTANCE',
     request_type: 'EVENT_DISCOVERY_ACCEPTANCE',
@@ -361,7 +371,7 @@ function publicRegistry() {
     routes: ROUTES,
     route_health: routeHealth(),
     known_gaps: [
-      'scan_event worker core is callable, but recurring autonomous public-web discovery remains provider-gated; the existing external scanner endpoint is still witness-only until provider binding acceptance.',
+      'Ultra Deep provider execution is callable through the Agent Gateway, but each real provider remains explicitly binding-gated; recurring autonomous public-web discovery is not accepted until provider binding/runtime acceptance passes.',
       'verify_event final governed commit worker is not exposed through this gateway; only no-drop verifier audit is callable.',
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
       'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',

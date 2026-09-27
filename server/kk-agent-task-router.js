@@ -12,8 +12,9 @@ const FullDiscovery = require('./kk-full-discovery-worker.js');
 const CommercialPrep = require('./kk-discovery-commercial-prep.js');
 const StorefrontPromotion = require('./kk-verifier-storefront-promotion.js');
 const UltraDeepV3 = require('./kk-ultra-deep-v3.js');
+const UltraDeepProvider = require('./kk-ultra-deep-provider-executor.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V7';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V8';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -53,6 +54,14 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner'],
         result: UltraDeepV3.planGapSearch(input.observations || [], input.options || {})
+      };
+
+    case 'execute_ultra_deep_gaps':
+      return {
+        invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner'],
+        result: await UltraDeepProvider.executeGapPlan(input.plan || input, {
+          providers: options.ultraDeepProviders || {}
+        })
       };
 
     case 'accept_ultra_deep_scan':
