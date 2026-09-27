@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V6';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V7';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -40,6 +40,14 @@ const AGENTS = Object.freeze({
     surface: 'AGENT_GATEWAY',
     production_writes: 0,
     note: 'Chooses objective, campaign mode, timing/priority context and opportunity score before Content Strategy. Cannot write final copy, publish, spend, or mutate price/inventory/Machine SOT.'
+  }),
+  'kk-content-qa': Object.freeze({
+    version: 'KK_CONTENT_QA_GATE_V1',
+    authority: 'READ_ONLY_VALIDATOR',
+    runtime_state: 'LIVE_GATEWAY_MANDATORY_FOR_CONTENT',
+    surface: 'AGENT_GATEWAY',
+    production_writes: 0,
+    note: 'Fail-closed pre-publish validator for verified hashtags, duplicate date/venue facts, Standard A structure, and commercial truth.'
   }),
   'kk-content-strategy': Object.freeze({
     version: '2026-09-27',
@@ -91,7 +99,7 @@ const ROUTES = Object.freeze({
   direct_rental_x: Object.freeze({
     route_id: 'CHAT_CONTENT_DIRECT_RENTAL_X',
     request_type: 'CHAT_CONTENT_REQUEST',
-    required_agents: Object.freeze(['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent']),
+    required_agents: Object.freeze(['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa']),
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: true,
@@ -100,7 +108,7 @@ const ROUTES = Object.freeze({
   content_draft: Object.freeze({
     route_id: 'CHAT_CONTENT_DRAFT',
     request_type: 'CHAT_CONTENT_REQUEST',
-    required_agents: Object.freeze(['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent']),
+    required_agents: Object.freeze(['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa']),
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: true,
