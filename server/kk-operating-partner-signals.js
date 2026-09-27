@@ -174,11 +174,21 @@ function opportunityInputs(signals=[],options={}){
   const rejected=[];
   for(const raw of Array.isArray(signals)?signals:[]){
     const checked=normalizeSignal(raw,options);
-    if(checked.errors.length || !checked.signal.fresh){
+    if(checked.errors.length || !checked.signal.freshness.fresh){
       rejected.push({
         signal_id:checked.signal.signal_id,
         signal_type:checked.signal.signal_type,
         errors:checked.errors,
+        freshness:checked.signal.freshness.status
+      });
+      continue;
+    }
+    const mapping=SCORE_FIELDS[checked.signal.signal_type]||{};
+    if(!Object.keys(mapping).length){
+      rejected.push({
+        signal_id:checked.signal.signal_id,
+        signal_type:checked.signal.signal_type,
+        errors:['NON_OPPORTUNITY_SIGNAL'],
         freshness:checked.signal.freshness.status
       });
       continue;
