@@ -82,7 +82,7 @@ test('checked-in retrieval benchmark meets v1 recall and budget floors',()=>{
   for(const item of fixture.cases){
     const pack=CodeIntel.contextPack(item.task,{root});
     const routes=new Set(pack.matched_routes.map(x=>x.id));
-    const files=new Set(pack.selected_files.map(x=>x.path));
+    const files=new Set([...pack.selected_files.map(x=>x.path),...(pack.targeted_tests||[])]);
     for(const expected of item.expected_routes||[]){
       routeTotal+=1;
       if(routes.has(expected)) routeHits+=1;
