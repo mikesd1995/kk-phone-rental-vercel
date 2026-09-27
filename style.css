@@ -774,3 +774,14 @@ footer .footer-tagline{
     font-size:12px;
   }
 }
+
+
+/* Storefront UX acceptance — consistent hit-area floor */
+@media(max-width:768px){
+  .quick-link{min-height:44px;}
+  .language-switch .lang-btn{min-width:44px;min-height:44px;}
+}
+@media(min-width:769px){
+  .month-select,.filter-btn{min-height:40px;}
+  .language-switch .lang-btn{min-width:40px;min-height:40px;}
+}
