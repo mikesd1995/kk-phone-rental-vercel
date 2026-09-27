@@ -124,8 +124,8 @@ Run:
 The v1 acceptance floor is:
 - route recall = 100%;
 - required-file recall >= 95%;
-- max context budget <= 18k estimated tokens;
-- max selected files <= 12.
+- max context budget <= 12k estimated tokens;
+- max selected files <= 10.
 
 CI runs this benchmark on every PR/main change.
 
@@ -183,7 +183,7 @@ After:
 
     task
       -> bounded context pack
-      -> 5–12 high-value files/ranges
+      -> 5–10 high-value files/ranges
       -> targeted tests
       -> expand only when evidence requires it
 
