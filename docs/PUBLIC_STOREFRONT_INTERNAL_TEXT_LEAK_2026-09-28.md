@@ -95,3 +95,33 @@ Internal operational annotations must never be treated as customer copy.
 Do not delete internal audit rationale merely to hide it. Preserve it in internal/admin sources and enforce the customer boundary at the server plus browser layers.
 
 Any future change to public note fields must keep this regression guard passing.
+
+
+## Immediate production mitigation
+
+The live derived feed was cleaned before the code guard is released so customers do not have to wait for a Vercel deployment.
+
+Source cleanup:
+- spreadsheet: canonical KK Phone Rental workbook
+- sheet: `04_Event_Overrides`
+- cells changed: override-note column E only, rows 373–390
+- affected rows: 18
+- pricing, active state, sort order and use-case override columns were not changed
+
+Readback confirmed:
+- override notes on E373:E390 are blank
+- prices remain unchanged
+- active overrides remain TRUE
+- sort orders remain 10 / 20 / 30
+
+Fresh Production public-feed verification after cleanup:
+- `08_Web_Ready`: 109 rows scanned, 0 suspicious customer-text tokens
+- `09_Web_Packages`: 327 rows scanned, 0 suspicious customer-text tokens
+- all six incident token classes are absent
+
+For `EVT-20261004-GOOD-BOY-THE-FIRST-RESTART`, the public package feed now returns customer-safe package text:
+- phone: `เหมาะกับถ่ายเวทีไกล ซูมชัด`
+- lens: `เลนส์เสริมสำหรับซูมไกล`
+- bundle: `เซ็ตครบ ประหยัดกว่า`
+
+This live data cleanup is the immediate containment. The server + browser sanitizers in this hotfix are the permanent prevention layer.
