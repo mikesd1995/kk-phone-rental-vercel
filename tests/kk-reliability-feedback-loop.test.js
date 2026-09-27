@@ -26,3 +26,10 @@ test('repair acceptance fails closed until evidence guards regression and review
  assert.equal(a.status,'ACCEPTED_FOR_HUMAN_REVIEW');
  assert.equal(a.safe_to_auto_apply,false);
 });
+
+test('learns registry assertion drift and injects anti-repeat guards',()=>{
+ const p=Loop.buildEngineeringGuards('bump agent registry',[{code:'REGISTRY_VERSION_ASSERTION_DRIFT',message:'expected KK_AGENT_REGISTRY_V13 actual KK_AGENT_REGISTRY_V14'}]);
+ assert.equal(p.status,'KNOWN_PATTERNS_APPLIED');
+ assert.equal(p.planner_guard.required_regression_guards.some(x=>/registry-version assertions/i.test(x)),true);
+ assert.equal(p.planner_guard.forbidden_actions.some(x=>/stale test assertion/i.test(x)),true);
+});
