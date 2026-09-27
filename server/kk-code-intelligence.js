@@ -148,6 +148,12 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
   const activeRoutes=scoredRoutes.slice(0,3);
   const candidates=new Map();
 
+  if(!activeRoutes.length){
+    for(const file of ['AGENTS.md','package.json','docs/PROJECT_STRUCTURE.md','.agents/skills/kk-code-change/SKILL.md','.agents/skills/kk-code-review/SKILL.md']){
+      addCandidate(candidates,file,60,'fallback:general_engineering',map);
+    }
+  }
+
   for(const hit of activeRoutes){
     for(const file of hit.route.files||[]) addCandidate(candidates,file,100+hit.score,'route:'+hit.route.id,map);
     for(const skill of hit.route.skills||[]) addCandidate(candidates,skill,88+hit.score,'skill:'+hit.route.id,map);
@@ -168,15 +174,18 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
     if(selected.length>=maxFileCount) break;
     const node=map.nodes[item.path];
     const estimated=node.estimated_tokens||0;
-    if(selected.length>0 && tokens+estimated>budget) continue;
+    const large=node.size>largeChars;
+    const allocated=large?Math.min(estimated,3500):estimated;
+    if(tokens+allocated>budget) continue;
     selected.push({
       ...item,
       size:node.size,
       estimated_tokens:estimated,
+      budgeted_tokens:allocated,
       symbols:node.symbols||[],
-      read_strategy:node.size>largeChars?'symbols_or_targeted_ranges_first':'full_file_ok'
+      read_strategy:large?'symbols_or_targeted_ranges_first':'full_file_ok'
     });
-    tokens+=estimated;
+    tokens+=allocated;
   }
 
   const tests=uniq(activeRoutes.flatMap(x=>x.route.tests||[]))
