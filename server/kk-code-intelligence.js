@@ -154,12 +154,16 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
     }
   }
 
-  for(const hit of activeRoutes){
-    for(const file of hit.route.files||[]) addCandidate(candidates,file,100+hit.score,'route:'+hit.route.id,map);
-    for(const skill of hit.route.skills||[]) addCandidate(candidates,skill,88+hit.score,'skill:'+hit.route.id,map);
-    for(const doc of hit.route.docs||[]) addCandidate(candidates,doc,50+hit.score,'doc:'+hit.route.id,map);
-    for(const testFile of hit.route.tests||[]) addCandidate(candidates,testFile,75+hit.score,'test:'+hit.route.id,map);
-  }
+  activeRoutes.forEach((hit,index)=>{
+    const routeRankBonus=Math.max(0,24-(index*12));
+    for(const file of hit.route.files||[]) addCandidate(
+      candidates,
+      file,
+      100+hit.score+routeRankBonus,
+      'route:'+hit.route.id,
+      map
+    );
+  });
 
   for(const candidate of [...candidates.values()]){
     const node=map.nodes[candidate.path];
