@@ -211,3 +211,16 @@ test('existing Supabase ledger migration preserves append-only service-role acce
   assert.match(least, /grant select, insert on table public\.kk_agent_invocations to service_role/);
   assert.doesNotMatch(least, /grant[^;]*(update|delete)/);
 });
+
+test('unified-route migration expands statuses without weakening append-only access', () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, '..', 'supabase', 'migrations', '20260927025019_agent_invocation_ledger_unified_routes_v2.sql'),
+    'utf8'
+  ).toLowerCase();
+  assert.match(migration, /'recorded'/);
+  assert.match(migration, /'blocked_runtime_not_available'/);
+  assert.match(migration, /drop constraint if exists kk_agent_invocations_owner_review_required_check/);
+  assert.match(migration, /revoke all on table public\.kk_agent_invocations from anon, authenticated, service_role/);
+  assert.match(migration, /grant select, insert on table public\.kk_agent_invocations to service_role/);
+  assert.doesNotMatch(migration, /grant[^;]*(update|delete)/);
+});
