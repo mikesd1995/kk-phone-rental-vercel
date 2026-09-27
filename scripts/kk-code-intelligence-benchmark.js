@@ -51,7 +51,7 @@ const result={
   average_context_tokens:rows.length?Math.round(tokenTotal/rows.length):0,
   max_context_tokens:maxTokens,
   max_selected_files:maxFiles,
-  limits:{max_context_tokens:18000,max_selected_files:12},
+  limits:{max_context_tokens:12000,max_selected_files:10},
   pass:true,
   failures:[],
   rows
