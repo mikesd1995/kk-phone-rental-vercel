@@ -57,7 +57,7 @@ async function executeTask(taskType, input = {}, options = {}) {
 
     case 'accept_ultra_deep_scan':
       return {
-        invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner', 'kk-event-verifier'],
+        invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner'],
         result: UltraDeepV3.acceptance(input)
       };
 
