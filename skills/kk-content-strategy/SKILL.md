@@ -61,6 +61,20 @@ Primary angles:
 
 event_theme, artist, fandom, seat_view, lens_need, problem_solution, convenience, trust.
 
+## Mandatory upstream Marketing Agent
+
+Every KK content request must pass through `kk-marketing-agent` before Content Strategy and Content Agent.
+
+Canonical chain:
+
+**Marketing Agent → Content Strategy Agent → Content Agent → Owner Review**
+
+Marketing Agent owns the pre-content decision layer: objective, campaign mode, opportunity/urgency context, and performance-informed priority. Content Strategy owns pillar/angle/structure. Content Agent owns hook/copy variants.
+
+Marketing Agent is `READ_ONLY_ADVISOR`. It cannot publish, spend ads, change prices, change inventory, reopen hidden events, or mutate Machine SOT. Verified business truth always wins.
+
+When `17_Content_Performance` has no measured rows, Marketing Agent must identify its state as `RULE_BASED_COLD_START`; it must not invent performance evidence.
+
 ## Standard A — X direct-rental post order
 
 Use this as the default structure for KK Phone Rental rental posts on X:

@@ -94,8 +94,8 @@ async function executeContentRequest(payload = {}, options = {}) {
     ? options.contentRouteFn
     : ContentRouter.routeContentRequest;
   const routed = routeFn({ message, input, performanceRows });
-  const invokedAgents = routed && routed.matched
-    ? ['kk-content-strategy', 'kk-content-agent']
+  const invokedAgents = routed && routed.matched && routed.marketing_required === true && routed.marketing_plan
+    ? ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent']
     : [];
   const invocationCheck = Registry.validateInvocation(intent, invokedAgents);
 

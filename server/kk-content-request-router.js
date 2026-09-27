@@ -1,6 +1,7 @@
 'use strict';
 
 const { buildCreativePlan, buildGenerationPrompt } = require('./kk-content-agent.js');
+const MarketingAgent = require('./kk-marketing-agent.js');
 
 const DIRECT_RENTAL_PATTERNS = Object.freeze([
   /ขอ(?:โพส|โพสต์).*ปล่อยเช่า/i,
@@ -52,8 +53,18 @@ function routeContentRequest({
     };
   }
 
+  const marketingPlan = MarketingAgent.plan({
+    ...input,
+    requested_channel: 'x',
+    requested_intent: intent
+  }, performanceRows);
+
   const plan = buildCreativePlan({
     ...input,
+    primary_objective: marketingPlan.objective,
+    marketing_campaign_mode: marketingPlan.campaign_mode,
+    marketing_opportunity_score: marketingPlan.opportunity.score,
+    marketing_priority_context: marketingPlan.opportunity.reasons,
     requested_channel: 'x',
     requested_intent: intent
   }, performanceRows);
@@ -64,7 +75,9 @@ function routeContentRequest({
   return {
     schema_version: 'KK_CONTENT_REQUEST_ROUTE_V1',
     matched: true,
-    route: 'KK_CONTENT_STRATEGY_AGENT',
+    route: 'KK_MARKETING_TO_CONTENT_STRATEGY_AGENT',
+    marketing_required: true,
+    marketing_plan: marketingPlan,
     intent,
     content_gate: contentGate,
     strategy_required: true,
