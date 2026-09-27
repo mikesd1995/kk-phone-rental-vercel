@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V3';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V4';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -62,6 +62,14 @@ const AGENTS = Object.freeze({
     production_writes: 0,
     note: 'May score opportunities, prepare owner briefs and record bounded decision-learning events. Cannot publish, price-write, contact customers, merge, deploy, or change Machine SOT.'
   }),
+  'kk-creative-production': Object.freeze({
+    version: 'KK_CREATIVE_PRODUCTION_V1',
+    authority: 'READ_ONLY_CREATIVE_ADVISOR',
+    runtime_state: 'CALLABLE_PLAN_AND_QA',
+    surface: 'AGENT_GATEWAY',
+    production_writes: 0,
+    note: 'Locks supplied references, plans image/motion production, and fails closed on identity/reference QA. Cannot publish or mutate business data.'
+  }),
   'hf-event-assist': Object.freeze({
     version: 'scanner-hf-advisory-v1',
     authority: 'NONAUTHORITATIVE_ADVISORY',
@@ -85,6 +93,24 @@ const ROUTES = Object.freeze({
     route_id: 'CHAT_CONTENT_DRAFT',
     request_type: 'CHAT_CONTENT_REQUEST',
     required_agents: Object.freeze(['kk-content-strategy', 'kk-content-agent']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: true,
+    persistent_invocation_evidence_required: true
+  }),
+  creative_production_plan: Object.freeze({
+    route_id: 'CREATIVE_PRODUCTION_PLAN',
+    request_type: 'CREATIVE_PRODUCTION_REQUEST',
+    required_agents: Object.freeze(['kk-creative-production']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: true,
+    persistent_invocation_evidence_required: true
+  }),
+  creative_media_qa: Object.freeze({
+    route_id: 'CREATIVE_MEDIA_QA',
+    request_type: 'CREATIVE_QA_REQUEST',
+    required_agents: Object.freeze(['kk-creative-production']),
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: true,
