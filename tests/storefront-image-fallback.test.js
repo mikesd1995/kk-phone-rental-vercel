@@ -125,3 +125,11 @@ test('storefront keeps valid events visible when poster delivery is exhausted',(
   assert.match(source,/img\.parentElement\.replaceChild\(ph,img\)/);
   assert.doesNotMatch(source,/if\(card\.parentElement\) card\.remove\(\)/);
 });
+
+
+test('fallback preserves a poster that already has decoded pixels before timeout exhaustion',()=>{
+  assert.match(source,/function imageHasPixels\(\)/);
+  assert.match(source,/img\.complete && Number\(img\.naturalWidth\|\|0\)>0/);
+  assert.match(source,/if\(imageHasPixels\(\)\)\{ settleLoaded\(\); return; \}/);
+  assert.match(source,/Safari\/iOS can paint the image while load-event delivery is delayed/);
+});

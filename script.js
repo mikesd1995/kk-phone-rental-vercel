@@ -637,7 +637,15 @@ function setImgFallback(img, urls, options){
   }
   img._kkCancelImageFallback=cancel;
 
+  function imageHasPixels(){ return !!(img && img.complete && Number(img.naturalWidth||0)>0); }
+  function settleLoaded(){
+    clearTimer(); settled=true;
+    img.onerror=null; img.onload=null;
+  }
   function exhausted(){
+    // Safari/iOS may paint a cross-origin/Drive image before the expected load callback
+    // reaches this fallback chain. Never replace an image that already has decoded pixels.
+    if(imageHasPixels()){ settleLoaded(); return; }
     cancel();
     if(img.id==="modal-poster-img"){ img.style.display="none"; return; }
     if(typeof options.onExhausted==="function"){
@@ -654,13 +662,13 @@ function setImgFallback(img, urls, options){
   function next(){
     if(settled)return;
     clearTimer();
+    if(imageHasPixels()){ settleLoaded(); return; }
     if(idx>=urls.length){ exhausted(); return; }
     var url=urls[idx++], token=++attempt;
     img.style.display="block";
     img.onload=function(){
       if(settled||token!==attempt)return;
-      clearTimer(); settled=true;
-      img.onerror=null; img.onload=null;
+      settleLoaded();
     };
     img.onerror=function(){
       if(settled||token!==attempt)return;
@@ -669,8 +677,10 @@ function setImgFallback(img, urls, options){
     img.src=url;
     timer=setTimeout(function(){
       if(settled||token!==attempt)return;
-      // Safari/iOS can leave a Google image request pending without firing onerror.
-      // Advance to the next candidate after a bounded wait.
+      // Safari/iOS can paint the image while load-event delivery is delayed. If pixels
+      // are already present, freeze the successful candidate instead of overwriting it.
+      if(imageHasPixels()){ settleLoaded(); return; }
+      // Otherwise advance a genuinely stalled Google image request.
       next();
     },timeoutMs);
   }
