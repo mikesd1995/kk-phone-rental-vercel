@@ -25,9 +25,9 @@ function goodPayload() {
 }
 
 test('registry keeps content mandatory and exposes provider-gated scanner truth', () => {
-  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V6');
+  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V7');
   const content = Registry.routeForIntent('direct_rental_x');
-  assert.deepEqual(content.required_agents, ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent']);
+  assert.deepEqual(content.required_agents, ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa']);
   assert.equal(content.runtime_available, true);
 
   const scan = Registry.routeForIntent('scan_event');
@@ -49,7 +49,7 @@ test('content gateway invokes required agents and persists evidence', async () =
   });
 
   assert.equal(result.status, 'READY_FOR_OWNER_REVIEW');
-  assert.deepEqual(result.invocation.invoked_agents, ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent']);
+  assert.deepEqual(result.invocation.invoked_agents, ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa']);
   assert.equal(rows.length, 1);
   assert.match(result.route.generation_prompt, /exactly 3 complete variants/i);
 });
@@ -77,7 +77,7 @@ test('content gateway detects deliberate agent bypass', async () => {
     ledgerFn: async row => ({ok:true,inserted:true,invocation_id:row.invocation_id})
   });
   assert.equal(result.status, 'BLOCKED_REQUIRED_AGENT_NOT_INVOKED');
-  assert.deepEqual(result.invocation.required_agents, ['kk-marketing-agent','kk-content-strategy','kk-content-agent']);
+  assert.deepEqual(result.invocation.required_agents, ['kk-marketing-agent','kk-content-strategy','kk-content-agent','kk-content-qa']);
 });
 
 test('source-watch operational task executes actual contract and persists agent evidence', async () => {

@@ -29,7 +29,8 @@ const COPY_CONTRACT = Object.freeze({
   handoff_line: '📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน',
   file_storage_line: '☁️ Google Drive 30 วัน',
   booking_cta: '👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/',
-  hashtag_rule: 'Put 3–5 strongest event-relevant hashtags at the end. Prefer official event/artist/brand hashtags. Avoid unrelated or repetitive tags.',
+  hashtag_rule: 'Use only hashtags verified for the current event/artist/fandom context. Never synthesize a hashtag from an event name. Put 3–5 strongest verified event-relevant reach hashtags at the end.',
+  duplicate_fact_rule: 'Date and venue have one canonical information block. Do not repeat date/venue inside the hook unless timing itself is the verified marketing message (for example today, tomorrow, DAY 2, or last call).',
   promotion_rule: 'Include discounts or promotions only when they are current, explicitly approved, and verified for the post.',
   pricing_rule: 'Use only current approved pricing from verified business truth. Never infer, copy from stale examples, or invent a price.',
   brand_rule: 'Do not repeat the brand line at the bottom of the post.'
@@ -251,6 +252,8 @@ function buildCreativePlan(input = {}, performanceRows = []) {
     generation_rules: [
       'Verified event truth and current approved pricing/inventory always outrank creative suggestions or historical performance.',
       'Do not invent event facts, venue, date, price, availability, promotion, hashtag status, artist lore, fandom lore, or event concept.',
+      'Never synthesize hashtags from event names. Use only current verified hashtags supplied in the input.',
+      'Do not repeat canonical date/venue facts in the hook when they already appear in the Date/Venue block, unless timing is intentionally the marketing message.',
       'Performance evidence is a nudge, not an automatic winner-selection system; preserve creative diversity.',
       'Useful/engagement content should lead with audience value. Add a rental mention only when it improves relevance.',
       'Direct rental copy is allowed only when readiness.commercial_ready is true.',
@@ -281,6 +284,7 @@ function buildGenerationPrompt(plan) {
     `File storage line: ${plan.copy_contract.file_storage_line}`,
     `Booking CTA: ${plan.copy_contract.booking_cta}`,
     `Hashtag rule: ${plan.copy_contract.hashtag_rule}`,
+    `Duplicate fact rule: ${plan.copy_contract.duplicate_fact_rule}`,
     `Direct-rental layout: ${JSON.stringify(plan.copy_contract.direct_rental_layout || [])}`,
     `Direct-rental layout rule: ${plan.copy_contract.direct_rental_layout_rule || ''}`,
     `Event context: ${JSON.stringify(plan.event_context || {})}`,
