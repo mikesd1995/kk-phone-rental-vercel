@@ -169,11 +169,11 @@ function normalizeSignal(input={},options={}){
   };
   return {signal:normalized,errors};
 }
-function opportunityInputs(signals=[]){
+function opportunityInputs(signals=[],options={}){
   const valid=[];
   const rejected=[];
   for(const raw of Array.isArray(signals)?signals:[]){
-    const checked=normalizeSignal(raw);
+    const checked=normalizeSignal(raw,options);
     if(checked.errors.length || !checked.signal.fresh){
       rejected.push({
         signal_id:checked.signal.signal_id,
