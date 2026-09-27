@@ -32,6 +32,8 @@ jobs:
       - name: Regression tests
         run: npm test
 
+      - name: Code Intelligence retrieval benchmark
+        run: npm run code:benchmark
 
       - name: HF benchmark harness safety check
         env:

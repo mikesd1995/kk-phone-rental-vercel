@@ -1,0 +1,497 @@
+{
+  "version": "KK_CODE_CONTEXT_ROUTES_V1",
+  "defaults": {
+    "max_files": 10,
+    "max_tests": 10,
+    "max_estimated_tokens": 12000,
+    "large_file_chars": 24000
+  },
+  "routes": [
+    {
+      "id": "agent_orchestration",
+      "keywords": [
+        "agent gateway",
+        "agent registry",
+        "orchestration",
+        "invocation ledger",
+        "content agent",
+        "ai agent",
+        "agent health",
+        "gateway"
+      ],
+      "files": [
+        "server/kk-agent-gateway.js",
+        "server/kk-agent-registry.js",
+        "server/kk-agent-orchestration.js",
+        "server/kk-agent-invocation-ledger.js",
+        "server/kk-agent-task-router.js",
+        "api/kk-admin-guard.js"
+      ],
+      "tests": [
+        "tests/kk-agent-gateway.test.js"
+      ],
+      "skills": [
+        "skills/kk-reliability-learning/SKILL.md"
+      ],
+      "docs": [
+        "docs/UNIFIED_AGENT_ORCHESTRATION_2026-09-27.md",
+        "docs/AGENT_INVOCATION_GATEWAY_P0_2026-09-27.md"
+      ]
+    },
+    {
+      "id": "admin",
+      "keywords": [
+        "admin",
+        "หลังบ้าน",
+        "dashboard",
+        "snapshot",
+        "sort",
+        "เรียง",
+        "แก้ booking",
+        "bulk",
+        "crm",
+        "operations",
+        "auth",
+        "login"
+      ],
+      "files": [
+        "admin/admin.js",
+        "admin/operations-engine.js",
+        "admin/operations-ui.js",
+        "admin/snapshot-health.js",
+        "admin/reservation-guard.js",
+        "admin/write-policy.js",
+        "api/kk-admin-guard.js",
+        "api/kk-admin-snapshot-v6.js",
+        "server/admin-proxy.js"
+      ],
+      "tests": [
+        "tests/admin-auth-gate.test.js",
+        "tests/admin-operations.test.js",
+        "tests/snapshot-contract-v6.test.js",
+        "tests/snapshot-health.test.js",
+        "tests/admin-edit-booking-date-sort-20260926.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-code-change/SKILL.md",
+        ".agents/skills/kk-debugging/SKILL.md"
+      ],
+      "docs": [
+        "docs/PROJECT_STRUCTURE.md"
+      ]
+    },
+    {
+      "id": "storefront",
+      "keywords": [
+        "storefront",
+        "หน้าบ้าน",
+        "event card",
+        "card",
+        "search",
+        "filter",
+        "poster",
+        "waitlist",
+        "mobile",
+        "ux",
+        "ui",
+        "homepage"
+      ],
+      "files": [
+        "script.js",
+        "index.html",
+        "style.css",
+        "api/kk-data.js",
+        "server/event-visibility-owner-guard.js"
+      ],
+      "tests": [
+        "tests/storefront-detail-hardening.test.js",
+        "tests/storefront-image-fallback.test.js",
+        "tests/storefront-ux-ui-20260922.test.js",
+        "tests/smart-ops-storefront-ux-20260926.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-code-change/SKILL.md",
+        ".agents/skills/kk-code-review/SKILL.md"
+      ],
+      "docs": [
+        "docs/STOREFRONT_ADMIN_DETAIL_HARDENING_2026-09-22.md"
+      ]
+    },
+    {
+      "id": "booking_inventory",
+      "keywords": [
+        "booking",
+        "reservation",
+        "inventory",
+        "capacity",
+        "asset",
+        "picked_up",
+        "returned",
+        "confirmed",
+        "no_show",
+        "จอง",
+        "เครื่องว่าง"
+      ],
+      "files": [
+        "admin/reservation-guard.js",
+        "admin/operations-engine.js",
+        "server/admin-direct-writer.js",
+        "server/admin-direct-writer-phase1.js",
+        "api/lib/admin-google-sheets-writer.js"
+      ],
+      "tests": [
+        "tests/reservation-hard-guard.test.js",
+        "tests/apps-script-atomic-reservation-contract.test.js",
+        "tests/admin-edit-booking-date-sort-20260926.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-code-change/SKILL.md",
+        ".agents/skills/kk-code-review/SKILL.md"
+      ],
+      "docs": [
+        "docs/GATE2_BOOKING_TIME_HARDENING_2026-09-21.md"
+      ]
+    },
+    {
+      "id": "event_visibility",
+      "keywords": [
+        "visibility",
+        "active_on_web",
+        "hide",
+        "hidden",
+        "ซ่อน",
+        "ปิดงาน",
+        "reopen",
+        "owner-hidden",
+        "owner hide"
+      ],
+      "files": [
+        "server/event-visibility-owner-guard.js",
+        "server/core-promotion-policy.js",
+        "admin/operations-engine.js",
+        "api/kk-data.js"
+      ],
+      "tests": [
+        "tests/event-visibility-owner-guard.test.js",
+        "tests/event-visibility-reactivation-regression.test.js",
+        "tests/admin-event-visibility-toggle.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-event-verifier/SKILL.md",
+        ".agents/skills/kk-code-review/SKILL.md"
+      ],
+      "docs": [
+        "docs/OWNER_EVENT_VISIBILITY_REACTIVATION_FIX_2026-09-27.md",
+        "docs/ADMIN_EVENT_VISIBILITY_TOGGLE_2026-09-25.md"
+      ]
+    },
+    {
+      "id": "pricing",
+      "keywords": [
+        "price",
+        "pricing",
+        "package",
+        "override",
+        "ราคา",
+        "แพ็กเกจ",
+        "bundle",
+        "lens-only"
+      ],
+      "files": [
+        "admin/operations-engine.js",
+        "admin/admin.js",
+        "server/core-promotion-policy.js",
+        "api/lib/admin-google-sheets-writer.js"
+      ],
+      "tests": [
+        "tests/admin-bulk-event-price-edit-20260927.test.js",
+        "tests/admin-package-visibility-status.test.js",
+        "tests/core-promotion-policy.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-code-change/SKILL.md",
+        ".agents/skills/kk-code-review/SKILL.md"
+      ],
+      "docs": [
+        "docs/ADMIN_BULK_EVENT_PRICE_EDIT_2026-09-27.md"
+      ]
+    },
+    {
+      "id": "content",
+      "keywords": [
+        "post x",
+        "โพส x",
+        "โพสต์ x",
+        "content",
+        "caption",
+        "hook",
+        "hashtag",
+        "seat view",
+        "twitter",
+        "reach",
+        "คอนเทนต์",
+        "content agent"
+      ],
+      "files": [
+        "server/kk-content-agent.js",
+        "server/kk-content-request-router.js",
+        "server/kk-content-performance.js",
+        "server/kk-agent-gateway.js"
+      ],
+      "tests": [
+        "tests/kk-content-intelligence.test.js",
+        "tests/kk-agent-gateway.test.js"
+      ],
+      "skills": [
+        "skills/kk-content-strategy/SKILL.md",
+        ".agents/skills/kk-code-review/SKILL.md"
+      ],
+      "docs": [
+        "docs/CONTENT_AGENT_ROUTING_2026-09-27.md",
+        "docs/CONTENT_INTELLIGENCE_FOUNDATION_2026-09-25.md"
+      ]
+    },
+    {
+      "id": "discovery_scanner",
+      "keywords": [
+        "scan event",
+        "scan",
+        "scanner",
+        "ultra deep",
+        "discovery",
+        "source watch",
+        "หา event",
+        "สแกนงาน",
+        "event discovery"
+      ],
+      "files": [
+        "server/discovery-source-watch-contract.js",
+        "server/external-scanner-runtime.js",
+        "server/external-scanner-acceptance.js",
+        "server/external-scanner-transition-gate.js",
+        "api/kk-scanner-dispatch.js",
+        "cloudflare/kk-scanner-clock.mjs"
+      ],
+      "tests": [
+        "tests/discovery-source-watch-contract.test.js",
+        "tests/external-scanner-runtime.test.js",
+        "tests/external-scanner-acceptance.test.js",
+        "tests/external-scanner-transition-gate.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-discovery-scanner/SKILL.md",
+        ".agents/skills/kk-discovery-source-watch/SKILL.md"
+      ],
+      "docs": [
+        "docs/DISCOVERY_MESH_FOUNDATION_2026-09-20.md",
+        "docs/EXTERNAL_SCANNER_RUNTIME_V1_2026-09-18.md"
+      ]
+    },
+    {
+      "id": "verifier",
+      "keywords": [
+        "verifier",
+        "ready_for_verifier",
+        "no-drop",
+        "reconciliation",
+        "candidate",
+        "ai inbox",
+        "verify event",
+        "ตรวจ event"
+      ],
+      "files": [
+        "server/verifier-no-drop-reconciliation.js",
+        "server/event-lineage-bridge.js",
+        "server/event-lineage-replay.js",
+        "server/event-integrity-plan.js"
+      ],
+      "tests": [
+        "tests/verifier-no-drop-reconciliation.test.js",
+        "tests/event-lineage-bridge.test.js",
+        "tests/event-lineage-replay.test.js",
+        "tests/event-integrity-plan.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-event-verifier/SKILL.md"
+      ],
+      "docs": [
+        "docs/VERIFIER_NO_DROP_RECONCILIATION_2026-09-23.md",
+        "docs/event-tracker-core-lineage-contract.md"
+      ]
+    },
+    {
+      "id": "canary",
+      "keywords": [
+        "canary",
+        "acceptance",
+        "zero-write",
+        "rollout safety"
+      ],
+      "files": [
+        "server/canary-acceptance.js",
+        "scripts/audit-canary-snapshot.js"
+      ],
+      "tests": [
+        "tests/canary-acceptance.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-canary-safety/SKILL.md"
+      ],
+      "docs": [
+        "docs/CANARY_ACCEPTANCE_HARDENING_2026-09-19.md"
+      ]
+    },
+    {
+      "id": "reliability_debug",
+      "keywords": [
+        "bug",
+        "debug",
+        "พัง",
+        "ล่ม",
+        "error",
+        "incident",
+        "reliability",
+        "regression",
+        "root cause",
+        "ทำไม"
+      ],
+      "files": [
+        "server/kk-reliability-learning-agent.js",
+        "server/runtime-warning-tracer.js",
+        "scripts/kk-system-audit.js"
+      ],
+      "tests": [
+        "tests/kk-reliability-learning.test.js"
+      ],
+      "skills": [
+        "skills/kk-reliability-learning/SKILL.md",
+        ".agents/skills/kk-debugging/SKILL.md"
+      ],
+      "docs": [
+        "docs/RELIABILITY_LEARNING_AGENT_2026-09-25.md"
+      ]
+    },
+    {
+      "id": "hugging_face",
+      "keywords": [
+        "hugging face",
+        "hf ",
+        "embedding",
+        "zero-shot",
+        "semantic",
+        "rerank",
+        "model"
+      ],
+      "files": [
+        "server/hf-event-assist.js",
+        "server/hf-scanner-adapter.js",
+        "server/hf-scanner-wiring-contract.js"
+      ],
+      "tests": [
+        "tests/hf-event-assist.test.js",
+        "tests/hf-scanner-adapter.test.js",
+        "tests/hf-scanner-wiring-contract.test.js",
+        "tests/hf-external-scanner-isolation.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-discovery-scanner/SKILL.md"
+      ],
+      "docs": [
+        "docs/HF_CONTROLLED_WIRING_CURRENT_MAIN_2026-09-21.md"
+      ]
+    },
+    {
+      "id": "runtime_ledger_supabase",
+      "keywords": [
+        "supabase",
+        "ledger",
+        "oidc",
+        "rls",
+        "migration",
+        "database",
+        "postgres",
+        "runtime ledger"
+      ],
+      "files": [
+        "server/runtime-ledger.js",
+        "server/runtime-ledger-oidc-bridge.js",
+        "server/kk-agent-invocation-ledger.js",
+        "supabase/functions/kk-runtime-ledger-github-witness/index.ts"
+      ],
+      "tests": [
+        "tests/runtime-ledger.test.js",
+        "tests/runtime-ledger-oidc-bridge.test.js",
+        "tests/runtime-ledger-schema-contract.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-supabase-migration/SKILL.md",
+        ".agents/skills/kk-code-review/SKILL.md"
+      ],
+      "docs": [
+        "docs/RUNTIME_LEDGER_CREDENTIAL_BINDING_2026-09-19.md"
+      ]
+    },
+    {
+      "id": "deployment",
+      "keywords": [
+        "deploy",
+        "deployment",
+        "vercel",
+        "production",
+        "preview",
+        "rollback",
+        "rate limit",
+        "build",
+        "ci",
+        "github actions"
+      ],
+      "files": [
+        "vercel.json",
+        "scripts/resolve-current-production.js",
+        "scripts/vercel-ignore-build.js",
+        ".github/workflows/admin-regression.yml"
+      ],
+      "tests": [
+        "tests/vercel-ignore-build.test.js",
+        "tests/phase4-zero-cost-existing-preview-recovery.test.js",
+        "tests/rental-analytics-prebuilt-production-recovery.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-production-release/SKILL.md",
+        ".agents/skills/kk-debugging/SKILL.md"
+      ],
+      "docs": [
+        "docs/PHASE4_ZERO_COST_EXISTING_PREVIEW_RECOVERY_2026-09-26.md",
+        "docs/RENTAL_ANALYTICS_PREBUILT_PRODUCTION_RECOVERY_2026-09-22.md"
+      ]
+    },
+    {
+      "id": "apps_script",
+      "keywords": [
+        "apps script",
+        "app script",
+        "google script",
+        "code.gs",
+        "script.google",
+        "upstream 404"
+      ],
+      "files": [
+        "apps-script/Code.gs",
+        "scripts/verify-apps-script-upstream.js",
+        "server/admin-proxy.js"
+      ],
+      "tests": [
+        "tests/apps-script-recovery-verifier.test.js",
+        "tests/apps-script-timing-runtime-readback.test.js",
+        "tests/deploy-readme-apps-script-safety.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-code-change/SKILL.md",
+        ".agents/skills/kk-debugging/SKILL.md"
+      ],
+      "docs": [
+        "docs/APPS_SCRIPT_UPSTREAM_404_RECOVERY_2026-09-18.md"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "version": "KK_CODE_INTELLIGENCE_BENCHMARK_V1",
+  "cases": [
+    {
+      "task": "หลังบ้านรายการ booking ไม่เรียงตามวัน",
+      "expected_routes": [
+        "admin"
+      ],
+      "must_include": [
+        "admin/admin.js",
+        "tests/admin-edit-booking-date-sort-20260926.test.js"
+      ]
+    },
+    {
+      "task": "งานที่ซ่อนแล้วกลับมาโผล่หน้าบ้าน active_on_web",
+      "expected_routes": [
+        "event_visibility"
+      ],
+      "must_include": [
+        "server/event-visibility-owner-guard.js"
+      ]
+    },
+    {
+      "task": "ทำ post x ผ่าน content agent และ anti-repeat",
+      "expected_routes": [
+        "content"
+      ],
+      "must_include": [
+        "server/kk-content-agent.js",
+        "tests/kk-content-intelligence.test.js"
+      ]
+    },
+    {
+      "task": "ทำ ultra deep scan event พร้อม source watch",
+      "expected_routes": [
+        "discovery_scanner"
+      ],
+      "must_include": [
+        "server/discovery-source-watch-contract.js"
+      ]
+    },
+    {
+      "task": "ตรวจ READY_FOR_VERIFIER no-drop reconciliation",
+      "expected_routes": [
+        "verifier"
+      ],
+      "must_include": [
+        "server/verifier-no-drop-reconciliation.js"
+      ]
+    },
+    {
+      "task": "แก้ supabase RLS ของ agent invocation ledger",
+      "expected_routes": [
+        "runtime_ledger_supabase"
+      ],
+      "must_include": [
+        "server/kk-agent-invocation-ledger.js"
+      ]
+    },
+    {
+      "task": "Vercel production deployment build rate limit rollback",
+      "expected_routes": [
+        "deployment"
+      ],
+      "must_include": [
+        "scripts/resolve-current-production.js"
+      ]
+    },
+    {
+      "task": "debug Apps Script upstream 404 หลังบ้านล่ม",
+      "expected_routes": [
+        "apps_script"
+      ],
+      "must_include": [
+        "scripts/verify-apps-script-upstream.js",
+        "server/admin-proxy.js"
+      ]
+    }
+  ]
+}
