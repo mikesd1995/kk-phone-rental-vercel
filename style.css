@@ -668,3 +668,91 @@ footer .footer-tagline{
   html{scroll-behavior:auto}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+
+
+/* Mobile sticky browse controls v2 — compact single-row filters */
+@media(max-width:768px){
+  .browse-controls-shell{
+    margin:0 -2px 10px;
+    padding:6px 6px 6px;
+    border-radius:0 0 18px 18px;
+    box-shadow:0 7px 16px rgba(26,40,69,.055);
+  }
+  .browse-controls-shell .event-search-shell{
+    margin:0 auto 4px;
+    gap:2px;
+  }
+  .browse-controls-shell .event-search-count{
+    min-height:13px;
+    padding:0 8px;
+    font-size:10.5px;
+    line-height:1.2;
+  }
+  .browse-controls-shell .filter-bar,
+  html[lang="en"] .browse-controls-shell .status-filter-bar{
+    display:flex;
+    width:100%;
+    flex-wrap:nowrap;
+    justify-content:flex-start;
+    align-items:center;
+    gap:6px;
+    margin:0 auto;
+    padding:0 2px 2px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .browse-controls-shell .filter-bar::-webkit-scrollbar{
+    display:none;
+  }
+  .browse-controls-shell .month-select-wrap,
+  html[lang="en"] .browse-controls-shell .status-filter-bar .month-select-wrap{
+    flex:0 0 auto;
+    width:auto;
+    min-width:0;
+    grid-column:auto;
+  }
+  .browse-controls-shell .month-select,
+  html[lang="en"] .browse-controls-shell .status-filter-bar .month-select{
+    width:122px;
+    max-width:122px;
+    min-height:36px;
+    padding:6px 30px 6px 12px;
+    font-size:16px;
+    line-height:1.1;
+  }
+  .browse-controls-shell .month-select-wrap::after{
+    right:11px;
+  }
+  .browse-controls-shell .filter-btn,
+  html[lang="en"] .browse-controls-shell .status-filter-bar .filter-btn{
+    flex:0 0 auto;
+    width:auto;
+    min-width:0;
+    max-width:none;
+    min-height:36px;
+    padding:7px 11px;
+    font-size:12.5px;
+    line-height:1.1;
+    white-space:nowrap;
+  }
+  html[lang="en"] .browse-controls-shell .status-filter-bar .filter-btn[data-filter="full"]{
+    grid-column:auto;
+  }
+}
+@media(max-width:390px){
+  .browse-controls-shell{padding-left:5px;padding-right:5px}
+  .browse-controls-shell .month-select,
+  html[lang="en"] .browse-controls-shell .status-filter-bar .month-select{
+    width:112px;
+    max-width:112px;
+  }
+  .browse-controls-shell .filter-btn,
+  html[lang="en"] .browse-controls-shell .status-filter-bar .filter-btn{
+    padding-left:9px;
+    padding-right:9px;
+    font-size:12px;
+  }
+}
