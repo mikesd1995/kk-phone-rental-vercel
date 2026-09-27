@@ -83,7 +83,10 @@ test('daily brief prioritizes opportunity, customer and system actions together'
   });
   assert.equal(brief.schema_version,'KK_OPERATING_PARTNER_BRIEF_V1');
   assert.ok(brief.top_actions.length>=3);
-  assert.equal(brief.top_actions[0].source,'opportunity');
+  assert.equal(brief.top_actions[0].source,'system');
+  assert.equal(brief.top_actions[0].priority_score,90);
+  assert.ok(brief.top_actions.some(x=>x.source==='opportunity'));
+  assert.ok(brief.top_actions.some(x=>x.source==='customer'));
   assert.equal(brief.safety.production_writes,0);
   assert.equal(brief.safety.publishes,0);
   assert.equal(brief.safety.customer_sends,0);
