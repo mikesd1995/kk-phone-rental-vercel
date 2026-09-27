@@ -3,6 +3,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const Ultra=require('../server/kk-ultra-deep-v3.js');
 const Eng=require('../server/kk-engineering-execution-gate.js');
+const Router=require('../server/kk-agent-task-router.js');
+const Registry=require('../server/kk-agent-registry.js');
 
 test('Ultra Deep V3 fails closed until every source tier is covered',()=>{
   const p=Ultra.planGapSearch([{source_tier:'OFFICIAL',source_url:'https://official.example/event'}]);
@@ -24,4 +26,14 @@ test('engineering gate requires independent review and release readback',()=>{
   base.INDEPENDENT_REVIEWER=false;
   assert.equal(Eng.evaluate(base).status,'BLOCKED');
   assert.ok(Eng.evaluate(base).missing.includes('INDEPENDENT_REVIEWER'));
+});
+
+
+test('Ultra Deep V3 is callable through governed agent routes',async()=>{
+  const route=Registry.routeForIntent('plan_ultra_deep_scan');
+  assert.equal(route.runtime_available,true);
+  const out=await Router.executeTask('plan_ultra_deep_scan',{observations:[]});
+  assert.deepEqual(out.invoked_agents,['kk-discovery-source-watch','kk-discovery-scanner']);
+  assert.equal(out.result.status,'SEARCH_GAPS_REQUIRED');
+  assert.equal(Registry.REGISTRY_VERSION,'KK_AGENT_REGISTRY_V12');
 });
