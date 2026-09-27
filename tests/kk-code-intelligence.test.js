@@ -106,6 +106,6 @@ test('checked-in retrieval benchmark meets v1 recall and budget floors',()=>{
 test('root AGENTS contract makes context-first retrieval mandatory',()=>{
   const text=fs.readFileSync(path.join(root,'AGENTS.md'),'utf8');
   assert.match(text,/npm run code:context/);
-  assert.match(text,/18k estimated tokens/);
+  assert.match(text,/12k estimated tokens/);
   assert.match(text,/Do not enable a semantic\/Hugging Face code retriever until it beats this baseline/);
 });
