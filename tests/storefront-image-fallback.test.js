@@ -118,8 +118,10 @@ test('image loader can fail closed through an onExhausted hook',()=>{
   assert.equal(img.removed,false);
 });
 
-test('storefront fails closed for blank and exhausted event posters',()=>{
+test('storefront keeps valid events visible when poster delivery is exhausted',()=>{
   assert.match(source,/vis=vis\.filter\(function\(c\)\{ return !!\(c&&c\.img&&String\(c\.img\)\.trim\(\)\); \}\)/);
   assert.match(source,/onExhausted:posterFailure/);
-  assert.match(source,/if\(card\.parentElement\) card\.remove\(\)/);
+  assert.match(source,/card\.dataset\.posterFailed="1"/);
+  assert.match(source,/img\.parentElement\.replaceChild\(ph,img\)/);
+  assert.doesNotMatch(source,/if\(card\.parentElement\) card\.remove\(\)/);
 });

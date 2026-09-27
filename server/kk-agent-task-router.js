@@ -17,8 +17,9 @@ const UltraDeepV3 = require('./kk-ultra-deep-v3.js');
 const UltraDeepProvider = require('./kk-ultra-deep-provider-executor.js');
 const UltraDeepPublicWeb = require('./kk-ultra-deep-public-web-adapters.js');
 const MonthlyDeepScan = require('./kk-monthly-deep-scan-query-plan.js');
+const FinalPricingPolicy = require('./kk-final-pricing-policy.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V11';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V12';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -99,6 +100,12 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-discovery-source-watch'],
         result: SourceWatch.evaluateObservation(input, options.sourceWatchOptions || {})
+      };
+
+    case 'resolve_final_pricing':
+      return {
+        invoked_agents: ['kk-commercial-evidence'],
+        result: FinalPricingPolicy.resolve(input)
       };
 
     case 'prepare_storefront_promotion':
