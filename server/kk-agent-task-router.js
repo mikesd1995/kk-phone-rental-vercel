@@ -10,8 +10,9 @@ const DecisionLedger = require('./kk-decision-ledger.js');
 const CreativeProduction = require('./kk-creative-production.js');
 const FullDiscovery = require('./kk-full-discovery-worker.js');
 const CommercialPrep = require('./kk-discovery-commercial-prep.js');
+const StorefrontPromotion = require('./kk-verifier-storefront-promotion.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V5';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V6';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -66,6 +67,18 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-discovery-source-watch'],
         result: SourceWatch.evaluateObservation(input, options.sourceWatchOptions || {})
+      };
+
+    case 'prepare_storefront_promotion':
+      return {
+        invoked_agents: ['kk-event-verifier'],
+        result: StorefrontPromotion.preparePromotion(input)
+      };
+
+    case 'verify_storefront_readback':
+      return {
+        invoked_agents: ['kk-event-verifier'],
+        result: StorefrontPromotion.verifyStorefrontReadback(input.plan || {}, input.readback || {})
       };
 
     case 'verifier_no_drop_audit':
