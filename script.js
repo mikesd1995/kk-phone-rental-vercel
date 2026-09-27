@@ -1196,9 +1196,15 @@ function renderConcerts(concerts){
       var imgCandidates=c.imgThumb&&c.imgThumb.length?c.imgThumb:[imgUrl];
       var posterFailure=function(){
         card.dataset.posterFailed="1";
-        if(card.parentElement) card.remove();
+        // Poster delivery must never make a valid bookable event disappear.
+        // Keep the card and replace only the failed image with a local placeholder.
+        if(img&&img.parentElement){
+          var ph=document.createElement("div");
+          ph.className="poster-placeholder";
+          ph.innerHTML="<span>"+esc(tr("no_image"))+"</span>";
+          img.parentElement.replaceChild(ph,img);
+        }
         updateBrowseChrome(grid.children.length);
-        if(grid.children.length===0) renderEmpty(tr("no_event_data"));
       };
       if(idx<6){
         setImgFallback(img,imgCandidates,{timeoutMs:4000,onExhausted:posterFailure});
