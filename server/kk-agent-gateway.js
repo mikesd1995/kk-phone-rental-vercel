@@ -95,7 +95,9 @@ async function executeContentRequest(payload = {}, options = {}) {
     : ContentRouter.routeContentRequest;
   const routed = routeFn({ message, input, performanceRows });
   const invokedAgents = routed && routed.matched && routed.marketing_required === true && routed.marketing_plan
-    ? ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa']
+    ? (intent === 'direct_rental_x'
+      ? ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa', 'kk-content-selector']
+      : ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa'])
     : [];
   const invocationCheck = Registry.validateInvocation(intent, invokedAgents);
 
