@@ -18,7 +18,7 @@ test('storefront search filters name, venue, date and event note and persists q 
   assert.match(storefront,/search_results/);
 });
 
-test('event modal URL updates preserve active browse state instead of rebuilding from home',()=>{
+test('storefront keeps search controls iOS-safe to prevent persistent focus zoom',()=>{\n  assert.match(html,/<meta name="viewport" content="width=device-width,initial-scale=1">/);\n  assert.match(style,/\\.event-search\\{[^}]*font-size:16px/);\n  assert.match(style,/@media\\(max-width:600px\\)\\{[\\s\\S]*?\\.event-search\\{[^}]*font-size:16px/);\n  assert.match(style,/@media\\(max-width:768px\\)\\{\\.month-select\\{font-size:16px/);\n  assert.match(style,/-webkit-text-size-adjust:100%/);\n});\n\ntest('event modal URL updates preserve active browse state instead of rebuilding from home',()=>{
   assert.match(storefront,/var u=new URL\(window\.location\.href\);\n    u\.searchParams\.delete\("e"\);\n    u\.searchParams\.set\("event"/);
   assert.match(storefront,/u\.searchParams\.delete\("event"\);\n    u\.searchParams\.delete\("e"\)/);
 });
