@@ -13,10 +13,13 @@ Added a mandatory content request router:
 Direct-rental X requests now route through:
 
 verified business truth
+→ Marketing Agent
 → Content Strategy
 → Content Agent
-→ anti-repeat context
-→ three differentiated variants
+→ three differentiated INTERNAL candidates
+→ Content QA Gate
+→ Content Selector
+→ ONE final owner-facing post
 → owner review
 
 ## Trigger coverage
@@ -45,8 +48,10 @@ If commercial truth is incomplete, CONTENT_GATE is BLOCKED.
 
 The Content Agent now receives up to 12 recent posts/hooks when available and must:
 
-- generate exactly 3 complete direct-rental variants;
+- generate exactly 3 complete direct-rental candidates internally;
 - use different primary angles and hook logic;
+- all three candidates must pass QA;
+- selector ranks the three candidates and exposes exactly one winner to the owner;
 - avoid cosmetic rewrites;
 - avoid recent hook wording, sentence skeletons, metaphors, and generic filler;
 - never invent event/artist/fandom lore to create novelty.
@@ -67,8 +72,8 @@ Unchanged:
 Regression tests cover:
 
 - Thai X rental trigger detection;
-- mandatory Content Strategy + Agent routing;
-- three-variant requirement;
+- mandatory Marketing + Content Strategy + Content Agent + QA + Selector routing;
+- three-internal-candidate / one-public-winner requirement;
 - recent-copy anti-repeat context;
 - fail-closed commercial gate;
 - non-content request pass-through.
