@@ -79,6 +79,8 @@ test('copy contract preserves current KK X brand and CTA conventions', () => {
   assert.equal(AGENT.COPY_CONTRACT.file_storage_line, '☁️ Google Drive 30 วัน');
   assert.equal(AGENT.COPY_CONTRACT.booking_cta, '👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/');
   assert.match(AGENT.COPY_CONTRACT.hashtag_rule, /3–5/);
+  assert.match(AGENT.COPY_CONTRACT.hashtag_rule, /Never synthesize/i);
+  assert.match(AGENT.COPY_CONTRACT.duplicate_fact_rule, /Do not repeat date\/venue/i);
   assert.match(AGENT.COPY_CONTRACT.brand_rule, /not repeat/i);
   assert.deepEqual(
     AGENT.COPY_CONTRACT.direct_rental_layout,
@@ -156,6 +158,8 @@ test('router recognizes Thai X rental requests and forces Content Strategy + Age
   assert.equal(routed.route, 'KK_MARKETING_TO_CONTENT_STRATEGY_AGENT');
   assert.equal(routed.content_gate, 'PASS');
   assert.equal(routed.strategy_required, true);
+  assert.equal(routed.qa_required, true);
+  assert.equal(routed.qa_gate_version, 'KK_CONTENT_QA_GATE_V1');
   assert.equal(routed.anti_repeat_required, true);
   assert.equal(routed.three_variant_engine_required, true);
   assert.equal(routed.production_writes, 0);
