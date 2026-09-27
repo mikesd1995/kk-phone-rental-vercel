@@ -1,0 +1,40 @@
+{
+  "schema_version": "KK_OPERATING_PARTNER_POLICY_V1",
+  "opportunity_weights": {
+    "demand_signal": 0.22,
+    "competition_gap": 0.12,
+    "margin_signal": 0.12,
+    "inventory_fit": 0.16,
+    "timing_urgency": 0.13,
+    "content_reach": 0.15,
+    "repeat_customer_fit": 0.10
+  },
+  "priority_thresholds": {
+    "urgent": 85,
+    "high": 70,
+    "medium": 55
+  },
+  "minimum_signal_coverage": 0.40,
+  "minimum_evidence_confidence": 40,
+  "max_daily_actions": 8,
+  "learning": {
+    "minimum_outcomes_for_strategy_nudge": 3,
+    "reinforce_average_score": 75,
+    "review_average_score": 45,
+    "high_confidence_samples": 8
+  },
+  "autonomy": {
+    "auto_observe": true,
+    "auto_recommend": true,
+    "auto_prepare": true,
+    "auto_publish": false,
+    "auto_price_write": false,
+    "auto_booking_write": false,
+    "auto_inventory_write": false,
+    "auto_customer_send": false,
+    "auto_merge": false,
+    "auto_deploy": false,
+    "auto_policy_write": false,
+    "auto_machine_sot_write": false
+  }
+}
