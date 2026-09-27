@@ -22,8 +22,9 @@ test('sticky browse filters stay on one compact horizontal row on mobile',()=>{
   assert.match(storeCss,/Mobile sticky browse controls v2/);
   assert.match(storeCss,/\.browse-controls-shell \.filter-bar,[\s\S]*?flex-wrap:nowrap/);
   assert.match(storeCss,/overflow-x:auto/);
-  assert.match(storeCss,/\.browse-controls-shell \.month-select,[\s\S]*?font-size:16px/);
-  assert.match(storeCss,/\.browse-controls-shell \.filter-btn,[\s\S]*?white-space:nowrap/);
+  assert.match(storeCss,/\.browse-controls-shell \.month-select,[\s\S]*?min-height:44px[\s\S]*?font-size:16px/);
+  assert.match(storeCss,/\.browse-controls-shell \.filter-btn,[\s\S]*?min-height:44px[\s\S]*?white-space:nowrap/);
+  assert.match(storeCss,/safe-area-inset-bottom/);
 });
 
 test('storefront can recover from transient load errors without forcing LINE exit',()=>{
