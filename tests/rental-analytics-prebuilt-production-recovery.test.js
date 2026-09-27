@@ -47,9 +47,11 @@ test('recovery never performs Apps Script or Google Sheet writes',()=>{
 
 test('protected candidate acceptance uses Vercel-authenticated curl without weakening Deployment Protection',()=>{
   const w=fs.readFileSync(workflowPath,'utf8');
-  assert.match(w,/npx vercel curl "\$CANDIDATE_URL\/api\/kk-admin-auth" --token="\$VERCEL_TOKEN"/);
-  assert.match(w,/npx vercel curl "\$CANDIDATE_URL\/api\/kk-rental-dashboard" --token="\$VERCEL_TOKEN"/);
-  assert.match(w,/npx vercel curl "\$CANDIDATE_URL\/" --token="\$VERCEL_TOKEN"/);
+  assert.match(w,/npx vercel curl \/api\/kk-admin-auth --deployment "\$CANDIDATE_URL" --token="\$VERCEL_TOKEN"/);
+  assert.match(w,/npx vercel curl \/api\/kk-rental-dashboard --deployment "\$CANDIDATE_URL" --token="\$VERCEL_TOKEN"/);
+  assert.match(w,/npx vercel curl \/ --deployment "\$CANDIDATE_URL" --token="\$VERCEL_TOKEN"/);
+  assert.doesNotMatch(w,/vercel curl .* -sS/);
+  assert.doesNotMatch(w,/vercel curl .* -w '%\{http_code\}'/);
   assert.doesNotMatch(w,/protection-bypass/);
   assert.doesNotMatch(w,/x-vercel-protection-bypass/);
 });
