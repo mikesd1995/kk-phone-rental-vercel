@@ -45,7 +45,7 @@ Do not repeatedly read the full repo, all docs, or all tests unless the task tru
 
 ## Context discipline
 
-- Default context budget: 18k estimated tokens and 12 files.
+- Default context budget: 12k estimated tokens and 10 files.
 - Large files should be inspected by symbols/targeted ranges first.
 - Prefer dependency/reverse-dependency evidence over broad grep.
 - Load only the skills returned by the context pack plus any skill explicitly required by the task.
