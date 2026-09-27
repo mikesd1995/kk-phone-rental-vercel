@@ -18,6 +18,14 @@ test('storefront has semantic skip target and compact sticky browse controls',()
   assert.match(storeCss,/\.browse-controls-shell\{position:sticky/);
 });
 
+test('sticky browse filters stay on one compact horizontal row on mobile',()=>{
+  assert.match(storeCss,/Mobile sticky browse controls v2/);
+  assert.match(storeCss,/\.browse-controls-shell \.filter-bar,[\s\S]*?flex-wrap:nowrap/);
+  assert.match(storeCss,/overflow-x:auto/);
+  assert.match(storeCss,/\.browse-controls-shell \.month-select,[\s\S]*?font-size:16px/);
+  assert.match(storeCss,/\.browse-controls-shell \.filter-btn,[\s\S]*?white-space:nowrap/);
+});
+
 test('storefront can recover from transient load errors without forcing LINE exit',()=>{
   assert.match(storeJs,/error_retry:"ลองโหลดข้อมูลใหม่"/);
   assert.match(storeJs,/id="storefront-retry-btn"/);
@@ -82,7 +90,7 @@ test('Admin mobile quick actions use safer tap targets and reduced motion',()=>{
 });
 
 test('phase 4 assets are cache-busted',()=>{
-  assert.match(storeHtml,/style\.css\?v=ios-focus-zoom-fix-20260927/);
+  assert.match(storeHtml,/style\.css\?v=compact-sticky-controls-20260927/);
   assert.match(storeHtml,/script\.js\?v=seamless-phase4-20260926/);
   assert.match(adminHtml,/admin\.css\?v=health-triage-20260926/);
   assert.match(adminHtml,/admin\.js\?v=bulk-event-price-edit-20260927/);
