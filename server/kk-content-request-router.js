@@ -2,6 +2,7 @@
 
 const { buildCreativePlan, buildGenerationPrompt } = require('./kk-content-agent.js');
 const MarketingAgent = require('./kk-marketing-agent.js');
+const ContentQa = require('./kk-content-qa-gate.js');
 
 const DIRECT_RENTAL_PATTERNS = Object.freeze([
   /ขอ(?:โพส|โพสต์).*ปล่อยเช่า/i,
@@ -81,6 +82,9 @@ function routeContentRequest({
     intent,
     content_gate: contentGate,
     strategy_required: true,
+    qa_required: true,
+    qa_gate_version: ContentQa.VERSION,
+    qa_requirements: directRental ? ['VERIFIED_HASHTAGS','NO_DUPLICATE_DATE_VENUE','STANDARD_A','VERIFIED_EVENT_PRICE_INVENTORY','EXACTLY_3_VARIANTS'] : ['STANDARD_A_WHEN_APPLICABLE'],
     anti_repeat_required: true,
     three_variant_engine_required: directRental,
     owner_review_required: true,
@@ -95,5 +99,7 @@ module.exports = {
   DIRECT_RENTAL_PATTERNS,
   CONTENT_DRAFT_PATTERNS,
   detectContentIntent,
-  routeContentRequest
+  routeContentRequest,
+  validateGeneratedVariants: ContentQa.validateVariants,
+  validateGeneratedPost: ContentQa.validatePost
 };
