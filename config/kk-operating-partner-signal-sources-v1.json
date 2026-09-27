@@ -1,0 +1,122 @@
+{
+  "schema_version": "KK_OPERATING_PARTNER_SIGNAL_SOURCES_V1",
+  "sources": [
+    {
+      "id": "verified_event_truth",
+      "domain": "event",
+      "signal_types": [
+        "event_demand"
+      ],
+      "current_state": "AVAILABLE_EXISTING",
+      "authority": "VERIFIER_GOVERNED_TRUTH",
+      "existing_surfaces": [
+        "Machine SOT Core/Candidate/AI workflow",
+        "Scanner/Verifier durable evidence"
+      ],
+      "phase2_action": "BUILD_READ_ONLY_ADAPTER",
+      "pii_allowed": false
+    },
+    {
+      "id": "content_performance",
+      "domain": "growth",
+      "signal_types": [
+        "content_performance"
+      ],
+      "current_state": "AVAILABLE_EXISTING",
+      "authority": "MEASURED_CONTENT_ANALYTICS",
+      "existing_surfaces": [
+        "server/kk-content-performance.js"
+      ],
+      "phase2_action": "BUILD_READ_ONLY_ADAPTER",
+      "pii_allowed": false
+    },
+    {
+      "id": "competitor_market",
+      "domain": "growth",
+      "signal_types": [
+        "competitor_market"
+      ],
+      "current_state": "ADAPTER_NEEDED",
+      "authority": "EVIDENCE_ONLY",
+      "existing_surfaces": [
+        "manual/current competitor research workflow"
+      ],
+      "phase2_action": "DEFINE_PERSISTENT_EVIDENCE_FEED",
+      "pii_allowed": false
+    },
+    {
+      "id": "booking_inventory",
+      "domain": "operations",
+      "signal_types": [
+        "inventory_capacity",
+        "booking_velocity"
+      ],
+      "current_state": "AVAILABLE_EXISTING",
+      "authority": "BOOKING_INVENTORY_BUSINESS_TRUTH",
+      "existing_surfaces": [
+        "Admin snapshot/business sheets",
+        "server/rental-dashboard-core.js"
+      ],
+      "phase2_action": "BUILD_AGGREGATE_READ_ONLY_ADAPTER",
+      "pii_allowed": false
+    },
+    {
+      "id": "revenue",
+      "domain": "operations",
+      "signal_types": [
+        "revenue"
+      ],
+      "current_state": "AVAILABLE_EXISTING",
+      "authority": "RENTAL_DASHBOARD_AGGREGATE",
+      "existing_surfaces": [
+        "server/rental-dashboard-core.js"
+      ],
+      "phase2_action": "BUILD_READ_ONLY_ADAPTER",
+      "pii_allowed": false
+    },
+    {
+      "id": "customer_cohorts",
+      "domain": "operations",
+      "signal_types": [
+        "customer_cohort"
+      ],
+      "current_state": "ADAPTER_NEEDED",
+      "authority": "AGGREGATED_COHORT_ONLY",
+      "existing_surfaces": [
+        "Admin booking workflow",
+        "CRM freshness/reconciliation helpers"
+      ],
+      "phase2_action": "BUILD_PII_FREE_COHORT_ADAPTER",
+      "pii_allowed": false
+    },
+    {
+      "id": "system_health",
+      "domain": "engineering",
+      "signal_types": [
+        "system_health"
+      ],
+      "current_state": "AVAILABLE_EXISTING",
+      "authority": "READ_ONLY_OBSERVABILITY",
+      "existing_surfaces": [
+        "Reliability Learning",
+        "Agent Gateway health",
+        "runtime ledger",
+        "Vercel/GitHub acceptance"
+      ],
+      "phase2_action": "BUILD_READ_ONLY_ADAPTER",
+      "pii_allowed": false
+    },
+    {
+      "id": "storefront_behavior",
+      "domain": "growth",
+      "signal_types": [
+        "storefront_behavior"
+      ],
+      "current_state": "NOT_WIRED",
+      "authority": "ANALYTICS_ONLY",
+      "existing_surfaces": [],
+      "phase2_action": "SELECT_PRIVACY_SAFE_ANALYTICS_SOURCE_BEFORE_IMPLEMENTATION",
+      "pii_allowed": false
+    }
+  ]
+}
