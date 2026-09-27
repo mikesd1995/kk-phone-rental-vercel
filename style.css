@@ -242,7 +242,8 @@ html[lang="en"] .book-pill{min-width:132px}
 
 
 /* Phase 3.9.5.2 — Mobile bilingual frame containment fix */
-html,body{max-width:100%;}\nhtml{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+html,body{max-width:100%;}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
 .wrap,.quick-links,.filter-group,.filter-bar,.sec-title,.value-box{min-width:0;}
 .language-switch{max-width:100%;flex:0 1 auto;overflow:hidden;}
 .lang-btn{min-width:0;white-space:nowrap;}
