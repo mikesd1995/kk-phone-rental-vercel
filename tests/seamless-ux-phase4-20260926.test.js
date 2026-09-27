@@ -41,6 +41,12 @@ test('storefront refreshes stale availability when returning to the foreground',
   assert.match(storeJs,/refreshStorefrontData\("foreground"\)/);
 });
 
+test('mobile utility controls keep 44px touch targets',()=>{
+  assert.match(storeCss,/@media\(max-width:768px\)\{\.language-switch\{min-height:44px/);
+  assert.match(storeCss,/\.lang-btn\{min-width:45px;min-height:44px/);
+  assert.match(storeCss,/@media\(max-width:768px\)\{body\{padding-bottom:82px\}[\s\S]*?\.mini-btn\{font-size:14px;min-height:44px/);
+});
+
 test('mobile quick links use a two-tier compact hierarchy',()=>{
   assert.match(storeCss,/@media\(max-width:430px\)\{[\s\S]*?\.quick-links\{[\s\S]*?display:grid/);
   assert.match(storeCss,/\.quick-link\{grid-column:1\/-1;width:100%/);
