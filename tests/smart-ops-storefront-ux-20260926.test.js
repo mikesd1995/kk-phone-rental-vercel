@@ -77,7 +77,7 @@ test('Storefront event share and contextual sticky LINE are present',()=>{
   assert.match(storeJs,/var waitlisted=availCnt\(c\)<=0/);
   assert.match(storeJs,/a\.href=waitlisted\?getWaitlistUrl\(c,null\):getEventInquiryUrl\(c\)/);
   assert.match(storeJs,/event_inquiry_click/);
-  assert.match(storeHtml,/script\.js\?v=storefront-recovery-20260928-7379f6a/);
+  assert.match(storeHtml,/script\.js\?v=public-text-leak-guard-20260928/);
 });
 
 test('Public feed drops parseable past events by default and can opt into showPast',()=>{
