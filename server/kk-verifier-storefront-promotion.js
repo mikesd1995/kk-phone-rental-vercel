@@ -21,7 +21,8 @@ function preparePromotion(input={}){
     blockers.push('PRICING_REFERENCE_REQUIRED');
   }
   if(proposal.auto_final_price===true) blockers.push('AUTO_FINAL_PRICE_PROHIBITED');
-  const finalPrices=Array.isArray(input.final_prices)?input.final_prices:[];
+  const policy=input.final_pricing_policy||{};
+  const finalPrices=Array.isArray(input.final_prices)&&input.final_prices.length?input.final_prices:(policy.policy_approved===true&&policy.source==='KK_APPROVED_BASELINE'&&Array.isArray(policy.final_prices)?policy.final_prices:[]);
   if(!finalPrices.length) blockers.push('FINAL_KK_PRICE_REQUIRED');
   const cleanPrices=finalPrices.map(p=>({
     template_id:text(p.template_id),
@@ -31,7 +32,8 @@ function preparePromotion(input={}){
   }));
   if(cleanPrices.some(p=>!p.template_id||!Number.isFinite(p.override_price)||p.override_price<=0)) blockers.push('FINAL_KK_PRICE_INVALID');
   if(input.verifier_approved!==true) blockers.push('FINAL_VERIFIER_APPROVAL_REQUIRED');
-  if(input.owner_publish_allowed!==true) blockers.push('OWNER_PUBLISH_POLICY_REQUIRED');
+  const ownerPublishAllowed=input.owner_publish_allowed===true||(policy.policy_approved===true&&policy.source==='KK_APPROVED_BASELINE');
+  if(!ownerPublishAllowed) blockers.push('OWNER_PUBLISH_POLICY_REQUIRED');
 
   const payload=blockers.length?null:{
     action:'createEvent',
