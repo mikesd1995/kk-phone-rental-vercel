@@ -75,3 +75,11 @@ It is read-only and cannot merge/deploy, mutate pricing, booking/inventory, Goog
 ## Remaining evidence gap
 
 Automated browser screenshot capture is not yet wired. Therefore GitHub source/regression success is necessary but is not treated as final visual proof. A Preview or Production screenshot/browser check is still required before calling the visual change fully accepted.
+
+
+## Validation checkpoint
+
+- First regression run exposed one stale 400px breakpoint assertion after the policy moved the one-column threshold to 340px.
+- The stale assertion was corrected rather than reverting the UX change.
+- GitHub Admin Regression run #751: PASS at commit `eef96561b041e541db283c0a8e6b6fd84c4b9f0b`.
+- This documentation checkpoint records the successful retry and intentionally gives Vercel one fresh opportunity to evaluate Preview capacity.
