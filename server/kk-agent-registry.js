@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V10';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V11';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -235,6 +235,24 @@ const ROUTES = Object.freeze({
     request_type: 'EVENT_COMMERCIAL_PREP',
     required_agents: Object.freeze(['kk-commercial-evidence']),
     downstream_agents: Object.freeze(['kk-event-verifier']),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
+  prepare_storefront_promotion: Object.freeze({
+    route_id: 'VERIFIER_STOREFRONT_PROMOTION_PREP',
+    request_type: 'EVENT_PROMOTION_PREP',
+    required_agents: Object.freeze(['kk-event-verifier']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
+  verify_storefront_readback: Object.freeze({
+    route_id: 'VERIFIER_STOREFRONT_READBACK',
+    request_type: 'EVENT_PROMOTION_READBACK',
+    required_agents: Object.freeze(['kk-event-verifier']),
+    downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true
