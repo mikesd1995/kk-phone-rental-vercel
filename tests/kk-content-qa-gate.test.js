@@ -50,8 +50,19 @@ test('fails closed when hashtag evidence was not verified',()=>{
  assert.equal(r.gate,'BLOCKED');
  assert.match(r.errors.join('|'),/HASHTAGS_NOT_VERIFIED/);
 });
-test('direct rental QA requires exactly three passing variants',()=>{
- const good=base('Hook ที่หนึ่ง');
- assert.equal(QA.validateVariants([good,good,good],input).gate,'PASS');
- assert.equal(QA.validateVariants([good],input).gate,'BLOCKED');
+test('direct rental QA requires exactly three distinct internal candidates',()=>{
+ const a=base('Hook ที่หนึ่ง');
+ const b=base('Hook ที่สอง');
+ const c=base('Hook ที่สาม');
+ assert.equal(QA.validateVariants([a,b,c],input).gate,'PASS');
+ assert.equal(QA.validateVariants([a],input).gate,'BLOCKED');
+ assert.match(QA.validateVariants([a,a,c],input).errors.join('|'),/DUPLICATE_INTERNAL_CANDIDATE_COPY/);
+});
+
+test('structured internal candidates must use distinct angles',()=>{
+ const a={copy:base('Hook A'),angle:'event_theme'};
+ const b={copy:base('Hook B'),angle:'fandom'};
+ const c={copy:base('Hook C'),angle:'convenience'};
+ assert.equal(QA.validateVariants([a,b,c],input).gate,'PASS');
+ assert.match(QA.validateVariants([a,{...b,angle:'event_theme'},c],input).errors.join('|'),/DUPLICATE_INTERNAL_CANDIDATE_ANGLE/);
 });
