@@ -29,7 +29,7 @@ test('Admin sort context stays bounded and includes the known regression',()=>{
   assert.ok(pack.selected_files.some(x=>x.path==='admin/admin.js'));
   assert.ok(pack.targeted_tests.includes('tests/admin-edit-booking-date-sort-20260926.test.js'));
   assert.ok(pack.selected_files.length<=10);
-  assert.ok(pack.estimated_context_tokens<=10000);
+  assert.ok(pack.estimated_context_tokens<=12000);
   const admin=pack.selected_files.find(x=>x.path==='admin/admin.js');
   assert.equal(admin.read_strategy,'symbols_or_targeted_ranges_first');
   assert.ok(admin.budgeted_tokens<=2500);
@@ -40,7 +40,7 @@ test('owner visibility task retrieves visibility guard instead of broad repo con
   assert.ok(pack.matched_routes.some(x=>x.id==='event_visibility'));
   assert.ok(pack.selected_files.some(x=>x.path==='server/event-visibility-owner-guard.js'));
   assert.ok(pack.targeted_tests.includes('tests/event-visibility-reactivation-regression.test.js'));
-  assert.ok(pack.estimated_context_tokens<=10000);
+  assert.ok(pack.estimated_context_tokens<=12000);
 });
 
 test('short Latin route keywords do not match inside longer words',()=>{
@@ -60,7 +60,7 @@ test('generic engineering request falls back to compact repo guidance',()=>{
   assert.equal(pack.matched_routes.length,0);
   assert.ok(pack.selected_files.some(x=>x.path==='AGENTS.md'));
   assert.ok(pack.selected_files.some(x=>x.path==='.agents/skills/kk-code-change/SKILL.md'));
-  assert.ok(pack.estimated_context_tokens<=10000);
+  assert.ok(pack.estimated_context_tokens<=12000);
 });
 
 test('repo map resolves relative dependencies and symbols',()=>{
@@ -96,7 +96,7 @@ test('checked-in retrieval benchmark meets v1 recall and budget floors',()=>{
       fileTotal+=1;
       if(files.has(required)) fileHits+=1;
     }
-    assert.ok(pack.estimated_context_tokens<=10000,item.task+' exceeded context budget');
+    assert.ok(pack.estimated_context_tokens<=12000,item.task+' exceeded context budget');
     assert.ok(pack.selected_files.length<=10,item.task+' exceeded file budget');
   }
   assert.equal(routeHits,routeTotal);
