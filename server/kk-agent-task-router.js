@@ -15,6 +15,7 @@ const StorefrontPromotion = require('./kk-verifier-storefront-promotion.js');
 const StorefrontExecutor = require('./kk-governed-storefront-executor.js');
 const UltraDeepV3 = require('./kk-ultra-deep-v3.js');
 const UltraDeepProvider = require('./kk-ultra-deep-provider-executor.js');
+const UltraDeepPublicWeb = require('./kk-ultra-deep-public-web-adapters.js');
 
 const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V10';
 
@@ -62,7 +63,7 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner'],
         result: await UltraDeepProvider.executeGapPlan(input.plan || input, {
-          providers: options.ultraDeepProviders || {}
+          providers: Object.assign({}, UltraDeepPublicWeb.createProviders(options.publicWebOptions || {}), options.ultraDeepProviders || {})
         })
       };
 
