@@ -764,14 +764,23 @@ async function fetchPkgRows(){
 }
 
 function looksInternalPublicText(raw){
-  var s=String(raw||"").trim();
+  var s=String(raw||"");
+  try{s=s.normalize("NFKC");}catch(e){}
+  s=s.trim();
   if(!s)return false;
-  return /(?:^|\b)v\d+(?:\.\d+){1,3}\b|capacity\s*(?:tight|blocked|readback)|exact\s+capacity|readback|owner[_\s-]?locked|core\s+promotion|promotion\s+repair|reopened\s+after|manifest|write\s+transaction|pass[_\s-]?200|policy\s+version|restored\s+\d{4}-\d{2}-\d{2}|scanner\s+raw|verifier\s+backlog/i.test(s);
+
+  // Customer-facing notes must never render machine/internal annotations.
+  // This generic guard catches operational tokens even when a new token name appears.
+  var machineToken=/(?:^|[\s([{])(?:[A-Z][A-Z0-9-]{1,})(?:_[A-Z0-9-]+){2,}(?=$|[\s)\]}.,;:])/;
+  if(machineToken.test(s))return true;
+
+  return /(?:^|\b)v\d+(?:\.\d+){1,3}\b|capacity\s*(?:tight|blocked|readback)|exact\s+capacity|readback|owner[_\s-]?locked|core\s+promotion|promotion\s+repair|reopened\s+after|manifest|write\s+transaction|pass[_\s-]?200|policy\s+version|restored\s+\d{4}-\d{2}-\d{2}|scanner\s+raw|verifier\s+backlog|machine[_\s-]?sot|manual[_\s-]?cutover|internal[_\s-]?(?:note|only)|override[_\s-]?(?:note|reason)/i.test(s);
 }
 function sanitizePublicText(raw){
   var s=String(raw||"").replace(/\[INQUIRY_ONLY\]/ig,"").trim();
   return looksInternalPublicText(s)?"":s;
 }
+
 function packagePublicSubtitle(p){
   if(!p)return "";
   var useCase=sanitizePublicText(p.useCase);
