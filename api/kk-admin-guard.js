@@ -9,6 +9,9 @@ const SnapshotHealth = require('../admin/snapshot-health.js');
 const ReservationGuard = require('../admin/reservation-guard.js');
 const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 const VisibilityGuard = require('../server/event-visibility-owner-guard.js');
+const AgentGateway = require('../server/kk-agent-gateway.js');
+const AgentLedger = require('../server/kk-agent-invocation-ledger.js');
+const AgentRegistry = require('../server/kk-agent-registry.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -17,6 +20,8 @@ const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
+const AGENT_GATEWAY_ACTIONS = new Set(['agentGateway','agentGatewayHealth']);
+const AGENT_GATEWAY_MAX_BODY_BYTES = 64 * 1024;
 const EVENT_FEED_TIMEOUT_MS = 6500;
 const EVENT_FEED_MIN_ROWS = 10;
 
@@ -336,19 +341,59 @@ module.exports=async function handler(req,res){
   try{ payload=raw?JSON.parse(raw):{}; }
   catch(_){ return LegacyAdmin(clonedRequest(req,raw),res); }
   const action=String(payload&&payload.action||'');
+  const agentGatewayAction=AGENT_GATEWAY_ACTIONS.has(action);
   const bookingGuarded=BOOKING_GUARDED_ACTIONS.has(action);
   const eventGuarded=EVENT_GUARDED_ACTIONS.has(action);
   const visibilityGuarded=EVENT_VISIBILITY_GUARDED_ACTIONS.has(action) &&
     VisibilityGuard.requestedVisibility(payload)===true &&
     !VisibilityGuard.hasExplicitOwnerReopen(payload);
-  if(!payload||typeof payload!=='object'||Array.isArray(payload)||(!bookingGuarded&&!eventGuarded&&!visibilityGuarded)){
+  if(!payload||typeof payload!=='object'||Array.isArray(payload)||(!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded)){
     return LegacyAdmin(clonedRequest(req,raw),res);
   }
 
   const adminPin=String(process.env.KK_ADMIN_PIN||'').trim();
   const providedPin=String(req.headers&&req.headers['x-admin-pin']||'').trim();
-  if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':(visibilityGuarded?'EVENT_VISIBILITY_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE')});
+  if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:agentGatewayAction?'AGENT_GATEWAY_UNAVAILABLE':(bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':(visibilityGuarded?'EVENT_VISIBILITY_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'))});
   if(providedPin!==adminPin) return reply(res,401,{ok:false,error:'Invalid admin PIN'});
+
+  if(agentGatewayAction){
+    res.setHeader('X-KK-Agent-Gateway-Version',AgentGateway.GATEWAY_VERSION);
+    if(Buffer.byteLength(raw||'','utf8')>AGENT_GATEWAY_MAX_BODY_BYTES){
+      return reply(res,413,{ok:false,error:'Agent Gateway request too large',error_code:'AGENT_GATEWAY_BODY_TOO_LARGE'});
+    }
+    if(action==='agentGatewayHealth'){
+      return reply(res,200,{
+        ok:true,
+        agent_gateway:{
+          gateway_version:AgentGateway.GATEWAY_VERSION,
+          registry:AgentRegistry.publicRegistry(),
+          ledger:AgentLedger.configState(),
+          production_writes:0,
+          publishes:0
+        }
+      });
+    }
+    const request=payload.request&&typeof payload.request==='object'&&!Array.isArray(payload.request)?payload.request:{};
+    if(!String(request.message||'').trim()){
+      return reply(res,400,{ok:false,error:'request.message is required',error_code:'AGENT_GATEWAY_MESSAGE_REQUIRED'});
+    }
+    let result;
+    try{
+      result=await AgentGateway.executeAgentRequest(request,{
+        ledgerFn:row=>AgentLedger.recordInvocation({row})
+      });
+    }catch(err){
+      return reply(res,500,{
+        ok:false,
+        error:'Agent Gateway execution failed',
+        error_code:'AGENT_GATEWAY_EXECUTION_FAILED',
+        failure_class:String(err&&(err.code||err.name)||'ERROR')
+      });
+    }
+    const status=result.status==='BLOCKED_LEDGER_UNAVAILABLE'?503:
+      (String(result.status||'').startsWith('BLOCKED_')?409:200);
+    return reply(res,status,{ok:status===200,agent_gateway:result});
+  }
 
   if(bookingGuarded){
     res.setHeader('X-KK-Booking-Timing-Policy',BOOKING_TIMING_POLICY_VERSION);
@@ -482,4 +527,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(clonedRequest(req,raw),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};
