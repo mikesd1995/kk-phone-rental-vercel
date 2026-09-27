@@ -212,6 +212,7 @@ jobs:
           APPROVED_SHA: ${{ steps.authz.outputs.approved_sha }}
         run: |
           set -euo pipefail
+          set +e
           npx vercel deploy \
             --prebuilt \
             --prod \
@@ -221,8 +222,19 @@ jobs:
             --meta "approvedSha=$APPROVED_SHA" \
             --token="$VERCEL_TOKEN" \
             > candidate-deploy.out 2> candidate-deploy.err
+          DEPLOY_RC=$?
+          set -e
+          if [ "$DEPLOY_RC" -ne 0 ]; then
+            # Vercel CLI stderr is useful operational evidence and must never contain token values.
+            sed -E 's/(token|authorization|bearer)[=: ]+[^ ]+/\\1=[REDACTED]/Ig' candidate-deploy.err >&2 || true
+            exit "$DEPLOY_RC"
+          fi
           CANDIDATE_URL="$(grep -Eo 'https://[^[:space:]]+\.vercel\.app' candidate-deploy.out | tail -n1)"
-          test -n "$CANDIDATE_URL"
+          if [ -z "$CANDIDATE_URL" ]; then
+            echo "PREBUILT_DEPLOY_RETURNED_NO_URL" >&2
+            sed -E 's/(token|authorization|bearer)[=: ]+[^ ]+/\\1=[REDACTED]/Ig' candidate-deploy.err >&2 || true
+            exit 1
+          fi
           echo "url=$CANDIDATE_URL" >> "$GITHUB_OUTPUT"
           echo "$CANDIDATE_URL" > candidate-url.txt
 
