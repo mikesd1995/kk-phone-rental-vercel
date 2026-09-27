@@ -718,8 +718,8 @@ footer .footer-tagline{
   html[lang="en"] .browse-controls-shell .status-filter-bar .month-select{
     width:122px;
     max-width:122px;
-    min-height:36px;
-    padding:6px 30px 6px 12px;
+    min-height:44px;
+    padding:8px 30px 8px 12px;
     font-size:16px;
     line-height:1.1;
   }
@@ -732,14 +732,22 @@ footer .footer-tagline{
     width:auto;
     min-width:0;
     max-width:none;
-    min-height:36px;
-    padding:7px 11px;
+    min-height:44px;
+    padding:9px 11px;
     font-size:12.5px;
     line-height:1.1;
     white-space:nowrap;
   }
   html[lang="en"] .browse-controls-shell .status-filter-bar .filter-btn[data-filter="full"]{
     grid-column:auto;
+  }
+  body{
+    padding-bottom:calc(74px + env(safe-area-inset-bottom));
+  }
+  .sticky-line{
+    bottom:max(10px, env(safe-area-inset-bottom));
+    min-height:56px;
+    padding:12px 16px;
   }
 }
 @media(max-width:390px){
