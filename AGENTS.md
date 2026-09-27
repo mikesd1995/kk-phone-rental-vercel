@@ -86,3 +86,17 @@ Do not enable a semantic/Hugging Face code retriever until it beats this baselin
 ## Deep Scan full-loop execution
 
 For Deep Scan / Ultra Deep Scan requests, follow `docs/DEEP_SCAN_FULL_LOOP_EXECUTION_CONTRACT_V1_2026-09-28.md`. Treat one user scan request as authorization to continue through all safe pipeline stages without requiring repeated conversational `continue` prompts. Stop mutations only at the contract's hard-stop conditions; try approved fallback paths first and report the blocker precisely.
+
+
+## Public storefront text boundary
+
+Internal operational annotations must never reach unauthenticated/public customer surfaces.
+
+Hard rules:
+- Treat machine-style ALL_CAPS snake-case annotations (for example owner/pricing/benchmark/audit/collision tokens) as internal by default.
+- Sanitize customer-facing free-text at the server public-data boundary before CSV leaves `/api/kk-data`.
+- Keep the browser-side sanitizer as a second defense; never rely on the UI alone.
+- Apply the boundary to package `web_note` / `use_case`, event `event_note`, and other customer-visible free-text that can carry internal metadata.
+- Preserve internal notes in internal/admin sources; do not solve a leak by deleting audit rationale unless the owner explicitly requests that data change.
+- Any change touching public notes or derived public feeds must include a regression case proving known internal-token classes are redacted while normal customer copy remains visible.
+- A public API response containing an internal operational token is a release-blocking defect.
