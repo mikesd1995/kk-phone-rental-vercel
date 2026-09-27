@@ -1,15 +1,15 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V8';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V9';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
-    version: 'KK_FULL_DISCOVERY_WORKER_V1',
+    version: 'KK_FULL_DISCOVERY_WORKER_V2',
     authority: 'STAGING_ONLY',
     runtime_state: 'CALLABLE_PROVIDER_GATED',
     surface: 'AGENT_GATEWAY_AND_SCANNER_CONTROL_PLANE',
     production_writes: 0,
-    note: 'Full worker core normalizes/deduplicates validated provider results and prepares READY_FOR_VERIFIER. Recurring public-web provider execution remains gated until an approved provider executor is bound to the existing runner.'
+    note: 'Full worker core normalizes/deduplicates validated provider results and prepares READY_FOR_VERIFIER. ULTRA_DEEP runs now fail closed unless Official, Ticketing, Venue, Artist/Agency, Brand/Sponsor, Social, Competitor and Public Calendar source classes are covered. Recurring public-web provider execution remains gated until an approved provider executor is bound to the existing runner.'
   }),
   'kk-discovery-source-watch': Object.freeze({
     version: 'discovery-source-watch-v1',
