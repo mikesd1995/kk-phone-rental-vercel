@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_VERIFIER_STOREFRONT_PROMOTION_V1';
+const VERSION='KK_VERIFIER_STOREFRONT_PROMOTION_V2';
 
 function text(v){return String(v==null?'':v).trim();}
 function isIsoDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(text(v));}
@@ -16,9 +16,11 @@ function preparePromotion(input={}){
   const poster=https(c.poster&&c.poster.selected&&c.poster.selected.image_url);
   if(!poster) blockers.push('VERIFIED_POSTER_REQUIRED');
   const pricing=c.pricing||{};
-  if(pricing.complete!==true||Number(pricing.independent_competitors||0)<3||!Number.isFinite(Number(pricing.market_median))){
-    blockers.push('VERIFIED_COMPETITOR_PRICING_REQUIRED');
+  const proposal=pricing.proposal||{};
+  if(proposal.proposal_available!==true||!Number.isFinite(Number(proposal.proposed_reference_price))){
+    blockers.push('PRICING_REFERENCE_REQUIRED');
   }
+  if(proposal.auto_final_price===true) blockers.push('AUTO_FINAL_PRICE_PROHIBITED');
   const finalPrices=Array.isArray(input.final_prices)?input.final_prices:[];
   if(!finalPrices.length) blockers.push('FINAL_KK_PRICE_REQUIRED');
   const cleanPrices=finalPrices.map(p=>({
