@@ -41,8 +41,14 @@ test('storefront refreshes stale availability when returning to the foreground',
   assert.match(storeJs,/refreshStorefrontData\("foreground"\)/);
 });
 
+test('mobile quick links use a two-tier compact hierarchy',()=>{
+  assert.match(storeCss,/@media\(max-width:430px\)\{[\s\S]*?\.quick-links\{[\s\S]*?display:grid/);
+  assert.match(storeCss,/\.quick-link\{grid-column:1\/-1;width:100%/);
+  assert.match(storeCss,/\.mini-btn,\.language-switch\{width:100%/);
+});
+
 test('storefront respects reduced motion and improves very narrow readability',()=>{
-  assert.match(storeCss,/@media\(max-width:400px\)/);
+  assert.match(storeCss,/@media\(max-width:340px\)/);
   assert.match(storeCss,/@media\(prefers-reduced-motion:reduce\)/);
 });
 
