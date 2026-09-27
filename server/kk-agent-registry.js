@@ -1,15 +1,15 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V4';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V5';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
-    version: '2026-09-27',
+    version: 'KK_FULL_DISCOVERY_WORKER_V1',
     authority: 'STAGING_ONLY',
-    runtime_state: 'WITNESS_ONLY_NOT_SCANNING',
-    surface: 'SCANNER_CONTROL_PLANE',
+    runtime_state: 'CALLABLE_PROVIDER_GATED',
+    surface: 'AGENT_GATEWAY_AND_SCANNER_CONTROL_PLANE',
     production_writes: 0,
-    note: 'Current external scanner endpoint proves schedule/witness delivery only; it does not execute event discovery.'
+    note: 'Full worker core normalizes/deduplicates validated provider results and prepares READY_FOR_VERIFIER. Recurring public-web provider execution remains gated until an approved provider executor is bound to the existing runner.'
   }),
   'kk-discovery-source-watch': Object.freeze({
     version: 'discovery-source-watch-v1',
@@ -193,8 +193,8 @@ const ROUTES = Object.freeze({
     request_type: 'EVENT_DISCOVERY',
     required_agents: Object.freeze(['kk-discovery-source-watch', 'kk-discovery-scanner']),
     downstream_agents: Object.freeze(['kk-event-verifier']),
-    runtime_available: false,
-    blocked_reason: 'FULL_SCANNER_WORKER_NOT_WIRED',
+    runtime_available: true,
+    provider_executor_required: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true
   }),
@@ -284,7 +284,7 @@ function publicRegistry() {
     routes: ROUTES,
     route_health: routeHealth(),
     known_gaps: [
-      'scan_event is not yet a live full discovery worker; current external scanner runtime is witness-only.',
+      'scan_event worker core is callable, but recurring autonomous public-web discovery remains provider-gated; the existing external scanner endpoint is still witness-only until provider binding acceptance.',
       'verify_event final governed commit worker is not exposed through this gateway; only no-drop verifier audit is callable.',
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
       'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',
