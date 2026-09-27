@@ -108,3 +108,12 @@ test('phase 4 assets are cache-busted',()=>{
   assert.match(adminHtml,/admin\.css\?v=health-triage-20260926/);
   assert.match(adminHtml,/admin\.js\?v=bulk-event-price-edit-20260927/);
 });
+
+
+test('tap-target floors remain consistent across mobile and desktop',()=>{
+  assert.match(storeCss,/Storefront UX acceptance — consistent hit-area floor/);
+  assert.match(storeCss,/@media\(max-width:768px\)\{[\s\S]*?\.quick-link\{min-height:44px/);
+  assert.match(storeCss,/\.language-switch \.lang-btn\{min-width:44px;min-height:44px/);
+  assert.match(storeCss,/@media\(min-width:769px\)\{[\s\S]*?\.month-select,\.filter-btn\{min-height:40px/);
+  assert.match(storeCss,/\.language-switch \.lang-btn\{min-width:40px;min-height:40px/);
+});
