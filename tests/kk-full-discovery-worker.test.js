@@ -28,7 +28,7 @@ test('worker does not fabricate candidates when provider fails',async()=>{
   sourceWatchOptions:{nowMs:Date.parse(NOW)},
   discoverFn:async()=>{throw Object.assign(new Error('down'),{code:'UPSTREAM_DOWN'})}
  });
- assert.equal(r.status,'DISCOVERY_BLOCKED_OR_EMPTY');
+ assert.equal(r.status,'NO_NEW_CANDIDATES');
  assert.equal(r.handoff.candidate_count,0);
  assert.equal(r.production_writes,0);
 });
