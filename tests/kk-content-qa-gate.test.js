@@ -6,7 +6,7 @@ const QA=require('../server/kk-content-qa-gate.js');
 const input={
  verified_event:true,verified_pricing:true,inventory_available:true,
  official_event_hashtag:'#THEMOMENT_ARENAENCORE',
- verified_hashtags:['#THEMOMENT_ARENAENCORE','#NONTTANONT','#nontfam','#นนท์แฟม'],
+ verified_hashtags:['#THEMOMENT_ARENAENCORE','#NONTTANONT','#nontfam','#นนท์แฟม','#เช่ามือถือ'],
  date_display:'3–4 ต.ค.',venue:'IMPACT ARENA'
 };
 const base=(hook,tail='#NONTTANONT #nontfam #นนท์แฟม')=>`📱 KK Phone Rental | #เช่ามือถือ
