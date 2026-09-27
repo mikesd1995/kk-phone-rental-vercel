@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V5';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V6';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -32,6 +32,14 @@ const AGENTS = Object.freeze({
     runtime_state: 'CALLABLE',
     surface: 'AGENT_GATEWAY_AND_CLI',
     production_writes: 0
+  }),
+  'kk-marketing-agent': Object.freeze({
+    version: 'KK_MARKETING_AGENT_V1',
+    authority: 'READ_ONLY_ADVISOR',
+    runtime_state: 'LIVE_GATEWAY_MANDATORY_FOR_CONTENT',
+    surface: 'AGENT_GATEWAY',
+    production_writes: 0,
+    note: 'Chooses objective, campaign mode, timing/priority context and opportunity score before Content Strategy. Cannot write final copy, publish, spend, or mutate price/inventory/Machine SOT.'
   }),
   'kk-content-strategy': Object.freeze({
     version: '2026-09-27',
@@ -83,7 +91,7 @@ const ROUTES = Object.freeze({
   direct_rental_x: Object.freeze({
     route_id: 'CHAT_CONTENT_DIRECT_RENTAL_X',
     request_type: 'CHAT_CONTENT_REQUEST',
-    required_agents: Object.freeze(['kk-content-strategy', 'kk-content-agent']),
+    required_agents: Object.freeze(['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent']),
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: true,
@@ -92,7 +100,7 @@ const ROUTES = Object.freeze({
   content_draft: Object.freeze({
     route_id: 'CHAT_CONTENT_DRAFT',
     request_type: 'CHAT_CONTENT_REQUEST',
-    required_agents: Object.freeze(['kk-content-strategy', 'kk-content-agent']),
+    required_agents: Object.freeze(['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent']),
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: true,
