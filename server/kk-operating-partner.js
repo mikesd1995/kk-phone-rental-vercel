@@ -151,7 +151,7 @@ function learningSummary(events=[],options={}){
   const buckets=new Map();
   for(const [decisionId,list] of groups){
     const rec=list.find(x=>cleanText(x.event_type).toUpperCase()==='RECOMMENDATION');
-    const owner=list.find(x=>cleanText(x.event_type).toUpperCase()==='OWNER_DECISION');
+    const owner=[...list].reverse().find(x=>cleanText(x.event_type).toUpperCase()==='OWNER_DECISION');
     const outcome=[...list].reverse().find(x=>cleanText(x.event_type).toUpperCase()==='OUTCOME');
     if(!rec || !outcome) continue;
     const score=clamp(outcome.outcome_score);
