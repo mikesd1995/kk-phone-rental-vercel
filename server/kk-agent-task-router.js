@@ -4,6 +4,7 @@ const SourceWatch = require('./discovery-source-watch-contract.js');
 const Verifier = require('./verifier-no-drop-reconciliation.js');
 const Canary = require('./canary-acceptance.js');
 const Reliability = require('./kk-reliability-learning-agent.js');
+const ReliabilityFeedback = require('./kk-reliability-feedback-loop.js');
 const HfAdapter = require('./hf-scanner-adapter.js');
 const OperatingPartner = require('./kk-operating-partner.js');
 const DecisionLedger = require('./kk-decision-ledger.js');
@@ -14,7 +15,7 @@ const StorefrontPromotion = require('./kk-verifier-storefront-promotion.js');
 const UltraDeepV3 = require('./kk-ultra-deep-v3.js');
 const UltraDeepProvider = require('./kk-ultra-deep-provider-executor.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V8';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V9';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -113,6 +114,21 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-canary-safety'],
         result: Canary.auditCanarySnapshot(input)
+      };
+
+    case 'engineering_reliability_guard':
+      return {
+        invoked_agents: ['kk-reliability-learning'],
+        result: ReliabilityFeedback.buildEngineeringGuards(input.task, input.observations || input.incidents || [], {
+          memory: options.reliabilityMemory,
+          incident_history: input.incident_history || []
+        })
+      };
+
+    case 'evaluate_reliability_repair':
+      return {
+        invoked_agents: ['kk-reliability-learning'],
+        result: ReliabilityFeedback.evaluateRepair(input)
       };
 
     case 'reliability_audit': {

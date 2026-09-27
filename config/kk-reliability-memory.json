@@ -420,6 +420,43 @@
         "promote an older branch artifact that omits accepted main changes",
         "describe rate limiting as application build failure"
       ]
+    },
+    {
+      "id": "REGISTRY_VERSION_ASSERTION_DRIFT",
+      "severity": "P2",
+      "domains": [
+        "agent_registry",
+        "tests",
+        "ci"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "REGISTRY_VERSION_ASSERTION_DRIFT",
+          "REGISTRY_VERSION_MISMATCH"
+        ],
+        "phrases_any": [
+          "registry version",
+          "expected registry",
+          "KK_AGENT_REGISTRY"
+        ],
+        "phrases_all": [
+          "expected",
+          "actual"
+        ]
+      },
+      "known_repair": "When intentionally bumping KK Agent Registry version, enumerate exact test/code references to the previous version and update contract assertions in the same change. Treat search indexes as hints only; verify against the exact branch HEAD and full CI.",
+      "regression_guards": [
+        "all exact registry-version assertions match current registry version",
+        "full regression passes after registry bump",
+        "exact branch HEAD is used for acceptance"
+      ],
+      "never_do": [
+        "change production registry behavior merely to satisfy a stale test assertion",
+        "trust stale indexed search as the source of truth",
+        "merge a registry bump before full regression passes"
+      ]
     }
   ]
 }
