@@ -25,7 +25,7 @@ function goodPayload() {
 }
 
 test('registry keeps content mandatory and exposes provider-gated scanner truth', () => {
-  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V7');
+  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V8');
   const content = Registry.routeForIntent('direct_rental_x');
   assert.deepEqual(content.required_agents, ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa']);
   assert.equal(content.runtime_available, true);
@@ -78,6 +78,39 @@ test('content gateway detects deliberate agent bypass', async () => {
   });
   assert.equal(result.status, 'BLOCKED_REQUIRED_AGENT_NOT_INVOKED');
   assert.deepEqual(result.invocation.required_agents, ['kk-marketing-agent','kk-content-strategy','kk-content-agent','kk-content-qa']);
+});
+
+test('storefront UX reviewer is callable through the governed gateway', async () => {
+  const rows=[];
+  const result=await Gateway.executeAgentRequest({
+    task_type:'storefront_ux_review',
+    correlation_id:'ux-review-test-1',
+    input:{
+      platform:'ios',
+      viewport:{width:390,height:844},
+      metrics:{
+        document_scroll_width_px:390,
+        content_width_px:390,
+        sticky_controls_height_px:126,
+        bottom_cta_height_px:56,
+        bottom_cta_fixed:true,
+        safe_area_bottom_applied:true,
+        min_form_control_font_px:16,
+        filter_rows:1,
+        card_columns:2,
+        card_min_width_px:172,
+        visible_event_cards_above_fold:1,
+        tap_targets:[{id:'search',width:370,height:44},{id:'filter',width:80,height:44}]
+      }
+    }
+  },{
+    ledgerFn:async row=>{rows.push(row);return {ok:true,inserted:true,invocation_id:row.invocation_id};}
+  });
+  assert.equal(result.status,'RECORDED');
+  assert.deepEqual(result.invocation.invoked_agents,['kk-storefront-ux-reviewer']);
+  assert.equal(result.result.status,'PASS');
+  assert.equal(result.result.safety.production_writes,0);
+  assert.equal(rows[0].owner_review_required,true);
 });
 
 test('source-watch operational task executes actual contract and persists agent evidence', async () => {
