@@ -7,8 +7,9 @@ const Reliability = require('./kk-reliability-learning-agent.js');
 const HfAdapter = require('./hf-scanner-adapter.js');
 const OperatingPartner = require('./kk-operating-partner.js');
 const DecisionLedger = require('./kk-decision-ledger.js');
+const CreativeProduction = require('./kk-creative-production.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V2';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V3';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -29,6 +30,21 @@ async function resolveDecisionHistory(input, options){
 
 async function executeTask(taskType, input = {}, options = {}) {
   switch (String(taskType || '').trim().toLowerCase()) {
+    case 'creative_production_plan':
+      return {
+        invoked_agents: ['kk-creative-production'],
+        result: CreativeProduction.buildProductionPlan(input)
+      };
+
+    case 'creative_media_qa':
+      return {
+        invoked_agents: ['kk-creative-production'],
+        result: CreativeProduction.validateCreativeOutput(
+          CreativeProduction.buildCreativeBrief(input.brief || input),
+          input.result || {}
+        )
+      };
+
     case 'source_watch_check':
       return {
         invoked_agents: ['kk-discovery-source-watch'],
