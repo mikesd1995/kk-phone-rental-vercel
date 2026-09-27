@@ -114,19 +114,15 @@ function loadRoutes(root=path.resolve(__dirname,'..')){
 
 function normalizeTask(task){ return String(task||'').trim().toLowerCase(); }
 
+function escapeRegex(value){
+  const specials=new Set('\\^$.*+?()[]{}|'.split(''));
+  return [...String(value||'')].map(ch=>specials.has(ch)?'\\\\'+ch:ch).join('');
+}
+
 function keywordMatches(normalized,keyword){
   if(!keyword) return false;
   if(/^[a-z0-9_-]{1,3}$/.test(keyword)){
-    const escaped=keyword.replace(/[.*+?^${}()|[\\]\\]/g,'\\function normalizeTask(task){ return String(task||'').trim().toLowerCase(); }
-
-function routeScores(task,routes){
-  const normalized=normalizeTask(task);
-  return routes.map(route=>{
-    let score=0;
-    const matched=[];
-    for(const raw of route.keywords||[]){
-      const keyword=String(raw||'').toLowerCase();
-      if(keyword && normalized.includes(keyword)){');
+    const escaped=escapeRegex(keyword);
     return new RegExp('(?:^|[^a-z0-9_])'+escaped+'(?:$|[^a-z0-9_])','i').test(normalized);
   }
   return normalized.includes(keyword);
