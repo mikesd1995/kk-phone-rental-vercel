@@ -1,10 +1,10 @@
 # KK Agent Invocation Gateway P0 — 2026-09-27
 
-## Why this exists
+## Problem fixed
 
-KK already had Content Strategy and Content Agent code, but a direct X-post request could still bypass them because the request router was a library plus tests, not a single enforced chat-facing entrypoint.
+KK already had Content Strategy and Content Agent code, but a direct X-post request could bypass them because the request router was a library plus tests, not an enforced request entrypoint.
 
-P0 adds one enforced entrypoint with persistent invocation evidence.
+P0 adds a fail-closed orchestration gate with persistent invocation evidence while **reusing an existing Vercel Function surface** so the Hobby/API function budget does not increase.
 
 ## Added
 
@@ -17,7 +17,7 @@ P0 adds one enforced entrypoint with persistent invocation evidence.
   - chat-facing orchestration gate;
   - direct rental and content draft requests must pass Content Strategy + Content Agent;
   - direct rental still fails closed on verified event/pricing/inventory requirements;
-  - a blocked request does not receive the generation prompt.
+  - blocked requests do not receive a generation prompt.
 
 - `server/kk-agent-invocation-ledger.js`
   - persists non-business invocation evidence to Supabase;
@@ -25,36 +25,41 @@ P0 adds one enforced entrypoint with persistent invocation evidence.
   - reuses the existing server-side Supabase secret/project binding;
   - no pricing, booking, inventory, customer, event, or Machine-SOT writes.
 
-- `api/kk-agent-gateway.js`
-  - admin-authenticated HTTP enforcement point;
-  - GET returns registry/ledger health without secrets;
-  - POST routes a content request through the gateway;
-  - ledger unavailable => HTTP 503 and blocked output;
-  - content/business truth gate blocked => HTTP 409.
+- Existing `api/kk-admin-guard.js`
+  - action `agentGatewayHealth`: authenticated registry + ledger health;
+  - action `agentGateway`: authenticated enforced route;
+  - no additional Vercel API function was added.
+
+Request shape:
+
+```json
+{
+  "action": "agentGateway",
+  "request": {
+    "message": "ขอโพสปล่อยเช่างานนี้บน X",
+    "input": {
+      "event": "...",
+      "verified_event": true,
+      "verified_pricing": true,
+      "price_display": "...",
+      "inventory_available": true
+    }
+  }
+}
+```
 
 - `tests/kk-agent-gateway.test.js`
   - required-agent enforcement;
   - persistent-ledger fail-closed behavior;
   - commercial truth fail-closed behavior;
   - deliberate bypass simulation;
-  - no raw prompt/input stored in invocation evidence.
+  - no raw prompt/input stored in invocation evidence;
+  - ledger rows cannot claim production writes or publishing.
 
 - `scripts/kk-agent-gateway-dry-run.js`
   - zero-write smoke test with an in-memory ledger.
 
-## Persistent table
-
-`public.kk_agent_invocations` is an audit-only table.
-
-Security requirements:
-
-- RLS enabled;
-- anon/authenticated privileges revoked;
-- service_role receives only SELECT + INSERT;
-- production_writes and publishes are constrained to zero;
-- no raw message or raw business input is stored.
-
-## Invariants
+## Fail-closed invariants
 
 Every successful chat-content gateway result must satisfy:
 
@@ -78,34 +83,19 @@ verified event
 
 Any missing condition is BLOCKED.
 
-## What this fixes
+If the persistent invocation ledger is unavailable, the gateway returns BLOCKED and removes the generation prompt.
 
-Before:
+## Persistent table
 
-```
-chat request
-  -> could call ad-hoc drafting
-  -> Content Agent might be bypassed
-```
+`public.kk_agent_invocations` is audit-only.
 
-After:
+Security contract:
 
-```
-chat/tool caller
-  -> /api/kk-agent-gateway
-  -> registry
-  -> Content Strategy
-  -> Content Agent
-  -> invocation coverage check
-  -> persistent ledger
-  -> owner review
-```
-
-## Important boundary
-
-This repository change creates the enforcement API and durable evidence layer. It does **not** by itself install that private API as a ChatGPT custom connector/plugin. A ChatGPT surface that can directly call this endpoint still needs an explicit connector/tool integration. Until that connector exists, the repository can enforce callers that use the gateway, but cannot technically force every independent ChatGPT conversation to call a private repo function.
-
-Do not describe this P0 as full cross-chat ChatGPT enforcement until that connector is installed and verified.
+- RLS enabled;
+- anon/authenticated access denied and privileges revoked;
+- service_role receives only SELECT + INSERT;
+- production_writes and publishes are constrained to zero;
+- raw chat message and raw business input are not stored.
 
 ## Production safety
 
@@ -114,4 +104,11 @@ Do not describe this P0 as full cross-chat ChatGPT enforcement until that connec
 - no X auto-publish;
 - no auto-spend;
 - no Scanner/Verifier schedule change;
-- no HF authority expansion.
+- no HF authority expansion;
+- no additional Vercel Function surface.
+
+## Important boundary
+
+This repository change creates an enforceable private HTTP entrypoint, but it does **not** automatically install that entrypoint as a ChatGPT custom connector/plugin. A ChatGPT surface still needs an explicit connector/tool integration before every independent chat can be technically forced through this endpoint.
+
+Do not describe this as full cross-chat ChatGPT enforcement until that connector is installed and verified.

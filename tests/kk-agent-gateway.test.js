@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Registry = require('../server/kk-agent-registry.js');
 const Gateway = require('../server/kk-agent-gateway.js');
-const Api = require('../api/kk-agent-gateway.js');
+const Ledger = require('../server/kk-agent-invocation-ledger.js');
 
 function goodPayload() {
   return {
@@ -115,10 +115,26 @@ test('invocation record stores hashes and agent evidence instead of raw message'
   assert.equal(Object.hasOwn(row, 'input'), false);
 });
 
-test('API body parser rejects oversized requests', () => {
-  const huge = 'x'.repeat(Api._test.MAX_BODY_BYTES + 1);
-  assert.throws(
-    () => Api._test.parseBody({ headers: {}, body: huge }),
-    error => error && error.code === 'BODY_TOO_LARGE'
+test('ledger row contract rejects any production write or publish evidence', () => {
+  const base = {
+    invocation_id:'agi_1234567890abcdef',
+    request_type:'CHAT_CONTENT_REQUEST',
+    intent:'direct_rental_x',
+    gate_status:'READY_FOR_OWNER_REVIEW',
+    required_agents:['kk-content-strategy','kk-content-agent'],
+    invoked_agents:['kk-content-strategy','kk-content-agent'],
+    request_hash:'a'.repeat(64),
+    truth_hash:'b'.repeat(64),
+    production_writes:0,
+    publishes:0
+  };
+  assert.deepEqual(Ledger.validateRow(base).errors, []);
+  assert.match(
+    Ledger.validateRow({ ...base, production_writes:1 }).errors.join(','),
+    /PRODUCTION_WRITES_NONZERO/
+  );
+  assert.match(
+    Ledger.validateRow({ ...base, publishes:1 }).errors.join(','),
+    /PUBLISHES_NONZERO/
   );
 });
