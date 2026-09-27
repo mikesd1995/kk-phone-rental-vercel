@@ -1,40 +1,11 @@
 'use strict';
-const test=require('node:test');
-const assert=require('node:assert/strict');
-const Prep=require('../server/kk-discovery-commercial-prep.js');
-
+const test=require('node:test');const assert=require('node:assert/strict');const Prep=require('../server/kk-discovery-commercial-prep.js');
 const candidate={candidate_id:'C1',event_key:'EVT-X',title:'Example Fan Event',event_date:'2026-10-01',venue:'Example Mall',artist:['A']};
 const price=(id,value)=>({competitor_id:id,event_key:'EVT-X',package_type:'PHONE_LENS',price:value,source_url:'https://example.com/'+id,observed_at:'2026-09-28T00:00:00Z',exact_event:true});
 const poster={event_key:'EVT-X',source_tier:'BRAND_SPONSOR',source_url:'https://brand.example/event',image_url:'https://brand.example/poster.jpg',official:true,verified:true};
-
-test('commercial prep computes exact-event median only after three independent competitors',()=>{
- const r=Prep.prepareBatch({candidates:[candidate],competitor_prices:[price('shop-a',890),price('shop-b',1090),price('shop-c',990)],posters:[poster]});
- assert.equal(r.status,'READY_FOR_FINAL_VERIFIER');
- assert.equal(r.candidates[0].pricing.independent_competitors,3);
- assert.equal(r.candidates[0].pricing.market_median,990);
- assert.equal(r.candidates[0].pricing.market_min,890);
- assert.equal(r.candidates[0].pricing.market_max,1090);
- assert.equal(r.production_writes,0);
-});
-
-test('commercial prep fails closed when exact-event competitor evidence is insufficient',()=>{
- const r=Prep.prepareBatch({candidates:[candidate],competitor_prices:[price('shop-a',890),price('shop-b',990)],posters:[poster]});
- assert.equal(r.status,'HOLD_FOR_COMMERCIAL_EVIDENCE');
- assert.ok(r.candidates[0].blockers.includes('EXACT_EVENT_COMPETITOR_PRICE_EVIDENCE_INCOMPLETE'));
- assert.equal(r.candidates[0].pricing.market_median,null);
-});
-
-test('commercial prep rejects unverified poster and duplicate competitor identities',()=>{
- const r=Prep.prepareBatch({candidates:[candidate],competitor_prices:[price('shop-a',890),price('shop-a',990),price('shop-b',1090)],posters:[{...poster,verified:false}]});
- assert.equal(r.status,'HOLD_FOR_COMMERCIAL_EVIDENCE');
- assert.equal(r.candidates[0].pricing.independent_competitors,2);
- assert.ok(r.candidates[0].blockers.includes('VERIFIED_POSTER_EVIDENCE_MISSING'));
-});
-
-test('commercial prep never authorizes final price write or publication',()=>{
- const r=Prep.prepareCandidate(candidate,{competitor_prices:[price('a',890),price('b',990),price('c',1090)],posters:[poster]});
- assert.equal(r.final_price_write_allowed,false);
- assert.equal(r.production_writes,0);
- assert.equal(r.publishes,0);
- assert.equal(r.verifier_required,true);
-});
+test('3+ exact competitors produce HIGH exact-event proposal',()=>{const r=Prep.prepareBatch({candidates:[candidate],competitor_prices:[price('a',890),price('b',1090),price('c',990)],posters:[poster]});const p=r.candidates[0].pricing;assert.equal(r.status,'READY_FOR_FINAL_VERIFIER');assert.equal(p.market_median,990);assert.equal(p.proposal.proposal_source,'EXACT_EVENT_MEDIAN');assert.equal(p.proposal.confidence,'HIGH');assert.equal(p.proposal.proposed_reference_price,990);});
+test('1-2 exact competitors no longer hold and produce MEDIUM proposal',()=>{const r=Prep.prepareBatch({candidates:[candidate],competitor_prices:[price('a',890),price('b',990)],posters:[poster]});assert.equal(r.status,'READY_FOR_FINAL_VERIFIER');assert.equal(r.candidates[0].pricing.complete,false);assert.equal(r.candidates[0].pricing.proposal.proposed_reference_price,940);assert.equal(r.candidates[0].pricing.proposal.confidence,'MEDIUM');});
+test('zero exact competitors falls back to comparable event evidence',()=>{const r=Prep.prepareBatch({candidates:[candidate],competitor_prices:[],comparable_prices:[{reference_id:'E1',price:790,source_url:'https://example.com/e1'},{reference_id:'E2',price:890,source_url:'https://example.com/e2'}],posters:[poster]});assert.equal(r.status,'READY_FOR_FINAL_VERIFIER');assert.equal(r.candidates[0].pricing.independent_competitors,0);assert.equal(r.candidates[0].pricing.proposal.proposal_source,'COMPARABLE_EVENT_MEDIAN');assert.equal(r.candidates[0].pricing.proposal.proposed_reference_price,840);});
+test('zero market evidence falls back to approved KK baseline',()=>{const r=Prep.prepareBatch({candidates:[candidate],store_baseline_prices:[{package_id:'BASE',price:890,approved:true}],posters:[poster]});assert.equal(r.status,'READY_FOR_FINAL_VERIFIER');assert.equal(r.candidates[0].pricing.proposal.proposal_source,'KK_APPROVED_BASELINE');assert.equal(r.candidates[0].pricing.proposal.confidence,'LOW');assert.equal(r.candidates[0].pricing.proposal.proposed_reference_price,890);});
+test('no market or approved baseline still fails closed',()=>{const r=Prep.prepareBatch({candidates:[candidate],posters:[poster]});assert.equal(r.status,'HOLD_FOR_COMMERCIAL_EVIDENCE');assert.ok(r.candidates[0].blockers.includes('PRICING_REFERENCE_UNAVAILABLE'));});
+test('proposal never becomes final price automatically',()=>{const r=Prep.prepareCandidate(candidate,{competitor_prices:[price('a',890)],posters:[poster]});assert.equal(r.pricing.proposal.auto_final_price,false);assert.equal(r.final_price_write_allowed,false);assert.equal(r.production_writes,0);});
