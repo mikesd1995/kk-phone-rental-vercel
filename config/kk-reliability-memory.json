@@ -385,6 +385,41 @@
       "never_do": [
         "blindly rewrite unrelated URL handling without a trace"
       ]
+    },
+    {
+      "id": "VERCEL_BUILD_RATE_LIMIT",
+      "severity": "P1",
+      "domains": [
+        "vercel",
+        "deployment",
+        "production_alignment"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN_EXTERNAL",
+      "match": {
+        "codes": [
+          "VERCEL_BUILD_RATE_LIMIT",
+          "DEPLOYMENT_RATE_LIMITED"
+        ],
+        "phrases_any": [
+          "deployment rate limited",
+          "build-rate-limit",
+          "retry in 24 hours"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Treat the Vercel build-rate limit as an external capacity blocker, not a code failure. Preserve the last READY production artifact, require exact-main CI success, avoid dummy commits/redeploy loops, and retry deployment only after capacity returns. Promote only an artifact whose Git commit SHA exactly matches the accepted main SHA.",
+      "regression_guards": [
+        "exact main SHA has passing regression before deployment",
+        "production SHA compared with accepted main SHA",
+        "no stale preview promoted as current main",
+        "post-deploy storefront and agent-gateway smoke readback"
+      ],
+      "never_do": [
+        "create dummy commits to force repeated builds",
+        "promote an older branch artifact that omits accepted main changes",
+        "describe rate limiting as application build failure"
+      ]
     }
   ]
 }
