@@ -7,6 +7,9 @@ const DecisionLedger=require('../server/kk-decision-ledger.js');
 const TaskRouter=require('../server/kk-agent-task-router.js');
 const Gateway=require('../server/kk-agent-gateway.js');
 const Registry=require('../server/kk-agent-registry.js');
+const CodeIntel=require('../server/kk-code-intelligence.js');
+const fs=require('fs');
+const path=require('path');
 
 test('Operating Partner registry route is callable but advisory',()=>{
   assert.equal(Registry.REGISTRY_VERSION,'KK_AGENT_REGISTRY_V3');
@@ -239,4 +242,26 @@ test('latest owner decision wins in event-sourced learning history',()=>{
   ];
   const summary=Partner.learningSummary(history);
   assert.deepEqual(summary.stats[0].owner_actions,['MODIFIED']);
+});
+
+
+test('Code Intelligence routes Operating Partner work to the new business brain',()=>{
+  const pack=CodeIntel.contextPack('อยากได้คู่คิด operating partner ช่วยจัด priority วันนี้',{root:path.join(__dirname,'..')});
+  assert.ok(pack.matched_routes.some(x=>x.id==='operating_partner'));
+  assert.ok(pack.selected_files.some(x=>x.path==='server/kk-operating-partner.js'));
+  assert.ok(pack.targeted_tests.includes('tests/kk-operating-partner.test.js'));
+});
+
+test('checked-in Decision Ledger migrations preserve privacy and append-only service role',()=>{
+  const root=path.join(__dirname,'..');
+  const first=fs.readFileSync(path.join(root,'supabase','migrations','20260927041525_operating_partner_decision_ledger_v1.sql'),'utf8').toLowerCase();
+  const hard=fs.readFileSync(path.join(root,'supabase','migrations','20260927041635_operating_partner_decision_privacy_hardening_v1.sql'),'utf8').toLowerCase();
+  assert.match(first,/enable row level security/);
+  assert.match(first,/revoke all on table public\.kk_decision_events from anon, authenticated, service_role/);
+  assert.match(first,/grant select, insert on table public\.kk_decision_events to service_role/);
+  assert.match(first,/production_writes = 0/);
+  assert.match(first,/publishes = 0/);
+  assert.match(hard,/kk_decision_events_metrics_whitelist_check/);
+  assert.match(hard,/kk_decision_events_subject_ref_no_pii_check/);
+  assert.doesNotMatch(first+hard,/grant[^;]*(update|delete)/);
 });
