@@ -48,15 +48,16 @@ test('conversion profile requires commercial relevance metric',()=>{
  assert.match(result.scored_candidates[0].errors.join('|'),/METRIC_MISSING:commercial_relevance/);
 });
 
-test('selector excludes QA-blocked candidates even if their metric scores are high',()=>{
+test('selector fail-closes when any internal candidate fails QA',()=>{
  const high={...strong,hook_strength:100};
  const result=Selector.selectWinner([
    candidate('a','event_theme',medium),
    candidate('b','fandom',high,{qa_gate:'BLOCKED'}),
    candidate('c','trust',{...medium,hook_strength:70})
  ],{objective:'awareness',measured_posts:0});
- assert.equal(result.gate,'PASS');
- assert.equal(result.winner.id,'a');
+ assert.equal(result.gate,'BLOCKED');
+ assert.equal(result.winner,null);
+ assert.match(result.errors.join('|'),/THREE_QA_PASSING_CANDIDATES_REQUIRED/);
  assert.equal(result.scored_candidates.find(x=>x.id==='b').eligible,false);
 });
 
