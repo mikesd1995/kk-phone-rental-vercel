@@ -8,8 +8,9 @@ const HfAdapter = require('./hf-scanner-adapter.js');
 const OperatingPartner = require('./kk-operating-partner.js');
 const DecisionLedger = require('./kk-decision-ledger.js');
 const CreativeProduction = require('./kk-creative-production.js');
+const FullDiscovery = require('./kk-full-discovery-worker.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V3';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V4';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -43,6 +44,15 @@ async function executeTask(taskType, input = {}, options = {}) {
           CreativeProduction.buildCreativeBrief(input.brief || input),
           input.result || {}
         )
+      };
+
+    case 'scan_event':
+      return {
+        invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner'],
+        result: await FullDiscovery.runFullDiscovery(input, {
+          discoverFn: options.discoveryProviderFn,
+          sourceWatchOptions: options.sourceWatchOptions || {}
+        })
       };
 
     case 'source_watch_check':
