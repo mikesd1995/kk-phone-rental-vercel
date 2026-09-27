@@ -95,9 +95,9 @@ function selectWinner(candidates=[],ctx={}){
   const scored=list.map(c=>scoreCandidate(c,ctx));
   const eligible=scored.filter(x=>x.eligible).sort((a,b)=>b.score-a.score || a.id.localeCompare(b.id));
 
-  if(eligible.length===0) errors.push('NO_QA_PASSING_CANDIDATE');
+  if(eligible.length!==3) errors.push('THREE_QA_PASSING_CANDIDATES_REQUIRED');
 
-  const winnerScore=eligible[0]||null;
+  const winnerScore=errors.length===0?(eligible[0]||null):null;
   const winner=winnerScore?list.find(c=>text(c.id)===winnerScore.id):null;
 
   return {
