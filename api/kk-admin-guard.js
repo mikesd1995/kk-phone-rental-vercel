@@ -12,6 +12,7 @@ const VisibilityGuard = require('../server/event-visibility-owner-guard.js');
 const AgentGateway = require('../server/kk-agent-gateway.js');
 const AgentLedger = require('../server/kk-agent-invocation-ledger.js');
 const AgentRegistry = require('../server/kk-agent-registry.js');
+const AgentOrchestration = require('../server/kk-agent-orchestration.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -362,20 +363,40 @@ module.exports=async function handler(req,res){
       return reply(res,413,{ok:false,error:'Agent Gateway request too large',error_code:'AGENT_GATEWAY_BODY_TOO_LARGE'});
     }
     if(action==='agentGatewayHealth'){
+      const ledgerState=AgentLedger.configState();
+      let coverage={status:'UNAVAILABLE',summary:null,error_code:''};
+      if(ledgerState.configured){
+        try{
+          const recent=await AgentLedger.listRecentInvocations({limit:100});
+          coverage={
+            status:'READBACK_COMPLETE',
+            summary:AgentOrchestration.coverageSummary(recent.rows),
+            sampled_rows:recent.rows.length,
+            error_code:''
+          };
+        }catch(err){
+          coverage={
+            status:'READBACK_BLOCKED',
+            summary:null,
+            error_code:String(err&&(err.code||err.name)||'AGENT_LEDGER_READ_FAILED')
+          };
+        }
+      }
       return reply(res,200,{
         ok:true,
         agent_gateway:{
           gateway_version:AgentGateway.GATEWAY_VERSION,
           registry:AgentRegistry.publicRegistry(),
-          ledger:AgentLedger.configState(),
+          ledger:ledgerState,
+          coverage,
           production_writes:0,
           publishes:0
         }
       });
     }
     const request=payload.request&&typeof payload.request==='object'&&!Array.isArray(payload.request)?payload.request:{};
-    if(!String(request.message||'').trim()){
-      return reply(res,400,{ok:false,error:'request.message is required',error_code:'AGENT_GATEWAY_MESSAGE_REQUIRED'});
+    if(!String(request.message||'').trim()&&!String(request.task_type||'').trim()){
+      return reply(res,400,{ok:false,error:'request.message or request.task_type is required',error_code:'AGENT_GATEWAY_REQUEST_REQUIRED'});
     }
     let result;
     try{

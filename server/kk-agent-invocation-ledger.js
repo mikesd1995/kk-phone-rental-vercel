@@ -3,6 +3,7 @@
 const RuntimeLedger = require('./runtime-ledger.js');
 
 const TABLE = 'kk_agent_invocations';
+const VALID_GATE_STATUSES = new Set(['READY_FOR_OWNER_REVIEW','RECORDED','BLOCKED_CONTENT_GATE','BLOCKED_REQUIRED_AGENT_NOT_INVOKED','BLOCKED_LEDGER_UNAVAILABLE','BLOCKED_RUNTIME_NOT_AVAILABLE','BLOCKED_AGENT_EXECUTION_FAILED']);
 
 function text(value) {
   return String(value == null ? '' : value).trim();
@@ -76,7 +77,7 @@ function validateRow(row = {}) {
   if (!/^[a-z0-9_]{3,64}$/.test(text(row.intent))) errors.push('INTENT_INVALID');
   if (!validHash(row.request_hash)) errors.push('REQUEST_HASH_INVALID');
   if (!validHash(row.truth_hash)) errors.push('TRUTH_HASH_INVALID');
-  if (!['READY_FOR_OWNER_REVIEW', 'BLOCKED_CONTENT_GATE', 'BLOCKED_REQUIRED_AGENT_NOT_INVOKED', 'BLOCKED_LEDGER_UNAVAILABLE'].includes(text(row.gate_status))) {
+  if (!VALID_GATE_STATUSES.has(text(row.gate_status))) {
     errors.push('GATE_STATUS_INVALID');
   }
   if (Number(row.production_writes || 0) !== 0) errors.push('PRODUCTION_WRITES_NONZERO');
@@ -134,7 +135,7 @@ async function recordInvocation({
     request_hash: text(row.request_hash),
     truth_hash: text(row.truth_hash),
     source_commit_sha: text(row.source_commit_sha),
-    owner_review_required: row.owner_review_required !== false,
+    owner_review_required: row.owner_review_required === true,
     production_writes: 0,
     publishes: 0
   };
@@ -205,6 +206,7 @@ async function listRecentInvocations({
 
 module.exports = {
   TABLE,
+  VALID_GATE_STATUSES,
   configState,
   validateRow,
   recordInvocation,
