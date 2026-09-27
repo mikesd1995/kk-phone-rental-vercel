@@ -35,7 +35,9 @@ test('content router invokes marketing brief before strategy plan',()=>{
     performanceRows:[]
   });
   assert.equal(r.marketing_required,true);
-  assert.equal(r.route,'KK_MARKETING_TO_CONTENT_STRATEGY_AGENT');
+  assert.equal(r.route,'KK_MARKETING_TO_CONTENT_SINGLE_WINNER');
   assert.equal(r.marketing_plan.agent,'kk-marketing-agent');
+  assert.equal(r.marketing_plan.winner_selection.mode,'INTERNAL_3_TO_SINGLE_FINAL');
+  assert.equal(r.marketing_plan.winner_selection.public_output_count,1);
   assert.equal(r.content_gate,'PASS');
 });
