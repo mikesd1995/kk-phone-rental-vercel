@@ -26,3 +26,12 @@ This is deliberate: adding a second raw Sheet writer would recreate the unsafe S
 
 ## Remaining activation work
 Bind an authenticated executor to take only a `READY_FOR_GOVERNED_ADMIN_CREATE` plan, invoke the existing Admin createEvent endpoint once with an idempotency/correlation key, then feed fresh 08_Web_Ready/09_Web_Packages data to the readback verifier. Do not enable autonomous publication until this acceptance run passes.
+
+
+## V3 hardening — lens-only default hidden
+
+The Verifier create payload now forces the standalone `TPL-ZEISS-2-35X-LENS` override to `active_override=false` even if a candidate/final-price row tries to enable it. This aligns promotion with the live storefront policy: lens-only is hidden by default and may become available later only when the same event has an active phone-only booking and spare lens stock.
+
+The promotion readback verifier also fails closed with `LENS_ONLY_VISIBLE_ON_CREATE` if a newly created event exposes the standalone lens package as `available` or `open`.
+
+Poster requirements remain fail-closed: promotion still requires a verified HTTPS poster before the governed Admin createEvent handoff.
