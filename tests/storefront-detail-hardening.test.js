@@ -83,3 +83,23 @@ test('all explicitly hidden package rows keep the event online as waitlist', () 
   assert.match(source, /showModal\(c\);/);
   assert.doesNotMatch(source, /waitlist_card_click/);
 });
+
+
+test('browser sanitizer blocks observed machine tokens while preserving customer copy', () => {
+  const start = source.indexOf('function looksInternalPublicText(raw){');
+  const end = source.indexOf('function packagePublicSubtitle(p){', start);
+  assert.ok(start >= 0 && end > start);
+  const sanitizer = Function(source.slice(start, end) + '; return sanitizePublicText;')();
+
+  for (const token of [
+    'WEEKDAY_FALLBACK_HIGH_FANDOM_2026-09-28',
+    'OWNER_PRICE_ADJUST_2026-09-28_BIG_EVENT_COLLISION',
+    'EXACT_EVENT_COMPETITOR_690_2026-09-28',
+    'PROVISIONAL_MARKET_BENCHMARK_2026-09-28',
+    'PROVISIONAL_BIG_EVENT_COLLISION_2026-09-28',
+    'WEEKDAY_FANDOM_TIER_2026-09-28',
+  ]) {
+    assert.equal(sanitizer(token), '');
+  }
+  assert.equal(sanitizer('เหมาะกับถ่ายเวทีไกล ซูมชัด'), 'เหมาะกับถ่ายเวทีไกล ซูมชัด');
+});
