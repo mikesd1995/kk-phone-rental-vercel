@@ -86,7 +86,9 @@ test('copy contract preserves current KK X brand and CTA conventions', () => {
     AGENT.COPY_CONTRACT.direct_rental_layout,
     ['brand','event_hashtag','hook','offer','date_venue','benefits','booking_cta','reach_hashtags']
   );
-  assert.match(AGENT.COPY_CONTRACT.direct_rental_layout_rule, /Brand.*Event hashtag.*Hook.*Offer\/price.*Date\/Venue.*Benefits.*Booking CTA.*reach hashtags/i);
+  assert.match(AGENT.COPY_CONTRACT.direct_rental_layout_rule, /Preferred baseline only/i);
+  assert.match(AGENT.COPY_CONTRACT.creative_freedom_rule, /Do not force every post/i);
+  assert.match(AGENT.COPY_CONTRACT.hard_gate_rule, /Hard gates cover/i);
 });
 
 test('70/30 is a rolling calendar target, not a forced per-batch quota', () => {
@@ -162,8 +164,8 @@ test('router recognizes Thai X rental requests and forces Content Strategy + Age
   assert.equal(routed.content_agent_required, true);
   assert.equal(routed.qa_required, true);
   assert.equal(routed.selector_required, true);
-  assert.equal(routed.selector_version, 'KK_CONTENT_SELECTOR_V1');
-  assert.equal(routed.qa_gate_version, 'KK_CONTENT_QA_GATE_V2');
+  assert.equal(routed.selector_version, 'KK_CONTENT_SELECTOR_V2');
+  assert.equal(routed.qa_gate_version, 'KK_CONTENT_QA_GATE_V3');
   assert.equal(routed.anti_repeat_required, true);
   assert.equal(routed.three_variant_engine_required, true);
   assert.equal(routed.internal_candidate_count, 3);
@@ -225,9 +227,9 @@ ${hook}
 
 #ArtistExample`;
   const candidates=[
-    {id:'a',angle:'event_theme',copy:post('Hook A'),metrics:{hook_strength:70,event_fandom_relevance:85,timing_relevance:70,novelty:80,hashtag_relevance:100,readability:90}},
-    {id:'b',angle:'fandom',copy:post('Hook B'),metrics:{hook_strength:95,event_fandom_relevance:95,timing_relevance:80,novelty:90,hashtag_relevance:100,readability:92}},
-    {id:'c',angle:'trust',copy:post('Hook C'),metrics:{hook_strength:75,event_fandom_relevance:80,timing_relevance:70,novelty:85,hashtag_relevance:100,readability:95}}
+    {id:'a',angle:'event_theme',copy:post('Hook A'),metrics:{hook_strength:70,event_fandom_relevance:85,timing_relevance:70,novelty:80,hashtag_relevance:100,readability:90,event_specificity:90,naturalness:90,non_template_feel:88,hook_originality:86,sales_pressure_balance:90}},
+    {id:'b',angle:'fandom',copy:post('Hook B'),metrics:{hook_strength:95,event_fandom_relevance:95,timing_relevance:80,novelty:90,hashtag_relevance:100,readability:92,event_specificity:90,naturalness:90,non_template_feel:88,hook_originality:86,sales_pressure_balance:90}},
+    {id:'c',angle:'trust',copy:post('Hook C'),metrics:{hook_strength:75,event_fandom_relevance:80,timing_relevance:70,novelty:85,hashtag_relevance:100,readability:95,event_specificity:90,naturalness:90,non_template_feel:88,hook_originality:86,sales_pressure_balance:90}}
   ];
   const result=ROUTER.finalizeGeneratedCandidates({
     candidates,
@@ -268,7 +270,7 @@ Hook A
 
 #ArtistExample`;
   const bad=good.replace('Hook A','3 ต.ค. Hook duplicate date');
-  const metrics={hook_strength:80,event_fandom_relevance:80,timing_relevance:80,novelty:80,hashtag_relevance:100,readability:90};
+  const metrics={hook_strength:80,event_fandom_relevance:80,timing_relevance:80,novelty:80,hashtag_relevance:100,readability:90,event_specificity:90,naturalness:90,non_template_feel:88,hook_originality:86,sales_pressure_balance:90};
   const result=ROUTER.finalizeGeneratedCandidates({
     candidates:[
       {id:'a',angle:'event_theme',copy:good,metrics},
