@@ -4,7 +4,7 @@ const VERSION='KK_CONTENT_QA_GATE_V2';
 const SAFETY=Object.freeze({authority:'READ_ONLY_VALIDATOR',production_writes:0,publishes:0,human_approval_required:true});
 function text(v){return String(v===undefined||v===null?'':v).trim();}
 function uniq(a){return [...new Set(a.filter(Boolean))];}
-function hashtags(s){return uniq((text(s).match(/#[\p{L}\p{N}_]+/gu)||[]).map(x=>x.toLowerCase()));}
+function hashtags(s){return uniq((text(s).match(/#[\p{L}\p{M}\p{N}_]+/gu)||[]).map(x=>x.toLowerCase()));}
 function normalizeToken(s){return text(s).toLowerCase().replace(/[\s|,./\-–—]+/g,'');}
 function dateTokens(input={}){return uniq(['date_display','event_date_display','event_date'].map(k=>text(input[k])).filter(Boolean));}
 function venueTokens(input={}){return uniq([text(input.venue_display),text(input.venue)].filter(Boolean));}
