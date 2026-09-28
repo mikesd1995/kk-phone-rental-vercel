@@ -24,5 +24,5 @@ test('manual FALSE override remains an emergency kill switch', () => {
 });
 
 test('lens compatibility patch version is bumped for the new policy', () => {
-  assert.match(gs, /KK_LENS_COMPAT_PATCH_VERSION = 'v16\.7\.0_PHASE3_9_5_10_LENS_ONLY_AUTO_GUARD_20260928'/);
+  assert.match(gs, /KK_LENS_COMPAT_PATCH_VERSION = 'v16\.7\.0_PHASE3_9_5_11_SAME_DAY_INVENTORY_20260928'/);
 });
