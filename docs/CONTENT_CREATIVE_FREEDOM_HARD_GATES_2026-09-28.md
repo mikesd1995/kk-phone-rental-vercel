@@ -148,3 +148,44 @@ Coverage now verifies:
 ## Expected result
 
 The Agent pipeline stays mandatory and auditable, while the output should become less repetitive, more event-specific, more human, and closer to the high-performing organic direction the owner prefers.
+
+
+## Live acceptance
+
+### Attempt 1 — intentionally strict anti-repeat caught a stale pattern
+
+Issue: `#299 [KK-CONTENT-RUN] creative freedom policy live acceptance`
+
+Result:
+- Gateway: `READY_FOR_OWNER_REVIEW`
+- Required/invoked Agents: complete 5/5 chain
+- Finalization: `BLOCKED`
+- QA: `BLOCKED`
+- Blocker: `CONTENT_QA_FAILED`
+- Invocation: `agi_69ef4d47249e_708c5f0455b74b37ac36`
+
+Cause: one acceptance candidate reused wording intentionally placed in `recent_posts`. The new anti-repeat gate correctly refused to publish a winner. No bypass was used.
+
+### Attempt 2 — corrected candidate set
+
+Issue: `#301 [KK-CONTENT-RUN] creative freedom policy live acceptance v2`
+
+Workflow run: `36458712002`
+
+Result:
+- Workflow: `success`
+- Gateway: `READY_FOR_OWNER_REVIEW`
+- Finalization: `PASS`
+- QA: `PASS`
+- Selector: `PASS`
+- Registry: `KK_AGENT_REGISTRY_V18`
+- Invocation: `agi_174a5b3103b8_4ba8600c845f484faf22`
+- Required Agents exactly matched invoked Agents:
+  `kk-marketing-agent → kk-content-strategy → kk-content-agent → kk-content-qa → kk-content-selector`
+- public output count: 1
+- auto-publish: false
+- production writes: 0
+
+The selected winner used a non-Standard-A paragraph order: event-specific hook/context before the price and hashtag blocks. It still passed all business-critical gates and was selected over the more rigid candidate.
+
+This confirms the intended behavior: **pipeline mandatory, factual gates strict, creative layout flexible**.
