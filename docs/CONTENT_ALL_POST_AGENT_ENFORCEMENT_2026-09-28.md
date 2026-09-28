@@ -55,11 +55,22 @@ Three differentiated candidates stay internal. The selector exposes one `SINGLE_
 
 ## Versions
 
-- Registry: `KK_AGENT_REGISTRY_V17`
+- Registry: `KK_AGENT_REGISTRY_V18`
 - Gateway: `KK_AGENT_GATEWAY_V3`
-- QA Gate: `KK_CONTENT_QA_GATE_V2`
-- Selector: `KK_CONTENT_SELECTOR_V1`
+- QA Gate: `KK_CONTENT_QA_GATE_V3`
+- Selector: `KK_CONTENT_SELECTOR_V2`
 
 ## Important boundary
 
 This change closes bypasses **inside the KK Agent Gateway**. A ChatGPT surface that does not call the private gateway is still outside repo enforcement. Do not claim that a chat-generated post used the project Agents unless invocation evidence from the gateway exists.
+
+
+## Creative-freedom amendment
+
+The pipeline is mandatory; the template is not.
+
+QA V3 hard-gates verified facts, commercial truth, verified hashtags, brand/CTA, canonical date/venue facts, and anti-repeat. It intentionally permits different paragraph orders and event-specific voice.
+
+Selector V2 adds creative-quality signals: event specificity, naturalness, non-template feel, hook originality, and sales-pressure balance.
+
+This change is designed to keep the governance benefits of the Agent pipeline without forcing every post into near-identical copy.
