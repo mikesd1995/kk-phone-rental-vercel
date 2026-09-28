@@ -1,10 +1,11 @@
 'use strict';
 
-const VERSION='KK_VERIFIER_STOREFRONT_PROMOTION_V2';
+const VERSION='KK_VERIFIER_STOREFRONT_PROMOTION_V3';
 
 function text(v){return String(v==null?'':v).trim();}
 function isIsoDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(text(v));}
 function https(v){try{const u=new URL(text(v));return u.protocol==='https:'?u.toString():'';}catch(_){return '';}}
+function isLensOnlyPriceRow(p={}){const type=text(p.package_type).toLowerCase();const id=text(p.template_id).toUpperCase();return type==='lens_only'||id==='TPL-ZEISS-2-35X-LENS';}
 
 function preparePromotion(input={}){
   const c=input.candidate||{};
@@ -24,12 +25,15 @@ function preparePromotion(input={}){
   const policy=input.final_pricing_policy||{};
   const finalPrices=Array.isArray(input.final_prices)&&input.final_prices.length?input.final_prices:(policy.policy_approved===true&&['KK_APPROVED_BASELINE','KK_ACTIVE_STANDARD_PACKAGE_SOT'].includes(policy.source)&&Array.isArray(policy.final_prices)?policy.final_prices:[]);
   if(!finalPrices.length) blockers.push('FINAL_KK_PRICE_REQUIRED');
-  const cleanPrices=finalPrices.map(p=>({
-    template_id:text(p.template_id),
-    override_price:Number(p.override_price),
-    active_override:p.active_override===false?false:true,
-    override_note:text(p.override_note||'VERIFIER_APPROVED')
-  }));
+  const cleanPrices=finalPrices.map(p=>{
+    const lensOnly=isLensOnlyPriceRow(p);
+    return {
+      template_id:text(p.template_id),
+      override_price:Number(p.override_price),
+      active_override:lensOnly?false:(p.active_override===false?false:true),
+      override_note:text(p.override_note||'VERIFIER_APPROVED')
+    };
+  });
   if(cleanPrices.some(p=>!p.template_id||!Number.isFinite(p.override_price)||p.override_price<=0)) blockers.push('FINAL_KK_PRICE_INVALID');
   if(input.verifier_approved!==true) blockers.push('FINAL_VERIFIER_APPROVAL_REQUIRED');
   const ownerPublishAllowed=input.owner_publish_allowed===true||(policy.policy_approved===true&&['KK_APPROVED_BASELINE','KK_ACTIVE_STANDARD_PACKAGE_SOT'].includes(policy.source));
@@ -73,6 +77,10 @@ function verifyStorefrontReadback(plan={},readback={}){
   for(const p of expected){
     const row=packages.find(x=>text(x.template_id||x.package_id).includes(text(p.template_id)));
     if(!row||Number(row.price)!==Number(p.override_price)) blockers.push('PACKAGE_PRICE_READBACK_MISMATCH:'+text(p.template_id));
+    if(row&&isLensOnlyPriceRow(p)){
+      const status=text(row.package_status||row.status).toLowerCase();
+      if(status==='available'||status==='open') blockers.push('LENS_ONLY_VISIBLE_ON_CREATE:'+text(p.template_id));
+    }
   }
   return {
     schema_version:VERSION,
@@ -82,4 +90,4 @@ function verifyStorefrontReadback(plan={},readback={}){
     verified:blockers.length===0
   };
 }
-module.exports={VERSION,preparePromotion,verifyStorefrontReadback};
+module.exports={VERSION,isLensOnlyPriceRow,preparePromotion,verifyStorefrontReadback};
