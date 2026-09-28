@@ -569,6 +569,12 @@ function storefrontPosterOverride(row){
   if(dateKey==="2026-09-28" && name.indexOf("mizumi")>=0 && name.indexOf("pp krit")>=0){
     return "/assets/event-posters/mizumi-ppkrit-pink-aura-2026-09-28.jpg";
   }
+  if(dateKey==="2026-10-08" && name.indexOf("unlucky bae")>=0){
+    return "/assets/event-posters/unlucky-bae-final-ep-2026-10-08.jpeg";
+  }
+  if(dateKey==="2026-10-08" && name.indexOf("cir*crl")>=0 && name.indexOf("anniversary")>=0){
+    return "/assets/event-posters/circrl-1st-anniversary-2026-10-08.jpeg";
+  }
   if(dateKey==="2026-11-08" && name.indexOf("maxkybas")>=0 && name.indexOf("arcade")>=0){
     return "/assets/event-posters/maxkybas-arcade-2026-11-08.jpg";
   }
