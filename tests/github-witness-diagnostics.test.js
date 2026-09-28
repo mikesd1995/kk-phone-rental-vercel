@@ -26,8 +26,8 @@ test('retirement delegates runtime scheduling only to the existing Machine-SOT-b
   assert.match(source,/SCANNER.*6ab272b36b1881919577ff3367fa8245/);
   assert.match(source,/VERIFIER.*6ab7e060fa788191b5f17a7028494c3a/);
   assert.match(source,/ACTIVE_TASKS_EXACT2/);
-  assert.match(source,/no new Make scenario/i);
-  assert.match(source,/no new GitHub Actions scheduler/i);
+  assert.match(source,/do not create a new Make scenario/i);
+  assert.match(source,/do not create a new GitHub Actions scheduler/i);
 });
 
 test('retirement preserves natural-runtime acceptance semantics',()=>{
