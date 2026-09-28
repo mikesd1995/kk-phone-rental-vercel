@@ -8,7 +8,7 @@ const gs = fs.readFileSync('apps-script/Code.gs', 'utf8');
 
 test('canonical Apps Script defines lens-only storefront guard', () => {
   assert.match(gs, /function kkFormulaWebPackageStatus_\(rowNumber\)/);
-  assert.match(gs, /C\\\$\{r\}="lens_only"/);
+  assert.match(gs, /C\$\{r\}="lens_only"/);
   assert.match(gs, /LOWER\('00_Master_Booking'!\$I\$5:\$I\$1000\)="phone_only"/);
   assert.match(gs, /pending\|confirmed\|prepared\|picked_up/);
 });
