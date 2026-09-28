@@ -474,7 +474,7 @@ function kkAssetIsRentableAvailable_(statusValue, rentableValue) {
 // Phase 3.6.10: G2 was removed from the production asset database.
 // Keep only ZEISS_2_35X / G1 as compatible lens aliases for the public Vivo X300 Pro + Lens package.
 // Do NOT recreate a G2 row in Model_Master and do NOT count deleted G2 assets in public stock.
-const KK_LENS_COMPAT_PATCH_VERSION = 'v16.7.0_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_20260730';
+const KK_LENS_COMPAT_PATCH_VERSION = 'v16.7.0_PHASE3_9_5_10_LENS_ONLY_AUTO_GUARD_20260928';
 const KK_COMPATIBLE_ZEISS_LENS_GROUPS = ['ZEISS_2_35X', 'G1'];
 
 function kkIsRetiredG2LensGroup_(modelGroup) {
@@ -717,6 +717,16 @@ function kkRetireG2AssetsAndPackages_() {
   return changed;
 }
 
+function kkFormulaWebPackageStatus_(rowNumber) {
+  const r = rowNumber;
+  const templateExpr = `INDEX('03_Packages'!$A$5:$A,1+MOD(ROW()-5,MAX(1,COUNTA('03_Packages'!$A$5:$A))))`;
+  const activePhoneOnly = `SUMPRODUCT(N('00_Master_Booking'!$D$5:$D$1000=B${r}),N(REGEXMATCH(LOWER('00_Master_Booking'!$C$5:$C$1000),"^(pending|confirmed|prepared|picked_up)$")),N(LOWER('00_Master_Booking'!$I$5:$I$1000)="phone_only"))`;
+  return `=ARRAY_CONSTRAIN(ARRAYFORMULA(IF(B${r}="","",IF(OR(IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE,INDEX('03_Packages'!$H$5:$H,1+MOD(ROW()-5,MAX(1,COUNTA('03_Packages'!$A$5:$A))))<>TRUE,COUNTIFS('04_Event_Overrides'!$A$5:$A,B${r},'04_Event_Overrides'!$B$5:$B,${templateExpr},'04_Event_Overrides'!$D$5:$D,FALSE)>0,AND(C${r}="lens_only",${activePhoneOnly}=0)),"hidden",IF(I${r}>0,"available","full")))),1,1)`;
+}
+
+// Storefront policy: standalone lens rental is hidden by default.
+// It becomes visible only when the same event has an active phone_only booking,
+// meaning at least one physical lens is spare. active_override=FALSE remains a kill switch.
 function kkRepairLensCompatibilityFormulas_() {
   const web = kkSheet_(KK.webPackages);
   const booking = kkSheet_(KK.bookings);
@@ -724,6 +734,7 @@ function kkRepairLensCompatibilityFormulas_() {
   const endRow = 1000;
   const rowCount = endRow - startRow + 1;
   const avail = [];
+  const status = [];
   const raw = [];
   const bookingPrice = [];
   const activeHold = [];
@@ -731,6 +742,7 @@ function kkRepairLensCompatibilityFormulas_() {
   const lensHold = [];
   for (let row = startRow; row <= endRow; row++) {
     avail.push([kkFormulaWebPackageAvailable_(row, false)]);
+    status.push([kkFormulaWebPackageStatus_(row)]);
     raw.push([kkFormulaWebPackageAvailable_(row, true)]);
     bookingPrice.push([kkFormulaBookingPrice_(row)]);
     activeHold.push([`=IF(D${row}="","",OR(C${row}="pending",C${row}="confirmed",C${row}="prepared",C${row}="picked_up"))`]);
@@ -741,6 +753,7 @@ function kkRepairLensCompatibilityFormulas_() {
   // H is the public price source and may contain event-specific override values applied by admin.
   // Rewriting it here makes poster/event updates reset prices back to package defaults.
   web.getRange(startRow, 9, rowCount, 1).setFormulas(avail);      // 09_Web_Packages!I available_count
+  web.getRange(startRow, 10, rowCount, 1).setFormulas(status);     // 09_Web_Packages!J package_status + lens-only auto guard
   web.getRange(startRow, 13, rowCount, 1).setFormulas(raw);       // 09_Web_Packages!M raw_available_count
   booking.getRange(startRow, 24, rowCount, 1).setFormulas(bookingPrice); // 00_Master_Booking!X package_price
   booking.getRange(startRow, 26, rowCount, 1).setFormulas(activeHold);   // Z active booking hold
@@ -769,7 +782,7 @@ function kkEnsureLensCompatibilityPatchInstalled_() {
 function kkRepairLensCompatibilityPatch() {
   PropertiesService.getDocumentProperties().deleteProperty('KK_LENS_COMPAT_PATCH_VERSION');
   const installed = kkEnsureLensCompatibilityPatchInstalled_();
-  kkSafeAlert_((installed ? 'Repaired' : 'Already current') + ': lens compatibility formulas are ready. Public Web Packages will count only ZEISS_2_35X/G1 lenses. G2/G_2 rows are retired from selling stock. Price formulas now use the package_id/template_id from 09_Web_Packages!A, not row order, so override prices do not jump to the wrong package.');
+  kkSafeAlert_((installed ? 'Repaired' : 'Already current') + ': lens compatibility formulas are ready. Public Web Packages will count only ZEISS_2_35X/G1 lenses. Standalone lens rental stays hidden unless the event has an active phone-only booking. G2/G_2 rows are retired from selling stock. Price formulas use package_id/template_id from 09_Web_Packages!A, not row order.');
 }
 
 function kkGetEventById_(eventId) {
