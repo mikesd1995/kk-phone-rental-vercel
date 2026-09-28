@@ -563,6 +563,17 @@ function parseDate(s){
 function fmtDate(s){ var d=parseDate(s); if(!d)return String(s||""); return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear(); }
 
 // ─── Image utils — FIX 2: w600 thumbnail, w1200 only for modal ───────────
+function storefrontPosterOverride(row){
+  var name=String((row&&row.event_name)||"").normalize("NFKC").toLowerCase().replace(/\\s+/g," ").trim();
+  var dateKey=eventDateKey((row&& (row.event_date_text||row.event_date||row.date))||"");
+  if(dateKey==="2026-09-28" && name.indexOf("mizumi")>=0 && name.indexOf("pp krit")>=0){
+    return "/assets/event-posters/mizumi-ppkrit-pink-aura-2026-09-28.jpg";
+  }
+  if(dateKey==="2026-09-30" && (name.indexOf("min min")>=0 || name.indexOf("minmin")>=0) && name.indexOf("teeteepor")>=0){
+    return "/assets/event-posters/minmin-teeteepor-frozen-candy-land-2026-09-30.jpg";
+  }
+  return "";
+}
 function getDriveId(url){
   var s=String(url||"").trim();
   var pats=[
@@ -953,7 +964,7 @@ async function loadData(){
   return rows.map(function(r){
     var eventId    = String(r.event_id||"").trim();
     var rawDate    = r.event_date_text || r.event_date || r.date || "";
-    var rawPoster  = String(r.poster_image_url||"").trim();
+    var rawPoster  = storefrontPosterOverride(r) || String(r.poster_image_url||"").trim();
     var phoneCnt   = toNum(r.available_phone_count);
     var lensCnt    = toNum(r.available_lens_count);
 
