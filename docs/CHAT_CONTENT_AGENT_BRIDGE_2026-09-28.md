@@ -76,6 +76,11 @@ Issue body:
         "novelty": 85,
         "hashtag_relevance": 100,
         "readability": 90,
+        "event_specificity": 92,
+        "naturalness": 93,
+        "non_template_feel": 91,
+        "hook_originality": 90,
+        "sales_pressure_balance": 92,
         "commercial_relevance": 85
       }
     }
@@ -165,3 +170,29 @@ Acceptance evidence:
 - Production writes remained 0.
 
 This acceptance closes the previous operational gap for this ChatGPT environment because the connected GitHub tool can create the owner-authored bridge issue and read the persisted result comment. The chat must still use this transport for every KK post request; bypassing it is not accepted as Agent execution.
+
+
+## Creative-freedom policy update — 2026-09-28
+
+Bridge execution still requires exactly three internal candidates and a PASS from QA + Selector, but it no longer treats one fixed paragraph order as a quality gate.
+
+Hard gates:
+- verified event truth;
+- live approved price/inventory for commercial posts;
+- verified hashtags;
+- brand identity;
+- required canonical date/venue facts;
+- booking CTA for commercial posts;
+- internal/recent anti-repeat;
+- complete five-Agent invocation evidence.
+
+Creative freedom:
+- hook may move before/after the offer when strategy supports it;
+- event-context paragraph may lead;
+- emoji and paragraph rhythm may vary;
+- benefit blocks may be shortened/reordered;
+- copy should sound event-specific and organic rather than machine-templated.
+
+Selector quality signals now include event specificity, naturalness, non-template feel, hook originality and sales-pressure balance.
+
+Performance history can influence selection only as evidence after the minimum measured sample. This is not autonomous retraining or self-modifying AI.
