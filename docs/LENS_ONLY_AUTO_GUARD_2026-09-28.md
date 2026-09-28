@@ -9,3 +9,12 @@ Stale lens-only active_override values were cleared so future phone-only booking
 Production storefront checks: Unlucky Bae Final EP remains visible with the owner-supplied local poster; AIBECK Live in Bangkok 2026 and IDOL EXCHANGE #67 remain hidden.
 
 The current Apps Script lens compatibility repair does not rewrite column J, so this guard survives that repair path.
+
+## Poster-source audit
+Production 08_Web_Ready was parsed as CSV after the lens guard change.
+- public rows (show/show_full): 82
+- public rows with blank poster_image_url: 0
+- source types: 1 local asset, 54 Google Drive thumbnails, 27 external image URLs
+- duplicate poster groups: 3, all explainable multi-day/same-campaign artwork (BABYMONSTER 7–8 Nov, GMMTV FANIVAL 12–13 Oct, Moonshadow 14–15 Oct)
+
+This audit confirms poster-source coverage. It does not claim that every remote image host was pixel-validated in this pass; the owner-supplied Unlucky Bae poster is local and production-bound.
