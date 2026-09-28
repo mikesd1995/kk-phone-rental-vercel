@@ -1,55 +1,38 @@
 'use strict';
+
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../.github/workflows/kk-external-witness-clock.yml'),'utf8');
-const inline=source.split("node <<'NODE'\n")[1].split('\n          NODE')[0].split('\n').map(line=>line.replace(/^          /,'')).join('\n');
-const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
-async function run(status,body){
-  const logs=[]; const requests=[];
-  const fakeFetch=async(url,options)=>{
-    requests.push({url,options});
-    if(requests.length===1)return {ok:true,status:200,json:async()=>({value:'test-oidc-token'})};
-    return {ok:status>=200&&status<300,status,json:async()=>body};
-  };
-  const FakeDate=class extends Date{static now(){return Date.parse('2026-09-28T00:30:59Z');}};
-  let error;
-  try{await new AsyncFunction('process','fetch','console','Date',inline)(
-    {env:{EDGE_URL:'https://edge.invalid/witness',ACTIONS_ID_TOKEN_REQUEST_URL:'https://oidc.invalid/token',ACTIONS_ID_TOKEN_REQUEST_TOKEN:'test-request-token'}},
-    fakeFetch,{log:v=>logs.push(String(v)),error:v=>logs.push(String(v))},FakeDate);
-  }catch(e){error=e;}
-  return {logs:logs.join('\n'),requests,error};
-}
-test('late Edge rejection reports timing cause and remains a failed run',async()=>{
-  const r=await run(400,{ok:false,error_code:'TRIGGER_SCHEDULE_STALE'});
-  assert.match(r.error.message,/WITNESS_EDGE_REJECTED_400_TRIGGER_SCHEDULE_STALE/);
-  assert.match(r.logs,/failure_class=SCHEDULE_WINDOW_EXCEEDED/);
-  const sent=JSON.parse(r.requests[1].options.body);
-  assert.equal(sent.scheduled_at,'2026-09-28T07:00:00+07:00');
-  assert.equal(sent.issued_at,'2026-09-28T07:30:59+07:00');
-  assert.equal(r.requests.length,2);
+
+const root=path.resolve(__dirname,'..');
+const workflowPath=path.join(root,'.github','workflows','kk-external-witness-clock.yml');
+const reconciliationPath=path.join(root,'docs','GITHUB_OIDC_WITNESS_V425_AUTHORITY_RECONCILIATION_2026-09-28.md');
+const retirementPath=path.join(root,'docs','GITHUB_OIDC_WITNESS_RETIREMENT_2026-09-28.md');
+
+test('retired witness cannot emit scheduled GitHub failures because active workflow is absent',()=>{
+  assert.equal(fs.existsSync(workflowPath),false);
 });
-test('disabled gate reports control state and remains a failed run',async()=>{
-  const r=await run(503,{ok:false,error_code:'WITNESS_KILL_SWITCH_DISABLED'});
-  assert.match(r.error.message,/WITNESS_KILL_SWITCH_DISABLED/);
-  assert.match(r.logs,/failure_class=CONTROL_GATE_DISABLED/);
-  assert.equal(r.requests.length,2);
+
+test('v4.9.25 reconciliation remains fail-closed historical evidence',()=>{
+  const source=fs.readFileSync(reconciliationPath,'utf8');
+  assert.match(source,/WITNESS MUST REMAIN DISABLED/);
+  assert.match(source,/keep `github_oidc_witness_v1=false`/);
+  assert.match(source,/do not backfill historical expectation rows/);
 });
-test('unknown Edge failure is not blamed on scheduling or quota',async()=>{
-  const r=await run(503,{ok:false,error_code:'LEDGER_WRITE_FAILED'});
-  assert.match(r.error.message,/LEDGER_WRITE_FAILED/);
-  assert.match(r.logs,/failure_class=EDGE_REJECTION_UNCLASSIFIED/);
-  assert.doesNotMatch(r.logs,/test-oidc-token|test-request-token/);
+
+test('retirement delegates runtime scheduling only to the existing Machine-SOT-bound tasks',()=>{
+  const source=fs.readFileSync(retirementPath,'utf8');
+  assert.match(source,/SCANNER.*6ab272b36b1881919577ff3367fa8245/);
+  assert.match(source,/VERIFIER.*6ab7e060fa788191b5f17a7028494c3a/);
+  assert.match(source,/ACTIVE_TASKS_EXACT2/);
+  assert.match(source,/do not create a new Make scenario/i);
+  assert.match(source,/do not create a new GitHub Actions scheduler/i);
 });
-test('accepted witness preserves zero-business-write result',async()=>{
-  const r=await run(202,{ok:true,business_writes:0,scanner_execution_started:false,ledger_inserted:true});
-  assert.equal(r.error,undefined);
-  assert.match(r.logs,/GITHUB_OIDC_WITNESS_ACCEPTED/);
-  assert.doesNotMatch(r.logs,/failure_class=/);
-});
-test('successful HTTP cannot hide authority boundary violation',async()=>{
-  const r=await run(202,{ok:true,business_writes:1,scanner_execution_started:true});
-  assert.match(r.error.message,/WITNESS_AUTHORITY_BOUNDARY_VIOLATION/);
-  assert.doesNotMatch(r.logs,/GITHUB_OIDC_WITNESS_ACCEPTED/);
+
+test('retirement preserves natural-runtime acceptance semantics',()=>{
+  const source=fs.readFileSync(retirementPath,'utf8');
+  assert.match(source,/natural future slot/i);
+  assert.match(source,/timer metadata.*zero acceptance credit/i);
+  assert.match(source,/MISSING_RUNTIME/);
 });
