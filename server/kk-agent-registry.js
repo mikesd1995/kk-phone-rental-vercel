@@ -58,7 +58,7 @@ const AGENTS = Object.freeze({
     note: 'Ranks exactly three internal QA-passing candidates for every KK social-post request against the Marketing objective and exposes exactly one final post for Owner Review. Scores are estimates, never reach guarantees.'
   }),
   'kk-content-qa': Object.freeze({
-    version: 'KK_CONTENT_QA_GATE_V1',
+    version: 'KK_CONTENT_QA_GATE_V2',
     authority: 'READ_ONLY_VALIDATOR',
     runtime_state: 'LIVE_GATEWAY_MANDATORY_FOR_CONTENT',
     surface: 'AGENT_GATEWAY',
