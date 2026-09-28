@@ -68,6 +68,17 @@ jobs:
           });
           const responseBody=await response.json().catch(()=>({}));
           if(!response.ok || responseBody.ok!==true){
+            // Classify the observed rejection without retrying, retiming, or weakening the gate.
+            const errorCode=String(responseBody.error_code||'UNKNOWN');
+            if(response.status===400 && errorCode==='TRIGGER_SCHEDULE_STALE'){
+              console.error('failure_class=SCHEDULE_WINDOW_EXCEEDED');
+              console.error('::error title=Witness timing gate::Edge rejected the represented hour as stale. Inspect dispatch_offset_minutes and the Edge receive window; do not backfill or retime the occurrence.');
+            }else if(response.status===503 && errorCode==='WITNESS_KILL_SWITCH_DISABLED'){
+              console.error('failure_class=CONTROL_GATE_DISABLED');
+              console.error('::error title=Witness control gate::Edge witness kill switch is disabled. Check the recorded pause decision before any governed activation.');
+            }else{
+              console.error('failure_class=EDGE_REJECTION_UNCLASSIFIED');
+            }
             throw new Error('WITNESS_EDGE_REJECTED_'+response.status+'_'+String(responseBody.error_code||'UNKNOWN'));
           }
           if(responseBody.business_writes!==0 || responseBody.scanner_execution_started!==false){
