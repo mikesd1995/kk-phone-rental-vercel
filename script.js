@@ -570,7 +570,7 @@ function storefrontPosterOverride(row){
     return "/assets/event-posters/mizumi-ppkrit-pink-aura-2026-09-28.jpg";
   }
   if(dateKey==="2026-10-08" && name.indexOf("unlucky bae")>=0){
-    return "https://brickinfotv.com/wp-content/uploads/2026/09/jud-jeeb-sai-moo-final-ep-fan-meeting-FrontrowTH-cover.webp";
+    return "/assets/event-posters/unlucky-bae-final-ep-official-2026-10-08.jpg";
   }
   if(dateKey==="2026-10-08" && name.indexOf("cir*crl")>=0 && name.indexOf("anniversary")>=0){
     return "/assets/event-posters/circrl-1st-anniversary-2026-10-08.jpeg";
