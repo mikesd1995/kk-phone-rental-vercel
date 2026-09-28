@@ -97,6 +97,7 @@ function routeContentRequest({
     intent,
     content_gate: contentGate,
     strategy_required: true,
+    content_agent_required: true,
     qa_required: true,
     qa_gate_version: ContentQa.VERSION,
     selector_required: true,
