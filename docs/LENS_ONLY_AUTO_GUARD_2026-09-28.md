@@ -8,7 +8,7 @@ Stale lens-only active_override values were cleared so future phone-only booking
 
 Production storefront checks: Unlucky Bae Final EP remains visible with the owner-supplied local poster; AIBECK Live in Bangkok 2026 and IDOL EXCHANGE #67 remain hidden.
 
-The current Apps Script lens compatibility repair does not rewrite column J, so this guard survives that repair path.
+The canonical Apps Script source now owns this rule too. `kkFormulaWebPackageStatus_()` generates the lens-only guard for 09_Web_Packages column J, and `kkRepairLensCompatibilityFormulas_()` rewrites J together with the existing stock formulas. `KK_LENS_COMPAT_PATCH_VERSION` was bumped so a future repair/install uses the guarded formula instead of an older status formula.
 
 ## Poster-source audit
 Production 08_Web_Ready was parsed as CSV after the lens guard change.
@@ -18,3 +18,14 @@ Production 08_Web_Ready was parsed as CSV after the lens guard change.
 - duplicate poster groups: 3, all explainable multi-day/same-campaign artwork (BABYMONSTER 7–8 Nov, GMMTV FANIVAL 12–13 Oct, Moonshadow 14–15 Oct)
 
 This audit confirms poster-source coverage. It does not claim that every remote image host was pixel-validated in this pass; the owner-supplied Unlucky Bae poster is local and production-bound.
+
+
+## Canonical-code hardening
+- Added `kkFormulaWebPackageStatus_(rowNumber)` to `apps-script/Code.gs`.
+- The status formula hides `lens_only` unless the same `event_id` has an active `phone_only` booking.
+- Active booking states are `pending|confirmed|prepared|picked_up`.
+- Explicit `active_override=FALSE` remains a kill switch.
+- `kkRepairLensCompatibilityFormulas_()` now restores column J as well as I/M, so a repair cannot silently remove this policy.
+- Added regression coverage in `tests/lens-only-auto-guard.test.js`.
+
+The live sheet rule was already active before this repository hardening. This change makes the repository source of truth match production behavior and protects future repair/deployment paths.
