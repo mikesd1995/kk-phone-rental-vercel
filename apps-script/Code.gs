@@ -1,21 +1,10 @@
 /**
- * RECOVERY HOTFIX 2026-09-20: reduce Apps Script Sheet-service round trips; business/API contract unchanged.
- * KK Phone Rental Backend v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX
+ * KK Phone Rental Backend v16.7.0_CRM_PRO_PHASE3_6_17_OVERRIDE_SAVE_ISOLATION_FIX
  * Phase 1 recovery-stable baseline + audited booking/override guards + dynamic range optimization
  * Keep in sync with backend sheets: Dashboard K31:K42, Web Packages A4:N, use_case_override in 04_Event_Overrides!G.
  */
-const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX';
+const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX';
 const KK_PHASE1_DIRECT_FALLBACK_DISABLED = false;
-
-// 2026-09-20 recovery hotfix: cache Spreadsheet/Sheet handles per Apps Script execution.
-// This does not cache business data and does not persist between requests.
-let KK_ACTIVE_SPREADSHEET_CACHE_ = null;
-const KK_SHEET_HANDLE_CACHE_ = {};
-
-function kkSpreadsheet_() {
-  if (!KK_ACTIVE_SPREADSHEET_CACHE_) KK_ACTIVE_SPREADSHEET_CACHE_ = SpreadsheetApp.getActive();
-  return KK_ACTIVE_SPREADSHEET_CACHE_;
-}
 
 const KK = {
   dashboard: '00_Admin_Dashboard',
@@ -62,7 +51,6 @@ function onOpen() {
       .addSeparator()
       .addItem('Convert Event Drive Image URLs', 'kkConvertEventDriveUrls')
       .addItem('Repair Lens Stock (ZEISS/G1 only)', 'kkRepairLensCompatibilityPatch')
-      .addItem('Repair Price Integrity (Safe)', 'kkRepairPriceIntegritySafe')
       .addItem('Run Basic Health Check', 'kkRunBasicHealthCheck')
       .addSeparator()
       .addItem('CRM: Generate Admin API Key', 'kkGenerateAdminApiKey')
@@ -162,13 +150,13 @@ function kkErrorLog_(action, payload, err, startedAt) {
 }
 
 function kkSheetExists_(name) {
-  return !!kkSpreadsheet_().getSheetByName(name);
+  return !!SpreadsheetApp.getActive().getSheetByName(name);
 }
 
 function kkPhase1Diagnostics_(payload) {
   const props = PropertiesService.getScriptProperties();
   const frontendSheetId = payload && payload.frontendSheetId ? String(payload.frontendSheetId).trim() : '';
-  const spreadsheetId = kkSpreadsheet_().getId();
+  const spreadsheetId = SpreadsheetApp.getActive().getId();
   return {
     admin_api_version: KK_ADMIN_VERSION,
     spreadsheet_id: spreadsheetId,
@@ -199,11 +187,8 @@ function kkShowPhase1Health() {
 }
 
 function kkSheet_(name) {
-  const key = String(name || '');
-  if (KK_SHEET_HANDLE_CACHE_[key]) return KK_SHEET_HANDLE_CACHE_[key];
-  const sh = kkSpreadsheet_().getSheetByName(key);
-  if (!sh) throw new Error('Missing sheet: ' + key);
-  KK_SHEET_HANDLE_CACHE_[key] = sh;
+  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  if (!sh) throw new Error('Missing sheet: ' + name);
   return sh;
 }
 
@@ -216,37 +201,28 @@ function kkGetDynamicRange_(sheetName, startRow, startCol, numCols) {
 }
 
 function kkGetValues_(sheetName, startRow, startCol, numCols) {
-  // Recovery performance hotfix:
-  // Use ONE Sheets service read per dataset. The previous implementation first
-  // called getDisplayValues() to find the last visible row, then called getValues()
-  // again for the same dataset. Snapshot reads touch many sheets, so that doubled
-  // remote Sheet service round-trips and could push Web App execution past the
-  // Vercel timeout. Formula cells whose evaluated value is "" are still returned
-  // as blank by getValues(), so the same trimmed-row behavior is preserved.
+  // Read only through the last row containing visible data in the first few
+  // requested columns. Formula-driven sheets can have formulas copied thousands
+  // of rows downward; Sheet.getLastRow() then reports those rows even when the
+  // formulas display "". Scanning up to three leading columns also avoids
+  // dropping a newly written row while its generated ID cell is still blank.
   const sh = kkSheet_(sheetName);
   const physicalLastRow = sh.getLastRow();
   if (physicalLastRow < startRow) return [];
 
   const scanCount = physicalLastRow - startRow + 1;
-  const width = Math.max(Number(numCols || 1), 1);
-  const values = sh.getRange(startRow, startCol, scanCount, width).getValues();
-  const scanCols = Math.min(width, 3);
+  const scanCols = Math.min(Math.max(Number(numCols || 1), 1), 3);
+  const keyValues = sh.getRange(startRow, startCol, scanCount, scanCols).getDisplayValues();
   let lastDataOffset = -1;
-  for (let i = values.length - 1; i >= 0; i--) {
-    let hasVisibleData = false;
-    for (let c = 0; c < scanCols; c++) {
-      const value = values[i][c];
-      if (value !== '' && value !== null && typeof value !== 'undefined' && String(value).trim() !== '') {
-        hasVisibleData = true;
-        break;
-      }
-    }
+  for (let i = keyValues.length - 1; i >= 0; i--) {
+    const hasVisibleData = keyValues[i].some(value => String(value || '').trim() !== '');
     if (hasVisibleData) {
       lastDataOffset = i;
       break;
     }
   }
-  return lastDataOffset < 0 ? [] : values.slice(0, lastDataOffset + 1);
+  if (lastDataOffset < 0) return [];
+  return sh.getRange(startRow, startCol, lastDataOffset + 1, numCols).getValues();
 }
 
 function kkSetupNamedRanges() {
@@ -648,61 +624,26 @@ function kkDirectApplyOverridePriceToWebPackages_(eventId, templateId, overrideP
   const tid = kkNormalizeTemplateIdForEvent_(eid, templateId);
   const hasPrice = !(overridePrice === '' || overridePrice === null || typeof overridePrice === 'undefined');
   const priceValue = hasPrice ? Number(overridePrice) : '';
-  if (hasPrice && (!isFinite(priceValue) || priceValue < 0)) throw new Error('Invalid override price: ' + overridePrice);
+  const targetPackage = kkGetPackageByTemplateId_(tid);
 
   const startRow = 5;
   const rows = kkGetValues_(KK.webPackages, startRow, 1, 14);
-  const exact = [];
-  const fallback = [];
-  let targetPackage = null;
-
+  let updated = 0;
   rows.forEach((row, idx) => {
-    const webPackageId = String(row[0] || '').trim();
-    const webEventId = String(row[1] || '').trim();
-    if (!webPackageId || webEventId !== eid) return;
-    const rowTemplateId = kkNormalizeTemplateIdForEvent_(eid, webPackageId);
-    if (rowTemplateId === tid || webPackageId === tid) {
-      exact.push({ row: row, sheetRow: startRow + idx });
-    }
-  });
-
-  // Only use package-shape fallback when there is NO exact package-id match and the
-  // fallback is unique. Older public rows can have legacy IDs, but applying one
-  // override to multiple same-shape packages is a price-bleed regression.
-  if (!exact.length) {
-    targetPackage = kkGetPackageByTemplateId_(tid);
-    rows.forEach((row, idx) => {
-      const webPackageId = String(row[0] || '').trim();
-      const webEventId = String(row[1] || '').trim();
-      if (!webPackageId || webEventId !== eid) return;
-      const rowType = String(row[2] || '').trim();
-      const rowModel = String(row[3] || '').trim();
-      const rowLens = String(row[5] || '').trim();
-      const pkgType = String(targetPackage.package_type || '').trim();
-      const pkgModel = String(targetPackage.model_group || '').trim();
-      const pkgLens = String(targetPackage.lens_group || '').trim();
-      if (rowType === pkgType && rowModel === pkgModel && kkPriceLensCanonical_(rowLens) === kkPriceLensCanonical_(pkgLens)) {
-        fallback.push({ row: row, sheetRow: startRow + idx });
-      }
-    });
-  }
-
-  const targets = exact.length ? exact : (fallback.length === 1 ? fallback : []);
-  if (!targets.length) {
-    if (fallback.length > 1) Logger.log('Price apply skipped: ambiguous legacy package mapping ' + eid + ' / ' + tid + ' matched ' + fallback.length + ' rows');
-    return 0;
-  }
-
-  targets.forEach(item => {
-    const priceCell = web.getRange(item.sheetRow, 8); // 09_Web_Packages!H
+    if (!kkWebPackageRowMatchesTemplate_(row, eid, tid, targetPackage)) return;
+    const sheetRow = startRow + idx;
+    const priceCell = web.getRange(sheetRow, 8); // 09_Web_Packages!H
     if (hasPrice) {
+      // Write the public-facing price directly. This fixes the real issue where
+      // 04_Event_Overrides saved correctly but 09_Web_Packages!H did not visibly change.
       priceCell.setValue(priceValue);
     } else {
-      priceCell.setFormula(kkWebPackagePriceFormula_(item.sheetRow, tid));
+      priceCell.setFormula(kkWebPackagePriceFormula_(sheetRow, tid));
     }
+    updated++;
   });
   SpreadsheetApp.flush();
-  return targets.length;
+  return updated;
 }
 
 function kkRefreshWebPackagePriceForOverride_(eventId, templateId, overridePrice) {
@@ -714,53 +655,6 @@ function kkRefreshWebPackagePriceForOverride_(eventId, templateId, overridePrice
   const applied = kkDirectApplyOverridePriceToWebPackages_(eventId, templateId, overridePrice);
   SpreadsheetApp.flush();
   return applied || 0;
-}
-
-function kkRepairPriceIntegritySafe() {
-  const lock = kkAcquireDocumentLock_('safe price integrity repair', 12000);
-  try {
-    const rows = kkGetValues_(KK.overrides, 5, 1, 7)
-      .map((row, idx) => ({ row: row, sheetRow: idx + 5 }))
-      .filter(x => String(x.row[0] || '').trim() && String(x.row[1] || '').trim());
-
-    // Latest row wins for each event/template. This mirrors the public LOOKUP rule.
-    const latest = {};
-    rows.forEach(x => {
-      const eid = String(x.row[0] || '').trim();
-      const tid = kkNormalizeTemplateIdForEvent_(eid, x.row[1]);
-      latest[eid + '|' + tid] = {
-        event_id: eid,
-        template_id: tid,
-        override_price: (x.row[2] === '' || x.row[2] === null) ? '' : x.row[2],
-        sheetRow: x.sheetRow
-      };
-    });
-
-    let keys = 0;
-    let webRowsUpdated = 0;
-    let ambiguousOrMissing = 0;
-    let duplicateOverridesCleared = 0;
-    Object.keys(latest).forEach(key => {
-      keys++;
-      const item = latest[key];
-      duplicateOverridesCleared += kkClearOlderOverrideDuplicates_(item.event_id, item.template_id, item.sheetRow);
-      const updated = kkRefreshWebPackagePriceForOverride_(item.event_id, item.template_id, item.override_price);
-      if (updated) webRowsUpdated += updated;
-      else ambiguousOrMissing++;
-    });
-    SpreadsheetApp.flush();
-    kkSafeAlert_(
-      'Price Integrity Repair finished.\n' +
-      'Override keys: ' + keys + '\n' +
-      'Duplicate override rows cleared: ' + duplicateOverridesCleared + '\n' +
-      'Web price rows updated: ' + webRowsUpdated + '\n' +
-      'Ambiguous/missing mappings skipped safely: ' + ambiguousOrMissing + '\n\n' +
-      'No unrelated 09_Web_Packages!H rows were rewritten.'
-    );
-    return { override_keys: keys, duplicate_overrides_cleared: duplicateOverridesCleared, web_price_rows_updated: webRowsUpdated, ambiguous_or_missing: ambiguousOrMissing };
-  } finally {
-    lock.releaseLock();
-  }
 }
 
 function kkFormulaBookingPrice_(rowNumber) {
@@ -997,7 +891,8 @@ function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, exclu
   let found = false;
 
   for (const r of rows) {
-    const rowId = String(r[0] || '').trim();    if (rowId !== assetId) continue;
+    const rowId = String(r[0] || '').trim();
+    if (rowId !== assetId) continue;
     found = true;
     const rowType = String(r[1] || '').toLowerCase().trim();
     const rowModel = String(r[2] || '').trim();
@@ -1031,13 +926,10 @@ function kkCreateEventFromDashboard() {
   const pkgRows = kkRange_('KK_EVENT_PACKAGE_ROWS', KK.dashboard, 'A17:I46').getValues();
   const overrideSheet = kkSheet_(KK.overrides);
   const writtenOverrideKeys = {};
-  const dashboardOverrides = [];
   pkgRows.forEach(row => {
     const usePkg = kkIsTrue_(row[0]);
     const templateId = String(row[1] || '').trim();
-    const rawOverridePrice = row[4];
-    const hasOverridePrice = !(rawOverridePrice === '' || rawOverridePrice === null || typeof rawOverridePrice === 'undefined');
-    const overridePrice = hasOverridePrice ? kkApiNumber_(rawOverridePrice, 'override_price', false) : '';
+    const overridePrice = row[4];
     const hide = kkIsTrue_(row[5]);
     const overrideNote = row[6];
     const sortOverride = row[7];
@@ -1045,27 +937,14 @@ function kkCreateEventFromDashboard() {
     if (!templateId) return;
     const key = eventId + '|' + templateId;
     if (writtenOverrideKeys[key]) return;
-    const shouldWrite = !usePkg || hide || hasOverridePrice || overrideNote !== '' || sortOverride !== '' || useCaseOverride !== '';
+    const shouldWrite = !usePkg || hide || overridePrice !== '' || overrideNote !== '' || sortOverride !== '' || useCaseOverride !== '';
     if (!shouldWrite) return;
     const r = kkFirstEmptyRow_(KK.overrides, 1, 5, 1, 7);
-    const activeOverride = (!usePkg || hide) ? false : '';
-    overrideSheet.getRange(r, 1, 1, 7).setValues([[eventId, templateId, overridePrice, activeOverride, overrideNote || '', sortOverride || '', useCaseOverride || '']]);
-    dashboardOverrides.push({
-      template_id: templateId,
-      override_price: overridePrice,
-      active_override: activeOverride,
-      override_note: overrideNote || '',
-      sort_order_override: sortOverride || '',
-      use_case_override: useCaseOverride || ''
-    });
+    overrideSheet.getRange(r, 1, 1, 7).setValues([[eventId, templateId, overridePrice || '', (!usePkg || hide) ? false : '', overrideNote || '', sortOverride || '', useCaseOverride || '']]);
     writtenOverrideKeys[key] = true;
   });
-
-  // Same price behavior as API create-event: only the just-created event/package
-  // rows are touched. Never rewrite 09_Web_Packages!H for unrelated events.
-  const priceApply = kkApplyCreateEventOverridePricesToWebPackages_(eventId, dashboardOverrides);
   kkRange_('KK_EVENT_CREATED_ID', KK.dashboard, 'B13').setValue(eventId);
-  ui.alert('Created event: ' + eventId + (priceApply.pending ? '\nPrice rows pending: ' + priceApply.pending : ''));
+  ui.alert('Created event: ' + eventId);
 }
 
 function kkNextAssetIds_(assetType, qty) {
@@ -1302,7 +1181,7 @@ function doGet() {
   return kkApiJson_({
     ok: true,
     version: KK_ADMIN_VERSION,
-    spreadsheet_id: kkSpreadsheet_().getId(),
+    spreadsheet_id: SpreadsheetApp.getActive().getId(),
     message: 'KK Phone Rental Admin CRM API is running. Use POST through the Vercel proxy.'
   });
 }
@@ -1624,7 +1503,7 @@ function kkApiSnapshot_(payload) {
     customers: customerStats,
     health: health,
     generated_at: kkApiDateTime_(new Date()),
-    spreadsheet_id: kkSpreadsheet_().getId(),
+    spreadsheet_id: SpreadsheetApp.getActive().getId(),
     admin_api_version: KK_ADMIN_VERSION,
     frontend_sheet_id: phase1Diagnostics.frontend_sheet_id || '',
     phase1_diagnostics: phase1Diagnostics,
@@ -1817,19 +1696,8 @@ function kkSnapshotWebPackagePricesForEvent_(eventId) {
   rows.forEach((row, idx) => {
     if (String(row[1] || '').trim() !== eid) return;
     const sheetRow = idx + 5;
-    const packageId = String(row[0] || '').trim();
-    const templateId = kkNormalizeTemplateIdForEvent_(eid, packageId);
     const cell = sheet.getRange(sheetRow, 8); // 09_Web_Packages!H price
-    snapshot.push({
-      event_id: eid,
-      package_id: packageId,
-      template_id: templateId,
-      package_type: String(row[2] || '').trim(),
-      model_group: String(row[3] || '').trim(),
-      lens_group: String(row[5] || '').trim(),
-      value: cell.getValue(),
-      formula: cell.getFormula()
-    });
+    snapshot.push({ row: sheetRow, value: cell.getValue(), formula: cell.getFormula() });
   });
   return snapshot;
 }
@@ -1837,41 +1705,17 @@ function kkSnapshotWebPackagePricesForEvent_(eventId) {
 function kkRestoreWebPackagePricesForEvent_(snapshot) {
   if (!snapshot || !snapshot.length) return 0;
   const sheet = kkSheet_(KK.webPackages);
-  const currentRows = kkGetValues_(KK.webPackages, 5, 1, 14);
   let restored = 0;
-
   snapshot.forEach(item => {
-    if (!item || !item.event_id) return;
-    const eid = String(item.event_id || '').trim();
-    const tid = String(item.template_id || '').trim();
-    const pid = String(item.package_id || '').trim();
-    const exact = [];
-    const canonical = [];
-
-    currentRows.forEach((row, idx) => {
-      if (String(row[1] || '').trim() !== eid) return;
-      const currentPid = String(row[0] || '').trim();
-      const currentTid = kkNormalizeTemplateIdForEvent_(eid, currentPid);
-      if (pid && currentPid === pid) exact.push(idx + 5);
-      else if (tid && currentTid === tid) canonical.push(idx + 5);
-    });
-
-    const targets = exact.length ? exact : (canonical.length === 1 ? canonical : []);
-    if (!targets.length) return;
-
-    targets.forEach(rowNumber => {
-      const cell = sheet.getRange(rowNumber, 8);
-      if (item.formula) {
-        // Never copy a formula from an old physical row to a new row because its B/A
-        // references are row-relative. Rebuild the formula for the current row instead.
-        cell.setFormula(kkWebPackagePriceFormula_(rowNumber, tid));
-      } else {
-        cell.setValue(item.value);
-      }
-      restored++;
-    });
+    if (!item || !item.row) return;
+    const cell = sheet.getRange(item.row, 8); // 09_Web_Packages!H price
+    // Preserve exactly what was visible before poster/event update.
+    // If it was a manually applied override value, keep that value.
+    // If it was still a formula, keep the formula.
+    if (item.formula) cell.setFormula(item.formula);
+    else cell.setValue(item.value);
+    restored++;
   });
-
   if (restored) SpreadsheetApp.flush();
   return restored;
 }
@@ -1893,6 +1737,11 @@ function kkApiUpdateEvent_(payload) {
     if (payload.poster_url) current[4] = posterInfo.url;
     if (payload.status) current[5] = String(payload.status).toLowerCase().trim();
     const active = kkApiBoolOrBlank_(payload.active_on_web);
+    const currentActive = kkIsTrue_(current[6]);
+    const ownerReopenIntent = String(payload.visibility_owner_intent || '').trim() === 'explicit_owner_reopen';
+    if (currentActive === false && active === true && !ownerReopenIntent) {
+      throw new Error('EVENT_VISIBILITY_OWNER_LOCKED: owner-hidden event requires explicit owner reopen intent');
+    }
     if (active !== '') current[6] = active;
     if (payload.note !== undefined && payload.note !== '') current[7] = payload.note;
     sh.getRange(rowNumber, 1, 1, 8).setValues([current]);
@@ -1996,7 +1845,8 @@ function kkApiUpsertEventOverride_(payload) {
     let templateId = String(payload.template_id || '').trim();
     if (!eventId || !templateId) throw new Error('Please select event and package');
     kkGetEventById_(eventId);
-    templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);    kkGetPackageByTemplateId_(templateId);
+    templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
+    kkGetPackageByTemplateId_(templateId);
     
     const hasOverridePrice = !(payload.override_price === '' || payload.override_price === null || typeof payload.override_price === 'undefined');
     const overridePrice = hasOverridePrice ? kkApiNumber_(payload.override_price, 'override_price', false) : '';
