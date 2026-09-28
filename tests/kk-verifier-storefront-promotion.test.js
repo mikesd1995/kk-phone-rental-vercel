@@ -38,3 +38,29 @@ test('promotion accepts zero-competitor evidenced proposal but still requires ex
  assert.equal(r.status,'READY_FOR_GOVERNED_ADMIN_CREATE');
  assert.equal(r.admin_payload.event_price_overrides[0].override_price,890);
 });
+
+
+test('verifier promotion forces standalone lens package hidden on create',()=>{
+ const r=P.preparePromotion({candidate,verifier_approved:true,owner_publish_allowed:true,final_prices:[
+  {template_id:'TPL-VIVO-X300-PRO-PHONE',override_price:890},
+  {template_id:'TPL-ZEISS-2-35X-LENS',override_price:390,active_override:true},
+  {template_id:'TPL-VIVO-X300-PRO-BUNDLE',override_price:1090}
+ ]});
+ const lens=r.admin_payload.event_price_overrides.find(x=>x.template_id==='TPL-ZEISS-2-35X-LENS');
+ assert.equal(lens.active_override,false);
+});
+
+test('readback fails closed if standalone lens is visible immediately after create',()=>{
+ const plan=P.preparePromotion({candidate,verifier_approved:true,owner_publish_allowed:true,final_prices:[
+  {template_id:'TPL-VIVO-X300-PRO-PHONE',override_price:890},
+  {template_id:'TPL-ZEISS-2-35X-LENS',override_price:390},
+  {template_id:'TPL-VIVO-X300-PRO-BUNDLE',override_price:1090}
+ ]});
+ const r=P.verifyStorefrontReadback(plan,{event:{event_id:'EVT-1',event_name:'Test Event',venue:'IMPACT',active_on_web:true,poster_image_url:'https://example.com/poster.jpg'},packages:[
+  {package_id:'EVT-1-TPL-VIVO-X300-PRO-PHONE',price:890,package_status:'available'},
+  {package_id:'EVT-1-TPL-ZEISS-2-35X-LENS',price:390,package_status:'available'},
+  {package_id:'EVT-1-TPL-VIVO-X300-PRO-BUNDLE',price:1090,package_status:'available'}
+ ]});
+ assert.equal(r.status,'PROMOTION_READBACK_FAILED');
+ assert.ok(r.blockers.includes('LENS_ONLY_VISIBLE_ON_CREATE:TPL-ZEISS-2-35X-LENS'));
+});
