@@ -96,10 +96,14 @@ Fail closed when any of these are true:
 - event hashtags have not been verified for the current event context;
 - copy uses a hashtag that was synthesized from an event name or is absent from the verified hashtag set;
 - canonical date or venue is repeated in the hook and the Date/Venue block without a deliberate timing reason;
-- Standard A ordering is broken;
+- business-critical copy is missing (brand identity, verified commercial offer, required date/venue facts, or booking CTA for a commercial post);
 - event, pricing, or inventory truth is unverified;
-- the direct-rental batch does not contain exactly three distinct internal candidates;
+- copy uses unverified/synthesized hashtags;
+- recent-copy or internal-candidate similarity crosses the anti-repeat threshold;
+- the batch does not contain exactly three distinct internal candidates;
 - any internal candidate fails QA; selection must not proceed until all three pass.
+
+Do **not** fail a post merely because hook, price, context, benefits, emoji, or paragraph blocks appear in a different order. Creative structure is intentionally flexible once the hard facts are present and correct.
 
 The QA gate is a read-only validator. It never publishes or mutates business truth.
 
@@ -109,14 +113,21 @@ For every KK social-post request, the owner-facing output is **one final post on
 
 The system still generates three candidates internally so Marketing/Strategy can compare genuinely different angles. After all three pass QA, `kk-content-selector` ranks them against the current Marketing objective.
 
-Default awareness/reach weighting:
+Default awareness/reach weighting now also evaluates creative quality rather than only structural compliance:
 
-- Hook / stop-scroll strength: 30%
-- Event + fandom relevance: 25%
-- Timing relevance: 15%
-- Novelty / anti-repeat: 15%
-- Verified hashtag relevance: 10%
-- Readability on X: 5%
+- Hook / stop-scroll strength
+- Event + fandom relevance
+- Timing relevance
+- Novelty / anti-repeat
+- Verified hashtag relevance
+- Readability on X
+- Event specificity
+- Naturalness
+- Non-template feel
+- Hook originality
+- Sales-pressure balance
+
+Exact weights are owned by `kk-content-selector` and versioned in code.
 
 For conversion-oriented campaigns, the selector shifts weight toward timing and commercial relevance while preserving hook/event relevance.
 
@@ -124,24 +135,36 @@ When `17_Content_Performance` has fewer than three measured posts for useful evi
 
 Public output contract: `SINGLE_FINAL_POST`, count = 1. Do not show alternatives unless the owner explicitly asks to inspect them.
 
-## Standard A — X direct-rental post order
+## Creative freedom + hard gates for X rental posts
 
-Use this as the default structure for KK Phone Rental rental posts on X:
+The historical Standard A order remains a useful **baseline**, not a rigid template.
 
-1. Brand: 📱 KK Phone Rental | #เช่ามือถือ
-2. Official/main event hashtag
-3. Event-specific hook from Content Agent
-4. Device + verified rental price
-5. Date / venue when useful
-6. Store benefits
-7. Booking CTA
-8. 3–5 strongest relevant reach hashtags
-
-Canonical order:
+Preferred baseline when it fits the event:
 
 **Brand → Event hashtag → Hook → Offer/price → Date/Venue → Benefits → Booking CTA → Reach hashtags**
 
-The hook must appear before the price block by default because the current strategy prioritizes stopping power and qualified organic reach before conversion detail. Date/venue follows the offer unless a specific event context makes earlier placement materially more useful. Do not change this order casually; deviations should be deliberate experiments and logged as such.
+Hard requirements are narrower:
+
+- brand line stays first;
+- verified event facts only;
+- live approved price/inventory only;
+- official/verified hashtags only;
+- canonical date/venue must be accurate and not duplicated;
+- commercial posts must include the booking CTA;
+- exactly three meaningfully different internal candidates;
+- anti-repeat must pass;
+- QA and Selector must pass.
+
+Everything else may move: hook position, offer position, event-context paragraph, emoji density, paragraph rhythm, CTA lead-in, and tone.
+
+Quality direction to preserve:
+- specific to the event/fandom rather than generic concert copy;
+- organic and human rather than template-first;
+- vivid but concise;
+- sales pressure balanced with audience value;
+- transition back to the rental use case naturally.
+
+The liked **Khom Khlang** direction is a style-quality reference: event-specific hook, a natural emotional bridge, then the rental relevance. It is **not** a phrase bank or template to copy.
 
 ## X copy contract
 
@@ -187,6 +210,8 @@ Interpret metrics by objective:
 - conversion → bookings / link clicks.
 
 Do not call an angle a reliable winner from one post. The current minimum evidence nudge is three measured posts; 3–7 is medium confidence and 8+ is high confidence.
+
+This is **evidence-based adaptation**, not autonomous retraining. The system does not self-modify its model or rewrite its own code from post performance.
 
 Use 19_Content_Experiments for explicit A/B hypotheses so changes are traceable instead of anecdotal.
 
