@@ -6,6 +6,16 @@
 const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_10_RECONCILED_PRICE_INTEGRITY_OWNER_GUARD';
 const KK_PHASE1_DIRECT_FALLBACK_DISABLED = false;
 
+// Reconciled from deployed 9_5_9 recovery: cache handles only for one Apps Script execution.
+// Business data is not cached and nothing persists between requests.
+let KK_ACTIVE_SPREADSHEET_CACHE_ = null;
+const KK_SHEET_HANDLE_CACHE_ = {};
+
+function kkSpreadsheet_() {
+  if (!KK_ACTIVE_SPREADSHEET_CACHE_) KK_ACTIVE_SPREADSHEET_CACHE_ = SpreadsheetApp.getActive();
+  return KK_ACTIVE_SPREADSHEET_CACHE_;
+}
+
 const KK = {
   dashboard: '00_Admin_Dashboard',
   events: '01_Events',
@@ -151,13 +161,13 @@ function kkErrorLog_(action, payload, err, startedAt) {
 }
 
 function kkSheetExists_(name) {
-  return !!SpreadsheetApp.getActive().getSheetByName(name);
+  return !!kkSpreadsheet_().getSheetByName(name);
 }
 
 function kkPhase1Diagnostics_(payload) {
   const props = PropertiesService.getScriptProperties();
   const frontendSheetId = payload && payload.frontendSheetId ? String(payload.frontendSheetId).trim() : '';
-  const spreadsheetId = SpreadsheetApp.getActive().getId();
+  const spreadsheetId = kkSpreadsheet_().getId();
   return {
     admin_api_version: KK_ADMIN_VERSION,
     spreadsheet_id: spreadsheetId,
@@ -188,8 +198,11 @@ function kkShowPhase1Health() {
 }
 
 function kkSheet_(name) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(name);
-  if (!sh) throw new Error('Missing sheet: ' + name);
+  const key = String(name || '');
+  if (KK_SHEET_HANDLE_CACHE_[key]) return KK_SHEET_HANDLE_CACHE_[key];
+  const sh = kkSpreadsheet_().getSheetByName(key);
+  if (!sh) throw new Error('Missing sheet: ' + key);
+  KK_SHEET_HANDLE_CACHE_[key] = sh;
   return sh;
 }
 
@@ -202,28 +215,37 @@ function kkGetDynamicRange_(sheetName, startRow, startCol, numCols) {
 }
 
 function kkGetValues_(sheetName, startRow, startCol, numCols) {
-  // Read only through the last row containing visible data in the first few
-  // requested columns. Formula-driven sheets can have formulas copied thousands
-  // of rows downward; Sheet.getLastRow() then reports those rows even when the
-  // formulas display "". Scanning up to three leading columns also avoids
-  // dropping a newly written row while its generated ID cell is still blank.
+  // Recovery performance hotfix:
+  // Use ONE Sheets service read per dataset. The previous implementation first
+  // called getDisplayValues() to find the last visible row, then called getValues()
+  // again for the same dataset. Snapshot reads touch many sheets, so that doubled
+  // remote Sheet service round-trips and could push Web App execution past the
+  // Vercel timeout. Formula cells whose evaluated value is "" are still returned
+  // as blank by getValues(), so the same trimmed-row behavior is preserved.
   const sh = kkSheet_(sheetName);
   const physicalLastRow = sh.getLastRow();
   if (physicalLastRow < startRow) return [];
 
   const scanCount = physicalLastRow - startRow + 1;
-  const scanCols = Math.min(Math.max(Number(numCols || 1), 1), 3);
-  const keyValues = sh.getRange(startRow, startCol, scanCount, scanCols).getDisplayValues();
+  const width = Math.max(Number(numCols || 1), 1);
+  const values = sh.getRange(startRow, startCol, scanCount, width).getValues();
+  const scanCols = Math.min(width, 3);
   let lastDataOffset = -1;
-  for (let i = keyValues.length - 1; i >= 0; i--) {
-    const hasVisibleData = keyValues[i].some(value => String(value || '').trim() !== '');
+  for (let i = values.length - 1; i >= 0; i--) {
+    let hasVisibleData = false;
+    for (let c = 0; c < scanCols; c++) {
+      const value = values[i][c];
+      if (value !== '' && value !== null && typeof value !== 'undefined' && String(value).trim() !== '') {
+        hasVisibleData = true;
+        break;
+      }
+    }
     if (hasVisibleData) {
       lastDataOffset = i;
       break;
     }
   }
-  if (lastDataOffset < 0) return [];
-  return sh.getRange(startRow, startCol, lastDataOffset + 1, numCols).getValues();
+  return lastDataOffset < 0 ? [] : values.slice(0, lastDataOffset + 1);
 }
 
 function kkSetupNamedRanges() {
@@ -1557,7 +1579,7 @@ function kkApiSnapshot_(payload) {
     customers: customerStats,
     health: health,
     generated_at: kkApiDateTime_(new Date()),
-    spreadsheet_id: SpreadsheetApp.getActive().getId(),
+    spreadsheet_id: kkSpreadsheet_().getId(),
     admin_api_version: KK_ADMIN_VERSION,
     frontend_sheet_id: phase1Diagnostics.frontend_sheet_id || '',
     phase1_diagnostics: phase1Diagnostics,
