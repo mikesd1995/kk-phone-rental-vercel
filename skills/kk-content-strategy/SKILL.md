@@ -41,6 +41,16 @@ Commercial/rental posts additionally require current event, pricing, displayed o
 
 The request router is server/kk-content-request-router.js. Any post request that enters the gateway fails closed if one mandatory stage is missing.
 
+## Chat bridge enforcement
+
+When the content request originates from ChatGPT and a GitHub connector is available, do not treat a direct chat draft as proof that the project Agents ran.
+
+Use the GitHub issue bridge defined in `docs/CHAT_CONTENT_AGENT_BRIDGE_2026-09-28.md`:
+
+**Chat verified facts + 3 internal candidates → GitHub bridge issue → Agent Gateway → QA → Selector → persistent result comment → Owner Review**
+
+A final chat response may say the Agent pipeline was used only after reading back a PASS bridge comment with an invocation ID and the complete required/invoked Agent chain. If the bridge is blocked or no result comment is available, fail closed rather than bypassing to an unverified direct final post.
+
 ## Growth model
 
 Use a rolling content-calendar target of approximately:
