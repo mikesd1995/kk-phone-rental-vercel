@@ -297,7 +297,12 @@ function kkSlug_(text) {
 }
 
 function kkDateObj_(value) {
-  const d = value instanceof Date ? value : new Date(value);
+  if (value instanceof Date) return value;
+  const raw = String(value == null ? '' : value).trim();
+  const dmy = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const d = dmy
+    ? new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]))
+    : new Date(value);
   if (isNaN(d.getTime())) throw new Error('Invalid date: ' + value);
   return d;
 }
