@@ -81,6 +81,25 @@ If an existing Core event has `active_on_web=false`:
 
 A hidden Core event may still satisfy lineage/presence accounting. Hidden does not mean missing.
 
+## Publish eligibility vs pricing confidence
+
+Verifier must treat these as separate decisions:
+
+- **Publish eligibility** answers whether a verified event is worth offering for KK Phone Rental, using rental-fit score, fandom/engagement, event format, venue/scale, and inventory opportunity cost.
+- **Pricing confidence** answers how strong the price evidence is.
+- Missing exact-event competitor pricing is never, by itself, a publish blocker when rental-fit eligibility passes.
+- If exact-event competitor evidence is absent and an owner-approved fallback pricing policy resolves package prices, publication may proceed.
+- For Friday–Sunday events with zero exact-event competitor evidence, the fallback price must carry `PROVISIONAL_NEEDS_PRICE_RECHECK` / `needs_price_recheck=true` so Competitor Watch can recalibrate it later.
+- Verifier must not convert a provisional price into a claim of market-confirmed pricing.
+- Low rental-fit candidates may be rejected as `REJECTED_LOW_RENTAL_FIT`; do not mislabel them as competitor-evidence failures.
+
+## Booking-close vs event-close semantics
+
+- Closing booking means the event card remains visible and package availability may resolve to `show_full` / `เต็มแล้ว`.
+- Closing the event means the event card is hidden (`active_on_web=false` / `hide`).
+- Verifier must never infer an event close merely because all packages are hidden or availability is zero.
+- Existing owner-hidden events remain protected by the owner visibility lock and must not be recreated as new visible events.
+
 ## Acceptance output
 
 Only produce a final governed handoff when all current control-plane requirements are satisfied. External evidence must retain provenance and the final record must remain attributable to the Verifier decision, not to an AI provider.
