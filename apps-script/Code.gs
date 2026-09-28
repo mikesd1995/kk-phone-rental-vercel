@@ -474,7 +474,7 @@ function kkAssetIsRentableAvailable_(statusValue, rentableValue) {
 // Phase 3.6.10: G2 was removed from the production asset database.
 // Keep only ZEISS_2_35X / G1 as compatible lens aliases for the public Vivo X300 Pro + Lens package.
 // Do NOT recreate a G2 row in Model_Master and do NOT count deleted G2 assets in public stock.
-const KK_LENS_COMPAT_PATCH_VERSION = 'v16.7.0_PHASE3_9_5_10_LENS_ONLY_AUTO_GUARD_20260928';
+const KK_LENS_COMPAT_PATCH_VERSION = 'v16.7.0_PHASE3_9_5_11_SAME_DAY_INVENTORY_20260928';
 const KK_COMPATIBLE_ZEISS_LENS_GROUPS = ['ZEISS_2_35X', 'G1'];
 
 function kkIsRetiredG2LensGroup_(modelGroup) {
@@ -509,25 +509,25 @@ function kkFormulaLensAssetCount_(rowNumber) {
   return `IF(REGEXMATCH(UPPER(REGEXREPLACE(${f},"[^A-Za-z0-9]","")),"^G2$"),0,SUM(COUNTIFS('02_Assets'!$B$5:$B$1000,"lens",'02_Assets'!$C$5:$C$1000,${kkFormulaLensCriteria_(f)},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)))`;
 }
 
-function kkFormulaActiveBookingCount_(eventDateExpr, packageRegex) {
-  // Reserve stock from the booking itself, not only after an asset ID is assigned.
+function kkFormulaActiveBookingCount_(eventIdExpr, packageRegex) {
+  // Reserve stock by the date encoded in event_id (EVT-YYYYMMDD-...), not by raw
+  // sheet date-cell equality. This makes same-day inventory collision-safe even when
+  // one event row contains a native Date and another was imported as dd/mm/yyyy text.
   // Active holds are pending / confirmed / prepared / picked_up.
-  // This prevents public stock from showing available when a valid booking exists
-  // but the physical phone/lens has not been assigned yet.
-  return `SUMPRODUCT(N('00_Master_Booking'!$V$5:$V$1000=${eventDateExpr}),N(REGEXMATCH(LOWER('00_Master_Booking'!$C$5:$C$1000),"^(pending|confirmed|prepared|picked_up)$")),N(REGEXMATCH(LOWER('00_Master_Booking'!$I$5:$I$1000),"^(${packageRegex})$")))`;
+  const bookingDayKey = `MID('00_Master_Booking'!$D$5:$D$1000,5,8)`;
+  const eventDayKey = `MID(${eventIdExpr},5,8)`;
+  return `SUMPRODUCT(N(${bookingDayKey}=${eventDayKey}),N(REGEXMATCH(LOWER('00_Master_Booking'!$C$5:$C$1000),"^(pending|confirmed|prepared|picked_up)$")),N(REGEXMATCH(LOWER('00_Master_Booking'!$I$5:$I$1000),"^(${packageRegex})$")))`;
 }
 
 function kkFormulaLensBookedCount_(rowNumber) {
   const f = 'F' + rowNumber;
-  const eventDate = `IFERROR(VLOOKUP(B${rowNumber},'01_Events'!$A$5:$C$1000,3,FALSE),"")`;
-  const booked = kkFormulaActiveBookingCount_(eventDate, 'lens_only|phone_lens_bundle');
+  const booked = kkFormulaActiveBookingCount_(`B${rowNumber}`, 'lens_only|phone_lens_bundle');
   return `IF(REGEXMATCH(UPPER(REGEXREPLACE(${f},"[^A-Za-z0-9]","")),"^G2$"),0,${booked})`;
 }
 
 function kkFormulaPhoneRawCount_(rowNumber) {
   const r = rowNumber;
-  const eventDate = `IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$C$1000,3,FALSE),"")`;
-  const booked = kkFormulaActiveBookingCount_(eventDate, 'phone_only|phone_lens_bundle');
+  const booked = kkFormulaActiveBookingCount_(`B${r}`, 'phone_only|phone_lens_bundle');
   return `(COUNTIFS('02_Assets'!$B$5:$B$1000,"phone",'02_Assets'!$C$5:$C$1000,D${r},'02_Assets'!$E$5:$E$1000,"available",'02_Assets'!$G$5:$G$1000,TRUE)-${booked})`;
 }
 
