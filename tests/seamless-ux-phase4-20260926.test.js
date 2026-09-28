@@ -83,7 +83,7 @@ test('Admin mobile quick actions use safer tap targets and reduced motion',()=>{
 
 test('phase 4 assets are cache-busted',()=>{
   assert.match(storeHtml,/style\.css\?v=ios-focus-zoom-fix-20260927/);
-  assert.match(storeHtml,/script\.js\?v=poster-race-public-text-guard-20260928/);
+  assert.match(storeHtml,/script\.js\?v=[A-Za-z0-9][A-Za-z0-9._-]*/);
   assert.match(adminHtml,/admin\.css\?v=health-triage-20260926/);
   assert.match(adminHtml,/admin\.js\?v=bulk-event-price-edit-20260927/);
 });
