@@ -46,3 +46,32 @@ test('9_5_10 candidate is a new reconciled candidate, not either source artifact
   assert.ok(candidate.includes('Never copy a formula from an old physical row to a new row'));
   assert.ok(candidate.includes('Invalid override price'));
 });
+
+
+test('9_5_10 candidate also carries the documented 9_5_9 runtime hotfix functions exactly', () => {
+  for (const name of [
+    'kkSheetExists_',
+    'kkPhase1Diagnostics_',
+    'kkSheet_',
+    'kkGetValues_',
+    'kkApiSnapshot_'
+  ]) {
+    assert.equal(
+      extractTopLevelFunction(candidate, name),
+      extractTopLevelFunction(recovered, name),
+      name + ' must match the recovered runtime-hotfix lineage exactly'
+    );
+  }
+  assert.ok(candidate.includes('let KK_ACTIVE_SPREADSHEET_CACHE_ = null;'));
+  assert.ok(candidate.includes('const KK_SHEET_HANDLE_CACHE_ = {};'));
+  assert.ok(candidate.includes('function kkSpreadsheet_() {'));
+  assert.ok(candidate.includes('if (!KK_ACTIVE_SPREADSHEET_CACHE_) KK_ACTIVE_SPREADSHEET_CACHE_ = SpreadsheetApp.getActive();'));
+  assert.ok(candidate.includes('Use ONE Sheets service read per dataset'));
+  assert.ok(candidate.includes('spreadsheet_id: kkSpreadsheet_().getId()'));
+});
+
+test('runtime hotfix reconciliation does not remove the owner-hidden visibility guard', () => {
+  assert.equal(extractTopLevelFunction(candidate, 'kkApiUpdateEvent_'), extractTopLevelFunction(canonical, 'kkApiUpdateEvent_'));
+  assert.ok(candidate.includes('EVENT_VISIBILITY_OWNER_LOCKED'));
+  assert.ok(candidate.includes('explicit_owner_reopen'));
+});
