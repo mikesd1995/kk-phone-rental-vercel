@@ -8,7 +8,6 @@ const ContentSelector = require('./kk-content-selector.js');
 const DIRECT_RENTAL_PATTERNS = Object.freeze([
   /ขอ(?:โพส|โพสต์).*ปล่อยเช่า/i,
   /(?:โพส|โพสต์).*ปล่อยเช่า/i,
-  /ขอ(?:โพส|โพสต์).*งาน.*(?:บน\s*)?(?:x|twitter)/i,
   /(?:ปล่อยเช่า|เช่ามือถือ).*(?:บน\s*)?(?:x|twitter)/i,
   /(?:x|twitter).*(?:ปล่อยเช่า|เช่ามือถือ)/i,
   /rental.*(?:post|copy).*(?:x|twitter)/i
