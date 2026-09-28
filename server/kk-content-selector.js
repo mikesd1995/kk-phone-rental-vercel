@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_CONTENT_SELECTOR_V1';
+const VERSION='KK_CONTENT_SELECTOR_V2';
 const SAFETY=Object.freeze({
   authority:'READ_ONLY_SELECTOR',
   human_approval_required:true,
@@ -11,29 +11,44 @@ const SAFETY=Object.freeze({
 
 const PROFILES=Object.freeze({
   awareness:Object.freeze({
-    hook_strength:0.30,
-    event_fandom_relevance:0.25,
-    timing_relevance:0.15,
-    novelty:0.15,
-    hashtag_relevance:0.10,
-    readability:0.05
+    hook_strength:0.20,
+    event_fandom_relevance:0.15,
+    timing_relevance:0.10,
+    novelty:0.10,
+    hashtag_relevance:0.05,
+    readability:0.05,
+    event_specificity:0.10,
+    naturalness:0.10,
+    non_template_feel:0.08,
+    hook_originality:0.05,
+    sales_pressure_balance:0.02
   }),
   engagement:Object.freeze({
-    hook_strength:0.25,
-    event_fandom_relevance:0.25,
-    timing_relevance:0.15,
-    novelty:0.15,
-    hashtag_relevance:0.10,
-    readability:0.10
-  }),
-  conversion:Object.freeze({
     hook_strength:0.20,
     event_fandom_relevance:0.20,
-    timing_relevance:0.20,
+    timing_relevance:0.10,
     novelty:0.10,
-    hashtag_relevance:0.10,
+    hashtag_relevance:0.05,
     readability:0.05,
-    commercial_relevance:0.15
+    event_specificity:0.10,
+    naturalness:0.07,
+    non_template_feel:0.06,
+    hook_originality:0.05,
+    sales_pressure_balance:0.02
+  }),
+  conversion:Object.freeze({
+    hook_strength:0.15,
+    event_fandom_relevance:0.15,
+    timing_relevance:0.15,
+    novelty:0.05,
+    hashtag_relevance:0.05,
+    readability:0.05,
+    commercial_relevance:0.15,
+    event_specificity:0.07,
+    naturalness:0.05,
+    non_template_feel:0.05,
+    hook_originality:0.03,
+    sales_pressure_balance:0.05
   })
 });
 
@@ -117,7 +132,8 @@ function selectWinner(candidates=[],ctx={}){
       score:winnerScore.score,
       copy:text(winner.copy)
     }:null,
-    interpretation_rule:'Winner score estimates fit to the current objective from available evidence. It is not a guarantee of maximum reach or bookings.',
+    interpretation_rule:'Winner score estimates fit to the current objective from verified facts, creative-quality signals and available performance evidence. It is not a guarantee of maximum reach or bookings.',
+    learning_rule:'Performance history may nudge selection after enough measured posts exist. This is evidence-based adaptation, not autonomous retraining or self-modifying AI.',
     safety:SAFETY
   };
 }
