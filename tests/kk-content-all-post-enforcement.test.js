@@ -13,6 +13,11 @@ function metrics(overrides={}){
     novelty:84,
     hashtag_relevance:82,
     readability:90,
+    event_specificity:88,
+    naturalness:90,
+    non_template_feel:88,
+    hook_originality:86,
+    sales_pressure_balance:90,
     ...overrides
   };
 }

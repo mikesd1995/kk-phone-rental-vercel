@@ -5,6 +5,7 @@ const QA=require('../server/kk-content-qa-gate.js');
 
 const input={
  verified_event:true,verified_pricing:true,inventory_available:true,
+ price_display:'vivo X300 Pro 790฿ | เพิ่ม Lens +200฿',
  official_event_hashtag:'#THEMOMENT_ARENAENCORE',
  verified_hashtags:['#THEMOMENT_ARENAENCORE','#NONTTANONT','#nontfam','#นนท์แฟม','#เช่ามือถือ'],
  date_display:'3–4 ต.ค.',venue:'IMPACT ARENA'
@@ -51,18 +52,18 @@ test('fails closed when hashtag evidence was not verified',()=>{
  assert.match(r.errors.join('|'),/HASHTAGS_NOT_VERIFIED/);
 });
 test('direct rental QA requires exactly three distinct internal candidates',()=>{
- const a=base('Hook ที่หนึ่ง');
- const b=base('Hook ที่สอง');
- const c=base('Hook ที่สาม');
+ const a=base('เวทีรอบนี้เล่นกับแสงและภาพใหญ่ ใครชอบเก็บช็อตรวมทั้งฮอลล์น่าจะมีมุมให้เล่นเยอะ');
+ const b=base('แฟนที่รอ ENCORE รอบนี้น่าจะอยากเก็บทั้งเสียงร้องและรีแอคชันช่วงสำคัญให้ครบ');
+ const c=base('ถ้าอยากลดความวุ่นวายก่อนเข้าฮอลล์ ร้านเตรียมเครื่องและสอนใช้ให้ก่อนเวลาได้');
  assert.equal(QA.validateVariants([a,b,c],input).gate,'PASS');
  assert.equal(QA.validateVariants([a],input).gate,'BLOCKED');
  assert.match(QA.validateVariants([a,a,c],input).errors.join('|'),/DUPLICATE_INTERNAL_CANDIDATE_COPY/);
 });
 
 test('structured internal candidates must use distinct angles',()=>{
- const a={copy:base('Hook A'),angle:'event_theme'};
- const b={copy:base('Hook B'),angle:'fandom'};
- const c={copy:base('Hook C'),angle:'convenience'};
+ const a={copy:base('เวทีรอบนี้เล่นกับแสงและภาพใหญ่ เหมาะกับการเก็บบรรยากาศกว้าง'),angle:'event_theme'};
+ const b={copy:base('แฟนที่รอ ENCORE น่าจะอยากเก็บโมเมนต์ร้องสดและรีแอคชันช่วงสำคัญ'),angle:'fandom'};
+ const c={copy:base('ลดความวุ่นวายก่อนเข้าฮอลล์ด้วยการเตรียมเครื่องและเรียนรู้การใช้ก่อนเวลา'),angle:'convenience'};
  assert.equal(QA.validateVariants([a,b,c],input).gate,'PASS');
  assert.match(QA.validateVariants([a,{...b,angle:'event_theme'},c],input).errors.join('|'),/DUPLICATE_INTERNAL_CANDIDATE_ANGLE/);
 });

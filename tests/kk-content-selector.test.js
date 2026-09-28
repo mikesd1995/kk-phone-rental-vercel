@@ -12,7 +12,12 @@ const strong={
  timing_relevance:82,
  novelty:88,
  hashtag_relevance:100,
- readability:90
+ readability:90,
+ event_specificity:94,
+ naturalness:92,
+ non_template_feel:90,
+ hook_originality:91,
+ sales_pressure_balance:88
 };
 const medium={
  hook_strength:80,
@@ -20,7 +25,12 @@ const medium={
  timing_relevance:75,
  novelty:76,
  hashtag_relevance:95,
- readability:86
+ readability:86,
+ event_specificity:82,
+ naturalness:84,
+ non_template_feel:80,
+ hook_originality:78,
+ sales_pressure_balance:82
 };
 
 test('awareness selector emits one winner from three internal QA-passing candidates',()=>{
@@ -76,4 +86,18 @@ test('performance support only nudges selection after minimum measured evidence 
  assert.equal(cold.evidence_state,'RULE_BASED_COLD_START');
  assert.equal(informed.evidence_state,'PERFORMANCE_INFORMED');
  assert.ok(informed.scored_candidates.find(x=>x.id==='a').score > cold.scored_candidates.find(x=>x.id==='a').score);
+});
+
+
+test('selector prefers organic event-specific copy over rigid template when factual QA is equal',()=>{
+ const rigid={...strong,event_specificity:75,naturalness:62,non_template_feel:45,hook_originality:60,sales_pressure_balance:55};
+ const khomStyle={...strong,hook_strength:90,event_specificity:98,naturalness:97,non_template_feel:96,hook_originality:94,sales_pressure_balance:92};
+ const result=Selector.selectWinner([
+   candidate('rigid','conversion',rigid),
+   candidate('organic','event_theme',khomStyle),
+   candidate('neutral','trust',{...medium,event_specificity:88,naturalness:89,non_template_feel:87,hook_originality:85,sales_pressure_balance:90})
+ ],{objective:'awareness',measured_posts:0});
+ assert.equal(result.gate,'PASS');
+ assert.equal(result.winner.id,'organic');
+ assert.match(result.learning_rule,/not autonomous retraining/i);
 });
