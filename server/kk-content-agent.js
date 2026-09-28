@@ -39,8 +39,9 @@ const COPY_CONTRACT = Object.freeze({
 const ANTI_REPEAT_CONTRACT = Object.freeze({
   recent_post_window: 12,
   direct_rental_variant_count: 3,
+  all_post_variant_count: 3,
   public_output_count: 1,
-  distinct_angle_rule: 'Each direct-rental variant must use a substantively different primary angle and hook logic, not a synonym swap.',
+  distinct_angle_rule: 'Each internal post candidate must use a substantively different primary angle and hook logic, not a synonym swap.',
   recent_copy_rule: 'Do not reuse recent hook wording, sentence skeletons, metaphors, or generic filler when recent copy is provided.',
   factuality_rule: 'Novelty never permits invented event lore. If event-specific context is not verified, use neutral factual phrasing.'
 });
@@ -230,6 +231,9 @@ function buildCreativePlan(input = {}, performanceRows = []) {
     event: cleanText(input.event),
     artist: cleanText(input.artist),
     venue: cleanText(input.venue),
+    requested_intent: cleanText(input.requested_intent),
+    commercial_truth_required: input.commercial_truth_required === true ||
+      cleanText(input.requested_intent).toLowerCase() === 'direct_rental_x',
     event_context: {
       event_theme_notes: cleanText(input.event_theme_notes),
       fandom_notes: cleanText(input.fandom_notes),
@@ -258,10 +262,10 @@ function buildCreativePlan(input = {}, performanceRows = []) {
       'Performance evidence is a nudge, not an automatic winner-selection system; preserve creative diversity.',
       'Useful/engagement content should lead with audience value. Add a rental mention only when it improves relevance.',
       'Direct rental copy is allowed only when readiness.commercial_ready is true.',
-      'For a direct-rental X request, generate exactly three internal candidates with different primary angles and different hook structures. Do not expose all candidates to the owner.',
+      'For every publishable KK social-post request, generate exactly three internal candidates with different primary angles and different hook structures. Do not expose all candidates to the owner.',
       'Each internal candidate must include selector metrics from 0–100 for hook_strength, event_fandom_relevance, timing_relevance, novelty, hashtag_relevance, readability, and commercial_relevance when the marketing objective is conversion.',
       'After QA, the selector chooses exactly one final post for Owner Review. Public output must contain only that winner unless the owner explicitly asks to inspect alternatives.',
-      'Use the Standard A direct-rental layout: Brand → Event hashtag → Hook → Offer/price → Date/Venue → Benefits → Booking CTA → reach hashtags.',
+      'Use the Standard A direct-rental layout for commercial rental posts: Brand → Event hashtag → Hook → Offer/price → Date/Venue → Benefits → Booking CTA → reach hashtags. For non-commercial posts, keep the KK brand first and apply only the factual/hashtag blocks that are relevant.',
       'Do not make cosmetic rewrites: changing emoji, synonyms, or sentence order does not count as a distinct variant.',
       'Compare against anti_repeat_context.recent_posts and avoid repeated hooks, metaphors, sentence skeletons, and generic filler.',
       'All public copy requires owner review before publishing.'
@@ -295,7 +299,7 @@ function buildGenerationPrompt(plan) {
     `Ideas: ${JSON.stringify(plan.creative_ideas)}`,
     `Recent copy to avoid repeating: ${JSON.stringify(antiRepeat.recent_posts || [])}`,
     `Rules: ${JSON.stringify(plan.generation_rules)}`,
-    'For a publishable direct-rental X request, draft exactly 3 INTERNAL candidates; do not present all three as public output.',
+    'For every publishable KK social-post request, draft exactly 3 INTERNAL candidates; do not present all three as public output.',
     'Candidate 1, Candidate 2, and Candidate 3 must use different primary content angles and visibly different hook logic.',
     'For each candidate, include selector metrics (0–100): hook_strength, event_fandom_relevance, timing_relevance, novelty, hashtag_relevance, readability, and commercial_relevance when objective=conversion.',
     'The downstream selector will choose exactly one winner. Only that winner is shown to the owner.',

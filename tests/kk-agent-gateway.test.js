@@ -25,7 +25,7 @@ function goodPayload() {
 }
 
 test('registry keeps content mandatory and exposes provider-gated scanner truth', () => {
-  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V16');
+  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V17');
   const content = Registry.routeForIntent('direct_rental_x');
   assert.deepEqual(content.required_agents, ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa', 'kk-content-selector']);
   assert.equal(content.runtime_available, true);
@@ -69,6 +69,62 @@ test('content gateway fail-closes commercial truth and ledger failures', async (
   });
   assert.equal(ledgerDown.status, 'BLOCKED_LEDGER_UNAVAILABLE');
   assert.equal(ledgerDown.route.generation_prompt, undefined);
+});
+
+test('all explicit KK post forms require the full five-agent pipeline', async () => {
+  const ledgerFn = async row => ({ok:true, inserted:true, invocation_id:row.invocation_id});
+  const cases = [
+    {
+      message: 'ขอโพสรวมงานอาทิตย์นี้บน X',
+      input: {event:'Weekly roundup', verified_event:true, commercial_truth_required:false}
+    },
+    {
+      message: 'ช่วยเขียนโพสต์ awareness ให้ KK Phone Rental',
+      input: {commercial_truth_required:false, primary_objective:'awareness'}
+    },
+    {
+      message: 'ทำ Last Call โพสต์คืนนี้ให้หน่อย',
+      input: {event:'Example Event', verified_event:true, commercial_truth_required:false}
+    },
+    {
+      message: 'ช่วยรีเฟรชโพสต์โปรโมตงานนี้',
+      input: {event:'Example Event', verified_event:true, commercial_truth_required:false}
+    }
+  ];
+
+  for (const payload of cases) {
+    const result = await Gateway.executeAgentRequest(payload, {ledgerFn});
+    assert.equal(result.status, 'READY_FOR_OWNER_REVIEW');
+    assert.deepEqual(result.invocation.required_agents, ['kk-marketing-agent','kk-content-strategy','kk-content-agent','kk-content-qa','kk-content-selector']);
+    assert.deepEqual(result.invocation.invoked_agents, ['kk-marketing-agent','kk-content-strategy','kk-content-agent','kk-content-qa','kk-content-selector']);
+    assert.equal(result.route.selector_required, true);
+    assert.equal(result.route.internal_candidate_count, 3);
+    assert.equal(result.route.public_output_count, 1);
+    assert.equal(result.route.public_output_mode, 'SINGLE_FINAL_POST');
+  }
+});
+
+test('content gateway blocks partial post pipelines even when a route claims PASS', async () => {
+  const result = await Gateway.executeAgentRequest({
+    message:'ขอโพสรวมงานอาทิตย์นี้บน X',
+    input:{event:'Weekly roundup',verified_event:true,commercial_truth_required:false}
+  },{
+    contentRouteFn: () => ({
+      matched:true,
+      marketing_required:true,
+      marketing_plan:{objective:'awareness'},
+      strategy_required:true,
+      content_agent_required:true,
+      plan:{readiness:{commercial_blockers:[]}},
+      qa_required:true,
+      selector_required:false,
+      selector_version:'',
+      content_gate:'PASS'
+    }),
+    ledgerFn: async row => ({ok:true,inserted:true,invocation_id:row.invocation_id})
+  });
+  assert.equal(result.status,'BLOCKED_REQUIRED_AGENT_NOT_INVOKED');
+  assert.equal(result.invocation.missing_agents?.includes?.('kk-content-selector') ?? result.invocation_check.missing_agents.includes('kk-content-selector'), true);
 });
 
 test('content gateway detects deliberate agent bypass', async () => {

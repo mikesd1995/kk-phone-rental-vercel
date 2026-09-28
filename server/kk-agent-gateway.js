@@ -6,7 +6,7 @@ const Registry = require('./kk-agent-registry.js');
 const TaskRouter = require('./kk-agent-task-router.js');
 const Orchestration = require('./kk-agent-orchestration.js');
 
-const GATEWAY_VERSION = 'KK_AGENT_GATEWAY_V2';
+const GATEWAY_VERSION = 'KK_AGENT_GATEWAY_V3';
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -94,10 +94,18 @@ async function executeContentRequest(payload = {}, options = {}) {
     ? options.contentRouteFn
     : ContentRouter.routeContentRequest;
   const routed = routeFn({ message, input, performanceRows });
-  const invokedAgents = routed && routed.matched && routed.marketing_required === true && routed.marketing_plan
-    ? (intent === 'direct_rental_x'
-      ? ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa', 'kk-content-selector']
-      : ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa'])
+  const fullContentPipelineReady = routed &&
+    routed.matched === true &&
+    routed.marketing_required === true &&
+    Boolean(routed.marketing_plan) &&
+    routed.strategy_required === true &&
+    routed.content_agent_required === true &&
+    Boolean(routed.plan) &&
+    routed.qa_required === true &&
+    routed.selector_required === true &&
+    Boolean(routed.selector_version);
+  const invokedAgents = fullContentPipelineReady
+    ? ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa', 'kk-content-selector']
     : [];
   const invocationCheck = Registry.validateInvocation(intent, invokedAgents);
 
@@ -106,7 +114,7 @@ async function executeContentRequest(payload = {}, options = {}) {
   if (!invocationCheck.pass) {
     gateStatus = 'BLOCKED_REQUIRED_AGENT_NOT_INVOKED';
     blockedReason = invocationCheck.missing_agents.join(',');
-  } else if (intent === 'direct_rental_x' && routed.content_gate !== 'PASS') {
+  } else if (routed.content_gate !== 'PASS') {
     gateStatus = 'BLOCKED_CONTENT_GATE';
     blockedReason = (routed.plan && routed.plan.readiness && routed.plan.readiness.commercial_blockers || []).join(',');
   }

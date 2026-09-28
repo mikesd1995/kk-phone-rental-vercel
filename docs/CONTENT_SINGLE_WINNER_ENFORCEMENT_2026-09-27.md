@@ -2,7 +2,7 @@
 
 ## Decision
 
-Direct-rental X requests no longer expose three copy variants to the owner by default.
+All KK social-post requests no longer expose three copy variants to the owner by default.
 
 Canonical chain:
 
@@ -58,9 +58,9 @@ The selector estimates best fit to the current objective. It must never claim th
 
 ## Enforcement
 
-Registry: `KK_AGENT_REGISTRY_V8`
+Registry: `KK_AGENT_REGISTRY_V17`
 
-Direct-rental required agents:
+Required agents for every KK social-post route:
 
 `kk-marketing-agent → kk-content-strategy → kk-content-agent → kk-content-qa → kk-content-selector`
 

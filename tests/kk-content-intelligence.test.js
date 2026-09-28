@@ -159,10 +159,11 @@ test('router recognizes Thai X rental requests and forces Content Strategy + Age
   assert.equal(routed.route, 'KK_MARKETING_TO_CONTENT_SINGLE_WINNER');
   assert.equal(routed.content_gate, 'PASS');
   assert.equal(routed.strategy_required, true);
+  assert.equal(routed.content_agent_required, true);
   assert.equal(routed.qa_required, true);
   assert.equal(routed.selector_required, true);
   assert.equal(routed.selector_version, 'KK_CONTENT_SELECTOR_V1');
-  assert.equal(routed.qa_gate_version, 'KK_CONTENT_QA_GATE_V1');
+  assert.equal(routed.qa_gate_version, 'KK_CONTENT_QA_GATE_V2');
   assert.equal(routed.anti_repeat_required, true);
   assert.equal(routed.three_variant_engine_required, true);
   assert.equal(routed.internal_candidate_count, 3);

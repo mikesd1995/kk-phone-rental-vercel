@@ -48,6 +48,8 @@ It cannot override verified event truth, pricing, inventory, owner-hidden visibi
 
 ## Enforcement
 
-Registry V8 requires `kk-marketing-agent`, `kk-content-strategy`, `kk-content-agent`, `kk-content-qa`, and `kk-content-selector` for direct-rental X. General content drafts retain Marketing + Strategy + Content + QA without forcing rental winner selection.
+Registry V17 requires `kk-marketing-agent`, `kk-content-strategy`, `kk-content-agent`, `kk-content-qa`, and `kk-content-selector` for **every KK social-post route**, including direct rental, weekly roundup, last call, onsite, event announcement, brand/awareness, promo/offer, repost/refresh, and general X copy drafts.
 
-For direct-rental X, the public output contract is `SINGLE_FINAL_POST` with exactly one owner-facing post. The three candidates remain internal unless the owner explicitly asks to inspect alternatives. A bypass fails the required-agent gate instead of silently continuing.
+The public output contract for every matched post route is `SINGLE_FINAL_POST` with exactly one owner-facing post. Exactly three candidates remain internal unless the owner explicitly asks to inspect alternatives. A missing Marketing, Strategy, Content, QA, or Selector stage fails closed instead of silently continuing.
+
+Commercial posts still require verified event/pricing/inventory truth. Non-commercial posts do not fabricate commercial facts and only validate facts/hashtags actually used.
