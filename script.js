@@ -569,6 +569,9 @@ function storefrontPosterOverride(row){
   if(dateKey==="2026-09-28" && name.indexOf("mizumi")>=0 && name.indexOf("pp krit")>=0){
     return "/assets/event-posters/mizumi-ppkrit-pink-aura-2026-09-28.jpg";
   }
+  if(dateKey==="2026-09-30" && name.indexOf("nineentertain")>=0 && name.indexOf("24th")>=0){
+    return "/assets/event-posters/nineentertain-24th-anniversary-charity-concert-2026-09-30.jpg";
+  }
   if(dateKey==="2026-09-30" && (name.indexOf("min min")>=0 || name.indexOf("minmin")>=0) && name.indexOf("teeteepor")>=0){
     return "/assets/event-posters/minmin-teeteepor-frozen-candy-land-2026-09-30.jpg";
   }
