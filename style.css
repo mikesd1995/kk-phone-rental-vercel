@@ -668,3 +668,47 @@ footer .footer-tagline{
   html{scroll-behavior:auto}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+
+
+/* 2026-09-28 storefront mobile filter-row hotfix
+   Owner requirement: month + all/available/waitlist stay on one horizontal row. */
+@media(max-width:768px){
+  .status-filter-bar{
+    display:flex;
+    flex-wrap:nowrap;
+    justify-content:center;
+    align-items:center;
+    gap:6px;
+    width:100%;
+    padding-left:0;
+    padding-right:0;
+  }
+  .status-filter-bar .month-select-wrap{
+    flex:1 1 31%;
+    min-width:0;
+  }
+  .status-filter-bar .month-select{
+    width:100%;
+    max-width:none;
+    min-width:0;
+    min-height:36px;
+    font-size:12px;
+    padding:7px 24px 7px 10px;
+  }
+  .status-filter-bar .month-select-wrap::after{right:9px}
+  .status-filter-bar .filter-btn{
+    flex:1 1 23%;
+    min-width:0;
+    min-height:36px;
+    padding:7px 6px;
+    font-size:12px;
+    line-height:1.15;
+    white-space:nowrap;
+  }
+}
+@media(max-width:390px){
+  .status-filter-bar{gap:4px}
+  .status-filter-bar .month-select{font-size:11px;padding-left:8px;padding-right:20px}
+  .status-filter-bar .month-select-wrap::after{right:7px}
+  .status-filter-bar .filter-btn{font-size:10.5px;padding-left:4px;padding-right:4px}
+}
