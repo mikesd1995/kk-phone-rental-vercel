@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V17';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V18';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -50,20 +50,20 @@ const AGENTS = Object.freeze({
     note: 'Chooses objective, campaign mode, timing/priority context and opportunity score before Content Strategy. Cannot write final copy, publish, spend, or mutate price/inventory/Machine SOT.'
   }),
   'kk-content-selector': Object.freeze({
-    version: 'KK_CONTENT_SELECTOR_V1',
+    version: 'KK_CONTENT_SELECTOR_V2',
     authority: 'READ_ONLY_SELECTOR',
     runtime_state: 'LIVE_GATEWAY_MANDATORY_FOR_ALL_SOCIAL_POSTS',
     surface: 'AGENT_GATEWAY',
     production_writes: 0,
-    note: 'Ranks exactly three internal QA-passing candidates for every KK social-post request against the Marketing objective and exposes exactly one final post for Owner Review. Scores are estimates, never reach guarantees.'
+    note: 'Ranks exactly three internal QA-passing candidates for every KK social-post request using objective fit plus event specificity, naturalness, non-template feel, hook originality and sales-pressure balance. Exposes exactly one final post for Owner Review. Scores are estimates, never reach guarantees.'
   }),
   'kk-content-qa': Object.freeze({
-    version: 'KK_CONTENT_QA_GATE_V2',
+    version: 'KK_CONTENT_QA_GATE_V3',
     authority: 'READ_ONLY_VALIDATOR',
     runtime_state: 'LIVE_GATEWAY_MANDATORY_FOR_CONTENT',
     surface: 'AGENT_GATEWAY',
     production_writes: 0,
-    note: 'Fail-closed pre-publish validator for verified hashtags, duplicate date/venue facts, Standard A structure, and commercial truth.'
+    note: 'Fail-closed pre-publish validator for verified facts/hashtags, live commercial truth, brand/CTA presence, canonical facts and anti-repeat. Creative paragraph order is flexible; one rigid template is not enforced.'
   }),
   'kk-content-strategy': Object.freeze({
     version: '2026-09-27',
