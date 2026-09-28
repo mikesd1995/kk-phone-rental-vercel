@@ -24,10 +24,11 @@ The October full-loop review exposed an incorrect coupling: candidates with good
   - adds owner-approved rental-fit fallback tiers;
   - keeps lens-only hidden;
   - marks Friday–Sunday zero-competitor fallback prices `PROVISIONAL_NEEDS_PRICE_RECHECK`.
-- `server/kk-verifier-storefront-promotion.js` V3
+- `server/kk-verifier-storefront-promotion.js` V4
   - accepts score-qualified candidates with approved final pricing;
   - surfaces price confidence/recheck metadata;
-  - blocks hidden-event recreate/reopen through createEvent.
+  - blocks hidden-event recreate/reopen through createEvent;
+  - preserves lens-only hidden-on-create and lens-only readback fail-closed protection.
 - Scanner/Verifier skill contracts updated.
 
 ## Regression coverage
