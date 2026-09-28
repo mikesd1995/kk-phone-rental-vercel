@@ -35,6 +35,17 @@ Always preserve:
 - source URL, observed time, and evidence identity;
 - current Machine-SOT policy, lock/fence, Manifest, and Planner gates when operating inside a governed runtime.
 
+## Publish eligibility is independent from competitor pricing
+
+Competitor-price discovery is pricing evidence, not permission to publish an event.
+
+- Do not drop or block a verified candidate merely because no exact-event competitor price is found.
+- Stage the candidate's rental-fit evidence and score separately from pricing evidence.
+- A candidate that meets the owner-approved rental-fit threshold may continue to Verifier even when exact competitor count is zero.
+- Preserve zero-competitor state explicitly so downstream pricing can mark a fallback price as provisional when required.
+- Do not invent a final price in Scanner. Scanner remains staging-only and `production_writes=0`.
+- A low rental-fit candidate may be rejected on rental-fit grounds; the rejection reason must not be disguised as missing competitor evidence.
+
 ## Discovery order
 
 1. Prefer official artist/agency, event organizer, ticketing, and venue sources.
