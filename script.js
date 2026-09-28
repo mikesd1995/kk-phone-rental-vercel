@@ -572,6 +572,18 @@ function storefrontPosterOverride(row){
   if(dateKey==="2026-09-30" && (name.indexOf("min min")>=0 || name.indexOf("minmin")>=0) && name.indexOf("teeteepor")>=0){
     return "/assets/event-posters/minmin-teeteepor-frozen-candy-land-2026-09-30.jpg";
   }
+  // 2026-09-28 missing-poster recovery. These rows are live/bookable in 08_Web_Ready
+  // but currently have a blank poster_image_url. Exact-event sources were verified
+  // before adding these bounded storefront overrides.
+  if(dateKey==="2026-10-04" && name.indexOf("bnk48")>=0 && name.indexOf("cgm48")>=0 && name.indexOf("fan festival")>=0){
+    return "https://bnk48ota.com/wp-content/uploads/2026/09/fan-festival2026.jpeg";
+  }
+  if(dateKey==="2026-10-04" && name.indexOf("idol exchange")>=0 && name.indexOf("before halloween")>=0){
+    return "https://scontent-sjc6-1.xx.fbcdn.net/v/t39.30808-6/819068726_1564442942035301_479602733273844169_n.jpg?stp=dst-jpg_tt6&cstp=mx1144x1430&ctp=p600x600&_nc_cat=100&ccb=1-7&_nc_sid=b96d88&_nc_ohc=BxXx_Pb4wZcQ7kNvwEQtgy-&_nc_oc=Adq-Wb6SVXs6Uh1uhvzJkqdu-HZnhhpCR4wK1KU393GSe8XJXoNAX7BLl9HlE_JuyGw&_nc_zt=23&_nc_ht=scontent-sjc6-1.xx&_nc_gid=Y82lgi9EUQf7Sa7d1RKAHA&_nc_ss=7b289&oh=00_AQNnKea7bYxQKcjw4mwHbInAxvy48N-EL-PcEEel0CabXQ&oe=6ABFD343";
+  }
+  if(dateKey==="2026-10-04" && name.indexOf("aibeck")>=0 && name.indexOf("bangkok")>=0){
+    return "https://tm-prod-event-files-v3.ticketmelon.com/abbee918818711f1922201117567899b/poster/22ca6dd890a511f1922201117567899b.png";
+  }
   return "";
 }
 function getDriveId(url){
