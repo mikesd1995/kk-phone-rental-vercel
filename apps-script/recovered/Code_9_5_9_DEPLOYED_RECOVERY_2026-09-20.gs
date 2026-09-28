@@ -997,7 +997,8 @@ function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, exclu
   let found = false;
 
   for (const r of rows) {
-    const rowId = String(r[0] || '').trim();    if (rowId !== assetId) continue;
+    const rowId = String(r[0] || '').trim();
+    if (rowId !== assetId) continue;
     found = true;
     const rowType = String(r[1] || '').toLowerCase().trim();
     const rowModel = String(r[2] || '').trim();
@@ -1996,7 +1997,8 @@ function kkApiUpsertEventOverride_(payload) {
     let templateId = String(payload.template_id || '').trim();
     if (!eventId || !templateId) throw new Error('Please select event and package');
     kkGetEventById_(eventId);
-    templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);    kkGetPackageByTemplateId_(templateId);
+    templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
+    kkGetPackageByTemplateId_(templateId);
     
     const hasOverridePrice = !(payload.override_price === '' || payload.override_price === null || typeof payload.override_price === 'undefined');
     const overridePrice = hasOverridePrice ? kkApiNumber_(payload.override_price, 'override_price', false) : '';
