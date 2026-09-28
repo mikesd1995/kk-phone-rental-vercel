@@ -135,3 +135,33 @@ Candidate language generation remains performed by the active ChatGPT conversati
 - `server/kk-content-request-router.js`
 - `server/kk-content-qa-gate.js`
 - `server/kk-content-selector.js`
+
+
+## Live acceptance — 2026-09-28
+
+The bridge was exercised from the connected ChatGPT GitHub tool after merge, not only through unit tests.
+
+Acceptance evidence:
+
+- Merge commit containing the bridge: `a4b5549ff22d3840d77141e03c241067baec32df`
+- Acceptance issue: `#280 [KK-CONTENT-RUN] bridge acceptance awareness`
+- Workflow: `KK Content Chat Bridge`
+- Workflow run: `36435124404`
+- Workflow conclusion: `success`
+- Issue result state: `closed / completed`
+- Persistent result comment: issue comment `5871845154`
+- Bridge status: `PASS`
+- Gateway: `READY_FOR_OWNER_REVIEW`
+- Finalization: `PASS`
+- QA: `PASS`
+- Selector: `PASS`
+- Invocation ID: `agi_755b68d2a985_1f3bff4d15844d1fb37b`
+- Registry: `KK_AGENT_REGISTRY_V17`
+- Gateway version: `KK_AGENT_GATEWAY_V3`
+- Required agents exactly matched invoked agents:
+  `kk-marketing-agent → kk-content-strategy → kk-content-agent → kk-content-qa → kk-content-selector`
+- Exactly one final post was persisted.
+- Auto-publish remained false.
+- Production writes remained 0.
+
+This acceptance closes the previous operational gap for this ChatGPT environment because the connected GitHub tool can create the owner-authored bridge issue and read the persisted result comment. The chat must still use this transport for every KK post request; bypassing it is not accepted as Agent execution.
