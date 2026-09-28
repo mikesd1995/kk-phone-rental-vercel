@@ -569,6 +569,9 @@ function storefrontPosterOverride(row){
   if(dateKey==="2026-09-28" && name.indexOf("mizumi")>=0 && name.indexOf("pp krit")>=0){
     return "/assets/event-posters/mizumi-ppkrit-pink-aura-2026-09-28.jpg";
   }
+  if(dateKey==="2026-11-08" && name.indexOf("maxkybas")>=0 && name.indexOf("arcade")>=0){
+    return "/assets/event-posters/maxkybas-arcade-2026-11-08.jpg";
+  }
   if(dateKey==="2026-09-30" && name.indexOf("nineentertain")>=0 && name.indexOf("24th")>=0){
     return "/assets/event-posters/nineentertain-24th-anniversary-charity-concert-2026-09-30.jpg";
   }
