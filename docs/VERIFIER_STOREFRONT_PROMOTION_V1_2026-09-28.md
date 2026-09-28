@@ -1,37 +1,60 @@
-# Verifier Storefront Promotion V1 — 2026-09-28
+# Verifier Storefront Promotion V4 — 2026-09-28
 
-## Finding
-The storefront publication mechanism was not removed. The existing governed Admin path still supports `createEvent`, defaults new events to `active_on_web=true`, applies event price overrides, verifies Web Ready state, and is protected by the event duplicate/date preflight in `api/kk-admin-guard.js`.
+## Owner policy now enforced
 
-The missing piece was the controlled handoff from the hardened discovery/verifier pipeline back to that existing Admin createEvent path.
+Storefront publication and competitor-price confidence are separate decisions.
 
-## Added
-`server/kk-verifier-storefront-promotion.js` prepares an exact Admin `createEvent` payload only when:
-- commercial evidence status is READY_FOR_FINAL_VERIFIER;
+- A verified event is not rejected merely because exact-event competitor pricing is absent.
+- Rental-fit eligibility may advance the event to final Verifier when the owner-approved publish threshold passes.
+- Final package prices still require an approved KK pricing policy; Scanner never writes final prices.
+- Friday–Sunday events with zero exact-event competitor evidence may publish with the owner-approved score fallback, but the price is tagged `PROVISIONAL_NEEDS_PRICE_RECHECK` and must be revisited when Competitor Watch finds stronger evidence.
+- Low rental-fit events are rejected as rental-fit decisions, not mislabeled as competitor-evidence failures.
+
+## Governed promotion gate
+
+`server/kk-verifier-storefront-promotion.js` prepares the existing Admin `createEvent` payload only when:
+- commercial evidence status is `READY_FOR_FINAL_VERIFIER`;
 - title/date/venue are complete;
 - verified HTTPS poster evidence exists;
-- competitor pricing evidence is complete (>=3 independent exact-event sources);
-- explicit final KK package prices are supplied;
+- either a pricing reference exists or rental-fit eligibility is explicitly passed with an approved final pricing policy;
+- final KK package prices are resolved;
 - final Verifier approval is true;
 - owner publish policy allows publication.
 
-The plan explicitly requires the existing duplicate guard and exact storefront readback.
+The plan still requires duplicate guard and exact storefront readback.
 
-A second callable stage verifies readback of event identity, visibility, poster and package prices.
+## Owner-hidden protection
 
-## Important runtime boundary
-This patch restores the governed handoff contract, but does not bypass Admin authentication or call the mutation endpoint from the Agent Gateway. The actual mutation must still use the existing authenticated `createEvent` route so its date/duplicate guards, Apps Script DocumentLock, audit log and Web Ready verification remain in force.
+Existing Core events with `active_on_web=false` cannot be recreated or silently reopened by Verifier promotion.
 
-This is deliberate: adding a second raw Sheet writer would recreate the unsafe Scanner-to-Core path that hardening removed.
+- Without explicit owner intent: `OWNER_HIDDEN_REOPEN_PROHIBITED`.
+- Even with explicit owner reopen intent, the create-event path is rejected with `OWNER_REOPEN_REQUIRES_EXISTING_EVENT_UPDATE`; reopening must use the existing-event Admin visibility path.
 
-## Remaining activation work
-Bind an authenticated executor to take only a `READY_FOR_GOVERNED_ADMIN_CREATE` plan, invoke the existing Admin createEvent endpoint once with an idempotency/correlation key, then feed fresh 08_Web_Ready/09_Web_Packages data to the readback verifier. Do not enable autonomous publication until this acceptance run passes.
+## Booking-close vs event-close
 
+The existing storefront contract remains authoritative:
 
-## V3 hardening — lens-only default hidden
+- close booking / hide all packages -> keep card visible as `show_full` / `เต็มแล้ว`;
+- close event -> `active_on_web=false` -> card `hide`.
 
-The Verifier create payload now forces the standalone `TPL-ZEISS-2-35X-LENS` override to `active_override=false` even if a candidate/final-price row tries to enable it. This aligns promotion with the live storefront policy: lens-only is hidden by default and may become available later only when the same event has an active phone-only booking and spare lens stock.
+Verifier must not convert zero availability into an event close.
 
-The promotion readback verifier also fails closed with `LENS_ONLY_VISIBLE_ON_CREATE` if a newly created event exposes the standalone lens package as `available` or `open`.
+## Pricing policy
 
-Poster requirements remain fail-closed: promotion still requires a verified HTTPS poster before the governed Admin createEvent handoff.
+`server/kk-final-pricing-policy.js` resolves owner-approved rental-fit fallback tiers when exact competitor count is zero and the event meets the publish threshold:
+
+- score >= 9.0 -> phone 890, lens 200 hidden, bundle 1,090;
+- score >= 8.0 -> phone 790, lens 200 hidden, bundle 990;
+- score >= 7.0 -> phone 690, lens 200 hidden, bundle 890.
+
+For Friday–Sunday, these fallback prices are provisional and carry a mandatory recheck marker. Weekday score fallback remains an approved fallback under the current owner rule.
+
+## Lens-only fail-closed guard
+
+The Verifier create payload always forces standalone `TPL-ZEISS-2-35X-LENS` to `active_override=false`, even if an incoming final-price row tries to enable it.
+
+The promotion readback verifier fails closed with `LENS_ONLY_VISIBLE_ON_CREATE` if a newly created event exposes the standalone lens package as `available` or `open`. Lens-only becomes eligible later only through the storefront inventory rule when the same event has an active phone-only booking and spare lens stock.
+
+## Runtime boundary
+
+The Scanner remains staging-only. The Verifier promotion planner remains `production_writes=0`. Actual mutation still goes through the authenticated governed Admin executor so duplicate/date guards, Apps Script locking, audit logging, lens-only package safety, and storefront readback remain in force.
