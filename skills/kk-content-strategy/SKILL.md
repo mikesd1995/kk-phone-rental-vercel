@@ -27,10 +27,9 @@ Any request equivalent to **“ขอโพสปล่อยเช่างา�
 
 **verified business truth → Marketing Agent → Content Strategy → Content Agent → Content QA Gate → Content Selector → Owner Review**
 
-For direct-rental X posts:
+For **every KK social-post request** — direct rental, weekly roundup, last call, onsite/update, event announcement, brand/awareness, promotion/offer, repost/refresh, quote post, or another final X copy request:
 
-- current event, pricing, displayed offer, and inventory must pass verification;
-- the Content Agent must receive recent post/hook context when available;
+- Marketing Agent, Content Strategy, Content Agent, Content QA Gate, and Content Selector are all mandatory;
 - generate **exactly 3 substantively different internal candidates**;
 - each internal candidate must use a different primary angle and hook structure;
 - do not expose all three candidates by default; after QA, Content Selector must rank them and expose exactly **1 final post**;
@@ -38,7 +37,9 @@ For direct-rental X posts:
 - avoid recycling recent hooks, metaphors, sentence skeletons, and generic filler;
 - if event-specific context is not verified, stay neutral rather than inventing artist/fandom/event lore.
 
-The request router is server/kk-content-request-router.js. Direct-rental requests fail closed when commercial truth is incomplete.
+Commercial/rental posts additionally require current event, pricing, displayed offer, and inventory verification. Non-commercial brand/awareness posts do not invent pricing or inventory and are validated only against the factual claims they actually use.
+
+The request router is server/kk-content-request-router.js. Any post request that enters the gateway fails closed if one mandatory stage is missing.
 
 ## Growth model
 
@@ -78,7 +79,7 @@ When `17_Content_Performance` has no measured rows, Marketing Agent must identif
 
 ## Mandatory pre-publish QA gate
 
-Every generated direct-rental X internal candidate must pass `kk-content-qa` before selection.
+Every generated KK social-post internal candidate must pass `kk-content-qa` before selection.
 
 Fail closed when any of these are true:
 
@@ -94,7 +95,7 @@ The QA gate is a read-only validator. It never publishes or mutates business tru
 
 ## Mandatory single-winner selection
 
-For direct-rental X requests, the owner-facing output is **one final post only**.
+For every KK social-post request, the owner-facing output is **one final post only**.
 
 The system still generates three candidates internally so Marketing/Strategy can compare genuinely different angles. After all three pass QA, `kk-content-selector` ranks them against the current Marketing objective.
 
@@ -183,7 +184,7 @@ Use 19_Content_Experiments for explicit A/B hypotheses so changes are traceable 
 
 When asked to generate a content plan, return objective, content pillar, content angle, hook direction, body direction, CTA type, hashtag approach, asset idea, verified facts used, and unresolved blockers/assumptions.
 
-When asked for final X rental copy, generate three differentiated candidates internally, run QA + objective-aware selection, then return only the single selected final post. Show alternatives only when the owner explicitly requests them.
+When asked for any final KK social copy, generate three differentiated candidates internally, run QA + objective-aware selection, then return only the single selected final post. Show alternatives only when the owner explicitly requests them.
 
 ## Rollout rule
 
