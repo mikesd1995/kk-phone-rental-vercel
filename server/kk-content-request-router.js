@@ -15,7 +15,10 @@ const DIRECT_RENTAL_PATTERNS = Object.freeze([
 ]);
 
 const CONTENT_DRAFT_PATTERNS = Object.freeze([
-  /(?:คิด|เขียน|ทำ).*(?:คอนเทนต์|content|แคปชัน|caption|hook)/i,
+  /(?:คิด|เขียน|ทำ|ช่วยทำ|ช่วยเขียน|ปรับ|รีไรท์|รีเฟรช).*(?:คอนเทนต์|content|แคปชัน|caption|hook|โพส|โพสต์)/i,
+  /(?:ขอ|ทำ|เขียน|ช่วยทำ|ช่วยเขียน).*(?:โพส|โพสต์)/i,
+  /(?:โพส|โพสต์).*(?:รวมงาน|รายสัปดาห์|อาทิตย์|สัปดาห์|last\s*call|ถึงหน้างาน|หน้างาน|ประกาศ|โปร|โปรโมชั่น|รีโพสต์|รีเฟรช|แบรนด์|awareness)/i,
+  /(?:weekly|roundup|last\s*call|onsite|event\s*announcement|promo|promotion|repost|refresh|brand|awareness).*(?:post|copy|caption)/i,
   /(?:quote\s*post|โพสโควต|โพสต์โควต)/i,
   /(?:โพส|โพสต์).*(?:บน\s*)?(?:x|twitter)/i
 ]);
@@ -26,6 +29,16 @@ function normalizeMessage(message) {
 
 function matchesAny(message, patterns) {
   return patterns.some(pattern => pattern.test(message));
+}
+
+function commercialTruthRequired(intent, input = {}) {
+  if (input.commercial_truth_required === true) return true;
+  if (input.commercial_truth_required === false) return false;
+  if (intent === 'direct_rental_x') return true;
+  if (String(input.sales_intent || '').toLowerCase() === 'direct') return true;
+  return input.verified_pricing !== undefined ||
+    input.inventory_available !== undefined ||
+    Boolean(String(input.price_display || '').trim());
 }
 
 function detectContentIntent(message = '') {
@@ -72,7 +85,8 @@ function routeContentRequest({
   }, performanceRows);
 
   const directRental = intent === 'direct_rental_x';
-  const contentGate = directRental && !plan.readiness.commercial_ready ? 'BLOCKED' : 'PASS';
+  const requiresCommercialTruth = commercialTruthRequired(intent, input);
+  const contentGate = requiresCommercialTruth && !plan.readiness.commercial_ready ? 'BLOCKED' : 'PASS';
 
   return {
     schema_version: 'KK_CONTENT_REQUEST_ROUTE_V1',
@@ -85,18 +99,28 @@ function routeContentRequest({
     strategy_required: true,
     qa_required: true,
     qa_gate_version: ContentQa.VERSION,
-    selector_required: directRental,
-    selector_version: directRental ? ContentSelector.VERSION : '',
-    qa_requirements: directRental ? ['VERIFIED_HASHTAGS','NO_DUPLICATE_DATE_VENUE','STANDARD_A','VERIFIED_EVENT_PRICE_INVENTORY','EXACTLY_3_VARIANTS'] : ['STANDARD_A_WHEN_APPLICABLE'],
+    selector_required: true,
+    selector_version: ContentSelector.VERSION,
+    commercial_truth_required: requiresCommercialTruth,
+    qa_requirements: requiresCommercialTruth
+      ? ['VERIFIED_HASHTAGS','NO_DUPLICATE_DATE_VENUE','STANDARD_A','VERIFIED_EVENT_PRICE_INVENTORY','EXACTLY_3_VARIANTS']
+      : ['VERIFIED_FACTS_WHEN_APPLICABLE','VERIFIED_HASHTAGS_WHEN_APPLICABLE','NO_DUPLICATE_DATE_VENUE','BRAND_FIRST','EXACTLY_3_VARIANTS'],
     anti_repeat_required: true,
-    three_variant_engine_required: directRental,
-    internal_candidate_count: directRental ? 3 : 0,
-    public_output_count: directRental ? 1 : 0,
-    public_output_mode: directRental ? 'SINGLE_FINAL_POST' : 'STANDARD_CONTENT_OUTPUT',
+    three_variant_engine_required: true,
+    internal_candidate_count: 3,
+    public_output_count: 1,
+    public_output_mode: 'SINGLE_FINAL_POST',
     owner_review_required: true,
     production_writes: 0,
     publishes: 0,
     plan,
+    finalization_contract: {
+      commercial_truth_required: requiresCommercialTruth,
+      event_truth_required: directRental || Boolean(String(input.event || input.official_event_hashtag || '').trim()),
+      internal_candidate_count: 3,
+      public_output_count: 1,
+      public_output_mode: 'SINGLE_FINAL_POST'
+    },
     generation_prompt: buildGenerationPrompt(plan)
   };
 }
@@ -161,6 +185,7 @@ function finalizeGeneratedCandidates({
 module.exports = {
   DIRECT_RENTAL_PATTERNS,
   CONTENT_DRAFT_PATTERNS,
+  commercialTruthRequired,
   detectContentIntent,
   routeContentRequest,
   validateGeneratedVariants: ContentQa.validateVariants,
