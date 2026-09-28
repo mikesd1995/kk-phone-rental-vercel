@@ -1,12 +1,15 @@
 'use strict';
 
-const VERSION='KK_FINAL_PRICING_POLICY_V1';
+const VERSION='KK_FINAL_PRICING_POLICY_V2';
 
 function text(v){return String(v==null?'':v).trim();}
 function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:null;}
 
 function resolve(input={}){
-  const rows=Array.isArray(input.store_baseline_prices)?input.store_baseline_prices:[];
+  const explicit=Array.isArray(input.store_baseline_prices)?input.store_baseline_prices:[];
+  const templates=Array.isArray(input.package_templates)?input.package_templates:[];
+  const rows=explicit.length?explicit:templates.map(r=>({template_id:r.template_id||r.package_id,price:r.standard_price,active:r.active,approved:r.active===true||String(r.active||'').toLowerCase()==='true',override_note:'ACTIVE_STANDARD_PACKAGE_SOT'}));
+  const source=explicit.length?'KK_APPROVED_BASELINE':'KK_ACTIVE_STANDARD_PACKAGE_SOT';
   const approved=rows.map(r=>({
     template_id:text(r.template_id||r.package_id),
     override_price:money(r.price),
@@ -21,7 +24,7 @@ function resolve(input={}){
     status:prices.length?'FINAL_PRICES_RESOLVED':'HOLD_FOR_APPROVED_BASELINE',
     final_prices:prices,
     policy_approved:prices.length>0,
-    source:'KK_APPROVED_BASELINE',
+    source,
     competitor_reference_used_as_final:false,
     requires_per_event_owner_price_decision:false
   };

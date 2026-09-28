@@ -400,9 +400,21 @@ module.exports=async function handler(req,res){
     if(!String(request.message||'').trim()&&!String(request.task_type||'').trim()){
       return reply(res,400,{ok:false,error:'request.message or request.task_type is required',error_code:'AGENT_GATEWAY_REQUEST_REQUIRED'});
     }
+    let effectiveRequest=request;
+    if(String(request.task_type||'').trim()==='resolve_final_pricing'){
+      try{
+        const envSheetId=String(process.env.GOOGLE_SHEET_ID||'').trim();
+        const sheetId=envSheetId||DEFAULT_SHEET_ID;
+        const snapshot=await fetchFreshSnapshot({sheetId,sheetIdSource:envSheetId?'env':'default-fallback'},18000);
+        effectiveRequest=Object.assign({},request,{input:Object.assign({},request.input||{},{package_templates:snapshot.packages||[]})});
+        res.setHeader('X-KK-Final-Pricing-SOT','03_Packages');
+      }catch(err){
+        return reply(res,503,{ok:false,error:'Final pricing SOT unavailable; resolution blocked',error_code:'FINAL_PRICING_SOT_UNAVAILABLE'});
+      }
+    }
     let result;
     try{
-      result=await AgentGateway.executeAgentRequest(request,{
+      result=await AgentGateway.executeAgentRequest(effectiveRequest,{
         ledgerFn:row=>AgentLedger.recordInvocation({row})
       });
     }catch(err){
