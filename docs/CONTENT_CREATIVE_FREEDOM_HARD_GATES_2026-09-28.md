@@ -189,3 +189,48 @@ Result:
 The selected winner used a non-Standard-A paragraph order: event-specific hook/context before the price and hashtag blocks. It still passed all business-critical gates and was selected over the more rigid candidate.
 
 This confirms the intended behavior: **pipeline mandatory, factual gates strict, creative layout flexible**.
+
+
+## Current-main revalidation — 2026-09-29
+
+A fresh ChatGPT → GitHub bridge revalidation was run against current `main` after the policy merge.
+
+### Revalidation attempt 1
+
+Issue: `#305 [KK-CONTENT-RUN] creative freedom current-main acceptance`
+
+Result:
+- Status: `BLOCKED`
+- Gateway: `NO_AGENT_ROUTE`
+- Finalization: `NOT_RUN`
+- Blocker: `GATEWAY_NOT_READY`
+
+Cause: the synthetic acceptance request text was phrased as a test description rather than an actual supported social-post request. The gateway correctly refused to invent a route. No final post was emitted.
+
+### Revalidation attempt 2 — fallback using the real post-request path
+
+Issue: `#306 [KK-CONTENT-RUN] creative freedom current-main acceptance v2`
+
+Workflow run: `36466848237`
+
+Result:
+- bridge status: `PASS`
+- Gateway: `READY_FOR_OWNER_REVIEW`
+- Finalization: `PASS`
+- QA: `PASS`
+- Selector: `PASS`
+- Registry: `KK_AGENT_REGISTRY_V18`
+- Gateway: `KK_AGENT_GATEWAY_V3`
+- Invocation: `agi_f9c7bce77b4f_4fd1a8979d3a4c00bbde`
+- Required agents exactly matched invoked agents:
+  `kk-marketing-agent → kk-content-strategy → kk-content-agent → kk-content-qa → kk-content-selector`
+- selected winner used a flexible, non-Standard-A paragraph order
+- public output count: 1
+- auto-publish: false
+- production writes: 0
+
+This revalidation confirms that the current production policy remains:
+
+**hard factual/commercial gates + mandatory Agent pipeline + flexible creative structure + one selected final post**.
+
+It also confirms the fallback rule: if a synthetic or unsupported route is blocked, do not bypass the gateway; retry through the real supported post-request path and require fresh invocation evidence before claiming Agent execution.
