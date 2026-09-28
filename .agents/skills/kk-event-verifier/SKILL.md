@@ -84,3 +84,10 @@ A hidden Core event may still satisfy lineage/presence accounting. Hidden does n
 ## Acceptance output
 
 Only produce a final governed handoff when all current control-plane requirements are satisfied. External evidence must retain provenance and the final record must remain attributable to the Verifier decision, not to an AI provider.
+
+
+## Storefront package guard
+
+For a newly promoted event, standalone `lens_only` must not be published as available by default. The governed create payload must force the lens-only package inactive even when a proposed price exists. Lens-only becomes eligible later only through the storefront inventory rule when the same event has an active `phone_only` booking and spare lens stock. Phone and phone+lens bundle remain governed by their normal package rules.
+
+A final promotion readback must fail closed if a newly created event reports `lens_only` as `available` or `open`. Poster evidence must remain a verified HTTPS source before promotion.
