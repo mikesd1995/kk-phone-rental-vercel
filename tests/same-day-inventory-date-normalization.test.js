@@ -29,3 +29,9 @@ test('date-type mismatch example still resolves to one shared inventory day', ()
   assert.notEqual(atom.dateCell, lyknBooking.dateCell);
   assert.equal(dayFromId(atom.id), dayFromId(lyknBooking.eventId));
 });
+
+
+test('backend explicitly parses dd/mm/yyyy event dates', () => {
+  assert.match(gs, /const dmy = raw\.match\(\/\^\(\\d\{2\}\)\\\/\(\\d\{2\}\)\\\/\(\\d\{4\}\)\$\//);
+  assert.match(gs, /new Date\(Number\(dmy\[3\]\), Number\(dmy\[2\]\) - 1, Number\(dmy\[1\]\)\)/);
+});
