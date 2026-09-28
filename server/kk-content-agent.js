@@ -25,7 +25,7 @@ const CONTENT_ANGLES = Object.freeze([
 const COPY_CONTRACT = Object.freeze({
   brand_first_line: '📱 KK Phone Rental | #เช่ามือถือ',
   direct_rental_layout: Object.freeze(['brand','event_hashtag','hook','offer','date_venue','benefits','booking_cta','reach_hashtags']),
-  direct_rental_layout_rule: 'Default X rental order is Brand → Event hashtag → Hook → Offer/price → Date/Venue → Benefits → Booking CTA → 3–5 relevant reach hashtags.',
+  direct_rental_layout_rule: 'Preferred baseline only, not a hard template. Brand must stay first and business-critical facts/CTA must be present, but hook, offer, event context, benefits, emoji, paragraph order and voice may move when the creative strategy benefits.',
   handoff_line: '📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน',
   file_storage_line: '☁️ Google Drive 30 วัน',
   booking_cta: '👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/',
@@ -33,7 +33,9 @@ const COPY_CONTRACT = Object.freeze({
   duplicate_fact_rule: 'Date and venue have one canonical information block. Do not repeat date/venue inside the hook unless timing itself is the verified marketing message (for example today, tomorrow, DAY 2, or last call).',
   promotion_rule: 'Include discounts or promotions only when they are current, explicitly approved, and verified for the post.',
   pricing_rule: 'Use only current approved pricing from verified business truth. Never infer, copy from stale examples, or invent a price.',
-  brand_rule: 'Do not repeat the brand line at the bottom of the post.'
+  brand_rule: 'Keep the brand line first and do not repeat it at the bottom of the post.',
+  creative_freedom_rule: 'Do not force every post into one visual/text template. Preserve event-specific voice, organic pacing, vivid but concise language, and a natural transition back to the rental use case.',
+  hard_gate_rule: 'Hard gates cover verified event facts, live approved price/inventory, verified hashtags, brand identity, booking CTA for commercial posts, anti-repeat, three distinct internal candidates, QA and Selector PASS.'
 });
 
 const ANTI_REPEAT_CONTRACT = Object.freeze({
@@ -263,9 +265,10 @@ function buildCreativePlan(input = {}, performanceRows = []) {
       'Useful/engagement content should lead with audience value. Add a rental mention only when it improves relevance.',
       'Direct rental copy is allowed only when readiness.commercial_ready is true.',
       'For every publishable KK social-post request, generate exactly three internal candidates with different primary angles and different hook structures. Do not expose all candidates to the owner.',
-      'Each internal candidate must include selector metrics from 0–100 for hook_strength, event_fandom_relevance, timing_relevance, novelty, hashtag_relevance, readability, and commercial_relevance when the marketing objective is conversion.',
+      'Each internal candidate must include selector metrics from 0–100 for hook_strength, event_fandom_relevance, timing_relevance, novelty, hashtag_relevance, readability, event_specificity, naturalness, non_template_feel, hook_originality, sales_pressure_balance, and commercial_relevance when the marketing objective is conversion.',
       'After QA, the selector chooses exactly one final post for Owner Review. Public output must contain only that winner unless the owner explicitly asks to inspect alternatives.',
-      'Use the Standard A direct-rental layout for commercial rental posts: Brand → Event hashtag → Hook → Offer/price → Date/Venue → Benefits → Booking CTA → reach hashtags. For non-commercial posts, keep the KK brand first and apply only the factual/hashtag blocks that are relevant.',
+      'For commercial rental posts, keep the KK brand first and include verified event hashtag, exact verified offer/price, canonical date/venue when supplied, and booking CTA. Do NOT force a single paragraph order; hook, offer, context, benefits and emoji may move when strategy supports it.',
+      'Creative direction benchmark: event-specific and organic, vivid but concise, not overly salesy, with a natural transition from the event/fandom moment back to the rental use case. The liked Khom Khlang-style direction is a quality reference, not a phrase/template to copy.',
       'Do not make cosmetic rewrites: changing emoji, synonyms, or sentence order does not count as a distinct variant.',
       'Compare against anti_repeat_context.recent_posts and avoid repeated hooks, metaphors, sentence skeletons, and generic filler.',
       'All public copy requires owner review before publishing.'
@@ -294,6 +297,8 @@ function buildGenerationPrompt(plan) {
     `Duplicate fact rule: ${plan.copy_contract.duplicate_fact_rule}`,
     `Direct-rental layout: ${JSON.stringify(plan.copy_contract.direct_rental_layout || [])}`,
     `Direct-rental layout rule: ${plan.copy_contract.direct_rental_layout_rule || ''}`,
+    `Creative freedom rule: ${plan.copy_contract.creative_freedom_rule || ''}`,
+    `Hard gate rule: ${plan.copy_contract.hard_gate_rule || ''}`,
     `Event context: ${JSON.stringify(plan.event_context || {})}`,
     `Performance nudges: ${JSON.stringify(performanceNudges)}`,
     `Ideas: ${JSON.stringify(plan.creative_ideas)}`,
@@ -301,7 +306,7 @@ function buildGenerationPrompt(plan) {
     `Rules: ${JSON.stringify(plan.generation_rules)}`,
     'For every publishable KK social-post request, draft exactly 3 INTERNAL candidates; do not present all three as public output.',
     'Candidate 1, Candidate 2, and Candidate 3 must use different primary content angles and visibly different hook logic.',
-    'For each candidate, include selector metrics (0–100): hook_strength, event_fandom_relevance, timing_relevance, novelty, hashtag_relevance, readability, and commercial_relevance when objective=conversion.',
+    'For each candidate, include selector metrics (0–100): hook_strength, event_fandom_relevance, timing_relevance, novelty, hashtag_relevance, readability, event_specificity, naturalness, non_template_feel, hook_originality, sales_pressure_balance, and commercial_relevance when objective=conversion.',
     'The downstream selector will choose exactly one winner. Only that winner is shown to the owner.',
     'Do not reuse recent hook wording or sentence skeletons. Do not turn a blocked idea into publishable sales copy.'
   ].join('\n');
