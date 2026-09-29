@@ -237,3 +237,18 @@ test('public text boundary strips pipe-delimited operational annotations', () =>
   assert.doesNotMatch(cleaned.text, /NOVEMBER_V4_20260929/);
   assert.match(cleaned.text, /PKG-PIPE,EVT-PIPE,phone_only/);
 });
+
+
+test('public data fails closed when public and private reader Sheet IDs conflict', async () => {
+  await withEnv(withoutPrivateCredentials({
+    GOOGLE_SHEET_ID:'sheet-public',
+    KK_CRM_SHEET_ID:'sheet-private',
+    KK_PUBLIC_SHEET_REQUIRE_PRIVATE:undefined,
+  }), async () => {
+    const res=fakeRes({rejectNonAsciiHeaders:true});
+    await handler({method:'GET',query:{sheet:'08_Web_Ready',range:'A4:K'}},res);
+    assert.equal(res.statusCode,503);
+    assert.equal(res.headers['x-kk-sheet-source'],'sheet-id-config-conflict');
+    assert.match(res.body,/configuration conflicts/i);
+  });
+});
