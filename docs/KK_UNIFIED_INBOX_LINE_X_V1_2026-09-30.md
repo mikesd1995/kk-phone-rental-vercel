@@ -136,3 +136,26 @@ UI shell: implemented.
 Live conversation data: blocked pending durable persistence adapter.
 Outbound LINE/X: blocked pending explicit provider/send acceptance.
 Production deployment: not authorized by this implementation record.
+
+
+## Implementation log — 2026-09-30 P2.5 durable persistence candidate
+Audit found the existing production route `/api/line-webhook` already rewrites to `api/kk-data.js` and delegates to `server/line-booking-webhook.js`, which performs the existing booking Flex auto-reply. Unified Inbox MUST NOT replace this route blindly.
+
+Storage discovery:
+- Repository has no durable database dependency.
+- No connected Supabase project was available during this implementation pass.
+- Therefore no database/project/environment variable was provisioned and production writes remain disabled.
+
+Prepared fallback safely:
+- Added `server/kk-inbox-postgrest-store.js`, a server-only PostgREST adapter that calls one transactional RPC.
+- Added `supabase/kk_inbox_v1.sql` defining private message/conversation/audit tables, unique idempotency constraints, RLS, revoked browser roles, and a service-role-only SECURITY INVOKER RPC.
+- Added adapter tests for RPC-only writes and fail-closed missing credentials.
+- Added adapter to syntax gate.
+- Credentials are intentionally named `KK_INBOX_SUPABASE_URL` and `KK_INBOX_SUPABASE_SERVICE_ROLE_KEY`; neither exists in browser code or repository.
+
+Next acceptance gate:
+1. provision/identify a dedicated durable Postgres/Supabase project;
+2. review/apply schema and run DB security advisors;
+3. run duplicate/concurrency acceptance against the real DB;
+4. only then tee the already-verified LINE webhook into Inbox persistence while preserving the existing booking Flex behavior;
+5. keep outbound Inbox sends disabled.
