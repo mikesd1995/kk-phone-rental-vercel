@@ -50,3 +50,12 @@ jobs:
           node scripts/hf-event-assist-readiness.js > /tmp/hf-readiness.json
           cat /tmp/hf-readiness.json
           node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('/tmp/hf-readiness.json','utf8'));if(r.status!=='BLOCKED'||r.network_calls!==0||r.production_writes!==0||r.final_truth_mutation!==false||r.notification_sends!==0||!r.blockers.includes('HF_EVENT_ASSIST_DISABLED')){console.error(r);process.exit(1)}"
+
+      - name: GPT-6 shadow remains disabled and zero-write in CI
+        env:
+          KK_GPT6_SHADOW_ENABLED: 'false'
+        run: |
+          node scripts/kk-gpt6-shadow-readiness.js > /tmp/gpt6-shadow-readiness.json
+          cat /tmp/gpt6-shadow-readiness.json
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('/tmp/gpt6-shadow-readiness.json','utf8'));if(r.status!=='SHADOW_DISABLED'||r.network_calls!==0||r.production_writes!==0||r.final_truth_mutation!==false){console.error(r);process.exit(1)}"
+
