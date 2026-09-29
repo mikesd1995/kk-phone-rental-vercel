@@ -1,0 +1,190 @@
+name: GPT-6 Shadow Live Acceptance
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-gpt6-shadow-live-acceptance
+  cancel-in-progress: false
+
+jobs:
+  live-shadow:
+    if: >-
+      ${{
+        github.event.pull_request.number == 314 &&
+        github.actor == github.repository_owner &&
+        github.event.label.name == 'gpt6-live-eval' &&
+        github.event.pull_request.head.ref == 'feat/gpt6-shadow-runtime-20260929' &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+      VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+      KK_GPT6_SHADOW_ENABLED: 'true'
+      KK_GPT6_SHADOW_TRANSPORT: vercel_ai_gateway
+      KK_GPT6_SHADOW_ALLOW_ENV_OIDC: 'true'
+
+    steps:
+      - name: Checkout exact authorized PR head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Verify exact branch and owner authorization
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+          EXPECTED_BRANCH: ${{ github.event.pull_request.head.ref }}
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          LABEL: ${{ github.event.label.name }}
+        run: |
+          set -euo pipefail
+          test "$ACTOR" = "$OWNER"
+          test "$LABEL" = "gpt6-live-eval"
+          test "$EXPECTED_BRANCH" = "feat/gpt6-shadow-runtime-20260929"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Verify targeted shadow regression before credentials
+        run: |
+          set -euo pipefail
+          node --test tests/kk-gpt6-shadow-runtime.test.js
+          node --test tests/kk-gpt6-shadow-eval.test.js
+          node --test tests/kk-gpt6-shadow-live-workflow.test.js
+
+      - name: Require existing Vercel credential
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo "VERCEL_TOKEN_MISSING"
+            exit 1
+          fi
+
+      - name: Install Vercel CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save vercel@latest >/dev/null
+          npx vercel --version >/dev/null
+
+      - name: Pull short-lived Preview OIDC token
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+          npx vercel env pull /tmp/kk-oidc.env --yes --environment=preview --token="$VERCEL_TOKEN" >/tmp/vercel-oidc-pull.log 2>&1
+          test -s /tmp/kk-oidc.env
+          OIDC_TOKEN="$(node - <<'NODE'
+          const fs=require('node:fs');
+          const raw=fs.readFileSync('/tmp/kk-oidc.env','utf8');
+          const line=raw.split(/\r?\n/).find(v=>v.startsWith('VERCEL_OIDC_TOKEN='));
+          if(!line) process.exit(2);
+          let value=line.slice('VERCEL_OIDC_TOKEN='.length).trim();
+          if((value.startsWith('"')&&value.endsWith('"'))||(value.startsWith("'")&&value.endsWith("'"))){
+            value=value.slice(1,-1);
+          }
+          if(!value) process.exit(3);
+          process.stdout.write(value);
+          NODE
+          )"
+          test -n "$OIDC_TOKEN"
+          echo "::add-mask::$OIDC_TOKEN"
+          printf 'VERCEL_OIDC_TOKEN=%s\n' "$OIDC_TOKEN" >> "$GITHUB_ENV"
+          chmod 600 /tmp/kk-oidc.env
+          rm -f /tmp/kk-oidc.env /tmp/vercel-oidc-pull.log
+
+      - name: Confirm live shadow readiness without model call
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run gpt6:shadow:readiness > gpt6-shadow-readiness.json
+          node - <<'NODE'
+          const r=require('./gpt6-shadow-readiness.json');
+          if(r.status!=='READY_FOR_LIVE_SHADOW_EVAL') throw new Error('SHADOW_NOT_READY_'+r.status);
+          if(r.network_calls!==0 || r.production_writes!==0) throw new Error('READINESS_NOT_ZERO_WRITE');
+          if(r.scanner.transport!=='VERCEL_AI_GATEWAY' || r.verifier.transport!=='VERCEL_AI_GATEWAY') throw new Error('GATEWAY_TRANSPORT_NOT_READY');
+          NODE
+
+      - name: Run representative GPT-6 Sol live shadow eval
+        id: eval
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run gpt6:shadow:eval > gpt6-shadow-eval.json
+
+      - name: Run GPT-6 Sol live zero-write acceptance
+        id: zero_write
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run gpt6:shadow:zero-write > gpt6-zero-write.json
+
+      - name: Upload secret-safe live evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpt6-shadow-live-acceptance-${{ github.run_id }}
+          path: |
+            gpt6-shadow-readiness.json
+            gpt6-shadow-eval.json
+            gpt6-zero-write.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Require live GPT-6 Sol PASS and zero-write
+        if: ${{ always() }}
+        shell: bash
+        env:
+          EVAL_OUTCOME: ${{ steps.eval.outcome }}
+          ZERO_WRITE_OUTCOME: ${{ steps.zero_write.outcome }}
+        run: |
+          set -euo pipefail
+          test "$EVAL_OUTCOME" = "success"
+          test "$ZERO_WRITE_OUTCOME" = "success"
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const evalResult=JSON.parse(fs.readFileSync('gpt6-shadow-eval.json','utf8'));
+          const zero=JSON.parse(fs.readFileSync('gpt6-zero-write.json','utf8'));
+          if(evalResult.shadow_eval_passed!==true) throw new Error('SHADOW_EVAL_NOT_PASS');
+          if(evalResult.total!==8 || evalResult.passed!==8 || evalResult.blocked!==0 || evalResult.mismatches!==0 || evalResult.authority_violations!==0) throw new Error('SHADOW_EVAL_COUNTS_INVALID');
+          if(evalResult.production_writes!==0 || evalResult.publishes!==0 || evalResult.notification_sends!==0 || evalResult.final_truth_mutation!==false) throw new Error('SHADOW_EVAL_WRITE_VIOLATION');
+          if(!Array.isArray(evalResult.results) || !evalResult.results.every(r=>r.pass===true && r.model==='openai/gpt-6-sol' && typeof r.response_id==='string' && r.response_id.length>0)) throw new Error('SHADOW_EVAL_RUNTIME_EVIDENCE_INVALID');
+          if(zero.zero_write_acceptance_passed!==true || zero.live_execution_evidence!==true || zero.production_writes!==0) throw new Error('ZERO_WRITE_ACCEPTANCE_NOT_PASS');
+          if(!Array.isArray(zero.cases) || !zero.cases.every(r=>r.status==='SHADOW_RESULT_READY' && r.model==='openai/gpt-6-sol' && r.production_writes===0 && r.network_calls===1 && typeof r.response_id==='string' && r.response_id.length>0)) throw new Error('ZERO_WRITE_CASE_INVALID');
+          NODE
+
+      - name: Record acceptance summary
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          {
+            echo '### GPT-6 Sol Live Shadow Acceptance'
+            echo '- transport: Vercel AI Gateway with short-lived OIDC'
+            echo '- model: openai/gpt-6-sol'
+            echo '- representative eval: 8/8 PASS'
+            echo '- live zero-write acceptance: PASS'
+            echo '- production writes: 0'
+            echo '- publishes: 0'
+            echo '- notification sends: 0'
+            echo '- production cutover: NOT PERFORMED'
+          } >> "$GITHUB_STEP_SUMMARY"
