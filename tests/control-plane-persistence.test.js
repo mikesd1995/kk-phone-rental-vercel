@@ -70,6 +70,7 @@ function occurrence(role,index){
       attempts:[[],[{...manifest,status:'FROZEN'}]]
     };
   }else{
+    base.scanner_run_coverage=[{run_id:run,coverage_family:'OFFICIAL',status:'COVERED'}];
     base.scanner_due_work={
       occurrence_id:run,
       buckets:{
@@ -201,4 +202,35 @@ test('raw prompt drift inside a natural occurrence is rejected after fingerprint
   assert.equal(r.pass,false);
   assert.equal(r.scanner.acceptance_credit,0);
   assert.ok(r.scanner.rejected_occurrences.some(x=>x.classification==='TASK_IDENTITY_DRIFT'));
+});
+
+
+test('canonical GLOBAL lock scopes prove the same runtime boundary as legacy aliases',()=>{
+  const s=snapshot();
+  for(const row of s.occurrences){
+    row.core_locks[0].scope_key='CORE_SHARED_WRITER';
+    row.role_locks[0].scope_key=row.role==='SCANNER'?'SCANNER_GLOBAL':'VERIFIER_GLOBAL';
+  }
+  const r=P.auditPersistenceSnapshot(s);
+  assert.equal(r.pass,true);
+  assert.equal(r.scanner.acceptance_credit,6);
+  assert.equal(r.verifier.acceptance_credit,6);
+});
+
+test('Scanner cannot receive persistence credit without at least one owned _Run_Coverage row',()=>{
+  const s=snapshot();
+  delete s.occurrences.find(x=>x.role==='SCANNER'&&x.scheduled_at.includes('14:00')).scanner_run_coverage;
+  const r=P.auditPersistenceSnapshot(s);
+  assert.equal(r.pass,false);
+  assert.equal(r.scanner.acceptance_credit,0);
+  assert.ok(r.scanner.rejected_occurrences.some(x=>x.blockers.includes('SCANNER_RUN_COVERAGE_EVIDENCE_MISSING')));
+});
+
+test('Scanner rejects coverage rows belonging to another runtime',()=>{
+  const s=snapshot();
+  const row=s.occurrences.find(x=>x.role==='SCANNER'&&x.scheduled_at.includes('14:00'));
+  row.scanner_run_coverage=[{run_id:'OTHER-RUN',coverage_family:'OFFICIAL',status:'COVERED'}];
+  const r=P.auditPersistenceSnapshot(s);
+  assert.equal(r.pass,false);
+  assert.ok(r.scanner.rejected_occurrences.some(x=>x.blockers.includes('SCANNER_RUN_COVERAGE_EMPTY')));
 });
