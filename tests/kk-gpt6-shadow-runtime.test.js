@@ -182,3 +182,29 @@ test('unsupported workload is rejected without network', async () => {
   assert.equal(out.status, 'BLOCKED_SHADOW_WORKLOAD_UNSUPPORTED');
   assert.equal(calls, 0);
 });
+
+
+test('shadow request strips evaluator expected answers before sending model input', () => {
+  const payload = Runtime.requestFor('scanner', {
+    case_id:'no-answer-leak',
+    expected_decision:'HOLD',
+    nested:{expected_decisions:['HOLD'],claim:'visible'}
+  });
+  const sent = JSON.parse(payload.input);
+  assert.equal(Object.hasOwn(sent,'expected_decision'),false);
+  assert.equal(Object.hasOwn(sent.nested,'expected_decisions'),false);
+  assert.equal(sent.nested.claim,'visible');
+});
+
+test('shadow route rejects model override outside the governed GPT-6 Sol target before network', async () => {
+  let calls = 0;
+  const out = await Runtime.runShadow('verifier', {case_id:'bad-model'}, {
+    env:{KK_GPT6_SHADOW_ENABLED:'true',OPENAI_API_KEY:'secret'},
+    model:'gpt-5.6',
+    fetchImpl:async()=>{ calls++; return fakeResponse(responseFor()); }
+  });
+  assert.equal(out.status,'BLOCKED_SHADOW_MODEL_NOT_ALLOWED');
+  assert.equal(calls,0);
+  assert.equal(out.network_calls,0);
+  assert.equal(out.production_writes,0);
+});
