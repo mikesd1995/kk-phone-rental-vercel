@@ -3,8 +3,9 @@
 const path = require('path');
 const Analysis = require('./kk-csv-analysis-agent.js');
 
-const ADAPTER_VERSION = 'KK_OPENAI_AGENTS_ADAPTER_V1';
+const ADAPTER_VERSION = 'KK_OPENAI_AGENTS_REST_ADAPTER_V2';
 const INLINE_LIMIT_BYTES = 5 * 1024 * 1024;
+const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const REQUIRED = Object.freeze({
   report_pdf: 'report.pdf',
   findings_json: 'findings.json',
@@ -15,23 +16,178 @@ function codedError(code, message, details = {}) {
   return Object.assign(new Error(message || code), { code, ...details });
 }
 
+async function ensureOk(response, codePrefix = 'OPENAI_API_HTTP') {
+  if (response?.ok) return response;
+  const status = Number(response?.status || 0);
+  let body = '';
+  try {
+    body = String(await response.text()).slice(0, 1000);
+  } catch (_) {
+    body = '';
+  }
+  throw codedError(`${codePrefix}_${status || 'ERROR'}`, `OpenAI API request failed with HTTP ${status || 'unknown'}`, {
+    http_status: status,
+    response_excerpt: body
+  });
+}
+
+async function* parseSse(response) {
+  await ensureOk(response, 'OPENAI_AGENT_STREAM_HTTP');
+  if (!response.body || typeof response.body.getReader !== 'function') {
+    throw codedError('OPENAI_AGENT_STREAM_BODY_MISSING', 'Agent stream response has no readable body');
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done }).replace(/\r\n/g, '\n');
+    let boundary = buffer.indexOf('\n\n');
+    while (boundary !== -1) {
+      const block = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      const data = block
+        .split('\n')
+        .filter(line => line.startsWith('data:'))
+        .map(line => line.slice(5).trimStart())
+        .join('\n')
+        .trim();
+      if (data && data !== '[DONE]') {
+        try {
+          yield JSON.parse(data);
+        } catch (_) {
+          throw codedError('OPENAI_AGENT_STREAM_JSON_INVALID', 'Agent stream contained invalid JSON');
+        }
+      }
+      boundary = buffer.indexOf('\n\n');
+    }
+    if (done) break;
+  }
+  const tail = buffer.trim();
+  if (tail) {
+    const data = tail
+      .split('\n')
+      .filter(line => line.startsWith('data:'))
+      .map(line => line.slice(5).trimStart())
+      .join('\n')
+      .trim();
+    if (data && data !== '[DONE]') {
+      try {
+        yield JSON.parse(data);
+      } catch (_) {
+        throw codedError('OPENAI_AGENT_STREAM_JSON_INVALID', 'Agent stream contained invalid trailing JSON');
+      }
+    }
+  }
+}
+
+function createFetchAgentsClient(options = {}) {
+  const apiKey = String(options.apiKey || '').trim();
+  const fetchImpl = options.fetchImpl || global.fetch;
+  const baseUrl = String(options.baseUrl || DEFAULT_BASE_URL).replace(/\/$/, '');
+  if (!apiKey) throw codedError('OPENAI_API_KEY_MISSING', 'OPENAI_API_KEY is required');
+  if (typeof fetchImpl !== 'function') {
+    throw codedError('OPENAI_FETCH_UNAVAILABLE', 'A fetch implementation is required');
+  }
+
+  function headers(json = true) {
+    const out = {
+      Authorization: `Bearer ${apiKey}`,
+      'OpenAI-Beta': 'agents=v1'
+    };
+    if (json) out['Content-Type'] = 'application/json';
+    return out;
+  }
+
+  async function jsonRequest(url, init) {
+    const response = await fetchImpl(url, init);
+    await ensureOk(response);
+    try {
+      return await response.json();
+    } catch (_) {
+      throw codedError('OPENAI_API_JSON_INVALID', 'OpenAI API returned invalid JSON');
+    }
+  }
+
+  const client = {
+    __kk_native_rest: true,
+    files: {
+      create: async spec => {
+        const form = new FormData();
+        const purpose = String(spec?.purpose || 'user_data');
+        const filename = String(spec?.filename || 'input.csv');
+        const file = spec?.file;
+        const blob = file instanceof Blob
+          ? file
+          : new Blob([file], { type: 'text/csv' });
+        form.append('purpose', purpose);
+        form.append('file', blob, filename);
+        return jsonRequest(`${baseUrl}/files`, {
+          method: 'POST',
+          headers: headers(false),
+          body: form
+        });
+      }
+    },
+    beta: {
+      agents: {
+        sessions: {
+          create: async args => {
+            const response = await fetchImpl(`${baseUrl}/agents/sessions`, {
+              method: 'POST',
+              headers: headers(true),
+              body: JSON.stringify(args)
+            });
+            if (args?.stream === true) return parseSse(response);
+            await ensureOk(response);
+            return response.json();
+          },
+          artifacts: {
+            list: sessionId => ({
+              async *[Symbol.asyncIterator]() {
+                let after = '';
+                do {
+                  const suffix = after ? `?after=${encodeURIComponent(after)}` : '';
+                  const page = await jsonRequest(
+                    `${baseUrl}/agents/sessions/${encodeURIComponent(sessionId)}/artifacts${suffix}`,
+                    { method: 'GET', headers: headers(false) }
+                  );
+                  const rows = Array.isArray(page?.data) ? page.data : [];
+                  for (const artifact of rows) yield artifact;
+                  if (!page?.has_more || rows.length === 0) break;
+                  after = String(page.last_id || rows[rows.length - 1]?.id || '').trim();
+                  if (!after) break;
+                } while (true);
+              }
+            }),
+            content: async (artifactId, params = {}) => {
+              const sessionId = String(params.session_id || '').trim();
+              if (!sessionId) {
+                throw codedError('OPENAI_ARTIFACT_SESSION_ID_MISSING', 'session_id is required');
+              }
+              const response = await fetchImpl(
+                `${baseUrl}/agents/sessions/${encodeURIComponent(sessionId)}/artifacts/${encodeURIComponent(artifactId)}/content`,
+                { method: 'GET', headers: headers(false) }
+              );
+              return ensureOk(response, 'OPENAI_ARTIFACT_HTTP');
+            }
+          }
+        }
+      }
+    }
+  };
+  return client;
+}
+
 async function resolveClient(options = {}) {
   if (options.client) return options.client;
   const apiKey = String(options.apiKey || process.env.OPENAI_API_KEY || '').trim();
   if (!apiKey) throw codedError('OPENAI_API_KEY_MISSING', 'OPENAI_API_KEY is required');
-  try {
-    const mod = await import('openai');
-    const OpenAI = mod.default || mod.OpenAI;
-    if (typeof OpenAI !== 'function') {
-      throw codedError('OPENAI_SDK_INVALID', 'OpenAI SDK client export not found');
-    }
-    return new OpenAI({ apiKey });
-  } catch (error) {
-    if (error?.code && String(error.code).startsWith('OPENAI_')) throw error;
-    throw codedError('OPENAI_SDK_UNAVAILABLE', 'OpenAI SDK is unavailable', {
-      cause_code: String(error?.code || error?.name || 'ERROR')
-    });
-  }
+  return createFetchAgentsClient({
+    apiKey,
+    fetchImpl: options.fetchImpl || global.fetch,
+    baseUrl: options.baseUrl || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL
+  });
 }
 
 async function environmentFileFor(request, client, options = {}) {
@@ -43,18 +199,29 @@ async function environmentFileFor(request, client, options = {}) {
     };
   }
 
-  const toFile = options.toFile || (() => {
-    throw codedError(
-      'OPENAI_LARGE_FILE_HELPER_MISSING',
-      'CSV files above 5 MiB require the OpenAI SDK toFile helper'
-    );
-  });
-
   if (!client.files?.create) {
     throw codedError('OPENAI_FILES_API_UNAVAILABLE', 'OpenAI Files API is unavailable');
   }
-  const uploadable = await toFile(request.csv_bytes, request.filename);
-  const uploaded = await client.files.create({ file: uploadable, purpose: 'user_data' });
+
+  let uploaded;
+  if (client.__kk_native_rest === true) {
+    uploaded = await client.files.create({
+      file: request.csv_bytes,
+      filename: request.filename,
+      purpose: 'user_data'
+    });
+  } else {
+    const toFile = options.toFile;
+    if (typeof toFile !== 'function') {
+      throw codedError(
+        'OPENAI_LARGE_FILE_HELPER_MISSING',
+        'Injected SDK clients require a toFile helper for CSV files above 5 MiB'
+      );
+    }
+    const uploadable = await toFile(request.csv_bytes, request.filename);
+    uploaded = await client.files.create({ file: uploadable, purpose: 'user_data' });
+  }
+
   if (!uploaded?.id) throw codedError('OPENAI_FILE_UPLOAD_FAILED', 'OpenAI file upload returned no id');
   return {
     type: 'file_id',
@@ -122,16 +289,7 @@ async function downloadOpenAIAgentArtifact(handle, options = {}) {
 
 async function runOpenAIAgentsAnalysis(request, options = {}) {
   const client = await resolveClient(options);
-  let toFile = options.toFile;
-  if (!toFile && request.csv_bytes.length > INLINE_LIMIT_BYTES && !options.client) {
-    try {
-      const mod = await import('openai');
-      toFile = mod.toFile;
-    } catch (_) {
-      toFile = null;
-    }
-  }
-  const envFile = await environmentFileFor(request, client, { ...options, toFile });
+  const envFile = await environmentFileFor(request, client, options);
   const model = String(options.model || process.env.KK_CSV_ANALYSIS_MODEL || 'gpt-6-sol');
   const events = await client.beta.agents.sessions.create({
     agent: {
@@ -237,6 +395,11 @@ async function runOpenAIAgentsAnalysis(request, options = {}) {
 module.exports = {
   ADAPTER_VERSION,
   INLINE_LIMIT_BYTES,
+  DEFAULT_BASE_URL,
+  codedError,
+  ensureOk,
+  parseSse,
+  createFetchAgentsClient,
   resolveClient,
   environmentFileFor,
   rootTurnFailure,
