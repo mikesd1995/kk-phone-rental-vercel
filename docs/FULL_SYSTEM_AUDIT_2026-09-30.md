@@ -381,3 +381,20 @@ New exact-head gates:
 - Storefront Automated Visual QA #29 / `36630333037`: pending at latest read.
 
 PR #342 remains draft/unmerged; Production unchanged. Safety: zero business writes, zero Sheet/Apps Script mutations, zero scheduler changes.
+
+
+## Execution update — Storefront UX second acceptance repair
+
+Exact-head `403a6824e9450ad1261480a94932408fd90c790e` results:
+- Storefront Automated Visual QA #29 / `36630333037`: SUCCESS. The prior mobile/tablet FAQ P1 was eliminated without lowering thresholds.
+- Admin Regression #1097 / `36630333036`: FAILURE with one remaining regression only: `Code Intelligence routes Operating Partner work to the new business brain`. The required `server/kk-operating-partner.js` was no longer selected after Storefront UX context expansion.
+
+Root cause: shared Code Intelligence `max_files=10` capacity was saturated by legitimate route growth. This was treated as a cross-route capacity regression, not papered over by deleting Storefront UX context or weakening the Operating Partner assertion.
+
+Repair:
+- Increased Code Intelligence default `max_files` from 10 to 12, preserving both Storefront UX and Operating Partner context coverage within the existing token budget and ranking logic.
+- New exact candidate head: `4906037d75e1eded98a004aadec60dddf7d1196e`.
+- Admin Regression #1099 / `36630728113`: in progress at latest read.
+- Storefront Automated Visual QA #30 / `36630728001`: in progress at latest read.
+
+PR #342 remains Draft/unmerged; Production unchanged until both exact-head gates pass.
