@@ -78,7 +78,7 @@ async function probe(url,fetchImpl=global.fetch){
     const ok=res.ok&&ct.startsWith('image/')&&hasBytes;
     return {url,ok,status:res.status,content_type:ct,latency_ms:Date.now()-started,final_url:res.url,error:''};
   }catch(err){
-    return {url,ok:false,status:0,content_type:'',latency_ms:Date.now()-started,final_url:'',error:text(err&&err.name)||'FETCH_ERROR'};
+    return {url,ok:false,status:0,content_type:'',latency_ms:Date.now()-started,final_url:'',error:[text(err&&err.name),text(err&&err.message)].filter(Boolean).join(': ')||'FETCH_ERROR'};
   }finally{clearTimeout(timer);}
 }
 async function pool(items,worker,limit=CONCURRENCY){
@@ -97,7 +97,7 @@ async function main(){
     const fallback=emergencyPoster(r);
     return [...canonical,...(fallback&&fallback!==text(r.poster_image_url)?candidates(fallback):[])];
   }))];
-  const probed=await pool(unique,probe);
+  const probed=await pool(unique,url=>probe(url));
   const byUrl=new Map(probed.map(x=>[x.url,x]));
 
   const events=rows.map(r=>{
