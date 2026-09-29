@@ -19,6 +19,18 @@ The Verifier must:
 - preserve unknown fields as unknown;
 - require governed write/readback contracts before any final business mutation.
 
+## Model/provider neutrality
+
+The model or provider used for verification does not expand Verifier authority. A newer model may improve reasoning quality, but the final governed handoff still requires the same Machine-SOT policy, source, identity, conflict, tombstone, write, and readback gates.
+
+Keep evidence labels explicit:
+- observed fact;
+- source claim;
+- inference;
+- recommendation.
+
+Never treat model confidence as source authority. GPT-6 shadow output is advisory only. Ambiguous protected-write evidence, identity, fencing, tombstone state, or readback fails closed.
+
 ## Source priority
 
 Prefer direct evidence in this order when facts conflict:
