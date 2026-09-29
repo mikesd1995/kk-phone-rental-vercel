@@ -23,6 +23,42 @@ function jsonResponse(body, status = 200) {
   });
 }
 
+function emptyZip(names) {
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+
+  for (const rawName of names) {
+    const name = Buffer.from(rawName, 'utf8');
+    const local = Buffer.alloc(30 + name.length);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(name.length, 26);
+    name.copy(local, 30);
+    locals.push(local);
+
+    const central = Buffer.alloc(46 + name.length);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(name.length, 28);
+    central.writeUInt32LE(offset, 42);
+    name.copy(central, 46);
+    centrals.push(central);
+    offset += local.length;
+  }
+
+  const centralDir = Buffer.concat(centrals);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(names.length, 8);
+  end.writeUInt16LE(names.length, 10);
+  end.writeUInt32LE(centralDir.length, 12);
+  end.writeUInt32LE(offset, 16);
+
+  return Buffer.concat([...locals, centralDir, end]);
+}
+
 test('validates CSV/question locally and fails closed before network access', async () => {
   let fetchCalls = 0;
   const fetchImpl = async () => {
@@ -96,7 +132,8 @@ test('large CSV uses Files API before creating the agent session', async () => {
       return jsonResponse({data:[
         {id:'a1',turn_id:'turn_large',path:'/workspace/outputs/report.pdf',size_bytes:1},
         {id:'a2',turn_id:'turn_large',path:'/workspace/outputs/findings.json',size_bytes:1},
-        {id:'a3',turn_id:'turn_large',path:'/workspace/outputs/results.zip',size_bytes:1}
+        {id:'a3',turn_id:'turn_large',path:'/workspace/outputs/results.zip',size_bytes:1},
+        {id:'a4',turn_id:'turn_large',path:'/workspace/outputs/chart_01.png',size_bytes:8}
       ],has_more:false});
     }
     if (String(url).endsWith('/content')) {
@@ -109,9 +146,10 @@ test('large CSV uses Files API before creating the agent session', async () => {
           dataset:{rows:1,columns:1},
           findings:[],
           caveats:[],
-          charts:[]
+          charts:[{file:'chart_01.png',title:'Summary',why_it_matters:'Overview'}]
         })),
-        a3: Buffer.from([0x50,0x4b,0x03,0x04,0x00])
+        a3: emptyZip(['report.pdf','findings.json','chart_01.png']),
+        a4: Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])
       }[artifactId] || Buffer.from('x'));
       return new Response(bytes, {status:200});
     }
@@ -146,7 +184,7 @@ test('completed root turn downloads only same-turn output artifacts and verifies
       charts:[{file:'chart_01.png',title:'Revenue',why_it_matters:'Comparison'}]
     }))],
     ['chart_01.png', Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])],
-    ['results.zip', Buffer.from([0x50,0x4b,0x03,0x04,0x00])]
+    ['results.zip', emptyZip(['report.pdf','findings.json','chart_01.png'])]
   ]);
 
   const fetchImpl = async (url, init = {}) => {
@@ -257,15 +295,21 @@ test('invalid PDF or ZIP signature blocks completion before publishing local out
         return jsonResponse({data:[
           {id:'r',turn_id:turnId,path:'/workspace/outputs/report.pdf',size_bytes:8},
           {id:'f',turn_id:turnId,path:'/workspace/outputs/findings.json',size_bytes:100},
-          {id:'z',turn_id:turnId,path:'/workspace/outputs/results.zip',size_bytes:5}
+          {id:'z',turn_id:turnId,path:'/workspace/outputs/results.zip',size_bytes:5},
+          {id:'c',turn_id:turnId,path:'/workspace/outputs/chart_01.png',size_bytes:8}
         ],has_more:false});
       }
       const id = u.match(/artifacts\/([^/]+)\/content$/)?.[1];
       if (id === 'r') return new Response(Buffer.from(badArtifact === 'report' ? 'not-pdf' : '%PDF-1.4'), {status:200});
       if (id === 'f') return new Response(Buffer.from(JSON.stringify({
-        question:'Analyze it',answer:'A',dataset:{rows:1,columns:1},findings:[],caveats:[],charts:[]
+        question:'Analyze it',answer:'A',dataset:{rows:1,columns:1},findings:[],caveats:[],
+        charts:[{file:'chart_01.png',title:'Summary',why_it_matters:'Overview'}]
       })), {status:200});
-      if (id === 'z') return new Response(badArtifact === 'zip' ? Buffer.from('badzip') : Buffer.from([0x50,0x4b,0x03,0x04,0x00]), {status:200});
+      if (id === 'z') return new Response(
+        badArtifact === 'zip' ? Buffer.from('badzip') : emptyZip(['report.pdf','findings.json','chart_01.png']),
+        {status:200}
+      );
+      if (id === 'c') return new Response(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]), {status:200});
       if (u.endsWith(`/v1/agents/sessions/${sessionId}`) && init.method === 'DELETE') return jsonResponse({deleted:true});
       throw new Error(`unexpected URL ${u}`);
     };
