@@ -352,3 +352,59 @@ test('root turn failure propagates as fail-closed execution error', async () => 
     error => error && error.code === 'CSV_ANALYSIS_AGENT_TURN_FAILED'
   );
 });
+
+
+test('CLI exposes deterministic argument parsing and package command', () => {
+  const Cli = require('../scripts/kk-csv-analysis-agent.js');
+  const parsed = Cli.parseArgs([
+    '--csv','./sales.csv',
+    '--question','Which segment leads?',
+    '--output','./out',
+    '--model','gpt-6-sol',
+    '--keep-session'
+  ]);
+
+  assert.deepEqual(parsed, {
+    csv:'./sales.csv',
+    question:'Which segment leads?',
+    output:'./out',
+    model:'gpt-6-sol',
+    keepSession:true,
+    help:false
+  });
+
+  assert.throws(
+    () => Cli.parseArgs(['--question','missing csv']),
+    error => error && error.code === 'CSV_ANALYSIS_CLI_CSV_REQUIRED'
+  );
+
+  const pkg = require('../package.json');
+  assert.equal(pkg.scripts['csv:analyze'], 'node scripts/kk-csv-analysis-agent.js');
+});
+
+test('CSV analysis agent remains isolated from production entrypoints', () => {
+  const root = path.resolve(__dirname, '..');
+  const files = [];
+
+  function walk(dir) {
+    const entries = require('node:fs').readdirSync(dir, {withFileTypes:true});
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile() && entry.name.endsWith('.js')) files.push(full);
+    }
+  }
+
+  walk(path.join(root, 'api'));
+  walk(path.join(root, 'admin'));
+  files.push(path.join(root, 'script.js'));
+
+  for (const file of files) {
+    const source = require('node:fs').readFileSync(file, 'utf8');
+    assert.equal(
+      source.includes('kk-csv-analysis-agent'),
+      false,
+      `production entrypoint imports CSV analysis agent: ${path.relative(root, file)}`
+    );
+  }
+});
