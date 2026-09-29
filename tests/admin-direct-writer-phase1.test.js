@@ -25,6 +25,7 @@ function eventData(){
     packages:[],
     overrides:[],
     web:[['EVT-1-TPL-A','EVT-1','phone_only','VIVO_X300_PRO','Vivo X300 Pro','NONE','',890,2,'available',10,'',2,'']],
+    visibility_locks:[],
     webPriceFormula:[['=IF(B5="","",890)']]
   };
 }
@@ -61,8 +62,11 @@ test('updateEvent planner is update-in-place, preserves web price cells, and ref
   assert.equal(p.mutations[0].values[3],'New Venue');
   assert.equal(p.mutations[0].values[5],'closed');
   assert.equal(p.mutations[0].values[6],false);
-  assert.equal(p.mutations.length,1);
-  assert.equal(p.readbacks.length,1);
+  assert.equal(p.mutations.length,2);
+  assert.equal(p.readbacks.length,2);
+  assert.equal(p.mutations[1].sheet,'18_Event_Visibility_Locks');
+  assert.equal(p.mutations[1].values[6],'LOCKED');
+  assert.equal(p.result.visibility_lock_state,'LOCKED');
   assert.equal(p.mutations.some(x=>x.sheet==='09_Web_Packages'),false);
 
   const legacy=Phase1.buildUpdateEventPlan({
@@ -92,6 +96,26 @@ test('updateEvent planner blocks hidden-to-visible transitions without explicit 
     visibility_owner_intent:'explicit_owner_reopen'
   },hidden);
   assert.equal(allowed.mutations[0].values[6],true);
+  assert.equal(allowed.mutations[1].sheet,'18_Event_Visibility_Locks');
+  assert.equal(allowed.mutations[1].values[6],'REOPENED');
+  assert.equal(allowed.result.visibility_lock_state,'REOPENED');
+});
+
+test('direct writer tombstone blocks raw-rescore reopen even when Core was already flipped true',()=>{
+  const data=eventData();
+  data.events[0][6]=true;
+  data.visibility_locks=[[
+    'LOCK|EVT-1','EVT-1','Old Event',46273,'Old Venue','oldevent|2026-09-08|oldvenue',
+    'LOCKED','OWNER_HIDE','','','','TRUE','audit','persistent lock'
+  ]];
+  assert.throws(
+    ()=>Phase1.buildUpdateEventPlan({action:'updateEvent',event_id:'EVT-1',active_on_web:true},data),
+    err=>err&&err.code==='EVENT_VISIBILITY_TOMBSTONE_LOCKED'
+  );
+  const reopen=Phase1.buildUpdateEventPlan({
+    action:'updateEvent',event_id:'EVT-1',active_on_web:true,visibility_owner_intent:'explicit_owner_reopen'
+  },data);
+  assert.equal(reopen.mutations[1].values[6],'REOPENED');
 });
 
 test('updatePackage planner preserves untouched columns and matches Apps Script update semantics',()=>{
