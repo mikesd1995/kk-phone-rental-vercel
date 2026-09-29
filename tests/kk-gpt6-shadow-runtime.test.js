@@ -256,3 +256,107 @@ test('Verifier shadow schema supports ACCEPT without granting execution authorit
   assert.equal(out.shadow_decision.authority,'SHADOW_ADVISORY_ONLY');
   assert.equal(out.production_writes,0);
 });
+
+
+test('Vercel AI Gateway transport maps canonical GPT-6 Sol to creator/model Responses endpoint', async () => {
+  let captured = null;
+  const out = await Runtime.runShadow('scanner', {
+    case_id:'gateway-api-key',
+    candidate:{title:'Gateway Example'}
+  }, {
+    env:{
+      KK_GPT6_SHADOW_ENABLED:'true',
+      KK_GPT6_SHADOW_TRANSPORT:'vercel_ai_gateway',
+      AI_GATEWAY_API_KEY:'gateway-secret'
+    },
+    fetchImpl:async (url, init) => {
+      captured = {url,headers:init.headers,body:JSON.parse(init.body)};
+      return fakeResponse(responseFor(shadowDecision({decision:'READY_FOR_VERIFIER'})));
+    }
+  });
+
+  assert.equal(captured.url,'https://ai-gateway.vercel.sh/v1/responses');
+  assert.equal(captured.body.model,'openai/gpt-6-sol');
+  assert.equal(captured.body.store,false);
+  assert.equal(captured.headers.authorization,'Bearer gateway-secret');
+  assert.equal(out.status,'SHADOW_RESULT_READY');
+  assert.equal(out.transport,'VERCEL_AI_GATEWAY');
+  assert.equal(out.model,'openai/gpt-6-sol');
+  assert.equal(out.canonical_model,'gpt-6-sol');
+  assert.equal(out.production_writes,0);
+});
+
+test('Vercel AI Gateway can authenticate with short-lived OIDC without a static provider key', async () => {
+  let calls = 0;
+  let auth = '';
+  const out = await Runtime.runShadow('verifier', {
+    case_id:'gateway-oidc',
+    candidate:{title:'OIDC Example'}
+  }, {
+    env:{
+      KK_GPT6_SHADOW_ENABLED:'true',
+      KK_GPT6_SHADOW_TRANSPORT:'vercel_ai_gateway'
+    },
+    getOidcTokenImpl:async()=> 'oidc.header.payload',
+    fetchImpl:async (_url, init) => {
+      calls += 1;
+      auth = init.headers.authorization;
+      return fakeResponse(responseFor(shadowDecision({decision:'ACCEPT'})));
+    }
+  });
+
+  assert.equal(calls,1);
+  assert.equal(auth,'Bearer oidc.header.payload');
+  assert.equal(out.status,'SHADOW_RESULT_READY');
+  assert.equal(out.transport,'VERCEL_AI_GATEWAY');
+  assert.doesNotMatch(JSON.stringify(out),/oidc\.header\.payload/);
+});
+
+test('Vercel AI Gateway missing API key and OIDC token fails closed before network', async () => {
+  let calls = 0;
+  const out = await Runtime.runShadow('scanner', {case_id:'gateway-auth-missing'}, {
+    env:{
+      KK_GPT6_SHADOW_ENABLED:'true',
+      KK_GPT6_SHADOW_TRANSPORT:'vercel_ai_gateway'
+    },
+    getOidcTokenImpl:async()=> '',
+    fetchImpl:async()=>{ calls += 1; return fakeResponse(responseFor()); }
+  });
+  assert.equal(out.status,'BLOCKED_AI_GATEWAY_AUTH_MISSING');
+  assert.equal(calls,0);
+  assert.equal(out.network_calls,0);
+  assert.equal(out.production_writes,0);
+});
+
+test('CLI-only env OIDC fallback requires explicit enable flag and never leaks token', async () => {
+  let calls = 0;
+  const blocked = await Runtime.runShadow('scanner', {case_id:'env-oidc-disabled'}, {
+    env:{
+      KK_GPT6_SHADOW_ENABLED:'true',
+      KK_GPT6_SHADOW_TRANSPORT:'vercel_ai_gateway',
+      VERCEL_OIDC_TOKEN:'env.oidc.token'
+    },
+    getOidcTokenImpl:async()=> '',
+    fetchImpl:async()=>{ calls += 1; return fakeResponse(responseFor()); }
+  });
+  assert.equal(blocked.status,'BLOCKED_AI_GATEWAY_AUTH_MISSING');
+  assert.equal(calls,0);
+
+  const allowed = await Runtime.runShadow('scanner', {case_id:'env-oidc-enabled'}, {
+    env:{
+      KK_GPT6_SHADOW_ENABLED:'true',
+      KK_GPT6_SHADOW_TRANSPORT:'vercel_ai_gateway',
+      KK_GPT6_SHADOW_ALLOW_ENV_OIDC:'true',
+      VERCEL_OIDC_TOKEN:'env.oidc.token'
+    },
+    getOidcTokenImpl:async()=> '',
+    fetchImpl:async (_url,init)=>{
+      calls += 1;
+      assert.equal(init.headers.authorization,'Bearer env.oidc.token');
+      return fakeResponse(responseFor(shadowDecision({decision:'READY_FOR_VERIFIER'})));
+    }
+  });
+  assert.equal(allowed.status,'SHADOW_RESULT_READY');
+  assert.equal(calls,1);
+  assert.doesNotMatch(JSON.stringify(allowed),/env\.oidc\.token/);
+});
