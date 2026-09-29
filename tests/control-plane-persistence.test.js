@@ -70,7 +70,7 @@ function occurrence(role,index){
       attempts:[[],[{...manifest,status:'FROZEN'}]]
     };
   }else{
-    base.scanner_run_coverage:[{run_id:run,coverage_family:'OFFICIAL',status:'COVERED'}];
+    base.scanner_run_coverage=[{run_id:run,coverage_family:'OFFICIAL',status:'COVERED'}];
     base.scanner_due_work={
       occurrence_id:run,
       buckets:{
