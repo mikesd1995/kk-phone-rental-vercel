@@ -22,7 +22,8 @@ const SPECS = {
   web_packages: { sheet:'09_Web_Packages', range:'A4:N', header:'package_id', startRow:4 },
   customers:    { sheet:'11_Customer_Stats', range:'A1:H', header:'customer_key', startRow:1 },
   health:       { sheet:'10_Admin_Health_Check', range:'A4:D', header:'Check', startRow:4 },
-  model_master: { sheet:'Model_Master', range:'A4:E', header:'model_group', startRow:4 }
+  model_master: { sheet:'Model_Master', range:'A4:E', header:'model_group', startRow:4 },
+  visibility_locks:{ sheet:'18_Event_Visibility_Locks', range:'A1:N', header:'lock_id', startRow:1 }
 };
 
 function parseCsv(text){
@@ -226,9 +227,16 @@ function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
   const health=raw.health.filter(r=>r.Check).map(r=>({
     check:r.Check||'',count:num(r.Count),status:r.Status||'',detail:String(r.Count||''),note:r['What to fix']||''
   }));
+  const visibilityLocks=(raw.visibility_locks||[]).filter(r=>r.lock_id||r.event_id).map(r=>({
+    row_number:r.__row_number,
+    lock_id:String(r.lock_id||'').trim(),event_id:String(r.event_id||'').trim(),event_name:r.event_name||'',
+    event_date:date(r.event_date),venue:r.venue||'',identity_key:r.identity_key||'',lock_state:String(r.lock_state||'').trim().toUpperCase(),
+    lock_reason:r.lock_reason||'',first_locked_at:r.first_locked_at||'',last_changed_at:r.last_changed_at||'',changed_by:r.changed_by||'',
+    explicit_reopen_required:bool(r.explicit_reopen_required),source_evidence:r.source_evidence||'',notes:r.notes||''
+  }));
 
   return {
-    events,packages,overrides,assets,bookings,current_bookings:current,web_ready:webReady,web_packages:webPackages,
+    events,packages,overrides,assets,bookings,current_bookings:current,web_ready:webReady,web_packages:webPackages,visibility_locks:visibilityLocks,
     today_working:todayWorking,today_key:today,model_master:Object.keys(models).map(k=>models[k]),customers,health,
     generated_at:new Date().toISOString(),spreadsheet_id:sheetId,admin_api_version:FALLBACK_VERSION,
     degraded_read_only:true,snapshot_source:transportMeta.snapshot_source||'direct-sheet-gviz-readonly-fallback',
