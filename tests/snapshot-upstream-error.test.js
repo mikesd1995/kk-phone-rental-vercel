@@ -309,7 +309,8 @@ test('uses direct-Sheet read-only fallback when Apps Script deployment is missin
     '09_Web_Packages': '"package_id","event_id","package_type","model_group","model_display","lens_group","lens_display","price","available_count","package_status","sort_order","web_note","raw_available_count","use_case"\n',
     '11_Customer_Stats': '"customer_key","customer_name","customer_contact","customer_phone","rental_count","first_rental_date","last_rental_date","last_event_name"\n',
     '10_Admin_Health_Check': '"Check","Count","Status","What to fix"\n"Source count — Events","1","OK",""\n"Source count — Bookings","1","OK",""\n"Source count — Assets","1","OK",""\n',
-    'Model_Master': '"model_group","model_display","asset_type","active","notes"\n"VIVO_X300_PRO","Vivo X300 Pro","phone","TRUE",""\n'
+    'Model_Master': '"model_group","model_display","asset_type","active","notes"\n"VIVO_X300_PRO","Vivo X300 Pro","phone","TRUE",""\n',
+    '18_Event_Visibility_Locks': '"lock_id","event_id","event_name","event_date","venue","identity_key","lock_state","lock_reason","first_locked_at","last_changed_at","changed_by","explicit_reopen_required","source_evidence","notes"\n'
   };
   global.fetch = async (url) => {
     if (String(url).startsWith('https://script.google.com/')) {
