@@ -330,3 +330,20 @@ After this change, the branch has:
 Draft PR: #313 — `Add OpenAI CSV analysis agent`.
 
 Keep it draft until the independent-review gate is satisfied. Do not merge as a substitute for live API acceptance or release readback.
+
+
+## Final branch verification and preview state
+
+After this report was first added, the branch HEAD was re-verified.
+
+GitHub Actions run `36553910856` completed successfully on the documented branch state:
+
+- syntax checks: PASS;
+- regression tests: PASS;
+- Code Intelligence retrieval benchmark: PASS;
+- HF benchmark harness safety check: PASS;
+- HF fail-closed readiness check: PASS.
+
+The GitHub combined status also reports the Vercel check as **failure**, with the target resolving to the account's build-rate-limit / upgrade page. This is treated as a deployment-capacity blocker, not as evidence that the Node implementation or regression suite failed.
+
+No workaround was used to bypass the Vercel account limit, and no production deployment was attempted. The PR remains draft.
