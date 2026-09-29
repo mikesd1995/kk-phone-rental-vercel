@@ -4,6 +4,11 @@ const Policy = require('./kk-model-migration-policy.js');
 
 const RUNTIME_VERSION = 'KK_GPT6_SHADOW_RUNTIME_V1';
 const RESPONSES_ENDPOINT = 'https://api.openai.com/v1/responses';
+const AI_GATEWAY_RESPONSES_ENDPOINT = 'https://ai-gateway.vercel.sh/v1/responses';
+const TRANSPORTS = Object.freeze({
+  OPENAI_DIRECT: 'OPENAI_DIRECT',
+  VERCEL_AI_GATEWAY: 'VERCEL_AI_GATEWAY'
+});
 const MAX_INPUT_BYTES = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 30000;
 const SUPPORTED_WORKLOADS = Object.freeze(['scanner', 'verifier']);
@@ -107,6 +112,70 @@ function sensitivePaths(value, path = '') {
   return found;
 }
 
+function normalizeTransport(value) {
+  const raw = text(value).toLowerCase();
+  if (!raw || ['openai','openai_direct','direct'].includes(raw)) return TRANSPORTS.OPENAI_DIRECT;
+  if (['vercel_ai_gateway','vercel-ai-gateway','gateway','vercel'].includes(raw)) return TRANSPORTS.VERCEL_AI_GATEWAY;
+  return '';
+}
+
+async function officialVercelOidcToken() {
+  let oidc;
+  try {
+    oidc = require('@vercel/functions/oidc');
+  } catch (_) {
+    return '';
+  }
+  if (!oidc || typeof oidc.getVercelOidcToken !== 'function') return '';
+  try {
+    return text(await oidc.getVercelOidcToken());
+  } catch (_) {
+    return '';
+  }
+}
+
+async function resolveGatewayCredential(options = {}, env = process.env) {
+  const apiKey = text(options.aiGatewayApiKey || env.AI_GATEWAY_API_KEY);
+  if (apiKey) return { token:apiKey, mode:'AI_GATEWAY_API_KEY' };
+
+  const getOidcTokenImpl = typeof options.getOidcTokenImpl === 'function'
+    ? options.getOidcTokenImpl
+    : officialVercelOidcToken;
+  try {
+    const oidc = text(await getOidcTokenImpl());
+    if (oidc) return { token:oidc, mode:'VERCEL_OIDC' };
+  } catch (_) {}
+
+  if (boolEnabled(env.KK_GPT6_SHADOW_ALLOW_ENV_OIDC)) {
+    const envOidc = text(env.VERCEL_OIDC_TOKEN);
+    if (envOidc) return { token:envOidc, mode:'VERCEL_OIDC_ENV' };
+  }
+  return { token:'', mode:null };
+}
+
+function transportConfig(workload, options = {}) {
+  const env = options.env || process.env;
+  const transport = normalizeTransport(options.transport || env.KK_GPT6_SHADOW_TRANSPORT);
+  const route = Policy.routingForWorkload(workload);
+  if (!transport || !route) return null;
+  if (transport === TRANSPORTS.VERCEL_AI_GATEWAY) {
+    return {
+      transport,
+      endpoint:AI_GATEWAY_RESPONSES_ENDPOINT,
+      canonical_model:route.primary_model,
+      model:'openai/' + route.primary_model,
+      reasoning_effort:route.reasoning_effort
+    };
+  }
+  return {
+    transport,
+    endpoint:RESPONSES_ENDPOINT,
+    canonical_model:route.primary_model,
+    model:route.primary_model,
+    reasoning_effort:route.reasoning_effort
+  };
+}
+
 function instructionsFor(workload) {
   const common = [
     'You are a shadow-only evaluator for KK Phone Rental.',
@@ -139,14 +208,15 @@ function instructionsFor(workload) {
 
 function requestFor(workload, input, options = {}) {
   const route = Policy.routingForWorkload(workload);
-  if (!route) return null;
+  const config = transportConfig(workload, options);
+  if (!route || !config) return null;
   const clean = cloneWithoutExpected(input || {});
   const requestedModel = text(options.model || options.env?.KK_GPT6_SHADOW_MODEL);
-  const model = requestedModel || route.primary_model;
-  if (!(ALLOWED_SHADOW_MODELS[workload] || []).includes(model)) return null;
+  if (requestedModel && requestedModel !== config.model) return null;
+  if (!(ALLOWED_SHADOW_MODELS[workload] || []).includes(config.canonical_model)) return null;
   return {
-    model,
-    reasoning: { effort: route.reasoning_effort },
+    model:config.model,
+    reasoning: { effort: config.reasoning_effort },
     store: false,
     instructions: instructionsFor(workload),
     input: JSON.stringify(clean),
@@ -238,17 +308,25 @@ function readiness(workload, env = process.env) {
   const normalized = text(workload).toLowerCase();
   const supported = SUPPORTED_WORKLOADS.includes(normalized);
   const enabled = boolEnabled(env.KK_GPT6_SHADOW_ENABLED);
-  const credentialReady = Boolean(text(env.OPENAI_API_KEY));
-  const route = Policy.routingForWorkload(normalized);
+  const config = transportConfig(normalized, {env});
+  const transport = config?.transport || null;
+  const directReady = transport === TRANSPORTS.OPENAI_DIRECT && Boolean(text(env.OPENAI_API_KEY));
+  const gatewayReady = transport === TRANSPORTS.VERCEL_AI_GATEWAY && (
+    Boolean(text(env.AI_GATEWAY_API_KEY)) ||
+    (boolEnabled(env.KK_GPT6_SHADOW_ALLOW_ENV_OIDC) && Boolean(text(env.VERCEL_OIDC_TOKEN)))
+  );
   return {
     runtime_version:RUNTIME_VERSION,
     workload:normalized,
     supported,
     enabled,
-    credential_ready:credentialReady,
-    model:route?.primary_model || null,
-    reasoning_effort:route?.reasoning_effort || null,
-    endpoint:RESPONSES_ENDPOINT,
+    transport,
+    credential_ready:Boolean(directReady || gatewayReady),
+    runtime_oidc_supported:transport === TRANSPORTS.VERCEL_AI_GATEWAY,
+    model:config?.model || null,
+    canonical_model:config?.canonical_model || null,
+    reasoning_effort:config?.reasoning_effort || null,
+    endpoint:config?.endpoint || null,
     store:false,
     production_writes:0
   };
@@ -265,16 +343,38 @@ async function runShadow(workload, input = {}, options = {}) {
     return baseResult(normalized, 'SHADOW_DISABLED');
   }
 
-  const apiKey = text(options.apiKey || env.OPENAI_API_KEY);
-  if (!apiKey) {
-    return baseResult(normalized, 'BLOCKED_OPENAI_API_KEY_MISSING');
+  const config = transportConfig(normalized, {...options, env});
+  if (!config) {
+    return baseResult(normalized, 'BLOCKED_SHADOW_TRANSPORT_UNSUPPORTED');
+  }
+
+  let credential = '';
+  let authMode = null;
+  if (config.transport === TRANSPORTS.OPENAI_DIRECT) {
+    credential = text(options.apiKey || env.OPENAI_API_KEY);
+    if (!credential) {
+      return baseResult(normalized, 'BLOCKED_OPENAI_API_KEY_MISSING', {
+        transport:config.transport
+      });
+    }
+    authMode = 'OPENAI_API_KEY';
+  } else {
+    const resolved = await resolveGatewayCredential(options, env);
+    credential = resolved.token;
+    authMode = resolved.mode;
+    if (!credential) {
+      return baseResult(normalized, 'BLOCKED_AI_GATEWAY_AUTH_MISSING', {
+        transport:config.transport
+      });
+    }
   }
 
   const requestedModel = text(options.model || env.KK_GPT6_SHADOW_MODEL);
-  if (requestedModel && !(ALLOWED_SHADOW_MODELS[normalized] || []).includes(requestedModel)) {
+  if (requestedModel && requestedModel !== config.model) {
     return baseResult(normalized, 'BLOCKED_SHADOW_MODEL_NOT_ALLOWED', {
+      transport:config.transport,
       requested_model:requestedModel,
-      allowed_models:[...(ALLOWED_SHADOW_MODELS[normalized] || [])]
+      allowed_models:[config.model]
     });
   }
 
@@ -298,9 +398,11 @@ async function runShadow(workload, input = {}, options = {}) {
     });
   }
 
-  const payload = requestFor(normalized, cleanInput, {...options, env});
+  const payload = requestFor(normalized, cleanInput, {...options, env, transport:config.transport});
   if (!payload) {
-    return baseResult(normalized, 'BLOCKED_SHADOW_MODEL_NOT_ALLOWED');
+    return baseResult(normalized, 'BLOCKED_SHADOW_MODEL_NOT_ALLOWED', {
+      transport:config.transport
+    });
   }
   const fetchImpl = options.fetchImpl || global.fetch;
   if (typeof fetchImpl !== 'function') {
@@ -312,11 +414,11 @@ async function runShadow(workload, input = {}, options = {}) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response;
   try {
-    response = await fetchImpl(RESPONSES_ENDPOINT, {
+    response = await fetchImpl(config.endpoint, {
       method:'POST',
       headers:{
         'content-type':'application/json',
-        'authorization':`Bearer ${apiKey}`
+        'authorization':`Bearer ${credential}`
       },
       body:JSON.stringify(payload),
       signal:controller.signal
@@ -388,7 +490,10 @@ async function runShadow(workload, input = {}, options = {}) {
     shadow_decision:decision,
     network_calls:1,
     response_id:text(data?.id),
+    transport:config.transport,
+    auth_mode:authMode,
     model:payload.model,
+    canonical_model:config.canonical_model,
     reasoning_effort:payload.reasoning.effort,
     usage:{
       input_tokens:Number(data?.usage?.input_tokens || 0),
@@ -401,11 +506,17 @@ async function runShadow(workload, input = {}, options = {}) {
 module.exports = {
   RUNTIME_VERSION,
   RESPONSES_ENDPOINT,
+  AI_GATEWAY_RESPONSES_ENDPOINT,
+  TRANSPORTS,
   MAX_INPUT_BYTES,
   DEFAULT_TIMEOUT_MS,
   SUPPORTED_WORKLOADS,
   DECISIONS,
   SHADOW_SCHEMA,
+  normalizeTransport,
+  officialVercelOidcToken,
+  resolveGatewayCredential,
+  transportConfig,
   cloneWithoutExpected,
   sensitivePaths,
   instructionsFor,
