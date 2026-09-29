@@ -100,3 +100,23 @@ P5: AI summarize/draft + booking/price context, still owner-reviewed.
 
 ### Current external blocker
 A production LINE endpoint still requires server-side environment configuration and an approved persistence target. Do not put channel secret/access token in Git or browser code.
+
+
+## Implementation log — 2026-09-30 P1.5 persistence/read model
+- Added `server/kk-inbox-store.js` with an idempotent persistence boundary and in-memory reference adapter.
+- Duplicate `message_id` returns `duplicate=true`, performs zero logical writes, and does not increment unread count.
+- Conversation projection tracks channel-scoped external identity, latest message, unread count, status, and optional verified customer/booking links.
+- Added `server/kk-inbox-read-model.js` for Admin-safe conversation list/search/channel/status filters and chronological thread reads.
+- Added `tests/kk-inbox-store.test.js` for duplicate handling, unread invariants, channel/search filtering, and chronological threads.
+- Added both modules to `npm run check`.
+- Deliberately did NOT bind this layer to the existing Booking/Event/Pricing Google Sheet writer. The production persistence adapter remains a separate acceptance gate to avoid contaminating the current SOT/write-control path.
+- No production message send or auto-merge behavior was enabled.
+
+### Persistence decision gate
+Before production ingress is enabled, choose/provision a durable inbox store with:
+1. unique constraint on `message_id`;
+2. atomic message insert + conversation projection update;
+3. append-only audit evidence;
+4. retention/back-up policy;
+5. server-only credentials;
+6. no dependency on public Google Sheet feeds.
