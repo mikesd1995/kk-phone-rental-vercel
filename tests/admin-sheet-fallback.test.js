@@ -25,6 +25,7 @@ test('fallback GViz ranges start at each real schema header row',()=>{
   assert.equal(F.SPECS.customers.range,'A1:H');
   assert.equal(F.SPECS.health.range,'A4:D');
   assert.equal(F.SPECS.model_master.range,'A4:E');
+  assert.equal(F.SPECS.visibility_locks.range,'A1:N');
 });
 
 test('production-style title rows demonstrate why A1 GViz inference is unsafe',()=>{
@@ -42,6 +43,7 @@ test('buildFromRaw creates required arrays and forces degraded read-only mode',(
     assets:[{asset_id:'P1',asset_type:'phone',model_group:'VIVO_X300_PRO',status:'available',rentable_now:'TRUE'}],
     packages:[{template_id:'TPL1',model_group:'VIVO_X300_PRO',package_type:'phone_only',standard_price:'690',display_name:'Vivo X300 Pro',active:'TRUE'}],
     overrides:[],web_ready:[],web_packages:[],customers:[],health:[],
+    visibility_locks:[{__row_number:2,lock_id:'LOCK|EV1',event_id:'EV1',event_name:'Test',event_date:'19/09/2026',venue:'X',lock_state:'LOCKED',explicit_reopen_required:'TRUE'}],
     model_master:[{model_group:'VIVO_X300_PRO',model_display:'Vivo X300 Pro',asset_type:'phone',active:'TRUE'}]
   };
   const s=F.buildFromRaw(raw,'sheet-1',Date.now());
@@ -53,6 +55,9 @@ test('buildFromRaw creates required arrays and forces degraded read-only mode',(
   assert.equal(s.assets.length,1);
   assert.equal(s.bookings[0].phone_model_display,'Vivo X300 Pro');
   assert.equal(s.spreadsheet_id,'sheet-1');
+  assert.equal(s.visibility_locks.length,1);
+  assert.equal(s.visibility_locks[0].lock_state,'LOCKED');
+  assert.equal(s.visibility_locks[0].explicit_reopen_required,true);
 });
 
 test('buildSnapshot rejects HTML or missing schema through mocked GViz reads',async()=>{
@@ -94,7 +99,7 @@ test('coalesces concurrent direct-Sheet fallback reads and briefly reuses the sn
 
 
 test('fallback operational ranges do not reintroduce fixed row ceilings',()=>{
-  for(const key of ['events','bookings','assets','packages','overrides','web_ready','web_packages','customers','health','model_master']){
+  for(const key of ['events','bookings','assets','packages','overrides','web_ready','web_packages','customers','health','model_master','visibility_locks']){
     assert.doesNotMatch(F.SPECS[key].range,/\\d{3,}$/,'fixed row ceiling in '+key);
   }
 });

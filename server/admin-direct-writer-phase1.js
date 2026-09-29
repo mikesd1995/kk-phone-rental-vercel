@@ -26,13 +26,15 @@ const WRITE_SHEETS=Object.freeze([
   '03_Packages',
   '04_Event_Overrides',
   '09_Web_Packages',
+  '18_Event_Visibility_Locks',
   '15_Admin_Audit_Log'
 ]);
 const SHEET_START_ROWS=Object.freeze({
   '01_Events':5,
   '03_Packages':5,
   '04_Event_Overrides':5,
-  '09_Web_Packages':5
+  '09_Web_Packages':5,
+  '18_Event_Visibility_Locks':2
 });
 
 function text(v){return String(v===undefined||v===null?'':v).trim();}
@@ -143,6 +145,43 @@ function rowMatchesId(rows,id,index=0){
     .filter(x=>text(x.row[index])===wanted);
 }
 
+function visibilityLockObjects(rows){
+  return (rows||[]).map((row,i)=>{
+    const r=padRow(row,14);
+    return {
+      __row_number:SHEET_START_ROWS['18_Event_Visibility_Locks']+i,
+      lock_id:text(r[0]),event_id:text(r[1]),event_name:r[2]||'',event_date:r[3]||'',venue:r[4]||'',
+      identity_key:r[5]||'',lock_state:text(r[6]).toUpperCase(),lock_reason:r[7]||'',first_locked_at:r[8]||'',
+      last_changed_at:r[9]||'',changed_by:r[10]||'',explicit_reopen_required:isTrue(r[11]),
+      source_evidence:r[12]||'',notes:r[13]||''
+    };
+  }).filter(x=>x.lock_id||x.event_id);
+}
+
+function lockRowValues(eventId,eventRow,existing,payload,state){
+  const now=text(payload.visibility_changed_at)||new Date().toISOString();
+  const event={
+    event_id:eventId,event_name:eventRow[1]||'',event_date:eventRow[2]||'',venue:eventRow[3]||''
+  };
+  const prior=existing||{};
+  const reason=state==='LOCKED'
+    ? text(payload.visibility_lock_reason||prior.lock_reason||'OWNER_HIDE_VIA_ADMIN')
+    : text(prior.lock_reason||'HISTORICAL_OWNER_HIDE');
+  const changedBy=text(payload.visibility_changed_by)||(state==='REOPENED'?'OWNER_EXPLICIT_REOPEN':'OWNER_EXPLICIT_HIDE');
+  return [
+    text(prior.lock_id)||('LOCK|'+eventId),
+    eventId,event.event_name,event.event_date,event.venue,
+    VisibilityGuard.eventIdentityKey(event),
+    state,reason,
+    text(prior.first_locked_at)||(state==='LOCKED'?now:''),
+    now,changedBy,state==='LOCKED',
+    text(payload.visibility_source_evidence||payload.request_id||prior.source_evidence),
+    state==='LOCKED'
+      ? 'Persistent owner tombstone; data-plane formulas fail closed.'
+      : 'Historical owner tombstone reopened explicitly; history retained to prevent silent recreation.'
+  ];
+}
+
 function priceLensCanonical(v){
   const raw=text(v);
   const norm=raw.toUpperCase().replace(/[^A-Z0-9]/g,'');
@@ -193,7 +232,17 @@ function buildUpdateEventPlan(payload,data){
   if(matches.length!==1) throw Object.assign(new Error('Event identity is ambiguous: '+eventId),{code:'DIRECT_PHASE1_EVENT_ID_AMBIGUOUS'});
   const hit=matches[0];
   const current=padRow(hit.row,8);
-  VisibilityGuard.assertTransition({active_on_web:current[6]},payload);
+  const lockObjects=visibilityLockObjects(data.visibility_locks||[]);
+  const eventSnapshot={
+    event_id:eventId,event_name:current[1]||'',event_date:current[2]||'',venue:current[3]||'',active_on_web:current[6]
+  };
+  const checked=VisibilityGuard.evaluateSnapshotTransition({events:[eventSnapshot],visibility_locks:lockObjects},payload);
+  if(!checked.ok){
+    const err=new Error(checked.error||checked.code);
+    err.code=checked.code;
+    err.visibility_guard=checked;
+    throw err;
+  }
   const next=current.slice();
   if(payload.event_name) next[1]=text(payload.event_name);
   if(payload.event_date) next[2]=dateSerial(payload.event_date);
@@ -206,6 +255,18 @@ function buildUpdateEventPlan(payload,data){
   const sheetRow=SHEET_START_ROWS['01_Events']+hit.index;
   const mutations=[mutation('01_Events',sheetRow,1,next)];
   const readbacks=[readback(`01_Events!A${sheetRow}:H${sheetRow}`,next)];
+
+  let visibilityLockState='UNCHANGED';
+  if(active!==''&&(active===false||(active===true&&VisibilityGuard.hasExplicitOwnerReopen(payload)))){
+    const existing=lockObjects.find(x=>text(x.event_id)===eventId)||VisibilityGuard.findVisibilityHistory({visibility_locks:lockObjects},{event_id:eventId,event_name:next[1],event_date:next[2],venue:next[3]});
+    const state=active===false?'LOCKED':'REOPENED';
+    const lockValues=lockRowValues(eventId,next,existing,payload,state);
+    const lockRow=existing&&Number(existing.__row_number)>0?Number(existing.__row_number):SHEET_START_ROWS['18_Event_Visibility_Locks']+(data.visibility_locks||[]).length;
+    mutations.push(mutation('18_Event_Visibility_Locks',lockRow,1,lockValues));
+    readbacks.push(readback(`18_Event_Visibility_Locks!A${lockRow}:N${lockRow}`,lockValues));
+    visibilityLockState=state;
+  }
+
   // Unlike the Apps Script implementation, the direct writer does not run any
   // full-column price repair while updating an Event. Therefore the safest way
   // to preserve manual/formula package prices is to not write column H at all.
@@ -219,6 +280,7 @@ function buildUpdateEventPlan(payload,data){
       event_id:eventId,row_number:sheetRow,poster_url:current[4]||'',
       poster_drive_file_id:'',poster_public_checked:false,poster_public_warning:'',
       web_package_prices_preserved:preserved,
+      visibility_lock_state:visibilityLockState,
       direct_writer_phase1:true
     },
     mutations,readbacks
@@ -411,13 +473,14 @@ async function readValues(range,{token,render='UNFORMATTED_VALUE',fetchImpl=glob
 }
 
 async function loadModel(action,{token,fetchImpl=global.fetch}={}){
-  const base={events:[],packages:[],overrides:[],web:[],webPriceFormula:[]};
+  const base={events:[],packages:[],overrides:[],web:[],webPriceFormula:[],visibility_locks:[]};
   if(action==='updateEvent'){
-    const [events,web]=await Promise.all([
+    const [events,web,visibility_locks]=await Promise.all([
       readValues('01_Events!A5:H',{token,fetchImpl}),
-      readValues('09_Web_Packages!A5:N',{token,fetchImpl})
+      readValues('09_Web_Packages!A5:N',{token,fetchImpl}),
+      readValues('18_Event_Visibility_Locks!A2:N',{token,fetchImpl})
     ]);
-    return Object.assign(base,{events,web});
+    return Object.assign(base,{events,web,visibility_locks});
   }
   if(action==='updatePackage'){
     base.packages=await readValues('03_Packages!A5:J',{token,fetchImpl});
@@ -586,7 +649,7 @@ async function tryExecute(payload,options={}){
 module.exports={
   VERSION,ADMIN_SOURCE,SUPPORTED_ACTIONS,WRITE_SHEETS,
   configuredActions,routingState,normalizeTemplateId,boolOrBlank,nonNegativeNumber,
-  normalizeEventDate,dateSerial,dateTimeSerial,priceLensCanonical,webRowMatchesTemplate,
+  normalizeEventDate,dateSerial,dateTimeSerial,visibilityLockObjects,lockRowValues,priceLensCanonical,webRowMatchesTemplate,
   webPackagePriceFormula,buildUpdateEventPlan,buildUpdatePackagePlan,buildOverridePlan,buildPlan,
   extendedValue,cellData,updateCellsRequest,auditRow,appendAuditRequest,requestsForPlan,
   readValues,loadModel,sheetMap,executeBatch,rowsEqual,verifyReadbacks,verifyAudit,findAuditRequest,validRequestId,tryExecute

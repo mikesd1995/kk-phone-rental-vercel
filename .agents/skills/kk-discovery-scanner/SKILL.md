@@ -35,6 +35,17 @@ Always preserve:
 - source URL, observed time, and evidence identity;
 - current Machine-SOT policy, lock/fence, Manifest, and Planner gates when operating inside a governed runtime.
 
+## Persistent visibility history and anti-recreate rule
+
+`18_Event_Visibility_Locks` is the durable visibility/history SOT for Ultra Deep and reconciliation work.
+
+- `LOCKED` means an explicit owner-hidden tombstone. Scanner must never create, recreate, reopen, or recommend automatic publication for that event identity.
+- `REOPENED` means the owner explicitly reopened a previously hidden event. It remains historical and must be reconciled to the existing Core row, not recreated.
+- `SEEN_CORE` records that an event has already existed in Core. If its Core row later disappears, rediscovery is historical reconciliation debt, not permission to create a fresh event automatically.
+- Match history by exact `event_id` first, then normalized event name + event date + venue. A new generated event ID does not bypass the tombstone.
+- Ultra Deep output for any history hit must be `EXISTS/RECONCILE/HOLD_OWNER_HIDDEN`, never `NEW_AUTO_PUBLISH`.
+- Only an explicit owner/Admin reopen may transition `LOCKED → REOPENED`; Scanner cannot emit that intent.
+
 ## Publish eligibility is independent from competitor pricing
 
 Competitor-price discovery is pricing evidence, not permission to publish an event.

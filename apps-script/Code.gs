@@ -23,7 +23,8 @@ const KK = {
   eventArchive: '13_Event_Archive',
   overrideArchive: '14_Event_Override_Archive',
   adminAuditLog: '15_Admin_Audit_Log',
-  adminErrorLog: '16_Admin_Error_Log'
+  adminErrorLog: '16_Admin_Error_Log',
+  visibilityLocks: '18_Event_Visibility_Locks'
 };
 
 const KK_NAMED_RANGES = [
@@ -103,6 +104,10 @@ function kkEnsureAdminLogSheets_() {
   ]);
   kkEnsureSheetWithHeaders_(KK.adminErrorLog, [
     'timestamp','version','action','error_message','duration_ms','payload_summary','stack','admin_source'
+  ]);
+  kkEnsureSheetWithHeaders_(KK.visibilityLocks, [
+    'lock_id','event_id','event_name','event_date','venue','identity_key','lock_state','lock_reason',
+    'first_locked_at','last_changed_at','changed_by','explicit_reopen_required','source_evidence','notes'
   ]);
   return true;
 }
@@ -314,6 +319,107 @@ function kkDateKey_(dateValue) {
 function kkSameDate_(a, b) {
   if (!a || !b) return false;
   return kkDateKey_(a) === kkDateKey_(b);
+}
+
+function kkNormalizeVisibilityText_(value) {
+  return String(value == null ? '' : value)
+    .normalize('NFKC')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-_.,/\\()[\]{}:;'"\`<>“”‘’]+/g, '');
+}
+
+function kkVisibilityIdentityKey_(eventName, eventDate, venue) {
+  const name = kkNormalizeVisibilityText_(eventName);
+  const date = eventDate ? Utilities.formatDate(kkDateObj_(eventDate), Session.getScriptTimeZone(), 'yyyy-MM-dd') : '';
+  const place = kkNormalizeVisibilityText_(venue);
+  return name && date ? [name, date, place].join('|') : '';
+}
+
+function kkVisibilityLockRows_() {
+  if (!kkSheetExists_(KK.visibilityLocks)) return [];
+  return kkGetValues_(KK.visibilityLocks, 2, 1, 14);
+}
+
+function kkVisibilityLockObject_(row, rowNumber) {
+  const r = row || [];
+  return {
+    row_number: Number(rowNumber || 0),
+    lock_id: String(r[0] || '').trim(),
+    event_id: String(r[1] || '').trim(),
+    event_name: String(r[2] || '').trim(),
+    event_date: r[3] || '',
+    venue: String(r[4] || '').trim(),
+    identity_key: String(r[5] || '').trim(),
+    lock_state: String(r[6] || '').trim().toUpperCase(),
+    lock_reason: String(r[7] || '').trim(),
+    first_locked_at: r[8] || '',
+    last_changed_at: r[9] || '',
+    changed_by: String(r[10] || '').trim(),
+    explicit_reopen_required: kkIsTrue_(r[11]),
+    source_evidence: String(r[12] || '').trim(),
+    notes: String(r[13] || '').trim()
+  };
+}
+
+function kkFindVisibilityHistory_(eventId, eventName, eventDate, venue) {
+  const eid = String(eventId || '').trim();
+  const identity = kkVisibilityIdentityKey_(eventName, eventDate, venue);
+  const rows = kkVisibilityLockRows_();
+  let identityFallback = null;
+  for (let i = 0; i < rows.length; i++) {
+    const obj = kkVisibilityLockObject_(rows[i], i + 2);
+    if (eid && obj.event_id === eid) return obj;
+    const rowIdentity = obj.identity_key || kkVisibilityIdentityKey_(obj.event_name, obj.event_date, obj.venue);
+    if (identity && rowIdentity === identity && !identityFallback) identityFallback = obj;
+  }
+  return identityFallback;
+}
+
+function kkAssertCreateEventHistoryAllowed_(eventName, eventDate, venue) {
+  const history = kkFindVisibilityHistory_('', eventName, eventDate, venue);
+  if (!history) return true;
+  if (history.lock_state === 'LOCKED') {
+    throw new Error('EVENT_VISIBILITY_TOMBSTONE_LOCKED: owner-hidden historical event cannot be recreated automatically');
+  }
+  throw new Error('EVENT_HISTORY_RECREATE_PROHIBITED: historical Core event must be reconciled instead of recreated');
+}
+
+function kkUpsertVisibilityLock_(eventId, eventName, eventDate, venue, state, payload) {
+  kkEnsureAdminLogSheets_();
+  const wantedState = String(state || '').trim().toUpperCase();
+  if (!['LOCKED','REOPENED','SEEN_CORE'].includes(wantedState)) throw new Error('Invalid visibility lock state: ' + wantedState);
+  const existing = kkFindVisibilityHistory_(eventId, eventName, eventDate, venue);
+  const sh = kkSheet_(KK.visibilityLocks);
+  const now = new Date();
+  const row = existing && existing.row_number ? existing.row_number : kkFirstEmptyRow_(KK.visibilityLocks, 1, 2, 1, 14);
+  const input = payload || {};
+  const reason = String(input.visibility_lock_reason || (existing && existing.lock_reason) || (wantedState === 'LOCKED' ? 'OWNER_HIDE_VIA_ADMIN' : 'HISTORICAL_OWNER_HIDE')).trim();
+  const firstLockedAt = existing && existing.first_locked_at ? existing.first_locked_at : (wantedState === 'LOCKED' ? now : '');
+  const changedBy = String(input.visibility_changed_by || (wantedState === 'REOPENED' ? 'OWNER_EXPLICIT_REOPEN' : (wantedState === 'LOCKED' ? 'OWNER_EXPLICIT_HIDE' : 'SYSTEM_HISTORY_BACKFILL'))).trim();
+  const sourceEvidence = String(input.visibility_source_evidence || input.request_id || (existing && existing.source_evidence) || '').trim();
+  const note = wantedState === 'LOCKED'
+    ? 'Persistent owner tombstone; storefront formulas fail closed even if Core visibility is overwritten.'
+    : (wantedState === 'REOPENED'
+      ? 'Historical owner tombstone explicitly reopened; history retained to prevent silent recreation.'
+      : 'Historical Core identity retained to prevent automatic recreation after row removal.');
+  sh.getRange(row, 1, 1, 14).setValues([[
+    (existing && existing.lock_id) || ('LOCK|' + String(eventId || '').trim()),
+    String(eventId || '').trim(),
+    String(eventName || '').trim(),
+    kkDateObj_(eventDate),
+    String(venue || '').trim(),
+    kkVisibilityIdentityKey_(eventName, eventDate, venue),
+    wantedState,
+    reason,
+    firstLockedAt,
+    now,
+    changedBy,
+    wantedState === 'LOCKED',
+    sourceEvidence,
+    note
+  ]]);
+  return { row_number: row, lock_state: wantedState };
 }
 
 function kkGenerateUniqueEventId_(eventName, eventDate) {
@@ -726,7 +832,34 @@ function kkFormulaWebPackageStatus_(rowNumber) {
   const r = rowNumber;
   const templateExpr = `INDEX('03_Packages'!$A$5:$A,1+MOD(ROW()-5,MAX(1,COUNTA('03_Packages'!$A$5:$A))))`;
   const activePhoneOnly = `SUMPRODUCT(N('00_Master_Booking'!$D$5:$D$1000=B${r}),N(REGEXMATCH(LOWER('00_Master_Booking'!$C$5:$C$1000),"^(pending|confirmed|prepared|picked_up)$")),N(LOWER('00_Master_Booking'!$I$5:$I$1000)="phone_only"))`;
-  return `=ARRAY_CONSTRAIN(ARRAYFORMULA(IF(B${r}="","",IF(OR(IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE,INDEX('03_Packages'!$H$5:$H,1+MOD(ROW()-5,MAX(1,COUNTA('03_Packages'!$A$5:$A))))<>TRUE,COUNTIFS('04_Event_Overrides'!$A$5:$A,B${r},'04_Event_Overrides'!$B$5:$B,${templateExpr},'04_Event_Overrides'!$D$5:$D,FALSE)>0,AND(C${r}="lens_only",${activePhoneOnly}=0)),"hidden",IF(I${r}>0,"available","full")))),1,1)`;
+  const lockedById = `COUNTIFS('18_Event_Visibility_Locks'!$B$2:$B,B${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
+  const lockedByIdentity = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,2,FALSE),""),'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,4,FALSE),""),'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
+  const historicalDifferentId = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,2,FALSE),""),'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,4,FALSE),""),'18_Event_Visibility_Locks'!$B$2:$B,"<>"&B${r})>0`;
+  return `=ARRAY_CONSTRAIN(ARRAYFORMULA(IF(B${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(B${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE,INDEX('03_Packages'!$H$5:$H,1+MOD(ROW()-5,MAX(1,COUNTA('03_Packages'!$A$5:$A))))<>TRUE,COUNTIFS('04_Event_Overrides'!$A$5:$A,B${r},'04_Event_Overrides'!$B$5:$B,${templateExpr},'04_Event_Overrides'!$D$5:$D,FALSE)>0,AND(C${r}="lens_only",${activePhoneOnly}=0)),"hidden",IF(I${r}>0,"available","full")))),1,1)`;
+}
+
+function kkFormulaWebReadyAction_(rowNumber) {
+  const r = rowNumber;
+  const lockedById = `COUNTIFS('18_Event_Visibility_Locks'!$B$2:$B,A${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
+  const lockedByIdentity = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,B${r},'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,D${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
+  const historicalDifferentId = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,B${r},'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,D${r},'18_Event_Visibility_Locks'!$B$2:$B,"<>"&A${r})>0`;
+  return `=IF(A${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE),"hide",IF(MAX(G${r},H${r})>0,"show","show_full")))`;
+}
+
+function kkRepairOwnerVisibilityLockFormulas_() {
+  const startRow = 5;
+  const endRow = 1000;
+  const rowCount = endRow - startRow + 1;
+  const webReadyAction = [];
+  const webPackageStatus = [];
+  for (let row = startRow; row <= endRow; row++) {
+    webReadyAction.push([kkFormulaWebReadyAction_(row)]);
+    webPackageStatus.push([kkFormulaWebPackageStatus_(row)]);
+  }
+  kkSheet_(KK.webReady).getRange(startRow, 10, rowCount, 1).setFormulas(webReadyAction);
+  kkSheet_(KK.webPackages).getRange(startRow, 10, rowCount, 1).setFormulas(webPackageStatus);
+  SpreadsheetApp.flush();
+  return rowCount;
 }
 
 // Storefront policy: standalone lens rental is hidden by default.
@@ -1683,11 +1816,14 @@ function kkApiCreateEvent_(payload) {
     const note = payload.note || '';
     if (!eventName || !eventDate || !venue) throw new Error('Please fill event_name, event_date and venue');
     if (!['open', 'closed'].includes(status)) throw new Error('status must be open or closed');
+    kkEnsureAdminLogSheets_();
+    kkAssertCreateEventHistoryAllowed_(eventName, eventDate, venue);
     const priceOverrides = kkNormalizeCreateEventOverrides_(payload.event_price_overrides);
     const eventId = kkGenerateUniqueEventId_(eventName, eventDate);
     const row = kkFirstEmptyRow_(KK.events, 1, 5, 1, 8);
     const sh = kkSheet_(KK.events);
     sh.getRange(row, 1, 1, 8).setValues([[eventId, eventName, kkDateObj_(eventDate), venue, poster, status, active, note]]);
+    const visibilityHistory = kkUpsertVisibilityLock_(eventId, eventName, eventDate, venue, active ? 'SEEN_CORE' : 'LOCKED', payload);
     const overridesCreated = kkWriteEventOverrides_(eventId, priceOverrides);
     const createOverrideApply = kkApplyCreateEventOverridePricesToWebPackages_(eventId, priceOverrides);
     SpreadsheetApp.flush();
@@ -1696,6 +1832,7 @@ function kkApiCreateEvent_(payload) {
     const webReady = kkApiVerifyEventWebReady_(eventId, savedPoster);
     return Object.assign({
       event_id: eventId, row_number: row, poster_url: savedPoster, overrides_created: overridesCreated,
+      visibility_history_state: visibilityHistory.lock_state,
       create_override_price_rows_applied: createOverrideApply.applied, create_override_price_rows_pending: createOverrideApply.pending,
       poster_drive_file_id: posterInfo.drive_file_id || '', poster_public_checked: !!posterInfo.public_checked, poster_public_warning: posterInfo.sharing_warning || ''
     }, webReady);
@@ -1757,12 +1894,22 @@ function kkApiUpdateEvent_(payload) {
     const active = kkApiBoolOrBlank_(payload.active_on_web);
     const currentActive = kkIsTrue_(current[6]);
     const ownerReopenIntent = String(payload.visibility_owner_intent || '').trim() === 'explicit_owner_reopen';
+    const visibilityHistory = kkFindVisibilityHistory_(eventId, current[1], current[2], current[3]);
+    if (active === true && visibilityHistory && visibilityHistory.lock_state === 'LOCKED' && !ownerReopenIntent) {
+      throw new Error('EVENT_VISIBILITY_TOMBSTONE_LOCKED: owner-hidden event requires explicit owner reopen intent');
+    }
     if (currentActive === false && active === true && !ownerReopenIntent) {
       throw new Error('EVENT_VISIBILITY_OWNER_LOCKED: owner-hidden event requires explicit owner reopen intent');
     }
     if (active !== '') current[6] = active;
     if (payload.note !== undefined && payload.note !== '') current[7] = payload.note;
     sh.getRange(rowNumber, 1, 1, 8).setValues([current]);
+    let visibilityLockState = '';
+    if (active === false) {
+      visibilityLockState = kkUpsertVisibilityLock_(eventId, current[1], current[2], current[3], 'LOCKED', payload).lock_state;
+    } else if (active === true && ownerReopenIntent) {
+      visibilityLockState = kkUpsertVisibilityLock_(eventId, current[1], current[2], current[3], 'REOPENED', payload).lock_state;
+    }
     SpreadsheetApp.flush();
     const savedPoster = String(sh.getRange(rowNumber, 5).getValue() || '').trim();
     if (payload.poster_url && !savedPoster) throw new Error('Poster uploaded, but poster_url was not written to 01_Events. Please try saving again.');
@@ -1771,7 +1918,8 @@ function kkApiUpdateEvent_(payload) {
     return Object.assign({
       event_id: eventId, row_number: rowNumber, poster_url: savedPoster,
       poster_drive_file_id: posterInfo.drive_file_id || '', poster_public_checked: !!posterInfo.public_checked, poster_public_warning: posterInfo.sharing_warning || '',
-      web_package_prices_preserved: restoredWebPrices
+      web_package_prices_preserved: restoredWebPrices,
+      visibility_lock_state: visibilityLockState
     }, webReady);
   }
   throw new Error('Event not found: ' + eventId);
