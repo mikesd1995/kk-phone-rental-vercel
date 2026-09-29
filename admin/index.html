@@ -32,7 +32,7 @@
         <button class="nav" type="button" data-tab="booking" data-icon="BK">เพิ่ม Booking</button>
         <button class="nav" type="button" data-tab="edit-booking" data-icon="ED">แก้ Booking</button>
         <span class="nav-section-label">CRM & Operations</span>
-        <button class="nav" type="button" data-tab="customers" data-icon="CM">ประวัติลูกค้า</button>
+        <button class="nav" type="button" data-tab="customers" data-icon="CM">ประวัติลูกค้า</button>\n        <button class="nav" type="button" data-tab="inbox" data-icon="IB">Inbox · LINE / X</button>
         <button class="nav" type="button" data-tab="events" data-icon="EV">เพิ่ม/แก้งาน</button>
         <button class="nav" type="button" data-tab="packages" data-icon="PK">ราคา &amp; หน้าบ้าน</button>
         <button class="nav" type="button" data-tab="pricing" data-icon="PC">ตรวจสอบราคา</button>
@@ -190,6 +190,26 @@
               </div>
               <div class="table-wrap"><table id="bookingsTable"></table></div><div class="table-more"><button class="btn ghost" type="button" id="bookingsLoadMoreBtn">แสดง Booking เพิ่ม</button></div>
             </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-inbox">
+          <div class="card inbox-hero">
+            <div><span class="eyebrow">Unified Inbox v1</span><h2>LINE + X</h2><p class="hint">ศูนย์รวมบทสนทนาแบบ read-only preview · ยังไม่เปิดส่งข้อความจริง</p></div>
+            <div class="inbox-safety"><span>Owner review</span><span>No auto-send</span><span>No auto-merge</span></div>
+          </div>
+          <div class="card inbox-toolbar">
+            <label>ช่องทาง<select id="inboxChannelFilter"><option value="">ทั้งหมด</option><option value="line">LINE</option><option value="x">X</option></select></label>
+            <label>สถานะ<select id="inboxStatusFilter"><option value="">ทั้งหมด</option><option value="new">ใหม่</option><option value="open">กำลังคุย</option><option value="waiting_customer">รอลูกค้า</option><option value="booked">จองแล้ว</option><option value="closed">ปิด</option></select></label>
+            <label class="inbox-search">ค้นหา<input id="inboxSearch" type="search" placeholder="ชื่อ / @X / LINE / ข้อความ / Booking" autocomplete="off" /></label>
+          </div>
+          <div id="inboxSafetyNotice" class="card inbox-empty">
+            <strong>Inbox foundation พร้อม แต่ยังไม่ได้ต่อ durable production store</strong>
+            <span>หน้า preview นี้จะไม่สร้าง Booking, ไม่ส่ง LINE/X และไม่เขียน Event/Pricing จนกว่า persistence + provider acceptance จะผ่าน</span>
+          </div>
+          <div class="inbox-layout">
+            <div class="card inbox-list-card"><div class="card-head"><div><h2>บทสนทนา</h2><small id="inboxCount">0 รายการ</small></div></div><div id="inboxConversationList" class="inbox-conversation-list"><div class="inbox-placeholder">ยังไม่มี production conversation</div></div></div>
+            <div class="card inbox-thread-card"><div class="card-head"><div><h2 id="inboxThreadTitle">เลือกบทสนทนา</h2><small id="inboxThreadMeta">LINE / X</small></div></div><div id="inboxThread" class="inbox-thread"><div class="inbox-placeholder">ข้อความจะแสดงที่นี่หลัง durable store ผ่าน acceptance</div></div><div class="inbox-compose-disabled"><textarea disabled placeholder="การตอบกลับจะเปิดหลัง owner-approved send gate ผ่าน"></textarea><button class="btn primary" type="button" disabled>ส่งข้อความ</button></div></div>
           </div>
         </section>
 
@@ -878,6 +898,6 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=bulk-event-price-edit-20260927"></script>
+  <script src="/admin/inbox-preview.js?v=line-x-foundation-20260930"></script>\n  <script src="/admin/admin.js?v=bulk-event-price-edit-20260927"></script>
 </body>
 </html>
