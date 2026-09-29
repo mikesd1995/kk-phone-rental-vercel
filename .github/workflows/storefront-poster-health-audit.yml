@@ -1,0 +1,52 @@
+name: Storefront Poster Health Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/audit-storefront-posters.js'
+      - '.github/workflows/storefront-poster-health-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run read-only poster audit
+        id: audit
+        continue-on-error: true
+        run: |
+          node scripts/audit-storefront-posters.js > storefront-poster-health.json
+      - name: Print summary
+        if: always()
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const r=JSON.parse(fs.readFileSync('storefront-poster-health.json','utf8'));
+          console.log(JSON.stringify({
+            visible_events:r.visible_events,
+            pass_events:r.pass_events,
+            failed_events:r.failed_events,
+            recovered_by_fallback:r.recovered_by_fallback,
+            host_counts:r.host_counts,
+            failed:r.failed.map(x=>({event_id:x.event_id,event_name:x.event_name,event_date:x.event_date}))
+          },null,2));
+          NODE
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-poster-health
+          path: storefront-poster-health.json
+          retention-days: 30
+      - name: Fail if any visible event has no healthy poster candidate
+        if: steps.audit.outcome != 'success'
+        run: exit 1
