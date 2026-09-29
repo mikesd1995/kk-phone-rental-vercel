@@ -139,3 +139,19 @@ test('canonical poster_image_url wins over emergency storefront overrides',()=>{
   assert.match(source,/var rawPoster\s*= String\(r\.poster_image_url\|\|""\)\.trim\(\) \|\| storefrontPosterOverride\(r\);/);
   assert.doesNotMatch(source,/var rawPoster\s*= storefrontPosterOverride\(r\) \|\| String\(r\.poster_image_url\|\|""\)\.trim\(\);/);
 });
+
+
+test('canonical poster remains first while verified emergency poster is retained as delivery fallback',()=>{
+  assert.match(source,/var rawPoster\s*= String\(r\.poster_image_url\|\|""\)\.trim\(\) \|\| storefrontPosterOverride\(r\);/);
+  assert.match(source,/var emergencyPoster = storefrontPosterOverride\(r\);/);
+  assert.match(source,/if\(emergencyPoster && emergencyPoster!==rawPoster\)/);
+  assert.match(source,/posterThumbCandidates\.push\(url\)/);
+  assert.match(source,/posterFullCandidates\.push\(url\)/);
+  assert.match(source,/imgThumb:\s+posterThumbCandidates/);
+  assert.match(source,/imgFull:\s+posterFullCandidates/);
+});
+
+test('Nineentertain keeps the local verified poster as fallback behind canonical SOT',()=>{
+  assert.match(source,/nineentertain-24th-anniversary-charity-concert-2026-09-30\.jpg/);
+  assert.match(source,/canonical first; verified emergency poster is delivery fallback only/);
+});
