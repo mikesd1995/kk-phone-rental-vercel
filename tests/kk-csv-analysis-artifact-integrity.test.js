@@ -155,3 +155,31 @@ test('artifact integrity accepts a coherent PDF, findings, PNG chart and ZIP mem
 
   await assert.doesNotReject(CsvAgent.validateStagedArtifacts(dir));
 });
+
+
+test('artifact selection rejects unexpected output files before download', () => {
+  assert.throws(
+    () => CsvAgent.selectTurnArtifacts([
+      {id:'r',turn_id:'turn',path:'/workspace/outputs/report.pdf',size_bytes:10},
+      {id:'f',turn_id:'turn',path:'/workspace/outputs/findings.json',size_bytes:10},
+      {id:'z',turn_id:'turn',path:'/workspace/outputs/results.zip',size_bytes:10},
+      {id:'x',turn_id:'turn',path:'/workspace/outputs/debug-dump.bin',size_bytes:10}
+    ], 'turn'),
+    error => error && error.code === 'CSV_ANALYSIS_UNEXPECTED_ARTIFACT'
+  );
+});
+
+test('artifact selection rejects more than three chart outputs before download', () => {
+  assert.throws(
+    () => CsvAgent.selectTurnArtifacts([
+      {id:'r',turn_id:'turn',path:'/workspace/outputs/report.pdf',size_bytes:10},
+      {id:'f',turn_id:'turn',path:'/workspace/outputs/findings.json',size_bytes:10},
+      {id:'z',turn_id:'turn',path:'/workspace/outputs/results.zip',size_bytes:10},
+      {id:'c1',turn_id:'turn',path:'/workspace/outputs/chart_01.png',size_bytes:10},
+      {id:'c2',turn_id:'turn',path:'/workspace/outputs/chart_02.png',size_bytes:10},
+      {id:'c3',turn_id:'turn',path:'/workspace/outputs/chart_03.png',size_bytes:10},
+      {id:'c4',turn_id:'turn',path:'/workspace/outputs/chart_04.png',size_bytes:10}
+    ], 'turn'),
+    error => error && error.code === 'CSV_ANALYSIS_TOO_MANY_CHART_ARTIFACTS'
+  );
+});
