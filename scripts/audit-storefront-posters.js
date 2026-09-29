@@ -66,7 +66,7 @@ async function probe(url,fetchImpl=global.fetch){
   const timer=setTimeout(()=>controller.abort(),TIMEOUT_MS);
   const started=Date.now();
   try{
-    const res=await fetchImpl(url,{method:'GET',redirect:'follow',cache:'no-store',signal:controller.signal,headers:{'User-Agent':'KK-Storefront-Poster-Audit/1.0'}});
+    const res=await fetchImpl(url,{method:'GET',redirect:'follow',signal:controller.signal,headers:{'Cache-Control':'no-cache','User-Agent':'KK-Storefront-Poster-Audit/1.0'}});
     const ct=text(res.headers.get('content-type')).toLowerCase();
     let hasBytes=false;
     if(res.body){
@@ -87,7 +87,7 @@ async function pool(items,worker,limit=CONCURRENCY){
   await Promise.all(Array.from({length:Math.min(limit,items.length)},run)); return out;
 }
 async function main(){
-  const feedRes=await fetch(FEED,{cache:'no-store'});
+  const feedRes=await fetch(FEED,{headers:{'Cache-Control':'no-cache','User-Agent':'KK-Storefront-Poster-Audit/1.0'}});
   if(!feedRes.ok)throw new Error('EVENT_FEED_HTTP_'+feedRes.status);
   const rows=objects(parseCsv(await feedRes.text()))
     .filter(r=>['show','show_full'].includes(text(r.action_for_web)));
