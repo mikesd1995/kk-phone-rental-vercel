@@ -205,3 +205,53 @@ test('readback fails closed if standalone lens is visible immediately after crea
  assert.equal(r.status,'PROMOTION_READBACK_FAILED');
  assert.ok(r.blockers.includes('LENS_ONLY_VISIBLE_ON_CREATE:TPL-ZEISS-2-35X-LENS'));
 });
+
+
+test('persistent owner tombstone blocks verifier recreation under a new event id',()=>{
+ const r=P.preparePromotion({
+  candidate,
+  verifier_approved:true,
+  owner_publish_allowed:true,
+  final_prices:[{template_id:'PHONE',override_price:890}],
+  visibility_locks:[{
+   event_id:'EVT-OLD',
+   event_name:'Test Event',
+   event_date:'2026-10-03',
+   venue:'IMPACT',
+   lock_state:'LOCKED'
+  }]
+ });
+ assert.equal(r.status,'HOLD_FOR_FINAL_PROMOTION');
+ assert.ok(r.blockers.includes('OWNER_HIDDEN_RECREATE_PROHIBITED'));
+ assert.equal(r.admin_payload,null);
+});
+
+test('previously seen Core history blocks verifier from treating rediscovery as a new event',()=>{
+ const r=P.preparePromotion({
+  candidate,
+  verifier_approved:true,
+  owner_publish_allowed:true,
+  final_prices:[{template_id:'PHONE',override_price:890}],
+  visibility_locks:[{
+   event_id:'EVT-HISTORY',
+   event_name:'Test Event',
+   event_date:'2026-10-03',
+   venue:'IMPACT',
+   lock_state:'SEEN_CORE'
+  }]
+ });
+ assert.equal(r.status,'HOLD_FOR_FINAL_PROMOTION');
+ assert.ok(r.blockers.includes('HISTORICAL_EVENT_RECREATE_PROHIBITED'));
+});
+
+test('existing visible Core event is reconcile-only and never sent through createEvent promotion',()=>{
+ const r=P.preparePromotion({
+  candidate,
+  verifier_approved:true,
+  owner_publish_allowed:true,
+  final_prices:[{template_id:'PHONE',override_price:890}],
+  existing_event:{event_id:'EVT-EXISTING',active_on_web:true}
+ });
+ assert.equal(r.status,'HOLD_FOR_FINAL_PROMOTION');
+ assert.ok(r.blockers.includes('EXISTING_EVENT_RECONCILE_REQUIRED'));
+});
