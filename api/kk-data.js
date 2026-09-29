@@ -337,7 +337,15 @@ module.exports = async function handler(req, res) {
   }
   const sheetId = envSheetId || privateEnvSheetId || DEFAULT_SHEET_ID;
   const requirePrivate = isTrue(process.env.KK_PUBLIC_SHEET_REQUIRE_PRIVATE);
-  const hasPrivateReader = privateReaderConfigured();
+  const privateState = privateSheets.configState(process.env);
+  const hasPrivateReader = privateState.configured;
+
+  // Non-secret runtime diagnostics for cutover acceptance. Never expose email, key,
+  // token, Sheet ID, or credential material; only coarse readiness classifications.
+  res.setHeader('X-KK-Private-Reader-Configured', hasPrivateReader ? '1' : '0');
+  res.setHeader('X-KK-Private-Reader-Auth', privateState.authMode);
+  res.setHeader('X-KK-Private-Reader-Sheet-State', privateState.sheetIdState);
+  res.setHeader('X-KK-Private-Reader-Strict', requirePrivate ? '1' : '0');
 
   // Deliberately do not expose even a partial Sheet ID in response headers.
   // The old X-KK-Sheet-ID value also used a Unicode ellipsis, which Node rejects as an HTTP header value.
