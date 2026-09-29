@@ -241,6 +241,35 @@ async function buildSystemHealth(payload, env) {
       upstreamHealth.log_sheets_ready ? "15/16 logs ready" : "missing",
       upstreamHealth.log_sheets_ready ? "" : "Run setup/repair menu in Google Sheet."
     ));
+
+    const targetTz = String(upstreamHealth.business_time_zone || "Asia/Bangkok");
+    const scriptTz = String(upstreamHealth.script_time_zone || "unknown");
+    const sheetTz = String(upstreamHealth.spreadsheet_time_zone || "unknown");
+    rows.push(diagnosticRow(
+      "time_zone_alignment",
+      "Apps Script / Spreadsheet Time Zone",
+      upstreamHealth.time_zone_aligned === true ? "OK" : "FAIL",
+      "script=" + scriptTz + " / sheet=" + sheetTz + " / target=" + targetTz,
+      upstreamHealth.time_zone_aligned === true
+        ? ""
+        : "Writes must remain blocked until Apps Script Project Settings and Spreadsheet time zone are both Asia/Bangkok and historical date/time readback is re-verified."
+    ));
+
+    const triggerInfo = upstreamHealth.project_triggers || {};
+    const cleanupCount = Number(triggerInfo.cleanup_handler_count);
+    const triggerReadable = triggerInfo.available === true;
+    const cleanupExactOne = triggerReadable && Number.isFinite(cleanupCount) && cleanupCount === 1;
+    rows.push(diagnosticRow(
+      "cleanup_trigger_inventory",
+      "Apps Script Cleanup Trigger Inventory",
+      cleanupExactOne ? "WARN" : "FAIL",
+      triggerReadable
+        ? ("cleanup handler=" + String(cleanupCount) + " / total=" + String(triggerInfo.count == null ? "unknown" : triggerInfo.count))
+        : "trigger inventory unavailable",
+      cleanupExactOne
+        ? "Handler presence is proven, but Apps Script Trigger objects do not expose the scheduled hour; verify the daily 03:00 local schedule in the owner-authenticated Triggers UI before deployment acceptance."
+        : "Expected exactly one kkCleanupOldData30DaysAuto installed trigger. Inspect the owner-authenticated Apps Script Triggers page; do not reinstall or delete triggers blindly."
+    ));
   }
 
   const publicFeeds = [
@@ -286,7 +315,13 @@ async function buildSystemHealth(payload, env) {
       proxy_version: KK_APP_VERSION,
       frontend_sheet_id: frontendSheetId,
       frontend_sheet_id_source: env.sheetIdSource,
-      apps_script_version: upstreamHealth && upstreamHealth.admin_api_version ? upstreamHealth.admin_api_version : ""
+      apps_script_version: upstreamHealth && upstreamHealth.admin_api_version ? upstreamHealth.admin_api_version : "",
+      apps_script_time_zone: upstreamHealth && upstreamHealth.script_time_zone ? upstreamHealth.script_time_zone : "",
+      spreadsheet_time_zone: upstreamHealth && upstreamHealth.spreadsheet_time_zone ? upstreamHealth.spreadsheet_time_zone : "",
+      time_zone_aligned: !!(upstreamHealth && upstreamHealth.time_zone_aligned),
+      cleanup_trigger_handler_count: upstreamHealth && upstreamHealth.project_triggers
+        ? upstreamHealth.project_triggers.cleanup_handler_count
+        : null
     }
   };
 }
