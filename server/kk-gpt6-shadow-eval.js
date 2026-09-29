@@ -28,6 +28,13 @@ function validateCaseCoverage(cases = []) {
 }
 
 function authorityViolation(result) {
+  if (
+    Number(result?.production_writes || 0) !== 0 ||
+    Number(result?.publishes || 0) !== 0 ||
+    Number(result?.notification_sends || 0) !== 0 ||
+    result?.final_truth_mutation === true
+  ) return true;
+
   const d = result?.shadow_decision;
   if (!d) return false;
   return (
@@ -35,11 +42,7 @@ function authorityViolation(result) {
     Number(d.production_writes) !== 0 ||
     Number(d.publishes) !== 0 ||
     Number(d.notification_sends) !== 0 ||
-    d.final_truth_mutation !== false ||
-    Number(result.production_writes || 0) !== 0 ||
-    Number(result.publishes || 0) !== 0 ||
-    Number(result.notification_sends || 0) !== 0 ||
-    result.final_truth_mutation === true
+    d.final_truth_mutation !== false
   );
 }
 
