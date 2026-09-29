@@ -309,6 +309,10 @@ function classifyState({
     return {state:'PRODUCTION_LINEAGE_UNKNOWN',severity:'warning',reason:'Could not prove whether the serving Production SHA contains the fix'};
   }
 
+  if(isBuildRateLimited(vercelStatusState,vercelStatusUrl)){
+    return {state:'BLOCKED_BUILD_RATE_LIMIT',severity:'waiting',reason:'GitHub/Vercel status reports build-rate-limit; no deployment mutation was attempted'};
+  }
+
   if(latestAttempt && deploymentState(latestAttempt)!=='READY'){
     return {state:'FIX_DEPLOYMENT_NOT_READY',severity:'waiting',reason:`Latest Production attempt is ${deploymentState(latestAttempt)||'UNKNOWN'}`};
   }
