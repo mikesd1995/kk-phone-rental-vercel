@@ -101,7 +101,7 @@ test('large CSV uses Files API before creating the agent session', async () => {
     }
     if (String(url).endsWith('/content')) {
       const artifactId = String(url).match(/artifacts\/([^/]+)\/content$/)?.[1];
-      const bytes = {
+      const bytes = ({
         a1: Buffer.from('%PDF-1.4 test'),
         a2: Buffer.from(JSON.stringify({
           question:'Summarize this dataset',
@@ -112,7 +112,7 @@ test('large CSV uses Files API before creating the agent session', async () => {
           charts:[]
         })),
         a3: Buffer.from([0x50,0x4b,0x03,0x04,0x00])
-      }[artifactId] || 'x');
+      }[artifactId] || Buffer.from('x'));
       return new Response(bytes, {status:200});
     }
     if (String(url).includes('/v1/agents/sessions/sess_large') && init.method === 'DELETE') return jsonResponse({deleted:true});
