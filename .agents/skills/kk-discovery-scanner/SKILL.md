@@ -18,6 +18,18 @@ Never:
 - create a replacement Scanner, watchdog, or competing writer;
 - convert missing evidence into a positive claim.
 
+## Model/provider neutrality
+
+The model or provider used to execute discovery does not expand Scanner authority. More capable reasoning, broader context, or additional tools remain staging-only and cannot authorize final truth or protected writes.
+
+Keep evidence labels explicit:
+- observed fact;
+- source claim;
+- inference;
+- recommendation.
+
+Never convert an inference or recommendation into an observed fact. Missing or ambiguous protected-write evidence fails closed. GPT-6 shadow output is advisory evidence only and cannot override `18_Event_Visibility_Locks`.
+
 ## Owner storefront visibility is immutable to Scanner
 
 An existing Core event with `active_on_web=false` is an explicit owner decision, not missing discovery coverage.
