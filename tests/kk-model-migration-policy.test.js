@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 
 const Policy = require('../server/kk-model-migration-policy.js');
+const Registry = require('../server/kk-agent-registry.js');
 
 test('GPT-6 migration policy is shadow-only and cannot claim production cutover', () => {
   const state = Policy.publicPolicy();
@@ -94,4 +95,15 @@ test('GPT-6 prompt hardening preserves role authority and evidence discipline', 
 
   assert.match(canary, /new model family.*not.*acceptance/is);
   assert.match(canary, /production writes = 0/i);
+});
+
+
+test('Agent Registry exposes migration readiness as metadata only', () => {
+  const registry = Registry.publicRegistry();
+
+  assert.equal(registry.model_migration.policy_version, Policy.POLICY_VERSION);
+  assert.equal(registry.model_migration.execution_mode, 'SHADOW_ONLY');
+  assert.equal(registry.model_migration.transport_state, 'NOT_WIRED');
+  assert.equal(registry.model_migration.cutover_allowed, false);
+  assert.equal(registry.model_migration.production_writes, 0);
 });
