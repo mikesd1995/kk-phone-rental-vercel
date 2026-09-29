@@ -76,3 +76,30 @@ Current open PRs include #334 LINE poster dry-run, #325 Gate 2, #324 public Shee
 
 ## Safety
 This audit performed no business writes, no Sheet mutation, no Vercel environment mutation, no deployment, no task-state mutation, no Make scenario mutation, no Apps Script deployment, and no customer/provider send.
+
+
+## Execution update — Production Catch-up Acceptance (2026-09-30)
+
+### Completed
+- Exact current main resolved to `e8094f333c38a766f3adfd5f85e2668413d35f26`.
+- Vercel Production deployment `dpl_HAmBtzx6sNwpCfXaVqfYjvD576Pa` is `READY`, target=`production`, ref=`main`, SHA exactly equals current main.
+- GitHub combined Vercel status for exact main is `success` / `Deployment has completed`.
+- Main Admin Regression run #1050 (`36614072989`) completed `success`.
+- Continuous invariant gate completed `success`.
+- Code Intelligence retrieval benchmark completed `success`.
+- HF benchmark safety/readiness checks completed `success` and HF remains fail-closed without activation.
+- Rental Analytics Production Watch run #164 (`36614072971`) completed `success`, including exact-main pinning, read-only Production watcher, durable evidence, and unsafe-state failure gate.
+- Live Production storefront `/` returns HTTP 200.
+- Live Production Admin gate `/admin` returns HTTP 200 with no-store, CSP, frame deny, noindex/security controls.
+- Live public event and package feeds both return HTTP 200 on the current Production alias.
+- This closes the previously identified stale-Production/build-rate-limit blocker for merged main changes including #326, #327, #332, #333 and #334 source.
+
+### Still intentionally open
+- Private Reader is not accepted merely because the current-main code is deployed. Runtime cutover still requires both feeds to report `private-service-account` with parity before strict mode.
+- Scanner/Verifier natural task-persistence P0 remains separate from deployment acceptance.
+- Apps Script Gate 2 remains separate and is not changed by this deployment.
+- Make capacity/runtime remains separate.
+- No production business data, Sheet data, task state, Apps Script, Make scenario, or customer/provider message was mutated during this acceptance pass.
+
+### Improvement
+Deployment parity moved from the prior stale state to exact-current-main Production. This removes a cross-system split-brain where repository safety fixes existed but were not serving users. Runtime and CI evidence are now tied to the same SHA instead of inferring acceptance from merged code.
