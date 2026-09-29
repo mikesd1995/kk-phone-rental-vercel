@@ -347,3 +347,129 @@ GitHub Actions run `36553910856` completed successfully on the documented branch
 The GitHub combined status also reports the Vercel check as **failure**, with the target resolving to the account's build-rate-limit / upgrade page. This is treated as a deployment-capacity blocker, not as evidence that the Node implementation or regression suite failed.
 
 No workaround was used to bypass the Vercel account limit, and no production deployment was attempted. The PR remains draft.
+
+## Distinct repository review and review-driven hardening
+
+The repository contract requires Planner -> Implementer -> independent Reviewer separation for material changes. No free external code-review bot or existing review workflow was available on PR #313, and the connected GitHub surface did not expose a safe collaborator-discovery path. Vercel Agent code review was considered but was not invoked because it is a paid review action and no new paid review spend was authorized.
+
+The repository's own `.agents/skills/kk-code-review/SKILL.md` explicitly provides the fallback: when external coding-agent tooling is unavailable, perform the repository review skill as a distinct review pass. That fallback was used. It is a separate review pass under repository policy, but it must not be described as an external human/bot review.
+
+The review was posted to PR #313 as GitHub review id `5351333202` at commit `242f8f0210107ebe8b7d87df059f7ab9aea33ed0`.
+
+### Review finding 1 — chart / ZIP integrity
+
+Original behavior verified the PDF/JSON/ZIP top-level artifact names and basic signatures, but:
+
+- the ZIP was not proven to contain the required deliverables;
+- the product contract still permitted zero charts even though the requested feature explicitly produces charts;
+- `findings.json` could reference a chart file that was absent or invalid.
+
+RED contract commit: `10b1c2315563b7bdc85d6ac292a7e47d99db06ec`.
+
+GitHub Actions run `36556906686` produced five expected failures before the capability existed.
+
+Review-driven fixes:
+
+- require 1–3 chart references in `findings.json`;
+- require safe `chart_XX.png` names with no duplicates;
+- validate the PNG signature of every referenced chart;
+- require referenced chart artifacts to exist locally before publication;
+- parse the ZIP central directory rather than trusting magic bytes alone;
+- reject malformed, multi-disk, ZIP64, unsafe-name and duplicate-entry bundles for this bounded report format;
+- require `results.zip` to contain `report.pdf`, `findings.json`, and every referenced chart.
+
+Implementation commit: `3592513ce656656c589aa58a7319b047edd48ff2`.
+
+Fixture alignment commit: `803a512202b2fcae69153a3c5d24243445c1acab`.
+
+Syntax-gate update commit: `b60d75829d76a1f68d440fadd8000cfbdb845cbd`.
+
+GREEN run `36557167528`:
+
+- tests: **873**
+- pass: **873**
+- fail: **0**
+- syntax checks: PASS
+- Code Intelligence benchmark: PASS
+- HF safety checks: PASS
+
+### Review finding 2 — pre-download output allowlist
+
+The original selector accepted every same-turn file under `/workspace/outputs` and downloaded it before validation. That was broader than the product contract and could waste local bandwidth/disk if the model emitted unrelated output.
+
+RED contract commit: `8f9ba03ced375cabc50d521c2b1e52dcad9948de`.
+
+GitHub Actions run `36557470530` produced exactly two expected failures:
+
+- unexpected output file was not rejected;
+- a fourth chart was not rejected.
+
+Implementation commit: `242f8f0210107ebe8b7d87df059f7ab9aea33ed0`.
+
+The selector now accepts only:
+
+- `report.pdf`
+- `findings.json`
+- `results.zip`
+- at most three `chart_XX.png` files
+
+and rejects everything else **before download**.
+
+GREEN run `36557584306` / job `109370355309`:
+
+- tests: **875**
+- pass: **875**
+- fail: **0**
+- syntax checks: PASS
+- Code Intelligence benchmark: PASS
+- HF benchmark safety: PASS
+- HF fail-closed readiness: PASS
+
+### Review result
+
+Result: **PASS WITH NOTES**.
+
+No BLOCKER or MATERIAL finding remained after the review-driven fixes.
+
+Non-blocking notes:
+
+1. Reusing the same local `--output` directory can leave unrelated files from an older run. The returned current-run artifact list remains exact, but a future hardening can use a per-run subdirectory or a managed output manifest.
+2. The raw REST client currently buffers the initial Agents API SSE response before parsing instead of parsing events incrementally. Since report/chart bytes are delivered as artifacts rather than the event stream, this is presently a latency/memory optimization note rather than a correctness blocker.
+3. A stream that disconnects before the completed root-turn event fails closed rather than recovering the saved session state. This preserves correctness but can be improved later for transient-network resilience.
+
+## OpenAI live-acceptance credential setup
+
+A secure OpenAI Platform API-key setup flow was opened with the suggested name:
+
+`KK CSV Analysis Agent Acceptance`
+
+The raw key was intentionally not returned to the chat.
+
+Live acceptance still requires the resulting project API key to be installed as `OPENAI_API_KEY` in an authorized execution environment. Do not paste the raw key into a chat, PR, issue, log, or repository file.
+
+No GitHub secret, Vercel secret, billing change, or paid credential action was performed implicitly.
+
+## Gate state after repository review
+
+The repository-review fallback phase has been completed under the explicit `AGENTS.md` fallback rule. It is not an external human/bot review.
+
+Current evidence:
+
+- CONTEXT / repository contracts: available
+- PLANNER / implementation design: completed
+- IMPLEMENTER: completed
+- repository-authorized distinct reviewer fallback: completed
+- TARGETED_TESTS: completed
+- RISK_REGRESSION: completed
+- live OpenAI API acceptance: **OUTSTANDING**
+- RELEASE_READBACK: **OUTSTANDING**
+
+Therefore PR #313 remains draft and the feature is **not** declared `ENGINEERING_ACCEPTED`.
+
+## Vercel capacity state
+
+Vercel created a Ready Preview early in the PR lifecycle. Subsequent preview attempts were rejected by the account deployment quota with:
+
+`api-deployments-free-per-day` / more than 100 deployments / retry after the quota window.
+
+This is a deployment-capacity blocker, not a regression-test failure. No attempt was made to bypass the account limit and no production deployment was performed.
