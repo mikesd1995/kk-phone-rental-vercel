@@ -153,6 +153,22 @@ function evaluateRoleSpecificEvidence(input,analysis){
   }
 
   if(role==='SCANNER'){
+    const coverage=Array.isArray(input.scanner_run_coverage)?input.scanner_run_coverage:null;
+    if(!coverage){
+      return {ok:false,classification:'SCANNER_RUN_COVERAGE_EVIDENCE_MISSING'};
+    }
+    const ownedCoverage=coverage.filter(row=>{
+      const runId=text(value(row,'run_id','runId','Run ID','occurrence_id','Occurrence ID'));
+      return runId===analysis.runtime_run_id;
+    });
+    if(ownedCoverage.length<1){
+      return {
+        ok:false,
+        classification:'SCANNER_RUN_COVERAGE_EMPTY',
+        expected_runtime_run_id:analysis.runtime_run_id,
+        coverage_rows:ownedCoverage.length
+      };
+    }
     const due=input.scanner_due_work;
     if(!due || typeof due!=='object'){
       return {ok:false,classification:'SCANNER_DUE_WORK_EVIDENCE_MISSING'};
