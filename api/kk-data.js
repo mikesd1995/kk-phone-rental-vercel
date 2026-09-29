@@ -11,6 +11,7 @@
 const {installRuntimeWarningTracer}=require('../server/runtime-warning-tracer');
 installRuntimeWarningTracer('kk-data');
 const privateSheets = require('./lib/private-google-sheets');
+const lineBookingWebhook = require('../server/line-booking-webhook');
 
 const KK_APP_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_FIX';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -312,6 +313,7 @@ async function readPublicGvizCsv(sheetId, sheet, range) {
 }
 
 module.exports = async function handler(req, res) {
+  if (requestQueryValue(req, '__kk_line_webhook') === '1') return lineBookingWebhook(req, res);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');

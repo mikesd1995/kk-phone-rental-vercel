@@ -297,6 +297,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/line-webhook",
+      "destination": "/api/kk-data?__kk_line_webhook=1"
+    },
+    {
       "source": "/api/kk-admin",
       "destination": "/api/kk-admin-snapshot-v6"
     },
