@@ -7,7 +7,7 @@ const RESPONSES_ENDPOINT = 'https://api.openai.com/v1/responses';
 const MAX_INPUT_BYTES = 64 * 1024;
 const DEFAULT_TIMEOUT_MS = 30000;
 const SUPPORTED_WORKLOADS = Object.freeze(['scanner', 'verifier']);
-const DECISIONS = Object.freeze(['READY_FOR_VERIFIER', 'HOLD', 'REJECT', 'RECONCILE']);
+const DECISIONS = Object.freeze(['READY_FOR_VERIFIER', 'ACCEPT', 'HOLD', 'REJECT', 'RECONCILE']);
 const EVIDENCE_TYPES = Object.freeze(['observed_fact', 'source_claim', 'inference', 'recommendation']);
 const ALLOWED_SHADOW_MODELS = Object.freeze({
   scanner: Object.freeze(['gpt-6-sol']),
@@ -131,6 +131,7 @@ function instructionsFor(workload) {
     ...common,
     'Verifier shadow output is advisory only and cannot become a final governed handoff by itself.',
     'A final governed handoff still requires current Machine-SOT policy, exact candidate identity, source freshness, conflict resolution, authorized write path, and exact readback.',
+    'Use ACCEPT only when the candidate is sufficiently verified and policy-eligible for the existing governed next step; ACCEPT remains advisory and does not execute a write.',
     'Use HOLD for unresolved conflicts, owner-hidden recreation attempts, family-completeness debt, or protected readback failure.',
     'Use RECONCILE for an existing/historical identity that must not be recreated. Use REJECT when authoritative evidence establishes cancellation or clear ineligibility.'
   ].join('\n');
