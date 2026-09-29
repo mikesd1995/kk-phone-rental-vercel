@@ -28,7 +28,8 @@
     "code:benchmark": "node scripts/kk-code-intelligence-benchmark.js",
     "operating-partner:dry-run": "node scripts/kk-operating-partner-dry-run.js",
     "audit:invariants": "node scripts/kk-continuous-invariant-gate.js",
-    "ux:review:dry-run": "node scripts/kk-storefront-ux-reviewer-dry-run.js"
+    "ux:review:dry-run": "node scripts/kk-storefront-ux-reviewer-dry-run.js",
+    "ux:visual:accept": "node scripts/storefront-visual-acceptance.mjs"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"
