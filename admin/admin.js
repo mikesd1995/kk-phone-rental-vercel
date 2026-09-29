@@ -2856,8 +2856,13 @@
     else el.textContent=title+" — "+subtitle;
   }
 
-  async function refresh(){
-    if(state.loading) return;
+  async function refresh({waitForActive=false}={}){
+    // A mutation must never accept an older in-flight snapshot as its readback.
+    // Wait for that read to finish, then issue a new snapshot after the write.
+    if(state.loading){
+      if(!waitForActive) return;
+      while(state.loading) await new Promise(resolve=>setTimeout(resolve,25));
+    }
     state.loading=true;
     const startedAt=Date.now();
     try{
@@ -3575,7 +3580,7 @@
           if(!payload.row_number) throw new Error("กรุณาเลือก Booking ที่ต้องการแก้");
           const res=await api("updateBooking", payload);
           markFormClean(ev.target);
-          await refresh();
+          await refresh({waitForActive:true});
           activateTab("edit-booking",{scroll:false,writeHash:true});
           const closed=["cancelled","no_show","completed"].includes(String(payload.booking_status||"").toLowerCase());
           showNotice(closed
