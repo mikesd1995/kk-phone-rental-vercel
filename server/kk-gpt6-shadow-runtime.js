@@ -28,10 +28,6 @@ const SENSITIVE_KEYS = new Set([
   'payment_id',
   'deposit',
   'card_number',
-  'address',
-  'contact',
-  'contact_info',
-  'full_name',
   'mobile',
   'tel',
   'telephone'
