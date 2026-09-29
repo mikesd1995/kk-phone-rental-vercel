@@ -41,6 +41,18 @@ function recordRole(record){
   return text(value(record,'role','Role','scope_key','scopeKey','Scope Key')).toUpperCase();
 }
 
+const RUNTIME_SCOPE_ALIASES=Object.freeze({
+  CORE:new Set(['CORE','CORE_SHARED_WRITER']),
+  SCANNER:new Set(['SCANNER','SCANNER_GLOBAL']),
+  VERIFIER:new Set(['VERIFIER','VERIFIER_GLOBAL'])
+});
+
+function runtimeScopeMatches(record,role){
+  const normalized=text(role).toUpperCase();
+  const aliases=RUNTIME_SCOPE_ALIASES[normalized];
+  return !!aliases && aliases.has(recordRole(record));
+}
+
 function lockShapeProblems(record){
   const required=[
     ['holder_run_id','holderRunId','Holder Run ID','run_id','runId','Run ID'],
@@ -150,11 +162,11 @@ function analyzeNaturalOccurrence(input={}){
   const afterEnabled=Boolean(value(input.task_after||{},'enabled','is_enabled','isEnabled'));
   const launched=launcherAdvanced(input.launcher_before,input.launcher_after,input.scheduled_at);
 
-  const coreLocks=(input.core_locks||[]).filter(row=>recordRole(row)==='CORE');
-  const roleLocks=(input.role_locks||[]).filter(row=>recordRole(row)===role);
+  const coreLocks=(input.core_locks||[]).filter(row=>runtimeScopeMatches(row,'CORE'));
+  const roleLocks=(input.role_locks||[]).filter(row=>runtimeScopeMatches(row,role));
   const malformed=malformedRuntimeLocks(
     [...coreLocks,...roleLocks],
-    ['CORE',role]
+    [...RUNTIME_SCOPE_ALIASES.CORE,...RUNTIME_SCOPE_ALIASES[role]]
   );
   const common=commonRuntimeIds(coreLocks,roleLocks);
 
@@ -527,6 +539,7 @@ module.exports={
   MANIFEST_HEADERS,
   TRANSACTION_HEADERS,
   TERMINAL_MANIFEST_STATUSES,
+  RUNTIME_SCOPE_ALIASES,
   SCANNER_DUE_BUCKETS,
   SCANNER_DUE_ORDER,
   assertManifestHeaders,
@@ -534,6 +547,7 @@ module.exports={
   assertStrictlyMonotonicFence,
   lockShapeProblems,
   malformedRuntimeLocks,
+  runtimeScopeMatches,
   evaluateManifestAppendReadback,
   resolveScannerDueWorkDenominator,
   analyzeNaturalOccurrence,
