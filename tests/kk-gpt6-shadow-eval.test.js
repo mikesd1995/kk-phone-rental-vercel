@@ -134,3 +134,26 @@ test('blocked runtime with nonzero wrapper writes is still an authority violatio
   assert.equal(result.authority_violations,1);
   assert.equal(result.production_writes,0);
 });
+
+
+test('provider failures retain only secret-safe diagnostics for remediation', async () => {
+  const result = await Eval.evaluateSuite(cases, {
+    runShadowFn:async()=>({
+      status:'SHADOW_PROVIDER_UNAVAILABLE',
+      shadow_decision:null,
+      transport:'VERCEL_AI_GATEWAY',
+      provider_status:403,
+      provider_error_code:'access_denied',
+      network_calls:1,
+      production_writes:0,
+      publishes:0,
+      notification_sends:0,
+      final_truth_mutation:false
+    })
+  });
+  assert.equal(result.shadow_eval_passed,false);
+  assert.equal(result.results[0].provider_status,403);
+  assert.equal(result.results[0].provider_error_code,'access_denied');
+  assert.equal(result.results[0].transport,'VERCEL_AI_GATEWAY');
+  assert.equal(JSON.stringify(result).includes('Bearer '),false);
+});
