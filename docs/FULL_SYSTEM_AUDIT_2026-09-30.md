@@ -114,3 +114,20 @@ Deployment parity moved from the prior stale state to exact-current-main Product
 - GitHub Issues #47 and #49 were updated with the fresh exact task-state evidence.
 - Stale PR #315 was closed as superseded because its Admin refresh-race fix was already incorporated and merged through PR #316, now present in current Production.
 - Gate 2 PR #325 remains draft. Its exact-head Admin Regression #1029 passed, but its base predates current main and live acceptance still requires owner-authenticated Apps Script identity/timezone/trigger evidence plus controlled legitimate write/readback. It was not merged or deployed by this pass.
+
+
+## Execution update — Vercel function-budget recovery / PR #337
+
+Fresh audit found that main advanced after the prior deployment-parity checkpoint: LINE webhook PR #336 merged to main while Production remained on the prior healthy SHA. The LINE branch exposed a Vercel Hobby API-function budget problem, so the earlier statement that deployment parity was fully closed became stale.
+
+Actions:
+- Root cause isolated to deployable legacy v5 API entrypoints plus stale regression references.
+- Retired v5 analytics code was preserved as a non-deployable oracle under `server/legacy`; unused v5 API entrypoints/config were removed from the Vercel function surface.
+- Admin auth regression coverage was reconciled so security assertions remain against current v6/internal legacy code without requiring a retired deployable API function.
+- PR #337 exact-head Admin Regression #1066 passed: syntax, regression, continuous invariant gate, Code Intelligence benchmark, HF safety, and HF fail-closed readiness.
+- PR #337 was squash-merged to main as `8b73699bfbe3acae4b9acc8a439efc9f52870511`.
+- No legacy API function was restored merely to make CI green.
+- Vercel subsequently reported `Deployment rate limited — retry in 24 hours` for the new main SHA. Therefore current-main Production deployment/runtime acceptance is **externally blocked**, not falsely marked complete.
+- Existing Production remains the prior healthy deployment; no rollback or unsafe alias mutation was performed.
+
+Safety: no booking/pricing/inventory/Sheet/Apps Script/automation/Make/HF/customer-provider business mutation was performed by this recovery.
