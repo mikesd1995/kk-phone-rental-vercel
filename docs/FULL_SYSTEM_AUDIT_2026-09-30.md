@@ -303,3 +303,34 @@ After #341 exact-head regression passed, stale Gate 2 candidates were reconciled
 - Both comments explicitly warn not to merge the stale candidate and preserve the owner-authenticated runtime-acceptance boundary.
 - PR #341 remains open Draft as the single canonical Gate 2 candidate.
 - No stale branch was deleted, preserving forensic history while removing accidental-merge risk.
+
+
+## Execution update — repository-wide open PR reconciliation
+
+All open PRs were reviewed against current main and classified conservatively.
+
+Closed unmerged as clearly superseded:
+- #338 LINE booking webhook production-acceptance documentation: superseded by current-main LINE implementation plus the newer durable audit/runtime acceptance.
+- #324 public Sheets read-boundary hardening: superseded by later current-main read-boundary/Private Reader work including #340.
+- #141 v4.9.23 Private Reader acceptance: superseded by current-main Private Reader implementation/readiness diagnostics and current Production classification.
+- #152 standalone AI governance foundation: standalone landing path superseded by combined integration successor #181.
+- #175 standalone Phase-0 control plane: standalone landing path superseded by combined integration successor #181.
+Each PR received an explicit supersession comment before closure; no branch was deleted.
+
+Kept open Draft with explicit reconciliation comments:
+- #322 CSV Analysis Agent — distinct candidate; live OpenAI acceptance/release still separate.
+- #314 GPT-6 Sol shadow — distinct shadow candidate; no live credential/eval/cutover acceptance.
+- #237 Storefront UX Reviewer — distinct candidate; requires fresh current-main + visual acceptance.
+- #238 Visual QA — stacked on #237; retain until dependency/reconciliation is resolved.
+- #231 Operating Partner Phase 2 — gated by natural-runtime/control-plane evidence and fresh baseline.
+- #200 bounded read-only Ops collectors — stacked on #185; retain pending stack reconciliation.
+- #185 local read-only Ops pilot — stacked on #181; retain pending reconciliation.
+- #184 Tracker-to-Core promotion gate — distinct fail-closed candidate; baseline historical.
+- #181 combined Phase-0 integration — canonical successor for closed #152/#175, but current main has advanced and requires fresh-port/retest.
+- #113 AI quality/observability/dedup shadow — distinct candidate requiring reconciliation with current AI stack.
+
+Canonical operational/audit PRs retained:
+- #341 Apps Script Gate 2 current-main candidate — Draft, code CI PASS, runtime acceptance pending.
+- #335 full-system audit — Draft durable evidence branch.
+
+Post-cleanup open PR count: 12, all Draft. No production deployment, business write, scheduler mutation, branch deletion or automatic merge was performed.
