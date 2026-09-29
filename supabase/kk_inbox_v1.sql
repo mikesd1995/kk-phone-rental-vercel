@@ -52,7 +52,7 @@ alter table kk_private.inbox_audit enable row level security;
 create or replace function public.kk_inbox_persist_inbound(p_message jsonb)
 returns table(duplicate boolean, writes integer)
 language plpgsql
-security definer
+security invoker
 set search_path = pg_catalog, kk_private
 as $$
 declare
