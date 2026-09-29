@@ -293,3 +293,13 @@ Acceptance boundary:
 - Final LINE E2E remains pending on legitimate inbound webhook evidence or a secure credential/readiness control-plane surface.
 
 Safety: zero outbound LINE sends, zero Sheet business writes, zero credential mutation/exposure.
+
+
+## Execution update — Gate 2 superseded PR cleanup
+
+After #341 exact-head regression passed, stale Gate 2 candidates were reconciled:
+- PR #325 was commented as superseded by #341 and closed unmerged.
+- PR #339 was commented as superseded by #341 and closed unmerged.
+- Both comments explicitly warn not to merge the stale candidate and preserve the owner-authenticated runtime-acceptance boundary.
+- PR #341 remains open Draft as the single canonical Gate 2 candidate.
+- No stale branch was deleted, preserving forensic history while removing accidental-merge risk.
