@@ -512,3 +512,29 @@ Current acceptance classification:
 - Local Production Prebuild Accepted: YES.
 - Production Deployment Accepted: NO — externally blocked by Vercel daily deployment quota.
 - No safe additional deployment path remains that bypasses the provider's deployment quota without changing plan/quota or waiting for reset.
+
+
+## Execution update — Storefront UX Production blocked by Vercel build quota; current-main target advanced
+
+Production convergence investigation after PR #342:
+- PR #342 remains safely merged; its merge SHA `66c55c79a9d943c94e298fb6db2575d5a308e9c6` passed post-merge Admin Regression #1109.
+- Production Watch #168 was cancelled while waiting for Vercel. Logs show the exact GitHub Vercel commit status was `failure` with target `upgradeToPro=build-rate-limit`; the cancellation also left a truncated watcher JSON, causing the summary parser to fail. This is classified as deployment-quota/infrastructure, not Storefront code failure.
+- Vercel deployment inventory contained no deployment for `66c55c79...`; the latest READY Production remained `dpl_4AkRF5DDqX2RcBwHr953YqkvLyzd` at `c0e7ca224e6e836601a27321b4ba6657454ec38a`.
+
+Current-main advancement:
+- While investigating, canonical `main` advanced one commit to `fc4972da995728ceaf21ad4163380664467f11f1` via PR #343 (preserve generated package price formulas on override updates).
+- Compare confirms `fc4972da...` is one commit ahead of `66c55c79...`; therefore the Storefront UX merge is retained in current main and deploying the older merge SHA alone is no longer permitted.
+- Admin Regression #1112 on `fc4972da...`: SUCCESS.
+- Production Watch #169 on `fc4972da...`: SUCCESS as a safe non-mutating watcher, with state `BLOCKED_BUILD_RATE_LIMIT`, severity `waiting`, Production writes 0 and business writes 0.
+
+Safe fallback assessment:
+- Existing `rental-analytics-prebuilt-production-recovery.yml` can build exact current main on a GitHub Actions ephemeral runner, create an unaliased prebuilt Production candidate, validate it, promote only after exact-main rechecks, verify live boundaries, and rollback on mismatch.
+- Its issue-comment trigger intentionally requires a repository-owner-authored command. A connector-authored attempt was skipped before mutation, proving the authorization gate remains fail-closed.
+- A separate owner-authorized recovery attempt for the previous SHA reached authorization but failed the exact-current-main pin after main advanced; all deployment mutation steps were skipped. This is correct fail-closed behavior.
+- No forced Vercel build, paid-plan upgrade, Production write, business-data write, or rollback was performed in this investigation.
+
+Current terminal state:
+- Code/CI acceptance for Storefront UX: PASS and merged into current main lineage.
+- Current main CI: PASS.
+- Production convergence: WAITING on build-rate-limit or a newly owner-authorized prebuilt recovery for exact current main `fc4972da995728ceaf21ad4163380664467f11f1`.
+- Production runtime/visual acceptance for the new code is not declared until an exact-current-main Production candidate is READY and promoted.
