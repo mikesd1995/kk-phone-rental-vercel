@@ -4,6 +4,90 @@ const OWNER_REOPEN_INTENT='explicit_owner_reopen';
 
 function text(v){return String(v===undefined||v===null?'':v).trim();}
 
+function normalizeIdentityText(value){
+  return String(value===undefined||value===null?'':value)
+    .normalize('NFKC')
+    .trim()
+    .toLocaleLowerCase('en-US')
+    .replace(/[\s\-_.,/\\()[\]{}:;'"\`<>“”‘’]+/g,'');
+}
+
+function normalizeEventDate(value){
+  if(value instanceof Date&&!Number.isNaN(value.getTime())) return value.toISOString().slice(0,10);
+  const raw=text(value);
+  if(!raw) return '';
+  if(/^\d+(?:\.\d+)?$/.test(raw)){
+    const n=Number(raw);
+    if(n>1000&&n<100000){
+      const ms=Date.UTC(1899,11,30)+Math.round(n*86400000);
+      return new Date(ms).toISOString().slice(0,10);
+    }
+  }
+  let m=raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if(m){
+    let y=Number(m[1]); if(y>2500)y-=543;
+    return `${String(y).padStart(4,'0')}-${String(Number(m[2])).padStart(2,'0')}-${String(Number(m[3])).padStart(2,'0')}`;
+  }
+  m=raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if(m){
+    let y=Number(m[3]); if(y>2500)y-=543;
+    return `${String(y).padStart(4,'0')}-${String(Number(m[2])).padStart(2,'0')}-${String(Number(m[1])).padStart(2,'0')}`;
+  }
+  const d=new Date(raw);
+  return Number.isNaN(d.getTime())?'':d.toISOString().slice(0,10);
+}
+
+function eventIdentityKey(event={}){
+  const name=normalizeIdentityText(event.event_name||event.title);
+  const date=normalizeEventDate(event.event_date||event.event_date_text);
+  const venue=normalizeIdentityText(event.venue);
+  return name&&date?`${name}|${date}|${venue}`:'';
+}
+
+function lockRows(snapshot={}){
+  const rows=snapshot.visibility_locks||snapshot.event_visibility_locks||snapshot.visibility_history||[];
+  return Array.isArray(rows)?rows:[];
+}
+
+function lockState(row={}){
+  return text(row.lock_state||row.state).toUpperCase();
+}
+
+function findVisibilityHistory(snapshot={},event={}){
+  const rows=lockRows(snapshot);
+  const eventId=text(event.event_id);
+  const name=normalizeIdentityText(event.event_name||event.title);
+  const date=normalizeEventDate(event.event_date||event.event_date_text);
+  const venue=normalizeIdentityText(event.venue);
+  const byId=eventId?rows.find(row=>text(row.event_id)===eventId):null;
+  if(byId) return Object.assign({match_kind:'EVENT_ID'},byId);
+  if(!name||!date) return null;
+  const sameNameDate=rows.filter(row=>
+    normalizeIdentityText(row.event_name)===name &&
+    normalizeEventDate(row.event_date)===date
+  );
+  if(!sameNameDate.length) return null;
+  const exact=sameNameDate.find(row=>{
+    const existingVenue=normalizeIdentityText(row.venue);
+    return !venue||!existingVenue||existingVenue===venue;
+  });
+  return Object.assign({match_kind:exact?'IDENTITY':'NAME_DATE_HISTORY_CONFLICT'},exact||sameNameDate[0]);
+}
+
+function findLockedVisibility(snapshot={},event={}){
+  const hit=findVisibilityHistory(snapshot,event);
+  return hit&&lockState(hit)==='LOCKED'?hit:null;
+}
+
+function evaluateCreateAgainstHistory(snapshot={},payload={}){
+  const hit=findVisibilityHistory(snapshot,payload);
+  if(!hit) return {ok:true,code:'NO_EVENT_HISTORY_CONFLICT',history:null};
+  if(lockState(hit)==='LOCKED'){
+    return {ok:false,code:'EVENT_VISIBILITY_TOMBSTONE_LOCKED',history:hit};
+  }
+  return {ok:false,code:'EVENT_HISTORY_RECREATE_PROHIBITED',history:hit};
+}
+
 function boolOrBlank(v){
   if(v===undefined||v===null||v==='') return '';
   if(v===true||v===false) return v;
@@ -75,7 +159,27 @@ function evaluateSnapshotTransition(snapshot,payload={}){
       event_id:text(payload.event_id)
     };
   }
-  return Object.assign({event_id:text(payload.event_id)},evaluateTransition(event,payload));
+  const next=requestedVisibility(payload);
+  const locked=findLockedVisibility(snapshot,event);
+  if(next===true&&locked&&!hasExplicitOwnerReopen(payload)){
+    return {
+      ok:false,
+      code:'EVENT_VISIBILITY_TOMBSTONE_LOCKED',
+      error:'Event is protected by a persistent owner-hidden tombstone.',
+      event_id:text(payload.event_id),
+      current_active_on_web:currentVisibility(event),
+      requested_active_on_web:true,
+      owner_reopen:false,
+      visibility_lock:locked
+    };
+  }
+  const checked=evaluateTransition(event,payload);
+  if(checked.ok&&next===true&&locked&&hasExplicitOwnerReopen(payload)){
+    checked.code='OWNER_REOPEN_CONFIRMED_TOMBSTONE';
+    checked.owner_reopen=true;
+    checked.visibility_lock=locked;
+  }
+  return Object.assign({event_id:text(payload.event_id)},checked);
 }
 
 function assertTransition(event,payload={}){
@@ -111,6 +215,14 @@ module.exports={
   requestedVisibility,
   currentVisibility,
   hasExplicitOwnerReopen,
+  normalizeIdentityText,
+  normalizeEventDate,
+  eventIdentityKey,
+  lockRows,
+  lockState,
+  findVisibilityHistory,
+  findLockedVisibility,
+  evaluateCreateAgainstHistory,
   evaluateTransition,
   evaluateSnapshotTransition,
   assertTransition,
