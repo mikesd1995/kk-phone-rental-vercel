@@ -3,7 +3,7 @@
   "defaults": {
     "max_files": 12,
     "max_tests": 10,
-    "max_estimated_tokens": 12000,
+    "max_estimated_tokens": 16000,
     "large_file_chars": 24000
   },
   "routes": [
