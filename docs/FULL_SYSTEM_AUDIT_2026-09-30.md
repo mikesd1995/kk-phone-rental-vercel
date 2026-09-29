@@ -146,3 +146,20 @@ Actions:
 - PR #339 remains intentionally draft/unmerged until the acceptance contract can be satisfied with authoritative owner-side Apps Script evidence.
 
 Safety: no Production Sheet mutation, Apps Script deployment, booking mutation, inventory mutation, task mutation, or customer/provider send.
+
+
+## Execution update — Private Reader runtime readiness diagnostics
+
+Fresh Production readback confirmed both `08_Web_Ready!A4:K` and `09_Web_Packages!A4:N` still return `X-KK-Sheet-Source: public-gviz-fallback`; Private Reader is therefore not yet runtime-accepted.
+
+The available Vercel connector in this session does not expose environment-variable read/write actions, so credential presence could not be authoritatively inspected from the control plane without guessing or requesting secret material in chat.
+
+Actions:
+- Added coarse, non-secret Private Reader readiness headers to the existing public-data response: configured (0/1), auth mode, Sheet-ID resolution classification, and strict-mode state.
+- Explicitly excluded service-account email, private key, token, and Sheet ID from diagnostics.
+- Added regression coverage proving the diagnostic does not leak credential/Sheet identifiers and preserves public fallback behavior.
+- PR #340 Admin Regression #1072 passed syntax, regression, continuous invariant gate, Code Intelligence benchmark, HF safety, and HF fail-closed readiness.
+- Initial merge attempt correctly failed because #340 was still Draft; no protection bypass was used. PR was marked Ready for review and squash-merged as `c0e7ca224e6e836601a27321b4ba6657454ec38a`.
+- Strict private mode remains unchanged/off until both feeds prove `private-service-account` parity. Public workbook access was not changed.
+
+Safety: no secret was printed or stored in repo; no Vercel env mutation, workbook ACL mutation, business-data mutation, or strict-mode activation was performed.
