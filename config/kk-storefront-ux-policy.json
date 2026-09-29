@@ -1,0 +1,70 @@
+{
+  "version": "KK_STOREFRONT_UX_POLICY_V1",
+  "principles": [
+    "Keep the event inventory visible and easy to scan.",
+    "Sticky controls may reduce navigation effort but must not dominate the mobile viewport.",
+    "Primary conversion actions must stay reachable without obscuring event content.",
+    "Preserve iOS-safe form sizing and accessible touch targets.",
+    "Prefer stable layout over decorative motion, blur, or density.",
+    "Every visual change requires multi-viewport acceptance before production."
+  ],
+  "viewports": {
+    "mobile": {
+      "max_width_px": 480,
+      "max_sticky_height_px": 170,
+      "max_sticky_viewport_ratio": 0.22,
+      "max_bottom_cta_height_px": 64,
+      "min_tap_target_px": 44,
+      "min_ios_form_font_px": 16,
+      "max_filter_rows": 1,
+      "max_card_columns": 2,
+      "min_card_width_px": 150,
+      "preferred_backdrop_blur_px": 14
+    },
+    "tablet": {
+      "max_width_px": 900,
+      "max_sticky_height_px": 190,
+      "max_sticky_viewport_ratio": 0.2,
+      "max_bottom_cta_height_px": 68,
+      "min_tap_target_px": 44,
+      "min_ios_form_font_px": 16,
+      "max_filter_rows": 1,
+      "max_card_columns": 3,
+      "min_card_width_px": 180,
+      "preferred_backdrop_blur_px": 16
+    },
+    "desktop": {
+      "max_sticky_height_px": 220,
+      "max_sticky_viewport_ratio": 0.18,
+      "max_bottom_cta_height_px": 72,
+      "min_tap_target_px": 40,
+      "min_ios_form_font_px": 16,
+      "max_filter_rows": 1,
+      "max_card_columns": 4,
+      "min_card_width_px": 220,
+      "preferred_backdrop_blur_px": 18
+    }
+  },
+  "acceptance_viewports": [320, 375, 390, 430, 480, 768, 1024],
+  "required_checks": [
+    "no_horizontal_overflow",
+    "ios_form_controls_at_least_16px",
+    "sticky_controls_within_budget",
+    "bottom_cta_within_budget",
+    "tap_targets_within_budget",
+    "filter_toolbar_not_wrapped_on_mobile",
+    "event_cards_not_obscured",
+    "safe_area_respected",
+    "reduced_motion_respected"
+  ],
+  "safety": {
+    "production_writes": 0,
+    "auto_merge": false,
+    "auto_deploy": false,
+    "pricing_mutation": false,
+    "booking_mutation": false,
+    "inventory_mutation": false,
+    "machine_sot_mutation": false,
+    "owner_review_required": true
+  }
+}
