@@ -17,7 +17,7 @@ const DecisionLedger = require('../server/kk-decision-ledger.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
-const BOOKING_TIMING_POLICY_VERSION = 'booking-timing-optional-safe-fallback-2';
+const BOOKING_TIMING_POLICY_VERSION = 'booking-timing-return-time-persisted-staged-3';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
@@ -118,7 +118,7 @@ function createProposal(snapshot,payload){
     phone_asset_id:String(payload.phone_asset_id||'').trim(),
     lens_asset_id:String(payload.lens_asset_id||'').trim(),
     pickup_time:String(payload.pickup_time||'').trim(),
-    return_time:''
+    return_time:String(payload.return_time||'').trim()
   };
 }
 
@@ -132,9 +132,8 @@ function updateProposal(snapshot,payload){
   if(payload.phone_asset_id!==undefined) next.phone_asset_id=String(payload.phone_asset_id||'').trim();
   if(payload.lens_asset_id!==undefined) next.lens_asset_id=String(payload.lens_asset_id||'').trim();
   if(payload.pickup_time!==undefined) next.pickup_time=String(payload.pickup_time||'').trim();
-  // Current live snapshot does not persist/expose return_time through the Admin API.
-  // Keep fallback window conservative instead of trusting an unpersisted request field.
-  next.return_time=String(current.return_time||'').trim();
+  if(payload.return_time!==undefined) next.return_time=String(payload.return_time||'').trim();
+  else next.return_time=String(current.return_time||'').trim();
   return next;
 }
 
@@ -143,18 +142,14 @@ function evaluate(snapshot,payload){
   return {proposal,result:ReservationGuard.preflight(snapshot,proposal,{defaultEndHour:ReservationGuard.DEFAULT_END_HOUR})};
 }
 
-function validateCreateBookingTiming(payload){
-  if(String(payload&&payload.action||'')!=='createBooking') return {ok:true,mode:'not-create'};
+function validateBookingTiming(payload){
+  const action=String(payload&&payload.action||'');
+  if(!BOOKING_GUARDED_ACTIONS.has(action)) return {ok:true,mode:'not-booking'};
   const pickup=String(payload&&payload.pickup_time||'').trim();
-  if(!pickup){
-    return {
-      ok:true,
-      pickup_time:'',
-      mode:'fallback-day-start',
-      note:'pickup_time is optional/TBD; reservation starts at 00:00 on event day'
-    };
-  }
-  if(ReservationGuard.timeMinutes(pickup)===null){
+  const returnTime=String(payload&&payload.return_time||'').trim();
+
+  const pickupWasSubmitted=action==='createBooking'||Object.prototype.hasOwnProperty.call(payload||{},'pickup_time');
+  if(pickupWasSubmitted&&pickup&&ReservationGuard.timeMinutes(pickup)===null){
     return {
       ok:false,
       status:422,
@@ -163,7 +158,26 @@ function validateCreateBookingTiming(payload){
       recommended_action:'correctOrClearPickupTime'
     };
   }
-  return {ok:true,pickup_time:pickup,mode:'explicit-pickup'};
+  if(Object.prototype.hasOwnProperty.call(payload||{},'return_time')&&returnTime&&ReservationGuard.timeMinutes(returnTime)===null){
+    return {
+      ok:false,
+      status:422,
+      error_code:'BOOKING_RETURN_TIME_INVALID',
+      error:'เวลาคืนเครื่องไม่ถูกต้อง กรุณาใช้รูปแบบ HH:MM เช่น 23:30 หรือเว้นว่างถ้ายังไม่ยืนยัน',
+      recommended_action:'correctOrClearReturnTime'
+    };
+  }
+  return {
+    ok:true,
+    pickup_time:pickup,
+    return_time:returnTime,
+    mode:pickup?'explicit-pickup':'fallback-day-start',
+    note:pickup?'':'pickup_time is optional/TBD; reservation starts at 00:00 on event day'
+  };
+}
+
+function validateCreateBookingTiming(payload){
+  return validateBookingTiming(payload);
 }
 
 function normalizeIdentityText(value){
@@ -433,7 +447,7 @@ module.exports=async function handler(req,res){
 
   if(bookingGuarded){
     res.setHeader('X-KK-Booking-Timing-Policy',BOOKING_TIMING_POLICY_VERSION);
-    const timing=validateCreateBookingTiming(payload);
+    const timing=validateBookingTiming(payload);
     if(!timing.ok){
       return reply(res,timing.status,{
         ok:false,
@@ -575,4 +589,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(clonedRequest(req,raw),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateBookingTiming,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};
