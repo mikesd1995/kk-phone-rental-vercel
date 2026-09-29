@@ -252,3 +252,30 @@ test('public data fails closed when public and private reader Sheet IDs conflict
     assert.match(res.body,/configuration conflicts/i);
   });
 });
+
+
+test('public data exposes only non-secret Private Reader readiness classifications', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ok:true,status:200,text:async()=>[
+    'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template',
+    'EVT-1,Event,04/10/2026,Siam Paragon,,,2,2,เปิดจอง,show,จอง',
+  ].join('\n')});
+  try {
+    await withEnv(withoutPrivateCredentials({
+      GOOGLE_SHEET_ID:'sheet-public',
+      KK_PUBLIC_SHEET_REQUIRE_PRIVATE:undefined,
+    }), async () => {
+      const res=fakeRes({rejectNonAsciiHeaders:true});
+      await handler({method:'GET',query:{sheet:'08_Web_Ready',range:'A4:K'}},res);
+      assert.equal(res.statusCode,200);
+      assert.equal(res.headers['x-kk-private-reader-configured'],'0');
+      assert.equal(res.headers['x-kk-private-reader-auth'],'none');
+      assert.equal(res.headers['x-kk-private-reader-sheet-state'],'CRM_SHEET_ID_RESOLVED');
+      assert.equal(res.headers['x-kk-private-reader-strict'],'0');
+      const headerDump=JSON.stringify(res.headers);
+      assert.doesNotMatch(headerDump,/BEGIN PRIVATE KEY|reader@|sheet-public/);
+    });
+  } finally {
+    global.fetch=originalFetch;
+  }
+});
