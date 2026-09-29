@@ -323,7 +323,7 @@ module.exports = async function handler(req, res) {
   const sheet = eventShareId ? '08_Web_Ready' : String(requestQueryValue(req, 'sheet') || '').trim();
   const range = eventShareId ? 'A4:K' : String(requestQueryValue(req, 'range') || '').trim();
   const showPast = eventShareId ? false : isTrue(requestQueryValue(req, 'showPast'));
-  if (!ALLOWED[sheet] || !ALLOWED[sheet].has(range)) {
+  if (!Object.prototype.hasOwnProperty.call(ALLOWED, sheet) || !ALLOWED[sheet].has(range)) {
     return send(res, 400, 'Sheet/range not allowed');
   }
 
@@ -360,7 +360,9 @@ module.exports = async function handler(req, res) {
     return send(res, 503, 'Private public-data reader is not configured.');
   }
 
-  if (!text) {
+  // A successful authenticated read owns the result even when it is empty.
+  // Validate that result below; do not silently cross back to anonymous access.
+  if (!source) {
     try {
       text = await readPublicGvizCsv(sheetId, sheet, range);
       source = privateError ? 'public-gviz-fallback-after-private-error' : 'public-gviz-fallback';
