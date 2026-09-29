@@ -19,7 +19,8 @@ test('live GPT-6 workflow is owner-authorized, label-gated, OIDC-only and zero-w
   assert.match(w,/VERCEL_TOKEN:\s*\$\{\{ secrets\.VERCEL_TOKEN \}\}/);
   assert.match(w,/vercel env pull[\s\S]*--environment=preview/);
   assert.match(w,/::add-mask::/);
-  assert.match(w,/VERCEL_OIDC_TOKEN/);\n  assert.match(w,/node scripts\\/kk-gpt6-shadow-readiness\\.js/);
+  assert.match(w,/VERCEL_OIDC_TOKEN/);
+  assert.match(w,/node scripts\/kk-gpt6-shadow-readiness\.js/);
 
   assert.match(w,/KK_GPT6_SHADOW_TRANSPORT:\s*vercel_ai_gateway/);
   assert.match(w,/KK_GPT6_SHADOW_ALLOW_ENV_OIDC:\s*'true'/);
