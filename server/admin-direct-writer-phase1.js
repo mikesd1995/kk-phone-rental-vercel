@@ -348,9 +348,12 @@ function buildOverridePlan(payload,data){
   (data.web||[]).forEach((row,i)=>{
     if(!webRowMatchesTemplate(row,eventId,templateId,targetPackage)) return;
     const physical=SHEET_START_ROWS['09_Web_Packages']+i;
-    const nextPrice=hasPrice?price:webPackagePriceFormula(physical,templateId);
+    const nextPrice=webPackagePriceFormula(physical,templateId);
+    // H is generated output. Keep the canonical formula even when an override price
+    // is supplied; the formula reads 04_Event_Overrides and prevents a successful
+    // admin price change from turning H into a stale hard-coded value.
     mutations.push(mutation('09_Web_Packages',physical,8,[nextPrice]));
-    readbacks.push(readback(`09_Web_Packages!H${physical}:H${physical}`,[nextPrice],hasPrice?'UNFORMATTED_VALUE':'FORMULA'));
+    readbacks.push(readback(`09_Web_Packages!H${physical}:H${physical}`,[nextPrice],'FORMULA'));
     refreshed++;
   });
 
