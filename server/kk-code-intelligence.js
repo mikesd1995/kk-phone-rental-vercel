@@ -164,10 +164,10 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
 
   activeRoutes.forEach((hit,index)=>{
     const routeRankBonus=Math.max(0,24-(index*12));
-    for(const file of hit.route.files||[]) addCandidate(
+    for(const [fileIndex,file] of (hit.route.files||[]).entries()) addCandidate(
       candidates,
       file,
-      100+hit.score+routeRankBonus,
+      100+hit.score+routeRankBonus-(fileIndex*2),
       'route:'+hit.route.id,
       map
     );
