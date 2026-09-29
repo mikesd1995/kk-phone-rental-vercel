@@ -210,3 +210,15 @@ test('public-data response reports redacted customer-facing fields', async () =>
     global.fetch = originalFetch;
   }
 });
+
+
+test('Vercel edge config does not cache live public inventory/pricing feed', () => {
+  const fs = require('node:fs');
+  const config = JSON.parse(fs.readFileSync(require.resolve('../vercel.json'), 'utf8'));
+  const route = config.headers.find(item => item.source === '/api/kk-data');
+  assert.ok(route, 'missing /api/kk-data cache policy');
+  const cache = route.headers.find(item => String(item.key).toLowerCase() === 'cache-control');
+  assert.ok(cache, 'missing Cache-Control for /api/kk-data');
+  assert.match(cache.value, /no-store/i);
+  assert.doesNotMatch(cache.value, /s-maxage|stale-while-revalidate/i);
+});
