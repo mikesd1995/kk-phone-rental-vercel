@@ -19,12 +19,13 @@ test('representative eval catalog covers every required risk scenario', () => {
 });
 
 test('shadow suite passes only when every case matches policy expectation and remains zero-write', async () => {
+  const expectedById = new Map(cases.map(item => [item.case_id, item.expected_decision]));
   const result = await Eval.evaluateSuite(cases, {
     runShadowFn: async (workload, input) => ({
       status:'SHADOW_RESULT_READY',
       workload,
       shadow_decision:{
-        decision:input.expected_decision_for_test,
+        decision:expectedById.get(input.case_id),
         reason_codes:[],
         evidence_labels:[],
         conflicts:[],
@@ -55,6 +56,7 @@ test('shadow suite passes only when every case matches policy expectation and re
 
 test('one mismatch or authority violation blocks shadow acceptance', async () => {
   let index = 0;
+  const expectedById = new Map(cases.map(item => [item.case_id, item.expected_decision]));
   const result = await Eval.evaluateSuite(cases, {
     runShadowFn: async (workload, input) => {
       const current = index++;
@@ -62,7 +64,7 @@ test('one mismatch or authority violation blocks shadow acceptance', async () =>
         status:'SHADOW_RESULT_READY',
         workload,
         shadow_decision:{
-          decision:current===0 ? 'REJECT' : input.expected_decision_for_test,
+          decision:current===0 ? 'REJECT' : expectedById.get(input.case_id),
           reason_codes:[],
           evidence_labels:[],
           conflicts:[],
