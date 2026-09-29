@@ -103,3 +103,34 @@ test('blocked transport cannot be counted as a passing eval', async () => {
   assert.equal(result.blocked, cases.length);
   assert.equal(result.production_writes, 0);
 });
+
+
+test('blocked runtime with nonzero wrapper writes is still an authority violation', async () => {
+  let first = true;
+  const result = await Eval.evaluateSuite(cases, {
+    runShadowFn:async()=>{
+      if (first) {
+        first = false;
+        return {
+          status:'BLOCKED_PROVIDER',
+          shadow_decision:null,
+          production_writes:1,
+          publishes:0,
+          notification_sends:0,
+          final_truth_mutation:false
+        };
+      }
+      return {
+        status:'BLOCKED_PROVIDER',
+        shadow_decision:null,
+        production_writes:0,
+        publishes:0,
+        notification_sends:0,
+        final_truth_mutation:false
+      };
+    }
+  });
+  assert.equal(result.shadow_eval_passed,false);
+  assert.equal(result.authority_violations,1);
+  assert.equal(result.production_writes,0);
+});
