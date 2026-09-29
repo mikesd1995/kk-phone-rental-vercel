@@ -73,6 +73,17 @@ function normalizeEngineResult(request, result, extra = {}) {
     return blocked('BLOCKED_ANALYSIS_OUTPUT_INVALID', artifactCheck.blocker);
   }
 
+  const access = {};
+  if (typeof result.artifact_transport === 'string' && result.artifact_transport.trim()) {
+    access.artifact_transport = result.artifact_transport.trim();
+  }
+  if (result.artifact_handles && typeof result.artifact_handles === 'object') {
+    access.artifact_handles = result.artifact_handles;
+  }
+  if (result.artifact_payloads_base64 && typeof result.artifact_payloads_base64 === 'object') {
+    access.artifact_payloads_base64 = result.artifact_payloads_base64;
+  }
+
   return {
     schema_version: 'KK_CSV_ANALYSIS_RESULT_V1',
     status: 'READY',
@@ -83,6 +94,7 @@ function normalizeEngineResult(request, result, extra = {}) {
     findings: findingsCheck.value.findings,
     caveats: findingsCheck.value.caveats,
     artifacts: artifactCheck.normalized,
+    ...access,
     verification: {
       contract_pass: true,
       required_artifacts_present: true
