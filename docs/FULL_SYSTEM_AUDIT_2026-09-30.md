@@ -398,3 +398,25 @@ Repair:
 - Storefront Automated Visual QA #30 / `36630728001`: in progress at latest read.
 
 PR #342 remains Draft/unmerged; Production unchanged until both exact-head gates pass.
+
+
+## Execution update — Storefront UX third acceptance repair
+
+Exact-head `4906037d75e1eded98a004aadec60dddf7d1196e` results:
+- Storefront Automated Visual QA #30 / `36630728001`: SUCCESS.
+- Admin Regression #1099 / `36630728113`: FAILURE with the same single Operating Partner Code Intelligence selection regression.
+
+The first capacity repair (`max_files: 10 -> 12`) was therefore insufficient. Further inspection of `server/kk-code-intelligence.js` showed selection also fails closed against `max_estimated_tokens`; the context pack was exhausting the 12,000-token budget before the required Operating Partner file could be selected.
+
+Second repair:
+- Preserve `max_files=12`.
+- Increase default Code Intelligence context budget from 12,000 to 16,000 estimated tokens.
+- Do not remove Storefront UX context and do not weaken the Operating Partner regression assertion.
+- Ranking logic, large-file allocation cap and route matching remain unchanged.
+
+New exact candidate head: `1c093dba2cccad59e59c6d4d33d26a2786d27180`.
+New exact-head gates:
+- Admin Regression #1102 / `36631052536`: in progress at latest read.
+- Storefront Automated Visual QA #31 / `36631052500`: in progress at latest read.
+
+PR #342 remains Draft/unmerged and Production remains unchanged pending both gates.
