@@ -103,3 +103,14 @@ This audit performed no business writes, no Sheet mutation, no Vercel environmen
 
 ### Improvement
 Deployment parity moved from the prior stale state to exact-current-main Production. This removes a cross-system split-brain where repository safety fixes existed but were not serving users. Runtime and CI evidence are now tied to the same SHA instead of inferring acceptance from merged code.
+
+
+## Execution update — Control-plane persistence checkpoint and debt cleanup
+
+- Fresh task-registry readback confirms canonical Scanner `6ab272b36b1881919577ff3367fa8245` is OFF and canonical Verifier `6ab7e060fa788191b5f17a7028494c3a` is OFF.
+- Retired Verifier remains OFF.
+- No task was re-enabled, cloned, replaced, rescheduled, or backfilled. Current classification remains `RECURRING_TASK_STATE_PERSISTENCE_PLATFORM_DEFECT`; natural-runtime credit remains zero until governed durable evidence proves a valid occurrence.
+- The existing `KK P0 Recovery Acceptance` one-shot remains enabled and is the correct bounded path for the next checkpoint; it explicitly forbids manufacturing proof or re-enabling an unexpectedly-OFF canonical task.
+- GitHub Issues #47 and #49 were updated with the fresh exact task-state evidence.
+- Stale PR #315 was closed as superseded because its Admin refresh-race fix was already incorporated and merged through PR #316, now present in current Production.
+- Gate 2 PR #325 remains draft. Its exact-head Admin Regression #1029 passed, but its base predates current main and live acceptance still requires owner-authenticated Apps Script identity/timezone/trigger evidence plus controlled legitimate write/readback. It was not merged or deployed by this pass.
