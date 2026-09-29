@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'); const assert=require('node:assert/strict'); const crypto=require('node:crypto');
-const mod=require('../api/line-webhook');
+const mod=require('../server/line-booking-webhook');
 
 test('verifies exact raw-body HMAC-SHA256 signature',()=>{const body='{"destination":"U123","events":[]}';const secret='secret';const sig=crypto.createHmac('sha256',secret).update(body).digest('base64');assert.equal(mod._test.validSignature(body,sig,secret),true);assert.equal(mod._test.validSignature(body,sig+'x',secret),false);});
 test('parses current Thai storefront booking message',()=>{const b=mod._test.parseBookingText('สนใจเช่า vivo X300 Pro + Lens\nงาน : LYKN REFLEXION CONCERT\nวันที่ : 18 ต.ค. 2026\nสถานที่ : IMPACT Arena\nราคา : 1,290฿\n\nชื่อเล่น : \nเบอร์โทร : ');assert.equal(b.event_name,'LYKN REFLEXION CONCERT');assert.equal(b.package_name,'vivo X300 Pro + Lens');assert.equal(b.price_display,'1,290฿');});
