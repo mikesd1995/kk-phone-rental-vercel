@@ -1,6 +1,7 @@
 'use strict';
 
-const VERSION='KK_VERIFIER_STOREFRONT_PROMOTION_V4';
+const VisibilityGuard=require('./event-visibility-owner-guard.js');
+const VERSION='KK_VERIFIER_STOREFRONT_PROMOTION_V5_TOMBSTONE';
 const OWNER_REOPEN_INTENT='explicit_owner_reopen';
 
 function text(v){return String(v==null?'':v).trim();}
@@ -88,9 +89,23 @@ function preparePromotion(input={}){
   if(!ownerPublishAllowed) blockers.push('OWNER_PUBLISH_POLICY_REQUIRED');
 
   const existing=input.existing_event||{};
-  if(text(existing.event_id)&&existing.active_on_web===false){
-    if(text(input.visibility_owner_intent)===OWNER_REOPEN_INTENT) blockers.push('OWNER_REOPEN_REQUIRES_EXISTING_EVENT_UPDATE');
-    else blockers.push('OWNER_HIDDEN_REOPEN_PROHIBITED');
+  if(text(existing.event_id)){
+    if(existing.active_on_web===false){
+      if(text(input.visibility_owner_intent)===OWNER_REOPEN_INTENT) blockers.push('OWNER_REOPEN_REQUIRES_EXISTING_EVENT_UPDATE');
+      else blockers.push('OWNER_HIDDEN_REOPEN_PROHIBITED');
+    }else{
+      blockers.push('EXISTING_EVENT_RECONCILE_REQUIRED');
+    }
+  }
+
+  const historyRows=Array.isArray(input.visibility_locks)?input.visibility_locks:
+    (Array.isArray(input.visibility_history)?input.visibility_history:[]);
+  const historyCheck=VisibilityGuard.evaluateCreateAgainstHistory({visibility_locks:historyRows},{
+    event_name:text(c.title),event_date:text(c.event_date),venue:text(c.venue)
+  });
+  if(!historyCheck.ok){
+    if(historyCheck.code==='EVENT_VISIBILITY_TOMBSTONE_LOCKED') blockers.push('OWNER_HIDDEN_RECREATE_PROHIBITED');
+    else blockers.push('HISTORICAL_EVENT_RECREATE_PROHIBITED');
   }
 
   const baseNote=text(input.note||'Verifier-approved discovery promotion');
@@ -160,6 +175,7 @@ function verifyStorefrontReadback(plan={},readback={}){
 module.exports={
   VERSION,
   OWNER_REOPEN_INTENT,
+  VisibilityGuard,
   isLensOnlyPriceRow,
   isWeekendDate,
   publishEligibility,
