@@ -369,3 +369,20 @@ test('Admin UI assigns one request_id per write call and delegates degraded admi
   assert.match(ui,/KKAdminWritePolicy\.admission/);
   assert.match(ui,/Never retry a mutation automatically/);
 });
+
+
+test('override price refresh preserves generated price formula instead of hardcoding price', () => {
+  const p=Phase1.buildPlan({action:'upsertEventOverride',event_id:'EVT-1',template_id:'TPL-PHONE',override_price:'690'}, {
+    events:[['EVT-1','Event','2026-10-01','Venue','','open',true,'']],
+    packages:[['TPL-PHONE','VIVO_X300_PRO','phone_only','NONE',890,'Phone','',true,10,'concert']],
+    overrides:[['EVT-1','TPL-PHONE',790,true,'',10,'concert']],
+    web:[['EVT-1-TPL-PHONE','EVT-1','phone_only','VIVO_X300_PRO','Phone','NONE','',790,2,'available']]
+  });
+  const webWrite=p.mutations.find(m=>m.sheet==='09_Web_Packages' && m.column===8);
+  assert.ok(webWrite);
+  assert.match(String(webWrite.values[0]), /^=IF\(B5=/);
+  assert.match(String(webWrite.values[0]), /04_Event_Overrides/);
+  assert.notEqual(webWrite.values[0],690);
+  const webReadback=p.readbacks.find(r=>String(r.range||'').startsWith('09_Web_Packages!H5'));
+  assert.equal(webReadback.render,'FORMULA');
+});
