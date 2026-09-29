@@ -54,16 +54,27 @@ This candidate does not claim end-to-end production readiness.
 
 Still required before deployment:
 
-1. exact-head repository regression must pass;
-2. Vercel/Admin-side `return_time` request/readback surfaces must be fresh-ported from current main, not copied wholesale from stale PR #160;
-3. System Health should surface timezone/trigger evidence without exposing secrets;
-4. owner-authenticated Apps Script bound project/deployment identity must be read;
-5. exact named Project Settings timezone must be read;
-6. installed cleanup-trigger inventory and exact schedule must be verified;
-7. controlled deployment must preserve rollback;
-8. one legitimate owner-directed Admin write must pass with exact booking + audit + Sheet readback;
-9. cross-day overlap behavior must be accepted against real runtime;
-10. no synthetic business row may be created solely for acceptance.
+1. exact-head repository regression must pass after the full staging port;
+2. owner-authenticated Apps Script bound project/deployment identity must be read;
+3. exact named Project Settings timezone must be read;
+4. installed cleanup-trigger inventory and exact schedule must be verified;
+5. controlled deployment must preserve rollback;
+6. one legitimate owner-directed Admin write must pass with exact booking + audit + Sheet readback;
+7. cross-day overlap behavior must be accepted against real runtime;
+8. no synthetic business row may be created solely for acceptance.
+
+## Vercel/Admin staging now included
+
+The review branch now also stages, from current-main files rather than wholesale stale-file replacement:
+
+- booking guard request/proposal support for `return_time`;
+- validation of explicit return-time clock values before upstream write;
+- create/edit Admin `return_time` fields;
+- edit-form population from snapshot `return_time`;
+- System Health rows for Apps Script/Spreadsheet timezone alignment and cleanup-trigger inventory;
+- regression updates for persisted return-time semantics.
+
+These are still review-only branch changes. They do not make the live 9_5_9 Apps Script understand `return_time` until a controlled Gate 2 deployment is accepted.
 
 ## Safety
 
