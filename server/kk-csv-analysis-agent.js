@@ -342,6 +342,7 @@ async function listArtifacts({sessionId, apiKey, fetchImpl, apiBaseUrl}) {
 function selectTurnArtifacts(artifacts, turnId) {
   const selected = [];
   const names = new Set();
+  let chartCount = 0;
 
   for (const artifact of artifacts) {
     if (!artifact || String(artifact.turn_id || '') !== String(turnId)) continue;
@@ -351,6 +352,26 @@ function selectTurnArtifacts(artifacts, turnId) {
 
     const filename = path.basename(artifactPath);
     if (!filename || filename === '.' || filename === '..') continue;
+
+    const requiredCore = REQUIRED_ARTIFACTS.includes(filename);
+    const chartArtifact = /^chart_\d{2,3}\.png$/i.test(filename);
+    if (!requiredCore && !chartArtifact) {
+      throw codedError(
+        'CSV_ANALYSIS_UNEXPECTED_ARTIFACT',
+        `Unexpected CSV analysis output artifact: ${filename}`,
+        {artifact_path: artifactPath}
+      );
+    }
+    if (chartArtifact) {
+      chartCount += 1;
+      if (chartCount > 3) {
+        throw codedError(
+          'CSV_ANALYSIS_TOO_MANY_CHART_ARTIFACTS',
+          'CSV analysis may publish at most three chart artifacts'
+        );
+      }
+    }
+
     if (names.has(filename)) {
       throw codedError('CSV_ANALYSIS_ARTIFACT_DUPLICATE', `Duplicate output artifact name: ${filename}`);
     }
