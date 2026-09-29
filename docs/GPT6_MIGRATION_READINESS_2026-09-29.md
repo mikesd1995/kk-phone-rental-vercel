@@ -28,7 +28,7 @@ The repository was searched for:
 - `OPENAI`
 - OpenAI model IDs / model environment variables
 
-No OpenAI SDK/API invocation or OpenAI dependency was found in the current repository.
+No OpenAI SDK/API invocation or OpenAI dependency was found on `main` at the audited base SHA.
 
 `package.json` has no OpenAI client dependency. The KK Agent Gateway and orchestration layers are deterministic governance/evidence components; they do not currently invoke an OpenAI model directly.
 
@@ -315,6 +315,26 @@ It should be a representative **GPT-6 Sol shadow evaluation** against production
 - protected write/readback failure cases.
 
 Only after the actual runtime surface can prove which model executed should `transport_wired`, `shadow_eval_passed`, or `zero_write_acceptance_passed` become true.
+
+## Parallel-branch reconciliation found during final review
+
+Final Vercel/GitHub verification surfaced a separate, concurrent branch:
+
+- `feat/csv-analysis-agent-20260929`
+
+That branch is not part of `main` and is not part of PR #311. It adds `server/kk-openai-agents-adapter.js` for a bounded CSV-analysis feature.
+
+Observed properties of that adapter at review time:
+
+- it dynamically imports the OpenAI SDK;
+- it accepts `OPENAI_API_KEY`;
+- its model can be overridden through `KK_CSV_ANALYSIS_MODEL`;
+- its current fallback model is already `gpt-6-sol`;
+- its returned result declares `production_writes: 0` and `publishes: 0`.
+
+This does **not** make the Scanner/Verifier migration transport-ready. It is a feature-scoped CSV-analysis transport on an unmerged branch.
+
+If that branch is later merged, the integration follow-up should reuse this migration policy as the canonical model-routing/readiness contract rather than creating a second independent model-policy source.
 
 ## Decision
 
