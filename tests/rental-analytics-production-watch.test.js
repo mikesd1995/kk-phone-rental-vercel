@@ -134,3 +134,66 @@ test('workflow grants read access to commit statuses and uses a shell-safe summa
   assert.match(workflow,/kk-rental-analytics-production-watch-fingerprint:/);
   assert.match(workflow,/legacyFingerprint=.*State fingerprint:/);
 });
+
+function headers(values={}) {
+  const normalized=Object.fromEntries(Object.entries(values).map(([k,v])=>[k.toLowerCase(),v]));
+  return {get(name){return normalized[String(name||'').toLowerCase()]||null;}};
+}
+
+test('runtime self-audit accepts healthy storefront, live feeds, and hardened Admin gate',async()=>{
+  const responses=[
+    {status:200,headers:headers(),text:async()=>'<html></html>'},
+    {status:200,headers:headers({'cache-control':'no-store, max-age=0, must-revalidate','x-kk-sheet-source':'public-gviz-fallback'}),text:async()=>'event_id,event_name,poster_image_url,action_for_web\nEVT-1,Event,https://example.test/p.jpg,show'},
+    {status:200,headers:headers({'cache-control':'no-store, max-age=0, must-revalidate','x-kk-sheet-source':'public-gviz-fallback'}),text:async()=>'package_id,event_id,available_count\nPKG-1,EVT-1,2'},
+    {status:200,headers:headers({'cache-control':'no-store, max-age=0','x-frame-options':'DENY','x-robots-tag':'noindex, nofollow','content-security-policy':"default-src 'none'; frame-ancestors 'none'; form-action 'self'"}),text:async()=>'<html></html>'}
+  ];
+  const audit=await Watch.runtimeSelfAudit(async()=>responses.shift());
+  assert.equal(audit.status,'PASS');
+  assert.deepEqual(audit.failed_checks,[]);
+  assert.equal(audit.production_writes,0);
+  assert.equal(audit.business_writes,0);
+});
+
+test('runtime self-audit fails closed on cached public feed or leaked internal token',async()=>{
+  const responses=[
+    {status:200,headers:headers(),text:async()=>'<html></html>'},
+    {status:200,headers:headers({'cache-control':'s-maxage=15','x-kk-sheet-source':'public-gviz-fallback'}),text:async()=>'event_id,event_name,poster_image_url,action_for_web\nEVT-1,Event,,show'},
+    {status:200,headers:headers({'cache-control':'no-store','x-kk-sheet-source':'public-gviz-fallback'}),text:async()=>'package_id,event_id,available_count\nPKG-1,EVT-1,2,OWNER_PRICE_ADJUST_2026-09-28'},
+    {status:200,headers:headers({'cache-control':'no-store','x-frame-options':'DENY','x-robots-tag':'noindex','content-security-policy':"frame-ancestors 'none'; form-action 'self'"}),text:async()=>''}
+  ];
+  const audit=await Watch.runtimeSelfAudit(async()=>responses.shift());
+  assert.equal(audit.status,'FAIL');
+  assert.ok(audit.failed_checks.includes('EVENT_FEED_NO_STORE'));
+  assert.ok(audit.failed_checks.includes('PACKAGE_FEED_INTERNAL_TEXT_CLEAN'));
+});
+
+test('classification waits instead of accepting an older READY deployment as current main',()=>{
+  const oldReady=deployment({sha:'b'.repeat(40),state:'READY'});
+  const building=deployment({sha:'a'.repeat(40),state:'BUILDING',created:2});
+  const result=Watch.classifyState({
+    serving:oldReady,
+    latestAttempt:building,
+    mainAttempt:building,
+    productionMatchesCurrentMain:false,
+    productionContainsFix:true,
+    runtimeAudit:null,
+    probe:null
+  });
+  assert.equal(result.state,'CURRENT_MAIN_DEPLOYMENT_PENDING');
+  assert.equal(result.severity,'waiting');
+});
+
+test('runtime audit failure blocks acceptance of current main',()=>{
+  const serving=deployment();
+  const result=Watch.classifyState({
+    serving,
+    latestAttempt:serving,
+    mainAttempt:serving,
+    productionMatchesCurrentMain:true,
+    productionContainsFix:true,
+    runtimeAudit:{status:'FAIL',failed_checks:['EVENT_FEED_NO_STORE']},
+    probe:{analytics_head_status:401,admin_auth_status:200,admin_auth_authenticated:false}
+  });
+  assert.equal(result.state,'PRODUCTION_RUNTIME_AUDIT_FAILED');
+  assert.equal(result.severity,'error');
+});
