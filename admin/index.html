@@ -239,7 +239,7 @@
             <details class="booking-advanced-details">
               <summary>ตัวเลือกเพิ่มเติม</summary>
               <div class="booking-advanced-body">
-                <div class="row three">
+                <div class="row two">
                   <label>สถานะ Booking
                     <select name="booking_status">
                       <option value="confirmed">ยืนยันแล้ว</option>
@@ -251,7 +251,10 @@
                   <label>ช่องทาง
                     <select name="contact_channel"><option>LINE</option><option>X</option><option>Facebook</option><option>Instagram</option></select>
                   </label>
-                  <label>เวลารับเครื่อง <input name="pickup_time" type="time" step="60" /><small>ไม่ชัวร์เว้นว่างได้ (TBD)</small></label>
+                </div>
+                <div class="row two">
+                  <label>เวลารับเครื่อง <input name="pickup_time" type="time" step="60" /><small>ไม่ชัวร์เว้นว่างได้ (TBD) ถ้าเว้นว่างจะเริ่มกันคิวตั้งแต่ 00:00 วันงาน</small></label>
+                  <label>เวลาคืนเครื่อง <input name="return_time" type="time" step="60" /><small>เว้นว่างได้ ระบบจะกันคิวถึง 06:00 วันถัดไป; ถ้าเวลาคืนน้อยกว่าหรือเท่ากับเวลารับ จะตีความว่าเป็นวันถัดไป</small></label>
                 </div>
                 <div class="row two">
                   <label>ระบุมือถือเอง ถ้าไม่ใส่ ระบบหาให้ <input name="phone_asset_id" list="phoneAssetOptions" placeholder="พิมพ์หรือเลือก Asset" /></label>
@@ -313,15 +316,16 @@
                   <option>Instagram</option>
                 </select>
               </label>
-              <label>เวลารับเครื่อง <input name="pickup_time" placeholder="เช่น 17:30" /></label>
-              <label>Phone Asset <input name="phone_asset_id" list="phoneAssetOptions" placeholder="พิมพ์หรือเลือก Asset" /></label>
+              <label>เวลารับเครื่อง <input name="pickup_time" type="time" step="60" /></label>
+              <label>เวลาคืนเครื่อง <input name="return_time" type="time" step="60" /><small>เว้นว่างได้; picked_up ที่ยังไม่ระบุเวลาคืนจะถือว่ายังครอง Asset อยู่</small></label>
             </div>
             <div class="row two">
+              <label>Phone Asset <input name="phone_asset_id" list="phoneAssetOptions" placeholder="พิมพ์หรือเลือก Asset" /></label>
               <label>Lens Asset <input name="lens_asset_id" list="lensAssetOptions" placeholder="พิมพ์หรือเลือก Asset" /></label>
-              <label class="readonly-note">คำเตือน
-                <input value="ระบบจะเช็กซ้ำว่า Asset ไม่ถูกจองชนวันเดียวกัน" disabled />
-              </label>
             </div>
+            <label class="readonly-note">คำเตือน
+              <input value="ระบบจะเช็ก Asset collision ตามช่วงเวลาจริง รวมการคืนข้ามวัน" disabled />
+            </label>
             <label>หมายเหตุ <textarea name="booking_note" rows="3"></textarea></label>
             <button class="btn secondary" type="submit">บันทึกการแก้ Booking</button>
           </form>
