@@ -18,8 +18,9 @@ const UltraDeepProvider = require('./kk-ultra-deep-provider-executor.js');
 const UltraDeepPublicWeb = require('./kk-ultra-deep-public-web-adapters.js');
 const MonthlyDeepScan = require('./kk-monthly-deep-scan-query-plan.js');
 const FinalPricingPolicy = require('./kk-final-pricing-policy.js');
+const Gpt6Shadow = require('./kk-gpt6-shadow-runtime.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V12';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V13';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -210,6 +211,24 @@ async function executeTask(taskType, input = {}, options = {}) {
           production_writes:0,
           publishes:0
         }
+      };
+    }
+
+    case 'scanner_gpt6_shadow': {
+      const shadowOptions = { ...(options.gpt6ShadowOptions || {}) };
+      if (!shadowOptions.env) shadowOptions.env = options.env || process.env;
+      return {
+        invoked_agents: ['kk-discovery-scanner', 'kk-gpt6-shadow-evaluator'],
+        result: await Gpt6Shadow.runShadow('scanner', input, shadowOptions)
+      };
+    }
+
+    case 'verifier_gpt6_shadow': {
+      const shadowOptions = { ...(options.gpt6ShadowOptions || {}) };
+      if (!shadowOptions.env) shadowOptions.env = options.env || process.env;
+      return {
+        invoked_agents: ['kk-event-verifier', 'kk-gpt6-shadow-evaluator'],
+        result: await Gpt6Shadow.runShadow('verifier', input, shadowOptions)
       };
     }
 
