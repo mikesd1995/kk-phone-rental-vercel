@@ -361,3 +361,23 @@ CI evidence boundary:
 - No merge/deploy/production write is authorized until both exact-head gates complete and visual evidence is reviewed.
 
 Safety: zero Production deploys, zero business-data writes, zero Sheet/Apps Script mutations, zero scheduler changes.
+
+
+## Execution update — Storefront UX acceptance failure triage and repair
+
+PR #342 exact-head `68b6e123b4dd5b54c8eb996f9fb85de45efcdd94` completed both gates with real code/contract failures, not infrastructure failures:
+- Visual QA #22 / `36629590347`: harness executed successfully, produced 16 evidence files (artifact ID `11062486227`), but aggregate acceptance failed. Every 320/375/390/430/480/768 viewport had exactly one P1: `TAP_TARGET_TOO_SMALL` for FAQ; 1024 passed.
+- Admin Regression #1089 / `36629590345`: 904 tests, 898 pass, 6 fail. Failures were three stale Registry V18 assertions after intentional V19 registration, two stale 400px narrow-grid assertions after intentional 340px breakpoint change, and one Code Intelligence route regression where Storefront UX context was not yet registered.
+
+Repairs applied without lowering acceptance thresholds:
+- `.mini-btn` now shares the 44px mobile hit-area floor with quick links, fixing the actual FAQ P1.
+- Registry contract tests updated from V18 to V19 where the registry was intentionally extended.
+- narrow-grid regression assertions updated from 400px to 340px, preserving two columns at 375/390 while allowing one column on 320-class devices.
+- `config/kk-code-context-routes.json` storefront route now includes Storefront UX reviewer, tests, skill and Visual QA documentation, repairing Code Intelligence retrieval rather than weakening its test.
+
+New exact candidate head: `403a6824e9450ad1261480a94932408fd90c790e`.
+New exact-head gates:
+- Admin Regression #1097 / `36630333036`: pending at latest read.
+- Storefront Automated Visual QA #29 / `36630333037`: pending at latest read.
+
+PR #342 remains draft/unmerged; Production unchanged. Safety: zero business writes, zero Sheet/Apps Script mutations, zero scheduler changes.
