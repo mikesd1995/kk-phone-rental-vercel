@@ -420,3 +420,23 @@ New exact-head gates:
 - Storefront Automated Visual QA #31 / `36631052500`: in progress at latest read.
 
 PR #342 remains Draft/unmerged and Production remains unchanged pending both gates.
+
+
+## Execution update — Storefront UX fourth acceptance repair
+
+Exact-head `1c093dba2cccad59e59c6d4d33d26a2786d27180` results:
+- Storefront Automated Visual QA #31 / `36631052500`: SUCCESS.
+- Admin Regression #1102 / `36631052536`: FAILURE with three Code Intelligence invariant failures. Raising the shared token budget solved the Operating Partner selection symptom but violated the established bounded-context contract (`estimated_context_tokens <= 12000`) and retrieval benchmark budget.
+
+This disproved the global-capacity expansion approach. The candidate was repaired by separation of concerns:
+- Restore Code Intelligence defaults to `max_files=10` and `max_estimated_tokens=12000`.
+- Remove Storefront UX reviewer/test/skill/docs only from the generic `storefront` Code Intelligence retrieval route.
+- Keep the Storefront UX reviewer implementation, explicit `storefront_ux_review` / `storefront_visual_qa` task routes, tests, skill, policy and Visual QA workflow/harness intact.
+- No acceptance threshold was weakened.
+
+New exact candidate head: `8576e7368ef900785e6e977a41da681de8f59911`.
+New exact-head gates:
+- Admin Regression #1104 / `36631359508`: in progress at latest read.
+- Storefront Automated Visual QA #32 / `36631359478`: in progress at latest read.
+
+PR #342 remains Draft/unmerged; Production unchanged.
