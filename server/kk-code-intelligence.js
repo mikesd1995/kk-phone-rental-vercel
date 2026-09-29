@@ -188,7 +188,22 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
     const estimated=node.estimated_tokens||0;
     const large=node.size>largeChars;
     const allocated=large?Math.min(estimated,2500):estimated;
-    if(tokens+allocated>budget) continue;
+    const directRoute=activeRoutes.some(hit=>(hit.route.files||[]).includes(item.path));
+    if(tokens+allocated>budget){
+      if(!directRoute) continue;
+      const remaining=Math.max(0,budget-tokens);
+      if(!remaining) continue;
+      selected.push({
+        ...item,
+        size:node.size,
+        estimated_tokens:estimated,
+        budgeted_tokens:remaining,
+        symbols:node.symbols||[],
+        read_strategy:'symbols_or_targeted_ranges_first'
+      });
+      tokens+=remaining;
+      continue;
+    }
     selected.push({
       ...item,
       size:node.size,

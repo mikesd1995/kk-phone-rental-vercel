@@ -1,0 +1,246 @@
+name: Storefront Automated Visual QA
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'style.css'
+      - 'script.js'
+      - 'config.js'
+      - 'server/kk-storefront-ux-reviewer.js'
+      - 'config/kk-storefront-ux-policy.json'
+      - 'scripts/storefront-visual-acceptance.mjs'
+      - '.github/workflows/storefront-visual-qa.yml'
+      - 'tests/storefront-visual-qa-automation.test.js'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RUN_STOREFRONT_VISUAL_QA'
+        required: true
+        type: string
+      approved_sha:
+        description: 'Exact Git SHA to inspect'
+        required: true
+        type: string
+      surface:
+        description: 'Visual QA mode'
+        required: true
+        default: 'local_zero_cost'
+        type: choice
+        options:
+          - local_zero_cost
+          - preview
+          - production
+      target_url:
+        description: 'Required for preview/production; ignored for local_zero_cost'
+        required: false
+        default: ''
+        type: string
+      expected_css_marker:
+        description: 'Optional stylesheet cache marker expected on the page'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-storefront-visual-qa-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.approved_sha }}
+  cancel-in-progress: true
+
+jobs:
+  visual-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+      VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+      APPROVED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.approved_sha }}
+      TARGET_MODE: ${{ github.event_name == 'pull_request' && 'local_zero_cost' || inputs.surface }}
+      TARGET_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4173/' || (inputs.surface == 'local_zero_cost' && 'http://127.0.0.1:4173/' || inputs.target_url) }}
+      EXPECTED_CSS_MARKER: ${{ github.event_name == 'pull_request' && '' || inputs.expected_css_marker }}
+      DATA_SOURCE_URL: https://kk-phone-rental.vercel.app/
+      OUTPUT_DIR: artifacts/storefront-visual-qa
+      BROWSER_CHANNEL: chrome
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+    steps:
+      - name: Require explicit authorization for manual runs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRM" = "RUN_STOREFRONT_VISUAL_QA"
+          printf '%s' "$APPROVED_SHA" | grep -Eq '^[0-9a-f]{40}$'
+
+      - name: Checkout exact visual QA source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.approved_sha }}
+          fetch-depth: 1
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Validate remote deployment identity
+        if: ${{ env.TARGET_MODE != 'local_zero_cost' }}
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}"
+          test -n "${TARGET_URL:-}"
+          node - <<'NODE'
+          const target=new URL(process.env.TARGET_URL);
+          if(target.protocol!=='https:') throw new Error('TARGET_URL_NOT_HTTPS');
+          const host=target.hostname.toLowerCase();
+          const allowed=
+            host==='kk-phone-rental.vercel.app' ||
+            (host.endsWith('.vercel.app') && host.startsWith('kk-phone-rental-vercel-'));
+          if(!allowed) throw new Error('TARGET_HOST_NOT_ALLOWED');
+
+          const sha=String(process.env.APPROVED_SHA||'').trim().toLowerCase();
+          if(!/^[0-9a-f]{40}$/.test(sha)) throw new Error('APPROVED_SHA_INVALID');
+
+          const team=process.env.VERCEL_ORG_ID;
+          const project=process.env.VERCEL_PROJECT_ID;
+          const url='https://api.vercel.com/v13/deployments/'+encodeURIComponent(host)+'?teamId='+encodeURIComponent(team);
+
+          const res=await fetch(url,{
+            headers:{
+              Authorization:'Bearer '+process.env.VERCEL_TOKEN,
+              Accept:'application/json'
+            }
+          });
+          if(!res.ok) throw new Error('VERCEL_DEPLOYMENT_LOOKUP_HTTP_'+res.status);
+          const d=await res.json();
+
+          const state=String(d.readyState||d.state||'').toUpperCase();
+          if(state!=='READY') throw new Error('TARGET_DEPLOYMENT_NOT_READY_'+state);
+
+          const projectId=String(d.projectId||d.project&&d.project.id||'');
+          if(projectId!==project) throw new Error('TARGET_PROJECT_MISMATCH');
+
+          const deploymentSha=String(d.meta&&d.meta.githubCommitSha||'').toLowerCase();
+          if(deploymentSha!==sha) throw new Error('TARGET_SHA_MISMATCH_'+deploymentSha);
+
+          const surface=String(process.env.TARGET_MODE||'preview').toLowerCase();
+          const targetName=String(d.target||'').toLowerCase();
+          if(surface==='preview' && targetName==='production') throw new Error('PREVIEW_REQUEST_POINTS_TO_PRODUCTION');
+          if(surface==='production' && targetName!=='production') throw new Error('PRODUCTION_REQUEST_POINTS_TO_NONPRODUCTION');
+
+          process.stdout.write(JSON.stringify({
+            id:String(d.id||d.uid||''),
+            url:String(d.url||host),
+            git_sha:deploymentSha,
+            state,
+            surface,
+            target:targetName||'preview',
+            read_only:true
+          },null,2)+'\n');
+          NODE
+
+      - name: Fail closed on protected Preview without automation bypass
+        if: ${{ env.TARGET_MODE == 'preview' }}
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+            echo "Protected Preview automation bypass is configured."
+            exit 0
+          fi
+
+          mkdir -p "$OUTPUT_DIR"
+          npm install --no-save --package-lock=false vercel@60.1.3 >/tmp/vercel-cli-install.log 2>&1
+          npx vercel curl / --deployment "$TARGET_URL" --token="$VERCEL_TOKEN" > "$OUTPUT_DIR/protected-preview-source.html"
+
+          if [ -n "${EXPECTED_CSS_MARKER:-}" ]; then
+            grep -F "$EXPECTED_CSS_MARKER" "$OUTPUT_DIR/protected-preview-source.html" >/dev/null
+          fi
+
+          cat > "$OUTPUT_DIR/summary.md" <<'EOF'
+          # Storefront Automated Visual QA
+
+          Result: BLOCKED_PREVIEW_AUTOMATION_BYPASS_UNAVAILABLE
+
+          The exact protected Preview is reachable through authenticated Vercel CLI, but browser screenshot automation remains blocked because VERCEL_AUTOMATION_BYPASS_SECRET is not configured.
+
+          Use local_zero_cost mode instead; it renders the exact checked-out storefront against a read-only snapshot of the canonical public feed and requires no paid browser service or Vercel protection change.
+          EOF
+
+          echo "BLOCKED_PREVIEW_AUTOMATION_BYPASS_UNAVAILABLE"
+          exit 1
+
+      - name: Syntax-check visual QA harness
+        run: node --check scripts/storefront-visual-acceptance.mjs
+
+      - name: Reuse runner Chrome with ephemeral Playwright library
+        shell: bash
+        run: |
+          set -euo pipefail
+          google-chrome --version
+          npm install --no-save --package-lock=false playwright@1.55.0 >/tmp/playwright-install.log 2>&1
+
+      - name: Start zero-cost localhost storefront
+        if: ${{ env.TARGET_MODE == 'local_zero_cost' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/kk-storefront-http.log 2>&1 &
+          echo "$!" > /tmp/kk-storefront-http.pid
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4173/index.html >/dev/null; then
+              exit 0
+            fi
+            sleep 0.5
+          done
+          cat /tmp/kk-storefront-http.log || true
+          exit 1
+
+      - name: Capture screenshots, metrics and reviewer acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/storefront-visual-acceptance.mjs
+
+      - name: Stop localhost storefront
+        if: ${{ always() && env.TARGET_MODE == 'local_zero_cost' }}
+        shell: bash
+        run: |
+          if [ -f /tmp/kk-storefront-http.pid ]; then
+            kill "$(cat /tmp/kk-storefront-http.pid)" 2>/dev/null || true
+          fi
+
+      - name: Publish visual QA summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$OUTPUT_DIR/summary.md" ]; then
+            cat "$OUTPUT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf '%s\n' '# Storefront Automated Visual QA' '' 'No summary artifact was produced. Inspect the failed step logs.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload compressed screenshot and metrics evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-visual-qa-${{ env.APPROVED_SHA }}
+          path: artifacts/storefront-visual-qa/
+          if-no-files-found: warn
+          retention-days: 3

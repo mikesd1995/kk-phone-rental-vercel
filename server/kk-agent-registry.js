@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V18';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V19';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -102,6 +102,10 @@ const AGENTS = Object.freeze({
     production_writes: 0,
     note: 'Locks supplied references, plans image/motion production, and fails closed on identity/reference QA. Cannot publish or mutate business data.'
   }),
+  'kk-storefront-ux-reviewer': Object.freeze({
+    version: 'KK_STOREFRONT_UX_REVIEWER_V1', authority: 'READ_ONLY_DESIGN_ADVISOR', runtime_state: 'CALLABLE_REVIEW_AND_VISUAL_QA', surface: 'AGENT_GATEWAY', production_writes: 0,
+    note: 'Reviews supplied viewport/layout metrics and screenshot observations. Cannot mutate business truth, merge, deploy, or publish.'
+  }),
   'hf-event-assist': Object.freeze({
     version: 'scanner-hf-advisory-v1',
     authority: 'NONAUTHORITATIVE_ADVISORY',
@@ -148,6 +152,8 @@ const ROUTES = Object.freeze({
     owner_review_required: true,
     persistent_invocation_evidence_required: true
   }),
+  storefront_ux_review: Object.freeze({ route_id:'STOREFRONT_UX_REVIEW', request_type:'STOREFRONT_UX_REVIEW', required_agents:Object.freeze(['kk-storefront-ux-reviewer']), downstream_agents:Object.freeze([]), runtime_available:true, owner_review_required:true, persistent_invocation_evidence_required:true }),
+  storefront_visual_qa: Object.freeze({ route_id:'STOREFRONT_VISUAL_QA', request_type:'STOREFRONT_VISUAL_QA', required_agents:Object.freeze(['kk-storefront-ux-reviewer']), downstream_agents:Object.freeze([]), runtime_available:true, owner_review_required:true, persistent_invocation_evidence_required:true }),
   source_watch_check: Object.freeze({
     route_id: 'DISCOVERY_SOURCE_WATCH_CHECK',
     request_type: 'DISCOVERY_SOURCE_WATCH',
@@ -411,6 +417,7 @@ function publicRegistry() {
       'Legacy verify_event remains disabled; governed storefront create is exposed only through execute_storefront_promotion after READY_FOR_GOVERNED_ADMIN_CREATE.',
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
       'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',
+      'Storefront UX Reviewer consumes supplied viewport/layout metrics and screenshot observations; browser visual evidence remains required for final visual acceptance.',
       'All post-generation routes that enter this gateway now require Marketing → Strategy → Content → QA → Selector and a single-winner contract. ChatGPT cross-chat enforcement still requires the chat surface to call this private gateway rather than bypass it.'
     ]
   };
