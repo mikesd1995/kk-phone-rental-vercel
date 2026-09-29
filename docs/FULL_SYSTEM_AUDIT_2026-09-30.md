@@ -262,3 +262,34 @@ Private Reader:
 
 Safety:
 - No Apps Script deployment, trigger/timezone mutation, Vercel secret mutation, Sheet ACL change, business-data write, Scanner/Verifier mutation, Make mutation, or outbound customer/provider message occurred.
+
+
+## Execution update — LINE webhook / Flex runtime acceptance
+
+Read-only LINE acceptance was executed against exact-current-main Production without sending a LINE message.
+
+Production route:
+- `GET /api/line-webhook` returns HTTP 405 `Method Not Allowed`, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`, proving the production rewrite is active and reaches the webhook handler's method guard.
+- `vercel.json` rewrites `/api/line-webhook` to `/api/kk-data?__kk_line_webhook=1`; `api/kk-data.js` dispatches that marker to `server/line-booking-webhook.js`.
+- Vercel grouped runtime errors for `/api/kk-data,/api/line-webhook` over the prior 24h returned no runtime errors. A broad text runtime-log query timed out and was not treated as evidence.
+
+Security / behavior contracts:
+- Webhook source requires both `LINE_CHANNEL_SECRET` and `LINE_CHANNEL_ACCESS_TOKEN`; missing configuration returns 503 before signature processing.
+- Signature validation is HMAC-SHA256 over the raw request body with constant-time comparison; invalid/missing signature returns 401.
+- Only LINE text message events with a parseable storefront booking template are handled.
+- Poster lookup reads the public event feed and resolves only an exact normalized event-name + venue match.
+- Reply path builds a Flex message and sends only through LINE's reply API using the channel access token.
+- Flex builder accepts HTTPS poster URLs only; missing/invalid poster degrades to text-only Flex rather than failing the booking reply.
+
+Regression evidence:
+- `tests/line-webhook.test.js` covers exact raw-body signature validation, Thai storefront booking parsing, unrelated-text ignore, exact public-event poster resolution, and Flex reply construction.
+- `tests/line-booking-flex.test.js` covers HTTPS hero poster, text-only fallback, rejection of unsafe/non-HTTPS URLs, Thai/long text, and no-send-side-effect builder behavior.
+- Admin Regression #1073 on exact current main passed `npm test`, which executes `node --test tests/*.test.js`; therefore both LINE test files are included in the passing regression set.
+
+Acceptance boundary:
+- Route/security/parser/poster/Flex code and exact-current-main regression are PASS.
+- Current connector surface does not expose Vercel env-variable values, so production readiness of `LINE_CHANNEL_SECRET` and `LINE_CHANNEL_ACCESS_TOKEN` is not authoritatively proven from this session.
+- A legitimate signed LINE inbound event and resulting LINE reply/Flex delivery have not been generated in this audit. No synthetic signature, replay token, or customer/provider message was used.
+- Final LINE E2E remains pending on legitimate inbound webhook evidence or a secure credential/readiness control-plane surface.
+
+Safety: zero outbound LINE sends, zero Sheet business writes, zero credential mutation/exposure.
