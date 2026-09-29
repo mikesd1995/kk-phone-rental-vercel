@@ -163,3 +163,16 @@ Actions:
 - Strict private mode remains unchanged/off until both feeds prove `private-service-account` parity. Public workbook access was not changed.
 
 Safety: no secret was printed or stored in repo; no Vercel env mutation, workbook ACL mutation, business-data mutation, or strict-mode activation was performed.
+
+
+## Execution update — KHOM KHLANG Special Episode 5 poster re-verification
+
+The remaining poster failure was re-investigated rather than papered over with a generic series image.
+
+Fresh public evidence confirms the exact event identity: `KHOM KHLANG (Special Episode 5)`, 2026-10-05, SIAM PAVALAI ROYAL GRAND THEATRE / Paragon Cineplex. Public sources include the event discovery page derived from Ticketmelon, contemporaneous entertainment coverage, and posts attributed to the official Khom Khlang / WeTV channels.
+
+However, direct image discovery still did not yield a verified public-readable exact-event poster asset suitable for the storefront fallback. Image search returned a Khom Khlang series-launch visual, which is not the Special Episode 5 poster and was explicitly rejected as a fallback. The previously configured Drive asset remains a delivery/permission failure from prior evidence.
+
+Result: the audit is intentionally **not** forced to 75/75. The remaining state stays 74/75 until an exact-event, publicly deliverable poster asset is obtained. This preserves visual SOT integrity and prevents a false-green poster audit.
+
+No storefront fallback, Sheet poster URL, or business data was mutated during this re-verification.
