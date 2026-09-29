@@ -483,3 +483,32 @@ Vercel convergence at latest read:
 - Therefore code/CI acceptance is complete, but Production acceptance is intentionally NOT declared yet. No forced deployment was performed.
 
 Next closure gate: wait for/read exact-SHA Vercel Production convergence, then run Production runtime/visual readback before final closure.
+
+
+## Execution update — Storefront Production recovery exhausted safely
+
+Canonical Storefront UX merge remains `66c55c79a9d943c94e298fb6db2575d5a308e9c6`, with pre-merge Admin #1106 + Visual #33 PASS and post-merge Admin #1109 PASS.
+
+Production convergence investigation:
+- Git-integrated Vercel status for the merge reported failure with target URL indicating `build-rate-limit`; no exact-SHA Production deployment was created.
+- Production Watch #168 / `36632403575` was cancelled during its bounded poll. Its always-run summary then attempted to parse a partially written JSON file and failed; this is a secondary watcher robustness issue, not a storefront code regression.
+- Serving Production remained `dpl_4AkRF5DDqX2RcBwHr953YqkvLyzd` at `c0e7ca224e6e836601a27321b4ba6657454ec38a`.
+
+Recovery attempt #491 / `36632866957`:
+- Owner-authorized prebuilt recovery was requested for `66c55c79...`.
+- It stopped at the exact-current-main gate before any Vercel mutation because main had advanced to `fc4972da995728ceaf21ad4163380664467f11f1`.
+- Comparison proved `fc4972da...` is one commit ahead and zero behind `66c55c79...`; the additional commit only changed `server/admin-direct-writer-phase1.js` and its test.
+
+Recovery attempt #492 / `36632980152`:
+- Approved exact current main `fc4972da995728ceaf21ad4163380664467f11f1`.
+- Exact checkout, current-main/lineage gate, full source acceptance, Vercel credential check, rollback-source resolution, Vercel CLI install, Production settings pull, local Production prebuild, and final pre-mutation main recheck all PASSED.
+- Candidate creation was rejected by Vercel with: `Resource is limited - try again in 24 hours` / code `api-deployments-free-per-day`.
+- Candidate was not created; no promotion occurred; no rollback was needed; Production/business writes remained zero.
+- This confirms the remaining blocker is an external Vercel Free deployment quota, not source/build/test failure.
+
+Current acceptance classification:
+- Code Accepted: YES.
+- CI Accepted: YES.
+- Local Production Prebuild Accepted: YES.
+- Production Deployment Accepted: NO — externally blocked by Vercel daily deployment quota.
+- No safe additional deployment path remains that bypasses the provider's deployment quota without changing plan/quota or waiting for reset.
