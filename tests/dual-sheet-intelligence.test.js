@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const privateSheets=require('../api/lib/private-google-sheets');
 const healthHandler=require('../api/kk-intelligence-health');
-const analytics=require('../api/kk-rental-dashboard-v5');
+const analytics=require('../server/legacy/kk-rental-dashboard-v5');
 
 function fakeRes(){
   let body='';
