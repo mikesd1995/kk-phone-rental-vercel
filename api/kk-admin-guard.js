@@ -330,7 +330,7 @@ async function fetchLeanEventIndex(sheetId){
     fetchTextWithTimeout(gvizCsvUrl(sheetId,'18_Event_Visibility_Locks','A1:N500'),EVENT_FEED_TIMEOUT_MS)
   ]);
   const checked=validateLeanEventIndex(eventRowsFromCsv(eventCsv),sourceEventCountFromCsv(healthCsv));
-  const visibilityLocks=rowsAsObjects(lockCsv,'lock_id',1).filter(r=>String(r.lock_id||r.event_id||'').trim());
+  const visibilityLocks=AdminSheetFallback.rowsAsObjects(lockCsv,'lock_id',1).filter(r=>String(r.lock_id||r.event_id||'').trim());
   return {events:checked.events,visibility_locks:visibilityLocks,expected:checked.expected,latency_ms:Date.now()-startedAt};
 }
 
@@ -575,4 +575,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(clonedRequest(req,raw),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,rowsAsObjects,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};
