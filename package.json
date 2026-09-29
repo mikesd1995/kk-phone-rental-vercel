@@ -26,7 +26,8 @@
     "code:context": "node scripts/kk-code-context.js",
     "code:test": "node scripts/kk-targeted-tests.js",
     "code:benchmark": "node scripts/kk-code-intelligence-benchmark.js",
-    "operating-partner:dry-run": "node scripts/kk-operating-partner-dry-run.js"
+    "operating-partner:dry-run": "node scripts/kk-operating-partner-dry-run.js",
+    "audit:invariants": "node scripts/kk-continuous-invariant-gate.js"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"
