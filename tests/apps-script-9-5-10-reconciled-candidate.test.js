@@ -30,11 +30,13 @@ test('9_5_10 candidate carries deployed 9_5_9 price-integrity functions exactly'
   }
 });
 
-test('9_5_10 candidate preserves canonical owner-hidden event update guard exactly', () => {
-  assert.equal(extractTopLevelFunction(candidate, 'kkApiUpdateEvent_'), extractTopLevelFunction(canonical, 'kkApiUpdateEvent_'));
+test('9_5_10 reconciled candidate preserves its owner-hidden guard while canonical advances to tombstones', () => {
   assert.ok(candidate.includes('ownerReopenIntent'));
   assert.ok(candidate.includes('EVENT_VISIBILITY_OWNER_LOCKED'));
   assert.ok(candidate.includes('explicit_owner_reopen'));
+  assert.ok(canonical.includes('EVENT_VISIBILITY_TOMBSTONE_LOCKED'));
+  assert.ok(canonical.includes('kkUpsertVisibilityLock_'));
+  assert.notEqual(extractTopLevelFunction(candidate, 'kkApiUpdateEvent_'), extractTopLevelFunction(canonical, 'kkApiUpdateEvent_'));
 });
 
 test('9_5_10 candidate is a new reconciled candidate, not either source artifact', () => {
@@ -70,8 +72,9 @@ test('9_5_10 candidate also carries the documented 9_5_9 runtime hotfix function
   assert.ok(candidate.includes('spreadsheet_id: kkSpreadsheet_().getId()'));
 });
 
-test('runtime hotfix reconciliation does not remove the owner-hidden visibility guard', () => {
-  assert.equal(extractTopLevelFunction(candidate, 'kkApiUpdateEvent_'), extractTopLevelFunction(canonical, 'kkApiUpdateEvent_'));
+test('runtime hotfix reconciliation remains historically guarded and canonical adds durable owner tombstones', () => {
   assert.ok(candidate.includes('EVENT_VISIBILITY_OWNER_LOCKED'));
   assert.ok(candidate.includes('explicit_owner_reopen'));
+  assert.ok(canonical.includes("visibilityLocks: '18_Event_Visibility_Locks'"));
+  assert.ok(canonical.includes('EVENT_HISTORY_RECREATE_PROHIBITED'));
 });
