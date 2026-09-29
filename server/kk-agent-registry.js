@@ -115,7 +115,7 @@ const AGENTS = Object.freeze({
     runtime_state: 'CALLABLE_REMOTE_WITH_DEGRADED_FALLBACK',
     surface: 'AGENT_GATEWAY',
     production_writes: 0,
-    note: 'Analyzes user-supplied CSV data and produces verified read-only report artifacts. CSV contents are untrusted data. Cannot mutate storefront, bookings, pricing, scanner/verifier state, or business truth.'
+    note: 'Read-only CSV analysis with untrusted file contents; no storefront, booking, pricing, scanner, verifier, or business-truth writes.'
   })
 });
 
