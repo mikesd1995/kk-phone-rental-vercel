@@ -32,6 +32,9 @@ jobs:
       - name: Regression tests
         run: npm test
 
+      - name: Continuous invariant gate
+        run: npm run audit:invariants
+
       - name: Code Intelligence retrieval benchmark
         run: npm run code:benchmark
 
