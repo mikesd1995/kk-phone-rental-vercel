@@ -1823,6 +1823,7 @@ function kkApiCreateEvent_(payload) {
     const row = kkFirstEmptyRow_(KK.events, 1, 5, 1, 8);
     const sh = kkSheet_(KK.events);
     sh.getRange(row, 1, 1, 8).setValues([[eventId, eventName, kkDateObj_(eventDate), venue, poster, status, active, note]]);
+    const visibilityHistory = kkUpsertVisibilityLock_(eventId, eventName, eventDate, venue, active ? 'SEEN_CORE' : 'LOCKED', payload);
     const overridesCreated = kkWriteEventOverrides_(eventId, priceOverrides);
     const createOverrideApply = kkApplyCreateEventOverridePricesToWebPackages_(eventId, priceOverrides);
     SpreadsheetApp.flush();
@@ -1831,6 +1832,7 @@ function kkApiCreateEvent_(payload) {
     const webReady = kkApiVerifyEventWebReady_(eventId, savedPoster);
     return Object.assign({
       event_id: eventId, row_number: row, poster_url: savedPoster, overrides_created: overridesCreated,
+      visibility_history_state: visibilityHistory.lock_state,
       create_override_price_rows_applied: createOverrideApply.applied, create_override_price_rows_pending: createOverrideApply.pending,
       poster_drive_file_id: posterInfo.drive_file_id || '', poster_public_checked: !!posterInfo.public_checked, poster_public_warning: posterInfo.sharing_warning || ''
     }, webReady);
