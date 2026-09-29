@@ -92,7 +92,7 @@ test('large CSV uses Files API before creating the agent session', async () => {
         {type:'agent.session.turn.completed', turn:{id:'turn_large', subagent_id:null}}
       ]);
     }
-    if (String(url).includes('/artifacts')) {
+    if (String(url).includes('/artifacts?')) {
       return jsonResponse({data:[
         {id:'a1',turn_id:'turn_large',path:'/workspace/outputs/report.pdf',size_bytes:1},
         {id:'a2',turn_id:'turn_large',path:'/workspace/outputs/findings.json',size_bytes:1},
