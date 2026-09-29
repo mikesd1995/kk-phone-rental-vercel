@@ -1,5 +1,7 @@
 'use strict';
 
+const ModelMigration = require('./kk-model-migration-policy.js');
+
 const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V18';
 
 const AGENTS = Object.freeze({
@@ -403,6 +405,7 @@ function routeHealth() {
 function publicRegistry() {
   return {
     registry_version: REGISTRY_VERSION,
+    model_migration: ModelMigration.publicPolicy(),
     agents: AGENTS,
     routes: ROUTES,
     route_health: routeHealth(),
