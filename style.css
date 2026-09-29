@@ -732,7 +732,7 @@ footer .footer-tagline{
   html[lang="en"] .browse-controls-shell .status-filter-bar .filter-btn[data-filter="full"]{grid-column:auto}
   body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
   .sticky-line{bottom:max(10px,env(safe-area-inset-bottom));min-height:56px;padding:12px 16px}
-  .quick-link{min-height:44px}
+  .quick-link,.mini-btn{min-height:44px}
   .language-switch .lang-btn{min-width:44px;min-height:44px}
 }
 @media(max-width:390px){
