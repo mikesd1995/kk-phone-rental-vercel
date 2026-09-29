@@ -334,3 +334,30 @@ Canonical operational/audit PRs retained:
 - #335 full-system audit — Draft durable evidence branch.
 
 Post-cleanup open PR count: 12, all Draft. No production deployment, business write, scheduler mutation, branch deletion or automatic merge was performed.
+
+
+## Execution update — Storefront UX/Visual QA current-main fresh-port
+
+PR #237 was not rebased or merged directly. Compare showed its head diverged materially from current main (main 73 commits ahead; old branch 28 commits ahead of the merge base), so a clean current-main port was used.
+
+New canonical candidate:
+- Branch: `ux/storefront-current-main-20260930`
+- Base: exact current main `c0e7ca224e6e836601a27321b4ba6657454ec38a`
+- Draft PR #342: `Fresh-port Storefront UX Reviewer onto exact current main`
+- Current exact head: `68b6e123b4dd5b54c8eb996f9fb85de45efcdd94`
+
+Reconciled changes:
+- Ported the read-only Storefront UX policy/reviewer, skill, dry-run and regression test as clean new files.
+- Reconciled Agent Registry/Task Router onto their newer current-main versions instead of overwriting them; added `storefront_ux_review` and `storefront_visual_qa` routes while preserving newer discovery/content/pricing routes.
+- Reconciled current storefront CSS rather than copying the stale #237 stylesheet.
+- Corrected the current mobile filter hotfix from 36px controls / 11–12px select text to a 44px interaction floor and 16px iOS-safe select text.
+- Preserved a single horizontally scrollable mobile filter row, safe-area-aware fixed LINE CTA spacing, and moved the one-column event-card breakpoint from 400px to 340px so 375/390px devices retain two columns while 320px-class devices can collapse safely.
+- Fresh-ported #238's zero-cost Playwright visual-QA workflow/harness/docs/test onto the same candidate and wired `ux:visual:accept`.
+
+CI evidence boundary:
+- Intermediate Visual QA runs #18/#19 failed because the workflow was committed before the harness during sequential file porting; logs show `MODULE_NOT_FOUND scripts/storefront-visual-acceptance.mjs`. These are classified PARTIAL_PORT_CI_RACE and are not candidate failures.
+- Exact-final-head Visual QA run #22 / `36629590347` passed checkout, Node setup, harness syntax, runner Chrome setup and localhost storefront startup; screenshot/metrics acceptance was still in progress at the latest read.
+- Exact-final-head Admin Regression #1089 / `36629590345` was queued at the latest read.
+- No merge/deploy/production write is authorized until both exact-head gates complete and visual evidence is reviewed.
+
+Safety: zero Production deploys, zero business-data writes, zero Sheet/Apps Script mutations, zero scheduler changes.
