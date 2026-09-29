@@ -3,12 +3,12 @@
 // Apps Script failures are preserved instead of being rewritten as invalid arrays.
 
 const { Readable } = require('stream');
-const GuardAdmin = require('./kk-admin-guard.js');
-const SnapshotHealth = require('../admin/snapshot-health.js');
-const UpstreamResponse = require('../server/upstream-response.js');
-const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
-const AdminDirectWriter = require('../server/admin-direct-writer.js');
-const AdminDirectWriterPhase1 = require('../server/admin-direct-writer-phase1.js');
+const GuardAdmin = require('../../api/kk-admin-guard.js');
+const SnapshotHealth = require('../../admin/snapshot-health.js');
+const UpstreamResponse = require('../upstream-response.js');
+const AdminSheetFallback = require('../admin-sheet-fallback.js');
+const AdminDirectWriter = require('../admin-direct-writer.js');
+const AdminDirectWriterPhase1 = require('../admin-direct-writer-phase1.js');
 
 const ADAPTER_VERSION = 'admin-snapshot-upstream-error-v5.6';
 const DEFAULT_READ_MODE = 'direct-sheet-primary';
