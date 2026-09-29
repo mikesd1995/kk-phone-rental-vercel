@@ -120,3 +120,19 @@ Before production ingress is enabled, choose/provision a durable inbox store wit
 4. retention/back-up policy;
 5. server-only credentials;
 6. no dependency on public Google Sheet feeds.
+
+
+## Implementation log — 2026-09-30 P2 Admin Inbox preview
+- Added an `Inbox · LINE / X` navigation entry and dedicated `tab-inbox` workspace to the existing KK Admin shell.
+- Added channel/status/search controls, conversation list area, thread area, safety notice, and responsive mobile layout.
+- Added `admin/inbox-preview.js` as an intentionally network-free preview controller.
+- Reply textarea/button are disabled in markup; preview declares `productionWrites=0`, `outboundEnabled=false`, and `autoMerge=false`.
+- Added `tests/kk-admin-inbox-preview.test.js` to guard presence of the Inbox UI, disabled send controls, fail-closed flags, and absence of `fetch()` in the preview controller.
+- Added preview controller to the repository syntax gate.
+- Existing Booking/Event/Pricing forms and write handlers were not modified.
+
+### P2 acceptance state
+UI shell: implemented.
+Live conversation data: blocked pending durable persistence adapter.
+Outbound LINE/X: blocked pending explicit provider/send acceptance.
+Production deployment: not authorized by this implementation record.
