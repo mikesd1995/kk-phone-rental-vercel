@@ -85,3 +85,18 @@ P5: AI summarize/draft + booking/price context, still owner-reviewed.
 - AI draft => zero sends until owner action
 - provider error => visible failure + audit evidence, no fake success
 - existing Admin/Booking regression suite remains green
+
+## Implementation log — 2026-09-30 P1 ingress core
+- Added `server/kk-line-webhook.js`.
+- Signature validation uses HMAC-SHA256 over the exact raw request bytes and timing-safe comparison.
+- Invalid/missing signature: HTTP 401 contract, zero persistence writes.
+- JSON is parsed only after signature acceptance.
+- LINE empty-events verification request: HTTP 200 contract.
+- Message identity prefers `webhookEventId`; redelivery flag is retained.
+- Missing persistence adapter with message events: HTTP 503 fail-closed, zero writes.
+- Added `tests/kk-line-webhook.test.js` covering spoofing, raw-body mutation, verification request, redelivery normalization, and persistence outage.
+- Added unified inbox modules to `npm run check` syntax gate.
+- No provider secret/token, production webhook route, production persistence, or outbound send was enabled.
+
+### Current external blocker
+A production LINE endpoint still requires server-side environment configuration and an approved persistence target. Do not put channel secret/access token in Git or browser code.
