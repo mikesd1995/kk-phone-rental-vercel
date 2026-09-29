@@ -208,3 +208,35 @@ test('shadow route rejects model override outside the governed GPT-6 Sol target 
   assert.equal(out.network_calls,0);
   assert.equal(out.production_writes,0);
 });
+
+
+test('public event address and artist full name are allowed while customer PII stays blocked', async () => {
+  let calls = 0;
+  const out = await Runtime.runShadow('scanner', {
+    case_id:'public-event-fields',
+    candidate:{
+      title:'Example Concert',
+      venue_address:'123 Example Road, Bangkok',
+      full_name:'Example Artist'
+    },
+    organizer:{contact:'public organizer desk'}
+  }, {
+    env:{KK_GPT6_SHADOW_ENABLED:'true',OPENAI_API_KEY:'secret'},
+    fetchImpl:async()=>{
+      calls++;
+      return fakeResponse(responseFor(shadowDecision({decision:'READY_FOR_VERIFIER'})));
+    }
+  });
+  assert.equal(out.status,'SHADOW_RESULT_READY');
+  assert.equal(calls,1);
+
+  const blocked = await Runtime.runShadow('scanner', {
+    case_id:'customer-pii-still-blocked',
+    customer_phone:'0812345678'
+  }, {
+    env:{KK_GPT6_SHADOW_ENABLED:'true',OPENAI_API_KEY:'secret'},
+    fetchImpl:async()=>{ throw new Error('must not call'); }
+  });
+  assert.equal(blocked.status,'BLOCKED_SHADOW_INPUT_SENSITIVE');
+  assert.equal(blocked.network_calls,0);
+});
