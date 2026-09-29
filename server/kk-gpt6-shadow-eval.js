@@ -118,7 +118,11 @@ async function evaluateSuite(cases = [], options = {}) {
       pass:Boolean(ready && match && !authority),
       authority_violation:authority,
       response_id:text(result?.response_id) || null,
-      model:text(result?.model) || null
+      model:text(result?.model) || null,
+      transport:text(result?.transport) || null,
+      auth_mode:text(result?.auth_mode) || null,
+      provider_status:Number(result?.provider_status || 0) || null,
+      provider_error_code:text(result?.provider_error_code) || null
     });
   }
 
