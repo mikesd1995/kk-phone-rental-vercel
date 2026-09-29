@@ -324,12 +324,14 @@ function validateLeanEventIndex(events,expected){
 
 async function fetchLeanEventIndex(sheetId){
   const startedAt=Date.now();
-  const [eventCsv,healthCsv]=await Promise.all([
+  const [eventCsv,healthCsv,lockCsv]=await Promise.all([
     fetchTextWithTimeout(gvizCsvUrl(sheetId,'08_Web_Ready','A4:J500'),EVENT_FEED_TIMEOUT_MS),
-    fetchTextWithTimeout(gvizCsvUrl(sheetId,'10_Admin_Health_Check','A4:B40'),EVENT_FEED_TIMEOUT_MS)
+    fetchTextWithTimeout(gvizCsvUrl(sheetId,'10_Admin_Health_Check','A4:B40'),EVENT_FEED_TIMEOUT_MS),
+    fetchTextWithTimeout(gvizCsvUrl(sheetId,'18_Event_Visibility_Locks','A1:N500'),EVENT_FEED_TIMEOUT_MS)
   ]);
   const checked=validateLeanEventIndex(eventRowsFromCsv(eventCsv),sourceEventCountFromCsv(healthCsv));
-  return {events:checked.events,expected:checked.expected,latency_ms:Date.now()-startedAt};
+  const visibilityLocks=rowsAsObjects(lockCsv,'lock_id',1).filter(r=>String(r.lock_id||r.event_id||'').trim());
+  return {events:checked.events,visibility_locks:visibilityLocks,expected:checked.expected,latency_ms:Date.now()-startedAt};
 }
 
 module.exports=async function handler(req,res){
@@ -347,8 +349,7 @@ module.exports=async function handler(req,res){
   const bookingGuarded=BOOKING_GUARDED_ACTIONS.has(action);
   const eventGuarded=EVENT_GUARDED_ACTIONS.has(action);
   const visibilityGuarded=EVENT_VISIBILITY_GUARDED_ACTIONS.has(action) &&
-    VisibilityGuard.requestedVisibility(payload)===true &&
-    !VisibilityGuard.hasExplicitOwnerReopen(payload);
+    VisibilityGuard.requestedVisibility(payload)===true;
   if(!payload||typeof payload!=='object'||Array.isArray(payload)||(!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded)){
     return LegacyAdmin(clonedRequest(req,raw),res);
   }
@@ -497,7 +498,7 @@ module.exports=async function handler(req,res){
     let preflightMs=0;
     try{
       const lean=await fetchLeanEventIndex(sheetId);
-      snapshot={events:lean.events};
+      snapshot={events:lean.events,visibility_locks:lean.visibility_locks||[]};
       preflightMs=lean.latency_ms;
       res.setHeader('X-KK-Event-Preflight-Rows',String(lean.events.length));
     }catch(leanErr){
@@ -533,6 +534,18 @@ module.exports=async function handler(req,res){
         preflight_mode:preflightMode
       });
     }
+    const history=VisibilityGuard.evaluateCreateAgainstHistory(snapshot,payload);
+    if(!history.ok){
+      const locked=history.code==='EVENT_VISIBILITY_TOMBSTONE_LOCKED';
+      return reply(res,409,{
+        ok:false,
+        error:locked?'งานนี้เคยถูกเจ้าของซ่อน ระบบจะไม่สร้าง/เปิดกลับอัตโนมัติ':'งานนี้มีประวัติใน Core แล้ว ระบบจะ reconcile งานเดิมแทนการสร้างซ้ำ',
+        error_code:history.code,
+        history:history.history||null,
+        recommended_action:locked?'explicitOwnerReopen':'reconcileHistoricalEvent',
+        preflight_mode:preflightMode
+      });
+    }
     const prepared=prepareCreateEventPayload(payload);
     if(prepared.publish_default_applied) res.setHeader('X-KK-Event-Publish-Default','TRUE');
     res.setHeader('X-KK-Event-Guard','PASS');
@@ -562,4 +575,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(clonedRequest(req,raw),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,rowsAsObjects,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};
