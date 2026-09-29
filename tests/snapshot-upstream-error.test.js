@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { Readable } = require('stream');
 
-const handler = require('../api/kk-admin-snapshot-v5.js');
+const handler = require('../server/legacy/kk-admin-snapshot-v5.js');
 const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
 
 const ORIGINAL_ENV = { ...process.env };
