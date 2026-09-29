@@ -58,7 +58,11 @@ async function main() {
       model:result.model || null,
       network_calls:result.network_calls,
       production_writes:result.production_writes,
-      authority:result.shadow_decision?.authority || null
+      authority:result.shadow_decision?.authority || null,
+      transport:result.transport || null,
+      auth_mode:result.auth_mode || null,
+      provider_status:Number(result.provider_status || 0) || null,
+      provider_error_code:result.provider_error_code || null
     })),
     production_writes:0
   }, null, 2) + '\n');
