@@ -989,6 +989,17 @@ async function loadData(){
     var eventId    = String(r.event_id||"").trim();
     var rawDate    = r.event_date_text || r.event_date || r.date || "";
     var rawPoster  = String(r.poster_image_url||"").trim() || storefrontPosterOverride(r);
+    var emergencyPoster = storefrontPosterOverride(r);
+    var posterThumbCandidates = getImgCandidates(rawPoster,"thumb");
+    var posterFullCandidates = getImgCandidates(rawPoster,"full");
+    if(emergencyPoster && emergencyPoster!==rawPoster){
+      getImgCandidates(emergencyPoster,"thumb").forEach(function(url){
+        if(posterThumbCandidates.indexOf(url)<0) posterThumbCandidates.push(url);
+      });
+      getImgCandidates(emergencyPoster,"full").forEach(function(url){
+        if(posterFullCandidates.indexOf(url)<0) posterFullCandidates.push(url);
+      });
+    }
     var phoneCnt   = toNum(r.available_phone_count);
     var lensCnt    = toNum(r.available_lens_count);
 
@@ -1026,9 +1037,9 @@ async function loadData(){
       venue:        String(r.venue||"").trim(),
       rawPoster:    rawPoster,
       // FIX: thumbnail ใช้ w600 (เร็วกว่า w1200 4x)
-      img:          getImgCandidates(rawPoster,"thumb")[0]||"",
-      imgThumb:     getImgCandidates(rawPoster,"thumb"),
-      imgFull:      getImgCandidates(rawPoster,"full"), // เฉพาะ modal
+      img:          posterThumbCandidates[0]||"",
+      imgThumb:     posterThumbCandidates,
+      imgFull:      posterFullCandidates, // canonical first; verified emergency poster is delivery fallback only
       webNote:      String(r.event_note||r.web_note||"").trim(),
       phoneCnt:     phoneCnt,
       lensCnt:      lensCnt,
