@@ -440,3 +440,25 @@ New exact-head gates:
 - Storefront Automated Visual QA #32 / `36631359478`: in progress at latest read.
 
 PR #342 remains Draft/unmerged; Production unchanged.
+
+
+## Execution update — Storefront UX fifth acceptance repair
+
+Exact-head `8576e7368ef900785e6e977a41da681de8f59911` results:
+- Storefront Automated Visual QA #32 / `36631359478`: SUCCESS.
+- Admin Regression #1104 / `36631359508`: FAILURE with one remaining Operating Partner Code Intelligence selection failure.
+
+With Storefront UX removed from the generic storefront retrieval route and the original `10 files / 12,000 tokens` contract restored, the remaining failure proved the root defect was allocator behavior: a large file explicitly listed by the winning route could be skipped entirely when its allocation did not fit the remaining budget.
+
+Allocator repair:
+- Preserve the 12,000-token global ceiling and 10-file limit.
+- Preserve normal dependency pruning.
+- For an explicit direct-route file that does not fully fit the remaining budget, allocate only the remaining budget and force `symbols_or_targeted_ranges_first` rather than dropping the file entirely.
+- This keeps route recall while maintaining the bounded-context invariant.
+
+New exact candidate head: `01e64dab7ef8d21b4d87aea8525e44502e5a7e5e`.
+New exact-head gates:
+- Admin Regression #1106 / `36632081638`: in progress at latest read.
+- Storefront Automated Visual QA #33 / `36632081725`: in progress at latest read.
+
+PR #342 remains Draft/unmerged; Production unchanged.
