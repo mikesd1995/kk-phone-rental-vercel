@@ -222,3 +222,18 @@ test('Vercel edge config does not cache live public inventory/pricing feed', () 
   assert.match(cache.value, /no-store/i);
   assert.doesNotMatch(cache.value, /s-maxage|stale-while-revalidate/i);
 });
+
+
+test('public text boundary strips pipe-delimited operational annotations', () => {
+  const packageCsv = [
+    'package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case',
+    'PKG-PIPE,EVT-PIPE,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,890,2,available,10,OWNER_APPROVED_RENTAL_FIT_FALLBACK|PROVISIONAL_NEEDS_PRICE_RECHECK|NOVEMBER_V4_20260929,2,',
+  ].join('\n');
+
+  const cleaned = handler._test.sanitizePublicCsv('09_Web_Packages', packageCsv);
+  assert.equal(cleaned.redacted, 1);
+  assert.doesNotMatch(cleaned.text, /OWNER_APPROVED_RENTAL_FIT_FALLBACK/);
+  assert.doesNotMatch(cleaned.text, /PROVISIONAL_NEEDS_PRICE_RECHECK/);
+  assert.doesNotMatch(cleaned.text, /NOVEMBER_V4_20260929/);
+  assert.match(cleaned.text, /PKG-PIPE,EVT-PIPE,phone_only/);
+});
