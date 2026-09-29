@@ -2,7 +2,7 @@
 // Thin safety wrapper over v5 plus signed Admin session gate.
 const {installRuntimeWarningTracer}=require('../server/runtime-warning-tracer');
 installRuntimeWarningTracer('kk-admin-snapshot-v6');
-const V5 = require('./kk-admin-snapshot-v5.js');
+const V5 = require('../server/legacy/kk-admin-snapshot-v5.js');
 const AdminSecurity = require('../server/admin-session.js');
 const AdminMakeGate = require('../server/admin-make-gate.js');
 const AdminWriteControl = require('../server/admin-write-control-oidc.js');
