@@ -35,6 +35,8 @@ test('Apps Script writer persists tombstones and rejects historical recreate/reo
   assert.match(apps,/explicit_owner_reopen/);
   assert.match(apps,/kkFormulaWebReadyAction_/);
   assert.match(apps,/kkRepairOwnerVisibilityLockFormulas_/);
+  assert.match(apps,/historicalDifferentId/);
+  assert.match(apps,/18_Event_Visibility_Locks/);
 });
 
 test('Scanner and Verifier contracts preserve owner-hidden Core events',()=>{
