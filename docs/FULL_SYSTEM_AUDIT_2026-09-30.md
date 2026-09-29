@@ -242,3 +242,23 @@ Safety:
 - Diagnostic safety reported read-only execution with Apps Script writes=0, Sheet business writes=0, trigger mutations=0, timezone mutations=0, secrets exposed=false.
 - Initial batched Vercel fetch failed at connector level; retrying the timing endpoint individually succeeded. No application failure was inferred from the connector-level batch error.
 - Gate 2 runtime acceptance is therefore improved from fully-unverified timing to **effective timezone/backend identity verified**, while named Apps Script project timezone, installed triggers, cleanup trigger, controlled Apps Script deployment and legitimate write/readback remain pending.
+
+
+## Execution update — Gate 2 CI closure + Private Reader runtime classification
+
+Gate 2:
+- PR #341 exact-head Admin Regression #1078 / run `36624399179` completed `success`.
+- All job steps passed: syntax, regression, continuous invariant gate, Code Intelligence benchmark, HF benchmark safety, and HF fail-closed readiness.
+- PR #341 is mergeable but intentionally remains Draft because runtime acceptance is incomplete.
+- Repository search confirms the production timing endpoint intentionally leaves named Apps Script project timezone, installed triggers, and cleanup trigger `UNVERIFIED`; current deployed code has no owner-metadata readback that can authoritatively close those fields.
+- Therefore no controlled Apps Script deployment or legitimate business write/readback was attempted. Gate 2 code candidate is PASS; owner-authenticated Apps Script metadata/deployment acceptance remains the blocker.
+
+Private Reader:
+- Exact current-main Production diagnostics were read for both `08_Web_Ready!A4:K` and `09_Web_Packages!A4:N`.
+- Both returned HTTP 200, `no-store`, `X-KK-Private-Reader-Configured: 0`, `X-KK-Private-Reader-Auth: none`, `X-KK-Private-Reader-Strict: 0`, `X-KK-Private-Reader-Sheet-State: CRM_SHEET_ID_RESOLVED`, and `X-KK-Sheet-Source: public-gviz-fallback`.
+- This resolves the previous ambiguity: Production does not currently have a usable Private Reader credential configuration. It is not merely an old-deployment visibility question.
+- Strict mode was deliberately not enabled because `Configured=0`; enabling it now would fail closed and break public feeds.
+- The available Vercel connector surface was searched again and exposes no environment-variable/secret read-write action, so credential provisioning cannot be safely performed from this session. No credential material was requested in chat or committed to GitHub.
+
+Safety:
+- No Apps Script deployment, trigger/timezone mutation, Vercel secret mutation, Sheet ACL change, business-data write, Scanner/Verifier mutation, Make mutation, or outbound customer/provider message occurred.
