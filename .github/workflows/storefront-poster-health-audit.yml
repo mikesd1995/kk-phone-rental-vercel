@@ -2,6 +2,11 @@ name: Storefront Poster Health Audit
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/audit-storefront-posters.js'
+      - '.github/workflows/storefront-poster-health-audit.yml'
 
 permissions:
   contents: read
