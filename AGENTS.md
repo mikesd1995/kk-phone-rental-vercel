@@ -44,6 +44,14 @@ Do not repeatedly read the full repo, all docs, or all tests unless the task tru
 - Pricing, booking, inventory and Machine-SOT mutations require their existing governed write paths.
 - Never create a replacement scheduler/runner to hide a runtime symptom.
 
+## Model migration discipline
+
+- Model capability never expands project authority. A newer model, provider, reasoning level, or tool surface cannot grant write, schedule, publish, pricing, booking, inventory, or business-truth authority that the current role does not already own.
+- Keep evidence classes explicit: observed fact, source claim, inference, and recommendation. Never silently promote one class into another.
+- A configured or recommended model target is not execution evidence. Only runtime telemetry or a controlled shadow evaluation may prove which model actually ran.
+- For a protected write, ambiguous policy, identity, evidence, fencing, or readback must fail closed.
+- Definition of done requires the applicable evidence, governed operation, verification, exact readback, and explicit disclosure of unresolved blockers. Tool/API success alone is not acceptance.
+
 ## Context discipline
 
 - Default context budget: 12k estimated tokens and 10 files.
