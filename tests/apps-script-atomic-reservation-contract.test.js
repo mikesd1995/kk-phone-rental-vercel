@@ -61,7 +61,7 @@ test('picked_up booking without return evidence remains open-ended',()=>{
   assert.ok(r.errors.some(x=>x.code==='ASSET_WINDOW_COLLISION'));
 });
 
-test('current Vercel proposal intentionally does not trust unpersisted create return_time',()=>{
+test('Vercel create proposal now trusts return_time because staged backend persists it end to end',()=>{
   const snapshot={
     events:[{event_id:'E1',event_date:'2026-09-19'}],
     packages:[{template_id:'TPL-PHONE',package_type:'phone_only'}],
@@ -71,14 +71,38 @@ test('current Vercel proposal intentionally does not trust unpersisted create re
     action:'createBooking',event_id:'E1',template_id:'TPL-PHONE',
     pickup_time:'18:00',return_time:'20:00',phone_asset_id:'PHONE-001'
   });
-  assert.equal(proposal.return_time,'');
+  assert.equal(proposal.return_time,'20:00');
 });
 
-test('current Vercel update proposal preserves snapshot return_time until live backend supports end-to-end timing',()=>{
+test('Vercel update proposal applies submitted return_time and preserves it when omitted',()=>{
   const snapshot={bookings:[booking('B1','2026-09-19','18:00','confirmed',{row_number:42,return_time:'22:00'})]};
-  const proposal=Guard._test.updateProposal(snapshot,{
+  const changed=Guard._test.updateProposal(snapshot,{
     action:'updateBooking',booking_id:'B1',row_number:42,pickup_time:'19:00',return_time:'23:00'
   });
-  assert.equal(proposal.pickup_time,'19:00');
-  assert.equal(proposal.return_time,'22:00');
+  assert.equal(changed.pickup_time,'19:00');
+  assert.equal(changed.return_time,'23:00');
+
+  const preserved=Guard._test.updateProposal(snapshot,{
+    action:'updateBooking',booking_id:'B1',row_number:42,pickup_time:'19:30'
+  });
+  assert.equal(preserved.return_time,'22:00');
+});
+
+test('previous-day fallback reservation blocks the same asset before 06:00 next day',()=>{
+  const existing=booking('B1','2026-09-19','18:00','confirmed',{return_time:''});
+  const early=booking('B2','2026-09-20','05:30','confirmed',{row_number:20,return_time:'07:00'});
+  const later=booking('B3','2026-09-20','06:00','confirmed',{row_number:30,return_time:'07:00'});
+  const blocked=R.preflight({assets:[phone],bookings:[existing]},early);
+  const allowed=R.preflight({assets:[phone],bookings:[existing]},later);
+  assert.equal(blocked.ok,false);
+  assert.ok(blocked.errors.some(x=>x.code==='ASSET_WINDOW_COLLISION'));
+  assert.equal(allowed.ok,true);
+});
+
+test('invalid explicit return time is rejected before upstream write',()=>{
+  const result=Guard._test.validateBookingTiming({
+    action:'createBooking',pickup_time:'18:00',return_time:'25:99'
+  });
+  assert.equal(result.ok,false);
+  assert.equal(result.error_code,'BOOKING_RETURN_TIME_INVALID');
 });
