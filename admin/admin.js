@@ -1994,7 +1994,7 @@
     const b=rows.find(x=>String(x.row_number)===String(sel.value));
     const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
     if(!b){
-      ["booking_status","customer_name","customer_contact","customer_phone","contact_channel","payment_status","amount_received","pickup_time","phone_asset_id","lens_asset_id","booking_note"].forEach(k=>set(k,""));
+      ["booking_status","customer_name","customer_contact","customer_phone","contact_channel","payment_status","amount_received","pickup_time","return_time","phone_asset_id","lens_asset_id","booking_note"].forEach(k=>set(k,""));
       return;
     }
     set("booking_status", b.booking_status || "confirmed");
@@ -2005,6 +2005,7 @@
     set("payment_status", b.payment_status || "unpaid");
     set("amount_received", b.amount_received || 0);
     set("pickup_time", fmtPickupTime(b.pickup_time));
+    set("return_time", fmtPickupTime(b.return_time));
     set("phone_asset_id", b.phone_asset_id || "");
     set("lens_asset_id", b.lens_asset_id || "");
     set("booking_note", b.note || "");
