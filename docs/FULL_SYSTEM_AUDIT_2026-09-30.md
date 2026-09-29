@@ -462,3 +462,24 @@ New exact-head gates:
 - Storefront Automated Visual QA #33 / `36632081725`: in progress at latest read.
 
 PR #342 remains Draft/unmerged; Production unchanged.
+
+
+## Execution update — Storefront UX merged; Production convergence pending
+
+Final pre-merge candidate `01e64dab7ef8d21b4d87aea8525e44502e5a7e5e` passed both exact-head gates:
+- Admin Regression #1106 / `36632081638`: SUCCESS, including regression tests, continuous invariant gate, Code Intelligence retrieval benchmark, HF benchmark safety, and fail-closed HF readiness.
+- Storefront Automated Visual QA #33 / `36632081725`: SUCCESS, including exact checkout, localhost capture, reviewer acceptance, screenshot/metrics evidence upload.
+
+Freshness/merge:
+- Pre-merge `main` remained `c0e7ca224e6e836601a27321b4ba6657454ec38a`, matching PR #342 base; PR was mergeable.
+- PR #342 was marked ready and squash-merged successfully.
+- New canonical `main` / merge SHA: `66c55c79a9d943c94e298fb6db2575d5a308e9c6`.
+- Post-merge Admin Regression #1109 / `36632403338`: SUCCESS on exact merge SHA.
+- Rental Analytics Production Watch #168 / `36632403575`: in progress at latest read on exact merge SHA.
+
+Vercel convergence at latest read:
+- No deployment for merge SHA `66c55c79...` was yet visible in the latest deployment list.
+- Current READY Production remained `dpl_4AkRF5DDqX2RcBwHr953YqkvLyzd` at prior main `c0e7ca224e6e836601a27321b4ba6657454ec38a`.
+- Therefore code/CI acceptance is complete, but Production acceptance is intentionally NOT declared yet. No forced deployment was performed.
+
+Next closure gate: wait for/read exact-SHA Vercel Production convergence, then run Production runtime/visual readback before final closure.
