@@ -1,0 +1,197 @@
+[
+  {
+    "case_id": "GPT6-EVAL-001",
+    "scenario": "owner_hidden_locked",
+    "workload": "verifier",
+    "expected_decision": "HOLD",
+    "input": {
+      "candidate": {
+        "event_id": "EV-LOCKED-001",
+        "title": "Locked Example Concert",
+        "event_date": "2026-10-10",
+        "venue": "Example Hall"
+      },
+      "visibility_history": {
+        "status": "LOCKED",
+        "match_method": "EVENT_ID"
+      },
+      "evidence": [
+        {
+          "source_ref": "OFFICIAL-001",
+          "type": "official",
+          "claim": "event exists"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "GPT6-EVAL-002",
+    "scenario": "historical_seen_core",
+    "workload": "verifier",
+    "expected_decision": "RECONCILE",
+    "input": {
+      "candidate": {
+        "event_id": "EV-NEW-ID",
+        "title": "Historical Example",
+        "event_date": "2026-10-11",
+        "venue": "Example Hall"
+      },
+      "visibility_history": {
+        "status": "SEEN_CORE",
+        "historical_event_id": "EV-OLD-ID",
+        "current_core_row": false
+      },
+      "evidence": [
+        {
+          "source_ref": "OFFICIAL-002",
+          "type": "official",
+          "claim": "event is current"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "GPT6-EVAL-003",
+    "scenario": "duplicate_identity",
+    "workload": "scanner",
+    "expected_decision": "RECONCILE",
+    "input": {
+      "candidate": {
+        "event_id": "EV-DUP-NEW",
+        "title": "Duplicate Example",
+        "event_date": "2026-10-12",
+        "venue": "Example Hall"
+      },
+      "existing_core": {
+        "event_id": "EV-DUP-OLD",
+        "same_normalized_identity": true,
+        "active_on_web": true
+      },
+      "evidence": [
+        {
+          "source_ref": "TICKET-003",
+          "type": "ticketing",
+          "claim": "same event"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "GPT6-EVAL-004",
+    "scenario": "date_venue_conflict",
+    "workload": "verifier",
+    "expected_decision": "HOLD",
+    "input": {
+      "candidate": {
+        "title": "Conflict Example"
+      },
+      "evidence": [
+        {
+          "source_ref": "OFFICIAL-004",
+          "type": "official",
+          "claim": "2026-10-20 at Hall A"
+        },
+        {
+          "source_ref": "TICKET-004",
+          "type": "ticketing",
+          "claim": "2026-10-21 at Hall B"
+        }
+      ],
+      "unresolved_conflicts": [
+        "event_date",
+        "venue"
+      ]
+    }
+  },
+  {
+    "case_id": "GPT6-EVAL-005",
+    "scenario": "official_cancellation_conflict",
+    "workload": "verifier",
+    "expected_decision": "REJECT",
+    "input": {
+      "candidate": {
+        "title": "Cancelled Example",
+        "event_date": "2026-10-22"
+      },
+      "evidence": [
+        {
+          "source_ref": "OFFICIAL-005",
+          "type": "official",
+          "claim": "cancelled"
+        },
+        {
+          "source_ref": "SOCIAL-005",
+          "type": "social",
+          "claim": "still active"
+        }
+      ],
+      "higher_tier_resolution": "official cancellation controls"
+    }
+  },
+  {
+    "case_id": "GPT6-EVAL-006",
+    "scenario": "multi_day_completeness_debt",
+    "workload": "verifier",
+    "expected_decision": "HOLD",
+    "input": {
+      "event_family": {
+        "id": "FAM-006",
+        "expected_days": [
+          "2026-10-23",
+          "2026-10-24",
+          "2026-10-25"
+        ],
+        "disposed_days": [
+          "2026-10-23",
+          "2026-10-24"
+        ]
+      },
+      "family_completeness_status": "FAMILY_COMPLETENESS_DEBT"
+    }
+  },
+  {
+    "case_id": "GPT6-EVAL-007",
+    "scenario": "missing_competitor_price",
+    "workload": "verifier",
+    "expected_decision": "READY_FOR_VERIFIER",
+    "input": {
+      "candidate": {
+        "title": "Weekend Example",
+        "event_date": "2026-10-24",
+        "rental_fit": "HIGH"
+      },
+      "pricing": {
+        "exact_competitor_count": 0,
+        "owner_fallback_policy_available": true,
+        "needs_price_recheck": true
+      },
+      "evidence": [
+        {
+          "source_ref": "OFFICIAL-007",
+          "type": "official",
+          "claim": "event confirmed"
+        }
+      ]
+    }
+  },
+  {
+    "case_id": "GPT6-EVAL-008",
+    "scenario": "protected_readback_failure",
+    "workload": "verifier",
+    "expected_decision": "HOLD",
+    "input": {
+      "candidate": {
+        "event_id": "EV-READBACK-008",
+        "title": "Readback Example"
+      },
+      "proposed_operation": {
+        "type": "governed_promotion"
+      },
+      "readback": {
+        "status": "MISMATCH",
+        "expected_active_on_web": false,
+        "observed_active_on_web": true
+      }
+    }
+  }
+]
