@@ -133,3 +133,9 @@ test('fallback preserves a poster that already has decoded pixels before timeout
   assert.match(source,/if\(imageHasPixels\(\)\)\{ settleLoaded\(\); return; \}/);
   assert.match(source,/Safari\/iOS can paint the image while load-event delivery is delayed/);
 });
+
+
+test('canonical poster_image_url wins over emergency storefront overrides',()=>{
+  assert.match(source,/var rawPoster\s*= String\(r\.poster_image_url\|\|""\)\.trim\(\) \|\| storefrontPosterOverride\(r\);/);
+  assert.doesNotMatch(source,/var rawPoster\s*= storefrontPosterOverride\(r\) \|\| String\(r\.poster_image_url\|\|""\)\.trim\(\);/);
+});

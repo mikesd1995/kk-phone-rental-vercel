@@ -263,3 +263,12 @@ test('proxy reports timeout and measures through body consumption',async()=>{
   const request=proxy(async()=>({ok:true,status:200,headers:{get:()=>''},text:async()=>{await new Promise(r=>setTimeout(r,25));return JSON.stringify({ok:true,data:good()});}}));
   assert.ok((await request('snapshotHealth')).body.data.latency_ms>=20);
 });
+
+
+test('booking mutation forces a fresh snapshot after any in-flight refresh',()=>{
+  const ui=fs.readFileSync(require.resolve('../admin/admin.js'),'utf8');
+  assert.match(ui,/async function refresh\(\{waitForActive=false\}=\{\}\)/);
+  assert.match(ui,/if\(state\.loading\)\{\s*if\(!waitForActive\) return;\s*while\(state\.loading\) await new Promise\(resolve=>setTimeout\(resolve,25\)\);/s);
+  const edit=ui.slice(ui.indexOf('bookingEditForm.addEventListener'),ui.indexOf('bookingEditForm.addEventListener')+1800);
+  assert.match(edit,/await api\("updateBooking", payload\)[\s\S]*await refresh\(\{waitForActive:true\}\)/);
+});

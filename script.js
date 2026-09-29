@@ -988,7 +988,7 @@ async function loadData(){
   return rows.map(function(r){
     var eventId    = String(r.event_id||"").trim();
     var rawDate    = r.event_date_text || r.event_date || r.date || "";
-    var rawPoster  = storefrontPosterOverride(r) || String(r.poster_image_url||"").trim();
+    var rawPoster  = String(r.poster_image_url||"").trim() || storefrontPosterOverride(r);
     var phoneCnt   = toNum(r.available_phone_count);
     var lensCnt    = toNum(r.available_lens_count);
 
