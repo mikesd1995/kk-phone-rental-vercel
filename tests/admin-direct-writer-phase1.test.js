@@ -149,7 +149,10 @@ test('override planner routes only one existing row and refreshes only matching 
   assert.deepEqual(p.mutations[0].values,['EVT-1','TPL-PHONE',690,true,'promo',5,'concert']);
   assert.equal(p.mutations[1].sheet,'09_Web_Packages');
   assert.equal(p.mutations[1].row,5);
-  assert.equal(p.mutations[1].values[0],690);
+  assert.match(p.mutations[1].values[0],/^=IF\(B5=/);
+  assert.match(p.mutations[1].values[0],/04_Event_Overrides/);
+  assert.match(p.mutations[1].values[0],/TPL-PHONE/);
+  assert.equal(p.readbacks[1].render,'FORMULA');
 
   const clear=Phase1.buildOverridePlan({
     action:'upsertEventOverride',event_id:'EVT-1',template_id:'TPL-PHONE',override_price:''
