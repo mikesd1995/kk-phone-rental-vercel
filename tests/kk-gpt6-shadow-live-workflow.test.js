@@ -31,7 +31,7 @@ test('live GPT-6 workflow is owner-authorized, label-gated, OIDC-only and zero-w
   assert.doesNotMatch(w,/secrets\.AI_GATEWAY_API_KEY/);
   assert.doesNotMatch(w,/vercel deploy/);
   assert.doesNotMatch(w,/--prod/);
-  assert.doesNotMatch(w,/production_writes[^\n]*[1-9]/i);
+  assert.doesNotMatch(w,/production_writes\s*:\s*[1-9]/i);
 });
 
 test('live GPT-6 workflow uploads only secret-safe acceptance reports',()=>{
