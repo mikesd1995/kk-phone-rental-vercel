@@ -9,6 +9,10 @@ const DEFAULT_TIMEOUT_MS = 30000;
 const SUPPORTED_WORKLOADS = Object.freeze(['scanner', 'verifier']);
 const DECISIONS = Object.freeze(['READY_FOR_VERIFIER', 'HOLD', 'REJECT', 'RECONCILE']);
 const EVIDENCE_TYPES = Object.freeze(['observed_fact', 'source_claim', 'inference', 'recommendation']);
+const ALLOWED_SHADOW_MODELS = Object.freeze({
+  scanner: Object.freeze(['gpt-6-sol']),
+  verifier: Object.freeze(['gpt-6-sol'])
+});
 const SENSITIVE_KEYS = new Set([
   'customer',
   'customer_name',
@@ -24,7 +28,13 @@ const SENSITIVE_KEYS = new Set([
   'payment_id',
   'deposit',
   'card_number',
-  'address'
+  'address',
+  'contact',
+  'contact_info',
+  'full_name',
+  'mobile',
+  'tel',
+  'telephone'
 ]);
 
 const SHADOW_SCHEMA = Object.freeze({
@@ -134,15 +144,16 @@ function requestFor(workload, input, options = {}) {
   const route = Policy.routingForWorkload(workload);
   if (!route) return null;
   const clean = cloneWithoutExpected(input || {});
-  const model = text(options.model) || route.primary_model;
-  const effort = text(options.reasoningEffort) || route.reasoning_effort;
+  const requestedModel = text(options.model || options.env?.KK_GPT6_SHADOW_MODEL);
+  const model = requestedModel || route.primary_model;
+  if (!(ALLOWED_SHADOW_MODELS[workload] || []).includes(model)) return null;
   return {
     model,
-    reasoning: { effort },
+    reasoning: { effort: route.reasoning_effort },
     store: false,
     instructions: instructionsFor(workload),
     input: JSON.stringify(clean),
-    max_output_tokens: 1800,
+    max_output_tokens: 4096,
     text: {
       format: {
         type: 'json_schema',
@@ -208,21 +219,22 @@ function validateShadowDecision(value) {
 }
 
 function baseResult(workload, status, extra = {}) {
-  return {
+  const out = {
+    ...extra,
     runtime_version: RUNTIME_VERSION,
     status,
     workload: text(workload).toLowerCase(),
     shadow_only: true,
     authoritative: false,
     verifier_required: true,
-    shadow_decision: null,
-    network_calls: 0,
+    network_calls: Number(extra.network_calls || 0),
     production_writes: 0,
     publishes: 0,
     notification_sends: 0,
-    final_truth_mutation: false,
-    ...extra
+    final_truth_mutation: false
   };
+  if (!Object.prototype.hasOwnProperty.call(extra, 'shadow_decision')) out.shadow_decision = null;
+  return out;
 }
 
 function readiness(workload, env = process.env) {
@@ -261,6 +273,14 @@ async function runShadow(workload, input = {}, options = {}) {
     return baseResult(normalized, 'BLOCKED_OPENAI_API_KEY_MISSING');
   }
 
+  const requestedModel = text(options.model || env.KK_GPT6_SHADOW_MODEL);
+  if (requestedModel && !(ALLOWED_SHADOW_MODELS[normalized] || []).includes(requestedModel)) {
+    return baseResult(normalized, 'BLOCKED_SHADOW_MODEL_NOT_ALLOWED', {
+      requested_model:requestedModel,
+      allowed_models:[...(ALLOWED_SHADOW_MODELS[normalized] || [])]
+    });
+  }
+
   const cleanInput = cloneWithoutExpected(input || {});
   const sensitive = sensitivePaths(cleanInput);
   if (sensitive.length) {
@@ -281,7 +301,10 @@ async function runShadow(workload, input = {}, options = {}) {
     });
   }
 
-  const payload = requestFor(normalized, cleanInput, options);
+  const payload = requestFor(normalized, cleanInput, {...options, env});
+  if (!payload) {
+    return baseResult(normalized, 'BLOCKED_SHADOW_MODEL_NOT_ALLOWED');
+  }
   const fetchImpl = options.fetchImpl || global.fetch;
   if (typeof fetchImpl !== 'function') {
     return baseResult(normalized, 'BLOCKED_SHADOW_FETCH_UNAVAILABLE');
