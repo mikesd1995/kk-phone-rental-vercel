@@ -84,7 +84,13 @@ jobs:
           VERCEL_STATUS_URL: ${{ steps.vercel_status.outputs.url }}
         run: |
           set -euo pipefail
-          node scripts/watch-rental-analytics-production.js             --current-main-sha "$CURRENT_MAIN"             --vercel-status-state "$VERCEL_STATUS_STATE"             --vercel-status-url "$VERCEL_STATUS_URL"             > rental-analytics-production-watch.json
+          node scripts/watch-rental-analytics-production.js \
+            --current-main-sha "$CURRENT_MAIN" \
+            --vercel-status-state "$VERCEL_STATUS_STATE" \
+            --vercel-status-url "$VERCEL_STATUS_URL" \
+            --wait-for-current-main-ms 120000 \
+            --poll-ms 10000 \
+            > rental-analytics-production-watch.json
           cat rental-analytics-production-watch.json
           node - <<'NODE' >> "$GITHUB_OUTPUT"
           const r=require('./rental-analytics-production-watch.json');
@@ -144,6 +150,10 @@ jobs:
               `| GitHub Vercel status | \`${report.vercel_commit_status.state}\` |`,
               `| Analytics HEAD probe | \`${p.analytics_head_status??'not-run'}\` |`,
               `| Admin auth GET probe | \`${p.admin_auth_status??'not-run'}\` |`,
+              `| Runtime self-audit | \`${(report.runtime_self_audit||{}).status||'not-run'}\` |`,
+              `| Runtime failures | \`${((report.runtime_self_audit||{}).failed_checks||[]).join(', ')||'none'}\` |`,
+              `| Event reader | \`${(((report.runtime_self_audit||{}).sheet_sources||{}).events)||'unknown'}\` |`,
+              `| Package reader | \`${(((report.runtime_self_audit||{}).sheet_sources||{}).packages)||'unknown'}\` |`,
               '',
               'Safety: read-only Vercel API, no Admin PIN/session secret, no login attempt, no Production/business writes.',
               '',
@@ -173,7 +183,7 @@ jobs:
         shell: bash
         run: |
           if [ -f rental-analytics-production-watch.json ]; then
-            node -e 'const r=require("./rental-analytics-production-watch.json"); const lines=["## Rental Analytics Production Watch","", "- State: "+r.state, "- Severity: "+r.severity, "- Production contains fix: "+String(r.production_contains_fix), "- Production matches current main: "+String(r.production_matches_current_main), "- Production writes: 0", "- Business writes: 0"]; process.stdout.write(lines.join("\\n")+"\\n");' >> "$GITHUB_STEP_SUMMARY"
+            node -e 'const r=require("./rental-analytics-production-watch.json"); const lines=["## Rental Analytics Production Watch","", "- State: "+r.state, "- Severity: "+r.severity, "- Production contains fix: "+String(r.production_contains_fix), "- Production matches current main: "+String(r.production_matches_current_main), "- Runtime self-audit: "+String((r.runtime_self_audit||{}).status||"not-run"), "- Production writes: 0", "- Business writes: 0"]; process.stdout.write(lines.join("\\n")+"\\n");' >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Fail only on an unsafe or contradictory runtime state
@@ -183,7 +193,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$WATCH_STATE" in
-            ROUTE_SHADOW_REGRESSION|ROUTE_WIRING_UNEXPECTED|ADMIN_AUTH_ROUTE_UNHEALTHY|NO_READY_PRODUCTION)
+            ROUTE_SHADOW_REGRESSION|ROUTE_WIRING_UNEXPECTED|ADMIN_AUTH_ROUTE_UNHEALTHY|NO_READY_PRODUCTION|CURRENT_MAIN_DEPLOYMENT_FAILED|PRODUCTION_RUNTIME_AUDIT_FAILED)
               echo "Unsafe Production watcher state: $WATCH_STATE"
               exit 1
               ;;
