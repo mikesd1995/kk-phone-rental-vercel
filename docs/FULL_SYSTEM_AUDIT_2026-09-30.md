@@ -131,3 +131,18 @@ Actions:
 - Existing Production remains the prior healthy deployment; no rollback or unsafe alias mutation was performed.
 
 Safety: no booking/pricing/inventory/Sheet/Apps Script/automation/Make/HF/customer-provider business mutation was performed by this recovery.
+
+
+## Execution update — Apps Script Gate 2 fresh-port
+
+The original Gate 2 PR #325 was re-audited before merge. It was based on `e579f33...`, had diverged from current main, and therefore was not safe to merge directly.
+
+Actions:
+- Created `gate2/apps-script-9-5-12-fresh-port-20260930` from current main.
+- Fresh-ported exactly the nine Gate 2 files from #325: Admin return-time surface, admin guard/proxy, reconciled Apps Script 9.5.12 candidate, reconciliation document, and reservation/Gate 2 regressions.
+- Opened draft PR #339 against current main.
+- PR #339 Admin Regression #1070 passed all steps: syntax, regression, continuous invariant gate, Code Intelligence benchmark, HF safety, HF fail-closed readiness.
+- Google Drive discovery was attempted for owner-authenticated Apps Script deployment evidence. Accessible KK CRM spreadsheets were found, but no authoritative Apps Script project/deployment identity, timezone, or installed-trigger evidence was returned by the available Drive surface. Therefore no production Apps Script deployment or legitimate business write/readback was attempted.
+- PR #339 remains intentionally draft/unmerged until the acceptance contract can be satisfied with authoritative owner-side Apps Script evidence.
+
+Safety: no Production Sheet mutation, Apps Script deployment, booking mutation, inventory mutation, task mutation, or customer/provider send.
