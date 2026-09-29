@@ -404,6 +404,87 @@ async function downloadArtifact({
   return bytes.length;
 }
 
+function validateFindingsDocument(buffer) {
+  let findings;
+  try {
+    findings = JSON.parse(buffer.toString('utf8'));
+  } catch (error) {
+    throw codedError('CSV_ANALYSIS_FINDINGS_INVALID', 'findings.json is not valid JSON', {cause:error});
+  }
+
+  const invalid = !findings || typeof findings !== 'object' || Array.isArray(findings) ||
+    typeof findings.question !== 'string' || !findings.question.trim() ||
+    typeof findings.answer !== 'string' || !findings.answer.trim() ||
+    !findings.dataset || typeof findings.dataset !== 'object' ||
+    !Number.isInteger(findings.dataset.rows) || findings.dataset.rows < 0 ||
+    !Number.isInteger(findings.dataset.columns) || findings.dataset.columns < 0 ||
+    !Array.isArray(findings.findings) ||
+    !Array.isArray(findings.caveats) ||
+    !Array.isArray(findings.charts);
+
+  if (invalid) {
+    throw codedError(
+      'CSV_ANALYSIS_FINDINGS_INVALID',
+      'findings.json does not satisfy the required analysis schema'
+    );
+  }
+
+  for (const item of findings.findings) {
+    if (!item || typeof item !== 'object' ||
+        typeof item.title !== 'string' || !item.title.trim() ||
+        typeof item.finding !== 'string' || !item.finding.trim() ||
+        typeof item.evidence !== 'string' || !item.evidence.trim() ||
+        !['high','medium','low'].includes(String(item.importance || '').toLowerCase())) {
+      throw codedError(
+        'CSV_ANALYSIS_FINDINGS_INVALID',
+        'findings.json contains an invalid finding entry'
+      );
+    }
+  }
+
+  for (const chart of findings.charts) {
+    if (!chart || typeof chart !== 'object' ||
+        typeof chart.file !== 'string' || !chart.file.trim() ||
+        typeof chart.title !== 'string' || !chart.title.trim() ||
+        typeof chart.why_it_matters !== 'string' || !chart.why_it_matters.trim()) {
+      throw codedError(
+        'CSV_ANALYSIS_FINDINGS_INVALID',
+        'findings.json contains an invalid chart entry'
+      );
+    }
+  }
+
+  return findings;
+}
+
+function validateReportPdf(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 5 || buffer.subarray(0,5).toString('ascii') !== '%PDF-') {
+    throw codedError('CSV_ANALYSIS_REPORT_INVALID', 'report.pdf does not have a valid PDF signature');
+  }
+}
+
+function validateResultsZip(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 4 ||
+      buffer[0] !== 0x50 || buffer[1] !== 0x4b ||
+      !((buffer[2] === 0x03 && buffer[3] === 0x04) ||
+        (buffer[2] === 0x05 && buffer[3] === 0x06) ||
+        (buffer[2] === 0x07 && buffer[3] === 0x08))) {
+    throw codedError('CSV_ANALYSIS_ZIP_INVALID', 'results.zip does not have a valid ZIP signature');
+  }
+}
+
+async function validateStagedArtifacts(stagingDir) {
+  const [report, findings, zip] = await Promise.all([
+    fs.readFile(path.join(stagingDir, 'report.pdf')),
+    fs.readFile(path.join(stagingDir, 'findings.json')),
+    fs.readFile(path.join(stagingDir, 'results.zip'))
+  ]);
+
+  validateReportPdf(report);
+  validateFindingsDocument(findings);
+  validateResultsZip(zip);
+}
+
 async function materializeArtifacts({
   sessionId,
   turnId,
@@ -430,6 +511,8 @@ async function materializeArtifacts({
       });
       staged.push({...artifact, downloaded_bytes: downloadedBytes});
     }
+
+    await validateStagedArtifacts(stagingDir);
 
     await fs.mkdir(outputDir, {recursive: true});
     for (const artifact of staged) {
@@ -589,5 +672,8 @@ module.exports = {
   parseSseBlocks,
   analyzeAgentEvents,
   selectTurnArtifacts,
+  validateFindingsDocument,
+  validateReportPdf,
+  validateResultsZip,
   runCsvAnalysis
 };
