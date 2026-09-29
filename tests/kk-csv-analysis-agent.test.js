@@ -99,7 +99,22 @@ test('large CSV uses Files API before creating the agent session', async () => {
         {id:'a3',turn_id:'turn_large',path:'/workspace/outputs/results.zip',size_bytes:1}
       ],has_more:false});
     }
-    if (String(url).endsWith('/content')) return new Response(Buffer.from('x'), {status:200});
+    if (String(url).endsWith('/content')) {
+      const artifactId = String(url).match(/artifacts\/([^/]+)\/content$/)?.[1];
+      const bytes = {
+        a1: Buffer.from('%PDF-1.4 test'),
+        a2: Buffer.from(JSON.stringify({
+          question:'Summarize this dataset',
+          answer:'Summary',
+          dataset:{rows:1,columns:1},
+          findings:[],
+          caveats:[],
+          charts:[]
+        })),
+        a3: Buffer.from([0x50,0x4b,0x03,0x04,0x00])
+      }[artifactId] || 'x');
+      return new Response(bytes, {status:200});
+    }
     if (String(url).includes('/v1/agents/sessions/sess_large') && init.method === 'DELETE') return jsonResponse({deleted:true});
     throw new Error(`unexpected URL ${url}`);
   };
@@ -121,10 +136,17 @@ test('large CSV uses Files API before creating the agent session', async () => {
 
 test('completed root turn downloads only same-turn output artifacts and verifies required deliverables', async () => {
   const downloaded = new Map([
-    ['report.pdf', Buffer.from('%PDF-test')],
-    ['findings.json', Buffer.from('{"answer":"A"}')],
-    ['chart_01.png', Buffer.from('PNG')],
-    ['results.zip', Buffer.from('ZIP')]
+    ['report.pdf', Buffer.from('%PDF-1.4 test')],
+    ['findings.json', Buffer.from(JSON.stringify({
+      question:'Which segment leads revenue?',
+      answer:'A',
+      dataset:{rows:2,columns:2},
+      findings:[{title:'Leader',finding:'A leads',evidence:'100 > 80',importance:'high'}],
+      caveats:[],
+      charts:[{file:'chart_01.png',title:'Revenue',why_it_matters:'Comparison'}]
+    }))],
+    ['chart_01.png', Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])],
+    ['results.zip', Buffer.from([0x50,0x4b,0x03,0x04,0x00])]
   ]);
 
   const fetchImpl = async (url, init = {}) => {
@@ -172,7 +194,99 @@ test('completed root turn downloads only same-turn output artifacts and verifies
   assert.deepEqual(result.artifacts.map(item => item.filename).sort(), [
     'chart_01.png','findings.json','report.pdf','results.zip'
   ]);
-  assert.equal((await fs.readFile(path.join(dir, 'findings.json'), 'utf8')), '{"answer":"A"}');
+  const findings = JSON.parse(await fs.readFile(path.join(dir, 'findings.json'), 'utf8'));
+  assert.equal(findings.answer, 'A');
+});
+
+test('invalid findings schema fails closed before publishing local outputs', async () => {
+  const fetchImpl = async (url, init = {}) => {
+    const u = String(url);
+    if (u.endsWith('/v1/agents/sessions')) {
+      return sseResponse([
+        {type:'agent.session.created', session:{id:'sess_bad_findings'}},
+        {type:'agent.session.turn.completed', turn:{id:'turn_bad_findings', subagent_id:null}}
+      ]);
+    }
+    if (u.includes('/artifacts?')) {
+      return jsonResponse({data:[
+        {id:'r',turn_id:'turn_bad_findings',path:'/workspace/outputs/report.pdf',size_bytes:13},
+        {id:'f',turn_id:'turn_bad_findings',path:'/workspace/outputs/findings.json',size_bytes:14},
+        {id:'z',turn_id:'turn_bad_findings',path:'/workspace/outputs/results.zip',size_bytes:5}
+      ],has_more:false});
+    }
+    const id = u.match(/artifacts\/([^/]+)\/content$/)?.[1];
+    if (id === 'r') return new Response(Buffer.from('%PDF-1.4 test'), {status:200});
+    if (id === 'f') return new Response(Buffer.from('{"answer":"A"}'), {status:200});
+    if (id === 'z') return new Response(Buffer.from([0x50,0x4b,0x03,0x04,0x00]), {status:200});
+    if (u.endsWith('/v1/agents/sessions/sess_bad_findings') && init.method === 'DELETE') {
+      return jsonResponse({deleted:true});
+    }
+    throw new Error(`unexpected URL ${u}`);
+  };
+
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kk-csv-agent-bad-findings-'));
+  await assert.rejects(
+    CsvAgent.runCsvAnalysis({
+      csvBuffer: Buffer.from('a\n1\n'),
+      filename: 'sample.csv',
+      question: 'Analyze it',
+      outputDir: dir,
+      apiKey: 'test-key',
+      fetchImpl
+    }),
+    error => error && error.code === 'CSV_ANALYSIS_FINDINGS_INVALID'
+  );
+
+  const published = await fs.readdir(dir).catch(() => []);
+  assert.deepEqual(published, []);
+});
+
+test('invalid PDF or ZIP signature blocks completion before publishing local outputs', async () => {
+  for (const badArtifact of ['report','zip']) {
+    const sessionId = `sess_bad_${badArtifact}`;
+    const turnId = `turn_bad_${badArtifact}`;
+    const fetchImpl = async (url, init = {}) => {
+      const u = String(url);
+      if (u.endsWith('/v1/agents/sessions')) {
+        return sseResponse([
+          {type:'agent.session.created', session:{id:sessionId}},
+          {type:'agent.session.turn.completed', turn:{id:turnId, subagent_id:null}}
+        ]);
+      }
+      if (u.includes('/artifacts?')) {
+        return jsonResponse({data:[
+          {id:'r',turn_id:turnId,path:'/workspace/outputs/report.pdf',size_bytes:8},
+          {id:'f',turn_id:turnId,path:'/workspace/outputs/findings.json',size_bytes:100},
+          {id:'z',turn_id:turnId,path:'/workspace/outputs/results.zip',size_bytes:5}
+        ],has_more:false});
+      }
+      const id = u.match(/artifacts\/([^/]+)\/content$/)?.[1];
+      if (id === 'r') return new Response(Buffer.from(badArtifact === 'report' ? 'not-pdf' : '%PDF-1.4'), {status:200});
+      if (id === 'f') return new Response(Buffer.from(JSON.stringify({
+        question:'Analyze it',answer:'A',dataset:{rows:1,columns:1},findings:[],caveats:[],charts:[]
+      })), {status:200});
+      if (id === 'z') return new Response(badArtifact === 'zip' ? Buffer.from('badzip') : Buffer.from([0x50,0x4b,0x03,0x04,0x00]), {status:200});
+      if (u.endsWith(`/v1/agents/sessions/${sessionId}`) && init.method === 'DELETE') return jsonResponse({deleted:true});
+      throw new Error(`unexpected URL ${u}`);
+    };
+
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), `kk-csv-agent-bad-${badArtifact}-`));
+    await assert.rejects(
+      CsvAgent.runCsvAnalysis({
+        csvBuffer: Buffer.from('a\n1\n'),
+        filename:'sample.csv',
+        question:'Analyze it',
+        outputDir:dir,
+        apiKey:'test-key',
+        fetchImpl
+      }),
+      error => error && error.code === (badArtifact === 'report'
+        ? 'CSV_ANALYSIS_REPORT_INVALID'
+        : 'CSV_ANALYSIS_ZIP_INVALID')
+    );
+    const published = await fs.readdir(dir).catch(() => []);
+    assert.deepEqual(published, []);
+  }
 });
 
 test('missing required artifact blocks completion instead of claiming success', async () => {
