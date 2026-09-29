@@ -33,7 +33,7 @@ test('storefront refreshes stale availability when returning to the foreground',
 });
 
 test('storefront respects reduced motion and improves very narrow readability',()=>{
-  assert.match(storeCss,/@media\(max-width:400px\)/);
+  assert.match(storeCss,/@media\(max-width:340px\)/);
   assert.match(storeCss,/@media\(prefers-reduced-motion:reduce\)/);
 });
 
