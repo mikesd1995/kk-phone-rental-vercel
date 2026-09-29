@@ -75,6 +75,13 @@ function audit(){
       'Persistent owner-hidden history must block silent recreation across guard, verifier and Apps Script.'
     ),
     result(
+      'PRIVATE_READER_CANONICAL_SHEET_ID',
+      /privateEnvSheetId/.test(api) &&
+      /sheet-id-config-conflict/.test(api) &&
+      /envSheetId && privateEnvSheetId && envSheetId!==privateEnvSheetId/.test(api),
+      'Public/private reader Sheet IDs must resolve to one canonical workbook or fail closed.'
+    ),
+    result(
       'PRIVATE_READER_FAIL_CLOSED',
       /KK_PUBLIC_SHEET_REQUIRE_PRIVATE/.test(api) &&
       /private-not-configured/.test(api) &&

@@ -328,13 +328,18 @@ module.exports = async function handler(req, res) {
   }
 
   const envSheetId = String(process.env.GOOGLE_SHEET_ID || '').trim();
-  const sheetId = envSheetId || DEFAULT_SHEET_ID;
+  const privateEnvSheetId = String(process.env.KK_CRM_SHEET_ID || '').trim();
+  if(envSheetId && privateEnvSheetId && envSheetId!==privateEnvSheetId){
+    res.setHeader('X-KK-Sheet-Source', 'sheet-id-config-conflict');
+    return send(res, 503, 'Public-data reader Sheet ID configuration conflicts.');
+  }
+  const sheetId = envSheetId || privateEnvSheetId || DEFAULT_SHEET_ID;
   const requirePrivate = isTrue(process.env.KK_PUBLIC_SHEET_REQUIRE_PRIVATE);
   const hasPrivateReader = privateReaderConfigured();
 
   // Deliberately do not expose even a partial Sheet ID in response headers.
   // The old X-KK-Sheet-ID value also used a Unicode ellipsis, which Node rejects as an HTTP header value.
-  res.setHeader('X-KK-Sheet-Config', envSheetId ? 'env' : 'default');
+  res.setHeader('X-KK-Sheet-Config', envSheetId ? 'env' : (privateEnvSheetId ? 'private-env' : 'default'));
 
   if (!sheetId) {
     return send(res, 500, 'Public data source is not configured.');

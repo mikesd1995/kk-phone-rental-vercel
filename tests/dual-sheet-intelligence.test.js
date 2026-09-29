@@ -34,6 +34,36 @@ test('private reader requires sheet id plus service-account credentials',()=>{
   assert.equal(ready.authMode,'service_account');
 });
 
+
+
+test('private reader resolves GOOGLE_SHEET_ID and KK_CRM_SHEET_ID only when they agree',()=>{
+  const publicOnly=privateSheets.resolveSheetId({GOOGLE_SHEET_ID:'sheet-a'});
+  assert.equal(publicOnly.ok,true);
+  assert.equal(publicOnly.sheetId,'sheet-a');
+  const privateOnly=privateSheets.resolveSheetId({KK_CRM_SHEET_ID:'sheet-a'});
+  assert.equal(privateOnly.ok,true);
+  assert.equal(privateOnly.sheetId,'sheet-a');
+  const same=privateSheets.resolveSheetId({GOOGLE_SHEET_ID:'sheet-a',KK_CRM_SHEET_ID:'sheet-a'});
+  assert.equal(same.ok,true);
+  assert.equal(same.sheetId,'sheet-a');
+  const drift=privateSheets.resolveSheetId({GOOGLE_SHEET_ID:'sheet-a',KK_CRM_SHEET_ID:'sheet-b'});
+  assert.equal(drift.ok,false);
+  assert.equal(drift.sheetId,'');
+  assert.equal(drift.classification,'CRM_SHEET_ID_CONFLICT');
+});
+
+test('private reader config fails closed on Sheet ID drift even with valid credential shape',()=>{
+  const state=privateSheets.configState({
+    GOOGLE_SHEET_ID:'sheet-public',
+    KK_CRM_SHEET_ID:'sheet-private',
+    GOOGLE_SERVICE_ACCOUNT_EMAIL:'reader@example.test',
+    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----'
+  });
+  assert.equal(state.configured,false);
+  assert.equal(state.sheetId,'');
+  assert.equal(state.sheetIdState,'CRM_SHEET_ID_CONFLICT');
+});
+
 test('service-account JSON is parsed without exposing secret material',()=>{
   const creds=privateSheets.credentialsFromEnv({GOOGLE_SERVICE_ACCOUNT_JSON:JSON.stringify({client_email:'reader@example.test',private_key:'line1\\nline2'})});
   assert.equal(creds.email,'reader@example.test');
