@@ -1,6 +1,8 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V18';
+const ModelMigration = require('./kk-model-migration-policy.js');
+
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V19';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -101,6 +103,14 @@ const AGENTS = Object.freeze({
     surface: 'AGENT_GATEWAY',
     production_writes: 0,
     note: 'Locks supplied references, plans image/motion production, and fails closed on identity/reference QA. Cannot publish or mutate business data.'
+  }),
+  'kk-gpt6-shadow-evaluator': Object.freeze({
+    version: 'KK_GPT6_SHADOW_RUNTIME_V1',
+    authority: 'SHADOW_READ_ONLY_ADVISORY',
+    runtime_state: 'CALLABLE_CREDENTIAL_GATED',
+    surface: 'AGENT_GATEWAY_SHADOW_ONLY',
+    production_writes: 0,
+    note: 'Calls GPT-6 Sol through the Responses API only on explicit Scanner/Verifier shadow routes. No tools, no business writes, no publishes, no notifications, and no authority to override Machine SOT or visibility tombstones.'
   }),
   'hf-event-assist': Object.freeze({
     version: 'scanner-hf-advisory-v1',
@@ -321,6 +331,24 @@ const ROUTES = Object.freeze({
     owner_review_required: false,
     persistent_invocation_evidence_required: true
   }),
+  scanner_gpt6_shadow: Object.freeze({
+    route_id: 'SCANNER_GPT6_SOL_SHADOW',
+    request_type: 'SCANNER_MODEL_SHADOW',
+    required_agents: Object.freeze(['kk-discovery-scanner', 'kk-gpt6-shadow-evaluator']),
+    downstream_agents: Object.freeze(['kk-event-verifier']),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
+  verifier_gpt6_shadow: Object.freeze({
+    route_id: 'VERIFIER_GPT6_SOL_SHADOW',
+    request_type: 'VERIFIER_MODEL_SHADOW',
+    required_agents: Object.freeze(['kk-event-verifier', 'kk-gpt6-shadow-evaluator']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
   verify_event: Object.freeze({
     route_id: 'FINAL_EVENT_VERIFICATION',
     request_type: 'EVENT_VERIFICATION',
@@ -403,6 +431,7 @@ function routeHealth() {
 function publicRegistry() {
   return {
     registry_version: REGISTRY_VERSION,
+    model_migration: ModelMigration.publicPolicy(),
     agents: AGENTS,
     routes: ROUTES,
     route_health: routeHealth(),
