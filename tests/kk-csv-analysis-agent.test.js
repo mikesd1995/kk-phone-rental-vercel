@@ -44,8 +44,8 @@ test('validates CSV/question locally and fails closed before network access', as
 
   assert.equal(fetchCalls, 0);
 
-  await assert.rejects(
-    CsvAgent.validateCsvRequest({
+  assert.throws(
+    () => CsvAgent.validateCsvRequest({
       csvBuffer: Buffer.alloc(CsvAgent.MAX_FILE_BYTES + 1),
       filename: 'too-large.csv',
       question: 'What changed?'
