@@ -25,7 +25,7 @@ function goodPayload() {
 }
 
 test('registry keeps content mandatory and exposes provider-gated scanner truth', () => {
-  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V18');
+  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V19');
   const content = Registry.routeForIntent('direct_rental_x');
   assert.deepEqual(content.required_agents, ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa', 'kk-content-selector']);
   assert.equal(content.runtime_available, true);
@@ -284,4 +284,83 @@ test('unified-route migration expands statuses without weakening append-only acc
   assert.match(migration, /revoke all on table public\.kk_agent_invocations from anon, authenticated, service_role/);
   assert.match(migration, /grant select, insert on table public\.kk_agent_invocations to service_role/);
   assert.doesNotMatch(migration, /grant[^;]*(update|delete)/);
+});
+
+
+test('explicit GPT-6 Scanner and Verifier shadow routes remain ledgered and zero-write', async () => {
+  const ledgerRows = [];
+  const ledgerFn = async row => {
+    ledgerRows.push(row);
+    return {ok:true,inserted:true,invocation_id:row.invocation_id};
+  };
+  const fakeDecision = decision => ({
+    id:'resp_gateway_shadow',
+    status:'completed',
+    output:[{
+      type:'message',
+      content:[{
+        type:'output_text',
+        text:JSON.stringify({
+          decision,
+          reason_codes:[],
+          evidence_labels:[],
+          conflicts:[],
+          confidence:0.88,
+          rationale_summary:'shadow only',
+          authority:'SHADOW_ADVISORY_ONLY',
+          production_writes:0,
+          publishes:0,
+          notification_sends:0,
+          final_truth_mutation:false
+        })
+      }]
+    }],
+    usage:{input_tokens:10,output_tokens:10}
+  });
+  const fakeResponse = body => ({
+    ok:true,
+    status:200,
+    json:async()=>body
+  });
+  const gpt6ShadowOptions = {
+    env:{KK_GPT6_SHADOW_ENABLED:'true',OPENAI_API_KEY:'test-key'},
+    fetchImpl:async(_url,init)=>{
+      const payload=JSON.parse(init.body);
+      const input=JSON.parse(payload.input);
+      return fakeResponse(fakeDecision(
+        input.visibility_history?.status==='LOCKED' ? 'HOLD' : 'READY_FOR_VERIFIER'
+      ));
+    }
+  };
+
+  const scanner = await Gateway.executeAgentRequest({
+    task_type:'scanner_gpt6_shadow',
+    correlation_id:'gpt6-shadow-scanner-gateway',
+    input:{case_id:'GW-SCAN',candidate:{title:'Example Concert'}}
+  },{ledgerFn,gpt6ShadowOptions});
+
+  assert.equal(scanner.status,'RECORDED');
+  assert.deepEqual(scanner.invocation.invoked_agents,['kk-discovery-scanner','kk-gpt6-shadow-evaluator']);
+  assert.equal(scanner.result.status,'SHADOW_RESULT_READY');
+  assert.equal(scanner.result.shadow_decision.decision,'READY_FOR_VERIFIER');
+  assert.equal(scanner.result.production_writes,0);
+  assert.equal(scanner.result.final_truth_mutation,false);
+
+  const verifier = await Gateway.executeAgentRequest({
+    task_type:'verifier_gpt6_shadow',
+    correlation_id:'gpt6-shadow-verifier-gateway',
+    input:{
+      case_id:'GW-VERIFY',
+      candidate:{title:'Hidden Example'},
+      visibility_history:{status:'LOCKED'}
+    }
+  },{ledgerFn,gpt6ShadowOptions});
+
+  assert.equal(verifier.status,'RECORDED');
+  assert.deepEqual(verifier.invocation.invoked_agents,['kk-event-verifier','kk-gpt6-shadow-evaluator']);
+  assert.equal(verifier.result.status,'SHADOW_RESULT_READY');
+  assert.equal(verifier.result.shadow_decision.decision,'HOLD');
+  assert.equal(verifier.result.production_writes,0);
+  assert.equal(ledgerRows.length,2);
+  assert.equal(ledgerRows.every(row=>row.production_writes===0 && row.publishes===0),true);
 });
