@@ -493,3 +493,103 @@ test('OpenAI adapter exposes a validated artifact download helper', async () => 
   assert.equal(Buffer.isBuffer(bytes), true);
   assert.equal(bytes.subarray(0, 5).toString('ascii'), '%PDF-');
 });
+
+
+const fsCsv = require('node:fs');
+const osCsv = require('node:os');
+const pathCsv = require('node:path');
+
+let DryRun = {};
+try {
+  DryRun = require('../scripts/kk-csv-analysis-dry-run.js');
+} catch (error) {
+  if (error?.code !== 'MODULE_NOT_FOUND') throw error;
+}
+
+test('default OpenAI transport uses official Agents REST API through native fetch', async () => {
+  const calls = [];
+  const findingsDoc = {
+    question: 'Which segment drives revenue growth?',
+    answer: 'B is higher.',
+    dataset: { rows: 2, columns: 2 },
+    findings: [{ title: 'Revenue', finding: 'B is higher', evidence: '200 > 100', importance: 'high' }],
+    caveats: [],
+    charts: []
+  };
+  const artifacts = [
+    { id: 'a_report', path: '/workspace/outputs/report.pdf', turn_id: 'turn_1', size_bytes: 12 },
+    { id: 'a_findings', path: '/workspace/outputs/findings.json', turn_id: 'turn_1', size_bytes: 20 },
+    { id: 'a_zip', path: '/workspace/outputs/results.zip', turn_id: 'turn_1', size_bytes: 30 }
+  ];
+  const fetchImpl = async (url, init = {}) => {
+    calls.push({ url: String(url), init });
+    const target = String(url);
+    if (target.endsWith('/v1/agents/sessions') && init.method === 'POST') {
+      const sse = [
+        'data: ' + JSON.stringify({ type: 'agent.session.created', session: { id: 'sess_1' } }),
+        '',
+        'data: ' + JSON.stringify({ type: 'agent.session.turn.completed', turn: { id: 'turn_1', subagent_id: null } }),
+        '',
+        'data: [DONE]',
+        ''
+      ].join('\n');
+      return new Response(sse, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+    }
+    if (target.endsWith('/v1/agents/sessions/sess_1/artifacts') && init.method === 'GET') {
+      return Response.json({ data: artifacts, has_more: false });
+    }
+    if (target.endsWith('/v1/agents/sessions/sess_1/artifacts/a_findings/content') && init.method === 'GET') {
+      return new Response(JSON.stringify(findingsDoc), { status: 200 });
+    }
+    throw new Error('unexpected fake fetch: ' + target);
+  };
+
+  const result = await Adapter.runOpenAIAgentsAnalysis(normalizedRequest(), {
+    apiKey: 'sk-test-only',
+    fetchImpl
+  });
+
+  assert.equal(result.engine_mode, 'openai_agents');
+  assert.equal(result.artifact_transport, 'openai_agents_artifacts');
+  const sessionCall = calls.find(call => call.url.endsWith('/v1/agents/sessions'));
+  assert.ok(sessionCall);
+  assert.equal(sessionCall.init.headers.Authorization, 'Bearer sk-test-only');
+  assert.equal(sessionCall.init.headers['OpenAI-Beta'], 'agents=v1');
+  assert.equal(sessionCall.init.headers['Content-Type'], 'application/json');
+});
+
+test('CSV dry-run writes verified fallback artifacts without network access', async () => {
+  assert.equal(typeof DryRun.runDryRun, 'function');
+  const outputDir = fsCsv.mkdtempSync(pathCsv.join(osCsv.tmpdir(), 'kk-csv-analysis-'));
+  try {
+    const result = await DryRun.runDryRun({ outputDir });
+    assert.equal(result.status, 'READY');
+    assert.equal(result.engine_mode, 'fallback');
+    assert.equal(result.network_calls, 0);
+    for (const name of ['report.pdf', 'findings.json', 'results.zip']) {
+      const full = pathCsv.join(outputDir, name);
+      assert.equal(fsCsv.existsSync(full), true);
+      assert.ok(fsCsv.statSync(full).size > 0);
+    }
+    const findings = JSON.parse(fsCsv.readFileSync(pathCsv.join(outputDir, 'findings.json'), 'utf8'));
+    assert.ok(findings.dataset.rows >= 2);
+  } finally {
+    fsCsv.rmSync(outputDir, { recursive: true, force: true });
+  }
+});
+
+test('package wiring keeps Node 20 and adds CSV analysis dry-run/check coverage without incompatible OpenAI SDK dependency', () => {
+  const pkg = JSON.parse(fsCsv.readFileSync(pathCsv.join(__dirname, '..', 'package.json'), 'utf8'));
+  assert.equal(pkg.engines.node, '>=20');
+  assert.equal(pkg.scripts['csv:analysis:dry-run'], 'node scripts/kk-csv-analysis-dry-run.js');
+  for (const checkedPath of [
+    'server/kk-csv-analysis-contract.js',
+    'server/kk-csv-analysis-agent.js',
+    'server/kk-csv-analysis-fallback.js',
+    'server/kk-openai-agents-adapter.js',
+    'scripts/kk-csv-analysis-dry-run.js'
+  ]) {
+    assert.equal(pkg.scripts.check.includes('node --check ' + checkedPath), true);
+  }
+  assert.equal(Object.hasOwn(pkg.dependencies || {}, 'openai'), false);
+});
