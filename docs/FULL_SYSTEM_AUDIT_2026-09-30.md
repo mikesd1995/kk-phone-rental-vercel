@@ -228,3 +228,17 @@ Scanner / Verifier task persistence:
 
 Safety:
 - No Scanner/Verifier state mutation, Machine-SOT business write, booking/pricing/inventory mutation, Apps Script mutation, Make mutation, or customer/provider send was performed.
+
+
+## Execution update — Gate 2 rebase-safe fresh-port + production timing evidence
+
+- PR #339 was rechecked after current main advanced to `c0e7ca224e6e836601a27321b4ba6657454ec38a` through PR #340. #339 is now diverged from main: its merge base remains `8b73699bfbe3acae4b9acc8a439efc9f52870511`; main added Private Reader readiness changes in `api/kk-data.js` and `tests/public-data-proxy.test.js`.
+- Direct merge of #339 was therefore rejected. A second fresh branch `gate2/apps-script-9-5-12-current-main-20260930` was created from exact current main and the same nine Gate 2 files were ported onto it.
+- First copy strategy failed when missing candidate/doc/test paths were sent through update semantics. Recovery switched to create-missing/update-existing semantics; all nine Gate 2 paths were completed without reverting PR #340.
+- New draft PR #341 `Fresh-port Apps Script Gate 2 onto exact current main` was opened at head `884f61f96dd710f3d2d1f09b44eed8b8898e9666`. Compare against main is clean: ahead 9, behind 0; exactly nine Gate 2 files differ.
+- Exact-head Admin Regression #1078 / run `36624399179` was queued at this checkpoint. #341 remains draft and must not merge until CI completes and owner-authenticated runtime acceptance is complete.
+- Production read-only Apps Script timing diagnostic returned `READBACK_COMPLETE`: effective UTC offset `+07:00`, `effective_utc_plus_7_verified=true`, and `backend_sheet_identity_verified=true`.
+- The same diagnostic explicitly leaves `named_project_timezone=UNVERIFIED`, `installed_triggers=UNVERIFIED`, and `cleanup_trigger=UNVERIFIED`. These are not inferred from the effective offset.
+- Diagnostic safety reported read-only execution with Apps Script writes=0, Sheet business writes=0, trigger mutations=0, timezone mutations=0, secrets exposed=false.
+- Initial batched Vercel fetch failed at connector level; retrying the timing endpoint individually succeeded. No application failure was inferred from the connector-level batch error.
+- Gate 2 runtime acceptance is therefore improved from fully-unverified timing to **effective timezone/backend identity verified**, while named Apps Script project timezone, installed triggers, cleanup trigger, controlled Apps Script deployment and legitimate write/readback remain pending.
