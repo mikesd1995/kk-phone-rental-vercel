@@ -6,6 +6,8 @@ const fs = require('fs');
 
 const Policy = require('../server/kk-model-migration-policy.js');
 const Registry = require('../server/kk-agent-registry.js');
+const CodeIntel = require('../server/kk-code-intelligence.js');
+const path = require('path');
 
 test('migration policy V2 exposes wired shadow transport but blocks production cutover', () => {
   const state = Policy.publicPolicy();
@@ -102,4 +104,17 @@ test('Agent Registry exposes explicit shadow routes and zero-write migration met
   assert.deepEqual(scanner.required_agents, ['kk-discovery-scanner','kk-gpt6-shadow-evaluator']);
   assert.deepEqual(verifier.required_agents, ['kk-event-verifier','kk-gpt6-shadow-evaluator']);
   assert.equal(Registry.AGENTS['kk-gpt6-shadow-evaluator'].production_writes, 0);
+});
+
+
+test('Code Intelligence routes GPT-6 shadow work to the bounded migration context', () => {
+  const pack = CodeIntel.contextPack(
+    'GPT-6 shadow runtime Responses API zero-write acceptance',
+    {root:path.join(__dirname,'..')}
+  );
+  assert.ok(pack.matched_routes.some(item=>item.id==='gpt6_shadow'));
+  assert.ok(pack.selected_files.some(item=>item.path==='server/kk-gpt6-shadow-runtime.js'));
+  assert.ok(pack.selected_files.some(item=>item.path==='server/kk-model-migration-policy.js'));
+  assert.ok(pack.targeted_tests.includes('tests/kk-gpt6-shadow-runtime.test.js'));
+  assert.ok(pack.targeted_tests.includes('tests/kk-gpt6-shadow-eval.test.js'));
 });
