@@ -273,7 +273,7 @@ function classifyState({
     return {state:'NO_READY_PRODUCTION',severity:'error',reason:'No READY Production deployment could be resolved'};
   }
 
-  if(!productionMatchesCurrentMain){
+  if(productionMatchesCurrentMain===false){
     const mainState=deploymentState(mainAttempt||{});
     if(['ERROR','CANCELED'].includes(mainState)){
       return {state:'CURRENT_MAIN_DEPLOYMENT_FAILED',severity:'error',reason:`Current main Production attempt is ${mainState}`};
