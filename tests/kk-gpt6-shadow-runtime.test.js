@@ -240,3 +240,19 @@ test('public event address and artist full name are allowed while customer PII s
   assert.equal(blocked.status,'BLOCKED_SHADOW_INPUT_SENSITIVE');
   assert.equal(blocked.network_calls,0);
 });
+
+
+test('Verifier shadow schema supports ACCEPT without granting execution authority', async () => {
+  const out = await Runtime.runShadow('verifier', {
+    case_id:'verifier-accept',
+    candidate:{title:'Eligible Example',rental_fit:'HIGH'},
+    evidence:[{source_ref:'OFFICIAL',claim:'confirmed'}]
+  }, {
+    env:{KK_GPT6_SHADOW_ENABLED:'true',OPENAI_API_KEY:'secret'},
+    fetchImpl:async()=>fakeResponse(responseFor(shadowDecision({decision:'ACCEPT'})))
+  });
+  assert.equal(out.status,'SHADOW_RESULT_READY');
+  assert.equal(out.shadow_decision.decision,'ACCEPT');
+  assert.equal(out.shadow_decision.authority,'SHADOW_ADVISORY_ONLY');
+  assert.equal(out.production_writes,0);
+});
