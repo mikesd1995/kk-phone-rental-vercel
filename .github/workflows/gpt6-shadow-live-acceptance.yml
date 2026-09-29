@@ -115,7 +115,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm run gpt6:shadow:readiness > gpt6-shadow-readiness.json
+          node scripts/kk-gpt6-shadow-readiness.js > gpt6-shadow-readiness.json
           node - <<'NODE'
           const r=require('./gpt6-shadow-readiness.json');
           if(r.status!=='READY_FOR_LIVE_SHADOW_EVAL') throw new Error('SHADOW_NOT_READY_'+r.status);
@@ -129,7 +129,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm run gpt6:shadow:eval > gpt6-shadow-eval.json
+          node scripts/kk-gpt6-shadow-eval.js > gpt6-shadow-eval.json
 
       - name: Run GPT-6 Sol live zero-write acceptance
         id: zero_write
@@ -137,7 +137,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm run gpt6:shadow:zero-write > gpt6-zero-write.json
+          node scripts/kk-gpt6-zero-write-acceptance.js > gpt6-zero-write.json
 
       - name: Upload secret-safe live evidence
         if: ${{ always() }}
