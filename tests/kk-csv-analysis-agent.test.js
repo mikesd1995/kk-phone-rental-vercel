@@ -430,3 +430,66 @@ test('gateway blocks analyze_csv when required agent invocation evidence is miss
   assert.equal(result.publishes, 0);
   assert.equal(rows.length, 1);
 });
+
+
+test('fallback produces non-empty downloadable PDF, findings JSON and ZIP payloads', async () => {
+  const result = await Fallback.runFallbackAnalysis(normalizedRequest());
+  assert.equal(result.artifact_transport, 'inline_base64');
+  assert.equal(typeof result.artifact_payloads_base64.report_pdf, 'string');
+  assert.equal(typeof result.artifact_payloads_base64.findings_json, 'string');
+  assert.equal(typeof result.artifact_payloads_base64.bundle_zip, 'string');
+
+  const pdf = Buffer.from(result.artifact_payloads_base64.report_pdf, 'base64');
+  const findings = Buffer.from(result.artifact_payloads_base64.findings_json, 'base64');
+  const zip = Buffer.from(result.artifact_payloads_base64.bundle_zip, 'base64');
+
+  assert.equal(pdf.subarray(0, 5).toString('ascii'), '%PDF-');
+  assert.equal(zip.subarray(0, 2).toString('ascii'), 'PK');
+  const parsed = JSON.parse(findings.toString('utf8'));
+  assert.equal(parsed.dataset.rows, 2);
+  assert.equal(parsed.dataset.columns, 2);
+});
+
+test('analysis service preserves remote artifact handles needed for later downloads', async () => {
+  const artifactHandles = {
+    report_pdf: { artifact_id: 'a_report', session_id: 'sess_1', turn_id: 'turn_1', path: '/workspace/outputs/report.pdf' },
+    findings_json: { artifact_id: 'a_findings', session_id: 'sess_1', turn_id: 'turn_1', path: '/workspace/outputs/findings.json' },
+    charts: [],
+    bundle_zip: { artifact_id: 'a_zip', session_id: 'sess_1', turn_id: 'turn_1', path: '/workspace/outputs/results.zip' }
+  };
+  const result = await Service.analyzeCsv(validInput({ allow_fallback: false }), {
+    remoteFn: async () => remoteReady({
+      artifact_transport: 'openai_agents_artifacts',
+      artifact_handles: artifactHandles
+    })
+  });
+  assert.equal(result.status, 'READY');
+  assert.equal(result.artifact_transport, 'openai_agents_artifacts');
+  assert.deepEqual(result.artifact_handles, artifactHandles);
+});
+
+test('analysis service preserves fallback artifact payloads without claiming remote storage', async () => {
+  const result = await Service.analyzeCsv(validInput({ allow_fallback: true }), {
+    remoteFn: async () => {
+      throw Object.assign(new Error('remote unavailable'), { code: 'REMOTE_DOWN' });
+    },
+    fallbackFn: request => Fallback.runFallbackAnalysis(request)
+  });
+  assert.equal(result.status, 'READY');
+  assert.equal(result.engine_mode, 'fallback');
+  assert.equal(result.artifact_transport, 'inline_base64');
+  assert.equal(typeof result.artifact_payloads_base64.report_pdf, 'string');
+  assert.equal(Object.hasOwn(result, 'artifact_handles'), false);
+});
+
+test('OpenAI adapter exposes a validated artifact download helper', async () => {
+  const fake = fakeAgentsClient();
+  const bytes = await Adapter.downloadOpenAIAgentArtifact({
+    artifact_id: 'a_report',
+    session_id: 'sess_1',
+    turn_id: 'turn_1',
+    path: '/workspace/outputs/report.pdf'
+  }, { client: fake.client });
+  assert.equal(Buffer.isBuffer(bytes), true);
+  assert.equal(bytes.subarray(0, 5).toString('ascii'), '%PDF-');
+});
