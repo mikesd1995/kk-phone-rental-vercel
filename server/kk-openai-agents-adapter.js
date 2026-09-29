@@ -107,6 +107,19 @@ function handleFor(artifact, sessionId, turnId) {
   };
 }
 
+async function downloadOpenAIAgentArtifact(handle, options = {}) {
+  const artifactId = String(handle?.artifact_id || '').trim();
+  const sessionId = String(handle?.session_id || '').trim();
+  const artifactPath = String(handle?.path || '').trim();
+  if (!artifactId || !sessionId || !artifactPath.startsWith('/workspace/outputs/')) {
+    throw codedError('OPENAI_ARTIFACT_HANDLE_INVALID', 'Artifact handle is incomplete or outside /workspace/outputs');
+  }
+  const client = await resolveClient(options);
+  const bytes = await artifactBytes(client, sessionId, artifactId);
+  if (!bytes.length) throw codedError('ANALYSIS_ARTIFACT_EMPTY', 'Downloaded artifact is empty');
+  return bytes;
+}
+
 async function runOpenAIAgentsAnalysis(request, options = {}) {
   const client = await resolveClient(options);
   let toFile = options.toFile;
@@ -209,6 +222,7 @@ async function runOpenAIAgentsAnalysis(request, options = {}) {
       charts: chartArtifacts.map(item => path.posix.basename(item.path)),
       bundle_zip: REQUIRED.bundle_zip
     },
+    artifact_transport: 'openai_agents_artifacts',
     artifact_handles: {
       report_pdf: handleFor(byName.get(REQUIRED.report_pdf), sessionId, turnId),
       findings_json: handleFor(findingsArtifact, sessionId, turnId),
@@ -227,5 +241,6 @@ module.exports = {
   environmentFileFor,
   rootTurnFailure,
   artifactBytes,
+  downloadOpenAIAgentArtifact,
   runOpenAIAgentsAnalysis
 };
