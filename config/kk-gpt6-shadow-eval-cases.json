@@ -153,7 +153,7 @@
     "case_id": "GPT6-EVAL-007",
     "scenario": "missing_competitor_price",
     "workload": "verifier",
-    "expected_decision": "READY_FOR_VERIFIER",
+    "expected_decision": "ACCEPT",
     "input": {
       "candidate": {
         "title": "Weekend Example",
