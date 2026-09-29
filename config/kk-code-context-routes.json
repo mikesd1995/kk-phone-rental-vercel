@@ -8,6 +8,41 @@
   },
   "routes": [
     {
+      "id": "gpt6_shadow",
+      "keywords": [
+        "gpt-6",
+        "gpt6",
+        "shadow runtime",
+        "shadow eval",
+        "model migration",
+        "responses api",
+        "openai shadow",
+        "gpt-6 sol",
+        "zero-write acceptance"
+      ],
+      "files": [
+        "server/kk-gpt6-shadow-runtime.js",
+        "server/kk-gpt6-shadow-eval.js",
+        "server/kk-model-migration-policy.js",
+        "server/kk-agent-registry.js",
+        "server/kk-agent-task-router.js"
+      ],
+      "tests": [
+        "tests/kk-gpt6-shadow-runtime.test.js",
+        "tests/kk-gpt6-shadow-eval.test.js",
+        "tests/kk-model-migration-policy.test.js",
+        "tests/kk-agent-gateway.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-discovery-scanner/SKILL.md",
+        ".agents/skills/kk-event-verifier/SKILL.md",
+        ".agents/skills/kk-canary-safety/SKILL.md"
+      ],
+      "docs": [
+        "docs/superpowers/plans/2026-09-29-gpt6-shadow-runtime.md"
+      ]
+    },
+    {
       "id": "operating_partner",
       "keywords": [
         "operating partner",
