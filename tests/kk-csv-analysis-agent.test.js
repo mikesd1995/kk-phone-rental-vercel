@@ -349,3 +349,84 @@ test('OpenAI adapter surfaces root turn failure and does not inspect artifacts a
     error => error?.code === 'OPENAI_AGENT_TURN_FAILED'
   );
 });
+
+
+const Registry = require('../server/kk-agent-registry.js');
+const TaskRouter = require('../server/kk-agent-task-router.js');
+const Gateway = require('../server/kk-agent-gateway.js');
+
+test('registry exposes governed analyze_csv route with zero-write analysis agent', () => {
+  const route = Registry.routeForIntent('analyze_csv');
+  assert.equal(route.route_id, 'CSV_ANALYSIS_REPORT');
+  assert.equal(route.request_type, 'CSV_ANALYSIS');
+  assert.deepEqual([...route.required_agents], ['kk-csv-analysis']);
+  assert.equal(route.runtime_available, true);
+  assert.equal(route.owner_review_required, false);
+  assert.equal(route.persistent_invocation_evidence_required, true);
+  assert.equal(Registry.AGENTS['kk-csv-analysis'].authority, 'READ_ONLY_ANALYSIS');
+  assert.equal(Registry.AGENTS['kk-csv-analysis'].production_writes, 0);
+});
+
+test('task router invokes only kk-csv-analysis for analyze_csv', async () => {
+  const routed = await TaskRouter.executeTask(
+    'analyze_csv',
+    validInput({ allow_fallback: false }),
+    { csvAnalysisRemoteFn: async () => remoteReady() }
+  );
+  assert.deepEqual(routed.invoked_agents, ['kk-csv-analysis']);
+  assert.equal(routed.result.status, 'READY');
+  assert.equal(routed.result.engine_mode, 'openai_agents');
+  assert.equal(routed.result.production_writes, 0);
+  assert.equal(routed.result.publishes, 0);
+});
+
+test('gateway records CSV analysis invocation without persisting raw CSV payload', async () => {
+  const rows = [];
+  const input = validInput({ allow_fallback: false });
+  const result = await Gateway.executeAgentRequest({
+    task_type: 'analyze_csv',
+    correlation_id: 'csv-analysis-test-1',
+    input
+  }, {
+    csvAnalysisRemoteFn: async () => remoteReady(),
+    ledgerFn: async row => {
+      rows.push(row);
+      return { ok: true, inserted: true, invocation_id: row.invocation_id };
+    }
+  });
+
+  assert.equal(result.status, 'RECORDED');
+  assert.equal(result.result.status, 'READY');
+  assert.deepEqual(result.invocation.invoked_agents, ['kk-csv-analysis']);
+  assert.equal(result.owner_review_required, false);
+  assert.equal(result.production_writes, 0);
+  assert.equal(result.publishes, 0);
+  assert.equal(rows.length, 1);
+  assert.equal(Object.hasOwn(rows[0], 'input'), false);
+  assert.equal(Object.hasOwn(rows[0], 'output'), false);
+  assert.equal(JSON.stringify(rows[0]).includes(input.csv_base64), false);
+});
+
+test('gateway blocks analyze_csv when required agent invocation evidence is missing', async () => {
+  const rows = [];
+  const result = await Gateway.executeAgentRequest({
+    task_type: 'analyze_csv',
+    correlation_id: 'csv-analysis-test-2',
+    input: validInput({ allow_fallback: false })
+  }, {
+    taskRouteFn: async () => ({
+      invoked_agents: [],
+      result: remoteReady()
+    }),
+    ledgerFn: async row => {
+      rows.push(row);
+      return { ok: true, inserted: true, invocation_id: row.invocation_id };
+    }
+  });
+
+  assert.equal(result.status, 'BLOCKED_REQUIRED_AGENT_NOT_INVOKED');
+  assert.equal(result.result, null);
+  assert.equal(result.production_writes, 0);
+  assert.equal(result.publishes, 0);
+  assert.equal(rows.length, 1);
+});
