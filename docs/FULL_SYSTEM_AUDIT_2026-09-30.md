@@ -1,0 +1,78 @@
+# KK Phone Rental — Full-System Audit 2026-09-30
+
+## Method
+Read-only cross-layer audit using current GitHub main/open PRs/issues, current Vercel deployments/runtime HTTP boundaries, ChatGPT automation registry, Hugging Face account status, and available connector state. No business data or production configuration was changed by this audit.
+
+Percentages below are acceptance-weighted estimates, not lines-of-code completion. A feature gets less credit when code exists but current Production/runtime acceptance is absent.
+
+## Executive status
+- Current GitHub main: `3c98c8846dc8b705eed140d530e6bca7eeb3dfbb` (Private Reader readiness hardening).
+- Current Vercel Production: `2f628a2b92d6c913089fd749429a06d02ee617ed`.
+- Production is therefore behind current main and does not yet contain several merged safety fixes.
+- Storefront root: HTTP 200.
+- Admin gate: HTTP 200, no-store, CSP, frame deny, noindex.
+- Event/package public feeds: HTTP 200, no-store, but both still report `public-gviz-fallback`.
+- Project remains NOT production-complete while the Final Production Completion Gate is open.
+
+## Acceptance-weighted subsystem status
+
+| Subsystem | % | State | Main remaining gate |
+|---|---:|---|---|
+| Storefront core / booking entry | 90 | operational, production behind main | deploy current main; runtime smoke; exact poster defect |
+| Storefront poster delivery | 88 | 74/75 healthy candidates in validated audit | fix KHOM KHLANG exact-event poster; deploy #327 |
+| Admin UI / security boundary | 88 | operational | authenticated real-mobile save/cancel acceptance |
+| Admin write backend / Apps Script | 62 | safe but incomplete | Gate 2 exact source + atomic return-time/collision + controlled deploy |
+| Booking / inventory concurrency | 70 | Vercel guard exists, backend atomicity incomplete | #325 / Gate 2 acceptance |
+| Pricing / packages | 90 | live derived feed and bulk edit implemented | current-main production acceptance / competitor evidence freshness |
+| Revenue / analytics | 84 | actual/future/forecast logic implemented | private reader/CRM freshness and production acceptance |
+| Public data boundary | 82 | no-store/redaction live | deploy #326/#333 and reconcile #324 |
+| Private Reader | 68 | code/readiness hardened, not active | service account + private-service-account parity + strict cutover |
+| Scanner | 58 | contract hardened; canonical recurring task currently OFF | P0 natural task persistence and provider-bound full loop |
+| Verifier / promotion | 62 | contract/no-drop/promotion logic exists; recurring task OFF | natural persistence + live governed acceptance |
+| Canary | 48 | structural/zero-write contracts exist | natural provenance + scenario-specific evidence; task OFF |
+| Event discovery / Ultra Deep | 65 | strong repo contracts and monthly work | recurring provider executor + natural runtime reliability |
+| Competitor intelligence | 65 | watch policy exists | durable evidence freshness and automated governed price handoff |
+| AI agent gateway / orchestration | 72 | registry/router/governance substantial | production runtime acceptance and stale PR consolidation |
+| HF Event Assist | 60 | account connected; quality/safety harness exists | production activation intentionally blocked by control-plane gate |
+| OpenAI CSV analysis agent | 55 | substantial draft implementation | fresh-main reconcile, CI/live zero-write acceptance, release |
+| GPT shadow migration | 50 | draft/shadow only | live zero-write eval/credentials/acceptance; no production cutover |
+| LINE booking notification | 55 | text path exists; poster Flex is staging PR #334 | complete dry-run then controlled LINE integration acceptance |
+| Make / Telegram / CRM sync | 35 | historical design exists | current connector unavailable; historical issue says org/team quota paused |
+| CRM / Intelligence dual-sheet | 58 | secondary private model exists | fresh sync + private reader + lazy cutover |
+| Visual QA / UX automation | 60 | draft Playwright/UX reviewer work exists | reconcile #237/#238 onto current main and execute acceptance |
+| CI / regression / invariants | 93 | strong and active | production must catch up to main; prune stale branches/PRs |
+| Deployment / production parity | 45 | Production healthy but stale | exact current-main READY deployment + post-deploy acceptance |
+| Ops / physical inventory | 70 | 2 phones tracked | accessory shortfall physical reconciliation; payment follow-up |
+| Scheduled monitoring | 72 | consolidated market+safety and daily report active | canonical Scanner/Verifier recurring tasks are OFF; P0 recovery pending |
+
+Weighted overall estimate: **~70% production-complete**.
+Code/repository readiness is materially higher (~84%), but runtime/production acceptance is lower (~61%); the overall number intentionally penalizes unproven production cutovers.
+
+## P0 / highest-priority blockers
+
+1. **Production is stale versus main.** Merged fixes after `2f628a2b...` are not serving Production, including public-feed pipe redaction (#326), poster fallback (#327), Scanner/Verifier contract hardening (#332), and Private Reader split-brain hardening (#333).
+2. **Canonical Scanner and Verifier recurring automations are OFF.** This is direct current registry evidence and matches the long-running task-persistence P0. Do not create replacements/watchdogs.
+3. **Apps Script Gate 2 remains incomplete.** Exact/reconstructed 9_5_9 lineage, return_time persistence and atomic cross-day collision/duplicate protection need controlled production acceptance; PR #325 remains draft.
+4. **Private Reader is not active.** Production event/package feeds still report `public-gviz-fallback`.
+5. **Canary natural-run provenance remains unaccepted.**
+6. **Make runtime cannot be freshly inspected from the current connection.** Historical project issue records org/team usage-limit pause; treat current state as unverified until connector/runtime capacity is restored.
+7. **One poster source remains confirmed unhealthy:** KHOM KHLANG Special Episode 5.
+8. **Admin Direct Writer remains blocked-safe** pending dedicated writer service-account identity and controlled write/readback/receipt acceptance.
+
+## Open development debt
+Current open PRs include #334 LINE poster dry-run, #325 Gate 2, #324 public Sheets boundary, #322 CSV agent, #315 superseded Admin refresh fix, #314 GPT shadow, #237/#238 UX/visual QA, plus older AI platform drafts. Several are based on old main and must be fresh-ported or closed as superseded rather than merged blindly.
+
+## Recommended execution order
+1. Restore **deployment parity**: get exact current main to READY Production and run post-deploy runtime audit. This unlocks merged safety fixes.
+2. Execute the already-scheduled **P0 Recovery Acceptance** on the natural Scanner/Verifier pair; do not manually manufacture runtime credit. Resolve task-persistence defect before HF activation.
+3. Finish **Gate 2 Apps Script / booking atomicity** from #325 with owner-authenticated project/timezone/trigger evidence, controlled deployment, legitimate write/readback.
+4. Activate **Private Reader migration mode** with read-only service account; require both public feeds to report `private-service-account` and parity before strict mode/private workbook.
+5. Resolve **Make capacity/connection** and prove CRM 8/8 freshness + Telegram transport.
+6. Close the **KHOM KHLANG poster** defect with a verified exact-event publicly readable source.
+7. Reconcile/close stale PRs; prioritize #324, #334, #322, #237/#238 after rebasing/fresh-porting to current main.
+8. Only after control-plane persistence is accepted, perform HF/GPT shadow live zero-write acceptance; keep production authority with Verifier.
+9. Complete Admin Direct Writer identity only if the operational benefit justifies it; do not route Booking/Asset/create until exactly-once/concurrency semantics are accepted.
+10. Finish physical ops debt: accessory kit count/capacity and payment follow-ups.
+
+## Safety
+This audit performed no business writes, no Sheet mutation, no Vercel environment mutation, no deployment, no task-state mutation, no Make scenario mutation, no Apps Script deployment, and no customer/provider send.
