@@ -74,7 +74,7 @@ function agentInstructions() {
     '- Investigate the user question specifically. Use Python calculations for every material numerical claim.',
     '- Distinguish observed facts, calculations, interpretations, and limitations.',
     '- Never describe correlation as causation.',
-    '- Create only charts that materially improve the answer, normally 1-3.',
+    '- Create 1-3 PNG charts that materially improve the answer. At least one chart is required for this product contract.',
     '- Before finishing, verify every required output exists and is non-empty.',
     '',
     'REQUIRED OUTPUTS:',
@@ -442,6 +442,20 @@ function validateFindingsDocument(buffer) {
     }
   }
 
+  if (findings.charts.length < 1) {
+    throw codedError(
+      'CSV_ANALYSIS_CHART_REQUIRED',
+      'At least one chart is required by the CSV analysis product contract'
+    );
+  }
+  if (findings.charts.length > 3) {
+    throw codedError(
+      'CSV_ANALYSIS_FINDINGS_INVALID',
+      'findings.json may reference at most three charts'
+    );
+  }
+
+  const chartNames = new Set();
   for (const chart of findings.charts) {
     if (!chart || typeof chart !== 'object' ||
         typeof chart.file !== 'string' || !chart.file.trim() ||
@@ -452,6 +466,21 @@ function validateFindingsDocument(buffer) {
         'findings.json contains an invalid chart entry'
       );
     }
+
+    const file = chart.file.trim();
+    if (path.basename(file) !== file || !/^chart_\d{2,3}\.png$/i.test(file)) {
+      throw codedError(
+        'CSV_ANALYSIS_FINDINGS_INVALID',
+        `findings.json contains an unsafe or unsupported chart filename: ${file}`
+      );
+    }
+    if (chartNames.has(file)) {
+      throw codedError(
+        'CSV_ANALYSIS_FINDINGS_INVALID',
+        `findings.json contains a duplicate chart filename: ${file}`
+      );
+    }
+    chartNames.add(file);
   }
 
   return findings;
@@ -463,26 +492,135 @@ function validateReportPdf(buffer) {
   }
 }
 
-function validateResultsZip(buffer) {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 4 ||
-      buffer[0] !== 0x50 || buffer[1] !== 0x4b ||
-      !((buffer[2] === 0x03 && buffer[3] === 0x04) ||
-        (buffer[2] === 0x05 && buffer[3] === 0x06) ||
-        (buffer[2] === 0x07 && buffer[3] === 0x08))) {
-    throw codedError('CSV_ANALYSIS_ZIP_INVALID', 'results.zip does not have a valid ZIP signature');
+function validatePng(buffer, filename = 'chart.png') {
+  const signature = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]);
+  if (!Buffer.isBuffer(buffer) || buffer.length < signature.length ||
+      !buffer.subarray(0, signature.length).equals(signature)) {
+    throw codedError(
+      'CSV_ANALYSIS_CHART_INVALID',
+      `Chart does not have a valid PNG signature: ${filename}`
+    );
   }
 }
 
+function findZipEndRecord(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 22) return -1;
+  const min = Math.max(0, buffer.length - (22 + 0xffff));
+  for (let offset = buffer.length - 22; offset >= min; offset -= 1) {
+    if (buffer.readUInt32LE(offset) === 0x06054b50) return offset;
+  }
+  return -1;
+}
+
+function listZipEntries(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 22) {
+    throw codedError('CSV_ANALYSIS_ZIP_INVALID', 'results.zip is too small to contain a ZIP directory');
+  }
+
+  const eocd = findZipEndRecord(buffer);
+  if (eocd < 0) {
+    throw codedError('CSV_ANALYSIS_ZIP_INVALID', 'results.zip is missing the ZIP end-of-central-directory record');
+  }
+
+  const diskNumber = buffer.readUInt16LE(eocd + 4);
+  const centralDisk = buffer.readUInt16LE(eocd + 6);
+  const entriesOnDisk = buffer.readUInt16LE(eocd + 8);
+  const totalEntries = buffer.readUInt16LE(eocd + 10);
+  const centralSize = buffer.readUInt32LE(eocd + 12);
+  const centralOffset = buffer.readUInt32LE(eocd + 16);
+  const commentLength = buffer.readUInt16LE(eocd + 20);
+
+  if (diskNumber !== 0 || centralDisk !== 0 || entriesOnDisk !== totalEntries) {
+    throw codedError('CSV_ANALYSIS_ZIP_INVALID', 'Multi-disk ZIP archives are not supported');
+  }
+  if (totalEntries === 0xffff || centralSize === 0xffffffff || centralOffset === 0xffffffff) {
+    throw codedError('CSV_ANALYSIS_ZIP_INVALID', 'ZIP64 archives are not supported for CSV analysis bundles');
+  }
+  if (eocd + 22 + commentLength > buffer.length ||
+      centralOffset + centralSize > eocd ||
+      centralOffset > buffer.length) {
+    throw codedError('CSV_ANALYSIS_ZIP_INVALID', 'results.zip central directory is out of bounds');
+  }
+
+  const entries = [];
+  let cursor = centralOffset;
+  for (let index = 0; index < totalEntries; index += 1) {
+    if (cursor + 46 > buffer.length || buffer.readUInt32LE(cursor) !== 0x02014b50) {
+      throw codedError('CSV_ANALYSIS_ZIP_INVALID', 'results.zip contains an invalid central-directory entry');
+    }
+    const nameLength = buffer.readUInt16LE(cursor + 28);
+    const extraLength = buffer.readUInt16LE(cursor + 30);
+    const entryCommentLength = buffer.readUInt16LE(cursor + 32);
+    const end = cursor + 46 + nameLength + extraLength + entryCommentLength;
+    if (end > buffer.length) {
+      throw codedError('CSV_ANALYSIS_ZIP_INVALID', 'results.zip contains a truncated central-directory entry');
+    }
+    const name = buffer.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
+    if (!name || path.posix.basename(name) !== name || name.includes('\\')) {
+      throw codedError('CSV_ANALYSIS_ZIP_INVALID', `results.zip contains an unsafe entry name: ${name}`);
+    }
+    entries.push(name);
+    cursor = end;
+  }
+
+  if (cursor !== centralOffset + centralSize) {
+    throw codedError('CSV_ANALYSIS_ZIP_INVALID', 'results.zip central-directory size does not match its entries');
+  }
+
+  return entries;
+}
+
+function validateResultsZip(buffer, requiredEntries = REQUIRED_ARTIFACTS) {
+  const entries = listZipEntries(buffer);
+  const names = new Set(entries);
+  const duplicates = entries.filter((name, index) => entries.indexOf(name) !== index);
+  if (duplicates.length) {
+    throw codedError(
+      'CSV_ANALYSIS_ZIP_INVALID',
+      `results.zip contains duplicate entries: ${[...new Set(duplicates)].join(', ')}`
+    );
+  }
+
+  const missing = requiredEntries.filter(name => !names.has(name));
+  if (missing.length) {
+    throw codedError(
+      'CSV_ANALYSIS_ZIP_CONTENT_MISSING',
+      `results.zip is missing required entries: ${missing.join(', ')}`,
+      {missing_entries: missing}
+    );
+  }
+
+  return entries;
+}
+
 async function validateStagedArtifacts(stagingDir) {
-  const [report, findings, zip] = await Promise.all([
+  const [report, findingsBytes, zip] = await Promise.all([
     fs.readFile(path.join(stagingDir, 'report.pdf')),
     fs.readFile(path.join(stagingDir, 'findings.json')),
     fs.readFile(path.join(stagingDir, 'results.zip'))
   ]);
 
   validateReportPdf(report);
-  validateFindingsDocument(findings);
-  validateResultsZip(zip);
+  const findings = validateFindingsDocument(findingsBytes);
+  const chartNames = findings.charts.map(chart => chart.file);
+
+  for (const chartName of chartNames) {
+    let chartBytes;
+    try {
+      chartBytes = await fs.readFile(path.join(stagingDir, chartName));
+    } catch (error) {
+      if (error && error.code === 'ENOENT') {
+        throw codedError(
+          'CSV_ANALYSIS_CHART_ARTIFACT_MISSING',
+          `findings.json references a chart artifact that was not downloaded: ${chartName}`
+        );
+      }
+      throw error;
+    }
+    validatePng(chartBytes, chartName);
+  }
+
+  validateResultsZip(zip, ['report.pdf', 'findings.json', ...chartNames]);
 }
 
 async function materializeArtifacts({
@@ -674,6 +812,9 @@ module.exports = {
   selectTurnArtifacts,
   validateFindingsDocument,
   validateReportPdf,
+  validatePng,
+  listZipEntries,
   validateResultsZip,
+  validateStagedArtifacts,
   runCsvAnalysis
 };
