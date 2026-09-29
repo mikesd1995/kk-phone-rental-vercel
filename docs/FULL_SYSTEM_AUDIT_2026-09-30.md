@@ -176,3 +176,30 @@ However, direct image discovery still did not yield a verified public-readable e
 Result: the audit is intentionally **not** forced to 75/75. The remaining state stays 74/75 until an exact-event, publicly deliverable poster asset is obtained. This preserves visual SOT integrity and prevents a false-green poster audit.
 
 No storefront fallback, Sheet poster URL, or business data was mutated during this re-verification.
+
+
+## Execution update — Make / CRM / Telegram runtime audit
+
+A live read-only audit was run against both connected Make accounts in zone `us2.make.com`.
+
+Canonical Make A findings:
+- `05_KK_ADMIN_WRITE_BRIDGE` (6336390): paused/off, zero incomplete executions, Google connection `ok`; its own description records Free-plan credit exhaustion and Vercel quarantine. No execution was triggered.
+- `04_KK_CORE_CRM_SYNC_ENGINE` (6274697): paused/off, Google connection `ok`, zero incomplete executions. Historical runtime evidence on 2026-09-15 contains multiple successful end-to-end syncs with exact readback gating; latest successful runs used 56 credits each. Earlier configuration errors were followed by successful runs, so those old errors are not the current blocker.
+- `03_KK_OWNER_TELEGRAM_LEDGER_TRANSPORT` (6176241): paused/off, Google and Telegram connections both `ok`, zero incomplete executions. Historical auto runs on 2026-09-15 repeatedly succeeded; observed idle-poll runs consumed 1 credit each.
+- `02_KK_TELEGRAM_CONTROL` (5901592): Make reports `status=paused` while `isActive=true`; all surfaced Google/Telegram connections are `ok`. Latest observed successful runtime is 2026-09-04; old validation failures also exist. Direct business outbound route is structurally quarantined behind a false business-send gate.
+
+Make B findings:
+- `02_KK_CONTROL_GATEWAY_CLEAN_STAGING` (5988323): inactive/off, 15 stored incomplete executions and `isWaitingOnIncompleteExecutions=true`. Google, Telegram and AI-provider connections surfaced by the scenario are present; this staging scenario is a separate backlog/blocker and must not be confused with canonical Make A CRM/ledger health.
+- Backup staging scenario is inactive with zero incomplete executions.
+
+External platform check:
+- Make's public status page reported no current incident for 2026-09-30; recent Sep 23 scenario-log UI incident is resolved.
+- Make documentation confirms credit exhaustion can raise `OperationsLimitExceededError` and immediately disable scheduled scenario execution.
+
+Classification:
+1. Canonical CRM/Telegram architecture has historical runtime proof and healthy surfaced connections.
+2. Current canonical blocker is paused/off runtime after the credit-exhaustion/quarantine boundary; it is not presently attributable to a Make-wide outage.
+3. Make B has an independent stored-incomplete-execution backlog and should remain isolated from canonical production.
+4. No scenario was run, enabled, disabled, replayed, or edited during this audit; no Telegram message or Sheet business write was generated.
+
+Next acceptance after fresh credits are available: verify credit reset first, then use a bounded health/readback run before any canonical scheduling is re-enabled; do not replay stale staging incomplete executions into production.
