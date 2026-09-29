@@ -19,6 +19,12 @@ Required:
 - no policy activation;
 - no notification/provider send unless a separately governed test explicitly permits it.
 
+## Model migration acceptance
+
+A new model family is not, by itself, acceptance evidence. A migration PASS requires scenario-specific shadow/runtime evidence and the same zero-write boundary as any other rollout.
+
+Model capability never expands Canary authority. Canary remains deterministic where possible and production writes = 0 regardless of provider or model.
+
 ## Evidence requirements
 
 A PASS must be supported by:
