@@ -90,3 +90,25 @@ test('candidate quick booking uses reservation-window collision guard', () => {
 test('candidate parses under repository Node syntax baseline', () => {
   assert.doesNotThrow(() => new Function(candidate));
 });
+
+test('staged Admin and Vercel surfaces expose return_time without changing canonical Apps Script', () => {
+  const html = fs.readFileSync(path.join(root, 'admin', 'index.html'), 'utf8');
+  const adminJs = fs.readFileSync(path.join(root, 'admin', 'admin.js'), 'utf8');
+  const guard = fs.readFileSync(path.join(root, 'api', 'kk-admin-guard.js'), 'utf8');
+
+  assert.ok([...html.matchAll(/name="return_time"/g)].length >= 2, 'create and edit booking forms expose return_time');
+  assert.match(adminJs, /set\("return_time",\s*fmtPickupTime\(b\.return_time\)\)/);
+  assert.match(guard, /booking-timing-return-time-persisted-staged-3/);
+  assert.match(guard, /BOOKING_RETURN_TIME_INVALID/);
+  assert.match(guard, /return_time:String\(payload\.return_time/);
+});
+
+test('staged System Health surfaces timezone and trigger evidence', () => {
+  const proxy = fs.readFileSync(path.join(root, 'server', 'admin-proxy.js'), 'utf8');
+  assert.match(proxy, /time_zone_alignment/);
+  assert.match(proxy, /cleanup_trigger_inventory/);
+  assert.match(proxy, /apps_script_time_zone/);
+  assert.match(proxy, /spreadsheet_time_zone/);
+  assert.match(proxy, /Expected exactly one kkCleanupOldData30DaysAuto installed trigger/);
+});
+
