@@ -203,3 +203,28 @@ Classification:
 4. No scenario was run, enabled, disabled, replayed, or edited during this audit; no Telegram message or Sheet business write was generated.
 
 Next acceptance after fresh credits are available: verify credit reset first, then use a bounded health/readback run before any canonical scheduling is re-enabled; do not replay stale staging incomplete executions into production.
+
+
+## Execution update — exact-main Production parity + control-plane persistence refresh
+
+Fresh evidence supersedes the earlier rate-limit checkpoint.
+
+Production / CI:
+- Current `main` is exactly `c0e7ca224e6e836601a27321b4ba6657454ec38a` (`Expose safe Private Reader runtime readiness (#340)`), parent `8b73699bfbe3acae4b9acc8a439efc9f52870511`.
+- Vercel deployment `dpl_4AkRF5DDqX2RcBwHr953YqkvLyzd` is `READY`, target `production`, and reports the exact same GitHub SHA `c0e7ca224e6e836601a27321b4ba6657454ec38a`.
+- GitHub Vercel commit status for exact current main is `success`.
+- Admin Regression #1073 / run `36622184888` completed `success`; syntax, regression, continuous invariant, Code Intelligence benchmark, HF harness safety and fail-closed readiness steps all passed.
+- Rental Analytics Production Watch #167 / run `36622185070` completed `success`; exact-main pinning, Vercel transport, read-only production watcher, durable-state publication and unsafe-state gate all passed.
+- A direct Vercel runtime-log query timed out despite being scoped to the exact deployment; no runtime-log claim is made from that failed query. Production Watch success remains the durable runtime acceptance evidence.
+- Therefore the prior `CURRENT_MAIN_DEPLOYMENT_PENDING / build-rate-limit` classification is resolved for current main. Exact-main Production parity is PASS at this checkpoint.
+
+Scanner / Verifier task persistence:
+- Fresh native task registry still shows canonical Scanner `6ab272b36b1881919577ff3367fa8245` OFF and canonical Verifier `6ab7e060fa788191b5f17a7028494c3a` OFF.
+- Retired Verifier `6ab260ee56308191b76c305704cbeab8` remains OFF as required.
+- The one-shot P0 Recovery Acceptance has already run and is disabled; no synthetic replacement acceptance was created.
+- Per `CONTROL_PLANE_TASK_PERSISTENCE_ESCALATION_V444`, no re-enable, clone, replacement task, watchdog, reschedule or backfill was performed.
+- Classification remains `RECURRING_TASK_STATE_PERSISTENCE_PLATFORM_DEFECT`; timer/last-run metadata receives zero natural-runtime credit.
+- Daily Safety Report and consolidated Market + Safety Watch remain enabled; this audit did not change their schedules or prompts.
+
+Safety:
+- No Scanner/Verifier state mutation, Machine-SOT business write, booking/pricing/inventory mutation, Apps Script mutation, Make mutation, or customer/provider send was performed.
