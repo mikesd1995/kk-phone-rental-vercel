@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V18';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V19';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -108,10 +108,27 @@ const AGENTS = Object.freeze({
     runtime_state: 'CONTROLLED_UAT_OR_CALLABLE_WHEN_ENABLED',
     surface: 'AGENT_GATEWAY',
     production_writes: 0
+  }),
+  'kk-csv-analysis': Object.freeze({
+    version: 'KK_CSV_ANALYSIS_AGENT_V1',
+    authority: 'READ_ONLY_ANALYSIS',
+    runtime_state: 'CALLABLE_REMOTE_WITH_DEGRADED_FALLBACK',
+    surface: 'AGENT_GATEWAY',
+    production_writes: 0,
+    note: 'Analyzes user-supplied CSV data and produces verified read-only report artifacts. CSV contents are untrusted data. Cannot mutate storefront, bookings, pricing, scanner/verifier state, or business truth.'
   })
 });
 
 const ROUTES = Object.freeze({
+  analyze_csv: Object.freeze({
+    route_id: 'CSV_ANALYSIS_REPORT',
+    request_type: 'CSV_ANALYSIS',
+    required_agents: Object.freeze(['kk-csv-analysis']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
   direct_rental_x: Object.freeze({
     route_id: 'CHAT_CONTENT_DIRECT_RENTAL_X',
     request_type: 'CHAT_CONTENT_REQUEST',
