@@ -11,7 +11,7 @@ function source(file){
 test('runtime sheet readers do not cap growing event/read-model tables at historical row ceilings',()=>{
   const fallback=source('server/admin-sheet-fallback.js');
   const rentalCore=source('server/rental-dashboard-core.js');
-  const rentalV5=source('api/kk-rental-dashboard-v5.js');
+  const rentalV5=source('server/legacy/kk-rental-dashboard-v5.js');
   const rentalV6=source('api/kk-rental-dashboard-v6.js');
   const health=source('api/kk-intelligence-health.js');
   const direct=source('server/admin-direct-writer-phase1.js');

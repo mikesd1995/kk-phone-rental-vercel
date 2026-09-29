@@ -191,13 +191,11 @@ test('signed session remains authorized even when the runtime request headers ca
 
 test('Rental Analytics trusts only the server authorization marker for signed-session internal chaining',()=>{
   const v6=read('api/kk-rental-dashboard-v6.js');
-  const v5=read('api/kk-rental-dashboard-v5.js');
   const legacy=read('server/rental-dashboard-core.js');
   assert.match(v6,/AdminSecurity\.isAuthorizedRequest\(req\)/);
-  assert.match(v5,/AdminSecurity\.isAuthorizedRequest\(req\)/);
   assert.match(legacy,/AdminSecurity\.isAuthorizedRequest\(req\)/);
-  assert.match(v5,/provided!==expected/);
   assert.match(legacy,/provided!==expected/);
+  assert.equal(fs.existsSync(path.join(root,'api','kk-rental-dashboard-v5.js')),false,'retired v5 entrypoint must not return to deployable API surface');
 });
 
 test('signed-session Admin bootstrap reveals the protected workspace and compacts snapshot warning evidence',()=>{

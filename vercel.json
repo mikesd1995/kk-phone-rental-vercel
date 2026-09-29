@@ -353,15 +353,9 @@
     "api/kk-admin-guard.js": {
       "maxDuration": 60
     },
-    "api/kk-admin-snapshot-v5.js": {
-      "maxDuration": 60
-    },
     "api/kk-admin-snapshot-v6.js": {
       "maxDuration": 60,
       "includeFiles": "admin/**"
-    },
-    "api/kk-rental-dashboard-v5.js": {
-      "maxDuration": 60
     },
     "api/kk-rental-dashboard-v6.js": {
       "maxDuration": 60
