@@ -31,14 +31,31 @@ function credentialsFromEnv(env = process.env){
   return { email, privateKey };
 }
 
+function resolveSheetId(env = process.env){
+  const publicId=String(env.GOOGLE_SHEET_ID || '').trim();
+  const privateId=String(env.KK_CRM_SHEET_ID || '').trim();
+  if(publicId && privateId && publicId!==privateId){
+    return {sheetId:'',ok:false,classification:'CRM_SHEET_ID_CONFLICT',publicIdConfigured:true,privateIdConfigured:true};
+  }
+  return {
+    sheetId:publicId || privateId,
+    ok:!!(publicId || privateId),
+    classification:(publicId || privateId)?'CRM_SHEET_ID_RESOLVED':'CRM_SHEET_ID_MISSING',
+    publicIdConfigured:!!publicId,
+    privateIdConfigured:!!privateId
+  };
+}
+
 function configState(env = process.env){
-  const sheetId = String(env.KK_CRM_SHEET_ID || '').trim();
+  const resolved = resolveSheetId(env);
+  const sheetId = resolved.sheetId;
   const creds = credentialsFromEnv(env);
   return {
     sheetId,
     credentialsReady: !!creds,
-    configured: !!(sheetId && creds),
-    authMode: creds ? 'service_account' : 'none'
+    configured: !!(resolved.ok && sheetId && creds),
+    authMode: creds ? 'service_account' : 'none',
+    sheetIdState: resolved.classification
   };
 }
 
@@ -92,8 +109,12 @@ async function getAccessToken({env = process.env, fetchImpl = global.fetch} = {}
 }
 
 async function readValues({sheetId, range, env = process.env, fetchImpl = global.fetch} = {}){
-  const sid = String(sheetId || env.KK_CRM_SHEET_ID || '').trim();
-  if(!sid) throw Object.assign(new Error('KK_CRM_SHEET_ID is not configured'), {code:'CRM_SHEET_ID_MISSING'});
+  const resolved=resolveSheetId(env);
+  if(!sheetId && !resolved.ok){
+    throw Object.assign(new Error(resolved.classification==='CRM_SHEET_ID_CONFLICT'?'Google Sheet ID configuration conflicts across reader paths':'Google Sheet ID is not configured'), {code:resolved.classification});
+  }
+  const sid = String(sheetId || resolved.sheetId || '').trim();
+  if(!sid) throw Object.assign(new Error('Google Sheet ID is not configured'), {code:'CRM_SHEET_ID_MISSING'});
   if(!range) throw new Error('range is required');
   const token = await getAccessToken({env,fetchImpl});
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sid)}/values/${encodeURIComponent(range)}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`;
@@ -128,6 +149,7 @@ function resetTokenCache(){
 
 module.exports = {
   READONLY_SCOPE,
+  resolveSheetId,
   credentialsFromEnv,
   configState,
   createAssertion,
