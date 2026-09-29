@@ -81,6 +81,17 @@ If an existing Core event has `active_on_web=false`:
 
 A hidden Core event may still satisfy lineage/presence accounting. Hidden does not mean missing.
 
+## Persistent visibility history / tombstone authority
+
+Before Core promotion, read `18_Event_Visibility_Locks` and resolve the candidate against durable history.
+
+- `LOCKED` → `OWNER_HIDDEN_RECREATE_PROHIBITED`; do not create or reopen.
+- `SEEN_CORE` or `REOPENED` with no current Core row → historical reconciliation debt; do not create a replacement under a new event ID.
+- Existing Core row → reconcile/update the existing identity only; creation is not allowed.
+- Match exact `event_id` first, then normalized event name + date + venue. Event-ID regeneration is not an escape hatch.
+- A legitimate owner reopen must use the existing event update path with `visibility_owner_intent=explicit_owner_reopen`, which transitions the lock record to `REOPENED` while preserving history.
+- Final storefront readback must respect the data-plane lock even if a raw writer accidentally flips `01_Events.active_on_web` back to TRUE.
+
 ## Publish eligibility vs pricing confidence
 
 Verifier must treat these as separate decisions:
