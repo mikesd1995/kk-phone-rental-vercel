@@ -9,17 +9,20 @@ test('normalizes Google Drive poster to LINE-safe delivery width',()=>{
  assert.match(u,/sz=w768/);
 });
 test('accepts known poster CDNs and rejects arbitrary hosts',()=>{
- assert.equal(safePosterSource('https://wx2.sinaimg.cn/cmw960/a.jpg'),'https://wx2.sinaimg.cn/cmw960/a.jpg');
+ assert.equal(safePosterSource('https://drive.google.com/thumbnail?id=abc'),'https://drive.google.com/thumbnail?id=abc&sz=w768');
  assert.equal(safePosterSource('https://evil.example/a.jpg'),'');
  assert.equal(safePosterSource('http://drive.google.com/thumbnail?id=x'),'');
 });
 test('resolves canonical poster by event id and never from request URL',async()=>{
- const csv='event_id,event_name,poster_image_url\nEVT-TEST-001,Test,https://wx2.sinaimg.cn/cmw960/a.jpg\n';
+ const csv='event_id,event_name,poster_image_url\\nEVT-TEST-001,Test,https://drive.google.com/thumbnail?id=abc\\n';
  const source=await resolveSource('EVT-TEST-001',async()=>({ok:true,text:async()=>csv}));
- assert.equal(source,'https://wx2.sinaimg.cn/cmw960/a.jpg');
+ assert.equal(source,'https://drive.google.com/thumbnail?id=abc&sz=w768');
+});
+test('rejects social-mirror screenshot hosts so LINE falls back to text-only Flex',()=>{
+ assert.equal(safePosterSource('https://wx2.sinaimg.cn/cmw960/social-capture.jpg'),'');
 });
 test('poster fetch fails closed on non-image and oversized content',async()=>{
- const csv='event_id,event_name,poster_image_url\nEVT-TEST-001,Test,https://wx2.sinaimg.cn/cmw960/a.jpg\n';
+ const csv='event_id,event_name,poster_image_url\nEVT-TEST-001,Test,https://drive.google.com/thumbnail?id=abc\n';
  let n=0;
  const bad=await fetchPoster('EVT-TEST-001',async()=>++n===1?{ok:true,text:async()=>csv}:{ok:true,headers:new Headers({'content-type':'text/html'}),arrayBuffer:async()=>new ArrayBuffer(1)});
  assert.equal(bad.status,415);
