@@ -189,3 +189,28 @@ Activation gate:
 
 Runtime dependency decision:
 The Supabase ChatGPT plugin is a management convenience only. KK Unified Inbox runtime must communicate with the database directly through server-side credentials and does not depend on the ChatGPT plugin being connected.
+
+
+## Implementation log — 2026-09-30 P2.7 durable DB + verified LINE wiring
+Supabase management access recovered successfully.
+
+Durable infrastructure:
+- Organization: `mikesd`.
+- Existing unrelated `accounting for TH` project was intentionally not reused.
+- Created dedicated `kk-unified-inbox` project in `ap-southeast-1` after Supabase reported project cost as 0/month for this organization.
+- Applied migration `kk_unified_inbox_v1` successfully.
+- Real database acceptance was executed inside a rollback transaction using `service_role`: the same inbound logical message was submitted twice; final evidence was message_count=1, unread_count=1, audit_count=1.
+- Supabase performance advisor returned zero findings.
+- Security advisor returned three INFO-level `rls_enabled_no_policy` findings for the private Inbox tables. This is intentional deny-by-default: browser roles are revoked, RLS is enabled, and no browser policy is intended.
+
+LINE integration:
+- Updated the existing `server/line-booking-webhook.js`; no replacement webhook/API function was introduced.
+- Signature verification and JSON parsing remain the existing gate.
+- Only verified parsed events are passed to `kk-line-inbox-tee`.
+- Durable persistence is enabled only when both `KK_INBOX_SUPABASE_URL` and `KK_INBOX_SUPABASE_SERVICE_ROLE_KEY` exist server-side.
+- Without both credentials, Inbox persistence remains disabled and makes no network request.
+- Inbox persistence runs independently from Booking event processing; per-event persistence failures are isolated and summarized to server logs without exposing credential/provider payloads.
+- Added `tests/line-booking-inbox-tee.test.js` to guard disabled-without-credentials and dedicated server credential usage.
+
+Remaining activation blocker:
+The connected Supabase management tool deliberately exposes publishable keys but not the project's service-role/secret key. Therefore the server secret cannot be safely copied into Vercel by this implementation session. Production Inbox writes remain disabled until `KK_INBOX_SUPABASE_URL` and `KK_INBOX_SUPABASE_SERVICE_ROLE_KEY` are configured in Vercel server environment. Do not place the secret in Git, browser code, chat, or a public variable.
