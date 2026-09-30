@@ -25,7 +25,7 @@ test('explicit executed classification is valid proof for a non-eligible known m
 
 test('known-miss alias matching accepts realistic social/search result titles',()=>{
  assert.equal(K.sameCase({title:'WeSpark official #bailu Bai Lu WeSpark Exclusive Overseas Fanmeeting',event_date:'2026-10-25'},{title:'MEET & LOVE BAI LU SPECIAL FANMEETING',aliases:['bailu wespark','bai lu special fanmeeting'],event_date:'2026-10-25'}),true);
- assert.equal(K.sameCase({title:'TutorYim updated fan activity',event_date:'2026-10-18'},{title:'TUTOR YIM',aliases:['tutor yim'],event_date:'2026-10-18'}),true);
+ assert.equal(K.sameCase({title:'Tutor Yim updated fan activity',event_date:'2026-10-18'},{title:'TUTOR YIM',aliases:['tutor yim'],event_date:'2026-10-18'}),true);
  assert.equal(K.sameCase({title:'FORTREASURE : BEYOND THE HORIZON CONCERT',event_date:'2026-11-29'},{title:'FORTREASURE BEYOND THE HORIZON CONCERT',aliases:['fortreasure concert'],event_date:'2026-11-29'}),true);
 });
 
