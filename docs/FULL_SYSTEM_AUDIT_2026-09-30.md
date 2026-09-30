@@ -568,3 +568,30 @@ Acceptance classification:
 - Storefront source visual acceptance: PASS.
 - Fresh Production-browser screenshot matrix: NOT RUN in this session due connector dispatch/browser-execution limitation.
 - No Production/business data mutation was used for acceptance.
+
+
+## Execution update — LINE Flex missing-poster defect from owner screenshot
+
+Observed symptom:
+- LINE booking confirmation Flex card rendered event/package/price but no hero poster for Nineentertain 24th Anniversary Charity Concert.
+- Canonical 09_Web_Packages confirms the selected bundle is intentionally 590 THB (phone 490 + lens 100); price was not the defect.
+- Canonical 08_Web_Ready contains a poster URL for the exact event, so the missing image was a delivery/rendering defect rather than absent event data.
+
+Root cause / hardening:
+- Existing webhook resolved the canonical poster but passed the third-party poster URL directly into the LINE Flex hero.
+- LINE Flex image delivery has stricter image transport/format/dimension constraints and third-party hosts are not a controlled delivery surface.
+- PR #355 adds `/api/line-poster?event_id=...` and `server/line-poster.js`.
+- The endpoint resolves poster source from canonical 08_Web_Ready by event_id; the request cannot inject an arbitrary source URL.
+- HTTPS + explicit poster-host allowlist; JPEG/PNG only; 10 MB cap; fail-closed status on missing/invalid/oversized/non-image upstream.
+- Google Drive thumbnails are normalized from larger delivery widths to w768 for LINE compatibility.
+- Webhook Flex hero now points to the same-origin KK poster endpoint instead of a third-party URL.
+- Regression coverage includes the exact Nineentertain event shape plus Drive normalization, allowed/disallowed hosts, non-image and oversized failures.
+
+Execution evidence:
+- First candidate failed regression because an edit introduced literal escaped line breaks; no merge/deploy occurred.
+- Second candidate reached syntax pass but exposed two existing webhook tests that intentionally expected the old direct third-party URL; tests were updated to the new same-origin contract.
+- Final PR head `bed81f076791c819b6b558af337322453747fb0d` passed Admin Regression run `36672016271`: syntax, regression, continuous invariants, Code Intelligence benchmark, HF safety and HF fail-closed readiness all success.
+- PR #355 merged by squash to main as `f55e286c174b373aedfb60e7de6fade50b5b3421`.
+- Immediate Vercel Git deployment for that exact merge SHA is blocked by `Deployment rate limited — retry in 24 hours.`; no exact-SHA Production deployment exists yet.
+- Therefore code acceptance is PASS, Production acceptance is WAITING_BUILD_RATE_LIMIT. Do not claim the screenshot defect fixed in live LINE until exact SHA is READY and `/api/line-poster` is runtime-verified.
+- Production/business data writes: 0.
