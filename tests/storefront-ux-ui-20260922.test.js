@@ -47,3 +47,11 @@ test('new storefront assets are cache-busted',()=>{
   assert.match(html,/kk-concert-blue-theme-20260922\.css\?v=20260922-ux2/);
   assert.match(html,/script\.js\?v=[A-Za-z0-9][A-Za-z0-9._-]*/);
 });
+
+
+test('mobile clear-filter stays contained and readable when visible',()=>{
+  assert.match(theme,/@media\(max-width:480px\)[\s\S]*\.browse-controls-shell \.filter-clear-btn:not\(\[hidden\]\)/);
+  assert.match(theme,/\.filter-clear-btn:not\(\[hidden\]\)\{[^}]*flex:1 0 100%/);
+  assert.match(theme,/\.filter-clear-btn:not\(\[hidden\]\)\{[^}]*min-height:44px/);
+  assert.match(theme,/\.filter-clear-btn:not\(\[hidden\]\)\{[^}]*white-space:nowrap/);
+});
