@@ -2,8 +2,11 @@
 
 const crypto = require('crypto');
 const Watch = require('./discovery-source-watch-contract.js');
+const SourceRegistry = require('./kk-ultra-deep-source-registry.js');
+const Reconciliation = require('./kk-ultra-deep-reconciliation.js');
+const KnownMiss = require('./kk-ultra-deep-known-miss-regression.js');
 
-const WORKER_VERSION = 'KK_FULL_DISCOVERY_WORKER_V3';
+const WORKER_VERSION = 'KK_FULL_DISCOVERY_WORKER_V5';
 const ULTRA_DEEP_MODE = 'ULTRA_DEEP';
 const ULTRA_DEEP_REQUIRED_SOURCE_TIERS = Object.freeze([
   'OFFICIAL', 'TICKETING', 'VENUE', 'ARTIST_AGENCY',
@@ -48,18 +51,26 @@ function normalizeCandidate(c={}, fallback={}){
 }
 
 function coverageReport(observations=[],sourceReports=[]){
-  // Presence is not coverage. Ultra Deep gets credit only when the source
-  // observation was actually processed without a blocked/rejected provider result.
   const reportById=new Map(sourceReports.map(r=>[text(r&&r.observation_id),r]));
   const seen=new Set();
+  const proofByTier=Object.fromEntries(ULTRA_DEEP_REQUIRED_SOURCE_TIERS.map(t=>[t,[]]));
   for(const o of observations){
     const tier=text(o&&o.source_tier).toUpperCase();
-    if(!tier) continue;
+    if(!tier || !proofByTier[tier]) continue;
     const report=reportById.get(text(o&&o.observation_id));
     if(!report) continue;
     const status=text(report.status).toUpperCase();
-    if(status.startsWith('BLOCKED_') || status.includes('REJECTED')) continue;
+    if(status.startsWith('BLOCKED_') || status.includes('REJECTED') || status.includes('ERROR')) continue;
+    const calls=Number(report.discovery_call_count||0);
+    const unchanged=status==='NO_CHANGE';
+    if(calls<1 && !unchanged) continue;
     seen.add(tier);
+    proofByTier[tier].push({
+      observation_id:text(o&&o.observation_id),
+      status,
+      discovery_call_count:calls,
+      execution_proof:unchanged?'VALIDATED_UNCHANGED':'DISCOVERY_CALL'
+    });
   }
   const missing=ULTRA_DEEP_REQUIRED_SOURCE_TIERS.filter(t=>!seen.has(t));
   return {
@@ -67,6 +78,8 @@ function coverageReport(observations=[],sourceReports=[]){
     observed_source_tiers:[...seen].sort(),
     missing_source_tiers:missing,
     complete:missing.length===0,
+    proof_complete:missing.length===0,
+    proof_by_source_tier:proofByTier,
     coverage_percent:Number((((ULTRA_DEEP_REQUIRED_SOURCE_TIERS.length-missing.length)/ULTRA_DEEP_REQUIRED_SOURCE_TIERS.length)*100).toFixed(2))
   };
 }
@@ -91,6 +104,33 @@ function mergeCandidates(rows=[]){
     if((c.confidence||0)>(prior.confidence||0)) prior.confidence=c.confidence;
   }
   return {candidates:[...byKey.values()].slice(0,MAX_CANDIDATES),rejected};
+}
+
+function buildQualityEvidence(input,coverage,merged){
+  const universe=SourceRegistry.buildUniverseProof(input.source_universe_receipts||[]);
+  const reconciliation=Reconciliation.reconcileCandidateSets(
+    merged.candidates,
+    input.reconciliation_reference_candidates||[]
+  );
+  const knownMiss=KnownMiss.evaluate(
+    input.known_miss_probe_candidates||[],
+    input.known_miss_classifications||[]
+  );
+  const complete=coverage.proof_complete && universe.complete && reconciliation.complete && knownMiss.complete;
+  const blockers=[
+    ...(!coverage.proof_complete?['SOURCE_CLASS_PROOF_INCOMPLETE']:[]),
+    ...(!universe.complete?['SOURCE_UNIVERSE_PROOF_INCOMPLETE']:[]),
+    ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
+    ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[])
+  ];
+  return {
+    complete,
+    blockers,
+    source_class_proof:coverage,
+    source_universe_proof:universe,
+    reconciliation,
+    known_miss_regression:knownMiss
+  };
 }
 
 async function runFullDiscovery(input={},options={}){
@@ -134,13 +174,16 @@ async function runFullDiscovery(input={},options={}){
   const scanMode=text(input.scan_mode).toUpperCase();
   const coverage=coverageReport(observations,sourceReports);
   const ultraDeep=scanMode===ULTRA_DEEP_MODE;
+  const qualityEvidence=ultraDeep?buildQualityEvidence(input,coverage,merged):null;
+  const ultraDeepReady=!ultraDeep || qualityEvidence.complete;
   const hardFailures=sourceReports.filter(r=>String(r.status).startsWith('BLOCKED_')||String(r.status).includes('REJECTED'));
   const handoff={
-    handoff_version:'kk-full-discovery-handoff-v1',
-    handoff_state:ultraDeep && !coverage.complete?'HOLD_FOR_COVERAGE':'READY_FOR_VERIFIER',
+    handoff_version:'kk-full-discovery-handoff-v2',
+    handoff_state:ultraDeepReady?'READY_FOR_VERIFIER':'HOLD_FOR_COVERAGE',
     route:'EXISTING_SCANNER_TO_VERIFIER_HANDOFF',
     scan_mode:scanMode||'STANDARD',
     source_coverage:coverage,
+    quality_evidence:qualityEvidence,
     candidates:merged.candidates,
     candidate_count:merged.candidates.length,
     dedup_rejected:merged.rejected,
@@ -155,12 +198,14 @@ async function runFullDiscovery(input={},options={}){
 
   return {
     worker_version:WORKER_VERSION,
-    status:ultraDeep && !coverage.complete
+    status:!ultraDeepReady
       ? 'BLOCKED_INCOMPLETE_SOURCE_COVERAGE'
       : (merged.candidates.length?'READY_FOR_VERIFIER':(hardFailures.length?'DISCOVERY_BLOCKED_OR_EMPTY':'NO_NEW_CANDIDATES')),
+    blockers:qualityEvidence?qualityEvidence.blockers:[],
     observations_received:observations.length,
     source_reports:sourceReports,
     source_coverage:coverage,
+    quality_evidence:qualityEvidence,
     handoff,
     authoritative:false,
     verifier_required:true,
@@ -170,4 +215,7 @@ async function runFullDiscovery(input={},options={}){
   };
 }
 
-module.exports={WORKER_VERSION,ULTRA_DEEP_MODE,ULTRA_DEEP_REQUIRED_SOURCE_TIERS,MAX_OBSERVATIONS,MAX_CANDIDATES,candidateKey,normalizeCandidate,coverageReport,mergeCandidates,runFullDiscovery};
+module.exports={
+  WORKER_VERSION,ULTRA_DEEP_MODE,ULTRA_DEEP_REQUIRED_SOURCE_TIERS,MAX_OBSERVATIONS,MAX_CANDIDATES,
+  candidateKey,normalizeCandidate,coverageReport,mergeCandidates,buildQualityEvidence,runFullDiscovery
+};

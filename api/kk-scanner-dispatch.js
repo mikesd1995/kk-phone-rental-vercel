@@ -3,6 +3,7 @@
 const Runtime=require('../server/external-scanner-runtime');
 const Ledger=require('../server/runtime-ledger');
 const OidcBridge=require('../server/runtime-ledger-oidc-bridge');
+const UltraDeepRuntime=require('../server/kk-ultra-deep-runtime-runner');
 
 function text(value){
   return String(value==null?'':value).trim();
@@ -53,6 +54,9 @@ function readinessSnapshot(env=process.env){
   const mode=text(env.KK_EXTERNAL_SCANNER_MODE).toLowerCase()||'unset';
   const hmacSecretConfigured=!!text(env.KK_EXTERNAL_SCANNER_SECRET);
   const oidcProbeEnabled=enabled(env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED);
+  const executionEnabled=enabled(env.KK_EXTERNAL_SCANNER_EXECUTION_ENABLED);
+  const searxngConfigured=/^https:\/\//i.test(text(env.KK_SEARXNG_ENDPOINT));
+  const scannerExecutionCapable=externalScannerEnabled && mode==='execute-readonly' && executionEnabled && searxngConfigured;
   return {
     phase:'EXTERNAL_SCANNER_WITNESS_V1',
     external_scanner_enabled:externalScannerEnabled,
@@ -73,7 +77,10 @@ function readinessSnapshot(env=process.env){
       hmacSecretConfigured &&
       ledger.configured
     ),
-    scanner_execution_capable:false,
+    execution_enabled:executionEnabled,
+    unknown_url_search_configured:searxngConfigured,
+    ready_for_execution:(scannerExecutionCapable && hmacSecretConfigured && ledger.configured),
+    scanner_execution_capable:scannerExecutionCapable,
     business_writes_capable:false
   };
 }
@@ -105,10 +112,11 @@ async function ledgerConnectivityProbe({
   }
 
   try{
+    const probeLedgerMode=text(env.KK_EXTERNAL_SCANNER_MODE).toLowerCase()==='execute-readonly'?'EXECUTE_READONLY':'WITNESS_ONLY';
     const result=await listExpectations({
       env,
       role:'SCANNER',
-      mode:'WITNESS_ONLY',
+      mode:probeLedgerMode,
       limit:1
     });
     return {
@@ -184,8 +192,12 @@ module.exports=async function handler(req,res){
   if(!enabled(env.KK_EXTERNAL_SCANNER_ENABLED)){
     return json(res,503,{ok:false,error_code:'EXTERNAL_SCANNER_DISABLED',business_writes:0});
   }
-  if(text(env.KK_EXTERNAL_SCANNER_MODE).toLowerCase()!=='witness'){
-    return json(res,503,{ok:false,error_code:'EXTERNAL_SCANNER_MODE_NOT_WITNESS',business_writes:0});
+  const scannerMode=text(env.KK_EXTERNAL_SCANNER_MODE).toLowerCase();
+  if(!['witness','execute-readonly'].includes(scannerMode)){
+    return json(res,503,{ok:false,error_code:'EXTERNAL_SCANNER_MODE_INVALID',business_writes:0});
+  }
+  if(scannerMode==='execute-readonly' && !enabled(env.KK_EXTERNAL_SCANNER_EXECUTION_ENABLED)){
+    return json(res,503,{ok:false,error_code:'EXTERNAL_SCANNER_EXECUTION_DISABLED',business_writes:0});
   }
 
   const secret=text(env.KK_EXTERNAL_SCANNER_SECRET);
@@ -234,18 +246,56 @@ module.exports=async function handler(req,res){
     nonce:verified.envelope.nonce,
     payload_hash:verified.payload_hash,
     status:'EXPECTED',
-    mode:'WITNESS_ONLY'
+    mode:scannerMode==='execute-readonly'?'EXECUTE_READONLY':'WITNESS_ONLY'
   };
 
   try{
     const result=await Ledger.recordExpectation({env,row});
-    return json(res,202,{
-      ok:true,
-      phase:'EXTERNAL_SCANNER_WITNESS_V1',
+    if(scannerMode==='witness'){
+      return json(res,202,{
+        ok:true,
+        phase:'EXTERNAL_SCANNER_WITNESS_V1',
+        occurrence_id:row.occurrence_id,
+        ledger_inserted:result.inserted,
+        idempotent_duplicate:result.idempotent_duplicate,
+        scanner_execution_started:false,
+        business_writes:0
+      });
+    }
+    if(!/^https:\/\//i.test(text(env.KK_SEARXNG_ENDPOINT))){
+      return json(res,503,{
+        ok:false,
+        phase:'EXTERNAL_SCANNER_EXECUTE_READONLY_V1',
+        occurrence_id:row.occurrence_id,
+        ledger_inserted:result.inserted,
+        idempotent_duplicate:result.idempotent_duplicate,
+        scanner_execution_started:false,
+        error_code:'UNKNOWN_URL_SEARCH_NOT_CONFIGURED',
+        business_writes:0
+      });
+    }
+    const scheduledDate=text(verified.envelope.scheduled_at).slice(0,10);
+    const scan=await UltraDeepRuntime.runMonthlyUltraDeep({
+      current_date:scheduledDate,
+      location:'Bangkok Thailand'
+    },{
+      publicWebOptions:{searxng_endpoint:text(env.KK_SEARXNG_ENDPOINT)}
+    });
+    return json(res,scan.full?202:503,{
+      ok:scan.full,
+      phase:'EXTERNAL_SCANNER_EXECUTE_READONLY_V1',
       occurrence_id:row.occurrence_id,
       ledger_inserted:result.inserted,
       idempotent_duplicate:result.idempotent_duplicate,
-      scanner_execution_started:false,
+      scanner_execution_started:true,
+      scanner_status:scan.status,
+      blockers:scan.blockers,
+      month:scan.month,
+      candidate_count:scan.candidate_count,
+      source_universe_complete:scan.source_universe.complete,
+      reconciliation_gap_count:scan.reconciliation.reconciliation_gap_count,
+      known_miss_complete:scan.known_miss_regression.complete,
+      verifier_required:true,
       business_writes:0
     });
   }catch(err){

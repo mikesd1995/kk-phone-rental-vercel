@@ -19,6 +19,7 @@ const UltraDeepPublicWeb = require('./kk-ultra-deep-public-web-adapters.js');
 const MonthlyDeepScan = require('./kk-monthly-deep-scan-query-plan.js');
 const FinalPricingPolicy = require('./kk-final-pricing-policy.js');
 const StorefrontUx = require('./kk-storefront-ux-reviewer.js');
+const UltraDeepRuntime = require('./kk-ultra-deep-runtime-runner.js');
 
 const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V13';
 
@@ -72,6 +73,15 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner'],
         result: UltraDeepV3.planGapSearch(input.observations || [], input.options || {})
+      };
+
+    case 'execute_monthly_ultra_deep':
+      return {
+        invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner'],
+        result: await UltraDeepRuntime.runMonthlyUltraDeep(input, {
+          publicWebOptions: options.publicWebOptions || {},
+          providers: options.ultraDeepProviders || {}
+        })
       };
 
     case 'execute_ultra_deep_gaps':

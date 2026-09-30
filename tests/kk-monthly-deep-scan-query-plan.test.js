@@ -1,3 +1,13 @@
 'use strict';const test=require('node:test');const assert=require('node:assert/strict');const P=require('../server/kk-monthly-deep-scan-query-plan.js');
 test('next month resolves deterministically from supplied date',()=>{const r=P.build({current_date:'2026-09-28',location:'Bangkok Thailand'});assert.equal(r.range.month,'2026-10');assert.equal(r.range.start_date,'2026-10-01');assert.equal(r.range.end_date,'2026-10-31');assert.equal(new Set(r.gap_tasks.map(x=>x.source_tier)).size,8);assert.ok(r.gap_tasks.every(x=>x.query.includes('2026-10')));});
 test('explicit month handles leap-year end date',()=>{assert.equal(P.monthRange({month:'2028-02'}).end_date,'2028-02-29');});
+
+test('monthly plan expands named source universe beyond generic tier queries',()=>{
+ const r=P.build({month:'2026-10',location:'Bangkok Thailand'});
+ assert.ok(r.source_universe_task_count>=20);
+ assert.ok(r.gap_tasks.some(x=>x.source_id==='eventpop'));
+ assert.ok(r.gap_tasks.some(x=>x.source_id==='zipevent'));
+ assert.ok(r.gap_tasks.some(x=>x.source_id==='iconsiam-hall'));
+ assert.ok(r.gap_tasks.some(x=>x.source_id==='watsons-campaigns'));
+ assert.ok(r.gap_tasks.filter(x=>x.source_id).every(x=>x.stop_condition==='EXECUTE_AND_RECORD_RECEIPT'));
+});

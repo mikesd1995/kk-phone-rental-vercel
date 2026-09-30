@@ -10,3 +10,10 @@ test('searxng discovers unknown HTTPS URLs from JSON search results',async()=>{
  assert.equal(rows.length,1);assert.equal(rows[0].title,'New Event');assert.equal(rows[0].source_url,'https://official.example/event');
 });
 test('searxng remains safely unbound when no endpoint is configured',async()=>{const old=process.env.KK_SEARXNG_ENDPOINT;delete process.env.KK_SEARXNG_ENDPOINT;try{const rows=await A.searxng({query:'event'},{});assert.deepEqual(rows,[]);}finally{if(old)process.env.KK_SEARXNG_ENDPOINT=old;}});
+
+test('createProviders exposes SearXNG only when an HTTPS endpoint is configured',()=>{
+ const none=A.createProviders({searxng_endpoint:''});
+ assert.equal(typeof none.SEARXNG,'undefined');
+ const bound=A.createProviders({searxng_endpoint:'https://search.example/search',fetchFn:async()=>response(JSON.stringify({results:[]}))});
+ assert.equal(typeof bound.SEARXNG,'function');
+});
