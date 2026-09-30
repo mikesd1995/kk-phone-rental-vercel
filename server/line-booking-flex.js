@@ -12,7 +12,7 @@ function httpsImageUrl(value) {
     return u.protocol === 'https:' ? u.href : '';
   } catch (_) { return ''; }
 }
-function buildBookingFlex({event={}, package:pkg={}, customer={}}={}) {
+function buildBookingFlex({event={}, package:pkg={}, customer={}, booking={}}={}) {
   const image=httpsImageUrl(event.poster_image_url || event.poster_url || event.image_url);
   const name=clean(event.event_name || event.name, 'KK Phone Rental');
   const date=clean(event.event_date || event.date);
@@ -21,6 +21,7 @@ function buildBookingFlex({event={}, package:pkg={}, customer={}}={}) {
   const price=clean(pkg.price_display || pkg.price);
   const nickname=clean(customer.nickname || customer.name, '');
   const pickup=clean(customer.pickup_time || customer.pickup || customer.time, '');
+  const bookingId=clean(booking.booking_id, '');
   const rows=[
     {type:'text',text:'วันที่  '+date,size:'sm',wrap:true},
     {type:'text',text:'สถานที่  '+venue,size:'sm',wrap:true},
@@ -28,6 +29,7 @@ function buildBookingFlex({event={}, package:pkg={}, customer={}}={}) {
     {type:'text',text:'แพ็กเกจ  '+packageName,size:'sm',wrap:true,margin:'md'},
     {type:'text',text:'ราคา  '+price,size:'sm',weight:'bold',wrap:true}
   ];
+  if(bookingId) rows.push({type:'text',text:'Booking ID  '+bookingId,size:'sm',weight:'bold',wrap:true,margin:'md'});
   if(nickname) rows.push({type:'text',text:'ชื่อผู้จอง  '+nickname,size:'sm',wrap:true,margin:'md'});
   if(pickup) rows.push({type:'text',text:'เวลารับอุปกรณ์  '+pickup,size:'sm',wrap:true});
   rows.push(
