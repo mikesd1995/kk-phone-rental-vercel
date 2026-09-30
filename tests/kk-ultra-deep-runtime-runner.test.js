@@ -5,7 +5,7 @@ const Runner=require('../server/kk-ultra-deep-runtime-runner.js');
 const KnownMiss=require('../server/kk-ultra-deep-known-miss-regression.js');
 
 test('runtime runner fails closed when no unknown-URL search provider is bound',async()=>{
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{publicWebOptions:{searxng_endpoint:'',ddg_enabled:false}});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}});
  assert.equal(out.status,'HOLD_FOR_COVERAGE');
  assert.equal(out.full,false);
  assert.ok(out.blockers.includes('UNKNOWN_URL_SEARCH_NOT_BOUND'));
