@@ -26,3 +26,29 @@ test('provider executor falls from DDG to Bing when DDG has no evidence',async()
  assert.equal(r.provider,'BING_HTML');
  assert.deepEqual(r.attempts.map(x=>x.status),['NO_EVIDENCE','EVIDENCE_FOUND']);
 });
+
+
+test('provider executor tries query variants independently before falling to the next provider',async()=>{
+ const seen=[];
+ const r=await Exec.executeGapTask({
+   source_tier:'SOCIAL',
+   query:'canonical event Bangkok Thailand',
+   query_variants:['event alias Bangkok Thailand','second alias Bangkok Thailand'],
+   providers:['DDG_HTML','BING_HTML']
+ },{providers:{
+   DDG_HTML:async task=>{seen.push('DDG:'+task.query);return task.query==='event alias Bangkok Thailand'?[{title:'Alias Event',source_url:'https://example.com/alias'}]:[];},
+   BING_HTML:async task=>{seen.push('BING:'+task.query);return [{title:'Must not run',source_url:'https://example.com/bing'}];}
+ }});
+ assert.equal(r.status,'EVIDENCE_FOUND');
+ assert.equal(r.provider,'DDG_HTML');
+ assert.deepEqual(seen,['DDG:canonical event Bangkok Thailand','DDG:event alias Bangkok Thailand']);
+ assert.deepEqual(r.attempts.map(x=>x.status),['NO_EVIDENCE','EVIDENCE_FOUND']);
+ assert.equal(r.attempts[1].query,'event alias Bangkok Thailand');
+});
+
+test('queryVariants deduplicates canonical and alias queries while preserving order',()=>{
+ assert.deepEqual(
+   Exec.queryVariants({query:'A',query_variants:['A','B','B','C']}),
+   ['A','B','C']
+ );
+});
