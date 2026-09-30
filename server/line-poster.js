@@ -5,7 +5,6 @@ const MAX_BYTES=10*1024*1024;
 const ALLOWED_HOSTS=[
   /(^|\.)googleusercontent\.com$/i,
   /^drive\.google\.com$/i,
-  /(^|\.)sinaimg\.cn$/i,
   /^kk-phone-rental\.vercel\.app$/i
 ];
 function parseCsv(text){
