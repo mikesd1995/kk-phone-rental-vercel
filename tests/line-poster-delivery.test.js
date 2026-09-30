@@ -14,7 +14,7 @@ test('accepts known poster CDNs and rejects arbitrary hosts',()=>{
  assert.equal(safePosterSource('http://drive.google.com/thumbnail?id=x'),'');
 });
 test('resolves canonical poster by event id and never from request URL',async()=>{
- const csv='event_id,event_name,poster_image_url\\nEVT-TEST-001,Test,https://drive.google.com/thumbnail?id=abc\\n';
+ const csv='event_id,event_name,poster_image_url\nEVT-TEST-001,Test,https://drive.google.com/thumbnail?id=abc\n';
  const source=await resolveSource('EVT-TEST-001',async()=>({ok:true,text:async()=>csv}));
  assert.equal(source,'https://drive.google.com/thumbnail?id=abc&sz=w768');
 });
