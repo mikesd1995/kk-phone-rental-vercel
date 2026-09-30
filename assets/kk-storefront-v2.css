@@ -115,3 +115,12 @@ footer{margin-top:56px!important;padding:36px 0!important;color:var(--v2-muted)}
  .status-filter-bar .month-select-wrap{flex:0 0 82px!important;width:82px!important;min-width:0!important}
  .status-filter-bar .month-select{width:82px!important;max-width:82px!important;min-width:0!important;padding-left:8px!important;padding-right:22px!important;font-size:16px!important}
 }
+
+/* 320px text containment: long venue/footer copy must wrap or ellipsize inside the content column. */
+.pi-venue{max-width:100%!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+footer,footer .footer-brand,footer .footer-tagline,footer .trust-note{max-width:100%!important;min-width:0!important;overflow-wrap:anywhere!important;word-break:normal!important}
+@media(max-width:350px){
+ .v2-section-heading,.v2-section-heading>span{max-width:100%!important;min-width:0!important;overflow-wrap:anywhere!important}
+ footer .footer-brand{font-size:24px!important}
+ footer .footer-tagline{font-size:20px!important}
+}
