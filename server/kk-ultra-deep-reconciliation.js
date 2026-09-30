@@ -1,16 +1,16 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_RECONCILIATION_V1';
+const VERSION='KK_ULTRA_DEEP_RECONCILIATION_V2';
 
 function text(v){return String(v==null?'':v).trim();}
-function norm(v){return text(v).toLowerCase().replace(/[^a-z0-9฀-๿]+/g,' ').replace(/s+/g,' ').trim();}
+function norm(v){return text(v).toLowerCase().replace(/[^a-z0-9\u0E00-\u0E7F]+/g,' ').replace(/\s+/g,' ').trim();}
 function date(v){const s=text(v);if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'):s;}
 
 function key(row={}){
   return [norm(row.title||row.event_name),date(row.event_date)].join('|');
 }
 
-function reconcileCandidateSets(discovered=[],reference=[]){
+function reconcileCandidateSets(discovered=[],reference=[],options={}){
   const found=new Set((Array.isArray(discovered)?discovered:[]).map(key).filter(x=>x!=='|'));
   const refs=(Array.isArray(reference)?reference:[]).filter(Boolean);
   const missing=[];
@@ -26,9 +26,13 @@ function reconcileCandidateSets(discovered=[],reference=[]){
       source_url:text(row.source_url)||null
     });
   }
+  const referenceRequired=options.require_reference===true;
+  const referenceEvidencePresent=refs.length>0;
   return {
     version:VERSION,
-    complete:missing.length===0,
+    complete:missing.length===0&&(!referenceRequired||referenceEvidencePresent),
+    reference_required:referenceRequired,
+    reference_evidence_present:referenceEvidencePresent,
     reconciliation_gap_count:missing.length,
     reference_count:refs.length,
     matched_count:matched.length,
@@ -45,7 +49,7 @@ function classifyAgainstSot(candidates=[],context={}){
   const eventByKey=new Map(events.map(e=>[key(e),e]));
   const archiveKeys=new Set(archive.map(key));
   const lockedIds=new Set(locks.filter(x=>String(x&&x.locked||x&&x.active||'').toLowerCase()!=='false').map(x=>text(x.event_id)));
-  const bookedIds=new Set(bookings.filter(x=>!['cancelled','canceled','no_show'].includes(norm(x.booking_status))).map(x=>text(x.event_id)));
+  const bookedIds=new Set(bookings.filter(x=>!['cancelled','canceled','no show','no_show'].includes(norm(x.booking_status))).map(x=>text(x.event_id)));
 
   return (Array.isArray(candidates)?candidates:[]).map(c=>{
     const existing=eventByKey.get(key(c));
