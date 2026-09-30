@@ -222,3 +222,20 @@ The connected Supabase management tool deliberately exposes publishable keys but
 - Production writes remain 0 until an authenticated entitlement probe succeeds against the KK X developer app/account.
 - LINE and X identities remain separate unless the owner explicitly links them.
 - No X outbound send or auto-send has been enabled.
+
+## Owner action — X Developer App connection
+The repository-side X adapter is ready, but account authorization cannot be completed from repository tooling.
+
+Required owner-side action:
+1. Sign in to the X Developer Portal using the KK Phone Rental X account.
+2. Use an existing Project/App if one already exists; otherwise create a dedicated app for KK Unified Inbox.
+3. Configure user-context authentication and the permissions required by X for Direct Message lookup/manage.
+4. Keep all client secrets and user tokens out of chat, source control and browser-delivered JavaScript.
+5. Store credentials only in the server deployment secret store using the contract names: KK_X_CLIENT_ID, KK_X_CLIENT_SECRET, KK_X_USER_ACCESS_TOKEN.
+6. After configuration, run an authenticated DM entitlement probe. Credential presence alone is never acceptance.
+
+Acceptance after owner authorization:
+- DM lookup succeeds for the authorized KK account.
+- A controlled inbound DM is normalized to channel=x and persisted exactly once.
+- No LINE/X identity is auto-merged.
+- No outbound X message is sent until owner-approved reply is implemented and separately accepted.
