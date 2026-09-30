@@ -1,12 +1,13 @@
 {
-  "version": "KK_STOREFRONT_UX_POLICY_V1",
+  "version": "KK_STOREFRONT_UX_POLICY_V2",
   "principles": [
     "Keep the event inventory visible and easy to scan.",
     "Sticky controls may reduce navigation effort but must not dominate the mobile viewport.",
     "Primary conversion actions must stay reachable without obscuring event content.",
     "Preserve iOS-safe form sizing and accessible touch targets.",
     "Prefer stable layout over decorative motion, blur, or density.",
-    "Every visual change requires multi-viewport acceptance before production."
+    "Every visual change requires multi-viewport acceptance before production.",
+    "Secondary reset controls must never compress into unreadable multi-line pills; on constrained mobile widths they may occupy a dedicated row."
   ],
   "viewports": {
     "mobile": {
@@ -45,7 +46,15 @@
       "preferred_backdrop_blur_px": 18
     }
   },
-  "acceptance_viewports": [320, 375, 390, 430, 480, 768, 1024],
+  "acceptance_viewports": [
+    320,
+    375,
+    390,
+    430,
+    480,
+    768,
+    1024
+  ],
   "required_checks": [
     "no_horizontal_overflow",
     "ios_form_controls_at_least_16px",
@@ -55,7 +64,8 @@
     "filter_toolbar_not_wrapped_on_mobile",
     "event_cards_not_obscured",
     "safe_area_respected",
-    "reduced_motion_respected"
+    "reduced_motion_respected",
+    "clear_filter_control_contained_and_readable"
   ],
   "safety": {
     "production_writes": 0,
@@ -66,5 +76,18 @@
     "inventory_mutation": false,
     "machine_sot_mutation": false,
     "owner_review_required": true
+  },
+  "enforcement": {
+    "product_ux_agent_required_for": [
+      "storefront_layout",
+      "storefront_flow",
+      "responsive_ui",
+      "admin_ui",
+      "product_flow"
+    ],
+    "route_task": "storefront_ux_review",
+    "visual_qa_task": "storefront_visual_qa",
+    "implementation_requires_regression_test": true,
+    "production_acceptance_required": true
   }
 }
