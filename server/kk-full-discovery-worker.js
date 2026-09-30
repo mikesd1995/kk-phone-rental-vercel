@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const Watch = require('./discovery-source-watch-contract.js');
 
-const WORKER_VERSION = 'KK_FULL_DISCOVERY_WORKER_V2';
+const WORKER_VERSION = 'KK_FULL_DISCOVERY_WORKER_V3';
 const ULTRA_DEEP_MODE = 'ULTRA_DEEP';
 const ULTRA_DEEP_REQUIRED_SOURCE_TIERS = Object.freeze([
   'OFFICIAL', 'TICKETING', 'VENUE', 'ARTIST_AGENCY',
@@ -47,8 +47,20 @@ function normalizeCandidate(c={}, fallback={}){
   return out;
 }
 
-function coverageReport(observations=[]){
-  const seen=new Set(observations.map(o=>text(o&&o.source_tier).toUpperCase()).filter(Boolean));
+function coverageReport(observations=[],sourceReports=[]){
+  // Presence is not coverage. Ultra Deep gets credit only when the source
+  // observation was actually processed without a blocked/rejected provider result.
+  const reportById=new Map(sourceReports.map(r=>[text(r&&r.observation_id),r]));
+  const seen=new Set();
+  for(const o of observations){
+    const tier=text(o&&o.source_tier).toUpperCase();
+    if(!tier) continue;
+    const report=reportById.get(text(o&&o.observation_id));
+    if(!report) continue;
+    const status=text(report.status).toUpperCase();
+    if(status.startsWith('BLOCKED_') || status.includes('REJECTED')) continue;
+    seen.add(tier);
+  }
   const missing=ULTRA_DEEP_REQUIRED_SOURCE_TIERS.filter(t=>!seen.has(t));
   return {
     required_source_tiers:[...ULTRA_DEEP_REQUIRED_SOURCE_TIERS],
@@ -120,7 +132,7 @@ async function runFullDiscovery(input={},options={}){
 
   const merged=mergeCandidates(staged);
   const scanMode=text(input.scan_mode).toUpperCase();
-  const coverage=coverageReport(observations);
+  const coverage=coverageReport(observations,sourceReports);
   const ultraDeep=scanMode===ULTRA_DEEP_MODE;
   const hardFailures=sourceReports.filter(r=>String(r.status).startsWith('BLOCKED_')||String(r.status).includes('REJECTED'));
   const handoff={
