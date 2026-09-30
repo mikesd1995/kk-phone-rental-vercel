@@ -1322,6 +1322,7 @@ function buildBookingMsg(c,p){
     "📅 "+tr("line_date")+": "+lineVal(c&&c.date),
     "📍 "+tr("line_venue")+": "+lineVal(c&&c.venue),
     "📱 รุ่น: "+lineVal(p&&p.model),
+    "💰 "+tr("line_price")+": "+((p&&p.inquiryOnly)?tr("ask_price"):fmtPriceLine(p&&p.price)),
     "⏰ "+tr("line_pickup")+": ",
     "",
     "👤 "+tr("line_nickname")+": ",
