@@ -84,3 +84,27 @@ test('remaster regression survives official venue ticketing discovery',async()=>
  assert.ok(r.handoff.candidates.some(c=>c.title==='REMASTER CONCERT' && c.event_date==='2026-10-10'));
  assert.equal(r.production_writes,0);
 });
+
+test('ultra deep FULL 8/8 exposes execution proof for every required source tier',async()=>{
+ const tiers=Worker.ULTRA_DEEP_REQUIRED_SOURCE_TIERS;
+ const observations=tiers.map((tier,i)=>obsTier('full-proof-'+i,tier,i===0?'NEW':'UNCHANGED'));
+ const provider_results=tiers.map((tier,i)=>i===0?result({title:'Proof Event',event_date:'2026-10-10',venue:'Bangkok',artist:['Artist'],source_url:'https://proof.example/event',confidence:.9}):result([]));
+ const r=await Worker.runFullDiscovery({scan_mode:'ULTRA_DEEP',observations,provider_results},{sourceWatchOptions:{nowMs:Date.parse(NOW)}});
+ assert.equal(r.status,'READY_FOR_VERIFIER');
+ assert.equal(r.source_coverage.coverage_percent,100);
+ assert.equal(r.source_coverage.proof_complete,true);
+ for(const tier of tiers){
+   assert.ok(r.source_coverage.proof_by_source_tier[tier].length>=1);
+   assert.ok(r.source_coverage.proof_by_source_tier[tier][0].discovery_call_count>=1);
+ }
+});
+
+test('ultra deep cannot claim FULL when a tier has no discovery execution proof',()=>{
+ const tiers=Worker.ULTRA_DEEP_REQUIRED_SOURCE_TIERS;
+ const observations=tiers.map((tier,i)=>({observation_id:'manual-'+i,source_tier:tier}));
+ const reports=tiers.map((tier,i)=>({observation_id:'manual-'+i,status:'NO_NEW_CANDIDATES',discovery_call_count:i===0?0:1}));
+ const coverage=Worker.coverageReport(observations,reports);
+ assert.equal(coverage.proof_complete,false);
+ assert.equal(coverage.coverage_percent,87.5);
+ assert.ok(coverage.missing_source_tiers.includes(tiers[0]));
+});
