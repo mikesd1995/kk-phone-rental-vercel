@@ -31,3 +31,46 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
  assert.equal(out.production_writes,0);
  assert.equal(out.verifier_required,true);
 });
+
+
+test('runtime known-miss probe can recover through an alias-only query without weakening FULL gates',async()=>{
+ const target=KnownMiss.CORPUS.find(c=>c.case_id==='remaster-20261010');
+ const byCase=new Map(KnownMiss.CORPUS.map(c=>['knownmiss:'+c.case_id,c]));
+ const seenTargetQueries=[];
+ const search=async task=>{
+   const c=byCase.get(task.source_id);
+   if(c){
+     if(c.case_id===target.case_id){
+       seenTargetQueries.push(task.query);
+       if(task.query==='remaster concert Bangkok Thailand'){
+         return [{title:'REMASTER CONCERT',event_date:c.event_date,source_url:'https://proof.example/remaster-alias'}];
+       }
+       return [];
+     }
+     return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
+   }
+   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+ };
+ const out=await Runner.runMonthlyUltraDeep(
+   {month:'2026-10',location:'Bangkok Thailand'},
+   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+ );
+ assert.equal(out.status,'READY_FOR_VERIFIER');
+ assert.equal(out.full,true);
+ assert.equal(out.source_universe.complete,true);
+ assert.equal(out.reconciliation.reconciliation_gap_count,0);
+ assert.equal(out.known_miss_regression.complete,true);
+ assert.ok(seenTargetQueries.includes('REMASTER CONCERT Bangkok Thailand'));
+ assert.ok(seenTargetQueries.includes('remaster concert Bangkok Thailand'));
+ assert.equal(out.production_writes,0);
+});
+
+test('known-miss plan keeps one task per case and does not concatenate every alias into one over-constrained query',()=>{
+ const plan=Runner.buildKnownMissPlan();
+ assert.equal(plan.version,'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2');
+ assert.equal(plan.gap_tasks.length,KnownMiss.CORPUS.length);
+ const remaster=plan.gap_tasks.find(x=>x.source_id==='knownmiss:remaster-20261010');
+ assert.equal(remaster.query,'REMASTER CONCERT Bangkok Thailand');
+ assert.deepEqual(remaster.query_variants,['remaster concert Bangkok Thailand']);
+ assert.ok(!remaster.query.includes('2026-10-10'));
+});

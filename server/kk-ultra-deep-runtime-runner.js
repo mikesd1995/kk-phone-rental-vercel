@@ -66,14 +66,19 @@ function buildReferencePlan(input={}){
 }
 function buildKnownMissPlan(){
   return {
-    version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V1',
-    gap_tasks:KnownMiss.CORPUS.map(c=>({
-      source_tier:'SOCIAL',
-      source_id:'knownmiss:'+c.case_id,
-      query:[c.title,...(Array.isArray(c.aliases)?c.aliases:[]),c.event_date,'Bangkok Thailand'].filter(Boolean).join(' '),
-      providers:['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
-      evidence_required:true
-    })),
+    version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2',
+    gap_tasks:KnownMiss.CORPUS.map(c=>{
+      const phrases=[c.title,...(Array.isArray(c.aliases)?c.aliases:[])].map(text).filter(Boolean);
+      const queries=[...new Set(phrases.map(v=>v+' Bangkok Thailand'))];
+      return {
+        source_tier:'SOCIAL',
+        source_id:'knownmiss:'+c.case_id,
+        query:queries[0]||[c.title,c.event_date,'Bangkok Thailand'].filter(Boolean).join(' '),
+        query_variants:queries.slice(1),
+        providers:['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+        evidence_required:true
+      };
+    }),
     production_writes:0
   };
 }
