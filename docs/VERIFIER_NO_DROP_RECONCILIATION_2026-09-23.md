@@ -58,9 +58,19 @@ server/verifier-no-drop-reconciliation.js provides a zero-write deterministic co
 - AI Inbox READY selection
 - exact Candidate pairing
 - pairing-debt detection
+- reverse Candidate READY audit (Candidate READY with no AI packet, or Candidate READY after its AI packet terminalized)
 - multi-day family completeness accounting
 - reverse Core orphan detection
 
 tests/verifier-no-drop-reconciliation.test.js contains regression fixtures including the 13-day FANIVAL / 11-day Core case.
 
 The verifier skill now documents the same packet anchor, exact join, family completeness and reverse reconciliation rules.
+
+
+## 2026-09-28 reverse-Candidate finding
+
+A live audit found 26 Candidate rows with `Status=READY_FOR_VERIFIER` while the operational AI queue had 19 packets with nonblank `Work Packet ID` and `Packet Status=READY_FOR_VERIFIER`. Exact Show ID reconciliation proved the 19 operational AI packets had Candidate pairs, while seven Candidate READY rows had no AI packet at all.
+
+The seven Candidate-only rows are explicit `CANDIDATE_READY_ORPHAN_NO_AI_PACKET` debt. They are not operational Verifier packets and must not inflate the AI-anchored READY backlog. The repository guard audits this reverse direction deterministically so Candidate-only orphan/stale-ready drift is visible instead of silently surviving closure.
+
+This hardening is zero-write: it does not fabricate missing AI work packets, fuzzy-match identities, or mutate production business truth.
