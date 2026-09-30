@@ -46,7 +46,7 @@ footer{margin-top:56px!important;padding:36px 0!important;color:var(--v2-muted)}
  .sticky-line{right:14px!important;bottom:max(12px,env(safe-area-inset-bottom))!important}
  .modal{border-radius:26px 26px 0 0!important}
 }
-@media(max-width:350px){.poster-grid{gap:9px!important}.poster-info{padding:10px!important}}
+@media(max-width:350px){.poster-grid{grid-template-columns:1fr!important;gap:14px!important}.poster-info{padding:12px 14px 14px!important}}
 @media(prefers-reduced-motion:reduce){.concert-card{transition:none!important}.concert-card:hover{transform:none!important}}
 
 /* V2 compact sticky acceptance: keep discovery chrome below viewport budget. */
