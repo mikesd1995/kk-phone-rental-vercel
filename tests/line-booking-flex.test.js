@@ -27,3 +27,12 @@ test('builder has no send side effect or credential dependency',()=>{
  const source=require('node:fs').readFileSync(require.resolve('../server/line-booking-flex'),'utf8');
  assert.doesNotMatch(source,/api\.line\.me|Authorization|CHANNEL_ACCESS_TOKEN|fetch\s*\(/);
 });
+
+test('confirmation UX clearly states request is pending shop review and avoids misleading calendar emoji',()=>{
+ const m=buildBookingFlex({...base,event:{...base.event,poster_image_url:'https://example.com/poster.jpg'}});
+ const s=JSON.stringify(m);
+ assert.match(s,/คำขอเช่า • รอตรวจสอบคิว/);
+ assert.match(s,/ร้านได้รับคำขอเช่าแล้ว/);
+ assert.match(s,/กรุณารอร้านตรวจสอบคิวและยืนยันการจองอีกครั้ง/);
+ assert.doesNotMatch(s,/📅/);
+});
