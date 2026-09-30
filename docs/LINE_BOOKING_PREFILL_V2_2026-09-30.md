@@ -6,8 +6,9 @@ Storefront booking deep links now prefill:
 📅 วันที่: <date>
 📍 สถานที่: <venue>
 📱 รุ่น: <model>
+💰 ราคา: <display price>
 ⏰ เวลาที่สะดวกรับอุปกรณ์:
 👤 ชื่อเล่น:
 📞 เบอร์โทร:
 
-Price is intentionally omitted from customer-authored text; canonical price remains backend/SOT responsibility. Webhook parsing remains backward-compatible with the prior package-first message and old pickup label. No Booking, inventory, pricing, or Sheet write path is changed.
+Price is included for customer clarity when multiple models/packages have different prices. It is display/reference data only; canonical price remains backend/SOT responsibility and must be revalidated before any booking write. Webhook parsing remains backward-compatible with the prior package-first message and old pickup label. No Booking, inventory, pricing, or Sheet write path is changed.
