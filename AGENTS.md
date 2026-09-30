@@ -64,6 +64,20 @@ Do not repeatedly read the full repo, all docs, or all tests unless the task tru
 - Every material bug fix should add or strengthen a regression guard.
 - Avoid new runtime dependencies when Node built-ins are sufficient.
 
+## Mandatory Product / UX / UI gate
+
+For every task that changes or reviews customer-facing storefront UI, Admin UI, product flow, navigation, forms, filters, modals, sticky/fixed controls, responsive layout, accessibility, or other user interaction:
+
+1. Invoke the registered `kk-storefront-ux-reviewer` through the Agent Gateway using `storefront_ux_review` before implementation. Do not substitute an informal prose review.
+2. Supply concrete viewport/layout evidence. For screenshot-reported defects, encode the screenshot observation in the review packet; missing visual evidence is a blocking condition for final visual acceptance.
+3. Treat P0/P1 findings as release-blocking for the affected surface. Implement the smallest coherent fix without changing pricing, inventory, booking semantics, event visibility, Machine SOT, or unrelated behavior.
+4. Add or strengthen a regression guard for the reported defect. Responsive changes must cover the affected mobile width plus representative acceptance widths.
+5. After implementation, invoke `storefront_visual_qa`. A material UX/UI change is not accepted while Visual QA is FAIL/BLOCKED or required P0/P1 evidence remains unresolved.
+6. Preserve persistent invocation evidence required by the Agent Registry. Code review/CI evidence does not replace agent invocation evidence.
+7. Production acceptance still requires fresh runtime/readback evidence under the production-release rules. The UX agent cannot merge, deploy, publish, or mutate business truth.
+
+This gate applies to both storefront and Admin/product-flow work. If a task is outside the current reviewer policy, extend the deterministic policy/reviewer/tests first rather than silently bypassing the gate.
+
 ## Production discipline
 
 Before production-affecting actions, use the current production-release skill and fresh runtime evidence. A successful API call, timer, deployment request, or workflow start is not acceptance proof.
