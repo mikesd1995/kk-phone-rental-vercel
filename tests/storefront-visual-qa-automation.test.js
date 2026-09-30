@@ -150,3 +150,11 @@ test('visual QA workflow triggers for V2 design and Art Director changes',()=>{
   assert.match(workflow,/server\/kk-storefront-art-director\.js/);
   assert.match(workflow,/tests\/kk-storefront-art-director\.test\.js/);
 });
+
+
+test('visual QA requires visible imagery to be ready before screenshot evidence',()=>{
+  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  assert.match(source,/VISIBLE_IMAGE_NOT_READY/);
+  assert.match(source,/naturalWidth/);
+  assert.match(source,/\.decode\(\)/);
+});
