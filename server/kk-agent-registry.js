@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V20';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V21';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -406,12 +406,42 @@ function routeHealth() {
   }));
 }
 
+function runtimeProofAudit() {
+  const routeBackedAgents = new Set();
+  for (const route of Object.values(ROUTES)) {
+    for (const id of route.required_agents || []) routeBackedAgents.add(id);
+  }
+  const rows = Object.entries(AGENTS).map(([agent_id, spec]) => {
+    const routes = Object.entries(ROUTES)
+      .filter(([, route]) => (route.required_agents || []).includes(agent_id))
+      .map(([intent, route]) => ({intent, runtime_available: route.runtime_available, persistent_invocation_evidence_required: route.persistent_invocation_evidence_required === true}));
+    const callableRoute = routes.some(route => route.runtime_available === true);
+    const evidenceRequired = routes.length > 0 && routes.every(route => route.persistent_invocation_evidence_required === true);
+    const pass = callableRoute && evidenceRequired;
+    return {
+      agent_id,
+      declared_runtime_state: spec.runtime_state,
+      routes,
+      callable_route: callableRoute,
+      persistent_evidence_required: evidenceRequired,
+      status: pass ? 'RUNTIME_PROOF_REQUIRED' : 'NOT_PROVEN_RUNTIME_READY'
+    };
+  });
+  return {
+    registry_version: REGISTRY_VERSION,
+    pass: rows.every(row => row.status === 'RUNTIME_PROOF_REQUIRED'),
+    agents: rows,
+    unproven_agents: rows.filter(row => row.status !== 'RUNTIME_PROOF_REQUIRED').map(row => row.agent_id)
+  };
+}
+
 function publicRegistry() {
   return {
     registry_version: REGISTRY_VERSION,
     agents: AGENTS,
     routes: ROUTES,
     route_health: routeHealth(),
+    runtime_proof_audit: runtimeProofAudit(),
     known_gaps: [
       'Ultra Deep provider execution is callable through the Agent Gateway, but each real provider remains explicitly binding-gated; recurring autonomous public-web discovery is not accepted until provider binding/runtime acceptance passes.',
       'Legacy verify_event remains disabled; governed storefront create is exposed only through execute_storefront_promotion after READY_FOR_GOVERNED_ADMIN_CREATE.',
@@ -431,5 +461,6 @@ module.exports = {
   agentVersions,
   validateInvocation,
   routeHealth,
-  publicRegistry
+  publicRegistry,
+  runtimeProofAudit
 };
