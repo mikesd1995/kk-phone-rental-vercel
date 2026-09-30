@@ -73,3 +73,12 @@ test('hook skeleton removes known event DNA before similarity comparison',()=>{
   assert.doesNotMatch(skeleton,/group shot/i);
   assert.doesNotMatch(skeleton,/alpha event/i);
 });
+
+
+test('event hashtag header is not mistaken for the creative hook',()=>{
+  const a=item('Event Header','ธีมจริงของงานอยู่ที่ช่วงพูดคุยพิเศษ',['special talk','fandom detail']);
+  a.post=a.post.replace('🎤 vivo X300 Pro 690฿ | + Lens รวม 890฿','🔥 งาน #ExampleEvent\n\n🎤 vivo X300 Pro 690฿ | + Lens รวม 890฿');
+  const hook=BatchQa.hookText(a.post,a.input);
+  assert.doesNotMatch(hook,/งาน\s+#ExampleEvent/);
+  assert.match(hook,/ธีมจริงของงาน/);
+});
