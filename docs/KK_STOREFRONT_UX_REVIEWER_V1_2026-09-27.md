@@ -76,3 +76,8 @@ Until browser screenshot capture is wired, source/regression tests are not treat
 - Auto merge: false
 - Auto deploy: false
 - Owner review required: true
+
+
+## 2026-09-30 enforcement upgrade
+
+Product/UX review is now a required project gate for storefront layout/flow, responsive UI, Admin UI, and product-flow changes. The canonical route is `storefront_ux_review`, followed by `storefront_visual_qa`, regression tests, and production acceptance. A mobile clear-filter overflow incident triggered this hardening. Reset controls must remain readable and contained at 320/375/390/430/480px; they may move to a dedicated row rather than being compressed into a multi-line pill.
