@@ -39,6 +39,13 @@ test('post-change Product UX visual QA packet passes at the affected iPhone view
   assert.equal(out.result.status,'PASS');
 });
 
+test('short-phone sticky chrome has a dedicated compact acceptance state',()=>{
+  const css=fs.readFileSync(path.join(root,'style.css'),'utf8');
+  assert.match(css,/@media\(max-width:430px\) and \(max-height:600px\)/);
+  assert.match(css,/\.browse-controls-shell \.event-search-count\{display:none;\}/);
+  assert.match(css,/\.browse-controls-shell \.event-search\{min-height:42px/);
+});
+
 test('storefront cache key changes with the responsive fix',()=>{
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   assert.match(html,/style\.css\?v=clear-filter-containment-20260930/);
