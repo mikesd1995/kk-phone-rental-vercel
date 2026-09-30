@@ -18,3 +18,26 @@ No pricing, booking, inventory, event visibility, API, Google Sheets, Apps Scrip
 
 ## Acceptance
 V2 is not production-accepted until syntax/tests, independent UX review, browser screenshots/metrics at 320/375/390/430/480/768/1024, and `storefront_art_acceptance` all pass.
+
+
+## Iteration evidence — 2026-10-01
+
+### CI round 1
+- Admin Regression: 959/962; 3 failures were stale registry-version assertions (V22 vs runtime V23), not storefront/business regressions.
+- Corrected the three contract assertions to V23. Subsequent Admin Regression on V2 head passed.
+- Visual QA blocked release at 1024x768 for STICKY_VIEWPORT_OBSTRUCTION: 167px / 22% viewport.
+- Re-composed desktop discovery chrome into one search/filter row. Follow-up 1024x768 result: PASS, professional readiness 100, sticky controls 91px.
+
+### CI round 2
+- Multi-viewport Visual QA remained fail-closed due to tablet 768x1024:
+  - P0 HORIZONTAL_OVERFLOW: document width 772px vs viewport 768px.
+  - P2 EXCESSIVE_BACKDROP_BLUR: 22px.
+- Applied root containment to V2 grid/flex children and discovery controls; constrained tablet sticky shell to its content box.
+- Reduced tablet sticky backdrop blur to 14px and mobile to 12px.
+- No overflow-hiding workaround was introduced.
+
+### Safety/readback
+- Production writes: 0.
+- Pricing/booking/inventory/Event SOT mutations: 0.
+- Auto-merge/auto-deploy: disabled.
+- PR remains Draft until current-head Admin Regression + full Visual QA matrix pass and owner visual review is satisfied.
