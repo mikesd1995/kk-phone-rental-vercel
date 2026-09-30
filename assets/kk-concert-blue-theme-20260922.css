@@ -705,3 +705,10 @@ header{padding-top:6px;}
     padding:10px 0;
   }
 }
+
+
+/* Mobile clear-filter containment — Product/UX gate 2026-09-30. */
+@media(max-width:480px){
+  .browse-controls-shell .filter-bar{flex-wrap:wrap;overflow-x:visible;overflow-y:visible;align-items:center}
+  .browse-controls-shell .filter-clear-btn:not([hidden]){flex:1 0 100%;width:100%;min-width:0;min-height:44px;margin-top:2px;padding:9px 14px;white-space:nowrap;line-height:1.15;text-align:center}
+}
