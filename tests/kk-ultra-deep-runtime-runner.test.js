@@ -105,8 +105,12 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
    .filter(c=>c.case_id!==target.case_id)
    .map(c=>({case_id:c.case_id,executed:true,status:'SOURCE_UNAVAILABLE'}));
  const search=async task=>{
-   if(String(task.source_id||'').startsWith('knownmiss:')) return [];
-   if(String(task.source_id||'').startsWith('reference-')) return [];
+   const sourceId=String(task.source_id||'');
+   if(sourceId.startsWith('provider-health-')){
+     return [{title:'Provider health evidence',event_date:'2026-10-20',source_url:'https://proof.example/provider-health'}];
+   }
+   if(sourceId.startsWith('knownmiss:')) return [];
+   if(sourceId.startsWith('reference-')) return [];
    if(!emittedTarget){
      emittedTarget=true;
      return [{title:'WeSpark official #bailu Bai Lu WeSpark Exclusive Overseas Fanmeeting',event_date:target.event_date,source_url:'https://proof.example/bailu-live'}];
