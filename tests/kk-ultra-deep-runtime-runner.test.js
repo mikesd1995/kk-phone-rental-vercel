@@ -5,7 +5,7 @@ const Runner=require('../server/kk-ultra-deep-runtime-runner.js');
 const KnownMiss=require('../server/kk-ultra-deep-known-miss-regression.js');
 
 test('runtime runner fails closed when no unknown-URL search provider is bound',async()=>{
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{publicWebOptions:{searxng_endpoint:''}});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{publicWebOptions:{searxng_endpoint:'',ddg_enabled:false}});
  assert.equal(out.status,'HOLD_FOR_COVERAGE');
  assert.equal(out.full,false);
  assert.ok(out.blockers.includes('UNKNOWN_URL_SEARCH_NOT_BOUND'));
@@ -21,7 +21,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
    }
    return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:''}});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false}});
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
  assert.equal(out.provider_binding.unknown_url_search_bound,true);
