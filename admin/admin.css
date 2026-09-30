@@ -539,3 +539,19 @@ td{font-size:13px!important}
   .health-triage-card .card-head .btn{width:100%;min-height:44px}
   .health-triage-head{align-items:flex-start}
 }
+
+
+/* Unified Inbox LINE + X v1 — read-only preview */
+.inbox-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-top:3px solid #2563eb!important}
+.inbox-hero h2{margin:3px 0 4px}.inbox-safety{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.inbox-safety span{font-size:10px;font-weight:800;padding:5px 8px;border-radius:999px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+.inbox-toolbar{display:grid;grid-template-columns:160px 180px minmax(240px,1fr);gap:10px;align-items:end}
+.inbox-toolbar label{display:grid;gap:5px;font-size:11px;font-weight:800;color:#475569}.inbox-toolbar select,.inbox-toolbar input{min-height:42px}
+.inbox-empty{display:grid;gap:4px;border-left:4px solid #f59e0b!important;background:#fffbeb!important}.inbox-empty span{font-size:12px;color:#7c5b13}
+.inbox-layout{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(420px,1.4fr);gap:12px}
+.inbox-list-card,.inbox-thread-card{min-height:460px}.inbox-conversation-list,.inbox-thread{display:grid;gap:8px}
+.inbox-placeholder{min-height:180px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center;padding:24px;color:#64748b;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc}
+.inbox-placeholder strong{color:#334155}.inbox-compose-disabled{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0}
+.inbox-compose-disabled textarea{min-height:76px;resize:vertical}.inbox-compose-disabled button{align-self:end}
+@media(max-width:900px){.inbox-layout{grid-template-columns:1fr}.inbox-toolbar{grid-template-columns:1fr 1fr}.inbox-search{grid-column:1/-1}}
+@media(max-width:560px){.inbox-hero{flex-direction:column}.inbox-safety{justify-content:flex-start}.inbox-toolbar{grid-template-columns:1fr}.inbox-search{grid-column:auto}.inbox-list-card,.inbox-thread-card{min-height:0}.inbox-compose-disabled{grid-template-columns:1fr}.inbox-compose-disabled button{width:100%;min-height:44px}}
