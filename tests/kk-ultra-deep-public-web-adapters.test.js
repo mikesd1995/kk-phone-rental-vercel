@@ -49,3 +49,27 @@ test('createProviders exposes both zero-cost search fallbacks by default',()=>{
  assert.equal(typeof p.DDG_HTML,'function');
  assert.equal(typeof p.BING_HTML,'function');
 });
+
+test('search adapters reject challenge or malformed empty HTML instead of granting NO_EVIDENCE',async()=>{
+ await assert.rejects(
+   ()=>A.duckDuckGoHtml({query:'event Bangkok'},{ddg_min_interval_ms:0,fetchFn:async()=>response('<html><title>Just a moment</title><body>challenge</body></html>')}),
+   err=>err&&err.code==='DDG_SEARCH_RESPONSE_UNHEALTHY'
+ );
+ await assert.rejects(
+   ()=>A.bingHtml({query:'event Bangkok'},{fetchFn:async()=>response('<html><title>Bing</title><body>captcha</body></html>')}),
+   err=>err&&err.code==='BING_SEARCH_RESPONSE_UNHEALTHY'
+ );
+});
+
+test('search adapters allow explicit no-results pages',async()=>{
+ const ddg=await A.duckDuckGoHtml({query:'no such event'},{ddg_min_interval_ms:0,fetchFn:async()=>response('<html><body>No results.</body></html>')});
+ const bing=await A.bingHtml({query:'no such event'},{fetchFn:async()=>response('<html><body>There are no results for this query</body></html>')});
+ assert.deepEqual(ddg,[]);
+ assert.deepEqual(bing,[]);
+});
+
+test('official page evidence never fabricates title from the query',()=>{
+ const row=A.candidateFromPage('https://example.com/event','<html><body>Event body only</body></html>',{query:'Fabricated Event'});
+ assert.equal(row.title,null);
+ assert.match(row.evidence_text,/Event body only/);
+});
