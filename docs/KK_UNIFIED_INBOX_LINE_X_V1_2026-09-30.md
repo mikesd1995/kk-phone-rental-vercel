@@ -159,3 +159,33 @@ Next acceptance gate:
 3. run duplicate/concurrency acceptance against the real DB;
 4. only then tee the already-verified LINE webhook into Inbox persistence while preserving the existing booking Flex behavior;
 5. keep outbound Inbox sends disabled.
+
+
+## Implementation log — 2026-09-30 P2.6 production-safe LINE tee preparation
+Goal: remove the ChatGPT Supabase connector as a runtime dependency and prepare the existing verified LINE webhook for durable Inbox persistence without regressing Booking Flex.
+
+Changes:
+- Added `server/kk-line-inbox-tee.js` as a verified-event persistence boundary. It does not verify or parse the raw webhook itself; it is designed to run only after the existing LINE signature gate has accepted the request.
+- Tee behavior is isolated per event: unsupported/malformed events are skipped; persistence errors are recorded per event; later valid events continue.
+- Missing durable store returns `DISABLED_NO_STORE` with zero writes. This keeps Inbox fail-closed without changing the existing Booking response path.
+- Duplicate receipts remain zero logical writes and are counted separately.
+- Added `tests/kk-line-inbox-tee.test.js` covering disabled store, duplicate receipts, malformed-event isolation, and persistence-error isolation.
+- Added the tee module to the repository syntax gate.
+- Hardened `supabase/kk_inbox_v1.sql` for the existing `SECURITY INVOKER` RPC by explicitly granting the server-only `service_role` usage on `kk_private`, required table privileges, and audit identity-sequence privileges. Browser roles remain revoked and RLS remains enabled.
+
+Important non-change:
+- The production `server/line-booking-webhook.js` has NOT been wired to the tee yet.
+- No Supabase project/schema/environment variable was created or changed.
+- No LINE outbound Inbox send was enabled.
+- Existing Booking Flex behavior is therefore unchanged by this preparation.
+
+Activation gate:
+1. obtain a real dedicated Supabase/Postgres project and server credentials;
+2. apply/review `supabase/kk_inbox_v1.sql` and run security advisors;
+3. prove real-DB duplicate/idempotency acceptance;
+4. instantiate `kk-inbox-postgrest-store` server-side;
+5. call the verified-event tee from the existing LINE booking webhook only after signature verification, with Inbox persistence failure isolated from Booking Flex;
+6. expose authenticated Admin read APIs; keep Inbox outbound disabled until separate send acceptance.
+
+Runtime dependency decision:
+The Supabase ChatGPT plugin is a management convenience only. KK Unified Inbox runtime must communicate with the database directly through server-side credentials and does not depend on the ChatGPT plugin being connected.
