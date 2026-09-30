@@ -49,7 +49,7 @@ function buildReferencePlan(input={}){
   const queries=[
     'concert fanmeeting fancon fansign '+month+' '+location,
     'lucky fan top spender artist event '+month+' '+location,
-    'คอนเสิร์ต แฟนมีต แฟนไซน์ กิจกรรมศิลปิน '+month+' กรุงเทพ,
+    'คอนเสิร์ต แฟนมีต แฟนไซน์ กิจกรรมศิลปิน '+month+' กรุงเทพ',
     'Bangkok event calendar artist '+month
   ];
   return {
