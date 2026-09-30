@@ -43,6 +43,32 @@ test('exact Show ID duplication fails into explicit pairing debt instead of fuzz
   assert.equal(out.pairs[0].debt,'MULTIPLE_CANDIDATE_SHOW_ID_MATCHES');
 });
 
+test('Candidate READY without any AI packet is explicit reverse-orphan debt',()=>{
+  const out=R.auditCandidateReverseOrphans([], [candidate(1)]);
+  assert.equal(out.candidate_ready_count,1);
+  assert.equal(out.candidate_orphan_count,1);
+  assert.equal(out.stale_candidate_ready_count,0);
+  assert.equal(out.items[0].debt,'CANDIDATE_READY_ORPHAN_NO_AI_PACKET');
+  assert.equal(out.production_writes,0);
+});
+
+test('Candidate READY with terminal AI packet is stale-ready debt, not an operational packet',()=>{
+  const terminal={...fanivalDay(1),'Packet Status':'COMPLETED_HOLD'};
+  const out=R.auditCandidateReverseOrphans([terminal], [candidate(1)]);
+  assert.equal(out.candidate_orphan_count,0);
+  assert.equal(out.stale_candidate_ready_count,1);
+  assert.equal(out.operational_pair_count,0);
+  assert.equal(out.items[0].debt,'STALE_CANDIDATE_READY_AFTER_AI_TERMINAL');
+});
+
+test('Candidate READY with operational AI packet is paired and not debt',()=>{
+  const out=R.auditCandidateReverseOrphans([fanivalDay(1)], [candidate(1)]);
+  assert.equal(out.candidate_orphan_count,0);
+  assert.equal(out.stale_candidate_ready_count,0);
+  assert.equal(out.operational_pair_count,1);
+  assert.equal(out.items[0].debt,null);
+});
+
 test('FANIVAL 13-day family stays incomplete when only 11 days have lineage disposition',()=>{
   const ai=Array.from({length:13},(_,i)=>fanivalDay(i+1));
   const candidates=Array.from({length:13},(_,i)=>candidate(i+1));
