@@ -43,7 +43,8 @@ test('short-phone sticky chrome has a dedicated compact acceptance state',()=>{
   const css=fs.readFileSync(path.join(root,'style.css'),'utf8');
   assert.match(css,/@media\(max-width:430px\) and \(max-height:600px\)/);
   assert.match(css,/\.browse-controls-shell \.event-search-count\{display:none;\}/);
-  assert.match(css,/\.browse-controls-shell \.event-search\{min-height:42px/);
+  assert.match(css,/\.browse-controls-shell \.event-search\{min-height:44px/);
+  assert.match(css,/\.browse-controls-shell \.filter-btn,[\s\S]*?min-height:44px/);
 });
 
 test('storefront cache key changes with the responsive fix',()=>{
