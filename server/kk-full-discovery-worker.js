@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const Watch = require('./discovery-source-watch-contract.js');
 
-const WORKER_VERSION = 'KK_FULL_DISCOVERY_WORKER_V3';
+const WORKER_VERSION = 'KK_FULL_DISCOVERY_WORKER_V4';
 const ULTRA_DEEP_MODE = 'ULTRA_DEEP';
 const ULTRA_DEEP_REQUIRED_SOURCE_TIERS = Object.freeze([
   'OFFICIAL', 'TICKETING', 'VENUE', 'ARTIST_AGENCY',
@@ -48,6 +48,8 @@ function normalizeCandidate(c={}, fallback={}){
 }
 
 function coverageReport(observations=[],sourceReports=[]){
+  const proofByTier={};
+  for(const tier of ULTRA_DEEP_REQUIRED_SOURCE_TIERS) proofByTier[tier]=[];
   // Presence is not coverage. Ultra Deep gets credit only when the source
   // observation was actually processed without a blocked/rejected provider result.
   const reportById=new Map(sourceReports.map(r=>[text(r&&r.observation_id),r]));
@@ -59,7 +61,14 @@ function coverageReport(observations=[],sourceReports=[]){
     if(!report) continue;
     const status=text(report.status).toUpperCase();
     if(status.startsWith('BLOCKED_') || status.includes('REJECTED')) continue;
+    const calls=Number(report.discovery_call_count||0);
+    if(calls < 1) continue;
     seen.add(tier);
+    if(proofByTier[tier]) proofByTier[tier].push({
+      observation_id:text(o&&o.observation_id),
+      status,
+      discovery_call_count:calls
+    });
   }
   const missing=ULTRA_DEEP_REQUIRED_SOURCE_TIERS.filter(t=>!seen.has(t));
   return {
@@ -67,7 +76,9 @@ function coverageReport(observations=[],sourceReports=[]){
     observed_source_tiers:[...seen].sort(),
     missing_source_tiers:missing,
     complete:missing.length===0,
-    coverage_percent:Number((((ULTRA_DEEP_REQUIRED_SOURCE_TIERS.length-missing.length)/ULTRA_DEEP_REQUIRED_SOURCE_TIERS.length)*100).toFixed(2))
+    coverage_percent:Number((((ULTRA_DEEP_REQUIRED_SOURCE_TIERS.length-missing.length)/ULTRA_DEEP_REQUIRED_SOURCE_TIERS.length)*100).toFixed(2)),
+    proof_by_source_tier:proofByTier,
+    proof_complete:missing.length===0 && ULTRA_DEEP_REQUIRED_SOURCE_TIERS.every(t=>proofByTier[t].length>0)
   };
 }
 
@@ -137,7 +148,7 @@ async function runFullDiscovery(input={},options={}){
   const hardFailures=sourceReports.filter(r=>String(r.status).startsWith('BLOCKED_')||String(r.status).includes('REJECTED'));
   const handoff={
     handoff_version:'kk-full-discovery-handoff-v1',
-    handoff_state:ultraDeep && !coverage.complete?'HOLD_FOR_COVERAGE':'READY_FOR_VERIFIER',
+    handoff_state:ultraDeep && !coverage.proof_complete?'HOLD_FOR_COVERAGE':'READY_FOR_VERIFIER',
     route:'EXISTING_SCANNER_TO_VERIFIER_HANDOFF',
     scan_mode:scanMode||'STANDARD',
     source_coverage:coverage,
@@ -155,7 +166,7 @@ async function runFullDiscovery(input={},options={}){
 
   return {
     worker_version:WORKER_VERSION,
-    status:ultraDeep && !coverage.complete
+    status:ultraDeep && !coverage.proof_complete
       ? 'BLOCKED_INCOMPLETE_SOURCE_COVERAGE'
       : (merged.candidates.length?'READY_FOR_VERIFIER':(hardFailures.length?'DISCOVERY_BLOCKED_OR_EMPTY':'NO_NEW_CANDIDATES')),
     observations_received:observations.length,
