@@ -133,3 +133,10 @@ footer>*,footer span{max-width:100%!important;box-sizing:border-box!important;wh
  .status-filter-bar{gap:4px!important;padding-left:0!important;padding-right:0!important}
  .status-filter-bar .filter-btn{font-size:11px!important;padding-left:4px!important;padding-right:4px!important}
 }
+
+/* 320px acceptance root fix: legacy quick-link sizing can resolve to 330px on the narrowest frame.
+   Keep utility chrome inside the V2 content box; do not hide document overflow. */
+@media(max-width:350px){
+ .quick-links,.quick-link,.mini-btn,.language-switch{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
+ .quick-link{white-space:normal!important;overflow-wrap:anywhere!important;text-align:center!important}
+}
