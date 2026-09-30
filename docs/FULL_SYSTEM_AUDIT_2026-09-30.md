@@ -595,3 +595,20 @@ Execution evidence:
 - Immediate Vercel Git deployment for that exact merge SHA is blocked by `Deployment rate limited — retry in 24 hours.`; no exact-SHA Production deployment exists yet.
 - Therefore code acceptance is PASS, Production acceptance is WAITING_BUILD_RATE_LIMIT. Do not claim the screenshot defect fixed in live LINE until exact SHA is READY and `/api/line-poster` is runtime-verified.
 - Production/business data writes: 0.
+
+
+## Execution update — LINE booking Flex social-capture poster defect
+
+User evidence showed the Nineentertain 24th Anniversary Charity Concert LINE confirmation rendering a mirrored social-post screenshot as the Flex hero.
+
+Evidence and classification:
+- Canonical package data confirms the displayed 590 THB bundle is valid for this event: phone 490 + lens 100. Pricing was not changed.
+- Canonical 08_Web_Ready used `wx2.sinaimg.cn` for this event. Feed audit found exactly one current row using sinaimg.cn.
+- Root cause: `server/line-poster.js` explicitly allowed sinaimg.cn, so an unsuitable social capture passed the transport-level JPEG/PNG guard.
+- PR #357 removed sinaimg.cn from the LINE poster allowlist and added regression coverage. First CI #1151 failed only because the new canonical CSV test fixture encoded literal `\\n`; the social-mirror rejection test itself passed. Fixture was corrected without weakening assertions. Admin Regression #1152 passed. PR #357 merged as `aa19a2efb55e2c43fda2d6365967f5b2d44c5038` and deployed READY to Production as `dpl_37qaCpUs2QQ9QeiJCQTWuA5hzcES`.
+- Production readback for `EVT-20260930-NINEENTERTAIN-24TH-ANNIVERSARY` returned 404 `Poster unavailable`, proving the social screenshot can no longer be served by the LINE poster endpoint. New Flex confirmations therefore fall back to text-only when this unsuitable source remains in the feed.
+- Acceptance also found canonical relative `/assets/event-posters/...` sources were incorrectly rejected. PR #358 added narrowly scoped same-origin resolution only for `/assets/event-posters/`, while other relative paths fail closed. Admin Regression #1154 passed. PR #358 merged as `798627b87c55cf91f5bd3e656d46275a6c32021f` and deployed READY as `dpl_D3KDWLNj8v51XG693Hy2xC6KHS48`.
+- Production readback for `EVT-20261008-UNLUCKY-BAE-FINAL-EP` returned HTTP 200 JPEG after #358, confirming supported local posters still work.
+- Google Drive thumbnail delivery for the sampled MINMIN event returned 415 from the fail-closed JPEG/PNG endpoint. LINE Flex officially requires JPEG or PNG, so WebP/unsupported upstream media must not be blindly passed through. This remains a separate source-normalization/transcoding concern; it was not bypassed by widening the media allowlist.
+- Runtime telemetry after deployment showed only a Node `url.parse()` deprecation warning group on `/api/line-poster`; no application exception was introduced by these fixes.
+- Production/business data writes: 0. Historical LINE messages are immutable; fixes apply to new confirmations.
