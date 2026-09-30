@@ -1,0 +1,39 @@
+# Ultra Deep Runtime Search Fallback V2 — 2026-10-01
+
+## Incident
+The first live zero-write runtime acceptance on run 36760914455 proved that the built-in DDG provider was genuinely bound and the 30/30 source-universe tasks executed, but the run still failed FULL because the known-miss probe phase returned zero matches for all ten regression cases after the larger discovery sweep.
+
+Observed acceptance:
+- unknown_url_search_bound = true
+- source_universe = 30/30 PASS
+- reconciliation_gap_count = 0
+- candidate_count = 41
+- known_miss = 0/10
+- result = HOLD_FOR_COVERAGE
+- production_writes = 0
+
+## Root-cause hardening
+V2 does not treat the DDG-only path as sufficient redundancy. It adds:
+1. A second credential-free unknown-URL provider: Bing HTML search.
+2. Provider chain order: DDG_HTML -> BING_HTML -> SearXNG -> DDGS/Trafilatura -> Crawl4AI -> Exa.
+3. More complete HTML entity decoding so search-result titles are normalized before identity matching.
+4. Known-miss aliases and token-overlap matching for social/brand titles that do not reproduce the canonical event title verbatim.
+5. Known-miss query expansion using canonical title plus aliases.
+6. Per-phase provider attempt/error/not-bound diagnostics in runtime acceptance evidence.
+
+## Safety invariants
+- No recurring schedule was created.
+- Scanner execution remains disabled unless separately authorized.
+- No business, booking, pricing, inventory, visibility, or storefront writes.
+- Verifier remains mandatory.
+- FULL remains fail-closed.
+- A search provider returning no evidence never fabricates a candidate.
+- A known-miss case passes only through discovered evidence or an explicitly executed classification receipt.
+
+## Acceptance
+Re-run the owner-gated Issue #368 runtime acceptance after merge. FULL requires:
+- provider_binding.unknown_url_search_bound = true
+- source_universe.complete = true
+- reconciliation_gap_count = 0
+- known_miss_regression.complete = true
+- production_writes = 0
