@@ -36,3 +36,10 @@ test('confirmation UX clearly states request is pending shop review and avoids m
  assert.match(s,/กรุณารอร้านตรวจสอบคิวและยืนยันการจองอีกครั้ง/);
  assert.doesNotMatch(s,/📅/);
 });
+
+test('renders only a supplied canonical booking id and never invents one',()=>{
+ const none=JSON.stringify(buildBookingFlex(base));
+ assert.doesNotMatch(none,/Booking ID/);
+ const canonical=JSON.stringify(buildBookingFlex({...base,booking:{booking_id:'BK-20260930-001'}}));
+ assert.match(canonical,/Booking ID  BK-20260930-001/);
+});
