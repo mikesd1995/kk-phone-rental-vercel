@@ -2,6 +2,8 @@
 
 const crypto = require('node:crypto');
 const {buildBookingFlex} = require('../server/line-booking-flex');
+const InboxTee = require('./kk-line-inbox-tee');
+const {createPostgrestStore} = require('./kk-inbox-postgrest-store');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -51,6 +53,12 @@ async function replyFlex(replyToken, message, token, fetchImpl=fetch){
   const r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
   if(!r.ok){const body=await r.text().catch(()=> ''); throw new Error('LINE reply failed '+r.status+' '+body.slice(0,200));}
 }
+function inboxPersistFn(env=process.env, fetchImpl=fetch){
+  const url=String(env.KK_INBOX_SUPABASE_URL||'').trim();
+  const serviceKey=String(env.KK_INBOX_SUPABASE_SERVICE_ROLE_KEY||'').trim();
+  if(!url || !serviceKey) return null;
+  return createPostgrestStore({url,serviceKey,fetchImpl}).persistInbound;
+}
 async function processEvent(event, env=process.env, fetchImpl=fetch){
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
@@ -72,7 +80,14 @@ module.exports=async function handler(req,res){
   if(!validSignature(body,sig,secret)){res.statusCode=401; return res.end('Invalid signature');}
   let payload; try{payload=JSON.parse(body);}catch(_){res.statusCode=400;return res.end('Invalid JSON');}
   const events=Array.isArray(payload.events)?payload.events:[];
-  try{for(const event of events) await processEvent(event,process.env,fetch); res.statusCode=200; return res.end('OK');}
+  const persistFn=inboxPersistFn(process.env,fetch);
+  const inboxPromise=InboxTee.persistVerifiedEvents(events,persistFn).catch(err=>({status:'PARTIAL',errors:[{code:err&&err.code||'INBOX_TEE_FAILED'}]}));
+  try{
+    for(const event of events) await processEvent(event,process.env,fetch);
+    const inbox=await inboxPromise;
+    if(inbox.errors&&inbox.errors.length) console.error('[line-inbox-tee]',JSON.stringify({status:inbox.status,error_count:inbox.errors.length}));
+    res.statusCode=200; return res.end('OK');
+  }
   catch(err){console.error('[line-webhook]',err&&err.message?err.message:'processing failed');res.statusCode=500;return res.end('Processing failed');}
 };
-module.exports._test={rawBody,validSignature,parseBookingText,parseCsv,resolvePoster,replyFlex,processEvent};
+module.exports._test={rawBody,validSignature,parseBookingText,parseCsv,resolvePoster,replyFlex,inboxPersistFn,processEvent};
