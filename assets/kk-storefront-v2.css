@@ -102,3 +102,9 @@ footer{margin-top:56px!important;padding:36px 0!important;color:var(--v2-muted)}
  .status-filter-bar{min-width:0!important}
 }
 
+
+/* 320px toolbar root fix: keep the required single-row filter bar, but make it viewport-contained rather than document-overflowing. */
+@media(max-width:350px){
+ .status-filter-bar{overflow-x:auto!important;overflow-y:hidden!important;overscroll-behavior-x:contain!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important}
+ .status-filter-bar::-webkit-scrollbar{display:none!important}
+}
