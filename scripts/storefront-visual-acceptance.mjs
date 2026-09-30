@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 
 const require=createRequire(import.meta.url);
 const Reviewer=require('../server/kk-storefront-ux-reviewer.js');
+const ArtDirector=require('../server/kk-storefront-art-director.js');
 
 const DEFAULT_HEIGHTS=Object.freeze({
   320:568,
@@ -339,6 +340,17 @@ async function main(){
     zero_cost_path:mode==='local_zero_cost'
   };
 
+  const artAcceptance=ArtDirector.evaluateImplementation({
+    evidence:{
+      multi_viewport:results.length===widths.length,
+      no_horizontal_overflow:results.length===widths.length && results.every(item=>numeric(item.metrics.document_scroll_width_px)<=numeric(item.metrics.viewport_width_px)+1),
+      business_truth_unchanged:mode==='local_zero_cost' && Boolean(fixtures) && summary.production_writes===0 && summary.forms_submitted===0 && summary.clicks_performed===0,
+      visual_qa_pass:summary.pass
+    }
+  });
+  summary.art_director_acceptance=artAcceptance;
+  summary.pass=summary.pass && artAcceptance.status==='PASS';
+
   fs.writeFileSync(path.join(outputDir,'manifest.json'),JSON.stringify(summary,null,2)+'\n');
 
   const lines=[
@@ -349,6 +361,7 @@ async function main(){
     `Data source: ${dataSource?dataSource.href:'target deployment'}`,
     `Approved SHA: ${approvedSha}`,
     `Result: ${summary.pass?'PASS':'FAIL'}`,
+    `Art Director acceptance: ${summary.art_director_acceptance.status}`,
     '',
     '| Viewport | Result | Score | P0 | P1 | P2 | Sticky px | Filter rows | Card cols |',
     '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |'
