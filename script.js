@@ -1,4 +1,3 @@
-// LINE booking prefill v2 production trigger: 2026-09-30
 // KK Phone Rental Frontend v16.6.2_LINE_AUDITED — Phase 1 recovery-stable baseline
 // Backend contract:
 // - 08_Web_Ready!A4:K = event-level output
