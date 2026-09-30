@@ -2,12 +2,20 @@
 
 const crypto = require('node:crypto');
 const {buildBookingFlex} = require('../server/line-booking-flex');
+const InboxTee = require('./kk-line-inbox-tee');
+const {createPostgrestStore} = require('./kk-inbox-postgrest-store');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
 const WEB_READY_QUERY = '?sheet=08_Web_Ready&range=A4%3AK&showPast=1';
 const WEB_PACKAGES_QUERY = '?sheet=09_Web_Packages&range=A4%3AN';
 
+function inboxPersistFn(env=process.env, fetchImpl=fetch){
+  const url=String(env.KK_INBOX_SUPABASE_URL||'').trim();
+  const key=String(env.KK_INBOX_SUPABASE_SERVICE_ROLE_KEY||'').trim();
+  if(!url||!key) return null;
+  return createPostgrestStore({url,serviceRoleKey:key,fetchImpl}).persistInbound;
+}
 function rawBody(req) {
   if (typeof req.body === 'string') return req.body;
   if (Buffer.isBuffer(req.body)) return req.body.toString('utf8');
@@ -114,7 +122,9 @@ module.exports=async function handler(req,res){
   if(!validSignature(body,sig,secret)){res.statusCode=401; return res.end('Invalid signature');}
   let payload; try{payload=JSON.parse(body);}catch(_){res.statusCode=400;return res.end('Invalid JSON');}
   const events=Array.isArray(payload.events)?payload.events:[];
-  try{for(const event of events) await processEvent(event,process.env,fetch); res.statusCode=200; return res.end('OK');}
+  const persist=inboxPersistFn(process.env,fetch);
+  const inboxPromise=InboxTee.persistVerifiedEvents(events,persist).catch(err=>({status:'FAILED_ISOLATED',error:err&&err.message?err.message:'inbox failed'}));
+  try{for(const event of events) await processEvent(event,process.env,fetch); await inboxPromise; res.statusCode=200; return res.end('OK');}
   catch(err){console.error('[line-webhook]',err&&err.message?err.message:'processing failed');res.statusCode=500;return res.end('Processing failed');}
 };
-module.exports._test={rawBody,validSignature,parseBookingText,parseCsv,resolvePoster,resolveCanonicalPackage,packageLabel,formatCanonicalPrice,replyFlex,processEvent};
+module.exports._test={inboxPersistFn,rawBody,validSignature,parseBookingText,parseCsv,resolvePoster,resolveCanonicalPackage,packageLabel,formatCanonicalPrice,replyFlex,processEvent};
