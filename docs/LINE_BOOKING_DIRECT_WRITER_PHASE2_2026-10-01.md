@@ -15,3 +15,8 @@ Adds a write-disabled-by-default Phase-2 module and tests for governed LINE book
 
 ## Activation
 `KK_LINE_BOOKING_DIRECT_WRITER_PHASE2_ENABLED` is required. No webhook routing or Production activation is included in this PR.
+
+## Concurrency gate discovered during implementation
+The current planner can select a candidate row from a read snapshot, but Google Sheets `batchUpdate` does not provide a compare-and-swap precondition on that row. Two different LINE request_ids arriving concurrently could therefore select the same empty row. The Phase-2 feature flag must remain OFF until row allocation is serialized or claimed by a transaction primitive with equivalent mutual exclusion.
+
+This PR is therefore a contract/prototype, not an activation-ready writer. Passing unit/regression tests does not authorize Production routing.
