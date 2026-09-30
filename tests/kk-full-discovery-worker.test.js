@@ -62,3 +62,25 @@ test('ultra deep regression keeps brand and mall fan activations discoverable',a
  assert.ok(titles.includes('M Lifestore Sport Day After Match - TeeTee/Por'));
  assert.equal(r.production_writes,0);
 });
+
+test('ultra deep does not award coverage for a blocked source observation',async()=>{
+ const tiers=Worker.ULTRA_DEEP_REQUIRED_SOURCE_TIERS;
+ const observations=tiers.map((tier,i)=>obsTier('proof'+i,tier,i===0?'NEW':'UNCHANGED'));
+ const provider_results=tiers.map((tier,i)=>i===0?null:result([]));
+ const r=await Worker.runFullDiscovery({scan_mode:'ULTRA_DEEP',observations,provider_results},{sourceWatchOptions:{nowMs:Date.parse(NOW)}});
+ assert.equal(r.status,'BLOCKED_INCOMPLETE_SOURCE_COVERAGE');
+ assert.equal(r.handoff.handoff_state,'HOLD_FOR_COVERAGE');
+ assert.ok(r.source_coverage.missing_source_tiers.includes('OFFICIAL'));
+ assert.equal(r.production_writes,0);
+});
+
+test('remaster regression survives official venue ticketing discovery',async()=>{
+ const tiers=Worker.ULTRA_DEEP_REQUIRED_SOURCE_TIERS;
+ const observations=tiers.map((tier,i)=>obsTier('remaster'+i,tier,i<3?'NEW':'UNCHANGED'));
+ const provider_results=tiers.map((tier,i)=>i===0?result({title:'REMASTER CONCERT',event_date:'2026-10-10',venue:'PARAGON HALL',artist:['Various Artists'],source_url:'https://official.example/remaster',confidence:.98}):i===1?result({title:'REMASTER CONCERT',event_date:'2026-10-10',venue:'PARAGON HALL',artist:['Various Artists'],source_url:'https://ticket.example/remaster',confidence:.98}):i===2?result({title:'REMASTER CONCERT',event_date:'2026-10-10',venue:'PARAGON HALL',artist:['Various Artists'],source_url:'https://venue.example/remaster',confidence:.98}):result([]));
+ const r=await Worker.runFullDiscovery({scan_mode:'ULTRA_DEEP',observations,provider_results},{sourceWatchOptions:{nowMs:Date.parse(NOW)}});
+ assert.equal(r.status,'READY_FOR_VERIFIER');
+ assert.equal(r.source_coverage.complete,true);
+ assert.ok(r.handoff.candidates.some(c=>c.title==='REMASTER CONCERT' && c.event_date==='2026-10-10'));
+ assert.equal(r.production_writes,0);
+});
