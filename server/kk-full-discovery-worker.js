@@ -6,7 +6,7 @@ const SourceRegistry = require('./kk-ultra-deep-source-registry.js');
 const Reconciliation = require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss = require('./kk-ultra-deep-known-miss-regression.js');
 
-const WORKER_VERSION = 'KK_FULL_DISCOVERY_WORKER_V5';
+const WORKER_VERSION = 'KK_FULL_DISCOVERY_WORKER_V6';
 const ULTRA_DEEP_MODE = 'ULTRA_DEEP';
 const ULTRA_DEEP_REQUIRED_SOURCE_TIERS = Object.freeze([
   'OFFICIAL', 'TICKETING', 'VENUE', 'ARTIST_AGENCY',
@@ -106,20 +106,38 @@ function mergeCandidates(rows=[]){
   return {candidates:[...byKey.values()].slice(0,MAX_CANDIDATES),rejected};
 }
 
+
+function candidateTierEvidence(candidates=[]){
+  const counts=Object.fromEntries(ULTRA_DEEP_REQUIRED_SOURCE_TIERS.map(t=>[t,0]));
+  for(const c of Array.isArray(candidates)?candidates:[]){
+    const evidence=Array.isArray(c&&c.evidence)?c.evidence:[];
+    for(const row of evidence){
+      const tier=text(row&&row.source_tier).toUpperCase();
+      if(Object.hasOwn(counts,tier))counts[tier]++;
+    }
+  }
+  const missing=ULTRA_DEEP_REQUIRED_SOURCE_TIERS.filter(t=>counts[t]<1);
+  return {complete:missing.length===0,evidence_count_by_tier:counts,missing_evidence_tiers:missing};
+}
+
 function buildQualityEvidence(input,coverage,merged){
   const universe=SourceRegistry.buildUniverseProof(input.source_universe_receipts||[]);
+  const tierEvidence=candidateTierEvidence(merged.candidates);
   const reconciliation=Reconciliation.reconcileCandidateSets(
     merged.candidates,
-    input.reconciliation_reference_candidates||[]
+    input.reconciliation_reference_candidates||[],
+    {require_reference:true}
   );
   const knownMiss=KnownMiss.evaluate(
     input.known_miss_probe_candidates||[],
     input.known_miss_classifications||[]
   );
-  const complete=coverage.proof_complete && universe.complete && reconciliation.complete && knownMiss.complete;
+  const complete=coverage.proof_complete && universe.execution_complete && tierEvidence.complete && reconciliation.complete && knownMiss.complete;
   const blockers=[
     ...(!coverage.proof_complete?['SOURCE_CLASS_PROOF_INCOMPLETE']:[]),
-    ...(!universe.complete?['SOURCE_UNIVERSE_PROOF_INCOMPLETE']:[]),
+    ...(!universe.execution_complete?['SOURCE_UNIVERSE_PROOF_INCOMPLETE']:[]),
+    ...(!tierEvidence.complete?['SOURCE_TIER_EVIDENCE_INCOMPLETE']:[]),
+    ...(!reconciliation.reference_evidence_present?['REFERENCE_SWEEP_EMPTY_OR_UNHEALTHY']:[]),
     ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
     ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[])
   ];
@@ -128,6 +146,7 @@ function buildQualityEvidence(input,coverage,merged){
     blockers,
     source_class_proof:coverage,
     source_universe_proof:universe,
+    source_tier_evidence:tierEvidence,
     reconciliation,
     known_miss_regression:knownMiss
   };
@@ -217,5 +236,5 @@ async function runFullDiscovery(input={},options={}){
 
 module.exports={
   WORKER_VERSION,ULTRA_DEEP_MODE,ULTRA_DEEP_REQUIRED_SOURCE_TIERS,MAX_OBSERVATIONS,MAX_CANDIDATES,
-  candidateKey,normalizeCandidate,coverageReport,mergeCandidates,buildQualityEvidence,runFullDiscovery
+  candidateKey,normalizeCandidate,coverageReport,mergeCandidates,candidateTierEvidence,buildQualityEvidence,runFullDiscovery
 };
