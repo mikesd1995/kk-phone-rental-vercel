@@ -43,7 +43,9 @@ async function resolvePoster(booking, fetchImpl=fetch){
   const rows=parseCsv(await r.text());
   const norm=v=>String(v||'').normalize('NFKC').trim().toLowerCase();
   const exact=rows.find(x=>norm(x.event_name)===norm(booking.event_name) && norm(x.venue)===norm(booking.venue));
-  return exact ? String(exact.poster_image_url||'').trim() : '';
+  if(!exact || !String(exact.poster_image_url||'').trim()) return '';
+  const eventId=String(exact.event_id||'').trim();
+  return eventId ? 'https://kk-phone-rental.vercel.app/api/line-poster?event_id='+encodeURIComponent(eventId) : '';
 }
 async function replyFlex(replyToken, message, token, fetchImpl=fetch){
   const r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
