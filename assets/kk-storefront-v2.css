@@ -108,3 +108,10 @@ footer{margin-top:56px!important;padding:36px 0!important;color:var(--v2-muted)}
  .status-filter-bar{overflow-x:auto!important;overflow-y:hidden!important;overscroll-behavior-x:contain!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important}
  .status-filter-bar::-webkit-scrollbar{display:none!important}
 }
+
+/* 320px acceptance: three status buttons must fit the 272px inner toolbar without document overflow. */
+@media(max-width:350px){
+ .status-filter-bar .filter-btn{flex:1 1 0!important;width:auto!important;min-width:0!important;max-width:none!important;padding-left:6px!important;padding-right:6px!important;font-size:11.5px!important}
+ .status-filter-bar .month-select-wrap{flex:0 0 82px!important;width:82px!important;min-width:0!important}
+ .status-filter-bar .month-select{width:82px!important;max-width:82px!important;min-width:0!important;padding-left:8px!important;padding-right:22px!important;font-size:16px!important}
+}
