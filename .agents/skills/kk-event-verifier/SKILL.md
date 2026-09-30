@@ -61,6 +61,7 @@ The operational READY queue is anchored in `_AI_Inbox`, not in Candidate:
 - join an AI packet to Candidate by exact `Show ID` first;
 - only when Show ID is unavailable, use exact `Event Family ID + event date` and require exactly one match;
 - zero or multiple matches become explicit pairing debt/HOLD. Never resolve the ambiguity with fuzzy title matching.
+- reverse-audit Candidate rows whose `Status=READY_FOR_VERIFIER`: if no AI packet exists by exact Show ID or exact Event Family ID + date, surface `CANDIDATE_READY_ORPHAN_NO_AI_PACKET`; if only terminal AI packets exist, surface `STALE_CANDIDATE_READY_AFTER_AI_TERMINAL`. Candidate-only READY rows never inflate the operational AI backlog.
 
 After a safe COMMIT/HOLD, terminalize both surfaces consistently. A canonical/monthly write that leaves AI or Candidate operationally READY is a partial close with explicit stale-ready debt.
 
