@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V4';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V5';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
@@ -18,7 +18,7 @@ function decodeHtmlEntities(raw){
 function cleanHtml(raw){return decodeHtmlEntities(text(raw).replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ')).replace(/\s+/g,' ').trim();}
 function candidateFromPage(url,body,task={}){
  const title=(body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'';
- return {title:cleanHtml(title)||text(task.query)||null,event_date:null,event_time:null,venue:null,artist:[],source_url:url,confidence:null};
+ return {title:cleanHtml(title)||null,event_date:null,event_time:null,venue:null,artist:[],source_url:url,confidence:null,evidence_text:cleanHtml(body).slice(0,4000)||null};
 }
 async function fetchPage(url,options={}){
  const safe=https(url); if(!safe){const e=new Error('HTTPS_URL_REQUIRED');e.code='HTTPS_URL_REQUIRED';throw e;}
@@ -54,6 +54,24 @@ function ddgResultUrl(raw){
   return https(u.toString());
  }catch(_){return '';}
 }
+
+function assertHealthySearchHtml(body,engine){
+ const raw=String(body||'');
+ const lower=raw.toLowerCase();
+ const kind=text(engine).toUpperCase();
+ if(kind==='DDG'){
+   if(/result__a/i.test(raw))return 'RESULTS';
+   if(/no results|no more results|nothing found/i.test(lower))return 'NO_RESULTS';
+   const e=new Error('DDG_SEARCH_RESPONSE_UNHEALTHY');e.code='DDG_SEARCH_RESPONSE_UNHEALTHY';throw e;
+ }
+ if(kind==='BING'){
+   if(/\bb_algo\b/i.test(raw))return 'RESULTS';
+   if(/there are no results|no results found|did not match any documents/i.test(lower))return 'NO_RESULTS';
+   const e=new Error('BING_SEARCH_RESPONSE_UNHEALTHY');e.code='BING_SEARCH_RESPONSE_UNHEALTHY';throw e;
+ }
+ return 'UNKNOWN';
+}
+
 function parseDuckDuckGoHtml(body,query=''){
  const out=[];const seen=new Set();
  const re=/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
@@ -76,7 +94,8 @@ async function duckDuckGoHtml(task={},options={}){
  const u=new URL('https://html.duckduckgo.com/html/');
  u.searchParams.set('q',q);
  const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.ddg_timeout_ms||options.timeout_ms||8000)});
- return parseDuckDuckGoHtml(body,q);
+ const health=assertHealthySearchHtml(body,'DDG');
+ return health==='NO_RESULTS'?[]:parseDuckDuckGoHtml(body,q);
 }
 
 
@@ -98,7 +117,8 @@ async function bingHtml(task={},options={}){
  const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
  const u=new URL('https://www.bing.com/search');u.searchParams.set('q',q);u.searchParams.set('count','25');
  const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.bing_timeout_ms||options.timeout_ms||8000)});
- return parseBingHtml(body,q);
+ const health=assertHealthySearchHtml(body,'BING');
+ return health==='NO_RESULTS'?[]:parseBingHtml(body,q);
 }
 
 async function searxng(task={},options={}){
@@ -109,4 +129,4 @@ async function searxng(task={},options={}){
  return (Array.isArray(data.results)?data.results:[]).slice(0,25).map(r=>({title:text(r.title)||q,event_date:null,event_time:null,venue:null,artist:[],source_url:https(r.url),confidence:null})).filter(r=>r.source_url);
 }
 function createProviders(options={}){const out={OFFICIAL_DIRECT:t=>officialDirect(t,options),RSS_OR_PUBLIC_FEED:t=>rssOrPublicFeed(t,options)};if(options.ddg_enabled!==false)out.DDG_HTML=t=>duckDuckGoHtml(t,options);if(options.bing_enabled!==false)out.BING_HTML=t=>bingHtml(t,options);const endpoint=https(options.searxng_endpoint||process.env.KK_SEARXNG_ENDPOINT||DEFAULT_SEARXNG_ENDPOINT);if(endpoint)out.SEARXNG=t=>searxng(t,{...options,searxng_endpoint:endpoint});return out;}
-module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,decodeHtmlEntities,cleanHtml,decodeEntities,ddgResultUrl,parseDuckDuckGoHtml,parseBingHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,searxng,createProviders};
+module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,decodeHtmlEntities,cleanHtml,decodeEntities,assertHealthySearchHtml,ddgResultUrl,parseDuckDuckGoHtml,parseBingHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,searxng,createProviders};
