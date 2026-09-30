@@ -11,6 +11,7 @@ const ULTRA_DEEP_REQUIRED_SOURCE_TIERS = Object.freeze([
 ]);
 const MAX_OBSERVATIONS = 50;
 const MAX_CANDIDATES = 100;
+const REQUIRED_DISCOVERY_GATES = Object.freeze(['SOURCE_CLASS_PROOF','SOURCE_UNIVERSE_PROOF','RECONCILIATION','KNOWN_MISS_REGRESSION']);
 
 function text(v){ return String(v == null ? '' : v).trim(); }
 function norm(v){ return text(v).toLowerCase().replace(/\s+/g,' '); }
@@ -147,13 +148,31 @@ async function runFullDiscovery(input={},options={}){
   const scanMode=text(input.scan_mode).toUpperCase();
   const coverage=coverageReport(observations,sourceReports);
   const ultraDeep=scanMode===ULTRA_DEEP_MODE;
+  const qualityInput=input.quality_gates||{};
+  const qualityGates={
+    source_class_proof:coverage.proof_complete,
+    source_universe_proof:qualityInput.source_universe_proof===true,
+    reconciliation_gap_count:Number.isFinite(Number(qualityInput.reconciliation_gap_count))?Number(qualityInput.reconciliation_gap_count):null,
+    known_miss_regression:qualityInput.known_miss_regression===true
+  };
+  qualityGates.complete=qualityGates.source_class_proof &&
+    qualityGates.source_universe_proof &&
+    qualityGates.reconciliation_gap_count===0 &&
+    qualityGates.known_miss_regression;
+  qualityGates.missing=[
+    ...(!qualityGates.source_class_proof?['SOURCE_CLASS_PROOF']:[]),
+    ...(!qualityGates.source_universe_proof?['SOURCE_UNIVERSE_PROOF']:[]),
+    ...(qualityGates.reconciliation_gap_count!==0?['RECONCILIATION']:[]),
+    ...(!qualityGates.known_miss_regression?['KNOWN_MISS_REGRESSION']:[])
+  ];
   const hardFailures=sourceReports.filter(r=>String(r.status).startsWith('BLOCKED_')||String(r.status).includes('REJECTED'));
   const handoff={
     handoff_version:'kk-full-discovery-handoff-v1',
-    handoff_state:ultraDeep && !coverage.proof_complete?'HOLD_FOR_COVERAGE':'READY_FOR_VERIFIER',
+    handoff_state:ultraDeep && !qualityGates.complete?'HOLD_FOR_COVERAGE':'READY_FOR_VERIFIER',
     route:'EXISTING_SCANNER_TO_VERIFIER_HANDOFF',
     scan_mode:scanMode||'STANDARD',
     source_coverage:coverage,
+    quality_gates:qualityGates,
     candidates:merged.candidates,
     candidate_count:merged.candidates.length,
     dedup_rejected:merged.rejected,
@@ -168,12 +187,13 @@ async function runFullDiscovery(input={},options={}){
 
   return {
     worker_version:WORKER_VERSION,
-    status:ultraDeep && !coverage.proof_complete
+    status:ultraDeep && !qualityGates.complete
       ? 'BLOCKED_INCOMPLETE_SOURCE_COVERAGE'
       : (merged.candidates.length?'READY_FOR_VERIFIER':(hardFailures.length?'DISCOVERY_BLOCKED_OR_EMPTY':'NO_NEW_CANDIDATES')),
     observations_received:observations.length,
     source_reports:sourceReports,
     source_coverage:coverage,
+    quality_gates:qualityGates,
     handoff,
     authoritative:false,
     verifier_required:true,
@@ -183,4 +203,4 @@ async function runFullDiscovery(input={},options={}){
   };
 }
 
-module.exports={WORKER_VERSION,ULTRA_DEEP_MODE,ULTRA_DEEP_REQUIRED_SOURCE_TIERS,MAX_OBSERVATIONS,MAX_CANDIDATES,candidateKey,normalizeCandidate,coverageReport,mergeCandidates,runFullDiscovery};
+module.exports={WORKER_VERSION,ULTRA_DEEP_MODE,ULTRA_DEEP_REQUIRED_SOURCE_TIERS,REQUIRED_DISCOVERY_GATES,MAX_OBSERVATIONS,MAX_CANDIDATES,candidateKey,normalizeCandidate,coverageReport,mergeCandidates,runFullDiscovery};
