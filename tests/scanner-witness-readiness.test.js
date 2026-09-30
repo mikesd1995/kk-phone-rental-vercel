@@ -154,3 +154,22 @@ test('queryValue resolves ledger probe from query object or URL',()=>{
   assert.equal(H._test.queryValue({url:'/api/kk-scanner-dispatch?probe=one&probe=two'},'probe'),'');
   assert.equal(H._test.queryValue({url:'/api/kk-scanner-dispatch'},'probe'),'');
 });
+
+test('read-only scanner execution requires explicit enablement and unknown-URL search',()=>{
+  const base={
+    KK_EXTERNAL_SCANNER_ENABLED:'true',
+    KK_EXTERNAL_SCANNER_MODE:'execute-readonly',
+    KK_EXTERNAL_SCANNER_SECRET:'hmac-secret',
+    KK_RUNTIME_LEDGER_ENABLED:'true',
+    KK_RUNTIME_LEDGER_PROJECT_REF:'zehlsagzrpromtfqqflt',
+    SUPABASE_URL:'https://zehlsagzrpromtfqqflt.supabase.co',
+    SUPABASE_SECRET_KEY:'sb_secret_server-only'
+  };
+  const blocked=H._test.readinessSnapshot(base);
+  assert.equal(blocked.scanner_execution_capable,false);
+  assert.equal(blocked.ready_for_execution,false);
+  const ready=H._test.readinessSnapshot({...base,KK_EXTERNAL_SCANNER_EXECUTION_ENABLED:'true',KK_SEARXNG_ENDPOINT:'https://search.example/search'});
+  assert.equal(ready.scanner_execution_capable,true);
+  assert.equal(ready.ready_for_execution,true);
+  assert.equal(ready.business_writes_capable,false);
+});
