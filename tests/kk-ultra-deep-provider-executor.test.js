@@ -16,3 +16,13 @@ test('provider executor fails closed when no provider is bound',async()=>{
   const r=await Exec.executeGapTask({source_tier:'VENUE',providers:['SEARXNG','EXA']},{providers:{}});
   assert.equal(r.status,'GAP_UNRESOLVED'); assert.deepEqual(r.attempts.map(x=>x.status),['NOT_BOUND','NOT_BOUND']);
 });
+
+test('provider executor falls from DDG to Bing when DDG has no evidence',async()=>{
+ const r=await Exec.executeGapTask({source_tier:'SOCIAL',providers:['DDG_HTML','BING_HTML']},{providers:{
+   DDG_HTML:async()=>[],
+   BING_HTML:async()=>[{title:'Fallback Event',source_url:'https://example.com/fallback'}]
+ }});
+ assert.equal(r.status,'EVIDENCE_FOUND');
+ assert.equal(r.provider,'BING_HTML');
+ assert.deepEqual(r.attempts.map(x=>x.status),['NO_EVIDENCE','EVIDENCE_FOUND']);
+});
