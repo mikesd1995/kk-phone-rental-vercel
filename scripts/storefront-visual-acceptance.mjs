@@ -268,7 +268,7 @@ async function main(){
           }catch(_){}
         }
 
-        const overflowElements=Array.from(document.querySelectorAll('body *')).filter(visible).map(el=>{const r=el.getBoundingClientRect();return {tag:el.tagName.toLowerCase(),id:el.id||'',class_name:String(el.className||'').slice(0,120),left:r.left,right:r.right,width:r.width};}).filter(item=>item.left < -1 || item.right > window.innerWidth+1).sort((a,b)=>(b.right-window.innerWidth)-(a.right-window.innerWidth)).slice(0,12);
+        const overflowElements=Array.from(document.querySelectorAll('body *')).map(el=>{const r=el.getBoundingClientRect();const style=getComputedStyle(el);return {tag:el.tagName.toLowerCase(),id:el.id||'',class_name:String(el.className||'').slice(0,120),display:style.display,visibility:style.visibility,left:r.left,right:r.right,width:r.width,scroll_width:el.scrollWidth,client_width:el.clientWidth};}).filter(item=>item.left < -1 || item.right > window.innerWidth+1 || item.scroll_width > item.client_width+1).sort((a,b)=>Math.max(b.right-window.innerWidth,b.scroll_width-b.client_width)-Math.max(a.right-window.innerWidth,a.scroll_width-a.client_width)).slice(0,20);
 
         const shellStyle=shell?getComputedStyle(shell):null;
         const backdrop=shellStyle?(shellStyle.backdropFilter||shellStyle.webkitBackdropFilter||''):'';
