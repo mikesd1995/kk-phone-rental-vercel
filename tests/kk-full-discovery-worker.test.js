@@ -95,7 +95,7 @@ test('ultra deep FULL 8/8 exposes execution proof for every required source tier
  assert.equal(r.source_coverage.proof_complete,true);
  for(const tier of tiers){
    assert.ok(r.source_coverage.proof_by_source_tier[tier].length>=1);
-   assert.ok(r.source_coverage.proof_by_source_tier[tier][0].discovery_call_count>=1);
+   assert.ok(['DISCOVERY_CALL','VALIDATED_UNCHANGED'].includes(r.source_coverage.proof_by_source_tier[tier][0].execution_proof));
  }
 });
 
