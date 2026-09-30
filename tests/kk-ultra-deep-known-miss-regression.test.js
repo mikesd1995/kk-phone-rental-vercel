@@ -24,9 +24,9 @@ test('explicit executed classification is valid proof for a non-eligible known m
 });
 
 test('known-miss alias matching accepts realistic social/search result titles',()=>{
- assert.equal(K.sameCase({title:'WeSpark official #bailu Bai Lu WeSpark Exclusive Overseas Fanmeeting'},{title:'MEET & LOVE BAI LU SPECIAL FANMEETING',aliases:['bailu wespark','bai lu special fanmeeting'],event_date:'2026-10-25'}),true);
- assert.equal(K.sameCase({title:'ปล่อยปลาฉลาม Meet TutorYim updated date'},{title:'TUTOR YIM',aliases:['tutor yim','ปล่อยปลาฉลาม'],event_date:'2026-10-18'}),true);
- assert.equal(K.sameCase({title:'FORTREASURE : BEYOND THE HORIZON CONCERT'},{title:'FORTREASURE BEYOND THE HORIZON CONCERT',aliases:['fortreasure concert'],event_date:'2026-11-29'}),true);
+ assert.equal(K.sameCase({title:'WeSpark official #bailu Bai Lu WeSpark Exclusive Overseas Fanmeeting',event_date:'2026-10-25'},{title:'MEET & LOVE BAI LU SPECIAL FANMEETING',aliases:['bailu wespark','bai lu special fanmeeting'],event_date:'2026-10-25'}),true);
+ assert.equal(K.sameCase({title:'TutorYim updated fan activity',event_date:'2026-10-18'},{title:'TUTOR YIM',aliases:['tutor yim'],event_date:'2026-10-18'}),true);
+ assert.equal(K.sameCase({title:'FORTREASURE : BEYOND THE HORIZON CONCERT',event_date:'2026-11-29'},{title:'FORTREASURE BEYOND THE HORIZON CONCERT',aliases:['fortreasure concert'],event_date:'2026-11-29'}),true);
 });
 
 
@@ -35,4 +35,30 @@ test('evidence-grounded query hints are present for the three remaining live mis
  assert.ok(byId.get('scoopify-james-su-20261024').search_queries.includes('SCOOPIFYYogurtAndJamesSu SummerVibeTH'));
  assert.ok(byId.get('tle-firstone-20261022').search_queries.includes('EVERPINKxTleFirstone'));
  assert.ok(byId.get('fortreasure-20261129').search_queries.includes('FORTREASURE site:eventpop.me'));
+});
+
+
+test('dated known-miss cases reject candidates with missing or mismatched dates',()=>{
+ const c=K.CORPUS.find(x=>x.case_id==='bai-lu-meet-love-20261025');
+ assert.equal(K.sameCase({title:'WeSpark Bai Lu Special Fanmeeting'},c),false);
+ assert.equal(K.sameCase({title:'WeSpark Bai Lu Special Fanmeeting',event_date:'2026-10-24'},c),false);
+ assert.equal(K.sameCase({title:'WeSpark Bai Lu Special Fanmeeting',event_date:'2026-10-25'},c),true);
+});
+
+test('deterministic replay covers all ten historical matcher patterns',()=>{
+ const out=K.replayRegression();
+ assert.equal(out.complete,true);
+ assert.equal(out.passed,10);
+ assert.equal(out.fixture_count,10);
+ assert.equal(out.deterministic,true);
+ assert.equal(out.fixture_authority,'TEST_ONLY_NO_BUSINESS_TRUTH');
+ assert.equal(out.production_writes,0);
+});
+
+test('deterministic replay fails when one fixture date is mutated',()=>{
+ const fixtures=K.REPLAY_FIXTURES.map(x=>({...x}));
+ fixtures[0].event_date='2026-10-11';
+ const out=K.replayRegression(fixtures);
+ assert.equal(out.complete,false);
+ assert.ok(out.missing_cases.includes('remaster-20261010'));
 });
