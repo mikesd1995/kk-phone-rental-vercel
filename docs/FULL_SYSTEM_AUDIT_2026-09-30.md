@@ -612,3 +612,34 @@ Evidence and classification:
 - Google Drive thumbnail delivery for the sampled MINMIN event returned 415 from the fail-closed JPEG/PNG endpoint. LINE Flex officially requires JPEG or PNG, so WebP/unsupported upstream media must not be blindly passed through. This remains a separate source-normalization/transcoding concern; it was not bypassed by widening the media allowlist.
 - Runtime telemetry after deployment showed only a Node `url.parse()` deprecation warning group on `/api/line-poster`; no application exception was introduced by these fixes.
 - Production/business data writes: 0. Historical LINE messages are immutable; fixes apply to new confirmations.
+
+
+## Execution update — LINE canonical package price integrity repair
+
+Incident evidence:
+- Customer-facing LINE Flex could display a bundle label such as `Vivo X300 Pro + Lens` while echoing a stale/client-supplied phone-only price such as `590 บาท`.
+- Root cause: `server/line-booking-webhook.js` treated parsed `price_display` from the inbound LINE text as display-authoritative and passed it directly to the Flex renderer.
+- Existing parser compatibility fixture contained the same bundle/590 combination; parsing correctness was therefore not a pricing-integrity assertion.
+
+Canonical repair:
+- Production public package schema `09_Web_Packages!A4:N` was verified to expose event-scoped `package_type`, `model_display`, `lens_display`, and canonical `price`.
+- Webhook now resolves the event from `08_Web_Ready` by normalized exact event name + venue, then resolves exactly one package in `09_Web_Packages` for that event.
+- Customer Flex price comes from the canonical package row. Lens markup is never hard-coded or arithmetically inferred.
+- If a unique positive canonical package price cannot be resolved, customer display fails closed to `รอร้านตรวจสอบราคา` instead of echoing the inbound price.
+- No Production Sheet or business-data mutation is used.
+
+Regression:
+- Added reproduction where inbound bundle price is 590 but canonical bundle price is 890.
+- Added event-specific comma-formatted 1,290 bundle case.
+- Added unresolved-package fail-closed case.
+- Updated end-to-end webhook mock to route 08/09 public-feed and LINE reply calls by URL and assert that stale 590 is absent from the outgoing Flex.
+- First CI #1182: 939/940; legacy integration mock incompatible with added canonical lookup.
+- Second CI #1185 exposed an escaped-newline fixture defect.
+- Final Admin Regression #1186 (run `36754149633`) on head `df06848dec6352ccba2cd278c791d148a6ce4f85`: SUCCESS.
+
+Merge/deploy:
+- Original stale-base PR #364 closed as superseded.
+- Fresh-port PR #365 merged with expected-head guard.
+- Main merge SHA: `8e5afff18646bd55481f4378eeeab7a33c36e255`.
+- Immediate Vercel commit status: FAILURE — `Deployment rate limited — retry in 24 hours.`
+- No exact-main Production deployment existed at the time of this record; therefore Production runtime acceptance for this repair remains WAITING and must not be reported as fixed in Production.
