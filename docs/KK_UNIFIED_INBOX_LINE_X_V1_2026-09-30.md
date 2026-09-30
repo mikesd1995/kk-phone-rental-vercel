@@ -214,3 +214,11 @@ LINE integration:
 
 Remaining activation blocker:
 The connected Supabase management tool deliberately exposes publishable keys but not the project's service-role/secret key. Therefore the server secret cannot be safely copied into Vercel by this implementation session. Production Inbox writes remain disabled until `KK_INBOX_SUPABASE_URL` and `KK_INBOX_SUPABASE_SERVICE_ROLE_KEY` are configured in Vercel server environment. Do not place the secret in Git, browser code, chat, or a public variable.
+
+## X DM readiness audit — 2026-09-30
+- Current X API v2 documentation exposes Direct Message lookup/manage endpoints and Account Activity webhooks; browser automation is not the target integration.
+- Added `server/kk-x-inbox-adapter.js` as a fail-closed normalization layer into the existing `channel=x` contract.
+- Server credential contract: `KK_X_CLIENT_ID`, `KK_X_CLIENT_SECRET`, `KK_X_USER_ACCESS_TOKEN`. Presence is classified only as `CREDENTIALS_PRESENT_UNVERIFIED`; it never implies entitlement.
+- Production writes remain 0 until an authenticated entitlement probe succeeds against the KK X developer app/account.
+- LINE and X identities remain separate unless the owner explicitly links them.
+- No X outbound send or auto-send has been enabled.
