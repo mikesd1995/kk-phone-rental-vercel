@@ -6,6 +6,15 @@ const MAX_RESULTS=25;
 function text(v){return String(v==null?'':v).trim();}
 function upper(v){return text(v).toUpperCase();}
 function https(v){try{const u=new URL(text(v));return u.protocol==='https:'?u.toString():'';}catch(_){return '';}}
+function queryVariants(task={}){
+  const raw=[task.query,...(Array.isArray(task.query_variants)?task.query_variants:[])];
+  const seen=new Set();const out=[];
+  for(const value of raw){
+    const q=text(value);if(!q||seen.has(q))continue;
+    seen.add(q);out.push(q);
+  }
+  return out.length?out:[null];
+}
 function normalizeCandidate(row={},fallback={}){
   return {
     candidate_id:text(row.candidate_id),
@@ -24,15 +33,18 @@ async function executeGapTask(task={},options={}){
   for(const provider of providers){
     const fn=options.providers&&options.providers[provider];
     if(typeof fn!=='function'){attempts.push({provider,status:'NOT_BOUND'});continue;}
-    try{
-      const raw=await fn({...task,provider});
-      const rows=Array.isArray(raw)?raw:(Array.isArray(raw&&raw.candidates)?raw.candidates:[]);
-      const candidates=rows.slice(0,MAX_RESULTS).map(r=>normalizeCandidate(r,task)).filter(r=>r.source_url);
-      attempts.push({provider,status:candidates.length?'EVIDENCE_FOUND':'NO_EVIDENCE',count:candidates.length});
-      if(candidates.length){
-        return {version:VERSION,status:'EVIDENCE_FOUND',provider,source_tier:upper(task.source_tier),candidates,attempts,authoritative:false,verifier_required:true,production_writes:0};
-      }
-    }catch(error){attempts.push({provider,status:'PROVIDER_ERROR',error_class:text(error&&(error.code||error.name))||'ERROR'});}
+    for(const query of queryVariants(task)){
+      const callTask=query===null?{...task,provider}:{...task,provider,query};
+      try{
+        const raw=await fn(callTask);
+        const rows=Array.isArray(raw)?raw:(Array.isArray(raw&&raw.candidates)?raw.candidates:[]);
+        const candidates=rows.slice(0,MAX_RESULTS).map(r=>normalizeCandidate(r,callTask)).filter(r=>r.source_url);
+        attempts.push({provider,status:candidates.length?'EVIDENCE_FOUND':'NO_EVIDENCE',count:candidates.length,query});
+        if(candidates.length){
+          return {version:VERSION,status:'EVIDENCE_FOUND',provider,source_tier:upper(task.source_tier),candidates,attempts,authoritative:false,verifier_required:true,production_writes:0};
+        }
+      }catch(error){attempts.push({provider,status:'PROVIDER_ERROR',error_class:text(error&&(error.code||error.name))||'ERROR',query});}
+    }
   }
   return {version:VERSION,status:'GAP_UNRESOLVED',provider:null,source_tier:upper(task.source_tier),candidates:[],attempts,authoritative:false,verifier_required:true,production_writes:0};
 }
@@ -42,4 +54,4 @@ async function executeGapPlan(plan={},options={}){
   for(const task of tasks) results.push(await executeGapTask(task,options));
   return {version:VERSION,status:results.every(r=>r.status==='EVIDENCE_FOUND')?'GAPS_RESOLVED':'GAPS_REMAIN',results,authoritative:false,verifier_required:true,production_writes:0};
 }
-module.exports={VERSION,ALLOWED_PROVIDERS,MAX_RESULTS,normalizeCandidate,executeGapTask,executeGapPlan};
+module.exports={VERSION,ALLOWED_PROVIDERS,MAX_RESULTS,queryVariants,normalizeCandidate,executeGapTask,executeGapPlan};
