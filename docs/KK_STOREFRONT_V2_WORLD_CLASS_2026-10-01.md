@@ -47,3 +47,15 @@ V2 is not production-accepted until syntax/tests, independent UX review, browser
 - Visual QA passed 375/390/430/480/768/1024 at professional readiness 100. Only 320x568 remained blocked: P0 horizontal overflow (330px document vs 320px viewport) plus P1 card width below the 150px contract.
 - Root cause was the two-column mobile grid being mathematically too narrow at 320px after safe page gutters. V2 now switches to a one-column poster grid at <=350px instead of hiding overflow or shrinking cards below acceptance.
 - These repairs preserve event data, pricing, inventory, booking behavior and owner visibility truth; production writes remain 0.
+
+### Final automated acceptance — 2026-10-01
+- Exact accepted code SHA: `0010f2dd7a8f020e3d607c322b2f32b0f67b6a3e`.
+- Admin Regression: PASS on run 36768319120.
+- Storefront Automated Visual QA: PASS on run 36768319091.
+- All required viewports passed with professional readiness 100: 320, 375, 390, 430, 480, 768 and 1024 px.
+- Horizontal document width now equals viewport at every acceptance width; 320px improved from 330px to 320px.
+- Storefront Art Director acceptance: PASS.
+- Runtime errors: none. Production writes: 0.
+- Root-cause repairs included deterministic Visual-QA contract paths, 320px single-column cards, viewport-contained status controls, removal of legacy nowrap overflow in the V2 section heading, and mobile footer/text containment.
+- Visual QA now records `overflow_elements` diagnostics so future horizontal-overflow regressions identify the responsible DOM elements rather than requiring blind CSS changes.
+- PR remains Draft and production is unchanged; automated acceptance is complete, while owner visual review remains the final pre-cutover gate.
