@@ -42,3 +42,10 @@ test('known-miss direct evidence seeds exist for independently verified historic
    assert.ok(row.seed_urls.every(x=>x.startsWith('https://')));
  }
 });
+
+test('source unavailable is not acceptance proof for a known miss',()=>{
+ const candidates=K.CORPUS.slice(1).map((x,i)=>({title:x.title,event_date:x.event_date,source_url:'https://example.com/'+i}));
+ const out=K.evaluate(candidates,[{case_id:'remaster-20261010',executed:true,status:'SOURCE_UNAVAILABLE'}]);
+ assert.equal(out.complete,false);
+ assert.ok(out.missing_cases.includes('remaster-20261010'));
+});
