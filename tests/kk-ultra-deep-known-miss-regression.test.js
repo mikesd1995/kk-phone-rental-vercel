@@ -28,3 +28,17 @@ test('known-miss alias matching accepts realistic social/search result titles',(
  assert.equal(K.sameCase({title:'ปล่อยปลาฉลาม Meet TutorYim updated date'},{title:'TUTOR YIM',aliases:['tutor yim','ปล่อยปลาฉลาม'],event_date:'2026-10-18'}),true);
  assert.equal(K.sameCase({title:'FORTREASURE : BEYOND THE HORIZON CONCERT'},{title:'FORTREASURE BEYOND THE HORIZON CONCERT',aliases:['fortreasure concert'],event_date:'2026-11-29'}),true);
 });
+
+test('known-miss matching can use fetched page evidence text when page title is generic',()=>{
+ const row={title:'Schedule',evidence_text:'30/09/2026 MIN MIN x TeeteePor : The Frozen Candy Land'};
+ const caseRow=K.CORPUS.find(x=>x.case_id==='minmin-frozen-candy-20260930');
+ assert.equal(K.sameCase(row,caseRow),true);
+});
+
+test('known-miss direct evidence seeds exist for independently verified historical misses',()=>{
+ for(const id of ['remaster-20261010','pink-aura-20260928','sport-day-after-match-20261001','bai-lu-meet-love-20261025','fortreasure-20261129']){
+   const row=K.CORPUS.find(x=>x.case_id===id);
+   assert.ok(Array.isArray(row.seed_urls)&&row.seed_urls.length>0);
+   assert.ok(row.seed_urls.every(x=>x.startsWith('https://')));
+ }
+});
