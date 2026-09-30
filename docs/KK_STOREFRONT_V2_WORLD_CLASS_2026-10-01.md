@@ -70,3 +70,14 @@ V2 is not production-accepted until syntax/tests, independent UX review, browser
 - No pricing, inventory, booking, event visibility or production write path was changed by this refinement.
 - Candidate commits: `1401c063` image-readiness gate, `c04389f2` regression contract, `bede06ec` premium editorial refinement.
 - Final release status remains fail-closed until Admin Regression + Visual QA + Art Director acceptance pass on the refined exact head and screenshot evidence is reviewed again.
+
+
+### Final refined acceptance — 6b1b0132
+- Exact refined code SHA: `6b1b0132dabf0843a01873459f27d068867a99e3`.
+- Admin Regression run `36768971178`: PASS.
+- Storefront Automated Visual QA run `36768971126`: PASS.
+- Art Director acceptance: PASS; blockers: none; production writes: 0.
+- Professional readiness: 100 at 320/375/390/430/480/768/1024. At every viewport, document scroll width equals viewport width; runtime errors are empty.
+- Downloaded and manually reviewed the exact-run screenshot artifact `storefront-visual-qa-6b1b0132...`. The 768px hero is now fully rendered, confirming the image-readiness hardening removed the prior false-positive capture. 320/390/768/1024 top evidence preserves the intended editorial hierarchy, usable discovery controls and poster-led composition.
+- Sticky evidence at 320px shows expected content scrolling beneath the sticky discovery shell and fixed LINE CTA; no horizontal clipping or control-width regression is present.
+- This closes automated + evidence-based visual acceptance for the refined V2. Production remains unchanged; merge/deploy is still a separate explicit cutover action.
