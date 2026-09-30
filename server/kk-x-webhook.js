@@ -17,6 +17,7 @@ function verifySignature(rawBody,signature,env=process.env){
 }
 function inboundEvents(payload={}){
  const out=[];
+ // Account Activity webhook envelope documented by X uses direct_message_events with message_create events.
  for(const e of Array.isArray(payload.direct_message_events)?payload.direct_message_events:[]){
   if(!e||e.type!=='message_create'||!e.message_create)continue;
   const mc=e.message_create, sender=String(mc.sender_id||''), target=String(mc.target&&mc.target.recipient_id||'');
