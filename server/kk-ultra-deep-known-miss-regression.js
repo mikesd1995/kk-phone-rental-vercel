@@ -41,7 +41,7 @@ function evaluate(candidates=[],classifications=[]){
   const results=CORPUS.map(caseRow=>{
     const matched=rows.find(c=>sameCase(c,caseRow));
     const receipt=cls.get(caseRow.case_id);
-    const classified=!!receipt&&receipt.executed===true&&['DISCOVERED','NOT_ELIGIBLE','SOURCE_UNAVAILABLE'].includes(text(receipt.status).toUpperCase());
+    const classified=!!receipt&&receipt.executed===true&&['DISCOVERED','NOT_ELIGIBLE'].includes(text(receipt.status).toUpperCase());
     const pass=!!matched||classified;
     return {
       case_id:caseRow.case_id,
