@@ -25,7 +25,7 @@ async function main(){
  const started_at=new Date().toISOString();
  const result=await Runner.runMonthlyUltraDeep({month,location});
  const evidence={
-   schema:'KK_ULTRA_DEEP_RUNTIME_ACCEPTANCE_V1',
+   schema:'KK_ULTRA_DEEP_RUNTIME_ACCEPTANCE_V2',
    started_at,
    finished_at:new Date().toISOString(),
    month:result.month,
@@ -35,12 +35,15 @@ async function main(){
    blockers:result.blockers||[],
    provider_binding:result.provider_binding,
    source_universe:{
-     complete:result.source_universe&&result.source_universe.complete===true,
+     complete:result.source_universe&&result.source_universe.execution_complete===true,
+     execution_complete:result.source_universe&&result.source_universe.execution_complete===true,
      required_source_count:result.source_universe&&result.source_universe.required_source_count,
      passed_required_source_count:result.source_universe&&result.source_universe.passed_required_source_count,
      missing_required_sources:result.source_universe&&result.source_universe.missing_required_sources||[],
      by_tier:result.source_universe&&result.source_universe.by_tier||{}
    },
+   source_tier_evidence:result.source_tier_evidence,
+   reference_proof:result.reference_proof,
    reconciliation:{
      complete:result.reconciliation&&result.reconciliation.complete===true,
      reconciliation_gap_count:result.reconciliation&&result.reconciliation.reconciliation_gap_count,
@@ -64,7 +67,10 @@ async function main(){
    full:evidence.full,
    blockers:evidence.blockers,
    provider_binding:evidence.provider_binding,
-   source_universe_complete:evidence.source_universe.complete,
+   source_universe_complete:evidence.source_universe.execution_complete,
+   source_tier_evidence_complete:evidence.source_tier_evidence&&evidence.source_tier_evidence.complete,
+   reference_proof_complete:evidence.reference_proof&&evidence.reference_proof.complete,
+   reference_candidate_count:evidence.reference_proof&&evidence.reference_proof.reference_candidate_count,
    reconciliation_gap_count:evidence.reconciliation.reconciliation_gap_count,
    known_miss_complete:evidence.known_miss_regression&&evidence.known_miss_regression.complete,
    candidate_count:evidence.candidate_count,
