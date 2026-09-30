@@ -25,7 +25,8 @@ REMASTER and a later batch of missed fan/brand/social events showed that eight s
 - Missing unknown-URL provider binding fails closed.
 - Missing source-universe execution proof fails closed.
 - Any reconciliation gap fails closed.
-- Any known-miss regression gap fails closed.
+- Any deterministic known-miss regression gap fails closed.
+- Live unknown-URL provider health must pass before and after the broad sweep.
 
 ## Acceptance required before merge/production enablement
 - npm syntax checks pass.
@@ -33,6 +34,7 @@ REMASTER and a later batch of missed fan/brand/social events showed that eight s
 - PR is current with main.
 - preview deployment is READY.
 - read-only runtime scan returns provider_binding.unknown_url_search_bound=true.
+- live_provider_health.complete=true.
 - source_universe.complete=true.
 - reconciliation_gap_count=0.
 - known_miss_regression.complete=true.
@@ -41,3 +43,17 @@ REMASTER and a later batch of missed fan/brand/social events showed that eight s
 
 ## Production rollout
 Do not switch KK_EXTERNAL_SCANNER_MODE from witness to execute-readonly until a real zero-cost HTTPS unknown-URL search endpoint is configured and a read-only acceptance run succeeds. No production business write path is enabled by this change.
+
+
+## 2026-10-01 acceptance-model correction
+
+Three owner-gated zero-write live acceptance attempts proved that using live public search as the hard historical known-miss regression is nondeterministic. Query variants moved 0/10 to 0/10; probe ordering and cross-path evidence moved the result to 7/10; evidence-grounded queries left it at 7/10. The same runs also exposed false-positive risk because a dated historical case could previously match a candidate whose event date was missing.
+
+The hard acceptance model is therefore split without weakening FULL:
+- `known_miss_regression` is now a deterministic replay of ten synthetic historical signal shapes through the same matcher. Fixtures are TEST_ONLY and have zero business-truth authority.
+- Dated historical cases require an exact candidate date; missing dates no longer pass.
+- `live_provider_health` is a separate hard gate with small pre-sweep and post-sweep canaries. At least one evidence result is required both before and after broad discovery.
+- source-universe execution proof and zero reconciliation gaps remain hard gates.
+- live historical probes still run and are emitted as `known_miss_live_probe`, but are diagnostic-only because search indexing and soft-throttling must not redefine regression truth.
+
+FULL remains fail-closed unless provider binding, live provider health, source-universe proof, reconciliation and deterministic historical regression all pass. Production writes remain zero and Verifier remains mandatory.
