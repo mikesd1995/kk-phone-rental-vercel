@@ -180,6 +180,33 @@ async function main(){
       await page.waitForSelector('.concert-card, .empty-state, .error-box',{timeout:12000});
       if(mode==='local_zero_cost') await page.waitForTimeout(350);
 
+      // Visual evidence must not be captured while eager hero/event imagery is still decoding.
+      // A metric-only PASS with an undecoded image is not owner-grade visual acceptance.
+      const imageReadiness=await page.evaluate(async()=>{
+        const images=Array.from(document.images).filter(img=>{
+          const r=img.getBoundingClientRect();
+          return r.bottom>=-1 && r.top<=window.innerHeight+1 && r.width>0 && r.height>0;
+        });
+        await Promise.all(images.map(async img=>{
+          if(!img.complete){
+            await new Promise(resolve=>{
+              const done=()=>resolve();
+              img.addEventListener('load',done,{once:true});
+              img.addEventListener('error',done,{once:true});
+              setTimeout(done,4000);
+            });
+          }
+          if(img.complete && img.naturalWidth>0 && typeof img.decode==='function'){
+            await img.decode().catch(()=>{});
+          }
+        }));
+        return images.map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight}));
+      });
+      const brokenVisibleImages=imageReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      if(brokenVisibleImages.length){
+        fail('VISIBLE_IMAGE_NOT_READY',`Visible image evidence was not ready at ${width}px: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
+      }
+
       const errorVisible=await page.locator('.error-box').isVisible().catch(()=>false);
       if(errorVisible){
         const text=await page.locator('.error-box').innerText().catch(()=> '');
