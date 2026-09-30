@@ -24,18 +24,18 @@ const CONTENT_ANGLES = Object.freeze([
 
 const COPY_CONTRACT = Object.freeze({
   brand_first_line: '📱 KK Phone Rental | #เช่ามือถือ',
-  direct_rental_layout: Object.freeze(['brand','event_hashtag','hook','offer','date_venue','benefits','booking_cta','reach_hashtags']),
-  direct_rental_layout_rule: 'Preferred baseline only, not a hard template. Brand must stay first and business-critical facts/CTA must be present, but hook, offer, event context, benefits, emoji, paragraph order and voice may move when the creative strategy benefits.',
-  handoff_line: '📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน',
-  file_storage_line: '☁️ Google Drive 30 วัน',
+  direct_rental_layout: Object.freeze(['brand','event_hashtag','offer','date','venue','hook','benefits','booking_cta','reach_hashtags']),
+  direct_rental_layout_rule: 'Current preferred baseline is Brand → Event hashtag → Offer/price → Date → Venue → Event-specific hook → Benefits → Booking CTA → 3 closing hashtags. It is a quality baseline, not a rigid order gate; verified facts, brand-first identity, CTA and anti-repeat remain hard requirements.',
+  handoff_line: '📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน',
+  file_storage_line: '☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน',
   booking_cta: '👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/',
-  hashtag_rule: 'Use only hashtags verified for the current event/artist/fandom context. Never synthesize a hashtag from an event name. Put 3–5 strongest verified event-relevant reach hashtags at the end.',
+  hashtag_rule: 'Use only hashtags verified for the current event/artist/fandom context. Never synthesize a hashtag from an event name. By default put exactly 3 strongest verified closing hashtags at the end and do not duplicate #เช่ามือถือ or the main event hashtag already used above.',
   duplicate_fact_rule: 'Date and venue have one canonical information block. Do not repeat date/venue inside the hook unless timing itself is the verified marketing message (for example today, tomorrow, DAY 2, or last call).',
   promotion_rule: 'Include discounts or promotions only when they are current, explicitly approved, and verified for the post.',
   pricing_rule: 'Use only current approved pricing from verified business truth. Never infer, copy from stale examples, or invent a price.',
   brand_rule: 'Keep the brand line first and do not repeat it at the bottom of the post.',
   creative_freedom_rule: 'Do not force every post into one visual/text template. Preserve event-specific voice, organic pacing, vivid but concise language, and a natural transition back to the rental use case.',
-  hard_gate_rule: 'Hard gates cover verified event facts, live approved price/inventory, verified hashtags, brand identity, booking CTA for commercial posts, anti-repeat, three distinct internal candidates, QA and Selector PASS.'
+  hard_gate_rule: 'Hard gates cover verified event facts, live approved price/inventory, verified hashtags, brand identity, booking CTA for commercial posts, recent-copy anti-repeat, three distinct internal candidates, QA and Selector PASS. Multi-event batches additionally require batch-level hook diversity QA before any winners are returned.'
 });
 
 const ANTI_REPEAT_CONTRACT = Object.freeze({
@@ -45,7 +45,9 @@ const ANTI_REPEAT_CONTRACT = Object.freeze({
   public_output_count: 1,
   distinct_angle_rule: 'Each internal post candidate must use a substantively different primary angle and hook logic, not a synonym swap.',
   recent_copy_rule: 'Do not reuse recent hook wording, sentence skeletons, metaphors, or generic filler when recent copy is provided.',
-  factuality_rule: 'Novelty never permits invented event lore. If event-specific context is not verified, use neutral factual phrasing.'
+  factuality_rule: 'Novelty never permits invented event lore. If event-specific context is not verified, use neutral factual phrasing.',
+  event_dna_minimum: 2,
+  batch_hook_rule: 'For multi-event requests, final winners must use different hook architectures across the batch; do not repeat prepare-device, ticket-holder, countdown, scarcity, or capture-moment scaffolds more than twice.'
 });
 
 function bool(value) {
@@ -239,7 +241,9 @@ function buildCreativePlan(input = {}, performanceRows = []) {
     event_context: {
       event_theme_notes: cleanText(input.event_theme_notes),
       fandom_notes: cleanText(input.fandom_notes),
-      timing_context: cleanText(input.timing_context)
+      timing_context: cleanText(input.timing_context),
+      event_dna: Array.isArray(input.event_dna) ? input.event_dna.map(cleanText).filter(Boolean) : [],
+      creative_anchors: Array.isArray(input.creative_anchors) ? input.creative_anchors.map(cleanText).filter(Boolean) : []
     },
     readiness,
     content_mix_target: CONTENT_MIX_TARGET,
@@ -271,6 +275,8 @@ function buildCreativePlan(input = {}, performanceRows = []) {
       'Creative direction benchmark: event-specific and organic, vivid but concise, not overly salesy, with a natural transition from the event/fandom moment back to the rental use case. The liked Khom Khlang-style direction is a quality reference, not a phrase/template to copy.',
       'Do not make cosmetic rewrites: changing emoji, synonyms, or sentence order does not count as a distinct variant.',
       'Compare against anti_repeat_context.recent_posts and avoid repeated hooks, metaphors, sentence skeletons, and generic filler.',
+      'Before drafting, identify at least two verified Event DNA anchors when available (format, scene, special segment, artist/fandom context, stage concept, or timing-specific fact) and use them to differentiate the hook from generic rental copy.',
+      'For multi-event batches, vary the hook architecture itself. Reusing structures such as “ใครมีบัตร...เตรียมเครื่อง...”, “อีกไม่กี่วัน...ล็อกคิว...”, or “เก็บทุกโมเมนต์...” across several events is a batch QA failure even when event names differ.',
       'All public copy requires owner review before publishing.'
     ]
   };
