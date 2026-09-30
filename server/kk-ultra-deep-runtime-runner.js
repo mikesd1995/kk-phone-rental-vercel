@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V3';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V4';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -42,6 +42,24 @@ function sourceUniverseReceipts(plan={},execution={}){
     });
   }
   return receipts;
+}
+function buildProviderHealthPlan(input={},phase='pre'){
+  const location=text(input.location)||'Bangkok Thailand';
+  const queries=[
+    'site:eventpop.me '+location+' concert',
+    location+' fanmeeting concert ticket'
+  ];
+  return {
+    version:'KK_ULTRA_DEEP_PROVIDER_HEALTH_V1',
+    gap_tasks:queries.map((query,i)=>({
+      source_tier:'PUBLIC_CALENDAR',
+      source_id:'provider-health-'+phase+'-'+(i+1),
+      query,
+      providers:['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+      evidence_required:true
+    })),
+    production_writes:0
+  };
 }
 function buildReferencePlan(input={}){
   const month=text(input.month);
@@ -106,18 +124,34 @@ function providerBindingState(providers={}){
   const bound=[...UNKNOWN_SEARCH_PROVIDERS].filter(p=>typeof providers[p]==='function');
   return {bound,unknown_url_search_bound:bound.length>0};
 }
+function providerHealthState(preExecution={},postExecution={}){
+  const pre=summarizeExecution(preExecution);
+  const post=summarizeExecution(postExecution);
+  const pre_ok=pre.evidence_found>0;
+  const post_ok=post.evidence_found>0;
+  return {
+    complete:pre_ok&&post_ok,
+    pre_ok,
+    post_ok,
+    pre_evidence_found:pre.evidence_found,
+    post_evidence_found:post.evidence_found,
+    pre_provider_errors:pre.provider_errors,
+    post_provider_errors:post.provider_errors,
+    production_writes:0
+  };
+}
 
 async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
 
-  // Execute the bounded historical probes first. Live HTML search providers may
-  // soft-throttle after a large sweep; putting the small regression corpus first
-  // prevents broad discovery traffic from starving the recall gate.
-  const knownMissPlan=buildKnownMissPlan();
-  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers});
-  const knownMissCandidates=flattenCandidates(knownMissExecution);
+  // Historical recall is a deterministic matcher regression. Live provider
+  // availability is guarded independently before AND after the broad sweep.
+  const knownMiss=KnownMiss.replayRegression();
+
+  const preHealthPlan=buildProviderHealthPlan(input,'pre');
+  const preHealthExecution=await ProviderExecutor.executeGapPlan(preHealthPlan,{providers});
 
   const plan=MonthlyPlan.build(input);
   const execution=await ProviderExecutor.executeGapPlan(plan,{providers});
@@ -130,18 +164,29 @@ async function runMonthlyUltraDeep(input={},options={}){
   const referenceCandidates=flattenCandidates(referenceExecution);
   const reconciliation=Reconciliation.reconcileCandidateSets(candidates,referenceCandidates);
 
-  // A known miss is recovered if any governed live discovery path finds it.
-  // Do not discard a valid main/reference sweep hit merely because the dedicated
-  // probe endpoint returned no results.
-  const knownMissEvidence=[...knownMissCandidates,...candidates,...referenceCandidates];
-  const knownMiss=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]);
+  const postHealthPlan=buildProviderHealthPlan(input,'post');
+  const postHealthExecution=await ProviderExecutor.executeGapPlan(postHealthPlan,{providers});
+  const liveProviderHealth=providerHealthState(preHealthExecution,postHealthExecution);
 
-  const complete=binding.unknown_url_search_bound && universe.complete && reconciliation.complete && knownMiss.complete;
+  // Keep live historical probes as transparent diagnostics, not as the
+  // deterministic hard regression. This avoids search-index volatility from
+  // changing test truth while still exposing recall degradation.
+  const knownMissPlan=buildKnownMissPlan();
+  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers});
+  const knownMissCandidates=flattenCandidates(knownMissExecution);
+  const knownMissEvidence=[...knownMissCandidates,...candidates,...referenceCandidates];
+  const knownMissLiveProbe={
+    ...KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]),
+    diagnostic_only:true
+  };
+
+  const complete=binding.unknown_url_search_bound && liveProviderHealth.complete && universe.complete && reconciliation.complete && knownMiss.complete;
   const blockers=[
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
+    ...(!liveProviderHealth.complete?['LIVE_UNKNOWN_URL_PROVIDER_HEALTH_FAILED']:[]),
     ...(!universe.complete?['SOURCE_UNIVERSE_INCOMPLETE']:[]),
     ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
-    ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[])
+    ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[ ])
   ];
   return {
     version:VERSION,
@@ -151,15 +196,19 @@ async function runMonthlyUltraDeep(input={},options={}){
     month:plan.range.month,
     location:plan.location,
     provider_binding:binding,
+    live_provider_health:liveProviderHealth,
     source_universe:universe,
     reconciliation,
     known_miss_regression:knownMiss,
+    known_miss_live_probe:knownMissLiveProbe,
     candidate_count:candidates.length,
     candidates,
     reference_candidate_count:referenceCandidates.length,
     execution_summary:{
+      provider_health_pre:summarizeExecution(preHealthExecution),
       discovery_status:execution.status,
       reference_status:referenceExecution.status,
+      provider_health_post:summarizeExecution(postHealthExecution),
       known_miss_status:knownMissExecution.status,
       discovery:summarizeExecution(execution),
       reference:summarizeExecution(referenceExecution),
@@ -174,5 +223,5 @@ async function runMonthlyUltraDeep(input={},options={}){
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,flattenCandidates,sourceUniverseReceipts,
-  buildReferencePlan,buildKnownMissPlan,summarizeExecution,providerBindingState,runMonthlyUltraDeep
+  buildProviderHealthPlan,buildReferencePlan,buildKnownMissPlan,summarizeExecution,providerBindingState,providerHealthState,runMonthlyUltraDeep
 };
