@@ -57,3 +57,15 @@ V3 keeps every FULL gate intact while correcting two execution semantics:
 2. Evaluate known-miss recovery against evidence found by any governed live path in the run: dedicated probe, main discovery, or independent reference sweep. No synthetic candidate is created and no case passes without the existing matcher or an explicit executed classification.
 
 The runtime remains read-only, verifier-required, and production_writes=0.
+
+
+## 2026-10-01 third follow-up: evidence-grounded queries for the final three misses
+
+Live acceptance run 36769164040 improved the known-miss gate from 0/10 to 7/10 after probes were moved ahead of the broad sweep. The remaining three were SCOOPIFY/JAMES SU, EVERPINK Tle-FirstOne, and FORTREASURE.
+
+Current public evidence uses specific source wording that generic title+location queries did not reliably surface:
+- SCOOPIFY: `SCOOPIFYYogurtAndJamesSu` / `SummerVibeTH`
+- Tle-FirstOne: `EVERPINKxTleFirstone` / `EVERPINK A Touch of Love TleFirstone`
+- FORTREASURE: Eventpop carries the exact concert title, so `FORTREASURE site:eventpop.me` is a bounded official-ticketing hint.
+
+V4 keeps provider discovery mandatory and adds these as search hints only. A case still cannot PASS unless a live provider returns a candidate that satisfies the existing matcher. No URL is hard-coded as discovered evidence and production_writes remains 0.
