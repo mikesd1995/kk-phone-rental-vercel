@@ -25,8 +25,9 @@ function parseBookingText(text) {
   const line=(label)=>{const m=s.match(new RegExp('(?:^|\\n)(?:'+label+')\\s*:\\s*([^\\n]*)','i')); return m&&m[1]?m[1].trim():'';};
   const interest=s.match(/(?:สนใจเช่า|Interested in renting)\s+([^\n]+)/i);
   const event=line('งาน|Event'), date=line('วันที่|Date'), venue=line('สถานที่|Venue'), price=line('ราคา|Price');
+  const nickname=line('ชื่อเล่น|Nickname'), phone=line('เบอร์โทร|Phone'), pickup=line('เวลารับอุปกรณ์|Pickup');
   if(!event || !date || !venue || !interest) return null;
-  return {event_name:event,event_date:date,venue,package_name:interest[1].trim(),price_display:price};
+  return {event_name:event,event_date:date,venue,package_name:interest[1].trim(),price_display:price,nickname,phone,pickup_time:pickup};
 }
 function parseCsv(text){
   const rows=[]; let row=[],cell='',q=false; const s=String(text||'').replace(/^\uFEFF/,'');
@@ -59,7 +60,7 @@ async function processEvent(event, env=process.env, fetchImpl=fetch){
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
   booking.poster_image_url=await resolvePoster(booking,fetchImpl).catch(()=> '');
-  const flex=buildBookingFlex({event:booking,package:{package_name:booking.package_name,price_display:booking.price_display}});
+  const flex=buildBookingFlex({event:booking,package:{package_name:booking.package_name,price_display:booking.price_display},customer:{nickname:booking.nickname,pickup_time:booking.pickup_time}});
   await replyFlex(event.replyToken,flex,env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
   return {handled:true};
 }
