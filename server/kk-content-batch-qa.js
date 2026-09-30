@@ -60,6 +60,7 @@ function hookLines(post,input={}){
     if(line===Qa.BRAND_LINE)return false;
     if(line.includes('kk-phone-rental.vercel.app'))return false;
     if(/^#[\p{L}\p{M}\p{N}_]+(?:\s+#[\p{L}\p{M}\p{N}_]+)*$/u.test(line))return false;
+    if(/^(?:[\p{Extended_Pictographic}\uFE0F]\s*)*(?:งาน\s*)?#[\p{L}\p{M}\p{N}_]+$/u.test(line))return false;
     if(/^(?:🔥|🎤|🗓️?|📍|📱|☁️|🎁|💙|👉|⚡|📸|🚨)\s*/u.test(line)){
       if(/(?:ฟรีประกัน|รับ-คืน|Google Drive|ลูกค้าใหม่|จองคิว|เช็กคิว|vivo X300|เหลือ.*เครื่อง|คิวร้าน|ร้านยัง)/iu.test(line))return false;
       if(/^(?:🗓️?|📍|🎤)/u.test(line))return false;
