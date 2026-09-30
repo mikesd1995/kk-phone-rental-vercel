@@ -45,6 +45,12 @@ create table if not exists kk_private.inbox_audit (
 
 revoke all on schema kk_private from public, anon, authenticated;
 revoke all on all tables in schema kk_private from public, anon, authenticated;
+-- SECURITY INVOKER RPC needs explicit private-schema privileges for the server-only role.
+grant usage on schema kk_private to service_role;
+grant select, insert, update on kk_private.inbox_messages to service_role;
+grant select, insert, update on kk_private.inbox_conversations to service_role;
+grant select, insert on kk_private.inbox_audit to service_role;
+grant usage, select on all sequences in schema kk_private to service_role;
 alter table kk_private.inbox_messages enable row level security;
 alter table kk_private.inbox_conversations enable row level security;
 alter table kk_private.inbox_audit enable row level security;
