@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V1';
+const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V2';
 const ALLOWED_PROVIDERS=new Set(['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 const MAX_RESULTS=25;
 function text(v){return String(v==null?'':v).trim();}
@@ -15,7 +15,8 @@ function normalizeCandidate(row={},fallback={}){
     venue:text(row.venue)||null,
     artist:Array.isArray(row.artist)?row.artist.map(text).filter(Boolean).slice(0,20):(text(row.artist)?[text(row.artist)]:[]),
     source_url:https(row.source_url||fallback.source_url)||null,
-    confidence:Number.isFinite(Number(row.confidence))?Number(row.confidence):null
+    confidence:Number.isFinite(Number(row.confidence))?Number(row.confidence):null,
+    evidence_text:text(row.evidence_text).slice(0,4000)||null
   };
 }
 async function executeGapTask(task={},options={}){
@@ -30,11 +31,11 @@ async function executeGapTask(task={},options={}){
       const candidates=rows.slice(0,MAX_RESULTS).map(r=>normalizeCandidate(r,task)).filter(r=>r.source_url);
       attempts.push({provider,status:candidates.length?'EVIDENCE_FOUND':'NO_EVIDENCE',count:candidates.length});
       if(candidates.length){
-        return {version:VERSION,status:'EVIDENCE_FOUND',provider,source_tier:upper(task.source_tier),candidates,attempts,authoritative:false,verifier_required:true,production_writes:0};
+        return {version:VERSION,status:'EVIDENCE_FOUND',provider,source_id:text(task.source_id)||null,source_tier:upper(task.source_tier),health_only:task.health_only===true,proof_mode:text(task.proof_mode)||null,candidates,attempts,authoritative:false,verifier_required:true,production_writes:0};
       }
     }catch(error){attempts.push({provider,status:'PROVIDER_ERROR',error_class:text(error&&(error.code||error.name))||'ERROR'});}
   }
-  return {version:VERSION,status:'GAP_UNRESOLVED',provider:null,source_tier:upper(task.source_tier),candidates:[],attempts,authoritative:false,verifier_required:true,production_writes:0};
+  return {version:VERSION,status:'GAP_UNRESOLVED',provider:null,source_id:text(task.source_id)||null,source_tier:upper(task.source_tier),health_only:task.health_only===true,proof_mode:text(task.proof_mode)||null,candidates:[],attempts,authoritative:false,verifier_required:true,production_writes:0};
 }
 async function executeGapPlan(plan={},options={}){
   const tasks=Array.isArray(plan.gap_tasks)?plan.gap_tasks:[];
