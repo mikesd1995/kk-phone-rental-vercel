@@ -95,3 +95,10 @@ footer{margin-top:56px!important;padding:36px 0!important;color:var(--v2-muted)}
 }
 
 /* Final acceptance trigger: 320px single-column root fix + multi-viewport V2 gate. */
+/* 320px containment: legacy controls can still expose a 330px scrollWidth even after the card grid is valid. */
+@media(max-width:350px){
+ html,body,.wrap,header,main,.quick-links,.language-switch,.browse-controls-shell,.event-search-shell,.status-filter-group,.status-filter-bar,.filter-clear-row,.poster-grid,.line-btn,.sticky-line{max-width:100%!important;box-sizing:border-box!important}
+ .quick-link,.mini-btn,.language-switch{width:100%!important;max-width:100%!important;min-width:0!important}
+ .status-filter-bar{min-width:0!important}
+}
+
