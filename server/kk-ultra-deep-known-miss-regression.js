@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V3';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V4';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -13,6 +13,21 @@ const CORPUS=Object.freeze([
   {case_id:'scoopify-james-su-20261024',title:'SCOOPIFY YOGURT & YOU WITH JAMES SU',aliases:['scoopify yogurt you james su','james su scoopify','yogurt you james su','scoopifyyogurtandjamessu','summervibeth james su'],search_queries:['SCOOPIFYYogurtAndJamesSu SummerVibeTH','SCOOPIFY James Su SummerVibeTH'],event_date:'2026-10-24'},
   {case_id:'tle-firstone-20261022',title:'A TOUCH OF LOVE WITH TLE-FIRSTONE',aliases:['touch of love tle firstone','tle firstone','tle-firstone','everpink a touch of love tlefirstone','everpinkxtlefirstone'],search_queries:['EVERPINKxTleFirstone','EVERPINK A Touch of Love TleFirstone'],event_date:'2026-10-22'},
   {case_id:'fortreasure-20261129',title:'FORTREASURE BEYOND THE HORIZON CONCERT',aliases:['fortreasure beyond the horizon','fort treasure beyond horizon','fortreasure concert','beyond the horizon concert fortfts','fortfts fortreasure'],search_queries:['FORTREASURE site:eventpop.me','FORTREASURE FortFTS Eventpop'],event_date:'2026-11-29'}
+]);
+
+// Deterministic matcher-regression fixtures only. These are synthetic historical
+// signal shapes and are NEVER business-truth evidence or provider evidence.
+const REPLAY_FIXTURES=Object.freeze([
+  {case_id:'remaster-20261010',title:'Official announcement REMASTER CONCERT',event_date:'2026-10-10',source_url:'fixture://remaster-20261010'},
+  {case_id:'pink-aura-20260928',title:'MizuMi THE PINK AURA special event',event_date:'2026-09-28',source_url:'fixture://pink-aura-20260928'},
+  {case_id:'minmin-frozen-candy-20260930',title:'MINMIN x TeeTeePor THE FROZEN CANDY LAND',event_date:'2026-09-30',source_url:'fixture://minmin-frozen-candy-20260930'},
+  {case_id:'sport-day-after-match-20261001',title:'THE MALL LIFESTORE SPORT DAY AFTER MATCH with TEETEE-POR',event_date:'2026-10-01',source_url:'fixture://sport-day-after-match-20261001'},
+  {case_id:'you-maniac-blind-date-20261003',title:'YOU MANIAC : BLIND DATE',event_date:'2026-10-03',source_url:'fixture://you-maniac-blind-date-20261003'},
+  {case_id:'bai-lu-meet-love-20261025',title:'WeSpark BAILU MEET LOVE SPECIAL FANMEETING',event_date:'2026-10-25',source_url:'fixture://bai-lu-meet-love-20261025'},
+  {case_id:'tutoryim-updated-20261018',title:'TutorYim updated fan activity',event_date:'2026-10-18',source_url:'fixture://tutoryim-updated-20261018'},
+  {case_id:'scoopify-james-su-20261024',title:'SCOOPIFY YOGURT & YOU WITH JAMES SU',event_date:'2026-10-24',source_url:'fixture://scoopify-james-su-20261024'},
+  {case_id:'tle-firstone-20261022',title:'EVERPINK A Touch of Love with TleFirstone',event_date:'2026-10-22',source_url:'fixture://tle-firstone-20261022'},
+  {case_id:'fortreasure-20261129',title:'FORTREASURE : BEYOND THE HORIZON CONCERT',event_date:'2026-11-29',source_url:'fixture://fortreasure-20261129'}
 ]);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -34,7 +49,11 @@ function sameCase(c,caseRow){
   const aliases=[caseRow.title,...(Array.isArray(caseRow.aliases)?caseRow.aliases:[])];
   const titleMatch=aliases.some(a=>fuzzyAliasMatch(title,a));
   const eventDate=date(c&&c.event_date);
-  return titleMatch && (!caseRow.event_date || !eventDate || eventDate===caseRow.event_date);
+  if(caseRow.event_date){
+    if(!eventDate)return false;
+    if(eventDate!==caseRow.event_date)return false;
+  }
+  return titleMatch;
 }
 
 function evaluate(candidates=[],classifications=[]){
@@ -58,4 +77,15 @@ function evaluate(candidates=[],classifications=[]){
   return {version:VERSION,complete:missing.length===0,case_count:CORPUS.length,passed:results.filter(x=>x.pass).length,missing_cases:missing,results,production_writes:0};
 }
 
-module.exports={VERSION,CORPUS,norm,tokens,fuzzyAliasMatch,evaluate,sameCase};
+function replayRegression(fixtures=REPLAY_FIXTURES){
+  const out=evaluate(fixtures,[]);
+  return {
+    ...out,
+    deterministic:true,
+    fixture_count:Array.isArray(fixtures)?fixtures.length:0,
+    fixture_authority:'TEST_ONLY_NO_BUSINESS_TRUTH',
+    production_writes:0
+  };
+}
+
+module.exports={VERSION,CORPUS,REPLAY_FIXTURES,norm,tokens,fuzzyAliasMatch,evaluate,replayRegression,sameCase};
