@@ -9,7 +9,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: kk-content-batch-chat-bridge-\${{ github.event.issue.number }}
+  group: kk-content-batch-chat-bridge-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
@@ -42,17 +42,17 @@ jobs:
       - name: Persist invocation evidence to issue
         if: always()
         env:
-          GH_TOKEN: \${{ github.token }}
-          GH_REPO: \${{ github.repository }}
-          ISSUE_NUMBER: \${{ github.event.issue.number }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file kk-content-batch-bridge-comment.md
 
       - name: Close bridge issue
         if: always()
         env:
-          GH_TOKEN: \${{ github.token }}
-          GH_REPO: \${{ github.repository }}
-          ISSUE_NUMBER: \${{ github.event.issue.number }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: gh issue close "$ISSUE_NUMBER" --repo "$GH_REPO" --reason completed
 
       - name: Enforce bridge PASS
