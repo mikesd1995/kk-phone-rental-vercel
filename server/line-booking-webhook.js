@@ -14,7 +14,7 @@ function inboxPersistFn(env=process.env, fetchImpl=fetch){
   const url=String(env.KK_INBOX_SUPABASE_URL||'').trim();
   const key=String(env.KK_INBOX_SUPABASE_SERVICE_ROLE_KEY||'').trim();
   if(!url||!key) return null;
-  return createPostgrestStore({url,serviceRoleKey:key,fetchImpl}).persistInbound;
+  return createPostgrestStore({url,serviceKey:key,fetchImpl}).persistInbound;
 }
 function rawBody(req) {
   if (typeof req.body === 'string') return req.body;
