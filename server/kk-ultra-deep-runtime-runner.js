@@ -69,7 +69,8 @@ function buildKnownMissPlan(){
     version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2',
     gap_tasks:KnownMiss.CORPUS.map(c=>{
       const phrases=[c.title,...(Array.isArray(c.aliases)?c.aliases:[])].map(text).filter(Boolean);
-      const queries=[...new Set(phrases.map(v=>v+' Bangkok Thailand'))];
+      const evidenceQueries=(Array.isArray(c.search_queries)?c.search_queries:[]).map(text).filter(Boolean);
+      const queries=[...new Set([...evidenceQueries,...phrases.map(v=>v+' Bangkok Thailand')])];
       return {
         source_tier:'SOCIAL',
         source_id:'knownmiss:'+c.case_id,

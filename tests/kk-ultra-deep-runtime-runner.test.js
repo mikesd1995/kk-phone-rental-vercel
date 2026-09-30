@@ -120,3 +120,17 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
  assert.equal(out.full,true);
  assert.equal(out.production_writes,0);
 });
+
+
+test('known-miss plan prioritizes evidence-grounded search queries before generic alias queries',()=>{
+ const plan=Runner.buildKnownMissPlan();
+ const scoop=plan.gap_tasks.find(x=>x.source_id==='knownmiss:scoopify-james-su-20261024');
+ const tle=plan.gap_tasks.find(x=>x.source_id==='knownmiss:tle-firstone-20261022');
+ const fort=plan.gap_tasks.find(x=>x.source_id==='knownmiss:fortreasure-20261129');
+ assert.equal(scoop.query,'SCOOPIFYYogurtAndJamesSu SummerVibeTH');
+ assert.equal(tle.query,'EVERPINKxTleFirstone');
+ assert.equal(fort.query,'FORTREASURE site:eventpop.me');
+ assert.ok(scoop.query_variants.includes('SCOOPIFY YOGURT & YOU WITH JAMES SU Bangkok Thailand'));
+ assert.ok(tle.query_variants.includes('A TOUCH OF LOVE WITH TLE-FIRSTONE Bangkok Thailand'));
+ assert.ok(fort.query_variants.includes('FORTREASURE BEYOND THE HORIZON CONCERT Bangkok Thailand'));
+});
