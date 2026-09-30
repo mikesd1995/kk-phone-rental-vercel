@@ -75,7 +75,7 @@ function buildUniversePlan(input={}){
     label:row.label,
     domain:row.domain||null,
     query:[row.label,month,location,'concert fanmeeting event lucky fan fansign'].filter(Boolean).join(' '),
-    providers:['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+    providers:['SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
     evidence_required:true
   }));
   return {version:VERSION,month:month||null,location,tasks,production_writes:0,authoritative:false,verifier_required:true};
