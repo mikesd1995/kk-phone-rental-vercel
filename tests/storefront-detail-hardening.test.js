@@ -20,8 +20,8 @@ test('storefront freshness label describes check time rather than claiming sourc
 });
 
 test('booking and waitlist LINE messages include event venue', () => {
-  const venueRefs = source.match(/tr\("line_venue"\)\+" : "\+lineVal\(c&&c\.venue\)/g) || [];
-  assert.equal(venueRefs.length, 2);
+  assert.match(source, /"📍 "\+tr\("line_venue"\)\+": "\+lineVal\(c&&c\.venue\)/);
+  assert.match(source, /tr\("line_venue"\)\+" : "\+lineVal\(c&&c\.venue\)/);
 });
 
 test('public event_note is mapped, sanitized, and rendered in the package modal', () => {
