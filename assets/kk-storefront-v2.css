@@ -124,3 +124,12 @@ footer,footer .footer-brand,footer .footer-tagline,footer .trust-note{max-width:
  footer .footer-brand{font-size:24px!important}
  footer .footer-tagline{font-size:20px!important}
 }
+
+/* 320px final containment: remove legacy nowrap from V2 section copy and constrain the footer's inline layout. */
+.v2-section-heading>span:last-child{white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important}
+footer{box-sizing:border-box!important;overflow:hidden!important}
+footer>*,footer span{max-width:100%!important;box-sizing:border-box!important;white-space:normal!important;overflow-wrap:anywhere!important}
+@media(max-width:350px){
+ .status-filter-bar{gap:4px!important;padding-left:0!important;padding-right:0!important}
+ .status-filter-bar .filter-btn{font-size:11px!important;padding-left:4px!important;padding-right:4px!important}
+}
