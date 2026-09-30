@@ -1,0 +1,50 @@
+/* KK Storefront V2 — premium editorial layer. Visual-only; business logic unchanged. */
+:root{
+ --v2-ink:#0b1220;--v2-muted:#667085;--v2-line:rgba(15,23,42,.09);
+ --v2-surface:rgba(255,255,255,.92);--v2-blue:#1769e0;
+ --v2-shadow:0 18px 50px rgba(15,23,42,.10);
+ --v2-radius:24px;
+}
+html{background:#f5f7fb}
+body{background:
+ radial-gradient(circle at 15% -10%,rgba(47,128,237,.10),transparent 34rem),
+ linear-gradient(180deg,#fbfcff 0,#f5f7fb 48rem,#f7f8fb 100%);color:var(--v2-ink)}
+.wrap{width:min(100%,1180px);max-width:1180px;margin:0 auto;padding:0 24px 112px}
+header{padding:28px 0 18px}
+.brand-image-card{overflow:hidden;border-radius:32px;border:1px solid rgba(255,255,255,.72);box-shadow:0 24px 70px rgba(20,49,92,.14);background:#fff}
+.brand-header-img{display:block;width:100%;height:auto}
+.value-box{margin:12px 0 14px;padding:16px 20px;border:1px solid var(--v2-line);border-radius:20px;background:rgba(255,255,255,.76);box-shadow:0 8px 30px rgba(15,23,42,.05);backdrop-filter:blur(18px)}
+.value-box p{margin:0;font-weight:600;letter-spacing:-.01em}.value-note{margin-top:5px!important;color:var(--v2-muted);font-size:.88rem;font-weight:400!important}
+.quick-links{display:flex;align-items:center;gap:10px;margin:0 0 18px;flex-wrap:wrap}
+.quick-link,.mini-btn,.language-switch{min-height:44px;border-radius:999px!important;border:1px solid var(--v2-line)!important;background:rgba(255,255,255,.86)!important;box-shadow:none!important}
+.quick-link{padding:10px 16px;color:#245ea9;text-decoration:none;font-weight:600}
+.browse-controls-shell{position:sticky;top:10px;z-index:20;margin:0 0 32px;padding:10px;border:1px solid rgba(255,255,255,.85);border-radius:24px;background:rgba(248,250,253,.82);box-shadow:0 14px 40px rgba(15,23,42,.10);backdrop-filter:blur(22px) saturate(1.2)}
+.event-search-shell{margin:0 0 8px}.event-search-wrap{border-radius:16px!important;background:#fff!important;border:1px solid var(--v2-line)!important;box-shadow:none!important}
+.event-search{min-height:48px;font-size:16px!important;color:var(--v2-ink)}
+.status-filter-bar{gap:7px!important;overflow-x:auto;scrollbar-width:none;padding:0!important}.status-filter-bar::-webkit-scrollbar{display:none}
+.month-select,.filter-btn,.filter-clear-btn{min-height:44px!important;border-radius:14px!important;white-space:nowrap;border:1px solid var(--v2-line)!important;box-shadow:none!important}
+.filter-btn.active{background:var(--v2-ink)!important;color:#fff!important;border-color:var(--v2-ink)!important}
+.sec-title{margin:8px 0 4px;font-size:clamp(1.35rem,3vw,2rem);font-weight:700;letter-spacing:-.035em}
+.update-note{margin-bottom:18px;color:var(--v2-muted);font-size:.82rem}
+.poster-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:24px!important;align-items:start}
+.concert-card{overflow:hidden!important;border:1px solid var(--v2-line)!important;border-radius:var(--v2-radius)!important;background:var(--v2-surface)!important;box-shadow:0 8px 28px rgba(15,23,42,.07)!important;transform:none!important;transition:transform .2s ease,box-shadow .2s ease!important}
+.concert-card:hover{transform:translateY(-3px)!important;box-shadow:var(--v2-shadow)!important}
+.poster-img-wrap{aspect-ratio:4/5!important;border-radius:0!important;background:#e9edf4!important;overflow:hidden!important}
+.poster-img-wrap img{width:100%!important;height:100%!important;object-fit:cover!important}
+.poster-info{padding:16px 16px 18px!important}.poster-info h3,.poster-title{letter-spacing:-.025em!important;line-height:1.28!important;color:var(--v2-ink)!important}
+.line-btn{border-radius:18px!important;min-height:52px!important;box-shadow:0 14px 30px rgba(6,199,85,.18)!important}
+.sticky-line{right:20px!important;bottom:max(18px,env(safe-area-inset-bottom))!important;border-radius:999px!important;min-height:52px!important;padding:0 20px!important;box-shadow:0 16px 38px rgba(6,199,85,.24)!important}
+.modal{border-radius:28px!important;box-shadow:0 30px 90px rgba(15,23,42,.24)!important;border:1px solid rgba(255,255,255,.75)!important}
+footer{margin-top:56px!important;padding:36px 0!important;color:var(--v2-muted)}
+@media(max-width:900px){.poster-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:18px!important}}
+@media(max-width:600px){
+ .wrap{padding:0 14px 96px}.brand-image-card{border-radius:22px}header{padding-top:14px}
+ .value-box{padding:14px 16px;border-radius:18px}.quick-links{gap:8px;margin-bottom:12px}
+ .browse-controls-shell{top:6px;margin-left:-4px;margin-right:-4px;margin-bottom:24px;border-radius:20px;padding:8px}
+ .poster-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+ .concert-card{border-radius:18px!important}.poster-info{padding:12px 12px 14px!important}
+ .sticky-line{right:14px!important;bottom:max(12px,env(safe-area-inset-bottom))!important}
+ .modal{border-radius:26px 26px 0 0!important}
+}
+@media(max-width:350px){.poster-grid{gap:9px!important}.poster-info{padding:10px!important}}
+@media(prefers-reduced-motion:reduce){.concert-card{transition:none!important}.concert-card:hover{transform:none!important}}
