@@ -255,3 +255,10 @@ Current acceptance blocker:
 - The KK X Developer account exists, but API balance/free credits observed by the owner are USD 0.00.
 - Repository tooling cannot create or authorize the owner's X Developer App session.
 - No credit purchase is required to continue repository preparation; paid API acceptance is deferred until configuration is otherwise ready.
+
+## X credential activation — 2026-10-01
+Owner completed X Developer App configuration for @KK_PhoneRental with Read + Write + Direct Message permission and generated an OAuth 2.0 user token with dm.read, dm.write and offline.access. Owner reports the four server variables are stored in Vercel Production: KK_X_CLIENT_ID, KK_X_CLIENT_SECRET, KK_X_USER_ACCESS_TOKEN, KK_X_REFRESH_TOKEN. Values were not read back or copied into this repository/chat.
+
+Implementation added server/kk-x-oauth.js as a server-only refresh boundary. Refresh failures are explicit/fail-closed. No outbound DM is enabled. Important: refresh-token rotation must be persisted in a server-side secret/state store before unattended refresh is activated; a rotated token must not exist only in process memory or be written to source control.
+
+Current branch has drifted behind main again. Do not merge this branch directly; fresh-port/reconcile onto current main after X runtime tests are complete.
