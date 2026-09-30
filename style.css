@@ -749,38 +749,22 @@ footer .footer-tagline{
 
 
 /* Product/UX gate — clear-filter containment.
-   Keep the reset action secondary and prevent Thai/English labels from collapsing
-   into a narrow multi-line pill when the status toolbar wraps on phones. */
+   Reset is intentionally outside the single-row status toolbar on phones. */
+.filter-clear-row{display:flex;justify-content:center;width:100%;margin:-10px auto 18px;padding:0 6px;}
 .filter-clear-btn{
-  appearance:none;
-  -webkit-appearance:none;
-  flex:0 0 auto;
-  min-width:max-content;
-  min-height:38px;
-  padding:8px 14px;
-  border:1.5px solid rgba(91,141,239,.20);
-  border-radius:999px;
-  background:rgba(255,255,255,.72);
-  color:#7185AA;
-  font-family:var(--font-main);
-  font-size:13px;
-  font-weight:700;
-  line-height:1.2;
-  white-space:nowrap;
-  cursor:pointer;
-  box-shadow:0 8px 18px rgba(91,141,239,.06);
+  appearance:none;-webkit-appearance:none;
+  min-width:max-content;min-height:38px;padding:8px 14px;
+  border:1.5px solid rgba(91,141,239,.20);border-radius:999px;
+  background:rgba(255,255,255,.72);color:#7185AA;
+  font-family:var(--font-main);font-size:13px;font-weight:700;line-height:1.2;
+  white-space:nowrap;cursor:pointer;box-shadow:0 8px 18px rgba(91,141,239,.06);
 }
 .filter-clear-btn:hover{color:var(--blue);border-color:rgba(91,141,239,.32);}
 .filter-clear-btn:focus-visible{outline:3px solid rgba(91,141,239,.45);outline-offset:3px;}
 @media(max-width:430px){
-  .status-filter-bar .filter-clear-btn{
-    flex-basis:100%;
-    width:min(100%,180px);
-    max-width:180px;
-    min-width:0;
-    min-height:40px;
-    margin-inline:auto;
-    justify-self:center;
-    white-space:nowrap;
-  }
+  .status-filter-bar{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  .status-filter-bar::-webkit-scrollbar{display:none;}
+  .status-filter-bar .month-select-wrap,.status-filter-bar .filter-btn{flex:0 0 auto;}
+  .filter-clear-row{margin-top:-8px;margin-bottom:16px;}
+  .filter-clear-btn{min-width:0;min-height:44px;padding:9px 16px;}
 }
