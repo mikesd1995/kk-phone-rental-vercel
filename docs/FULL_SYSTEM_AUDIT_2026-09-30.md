@@ -538,3 +538,33 @@ Current terminal state:
 - Current main CI: PASS.
 - Production convergence: WAITING on build-rate-limit or a newly owner-authorized prebuilt recovery for exact current main `fc4972da995728ceaf21ad4163380664467f11f1`.
 - Production runtime/visual acceptance for the new code is not declared until an exact-current-main Production candidate is READY and promoted.
+
+
+## Execution update — Storefront UX exact-current-main Production acceptance
+
+Acceptance target:
+- Current main and Production SHA: `29d034d1339f105a944b9020c2eeabc887ee8b53` (PR #345, with PR #342 Storefront UX already in lineage).
+- Production deployment: `dpl_9SLxoZWUCzdBXGvAfqiJBEymebEW`.
+- Vercel deployment state/readyState: `READY`; target: `production`; source: `git`; alias includes `kk-phone-rental.vercel.app`; aliasError: null.
+- Production HTTP root returned 200 HTML from the canonical domain.
+- Runtime error telemetry for the selected last-hour window reported no runtime errors.
+
+Post-deploy gates:
+- Admin Regression #1117 (run `36658917982`): SUCCESS; syntax, regression, invariant, Code Intelligence, HF safety and fail-closed readiness steps all passed.
+- Rental Analytics Production Watch #172 (run `36658917985`): SUCCESS.
+- Watch evidence: `production_matches_current_main=true`, reason `Current main is serving; runtime self-audit and v6 route-shape probes are accepted`, state `ROUTE_WIRING_ACCEPTED`, Production writes 0, business writes 0.
+
+Storefront UX evidence:
+- Production HTML contains the expected UX surfaces introduced/retained by the Storefront work: search control, month selector, status filters, clear-filter control, language controls, FAQ trigger, primary LINE CTA and sticky LINE CTA.
+- The exact Storefront UX candidate had already passed Storefront Automated Visual QA #33 before merge across 320/375/390/430/480/768/1024 using the zero-cost Chrome/Playwright harness.
+- The repository now contains a fail-closed `production` mode in `.github/workflows/storefront-visual-qa.yml` that validates Vercel project, READY state, exact approved SHA and production target before running the same screenshot/metrics reviewer harness.
+- The connected GitHub tool surface available in this execution does not expose workflow_dispatch, so a new manual Production-mode visual-QA run could not be started from this session. This limitation does not change the exact-SHA deployment/runtime evidence above and must not be misreported as a visual failure.
+
+Acceptance classification:
+- Deployment identity: PASS.
+- Current-main convergence: PASS.
+- Runtime/route acceptance: PASS.
+- Regression acceptance: PASS.
+- Storefront source visual acceptance: PASS.
+- Fresh Production-browser screenshot matrix: NOT RUN in this session due connector dispatch/browser-execution limitation.
+- No Production/business data mutation was used for acceptance.
