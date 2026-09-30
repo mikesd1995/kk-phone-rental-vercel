@@ -74,3 +74,49 @@ test('known-miss plan keeps one task per case and does not concatenate every ali
  assert.deepEqual(remaster.query_variants,['remaster concert Bangkok Thailand']);
  assert.ok(!remaster.query.includes('2026-10-10'));
 });
+
+
+test('runtime executes known-miss probes before the broad monthly sweep',async()=>{
+ const calls=[];
+ const search=async task=>{
+   calls.push(task.source_id||'no-source-id');
+   const c=KnownMiss.CORPUS.find(x=>'knownmiss:'+x.case_id===task.source_id);
+   if(c) return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
+   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+ };
+ const out=await Runner.runMonthlyUltraDeep(
+   {month:'2026-10',location:'Bangkok Thailand'},
+   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+ );
+ assert.equal(out.full,true);
+ assert.ok(calls[0].startsWith('knownmiss:'));
+ const firstNonKnown=calls.findIndex(x=>!x.startsWith('knownmiss:'));
+ assert.ok(firstNonKnown>=KnownMiss.CORPUS.length);
+});
+
+test('runtime known-miss gate accepts a governed hit from the main discovery sweep',async()=>{
+ const target=KnownMiss.CORPUS.find(c=>c.case_id==='bai-lu-meet-love-20261025');
+ let emittedTarget=false;
+ const classifications=KnownMiss.CORPUS
+   .filter(c=>c.case_id!==target.case_id)
+   .map(c=>({case_id:c.case_id,executed:true,status:'SOURCE_UNAVAILABLE'}));
+ const search=async task=>{
+   if(String(task.source_id||'').startsWith('knownmiss:')) return [];
+   if(String(task.source_id||'').startsWith('reference-')) return [];
+   if(!emittedTarget){
+     emittedTarget=true;
+     return [{title:'WeSpark official #bailu Bai Lu WeSpark Exclusive Overseas Fanmeeting',event_date:target.event_date,source_url:'https://proof.example/bailu-live'}];
+   }
+   return [];
+ };
+ const out=await Runner.runMonthlyUltraDeep(
+   {month:'2026-10',location:'Bangkok Thailand',known_miss_classifications:classifications},
+   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+ );
+ assert.equal(out.known_miss_regression.complete,true);
+ const recovered=out.known_miss_regression.results.find(x=>x.case_id===target.case_id);
+ assert.equal(recovered.proof,'DISCOVERED');
+ assert.equal(recovered.matched_source_url,'https://proof.example/bailu-live');
+ assert.equal(out.full,true);
+ assert.equal(out.production_writes,0);
+});
