@@ -69,6 +69,50 @@ function auditReadyPairing(aiRows,candidateRows){
   };
 }
 
+function aiPacketsForCandidate(candidate,aiRows){
+  const cShow=showId(candidate);
+  if(cShow){
+    const exact=(aiRows||[]).filter(row=>workPacketId(row) && showId(row)===cShow);
+    if(exact.length) return {packets:exact,method:'SHOW_ID'};
+  }
+  const cFam=familyId(candidate), cDate=eventDate(candidate);
+  if(cFam && cDate){
+    const exact=(aiRows||[]).filter(row=>workPacketId(row) && familyId(row)===cFam && eventDate(row)===cDate);
+    if(exact.length) return {packets:exact,method:'FAMILY_DATE'};
+  }
+  return {packets:[],method:null};
+}
+
+function auditCandidateReverseOrphans(aiRows,candidateRows){
+  const readyCandidates=(candidateRows||[]).filter(row=>candidateStatus(row)==='READY_FOR_VERIFIER');
+  const items=readyCandidates.map(candidate=>{
+    const matched=aiPacketsForCandidate(candidate,aiRows);
+    const statuses=matched.packets.map(packetStatus).filter(Boolean);
+    const hasOperational=statuses.includes('READY_FOR_VERIFIER');
+    const debt=!matched.packets.length
+      ? 'CANDIDATE_READY_ORPHAN_NO_AI_PACKET'
+      : (hasOperational ? null : 'STALE_CANDIDATE_READY_AFTER_AI_TERMINAL');
+    return {
+      show_id:showId(candidate),
+      event_family_id:familyId(candidate),
+      event_date:eventDate(candidate),
+      join_method:matched.method,
+      matched_ai_packet_count:matched.packets.length,
+      matched_ai_packet_statuses:[...new Set(statuses)].sort(),
+      state:!matched.packets.length ? 'ORPHAN' : (hasOperational ? 'PAIRED_OPERATIONAL' : 'STALE_READY'),
+      debt
+    };
+  });
+  return {
+    candidate_ready_count:readyCandidates.length,
+    operational_pair_count:items.filter(x=>x.state==='PAIRED_OPERATIONAL').length,
+    candidate_orphan_count:items.filter(x=>x.state==='ORPHAN').length,
+    stale_candidate_ready_count:items.filter(x=>x.state==='STALE_READY').length,
+    items,
+    production_writes:0
+  };
+}
+
 function dispositionKey(row){
   const sid=showId(row);
   if(sid) return sid+'|'+eventDate(row);
@@ -125,6 +169,7 @@ function auditCoreReverseOrphans(coreRows,lineageRows){
 function auditNoDrop(input={}){
   return {
     packet_pairing:auditReadyPairing(input.ai_rows,input.candidate_rows),
+    candidate_reverse:auditCandidateReverseOrphans(input.ai_rows,input.candidate_rows),
     family_completeness:auditFamilyCompleteness(
       input.ai_rows,input.candidate_rows,input.monthly_dispositions,input.lineage_rows,input.debt_rows
     ),
@@ -137,6 +182,7 @@ module.exports={
   operationalReadyPackets,
   joinCandidate,
   auditReadyPairing,
+  auditCandidateReverseOrphans,
   auditFamilyCompleteness,
   auditCoreReverseOrphans,
   auditNoDrop,
