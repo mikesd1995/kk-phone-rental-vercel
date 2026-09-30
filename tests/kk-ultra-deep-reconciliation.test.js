@@ -29,3 +29,14 @@ test('SOT classifier blocks tombstone resurrection and booked repricing',()=>{
  assert.equal(out[1].classification,'BOOKED');
  assert.equal(out[1].allow_auto_reprice,false);
 });
+
+test('FULL reconciliation fails closed when independent reference sweep is empty',()=>{
+ const out=R.reconcileCandidateSets([{title:'Found Event',event_date:'2026-10-01'}],[],{require_reference:true});
+ assert.equal(out.complete,false);
+ assert.equal(out.reference_evidence_present,false);
+ assert.equal(out.reconciliation_gap_count,0);
+});
+
+test('normalization preserves Thai text and collapses whitespace',()=>{
+ assert.equal(R.key({title:'  งาน   แฟนมีต  ',event_date:'2026-10-01'}),'งาน แฟนมีต|2026-10-01');
+});
