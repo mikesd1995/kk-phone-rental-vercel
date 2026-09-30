@@ -74,3 +74,15 @@ footer{margin-top:56px!important;padding:36px 0!important;color:var(--v2-muted)}
  .v2-trust{grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--v2-line)}
  .v2-trust span{padding:11px 8px 11px 0;border-bottom:0;font-size:.72rem;line-height:1.35}
 }
+
+/* V2 tablet containment/performance correction from automated Visual QA.
+   Root treatment: all direct grid/flex children may shrink; sticky shell stays inside content box. */
+.v2-intro-grid>*{min-width:0}
+.browse-controls-shell,.event-search-shell,.status-filter-group,.status-filter-bar{max-width:100%;box-sizing:border-box}
+@media(min-width:601px) and (max-width:900px){
+ .browse-controls-shell{margin-left:0!important;margin-right:0!important;backdrop-filter:blur(14px) saturate(1.12)!important}
+ .status-filter-bar{min-width:0!important}
+}
+@media(max-width:600px){
+ .browse-controls-shell{backdrop-filter:blur(12px) saturate(1.1)!important}
+}
