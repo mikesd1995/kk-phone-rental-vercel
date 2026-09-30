@@ -5,6 +5,8 @@ const {buildBookingFlex} = require('../server/line-booking-flex');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
+const WEB_READY_QUERY = '?sheet=08_Web_Ready&range=A4%3AK&showPast=1';
+const WEB_PACKAGES_QUERY = '?sheet=09_Web_Packages&range=A4%3AN';
 
 function rawBody(req) {
   if (typeof req.body === 'string') return req.body;
@@ -37,7 +39,7 @@ function parseCsv(text){
   return rows.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]||''])));
 }
 async function resolvePoster(booking, fetchImpl=fetch){
-  const u=PUBLIC_DATA_BASE+'?sheet=08_Web_Ready&range=A4%3AK&showPast=1';
+  const u=PUBLIC_DATA_BASE+WEB_READY_QUERY;
   const r=await fetchImpl(u,{headers:{'User-Agent':'KK-Line-Webhook/1.0'}});
   if(!r.ok) return '';
   const rows=parseCsv(await r.text());
@@ -47,6 +49,41 @@ async function resolvePoster(booking, fetchImpl=fetch){
   const eventId=String(exact.event_id||'').trim();
   return eventId ? 'https://kk-phone-rental.vercel.app/api/line-poster?event_id='+encodeURIComponent(eventId) : '';
 }
+
+function norm(value){ return String(value||'').normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase(); }
+function packageLabel(row){
+  const type=norm(row.package_type);
+  const model=String(row.model_display||'').trim();
+  const lens=String(row.lens_display||'').trim();
+  if(type==='phone_lens_bundle') return (model||'มือถือ')+' + Lens';
+  if(type==='lens_only') return lens||'Lens';
+  return model||'มือถือ';
+}
+function formatCanonicalPrice(value){
+  const raw=String(value||'').replace(/,/g,'').trim();
+  const n=Number(raw);
+  return Number.isFinite(n)&&n>0 ? n.toLocaleString('en-US')+' บาท' : '';
+}
+async function resolveCanonicalPackage(booking, fetchImpl=fetch){
+  const headers={'User-Agent':'KK-Line-Webhook/1.0'};
+  const eventRes=await fetchImpl(PUBLIC_DATA_BASE+WEB_READY_QUERY,{headers});
+  if(!eventRes.ok) return null;
+  const events=parseCsv(await eventRes.text());
+  const event=events.find(x=>norm(x.event_name)===norm(booking.event_name) && norm(x.venue)===norm(booking.venue));
+  const eventId=event&&String(event.event_id||'').trim();
+  if(!eventId) return null;
+
+  const pkgRes=await fetchImpl(PUBLIC_DATA_BASE+WEB_PACKAGES_QUERY,{headers});
+  if(!pkgRes.ok) return null;
+  const rows=parseCsv(await pkgRes.text()).filter(x=>String(x.event_id||'').trim()===eventId);
+  const wanted=norm(booking.package_name);
+  const matches=rows.filter(x=>norm(packageLabel(x))===wanted);
+  if(matches.length!==1) return null;
+  const row=matches[0];
+  const price=formatCanonicalPrice(row.price);
+  if(!price) return null;
+  return {event_id:eventId,package_id:String(row.package_id||'').trim(),package_name:packageLabel(row),price_display:price};
+}
 async function replyFlex(replyToken, message, token, fetchImpl=fetch){
   const r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
   if(!r.ok){const body=await r.text().catch(()=> ''); throw new Error('LINE reply failed '+r.status+' '+body.slice(0,200));}
@@ -55,8 +92,13 @@ async function processEvent(event, env=process.env, fetchImpl=fetch){
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
   const booking=parseBookingText(event.message.text);
   if(!booking) return {handled:false};
-  booking.poster_image_url=await resolvePoster(booking,fetchImpl).catch(()=> '');
-  const flex=buildBookingFlex({event:booking,package:{package_name:booking.package_name,price_display:booking.price_display},customer:{nickname:booking.nickname,pickup_time:booking.pickup_time}});
+  const [poster,canonical]=await Promise.all([
+    resolvePoster(booking,fetchImpl).catch(()=> ''),
+    resolveCanonicalPackage(booking,fetchImpl).catch(()=> null)
+  ]);
+  booking.poster_image_url=poster;
+  const safePackage=canonical || {package_name:booking.package_name,price_display:'รอร้านตรวจสอบราคา'};
+  const flex=buildBookingFlex({event:booking,package:safePackage,customer:{nickname:booking.nickname,pickup_time:booking.pickup_time}});
   await replyFlex(event.replyToken,flex,env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
   return {handled:true};
 }
@@ -75,4 +117,4 @@ module.exports=async function handler(req,res){
   try{for(const event of events) await processEvent(event,process.env,fetch); res.statusCode=200; return res.end('OK');}
   catch(err){console.error('[line-webhook]',err&&err.message?err.message:'processing failed');res.statusCode=500;return res.end('Processing failed');}
 };
-module.exports._test={rawBody,validSignature,parseBookingText,parseCsv,resolvePoster,replyFlex,processEvent};
+module.exports._test={rawBody,validSignature,parseBookingText,parseCsv,resolvePoster,resolveCanonicalPackage,packageLabel,formatCanonicalPrice,replyFlex,processEvent};

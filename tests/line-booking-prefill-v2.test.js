@@ -19,3 +19,25 @@ test('legacy package-first template remains parseable',()=>{
  assert.equal(b.package_name,'vivo X300 Pro + Lens');
  assert.equal(b.price_display,'590 บาท');
 });
+
+test('canonical package resolver replaces mismatched client bundle price with package feed price',async()=>{
+ const web='event_id,event_name,event_date,venue,poster_image_url\nEVT-1,Nineentertain 24th Anniversary Charity Concert,30/09/2026,"Parc Paragon, Siam Paragon, Bangkok",https://example.com/p.jpg\n';
+ const pkg='package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case\nPKG-PHONE,EVT-1,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,590,1,available,10,,1,\nPKG-BUNDLE,EVT-1,phone_lens_bundle,VIVO_X300_PRO,Vivo X300 Pro,ZEISS,Lens Vivo,890,1,available,30,,1,\n';
+ const fetchImpl=async url=>({ok:true,text:async()=>String(url).includes('09_Web_Packages')?pkg:web});
+ const got=await webhook.resolveCanonicalPackage({event_name:'Nineentertain 24th Anniversary Charity Concert',venue:'Parc Paragon, Siam Paragon, Bangkok',package_name:'Vivo X300 Pro + Lens',price_display:'590 บาท'},fetchImpl);
+ assert.equal(got.package_id,'PKG-BUNDLE');
+ assert.equal(got.price_display,'890 บาท');
+});
+test('canonical package resolver supports comma-formatted event-specific bundle prices without arithmetic assumptions',async()=>{
+ const web='event_id,event_name,event_date,venue,poster_image_url\nEVT-LYKN,LYKN REFLEXION CONCERT,24/10/2026,IMPACT Arena,\n';
+ const pkg='package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case\nPKG-BUNDLE,EVT-LYKN,phone_lens_bundle,VIVO_X300_PRO,Vivo X300 Pro,ZEISS,Lens Vivo,"1,290",1,available,30,,1,\n';
+ const fetchImpl=async url=>({ok:true,text:async()=>String(url).includes('09_Web_Packages')?pkg:web});
+ const got=await webhook.resolveCanonicalPackage({event_name:'LYKN REFLEXION CONCERT',venue:'IMPACT Arena',package_name:'Vivo X300 Pro + Lens'},fetchImpl);
+ assert.equal(got.price_display,'1,290 บาท');
+});
+test('canonical resolver fails closed when package cannot be matched uniquely',async()=>{
+ const web='event_id,event_name,event_date,venue,poster_image_url\nEVT-1,EVENT,01/10/2026,VENUE,\n';
+ const pkg='package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case\n';
+ const fetchImpl=async url=>({ok:true,text:async()=>String(url).includes('09_Web_Packages')?pkg:web});
+ assert.equal(await webhook.resolveCanonicalPackage({event_name:'EVENT',venue:'VENUE',package_name:'Vivo X300 Pro + Lens',price_display:'590 บาท'},fetchImpl),null);
+});
