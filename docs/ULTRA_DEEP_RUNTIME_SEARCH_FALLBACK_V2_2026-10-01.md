@@ -37,3 +37,12 @@ Re-run the owner-gated Issue #368 runtime acceptance after merge. FULL requires:
 - reconciliation_gap_count = 0
 - known_miss_regression.complete = true
 - production_writes = 0
+
+
+## 2026-10-01 follow-up: query-variant execution
+
+A second live zero-write acceptance on run 36762017158 proved that both DDG_HTML and BING_HTML were bound and executed without provider errors, source-universe proof was 30/30, and reconciliation gaps were zero, but all ten known-miss probes still returned NO_EVIDENCE.
+
+Root cause was isolated to the probe planner: it concatenated the canonical title, every alias, the event date, and Bangkok into one over-constrained query. The provider layer therefore never actually executed the documented alias expansion independently.
+
+The remediation keeps the ten-case acceptance gate unchanged and adds bounded query variants inside each task. Each provider now tries the canonical query and then individual alias queries in order, stopping on the first evidence result before falling to the next provider. The change remains read-only and production_writes=0; it does not classify a known miss as PASS unless the existing KnownMiss evaluator receives a discovered candidate or an explicitly executed allowed classification.
