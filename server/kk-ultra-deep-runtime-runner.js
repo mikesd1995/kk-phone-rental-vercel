@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V2';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V3';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -110,6 +110,14 @@ async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
+
+  // Execute the bounded historical probes first. Live HTML search providers may
+  // soft-throttle after a large sweep; putting the small regression corpus first
+  // prevents broad discovery traffic from starving the recall gate.
+  const knownMissPlan=buildKnownMissPlan();
+  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers});
+  const knownMissCandidates=flattenCandidates(knownMissExecution);
+
   const plan=MonthlyPlan.build(input);
   const execution=await ProviderExecutor.executeGapPlan(plan,{providers});
   const receipts=sourceUniverseReceipts(plan,execution);
@@ -121,10 +129,11 @@ async function runMonthlyUltraDeep(input={},options={}){
   const referenceCandidates=flattenCandidates(referenceExecution);
   const reconciliation=Reconciliation.reconcileCandidateSets(candidates,referenceCandidates);
 
-  const knownMissPlan=buildKnownMissPlan();
-  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers});
-  const knownMissCandidates=flattenCandidates(knownMissExecution);
-  const knownMiss=KnownMiss.evaluate(knownMissCandidates,input.known_miss_classifications||[]);
+  // A known miss is recovered if any governed live discovery path finds it.
+  // Do not discard a valid main/reference sweep hit merely because the dedicated
+  // probe endpoint returned no results.
+  const knownMissEvidence=[...knownMissCandidates,...candidates,...referenceCandidates];
+  const knownMiss=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]);
 
   const complete=binding.unknown_url_search_bound && universe.complete && reconciliation.complete && knownMiss.complete;
   const blockers=[

@@ -46,3 +46,14 @@ A second live zero-write acceptance on run 36762017158 proved that both DDG_HTML
 Root cause was isolated to the probe planner: it concatenated the canonical title, every alias, the event date, and Bangkok into one over-constrained query. The provider layer therefore never actually executed the documented alias expansion independently.
 
 The remediation keeps the ten-case acceptance gate unchanged and adds bounded query variants inside each task. Each provider now tries the canonical query and then individual alias queries in order, stopping on the first evidence result before falling to the next provider. The change remains read-only and production_writes=0; it does not classify a known miss as PASS unless the existing KnownMiss evaluator receives a discovered candidate or an explicitly executed allowed classification.
+
+
+## 2026-10-01 second follow-up: probe ordering and cross-path evidence
+
+Live acceptance run 36768430694 proved the V2 query variants were genuinely executed (37 DDG and 37 Bing known-miss attempts) but still produced zero dedicated-probe results. At the same time, the main discovery sweep returned a WeSpark/Bai Lu search result that matches one of the ten known-miss cases. The V2 runtime discarded that valid discovery hit because the known-miss evaluator received only candidates from the dedicated probe phase.
+
+V3 keeps every FULL gate intact while correcting two execution semantics:
+1. Run the small bounded known-miss probe corpus before the broad monthly sweep so a large discovery run cannot exhaust or soft-throttle the public HTML providers before regression probes execute.
+2. Evaluate known-miss recovery against evidence found by any governed live path in the run: dedicated probe, main discovery, or independent reference sweep. No synthetic candidate is created and no case passes without the existing matcher or an explicit executed classification.
+
+The runtime remains read-only, verifier-required, and production_writes=0.
