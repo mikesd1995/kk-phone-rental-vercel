@@ -239,3 +239,19 @@ Acceptance after owner authorization:
 - A controlled inbound DM is normalized to channel=x and persisted exactly once.
 - No LINE/X identity is auto-merged.
 - No outbound X message is sent until owner-approved reply is implemented and separately accepted.
+
+## Cost guardrail — 2026-10-01
+Decision: do not purchase X API credits or enable auto-recharge during configuration.
+
+Runtime policy for X:
+- Prefer X Account Activity/webhook delivery for new inbound DM activity; do not poll DM lookup as the primary ingestion loop.
+- DM lookup is reserved for controlled entitlement checks, recovery and explicitly approved backfill.
+- Outbound DM API calls occur only after an owner explicitly approves a reply; AI auto-send remains disabled.
+- X API credit purchase is a separate owner decision after the app/auth configuration is complete and the expected monthly message volume is reviewed.
+- Configure an account spending limit before production activation where the X console permits it.
+- If X credentials, entitlement, credits or webhook registration are unavailable, X remains disabled while LINE Inbox continues independently.
+
+Current acceptance blocker:
+- The KK X Developer account exists, but API balance/free credits observed by the owner are USD 0.00.
+- Repository tooling cannot create or authorize the owner's X Developer App session.
+- No credit purchase is required to continue repository preparation; paid API acceptance is deferred until configuration is otherwise ready.
