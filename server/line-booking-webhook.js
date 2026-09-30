@@ -20,7 +20,7 @@ function validSignature(body, signature, secret) {
 }
 function parseBookingText(text) {
   const s=String(text||'');
-  const line=(label)=>{const m=s.match(new RegExp('(?:^|\\n)(?:'+label+')\\s*:\\s*([^\\n]*)','i')); return m&&m[1]?m[1].trim():'';};
+  const line=(label)=>{const m=s.match(new RegExp('(?:^|\\n)[^\\p{L}\\p{N}\\n]*?(?:'+label+')\\s*:\\s*([^\\n]*)','iu')); return m&&m[1]?m[1].trim():'';};
   const interest=s.match(/(?:สนใจเช่า|Interested in renting)\s+([^\n]+)/i);
   const event=line('งาน|Event'), date=line('วันที่|Date'), venue=line('สถานที่|Venue'), price=line('ราคา|Price');
   const nickname=line('ชื่อเล่น|Nickname'), phone=line('เบอร์โทร|Phone'), pickup=line('เวลาที่สะดวกรับอุปกรณ์|เวลารับอุปกรณ์|Pickup');
