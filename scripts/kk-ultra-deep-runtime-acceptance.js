@@ -25,7 +25,7 @@ async function main(){
  const started_at=new Date().toISOString();
  const result=await Runner.runMonthlyUltraDeep({month,location});
  const evidence={
-   schema:'KK_ULTRA_DEEP_RUNTIME_ACCEPTANCE_V1',
+   schema:'KK_ULTRA_DEEP_RUNTIME_ACCEPTANCE_V2',
    started_at,
    finished_at:new Date().toISOString(),
    month:result.month,
@@ -34,6 +34,7 @@ async function main(){
    full:result.full===true,
    blockers:result.blockers||[],
    provider_binding:result.provider_binding,
+   live_provider_health:result.live_provider_health,
    source_universe:{
      complete:result.source_universe&&result.source_universe.complete===true,
      required_source_count:result.source_universe&&result.source_universe.required_source_count,
@@ -49,6 +50,7 @@ async function main(){
      missing_candidates:(result.reconciliation&&result.reconciliation.missing_candidates||[]).slice(0,50)
    },
    known_miss_regression:result.known_miss_regression,
+   known_miss_live_probe:result.known_miss_live_probe,
    candidate_count:result.candidate_count,
    reference_candidate_count:result.reference_candidate_count,
    candidates:(result.candidates||[]).slice(0,100).map(redactCandidate),
@@ -64,9 +66,11 @@ async function main(){
    full:evidence.full,
    blockers:evidence.blockers,
    provider_binding:evidence.provider_binding,
+   live_provider_health_complete:evidence.live_provider_health&&evidence.live_provider_health.complete===true,
    source_universe_complete:evidence.source_universe.complete,
    reconciliation_gap_count:evidence.reconciliation.reconciliation_gap_count,
    known_miss_complete:evidence.known_miss_regression&&evidence.known_miss_regression.complete,
+   known_miss_live_probe_complete:evidence.known_miss_live_probe&&evidence.known_miss_live_probe.complete===true,
    candidate_count:evidence.candidate_count,
    production_writes:0
  },null,2)+'\n');
