@@ -643,3 +643,28 @@ Merge/deploy:
 - Main merge SHA: `8e5afff18646bd55481f4378eeeab7a33c36e255`.
 - Immediate Vercel commit status: FAILURE — `Deployment rate limited — retry in 24 hours.`
 - No exact-main Production deployment existed at the time of this record; therefore Production runtime acceptance for this repair remains WAITING and must not be reported as fixed in Production.
+
+
+## Execution update — LINE bundle/client-price mismatch incident closed (2026-10-01)
+
+Incident evidence:
+- Customer screenshot showed `Vivo X300 Pro + Lens` paired with `590 บาท`, a phone-only/client-prefill price mismatch.
+- Root cause was the LINE webhook trusting parsed client `price_display` as confirmation price.
+
+Canonical repair:
+- PR #365 `Fresh-port LINE canonical package price repair` merged as `8e5afff18646bd55481f4378eeeab7a33c36e255`.
+- Webhook now resolves exact normalized event name + venue against `08_Web_Ready`, then resolves exactly one package for that event in `09_Web_Packages`.
+- Confirmation price is derived from canonical package row; no Lens arithmetic is hard-coded.
+- Unresolved/ambiguous/non-positive canonical package fails closed to `รอร้านตรวจสอบราคา` instead of echoing client price.
+- Regression reproduces the reported Nineentertain bundle + 590 mismatch and expects canonical bundle 890; also covers comma-formatted 1,290 event pricing and unresolved fail-closed behavior.
+
+Current acceptance:
+- Current main `dc961ca8ed01ea20470679f9fb30f1a39069c848` is ahead of repair commit by one unrelated scanner commit; LINE repair remains in lineage.
+- Admin Regression #1190 / run `36755028256`: SUCCESS.
+- Production deployment `dpl_FDmGFX26aUx9giv3PnL9HArSH8W4`: READY, target production, exact current-main SHA `dc961ca8ed01ea20470679f9fb30f1a39069c848`.
+- Canonical Production root and `09_Web_Packages` return HTTP 200.
+- Production package-feed consistency sweep: 384 package rows / 128 events; zero events where positive bundle price was <= positive phone-only price.
+- Vercel runtime errors in selected last-hour acceptance window: none.
+- No customer message, Production Sheet write, booking mutation, or pricing mutation was performed for acceptance.
+
+Terminal classification: FIXED / REGRESSION-GUARDED / MERGED / DEPLOYED / RUNTIME-VERIFIED.
