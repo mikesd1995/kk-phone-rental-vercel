@@ -59,3 +59,14 @@ V2 is not production-accepted until syntax/tests, independent UX review, browser
 - Root-cause repairs included deterministic Visual-QA contract paths, 320px single-column cards, viewport-contained status controls, removal of legacy nowrap overflow in the V2 section heading, and mobile footer/text containment.
 - Visual QA now records `overflow_elements` diagnostics so future horizontal-overflow regressions identify the responsible DOM elements rather than requiring blind CSS changes.
 - PR remains Draft and production is unchanged; automated acceptance is complete, while owner visual review remains the final pre-cutover gate.
+
+
+### Final visual refinement — owner-grade review
+- Automated 100/100 evidence was manually inspected from the workflow screenshot artifact instead of being accepted on metrics alone.
+- Manual review found an incompletely decoded hero image in the 768px capture. Visual QA now waits for visible images to complete and decode, and fails closed with `VISIBLE_IMAGE_NOT_READY` when evidence is not render-ready.
+- Added a regression contract for the image-readiness gate.
+- Refined the V2 art direction without changing booking/data semantics: the intro is now a restrained editorial surface with stronger hierarchy, subtle depth, balanced brand-blue atmosphere, clearer trust markers, improved focus treatment, calmer utility controls and more deliberate poster-card finish.
+- Mobile refinement preserves the accepted 320px containment and one-column fallback while reducing hero density on the shortest viewport.
+- No pricing, inventory, booking, event visibility or production write path was changed by this refinement.
+- Candidate commits: `1401c063` image-readiness gate, `c04389f2` regression contract, `bede06ec` premium editorial refinement.
+- Final release status remains fail-closed until Admin Regression + Visual QA + Art Director acceptance pass on the refined exact head and screenshot evidence is reviewed again.
