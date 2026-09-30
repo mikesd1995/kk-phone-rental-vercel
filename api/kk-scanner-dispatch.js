@@ -56,7 +56,9 @@ function readinessSnapshot(env=process.env){
   const oidcProbeEnabled=enabled(env.KK_RUNTIME_LEDGER_OIDC_PROBE_ENABLED);
   const executionEnabled=enabled(env.KK_EXTERNAL_SCANNER_EXECUTION_ENABLED);
   const searxngConfigured=/^https:\/\//i.test(text(env.KK_SEARXNG_ENDPOINT));
-  const scannerExecutionCapable=externalScannerEnabled && mode==='execute-readonly' && executionEnabled && searxngConfigured;
+  const builtinUnknownUrlSearch=true;
+  const unknownUrlSearchConfigured=builtinUnknownUrlSearch||searxngConfigured;
+  const scannerExecutionCapable=externalScannerEnabled && mode==='execute-readonly' && executionEnabled && unknownUrlSearchConfigured;
   return {
     phase:'EXTERNAL_SCANNER_WITNESS_V1',
     external_scanner_enabled:externalScannerEnabled,
@@ -78,7 +80,8 @@ function readinessSnapshot(env=process.env){
       ledger.configured
     ),
     execution_enabled:executionEnabled,
-    unknown_url_search_configured:searxngConfigured,
+    builtin_unknown_url_search:true,
+    unknown_url_search_configured:unknownUrlSearchConfigured,
     ready_for_execution:(scannerExecutionCapable && hmacSecretConfigured && ledger.configured),
     scanner_execution_capable:scannerExecutionCapable,
     business_writes_capable:false
@@ -259,18 +262,6 @@ module.exports=async function handler(req,res){
         ledger_inserted:result.inserted,
         idempotent_duplicate:result.idempotent_duplicate,
         scanner_execution_started:false,
-        business_writes:0
-      });
-    }
-    if(!/^https:\/\//i.test(text(env.KK_SEARXNG_ENDPOINT))){
-      return json(res,503,{
-        ok:false,
-        phase:'EXTERNAL_SCANNER_EXECUTE_READONLY_V1',
-        occurrence_id:row.occurrence_id,
-        ledger_inserted:result.inserted,
-        idempotent_duplicate:result.idempotent_duplicate,
-        scanner_execution_started:false,
-        error_code:'UNKNOWN_URL_SEARCH_NOT_CONFIGURED',
         business_writes:0
       });
     }
