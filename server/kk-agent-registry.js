@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V19';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V20';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -104,7 +104,7 @@ const AGENTS = Object.freeze({
   }),
   'kk-storefront-ux-reviewer': Object.freeze({
     version: 'KK_STOREFRONT_UX_REVIEWER_V1', authority: 'READ_ONLY_DESIGN_ADVISOR', runtime_state: 'CALLABLE_REVIEW_AND_VISUAL_QA', surface: 'AGENT_GATEWAY', production_writes: 0,
-    note: 'Reviews supplied viewport/layout metrics and screenshot observations. Cannot mutate business truth, merge, deploy, or publish.'
+    note: 'Mandatory read-only Product/UX/UI review gate for storefront and Admin/product-flow interface work. Reviews supplied viewport/layout metrics and screenshot observations. P0/P1 findings block affected-surface acceptance. Cannot mutate business truth, merge, deploy, or publish.'
   }),
   'hf-event-assist': Object.freeze({
     version: 'scanner-hf-advisory-v1',
