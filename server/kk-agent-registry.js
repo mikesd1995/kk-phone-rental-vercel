@@ -1,15 +1,15 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V21';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V22';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
-    version: 'KK_FULL_DISCOVERY_WORKER_V2',
+    version: 'KK_FULL_DISCOVERY_WORKER_V5',
     authority: 'STAGING_ONLY',
     runtime_state: 'CALLABLE_PROVIDER_GATED',
     surface: 'AGENT_GATEWAY_AND_SCANNER_CONTROL_PLANE',
     production_writes: 0,
-    note: 'Full worker core normalizes/deduplicates validated provider results and prepares READY_FOR_VERIFIER. ULTRA_DEEP runs now fail closed unless Official, Ticketing, Venue, Artist/Agency, Brand/Sponsor, Social, Competitor and Public Calendar source classes are covered. Recurring public-web provider execution remains gated until an approved provider executor is bound to the existing runner.'
+    note: 'Ultra Deep V5 requires source-class proof, explicit source-universe execution, independent reconciliation and known-miss regression evidence before FULL. Runtime execution is read-only/provider-gated and remains production_writes=0 with Verifier mandatory.'
   }),
   'kk-discovery-source-watch': Object.freeze({
     version: 'discovery-source-watch-v1',
@@ -262,6 +262,16 @@ const ROUTES = Object.freeze({
     owner_review_required: false,
     persistent_invocation_evidence_required: true
   }),
+  execute_monthly_ultra_deep: Object.freeze({
+    route_id: 'ULTRA_DEEP_MONTHLY_RUNTIME_EXECUTION',
+    request_type: 'EVENT_DISCOVERY_MONTHLY_EXECUTION',
+    required_agents: Object.freeze(['kk-discovery-source-watch', 'kk-discovery-scanner']),
+    downstream_agents: Object.freeze(['kk-commercial-evidence', 'kk-event-verifier']),
+    runtime_available: true,
+    provider_executor_required: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
   execute_ultra_deep_gaps: Object.freeze({
     route_id: 'ULTRA_DEEP_V3_PROVIDER_EXECUTION',
     request_type: 'EVENT_DISCOVERY_PROVIDER_EXECUTION',
@@ -443,7 +453,7 @@ function publicRegistry() {
     route_health: routeHealth(),
     runtime_proof_audit: runtimeProofAudit(),
     known_gaps: [
-      'Ultra Deep provider execution is callable through the Agent Gateway, but each real provider remains explicitly binding-gated; recurring autonomous public-web discovery is not accepted until provider binding/runtime acceptance passes.',
+      'Ultra Deep monthly runtime execution is callable read-only through the Agent Gateway, but FULL remains fail-closed unless an unknown-URL provider is genuinely bound and source-universe, reconciliation and known-miss evidence all pass.',
       'Legacy verify_event remains disabled; governed storefront create is exposed only through execute_storefront_promotion after READY_FOR_GOVERNED_ADMIN_CREATE.',
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
       'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',
