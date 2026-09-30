@@ -62,12 +62,14 @@ function coverageReport(observations=[],sourceReports=[]){
     const status=text(report.status).toUpperCase();
     if(status.startsWith('BLOCKED_') || status.includes('REJECTED')) continue;
     const calls=Number(report.discovery_call_count||0);
-    if(calls < 1) continue;
+    const executionProved = calls >= 1 || status === 'UNCHANGED_NO_DISCOVERY_NEEDED';
+    if(!executionProved) continue;
     seen.add(tier);
     if(proofByTier[tier]) proofByTier[tier].push({
       observation_id:text(o&&o.observation_id),
       status,
-      discovery_call_count:calls
+      discovery_call_count:calls,
+      execution_proof:calls >= 1 ? 'DISCOVERY_CALL' : 'VALIDATED_UNCHANGED'
     });
   }
   const missing=ULTRA_DEEP_REQUIRED_SOURCE_TIERS.filter(t=>!seen.has(t));
