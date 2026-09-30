@@ -18,6 +18,10 @@ test('resolves canonical poster by event id and never from request URL',async()=
  const source=await resolveSource('EVT-TEST-001',async()=>({ok:true,text:async()=>csv}));
  assert.equal(source,'https://drive.google.com/thumbnail?id=abc&sz=w768');
 });
+test('accepts canonical same-origin event poster assets from relative feed URLs',()=>{
+ assert.equal(safePosterSource('/assets/event-posters/unlucky-bae-final-ep-official-2026-10-08.jpg'),'https://kk-phone-rental.vercel.app/assets/event-posters/unlucky-bae-final-ep-official-2026-10-08.jpg');
+ assert.equal(safePosterSource('/api/private'),'');
+});
 test('rejects social-mirror screenshot hosts so LINE falls back to text-only Flex',()=>{
  assert.equal(safePosterSource('https://wx2.sinaimg.cn/cmw960/social-capture.jpg'),'');
 });

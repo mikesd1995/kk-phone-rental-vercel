@@ -15,7 +15,9 @@ function parseCsv(text){
   return rows.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]||''])));
 }
 function safePosterSource(raw){
-  let u;try{u=new URL(String(raw||'').trim());}catch(_){return '';}
+  const value=String(raw||'').trim();
+  let u;try{u=new URL(value,'https://kk-phone-rental.vercel.app');}catch(_){return '';}
+  if(value.startsWith('/')&&!value.startsWith('/assets/event-posters/'))return '';
   if(u.protocol!=='https:'||!ALLOWED_HOSTS.some(re=>re.test(u.hostname)))return '';
   if(u.hostname==='drive.google.com'&&u.pathname==='/thumbnail')u.searchParams.set('sz','w768');
   return u.href;
