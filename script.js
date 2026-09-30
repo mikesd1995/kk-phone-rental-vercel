@@ -1317,15 +1317,16 @@ function buildBookingMsg(c,p){
   // Keep LINE OA message short and package-specific.
   // The pick-up field intentionally says "equipment" so lens-only rentals are covered.
   return [
-    tr("booking_interest",{package:lineVal(p&&p.model)}),
-    tr("line_event")+" : "+lineVal(c&&c.name),
-    tr("line_date")+" : "+lineVal(c&&c.date),
-    tr("line_venue")+" : "+lineVal(c&&c.venue),
-    tr("line_price")+" : "+((p&&p.inquiryOnly)?tr("ask_price"):fmtPriceLine(p&&p.price)),
+    "สนใจเช่ามือถือ",
+    "🎫 "+tr("line_event")+": "+lineVal(c&&c.name),
+    "📅 "+tr("line_date")+": "+lineVal(c&&c.date),
+    "📍 "+tr("line_venue")+": "+lineVal(c&&c.venue),
+    "📱 รุ่น: "+lineVal(p&&p.model),
+    "💰 "+tr("line_price")+": "+((p&&p.inquiryOnly)?tr("ask_price"):fmtPriceLine(p&&p.price)),
+    "⏰ "+tr("line_pickup")+": ",
     "",
-    tr("line_nickname")+" : ",
-    tr("line_phone")+" : ",
-    tr("line_pickup")+" : "
+    "👤 "+tr("line_nickname")+": ",
+    "📞 "+tr("line_phone")+": "
   ].join("\n");
 }
 function getBookingUrl(c,p){ return LINE_OA+encodeURIComponent(buildBookingMsg(c,p)); }
