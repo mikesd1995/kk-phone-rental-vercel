@@ -39,5 +39,5 @@ async function searxng(task={},options={}){
  const body=await fetchPage(u.toString(),options);let data;try{data=JSON.parse(body);}catch(_){const e=new Error('SEARXNG_INVALID_JSON');e.code='SEARXNG_INVALID_JSON';throw e;}
  return (Array.isArray(data.results)?data.results:[]).slice(0,25).map(r=>({title:text(r.title)||q,event_date:null,event_time:null,venue:null,artist:[],source_url:https(r.url),confidence:null})).filter(r=>r.source_url);
 }
-function createProviders(options={}){return {OFFICIAL_DIRECT:t=>officialDirect(t,options),RSS_OR_PUBLIC_FEED:t=>rssOrPublicFeed(t,options),SEARXNG:t=>searxng(t,options)};}
+function createProviders(options={}){const out={OFFICIAL_DIRECT:t=>officialDirect(t,options),RSS_OR_PUBLIC_FEED:t=>rssOrPublicFeed(t,options)};const endpoint=https(options.searxng_endpoint||process.env.KK_SEARXNG_ENDPOINT||DEFAULT_SEARXNG_ENDPOINT);if(endpoint)out.SEARXNG=t=>searxng(t,{...options,searxng_endpoint:endpoint});return out;}
 module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,cleanHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,searxng,createProviders};
