@@ -166,9 +166,11 @@ test('read-only scanner execution requires explicit enablement and unknown-URL s
     SUPABASE_SECRET_KEY:'sb_secret_server-only'
   };
   const blocked=H._test.readinessSnapshot(base);
+  assert.equal(blocked.builtin_unknown_url_search,true);
+  assert.equal(blocked.unknown_url_search_configured,true);
   assert.equal(blocked.scanner_execution_capable,false);
   assert.equal(blocked.ready_for_execution,false);
-  const ready=H._test.readinessSnapshot({...base,KK_EXTERNAL_SCANNER_EXECUTION_ENABLED:'true',KK_SEARXNG_ENDPOINT:'https://search.example/search'});
+  const ready=H._test.readinessSnapshot({...base,KK_EXTERNAL_SCANNER_EXECUTION_ENABLED:'true'});
   assert.equal(ready.scanner_execution_capable,true);
   assert.equal(ready.ready_for_execution,true);
   assert.equal(ready.business_writes_capable,false);
