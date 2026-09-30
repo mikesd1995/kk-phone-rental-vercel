@@ -137,7 +137,7 @@ test('sticky screenshot scrolls from the sticky shell itself',()=>{
 
 
 test('visual QA harness enforces Storefront Art Director acceptance',()=>{
-  const source=fs.readFileSync(path.join(ROOT,'scripts/storefront-visual-acceptance.mjs'),'utf8');
+  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
   assert.match(source,/kk-storefront-art-director/);
   assert.match(source,/ArtDirector\.evaluateImplementation/);
   assert.match(source,/art_director_acceptance/);
@@ -145,7 +145,7 @@ test('visual QA harness enforces Storefront Art Director acceptance',()=>{
 });
 
 test('visual QA workflow triggers for V2 design and Art Director changes',()=>{
-  const workflow=fs.readFileSync(path.join(ROOT,'.github/workflows/storefront-visual-qa.yml'),'utf8');
+  const workflow=fs.readFileSync('.github/workflows/storefront-visual-qa.yml','utf8');
   assert.match(workflow,/assets\/kk-storefront-v2\.css/);
   assert.match(workflow,/server\/kk-storefront-art-director\.js/);
   assert.match(workflow,/tests\/kk-storefront-art-director\.test\.js/);
