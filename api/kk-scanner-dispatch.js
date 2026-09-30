@@ -112,10 +112,11 @@ async function ledgerConnectivityProbe({
   }
 
   try{
+    const probeLedgerMode=text(env.KK_EXTERNAL_SCANNER_MODE).toLowerCase()==='execute-readonly'?'EXECUTE_READONLY':'WITNESS_ONLY';
     const result=await listExpectations({
       env,
       role:'SCANNER',
-      mode:scannerMode==='execute-readonly'?'EXECUTE_READONLY':'WITNESS_ONLY',
+      mode:probeLedgerMode,
       limit:1
     });
     return {
@@ -245,7 +246,7 @@ module.exports=async function handler(req,res){
     nonce:verified.envelope.nonce,
     payload_hash:verified.payload_hash,
     status:'EXPECTED',
-    mode:'WITNESS_ONLY'
+    mode:scannerMode==='execute-readonly'?'EXECUTE_READONLY':'WITNESS_ONLY'
   };
 
   try{
