@@ -41,3 +41,9 @@ V2 is not production-accepted until syntax/tests, independent UX review, browser
 - Pricing/booking/inventory/Event SOT mutations: 0.
 - Auto-merge/auto-deploy: disabled.
 - PR remains Draft until current-head Admin Regression + full Visual QA matrix pass and owner visual review is satisfied.
+
+### CI round 3 — exact-head repair
+- Exact head `37ef4be` failed Admin Regression only because two Visual-QA contract tests referenced undeclared `path` / `ROOT`; this was test-harness failure, not storefront or business logic. Replaced those reads with deterministic repository-relative paths.
+- Visual QA passed 375/390/430/480/768/1024 at professional readiness 100. Only 320x568 remained blocked: P0 horizontal overflow (330px document vs 320px viewport) plus P1 card width below the 150px contract.
+- Root cause was the two-column mobile grid being mathematically too narrow at 320px after safe page gutters. V2 now switches to a one-column poster grid at <=350px instead of hiding overflow or shrinking cards below acceptance.
+- These repairs preserve event data, pricing, inventory, booking behavior and owner visibility truth; production writes remain 0.
