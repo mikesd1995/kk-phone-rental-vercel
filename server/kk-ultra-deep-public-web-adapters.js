@@ -1,9 +1,11 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V2';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V3';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
+const DDG_MIN_INTERVAL_MS=250;
+let ddgLastRequestAt=0;
 function text(v){return String(v==null?'':v).trim();}
 function https(v){try{const u=new URL(text(v));return u.protocol==='https:'?u.toString():'';}catch(_){return '';}}
 function cleanHtml(raw){return text(raw).replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/\s+/g,' ').trim();}
@@ -32,6 +34,48 @@ async function rssOrPublicFeed(task={},options={}){
  const out=[];for(const url of urls){try{const body=await fetchPage(url,options);const links=[...body.matchAll(/<link[^>]*>(?:<!\[CDATA\[)?(https:\/\/[^<\]\s]+)(?:\]\]>)?<\/link>/gi)].map(m=>https(m[1])).filter(Boolean).slice(0,25);for(const link of links)out.push({title:text(task.query)||null,event_date:null,event_time:null,venue:null,artist:[],source_url:link,confidence:null});}catch(_){}}
  return out;
 }
+
+function decodeEntities(raw){
+ return text(raw)
+  .replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;/gi,"'")
+  .replace(/&lt;/gi,'<').replace(/&gt;/gi,'>');
+}
+function ddgResultUrl(raw){
+ const value=decodeEntities(raw);
+ try{
+  const u=new URL(value.startsWith('//')?'https:'+value:value);
+  if(u.hostname==='duckduckgo.com' && u.pathname.startsWith('/l/')){
+   const target=u.searchParams.get('uddg');
+   return https(target||'');
+  }
+  return https(u.toString());
+ }catch(_){return '';}
+}
+function parseDuckDuckGoHtml(body,query=''){
+ const out=[];const seen=new Set();
+ const re=/<a[^>]+class=["'][^"']*result__a[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+ for(const m of String(body||'').matchAll(re)){
+   const url=ddgResultUrl(m[1]);if(!url||seen.has(url))continue;
+   seen.add(url);
+   out.push({title:cleanHtml(m[2])||text(query)||null,event_date:null,event_time:null,venue:null,artist:[],source_url:url,confidence:null});
+   if(out.length>=25)break;
+ }
+ return out;
+}
+async function duckDuckGoHtml(task={},options={}){
+ const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
+ const interval=Number.isFinite(Number(options.ddg_min_interval_ms))?Number(options.ddg_min_interval_ms):DDG_MIN_INTERVAL_MS;
+ if(interval>0){
+   const wait=Math.max(0,ddgLastRequestAt+interval-Date.now());
+   if(wait>0)await new Promise(resolve=>setTimeout(resolve,wait));
+   ddgLastRequestAt=Date.now();
+ }
+ const u=new URL('https://html.duckduckgo.com/html/');
+ u.searchParams.set('q',q);
+ const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.ddg_timeout_ms||options.timeout_ms||8000)});
+ return parseDuckDuckGoHtml(body,q);
+}
+
 async function searxng(task={},options={}){
  const endpoint=https(options.searxng_endpoint||process.env.KK_SEARXNG_ENDPOINT||DEFAULT_SEARXNG_ENDPOINT);if(!endpoint)return [];
  const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
@@ -39,5 +83,5 @@ async function searxng(task={},options={}){
  const body=await fetchPage(u.toString(),options);let data;try{data=JSON.parse(body);}catch(_){const e=new Error('SEARXNG_INVALID_JSON');e.code='SEARXNG_INVALID_JSON';throw e;}
  return (Array.isArray(data.results)?data.results:[]).slice(0,25).map(r=>({title:text(r.title)||q,event_date:null,event_time:null,venue:null,artist:[],source_url:https(r.url),confidence:null})).filter(r=>r.source_url);
 }
-function createProviders(options={}){const out={OFFICIAL_DIRECT:t=>officialDirect(t,options),RSS_OR_PUBLIC_FEED:t=>rssOrPublicFeed(t,options)};const endpoint=https(options.searxng_endpoint||process.env.KK_SEARXNG_ENDPOINT||DEFAULT_SEARXNG_ENDPOINT);if(endpoint)out.SEARXNG=t=>searxng(t,{...options,searxng_endpoint:endpoint});return out;}
-module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,cleanHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,searxng,createProviders};
+function createProviders(options={}){const out={OFFICIAL_DIRECT:t=>officialDirect(t,options),RSS_OR_PUBLIC_FEED:t=>rssOrPublicFeed(t,options)};if(options.ddg_enabled!==false)out.DDG_HTML=t=>duckDuckGoHtml(t,options);const endpoint=https(options.searxng_endpoint||process.env.KK_SEARXNG_ENDPOINT||DEFAULT_SEARXNG_ENDPOINT);if(endpoint)out.SEARXNG=t=>searxng(t,{...options,searxng_endpoint:endpoint});return out;}
+module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,cleanHtml,decodeEntities,ddgResultUrl,parseDuckDuckGoHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,searxng,createProviders};

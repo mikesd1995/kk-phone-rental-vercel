@@ -1,7 +1,7 @@
 'use strict';
 
 const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V1';
-const ALLOWED_PROVIDERS=new Set(['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
+const ALLOWED_PROVIDERS=new Set(['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 const MAX_RESULTS=25;
 function text(v){return String(v==null?'':v).trim();}
 function upper(v){return text(v).toUpperCase();}

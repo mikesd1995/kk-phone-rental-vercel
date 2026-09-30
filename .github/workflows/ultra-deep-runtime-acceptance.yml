@@ -1,0 +1,164 @@
+name: Ultra Deep Runtime Acceptance
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      month:
+        description: 'YYYY-MM month to scan'
+        required: true
+        default: '2026-10'
+        type: string
+      confirm:
+        description: 'Type RUN_ULTRA_DEEP_ACCEPTANCE'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: kk-ultra-deep-runtime-acceptance
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 368 &&
+          github.event.comment.user.login == github.repository_owner &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.body == '/run-ultra-deep-acceptance'
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Require authorized trigger
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CONFIRM: ${{ inputs.confirm }}
+          MONTH: ${{ inputs.month }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_LOGIN: ${{ github.event.comment.user.login }}
+          COMMENT_ASSOCIATION: ${{ github.event.comment.author_association }}
+          OWNER: ${{ github.repository_owner }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            test "$CONFIRM" = "RUN_ULTRA_DEEP_ACCEPTANCE"
+            printf '%s' "$MONTH" | grep -Eq '^[0-9]{4}-[0-9]{2}$'
+            test "$GITHUB_REF" = "refs/heads/main"
+          else
+            test "$ISSUE_NUMBER" = "368"
+            test "$COMMENT_LOGIN" = "$OWNER"
+            test "$COMMENT_ASSOCIATION" = "OWNER"
+            test "$COMMENT_BODY" = "/run-ultra-deep-acceptance"
+          fi
+
+      - name: Checkout exact current main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Pin exact main
+        id: pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHECKED_OUT="$(git rev-parse HEAD)"
+          CURRENT="$(git ls-remote origin refs/heads/main | cut -f1)"
+          test "$CHECKED_OUT" = "$CURRENT"
+          echo "sha=$CURRENT" >> "$GITHUB_OUTPUT"
+
+      - name: Targeted safety regressions
+        run: |
+          set -euo pipefail
+          node --test tests/kk-ultra-deep-public-web-adapters.test.js
+          node --test tests/kk-ultra-deep-runtime-runner.test.js
+          node --test tests/kk-ultra-deep-source-registry.test.js
+          node --test tests/kk-ultra-deep-reconciliation.test.js
+          node --test tests/kk-ultra-deep-known-miss-regression.test.js
+
+      - name: Execute bounded zero-write October acceptance
+        id: scan
+        continue-on-error: true
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_MONTH: ${{ inputs.month }}
+        run: |
+          set -euo pipefail
+          MONTH="2026-10"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "${MANUAL_MONTH:-}" ]; then
+            MONTH="$MANUAL_MONTH"
+          fi
+          node scripts/kk-ultra-deep-runtime-acceptance.js \
+            --month "$MONTH" \
+            --location "Bangkok Thailand" \
+            --output ultra-deep-runtime-acceptance.json \
+            > ultra-deep-runtime-summary.json
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultra-deep-runtime-acceptance-${{ github.run_id }}
+          path: |
+            ultra-deep-runtime-acceptance.json
+            ultra-deep-runtime-summary.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Publish secret-safe summary
+        if: always()
+        shell: bash
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+          PINNED_SHA: ${{ steps.pin.outputs.sha }}
+        run: |
+          {
+            echo '### Ultra Deep Runtime Acceptance'
+            echo "- main: $PINNED_SHA"
+            echo "- scan step: $SCAN_OUTCOME"
+            if [ -f ultra-deep-runtime-summary.json ]; then
+              echo '```json'
+              cat ultra-deep-runtime-summary.json
+              echo '```'
+            fi
+            echo '- production/business writes: 0'
+            echo '- verifier remains required'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Require FULL evidence
+        if: always()
+        shell: bash
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+        run: |
+          set -euo pipefail
+          test "$SCAN_OUTCOME" = "success"
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('ultra-deep-runtime-acceptance.json','utf8'));
+          if(r.full!==true) process.exit(1);
+          if(r.provider_binding?.unknown_url_search_bound!==true) process.exit(1);
+          if(r.source_universe?.complete!==true) process.exit(1);
+          if(r.reconciliation?.reconciliation_gap_count!==0) process.exit(1);
+          if(r.known_miss_regression?.complete!==true) process.exit(1);
+          if(r.verifier_required!==true) process.exit(1);
+          if(r.production_writes!==0) process.exit(1);
+          NODE

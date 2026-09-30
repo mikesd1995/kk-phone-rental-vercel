@@ -17,3 +17,17 @@ test('createProviders exposes SearXNG only when an HTTPS endpoint is configured'
  const bound=A.createProviders({searxng_endpoint:'https://search.example/search',fetchFn:async()=>response(JSON.stringify({results:[]}))});
  assert.equal(typeof bound.SEARXNG,'function');
 });
+
+test('DuckDuckGo HTML parser extracts canonical HTTPS result URLs',()=>{
+ const body='<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Feventpop.me%2Fe%2F123&amp;rut=x"><b>Event</b> Pop</a>';
+ const rows=A.parseDuckDuckGoHtml(body,'event Bangkok');
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].source_url,'https://eventpop.me/e/123');
+ assert.equal(rows[0].title,'Event Pop');
+});
+
+test('createProviders always exposes credential-free DDG_HTML search',()=>{
+ const providers=A.createProviders({searxng_endpoint:''});
+ assert.equal(typeof providers.DDG_HTML,'function');
+ assert.equal(typeof providers.SEARXNG,'undefined');
+});
