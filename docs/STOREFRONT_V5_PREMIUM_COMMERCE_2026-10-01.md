@@ -34,3 +34,11 @@ Production writes=0 during design QA. No pricing, inventory, event visibility, b
 - Raised V5 primary interactive hit areas to the 44px acceptance floor (`.pi-tap`, and mobile `.v3-primary` / `.filter-clear-btn`) without changing pricing, event, inventory or booking semantics.
 - Vercel `api-deployments-free-per-day` remains classified as external quota and is not treated as code evidence.
 - Safety: no production deploy, no production write, no Sheet/Apps Script mutation, no merge. Owner visual acceptance remains fail-closed and must not be synthesized from automated PASS.
+
+
+## Visual iteration evidence
+Round 1 artifact `11151298431` was rejected by the runtime: 320px event discovery was too late and language targets were below the 44px floor. The implementation was revised rather than approved.
+
+Round 2 artifact `11151078668` cleared automated P0/P1 findings across 320/375/390/430/480/768/1024. Manual screenshot review confirms the intended direction: KK blue remains visible, poster identity remains prominent, persistent LINE obstruction is removed, and the mobile storefront is materially less cluttered than V3 without becoming the rejected V4 directory treatment.
+
+Owner decision is intentionally `PENDING`. This is a hard fail-closed production gate; automated or internal screenshot PASS cannot synthesize owner acceptance.
