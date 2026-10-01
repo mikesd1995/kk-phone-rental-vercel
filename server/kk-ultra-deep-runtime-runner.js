@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V3';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V4';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -113,6 +113,13 @@ function summarizeExecution(execution={}){
   return out;
 }
 
+async function providerPreflight(providers={},input={}){
+ const probe={source_tier:'PUBLIC_CALENDAR',query:['Bangkok',text(input.month),'concert'].filter(Boolean).join(' '),providers:[...UNKNOWN_SEARCH_PROVIDERS],evidence_required:true};
+ const result=await ProviderExecutor.executeGapTask(probe,{providers});
+ const usable=new Set((result.attempts||[]).filter(a=>a.status==='EVIDENCE_FOUND').map(a=>text(a.provider).toUpperCase()));
+ if(result.provider)usable.add(text(result.provider).toUpperCase());
+ return {status:usable.size?'READY':'NO_LIVE_SEARCH_EVIDENCE',usable:[...usable],result};
+}
 function providerBindingState(providers={}){
   const bound=[...UNKNOWN_SEARCH_PROVIDERS].filter(p=>typeof providers[p]==='function');
   return {bound,unknown_url_search_bound:bound.length>0};
@@ -122,6 +129,12 @@ async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
+  const preflight=await providerPreflight(providers,input);
+  binding.preflight=preflight;
+  binding.unknown_url_search_bound=preflight.usable.length>0;
+  if(!binding.unknown_url_search_bound){
+    return {version:VERSION,status:'HOLD_FOR_COVERAGE',full:false,blockers:['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED'],month:text(input.month),location:text(input.location)||'Bangkok Thailand',provider_binding:binding,source_universe:{complete:false},discovery_proof:{complete:false,candidate_count:0},reference_sweep_proof:{complete:false,candidate_count:0},reconciliation:{complete:false,reconciliation_gap_count:null,reference_count:0,matched_count:0,missing_candidates:[]},known_miss_regression:KnownMiss.evaluateFixtureRegression(),known_miss_live_recall:{passed:false},candidate_count:0,candidates:[],reference_candidate_count:0,execution_summary:{preflight:preflight.result},authoritative:false,verifier_required:true,production_writes:0,final_truth_mutation:false};
+  }
 
   // Execute the bounded historical probes first. Live HTML search providers may
   // soft-throttle after a large sweep; putting the small regression corpus first
@@ -199,5 +212,5 @@ async function runMonthlyUltraDeep(input={},options={}){
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
-  buildReferencePlan,buildKnownMissPlan,summarizeExecution,providerBindingState,runMonthlyUltraDeep
+  buildReferencePlan,buildKnownMissPlan,summarizeExecution,providerPreflight,providerBindingState,runMonthlyUltraDeep
 };
