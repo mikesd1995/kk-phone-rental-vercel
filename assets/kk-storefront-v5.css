@@ -830,3 +830,14 @@ html[data-theme="light"] .theme-sun,html[data-theme="dark"] .theme-moon{display:
  .filter-btn.active{min-width:92px!important}
  .v3-events-heading h2{font-size:1.42rem!important;line-height:1.12!important;max-width:15ch!important}
 }
+
+
+/* V6.0.2 mobile conversion-first final review */
+@media(max-width:700px){
+ .v3-hero{display:none!important}
+ .browse-controls-shell{margin:14px 0 18px!important}
+ .v3-events-heading h2{font-size:1.32rem!important;max-width:none!important;font-weight:700!important;letter-spacing:-.025em!important}
+ .v3-events-heading h2 em{font-size:1em!important;color:var(--v6-sub)!important;font-weight:400!important}
+ .v3-events-heading h2 br{display:none!important}
+ .update-note{font-size:9px!important}
+}
