@@ -351,3 +351,6 @@ footer>*,footer span{max-width:100%!important;box-sizing:border-box!important;wh
 /* Tablet/desktop acceptance: legacy language rules must not shrink V2.2 segments. */
 .v22-utility .language-switch{min-height:44px!important}
 .v22-utility .language-switch .lang-btn{height:44px!important;min-height:44px!important}
+
+/* Legacy selector specificity override for V2.2 segmented language control. */
+#language-switch.language-switch .lang-btn{height:44px!important;min-height:44px!important;padding-top:0!important;padding-bottom:0!important}
