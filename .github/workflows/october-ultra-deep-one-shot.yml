@@ -1,0 +1,58 @@
+name: October Ultra Deep Full Loop One Shot
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/october-ultra-deep-one-shot-request.json'
+permissions:
+  contents: read
+concurrency:
+  group: kk-october-ultra-deep-one-shot
+  cancel-in-progress: false
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Pin exact current main
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$(git ls-remote origin refs/heads/main | cut -f1)"
+      - name: Targeted full-loop regressions
+        run: |
+          node --test tests/kk-ultra-deep-owner-policy.test.js
+          node --test tests/kk-ultra-deep-full-loop-orchestrator.test.js
+          node --test tests/kk-ultra-deep-full-loop-completion-gate.test.js
+      - name: Execute October discovery acceptance
+        run: |
+          set -euo pipefail
+          node scripts/kk-ultra-deep-runtime-acceptance.js --month 2026-10 --location "Bangkok Thailand" --output ultra-deep-runtime-acceptance.json > ultra-deep-runtime-summary.json
+      - name: Require discovery FULL
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');const r=JSON.parse(fs.readFileSync('ultra-deep-runtime-acceptance.json','utf8'));
+          if(r.full!==true||r.status!=='READY_FOR_VERIFIER'||r.production_writes!==0){console.error(JSON.stringify({full:r.full,status:r.status,production_writes:r.production_writes,blockers:r.blockers||r.blocker_codes||[]},null,2));process.exit(1)}
+          NODE
+      - name: Record governed Full Loop handoff
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');const r=JSON.parse(fs.readFileSync('ultra-deep-runtime-acceptance.json','utf8'));
+          fs.writeFileSync('ultra-deep-full-loop-handoff.json',JSON.stringify({schema_version:'KK_ULTRA_DEEP_FULL_LOOP_HANDOFF_V1',month:'2026-10',discovery:r,candidates:r.candidates||[],next_route:'execute_ultra_deep_full_loop',production_writes:0},null,2));
+          NODE
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: october-ultra-deep-one-shot-${{ github.run_id }}
+          path: |
+            ultra-deep-runtime-acceptance.json
+            ultra-deep-runtime-summary.json
+            ultra-deep-full-loop-handoff.json
+          if-no-files-found: warn
+          retention-days: 30
