@@ -76,3 +76,19 @@ Manual screenshot inspection:
 - no pricing, inventory, booking, event SOT or production write path was changed.
 
 Acceptance remains fail-closed. This evidence supersedes the rejected V5 composition technically and visually, but it does not synthesize owner approval or authorize merge/deploy.
+
+
+## V5.3 event-card language — exact-head evidence
+Exact design head: `b67a083e2d2da6754eca8129818560b309f85768`. Draft PR #418 was opened solely to restore exact-head review/CI after the prior PR was closed; it is not an authorization to merge or deploy.
+
+Changes are presentation-only:
+- card information order is explicitly poster → event/date → venue + price → availability → action;
+- price receives a restrained KK-blue commercial marker without changing source values or formatting logic;
+- availability gets a semantic dot using the existing availability state/color, with no inventory inference;
+- CTA underline becomes a small interaction signature on hover/focus;
+- keyboard focus is visible and poster treatment remains dominant;
+- featured desktop cards receive a slightly stronger type/price scale while mobile remains compact.
+
+Evidence: Admin Regression run `36847098272` SUCCESS. Visual QA run `36847098334` rendered all seven target widths with P0=0 / P1=0. Screenshot artifact: `11154141023`. The workflow remains intentionally blocked only by `OWNER_VISUAL_REJECTION_ACTIVE` and `PRODUCTION_BASELINE_COMPARISON_MISSING`.
+
+No pricing, package availability, booking, inventory, event SOT, Apps Script or production write path changed. Production writes=0. Owner acceptance remains fail-closed.
