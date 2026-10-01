@@ -112,3 +112,11 @@ body{background:var(--kk-warm)}
  .v3-events-heading p{font-size:10px;line-height:1.45}
  .update-note{font-size:8.5px}
 }
+
+/* V5.2 signature pass — product-specific brand memory without extra UI */
+.v3-hero{isolation:isolate}
+.v3-hero:after{content:"X300";position:absolute;z-index:-1;right:2%;top:50%;transform:translateY(-52%);font-size:clamp(7rem,18vw,15rem);font-weight:800;line-height:.75;letter-spacing:-.09em;color:transparent;-webkit-text-stroke:1px rgba(143,185,255,.11);pointer-events:none}
+.v3-hero-copy,.v3-proof{position:relative;z-index:1}
+@media(min-width:901px){.v3-hero:after{right:18%;top:48%}.v3-events-heading{align-items:end}.v3-events-heading p{margin-bottom:6px}}
+@media(max-width:600px){.v3-hero:after{right:-4%;top:39%;font-size:8.5rem;-webkit-text-stroke-color:rgba(143,185,255,.075)}.browse-controls-shell{border-radius:14px!important}.v3-events-heading{padding-top:2px}}
+@media(max-width:350px){.v3-hero:after{font-size:6.8rem;top:38%}}
