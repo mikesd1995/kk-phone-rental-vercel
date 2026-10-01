@@ -768,3 +768,13 @@ html:not([data-theme="dark"]) .wrap{background:transparent}
 html[data-theme="dark"] .v3-hero h1,html[data-theme="dark"] .v3-hero h1 em{color:#f7f7f4!important}
 html[data-theme="dark"] .event-search-wrap,html[data-theme="dark"] .month-select,html[data-theme="dark"] .filter-btn{border-color:rgba(255,255,255,.18)!important}
 html[data-theme="dark"] .filter-btn.active{background:#f7f7f4!important;color:#101318!important;border-color:#f7f7f4!important}
+
+
+/* V6.0.2: neutralize legacy V5 stage paint; V6 owns the first fold. */
+html:not([data-theme="dark"]) .wrap:before{display:none!important}
+html:not([data-theme="dark"]) .v3-hero{color:var(--v6-ink)!important}
+html:not([data-theme="dark"]) .v3-header .mini-btn,
+html:not([data-theme="dark"]) .theme-toggle,
+html:not([data-theme="dark"]) .language-switch{color:var(--v6-ink)!important}
+.lang-btn{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important}
+@media(max-width:700px){.lang-btn{width:44px!important;min-width:44px!important}}
