@@ -109,3 +109,18 @@ Post-recording exact-head verification:
 - The only acceptance blocker is `OWNER_VISUAL_REJECTION_ACTIVE`, which must not be cleared without explicit owner re-acceptance.
 
 No merge, production deploy, pricing/inventory/booking/event-SOT mutation, or production write was performed.
+
+
+## V5.4 final optical pass — 2026-10-01
+The final screenshot review found one remaining visible narrow-phone defect in V5.3: at 320px the horizontally scrolling filter toolbar exposed a clipped fourth control, which read as unfinished even though earlier geometry checks allowed horizontal scrolling.
+
+First correction `fc1a557355e75d2229ca9fa129c6353e82930095` converted the <=350px toolbar to a contained four-column layout and removed touch-only hover residue, but the first exact-head QA correctly failed P0 because the month select had been reduced to 13px, violating the iOS no-auto-zoom contract.
+
+Fallback correction `d9a2ab34905f3c29df267abe8101c08a8b2cf288` retained the contained toolbar while restoring the month select to 16px. Exact-head evidence:
+- Admin Regression `36850903951`: SUCCESS.
+- Visual QA `36850903931`: P0=0 / P1=0 at 320, 375, 390, 430, 480, 768 and 1024.
+- Screenshot artifact `11154949860`.
+- Production-baseline comparison remains PASS.
+- The only acceptance blocker is the deliberately retained `OWNER_VISUAL_REJECTION_ACTIVE` / screenshot-review gate.
+
+V5.4 also disables decorative card hover movement on touch-only devices and respects `prefers-reduced-motion` for card/action transitions. No pricing, inventory, booking, event SOT, Apps Script or production write path changed. Production writes=0. No merge or production deploy was performed.
