@@ -11,3 +11,12 @@ test('monthly plan expands named source universe beyond generic tier queries',()
  assert.ok(r.gap_tasks.some(x=>x.source_id==='watsons-campaigns'));
  assert.ok(r.gap_tasks.filter(x=>x.source_id).every(x=>x.stop_condition==='EXECUTE_AND_RECORD_RECEIPT'));
 });
+
+test('generic monthly queries use natural month variants',()=>{
+ const r=P.build({month:'2026-10',location:'Bangkok Thailand'});
+ const generic=r.gap_tasks.find(x=>!x.source_id && x.source_tier==='OFFICIAL');
+ assert.match(generic.query,/October 2026/);
+ assert.ok(generic.query_variants.some(q=>/ตุลาคม 2569/.test(q)));
+ assert.ok(generic.providers.includes('DDG_HTML'));
+ assert.ok(generic.providers.includes('BING_HTML'));
+});
