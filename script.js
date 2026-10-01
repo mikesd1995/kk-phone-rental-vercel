@@ -1476,8 +1476,8 @@ function focusDialog(el,preferred){
 function restoreFocus(target){
   if(target&&document.contains(target)&&typeof target.focus==="function")target.focus();
 }
-function lockBody(){document.body.style.overflow="hidden";}
-function unlockBodyIfNoModal(){var ov=document.getElementById("overlay"), fo=document.getElementById("faqOverlay");if(!(ov&&ov.classList.contains("active"))&&!(fo&&fo.classList.contains("active")))document.body.style.overflow="";}
+var modalScrollY=0;\nfunction lockBody(){\n  if(document.body.dataset.modalLocked==="1")return;\n  modalScrollY=window.scrollY||window.pageYOffset||0;\n  document.body.dataset.modalLocked="1";\n  document.body.style.position="fixed";\n  document.body.style.top=(-modalScrollY)+"px";\n  document.body.style.left="0";\n  document.body.style.right="0";\n  document.body.style.width="100%";\n  document.body.style.overflow="hidden";\n}
+function unlockBodyIfNoModal(){\n  var ov=document.getElementById("overlay"), fo=document.getElementById("faqOverlay");\n  if((ov&&ov.classList.contains("active"))||(fo&&fo.classList.contains("active")))return;\n  if(document.body.dataset.modalLocked!=="1"){document.body.style.overflow="";return;}\n  delete document.body.dataset.modalLocked;\n  document.body.style.position="";document.body.style.top="";document.body.style.left="";document.body.style.right="";document.body.style.width="";document.body.style.overflow="";\n  window.scrollTo(0,modalScrollY);\n}
 function homeUrl(){return window.location.origin + "/";}
 function setEventUrl(eventId){
   try{
