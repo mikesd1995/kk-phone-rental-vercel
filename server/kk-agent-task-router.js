@@ -24,9 +24,10 @@ const UltraDeepRuntime = require('./kk-ultra-deep-runtime-runner.js');
 const UltraDeepCompletion = require('./kk-ultra-deep-full-loop-completion-gate.js');
 const UltraDeepLearning = require('./kk-ultra-deep-learning-loop.js');
 const UltraDeepOwnerPolicy = require('./kk-ultra-deep-owner-policy.js');
+const UltraDeepFullLoop = require('./kk-ultra-deep-full-loop-orchestrator.js');
 const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V17';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V18';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -113,6 +114,18 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-discovery-source-watch', 'kk-discovery-scanner'],
         result: UltraDeepV3.acceptance(input)
+      };
+
+    case 'execute_ultra_deep_full_loop':
+      return {
+        invoked_agents: ['kk-discovery-source-watch','kk-discovery-scanner','kk-commercial-evidence','kk-event-verifier','kk-reliability-learning'],
+        result: await UltraDeepFullLoop.run(input, {
+          env: options.env || process.env,
+          fetchImpl: options.fetchImpl || global.fetch,
+          storefrontReadbackFn: options.storefrontReadbackFn,
+          existingEventWriterFn: options.existingEventWriterFn,
+          executeWrites: options.executeWrites === true
+        })
       };
 
     case 'evaluate_ultra_deep_owner_policy':

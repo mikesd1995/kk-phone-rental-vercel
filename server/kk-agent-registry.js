@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V27';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V28';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -304,6 +304,15 @@ const ROUTES = Object.freeze({
     request_type: 'EVENT_DISCOVERY_ACCEPTANCE',
     required_agents: Object.freeze(['kk-discovery-source-watch', 'kk-discovery-scanner']),
     downstream_agents: Object.freeze(['kk-commercial-evidence', 'kk-event-verifier']),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
+  execute_ultra_deep_full_loop: Object.freeze({
+    route_id: 'ULTRA_DEEP_FULL_LOOP_EXECUTION',
+    request_type: 'ULTRA_DEEP_FULL_LOOP_EXECUTION',
+    required_agents: Object.freeze(['kk-discovery-source-watch','kk-discovery-scanner','kk-commercial-evidence','kk-event-verifier','kk-reliability-learning']),
+    downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true
