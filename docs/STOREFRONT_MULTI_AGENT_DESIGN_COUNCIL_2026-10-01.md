@@ -159,3 +159,7 @@ Remediation adds a dedicated 601–900px proof composition with explicit readabl
 The V5.8.2 artifact was inspected across all seven top/sticky viewport pairs. A remaining tablet-only composition defect was found at 768px: the sticky browse shell visually obscured the catalogue heading during the sticky-state capture even though event cards remained operable and geometry QA did not classify it as a blocker.
 
 Remediation: reduced tablet sticky-shell footprint and added explicit event-section scroll margin. Scope is presentation-only at 601–900px. No business/data/booking mutation.
+
+
+## V5.8.4 tablet sticky root-cause correction
+V5.8.3 reduced the tablet sticky shell but screenshot evidence showed the catalogue heading was still visually obscured. Pixel compression was therefore rejected as insufficient. At 601–900px the browse shell now remains in normal document flow; mobile/desktop behavior is unchanged. This trades unnecessary tablet persistence for catalogue readability and poster-first browsing.
