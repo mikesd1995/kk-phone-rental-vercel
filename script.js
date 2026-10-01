@@ -80,6 +80,12 @@ var I18N = {
     meta_description:"KK Phone Rental บริการเช่ามือถือและเลนส์สำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ ดูคิวว่างและจองผ่าน LINE OA",
     event_meta_description:"เช่ามือถือหรือเลนส์สำหรับงาน {event} วันที่ {date} ดูแพ็กเกจและจองผ่าน LINE OA",
     brand_subtitle:"Phone & Lens Rental Service",
+    hero_body:"เช่า vivo X300 Pro + Lens สำหรับคอนเสิร์ตและแฟนมีต — เลือกงาน เช็กคิว แล้วรับเครื่องหน้างาน",
+    hero_cta:"ดูงานที่เปิดจอง",
+    proof_deposit_title:"ไม่วางมัดจำ", proof_deposit_body:"พร้อมประกันเครื่องฟรี",
+    proof_onsite_title:"หน้างาน", proof_onsite_body:"รับ–คืน + สอนใช้",
+    proof_drive_title:"30 วัน", proof_drive_body:"เก็บไฟล์บน Drive",
+    events_eyebrow:"UPCOMING EVENTS", events_title:"เลือกงานของคุณ", events_body:"กดโปสเตอร์เพื่อดูแพ็กเกจ ราคา และคิวว่าง",
     value_steps:"เลือกงาน > ดูอุปกรณ์และแพ็กเกจที่ว่าง > ระบบพาไปจองผ่าน LINE OA กับแอดมิน",
     value_note:"( หากไม่มีงานที่ต้องการ สามารถสอบถามได้ใน LINE OA )",
     follow_promo:"ติดตาม X ร้าน · ไม่ต้องวางมัดจำ · ฟรีประกันเครื่อง",
@@ -202,6 +208,12 @@ var I18N = {
     meta_description:"Rent a phone or lens for concerts, fan meetings and events. Check available packages and book directly with KK Phone Rental via LINE OA.",
     event_meta_description:"Rent a phone or lens for {event} on {date}. View available packages and book via LINE OA.",
     brand_subtitle:"Phone & Lens Rental Service",
+    hero_body:"Rent a vivo X300 Pro + Lens for concerts and fan meetings — choose an event, check availability, and pick up at the venue.",
+    hero_cta:"Browse open events",
+    proof_deposit_title:"No deposit", proof_deposit_body:"Free device insurance",
+    proof_onsite_title:"At the venue", proof_onsite_body:"Pickup, return + setup help",
+    proof_drive_title:"30 days", proof_drive_body:"Drive file storage",
+    events_eyebrow:"UPCOMING EVENTS", events_title:"Choose your event", events_body:"Tap a poster to view packages, prices and availability",
     value_steps:"Choose an event > Check available equipment and packages > Book directly with our admin via LINE OA",
     value_note:"( Can't find your event? Message us on LINE OA. )",
     follow_promo:"Follow on X · No deposit · Free insurance",
@@ -348,6 +360,12 @@ function updateLanguageButtons(){
 function applyStaticLanguage(){
   document.documentElement.lang=currentLang;
   setText(".brand-text p","brand_subtitle");
+  setText(".v3-hero-copy>p","hero_body");
+  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">↓</span>';
+  setText(".v3-proof>div:nth-child(1) strong","proof_deposit_title"); setText(".v3-proof>div:nth-child(1) span","proof_deposit_body");
+  setText(".v3-proof>div:nth-child(2) strong","proof_onsite_title"); setText(".v3-proof>div:nth-child(2) span","proof_onsite_body");
+  setText(".v3-proof>div:nth-child(3) strong","proof_drive_title"); setText(".v3-proof>div:nth-child(3) span","proof_drive_body");
+  setText(".v3-events-heading span","events_eyebrow"); setText(".v3-events-heading h2","events_title"); setText(".v3-events-heading p","events_body");
   setText(".value-box p:not(.value-note)","value_steps");
   setText(".value-box .value-note","value_note");
   setText("a.quick-link","follow_promo");
