@@ -21,5 +21,10 @@
     "duplicate_fixed_cta": "REMOVED_MOBILE_TABLET",
     "geometry_qa": "PASS_100_ALL_VIEWPORTS"
   },
-  "reviewer_note": "Reviewed exact CI screenshot artifact after iterative V3 redesign. Event content is surfaced earlier, mobile/tablet fixed LINE CTA no longer obscures content, cards use restrained editorial hierarchy, and all seven viewport geometry checks scored 100."
+  "reviewer_note": "Reviewed exact CI screenshot artifact after iterative V3 redesign. Event content is surfaced earlier, mobile/tablet fixed LINE CTA no longer obscures content, cards use restrained editorial hierarchy, and all seven viewport geometry checks scored 100.",
+  "reviewed_design_blobs": {
+    "index_html": "63cc6a9adb00193d1375bc0ac687d130e6f7f3b3",
+    "v3_css": "fab7d6c6d6f5a86ef0d3c0f6ab7a9f44e0083dd6",
+    "script_js": "ec6ae8de2a1133f6f9659ff60bd09a9cdb43fe70"
+  }
 }
