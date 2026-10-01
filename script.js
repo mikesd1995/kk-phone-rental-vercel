@@ -359,13 +359,18 @@ function updateLanguageButtons(){
 }
 function applyStaticLanguage(){
   document.documentElement.lang=currentLang;
-  setText(".brand-text p","brand_subtitle");
+  setText(".v3-brand-copy small","brand_subtitle");
   setText(".v3-hero-copy>p","hero_body");
   var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">↓</span>';
-  setText(".v3-proof>div:nth-child(1) strong","proof_deposit_title"); setText(".v3-proof>div:nth-child(1) span","proof_deposit_body");
-  setText(".v3-proof>div:nth-child(2) strong","proof_onsite_title"); setText(".v3-proof>div:nth-child(2) span","proof_onsite_body");
-  setText(".v3-proof>div:nth-child(3) strong","proof_drive_title"); setText(".v3-proof>div:nth-child(3) span","proof_drive_body");
-  setText(".v3-events-heading span","events_eyebrow"); setText(".v3-events-heading h2","events_title"); setText(".v3-events-heading p","events_body");
+  var proofItems=document.querySelectorAll(".v3-proof>div:not(.kk-proof-label)");
+  if(proofItems[0]){var p0s=proofItems[0].querySelector("strong"),p0b=proofItems[0].querySelector("span");if(p0s)p0s.textContent=tr("proof_deposit_title");if(p0b)p0b.textContent=tr("proof_deposit_body");}
+  if(proofItems[1]){var p1s=proofItems[1].querySelector("strong"),p1b=proofItems[1].querySelector("span");if(p1s)p1s.textContent=tr("proof_onsite_title");if(p1b)p1b.textContent=tr("proof_onsite_body");}
+  if(proofItems[2]){var p2s=proofItems[2].querySelector("strong"),p2b=proofItems[2].querySelector("span");if(p2s)p2s.textContent=tr("proof_drive_title");if(p2b)p2b.textContent=tr("proof_drive_body");}
+  setText(".v3-events-heading span","events_eyebrow");
+  var eventHeading=document.querySelector(".v3-events-heading h2");
+  if(eventHeading)eventHeading.innerHTML=currentLang==="en"?"YOUR NIGHT.<br><em>STARTS HERE.</em>":"คืนนี้ของคุณ<br><em>เริ่มจากโปสเตอร์นี้</em>";
+  var eventBody=document.querySelector(".v3-events-heading p");
+  if(eventBody)eventBody.innerHTML=currentLang==="en"?"Choose an event → view packages → check availability<br><strong>vivo X300 Pro + Lens</strong>":"เลือกงาน → ดูแพ็กเกจ → เช็กคิวว่าง<br><strong>vivo X300 Pro + Lens</strong>";
   setText(".value-box p:not(.value-note)","value_steps");
   setText(".value-box .value-note","value_note");
   setText("a.quick-link","follow_promo");
