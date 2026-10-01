@@ -1,0 +1,36 @@
+name: Storefront Production Screenshot Capture
+on:
+  issue_comment:
+    types: [created]
+permissions:
+  contents: read
+  issues: write
+jobs:
+  capture:
+    if: ${{ github.event.issue.number == 213 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && github.event.comment.body == '/capture-v59-production' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify live V5.9 markers
+        run: |
+          set -euo pipefail
+          curl -fsS https://kk-phone-rental.vercel.app/ -o live.html
+          grep -q 'id="theme-toggle"' live.html
+          grep -q 'id="faq-open-btn"' live.html
+          grep -q 'v59-theme-faq' live.html
+      - name: Capture real production
+        run: |
+          set -euo pipefail
+          google-chrome --version
+          mkdir -p production-capture
+          google-chrome --headless --no-sandbox --disable-gpu --hide-scrollbars --window-size=390,844 --screenshot=production-capture/production-390x844.png https://kk-phone-rental.vercel.app/
+          google-chrome --headless --no-sandbox --disable-gpu --hide-scrollbars --window-size=430,932 --screenshot=production-capture/production-430x932.png https://kk-phone-rental.vercel.app/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: storefront-production-v59-${{ github.run_id }}
+          path: production-capture/
+          retention-days: 3
+      - name: Publish capture run id
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue comment 213 --body "V5.9_PRODUCTION_CAPTURE_RUN=${{ github.run_id }}"
