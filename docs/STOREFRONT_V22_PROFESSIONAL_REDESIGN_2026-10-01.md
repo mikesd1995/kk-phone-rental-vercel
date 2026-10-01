@@ -21,3 +21,6 @@ No pricing, booking, inventory, event visibility, API or production data semanti
 
 ## Acceptance
 Exact-head Admin Regression + Storefront Automated Visual QA required before merge. Production must reach READY on the merged SHA. Owner production visual review remains the final aesthetic evidence because automated QA is not treated as proof of taste.
+
+## QA correction
+Initial exact-head Visual QA rejected the quieter utility rail because its language segments (and at tablet width follow/FAQ) fell below accepted tap heights. Visual weight remains reduced, but all interactive utility targets are restored to >=44px.
