@@ -9,7 +9,7 @@
     "v5_css": "38d00b84314e37e67c892e0ef25ba69bf3bb8f66",
     "script_js": "d12687bceb07f889f81c28a4bc6e85f3cc81c06c"
   },
-  "screenshot_artifact_id": "11160020672",
+  "screenshot_artifact_id": "11165104465",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -40,6 +40,11 @@
       "artifact_id": "11160020672",
       "status": "FULL_AUDIT_TECHNICAL_PASS_OWNER_PENDING",
       "finding": "Post-audit exact head: P0/P1/P2/P3 automated findings are zero at all seven target viewports. Manual screenshot review at 320/390/1024 confirms improved freshness legibility and stable poster-first hierarchy. Asset cache coherency, V5 localization bindings, active-stylesheet regression coverage, async-error semantics, dialog description semantics, and malformed modal scroll-lock source were repaired. Owner rejection remains intentionally active."
+    },
+    {
+      "artifact_id": "11165104465",
+      "status": "TECHNICAL_PASS_OWNER_PENDING",
+      "finding": "Exhaustive pre-merge audit exact head: technical_visual_pass=true and interaction_pass=true across all seven acceptance viewports; runtime_errors=[], production_writes=0, forms_submitted=0, single_visual_source_of_truth=true. Visual QA remains intentionally blocked only by the existing owner REJECTED screenshot decision / final closed-loop acceptance record."
     }
   ],
   "reviewed_viewports": [
@@ -61,5 +66,5 @@
   "production_writes": 0,
   "rejection_reason": "Owner rejected V5 quality bar after re-evaluation: technically cleaner but still generic/SaaS-like and below the requested world-class premium concert storefront standard.",
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "2fab92faccb9a8ab2abcfeeee58a71c68db0728d"
+  "reviewed_design_head": "b803d39e9f4d7eaf3172db99a83ca0c673d918d7"
 }
