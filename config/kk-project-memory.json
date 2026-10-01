@@ -1,0 +1,75 @@
+{
+  "version": "KK_PROJECT_MEMORY_CORPUS_V1",
+  "items": [
+    {
+      "memory_id": "kk:memory:agent-runtime:20261002",
+      "occurred_at": "2026-10-02T12:00:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "agent_orchestration",
+      "summary": "Critical KK flows must not claim Agent use from prompts, names, or manual imitation. Agent use requires registered routing, actual invocation, persistent evidence, and the flow-specific acceptance gate.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/AGENT_RUNTIME_PROOF_GATE_2026-09-30.md",
+        "server/kk-agent-registry.js"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:ultradeep:definition:20261002",
+      "occurred_at": "2026-10-02T12:01:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "discovery_scanner",
+      "summary": "Ultra Deep Scan is a discovery-to-production governed workflow, not a storefront lookup or a search-only report. Scanner remains staging-only; Verifier and governed promotion/readback remain mandatory.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/ULTRA_DEEP_LEARNING_CLOSED_LOOP_V1_2026-10-02.md",
+        "server/kk-agent-registry.js"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:content:agent-required:20261002",
+      "occurred_at": "2026-10-02T12:02:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "content",
+      "summary": "Every KK social-post request must use the governed Marketing, Content Strategy, Content Agent, Content QA and Content Selector route; multi-post requests additionally require batch diversity QA and persistent invocation evidence.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/CONTENT_BATCH_DIVERSITY_AGENT_BRIDGE_2026-10-01.md",
+        "server/kk-agent-registry.js"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:learning:boundary:20261002",
+      "occurred_at": "2026-10-02T12:03:00+07:00",
+      "kind": "DECISION",
+      "domain": "reliability_debug",
+      "summary": "KK learning is evidence-based adaptation with durable failure, decision and performance feedback. It must not be described as autonomous model retraining, and learned changes remain governed by regression and review gates.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/RELIABILITY_LEARNING_AGENT_2026-09-25.md",
+        "docs/ULTRA_DEEP_LEARNING_CLOSED_LOOP_V1_2026-10-02.md"
+      ],
+      "supersedes": [],
+      "source": "repo"
+    },
+    {
+      "memory_id": "kk:memory:project-context:20261002",
+      "occurred_at": "2026-10-02T12:04:00+07:00",
+      "kind": "DECISION",
+      "domain": "project_memory",
+      "summary": "New KK work sessions must bootstrap from durable project memory containing locked rules, decisions, implementations, incidents, blockers, next actions and acceptance evidence. Customer data and secrets are excluded; current business truth must still come from canonical systems.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "server/kk-project-memory.js",
+        "config/kk-project-memory.json"
+      ],
+      "supersedes": [],
+      "source": "owner"
+    }
+  ]
+}
