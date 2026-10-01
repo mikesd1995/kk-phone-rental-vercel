@@ -175,3 +175,38 @@ footer>*,footer span{max-width:100%!important;box-sizing:border-box!important;wh
 }
 
 /* Refined exact-head acceptance marker: owner-grade editorial pass 2026-10-01. */
+
+
+/* Production mobile composition hotfix — evidence: owner iPhone screenshot 2026-10-01.
+   Reduce above-the-fold chrome and keep the event grid as the primary task. */
+@media(max-width:600px){
+ .v2-intro{margin-top:2px!important;padding:24px 18px 20px!important;border-radius:22px!important}
+ .v2-intro-grid{gap:16px!important}
+ .v2-intro h2{max-width:10ch!important;font-size:clamp(2.35rem,11.5vw,3.25rem)!important;line-height:.94!important;letter-spacing:-.055em!important}
+ .v2-intro p{margin-top:14px!important;font-size:.94rem!important;line-height:1.5!important}
+ .v2-trust{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+ .v2-trust span{padding:9px 5px 9px 12px!important;font-size:.67rem!important}
+ .quick-links{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important;margin:8px 0 10px!important;padding:0!important}
+ .quick-link{min-height:44px!important;padding:8px 12px!important;font-size:.78rem!important}
+ .mini-btn{width:44px!important;min-width:44px!important;min-height:44px!important;padding:0!important;font-size:0!important}
+ .mini-btn::before{content:"?";font-size:1rem;font-weight:800!important}
+ .language-switch{grid-column:1/-1!important;min-height:44px!important}
+ .browse-controls-shell{position:relative!important;top:auto!important;margin:0 0 18px!important;padding:7px!important;border-radius:18px!important;backdrop-filter:none!important}
+ .event-search{min-height:44px!important}
+ .event-search-count{font-size:.7rem!important}
+ .status-filter-bar{gap:5px!important}
+ .month-select,.filter-btn,.filter-clear-btn{min-height:40px!important;border-radius:12px!important}
+ .month-select-wrap{flex:0 0 94px!important}
+ .month-select{width:94px!important;font-size:.78rem!important}
+ .filter-btn{padding-left:8px!important;padding-right:8px!important;font-size:.76rem!important}
+ .v2-section-heading{margin:0 0 10px!important}
+ .v2-section-kicker{display:none!important}
+ .v2-section-heading>span:last-child{font-size:1.55rem!important;line-height:1.15!important}
+ .update-note{margin-bottom:12px!important;font-size:.74rem!important}
+ .sticky-line{right:14px!important;left:auto!important;bottom:max(10px,env(safe-area-inset-bottom))!important;width:auto!important;max-width:calc(100vw - 28px)!important;min-height:48px!important;padding:0 16px!important;font-size:.88rem!important}
+}
+@media(max-width:380px){
+ .v2-intro h2{font-size:2.3rem!important}
+ .filter-btn{padding-left:6px!important;padding-right:6px!important;font-size:.7rem!important}
+ .month-select-wrap,.month-select{width:82px!important;flex-basis:82px!important}
+}
