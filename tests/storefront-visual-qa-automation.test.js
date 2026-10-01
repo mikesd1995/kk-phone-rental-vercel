@@ -167,3 +167,27 @@ test('visual QA requires visible imagery to be ready before screenshot evidence'
   assert.match(source,/naturalWidth/);
   assert.match(source,/\.decode\(\)/);
 });
+
+
+test('V5.6 source has no escaped-newline markup artifacts and keeps editorial localization selectors stable',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const script=fs.readFileSync('script.js','utf8');
+  assert.doesNotMatch(html,/\\n\s*</);
+  assert.match(script,/\.v3-brand-copy small/);
+  assert.match(script,/\.v3-proof>div:not\(\.kk-proof-label\)/);
+  assert.match(script,/eventHeading\.innerHTML/);
+  assert.match(script,/journey_1_title/);
+});
+
+test('visual QA watches the complete executable storefront design council surface',()=>{
+  for(const path of [
+    'server/kk-storefront-design-council.js',
+    'server/kk-storefront-conversion-reviewer.js',
+    'server/kk-storefront-fandom-reviewer.js',
+    'server/kk-storefront-accessibility-reviewer.js',
+    'server/kk-storefront-performance-reviewer.js',
+    'server/kk-agent-registry.js',
+    'server/kk-agent-task-router.js',
+    'tests/kk-storefront-design-council.test.js'
+  ]) assert.equal(workflow.includes(path),true,path+' must trigger visual QA');
+});
