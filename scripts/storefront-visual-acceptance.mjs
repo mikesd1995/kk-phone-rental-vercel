@@ -376,7 +376,7 @@ async function main(){
     zero_cost_path:mode==='local_zero_cost'
   };
 
-  const reviewPath=path.join(process.cwd(),'config','kk-storefront-v3-screenshot-review.json');
+  const reviewPath=path.join(process.cwd(),'config','kk-storefront-v5-screenshot-review.json');
   let screenshotReviewPass=false;
   let screenshotReview=null;
   if(fs.existsSync(reviewPath)){
@@ -385,7 +385,7 @@ async function main(){
       const blobs=screenshotReview.reviewed_design_blobs||{};
       const expected={
         'index.html':String(blobs.index_html||''),
-        'assets/kk-storefront-v3.css':String(blobs.v3_css||''),
+        'assets/kk-storefront-v5.css':String(blobs.v5_css||''),
         'script.js':String(blobs.script_js||'')
       };
       const designUnchanged=Object.entries(expected).every(([file,blob])=>{
