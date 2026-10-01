@@ -53,3 +53,41 @@ test('LINE pending writer hard-codes pending unpaid LINE semantics',()=>{
  assert.match(s,/new Date\(\), 'pending', eventId, customerName, customerContact, customerPhone, 'LINE'/);
  assert.match(s,/pickupTime, '', 'unpaid', 0/);
 });
+
+test('PENDING claim persists exact row and customer identity before Booking mutation',()=>{
+ const b=body();
+ const row=b.indexOf('const row = kkFirstEmptyRow_');
+ const claim=b.indexOf('row_number: row',row);
+ const write=b.indexOf('getRange(row, 2, 1, 19).setValues',row);
+ assert.ok(row>=0&&claim>row&&write>claim,'candidate row claim must be persisted before Booking write');
+ assert.match(b,/customer_name: customerName/);
+ assert.match(b,/customer_phone: customerPhone/);
+});
+test('reconciliation is internal, locked, exact-match and never mutates Booking rows',()=>{
+ const start=source.indexOf('function kkReconcileLineBookingPendingClaim_');
+ const end=source.indexOf('\nfunction kkApiCreateBooking_',start);
+ assert.ok(start>=0&&end>start,'internal reconciliation helper must exist');
+ const r=source.slice(start,end);
+ assert.match(r,/kkAcquireDocumentLock_\('LINE pending booking reconciliation', 12000\)/);
+ assert.match(r,/claim\.status !== 'PENDING'/);
+ assert.match(r,/row_number \|\| 0/);
+ assert.match(r,/status !== 'pending'/);
+ assert.match(r,/source !== 'LINE'/);
+ assert.match(r,/eventId !== String\(claim\.event_id/);
+ assert.match(r,/customerName !== String\(claim\.customer_name/);
+ assert.match(r,/customerPhone !== String\(claim\.customer_phone/);
+ assert.match(r,/phoneAssetId \|\| lensAssetId/);
+ assert.doesNotMatch(r,/setValues\(/);
+ assert.doesNotMatch(r,/appendRow\(/);
+ assert.match(r,/status: 'OK'/);
+ assert.match(r,/reconciled: true/);
+ assert.doesNotMatch(source,/case 'reconcileLineBooking/);
+});
+test('uncertain replay remains blocked; reconciliation never allocates a replacement row',()=>{
+ const start=source.indexOf('function kkReconcileLineBookingPendingClaim_');
+ const end=source.indexOf('\nfunction kkApiCreateBooking_',start);
+ const r=source.slice(start,end);
+ assert.doesNotMatch(r,/kkFirstEmptyRow_/);
+ assert.doesNotMatch(r,/kkApiCreateLineBookingPending_/);
+ assert.match(body(),/pending or uncertain; manual reconciliation required before retry/);
+});
