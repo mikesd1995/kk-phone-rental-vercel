@@ -312,6 +312,8 @@ test('legacy mutation timeout is returned as uncertain and is never retried by t
   assert.equal(body.mutation_outcome_uncertain,true);
   assert.equal(body.mutation_may_have_committed,true);
   assert.equal(body.request_id,'req-timeout-12345');
+  assert.match(body.error,/do not retry a mutation until readback confirms/i);
+  assert.doesNotMatch(body.error,/Please retry once/i);
   assert.equal(calls,1);
 });
 
