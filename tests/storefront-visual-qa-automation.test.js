@@ -197,7 +197,7 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   const html=fs.readFileSync('index.html','utf8');
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
-  assert.equal(html.includes('v58-editorial-optics'),true);
+  assert.equal(html.includes('v59-theme-faq'),true);
   assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
   assert.equal(html.includes('CONCERT MEMORY SERVICE'),true);
   assert.equal(css.includes('V5.8 Editorial Optics'),true);
