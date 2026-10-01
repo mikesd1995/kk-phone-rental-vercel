@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V24';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V25';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -308,6 +308,15 @@ const ROUTES = Object.freeze({
     owner_review_required: false,
     persistent_invocation_evidence_required: true
   }),
+  accept_ultra_deep_full_loop: Object.freeze({
+    route_id: 'ULTRA_DEEP_FULL_LOOP_COMPLETION_ACCEPTANCE',
+    request_type: 'EVENT_DISCOVERY_TO_PRODUCTION_ACCEPTANCE',
+    required_agents: Object.freeze(['kk-discovery-scanner', 'kk-commercial-evidence', 'kk-event-verifier', 'kk-reliability-learning']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
   scan_event: Object.freeze({
     route_id: 'FULL_EVENT_DISCOVERY',
     request_type: 'EVENT_DISCOVERY',
@@ -470,7 +479,7 @@ function publicRegistry() {
     route_health: routeHealth(),
     runtime_proof_audit: runtimeProofAudit(),
     known_gaps: [
-      'Ultra Deep monthly runtime execution is callable read-only through the Agent Gateway, but FULL remains fail-closed unless an unknown-URL provider is genuinely bound and source-universe, reconciliation and known-miss evidence all pass.',
+      'Ultra Deep monthly runtime execution is callable read-only through the Agent Gateway, but discovery FULL is not end-to-end completion. Ultra Deep COMPLETE additionally requires commercial pricing or fallback, verified poster, storefront comparison, governed publish when required, production readback and final-report evidence through accept_ultra_deep_full_loop.',
       'Legacy verify_event remains disabled; governed storefront create is exposed only through execute_storefront_promotion after READY_FOR_GOVERNED_ADMIN_CREATE.',
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
       'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',
