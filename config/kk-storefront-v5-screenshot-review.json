@@ -48,6 +48,11 @@
     },
     {
       "artifact_id": "11179565872",
+      "status": "PASS",
+      "finding": "Final independent screenshot critic pass for V5.8.4: seven target viewports technically clean; manual artifact inspection confirms the 768px trust contrast and sticky catalogue-heading defects are resolved; poster-first hierarchy and interaction targets are preserved."
+    },
+    {
+      "artifact_id": "11179565872",
       "status": "ACCEPTED",
       "finding": "Owner explicitly approved V5.8.4 for production on 2026-10-01 after screenshot-led fixes. Exact-head technical_visual_pass=true, interaction_pass=true, runtime_errors=[], and manual review confirmed the 768px catalogue heading is no longer obscured."
     }
