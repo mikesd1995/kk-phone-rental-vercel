@@ -58,3 +58,21 @@ Implemented direction:
 - search/filter remains quiet and functional between brand and event catalogue;
 - mobile retains two poster columns where width permits, with short-phone rules preserved;
 - owner acceptance remains rejected/pending until new screenshots are reviewed; no merge/deploy is authorized.
+
+
+## V5.2 signature pass — exact-head evidence
+Exact design head: `1cd604a6a194e2ead33832b1838a9797fe843124`.
+
+Visual QA run `36845951710` rendered 320/375/390/430/480/768/1024 with P0=0 and P1=0 at every viewport. The workflow remains intentionally red only because the existing owner rejection and production-baseline acceptance gates are active; the geometry/readiness layer itself is clean. Screenshot artifact: `11153511639`.
+
+Admin Regression run `36845952176`: SUCCESS.
+
+Manual screenshot inspection:
+- mobile 320/390 keeps the first event discoverable without removing brand/trust context;
+- search/filter chrome has been visually reduced and no longer dominates the event heading;
+- poster imagery remains the strongest content surface below the fold;
+- desktop uses a restrained editorial hero plus selective featured poster scale rather than a uniform marketplace grid;
+- a low-contrast `X300` outline was added as a product-specific memory cue, deliberately below copy/poster contrast;
+- no pricing, inventory, booking, event SOT or production write path was changed.
+
+Acceptance remains fail-closed. This evidence supersedes the rejected V5 composition technically and visually, but it does not synthesize owner approval or authorize merge/deploy.
