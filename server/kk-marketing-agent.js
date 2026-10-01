@@ -1,8 +1,9 @@
 'use strict';
 
 const Performance=require('./kk-content-performance.js');
+const XSignal=require('./kk-x-signal-detector.js');
 
-const VERSION='KK_MARKETING_AGENT_V1';
+const VERSION='KK_MARKETING_AGENT_V2_X_SIGNAL';
 const OBJECTIVES=Object.freeze(['awareness','engagement','conversion']);
 const SAFETY=Object.freeze({
   authority:'READ_ONLY_ADVISOR',
@@ -27,24 +28,33 @@ function objective(input={}){
   return 'awareness';
 }
 
-function scoreOpportunity(input={}){
+function scoreOpportunity(input={},xSignalAnalysis=null){
   let score=50;
   const reasons=[];
   const inv=num(input.inventory_remaining);
+  const inventory=XSignal.inventoryGate(input);
   if(input.verified_event===true){score+=8;reasons.push('verified_event');}
   if(input.verified_pricing===true){score+=6;reasons.push('verified_pricing');}
-  if(input.inventory_available===true){score+=6;reasons.push('inventory_available');}
+  if(inventory.gate==='PASS'&&input.inventory_available===true){score+=6;reasons.push('inventory_available');}
   if(input.event_is_today===true){score+=14;reasons.push('event_today');}
   else if(input.event_is_tomorrow===true){score+=10;reasons.push('event_tomorrow');}
   else if(num(input.days_to_event)<=7){score+=6;reasons.push('event_within_7_days');}
   if(inv===1){score+=10;reasons.push('last_unit');}
   if(input.competitor_pressure==='high'){score+=4;reasons.push('high_competitor_pressure');}
   if(input.demand_signal==='high'){score+=8;reasons.push('high_demand_signal');}
-  if(input.inventory_available===false){score-=50;reasons.push('no_inventory');}
-  return {score:clamp(score),reasons};
+  if(xSignalAnalysis&&xSignalAnalysis.gate==='PASS'&&Number.isFinite(xSignalAnalysis.priority_score)){
+    if(xSignalAnalysis.priority_score>=75){score+=8;reasons.push('strong_fresh_x_signal');}
+    else if(xSignalAnalysis.priority_score>=50){score+=4;reasons.push('moderate_fresh_x_signal');}
+  }
+  if(inventory.gate==='BLOCKED_NO_PHONE_INVENTORY'){score-=50;reasons.push('no_phone_inventory');}
+  if(inventory.gate==='LENS_ONLY'){reasons.push('lens_only_inventory');}
+  return {score:clamp(score),reasons,inventory_gate:inventory};
 }
 
 function chooseCampaignMode(input={},obj='awareness'){
+  const inventory=XSignal.inventoryGate(input);
+  if(inventory.gate==='BLOCKED_NO_PHONE_INVENTORY') return 'HOLD_NO_PHONE_INVENTORY';
+  if(inventory.gate==='LENS_ONLY') return 'LENS_ONLY';
   if(input.event_is_today===true && num(input.inventory_remaining)===1) return 'ONSITE_LAST_UNIT';
   if(input.event_is_today===true) return 'ONSITE_CONVERSION';
   if(input.event_is_tomorrow===true) return 'LAST_CALL';
@@ -56,7 +66,10 @@ function chooseCampaignMode(input={},obj='awareness'){
 function plan(input={},performanceRows=[]){
   const obj=objective(input);
   const perf=Performance.summarizePerformance(performanceRows,{objective:obj});
-  const opportunity=scoreOpportunity(input);
+  const xSignalAnalysis=XSignal.summarizeEventSignals(input.x_signals||[],{
+    now:input.signal_observed_at||input.now
+  });
+  const opportunity=scoreOpportunity(input,xSignalAnalysis);
   const mode=chooseCampaignMode(input,obj);
   const evidenceState=perf.measured_posts===0?'RULE_BASED_COLD_START':'PERFORMANCE_INFORMED';
 
@@ -69,6 +82,14 @@ function plan(input={},performanceRows=[]){
     evidence_state:evidenceState,
     measured_posts:perf.measured_posts,
     performance_nudges:perf.evidence_nudges,
+    x_signal_analysis:xSignalAnalysis,
+    x_signal_contract:{
+      version:XSignal.VERSION,
+      raw_cross_source_views_are_comparable:false,
+      historical_reach_affects_current_priority:false,
+      unlabeled_numeric_metrics_are_ignored:true,
+      ranking_basis:'freshness-adjusted normalized dimensions'
+    },
     winner_selection:{
       mode:'INTERNAL_3_TO_SINGLE_FINAL',
       public_output_count:1,
