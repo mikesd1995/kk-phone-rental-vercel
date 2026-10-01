@@ -92,3 +92,20 @@ Changes are presentation-only:
 Evidence: Admin Regression run `36847098272` SUCCESS. Visual QA run `36847098334` rendered all seven target widths with P0=0 / P1=0. Screenshot artifact: `11154141023`. The workflow remains intentionally blocked only by `OWNER_VISUAL_REJECTION_ACTIVE` and `PRODUCTION_BASELINE_COMPARISON_MISSING`.
 
 No pricing, package availability, booking, inventory, event SOT, Apps Script or production write path changed. Production writes=0. Owner acceptance remains fail-closed.
+
+
+## Final V5.3 production-baseline comparison — 2026-10-01
+Candidate screenshot evidence: artifact `11153628618` at design head `e2c85a87266be865178e7323d1665203cb53b495`.
+Accepted V3 baseline evidence: artifact `11145158829`, V3 evidence head `817c354e1a9e22e9165bb4e980b07e1a1b656ba8`.
+
+Baseline decision: PASS for the candidate design. V5.3 improves poster/content hierarchy, reduces competing pre-event chrome, preserves earlier event discovery on narrow mobile, and carries a more coherent KK/X300 editorial language from hero through commercial event cards. V3 remains the unchanged production fallback.
+
+The screenshot-review config was updated in commit `b9a705528f762837bb66d7c983ef1c294b2f1377` with `baseline_comparison_pass=true` while deliberately retaining `owner_decision=REJECTED`.
+
+Post-recording exact-head verification:
+- Admin Regression run `36848402963`: SUCCESS.
+- Storefront Visual QA run `36848402940`: P0=0 / P1=0 at 320, 375, 390, 430, 480, 768 and 1024.
+- The former `PRODUCTION_BASELINE_COMPARISON_MISSING` blocker is cleared.
+- The only acceptance blocker is `OWNER_VISUAL_REJECTION_ACTIVE`, which must not be cleared without explicit owner re-acceptance.
+
+No merge, production deploy, pricing/inventory/booking/event-SOT mutation, or production write was performed.
