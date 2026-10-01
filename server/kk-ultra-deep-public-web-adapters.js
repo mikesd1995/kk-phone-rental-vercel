@@ -55,16 +55,16 @@ function ddgResultUrl(raw){
  }catch(_){return '';}
 }
 function htmlAttr(tag,name){
- const m=String(tag||'').match(new RegExp('\\\\s'+name+'\\\\s*=\\\\s*(["\\\\\'])([\\\\s\\\\S]*?)\\\\1','i'));
+ const m=String(tag||'').match(new RegExp('\\s'+name+'\\s*=\\s*(["\\\'])([\\s\\S]*?)\\1','i'));
  return m?decodeHtmlEntities(m[2]):'';
 }
 function parseDuckDuckGoHtml(body,query=''){
  const out=[];const seen=new Set();
- const re=/<a\\b([^>]*)>([\\s\\S]*?)<\\/a>/gi;
+ const re=/<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
  for(const m of String(body||'').matchAll(re)){
    const tag='<a '+m[1]+'>';
    const className=htmlAttr(tag,'class');
-   if(!/(^|\\s)result__a(\\s|$)/i.test(className))continue;
+   if(!/(^|\s)result__a(\s|$)/i.test(className))continue;
    const url=ddgResultUrl(htmlAttr(tag,'href'));if(!url||seen.has(url))continue;
    seen.add(url);
    out.push({title:cleanHtml(m[2])||text(query)||null,event_date:null,event_time:null,venue:null,artist:[],source_url:url,confidence:null});
@@ -89,15 +89,15 @@ async function duckDuckGoHtml(task={},options={}){
 
 function parseBingHtml(body,query=''){
  const out=[];const seen=new Set();
- const blockRe=/<li\\b([^>]*)>([\\s\\S]*?)<\\/li>/gi;
+ const blockRe=/<li\b([^>]*)>([\s\S]*?)<\/li>/gi;
  for(const block of String(body||'').matchAll(blockRe)){
    const liTag='<li '+block[1]+'>';
-   if(!/(^|\\s)b_algo(\\s|$)/i.test(htmlAttr(liTag,'class')))continue;
-   const h2=(block[2].match(/<h2\\b[^>]*>([\\s\\S]*?)<\\/h2>/i)||[])[1]||'';
-   const m=h2.match(/<a\\b([^>]*)>([\\s\\S]*?)<\\/a>/i);
+   if(!/(^|\s)b_algo(\s|$)/i.test(htmlAttr(liTag,'class')))continue;
+   const h2=(block[2].match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i)||[])[1]||'';
+   const m=h2.match(/<a\b([^>]*)>([\s\S]*?)<\/a>/i);
    if(!m)continue;
    const url=https(htmlAttr('<a '+m[1]+'>','href'));if(!url||seen.has(url))continue;
-   try{const u=new URL(url);if(/(^|\\.)bing\\.com$/i.test(u.hostname))continue;}catch(_){continue;}
+   try{const u=new URL(url);if(/(^|\.)bing\.com$/i.test(u.hostname))continue;}catch(_){continue;}
    seen.add(url);
    out.push({title:cleanHtml(m[2])||text(query)||null,event_date:null,event_time:null,venue:null,artist:[],source_url:url,confidence:null});
    if(out.length>=25)break;
