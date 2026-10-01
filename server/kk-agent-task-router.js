@@ -45,7 +45,7 @@ async function resolveDecisionHistory(input, options){
 async function executeTask(taskType, input = {}, options = {}) {
   switch (String(taskType || '').trim().toLowerCase()) {
     case 'storefront_design_council':
-      return { invoked_agents:StorefrontDesignCouncil.ROLES.map(role=>role.agent), result:StorefrontDesignCouncil.buildCouncil(input) };
+      const council=StorefrontDesignCouncil.runCouncil(input); return { invoked_agents:council.invoked_agents, result:council };
 
     case 'storefront_design_council_acceptance':
       return { invoked_agents:StorefrontDesignCouncil.ROLES.map(role=>role.agent), result:StorefrontDesignCouncil.acceptCouncil(input) };
