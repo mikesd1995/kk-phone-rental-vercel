@@ -71,3 +71,15 @@ test('update validates assigned assets against the edited reservation window',()
   assert.match(update,/kkValidateManualAssetForWindow_\(next\[9\]/);
   assert.match(update,/kkValidateManualAssetForWindow_\(next\[10\]/);
 });
+
+
+test('prepared and picked_up transitions assign missing assets from the edited reservation window',()=>{
+  const assign=fn('kkAssignMissingAssetsForPreparedBooking_');
+  const update=fn('kkApiUpdateBooking_');
+  assert.match(assign,/kkFindAvailableAssetForWindow_\('phone'/);
+  assert.match(assign,/kkFindAvailableAssetForWindow_\('lens'/);
+  assert.doesNotMatch(assign,/kkFindAvailableAsset_\('phone'/);
+  assert.doesNotMatch(assign,/kkFindAvailableAsset_\('lens'/);
+  assert.match(assign,/next\[11\], next\[12\], status, excludeRow/);
+  assert.match(update,/kkAssignMissingAssetsForPreparedBooking_\(next, nextStatus, event\.event_date, row\)/);
+});
