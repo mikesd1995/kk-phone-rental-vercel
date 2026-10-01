@@ -110,3 +110,14 @@ test('booking create idempotency ledger preserves generated booking_id column A'
   assert.match(create,/getRange\(row, 2, 1, 19\)\.setValues/);
   assert.match(source,/\^\[A-Za-z0-9\._:-\]\{8,128\}\$/);
 });
+
+
+test('reconciled 9_5_10 deployment candidate carries booking idempotency hardening',()=>{
+  const fs=require('node:fs');
+  const source=fs.readFileSync(require.resolve('../apps-script/candidates/Code_9_5_10_RECONCILED_PRICE_INTEGRITY_OWNER_GUARD_2026-09-29.gs'),'utf8');
+  assert.match(source,/function kkFindBookingCreateRequest_\(requestId\)/);
+  assert.match(source,/kkFindBookingCreateRequest_\(requestId\)/);
+  assert.match(source,/BOOKING_CANONICAL_READBACK_MISSING/);
+  assert.match(source,/idempotent_replay: true/);
+  assert.match(source,/SpreadsheetApp\.flush\(\)/);
+});
