@@ -598,3 +598,13 @@ footer{border-color:#dfe4ea!important}
  .v3-events-heading{scroll-margin-top:118px!important}
  #event-browser{scroll-margin-top:118px!important}
 }
+
+
+/* V5.8.4 root-cause tablet fix: sticky controls cost more vertical space than they save. */
+@media (min-width:601px) and (max-width:900px){
+ .browse-controls-shell{
+  position:relative!important;
+  top:auto!important;
+  inset-block-start:auto!important;
+ }
+}
