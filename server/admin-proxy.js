@@ -477,7 +477,8 @@ module.exports = async function handler(req, res) {
         transport: 'legacy-apps-script',
         duration_ms: upstreamElapsedMs,
         status: Number(upstream.status || 0),
-        error_code: String(data && data.error_code || ''),
+        error_code: String(data && data.error_code || (data && data.ok === false ? 'UPSTREAM_BUSINESS_REJECTED' : '')),
+        error: data && data.ok === false ? String(data.error || '').slice(0, 240) : '',
         uncertain_outcome: false
       });
     }
