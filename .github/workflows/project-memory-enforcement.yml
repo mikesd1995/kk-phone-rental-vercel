@@ -27,5 +27,5 @@ jobs:
         run: node --test tests/kk-project-memory.test.js tests/kk-agent-gateway.test.js
       - name: Bootstrap proof
         run: |
-          npm run memory:bootstrap -- agent_orchestration project_memory > /tmp/kk-memory.json
+          node scripts/kk-project-memory-bootstrap.js agent_orchestration project_memory > /tmp/kk-memory.json
           node -e "const r=require('/tmp/kk-memory.json'); if(r.status!=='READY'||!r.context.length||r.rules.business_truth_authority!==false) process.exit(1)"
