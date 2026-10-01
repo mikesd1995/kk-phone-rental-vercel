@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_STOREFRONT_ART_DIRECTOR_V1';
+const VERSION='KK_STOREFRONT_ART_DIRECTOR_V2';
 
 const DESIGN_SYSTEM=Object.freeze({
   direction:'premium-editorial-concert-commerce',
@@ -48,7 +48,10 @@ function buildDirection(input={}){
       'multiple equally loud CTAs',
       'heavy gradients/glows without hierarchy purpose',
       'tiny mobile controls or dense two-column text',
-      'visual changes that alter price, inventory, event visibility or booking semantics'
+      'visual changes that alter price, inventory, event visibility or booking semantics',
+      'more than three competing utility surfaces before primary event content',
+      'persistent CTA visually dominating poster or event discovery content',
+      'dashboard-like filter chrome outweighing customer-facing event content'
     ],
     acceptance:{
       mobile_first:true,
@@ -58,7 +61,10 @@ function buildDirection(input={}){
       min_ios_input_font_px:16,
       reduced_motion:true,
       business_truth_unchanged:true,
-      independent_visual_qa_required:true
+      independent_visual_qa_required:true,
+      content_first_mobile:true,
+      max_competing_utility_surfaces_before_events:3,
+      persistent_cta_must_recede:true
     },
     authority:{
       production_writes:0,pricing_mutation:false,booking_mutation:false,
@@ -73,6 +79,8 @@ function evaluateImplementation(input={}){
   if(!evidence.no_horizontal_overflow) blockers.push('HORIZONTAL_OVERFLOW_NOT_PROVEN');
   if(!evidence.business_truth_unchanged) blockers.push('BUSINESS_TRUTH_PRESERVATION_NOT_PROVEN');
   if(!evidence.visual_qa_pass) blockers.push('INDEPENDENT_VISUAL_QA_NOT_PASSING');
+  if(evidence.content_first_mobile===false) blockers.push('CONTENT_FIRST_MOBILE_NOT_PROVEN');
+  if(evidence.persistent_cta_recedes===false) blockers.push('PERSISTENT_CTA_TOO_DOMINANT');
   return {schema_version:VERSION,status:blockers.length?'BLOCKED':'PASS',blockers,production_writes:0};
 }
 module.exports={VERSION,DESIGN_SYSTEM,buildDirection,evaluateImplementation};
