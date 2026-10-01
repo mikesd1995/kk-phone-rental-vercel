@@ -566,7 +566,10 @@ function fmtDate(s){ var d=parseDate(s); if(!d)return String(s||""); return Stri
 function storefrontPosterOverride(row){
   var name=String((row&&row.event_name)||"").normalize("NFKC").toLowerCase().replace(/\\s+/g," ").trim();
   var dateKey=eventDateKey((row&& (row.event_date_text||row.event_date||row.date))||"");
-  if(dateKey==="2026-11-14" && name.indexOf("masterz")>=0){\n    return "/assets/event-posters/kpop-masterz-special-live-bangkok-2026-11-14.jpeg";\n  }\n  if(dateKey==="2026-09-28" && name.indexOf("mizumi")>=0 && name.indexOf("pp krit")>=0){
+  if(dateKey==="2026-11-14" && name.indexOf("masterz")>=0){
+    return "/assets/event-posters/kpop-masterz-special-live-bangkok-2026-11-14.jpeg";
+  }
+  if(dateKey==="2026-09-28" && name.indexOf("mizumi")>=0 && name.indexOf("pp krit")>=0){
     return "/assets/event-posters/mizumi-ppkrit-pink-aura-2026-09-28.jpg";
   }
   if(dateKey==="2026-10-08" && name.indexOf("unlucky bae")>=0){
