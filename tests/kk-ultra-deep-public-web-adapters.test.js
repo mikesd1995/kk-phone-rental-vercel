@@ -49,3 +49,20 @@ test('createProviders exposes both zero-cost search fallbacks by default',()=>{
  assert.equal(typeof p.DDG_HTML,'function');
  assert.equal(typeof p.BING_HTML,'function');
 });
+
+
+test('DuckDuckGo parser accepts current markup when href appears before result__a class',()=>{
+ const body='<a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.thaiticketmajor.com%2Fconcert%2Foctober-event.html" class="result__a"><span>October <b>Concert</b></span></a>';
+ const rows=A.parseDuckDuckGoHtml(body,'Bangkok October 2026 concert');
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].source_url,'https://www.thaiticketmajor.com/concert/october-event.html');
+ assert.equal(rows[0].title,'October Concert');
+});
+
+test('Bing parser accepts result anchors with attributes and wrappers between h2 and a',()=>{
+ const body='<li class="b_algo"><div class="b_tpcn"></div><h2 class="title"><span><a target="_blank" href="https://www.eventpop.me/e/173408/fortreasure-beyond-the-horizon-concert" h="ID=SERP">FORTREASURE <strong>BEYOND</strong></a></span></h2><div>snippet</div></li>';
+ const rows=A.parseBingHtml(body,'Bangkok October 2026 concert');
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].source_url,'https://www.eventpop.me/e/173408/fortreasure-beyond-the-horizon-concert');
+ assert.equal(rows[0].title,'FORTREASURE BEYOND');
+});
