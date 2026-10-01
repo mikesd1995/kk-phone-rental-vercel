@@ -29,5 +29,13 @@ Make durable KK project context a mandatory precondition for governed Agent Gate
 - No project-memory path creates business writes.
 - Agent invocation evidence and existing domain acceptance gates remain mandatory.
 
+## Corrected acceptance
+- Project Memory Enforcement run 36912082558: PASS.
+- Syntax: PASS.
+- Project memory regressions: PASS.
+- Bootstrap proof: PASS.
+- Admin Regression run 36912082730: PASS, including syntax, regression tests, invariant gate, code-intelligence benchmark, HF harness safety, and HF fail-closed readiness.
+- Vercel status remains build-rate-limit; this is recorded as deployment infrastructure quota, not repository test failure.
+
 ## Completion gate
-Do not claim production-active until the corrected enforcement workflow passes, PR #442 is merged to main, and main readback confirms Gateway V4 + memory workflow/record.
+Corrected repository acceptance is green. Remaining completion steps are merge PR #442 to main and exact-main readback of Gateway V4 + project-memory workflow/record.
