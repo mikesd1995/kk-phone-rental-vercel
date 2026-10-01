@@ -357,3 +357,7 @@ footer>*,footer span{max-width:100%!important;box-sizing:border-box!important;wh
 
 /* Box-model correction: acceptance measures rendered height, so include border-box explicitly. */
 #language-switch.language-switch .lang-btn{display:flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;height:46px!important;min-height:46px!important;line-height:1!important}
+
+/* Cross-stylesheet acceptance override: style.css loads before V2 but retains media min-height.
+   Use block-size to make the rendered hit box authoritative. */
+#language-switch.language-switch > button.lang-btn{display:flex!important;align-items:center!important;justify-content:center!important;block-size:46px!important;min-block-size:46px!important;max-block-size:none!important;height:46px!important;min-height:46px!important}
