@@ -25,7 +25,7 @@ function goodPayload() {
 }
 
 test('registry keeps content mandatory and exposes provider-gated scanner truth', () => {
-  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V26');
+  assert.equal(Registry.REGISTRY_VERSION, 'KK_AGENT_REGISTRY_V27');
   const content = Registry.routeForIntent('direct_rental_x');
   assert.deepEqual(content.required_agents, ['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa', 'kk-content-selector']);
   assert.equal(content.runtime_available, true);
@@ -284,4 +284,25 @@ test('unified-route migration expands statuses without weakening append-only acc
   assert.match(migration, /revoke all on table public\.kk_agent_invocations from anon, authenticated, service_role/);
   assert.match(migration, /grant select, insert on table public\.kk_agent_invocations to service_role/);
   assert.doesNotMatch(migration, /grant[^;]*(update|delete)/);
+});
+
+
+test('storefront visual QA fail-closed route requires and invokes the full seven-agent design council', async () => {
+  const route=Registry.routeForIntent('storefront_visual_qa');
+  assert.deepEqual(route.required_agents,[
+    'kk-storefront-art-director','kk-storefront-ux-reviewer','kk-storefront-conversion-reviewer',
+    'kk-storefront-fandom-reviewer','kk-storefront-accessibility-reviewer',
+    'kk-storefront-performance-reviewer','kk-storefront-visual-critic'
+  ]);
+  assert.deepEqual(route.downstream_agents,['kk-reliability-learning']);
+  const ledgerFn=async row=>({ok:true,inserted:true,invocation_id:row.invocation_id});
+  const result=await Gateway.executeAgentRequest({
+    task_type:'storefront_visual_qa',
+    input:{viewports:[],metrics:[],screenshot_observations:[]}
+  },{ledgerFn});
+  assert.equal(result.status,'RECORDED');
+  assert.deepEqual(result.invocation.invoked_agents,route.required_agents);
+  assert.equal(result.result.design_council.status,'REVIEW_COMPLETE');
+  assert.deepEqual(result.result.design_council.invoked_agents,route.required_agents);
+  assert.equal(result.result.design_council.safety.production_writes,0);
 });
