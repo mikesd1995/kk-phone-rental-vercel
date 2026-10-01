@@ -5,11 +5,11 @@
   "baseline_comparison_pass": true,
   "baseline": "production-v3",
   "reviewed_design_blobs": {
-    "index_html": "60008b0a7f396489650426772cb6417b6254f058",
-    "v5_css": "4a4ca64305e05ee1048a80b70e02f36f36a45b82",
-    "script_js": "ec6ae8de2a1133f6f9659ff60bd09a9cdb43fe70"
+    "index_html": "f4faf23cca92666f52579d83ddae6f228206a80e",
+    "v5_css": "38d00b84314e37e67c892e0ef25ba69bf3bb8f66",
+    "script_js": "d12687bceb07f889f81c28a4bc6e85f3cc81c06c"
   },
-  "screenshot_artifact_id": "11154949860",
+  "screenshot_artifact_id": "11160020672",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -35,6 +35,11 @@
       "artifact_id": "11154949860",
       "status": "TECHNICAL_PASS_OWNER_PENDING",
       "finding": "V5.4 final optical pass removes 320px filter clipping without violating the iOS >=16px form-control contract. P0/P1 are zero at all seven target widths; baseline remains PASS; owner rejection remains the only acceptance blocker."
+    },
+    {
+      "artifact_id": "11160020672",
+      "status": "FULL_AUDIT_TECHNICAL_PASS_OWNER_PENDING",
+      "finding": "Post-audit exact head: P0/P1/P2/P3 automated findings are zero at all seven target viewports. Manual screenshot review at 320/390/1024 confirms improved freshness legibility and stable poster-first hierarchy. Asset cache coherency, V5 localization bindings, active-stylesheet regression coverage, async-error semantics, dialog description semantics, and malformed modal scroll-lock source were repaired. Owner rejection remains intentionally active."
     }
   ],
   "reviewed_viewports": [
@@ -56,5 +61,5 @@
   "production_writes": 0,
   "rejection_reason": "Owner rejected V5 quality bar after re-evaluation: technically cleaner but still generic/SaaS-like and below the requested world-class premium concert storefront standard.",
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "d9a2ab34905f3c29df267abe8101c08a8b2cf288"
+  "reviewed_design_head": "2fab92faccb9a8ab2abcfeeee58a71c68db0728d"
 }
