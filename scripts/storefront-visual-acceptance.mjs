@@ -377,15 +377,16 @@ async function main(){
   if(fs.existsSync(reviewPath)){
     try{
       screenshotReview=JSON.parse(fs.readFileSync(reviewPath,'utf8'));
-      const reviewedSha=String(screenshotReview.reviewed_design_sha||'').trim();
-      const validSha=/^[0-9a-f]{40}$/.test(reviewedSha);
-      let designUnchanged=false;
-      if(validSha){
-        try{
-          execFileSync('git',['diff','--quiet',reviewedSha+'..HEAD','--','index.html','assets/kk-storefront-v3.css','script.js'],{stdio:'ignore'});
-          designUnchanged=true;
-        }catch(_){}
-      }
+      const blobs=screenshotReview.reviewed_design_blobs||{};
+      const expected={
+        'index.html':String(blobs.index_html||''),
+        'assets/kk-storefront-v3.css':String(blobs.v3_css||''),
+        'script.js':String(blobs.script_js||'')
+      };
+      const designUnchanged=Object.entries(expected).every(([file,blob])=>{
+        if(!/^[0-9a-f]{40}$/.test(blob)) return false;
+        try{return execFileSync('git',['hash-object',file],{encoding:'utf8'}).trim()===blob;}catch(_){return false;}
+      });
       screenshotReviewPass=screenshotReview.status==='PASS' && designUnchanged;
     }catch(_){}
   }
