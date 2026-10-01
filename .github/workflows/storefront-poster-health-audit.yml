@@ -46,7 +46,7 @@ jobs:
         with:
           name: storefront-poster-health
           path: storefront-poster-health.json
-          retention-days: 30
+          retention-days: 7
       - name: Fail if any visible event has no healthy poster candidate
         if: steps.audit.outcome != 'success'
         run: exit 1
