@@ -18,3 +18,13 @@ test('agent gateway bootstraps project memory for critical routes and fail-close
  assert.equal(bad.status,'BLOCKED_PROJECT_MEMORY_UNAVAILABLE');
  assert.equal(bad.blocker,'PROJECT_MEMORY_BOOTSTRAP_BLOCKED');
 });
+
+test('gateway merges durable ledger memory and fail-closes when enabled ledger is unavailable',async()=>{
+ const Gateway=require('../server/kk-agent-gateway.js');
+ const ledgerFn=async row=>({ok:true,inserted:true,invocation_id:row.invocation_id});
+ const durable=row({memory_id:'kk:test:memory:durable1',domain:'reliability_debug',summary:'Durable runtime lesson is loaded before the reliability agent executes.'});
+ const good=await Gateway.executeAgentRequest({task_type:'reliability_audit',input:{observations:[]}},{ledgerFn,projectMemoryListFn:async()=>({ok:true,enabled:true,rows:[durable]})});
+ assert.equal(good.status,'RECORDED'); assert.ok(good.project_memory.context_count>0);
+ const bad=await Gateway.executeAgentRequest({task_type:'reliability_audit',input:{observations:[]}},{ledgerFn,projectMemoryListFn:async()=>{throw Object.assign(new Error('down'),{code:'PROJECT_MEMORY_LEDGER_READ_FAILED'});}});
+ assert.equal(bad.status,'BLOCKED_PROJECT_MEMORY_UNAVAILABLE'); assert.equal(bad.blocker,'PROJECT_MEMORY_LEDGER_READ_FAILED');
+});
