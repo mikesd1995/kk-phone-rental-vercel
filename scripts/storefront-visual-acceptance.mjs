@@ -397,7 +397,7 @@ async function main(){
   }
   const indexSource=fs.readFileSync(path.join(process.cwd(),'index.html'),'utf8');
   const storefrontStyles=[...indexSource.matchAll(/kk-storefront-v\d+\.css/gi)].map(match=>match[0].toLowerCase());
-  const singleVisualSourceOfTruth=storefrontStyles.length===1 && storefrontStyles[0]==='kk-storefront-v3.css';
+  const singleVisualSourceOfTruth=storefrontStyles.length===1 && storefrontStyles[0]==='kk-storefront-v5.css';
 
   const artAcceptance=ArtDirector.evaluateImplementation({
     evidence:{
