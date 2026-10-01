@@ -47,6 +47,8 @@ test('visual QA runner captures screenshots and exercises only read-only storefr
   assert.match(runner,/production_writes:0/);
   assert.match(runner,/interaction_checks:interactionChecks/);
   assert.match(runner,/STOREFRONT_DATA_NOT_READY/);
+  assert.match(runner,/url=>url\.pathname==='\/api\/kk-data'/);
+  assert.match(runner,/__KK_PUBLIC_DATA_GUARD__/);
   assert.match(runner,/concert-card:not\(\.skeleton-card\)/);
   assert.match(runner,/search_empty_state/);
   assert.match(runner,/status_filter_pressed/);
