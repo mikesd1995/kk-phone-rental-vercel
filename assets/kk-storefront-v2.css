@@ -210,3 +210,12 @@ footer>*,footer span{max-width:100%!important;box-sizing:border-box!important;wh
  .filter-btn{padding-left:6px!important;padding-right:6px!important;font-size:.7rem!important}
  .month-select-wrap,.month-select{width:82px!important;flex-basis:82px!important}
 }
+
+/* Mobile acceptance correction: preserve iOS 16px form text and 44px interactive targets. */
+@media(max-width:600px){
+ .month-select,.filter-btn,.filter-clear-btn{min-height:44px!important}
+ .month-select{font-size:16px!important}
+}
+@media(max-width:380px){
+ .month-select{font-size:16px!important}
+}
