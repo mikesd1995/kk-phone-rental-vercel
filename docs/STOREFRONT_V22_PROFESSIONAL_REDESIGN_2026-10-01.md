@@ -24,3 +24,5 @@ Exact-head Admin Regression + Storefront Automated Visual QA required before mer
 
 ## QA correction
 Initial exact-head Visual QA rejected the quieter utility rail because its language segments (and at tablet width follow/FAQ) fell below accepted tap heights. Visual weight remains reduced, but all interactive utility targets are restored to >=44px.
+
+Second QA pass proved 320–480px at readiness 100, but legacy tablet/desktop language-button height rules still overrode the minimum at 768/1024. V2.2 now explicitly locks language buttons to 44px across all widths.
