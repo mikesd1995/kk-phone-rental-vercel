@@ -32,3 +32,11 @@ test('source universe proof passes only after every required source has an execu
  assert.equal(proof.complete,true);
  assert.equal(proof.passed_required_source_count,proof.required_source_count);
 });
+
+test('source universe emits natural-month query variants instead of ISO-only over-constraint',()=>{
+ const plan=R.buildUniversePlan({month:'2026-10',location:'Bangkok Thailand'});
+ const eventpop=plan.tasks.find(x=>x.source_id==='eventpop');
+ assert.match(eventpop.query,/October 2026/);
+ assert.ok(eventpop.query_variants.some(q=>/ตุลาคม 2569/.test(q)));
+ assert.ok(eventpop.query_variants.length>=2);
+});
