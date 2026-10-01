@@ -31,3 +31,14 @@ If execution fails after the PENDING claim, the claim is deliberately retained. 
 
 ## Supersedes
 This design supersedes PR #366's direct-Sheets row-allocation prototype and incorporates the activation-gate findings from PR #363.
+
+## Hardening record — post-write / pre-OK failure window
+- The PENDING claim now records the exact candidate row plus customer name/phone before the first Booking-sheet mutation.
+- Added internal-only `kkReconcileLineBookingPendingClaim_`; it is deliberately not routed through `doPost` and therefore is not a public action.
+- Reconciliation holds the document lock, reads only the claimed A:T row, and requires canonical booking_id + pending + LINE source + exact event/customer identity + blank assets.
+- Reconciliation never allocates a row and never writes Booking data. On an exact match it may only transition the Script Property claim from PENDING to OK.
+- Any missing row identity, mismatch, assigned asset, malformed claim, or uncertain state remains fail-closed for owner inspection.
+- Added regression gates proving row/identity claim ordering, no Booking mutation in reconciliation, no replacement-row allocation, and no public reconciliation route.
+
+## Activation status after hardening
+This remains a dormant capability. Public LINE webhook wiring, Production activation, and Production/business writes are intentionally unchanged at zero. Runtime concurrency/fault-injection acceptance is still required before any activation decision.
