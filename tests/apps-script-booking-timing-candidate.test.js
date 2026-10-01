@@ -41,3 +41,33 @@ test('window capacity checks both aggregate demand and explicit asset collision'
   assert.match(body,/Lens capacity exceeded in reservation window/);
   assert.match(body,/already booked in an overlapping reservation window/);
 });
+
+
+test('create uses reservation-window-aware manual validation and auto allocation',()=>{
+  const create=fn('kkApiCreateBooking_');
+  assert.match(create,/kkValidateManualAssetForWindow_\(phoneAssetId/);
+  assert.match(create,/kkValidateManualAssetForWindow_\(lensAssetId/);
+  assert.match(create,/kkFindAvailableAssetForWindow_\('phone'/);
+  assert.match(create,/kkFindAvailableAssetForWindow_\('lens'/);
+  assert.doesNotMatch(create,/kkFindAvailableAsset_\('phone'/);
+  assert.doesNotMatch(create,/kkFindAvailableAsset_\('lens'/);
+});
+
+test('window-aware asset helpers allow same-day non-overlap and reject only overlapping holds',()=>{
+  const validate=fn('kkValidateManualAssetForWindow_');
+  const allocate=fn('kkFindAvailableAssetForWindow_');
+  const conflict=fn('kkAssetConflictsInWindow_');
+  assert.match(validate,/kkBookingReservationWindow_/);
+  assert.match(validate,/kkAssetConflictsInWindow_/);
+  assert.doesNotMatch(validate,/kkBookedAssetIdsForDate_/);
+  assert.match(allocate,/kkBookingReservationWindow_/);
+  assert.match(allocate,/kkAssetConflictsInWindow_/);
+  assert.doesNotMatch(allocate,/kkBookedAssetIdsForDate_/);
+  assert.match(conflict,/kkBookingWindowsOverlap_/);
+});
+
+test('update validates assigned assets against the edited reservation window',()=>{
+  const update=fn('kkApiUpdateBooking_');
+  assert.match(update,/kkValidateManualAssetForWindow_\(next\[9\]/);
+  assert.match(update,/kkValidateManualAssetForWindow_\(next\[10\]/);
+});
