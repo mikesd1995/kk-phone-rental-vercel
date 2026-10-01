@@ -82,3 +82,31 @@ test('current Vercel update proposal preserves snapshot return_time until live b
   assert.equal(proposal.pickup_time,'19:00');
   assert.equal(proposal.return_time,'22:00');
 });
+
+
+test('Apps Script createBooking binds request_id replay to the document-locked transaction',()=>{
+  const fs=require('node:fs');
+  const source=fs.readFileSync(require.resolve('../apps-script/Code.gs'),'utf8');
+  const start=source.indexOf('function kkApiCreateBooking_(payload)');
+  const end=source.indexOf('function kkApiUpdateBooking_(payload)',start);
+  const create=source.slice(start,end);
+  assert.match(create,/kkAcquireDocumentLock_\('write operation', 12000\)/);
+  assert.match(create,/kkFindBookingCreateRequest_\(requestId\)/);
+  assert.match(create,/idempotent_replay: true/);
+  assert.match(create,/getRange\(row, 2, 1, 19\)\.setValues/);
+  assert.match(create,/SpreadsheetApp\.flush\(\)/);
+  assert.match(create,/getRange\(row, 1, 1, 20\)\.getValues/);
+  assert.match(create,/BOOKING_CANONICAL_READBACK_MISSING/);
+  assert.match(source,/action === 'createBooking' && result && result\.idempotent_replay === true/);
+});
+
+test('booking create idempotency ledger preserves generated booking_id column A',()=>{
+  const fs=require('node:fs');
+  const source=fs.readFileSync(require.resolve('../apps-script/Code.gs'),'utf8');
+  const start=source.indexOf('function kkApiCreateBooking_(payload)');
+  const end=source.indexOf('function kkApiUpdateBooking_(payload)',start);
+  const create=source.slice(start,end);
+  assert.doesNotMatch(create,/getRange\(row, 1, 1, 20\)\.setValues/);
+  assert.match(create,/getRange\(row, 2, 1, 19\)\.setValues/);
+  assert.match(source,/\^\[A-Za-z0-9\._:-\]\{8,128\}\$/);
+});
