@@ -191,3 +191,17 @@ test('visual QA watches the complete executable storefront design council surfac
     'tests/kk-storefront-design-council.test.js'
   ]) assert.equal(workflow.includes(path),true,path+' must trigger visual QA');
 });
+
+
+test('V5.7 soft concert brand stays restrained and keeps event commerce primary',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  assert.match(html,/v57-soft-concert/);
+  assert.match(html,/kk-spark-mark/);
+  assert.match(html,/KEEP THE<br><em>MOMENT CLOSE\.<\/em>/);
+  assert.match(css,/--kk-sky:#dcecff/);
+  assert.match(css,/--kk-lilac:#eeeaff/);
+  assert.match(css,/V5\.7 Soft Concert Tech/);
+  assert.doesNotMatch(html,/🦄/);
+  assert.doesNotMatch(css,/🦄/);
+});
