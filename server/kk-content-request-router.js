@@ -30,6 +30,23 @@ function matchesAny(message, patterns) {
   return patterns.some(pattern => pattern.test(message));
 }
 
+function effectiveInventoryInput(input = {}) {
+  const next = {...input};
+  const hasRemaining = Object.prototype.hasOwnProperty.call(next, 'inventory_remaining') ||
+    Object.prototype.hasOwnProperty.call(next, 'phone_inventory_remaining');
+  const rawRemaining = Object.prototype.hasOwnProperty.call(next, 'inventory_remaining')
+    ? next.inventory_remaining
+    : next.phone_inventory_remaining;
+  const remaining = Number(rawRemaining);
+  const lensRemaining = Number(next.lens_remaining);
+
+  if (hasRemaining && Number.isFinite(remaining) && remaining <= 0) {
+    const lensOnly = next.lens_only_offer === true && Number.isFinite(lensRemaining) && lensRemaining > 0;
+    if (!lensOnly) next.inventory_available = false;
+  }
+  return next;
+}
+
 function commercialTruthRequired(intent, input = {}) {
   if (input.commercial_truth_required === true) return true;
   if (input.commercial_truth_required === false) return false;
@@ -67,14 +84,16 @@ function routeContentRequest({
     };
   }
 
+  const effectiveInput = effectiveInventoryInput(input);
+
   const marketingPlan = MarketingAgent.plan({
-    ...input,
+    ...effectiveInput,
     requested_channel: 'x',
     requested_intent: intent
   }, performanceRows);
 
   const plan = buildCreativePlan({
-    ...input,
+    ...effectiveInput,
     primary_objective: marketingPlan.objective,
     marketing_campaign_mode: marketingPlan.campaign_mode,
     marketing_opportunity_score: marketingPlan.opportunity.score,
@@ -84,7 +103,7 @@ function routeContentRequest({
   }, performanceRows);
 
   const directRental = intent === 'direct_rental_x';
-  const requiresCommercialTruth = commercialTruthRequired(intent, input);
+  const requiresCommercialTruth = commercialTruthRequired(intent, effectiveInput);
   const contentGate = requiresCommercialTruth && !plan.readiness.commercial_ready ? 'BLOCKED' : 'PASS';
 
   return {
@@ -116,7 +135,7 @@ function routeContentRequest({
     plan,
     finalization_contract: {
       commercial_truth_required: requiresCommercialTruth,
-      event_truth_required: directRental || Boolean(String(input.event || input.official_event_hashtag || '').trim()),
+      event_truth_required: directRental || Boolean(String(effectiveInput.event || effectiveInput.official_event_hashtag || '').trim()),
       internal_candidate_count: 3,
       public_output_count: 1,
       public_output_mode: 'SINGLE_FINAL_POST'
@@ -185,6 +204,7 @@ function finalizeGeneratedCandidates({
 module.exports = {
   DIRECT_RENTAL_PATTERNS,
   CONTENT_DRAFT_PATTERNS,
+  effectiveInventoryInput,
   commercialTruthRequired,
   detectContentIntent,
   routeContentRequest,
