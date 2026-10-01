@@ -20,10 +20,16 @@ function decide(branch, changedFiles, overrides = {}) {
   });
 }
 
-test('main always builds even for docs-only changes', () => {
-  const result = decide('main', ['docs/ADMIN.md']);
+test('main skips docs-only changes when the exact diff is known', () => {
+  const result = decide('main', ['docs/ADMIN.md', '.github/workflows/admin-regression.yml']);
+  assert.equal(result.ignore, true);
+  assert.equal(result.reason, 'SAFE_PREVIEW_ONLY_CHANGE');
+});
+
+test('main still builds for runtime changes', () => {
+  const result = decide('main', ['api/kk-data.js', 'docs/ADMIN.md']);
   assert.equal(result.ignore, false);
-  assert.equal(result.reason, 'MAIN_ALWAYS_BUILDS');
+  assert.deepEqual(result.build_required_files, ['api/kk-data.js']);
 });
 
 test('preview skips when every changed file is documentation, tests, or GitHub workflow metadata', () => {

@@ -52,4 +52,4 @@ jobs:
           name: discovery-crawl4ai-uat-${{ github.run_id }}
           path: crawl4ai-uat-report.json
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 7

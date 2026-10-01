@@ -19,7 +19,7 @@ permissions:
 
 concurrency:
   group: hf-event-assist-controlled-uat
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   controlled-hf-uat:
@@ -91,4 +91,4 @@ jobs:
             hf-readiness.json
             hf-benchmark.json
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 7

@@ -30,8 +30,8 @@ function decideIgnoredBuild({ branch, previousSha, commitSha, changedFiles }) {
   const after = String(commitSha || '').trim();
   const files = normalizeFiles(changedFiles);
 
-  if (!ref || ref === 'main') {
-    return { ignore: false, reason: ref === 'main' ? 'MAIN_ALWAYS_BUILDS' : 'UNKNOWN_BRANCH' };
+  if (!ref) {
+    return { ignore: false, reason: 'UNKNOWN_BRANCH' };
   }
   if (!before || !after) {
     return { ignore: false, reason: 'MISSING_GIT_SHA' };
@@ -71,7 +71,7 @@ function runCli(env = process.env) {
   const previousSha = String(env.VERCEL_GIT_PREVIOUS_SHA || '').trim();
   const commitSha = String(env.VERCEL_GIT_COMMIT_SHA || '').trim();
 
-  if (!branch || branch === 'main') {
+  if (!branch) {
     const decision = decideIgnoredBuild({ branch, previousSha, commitSha, changedFiles: [] });
     console.log(JSON.stringify(decision));
     return 1;
