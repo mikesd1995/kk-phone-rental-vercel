@@ -45,3 +45,11 @@ test('webhook only advertises proxy hero when canonical poster source is LINE-sa
  const u=await webhook.resolvePoster({event_name:'Safe Event',venue:'Safe Venue'},async()=>({ok:true,text:async()=>csv}));
  assert.equal(u,'https://kk-phone-rental.vercel.app/api/line-poster?event_id=EVT-SAFE-001');
 });
+
+
+test('LINE poster API parses event_id from req.url without touching Vercel req.query getter',async()=>{
+ const fs=require('node:fs');
+ const apiSource=fs.readFileSync(require.resolve('../api/line-poster.js'),'utf8');
+ assert.match(apiSource,/new URL\(req\.url\|\|'\/api\/line-poster','http:\/\/localhost'\)/);
+ assert.doesNotMatch(apiSource,/req\.query/);
+});
