@@ -42,3 +42,19 @@ Round 1 artifact `11151298431` was rejected by the runtime: 320px event discover
 Round 2 artifact `11151078668` cleared automated P0/P1 findings across 320/375/390/430/480/768/1024. Manual screenshot review confirms the intended direction: KK blue remains visible, poster identity remains prominent, persistent LINE obstruction is removed, and the mobile storefront is materially less cluttered than V3 without becoming the rejected V4 directory treatment.
 
 Owner decision is intentionally `PENDING`. This is a hard fail-closed production gate; automated or internal screenshot PASS cannot synthesize owner acceptance.
+
+
+## V5.1 art-direction reset
+The owner quality-bar rejection invalidated V5 round 2 as a final design even though technical P0/P1 were zero. V5.1 therefore changes the art direction rather than polishing the rejected composition.
+
+Reference principles reviewed before implementation: editorial music/festival layouts with image-led programming, oversized typographic hierarchy, controlled high-contrast palettes, and restrained utility chrome. These are principles only; no third-party visual is copied.
+
+Implemented direction:
+- deep concert-night brand field above the fold with electric KK blue light treatment;
+- oversized editorial hero typography with a shorter proposition;
+- warm off-white event canvas to separate brand/story from commerce;
+- poster cards lose generic white SaaS containers and become image-led editorial tiles;
+- desktop introduces selective larger feature cards instead of a uniform marketplace grid;
+- search/filter remains quiet and functional between brand and event catalogue;
+- mobile retains two poster columns where width permits, with short-phone rules preserved;
+- owner acceptance remains rejected/pending until new screenshots are reviewed; no merge/deploy is authorized.
