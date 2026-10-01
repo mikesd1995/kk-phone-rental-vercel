@@ -153,3 +153,9 @@ Exact-head V5.8 artifact 11177081334 was manually inspected rather than inferred
 - desktop/tablet catalogue transition carried excess dead space.
 
 Remediation adds a dedicated 601–900px proof composition with explicit readable contrast, compresses short-phone chrome/content while preserving 44px interaction contracts, and tightens the catalogue transition. Regression coverage was added. Business truth remains untouched.
+
+
+## V5.8.3 release-candidate visual audit
+The V5.8.2 artifact was inspected across all seven top/sticky viewport pairs. A remaining tablet-only composition defect was found at 768px: the sticky browse shell visually obscured the catalogue heading during the sticky-state capture even though event cards remained operable and geometry QA did not classify it as a blocker.
+
+Remediation: reduced tablet sticky-shell footprint and added explicit event-section scroll margin. Scope is presentation-only at 601–900px. No business/data/booking mutation.
