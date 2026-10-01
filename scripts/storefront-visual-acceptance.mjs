@@ -62,8 +62,7 @@ async function fetchCsvFixture(base,sheet,range){
   const res=await fetch(url,{headers:{Accept:'text/csv'}});
   if(!res.ok) fail('PUBLIC_DATA_FIXTURE_HTTP_'+res.status,'Public read-only fixture fetch failed for '+sheet);
   const body=await res.text();
-  const firstLine=String(body||'').split(/\r?
-/,1)[0].toLowerCase();
+  const firstLine=String(body||'').split(/\r?\n/,1)[0].toLowerCase();
   if(sheet==='08_Web_Ready' && (!firstLine.includes('event_id')||!firstLine.includes('action_for_web'))){
     fail('PUBLIC_EVENT_FIXTURE_INVALID','Public event fixture header is invalid');
   }
@@ -105,8 +104,7 @@ function ensureDir(dir){
 }
 
 function markdownEscape(value){
-  return String(value==null?'':value).replace(/\|/g,'\\|').replace(/
-/g,' ');
+  return String(value==null?'':value).replace(/\|/g,'\\|').replace(/\n/g,' ');
 }
 
 async function main(){
@@ -204,15 +202,9 @@ async function main(){
         }));
         return images.map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight}));
       });
-      const brokenVisibleImages=imageReadiness.filter(item=>{
-         if(item.naturalWidth>0 && item.naturalHeight>0) return false;
-         try{
-           const host=new URL(item.src).hostname.toLowerCase();
-           return !['lh3.googleusercontent.com','drive.google.com'].includes(host);
-         }catch{ return true; }
-       });
+      const brokenVisibleImages=imageReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
       if(brokenVisibleImages.length){
-        fail('VISIBLE_IMAGE_NOT_READY',`Visible non-Drive image evidence was not ready at ${width}px: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
+        fail('VISIBLE_IMAGE_NOT_READY',`Visible image evidence was not ready at ${width}px: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
       }
 
       const errorVisible=await page.locator('.error-box').isVisible().catch(()=>false);
@@ -299,9 +291,7 @@ async function main(){
         let cssText='';
         for(const sheet of Array.from(document.styleSheets)){
           try{
-            cssText+='
-'+Array.from(sheet.cssRules||[]).map(rule=>rule.cssText||'').join('
-');
+            cssText+='\n'+Array.from(sheet.cssRules||[]).map(rule=>rule.cssText||'').join('\n');
           }catch(_){}
         }
 
@@ -391,8 +381,7 @@ async function main(){
   summary.art_director_acceptance=artAcceptance;
   summary.pass=summary.pass && artAcceptance.status==='PASS';
 
-  fs.writeFileSync(path.join(outputDir,'manifest.json'),JSON.stringify(summary,null,2)+'
-');
+  fs.writeFileSync(path.join(outputDir,'manifest.json'),JSON.stringify(summary,null,2)+'\n');
 
   const lines=[
     '# Storefront Automated Visual QA',
@@ -417,12 +406,9 @@ async function main(){
     lines.push('','','## Runtime errors');
     for(const error of runtimeErrors) lines.push(`- ${error.width}px: ${markdownEscape(error.message)}`);
   }
-  fs.writeFileSync(path.join(outputDir,'summary.md'),lines.join('
-')+'
-');
+  fs.writeFileSync(path.join(outputDir,'summary.md'),lines.join('\n')+'\n');
 
-  process.stdout.write(JSON.stringify(summary,null,2)+'
-');
+  process.stdout.write(JSON.stringify(summary,null,2)+'\n');
   if(!summary.pass) process.exitCode=1;
 }
 
@@ -435,7 +421,6 @@ main().catch(error=>{
     production_writes:0,
     publishes:0
   };
-  process.stderr.write(JSON.stringify(payload,null,2)+'
-');
+  process.stderr.write(JSON.stringify(payload,null,2)+'\n');
   process.exitCode=1;
 });
