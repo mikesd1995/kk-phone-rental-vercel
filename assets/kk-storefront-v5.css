@@ -170,3 +170,17 @@ body{background:var(--kk-warm)}
 @media(max-width:350px){
  .month-select{font-size:16px!important}
 }
+
+
+/* V5.4 audit hardening — preserve legibility for meaningful microcopy */
+@media(max-width:600px){
+ .v3-eyebrow{font-size:9.5px}
+ .v3-proof span{font-size:9.5px}
+ .v3-events-heading span{font-size:9px}
+ .pi-date{font-size:10px!important}
+ .pi-avail{font-size:10px!important}
+ .update-note{font-size:9.5px}
+}
+@media(max-width:350px) and (max-height:650px){
+ .v3-eyebrow{font-size:9px}
+}
