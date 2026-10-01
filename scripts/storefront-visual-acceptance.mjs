@@ -246,7 +246,7 @@ async function main(){
         await page.locator('.filter-btn[data-filter="all"]').click();
         await page.waitForTimeout(60);
 
-        const faqButton=page.locator('#faq-open-btn');
+        const faqButton=page.locator('#faq-open-btn:visible,[data-open-faq]:visible').first();
         if(await faqButton.isVisible().catch(()=>false)){
           await faqButton.click();
           recordInteraction('faq_open',await page.locator('#faqOverlay').isVisible().catch(()=>false));
