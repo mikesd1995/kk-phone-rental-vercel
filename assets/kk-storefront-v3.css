@@ -41,3 +41,10 @@ body{margin:0;background:var(--canvas);color:var(--ink);font-family:"Noto Sans T
 .pi-venue{display:block!important;max-width:100%!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 @media(max-width:350px){.wrap{width:calc(100% - 24px)}.v3-header{min-width:0}.v3-header-actions{min-width:0}.v3-brand-copy strong{font-size:14px}.v3-brand{min-width:0}.v3-brand-copy{min-width:0}.v3-brand-copy strong{white-space:nowrap}.v3-header .language-switch{flex:0 0 auto}}
+
+/* 320px root containment: internal horizontal filter scrolling must not widen the document. */
+html,body{max-width:100%;overflow-x:clip}
+.wrap,main,.browse-controls-shell,.status-filter-group,.status-filter-bar,footer{min-width:0;max-width:100%}
+.status-filter-bar{width:100%;overflow-x:auto!important;overflow-y:hidden!important;overscroll-behavior-x:contain}
+footer,footer *{max-width:100%;overflow-wrap:anywhere}
+@media(max-width:350px){.status-filter-bar{display:grid!important;grid-template-columns:82px repeat(3,minmax(0,1fr));gap:3px!important;overflow:visible!important}.month-select-wrap,.month-select{width:82px!important;min-width:0!important}.filter-btn{min-width:0!important;padding-left:3px!important;padding-right:3px!important;font-size:10px!important}}
