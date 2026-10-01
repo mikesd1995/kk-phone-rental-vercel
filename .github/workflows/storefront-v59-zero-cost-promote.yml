@@ -1,0 +1,101 @@
+name: Storefront V5.9 Zero Cost Promote
+on:
+  issue_comment:
+    types: [created]
+permissions:
+  contents: read
+concurrency:
+  group: kk-storefront-v59-promote
+  cancel-in-progress: false
+jobs:
+  promote:
+    if: ${{ github.event.issue.number == 213 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && startsWith(github.event.comment.body, '/run-v59-promote ') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+      VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+      PRODUCTION_URL: https://kk-phone-rental.vercel.app
+    steps:
+      - id: authz
+        name: Parse exact owner request
+        env: { BODY: "${{ github.event.comment.body }}" }
+        run: |
+          set -euo pipefail
+          read -r CMD CANDIDATE_ID CANDIDATE_SHA APPROVED_SHA EXTRA <<<"$BODY"
+          test "$CMD" = "/run-v59-promote"; test -z "${EXTRA:-}"
+          [[ "$CANDIDATE_ID" =~ ^dpl_[A-Za-z0-9]+$ ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]; [[ "$APPROVED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          echo "candidate_id=$CANDIDATE_ID" >> "$GITHUB_OUTPUT"
+          echo "candidate_sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
+          echo "approved_sha=$APPROVED_SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with: { ref: "${{ steps.authz.outputs.approved_sha }}", fetch-depth: 0 }
+      - name: Exact-main and runtime equality
+        env:
+          APPROVED_SHA: "${{ steps.authz.outputs.approved_sha }}"
+          CANDIDATE_SHA: "${{ steps.authz.outputs.candidate_sha }}"
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$APPROVED_SHA"
+          git cat-file -e "$CANDIDATE_SHA^{commit}"
+          git diff --name-only "$CANDIDATE_SHA" "$APPROVED_SHA" -- . ':(exclude)tests/**' ':(exclude)docs/**' ':(exclude).github/**' > runtime-diff.txt
+          test ! -s runtime-diff.txt
+      - name: Source gates
+        run: npm run check && npm test
+      - name: Require token and inspect candidate
+        env:
+          VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
+          CANDIDATE_ID: "${{ steps.authz.outputs.candidate_id }}"
+          CANDIDATE_SHA: "${{ steps.authz.outputs.candidate_sha }}"
+        run: |
+          set -euo pipefail; test -n "${VERCEL_TOKEN:-}"
+          node - <<'NODE'
+          const token=process.env.VERCEL_TOKEN, team=process.env.VERCEL_ORG_ID, project=process.env.VERCEL_PROJECT_ID;
+          (async()=>{const r=await fetch('https://api.vercel.com/v13/deployments/'+process.env.CANDIDATE_ID+'?teamId='+team,{headers:{Authorization:'Bearer '+token}});if(!r.ok)throw Error('inspect '+r.status);const d=await r.json();if(String(d.readyState||d.state).toUpperCase()!=='READY')throw Error('not ready');if(String(d.projectId||d.project?.id)!==project)throw Error('project mismatch');if(String(d.meta?.githubCommitSha)!==process.env.CANDIDATE_SHA)throw Error('sha mismatch');})();
+          NODE
+      - name: Candidate read-only smoke
+        env:
+          VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
+          CANDIDATE_URL: https://kk-phone-rental-vercel-3ccdhy8yv-mikesd1995s-projects.vercel.app
+        run: |
+          set -euo pipefail
+          npm install --no-save vercel@latest >/dev/null
+          ROOT="$(npx vercel curl "$CANDIDATE_URL/" --token="$VERCEL_TOKEN" -sS)"
+          grep -q 'id="theme-toggle"' <<<"$ROOT"
+          grep -q 'id="faq-open-btn"' <<<"$ROOT"
+          grep -q 'v59-theme-faq' <<<"$ROOT"
+          npx vercel curl "$CANDIDATE_URL/api/kk-data?sheet=08_Web_Ready%26range=A4%3AK" --token="$VERCEL_TOKEN" -sS > candidate-data
+          curl -sS "$PRODUCTION_URL/api/kk-data?sheet=08_Web_Ready%26range=A4%3AK" > production-data
+          cmp candidate-data production-data
+      - id: previous
+        name: Capture previous production
+        env: { VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}" }
+        run: |
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const token=process.env.VERCEL_TOKEN,team=process.env.VERCEL_ORG_ID,project=process.env.VERCEL_PROJECT_ID;(async()=>{const u=new URL('https://api.vercel.com/v6/deployments');u.searchParams.set('projectId',project);u.searchParams.set('target','production');u.searchParams.set('limit','20');u.searchParams.set('teamId',team);const r=await fetch(u,{headers:{Authorization:'Bearer '+token}});const b=await r.json();const d=(b.deployments||[]).find(x=>String(x.target).toLowerCase()==='production'&&String(x.readyState||x.state).toUpperCase()==='READY');if(!d)throw Error('no previous');console.log('id='+(d.id||d.uid));})();
+          NODE
+      - name: Promote accepted READY preview
+        env:
+          VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
+          CANDIDATE_ID: "${{ steps.authz.outputs.candidate_id }}"
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o promote.json -w '%{http_code}' -X POST -H "Authorization: Bearer $VERCEL_TOKEN" -H 'Content-Type: application/json' "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/promote/$CANDIDATE_ID?teamId=$VERCEL_ORG_ID")"
+          case "$code" in 200|201|202) ;; *) cat promote.json; exit 1;; esac
+      - name: Verify production or rollback
+        env:
+          VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
+          PREVIOUS_ID: "${{ steps.previous.outputs.id }}"
+        run: |
+          set -euo pipefail
+          rollback(){ curl -sS -X POST -H "Authorization: Bearer $VERCEL_TOKEN" -H 'Content-Type: application/json' "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/promote/$PREVIOUS_ID?teamId=$VERCEL_ORG_ID" >/dev/null || true; }
+          trap rollback ERR
+          ok=0
+          for i in $(seq 1 30); do
+            curl -sS "$PRODUCTION_URL/" -o live.html || true
+            if grep -q 'id="theme-toggle"' live.html && grep -q 'id="faq-open-btn"' live.html && grep -q 'v59-theme-faq' live.html; then ok=1; break; fi
+            sleep 4
+          done
+          test "$ok" = 1
+          trap - ERR
