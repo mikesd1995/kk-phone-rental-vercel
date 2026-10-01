@@ -36,3 +36,10 @@ test('evidence-grounded query hints are present for the three remaining live mis
  assert.ok(byId.get('tle-firstone-20261022').search_queries.includes('EVERPINKxTleFirstone'));
  assert.ok(byId.get('fortreasure-20261129').search_queries.includes('FORTREASURE site:eventpop.me'));
 });
+
+test('deterministic fixture regression covers all ten historical misses',()=>{
+ const out=K.evaluateFixtureRegression();
+ assert.equal(out.complete,true);
+ assert.equal(out.passed,10);
+ assert.equal(out.proof_type,'DETERMINISTIC_HISTORICAL_FIXTURE');
+});
