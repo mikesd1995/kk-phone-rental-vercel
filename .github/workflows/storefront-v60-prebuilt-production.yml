@@ -1,0 +1,56 @@
+name: Storefront V6 Prebuilt Production
+on:
+  issue_comment:
+    types: [created]
+permissions:
+  contents: read
+concurrency:
+  group: kk-storefront-v6-prebuilt-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: ${{ github.event.issue.number == 213 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && startsWith(github.event.comment.body, '/run-v60-prebuilt ') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+      VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+      PRODUCTION_URL: https://kk-phone-rental.vercel.app
+    steps:
+      - id: authz
+        env: { BODY: "${{ github.event.comment.body }}" }
+        run: |
+          set -euo pipefail
+          read -r CMD SHA EXTRA <<<"$BODY"
+          test "$CMD" = "/run-v60-prebuilt"; test -z "${EXTRA:-}"; [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with: { ref: "${{ steps.authz.outputs.sha }}", fetch-depth: 0 }
+      - name: Require exact current main and V6 marker
+        env: { SHA: "${{ steps.authz.outputs.sha }}" }
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$SHA"
+          grep -q 'v60-premium-editorial' index.html
+          grep -q 'V6.0 — Premium Concert Editorial Commerce' assets/kk-storefront-v5.css
+      - name: Regression gates
+        run: npm run check && npm test
+      - name: Build and deploy prebuilt
+        env: { VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}" }
+        run: |
+          set -euo pipefail; test -n "${VERCEL_TOKEN:-}"
+          npm install --no-save vercel@latest >/dev/null
+          npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx vercel build --prod --token="$VERCEL_TOKEN"
+          npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tee deploy-url.txt
+      - name: Verify live V6
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 30); do
+            curl -fsS "$PRODUCTION_URL/" -o live.html || true
+            if grep -q 'v60-premium-editorial' live.html && grep -q 'id="faq-open-btn"' live.html && grep -q 'id="theme-toggle"' live.html; then ok=1; break; fi
+            sleep 4
+          done
+          test "$ok" = 1
