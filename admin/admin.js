@@ -2034,6 +2034,7 @@
 
   function mutationOutcomeUncertain(err){
     const code=String(err&&err.code||"");
+    if(err && (err.mutationOutcomeUncertain===true || err.mutationMayHaveCommitted===true)) return true;
     if(code==="UPSTREAM_TIMEOUT" || code==="UPSTREAM_ERROR") return true;
     return !!(err && err.name==="TypeError" && /fetch|network|load/i.test(String(err.message||"")));
   }
@@ -2108,6 +2109,8 @@
           err.upstreamStatus=Number(data.upstream_status||0);
           err.upstreamFailureClass=String(data.upstream_failure_class||"");
           err.retryable=data.retryable===true;
+          err.mutationOutcomeUncertain=data.mutation_outcome_uncertain===true;
+          err.mutationMayHaveCommitted=data.mutation_may_have_committed===true;
           err.action=data.action||action;
           throw err;
         }
