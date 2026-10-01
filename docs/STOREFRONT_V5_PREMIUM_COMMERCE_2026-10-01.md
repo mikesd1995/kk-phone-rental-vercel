@@ -137,3 +137,25 @@ Documentation head `2044c73702326c02034c9bab4b15babfc76c70c1` was re-verified af
 - The sole acceptance blocker remains `OWNER_VISUAL_REJECTION_ACTIVE`; it is governance, not a geometry/regression failure.
 
 No merge, deploy, production write, pricing, inventory, booking, or event-SOT mutation was performed.
+
+
+## V5.4 final optical pass — post-fallback exact design evidence
+Final design/runtime head: `aa01eabb055531e7813b7b69db1a171592df02d2`.
+
+The first V5.4 verification was blocked by an unrelated malformed KPOP Masterz poster override already present on `main`: literal escaped newline tokens made `script.js` fail Node syntax checking. The malformed source was corrected on `main` at `607da49c3099515b2ce32da1ccadfc2e6541e5ff`, preserving the intended 2026-11-14 poster override, then the corrected storefront script was synchronized into the V5 branch for an exact rerun.
+
+V5.4 visual changes retained:
+- narrow 320px filter controls are contained without horizontal carousel clipping;
+- touch-only devices no longer inherit desktop hover lift/underline residue;
+- reduced-motion users receive no decorative card/CTA transitions;
+- the 16px iOS select contract is preserved to prevent focus zoom;
+- V5.3 poster-first hierarchy, price/availability language and V3 baseline PASS remain unchanged.
+
+Fresh evidence:
+- Admin Regression run `36856084812`: SUCCESS.
+- Storefront Automated Visual QA run `36856084985`: all seven target viewports report P0=0 and P1=0 with no per-viewport blockers.
+- Screenshot artifact `11159082382`.
+- The only acceptance blocker is the intentional owner screenshot-review gate: `OWNER_VISUAL_REJECTION_ACTIVE` / `SCREENSHOT_REVIEW_NOT_PASSING`.
+- Production deployment/write from this V5.4 work: 0.
+
+No pricing, availability computation, booking, inventory or event SOT semantics were changed by V5.4.
