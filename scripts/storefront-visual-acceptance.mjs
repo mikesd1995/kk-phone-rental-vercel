@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 const require=createRequire(import.meta.url);
 const Reviewer=require('../server/kk-storefront-ux-reviewer.js');
 const ArtDirector=require('../server/kk-storefront-art-director.js');
+const VisualCritic=require('../server/kk-storefront-visual-critic.js');
 
 const DEFAULT_HEIGHTS=Object.freeze({
   320:568,
@@ -153,7 +154,11 @@ async function main(){
       page.on('pageerror',error=>pageErrors.push(String(error&&error.message||error)));
 
       if(fixtures){
-        await page.route('**/api/kk-data**',async route=>{
+        // The checked-out config installs an API-only fetch guard before app code runs.
+        // Route both absolute localhost requests and any matching API request to the
+        // already-fetched canonical read-only fixture so QA never falls through to
+        // a missing local /api implementation or direct Google fallback.
+        await page.route(url=>url.pathname==='/api/kk-data',async route=>{
           const requestUrl=new URL(route.request().url());
           const sheet=requestUrl.searchParams.get('sheet');
           const body=sheet==='08_Web_Ready'
@@ -175,6 +180,9 @@ async function main(){
       }
 
       await page.goto(target.href,{waitUntil:'domcontentloaded',timeout:30000});
+      if(fixtures){
+        await page.waitForFunction(()=>window.__KK_PUBLIC_DATA_GUARD__==='api-only',{timeout:5000}).catch(()=>{});
+      }
       if(mode!=='local_zero_cost'){
         await page.waitForLoadState('networkidle',{timeout:8000}).catch(()=>{});
       }
@@ -203,9 +211,16 @@ async function main(){
         }));
         return images.map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight}));
       });
-      const brokenVisibleImages=imageReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      let brokenVisibleImages=imageReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      if(brokenVisibleImages.length && mode==='local_zero_cost'){
+        // Canonical Google Drive poster hosts can throttle CI while the same image is valid in production.
+        // Re-check the same source once before failing; never exempt persistent failures.
+        await page.waitForTimeout(2200);
+        const retryReadiness=await page.evaluate(()=>Array.from(document.images).filter(img=>{const r=img.getBoundingClientRect();return r.bottom>=-1&&r.top<=window.innerHeight+1&&r.width>0&&r.height>0;}).map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight})));
+        brokenVisibleImages=retryReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      }
       if(brokenVisibleImages.length){
-        fail('VISIBLE_IMAGE_NOT_READY',`Visible image evidence was not ready at ${width}px: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
+        fail('VISIBLE_IMAGE_NOT_READY',`Visible image evidence was not ready at ${width}px after readiness retry: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
       }
 
       const errorVisible=await page.locator('.error-box').isVisible().catch(()=>false);
@@ -214,9 +229,72 @@ async function main(){
         fail('STOREFRONT_ERROR_STATE',`Storefront rendered an error state at ${width}px: ${text.slice(0,220)}`);
       }
 
-      const cards=page.locator('.concert-card');
+      // Wait for the real catalogue, not the initial skeleton. Interaction acceptance must
+      // never race the asynchronous fixture/API render or mistake skeleton cards for events.
+      try{
+        await page.locator('#content .skeleton-grid').waitFor({state:'detached',timeout:15000});
+        await page.locator('#content .concert-card:not(.skeleton-card)').first().waitFor({state:'visible',timeout:15000});
+      }catch(error){
+        const readiness=await page.evaluate(()=>({
+          skeletons:document.querySelectorAll('#content .skeleton-card').length,
+          real_cards:document.querySelectorAll('#content .concert-card:not(.skeleton-card)').length,
+          error_visible:Boolean(document.querySelector('#content .error-box')),
+          content_text:String(document.querySelector('#content')?.textContent||'').trim().slice(0,240)
+        }));
+        fail('STOREFRONT_DATA_NOT_READY',`Real event catalogue was not ready at ${width}px before interaction QA: ${JSON.stringify(readiness)}`);
+      }
+
+      const cards=page.locator('#content .concert-card:not(.skeleton-card)');
       const cardCount=await cards.count();
-      if(cardCount<1) fail('EVENT_CARDS_NOT_RENDERED',`No event cards rendered at ${width}px`);
+      if(cardCount<1) fail('EVENT_CARDS_NOT_RENDERED',`No real event cards rendered at ${width}px`);
+
+      // Exercise read-only storefront interactions so a geometry-only PASS cannot mask broken UX.
+      // Never click LINE/external booking links and never submit forms.
+      const interactionChecks=[];
+      const recordInteraction=(name,pass,detail='')=>interactionChecks.push({name,pass:Boolean(pass),detail:String(detail||'')});
+      try{
+        const search=page.locator('#event-search');
+        await search.fill('__kk_visual_qa_no_match__');
+        await page.waitForTimeout(80);
+        recordInteraction('search_empty_state',await page.locator('.empty-state').isVisible().catch(()=>false));
+        await search.fill('');
+        await page.waitForTimeout(80);
+        recordInteraction('search_restore',await page.locator('#content .concert-card:not(.skeleton-card)').count()>0);
+
+        const available=page.locator('.filter-btn[data-filter="available"]');
+        await available.click();
+        await page.waitForTimeout(60);
+        recordInteraction('status_filter_pressed',(await available.getAttribute('aria-pressed'))==='true');
+        await page.locator('.filter-btn[data-filter="all"]').click();
+        await page.waitForTimeout(60);
+
+        const faqButton=page.locator('#faq-open-btn:visible,[data-open-faq]:visible').first();
+        if(await faqButton.isVisible().catch(()=>false)){
+          await faqButton.click();
+          recordInteraction('faq_open',await page.locator('#faqOverlay').isVisible().catch(()=>false));
+          await page.keyboard.press('Escape');
+          recordInteraction('faq_escape_close',!(await page.locator('#faqOverlay').isVisible().catch(()=>true)));
+        }
+
+        const firstCard=page.locator('#content .concert-card:not(.skeleton-card)').first();
+        await firstCard.click();
+        recordInteraction('event_modal_open',await page.locator('#overlay').isVisible().catch(()=>false));
+        await page.keyboard.press('Escape');
+        recordInteraction('event_modal_escape_close',!(await page.locator('#overlay').isVisible().catch(()=>true)));
+
+        const en=page.locator('.lang-btn[data-lang="en"]');
+        const th=page.locator('.lang-btn[data-lang="th"]');
+        await en.click();
+        recordInteraction('language_en_pressed',(await en.getAttribute('aria-pressed'))==='true');
+        await th.click();
+        recordInteraction('language_th_restore',(await th.getAttribute('aria-pressed'))==='true');
+      }catch(error){
+        recordInteraction('interaction_runtime',false,error&&error.message||error);
+      }
+      const failedInteractions=interactionChecks.filter(item=>!item.pass);
+      if(failedInteractions.length){
+        fail('STOREFRONT_INTERACTION_FAILED',`Read-only interaction checks failed at ${width}px: ${JSON.stringify(failedInteractions).slice(0,900)}`);
+      }
 
       const cssLinks=await page.locator('link[rel="stylesheet"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')||''));
       if(expectedCssMarker && !cssLinks.some(href=>href.includes(expectedCssMarker))){
@@ -283,6 +361,8 @@ async function main(){
         ].filter(visible);
         const rowTops=[...new Set(filterItems.map(el=>Math.round(el.getBoundingClientRect().top/3)*3))];
 
+        const hero=document.querySelector('.v4-hero,.v3-hero');
+        const preEventSurfaces=[document.querySelector('.v4-header,.v3-header'),hero,document.querySelector('.v3-social-proof'),document.querySelector('.browse-controls-shell')].filter(visible);
         const cards=Array.from(document.querySelectorAll('.concert-card')).filter(visible);
         const cardRects=cards.map(el=>el.getBoundingClientRect());
         const firstTop=cardRects.length?Math.round(cardRects[0].top/4)*4:null;
@@ -316,6 +396,9 @@ async function main(){
           card_columns:firstRow.length,
           card_min_width_px:cardRects.length?Math.min(...cardRects.map(r=>r.width)):0,
           visible_event_cards_above_fold:visibleAboveFold,
+          first_event_top_px:cardRects.length?cardRects[0].top+window.scrollY:0,
+          hero_height_px:rect(hero)?.height||0,
+          pre_event_surface_count:preEventSurfaces.length,
           backdrop_blur_px:blurMatch?Number(blurMatch[1]):0,
           tap_targets:tapTargets,
           event_card_count:cards.length,
@@ -330,6 +413,7 @@ async function main(){
         metrics
       };
       const qa=Reviewer.validateVisualQa(packet);
+      const visualCritique=VisualCritic.critique(packet);
       results.push({
         width,
         height,
@@ -339,8 +423,10 @@ async function main(){
         screenshot_top:path.relative(process.cwd(),topPath),
         screenshot_sticky:path.relative(process.cwd(),stickyPath),
         page_errors:pageErrors,
+        interaction_checks:interactionChecks,
         metrics,
-        qa
+        qa,
+        visual_critique:visualCritique
       });
       runtimeErrors.push(...pageErrors.map(message=>({width,message})));
       await context.close();
@@ -360,18 +446,20 @@ async function main(){
     viewports:results,
     runtime_errors:runtimeErrors,
     pass:results.length===widths.length &&
-      results.every(item=>item.qa.pass===true) &&
+      results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS') &&
       runtimeErrors.length===0,
     production_writes:0,
     publishes:0,
-    clicks_performed:0,
+    clicks_performed:results.reduce((sum,item)=>sum+(item.interaction_checks||[]).filter(check=>/filter|faq|modal|language/.test(check.name)).length,0),
     forms_submitted:0,
+    technical_visual_pass:results.length===widths.length && results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS') && runtimeErrors.length===0,
+    interaction_pass:results.length===widths.length && results.every(item=>(item.interaction_checks||[]).every(check=>check.pass===true)),
     protection_bypass_used:Boolean(String(process.env.VERCEL_AUTOMATION_BYPASS_SECRET||'').trim()),
     paid_external_service_calls:0,
     zero_cost_path:mode==='local_zero_cost'
   };
 
-  const reviewPath=path.join(process.cwd(),'config','kk-storefront-v3-screenshot-review.json');
+  const reviewPath=path.join(process.cwd(),'config','kk-storefront-v5-screenshot-review.json');
   let screenshotReviewPass=false;
   let screenshotReview=null;
   if(fs.existsSync(reviewPath)){
@@ -380,31 +468,34 @@ async function main(){
       const blobs=screenshotReview.reviewed_design_blobs||{};
       const expected={
         'index.html':String(blobs.index_html||''),
-        'assets/kk-storefront-v3.css':String(blobs.v3_css||''),
+        'assets/kk-storefront-v5.css':String(blobs.v5_css||''),
         'script.js':String(blobs.script_js||'')
       };
       const designUnchanged=Object.entries(expected).every(([file,blob])=>{
         if(!/^[0-9a-f]{40}$/.test(blob)) return false;
         try{return execFileSync('git',['hash-object',file],{encoding:'utf8'}).trim()===blob;}catch(_){return false;}
       });
-      screenshotReviewPass=screenshotReview.status==='PASS' && designUnchanged;
+      const loopAcceptance=VisualCritic.acceptLoop({rounds:screenshotReview.rounds||[],screenshot_artifact_id:screenshotReview.screenshot_artifact_id,owner_decision:screenshotReview.owner_decision,baseline_comparison_pass:screenshotReview.baseline_comparison_pass===true});
+      screenshotReview.closed_loop_acceptance=loopAcceptance;
+      screenshotReviewPass=screenshotReview.status==='PASS' && designUnchanged && loopAcceptance.status==='PASS';
     }catch(_){}
   }
   const indexSource=fs.readFileSync(path.join(process.cwd(),'index.html'),'utf8');
   const storefrontStyles=[...indexSource.matchAll(/kk-storefront-v\d+\.css/gi)].map(match=>match[0].toLowerCase());
-  const singleVisualSourceOfTruth=storefrontStyles.length===1 && storefrontStyles[0]==='kk-storefront-v3.css';
+  const singleVisualSourceOfTruth=storefrontStyles.length===1 && storefrontStyles[0]==='kk-storefront-v5.css';
 
   const artAcceptance=ArtDirector.evaluateImplementation({
     evidence:{
       multi_viewport:results.length===widths.length,
       no_horizontal_overflow:results.length===widths.length && results.every(item=>numeric(item.metrics.document_scroll_width_px)<=numeric(item.metrics.viewport_width_px)+1),
-      business_truth_unchanged:mode==='local_zero_cost' && Boolean(fixtures) && summary.production_writes===0 && summary.forms_submitted===0 && summary.clicks_performed===0,
+      business_truth_unchanged:mode==='local_zero_cost' && Boolean(fixtures) && summary.production_writes===0 && summary.forms_submitted===0,
       visual_qa_pass:summary.pass,
       single_visual_source_of_truth:singleVisualSourceOfTruth,
       screenshot_review_pass:screenshotReviewPass
     }
   });
-  summary.screenshot_review={status:screenshotReviewPass?'PASS':'BLOCKED',record:screenshotReview?path.relative(process.cwd(),reviewPath):null};
+  summary.screenshot_review={status:screenshotReviewPass?'PASS':'BLOCKED',record:screenshotReview?path.relative(process.cwd(),reviewPath):null,closed_loop_acceptance:screenshotReview?.closed_loop_acceptance||null};
+  summary.owner_visual_acceptance=screenshotReviewPass?'PASS':'BLOCKED';
   summary.single_visual_source_of_truth=singleVisualSourceOfTruth;
   summary.art_director_acceptance=artAcceptance;
   summary.pass=summary.pass && artAcceptance.status==='PASS';

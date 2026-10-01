@@ -80,6 +80,12 @@ var I18N = {
     meta_description:"KK Phone Rental บริการเช่ามือถือและเลนส์สำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ ดูคิวว่างและจองผ่าน LINE OA",
     event_meta_description:"เช่ามือถือหรือเลนส์สำหรับงาน {event} วันที่ {date} ดูแพ็กเกจและจองผ่าน LINE OA",
     brand_subtitle:"Phone & Lens Rental Service",
+    hero_body:"เช่า vivo X300 Pro + Lens สำหรับคอนเสิร์ตและแฟนมีต — เลือกงาน เช็กคิว แล้วรับเครื่องหน้างาน",
+    hero_cta:"ดูงานที่เปิดจอง",
+    proof_deposit_title:"ไม่วางมัดจำ", proof_deposit_body:"พร้อมประกันเครื่องฟรี",
+    proof_onsite_title:"หน้างาน", proof_onsite_body:"รับ–คืน + สอนใช้",
+    proof_drive_title:"30 วัน", proof_drive_body:"เก็บไฟล์บน Drive",
+    events_eyebrow:"UPCOMING EVENTS", events_title:"เลือกงานของคุณ", events_body:"กดโปสเตอร์เพื่อดูแพ็กเกจ ราคา และคิวว่าง",
     value_steps:"เลือกงาน > ดูอุปกรณ์และแพ็กเกจที่ว่าง > ระบบพาไปจองผ่าน LINE OA กับแอดมิน",
     value_note:"( หากไม่มีงานที่ต้องการ สามารถสอบถามได้ใน LINE OA )",
     follow_promo:"ติดตาม X ร้าน · ไม่ต้องวางมัดจำ · ฟรีประกันเครื่อง",
@@ -202,6 +208,12 @@ var I18N = {
     meta_description:"Rent a phone or lens for concerts, fan meetings and events. Check available packages and book directly with KK Phone Rental via LINE OA.",
     event_meta_description:"Rent a phone or lens for {event} on {date}. View available packages and book via LINE OA.",
     brand_subtitle:"Phone & Lens Rental Service",
+    hero_body:"Rent a vivo X300 Pro + Lens for concerts and fan meetings — choose an event, check availability, and pick up at the venue.",
+    hero_cta:"Browse open events",
+    proof_deposit_title:"No deposit", proof_deposit_body:"Free device insurance",
+    proof_onsite_title:"At the venue", proof_onsite_body:"Pickup, return + setup help",
+    proof_drive_title:"30 days", proof_drive_body:"Drive file storage",
+    events_eyebrow:"UPCOMING / BANGKOK", events_title:"Your night starts here", events_body:"Choose an event → view packages → check availability", journey_kicker:"FROM POSTER TO FRONT ROW", journey_1_title:"Choose event", journey_1_body:"Start with the poster for the night you are attending.", journey_2_title:"Choose package", journey_2_body:"See price, equipment and live availability.", journey_3_title:"Confirm with KK", journey_3_body:"Book via LINE and pick up at the venue.",
     value_steps:"Choose an event > Check available equipment and packages > Book directly with our admin via LINE OA",
     value_note:"( Can't find your event? Message us on LINE OA. )",
     follow_promo:"Follow on X · No deposit · Free insurance",
@@ -347,7 +359,24 @@ function updateLanguageButtons(){
 }
 function applyStaticLanguage(){
   document.documentElement.lang=currentLang;
-  setText(".brand-text p","brand_subtitle");
+  setText(".v3-brand-copy small","brand_subtitle");
+  setText(".v3-hero-copy>p","hero_body");
+  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">↓</span>';
+  var proofItems=document.querySelectorAll(".v3-proof>div:not(.kk-proof-label)");
+  if(proofItems[0]){var p0s=proofItems[0].querySelector("strong"),p0b=proofItems[0].querySelector("span");if(p0s)p0s.textContent=tr("proof_deposit_title");if(p0b)p0b.textContent=tr("proof_deposit_body");}
+  if(proofItems[1]){var p1s=proofItems[1].querySelector("strong"),p1b=proofItems[1].querySelector("span");if(p1s)p1s.textContent=tr("proof_onsite_title");if(p1b)p1b.textContent=tr("proof_onsite_body");}
+  if(proofItems[2]){var p2s=proofItems[2].querySelector("strong"),p2b=proofItems[2].querySelector("span");if(p2s)p2s.textContent=tr("proof_drive_title");if(p2b)p2b.textContent=tr("proof_drive_body");}
+  setText(".v3-events-heading span","events_eyebrow");
+  var eventHeading=document.querySelector(".v3-events-heading h2");
+  if(eventHeading)eventHeading.innerHTML=currentLang==="en"?"YOUR NIGHT.<br><em>STARTS HERE.</em>":"คืนนี้ของคุณ<br><em>เริ่มจากโปสเตอร์นี้</em>";
+  var eventBody=document.querySelector(".v3-events-heading p");
+  if(eventBody)eventBody.innerHTML=esc(tr("events_body"))+'<br><strong>vivo X300 Pro + Lens</strong>';
+  setText(".kk-journey-kicker","journey_kicker");
+  var journey=document.querySelectorAll(".kk-journey-steps>div");
+  [["journey_1_title","journey_1_body"],["journey_2_title","journey_2_body"],["journey_3_title","journey_3_body"]].forEach(function(keys,i){
+    if(!journey[i])return;var title=journey[i].querySelector("strong"),body=journey[i].querySelector("span");
+    if(title)title.textContent=tr(keys[0]);if(body)body.textContent=tr(keys[1]);
+  });
   setText(".value-box p:not(.value-note)","value_steps");
   setText(".value-box .value-note","value_note");
   setText("a.quick-link","follow_promo");
@@ -1458,8 +1487,26 @@ function focusDialog(el,preferred){
 function restoreFocus(target){
   if(target&&document.contains(target)&&typeof target.focus==="function")target.focus();
 }
-function lockBody(){document.body.style.overflow="hidden";}
-function unlockBodyIfNoModal(){var ov=document.getElementById("overlay"), fo=document.getElementById("faqOverlay");if(!(ov&&ov.classList.contains("active"))&&!(fo&&fo.classList.contains("active")))document.body.style.overflow="";}
+var modalScrollY=0;
+function lockBody(){
+  if(document.body.dataset.modalLocked==="1")return;
+  modalScrollY=window.scrollY||window.pageYOffset||0;
+  document.body.dataset.modalLocked="1";
+  document.body.style.position="fixed";
+  document.body.style.top=(-modalScrollY)+"px";
+  document.body.style.left="0";
+  document.body.style.right="0";
+  document.body.style.width="100%";
+  document.body.style.overflow="hidden";
+}
+function unlockBodyIfNoModal(){
+  var ov=document.getElementById("overlay"), fo=document.getElementById("faqOverlay");
+  if((ov&&ov.classList.contains("active"))||(fo&&fo.classList.contains("active")))return;
+  if(document.body.dataset.modalLocked!=="1"){document.body.style.overflow="";return;}
+  delete document.body.dataset.modalLocked;
+  document.body.style.position="";document.body.style.top="";document.body.style.left="";document.body.style.right="";document.body.style.width="";document.body.style.overflow="";
+  window.scrollTo(0,modalScrollY);
+}
 function homeUrl(){return window.location.origin + "/";}
 function setEventUrl(eventId){
   try{
@@ -1492,7 +1539,7 @@ function closeModal(e){
 }
 function showError(m){
   var el=document.getElementById("content"); if(!el)return;
-  el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><div class="error-actions"><button class="empty-retry-btn" id="storefront-retry-btn" type="button">'+esc(tr("error_retry"))+'</button><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div></div>';
+  el.innerHTML='<div class="empty-state error-state" role="alert" aria-live="assertive"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><div class="error-actions"><button class="empty-retry-btn" id="storefront-retry-btn" type="button">'+esc(tr("error_retry"))+'</button><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div></div>';
 }
 async function refreshStorefrontData(reason){
   if(storefrontRefreshPromise) return storefrontRefreshPromise;
@@ -1607,6 +1654,7 @@ document.addEventListener("DOMContentLoaded",function(){
   setFilter(currentFilter);
   var bImg=document.querySelector(".brand-header-img"); if(bImg)bImg.addEventListener("error",showBrandFallback);
   var faqBtn=document.getElementById("faq-open-btn"); if(faqBtn)faqBtn.addEventListener("click",openFaq);
+  document.querySelectorAll("[data-open-faq]").forEach(function(b){b.addEventListener("click",openFaq);});
   document.querySelectorAll(".faq-q").forEach(function(b){b.addEventListener("click",function(){toggleFaq(b);});});
   var ov=document.getElementById("overlay"); if(ov)ov.addEventListener("click",closeModal);
   var fov=document.getElementById("faqOverlay"); if(fov)fov.addEventListener("click",closeFaq);

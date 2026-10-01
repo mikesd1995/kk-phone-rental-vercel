@@ -40,14 +40,23 @@ test('visual QA runner covers all storefront policy acceptance widths',()=>{
   }
 });
 
-test('visual QA runner captures top and sticky screenshots without interaction writes',()=>{
+test('visual QA runner captures screenshots and exercises only read-only storefront interactions',()=>{
   assert.match(runner,/screenshot\(\{path:topPath/);
   assert.match(runner,/screenshot\(\{path:stickyPath/);
-  assert.match(runner,/clicks_performed:0/);
   assert.match(runner,/forms_submitted:0/);
-  assert.doesNotMatch(runner,/\.click\(/);
-  assert.doesNotMatch(runner,/\.fill\(/);
-  assert.doesNotMatch(runner,/\.press\(/);
+  assert.match(runner,/production_writes:0/);
+  assert.match(runner,/interaction_checks:interactionChecks/);
+  assert.match(runner,/STOREFRONT_DATA_NOT_READY/);
+  assert.match(runner,/url=>url\.pathname==='\/api\/kk-data'/);
+  assert.match(runner,/__KK_PUBLIC_DATA_GUARD__/);
+  assert.match(runner,/concert-card:not\(\.skeleton-card\)/);
+  assert.match(runner,/search_empty_state/);
+  assert.match(runner,/status_filter_pressed/);
+  assert.match(runner,/faq_open/);
+  assert.match(runner,/event_modal_open/);
+  assert.match(runner,/language_en_pressed/);
+  assert.doesNotMatch(runner,/\.locator\([^\n]*(line-btn|sticky-line)[^\n]*\)\.click\(/i);
+  assert.doesNotMatch(runner,/\.submit\(/);
 });
 
 test('visual QA runner measures the mobile failure classes and invokes reviewer acceptance',()=>{
@@ -101,7 +110,7 @@ test('local zero-cost mode renders exact checkout without a protected Preview',(
 test('local zero-cost mode uses only read-only canonical public CSV fixtures',()=>{
   assert.match(runner,/08_Web_Ready/);
   assert.match(runner,/09_Web_Packages/);
-  assert.match(runner,/page\.route\('\*\*\/api\/kk-data\*\*'/);
+  assert.match(runner,/page\.route\(url=>url\.pathname==='\/api\/kk-data'/);
   assert.match(runner,/contentType:'text\/csv; charset=utf-8'/);
   assert.match(runner,/paid_external_service_calls:0/);
   assert.match(runner,/zero_cost_path:mode==='local_zero_cost'/);
@@ -157,4 +166,52 @@ test('visual QA requires visible imagery to be ready before screenshot evidence'
   assert.match(source,/VISIBLE_IMAGE_NOT_READY/);
   assert.match(source,/naturalWidth/);
   assert.match(source,/\.decode\(\)/);
+});
+
+
+test('V5.6 source has no escaped-newline markup artifacts and keeps editorial localization selectors stable',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const script=fs.readFileSync('script.js','utf8');
+  assert.doesNotMatch(html,/\\n\s*</);
+  assert.match(script,/\.v3-brand-copy small/);
+  assert.match(script,/\.v3-proof>div:not\(\.kk-proof-label\)/);
+  assert.match(script,/eventHeading\.innerHTML/);
+  assert.match(script,/journey_1_title/);
+});
+
+test('visual QA watches the complete executable storefront design council surface',()=>{
+  for(const path of [
+    'server/kk-storefront-design-council.js',
+    'server/kk-storefront-conversion-reviewer.js',
+    'server/kk-storefront-fandom-reviewer.js',
+    'server/kk-storefront-accessibility-reviewer.js',
+    'server/kk-storefront-performance-reviewer.js',
+    'server/kk-agent-registry.js',
+    'server/kk-agent-task-router.js',
+    'tests/kk-storefront-design-council.test.js'
+  ]) assert.equal(workflow.includes(path),true,path+' must trigger visual QA');
+});
+
+
+test('V5.8 uses proprietary editorial optics rather than literal trend decoration',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
+  assert.equal(html.includes('v58-editorial-optics'),true);
+  assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
+  assert.equal(html.includes('CONCERT MEMORY SERVICE'),true);
+  assert.equal(css.includes('V5.8 Editorial Optics'),true);
+  assert.equal(art.includes('proprietary-editorial-concert-optics'),true);
+  assert.equal(art.includes('Trend references are inputs, not instructions'),true);
+  assert.equal(html.includes('kk-spark-mark'),false);
+});
+
+
+test('V5.8.1 screenshot fixes protect tablet proof contrast and short-phone density',()=>{
+ const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+ assert.equal(css.includes('V5.8.1 screenshot-led refinement'),true);
+ assert.equal(css.includes('min-width:601px) and (max-width:900px'),true);
+ assert.equal(css.includes('.v3-proof strong{color:#fff!important}'),true);
+ assert.equal(css.includes('max-width:360px'),true);
+ assert.equal(css.includes('.v3-hero-copy>p{display:none!important}'),true);
 });

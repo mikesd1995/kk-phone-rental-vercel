@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์</title>
 <meta name="description" content="KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน">
-<meta name="theme-color" content="#2F80ED">
+<meta name="theme-color" content="#f4f6f8">
 <meta name="keywords" content="เช่ามือถือคอนเสิร์ต, เช่ามือถือแฟนมีท, เช่ามือถือไปคอน, เช่ามือถือซูมชัด, KK Phone Rental">
 <link rel="canonical" href="https://kk-phone-rental.vercel.app/">
 
@@ -73,13 +73,11 @@
 <link rel="preconnect" href="https://drive.google.com" crossorigin>
 <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
 
-<link rel="preload" as="image" href="/assets/kk-brand-hero-final-20260920.png" fetchpriority="high">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css?v=clear-filter-containment-20260930">
-<link rel="stylesheet" href="/assets/kk-concert-blue-theme-20260922.css?v=20260922-ux2">
-<link rel="stylesheet" href="/assets/kk-storefront-v3.css?v=20261001-v3">
+<link rel="stylesheet" href="/assets/kk-storefront-v5.css?v=20261001-v58-editorial-optics">
 </head>
 <body>
 <a class="skip-link" href="#event-browser">ข้ามไปดูงาน</a>
@@ -100,14 +98,17 @@
 </header>
 
 <main id="event-browser" tabindex="-1">
-<section class="v3-hero" aria-labelledby="v2-intro-title">
+<section class="v3-hero kk-stage" aria-labelledby="v2-intro-title">
   <div class="v3-hero-copy">
-    <div class="v3-eyebrow">CONCERT PHONE RENTAL · BANGKOK</div>
-    <h1 id="v2-intro-title">เก็บทุกโมเมนต์<br><em>ให้ใกล้กว่าที่นั่ง</em></h1>
-    <p>เช่า vivo X300 Pro พร้อมเลนส์สำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ รับ–คืนหน้างาน พร้อมสอนใช้ก่อนเข้า</p>
-    <div class="v3-hero-actions"><a class="v3-primary" href="#content">ดูงานที่เปิดจอง</a><a class="v3-secondary" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">ถามคิวทาง LINE</a></div>
+    <div class="kk-stage-index" aria-hidden="true"><span>KK / FIELD 01</span><span>CONCERT MEMORY SERVICE</span></div>
+    <div class="v3-eyebrow">VIVO X300 PRO + LENS · EVENT PICKUP</div>
+    <h1 id="v2-intro-title">FAR SEAT.<br><em>CLOSE MEMORY.</em></h1>
+    <p>เช่า vivo X300 Pro + Lens สำหรับคอนเสิร์ตและแฟนมีต — เลือกงาน เช็กคิว แล้วรับเครื่องหน้างาน</p>
+    <div class="kk-optics-signature" aria-label="KK rental experience"><span>01 / X300 PRO</span><span>02 / TELE LENS</span><span>03 / VENUE HANDOFF</span></div>
+    <div class="v3-hero-actions"><a class="v3-primary" href="#content">ดูงานที่เปิดจอง <span aria-hidden="true">↓</span></a></div>
   </div>
   <div class="v3-proof" aria-label="จุดเด่นบริการ">
+    <div class="kk-proof-label" aria-hidden="true">READY FOR THE NIGHT</div>
     <div><strong>ไม่วางมัดจำ</strong><span>พร้อมประกันเครื่องฟรี</span></div><div><strong>หน้างาน</strong><span>รับ–คืน + สอนใช้</span></div><div><strong>30 วัน</strong><span>เก็บไฟล์บน Drive</span></div>
   </div>
 </section>
@@ -146,10 +147,19 @@
 </div>
 </div>
 
-<div class="v3-events-heading"><div><span>UPCOMING EVENTS</span><h2>เลือกงานของคุณ</h2></div><p>กดโปสเตอร์เพื่อดูแพ็กเกจ ราคา และคิวว่าง</p></div>
+<div class="v3-events-heading"><div><span>UPCOMING / BANGKOK</span><h2>คืนนี้ของคุณ<br><em>เริ่มจากโปสเตอร์นี้</em></h2></div><p>เลือกงาน → ดูแพ็กเกจ → เช็กคิวว่าง<br><strong>vivo X300 Pro + Lens</strong></p></div>
 
+<div class="kk-catalogue-rule" aria-hidden="true"><span>EVENT INDEX</span><span>POSTER · AVAILABILITY · PRICE</span></div>
 <div class="update-note" id="update-note">อัปเดตล่าสุด: -</div>
 <div id="content"><div class="poster-grid skeleton-grid" aria-label="กำลังโหลดข้อมูลงาน"><div class="concert-card skeleton-card" aria-hidden="true"><div class="poster-img-wrap skeleton-poster"><span></span></div><div class="poster-info skeleton-info"><div class="sk sk-date"></div><div class="sk sk-title"></div><div class="sk sk-title short"></div><div class="sk sk-btn"></div></div></div><div class="concert-card skeleton-card" aria-hidden="true"><div class="poster-img-wrap skeleton-poster"><span></span></div><div class="poster-info skeleton-info"><div class="sk sk-date"></div><div class="sk sk-title"></div><div class="sk sk-title short"></div><div class="sk sk-btn"></div></div></div></div><div class="loading-text skeleton-loading-text">กำลังเช็กคิวให้น้า... 📱✨</div></div>
+<section class="kk-booking-journey" aria-label="ขั้นตอนการจอง">
+  <div class="kk-journey-kicker">FROM POSTER TO FRONT ROW</div>
+  <div class="kk-journey-steps">
+    <div><b>01</b><strong>เลือกงาน</strong><span>เริ่มจากโปสเตอร์ของงานที่คุณจะไป</span></div>
+    <div><b>02</b><strong>เลือกแพ็กเกจ</strong><span>ดูราคา อุปกรณ์ และคิวที่ยังว่าง</span></div>
+    <div><b>03</b><strong>คอนเฟิร์มกับร้าน</strong><span>จองผ่าน LINE แล้วรับเครื่องหน้างาน</span></div>
+  </div>
+</section>
 <div class="divider"></div>
 
 <a class="line-btn" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">
@@ -158,12 +168,12 @@
 </a>
 </main>
 
-<footer><div class="footer-brand">KK Phone Rental</div><div class="footer-tagline">เช่าเถอะ อยากให้ชัด ✨</div><div class="trust-note">จองง่าย คุยกับร้านโดยตรงผ่าน LINE</div></footer>
+<footer><div class="footer-brand">KK Phone Rental</div><div class="footer-tagline">เช่าเถอะ อยากให้ชัด ✨</div><div class="trust-note">จองง่าย คุยกับร้านโดยตรงผ่าน LINE</div><button class="footer-faq-btn" type="button" data-open-faq>FAQ · คำถามที่พบบ่อย</button></footer>
 </div>
 <a class="sticky-line" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">💚 <span id="sticky-line-label">ทัก LINE จองคิว</span></a>
 
 <div class="overlay" id="overlay">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-note">
     <button class="modal-x" id="modal-x-btn" type="button" data-modal-close="package" aria-label="ปิดหน้าต่าง">×</button>
     <div class="modal-handle"></div>
     <div class="modal-header">
@@ -171,7 +181,7 @@
       <div class="modal-meta" id="modal-date">วันที่</div>
       <div class="modal-meta" id="modal-venue">สถานที่</div>
     </div>
-    <div class="modal-note"><strong>เลือกแพ็กเกจที่ต้องการ:</strong> ถ้างานยังว่างให้กดจองรุ่นนี้ ถ้างานเต็มให้กดจองคิวหลุดผ่าน LINE ได้เลย 💚</div>
+    <div class="modal-note" id="modal-note"><strong>เลือกแพ็กเกจที่ต้องการ:</strong> ถ้างานยังว่างให้กดจองรุ่นนี้ ถ้างานเต็มให้กดจองคิวหลุดผ่าน LINE ได้เลย 💚</div>
     <div class="modal-divider"></div>
     <div class="phone-list" id="phone-list"></div>
     <div class="modal-utility-actions">
@@ -226,6 +236,6 @@
 </div>
 
 <script src="config.js" defer></script>
-<script src="script.js?v=unlucky-bae-owner-poster-20260928" defer></script>
+<script src="script.js?v=storefront-v54-audit4-20261001" defer></script>
 </body>
 </html>

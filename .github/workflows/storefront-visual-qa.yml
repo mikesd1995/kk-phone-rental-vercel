@@ -10,11 +10,21 @@ on:
       - 'config.js'
       - 'server/kk-storefront-ux-reviewer.js'
       - 'server/kk-storefront-art-director.js'
+      - 'server/kk-storefront-visual-critic.js'
+      - 'server/kk-storefront-design-council.js'
+      - 'server/kk-storefront-conversion-reviewer.js'
+      - 'server/kk-storefront-fandom-reviewer.js'
+      - 'server/kk-storefront-accessibility-reviewer.js'
+      - 'server/kk-storefront-performance-reviewer.js'
+      - 'server/kk-agent-registry.js'
+      - 'server/kk-agent-task-router.js'
       - 'config/kk-storefront-ux-policy.json'
       - 'scripts/storefront-visual-acceptance.mjs'
       - '.github/workflows/storefront-visual-qa.yml'
       - 'tests/storefront-visual-qa-automation.test.js'
       - 'tests/kk-storefront-art-director.test.js'
+      - 'tests/kk-storefront-design-council.test.js'
+      - 'tests/kk-storefront-visual-critic-v5.test.js'
   workflow_dispatch:
     inputs:
       confirm:
