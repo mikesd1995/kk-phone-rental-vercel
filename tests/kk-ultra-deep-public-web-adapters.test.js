@@ -49,3 +49,13 @@ test('createProviders exposes both zero-cost search fallbacks by default',()=>{
  assert.equal(typeof p.DDG_HTML,'function');
  assert.equal(typeof p.BING_HTML,'function');
 });
+
+test('DDG parser accepts result-link markup and redirect even when href precedes class',()=>{
+ const body='<a href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.thaiticketmajor.com%2Fconcert%2Fx" class="result-link">October Concert</a>';
+ const rows=A.parseDuckDuckGoHtml(body,'October Bangkok');assert.equal(rows.length,1);assert.match(rows[0].source_url,/thaiticketmajor\.com/);
+});
+test('Bing parser accepts div b_algo and encoded redirect targets',()=>{
+ const target=Buffer.from('https://www.eventpop.me/e/999','utf8').toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+ const body='<div class="b_algo"><h2><a href="https://www.bing.com/ck/a?u=a1'+target+'">October Event</a></h2></div>';
+ const rows=A.parseBingHtml(body,'October Bangkok');assert.equal(rows.length,1);assert.match(rows[0].source_url,/eventpop\.me/);
+});
