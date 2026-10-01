@@ -2345,8 +2345,16 @@ function kkApiUpdateBooking_(payload) {
     kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date);
 
     if (kkActiveHold_(nextStatus)) {
-      if (next[9]) kkValidateManualAsset_(next[9], 'phone', '', event.event_date, row);
-      if (next[10]) kkValidateManualAsset_(next[10], 'lens', '', event.event_date, row);
+      // Do not re-require "available" for an asset that already belongs to this booking.
+      // Unrelated edits (payment/customer/status) must not fail just because the asset's
+      // master status changed after assignment. Revalidate availability only when the
+      // asset itself changes or when a previously closed booking is reactivated.
+      const currentStatus = String(current[2] || '').toLowerCase().trim();
+      const reactivating = !kkActiveHold_(currentStatus);
+      const phoneChanged = String(next[9] || '').trim() !== String(current[9] || '').trim();
+      const lensChanged = String(next[10] || '').trim() !== String(current[10] || '').trim();
+      if (next[9] && (reactivating || phoneChanged)) kkValidateManualAsset_(next[9], 'phone', '', event.event_date, row);
+      if (next[10] && (reactivating || lensChanged)) kkValidateManualAsset_(next[10], 'lens', '', event.event_date, row);
     }
     kkAssertBookingAssetsNotDoubleBooked_(row, next, nextStatus);
 
