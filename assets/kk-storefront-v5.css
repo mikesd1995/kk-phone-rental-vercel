@@ -811,3 +811,6 @@ html[data-theme="light"] .theme-sun,html[data-theme="dark"] .theme-moon{display:
  .filter-btn{padding-inline:11px!important;font-size:10px!important}
  .filter-btn.active,.filter-btn.active *{color:#fff!important}
 }
+
+/* V6.0.6 iOS: selects remain >=16px to prevent Safari focus zoom. */
+@media(max-width:700px){.month-select{font-size:16px!important;letter-spacing:-.02em!important}}
