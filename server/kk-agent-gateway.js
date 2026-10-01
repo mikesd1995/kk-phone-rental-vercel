@@ -5,8 +5,27 @@ const ContentRouter = require('./kk-content-request-router.js');
 const Registry = require('./kk-agent-registry.js');
 const TaskRouter = require('./kk-agent-task-router.js');
 const Orchestration = require('./kk-agent-orchestration.js');
+const ProjectMemory = require('./kk-project-memory.js');
+const ProjectMemoryCorpus = require('../config/kk-project-memory.json');
 
-const GATEWAY_VERSION = 'KK_AGENT_GATEWAY_V3';
+const GATEWAY_VERSION = 'KK_AGENT_GATEWAY_V4';
+
+function memoryDomainsForIntent(intent='') {
+  const key=String(intent||'').trim().toLowerCase();
+  if(key.includes('content')||key==='direct_rental_x') return ['content','agent_orchestration'];
+  if(key.includes('ultra_deep')||key.includes('scan')||key.includes('source_watch')) return ['discovery_scanner','agent_orchestration','reliability_debug'];
+  if(key.includes('storefront')) return ['storefront','agent_orchestration','reliability_debug'];
+  if(key.includes('reliability')) return ['reliability_debug','agent_orchestration'];
+  return ['agent_orchestration','project_memory'];
+}
+
+function bootstrapProjectMemory(intent, options={}) {
+  if(options.projectMemoryBypass===true) return {status:'BYPASS_FOR_TEST_ONLY',context:[]};
+  const corpus=options.projectMemoryCorpus||ProjectMemoryCorpus;
+  const result=ProjectMemory.buildBootstrap(corpus.items||[],{domains:memoryDomainsForIntent(intent),limit:80});
+  if(result.status!=='READY') throw Object.assign(new Error('project memory unavailable'),{code:'PROJECT_MEMORY_BOOTSTRAP_BLOCKED',details:result});
+  return result;
+}
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -90,6 +109,10 @@ async function executeContentRequest(payload = {}, options = {}) {
     };
   }
 
+  let projectMemory;
+  try { projectMemory=bootstrapProjectMemory(intent,options); }
+  catch(error){ return {schema_version:GATEWAY_VERSION,status:'BLOCKED_PROJECT_MEMORY_UNAVAILABLE',intent,matched:true,blocker:errorCode(error),production_writes:0,publishes:0}; }
+
   const routeFn = typeof options.contentRouteFn === 'function'
     ? options.contentRouteFn
     : ContentRouter.routeContentRequest;
@@ -168,6 +191,7 @@ async function executeContentRequest(payload = {}, options = {}) {
     ledger: ledgerReceipt,
     invocation_check: invocationCheck,
     route: ready ? routed : blockedRoute(routed),
+    project_memory: {status:projectMemory.status, context_count:projectMemory.context.length},
     owner_review_required: true,
     production_writes: 0,
     publishes: 0
@@ -190,6 +214,10 @@ async function executeOperationalRequest(payload = {}, options = {}) {
       publishes: 0
     };
   }
+
+  let projectMemory;
+  try { projectMemory=bootstrapProjectMemory(intent,options); }
+  catch(error){ return {schema_version:GATEWAY_VERSION,status:'BLOCKED_PROJECT_MEMORY_UNAVAILABLE',intent,matched:true,blocker:errorCode(error),production_writes:0,publishes:0}; }
 
   const correlationId = String(payload.correlation_id || crypto.randomUUID()).trim();
 
@@ -297,6 +325,7 @@ async function executeOperationalRequest(payload = {}, options = {}) {
     invocation_check: check,
     downstream_agents: [...routeSpec.downstream_agents],
     result: executed.result,
+    project_memory: {status:projectMemory.status, context_count:projectMemory.context.length},
     owner_review_required: routeSpec.owner_review_required,
     production_writes: 0,
     publishes: 0
@@ -317,5 +346,7 @@ module.exports = {
   blockedRoute,
   executeContentRequest,
   executeOperationalRequest,
-  executeAgentRequest
+  executeAgentRequest,
+  memoryDomainsForIntent,
+  bootstrapProjectMemory
 };
