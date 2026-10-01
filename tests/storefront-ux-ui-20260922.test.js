@@ -44,6 +44,8 @@ test('mobile sticky LINE CTA respects device safe-area',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261001-v5'));
-  assert.match(html,/script\.js\?v=[A-Za-z0-9][A-Za-z0-9._-]*/);
+  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261001-v54-final'));
+  assert.ok(html.includes('script.js?v=storefront-v54-final-20261001'));
+  assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
+  assert.match(html,/<meta name="theme-color" content="#071426">/);
 });
