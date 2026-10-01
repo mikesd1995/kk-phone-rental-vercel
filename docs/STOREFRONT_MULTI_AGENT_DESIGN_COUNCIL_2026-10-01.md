@@ -85,3 +85,9 @@ Correction:
 - Safety remains production_writes=0, business_truth_writes=0, auto_merge=false, auto_deploy=false.
 
 Infrastructure note: PR comments also show Vercel free-tier deployment quota failures (api-deployments-free-per-day) after a prior Ready preview. Treat this separately from code/QA regression.
+
+
+### Exhaustive audit follow-up
+Additional defects found and corrected:
+- Visual QA path filters did not include the Design Council runtime, four new reviewer modules, registry/router, or council/critic tests. These files now trigger Storefront Automated Visual QA, preventing agent-governance changes from bypassing the visual acceptance workflow.
+- Registry metadata drifted from executable implementations: Art Director was still advertised as V1 while the module is V3, and the four independent reviewer agents used the council contract version rather than their executable module versions. Registry metadata now matches runtime modules.
