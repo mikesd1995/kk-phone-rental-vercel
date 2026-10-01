@@ -1,13 +1,13 @@
 {
   "schema_version": "KK_STOREFRONT_V5_SCREENSHOT_REVIEW_V1",
   "status": "PASS",
-  "reviewed_design_sha": "e377e1ba5be1397c577d10dc65c1e5a284912373",
+  "reviewed_design_sha": "b861f63fbf6f6e248a109db1138f44e79744ff1c",
   "reviewed_design_blobs": {
     "index_html": "4c842f381e97b1371c5818d27182d373736f629f",
-    "v5_css": "c560a9d3067d882bdd909c12b2f98a5a5eb727da",
+    "v5_css": "018496de0664b419c648080f1482ace44136c169",
     "script_js": "ec6ae8de2a1133f6f9659ff60bd09a9cdb43fe70"
   },
-  "screenshot_artifact_id": "11150215487",
+  "screenshot_artifact_id": "11150008216",
   "reviewed_viewports": [
     320,
     375,
@@ -19,33 +19,32 @@
   ],
   "iterations": [
     {
-      "artifact_id": "11148999347",
       "status": "REVISE",
-      "findings": [
-        "external poster readiness transient",
-        "320 card width below 150px"
-      ]
+      "finding": "V4 owner-rejected: generic directory treatment and weak poster/brand impact."
     },
     {
-      "artifact_id": "11149537419",
+      "artifact_id": "11149922454",
       "status": "REVISE",
-      "findings": [
-        "inherited gradient CTA remained visually dominant",
-        "poster status badge too heavy"
-      ]
+      "finding": "V5 polish unified mobile cards and reduced control chrome, but narrow filter semantics and inherited card rhythm still required correction."
     },
     {
-      "artifact_id": "11150215487",
+      "artifact_id": "11150330867",
+      "status": "REVISE",
+      "finding": "All narrow filters restored; screenshot exposed inherited blank blue space inside card metadata."
+    },
+    {
+      "artifact_id": "11150008216",
       "status": "PASS",
-      "findings": [
-        "narrow-mobile horizontal card readable",
-        "390 poster-led grid balanced",
-        "desktop editorial hierarchy coherent",
-        "no floating CTA obstruction",
-        "controls compact and discoverable"
-      ]
+      "finding": "Legacy card min-height neutralized; poster-led hierarchy, compact discovery controls, readable metadata and full filter semantics verified across target viewports."
     }
   ],
   "owner_rejection_baseline": "V4 PR #402 rejected 2026-10-01",
-  "note": "Human screenshot review. Technical green alone was not accepted; two visual revisions were required before PASS."
+  "acceptance_notes": [
+    "Poster remains dominant.",
+    "No floating LINE CTA obscures events.",
+    "All filter actions remain available at narrow widths.",
+    "Mobile cards preserve one visual system with responsive density.",
+    "Technical QA does not substitute for screenshot inspection."
+  ],
+  "production_writes": 0
 }
