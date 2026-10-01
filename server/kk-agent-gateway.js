@@ -7,6 +7,7 @@ const TaskRouter = require('./kk-agent-task-router.js');
 const Orchestration = require('./kk-agent-orchestration.js');
 const ProjectMemory = require('./kk-project-memory.js');
 const ProjectMemoryCorpus = require('../config/kk-project-memory.json');
+const ProjectMemoryLedger = require('./kk-project-memory-ledger.js');
 
 const GATEWAY_VERSION = 'KK_AGENT_GATEWAY_V4';
 
@@ -19,10 +20,15 @@ function memoryDomainsForIntent(intent='') {
   return ['agent_orchestration','project_memory'];
 }
 
-function bootstrapProjectMemory(intent, options={}) {
+async function bootstrapProjectMemory(intent, options={}) {
   if(options.projectMemoryBypass===true) return {status:'BYPASS_FOR_TEST_ONLY',context:[]};
   const corpus=options.projectMemoryCorpus||ProjectMemoryCorpus;
-  const result=ProjectMemory.buildBootstrap(corpus.items||[],{domains:memoryDomainsForIntent(intent),limit:80});
+  const domains=memoryDomainsForIntent(intent);
+  let durable=[];
+  const ledgerFn=options.projectMemoryListFn||ProjectMemoryLedger.listEvents;
+  try { const live=await ledgerFn({env:options.env||process.env,fetchImpl:options.fetchImpl,limit:200,domains}); durable=Array.isArray(live&&live.rows)?live.rows:[]; }
+  catch(error){ throw Object.assign(new Error('project memory durable ledger unavailable'),{code:errorCode(error)}); }
+  const result=ProjectMemory.buildBootstrap([...(corpus.items||[]),...durable],{domains,limit:80});
   if(result.status!=='READY') throw Object.assign(new Error('project memory unavailable'),{code:'PROJECT_MEMORY_BOOTSTRAP_BLOCKED',details:result});
   return result;
 }
@@ -110,7 +116,7 @@ async function executeContentRequest(payload = {}, options = {}) {
   }
 
   let projectMemory;
-  try { projectMemory=bootstrapProjectMemory(intent,options); }
+  try { projectMemory=await bootstrapProjectMemory(intent,options); }
   catch(error){ return {schema_version:GATEWAY_VERSION,status:'BLOCKED_PROJECT_MEMORY_UNAVAILABLE',intent,matched:true,blocker:errorCode(error),production_writes:0,publishes:0}; }
 
   const routeFn = typeof options.contentRouteFn === 'function'
@@ -216,7 +222,7 @@ async function executeOperationalRequest(payload = {}, options = {}) {
   }
 
   let projectMemory;
-  try { projectMemory=bootstrapProjectMemory(intent,options); }
+  try { projectMemory=await bootstrapProjectMemory(intent,options); }
   catch(error){ return {schema_version:GATEWAY_VERSION,status:'BLOCKED_PROJECT_MEMORY_UNAVAILABLE',intent,matched:true,blocker:errorCode(error),production_writes:0,publishes:0}; }
 
   const correlationId = String(payload.correlation_id || crypto.randomUUID()).trim();
