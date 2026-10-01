@@ -40,14 +40,19 @@ test('visual QA runner covers all storefront policy acceptance widths',()=>{
   }
 });
 
-test('visual QA runner captures top and sticky screenshots without interaction writes',()=>{
+test('visual QA runner captures screenshots and exercises only read-only storefront interactions',()=>{
   assert.match(runner,/screenshot\(\{path:topPath/);
   assert.match(runner,/screenshot\(\{path:stickyPath/);
-  assert.match(runner,/clicks_performed:0/);
   assert.match(runner,/forms_submitted:0/);
-  assert.doesNotMatch(runner,/\.click\(/);
-  assert.doesNotMatch(runner,/\.fill\(/);
-  assert.doesNotMatch(runner,/\.press\(/);
+  assert.match(runner,/production_writes:0/);
+  assert.match(runner,/interaction_checks:interactionChecks/);
+  assert.match(runner,/search_empty_state/);
+  assert.match(runner,/status_filter_pressed/);
+  assert.match(runner,/faq_open/);
+  assert.match(runner,/event_modal_open/);
+  assert.match(runner,/language_en_pressed/);
+  assert.doesNotMatch(runner,/\.locator\([^\n]*(line-btn|sticky-line)[^\n]*\)\.click\(/i);
+  assert.doesNotMatch(runner,/\.submit\(/);
 });
 
 test('visual QA runner measures the mobile failure classes and invokes reviewer acceptance',()=>{
