@@ -4,6 +4,7 @@
 // and automatically falls back to the existing full snapshot guard on any uncertainty.
 
 const { Readable } = require('stream');
+const crypto = require('node:crypto');
 const LegacyAdmin = require('../server/admin-proxy.js');
 const SnapshotHealth = require('../admin/snapshot-health.js');
 const ReservationGuard = require('../admin/reservation-guard.js');
@@ -334,6 +335,13 @@ async function fetchLeanEventIndex(sheetId){
   return {events:checked.events,visibility_locks:visibilityLocks,expected:checked.expected,latency_ms:Date.now()-startedAt};
 }
 
+
+function safeSecretEqual(a,b){
+  const left=crypto.createHash('sha256').update(String(a||''),'utf8').digest();
+  const right=crypto.createHash('sha256').update(String(b||''),'utf8').digest();
+  return crypto.timingSafeEqual(left,right);
+}
+
 module.exports=async function handler(req,res){
   if(req.method!=='POST') return LegacyAdmin(req,res);
 
@@ -357,7 +365,7 @@ module.exports=async function handler(req,res){
   const adminPin=String(process.env.KK_ADMIN_PIN||'').trim();
   const providedPin=String(req.headers&&req.headers['x-admin-pin']||'').trim();
   if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:agentGatewayAction?'AGENT_GATEWAY_UNAVAILABLE':(bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':(visibilityGuarded?'EVENT_VISIBILITY_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'))});
-  if(providedPin!==adminPin) return reply(res,401,{ok:false,error:'Invalid admin PIN'});
+  if(!safeSecretEqual(providedPin,adminPin)) return reply(res,401,{ok:false,error:'Invalid admin PIN'});
 
   if(agentGatewayAction){
     res.setHeader('X-KK-Agent-Gateway-Version',AgentGateway.GATEWAY_VERSION);
