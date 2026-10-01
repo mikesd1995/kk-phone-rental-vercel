@@ -241,3 +241,18 @@ body{background:var(--kk-warm)}
   }
   .filter-clear-btn[hidden]{display:none!important}
 }
+
+
+/* V5.4 exhaustive-audit navigation fixes — keep browse controls reachable and FAQ discoverable on mobile. */
+.footer-faq-btn{
+  margin-top:14px;min-height:44px;padding:0 14px;border:1px solid var(--v5-line);
+  border-radius:10px;background:transparent;color:inherit;font:600 12px/1 Kanit,"Noto Sans Thai",sans-serif;
+}
+.footer-faq-btn:focus-visible{outline:3px solid rgba(23,105,255,.34);outline-offset:3px}
+@media(max-width:600px){
+  .browse-controls-shell{
+    position:sticky!important;
+    top:calc(env(safe-area-inset-top,0px) + 6px)!important;
+    z-index:20!important;
+  }
+}
