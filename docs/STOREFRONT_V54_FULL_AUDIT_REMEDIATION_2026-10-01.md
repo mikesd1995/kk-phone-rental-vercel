@@ -31,3 +31,13 @@ Read-only storefront UX/UI remediation. No booking, pricing, inventory, event-tr
 - The new interaction QA then exposed a real 375px defect: `.filter-clear-btn` overlaid the `งานทั้งหมด` status filter and intercepted pointer events after a filter change.
 - Corrected the mobile clear-filter row to participate in normal document flow, retain a 44px touch target, and remain hidden when inactive.
 - Validation rerun requested on exact HEAD `9e2f08300e06426a3a265d1fab6fe20086f30554`.
+
+
+## Exhaustive artifact review follow-up
+Reviewed the exact-head Visual QA screenshots at 320x568, 375x812, 390x844, 430x932, 480x932, 768x1024 and 1024x768.
+- Technical visual QA and read-only interaction QA passed on `501db5b`; the workflow remained red only because owner visual acceptance is intentionally BLOCKED and must not be synthesized.
+- Admin Regression passed on `501db5b`.
+- Found a navigation gap not classified by the previous metric gate: mobile CSS hid the header FAQ entry point with no replacement. Added a 44px footer FAQ entry and bound it to the existing accessible FAQ dialog.
+- Found browse friction in long mobile catalogues: the search/filter shell had been demoted to non-sticky despite staying inside the reviewer sticky-height budget. Restored compact safe-area-aware sticky behavior on <=600px.
+- Extended the read-only QA to exercise the visible FAQ entry on mobile as well as desktop.
+- Existing evidence also confirms no tap targets below policy budget, 16px minimum form controls, one-row mobile filters, no root horizontal overflow, and successful search/filter/modal/language interactions.
