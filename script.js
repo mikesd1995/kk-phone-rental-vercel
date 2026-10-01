@@ -213,7 +213,7 @@ var I18N = {
     proof_deposit_title:"No deposit", proof_deposit_body:"Free device insurance",
     proof_onsite_title:"At the venue", proof_onsite_body:"Pickup, return + setup help",
     proof_drive_title:"30 days", proof_drive_body:"Drive file storage",
-    events_eyebrow:"UPCOMING EVENTS", events_title:"Choose your event", events_body:"Tap a poster to view packages, prices and availability",
+    events_eyebrow:"UPCOMING / BANGKOK", events_title:"Your night starts here", events_body:"Choose an event → view packages → check availability", journey_kicker:"FROM POSTER TO FRONT ROW", journey_1_title:"Choose event", journey_1_body:"Start with the poster for the night you are attending.", journey_2_title:"Choose package", journey_2_body:"See price, equipment and live availability.", journey_3_title:"Confirm with KK", journey_3_body:"Book via LINE and pick up at the venue.",
     value_steps:"Choose an event > Check available equipment and packages > Book directly with our admin via LINE OA",
     value_note:"( Can't find your event? Message us on LINE OA. )",
     follow_promo:"Follow on X · No deposit · Free insurance",
@@ -370,7 +370,13 @@ function applyStaticLanguage(){
   var eventHeading=document.querySelector(".v3-events-heading h2");
   if(eventHeading)eventHeading.innerHTML=currentLang==="en"?"YOUR NIGHT.<br><em>STARTS HERE.</em>":"คืนนี้ของคุณ<br><em>เริ่มจากโปสเตอร์นี้</em>";
   var eventBody=document.querySelector(".v3-events-heading p");
-  if(eventBody)eventBody.innerHTML=currentLang==="en"?"Choose an event → view packages → check availability<br><strong>vivo X300 Pro + Lens</strong>":"เลือกงาน → ดูแพ็กเกจ → เช็กคิวว่าง<br><strong>vivo X300 Pro + Lens</strong>";
+  if(eventBody)eventBody.innerHTML=esc(tr("events_body"))+'<br><strong>vivo X300 Pro + Lens</strong>';
+  setText(".kk-journey-kicker","journey_kicker");
+  var journey=document.querySelectorAll(".kk-journey-steps>div");
+  [["journey_1_title","journey_1_body"],["journey_2_title","journey_2_body"],["journey_3_title","journey_3_body"]].forEach(function(keys,i){
+    if(!journey[i])return;var title=journey[i].querySelector("strong"),body=journey[i].querySelector("span");
+    if(title)title.textContent=tr(keys[0]);if(body)body.textContent=tr(keys[1]);
+  });
   setText(".value-box p:not(.value-note)","value_steps");
   setText(".value-box .value-note","value_note");
   setText("a.quick-link","follow_promo");
