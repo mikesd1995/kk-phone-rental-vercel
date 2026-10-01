@@ -35,5 +35,16 @@ test('Ultra Deep V3 is callable through governed agent routes',async()=>{
   const out=await Router.executeTask('plan_ultra_deep_scan',{observations:[]});
   assert.deepEqual(out.invoked_agents,['kk-discovery-source-watch','kk-discovery-scanner']);
   assert.equal(out.result.status,'SEARCH_GAPS_REQUIRED');
-  assert.equal(Registry.REGISTRY_VERSION,'KK_AGENT_REGISTRY_V24');
+  assert.equal(Registry.REGISTRY_VERSION,'KK_AGENT_REGISTRY_V25');
+});
+
+
+test('Ultra Deep full-loop completion route is registered and requires learning plus commercial verification',()=>{
+ const route=Registry.routeForIntent('accept_ultra_deep_full_loop');
+ assert.equal(route.route_id,'ULTRA_DEEP_FULL_LOOP_COMPLETION_ACCEPTANCE');
+ assert.equal(route.runtime_available,true);
+ assert.ok(route.required_agents.includes('kk-discovery-scanner'));
+ assert.ok(route.required_agents.includes('kk-commercial-evidence'));
+ assert.ok(route.required_agents.includes('kk-event-verifier'));
+ assert.ok(route.required_agents.includes('kk-reliability-learning'));
 });
