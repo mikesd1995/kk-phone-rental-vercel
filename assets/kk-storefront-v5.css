@@ -401,3 +401,68 @@ footer:after{content:"KK / KEEP IT CLOSE";position:absolute;right:0;top:36px;col
  .kk-journey-steps>div:last-child{border-bottom:0}
 }
 @media(prefers-reduced-motion:reduce){.v3-primary:after{transition:none}}
+
+
+/* V5.7 Soft Concert Tech — calm pastel-blue identity with a tiny magical signature.
+   The unicorn idea is abstracted into pearl/sparkle cues rather than a literal mascot,
+   so event posters and rental trust remain the primary commerce story. */
+:root{
+ --v5-ink:#17243f;--v5-muted:#70809d;--v5-line:#dbe7f5;--v5-paper:#fff;
+ --v5-canvas:#f7faff;--v5-blue:#638ee8;--v5-blue2:#86aaf1;--v5-soft:#eef6ff;
+ --kk-sky:#dcecff;--kk-ice:#edf7ff;--kk-lilac:#eeeaff;--kk-pearl:#fffafd;
+ --kk-deep:#26395e;
+}
+html,body{background:
+ radial-gradient(circle at 78% 3%,rgba(207,220,255,.36),transparent 27rem),
+ radial-gradient(circle at 9% 20%,rgba(220,241,255,.48),transparent 24rem),
+ var(--v5-canvas)}
+.v3-header{border-bottom-color:rgba(99,142,232,.14)}
+.v3-brand-mark{position:relative;border:1px solid rgba(255,255,255,.7);border-radius:15px;background:linear-gradient(145deg,#8fb9f4 0%,#789ce8 54%,#a89eea 100%);box-shadow:0 9px 24px rgba(104,137,204,.19)}
+.kk-spark-mark{position:absolute;right:-5px;top:-7px;display:grid;width:17px;height:17px;place-items:center;border:1px solid #d9e8ff;border-radius:50%;background:#fff;color:#8a86d9;font-size:8px;box-shadow:0 4px 12px rgba(104,137,204,.14)}
+.v3-header .mini-btn,.language-switch{border-color:#dfe9f7!important;background:rgba(255,255,255,.78)!important}
+.lang-btn.active{background:var(--kk-deep)!important}
+.kk-stage{margin-top:18px;padding-inline:clamp(22px,4vw,52px)!important;border:1px solid rgba(135,170,225,.18);border-radius:32px;background:
+ radial-gradient(circle at 84% 25%,rgba(238,234,255,.82),transparent 20rem),
+ radial-gradient(circle at 12% 4%,rgba(220,240,255,.88),transparent 22rem),
+ linear-gradient(145deg,rgba(255,255,255,.92),rgba(245,250,255,.84));box-shadow:0 24px 70px rgba(70,108,169,.08)}
+.kk-stage:before{right:5%!important;top:24px!important;width:290px!important;height:290px!important;background:radial-gradient(circle,rgba(167,195,244,.20),rgba(167,195,244,0) 69%)!important}
+.kk-stage:after{right:16px!important;bottom:24px!important;color:#8b9fc3!important;opacity:.58!important}
+.kk-stage-index{color:#7e94ba!important}
+.v3-eyebrow{color:#6c8fd2!important}
+.v3-hero h1{color:var(--kk-deep);font-weight:600}
+.v3-hero h1 em{color:#8197c3;font-weight:500}
+.v3-hero-copy>p{color:#657895}
+.v3-primary{border:1px solid rgba(255,255,255,.48);border-radius:999px;background:linear-gradient(135deg,#6f95df,#829de1 60%,#938fdc);box-shadow:0 10px 25px rgba(100,132,201,.20)}
+.v3-primary:after{background:rgba(255,255,255,.17)!important}
+.kk-optics-signature span{border-color:#dce9fa;background:rgba(255,255,255,.62);color:#627ca8}
+.v3-proof{border-top-color:#dce8f6}.v3-proof>div{border-bottom-color:#dce8f6}
+.kk-proof-label{color:#8098c1!important}
+.browse-controls-shell{border-color:rgba(122,154,209,.16)!important;border-radius:18px!important;background:rgba(252,254,255,.88)!important;box-shadow:0 16px 40px rgba(76,109,164,.07)!important}
+.event-search-wrap{background:#f4f8fd!important}.filter-btn.active{background:#526b99!important}.filter-clear-btn{color:#668bd2!important}
+.v3-events-heading span,.pi-date{color:#668bd2!important}
+.v3-events-heading h2{color:var(--kk-deep)}.v3-events-heading h2 em{font-style:normal;color:#7e96c1}
+.kk-catalogue-rule{color:#8398b9!important;border-color:#dce7f4!important}
+.poster-grid{gap:18px!important}
+.concert-card{border-color:#dfe9f5!important;border-radius:20px!important;box-shadow:0 7px 24px rgba(69,103,158,.045)!important}
+.concert-card:hover{border-color:#c7d9ef!important;box-shadow:0 18px 42px rgba(69,103,158,.10)!important}
+.poster-img-wrap{background:#edf3fa!important}
+.concert-card:after{background:rgba(41,59,91,.68)!important;border:1px solid rgba(255,255,255,.26)!important}
+.poster-info{background:linear-gradient(180deg,#fff,#fcfdff)}
+.pi-name,.pi-price{color:var(--kk-deep)!important}.pi-tap{color:#6386c9!important;border-top-color:#e4ecf6!important}
+.status-badge{border-color:rgba(255,255,255,.8)!important;background:rgba(250,253,255,.92)!important;color:#526783!important}
+.kk-booking-journey{border-color:#dce7f4;background:linear-gradient(90deg,rgba(237,247,255,.30),rgba(238,234,255,.18),rgba(255,250,253,.28));padding-inline:18px;border-radius:20px}
+.kk-journey-kicker,.kk-journey-steps b{color:#718fd0}
+.kk-journey-steps>div{border-color:#dce7f4}.kk-journey-steps strong{color:var(--kk-deep)}
+.line-btn{border-radius:999px!important}
+footer{border-top-color:#dce7f4!important}
+@media(max-width:600px){
+ .kk-stage{margin-top:8px;padding:27px 14px 22px!important;border-radius:22px}
+ .kk-stage:before{right:-50px!important;top:-25px!important;width:190px!important;height:190px!important}
+ .v3-hero{padding:0!important}
+ .v3-hero h1{font-size:clamp(2.25rem,10.2vw,3rem)}
+ .v3-proof{margin-top:20px}
+ .browse-controls-shell{margin-top:18px}
+ .event-search-wrap,.filter-btn{border-color:#dce7f4!important}
+ .concert-card{border-radius:16px!important}
+ .kk-booking-journey{padding-inline:13px}
+}
