@@ -149,3 +149,19 @@ body{background:var(--kk-warm)}
  .pi-avail{font-size:8.5px!important}
  .pi-tap:before{width:20px}
 }
+
+/* V5.4 final optical pass — remove narrow-mobile carousel clipping and touch-only hover residue */
+@media(max-width:350px){
+ .status-filter-bar{display:grid!important;grid-template-columns:88px repeat(3,minmax(0,1fr))!important;gap:3px!important;overflow:visible!important}
+ .month-select-wrap{width:88px!important;min-width:0!important;flex:none!important}
+ .month-select{width:88px!important;min-width:0!important;padding-inline:8px!important;font-size:13px!important}
+ .filter-btn{width:100%!important;min-width:0!important;padding-inline:4px!important;font-size:9.5px!important;overflow:hidden!important;text-overflow:ellipsis!important}
+}
+@media(hover:none){
+ .concert-card:hover{transform:none!important}
+ .concert-card:hover .pi-tap:before{width:20px}
+}
+@media(prefers-reduced-motion:reduce){
+ .concert-card,.pi-tap,.pi-tap:before{transition:none!important}
+ .concert-card:hover{transform:none!important}
+}
