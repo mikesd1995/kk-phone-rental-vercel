@@ -34,6 +34,7 @@ async function main(){
    full:result.full===true,
    blockers:result.blockers||[],
    provider_binding:result.provider_binding,
+   discovery_proof:result.discovery_proof,
    source_universe:{
      complete:result.source_universe&&result.source_universe.complete===true,
      required_source_count:result.source_universe&&result.source_universe.required_source_count,
@@ -50,6 +51,7 @@ async function main(){
      missing_candidates:(result.reconciliation&&result.reconciliation.missing_candidates||[]).slice(0,50)
    },
    known_miss_regression:result.known_miss_regression,
+   known_miss_live_recall:result.known_miss_live_recall,
    candidate_count:result.candidate_count,
    reference_candidate_count:result.reference_candidate_count,
    candidates:(result.candidates||[]).slice(0,100).map(redactCandidate),
@@ -65,10 +67,12 @@ async function main(){
    full:evidence.full,
    blockers:evidence.blockers,
    provider_binding:evidence.provider_binding,
+   discovery_complete:evidence.discovery_proof&&evidence.discovery_proof.complete,
    source_universe_complete:evidence.source_universe.complete,
    reference_sweep_complete:evidence.reference_sweep_proof&&evidence.reference_sweep_proof.complete,
    reconciliation_gap_count:evidence.reconciliation.reconciliation_gap_count,
    known_miss_complete:evidence.known_miss_regression&&evidence.known_miss_regression.complete,
+   known_miss_live_passed:evidence.known_miss_live_recall&&evidence.known_miss_live_recall.passed,
    candidate_count:evidence.candidate_count,
    production_writes:0
  },null,2)+'\n');
