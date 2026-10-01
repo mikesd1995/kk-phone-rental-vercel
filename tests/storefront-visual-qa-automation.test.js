@@ -144,7 +144,7 @@ test('visual QA harness enforces Storefront Art Director acceptance',()=>{
   assert.match(source,/summary\.pass=summary\.pass && artAcceptance\.status==='PASS'/);
 });
 
-test('visual QA workflow triggers for V2 design and Art Director changes',()=>{
+test('visual QA workflow triggers for V4 design and Art Director changes',()=>{
   const workflow=fs.readFileSync('.github/workflows/storefront-visual-qa.yml','utf8');
   assert.match(workflow,/assets\/kk-storefront-v2\.css/);
   assert.match(workflow,/server\/kk-storefront-art-director\.js/);
