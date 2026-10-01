@@ -44,6 +44,6 @@ test('mobile sticky LINE CTA respects device safe-area',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.match(html,/kk-storefront-v5\\.css\\?v=20261001-v5/);
+  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261001-v5'));
   assert.match(html,/script\.js\?v=[A-Za-z0-9][A-Za-z0-9._-]*/);
 });
