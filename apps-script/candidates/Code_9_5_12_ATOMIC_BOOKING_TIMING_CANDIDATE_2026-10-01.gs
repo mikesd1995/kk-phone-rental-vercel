@@ -890,7 +890,7 @@ function kkGetPackageSpecByType_(packageType) {
   throw new Error('No package master found for package_type: ' + wanted);
 }
 
-function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventDate) {
+function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventDate, excludeRow) {
   const status = String(nextStatus || '').toLowerCase().trim();
   // Pending/confirmed bookings reserve stock by package count. A physical Asset ID is
   // assigned only when admin prepares or hands over the equipment.
@@ -904,10 +904,10 @@ function kkAssignMissingAssetsForPreparedBooking_(bookingRow, nextStatus, eventD
 
   const spec = kkGetPackageSpecByType_(packageType);
   if (needsPhone && !String(next[9] || '').trim()) {
-    next[9] = kkFindAvailableAsset_('phone', spec.model_group, eventDate);
+    next[9] = kkFindAvailableAssetForWindow_('phone', spec.model_group, eventDate, next[11], next[12], status, excludeRow);
   }
   if (needsLens && !String(next[10] || '').trim()) {
-    next[10] = kkFindAvailableAsset_('lens', spec.lens_group, eventDate);
+    next[10] = kkFindAvailableAssetForWindow_('lens', spec.lens_group, eventDate, next[11], next[12], status, excludeRow);
   }
   return next;
 }
@@ -2505,7 +2505,7 @@ function kkApiUpdateBooking_(payload) {
     // Critical workflow guard: older bookings may reserve package stock correctly but
     // still have blank physical Asset IDs. When admin clicks “เตรียมแล้ว” (prepared)
     // or “รับแล้ว” (picked_up), assign the missing phone/lens automatically.
-    kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date);
+    kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date, row);
 
     if (kkActiveHold_(nextStatus)) {
       if (next[9]) kkValidateManualAssetForWindow_(next[9], 'phone', '', event.event_date, next[11], next[12], nextStatus, row);
