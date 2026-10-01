@@ -5,11 +5,11 @@
   "baseline_comparison_pass": true,
   "baseline": "production-v3",
   "reviewed_design_blobs": {
-    "index_html": "c1b8368ddaa58e1e8ecbbe913f5ab301bfcae5e2",
-    "v5_css": "043a6542d4fcb17922adc02e81a15f5febb321db",
-    "script_js": "32ad7af34ef134267234c5232f3d16ee03bac9bd"
+    "index_html": "7f883b19e6b4d80daaa1b0c92e01b7cada6dd70f",
+    "v5_css": "174e6df2f0c5e00e781a0137749b3297b949a08c",
+    "script_js": "f21052721733f2309b9ecf9becdc105863df0b86"
   },
-  "screenshot_artifact_id": "11185155481",
+  "screenshot_artifact_id": "11188607613",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -55,6 +55,21 @@
       "artifact_id": "11185155481",
       "status": "PASS",
       "finding": "V5.9.1 corrective production-review artifact: all seven target viewports score 100 with P0/P1/P2=0; mobile filter remains one row, no horizontal overflow, event cards are visible in the first mobile screen, FAQ/theme controls are in the header, and production writes remain zero."
+    },
+    {
+      "artifact_id": "11188970974",
+      "status": "PASS",
+      "finding": "V6 exact-head screenshot review after production rejection: light-first editorial first fold, compact discovery chips, poster-first event cards with price/availability, P0/P1=0 across all required viewports, no overflow, iOS form controls >=16px, and zero production writes."
+    },
+    {
+      "artifact_id": "11188607613",
+      "status": "PASS",
+      "finding": "V6 acceptance rerun on unchanged design blobs: technical visual pass true at all seven viewports with P0/P1=0, interactions pass, zero writes. Review record hash corrected after autonomous screenshot-refinement commit changed the CSS blob."
+    },
+    {
+      "artifact_id": "11188607613",
+      "status": "PASS",
+      "finding": "V6.0.2 corrective screenshot review after owner rejection: mobile hero removed, catalogue appears immediately after search/filter, active filter label restored, poster-first light editorial hierarchy inspected at 390x844, and technical QA reports score 100/P0=0/P1=0 across target viewports."
     }
   ],
   "reviewed_viewports": [
@@ -76,10 +91,10 @@
   "production_writes": 0,
   "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "4dbea6d6ffa3b97634cb561ee909ec99d8a30639",
+  "reviewed_design_head": "caacc304d23f5361a86fa35f005f6ca949c98649",
   "owner_acceptance_evidence": {
     "accepted_at": "2026-10-02",
-    "artifact_id": "11185155481",
-    "statement": "Owner rejected deployed V5.8 production evidence, then explicitly instructed the corrective loop to be completed, passed, deployed, and verified from the latest real production image."
+    "artifact_id": "11188607613",
+    "statement": "Owner explicitly instructed the rejected production design to be comprehensively corrected, completed, documented, and deployed without repeated clarification. This record binds acceptance to the inspected V6.0.2 corrective artifact, not the rejected V5.9 screenshots."
   }
 }
