@@ -21,7 +21,8 @@ test('registered UX routes require the real storefront UX reviewer',()=>{
   for(const intent of ['storefront_ux_review','storefront_visual_qa']){
     const route=Registry.routeForIntent(intent);
     assert.ok(route);
-    assert.deepEqual(route.required_agents,['kk-storefront-ux-reviewer']);
+    if(intent==='storefront_visual_qa') assert.deepEqual(route.required_agents,['kk-storefront-ux-reviewer','kk-storefront-visual-critic']);
+    else assert.deepEqual(route.required_agents,['kk-storefront-ux-reviewer']);
     assert.equal(route.runtime_available,true);
     assert.equal(route.persistent_invocation_evidence_required,true);
   }
