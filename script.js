@@ -440,7 +440,7 @@ function bindLanguageSwitch(){
 
 function preferredTheme(){
   try{var saved=localStorage.getItem("kk_public_theme");if(saved==="dark"||saved==="light")return saved;}catch(e){}
-  return window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
+  return "light";
 }
 function applyTheme(theme,options){
   options=options||{};
