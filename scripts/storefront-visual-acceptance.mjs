@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 
 const require=createRequire(import.meta.url);
 const Reviewer=require('../server/kk-storefront-ux-reviewer.js');
@@ -370,14 +371,41 @@ async function main(){
     zero_cost_path:mode==='local_zero_cost'
   };
 
+  const reviewPath=path.join(process.cwd(),'config','kk-storefront-v3-screenshot-review.json');
+  let screenshotReviewPass=false;
+  let screenshotReview=null;
+  if(fs.existsSync(reviewPath)){
+    try{
+      screenshotReview=JSON.parse(fs.readFileSync(reviewPath,'utf8'));
+      const blobs=screenshotReview.reviewed_design_blobs||{};
+      const expected={
+        'index.html':String(blobs.index_html||''),
+        'assets/kk-storefront-v3.css':String(blobs.v3_css||''),
+        'script.js':String(blobs.script_js||'')
+      };
+      const designUnchanged=Object.entries(expected).every(([file,blob])=>{
+        if(!/^[0-9a-f]{40}$/.test(blob)) return false;
+        try{return execFileSync('git',['hash-object',file],{encoding:'utf8'}).trim()===blob;}catch(_){return false;}
+      });
+      screenshotReviewPass=screenshotReview.status==='PASS' && designUnchanged;
+    }catch(_){}
+  }
+  const indexSource=fs.readFileSync(path.join(process.cwd(),'index.html'),'utf8');
+  const storefrontStyles=[...indexSource.matchAll(/kk-storefront-v\d+\.css/gi)].map(match=>match[0].toLowerCase());
+  const singleVisualSourceOfTruth=storefrontStyles.length===1 && storefrontStyles[0]==='kk-storefront-v3.css';
+
   const artAcceptance=ArtDirector.evaluateImplementation({
     evidence:{
       multi_viewport:results.length===widths.length,
       no_horizontal_overflow:results.length===widths.length && results.every(item=>numeric(item.metrics.document_scroll_width_px)<=numeric(item.metrics.viewport_width_px)+1),
       business_truth_unchanged:mode==='local_zero_cost' && Boolean(fixtures) && summary.production_writes===0 && summary.forms_submitted===0 && summary.clicks_performed===0,
-      visual_qa_pass:summary.pass
+      visual_qa_pass:summary.pass,
+      single_visual_source_of_truth:singleVisualSourceOfTruth,
+      screenshot_review_pass:screenshotReviewPass
     }
   });
+  summary.screenshot_review={status:screenshotReviewPass?'PASS':'BLOCKED',record:screenshotReview?path.relative(process.cwd(),reviewPath):null};
+  summary.single_visual_source_of_truth=singleVisualSourceOfTruth;
   summary.art_director_acceptance=artAcceptance;
   summary.pass=summary.pass && artAcceptance.status==='PASS';
 
