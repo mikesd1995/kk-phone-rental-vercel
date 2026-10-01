@@ -98,3 +98,17 @@ body{background:var(--kk-warm)}
  .month-select,.filter-btn{min-height:44px!important}
  .poster-grid{grid-template-columns:1fr!important}
 }
+
+/* V5.1 round 4 — final visual polish: discovery recedes, posters lead */
+.browse-controls-shell{border-color:rgba(7,20,38,.055)!important;box-shadow:0 10px 30px rgba(7,20,38,.065)!important}
+.event-search-wrap{background:#fafaf8!important}
+.event-search::placeholder{color:#98a2ad!important}
+.v3-events-heading p{max-width:330px;line-height:1.5}
+.update-note{opacity:.68}
+@media(max-width:600px){
+ .browse-controls-shell{box-shadow:0 6px 18px rgba(7,20,38,.055)!important}
+ .v3-events-heading span{font-size:8px;letter-spacing:.18em}
+ .v3-events-heading h2{line-height:1;letter-spacing:-.05em}
+ .v3-events-heading p{font-size:10px;line-height:1.45}
+ .update-note{font-size:8.5px}
+}
