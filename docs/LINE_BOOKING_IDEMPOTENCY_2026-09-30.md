@@ -20,3 +20,7 @@ Within the existing document lock, a supplied valid `request_id` is checked agai
 For a new request, the writer continues to write only B:T so generated booking_id formula column A is preserved. It then calls `SpreadsheetApp.flush()`, reads back A:T, and fails closed if the canonical booking_id is not available. The normal doPost success audit records request_id together with canonical booking_id/row_number, completing the replay ledger while the document lock is still held by createBooking.
 
 Public LINE webhook activation remains deliberately out of scope. Repository contract acceptance must pass first, followed by deployed Apps Script/runtime acceptance before any production webhook is allowed to invoke the writer.
+
+
+### Deployment lineage safety
+The same booking-create hardening is also carried into the separately reconciled 9_5_10 deployment candidate. This does not change the existing deployment prohibition: canonical repository Code.gs must not overwrite production merely because this PR passes. Any Apps Script production change still requires the reconciled candidate's equivalence/controlled acceptance and a new deployed-version readback.
