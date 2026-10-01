@@ -1,0 +1,41 @@
+{
+  "schema_version": "KK_STOREFRONT_V5_SCREENSHOT_REVIEW_V1",
+  "status": "PASS",
+  "owner_decision": "PENDING",
+  "baseline_comparison_pass": true,
+  "baseline": "production-v3",
+  "reviewed_design_blobs": {
+    "index_html": "60008b0a7f396489650426772cb6417b6254f058",
+    "v5_css": "4a4ca64305e05ee1048a80b70e02f36f36a45b82",
+    "script_js": "ec6ae8de2a1133f6f9659ff60bd09a9cdb43fe70"
+  },
+  "screenshot_artifact_id": "11151078668",
+  "rounds": [
+    {
+      "artifact_id": "11151298431",
+      "status": "REVISE",
+      "finding": "Short 320px viewport delayed event discovery and language targets were below 44px."
+    },
+    {
+      "artifact_id": "11151078668",
+      "status": "PASS",
+      "finding": "P0/P1 cleared; short-phone event discovery, poster prominence, target sizing, filter containment and no floating CTA verified."
+    }
+  ],
+  "reviewed_viewports": [
+    320,
+    375,
+    390,
+    430,
+    480,
+    768,
+    1024
+  ],
+  "baseline_findings": [
+    "V5 preserves KK blue and poster-led concert identity.",
+    "V5 removes V3 persistent LINE obstruction and reduces competing pre-event chrome.",
+    "V5 retains richer poster prominence than rejected V4 directory treatment.",
+    "V5 uses one versioned storefront visual layer instead of stacked V3/theme overrides."
+  ],
+  "production_writes": 0
+}
