@@ -65,6 +65,11 @@
       "artifact_id": "11188607613",
       "status": "PASS",
       "finding": "V6 acceptance rerun on unchanged design blobs: technical visual pass true at all seven viewports with P0/P1=0, interactions pass, zero writes. Review record hash corrected after autonomous screenshot-refinement commit changed the CSS blob."
+    },
+    {
+      "artifact_id": "11188607613",
+      "status": "PASS",
+      "finding": "V6.0.2 corrective screenshot review after owner rejection: mobile hero removed, catalogue appears immediately after search/filter, active filter label restored, poster-first light editorial hierarchy inspected at 390x844, and technical QA reports score 100/P0=0/P1=0 across target viewports."
     }
   ],
   "reviewed_viewports": [
@@ -90,6 +95,6 @@
   "owner_acceptance_evidence": {
     "accepted_at": "2026-10-02",
     "artifact_id": "11188607613",
-    "statement": "Owner supplied production rejection evidence and explicitly instructed the corrective redesign to be completed, passed and deployed without repeated clarification. Exact-head V6 evidence was manually inspected before binding acceptance."
+    "statement": "Owner explicitly instructed the rejected production design to be comprehensively corrected, completed, documented, and deployed without repeated clarification. This record binds acceptance to the inspected V6.0.2 corrective artifact, not the rejected V5.9 screenshots."
   }
 }
