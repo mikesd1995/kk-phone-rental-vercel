@@ -1,0 +1,43 @@
+{
+  "schema_version": "KK_STOREFRONT_V4_SCREENSHOT_REVIEW_V1",
+  "status": "PASS",
+  "reviewed_design_sha": "b7707a6cb1d65aa12df4544578fa4bf7bfd9fce3",
+  "reviewed_design_blobs": {
+    "index_html": "4ab539a1bef11d8fe69d843428274de3f709e651",
+    "v4_css": "7032db37f29a8de2f147c39c02ef30210c9baf9c",
+    "script_js": "ec6ae8de2a1133f6f9659ff60bd09a9cdb43fe70"
+  },
+  "screenshot_artifact_id": "11148856664",
+  "rounds": [
+    {
+      "artifact_id": "11147694402",
+      "status": "REVISE",
+      "finding": "Mobile month control obscured status-filter discoverability."
+    },
+    {
+      "artifact_id": "11148856664",
+      "status": "PASS",
+      "finding": "Compact month control exposes status choices; event discovery remains in first viewport; no floating CTA obstruction."
+    }
+  ],
+  "reviewed_viewports": [
+    320,
+    375,
+    390,
+    430,
+    480,
+    768,
+    1024
+  ],
+  "owner_rejection_baseline": "2026-10-01 live V2/V3 screenshots",
+  "resolved_findings": [
+    "late_event_discovery",
+    "pre_event_surface_overload",
+    "mobile_two_column_density",
+    "floating_line_obstruction",
+    "filter_wrap",
+    "horizontal_overflow",
+    "ios_form_zoom_risk"
+  ],
+  "note": "Human visual review of exact CI screenshots. V4 is materially different from rejected baseline and suitable for governed acceptance."
+}
