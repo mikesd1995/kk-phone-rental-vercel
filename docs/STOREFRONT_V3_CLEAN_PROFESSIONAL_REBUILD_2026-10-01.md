@@ -32,3 +32,6 @@ A live TinyFish screenshot audit was attempted but could not start because the c
 3. Screenshot/visual review must be explicitly PASS; readiness score alone is not aesthetic proof.
 4. Production deployment SHA must equal merged main SHA.
 5. Production smoke/readback after cutover.
+
+## First V3 QA correction
+Initial V3 Visual QA correctly failed: 320px document width was 355px and TH/EN hit areas were below 44px. Evidence also exposed legacy `.pi-venue` intrinsic overflow and `.sr-only` diagnostics. V3 now contains event metadata, restores canonical screen-reader clipping, and makes language targets 44x44 without weakening thresholds.
