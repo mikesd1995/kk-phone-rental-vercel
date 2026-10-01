@@ -21,3 +21,17 @@ Owner screenshots from 2026-10-01 are rejection evidence. V4 must not reproduce:
 
 ## Acceptance
 Exact-head regression + visual QA at 320/375/390/430/480/768/1024; Visual Critic PASS at every width; screenshot artifact review; owner rejection cleared before production.
+
+
+## Final exact-head acceptance
+Final acceptance head: `3aedb7f0d2b4bec6794c435f1c574211798ea424`.
+- Admin Regression `36835224772`: PASS.
+- Storefront Automated Visual QA `36835224918`: PASS.
+- P0/P1: 0 at 320/375/390/430/480/768/1024.
+- single_visual_source_of_truth: true.
+- screenshot review: PASS.
+- closed-loop acceptance: PASS, blockers=[].
+- reviewed screenshot iteration artifact: `11148856664`.
+- production writes/publishes during acceptance: 0.
+
+The accepted mobile composition removes the rejected banner/floating CTA/two-column card pattern, exposes event discovery in the first viewport, keeps month/status filters discoverable without document overflow, and uses single-column event rows on mobile.
