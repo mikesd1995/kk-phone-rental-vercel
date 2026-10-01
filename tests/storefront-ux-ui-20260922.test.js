@@ -44,7 +44,7 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261001-v54-audit2'));
+  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261001-v56-final'));
   assert.ok(html.includes('script.js?v=storefront-v54-audit4-20261001'));
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#071426">/);
@@ -54,9 +54,9 @@ test('new storefront assets are cache-busted',()=>{
 test('V5 language switch binds the active hero, proof and event-discovery DOM',()=>{
   assert.match(js,/hero_body:"Rent a vivo X300 Pro \+ Lens/);
   assert.match(js,/setText\("\.v3-hero-copy>p","hero_body"\)/);
-  assert.match(js,/setText\("\.v3-proof>div:nth-child\(1\) strong","proof_deposit_title"\)/);
-  assert.match(js,/setText\("\.v3-events-heading h2","events_title"\)/);
-  assert.match(js,/setText\("\.v3-events-heading p","events_body"\)/);
+  assert.match(js,/querySelectorAll\("\.v3-proof>div:not\(\.kk-proof-label\)"\)/);
+  assert.match(js,/eventHeading\.innerHTML/);
+  assert.match(js,/eventBody\.innerHTML=esc\(tr\("events_body"\)\)/);
 });
 
 
