@@ -402,7 +402,9 @@ async function main(){
         if(!/^[0-9a-f]{40}$/.test(blob)) return false;
         try{return execFileSync('git',['hash-object',file],{encoding:'utf8'}).trim()===blob;}catch(_){return false;}
       });
-      screenshotReviewPass=screenshotReview.status==='PASS' && designUnchanged;
+      const loopAcceptance=VisualCritic.acceptLoop({rounds:screenshotReview.rounds||[],screenshot_artifact_id:screenshotReview.screenshot_artifact_id,owner_rejected:false});
+      screenshotReview.closed_loop_acceptance=loopAcceptance;
+      screenshotReviewPass=screenshotReview.status==='PASS' && designUnchanged && loopAcceptance.status==='PASS';
     }catch(_){}
   }
   const indexSource=fs.readFileSync(path.join(process.cwd(),'index.html'),'utf8');
@@ -419,7 +421,7 @@ async function main(){
       screenshot_review_pass:screenshotReviewPass
     }
   });
-  summary.screenshot_review={status:screenshotReviewPass?'PASS':'BLOCKED',record:screenshotReview?path.relative(process.cwd(),reviewPath):null};
+  summary.screenshot_review={status:screenshotReviewPass?'PASS':'BLOCKED',record:screenshotReview?path.relative(process.cwd(),reviewPath):null,closed_loop_acceptance:screenshotReview?.closed_loop_acceptance||null};
   summary.single_visual_source_of_truth=singleVisualSourceOfTruth;
   summary.art_director_acceptance=artAcceptance;
   summary.pass=summary.pass && artAcceptance.status==='PASS';
