@@ -224,3 +224,20 @@ body{background:var(--kk-warm)}
   .v3-proof{margin-top:6px!important}
   .v3-events-heading{margin-top:28px!important}
 }
+
+
+/* V5.4 interaction-audit fix — clear-filter control must never overlay status controls. */
+@media(max-width:600px){
+  .filter-clear-row{
+    position:static!important;
+    display:flex!important;
+    justify-content:flex-end!important;
+    min-height:0!important;
+    margin-top:4px!important;
+  }
+  .filter-clear-btn{
+    min-height:44px!important;
+    padding-inline:10px!important;
+  }
+  .filter-clear-btn[hidden]{display:none!important}
+}
