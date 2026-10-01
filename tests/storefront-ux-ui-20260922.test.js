@@ -44,7 +44,7 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261002-v59-theme-faq'));
+  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261002-v60-premium-editorial'));
   assert.ok(html.includes('script.js?v=storefront-v54-audit4-20261001'));
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#f4f6f8">/);
