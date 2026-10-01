@@ -402,7 +402,7 @@ async function main(){
         if(!/^[0-9a-f]{40}$/.test(blob)) return false;
         try{return execFileSync('git',['hash-object',file],{encoding:'utf8'}).trim()===blob;}catch(_){return false;}
       });
-      const loopAcceptance=VisualCritic.acceptLoop({rounds:screenshotReview.rounds||[],screenshot_artifact_id:screenshotReview.screenshot_artifact_id,owner_rejected:false});
+      const loopAcceptance=VisualCritic.acceptLoop({rounds:screenshotReview.rounds||[],screenshot_artifact_id:screenshotReview.screenshot_artifact_id,owner_decision:screenshotReview.owner_decision,baseline_comparison_pass:screenshotReview.baseline_comparison_pass===true});
       screenshotReview.closed_loop_acceptance=loopAcceptance;
       screenshotReviewPass=screenshotReview.status==='PASS' && designUnchanged && loopAcceptance.status==='PASS';
     }catch(_){}
