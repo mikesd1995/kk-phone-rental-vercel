@@ -165,3 +165,8 @@ body{background:var(--kk-warm)}
  .concert-card,.pi-tap,.pi-tap:before{transition:none!important}
  .concert-card:hover{transform:none!important}
 }
+
+/* V5.4 correction — preserve iOS no-zoom contract after narrow-filter compaction */
+@media(max-width:350px){
+ .month-select{font-size:16px!important}
+}
