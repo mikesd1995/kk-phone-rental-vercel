@@ -113,3 +113,15 @@ Single-writer presentation pass after the exhaustive audit:
 - Bumped the V5 stylesheet cache key to prevent stale presentation assets.
 - Added regression guards for escaped markup, localization selectors and complete Design Council Visual QA triggers.
 - Business truth remains unchanged: no pricing, booking, inventory, event, package or Machine SOT mutation.
+
+
+## V5.7 Soft Concert Tech direction
+Owner challenged the V5.6 art direction as not yet world-class and proposed a softer pastel-blue/minimal/unicorn-adjacent identity. The implementation deliberately translates that request into a professional Soft Concert Tech system rather than a literal fantasy theme:
+- pastel sky/ice blue base, restrained lavender and pearl highlights;
+- softened ink, borders, shadows and commerce controls;
+- rounded gradient primary CTA and soft editorial hero panel;
+- small sparkle signature on the KK mark;
+- hero message shifted from technical optics language to “KEEP THE MOMENT CLOSE” while retaining vivo X300 Pro + Lens product context;
+- literal unicorn imagery intentionally excluded so artist/event posters remain the visual hero and the storefront retains rental-service credibility;
+- mobile decorations reduced to preserve the previously accepted event-discovery geometry.
+No pricing, availability, booking, inventory, package or event truth was changed. Owner visual decision remains REJECTED until fresh screenshot review.
