@@ -6,7 +6,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 const root=path.resolve(__dirname,'..');
-const candidate=fs.readFileSync(path.join(root,'apps-script','candidates','Code_9_5_10_RECONCILED_PRICE_INTEGRITY_OWNER_GUARD_2026-09-29.gs'),'utf8');
+const candidate=fs.readFileSync(path.join(root,'apps-script','candidates','Code_9_5_11_ATOMIC_BOOKING_IDEMPOTENCY_CANDIDATE_2026-10-01.gs'),'utf8');
 const canonical=fs.readFileSync(path.join(root,'apps-script','Code.gs'),'utf8');
 
 function fn(name){
