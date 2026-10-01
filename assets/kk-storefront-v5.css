@@ -608,3 +608,71 @@ footer{border-color:#dfe4ea!important}
   inset-block-start:auto!important;
  }
 }
+
+
+/* V5.9 mobile hierarchy + explicit theme/FAQ controls — 2026-10-02 */
+.theme-toggle{display:inline-flex;align-items:center;justify-content:center;gap:2px;min-width:58px;height:44px;padding:3px;border:1px solid rgba(255,255,255,.18);border-radius:999px;background:rgba(255,255,255,.07);color:#fff;font:700 15px/1 system-ui;cursor:pointer}
+.theme-toggle span{display:grid;place-items:center;width:24px;height:34px;border-radius:999px;opacity:.5}
+html[data-theme="light"] .theme-sun,html[data-theme="dark"] .theme-moon{background:#fff;color:#071426;opacity:1}
+.theme-toggle:focus-visible,.header-faq-btn:focus-visible{outline:3px solid rgba(143,185,255,.55);outline-offset:3px}
+.v3-header-actions{gap:8px!important}
+.header-faq-btn{display:inline-flex!important;align-items:center;justify-content:center;min-width:52px!important;min-height:44px!important}
+
+/* Light is the clean editorial default; dark extends the stage across the catalogue. */
+html[data-theme="dark"] body{background:#071426!important;color:#eef4ff}
+html[data-theme="dark"] .wrap:before{height:100%;background:#071426!important}
+html[data-theme="dark"] .browse-controls-shell{background:#0d1b30!important;border-color:#20324b!important}
+html[data-theme="dark"] .event-search-wrap,html[data-theme="dark"] .filter-btn,html[data-theme="dark"] .month-select-wrap{background:#101f35!important;border-color:#263b58!important;color:#eef4ff!important}
+html[data-theme="dark"] .event-search,html[data-theme="dark"] .month-select{color:#eef4ff!important;background:transparent!important}
+html[data-theme="dark"] .event-search::placeholder{color:#8c9bb0!important}
+html[data-theme="dark"] .filter-btn{color:#c7d3e5!important}
+html[data-theme="dark"] .filter-btn.active{background:#eef4ff!important;color:#071426!important;border-color:#eef4ff!important}
+html[data-theme="dark"] .v3-events-heading,html[data-theme="dark"] .v3-events-heading h2,html[data-theme="dark"] .v3-events-heading p strong,html[data-theme="dark"] .pi-name,html[data-theme="dark"] .pi-price,html[data-theme="dark"] .kk-journey-steps strong{color:#eef4ff!important}
+html[data-theme="dark"] .v3-events-heading h2 em,html[data-theme="dark"] .update-note,html[data-theme="dark"] .kk-catalogue-rule{color:#91a2b8!important}
+html[data-theme="dark"] .v3-events-heading,html[data-theme="dark"] .kk-catalogue-rule,html[data-theme="dark"] .concert-card,html[data-theme="dark"] .kk-booking-journey,html[data-theme="dark"] footer{border-color:#20324b!important}
+html[data-theme="dark"] .poster-img-wrap{background:#101f35!important}
+html[data-theme="dark"] .kk-booking-journey{background:transparent!important}
+html[data-theme="dark"] footer,html[data-theme="dark"] footer .trust-note{color:#aebbd0!important}
+
+@media(max-width:600px){
+ .wrap{width:calc(100% - 28px)!important}
+ .v3-header{height:64px!important;gap:8px}
+ .v3-brand-copy small{display:none!important}
+ .v3-brand-mark{width:38px!important;height:38px!important}
+ .v3-brand-copy strong{font-size:16px!important}
+ .v3-header-actions{gap:5px!important}
+ .header-faq-btn{min-width:46px!important;padding:0 8px!important;font-size:11px!important}
+ .theme-toggle{min-width:50px;height:44px;padding:2px}
+ .theme-toggle span{width:21px;height:34px;font-size:13px}
+ .language-switch{min-height:44px!important}
+ .lang-btn{width:40px!important;min-width:40px!important;height:44px!important;min-height:44px!important}
+ .kk-stage{padding:20px 0 16px!important}
+ .kk-stage-index{display:none!important}
+ .v3-eyebrow{margin-bottom:10px!important;font-size:9px!important}
+ .v3-hero h1{font-size:clamp(2.25rem,10.8vw,3.15rem)!important;line-height:.92!important;max-width:10.5ch!important}
+ .v3-hero-copy>p{margin-top:11px!important;font-size:12px!important;line-height:1.45!important}
+ .v3-hero-actions{margin-top:14px!important}
+ .v3-primary{width:auto!important;min-width:178px!important}
+ .v3-proof{margin-top:16px!important}
+ .v3-proof>div{padding:9px 5px!important}
+ .browse-controls-shell{position:relative!important;top:auto!important;margin:12px 0 16px!important;padding:0!important;border:0!important;box-shadow:none!important;background:transparent!important}
+ .event-search-shell{margin-bottom:8px!important}
+ .event-search-wrap{min-height:48px!important;border:1px solid #d7dee8!important;border-radius:14px!important;background:#fff!important}
+ .status-filter-bar{display:grid!important;grid-template-columns:1.15fr repeat(3,1fr)!important;gap:5px!important;overflow:visible!important}
+ .month-select-wrap,.month-select{width:100%!important;min-width:0!important}
+ .filter-btn{width:100%!important;min-width:0!important;padding-inline:5px!important;font-size:11px!important}
+ .filter-clear-row{margin-top:2px!important}
+ .v3-events-heading{margin-top:20px!important;padding-top:18px!important}
+ .v3-events-heading h2{font-size:1.9rem!important;line-height:.95!important}
+ .v3-events-heading p{display:none!important}
+ .kk-catalogue-rule{margin-top:10px!important}
+ .poster-grid{gap:14px!important}
+}
+@media(max-width:390px){
+ .v3-brand-copy strong{font-size:14px!important}
+ .header-faq-btn{min-width:44px!important;padding-inline:6px!important}
+ .theme-toggle{min-width:46px}
+ .lang-btn{width:36px!important;min-width:36px!important}
+ .status-filter-bar{grid-template-columns:1fr 1fr!important}
+ .month-select-wrap,.month-select,.filter-btn{min-height:44px!important}
+}
