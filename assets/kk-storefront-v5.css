@@ -525,3 +525,46 @@ footer{border-color:#dfe4ea!important}
  .poster-info{padding-inline:1px!important}
  .kk-booking-journey{padding-inline:0}
 }
+
+
+/* V5.8.1 screenshot-led refinement.
+   Fixes the 768px proof rail contrast escape, short-phone density, and catalogue dead space. */
+@media (min-width:601px) and (max-width:900px){
+ .v3-hero{grid-template-columns:1fr!important;gap:24px!important;padding-bottom:28px!important}
+ .v3-proof{grid-template-columns:repeat(3,1fr)!important;margin-top:0!important;border-top:1px solid rgba(255,255,255,.30)!important}
+ .v3-proof .kk-proof-label{grid-column:1/-1!important;padding:10px 0 8px!important;border-bottom:1px solid rgba(255,255,255,.22)!important}
+ .v3-proof>div:not(.kk-proof-label){display:flex!important;flex-direction:column!important;gap:4px!important;padding:12px 14px 12px 0!important;border-bottom:0!important;border-right:1px solid rgba(255,255,255,.20)!important}
+ .v3-proof>div:last-child{border-right:0!important}
+ .v3-proof strong{color:#fff!important}.v3-proof span{color:rgba(255,255,255,.68)!important}
+ .browse-controls-shell{margin-bottom:28px!important}
+ .v3-events-heading{padding-top:28px!important}
+}
+@media (min-width:901px){
+ .browse-controls-shell{margin-bottom:30px!important}
+ .v3-events-heading{padding-top:22px!important}
+}
+@media (max-width:360px){
+ .v3-header{height:58px!important}
+ .v3-brand-copy small{display:none}
+ .v3-brand-mark{width:34px!important;height:34px!important}
+ .v3-header .mini-btn{display:none!important}
+ .language-switch{min-height:40px!important}
+ .lang-btn{width:42px!important;min-width:42px!important;height:34px!important;min-height:34px!important}
+ .kk-stage{padding-top:18px!important;padding-bottom:16px!important}
+ .v3-eyebrow{margin-bottom:8px!important;font-size:7px!important}
+ .v3-hero h1{font-size:2.18rem!important;line-height:.92!important}
+ .v3-hero-copy>p{display:none!important}
+ .v3-hero-actions{margin-top:10px!important}
+ .v3-primary{min-height:42px!important}
+ .v3-proof{margin-top:12px!important}
+ .v3-proof>div{padding:8px 3px!important}
+ .browse-controls-shell{margin-top:10px!important;margin-bottom:12px!important}
+ .event-search-shell{margin-bottom:5px!important}
+ .event-search-wrap{min-height:44px!important}
+ .status-filter-bar{gap:3px!important}
+ .filter-btn,.month-select{min-height:42px!important}
+ .v3-events-heading{padding-top:14px!important}
+ .v3-events-heading h2{font-size:1.55rem!important;line-height:.94!important}
+ .v3-events-heading p{display:none!important}
+ .kk-catalogue-rule,.update-note{font-size:7px!important}
+}
