@@ -25,3 +25,11 @@ auto_deploy=false
 owner_visual_acceptance_required=true
 
 Pricing, inventory, booking, event truth and Machine SOT remain outside council authority.
+
+## Recovery log
+- Repaired a literal escaped newline in `script.js` that broke the storefront JavaScript syntax after the mobile FAQ binding change.
+- Added a regression guard for the FAQ binding source.
+- Made local zero-cost visual QA fixture routing deterministic for `/api/kk-data` and retained canonical read-only production-feed sourcing.
+- Updated registry-version contract tests from V23 to V24 after Design Council registration.
+- Updated the visual-QA fixture-routing contract test to the new URL-predicate route.
+- Latest pre-recovery Visual QA proved the catalogue/interaction readiness issue is resolved across the run; remaining visual workflow blockers were the intentionally active owner rejection and final visual-critic acceptance.
