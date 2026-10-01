@@ -1,0 +1,4 @@
+'use strict';
+const test=require('node:test');const assert=require('node:assert/strict');const C=require('../server/kk-storefront-visual-critic.js');
+test('fails mobile composition that delays events and stacks surfaces',()=>{const r=C.critique({viewport:{width:390,height:844},metrics:{first_event_top_px:1080,pre_event_surface_count:7,hero_height_px:460,card_columns:2,card_min_width_px:160,filter_rows:2,bottom_cta_fixed:true,visible_event_cards_above_fold:1}});assert.equal(r.status,'REVISE');assert.ok(r.blockers.includes('EVENT_DISCOVERY_TOO_LATE'));assert.ok(r.blockers.includes('PRE_EVENT_SURFACE_OVERLOAD'));assert.ok(r.blockers.includes('FLOATING_CTA_COMPETES_WITH_EVENTS'));});
+test('closed loop needs iterations and artifact',()=>{assert.equal(C.acceptLoop({rounds:[{status:'PASS'}]}).status,'BLOCKED');assert.equal(C.acceptLoop({rounds:[{status:'REVISE'},{status:'PASS'}],screenshot_artifact_id:'1'}).status,'PASS');});
