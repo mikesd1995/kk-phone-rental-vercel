@@ -133,3 +133,34 @@ test('batch bridge rejects non-owner issue authors before agent execution',async
   assert.equal(result.status,'BLOCKED');
   assert.match(result.blocker,/BATCH_BRIDGE_OWNER_ONLY/);
 });
+
+
+test('batch bridge reselects the highest-scoring QA-passing combination when independent winners collide',async()=>{
+  const payload={items:[
+    item(1,'ใครมีบัตร Event 1 เตรียมเครื่องไว้เก็บทุกโมเมนต์ให้ครบ'),
+    item(2,'ใครมีบัตร Event 2 เตรียมเครื่องไว้เก็บทุกโมเมนต์ให้ครบ'),
+    item(3,'ใครมีบัตร Event 3 เตรียมเครื่องไว้เก็บทุกโมเมนต์ให้ครบ')
+  ]};
+  const result=await Bridge.runBridge({event:event(),payload});
+  assert.equal(result.status,'PASS');
+  assert.equal(result.batch_qa.gate,'PASS');
+  assert.ok(result.items.some(row=>row.selection_mode==='BATCH_DIVERSITY_RESELECTION'));
+  assert.equal(result.production_writes,0);
+  assert.equal(result.publishes,0);
+});
+
+test('batch bridge still fail-closes when no QA-passing candidate combination can satisfy diversity',async()=>{
+  const payload={items:[1,2,3].map(n=>{
+    const row=item(n,'ใครมีบัตร Event '+n+' เตรียมเครื่องไว้เก็บทุกโมเมนต์ให้ครบ');
+    row.candidates=row.candidates.map((candidate,index)=>({
+      ...candidate,
+      copy:copy('#Event'+n,'#Artist'+n,'Event '+n,n+' ต.ค. 2026','Hall '+n,'ใครมีบัตร Event '+n+' เตรียมเครื่องไว้เก็บทุกโมเมนต์ให้ครบ '+String.fromCharCode(65+index))
+    }));
+    return row;
+  })};
+  const result=await Bridge.runBridge({event:event(),payload});
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.blocker,'BATCH_DIVERSITY_QA_FAILED');
+  assert.equal(result.production_writes,0);
+  assert.equal(result.publishes,0);
+});
