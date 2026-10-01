@@ -1,15 +1,18 @@
 'use strict';
 
-const VERSION='KK_STOREFRONT_ART_DIRECTOR_V3';
+const VERSION='KK_STOREFRONT_ART_DIRECTOR_V4';
 
 const DESIGN_SYSTEM=Object.freeze({
-  direction:'premium-editorial-concert-commerce',
+  direction:'proprietary-editorial-concert-optics',
   principles:[
     'Poster and event identity lead; chrome recedes.',
     'One dominant action per decision layer.',
     'Use restrained depth, not decorative noise.',
     'Mobile is the primary composition, not a compressed desktop.',
     'Typography and spacing create hierarchy before color or effects.',
+    'Trend references are inputs, not instructions: recommend brand-fit before implementation.',
+    'Own one proprietary concert-optics device instead of generic gradients, mascots or trend decoration.',
+    'Use human/editorial restraint and allow event posters to supply most of the visual color.',
     'Preserve business truth and existing booking behavior.'
   ],
   tokens:{
@@ -47,6 +50,9 @@ function buildDirection(input={}){
       'emoji as primary visual system',
       'multiple equally loud CTAs',
       'heavy gradients/glows without hierarchy purpose',
+      'literal trend imitation without KK brand-fit critique',
+      'generic pastel gradients used as a substitute for a proprietary visual idea',
+      'mascot or cute decoration competing with event posters',
       'tiny mobile controls or dense two-column text',
       'visual changes that alter price, inventory, event visibility or booking semantics',
       'more than three competing utility surfaces before primary event content',
