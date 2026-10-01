@@ -1642,7 +1642,8 @@ document.addEventListener("DOMContentLoaded",function(){
   }
   setFilter(currentFilter);
   var bImg=document.querySelector(".brand-header-img"); if(bImg)bImg.addEventListener("error",showBrandFallback);
-  var faqBtn=document.getElementById("faq-open-btn"); if(faqBtn)faqBtn.addEventListener("click",openFaq);\n  document.querySelectorAll("[data-open-faq]").forEach(function(b){b.addEventListener("click",openFaq);});
+  var faqBtn=document.getElementById("faq-open-btn"); if(faqBtn)faqBtn.addEventListener("click",openFaq);
+  document.querySelectorAll("[data-open-faq]").forEach(function(b){b.addEventListener("click",openFaq);});
   document.querySelectorAll(".faq-q").forEach(function(b){b.addEventListener("click",function(){toggleFaq(b);});});
   var ov=document.getElementById("overlay"); if(ov)ov.addEventListener("click",closeModal);
   var fov=document.getElementById("faqOverlay"); if(fov)fov.addEventListener("click",closeFaq);
