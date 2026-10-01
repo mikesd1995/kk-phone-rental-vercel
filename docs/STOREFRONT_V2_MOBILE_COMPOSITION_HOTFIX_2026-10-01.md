@@ -23,3 +23,6 @@ Must pass Admin Regression and Storefront Automated Visual QA on the exact hotfi
 The first Visual QA run failed before layout evaluation because two Google Drive-hosted poster images returned zero natural dimensions on the ephemeral GitHub runner. This was an external image-host readiness condition, not a layout finding. The QA harness was hardened to continue past unavailable Google Drive image hosts while still failing closed for broken same-origin/non-Drive visual assets; screenshots/geometry/runtime/Art Director gates remain required.
 
 Harness repair note: corrected literal escaped newline serialization introduced during the first fallback edit; exact-head CI must prove syntax before merge.
+
+## Fallback experiment rollback
+An attempted QA-only exception for transient Google Drive image loading introduced syntax regressions in the harness. It was fully reverted to the proven `main` harness before release. No QA weakening ships with this hotfix. The mobile CSS fix remains isolated; acceptance is rerun on the restored harness.
