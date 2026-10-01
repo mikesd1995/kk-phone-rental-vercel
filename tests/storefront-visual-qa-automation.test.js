@@ -205,3 +205,13 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   assert.equal(art.includes('Trend references are inputs, not instructions'),true);
   assert.equal(html.includes('kk-spark-mark'),false);
 });
+
+
+test('V5.8.1 screenshot fixes protect tablet proof contrast and short-phone density',()=>{
+ const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+ assert.equal(css.includes('V5.8.1 screenshot-led refinement'),true);
+ assert.equal(css.includes('min-width:601px) and (max-width:900px'),true);
+ assert.equal(css.includes('.v3-proof strong{color:#fff!important}'),true);
+ assert.equal(css.includes('max-width:360px'),true);
+ assert.equal(css.includes('.v3-hero-copy>p{display:none!important}'),true);
+});
