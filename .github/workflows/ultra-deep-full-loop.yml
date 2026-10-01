@@ -1,6 +1,10 @@
 name: Ultra Deep Full Loop October
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/ultra-deep-run-request.json'
   workflow_dispatch:
     inputs:
       month:
