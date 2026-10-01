@@ -39,3 +39,10 @@ A third audit pass found a broader distributed-write ambiguity. After a legacy A
 The proxy now marks any non-confirmed legacy mutation response after dispatch as `uncertain-response`, sets `mutation_outcome_uncertain=true` and `mutation_may_have_committed=true`, and logs the attempt as uncertain. The Admin browser propagates those flags into its error object, so create/update Booking uses the existing snapshot readback reconciliation instead of treating the write as definitely rejected.
 
 This does not retry a mutation and does not add business writes. It narrows the duplicate-booking risk for both transport timeouts and explicit non-2xx responses.
+
+
+## Production runtime follow-up: LINE poster DEP0169
+
+Vercel runtime-error aggregation still showed DEP0169 on `/api/line-poster`. Unlike previously repaired routes, `api/line-poster.js` still accessed `req.query` directly. Prior production tracing already proved that Vercel's `req.query` getter reaches the platform's deprecated `url.parse()` path.
+
+The LINE poster route now parses `event_id` from `req.url` using the WHATWG `URL` API and has a regression guard prohibiting `req.query` in that route. Poster lookup, validation, cache headers, response bytes and business data are unchanged.
