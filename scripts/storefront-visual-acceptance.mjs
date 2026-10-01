@@ -204,9 +204,16 @@ async function main(){
         }));
         return images.map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight}));
       });
-      const brokenVisibleImages=imageReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      let brokenVisibleImages=imageReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      if(brokenVisibleImages.length && mode==='local_zero_cost'){
+        // Canonical Google Drive poster hosts can throttle CI while the same image is valid in production.
+        // Re-check the same source once before failing; never exempt persistent failures.
+        await page.waitForTimeout(2200);
+        const retryReadiness=await page.evaluate(()=>Array.from(document.images).filter(img=>{const r=img.getBoundingClientRect();return r.bottom>=-1&&r.top<=window.innerHeight+1&&r.width>0&&r.height>0;}).map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight})));
+        brokenVisibleImages=retryReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      }
       if(brokenVisibleImages.length){
-        fail('VISIBLE_IMAGE_NOT_READY',`Visible image evidence was not ready at ${width}px: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
+        fail('VISIBLE_IMAGE_NOT_READY',`Visible image evidence was not ready at ${width}px after readiness retry: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
       }
 
       const errorVisible=await page.locator('.error-box').isVisible().catch(()=>false);
