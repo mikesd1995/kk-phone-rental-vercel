@@ -21,6 +21,7 @@ const FinalPricingPolicy = require('./kk-final-pricing-policy.js');
 const StorefrontUx = require('./kk-storefront-ux-reviewer.js');
 const StorefrontArt = require('./kk-storefront-art-director.js');
 const UltraDeepRuntime = require('./kk-ultra-deep-runtime-runner.js');
+const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
 
 const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V14';
 
@@ -43,6 +44,12 @@ async function resolveDecisionHistory(input, options){
 
 async function executeTask(taskType, input = {}, options = {}) {
   switch (String(taskType || '').trim().toLowerCase()) {
+    case 'storefront_design_council':
+      return { invoked_agents:StorefrontDesignCouncil.ROLES.map(role=>role.agent), result:StorefrontDesignCouncil.buildCouncil(input) };
+
+    case 'storefront_design_council_acceptance':
+      return { invoked_agents:StorefrontDesignCouncil.ROLES.map(role=>role.agent), result:StorefrontDesignCouncil.acceptCouncil(input) };
+
     case 'storefront_art_direction':
       return { invoked_agents:['kk-storefront-art-director'], result:StorefrontArt.buildDirection(input) };
 
