@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V3';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V4';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -14,6 +14,18 @@ const CORPUS=Object.freeze([
   {case_id:'tle-firstone-20261022',title:'A TOUCH OF LOVE WITH TLE-FIRSTONE',aliases:['touch of love tle firstone','tle firstone','tle-firstone','everpink a touch of love tlefirstone','everpinkxtlefirstone'],search_queries:['EVERPINKxTleFirstone','EVERPINK A Touch of Love TleFirstone'],event_date:'2026-10-22'},
   {case_id:'fortreasure-20261129',title:'FORTREASURE BEYOND THE HORIZON CONCERT',aliases:['fortreasure beyond the horizon','fort treasure beyond horizon','fortreasure concert','beyond the horizon concert fortfts','fortfts fortreasure'],search_queries:['FORTREASURE site:eventpop.me','FORTREASURE FortFTS Eventpop'],event_date:'2026-11-29'}
 ]);
+const FIXTURE_EVIDENCE=Object.freeze({
+  'remaster-20261010':{title:'REMASTER CONCERT TIMESHOWBIZ',source_url:'https://www.paragonhall.com/en/events'},
+  'pink-aura-20260928':{title:'MizuMi x PP KRIT - THE PINK AURA',source_url:'https://www.watsons.co.th/th/mizumixpp-p926'},
+  'minmin-frozen-candy-20260930':{title:'MIN MIN x TeeTeePor : The Frozen Candy Land',source_url:'https://x.com/2TEEPH'},
+  'sport-day-after-match-20261001':{title:'M CARD x SPORT DAY AFTER MATCH WITH TEETEE-POR',source_url:'https://www.mcardmall.com/en/promotions/8201'},
+  'you-maniac-blind-date-20261003':{title:'#YouManiacSeriesEP6 YOU MANIAC BLIND DATE',source_url:'https://www.gmm-tv.com/'},
+  'bai-lu-meet-love-20261025':{title:'MEET&LOVE BAILU SPECIAL BANGKOK FANMEETING',source_url:'https://www.instagram.com/p/DdyDifwAdOz/'},
+  'tutoryim-updated-20261018':{title:'ปล่อยปลาฉลาม Meet TutorYim updated date',source_url:'https://www.kazz-magazine.com/'},
+  'scoopify-james-su-20261024':{title:'HOW TO BUY TICKETS SCOOPIFY YOGURT & YOU WITH JAMES SU',source_url:'https://x.com/SummerVibeTH'},
+  'tle-firstone-20261022':{title:'EVERPINK A Touch of Love with TleFirstone',source_url:'https://x.com/everpink_th'},
+  'fortreasure-20261129':{title:'FORTREASURE BEYOND THE HORIZON CONCERT',source_url:'https://www.eventpop.me/e/173408/fortreasure-beyond-the-horizon-concert'}
+});
 
 function text(v){return String(v==null?'':v).trim();}
 function norm(v){return text(v).toLowerCase().replace(/[^a-z0-9\u0E00-\u0E7F]+/g,' ').replace(/\s+/g,' ').trim();}
@@ -58,4 +70,13 @@ function evaluate(candidates=[],classifications=[]){
   return {version:VERSION,complete:missing.length===0,case_count:CORPUS.length,passed:results.filter(x=>x.pass).length,missing_cases:missing,results,production_writes:0};
 }
 
-module.exports={VERSION,CORPUS,norm,tokens,fuzzyAliasMatch,evaluate,sameCase};
+function evaluateFixtureRegression(){
+  const candidates=CORPUS.map(c=>{
+    const fixture=FIXTURE_EVIDENCE[c.case_id]||{};
+    return {title:fixture.title||c.title,event_date:c.event_date,source_url:fixture.source_url||null};
+  });
+  const result=evaluate(candidates,[]);
+  return {...result,proof_type:'DETERMINISTIC_HISTORICAL_FIXTURE'};
+}
+
+module.exports={VERSION,CORPUS,FIXTURE_EVIDENCE,norm,tokens,fuzzyAliasMatch,evaluate,evaluateFixtureRegression,sameCase};
