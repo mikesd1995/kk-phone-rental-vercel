@@ -5,9 +5,9 @@
   "baseline_comparison_pass": true,
   "baseline": "production-v3",
   "reviewed_design_blobs": {
-    "index_html": "f4faf23cca92666f52579d83ddae6f228206a80e",
+    "index_html": "cfa1725d4bb93e3ec044b4192b67b6f0edda99d8",
     "v5_css": "db36375fadcdd5d6ba682d4786512adc3ce0b540",
-    "script_js": "d12687bceb07f889f81c28a4bc6e85f3cc81c06c"
+    "script_js": "47b8c540ee86a39a3cf30c50ac9ac96b2ae0f35e"
   },
   "screenshot_artifact_id": "11179565872",
   "rounds": [
