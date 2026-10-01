@@ -159,3 +159,30 @@ Fresh evidence:
 - Production deployment/write from this V5.4 work: 0.
 
 No pricing, availability computation, booking, inventory or event SOT semantics were changed by V5.4.
+
+
+## Exhaustive storefront UX/UI audit — 2026-10-01
+Audit head: `2fab92faccb9a8ab2abcfeeee58a71c68db0728d`.
+
+Scope reviewed: PR diff/source, responsive geometry, card hierarchy/states, search/month/status filters, empty/error/loading states, poster fallback behavior, package modal, FAQ modal, keyboard/focus loop, Escape/overlay close, URL/deep-link state, LINE booking/waitlist CTAs, bilingual layout contracts, iOS focus zoom, touch/hover behavior, reduced motion, safe-area/modal viewport handling and production-baseline governance.
+
+Hardening added during audit:
+- modal/FAQ max-height now uses dynamic viewport units where supported and respects mobile safe-area bottom;
+- explicit focus-visible treatment added for modal close/share, load-more and hero CTA;
+- fallback ring styling added for availability dots on browsers without `color-mix()`;
+- body scroll locking now preserves the user's exact page position across modal open/close, including mobile Safari behavior;
+- regression coverage was added for the modal scroll-lock source contract.
+
+One audit patch attempt exposed a literal-newline serialization defect in `script.js`; the branch was corrected before final evidence and no failing version was approved.
+
+Final evidence:
+- Admin Regression run `36857750560`: SUCCESS.
+- Storefront Automated Visual QA run `36857750728`: 320/375/390/430/480/768/1024 each report P0=0, P1=0, P2=0, P3=0 and no viewport blockers.
+- Screenshot artifact `11160020672`.
+- Remaining workflow failure is governance-only: `OWNER_VISUAL_REJECTION_ACTIVE` / `SCREENSHOT_REVIEW_NOT_PASSING`.
+- Production baseline comparison remains PASS; production deployment/write from this audit is 0.
+
+Residual non-blocking review notes:
+- the V5 stylesheet still contains chronological V5.1→V5.4 override sections; this is maintainability debt, not a rendered UX defect, and should be consolidated only after owner visual acceptance to avoid introducing pre-acceptance visual drift;
+- Google Fonts and remote poster delivery remain network dependencies, but the page has system-font fallback and bounded poster fallback/placeholder behavior;
+- final aesthetic acceptance remains intentionally human/owner-controlled and is not inferred from automated zero-finding results.
