@@ -24,3 +24,10 @@ Read-only storefront UX/UI remediation. No booking, pricing, inventory, event-tr
 - No inventory mutation.
 - No production business-data write.
 - No auto-merge or production deploy in this remediation.
+
+
+## Follow-up regression findings
+- Admin Regression at `90b7df9`: 1019/1020 passed. The sole failure was the obsolete automation contract that prohibited all click/fill/press operations; it was updated to allow only read-only in-page interaction checks while preserving zero form submissions and zero production writes.
+- The new interaction QA then exposed a real 375px defect: `.filter-clear-btn` overlaid the `งานทั้งหมด` status filter and intercepted pointer events after a filter change.
+- Corrected the mobile clear-filter row to participate in normal document flow, retain a 44px touch target, and remain hidden when inactive.
+- Validation rerun requested on exact HEAD `9e2f08300e06426a3a265d1fab6fe20086f30554`.
