@@ -488,7 +488,7 @@ module.exports = async function handler(req, res) {
     const timeoutMs = timeoutForAction(action);
     const isTimeout = !!(err && err.name === "AbortError");
     const msg = isTimeout
-      ? "Apps Script request timed out for action " + action + ". The proxy waited up to " + String(timeoutMs) + " ms. Please retry once; if it repeats, check Apps Script Executions and sheet calculation load."
+      ? "Apps Script request timed out for action " + action + ". The proxy waited up to " + String(timeoutMs) + " ms. The outcome may be uncertain; do not retry a mutation until readback confirms whether it committed."
       : (err && err.message ? err.message : String(err));
     if (!isReadOnlyAction(action)) {
       logMutation('uncertain', {
