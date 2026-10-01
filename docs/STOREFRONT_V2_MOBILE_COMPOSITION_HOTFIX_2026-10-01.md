@@ -26,3 +26,6 @@ Harness repair note: corrected literal escaped newline serialization introduced 
 
 ## Fallback experiment rollback
 An attempted QA-only exception for transient Google Drive image loading introduced syntax regressions in the harness. It was fully reverted to the proven `main` harness before release. No QA weakening ships with this hotfix. The mobile CSS fix remains isolated; acceptance is rerun on the restored harness.
+
+## Visual QA correction
+The restored gate caught two real regressions from over-compression: 40px filter controls violated the 44px tap-target floor, and a sub-16px month select reintroduced iOS focus-zoom risk. Both were corrected while retaining the reduced visual hierarchy.
