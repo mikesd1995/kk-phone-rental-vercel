@@ -568,3 +568,19 @@ footer{border-color:#dfe4ea!important}
  .v3-events-heading p{display:none!important}
  .kk-catalogue-rule,.update-note{font-size:7px!important}
 }
+
+
+/* V5.8.2 tablet proof rail: keep trust evidence visually attached to the dark stage. */
+@media (min-width:601px) and (max-width:900px){
+ .v3-proof{
+  position:relative!important;
+  z-index:2!important;
+  margin:0!important;
+  padding:0 10px 10px!important;
+  background:#071426!important;
+  color:#fff!important;
+ }
+ .v3-proof .kk-proof-label{color:rgba(255,255,255,.62)!important}
+ .v3-proof strong{color:#fff!important}
+ .v3-proof span{color:rgba(255,255,255,.70)!important}
+}
