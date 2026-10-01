@@ -1,6 +1,13 @@
 'use strict';
 
-const VERSION='KK_STOREFRONT_DESIGN_COUNCIL_V1';
+const VERSION='KK_STOREFRONT_DESIGN_COUNCIL_V2';
+const Art=require('./kk-storefront-art-director.js');
+const Ux=require('./kk-storefront-ux-reviewer.js');
+const Conversion=require('./kk-storefront-conversion-reviewer.js');
+const Fandom=require('./kk-storefront-fandom-reviewer.js');
+const Accessibility=require('./kk-storefront-accessibility-reviewer.js');
+const Performance=require('./kk-storefront-performance-reviewer.js');
+const Visual=require('./kk-storefront-visual-critic.js');
 const ROLES=Object.freeze([
   {id:'art_direction',agent:'kk-storefront-art-director',focus:['brand_distinctiveness','visual_hierarchy','editorial_concert_identity']},
   {id:'product_ux',agent:'kk-storefront-ux-reviewer',focus:['event_discovery','information_architecture','responsive_flow']},
@@ -38,6 +45,26 @@ function buildCouncil(input={}){
     safety:{production_writes:0,business_truth_writes:0,auto_merge:false,auto_deploy:false,owner_visual_acceptance_required:true}
   };
 }
+function runCouncil(input={}){
+  const packet=input.packet&&typeof input.packet==='object'?input.packet:input;
+  const art=Art.buildDirection(packet);
+  const ux=Ux.auditStorefront(packet);
+  const conversion=Conversion.review(packet);
+  const fandom=Fandom.review(packet);
+  const accessibility=Accessibility.review(packet);
+  const performance=Performance.review(packet);
+  const adversarial=Visual.critique(packet);
+  const reviews=[
+    {dimension:'brand',agent:'kk-storefront-art-director',status:art.status,findings:[]},
+    {dimension:'ux',agent:'kk-storefront-ux-reviewer',status:ux.status,findings:ux.findings||[]},
+    conversion,
+    fandom,
+    accessibility,
+    performance,
+    {dimension:'adversarial_visual',agent:'kk-storefront-visual-critic',status:adversarial.status,findings:adversarial.findings||[]}
+  ];
+  return {schema_version:VERSION,status:'REVIEW_COMPLETE',invoked_agents:reviews.map(r=>r.agent),reviews,safety:{production_writes:0,business_truth_writes:0,auto_merge:false,auto_deploy:false}};
+}
 function acceptCouncil(input={}){
   const reviews=Array.isArray(input.reviews)?input.reviews:[];
   const dimensions=new Set(reviews.map(r=>clean(r&&r.dimension)));
@@ -49,4 +76,4 @@ function acceptCouncil(input={}){
   if(clean(input.owner_decision).toUpperCase()!=='ACCEPTED') blockers.push('OWNER_VISUAL_ACCEPTANCE_MISSING');
   return {schema_version:VERSION,status:blockers.length?'BLOCKED':'PASS',missing_dimensions:missing,open_p0_p1:p0p1.length,blockers,production_writes:0,auto_merge:false,auto_deploy:false};
 }
-module.exports={VERSION,ROLES,buildCouncil,acceptCouncil};
+module.exports={VERSION,ROLES,buildCouncil,runCouncil,acceptCouncil};
