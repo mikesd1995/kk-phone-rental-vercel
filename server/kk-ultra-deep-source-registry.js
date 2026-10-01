@@ -56,6 +56,14 @@ const ACCEPTED_STATUSES=new Set(['EVIDENCE_FOUND','NO_EVIDENCE','VALIDATED','EXE
 
 function text(v){return String(v==null?'':v).trim();}
 function upper(v){return text(v).toUpperCase();}
+function monthLabels(value){
+  const raw=text(value);const m=raw.match(/^(\d{4})-(\d{2})$/);
+  if(!m)return {iso:raw,en:raw,th:raw};
+  const year=Number(m[1]),month=Number(m[2]);
+  const en=['January','February','March','April','May','June','July','August','September','October','November','December'][month-1]||raw;
+  const th=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][month-1]||raw;
+  return {iso:raw,en:en+' '+year,th:th+' '+(year+543)};
+}
 
 function allSources(){
   const out=[];
@@ -68,16 +76,27 @@ function allSources(){
 function buildUniversePlan(input={}){
   const month=text(input.month);
   const location=text(input.location)||'Bangkok Thailand';
-  const tasks=allSources().map(row=>({
-    source_id:row.source_id,
-    source_tier:row.source_tier,
-    required:row.required===true,
-    label:row.label,
-    domain:row.domain||null,
-    query:[row.domain?('site:'+row.domain):'',row.label,month,location,'concert fanmeeting event lucky fan fansign'].filter(Boolean).join(' '),
-    providers:['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
-    evidence_required:true
-  }));
+  const labels=monthLabels(month);
+  const tasks=allSources().map(row=>{
+    const domain=row.domain?('site:'+row.domain):'';
+    const queries=[
+      [domain,row.label,labels.en,'Bangkok'].filter(Boolean).join(' '),
+      [domain,'concert fanmeeting',labels.en,'Bangkok'].filter(Boolean).join(' '),
+      [domain,'artist event lucky fan',labels.en,'Bangkok'].filter(Boolean).join(' '),
+      [row.label,labels.th,'กรุงเทพ'].filter(Boolean).join(' ')
+    ].filter(Boolean);
+    return {
+      source_id:row.source_id,
+      source_tier:row.source_tier,
+      required:row.required===true,
+      label:row.label,
+      domain:row.domain||null,
+      query:queries[0],
+      query_variants:[...new Set(queries.slice(1))],
+      providers:['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+      evidence_required:true
+    };
+  });
   return {version:VERSION,month:month||null,location,tasks,production_writes:0,authoritative:false,verifier_required:true};
 }
 
@@ -121,4 +140,4 @@ function buildUniverseProof(receipts=[]){
   };
 }
 
-module.exports={VERSION,REGISTRY,ACCEPTED_STATUSES,allSources,buildUniversePlan,buildUniverseProof};
+module.exports={VERSION,REGISTRY,ACCEPTED_STATUSES,monthLabels,allSources,buildUniversePlan,buildUniverseProof};

@@ -25,6 +25,15 @@ function flattenCandidates(execution={}){
   }
   return out;
 }
+function executionProof(execution={}){
+  const results=Array.isArray(execution.results)?execution.results:[];
+  const rows=results.map((result,index)=>{
+    const attempts=Array.isArray(result&&result.attempts)?result.attempts:[];
+    const executed=attempts.some(attemptExecuted);
+    return {index,executed,status:text(result&&result.status)||'MISSING'};
+  });
+  return {complete:rows.length>0&&rows.every(x=>x.executed),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,rows};
+}
 function sourceUniverseReceipts(plan={},execution={}){
   const tasks=Array.isArray(plan.gap_tasks)?plan.gap_tasks:[];
   const results=Array.isArray(execution.results)?execution.results:[];
@@ -45,19 +54,21 @@ function sourceUniverseReceipts(plan={},execution={}){
 }
 function buildReferencePlan(input={}){
   const month=text(input.month);
+  const labels=SourceRegistry.monthLabels(month);
   const location=text(input.location)||'Bangkok Thailand';
-  const queries=[
-    'concert fanmeeting fancon fansign '+month+' '+location,
-    'lucky fan top spender artist event '+month+' '+location,
-    'คอนเสิร์ต แฟนมีต แฟนไซน์ กิจกรรมศิลปิน '+month+' กรุงเทพ',
-    'Bangkok event calendar artist '+month
+  const groups=[
+    ['Bangkok '+labels.en+' concert',labels.en+' Bangkok concerts','คอนเสิร์ต กรุงเทพ '+labels.th],
+    ['Bangkok '+labels.en+' fan meeting',labels.en+' Bangkok fanmeeting fancon','แฟนมีต กรุงเทพ '+labels.th],
+    ['Bangkok '+labels.en+' lucky fan artist event','artist brand event Bangkok '+labels.en,'กิจกรรมศิลปิน ลัคกี้แฟน กรุงเทพ '+labels.th],
+    ['Bangkok '+labels.en+' event calendar','Thailand '+labels.en+' concert calendar','ตารางคอนเสิร์ต กรุงเทพ '+labels.th]
   ];
   return {
-    version:'KK_ULTRA_DEEP_REFERENCE_SWEEP_V1',
-    gap_tasks:queries.map((query,i)=>({
-      source_tier:i===1?'BRAND_SPONSOR':'PUBLIC_CALENDAR',
+    version:'KK_ULTRA_DEEP_REFERENCE_SWEEP_V2',
+    gap_tasks:groups.map((queries,i)=>({
+      source_tier:i===2?'BRAND_SPONSOR':'PUBLIC_CALENDAR',
       source_id:'reference-'+(i+1),
-      query,
+      query:queries[0],
+      query_variants:queries.slice(1),
       providers:['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
       evidence_required:true
     })),
@@ -124,22 +135,33 @@ async function runMonthlyUltraDeep(input={},options={}){
   const receipts=sourceUniverseReceipts(plan,execution);
   const universe=SourceRegistry.buildUniverseProof(receipts);
   const candidates=flattenCandidates(execution);
+  const discoveryProof=executionProof(execution);
+  discoveryProof.candidate_count=candidates.length;
+  discoveryProof.has_evidence=candidates.length>0;
+  discoveryProof.complete=discoveryProof.complete && discoveryProof.has_evidence;
 
   const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
   const referenceExecution=await ProviderExecutor.executeGapPlan(referencePlan,{providers});
   const referenceCandidates=flattenCandidates(referenceExecution);
+  const referenceProof=executionProof(referenceExecution);
+  referenceProof.candidate_count=referenceCandidates.length;
+  referenceProof.has_evidence=referenceCandidates.length>0;
+  referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
   const reconciliation=Reconciliation.reconcileCandidateSets(candidates,referenceCandidates);
 
   // A known miss is recovered if any governed live discovery path finds it.
   // Do not discard a valid main/reference sweep hit merely because the dedicated
   // probe endpoint returned no results.
   const knownMissEvidence=[...knownMissCandidates,...candidates,...referenceCandidates];
-  const knownMiss=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]);
+  const knownMissLive=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]);
+  const knownMiss=KnownMiss.evaluateFixtureRegression();
 
-  const complete=binding.unknown_url_search_bound && universe.complete && reconciliation.complete && knownMiss.complete;
+  const complete=binding.unknown_url_search_bound && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete;
   const blockers=[
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
     ...(!universe.complete?['SOURCE_UNIVERSE_INCOMPLETE']:[]),
+    ...(!discoveryProof.complete?['DISCOVERY_EVIDENCE_EMPTY']:[]),
+    ...(!referenceProof.complete?['REFERENCE_SWEEP_INCOMPLETE']:[]),
     ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
     ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[])
   ];
@@ -152,8 +174,11 @@ async function runMonthlyUltraDeep(input={},options={}){
     location:plan.location,
     provider_binding:binding,
     source_universe:universe,
+    discovery_proof:discoveryProof,
+    reference_sweep_proof:referenceProof,
     reconciliation,
     known_miss_regression:knownMiss,
+    known_miss_live_recall:knownMissLive,
     candidate_count:candidates.length,
     candidates,
     reference_candidate_count:referenceCandidates.length,
@@ -173,6 +198,6 @@ async function runMonthlyUltraDeep(input={},options={}){
 }
 
 module.exports={
-  VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,flattenCandidates,sourceUniverseReceipts,
+  VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
   buildReferencePlan,buildKnownMissPlan,summarizeExecution,providerBindingState,runMonthlyUltraDeep
 };

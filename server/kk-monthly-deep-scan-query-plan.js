@@ -12,6 +12,14 @@ const TIER_TERMS={
  PUBLIC_CALENDAR:['Bangkok concerts events calendar','Thailand concert calendar']
 };
 function text(v){return String(v==null?'':v).trim();}
+function queryVariantsForTerm(term,range,location){
+ const labels=SourceRegistry.monthLabels(range.month);
+ return [
+   term+' '+labels.en+' '+location,
+   term+' '+labels.th+' กรุงเทพ',
+   term+' '+labels.en+' Bangkok'
+ ].filter(Boolean);
+}
 function monthRange(input={}){
  const raw=text(input.month);let y,m;
  if(/^\d{4}-\d{2}$/.test(raw)){[y,m]=raw.split('-').map(Number);}else{
@@ -23,11 +31,11 @@ function monthRange(input={}){
 }
 function build(input={}){
  const range=monthRange(input);const location=text(input.location)||'Bangkok Thailand';const gap_tasks=[];
- for(const [source_tier,terms] of Object.entries(TIER_TERMS))for(const term of terms)gap_tasks.push({source_tier,query:term+' '+range.month+' '+location,providers:['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],stop_condition:'AT_LEAST_ONE_VALID_HTTPS_SOURCE',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});
+ for(const [source_tier,terms] of Object.entries(TIER_TERMS))for(const term of terms){const qs=queryVariantsForTerm(term,range,location);gap_tasks.push({source_tier,query:qs[0],query_variants:qs.slice(1),providers:['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],stop_condition:'AT_LEAST_ONE_VALID_HTTPS_SOURCE',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});}
  const universe=SourceRegistry.buildUniversePlan({month:range.month,location});
  for(const task of universe.tasks){
    gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
  }
  return {version:VERSION,mode:'ULTRA_DEEP_MONTH',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),production_writes:0,authoritative:false,verifier_required:true};
 }
-module.exports={VERSION,TIER_TERMS,monthRange,build};
+module.exports={VERSION,TIER_TERMS,monthRange,queryVariantsForTerm,build};

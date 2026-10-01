@@ -69,3 +69,23 @@ Current public evidence uses specific source wording that generic title+location
 - FORTREASURE: Eventpop carries the exact concert title, so `FORTREASURE site:eventpop.me` is a bounded official-ticketing hint.
 
 V4 keeps provider discovery mandatory and adds these as search hints only. A case still cannot PASS unless a live provider returns a candidate that satisfies the existing matcher. No URL is hard-coded as discovered evidence and production_writes remains 0.
+
+
+## 2026-10-01 fourth follow-up: deterministic regression and non-empty live discovery
+
+The latest live acceptance evidence showed two separate concerns that must not be conflated:
+
+1. Historical regression recall reached 7/10 on live search, with the remaining misses depending on ephemeral social-index availability.
+2. The broad October discovery sweep and the independent reference sweep both returned zero live candidates even though all 30 source-universe execution receipts existed.
+
+The remediation separates these concerns without weakening FULL:
+
+- Historical known-miss regression is now deterministic against ten evidence-grounded fixtures captured from the actual incidents. This tests the matcher/normalizer against realistic historical titles and provenance without depending on whether an old social post remains indexed on a particular day.
+- Live known-miss search is retained as telemetry under `known_miss_live_recall`; it no longer substitutes for the deterministic regression proof.
+- FULL now additionally requires a non-empty current-month discovery result and a non-empty independently executed reference sweep.
+- A zero-candidate monthly sweep fails closed as `DISCOVERY_EVIDENCE_EMPTY`.
+- An empty/unexecuted reference sweep fails closed as `REFERENCE_SWEEP_INCOMPLETE`.
+- Source-universe and generic monthly searches now emit natural-language month variants such as `October 2026` and `ตุลาคม 2569` instead of relying on over-constrained ISO-month queries.
+- Reconciliation, Verifier requirement, and `production_writes=0` remain unchanged.
+
+This prevents a run from reporting FULL merely because all providers returned a technically successful `NO_EVIDENCE` response.
