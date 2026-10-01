@@ -22,3 +22,11 @@ The guard now hashes both values to fixed-length SHA-256 buffers and compares th
 
 ## Acceptance
 Require exact-head Admin Regression before merge.
+
+
+## Follow-up: uncertain mutation timeout guidance
+A second audit pass found a contradictory operator message in `server/admin-proxy.js`: mutation timeouts were correctly marked `mutation_outcome_uncertain=true` / `mutation_may_have_committed=true`, but the human-readable error still said `Please retry once`.
+
+This is unsafe for non-idempotent legacy Booking creates because Apps Script currently serializes them with a document lock but does not enforce `request_id` uniqueness as the booking transaction key.
+
+The proxy now tells operators not to retry a mutation until readback confirms whether it committed. Regression coverage asserts both the fail-closed instruction and absence of the old retry instruction.
