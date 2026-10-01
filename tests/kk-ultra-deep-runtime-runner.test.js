@@ -134,3 +134,16 @@ test('known-miss plan prioritizes evidence-grounded search queries before generi
  assert.ok(tle.query_variants.includes('A TOUCH OF LOVE WITH TLE-FIRSTONE Bangkok Thailand'));
  assert.ok(fort.query_variants.includes('FORTREASURE BEYOND THE HORIZON CONCERT Bangkok Thailand'));
 });
+
+test('reference sweep execution proof fails closed when all search providers error',async()=>{
+ const fail=async()=>{const e=new Error('blocked');e.code='UPSTREAM_BLOCKED';throw e;};
+ const classifications=KnownMiss.CORPUS.map(c=>({case_id:c.case_id,executed:true,status:'SOURCE_UNAVAILABLE'}));
+ const out=await Runner.runMonthlyUltraDeep(
+   {month:'2026-10',location:'Bangkok Thailand',known_miss_classifications:classifications},
+   {providers:{SEARXNG:fail},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+ );
+ assert.equal(out.full,false);
+ assert.equal(out.reference_sweep_proof.complete,false);
+ assert.ok(out.blockers.includes('REFERENCE_SWEEP_INCOMPLETE'));
+ assert.equal(out.production_writes,0);
+});
