@@ -466,3 +466,62 @@ footer{border-top-color:#dce7f4!important}
  .concert-card{border-radius:16px!important}
  .kk-booking-journey{padding-inline:13px}
 }
+
+
+/* V5.8 Editorial Optics — trend-informed proprietary KK system.
+   Intentional restraint over generic gradients/cute chrome; event posters remain the hero. */
+:root{
+ --v5-ink:#182238;--v5-muted:#68748a;--v5-line:#dfe4ea;--v5-paper:#fff;
+ --v5-canvas:#f4f6f8;--v5-blue:#315fbd;--v5-blue2:#315fbd;--v5-soft:#edf2fa;
+ --kk-signal:#315fbd;--kk-ice:#dce8f7;--kk-paper:#f4f6f8;--kk-graphite:#182238;
+}
+html,body{background:var(--kk-paper)}
+.v3-header{border-bottom:1px solid #dfe4ea}
+.v3-brand-mark{border:1px solid #26344d;border-radius:50%;background:transparent;box-shadow:none;color:#26344d;font-size:12px}
+.kk-spark-mark{display:none!important}
+.v3-header .mini-btn,.language-switch{border-color:#dfe4ea!important;border-radius:999px!important;background:transparent!important}
+.lang-btn.active{background:#26344d!important}
+.kk-stage{margin-top:0;padding-inline:0!important;border:0;border-radius:0;background:transparent;box-shadow:none}
+.kk-stage:before{right:1%!important;top:42px!important;width:240px!important;height:240px!important;border:1px solid rgba(49,95,189,.10);background:transparent!important}
+.kk-stage:after{right:0!important;bottom:18px!important;color:#8290a5!important;opacity:.8!important}
+.kk-stage-index{border-bottom:1px solid #dfe4ea;padding-bottom:10px;color:#7d899b!important}
+.v3-eyebrow{color:var(--kk-signal)!important}
+.v3-hero h1{max-width:840px;color:var(--kk-graphite);font-weight:600;letter-spacing:-.06em}
+.v3-hero h1 em{color:#75849d;font-weight:400}
+.v3-hero-copy>p{color:#647187}
+.v3-primary{border:1px solid #26344d;border-radius:999px;background:#26344d;box-shadow:none}
+.v3-primary:after{background:#fff!important;color:#26344d!important}
+.kk-optics-signature{gap:0;border-top:1px solid #dfe4ea;border-bottom:1px solid #dfe4ea}
+.kk-optics-signature span{min-height:31px;padding:0 12px;border:0;border-right:1px solid #dfe4ea;border-radius:0;background:transparent;color:#65758e;font-size:7.5px;letter-spacing:.12em}
+.kk-optics-signature span:first-child{padding-left:0}.kk-optics-signature span:last-child{border-right:0}
+.v3-proof{border-top:1px solid #dfe4ea}.v3-proof>div{border-bottom:1px solid #dfe4ea}.kk-proof-label{color:#73829a!important}
+.browse-controls-shell{border:1px solid #dfe4ea!important;border-radius:999px!important;background:rgba(244,246,248,.94)!important;box-shadow:none!important;backdrop-filter:blur(12px)}
+.event-search-wrap{background:#fff!important;border-radius:999px!important}.filter-btn,.month-select{border-radius:999px!important}.filter-btn.active{background:#26344d!important}
+.v3-events-heading span,.pi-date{color:var(--kk-signal)!important}
+.v3-events-heading h2{color:#1e2a40}.v3-events-heading h2 em{font-style:normal;color:#73839e}
+.kk-catalogue-rule{border-color:#dfe4ea!important;color:#77859a!important}
+.poster-grid{gap:14px!important}
+.concert-card{border-color:#dfe4ea!important;border-radius:0!important;box-shadow:none!important;background:transparent!important}
+.concert-card:hover{border-color:#aab6c6!important;box-shadow:none!important;transform:translateY(-2px)!important}
+.poster-img-wrap{background:#e8ecf1!important}
+.poster-img-wrap:after{height:16%;background:linear-gradient(180deg,transparent,rgba(24,34,56,.08))}
+.concert-card:after{top:8px!important;right:8px!important;border:1px solid rgba(255,255,255,.45)!important;border-radius:0!important;background:rgba(24,34,56,.66)!important;backdrop-filter:blur(5px)}
+.poster-info{padding:12px 0 13px!important;background:transparent}
+.pi-date{letter-spacing:.11em!important}.pi-name{color:#202c42!important;font-size:13px!important}.pi-price{color:#202c42!important}
+.pi-tap{color:#315fbd!important;border-top-color:#dfe4ea!important}
+.status-badge{border-radius:0!important;box-shadow:none!important}
+.kk-booking-journey{padding:24px 0;margin-top:58px;border-radius:0;border-color:#dfe4ea;background:transparent}
+.kk-journey-kicker,.kk-journey-steps b{color:#315fbd}.kk-journey-steps>div{border-color:#dfe4ea}.kk-journey-steps strong{color:#202c42}
+.modal{border-radius:4px!important;box-shadow:0 24px 64px rgba(24,34,56,.16)!important}
+footer{border-color:#dfe4ea!important}
+@media(max-width:600px){
+ .kk-stage{margin-top:0;padding:25px 0 22px!important}
+ .kk-stage:before{right:-56px!important;top:18px!important;width:165px!important;height:165px!important}
+ .v3-hero h1{font-size:clamp(2.25rem,10.1vw,3rem);max-width:11ch}
+ .kk-optics-signature{display:none!important}
+ .browse-controls-shell{margin-top:17px;border:0!important;border-radius:0!important;background:transparent!important;backdrop-filter:none}
+ .event-search-wrap{border:1px solid #dfe4ea!important}
+ .concert-card{border-width:0 0 1px!important;border-radius:0!important}
+ .poster-info{padding-inline:1px!important}
+ .kk-booking-journey{padding-inline:0}
+}
