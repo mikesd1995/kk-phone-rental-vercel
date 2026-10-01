@@ -437,6 +437,29 @@ function bindLanguageSwitch(){
   });
 }
 
+
+function preferredTheme(){
+  try{var saved=localStorage.getItem("kk_public_theme");if(saved==="dark"||saved==="light")return saved;}catch(e){}
+  return window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
+}
+function applyTheme(theme,options){
+  options=options||{};
+  var next=theme==="dark"?"dark":"light";
+  document.documentElement.setAttribute("data-theme",next);
+  var btn=document.getElementById("theme-toggle");
+  if(btn){btn.setAttribute("aria-pressed",next==="dark"?"true":"false");btn.setAttribute("aria-label",next==="dark"?"ใช้ธีมสว่าง":"ใช้ธีมมืด");}
+  var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute("content",next==="dark"?"#071426":"#f4f6f8");
+  if(options.save!==false){try{localStorage.setItem("kk_public_theme",next);}catch(e){}}
+}
+function bindThemeToggle(){
+  applyTheme(preferredTheme(),{save:false});
+  var btn=document.getElementById("theme-toggle");if(!btn)return;
+  btn.addEventListener("click",function(){
+    var next=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";
+    applyTheme(next);track("theme_change",{theme:next});
+  });
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────
 function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function toNum(v){ var n=Number(String(v||"").replace(/[^0-9.\-]/g,"")); return isNaN(n)?0:n; }
@@ -1619,6 +1642,7 @@ window.addEventListener("error",function(e){track("client_error",{surface:"store
 window.addEventListener("unhandledrejection",function(e){track("client_error",{surface:"storefront",message:String(e&&e.reason&&e.reason.message||e&&e.reason||"promise").slice(0,120)});});
 
 document.addEventListener("DOMContentLoaded",function(){
+  bindThemeToggle();
   bindLanguageSwitch();
   applyStaticLanguage();
   applyConfig(); setUpdateDate(); renderLoadingSkeleton(4);
