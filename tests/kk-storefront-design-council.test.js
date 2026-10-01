@@ -25,3 +25,9 @@ test('design council acceptance fails closed on missing dimensions, P1 findings 
   const pass=Council.acceptCouncil({reviews:dimensions.map(d=>({dimension:d,findings:[]})),owner_decision:'ACCEPTED'});
   assert.equal(pass.status,'PASS');
 });
+
+test('storefront source never contains an escaped newline between FAQ event bindings',()=>{
+  const fs=require('node:fs');
+  const source=fs.readFileSync(require('node:path').resolve(__dirname,'../script.js'),'utf8');
+  assert.doesNotMatch(source,/openFaq\);\\\\n\s*document\.querySelectorAll\("\[data-open-faq\]"\)/);
+});
