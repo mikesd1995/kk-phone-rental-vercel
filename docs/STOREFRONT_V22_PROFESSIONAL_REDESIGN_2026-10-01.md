@@ -30,3 +30,5 @@ Second QA pass proved 320–480px at readiness 100, but legacy tablet/desktop la
 Third QA pass isolated selector specificity from legacy language-control CSS as the remaining 768/1024 tap-height override. Added an ID-scoped V2.2 override rather than weakening the acceptance threshold.
 
 Fourth correction addresses rendered box geometry rather than CSS minimum declarations: language buttons are explicit flex border-box controls at 46px so measured tap rectangles remain >=44px after inherited/legacy box rules.
+
+Root cause confirmed in legacy `style.css`: breakpoint rules set `.language-switch .lang-btn` to 40px at >=769px and related mobile rules. Final correction uses an explicit V2 stylesheet direct-child block-size override, preserving the 44px acceptance floor without changing the gate.
