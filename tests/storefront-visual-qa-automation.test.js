@@ -110,7 +110,7 @@ test('local zero-cost mode renders exact checkout without a protected Preview',(
 test('local zero-cost mode uses only read-only canonical public CSV fixtures',()=>{
   assert.match(runner,/08_Web_Ready/);
   assert.match(runner,/09_Web_Packages/);
-  assert.match(runner,/page\.route\('\*\*\/api\/kk-data\*\*'/);
+  assert.match(runner,/page\.route\(url=>url\.pathname==='\/api\/kk-data'/);
   assert.match(runner,/contentType:'text\/csv; charset=utf-8'/);
   assert.match(runner,/paid_external_service_calls:0/);
   assert.match(runner,/zero_cost_path:mode==='local_zero_cost'/);
