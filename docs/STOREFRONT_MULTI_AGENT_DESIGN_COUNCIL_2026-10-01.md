@@ -33,3 +33,22 @@ Pricing, inventory, booking, event truth and Machine SOT remain outside council 
 - Updated registry-version contract tests from V23 to V24 after Design Council registration.
 - Updated the visual-QA fixture-routing contract test to the new URL-predicate route.
 - Latest pre-recovery Visual QA proved the catalogue/interaction readiness issue is resolved across the run; remaining visual workflow blockers were the intentionally active owner rejection and final visual-critic acceptance.
+
+
+## V5.5 council synthesis and implementation
+Exact-head engineering baseline before redesign:
+- Admin Regression: PASS (run 36864211124).
+- Automated Visual QA: technical_visual_pass=true and interaction_pass=true at all seven target widths.
+- Remaining pre-redesign blockers: FINAL_VISUAL_CRITIC_NOT_PASSING and OWNER_VISUAL_REJECTION_ACTIVE only.
+
+Council synthesis used one implementation writer and preserved business truth. The presentation patch:
+- adds a KK-specific concert editorial stage/index language instead of generic SaaS chrome;
+- makes the hero product story explicitly read as concert optics / X300 night capture;
+- strengthens the hero-to-catalogue transition with a numbered editorial event index;
+- increases poster hierarchy on desktop through a 12-column asymmetric editorial grid while retaining mobile poster-first browsing;
+- exposes service trust as a restrained READY FOR THE NIGHT proof rail;
+- strengthens event decision hierarchy around poster, availability, price and package action;
+- retains all booking, pricing, inventory and event data semantics unchanged;
+- retains reduced-motion, keyboard/focus and touch-target contracts.
+
+Owner rejection remains active by design until new screenshot evidence is reviewed. No production deployment or merge was performed.
