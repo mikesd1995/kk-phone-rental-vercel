@@ -41,3 +41,12 @@ Reviewed the exact-head Visual QA screenshots at 320x568, 375x812, 390x844, 430x
 - Found browse friction in long mobile catalogues: the search/filter shell had been demoted to non-sticky despite staying inside the reviewer sticky-height budget. Restored compact safe-area-aware sticky behavior on <=600px.
 - Extended the read-only QA to exercise the visible FAQ entry on mobile as well as desktop.
 - Existing evidence also confirms no tap targets below policy budget, 16px minimum form controls, one-row mobile filters, no root horizontal overflow, and successful search/filter/modal/language interactions.
+
+
+## Catalogue readiness race remediation
+Exact-head run `36861234823` exposed a deterministic acceptance race at 320px: interaction QA started while `#content` still contained skeleton cards, producing false search/filter/FAQ failures and a pointer interception timeout on the skeleton grid.
+- Added an explicit 15s readiness gate requiring the skeleton grid to detach and a real `.concert-card:not(.skeleton-card)` to become visible.
+- Interaction selectors now target only real event cards.
+- Added dedicated fail-closed code `STOREFRONT_DATA_NOT_READY` with bounded readiness diagnostics.
+- Added regression assertions locking this readiness contract.
+- No production/business write path was changed.
