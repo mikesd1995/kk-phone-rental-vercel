@@ -9,7 +9,7 @@
     "v5_css": "4a4ca64305e05ee1048a80b70e02f36f36a45b82",
     "script_js": "ec6ae8de2a1133f6f9659ff60bd09a9cdb43fe70"
   },
-  "screenshot_artifact_id": "11153628618",
+  "screenshot_artifact_id": "11154949860",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -30,6 +30,11 @@
       "artifact_id": "11153628618",
       "status": "BASELINE_PASS_OWNER_PENDING",
       "finding": "V5.3 exact-head clears P0/P1 at all seven target widths. Side-by-side evidence against the accepted V3 artifact shows stronger poster hierarchy, less competing chrome, clearer event discovery, and more coherent brand-to-catalogue continuity. Owner rejection remains active until explicit re-acceptance."
+    },
+    {
+      "artifact_id": "11154949860",
+      "status": "TECHNICAL_PASS_OWNER_PENDING",
+      "finding": "V5.4 final optical pass removes 320px filter clipping without violating the iOS >=16px form-control contract. P0/P1 are zero at all seven target widths; baseline remains PASS; owner rejection remains the only acceptance blocker."
     }
   ],
   "reviewed_viewports": [
@@ -51,5 +56,5 @@
   "production_writes": 0,
   "rejection_reason": "Owner rejected V5 quality bar after re-evaluation: technically cleaner but still generic/SaaS-like and below the requested world-class premium concert storefront standard.",
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "e2c85a87266be865178e7323d1665203cb53b495"
+  "reviewed_design_head": "d9a2ab34905f3c29df267abe8101c08a8b2cf288"
 }
