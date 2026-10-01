@@ -36,3 +36,12 @@ GitHub Issue #9 still requires owner-authenticated readback of the bound Apps Sc
 Therefore source readiness and runtime activation are deliberately separated:
 - SOURCE_GATE: pending exact-head CI for this candidate.
 - RUNTIME_GATE: BLOCKED_SAFE / OWNER_GOOGLE_AUTH_REQUIRED until Project Settings + Triggers are read back.
+
+
+## Follow-up audit: make physical asset selection window-aware
+
+Post-preview source review found that the first 9_5_12 candidate still called the legacy date-wide `kkValidateManualAsset_` / `kkFindAvailableAsset_` before its new overlapping-window capacity gate. That could reject legitimate same-day non-overlapping reuse, or auto-select an asset that conflicts in the requested window and fail later instead of selecting another free asset.
+
+The candidate now uses reservation-window-aware validation and auto-allocation for API create/update. Asset eligibility still requires the correct type/model and rentable status, but collision exclusion is based on strict reservation-window overlap and self-excludes the update row. The legacy date-wide helpers remain untouched for legacy callers.
+
+This is candidate-only hardening. Production Apps Script writes/deployments remain zero. Exact-head CI and a new exact-head Preview are required again because the prior READY preview predates this correction.
