@@ -46,3 +46,8 @@ This does not retry a mutation and does not add business writes. It narrows the 
 Vercel runtime-error aggregation still showed DEP0169 on `/api/line-poster`. Unlike previously repaired routes, `api/line-poster.js` still accessed `req.query` directly. Prior production tracing already proved that Vercel's `req.query` getter reaches the platform's deprecated `url.parse()` path.
 
 The LINE poster route now parses `event_id` from `req.url` using the WHATWG `URL` API and has a regression guard prohibiting `req.query` in that route. Poster lookup, validation, cache headers, response bytes and business data are unchanged.
+
+
+## Exact-head preview retrigger checkpoint
+
+After exact-head Admin Regression passed, the original GitHub/Vercel status for this branch remained a historical build-rate-limit result while newer unrelated branches were again receiving READY previews. This documentation-only checkpoint intentionally retriggers branch preview evaluation without changing runtime code, business logic, Apps Script, environment configuration, or production data. A READY preview for this new exact head is still required before merge.
