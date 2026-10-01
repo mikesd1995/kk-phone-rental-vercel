@@ -1991,6 +1991,7 @@
     const current=sel.value;
     sel.innerHTML=renderEditBookingOptions(rows);
     if(current && rows.some(b=>String(b.row_number)===String(current))) sel.value=current;
+    else sel.value="";
     const b=rows.find(x=>String(x.row_number)===String(sel.value));
     const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
     if(!b){
@@ -3584,7 +3585,7 @@
           activateTab("edit-booking",{scroll:false,writeHash:true});
           const closed=["cancelled","no_show","completed"].includes(String(payload.booking_status||"").toLowerCase());
           showNotice(closed
-            ? `อัปเดต Booking สำเร็จ: ${payload.booking_status} · อยู่หน้าแก้ Booking ต่อและคิวถูกคำนวณใหม่แล้ว`
+            ? `อัปเดต Booking สำเร็จ: ${payload.booking_status} · นำออกจากรายการแก้ Booking แล้ว`
             : `แก้ Booking สำเร็จ: row ${res.row_number}`);
         }catch(e){ showNotice(e.message,"bad"); }finally{ setBusy(btn,false); }
       });
