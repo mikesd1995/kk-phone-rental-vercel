@@ -49,7 +49,7 @@ footer{margin-top:52px;border-top:1px solid var(--v5-line);padding:30px 0 44px}
 .concert-card .pi-tap,.concert-card .pi-tap.full{display:block!important;width:auto!important;min-height:0!important;margin:3px 0 0!important;padding:9px 0 0!important;border:0!important;border-top:1px solid var(--v5-line)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:var(--v5-blue)!important;font-size:10px!important;line-height:1.3!important;text-align:left!important}
 .concert-card .pi-tap:after{content:"  →"!important}
 @media(max-width:700px){.status-badge{display:none!important}.pi-venue{color:#778195!important}.pi-price{margin-top:1px}.pi-avail{font-weight:600}}
-@media(max-width:360px){.status-filter-bar .filter-btn[data-filter="full"]{display:none!important}.concert-card .pi-tap,.concert-card .pi-tap.full{font-size:9px!important;padding-top:7px!important}}
+@media(max-width:360px){.concert-card .pi-tap,.concert-card .pi-tap.full{font-size:9px!important;padding-top:7px!important}}
 
 /* V5 professional polish — exact-head screenshot review 2026-10-01.
    Keep one mobile visual language, reduce control chrome, tighten vertical rhythm. */
@@ -129,3 +129,5 @@ footer{margin-top:52px;border-top:1px solid var(--v5-line);padding:30px 0 44px}
   .pi-name{font-size:13px!important;line-height:1.28!important}
   .pi-price{font-size:13px!important}
 }
+
+@media(max-width:360px){.status-filter-bar .filter-btn[data-filter="full"]{display:inline-flex!important;align-items:center!important}.status-filter-bar{overflow-x:auto!important;scrollbar-width:none!important}.status-filter-bar::-webkit-scrollbar{display:none!important}}
