@@ -144,3 +144,12 @@ Implementation:
 - updated Art Director to V4 so future trend ideas require brand-fit critique before implementation.
 
 Safety: presentation/agent-governance only. Pricing, availability, booking, inventory, package and event truth remain unchanged. Owner visual acceptance remains required.
+
+
+## V5.8.1 manual screenshot review
+Exact-head V5.8 artifact 11177081334 was manually inspected rather than inferred from geometry metrics. Concrete findings:
+- P1 tablet defect at 768x1024: trust/proof rail escaped the dark hero and rendered low-contrast text over the light page.
+- 320x568: pre-event composition was technically passing but too dense; supporting hero copy and event-heading support copy delayed poster emphasis.
+- desktop/tablet catalogue transition carried excess dead space.
+
+Remediation adds a dedicated 601–900px proof composition with explicit readable contrast, compresses short-phone chrome/content while preserving 44px interaction contracts, and tightens the catalogue transition. Regression coverage was added. Business truth remains untouched.
