@@ -689,3 +689,32 @@ html[data-theme="dark"] footer,html[data-theme="dark"] footer .trust-note{color:
  .month-select-wrap,.month-select{width:92px!important}
  .filter-btn{font-size:9px!important}
 }
+
+/* V5.9.1 owner-rejection redesign: mobile commerce first, production evidence 2026-10-02 */
+@media(max-width:600px){
+ .v3-header{height:58px!important;padding-block:6px!important}
+ .v3-brand-mark{display:none!important}
+ .v3-brand-copy strong{font-size:15px!important}
+ .header-faq-btn{min-width:44px!important;min-height:44px!important}
+ .theme-toggle{min-width:46px!important;min-height:44px!important}
+ .language-switch{min-height:44px!important}
+ .lang-btn{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;padding:0!important}
+ .kk-stage{padding:14px 0 12px!important}
+ .v3-eyebrow,.kk-stage-index,.v3-hero-copy>p,.v3-proof{display:none!important}
+ .v3-hero h1{font-size:clamp(1.85rem,9vw,2.55rem)!important;line-height:.9!important;max-width:11ch!important;margin:0!important}
+ .v3-hero-actions{margin-top:12px!important}
+ .v3-primary{min-height:44px!important;min-width:160px!important;padding:0 16px!important}
+ .browse-controls-shell{margin:10px 0 10px!important}
+ .event-search-shell{margin-bottom:6px!important}
+ .event-search-wrap{min-height:46px!important}
+ .filter-clear-row{display:none!important}
+ .v3-events-heading{margin-top:10px!important;padding-top:10px!important}
+ .v3-events-heading .eyebrow{display:none!important}
+ .v3-events-heading h2{font-size:1.3rem!important;line-height:1!important;margin:0!important}
+ .v3-events-heading h2 br{display:none!important}
+ .v3-events-heading h2 em{display:inline!important}
+ .kk-catalogue-rule{margin:7px 0 6px!important;padding-bottom:5px!important}
+ .kk-catalogue-rule span{font-size:8px!important}
+ .update-note{margin:4px 0 8px!important;font-size:9px!important}
+ .poster-grid{margin-top:0!important}
+}
