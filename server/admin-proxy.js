@@ -464,21 +464,25 @@ module.exports = async function handler(req, res) {
       data.proxy_upstream_ms = upstreamElapsedMs;
       data.proxy_timeout_ms = actionTimeoutMs;
       if (!isReadOnlyAction(payload.action)) {
+        const confirmed = !!(data.ok && upstream.ok);
         data.write_transport = data.write_transport || 'legacy-apps-script';
         data.request_id = data.request_id || String(payload.request_id || '');
-        data.mutation_outcome = data.ok && upstream.ok ? 'confirmed-response' : 'rejected-response';
+        data.mutation_outcome = confirmed ? 'confirmed-response' : 'uncertain-response';
+        data.mutation_outcome_uncertain = !confirmed;
+        data.mutation_may_have_committed = !confirmed;
       }
     }
 
     if (!isReadOnlyAction(payload.action)) {
-      logMutation(data && data.ok && upstream.ok ? 'completed' : 'rejected', {
+      const confirmed = !!(data && data.ok && upstream.ok);
+      logMutation(confirmed ? 'completed' : 'uncertain', {
         action: String(payload.action || ''),
         request_id: String(payload.request_id || ''),
         transport: 'legacy-apps-script',
         duration_ms: upstreamElapsedMs,
         status: Number(upstream.status || 0),
         error_code: String(data && data.error_code || ''),
-        uncertain_outcome: false
+        uncertain_outcome: !confirmed
       });
     }
 
