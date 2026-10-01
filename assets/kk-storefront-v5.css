@@ -120,3 +120,32 @@ body{background:var(--kk-warm)}
 @media(min-width:901px){.v3-hero:after{right:18%;top:48%}.v3-events-heading{align-items:end}.v3-events-heading p{margin-bottom:6px}}
 @media(max-width:600px){.v3-hero:after{right:-4%;top:39%;font-size:8.5rem;-webkit-text-stroke-color:rgba(143,185,255,.075)}.browse-controls-shell{border-radius:14px!important}.v3-events-heading{padding-top:2px}}
 @media(max-width:350px){.v3-hero:after{font-size:6.8rem;top:38%}}
+
+/* V5.3 — KK event-card language: poster → event → commercial truth → action */
+.concert-card{position:relative!important;text-align:left!important}
+.poster-info{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;column-gap:12px!important;align-items:start!important}
+.pi-date,.pi-name,.pi-meta,.pi-avail,.pi-tap{grid-column:1/-1}
+.pi-meta{grid-template-columns:minmax(0,1fr) auto!important;align-items:end!important;column-gap:10px!important;padding-top:3px!important}
+.pi-venue{align-self:center!important}
+.pi-price{position:relative!important;padding-left:9px!important;font-size:13px!important;letter-spacing:-.025em!important;white-space:nowrap!important}
+.pi-price:before{content:"";position:absolute;left:0;top:18%;bottom:18%;width:2px;border-radius:2px;background:var(--kk-electric)}
+.pi-avail{display:flex!important;align-items:center!important;gap:6px!important;font-size:9.5px!important;letter-spacing:.01em!important}
+.pi-avail:before{content:"";flex:0 0 6px;width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 0 3px color-mix(in srgb,currentColor 12%,transparent)}
+.pi-tap{position:relative!important;overflow:hidden!important;justify-content:flex-end!important;transition:color .18s ease,border-color .18s ease!important}
+.pi-tap:before{content:"";position:absolute;left:0;bottom:-1px;width:28px;height:2px;border-radius:2px;background:var(--kk-electric);transition:width .22s ease}
+.concert-card:hover .pi-tap:before,.concert-card:focus-visible .pi-tap:before{width:100%}
+.concert-card:focus-visible{outline:2px solid var(--kk-electric)!important;outline-offset:5px!important}
+.concert-card:focus-visible .poster-img-wrap{box-shadow:0 0 0 4px rgba(23,105,255,.10),0 12px 28px rgba(7,20,38,.09)!important}
+.status-badge{letter-spacing:.025em!important;text-transform:none!important}
+@media(min-width:901px){
+ .poster-grid>.concert-card:nth-child(8n+1) .poster-info,.poster-grid>.concert-card:nth-child(8n+6) .poster-info{padding-top:17px!important}
+ .poster-grid>.concert-card:nth-child(8n+1) .pi-name,.poster-grid>.concert-card:nth-child(8n+6) .pi-name{max-width:28ch;font-size:19px!important;line-height:1.25!important}
+ .poster-grid>.concert-card:nth-child(8n+1) .pi-price,.poster-grid>.concert-card:nth-child(8n+6) .pi-price{font-size:15px!important}
+}
+@media(max-width:600px){
+ .poster-info{column-gap:7px!important}
+ .pi-meta{grid-template-columns:1fr!important;gap:4px!important}
+ .pi-price{padding-left:8px!important;font-size:11px!important}
+ .pi-avail{font-size:8.5px!important}
+ .pi-tap:before{width:20px}
+}
