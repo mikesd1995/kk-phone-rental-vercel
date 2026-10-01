@@ -1510,7 +1510,7 @@ function closeModal(e){
 }
 function showError(m){
   var el=document.getElementById("content"); if(!el)return;
-  el.innerHTML='<div class="empty-state error-state"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><div class="error-actions"><button class="empty-retry-btn" id="storefront-retry-btn" type="button">'+esc(tr("error_retry"))+'</button><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div></div>';
+  el.innerHTML='<div class="empty-state error-state" role="alert" aria-live="assertive"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><div class="error-actions"><button class="empty-retry-btn" id="storefront-retry-btn" type="button">'+esc(tr("error_retry"))+'</button><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div></div>';
 }
 async function refreshStorefrontData(reason){
   if(storefrontRefreshPromise) return storefrontRefreshPromise;
