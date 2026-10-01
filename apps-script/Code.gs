@@ -2259,9 +2259,40 @@ function kkAssertBookingAssetsNotDoubleBooked_(rowNumber, bookingRow, nextStatus
   if (lensId && booked.lens[lensId]) throw new Error('Cannot reactivate booking: lens is already booked on this event date: ' + lensId);
 }
 
+function kkFindBookingCreateRequest_(requestId) {
+  const wanted = String(requestId || '').trim();
+  if (!wanted || !kkSheetExists_(KK.adminAuditLog)) return null;
+  const rows = kkGetValues_(KK.adminAuditLog, 2, 1, 10);
+  for (let i = rows.length - 1; i >= Math.max(0, rows.length - 500); i--) {
+    const row = rows[i] || [];
+    if (String(row[2] || '').trim() !== 'createBooking') continue;
+    const summary = String(row[5] || '');
+    if (!summary || summary.indexOf(wanted) < 0) continue;
+    try {
+      const parsed = JSON.parse(summary);
+      if (String(parsed.request_id || '').trim() !== wanted) continue;
+      const bookingId = String(parsed.booking_id || row[7] || '').trim();
+      const rowNumber = Number(parsed.row_number || row[8] || 0);
+      if (!bookingId || !rowNumber) continue;
+      return { request_id: wanted, booking_id: bookingId, row_number: rowNumber };
+    } catch (err) {}
+  }
+  return null;
+}
+
+function kkBookingCreateAuditResult_(result, requestId) {
+  return Object.assign({}, result || {}, { request_id: String(requestId || '').trim() });
+}
+
 function kkApiCreateBooking_(payload) {
   const lock = kkAcquireDocumentLock_('write operation', 12000);
   try {
+    const requestId = String(payload.request_id || '').trim();
+    if (requestId) {
+      if (!/^[A-Za-z0-9._:-]{8,128}$/.test(requestId)) throw new Error('Invalid request_id');
+      const prior = kkFindBookingCreateRequest_(requestId);
+      if (prior) return Object.assign({}, prior, { idempotent_replay: true });
+    }
     const eventId = String(payload.event_id || '').trim();
     let templateId = String(payload.template_id || '').trim();
     const customerName = String(payload.customer_name || '').trim();
@@ -2301,7 +2332,13 @@ function kkApiCreateBooking_(payload) {
       new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
       pkgType, phoneAssetId, lensAssetId, pickupTime, '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ]]);
-    return { row_number: row, phone_asset_id: phoneAssetId, lens_asset_id: lensAssetId };
+    SpreadsheetApp.flush();
+    const persisted = kkSheet_(KK.bookings).getRange(row, 1, 1, 20).getValues()[0];
+    const bookingId = String(persisted[0] || '').trim();
+    if (!bookingId) throw new Error('BOOKING_CANONICAL_READBACK_MISSING: generated booking_id was not available after write');
+    const result = { row_number: row, booking_id: bookingId, phone_asset_id: phoneAssetId, lens_asset_id: lensAssetId };
+    if (requestId) kkAuditLog_('createBooking', payload, kkBookingCreateAuditResult_(result, requestId), Date.now());
+    return result;
   } finally {
     lock.releaseLock();
   }
