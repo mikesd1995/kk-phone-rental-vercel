@@ -23,8 +23,8 @@ jobs:
           set -euo pipefail
           google-chrome --version
           mkdir -p production-capture
-          google-chrome --headless --no-sandbox --disable-gpu --hide-scrollbars --window-size=390,844 --screenshot=production-capture/production-390x844.png https://kk-phone-rental.vercel.app/
-          google-chrome --headless --no-sandbox --disable-gpu --hide-scrollbars --window-size=430,932 --screenshot=production-capture/production-430x932.png https://kk-phone-rental.vercel.app/
+          google-chrome --headless --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=8000 --window-size=390,844 --screenshot=production-capture/production-390x844.png https://kk-phone-rental.vercel.app/
+          google-chrome --headless --no-sandbox --disable-gpu --hide-scrollbars --virtual-time-budget=8000 --window-size=430,932 --screenshot=production-capture/production-430x932.png https://kk-phone-rental.vercel.app/
       - uses: actions/upload-artifact@v4
         with:
           name: storefront-production-v59-${{ github.run_id }}
