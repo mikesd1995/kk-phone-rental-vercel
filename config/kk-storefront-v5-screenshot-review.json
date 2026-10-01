@@ -2,14 +2,14 @@
   "schema_version": "KK_STOREFRONT_V5_SCREENSHOT_REVIEW_V1",
   "status": "REVISE",
   "owner_decision": "REJECTED",
-  "baseline_comparison_pass": false,
+  "baseline_comparison_pass": true,
   "baseline": "production-v3",
   "reviewed_design_blobs": {
     "index_html": "60008b0a7f396489650426772cb6417b6254f058",
     "v5_css": "4a4ca64305e05ee1048a80b70e02f36f36a45b82",
     "script_js": "ec6ae8de2a1133f6f9659ff60bd09a9cdb43fe70"
   },
-  "screenshot_artifact_id": "11151078668",
+  "screenshot_artifact_id": "11153628618",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -25,6 +25,11 @@
       "artifact_id": "11151078668",
       "status": "REJECTED",
       "finding": "Owner quality-bar review: art direction, brand signature, editorial hierarchy and premium perception are insufficient. Do not merge or deploy."
+    },
+    {
+      "artifact_id": "11153628618",
+      "status": "BASELINE_PASS_OWNER_PENDING",
+      "finding": "V5.3 exact-head clears P0/P1 at all seven target widths. Side-by-side evidence against the accepted V3 artifact shows stronger poster hierarchy, less competing chrome, clearer event discovery, and more coherent brand-to-catalogue continuity. Owner rejection remains active until explicit re-acceptance."
     }
   ],
   "reviewed_viewports": [
@@ -37,11 +42,14 @@
     1024
   ],
   "baseline_findings": [
-    "V5 preserves KK blue and poster-led concert identity.",
-    "V5 removes V3 persistent LINE obstruction and reduces competing pre-event chrome.",
-    "V5 retains richer poster prominence than rejected V4 directory treatment.",
-    "V5 uses one versioned storefront visual layer instead of stacked V3/theme overrides."
+    "V5.3 keeps event posters as the dominant commerce surface while V3 spends more attention on competing chrome.",
+    "V5.3 reduces persistent and pre-event UI competition while retaining search, status filtering, trust context and booking discoverability.",
+    "V5.3 introduces a coherent hero-to-card language: KK blue, X300 product cue, editorial hierarchy, commercial price marker and semantic availability treatment.",
+    "V5.3 preserves or improves narrow-mobile event discovery and touch geometry; exact-head P0/P1 are zero at 320/375/390/430/480/768/1024.",
+    "V3 remains the production fallback and is not modified by this review."
   ],
   "production_writes": 0,
-  "rejection_reason": "Owner rejected V5 quality bar after re-evaluation: technically cleaner but still generic/SaaS-like and below the requested world-class premium concert storefront standard."
+  "rejection_reason": "Owner rejected V5 quality bar after re-evaluation: technically cleaner but still generic/SaaS-like and below the requested world-class premium concert storefront standard.",
+  "baseline_artifact_id": "11145158829",
+  "reviewed_design_head": "e2c85a87266be865178e7323d1665203cb53b495"
 }
