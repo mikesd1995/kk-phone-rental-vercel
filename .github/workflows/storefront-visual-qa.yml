@@ -5,13 +5,16 @@ on:
     paths:
       - 'index.html'
       - 'style.css'
+      - 'assets/kk-storefront-v2.css'
       - 'script.js'
       - 'config.js'
       - 'server/kk-storefront-ux-reviewer.js'
+      - 'server/kk-storefront-art-director.js'
       - 'config/kk-storefront-ux-policy.json'
       - 'scripts/storefront-visual-acceptance.mjs'
       - '.github/workflows/storefront-visual-qa.yml'
       - 'tests/storefront-visual-qa-automation.test.js'
+      - 'tests/kk-storefront-art-director.test.js'
   workflow_dispatch:
     inputs:
       confirm:

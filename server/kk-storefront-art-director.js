@@ -1,0 +1,78 @@
+'use strict';
+
+const VERSION='KK_STOREFRONT_ART_DIRECTOR_V1';
+
+const DESIGN_SYSTEM=Object.freeze({
+  direction:'premium-editorial-concert-commerce',
+  principles:[
+    'Poster and event identity lead; chrome recedes.',
+    'One dominant action per decision layer.',
+    'Use restrained depth, not decorative noise.',
+    'Mobile is the primary composition, not a compressed desktop.',
+    'Typography and spacing create hierarchy before color or effects.',
+    'Preserve business truth and existing booking behavior.'
+  ],
+  tokens:{
+    radius:{sm:12,md:18,lg:24,xl:32},
+    space:[4,8,12,16,20,24,32,40,48,64],
+    tap_target_min_px:44,
+    ios_input_font_min_px:16,
+    content_max_width_px:1180,
+    card_poster_ratio:'4/5'
+  }
+});
+
+function clean(v){return String(v==null?'':v).trim();}
+function buildDirection(input={}){
+  const references=(Array.isArray(input.references)?input.references:[]).map(clean).filter(Boolean);
+  const goals=(Array.isArray(input.goals)?input.goals:[
+    'premium visual hierarchy','fast event discovery','high-confidence LINE conversion','mobile-first polish'
+  ]).map(clean).filter(Boolean);
+  return {
+    schema_version:VERSION,
+    status:'READY_FOR_IMPLEMENTATION',
+    design_system:DESIGN_SYSTEM,
+    goals,
+    references,
+    composition:{
+      header:'quiet branded masthead with premium breathing room',
+      discovery:'single compact search/filter command surface',
+      event_grid:'poster-first editorial grid with consistent card rhythm',
+      event_card:'poster -> date/status -> event title -> availability action',
+      detail:'bottom-sheet/modal with package decision hierarchy and one primary CTA',
+      footer:'low-noise trust and support layer'
+    },
+    anti_patterns:[
+      'stacked utility boxes competing above the event grid',
+      'emoji as primary visual system',
+      'multiple equally loud CTAs',
+      'heavy gradients/glows without hierarchy purpose',
+      'tiny mobile controls or dense two-column text',
+      'visual changes that alter price, inventory, event visibility or booking semantics'
+    ],
+    acceptance:{
+      mobile_first:true,
+      required_widths:[320,375,390,430,480,768,1024],
+      no_horizontal_overflow:true,
+      min_tap_target_px:44,
+      min_ios_input_font_px:16,
+      reduced_motion:true,
+      business_truth_unchanged:true,
+      independent_visual_qa_required:true
+    },
+    authority:{
+      production_writes:0,pricing_mutation:false,booking_mutation:false,
+      inventory_mutation:false,machine_sot_mutation:false,auto_merge:false,auto_deploy:false
+    }
+  };
+}
+function evaluateImplementation(input={}){
+  const evidence=input.evidence||{};
+  const blockers=[];
+  if(!evidence.multi_viewport) blockers.push('MULTI_VIEWPORT_EVIDENCE_MISSING');
+  if(!evidence.no_horizontal_overflow) blockers.push('HORIZONTAL_OVERFLOW_NOT_PROVEN');
+  if(!evidence.business_truth_unchanged) blockers.push('BUSINESS_TRUTH_PRESERVATION_NOT_PROVEN');
+  if(!evidence.visual_qa_pass) blockers.push('INDEPENDENT_VISUAL_QA_NOT_PASSING');
+  return {schema_version:VERSION,status:blockers.length?'BLOCKED':'PASS',blockers,production_writes:0};
+}
+module.exports={VERSION,DESIGN_SYSTEM,buildDirection,evaluateImplementation};

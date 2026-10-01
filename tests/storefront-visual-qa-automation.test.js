@@ -134,3 +134,27 @@ test('sticky screenshot scrolls from the sticky shell itself',()=>{
   assert.match(runner,/window\.scrollY\+rect\.top\+Math\.max\(80,rect\.height\)/);
   assert.doesNotMatch(runner,/document\.querySelector\('#event-browser'\)/);
 });
+
+
+test('visual QA harness enforces Storefront Art Director acceptance',()=>{
+  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  assert.match(source,/kk-storefront-art-director/);
+  assert.match(source,/ArtDirector\.evaluateImplementation/);
+  assert.match(source,/art_director_acceptance/);
+  assert.match(source,/summary\.pass=summary\.pass && artAcceptance\.status==='PASS'/);
+});
+
+test('visual QA workflow triggers for V2 design and Art Director changes',()=>{
+  const workflow=fs.readFileSync('.github/workflows/storefront-visual-qa.yml','utf8');
+  assert.match(workflow,/assets\/kk-storefront-v2\.css/);
+  assert.match(workflow,/server\/kk-storefront-art-director\.js/);
+  assert.match(workflow,/tests\/kk-storefront-art-director\.test\.js/);
+});
+
+
+test('visual QA requires visible imagery to be ready before screenshot evidence',()=>{
+  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  assert.match(source,/VISIBLE_IMAGE_NOT_READY/);
+  assert.match(source,/naturalWidth/);
+  assert.match(source,/\.decode\(\)/);
+});

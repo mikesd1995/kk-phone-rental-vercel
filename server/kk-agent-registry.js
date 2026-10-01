@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V22';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V23';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -102,6 +102,14 @@ const AGENTS = Object.freeze({
     production_writes: 0,
     note: 'Locks supplied references, plans image/motion production, and fails closed on identity/reference QA. Cannot publish or mutate business data.'
   }),
+  'kk-storefront-art-director': Object.freeze({
+    version: 'KK_STOREFRONT_ART_DIRECTOR_V1',
+    authority: 'READ_ONLY_ART_DIRECTION',
+    runtime_state: 'CALLABLE_DIRECTION_AND_ACCEPTANCE',
+    surface: 'AGENT_GATEWAY',
+    production_writes: 0,
+    note: 'Pre-implementation visual authority for Storefront V2. Produces deterministic design direction and fails closed on acceptance without independent multi-viewport visual QA. Cannot mutate business truth, merge, deploy or publish.'
+  }),
   'kk-storefront-ux-reviewer': Object.freeze({
     version: 'KK_STOREFRONT_UX_REVIEWER_V1', authority: 'READ_ONLY_DESIGN_ADVISOR', runtime_state: 'CALLABLE_REVIEW_AND_VISUAL_QA', surface: 'AGENT_GATEWAY', production_writes: 0,
     note: 'Mandatory read-only Product/UX/UI review gate for storefront and Admin/product-flow interface work. Reviews supplied viewport/layout metrics and screenshot observations. P0/P1 findings block affected-surface acceptance. Cannot mutate business truth, merge, deploy, or publish.'
@@ -152,6 +160,8 @@ const ROUTES = Object.freeze({
     owner_review_required: true,
     persistent_invocation_evidence_required: true
   }),
+  storefront_art_direction: Object.freeze({ route_id:'STOREFRONT_ART_DIRECTION', request_type:'STOREFRONT_ART_DIRECTION', required_agents:Object.freeze(['kk-storefront-art-director']), downstream_agents:Object.freeze(['kk-storefront-ux-reviewer']), runtime_available:true, owner_review_required:true, persistent_invocation_evidence_required:true }),
+  storefront_art_acceptance: Object.freeze({ route_id:'STOREFRONT_ART_ACCEPTANCE', request_type:'STOREFRONT_ART_ACCEPTANCE', required_agents:Object.freeze(['kk-storefront-art-director']), downstream_agents:Object.freeze(['kk-storefront-ux-reviewer']), runtime_available:true, owner_review_required:true, persistent_invocation_evidence_required:true }),
   storefront_ux_review: Object.freeze({ route_id:'STOREFRONT_UX_REVIEW', request_type:'STOREFRONT_UX_REVIEW', required_agents:Object.freeze(['kk-storefront-ux-reviewer']), downstream_agents:Object.freeze([]), runtime_available:true, owner_review_required:true, persistent_invocation_evidence_required:true }),
   storefront_visual_qa: Object.freeze({ route_id:'STOREFRONT_VISUAL_QA', request_type:'STOREFRONT_VISUAL_QA', required_agents:Object.freeze(['kk-storefront-ux-reviewer']), downstream_agents:Object.freeze([]), runtime_available:true, owner_review_required:true, persistent_invocation_evidence_required:true }),
   source_watch_check: Object.freeze({

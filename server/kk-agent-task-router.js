@@ -19,9 +19,10 @@ const UltraDeepPublicWeb = require('./kk-ultra-deep-public-web-adapters.js');
 const MonthlyDeepScan = require('./kk-monthly-deep-scan-query-plan.js');
 const FinalPricingPolicy = require('./kk-final-pricing-policy.js');
 const StorefrontUx = require('./kk-storefront-ux-reviewer.js');
+const StorefrontArt = require('./kk-storefront-art-director.js');
 const UltraDeepRuntime = require('./kk-ultra-deep-runtime-runner.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V13';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V14';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -42,6 +43,12 @@ async function resolveDecisionHistory(input, options){
 
 async function executeTask(taskType, input = {}, options = {}) {
   switch (String(taskType || '').trim().toLowerCase()) {
+    case 'storefront_art_direction':
+      return { invoked_agents:['kk-storefront-art-director'], result:StorefrontArt.buildDirection(input) };
+
+    case 'storefront_art_acceptance':
+      return { invoked_agents:['kk-storefront-art-director'], result:StorefrontArt.evaluateImplementation(input) };
+
     case 'storefront_ux_review':
       return { invoked_agents:['kk-storefront-ux-reviewer'], result:StorefrontUx.auditStorefront(input) };
 

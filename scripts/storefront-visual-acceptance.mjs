@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 
 const require=createRequire(import.meta.url);
 const Reviewer=require('../server/kk-storefront-ux-reviewer.js');
+const ArtDirector=require('../server/kk-storefront-art-director.js');
 
 const DEFAULT_HEIGHTS=Object.freeze({
   320:568,
@@ -179,6 +180,33 @@ async function main(){
       await page.waitForSelector('.concert-card, .empty-state, .error-box',{timeout:12000});
       if(mode==='local_zero_cost') await page.waitForTimeout(350);
 
+      // Visual evidence must not be captured while eager hero/event imagery is still decoding.
+      // A metric-only PASS with an undecoded image is not owner-grade visual acceptance.
+      const imageReadiness=await page.evaluate(async()=>{
+        const images=Array.from(document.images).filter(img=>{
+          const r=img.getBoundingClientRect();
+          return r.bottom>=-1 && r.top<=window.innerHeight+1 && r.width>0 && r.height>0;
+        });
+        await Promise.all(images.map(async img=>{
+          if(!img.complete){
+            await new Promise(resolve=>{
+              const done=()=>resolve();
+              img.addEventListener('load',done,{once:true});
+              img.addEventListener('error',done,{once:true});
+              setTimeout(done,4000);
+            });
+          }
+          if(img.complete && img.naturalWidth>0 && typeof img.decode==='function'){
+            await img.decode().catch(()=>{});
+          }
+        }));
+        return images.map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight}));
+      });
+      const brokenVisibleImages=imageReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      if(brokenVisibleImages.length){
+        fail('VISIBLE_IMAGE_NOT_READY',`Visible image evidence was not ready at ${width}px: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
+      }
+
       const errorVisible=await page.locator('.error-box').isVisible().catch(()=>false);
       if(errorVisible){
         const text=await page.locator('.error-box').innerText().catch(()=> '');
@@ -267,6 +295,8 @@ async function main(){
           }catch(_){}
         }
 
+        const overflowElements=Array.from(document.querySelectorAll('body *')).map(el=>{const r=el.getBoundingClientRect();const style=getComputedStyle(el);return {tag:el.tagName.toLowerCase(),id:el.id||'',class_name:String(el.className||'').slice(0,120),display:style.display,visibility:style.visibility,left:r.left,right:r.right,width:r.width,scroll_width:el.scrollWidth,client_width:el.clientWidth};}).filter(item=>item.left < -1 || item.right > window.innerWidth+1 || item.scroll_width > item.client_width+1).sort((a,b)=>Math.max(b.right-window.innerWidth,b.scroll_width-b.client_width)-Math.max(a.right-window.innerWidth,a.scroll_width-a.client_width)).slice(0,20);
+
         const shellStyle=shell?getComputedStyle(shell):null;
         const backdrop=shellStyle?(shellStyle.backdropFilter||shellStyle.webkitBackdropFilter||''):'';
         const blurMatch=String(backdrop).match(/blur\((\d+(?:\.\d+)?)px\)/);
@@ -288,7 +318,8 @@ async function main(){
           backdrop_blur_px:blurMatch?Number(blurMatch[1]):0,
           tap_targets:tapTargets,
           event_card_count:cards.length,
-          search_count_text:(document.querySelector('.event-search-count')?.textContent||'').trim()
+          search_count_text:(document.querySelector('.event-search-count')?.textContent||'').trim(),
+          overflow_elements:overflowElements
         };
       });
 
@@ -339,6 +370,17 @@ async function main(){
     zero_cost_path:mode==='local_zero_cost'
   };
 
+  const artAcceptance=ArtDirector.evaluateImplementation({
+    evidence:{
+      multi_viewport:results.length===widths.length,
+      no_horizontal_overflow:results.length===widths.length && results.every(item=>numeric(item.metrics.document_scroll_width_px)<=numeric(item.metrics.viewport_width_px)+1),
+      business_truth_unchanged:mode==='local_zero_cost' && Boolean(fixtures) && summary.production_writes===0 && summary.forms_submitted===0 && summary.clicks_performed===0,
+      visual_qa_pass:summary.pass
+    }
+  });
+  summary.art_director_acceptance=artAcceptance;
+  summary.pass=summary.pass && artAcceptance.status==='PASS';
+
   fs.writeFileSync(path.join(outputDir,'manifest.json'),JSON.stringify(summary,null,2)+'\n');
 
   const lines=[
@@ -349,6 +391,7 @@ async function main(){
     `Data source: ${dataSource?dataSource.href:'target deployment'}`,
     `Approved SHA: ${approvedSha}`,
     `Result: ${summary.pass?'PASS':'FAIL'}`,
+    `Art Director acceptance: ${summary.art_director_acceptance.status}`,
     '',
     '| Viewport | Result | Score | P0 | P1 | P2 | Sticky px | Filter rows | Card cols |',
     '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |'
