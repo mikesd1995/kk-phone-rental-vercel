@@ -14,3 +14,6 @@
 /* V4 round 1 QA correction: iOS form controls stay 16px and 320px filters remain one row. */
 @media(max-width:600px){.month-select,.filter-btn{font-size:16px!important}.status-filter-bar{display:flex!important;gap:4px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none}.status-filter-bar::-webkit-scrollbar{display:none}.month-select-wrap{flex:0 0 112px}.month-select{width:112px!important}.filter-btn{flex:0 0 auto!important;padding:0 12px!important}}
 @media(max-width:350px){.status-filter-bar{display:flex!important;grid-template-columns:none!important}.month-select-wrap{flex-basis:104px}.month-select{width:104px!important}}
+
+/* V4 round 2 QA correction: contain horizontal filter scroller inside the content width. */
+@media(max-width:600px){html,body{max-width:100%;overflow-x:hidden}.browse-controls-shell,.filter-group,.status-filter-bar{min-width:0!important;max-width:100%!important}.status-filter-bar{width:100%!important;overscroll-behavior-inline:contain}.month-select-wrap{min-width:0!important}.filter-clear-row{display:none!important}}
