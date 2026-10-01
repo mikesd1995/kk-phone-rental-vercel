@@ -5,11 +5,11 @@
   "baseline_comparison_pass": true,
   "baseline": "production-v3",
   "reviewed_design_blobs": {
-    "index_html": "cfa1725d4bb93e3ec044b4192b67b6f0edda99d8",
-    "v5_css": "db36375fadcdd5d6ba682d4786512adc3ce0b540",
-    "script_js": "47b8c540ee86a39a3cf30c50ac9ac96b2ae0f35e"
+    "index_html": "c1b8368ddaa58e1e8ecbbe913f5ab301bfcae5e2",
+    "v5_css": "043a6542d4fcb17922adc02e81a15f5febb321db",
+    "script_js": "32ad7af34ef134267234c5232f3d16ee03bac9bd"
   },
-  "screenshot_artifact_id": "11179565872",
+  "screenshot_artifact_id": "11185155481",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -50,6 +50,11 @@
       "artifact_id": "11179565872",
       "status": "PASS",
       "finding": "Final independent screenshot critic pass for V5.8.4: seven target viewports technically clean; manual artifact inspection confirms the 768px trust contrast and sticky catalogue-heading defects are resolved; poster-first hierarchy and interaction targets are preserved."
+    },
+    {
+      "artifact_id": "11185155481",
+      "status": "PASS",
+      "finding": "V5.9.1 corrective production-review artifact: all seven target viewports score 100 with P0/P1/P2=0; mobile filter remains one row, no horizontal overflow, event cards are visible in the first mobile screen, FAQ/theme controls are in the header, and production writes remain zero."
     }
   ],
   "reviewed_viewports": [
@@ -71,10 +76,10 @@
   "production_writes": 0,
   "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "530a93ceedc3f116ed89e3ac8b3c8318b1af7ead",
+  "reviewed_design_head": "4dbea6d6ffa3b97634cb561ee909ec99d8a30639",
   "owner_acceptance_evidence": {
-    "accepted_at": "2026-10-01",
-    "artifact_id": "11179565872",
-    "statement": "Owner explicitly approved V5.8.4 for production in ChatGPT conversation after screenshot-led remediation."
+    "accepted_at": "2026-10-02",
+    "artifact_id": "11185155481",
+    "statement": "Owner rejected deployed V5.8 production evidence, then explicitly instructed the corrective loop to be completed, passed, deployed, and verified from the latest real production image."
   }
 }
