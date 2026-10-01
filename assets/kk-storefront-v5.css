@@ -814,3 +814,19 @@ html[data-theme="light"] .theme-sun,html[data-theme="dark"] .theme-moon{display:
 
 /* V6.0.6 iOS: selects remain >=16px to prevent Safari focus zoom. */
 @media(max-width:700px){.month-select{font-size:16px!important;letter-spacing:-.02em!important}}
+
+
+/* V6.0.1 screenshot-review refinements */
+.filter-btn.active{min-width:92px!important;color:#fff!important;-webkit-text-fill-color:#fff!important}
+.v3-events-heading h2{font-family:"Noto Sans Thai","Kanit",system-ui,sans-serif!important;font-weight:700!important;letter-spacing:-.035em!important;line-height:1.12!important}
+.v3-events-heading h2 em{font-weight:400!important}
+@media(max-width:700px){
+ .v3-hero{padding:18px 0 16px!important}
+ .v3-eyebrow{display:none!important}
+ .v3-hero h1{font-size:clamp(2.1rem,9.8vw,2.8rem)!important;line-height:.91!important}
+ .v3-hero-copy>p{display:none!important}
+ .v3-hero-actions{display:none!important}
+ .browse-controls-shell{margin-top:2px!important}
+ .filter-btn.active{min-width:92px!important}
+ .v3-events-heading h2{font-size:1.42rem!important;line-height:1.12!important;max-width:15ch!important}
+}
