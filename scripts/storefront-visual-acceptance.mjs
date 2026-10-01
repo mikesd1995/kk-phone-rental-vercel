@@ -388,7 +388,7 @@ async function main(){
       const blobs=screenshotReview.reviewed_design_blobs||{};
       const expected={
         'index.html':String(blobs.index_html||''),
-        'assets/kk-storefront-v3.css':String(blobs.v3_css||''),
+        'assets/kk-storefront-v4.css':String(blobs.v4_css||''),
         'script.js':String(blobs.script_js||'')
       };
       const designUnchanged=Object.entries(expected).every(([file,blob])=>{
@@ -400,7 +400,7 @@ async function main(){
   }
   const indexSource=fs.readFileSync(path.join(process.cwd(),'index.html'),'utf8');
   const storefrontStyles=[...indexSource.matchAll(/kk-storefront-v\d+\.css/gi)].map(match=>match[0].toLowerCase());
-  const singleVisualSourceOfTruth=storefrontStyles.length===1 && storefrontStyles[0]==='kk-storefront-v3.css';
+  const singleVisualSourceOfTruth=storefrontStyles.length===1 && storefrontStyles[0]==='kk-storefront-v4.css';
 
   const artAcceptance=ArtDirector.evaluateImplementation({
     evidence:{
