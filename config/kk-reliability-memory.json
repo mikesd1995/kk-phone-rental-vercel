@@ -457,6 +457,44 @@
         "trust stale indexed search as the source of truth",
         "merge a registry bump before full regression passes"
       ]
+    },
+    {
+      "id": "ULTRA_DEEP_PREMATURE_COMPLETION",
+      "severity": "P0",
+      "domains": [
+        "scanner",
+        "ultra_deep",
+        "storefront",
+        "acceptance"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "ULTRA_DEEP_PREMATURE_COMPLETION",
+          "DISCOVERY_ONLY_COMPLETION_CLAIM"
+        ],
+        "phrases_any": [
+          "ultra deep complete",
+          "discovery only",
+          "premature completion",
+          "missing pricing poster storefront"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Never treat discovery FULL/READY_FOR_VERIFIER as Ultra Deep completion. Require the machine full-loop completion gate across verification/dedup, competitor evidence or governed fallback, final KK price, verified poster, storefront comparison, governed publish when required, production readback, and final report.",
+      "regression_guards": [
+        "discovery-only evidence cannot return COMPLETE",
+        "pricing requires competitor evidence or explicit fallback plus final KK price",
+        "publish-required candidate requires governed publish",
+        "publish-required candidate requires production readback",
+        "final report readiness required"
+      ],
+      "never_do": [
+        "describe a public-web discovery list as completed Ultra Deep",
+        "skip commercial/poster/storefront evidence because discovery is FULL",
+        "claim production completion before exact readback"
+      ]
     }
   ]
 }
