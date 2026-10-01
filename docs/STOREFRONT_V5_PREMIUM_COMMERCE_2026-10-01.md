@@ -124,3 +124,16 @@ Fallback correction `d9a2ab34905f3c29df267abe8101c08a8b2cf288` retained the cont
 - The only acceptance blocker is the deliberately retained `OWNER_VISUAL_REJECTION_ACTIVE` / screenshot-review gate.
 
 V5.4 also disables decorative card hover movement on touch-only devices and respects `prefers-reduced-motion` for card/action transitions. No pricing, inventory, booking, event SOT, Apps Script or production write path changed. Production writes=0. No merge or production deploy was performed.
+
+
+### V5.4 final confirmation after evidence recording
+Documentation head `2044c73702326c02034c9bab4b15babfc76c70c1` was re-verified after the V5.4 evidence was recorded. The design itself remains `d9a2ab34905f3c29df267abe8101c08a8b2cf288`.
+
+- Admin Regression `36851111983`: SUCCESS.
+- Storefront Visual QA `36851111979`: P0=0 / P1=0 at all seven target widths.
+- Final screenshot artifact: `11155482599`.
+- Manual inspection of 320x568, 390x844 and 1024x768 confirms the contained narrow-phone filter treatment, visible first-event discovery, poster-led hierarchy, coherent navy/electric-blue KK signature, and no floating CTA obstruction.
+- Production baseline remains PASS.
+- The sole acceptance blocker remains `OWNER_VISUAL_REJECTION_ACTIVE`; it is governance, not a geometry/regression failure.
+
+No merge, deploy, production write, pricing, inventory, booking, or event-SOT mutation was performed.
