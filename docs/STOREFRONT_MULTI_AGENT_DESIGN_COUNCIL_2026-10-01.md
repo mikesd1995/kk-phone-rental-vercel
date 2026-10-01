@@ -72,3 +72,16 @@ Run 36866766606 narrowed the remaining automated visual blocker to one viewport 
 - 320x568: HERO_DOMINATES_MOBILE was resolved; only EVENT_DISCOVERY_TOO_LATE remained, improved from 634px to 538px.
 
 The follow-up is intentionally scoped to max-width 350px + max-height 650px so already-passing viewports are not disturbed. It removes the secondary hero paragraph on short phones and further compresses nonessential pre-catalogue spacing/labels. Product CTA, trust proof, search/filter controls and event data remain present. No business truth or production write path changed.
+
+
+## Pre-merge exhaustive audit correction
+A full PR audit identified an evidence-integrity defect: four council roles (Conversion, Fandom Commerce, Accessibility, Performance) were registered and routed but did not yet have independent executable reviewer modules. The router could therefore report seven invoked agent IDs without executing seven independent review functions.
+
+Correction:
+- Added executable read-only modules for Conversion, Fandom Commerce, Accessibility and Performance.
+- Upgraded the council runtime to V2 and execute Art Direction, Product UX, Conversion, Fandom, Accessibility, Performance and Adversarial Visual reviewers independently.
+- Router now returns the agents actually produced by council execution instead of synthesizing names from the role registry.
+- Added regression coverage proving seven distinct reviewer outputs and proving blocking evidence propagates from independent dimensions.
+- Safety remains production_writes=0, business_truth_writes=0, auto_merge=false, auto_deploy=false.
+
+Infrastructure note: PR comments also show Vercel free-tier deployment quota failures (api-deployments-free-per-day) after a prior Ready preview. Treat this separately from code/QA regression.
