@@ -20,9 +20,10 @@ const MonthlyDeepScan = require('./kk-monthly-deep-scan-query-plan.js');
 const FinalPricingPolicy = require('./kk-final-pricing-policy.js');
 const StorefrontUx = require('./kk-storefront-ux-reviewer.js');
 const StorefrontArt = require('./kk-storefront-art-director.js');
+const StorefrontVisualCritic = require('./kk-storefront-visual-critic.js');
 const UltraDeepRuntime = require('./kk-ultra-deep-runtime-runner.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V14';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V15';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -54,6 +55,12 @@ async function executeTask(taskType, input = {}, options = {}) {
 
     case 'storefront_visual_qa':
       return { invoked_agents:['kk-storefront-ux-reviewer'], result:StorefrontUx.validateVisualQa(input) };
+
+    case 'storefront_visual_critique':
+      return { invoked_agents:['kk-storefront-visual-critic'], result:StorefrontVisualCritic.critique(input) };
+
+    case 'storefront_design_loop_acceptance':
+      return { invoked_agents:['kk-storefront-art-director','kk-storefront-ux-reviewer','kk-storefront-visual-critic'], result:StorefrontVisualCritic.acceptLoop(input) };
 
     case 'creative_production_plan':
       return {
