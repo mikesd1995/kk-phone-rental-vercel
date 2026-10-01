@@ -61,8 +61,11 @@ async function executeTask(taskType, input = {}, options = {}) {
     case 'storefront_ux_review':
       return { invoked_agents:['kk-storefront-ux-reviewer'], result:StorefrontUx.auditStorefront(input) };
 
-    case 'storefront_visual_qa':
-      return { invoked_agents:['kk-storefront-ux-reviewer'], result:StorefrontUx.validateVisualQa(input) };
+    case 'storefront_visual_qa': {
+      const uxResult=StorefrontUx.validateVisualQa(input);
+      const council=StorefrontDesignCouncil.runCouncil({...input, ux_visual_qa:uxResult});
+      return { invoked_agents:council.invoked_agents, result:{...uxResult, design_council:council} };
+    }
 
     case 'creative_production_plan':
       return {
