@@ -1,15 +1,15 @@
 {
   "schema_version": "KK_STOREFRONT_V5_SCREENSHOT_REVIEW_V1",
-  "status": "REVISE",
-  "owner_decision": "REJECTED",
+  "status": "PASS",
+  "owner_decision": "ACCEPTED",
   "baseline_comparison_pass": true,
   "baseline": "production-v3",
   "reviewed_design_blobs": {
     "index_html": "f4faf23cca92666f52579d83ddae6f228206a80e",
-    "v5_css": "38d00b84314e37e67c892e0ef25ba69bf3bb8f66",
+    "v5_css": "db36375fadcdd5d6ba682d4786512adc3ce0b540",
     "script_js": "d12687bceb07f889f81c28a4bc6e85f3cc81c06c"
   },
-  "screenshot_artifact_id": "11165104465",
+  "screenshot_artifact_id": "11179565872",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -45,6 +45,11 @@
       "artifact_id": "11165104465",
       "status": "TECHNICAL_PASS_OWNER_PENDING",
       "finding": "Exhaustive pre-merge audit exact head: technical_visual_pass=true and interaction_pass=true across all seven acceptance viewports; runtime_errors=[], production_writes=0, forms_submitted=0, single_visual_source_of_truth=true. Visual QA remains intentionally blocked only by the existing owner REJECTED screenshot decision / final closed-loop acceptance record."
+    },
+    {
+      "artifact_id": "11179565872",
+      "status": "ACCEPTED",
+      "finding": "Owner explicitly approved V5.8.4 for production on 2026-10-01 after screenshot-led fixes. Exact-head technical_visual_pass=true, interaction_pass=true, runtime_errors=[], and manual review confirmed the 768px catalogue heading is no longer obscured."
     }
   ],
   "reviewed_viewports": [
@@ -64,7 +69,7 @@
     "V3 remains the production fallback and is not modified by this review."
   ],
   "production_writes": 0,
-  "rejection_reason": "Owner rejected V5 quality bar after re-evaluation: technically cleaner but still generic/SaaS-like and below the requested world-class premium concert storefront standard.",
+  "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "b803d39e9f4d7eaf3172db99a83ca0c673d918d7"
+  "reviewed_design_head": "530a93ceedc3f116ed89e3ac8b3c8318b1af7ead"
 }
