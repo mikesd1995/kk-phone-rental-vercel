@@ -100,3 +100,16 @@ Evidence on audited head b803d39e9f4d7eaf3172db99a83ca0c673d918d7:
 - Visual QA workflow conclusion remains failure by design because screenshot closed-loop acceptance still carries the explicit owner REJECTED decision; automated technical/interaction review itself is clean.
 - Evidence artifact: 11165104465 (16 files, digest sha256:1fd4b554851e195e126cb56b0b3c840b4fd3a838793ec296325253caf40d9d0a).
 - The screenshot review record was advanced to this evidence artifact without changing owner_decision or status.
+
+
+## V5.6 final world-class polish
+Single-writer presentation pass after the exhaustive audit:
+- Repaired literal escaped-newline artifacts in index markup.
+- Repaired V5 proof-rail localization after the editorial label changed child ordering.
+- Repaired brand subtitle localization selector and preserved event-heading editorial emphasis during TH/EN switching.
+- Added a restrained KK optics signature on larger viewports; hidden on mobile to preserve content-first event discovery.
+- Strengthened poster/card signature with KK event indexing, numeric price treatment and semantic availability marker.
+- Added a post-catalogue three-step booking journey (event → package → LINE confirmation) so trust/conversion guidance does not delay first-event discovery.
+- Bumped the V5 stylesheet cache key to prevent stale presentation assets.
+- Added regression guards for escaped markup, localization selectors and complete Design Council Visual QA triggers.
+- Business truth remains unchanged: no pricing, booking, inventory, event, package or Machine SOT mutation.
