@@ -151,3 +151,24 @@ test('content router fail-closes a direct rental post when remaining phone inven
   assert.match(routed.plan.readiness.commercial_blockers.join('|'),/INVENTORY_NOT_CONFIRMED_AVAILABLE/);
   assert.equal(routed.marketing_plan.campaign_mode,'HOLD_NO_PHONE_INVENTORY');
 });
+
+
+test('lens-only inventory does not authorize direct phone-rental copy',()=>{
+  const routed=Router.routeContentRequest({
+    message:'ขอโพสปล่อยเช่างานนี้บน X',
+    input:{
+      event:'Lens Only Event',
+      venue:'Hall',
+      verified_event:true,
+      verified_pricing:true,
+      price_display:'Lens 290฿',
+      inventory_available:true,
+      inventory_remaining:0,
+      lens_remaining:2,
+      lens_only_offer:true
+    }
+  });
+  assert.equal(routed.marketing_plan.campaign_mode,'LENS_ONLY');
+  assert.equal(routed.content_gate,'BLOCKED');
+  assert.equal(routed.plan.readiness.commercial_ready,false);
+});
