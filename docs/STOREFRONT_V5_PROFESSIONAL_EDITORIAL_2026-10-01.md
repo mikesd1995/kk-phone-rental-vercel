@@ -33,3 +33,25 @@ V5 is not production-approved until exact-head regression + 320/375/390/430/480/
 
 ## Production
 Production writes: 0. Merge/deploy: prohibited until screenshot review evidence is accepted.
+
+
+## Final governed acceptance
+Accepted reviewed design SHA: `e377e1ba5be1397c577d10dc65c1e5a284912373`.
+Acceptance integration head: `0a7518665f28f397097933df10d58f1696f24e95`.
+
+Evidence:
+- Admin Regression run `36837427656`: SUCCESS.
+- Storefront Automated Visual QA run `36837427667`: SUCCESS.
+- Human-reviewed screenshot artifact: `11150215487`.
+- Viewports: 320 / 375 / 390 / 430 / 480 / 768 / 1024.
+- P0: 0 at all viewports.
+- P1: 0 at all viewports.
+- single visual source of truth: true.
+- screenshot review: PASS.
+- Art Director blockers: [].
+- Production writes/publishes: 0.
+
+Human review deliberately rejected earlier technically-green iterations:
+1. round 1: narrow 320px cards and transient poster readiness.
+2. round 2: inherited gradient card CTA and overly dominant poster badges.
+3. round 3: PASS after removal of promotional card chrome, narrow-mobile composition correction, and final poster-led hierarchy review.
