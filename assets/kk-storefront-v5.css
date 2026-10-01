@@ -803,3 +803,11 @@ html[data-theme="light"] .theme-sun,html[data-theme="dark"] .theme-moon{display:
  .filter-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;width:auto!important;min-width:0!important;height:44px!important;padding:0 14px!important;border:1px solid var(--v6-line)!important;border-radius:999px!important;background:var(--v6-paper)!important;color:var(--v6-ink)!important;font-size:11px!important;line-height:1!important}
  .filter-btn.active{background:var(--v6-ink)!important;color:#fff!important;border-color:var(--v6-ink)!important}
 }
+
+
+/* V6.0.5: final chip legibility and compact mobile rhythm. */
+@media(max-width:700px){
+ .month-select{min-width:96px!important;padding-left:12px!important;font-size:11px!important}
+ .filter-btn{padding-inline:11px!important;font-size:10px!important}
+ .filter-btn.active,.filter-btn.active *{color:#fff!important}
+}
