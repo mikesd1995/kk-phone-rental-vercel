@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_STOREFRONT_ART_DIRECTOR_V2';
+const VERSION='KK_STOREFRONT_ART_DIRECTOR_V3';
 
 const DESIGN_SYSTEM=Object.freeze({
   direction:'premium-editorial-concert-commerce',
@@ -51,7 +51,9 @@ function buildDirection(input={}){
       'visual changes that alter price, inventory, event visibility or booking semantics',
       'more than three competing utility surfaces before primary event content',
       'persistent CTA visually dominating poster or event discovery content',
-      'dashboard-like filter chrome outweighing customer-facing event content'
+      'dashboard-like filter chrome outweighing customer-facing event content',
+      'shipping a new visual layer by stacking overrides on an obsolete visual layer',
+      'declaring aesthetic quality from geometry/readiness metrics alone'
     ],
     acceptance:{
       mobile_first:true,
@@ -64,7 +66,10 @@ function buildDirection(input={}){
       independent_visual_qa_required:true,
       content_first_mobile:true,
       max_competing_utility_surfaces_before_events:3,
-      persistent_cta_must_recede:true
+      persistent_cta_must_recede:true,
+      screenshot_review_required:true,
+      single_visual_source_of_truth:true,
+      aesthetic_pass_cannot_be_inferred_from_readiness_score:true
     },
     authority:{
       production_writes:0,pricing_mutation:false,booking_mutation:false,
@@ -81,6 +86,8 @@ function evaluateImplementation(input={}){
   if(!evidence.visual_qa_pass) blockers.push('INDEPENDENT_VISUAL_QA_NOT_PASSING');
   if(evidence.content_first_mobile===false) blockers.push('CONTENT_FIRST_MOBILE_NOT_PROVEN');
   if(evidence.persistent_cta_recedes===false) blockers.push('PERSISTENT_CTA_TOO_DOMINANT');
+  if(!evidence.single_visual_source_of_truth) blockers.push('VISUAL_SOURCE_OF_TRUTH_NOT_SINGLE');
+  if(!evidence.screenshot_review_pass) blockers.push('SCREENSHOT_REVIEW_NOT_PASSING');
   return {schema_version:VERSION,status:blockers.length?'BLOCKED':'PASS',blockers,production_writes:0};
 }
 module.exports={VERSION,DESIGN_SYSTEM,buildDirection,evaluateImplementation};
