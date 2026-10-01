@@ -87,3 +87,14 @@ body{background:var(--kk-warm)}
  .v3-events-heading{margin-top:22px}
  .v3-events-heading h2{font-size:1.7rem}
 }
+
+/* V5.1 round 3 — accessibility hit boxes without adding visual chrome */
+@media(max-width:600px){
+ .event-search-wrap,.event-search{min-height:44px!important}
+ .month-select,.filter-btn{min-height:44px!important}
+}
+@media(max-width:350px){
+ .event-search-wrap,.event-search{min-height:44px!important}
+ .month-select,.filter-btn{min-height:44px!important}
+ .poster-grid{grid-template-columns:1fr!important}
+}
