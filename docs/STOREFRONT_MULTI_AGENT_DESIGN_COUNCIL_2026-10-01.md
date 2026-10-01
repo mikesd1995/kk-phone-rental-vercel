@@ -125,3 +125,22 @@ Owner challenged the V5.6 art direction as not yet world-class and proposed a so
 - literal unicorn imagery intentionally excluded so artist/event posters remain the visual hero and the storefront retains rental-service credibility;
 - mobile decorations reduced to preserve the previously accepted event-discovery geometry.
 No pricing, availability, booking, inventory, package or event truth was changed. Owner visual decision remains REJECTED until fresh screenshot review.
+
+
+## V5.8 trend-informed redesign — Editorial Optics
+A fresh 2026 trend scan was treated as evidence, not a direct style instruction. The synthesis selected a proprietary KK direction:
+- proprietary visual systems over algorithmic sameness;
+- structured editorial hierarchy and restrained UI;
+- slower, focused commerce browsing with event posters given breathing room;
+- rejection of generic gradients, literal mascot/cuteness and decorative motion as default style;
+- human/editorial character without reducing information clarity.
+
+Implementation:
+- replaced V5.7 sparkle/gradient-led brand cues with graphite/paper/ice-blue Editorial Optics;
+- introduced field-index and optical-circle language tied to the actual distance/zoom/concert use case;
+- hero narrative: FAR SEAT. / CLOSE MEMORY.;
+- poster colour remains the dominant colour source;
+- flattened cards and controls into a print/editorial system rather than SaaS-like floating surfaces;
+- updated Art Director to V4 so future trend ideas require brand-fit critique before implementation.
+
+Safety: presentation/agent-governance only. Pricing, availability, booking, inventory, package and event truth remain unchanged. Owner visual acceptance remains required.
