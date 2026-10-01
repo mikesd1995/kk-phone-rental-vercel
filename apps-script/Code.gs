@@ -2323,11 +2323,25 @@ function kkApiCreateLineBookingPending_(payload) {
       request_id: requestId,
       event_id: eventId,
       template_id: templateId,
+      customer_name: customerName,
+      customer_phone: customerPhone,
       claimed_at: new Date().toISOString()
     }));
 
     const pkgType = String(pkg.package_type || '').toLowerCase().trim();
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
+    // Persist the exact candidate row before the first Booking mutation. This makes
+    // post-write/pre-OK failures reconcilable without guessing or allocating again.
+    props.setProperty(requestKey, JSON.stringify({
+      status: 'PENDING',
+      request_id: requestId,
+      event_id: eventId,
+      template_id: templateId,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      row_number: row,
+      claimed_at: new Date().toISOString()
+    }));
     const sh = kkSheet_(KK.bookings);
     sh.getRange(row, 2, 1, 19).setValues([[
       new Date(), 'pending', eventId, customerName, customerContact, customerPhone, 'LINE',
@@ -2362,6 +2376,63 @@ function kkApiCreateLineBookingPending_(payload) {
       request_id: requestId,
       idempotent_replay: false
     };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
+function kkReconcileLineBookingPendingClaim_(requestId) {
+  const lock = kkAcquireDocumentLock_('LINE pending booking reconciliation', 12000);
+  try {
+    const id = String(requestId || '').trim();
+    const requestKey = kkLineBookingRequestKey_(id);
+    const props = PropertiesService.getScriptProperties();
+    const raw = String(props.getProperty(requestKey) || '').trim();
+    if (!raw) throw new Error('LINE booking request claim not found');
+
+    let claim = null;
+    try { claim = JSON.parse(raw); } catch (_) {}
+    if (!claim || claim.status !== 'PENDING') {
+      throw new Error('LINE booking request is not a reconcilable PENDING claim');
+    }
+
+    const row = Number(claim.row_number || 0);
+    if (!Number.isInteger(row) || row < 4) {
+      throw new Error('LINE booking PENDING claim has no safe candidate row');
+    }
+
+    const sh = kkSheet_(KK.bookings);
+    const readback = sh.getRange(row, 1, 1, 20).getValues()[0];
+    const bookingId = String(readback[0] || '').trim();
+    const status = String(readback[2] || '').toLowerCase().trim();
+    const eventId = String(readback[3] || '').trim();
+    const customerName = String(readback[4] || '').trim();
+    const customerPhone = String(readback[6] || '').trim();
+    const source = String(readback[7] || '').toUpperCase().trim();
+    const phoneAssetId = String(readback[9] || '').trim();
+    const lensAssetId = String(readback[10] || '').trim();
+
+    // Reconciliation is fail-closed and never writes a Booking row. It may only
+    // finalize the idempotency claim when the exact pre-mutation identity matches.
+    if (!bookingId || status !== 'pending' || source !== 'LINE' ||
+        eventId !== String(claim.event_id || '').trim() ||
+        customerName !== String(claim.customer_name || '').trim() ||
+        customerPhone !== String(claim.customer_phone || '').trim() ||
+        phoneAssetId || lensAssetId) {
+      throw new Error('LINE booking PENDING claim cannot be reconciled safely; owner inspection required');
+    }
+
+    props.setProperty(requestKey, JSON.stringify({
+      status: 'OK',
+      request_id: id,
+      booking_id: bookingId,
+      row_number: row,
+      event_id: eventId,
+      template_id: String(claim.template_id || '').trim(),
+      reconciled_at: new Date().toISOString()
+    }));
+    return { request_id: id, booking_id: bookingId, row_number: row, reconciled: true };
   } finally {
     lock.releaseLock();
   }
