@@ -52,3 +52,15 @@ Council synthesis used one implementation writer and preserved business truth. T
 - retains reduced-motion, keyboard/focus and touch-target contracts.
 
 Owner rejection remains active by design until new screenshot evidence is reviewed. No production deployment or merge was performed.
+
+
+## V5.5.1 Visual Critic remediation
+Run 36864825363 confirmed Admin Regression remained green and interactions remained green, but Visual Critic rejected the presentation for mobile content-first regressions:
+- 320x568: EVENT_DISCOVERY_TOO_LATE (first event 634px) + HERO_DOMINATES_MOBILE.
+- 375x812: EVENT_DISCOVERY_TOO_LATE (first event 868px) + HERO_DOMINATES_MOBILE.
+- 390x844: EVENT_DISCOVERY_TOO_LATE (first event 871px).
+- 430x932: EVENT_DISCOVERY_TOO_LATE (first event 879px).
+- 480x932: EVENT_DISCOVERY_TOO_LATE (first event 885px).
+- 768/1024 critic had no blockers.
+
+Remediation keeps the KK editorial identity but compresses mobile-only pre-catalogue composition: shorter masthead/hero, hidden decorative stage index, two-line intro cap, compact proof rail, tighter discovery spacing, single-line event heading treatment, and short-phone removal of nonessential catalogue metadata. Business data and booking behavior remain unchanged.
