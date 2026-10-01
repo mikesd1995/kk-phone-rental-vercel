@@ -45,3 +45,10 @@ Post-preview source review found that the first 9_5_12 candidate still called th
 The candidate now uses reservation-window-aware validation and auto-allocation for API create/update. Asset eligibility still requires the correct type/model and rentable status, but collision exclusion is based on strict reservation-window overlap and self-excludes the update row. The legacy date-wide helpers remain untouched for legacy callers.
 
 This is candidate-only hardening. Production Apps Script writes/deployments remain zero. Exact-head CI and a new exact-head Preview are required again because the prior READY preview predates this correction.
+
+
+### Prepared/picked_up transition correction
+
+A second source audit found one remaining date-wide path: `kkAssignMissingAssetsForPreparedBooking_` still selected missing physical assets with the legacy whole-day allocator before update-time window validation. It now receives the edited Booking row number and uses the same reservation-window-aware allocator with pickup/return/status and self-exclusion. This closes the transition path where a confirmed Booking becomes prepared or picked_up.
+
+Exact-head CI/Preview acceptance is reset again for this candidate-only correction. Production deployment and business writes remain zero.
