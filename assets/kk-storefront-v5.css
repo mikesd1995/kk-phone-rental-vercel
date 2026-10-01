@@ -192,3 +192,22 @@ body{background:var(--kk-warm)}
  .v3-events-heading p{font-size:11px}
  .update-note{text-align:left;font-size:10px}
 }
+
+
+/* V5.4 exhaustive audit patch — modal viewport safety + focus visibility + browser fallbacks */
+@supports (height:100dvh){
+ .overlay .modal,.faq-overlay .modal{max-height:min(86dvh,860px)}
+}
+.modal-x:focus-visible,.modal-share:focus-visible,.browse-more-btn:focus-visible,.v3-primary:focus-visible{
+ outline:3px solid rgba(23,105,255,.34);outline-offset:3px
+}
+@supports not (color:color-mix(in srgb,black,white)){
+ .pi-avail:before{box-shadow:0 0 0 3px rgba(7,148,85,.12)}
+ .pi-avail.low:before{box-shadow:0 0 0 3px rgba(181,71,8,.12)}
+ .pi-avail.none:before{box-shadow:0 0 0 3px rgba(102,112,133,.12)}
+}
+@media(max-width:600px){
+ .overlay,.faq-overlay{padding-bottom:max(12px,env(safe-area-inset-bottom))}
+ .overlay .modal,.faq-overlay .modal{max-height:calc(100dvh - 24px)}
+ .modal-close{margin-bottom:max(0px,env(safe-area-inset-bottom))}
+}
