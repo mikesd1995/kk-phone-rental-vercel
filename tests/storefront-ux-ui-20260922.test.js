@@ -49,3 +49,12 @@ test('new storefront assets are cache-busted',()=>{
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#071426">/);
 });
+
+
+test('V5 language switch binds the active hero, proof and event-discovery DOM',()=>{
+  assert.match(js,/hero_body:"Rent a vivo X300 Pro \+ Lens/);
+  assert.match(js,/setText\("\.v3-hero-copy>p","hero_body"\)/);
+  assert.match(js,/setText\("\.v3-proof>div:nth-child\(1\) strong","proof_deposit_title"\)/);
+  assert.match(js,/setText\("\.v3-events-heading h2","events_title"\)/);
+  assert.match(js,/setText\("\.v3-events-heading p","events_body"\)/);
+});
