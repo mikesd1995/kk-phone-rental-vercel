@@ -35,3 +35,21 @@ A live TinyFish screenshot audit was attempted but could not start because the c
 
 ## First V3 QA correction
 Initial V3 Visual QA correctly failed: 320px document width was 355px and TH/EN hit areas were below 44px. Evidence also exposed legacy `.pi-venue` intrinsic overflow and `.sr-only` diagnostics. V3 now contains event metadata, restores canonical screen-reader clipping, and makes language targets 44x44 without weakening thresholds.
+
+
+## Final visual acceptance
+Reviewed exact CI screenshot artifact `11145224805` for design SHA `3b97dae79dca14bc3a2da905596cef3f48f0aa07` across 320/375/390/430/480/768/1024 widths. The final design:
+- surfaces event discovery in the mobile viewport;
+- removes the duplicate fixed LINE CTA through tablet widths;
+- uses restrained event-card status/date/availability treatment;
+- removes decorative emoji noise from primary storefront copy;
+- keeps 44px interaction targets and 16px iOS form controls.
+
+Screenshot approval is pinned by Git blob SHA for `index.html`, `assets/kk-storefront-v3.css`, and `script.js`. Any later design-file mutation invalidates the approval automatically.
+
+Final exact-head acceptance SHA before this documentation-only commit: `4a78f3083ab7661913d4d20fa97e3dc3cab6dda7`.
+- Admin Regression `36826852590`: PASS.
+- Storefront Automated Visual QA `36826852596`: PASS.
+- Art Director V3: PASS.
+- All seven viewport readiness scores: 100.
+- Production writes during acceptance: 0.
