@@ -89,3 +89,43 @@ footer{margin-top:52px;border-top:1px solid var(--v5-line);padding:30px 0 44px}
   .pi-avail{font-size:8.5px!important}
   .concert-card .pi-tap,.concert-card .pi-tap.full{font-size:8.5px!important}
 }
+
+
+/* V5 professional refinement — owner audit iteration 4.
+   Reduce legacy chrome; keep poster identity and conversion data dominant. */
+.v3-header .language-switch{min-height:36px!important;padding:0 2px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+#language-switch>button.lang-btn{width:auto!important;min-width:34px!important;height:36px!important;min-height:36px!important;padding:0 7px!important;border:0!important;border-radius:8px!important;background:transparent!important;box-shadow:none!important;color:var(--v5-muted)!important}
+#language-switch>button.lang-btn.active{background:var(--v5-blue-soft)!important;color:var(--v5-blue)!important}
+.lang-divider{display:inline!important;color:#cbd5e1!important}
+
+.browse-controls-shell{padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important}
+.event-search-wrap{border:1px solid var(--v5-line)!important;border-radius:12px!important;background:#fff!important;box-shadow:0 1px 2px rgba(15,34,66,.03)!important}
+.month-select,.filter-btn{border-color:var(--v5-line)!important;border-radius:10px!important;box-shadow:none!important}
+.filter-btn.active{border-color:#bfd6fb!important;background:var(--v5-blue-soft)!important;color:var(--v5-blue)!important}
+
+.concert-card{border:1px solid var(--v5-line)!important;box-shadow:0 4px 16px rgba(15,34,66,.045)!important}
+.concert-card:hover{border-color:#cbd5e1!important;box-shadow:0 10px 26px rgba(15,34,66,.09)!important}
+.pi-date{display:inline-flex!important;width:max-content!important;padding:4px 7px!important;border-radius:7px!important;background:var(--v5-blue-soft)!important;letter-spacing:.03em!important}
+.pi-price{letter-spacing:-.01em!important}
+
+@media(max-width:700px){
+  .v3-header .language-switch{min-height:34px!important}
+  #language-switch>button.lang-btn{min-width:32px!important;height:34px!important;min-height:34px!important;font-size:11px!important}
+  .browse-controls-shell{gap:8px!important}
+  .event-search-wrap{border-radius:11px!important}
+  .status-filter-bar{gap:6px!important}
+  .month-select,.filter-btn{border-radius:9px!important}
+  .concert-card{box-shadow:0 3px 12px rgba(15,34,66,.04)!important}
+  .poster-info{gap:6px!important}
+  .pi-name{font-weight:650!important}
+  .pi-venue{display:none!important}
+  .concert-card .pi-tap,.concert-card .pi-tap.full{display:none!important}
+  .pi-avail{margin-top:1px!important}
+}
+@media(max-width:360px){
+  .concert-card{grid-template-columns:120px minmax(0,1fr)!important}
+  .poster-info{padding:11px!important;align-content:center!important}
+  .pi-date{font-size:8px!important}
+  .pi-name{font-size:13px!important;line-height:1.28!important}
+  .pi-price{font-size:13px!important}
+}
