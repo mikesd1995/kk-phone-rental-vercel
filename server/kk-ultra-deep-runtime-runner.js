@@ -25,6 +25,15 @@ function flattenCandidates(execution={}){
   }
   return out;
 }
+function executionProof(execution={}){
+  const results=Array.isArray(execution.results)?execution.results:[];
+  const rows=results.map((result,index)=>{
+    const attempts=Array.isArray(result&&result.attempts)?result.attempts:[];
+    const executed=attempts.some(attemptExecuted);
+    return {index,executed,status:text(result&&result.status)||'MISSING'};
+  });
+  return {complete:rows.length>0&&rows.every(x=>x.executed),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,rows};
+}
 function sourceUniverseReceipts(plan={},execution={}){
   const tasks=Array.isArray(plan.gap_tasks)?plan.gap_tasks:[];
   const results=Array.isArray(execution.results)?execution.results:[];
@@ -128,6 +137,7 @@ async function runMonthlyUltraDeep(input={},options={}){
   const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
   const referenceExecution=await ProviderExecutor.executeGapPlan(referencePlan,{providers});
   const referenceCandidates=flattenCandidates(referenceExecution);
+  const referenceProof=executionProof(referenceExecution);
   const reconciliation=Reconciliation.reconcileCandidateSets(candidates,referenceCandidates);
 
   // A known miss is recovered if any governed live discovery path finds it.
@@ -136,10 +146,11 @@ async function runMonthlyUltraDeep(input={},options={}){
   const knownMissEvidence=[...knownMissCandidates,...candidates,...referenceCandidates];
   const knownMiss=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]);
 
-  const complete=binding.unknown_url_search_bound && universe.complete && reconciliation.complete && knownMiss.complete;
+  const complete=binding.unknown_url_search_bound && universe.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete;
   const blockers=[
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
     ...(!universe.complete?['SOURCE_UNIVERSE_INCOMPLETE']:[]),
+    ...(!referenceProof.complete?['REFERENCE_SWEEP_INCOMPLETE']:[]),
     ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
     ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[])
   ];
@@ -152,6 +163,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     location:plan.location,
     provider_binding:binding,
     source_universe:universe,
+    reference_sweep_proof:referenceProof,
     reconciliation,
     known_miss_regression:knownMiss,
     candidate_count:candidates.length,
@@ -173,6 +185,6 @@ async function runMonthlyUltraDeep(input={},options={}){
 }
 
 module.exports={
-  VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,flattenCandidates,sourceUniverseReceipts,
+  VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
   buildReferencePlan,buildKnownMissPlan,summarizeExecution,providerBindingState,runMonthlyUltraDeep
 };
