@@ -35,6 +35,9 @@ For **every KK social-post request** — direct rental, weekly roundup, last cal
 - do not expose all three candidates by default; after QA, Content Selector must rank them and expose exactly **1 final post**;
 - cosmetic rewrites (emoji swap, synonym swap, sentence reordering) do not count;
 - avoid recycling recent hooks, metaphors, sentence skeletons, and generic filler;
+- before drafting, check recent KK post history and set `recent_context_checked=true`; an empty history is valid only after the check was actually performed;
+- collect at least 2 verified Event DNA / creative anchors per event when possible (for example special segment, show format, lineup relationship, stage concept, fandom-specific moment, or timing-specific fact);
+- for multi-event batches, final winners must not reuse the same hook architecture. Repeated scaffolds such as “ใครมีบัตร...เตรียมเครื่อง...”, countdown + lock-device, or “เก็บทุกโมเมนต์” across several events must be rewritten before output;
 - if event-specific context is not verified, stay neutral rather than inventing artist/fandom/event lore.
 
 Commercial/rental posts additionally require current event, pricing, displayed offer, and inventory verification. Non-commercial brand/awareness posts do not invent pricing or inventory and are validated only against the factual claims they actually use.
@@ -45,11 +48,15 @@ The request router is server/kk-content-request-router.js. Any post request that
 
 When the content request originates from ChatGPT and a GitHub connector is available, do not treat a direct chat draft as proof that the project Agents ran.
 
-Use the GitHub issue bridge defined in `docs/CHAT_CONTENT_AGENT_BRIDGE_2026-09-28.md`:
+Use the GitHub issue bridge defined in `docs/CHAT_CONTENT_AGENT_BRIDGE_2026-09-28.md` for one post, and the batch bridge defined in `docs/CONTENT_BATCH_DIVERSITY_AGENT_BRIDGE_2026-10-01.md` when the owner requests 2 or more posts at once.
 
+Single post:
 **Chat verified facts + 3 internal candidates → GitHub bridge issue → Agent Gateway → QA → Selector → persistent result comment → Owner Review**
 
-A final chat response may say the Agent pipeline was used only after reading back a PASS bridge comment with an invocation ID and the complete required/invoked Agent chain. If the bridge is blocked or no result comment is available, fail closed rather than bypassing to an unverified direct final post.
+Multi-event batch:
+**verified truth per event + recent-post check + Event DNA → 3 candidates per event → Batch GitHub bridge → five-Agent gateway per item → per-item QA/Selector → batch hook-diversity QA → persistent result comment → Owner Review**
+
+A final chat response may say the Agent pipeline was used only after reading back a PASS bridge comment. For a batch, every item must contain a complete required/invoked Agent chain and the batch diversity gate must also be PASS. If a bridge is blocked or no result comment is available, fail closed rather than bypassing to an unverified direct final post.
 
 ## Growth model
 
@@ -173,10 +180,10 @@ For direct rental posts:
 - First line: 📱 KK Phone Rental | #เช่ามือถือ
 - Keep the hook event-specific, short, and natural.
 - Use current verified offer/pricing only.
-- Keep: 📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน
-- Keep: ☁️ Google Drive 30 วัน
+- Keep: 📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน
+- Keep: ☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน
 - Booking CTA: 👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
-- Put **3–5 strongest relevant hashtags at the end**, preferring official event/artist/brand tags.
+- Put **exactly 3 strongest verified closing hashtags at the end by default**. Do not duplicate `#เช่ามือถือ` or the main event hashtag already used above.
 - Do not repeat the brand line at the bottom.
 - Add a promotion/discount line only when the promotion is currently approved and verified.
 

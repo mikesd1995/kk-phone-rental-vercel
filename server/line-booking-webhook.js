@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const {buildBookingFlex} = require('../server/line-booking-flex');
+const {safePosterSource} = require('../server/line-poster');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -45,7 +46,7 @@ async function resolvePoster(booking, fetchImpl=fetch){
   const rows=parseCsv(await r.text());
   const norm=v=>String(v||'').normalize('NFKC').trim().toLowerCase();
   const exact=rows.find(x=>norm(x.event_name)===norm(booking.event_name) && norm(x.venue)===norm(booking.venue));
-  if(!exact || !String(exact.poster_image_url||'').trim()) return '';
+  if(!exact || !safePosterSource(exact.poster_image_url)) return '';
   const eventId=String(exact.event_id||'').trim();
   return eventId ? 'https://kk-phone-rental.vercel.app/api/line-poster?event_id='+encodeURIComponent(eventId) : '';
 }

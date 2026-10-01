@@ -75,18 +75,18 @@ test('agent is permanently advisory and zero-write by contract', () => {
 
 test('copy contract preserves current KK X brand and CTA conventions', () => {
   assert.equal(AGENT.COPY_CONTRACT.brand_first_line, '📱 KK Phone Rental | #เช่ามือถือ');
-  assert.equal(AGENT.COPY_CONTRACT.handoff_line, '📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน');
-  assert.equal(AGENT.COPY_CONTRACT.file_storage_line, '☁️ Google Drive 30 วัน');
+  assert.equal(AGENT.COPY_CONTRACT.handoff_line, '📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน');
+  assert.equal(AGENT.COPY_CONTRACT.file_storage_line, '☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน');
   assert.equal(AGENT.COPY_CONTRACT.booking_cta, '👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/');
-  assert.match(AGENT.COPY_CONTRACT.hashtag_rule, /3–5/);
+  assert.match(AGENT.COPY_CONTRACT.hashtag_rule, /exactly 3/i);
   assert.match(AGENT.COPY_CONTRACT.hashtag_rule, /Never synthesize/i);
   assert.match(AGENT.COPY_CONTRACT.duplicate_fact_rule, /Do not repeat date\/venue/i);
   assert.match(AGENT.COPY_CONTRACT.brand_rule, /not repeat/i);
   assert.deepEqual(
     AGENT.COPY_CONTRACT.direct_rental_layout,
-    ['brand','event_hashtag','hook','offer','date_venue','benefits','booking_cta','reach_hashtags']
+    ['brand','event_hashtag','offer','date','venue','hook','benefits','booking_cta','reach_hashtags']
   );
-  assert.match(AGENT.COPY_CONTRACT.direct_rental_layout_rule, /Preferred baseline only/i);
+  assert.match(AGENT.COPY_CONTRACT.direct_rental_layout_rule, /preferred baseline/i);
   assert.match(AGENT.COPY_CONTRACT.creative_freedom_rule, /Do not force every post/i);
   assert.match(AGENT.COPY_CONTRACT.hard_gate_rule, /Hard gates cover/i);
 });

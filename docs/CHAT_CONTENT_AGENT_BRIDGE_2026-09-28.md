@@ -196,3 +196,11 @@ Creative freedom:
 Selector quality signals now include event specificity, naturalness, non-template feel, hook originality and sales-pressure balance.
 
 Performance history can influence selection only as evidence after the minimum measured sample. This is not autonomous retraining or self-modifying AI.
+
+## Multi-event batch path — 2026-10-01
+
+This document remains the contract for a single social-post request.
+
+When one owner request contains 2 or more posts, use the batch bridge in `docs/CONTENT_BATCH_DIVERSITY_AGENT_BRIDGE_2026-10-01.md` instead of running independent single-post bridges. The batch path executes the same five-Agent chain per item and then applies cross-item hook-diversity QA before any final posts are returned.
+
+A multi-event chat response must not claim Agent execution unless the persisted batch result is PASS and every item has matching required/invoked Agent evidence plus Batch QA = PASS.

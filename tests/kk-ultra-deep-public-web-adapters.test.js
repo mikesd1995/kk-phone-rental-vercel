@@ -31,3 +31,21 @@ test('createProviders always exposes credential-free DDG_HTML search',()=>{
  assert.equal(typeof providers.DDG_HTML,'function');
  assert.equal(typeof providers.SEARXNG,'undefined');
 });
+
+test('Bing HTML parser extracts non-Bing HTTPS result URLs',()=>{
+ const body='<li class="b_algo"><h2><a href="https://eventpop.me/e/fortreasure">FORTREASURE &amp; Bangkok</a></h2></li>';
+ const rows=A.parseBingHtml(body,'fortreasure');
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].source_url,'https://eventpop.me/e/fortreasure');
+ assert.equal(rows[0].title,'FORTREASURE & Bangkok');
+});
+
+test('HTML entity decoder handles named, decimal and hex entities',()=>{
+ assert.equal(A.cleanHtml('A &quot;B&#39; &#x26; C&#38;'),'A "B\' & C&');
+});
+
+test('createProviders exposes both zero-cost search fallbacks by default',()=>{
+ const p=A.createProviders({searxng_endpoint:''});
+ assert.equal(typeof p.DDG_HTML,'function');
+ assert.equal(typeof p.BING_HTML,'function');
+});

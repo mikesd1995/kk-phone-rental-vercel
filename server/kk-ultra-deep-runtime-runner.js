@@ -7,8 +7,8 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V1';
-const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V3';
+const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
 function attemptExecuted(attempt={}){
@@ -58,7 +58,7 @@ function buildReferencePlan(input={}){
       source_tier:i===1?'BRAND_SPONSOR':'PUBLIC_CALENDAR',
       source_id:'reference-'+(i+1),
       query,
-      providers:['DDG_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+      providers:['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
       evidence_required:true
     })),
     production_writes:0
@@ -66,17 +66,42 @@ function buildReferencePlan(input={}){
 }
 function buildKnownMissPlan(){
   return {
-    version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V1',
-    gap_tasks:KnownMiss.CORPUS.map(c=>({
-      source_tier:'SOCIAL',
-      source_id:'knownmiss:'+c.case_id,
-      query:[c.title,c.event_date,'Bangkok Thailand'].filter(Boolean).join(' '),
-      providers:['DDG_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
-      evidence_required:true
-    })),
+    version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2',
+    gap_tasks:KnownMiss.CORPUS.map(c=>{
+      const phrases=[c.title,...(Array.isArray(c.aliases)?c.aliases:[])].map(text).filter(Boolean);
+      const evidenceQueries=(Array.isArray(c.search_queries)?c.search_queries:[]).map(text).filter(Boolean);
+      const queries=[...new Set([...evidenceQueries,...phrases.map(v=>v+' Bangkok Thailand')])];
+      return {
+        source_tier:'SOCIAL',
+        source_id:'knownmiss:'+c.case_id,
+        query:queries[0]||[c.title,c.event_date,'Bangkok Thailand'].filter(Boolean).join(' '),
+        query_variants:queries.slice(1),
+        providers:['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+        evidence_required:true
+      };
+    }),
     production_writes:0
   };
 }
+
+function summarizeExecution(execution={}){
+  const out={tasks:0,evidence_found:0,gap_unresolved:0,attempts:{},provider_errors:{},not_bound:{}};
+  const results=Array.isArray(execution.results)?execution.results:[];
+  out.tasks=results.length;
+  for(const r of results){
+    if(r.status==='EVIDENCE_FOUND')out.evidence_found++;
+    else out.gap_unresolved++;
+    for(const a of Array.isArray(r.attempts)?r.attempts:[]){
+      const p=text(a.provider).toUpperCase()||'UNKNOWN';
+      const s=text(a.status).toUpperCase()||'UNKNOWN';
+      const key=p+':'+s;out.attempts[key]=(out.attempts[key]||0)+1;
+      if(s==='PROVIDER_ERROR')out.provider_errors[p]=(out.provider_errors[p]||0)+1;
+      if(s==='NOT_BOUND')out.not_bound[p]=(out.not_bound[p]||0)+1;
+    }
+  }
+  return out;
+}
+
 function providerBindingState(providers={}){
   const bound=[...UNKNOWN_SEARCH_PROVIDERS].filter(p=>typeof providers[p]==='function');
   return {bound,unknown_url_search_bound:bound.length>0};
@@ -86,6 +111,14 @@ async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
+
+  // Execute the bounded historical probes first. Live HTML search providers may
+  // soft-throttle after a large sweep; putting the small regression corpus first
+  // prevents broad discovery traffic from starving the recall gate.
+  const knownMissPlan=buildKnownMissPlan();
+  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers});
+  const knownMissCandidates=flattenCandidates(knownMissExecution);
+
   const plan=MonthlyPlan.build(input);
   const execution=await ProviderExecutor.executeGapPlan(plan,{providers});
   const receipts=sourceUniverseReceipts(plan,execution);
@@ -97,10 +130,11 @@ async function runMonthlyUltraDeep(input={},options={}){
   const referenceCandidates=flattenCandidates(referenceExecution);
   const reconciliation=Reconciliation.reconcileCandidateSets(candidates,referenceCandidates);
 
-  const knownMissPlan=buildKnownMissPlan();
-  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers});
-  const knownMissCandidates=flattenCandidates(knownMissExecution);
-  const knownMiss=KnownMiss.evaluate(knownMissCandidates,input.known_miss_classifications||[]);
+  // A known miss is recovered if any governed live discovery path finds it.
+  // Do not discard a valid main/reference sweep hit merely because the dedicated
+  // probe endpoint returned no results.
+  const knownMissEvidence=[...knownMissCandidates,...candidates,...referenceCandidates];
+  const knownMiss=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]);
 
   const complete=binding.unknown_url_search_bound && universe.complete && reconciliation.complete && knownMiss.complete;
   const blockers=[
@@ -126,7 +160,10 @@ async function runMonthlyUltraDeep(input={},options={}){
     execution_summary:{
       discovery_status:execution.status,
       reference_status:referenceExecution.status,
-      known_miss_status:knownMissExecution.status
+      known_miss_status:knownMissExecution.status,
+      discovery:summarizeExecution(execution),
+      reference:summarizeExecution(referenceExecution),
+      known_miss:summarizeExecution(knownMissExecution)
     },
     authoritative:false,
     verifier_required:true,
@@ -137,5 +174,5 @@ async function runMonthlyUltraDeep(input={},options={}){
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,flattenCandidates,sourceUniverseReceipts,
-  buildReferencePlan,buildKnownMissPlan,providerBindingState,runMonthlyUltraDeep
+  buildReferencePlan,buildKnownMissPlan,summarizeExecution,providerBindingState,runMonthlyUltraDeep
 };
