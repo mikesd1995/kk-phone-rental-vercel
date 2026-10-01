@@ -163,3 +163,7 @@ Remediation: reduced tablet sticky-shell footprint and added explicit event-sect
 
 ## V5.8.4 tablet sticky root-cause correction
 V5.8.3 reduced the tablet sticky shell but screenshot evidence showed the catalogue heading was still visually obscured. Pixel compression was therefore rejected as insufficient. At 601–900px the browse shell now remains in normal document flow; mobile/desktop behavior is unchanged. This trades unnecessary tablet persistence for catalogue readability and poster-first browsing.
+
+
+## V5.8.4 production retrigger — 2026-10-02
+The accepted V5.8.4 release was merged to main, but its original Vercel production build was rejected by the account build-rate limit. After new preview deployments returned to READY, this documentation-only commit intentionally retriggers Git integration without changing storefront runtime or business truth. Production must still be verified against the accepted V5.8.4 design blobs before smoke acceptance.
