@@ -10,6 +10,7 @@ on:
       - 'config.js'
       - 'server/kk-storefront-ux-reviewer.js'
       - 'server/kk-storefront-art-director.js'
+      - 'server/kk-storefront-visual-critic.js'
       - 'config/kk-storefront-ux-policy.json'
       - 'scripts/storefront-visual-acceptance.mjs'
       - '.github/workflows/storefront-visual-qa.yml'
