@@ -50,3 +50,42 @@ footer{margin-top:52px;border-top:1px solid var(--v5-line);padding:30px 0 44px}
 .concert-card .pi-tap:after{content:"  →"!important}
 @media(max-width:700px){.status-badge{display:none!important}.pi-venue{color:#778195!important}.pi-price{margin-top:1px}.pi-avail{font-weight:600}}
 @media(max-width:360px){.status-filter-bar .filter-btn[data-filter="full"]{display:none!important}.concert-card .pi-tap,.concert-card .pi-tap.full{font-size:9px!important;padding-top:7px!important}}
+
+/* V5 professional polish — exact-head screenshot review 2026-10-01.
+   Keep one mobile visual language, reduce control chrome, tighten vertical rhythm. */
+@media(max-width:700px){
+  .v5-hero{padding:20px 0 16px!important;gap:12px!important}
+  .v5-hero h1{font-size:34px!important;line-height:1!important}
+  .v3-proof{border-top:1px solid var(--v5-line)!important}
+  .v3-proof>div{padding:9px 5px!important}
+  .browse-controls-shell{margin:14px 0 6px!important;padding:0!important;background:transparent!important;box-shadow:none!important;border:0!important}
+  .event-search-wrap{height:46px!important;border-radius:12px!important;box-shadow:none!important}
+  .status-filter-bar{padding:0!important;background:transparent!important;box-shadow:none!important;border:0!important}
+  .month-select,.filter-btn{height:36px!important;border-radius:9px!important;box-shadow:none!important}
+  .v3-events-heading{padding:14px 0 10px!important}
+  .poster-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:11px!important}
+  .concert-card{display:block!important}
+  .poster-img-wrap{aspect-ratio:4/5!important}
+  .poster-info{padding:10px 10px 11px!important}
+  .pi-name{font-size:13px!important;line-height:1.25!important;min-height:33px!important;-webkit-line-clamp:2!important}
+}
+@media(max-width:360px){
+  .wrap{padding:0 12px!important}
+  .v5-hero h1{font-size:29px!important}
+  .v5-hero-copy>p{font-size:10.5px!important;line-height:1.5!important}
+  .v3-proof>div{padding:8px 3px!important}
+  .v3-proof strong{font-size:10px!important}
+  .event-search-shell{grid-template-columns:minmax(0,1fr) auto!important}
+  .event-search-count{font-size:9px!important}
+  .status-filter-bar{width:100%!important}
+  .month-select,.filter-btn{font-size:10px!important;padding:0 8px!important}
+  .poster-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  .concert-card{display:block!important}
+  .poster-info{padding:8px!important}
+  .pi-name{font-size:11px!important;min-height:28px!important;-webkit-line-clamp:2!important}
+  .pi-date{font-size:7.5px!important}
+  .pi-venue{font-size:8.5px!important}
+  .pi-price{font-size:12px!important}
+  .pi-avail{font-size:8.5px!important}
+  .concert-card .pi-tap,.concert-card .pi-tap.full{font-size:8.5px!important}
+}
