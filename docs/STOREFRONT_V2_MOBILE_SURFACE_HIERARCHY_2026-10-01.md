@@ -11,3 +11,6 @@ No booking, pricing, inventory, event visibility, API or production data semanti
 
 ## Acceptance
 Exact-head Admin Regression and Storefront Automated Visual QA are required before merge. Production deployment must reach READY and match the merged commit.
+
+## QA correction
+Initial v2.1 Visual QA correctly rejected 36px language segments as TAP_TARGET_TOO_SMALL on mobile. Restored each language segment to a 44px minimum while keeping the flatter segmented-control styling.
