@@ -156,6 +156,7 @@ jobs:
           const r=JSON.parse(fs.readFileSync('ultra-deep-runtime-acceptance.json','utf8'));
           if(r.full!==true) process.exit(1);
           if(r.provider_binding?.unknown_url_search_bound!==true) process.exit(1);
+          if(r.discovery_proof?.complete!==true) process.exit(1);
           if(r.source_universe?.complete!==true) process.exit(1);
           if(r.reference_sweep_proof?.complete!==true) process.exit(1);
           if(r.reconciliation?.reconciliation_gap_count!==0) process.exit(1);
