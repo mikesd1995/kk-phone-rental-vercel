@@ -32,3 +32,5 @@ Third QA pass isolated selector specificity from legacy language-control CSS as 
 Fourth correction addresses rendered box geometry rather than CSS minimum declarations: language buttons are explicit flex border-box controls at 46px so measured tap rectangles remain >=44px after inherited/legacy box rules.
 
 Root cause confirmed in legacy `style.css`: breakpoint rules set `.language-switch .lang-btn` to 40px at >=769px and related mobile rules. Final correction uses an explicit V2 stylesheet direct-child block-size override, preserving the 44px acceptance floor without changing the gate.
+
+Latest geometry evidence confirmed height=46px but tablet/desktop language width remained 38px. Final correction sets the direct-child hit area to 46x46px; the visible TH/EN treatment remains compact.
