@@ -37,3 +37,13 @@ Future accepted owner decisions and completed implementation records should appe
 - Agent Gateway loads seed memory plus durable ledger memory before critical execution. If the durable ledger is enabled/configured but cannot be read, the request fails closed as `BLOCKED_PROJECT_MEMORY_UNAVAILABLE`.
 - Durable memory remains non-authoritative for booking, pricing, inventory, customer, and current event truth.
 - Database migrations: `add_kk_project_memory_events`, followed by `tighten_kk_project_memory_events_grants`.
+
+## Acceptance — durable ledger
+- GitHub Admin Regression run `36913809332`: PASS.
+- Syntax checks: PASS.
+- Full regression tests: PASS.
+- Continuous invariant gate: PASS.
+- Code Intelligence benchmark: PASS.
+- HF harness safety and fail-closed readiness: PASS.
+- Canonical database readback: RLS enabled and application `service_role` privileges restricted to `INSERT, SELECT`.
+- Vercel preview build-rate-limit remains a deployment-quota condition and is not treated as repository acceptance.
