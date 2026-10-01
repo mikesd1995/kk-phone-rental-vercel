@@ -8,6 +8,37 @@
   },
   "routes": [
     {
+      "id": "project_memory",
+      "keywords": [
+        "project memory",
+        "conversation memory",
+        "chat memory",
+        "จำแชท",
+        "จำที่คุย",
+        "แชทใหม่",
+        "context bootstrap",
+        "ทำอะไรกันมาก่อน",
+        "continuity"
+      ],
+      "files": [
+        "server/kk-project-memory.js",
+        "config/kk-project-memory.json",
+        "server/kk-agent-registry.js",
+        "server/kk-agent-gateway.js"
+      ],
+      "tests": [
+        "tests/kk-project-memory.test.js",
+        "tests/kk-agent-gateway.test.js"
+      ],
+      "skills": [
+        "skills/kk-reliability-learning/SKILL.md"
+      ],
+      "docs": [
+        "docs/PROJECT_MEMORY_AND_AGENT_ENFORCEMENT_2026-10-02.md",
+        "docs/AGENT_RUNTIME_PROOF_GATE_2026-09-30.md"
+      ]
+    },
+    {
       "id": "operating_partner",
       "keywords": [
         "operating partner",
