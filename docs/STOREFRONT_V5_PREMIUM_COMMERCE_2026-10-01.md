@@ -26,3 +26,11 @@ Production writes=0 during design QA. No pricing, inventory, event visibility, b
 - Makes search/filter one contained discovery surface.
 - Keeps poster-led event cards with quieter metadata hierarchy and contextual package action.
 - Uses responsive 4/3/2/1-column progression rather than V4's thumbnail directory.
+
+
+## Remediation record — PR #409 exact-head follow-up
+- Source failure evidence: Admin Regression at 5f90b163 failed only `new storefront assets are cache-busted`; Visual QA reported P1 `TAP_TARGET_TOO_SMALL` and correctly kept screenshot/owner acceptance blocked.
+- Changed `index.html` script cache marker from the stale September poster marker to `storefront-v5-premium-20261001`.
+- Raised V5 primary interactive hit areas to the 44px acceptance floor (`.pi-tap`, and mobile `.v3-primary` / `.filter-clear-btn`) without changing pricing, event, inventory or booking semantics.
+- Vercel `api-deployments-free-per-day` remains classified as external quota and is not treated as code evidence.
+- Safety: no production deploy, no production write, no Sheet/Apps Script mutation, no merge. Owner visual acceptance remains fail-closed and must not be synthesized from automated PASS.
