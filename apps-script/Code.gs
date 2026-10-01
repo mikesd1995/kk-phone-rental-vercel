@@ -1320,7 +1320,15 @@ function doPost(e) {
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action && action !== 'snapshot' && action !== 'phase1Health') kkAuditLog_(action, payload, result, startedAt);
+    if (action && action !== 'snapshot' && action !== 'phase1Health') {
+      const isIdempotentReplay = action === 'createBooking' && result && result.idempotent_replay === true;
+      if (!isIdempotentReplay) {
+        const auditResult = action === 'createBooking' && payload && payload.request_id
+          ? kkBookingCreateAuditResult_(result, payload.request_id)
+          : result;
+        kkAuditLog_(action, payload, auditResult, startedAt);
+      }
+    }
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
     if (keyOk) kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
@@ -2337,8 +2345,7 @@ function kkApiCreateBooking_(payload) {
     const bookingId = String(persisted[0] || '').trim();
     if (!bookingId) throw new Error('BOOKING_CANONICAL_READBACK_MISSING: generated booking_id was not available after write');
     const result = { row_number: row, booking_id: bookingId, phone_asset_id: phoneAssetId, lens_asset_id: lensAssetId };
-    if (requestId) kkAuditLog_('createBooking', payload, kkBookingCreateAuditResult_(result, requestId), Date.now());
-    return result;
+    return requestId ? kkBookingCreateAuditResult_(result, requestId) : result;
   } finally {
     lock.releaseLock();
   }
