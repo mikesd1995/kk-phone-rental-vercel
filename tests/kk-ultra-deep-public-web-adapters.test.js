@@ -49,3 +49,17 @@ test('createProviders exposes both zero-cost search fallbacks by default',()=>{
  assert.equal(typeof p.DDG_HTML,'function');
  assert.equal(typeof p.BING_HTML,'function');
 });
+
+test('Bing HTML parser extracts result links and decodes entities',()=>{
+ const body='<li class="b_algo"><h2><a href="https://eventpop.me/e/173408">FORTREASURE &amp; Beyond</a></h2></li>';
+ const rows=A.parseBingHtml(body,'fortreasure');
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].source_url,'https://eventpop.me/e/173408');
+ assert.equal(rows[0].title,'FORTREASURE & Beyond');
+});
+
+test('createProviders exposes both credential-free search fallbacks by default',()=>{
+ const providers=A.createProviders({searxng_endpoint:''});
+ assert.equal(typeof providers.DDG_HTML,'function');
+ assert.equal(typeof providers.BING_HTML,'function');
+});
