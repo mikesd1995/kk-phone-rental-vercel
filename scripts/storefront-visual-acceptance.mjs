@@ -222,9 +222,24 @@ async function main(){
         fail('STOREFRONT_ERROR_STATE',`Storefront rendered an error state at ${width}px: ${text.slice(0,220)}`);
       }
 
-      const cards=page.locator('.concert-card');
+      // Wait for the real catalogue, not the initial skeleton. Interaction acceptance must
+      // never race the asynchronous fixture/API render or mistake skeleton cards for events.
+      try{
+        await page.locator('#content .skeleton-grid').waitFor({state:'detached',timeout:15000});
+        await page.locator('#content .concert-card:not(.skeleton-card)').first().waitFor({state:'visible',timeout:15000});
+      }catch(error){
+        const readiness=await page.evaluate(()=>({
+          skeletons:document.querySelectorAll('#content .skeleton-card').length,
+          real_cards:document.querySelectorAll('#content .concert-card:not(.skeleton-card)').length,
+          error_visible:Boolean(document.querySelector('#content .error-box')),
+          content_text:String(document.querySelector('#content')?.textContent||'').trim().slice(0,240)
+        }));
+        fail('STOREFRONT_DATA_NOT_READY',`Real event catalogue was not ready at ${width}px before interaction QA: ${JSON.stringify(readiness)}`);
+      }
+
+      const cards=page.locator('#content .concert-card:not(.skeleton-card)');
       const cardCount=await cards.count();
-      if(cardCount<1) fail('EVENT_CARDS_NOT_RENDERED',`No event cards rendered at ${width}px`);
+      if(cardCount<1) fail('EVENT_CARDS_NOT_RENDERED',`No real event cards rendered at ${width}px`);
 
       // Exercise read-only storefront interactions so a geometry-only PASS cannot mask broken UX.
       // Never click LINE/external booking links and never submit forms.
@@ -237,7 +252,7 @@ async function main(){
         recordInteraction('search_empty_state',await page.locator('.empty-state').isVisible().catch(()=>false));
         await search.fill('');
         await page.waitForTimeout(80);
-        recordInteraction('search_restore',await page.locator('.concert-card').count()>0);
+        recordInteraction('search_restore',await page.locator('#content .concert-card:not(.skeleton-card)').count()>0);
 
         const available=page.locator('.filter-btn[data-filter="available"]');
         await available.click();
@@ -254,7 +269,7 @@ async function main(){
           recordInteraction('faq_escape_close',!(await page.locator('#faqOverlay').isVisible().catch(()=>true)));
         }
 
-        const firstCard=page.locator('.concert-card').first();
+        const firstCard=page.locator('#content .concert-card:not(.skeleton-card)').first();
         await firstCard.click();
         recordInteraction('event_modal_open',await page.locator('#overlay').isVisible().catch(()=>false));
         await page.keyboard.press('Escape');
