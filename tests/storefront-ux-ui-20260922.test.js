@@ -45,7 +45,7 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 
 test('new storefront assets are cache-busted',()=>{
   assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261001-v54-audit2'));
-  assert.ok(html.includes('script.js?v=storefront-v54-audit3-20261001'));
+  assert.ok(html.includes('script.js?v=storefront-v54-audit4-20261001'));
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#071426">/);
 });
@@ -64,4 +64,12 @@ test('package and async-error surfaces expose assistive semantics',()=>{
   assert.match(html,/aria-labelledby="modal-title" aria-describedby="modal-note"/);
   assert.match(html,/class="modal-note" id="modal-note"/);
   assert.match(js,/error-state" role="alert" aria-live="assertive"/);
+});
+
+
+test('mobile modal scroll lock is valid source and restores the captured position',()=>{
+  assert.match(js,/var modalScrollY=0;\s*function lockBody\(\)/);
+  assert.match(js,/document\.body\.style\.position="fixed"/);
+  assert.match(js,/window\.scrollTo\(0,modalScrollY\)/);
+  assert.doesNotMatch(js,/modalScrollY=0;\\nfunction lockBody/);
 });
