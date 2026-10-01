@@ -17,3 +17,6 @@
 
 /* V4 round 2 QA correction: contain horizontal filter scroller inside the content width. */
 @media(max-width:600px){html,body{max-width:100%;overflow-x:hidden}.browse-controls-shell,.filter-group,.status-filter-bar{min-width:0!important;max-width:100%!important}.status-filter-bar{width:100%!important;overscroll-behavior-inline:contain}.month-select-wrap{min-width:0!important}.filter-clear-row{display:none!important}}
+
+/* V4 round 3 visual review: keep month control compact so status choices are discoverable. */
+@media(max-width:600px){.status-filter-bar{justify-content:flex-start!important}.status-filter-bar>.month-select-wrap{flex:0 0 108px!important;width:108px!important;max-width:108px!important}.status-filter-bar .month-select{width:108px!important;max-width:108px!important}.status-filter-bar .filter-btn{flex:0 0 auto!important}}
