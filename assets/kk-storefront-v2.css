@@ -340,3 +340,10 @@ footer>*,footer span{max-width:100%!important;box-sizing:border-box!important;wh
  .v22-utility .language-switch{display:none!important}
  .v22-hero h2{font-size:2.05rem}
 }
+
+/* V2.2 acceptance correction: quiet controls remain fully tappable. */
+.v22-utility .quick-link,.v22-utility .mini-btn{min-height:44px!important}
+.v22-utility .language-switch button{min-height:44px!important}
+@media(max-width:600px){
+ .v22-utility .language-switch button{min-height:44px!important}
+}
