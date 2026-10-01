@@ -21,7 +21,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
    }
    return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false}});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}});
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
  assert.equal(out.provider_binding.unknown_url_search_bound,true);
@@ -100,12 +100,13 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
  const classifications=KnownMiss.CORPUS
    .filter(c=>c.case_id!==target.case_id)
    .map(c=>({case_id:c.case_id,executed:true,status:'SOURCE_UNAVAILABLE'}));
+ const targetCandidate={title:'WeSpark official #bailu Bai Lu WeSpark Exclusive Overseas Fanmeeting',event_date:target.event_date,source_url:'https://proof.example/bailu-live'};
  const search=async task=>{
    if(String(task.source_id||'').startsWith('knownmiss:')) return [];
-   if(String(task.source_id||'').startsWith('reference-')) return [];
+   if(String(task.source_id||'').startsWith('reference-')) return [targetCandidate];
    if(!emittedTarget){
      emittedTarget=true;
-     return [{title:'WeSpark official #bailu Bai Lu WeSpark Exclusive Overseas Fanmeeting',event_date:target.event_date,source_url:'https://proof.example/bailu-live'}];
+     return [targetCandidate];
    }
    return [];
  };
@@ -114,7 +115,8 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
    {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
  );
  assert.equal(out.known_miss_regression.complete,true);
- const recovered=out.known_miss_regression.results.find(x=>x.case_id===target.case_id);
+ assert.equal(out.known_miss_live_recall.complete,true);
+ const recovered=out.known_miss_live_recall.results.find(x=>x.case_id===target.case_id);
  assert.equal(recovered.proof,'DISCOVERED');
  assert.equal(recovered.matched_source_url,'https://proof.example/bailu-live');
  assert.equal(out.full,true);
@@ -146,4 +148,36 @@ test('reference sweep execution proof fails closed when all search providers err
  assert.equal(out.reference_sweep_proof.complete,false);
  assert.ok(out.blockers.includes('REFERENCE_SWEEP_INCOMPLETE'));
  assert.equal(out.production_writes,0);
+});
+
+test('deterministic historical regression remains complete even when live recall is partial',async()=>{
+ const search=async task=>{
+   if(String(task.source_id||'').startsWith('knownmiss:')) return [];
+   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/shared'}];
+ };
+ const out=await Runner.runMonthlyUltraDeep(
+   {month:'2026-10',location:'Bangkok Thailand'},
+   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+ );
+ assert.equal(out.known_miss_regression.complete,true);
+ assert.ok(out.known_miss_live_recall.passed<out.known_miss_live_recall.case_count);
+ assert.equal(out.production_writes,0);
+});
+
+test('empty current-month discovery blocks FULL even when provider calls execute',async()=>{
+ const search=async task=>{
+   if(String(task.source_id||'').startsWith('knownmiss:')){
+     const c=KnownMiss.CORPUS.find(x=>'knownmiss:'+x.case_id===task.source_id);
+     return c?[{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}]:[];
+   }
+   if(String(task.source_id||'').startsWith('reference-')) return [{title:'External Event',event_date:'2026-10-20',source_url:'https://proof.example/reference'}];
+   return [];
+ };
+ const out=await Runner.runMonthlyUltraDeep(
+   {month:'2026-10',location:'Bangkok Thailand'},
+   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+ );
+ assert.equal(out.discovery_proof.has_evidence,false);
+ assert.ok(out.blockers.includes('DISCOVERY_EVIDENCE_EMPTY'));
+ assert.equal(out.full,false);
 });
