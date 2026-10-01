@@ -17,34 +17,17 @@
     768,
     1024
   ],
-  "iterations": [
-    {
-      "status": "REVISE",
-      "finding": "V4 owner-rejected: generic directory treatment and weak poster/brand impact."
-    },
-    {
-      "artifact_id": "11149922454",
-      "status": "REVISE",
-      "finding": "V5 polish unified mobile cards and reduced control chrome, but narrow filter semantics and inherited card rhythm still required correction."
-    },
-    {
-      "artifact_id": "11150330867",
-      "status": "REVISE",
-      "finding": "All narrow filters restored; screenshot exposed inherited blank blue space inside card metadata."
-    },
-    {
-      "artifact_id": "11150008216",
-      "status": "PASS",
-      "finding": "Legacy card min-height neutralized; poster-led hierarchy, compact discovery controls, readable metadata and full filter semantics verified across target viewports."
-    }
-  ],
-  "owner_rejection_baseline": "V4 PR #402 rejected 2026-10-01",
-  "acceptance_notes": [
-    "Poster remains dominant.",
-    "No floating LINE CTA obscures events.",
-    "All filter actions remain available at narrow widths.",
-    "Mobile cards preserve one visual system with responsive density.",
-    "Technical QA does not substitute for screenshot inspection."
-  ],
-  "production_writes": 0
+  "owner_rejection_baseline": "V4 PR #402 and 2026-10-01 production screenshots",
+  "review_findings": {
+    "brand_hierarchy": "PASS",
+    "hero_density": "PASS",
+    "event_discovery": "PASS",
+    "poster_prominence": "PASS",
+    "mobile_card_readability": "PASS",
+    "filter_composition": "PASS",
+    "cta_obstruction": "PASS",
+    "desktop_composition": "PASS",
+    "business_truth_preserved": "PASS"
+  },
+  "note": "Human screenshot review performed after technical QA. V5 preserves production concert/poster identity while reducing utility chrome and visual competition. Any change to index.html, V5 CSS, or script.js invalidates this approval via blob pinning."
 }
