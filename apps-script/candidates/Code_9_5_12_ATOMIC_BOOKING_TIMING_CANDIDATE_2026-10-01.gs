@@ -2400,6 +2400,9 @@ function kkApiCreateBooking_(payload) {
     if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
     if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
     
+    const proposed = ['', '', bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel, pkgType, phoneAssetId, lensAssetId, pickupTime, returnTime];
+    kkAssertBookingWindowCapacity_(0, proposed, bookingStatus, event.event_date, pkg.model_group, pkg.lens_group);
+
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
     const bookingSheet = kkSheet_(KK.bookings);
     bookingSheet.getRange(row, 2, 1, 19).setValues([[
