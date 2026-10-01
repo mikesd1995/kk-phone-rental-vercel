@@ -79,44 +79,27 @@
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css?v=clear-filter-containment-20260930">
 <link rel="stylesheet" href="/assets/kk-concert-blue-theme-20260922.css?v=20260922-ux2">
-<link rel="stylesheet" href="/assets/kk-storefront-v3.css?v=20261001-v3">
+<link rel="stylesheet" href="/assets/kk-storefront-v4.css?v=20261001-v4">
 </head>
 <body>
 <a class="skip-link" href="#event-browser">ข้ามไปดูงาน</a>
 <div class="wrap">
-<header class="v3-header">
-  <a class="v3-brand" href="/" aria-label="KK Phone Rental">
-    <span class="v3-brand-mark">KK</span>
-    <span class="v3-brand-copy"><strong>KK Phone Rental</strong><small>Concert camera phone rental</small></span>
-  </a>
-  <div class="v3-header-actions">
-    <button class="mini-btn" id="faq-open-btn" type="button">FAQ</button>
-    <div class="language-switch" id="language-switch" role="group" aria-label="เลือกภาษา">
-      <button class="lang-btn active" type="button" data-lang="th" aria-pressed="true">TH</button>
-      <span class="lang-divider" aria-hidden="true">/</span>
-      <button class="lang-btn" type="button" data-lang="en" aria-pressed="false">EN</button>
-    </div>
-  </div>
+<header class="v4-header">
+  <a class="v4-brand" href="/" aria-label="KK Phone Rental"><span class="v4-mark">KK</span><strong>KK Phone Rental</strong></a>
+  <button class="v4-menu" id="faq-open-btn" type="button">ข้อมูลการเช่า</button>
 </header>
 
 <main id="event-browser" tabindex="-1">
-<section class="v3-hero" aria-labelledby="v2-intro-title">
-  <div class="v3-hero-copy">
-    <div class="v3-eyebrow">CONCERT PHONE RENTAL · BANGKOK</div>
-    <h1 id="v2-intro-title">เก็บทุกโมเมนต์<br><em>ให้ใกล้กว่าที่นั่ง</em></h1>
-    <p>เช่า vivo X300 Pro พร้อมเลนส์สำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ รับ–คืนหน้างาน พร้อมสอนใช้ก่อนเข้า</p>
-    <div class="v3-hero-actions"><a class="v3-primary" href="#content">ดูงานที่เปิดจอง</a><a class="v3-secondary" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">ถามคิวทาง LINE</a></div>
-  </div>
-  <div class="v3-proof" aria-label="จุดเด่นบริการ">
-    <div><strong>ไม่วางมัดจำ</strong><span>พร้อมประกันเครื่องฟรี</span></div><div><strong>หน้างาน</strong><span>รับ–คืน + สอนใช้</span></div><div><strong>30 วัน</strong><span>เก็บไฟล์บน Drive</span></div>
-  </div>
+<section class="v4-hero" aria-labelledby="v2-intro-title">
+  <div class="v4-eyebrow">VIVO X300 PRO + LENS · CONCERT RENTAL</div>
+  <h1 id="v2-intro-title">ไปคอนครั้งนี้<br><em>เก็บช็อตให้ใกล้กว่าเดิม</em></h1>
+  <p>เลือกงาน เช็กเครื่องว่าง แล้วจองคิวได้เลย รับ–คืนหน้างาน พร้อมสอนใช้ก่อนเข้า</p>
+  <div class="v4-trust"><span>ไม่วางมัดจำ</span><span>ประกันเครื่องฟรี</span><span>เก็บไฟล์ 30 วัน</span></div>
 </section>
 <section class="value-box v2-legacy-guide" aria-label="ขั้นตอนการจองผ่าน LINE OA">
   <p>เลือกงาน > ดูรุ่นที่ว่าง > ระบบพาไปจองผ่าน LINE OA กับแอดมิน</p>
   <p class="value-note">( หากไม่มีงานที่ต้องการสามารถสอบถามได้ใน LINE OA )</p>
 </section>
-
-<div class="v3-social-proof"><a class="quick-link" href="https://x.com/KK_PhoneRental" target="_blank" rel="noopener">ติดตามคิวและอัปเดตล่าสุดบน X <span>↗</span></a></div>
 
 <div class="browse-controls-shell" aria-label="ค้นหาและกรองงาน">
 <div class="event-search-shell">
@@ -136,9 +119,9 @@
         <option value="all">เลือกเดือน</option>
       </select>
     </label>
-    <button class="filter-btn active" type="button" data-filter="all" aria-pressed="true">งานทั้งหมด</button>
-    <button class="filter-btn" type="button" data-filter="available" aria-pressed="false">งานว่าง</button>
-    <button class="filter-btn" type="button" data-filter="full" aria-pressed="false">จองคิวหลุด</button>
+    <button class="filter-btn active" type="button" data-filter="all" aria-pressed="true">ทั้งหมด</button>
+    <button class="filter-btn" type="button" data-filter="available" aria-pressed="false">มีคิวว่าง</button>
+    <button class="filter-btn" type="button" data-filter="full" aria-pressed="false">คิวเต็ม</button>
   </div>
   <div class="filter-clear-row">
     <button class="filter-clear-btn" id="clear-browse-btn" type="button" hidden>ล้างตัวกรอง</button>
@@ -146,7 +129,7 @@
 </div>
 </div>
 
-<div class="v3-events-heading"><div><span>UPCOMING EVENTS</span><h2>เลือกงานของคุณ</h2></div><p>กดโปสเตอร์เพื่อดูแพ็กเกจ ราคา และคิวว่าง</p></div>
+<div class="v4-events-heading"><h2>งานที่เปิดจอง</h2><p>แตะงานเพื่อดูแพ็กเกจ ราคา และคิวว่าง</p></div>
 
 <div class="update-note" id="update-note">อัปเดตล่าสุด: -</div>
 <div id="content"><div class="poster-grid skeleton-grid" aria-label="กำลังโหลดข้อมูลงาน"><div class="concert-card skeleton-card" aria-hidden="true"><div class="poster-img-wrap skeleton-poster"><span></span></div><div class="poster-info skeleton-info"><div class="sk sk-date"></div><div class="sk sk-title"></div><div class="sk sk-title short"></div><div class="sk sk-btn"></div></div></div><div class="concert-card skeleton-card" aria-hidden="true"><div class="poster-img-wrap skeleton-poster"><span></span></div><div class="poster-info skeleton-info"><div class="sk sk-date"></div><div class="sk sk-title"></div><div class="sk sk-title short"></div><div class="sk sk-btn"></div></div></div></div><div class="loading-text skeleton-loading-text">กำลังเช็กคิวให้น้า... 📱✨</div></div>
@@ -160,8 +143,6 @@
 
 <footer><div class="footer-brand">KK Phone Rental</div><div class="footer-tagline">เช่าเถอะ อยากให้ชัด ✨</div><div class="trust-note">จองง่าย คุยกับร้านโดยตรงผ่าน LINE</div></footer>
 </div>
-<a class="sticky-line" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">💚 <span id="sticky-line-label">ทัก LINE จองคิว</span></a>
-
 <div class="overlay" id="overlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <button class="modal-x" id="modal-x-btn" type="button" data-modal-close="package" aria-label="ปิดหน้าต่าง">×</button>
