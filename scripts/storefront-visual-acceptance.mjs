@@ -226,6 +226,54 @@ async function main(){
       const cardCount=await cards.count();
       if(cardCount<1) fail('EVENT_CARDS_NOT_RENDERED',`No event cards rendered at ${width}px`);
 
+      // Exercise read-only storefront interactions so a geometry-only PASS cannot mask broken UX.
+      // Never click LINE/external booking links and never submit forms.
+      const interactionChecks=[];
+      const recordInteraction=(name,pass,detail='')=>interactionChecks.push({name,pass:Boolean(pass),detail:String(detail||'')});
+      try{
+        const search=page.locator('#event-search');
+        await search.fill('__kk_visual_qa_no_match__');
+        await page.waitForTimeout(80);
+        recordInteraction('search_empty_state',await page.locator('.empty-state').isVisible().catch(()=>false));
+        await search.fill('');
+        await page.waitForTimeout(80);
+        recordInteraction('search_restore',await page.locator('.concert-card').count()>0);
+
+        const available=page.locator('.filter-btn[data-filter="available"]');
+        await available.click();
+        await page.waitForTimeout(60);
+        recordInteraction('status_filter_pressed',(await available.getAttribute('aria-pressed'))==='true');
+        await page.locator('.filter-btn[data-filter="all"]').click();
+        await page.waitForTimeout(60);
+
+        const faqButton=page.locator('#faq-open-btn');
+        if(await faqButton.isVisible().catch(()=>false)){
+          await faqButton.click();
+          recordInteraction('faq_open',await page.locator('#faqOverlay').isVisible().catch(()=>false));
+          await page.keyboard.press('Escape');
+          recordInteraction('faq_escape_close',!(await page.locator('#faqOverlay').isVisible().catch(()=>true)));
+        }
+
+        const firstCard=page.locator('.concert-card').first();
+        await firstCard.click();
+        recordInteraction('event_modal_open',await page.locator('#overlay').isVisible().catch(()=>false));
+        await page.keyboard.press('Escape');
+        recordInteraction('event_modal_escape_close',!(await page.locator('#overlay').isVisible().catch(()=>true)));
+
+        const en=page.locator('.lang-btn[data-lang="en"]');
+        const th=page.locator('.lang-btn[data-lang="th"]');
+        await en.click();
+        recordInteraction('language_en_pressed',(await en.getAttribute('aria-pressed'))==='true');
+        await th.click();
+        recordInteraction('language_th_restore',(await th.getAttribute('aria-pressed'))==='true');
+      }catch(error){
+        recordInteraction('interaction_runtime',false,error&&error.message||error);
+      }
+      const failedInteractions=interactionChecks.filter(item=>!item.pass);
+      if(failedInteractions.length){
+        fail('STOREFRONT_INTERACTION_FAILED',`Read-only interaction checks failed at ${width}px: ${JSON.stringify(failedInteractions).slice(0,900)}`);
+      }
+
       const cssLinks=await page.locator('link[rel="stylesheet"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')||''));
       if(expectedCssMarker && !cssLinks.some(href=>href.includes(expectedCssMarker))){
         fail('EXPECTED_CSS_MARKER_MISSING',`Expected CSS marker "${expectedCssMarker}" was not present at ${width}px`);
@@ -353,6 +401,7 @@ async function main(){
         screenshot_top:path.relative(process.cwd(),topPath),
         screenshot_sticky:path.relative(process.cwd(),stickyPath),
         page_errors:pageErrors,
+        interaction_checks:interactionChecks,
         metrics,
         qa,
         visual_critique:visualCritique
@@ -379,8 +428,10 @@ async function main(){
       runtimeErrors.length===0,
     production_writes:0,
     publishes:0,
-    clicks_performed:0,
+    clicks_performed:results.reduce((sum,item)=>sum+(item.interaction_checks||[]).filter(check=>/filter|faq|modal|language/.test(check.name)).length,0),
     forms_submitted:0,
+    technical_visual_pass:results.length===widths.length && results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS') && runtimeErrors.length===0,
+    interaction_pass:results.length===widths.length && results.every(item=>(item.interaction_checks||[]).every(check=>check.pass===true)),
     protection_bypass_used:Boolean(String(process.env.VERCEL_AUTOMATION_BYPASS_SECRET||'').trim()),
     paid_external_service_calls:0,
     zero_cost_path:mode==='local_zero_cost'
@@ -415,13 +466,14 @@ async function main(){
     evidence:{
       multi_viewport:results.length===widths.length,
       no_horizontal_overflow:results.length===widths.length && results.every(item=>numeric(item.metrics.document_scroll_width_px)<=numeric(item.metrics.viewport_width_px)+1),
-      business_truth_unchanged:mode==='local_zero_cost' && Boolean(fixtures) && summary.production_writes===0 && summary.forms_submitted===0 && summary.clicks_performed===0,
+      business_truth_unchanged:mode==='local_zero_cost' && Boolean(fixtures) && summary.production_writes===0 && summary.forms_submitted===0,
       visual_qa_pass:summary.pass,
       single_visual_source_of_truth:singleVisualSourceOfTruth,
       screenshot_review_pass:screenshotReviewPass
     }
   });
   summary.screenshot_review={status:screenshotReviewPass?'PASS':'BLOCKED',record:screenshotReview?path.relative(process.cwd(),reviewPath):null,closed_loop_acceptance:screenshotReview?.closed_loop_acceptance||null};
+  summary.owner_visual_acceptance=screenshotReviewPass?'PASS':'BLOCKED';
   summary.single_visual_source_of_truth=singleVisualSourceOfTruth;
   summary.art_director_acceptance=artAcceptance;
   summary.pass=summary.pass && artAcceptance.status==='PASS';
