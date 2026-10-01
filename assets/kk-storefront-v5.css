@@ -17,3 +17,30 @@ footer{margin-top:52px;border-top:1px solid var(--v5-line);padding:30px 0 44px}
 @media(min-width:901px) and (max-width:1100px){.poster-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 /* Trigger exact-head QA after PR creation; no production behavior change. */
+
+/* V5 visual iteration 2 — narrow-mobile composition */
+@media(max-width:700px){
+  .v3-header-actions .mini-btn{display:none!important}
+  .v3-brand-copy strong{font-size:13px}
+  .v5-hero{padding-top:22px}
+}
+@media(max-width:360px){
+  .v3-header{height:56px}
+  .v3-brand-mark{width:34px;height:34px;border-radius:10px}
+  .language-switch{gap:3px}
+  .lang-btn{padding:4px 3px}
+  .v5-hero{padding:20px 0 16px}
+  .v5-hero h1{font-size:30px}
+  .v5-hero-copy>p{font-size:11px}
+  .browse-controls-shell{margin-top:14px}
+  .status-filter-bar{width:100%;overflow-x:auto}
+  .month-select,.filter-btn{padding:0 9px}
+  .poster-grid{grid-template-columns:1fr;gap:14px}
+  .concert-card{display:grid;grid-template-columns:132px minmax(0,1fr);align-items:stretch}
+  .poster-img-wrap{aspect-ratio:4/5}
+  .poster-info{padding:12px 12px 11px}
+  .pi-name{font-size:14px;min-height:auto;-webkit-line-clamp:3}
+  .pi-venue{font-size:10px}
+  .pi-price{font-size:14px}
+  .pi-avail,.pi-tap{font-size:10px}
+}
