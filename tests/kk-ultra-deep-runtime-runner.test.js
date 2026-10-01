@@ -21,7 +21,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
    }
    return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false}});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}});
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
  assert.equal(out.provider_binding.unknown_url_search_bound,true);
@@ -30,4 +30,15 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
  assert.equal(out.known_miss_regression.complete,true);
  assert.equal(out.production_writes,0);
  assert.equal(out.verifier_required,true);
+});
+
+test('reference sweep execution proof fails closed when all search providers error',async()=>{
+ const fail=async()=>{const e=new Error('blocked');e.code='UPSTREAM_BLOCKED';throw e;};
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{
+   publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false},
+   providers:{SEARXNG:fail}
+ });
+ assert.equal(out.full,false);
+ assert.equal(out.reference_sweep_proof.complete,false);
+ assert.ok(out.blockers.includes('REFERENCE_SWEEP_INCOMPLETE'));
 });
