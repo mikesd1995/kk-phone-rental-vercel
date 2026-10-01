@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://kk-phone-rental.vercel.app/sitemap.xml
