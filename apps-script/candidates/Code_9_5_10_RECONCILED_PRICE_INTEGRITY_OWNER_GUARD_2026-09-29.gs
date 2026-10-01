@@ -2241,6 +2241,7 @@ function kkFindBookingByRequestId_(requestId) {
 
 function kkBookingCreateResult_(rowNumber, row, replay) {
   const current = row || [];
+  if (!current[0]) throw new Error('Booking canonical booking_id readback failed');
   return {
     row_number: rowNumber,
     booking_id: current[0] || '',
