@@ -1,0 +1,25 @@
+{
+  "schema_version": "KK_STOREFRONT_SCREENSHOT_REVIEW_V1",
+  "reviewed_design_sha": "3b97dae79dca14bc3a2da905596cef3f48f0aa07",
+  "artifact_id": 11145224805,
+  "reviewed_viewports": [
+    320,
+    375,
+    390,
+    430,
+    480,
+    768,
+    1024
+  ],
+  "status": "PASS",
+  "findings": {
+    "hierarchy": "PASS",
+    "mobile_composition": "PASS",
+    "tablet_composition": "PASS",
+    "desktop_composition": "PASS",
+    "event_card_visual_language": "PASS",
+    "duplicate_fixed_cta": "REMOVED_MOBILE_TABLET",
+    "geometry_qa": "PASS_100_ALL_VIEWPORTS"
+  },
+  "reviewer_note": "Reviewed exact CI screenshot artifact after iterative V3 redesign. Event content is surfaced earlier, mobile/tablet fixed LINE CTA no longer obscures content, cards use restrained editorial hierarchy, and all seven viewport geometry checks scored 100."
+}
