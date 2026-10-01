@@ -154,7 +154,11 @@ async function main(){
       page.on('pageerror',error=>pageErrors.push(String(error&&error.message||error)));
 
       if(fixtures){
-        await page.route('**/api/kk-data**',async route=>{
+        // The checked-out config installs an API-only fetch guard before app code runs.
+        // Route both absolute localhost requests and any matching API request to the
+        // already-fetched canonical read-only fixture so QA never falls through to
+        // a missing local /api implementation or direct Google fallback.
+        await page.route(url=>url.pathname==='/api/kk-data',async route=>{
           const requestUrl=new URL(route.request().url());
           const sheet=requestUrl.searchParams.get('sheet');
           const body=sheet==='08_Web_Ready'
@@ -176,6 +180,9 @@ async function main(){
       }
 
       await page.goto(target.href,{waitUntil:'domcontentloaded',timeout:30000});
+      if(fixtures){
+        await page.waitForFunction(()=>window.__KK_PUBLIC_DATA_GUARD__==='api-only',{timeout:5000}).catch(()=>{});
+      }
       if(mode!=='local_zero_cost'){
         await page.waitForLoadState('networkidle',{timeout:8000}).catch(()=>{});
       }
