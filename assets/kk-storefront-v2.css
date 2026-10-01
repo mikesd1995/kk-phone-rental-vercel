@@ -251,7 +251,7 @@ footer>*,footer span{max-width:100%!important;box-sizing:border-box!important;wh
    grid-column:1/-1!important;min-height:42px!important;padding:3px!important;
    background:rgba(15,23,42,.035)!important;border-color:transparent!important;
  }
- .language-switch button{min-height:36px!important}
+ .language-switch button{min-height:44px!important}
  .browse-controls-shell{
    position:relative!important;top:auto!important;margin:0 0 16px!important;padding:0!important;
    border:0!important;border-radius:0!important;background:transparent!important;
