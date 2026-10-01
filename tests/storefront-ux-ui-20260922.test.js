@@ -45,7 +45,7 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 
 test('new storefront assets are cache-busted',()=>{
   assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261001-v54-audit2'));
-  assert.ok(html.includes('script.js?v=storefront-v54-audit2-20261001'));
+  assert.ok(html.includes('script.js?v=storefront-v54-audit3-20261001'));
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#071426">/);
 });
@@ -57,4 +57,11 @@ test('V5 language switch binds the active hero, proof and event-discovery DOM',(
   assert.match(js,/setText\("\.v3-proof>div:nth-child\(1\) strong","proof_deposit_title"\)/);
   assert.match(js,/setText\("\.v3-events-heading h2","events_title"\)/);
   assert.match(js,/setText\("\.v3-events-heading p","events_body"\)/);
+});
+
+
+test('package and async-error surfaces expose assistive semantics',()=>{
+  assert.match(html,/aria-labelledby="modal-title" aria-describedby="modal-note"/);
+  assert.match(html,/class="modal-note" id="modal-note"/);
+  assert.match(js,/error-state" role="alert" aria-live="assertive"/);
 });
