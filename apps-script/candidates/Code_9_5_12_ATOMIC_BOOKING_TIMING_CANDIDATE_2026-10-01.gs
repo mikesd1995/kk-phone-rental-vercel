@@ -2314,6 +2314,57 @@ function kkAssertBookingWindowCapacity_(excludeRow, bookingRow, nextStatus, even
   });
 }
 
+function kkAssetConflictsInWindow_(assetId, targetWindow, excludeRow) {
+  const id = String(assetId || '').trim();
+  if (!id) return false;
+  return kkBookingRowsWithWindows_(excludeRow).some(item => {
+    if (!kkBookingWindowsOverlap_(targetWindow, item.window)) return false;
+    return String(item.row[9] || '').trim() === id || String(item.row[10] || '').trim() === id;
+  });
+}
+
+function kkValidateManualAssetForWindow_(assetId, assetType, modelGroup, eventDate, pickupTime, returnTime, status, excludeRow) {
+  assetId = String(assetId || '').trim();
+  if (!assetId) return;
+  const type = String(assetType || '').toLowerCase().trim();
+  const model = String(modelGroup || '').trim();
+  const rows = kkGetValues_(KK.assets, 5, 1, 7);
+  let found = false;
+  for (const r of rows) {
+    const rowId = String(r[0] || '').trim();
+    if (rowId !== assetId) continue;
+    found = true;
+    const rowType = String(r[1] || '').toLowerCase().trim();
+    const rowModel = String(r[2] || '').trim();
+    const statusValue = String(r[4] || '').toLowerCase().trim();
+    if (rowType !== type) throw new Error(assetId + ' is not a ' + type + ' asset');
+    if (!kkAssetModelMatches_(type, rowModel, model)) throw new Error(assetId + ' model is ' + rowModel + ', expected compatible ' + model);
+    if (!kkAssetIsRentableAvailable_(statusValue, r[6])) throw new Error(assetId + ' is not rentable/available');
+    const targetWindow = kkBookingReservationWindow_(eventDate, pickupTime, returnTime, status);
+    if (kkAssetConflictsInWindow_(assetId, targetWindow, excludeRow)) throw new Error(assetId + ' is already booked in an overlapping reservation window');
+    return;
+  }
+  if (!found) throw new Error('Asset not found: ' + assetId);
+}
+
+function kkFindAvailableAssetForWindow_(assetType, modelGroup, eventDate, pickupTime, returnTime, status, excludeRow) {
+  const type = String(assetType || '').toLowerCase().trim();
+  const model = String(modelGroup || '').trim();
+  if (!model || model === 'NONE') return '';
+  const targetWindow = kkBookingReservationWindow_(eventDate, pickupTime, returnTime, status);
+  const rows = kkGetValues_(KK.assets, 5, 1, 7);
+  for (const r of rows) {
+    const assetId = String(r[0] || '').trim();
+    const rowType = String(r[1] || '').toLowerCase().trim();
+    const rowModel = String(r[2] || '').trim();
+    const statusValue = String(r[4] || '').toLowerCase().trim();
+    if (!assetId || rowType !== type || !kkAssetModelMatches_(type, rowModel, model) || !kkAssetIsRentableAvailable_(statusValue, r[6])) continue;
+    if (kkAssetConflictsInWindow_(assetId, targetWindow, excludeRow)) continue;
+    return assetId;
+  }
+  throw new Error('No available ' + type + ' asset for requested reservation window');
+}
+
 function kkBookingRequestId_(payload) {
   const requestId = String(payload && payload.request_id || '').trim();
   if (!requestId) return '';
@@ -2395,10 +2446,10 @@ function kkApiCreateBooking_(payload) {
     kkAssertWebPackageBookable_(eventId, templateId);
 
     const pkgType = String(pkg.package_type || '').toLowerCase().trim();
-    if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date);
-    if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date);
-    if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
-    if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
+    if (phoneAssetId) kkValidateManualAssetForWindow_(phoneAssetId, 'phone', pkg.model_group, event.event_date, pickupTime, returnTime, bookingStatus, 0);
+    if (lensAssetId) kkValidateManualAssetForWindow_(lensAssetId, 'lens', pkg.lens_group, event.event_date, pickupTime, returnTime, bookingStatus, 0);
+    if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) phoneAssetId = kkFindAvailableAssetForWindow_('phone', pkg.model_group, event.event_date, pickupTime, returnTime, bookingStatus, 0);
+    if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) lensAssetId = kkFindAvailableAssetForWindow_('lens', pkg.lens_group, event.event_date, pickupTime, returnTime, bookingStatus, 0);
     
     const proposed = ['', '', bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel, pkgType, phoneAssetId, lensAssetId, pickupTime, returnTime];
     kkAssertBookingWindowCapacity_(0, proposed, bookingStatus, event.event_date, pkg.model_group, pkg.lens_group);
@@ -2457,8 +2508,8 @@ function kkApiUpdateBooking_(payload) {
     kkAssignMissingAssetsForPreparedBooking_(next, nextStatus, event.event_date);
 
     if (kkActiveHold_(nextStatus)) {
-      if (next[9]) kkValidateManualAsset_(next[9], 'phone', '', event.event_date, row);
-      if (next[10]) kkValidateManualAsset_(next[10], 'lens', '', event.event_date, row);
+      if (next[9]) kkValidateManualAssetForWindow_(next[9], 'phone', '', event.event_date, next[11], next[12], nextStatus, row);
+      if (next[10]) kkValidateManualAssetForWindow_(next[10], 'lens', '', event.event_date, next[11], next[12], nextStatus, row);
     }
     kkAssertBookingAssetsNotDoubleBooked_(row, next, nextStatus);
     const timingSpec = kkGetPackageSpecByType_(next[8]);
