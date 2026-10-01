@@ -676,3 +676,16 @@ html[data-theme="dark"] footer,html[data-theme="dark"] footer .trust-note{color:
  .status-filter-bar{grid-template-columns:1fr 1fr!important}
  .month-select-wrap,.month-select,.filter-btn{min-height:44px!important}
 }
+
+/* V5.9 acceptance correction: keep all month/status filters in one mobile row and preserve 44px targets. */
+@media(max-width:600px){
+ .status-filter-bar{display:grid!important;grid-template-columns:112px repeat(3,minmax(0,1fr))!important;gap:4px!important;overflow:visible!important}
+ .month-select-wrap,.month-select{width:112px!important;min-width:0!important}
+ .filter-btn{min-width:0!important;min-height:44px!important;padding-inline:4px!important;font-size:10px!important}
+ .theme-toggle,.header-faq-btn,.lang-btn{min-height:44px!important}
+}
+@media(max-width:390px){
+ .status-filter-bar{grid-template-columns:92px repeat(3,minmax(0,1fr))!important}
+ .month-select-wrap,.month-select{width:92px!important}
+ .filter-btn{font-size:9px!important}
+}
