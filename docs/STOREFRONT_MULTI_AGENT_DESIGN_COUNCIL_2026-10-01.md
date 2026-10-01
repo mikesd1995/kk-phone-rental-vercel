@@ -91,3 +91,12 @@ Infrastructure note: PR comments also show Vercel free-tier deployment quota fai
 Additional defects found and corrected:
 - Visual QA path filters did not include the Design Council runtime, four new reviewer modules, registry/router, or council/critic tests. These files now trigger Storefront Automated Visual QA, preventing agent-governance changes from bypassing the visual acceptance workflow.
 - Registry metadata drifted from executable implementations: Art Director was still advertised as V1 while the module is V3, and the four independent reviewer agents used the council contract version rather than their executable module versions. Registry metadata now matches runtime modules.
+
+
+### Exact-head verification after exhaustive audit
+Evidence on audited head b803d39e9f4d7eaf3172db99a83ca0c673d918d7:
+- Admin Regression run 36870296391: SUCCESS.
+- Storefront Automated Visual QA run 36870296505: technical_visual_pass=true, interaction_pass=true, runtime_errors=[], production_writes=0, forms_submitted=0, single_visual_source_of_truth=true.
+- Visual QA workflow conclusion remains failure by design because screenshot closed-loop acceptance still carries the explicit owner REJECTED decision; automated technical/interaction review itself is clean.
+- Evidence artifact: 11165104465 (16 files, digest sha256:1fd4b554851e195e126cb56b0b3c840b4fd3a838793ec296325253caf40d9d0a).
+- The screenshot review record was advanced to this evidence artifact without changing owner_decision or status.
