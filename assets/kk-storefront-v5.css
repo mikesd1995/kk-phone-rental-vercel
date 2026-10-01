@@ -778,3 +778,18 @@ html:not([data-theme="dark"]) .theme-toggle,
 html:not([data-theme="dark"]) .language-switch{color:var(--v6-ink)!important}
 .lang-btn{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important}
 @media(max-width:700px){.lang-btn{width:44px!important;min-width:44px!important}}
+
+
+/* V6.0.3 visual polish after exact-head screenshot review */
+html:not([data-theme="dark"]) .v3-brand,
+html:not([data-theme="dark"]) .v3-brand-copy strong{color:var(--v6-ink)!important}
+html:not([data-theme="dark"]) .header-faq-btn,
+html:not([data-theme="dark"]) .theme-toggle,
+html:not([data-theme="dark"]) .lang-btn,
+html:not([data-theme="dark"]) .month-select,
+html:not([data-theme="dark"]) .filter-btn{color:var(--v6-ink)!important}
+.v3-hero-actions{display:none!important}
+html[data-theme="light"] .theme-moon,html[data-theme="dark"] .theme-sun{display:none!important}
+html[data-theme="light"] .theme-sun,html[data-theme="dark"] .theme-moon{display:grid!important;background:transparent!important}
+.theme-toggle{min-width:44px!important}
+@media(min-width:601px) and (max-width:900px){.poster-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
