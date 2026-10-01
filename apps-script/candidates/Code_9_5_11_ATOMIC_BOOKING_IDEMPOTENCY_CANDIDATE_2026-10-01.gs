@@ -2255,6 +2255,10 @@ function kkBookingCreateResult_(rowNumber, row, replay) {
 function kkApiCreateBooking_(payload) {
   const lock = kkAcquireDocumentLock_('write operation', 12000);
   try {
+    const requestId = kkBookingRequestId_(payload);
+    const prior = requestId ? kkFindBookingByRequestId_(requestId) : null;
+    if (prior) return kkBookingCreateResult_(prior.row_number, prior.row, true);
+
     const eventId = String(payload.event_id || '').trim();
     let templateId = String(payload.template_id || '').trim();
     const customerName = String(payload.customer_name || '').trim();
