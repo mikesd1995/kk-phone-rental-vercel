@@ -163,3 +163,12 @@ test('booking collision preflight remains available when Apps Script configurati
   assert.equal(out.headers['X-KK-Booking-Preflight'],'DIRECT_SHEET');
   assert.equal(calls,0);
 });
+
+
+test('Admin write guard uses fixed-length timing-safe secret comparison',()=>{
+  const fs=require('node:fs');
+  const source=fs.readFileSync(require.resolve('../api/kk-admin-guard.js'),'utf8');
+  assert.match(source,/crypto\.timingSafeEqual\(left,right\)/);
+  assert.match(source,/createHash\('sha256'\).*String\(a\|\|''\)/s);
+  assert.doesNotMatch(source,/providedPin\s*!==\s*adminPin/);
+});
