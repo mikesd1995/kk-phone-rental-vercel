@@ -64,3 +64,11 @@ Run 36864825363 confirmed Admin Regression remained green and interactions remai
 - 768/1024 critic had no blockers.
 
 Remediation keeps the KK editorial identity but compresses mobile-only pre-catalogue composition: shorter masthead/hero, hidden decorative stage index, two-line intro cap, compact proof rail, tighter discovery spacing, single-line event heading treatment, and short-phone removal of nonessential catalogue metadata. Business data and booking behavior remain unchanged.
+
+
+## V5.5.2 last-mile 320px remediation
+Run 36866766606 narrowed the remaining automated visual blocker to one viewport only:
+- PASS: 375x812, 390x844, 430x932, 480x932, 768x1024, 1024x768.
+- 320x568: HERO_DOMINATES_MOBILE was resolved; only EVENT_DISCOVERY_TOO_LATE remained, improved from 634px to 538px.
+
+The follow-up is intentionally scoped to max-width 350px + max-height 650px so already-passing viewports are not disturbed. It removes the secondary hero paragraph on short phones and further compresses nonessential pre-catalogue spacing/labels. Product CTA, trust proof, search/filter controls and event data remain present. No business truth or production write path changed.
