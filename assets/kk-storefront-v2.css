@@ -347,3 +347,7 @@ footer>*,footer span{max-width:100%!important;box-sizing:border-box!important;wh
 @media(max-width:600px){
  .v22-utility .language-switch button{min-height:44px!important}
 }
+
+/* Tablet/desktop acceptance: legacy language rules must not shrink V2.2 segments. */
+.v22-utility .language-switch{min-height:44px!important}
+.v22-utility .language-switch .lang-btn{height:44px!important;min-height:44px!important}
