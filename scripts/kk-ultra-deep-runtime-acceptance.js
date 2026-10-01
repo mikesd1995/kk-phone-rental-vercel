@@ -41,6 +41,7 @@ async function main(){
      missing_required_sources:result.source_universe&&result.source_universe.missing_required_sources||[],
      by_tier:result.source_universe&&result.source_universe.by_tier||{}
    },
+   reference_sweep_proof:result.reference_sweep_proof,
    reconciliation:{
      complete:result.reconciliation&&result.reconciliation.complete===true,
      reconciliation_gap_count:result.reconciliation&&result.reconciliation.reconciliation_gap_count,
@@ -65,6 +66,7 @@ async function main(){
    blockers:evidence.blockers,
    provider_binding:evidence.provider_binding,
    source_universe_complete:evidence.source_universe.complete,
+   reference_sweep_complete:evidence.reference_sweep_proof&&evidence.reference_sweep_proof.complete,
    reconciliation_gap_count:evidence.reconciliation.reconciliation_gap_count,
    known_miss_complete:evidence.known_miss_regression&&evidence.known_miss_regression.complete,
    candidate_count:evidence.candidate_count,
