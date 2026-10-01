@@ -55,3 +55,25 @@ Human review deliberately rejected earlier technically-green iterations:
 1. round 1: narrow 320px cards and transient poster readiness.
 2. round 2: inherited gradient card CTA and overly dominant poster badges.
 3. round 3: PASS after removal of promotional card chrome, narrow-mobile composition correction, and final poster-led hierarchy review.
+
+
+## Owner-grade refinement and final acceptance
+Final reviewed design SHA: `b861f63fbf6f6e248a109db1138f44e79744ff1c`.
+Screenshot artifact: `11150008216`.
+
+Additional refinements after the initial V5 build:
+- Removed residual inherited rounded/glass chrome from language and discovery controls.
+- Kept 44px interaction geometry while visually reducing the language control.
+- Restored iOS-safe 16px select sizing to prevent focus zoom.
+- Forced readable event-card geometry at narrow widths and removed legacy min-height blank space.
+- Reduced mobile metadata to poster → date → title → price → availability; venue and duplicate per-card CTA are suppressed on narrow screens.
+- Reduced card shadows and decorative status noise while preserving KK blue and poster prominence.
+- Preserved a two-column poster-led layout where width permits; 320px uses a full-width compact horizontal card rather than squeezing unreadable columns.
+
+Exact-head governed acceptance commit after screenshot record: `77f827f7086cd1bc9a01200d37873d7a625e3d03`.
+- Admin Regression `36838458951`: SUCCESS.
+- Storefront Automated Visual QA `36838459249`: SUCCESS.
+- Screenshot review: PASS, blob-pinned to index/V5 CSS/script.
+- Production writes: 0.
+- PR #402/V4 remains closed and owner-rejected.
+- PR #403 remains unmerged pending explicit production approval.
