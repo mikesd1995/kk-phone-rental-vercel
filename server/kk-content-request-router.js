@@ -42,7 +42,8 @@ function effectiveInventoryInput(input = {}) {
 
   if (hasRemaining && Number.isFinite(remaining) && remaining <= 0) {
     const lensOnly = next.lens_only_offer === true && Number.isFinite(lensRemaining) && lensRemaining > 0;
-    if (!lensOnly) next.inventory_available = false;
+    next.inventory_available = false;
+    if (lensOnly) next.lens_only_available = true;
   }
   return next;
 }
