@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process';
 const require=createRequire(import.meta.url);
 const Reviewer=require('../server/kk-storefront-ux-reviewer.js');
 const ArtDirector=require('../server/kk-storefront-art-director.js');
+const VisualCritic=require('../server/kk-storefront-visual-critic.js');
 
 const DEFAULT_HEIGHTS=Object.freeze({
   320:568,
@@ -203,9 +204,16 @@ async function main(){
         }));
         return images.map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight}));
       });
-      const brokenVisibleImages=imageReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      let brokenVisibleImages=imageReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      if(brokenVisibleImages.length && mode==='local_zero_cost'){
+        // Canonical Google Drive poster hosts can throttle CI while the same image is valid in production.
+        // Re-check the same source once before failing; never exempt persistent failures.
+        await page.waitForTimeout(2200);
+        const retryReadiness=await page.evaluate(()=>Array.from(document.images).filter(img=>{const r=img.getBoundingClientRect();return r.bottom>=-1&&r.top<=window.innerHeight+1&&r.width>0&&r.height>0;}).map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight})));
+        brokenVisibleImages=retryReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
+      }
       if(brokenVisibleImages.length){
-        fail('VISIBLE_IMAGE_NOT_READY',`Visible image evidence was not ready at ${width}px: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
+        fail('VISIBLE_IMAGE_NOT_READY',`Visible image evidence was not ready at ${width}px after readiness retry: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
       }
 
       const errorVisible=await page.locator('.error-box').isVisible().catch(()=>false);
@@ -283,6 +291,8 @@ async function main(){
         ].filter(visible);
         const rowTops=[...new Set(filterItems.map(el=>Math.round(el.getBoundingClientRect().top/3)*3))];
 
+        const hero=document.querySelector('.v4-hero,.v3-hero');
+        const preEventSurfaces=[document.querySelector('.v4-header,.v3-header'),hero,document.querySelector('.v3-social-proof'),document.querySelector('.browse-controls-shell')].filter(visible);
         const cards=Array.from(document.querySelectorAll('.concert-card')).filter(visible);
         const cardRects=cards.map(el=>el.getBoundingClientRect());
         const firstTop=cardRects.length?Math.round(cardRects[0].top/4)*4:null;
@@ -316,6 +326,9 @@ async function main(){
           card_columns:firstRow.length,
           card_min_width_px:cardRects.length?Math.min(...cardRects.map(r=>r.width)):0,
           visible_event_cards_above_fold:visibleAboveFold,
+          first_event_top_px:cardRects.length?cardRects[0].top+window.scrollY:0,
+          hero_height_px:rect(hero)?.height||0,
+          pre_event_surface_count:preEventSurfaces.length,
           backdrop_blur_px:blurMatch?Number(blurMatch[1]):0,
           tap_targets:tapTargets,
           event_card_count:cards.length,
@@ -330,6 +343,7 @@ async function main(){
         metrics
       };
       const qa=Reviewer.validateVisualQa(packet);
+      const visualCritique=VisualCritic.critique(packet);
       results.push({
         width,
         height,
@@ -340,7 +354,8 @@ async function main(){
         screenshot_sticky:path.relative(process.cwd(),stickyPath),
         page_errors:pageErrors,
         metrics,
-        qa
+        qa,
+        visual_critique:visualCritique
       });
       runtimeErrors.push(...pageErrors.map(message=>({width,message})));
       await context.close();
@@ -360,7 +375,7 @@ async function main(){
     viewports:results,
     runtime_errors:runtimeErrors,
     pass:results.length===widths.length &&
-      results.every(item=>item.qa.pass===true) &&
+      results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS') &&
       runtimeErrors.length===0,
     production_writes:0,
     publishes:0,
@@ -371,7 +386,7 @@ async function main(){
     zero_cost_path:mode==='local_zero_cost'
   };
 
-  const reviewPath=path.join(process.cwd(),'config','kk-storefront-v3-screenshot-review.json');
+  const reviewPath=path.join(process.cwd(),'config','kk-storefront-v5-screenshot-review.json');
   let screenshotReviewPass=false;
   let screenshotReview=null;
   if(fs.existsSync(reviewPath)){
@@ -380,19 +395,21 @@ async function main(){
       const blobs=screenshotReview.reviewed_design_blobs||{};
       const expected={
         'index.html':String(blobs.index_html||''),
-        'assets/kk-storefront-v3.css':String(blobs.v3_css||''),
+        'assets/kk-storefront-v5.css':String(blobs.v5_css||''),
         'script.js':String(blobs.script_js||'')
       };
       const designUnchanged=Object.entries(expected).every(([file,blob])=>{
         if(!/^[0-9a-f]{40}$/.test(blob)) return false;
         try{return execFileSync('git',['hash-object',file],{encoding:'utf8'}).trim()===blob;}catch(_){return false;}
       });
-      screenshotReviewPass=screenshotReview.status==='PASS' && designUnchanged;
+      const loopAcceptance=VisualCritic.acceptLoop({rounds:screenshotReview.rounds||[],screenshot_artifact_id:screenshotReview.screenshot_artifact_id,owner_rejected:false});
+      screenshotReview.closed_loop_acceptance=loopAcceptance;
+      screenshotReviewPass=screenshotReview.status==='PASS' && designUnchanged && loopAcceptance.status==='PASS';
     }catch(_){}
   }
   const indexSource=fs.readFileSync(path.join(process.cwd(),'index.html'),'utf8');
   const storefrontStyles=[...indexSource.matchAll(/kk-storefront-v\d+\.css/gi)].map(match=>match[0].toLowerCase());
-  const singleVisualSourceOfTruth=storefrontStyles.length===1 && storefrontStyles[0]==='kk-storefront-v3.css';
+  const singleVisualSourceOfTruth=storefrontStyles.length===1 && storefrontStyles[0]==='kk-storefront-v5.css';
 
   const artAcceptance=ArtDirector.evaluateImplementation({
     evidence:{
@@ -404,7 +421,7 @@ async function main(){
       screenshot_review_pass:screenshotReviewPass
     }
   });
-  summary.screenshot_review={status:screenshotReviewPass?'PASS':'BLOCKED',record:screenshotReview?path.relative(process.cwd(),reviewPath):null};
+  summary.screenshot_review={status:screenshotReviewPass?'PASS':'BLOCKED',record:screenshotReview?path.relative(process.cwd(),reviewPath):null,closed_loop_acceptance:screenshotReview?.closed_loop_acceptance||null};
   summary.single_visual_source_of_truth=singleVisualSourceOfTruth;
   summary.art_director_acceptance=artAcceptance;
   summary.pass=summary.pass && artAcceptance.status==='PASS';
