@@ -65,8 +65,8 @@ jobs:
           grep -q 'id="theme-toggle"' <<<"$ROOT"
           grep -q 'id="faq-open-btn"' <<<"$ROOT"
           grep -q 'v59-theme-faq' <<<"$ROOT"
-          npx vercel curl "$CANDIDATE_URL/api/kk-data?sheet=08_Web_Ready%26range=A4%3AK" --token="$VERCEL_TOKEN" -sS > candidate-data
-          curl -sS "$PRODUCTION_URL/api/kk-data?sheet=08_Web_Ready%26range=A4%3AK" > production-data
+          npx vercel curl "$CANDIDATE_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" --token="$VERCEL_TOKEN" -sS > candidate-data
+          curl -sS "$PRODUCTION_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" > production-data
           cmp candidate-data production-data
       - id: previous
         name: Capture previous production
