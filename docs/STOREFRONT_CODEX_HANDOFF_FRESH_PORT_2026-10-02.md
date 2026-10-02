@@ -44,3 +44,17 @@ Production writes = 0. Auto deploy = false. Owner rendered visual acceptance rem
 4. Candidate screenshots/artifacts are bound to the exact fresh-port head.
 5. Any owner visual approval must be fresh for this candidate; stale PR #462 approval/evidence is not reusable.
 6. Vercel quota/deployment status is reported separately from source correctness.
+
+
+## 2026-10-02 handoff continuation — poster resilience + gate separation
+
+The exact-head Visual QA failure on run `37024949862` was isolated to one external poster delivery defect at 1024x768: `EVT-20261005-KHOM-KHLANG-SPECIAL-EP5` exhausted all canonical Google Drive delivery candidates. All layout, interaction, dark/light, Thai/English, modal, containment and the other seven viewport checks were otherwise clean.
+
+Remediation:
+- a failed external poster now renders a deterministic **exact-event summary fallback** using the already-visible event name/date/venue instead of a generic unrelated image;
+- the card remains bookable and retains `posterFailed` evidence plus explicit `posterFallback=event-summary`;
+- rendered fallback evidence is P2 degraded-source evidence, while an unresolved/broken fallback remains P1 and blocks technical acceptance;
+- canonical poster SOT precedence is unchanged; the separate poster-health audit may continue to report the source-permission defect until a verified exact-event image source is restored;
+- technical visual CI and owner aesthetic release acceptance are now represented separately. Technical QA may pass with `release_ready=false`; production promotion still requires fresh exact-candidate owner screenshot acceptance.
+
+No pricing, inventory, booking, event visibility, canonical poster field, Apps Script, Admin data or production business write was changed.
