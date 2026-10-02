@@ -35,9 +35,21 @@ function readbackFromSnapshot(plan,s){
  const web=(s.web_ready||[]).find(x=>text(x.event_id)===text(e.event_id))||e;
  return {event:{...e,...web,active_on_web:e.active_on_web===true||String(e.active_on_web).toLowerCase()==='true'},packages:(s.web_packages||[]).filter(x=>text(x.event_id)===text(e.event_id))};
 }
-async function postAction(action){
- const out=await admin(action);
- return out;
+async function postAction(action){return admin(action);}
+function existingActionsVerified(existing,actions,s){
+ const event=(s.events||[]).find(e=>text(e.event_id)===text(existing.event_id));
+ if(!event)return false;
+ for(const a of actions){
+  if(a.action==='updateEvent'&&text(a.poster_url)){
+   const web=(s.web_ready||[]).find(x=>text(x.event_id)===text(existing.event_id))||event;
+   if(text(web.poster_image_url||web.poster_url)!==text(a.poster_url))return false;
+  }
+  if(a.action==='upsertEventOverride'){
+   const row=(s.web_packages||[]).find(x=>text(x.event_id)===text(existing.event_id)&&text(x.package_id||x.template_id).includes(text(a.template_id)));
+   if(!row||Number(row.price)!==Number(a.override_price))return false;
+  }
+ }
+ return true;
 }
 async function main(){
  const inputPath=arg('discovery','ultra-deep-runtime-acceptance.json');
@@ -65,10 +77,15 @@ async function main(){
   env:{...process.env,KK_ADMIN_PIN:pin,KK_SITE_URL:site,KK_GOVERNED_STOREFRONT_EXECUTOR_ENABLED:'true'},
   fetchImpl:fetch,
   storefrontReadbackFn:async({plan})=>{const s=await snapshot();return readbackFromSnapshot(plan,s);},
-  existingEventWriterFn:async({plan})=>{
+  existingEventWriterFn:async({existing,plan})=>{
    for(const action of plan.actions)await postAction(action);
-   const s=await snapshot();
-   return {readback_verified:true,snapshot_generated_at:s.generated_at||null,actions:plan.actions.length};
+   let last=null;
+   for(let i=0;i<4;i++){
+    if(i)await new Promise(r=>setTimeout(r,1500));
+    last=await snapshot();
+    if(existingActionsVerified(existing,plan.actions,last))return {readback_verified:true,snapshot_generated_at:last.generated_at||null,actions:plan.actions.length};
+   }
+   return {readback_verified:false,snapshot_generated_at:last&&last.generated_at||null,actions:plan.actions.length,error_code:'EXISTING_EVENT_EXACT_READBACK_FAILED'};
   }
  });
  const report={
