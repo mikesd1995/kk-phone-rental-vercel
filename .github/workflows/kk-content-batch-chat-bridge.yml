@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
   issues: write
+  id-token: write
+
+env:
+  KK_PROJECT_MEMORY_GITHUB_OIDC_ENABLED: 'true'
 
 concurrency:
   group: kk-content-batch-chat-bridge-${{ github.event.issue.number }}

@@ -2,6 +2,7 @@
 
 const RuntimeLedger=require('./runtime-ledger.js');
 const OidcBridge=require('./runtime-ledger-oidc-bridge.js');
+const GithubOidcBridge=require('./kk-project-memory-github-oidc-bridge.js');
 const Memory=require('./kk-project-memory.js');
 const TABLE='kk_project_memory_events';
 
@@ -15,18 +16,21 @@ function configState(env=process.env){
  const actual=RuntimeLedger.projectRefFromUrl(url);
  const projectBindingMatches=!!expected&&actual===expected;
  const productionOidc=text(env.VERCEL_ENV).toLowerCase()==='production';
+ const githubOidc=text(env.GITHUB_ACTIONS).toLowerCase()==='true' && bool(env.KK_PROJECT_MEMORY_GITHUB_OIDC_ENABLED);
  const inherited=bool(env.KK_RUNTIME_LEDGER_ENABLED);
- const enabled=explicit?bool(explicit):(inherited||productionOidc);
+ const enabled=explicit?bool(explicit):(inherited||productionOidc||githubOidc);
  const directConfigured=enabled&&!!url&&!!serverKey.value&&projectBindingMatches;
  const oidcCandidate=enabled&&!directConfigured&&productionOidc;
+ const githubOidcCandidate=enabled&&!directConfigured&&!oidcCandidate&&githubOidc;
  return {
    enabled,
-   configured:directConfigured||oidcCandidate,
+   configured:directConfigured||oidcCandidate||githubOidcCandidate,
    direct_configured:directConfigured,
    oidc_candidate:oidcCandidate,
+   github_oidc_candidate:githubOidcCandidate,
    project_binding_matches:projectBindingMatches,
    table:TABLE,
-   mode:directConfigured?'direct':(oidcCandidate?'oidc':'disabled')
+   mode:directConfigured?'direct':(oidcCandidate?'oidc':(githubOidcCandidate?'github_oidc':'disabled'))
  };
 }
 function headers(env){const key=RuntimeLedger.resolveServerKey(env).value;return {apikey:key,Authorization:'Bearer '+key};}
@@ -61,6 +65,11 @@ async function listEvents({env=process.env,fetchImpl=global.fetch,getTokenImpl,l
    const remote=await OidcBridge.readProjectMemory({domains,limit:Math.min(Number(limit)||80,80),fetchImpl,getTokenImpl});
    if(!remote.ok) throw Object.assign(new Error('project memory OIDC read failed'),{code:remote.error_code||'PROJECT_MEMORY_LEDGER_OIDC_UNAVAILABLE',remote_status:remote.remote_status||null});
    return {ok:true,enabled:true,mode:'oidc',rows:normalizeRows(remote.rows)};
+ }
+ if(cfg.github_oidc_candidate){
+   const remote=await GithubOidcBridge.readProjectMemory({env,domains,limit:Math.min(Number(limit)||80,80),fetchImpl,getTokenImpl});
+   if(!remote.ok) throw Object.assign(new Error('project memory GitHub OIDC read failed'),{code:remote.error_code||'PROJECT_MEMORY_GITHUB_OIDC_UNAVAILABLE',remote_status:remote.remote_status||null});
+   return {ok:true,enabled:true,mode:'github_oidc',rows:normalizeRows(remote.rows)};
  }
  throw Object.assign(new Error('project memory ledger not configured'),{code:'PROJECT_MEMORY_LEDGER_NOT_CONFIGURED'});
 }

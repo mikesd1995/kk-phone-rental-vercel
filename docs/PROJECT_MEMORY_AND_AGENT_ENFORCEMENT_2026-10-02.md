@@ -57,3 +57,13 @@ Future accepted owner decisions and completed implementation records should appe
 - `GET /api/kk-intelligence-health?mode=project-memory` exposes only secret-safe runtime state: enabled/configured mode, binding booleans, readback status, sample count, and whether durable memory exists. It never exposes memory text, credentials, or tokens.
 - An explicit `KK_PROJECT_MEMORY_LEDGER_ENABLED=false` continues to override automatic production OIDC activation.
 - Agent Gateway continues to fail closed when the enabled production durable-memory read cannot be completed.
+
+
+## GitHub-native Agent memory fallback
+- Vercel's Free-plan deployment quota can block a same-day production redeploy even when repository and Supabase acceptance are green. This must not silently disable durable memory for GitHub-native Agent flows.
+- Governed GitHub content runtimes now request `id-token: write` and use a dedicated `kk-project-memory-github-read` Supabase Edge Function.
+- The GitHub OIDC function accepts only the KK repository, `refs/heads/main`, `issues` events, and these exact workflow refs: `kk-content-chat-bridge.yml`, `kk-content-batch-chat-bridge.yml`, and `kk-x-posting-plan-chat-bridge.yml`.
+- The function is read-only, bounded to 80 memory rows / 12 validated domains, and performs no booking, pricing, storefront, or other business writes.
+- The X Posting Plan bridge no longer overrides Project Memory with an empty list; it now uses the same governed durable-memory bootstrap as the other Agent routes.
+- Agent Gateway now returns `durable_mode` and `durable_context_count` as runtime evidence without exposing memory contents.
+- Durable acceptance memory `kk:memory:durable:x-posting-plan:20261002` is present in canonical Supabase under domain `content` so live X Agent acceptance can prove a nonzero durable context read.
