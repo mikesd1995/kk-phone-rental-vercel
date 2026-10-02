@@ -1618,7 +1618,7 @@ function kkApiSnapshot_(payload) {
         is_past_event: isPastEvent,
         is_active_hold: isActiveHold,
         should_show_current: shouldShowCurrent,
-        note: r[19] || ''
+        note: kkBookingNoteForDisplay_(r[19])
       };
     }).reverse();
 
@@ -1890,7 +1890,11 @@ function kkApiUpdateEvent_(payload) {
     if (payload.venue) current[3] = String(payload.venue).trim();
     const posterInfo = payload.poster_url ? kkPosterForWrite_(payload.poster_url) : { url: '', drive_file_id: '', public_checked: false };
     if (payload.poster_url) current[4] = posterInfo.url;
-    if (payload.status) current[5] = String(payload.status).toLowerCase().trim();
+    if (payload.status) {
+      const nextEventStatus = String(payload.status).toLowerCase().trim();
+      if (!['open', 'closed'].includes(nextEventStatus)) throw new Error('status must be open or closed');
+      current[5] = nextEventStatus;
+    }
     const active = kkApiBoolOrBlank_(payload.active_on_web);
     const currentActive = kkIsTrue_(current[6]);
     const ownerReopenIntent = String(payload.visibility_owner_intent || '').trim() === 'explicit_owner_reopen';
@@ -2102,8 +2106,10 @@ function kkApiAddAssets_(payload) {
     const serialPrefix = String(payload.serial_prefix || '').trim();
     const status = String(payload.status || 'available').toLowerCase().trim();
     const notes = payload.notes || '';
-    const rentable = payload.rentable === false ? false : true;
+    let rentable = payload.rentable === false ? false : true;
     if (!['phone', 'lens'].includes(assetType)) throw new Error('asset_type must be phone or lens');
+    if (!['available', 'repair', 'inactive'].includes(status)) throw new Error('status must be available, repair, or inactive');
+    if (status !== 'available') rentable = false;
     if (!modelGroup || qty < 1 || qty > 50) throw new Error('Please fill model_group and quantity 1-50');
     
     const sh = kkSheet_(KK.assets);
@@ -2150,11 +2156,13 @@ function kkApiUpdateAsset_(payload) {
     if (!assetId) throw new Error('asset_id is required');
     if (!['available', 'repair', 'inactive'].includes(status)) throw new Error('status must be available, repair, or inactive');
     const hasRentable = payload.rentable !== undefined;
-    const rentable = hasRentable ? kkIsTrue_(payload.rentable) : true;
     const row = kkFindAssetRow_(assetId);
     const sh = kkSheet_(KK.assets);
+    const current = sh.getRange(row, 1, 1, 7).getValues()[0];
+    let rentable = hasRentable ? kkIsTrue_(payload.rentable) : kkIsTrue_(current[6]);
+    if (status !== 'available') rentable = false;
     sh.getRange(row, 5).setValue(status);
-    if (hasRentable) sh.getRange(row, 7).setValue(rentable);
+    sh.getRange(row, 7).setValue(rentable);
     SpreadsheetApp.flush();
     const warning = status !== 'available' ? kkActiveBookingWarningForAsset_(assetId) : '';
     return { asset_id: assetId, row_number: row, status: status, rentable: rentable, active_booking_warning: warning };
@@ -2438,7 +2446,10 @@ function kkApiUpdateBooking_(payload) {
     if (payload.pickup_time !== undefined) next[11] = payload.pickup_time || '';
     if (payload.payment_status !== undefined && payload.payment_status !== '') next[13] = paymentStatus;
     if (payload.amount_received !== undefined && payload.amount_received !== '') next[14] = amountReceived;
-    if (payload.booking_note !== undefined) next[19] = payload.booking_note || '';
+    if (payload.booking_note !== undefined) {
+      const existingRequestId = kkBookingRequestIdFromNote_(current[19]);
+      next[19] = kkBookingNoteWithRequest_(payload.booking_note || '', existingRequestId);
+    }
     if (!String(next[4] || '').trim()) throw new Error('customer_name is required');
 
     const eventId = String(next[3] || '').trim();
