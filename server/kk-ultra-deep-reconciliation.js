@@ -16,13 +16,65 @@ function hasComparableEventIdentity(row={}){
   return Boolean(title && /^\d{4}-\d{2}-\d{2}$/.test(eventDate));
 }
 
-function reconcileCandidateSets(discovered=[],reference=[]){
+const TRUSTED_THAI_EVENT_HOSTS=new Set([
+  'thaiticketmajor.com','www.thaiticketmajor.com',
+  'eventpop.me','www.eventpop.me',
+  'ticketmelon.com','www.ticketmelon.com',
+  'allticket.com','www.allticket.com',
+  'livenationtero.co.th','www.livenationtero.co.th',
+  'paragonhall.com','www.paragonhall.com',
+  'impact.co.th','www.impact.co.th'
+]);
+const EVENT_SIGNAL=/\b(concert|fan\s*meet(?:ing)?|fancon|fansign|festival|showcase|tour|special\s+live|live\s+in|artist\s+event|premiere|awards?|birthday\s+event|final\s+ep|special\s+episode)\b|คอนเสิร์ต|แฟนมีต|แฟนคอน|แฟนไซน์|เทศกาล|โชว์เคส|งานศิลปิน|รอบปฐมทัศน์|งานวันเกิด/i;
+const LOCATION_SIGNAL=/\b(bangkok|thailand|thai)\b|กรุงเทพ|ประเทศไทย/i;
+const OUT_OF_SCOPE_SIGNAL=/\b(codes?|roblox|breathwork|meditation|wellness|workshop|webinar|album\s+review|memories\s+album)\b/i;
+const EXPLICIT_FOREIGN_LOCATION=/\b(hong\s*kong|singapore|tokyo|osaka|seoul|taipei|jakarta|manila|kuala\s*lumpur|ho\s*chi\s*minh|hanoi)\b/i;
+
+function sourceHost(row={}){
+  try{return new URL(text(row.source_url)).hostname.toLowerCase();}catch(_){return '';}
+}
+
+function referenceScope(row={},context={}){
+  if(!hasComparableEventIdentity(row)) return {eligible:false,reason:'UNSTRUCTURED_REFERENCE'};
+  const eventDate=date(row.event_date);
+  const month=text(context.month);
+  if(/^\d{4}-\d{2}$/.test(month) && !eventDate.startsWith(month+'-')){
+    return {eligible:false,reason:'OUT_OF_TARGET_MONTH'};
+  }
+  const title=text(row.title||row.event_name);
+  const venue=text(row.venue);
+  const source=text(row.source_url);
+  const combined=[title,venue,source].filter(Boolean).join(' ');
+  const host=sourceHost(row);
+  if(EXPLICIT_FOREIGN_LOCATION.test(combined) && !LOCATION_SIGNAL.test([title,venue].join(' '))){
+    return {eligible:false,reason:'EXPLICIT_FOREIGN_LOCATION'};
+  }
+  if(OUT_OF_SCOPE_SIGNAL.test(title)){
+    return {eligible:false,reason:'NON_RENTAL_EVENT_CATEGORY'};
+  }
+  if(/^\s*(home|homepage)\b/i.test(title)){
+    return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+  }
+  const eventSignal=EVENT_SIGNAL.test(title);
+  const locationSignal=LOCATION_SIGNAL.test([title,venue].join(' '));
+  const trustedThaiHost=TRUSTED_THAI_EVENT_HOSTS.has(host);
+  if(!eventSignal) return {eligible:false,reason:'NO_EVENT_IDENTITY_SIGNAL'};
+  if(!locationSignal&&!trustedThaiHost) return {eligible:false,reason:'NO_THAI_LOCATION_PROOF'};
+  return {eligible:true,reason:trustedThaiHost?'TRUSTED_THAI_EVENT_HOST':'EXPLICIT_THAI_LOCATION'};
+}
+
+function reconcileCandidateSets(discovered=[],reference=[],context={}){
   const found=new Set((Array.isArray(discovered)?discovered:[]).filter(hasComparableEventIdentity).map(key));
   const refs=(Array.isArray(reference)?reference:[]).filter(Boolean);
-  const comparableRefs=refs.filter(hasComparableEventIdentity);
+  const structuredRefs=refs.filter(hasComparableEventIdentity);
+  // Generic reconciliation must not infer business scope itself. Runtime callers
+  // mark independently searched rows with eligible_for_discovery after applying
+  // month/location/category policy. Undefined remains backwards-compatible and
+  // eligible for deterministic/unit callers.
+  const eligibleRefs=structuredRefs.filter(row=>row.eligible_for_discovery!==false);
   const missing=[];
   const matched=[];
-  for(const row of comparableRefs){
+  for(const row of eligibleRefs){
     const k=key(row);
     if(found.has(k))matched.push({reference_id:text(row.reference_id)||null,key:k});
     else if(row.eligible_for_discovery!==false)missing.push({
@@ -34,11 +86,13 @@ function reconcileCandidateSets(discovered=[],reference=[]){
   }
   return {
     version:VERSION,
-    complete:comparableRefs.length>0&&missing.length===0,
+    complete:eligibleRefs.length>0&&missing.length===0,
     reconciliation_gap_count:missing.length,
-    reference_count:comparableRefs.length,
+    reference_count:eligibleRefs.length,
+    structured_reference_count:structuredRefs.length,
     raw_reference_count:refs.length,
-    unstructured_reference_count:refs.length-comparableRefs.length,
+    excluded_reference_count:structuredRefs.length-eligibleRefs.length,
+    unstructured_reference_count:refs.length-structuredRefs.length,
     matched_count:matched.length,
     missing_candidates:missing,
     production_writes:0
@@ -77,4 +131,4 @@ function classifyAgainstSot(candidates=[],context={}){
   });
 }
 
-module.exports={VERSION,key,hasComparableEventIdentity,reconcileCandidateSets,classifyAgainstSot};
+module.exports={VERSION,TRUSTED_THAI_EVENT_HOSTS,key,hasComparableEventIdentity,sourceHost,referenceScope,reconcileCandidateSets,classifyAgainstSot};
