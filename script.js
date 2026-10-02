@@ -85,7 +85,7 @@ var I18N = {
     proof_deposit_title:"ไม่วางมัดจำ", proof_deposit_body:"พร้อมประกันเครื่องฟรี",
     proof_onsite_title:"หน้างาน", proof_onsite_body:"รับ–คืน + สอนใช้",
     proof_drive_title:"30 วัน", proof_drive_body:"เก็บไฟล์บน Drive",
-    events_eyebrow:"UPCOMING EVENTS", events_title:"เลือกงานของคุณ", events_body:"กดโปสเตอร์เพื่อดูแพ็กเกจ ราคา และคิวว่าง",
+    events_eyebrow:"UPCOMING EVENTS", events_title:"เลือกงานของคุณ", events_body:"กดโปสเตอร์เพื่อดูแพ็กเกจ ราคา และคิวว่าง", journey_kicker:"จองง่ายใน 3 ขั้นตอน", journey_1_title:"เลือกงาน", journey_1_body:"เลือกโปสเตอร์ของงานที่คุณจะไป", journey_2_title:"เลือกแพ็กเกจ", journey_2_body:"ดูราคา อุปกรณ์ และคิวที่ยังว่าง", journey_3_title:"คอนเฟิร์มกับร้าน", journey_3_body:"จองผ่าน LINE แล้วรับเครื่องหน้างาน",
     value_steps:"เลือกงาน > ดูอุปกรณ์และแพ็กเกจที่ว่าง > ระบบพาไปจองผ่าน LINE OA กับแอดมิน",
     value_note:"( หากไม่มีงานที่ต้องการ สามารถสอบถามได้ใน LINE OA )",
     follow_promo:"ติดตาม X ร้าน · ไม่ต้องวางมัดจำ · ฟรีประกันเครื่อง",
