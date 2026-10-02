@@ -58,3 +58,17 @@ Remediation:
 - technical visual CI and owner aesthetic release acceptance are now represented separately. Technical QA may pass with `release_ready=false`; production promotion still requires fresh exact-candidate owner screenshot acceptance.
 
 No pricing, inventory, booking, event visibility, canonical poster field, Apps Script, Admin data or production business write was changed.
+
+
+## Post-merge evidence audit — card-column metric correction
+
+A manual review of the accepted Visual QA artifact for head `64a7f67b6291590a465f640c53b8543cfef4f71f` found an evidence inconsistency at 480x932: the screenshot and per-state geometry correctly showed two event-card columns, while the summary metric reported one. The UI itself was correct.
+
+Root cause: the summary metrics grouped the first row by rounding card tops into independent 4px buckets. Fractional layout positions could place visually aligned cards on opposite sides of a rounding boundary. The per-state inspector already used direct rendered-top tolerance and did not exhibit the defect.
+
+Remediation:
+- summary metrics now group first-row cards with the same direct rendered-top tolerance as state evidence;
+- regression coverage rejects the old 4px rounding-bucket implementation;
+- no storefront CSS, copy, pricing, inventory, booking destination, event visibility, Admin, Apps Script, or production business data is changed.
+
+This correction exists solely to make rendered acceptance evidence truthful and internally consistent.
