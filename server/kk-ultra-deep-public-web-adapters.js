@@ -69,6 +69,16 @@ function parseDuckDuckGoHtml(body,query=''){
 }
 
 
+async function duckDuckGoHtml(task={},options={}){
+ const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
+ const interval=Number.isFinite(Number(options.ddg_min_interval_ms))?Number(options.ddg_min_interval_ms):DDG_MIN_INTERVAL_MS;
+ if(interval>0){const wait=Math.max(0,ddgLastRequestAt+interval-Date.now());if(wait>0)await new Promise(resolve=>setTimeout(resolve,wait));ddgLastRequestAt=Date.now();}
+ const u=new URL('https://html.duckduckgo.com/html/');u.searchParams.set('q',q);
+ const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.ddg_timeout_ms||options.timeout_ms||8000)});
+ return parseDuckDuckGoHtml(body,q);
+}
+
+
 function bingResultUrl(raw){
  const value=decodeHtmlEntities(raw);const direct=https(value);if(!direct)return '';
  try{const u=new URL(direct);if(!/(^|\.)bing\.com$/i.test(u.hostname))return direct;
