@@ -6,6 +6,7 @@ const Platform=require('../server/kk-openai-platform.js');
 const Agents=require('../server/kk-openai-agent-adapters.js');
 const Registry=require('../server/kk-agent-registry.js');
 const Router=require('../server/kk-agent-task-router.js');
+const Gateway=require('../server/kk-agent-gateway.js');
 
 function fakeResponse(output,{status=200,requestId='req_test',id='resp_test'}={}){
   return {
@@ -188,4 +189,28 @@ test('safety metadata cannot be overridden by model/provider extras',async()=>{
   assert.equal(out.production_writes,0);
   assert.equal(out.auto_merge,false);
   assert.equal(out.auto_deploy,false);
+});
+
+
+test('authenticated Agent Gateway path records hybrid OpenAI route evidence without raw payload persistence',async()=>{
+  const rows=[];
+  const result=await Gateway.executeAgentRequest({
+    task_type:'storefront_ai_review',
+    correlation_id:'openai-gateway-test',
+    input:{target:'test storefront',page_text:'private-looking fixture text'}
+  },{
+    env:{},
+    projectMemoryBypass:true,
+    ledgerFn:async row=>{rows.push(row);return {ok:true,inserted:true,invocation_id:row.invocation_id};},
+    fetchImpl:async()=>{throw new Error('network must remain disabled');}
+  });
+  assert.equal(result.status,'RECORDED');
+  assert.equal(result.result.ai_review.status,'DISABLED_OPENAI_PLATFORM');
+  assert.equal(result.invocation.required_agents.length,8);
+  assert.equal(result.invocation.invoked_agents.length,8);
+  assert.equal(rows.length,1);
+  assert.match(rows[0].request_hash,/^[0-9a-f]{64}$/);
+  assert.match(rows[0].truth_hash,/^[0-9a-f]{64}$/);
+  assert.equal(JSON.stringify(rows[0]).includes('private-looking fixture text'),false);
+  assert.equal(result.production_writes,0);
 });
