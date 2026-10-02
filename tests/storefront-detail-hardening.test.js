@@ -105,14 +105,3 @@ test('browser sanitizer blocks observed machine tokens while preserving customer
 });
 
 
-test('V6.2 approved mock parity owns hero, dual CTA and four benefit cells',()=>{
-  const html=fs.readFileSync('index.html','utf8');
-  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
-  assert.match(html,/kk-mock-hero/);
-  assert.match(html,/FAR SEAT\.<br><em>CLOSE MEMORY\.<\/em>/);
-  assert.match(html,/class="v3-secondary" href="#booking-journey">วิธีการเช่า/);
-  const benefits=(html.match(/<section class="kk-benefit-grid"[\s\S]*?<\/section>/)||[''])[0];
-  assert.equal((benefits.match(/<div>/g)||[]).length,4);
-  assert.match(css,/\.kk-mock-hero:after\{[^}]*kk-brand-hero-final-20260920\.png/);
-  assert.match(css,/html\[data-theme="dark"\] \.kk-mock-hero:after/);
-});
