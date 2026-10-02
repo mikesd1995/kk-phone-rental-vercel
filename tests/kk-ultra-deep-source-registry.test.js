@@ -40,3 +40,10 @@ test('source universe emits natural-month query variants instead of ISO-only ove
  assert.ok(eventpop.query_variants.some(q=>/ตุลาคม 2569/.test(q)));
  assert.ok(eventpop.query_variants.length>=2);
 });
+
+
+test('source universe prioritizes credential-free DDGS before HTML search fallbacks',()=>{
+ const plan=R.buildUniversePlan({month:'2026-10',location:'Bangkok Thailand'});
+ assert.ok(plan.tasks.length>0);
+ assert.ok(plan.tasks.every(x=>x.providers[0]==='DDGS_TRAFILATURA'));
+});
