@@ -338,7 +338,7 @@ test('V6.5 owner mobile polish reduces density and makes hierarchy intentional o
   assert.match(css,/V6\.5 owner mobile polish/);
   assert.match(css,/@media\(min-width:360px\) and \(max-width:700px\)/);
   assert.match(css,/\.kk-benefit-grid\{[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
-  assert.match(css,/\.status-filter-bar\{[\s\S]*display:flex!important;[\s\S]*overflow-x:auto!important;[\s\S]*scroll-snap-type:x proximity!important/);
+  assert.match(css,/\.status-filter-bar\{[\s\S]*display:grid!important;[\s\S]*grid-template-columns:27fr 23fr 20fr 30fr!important;[\s\S]*overflow:visible!important/);
   assert.match(css,/\.v3-events-heading h2 br\{display:block!important\}/);
   assert.match(css,/\.v3-events-heading h2 em\{[\s\S]*font-size:\.78em!important;[\s\S]*font-weight:650!important/);
   assert.match(css,/\.language-switch\{[\s\S]*border-radius:16px!important;[\s\S]*overflow:hidden!important/);
