@@ -67,3 +67,25 @@ test('workflow is owner-only, posts evidence, closes issue and never deploys',()
   assert.match(workflow,/gh issue close/);
   assert.doesNotMatch(workflow,/vercel\s+(?:deploy|promote)|deploy_to_vercel|--prod/i);
 });
+
+
+test('bridge comment exposes durable memory mode/count without exposing memory content',()=>{
+  const comment=Bridge.buildComment({
+    status:'PASS',gateway_status:'RECORDED',intent:'x_posting_plan',
+    project_memory:{status:'READY',durable_mode:'github_oidc',durable_context_count:2},
+    production_writes:0,publishes:0
+  });
+  assert.match(comment,/Project memory: `READY`/);
+  assert.match(comment,/Durable memory mode: `github_oidc`/);
+  assert.match(comment,/Durable memory rows loaded: `2`/);
+  assert.doesNotMatch(comment,/summary|evidence_refs|secret|token/i);
+});
+
+test('workflow acceptance requires GitHub OIDC durable memory readback',()=>{
+  const workflow=fs.readFileSync(path.join(__dirname,'..','.github','workflows','kk-x-posting-plan-chat-bridge.yml'),'utf8');
+  assert.match(workflow,/durable_mode!=='github_oidc'/);
+  assert.match(workflow,/durable_context_count/);
+  assert.match(workflow,/PROJECT_MEMORY_GITHUB_OIDC_ACCEPTANCE_FAILED/);
+  assert.match(workflow,/durable_memory_mode/);
+  assert.match(workflow,/durable_memory_rows/);
+});
