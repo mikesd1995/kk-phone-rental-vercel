@@ -74,6 +74,15 @@ function auditStorefront(input={},options={}){
   const platform=clean(input.platform||metrics.platform).toLowerCase();
   const findings=[];
 
+  if(number(metrics.raw_i18n_key_count,0)>0){
+    findings.push(finding(
+      'RAW_I18N_KEY_VISIBLE','P0',
+      'Visible untranslated localization keys: '+((metrics.raw_i18n_keys||[]).join(', ')||metrics.raw_i18n_key_count),
+      'Repair localization initialization/binding and fail safe to customer copy.',
+      'No journey_*, proof_*, events_*, filter_*, footer_*, modal_*, faq_* or related raw keys are visible.'
+    ));
+  }
+
   if(!width||!height){
     findings.push(finding(
       'VIEWPORT_EVIDENCE_MISSING','P0',
