@@ -101,8 +101,8 @@ test('mobile modal scroll lock is valid source and restores the captured positio
 
 test('V6.7 lower-page finish keeps event-card details visible and removes legacy footer/CTA copy',()=>{
   assert.match(v5,/V6\.7 lower-page professional finish/);
-  assert.match(v5,/\.concert-card\{[\s\S]*height:auto!important;[\s\S]*align-self:start!important/);
-  assert.match(v5,/\.poster-info\{flex:0 0 auto!important\}/);
+  assert.match(v5,/V6\.7 lower-page professional finish[\s\S]*\.concert-card\{[\s\S]*height:100%!important;[\s\S]*align-self:stretch!important/);
+  assert.match(v5,/\.poster-info\{flex:1 1 auto!important\}/);
   assert.match(v5,/\.kk-booking-journey\{[\s\S]*border-radius:20px!important;[\s\S]*background:var\(--v6-paper\)!important/);
   assert.match(v5,/\.line-btn\{[\s\S]*width:min\(100%,520px\)!important;[\s\S]*min-height:52px!important/);
   assert.match(js,/card_price_from:"เริ่ม \{price\}฿"/);
