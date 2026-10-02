@@ -732,10 +732,10 @@
   function bookingMutationIdentity(b,rowNumber){
     const bookingId=String(b&&b.booking_id||"").trim();
     const row=String(rowNumber||b&&b.row_number||"").trim();
-    const out={};
-    if(bookingId) out.booking_id=bookingId;
-    if(row) out.row_number=row;
-    return out;
+    // Never send a GViz-derived row hint alongside a stable booking_id.
+    // Legacy Apps Script versions prioritize row_number when both are present.
+    if(bookingId) return {booking_id:bookingId};
+    return row ? {row_number:row} : {};
   }
   function bookingLifecycleRank(status){
     const s=String(status||'').toLowerCase().trim();
