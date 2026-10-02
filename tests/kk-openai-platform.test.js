@@ -257,3 +257,16 @@ test('API key diagnostics expose shape only and never the secret',()=>{
   assert.deepEqual(d,{normalized_length:15,starts_with_sk:true,starts_with_sk_proj:true,ascii_token_charset:true,raw_has_whitespace:false,normalized_has_whitespace:false});
   assert.equal(JSON.stringify(d).includes('sk-proj-AbC_123'),false);
 });
+
+
+test('malformed key shape is blocked before any provider request',async()=>{
+  let calls=0;
+  const out=await Platform.callStructured({agent:'discovery',schema_name:'x',schema:{type:'object'},input_text:'x'},{
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'not-a-key!!'},
+    fetchImpl:async()=>{calls++;throw new Error('must not call provider');}
+  });
+  assert.equal(out.status,'BLOCKED_OPENAI_CONFIG');
+  assert.equal(out.blocker,'OPENAI_API_KEY_SHAPE_INVALID');
+  assert.equal(out.production_writes,0);
+  assert.equal(calls,0);
+});
