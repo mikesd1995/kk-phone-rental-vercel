@@ -44,8 +44,8 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261003-v66-generic-phone-i18n'));
-  assert.ok(html.includes('script.js?v=storefront-v66-generic-phone-i18n-20261003'));
+  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261003-v67-lower-page-finish'));
+  assert.ok(html.includes('script.js?v=storefront-v67-lower-page-finish-20261003'));
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#f4f6f8">/);
 });
@@ -96,4 +96,40 @@ test('mobile modal scroll lock is valid source and restores the captured positio
   assert.match(js,/document\.body\.style\.position="fixed"/);
   assert.match(js,/window\.scrollTo\(0,modalScrollY\)/);
   assert.doesNotMatch(js,/modalScrollY=0;\\nfunction lockBody/);
+});
+
+
+test('V6.7 lower-page finish keeps event-card details visible and removes legacy footer/CTA copy',()=>{
+  assert.match(v5,/V6\.7 lower-page professional finish/);
+  assert.match(v5,/V6\.7 lower-page professional finish[\s\S]*\.concert-card\{[\s\S]*height:100%!important;[\s\S]*align-self:stretch!important/);
+  assert.match(v5,/\.poster-info\{flex:1 1 auto!important\}/);
+  assert.match(v5,/\.kk-booking-journey\{[\s\S]*border-radius:20px!important;[\s\S]*background:var\(--v6-paper\)!important/);
+  assert.match(v5,/\.line-btn\{[\s\S]*width:min\(100%,520px\)!important;[\s\S]*min-height:52px!important/);
+  assert.match(js,/card_price_from:"เริ่ม \{price\}฿"/);
+  assert.match(js,/card_price_from:"From ฿\{price\}"/);
+  assert.match(js,/load_more:"ดูงานเพิ่มเติมอีก \{count\} งาน"/);
+  assert.match(js,/load_more:"View \{count\} more events"/);
+  assert.match(js,/journey_3_title:"จองผ่าน LINE"/);
+  assert.match(js,/journey_3_title:"Book via LINE"/);
+  assert.match(js,/footer_tagline:"เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต"/);
+  assert.match(js,/footer_tagline:"Phone rental for concerts and fan meetings"/);
+  assert.doesNotMatch(html,/เช่าเถอะ อยากให้ชัด/);
+  assert.doesNotMatch(js,/Rent it\. Capture it clearly/);
+  assert.doesNotMatch(js,/empty-emoji[^\n]*💙/);
+});
+
+
+test('V6.7 structured FAQ and static fallback contain no retired rental wording',()=>{
+  assert.match(html,/"name":"เช่ามือถือยังไง\?"/);
+  assert.match(html,/"text":"เลือกงาน ดูแพ็กเกจและคิวว่าง แล้วจองผ่าน LINE OA เพื่อให้ร้านยืนยันคิว"/);
+  assert.match(html,/"name":"รับและคืนมือถือที่ไหน\?"/);
+  assert.match(html,/"name":"ต้องวางมัดจำหรือมีค่าประกันเครื่องไหม\?"/);
+  assert.match(html,/"name":"ต้องใช้เอกสารอะไรในการเช่า\?"/);
+  assert.match(js,/faq_q6:"Q: ต้องใช้เอกสารอะไรในการเช่า\?"/);
+  assert.doesNotMatch(html,/กดดูรุ่นมือถือที่ว่าง/);
+  assert.doesNotMatch(html,/เพื่อให้ร้านคอนเฟิร์ม/);
+  assert.doesNotMatch(html,/รับเครื่อง และส่งเครื่องคืนที่ไหน/);
+  assert.doesNotMatch(html,/ต้องจ่ายมัดจำเครื่องและประกันเครื่องไหม/);
+  assert.doesNotMatch(html,/อุปกรณ์ที่เช่ายืม/);
+  assert.doesNotMatch(js,/อุปกรณ์ที่เช่ายืม/);
 });
