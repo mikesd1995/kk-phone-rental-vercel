@@ -276,3 +276,5 @@ Branch-scoped Vercel Preview variables were configured by the owner for `feat/op
 - `KK_OPENAI_ALLOW_CUSTOMER_DATA` remains unset/disabled
 
 A fresh branch Preview deployment is required before these values are visible to the runtime. Production remains unchanged.
+
+- Preview deployment retry requested after the Vercel deployment-rate-limit banner cleared in the dashboard; keep scope branch-only and production-disabled.
