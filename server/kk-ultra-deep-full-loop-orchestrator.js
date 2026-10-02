@@ -17,7 +17,8 @@ function sameEvent(a={},b={}){
  return !!ad&&ad===bd&&!!an&&an===bn;
 }
 function contextFor(candidate,input={}){
- const existing=(input.existing_events||[]).find(e=>sameEvent(candidate,e))||{};
+ const explicitId=text(candidate&&candidate.existing_event_id);
+ const existing=(explicitId?(input.existing_events||[]).find(e=>text(e&&e.event_id)===explicitId):null)||(input.existing_events||[]).find(e=>sameEvent(candidate,e))||{};
  const date=text(candidate.event_date);
  const bookings=(input.bookings||[]).filter(b=>text(b.event_date)===date&&!['cancelled','no_show'].includes(text(b.booking_status).toLowerCase()));
  const inventory=input.inventory_by_date&&input.inventory_by_date[date]||{};
