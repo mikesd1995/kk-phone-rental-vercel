@@ -1,0 +1,73 @@
+name: KK X Posting Plan Chat Bridge
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: kk-x-plan-chat-bridge-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  x-posting-plan:
+    if: startsWith(github.event.issue.title, '[KK-X-PLAN-RUN]') && github.event.issue.author_association == 'OWNER'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Execute X posting-plan Agent route
+        continue-on-error: true
+        run: node scripts/kk-x-posting-plan-chat-bridge.js
+
+      - name: Ensure bridge comment exists
+        if: always()
+        run: |
+          if [ ! -s kk-x-plan-bridge-comment.md ]; then
+            printf '%s\n' '## KK X Posting Plan Agent' '' '- Status: **BLOCKED**' '- Blocker: BRIDGE_RESULT_MISSING' '' 'Read-only planning only. Auto-publish = false. Production writes = 0.' > kk-x-plan-bridge-comment.md
+          fi
+
+      - name: Persist invocation evidence to issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file kk-x-plan-bridge-comment.md
+
+      - name: Close bridge issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: gh issue close "$ISSUE_NUMBER" --repo "$GH_REPO" --reason completed
+
+      - name: Enforce bridge PASS
+        if: always()
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          if(!fs.existsSync('kk-x-plan-bridge-result.json')) process.exit(1);
+          const result=JSON.parse(fs.readFileSync('kk-x-plan-bridge-result.json','utf8'));
+          if(result.status!=='PASS'){
+            console.error(JSON.stringify({status:result.status,blocker:result.blocker||result.error_code||'UNKNOWN'}));
+            process.exit(1);
+          }
+          console.log(JSON.stringify({
+            status:result.status,
+            gateway_status:result.gateway_status,
+            invocation_id:result.invocation&&result.invocation.invocation_id||''
+          }));
+          NODE
