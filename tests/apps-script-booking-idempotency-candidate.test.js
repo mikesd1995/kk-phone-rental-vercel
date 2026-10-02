@@ -16,13 +16,21 @@ function fn(name){
   return candidate.slice(start,next===-1?candidate.length:next);
 }
 
-test('atomic Booking create idempotency is implemented only in reconciled candidate',()=>{
+test('atomic Booking create idempotency remains in candidate and is promoted to canonical',()=>{
   assert.match(fn('kkApiCreateBooking_'),/kkAcquireDocumentLock_\('write operation', 12000\)/);
   assert.match(fn('kkApiCreateBooking_'),/kkFindBookingByRequestId_\(requestId\)/);
   assert.match(fn('kkApiCreateBooking_'),/if \(prior\) return kkBookingCreateResult_\(prior\.row_number, prior\.row, true\)/);
   assert.match(fn('kkApiCreateBooking_'),/SpreadsheetApp\.flush\(\)/);
   assert.match(fn('kkApiCreateBooking_'),/getRange\(row, 1, 1, 20\)\.getValues\(\)\[0\]/);
-  assert.doesNotMatch(canonical,/function kkBookingRequestMarker_\(/);
+  assert.match(canonical,/function kkBookingRequestMarker_\(/);
+  assert.match(canonical,/function kkBookingRequestId_\(/);
+  assert.match(canonical,/function kkFindBookingByRequestId_\(/);
+  const canonicalStart=canonical.indexOf('function kkApiCreateBooking_');
+  const canonicalEnd=canonical.indexOf('function kkApiUpdateBooking_',canonicalStart);
+  const canonicalCreate=canonical.slice(canonicalStart,canonicalEnd);
+  assert.match(canonicalCreate,/kkAcquireDocumentLock_\('write operation', 12000\)/);
+  assert.match(canonicalCreate,/kkFindBookingByRequestId_\(requestId\)/);
+  assert.match(canonicalCreate,/if \(prior\) return kkBookingCreateResult_\(prior\.row_number, prior\.row, true\)/);
 });
 
 test('request id is bounded and persisted in Booking note inside the locked transaction',()=>{
