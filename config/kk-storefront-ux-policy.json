@@ -45,7 +45,16 @@
       "preferred_backdrop_blur_px": 18
     }
   },
-  "acceptance_viewports": [320, 375, 390, 430, 480, 768, 1024],
+  "acceptance_viewports": [
+    320,
+    375,
+    390,
+    430,
+    480,
+    768,
+    1024,
+    1440
+  ],
   "required_checks": [
     "no_horizontal_overflow",
     "ios_form_controls_at_least_16px",
