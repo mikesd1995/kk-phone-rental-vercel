@@ -1320,12 +1320,27 @@ function renderConcerts(concerts){
       var imgCandidates=c.imgThumb&&c.imgThumb.length?c.imgThumb:[imgUrl];
       var posterFailure=function(){
         card.dataset.posterFailed="1";
+        card.dataset.posterFallback="event-summary";
         // Poster delivery must never make a valid bookable event disappear.
-        // Keep the card and replace only the failed image with a local placeholder.
+        // Render a deterministic exact-event fallback from already-visible business data;
+        // never substitute an unrelated series/artist image just to make the poster gate green.
         if(img&&img.parentElement){
           var ph=document.createElement("div");
-          ph.className="poster-placeholder";
-          ph.innerHTML="<span>"+esc(tr("no_image"))+"</span>";
+          ph.className="poster-placeholder poster-placeholder-event";
+          ph.setAttribute("role","img");
+          ph.setAttribute("aria-label",tr("no_image")+" · "+String(c.name||""));
+          var kicker=document.createElement("span");
+          kicker.className="poster-placeholder-kicker";
+          kicker.textContent="KK EVENT";
+          var title=document.createElement("strong");
+          title.className="poster-placeholder-title";
+          title.textContent=String(c.name||tr("no_image"));
+          var meta=document.createElement("span");
+          meta.className="poster-placeholder-meta";
+          meta.textContent=[String(c.date||"").trim(),String(c.venue||"").trim()].filter(Boolean).join(" · ");
+          ph.appendChild(kicker);
+          ph.appendChild(title);
+          if(meta.textContent) ph.appendChild(meta);
           img.parentElement.replaceChild(ph,img);
         }
         updateBrowseChrome(grid.children.length);
