@@ -175,6 +175,8 @@ Registered routes:
 
 All routes require persistent invocation evidence under the existing Agent Gateway contract.
 
+The existing authenticated Admin guard already exposes the Agent Gateway action, so no new unauthenticated public AI endpoint was added. When this branch is merged and server-side environment gates are enabled, authorized Admin calls can invoke these task types through the existing guarded gateway while invocation records persist hashes instead of raw prompts/customer messages.
+
 ## Tests
 
 `tests/kk-openai-platform.test.js` covers:
