@@ -13,7 +13,7 @@ const GATEWAY_VERSION = 'KK_AGENT_GATEWAY_V4';
 
 function memoryDomainsForIntent(intent='') {
   const key=String(intent||'').trim().toLowerCase();
-  if(key.includes('content')||key==='direct_rental_x') return ['content','agent_orchestration'];
+  if(key.includes('content')||key==='direct_rental_x'||key==='x_posting_plan') return ['content','agent_orchestration'];
   if(key.includes('ultra_deep')||key.includes('scan')||key.includes('source_watch')) return ['discovery_scanner','agent_orchestration','reliability_debug'];
   if(key.includes('storefront')) return ['storefront','agent_orchestration','reliability_debug'];
   if(key.includes('reliability')) return ['reliability_debug','agent_orchestration'];
