@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V28';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V29';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -119,6 +119,30 @@ const AGENTS = Object.freeze({
   'kk-storefront-accessibility-reviewer': Object.freeze({version:'KK_STOREFRONT_ACCESSIBILITY_REVIEWER_V1',authority:'READ_ONLY_DESIGN_REVIEW',runtime_state:'CALLABLE_COUNCIL',surface:'AGENT_GATEWAY',production_writes:0}),
   'kk-storefront-performance-reviewer': Object.freeze({version:'KK_STOREFRONT_PERFORMANCE_REVIEWER_V1',authority:'READ_ONLY_DESIGN_REVIEW',runtime_state:'CALLABLE_COUNCIL',surface:'AGENT_GATEWAY',production_writes:0}),
   'kk-storefront-visual-critic': Object.freeze({version:'KK_STOREFRONT_VISUAL_CRITIC_V2',authority:'READ_ONLY_ADVERSARIAL_REVIEW',runtime_state:'CALLABLE_COUNCIL',surface:'AGENT_GATEWAY',production_writes:0}),
+  'kk-openai-storefront-reviewer': Object.freeze({
+    version:'KK_OPENAI_AGENT_ADAPTERS_V1',
+    authority:'READ_ONLY_MODEL_REVIEW',
+    runtime_state:'CALLABLE_ENV_GATED',
+    surface:'AGENT_GATEWAY',
+    production_writes:0,
+    note:'Optional multimodal Responses API reviewer layered after deterministic storefront evidence. Cannot merge, deploy, publish, or mutate business truth.'
+  }),
+  'kk-openai-discovery-reasoner': Object.freeze({
+    version:'KK_OPENAI_AGENT_ADAPTERS_V1',
+    authority:'NONAUTHORITATIVE_ADVISORY',
+    runtime_state:'CALLABLE_ENV_GATED',
+    surface:'AGENT_GATEWAY',
+    production_writes:0,
+    note:'Cost-routed Responses API reasoning assist for event classification/gap questions. Deterministic dedup and governed Verifier remain authoritative.'
+  }),
+  'kk-openai-inbox-drafter': Object.freeze({
+    version:'KK_OPENAI_AGENT_ADAPTERS_V1',
+    authority:'DRAFT_ONLY',
+    runtime_state:'CALLABLE_ENV_AND_CUSTOMER_DATA_GATED',
+    surface:'AGENT_GATEWAY',
+    production_writes:0,
+    note:'Structured extraction and reply drafting only. Customer data requires a separate explicit environment gate. No auto-send, booking write, pricing write, inventory write, or identity merge.'
+  }),
   'hf-event-assist': Object.freeze({
     version: 'scanner-hf-advisory-v1',
     authority: 'NONAUTHORITATIVE_ADVISORY',
@@ -398,6 +422,33 @@ const ROUTES = Object.freeze({
     runtime_available: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true
+  }),
+  storefront_ai_review: Object.freeze({
+    route_id:'OPENAI_STOREFRONT_VISUAL_REVIEW',
+    request_type:'OPENAI_STOREFRONT_REVIEW',
+    required_agents:Object.freeze(['kk-openai-storefront-reviewer']),
+    downstream_agents:Object.freeze(['kk-storefront-art-director','kk-storefront-ux-reviewer']),
+    runtime_available:true,
+    owner_review_required:true,
+    persistent_invocation_evidence_required:true
+  }),
+  ultra_deep_ai_reasoning: Object.freeze({
+    route_id:'OPENAI_ULTRA_DEEP_REASONING_ASSIST',
+    request_type:'OPENAI_DISCOVERY_REASONING',
+    required_agents:Object.freeze(['kk-openai-discovery-reasoner']),
+    downstream_agents:Object.freeze(['kk-event-verifier']),
+    runtime_available:true,
+    owner_review_required:false,
+    persistent_invocation_evidence_required:true
+  }),
+  unified_inbox_ai_draft: Object.freeze({
+    route_id:'OPENAI_UNIFIED_INBOX_DRAFT',
+    request_type:'OPENAI_INBOX_DRAFT',
+    required_agents:Object.freeze(['kk-openai-inbox-drafter']),
+    downstream_agents:Object.freeze([]),
+    runtime_available:true,
+    owner_review_required:true,
+    persistent_invocation_evidence_required:true
   }),
   verify_event: Object.freeze({
     route_id: 'FINAL_EVENT_VERIFICATION',
