@@ -273,11 +273,11 @@ jobs:
         shell: bash
         env:
           EXPECTED_SHA: ${{ steps.pin.outputs.sha }}
-          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-ultra-deep-full-loop
+          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-admin-guard
         run: |
           set -euo pipefail
           READY=false
-          if curl -fsS "$EXECUTOR_URL" -o executor-health.json; then
+          if curl -fsS -X POST "$EXECUTOR_URL" -H "Content-Type: application/json" --data '{"action":"ultraDeepFullLoopHealth"}' -o executor-health.json; then
             ACTUAL="$(node -e "try{const r=require('./executor-health.json');process.stdout.write(String(r.commit_sha||''))}catch{}")"
             if [ "$ACTUAL" = "$EXPECTED_SHA" ]; then READY=true; fi
           fi
@@ -307,12 +307,12 @@ jobs:
         shell: bash
         env:
           EXPECTED_SHA: ${{ steps.pin.outputs.sha }}
-          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-ultra-deep-full-loop
+          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-admin-guard
         run: |
           set -euo pipefail
           ok=0
           for i in $(seq 1 30); do
-            if curl -fsS "$EXECUTOR_URL" -o executor-health.json; then
+            if curl -fsS -X POST "$EXECUTOR_URL" -H "Content-Type: application/json" --data '{"action":"ultraDeepFullLoopHealth"}' -o executor-health.json; then
               ACTUAL="$(node -e "try{const r=require('./executor-health.json');process.stdout.write(String(r.commit_sha||''))}catch{}")"
               if [ "$ACTUAL" = "$EXPECTED_SHA" ]; then ok=1; break; fi
             fi
@@ -327,7 +327,7 @@ jobs:
         env:
           EXPECTED_SHA: ${{ steps.pin.outputs.sha }}
           EVENT_NAME: ${{ github.event_name }}
-          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-ultra-deep-full-loop
+          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-admin-guard
         run: |
           set -euo pipefail
           OIDC_JSON="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=kk-ultra-deep-production")"
@@ -337,6 +337,7 @@ jobs:
           const fs=require('node:fs');
           const handoff=JSON.parse(fs.readFileSync('ultra-deep-commercial-handoff.json','utf8'));
           fs.writeFileSync('ultra-deep-production-request.json',JSON.stringify({
+            action:'ultraDeepFullLoop',
             run_id:process.env.GITHUB_RUN_ID,
             head_sha:process.env.EXPECTED_SHA,
             event_name:process.env.EVENT_NAME,
