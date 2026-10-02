@@ -36,10 +36,22 @@ function configState(env={}){
     production_writes:0
   };
 }
+function privateHostname(hostname){
+  const host=clean(hostname).toLowerCase().replace(/^\[|\]$/g,'');
+  if(!host) return true;
+  if(host==='localhost'||host==='::1'||host.endsWith('.local')) return true;
+  if(/^127\./.test(host)||/^10\./.test(host)||/^192\.168\./.test(host)||/^169\.254\./.test(host)) return true;
+  const m=host.match(/^172\.(\d{1,3})\./);
+  if(m&&Number(m[1])>=16&&Number(m[1])<=31) return true;
+  return false;
+}
 function allowedImageUrl(value){
-  const url=clean(value);
-  if(/^https:\/\//i.test(url)) return true;
-  return /^data:image\/(?:png|jpeg|jpg|webp);base64,/i.test(url);
+  const raw=clean(value);
+  if(/^data:image\/(?:png|jpeg|jpg|webp);base64,/i.test(raw)) return true;
+  try{
+    const url=new URL(raw);
+    return url.protocol==='https:'&&!privateHostname(url.hostname);
+  }catch(_){return false;}
 }
 function extractOutputText(payload={}){
   if(clean(payload.output_text)) return clean(payload.output_text);
@@ -67,11 +79,11 @@ function safety(status,extra={}){
   return {
     version:VERSION,
     status,
+    ...extra,
     production_writes:0,
     publishes:0,
     auto_merge:false,
-    auto_deploy:false,
-    ...extra
+    auto_deploy:false
   };
 }
 async function callStructured(request={},options={}){
@@ -145,5 +157,5 @@ async function callStructured(request={},options={}){
 }
 
 module.exports={
-  VERSION,DEFAULT_BASE_URL,flag,modelFor,configState,allowedImageUrl,extractOutputText,callStructured
+  VERSION,DEFAULT_BASE_URL,flag,modelFor,configState,privateHostname,allowedImageUrl,extractOutputText,callStructured
 };
