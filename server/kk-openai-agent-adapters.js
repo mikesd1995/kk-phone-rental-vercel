@@ -11,7 +11,7 @@ function json(value,n=30000){
   return out.slice(0,n);
 }
 function safeBase(agent,status,extra={}){
-  return {version:VERSION,agent,status,production_writes:0,publishes:0,auto_merge:false,auto_deploy:false,...extra};
+  return {version:VERSION,agent,status,...extra,production_writes:0,publishes:0,auto_merge:false,auto_deploy:false};
 }
 const FINDING_SCHEMA={
   type:'object',
