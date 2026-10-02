@@ -1103,3 +1103,29 @@ html[data-theme="dark"] .kk-journey-steps b{
   footer .footer-tagline{font-size:13px!important}
   footer .trust-note{font-size:10.5px!important}
 }
+
+
+/* V6.8 mobile completion pass — 2026-10-03
+   Screenshot-led cleanup: prevent event-card clipping, restore complete booking
+   information above the journey, and tighten the lower-page hierarchy. */
+@media (max-width:700px){
+  #content{overflow:visible!important;max-height:none!important;height:auto!important;contain:none!important}
+  .poster-grid{align-items:stretch!important;overflow:visible!important;max-height:none!important;height:auto!important}
+  .concert-card{height:auto!important;min-height:100%!important;overflow:hidden!important}
+  .poster-info{height:auto!important;min-height:168px!important;overflow:visible!important}
+  .pi-name{min-height:2.7em!important;margin-bottom:8px!important}
+  .pi-meta,.pi-price,.pi-avail,.pi-tap{visibility:visible!important;opacity:1!important}
+  .browse-more{position:relative!important;z-index:1!important;clear:both!important}
+  .kk-booking-journey{position:relative!important;z-index:1!important}
+}
+@media (min-width:360px) and (max-width:430px){
+  .wrap{width:calc(100% - 28px)!important}
+  .poster-grid{gap:16px 10px!important}
+  .poster-img-wrap{aspect-ratio:4/5!important}
+  .poster-info{padding:10px 10px 12px!important;min-height:172px!important}
+  .pi-name{font-size:12px!important;line-height:1.35!important}
+  .pi-venue{font-size:10px!important}
+  .pi-price{font-size:11.5px!important}
+  .browse-more-btn{font-size:12px!important;font-weight:800!important}
+  .kk-booking-journey{margin-top:24px!important}
+}
