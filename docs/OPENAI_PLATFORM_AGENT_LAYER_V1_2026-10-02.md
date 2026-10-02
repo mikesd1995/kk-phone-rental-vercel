@@ -97,11 +97,12 @@ Without that second flag, Inbox AI returns `BLOCKED_CUSTOMER_DATA_NOT_AUTHORIZED
 Optional:
 
 ```
-KK_OPENAI_BASE_URL=https://api.openai.com/v1
 KK_OPENAI_TIMEOUT_MS=30000
 ```
 
 Do not put `OPENAI_API_KEY` in Git, browser code, client-side environment variables, screenshots, chat logs, or public error output.
+
+The runtime deliberately does not support an alternate OpenAI base URL. This prevents a misconfigured environment variable from forwarding the API key to a third-party proxy.
 
 ## Authority boundaries
 
@@ -251,7 +252,7 @@ This implementation does not:
 
 ## References used for implementation
 
-OpenAI current API documentation was checked on 2026-10-02. The independent review corrected the storefront default model from an invalid `gpt-6.1-sol` draft identifier to the documented `gpt-6-sol` model ID and hardened custom API base URLs to public HTTPS only:
+OpenAI current API documentation was checked on 2026-10-02. The independent review corrected the storefront default model from an invalid `gpt-6.1-sol` draft identifier to the documented `gpt-6-sol` model ID and removed the custom API-base override entirely so `OPENAI_API_KEY` can only be sent to the official OpenAI API origin:
 
 - Responses API for direct model requests;
 - Structured Outputs via `text.format` with strict JSON Schema;
