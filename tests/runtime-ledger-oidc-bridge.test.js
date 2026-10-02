@@ -243,7 +243,7 @@ test('Supabase Edge Function contract is exact-production, read-only and secret-
   assert.match(source,/body\.probe === "runtime-ledger"/);
   assert.match(source,/body\.probe === "project-memory"/);
   assert.match(source,/kk_project_memory_events/);
-  assert.match(source,/body\?\.version === "v1"/);
+  assert.match(source,/body\.version !== "v1"/);
   assert.match(source,/method: "GET"/);
   assert.match(source,/limit: "1"/);
   assert.match(source,/business_writes: 0/g);
