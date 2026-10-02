@@ -92,28 +92,30 @@
       "occurred_at": "2026-10-02T16:35:00+07:00",
       "kind": "IMPLEMENTATION",
       "domain": "content",
-      "summary": "The default x_posting_plan Marketing Agent flow has a GitHub-native owner-only runtime bridge on main. When Vercel deployment quota blocks the web runtime, [KK-X-PLAN] issues execute the current Agent Gateway directly in GitHub Actions, persist invocation evidence to the issue, return Asia/Bangkok posting slots and rankings, and remain read-only with zero publishes and zero production writes.",
+      "summary": "The default x_posting_plan Marketing Agent flow has one canonical GitHub-native owner-only runtime on main: .github/workflows/kk-x-posting-plan-chat-bridge.yml → scripts/kk-x-posting-plan-chat-bridge.js → Agent Gateway. It persists invocation evidence, returns Asia/Bangkok posting slots/rankings, and remains read-only with zero publishes and zero production writes. This runtime continues to work even while Vercel refuses new deployments because of the free daily deployment quota.",
       "status": "ACTIVE",
       "evidence_refs": [
         ".github/workflows/kk-x-posting-plan-chat-bridge.yml",
         "scripts/kk-x-posting-plan-chat-bridge.js",
         "tests/kk-x-posting-plan-chat-bridge.test.js",
-        "docs/X_POSTING_PLAN_DEFAULT_AGENT_2026-10-02.md"
+        "docs/X_POSTING_PLAN_DEFAULT_AGENT_2026-10-02.md",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/pull/482"
       ],
       "supersedes": [],
       "source": "owner+repo"
     },
     {
       "memory_id": "kk:memory:content:x-posting-plan-live-acceptance:20261002",
-      "occurred_at": "2026-10-02T16:36:00+07:00",
+      "occurred_at": "2026-10-02T16:48:00+07:00",
       "kind": "ACCEPTANCE",
       "domain": "content",
-      "summary": "LIVE acceptance passed for the default KK x_posting_plan flow. GitHub Actions executed current main through the Agent Gateway with gateway status RECORDED, required and invoked kk-marketing-agent, Asia/Bangkok slots 19:30 / 21:00 / 22:30 / 00:00, unverified-event rejection, and zero publishes / zero production writes. New KK sessions should treat this Agent flow as already active and must not require the owner to re-enable it.",
+      "summary": "Post-cleanup LIVE acceptance passed for the default KK x_posting_plan flow. Current main has exactly one X posting-plan workflow. Issue #483 triggered only the canonical KK X Posting Plan Agent; Gateway status was RECORDED, required/invoked agent was kk-marketing-agent, timezone was Asia/Bangkok, verified candidates were ranked into 19:30 / 21:00 / 22:30 / 00:00 slots, unverified candidates were rejected, and publishes/production writes remained zero. New KK sessions must treat this Agent flow as already active and must not require the owner to re-enable it.",
       "status": "ACTIVE",
       "evidence_refs": [
-        "https://github.com/mikesd1995/kk-phone-rental-vercel/issues/477",
-        "https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/36990694380",
-        "https://github.com/mikesd1995/kk-phone-rental-vercel/pull/476",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/issues/483",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/36991929564",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/pull/482",
+        ".github/workflows/kk-x-posting-plan-chat-bridge.yml",
         "docs/X_POSTING_PLAN_DEFAULT_AGENT_2026-10-02.md"
       ],
       "supersedes": [],
