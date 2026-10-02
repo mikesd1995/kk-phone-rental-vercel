@@ -71,6 +71,11 @@ function buildComment(result={}){
     lines.push('- Invoked: '+(result.invocation.invoked_agents||[]).map(x=>'`'+x+'`').join(' → '));
     lines.push('- Source commit: `'+text(result.invocation.source_commit_sha)+'`');
   }
+  if(result.project_memory){
+    lines.push('- Project memory: `'+text(result.project_memory.status||'')+'`');
+    lines.push('- Durable memory mode: `'+text(result.project_memory.durable_mode||'')+'`');
+    lines.push('- Durable memory rows loaded: `'+Number(result.project_memory.durable_context_count||0)+'`');
+  }
   if(result.blocker)lines.push('- Blocker: `'+text(result.blocker)+'`');
   if(result.plan){
     lines.push('- Timezone: `'+text(result.plan.timezone)+'`');
