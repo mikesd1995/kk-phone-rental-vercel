@@ -324,3 +324,4 @@ The fix preserves runtime-secret acceptance without weakening the function-budge
 - keep exact-head READY Preview required because Vercel Secret values are intentionally unavailable to CI pull/env-run flows.
 
 This keeps the API function surface within the existing Hobby budget and preserves the security/authority model.
+\n## MCP read-only runtime acceptance fallback\n\nFor the protected Preview only, the staging probe also accepts a GET request with `mode=openai-staging&confirm=RUN_OPENAI_STAGING_PROBE`. This exists so the Vercel MCP authenticated fetch path can validate the runtime-injected Secret when GitHub-side automation bypass credentials are unavailable. The probe remains Preview-only, locked to `feat/openai-platform-agent-layer-v1`, synthetic-data-only, customer-data-disabled, and `production_writes=0`; Production returns `PREVIEW_ONLY` before any provider call.\n
