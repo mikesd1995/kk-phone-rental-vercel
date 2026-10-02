@@ -904,3 +904,32 @@ html[data-theme="dark"] .ph-note{overflow-wrap:anywhere}
  .status-filter-bar{-webkit-overflow-scrolling:touch;scrollbar-width:none}
  .status-filter-bar::-webkit-scrollbar{display:none}
 }
+
+
+/* V6.2 mock-parity pass — owner visual reference 2026-10-02 */
+.kk-mock-hero{position:relative!important;min-height:430px!important;padding:54px 48% 42px 0!important;display:flex!important;align-items:center!important;overflow:hidden!important}
+.kk-mock-hero:after{content:"";position:absolute;z-index:-1;inset:0 -2vw 0 42%;background:linear-gradient(90deg,rgba(247,247,244,0),rgba(247,247,244,.05)),url("/assets/kk-brand-hero-final-20260920.png") center/cover no-repeat;border-radius:0 0 28px 28px}
+.kk-mock-hero .v3-eyebrow{display:block!important;color:#101318!important;font-weight:800!important;line-height:1.35!important;letter-spacing:.12em!important}.kk-mock-hero .v3-eyebrow span{color:#0879e8}
+.kk-mock-hero h1{max-width:none!important;font-size:clamp(3rem,6.6vw,5.6rem)!important;font-weight:800!important;line-height:.88!important;letter-spacing:-.065em!important}.kk-mock-hero h1 em{font-weight:500!important}
+.kk-mock-hero .v3-hero-copy>p{display:block!important;max-width:570px!important;color:#252b34!important;font-size:14px!important}
+.kk-mock-hero .v3-hero-actions{display:flex!important;gap:10px!important;margin-top:24px!important}.kk-mock-hero .v3-primary,.kk-mock-hero .v3-secondary{display:inline-flex;align-items:center;justify-content:center;min-height:54px;padding:0 26px;border-radius:999px;font-weight:700;text-decoration:none}.kk-mock-hero .v3-primary{background:linear-gradient(100deg,#0879e8,#0d67ff)!important;color:#fff!important}.kk-mock-hero .v3-secondary{border:1px solid #aab7c8;color:#101318;background:rgba(255,255,255,.7)}
+.kk-benefit-grid{display:grid;grid-template-columns:repeat(4,1fr);margin:-8px 0 28px;border-bottom:1px solid var(--v6-line)}
+.kk-benefit-grid>div{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:108px;padding:14px 10px;text-align:center;border-right:1px solid var(--v6-line);font-size:11px;line-height:1.45}.kk-benefit-grid>div:last-child{border-right:0}.kk-benefit-grid b{font-size:25px;color:#0879e8;line-height:1;margin-bottom:8px}
+.v3-events-heading>div>span{display:block!important;color:#0785d7!important;font-size:9px!important;font-weight:800!important;letter-spacing:.24em!important;margin-bottom:8px}.v3-events-heading>div>span{font-size:0!important}.v3-events-heading>div>span:after{content:"UPCOMING EVENTS";font-size:9px!important}
+.v3-events-heading>p{display:none!important}
+html[data-theme="dark"] .kk-mock-hero:after{background:linear-gradient(90deg,#06111f 0%,rgba(6,17,31,.32) 32%,rgba(6,17,31,.08) 100%),url("/assets/kk-brand-hero-final-20260920.png") center/cover no-repeat}
+html[data-theme="dark"] .kk-mock-hero .v3-eyebrow,html[data-theme="dark"] .kk-mock-hero .v3-hero-copy>p{color:#eef4ff!important}html[data-theme="dark"] .kk-mock-hero .v3-secondary{color:#eef4ff;border-color:#1876c5;background:rgba(5,18,34,.62)}
+html[data-theme="dark"] .kk-benefit-grid{border-color:#20324b}html[data-theme="dark"] .kk-benefit-grid>div{border-color:#20324b;color:#eef4ff}
+@media(max-width:700px){
+ .kk-mock-hero{display:flex!important;min-height:360px!important;padding:28px 26% 24px 0!important}
+ .kk-mock-hero:after{inset:0 -16px 0 38%;opacity:.76}
+ .kk-mock-hero h1{font-size:clamp(2.35rem,11vw,3.5rem)!important;max-width:8ch!important}
+ .kk-mock-hero .v3-hero-copy>p{display:block!important;max-width:27ch!important;font-size:11px!important;line-height:1.55!important}
+ .kk-mock-hero .v3-hero-actions{display:grid!important;grid-template-columns:1.2fr .8fr!important;gap:8px!important;margin-top:18px!important}
+ .kk-mock-hero .v3-primary,.kk-mock-hero .v3-secondary{min-height:46px!important;padding:0 12px!important;font-size:11px!important}
+ .kk-benefit-grid{grid-template-columns:repeat(4,1fr);margin:0 0 20px}
+ .kk-benefit-grid>div{min-height:92px;padding:10px 5px;font-size:8px}.kk-benefit-grid b{font-size:20px;margin-bottom:6px}
+ .browse-controls-shell{margin-top:0!important}
+ .v3-events-heading>div>span{display:block!important}
+}
+@media(max-width:380px){.kk-mock-hero{padding-right:20%!important}.kk-benefit-grid>div{font-size:7.5px;padding-inline:3px}}
