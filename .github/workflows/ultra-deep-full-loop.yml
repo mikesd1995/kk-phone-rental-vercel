@@ -398,6 +398,13 @@ jobs:
             const body=['🧪 Ultra Deep **VERIFIER CHECKPOINT**','',`Input: \`${r.input_count ?? 'n/a'}\``,`Fetched event pages: \`${r.fetched_count ?? 'n/a'}\``,`Verified for commercial: \`${r.verified_count ?? 'n/a'}\``,`Held/noise: \`${r.hold_count ?? 'n/a'}\``,`Verified posters: \`${r.poster_count ?? 'n/a'}\``,`Verifier: \`${process.env.VERIFIER_RESULT||'unknown'}\``,'','Next: production SOT reconcile → pricing → governed create/update → exact readback.',`Progress: ${runUrl}`].join('\n');
             await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
 
+      - name: Scan exact-event competitor prices
+        if: ${{ steps.gate.outcome == 'success' && steps.verifier.outputs.result == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/kk-ultra-deep-competitor-scan.js --handoff ultra-deep-verifier-handoff.json > ultra-deep-competitor-summary.json
+
       - name: Execute governed production Full Loop now
         id: production
         if: ${{ steps.gate.outcome == 'success' && steps.verifier.outputs.result == 'success' }}
