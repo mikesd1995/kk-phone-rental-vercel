@@ -3,7 +3,7 @@
 const crypto=require('node:crypto');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V1';
+const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V2';
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=6;
 
@@ -13,6 +13,9 @@ const CONCERT_SIGNAL=/(concert|world\s+tour|live\s+in|live\s+tour|คอนเ�
 const MID_FIT_SIGNAL=/(festival|awards?|premiere|เฟสติวัล|เทศกาลดนตรี|งานรางวัล|รอบปฐมทัศน์)/i;
 const LOW_FIT_SIGNAL=/(pool\s+party|exhibition|expo|trade\s+show|workshop|webinar|orchestra|symphony|conference|oktoberfest|codes?\b|roblox|นิทรรศการ|เวิร์กช็อป|สัมมนา)/i;
 const GENERIC_TITLE=/^(home|homepage|google|ticketmaster|events?|concerts?\s+in\s+bangkok|bangkok\s+concerts?|thailand\s+events?)\b/i;
+const AGGREGATED_RESULT_SIGNAL=/(facebook\b.*(?:on\s+x|twitter)|(?:on\s+x|twitter)\b.*facebook|bangkok\s+post|youtube|google\s+search|search\s+results?|teetee\s+philippines\s+on\s+x)/i;
+const SOCIAL_OR_SEARCH_HOST=/(^|\.)(facebook\.com|x\.com|twitter\.com|instagram\.com|youtube\.com|youtu\.be|google\.com|bing\.com|duckduckgo\.com)$/i;
+const MAX_VERIFIED_TITLE_LENGTH=180;
 
 const TRUSTED_EVENT_HOSTS=new Set([
  'www.thaiticketmajor.com','thaiticketmajor.com',
@@ -62,6 +65,20 @@ function eventSpecificUrl(url){
  }catch(_){return false;}
 }
 function monthMatches(date,month){return /^\d{4}-\d{2}$/.test(text(month))&&isoDate(date).startsWith(text(month)+'-');}
+function titleQuality(title=''){
+ const value=text(title);const reasons=[];
+ if(!value||GENERIC_TITLE.test(value))reasons.push('GENERIC_OR_MISSING_TITLE');
+ if(value.length>MAX_VERIFIED_TITLE_LENGTH)reasons.push('EVENT_TITLE_TOO_LONG');
+ if(AGGREGATED_RESULT_SIGNAL.test(value))reasons.push('AGGREGATED_SEARCH_RESULT_TITLE');
+ if((value.match(/\|/g)||[]).length>=2)reasons.push('AGGREGATED_SEARCH_RESULT_TITLE');
+ return {ok:reasons.length===0,reasons:[...new Set(reasons)]};
+}
+function authoritativeEventSource(url='',picked=null,verified={}){
+ const h=host(url);const trustedDetail=TRUSTED_EVENT_HOSTS.has(h)&&eventSpecificUrl(url);
+ const socialOrSearch=SOCIAL_OR_SEARCH_HOST.test(h);
+ const structuredExact=!!(picked&&picked.d===verified.date&&text(picked.e&&picked.e.name)&&verified.venue&&verified.poster);
+ return {ok:trustedDetail||(!socialOrSearch&&structuredExact),trusted_detail:trustedDetail,structured_exact:structuredExact,social_or_search:socialOrSearch};
+}
 function prefilter(candidate={},month=''){
  const title=text(candidate.title);
  const date=isoDate(candidate.event_date);
@@ -70,7 +87,7 @@ function prefilter(candidate={},month=''){
  if(!url)reasons.push('HTTPS_SOURCE_REQUIRED');
  if(!date)reasons.push('EVENT_DATE_REQUIRED');
  else if(month&&!monthMatches(date,month))reasons.push('OUTSIDE_TARGET_MONTH');
- if(!title||GENERIC_TITLE.test(title))reasons.push('GENERIC_OR_MISSING_TITLE');
+ const quality=titleQuality(title);reasons.push(...quality.reasons);
  if(LOW_FIT_SIGNAL.test(title))reasons.push('NON_RENTAL_EVENT_SIGNAL');
  const explicit=EVENT_SIGNAL.test(title);
  if(!explicit&&!eventSpecificUrl(url))reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
@@ -164,10 +181,13 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  const poster=imageUrl(picked&&picked.e&&picked.e.image)||https(metaValue(body,'og:image'));
  const url=https(candidate.source_url);
  const blockers=[];
+ const quality=titleQuality(title);blockers.push(...quality.reasons);
  if(!date||!monthMatches(date,month))blockers.push('VERIFIED_TARGET_MONTH_DATE_REQUIRED');
  if(!venue)blockers.push('VERIFIED_VENUE_REQUIRED');
  if(!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url))blockers.push('VERIFIED_EVENT_IDENTITY_REQUIRED');
  if(!poster)blockers.push('VERIFIED_POSTER_REQUIRED');
+ const authority=authoritativeEventSource(url,picked,{date,venue,poster,title});
+ if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
  const fit=rentalFitScore(title);
  if(fit<7)blockers.push('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD');
  const key=eventKey({title,event_date:date});
@@ -184,8 +204,8 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
    source_url:url,confidence:verified?0.9:0.4,rental_fit_score:fit,
    publish_eligibility:{status:fit>=7?'ELIGIBLE':'REJECTED_LOW_RENTAL_FIT',eligible:fit>=7,rental_fit_score:fit,minimum_publish_score:7}
   },
-  poster:poster?{event_key:key,source_tier:sourceTier(url),source_url:url,image_url:poster,official:TRUSTED_EVENT_HOSTS.has(host(url)),verified:true}:null,
-  evidence:{jsonld_event_count:events.length,event_specific_url:eventSpecificUrl(url),source_tier:sourceTier(url)}
+  poster:poster?{event_key:key,source_tier:sourceTier(url),source_url:url,image_url:poster,official:TRUSTED_EVENT_HOSTS.has(host(url)),verified:authority.ok}:null,
+  evidence:{jsonld_event_count:events.length,event_specific_url:eventSpecificUrl(url),source_tier:sourceTier(url),authoritative_event_source:authority.ok,authority}
  };
 }
 async function verifyCandidate(candidate={},context={},options={}){
@@ -235,7 +255,7 @@ async function verifyBatch(candidates=[],context={},options={}){
 }
 
 module.exports={
- VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,
- text,https,isoDate,eventKey,host,eventSpecificUrl,monthMatches,prefilter,flattenJsonLd,parseJsonLd,metaValue,locationName,imageUrl,
+ VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,
+ text,https,isoDate,eventKey,host,eventSpecificUrl,monthMatches,titleQuality,authoritativeEventSource,prefilter,flattenJsonLd,parseJsonLd,metaValue,locationName,imageUrl,
  findKnownVenue,rentalFitScore,sourceTier,chooseJsonLdEvent,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
 };
