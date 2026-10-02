@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_RECONCILIATION_V1';
+const VERSION='KK_ULTRA_DEEP_RECONCILIATION_V2';
 
 function text(v){return String(v==null?'':v).trim();}
 function norm(v){return text(v).toLowerCase().replace(/[^a-z0-9฀-๿]+/g,' ').replace(/\s+/g,' ').trim();}
@@ -45,6 +45,10 @@ const EXPLICIT_FOREIGN_LOCATION=/\b(hong\s*kong|singapore|tokyo|osaka|seoul|taip
 function sourceHost(row={}){
   try{return new URL(text(row.source_url)).hostname.toLowerCase();}catch(_){return '';}
 }
+function canonicalSourceUrl(row={}){
+  try{const u=new URL(text(row.source_url));u.hash='';u.search='';return u.toString().replace(/\/$/,'');}catch(_){return '';}
+}
+function sourceDateKey(row={}){const u=canonicalSourceUrl(row),d=date(row.event_date);return u&&/^\d{4}-\d{2}-\d{2}$/.test(d)?u+'|'+d:'';}
 
 function referenceScope(row={},context={}){
   if(!hasComparableEventIdentity(row)) return {eligible:false,reason:'UNSTRUCTURED_REFERENCE'};
@@ -76,7 +80,9 @@ function referenceScope(row={},context={}){
 }
 
 function reconcileCandidateSets(discovered=[],reference=[],context={}){
-  const found=new Set((Array.isArray(discovered)?discovered:[]).filter(hasComparableEventIdentity).map(reconcileKey));
+  const discoveredRows=(Array.isArray(discovered)?discovered:[]).filter(hasComparableEventIdentity);
+  const found=new Set(discoveredRows.map(reconcileKey));
+  const foundSourceDates=new Set(discoveredRows.map(sourceDateKey).filter(Boolean));
   const refs=(Array.isArray(reference)?reference:[]).filter(Boolean);
   const structuredRefs=refs.filter(hasComparableEventIdentity);
   // Generic reconciliation must not infer business scope itself. Runtime callers
@@ -88,7 +94,8 @@ function reconcileCandidateSets(discovered=[],reference=[],context={}){
   const matched=[];
   for(const row of eligibleRefs){
     const k=reconcileKey(row);
-    if(found.has(k))matched.push({reference_id:text(row.reference_id)||null,key:k});
+    const sdk=sourceDateKey(row);
+    if(found.has(k)||Boolean(sdk&&foundSourceDates.has(sdk)))matched.push({reference_id:text(row.reference_id)||null,key:k,match_reason:found.has(k)?'SERIES_TITLE_DATE':'EXACT_SOURCE_URL_DATE'});
     else if(row.eligible_for_discovery!==false)missing.push({
       reference_id:text(row.reference_id)||null,
       title:text(row.title||row.event_name)||null,
@@ -143,4 +150,4 @@ function classifyAgainstSot(candidates=[],context={}){
   });
 }
 
-module.exports={VERSION,TRUSTED_THAI_EVENT_HOSTS,key,eventSeriesTitle,reconcileKey,hasComparableEventIdentity,sourceHost,referenceScope,reconcileCandidateSets,classifyAgainstSot};
+module.exports={VERSION,TRUSTED_THAI_EVENT_HOSTS,key,eventSeriesTitle,reconcileKey,hasComparableEventIdentity,sourceHost,canonicalSourceUrl,sourceDateKey,referenceScope,reconcileCandidateSets,classifyAgainstSot};

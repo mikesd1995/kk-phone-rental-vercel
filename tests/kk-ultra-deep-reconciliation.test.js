@@ -131,3 +131,18 @@ test('series title removes only date-location boilerplate for official search ti
  );
 });
 
+
+
+test('same exact HTTPS source URL plus exact date reconciles search-title truncation',()=>{
+ const discovered=[{title:'The Weeknd: After Hours Til Dawn Tour, Bangkok, Sun, 11 Oct 2026...',event_date:'2026-10-11',source_url:'https://www.livenationtero.co.th/en/event/the-weeknd-after-hours-til-dawn-tour-bangkok-tickets-edp1672772'}];
+ const reference=[{title:'The Weeknd: After Hours Til Dawn Tour, Bangkok, Sun, 11 Oct ...',event_date:'2026-10-11',source_url:'https://www.livenationtero.co.th/en/event/the-weeknd-after-hours-til-dawn-tour-bangkok-tickets-edp1672772'}];
+ const out=R.reconcileCandidateSets(discovered,reference);
+ assert.equal(out.complete,true);assert.equal(out.reconciliation_gap_count,0);assert.equal(out.matched_count,1);
+});
+
+test('same source URL never reconciles a different exact date',()=>{
+ const discovered=[{title:'Example Concert 11 Oct',event_date:'2026-10-11',source_url:'https://example.com/event/1'}];
+ const reference=[{title:'Example Concert 12 Oct',event_date:'2026-10-12',source_url:'https://example.com/event/1'}];
+ const out=R.reconcileCandidateSets(discovered,reference);
+ assert.equal(out.complete,false);assert.equal(out.reconciliation_gap_count,1);
+});
