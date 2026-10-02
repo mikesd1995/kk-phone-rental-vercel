@@ -416,8 +416,12 @@ async function main(){
         const preEventSurfaces=[document.querySelector('.v4-header,.v3-header'),hero,document.querySelector('.v3-social-proof'),document.querySelector('.browse-controls-shell')].filter(visible);
         const cards=Array.from(document.querySelectorAll('.concert-card')).filter(visible);
         const cardRects=cards.map(el=>el.getBoundingClientRect());
-        const firstTop=cardRects.length?Math.round(cardRects[0].top/4)*4:null;
-        const firstRow=firstTop===null?[]:cardRects.filter(r=>Math.round(r.top/4)*4===firstTop);
+        const firstTop=cardRects.length?cardRects[0].top:null;
+        // Count the first rendered card row by geometry tolerance, matching the
+        // state-evidence inspector. Rounding tops into 4px buckets could split
+        // visually aligned cards across buckets on fractional layout positions
+        // (observed at 480px), producing a false one-column summary.
+        const firstRow=firstTop===null?[]:cardRects.filter(r=>Math.abs(r.top-firstTop)<4);
         const visibleAboveFold=cardRects.filter(r=>r.bottom>0&&r.top<window.innerHeight).length;
 
         let cssText='';
