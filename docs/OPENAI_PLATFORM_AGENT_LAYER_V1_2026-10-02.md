@@ -178,6 +178,13 @@ All routes require persistent invocation evidence under the existing Agent Gatew
 
 The existing authenticated Admin guard already exposes the Agent Gateway action, so no new unauthenticated public AI endpoint was added. When this branch is merged and server-side environment gates are enabled, authorized Admin calls can invoke these task types through the existing guarded gateway while invocation records persist hashes instead of raw prompts/customer messages.
 
+
+## Storefront Visual QA wiring
+
+The existing screenshot acceptance harness now always records the full seven-agent deterministic Design Council for every acceptance viewport. When `KK_OPENAI_PLATFORM_ENABLED=true`, it additionally sends final JPEG screenshot evidence for selected viewports to `kk-openai-storefront-reviewer` through the Responses API. Default AI-review widths are `390,1024` and can be narrowed/expanded with `KK_OPENAI_STOREFRONT_AI_VIEWPORTS` using widths already present in the deterministic policy.
+
+When the OpenAI feature flag is enabled, a missing key, provider failure, malformed output, or unresolved model P0/P1 finding blocks technical visual acceptance. When the flag is disabled, the pipeline remains zero-cost and continues using the existing deterministic acceptance path. Owner visual acceptance remains a separate mandatory gate.
+
 ## Dry-run
 
 A zero-write manual harness is available:
