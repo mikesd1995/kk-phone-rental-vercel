@@ -1,0 +1,38 @@
+name: KK X Posting Plan Bridge
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: read
+  issues: write
+jobs:
+  plan:
+    if: startsWith(github.event.issue.title, '[KK-X-PLAN]') && github.event.issue.author_association == 'OWNER'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Execute governed X posting planner
+        continue-on-error: true
+        run: node scripts/kk-x-posting-plan-actions-bridge.js
+      - name: Persist result and invocation evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          test -s kk-x-posting-plan-comment.md || printf '%s\n' '## KK X Posting Plan' '' '- Status: **BLOCKED**' '- Blocker: BRIDGE_RESULT_MISSING' > kk-x-posting-plan-comment.md
+          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file kk-x-posting-plan-comment.md
+          gh issue close "$ISSUE_NUMBER" --repo "$GH_REPO" --reason completed
+      - name: Enforce PASS
+        if: always()
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),r=JSON.parse(fs.readFileSync('kk-x-posting-plan-result.json','utf8'));
+          if(r.status!=='PASS'||!r.invocation||!r.invocation.invoked_agents.includes('kk-marketing-agent')||r.production_writes!==0||r.publishes!==0) process.exit(1);
+          console.log(JSON.stringify({status:r.status,timezone:r.timezone,slots:r.slots.length,invocation_id:r.invocation.invocation_id}));
+          NODE
