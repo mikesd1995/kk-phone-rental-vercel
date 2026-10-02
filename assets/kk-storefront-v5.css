@@ -914,7 +914,7 @@ html[data-theme="dark"] .v3-events-heading h2 em{color:#a9b8cb!important}
 
 
 /* V6.7 lower-page professional finish — screenshot-led legacy cleanup.
-   Card content owns its natural height; journey/contact/footer share one compact service rhythm. */
+   Cards retain contained equal-height geometry; journey/contact/footer share one compact service rhythm. */
 .concert-card{
   height:100%!important;
   align-self:stretch!important;
@@ -1011,7 +1011,7 @@ html[data-theme="dark"] .kk-journey-steps b{
 
 @media(max-width:700px){
   .poster-info{
-    min-height:0!important;
+    min-height:188px!important;
     padding:10px 10px 12px!important;
   }
   .pi-date{margin-bottom:5px!important}
@@ -1102,4 +1102,10 @@ html[data-theme="dark"] .kk-journey-steps b{
   footer .footer-brand{font-size:24px!important}
   footer .footer-tagline{font-size:13px!important}
   footer .trust-note{font-size:10.5px!important}
+}
+
+
+/* Real-iPhone text-space reserve: keep venue/price/availability/CTA inside the card. */
+@media(max-width:359px){
+  .poster-info{min-height:176px!important}
 }
