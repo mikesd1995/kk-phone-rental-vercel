@@ -1,10 +1,15 @@
 'use strict';
 
+const path=require('node:path');
+const {execFile}=require('node:child_process');
+
 const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V5';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
 const DDG_MIN_INTERVAL_MS=250;
+const DEFAULT_DDGS_TIMEOUT_MS=10000;
+const DEFAULT_DDGS_MAX_RESULTS=10;
 let ddgLastRequestAt=0;
 function text(v){return String(v==null?'':v).trim();}
 function https(v){try{const u=new URL(text(v));return u.protocol==='https:'?u.toString():'';}catch(_){return '';}}
@@ -111,5 +116,63 @@ async function searxng(task={},options={}){
  const body=await fetchPage(u.toString(),options);let data;try{data=JSON.parse(body);}catch(_){const e=new Error('SEARXNG_INVALID_JSON');e.code='SEARXNG_INVALID_JSON';throw e;}
  return (Array.isArray(data.results)?data.results:[]).slice(0,25).map(r=>({title:text(r.title)||q,event_date:null,event_time:null,venue:null,artist:[],source_url:https(r.url),confidence:null})).filter(r=>r.source_url);
 }
-function createProviders(options={}){const out={OFFICIAL_DIRECT:t=>officialDirect(t,options),RSS_OR_PUBLIC_FEED:t=>rssOrPublicFeed(t,options)};if(options.ddg_enabled!==false)out.DDG_HTML=t=>duckDuckGoHtml(t,options);if(options.bing_enabled!==false)out.BING_HTML=t=>bingHtml(t,options);const endpoint=https(options.searxng_endpoint||process.env.KK_SEARXNG_ENDPOINT||DEFAULT_SEARXNG_ENDPOINT);if(endpoint)out.SEARXNG=t=>searxng(t,{...options,searxng_endpoint:endpoint});return out;}
-module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,decodeHtmlEntities,cleanHtml,decodeEntities,extractAnchors,ddgResultUrl,bingResultUrl,parseDuckDuckGoHtml,parseBingHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,searxng,createProviders};
+
+function execFileJson(command,args,options={}){
+ const execFileImpl=options.execFileImpl||execFile;
+ const timeout=Math.max(1000,Number(options.timeout_ms||DEFAULT_DDGS_TIMEOUT_MS));
+ return new Promise((resolve,reject)=>{
+  execFileImpl(command,args,{timeout,maxBuffer:512*1024,windowsHide:true},(error,stdout,stderr)=>{
+   if(error){
+    const err=new Error('DDGS_PROCESS_FAILED');
+    err.code='DDGS_PROCESS_FAILED';
+    err.detail=text(stderr).slice(0,300);
+    reject(err);
+    return;
+   }
+   try{
+    const parsed=JSON.parse(String(stdout||'[]'));
+    resolve(Array.isArray(parsed)?parsed:[]);
+   }catch(_){
+    const err=new Error('DDGS_INVALID_JSON');
+    err.code='DDGS_INVALID_JSON';
+    reject(err);
+   }
+  });
+ });
+}
+
+async function runDdgsSearch(input={},options={}){
+ const python=text(options.python_bin||process.env.KK_PYTHON_BIN||'python3');
+ const script=text(options.ddgs_script_path)||path.resolve(__dirname,'../scripts/kk-ddgs-search.py');
+ const maxResults=Math.max(1,Math.min(Number(input.max_results||DEFAULT_DDGS_MAX_RESULTS)||DEFAULT_DDGS_MAX_RESULTS,25));
+ const timeoutSeconds=Math.max(2,Math.min(Math.ceil(Number(options.ddgs_timeout_ms||DEFAULT_DDGS_TIMEOUT_MS)/1000),15));
+ return execFileJson(python,[
+  script,'--query',text(input.query),
+  '--max-results',String(maxResults),
+  '--region',text(input.region||'th-th'),
+  '--backend',text(input.backend||'auto'),
+  '--timeout',String(timeoutSeconds)
+ ],{...options,timeout_ms:Number(options.ddgs_timeout_ms||DEFAULT_DDGS_TIMEOUT_MS)+3000});
+}
+
+async function ddgsTrafilatura(task={},options={}){
+ const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
+ const runner=typeof options.ddgs_runner==='function'?options.ddgs_runner:runDdgsSearch;
+ const rows=await runner({query:q,max_results:Number(options.ddgs_max_results||DEFAULT_DDGS_MAX_RESULTS),region:text(task.region||'th-th'),backend:text(options.ddgs_backend||'auto')},options);
+ return (Array.isArray(rows)?rows:[]).slice(0,25).map(r=>({
+  title:text(r.title)||q,event_date:null,event_time:null,venue:null,artist:[],
+  source_url:https(r.source_url||r.href||r.url),confidence:null
+ })).filter(r=>r.source_url);
+}
+
+function createProviders(options={}){
+ const out={OFFICIAL_DIRECT:t=>officialDirect(t,options),RSS_OR_PUBLIC_FEED:t=>rssOrPublicFeed(t,options)};
+ if(options.ddg_enabled!==false)out.DDG_HTML=t=>duckDuckGoHtml(t,options);
+ if(options.bing_enabled!==false)out.BING_HTML=t=>bingHtml(t,options);
+ const endpoint=https(options.searxng_endpoint||process.env.KK_SEARXNG_ENDPOINT||DEFAULT_SEARXNG_ENDPOINT);
+ if(endpoint)out.SEARXNG=t=>searxng(t,{...options,searxng_endpoint:endpoint});
+ const ddgsEnabled=options.ddgs_trafilatura_enabled===true || /^(1|true|yes)$/i.test(text(process.env.KK_DDGS_TRAFILATURA_ENABLED));
+ if(ddgsEnabled)out.DDGS_TRAFILATURA=t=>ddgsTrafilatura(t,options);
+ return out;
+}
+module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,DEFAULT_DDGS_TIMEOUT_MS,DEFAULT_DDGS_MAX_RESULTS,decodeHtmlEntities,cleanHtml,decodeEntities,extractAnchors,ddgResultUrl,bingResultUrl,parseDuckDuckGoHtml,parseBingHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,searxng,execFileJson,runDdgsSearch,ddgsTrafilatura,createProviders};
