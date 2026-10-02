@@ -238,3 +238,15 @@ test('screenshot review record is bound to the current executable storefront blo
   };
   assert.deepEqual(review.reviewed_design_blobs,actual);
 });
+
+
+test('V6.1 conversion polish keeps trust, CTA hierarchy and floating contact out of the left content rail',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  assert.match(html,/class="kk-commerce-strip"/);
+  assert.match(html,/ฟรีประกัน/);
+  assert.match(html,/ไม่วางมัดจำ/);
+  assert.match(html,/รับ–คืนหน้างาน/);
+  assert.match(css,/\.pi-tap\{[^}]*border:1px solid var\(--v6-line\)!important/);
+  assert.match(css,/\.sticky-line\{right:14px!important;left:auto!important/);
+});
