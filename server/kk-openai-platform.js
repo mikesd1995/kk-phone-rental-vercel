@@ -4,6 +4,15 @@ const VERSION='KK_OPENAI_PLATFORM_V1';
 const DEFAULT_BASE_URL='https://api.openai.com/v1';
 
 function clean(v){return String(v==null?'':v).trim();}
+function normalizeApiKey(v){
+  let key=clean(v);
+  key=key.replace(/^OPENAI_API_KEY\s*=\s*/i,'').trim();
+  key=key.replace(/^Bearer\s+/i,'').trim();
+  if((key.startsWith('"')&&key.endsWith('"'))||(key.startsWith("'")&&key.endsWith("'"))){
+    key=key.slice(1,-1).trim();
+  }
+  return key;
+}
 function flag(v){return ['1','true','yes','on'].includes(clean(v).toLowerCase());}
 function boundedInt(v,fallback,min,max){
   const n=Number(v);
@@ -24,7 +33,7 @@ function configState(env={}){
   return {
     version:VERSION,
     enabled:flag(env.KK_OPENAI_PLATFORM_ENABLED),
-    api_key_present:!!clean(env.OPENAI_API_KEY),
+    api_key_present:!!normalizeApiKey(env.OPENAI_API_KEY),
     allow_customer_data:flag(env.KK_OPENAI_ALLOW_CUSTOMER_DATA),
     base_url:baseUrl(env),
     models:{
@@ -120,7 +129,7 @@ async function callStructured(request={},options={}){
     const response=await fetchImpl(baseUrl(env)+'/responses',{
       method:'POST',
       headers:{
-        'authorization':'Bearer '+clean(env.OPENAI_API_KEY),
+        'authorization':'Bearer '+normalizeApiKey(env.OPENAI_API_KEY),
         'content-type':'application/json',
         'user-agent':'kk-phone-rental/'+VERSION
       },
@@ -167,5 +176,5 @@ async function callStructured(request={},options={}){
 }
 
 module.exports={
-  VERSION,DEFAULT_BASE_URL,flag,modelFor,configState,privateHostname,allowedImageUrl,extractOutputText,callStructured
+  VERSION,DEFAULT_BASE_URL,flag,normalizeApiKey,modelFor,configState,privateHostname,allowedImageUrl,extractOutputText,callStructured
 };
