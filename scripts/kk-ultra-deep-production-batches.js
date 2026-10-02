@@ -24,7 +24,10 @@ function subsetHandoff(handoff,candidate){
  };
 }
 function buildBatchFiles(handoff={},outDir='ultra-deep-production-batches'){
- const candidates=handoff.verifier&&Array.isArray(handoff.verifier.verified_candidates)?handoff.verifier.verified_candidates:[];
+ const verified=handoff.verifier&&Array.isArray(handoff.verifier.verified_candidates)?handoff.verifier.verified_candidates:[];
+ const commercialRows=handoff.commercial&&Array.isArray(handoff.commercial.candidates)?handoff.commercial.candidates:[];
+ const readyKeys=new Set(commercialRows.filter(x=>text(x.status)==='READY_FOR_FINAL_VERIFIER').map(x=>text(x.event_key||x.candidate_id)));
+ const candidates=commercialRows.length?verified.filter(x=>readyKeys.has(text(x.event_key||x.candidate_id))):verified;
  fs.mkdirSync(outDir,{recursive:true});
  const files=[];
  for(let i=0;i<candidates.length;i++){
