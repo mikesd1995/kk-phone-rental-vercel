@@ -113,8 +113,9 @@ test('local zero-cost mode uses only read-only canonical public CSV fixtures',()
   assert.match(runner,/09_Web_Packages/);
   assert.match(runner,/page\.route\(url=>url\.pathname==='\/api\/kk-data'/);
   assert.match(runner,/contentType:'text\/csv; charset=utf-8'/);
-  assert.match(runner,/paid_external_service_calls:0/);
-  assert.match(runner,/zero_cost_path:mode==='local_zero_cost'/);
+  assert.match(runner,/paid_external_service_calls:openAiProviderRequests/);
+  assert.match(runner,/zero_cost_path:mode==='local_zero_cost' && openAiProviderRequests===0/);
+  assert.match(runner,/if\(openAiConfig\.enabled&&openAiWidths\.has\(width\)\)/);
 });
 
 test('visual evidence is compressed to reduce included Actions storage',()=>{
@@ -305,3 +306,16 @@ test('visual QA treats a verified rendered exact-event text fallback as degraded
   assert.match(runner,/severity:'P2'/);
   assert.match(runner,/POSTER_DELIVERY_FAILED/);
 });
+
+test('visual QA keeps the seven-agent council and optionally gates OpenAI screenshot review',()=>{
+  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  assert.match(source,/kk-storefront-design-council/);
+  assert.match(source,/storefront_design_council/);
+  assert.match(source,/kk-openai-agent-adapters/);
+  assert.match(source,/OpenAiAgents\.reviewStorefront/);
+  assert.match(source,/KK_OPENAI_STOREFRONT_AI_VIEWPORTS/);
+  assert.match(source,/openai_visual_review_pass/);
+  assert.match(source,/openAiReviewPass/);
+  assert.match(source,/data:image\/jpeg;base64/);
+});
+
