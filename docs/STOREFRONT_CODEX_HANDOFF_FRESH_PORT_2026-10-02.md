@@ -160,3 +160,13 @@ Safety boundary: no pricing values, package availability, inventory, booking des
 ### Current-main CI retry note
 
 After the V6.7 files were fresh-ported onto current main, the first PR #556 workflow attempt ended at runner bootstrap for all four workflows within seconds, with no executable steps/log artifacts. The storefront source was unchanged from the already accepted V6.7 candidate. A documentation-only commit retriggers the exact-current-main gates; only those replacement gate results may authorize merge.
+
+
+### Final V6.7 owner screenshot/video cleanup
+
+After V6.7 core merged, fresh iPhone screenshots and the owner screen recording exposed three residual presentation issues not represented by the Chromium baseline:
+- Safari/mobile text-space pressure could push venue/price/availability/CTA too close to the card boundary, so equal-height containment is retained while mobile detail space is explicitly reserved at 188px (176px on <=359px);
+- the prior editorial discovery phrase `คืนนี้ของคุณ / เริ่มจากโปสเตอร์นี้` and hidden `POSTER · AVAILABILITY · PRICE` rule are removed; discovery is now `เลือกงานของคุณ / Find your event`;
+- event-card affordances now use package language (`ดูแพ็กเกจ / จอง`, `View Packages / Book`) instead of “equipment” as the primary customer-facing noun.
+
+The black circular control visible at lower-left was independently visible in the ChatGPT/app screenshots supplied by the owner, confirming it is external app/browser UI rather than storefront DOM. No site CSS targets it.
