@@ -119,8 +119,7 @@ async function runBridge({event,payload,ledgerFn}={}){
     input:safeInput(envelope.input)
   };
   const gateway=await Gateway.executeAgentRequest(request,{
-    ledgerFn:effectiveLedgerFn,
-    projectMemoryListFn:async()=>({ok:true,enabled:false,rows:[]})
+    ledgerFn:effectiveLedgerFn
   });
   if(gateway.status!=='RECORDED'||gateway.intent!=='x_posting_plan'||!gateway.result){
     return {
