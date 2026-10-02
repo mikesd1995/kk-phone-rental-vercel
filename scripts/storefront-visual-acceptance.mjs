@@ -361,7 +361,8 @@ async function main(){
           document.querySelector('.browse-controls-shell .month-select-wrap'),
           ...Array.from(document.querySelectorAll('.browse-controls-shell .filter-btn'))
         ].filter(visible);
-        const rowTops=[...new Set(filterItems.map(el=>Math.round(el.getBoundingClientRect().top/3)*3))];
+        const filterTops=filterItems.map(el=>el.getBoundingClientRect().top).sort((a,b)=>a-b);
+        const rowTops=filterTops.filter((top,index)=>index===0 || top-filterTops[index-1]>4);
 
         const hero=document.querySelector('.v4-hero,.v3-hero');
         const preEventSurfaces=[document.querySelector('.v4-header,.v3-header'),hero,document.querySelector('.v3-social-proof'),document.querySelector('.browse-controls-shell')].filter(visible);
