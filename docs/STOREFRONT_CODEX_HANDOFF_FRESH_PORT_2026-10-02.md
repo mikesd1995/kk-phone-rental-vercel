@@ -152,6 +152,11 @@ Changes:
 - static metadata/default description was aligned with the generic phone-rental positioning;
 - cache markers advance to V6.7.
 
+
+- real-iPhone screenshots showed lower-card text inflation/space pressure not reproduced by Chromium screenshots; final CSS keeps equal-height containment but reserves 188px of mobile detail space (176px on <=359px) so venue, shortened price, availability and CTA remain inside the card under Safari rendering;
+- the remaining editorial remnants `คืนนี้ของคุณเริ่มจากโปสเตอร์นี้` and hidden `POSTER · AVAILABILITY · PRICE` catalogue rule were removed; discovery now uses `เลือกงานของคุณ / Find your event`;
+- event-card affordances now say `ดูแพ็กเกจ / จอง` and `View Packages / Book` rather than using equipment as the primary customer-facing noun.
+
 The black circular control visible at the lower-left of owner browser screenshots is not present in storefront source, DOM selectors, fixed-control CSS or exact-head QA captures. It is therefore treated as an external/browser overlay and no storefront element is hidden to imitate its removal.
 
 Safety boundary: no pricing values, package availability, inventory, booking destination, LINE payload semantics, Admin, Apps Script, event visibility, customer data or production business-write authority changed.
