@@ -155,12 +155,24 @@ async function runDdgsSearch(input={},options={}){
  ],{...options,timeout_ms:Number(options.ddgs_timeout_ms||DEFAULT_DDGS_TIMEOUT_MS)+3000});
 }
 
+function inferSearchEventDate(value){
+ const s=text(value);
+ let m=s.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+ if(m)return `${m[1]}-${m[2]}-${m[3]}`;
+ const months={jan:'01',january:'01',feb:'02',february:'02',mar:'03',march:'03',apr:'04',april:'04',may:'05',jun:'06',june:'06',jul:'07',july:'07',aug:'08',august:'08',sep:'09',sept:'09',september:'09',oct:'10',october:'10',nov:'11',november:'11',dec:'12',december:'12'};
+ m=s.match(/\b(\d{1,2})\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(20\d{2})\b/i);
+ if(m){const mm=months[m[2].toLowerCase()];return `${m[3]}-${mm}-${String(Number(m[1])).padStart(2,'0')}`;}
+ m=s.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,)?\s+(20\d{2})\b/i);
+ if(m){const mm=months[m[1].toLowerCase()];return `${m[3]}-${mm}-${String(Number(m[2])).padStart(2,'0')}`;}
+ return null;
+}
+
 async function ddgsTrafilatura(task={},options={}){
  const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
  const runner=typeof options.ddgs_runner==='function'?options.ddgs_runner:runDdgsSearch;
  const rows=await runner({query:q,max_results:Number(options.ddgs_max_results||DEFAULT_DDGS_MAX_RESULTS),region:text(task.region||'th-th'),backend:text(options.ddgs_backend||'auto')},options);
  return (Array.isArray(rows)?rows:[]).slice(0,25).map(r=>({
-  title:text(r.title)||q,event_date:null,event_time:null,venue:null,artist:[],
+  title:text(r.title)||q,event_date:inferSearchEventDate([r.title,r.body].filter(Boolean).join(' ')),event_time:null,venue:null,artist:[],
   source_url:https(r.source_url||r.href||r.url),confidence:null
  })).filter(r=>r.source_url);
 }
@@ -175,4 +187,4 @@ function createProviders(options={}){
  if(ddgsEnabled)out.DDGS_TRAFILATURA=t=>ddgsTrafilatura(t,options);
  return out;
 }
-module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,DEFAULT_DDGS_TIMEOUT_MS,DEFAULT_DDGS_MAX_RESULTS,decodeHtmlEntities,cleanHtml,decodeEntities,extractAnchors,ddgResultUrl,bingResultUrl,parseDuckDuckGoHtml,parseBingHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,searxng,execFileJson,runDdgsSearch,ddgsTrafilatura,createProviders};
+module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,DEFAULT_DDGS_TIMEOUT_MS,DEFAULT_DDGS_MAX_RESULTS,decodeHtmlEntities,cleanHtml,decodeEntities,extractAnchors,ddgResultUrl,bingResultUrl,parseDuckDuckGoHtml,parseBingHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,searxng,execFileJson,runDdgsSearch,inferSearchEventDate,ddgsTrafilatura,createProviders};
