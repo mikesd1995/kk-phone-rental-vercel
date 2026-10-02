@@ -391,3 +391,62 @@ test('override price refresh preserves generated price formula instead of hardco
   const webReadback=p.readbacks.find(r=>String(r.range||'').startsWith('09_Web_Packages!H5'));
   assert.equal(webReadback.render,'FORMULA');
 });
+
+
+test('legacy mutation non-2xx after dispatch is marked uncertain and never auto-retried',async t=>{
+  const oldEnv={...process.env};
+  process.env.KK_ADMIN_PIN='1234';
+  process.env.KK_ADMIN_SCRIPT_URL='https://script.google.com/macros/s/test/exec';
+  process.env.KK_ADMIN_API_KEY='key';
+  const oldFetch=global.fetch;
+  let calls=0;
+  global.fetch=async()=>{
+    calls++;
+    return {
+      ok:false,
+      status:500,
+      headers:{get:(name)=>String(name).toLowerCase()==='content-type'?'text/html; charset=utf-8':''},
+      text:async()=>'<html><body>upstream failed after dispatch</body></html>'
+    };
+  };
+  t.after(()=>{process.env=oldEnv;global.fetch=oldFetch;});
+  const out=res();
+  await Proxy(req({action:'createBooking',event_id:'E1',request_id:'req-non2xx-12345'}),out);
+  const body=JSON.parse(out.body);
+  assert.equal(out.statusCode,500);
+  assert.equal(body.request_id,'req-non2xx-12345');
+  assert.equal(body.mutation_outcome,'uncertain-response');
+  assert.equal(body.mutation_outcome_uncertain,true);
+  assert.equal(body.mutation_may_have_committed,true);
+  assert.equal(calls,1);
+});
+
+test('HTTP 200 JSON business rejection remains definite and does not claim possible commit',async t=>{
+  const oldEnv={...process.env};
+  process.env.KK_ADMIN_PIN='1234';
+  process.env.KK_ADMIN_SCRIPT_URL='https://script.google.com/macros/s/test/exec';
+  process.env.KK_ADMIN_API_KEY='key';
+  const oldFetch=global.fetch;
+  global.fetch=async()=>({
+    ok:true,
+    status:200,
+    headers:{get:(name)=>String(name).toLowerCase()==='content-type'?'application/json; charset=utf-8':''},
+    text:async()=>JSON.stringify({ok:false,error:'Invalid booking_status'})
+  });
+  t.after(()=>{process.env=oldEnv;global.fetch=oldFetch;});
+  const out=res();
+  await Proxy(req({action:'updateBooking',booking_id:'BK-1',booking_status:'bad',request_id:'req-business-12345'}),out);
+  const body=JSON.parse(out.body);
+  assert.equal(out.statusCode,200);
+  assert.equal(body.mutation_outcome,'rejected-response');
+  assert.equal(body.mutation_outcome_uncertain,false);
+  assert.equal(body.mutation_may_have_committed,false);
+});
+
+test('Admin UI honors explicit mutation uncertainty flags from the proxy',()=>{
+  const fs=require('node:fs');
+  const ui=fs.readFileSync(require.resolve('../admin/admin.js'),'utf8');
+  assert.match(ui,/err\.mutationOutcomeUncertain=data\.mutation_outcome_uncertain===true/);
+  assert.match(ui,/err\.mutationMayHaveCommitted=data\.mutation_may_have_committed===true/);
+  assert.match(ui,/err && \(err\.mutationOutcomeUncertain===true \|\| err\.mutationMayHaveCommitted===true\)/);
+});
