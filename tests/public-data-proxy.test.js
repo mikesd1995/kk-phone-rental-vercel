@@ -279,3 +279,25 @@ test('public data exposes only non-secret Private Reader readiness classificatio
     global.fetch=originalFetch;
   }
 });
+
+
+test('public package feed drops malformed generated status/sort rows fail-closed', async () => {
+  const originalFetch=global.fetch;
+  global.fetch=async()=>({ok:true,status:200,text:async()=>[
+    'package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case',
+    'PKG-GOOD,EVT-1,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,690,1,available,10,,1,',
+    'PKG-BAD-STATUS,EVT-1,lens_only,NONE,,ZEISS_2_35X,Lens Vivo,390,1,1,hidden,,1,',
+    'PKG-BAD-COUNT,EVT-1,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,690,-1,available,10,,1,'
+  ].join('\n')});
+  try{
+    await withEnv(withoutPrivateCredentials({GOOGLE_SHEET_ID:'sheet-test-123'}),async()=>{
+      const res=fakeRes({rejectNonAsciiHeaders:true});
+      await handler({method:'GET',query:{sheet:'09_Web_Packages',range:'A4:N'}},res);
+      assert.equal(res.statusCode,200);
+      assert.match(res.body,/PKG-GOOD/);
+      assert.doesNotMatch(res.body,/PKG-BAD-STATUS/);
+      assert.doesNotMatch(res.body,/PKG-BAD-COUNT/);
+      assert.equal(res.headers['x-kk-public-rows-dropped'],'2');
+    });
+  }finally{global.fetch=originalFetch;}
+});
