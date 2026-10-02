@@ -1297,6 +1297,9 @@ function renderConcerts(concerts){
 
     var lowStock=avail&&cnt===1;
     var card=document.createElement("button"); card.type="button"; card.className="concert-card"+(avail?"":" waitlist-card")+(lowStock?" low-stock-card":"");
+    card.dataset.eventId=String(c.id||"");
+    card.dataset.eventName=String(c.name||"");
+    card.dataset.posterSource=String(c.rawPoster||c.img||"");
     card.setAttribute("aria-label", avail ? tr("card_aria_available",{event:c.name}) : tr("card_aria_waitlist",{event:c.name}));
     card.onclick=function(){
       if(!avail) track("waitlist_card_open",{event_name:c.name, available:0, source:"card"});
