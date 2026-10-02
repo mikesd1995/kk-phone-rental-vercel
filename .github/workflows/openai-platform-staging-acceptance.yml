@@ -1,0 +1,156 @@
+name: OpenAI Platform Staging Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'server/kk-openai-platform.js'
+      - 'server/kk-openai-agent-adapters.js'
+      - 'server/kk-agent-registry.js'
+      - 'server/kk-agent-task-router.js'
+      - 'scripts/kk-openai-agent-dry-run.js'
+      - '.github/workflows/openai-platform-staging-acceptance.yml'
+      - 'docs/OPENAI_PLATFORM_AGENT_LAYER_V1_2026-10-02.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-openai-platform-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  staging-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+      VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+      KK_OPENAI_BRANCH: feat/openai-platform-agent-layer-v1
+
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v7
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Source safety regression
+        run: |
+          set -euo pipefail
+          node --check server/kk-openai-platform.js
+          node --check server/kk-openai-agent-adapters.js
+          node --check scripts/kk-openai-agent-dry-run.js
+          node --test tests/kk-openai-platform.test.js
+
+      - name: Require existing Vercel owner token
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}"
+
+      - name: Install Vercel CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save vercel@latest >/dev/null
+          npx vercel --version
+
+      - name: Link project ephemerally
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
+      - name: Pull branch-scoped Preview secrets without printing values
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          npx vercel env pull .env.openai-staging \
+            --environment=preview \
+            --git-branch="$KK_OPENAI_BRANCH" \
+            --token="$VERCEL_TOKEN" \
+            > /dev/null 2>&1
+          test -s .env.openai-staging
+          grep -q '^OPENAI_API_KEY=' .env.openai-staging
+          grep -q '^KK_OPENAI_PLATFORM_ENABLED=' .env.openai-staging
+
+      - name: Execute synthetic zero-write OpenAI agent acceptance
+        id: live
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          set -a
+          . ./.env.openai-staging
+          set +a
+
+          test -n "${OPENAI_API_KEY:-}"
+          test "${KK_OPENAI_PLATFORM_ENABLED:-}" = "true"
+          test -z "${KK_OPENAI_ALLOW_CUSTOMER_DATA:-}"
+
+          npm run openai:agents:dry-run > openai-agent-staging-report.json
+
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('openai-agent-staging-report.json','utf8'));
+          if(r.enabled!==true) throw new Error('OPENAI_PLATFORM_NOT_ENABLED');
+          if(r.api_key_present!==true) throw new Error('OPENAI_API_KEY_NOT_PRESENT');
+          if(r.allow_customer_data!==false) throw new Error('CUSTOMER_DATA_GATE_MUST_REMAIN_DISABLED');
+
+          const byAgent=new Map();
+          for(const row of r.results||[]){
+            for(const agent of row.invoked_agents||[]) byAgent.set(agent,row);
+            if(Number(row.production_writes)!==0) throw new Error('PRODUCTION_WRITES_NONZERO');
+          }
+          const storefront=byAgent.get('kk-openai-storefront-reviewer');
+          const discovery=byAgent.get('kk-openai-discovery-reasoner');
+          const inbox=byAgent.get('kk-openai-inbox-drafter');
+
+          if(!storefront || storefront.ai_status!=='READY_FOR_DESIGN_SYNTHESIS'){
+            throw new Error('STOREFRONT_OPENAI_ACCEPTANCE_FAILED_'+String(storefront&&storefront.ai_status));
+          }
+          if(!discovery || discovery.ai_status!=='ADVISORY_READY_FOR_VERIFIER'){
+            throw new Error('DISCOVERY_OPENAI_ACCEPTANCE_FAILED_'+String(discovery&&discovery.ai_status));
+          }
+          if(!inbox || inbox.ai_status!=='SKIPPED_CUSTOMER_DATA_GATE'){
+            throw new Error('INBOX_CUSTOMER_DATA_GATE_FAILED_'+String(inbox&&inbox.ai_status));
+          }
+          process.stdout.write(JSON.stringify({
+            schema_version:r.schema_version,
+            enabled:r.enabled,
+            models:r.models,
+            statuses:{
+              storefront:storefront.ai_status,
+              discovery:discovery.ai_status,
+              inbox:inbox.ai_status
+            },
+            production_writes:0
+          },null,2)+'\n');
+          NODE
+
+      - name: Remove pulled secret file
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set +e
+          if [ -f .env.openai-staging ]; then
+            if command -v shred >/dev/null 2>&1; then shred -u .env.openai-staging; else rm -f .env.openai-staging; fi
+          fi
+
+      - name: Upload secret-safe acceptance report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openai-platform-staging-${{ github.run_id }}
+          path: openai-agent-staging-report.json
+          if-no-files-found: warn
+          retention-days: 14
