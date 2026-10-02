@@ -10,7 +10,7 @@ const codeGs = fs.readFileSync(path.join(root, 'apps-script', 'Code.gs'), 'utf8'
 test('deploy instructions fail closed while repo Apps Script trails production', () => {
   assert.match(
     codeGs,
-    /v16\.7\.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX/,
+    /v16\.7\.0_CRM_PRO_PHASE3_9_5_13_FULL_BACKEND_AUDIT/,
     'guard must be revisited when repository Apps Script version changes'
   );
 
