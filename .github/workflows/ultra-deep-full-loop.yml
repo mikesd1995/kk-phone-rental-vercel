@@ -19,6 +19,7 @@ permissions:
   contents: read
   issues: write
   id-token: write
+  id-token: write
 
 concurrency:
   group: >-
@@ -130,6 +131,7 @@ jobs:
           node --test tests/kk-ultra-deep-public-web-adapters.test.js
           node --test tests/kk-ultra-deep-runtime-runner.test.js
           node --test tests/kk-ultra-deep-reconciliation.test.js
+          node --test tests/kk-ultra-deep-candidate-verifier.test.js
           node --test tests/kk-ultra-deep-candidate-verifier.test.js
           node --test tests/kk-ultra-deep-competitor-price-scanner.test.js
           node --test tests/kk-ultra-deep-production-runtime.test.js
@@ -371,6 +373,57 @@ jobs:
             process.exit(1);
           }
           NODE
+
+      - name: Verify candidate-level event evidence
+        id: verifier
+        if: ${{ steps.gate.outcome == 'success' }}
+        shell: bash
+        run: |
+          set +e
+          node scripts/kk-ultra-deep-verifier-acceptance.js --input ultra-deep-runtime-acceptance.json --month "$SCAN_MONTH" --output ultra-deep-verifier-handoff.json > ultra-deep-verifier-summary.json
+          RC=$?
+          set -e
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          if [ "$RC" -eq 0 ]; then echo "result=success" >> "$GITHUB_OUTPUT"; else echo "result=failure" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Report verifier checkpoint
+        if: ${{ github.event_name == 'issue_comment' && steps.gate.outcome == 'success' }}
+        uses: actions/github-script@v8
+        env:
+          VERIFIER_RESULT: ${{ steps.verifier.outputs.result }}
+        with:
+          script: |
+            const fs=require('fs');let r={};try{r=JSON.parse(fs.readFileSync('ultra-deep-verifier-summary.json','utf8'));}catch{}
+            const runUrl=`https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body=['🧪 Ultra Deep **VERIFIER CHECKPOINT**','',`Input: \`${r.input_count ?? 'n/a'}\``,`Fetched event pages: \`${r.fetched_count ?? 'n/a'}\``,`Verified for commercial: \`${r.verified_count ?? 'n/a'}\``,`Held/noise: \`${r.hold_count ?? 'n/a'}\``,`Verified posters: \`${r.poster_count ?? 'n/a'}\``,`Verifier: \`${process.env.VERIFIER_RESULT||'unknown'}\``,'','Next: production SOT reconcile → pricing → governed create/update → exact readback.',`Progress: ${runUrl}`].join('\n');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
+
+      - name: Execute governed production Full Loop now
+        id: production
+        if: ${{ steps.gate.outcome == 'success' && steps.verifier.outputs.result == 'success' }}
+        uses: actions/github-script@v8
+        env:
+          PINNED_SHA: ${{ steps.pin.outputs.sha }}
+        with:
+          script: |
+            const fs=require('fs');
+            const handoff=JSON.parse(fs.readFileSync('ultra-deep-verifier-handoff.json','utf8'));
+            const oidc=await core.getIDToken('kk-ultra-deep-production');
+            const payload={action:'ultraDeepFullLoop',month:process.env.SCAN_MONTH,run_id:String(context.runId),head_sha:process.env.PINNED_SHA,event_name:context.eventName,handoff};
+            const response=await fetch('https://kk-phone-rental.vercel.app/api/kk-admin-guard',{method:'POST',headers:{Authorization:'Bearer '+oidc,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            const body=await response.json().catch(()=>({}));
+            fs.writeFileSync('ultra-deep-production-result.json',JSON.stringify({http_status:response.status,...body},null,2));
+            if(!response.ok||body.ok!==true) core.setFailed(body.error_code||('PRODUCTION_HTTP_'+response.status));
+
+      - name: Report production checkpoint
+        if: ${{ always() && github.event_name == 'issue_comment' && steps.production.outcome != 'skipped' }}
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs=require('fs');let b={};try{b=JSON.parse(fs.readFileSync('ultra-deep-production-result.json','utf8'));}catch{}
+            const r=b.result||{};const c=r.counts||{};const runUrl=`https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body=['🏪 Ultra Deep **PRODUCTION CHECKPOINT**','',`Status: \`${r.status||b.error_code||'unknown'}\``,`Production writes: \`${r.production_writes ?? 0}\``,`Created + readback verified: \`${c.created_verified ?? 0}\``,`Updated + readback verified: \`${c.updated_verified ?? 0}\``,`No change: \`${c.no_change ?? 0}\``,'',`Run: ${runUrl}`].join('\n');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
 
       - name: Publish live progress summary
         if: always()
