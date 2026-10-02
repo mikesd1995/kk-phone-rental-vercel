@@ -89,7 +89,7 @@ var I18N = {
     value_steps:"เลือกงาน > ดูอุปกรณ์และแพ็กเกจที่ว่าง > ระบบพาไปจองผ่าน LINE OA กับแอดมิน",
     value_note:"( หากไม่มีงานที่ต้องการ สามารถสอบถามได้ใน LINE OA )",
     follow_promo:"ติดตาม X ร้าน · ไม่ต้องวางมัดจำ · ฟรีประกันเครื่อง",
-    faq_button:"❔ คำถามที่พบบ่อย",
+    faq_button:"FAQ",
     language_aria:"เลือกภาษา",
     filter_group_aria:"เลือกเดือนและกรองสถานะงาน",
     search_placeholder:"ค้นหาชื่องาน / ศิลปิน / สถานที่",
@@ -113,10 +113,10 @@ var I18N = {
     section_title:"เลือกงานที่ใช่ ไปถ่ายคนที่ชอบ ❤️",
     updated_prefix:"ตรวจสอบข้อมูลเมื่อ",
     loading_aria:"กำลังโหลดข้อมูลงาน",
-    loading_text:"กำลังเช็กคิวให้น้า... 📱✨",
-    line_book:"ทัก LINE มาจองได้เลย 💚",
+    loading_text:"กำลังตรวจสอบคิวว่าง...",
+    line_book:"ทัก LINE มาจองได้เลย",
     sticky_line:"ทัก LINE จองคิว",
-    footer_tagline:"เช่าเถอะ อยากให้ชัด ✨",
+    footer_tagline:"เช่าเถอะ อยากให้ชัด",
     footer_trust:"จองง่าย คุยกับร้านโดยตรงผ่าน LINE",
     modal_close_aria:"ปิดหน้าต่าง",
     modal_title_placeholder:"ชื่องาน",
@@ -144,7 +144,7 @@ var I18N = {
     faq_q8:"Q: ไฟล์บน Google Drive เก็บไว้ได้กี่วัน?",
     faq_a8:"A: ร้านจะเก็บไฟล์ไว้ประมาณ 30 วัน หลังจากนั้นจะไม่สามารถเข้าถึงไฟล์ได้ แนะนำให้ดาวน์โหลดทันทีหลังได้รับลิงก์ค่ะ",
     every_month:"ทุกเดือน",
-    full_availability:"เต็มแล้วน้า 😢 จองคิวหลุดได้",
+    full_availability:"คิวเต็ม · จองคิวหลุดได้",
     one_phone_left:"เหลือ 1 เครื่องสุดท้าย",
     phones_available:"ว่าง {count} เครื่อง",
     lens_only_available:"เหลือ Lens อย่างเดียว",
@@ -217,7 +217,7 @@ var I18N = {
     value_steps:"Choose an event > Check available equipment and packages > Book directly with our admin via LINE OA",
     value_note:"( Can't find your event? Message us on LINE OA. )",
     follow_promo:"Follow on X · No deposit · Free insurance",
-    faq_button:"❔ Frequently Asked Questions",
+    faq_button:"FAQ",
     language_aria:"Choose language",
     filter_group_aria:"Choose a month and filter event availability",
     search_placeholder:"Search event / artist / venue",
@@ -361,7 +361,7 @@ function applyStaticLanguage(){
   document.documentElement.lang=currentLang;
   setText(".v3-brand-copy small","brand_subtitle");
   setText(".v3-hero-copy>p","hero_body");
-  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">↓</span>';
+  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">→</span>';
   var proofItems=document.querySelectorAll(".v3-proof>div:not(.kk-proof-label)");
   if(proofItems[0]){var p0s=proofItems[0].querySelector("strong"),p0b=proofItems[0].querySelector("span");if(p0s)p0s.textContent=tr("proof_deposit_title");if(p0b)p0b.textContent=tr("proof_deposit_body");}
   if(proofItems[1]){var p1s=proofItems[1].querySelector("strong"),p1b=proofItems[1].querySelector("span");if(p1s)p1s.textContent=tr("proof_onsite_title");if(p1b)p1b.textContent=tr("proof_onsite_body");}
@@ -1423,7 +1423,7 @@ function showModal(c,options){
   document.getElementById("modal-title").textContent=c.name||tr("event_details");
   document.getElementById("modal-date").textContent=(currentLang==="en"?"Date: ":"วันที่: ")+(c.date||"-");
   var venueEl=document.getElementById("modal-venue");
-  venueEl.textContent="📍 "+(c.venue||"-");
+  venueEl.textContent=(currentLang==="en"?"Venue: ":"สถานที่: ")+(c.venue||"-");
   var eventNoteEl=document.getElementById("modal-event-note");
   if(!eventNoteEl){
     eventNoteEl=document.createElement("div");
