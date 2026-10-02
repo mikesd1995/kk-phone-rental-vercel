@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V6';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V7';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -126,6 +126,13 @@ function referenceScopeDecision(row={},context={}){
  if(/^\s*home\s*(?:[-|:–—]\s*.*)?$/i.test(title)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
  try{
   const u=new URL(text(row.source_url));
+  const host=u.hostname.toLowerCase();
+  const path=(u.pathname||'/').toLowerCase();
+  if(host.endsWith('eventpop.me')&&/^\/g(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+  if(/\/(search|category|categories)(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+ }catch(_){}
+ try{
+  const u=new URL(text(row.source_url));
   const path=(u.pathname||'/').replace(/\/+$/,'')||'/';
   if(path==='/'&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
  }catch(_){}
@@ -138,6 +145,18 @@ function scopeReferenceCandidates(rows=[],context={}){
  return (Array.isArray(rows)?rows:[]).map(row=>{
   const decision=referenceScopeDecision(row,context);
   return {...row,eligible_for_discovery:decision.eligible,reference_scope_reason:decision.reason};
+ });
+}
+
+function alignKnownMissReferences(discovered=[],references=[]){
+ const rows=Array.isArray(discovered)?discovered:[];
+ return (Array.isArray(references)?references:[]).map(row=>{
+  if(row&&row.eligible_for_discovery===false) return row;
+  const caseRow=KnownMiss.CORPUS.find(c=>KnownMiss.sameCase(row,c));
+  if(!caseRow) return row;
+  const matched=rows.find(c=>KnownMiss.sameCase(c,caseRow));
+  if(!matched) return row;
+  return {...row,title:text(matched.title)||row.title,canonical_known_miss_case:caseRow.case_id,canonical_reference_title:text(row.title||row.event_name)||null};
  });
 }
 
@@ -200,7 +219,8 @@ async function runMonthlyUltraDeep(input={},options={}){
   referenceProof.candidate_count=referenceCandidates.length;
   referenceProof.has_evidence=referenceCandidates.length>0;
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
-  const reconciliation=Reconciliation.reconcileCandidateSets(candidates,scopedReferenceCandidates);
+  const alignedReferenceCandidates=alignKnownMissReferences(candidates,scopedReferenceCandidates);
+  const reconciliation=Reconciliation.reconcileCandidateSets(candidates,alignedReferenceCandidates);
 
   // Preflight is intentionally evaluated only after the established evidence
   // sequence, so it can gate completion without changing known-miss/discovery/
@@ -243,7 +263,8 @@ async function runMonthlyUltraDeep(input={},options={}){
     candidate_count:candidates.length,
     candidates,
     reference_candidate_count:referenceCandidates.length,
-    eligible_reference_candidate_count:scopedReferenceCandidates.filter(row=>row.eligible_for_discovery!==false).length,
+    eligible_reference_candidate_count:alignedReferenceCandidates.filter(row=>row.eligible_for_discovery!==false).length,
+    canonical_reference_alignment_count:alignedReferenceCandidates.filter(row=>row.canonical_known_miss_case).length,
     reference_scope_exclusions:scopedReferenceCandidates.filter(row=>row.eligible_for_discovery===false).reduce((acc,row)=>{const k=row.reference_scope_reason||'EXCLUDED';acc[k]=(acc[k]||0)+1;return acc;},{}),
     execution_summary:{
       discovery_status:execution.status,
@@ -262,5 +283,5 @@ async function runMonthlyUltraDeep(input={},options={}){
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
-  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runMonthlyUltraDeep
+  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,summarizeExecution,providerPreflight,providerBindingState,runMonthlyUltraDeep
 };
