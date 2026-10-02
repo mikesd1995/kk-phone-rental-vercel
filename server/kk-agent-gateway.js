@@ -8,12 +8,13 @@ const Orchestration = require('./kk-agent-orchestration.js');
 const ProjectMemory = require('./kk-project-memory.js');
 const ProjectMemoryCorpus = require('../config/kk-project-memory.json');
 const ProjectMemoryLedger = require('./kk-project-memory-ledger.js');
+const XPostingPlan = require('./kk-x-posting-plan.js');
 
-const GATEWAY_VERSION = 'KK_AGENT_GATEWAY_V4';
+const GATEWAY_VERSION = 'KK_AGENT_GATEWAY_V5';
 
 function memoryDomainsForIntent(intent='') {
   const key=String(intent||'').trim().toLowerCase();
-  if(key.includes('content')||key==='direct_rental_x') return ['content','agent_orchestration'];
+  if(key.includes('content')||key==='direct_rental_x'||key==='x_posting_plan') return ['content','agent_orchestration'];
   if(key.includes('ultra_deep')||key.includes('scan')||key.includes('source_watch')) return ['discovery_scanner','agent_orchestration','reliability_debug'];
   if(key.includes('storefront')) return ['storefront','agent_orchestration','reliability_debug'];
   if(key.includes('reliability')) return ['reliability_debug','agent_orchestration'];
@@ -341,6 +342,9 @@ async function executeOperationalRequest(payload = {}, options = {}) {
 async function executeAgentRequest(payload = {}, options = {}) {
   if (String(payload.task_type || '').trim()) {
     return executeOperationalRequest(payload, options);
+  }
+  if (XPostingPlan.detectRequest(payload.message)) {
+    return executeOperationalRequest({...payload, task_type:'x_posting_plan'}, options);
   }
   return executeContentRequest(payload, options);
 }

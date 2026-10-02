@@ -15,6 +15,7 @@ const AgentLedger = require('../server/kk-agent-invocation-ledger.js');
 const AgentRegistry = require('../server/kk-agent-registry.js');
 const AgentOrchestration = require('../server/kk-agent-orchestration.js');
 const DecisionLedger = require('../server/kk-decision-ledger.js');
+const AdminSecurity = require('../server/admin-session.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -55,6 +56,14 @@ function clonedRequest(req,raw){
   clone.method=req.method;
   clone.url=req.url;
   clone.headers=req.headers||{};
+  return clone;
+}
+function authorizedClone(req,raw,adminPin){
+  const clone=clonedRequest(req,raw);
+  // Copy into a fresh mutable object after this layer has authenticated the
+  // request. This keeps the server PIN internal even when platform request
+  // headers are immutable.
+  clone.headers=Object.assign({},req&&req.headers||{}, {'x-admin-pin':String(adminPin||'')});
   return clone;
 }
 
@@ -126,7 +135,17 @@ function createProposal(snapshot,payload){
 function updateProposal(snapshot,payload){
   const row=Number(payload.row_number||0);
   const bid=String(payload.booking_id||'').trim();
-  const current=(snapshot.bookings||[]).find(b=>(row>0&&Number(b.row_number||0)===row)||(bid&&String(b.booking_id||'').trim()===bid));
+  // booking_id is stable across blank-row insertion, cleanup and GViz row
+  // compaction. Never trust a row-only mutation when the snapshot source marks
+  // row numbers non-authoritative.
+  if(!bid && snapshot && snapshot.booking_row_number_reliable!==true){
+    const err=new Error('Booking preflight requires booking_id because snapshot row numbers are not reliable');
+    err.code='BOOKING_ID_REQUIRED';
+    throw err;
+  }
+  const current=bid
+    ? (snapshot.bookings||[]).find(b=>String(b.booking_id||'').trim()===bid)
+    : (snapshot.bookings||[]).find(b=>row>0&&Number(b.row_number||0)===row);
   if(!current) throw new Error('Booking preflight cannot find target booking');
   const next=Object.assign({},current);
   if(payload.booking_status!==undefined&&payload.booking_status!=='') next.booking_status=payload.booking_status;
@@ -358,14 +377,18 @@ module.exports=async function handler(req,res){
   const eventGuarded=EVENT_GUARDED_ACTIONS.has(action);
   const visibilityGuarded=EVENT_VISIBILITY_GUARDED_ACTIONS.has(action) &&
     VisibilityGuard.requestedVisibility(payload)===true;
-  if(!payload||typeof payload!=='object'||Array.isArray(payload)||(!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded)){
-    return LegacyAdmin(clonedRequest(req,raw),res);
-  }
+  const passthrough=!payload||typeof payload!=='object'||Array.isArray(payload)||(!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded);
 
   const adminPin=String(process.env.KK_ADMIN_PIN||'').trim();
   const providedPin=String(req.headers&&req.headers['x-admin-pin']||'').trim();
   if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:agentGatewayAction?'AGENT_GATEWAY_UNAVAILABLE':(bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':(visibilityGuarded?'EVENT_VISIBILITY_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'))});
-  if(!safeSecretEqual(providedPin,adminPin)) return reply(res,401,{ok:false,error:'Invalid admin PIN'});
+  // The outer signed-session gate may authorize the request without exposing the
+  // PIN to browser JavaScript. Do not depend on mutating request headers in the
+  // Vercel runtime; accept the signed HttpOnly session directly as well.
+  const signedSession=AdminSecurity.hasValidSession(req)||AdminSecurity.isAuthorizedRequest(req);
+  const legacyPinOk=!!providedPin&&safeSecretEqual(providedPin,adminPin);
+  if(!signedSession&&!legacyPinOk) return reply(res,401,{ok:false,error:'Invalid admin session'});
+  if(passthrough) return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
 
   if(agentGatewayAction){
     res.setHeader('X-KK-Agent-Gateway-Version',AgentGateway.GATEWAY_VERSION);
@@ -479,7 +502,7 @@ module.exports=async function handler(req,res){
       });
     }
     res.setHeader('X-KK-Event-Visibility-Guard',checked.code||'PASS');
-    return LegacyAdmin(clonedRequest(req,raw),res);
+    return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
   }
 
   if(eventGuarded&&isPastEventDate(payload.event_date)){
@@ -557,7 +580,7 @@ module.exports=async function handler(req,res){
     const prepared=prepareCreateEventPayload(payload);
     if(prepared.publish_default_applied) res.setHeader('X-KK-Event-Publish-Default','TRUE');
     res.setHeader('X-KK-Event-Guard','PASS');
-    return LegacyAdmin(clonedRequest(req,JSON.stringify(prepared.payload)),res);
+    return LegacyAdmin(authorizedClone(req,JSON.stringify(prepared.payload),adminPin),res);
   }
 
   let snapshot;
@@ -580,7 +603,7 @@ module.exports=async function handler(req,res){
 
   res.setHeader('X-KK-Booking-Guard','PASS');
   res.setHeader('X-KK-Reservation-Mode',assessment.result.window&&assessment.result.window.mode||'none');
-  return LegacyAdmin(clonedRequest(req,raw),res);
+  return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
 };
 
 module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};

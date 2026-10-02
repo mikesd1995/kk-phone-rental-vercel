@@ -4,7 +4,8 @@ module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','public, max-age=300, s-maxage=3600, stale-while-revalidate=86400');
   res.setHeader('X-Content-Type-Options','nosniff');
   if(req.method!=='GET'&&req.method!=='HEAD'){res.statusCode=405;return res.end('Method Not Allowed');}
-  const eventId=String((req.query&&req.query.event_id)||'').trim();
+  const requestUrl=new URL(req.url||'/api/line-poster','http://localhost');
+  const eventId=String(requestUrl.searchParams.get('event_id')||'').trim();
   if(!/^EVT-[A-Z0-9-]{3,180}$/i.test(eventId)){res.statusCode=400;return res.end('Invalid event_id');}
   try{
     const out=await fetchPoster(eventId,fetch);

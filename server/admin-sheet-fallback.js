@@ -76,6 +76,9 @@ function bangkokDay(now){
   return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).format(now||new Date());
 }
 function workflowOpen(s){ return ['pending','confirmed','prepared','picked_up','returned','uploaded'].includes(String(s||'').trim().toLowerCase()); }
+function cleanBookingNote(v){
+  return String(v||'').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g,' ').replace(/\s{2,}/g,' ').trim();
+}
 
 function fetchWithTimeout(url, fetchImpl, timeoutMs){
   const controller=new AbortController();
@@ -199,7 +202,7 @@ function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
       pickup_time:r.pickup_time||'',return_time:r.return_time||'',payment_status:r.payment_status||'',amount_received:num(r.amount_received),
       return_status:r.return_status||'',file_transfer_status:r.file_transfer_status||'',drive_link:r.drive_link||'',damage_fee:num(r.damage_fee),
       work_task:task,is_cancelled:st==='cancelled',is_active_hold:['pending','confirmed','prepared','picked_up'].includes(st),
-      should_show_current:workflowOpen(st),note:r.staff_note||''};
+      should_show_current:workflowOpen(st),note:cleanBookingNote(r.staff_note)};
   }).reverse();
 
   const current=bookings.filter(b=>b.should_show_current);

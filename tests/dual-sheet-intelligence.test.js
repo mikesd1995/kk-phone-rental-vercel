@@ -138,6 +138,38 @@ test('analytics revenue split counts completed as actual and active bookings as 
   assert.equal(out.metrics.amount_received,3270);
   assert.equal(out.metrics.completed_bookings,1);
   assert.equal(out.metrics.active_bookings,2);
+  assert.equal(out.metrics.reportable_bookings,3);
+  assert.equal(out.metrics.non_cancelled_bookings,3);
   assert.equal(out.top_events.find(x=>x.event_name==='Cancelled event'),undefined);
-  assert.equal(out.top_events.find(x=>x.event_name==='No show event').forecast_revenue,0);
+  assert.equal(out.top_events.find(x=>x.event_name==='No show event'),undefined);
+  assert.equal(out.package_mix.reduce((sum,x)=>sum+x.bookings,0),3);
+});
+
+
+test('analytics dedupes the same booking across current and archive source projections',()=>{
+  const base={booking_id:'BK-SAME',created_at:'2026-09-01T10:00:00Z',status:'completed',event_id:'E-SAME',event_name:'Same event',event_date:'2026-09-01',month:'2026-09',customer_key:'phone:111',package_type:'phone_only',payment_status:'paid',amount_received:590,affiliation:'GMMTV',affiliation_source:'explicit'};
+  const out=analytics._test.aggregate([
+    Object.assign({source:'MASTER'},base),
+    Object.assign({source:'ARCHIVE'},base)
+  ]);
+  assert.equal(out.metrics.reportable_bookings,1);
+  assert.equal(out.metrics.actual_revenue,590);
+});
+
+test('analytics keeps historical booking-id collisions when event/customer identity differs',()=>{
+  const out=analytics._test.aggregate([
+    {source:'ARCHIVE',booking_id:'BK-LEGACY-001',created_at:'2026-06-01',status:'completed',event_id:'E-A',event_name:'A',event_date:'2026-06-06',month:'2026-06',customer_key:'phone:111',package_type:'phone_only',payment_status:'paid',amount_received:590,affiliation:'Unknown',affiliation_source:'unknown'},
+    {source:'ARCHIVE',booking_id:'BK-LEGACY-001',created_at:'2026-06-02',status:'completed',event_id:'E-B',event_name:'B',event_date:'2026-06-06',month:'2026-06',customer_key:'phone:222',package_type:'phone_only',payment_status:'paid',amount_received:690,affiliation:'Unknown',affiliation_source:'unknown'}
+  ]);
+  assert.equal(out.metrics.reportable_bookings,2);
+  assert.equal(out.metrics.actual_revenue,1280);
+});
+
+test('live event metadata overrides stale archive metadata after a restored event',()=>{
+  const current='event_id,event_name,event_date,venue,event_note\nEVT-X,Live Name,2026-10-01,Live Venue,affiliation: LIVE';
+  const archive='archived_at,source_row,event_id,event_name,event_date,venue,poster,status,active,event_note\n2026-09-27,10,EVT-X,Old Name,2026-10-01,Old Venue,,open,TRUE,affiliation: OLD';
+  const meta=analytics._test.eventMetadata(current,archive,[]);
+  assert.equal(meta['EVT-X'].event_name,'Live Name');
+  assert.equal(meta['EVT-X'].affiliation,'LIVE');
+  assert.equal(meta['EVT-X'].affiliation_source,'explicit');
 });

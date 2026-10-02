@@ -27,14 +27,14 @@
   const signedSession = typeof window!=="undefined" && window.KK_ADMIN_SIGNED_SESSION===true;
   const state = {
     pin: safeSessionGet("kk_admin_pin") || (signedSession ? "__SESSION__" : ""),
-    data: null, loading: false, posterWarning: "", selectedCustomerKey: "",
+    data: null, loading: false, posterWarning: "", selectedCustomerKey: "", editBookingId: "",
     actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "",
     reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "",
     pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false,
     actionLimit:60, eventLimit:50, bookingLimit:50, pricingLimit:120,
     eventControlLimit:30, eventControlFilter:"needs_action", eventControlSearch:"",
     eventControlMonth:safeSessionGet("kk_admin_event_control_month") || "", eventControlSort:"date_asc",
-    eventControlSelectedOnly:false, eventControlSelected:new Set(), lastUndo:null
+    eventControlSelectedOnly:false, eventControlSelected:new Set(), lastUndo:null, mutationAction:""
   };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
@@ -308,7 +308,7 @@
     });
     ((state.data.bookings)||[]).forEach(b=>{
       const hay=[b.customer_name,b.customer_contact,b.customer_phone,b.event_name,b.event_id,b.row_number].join(" ").toLocaleLowerCase("th-TH");
-      if(hay.includes(q)) out.push({kind:"booking",title:`${b.customer_name||"Booking"} · ${b.event_name||b.event_id||""}`,sub:`Booking row ${b.row_number||"-"} · ${bookingLifecycleLabel(b.booking_status)}`,id:b.row_number});
+      if(hay.includes(q)) out.push({kind:"booking",title:`${b.customer_name||"Booking"} · ${b.event_name||b.event_id||""}`,sub:`Booking ${b.booking_id||b.row_number||"-"} · ${bookingLifecycleLabel(b.booking_status)}`,id:b.booking_id||b.row_number});
     });
     ((state.data.customer_history)||[]).forEach(c=>{
       const hay=[c.customer_name,c.customer_contact,c.customer_phone,c.last_event_name].join(" ").toLocaleLowerCase("th-TH");
@@ -729,6 +729,14 @@
     const row=String(rowNumber||'').trim();
     return ((state.data||{}).bookings||[]).find(b=>String(b.row_number||'')===row) || null;
   }
+  function findBookingById(bookingId){
+    const id=String(bookingId||'').trim();
+    return ((state.data||{}).bookings||[]).find(b=>String(b.booking_id||'').trim()===id) || null;
+  }
+  function findBookingByIdentity(identity){
+    const value=String(identity||'').trim();
+    return findBookingById(value) || findBookingByRow(value);
+  }
   function bookingMutationIdentity(b,rowNumber){
     const bookingId=String(b&&b.booking_id||"").trim();
     const row=String(rowNumber||b&&b.row_number||"").trim();
@@ -769,13 +777,15 @@
     const completed=rows.filter(b=>completedStatuses.includes(String(b.booking_status||'').toLowerCase()));
     const active=rows.filter(b=>activeStatuses.includes(String(b.booking_status||'').toLowerCase()));
     const cancelled=rows.filter(b=>String(b.booking_status||'').toLowerCase()==='cancelled');
-    const paid=rows.filter(b=>String(b.payment_status||'').toLowerCase()==='paid');
+    const reportableStatuses=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded','completed']);
+    const reportable=rows.filter(b=>reportableStatuses.has(String(b.booking_status||'').toLowerCase()));
+    const paid=reportable.filter(b=>String(b.payment_status||'').toLowerCase()==='paid');
     const unpaidActive=active.filter(b=>isUnpaidPayment(b.payment_status));
     const upcoming=rows.filter(b=>{ const d=daysFromToday(b.event_date); return d!==null && d>=0 && activeStatuses.includes(String(b.booking_status||'').toLowerCase()); });
     const missingContact=rows.filter(b=>!String(b.customer_phone||'').trim() && !String(b.customer_contact||'').trim());
     const missingPickup=upcoming.filter(b=>!String(b.pickup_time||'').trim());
     const missingAsset=upcoming.filter(b=>!String(b.phone_asset_id||'').trim() && /phone/i.test(String(b.package_type||'')));
-    const totalRevenue=rows.reduce((sum,b)=>sum+toNum(b.amount_received),0);
+    const totalRevenue=reportable.reduce((sum,b)=>sum+toNum(b.amount_received),0);
     const last=rows.slice().sort((a,b)=>dateValue(b.event_date)-dateValue(a.event_date))[0] || {};
     const first=rows.slice().sort((a,b)=>dateValue(a.event_date)-dateValue(b.event_date))[0] || {};
     return {
@@ -820,13 +830,15 @@
     if(type==='prep') return `สวัสดีค่ะ ${name} แอดมินขอยืนยัน booking งาน ${event} วันที่ ${date} เวลารับ ${pickup} นะคะ`;
     return `สวัสดีค่ะ ${name} ขอสรุป booking งาน ${event} วันที่ ${date} เวลารับ ${pickup} ค่ะ`;
   }
-  function openBookingEdit(rowNumber){
+  function openBookingEdit(identity){
+    const target=findBookingByIdentity(identity);
+    state.editBookingId=target ? String(target.booking_id||"").trim() : "";
     const nav=$('.nav[data-tab="edit-booking"]');
     if(nav) nav.click();
     setTimeout(()=>{
       const form=$('#bookingEditForm');
       if(!form || !form.elements.row_number) return;
-      form.elements.row_number.value=String(rowNumber||'');
+      form.elements.row_number.value=target ? String(target.row_number||"") : "";
       populateBookingEditForm();
       form.scrollIntoView({behavior:'smooth', block:'start'});
     },60);
@@ -922,7 +934,7 @@
       [analytics.booking_count,"Booking ทั้งหมด"],
       [analytics.active_count,"Active ตอนนี้"],
       [analytics.cancelled_count,"ยกเลิก"],
-      [money(analytics.total_revenue),"ยอดรับรวม"],
+      [money(analytics.total_revenue),"มูลค่าคิวที่นับในรายงาน"],
       [fmtDate(analytics.last_event_date)||"-","ล่าสุด"]
     ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
     if(riskPanel){
@@ -1140,7 +1152,7 @@
     if(kpis){
       kpis.innerHTML=[
         [m.unique_customers||0,"ลูกค้าไม่ซ้ำ"],
-        [m.non_cancelled_bookings||0,"คิวไม่ยกเลิก"],
+        [m.reportable_bookings??m.non_cancelled_bookings??0,"คิวที่นับในรายงาน"],
         [m.completed_bookings||0,"Completed"],
         [m.active_bookings||0,"Active"],
         [m.repeat_customers||0,"ลูกค้าเช่าซ้ำ"],
@@ -1996,11 +2008,17 @@
     // Edit Booking has its own deterministic operational order.
     // Do not reuse the report/table sorter: changing another Booking view must never reshuffle this selector.
     const rows=sortedEditableBookings((state.data.bookings||[]).filter(shouldShowInEditBooking));
-    const current=sel.value;
+    const currentRow=String(sel.value||"");
+    const currentId=String(state.editBookingId||"").trim();
     sel.innerHTML=renderEditBookingOptions(rows);
-    if(current && rows.some(b=>String(b.row_number)===String(current))) sel.value=current;
-    else sel.value="";
-    const b=rows.find(x=>String(x.row_number)===String(sel.value));
+    // Preserve the same booking across refreshes by stable booking_id. GViz row
+    // numbers can shift when physical blank rows are added/removed.
+    const preserved=currentId
+      ? rows.find(b=>String(b.booking_id||"").trim()===currentId)
+      : rows.find(b=>String(b.row_number||"")===currentRow);
+    sel.value=preserved ? String(preserved.row_number||"") : "";
+    const b=preserved || null;
+    state.editBookingId=b ? String(b.booking_id||"").trim() : "";
     const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
     if(!b){
       ["booking_status","customer_name","customer_contact","customer_phone","contact_channel","payment_status","amount_received","pickup_time","phone_asset_id","lens_asset_id","booking_note"].forEach(k=>set(k,""));
@@ -2043,6 +2061,7 @@
 
   function mutationOutcomeUncertain(err){
     const code=String(err&&err.code||"");
+    if(err && (err.mutationOutcomeUncertain===true || err.mutationMayHaveCommitted===true)) return true;
     if(code==="UPSTREAM_TIMEOUT" || code==="UPSTREAM_ERROR") return true;
     return !!(err && err.name==="TypeError" && /fetch|network|load/i.test(String(err.message||"")));
   }
@@ -2068,7 +2087,10 @@
     const afterSnapshot=snap&&snap.data;
     const check=globalThis.KKAdminWritePolicy.verifyBookingMutation(action,outbound,{},beforeSnapshot,afterSnapshot);
     if(check.status==="committed"){
-      const row=((afterSnapshot&&afterSnapshot.bookings)||[]).find(b=>String(b.row_number||"")===String(check.row_number||""))||{};
+      const rows=(afterSnapshot&&afterSnapshot.bookings)||[];
+      const row=(check.booking_id
+        ? rows.find(b=>String(b.booking_id||"").trim()===String(check.booking_id||"").trim())
+        : rows.find(b=>String(b.row_number||"")===String(check.row_number||"")))||{};
       return {
         ok:true,
         row_number:check.row_number||row.row_number||"",
@@ -2094,52 +2116,64 @@
   async function api(action, payload={}){
     const readOnlyActions=["snapshot","snapshotHealth","systemHealth","phase1Health"];
     const isMutation=!readOnlyActions.includes(action);
-    const admission=isMutation ? writeAdmission(action) : {allowed:true,mode:"read"};
-    if(isMutation && !admission.allowed) throw new Error("ระบบเขียนถูกปิดเพราะพบปัญหา write transport แบบ deterministic/ยังไม่ผ่านการยืนยัน กรุณาแก้ System Guard ก่อนบันทึก");
-    if(snapshotState.stale && isMutation) throw new Error("ข้อมูลเก่า: กรุณา Refresh ให้สำเร็จก่อนบันทึก");
-    const beforeSnapshot=isMutation ? state.data : null;
-    const outbound=Object.assign({action},payload);
-    if(!readOnlyActions.includes(action) && !outbound.request_id) outbound.request_id=adminRequestId();
-    const maxAttempts=action==="snapshot" ? 2 : 1;
-    let lastError=null;
-    for(let attempt=1; attempt<=maxAttempts; attempt++){
-      try{
-        const res=await fetch("/api/kk-admin",{
-          method:"POST",
-          headers:{"Content-Type":"application/json","X-Admin-Pin":state.pin},
-          body:JSON.stringify(outbound)
-        });
-        const data=await res.json().catch(()=>({ok:false,error:"Invalid server response"}));
-        if(!res.ok || (!data.ok && !(action==="systemHealth" && data.data && data.data.rows))){
-          const err=new Error(data.error||"Request failed");
-          err.code=data.error_code||"";
-          err.httpStatus=res.status;
-          err.upstreamStatus=Number(data.upstream_status||0);
-          err.upstreamFailureClass=String(data.upstream_failure_class||"");
-          err.retryable=data.retryable===true;
-          err.action=data.action||action;
-          throw err;
-        }
-        return data;
-      }catch(err){
-        lastError=err;
-        if(isMutation && mutationOutcomeUncertain(err)){
-          // Never retry a mutation automatically. The request may already have committed.
-          // Booking writes get one direct-Sheet readback reconciliation instead.
-          return reconcileUncertainBookingMutation(action,outbound,beforeSnapshot,err);
-        }
-        const transientStatus=Number(err.upstreamStatus||err.httpStatus||0);
-        const retryable=action==="snapshot" && attempt<maxAttempts &&
-          (err.code==="UPSTREAM_TIMEOUT" ||
-           err.code==="UPSTREAM_ERROR" ||
-           err.retryable===true ||
-           transientStatus===408 || transientStatus===429 || transientStatus>=500 ||
-           /timed out/i.test(String(err.message||"")));
-        if(!retryable) throw err;
-        await new Promise(resolve=>setTimeout(resolve,1200));
-      }
+    if(isMutation && state.mutationAction){
+      const err=new Error("มีคำสั่งกำลังบันทึกอยู่ ("+state.mutationAction+") กรุณารอให้เสร็จก่อนกดคำสั่งถัดไป");
+      err.code="ADMIN_MUTATION_IN_FLIGHT";
+      throw err;
     }
-    throw lastError||new Error("Request failed");
+    if(isMutation) state.mutationAction=action;
+    try{
+      const admission=isMutation ? writeAdmission(action) : {allowed:true,mode:"read"};
+      if(isMutation && !admission.allowed) throw new Error("ระบบเขียนถูกปิดเพราะพบปัญหา write transport แบบ deterministic/ยังไม่ผ่านการยืนยัน กรุณาแก้ System Guard ก่อนบันทึก");
+      if(snapshotState.stale && isMutation) throw new Error("ข้อมูลเก่า: กรุณา Refresh ให้สำเร็จก่อนบันทึก");
+      const beforeSnapshot=isMutation ? state.data : null;
+      const outbound=Object.assign({action},payload);
+      if(!readOnlyActions.includes(action) && !outbound.request_id) outbound.request_id=adminRequestId();
+      const maxAttempts=action==="snapshot" ? 2 : 1;
+      let lastError=null;
+      for(let attempt=1; attempt<=maxAttempts; attempt++){
+        try{
+          const res=await fetch("/api/kk-admin",{
+            method:"POST",
+            headers:{"Content-Type":"application/json","X-Admin-Pin":state.pin},
+            body:JSON.stringify(outbound)
+          });
+          const data=await res.json().catch(()=>({ok:false,error:"Invalid server response"}));
+          if(!res.ok || (!data.ok && !(action==="systemHealth" && data.data && data.data.rows))){
+            const err=new Error(data.error||"Request failed");
+            err.code=data.error_code||"";
+            err.httpStatus=res.status;
+            err.upstreamStatus=Number(data.upstream_status||0);
+            err.upstreamFailureClass=String(data.upstream_failure_class||"");
+            err.retryable=data.retryable===true;
+            err.mutationOutcomeUncertain=data.mutation_outcome_uncertain===true;
+            err.mutationMayHaveCommitted=data.mutation_may_have_committed===true;
+            err.action=data.action||action;
+            throw err;
+          }
+          return data;
+        }catch(err){
+          lastError=err;
+          if(isMutation && mutationOutcomeUncertain(err)){
+            // Never retry a mutation automatically. The request may already have committed.
+            // Booking writes get one direct-Sheet readback reconciliation instead.
+            return reconcileUncertainBookingMutation(action,outbound,beforeSnapshot,err);
+          }
+          const transientStatus=Number(err.upstreamStatus||err.httpStatus||0);
+          const retryable=action==="snapshot" && attempt<maxAttempts &&
+            (err.code==="UPSTREAM_TIMEOUT" ||
+             err.code==="UPSTREAM_ERROR" ||
+             err.retryable===true ||
+             transientStatus===408 || transientStatus===429 || transientStatus>=500 ||
+             /timed out/i.test(String(err.message||"")));
+          if(!retryable) throw err;
+          await new Promise(resolve=>setTimeout(resolve,1200));
+        }
+      }
+      throw lastError||new Error("Request failed");
+    }finally{
+      if(isMutation && state.mutationAction===action) state.mutationAction="";
+    }
   }
 
   function esc(v){
@@ -3343,7 +3377,11 @@
     const packageUpdateSelect=$("#packageUpdateForm select[name='template_id']");
     if(packageUpdateSelect) packageUpdateSelect.addEventListener("change", populatePackageUpdateForm);
     const bookingEditSelect=$("#bookingEditForm select[name='row_number']");
-    if(bookingEditSelect) bookingEditSelect.addEventListener("change", populateBookingEditForm);
+    if(bookingEditSelect) bookingEditSelect.addEventListener("change", ()=>{
+      const selected=findBookingByRow(bookingEditSelect.value);
+      state.editBookingId=selected ? String(selected.booking_id||"").trim() : "";
+      populateBookingEditForm();
+    });
     const cleanupBtn=$("#cleanupBtn");
     if(cleanupBtn){
       cleanupBtn.addEventListener("click", async()=>{

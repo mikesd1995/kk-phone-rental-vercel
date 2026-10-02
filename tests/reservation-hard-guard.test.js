@@ -4,6 +4,7 @@ const {Readable}=require('stream');
 const R=require('../admin/reservation-guard.js');
 const Guard=require('../api/kk-admin-guard.js');
 const AdminSheetFallback=require('../server/admin-sheet-fallback.js');
+const AdminSecurity=require('../server/admin-session.js');
 
 const assets=[
   {asset_id:'PHONE-001',asset_type:'phone',status:'available',rentable_setting:true},
@@ -110,6 +111,52 @@ test('timing validator treats blank pickup as optional TBD state',()=>{
   );
 });
 
+test('update preflight resolves booking_id before a conflicting row hint',()=>{
+  const snap=snapshot();
+  snap.bookings=[
+    Object.assign({},snap.bookings[0],{row_number:40,booking_id:'BK-WRONG',booking_status:'confirmed'}),
+    Object.assign({},snap.bookings[0],{row_number:42,booking_id:'BK-TARGET',booking_status:'confirmed'})
+  ];
+  const proposal=Guard._test.updateProposal(snap,{booking_id:'BK-TARGET',row_number:40,booking_status:'completed'});
+  assert.equal(proposal.booking_id,'BK-TARGET');
+  assert.equal(proposal.row_number,42);
+  assert.equal(proposal.booking_status,'completed');
+});
+
+test('guard accepts a valid signed Admin session without relying on PIN header injection',async t=>{
+  withEnv(t); withDirectSnapshot(t);
+  process.env.KK_ADMIN_SESSION_SECRET='guard-session-secret';
+  const token=AdminSecurity._test.issueToken();
+  const r=Readable.from([JSON.stringify({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',pickup_time:'02:00',phone_asset_id:'PHONE-001'})]);
+  r.method='POST'; r.url='/api/kk-admin'; r.headers={cookie:AdminSecurity.COOKIE_NAME+'='+token,'x-admin-pin':'__SESSION__'};
+  const out=res();
+  await Guard(r,out);
+  assert.equal(out.statusCode,409);
+  assert.equal(JSON.parse(out.body).error_code,'BOOKING_COLLISION');
+});
+
+test('signed Admin session is forwarded to the legacy writer with server-only credentials',async t=>{
+  withEnv(t); withDirectSnapshot(t);
+  process.env.KK_ADMIN_SESSION_SECRET='guard-forward-secret';
+  const token=AdminSecurity._test.issueToken();
+  const oldFetch=global.fetch; let calls=0;
+  global.fetch=async(_url,options)=>{
+    calls++;
+    const body=JSON.parse(options.body);
+    assert.equal(body.action,'createBooking');
+    assert.equal(body.apiKey,'key');
+    return response({ok:true,row_number:99,booking_id:'BK-NEW',phone_asset_id:'PHONE-001',admin_api_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX'});
+  };
+  t.after(()=>{global.fetch=oldFetch;});
+  const r=Readable.from([JSON.stringify({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',pickup_time:'08:00',phone_asset_id:'PHONE-001'})]);
+  r.method='POST'; r.url='/api/kk-admin'; r.headers={cookie:AdminSecurity.COOKIE_NAME+'='+token,'x-admin-pin':'__SESSION__'};
+  const out=res();
+  await Guard(r,out);
+  assert.equal(out.statusCode,200);
+  assert.equal(JSON.parse(out.body).ok,true);
+  assert.equal(calls,1);
+});
+
 test('server wrapper rejects invalid createBooking pickup_time before any upstream call',async t=>{
   withEnv(t); withDirectSnapshot(t); const oldFetch=global.fetch; let calls=0;
   global.fetch=async()=>{calls++; throw new Error('should not fetch');};
@@ -171,4 +218,30 @@ test('Admin write guard uses fixed-length timing-safe secret comparison',()=>{
   assert.match(source,/crypto\.timingSafeEqual\(left,right\)/);
   assert.match(source,/createHash\('sha256'\).*String\(a\|\|''\)/s);
   assert.doesNotMatch(source,/providedPin\s*!==\s*adminPin/);
+});
+
+
+test('stable booking ids prevent false self-match when unreliable row hints collide',()=>{
+  const existing=booking('BK-A','2026-09-19','20:00','confirmed',{row_number:40});
+  const proposed=booking('BK-B','2026-09-19','20:30','confirmed',{row_number:40});
+  const out=R.preflight({assets,bookings:[existing]},proposed);
+  assert.equal(out.ok,false);
+  assert.ok(out.errors.some(x=>x.code==='ASSET_WINDOW_COLLISION'));
+});
+
+test('update preflight rejects row-only identity when snapshot rows are non-authoritative',()=>{
+  const snap=snapshot();
+  snap.booking_row_number_reliable=false;
+  assert.throws(
+    ()=>Guard._test.updateProposal(snap,{row_number:10,booking_status:'completed'}),
+    err=>err&&err.code==='BOOKING_ID_REQUIRED'
+  );
+});
+
+test('update preflight permits row-only legacy identity only when source guarantees row reliability',()=>{
+  const snap=snapshot();
+  snap.booking_row_number_reliable=true;
+  const proposal=Guard._test.updateProposal(snap,{row_number:10,booking_status:'completed'});
+  assert.equal(proposal.booking_id,'B1');
+  assert.equal(proposal.booking_status,'completed');
 });

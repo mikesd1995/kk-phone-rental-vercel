@@ -1215,13 +1215,14 @@ function kkAddQuickBookingFromDashboard() {
     }
 
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
-    kkSheet_(KK.bookings).getRange(row, 2, 1, 19).setValues([[
-        new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
+    const bookingId = kkGenerateUniqueBookingId_(event.event_date);
+    kkSheet_(KK.bookings).getRange(row, 1, 1, 20).setValues([[
+        bookingId, new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
         pkgType, phoneAssetId, lensAssetId, '', '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ]]);
     kkRange_('KK_QUICK_BOOKING_ASSIGNED_ASSETS', KK.dashboard, 'K38:K39').setValues([[phoneAssetId], [lensAssetId]]);
     ui.alert(
-      `✅ Added booking row ${row}\n` +
+      `✅ Added booking ${bookingId} (row ${row})\n` +
       `Event: ${eventId}\nTemplate: ${templateId}\nPhone: ${phoneAssetId || '-'}\nLens: ${lensAssetId || '-'}`
     );
   } catch (error) {
@@ -1618,7 +1619,7 @@ function kkApiSnapshot_(payload) {
         is_past_event: isPastEvent,
         is_active_hold: isActiveHold,
         should_show_current: shouldShowCurrent,
-        note: r[19] || ''
+        note: kkBookingNoteForDisplay_(r[19])
       };
     }).reverse();
 
@@ -1876,53 +1877,62 @@ function kkRestoreWebPackagePricesForEvent_(snapshot) {
 }
 
 function kkApiUpdateEvent_(payload) {
-  const eventId = String(payload.event_id || '').trim();
-  if (!eventId) throw new Error('event_id is required');
-  const priceSnapshot = kkSnapshotWebPackagePricesForEvent_(eventId);
-  const sh = kkSheet_(KK.events);
-  const rows = kkGetValues_(KK.events, 5, 1, 8);
-  for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][0] || '').trim() !== eventId) continue;
-    const rowNumber = i + 5;
-    const current = rows[i].slice();
-    if (payload.event_name) current[1] = String(payload.event_name).trim();
-    if (payload.event_date) current[2] = kkDateObj_(payload.event_date);
-    if (payload.venue) current[3] = String(payload.venue).trim();
-    const posterInfo = payload.poster_url ? kkPosterForWrite_(payload.poster_url) : { url: '', drive_file_id: '', public_checked: false };
-    if (payload.poster_url) current[4] = posterInfo.url;
-    if (payload.status) current[5] = String(payload.status).toLowerCase().trim();
-    const active = kkApiBoolOrBlank_(payload.active_on_web);
-    const currentActive = kkIsTrue_(current[6]);
-    const ownerReopenIntent = String(payload.visibility_owner_intent || '').trim() === 'explicit_owner_reopen';
-    const visibilityHistory = kkFindVisibilityHistory_(eventId, current[1], current[2], current[3]);
-    if (active === true && visibilityHistory && visibilityHistory.lock_state === 'LOCKED' && !ownerReopenIntent) {
-      throw new Error('EVENT_VISIBILITY_TOMBSTONE_LOCKED: owner-hidden event requires explicit owner reopen intent');
+  const lock = kkAcquireDocumentLock_('update event', 12000);
+  try {
+    const eventId = String(payload.event_id || '').trim();
+    if (!eventId) throw new Error('event_id is required');
+    const priceSnapshot = kkSnapshotWebPackagePricesForEvent_(eventId);
+    const sh = kkSheet_(KK.events);
+    const rows = kkGetValues_(KK.events, 5, 1, 8);
+    for (let i = 0; i < rows.length; i++) {
+      if (String(rows[i][0] || '').trim() !== eventId) continue;
+      const rowNumber = i + 5;
+      const current = rows[i].slice();
+      if (payload.event_name) current[1] = String(payload.event_name).trim();
+      if (payload.event_date) current[2] = kkDateObj_(payload.event_date);
+      if (payload.venue) current[3] = String(payload.venue).trim();
+      const posterInfo = payload.poster_url ? kkPosterForWrite_(payload.poster_url) : { url: '', drive_file_id: '', public_checked: false };
+      if (payload.poster_url) current[4] = posterInfo.url;
+      if (payload.status) {
+        const nextEventStatus = String(payload.status).toLowerCase().trim();
+        if (!['open', 'closed'].includes(nextEventStatus)) throw new Error('status must be open or closed');
+        current[5] = nextEventStatus;
+      }
+      const active = kkApiBoolOrBlank_(payload.active_on_web);
+      const currentActive = kkIsTrue_(current[6]);
+      const ownerReopenIntent = String(payload.visibility_owner_intent || '').trim() === 'explicit_owner_reopen';
+      const visibilityHistory = kkFindVisibilityHistory_(eventId, current[1], current[2], current[3]);
+      if (active === true && visibilityHistory && visibilityHistory.lock_state === 'LOCKED' && !ownerReopenIntent) {
+        throw new Error('EVENT_VISIBILITY_TOMBSTONE_LOCKED: owner-hidden event requires explicit owner reopen intent');
+      }
+      if (currentActive === false && active === true && !ownerReopenIntent) {
+        throw new Error('EVENT_VISIBILITY_OWNER_LOCKED: owner-hidden event requires explicit owner reopen intent');
+      }
+      if (active !== '') current[6] = active;
+      if (payload.note !== undefined && payload.note !== '') current[7] = payload.note;
+      sh.getRange(rowNumber, 1, 1, 8).setValues([current]);
+      let visibilityLockState = '';
+      if (active === false) {
+        visibilityLockState = kkUpsertVisibilityLock_(eventId, current[1], current[2], current[3], 'LOCKED', payload).lock_state;
+      } else if (active === true && ownerReopenIntent) {
+        visibilityLockState = kkUpsertVisibilityLock_(eventId, current[1], current[2], current[3], 'REOPENED', payload).lock_state;
+      }
+      SpreadsheetApp.flush();
+      const savedPoster = String(sh.getRange(rowNumber, 5).getValue() || '').trim();
+      if (payload.poster_url && !savedPoster) throw new Error('Poster uploaded, but poster_url was not written to 01_Events. Please try saving again.');
+      const restoredWebPrices = kkRestoreWebPackagePricesForEvent_(priceSnapshot);
+      const webReady = kkApiVerifyEventWebReady_(eventId, savedPoster);
+      return Object.assign({
+        event_id: eventId, row_number: rowNumber, poster_url: savedPoster,
+        poster_drive_file_id: posterInfo.drive_file_id || '', poster_public_checked: !!posterInfo.public_checked, poster_public_warning: posterInfo.sharing_warning || '',
+        web_package_prices_preserved: restoredWebPrices,
+        visibility_lock_state: visibilityLockState
+      }, webReady);
     }
-    if (currentActive === false && active === true && !ownerReopenIntent) {
-      throw new Error('EVENT_VISIBILITY_OWNER_LOCKED: owner-hidden event requires explicit owner reopen intent');
-    }
-    if (active !== '') current[6] = active;
-    if (payload.note !== undefined && payload.note !== '') current[7] = payload.note;
-    sh.getRange(rowNumber, 1, 1, 8).setValues([current]);
-    let visibilityLockState = '';
-    if (active === false) {
-      visibilityLockState = kkUpsertVisibilityLock_(eventId, current[1], current[2], current[3], 'LOCKED', payload).lock_state;
-    } else if (active === true && ownerReopenIntent) {
-      visibilityLockState = kkUpsertVisibilityLock_(eventId, current[1], current[2], current[3], 'REOPENED', payload).lock_state;
-    }
-    SpreadsheetApp.flush();
-    const savedPoster = String(sh.getRange(rowNumber, 5).getValue() || '').trim();
-    if (payload.poster_url && !savedPoster) throw new Error('Poster uploaded, but poster_url was not written to 01_Events. Please try saving again.');
-    const restoredWebPrices = kkRestoreWebPackagePricesForEvent_(priceSnapshot);
-    const webReady = kkApiVerifyEventWebReady_(eventId, savedPoster);
-    return Object.assign({
-      event_id: eventId, row_number: rowNumber, poster_url: savedPoster,
-      poster_drive_file_id: posterInfo.drive_file_id || '', poster_public_checked: !!posterInfo.public_checked, poster_public_warning: posterInfo.sharing_warning || '',
-      web_package_prices_preserved: restoredWebPrices,
-      visibility_lock_state: visibilityLockState
-    }, webReady);
+    throw new Error('Event not found: ' + eventId);
+  } finally {
+    lock.releaseLock();
   }
-  throw new Error('Event not found: ' + eventId);
 }
 
 function kkGenerateUniqueTemplateId_(displayName) {
@@ -1937,44 +1947,56 @@ function kkGenerateUniqueTemplateId_(displayName) {
 }
 
 function kkApiCreatePackage_(payload) {
-  const displayName = String(payload.display_name || '').trim();
-  if (!displayName) throw new Error('display_name is required');
-  const templateId = String(payload.template_id || '').trim() || kkGenerateUniqueTemplateId_(displayName);
-  const modelGroup = String(payload.model_group || 'NONE').trim() || 'NONE';
-  const packageType = String(payload.package_type || '').toLowerCase().trim();
-  const lensGroup = String(payload.lens_group || 'NONE').trim() || 'NONE';
-  const standardPrice = kkApiNumber_(payload.standard_price, 'standard_price', false);
-  const active = payload.active === undefined ? true : kkIsTrue_(payload.active);
-  const useCase = payload.use_case || '';
-  if (!['phone_only', 'lens_only', 'phone_lens_bundle'].includes(packageType)) throw new Error('package_type must be phone_only, lens_only or phone_lens_bundle');
-  if ((packageType === 'phone_only' || packageType === 'phone_lens_bundle') && (!modelGroup || modelGroup === 'NONE')) throw new Error('model_group is required for phone packages');
-  if ((packageType === 'lens_only' || packageType === 'phone_lens_bundle') && (!lensGroup || lensGroup === 'NONE')) throw new Error('lens_group is required for lens packages');
-  
-  const existing = kkGetValues_(KK.packages, 5, 1, 1).flat().map(v => String(v || '').trim());
-  if (existing.includes(templateId)) throw new Error('template_id already exists: ' + templateId);
-  const row = kkFirstEmptyRow_(KK.packages, 1, 5, 1, 10);
-  kkSheet_(KK.packages).getRange(row, 1, 1, 10).setValues([[templateId, modelGroup, packageType, lensGroup, standardPrice, displayName, '', active, '', useCase]]);
-  return { template_id: templateId, row_number: row };
+  const lock = kkAcquireDocumentLock_('create package', 12000);
+  try {
+    const displayName = String(payload.display_name || '').trim();
+    if (!displayName) throw new Error('display_name is required');
+    const templateId = String(payload.template_id || '').trim() || kkGenerateUniqueTemplateId_(displayName);
+    const modelGroup = String(payload.model_group || 'NONE').trim() || 'NONE';
+    const packageType = String(payload.package_type || '').toLowerCase().trim();
+    const lensGroup = String(payload.lens_group || 'NONE').trim() || 'NONE';
+    const standardPrice = kkApiNumber_(payload.standard_price, 'standard_price', false);
+    const active = payload.active === undefined ? true : kkIsTrue_(payload.active);
+    const useCase = payload.use_case || '';
+    if (!['phone_only', 'lens_only', 'phone_lens_bundle'].includes(packageType)) throw new Error('package_type must be phone_only, lens_only or phone_lens_bundle');
+    if ((packageType === 'phone_only' || packageType === 'phone_lens_bundle') && (!modelGroup || modelGroup === 'NONE')) throw new Error('model_group is required for phone packages');
+    if ((packageType === 'lens_only' || packageType === 'phone_lens_bundle') && (!lensGroup || lensGroup === 'NONE')) throw new Error('lens_group is required for lens packages');
+
+    const existing = kkGetValues_(KK.packages, 5, 1, 1).flat().map(v => String(v || '').trim());
+    if (existing.includes(templateId)) throw new Error('template_id already exists: ' + templateId);
+    const row = kkFirstEmptyRow_(KK.packages, 1, 5, 1, 10);
+    kkSheet_(KK.packages).getRange(row, 1, 1, 10).setValues([[templateId, modelGroup, packageType, lensGroup, standardPrice, displayName, '', active, '', useCase]]);
+    SpreadsheetApp.flush();
+    return { template_id: templateId, row_number: row };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function kkApiUpdatePackage_(payload) {
-  const templateId = String(payload.template_id || '').trim();
-  if (!templateId) throw new Error('template_id is required');
-  const sh = kkSheet_(KK.packages);
-  const rows = kkGetValues_(KK.packages, 5, 1, 10);
-  for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][0] || '').trim() !== templateId) continue;
-    const rowNumber = i + 5;
-    const current = rows[i].slice();
-    if (payload.standard_price !== '' && payload.standard_price !== undefined) current[4] = kkApiNumber_(payload.standard_price, 'standard_price', false);
-    if (payload.display_name) current[5] = String(payload.display_name).trim();
-    const active = kkApiBoolOrBlank_(payload.active);
-    if (active !== '') current[7] = active;
-    if (payload.use_case !== undefined && payload.use_case !== '') current[9] = payload.use_case;
-    sh.getRange(rowNumber, 1, 1, 10).setValues([current]);
-    return { template_id: templateId, row_number: rowNumber };
+  const lock = kkAcquireDocumentLock_('update package', 12000);
+  try {
+    const templateId = String(payload.template_id || '').trim();
+    if (!templateId) throw new Error('template_id is required');
+    const sh = kkSheet_(KK.packages);
+    const rows = kkGetValues_(KK.packages, 5, 1, 10);
+    for (let i = 0; i < rows.length; i++) {
+      if (String(rows[i][0] || '').trim() !== templateId) continue;
+      const rowNumber = i + 5;
+      const current = rows[i].slice();
+      if (payload.standard_price !== '' && payload.standard_price !== undefined) current[4] = kkApiNumber_(payload.standard_price, 'standard_price', false);
+      if (payload.display_name) current[5] = String(payload.display_name).trim();
+      const active = kkApiBoolOrBlank_(payload.active);
+      if (active !== '') current[7] = active;
+      if (payload.use_case !== undefined && payload.use_case !== '') current[9] = payload.use_case;
+      sh.getRange(rowNumber, 1, 1, 10).setValues([current]);
+      SpreadsheetApp.flush();
+      return { template_id: templateId, row_number: rowNumber };
+    }
+    throw new Error('Package not found: ' + templateId);
+  } finally {
+    lock.releaseLock();
   }
-  throw new Error('Package not found: ' + templateId);
 }
 
 function kkFindOverrideRows_(eventId, templateId) {
@@ -2102,8 +2124,10 @@ function kkApiAddAssets_(payload) {
     const serialPrefix = String(payload.serial_prefix || '').trim();
     const status = String(payload.status || 'available').toLowerCase().trim();
     const notes = payload.notes || '';
-    const rentable = payload.rentable === false ? false : true;
+    let rentable = payload.rentable === false ? false : true;
     if (!['phone', 'lens'].includes(assetType)) throw new Error('asset_type must be phone or lens');
+    if (!['available', 'repair', 'inactive'].includes(status)) throw new Error('status must be available, repair, or inactive');
+    if (status !== 'available') rentable = false;
     if (!modelGroup || qty < 1 || qty > 50) throw new Error('Please fill model_group and quantity 1-50');
     
     const sh = kkSheet_(KK.assets);
@@ -2150,11 +2174,13 @@ function kkApiUpdateAsset_(payload) {
     if (!assetId) throw new Error('asset_id is required');
     if (!['available', 'repair', 'inactive'].includes(status)) throw new Error('status must be available, repair, or inactive');
     const hasRentable = payload.rentable !== undefined;
-    const rentable = hasRentable ? kkIsTrue_(payload.rentable) : true;
     const row = kkFindAssetRow_(assetId);
     const sh = kkSheet_(KK.assets);
+    const current = sh.getRange(row, 1, 1, 7).getValues()[0];
+    let rentable = hasRentable ? kkIsTrue_(payload.rentable) : kkIsTrue_(current[6]);
+    if (status !== 'available') rentable = false;
     sh.getRange(row, 5).setValue(status);
-    if (hasRentable) sh.getRange(row, 7).setValue(rentable);
+    sh.getRange(row, 7).setValue(rentable);
     SpreadsheetApp.flush();
     const warning = status !== 'available' ? kkActiveBookingWarningForAsset_(assetId) : '';
     return { asset_id: assetId, row_number: row, status: status, rentable: rentable, active_booking_warning: warning };
@@ -2268,9 +2294,100 @@ function kkAssertBookingAssetsNotDoubleBooked_(rowNumber, bookingRow, nextStatus
   if (lensId && booked.lens[lensId]) throw new Error('Cannot reactivate booking: lens is already booked on this event date: ' + lensId);
 }
 
+
+function kkBookingRequestId_(payload) {
+  const requestId = String(payload && payload.request_id || '').trim();
+  if (!requestId) return '';
+  if (!/^[A-Za-z0-9._:-]{8,128}$/.test(requestId)) throw new Error('Invalid booking request_id');
+  return requestId;
+}
+
+function kkBookingRequestMarker_(requestId) {
+  return requestId ? '[KK_REQ:' + requestId + ']' : '';
+}
+
+function kkBookingNoteWithRequest_(note, requestId) {
+  const base = String(note || '').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g, ' ').trim();
+  const marker = kkBookingRequestMarker_(requestId);
+  return marker ? (base ? base + ' ' + marker : marker) : base;
+}
+
+function kkBookingNoteForDisplay_(note) {
+  return String(note || '').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+}
+
+function kkBookingRequestIdFromNote_(note) {
+  const m = String(note || '').match(/\[KK_REQ:([A-Za-z0-9._:-]{8,128})\]/);
+  return m ? m[1] : '';
+}
+
+function kkFindBookingByRequestId_(requestId) {
+  const marker = kkBookingRequestMarker_(requestId);
+  if (!marker) return null;
+  const rows = kkGetValues_(KK.bookings, 5, 1, 20);
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || [];
+    if (String(row[19] || '').indexOf(marker) < 0) continue;
+    return { row_number: i + 5, row: row };
+  }
+  return null;
+}
+
+function kkBookingIdValues_() {
+  const ids = [];
+  kkGetValues_(KK.bookings, 5, 1, 1).forEach(r => {
+    const id = String(r[0] || '').trim();
+    if (id) ids.push(id);
+  });
+  const archive = SpreadsheetApp.getActive().getSheetByName(KK.bookingArchive);
+  if (archive && archive.getLastRow() >= 2) {
+    archive.getRange(2, 7, archive.getLastRow() - 1, 1).getValues().forEach(r => {
+      const id = String(r[0] || '').trim();
+      if (id) ids.push(id);
+    });
+  }
+  return ids;
+}
+
+function kkGenerateUniqueBookingId_(eventDate) {
+  const day = kkDateKey_(eventDate);
+  const prefix = 'BK-' + day + '-';
+  let maxSeq = 0;
+  const used = {};
+  kkBookingIdValues_().forEach(id => {
+    used[id] = true;
+    if (id.indexOf(prefix) !== 0) return;
+    const suffix = id.slice(prefix.length);
+    if (/^\d+$/.test(suffix)) maxSeq = Math.max(maxSeq, Number(suffix));
+  });
+  for (let seq = maxSeq + 1; seq < maxSeq + 10000; seq++) {
+    const candidate = prefix + String(seq).padStart(3, '0');
+    if (!used[candidate]) return candidate;
+  }
+  throw new Error('Unable to allocate unique booking_id for ' + day);
+}
+
+function kkBookingCreateResult_(rowNumber, row, replay) {
+  const current = row || [];
+  const bookingId = String(current[0] || '').trim();
+  if (!bookingId) throw new Error('Booking canonical booking_id readback failed');
+  return {
+    row_number: rowNumber,
+    booking_id: bookingId,
+    booking_status: current[2] || '',
+    phone_asset_id: current[9] || '',
+    lens_asset_id: current[10] || '',
+    idempotent_replay: replay === true
+  };
+}
+
 function kkApiCreateBooking_(payload) {
   const lock = kkAcquireDocumentLock_('write operation', 12000);
   try {
+    const requestId = kkBookingRequestId_(payload);
+    const prior = requestId ? kkFindBookingByRequestId_(requestId) : null;
+    if (prior) return kkBookingCreateResult_(prior.row_number, prior.row, true);
+
     const eventId = String(payload.event_id || '').trim();
     let templateId = String(payload.template_id || '').trim();
     const customerName = String(payload.customer_name || '').trim();
@@ -2283,13 +2400,13 @@ function kkApiCreateBooking_(payload) {
     const pickupTime = String(payload.pickup_time || '').trim();
     const paymentStatus = String(payload.payment_status || 'unpaid').toLowerCase().trim();
     const amountReceived = kkApiNumber_(payload.amount_received, 'amount_received', true) || 0;
-    const bookingNote = payload.booking_note || '';
-    
+    const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || '', requestId);
+
     kkEnsureLensCompatibilityPatchInstalled_();
     if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id and customer_name');
     if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) throw new Error('Invalid booking_status');
     if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) throw new Error('Invalid payment_status');
-    
+
     templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
     const event = kkGetEventById_(eventId);
     if (kkIsPastEventDate_(event.event_date)) throw new Error('Cannot create booking for a past event date: ' + kkApiDate_(event.event_date));
@@ -2304,13 +2421,18 @@ function kkApiCreateBooking_(payload) {
     if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date);
     if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
     if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
-    
+
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
-    kkSheet_(KK.bookings).getRange(row, 2, 1, 19).setValues([[
-      new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
+    const bookingId = kkGenerateUniqueBookingId_(event.event_date);
+    const bookingSheet = kkSheet_(KK.bookings);
+    bookingSheet.getRange(row, 1, 1, 20).setValues([[
+      bookingId, new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
       pkgType, phoneAssetId, lensAssetId, pickupTime, '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ]]);
-    return { row_number: row, phone_asset_id: phoneAssetId, lens_asset_id: lensAssetId };
+    SpreadsheetApp.flush();
+    const persisted = bookingSheet.getRange(row, 1, 1, 20).getValues()[0];
+    if (String(persisted[0] || '').trim() !== bookingId) throw new Error('Booking canonical booking_id readback failed');
+    return kkBookingCreateResult_(row, persisted, false);
   } finally {
     lock.releaseLock();
   }
@@ -2342,7 +2464,10 @@ function kkApiUpdateBooking_(payload) {
     if (payload.pickup_time !== undefined) next[11] = payload.pickup_time || '';
     if (payload.payment_status !== undefined && payload.payment_status !== '') next[13] = paymentStatus;
     if (payload.amount_received !== undefined && payload.amount_received !== '') next[14] = amountReceived;
-    if (payload.booking_note !== undefined) next[19] = payload.booking_note || '';
+    if (payload.booking_note !== undefined) {
+      const existingRequestId = kkBookingRequestIdFromNote_(current[19]);
+      next[19] = kkBookingNoteWithRequest_(payload.booking_note || '', existingRequestId);
+    }
     if (!String(next[4] || '').trim()) throw new Error('customer_name is required');
 
     const eventId = String(next[3] || '').trim();
