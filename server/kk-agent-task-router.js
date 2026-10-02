@@ -26,8 +26,9 @@ const UltraDeepLearning = require('./kk-ultra-deep-learning-loop.js');
 const UltraDeepOwnerPolicy = require('./kk-ultra-deep-owner-policy.js');
 const UltraDeepFullLoop = require('./kk-ultra-deep-full-loop-orchestrator.js');
 const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
+const OpenAiAgents = require('./kk-openai-agent-adapters.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V18';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V19';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -48,6 +49,24 @@ async function resolveDecisionHistory(input, options){
 
 async function executeTask(taskType, input = {}, options = {}) {
   switch (String(taskType || '').trim().toLowerCase()) {
+    case 'storefront_ai_review':
+      return {
+        invoked_agents:['kk-openai-storefront-reviewer'],
+        result:await OpenAiAgents.reviewStorefront(input,{env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch})
+      };
+
+    case 'ultra_deep_ai_reasoning':
+      return {
+        invoked_agents:['kk-openai-discovery-reasoner'],
+        result:await OpenAiAgents.reasonDiscovery(input,{env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch})
+      };
+
+    case 'unified_inbox_ai_draft':
+      return {
+        invoked_agents:['kk-openai-inbox-drafter'],
+        result:await OpenAiAgents.draftInboxReply(input,{env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch})
+      };
+
     case 'storefront_design_council':
       const council=StorefrontDesignCouncil.runCouncil(input); return { invoked_agents:council.invoked_agents, result:council };
 
