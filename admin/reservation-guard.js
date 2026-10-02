@@ -52,7 +52,8 @@
 
   function overlaps(a,b){ return !!(a&&b&&a.start_ms<b.end_ms&&b.start_ms<a.end_ms); }
   function sameBooking(a,b){
-    if(text(a&&a.booking_id)&&text(a.booking_id)===text(b&&b.booking_id)) return true;
+    const aid=text(a&&a.booking_id), bid=text(b&&b.booking_id);
+    if(aid||bid) return !!aid&&!!bid&&aid===bid;
     const ar=Number(a&&a.row_number||0),br=Number(b&&b.row_number||0);
     return ar>0&&br>0&&ar===br;
   }

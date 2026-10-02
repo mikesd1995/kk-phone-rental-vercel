@@ -136,7 +136,13 @@ function updateProposal(snapshot,payload){
   const row=Number(payload.row_number||0);
   const bid=String(payload.booking_id||'').trim();
   // booking_id is stable across blank-row insertion, cleanup and GViz row
-  // compaction. Only fall back to row_number for legacy callers with no ID.
+  // compaction. Never trust a row-only mutation when the snapshot source marks
+  // row numbers non-authoritative.
+  if(!bid && snapshot && snapshot.booking_row_number_reliable!==true){
+    const err=new Error('Booking preflight requires booking_id because snapshot row numbers are not reliable');
+    err.code='BOOKING_ID_REQUIRED';
+    throw err;
+  }
   const current=bid
     ? (snapshot.bookings||[]).find(b=>String(b.booking_id||'').trim()===bid)
     : (snapshot.bookings||[]).find(b=>row>0&&Number(b.row_number||0)===row);

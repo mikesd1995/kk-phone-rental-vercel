@@ -114,7 +114,8 @@ function inferFromRegistry(name,rules){
 }
 function eventMetadata(currentCsv,archiveCsv,registryRules){
   const map={};
-  for(const [source,csv] of [["current",currentCsv],["archive",archiveCsv]]){
+  // Archive is fallback metadata; live Current must win for restored/reopened events.
+  for(const [source,csv] of [["archive",archiveCsv],["current",currentCsv]]){
     const t=table(csv),h=t.headers;
     const ix={id:idx(h,["event_id"],source==="archive"?2:0),name:idx(h,["event_name"],source==="archive"?3:1),note:idx(h,["event_note","note"],source==="archive"?9:7),affiliation:idx(h,["talent_affiliation","artist_agency","artist_label","affiliation"],-1)};
     for(const r of t.rows){
@@ -148,7 +149,13 @@ function parseHelper(csv,eventMap,registryRules){
 }
 function aggregate(rows){
   const seen=new Set(),clean=[];
-  for(const r of rows){const key=[r.source,r.booking_id,r.event_id,r.event_date,r.customer_key,r.created_at,r.status].join("|");if(seen.has(key))continue;seen.add(key);clean.push(r);}
+  for(const r of rows){
+    // Deduplicate the same booking across current/archive projections. Do not
+    // dedupe on booking_id alone because historical formula IDs were not globally
+    // immutable and can legitimately collide across different events/customers.
+    const key=[r.booking_id,r.event_id,r.event_date,r.customer_key,r.created_at,r.status].join("|");
+    if(seen.has(key))continue;seen.add(key);clean.push(r);
+  }
   const activeSet=new Set(["pending","confirmed","prepared","picked_up","returned","uploaded"]);
   // Reporting policy is fail-closed: only completed + active workflow states
   // participate in customer/booking/revenue metrics. cancelled, no_show, blank
