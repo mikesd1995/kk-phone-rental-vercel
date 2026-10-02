@@ -25,9 +25,29 @@ async function main(){
   const rows=[];
 
   rows.push(await Router.executeTask('storefront_ai_review',{
-    target:'KK storefront staging dry-run',
-    metrics:{viewport_width_px:390,viewport_height_px:844,card_columns:2,event_card_count:4},
-    page_text:'KK Phone Rental staging synthetic review',
+    target:'KK storefront zero-cost dry-run',
+    viewport:{width:390,height:844},
+    platform:'ios',
+    page_text:'KK Phone Rental concert vivo X300 Pro Lens',
+    screenshot_artifacts:['390x844-zero-cost-synthetic.jpg'],
+    broken_visible_images:[],
+    metrics:{
+      viewport_width_px:390,
+      viewport_height_px:844,
+      document_scroll_width_px:390,
+      event_card_count:4,
+      card_columns:2,
+      card_min_width_px:170,
+      first_event_top_px:400,
+      min_form_control_font_px:16,
+      tap_targets:[{id:'search',width:300,height:44}],
+      visible_event_cards_above_fold:2,
+      filter_rows:1,
+      hero_height_px:180,
+      sticky_controls_height_px:80,
+      bottom_cta_fixed:false,
+      pre_event_surface_count:3
+    },
     owner_observations:'Synthetic dry-run only. No customer data.'
   },{env,fetchImpl}));
 
