@@ -330,3 +330,12 @@ test('visual QA card-column summary uses shared horizontal geometry, not card to
   assert.doesNotMatch(source,/const firstTop=cardRects\.length\?cardRects\[0\]\.top:null/);
   assert.doesNotMatch(source,/Math\.abs\(r\.top-firstTop\)<4/);
 });
+
+
+test('visual QA exposes zero-cost paid-provider policy and keeps optional OpenAI off without waiver',()=>{
+  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  assert.match(source,/openai_visual_review_requested:openAiConfig\.requested/);
+  assert.match(source,/paid_external_ai_allowed:openAiConfig\.paid_external_ai_allowed/);
+  assert.match(source,/zero_cost_mode:openAiConfig\.zero_cost_mode/);
+  assert.match(source,/openai_visual_review_enabled:openAiConfig\.enabled/);
+});
