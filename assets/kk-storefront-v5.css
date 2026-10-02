@@ -244,9 +244,9 @@ html[data-theme="dark"] .theme-moon{display:grid!important}
 .event-search::placeholder{color:#8a97aa!important;opacity:1!important}
 .event-search-count{margin:2px 8px 0!important;color:#7e8998!important;font-size:10px!important;text-align:right!important}
 .status-filter-group{min-width:0!important;margin:0!important}
-.status-filter-bar{display:flex!important;align-items:center!important;gap:6px!important;min-width:0!important;margin:0!important;padding:0!important;overflow-x:auto!important;scrollbar-width:none!important}
+.status-filter-bar{display:flex!important;align-items:stretch!important;flex-wrap:nowrap!important;gap:6px!important;min-width:0!important;height:44px!important;margin:0!important;padding:0!important;overflow-x:auto!important;scrollbar-width:none!important}
 .status-filter-bar::-webkit-scrollbar{display:none}
-.month-select-wrap{display:flex!important;align-items:center!important;align-self:center!important;flex:0 0 auto!important;min-width:0!important;height:44px!important}
+.month-select-wrap{display:flex!important;align-items:stretch!important;align-self:stretch!important;flex:0 0 auto!important;min-width:0!important;height:44px!important;margin:0!important}
 .month-select,.filter-btn{
   height:44px!important;min-height:44px!important;
   border:1px solid var(--v6-line)!important;border-radius:999px!important;
