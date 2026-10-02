@@ -13,6 +13,18 @@ function normalizeApiKey(v){
   }
   return key;
 }
+function apiKeyDiagnostics(v){
+  const raw=String(v==null?'':v);
+  const key=normalizeApiKey(raw);
+  return {
+    normalized_length:key.length,
+    starts_with_sk:key.startsWith('sk-'),
+    starts_with_sk_proj:key.startsWith('sk-proj-'),
+    ascii_token_charset:/^[A-Za-z0-9_-]+$/.test(key),
+    raw_has_whitespace:/\s/.test(raw),
+    normalized_has_whitespace:/\s/.test(key)
+  };
+}
 function flag(v){return ['1','true','yes','on'].includes(clean(v).toLowerCase());}
 function boundedInt(v,fallback,min,max){
   const n=Number(v);
@@ -176,5 +188,5 @@ async function callStructured(request={},options={}){
 }
 
 module.exports={
-  VERSION,DEFAULT_BASE_URL,flag,normalizeApiKey,modelFor,configState,privateHostname,allowedImageUrl,extractOutputText,callStructured
+  VERSION,DEFAULT_BASE_URL,flag,normalizeApiKey,apiKeyDiagnostics,modelFor,configState,privateHostname,allowedImageUrl,extractOutputText,callStructured
 };
