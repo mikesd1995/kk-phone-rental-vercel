@@ -325,3 +325,45 @@ The fix preserves runtime-secret acceptance without weakening the function-budge
 
 This keeps the API function surface within the existing Hobby budget and preserves the security/authority model.
 \n## MCP read-only runtime acceptance fallback\n\nFor the protected Preview only, the staging probe also accepts a GET request with `mode=openai-staging&confirm=RUN_OPENAI_STAGING_PROBE`. This exists so the Vercel MCP authenticated fetch path can validate the runtime-injected Secret when GitHub-side automation bypass credentials are unavailable. The probe remains Preview-only, locked to `feat/openai-platform-agent-layer-v1`, synthetic-data-only, customer-data-disabled, and `production_writes=0`; Production returns `PREVIEW_ONLY` before any provider call.\n
+
+## Staging runtime V3 correction — 2026-10-02
+
+The previous CI-only `vercel env run` check is superseded because Vercel Secret values must be validated inside the deployment runtime, not interpreted from a CLI readback. V3 requires the exact READY Preview deployment whose Git SHA equals the PR head, invokes the existing `/api/kk-intelligence-health?mode=openai-staging` function through authenticated `vercel curl`, and uses synthetic data only.
+
+The probe is POST-only, Preview-only, locked to `feat/openai-platform-agent-layer-v1`, requires an explicit confirmation body, keeps `KK_OPENAI_ALLOW_CUSTOMER_DATA` disabled, and reports only secret-safe diagnostics. Both Storefront AI and Ultra Deep AI must return their gated advisory-ready states with `production_writes=0`.
+
+
+## Zero-cost canonical policy — 2026-10-02
+
+KK Phone Rental remains **zero-cost first**. The paid OpenAI API is not a required dependency and must not be called under the normal project configuration.
+
+The runtime now requires **two independent gates** before any OpenAI network request can occur:
+
+```
+KK_OPENAI_PLATFORM_ENABLED=true
+KK_ALLOW_PAID_EXTERNAL_AI=true
+```
+
+The second variable is the explicit paid-provider waiver. Under the locked zero-cost policy it stays unset/false. Therefore an older Preview environment that still contains `KK_OPENAI_PLATFORM_ENABLED=true` and a valid `OPENAI_API_KEY` cannot generate a paid request by itself.
+
+Canonical behavior while the paid waiver is absent:
+
+- Storefront: the seven deterministic Design Council agents remain authoritative for automated technical review; optional OpenAI review reports `DISABLED_ZERO_COST_POLICY`.
+- Ultra Deep: deterministic gap planning, free-first providers, HF advisory when genuinely free, and the governed Verifier remain canonical; optional OpenAI reasoning reports `DISABLED_ZERO_COST_POLICY`.
+- Unified Inbox: a local owner-review template is available without sending customer text to an external paid model; extraction fields remain blank rather than guessed.
+- Customer-data AI remains separately disabled unless explicitly authorized.
+- production writes remain zero for the optional AI layer.
+
+The required CI gate is now a **zero-cost no-provider acceptance**, not a paid-provider acceptance. It deliberately supplies a synthetic valid-looking key and the legacy OpenAI enable flag while withholding `KK_ALLOW_PAID_EXTERNAL_AI`, then asserts:
+
+- paid runtime enabled = false;
+- zero-cost mode = true;
+- provider request count = 0;
+- Storefront and Discovery paid AI statuses = `DISABLED_ZERO_COST_POLICY`;
+- Inbox customer-data AI remains skipped;
+- all production writes = 0;
+- no provider request IDs, HTTP statuses, or provider error codes appear.
+
+The earlier live staging result that reached OpenAI and returned `credit_balance_exhausted` is retained only as diagnostic history proving credential wiring. It is **not** a reason to buy credits. Under current owner policy, no credits are purchased and no paid API acceptance is required.
+
+Future paid-provider use, if ever approved, requires an explicit policy change plus `KK_ALLOW_PAID_EXTERNAL_AI=true`; setting `KK_OPENAI_PLATFORM_ENABLED` alone is intentionally insufficient.

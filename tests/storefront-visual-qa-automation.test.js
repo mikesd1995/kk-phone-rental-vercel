@@ -347,3 +347,11 @@ test('V6.5 owner mobile polish reduces density and makes hierarchy intentional o
   assert.match(js,/hero_secondary:"How it works"/);
   assert.match(js,/benefit_onsite:"Venue pickup\/return · Setup help"/);
 });
+
+test('visual QA exposes zero-cost paid-provider policy and keeps optional OpenAI off without waiver',()=>{
+  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  assert.match(source,/openai_visual_review_requested:openAiConfig\.requested/);
+  assert.match(source,/paid_external_ai_allowed:openAiConfig\.paid_external_ai_allowed/);
+  assert.match(source,/zero_cost_mode:openAiConfig\.zero_cost_mode/);
+  assert.match(source,/openai_visual_review_enabled:openAiConfig\.enabled/);
+});

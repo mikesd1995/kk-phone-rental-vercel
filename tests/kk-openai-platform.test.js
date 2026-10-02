@@ -43,7 +43,7 @@ test('OpenAI platform is disabled by default and never calls the network',async(
 test('enabled platform fails closed when API key is absent',async()=>{
   let calls=0;
   const out=await Platform.callStructured({agent:'storefront',schema_name:'x',schema:{type:'object'},input_text:'x'},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'true'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'true',KK_ALLOW_PAID_EXTERNAL_AI:'1'},
     fetchImpl:async()=>{calls++;throw new Error('must not run');}
   });
   assert.equal(out.status,'BLOCKED_OPENAI_CONFIG');
@@ -54,7 +54,7 @@ test('enabled platform fails closed when API key is absent',async()=>{
 test('inbox customer data requires a separate explicit authorization flag',async()=>{
   let calls=0;
   const out=await Agents.draftInboxReply({message_text:'ชื่อ Mike เบอร์ 0800000000'},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'test'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_ALLOW_PAID_EXTERNAL_AI:'1',OPENAI_API_KEY:'test'},
     fetchImpl:async()=>{calls++;throw new Error('must not run');}
   });
   assert.equal(out.status,'BLOCKED_CUSTOMER_DATA_NOT_AUTHORIZED');
@@ -72,7 +72,7 @@ test('storefront AI reviewer sends strict Responses API request with image evide
     page_text:'KK Phone Rental',
     image_urls:['https://example.com/storefront.png','file:///etc/passwd']
   },{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'true',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'true',KK_ALLOW_PAID_EXTERNAL_AI:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async(url,init)=>{captured={url,init,body:JSON.parse(init.body)};return fakeResponse(output);}
   });
   assert.equal(out.status,'READY_FOR_DESIGN_SYNTHESIS');
@@ -90,7 +90,7 @@ test('storefront AI reviewer sends strict Responses API request with image evide
 test('discovery reasoner is non-authoritative and verifier-gated',async()=>{
   const output={classification:'concert',rental_fit_score:88,duplicate_risk:'LOW',reasoning_summary:'strong concert rental fit',evidence_gaps:['venue confirmation'],verifier_questions:['confirm venue'],authoritative:false,verifier_required:true,production_writes:0};
   const out=await Agents.reasonDiscovery({candidate:{title:'Example Concert'}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_ALLOW_PAID_EXTERNAL_AI:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse(output)
   });
   assert.equal(out.status,'ADVISORY_READY_FOR_VERIFIER');
@@ -103,7 +103,7 @@ test('discovery reasoner is non-authoritative and verifier-gated',async()=>{
 test('unsafe discovery model output is blocked even if provider returned JSON',async()=>{
   const output={classification:'concert',rental_fit_score:99,duplicate_risk:'LOW',reasoning_summary:'x',evidence_gaps:[],verifier_questions:[],authoritative:true,verifier_required:false,production_writes:1};
   const out=await Agents.reasonDiscovery({candidate:{title:'Example'}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_ALLOW_PAID_EXTERNAL_AI:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse(output)
   });
   assert.equal(out.status,'BLOCKED_UNSAFE_MODEL_OUTPUT');
@@ -116,7 +116,7 @@ test('unsafe discovery model output is blocked even if provider returned JSON',a
 test('inbox AI can only return an owner-reviewed draft and never authorize send or booking writes',async()=>{
   const output={intent:'booking',summary:'Customer wants a phone package',extracted:{customer_name:'Mike',phone:'0800000000',event_name:'Example',event_date:'2026-10-10',package_request:'phone',pickup_time:'14:00'},reply_draft:'รับข้อมูลแล้ว เดี๋ยวตรวจคิวให้ค่ะ',owner_review_required:true,send_authorized:false,booking_write_authorized:false,production_writes:0};
   const out=await Agents.draftInboxReply({channel:'line',message_text:'ขอจอง Example',business_context:{verified:true}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_OPENAI_ALLOW_CUSTOMER_DATA:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_ALLOW_PAID_EXTERNAL_AI:'1',KK_OPENAI_ALLOW_CUSTOMER_DATA:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse(output)
   });
   assert.equal(out.status,'DRAFT_READY_FOR_OWNER_REVIEW');
@@ -129,7 +129,7 @@ test('inbox AI can only return an owner-reviewed draft and never authorize send 
 test('provider HTTP failure remains fail-closed and does not expose raw input',async()=>{
   const secret='customer private text';
   const out=await Agents.reasonDiscovery({candidate:{title:secret}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_ALLOW_PAID_EXTERNAL_AI:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse({}, {status:429,requestId:'req_rate'})
   });
   assert.equal(out.status,'BLOCKED_OPENAI_PROVIDER');
@@ -157,7 +157,7 @@ test('OpenAI agents are registered as callable zero-write gateway routes',async(
   const disabled=await Router.executeTask('storefront_ai_review',{target:'test'},{env:{},fetchImpl:async()=>{throw new Error('no network');}});
   assert.equal(disabled.invoked_agents.length,8);
   assert.ok(disabled.invoked_agents.includes('kk-openai-storefront-reviewer'));
-  assert.equal(disabled.result.status,'DISABLED_OPENAI_PLATFORM');
+  assert.equal(disabled.result.status,'DETERMINISTIC_BLOCKED');
   assert.equal(disabled.result.ai_review.status,'DISABLED_OPENAI_PLATFORM');
   assert.equal(disabled.result.deterministic_council.reviews.length,7);
   assert.equal(disabled.result.production_writes,0);
@@ -168,6 +168,7 @@ test('Ultra Deep AI route always carries deterministic gap planning and stays ve
   const out=await Router.executeTask('ultra_deep_ai_reasoning',{observations:[]},{env:{},fetchImpl:async()=>{throw new Error('no network');}});
   assert.deepEqual(out.invoked_agents,['kk-discovery-source-watch','kk-discovery-scanner','kk-openai-discovery-reasoner']);
   assert.equal(out.result.deterministic_plan.status,'SEARCH_GAPS_REQUIRED');
+  assert.equal(out.result.status,'SEARCH_GAPS_REQUIRED');
   assert.equal(out.result.ai_reasoning.status,'DISABLED_OPENAI_PLATFORM');
   assert.equal(out.result.authoritative,false);
   assert.equal(out.result.verifier_required,true);
@@ -189,7 +190,7 @@ test('image evidence rejects local/private network URLs and accepts public HTTPS
 test('safety metadata cannot be overridden by model/provider extras',async()=>{
   const output={classification:'concert',rental_fit_score:60,duplicate_risk:'LOW',reasoning_summary:'x',evidence_gaps:[],verifier_questions:[],authoritative:false,verifier_required:true,production_writes:0};
   const out=await Agents.reasonDiscovery({candidate:{title:'x'}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_ALLOW_PAID_EXTERNAL_AI:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse(output)
   });
   assert.equal(out.production_writes,0);
@@ -230,7 +231,7 @@ test('OpenAI API key is never forwarded to an environment-controlled alternate o
 
 test('provider failures expose only safe diagnostic metadata',async()=>{
   const out=await Agents.reasonDiscovery({candidate:{title:'x'}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_ALLOW_PAID_EXTERNAL_AI:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse({}, {status:429,requestId:'req_diag',retryAfter:'30',providerError:{type:'insufficient_quota',code:'insufficient_quota',param:'model',message:'sensitive message should not escape'}})
   });
   assert.equal(out.status,'BLOCKED_OPENAI_PROVIDER');
@@ -262,11 +263,86 @@ test('API key diagnostics expose shape only and never the secret',()=>{
 test('malformed key shape is blocked before any provider request',async()=>{
   let calls=0;
   const out=await Platform.callStructured({agent:'discovery',schema_name:'x',schema:{type:'object'},input_text:'x'},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'not-a-key!!'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_ALLOW_PAID_EXTERNAL_AI:'1',OPENAI_API_KEY:'not-a-key!!'},
     fetchImpl:async()=>{calls++;throw new Error('must not call provider');}
   });
   assert.equal(out.status,'BLOCKED_OPENAI_CONFIG');
   assert.equal(out.blocker,'OPENAI_API_KEY_SHAPE_INVALID');
   assert.equal(out.production_writes,0);
+  assert.equal(calls,0);
+});
+
+
+test('zero-cost policy overrides a stale OpenAI enable flag and valid key without a provider call',async()=>{
+  let calls=0;
+  const env={KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'};
+  const cfg=Platform.configState(env);
+  assert.equal(cfg.requested,true);
+  assert.equal(cfg.paid_external_ai_allowed,false);
+  assert.equal(cfg.enabled,false);
+  assert.equal(cfg.zero_cost_mode,true);
+  const out=await Platform.callStructured({agent:'discovery',schema_name:'x',schema:{type:'object'},input_text:'x'},{
+    env,
+    fetchImpl:async()=>{calls++;throw new Error('paid provider must not run');}
+  });
+  assert.equal(out.status,'DISABLED_ZERO_COST_POLICY');
+  assert.equal(out.production_writes,0);
+  assert.equal(calls,0);
+});
+
+test('paid OpenAI execution requires a second explicit external-AI waiver',()=>{
+  const disabled=Platform.configState({KK_OPENAI_PLATFORM_ENABLED:'1'});
+  const enabled=Platform.configState({KK_OPENAI_PLATFORM_ENABLED:'1',KK_ALLOW_PAID_EXTERNAL_AI:'1'});
+  assert.equal(disabled.enabled,false);
+  assert.equal(disabled.zero_cost_mode,true);
+  assert.equal(enabled.requested,true);
+  assert.equal(enabled.paid_external_ai_allowed,true);
+  assert.equal(enabled.enabled,true);
+  assert.equal(enabled.zero_cost_mode,false);
+});
+
+test('zero-cost storefront route keeps deterministic council canonical and does not call provider',async()=>{
+  let calls=0;
+  const out=await Router.executeTask('storefront_ai_review',{target:'zero-cost storefront'},{
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
+    fetchImpl:async()=>{calls++;throw new Error('paid provider must not run');}
+  });
+  assert.equal(out.result.status,'DETERMINISTIC_BLOCKED');
+  assert.equal(out.result.optional_paid_ai,'DISABLED_ZERO_COST');
+  assert.equal(out.result.ai_review.status,'DISABLED_ZERO_COST_POLICY');
+  assert.equal(out.result.deterministic_council.reviews.length,7);
+  assert.equal(out.result.production_writes,0);
+  assert.equal(calls,0);
+});
+
+test('zero-cost Ultra Deep route keeps deterministic gap planning and verifier gate without provider',async()=>{
+  let calls=0;
+  const out=await Router.executeTask('ultra_deep_ai_reasoning',{observations:[]},{
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
+    fetchImpl:async()=>{calls++;throw new Error('paid provider must not run');}
+  });
+  assert.equal(out.result.status,'SEARCH_GAPS_REQUIRED');
+  assert.equal(out.result.optional_paid_ai,'DISABLED_ZERO_COST');
+  assert.equal(out.result.ai_reasoning.status,'DISABLED_ZERO_COST_POLICY');
+  assert.equal(out.result.authoritative,false);
+  assert.equal(out.result.verifier_required,true);
+  assert.equal(out.result.production_writes,0);
+  assert.equal(calls,0);
+});
+
+test('zero-cost Unified Inbox returns an owner-reviewed local template without provider or extraction claims',async()=>{
+  let calls=0;
+  const out=await Router.executeTask('unified_inbox_ai_draft',{channel:'line',message_text:'private fixture 0812345678'},{
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
+    fetchImpl:async()=>{calls++;throw new Error('paid provider must not run');}
+  });
+  assert.equal(out.result.status,'ZERO_COST_OWNER_DRAFT_READY');
+  assert.equal(out.result.provider_status,'DISABLED_ZERO_COST_POLICY');
+  assert.equal(out.result.owner_review_required,true);
+  assert.equal(out.result.send_authorized,false);
+  assert.equal(out.result.booking_write_authorized,false);
+  assert.equal(out.result.production_writes,0);
+  assert.equal(out.result.extracted.phone,'');
+  assert.equal(JSON.stringify(out.result).includes('0812345678'),false);
   assert.equal(calls,0);
 });

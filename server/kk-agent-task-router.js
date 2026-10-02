@@ -62,13 +62,18 @@ async function executeTask(taskType, input = {}, options = {}) {
         {...input,design_council:deterministicCouncil},
         {env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch}
       );
+      const optionalPaidAiDisabled=['DISABLED_ZERO_COST_POLICY','DISABLED_OPENAI_PLATFORM'].includes(aiReview.status);
+      const canonicalStatus=optionalPaidAiDisabled
+        ? (deterministicCouncil.technical_status==='PASS'?'DETERMINISTIC_READY':'DETERMINISTIC_BLOCKED')
+        : aiReview.status;
       return {
         invoked_agents:[...deterministicCouncil.invoked_agents,'kk-openai-storefront-reviewer'],
         result:{
-          schema_version:'KK_STOREFRONT_HYBRID_REVIEW_V1',
-          status:aiReview.status,
+          schema_version:'KK_STOREFRONT_HYBRID_REVIEW_V2',
+          status:canonicalStatus,
           deterministic_council:deterministicCouncil,
           ai_review:aiReview,
+          optional_paid_ai:optionalPaidAiDisabled?'DISABLED_ZERO_COST':'ACTIVE_OR_BLOCKED',
           production_writes:0,
           auto_merge:false,
           auto_deploy:false,
@@ -83,13 +88,15 @@ async function executeTask(taskType, input = {}, options = {}) {
         {...input,deterministic_plan:deterministicPlan},
         {env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch}
       );
+      const optionalPaidAiDisabled=['DISABLED_ZERO_COST_POLICY','DISABLED_OPENAI_PLATFORM'].includes(aiReasoning.status);
       return {
         invoked_agents:['kk-discovery-source-watch','kk-discovery-scanner','kk-openai-discovery-reasoner'],
         result:{
-          schema_version:'KK_ULTRA_DEEP_HYBRID_REASONING_V1',
-          status:aiReasoning.status,
+          schema_version:'KK_ULTRA_DEEP_HYBRID_REASONING_V2',
+          status:optionalPaidAiDisabled?deterministicPlan.status:aiReasoning.status,
           deterministic_plan:deterministicPlan,
           ai_reasoning:aiReasoning,
+          optional_paid_ai:optionalPaidAiDisabled?'DISABLED_ZERO_COST':'ACTIVE_OR_BLOCKED',
           authoritative:false,
           verifier_required:true,
           production_writes:0
@@ -97,11 +104,28 @@ async function executeTask(taskType, input = {}, options = {}) {
       };
     }
 
-    case 'unified_inbox_ai_draft':
+    case 'unified_inbox_ai_draft': {
+      const aiDraft=await OpenAiAgents.draftInboxReply(input,{env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch});
+      const zeroCostFallback=['DISABLED_ZERO_COST_POLICY','DISABLED_OPENAI_PLATFORM','BLOCKED_CUSTOMER_DATA_NOT_AUTHORIZED'].includes(aiDraft.status);
       return {
         invoked_agents:['kk-openai-inbox-drafter'],
-        result:await OpenAiAgents.draftInboxReply(input,{env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch})
+        result:zeroCostFallback?{
+          version:'KK_ZERO_COST_INBOX_DRAFT_V1',
+          agent:'kk-openai-inbox-drafter',
+          status:'ZERO_COST_OWNER_DRAFT_READY',
+          provider_status:aiDraft.status,
+          extracted:{customer_name:'',phone:'',event_name:'',event_date:'',package_request:'',pickup_time:''},
+          reply_draft:'รับข้อความแล้ว เดี๋ยวตรวจสอบข้อมูลและคิวให้ก่อนนะคะ',
+          owner_review_required:true,
+          send_authorized:false,
+          booking_write_authorized:false,
+          production_writes:0,
+          publishes:0,
+          auto_merge:false,
+          auto_deploy:false
+        }:aiDraft
       };
+    }
 
     case 'storefront_design_council':
       const council=StorefrontDesignCouncil.runCouncil(input); return { invoked_agents:council.invoked_agents, result:council };

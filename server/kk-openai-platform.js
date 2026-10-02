@@ -42,9 +42,14 @@ function modelFor(agent,env={}){
   return clean(env.KK_OPENAI_MODEL_DEFAULT)||'gpt-6-luna';
 }
 function configState(env={}){
+  const requested=flag(env.KK_OPENAI_PLATFORM_ENABLED);
+  const paidExternalAiAllowed=flag(env.KK_ALLOW_PAID_EXTERNAL_AI);
   return {
     version:VERSION,
-    enabled:flag(env.KK_OPENAI_PLATFORM_ENABLED),
+    requested,
+    paid_external_ai_allowed:paidExternalAiAllowed,
+    enabled:requested&&paidExternalAiAllowed,
+    zero_cost_mode:!paidExternalAiAllowed,
     api_key_present:!!normalizeApiKey(env.OPENAI_API_KEY),
     allow_customer_data:flag(env.KK_OPENAI_ALLOW_CUSTOMER_DATA),
     base_url:baseUrl(env),
@@ -110,7 +115,15 @@ async function callStructured(request={},options={}){
   const env=options.env||process.env;
   const cfg=configState(env);
   const agent=clean(request.agent).toLowerCase();
-  if(!cfg.enabled) return safety('DISABLED_OPENAI_PLATFORM',{agent,model:modelFor(agent,env)});
+  if(cfg.requested&&!cfg.paid_external_ai_allowed){
+    return safety('DISABLED_ZERO_COST_POLICY',{
+      agent,
+      model:modelFor(agent,env),
+      zero_cost_mode:true,
+      paid_external_ai_allowed:false
+    });
+  }
+  if(!cfg.enabled) return safety('DISABLED_OPENAI_PLATFORM',{agent,model:modelFor(agent,env),zero_cost_mode:cfg.zero_cost_mode});
   if(agent==='inbox'&&!cfg.allow_customer_data) return safety('BLOCKED_CUSTOMER_DATA_NOT_AUTHORIZED',{agent,model:modelFor(agent,env)});
   if(!cfg.api_key_present) return safety('BLOCKED_OPENAI_CONFIG',{agent,model:modelFor(agent,env),blocker:'OPENAI_API_KEY_MISSING'});
   const keyShape=apiKeyDiagnostics(env.OPENAI_API_KEY);
