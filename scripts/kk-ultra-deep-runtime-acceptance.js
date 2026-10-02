@@ -11,10 +11,14 @@ function argValue(argv,name){
 }
 function redactCandidate(c={}){
  return {
+   candidate_id:text(c.candidate_id)||null,
    title:text(c.title)||null,
    event_date:text(c.event_date)||null,
+   event_time:text(c.event_time)||null,
    venue:text(c.venue)||null,
-   source_url:text(c.source_url)||null
+   artist:Array.isArray(c.artist)?c.artist.map(text).filter(Boolean):[],
+   source_url:text(c.source_url)||null,
+   confidence:Number.isFinite(Number(c.confidence))?Number(c.confidence):null
  };
 }
 async function main(){
