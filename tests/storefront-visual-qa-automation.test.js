@@ -226,3 +226,15 @@ test('V6 production mobile modal does not inherit the retired icon grid and uses
   assert.doesNotMatch(script,/modal-date"\)\.textContent="📅 "/);
   assert.match(script,/modal-date"\)\.textContent=\(currentLang==="en"\?"Date: ":"วันที่: "\)/);
 });
+
+
+test('screenshot review record is bound to the current executable storefront blobs',()=>{
+  const {execFileSync}=require('node:child_process');
+  const review=JSON.parse(fs.readFileSync('config/kk-storefront-v5-screenshot-review.json','utf8'));
+  const actual={
+    index_html:execFileSync('git',['hash-object','index.html'],{encoding:'utf8'}).trim(),
+    v5_css:execFileSync('git',['hash-object','assets/kk-storefront-v5.css'],{encoding:'utf8'}).trim(),
+    script_js:execFileSync('git',['hash-object','script.js'],{encoding:'utf8'}).trim()
+  };
+  assert.deepEqual(review.reviewed_design_blobs,actual);
+});
