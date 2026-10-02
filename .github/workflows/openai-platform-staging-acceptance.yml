@@ -7,6 +7,8 @@ on:
       - 'server/kk-openai-agent-adapters.js'
       - 'server/kk-agent-registry.js'
       - 'server/kk-agent-task-router.js'
+      - 'api/kk-openai-staging-probe.js'
+      - 'tests/kk-openai-staging-probe.test.js'
       - 'scripts/kk-openai-agent-dry-run.js'
       - '.github/workflows/openai-platform-staging-acceptance.yml'
       - 'docs/OPENAI_PLATFORM_AGENT_LAYER_V1_2026-10-02.md'
@@ -27,10 +29,20 @@ jobs:
       VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
       VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
       KK_OPENAI_BRANCH: feat/openai-platform-agent-layer-v1
+      APPROVED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
     steps:
       - name: Checkout candidate
         uses: actions/checkout@v7
+        with:
+          ref: ${{ env.APPROVED_SHA }}
+          fetch-depth: 1
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
 
       - name: Use Node.js 20
         uses: actions/setup-node@v7
@@ -43,7 +55,8 @@ jobs:
           node --check server/kk-openai-platform.js
           node --check server/kk-openai-agent-adapters.js
           node --check scripts/kk-openai-agent-dry-run.js
-          node --test tests/kk-openai-platform.test.js
+          node --check api/kk-openai-staging-probe.js
+          node --test tests/kk-openai-platform.test.js tests/kk-openai-staging-probe.test.js
 
       - name: Require existing Vercel owner token
         shell: bash
@@ -67,46 +80,91 @@ jobs:
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
 
-      - name: Execute branch-scoped Preview acceptance via Vercel env run
-        id: live
+      - name: Find exact READY Preview deployment
+        id: preview
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs');
+          const team=process.env.VERCEL_ORG_ID;
+          const project=process.env.VERCEL_PROJECT_ID;
+          const sha=String(process.env.APPROVED_SHA||'').trim();
+          const branch=String(process.env.KK_OPENAI_BRANCH||'').trim();
+          const token=String(process.env.VERCEL_TOKEN||'').trim();
+          if(!/^[0-9a-f]{40}$/.test(sha)) throw new Error('APPROVED_SHA_INVALID');
+          if(!token) throw new Error('VERCEL_TOKEN_MISSING');
+          const url='https://api.vercel.com/v6/deployments?projectId='+encodeURIComponent(project)+'&teamId='+encodeURIComponent(team)+'&limit=100';
+          const res=await fetch(url,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});
+          if(!res.ok) throw new Error('VERCEL_DEPLOYMENTS_HTTP_'+res.status);
+          const body=await res.json();
+          const rows=Array.isArray(body.deployments)?body.deployments:[];
+          const match=rows.find(d=>
+            String(d&&d.meta&&d.meta.githubCommitSha||'').toLowerCase()===sha &&
+            String(d&&d.meta&&d.meta.githubCommitRef||'')===branch &&
+            String(d&&d.target||'').toLowerCase()!=='production' &&
+            ['READY','COMPLETED'].includes(String(d&&d.state||d&&d.readyState||'').toUpperCase())
+          );
+          const output=process.env.GITHUB_OUTPUT;
+          if(match&&match.url){
+            fs.appendFileSync(output,'found=true\n');
+            fs.appendFileSync(output,'url=https://'+String(match.url).replace(/^https?:\/\//,'')+'\n');
+            fs.appendFileSync(output,'deployment_id='+String(match.uid||match.id||'')+'\n');
+          }else{
+            fs.appendFileSync(output,'found=false\n');
+            fs.writeFileSync('openai-agent-staging-report.json',JSON.stringify({
+              schema_version:'KK_OPENAI_AGENT_STAGING_RUNTIME_V1',
+              status:'BLOCKED_PREVIEW_DEPLOYMENT_REQUIRED',
+              expected_sha:sha,
+              branch,
+              production_writes:0,
+              note:'Vercel Secret values are runtime-only; acceptance requires an exact READY Preview deployment.'
+            },null,2)+'\n');
+          }
+          NODE
+
+      - name: Execute protected Preview runtime acceptance
+        if: ${{ steps.preview.outputs.found == 'true' }}
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
           set +x
-
-          npx vercel env run \
-            --environment=preview \
-            --git-branch="$KK_OPENAI_BRANCH" \
+          npx vercel curl /api/kk-openai-staging-probe \
+            --deployment "${{ steps.preview.outputs.url }}" \
             --token="$VERCEL_TOKEN" \
-            -- node scripts/kk-openai-agent-dry-run.js \
+            -X POST \
+            -H "Content-Type: application/json" \
+            --data '{"confirm":"RUN_OPENAI_STAGING_PROBE"}' \
+            --fail-with-body \
+            --silent \
+            --show-error \
             > openai-agent-staging-report.json
-
-          test -s openai-agent-staging-report.json
 
           node - <<'NODE'
           const fs=require('fs');
           const report=JSON.parse(fs.readFileSync('openai-agent-staging-report.json','utf8'));
-          if(report.enabled!==true) throw new Error('OPENAI_PLATFORM_NOT_ENABLED');
+          if(report.ok!==true || report.status!=='PASS') throw new Error('OPENAI_RUNTIME_ACCEPTANCE_FAILED');
+          if(report.preview!==true) throw new Error('NOT_PREVIEW_RUNTIME');
+          if(report.branch!==process.env.KK_OPENAI_BRANCH) throw new Error('PREVIEW_BRANCH_MISMATCH');
+          if(report.commit_sha!==process.env.APPROVED_SHA) throw new Error('PREVIEW_SHA_MISMATCH');
+          if(report.platform_enabled!==true) throw new Error('OPENAI_PLATFORM_NOT_ENABLED');
           if(report.api_key_present!==true) throw new Error('OPENAI_API_KEY_NOT_INJECTED');
-          if(report.allow_customer_data!==false) throw new Error('CUSTOMER_DATA_GATE_MUST_STAY_DISABLED');
-          const shape=report.api_key_diagnostics||{};
-          if(shape.starts_with_sk!==true || shape.ascii_token_charset!==true || Number(shape.normalized_length)<20){
-            throw new Error('OPENAI_API_KEY_SHAPE_INVALID');
-          }
-          const storefront=(report.results||[]).find(row=>(row.invoked_agents||[]).includes('kk-openai-storefront-reviewer'));
-          const discovery=(report.results||[]).find(row=>(row.invoked_agents||[]).includes('kk-openai-discovery-reasoner'));
-          if(!storefront || storefront.ai_status!=='READY_FOR_DESIGN_SYNTHESIS'){
-            throw new Error('STOREFRONT_OPENAI_ACCEPTANCE_FAILED');
-          }
-          if(!discovery || discovery.ai_status!=='ADVISORY_READY_FOR_VERIFIER'){
-            throw new Error('DISCOVERY_OPENAI_ACCEPTANCE_FAILED');
-          }
-          if((report.results||[]).some(row=>Number(row.production_writes)!==0)){
-            throw new Error('PRODUCTION_WRITES_NONZERO');
-          }
+          if(report.customer_data_allowed!==false) throw new Error('CUSTOMER_DATA_GATE_MUST_STAY_DISABLED');
+          if(Number(report.production_writes)!==0) throw new Error('PRODUCTION_WRITES_NONZERO');
+          if(!report.storefront || report.storefront.ai_status!=='READY_FOR_DESIGN_SYNTHESIS') throw new Error('STOREFRONT_OPENAI_ACCEPTANCE_FAILED');
+          if(!report.discovery || report.discovery.ai_status!=='ADVISORY_READY_FOR_VERIFIER') throw new Error('DISCOVERY_OPENAI_ACCEPTANCE_FAILED');
           NODE
+
+      - name: Require exact Preview runtime
+        if: ${{ steps.preview.outputs.found != 'true' }}
+        shell: bash
+        run: |
+          echo "BLOCKED_PREVIEW_DEPLOYMENT_REQUIRED: exact branch/head Preview is not READY yet."
+          exit 1
 
       - name: Upload secret-safe acceptance report
         if: ${{ always() }}
