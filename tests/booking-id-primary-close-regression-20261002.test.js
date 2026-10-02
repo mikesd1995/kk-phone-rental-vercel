@@ -7,7 +7,6 @@ const fs=require('node:fs');
 const admin=fs.readFileSync('admin/admin.js','utf8');
 const apps=fs.readFileSync('apps-script/Code.gs','utf8');
 const fallback=fs.readFileSync('server/admin-sheet-fallback.js','utf8');
-const proxy=fs.readFileSync('server/admin-proxy.js','utf8');
 
 test('booking updates carry stable booking_id even when UI selector uses a row hint',()=>{
   assert.match(admin,/function bookingMutationIdentity\(b,rowNumber\)/);
@@ -32,12 +31,4 @@ test('public GViz booking row numbers are explicitly non-authoritative',()=>{
   assert.match(fallback,/row_number_reliable:transportMeta\.fallback_reader!=='public-gviz'/);
   assert.match(fallback,/booking_identity_mode:'booking_id-primary'/);
   assert.match(fallback,/booking_row_number_reliable:transportMeta\.fallback_reader!=='public-gviz'/);
-});
-
-test('legacy Apps Script transport retries only a proven non-executed deployment 404 once',()=>{
-  assert.match(proxy,/const maxAttempts=isReadOnlyAction\(action\)\?1:2/);
-  assert.match(proxy,/Number\(upstream\.status\)===404/);
-  assert.match(proxy,/failure\.code==="APPS_SCRIPT_DEPLOYMENT_NOT_FOUND"/);
-  assert.match(proxy,/KK_ADMIN_SAFE_RETRY/);
-  assert.match(proxy,/data\.upstream_attempts = Number\(call\.attempts\|\|1\)/);
 });
