@@ -2268,9 +2268,100 @@ function kkAssertBookingAssetsNotDoubleBooked_(rowNumber, bookingRow, nextStatus
   if (lensId && booked.lens[lensId]) throw new Error('Cannot reactivate booking: lens is already booked on this event date: ' + lensId);
 }
 
+
+function kkBookingRequestId_(payload) {
+  const requestId = String(payload && payload.request_id || '').trim();
+  if (!requestId) return '';
+  if (!/^[A-Za-z0-9._:-]{8,128}$/.test(requestId)) throw new Error('Invalid booking request_id');
+  return requestId;
+}
+
+function kkBookingRequestMarker_(requestId) {
+  return requestId ? '[KK_REQ:' + requestId + ']' : '';
+}
+
+function kkBookingNoteWithRequest_(note, requestId) {
+  const base = String(note || '').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g, ' ').trim();
+  const marker = kkBookingRequestMarker_(requestId);
+  return marker ? (base ? base + ' ' + marker : marker) : base;
+}
+
+function kkBookingNoteForDisplay_(note) {
+  return String(note || '').replace(/\s*\[KK_REQ:[A-Za-z0-9._:-]{8,128}\]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+}
+
+function kkBookingRequestIdFromNote_(note) {
+  const m = String(note || '').match(/\[KK_REQ:([A-Za-z0-9._:-]{8,128})\]/);
+  return m ? m[1] : '';
+}
+
+function kkFindBookingByRequestId_(requestId) {
+  const marker = kkBookingRequestMarker_(requestId);
+  if (!marker) return null;
+  const rows = kkGetValues_(KK.bookings, 5, 1, 20);
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || [];
+    if (String(row[19] || '').indexOf(marker) < 0) continue;
+    return { row_number: i + 5, row: row };
+  }
+  return null;
+}
+
+function kkBookingIdValues_() {
+  const ids = [];
+  kkGetValues_(KK.bookings, 5, 1, 1).forEach(r => {
+    const id = String(r[0] || '').trim();
+    if (id) ids.push(id);
+  });
+  const archive = SpreadsheetApp.getActive().getSheetByName(KK.bookingArchive);
+  if (archive && archive.getLastRow() >= 2) {
+    archive.getRange(2, 7, archive.getLastRow() - 1, 1).getValues().forEach(r => {
+      const id = String(r[0] || '').trim();
+      if (id) ids.push(id);
+    });
+  }
+  return ids;
+}
+
+function kkGenerateUniqueBookingId_(eventDate) {
+  const day = kkDateKey_(eventDate);
+  const prefix = 'BK-' + day + '-';
+  let maxSeq = 0;
+  const used = {};
+  kkBookingIdValues_().forEach(id => {
+    used[id] = true;
+    if (id.indexOf(prefix) !== 0) return;
+    const suffix = id.slice(prefix.length);
+    if (/^\d+$/.test(suffix)) maxSeq = Math.max(maxSeq, Number(suffix));
+  });
+  for (let seq = maxSeq + 1; seq < maxSeq + 10000; seq++) {
+    const candidate = prefix + String(seq).padStart(3, '0');
+    if (!used[candidate]) return candidate;
+  }
+  throw new Error('Unable to allocate unique booking_id for ' + day);
+}
+
+function kkBookingCreateResult_(rowNumber, row, replay) {
+  const current = row || [];
+  const bookingId = String(current[0] || '').trim();
+  if (!bookingId) throw new Error('Booking canonical booking_id readback failed');
+  return {
+    row_number: rowNumber,
+    booking_id: bookingId,
+    booking_status: current[2] || '',
+    phone_asset_id: current[9] || '',
+    lens_asset_id: current[10] || '',
+    idempotent_replay: replay === true
+  };
+}
+
 function kkApiCreateBooking_(payload) {
   const lock = kkAcquireDocumentLock_('write operation', 12000);
   try {
+    const requestId = kkBookingRequestId_(payload);
+    const prior = requestId ? kkFindBookingByRequestId_(requestId) : null;
+    if (prior) return kkBookingCreateResult_(prior.row_number, prior.row, true);
+
     const eventId = String(payload.event_id || '').trim();
     let templateId = String(payload.template_id || '').trim();
     const customerName = String(payload.customer_name || '').trim();
@@ -2283,13 +2374,13 @@ function kkApiCreateBooking_(payload) {
     const pickupTime = String(payload.pickup_time || '').trim();
     const paymentStatus = String(payload.payment_status || 'unpaid').toLowerCase().trim();
     const amountReceived = kkApiNumber_(payload.amount_received, 'amount_received', true) || 0;
-    const bookingNote = payload.booking_note || '';
-    
+    const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || '', requestId);
+
     kkEnsureLensCompatibilityPatchInstalled_();
     if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id and customer_name');
     if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) throw new Error('Invalid booking_status');
     if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) throw new Error('Invalid payment_status');
-    
+
     templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
     const event = kkGetEventById_(eventId);
     if (kkIsPastEventDate_(event.event_date)) throw new Error('Cannot create booking for a past event date: ' + kkApiDate_(event.event_date));
@@ -2304,13 +2395,18 @@ function kkApiCreateBooking_(payload) {
     if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date);
     if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
     if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
-    
+
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
-    kkSheet_(KK.bookings).getRange(row, 2, 1, 19).setValues([[
-      new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
+    const bookingId = kkGenerateUniqueBookingId_(event.event_date);
+    const bookingSheet = kkSheet_(KK.bookings);
+    bookingSheet.getRange(row, 1, 1, 20).setValues([[
+      bookingId, new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
       pkgType, phoneAssetId, lensAssetId, pickupTime, '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ]]);
-    return { row_number: row, phone_asset_id: phoneAssetId, lens_asset_id: lensAssetId };
+    SpreadsheetApp.flush();
+    const persisted = bookingSheet.getRange(row, 1, 1, 20).getValues()[0];
+    if (String(persisted[0] || '').trim() !== bookingId) throw new Error('Booking canonical booking_id readback failed');
+    return kkBookingCreateResult_(row, persisted, false);
   } finally {
     lock.releaseLock();
   }
