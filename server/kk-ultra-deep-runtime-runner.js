@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V3';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V4';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -113,6 +113,13 @@ function summarizeExecution(execution={}){
   return out;
 }
 
+async function providerPreflight(providers={},input={}){
+ const probe={source_tier:'PUBLIC_CALENDAR',query:['Bangkok',text(input.month),'concert'].filter(Boolean).join(' '),providers:[...UNKNOWN_SEARCH_PROVIDERS],evidence_required:true};
+ const result=await ProviderExecutor.executeGapTask(probe,{providers});
+ const usable=new Set((result.attempts||[]).filter(a=>a.status==='EVIDENCE_FOUND').map(a=>text(a.provider).toUpperCase()));
+ if(result.provider)usable.add(text(result.provider).toUpperCase());
+ return {status:usable.size?'READY':'NO_LIVE_SEARCH_EVIDENCE',usable:[...usable],result};
+}
 function providerBindingState(providers={}){
   const bound=[...UNKNOWN_SEARCH_PROVIDERS].filter(p=>typeof providers[p]==='function');
   return {bound,unknown_url_search_bound:bound.length>0};
@@ -122,7 +129,6 @@ async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
-
   // Execute the bounded historical probes first. Live HTML search providers may
   // soft-throttle after a large sweep; putting the small regression corpus first
   // prevents broad discovery traffic from starving the recall gate.
@@ -149,6 +155,12 @@ async function runMonthlyUltraDeep(input={},options={}){
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
   const reconciliation=Reconciliation.reconcileCandidateSets(candidates,referenceCandidates);
 
+  // Preflight is intentionally evaluated only after the established evidence
+  // sequence, so it can gate completion without changing known-miss/discovery/
+  // reference ordering or hiding their diagnostics.
+  const preflight=await providerPreflight(providers,input);
+  binding.preflight=preflight;
+
   // A known miss is recovered if any governed live discovery path finds it.
   // Do not discard a valid main/reference sweep hit merely because the dedicated
   // probe endpoint returned no results.
@@ -156,9 +168,11 @@ async function runMonthlyUltraDeep(input={},options={}){
   const knownMissLive=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]);
   const knownMiss=KnownMiss.evaluateFixtureRegression();
 
-  const complete=binding.unknown_url_search_bound && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete;
+  const liveSearchProven=preflight.status==='READY' || discoveryProof.has_evidence || referenceProof.has_evidence || knownMissCandidates.length>0;
+  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete;
   const blockers=[
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
+    ...(binding.unknown_url_search_bound&&!liveSearchProven?['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED']:[]),
     ...(!universe.complete?['SOURCE_UNIVERSE_INCOMPLETE']:[]),
     ...(!discoveryProof.complete?['DISCOVERY_EVIDENCE_EMPTY']:[]),
     ...(!referenceProof.complete?['REFERENCE_SWEEP_INCOMPLETE']:[]),
@@ -172,7 +186,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     blockers,
     month:plan.range.month,
     location:plan.location,
-    provider_binding:binding,
+    provider_binding:{...binding,live_search_proven:liveSearchProven},
     source_universe:universe,
     discovery_proof:discoveryProof,
     reference_sweep_proof:referenceProof,
@@ -199,5 +213,5 @@ async function runMonthlyUltraDeep(input={},options={}){
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
-  buildReferencePlan,buildKnownMissPlan,summarizeExecution,providerBindingState,runMonthlyUltraDeep
+  buildReferencePlan,buildKnownMissPlan,summarizeExecution,providerPreflight,providerBindingState,runMonthlyUltraDeep
 };
