@@ -15,6 +15,7 @@ const AgentLedger = require('../server/kk-agent-invocation-ledger.js');
 const AgentRegistry = require('../server/kk-agent-registry.js');
 const AgentOrchestration = require('../server/kk-agent-orchestration.js');
 const DecisionLedger = require('../server/kk-decision-ledger.js');
+const ProjectMemoryLedger = require('../server/kk-project-memory-ledger.js');
 const AdminSecurity = require('../server/admin-session.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
@@ -471,6 +472,7 @@ module.exports=async function handler(req,res){
           registry:AgentRegistry.publicRegistry(),
           ledger:ledgerState,
           decision_ledger:DecisionLedger.configState(),
+          project_memory_ledger:ProjectMemoryLedger.configState(),
           coverage,
           production_writes:0,
           publishes:0

@@ -47,3 +47,13 @@ Future accepted owner decisions and completed implementation records should appe
 - HF harness safety and fail-closed readiness: PASS.
 - Canonical database readback: RLS enabled and application `service_role` privileges restricted to `INSERT, SELECT`.
 - Vercel preview build-rate-limit remains a deployment-quota condition and is not treated as repository acceptance.
+
+
+## Production OIDC activation hardening
+- Durable-memory reads no longer depend on a static Supabase service-role/secret key being present in Vercel Production.
+- Production uses the existing exact-identity Vercel OIDC bridge when the direct Supabase binding is unavailable.
+- The Supabase function remains read-only and accepts a bounded `project-memory` read contract (maximum 80 rows, maximum 12 validated domains).
+- OIDC identity is still pinned to the KK Vercel team, project, and `production` environment before any database read.
+- `GET /api/kk-intelligence-health?mode=project-memory` exposes only secret-safe runtime state: enabled/configured mode, binding booleans, readback status, sample count, and whether durable memory exists. It never exposes memory text, credentials, or tokens.
+- An explicit `KK_PROJECT_MEMORY_LEDGER_ENABLED=false` continues to override automatic production OIDC activation.
+- Agent Gateway continues to fail closed when the enabled production durable-memory read cannot be completed.

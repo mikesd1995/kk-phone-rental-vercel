@@ -4,6 +4,7 @@ const privateSheets = require('./lib/private-google-sheets');
 const crmFreshness = require('./lib/crm-freshness');
 const crmReconciliation = require('./lib/crm-reconciliation');
 const AdminSecurity = require('../server/admin-session.js');
+const ProjectMemoryLedger = require('../server/kk-project-memory-ledger.js');
 
 const DEFAULT_CRM_SHEET_ID = '1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
 const DEFAULT_CORE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -105,6 +106,46 @@ function timingProbeRequested(req){
     return u.searchParams.get('mode')==='apps-script-timing';
   }catch(_){return false;}
 }
+function projectMemoryProbeRequested(req){
+  try{
+    const u=new URL(String(req&&req.url||'/api/kk-intelligence-health'),'https://kk.invalid');
+    return u.searchParams.get('mode')==='project-memory';
+  }catch(_){return false;}
+}
+async function projectMemoryRuntimeReadback({env=process.env,fetchImpl=global.fetch,getTokenImpl}={}){
+  const cfg=ProjectMemoryLedger.configState(env);
+  const base={
+    enabled:cfg.enabled===true,
+    configured:cfg.configured===true,
+    direct_configured:cfg.direct_configured===true,
+    oidc_candidate:cfg.oidc_candidate===true,
+    project_binding_matches:cfg.project_binding_matches===true,
+    runtime_mode:String(cfg.mode||'disabled'),
+    table:String(cfg.table||''),
+    read_only:true,
+    business_writes:0,
+    secrets_exposed:false
+  };
+  if(!cfg.enabled) return Object.assign(base,{status:'DISABLED',error_code:'',sampled_rows:0,durable_memory_present:false});
+  try{
+    const result=await ProjectMemoryLedger.listEvents({env,fetchImpl,getTokenImpl,limit:1});
+    const rows=Array.isArray(result.rows)?result.rows:[];
+    return Object.assign(base,{
+      status:'READBACK_COMPLETE',
+      error_code:'',
+      runtime_mode:String(result.mode||cfg.mode||''),
+      sampled_rows:rows.length,
+      durable_memory_present:rows.length>0
+    });
+  }catch(err){
+    return Object.assign(base,{
+      status:'READBACK_BLOCKED',
+      error_code:String(err&&(err.code||err.name)||'PROJECT_MEMORY_LEDGER_READ_FAILED'),
+      sampled_rows:0,
+      durable_memory_present:false
+    });
+  }
+}
 
 function json(res,status,body){
   res.statusCode=status;
@@ -155,6 +196,10 @@ module.exports=async function handler(req,res){
     appsScriptTimingCache={payload,expiresAt:now+APPS_SCRIPT_TIMING_CACHE_TTL_MS};
     res.setHeader('X-KK-Timing-Cache','MISS');
     return json(res,200,{ok:true,data:payload});
+  }
+  if(req.method==='GET' && projectMemoryProbeRequested(req)){
+    const payload=await projectMemoryRuntimeReadback();
+    return json(res,payload.status==='READBACK_COMPLETE'?200:503,{ok:payload.status==='READBACK_COMPLETE',data:payload});
   }
   if(req.method!=='POST') return json(res,405,{ok:false,error:'Method not allowed'});
   if(!AdminSecurity.authorizeApi(req,res)) return;
@@ -253,5 +298,6 @@ module.exports._test={
   reconcileRuntimeDatasets,RUNTIME_DATASETS,
   canonicalAppsScriptExecUrl,naiveLocalTimestampMs,inferOffsetMinutes,offsetLabel,
   safeTimingPayload,appsScriptTimingReadback,timingProbeRequested,
+  projectMemoryProbeRequested,projectMemoryRuntimeReadback,
   resetTimingCache(){appsScriptTimingCache={expiresAt:0,payload:null};}
 };
