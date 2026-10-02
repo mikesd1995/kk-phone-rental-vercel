@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V7';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V8';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -160,6 +160,21 @@ function alignKnownMissReferences(discovered=[],references=[]){
  });
 }
 
+function recoverEligibleReferenceCandidates(discovered=[],references=[]){
+ const out=[...(Array.isArray(discovered)?discovered:[])];
+ const titleDate=new Set(out.filter(Reconciliation.hasComparableEventIdentity).map(Reconciliation.reconcileKey));
+ const sourceDate=new Set(out.map(Reconciliation.sourceDateKey).filter(Boolean));
+ let recovered=0;
+ for(const row of Array.isArray(references)?references:[]){
+  if(!row||row.eligible_for_discovery===false||!Reconciliation.hasComparableEventIdentity(row))continue;
+  const rk=Reconciliation.reconcileKey(row),sk=Reconciliation.sourceDateKey(row);
+  if(titleDate.has(rk)||(sk&&sourceDate.has(sk)))continue;
+  const next={...row,candidate_origin:'INDEPENDENT_REFERENCE_RECOVERY',verifier_required:true,authoritative:false};
+  out.push(next);titleDate.add(rk);if(sk)sourceDate.add(sk);recovered++;
+ }
+ return {candidates:out,recovered_count:recovered};
+}
+
 function summarizeExecution(execution={}){
   const out={tasks:0,evidence_found:0,gap_unresolved:0,attempts:{},provider_errors:{},not_bound:{}};
   const results=Array.isArray(execution.results)?execution.results:[];
@@ -220,7 +235,9 @@ async function runMonthlyUltraDeep(input={},options={}){
   referenceProof.has_evidence=referenceCandidates.length>0;
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
   const alignedReferenceCandidates=alignKnownMissReferences(candidates,scopedReferenceCandidates);
-  const reconciliation=Reconciliation.reconcileCandidateSets(candidates,alignedReferenceCandidates);
+  const recovered= recoverEligibleReferenceCandidates(candidates,alignedReferenceCandidates);
+  const verifierCandidates=recovered.candidates;
+  const reconciliation=Reconciliation.reconcileCandidateSets(verifierCandidates,alignedReferenceCandidates);
 
   // Preflight is intentionally evaluated only after the established evidence
   // sequence, so it can gate completion without changing known-miss/discovery/
@@ -260,8 +277,10 @@ async function runMonthlyUltraDeep(input={},options={}){
     reconciliation,
     known_miss_regression:knownMiss,
     known_miss_live_recall:knownMissLive,
-    candidate_count:candidates.length,
-    candidates,
+    candidate_count:verifierCandidates.length,
+    discovery_candidate_count:candidates.length,
+    reference_recovered_candidate_count:recovered.recovered_count,
+    candidates:verifierCandidates,
     reference_candidate_count:referenceCandidates.length,
     eligible_reference_candidate_count:alignedReferenceCandidates.filter(row=>row.eligible_for_discovery!==false).length,
     canonical_reference_alignment_count:alignedReferenceCandidates.filter(row=>row.canonical_known_miss_case).length,
@@ -283,5 +302,5 @@ async function runMonthlyUltraDeep(input={},options={}){
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
-  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,summarizeExecution,providerPreflight,providerBindingState,runMonthlyUltraDeep
+  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,recoverEligibleReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runMonthlyUltraDeep
 };
