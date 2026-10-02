@@ -683,3 +683,68 @@ html[data-theme="dark"] .modal-share{background:transparent!important;border-col
   .v3-events-heading h2{font-size:1.08rem!important}
   .update-note{display:none!important}
 }
+
+
+/* Exact-event poster delivery fallback.
+   This is intentionally derived from the verified event card data and never
+   substitutes an unrelated artist/series image when an external poster host fails. */
+.poster-placeholder.poster-placeholder-event{
+  padding:clamp(14px,3vw,26px);
+  box-sizing:border-box;
+  align-items:flex-start;
+  justify-content:flex-end;
+  gap:8px;
+  text-align:left;
+  color:var(--ink,#101827);
+  background:
+    radial-gradient(circle at 82% 12%,rgba(47,111,237,.22),transparent 32%),
+    linear-gradient(145deg,rgba(237,245,255,.98),rgba(248,250,255,.96) 52%,rgba(226,236,255,.96));
+  border:1px solid rgba(47,111,237,.12);
+}
+.poster-placeholder-event .poster-placeholder-kicker{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:10px;
+  line-height:1;
+  font-weight:800;
+  letter-spacing:.12em;
+  color:#1d5fd1;
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(47,111,237,.14);
+}
+.poster-placeholder-event .poster-placeholder-title{
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:3;
+  overflow:hidden;
+  max-width:100%;
+  font-size:clamp(15px,2vw,22px);
+  line-height:1.12;
+  letter-spacing:-.02em;
+}
+.poster-placeholder-event .poster-placeholder-meta{
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  max-width:100%;
+  font-size:11px;
+  line-height:1.35;
+  color:rgba(16,24,39,.62);
+}
+[data-theme="dark"] .poster-placeholder.poster-placeholder-event{
+  color:#f7f9ff;
+  background:
+    radial-gradient(circle at 82% 12%,rgba(91,149,255,.28),transparent 34%),
+    linear-gradient(145deg,#172033,#101725 56%,#18243a);
+  border-color:rgba(120,164,255,.22);
+}
+[data-theme="dark"] .poster-placeholder-event .poster-placeholder-kicker{
+  color:#c6dcff;
+  background:rgba(18,27,44,.72);
+  border-color:rgba(120,164,255,.22);
+}
+[data-theme="dark"] .poster-placeholder-event .poster-placeholder-meta{color:rgba(239,244,255,.7);}
