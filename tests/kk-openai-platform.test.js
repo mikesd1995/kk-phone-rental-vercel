@@ -8,12 +8,18 @@ const Registry=require('../server/kk-agent-registry.js');
 const Router=require('../server/kk-agent-task-router.js');
 const Gateway=require('../server/kk-agent-gateway.js');
 
-function fakeResponse(output,{status=200,requestId='req_test',id='resp_test'}={}){
+function fakeResponse(output,{status=200,requestId='req_test',id='resp_test',providerError=null,retryAfter=''}={}){
   return {
     ok:status>=200&&status<300,
     status,
-    headers:{get(name){return String(name).toLowerCase()==='x-request-id'?requestId:'';}},
+    headers:{get(name){
+      const key=String(name).toLowerCase();
+      if(key==='x-request-id') return requestId;
+      if(key==='retry-after') return retryAfter;
+      return '';
+    }},
     async json(){
+      if(providerError) return {error:providerError};
       return {
         id,
         output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(output)}]}],
@@ -73,7 +79,7 @@ test('storefront AI reviewer sends strict Responses API request with image evide
   assert.equal(out.production_writes,0);
   assert.equal(out.review.findings[0].severity,'P1');
   assert.equal(captured.url,'https://api.openai.com/v1/responses');
-  assert.equal(captured.body.model,'gpt-6-sol');
+  assert.equal(captured.body.model,'gpt-6.1-sol');
   assert.equal(captured.body.store,false);
   assert.equal(captured.body.text.format.type,'json_schema');
   assert.equal(captured.body.text.format.strict,true);
@@ -133,7 +139,7 @@ test('provider HTTP failure remains fail-closed and does not expose raw input',a
 });
 
 test('model routing defaults to cost-aware Luna for discovery/inbox and Sol for storefront',()=>{
-  assert.equal(Platform.modelFor('storefront',{}),'gpt-6-sol');
+  assert.equal(Platform.modelFor('storefront',{}),'gpt-6.1-sol');
   assert.equal(Platform.modelFor('discovery',{}),'gpt-6-luna');
   assert.equal(Platform.modelFor('inbox',{}),'gpt-6-luna');
   assert.equal(Platform.modelFor('storefront',{KK_OPENAI_MODEL_STOREFRONT:'custom-model'}),'custom-model');
@@ -219,4 +225,19 @@ test('authenticated Agent Gateway path records hybrid OpenAI route evidence with
 test('OpenAI API key is never forwarded to an environment-controlled alternate origin',()=>{
   assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'https://proxy.example.com/v1'}).base_url,'https://api.openai.com/v1');
   assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'http://127.0.0.1/v1'}).base_url,'https://api.openai.com/v1');
+});
+
+
+test('provider failures expose only safe diagnostic metadata',async()=>{
+  const out=await Agents.reasonDiscovery({candidate:{title:'x'}},{
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-test'},
+    fetchImpl:async()=>fakeResponse({}, {status:429,requestId:'req_diag',retryAfter:'30',providerError:{type:'insufficient_quota',code:'insufficient_quota',param:'model',message:'sensitive message should not escape'}})
+  });
+  assert.equal(out.status,'BLOCKED_OPENAI_PROVIDER');
+  assert.equal(out.http_status,429);
+  assert.equal(out.provider_error_type,'insufficient_quota');
+  assert.equal(out.provider_error_code,'insufficient_quota');
+  assert.equal(out.provider_error_param,'model');
+  assert.equal(out.retry_after,'30');
+  assert.equal(JSON.stringify(out).includes('sensitive message should not escape'),false);
 });
