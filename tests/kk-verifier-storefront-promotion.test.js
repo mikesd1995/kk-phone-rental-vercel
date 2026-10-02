@@ -255,3 +255,27 @@ test('existing visible Core event is reconcile-only and never sent through creat
  assert.equal(r.status,'HOLD_FOR_FINAL_PROMOTION');
  assert.ok(r.blockers.includes('EXISTING_EVENT_RECONCILE_REQUIRED'));
 });
+
+
+test('promotion accepts exact-event competitor median policy as final price authority',()=>{
+ const marketCandidate={
+  ...candidate,
+  publish_eligibility:{status:'ELIGIBLE',eligible:true,rental_fit_score:8.2,minimum_publish_score:7}
+ };
+ const policy={
+  policy_approved:true,
+  source:'EXACT_EVENT_COMPETITOR_MEDIAN',
+  pricing_status:'APPROVED_EXACT_EVENT_MEDIAN',
+  price_confidence:'HIGH',
+  needs_price_recheck:false,
+  final_prices:[
+   {template_id:'TPL-VIVO-X300-PRO-PHONE',override_price:690,active_override:true,override_note:'EXACT_EVENT_COMPETITOR_MEDIAN'},
+   {template_id:'TPL-ZEISS-2-35X-LENS',override_price:200,active_override:false,override_note:'LENS_ONLY_HIDDEN_STORE_BASELINE'},
+   {template_id:'TPL-VIVO-X300-PRO-BUNDLE',override_price:890,active_override:true,override_note:'EXACT_EVENT_COMPETITOR_MEDIAN_PLUS_LENS'}
+  ]
+ };
+ const r=P.preparePromotion({candidate:marketCandidate,final_pricing_policy:policy,verifier_approved:true});
+ assert.equal(r.status,'READY_FOR_GOVERNED_ADMIN_CREATE');
+ assert.equal(r.pricing_status,'APPROVED_EXACT_EVENT_MEDIAN');
+ assert.deepEqual(r.admin_payload.event_price_overrides.map(x=>x.override_price),[690,200,890]);
+});
