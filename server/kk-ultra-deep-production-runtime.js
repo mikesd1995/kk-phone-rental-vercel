@@ -249,6 +249,8 @@ async function execute(handoff={},options={}){
   month:text(handoff.month),
   discovery:{full:true,status:'READY_FOR_VERIFIER',month:text(handoff.month)},
   candidates:reconciled.safe_candidates,
+  terminal_dispositions:reconciled.dispositions,
+  verified_candidate_count:verified.length,
   existing_events:reconciled.events,
   bookings:snapshot.bookings||[],
   package_templates:snapshot.packages||[],

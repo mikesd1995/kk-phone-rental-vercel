@@ -39,3 +39,53 @@ test('complete means every stage has evidence',()=>{
  assert.equal(r.complete,true);
  assert.equal(r.production_completion_claim_allowed,true);
 });
+
+test('all verified candidates may complete as a zero-write no-op only when every one has an allowed terminal disposition',()=>{
+ const r=Gate.evaluate({
+  discovery,
+  candidates:[],
+  verified_candidate_count:3,
+  terminal_dispositions:[
+   {event_key:'A',status:'SKIPPED_BOOKING_DATE'},
+   {event_key:'B',status:'SKIPPED_EVENT_HISTORY'},
+   {event_key:'C',status:'SKIPPED_OWNER_HIDDEN'}
+  ],
+  final_report_ready:true
+ });
+ assert.equal(r.complete,true);
+ assert.equal(r.status,'COMPLETE');
+ assert.equal(r.completion_mode,'SAFE_NOOP_TERMINAL_DISPOSITIONS');
+ assert.equal(r.terminal_disposition_count,3);
+ assert.equal(r.production_completion_claim_allowed,true);
+});
+
+test('safe no-op cannot pass when terminal disposition coverage is incomplete',()=>{
+ const r=Gate.evaluate({
+  discovery,
+  candidates:[],
+  verified_candidate_count:2,
+  terminal_dispositions:[{event_key:'A',status:'SKIPPED_BOOKING_DATE'}],
+  final_report_ready:true
+ });
+ assert.equal(r.complete,false);
+ assert.ok(r.blockers.includes('TERMINAL_DISPOSITION_COVERAGE_MISMATCH'));
+});
+
+test('safe no-op cannot hide ambiguous or unresolved reconciliation',()=>{
+ const r=Gate.evaluate({
+  discovery,
+  candidates:[],
+  verified_candidate_count:1,
+  terminal_dispositions:[{event_key:'A',status:'HOLD_AMBIGUOUS_EXISTING'}],
+  final_report_ready:true
+ });
+ assert.equal(r.complete,false);
+ assert.ok(r.blockers.includes('UNSAFE_TERMINAL_DISPOSITION'));
+});
+
+test('zero candidates with no verified-input accounting remains blocked',()=>{
+ const r=Gate.evaluate({discovery,candidates:[],verified_candidate_count:0,terminal_dispositions:[],final_report_ready:true});
+ assert.equal(r.complete,false);
+ assert.ok(r.blockers.includes('NO_VERIFIED_CANDIDATES'));
+});
+

@@ -1,10 +1,11 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_FULL_LOOP_COMPLETION_GATE_V1';
+const VERSION='KK_ULTRA_DEEP_FULL_LOOP_COMPLETION_GATE_V2';
 const REQUIRED_STAGES=Object.freeze([
   'discovery','verification_dedup','commercial_pricing','poster',
   'storefront_comparison','governed_publish','production_readback','final_report'
 ]);
+const SAFE_TERMINAL_DISPOSITIONS=Object.freeze(new Set(['SKIPPED_BOOKING_DATE','SKIPPED_EVENT_HISTORY','SKIPPED_OWNER_HIDDEN']));
 
 function text(v){return String(v==null?'':v).trim();}
 function ok(v){return v===true || ['PASS','PASSED','COMPLETE','COMPLETED','VERIFIED','PUBLISHED','READY'].includes(text(v).toUpperCase());}
@@ -41,7 +42,21 @@ function evaluate(input={}){
   if(!ok(discovery.full)||text(discovery.status).toUpperCase()!=='READY_FOR_VERIFIER') blockers.push('DISCOVERY_COVERAGE_NOT_FULL');
 
   const candidates=Array.isArray(input.candidates)?input.candidates:[];
-  if(!candidates.length) blockers.push('NO_VERIFIED_CANDIDATES');
+  const terminal=Array.isArray(input.terminal_dispositions)?input.terminal_dispositions:[];
+  const verifiedCandidateCount=Number.isInteger(Number(input.verified_candidate_count))?Number(input.verified_candidate_count):null;
+  let completionMode='CANDIDATE_EVIDENCE';
+
+  if(!candidates.length){
+    if(verifiedCandidateCount>0 && terminal.length===verifiedCandidateCount){
+      const unsafe=terminal.filter(row=>!SAFE_TERMINAL_DISPOSITIONS.has(text(row&&row.status).toUpperCase()));
+      if(unsafe.length) blockers.push('UNSAFE_TERMINAL_DISPOSITION');
+      else completionMode='SAFE_NOOP_TERMINAL_DISPOSITIONS';
+    }else if(verifiedCandidateCount>0 && terminal.length!==verifiedCandidateCount){
+      blockers.push('TERMINAL_DISPOSITION_COVERAGE_MISMATCH');
+    }else{
+      blockers.push('NO_VERIFIED_CANDIDATES');
+    }
+  }
 
   const rows=candidates.map(evaluateCandidate);
   if(rows.some(r=>!r.complete)) blockers.push('CANDIDATE_FULL_LOOP_INCOMPLETE');
@@ -53,11 +68,15 @@ function evaluate(input={}){
     version:VERSION,
     status:complete?'COMPLETE':'BLOCKED_INCOMPLETE_FULL_LOOP',
     complete,
+    completion_mode:completionMode,
     blockers:[...new Set(blockers)],
     required_stages:[...REQUIRED_STAGES],
+    verified_candidate_count:verifiedCandidateCount,
+    terminal_disposition_count:terminal.length,
+    terminal_dispositions:terminal.map(row=>({event_key:text(row&&row.event_key),status:text(row&&row.status).toUpperCase()})),
     candidates:rows,
     production_completion_claim_allowed:complete
   };
 }
 
-module.exports={VERSION,REQUIRED_STAGES,evaluateCandidate,evaluate};
+module.exports={VERSION,REQUIRED_STAGES,SAFE_TERMINAL_DISPOSITIONS,evaluateCandidate,evaluate};

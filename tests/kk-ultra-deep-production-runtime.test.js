@@ -81,3 +81,57 @@ test('already hidden malformed automation row is not quarantined again',()=>{
  s.web_ready.push({event_id:'EVT-BAD',event_name:'Bad Facebook on X Bangkok Post',event_date:'2026-10-18',event_note:'Verifier-approved discovery promotion',action_for_web:'hide'});
  assert.deepEqual(R.malformedAutoPromotionRows(s),[]);
 });
+
+test('production runtime completes zero-write when every verified candidate is safely terminally skipped',async()=>{
+ const s=snapshot();
+ s.bookings.push({booking_id:'B2',event_date:'2026-10-23',booking_status:'confirmed'});
+ s.visibility_locks.push({
+   event_id:'EVT-HIST',
+   event_name:'Historical Concert',
+   event_date:'2026-10-28',
+   venue:'BITEC',
+   lock_state:'SEEN_CORE'
+ });
+ const handoff={
+   month:'2026-10',
+   verifier:{
+     verified_candidates:[
+       {event_key:'BOOKED',title:'LYKN REFLEXION CONCERT',event_date:'2026-10-23',venue:'IMPACT Arena'},
+       {event_key:'HISTORY',title:'Historical Concert',event_date:'2026-10-28',venue:'BITEC'}
+     ]
+   },
+   competitor_prices:[],
+   posters:[]
+ };
+ const out=await R.execute(handoff,{snapshot:s,executeWrites:false});
+ assert.equal(out.status,'COMPLETE');
+ assert.equal(out.production_writes,0);
+ assert.equal(out.blockers.length,0);
+ assert.equal(out.orchestrator.acceptance.complete,true);
+ assert.equal(out.orchestrator.acceptance.completion_mode,'SAFE_NOOP_TERMINAL_DISPOSITIONS');
+ assert.equal(out.orchestrator.acceptance.verified_candidate_count,2);
+ assert.equal(out.orchestrator.acceptance.terminal_disposition_count,2);
+ assert.deepEqual(out.dispositions.map(x=>x.status),['SKIPPED_BOOKING_DATE','SKIPPED_EVENT_HISTORY']);
+});
+
+test('production runtime still fails closed when reconciliation has an ambiguous unresolved candidate',async()=>{
+ const s=snapshot();
+ s.events=[
+   {event_id:'1',event_name:'Artist Live Bangkok',event_date:'2026-10-20',venue:'BITEC',active_on_web:true},
+   {event_id:'2',event_name:'Artist Live Bangkok Special',event_date:'2026-10-20',venue:'BITEC',active_on_web:true}
+ ];
+ s.web_ready=[];s.web_packages=[];s.visibility_locks=[];s.bookings=[];
+ const handoff={
+   month:'2026-10',
+   verifier:{verified_candidates:[{event_key:'X',title:'Artist Live Bangkok Show',event_date:'2026-10-20',venue:'BITEC'}]},
+   competitor_prices:[],
+   posters:[]
+ };
+ const out=await R.execute(handoff,{snapshot:s,executeWrites:false});
+ assert.equal(out.status,'PARTIAL_SAFE_EXECUTION');
+ assert.equal(out.production_writes,0);
+ assert.ok(out.blockers.includes('AMBIGUOUS_EXISTING_EVENT_REVIEW'));
+ assert.equal(out.orchestrator.acceptance.complete,false);
+ assert.ok(out.orchestrator.acceptance.blockers.includes('UNSAFE_TERMINAL_DISPOSITION'));
+});
+
