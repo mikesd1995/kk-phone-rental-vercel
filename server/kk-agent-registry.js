@@ -42,7 +42,7 @@ const AGENTS = Object.freeze({
     production_writes: 0
   }),
   'kk-marketing-agent': Object.freeze({
-    version: 'KK_MARKETING_AGENT_V1',
+    version: 'KK_MARKETING_AGENT_V2_X_SIGNAL',
     authority: 'READ_ONLY_ADVISOR',
     runtime_state: 'LIVE_GATEWAY_MANDATORY_FOR_CONTENT',
     surface: 'AGENT_GATEWAY',
@@ -157,6 +157,15 @@ const ROUTES = Object.freeze({
     route_id: 'CHAT_CONTENT_DIRECT_RENTAL_X',
     request_type: 'CHAT_CONTENT_REQUEST',
     required_agents: Object.freeze(['kk-marketing-agent', 'kk-content-strategy', 'kk-content-agent', 'kk-content-qa', 'kk-content-selector']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: true,
+    persistent_invocation_evidence_required: true
+  }),
+  x_posting_plan: Object.freeze({
+    route_id: 'CHAT_X_POSTING_PLAN',
+    request_type: 'X_POSTING_PLAN_REQUEST',
+    required_agents: Object.freeze(['kk-marketing-agent']),
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: true,
@@ -571,7 +580,7 @@ function publicRegistry() {
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
       'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',
       'Storefront UX Reviewer consumes supplied viewport/layout metrics and screenshot observations; browser visual evidence remains required for final visual acceptance.',
-      'All post-generation routes that enter this gateway now require Marketing → Strategy → Content → QA → Selector and a single-winner contract. ChatGPT cross-chat enforcement still requires the chat surface to call this private gateway rather than bypass it.'
+      'All post-generation routes that enter this gateway now require Marketing → Strategy → Content → QA → Selector and a single-winner contract. X posting-plan requests are auto-detected as x_posting_plan inside the gateway and invoke the Marketing Agent with persistent evidence. External chat surfaces still must call this private gateway rather than bypass it.'
     ]
   };
 }
