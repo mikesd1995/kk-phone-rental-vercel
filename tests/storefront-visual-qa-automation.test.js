@@ -146,12 +146,17 @@ test('sticky screenshot scrolls from the sticky shell itself',()=>{
 });
 
 
-test('visual QA harness enforces Storefront Art Director acceptance',()=>{
+test('visual QA keeps technical CI and owner release acceptance as separate fail-closed gates',()=>{
   const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
   assert.match(source,/kk-storefront-art-director/);
   assert.match(source,/ArtDirector\.evaluateImplementation/);
   assert.match(source,/art_director_acceptance/);
-  assert.match(source,/summary\.pass=summary\.pass && artAcceptance\.status==='PASS'/);
+  assert.match(source,/const technicalPass=summary\.pass/);
+  assert.match(source,/const releasePass=technicalPass && artAcceptance\.status==='PASS'/);
+  assert.match(source,/summary\.technical_pass=technicalPass/);
+  assert.match(source,/summary\.release_ready=releasePass/);
+  assert.match(source,/summary\.pass=technicalPass/);
+  assert.match(source,/owner_visual_acceptance/);
 });
 
 test('visual QA workflow triggers for active storefront CSS and Art Director changes',()=>{
@@ -290,4 +295,13 @@ test('visual QA invokes all seven storefront design-council reviewers and blocks
 test('V6.3 modal cancels inherited scale animation so 44px controls measure at full size',()=>{
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   assert.match(css,/\.modal\{[\s\S]*animation:none!important;transform:none!important/);
+});
+
+
+test('visual QA treats a verified rendered exact-event text fallback as degraded P2, not a broken-card P1',()=>{
+  assert.match(runner,/fallback_mode!=='event-summary'/);
+  assert.match(runner,/fallback_visible!==true/);
+  assert.match(runner,/POSTER_SOURCE_DEGRADED_FALLBACK_RENDERED/);
+  assert.match(runner,/severity:'P2'/);
+  assert.match(runner,/POSTER_DELIVERY_FAILED/);
 });
