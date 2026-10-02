@@ -198,8 +198,9 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
   assert.equal(html.includes('v60-premium-editorial'),true);
-  assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
-  assert.equal(html.includes('CONCERT MEMORY SERVICE'),true);
+  assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),false);
+  assert.equal(html.includes('CONCERT MEMORY SERVICE'),false);
+  assert.equal(html.includes('เก็บทุกช็อต<br><em>ให้ใกล้กว่าเดิม</em>'),true);
   assert.equal(css.includes('V5.8 Editorial Optics'),true);
   assert.equal(art.includes('proprietary-editorial-concert-optics'),true);
   assert.equal(art.includes('Trend references are inputs, not instructions'),true);
