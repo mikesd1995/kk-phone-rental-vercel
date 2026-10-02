@@ -183,8 +183,8 @@ test('empty current-month discovery blocks FULL even when provider calls execute
 });
 
 test('provider preflight rejects bound functions that produce no live search evidence',async()=>{
- const p={DDG_HTML:async()=>[],BING_HTML:async()=>[]};const r=await R.providerPreflight(p,{month:'2026-10'});assert.equal(r.status,'NO_LIVE_SEARCH_EVIDENCE');assert.deepEqual(r.usable,[]);
+ const p={DDG_HTML:async()=>[],BING_HTML:async()=>[]};const r=await Runner.providerPreflight(p,{month:'2026-10'});assert.equal(r.status,'NO_LIVE_SEARCH_EVIDENCE');assert.deepEqual(r.usable,[]);
 });
 test('provider preflight accepts only provider with real HTTPS evidence',async()=>{
- const p={DDG_HTML:async()=>[{title:'October Concert',source_url:'https://example.com/event'}]};const r=await R.providerPreflight(p,{month:'2026-10'});assert.equal(r.status,'READY');assert.deepEqual(r.usable,['DDG_HTML']);
+ const p={DDG_HTML:async()=>[{title:'October Concert',source_url:'https://example.com/event'}]};const r=await Runner.providerPreflight(p,{month:'2026-10'});assert.equal(r.status,'READY');assert.deepEqual(r.usable,['DDG_HTML']);
 });
