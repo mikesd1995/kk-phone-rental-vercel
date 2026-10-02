@@ -395,6 +395,7 @@ async function main(){
           safe_area_bottom_applied:/safe-area-inset-bottom/i.test(cssText),
           min_form_control_font_px:formControls.length?Math.min(...formControls):0,
           filter_rows:rowTops.length,
+          filter_item_geometry:filterItems.map(el=>{const r=el.getBoundingClientRect();return {class_name:String(el.className||''),top:r.top,left:r.left,width:r.width,height:r.height};}),
           card_columns:firstRow.length,
           card_min_width_px:cardRects.length?Math.min(...cardRects.map(r=>r.width)):0,
           visible_event_cards_above_fold:visibleAboveFold,
