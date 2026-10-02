@@ -6,7 +6,7 @@
   "baseline": "production-v3",
   "reviewed_design_blobs": {
     "index_html": "c42c282806a032b7f47def2bd1adc2ff23025ee7",
-    "v5_css": "c8d2c1e7ab051dfdbb0a55626b5b4d80059c3a00",
+    "v5_css": "6e5bf03f92502fc0c99859737ec4ddeea66f8a89",
     "script_js": "66def8d16eeb5c50c8594360365c300e953c1ca9"
   },
   "screenshot_artifact_id": "11206097786",
@@ -105,6 +105,11 @@
       "artifact_id": "11206097786",
       "status": "OWNER_ACCEPTED_TECHNICAL_REVIEW_PENDING",
       "finding": "Owner explicitly accepted the newly generated V6.2 premium light/dark mock direction on 2026-10-02 and instructed implementation. V6.2.1 executable screenshots show the mobile compression correction with no runtime errors, interaction PASS, zero production writes, and no per-viewport critique blockers; final independent visual/screenshot gate remains pending until this exact executable blob binding reruns."
+    },
+    {
+      "artifact_id": "11205989810",
+      "status": "REVISE",
+      "finding": "Exact-head V6.2.1 cleared all viewports except 320x568, where the first event began at 569px (1px beyond the fold). V6.2.2 applies a narrowly scoped short-viewport spacing correction without changing approved visual direction or business logic."
     }
   ],
   "reviewed_viewports": [
@@ -126,7 +131,7 @@
   "production_writes": 0,
   "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "1dbee43685587ae2df391a6e6e3bfd5968980a0f",
+  "reviewed_design_head": "b0b4c827ff2ffd01445f510387d3c0a32af1725e",
   "owner_acceptance_evidence": {
     "accepted_at": "2026-10-02",
     "artifact_id": "11206097786",
