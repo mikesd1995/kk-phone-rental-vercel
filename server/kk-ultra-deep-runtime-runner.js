@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V5';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V6';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -123,6 +123,12 @@ function referenceScopeDecision(row={},context={}){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return {eligible:false,reason:'NO_STRUCTURED_DATE'};
  if(month&&!eventDate.startsWith(month+'-')) return {eligible:false,reason:'OUTSIDE_TARGET_MONTH'};
  if(REFERENCE_NOISE_RE.test(title)) return {eligible:false,reason:'NON_RENTAL_EVENT_NOISE'};
+ if(/^\s*home\s*(?:[-|:–—]\s*.*)?$/i.test(title)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+ try{
+  const u=new URL(text(row.source_url));
+  const path=(u.pathname||'/').replace(/\/+$/,'')||'/';
+  if(path==='/'&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+ }catch(_){}
  if(REFERENCE_FOREIGN_RE.test(title)||/\.hk$/i.test((()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return''}})())) return {eligible:false,reason:'OUTSIDE_BANGKOK_SCOPE'};
  if(!REFERENCE_EVENT_RE.test(title)&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'EVENT_IDENTITY_NOT_STRONG_ENOUGH'};
  return {eligible:true,reason:'ELIGIBLE_REFERENCE'};
