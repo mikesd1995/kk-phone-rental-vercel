@@ -70,6 +70,22 @@
       ],
       "supersedes": [],
       "source": "owner"
+    },
+    {
+      "memory_id": "kk:memory:content:x-posting-plan-default:20261002",
+      "occurred_at": "2026-10-02T15:21:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "content",
+      "summary": "X posting-plan requests for KK Phone Rental are a default governed flow: route through x_posting_plan without requiring an explicit enable-agent command, use Asia/Bangkok slots 19:30 / 21:00 / 22:30 / 00:00 (late night), rank verified candidates using engagement velocity, conversation volume, event proximity, fandom strength, competitor activity, booking opportunity and recent-post fatigue, and remain read-only with owner review.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/X_POSTING_PLAN_DEFAULT_AGENT_2026-10-02.md",
+        "server/kk-x-posting-plan.js",
+        "server/kk-agent-gateway.js",
+        "tests/kk-x-posting-plan.test.js"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
     }
   ]
 }
