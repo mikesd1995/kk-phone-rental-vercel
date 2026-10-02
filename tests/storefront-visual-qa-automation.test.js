@@ -285,3 +285,9 @@ test('visual QA invokes all seven storefront design-council reviewers and blocks
   assert.match(runner,/raw_i18n_key_count/);
   assert.match(runner,/invoked_agents/);
 });
+
+
+test('V6.3 modal cancels inherited scale animation so 44px controls measure at full size',()=>{
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  assert.match(css,/\.modal\{[\s\S]*animation:none!important;transform:none!important/);
+});
