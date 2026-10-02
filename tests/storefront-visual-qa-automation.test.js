@@ -374,7 +374,8 @@ test('production storefront workflows derive the live asset marker from exact ap
   const prebuilt=fs.readFileSync('.github/workflows/storefront-v60-prebuilt-production.yml','utf8');
   const promote=fs.readFileSync('.github/workflows/storefront-v60-zero-cost-promote.yml','utf8');
   for(const source of [prebuilt,promote]){
-    assert.equal(source.includes("grep -oE 'kk-storefront-v5\.css\?v=[^"]+'"),true);
+    assert.equal(source.includes("marker=\"$(grep -oE"),true);
+    assert.equal(source.includes('kk-storefront-v5\\.css\\?v='),true);
     assert.match(source,/STOREFRONT_MARKER/);
     assert.match(source,/grep -Fq "\$STOREFRONT_MARKER"/);
     assert.doesNotMatch(source,/v60-premium-editorial/);
