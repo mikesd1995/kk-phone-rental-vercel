@@ -24,3 +24,9 @@ No completion criterion was weakened. Scanner remains zero-write.
 - The contrast with live known-miss recall showed that search transport was partially healthy while long generic monthly queries had poor recall.
 - Discovery V6 adds bounded broad fallbacks after precise month/location queries for both generic tiers and named source-universe tasks.
 - Broad results remain non-authoritative and verifier/date-window gated. Production writes remain zero in discovery acceptance; FULL/reconciliation gates are not weakened.
+
+## Reference Sweep V7 follow-up
+- October Full Loop run 37000102362 improved monthly discovery from 0 to 29 candidates and completed the 30-source universe, but remained HOLD_FOR_COVERAGE because all four independent reference tasks returned no evidence.
+- Root cause scope: the reference plan still used the older long month/location-only query strategy while Discovery V6 had already moved to bounded exact-to-broad fallbacks.
+- V7 preserves independent reference execution and the REFERENCE_SWEEP_INCOMPLETE fail-closed gate, while adding bounded broad reference intents for concert, fanmeeting/fancon, lucky-fan/brand event, and public calendar coverage.
+- No production-write path or verifier/reconciliation rule is weakened.
