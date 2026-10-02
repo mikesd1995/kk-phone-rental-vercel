@@ -15,6 +15,7 @@ const AgentLedger = require('../server/kk-agent-invocation-ledger.js');
 const AgentRegistry = require('../server/kk-agent-registry.js');
 const AgentOrchestration = require('../server/kk-agent-orchestration.js');
 const DecisionLedger = require('../server/kk-decision-ledger.js');
+const AdminSecurity = require('../server/admin-session.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -126,7 +127,11 @@ function createProposal(snapshot,payload){
 function updateProposal(snapshot,payload){
   const row=Number(payload.row_number||0);
   const bid=String(payload.booking_id||'').trim();
-  const current=(snapshot.bookings||[]).find(b=>(row>0&&Number(b.row_number||0)===row)||(bid&&String(b.booking_id||'').trim()===bid));
+  // booking_id is stable across blank-row insertion, cleanup and GViz row
+  // compaction. Only fall back to row_number for legacy callers with no ID.
+  const current=bid
+    ? (snapshot.bookings||[]).find(b=>String(b.booking_id||'').trim()===bid)
+    : (snapshot.bookings||[]).find(b=>row>0&&Number(b.row_number||0)===row);
   if(!current) throw new Error('Booking preflight cannot find target booking');
   const next=Object.assign({},current);
   if(payload.booking_status!==undefined&&payload.booking_status!=='') next.booking_status=payload.booking_status;
@@ -365,7 +370,12 @@ module.exports=async function handler(req,res){
   const adminPin=String(process.env.KK_ADMIN_PIN||'').trim();
   const providedPin=String(req.headers&&req.headers['x-admin-pin']||'').trim();
   if(!adminPin) return reply(res,500,{ok:false,error:'Admin API is not configured. Set KK_ADMIN_PIN in Vercel Environment Variables.',error_code:agentGatewayAction?'AGENT_GATEWAY_UNAVAILABLE':(bookingGuarded?'BOOKING_PREFLIGHT_UNAVAILABLE':(visibilityGuarded?'EVENT_VISIBILITY_PREFLIGHT_UNAVAILABLE':'EVENT_PREFLIGHT_UNAVAILABLE'))});
-  if(!safeSecretEqual(providedPin,adminPin)) return reply(res,401,{ok:false,error:'Invalid admin PIN'});
+  // The outer signed-session gate may authorize the request without exposing the
+  // PIN to browser JavaScript. Do not depend on mutating request headers in the
+  // Vercel runtime; accept the signed HttpOnly session directly as well.
+  const signedSession=AdminSecurity.hasValidSession(req)||AdminSecurity.isAuthorizedRequest(req);
+  const legacyPinOk=!!providedPin&&safeSecretEqual(providedPin,adminPin);
+  if(!signedSession&&!legacyPinOk) return reply(res,401,{ok:false,error:'Invalid admin session'});
 
   if(agentGatewayAction){
     res.setHeader('X-KK-Agent-Gateway-Version',AgentGateway.GATEWAY_VERSION);
