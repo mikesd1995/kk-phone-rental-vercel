@@ -198,9 +198,10 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
   assert.equal(html.includes('v60-premium-editorial'),true);
-  assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),false);
+  // V6.2 owner-approved premium mock intentionally promotes the FAR SEAT / CLOSE MEMORY signature.
+  assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
   assert.equal(html.includes('CONCERT MEMORY SERVICE'),false);
-  assert.equal(html.includes('เก็บทุกช็อต<br><em>ให้ใกล้กว่าเดิม</em>'),true);
+  assert.equal(html.includes('kk-mock-hero'),true);
   assert.equal(css.includes('V5.8 Editorial Optics'),true);
   assert.equal(art.includes('proprietary-editorial-concert-optics'),true);
   assert.equal(art.includes('Trend references are inputs, not instructions'),true);
@@ -243,10 +244,11 @@ test('screenshot review record is bound to the current executable storefront blo
 test('V6.1 conversion polish keeps trust, CTA hierarchy and floating contact out of the left content rail',()=>{
   const html=fs.readFileSync('index.html','utf8');
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
-  assert.match(html,/class="kk-commerce-strip"/);
+  assert.match(html,/class="kk-benefit-grid"/);
   assert.match(html,/ฟรีประกัน/);
-  assert.match(html,/ไม่วางมัดจำ/);
+  assert.match(html,/ไม่ต้องวางมัดจำ/);
   assert.match(html,/รับ–คืนหน้างาน/);
+  assert.match(html,/href="#booking-journey">วิธีการเช่า/);
   assert.match(css,/\.pi-tap\{[^}]*border:1px solid var\(--v6-line\)!important/);
   assert.match(css,/\.sticky-line\{right:14px!important;left:auto!important/);
 });
