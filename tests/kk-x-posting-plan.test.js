@@ -134,3 +134,22 @@ test('project memory locks X posting planning as a cross-chat default',()=>{
   assert.match(item.summary,/19:30/);
   assert.match(item.summary,/late night/i);
 });
+
+
+test('unverified event candidates are rejected and never assigned to a posting slot',()=>{
+  const result=Planner.plan({candidates:[
+    {
+      event:'Unverified Viral Event',
+      verified_event:false,
+      engagement_velocity:100,
+      conversation_volume:100,
+      fandom_strength:100,
+      competitor_activity:100,
+      booking_opportunity:100,
+      event_is_tomorrow:true
+    },
+    ...candidates()
+  ]});
+  assert.ok(result.rejected_candidates.some(x=>x.event==='Unverified Viral Event'&&x.reason==='EVENT_NOT_VERIFIED'));
+  assert.equal(result.slots.some(x=>x.event==='Unverified Viral Event'),false);
+});
