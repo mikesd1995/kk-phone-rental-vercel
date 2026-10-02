@@ -18,12 +18,16 @@ test('createBooking is request-idempotent before allocating stock or writing a r
   assert.ok(block.indexOf('if (prior)') < block.indexOf('kkFindAvailableAsset_'));
 });
 
-test('new bookings get immutable explicit booking_id values, including sheet Quick Booking',()=>{
+test('new bookings get immutable explicit booking_id values and Sheet Quick Booking uses the canonical creator',()=>{
   assert.match(apps,/function kkGenerateUniqueBookingId_\(eventDate\)/);
   assert.match(apps,/archive\.getRange\(2, 7, archive\.getLastRow\(\) - 1, 1\)/);
   assert.match(apps,/const bookingId = kkGenerateUniqueBookingId_\(event\.event_date\)/);
   assert.match(apps,/bookingSheet\.getRange\(row, 1, 1, 20\)\.setValues/);
-  assert.match(apps,/kkSheet_\(KK\.bookings\)\.getRange\(row, 1, 1, 20\)\.setValues/);
+  const start=apps.indexOf('function kkAddQuickBookingFromDashboard');
+  const end=apps.indexOf('\nfunction ',start+10);
+  const quick=apps.slice(start,end);
+  assert.match(quick,/kkApiCreateBooking_\(/);
+  assert.doesNotMatch(quick,/getRange\(row, 2, 1, 19\)\.setValues/);
 });
 
 test('technical idempotency marker is hidden from Admin snapshots and preserved across note edits',()=>{
