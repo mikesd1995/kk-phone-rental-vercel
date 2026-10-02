@@ -15,7 +15,7 @@ function eventSeriesTitle(value){
   s=s.replace(/^\s*(?:tickets?|official\s+ticket)\s*[:|]\s*/i,'');
   const month='Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
   const dow='Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?';
-  s=s.replace(new RegExp(',?\\s*(?:Bangkok|กรุงเทพ(?:มหานคร)?)\\s*,?\\s*(?:'+dow+')?\\s*,?\\s*\\d{1,2}\\s+(?:'+month+')\\s+20\\d{2}.*
+  const dayMonth=',?\\s*(?:Bangkok|กรุงเทพ(?:มหานคร)?)\\s*,?\\s*(?:'+dow+')?\\s*,?\\s*\\d{1,2}\\s+(?:'+month+')\\s+20\\d{2}.*
   const title=norm(row.title||row.event_name);
   const eventDate=date(row.event_date);
   return Boolean(title && /^\d{4}-\d{2}-\d{2}$/.test(eventDate));
@@ -137,8 +137,8 @@ function classifyAgainstSot(candidates=[],context={}){
 }
 
 module.exports={VERSION,TRUSTED_THAI_EVENT_HOSTS,key,eventSeriesTitle,reconcileKey,hasComparableEventIdentity,sourceHost,referenceScope,reconcileCandidateSets,classifyAgainstSot};
-,'i'),'');
-  s=s.replace(new RegExp(',?\\s*(?:Bangkok|กรุงเทพ(?:มหานคร)?)\\s*,?\\s*(?:'+dow+')?\\s*,?\\s*(?:'+month+')\\s+\\d{1,2}(?:st|nd|rd|th)?(?:,)?\\s+20\\d{2}.*
+;
+  const monthDay=',?\\s*(?:Bangkok|กรุงเทพ(?:มหานคร)?)\\s*,?\\s*(?:'+dow+')?\\s*,?\\s*(?:'+month+')\\s+\\d{1,2}(?:st|nd|rd|th)?(?:,)?\\s+20\\d{2}.*
   const title=norm(row.title||row.event_name);
   const eventDate=date(row.event_date);
   return Boolean(title && /^\d{4}-\d{2}-\d{2}$/.test(eventDate));
@@ -260,7 +260,9 @@ function classifyAgainstSot(candidates=[],context={}){
 }
 
 module.exports={VERSION,TRUSTED_THAI_EVENT_HOSTS,key,hasComparableEventIdentity,sourceHost,referenceScope,reconcileCandidateSets,classifyAgainstSot};
-,'i'),'');
+;
+  s=s.replace(new RegExp(dayMonth,'i'),'');
+  s=s.replace(new RegExp(monthDay,'i'),'');
   return norm(s);
 }
 
