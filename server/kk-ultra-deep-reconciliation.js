@@ -67,10 +67,11 @@ function reconcileCandidateSets(discovered=[],reference=[],context={}){
   const found=new Set((Array.isArray(discovered)?discovered:[]).filter(hasComparableEventIdentity).map(key));
   const refs=(Array.isArray(reference)?reference:[]).filter(Boolean);
   const structuredRefs=refs.filter(hasComparableEventIdentity);
-  const scopedRows=structuredRefs.map(row=>({row,scope:referenceScope(row,context)}));
-  const comparableRefs=scopedRows.filter(x=>x.scope.eligible).map(x=>x.row);
-  const excludedRefs=scopedRows.filter(x=>!x.scope.eligible);
-  const eligibleRefs=comparableRefs.filter(row=>row.eligible_for_discovery!==false);
+  // Generic reconciliation must not infer business scope itself. Runtime callers
+  // mark independently searched rows with eligible_for_discovery after applying
+  // month/location/category policy. Undefined remains backwards-compatible and
+  // eligible for deterministic/unit callers.
+  const eligibleRefs=structuredRefs.filter(row=>row.eligible_for_discovery!==false);
   const missing=[];
   const matched=[];
   for(const row of eligibleRefs){
@@ -88,10 +89,10 @@ function reconcileCandidateSets(discovered=[],reference=[],context={}){
     complete:eligibleRefs.length>0&&missing.length===0,
     reconciliation_gap_count:missing.length,
     reference_count:eligibleRefs.length,
-    structured_reference_count:comparableRefs.length,
+    structured_reference_count:structuredRefs.length,
     raw_reference_count:refs.length,
-    excluded_reference_count:comparableRefs.length-eligibleRefs.length,
-    unstructured_reference_count:refs.length-comparableRefs.length,
+    excluded_reference_count:structuredRefs.length-eligibleRefs.length,
+    unstructured_reference_count:refs.length-structuredRefs.length,
     matched_count:matched.length,
     missing_candidates:missing,
     production_writes:0
