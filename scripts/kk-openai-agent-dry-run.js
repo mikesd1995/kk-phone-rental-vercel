@@ -1,7 +1,18 @@
 'use strict';
 
+const fs=require('node:fs');
 const Router=require('../server/kk-agent-task-router.js');
 const Platform=require('../server/kk-openai-platform.js');
+
+function emitReport(report,{error=false}={}){
+  const body=JSON.stringify(report,null,2)+'\n';
+  const outputPath=String(process.env.KK_OPENAI_REPORT_PATH||'').trim();
+  if(outputPath){
+    fs.writeFileSync(outputPath,body,{encoding:'utf8',mode:0o600});
+    return;
+  }
+  (error?process.stderr:process.stdout).write(body);
+}
 
 async function main(){
   const env=process.env;
@@ -63,15 +74,15 @@ async function main(){
     })
   };
   if(report.results.some(row=>row.production_writes!==0)) process.exitCode=2;
-  process.stdout.write(JSON.stringify(report,null,2)+'\n');
+  emitReport(report);
 }
 
 main().catch(error=>{
-  process.stderr.write(JSON.stringify({
+  emitReport({
     schema_version:'KK_OPENAI_AGENT_DRY_RUN_V1',
     status:'FAILED',
     error_code:String(error&&(error.code||error.name)||'ERROR'),
     production_writes:0
-  })+'\n');
+  },{error:true});
   process.exitCode=1;
 });

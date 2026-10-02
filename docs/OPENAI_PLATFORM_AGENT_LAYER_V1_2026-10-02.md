@@ -294,3 +294,19 @@ The acceptance design has been corrected:
 - continue to require `KK_OPENAI_ALLOW_CUSTOMER_DATA` to remain disabled.
 
 If Vercel has not created an exact READY Preview for the current head, acceptance reports `BLOCKED_PREVIEW_DEPLOYMENT_REQUIRED` instead of rotating the OpenAI key again.
+
+
+## Staging acceptance hardening — 2026-10-02
+
+A later Admin Regression proved that the dedicated `api/kk-openai-staging-probe.js` increased the Vercel Hobby API function surface from 12 to 13 functions. The staging probe endpoint and its endpoint-specific test were therefore removed instead of weakening the function-budget gate.
+
+Staging acceptance now uses the existing Vercel CLI to execute `scripts/kk-openai-agent-dry-run.js` directly with the branch-scoped Preview environment:
+
+- no Preview deployment is required;
+- no public/private staging HTTP function is added;
+- the existing Vercel owner token is required;
+- `--environment=preview --git-branch=feat/openai-platform-agent-layer-v1` selects branch-scoped configuration;
+- the dry-run writes a mode-0600 secret-safe report file;
+- acceptance requires OpenAI enabled, a valid-looking `sk-` key shape, customer-data gate disabled, storefront/discovery advisory success, and `production_writes=0`.
+
+Live OpenAI target discovery also corrected a prior mapping error: within organization `kkphoneteam`, project `kkphonerental` is `proj_I2SGd2Pzp2vsoRCafLxR0CWK`; `proj_49DFUOJVF1WrWdT1Jhmi9KUb` is the separate `kktest` project. No Production environment is changed by this acceptance path.
