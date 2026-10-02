@@ -98,7 +98,7 @@ jobs:
           test "${KK_OPENAI_PLATFORM_ENABLED:-}" = "true"
           test -z "${KK_OPENAI_ALLOW_CUSTOMER_DATA:-}"
 
-          npm run openai:agents:dry-run > openai-agent-staging-report.json
+          node scripts/kk-openai-agent-dry-run.js > openai-agent-staging-report.json
 
           node - <<'NODE'
           const fs=require('node:fs');
