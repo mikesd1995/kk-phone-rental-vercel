@@ -281,10 +281,10 @@ jobs:
             node - <<'NODE'
           const fs=require('node:fs');
           const r=JSON.parse(fs.readFileSync('executor-health.json','utf8'));
-          const runtimes=new Set(['KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V1','KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V2']);
           if(r.ok!==true)process.exit(1);
           if(r.service!=='kk-ultra-deep-full-loop')process.exit(1);
-          if(!runtimes.has(String(r.runtime_version||'')))process.exit(1);
+          if(String(r.runtime_version||'')!=='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V2')process.exit(1);
+          if(String(r.completion_gate_version||'')!=='KK_ULTRA_DEEP_FULL_LOOP_COMPLETION_GATE_V2')process.exit(1);
           if(String(r.oidc_version||'')!=='KK_GITHUB_OIDC_VERIFIER_V1')process.exit(1);
           NODE
             COMPATIBLE=true
@@ -292,14 +292,44 @@ jobs:
           echo "compatible=$COMPATIBLE" >> "$GITHUB_OUTPUT"
           echo "executor_commit_sha=$(node -e "try{const r=require('./executor-health.json');process.stdout.write(String(r.commit_sha||''))}catch{}")" >> "$GITHUB_OUTPUT"
 
-      - name: Require compatible production executor contract
+      - name: Refresh production executor once when contract is stale
+        if: ${{ steps.commercial_gate.outcome == 'success' && steps.endpoint.outputs.compatible != 'true' }}
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+          VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}"
+          npm install --no-save vercel@latest >/dev/null
+          npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx vercel build --prod --token="$VERCEL_TOKEN"
+          npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tee ultra-deep-deploy-url.txt
+
+      - name: Verify compatible production executor contract
         if: ${{ steps.commercial_gate.outcome == 'success' }}
         shell: bash
         env:
-          COMPATIBLE: ${{ steps.endpoint.outputs.compatible }}
+          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-admin-guard
         run: |
           set -euo pipefail
-          test "$COMPATIBLE" = "true"
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -fsS -X POST "$EXECUTOR_URL" -H "Content-Type: application/json" --data '{"action":"ultraDeepFullLoopHealth"}' -o executor-health.json; then
+              if node - <<'NODE'
+          const r=require('./executor-health.json');
+          if(r.ok!==true)process.exit(1);
+          if(r.service!=='kk-ultra-deep-full-loop')process.exit(1);
+          if(String(r.runtime_version||'')!=='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V2')process.exit(1);
+          if(String(r.completion_gate_version||'')!=='KK_ULTRA_DEEP_FULL_LOOP_COMPLETION_GATE_V2')process.exit(1);
+          if(String(r.oidc_version||'')!=='KK_GITHUB_OIDC_VERIFIER_V1')process.exit(1);
+          NODE
+              then ok=1; break; fi
+            fi
+            sleep 4
+          done
+          test "$ok" = 1
 
       - name: Execute governed production Full Loop
         id: production
