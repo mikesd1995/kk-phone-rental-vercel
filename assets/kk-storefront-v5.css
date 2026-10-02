@@ -955,3 +955,91 @@ html[data-theme="dark"] .kk-benefit-grid{border-color:#20324b}html[data-theme="d
 
 /* V6.2.3 short-phone event-discovery threshold */
 @media(max-width:340px) and (max-height:620px){.kk-mock-hero{padding-top:4px!important;padding-bottom:2px!important}.kk-benefit-grid{margin-bottom:0!important}.browse-controls-shell{margin-bottom:0!important}.v3-events-heading{margin-top:2px!important;margin-bottom:2px!important}}
+
+
+/* V6.2.4 owner iPhone finish pass — 2026-10-02
+   Reduce first-fold chrome, make discovery controls compact, and turn the
+   package modal into a true mobile bottom sheet. Presentation only. */
+@media(max-width:700px){
+  .v3-header{height:54px!important}
+  .v3-brand-mark{display:none!important}
+  .v3-brand{gap:0!important}
+  .v3-brand-copy strong{font-size:14px!important}
+  .v3-header-actions{gap:4px!important}
+  .header-faq-btn{min-width:42px!important;width:42px!important}
+  .theme-toggle{min-width:42px!important;width:42px!important;flex-basis:42px!important}
+  .language-switch{min-height:42px!important;padding:2px!important}
+  .lang-btn{width:40px!important;min-width:40px!important;height:40px!important;min-height:40px!important}
+
+  .kk-mock-hero{padding:14px 30% 12px 0!important}
+  .kk-mock-hero h1{font-size:clamp(1.82rem,8.6vw,2.45rem)!important;line-height:.9!important}
+  .kk-mock-hero .v3-hero-copy>p{font-size:8.5px!important;max-width:28ch!important}
+  .kk-mock-hero .v3-primary,.kk-mock-hero .v3-secondary{min-height:42px!important}
+  .kk-benefit-grid>div{min-height:64px!important;padding:6px 3px!important}
+
+  .browse-controls-shell{padding:0!important;margin-bottom:10px!important}
+  .event-search-shell{margin-bottom:6px!important}
+  .event-search-wrap,.event-search{min-height:44px!important}
+  .event-search-wrap{border-radius:999px!important}
+  .status-filter-bar{gap:5px!important}
+  .month-select,.filter-btn{height:40px!important;min-height:40px!important}
+  .month-select{min-width:94px!important}
+  .filter-btn{padding-inline:10px!important}
+  .filter-btn.active{min-width:86px!important}
+  .event-search-count{margin-top:2px!important}
+  .v3-events-heading{padding-top:10px!important;margin-bottom:7px!important}
+  .v3-events-heading h2{font-size:1.24rem!important}
+  .v3-events-heading>div>span{margin-bottom:5px!important}
+  .update-note{margin-bottom:8px!important}
+
+  .overlay.active,.faq-overlay.active{
+    align-items:flex-end!important;
+    justify-content:center!important;
+    padding:0!important;
+  }
+  .overlay .modal,.faq-overlay .modal{
+    width:100%!important;
+    max-width:100%!important;
+    max-height:min(78dvh,720px)!important;
+    margin:0!important;
+    border-radius:24px 24px 0 0!important;
+    padding-bottom:max(14px,env(safe-area-inset-bottom))!important;
+    overscroll-behavior:contain!important;
+  }
+  .modal-handle{margin-top:10px!important}
+  .modal-x{
+    top:10px!important;right:12px!important;
+    width:40px!important;height:40px!important;
+  }
+  .modal-header{padding:14px 58px 0 18px!important}
+  .modal-title{font-size:20px!important;line-height:1.22!important}
+  .modal-meta{font-size:13px!important;line-height:1.4!important}
+  .modal-note{margin:10px 18px 0!important;padding:9px 0!important;background:transparent!important;border:0!important;border-top:1px solid var(--v6-line)!important;border-bottom:1px solid var(--v6-line)!important;border-radius:0!important;font-size:12px!important}
+  .modal-divider{display:none!important}
+  .phone-list{padding:4px 18px 0!important;gap:0!important}
+  .phone-row{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    grid-template-areas:none!important;
+    gap:8px 12px!important;
+    padding:12px 0!important;
+    border:0!important;
+    border-bottom:1px solid var(--v6-line)!important;
+    border-radius:0!important;
+    background:transparent!important;
+  }
+  .ph-icon{display:none!important}
+  .ph-info{grid-area:auto!important;min-width:0!important}
+  .ph-model{font-size:17px!important;line-height:1.2!important}
+  .ph-spec,.ph-note{font-size:12px!important;line-height:1.35!important}
+  .ph-right{grid-area:auto!important;width:auto!important;min-width:118px!important;margin:0!important;display:flex!important;flex-direction:column!important;align-items:flex-end!important;justify-content:center!important;gap:7px!important}
+  .ph-price{font-size:20px!important}
+  .book-pill{min-width:108px!important;min-height:42px!important;padding:0 13px!important;font-size:12px!important}
+  .modal-utility-actions{padding:10px 18px 0!important}
+  .modal-share{min-height:44px!important;padding:0 16px!important}
+  .modal-close{min-height:44px!important;margin:8px 18px 0!important;width:calc(100% - 36px)!important}
+}
+html[data-theme="dark"] .overlay .modal,
+html[data-theme="dark"] .faq-overlay .modal{border-color:#20324b!important}
+html[data-theme="dark"] .modal-note,
+html[data-theme="dark"] .phone-row{border-color:#20324b!important}
