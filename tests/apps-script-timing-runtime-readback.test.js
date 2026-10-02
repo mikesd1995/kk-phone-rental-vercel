@@ -179,3 +179,9 @@ test('mismatched deployed Apps Script version is visible but never treated as so
   assert.equal(report.safety.apps_script_writes,0);
 });
 
+test('transient Apps Script health failures use a short anti-hammer cache window',()=>{
+  assert.equal(handler._test.timingCacheTtl({status:'READBACK_COMPLETE'}),5*60*1000);
+  assert.equal(handler._test.timingCacheTtl({status:'READBACK_BLOCKED'}),30*1000);
+  assert.ok(handler._test.APPS_SCRIPT_TIMING_FAILURE_CACHE_TTL_MS < handler._test.APPS_SCRIPT_TIMING_CACHE_TTL_MS);
+});
+
