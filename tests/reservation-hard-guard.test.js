@@ -219,3 +219,29 @@ test('Admin write guard uses fixed-length timing-safe secret comparison',()=>{
   assert.match(source,/createHash\('sha256'\).*String\(a\|\|''\)/s);
   assert.doesNotMatch(source,/providedPin\s*!==\s*adminPin/);
 });
+
+
+test('stable booking ids prevent false self-match when unreliable row hints collide',()=>{
+  const existing=booking('BK-A','2026-09-19','20:00','confirmed',{row_number:40});
+  const proposed=booking('BK-B','2026-09-19','20:30','confirmed',{row_number:40});
+  const out=R.preflight({assets,bookings:[existing]},proposed);
+  assert.equal(out.ok,false);
+  assert.ok(out.errors.some(x=>x.code==='ASSET_WINDOW_COLLISION'));
+});
+
+test('update preflight rejects row-only identity when snapshot rows are non-authoritative',()=>{
+  const snap=snapshot();
+  snap.booking_row_number_reliable=false;
+  assert.throws(
+    ()=>Guard._test.updateProposal(snap,{row_number:10,booking_status:'completed'}),
+    err=>err&&err.code==='BOOKING_ID_REQUIRED'
+  );
+});
+
+test('update preflight permits row-only legacy identity only when source guarantees row reliability',()=>{
+  const snap=snapshot();
+  snap.booking_row_number_reliable=true;
+  const proposal=Guard._test.updateProposal(snap,{row_number:10,booking_status:'completed'});
+  assert.equal(proposal.booking_id,'B1');
+  assert.equal(proposal.booking_status,'completed');
+});
