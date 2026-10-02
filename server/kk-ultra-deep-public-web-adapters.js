@@ -208,7 +208,12 @@ async function ddgsTrafilatura(task={},options={}){
   // A result title is the identity-bearing evidence for a specific event page.
   // Do not cross-product a title-specific date with other dates mentioned in the snippet body.
   const titleDates=inferSearchEventDates(r.title);
-  const dates=titleDates.length?titleDates:inferSearchEventDates(r.body);
+  const bodyText=text(r.body);
+  const bodyDates=inferSearchEventDates(bodyText);
+  // Preserve an explicit bounded series range from the snippet (e.g. Date: Oct 11-13),
+  // but never combine a title-specific date with unrelated individual dates in prose.
+  const explicitBodyRange=/(?:date\s*:\s*)?(?:[A-Za-z]+\s+\d{1,2}\s*-\s*\d{1,2}|\d{1,2}\s*-\s*\d{1,2}\s+[A-Za-z]+)\s*,?\s*20\d{2}/i.test(bodyText);
+  const dates=explicitBodyRange&&bodyDates.length>1?bodyDates:(titleDates.length?titleDates:bodyDates);
   if(dates.length){
    for(const eventDate of dates.slice(0,7)) out.push({title,event_date:eventDate,event_time:null,venue:null,artist:[],source_url:sourceUrl,confidence:null});
   }else{
