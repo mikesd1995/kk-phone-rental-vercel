@@ -285,3 +285,18 @@ test('known-miss canonical alignment reconciles Bai Lu same-date aliases without
   assert.equal(out.complete,true);
   assert.equal(out.reconciliation_gap_count,0);
 });
+
+
+test('eligible structured reference missing from discovery is recovered only into verifier candidate pool',()=>{
+ const discovered=[{title:'The Weeknd Tue 13 Oct 2026',event_date:'2026-10-13',source_url:'https://example.com/weeknd-13'}];
+ const refs=[{title:'The Weeknd Sun 11 Oct 2026',event_date:'2026-10-11',source_url:'https://example.com/weeknd-11',eligible_for_discovery:true}];
+ const out=Runner.recoverEligibleReferenceCandidates(discovered,refs);
+ assert.equal(out.recovered_count,1);assert.equal(out.candidates.length,2);
+ assert.equal(out.candidates[1].candidate_origin,'INDEPENDENT_REFERENCE_RECOVERY');
+ assert.equal(out.candidates[1].verifier_required,true);assert.equal(out.candidates[1].authoritative,false);
+});
+
+test('ineligible reference is never recovered into verifier candidate pool',()=>{
+ const out=Runner.recoverEligibleReferenceCandidates([],[{title:'Generic Event',event_date:'2026-10-11',source_url:'https://example.com/x',eligible_for_discovery:false}]);
+ assert.equal(out.recovered_count,0);assert.equal(out.candidates.length,0);
+});
