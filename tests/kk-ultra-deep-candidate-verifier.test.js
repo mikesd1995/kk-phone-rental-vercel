@@ -69,3 +69,38 @@ test('batch never upgrades failed source fetch to verified',async()=>{
   assert.deepEqual(out.holds[0].blockers,['SOURCE_FETCH_FAILED']);
   assert.equal(out.production_writes,0);
 });
+
+test('social profile page and merged search title cannot become verified event evidence',async()=>{
+  const badTitle='The Mall Lifestore Bangkapi | Bangkok - FacebookTEETEE PHILIPPINES on X: TEETEE_SCHEDULE THE MALL คอนเสิร์ตที่ M GRAND HALL, The Mall Lifestore Bangkapi Bangkok Post - Manga madness at The Mall Bangkae MCC Hall | Bangkok - Facebook The Mall Lifestore';
+  assert.ok(badTitle.length>V.MAX_EVENT_TITLE_LENGTH);
+  const pre=V.prefilter({
+    title:badTitle,
+    event_date:'2026-10-18',
+    source_url:'https://www.facebook.com/themalllifestorebangkapi/'
+  },'2026-10');
+  assert.equal(pre.eligible,false);
+  assert.ok(pre.reasons.includes('MERGED_OR_OVERSIZED_TITLE'));
+  assert.ok(pre.reasons.includes('SOCIAL_PROFILE_NOT_EVENT_EVIDENCE'));
+
+  let calls=0;
+  const out=await V.verifyBatch([{
+    title:badTitle,
+    event_date:'2026-10-18',
+    source_url:'https://www.facebook.com/themalllifestorebangkapi/'
+  }],{month:'2026-10'},{fetchFn:async()=>{calls++;return {ok:true,text:async()=>'<html></html>'};}});
+  assert.equal(calls,0);
+  assert.equal(out.verified_count,0);
+  assert.equal(out.hold_count,1);
+  assert.ok(out.holds[0].blockers.includes('SOCIAL_PROFILE_NOT_EVENT_EVIDENCE'));
+});
+
+test('event-specific social permalink remains eligible for downstream verification',()=>{
+  const pre=V.prefilter({
+    title:'Artist Fan Meeting Bangkok',
+    event_date:'2026-10-18',
+    source_url:'https://x.com/artist/status/1234567890'
+  },'2026-10');
+  assert.equal(V.socialEventPermalink('https://x.com/artist/status/1234567890'),true);
+  assert.equal(pre.reasons.includes('SOCIAL_PROFILE_NOT_EVENT_EVIDENCE'),false);
+});
+
