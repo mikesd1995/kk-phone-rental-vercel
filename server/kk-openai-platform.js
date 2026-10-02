@@ -12,11 +12,14 @@ function boundedInt(v,fallback,min,max){
 }
 function baseUrl(env={}){
   const raw=clean(env.KK_OPENAI_BASE_URL)||DEFAULT_BASE_URL;
+  let url;
+  try{url=new URL(raw);}catch(_){return DEFAULT_BASE_URL;}
+  if(url.protocol!=='https:'||privateHostname(url.hostname)) return DEFAULT_BASE_URL;
   return raw.replace(/\/+$/,'');
 }
 function modelFor(agent,env={}){
   const key=clean(agent).toLowerCase();
-  if(key==='storefront') return clean(env.KK_OPENAI_MODEL_STOREFRONT)||'gpt-6.1-sol';
+  if(key==='storefront') return clean(env.KK_OPENAI_MODEL_STOREFRONT)||'gpt-6-sol';
   if(key==='discovery') return clean(env.KK_OPENAI_MODEL_DISCOVERY)||'gpt-6-luna';
   if(key==='inbox') return clean(env.KK_OPENAI_MODEL_INBOX)||'gpt-6-luna';
   return clean(env.KK_OPENAI_MODEL_DEFAULT)||'gpt-6-luna';
