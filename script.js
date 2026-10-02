@@ -91,7 +91,7 @@ var I18N = {
     proof_deposit_title:"ไม่วางมัดจำ", proof_deposit_body:"พร้อมประกันเครื่องฟรี",
     proof_onsite_title:"หน้างาน", proof_onsite_body:"รับ–คืน + สอนใช้",
     proof_drive_title:"30 วัน", proof_drive_body:"เก็บไฟล์บน Drive",
-    events_eyebrow:"UPCOMING EVENTS", events_title:"เลือกงานของคุณ", events_body:"กดโปสเตอร์เพื่อดูแพ็กเกจ ราคา และคิวว่าง", journey_kicker:"จองง่ายใน 3 ขั้นตอน", journey_1_title:"เลือกงาน", journey_1_body:"เลือกงานที่คุณจะไป", journey_2_title:"เลือกแพ็กเกจ", journey_2_body:"ดูรุ่น ราคา และคิวว่าง", journey_3_title:"จองผ่าน LINE", journey_3_body:"ร้านยืนยันคิว แล้วรับเครื่องหน้างาน",
+    events_eyebrow:"UPCOMING EVENTS", events_title:"เลือกงานของคุณ", events_body:"เลือกงาน → ดูแพ็กเกจ → เช็กคิวว่าง", journey_kicker:"จองง่ายใน 3 ขั้นตอน", journey_1_title:"เลือกงาน", journey_1_body:"เลือกงานที่คุณจะไป", journey_2_title:"เลือกแพ็กเกจ", journey_2_body:"ดูรุ่น ราคา และคิวว่าง", journey_3_title:"จองผ่าน LINE", journey_3_body:"ร้านยืนยันคิว แล้วรับเครื่องหน้างาน",
     value_steps:"เลือกงาน > ดูแพ็กเกจและคิวว่าง > จองผ่าน LINE",
     value_note:"ไม่พบงานที่ต้องการ? สอบถามผ่าน LINE OA ได้",
     follow_promo:"ติดตาม X ร้าน · ไม่ต้องวางมัดจำ · ฟรีประกันเครื่อง",
@@ -162,7 +162,7 @@ var I18N = {
     phones_available:"ว่าง {count} เครื่อง",
     lens_only_available:"เหลือ Lens อย่างเดียว",
     available:"ว่าง",
-    empty_available:"ยังไม่มีงานที่มีอุปกรณ์ว่าง{month}",
+    empty_available:"ยังไม่มีแพ็กเกจว่าง{month}",
     empty_waitlist:"ยังไม่มีงานที่เปิดรอคิวหลุด{month}",
     empty_all:"ยังไม่มีงานที่เปิดให้จอง{month}",
     in_month:"ในเดือน {month} ",
@@ -177,10 +177,10 @@ var I18N = {
     badge_inquiry:"สอบถามราคา",
     inquiry_available:"เช็กคิว / สอบถามราคากับร้าน",
     ask_this:"สอบถามแพ็กเกจนี้",
-    card_aria_available:"ดูอุปกรณ์ที่ว่างสำหรับงาน {event}",
+    card_aria_available:"ดูแพ็กเกจสำหรับงาน {event}",
     card_aria_waitlist:"จองคิวหลุดสำหรับงาน {event}",
     no_image:"ยังไม่มีรูป",
-    tap_available:"ดูอุปกรณ์ที่ว่าง / จองคิว",
+    tap_available:"ดูแพ็กเกจ / จอง",
     tap_waitlist:"จองคิวหลุด",
     pkg_phone_only:"เฉพาะมือถือ",
     pkg_lens_only:"เลนส์เสริม",
@@ -231,7 +231,7 @@ var I18N = {
     proof_deposit_title:"No deposit", proof_deposit_body:"Free device insurance",
     proof_onsite_title:"At the venue", proof_onsite_body:"Pickup, return + setup help",
     proof_drive_title:"30 days", proof_drive_body:"Drive file storage",
-    events_eyebrow:"UPCOMING / BANGKOK", events_title:"Your night starts here", events_body:"Choose an event → view packages → check availability", journey_kicker:"BOOK IN 3 STEPS", journey_1_title:"Choose event", journey_1_body:"Pick the event you are attending.", journey_2_title:"Choose package", journey_2_body:"Compare models, price and availability.", journey_3_title:"Book via LINE", journey_3_body:"We confirm your booking; pick up at the venue.",
+    events_eyebrow:"UPCOMING EVENTS", events_title:"Find your event", events_body:"Choose an event → view packages → check availability", journey_kicker:"BOOK IN 3 STEPS", journey_1_title:"Choose event", journey_1_body:"Pick the event you are attending.", journey_2_title:"Choose package", journey_2_body:"Compare models, price and availability.", journey_3_title:"Book via LINE", journey_3_body:"We confirm your booking; pick up at the venue.",
     value_steps:"Choose an event > Compare packages and availability > Book via LINE",
     value_note:"Can't find your event? Ask us on LINE OA.",
     follow_promo:"Follow on X · No deposit · Free insurance",
@@ -302,7 +302,7 @@ var I18N = {
     phones_available:"{count} phones available",
     lens_only_available:"Lens-only package available",
     available:"Available",
-    empty_available:"No equipment is available {month}yet.",
+    empty_available:"No packages are available {month}yet.",
     empty_waitlist:"No events are currently accepting waitlist requests {month}.",
     empty_all:"No events are open for booking {month}yet.",
     in_month:"in {month} ",
@@ -317,10 +317,10 @@ var I18N = {
     badge_inquiry:"Ask Price",
     inquiry_available:"Check availability / Ask for price",
     ask_this:"Ask About This Package",
-    card_aria_available:"View available equipment for {event}",
+    card_aria_available:"View packages for {event}",
     card_aria_waitlist:"Join the waitlist for {event}",
     no_image:"No image",
-    tap_available:"View Equipment / Book",
+    tap_available:"View Packages / Book",
     tap_waitlist:"Join Waitlist",
     pkg_phone_only:"Phone only",
     pkg_lens_only:"Add-on lens",
@@ -399,7 +399,7 @@ function applyStaticLanguage(){
   if(proofItems[2]){var p2s=proofItems[2].querySelector("strong"),p2b=proofItems[2].querySelector("span");if(p2s)p2s.textContent=tr("proof_drive_title");if(p2b)p2b.textContent=tr("proof_drive_body");}
   setText(".v3-events-heading span","events_eyebrow");
   var eventHeading=document.querySelector(".v3-events-heading h2");
-  if(eventHeading)eventHeading.innerHTML=currentLang==="en"?"YOUR NIGHT.<br><em>STARTS HERE.</em>":"คืนนี้ของคุณ<br><em>เริ่มจากโปสเตอร์นี้</em>";
+  if(eventHeading)eventHeading.textContent=tr("events_title");
   var eventBody=document.querySelector(".v3-events-heading p");
   if(eventBody)eventBody.textContent=tr("events_body");
   setText(".kk-journey-kicker","journey_kicker");
