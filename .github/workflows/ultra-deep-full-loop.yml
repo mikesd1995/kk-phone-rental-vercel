@@ -141,6 +141,7 @@ jobs:
         shell: bash
         env:
           KK_DDGS_TRAFILATURA_ENABLED: '1'
+          KK_ULTRA_DEEP_TASK_CONCURRENCY: '6'
         run: |
           set -euo pipefail
           node scripts/kk-ultra-deep-runtime-acceptance.js \
