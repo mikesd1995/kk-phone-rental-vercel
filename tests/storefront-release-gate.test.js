@@ -65,3 +65,10 @@ test('automatic Git production on main is disabled and explicit workflow enforce
   assert.match(workflow,/githubCommitRef/);
   assert.match(workflow,/target=production/);
 });
+
+
+test('release gate uses newline-safe git diff splitting rather than a literal backslash-n delimiter',()=>{
+  const source=fs.readFileSync('scripts/storefront-release-gate.js','utf8');
+  assert.match(source,/out\.split\(String\.fromCharCode\(10\)\)/);
+  assert.doesNotMatch(source,/out\.split\('\\\\\\\\n'\)/);
+});
