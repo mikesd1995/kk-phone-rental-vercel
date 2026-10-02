@@ -45,3 +45,9 @@ test('scan batch remains zero-write and dedupes evidence',async()=>{
  assert.equal(out.evidence.length,2);
  assert.equal(out.competitor_count,2);
 });
+
+
+test('phone base plus lens add-on is not misclassified as bundle price',()=>{
+ assert.equal(P.packageType('vivo X300 เครื่อง 690฿ + Lens +200'),'PHONE_ONLY');
+ assert.equal(P.packageType('vivo X300 พร้อม Lens 890฿'),'PHONE_LENS');
+});
