@@ -34,7 +34,7 @@ function reconcileCandidateSets(discovered=[],reference=[]){
   }
   return {
     version:VERSION,
-    complete:missing.length===0,
+    complete:comparableRefs.length>0&&missing.length===0,
     reconciliation_gap_count:missing.length,
     reference_count:comparableRefs.length,
     raw_reference_count:refs.length,
