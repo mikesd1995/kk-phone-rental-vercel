@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ env.APPROVED_SHA }}
-          fetch-depth: 1
+          fetch-depth: 50
 
       - name: Verify exact checkout
         shell: bash
@@ -87,7 +87,7 @@ jobs:
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
 
-      - name: Find exact READY Preview deployment
+      - name: Find exact or runtime-equivalent READY Preview
         id: preview
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -96,30 +96,61 @@ jobs:
           set -euo pipefail
           node --input-type=commonjs - <<'NODE'
           const fs=require('fs');
-          const sha=String(process.env.APPROVED_SHA||'').trim().toLowerCase();
+          const cp=require('child_process');
+
+          const headSha=String(process.env.APPROVED_SHA||'').trim().toLowerCase();
           const branch=String(process.env.KK_OPENAI_BRANCH||'').trim();
           const token=String(process.env.VERCEL_TOKEN||'').trim();
-          if(!/^[0-9a-f]{40}$/.test(sha)||!token) throw new Error('PREVIEW_LOOKUP_CONFIG_INVALID');
+          if(!/^[0-9a-f]{40}$/.test(headSha)||!token) throw new Error('PREVIEW_LOOKUP_CONFIG_INVALID');
+
           const url='https://api.vercel.com/v6/deployments?projectId='+encodeURIComponent(process.env.VERCEL_PROJECT_ID)+'&teamId='+encodeURIComponent(process.env.VERCEL_ORG_ID)+'&limit=100';
           const res=await fetch(url,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});
           if(!res.ok) throw new Error('VERCEL_DEPLOYMENTS_HTTP_'+res.status);
-          const rows=(await res.json()).deployments||[];
-          const match=rows.find(d=>
-            String(d?.meta?.githubCommitSha||'').toLowerCase()===sha &&
-            String(d?.meta?.githubCommitRef||'')===branch &&
-            String(d?.target||'').toLowerCase()!=='production' &&
-            ['READY','COMPLETED'].includes(String(d?.state||d?.readyState||'').toUpperCase())
-          );
+          const deployments=(await res.json()).deployments||[];
+
+          const bySha=new Map();
+          for(const d of deployments){
+            const sha=String(d?.meta?.githubCommitSha||'').toLowerCase();
+            const ref=String(d?.meta?.githubCommitRef||'');
+            const ready=['READY','COMPLETED'].includes(String(d?.state||d?.readyState||'').toUpperCase());
+            const preview=String(d?.target||'').toLowerCase()!=='production';
+            if(/^[0-9a-f]{40}$/.test(sha)&&ref===branch&&ready&&preview&&!bySha.has(sha)) bySha.set(sha,d);
+          }
+
+          let runtimeSha=headSha;
+          let match=bySha.get(headSha)||null;
+          let mode='EXACT_HEAD';
+
+          if(!match){
+            const ciOnly=new Set(['.github/workflows/openai-platform-staging-acceptance.yml']);
+            const ancestors=cp.execFileSync('git',['rev-list','--first-parent','--max-count=40','HEAD'],{encoding:'utf8'})
+              .trim().split(/\s+/).filter(Boolean);
+            for(const candidate of ancestors.slice(1)){
+              const deployment=bySha.get(candidate);
+              if(!deployment) continue;
+              const changed=cp.execFileSync('git',['diff','--name-only',candidate,headSha],{encoding:'utf8'})
+                .trim().split(/\r?\n/).filter(Boolean);
+              if(changed.length>0&&changed.every(path=>ciOnly.has(path))){
+                runtimeSha=candidate;
+                match=deployment;
+                mode='CI_ONLY_RUNTIME_EQUIVALENT';
+                break;
+              }
+            }
+          }
+
           if(match&&match.url){
             fs.appendFileSync(process.env.GITHUB_OUTPUT,'found=true\n');
             fs.appendFileSync(process.env.GITHUB_OUTPUT,'url=https://'+String(match.url).replace(/^https?:\/\//,'')+'\n');
             fs.appendFileSync(process.env.GITHUB_OUTPUT,'deployment_id='+String(match.uid||match.id||'')+'\n');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT,'runtime_sha='+runtimeSha+'\n');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT,'mode='+mode+'\n');
           }else{
             fs.appendFileSync(process.env.GITHUB_OUTPUT,'found=false\n');
             fs.writeFileSync('openai-agent-staging-report.json',JSON.stringify({
               schema_version:'KK_OPENAI_AGENT_STAGING_RUNTIME_V3',
               status:'BLOCKED_PREVIEW_DEPLOYMENT_REQUIRED',
-              expected_sha:sha,
+              expected_sha:headSha,
               branch,
               production_writes:0
             },null,2)+'\n');
@@ -150,18 +181,22 @@ jobs:
           const fs=require('fs');
           const report=JSON.parse(fs.readFileSync('openai-agent-staging-report.json','utf8'));
           if(report.ok!==true||report.status!=='PASS') throw new Error('OPENAI_RUNTIME_ACCEPTANCE_FAILED');
-          if(report.preview!==true||report.branch!==process.env.KK_OPENAI_BRANCH||report.commit_sha!==process.env.APPROVED_SHA) throw new Error('PREVIEW_IDENTITY_MISMATCH');
+          if(report.preview!==true||report.branch!==process.env.KK_OPENAI_BRANCH||report.commit_sha!=='${{ steps.preview.outputs.runtime_sha }}') throw new Error('PREVIEW_IDENTITY_MISMATCH');
           if(report.platform_enabled!==true||report.api_key_present!==true||report.customer_data_allowed!==false) throw new Error('OPENAI_RUNTIME_CONFIG_INVALID');
           if(Number(report.production_writes)!==0) throw new Error('PRODUCTION_WRITES_NONZERO');
           if(!report.storefront||report.storefront.ai_status!=='READY_FOR_DESIGN_SYNTHESIS') throw new Error('STOREFRONT_OPENAI_ACCEPTANCE_FAILED');
           if(!report.discovery||report.discovery.ai_status!=='ADVISORY_READY_FOR_VERIFIER') throw new Error('DISCOVERY_OPENAI_ACCEPTANCE_FAILED');
+          report.accepted_head_sha=process.env.APPROVED_SHA;
+          report.runtime_sha='${{ steps.preview.outputs.runtime_sha }}';
+          report.runtime_equivalence_mode='${{ steps.preview.outputs.mode }}';
+          fs.writeFileSync('openai-agent-staging-report.json',JSON.stringify(report,null,2)+'\\n');
           NODE
 
       - name: Require exact Preview runtime
         if: ${{ steps.preview.outputs.found != 'true' }}
         shell: bash
         run: |
-          echo 'BLOCKED_PREVIEW_DEPLOYMENT_REQUIRED: exact branch/head Preview is not READY yet.'
+          echo 'BLOCKED_PREVIEW_DEPLOYMENT_REQUIRED: no exact or CI-only-runtime-equivalent READY Preview is available.'
           exit 1
 
       - name: Upload secret-safe acceptance report
