@@ -20,9 +20,10 @@ function reconcileCandidateSets(discovered=[],reference=[]){
   const found=new Set((Array.isArray(discovered)?discovered:[]).filter(hasComparableEventIdentity).map(key));
   const refs=(Array.isArray(reference)?reference:[]).filter(Boolean);
   const comparableRefs=refs.filter(hasComparableEventIdentity);
+  const eligibleRefs=comparableRefs.filter(row=>row.eligible_for_discovery!==false);
   const missing=[];
   const matched=[];
-  for(const row of comparableRefs){
+  for(const row of eligibleRefs){
     const k=key(row);
     if(found.has(k))matched.push({reference_id:text(row.reference_id)||null,key:k});
     else if(row.eligible_for_discovery!==false)missing.push({
@@ -34,10 +35,12 @@ function reconcileCandidateSets(discovered=[],reference=[]){
   }
   return {
     version:VERSION,
-    complete:comparableRefs.length>0&&missing.length===0,
+    complete:eligibleRefs.length>0&&missing.length===0,
     reconciliation_gap_count:missing.length,
-    reference_count:comparableRefs.length,
+    reference_count:eligibleRefs.length,
+    structured_reference_count:comparableRefs.length,
     raw_reference_count:refs.length,
+    excluded_reference_count:comparableRefs.length-eligibleRefs.length,
     unstructured_reference_count:refs.length-comparableRefs.length,
     matched_count:matched.length,
     missing_candidates:missing,
