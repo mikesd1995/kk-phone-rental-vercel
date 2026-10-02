@@ -206,7 +206,7 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   const html=fs.readFileSync('index.html','utf8');
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
-  assert.equal(html.includes('v64-rendered-acceptance'),true);
+  assert.equal(html.includes('v65-owner-mobile-polish'),true);
   // V6.2 owner-approved premium mock intentionally promotes the FAR SEAT / CLOSE MEMORY signature.
   assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
   assert.equal(html.includes('CONCERT MEMORY SERVICE'),false);
@@ -331,6 +331,22 @@ test('visual QA card-column summary uses shared horizontal geometry, not card to
   assert.doesNotMatch(source,/Math\.abs\(r\.top-firstTop\)<4/);
 });
 
+
+test('V6.5 owner mobile polish reduces density and makes hierarchy intentional on normal phones',()=>{
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  const js=fs.readFileSync('script.js','utf8');
+  assert.match(css,/V6\.5 owner mobile polish/);
+  assert.match(css,/@media\(min-width:360px\) and \(max-width:700px\)/);
+  assert.match(css,/\.kk-benefit-grid\{[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
+  assert.match(css,/\.status-filter-bar\{[\s\S]*display:grid!important;[\s\S]*grid-template-columns:27fr 23fr 20fr 30fr!important;[\s\S]*overflow:visible!important/);
+  assert.match(css,/\.v3-events-heading h2 br\{display:block!important\}/);
+  assert.match(css,/\.v3-events-heading h2 em\{[\s\S]*font-size:\.78em!important;[\s\S]*font-weight:650!important/);
+  assert.match(css,/\.language-switch\{[\s\S]*border-radius:16px!important;[\s\S]*overflow:hidden!important/);
+  assert.match(css,/\.lang-btn\{[\s\S]*border-radius:12px!important/);
+  assert.match(css,/\.kk-mock-hero h1\{[\s\S]*max-width:12ch!important;[\s\S]*line-height:\.93!important/);
+  assert.match(js,/hero_secondary:"How it works"/);
+  assert.match(js,/benefit_onsite:"Venue pickup\/return · Setup help"/);
+});
 
 test('visual QA exposes zero-cost paid-provider policy and keeps optional OpenAI off without waiver',()=>{
   const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
