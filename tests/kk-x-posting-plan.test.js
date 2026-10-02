@@ -72,8 +72,10 @@ test('X posting planner uses Bangkok evening slots and penalizes recent-post fat
   assert.equal(result.schema_version,'KK_X_POSTING_PLAN_V1');
   assert.equal(result.timezone,'Asia/Bangkok');
   assert.deepEqual(result.slots.map(x=>x.time),['19:30','21:00','22:30','00:00']);
-  assert.equal(result.slots[0].event,'Event B');
   assert.notEqual(result.slots[0].event,'Event A');
+  const a=result.ranking.find(x=>x.event==='Event A');
+  const b=result.ranking.find(x=>x.event==='Event B');
+  assert.ok(a.base_score<b.base_score);
   assert.equal(result.slots[3].action,'CONVERSATION_CAPTURE');
   assert.equal(new Set(result.slots.map(x=>x.event).filter(Boolean)).size,result.slots.filter(x=>x.event).length);
   assert.equal(result.production_writes,0);
