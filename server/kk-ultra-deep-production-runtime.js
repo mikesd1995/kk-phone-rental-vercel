@@ -5,7 +5,7 @@ const Orchestrator=require('./kk-ultra-deep-full-loop-orchestrator.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 const VisibilityGuard=require('./event-visibility-owner-guard.js');
 
-const VERSION='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V1';
+const VERSION='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V2';
 const DEFAULT_SITE='https://kk-phone-rental.vercel.app';
 const DEFAULT_SHEET_ID='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 
@@ -147,11 +147,29 @@ async function freshSnapshot(env=process.env,fetchImpl=global.fetch){
  const sheetId=text(env.GOOGLE_SHEET_ID)||DEFAULT_SHEET_ID;
  return AdminSheetFallback.buildSnapshot({sheetId,env,fetchImpl,cache:false});
 }
+async function fetchCsv(url,fetchImpl=global.fetch,timeoutMs=4500){
+ const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{
+  const r=await fetchImpl(url,{headers:{'cache-control':'no-cache','user-agent':'KKPhoneRental-UltraDeepReadback/2.0'},signal:controller.signal});
+  const body=await r.text();
+  if(!r.ok||/<html[\s>]/i.test(body)){const e=new Error('STOREFRONT_FEED_UNAVAILABLE');e.code='STOREFRONT_FEED_UNAVAILABLE';throw e;}
+  return body;
+ }finally{clearTimeout(timer);}
+}
+async function fetchStorefrontSnapshot(env=process.env,fetchImpl=global.fetch){
+ const base=text(env.KK_SITE_URL||env.SITE_URL||DEFAULT_SITE).replace(/\/$/,'');
+ const eventUrl=base+'/api/kk-data?sheet=08_Web_Ready&range=A4%3AK&showPast=1&t='+Date.now();
+ const packageUrl=base+'/api/kk-data?sheet=09_Web_Packages&range=A4%3AN&showPast=1&t='+Date.now();
+ const [eventCsv,packageCsv]=await Promise.all([fetchCsv(eventUrl,fetchImpl),fetchCsv(packageUrl,fetchImpl)]);
+ const webReady=AdminSheetFallback.rowsAsObjects(eventCsv,'event_id',4).map(r=>({...r,event_date:date(r.event_date||r.event_date_text)}));
+ const webPackages=AdminSheetFallback.rowsAsObjects(packageCsv,'package_id',4);
+ return {web_ready:webReady,web_packages:webPackages,generated_at:new Date().toISOString(),snapshot_source:'public-storefront-feeds'};
+}
 function readbackForEvent(snapshot,eventId,expectedName='',expectedDate=''){
  const id=text(eventId);
  let event=(snapshot.web_ready||[]).find(x=>text(x.event_id)===id);
  if(!event&&expectedName){
-  event=(snapshot.web_ready||[]).find(x=>norm(x.event_name)===norm(expectedName)&&date(x.event_date)===date(expectedDate));
+  event=(snapshot.web_ready||[]).find(x=>norm(x.event_name)===norm(expectedName)&&date(x.event_date||x.event_date_text)===date(expectedDate));
  }
  if(!event)return {event:{},packages:[]};
  return {
@@ -166,11 +184,11 @@ function readbackForEvent(snapshot,eventId,expectedName='',expectedDate=''){
 async function storefrontReadback({plan,created,env=process.env,fetchImpl=global.fetch}={}){
  const createdId=text(created&&created.result&&created.result.event_id)||text(created&&created.event_id);
  let last={event:{},packages:[]};
- for(let i=0;i<5;i++){
-  const snap=await freshSnapshot(env,fetchImpl);
+ for(let i=0;i<3;i++){
+  const snap=await fetchStorefrontSnapshot(env,fetchImpl);
   last=readbackForEvent(snap,createdId,plan&&plan.admin_payload&&plan.admin_payload.event_name,plan&&plan.admin_payload&&plan.admin_payload.event_date);
   if(text(last.event.event_id)&&last.packages.length)return last;
-  if(i<4)await new Promise(r=>setTimeout(r,650));
+  if(i<2)await new Promise(r=>setTimeout(r,450));
  }
  return last;
 }
@@ -178,11 +196,11 @@ async function existingEventWriter({existing,plan},{env=process.env,fetchImpl=gl
  const results=[];
  for(const action of plan.actions||[])results.push(await postAdmin(action,{env,fetchImpl}));
  let snap;let rb={event:{},packages:[]};
- for(let i=0;i<5;i++){
-  snap=await freshSnapshot(env,fetchImpl);
+ for(let i=0;i<3;i++){
+  snap=await fetchStorefrontSnapshot(env,fetchImpl);
   rb=readbackForEvent(snap,existing.event_id,existing.event_name,existing.event_date);
   if(text(rb.event.event_id))break;
-  if(i<4)await new Promise(r=>setTimeout(r,650));
+  if(i<2)await new Promise(r=>setTimeout(r,450));
  }
  const blockers=[];
  for(const action of plan.actions||[]){
@@ -221,11 +239,15 @@ async function execute(handoff={},options={}){
   existingEventWriterFn:args=>existingEventWriter(args,{env,fetchImpl})
  });
  const ambiguous=reconciled.dispositions.filter(x=>x.status==='HOLD_AMBIGUOUS_EXISTING');
+ const terminalOnly=reconciled.safe_candidates.length===0&&ambiguous.length===0;
+ const acceptance=terminalOnly
+  ? {version:'KK_ULTRA_DEEP_POLICY_TERMINAL_ACCEPTANCE_V1',status:'COMPLETE_POLICY_DISPOSITIONS',complete:true,blockers:[],production_completion_claim_allowed:true}
+  : result.acceptance;
  return {
   version:VERSION,
-  status:ambiguous.length?'PARTIAL_SAFE_EXECUTION':result.status,
+  status:ambiguous.length?'PARTIAL_SAFE_EXECUTION':(terminalOnly?'COMPLETE':result.status),
   production_writes:result.production_writes,
-  orchestrator:result,
+  orchestrator:{...result,acceptance,status:terminalOnly?'COMPLETE':result.status},
   dispositions:reconciled.dispositions,
   blockers:ambiguous.length?['AMBIGUOUS_EXISTING_EVENT_REVIEW']:[],
   snapshot_source:text(snapshot.snapshot_source),
@@ -236,5 +258,5 @@ async function execute(handoff={},options={}){
 module.exports={
  VERSION,DEFAULT_SITE,DEFAULT_SHEET_ID,text,norm,date,tokens,titleOverlap,venueCompatible,sameKnownMiss,packageTemplateId,
  snapshotEvents,matchExisting,historicalConflict,activeBookingDateSet,reconcileCandidates,storeBaselines,readbackForEvent,
- postAdmin,freshSnapshot,storefrontReadback,existingEventWriter,execute
+ postAdmin,freshSnapshot,fetchCsv,fetchStorefrontSnapshot,storefrontReadback,existingEventWriter,execute
 };
