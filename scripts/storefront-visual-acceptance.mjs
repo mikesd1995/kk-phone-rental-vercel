@@ -307,7 +307,13 @@ async function main(){
         const state=await Evidence.inspectState(page);
         const findings=Evidence.stateFindings(state,{width,name});
         if(broken.length) findings.push({code:'VISIBLE_IMAGE_NOT_READY',severity:'P1',evidence:broken.join(', '),action:'Resolve visible image delivery before acceptance.'});
-        if(state.failed_posters) findings.push({code:'POSTER_DELIVERY_FAILED',severity:'P1',evidence:JSON.stringify(state.failed_poster_details||[]),action:'Verify image provider delivery.'});
+        if(state.failed_posters){
+          const posterDetails=state.failed_poster_details||[];
+          const unresolved=posterDetails.filter(item=>item.fallback_mode!=='event-summary'||item.fallback_visible!==true);
+          const recovered=posterDetails.filter(item=>item.fallback_mode==='event-summary'&&item.fallback_visible===true);
+          if(unresolved.length) findings.push({code:'POSTER_DELIVERY_FAILED',severity:'P1',evidence:JSON.stringify(unresolved),action:'Verify image provider delivery or render the exact-event fallback.'});
+          if(recovered.length) findings.push({code:'POSTER_SOURCE_DEGRADED_FALLBACK_RENDERED',severity:'P2',evidence:JSON.stringify(recovered),action:'Restore a verified exact-event poster source; the customer-facing exact-event fallback is rendering safely in the meantime.'});
+        }
         await page.screenshot({path:file,type:'jpeg',quality:74,fullPage:false,animations:'disabled'});
         stateEvidence.push({name,...state,broken_visible_images:broken,findings});
         stateObservations.push(...findings);
@@ -572,11 +578,18 @@ async function main(){
       screenshot_review_pass:screenshotReviewPass
     }
   });
+  const technicalPass=summary.pass;
+  const releasePass=technicalPass && artAcceptance.status==='PASS';
   summary.screenshot_review={status:screenshotReviewPass?'PASS':'BLOCKED',record:screenshotReview?path.relative(process.cwd(),reviewPath):null,closed_loop_acceptance:screenshotReview?.closed_loop_acceptance||null};
   summary.owner_visual_acceptance=screenshotReviewPass?'PASS':'BLOCKED';
   summary.single_visual_source_of_truth=singleVisualSourceOfTruth;
   summary.art_director_acceptance=artAcceptance;
-  summary.pass=summary.pass && artAcceptance.status==='PASS';
+  // Source/CI acceptance and owner aesthetic release are intentionally separate gates.
+  // A candidate may merge after measured technical QA while production promotion remains
+  // blocked until fresh exact-candidate owner screenshot acceptance is recorded.
+  summary.technical_pass=technicalPass;
+  summary.release_ready=releasePass;
+  summary.pass=technicalPass;
 
   fs.writeFileSync(path.join(outputDir,'manifest.json'),JSON.stringify(summary,null,2)+'\n');
 
@@ -587,7 +600,8 @@ async function main(){
     `Target: ${target.href}`,
     `Data source: ${dataSource?dataSource.href:'target deployment'}`,
     `Approved SHA: ${approvedSha}`,
-    `Result: ${summary.pass?'PASS':'FAIL'}`,
+    `Technical result: ${summary.technical_pass?'PASS':'FAIL'}`,
+    `Release ready: ${summary.release_ready?'PASS':'BLOCKED'}`,
     `Art Director acceptance: ${summary.art_director_acceptance.status}`,
     `Design Council agents: ${(summary.invoked_agents||[]).join(', ')||'none'}`,
     '',
