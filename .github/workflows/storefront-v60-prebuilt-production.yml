@@ -26,14 +26,17 @@ jobs:
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with: { ref: "${{ steps.authz.outputs.sha }}", fetch-depth: 0 }
-      - name: Require exact current main and V6 marker
+      - id: storefront
+        name: Require exact current main and derive storefront marker
         env: { SHA: "${{ steps.authz.outputs.sha }}" }
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$SHA"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$SHA"
-          grep -q 'v60-premium-editorial' index.html
+          marker="$(grep -oE 'kk-storefront-v5\.css\?v=[^"]+' index.html | head -1)"
+          test -n "$marker"
           grep -q 'V6.0 — Premium Concert Editorial Commerce' assets/kk-storefront-v5.css
+          echo "marker=$marker" >> "$GITHUB_OUTPUT"
       - name: Regression gates
         run: npm run check && npm test
       - name: Build and deploy prebuilt
@@ -45,12 +48,15 @@ jobs:
           npx vercel build --prod --token="$VERCEL_TOKEN"
           npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tee deploy-url.txt
       - name: Verify live V6
+        env:
+          STOREFRONT_MARKER: "${{ steps.storefront.outputs.marker }}"
         run: |
           set -euo pipefail
+          test -n "$STOREFRONT_MARKER"
           ok=0
           for i in $(seq 1 30); do
             curl -fsS "$PRODUCTION_URL/" -o live.html || true
-            if grep -q 'v60-premium-editorial' live.html && grep -q 'id="faq-open-btn"' live.html && grep -q 'id="theme-toggle"' live.html; then ok=1; break; fi
+            if grep -Fq "$STOREFRONT_MARKER" live.html && grep -q 'id="faq-open-btn"' live.html && grep -q 'id="theme-toggle"' live.html; then ok=1; break; fi
             sleep 4
           done
           test "$ok" = 1

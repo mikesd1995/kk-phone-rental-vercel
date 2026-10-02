@@ -31,7 +31,8 @@ jobs:
           echo "approved_sha=$APPROVED_SHA" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with: { ref: "${{ steps.authz.outputs.approved_sha }}", fetch-depth: 0 }
-      - name: Exact-main and runtime equality
+      - id: runtime
+        name: Exact-main, runtime equality and storefront marker
         env:
           APPROVED_SHA: "${{ steps.authz.outputs.approved_sha }}"
           CANDIDATE_SHA: "${{ steps.authz.outputs.candidate_sha }}"
@@ -41,6 +42,9 @@ jobs:
           git cat-file -e "$CANDIDATE_SHA^{commit}"
           git diff --name-only "$CANDIDATE_SHA" "$APPROVED_SHA" -- . ':(exclude)tests/**' ':(exclude)docs/**' ':(exclude).github/**' > runtime-diff.txt
           test ! -s runtime-diff.txt
+          marker="$(grep -oE 'kk-storefront-v5\.css\?v=[^"]+' index.html | head -1)"
+          test -n "$marker"
+          echo "marker=$marker" >> "$GITHUB_OUTPUT"
       - name: Source gates
         run: npm run check && npm test
       - name: Require token and inspect candidate
@@ -67,13 +71,15 @@ jobs:
         env:
           VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
           CANDIDATE_URL: "${{ steps.candidate.outputs.url }}"
+          STOREFRONT_MARKER: "${{ steps.runtime.outputs.marker }}"
         run: |
           set -euo pipefail
+          test -n "$STOREFRONT_MARKER"
           npm install --no-save vercel@latest >/dev/null
           ROOT="$(npx vercel curl "$CANDIDATE_URL/" -- --token "$VERCEL_TOKEN")"
           grep -q 'id="theme-toggle"' <<<"$ROOT"; echo "theme_marker=pass"
           grep -q 'id="faq-open-btn"' <<<"$ROOT"; echo "faq_marker=pass"
-          grep -q 'v60-premium-editorial' <<<"$ROOT"; echo "asset_marker=pass"
+          grep -Fq "$STOREFRONT_MARKER" <<<"$ROOT"; echo "asset_marker=pass"
           npx vercel curl "$CANDIDATE_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" -- --token "$VERCEL_TOKEN" > candidate-data
           curl -sS "$PRODUCTION_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" > production-data
           echo "candidate_data_sha=$(sha256sum candidate-data | cut -d' ' -f1)"
@@ -98,14 +104,16 @@ jobs:
         env:
           VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
           PREVIOUS_ID: "${{ steps.previous.outputs.id }}"
+          STOREFRONT_MARKER: "${{ steps.runtime.outputs.marker }}"
         run: |
           set -euo pipefail
+          test -n "$STOREFRONT_MARKER"
           rollback(){ curl -sS -X POST -H "Authorization: Bearer $VERCEL_TOKEN" -H 'Content-Type: application/json' "https://api.vercel.com/v10/projects/$VERCEL_PROJECT_ID/promote/$PREVIOUS_ID?teamId=$VERCEL_ORG_ID" >/dev/null || true; }
           trap rollback ERR
           ok=0
           for i in $(seq 1 30); do
             curl -sS "$PRODUCTION_URL/" -o live.html || true
-            if grep -q 'id="theme-toggle"' live.html && grep -q 'id="faq-open-btn"' live.html && grep -q 'v60-premium-editorial' live.html; then ok=1; break; fi
+            if grep -q 'id="theme-toggle"' live.html && grep -q 'id="faq-open-btn"' live.html && grep -Fq "$STOREFRONT_MARKER" live.html; then ok=1; break; fi
             sleep 4
           done
           test "$ok" = 1
