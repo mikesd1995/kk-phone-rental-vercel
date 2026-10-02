@@ -310,3 +310,17 @@ Staging acceptance now uses the existing Vercel CLI to execute `scripts/kk-opena
 - acceptance requires OpenAI enabled, a valid-looking `sk-` key shape, customer-data gate disabled, storefront/discovery advisory success, and `production_writes=0`.
 
 Live OpenAI target discovery also corrected a prior mapping error: within organization `kkphoneteam`, project `kkphonerental` is `proj_I2SGd2Pzp2vsoRCafLxR0CWK`; `proj_49DFUOJVF1WrWdT1Jhmi9KUb` is the separate `kktest` project. No Production environment is changed by this acceptance path.
+
+
+## Staging probe function-budget consolidation — 2026-10-02
+
+Admin Regression correctly blocked the first protected-runtime probe because adding `api/kk-openai-staging-probe.js` raised the Hobby API function surface to 13 files.
+
+The fix preserves runtime-secret acceptance without weakening the function-budget gate:
+- remove the standalone API function;
+- move probe logic to `server/kk-openai-staging-probe.js`;
+- multiplex the probe through the existing `/api/kk-intelligence-health?mode=openai-staging` function;
+- retain Preview-only branch lock, Vercel protection-bypass requirement, synthetic data, key-shape validation, safe diagnostics, and zero writes;
+- keep exact-head READY Preview required because Vercel Secret values are intentionally unavailable to CI pull/env-run flows.
+
+This keeps the API function surface within the existing Hobby budget and preserves the security/authority model.
