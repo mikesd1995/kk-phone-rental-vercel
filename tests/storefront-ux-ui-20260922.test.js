@@ -44,8 +44,8 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261003-v66-generic-phone-i18n'));
-  assert.ok(html.includes('script.js?v=storefront-v66-generic-phone-i18n-20261003'));
+  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261003-v67-lower-page-finish'));
+  assert.ok(html.includes('script.js?v=storefront-v67-lower-page-finish-20261003'));
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#f4f6f8">/);
 });
@@ -59,7 +59,7 @@ test('V5 language switch binds hero, benefits and event-discovery DOM',()=>{
   assert.match(js,/setText\("\.v3-hero-copy>p","hero_body"\)/);
   assert.match(js,/setText\("\.v3-secondary","hero_secondary"\)/);
   assert.match(js,/querySelectorAll\("\.kk-benefit-grid>div>span:last-child"\)/);
-  assert.match(js,/eventHeading\.innerHTML/);
+  assert.match(js,/eventHeading\.textContent=tr\("events_title"\)/);
   assert.match(js,/eventBody\.textContent=tr\("events_body"\)/);
 });
 
@@ -96,4 +96,30 @@ test('mobile modal scroll lock is valid source and restores the captured positio
   assert.match(js,/document\.body\.style\.position="fixed"/);
   assert.match(js,/window\.scrollTo\(0,modalScrollY\)/);
   assert.doesNotMatch(js,/modalScrollY=0;\\nfunction lockBody/);
+});
+
+
+test('V6.7 lower-page finish keeps event-card details visible and removes legacy footer/CTA copy',()=>{
+  assert.match(v5,/V6\.7 lower-page professional finish/);
+  assert.match(v5,/V6\.7 lower-page professional finish[\s\S]*\.concert-card\{[\s\S]*height:100%!important;[\s\S]*align-self:stretch!important/);
+  assert.match(v5,/\.poster-info\{flex:1 1 auto!important\}/);
+  assert.match(v5,/\.kk-booking-journey\{[\s\S]*border-radius:20px!important;[\s\S]*background:var\(--v6-paper\)!important/);
+  assert.match(v5,/\.line-btn\{[\s\S]*width:min\(100%,520px\)!important;[\s\S]*min-height:52px!important/);
+  assert.match(v5,/@media\(max-width:700px\)\{[\s\S]*\.poster-info\{[\s\S]*min-height:188px!important/);
+  assert.match(js,/card_price_from:"เริ่ม \{price\}฿"/);
+  assert.match(js,/card_price_from:"From ฿\{price\}"/);
+  assert.match(js,/load_more:"ดูงานเพิ่มเติมอีก \{count\} งาน"/);
+  assert.match(js,/load_more:"View \{count\} more events"/);
+  assert.match(js,/journey_3_title:"จองผ่าน LINE"/);
+  assert.match(js,/journey_3_title:"Book via LINE"/);
+  assert.match(js,/events_title:"เลือกงานของคุณ"/);
+  assert.match(js,/events_title:"Find your event"/);
+  assert.match(js,/tap_available:"ดูแพ็กเกจ \/ จอง"/);
+  assert.match(js,/tap_available:"View Packages \/ Book"/);
+  assert.doesNotMatch(html,/POSTER · AVAILABILITY · PRICE/);
+  assert.match(js,/footer_tagline:"เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต"/);
+  assert.match(js,/footer_tagline:"Phone rental for concerts and fan meetings"/);
+  assert.doesNotMatch(html,/เช่าเถอะ อยากให้ชัด/);
+  assert.doesNotMatch(js,/Rent it\. Capture it clearly/);
+  assert.doesNotMatch(js,/empty-emoji[^\n]*💙/);
 });
