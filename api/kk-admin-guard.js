@@ -19,6 +19,7 @@ const ProjectMemoryLedger = require('../server/kk-project-memory-ledger.js');
 const AdminSecurity = require('../server/admin-session.js');
 const UltraDeepOIDC = require('../server/kk-github-oidc.js');
 const UltraDeepRuntime = require('../server/kk-ultra-deep-production-runtime.js');
+const UltraDeepCompletionGate = require('../server/kk-ultra-deep-full-loop-completion-gate.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -459,6 +460,7 @@ module.exports=async function handler(req,res){
       ok:true,
       service:'kk-ultra-deep-full-loop',
       runtime_version:UltraDeepRuntime.VERSION,
+      completion_gate_version:UltraDeepCompletionGate.VERSION,
       oidc_version:UltraDeepOIDC.VERSION,
       commit_sha:String(process.env.VERCEL_GIT_COMMIT_SHA||'').trim()||null,
       production_writes:0
