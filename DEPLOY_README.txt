@@ -1,17 +1,17 @@
 KK Phone Rental — DEPLOYMENT SAFETY NOTICE
-Updated: 2026-09-28
+Updated: 2026-10-02
 
 CRITICAL — GOOGLE APPS SCRIPT IS FAIL-CLOSED
 
 The repository file apps-script/Code.gs is NOT the authoritative production source at this time.
 
 Verified state:
-- Canonical repository apps-script/Code.gs remains the hardened v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX lineage.
+- Canonical repository apps-script/Code.gs is now the reviewed v16.7.0_CRM_PRO_PHASE3_9_5_13_FULL_BACKEND_AUDIT candidate lineage, including immutable booking identity, atomic booking writes, archive cleanup fail-closed guards, and deterministic Customer Stats rebuild.
 - Production audit reports v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX.
 - The exact deployed-recovery 9_5_9 artifact has now been recovered and archived at apps-script/recovered/Code_9_5_9_DEPLOYED_RECOVERY_2026-09-20.gs.
 - Recovered artifact size is 118,157 bytes with SHA-256 40fffe288d55c1991fda1bd133670b7b41f90822acd834ec887e00c1f0f1b87e, matching the previously documented deployed-recovery fingerprint.
 - Regression review proved the recovered 9_5_9 artifact does NOT contain the later owner-hidden re-open guard currently present in canonical repository Code.gs.
-- GitHub issue #9 therefore remains the source-equivalence / hardening reconciliation gate, even though exact source provenance is now recovered.
+- The recovered 9_5_9 artifact remains provenance evidence only. Canonical 9_5_13 is newer and MUST NOT be pushed to production Apps Script until authenticated production source-equivalence / controlled acceptance is explicitly completed.
 
 DO NOT:
 1. DO NOT replace the production Apps Script Code.gs with apps-script/Code.gs from this repository.
