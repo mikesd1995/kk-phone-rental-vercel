@@ -76,24 +76,40 @@
 
   function verifyBookingMutation(action,payload,response,before,after){
     const p=payload||{},r=response||{};
+    const rowNumbersReliable=!!(after&&after.booking_row_number_reliable===true);
     if(action==='updateBooking'){
-      const row=bookingByRow(after,p.row_number)||bookingById(after,p.booking_id||r.booking_id);
-      if(!row) return {status:'not-committed',reason:'booking-row-missing'};
+      const stableId=text(p.booking_id||r.booking_id);
+      const row=stableId
+        ? bookingById(after,stableId)
+        : (rowNumbersReliable?bookingByRow(after,p.row_number):null);
+      if(!row) return {status:'not-committed',reason:stableId?'booking-id-missing':'booking-identity-missing'};
       return verifyBookingFields(row,p,'')
-        ? {status:'committed',reason:'booking-row-exact-readback',row_number:row.row_number,booking_id:row.booking_id||''}
-        : {status:'not-committed',reason:'booking-row-mismatch',row_number:row.row_number};
+        ? {status:'committed',reason:stableId?'booking-id-exact-readback':'booking-row-exact-readback',row_number:row.row_number,booking_id:row.booking_id||''}
+        : {status:'not-committed',reason:'booking-readback-mismatch',row_number:row.row_number,booking_id:row.booking_id||''};
     }
     if(action==='createBooking'){
       const packageType=packageTypeForTemplate(before,p.template_id);
-      if(r.row_number){
-        const row=bookingByRow(after,r.row_number);
+      const stableId=text(r.booking_id);
+      if(stableId){
+        const row=bookingById(after,stableId);
         return row&&verifyBookingFields(row,p,packageType)
-          ? {status:'committed',reason:'created-row-exact-readback',row_number:row.row_number,booking_id:row.booking_id||''}
-          : {status:'not-committed',reason:'created-row-missing-or-mismatch'};
+          ? {status:'committed',reason:'created-id-exact-readback',row_number:row.row_number,booking_id:row.booking_id||''}
+          : {status:'not-committed',reason:'created-id-missing-or-mismatch'};
       }
-      const beforeRows=new Set(((before&&before.bookings)||[]).map(b=>text(b&&b.row_number)).filter(Boolean));
-      const candidates=((after&&after.bookings)||[]).filter(b=>!beforeRows.has(text(b&&b.row_number))&&verifyBookingFields(b,p,packageType));
-      if(candidates.length===1) return {status:'committed',reason:'single-new-booking-match',row_number:candidates[0].row_number,booking_id:candidates[0].booking_id||''};
+      // GViz can collapse physical blank rows, so a newly inserted booking may
+      // renumber several logical rows. Compare stable IDs, not row positions.
+      const beforeIds=new Set(((before&&before.bookings)||[]).map(b=>text(b&&b.booking_id)).filter(Boolean));
+      let candidates=((after&&after.bookings)||[]).filter(b=>{
+        const id=text(b&&b.booking_id);
+        return id&&!beforeIds.has(id)&&verifyBookingFields(b,p,packageType);
+      });
+      // Legacy snapshots without booking IDs may use a physical row only when
+      // the source explicitly guarantees row-number reliability.
+      if(!candidates.length&&rowNumbersReliable&&r.row_number){
+        const row=bookingByRow(after,r.row_number);
+        if(row&&verifyBookingFields(row,p,packageType)) candidates=[row];
+      }
+      if(candidates.length===1) return {status:'committed',reason:'single-new-booking-id-match',row_number:candidates[0].row_number,booking_id:candidates[0].booking_id||''};
       if(candidates.length>1) return {status:'ambiguous',reason:'multiple-new-booking-matches',matches:candidates.length};
       return {status:'not-committed',reason:'no-new-booking-match'};
     }
