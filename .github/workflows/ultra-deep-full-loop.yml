@@ -171,6 +171,7 @@ jobs:
               `Candidates: \`${r.candidate_count ?? 'n/a'}\``,
               `Reference candidates: \`${r.reference_candidate_count ?? 'n/a'}\``,
               `Eligible reference candidates: \`${r.eligible_reference_candidate_count ?? 'n/a'}\``,
+              `Canonical known-miss alignments: \`${r.canonical_reference_alignment_count ?? 0}\``,
               `Reconciliation gaps: \`${r.reconciliation?.reconciliation_gap_count ?? 'n/a'}\``,
               `Discovery result: \`${process.env.SCAN_RESULT || 'unknown'}\``,
               '',
