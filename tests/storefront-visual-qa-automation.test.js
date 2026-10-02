@@ -368,3 +368,19 @@ test('visual QA exposes zero-cost paid-provider policy and keeps optional OpenAI
   assert.match(source,/zero_cost_mode:openAiConfig\.zero_cost_mode/);
   assert.match(source,/openai_visual_review_enabled:openAiConfig\.enabled/);
 });
+
+
+test('production storefront workflows derive the live asset marker from exact approved main',()=>{
+  const prebuilt=fs.readFileSync('.github/workflows/storefront-v60-prebuilt-production.yml','utf8');
+  const promote=fs.readFileSync('.github/workflows/storefront-v60-zero-cost-promote.yml','utf8');
+  for(const source of [prebuilt,promote]){
+    assert.match(source,/kk-storefront-v5\\.css\\\?v=\[\^"\]\+/);
+    assert.match(source,/STOREFRONT_MARKER/);
+    assert.match(source,/grep -Fq "\$STOREFRONT_MARKER"/);
+    assert.doesNotMatch(source,/v60-premium-editorial/);
+  }
+  assert.match(prebuilt,/git ls-remote origin refs\/heads\/main/);
+  assert.match(prebuilt,/steps\.storefront\.outputs\.marker/);
+  assert.match(promote,/steps\.runtime\.outputs\.marker/);
+  assert.match(promote,/git diff --name-only "\$CANDIDATE_SHA" "\$APPROVED_SHA"/);
+});
