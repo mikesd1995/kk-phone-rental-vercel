@@ -7,6 +7,7 @@ const Reliability = require('./kk-reliability-learning-agent.js');
 const ReliabilityFeedback = require('./kk-reliability-feedback-loop.js');
 const HfAdapter = require('./hf-scanner-adapter.js');
 const OperatingPartner = require('./kk-operating-partner.js');
+const XPostingPlan = require('./kk-x-posting-plan-agent.js');
 const DecisionLedger = require('./kk-decision-ledger.js');
 const CreativeProduction = require('./kk-creative-production.js');
 const FullDiscovery = require('./kk-full-discovery-worker.js');
@@ -27,7 +28,7 @@ const UltraDeepOwnerPolicy = require('./kk-ultra-deep-owner-policy.js');
 const UltraDeepFullLoop = require('./kk-ultra-deep-full-loop-orchestrator.js');
 const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V18';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V19';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -250,6 +251,12 @@ async function executeTask(taskType, input = {}, options = {}) {
         result
       };
     }
+
+    case 'x_posting_plan':
+      return {
+        invoked_agents:['kk-marketing-agent','kk-x-posting-plan'],
+        result:XPostingPlan.plan(input)
+      };
 
     case 'opportunity_review':
       return {
