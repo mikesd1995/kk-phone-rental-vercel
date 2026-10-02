@@ -1411,6 +1411,7 @@ function kkAssertModelGroupType_(modelGroup, expectedType) {
   const group = String(modelGroup || '').trim();
   const type = String(expectedType || '').toLowerCase().trim();
   if (!group || group === 'NONE') throw new Error('model_group is required for ' + type + ' asset/package');
+  if (type === 'lens' && kkIsRetiredG2LensGroup_(group)) throw new Error('Retired model_group cannot be used for new asset/package: ' + group);
   const model = kkModelDisplayMap_()[group];
   if (!model) throw new Error('Unknown model_group: ' + group);
   if (!model.active) throw new Error('Inactive model_group: ' + group);
@@ -2537,14 +2538,18 @@ function kkApiUpdateBooking_(payload) {
     }
     kkAssertBookingAssetsNotDoubleBooked_(row, next, nextStatus);
 
-    sh.getRange(row, 3).setValue(next[2]);
-    sh.getRange(row, 5, 1, 4).setValues([[next[4], next[5], next[6], next[7]]]);
-    sh.getRange(row, 10, 1, 2).setValues([[next[9], next[10]]]);
-    sh.getRange(row, 12).setValue(next[11]);
-    sh.getRange(row, 14, 1, 2).setValues([[next[13], next[14]]]);
-    sh.getRange(row, 20).setValue(next[19]);
+    // One canonical A:T row write prevents a later range write from leaving the
+    // booking half-updated if Sheets fails mid-mutation.
+    const bookingId = String(current[0] || '').trim();
+    sh.getRange(row, 1, 1, 20).setValues([next]);
+    SpreadsheetApp.flush();
+    const persisted = sh.getRange(row, 1, 1, 20).getValues()[0];
+    if (String(persisted[0] || '').trim() !== bookingId) throw new Error('Booking identity readback failed: ' + bookingId);
+    if (String(persisted[2] || '').toLowerCase().trim() !== String(next[2] || '').toLowerCase().trim()) throw new Error('Booking status readback failed: ' + bookingId);
+    if (String(persisted[13] || '').toLowerCase().trim() !== String(next[13] || '').toLowerCase().trim()) throw new Error('Booking payment readback failed: ' + bookingId);
+    if (String(persisted[9] || '').trim() !== String(next[9] || '').trim() || String(persisted[10] || '').trim() !== String(next[10] || '').trim()) throw new Error('Booking asset readback failed: ' + bookingId);
 
-    return { row_number: row, booking_id: current[0] || '', booking_status: next[2], payment_status: next[13], phone_asset_id: next[9], lens_asset_id: next[10] };
+    return { row_number: row, booking_id: persisted[0] || '', booking_status: persisted[2], payment_status: persisted[13], phone_asset_id: persisted[9], lens_asset_id: persisted[10] };
   } finally {
     lock.releaseLock();
   }
