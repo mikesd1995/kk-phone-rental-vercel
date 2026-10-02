@@ -51,3 +51,16 @@ The concurrency key is now command-aware:
 - bot/status/non-command issue events receive a unique run-specific group and cannot cancel the active scan.
 
 This preserves latest-command-wins without self-cancellation.
+
+
+## V12 progress reporting correction
+
+The direct command path now reports process state without relying on GitHub Actions `continue-on-error` presentation semantics:
+- the live scanner records its real exit code/result as step outputs;
+- a discovery checkpoint is posted after the live sweep with candidate/reference/reconciliation counts;
+- the FULL gate is the single authoritative failing step;
+- evidence upload and terminal notification still run under `always()`;
+- the terminal result mentions the repository owner so completion/failure is surfaced through the existing GitHub notification channel;
+- the redundant final failure step is removed.
+
+This changes reporting and operator visibility only. It does not weaken discovery, reconciliation, verifier, writer, or readback gates.
