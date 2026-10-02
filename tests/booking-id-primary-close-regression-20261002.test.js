@@ -10,7 +10,8 @@ const fallback=fs.readFileSync('server/admin-sheet-fallback.js','utf8');
 
 test('booking updates carry stable booking_id even when UI selector uses a row hint',()=>{
   assert.match(admin,/function bookingMutationIdentity\(b,rowNumber\)/);
-  assert.match(admin,/if\(bookingId\) out\.booking_id=bookingId/);
+  assert.match(admin,/if\(bookingId\) return \{booking_id:bookingId\}/);
+  assert.match(admin,/return row \? \{row_number:row\} : \{\}/);
   assert.match(admin,/let payload=bookingMutationIdentity\(b,row\)/);
   assert.match(admin,/Object\.assign\(payload,bookingMutationIdentity\(selected,payload\.row_number\)\)/);
 });
