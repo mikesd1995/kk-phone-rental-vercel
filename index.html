@@ -52,12 +52,12 @@
       "@type":"FAQPage",
       "@id":"https://kk-phone-rental.vercel.app/#faq",
       "mainEntity":[
-        {"@type":"Question","name":"เช่ามือถือยังไง?","acceptedAnswer":{"@type":"Answer","text":"เลือกงานที่ต้องการ กดดูรุ่นมือถือที่ว่าง ระบบจะพาไปจองผ่าน LINE OA เพื่อให้ร้านคอนเฟิร์ม"}},
+        {"@type":"Question","name":"เช่ามือถือยังไง?","acceptedAnswer":{"@type":"Answer","text":"เลือกงาน ดูแพ็กเกจและคิวว่าง แล้วจองผ่าน LINE OA เพื่อให้ร้านยืนยันคิว"}},
         {"@type":"Question","name":"ในเซ็ตเช่ามีอุปกรณ์อะไรให้บ้าง?","acceptedAnswer":{"@type":"Answer","text":"อุปกรณ์พื้นฐานมีตัวเครื่องมือถือ กระเป๋าใส่มือถือ และแบตสำรอง หากเช่าเลนส์เพิ่มจะมีถุงใส่เลนส์และผ้าเช็ดเลนส์ให้ด้วย"}},
-        {"@type":"Question","name":"รับเครื่อง และส่งเครื่องคืนที่ไหน?","acceptedAnswer":{"@type":"Answer","text":"รับและคืนมือถือพร้อมอุปกรณ์ที่หน้างานเท่านั้น"}},
-        {"@type":"Question","name":"ต้องจ่ายมัดจำเครื่องและประกันเครื่องไหม?","acceptedAnswer":{"@type":"Answer","text":"ตอนนี้ร้านยังอยู่ในช่วงโปรโมชั่น ดังนั้นจึงไม่เก็บค่ามัดจำและค่าประกัน เพียงแค่ฟอล X ของทางร้าน"}},
+        {"@type":"Question","name":"รับและคืนมือถือที่ไหน?","acceptedAnswer":{"@type":"Answer","text":"รับและคืนมือถือพร้อมอุปกรณ์ที่หน้างานเท่านั้น"}},
+        {"@type":"Question","name":"ต้องวางมัดจำหรือมีค่าประกันเครื่องไหม?","acceptedAnswer":{"@type":"Answer","text":"ตอนนี้ร้านยังอยู่ในช่วงโปรโมชั่น ดังนั้นจึงไม่เก็บค่ามัดจำและค่าประกัน เพียงแค่ฟอล X ของทางร้าน"}},
         {"@type":"Question","name":"การจ่ายเงินต้องจ่ายยังไง?","acceptedAnswer":{"@type":"Answer","text":"จ่ายเงินตอนรับเครื่องที่หน้างาน"}},
-        {"@type":"Question","name":"เอกสารที่ใช้ในการเช่ายืมมีอะไรบ้าง?","acceptedAnswer":{"@type":"Answer","text":"รูปถ่าย บัตรประชาชน/ใบขับขี่/passport ถ่ายคู่กับหลักฐานการเข้างาน และถ่ายคู่กับอุปกรณ์ที่เช่ายืมตอนรับเครื่องอีกครั้ง"}},
+        {"@type":"Question","name":"ต้องใช้เอกสารอะไรในการเช่า?","acceptedAnswer":{"@type":"Answer","text":"รูปถ่ายบัตรประชาชน ใบขับขี่ หรือ Passport คู่กับหลักฐานการเข้างาน และถ่ายคู่กับมือถือและอุปกรณ์ตอนรับของอีกครั้ง"}},
         {"@type":"Question","name":"ทำไมไฟล์จาก Google Drive ไม่ชัด?","acceptedAnswer":{"@type":"Answer","text":"Google Drive Preview อาจลดคุณภาพของภาพ ต้องกดดาวน์โหลดลงเครื่องก่อน ภาพจึงจะชัด"}},
         {"@type":"Question","name":"ไฟล์บน Google Drive เก็บไว้ได้กี่วัน?","acceptedAnswer":{"@type":"Answer","text":"ร้านจะเก็บไฟล์ไว้ให้ประมาณ 30 วัน หลังจากนั้นจะไม่สามารถเข้าถึงไฟล์ได้ แนะนำให้ดาวน์โหลดเก็บไว้ทันทีหลังได้รับลิงก์"}}
       ]
@@ -89,7 +89,7 @@
   </a>
   <div class="v3-header-actions">
     <button class="mini-btn header-faq-btn" id="faq-open-btn" type="button">FAQ</button>
-    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="เปลี่ยนธีม" aria-pressed="false">
+    <button class="theme-toggle" id="theme-toggle" type="button" aria-label="ใช้ธีมมืด" aria-pressed="false">
       <span class="theme-sun" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
       <span class="theme-moon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"/></svg></span>
     </button>
@@ -220,8 +220,8 @@
         <div class="faq-a">A: จ่ายเงินตอนรับเครื่องที่หน้างาน</div>
       </div>
       <div class="faq-item">
-        <button class="faq-q" type="button" aria-expanded="false">Q: เอกสารที่ใช้ในการเช่ายืมมีอะไรบ้าง? <span class="faq-plus">+</span></button>
-        <div class="faq-a">A: รูปถ่าย บัตรประชาชน/ใบขับขี่/passport ถ่ายคู่กับหลักฐานการเข้างาน และถ่ายคู่กับอุปกรณ์ที่เช่ายืมตอนรับเครื่องอีกครั้ง</div>
+        <button class="faq-q" type="button" aria-expanded="false">Q: ต้องใช้เอกสารอะไรในการเช่า? <span class="faq-plus">+</span></button>
+        <div class="faq-a">A: รูปถ่ายบัตรประชาชน ใบขับขี่ หรือ Passport คู่กับหลักฐานการเข้างาน และถ่ายคู่กับมือถือและอุปกรณ์ตอนรับของอีกครั้ง</div>
       </div>
       <div class="faq-item">
         <button class="faq-q" type="button" aria-expanded="false">Q: ทำไมไฟล์จาก Google Drive ไม่ชัด? <span class="faq-plus">+</span></button>
