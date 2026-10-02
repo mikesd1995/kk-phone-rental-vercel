@@ -34,3 +34,10 @@ The runtime acceptance artifact now preserves all discovered candidates instead 
 - At least one eligible structured independent reference remains mandatory.
 - Excluded listing/search pages cannot satisfy reference proof.
 - Verifier, owner/tombstone/booking policy, governed Admin writer and exact production readback remain required before COMPLETE.
+
+
+## CI repair record
+
+The first V14 Admin Regression failed one new canonical-alignment test because the deterministic Bai Lu corpus did not yet contain the independently observed wording `bailu ... personal fan meeting in bangkok`. No production code was merged.
+
+The repair updates the Bai Lu known-miss case with the evidence-grounded aliases `bailu personal fan meeting bangkok` and `bailu fan meeting bangkok`, and bumps the known-miss corpus version. The canonical alignment rule itself remains strict; no global fuzzy threshold was relaxed.
