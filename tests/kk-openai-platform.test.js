@@ -72,7 +72,7 @@ test('storefront AI reviewer sends strict Responses API request with image evide
     page_text:'KK Phone Rental',
     image_urls:['https://example.com/storefront.png','file:///etc/passwd']
   },{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'true',OPENAI_API_KEY:'sk-test'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'true',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async(url,init)=>{captured={url,init,body:JSON.parse(init.body)};return fakeResponse(output);}
   });
   assert.equal(out.status,'READY_FOR_DESIGN_SYNTHESIS');
@@ -90,7 +90,7 @@ test('storefront AI reviewer sends strict Responses API request with image evide
 test('discovery reasoner is non-authoritative and verifier-gated',async()=>{
   const output={classification:'concert',rental_fit_score:88,duplicate_risk:'LOW',reasoning_summary:'strong concert rental fit',evidence_gaps:['venue confirmation'],verifier_questions:['confirm venue'],authoritative:false,verifier_required:true,production_writes:0};
   const out=await Agents.reasonDiscovery({candidate:{title:'Example Concert'}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-test'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse(output)
   });
   assert.equal(out.status,'ADVISORY_READY_FOR_VERIFIER');
@@ -103,7 +103,7 @@ test('discovery reasoner is non-authoritative and verifier-gated',async()=>{
 test('unsafe discovery model output is blocked even if provider returned JSON',async()=>{
   const output={classification:'concert',rental_fit_score:99,duplicate_risk:'LOW',reasoning_summary:'x',evidence_gaps:[],verifier_questions:[],authoritative:true,verifier_required:false,production_writes:1};
   const out=await Agents.reasonDiscovery({candidate:{title:'Example'}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-test'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse(output)
   });
   assert.equal(out.status,'BLOCKED_UNSAFE_MODEL_OUTPUT');
@@ -116,7 +116,7 @@ test('unsafe discovery model output is blocked even if provider returned JSON',a
 test('inbox AI can only return an owner-reviewed draft and never authorize send or booking writes',async()=>{
   const output={intent:'booking',summary:'Customer wants a phone package',extracted:{customer_name:'Mike',phone:'0800000000',event_name:'Example',event_date:'2026-10-10',package_request:'phone',pickup_time:'14:00'},reply_draft:'รับข้อมูลแล้ว เดี๋ยวตรวจคิวให้ค่ะ',owner_review_required:true,send_authorized:false,booking_write_authorized:false,production_writes:0};
   const out=await Agents.draftInboxReply({channel:'line',message_text:'ขอจอง Example',business_context:{verified:true}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_OPENAI_ALLOW_CUSTOMER_DATA:'1',OPENAI_API_KEY:'sk-test'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',KK_OPENAI_ALLOW_CUSTOMER_DATA:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse(output)
   });
   assert.equal(out.status,'DRAFT_READY_FOR_OWNER_REVIEW');
@@ -129,7 +129,7 @@ test('inbox AI can only return an owner-reviewed draft and never authorize send 
 test('provider HTTP failure remains fail-closed and does not expose raw input',async()=>{
   const secret='customer private text';
   const out=await Agents.reasonDiscovery({candidate:{title:secret}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-test'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse({}, {status:429,requestId:'req_rate'})
   });
   assert.equal(out.status,'BLOCKED_OPENAI_PROVIDER');
@@ -189,7 +189,7 @@ test('image evidence rejects local/private network URLs and accepts public HTTPS
 test('safety metadata cannot be overridden by model/provider extras',async()=>{
   const output={classification:'concert',rental_fit_score:60,duplicate_risk:'LOW',reasoning_summary:'x',evidence_gaps:[],verifier_questions:[],authoritative:false,verifier_required:true,production_writes:0};
   const out=await Agents.reasonDiscovery({candidate:{title:'x'}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-test'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse(output)
   });
   assert.equal(out.production_writes,0);
@@ -230,7 +230,7 @@ test('OpenAI API key is never forwarded to an environment-controlled alternate o
 
 test('provider failures expose only safe diagnostic metadata',async()=>{
   const out=await Agents.reasonDiscovery({candidate:{title:'x'}},{
-    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-test'},
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-proj-testfixture1234567890'},
     fetchImpl:async()=>fakeResponse({}, {status:429,requestId:'req_diag',retryAfter:'30',providerError:{type:'insufficient_quota',code:'insufficient_quota',param:'model',message:'sensitive message should not escape'}})
   });
   assert.equal(out.status,'BLOCKED_OPENAI_PROVIDER');
