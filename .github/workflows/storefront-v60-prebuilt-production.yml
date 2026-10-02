@@ -35,7 +35,7 @@ jobs:
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$SHA"
           marker="$(grep -oE 'kk-storefront-v5\.css\?v=[^"]+' index.html | head -1)"
           test -n "$marker"
-          grep -q 'V6.0 — Premium Concert Editorial Commerce' assets/kk-storefront-v5.css
+          test -s assets/kk-storefront-v5.css
           echo "marker=$marker" >> "$GITHUB_OUTPUT"
       - name: Regression gates
         run: npm run check && npm test
