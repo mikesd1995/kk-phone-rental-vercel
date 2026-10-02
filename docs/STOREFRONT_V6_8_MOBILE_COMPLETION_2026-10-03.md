@@ -53,3 +53,21 @@ Audit notes:
 - no business/data semantics changed.
 
 Acceptance remains fail-closed until the exact V6.9 head receives fresh automated/rendered evidence.
+
+
+## V6.10 final mobile polish
+The third audit pass addressed remaining small-screen UX debt rather than changing the catalogue architecture.
+
+Implemented:
+- raised customer-facing microcopy that had fallen to 8–10px into a more readable mobile range
+- preserved 44px minimum action targets for card CTA, filters, modal close/share and clear-filter controls
+- made the narrow filter row horizontally recoverable below 360px instead of compressing labels into unusable widths
+- added deterministic scroll margin and lower-page spacing around booking journey / divider / LINE CTA
+- constrained mobile bottom sheets with `dvh`, internal scrolling, overscroll containment and iPhone safe-area clearance
+- added narrow-width 320–359px spacing treatment
+- advanced the presentation marker to `20261003-v610-final-mobile-polish`
+
+Unchanged invariants:
+pricing, availability calculation, booking status, event visibility, inventory, LINE destination/payload, APIs, Make, Google Sheets and production-write behavior.
+
+Fresh exact-head rendered acceptance remains mandatory before merge. Source-level completion is not represented as production visual acceptance.
