@@ -9,7 +9,9 @@ const apps=fs.readFileSync('apps-script/Code.gs','utf8');
 const proxy=fs.readFileSync('server/admin-proxy.js','utf8');
 
 test('closed booking is cleared from Edit Booking selector after refresh',()=>{
-  assert.match(admin,/if\(current && rows\.some\(b=>String\(b\.row_number\)===String\(current\)\)\) sel\.value=current;\s*else sel\.value="";/);
+  assert.match(admin,/const preserved=currentId[\s\S]*?rows\.find\(b=>String\(b\.booking_id\|\|""\)\.trim\(\)===currentId\)/);
+  assert.match(admin,/sel\.value=preserved \? String\(preserved\.row_number\|\|""\) : ""/);
+  assert.match(admin,/state\.editBookingId=b \? String\(b\.booking_id\|\|""\)\.trim\(\) : ""/);
   assert.match(admin,/นำออกจากรายการแก้ Booking แล้ว/);
 });
 

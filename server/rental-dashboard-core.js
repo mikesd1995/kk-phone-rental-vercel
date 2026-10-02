@@ -149,10 +149,14 @@ function parseHelper(csv,eventMap,registryRules){
 function aggregate(rows){
   const seen=new Set(),clean=[];
   for(const r of rows){const key=[r.source,r.booking_id,r.event_id,r.event_date,r.customer_key,r.created_at,r.status].join("|");if(seen.has(key))continue;seen.add(key);clean.push(r);}
-  const non=clean.filter(r=>r.status!=="cancelled");
+  const activeSet=new Set(["pending","confirmed","prepared","picked_up","returned","uploaded"]);
+  // Reporting policy is fail-closed: only completed + active workflow states
+  // participate in customer/booking/revenue metrics. cancelled, no_show, blank
+  // and unknown statuses stay visible in status_mix but never inflate KPIs.
+  const reportableSet=new Set(["completed",...activeSet]);
+  const non=clean.filter(r=>reportableSet.has(r.status));
   const customers={},months={},events={},packages={},statuses={},affiliations={};
   let actualRevenue=0,futureRevenue=0,completed=0,active=0,affKnown=0,affUnknown=0;
-  const activeSet=new Set(["pending","confirmed","prepared","picked_up","returned","uploaded"]);
   for(const r of non){
     const amount=r.amount_received||0;
     const actualAmount=r.status==="completed"?amount:0;
@@ -227,6 +231,7 @@ function aggregate(rows){
   return {generated_at:new Date().toISOString(),metrics:{
     unique_customers:unique,
     non_cancelled_bookings:non.length,
+    reportable_bookings:non.length,
     completed_bookings:completed,
     active_bookings:active,
     repeat_customers:repeat,
@@ -244,7 +249,7 @@ function aggregate(rows){
     "Rental Analytics เป็น READ ONLY: ไม่เขียนกลับ Booking / Event / Asset / Package / ราคา",
     "ค่าย/สังกัดใช้สังกัดของนักแสดงหรือศิลปินเป็นหลัก ไม่ใช่บริษัทผู้จัดงาน: GMMTV cast => GMMTV, Domundi talent => Domundi / Mandee, NCT => SM Entertainment เป็นต้น",
     "ลำดับข้อมูลสังกัด: explicit talent-affiliation field/note → _Artist_Registry (เมื่ออ่านได้) → conservative event-name mapping → Unknown. Event promoter/organizer ไม่ override สังกัดศิลปิน",
-    `Affiliation Coverage ตอนนี้ ${non.length?((affKnown/non.length)*100).toFixed(1):"0.0"}% ของ booking ที่ไม่ยกเลิก; Unknown ${affUnknown} คิว`,
+    `Affiliation Coverage ตอนนี้ ${non.length?((affKnown/non.length)*100).toFixed(1):"0.0"}% ของ booking ที่นับในรายงาน; Unknown ${affUnknown} คิว`,
     "Top Affiliation เรียงจากลูกค้าไม่ซ้ำ → Booking → จำนวนงาน เพื่อใช้ตัดสินใจว่าจะโฟกัสค่ายใดเป็นพิเศษ",
     "รายรับจริง = SUM(amount_received) เฉพาะ booking ที่ status=completed",
     "รายรับในอนาคต = SUM(amount_received) เฉพาะ booking ที่ยัง Active: pending / confirmed / prepared / picked_up / returned / uploaded",

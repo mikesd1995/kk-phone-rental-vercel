@@ -49,7 +49,7 @@ test('verified and accepted direct transports remain writable independently of t
   assert.deepEqual(Policy.admission(snap(),true,'updatePackage'),{allowed:true,mode:'direct'});
 });
 
-test('updateBooking readback requires the persisted row to match every supplied mutable field',()=>{
+test('updateBooking readback uses booking_id as the authoritative identity',()=>{
   const after={bookings:[{
     row_number:25,booking_id:'BK-25',event_id:'EVT-1',booking_status:'prepared',
     customer_name:'Mint',customer_contact:'@mint',customer_phone:'0812345678',contact_channel:'LINE',
@@ -57,7 +57,7 @@ test('updateBooking readback requires the persisted row to match every supplied 
     phone_asset_id:'PHONE-1',lens_asset_id:'LENS-1',note:'VIP'
   }]};
   const good=Policy.verifyBookingMutation('updateBooking',{
-    row_number:25,booking_status:'prepared',payment_status:'partial',amount_received:'690',
+    booking_id:'BK-25',row_number:999,booking_status:'prepared',payment_status:'partial',amount_received:'690',
     customer_name:'Mint',customer_contact:'@mint',customer_phone:'0812345678',contact_channel:'LINE',
     pickup_time:'17:30',phone_asset_id:'PHONE-1',lens_asset_id:'LENS-1',booking_note:'VIP'
   },{},null,after);
@@ -65,10 +65,22 @@ test('updateBooking readback requires the persisted row to match every supplied 
   assert.equal(good.row_number,25);
 
   const bad=Policy.verifyBookingMutation('updateBooking',{
-    row_number:25,payment_status:'paid'
+    booking_id:'BK-25',row_number:999,payment_status:'paid'
   },{},null,after);
   assert.equal(bad.status,'not-committed');
-  assert.equal(bad.reason,'booking-row-mismatch');
+  assert.equal(bad.reason,'booking-readback-mismatch');
+});
+
+
+test('updateBooking never falls through to a wrong row when booking_id is present',()=>{
+  const after={booking_row_number_reliable:true,bookings:[
+    {row_number:40,booking_id:'BK-WRONG',booking_status:'completed',payment_status:'paid',amount_received:590},
+    {row_number:42,booking_id:'BK-TARGET',booking_status:'completed',payment_status:'paid',amount_received:590}
+  ]};
+  const out=Policy.verifyBookingMutation('updateBooking',{booking_id:'BK-TARGET',row_number:40,booking_status:'completed',payment_status:'paid',amount_received:590},{},null,after);
+  assert.equal(out.status,'committed');
+  assert.equal(out.booking_id,'BK-TARGET');
+  assert.equal(out.row_number,42);
 });
 
 test('createBooking timeout reconciliation only accepts one new matching row',()=>{
