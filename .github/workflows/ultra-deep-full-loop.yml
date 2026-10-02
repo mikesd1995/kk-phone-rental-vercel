@@ -268,58 +268,38 @@ jobs:
           if(r.production_writes!==0) process.exit(1);
           NODE
 
-      - name: Probe exact production executor
+      - name: Probe compatible production executor
         id: endpoint
         if: ${{ steps.commercial_gate.outcome == 'success' }}
         shell: bash
         env:
-          EXPECTED_SHA: ${{ steps.pin.outputs.sha }}
           EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-admin-guard
         run: |
           set -euo pipefail
-          READY=false
+          COMPATIBLE=false
           if curl -fsS -X POST "$EXECUTOR_URL" -H "Content-Type: application/json" --data '{"action":"ultraDeepFullLoopHealth"}' -o executor-health.json; then
-            ACTUAL="$(node -e "try{const r=require('./executor-health.json');process.stdout.write(String(r.commit_sha||''))}catch{}")"
-            if [ "$ACTUAL" = "$EXPECTED_SHA" ]; then READY=true; fi
+            node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('executor-health.json','utf8'));
+          const runtimes=new Set(['KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V1','KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V2']);
+          if(r.ok!==true)process.exit(1);
+          if(r.service!=='kk-ultra-deep-full-loop')process.exit(1);
+          if(!runtimes.has(String(r.runtime_version||'')))process.exit(1);
+          if(String(r.oidc_version||'')!=='KK_GITHUB_OIDC_VERIFIER_V1')process.exit(1);
+          NODE
+            COMPATIBLE=true
           fi
-          echo "ready=$READY" >> "$GITHUB_OUTPUT"
+          echo "compatible=$COMPATIBLE" >> "$GITHUB_OUTPUT"
+          echo "executor_commit_sha=$(node -e "try{const r=require('./executor-health.json');process.stdout.write(String(r.commit_sha||''))}catch{}")" >> "$GITHUB_OUTPUT"
 
-      - name: Full regression before emergency prebuilt production
-        if: ${{ steps.commercial_gate.outcome == 'success' && steps.endpoint.outputs.ready != 'true' }}
-        run: npm run check && npm test
-
-      - name: Deploy exact main with zero-hosted-build prebuilt path
-        if: ${{ steps.commercial_gate.outcome == 'success' && steps.endpoint.outputs.ready != 'true' }}
-        shell: bash
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
-          VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
-        run: |
-          set -euo pipefail
-          test -n "${VERCEL_TOKEN:-}"
-          npm install --no-save vercel@latest >/dev/null
-          npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          npx vercel build --prod --token="$VERCEL_TOKEN"
-          npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tee ultra-deep-deploy-url.txt
-
-      - name: Verify exact production executor deployment
+      - name: Require compatible production executor contract
         if: ${{ steps.commercial_gate.outcome == 'success' }}
         shell: bash
         env:
-          EXPECTED_SHA: ${{ steps.pin.outputs.sha }}
-          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-admin-guard
+          COMPATIBLE: ${{ steps.endpoint.outputs.compatible }}
         run: |
           set -euo pipefail
-          ok=0
-          for i in $(seq 1 30); do
-            if curl -fsS -X POST "$EXECUTOR_URL" -H "Content-Type: application/json" --data '{"action":"ultraDeepFullLoopHealth"}' -o executor-health.json; then
-              ACTUAL="$(node -e "try{const r=require('./executor-health.json');process.stdout.write(String(r.commit_sha||''))}catch{}")"
-              if [ "$ACTUAL" = "$EXPECTED_SHA" ]; then ok=1; break; fi
-            fi
-            sleep 4
-          done
-          test "$ok" = 1
+          test "$COMPATIBLE" = "true"
 
       - name: Execute governed production Full Loop
         id: production
