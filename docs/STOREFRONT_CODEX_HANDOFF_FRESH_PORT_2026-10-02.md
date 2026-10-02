@@ -72,3 +72,17 @@ Remediation:
 - no storefront CSS/copy, pricing, availability, inventory, event visibility, booking destination, Admin, Apps Script or production business data was changed.
 
 The original patch branch diverged while unrelated OpenAI/Ultra Deep work advanced `main`; this correction was therefore fresh-ported onto the then-current main rather than force-merging stale history.
+
+
+## 2026-10-02 evidence-metric correction — horizontal lane geometry
+
+Post-merge artifact inspection found one evidence inconsistency: the 480px rendered screenshot showed the intended two-column catalogue, while summary metrics could report `card_columns=1`. The storefront itself was not breaking; the harness inferred the first row by comparing card `top` positions within 4px. Image/fallback/content height differences can stagger two same-grid cards by more than that threshold, causing a false one-column measurement.
+
+Correction:
+- column count is now derived from clustered horizontal card positions (`left`) rather than first-row top alignment;
+- small subpixel horizontal jitter is tolerated while distinct grid lanes remain separate;
+- per-column widths use representative median widths so unequal-column evidence remains detectable;
+- both rendered-state evidence and Design Council/UX packet metrics use the same geometry algorithm;
+- regression coverage includes staggered two-column geometry, one-column narrow geometry, three-column detection, and invalid/zero-width rectangles.
+
+This is an evidence/QA correction only. No storefront CSS, customer copy, price, availability, inventory, booking, Admin, Apps Script, poster SOT, or production business-write behavior is changed.
