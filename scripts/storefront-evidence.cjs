@@ -6,6 +6,20 @@ const {execFileSync}=require('node:child_process');
 const Gateway=require('../server/kk-agent-gateway.js');
 
 function hash(value){return crypto.createHash('sha256').update(value).digest('hex');}
+function imageResponseCache(){
+  const responses=new Map();
+  return {
+    remember(url,status,headers,body){
+      // Restore normal image cache semantics disabled by Playwright API routing.
+      // Keep only successfully delivered image bytes from the same URL in this run.
+      if(status!==200||!/^image\//i.test(headers['content-type']||'')||!body.length)return false;
+      if(responses.has(url))return true; // Replayed responses must not rewrite origin retrieval evidence.
+      responses.set(url,{body,contentType:headers['content-type'],sha256:hash(body),retrieved_at:new Date().toISOString()});return true;
+    },
+    get:url=>responses.get(url),
+    evidence:()=>Array.from(responses,([url,{sha256,retrieved_at,body}])=>({url,sha256,retrieved_at,bytes:body.length}))
+  };
+}
 function frontendIdentity(root=process.cwd()){
   // Include all checked-in visual assets, not merely three previously approved blobs.
   const files=execFileSync('git',['ls-files','-z','index.html','style.css','script.js','config.js','assets'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
@@ -93,4 +107,4 @@ function stateFindings(state,{width,name}){
   }
   return findings;
 }
-module.exports={hash,frontendIdentity,ownerApprovalValid,invokeWithEvidence,settle,inspectState,stateFindings};
+module.exports={hash,imageResponseCache,frontendIdentity,ownerApprovalValid,invokeWithEvidence,settle,inspectState,stateFindings};

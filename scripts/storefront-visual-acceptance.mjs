@@ -146,6 +146,7 @@ async function main(){
   const browser=await chromium.launch(launchOptions);
   const results=[];
   const runtimeErrors=[];
+  const imageCache=Evidence.imageResponseCache();
 
   try{
     for(const width of widths){
@@ -164,7 +165,16 @@ async function main(){
       const page=await context.newPage();
       const pageErrors=[];
       page.on('pageerror',error=>pageErrors.push(String(error&&error.message||error)));
-      await page.route('**/*',route=>['GET','HEAD'].includes(route.request().method())?route.continue():route.abort('blockedbyclient'));
+      page.on('response',async response=>{
+        try{
+          if(response.request().resourceType()==='image')imageCache.remember(response.url(),response.status(),response.headers(),await response.body());
+        }catch(_){} // A failed response is never cached or exempted from readiness checks.
+      });
+      await page.route('**/*',route=>{
+        if(!['GET','HEAD'].includes(route.request().method()))return route.abort('blockedbyclient');
+        const cached=route.request().resourceType()==='image'?imageCache.get(route.request().url()):null;
+        return cached?route.fulfill({status:200,contentType:cached.contentType,body:cached.body}):route.continue();
+      });
 
       if(fixtures){
         // The checked-out config installs an API-only fetch guard before app code runs.
@@ -226,6 +236,7 @@ async function main(){
       const cards=page.locator('#content .concert-card:not(.skeleton-card)');
       const cardCount=await cards.count();
       if(cardCount<1) fail('EVENT_CARDS_NOT_RENDERED',`No real event cards rendered at ${width}px`);
+      await Evidence.settle(page);
 
       // Exercise read-only storefront interactions so a geometry-only PASS cannot mask broken UX.
       // Never click LINE/external booking links and never submit forms.
@@ -503,6 +514,7 @@ async function main(){
     target_url:target.href,
     data_source_url:dataSource?dataSource.href:null,
     fixture_hashes:fixtures?{events:Evidence.hash(fixtures.events),packages:Evidence.hash(fixtures.packages)}:null,
+    image_delivery_evidence:imageCache.evidence(),
     approved_sha:approvedSha,
     frontend_identity:identity,
     source_dirty:sourceDirty,

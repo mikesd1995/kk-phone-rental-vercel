@@ -5,6 +5,20 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const E=require('../scripts/storefront-evidence.cjs');
+test('image cache reuses only same-URL successfully delivered image bytes, never a failed response',()=>{
+  const cache=E.imageResponseCache(),body=Buffer.from('delivered-image');
+  assert.equal(cache.remember('https://images.example/a',503,{'content-type':'image/png'},body),false);
+  assert.equal(cache.remember('https://images.example/a',200,{'content-type':'text/html'},body),false);
+  assert.equal(cache.get('https://images.example/a'),undefined);
+  assert.equal(cache.remember('https://images.example/a',200,{'content-type':'image/png'},body),true);
+  assert.equal(cache.get('https://images.example/a').body,body);
+  assert.equal(cache.get('https://images.example/b'),undefined);
+  assert.equal(cache.evidence()[0].sha256,E.hash(body));
+  const first=cache.get('https://images.example/a');
+  cache.remember('https://images.example/a',200,{'content-type':'image/png'},Buffer.from('later-replay'));
+  assert.equal(cache.get('https://images.example/a'),first);
+  assert.equal(cache.evidence()[0].sha256,E.hash(body));
+});
 
 const healthy=()=>({document_width:390,raw_i18n_keys:[],small_targets:[],card_columns:2,column_widths:[176,176],escaped_card_elements:[],theme_icons:1,modal:null});
 test('rendered defects fail even when the document itself has no horizontal overflow',()=>{
