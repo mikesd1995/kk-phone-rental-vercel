@@ -43,9 +43,12 @@ function parsePrice(value){
  return vals.length?Math.min(...vals):null;
 }
 function packageType(value){
- const s=norm(value);
+ const raw=text(value);
+ const s=norm(raw);
  const hasLens=/(lens|เลนส์|2\.35|zeiss)/i.test(s);
  const hasPhone=/(phone|มือถือ|x300|vivo|เครื่อง)/i.test(s);
+ const lensAddon=/(?:lens|เลนส์|zeiss)[^0-9]{0,16}\+\s*\d{2,3}/i.test(raw);
+ if(hasLens&&hasPhone&&lensAddon)return 'PHONE_ONLY';
  if(hasLens&&hasPhone)return 'PHONE_LENS';
  if(hasLens)return 'LENS_ONLY';
  return 'PHONE_ONLY';
