@@ -98,6 +98,43 @@ function buildKnownMissPlan(){
   };
 }
 
+const REFERENCE_EVENT_RE=/(concert|fan\s*-?\s*meet|fanmeet|fancon|fansign|showcase|festival|world\s+tour|live\s+in|award|premiere|birthday|คอนเสิร์ต|แฟนมีต|แฟนคอน|แฟนไซน์|โชว์เคส|เฟสติวัล|งานแฟน|อีเวนต์ศิลปิน)/i;
+const REFERENCE_NOISE_RE=/(\bcodes?\b|breathwork|masterclass|workshop|webinar|anniversary memories album|เกม|รหัสเกม)/i;
+const REFERENCE_FOREIGN_RE=/(hong\s+kong|singapore|kuala\s+lumpur|manila|jakarta|taipei|tokyo|osaka|seoul|ho\s+chi\s+minh|hanoi)/i;
+
+function trustedEventPath(value){
+ try{
+  const u=new URL(text(value));
+  const host=u.hostname.toLowerCase();
+  const path=u.pathname.toLowerCase();
+  if(host.endsWith('eventpop.me')) return /^\/e\//.test(path);
+  if(host.endsWith('thaiticketmajor.com')) return /^\/(concert|performance|event)\//.test(path);
+  if(host.endsWith('ticketmelon.com')) return path.split('/').filter(Boolean).length>=2;
+  if(host.endsWith('livenationtero.co.th')) return /^\/[^/]*event\//.test(path)||path.includes('/event/');
+  if(host.endsWith('songkick.com')) return path.includes('/concerts/');
+  return false;
+ }catch(_){return false;}
+}
+
+function referenceScopeDecision(row={},context={}){
+ const title=text(row.title||row.event_name);
+ const eventDate=text(row.event_date);
+ const month=text(context.month);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return {eligible:false,reason:'NO_STRUCTURED_DATE'};
+ if(month&&!eventDate.startsWith(month+'-')) return {eligible:false,reason:'OUTSIDE_TARGET_MONTH'};
+ if(REFERENCE_NOISE_RE.test(title)) return {eligible:false,reason:'NON_RENTAL_EVENT_NOISE'};
+ if(REFERENCE_FOREIGN_RE.test(title)||/\.hk$/i.test((()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return''}})())) return {eligible:false,reason:'OUTSIDE_BANGKOK_SCOPE'};
+ if(!REFERENCE_EVENT_RE.test(title)&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'EVENT_IDENTITY_NOT_STRONG_ENOUGH'};
+ return {eligible:true,reason:'ELIGIBLE_REFERENCE'};
+}
+
+function scopeReferenceCandidates(rows=[],context={}){
+ return (Array.isArray(rows)?rows:[]).map(row=>{
+  const decision=referenceScopeDecision(row,context);
+  return {...row,eligible_for_discovery:decision.eligible,reference_scope_reason:decision.reason};
+ });
+}
+
 function summarizeExecution(execution={}){
   const out={tasks:0,evidence_found:0,gap_unresolved:0,attempts:{},provider_errors:{},not_bound:{}};
   const results=Array.isArray(execution.results)?execution.results:[];
@@ -152,11 +189,12 @@ async function runMonthlyUltraDeep(input={},options={}){
   const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
   const referenceExecution=await ProviderExecutor.executeGapPlan(referencePlan,{providers});
   const referenceCandidates=flattenCandidates(referenceExecution);
+  const scopedReferenceCandidates=scopeReferenceCandidates(referenceCandidates,{month:plan.range.month,location:plan.location});
   const referenceProof=executionProof(referenceExecution);
   referenceProof.candidate_count=referenceCandidates.length;
   referenceProof.has_evidence=referenceCandidates.length>0;
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
-  const reconciliation=Reconciliation.reconcileCandidateSets(candidates,referenceCandidates);
+  const reconciliation=Reconciliation.reconcileCandidateSets(candidates,scopedReferenceCandidates);
 
   // Preflight is intentionally evaluated only after the established evidence
   // sequence, so it can gate completion without changing known-miss/discovery/
@@ -199,6 +237,8 @@ async function runMonthlyUltraDeep(input={},options={}){
     candidate_count:candidates.length,
     candidates,
     reference_candidate_count:referenceCandidates.length,
+    eligible_reference_candidate_count:scopedReferenceCandidates.filter(row=>row.eligible_for_discovery!==false).length,
+    reference_scope_exclusions:scopedReferenceCandidates.filter(row=>row.eligible_for_discovery===false).reduce((acc,row)=>{const k=row.reference_scope_reason||'EXCLUDED';acc[k]=(acc[k]||0)+1;return acc;},{}),
     execution_summary:{
       discovery_status:execution.status,
       reference_status:referenceExecution.status,
@@ -216,5 +256,5 @@ async function runMonthlyUltraDeep(input={},options={}){
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
-  buildReferencePlan,buildKnownMissPlan,summarizeExecution,providerPreflight,providerBindingState,runMonthlyUltraDeep
+  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runMonthlyUltraDeep
 };
