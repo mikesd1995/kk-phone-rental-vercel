@@ -1099,42 +1099,49 @@ function kkValidateManualAsset_(assetId, assetType, modelGroup, eventDate, exclu
 
 function kkCreateEventFromDashboard() {
   const ui = SpreadsheetApp.getUi();
-  const eventInputs = kkRange_('KK_EVENT_CREATE_INPUTS', KK.dashboard, 'B6:B13').getValues().flat();
-  const eventName = eventInputs[0];
-  const eventDate = eventInputs[1];
-  const venue = eventInputs[2];
-  const posterInfo = kkPosterForWrite_(eventInputs[3]);
-  const poster = posterInfo.url;
-  const note = eventInputs[4];
-  const status = eventInputs[5] || 'open';
-  const active = kkBlank_(eventInputs[6]) ? true : kkIsTrue_(eventInputs[6]);
-  if (!eventName || !eventDate || !venue) throw new Error('Please fill event_name, event_date, venue');
-  const eventId = kkGenerateUniqueEventId_(eventName, eventDate);
-  const eventRow = kkFirstEmptyRow_(KK.events, 1, 5, 1, 8);
-  kkSheet_(KK.events).getRange(eventRow, 1, 1, 8).setValues([[eventId, eventName, eventDate, venue, poster, status, active, note]]);
+  try {
+    const eventInputs = kkRange_('KK_EVENT_CREATE_INPUTS', KK.dashboard, 'B6:B13').getValues().flat();
+    const pkgRows = kkRange_('KK_EVENT_PACKAGE_ROWS', KK.dashboard, 'A17:I46').getValues();
+    const overrides = [];
+    const seen = {};
+    pkgRows.forEach(row => {
+      const usePkg = kkIsTrue_(row[0]);
+      const templateId = String(row[1] || '').trim();
+      const overridePrice = row[4];
+      const hide = kkIsTrue_(row[5]);
+      const overrideNote = row[6];
+      const sortOverride = row[7];
+      const useCaseOverride = row[8];
+      if (!templateId || seen[templateId]) return;
+      seen[templateId] = true;
+      const shouldWrite = !usePkg || hide || overridePrice !== '' || overrideNote !== '' || sortOverride !== '' || useCaseOverride !== '';
+      if (!shouldWrite) return;
+      overrides.push({
+        template_id: templateId,
+        override_price: overridePrice === '' ? '' : overridePrice,
+        active_override: (!usePkg || hide) ? false : '',
+        override_note: overrideNote || '',
+        sort_order_override: sortOverride === '' ? '' : sortOverride,
+        use_case_override: useCaseOverride || ''
+      });
+    });
 
-  const pkgRows = kkRange_('KK_EVENT_PACKAGE_ROWS', KK.dashboard, 'A17:I46').getValues();
-  const overrideSheet = kkSheet_(KK.overrides);
-  const writtenOverrideKeys = {};
-  pkgRows.forEach(row => {
-    const usePkg = kkIsTrue_(row[0]);
-    const templateId = String(row[1] || '').trim();
-    const overridePrice = row[4];
-    const hide = kkIsTrue_(row[5]);
-    const overrideNote = row[6];
-    const sortOverride = row[7];
-    const useCaseOverride = row[8];
-    if (!templateId) return;
-    const key = eventId + '|' + templateId;
-    if (writtenOverrideKeys[key]) return;
-    const shouldWrite = !usePkg || hide || overridePrice !== '' || overrideNote !== '' || sortOverride !== '' || useCaseOverride !== '';
-    if (!shouldWrite) return;
-    const r = kkFirstEmptyRow_(KK.overrides, 1, 5, 1, 7);
-    overrideSheet.getRange(r, 1, 1, 7).setValues([[eventId, templateId, overridePrice || '', (!usePkg || hide) ? false : '', overrideNote || '', sortOverride || '', useCaseOverride || '']]);
-    writtenOverrideKeys[key] = true;
-  });
-  kkRange_('KK_EVENT_CREATED_ID', KK.dashboard, 'B13').setValue(eventId);
-  ui.alert('Created event: ' + eventId);
+    const result = kkApiCreateEvent_({
+      event_name: eventInputs[0],
+      event_date: eventInputs[1],
+      venue: eventInputs[2],
+      poster_url: eventInputs[3],
+      note: eventInputs[4],
+      status: eventInputs[5] || 'open',
+      active_on_web: kkBlank_(eventInputs[6]) ? true : kkIsTrue_(eventInputs[6]),
+      event_price_overrides: overrides,
+      visibility_changed_by: 'SHEET_DASHBOARD'
+    });
+    kkRange_('KK_EVENT_CREATED_ID', KK.dashboard, 'B13').setValue(result.event_id);
+    ui.alert('Created event: ' + result.event_id);
+  } catch (error) {
+    ui.alert('❌ เกิดข้อผิดพลาด:\n' + (error && error.message ? error.message : String(error)));
+  }
 }
 
 function kkNextAssetIds_(assetType, qty) {
@@ -1151,136 +1158,115 @@ function kkNextAssetIds_(assetType, qty) {
 
 function kkAddAssetsFromDashboard() {
   const ui = SpreadsheetApp.getUi();
-  const inputs = kkRange_('KK_ADD_ASSET_INPUTS', KK.dashboard, 'K6:K11').getValues().flat();
-  const assetType = String(inputs[0] || '').toLowerCase().trim();
-  const modelGroup = String(inputs[1] || '').trim();
-  const qty = Number(inputs[2] || 0);
-  const serialPrefix = String(inputs[3] || '').trim();
-  const status = String(inputs[4] || 'available').toLowerCase().trim();
-  const notes = inputs[5];
-  if (!['phone', 'lens'].includes(assetType)) throw new Error('asset_type must be phone or lens');
-  if (!modelGroup || qty < 1) throw new Error('Please fill model_group and quantity');
-
-  const sh = kkSheet_(KK.assets);
-  const ids = kkNextAssetIds_(assetType, qty);
-  const targetRows = kkEmptyRows_(KK.assets, 1, 5, 1, 6, qty);
-  const data = ids.map((id, i) => [id, assetType, modelGroup, serialPrefix ? `${serialPrefix}-${String(i + 1).padStart(3, '0')}` : '', status, notes]);
-  const contiguous = targetRows.every((row, i) => i === 0 || row === targetRows[i - 1] + 1);
-  if (contiguous) sh.getRange(targetRows[0], 1, qty, 6).setValues(data);
-  else targetRows.forEach((row, i) => sh.getRange(row, 1, 1, 6).setValues([data[i]]));
-  ui.alert('Added assets: ' + ids.join(', '));
+  try {
+    const inputs = kkRange_('KK_ADD_ASSET_INPUTS', KK.dashboard, 'K6:K11').getValues().flat();
+    const result = kkApiAddAssets_({
+      asset_type: inputs[0],
+      model_group: inputs[1],
+      quantity: inputs[2],
+      serial_prefix: inputs[3],
+      status: inputs[4] || 'available',
+      notes: inputs[5],
+      rentable: String(inputs[4] || 'available').toLowerCase().trim() === 'available'
+    });
+    ui.alert('Added assets: ' + (result.asset_ids || []).join(', '));
+  } catch (error) {
+    ui.alert('❌ เกิดข้อผิดพลาด:\n' + (error && error.message ? error.message : String(error)));
+  }
 }
 
 function kkUpdateAccessoryStockFromDashboard() {
   const ui = SpreadsheetApp.getUi();
-  const rows = kkRange_('KK_ACCESSORY_INPUT_ROWS', KK.dashboard, 'J16:N26').getValues();
-  const sh = kkSheet_(KK.accessories);
-  const existing = kkGetValues_(KK.accessories, 5, 1, 1).flat();
-  const rowByType = {};
-  existing.forEach((v, i) => {
-    const key = String(v || '').trim();
-    if (key && rowByType[key] === undefined) rowByType[key] = i + 5;
-  });
-  let count = 0;
-  const seenThisRun = {};
-  rows.forEach(row => {
-    const type = String(row[0] || '').trim();
-    if (!type || seenThisRun[type]) return;
-    seenThisRun[type] = true;
-    const total = Number(row[1] || 0);
-    const damaged = Number(row[2] || 0);
-    const notes = row[3] || '';
-    let targetRow = rowByType[type];
-    if (!targetRow) {
-      targetRow = kkFirstEmptyRow_(KK.accessories, 1, 5, 1, 5);
-      rowByType[type] = targetRow;
-    }
-    sh.getRange(targetRow, 1, 1, 3).setValues([[type, total, damaged]]);
-    sh.getRange(targetRow, 5).setValue(notes);
-    count++;
-  });
-  ui.alert('Updated accessory rows: ' + count);
+  let lock = null;
+  try {
+    lock = kkAcquireDocumentLock_('update accessory stock', 12000);
+    const rows = kkRange_('KK_ACCESSORY_INPUT_ROWS', KK.dashboard, 'J16:N26').getValues();
+    const sh = kkSheet_(KK.accessories);
+    const existing = kkGetValues_(KK.accessories, 5, 1, 1).flat();
+    const rowByType = {};
+    existing.forEach((v, i) => {
+      const key = String(v || '').trim();
+      if (key && rowByType[key] === undefined) rowByType[key] = i + 5;
+    });
+    let count = 0;
+    const seenThisRun = {};
+    rows.forEach(row => {
+      const type = String(row[0] || '').trim();
+      if (!type || seenThisRun[type]) return;
+      seenThisRun[type] = true;
+      const total = Number(row[1]);
+      const damaged = Number(row[2] || 0);
+      const notes = row[3] || '';
+      if (!Number.isFinite(total) || !Number.isInteger(total) || total < 0) throw new Error('Accessory total_qty must be a non-negative integer: ' + type);
+      if (!Number.isFinite(damaged) || !Number.isInteger(damaged) || damaged < 0) throw new Error('Accessory damaged_qty must be a non-negative integer: ' + type);
+      if (damaged > total) throw new Error('Accessory damaged_qty cannot exceed total_qty: ' + type);
+      let targetRow = rowByType[type];
+      if (!targetRow) {
+        targetRow = kkFirstEmptyRow_(KK.accessories, 1, 5, 1, 5);
+        rowByType[type] = targetRow;
+      }
+      sh.getRange(targetRow, 1, 1, 3).setValues([[type, total, damaged]]);
+      sh.getRange(targetRow, 5).setValue(notes);
+      count++;
+    });
+    SpreadsheetApp.flush();
+    ui.alert('Updated accessory rows: ' + count);
+  } catch (error) {
+    ui.alert('❌ เกิดข้อผิดพลาด:\n' + (error && error.message ? error.message : String(error)));
+  } finally {
+    if (lock) lock.releaseLock();
+  }
 }
 
 function kkAddQuickBookingFromDashboard() {
   const ui = SpreadsheetApp.getUi();
   try {
     const bookingInputs = kkRange_('KK_QUICK_BOOKING_INPUTS', KK.dashboard, 'K31:K42').getValues().flat();
-    const eventId = String(bookingInputs[0] || '').trim();
-    let templateId = String(bookingInputs[1] || '').trim();
-    const customerName = bookingInputs[2];
-    const customerContact = bookingInputs[3];
-    const customerPhone = bookingInputs[4];
-    const contactChannel = bookingInputs[5] || 'LINE';
-    const bookingStatus = String(bookingInputs[6] || 'confirmed').toLowerCase().trim();
-    let phoneAssetId = String(bookingInputs[7] || '').trim();
-    let lensAssetId = String(bookingInputs[8] || '').trim();
-    const paymentStatus = String(bookingInputs[9] || 'unpaid').toLowerCase().trim();
-    const amountReceived = Number(bookingInputs[10] || 0);
-    const bookingNote = bookingInputs[11];
-
-    kkEnsureLensCompatibilityPatchInstalled_();
-    if (!eventId || !templateId || !customerName) {
-      throw new Error('Please fill event_id, template_id, customer_name');
-    }
-    if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) {
-      throw new Error('Invalid booking_status');
-    }
-    if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) {
-      throw new Error('Invalid payment_status');
-    }
-    if (isNaN(amountReceived) || amountReceived < 0) {
-      throw new Error('amount_received must be a number and cannot be negative');
-    }
-
-    templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
-    const event = kkGetEventById_(eventId);
-    if (kkIsPastEventDate_(event.event_date)) throw new Error('Cannot create booking for a past event date: ' + kkApiDate_(event.event_date));
-    const pkg = kkGetPackageByTemplateId_(templateId);
-    if (String(event.status).toLowerCase() !== 'open') throw new Error('Event is not open: ' + eventId);
-    if (!event.active) throw new Error('Event is not active_on_web: ' + eventId);
-    if (!pkg.active) throw new Error('Package is inactive: ' + templateId);
-    kkAssertWebPackageBookable_(eventId, templateId);
-
-    const pkgType = String(pkg.package_type || '').toLowerCase().trim();
-    if (phoneAssetId) kkValidateManualAsset_(phoneAssetId, 'phone', pkg.model_group, event.event_date);
-    if (lensAssetId) kkValidateManualAsset_(lensAssetId, 'lens', pkg.lens_group, event.event_date);
-
-    if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) {
-      phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
-    }
-    if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) {
-      lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
-    }
-
-    const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
-    const bookingId = kkGenerateUniqueBookingId_(event.event_date);
-    kkSheet_(KK.bookings).getRange(row, 1, 1, 20).setValues([[
-        bookingId, new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
-        pkgType, phoneAssetId, lensAssetId, '', '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
-    ]]);
-    kkRange_('KK_QUICK_BOOKING_ASSIGNED_ASSETS', KK.dashboard, 'K38:K39').setValues([[phoneAssetId], [lensAssetId]]);
+    const result = kkApiCreateBooking_({
+      event_id: bookingInputs[0],
+      template_id: bookingInputs[1],
+      customer_name: bookingInputs[2],
+      customer_contact: bookingInputs[3],
+      customer_phone: bookingInputs[4],
+      contact_channel: bookingInputs[5] || 'LINE',
+      booking_status: bookingInputs[6] || 'confirmed',
+      phone_asset_id: bookingInputs[7],
+      lens_asset_id: bookingInputs[8],
+      payment_status: bookingInputs[9] || 'unpaid',
+      amount_received: bookingInputs[10],
+      booking_note: bookingInputs[11]
+    });
+    kkRange_('KK_QUICK_BOOKING_ASSIGNED_ASSETS', KK.dashboard, 'K38:K39').setValues([[result.phone_asset_id || ''], [result.lens_asset_id || '']]);
     ui.alert(
-      `✅ Added booking ${bookingId} (row ${row})\n` +
-      `Event: ${eventId}\nTemplate: ${templateId}\nPhone: ${phoneAssetId || '-'}\nLens: ${lensAssetId || '-'}`
+      '✅ Added booking ' + (result.booking_id || '') + ' (row ' + (result.row_number || '-') + ')\n' +
+      'Phone: ' + (result.phone_asset_id || '-') + '\nLens: ' + (result.lens_asset_id || '-')
     );
   } catch (error) {
-    ui.alert(`❌ เกิดข้อผิดพลาด:\n${error.message}`);
+    ui.alert('❌ เกิดข้อผิดพลาด:\n' + (error && error.message ? error.message : String(error)));
   }
 }
 
 function kkConvertEventDriveUrls() {
-  const range = kkGetDynamicRange_(KK.events, 5, 5, 1);
-  if (!range) return kkSafeAlert_('No events to convert.');
-  const values = range.getValues();
-  let count = 0;
-  values.forEach((r, i) => {
-    const before = r[0];
-    const after = kkPosterForWrite_(before).url;
-    if (before && before !== after) { values[i][0] = after; count++; }
-  });
-  if (count > 0) range.setValues(values);
-  kkSafeAlert_('Converted image URLs: ' + count);
+  let lock = null;
+  try {
+    lock = kkAcquireDocumentLock_('convert event poster URLs', 12000);
+    const range = kkGetDynamicRange_(KK.events, 5, 5, 1);
+    if (!range) return kkSafeAlert_('No events to convert.');
+    const values = range.getValues();
+    let count = 0;
+    values.forEach((r, i) => {
+      const before = r[0];
+      const after = kkPosterForWrite_(before).url;
+      if (before && before !== after) { values[i][0] = after; count++; }
+    });
+    if (count > 0) {
+      range.setValues(values);
+      SpreadsheetApp.flush();
+    }
+    kkSafeAlert_('Converted image URLs: ' + count);
+  } finally {
+    if (lock) lock.releaseLock();
+  }
 }
 
 function kkRunBasicHealthCheck() {
