@@ -4,6 +4,7 @@ const {Readable}=require('stream');
 const R=require('../admin/reservation-guard.js');
 const Guard=require('../api/kk-admin-guard.js');
 const AdminSheetFallback=require('../server/admin-sheet-fallback.js');
+const AdminSecurity=require('../server/admin-session.js');
 
 const assets=[
   {asset_id:'PHONE-001',asset_type:'phone',status:'available',rentable_setting:true},
@@ -108,6 +109,30 @@ test('timing validator treats blank pickup as optional TBD state',()=>{
       note:'pickup_time is optional/TBD; reservation starts at 00:00 on event day'
     }
   );
+});
+
+test('update preflight resolves booking_id before a conflicting row hint',()=>{
+  const snap=snapshot();
+  snap.bookings=[
+    Object.assign({},snap.bookings[0],{row_number:40,booking_id:'BK-WRONG',booking_status:'confirmed'}),
+    Object.assign({},snap.bookings[0],{row_number:42,booking_id:'BK-TARGET',booking_status:'confirmed'})
+  ];
+  const proposal=Guard._test.updateProposal(snap,{booking_id:'BK-TARGET',row_number:40,booking_status:'completed'});
+  assert.equal(proposal.booking_id,'BK-TARGET');
+  assert.equal(proposal.row_number,42);
+  assert.equal(proposal.booking_status,'completed');
+});
+
+test('guard accepts a valid signed Admin session without relying on PIN header injection',async t=>{
+  withEnv(t); withDirectSnapshot(t);
+  process.env.KK_ADMIN_SESSION_SECRET='guard-session-secret';
+  const token=AdminSecurity._test.issueToken();
+  const r=Readable.from([JSON.stringify({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',pickup_time:'02:00',phone_asset_id:'PHONE-001'})]);
+  r.method='POST'; r.url='/api/kk-admin'; r.headers={cookie:AdminSecurity.COOKIE_NAME+'='+token,'x-admin-pin':'__SESSION__'};
+  const out=res();
+  await Guard(r,out);
+  assert.equal(out.statusCode,409);
+  assert.equal(JSON.parse(out.body).error_code,'BOOKING_COLLISION');
 });
 
 test('server wrapper rejects invalid createBooking pickup_time before any upstream call',async t=>{
