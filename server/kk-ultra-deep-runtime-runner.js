@@ -129,12 +129,6 @@ async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
-  // Preserve the established execution order and blocker semantics. A preflight is
-  // diagnostic evidence only; it must not short-circuit known-miss, discovery,
-  // reference or reconciliation gates used by acceptance.
-  const preflight=await providerPreflight(providers,input);
-  binding.preflight=preflight;
-
   // Execute the bounded historical probes first. Live HTML search providers may
   // soft-throttle after a large sweep; putting the small regression corpus first
   // prevents broad discovery traffic from starving the recall gate.
@@ -160,6 +154,12 @@ async function runMonthlyUltraDeep(input={},options={}){
   referenceProof.has_evidence=referenceCandidates.length>0;
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
   const reconciliation=Reconciliation.reconcileCandidateSets(candidates,referenceCandidates);
+
+  // Preflight is intentionally evaluated only after the established evidence
+  // sequence, so it can gate completion without changing known-miss/discovery/
+  // reference ordering or hiding their diagnostics.
+  const preflight=await providerPreflight(providers,input);
+  binding.preflight=preflight;
 
   // A known miss is recovered if any governed live discovery path finds it.
   // Do not discard a valid main/reference sweep hit merely because the dedicated
