@@ -58,6 +58,14 @@ function clonedRequest(req,raw){
   clone.headers=req.headers||{};
   return clone;
 }
+function authorizedClone(req,raw,adminPin){
+  const clone=clonedRequest(req,raw);
+  // Copy into a fresh mutable object after this layer has authenticated the
+  // request. This keeps the server PIN internal even when platform request
+  // headers are immutable.
+  clone.headers=Object.assign({},req&&req.headers||{}, {'x-admin-pin':String(adminPin||'')});
+  return clone;
+}
 
 async function fetchFreshSnapshot(env,timeoutMs){
   const waitMs=Number(timeoutMs||18000);
@@ -363,9 +371,7 @@ module.exports=async function handler(req,res){
   const eventGuarded=EVENT_GUARDED_ACTIONS.has(action);
   const visibilityGuarded=EVENT_VISIBILITY_GUARDED_ACTIONS.has(action) &&
     VisibilityGuard.requestedVisibility(payload)===true;
-  if(!payload||typeof payload!=='object'||Array.isArray(payload)||(!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded)){
-    return LegacyAdmin(clonedRequest(req,raw),res);
-  }
+  const passthrough=!payload||typeof payload!=='object'||Array.isArray(payload)||(!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded);
 
   const adminPin=String(process.env.KK_ADMIN_PIN||'').trim();
   const providedPin=String(req.headers&&req.headers['x-admin-pin']||'').trim();
@@ -376,6 +382,7 @@ module.exports=async function handler(req,res){
   const signedSession=AdminSecurity.hasValidSession(req)||AdminSecurity.isAuthorizedRequest(req);
   const legacyPinOk=!!providedPin&&safeSecretEqual(providedPin,adminPin);
   if(!signedSession&&!legacyPinOk) return reply(res,401,{ok:false,error:'Invalid admin session'});
+  if(passthrough) return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
 
   if(agentGatewayAction){
     res.setHeader('X-KK-Agent-Gateway-Version',AgentGateway.GATEWAY_VERSION);
@@ -489,7 +496,7 @@ module.exports=async function handler(req,res){
       });
     }
     res.setHeader('X-KK-Event-Visibility-Guard',checked.code||'PASS');
-    return LegacyAdmin(clonedRequest(req,raw),res);
+    return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
   }
 
   if(eventGuarded&&isPastEventDate(payload.event_date)){
@@ -567,7 +574,7 @@ module.exports=async function handler(req,res){
     const prepared=prepareCreateEventPayload(payload);
     if(prepared.publish_default_applied) res.setHeader('X-KK-Event-Publish-Default','TRUE');
     res.setHeader('X-KK-Event-Guard','PASS');
-    return LegacyAdmin(clonedRequest(req,JSON.stringify(prepared.payload)),res);
+    return LegacyAdmin(authorizedClone(req,JSON.stringify(prepared.payload),adminPin),res);
   }
 
   let snapshot;
@@ -590,7 +597,7 @@ module.exports=async function handler(req,res){
 
   res.setHeader('X-KK-Booking-Guard','PASS');
   res.setHeader('X-KK-Reservation-Mode',assessment.result.window&&assessment.result.window.mode||'none');
-  return LegacyAdmin(clonedRequest(req,raw),res);
+  return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
 };
 
 module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};
