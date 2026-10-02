@@ -19,7 +19,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
      const c=byCase.get(task.source_id);
      return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
    }
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+   return [{title:'Shared Bangkok Concert',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
  const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}});
  assert.equal(out.status,'READY_FOR_VERIFIER');
@@ -49,7 +49,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
      }
      return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
    }
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+   return [{title:'Shared Bangkok Concert',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
@@ -82,7 +82,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
    calls.push(task.source_id||'no-source-id');
    const c=KnownMiss.CORPUS.find(x=>'knownmiss:'+x.case_id===task.source_id);
    if(c) return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+   return [{title:'Shared Bangkok Concert',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
@@ -100,7 +100,7 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
  const classifications=KnownMiss.CORPUS
    .filter(c=>c.case_id!==target.case_id)
    .map(c=>({case_id:c.case_id,executed:true,status:'SOURCE_UNAVAILABLE'}));
- const targetCandidate={title:'WeSpark official #bailu Bai Lu WeSpark Exclusive Overseas Fanmeeting',event_date:target.event_date,source_url:'https://proof.example/bailu-live'};
+ const targetCandidate={title:'WeSpark official #bailu Bai Lu WeSpark Exclusive Overseas Fanmeeting Bangkok',event_date:target.event_date,source_url:'https://proof.example/bailu-live'};
  const search=async task=>{
    if(String(task.source_id||'').startsWith('knownmiss:')) return [];
    if(String(task.source_id||'').startsWith('reference-')) return [targetCandidate];
@@ -153,7 +153,7 @@ test('reference sweep execution proof fails closed when all search providers err
 test('deterministic historical regression remains complete even when live recall is partial',async()=>{
  const search=async task=>{
    if(String(task.source_id||'').startsWith('knownmiss:')) return [];
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/shared'}];
+   return [{title:'Shared Bangkok Concert',event_date:'2026-10-20',source_url:'https://proof.example/shared'}];
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
@@ -170,7 +170,7 @@ test('empty current-month discovery blocks FULL even when provider calls execute
      const c=KnownMiss.CORPUS.find(x=>'knownmiss:'+x.case_id===task.source_id);
      return c?[{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}]:[];
    }
-   if(String(task.source_id||'').startsWith('reference-')) return [{title:'External Event',event_date:'2026-10-20',source_url:'https://proof.example/reference'}];
+   if(String(task.source_id||'').startsWith('reference-')) return [{title:'External Bangkok Concert',event_date:'2026-10-20',source_url:'https://proof.example/reference'}];
    return [];
  };
  const out=await Runner.runMonthlyUltraDeep(
@@ -198,4 +198,29 @@ test('reference sweep retains exact month queries and adds bounded broad fallbac
  assert.ok(p.gap_tasks[2].query_variants.includes('Bangkok lucky fan artist'));
  assert.ok(p.gap_tasks[3].query_variants.includes('Bangkok concert calendar'));
  assert.ok(p.gap_tasks.every(t=>t.providers.includes('DDG_HTML')&&t.providers.includes('BING_HTML')));
+});
+
+test('runtime excludes dated non-Bangkok reference noise without weakening independent proof',async()=>{
+ const byCase=new Map(KnownMiss.CORPUS.map(c=>['knownmiss:'+c.case_id,c]));
+ const search=async task=>{
+   if(byCase.has(task.source_id)){
+     const c=byCase.get(task.source_id);
+     return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
+   }
+   if(String(task.source_id||'').startsWith('reference-')){
+     return [
+       {title:'The Weeknd Tour Hong Kong',event_date:'2026-10-31',source_url:'https://www.livenation.hk/event/x'},
+       {title:'Bangkok Test Concert',event_date:'2026-10-20',source_url:'https://www.thaiticketmajor.com/concert/test'}
+     ];
+   }
+   return [{title:'Bangkok Test Concert',event_date:'2026-10-20',source_url:'https://www.thaiticketmajor.com/concert/test'}];
+ };
+ const out=await Runner.runMonthlyUltraDeep(
+   {month:'2026-10',location:'Bangkok Thailand'},
+   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+ );
+ assert.equal(out.full,true);
+ assert.equal(out.reconciliation.reconciliation_gap_count,0);
+ assert.ok(out.reconciliation.ineligible_reference_count>0);
+ assert.ok(out.reference_hard_gap_eligible_count>0);
 });
