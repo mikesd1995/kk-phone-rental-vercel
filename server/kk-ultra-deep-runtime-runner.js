@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V5';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V6';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -156,7 +156,8 @@ async function runMonthlyUltraDeep(input={},options={}){
   referenceProof.candidate_count=referenceCandidates.length;
   referenceProof.has_evidence=referenceCandidates.length>0;
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
-  const reconciliation=Reconciliation.reconcileCandidateSets(candidates,referenceCandidates);
+  const scopedReferenceCandidates=Reconciliation.scopeReferenceCandidates(referenceCandidates,{month:plan.range.month,location:plan.location});
+  const reconciliation=Reconciliation.reconcileCandidateSets(candidates,scopedReferenceCandidates);
 
   // Preflight is intentionally evaluated only after the established evidence
   // sequence, so it can gate completion without changing known-miss/discovery/
@@ -199,6 +200,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     candidate_count:candidates.length,
     candidates,
     reference_candidate_count:referenceCandidates.length,
+    reference_hard_gap_eligible_count:scopedReferenceCandidates.filter(x=>x.eligible_for_discovery!==false&&Reconciliation.hasComparableEventIdentity(x)).length,
     execution_summary:{
       discovery_status:execution.status,
       reference_status:referenceExecution.status,
