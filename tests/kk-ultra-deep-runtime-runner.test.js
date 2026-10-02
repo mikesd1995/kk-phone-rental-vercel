@@ -19,7 +19,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
      const c=byCase.get(task.source_id);
      return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
    }
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+   return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
  const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}});
  assert.equal(out.status,'READY_FOR_VERIFIER');
@@ -49,7 +49,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
      }
      return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
    }
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+   return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
@@ -82,7 +82,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
    calls.push(task.source_id||'no-source-id');
    const c=KnownMiss.CORPUS.find(x=>'knownmiss:'+x.case_id===task.source_id);
    if(c) return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+   return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
@@ -153,7 +153,7 @@ test('reference sweep execution proof fails closed when all search providers err
 test('deterministic historical regression remains complete even when live recall is partial',async()=>{
  const search=async task=>{
    if(String(task.source_id||'').startsWith('knownmiss:')) return [];
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/shared'}];
+   return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/shared'}];
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
