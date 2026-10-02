@@ -29,7 +29,14 @@ jobs:
           node --test tests/kk-ultra-deep-owner-policy.test.js
           node --test tests/kk-ultra-deep-full-loop-orchestrator.test.js
           node --test tests/kk-ultra-deep-full-loop-completion-gate.test.js
+          node --test tests/kk-ultra-deep-public-web-adapters.test.js
+      - name: Install pinned zero-cost DDGS fallback
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-input 'ddgs==9.14.4'
       - name: Execute October discovery acceptance
+        env:
+          KK_DDGS_TRAFILATURA_ENABLED: '1'
         run: |
           set -euo pipefail
           node scripts/kk-ultra-deep-runtime-acceptance.js --month 2026-10 --location "Bangkok Thailand" --output ultra-deep-runtime-acceptance.json > ultra-deep-runtime-summary.json
