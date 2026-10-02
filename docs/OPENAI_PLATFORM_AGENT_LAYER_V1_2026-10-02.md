@@ -1,0 +1,327 @@
+# KK OpenAI Platform Agent Layer v1 — 2026-10-02
+
+Status: IMPLEMENTED / ENV-GATED / ZERO PRODUCTION WRITES
+
+## Goal
+
+Add a safe OpenAI Responses API reasoning layer to KK Phone Rental without making a model authoritative for pricing, booking, inventory, event truth, deployment, or customer messaging.
+
+This implementation starts with the three highest-value surfaces:
+
+1. Storefront visual AI reviewer layered on deterministic Design Council evidence.
+2. Ultra Deep Scan reasoning assist before the governed Verifier.
+3. Unified Inbox structured extraction + reply draft, with owner review and no send authority.
+
+## Architecture
+
+```
+existing deterministic evidence
+        |
+        v
+Agent Gateway / Task Router
+        |
+        +-- storefront_ai_review
+        |      -> deterministic 7-agent Storefront Design Council
+        |      -> kk-openai-storefront-reviewer
+        |      -> Responses API + strict JSON Schema
+        |      -> read-only findings
+        |
+        +-- ultra_deep_ai_reasoning
+        |      -> deterministic Ultra Deep coverage/gap plan
+        |      -> kk-openai-discovery-reasoner
+        |      -> Responses API + strict JSON Schema
+        |      -> non-authoritative advisory
+        |      -> governed Verifier remains mandatory
+        |
+        +-- unified_inbox_ai_draft
+               -> kk-openai-inbox-drafter
+               -> separate customer-data feature gate
+               -> extraction + draft only
+               -> owner review required
+               -> send_authorized=false
+```
+
+## Runtime files
+
+- `server/kk-openai-platform.js`
+  - minimal Node 20 fetch-based Responses API client;
+  - no new package dependency;
+  - `store:false`;
+  - strict `text.format.type=json_schema`;
+  - safe provider/request metadata only;
+  - no raw prompts/customer content returned in error objects;
+  - timeout and provider failures fail closed.
+
+- `server/kk-openai-agent-adapters.js`
+  - storefront multimodal reviewer;
+  - discovery reasoning assist;
+  - Unified Inbox extraction + reply draft;
+  - local safety validation after model output, even when the provider claims schema compliance.
+
+## Model routing
+
+Defaults are cost-aware and overrideable by server environment:
+
+- Storefront visual review: `gpt-6-sol`
+- Ultra Deep reasoning: `gpt-6-luna`
+- Unified Inbox drafting/extraction: `gpt-6-luna`
+
+Overrides:
+
+- `KK_OPENAI_MODEL_STOREFRONT`
+- `KK_OPENAI_MODEL_DISCOVERY`
+- `KK_OPENAI_MODEL_INBOX`
+- `KK_OPENAI_MODEL_DEFAULT`
+
+Astra is intentionally not the default for high-volume runtime work. It can be selected by an explicit model override for difficult cases.
+
+## Activation gates
+
+Nothing calls OpenAI by default.
+
+Required for any OpenAI request:
+
+```
+KK_OPENAI_PLATFORM_ENABLED=true
+OPENAI_API_KEY=<server-only secret>
+```
+
+Unified Inbox has an additional explicit customer-data gate:
+
+```
+KK_OPENAI_ALLOW_CUSTOMER_DATA=true
+```
+
+Without that second flag, Inbox AI returns `BLOCKED_CUSTOMER_DATA_NOT_AUTHORIZED` before any network call.
+
+Optional:
+
+```
+KK_OPENAI_TIMEOUT_MS=30000
+```
+
+Do not put `OPENAI_API_KEY` in Git, browser code, client-side environment variables, screenshots, chat logs, or public error output.
+
+The runtime deliberately does not support an alternate OpenAI base URL. This prevents a misconfigured environment variable from forwarding the API key to a third-party proxy.
+
+## Authority boundaries
+
+### Storefront reviewer
+
+May:
+- inspect supplied screenshots, page text, metrics, and deterministic council evidence;
+- return visual findings and acceptance tests.
+
+May not:
+- merge;
+- deploy;
+- publish;
+- change pricing/booking/inventory/event truth;
+- replace owner visual acceptance.
+
+### Ultra Deep reasoning
+
+May:
+- classify event type;
+- score rental fit as advisory;
+- flag duplicate risk;
+- identify evidence gaps;
+- prepare Verifier questions.
+
+May not:
+- become authoritative;
+- bypass deterministic dedup;
+- bypass Verifier;
+- write production truth;
+- write price/booking/inventory.
+
+Model output is rejected if it claims authority, removes the Verifier requirement, or reports non-zero production writes.
+
+### Unified Inbox
+
+May:
+- extract structured fields from supplied customer text;
+- summarize;
+- draft a reply.
+
+May not:
+- send a message;
+- create/update a booking;
+- write a price;
+- write inventory;
+- merge LINE/X identities;
+- claim owner approval.
+
+Model output is rejected unless:
+- `owner_review_required=true`;
+- `send_authorized=false`;
+- `booking_write_authorized=false`;
+- `production_writes=0`.
+
+## Agent Registry / Gateway
+
+Registry bumped to `KK_AGENT_REGISTRY_V29`.
+
+Registered agents:
+
+- `kk-openai-storefront-reviewer`
+- `kk-openai-discovery-reasoner`
+- `kk-openai-inbox-drafter`
+
+Registered routes:
+
+- `storefront_ai_review` — invokes the existing seven deterministic Storefront Design Council agents plus the OpenAI reviewer in one hybrid route.
+- `ultra_deep_ai_reasoning` — invokes deterministic source-watch/scanner planning plus the OpenAI discovery reasoner, with Verifier still downstream.
+- `unified_inbox_ai_draft`
+
+All routes require persistent invocation evidence under the existing Agent Gateway contract.
+
+The existing authenticated Admin guard already exposes the Agent Gateway action, so no new unauthenticated public AI endpoint was added. When this branch is merged and server-side environment gates are enabled, authorized Admin calls can invoke these task types through the existing guarded gateway while invocation records persist hashes instead of raw prompts/customer messages.
+
+
+## Storefront Visual QA wiring
+
+The existing screenshot acceptance harness now always records the full seven-agent deterministic Design Council for every acceptance viewport. When `KK_OPENAI_PLATFORM_ENABLED=true`, it additionally sends final JPEG screenshot evidence for selected viewports to `kk-openai-storefront-reviewer` through the Responses API. Default AI-review widths are `390,1024` and can be narrowed/expanded with `KK_OPENAI_STOREFRONT_AI_VIEWPORTS` using widths already present in the deterministic policy.
+
+When the OpenAI feature flag is enabled, a missing key, provider failure, malformed output, or unresolved model P0/P1 finding blocks technical visual acceptance. When the flag is disabled, the pipeline remains zero-cost and continues using the existing deterministic acceptance path. Owner visual acceptance remains a separate mandatory gate.
+
+## Dry-run
+
+A zero-write manual harness is available:
+
+```bash
+npm run openai:agents:dry-run
+```
+
+With the platform disabled, it proves the no-network fallback. With staging environment variables enabled, it exercises the hybrid storefront and discovery routes with synthetic evidence. Inbox remains skipped unless the separate customer-data flag is explicitly enabled.
+
+## Tests
+
+`tests/kk-openai-platform.test.js` covers:
+
+- disabled-by-default zero-network behavior;
+- missing-key fail closed;
+- separate Inbox customer-data authorization;
+- Responses API strict JSON Schema request shape;
+- HTTPS/data-image allowlist and rejection of `file://` image paths;
+- cost-aware model routing;
+- discovery non-authoritative/Verifier invariants;
+- local rejection of unsafe model output;
+- Inbox draft-only invariants;
+- provider 429 fail-closed behavior without raw input leakage;
+- registered route/runtime proof.
+
+Existing agent registry contract test is updated to V29.
+
+## Rollout plan
+
+### Phase A — merge code only
+
+Safe without an API key. All new runtime paths remain disabled and zero-write.
+
+### Phase B — staging API enablement
+
+Configure a restricted server-side API project/key and enable `KK_OPENAI_PLATFORM_ENABLED=true` in staging only.
+
+Run:
+1. storefront screenshot review against known accepted/rejected screenshots;
+2. Ultra Deep benchmark against known events/misses;
+3. Inbox synthetic conversations only.
+
+Measure useful finding rate, false positives, token usage, and latency.
+
+### Phase C — selective production advisory
+
+Only after staging acceptance:
+- allow storefront/discovery advisory calls;
+- keep all existing deterministic and owner gates;
+- leave Inbox customer data disabled until explicit privacy/operations approval.
+
+### Phase D — Inbox draft pilot
+
+Enable `KK_OPENAI_ALLOW_CUSTOMER_DATA=true` only after the Unified Inbox durable branch is accepted and operator workflow is ready. Outbound remains owner-reviewed; no auto-send is introduced by this layer.
+
+## Non-changes
+
+This implementation does not:
+- configure an API key;
+- change Vercel production environment;
+- call the OpenAI API in CI;
+- add a package dependency;
+- modify pricing;
+- modify bookings;
+- modify inventory;
+- write Machine SOT;
+- alter Scanner/Verifier write authority;
+- merge the existing Unified Inbox PR;
+- enable LINE/X outbound send;
+- deploy or promote production.
+
+## References used for implementation
+
+OpenAI current API documentation was checked on 2026-10-02. The independent review corrected the storefront default model from an invalid `gpt-6.1-sol` draft identifier to the documented `gpt-6-sol` model ID and removed the custom API-base override entirely so `OPENAI_API_KEY` can only be sent to the official OpenAI API origin:
+
+- Responses API for direct model requests;
+- Structured Outputs via `text.format` with strict JSON Schema;
+- tool/function architecture remains optional for later phases.
+
+The v1 layer deliberately sends only supplied evidence and does not enable OpenAI web-search/tool calls, keeping cost and authority boundaries narrow.
+
+## Staging environment activation
+
+Branch-scoped Vercel Preview variables were configured by the owner for `feat/openai-platform-agent-layer-v1` on 2026-10-02:
+
+- `OPENAI_API_KEY` — Secret
+- `KK_OPENAI_PLATFORM_ENABLED=true` — Config
+- `KK_OPENAI_ALLOW_CUSTOMER_DATA` remains unset/disabled
+
+A fresh branch Preview deployment is required before these values are visible to the runtime. Production remains unchanged.
+
+- Preview deployment retry requested after the Vercel deployment-rate-limit banner cleared in the dashboard; keep scope branch-only and production-disabled.
+
+## Vercel Secret runtime acceptance correction — 2026-10-02
+
+Vercel's 2026 Secret environment-variable type is intentionally write-only after creation. It is available to deployments but is not a value that CI should retrieve with `vercel env pull` or `vercel env run` for credential acceptance. Earlier staging attempts therefore observed a redacted/absent value and incorrectly attributed that to the OpenAI key itself.
+
+The acceptance design has been corrected:
+
+- keep `OPENAI_API_KEY` as a Vercel **Secret**;
+- never convert the API key to Config merely to make CI read it;
+- add `/api/kk-openai-staging-probe`, which is POST-only, Preview-only, branch-locked, protection-bypass-gated, synthetic-data-only, and zero-write;
+- discover the exact READY Preview deployment for the PR head SHA;
+- call the probe through authenticated `vercel curl`, which handles Deployment Protection;
+- persist only safe status/model/request diagnostics, never the secret or prompt content;
+- continue to require `KK_OPENAI_ALLOW_CUSTOMER_DATA` to remain disabled.
+
+If Vercel has not created an exact READY Preview for the current head, acceptance reports `BLOCKED_PREVIEW_DEPLOYMENT_REQUIRED` instead of rotating the OpenAI key again.
+
+
+## Staging acceptance hardening — 2026-10-02
+
+A later Admin Regression proved that the dedicated `api/kk-openai-staging-probe.js` increased the Vercel Hobby API function surface from 12 to 13 functions. The staging probe endpoint and its endpoint-specific test were therefore removed instead of weakening the function-budget gate.
+
+Staging acceptance now uses the existing Vercel CLI to execute `scripts/kk-openai-agent-dry-run.js` directly with the branch-scoped Preview environment:
+
+- no Preview deployment is required;
+- no public/private staging HTTP function is added;
+- the existing Vercel owner token is required;
+- `--environment=preview --git-branch=feat/openai-platform-agent-layer-v1` selects branch-scoped configuration;
+- the dry-run writes a mode-0600 secret-safe report file;
+- acceptance requires OpenAI enabled, a valid-looking `sk-` key shape, customer-data gate disabled, storefront/discovery advisory success, and `production_writes=0`.
+
+Live OpenAI target discovery also corrected a prior mapping error: within organization `kkphoneteam`, project `kkphonerental` is `proj_I2SGd2Pzp2vsoRCafLxR0CWK`; `proj_49DFUOJVF1WrWdT1Jhmi9KUb` is the separate `kktest` project. No Production environment is changed by this acceptance path.
+
+
+## Staging probe function-budget consolidation — 2026-10-02
+
+Admin Regression correctly blocked the first protected-runtime probe because adding `api/kk-openai-staging-probe.js` raised the Hobby API function surface to 13 files.
+
+The fix preserves runtime-secret acceptance without weakening the function-budget gate:
+- remove the standalone API function;
+- move probe logic to `server/kk-openai-staging-probe.js`;
+- multiplex the probe through the existing `/api/kk-intelligence-health?mode=openai-staging` function;
+- retain Preview-only branch lock, Vercel protection-bypass requirement, synthetic data, key-shape validation, safe diagnostics, and zero writes;
+- keep exact-head READY Preview required because Vercel Secret values are intentionally unavailable to CI pull/env-run flows.
+
+This keeps the API function surface within the existing Hobby budget and preserves the security/authority model.
+\n## MCP read-only runtime acceptance fallback\n\nFor the protected Preview only, the staging probe also accepts a GET request with `mode=openai-staging&confirm=RUN_OPENAI_STAGING_PROBE`. This exists so the Vercel MCP authenticated fetch path can validate the runtime-injected Secret when GitHub-side automation bypass credentials are unavailable. The probe remains Preview-only, locked to `feat/openai-platform-agent-layer-v1`, synthetic-data-only, customer-data-disabled, and `production_writes=0`; Production returns `PREVIEW_ONLY` before any provider call.\n

@@ -26,6 +26,7 @@ const UltraDeepLearning = require('./kk-ultra-deep-learning-loop.js');
 const UltraDeepOwnerPolicy = require('./kk-ultra-deep-owner-policy.js');
 const UltraDeepFullLoop = require('./kk-ultra-deep-full-loop-orchestrator.js');
 const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
+const OpenAiAgents = require('./kk-openai-agent-adapters.js');
 const XPostingPlan = require('./kk-x-posting-plan.js');
 
 const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V19';
@@ -53,6 +54,53 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-marketing-agent'],
         result: XPostingPlan.plan(input)
+      };
+
+    case 'storefront_ai_review': {
+      const deterministicCouncil=StorefrontDesignCouncil.runCouncil(input);
+      const aiReview=await OpenAiAgents.reviewStorefront(
+        {...input,design_council:deterministicCouncil},
+        {env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch}
+      );
+      return {
+        invoked_agents:[...deterministicCouncil.invoked_agents,'kk-openai-storefront-reviewer'],
+        result:{
+          schema_version:'KK_STOREFRONT_HYBRID_REVIEW_V1',
+          status:aiReview.status,
+          deterministic_council:deterministicCouncil,
+          ai_review:aiReview,
+          production_writes:0,
+          auto_merge:false,
+          auto_deploy:false,
+          owner_visual_acceptance_required:true
+        }
+      };
+    }
+
+    case 'ultra_deep_ai_reasoning': {
+      const deterministicPlan=UltraDeepV3.planGapSearch(input.observations||[],input.options||{});
+      const aiReasoning=await OpenAiAgents.reasonDiscovery(
+        {...input,deterministic_plan:deterministicPlan},
+        {env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch}
+      );
+      return {
+        invoked_agents:['kk-discovery-source-watch','kk-discovery-scanner','kk-openai-discovery-reasoner'],
+        result:{
+          schema_version:'KK_ULTRA_DEEP_HYBRID_REASONING_V1',
+          status:aiReasoning.status,
+          deterministic_plan:deterministicPlan,
+          ai_reasoning:aiReasoning,
+          authoritative:false,
+          verifier_required:true,
+          production_writes:0
+        }
+      };
+    }
+
+    case 'unified_inbox_ai_draft':
+      return {
+        invoked_agents:['kk-openai-inbox-drafter'],
+        result:await OpenAiAgents.draftInboxReply(input,{env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch})
       };
 
     case 'storefront_design_council':

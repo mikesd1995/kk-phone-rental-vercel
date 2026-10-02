@@ -5,6 +5,7 @@ const crmFreshness = require('./lib/crm-freshness');
 const crmReconciliation = require('./lib/crm-reconciliation');
 const AdminSecurity = require('../server/admin-session.js');
 const ProjectMemoryLedger = require('../server/kk-project-memory-ledger.js');
+const OpenAiStagingProbe = require('../server/kk-openai-staging-probe.js');
 
 const DEFAULT_CRM_SHEET_ID = '1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
 const DEFAULT_CORE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -186,6 +187,7 @@ async function reconcileRuntimeDatasets({coreSheetId,crmSheetId,env}){
 
 module.exports=async function handler(req,res){
   if(req.method==='OPTIONS') return json(res,204,{});
+  if(req.method==='POST' && OpenAiStagingProbe.requested(req)) return OpenAiStagingProbe.handle(req,res,{json});
   if(req.method==='GET' && timingProbeRequested(req)){
     const now=Date.now();
     if(appsScriptTimingCache.payload && appsScriptTimingCache.expiresAt>now){
