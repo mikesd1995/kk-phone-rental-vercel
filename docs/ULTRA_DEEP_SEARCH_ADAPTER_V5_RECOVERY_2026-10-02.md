@@ -16,3 +16,5 @@ No completion criterion was weakened. Scanner remains zero-write.
 - Added provider-factory regression coverage so DDG/Bing adapters must remain callable.
 - Kept provider preflight as a completion diagnostic, but moved it after the established known-miss -> discovery -> reference -> reconciliation evidence sequence. This preserves historical execution-order and blocker contracts while still preventing FULL when live search has no evidence.
 - Fixed the preflight test module reference typo (Runner, not R).
+
+- Final CI semantic fix: preflight is no longer a single-query veto. Governed HTTPS evidence from discovery, reference sweep, or known-miss probes also proves live search. If all live evidence paths are empty, UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED still blocks FULL. This removes a false negative without weakening the zero-evidence fail-closed gate.
