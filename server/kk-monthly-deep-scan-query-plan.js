@@ -1,6 +1,6 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V3';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V4';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon Bangkok','คอนเสิร์ต แฟนมีต กรุงเทพ'],
  TICKETING:['site:thaiticketmajor.com concert Bangkok','site:ticketmelon.com Bangkok event'],
@@ -37,7 +37,7 @@ function monthRange(input={}){
 }
 function build(input={}){
  const range=monthRange(input);const location=text(input.location)||'Bangkok Thailand';const gap_tasks=[];
- for(const [source_tier,terms] of Object.entries(TIER_TERMS))for(const term of terms){const qs=queryVariantsForTerm(term,range,location);gap_tasks.push({source_tier,query:qs[0],query_variants:qs.slice(1),providers:['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],stop_condition:'AT_LEAST_ONE_VALID_HTTPS_SOURCE',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});}
+ for(const [source_tier,terms] of Object.entries(TIER_TERMS))for(const term of terms){const qs=queryVariantsForTerm(term,range,location);gap_tasks.push({source_tier,query:qs[0],query_variants:qs.slice(1),providers:['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDGS_TRAFILATURA','DDG_HTML','BING_HTML','SEARXNG','CRAWL4AI','EXA'],stop_condition:'AT_LEAST_ONE_VALID_HTTPS_SOURCE',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});}
  const universe=SourceRegistry.buildUniversePlan({month:range.month,location});
  for(const task of universe.tasks){
    gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
