@@ -60,3 +60,14 @@ test('Edit Booking preserves the selected booking by booking_id across row shift
   assert.match(js,/function findBookingByIdentity\(identity\)/);
   assert.match(js,/id:b\.booking_id\|\|b\.row_number/);
 });
+
+
+test('Customer 360 value excludes cancelled and no-show bookings',()=>{
+  const start=js.indexOf('function customerAnalytics(customer, bookings)');
+  const end=js.indexOf('function customerQualityIssues',start);
+  const block=js.slice(start,end);
+  assert.match(block,/reportableStatuses=new Set\(\['pending','confirmed','prepared','picked_up','returned','uploaded','completed'\]\)/);
+  assert.match(block,/const totalRevenue=reportable\.reduce/);
+  assert.doesNotMatch(block,/const totalRevenue=rows\.reduce/);
+  assert.match(js,/มูลค่าคิวที่นับในรายงาน/);
+});
