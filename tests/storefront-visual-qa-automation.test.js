@@ -257,3 +257,9 @@ test('V6.1.1 customer cards hide internal KK index and dark active filters remai
   assert.match(css,/\.concert-card:after\{content:none!important;display:none!important\}/);
   assert.match(css,/html\[data-theme="dark"\] \.browse-controls-shell \.filter-btn\.active,[\s\S]*color:#071426!important;[\s\S]*-webkit-text-fill-color:#071426!important/);
 });
+
+
+test('V6.1.2 dark theme moon has explicit high-visibility yellow WebKit-safe foreground',()=>{
+ const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+ assert.match(css,/html\[data-theme="dark"\] \.theme-moon\{[\s\S]*color:#ffd640!important;[\s\S]*-webkit-text-fill-color:#ffd640!important;[\s\S]*opacity:1!important/);
+});
