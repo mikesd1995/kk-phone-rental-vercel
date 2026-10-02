@@ -16,7 +16,7 @@ function configState(env=process.env){
  const actual=RuntimeLedger.projectRefFromUrl(url);
  const projectBindingMatches=!!expected&&actual===expected;
  const productionOidc=text(env.VERCEL_ENV).toLowerCase()==='production';
- const githubOidc=text(env.GITHUB_ACTIONS).toLowerCase()==='true';
+ const githubOidc=text(env.GITHUB_ACTIONS).toLowerCase()==='true' && bool(env.KK_PROJECT_MEMORY_GITHUB_OIDC_ENABLED);
  const inherited=bool(env.KK_RUNTIME_LEDGER_ENABLED);
  const enabled=explicit?bool(explicit):(inherited||productionOidc||githubOidc);
  const directConfigured=enabled&&!!url&&!!serverKey.value&&projectBindingMatches;
