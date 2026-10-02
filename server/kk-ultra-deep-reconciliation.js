@@ -3,21 +3,27 @@
 const VERSION='KK_ULTRA_DEEP_RECONCILIATION_V1';
 
 function text(v){return String(v==null?'':v).trim();}
-function norm(v){return text(v).toLowerCase().replace(/[^a-z0-9฀-๿]+/g,' ').replace(/s+/g,' ').trim();}
+function norm(v){return text(v).toLowerCase().replace(/[^a-z0-9฀-๿]+/g,' ').replace(/\s+/g,' ').trim();}
 function date(v){const s=text(v);if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'):s;}
 
 function key(row={}){
   return [norm(row.title||row.event_name),date(row.event_date)].join('|');
 }
 
+function hasComparableEventIdentity(row={}){
+  const title=norm(row.title||row.event_name);
+  const eventDate=date(row.event_date);
+  return Boolean(title && /^\d{4}-\d{2}-\d{2}$/.test(eventDate));
+}
+
 function reconcileCandidateSets(discovered=[],reference=[]){
-  const found=new Set((Array.isArray(discovered)?discovered:[]).map(key).filter(x=>x!=='|'));
+  const found=new Set((Array.isArray(discovered)?discovered:[]).filter(hasComparableEventIdentity).map(key));
   const refs=(Array.isArray(reference)?reference:[]).filter(Boolean);
+  const comparableRefs=refs.filter(hasComparableEventIdentity);
   const missing=[];
   const matched=[];
-  for(const row of refs){
+  for(const row of comparableRefs){
     const k=key(row);
-    if(!k||k==='|')continue;
     if(found.has(k))matched.push({reference_id:text(row.reference_id)||null,key:k});
     else if(row.eligible_for_discovery!==false)missing.push({
       reference_id:text(row.reference_id)||null,
@@ -30,7 +36,9 @@ function reconcileCandidateSets(discovered=[],reference=[]){
     version:VERSION,
     complete:missing.length===0,
     reconciliation_gap_count:missing.length,
-    reference_count:refs.length,
+    reference_count:comparableRefs.length,
+    raw_reference_count:refs.length,
+    unstructured_reference_count:refs.length-comparableRefs.length,
     matched_count:matched.length,
     missing_candidates:missing,
     production_writes:0
@@ -69,4 +77,4 @@ function classifyAgainstSot(candidates=[],context={}){
   });
 }
 
-module.exports={VERSION,key,reconcileCandidateSets,classifyAgainstSot};
+module.exports={VERSION,key,hasComparableEventIdentity,reconcileCandidateSets,classifyAgainstSot};
