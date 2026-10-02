@@ -41,3 +41,50 @@ test('canonical resolver fails closed when package cannot be matched uniquely',a
  const fetchImpl=async url=>({ok:true,text:async()=>String(url).includes('09_Web_Packages')?pkg:web});
  assert.equal(await webhook.resolveCanonicalPackage({event_name:'EVENT',venue:'VENUE',package_name:'Vivo X300 Pro + Lens',price_display:'590 บาท'},fetchImpl),null);
 });
+
+
+test('canonical date normalizes Thai Buddhist and ISO/Gregorian dates',()=>{
+ assert.equal(webhook.canonicalDate('16 ต.ค. 2569'),'2026-10-16');
+ assert.equal(webhook.canonicalDate('16/10/2026'),'2026-10-16');
+ assert.equal(webhook.canonicalDate('2026-10-16'),'2026-10-16');
+ assert.equal(webhook.canonicalDate('16 Oct 2026'),'2026-10-16');
+});
+
+test('canonical resolver distinguishes same-name same-venue multi-day events by date',async()=>{
+ const web=[
+  'event_id,event_name,event_date_text,venue,poster_image_url',
+  'EVT-16,OH MY FOURTH CONCERT,16/10/2026,BITEC LIVE,https://example.com/16.jpg',
+  'EVT-17,OH MY FOURTH CONCERT,17/10/2026,BITEC LIVE,https://example.com/17.jpg'
+ ].join('\n');
+ const pkg=[
+  'package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case',
+  'PKG-16,EVT-16,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,590,1,available,10,,1,',
+  'PKG-17,EVT-17,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,790,1,available,10,,1,'
+ ].join('\n');
+ const fetchImpl=async url=>({ok:true,text:async()=>String(url).includes('09_Web_Packages')?pkg:web});
+ const got=await webhook.resolveCanonicalPackage({event_name:'OH MY FOURTH CONCERT',event_date:'17 ต.ค. 2569',venue:'BITEC LIVE',package_name:'Vivo X300 Pro'},fetchImpl);
+ assert.equal(got.event_id,'EVT-17');
+ assert.equal(got.package_id,'PKG-17');
+ assert.equal(got.price_display,'790 บาท');
+});
+
+test('canonical resolver fails closed for hidden or sold-out packages',async()=>{
+ const web='event_id,event_name,event_date_text,venue,poster_image_url\nEVT-1,EVENT,18/10/2026,VENUE,\n';
+ const makeFetch=status=>async url=>({ok:true,text:async()=>String(url).includes('09_Web_Packages')
+   ? ['package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case',
+      'PKG-1,EVT-1,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,790,'+(status==='full'?'0':'1')+','+status+',10,,1,'].join('\n')
+   : web});
+ for(const status of ['hidden','full']){
+   const got=await webhook.resolveCanonicalPackage({event_name:'EVENT',event_date:'18/10/2026',venue:'VENUE',package_name:'Vivo X300 Pro'},makeFetch(status));
+   assert.equal(got,null);
+ }
+});
+
+test('event resolver fails closed when date is missing or ambiguous',()=>{
+ const rows=[
+  {event_id:'E1',event_name:'EVENT',event_date_text:'16/10/2026',venue:'VENUE'},
+  {event_id:'E2',event_name:'EVENT',event_date_text:'17/10/2026',venue:'VENUE'}
+ ];
+ assert.equal(webhook.resolveEventRow(rows,{event_name:'EVENT',venue:'VENUE',event_date:''}),null);
+ assert.equal(webhook.resolveEventRow(rows,{event_name:'EVENT',venue:'VENUE',event_date:'18/10/2026'}),null);
+});
