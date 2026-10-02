@@ -94,7 +94,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node - <<'NODE'
+          node --input-type=commonjs - <<'NODE'
           const fs=require('fs');
           const sha=String(process.env.APPROVED_SHA||'').trim().toLowerCase();
           const branch=String(process.env.KK_OPENAI_BRANCH||'').trim();
@@ -146,7 +146,7 @@ jobs:
             --show-error \
             > openai-agent-staging-report.json
 
-          node - <<'NODE'
+          node --input-type=commonjs - <<'NODE'
           const fs=require('fs');
           const report=JSON.parse(fs.readFileSync('openai-agent-staging-report.json','utf8'));
           if(report.ok!==true||report.status!=='PASS') throw new Error('OPENAI_RUNTIME_ACCEPTANCE_FAILED');
