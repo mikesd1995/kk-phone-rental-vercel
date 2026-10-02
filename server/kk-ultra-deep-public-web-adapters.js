@@ -205,8 +205,10 @@ async function ddgsTrafilatura(task={},options={}){
  for(const r of (Array.isArray(rows)?rows:[]).slice(0,25)){
   const sourceUrl=https(r.source_url||r.href||r.url);if(!sourceUrl)continue;
   const title=text(r.title)||q;
-  const evidence=[r.title,r.body].filter(Boolean).join(' ');
-  const dates=inferSearchEventDates(evidence);
+  // A result title is the identity-bearing evidence for a specific event page.
+  // Do not cross-product a title-specific date with other dates mentioned in the snippet body.
+  const titleDates=inferSearchEventDates(r.title);
+  const dates=titleDates.length?titleDates:inferSearchEventDates(r.body);
   if(dates.length){
    for(const eventDate of dates.slice(0,7)) out.push({title,event_date:eventDate,event_time:null,venue:null,artist:[],source_url:sourceUrl,confidence:null});
   }else{
