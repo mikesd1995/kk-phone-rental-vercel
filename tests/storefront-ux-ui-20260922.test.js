@@ -44,17 +44,21 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261002-v64-rendered-acceptance'));
-  assert.ok(html.includes('script.js?v=storefront-v64-rendered-acceptance-20261002'));
+  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261002-v65-owner-mobile-polish'));
+  assert.ok(html.includes('script.js?v=storefront-v65-owner-mobile-polish-20261002'));
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#f4f6f8">/);
 });
 
 
-test('V5 language switch binds the active hero, proof and event-discovery DOM',()=>{
+test('V5 language switch binds hero, benefits and event-discovery DOM',()=>{
   assert.match(js,/hero_body:"Rent a vivo X300 Pro \+ Lens/);
+  assert.match(js,/hero_secondary:"How it works"/);
+  assert.match(js,/benefit_insurance:"Free insurance · No deposit"/);
+  assert.match(js,/benefit_discount:"New customer −฿40 · Returning review −฿100"/);
   assert.match(js,/setText\("\.v3-hero-copy>p","hero_body"\)/);
-  assert.match(js,/querySelectorAll\("\.v3-proof>div:not\(\.kk-proof-label\)"\)/);
+  assert.match(js,/setText\("\.v3-secondary","hero_secondary"\)/);
+  assert.match(js,/querySelectorAll\("\.kk-benefit-grid>div>span:last-child"\)/);
   assert.match(js,/eventHeading\.innerHTML/);
   assert.match(js,/eventBody\.innerHTML=esc\(tr\("events_body"\)\)/);
 });

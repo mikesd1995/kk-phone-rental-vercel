@@ -86,3 +86,21 @@ Correction:
 - regression coverage includes staggered two-column geometry, one-column narrow geometry, three-column detection, and invalid/zero-width rectangles.
 
 This is an evidence/QA correction only. No storefront CSS, customer copy, price, availability, inventory, booking, Admin, Apps Script, poster SOT, or production business-write behavior is changed.
+
+
+## 2026-10-02 owner screenshot mobile-polish pass
+
+Fresh owner iPhone screenshots showed that technical Visual QA passing did not mean the presentation was aesthetically complete. The reproduced current-source issues were visual hierarchy/density problems, not booking/data defects.
+
+Changes:
+- language switch keeps 44px targets but uses an intentional segmented-control shape instead of circular active halves;
+- normal-phone hero is shorter and less dominant, with the second headline phrase kept together where width permits;
+- benefits become a readable 2×2 service grid on 360–700px instead of four cramped micro-columns;
+- search/filter hierarchy is simplified; status controls stay on one QA-safe weighted row, with compact month labels and proportional widths so all four controls remain fully visible without clipping;
+- event heading restores a deliberate two-line hierarchy rather than light inline “ghost” text;
+- English mode now localizes the secondary hero CTA and all four benefit messages instead of leaving Thai copy on an English page;
+- 320px short-phone rules remain separately protected.
+
+The black circular control visible in the owner browser screenshot was not reproduced in the storefront DOM or exact-head Visual QA artifacts, so no storefront element was removed or hidden on that basis.
+
+Safety boundary: presentation and static localization only. Pricing, availability, inventory, event visibility, booking destinations, Admin, Apps Script, customer data, poster SOT and production business writes are unchanged.
