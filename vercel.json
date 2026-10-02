@@ -347,7 +347,7 @@
   ],
   "functions": {
     "api/kk-admin-guard.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/kk-admin-snapshot-v6.js": {
       "maxDuration": 60,

@@ -20,6 +20,7 @@ const AdminSecurity = require('../server/admin-session.js');
 const UltraDeepOIDC = require('../server/kk-github-oidc.js');
 const UltraDeepRuntime = require('../server/kk-ultra-deep-production-runtime.js');
 const UltraDeepCompletionGate = require('../server/kk-ultra-deep-full-loop-completion-gate.js');
+const UltraDeepDirect = require('../server/kk-ultra-deep-direct-zero-cost.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -530,6 +531,23 @@ module.exports=async function handler(req,res){
       error_code:'CLEANUP_REQUIRES_ACCEPTED_APPS_SCRIPT_9_5_12',
       recommended_action:'deployAcceptedCleanupCandidateThenReenable'
     });
+  }
+
+  if(action==='ultraDeepDirectRun'){
+    const month=String(payload.month||'').trim();
+    if(!/^\\d{4}-\\d{2}$/.test(month)) return reply(res,400,{ok:false,error_code:'ULTRA_DEEP_MONTH_INVALID'});
+    try{
+      const result=await UltraDeepDirect.run({month,location:String(payload.location||'Bangkok Thailand')},{
+        executeWrites:true,
+        env:process.env,
+        fetchImpl:global.fetch,
+        correlation_id:'admin-direct-'+Date.now()
+      });
+      const status=result.status==='COMPLETE'?200:409;
+      return reply(res,status,{ok:status===200,direct_runtime:UltraDeepDirect.VERSION,result});
+    }catch(err){
+      return reply(res,500,{ok:false,error_code:String(err&&err.code||'ULTRA_DEEP_DIRECT_FAILED'),error:String(err&&err.message||err).slice(0,300)});
+    }
   }
 
   if(agentGatewayAction){
