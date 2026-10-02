@@ -6,6 +6,7 @@ on:
       - 'index.html'
       - 'style.css'
       - 'assets/kk-storefront-v2.css'
+      - 'assets/kk-storefront-v5.css'
       - 'script.js'
       - 'config.js'
       - 'server/kk-storefront-ux-reviewer.js'
