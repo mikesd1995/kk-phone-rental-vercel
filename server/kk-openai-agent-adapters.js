@@ -151,7 +151,8 @@ async function reasonDiscovery(input={},options={}){
     input_text:[
       'CANDIDATE='+json(input.candidate||input,14000),
       'SOURCE_EVIDENCE='+json(input.evidence||input.sources||[],18000),
-      'KNOWN_EVENTS='+json(input.known_events||[],14000)
+      'KNOWN_EVENTS='+json(input.known_events||[],14000),
+      'DETERMINISTIC_GAP_PLAN='+json(input.deterministic_plan||{},10000)
     ].join('\n')
   },options);
   if(result.status!=='READY') return platformFailure('kk-openai-discovery-reasoner',result);
