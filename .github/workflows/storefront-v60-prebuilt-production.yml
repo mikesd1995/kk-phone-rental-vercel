@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$SHA"
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$SHA"
-          grep -q 'v60-premium-editorial' index.html
+          grep -q 'v66-generic-phone-i18n' index.html
           grep -q 'V6.0 — Premium Concert Editorial Commerce' assets/kk-storefront-v5.css
       - name: Regression gates
         run: npm run check && npm test
@@ -50,7 +50,7 @@ jobs:
           ok=0
           for i in $(seq 1 30); do
             curl -fsS "$PRODUCTION_URL/" -o live.html || true
-            if grep -q 'v60-premium-editorial' live.html && grep -q 'id="faq-open-btn"' live.html && grep -q 'id="theme-toggle"' live.html; then ok=1; break; fi
+            if grep -q 'v66-generic-phone-i18n' live.html && grep -q 'id="faq-open-btn"' live.html && grep -q 'id="theme-toggle"' live.html; then ok=1; break; fi
             sleep 4
           done
           test "$ok" = 1
