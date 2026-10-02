@@ -87,7 +87,9 @@ async function inspectState(page){
       failed_poster_details:cards.filter(el=>el.dataset.posterFailed==='1').map(el=>({
         event_id:el.dataset.eventId||'',
         event_name:el.dataset.eventName||'',
-        poster_source:el.dataset.posterSource||''
+        poster_source:el.dataset.posterSource||'',
+        fallback_mode:el.dataset.posterFallback||'',
+        fallback_visible:Boolean(el.querySelector('.poster-placeholder-event'))
       }))};
   });
 }
