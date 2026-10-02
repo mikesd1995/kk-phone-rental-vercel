@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V28';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V29';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -42,12 +42,20 @@ const AGENTS = Object.freeze({
     production_writes: 0
   }),
   'kk-marketing-agent': Object.freeze({
-    version: 'KK_MARKETING_AGENT_V1',
+    version: 'KK_MARKETING_AGENT_V2_X_SIGNAL',
     authority: 'READ_ONLY_ADVISOR',
     runtime_state: 'LIVE_GATEWAY_MANDATORY_FOR_CONTENT',
     surface: 'AGENT_GATEWAY',
     production_writes: 0,
     note: 'Chooses objective, campaign mode, timing/priority context and opportunity score before Content Strategy. Cannot write final copy, publish, spend, or mutate price/inventory/Machine SOT.'
+  }),
+  'kk-x-posting-plan': Object.freeze({
+    version: 'KK_X_POSTING_PLAN_AGENT_V1',
+    authority: 'READ_ONLY_ADVISOR',
+    runtime_state: 'LIVE_GATEWAY_MANDATORY_FOR_X_POSTING_PLANS',
+    surface: 'AGENT_GATEWAY_AND_CHAT_BRIDGE',
+    production_writes: 0,
+    note: 'Ranks verified event opportunities into X dayparts using current labeled X evidence, recent-post fatigue, event proximity, booking fit and competitor context. Never publishes or schedules.'
   }),
   'kk-content-selector': Object.freeze({
     version: 'KK_CONTENT_SELECTOR_V2',
@@ -145,6 +153,15 @@ const ROUTES = Object.freeze({
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: true,
+    persistent_invocation_evidence_required: true
+  }),
+  x_posting_plan: Object.freeze({
+    route_id: 'X_POSTING_PLAN_DEFAULT',
+    request_type: 'X_POSTING_PLAN',
+    required_agents: Object.freeze(['kk-marketing-agent', 'kk-x-posting-plan']),
+    downstream_agents: Object.freeze(['kk-content-strategy', 'kk-content-agent', 'kk-content-qa', 'kk-content-selector']),
+    runtime_available: true,
+    owner_review_required: false,
     persistent_invocation_evidence_required: true
   }),
   creative_production_plan: Object.freeze({
@@ -520,7 +537,8 @@ function publicRegistry() {
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
       'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',
       'Storefront UX Reviewer consumes supplied viewport/layout metrics and screenshot observations; browser visual evidence remains required for final visual acceptance.',
-      'All post-generation routes that enter this gateway now require Marketing → Strategy → Content → QA → Selector and a single-winner contract. ChatGPT cross-chat enforcement still requires the chat surface to call this private gateway rather than bypass it.'
+      'All post-generation routes that enter this gateway now require Marketing → Strategy → Content → QA → Selector and a single-winner contract. ChatGPT cross-chat enforcement still requires the chat surface to call this private gateway rather than bypass it.',
+      'X posting-plan requests must use x_posting_plan with current labeled X evidence and persistent bridge evidence; ad-hoc chat ranking is not accepted as Agent execution.'
     ]
   };
 }
