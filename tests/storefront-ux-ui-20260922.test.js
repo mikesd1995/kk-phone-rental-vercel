@@ -60,7 +60,7 @@ test('V5 language switch binds hero, benefits and event-discovery DOM',()=>{
   assert.match(js,/setText\("\.v3-secondary","hero_secondary"\)/);
   assert.match(js,/querySelectorAll\("\.kk-benefit-grid>div>span:last-child"\)/);
   assert.match(js,/eventHeading\.innerHTML/);
-  assert.match(js,/eventBody\.innerHTML=esc\(tr\("events_body"\)\)/);
+  assert.match(js,/eventBody\.textContent=tr\("events_body"\)/);
 });
 
 
