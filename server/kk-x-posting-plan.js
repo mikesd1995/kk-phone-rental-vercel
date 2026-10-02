@@ -127,7 +127,14 @@ function normalizeSlots(slots){
 
 function plan(input={}){
   const candidates=Array.isArray(input.candidates)?input.candidates.filter(Boolean):[];
-  const ranking=candidates.map(scoreCandidate).sort((a,b)=>b.base_score-a.base_score);
+  const rejectedCandidates=candidates
+    .filter(candidate=>candidate.verified_event!==true)
+    .map(candidate=>({
+      event:text(candidate.event||candidate.name||candidate.title),
+      reason:'EVENT_NOT_VERIFIED'
+    }));
+  const eligibleCandidates=candidates.filter(candidate=>candidate.verified_event===true);
+  const ranking=eligibleCandidates.map(scoreCandidate).sort((a,b)=>b.base_score-a.base_score);
   const slots=normalizeSlots(input.slots);
   const used=new Set();
   const assignments=slots.map(slot=>{
@@ -160,6 +167,7 @@ function plan(input={}){
     objective:'MAXIMIZE_QUALIFIED_REACH_AND_ENGAGEMENT_WITH_BOOKING_INTENT',
     weights:{...WEIGHTS},
     ranking,
+    rejected_candidates:rejectedCandidates,
     slots:assignments,
     safety:{
       authority:'READ_ONLY_ADVISOR',
