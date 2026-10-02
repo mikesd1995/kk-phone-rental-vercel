@@ -305,3 +305,12 @@ test('visual QA treats a verified rendered exact-event text fallback as degraded
   assert.match(runner,/severity:'P2'/);
   assert.match(runner,/POSTER_DELIVERY_FAILED/);
 });
+
+
+test('visual QA card-column summary uses rendered top tolerance instead of 4px rounding buckets',()=>{
+  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  assert.match(source,/const firstTop=cardRects\.length\?cardRects\[0\]\.top:null/);
+  assert.match(source,/Math\.abs\(r\.top-firstTop\)<4/);
+  assert.doesNotMatch(source,/Math\.round\(cardRects\[0\]\.top\/4\)\*4/);
+  assert.doesNotMatch(source,/Math\.round\(r\.top\/4\)\*4===firstTop/);
+});
