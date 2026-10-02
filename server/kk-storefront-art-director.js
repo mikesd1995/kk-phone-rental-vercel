@@ -63,7 +63,7 @@ function buildDirection(input={}){
     ],
     acceptance:{
       mobile_first:true,
-      required_widths:[320,375,390,430,480,768,1024],
+      required_widths:[320,375,390,430,480,768,1024,1440],
       no_horizontal_overflow:true,
       min_tap_target_px:44,
       min_ios_input_font_px:16,
