@@ -949,3 +949,6 @@ html[data-theme="dark"] .kk-benefit-grid{border-color:#20324b}html[data-theme="d
  .kk-benefit-grid b{font-size:17px!important;margin-bottom:4px!important}
  .browse-controls-shell{margin-bottom:12px!important}
 }
+
+/* V6.2.2 short viewport */
+@media(max-width:340px) and (max-height:620px){.kk-mock-hero{padding-top:8px!important;padding-bottom:6px!important}.kk-benefit-grid{margin-bottom:4px!important}.browse-controls-shell{margin-bottom:4px!important}.v3-events-heading{margin-top:6px!important;margin-bottom:6px!important}}
