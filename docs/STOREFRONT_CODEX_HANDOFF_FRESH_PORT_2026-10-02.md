@@ -104,3 +104,20 @@ Changes:
 The black circular control visible in the owner browser screenshot was not reproduced in the storefront DOM or exact-head Visual QA artifacts, so no storefront element was removed or hidden on that basis.
 
 Safety boundary: presentation and static localization only. Pricing, availability, inventory, event visibility, booking destinations, Admin, Apps Script, customer data, poster SOT and production business writes are unchanged.
+
+
+## 2026-10-03 professional brand/i18n finish
+
+Owner direction: brand-level storefront messaging must describe **phone rental**, not a single device model, because the catalogue will expand to additional phones. Specific model names remain valid only at package/detail level where the customer is choosing an actual rentable configuration.
+
+Changes:
+- hero eyebrow changed from a model-specific label to `PHONE RENTAL / EVENT PICKUP`;
+- Thai/English hero, SEO meta and event meta copy now describe generic phone rental;
+- the upcoming-events heading no longer injects a specific model;
+- brand subtitle is `Concert Phone Rental`;
+- package-level model/lens labels remain intact so booking truth is not made ambiguous;
+- hidden/accessibility language binding now covers skip-link, theme-toggle aria, language-switch aria, benefit group, browse/search group, booking journey, month selector and initial loading state;
+- Thai empty/error states were tightened from playful filler language to a more professional service tone;
+- cache markers were advanced to V6.6 so production browsers do not retain the previous model-specific copy.
+
+Safety boundary: no pricing, package availability, inventory, event visibility, booking destination, LINE payload semantics, Admin, Apps Script, customer data, poster SOT or production business-write authority changed.
