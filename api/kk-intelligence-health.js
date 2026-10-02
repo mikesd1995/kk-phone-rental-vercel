@@ -14,6 +14,7 @@ const RUNTIME_DATASETS={
   event_archive:{sheet:'13_Event_Archive',range:'A1:Z',privateRange:'13_Event_Archive!A1:Z',requireData:false}
 };
 
+const EXPECTED_APPS_SCRIPT_VERSION='v16.7.0_CRM_PRO_PHASE3_9_5_13_FULL_BACKEND_AUDIT';
 const APPS_SCRIPT_TIMING_CACHE_TTL_MS=5*60*1000;
 let appsScriptTimingCache={expiresAt:0,payload:null};
 
@@ -54,6 +55,10 @@ function safeTimingPayload(status,errorCode,extra){
     effective_utc_offset:'',
     effective_utc_plus_7_verified:false,
     backend_sheet_identity_verified:false,
+    expected_admin_api_version:EXPECTED_APPS_SCRIPT_VERSION,
+    admin_api_version:'',
+    admin_api_version_verified:false,
+    source_equivalence:'UNVERIFIED',
     named_project_timezone:'UNVERIFIED',
     installed_triggers:'UNVERIFIED',
     cleanup_trigger:'UNVERIFIED',
@@ -90,10 +95,13 @@ async function appsScriptTimingReadback({env=process.env,fetchImpl=global.fetch,
     const d=body&&body.data||{};
     const offset=inferOffsetMinutes(String(d.generated_at||''),before,after);
     const identity=String(d.spreadsheet_id||'')===sheetId && d.frontend_backend_same_sheet===true;
+    const adminApiVersion=String(d.admin_api_version||'').trim();
     return safeTimingPayload('READBACK_COMPLETE','',{
       effective_utc_offset:offsetLabel(offset),
       effective_utc_plus_7_verified:offset===420,
-      backend_sheet_identity_verified:identity
+      backend_sheet_identity_verified:identity,
+      admin_api_version:adminApiVersion,
+      admin_api_version_verified:adminApiVersion===EXPECTED_APPS_SCRIPT_VERSION
     });
   }catch(err){
     return safeTimingPayload('READBACK_BLOCKED',err&&err.name==='AbortError'?'PHASE1_HEALTH_TIMEOUT':'PHASE1_HEALTH_TRANSPORT_FAILED');
@@ -297,7 +305,7 @@ module.exports=async function handler(req,res){
 };
 
 module.exports._test={
-  reconcileRuntimeDatasets,RUNTIME_DATASETS,
+  reconcileRuntimeDatasets,RUNTIME_DATASETS,EXPECTED_APPS_SCRIPT_VERSION,
   canonicalAppsScriptExecUrl,naiveLocalTimestampMs,inferOffsetMinutes,offsetLabel,
   safeTimingPayload,appsScriptTimingReadback,timingProbeRequested,
   projectMemoryProbeRequested,projectMemoryRuntimeReadback,
