@@ -155,3 +155,8 @@ Changes:
 The black circular control visible at the lower-left of owner browser screenshots is not present in storefront source, DOM selectors, fixed-control CSS or exact-head QA captures. It is therefore treated as an external/browser overlay and no storefront element is hidden to imitate its removal.
 
 Safety boundary: no pricing values, package availability, inventory, booking destination, LINE payload semantics, Admin, Apps Script, event visibility, customer data or production business-write authority changed.
+
+
+### Current-main CI retry note
+
+After the V6.7 files were fresh-ported onto current main, the first PR #556 workflow attempt ended at runner bootstrap for all four workflows within seconds, with no executable steps/log artifacts. The storefront source was unchanged from the already accepted V6.7 candidate. A documentation-only commit retriggers the exact-current-main gates; only those replacement gate results may authorize merge.
