@@ -49,17 +49,46 @@ async function resolveDecisionHistory(input, options){
 
 async function executeTask(taskType, input = {}, options = {}) {
   switch (String(taskType || '').trim().toLowerCase()) {
-    case 'storefront_ai_review':
+    case 'storefront_ai_review': {
+      const deterministicCouncil=StorefrontDesignCouncil.runCouncil(input);
+      const aiReview=await OpenAiAgents.reviewStorefront(
+        {...input,design_council:deterministicCouncil},
+        {env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch}
+      );
       return {
-        invoked_agents:['kk-openai-storefront-reviewer'],
-        result:await OpenAiAgents.reviewStorefront(input,{env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch})
+        invoked_agents:[...deterministicCouncil.invoked_agents,'kk-openai-storefront-reviewer'],
+        result:{
+          schema_version:'KK_STOREFRONT_HYBRID_REVIEW_V1',
+          status:aiReview.status,
+          deterministic_council:deterministicCouncil,
+          ai_review:aiReview,
+          production_writes:0,
+          auto_merge:false,
+          auto_deploy:false,
+          owner_visual_acceptance_required:true
+        }
       };
+    }
 
-    case 'ultra_deep_ai_reasoning':
+    case 'ultra_deep_ai_reasoning': {
+      const deterministicPlan=UltraDeepV3.planGapSearch(input.observations||[],input.options||{});
+      const aiReasoning=await OpenAiAgents.reasonDiscovery(
+        {...input,deterministic_plan:deterministicPlan},
+        {env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch}
+      );
       return {
-        invoked_agents:['kk-openai-discovery-reasoner'],
-        result:await OpenAiAgents.reasonDiscovery(input,{env:options.env||process.env,fetchImpl:options.fetchImpl||global.fetch})
+        invoked_agents:['kk-discovery-source-watch','kk-discovery-scanner','kk-openai-discovery-reasoner'],
+        result:{
+          schema_version:'KK_ULTRA_DEEP_HYBRID_REASONING_V1',
+          status:aiReasoning.status,
+          deterministic_plan:deterministicPlan,
+          ai_reasoning:aiReasoning,
+          authoritative:false,
+          verifier_required:true,
+          production_writes:0
+        }
       };
+    }
 
     case 'unified_inbox_ai_draft':
       return {
