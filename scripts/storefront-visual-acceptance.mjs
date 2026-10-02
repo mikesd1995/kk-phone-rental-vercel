@@ -19,7 +19,8 @@ const DEFAULT_HEIGHTS=Object.freeze({
   430:932,
   480:932,
   768:1024,
-  1024:768
+  1024:768,
+  1440:900
 });
 
 function fail(code,message){
