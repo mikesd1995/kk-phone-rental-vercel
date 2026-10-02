@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_FINAL_PRICING_POLICY_V3';
+const VERSION='KK_FINAL_PRICING_POLICY_V4';
 
 const DEFAULT_SCORE_FALLBACK_POLICY=Object.freeze({
   policy_approved:true,
@@ -113,6 +113,41 @@ function scoreFallback(input={}){
   };
 }
 
+function median(values=[]){const a=values.map(Number).filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;}
+function lensBaseline(input={}){
+  const templates=Array.isArray(input.package_templates)?input.package_templates:[];
+  const lens=templates.find(r=>text(r.package_type).toLowerCase()==='lens_only');
+  return money(lens&&lens.standard_price)||200;
+}
+function exactCompetitorMedian(input={}){
+  const pricing=input.pricing||{};
+  const evidence=Array.isArray(pricing.evidence)?pricing.evidence:[];
+  const lens=lensBaseline(input);
+  const phone=[];
+  for(const row of evidence){
+    const p=money(row&&row.price);if(!p)continue;
+    const type=text(row&&row.package_type).toUpperCase();
+    if(type==='PHONE_ONLY'||type==='PHONE') phone.push(p);
+    else if(type==='PHONE_LENS'||type==='PHONE_LENS_BUNDLE'||type==='BUNDLE'){
+      const derived=p-lens;if(derived>0)phone.push(derived);
+    }
+  }
+  const value=median(phone);
+  if(!value)return null;
+  const policy=fallbackPolicy(input);
+  const ids=templateIds(input,policy);
+  return {
+    phone:value,
+    lens,
+    bundle:value+lens,
+    final_prices:[
+      {template_id:ids.phone,override_price:value,active_override:true,override_note:'EXACT_EVENT_COMPETITOR_MEDIAN'},
+      {template_id:ids.lens,override_price:lens,active_override:false,override_note:'LENS_ONLY_HIDDEN_STORE_BASELINE'},
+      {template_id:ids.bundle,override_price:value+lens,active_override:true,override_note:'EXACT_EVENT_COMPETITOR_MEDIAN_PLUS_LENS'}
+    ]
+  };
+}
+
 function baselinePrices(input={}){
   const explicit=Array.isArray(input.store_baseline_prices)?input.store_baseline_prices:[];
   const templates=Array.isArray(input.package_templates)?input.package_templates:[];
@@ -154,7 +189,26 @@ function resolve(input={}){
   const competitorCount=exactCompetitorCount(input);
   const date=eventDate(input);
   const weekend=isWeekendDate(date);
+  const exact=competitorCount>0?exactCompetitorMedian(input):null;
   const fallback=competitorCount===0?scoreFallback(input):null;
+
+  if(exact){
+    return {
+      schema_version:VERSION,
+      status:'FINAL_PRICES_RESOLVED',
+      final_prices:decorate(exact.final_prices,{needs_price_recheck:false}),
+      policy_approved:true,
+      source:'EXACT_EVENT_COMPETITOR_MEDIAN',
+      pricing_status:'APPROVED_EXACT_EVENT_MEDIAN',
+      price_confidence:competitorCount>=3?'HIGH':'MEDIUM',
+      needs_price_recheck:false,
+      rental_fit_score:eventScore(input),
+      minimum_publish_score:fallbackPolicy(input).minimum_publish_score,
+      competitor_evidence_count:competitorCount,
+      competitor_reference_used_as_final:true,
+      requires_per_event_owner_price_decision:false
+    };
+  }
 
   if(fallback){
     const needsRecheck=weekend;
@@ -203,6 +257,6 @@ module.exports={
   fallbackPolicy,
   templateIds,
   scoreFallback,
-  baselinePrices,
+  median,lensBaseline,exactCompetitorMedian,baselinePrices,
   resolve
 };

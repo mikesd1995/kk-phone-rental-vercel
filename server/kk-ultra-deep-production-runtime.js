@@ -1,0 +1,240 @@
+'use strict';
+
+const AdminSheetFallback=require('./admin-sheet-fallback.js');
+const Orchestrator=require('./kk-ultra-deep-full-loop-orchestrator.js');
+const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
+const VisibilityGuard=require('./event-visibility-owner-guard.js');
+
+const VERSION='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V1';
+const DEFAULT_SITE='https://kk-phone-rental.vercel.app';
+const DEFAULT_SHEET_ID='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
+
+function text(v){return String(v==null?'':v).trim();}
+function norm(v){return text(v).normalize('NFKC').toLowerCase().replace(/[^a-z0-9ก-๙]+/g,' ').replace(/\s+/g,' ').trim();}
+function date(v){return VisibilityGuard.normalizeEventDate(v);}
+function tokens(v){return norm(v).split(' ').filter(x=>x.length>=3);}
+function titleOverlap(a,b){
+ const x=tokens(a),y=new Set(tokens(b));if(!x.length)return 0;
+ return x.filter(t=>y.has(t)).length/x.length;
+}
+function venueCompatible(a,b){
+ const x=norm(a),y=norm(b);return !x||!y||x===y||x.includes(y)||y.includes(x);
+}
+function sameKnownMiss(a,b){
+ return KnownMiss.CORPUS.some(c=>KnownMiss.sameCase(a,c)&&KnownMiss.sameCase(b,c));
+}
+function packageTemplateId(packageId){
+ const s=text(packageId);const i=s.indexOf('TPL-');return i>=0?s.slice(i):s;
+}
+function snapshotEvents(snapshot={}){
+ const webById=new Map((snapshot.web_ready||[]).map(x=>[text(x.event_id),x]));
+ return (snapshot.events||[]).map(e=>{
+  const web=webById.get(text(e.event_id))||{};
+  const packages=(snapshot.web_packages||[]).filter(p=>text(p.event_id)===text(e.event_id)).map(p=>({
+   package_id:text(p.package_id),
+   template_id:packageTemplateId(p.package_id),
+   package_type:text(p.package_type),
+   price:Number(p.price)||0,
+   available_count:Number(p.available_count)||0,
+   package_status:text(p.package_status),
+   active_override:!['hidden'].includes(text(p.package_status).toLowerCase())
+  }));
+  const lock=(snapshot.visibility_locks||[]).find(x=>text(x.event_id)===text(e.event_id));
+  return {
+   ...e,
+   event_date:date(e.event_date),
+   poster_image_url:text(web.poster_image_url||e.poster_url),
+   packages,
+   tombstone_locked:!!(lock&&text(lock.lock_state).toUpperCase()==='LOCKED'),
+   history_state:lock?text(lock.lock_state).toUpperCase():''
+  };
+ });
+}
+function matchExisting(candidate={},events=[]){
+ const d=date(candidate.event_date);if(!d)return {match:null,ambiguous:false,candidates:[]};
+ const sameDate=(events||[]).filter(e=>date(e.event_date)===d);
+ const scored=[];
+ for(const e of sameDate){
+  let score=0;let reason='';
+  if(norm(e.event_name)===norm(candidate.title)){score=1;reason='EXACT_NAME_DATE';}
+  else if(sameKnownMiss({title:e.event_name,event_date:d},{title:candidate.title,event_date:d})){score=.95;reason='KNOWN_MISS_CANONICAL';}
+  else{
+   const overlap=Math.max(titleOverlap(candidate.title,e.event_name),titleOverlap(e.event_name,candidate.title));
+   if(venueCompatible(candidate.venue,e.venue)&&overlap>=.6){score=.8;reason='DATE_VENUE_TITLE_OVERLAP';}
+  }
+  if(score)scored.push({event:e,score,reason});
+ }
+ scored.sort((a,b)=>b.score-a.score);
+ if(!scored.length)return {match:null,ambiguous:false,candidates:[]};
+ if(scored.length>1&&scored[0].score-scored[1].score<.15)return {match:null,ambiguous:true,candidates:scored.slice(0,3)};
+ return {match:scored[0],ambiguous:false,candidates:scored.slice(0,3)};
+}
+function historicalConflict(candidate={},locks=[]){
+ const d=date(candidate.event_date);if(!d)return null;
+ for(const l of Array.isArray(locks)?locks:[]){
+  if(date(l.event_date)!==d)continue;
+  const exact=norm(l.event_name)===norm(candidate.title);
+  const known=sameKnownMiss({title:l.event_name,event_date:d},{title:candidate.title,event_date:d});
+  const overlap=Math.max(titleOverlap(candidate.title,l.event_name),titleOverlap(l.event_name,candidate.title));
+  if(exact||known||(venueCompatible(candidate.venue,l.venue)&&overlap>=.6))return l;
+ }
+ return null;
+}
+function activeBookingDateSet(snapshot={}){
+ const active=new Set();
+ for(const b of snapshot.bookings||[]){
+  const s=text(b.booking_status).toLowerCase();
+  if(['cancelled','no_show'].includes(s))continue;
+  const d=date(b.event_date);if(d)active.add(d);
+ }
+ return active;
+}
+function reconcileCandidates(candidates=[],snapshot={}){
+ const events=snapshotEvents(snapshot);
+ const booked=activeBookingDateSet(snapshot);
+ const safe=[];const dispositions=[];
+ for(const raw of Array.isArray(candidates)?candidates:[]){
+  const c={...raw,event_date:date(raw.event_date)};
+  if(booked.has(c.event_date)){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_BOOKING_DATE'});
+   continue;
+  }
+  const history=historicalConflict(c,snapshot.visibility_locks||[]);
+  if(history&&['LOCKED','SEEN_CORE'].includes(text(history.lock_state).toUpperCase())){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_EVENT_HISTORY',history_event_id:text(history.event_id),history_state:text(history.lock_state)});
+   continue;
+  }
+  const match=matchExisting(c,events);
+  if(match.ambiguous){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'HOLD_AMBIGUOUS_EXISTING',matches:match.candidates.map(x=>({event_id:text(x.event.event_id),event_name:text(x.event.event_name),score:x.score,reason:x.reason}))});
+   continue;
+  }
+  if(match.match){
+   c.existing_event_id=text(match.match.event.event_id);
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_EXISTING',existing_event_id:c.existing_event_id,match_reason:match.match.reason});
+  }else{
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_NEW'});
+  }
+  safe.push(c);
+ }
+ return {events,safe_candidates:safe,dispositions,booked_dates:[...booked]};
+}
+function storeBaselines(snapshot={}){
+ return (snapshot.packages||[]).filter(p=>p.active===true).map(p=>({
+  template_id:text(p.template_id),
+  package_type:text(p.package_type),
+  price:Number(p.standard_price)||0,
+  approved:true,
+  active:true,
+  override_note:'ACTIVE_STANDARD_PACKAGE_SOT'
+ })).filter(x=>x.template_id&&x.price>0);
+}
+async function postAdmin(payload,{env=process.env,fetchImpl=global.fetch}={}){
+ const pin=text(env.KK_ADMIN_PIN);if(!pin){const e=new Error('KK_ADMIN_PIN unavailable');e.code='PROMOTION_ADMIN_CREDENTIAL_MISSING';throw e;}
+ const base=text(env.KK_SITE_URL||env.SITE_URL||DEFAULT_SITE).replace(/\/$/,'');
+ const r=await fetchImpl(base+'/api/kk-admin-guard',{
+  method:'POST',
+  headers:{'content-type':'application/json','x-admin-pin':pin,'x-kk-ultra-deep-runtime':VERSION},
+  body:JSON.stringify(payload)
+ });
+ const body=await r.json().catch(()=>null);
+ if(!r.ok||!body||body.ok===false){
+  const e=new Error(text(body&&body.error)||('ADMIN_HTTP_'+r.status));e.code=text(body&&body.error_code)||('ADMIN_HTTP_'+r.status);e.body=body;throw e;
+ }
+ return body;
+}
+async function freshSnapshot(env=process.env,fetchImpl=global.fetch){
+ const sheetId=text(env.GOOGLE_SHEET_ID)||DEFAULT_SHEET_ID;
+ return AdminSheetFallback.buildSnapshot({sheetId,env,fetchImpl,cache:false});
+}
+function readbackForEvent(snapshot,eventId,expectedName='',expectedDate=''){
+ const id=text(eventId);
+ let event=(snapshot.web_ready||[]).find(x=>text(x.event_id)===id);
+ if(!event&&expectedName){
+  event=(snapshot.web_ready||[]).find(x=>norm(x.event_name)===norm(expectedName)&&date(x.event_date)===date(expectedDate));
+ }
+ if(!event)return {event:{},packages:[]};
+ return {
+  event:{
+   ...event,
+   active_on_web:!['hide','hidden'].includes(text(event.action_for_web).toLowerCase()),
+   poster_url:text(event.poster_image_url)
+  },
+  packages:(snapshot.web_packages||[]).filter(p=>text(p.event_id)===text(event.event_id))
+ };
+}
+async function storefrontReadback({plan,created,env=process.env,fetchImpl=global.fetch}={}){
+ const createdId=text(created&&created.result&&created.result.event_id)||text(created&&created.event_id);
+ let last={event:{},packages:[]};
+ for(let i=0;i<5;i++){
+  const snap=await freshSnapshot(env,fetchImpl);
+  last=readbackForEvent(snap,createdId,plan&&plan.admin_payload&&plan.admin_payload.event_name,plan&&plan.admin_payload&&plan.admin_payload.event_date);
+  if(text(last.event.event_id)&&last.packages.length)return last;
+  if(i<4)await new Promise(r=>setTimeout(r,650));
+ }
+ return last;
+}
+async function existingEventWriter({existing,plan},{env=process.env,fetchImpl=global.fetch}={}){
+ const results=[];
+ for(const action of plan.actions||[])results.push(await postAdmin(action,{env,fetchImpl}));
+ let snap;let rb={event:{},packages:[]};
+ for(let i=0;i<5;i++){
+  snap=await freshSnapshot(env,fetchImpl);
+  rb=readbackForEvent(snap,existing.event_id,existing.event_name,existing.event_date);
+  if(text(rb.event.event_id))break;
+  if(i<4)await new Promise(r=>setTimeout(r,650));
+ }
+ const blockers=[];
+ for(const action of plan.actions||[]){
+  if(action.action==='upsertEventOverride'){
+   const row=rb.packages.find(p=>packageTemplateId(p.package_id)===text(action.template_id));
+   if(!row||Number(row.price)!==Number(action.override_price))blockers.push('PRICE_READBACK_MISMATCH:'+text(action.template_id));
+  }else if(action.action==='updateEvent'){
+   if(text(rb.event.poster_image_url||rb.event.poster_url)!==text(action.poster_url))blockers.push('POSTER_READBACK_MISMATCH');
+  }
+ }
+ return {status:blockers.length?'UPDATE_READBACK_FAILED':'UPDATED_VERIFIED',results,readback:rb,blockers,readback_verified:blockers.length===0};
+}
+async function execute(handoff={},options={}){
+ const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch;
+ const snapshot=options.snapshot||await freshSnapshot(env,fetchImpl);
+ const verified=handoff.verifier&&Array.isArray(handoff.verifier.verified_candidates)?handoff.verifier.verified_candidates:[];
+ const reconciled=reconcileCandidates(verified,snapshot);
+ const input={
+  month:text(handoff.month),
+  discovery:{full:true,status:'READY_FOR_VERIFIER',month:text(handoff.month)},
+  candidates:reconciled.safe_candidates,
+  existing_events:reconciled.events,
+  bookings:snapshot.bookings||[],
+  package_templates:snapshot.packages||[],
+  store_baseline_prices:storeBaselines(snapshot),
+  visibility_locks:snapshot.visibility_locks||[],
+  competitor_prices:handoff.competitor_prices||[],
+  posters:handoff.posters||[],
+  verifier_approved:true,
+  correlation_id:text(options.correlation_id||handoff.correlation_id)
+ };
+ const result=await Orchestrator.run(input,{
+  executeWrites:options.executeWrites===true,
+  env,fetchImpl,
+  storefrontReadbackFn:args=>storefrontReadback({...args,env,fetchImpl}),
+  existingEventWriterFn:args=>existingEventWriter(args,{env,fetchImpl})
+ });
+ const ambiguous=reconciled.dispositions.filter(x=>x.status==='HOLD_AMBIGUOUS_EXISTING');
+ return {
+  version:VERSION,
+  status:ambiguous.length?'PARTIAL_SAFE_EXECUTION':result.status,
+  production_writes:result.production_writes,
+  orchestrator:result,
+  dispositions:reconciled.dispositions,
+  blockers:ambiguous.length?['AMBIGUOUS_EXISTING_EVENT_REVIEW']:[],
+  snapshot_source:text(snapshot.snapshot_source),
+  snapshot_generated_at:text(snapshot.generated_at)
+ };
+}
+
+module.exports={
+ VERSION,DEFAULT_SITE,DEFAULT_SHEET_ID,text,norm,date,tokens,titleOverlap,venueCompatible,sameKnownMiss,packageTemplateId,
+ snapshotEvents,matchExisting,historicalConflict,activeBookingDateSet,reconcileCandidates,storeBaselines,readbackForEvent,
+ postAdmin,freshSnapshot,storefrontReadback,existingEventWriter,execute
+};

@@ -18,6 +18,7 @@ on:
 permissions:
   contents: read
   issues: write
+  id-token: write
 
 concurrency:
   group: >-
@@ -51,7 +52,7 @@ jobs:
         )
       }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Authorize direct trigger
@@ -129,6 +130,12 @@ jobs:
           node --test tests/kk-ultra-deep-public-web-adapters.test.js
           node --test tests/kk-ultra-deep-runtime-runner.test.js
           node --test tests/kk-ultra-deep-reconciliation.test.js
+          node --test tests/kk-ultra-deep-candidate-verifier.test.js
+          node --test tests/kk-ultra-deep-competitor-price-scanner.test.js
+          node --test tests/kk-ultra-deep-production-runtime.test.js
+          node --test tests/kk-github-oidc.test.js
+          node --test tests/kk-final-pricing-policy.test.js
+          node --test tests/kk-verifier-storefront-promotion.test.js
 
       - name: Install pinned zero-cost DDGS fallback
         shell: bash
@@ -201,20 +208,168 @@ jobs:
           if(r.production_writes!==0) process.exit(1);
           NODE
 
-      - name: Record governed Full Loop handoff
+      - name: Execute verifier and competitor pricing
+        id: commercial
         if: ${{ steps.gate.outcome == 'success' }}
+        shell: bash
         run: |
+          set +e
+          node scripts/kk-ultra-deep-verifier-commercial.js \
+            --input ultra-deep-runtime-acceptance.json \
+            --output ultra-deep-commercial-handoff.json \
+            > ultra-deep-commercial-summary.json
+          RC=$?
+          set -e
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          if [ "$RC" -eq 0 ]; then echo "result=success" >> "$GITHUB_OUTPUT"; else echo "result=failure" >> "$GITHUB_OUTPUT"; fi
+          exit 0
+
+      - name: Report verifier and pricing checkpoint
+        if: ${{ github.event_name == 'issue_comment' && steps.gate.outcome == 'success' }}
+        uses: actions/github-script@v8
+        env:
+          COMMERCIAL_RESULT: ${{ steps.commercial.outputs.result }}
+        with:
+          script: |
+            const fs=require('fs');
+            let r={};
+            try { r=JSON.parse(fs.readFileSync('ultra-deep-commercial-handoff.json','utf8')); } catch {}
+            const runUrl=`https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body=[
+              '🧪 Ultra Deep **VERIFIER + PRICE CHECKPOINT**',
+              '',
+              `Verified events: \`${r.verifier?.verified_count ?? 'n/a'}\``,
+              `Verifier holds/noise: \`${r.verifier?.hold_count ?? 'n/a'}\``,
+              `Exact competitor evidence: \`${r.competitor_price_scan?.evidence_count ?? 0}\``,
+              `Commercial ready: \`${r.commercial?.ready_count ?? 'n/a'}\``,
+              `Commercial hold: \`${r.commercial?.hold_count ?? 'n/a'}\``,
+              `Result: \`${process.env.COMMERCIAL_RESULT || 'unknown'}\``,
+              '',
+              'Next: production SOT reconciliation → governed writes → exact storefront readback.',
+              `Progress: ${runUrl}`
+            ].join('\n');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
+
+      - name: Require commercial candidates before production
+        id: commercial_gate
+        if: ${{ steps.gate.outcome == 'success' }}
+        shell: bash
+        env:
+          COMMERCIAL_EXIT_CODE: ${{ steps.commercial.outputs.exit_code }}
+        run: |
+          set -euo pipefail
+          test "$COMMERCIAL_EXIT_CODE" = "0"
           node - <<'NODE'
           const fs=require('node:fs');
-          const r=JSON.parse(fs.readFileSync('ultra-deep-runtime-acceptance.json','utf8'));
-          fs.writeFileSync('ultra-deep-full-loop-handoff.json',JSON.stringify({
-            schema_version:'KK_ULTRA_DEEP_FULL_LOOP_HANDOFF_V2',
-            month:r.month,
-            discovery:r,
-            candidates:r.candidates||[],
-            next_route:'execute_ultra_deep_full_loop',
-            production_writes:0
-          },null,2));
+          const r=JSON.parse(fs.readFileSync('ultra-deep-commercial-handoff.json','utf8'));
+          if(!(r.verifier?.verified_count>0)) process.exit(1);
+          if(!(r.commercial?.ready_count>0)) process.exit(1);
+          if(r.production_writes!==0) process.exit(1);
+          NODE
+
+      - name: Probe exact production executor
+        id: endpoint
+        if: ${{ steps.commercial_gate.outcome == 'success' }}
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.pin.outputs.sha }}
+          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-admin-guard
+        run: |
+          set -euo pipefail
+          READY=false
+          if curl -fsS -X POST "$EXECUTOR_URL" -H "Content-Type: application/json" --data '{"action":"ultraDeepFullLoopHealth"}' -o executor-health.json; then
+            ACTUAL="$(node -e "try{const r=require('./executor-health.json');process.stdout.write(String(r.commit_sha||''))}catch{}")"
+            if [ "$ACTUAL" = "$EXPECTED_SHA" ]; then READY=true; fi
+          fi
+          echo "ready=$READY" >> "$GITHUB_OUTPUT"
+
+      - name: Full regression before emergency prebuilt production
+        if: ${{ steps.commercial_gate.outcome == 'success' && steps.endpoint.outputs.ready != 'true' }}
+        run: npm run check && npm test
+
+      - name: Deploy exact main with zero-hosted-build prebuilt path
+        if: ${{ steps.commercial_gate.outcome == 'success' && steps.endpoint.outputs.ready != 'true' }}
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
+          VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}"
+          npm install --no-save vercel@latest >/dev/null
+          npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx vercel build --prod --token="$VERCEL_TOKEN"
+          npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tee ultra-deep-deploy-url.txt
+
+      - name: Verify exact production executor deployment
+        if: ${{ steps.commercial_gate.outcome == 'success' }}
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.pin.outputs.sha }}
+          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-admin-guard
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -fsS -X POST "$EXECUTOR_URL" -H "Content-Type: application/json" --data '{"action":"ultraDeepFullLoopHealth"}' -o executor-health.json; then
+              ACTUAL="$(node -e "try{const r=require('./executor-health.json');process.stdout.write(String(r.commit_sha||''))}catch{}")"
+              if [ "$ACTUAL" = "$EXPECTED_SHA" ]; then ok=1; break; fi
+            fi
+            sleep 4
+          done
+          test "$ok" = 1
+
+      - name: Execute governed production Full Loop
+        id: production
+        if: ${{ steps.commercial_gate.outcome == 'success' }}
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.pin.outputs.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-admin-guard
+        run: |
+          set -euo pipefail
+          OIDC_JSON="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=kk-ultra-deep-production")"
+          OIDC_TOKEN="$(printf '%s' "$OIDC_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).value||''))")"
+          test -n "$OIDC_TOKEN"
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const handoff=JSON.parse(fs.readFileSync('ultra-deep-commercial-handoff.json','utf8'));
+          fs.writeFileSync('ultra-deep-production-request.json',JSON.stringify({
+            action:'ultraDeepFullLoop',
+            run_id:process.env.GITHUB_RUN_ID,
+            head_sha:process.env.EXPECTED_SHA,
+            event_name:process.env.EVENT_NAME,
+            month:process.env.SCAN_MONTH,
+            handoff
+          }));
+          NODE
+          curl -fsS -X POST "$EXECUTOR_URL" \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary @ultra-deep-production-request.json \
+            > ultra-deep-production-result.json
+          node - <<'NODE'
+          const r=require('./ultra-deep-production-result.json');
+          if(r.ok!==true)process.exit(1);
+          console.log(JSON.stringify(r.result));
+          NODE
+
+      - name: Require production COMPLETE
+        id: production_gate
+        if: ${{ steps.production.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const r=require('./ultra-deep-production-result.json');
+          const result=r.result||{};
+          const complete=result.status==='COMPLETE' && result.acceptance?.complete===true;
+          if(!complete){
+            console.error(JSON.stringify({status:result.status,blockers:result.blockers||[],acceptance:result.acceptance||null}));
+            process.exit(1);
+          }
           NODE
 
       - name: Publish live progress summary
@@ -223,6 +378,10 @@ jobs:
         env:
           SCAN_RESULT: ${{ steps.scan.outputs.result }}
           GATE_OUTCOME: ${{ steps.gate.outcome }}
+          COMMERCIAL_RESULT: ${{ steps.commercial.outputs.result }}
+          COMMERCIAL_GATE: ${{ steps.commercial_gate.outcome }}
+          PRODUCTION_OUTCOME: ${{ steps.production.outcome }}
+          PRODUCTION_GATE: ${{ steps.production_gate.outcome }}
           PINNED_SHA: ${{ steps.pin.outputs.sha }}
         run: |
           {
@@ -230,13 +389,21 @@ jobs:
             echo "- month: $SCAN_MONTH"
             echo "- main: $PINNED_SHA"
             echo "- discovery: $SCAN_RESULT"
-            echo "- FULL gate: $GATE_OUTCOME"
-            if [ -f ultra-deep-runtime-summary.json ]; then
+            echo "- discovery FULL gate: $GATE_OUTCOME"
+            echo "- verifier/pricing: $COMMERCIAL_RESULT"
+            echo "- commercial gate: $COMMERCIAL_GATE"
+            echo "- production execution: $PRODUCTION_OUTCOME"
+            echo "- production COMPLETE gate: $PRODUCTION_GATE"
+            if [ -f ultra-deep-commercial-summary.json ]; then
               echo '~~~json'
-              cat ultra-deep-runtime-summary.json
+              cat ultra-deep-commercial-summary.json
               echo '~~~'
             fi
-            echo "- production writes at discovery gate: 0"
+            if [ -f ultra-deep-production-result.json ]; then
+              echo '~~~json'
+              cat ultra-deep-production-result.json
+              echo '~~~'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload full-loop evidence
@@ -247,7 +414,11 @@ jobs:
           path: |
             ultra-deep-runtime-acceptance.json
             ultra-deep-runtime-summary.json
-            ultra-deep-full-loop-handoff.json
+            ultra-deep-commercial-handoff.json
+            ultra-deep-commercial-summary.json
+            executor-health.json
+            ultra-deep-production-result.json
+            ultra-deep-deploy-url.txt
           if-no-files-found: warn
           retention-days: 30
 
@@ -257,30 +428,37 @@ jobs:
         env:
           SCAN_RESULT: ${{ steps.scan.outputs.result }}
           GATE_OUTCOME: ${{ steps.gate.outcome }}
+          COMMERCIAL_GATE: ${{ steps.commercial_gate.outcome }}
+          PRODUCTION_OUTCOME: ${{ steps.production.outcome }}
+          PRODUCTION_GATE: ${{ steps.production_gate.outcome }}
         with:
           script: |
-            const fs = require('fs');
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            let summary = {};
-            try { summary = JSON.parse(fs.readFileSync('ultra-deep-runtime-summary.json','utf8')); } catch {}
-            const ok = process.env.GATE_OUTCOME === 'success';
-            const blockers = Array.isArray(summary.blockers) && summary.blockers.length ? summary.blockers.join(', ') : 'none';
-            const body = [
+            const fs=require('fs');
+            const runUrl=`https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            let scan={},commercial={},prod={};
+            try{scan=JSON.parse(fs.readFileSync('ultra-deep-runtime-acceptance.json','utf8'));}catch{}
+            try{commercial=JSON.parse(fs.readFileSync('ultra-deep-commercial-handoff.json','utf8'));}catch{}
+            try{prod=JSON.parse(fs.readFileSync('ultra-deep-production-result.json','utf8')).result||{};}catch{}
+            const complete=process.env.PRODUCTION_GATE==='success';
+            const partial=!complete&&process.env.PRODUCTION_OUTCOME==='success'&&Number(prod.production_writes||0)>0;
+            const title=complete
+              ? '🟢 Ultra Deep Full Loop **COMPLETE / PRODUCTION READBACK VERIFIED**'
+              : (partial?'🟡 Ultra Deep Full Loop **PARTIAL SAFE EXECUTION / WRITES VERIFIED**':'🔴 Ultra Deep Full Loop **BLOCKED / FAIL-CLOSED**');
+            const counts=prod.counts||{};
+            const body=[
               `@${context.repo.owner}`,
-              ok ? '🟢 Ultra Deep Full Loop **DISCOVERY FULL / READY_FOR_VERIFIER**' : '🔴 Ultra Deep Full Loop **BLOCKED / FAIL-CLOSED**',
+              title,
               '',
               `Month: \`${process.env.SCAN_MONTH}\``,
-              `Candidates: \`${summary.candidate_count ?? 'n/a'}\``,
-              `Blockers: \`${blockers}\``,
-              `Discovery: \`${process.env.SCAN_RESULT}\``,
-              `FULL gate: \`${process.env.GATE_OUTCOME}\``,
+              `Discovery candidates: \`${scan.candidate_count ?? 'n/a'}\``,
+              `Verified events: \`${commercial.verifier?.verified_count ?? 'n/a'}\``,
+              `Competitor price evidence: \`${commercial.competitor_price_scan?.evidence_count ?? 0}\``,
+              `Created + readback: \`${counts.created_verified ?? 0}\``,
+              `Updated + readback: \`${counts.updated_verified ?? 0}\``,
+              `No change: \`${counts.no_change ?? 0}\``,
+              `Production writes: \`${prod.production_writes ?? 0}\``,
+              `Blockers: \`${(prod.blockers||scan.blockers||[]).join(', ')||'none'}\``,
               '',
               `Run: ${runUrl}`
             ].join('\n');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body
-            });
-
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
