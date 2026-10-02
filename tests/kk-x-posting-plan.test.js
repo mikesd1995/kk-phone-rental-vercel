@@ -6,6 +6,7 @@ const assert=require('node:assert/strict');
 const Planner=require('../server/kk-x-posting-plan.js');
 const Gateway=require('../server/kk-agent-gateway.js');
 const Registry=require('../server/kk-agent-registry.js');
+const ProjectMemory=require('../config/kk-project-memory.json');
 
 function candidates(){
   return [
@@ -121,4 +122,15 @@ test('registry declares X posting plan as a live evidenced marketing route',()=>
   assert.equal(route.runtime_available,true);
   assert.deepEqual(route.required_agents,['kk-marketing-agent']);
   assert.equal(route.persistent_invocation_evidence_required,true);
+});
+
+
+test('project memory locks X posting planning as a cross-chat default',()=>{
+  const item=ProjectMemory.items.find(x=>x.memory_id==='kk:memory:content:x-posting-plan-default:20261002');
+  assert.ok(item);
+  assert.equal(item.status,'ACTIVE');
+  assert.equal(item.domain,'content');
+  assert.match(item.summary,/x_posting_plan/i);
+  assert.match(item.summary,/19:30/);
+  assert.match(item.summary,/late night/i);
 });
