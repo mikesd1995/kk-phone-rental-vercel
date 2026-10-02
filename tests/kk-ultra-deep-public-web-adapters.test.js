@@ -99,3 +99,10 @@ test('provider factory binds DDGS only when explicitly enabled',()=>{
  }
 });
 
+test('DDGS search evidence extracts explicit English and ISO event dates',()=>{
+ assert.equal(A.inferSearchEventDate('The Weeknd Bangkok Mon, 12 Oct 2026'),'2026-10-12');
+ assert.equal(A.inferSearchEventDate('Fan Meeting October 25, 2026 Bangkok'),'2026-10-25');
+ assert.equal(A.inferSearchEventDate('Event 2026-10-31'),'2026-10-31');
+ assert.equal(A.inferSearchEventDate('Bangkok concerts October 2026'),null);
+});
+
