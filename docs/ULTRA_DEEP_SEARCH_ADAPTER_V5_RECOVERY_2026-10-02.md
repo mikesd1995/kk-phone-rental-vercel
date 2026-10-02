@@ -10,3 +10,9 @@ Changes:
 - preserve FULL, reconciliation, known-miss and production-write gates unchanged.
 
 No completion criterion was weakened. Scanner remains zero-write.
+
+## CI recovery follow-up
+- Restored duckDuckGoHtml after the parser refactor accidentally removed the live adapter while exports still referenced it.
+- Added provider-factory regression coverage so DDG/Bing adapters must remain callable.
+- Kept provider preflight as a completion diagnostic, but moved it after the established known-miss -> discovery -> reference -> reconciliation evidence sequence. This preserves historical execution-order and blocker contracts while still preventing FULL when live search has no evidence.
+- Fixed the preflight test module reference typo (Runner, not R).
