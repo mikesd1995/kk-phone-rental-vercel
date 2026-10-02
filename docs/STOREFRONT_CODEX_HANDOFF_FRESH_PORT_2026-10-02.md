@@ -96,7 +96,7 @@ Changes:
 - language switch keeps 44px targets but uses an intentional segmented-control shape instead of circular active halves;
 - normal-phone hero is shorter and less dominant, with the second headline phrase kept together where width permits;
 - benefits become a readable 2×2 service grid on 360–700px instead of four cramped micro-columns;
-- search/filter hierarchy is simplified and filters become a 2×2 grid so month/status labels are not truncated;
+- search/filter hierarchy is simplified; status controls stay on one QA-safe row with deliberate minimum widths and horizontal scrolling so month/status labels are not truncated;
 - event heading restores a deliberate two-line hierarchy rather than light inline “ghost” text;
 - English mode now localizes the secondary hero CTA and all four benefit messages instead of leaving Thai copy on an English page;
 - 320px short-phone rules remain separately protected.
