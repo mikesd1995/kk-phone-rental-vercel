@@ -141,8 +141,8 @@ No production write authority, deployment authorization, rollback behavior, pric
 Fresh owner iPhone screenshots exposed remaining lower-page presentation debt after V6.6. The event cards could visually cut off the venue/price/availability stack, the “show more” control was oversized, the booking journey retained a sparse legacy rule treatment, the LINE CTA dominated the viewport, and the footer still used the retired playful slogan.
 
 Changes:
-- event cards now own natural height instead of inheriting `height:100%`, preventing mobile detail text from being clipped at the card boundary;
-- mobile venue text may wrap to two lines, while price copy is shortened to `เริ่ม …฿ / From ฿…`;
+- the first natural-height card experiment was rejected by exact-head Visual QA because it caused `CARD_CONTENT_ESCAPES` at 320–768px; final V6.7 retains contained equal-height card geometry;
+- mobile venue text may wrap to two lines and price copy is shortened to `เริ่ม …฿ / From ฿…`, improving legibility without weakening card containment;
 - “show more” becomes a compact secondary control;
 - booking journey is a contained service panel with tighter spacing and numbered step markers;
 - step 3 is explicitly `จองผ่าน LINE / Book via LINE`, with confirmation/pickup wording separated into supporting text;
