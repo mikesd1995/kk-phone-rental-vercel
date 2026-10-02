@@ -15,7 +15,7 @@ function baseUrl(){
 }
 function modelFor(agent,env={}){
   const key=clean(agent).toLowerCase();
-  if(key==='storefront') return clean(env.KK_OPENAI_MODEL_STOREFRONT)||'gpt-6-sol';
+  if(key==='storefront') return clean(env.KK_OPENAI_MODEL_STOREFRONT)||'gpt-6.1-sol';
   if(key==='discovery') return clean(env.KK_OPENAI_MODEL_DISCOVERY)||'gpt-6-luna';
   if(key==='inbox') return clean(env.KK_OPENAI_MODEL_INBOX)||'gpt-6-luna';
   return clean(env.KK_OPENAI_MODEL_DEFAULT)||'gpt-6-luna';
@@ -129,9 +129,20 @@ async function callStructured(request={},options={}){
     });
     const requestId=clean(response&&response.headers&&typeof response.headers.get==='function'?response.headers.get('x-request-id'):'');
     if(!response||!response.ok){
+      let providerError={};
+      try{
+        const payload=await response.json();
+        const err=payload&&payload.error&&typeof payload.error==='object'?payload.error:{};
+        providerError={
+          provider_error_type:clean(err.type).slice(0,120),
+          provider_error_code:clean(err.code).slice(0,120),
+          provider_error_param:clean(err.param).slice(0,120)
+        };
+      }catch(_){}
+      const retryAfter=clean(response&&response.headers&&typeof response.headers.get==='function'?response.headers.get('retry-after'):'').slice(0,32);
       return safety('BLOCKED_OPENAI_PROVIDER',{
         agent,model:body.model,http_status:Number(response&&response.status)||0,request_id:requestId,
-        blocker:'OPENAI_HTTP_ERROR'
+        blocker:'OPENAI_HTTP_ERROR',retry_after:retryAfter,...providerError
       });
     }
     let payload;
