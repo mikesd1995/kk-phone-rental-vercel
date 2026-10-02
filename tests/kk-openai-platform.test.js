@@ -73,7 +73,7 @@ test('storefront AI reviewer sends strict Responses API request with image evide
   assert.equal(out.production_writes,0);
   assert.equal(out.review.findings[0].severity,'P1');
   assert.equal(captured.url,'https://api.openai.com/v1/responses');
-  assert.equal(captured.body.model,'gpt-6.1-sol');
+  assert.equal(captured.body.model,'gpt-6-sol');
   assert.equal(captured.body.store,false);
   assert.equal(captured.body.text.format.type,'json_schema');
   assert.equal(captured.body.text.format.strict,true);
@@ -133,7 +133,7 @@ test('provider HTTP failure remains fail-closed and does not expose raw input',a
 });
 
 test('model routing defaults to cost-aware Luna for discovery/inbox and Sol for storefront',()=>{
-  assert.equal(Platform.modelFor('storefront',{}),'gpt-6.1-sol');
+  assert.equal(Platform.modelFor('storefront',{}),'gpt-6-sol');
   assert.equal(Platform.modelFor('discovery',{}),'gpt-6-luna');
   assert.equal(Platform.modelFor('inbox',{}),'gpt-6-luna');
   assert.equal(Platform.modelFor('storefront',{KK_OPENAI_MODEL_STOREFRONT:'custom-model'}),'custom-model');
@@ -213,4 +213,12 @@ test('authenticated Agent Gateway path records hybrid OpenAI route evidence with
   assert.match(rows[0].truth_hash,/^[0-9a-f]{64}$/);
   assert.equal(JSON.stringify(rows[0]).includes('private-looking fixture text'),false);
   assert.equal(result.production_writes,0);
+});
+
+
+test('OpenAI base URL fails safe to official HTTPS endpoint for invalid or private overrides',()=>{
+  assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'http://example.com/v1'}).base_url,'https://api.openai.com/v1');
+  assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'https://127.0.0.1/v1'}).base_url,'https://api.openai.com/v1');
+  assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'https://localhost/v1'}).base_url,'https://api.openai.com/v1');
+  assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'https://proxy.example.com/v1'}).base_url,'https://proxy.example.com/v1');
 });
