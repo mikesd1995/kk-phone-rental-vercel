@@ -1072,3 +1072,18 @@ html[data-theme="dark"] .phone-row{border-color:#20324b!important}
  footer .footer-tagline{margin-top:8px!important;font-size:19px!important;line-height:1.2!important}
  footer .trust-note{margin-top:8px!important;font-size:11px!important}
 }
+
+
+/* V6.2.5 screenshot cleanup: service icon system + compact lower page */
+.kk-benefit-grid .benefit-icon{
+ width:28px;height:28px;margin:0 0 7px!important;display:grid;place-items:center;
+ border:1px solid currentColor;border-radius:50%;font:800 13px/1 Kanit,sans-serif;
+ background:transparent;color:#1684ee!important;
+}
+@media(max-width:700px){
+ .kk-benefit-grid .benefit-icon{width:24px;height:24px;font-size:11px;margin-bottom:5px!important}
+ .kk-booking-journey{margin:28px 0 0!important;padding:18px 0!important}
+ footer{margin-top:28px!important;padding:22px 0 30px!important}
+ .footer-brand{font-size:clamp(2rem,10vw,3rem)!important;line-height:1!important}
+ .footer-tagline{font-size:clamp(1.45rem,7vw,2.2rem)!important;line-height:1.15!important}
+}
