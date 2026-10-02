@@ -30,3 +30,10 @@ test('monthly discovery includes bounded broad fallbacks when exact month querie
  assert.ok(all.includes(P.TIER_TERMS.OFFICIAL[0]));
  assert.equal(new Set(all).size,all.length);
 });
+
+
+test('monthly live search prioritizes enabled DDGS before HTML search fallbacks',()=>{
+ const r=P.build({month:'2026-10',location:'Bangkok Thailand'});
+ const generic=r.gap_tasks.find(x=>!x.source_id && x.source_tier==='OFFICIAL');
+ assert.deepEqual(generic.providers.slice(0,4),['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDGS_TRAFILATURA','DDG_HTML']);
+});
