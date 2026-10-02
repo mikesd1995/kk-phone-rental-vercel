@@ -190,7 +190,7 @@ function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
     const phone=assetById[phoneId]||{}, lens=assetById[lensId]||{};
     const st=String(r.booking_status||'').trim().toLowerCase();
     let task=''; if(st==='picked_up')task='รับคืน/ตรวจเครื่อง'; else if(st==='prepared')task='พร้อมส่งมอบ/รอลูกค้ารับ'; else if(['pending','confirmed'].includes(st))task='เตรียมส่งมอบ'; else if(st==='returned')task='อัปโหลดไฟล์'; else if(st==='uploaded')task='ปิดงาน';
-    return {row_number:r.__row_number,booking_id:r.booking_id||'',created_at:r.created_at||'',booking_status:r.booking_status||'',
+    return {row_number:r.__row_number,row_number_reliable:transportMeta.fallback_reader!=='public-gviz',booking_id:r.booking_id||'',created_at:r.created_at||'',booking_status:r.booking_status||'',
       event_id:eventId,event_name:event.event_name||eventId,event_date:event.event_date||'',venue:event.venue||'',
       customer_name:r.customer_name||'',customer_contact:r.customer_contact||'',customer_phone:r.customer_phone||'',
       contact_channel:r.channel||'',package_type:r.package_type||'',package_display:packageByType[r.package_type]||r.package_type||'',
@@ -244,6 +244,8 @@ function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
     fallback_private_attempted:!!transportMeta.fallback_private_attempted,
     fallback_private_error_code:transportMeta.fallback_private_error_code||'',
     write_actions_enabled:false,
+    booking_identity_mode:'booking_id-primary',
+    booking_row_number_reliable:transportMeta.fallback_reader!=='public-gviz',
     phase1_diagnostics:{fallback_mode:true,frontend_sheet_id:sheetId,spreadsheet_id:sheetId,admin_api_version:FALLBACK_VERSION},
     performance:{snapshot_ms:Date.now()-startedAt,range_mode:'direct-sheet-gviz-readonly-fallback'}
   };

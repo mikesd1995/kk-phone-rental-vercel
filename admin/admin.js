@@ -729,6 +729,14 @@
     const row=String(rowNumber||'').trim();
     return ((state.data||{}).bookings||[]).find(b=>String(b.row_number||'')===row) || null;
   }
+  function bookingMutationIdentity(b,rowNumber){
+    const bookingId=String(b&&b.booking_id||"").trim();
+    const row=String(rowNumber||b&&b.row_number||"").trim();
+    const out={};
+    if(bookingId) out.booking_id=bookingId;
+    if(row) out.row_number=row;
+    return out;
+  }
   function bookingLifecycleRank(status){
     const s=String(status||'').toLowerCase().trim();
     const map={pending:1,confirmed:2,prepared:3,picked_up:4,returned:5,uploaded:6,completed:7,cancelled:0,no_show:0};
@@ -3293,7 +3301,7 @@
       const row=quick.getAttribute("data-row");
       const b=findBookingByRow(row);
       if(!b) return showNotice("ไม่พบ booking ที่ต้องการอัปเดต", "bad");
-      let payload={row_number:row};
+      let payload=bookingMutationIdentity(b,row);
       let label="";
       if(action==="paid"){
         if(toNum(b.amount_received)<=0 && !confirm("Booking นี้ยอดรับแล้วยังเป็น 0 ต้องการเปลี่ยนสถานะเป็น paid อยู่ใช่ไหม?")) return;
@@ -3579,6 +3587,9 @@
         try{
           const payload=formData(ev.target);
           if(!payload.row_number) throw new Error("กรุณาเลือก Booking ที่ต้องการแก้");
+          const selected=findBookingByRow(payload.row_number);
+          if(!selected) throw new Error("ไม่พบ Booking ล่าสุด กรุณา Refresh แล้วเลือกใหม่");
+          Object.assign(payload,bookingMutationIdentity(selected,payload.row_number));
           const res=await api("updateBooking", payload);
           markFormClean(ev.target);
           await refresh({waitForActive:true});
