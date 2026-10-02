@@ -5,11 +5,11 @@
   "baseline_comparison_pass": true,
   "baseline": "production-v3",
   "reviewed_design_blobs": {
-    "index_html": "6d65b135e380650c9a85d9475ac9cd07c9f4cbf0",
-    "v5_css": "2c6b673ab5b266242fea2b7e02399f1b4983888a",
+    "index_html": "c42c282806a032b7f47def2bd1adc2ff23025ee7",
+    "v5_css": "c8d2c1e7ab051dfdbb0a55626b5b4d80059c3a00",
     "script_js": "66def8d16eeb5c50c8594360365c300e953c1ca9"
   },
-  "screenshot_artifact_id": "11203934707",
+  "screenshot_artifact_id": "11206097786",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -100,6 +100,11 @@
       "artifact_id": "11206115955",
       "status": "REJECTED",
       "finding": "V6.2 first mock-parity attempt preserved the reference composition but independent mobile critique blocked 320/375/390 for EVENT_DISCOVERY_TOO_LATE and 320 for HERO_DOMINATES_MOBILE. Interaction remained PASS with runtime_errors=[] and production_writes=0. Follow-up V6.2.1 compresses hero/benefits and restores event discovery priority; this artifact is retained as rejected evidence, not acceptance."
+    },
+    {
+      "artifact_id": "11206097786",
+      "status": "OWNER_ACCEPTED_TECHNICAL_REVIEW_PENDING",
+      "finding": "Owner explicitly accepted the newly generated V6.2 premium light/dark mock direction on 2026-10-02 and instructed implementation. V6.2.1 executable screenshots show the mobile compression correction with no runtime errors, interaction PASS, zero production writes, and no per-viewport critique blockers; final independent visual/screenshot gate remains pending until this exact executable blob binding reruns."
     }
   ],
   "reviewed_viewports": [
@@ -121,10 +126,10 @@
   "production_writes": 0,
   "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "78315729e5c02986670f3afd8237f8544c5022d0",
+  "reviewed_design_head": "44a0cb0f023b2ba7980ea315118a9cf89980e773",
   "owner_acceptance_evidence": {
     "accepted_at": "2026-10-02",
-    "artifact_id": "11203934707",
-    "statement": "Owner requested exhaustive storefront detail remediation and completion. Exact-head automated screenshots and interaction evidence pass after the adversarial CSS/state cleanup; executable design blobs are bound to this record before merge."
+    "artifact_id": "11206097786",
+    "statement": "Owner approved the new premium V6.2 light/dark mock direction and instructed implementation. Acceptance is for the visual direction; technical production gates remain fail-closed until exact-head rerun passes."
   }
 }
