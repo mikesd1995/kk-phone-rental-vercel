@@ -39,16 +39,27 @@ async function main(){
     api_key_present:config.api_key_present,
     allow_customer_data:config.allow_customer_data,
     models:config.models,
-    results:rows.map(row=>({
-      invoked_agents:row.invoked_agents,
-      status:row.result&&row.result.status,
-      ai_status:row.result&&(
-        row.result.ai_review&&row.result.ai_review.status||
-        row.result.ai_reasoning&&row.result.ai_reasoning.status||
-        row.result.status
-      ),
-      production_writes:Number(row.result&&row.result.production_writes)||0
-    }))
+    results:rows.map(row=>{
+      const ai=row.result&&(
+        row.result.ai_review||
+        row.result.ai_reasoning||
+        row.result
+      )||{};
+      return {
+        invoked_agents:row.invoked_agents,
+        status:row.result&&row.result.status,
+        ai_status:ai.status||row.result&&row.result.status,
+        model:ai.model||'',
+        blocker:ai.blocker||'',
+        http_status:Number(ai.http_status)||0,
+        provider_error_type:ai.provider_error_type||'',
+        provider_error_code:ai.provider_error_code||'',
+        provider_error_param:ai.provider_error_param||'',
+        request_id:ai.request_id||'',
+        retry_after:ai.retry_after||'',
+        production_writes:Number(row.result&&row.result.production_writes)||0
+      };
+    })
   };
   if(report.results.some(row=>row.production_writes!==0)) process.exitCode=2;
   process.stdout.write(JSON.stringify(report,null,2)+'\n');
