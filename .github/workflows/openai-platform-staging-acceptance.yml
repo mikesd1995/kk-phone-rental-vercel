@@ -83,6 +83,7 @@ jobs:
           grep -q '^OPENAI_API_KEY=' .env.openai-staging
           grep -q '^KK_OPENAI_PLATFORM_ENABLED=' .env.openai-staging
 
+      # Provider diagnostics are secret-safe: status/code/request-id only; no prompts or key values.
       - name: Execute synthetic zero-write OpenAI agent acceptance
         id: live
         shell: bash
