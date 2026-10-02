@@ -307,7 +307,7 @@ async function main(){
         const state=await Evidence.inspectState(page);
         const findings=Evidence.stateFindings(state,{width,name});
         if(broken.length) findings.push({code:'VISIBLE_IMAGE_NOT_READY',severity:'P1',evidence:broken.join(', '),action:'Resolve visible image delivery before acceptance.'});
-        if(state.failed_posters) findings.push({code:'POSTER_DELIVERY_FAILED',severity:'P1',evidence:String(state.failed_posters)+' poster fallback(s)',action:'Verify image provider delivery.'});
+        if(state.failed_posters) findings.push({code:'POSTER_DELIVERY_FAILED',severity:'P1',evidence:JSON.stringify(state.failed_poster_details||[]),action:'Verify image provider delivery.'});
         await page.screenshot({path:file,type:'jpeg',quality:74,fullPage:false,animations:'disabled'});
         stateEvidence.push({name,...state,broken_visible_images:broken,findings});
         stateObservations.push(...findings);
