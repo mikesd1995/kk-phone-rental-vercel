@@ -72,3 +72,18 @@ Remediation:
 - no storefront CSS/copy, pricing, availability, inventory, event visibility, booking destination, Admin, Apps Script or production business data was changed.
 
 The original patch branch diverged while unrelated OpenAI/Ultra Deep work advanced `main`; this correction was therefore fresh-ported onto the then-current main rather than force-merging stale history.
+
+
+## Production promotion hardening after V6.3 handoff
+
+A post-merge deployment audit found that Vercel Git integration had promoted the merged V6.3 source automatically even though the exact-candidate artifact still reported `owner_visual_acceptance=BLOCKED`. The source/CI gates were behaving correctly; the missing control was at the Git-to-production boundary.
+
+Remediation:
+- automatic Git production deployments from `main` are disabled in `vercel.json`;
+- production promotion remains available through the owner-authorized prebuilt workflow;
+- that workflow resolves the current READY `main` production SHA read-only from Vercel before deployment;
+- if the candidate does not change storefront release dependencies relative to current production, backend/runtime fixes are not blocked by storefront owner review;
+- if the candidate changes storefront release dependencies, `scripts/storefront-release-gate.js` requires an exact frontend digest, explicit owner ACCEPTED decision, screenshot artifact, baseline comparison PASS, and all eight required review widths (320, 375, 390, 430, 480, 768, 1024, 1440);
+- the gate is fail-closed and does not mutate Vercel or business data.
+
+This also reduces unnecessary Vercel deployment consumption while preserving explicit production recovery for non-storefront changes.
