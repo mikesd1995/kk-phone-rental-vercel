@@ -106,3 +106,17 @@ test('9.5.13 candidate carries safe cleanup and all secondary audit guards',()=>
   assert.match(fn(candidate,'kkCreateEventFromDashboard'),/kkApiCreateEvent_\(/);
   assert.match(fn(candidate,'kkAddQuickBookingFromDashboard'),/kkApiCreateBooking_\(/);
 });
+
+
+test('private intelligence POST uses centralized signed-session/PIN auth gate',()=>{
+  const src=fs.readFileSync('api/kk-intelligence-health.js','utf8');
+  assert.match(src,/AdminSecurity\.authorizeApi\(req,res\)/);
+  assert.doesNotMatch(src,/if\(provided!==expected\)/);
+});
+
+test('LINE webhook raw body is bounded before signature verification',()=>{
+  const line=require('../api/line-webhook.js')._test;
+  assert.equal(line.MAX_LINE_WEBHOOK_BYTES,1024*1024);
+  assert.doesNotThrow(()=>line.assertBodySize(1024*1024));
+  assert.throws(()=>line.assertBodySize(1024*1024+1),err=>err&&err.code==='LINE_WEBHOOK_BODY_TOO_LARGE');
+});
