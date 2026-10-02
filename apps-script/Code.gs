@@ -1215,13 +1215,14 @@ function kkAddQuickBookingFromDashboard() {
     }
 
     const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
-    kkSheet_(KK.bookings).getRange(row, 2, 1, 19).setValues([[
-        new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
+    const bookingId = kkGenerateUniqueBookingId_(event.event_date);
+    kkSheet_(KK.bookings).getRange(row, 1, 1, 20).setValues([[
+        bookingId, new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
         pkgType, phoneAssetId, lensAssetId, '', '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ]]);
     kkRange_('KK_QUICK_BOOKING_ASSIGNED_ASSETS', KK.dashboard, 'K38:K39').setValues([[phoneAssetId], [lensAssetId]]);
     ui.alert(
-      `✅ Added booking row ${row}\n` +
+      `✅ Added booking ${bookingId} (row ${row})\n` +
       `Event: ${eventId}\nTemplate: ${templateId}\nPhone: ${phoneAssetId || '-'}\nLens: ${lensAssetId || '-'}`
     );
   } catch (error) {
