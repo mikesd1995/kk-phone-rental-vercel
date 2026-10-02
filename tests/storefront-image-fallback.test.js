@@ -155,3 +155,12 @@ test('Nineentertain keeps the local verified poster as fallback behind canonical
   assert.match(source,/nineentertain-24th-anniversary-charity-concert-2026-09-30\.jpg/);
   assert.match(source,/canonical first; verified emergency poster is delivery fallback only/);
 });
+
+
+test('poster exhaustion renders an exact-event summary fallback instead of a generic image substitute',()=>{
+  assert.match(source,/card\.dataset\.posterFallback="event-summary"/);
+  assert.match(source,/poster-placeholder poster-placeholder-event/);
+  assert.match(source,/title\.textContent=String\(c\.name\|\|tr\("no_image"\)\)/);
+  assert.match(source,/meta\.textContent=\[String\(c\.date\|\|""\).*String\(c\.venue\|\|""\)/s);
+  assert.doesNotMatch(source,/storefrontPosterOverride\(c\).*posterFailure/);
+});
