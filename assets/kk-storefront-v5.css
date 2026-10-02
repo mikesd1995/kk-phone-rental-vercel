@@ -916,10 +916,10 @@ html[data-theme="dark"] .v3-events-heading h2 em{color:#a9b8cb!important}
 /* V6.7 lower-page professional finish — screenshot-led legacy cleanup.
    Card content owns its natural height; journey/contact/footer share one compact service rhythm. */
 .concert-card{
-  height:auto!important;
-  align-self:start!important;
+  height:100%!important;
+  align-self:stretch!important;
 }
-.poster-info{flex:0 0 auto!important}
+.poster-info{flex:1 1 auto!important}
 .browse-more{
   margin:26px 0 0!important;
 }
