@@ -2,7 +2,7 @@
   "month": "2026-10",
   "mode": "FULL_LOOP",
   "requested_at": "2026-10-02",
-  "attempt": 3,
-  "reason": "DISCOVERY_V6_FULL_LOOP",
-  "expected_main_sha": "f2efacb1d4ceb28c564a3612e0a3782a88faf86e"
+  "attempt": 4,
+  "reason": "REFERENCE_SWEEP_V7_FULL_LOOP",
+  "expected_main_sha": "d8fecacac126840c372b21fb31aa5c37198230a9"
 }
