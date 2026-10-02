@@ -50,6 +50,7 @@ function safeSummary(result={}){
 }
 
 module.exports=async function handler(req,res){
+ if(req.method==='GET')return reply(res,200,{ok:true,service:'kk-ultra-deep-full-loop',runtime_version:Runtime.VERSION,oidc_version:OIDC.VERSION,commit_sha:text(process.env.VERCEL_GIT_COMMIT_SHA)||null,production_writes:0});
  if(req.method!=='POST')return reply(res,405,{ok:false,error_code:'METHOD_NOT_ALLOWED'});
  let input;
  try{input=JSON.parse(await readBody(req)||'{}');}
