@@ -12,7 +12,7 @@
 var APP       = window.KK_CONFIG || {};
 var KK_APP_VERSION = APP.appVersion || "v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_FIX";
 var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
-var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน";
+var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือสำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ เลือกงาน เช็กคิวว่าง และจองผ่าน LINE OA";
 var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
 var SHEET_ID  = APP.sheetId      || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 var WEB_SHEET = APP.webSheetName || "08_Web_Ready";
@@ -1628,7 +1628,7 @@ function closeModal(e){
 }
 function showError(m){
   var el=document.getElementById("content"); if(!el)return;
-  el.innerHTML='<div class="empty-state error-state" role="alert" aria-live="assertive"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><div class="error-actions"><button class="empty-retry-btn" id="storefront-retry-btn" type="button">'+esc(tr("error_retry"))+'</button><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div></div>';
+  el.innerHTML='<div class="empty-state error-state" role="alert" aria-live="assertive"><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><div class="error-actions"><button class="empty-retry-btn" id="storefront-retry-btn" type="button">'+esc(tr("error_retry"))+'</button><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div></div>';
 }
 async function refreshStorefrontData(reason){
   if(storefrontRefreshPromise) return storefrontRefreshPromise;
