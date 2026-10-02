@@ -120,7 +120,7 @@ async function run(input={},options={}){
   rows.push({event_key:eventKey(candidate),status:receipt&&receipt.readback_verified?'CREATED_VERIFIED':promotion.status,policy,commercial,final_pricing:finalPricing,promotion,receipt,
    completion:completionCandidate(candidate,{verified:commercial.status==='READY_FOR_FINAL_VERIFIER',competitor_evidence:commercial.pricing.evidence||[],fallback_applied:commercial.pricing.proposal&&commercial.pricing.proposal.proposal_available===true,proposal_source:commercial.pricing.proposal&&commercial.pricing.proposal.proposal_source,final_price:finalPricing.final_prices&&finalPricing.final_prices[0]&&finalPricing.final_prices[0].override_price,poster_verified:!!p.verified,poster_url:p.image_url,publish_required:promotion.status==='READY_FOR_GOVERNED_ADMIN_CREATE',governed_publish:!!(receipt&&receipt.readback_verified),production_readback:!!(receipt&&receipt.readback_verified)})});
  }
- const acceptance=Completion.evaluate({discovery,candidates:rows.map(r=>r.completion),final_report_ready:true});
+ const acceptance=Completion.evaluate({discovery,candidates:rows.map(r=>r.completion),terminal_dispositions:input.terminal_dispositions||[],verified_candidate_count:input.verified_candidate_count,final_report_ready:true});
  return {version:VERSION,status:acceptance.complete?'COMPLETE':'INCOMPLETE',month:text(discovery.month||input.month),rows,acceptance,production_writes:writes,production_completion_claim_allowed:acceptance.production_completion_claim_allowed===true};
 }
 module.exports={VERSION,eventKey,sameEvent,contextFor,competitorRowsFor,posterRowsFor,currentPrice,policyInput,updatePlan,completionCandidate,run};
