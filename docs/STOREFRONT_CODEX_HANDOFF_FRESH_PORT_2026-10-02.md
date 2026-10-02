@@ -121,3 +121,16 @@ Changes:
 - cache markers were advanced to V6.6 so production browsers do not retain the previous model-specific copy.
 
 Safety boundary: no pricing, package availability, inventory, event visibility, booking destination, LINE payload semantics, Admin, Apps Script, customer data, poster SOT or production business-write authority changed.
+
+
+## 2026-10-03 production-guard hardening
+
+A V6.6 production recovery attempt on exact current main failed before build because the recovery workflows still hard-coded the retired `v60-premium-editorial` asset marker. This was a stale deployment guard, not a storefront regression.
+
+Hardening:
+- exact-current-main pinning remains mandatory;
+- the prebuilt production workflow now derives the active `kk-storefront-v5.css?v=...` marker from the exact approved checkout and verifies that exact marker after deployment;
+- the zero-cost preview-promotion workflow derives the same marker from approved main, requires runtime equality between candidate and approved main, then verifies the marker on both candidate and production;
+- the retired `v60-premium-editorial` literal is rejected by regression coverage so future storefront cache/version changes do not require weakening or manually chasing a stale deployment marker.
+
+No production write authority, deployment authorization, rollback behavior, pricing, booking, inventory or customer data contract is widened by this change.
