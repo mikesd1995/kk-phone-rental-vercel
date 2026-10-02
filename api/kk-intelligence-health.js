@@ -3,6 +3,7 @@
 const privateSheets = require('./lib/private-google-sheets');
 const crmFreshness = require('./lib/crm-freshness');
 const crmReconciliation = require('./lib/crm-reconciliation');
+const AdminSecurity = require('../server/admin-session.js');
 
 const DEFAULT_CRM_SHEET_ID = '1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
 const DEFAULT_CORE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -114,11 +115,10 @@ function json(res,status,body){
 }
 
 function auth(req){
+  if(AdminSecurity.isAuthorizedRequest(req)||AdminSecurity.hasValidSession(req)||AdminSecurity.hasValidLegacyPin(req)) return {ok:true};
   const expected=String(process.env.KK_ADMIN_PIN||'').trim();
-  const provided=String((req.headers&&req.headers['x-admin-pin'])||'').trim();
   if(!expected) return {ok:false,status:500,error:'KK_ADMIN_PIN is not configured'};
-  if(provided!==expected) return {ok:false,status:401,error:'Invalid admin PIN'};
-  return {ok:true};
+  return {ok:false,status:401,error:'Invalid admin PIN'};
 }
 function safeDatasetDiagnostics(reconciliation){
   if(!reconciliation || !reconciliation.datasets) return null;
@@ -157,7 +157,7 @@ module.exports=async function handler(req,res){
     return json(res,200,{ok:true,data:payload});
   }
   if(req.method!=='POST') return json(res,405,{ok:false,error:'Method not allowed'});
-  const a=auth(req); if(!a.ok) return json(res,a.status,{ok:false,error:a.error});
+  if(!AdminSecurity.authorizeApi(req,res)) return;
 
   const crmSheetId=String(process.env.KK_CRM_SHEET_ID||DEFAULT_CRM_SHEET_ID).trim();
   const coreSheetId=String(process.env.GOOGLE_SHEET_ID||DEFAULT_CORE_SHEET_ID).trim();
