@@ -40,3 +40,14 @@ The direct runtime installs the pinned zero-cost `ddgs==9.14.4` fallback and ena
 - No direct pricing/booking/inventory/customer mutation is introduced by the trigger.
 - Production write/readback must still go through the governed writer path.
 - PR/CI remains required for code changes, but not for starting a scan.
+
+
+## Self-cancel correction
+
+The first direct-command trial exposed a workflow-level concurrency edge case: status comments emitted by the workflow also generate `issue_comment` workflow shells. A static concurrency group allowed those non-command shells to cancel the active owner-command run before the job-level authorization filter executed.
+
+The concurrency key is now command-aware:
+- authorized owner commands share `kk-ultra-deep-full-loop` and may cancel an older command;
+- bot/status/non-command issue events receive a unique run-specific group and cannot cancel the active scan.
+
+This preserves latest-command-wins without self-cancellation.
