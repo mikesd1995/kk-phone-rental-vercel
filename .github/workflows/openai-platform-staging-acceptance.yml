@@ -171,7 +171,6 @@ jobs:
             --request POST \
             --header 'Content-Type: application/json' \
             --data '{"confirm":"RUN_OPENAI_STAGING_PROBE"}' \
-            --fail-with-body \
             --silent \
             --show-error \
             > openai-agent-staging-report.json
@@ -179,7 +178,12 @@ jobs:
           node --input-type=commonjs - <<'NODE'
           const fs=require('fs');
           const report=JSON.parse(fs.readFileSync('openai-agent-staging-report.json','utf8'));
-          if(report.ok!==true||report.status!=='PASS') throw new Error('OPENAI_RUNTIME_ACCEPTANCE_FAILED');
+          if(report.ok!==true||report.status!=='PASS'){
+            const codes=[report.storefront&&report.storefront.provider_error_code,report.discovery&&report.discovery.provider_error_code].filter(Boolean);
+            if(codes.includes('credit_balance_exhausted')) throw new Error('OPENAI_CREDIT_BALANCE_EXHAUSTED');
+            if(codes.includes('invalid_api_key')) throw new Error('OPENAI_INVALID_API_KEY');
+            throw new Error('OPENAI_RUNTIME_ACCEPTANCE_FAILED');
+          }
           if(report.preview!==true||report.branch!==process.env.KK_OPENAI_BRANCH||report.commit_sha!=='${{ steps.preview.outputs.runtime_sha }}') throw new Error('PREVIEW_IDENTITY_MISMATCH');
           if(report.platform_enabled!==true||report.api_key_present!==true||report.customer_data_allowed!==false) throw new Error('OPENAI_RUNTIME_CONFIG_INVALID');
           if(Number(report.production_writes)!==0) throw new Error('PRODUCTION_WRITES_NONZERO');
