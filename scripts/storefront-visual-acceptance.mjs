@@ -11,6 +11,7 @@ const Reviewer=require('../server/kk-storefront-ux-reviewer.js');
 const ArtDirector=require('../server/kk-storefront-art-director.js');
 const VisualCritic=require('../server/kk-storefront-visual-critic.js');
 const DesignCouncil=require('../server/kk-storefront-design-council.js');
+const Evidence=require('./storefront-evidence.cjs');
 
 const DEFAULT_HEIGHTS=Object.freeze({
   320:568,
@@ -129,6 +130,15 @@ async function main(){
   const fixtures=dataSource?await loadPublicFixtures(dataSource):null;
 
   ensureDir(outputDir);
+  if(fixtures){
+    fs.writeFileSync(path.join(outputDir,'public-events.csv'),fixtures.events);
+    fs.writeFileSync(path.join(outputDir,'public-packages.csv'),fixtures.packages);
+  }
+  const identity=Evidence.frontendIdentity();
+  const checkoutSha=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+  if(checkoutSha!==approvedSha) fail('CHECKOUT_SHA_MISMATCH');
+  const sourceDirty=Boolean(execFileSync('git',['status','--porcelain','--untracked-files=no'],{encoding:'utf8'}).trim());
+  const invocationOptions={outputDir,sourceSha:approvedSha,identity};
 
   const browserChannel=String(process.env.BROWSER_CHANNEL||'').trim();
   const launchOptions={headless:true};
@@ -154,6 +164,7 @@ async function main(){
       const page=await context.newPage();
       const pageErrors=[];
       page.on('pageerror',error=>pageErrors.push(String(error&&error.message||error)));
+      await page.route('**/*',route=>['GET','HEAD'].includes(route.request().method())?route.continue():route.abort('blockedbyclient'));
 
       if(fixtures){
         // The checked-out config installs an API-only fetch guard before app code runs.
@@ -190,40 +201,6 @@ async function main(){
       }
       await page.waitForSelector('.concert-card, .empty-state, .error-box',{timeout:12000});
       if(mode==='local_zero_cost') await page.waitForTimeout(350);
-
-      // Visual evidence must not be captured while eager hero/event imagery is still decoding.
-      // A metric-only PASS with an undecoded image is not owner-grade visual acceptance.
-      const imageReadiness=await page.evaluate(async()=>{
-        const images=Array.from(document.images).filter(img=>{
-          const r=img.getBoundingClientRect();
-          return r.bottom>=-1 && r.top<=window.innerHeight+1 && r.width>0 && r.height>0;
-        });
-        await Promise.all(images.map(async img=>{
-          if(!img.complete){
-            await new Promise(resolve=>{
-              const done=()=>resolve();
-              img.addEventListener('load',done,{once:true});
-              img.addEventListener('error',done,{once:true});
-              setTimeout(done,4000);
-            });
-          }
-          if(img.complete && img.naturalWidth>0 && typeof img.decode==='function'){
-            await img.decode().catch(()=>{});
-          }
-        }));
-        return images.map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight}));
-      });
-      let brokenVisibleImages=imageReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
-      if(brokenVisibleImages.length && mode==='local_zero_cost'){
-        // Canonical Google Drive poster hosts can throttle CI while the same image is valid in production.
-        // Re-check the same source once before failing; never exempt persistent failures.
-        await page.waitForTimeout(2200);
-        const retryReadiness=await page.evaluate(()=>Array.from(document.images).filter(img=>{const r=img.getBoundingClientRect();return r.bottom>=-1&&r.top<=window.innerHeight+1&&r.width>0&&r.height>0;}).map(img=>({src:img.currentSrc||img.src,complete:img.complete,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight})));
-        brokenVisibleImages=retryReadiness.filter(item=>!item.complete||item.naturalWidth<1||item.naturalHeight<1);
-      }
-      if(brokenVisibleImages.length){
-        fail('VISIBLE_IMAGE_NOT_READY',`Visible image evidence was not ready at ${width}px after readiness retry: ${JSON.stringify(brokenVisibleImages).slice(0,500)}`);
-      }
 
       const errorVisible=await page.locator('.error-box').isVisible().catch(()=>false);
       if(errorVisible){
@@ -262,6 +239,13 @@ async function main(){
         await search.fill('');
         await page.waitForTimeout(80);
         recordInteraction('search_restore',await page.locator('#content .concert-card:not(.skeleton-card)').count()>0);
+        const months=await page.locator('#month-filter-select option').evaluateAll(nodes=>nodes.map(x=>x.value));
+        if(months.length>1){
+          await page.locator('#month-filter-select').selectOption(months[1]);
+          recordInteraction('month_filter_selected',await page.locator('#month-filter-select').inputValue()===months[1]);
+          await page.locator('#clear-browse-btn').click();
+          recordInteraction('clear_filters',await page.locator('#month-filter-select').inputValue()==='all');
+        }
 
         const available=page.locator('.filter-btn[data-filter="available"]');
         await available.click();
@@ -304,7 +288,23 @@ async function main(){
       }
 
       const topPath=path.join(outputDir,`${width}x${height}-top.jpg`);
-      await page.screenshot({path:topPath,type:'jpeg',quality:74,fullPage:false,animations:'disabled'});
+      const stateEvidence=[];
+      const stateObservations=[];
+      const screenshots=[];
+      const captureState=async(name,file)=>{
+        const broken=await Evidence.settle(page);
+        const state=await Evidence.inspectState(page);
+        const findings=Evidence.stateFindings(state,{width,name});
+        if(broken.length) findings.push({code:'VISIBLE_IMAGE_NOT_READY',severity:'P1',evidence:broken.join(', '),action:'Resolve visible image delivery before acceptance.'});
+        if(state.failed_posters) findings.push({code:'POSTER_DELIVERY_FAILED',severity:'P1',evidence:String(state.failed_posters)+' poster fallback(s)',action:'Verify image provider delivery.'});
+        await page.screenshot({path:file,type:'jpeg',quality:74,fullPage:false,animations:'disabled'});
+        stateEvidence.push({name,...state,broken_visible_images:broken,findings});
+        stateObservations.push(...findings);
+        screenshots.push({width,state:name,path:path.relative(outputDir,file),sha256:Evidence.hash(fs.readFileSync(file))});
+        return state;
+      };
+      await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+      const firstFold=await captureState('top',topPath);
 
       await page.evaluate(()=>{
         const shell=document.querySelector('.browse-controls-shell');
@@ -316,7 +316,37 @@ async function main(){
       await page.waitForTimeout(250);
 
       const stickyPath=path.join(outputDir,`${width}x${height}-sticky.jpg`);
-      await page.screenshot({path:stickyPath,type:'jpeg',quality:74,fullPage:false,animations:'disabled'});
+      await captureState('catalogue',stickyPath);
+
+      // Inspect the lower-page composition, English, both themes and actual package sheet.
+      await page.locator('footer').scrollIntoViewIfNeeded();
+      await captureState('footer',path.join(outputDir,`${width}x${height}-footer.jpg`));
+      await page.locator('.lang-btn[data-lang="en"]').click();
+      await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+      await captureState('english',path.join(outputDir,`${width}x${height}-english.jpg`));
+      const modalCard=page.locator('#content .concert-card:not(.skeleton-card)').first();
+      await modalCard.click();
+      await captureState('english-modal',path.join(outputDir,`${width}x${height}-english-modal.jpg`));
+      await page.keyboard.press('Escape');
+      recordInteraction('modal_focus_restored',await modalCard.evaluate(el=>el===document.activeElement));
+      await page.locator('.lang-btn[data-lang="th"]').click();
+      await page.locator('#theme-toggle').click();
+      await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+      await captureState('dark',path.join(outputDir,`${width}x${height}-dark.jpg`));
+      await page.locator('#content .concert-card:not(.skeleton-card)').first().click();
+      await captureState('dark-modal',path.join(outputDir,`${width}x${height}-dark-modal.jpg`));
+      await page.keyboard.press('Escape');
+      await page.locator('#theme-toggle').click();
+      await page.locator('#content .concert-card:not(.skeleton-card)').first().click();
+      await captureState('modal',path.join(outputDir,`${width}x${height}-modal.jpg`));
+      const focusables=page.locator('#overlay .modal button:visible,#overlay .modal a[href]:visible');
+      await focusables.last().focus();await page.keyboard.press('Tab');
+      recordInteraction('modal_tab_wrap',await focusables.first().evaluate(el=>el===document.activeElement));
+      await focusables.first().focus();await page.keyboard.press('Shift+Tab');
+      recordInteraction('modal_shift_tab_wrap',await focusables.last().evaluate(el=>el===document.activeElement));
+      await page.keyboard.press('Escape');
+      await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+      await Evidence.settle(page);
 
       const metrics=await page.evaluate(()=>{
         const visible=el=>{
@@ -342,6 +372,7 @@ async function main(){
           ...Array.from(document.querySelectorAll('.filter-btn')).map((el,index)=>[`filter-${el.dataset.filter||index}`,el]),
           ['follow-x',document.querySelector('.quick-link')],
           ['faq',document.querySelector('.mini-btn')],
+          ['theme',document.querySelector('#theme-toggle')],
           ...Array.from(document.querySelectorAll('.lang-btn')).map((el,index)=>[`lang-${index}`,el]),
           ['line-cta',cta]
         ];
@@ -415,21 +446,29 @@ async function main(){
       const rawI18nKeys=[...new Set((pageText.match(/\b(?:journey|proof|events|filter|footer|modal|faq|hero|card|search)_[a-z0-9_]+\b/gi)||[]).map(x=>x.toLowerCase()))];
       metrics.raw_i18n_key_count=rawI18nKeys.length;
       metrics.raw_i18n_keys=rawI18nKeys.slice(0,20);
+      metrics.visible_event_cards_above_fold=firstFold.visible_event_cards_above_fold;
       const packet={
         platform:width<=768?'ios-contract-via-chromium':'chromium',
         viewport:{width,height},
         metrics,
         page_text:pageText,
-        screenshot_observations:rawI18nKeys.length?[{
+        screenshot_artifacts:screenshots.map(x=>x.path),
+        broken_visible_images:stateEvidence.flatMap(x=>x.broken_visible_images),
+        observations:stateObservations,
+        screenshot_observations:[...stateObservations,...(rawI18nKeys.length?[{
           code:'RAW_I18N_KEY_VISIBLE',
           severity:'P0',
           evidence:'Visible untranslated keys: '+rawI18nKeys.slice(0,8).join(', '),
           action:'Repair localization binding before release.'
-        }]:[]
+        }]:[])]
       };
-      const qa=Reviewer.validateVisualQa(packet);
+      const uxInvocation=await Evidence.invokeWithEvidence('storefront_ux_review',packet,invocationOptions);
+      const qaInvocation=await Evidence.invokeWithEvidence('storefront_visual_qa',packet,invocationOptions);
+      const qa=qaInvocation.result;
       const visualCritique=VisualCritic.critique(packet);
-      const designCouncil=DesignCouncil.runCouncil({packet});
+      // Gateway executes DesignCouncil.runCouncil and persists the actual seven outputs.
+      const councilInvocation=await Evidence.invokeWithEvidence('storefront_design_council',{packet},invocationOptions);
+      const designCouncil=councilInvocation.result;
       const councilBlockingFindings=designCouncil.reviews.flatMap(r=>Array.isArray(r.findings)?r.findings:[]).filter(f=>['P0','P1'].includes(String(f&&f.severity||'').toUpperCase()));
       results.push({
         width,
@@ -441,6 +480,9 @@ async function main(){
         screenshot_sticky:path.relative(process.cwd(),stickyPath),
         page_errors:pageErrors,
         interaction_checks:interactionChecks,
+        states:stateEvidence,
+        screenshots,
+        gateway_receipts:[uxInvocation.ledger,qaInvocation.ledger,councilInvocation.ledger],
         metrics,
         qa,
         visual_critique:visualCritique,
@@ -460,18 +502,21 @@ async function main(){
     target_mode:mode,
     target_url:target.href,
     data_source_url:dataSource?dataSource.href:null,
+    fixture_hashes:fixtures?{events:Evidence.hash(fixtures.events),packages:Evidence.hash(fixtures.packages)}:null,
     approved_sha:approvedSha,
+    frontend_identity:identity,
+    source_dirty:sourceDirty,
     expected_css_marker:expectedCssMarker,
     viewports:results,
     runtime_errors:runtimeErrors,
     pass:results.length===widths.length &&
-      results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS' && item.design_council_blockers.length===0) &&
+      results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS' && item.design_council_blockers.length===0 && item.design_council.technical_status==='PASS' && item.interaction_checks.every(check=>check.pass===true)) &&
       runtimeErrors.length===0,
     production_writes:0,
     publishes:0,
     clicks_performed:results.reduce((sum,item)=>sum+(item.interaction_checks||[]).filter(check=>/filter|faq|modal|language/.test(check.name)).length,0),
     forms_submitted:0,
-    technical_visual_pass:results.length===widths.length && results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS' && item.design_council_blockers.length===0) && runtimeErrors.length===0,
+    technical_visual_pass:results.length===widths.length && results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS' && item.design_council_blockers.length===0 && item.design_council.technical_status==='PASS' && item.interaction_checks.every(check=>check.pass===true)) && runtimeErrors.length===0,
     invoked_agents:[...new Set(results.flatMap(item=>item.design_council?.invoked_agents||[]))],
     interaction_pass:results.length===widths.length && results.every(item=>(item.interaction_checks||[]).every(check=>check.pass===true)),
     protection_bypass_used:Boolean(String(process.env.VERCEL_AUTOMATION_BYPASS_SECRET||'').trim()),
@@ -480,6 +525,7 @@ async function main(){
   };
 
   const reviewPath=path.join(process.cwd(),'config','kk-storefront-v5-screenshot-review.json');
+  if(Evidence.frontendIdentity().digest!==identity.digest) fail('FRONTEND_CHANGED_DURING_CAPTURE');
   let screenshotReviewPass=false;
   let screenshotReview=null;
   if(fs.existsSync(reviewPath)){
@@ -491,7 +537,7 @@ async function main(){
         'assets/kk-storefront-v5.css':String(blobs.v5_css||''),
         'script.js':String(blobs.script_js||'')
       };
-      const designUnchanged=Object.entries(expected).every(([file,blob])=>{
+      const designUnchanged=Evidence.ownerApprovalValid(screenshotReview,identity,widths,results.flatMap(x=>x.screenshots)) && Object.entries(expected).every(([file,blob])=>{
         if(!/^[0-9a-f]{40}$/.test(blob)) return false;
         try{return execFileSync('git',['hash-object',file],{encoding:'utf8'}).trim()===blob;}catch(_){return false;}
       });

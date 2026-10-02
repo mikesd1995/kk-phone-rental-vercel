@@ -41,8 +41,8 @@ test('visual QA runner covers all storefront policy acceptance widths',()=>{
 });
 
 test('visual QA runner captures screenshots and exercises only read-only storefront interactions',()=>{
-  assert.match(runner,/screenshot\(\{path:topPath/);
-  assert.match(runner,/screenshot\(\{path:stickyPath/);
+  assert.match(runner,/captureState\('top',topPath\)/);
+  assert.match(runner,/captureState\('catalogue',stickyPath\)/);
   assert.match(runner,/forms_submitted:0/);
   assert.match(runner,/production_writes:0/);
   assert.match(runner,/interaction_checks:interactionChecks/);
@@ -75,7 +75,8 @@ test('visual QA runner measures the mobile failure classes and invokes reviewer 
   ]){
     assert.match(runner,new RegExp(token));
   }
-  assert.match(runner,/Reviewer\.validateVisualQa\(packet\)/);
+  // Acceptance now goes through the registered gateway and durable local receipts.
+  assert.match(runner,/Evidence\.invokeWithEvidence\('storefront_visual_qa',packet/);
 });
 
 test('visual QA runner fails closed on wrong host, missing cards and wrong CSS marker',()=>{
@@ -163,9 +164,11 @@ test('visual QA workflow triggers for active storefront CSS and Art Director cha
 
 test('visual QA requires visible imagery to be ready before screenshot evidence',()=>{
   const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  const helpers=fs.readFileSync('scripts/storefront-evidence.cjs','utf8');
   assert.match(source,/VISIBLE_IMAGE_NOT_READY/);
-  assert.match(source,/naturalWidth/);
-  assert.match(source,/\.decode\(\)/);
+  assert.match(helpers,/naturalWidth/);
+  assert.match(helpers,/\.decode\(\)/);
+  assert.match(source,/const broken=await Evidence\.settle\(page\)/);
 });
 
 
@@ -197,7 +200,7 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   const html=fs.readFileSync('index.html','utf8');
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
-  assert.equal(html.includes('v63-responsive-reset'),true);
+  assert.equal(html.includes('v64-rendered-acceptance'),true);
   // V6.2 owner-approved premium mock intentionally promotes the FAR SEAT / CLOSE MEMORY signature.
   assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
   assert.equal(html.includes('CONCERT MEMORY SERVICE'),false);
