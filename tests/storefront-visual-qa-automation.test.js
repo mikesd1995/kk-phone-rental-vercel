@@ -206,7 +206,7 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   const html=fs.readFileSync('index.html','utf8');
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
-  assert.equal(html.includes('v66-generic-phone-i18n'),true);
+  assert.equal(html.includes('v67-lower-page-finish'),true);
   // V6.2 owner-approved premium mock intentionally promotes the FAR SEAT / CLOSE MEMORY signature.
   assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
   assert.equal(html.includes('CONCERT MEMORY SERVICE'),false);
@@ -361,6 +361,24 @@ test('V6.6 professional finish keeps brand messaging generic while preserving pa
   assert.match(js,/pkg_bundle:"Phone \+ Lens"/);
 });
 
+
+
+test('V6.7 lower-page finish prevents clipped card details and reduces CTA/footer legacy weight',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  const js=fs.readFileSync('script.js','utf8');
+  assert.match(css,/V6\.7 lower-page professional finish/);
+  assert.match(css,/\.concert-card\{[\s\S]*height:auto!important;[\s\S]*align-self:start!important/);
+  assert.match(css,/@media\(max-width:700px\)\{[\s\S]*\.pi-venue\{[\s\S]*-webkit-line-clamp:2!important/);
+  assert.match(css,/\.browse-more-btn\{[\s\S]*min-height:46px!important;[\s\S]*border-radius:14px!important/);
+  assert.match(css,/\.kk-booking-journey\{[\s\S]*padding:18px!important;[\s\S]*border-radius:20px!important/);
+  assert.match(css,/\.line-btn\{[\s\S]*width:min\(100%,520px\)!important;[\s\S]*border-radius:16px!important/);
+  assert.match(html,/จองง่ายใน 3 ขั้นตอน/);
+  assert.match(html,/ร้านยืนยันคิว แล้วรับเครื่องหน้างาน/);
+  assert.match(js,/footer_trust:"รับ–คืนหน้างาน · จองผ่าน LINE"/);
+  assert.doesNotMatch(html,/FROM POSTER TO FRONT ROW/);
+  assert.doesNotMatch(html,/ทัก LINE มาจองได้เลย/);
+});
 test('visual QA exposes zero-cost paid-provider policy and keeps optional OpenAI off without waiver',()=>{
   const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
   assert.match(source,/openai_visual_review_requested:openAiConfig\.requested/);
