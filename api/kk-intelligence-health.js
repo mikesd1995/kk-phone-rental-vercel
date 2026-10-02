@@ -63,7 +63,10 @@ function safeTimingPayload(status,errorCode,extra){
     source_equivalence:'UNVERIFIED',
     named_project_timezone:'UNVERIFIED',
     installed_triggers:'UNVERIFIED',
+    installed_trigger_count:null,
     cleanup_trigger:'UNVERIFIED',
+    cleanup_trigger_count:null,
+    cleanup_trigger_schedule:'UNVERIFIED',
     safety:{read_only:true,apps_script_writes:0,sheet_business_writes:0,trigger_mutations:0,timezone_mutations:0,secrets_exposed:false}
   },extra||{});
 }
@@ -98,12 +101,23 @@ async function appsScriptTimingReadback({env=process.env,fetchImpl=global.fetch,
     const offset=inferOffsetMinutes(String(d.generated_at||''),before,after);
     const identity=String(d.spreadsheet_id||'')===sheetId && d.frontend_backend_same_sheet===true;
     const adminApiVersion=String(d.admin_api_version||'').trim();
+    const projectTimezone=String(d.project_timezone||'').trim();
+    const triggerRows=Array.isArray(d.installed_triggers)?d.installed_triggers:[];
+    const triggerCount=Number.isFinite(Number(d.installed_trigger_count))?Number(d.installed_trigger_count):null;
+    const cleanupPresent=typeof d.cleanup_trigger_present==='boolean'?d.cleanup_trigger_present:null;
+    const cleanupCount=Number.isFinite(Number(d.cleanup_trigger_count))?Number(d.cleanup_trigger_count):null;
     return safeTimingPayload('READBACK_COMPLETE','',{
       effective_utc_offset:offsetLabel(offset),
       effective_utc_plus_7_verified:offset===420,
       backend_sheet_identity_verified:identity,
       admin_api_version:adminApiVersion,
-      admin_api_version_verified:adminApiVersion===EXPECTED_APPS_SCRIPT_VERSION
+      admin_api_version_verified:adminApiVersion===EXPECTED_APPS_SCRIPT_VERSION,
+      named_project_timezone:projectTimezone||'UNVERIFIED',
+      installed_triggers:triggerRows.length||triggerCount===0?'VERIFIED_READBACK':'UNVERIFIED',
+      installed_trigger_count:triggerCount,
+      cleanup_trigger:cleanupPresent===true?'VERIFIED_PRESENT_SCHEDULE_UNVERIFIED':cleanupPresent===false?'VERIFIED_ABSENT':'UNVERIFIED',
+      cleanup_trigger_count:cleanupCount,
+      cleanup_trigger_schedule:String(d.cleanup_trigger_schedule||'UNVERIFIED')
     });
   }catch(err){
     return safeTimingPayload('READBACK_BLOCKED',err&&err.name==='AbortError'?'PHASE1_HEALTH_TIMEOUT':'PHASE1_HEALTH_TRANSPORT_FAILED');
