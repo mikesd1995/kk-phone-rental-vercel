@@ -10,12 +10,8 @@ function boundedInt(v,fallback,min,max){
   if(!Number.isFinite(n)) return fallback;
   return Math.max(min,Math.min(max,Math.trunc(n)));
 }
-function baseUrl(env={}){
-  const raw=clean(env.KK_OPENAI_BASE_URL)||DEFAULT_BASE_URL;
-  let url;
-  try{url=new URL(raw);}catch(_){return DEFAULT_BASE_URL;}
-  if(url.protocol!=='https:'||privateHostname(url.hostname)) return DEFAULT_BASE_URL;
-  return raw.replace(/\/+$/,'');
+function baseUrl(){
+  return DEFAULT_BASE_URL;
 }
 function modelFor(agent,env={}){
   const key=clean(agent).toLowerCase();
