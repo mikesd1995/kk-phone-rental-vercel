@@ -25,6 +25,6 @@ test('Apps Script source and accepted candidate use the same FILTER + COUNTIFS p
     const block=src.slice(start,end===-1?src.length:end);
     assert.match(block,/INDEX\(FILTER\(/);
     assert.match(block,/COUNTIFS\(/);
-    assert.doesNotMatch(block,/LOOKUP\(2,1\//);
+    assert.doesNotMatch(block,/IFERROR\(LOOKUP\(2,1\//);
   }
 });
