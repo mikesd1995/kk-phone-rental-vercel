@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V1';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V2';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -83,7 +83,10 @@ function buildUniversePlan(input={}){
       [domain,row.label,labels.en,'Bangkok'].filter(Boolean).join(' '),
       [domain,'concert fanmeeting',labels.en,'Bangkok'].filter(Boolean).join(' '),
       [domain,'artist event lucky fan',labels.en,'Bangkok'].filter(Boolean).join(' '),
-      [row.label,labels.th,'กรุงเทพ'].filter(Boolean).join(' ')
+      [row.label,labels.th,'กรุงเทพ'].filter(Boolean).join(' '),
+      [domain,row.label,'Bangkok'].filter(Boolean).join(' '),
+      [domain,'concert fanmeeting Bangkok'].filter(Boolean).join(' '),
+      [row.label,'Bangkok'].filter(Boolean).join(' ')
     ].filter(Boolean);
     return {
       source_id:row.source_id,
