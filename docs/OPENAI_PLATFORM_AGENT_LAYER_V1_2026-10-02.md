@@ -177,6 +177,16 @@ All routes require persistent invocation evidence under the existing Agent Gatew
 
 The existing authenticated Admin guard already exposes the Agent Gateway action, so no new unauthenticated public AI endpoint was added. When this branch is merged and server-side environment gates are enabled, authorized Admin calls can invoke these task types through the existing guarded gateway while invocation records persist hashes instead of raw prompts/customer messages.
 
+## Dry-run
+
+A zero-write manual harness is available:
+
+```bash
+npm run openai:agents:dry-run
+```
+
+With the platform disabled, it proves the no-network fallback. With staging environment variables enabled, it exercises the hybrid storefront and discovery routes with synthetic evidence. Inbox remains skipped unless the separate customer-data flag is explicitly enabled.
+
 ## Tests
 
 `tests/kk-openai-platform.test.js` covers:
