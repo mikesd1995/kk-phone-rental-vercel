@@ -63,3 +63,14 @@ test('dated independent event remains a hard reconciliation gap',()=>{
  assert.equal(out.reconciliation_gap_count,1);
 });
 
+test('reconciliation fails closed when independent reference evidence has no structured event identity',()=>{
+ const out=R.reconcileCandidateSets(
+  [{title:'Found Event',event_date:'2026-10-01'}],
+  [{reference_id:'calendar',title:'Bangkok concerts October 2026',event_date:null}]
+ );
+ assert.equal(out.complete,false);
+ assert.equal(out.reconciliation_gap_count,0);
+ assert.equal(out.reference_count,0);
+ assert.equal(out.unstructured_reference_count,1);
+});
+
