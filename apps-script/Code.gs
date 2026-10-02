@@ -1877,57 +1877,62 @@ function kkRestoreWebPackagePricesForEvent_(snapshot) {
 }
 
 function kkApiUpdateEvent_(payload) {
-  const eventId = String(payload.event_id || '').trim();
-  if (!eventId) throw new Error('event_id is required');
-  const priceSnapshot = kkSnapshotWebPackagePricesForEvent_(eventId);
-  const sh = kkSheet_(KK.events);
-  const rows = kkGetValues_(KK.events, 5, 1, 8);
-  for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][0] || '').trim() !== eventId) continue;
-    const rowNumber = i + 5;
-    const current = rows[i].slice();
-    if (payload.event_name) current[1] = String(payload.event_name).trim();
-    if (payload.event_date) current[2] = kkDateObj_(payload.event_date);
-    if (payload.venue) current[3] = String(payload.venue).trim();
-    const posterInfo = payload.poster_url ? kkPosterForWrite_(payload.poster_url) : { url: '', drive_file_id: '', public_checked: false };
-    if (payload.poster_url) current[4] = posterInfo.url;
-    if (payload.status) {
-      const nextEventStatus = String(payload.status).toLowerCase().trim();
-      if (!['open', 'closed'].includes(nextEventStatus)) throw new Error('status must be open or closed');
-      current[5] = nextEventStatus;
+  const lock = kkAcquireDocumentLock_('update event', 12000);
+  try {
+    const eventId = String(payload.event_id || '').trim();
+    if (!eventId) throw new Error('event_id is required');
+    const priceSnapshot = kkSnapshotWebPackagePricesForEvent_(eventId);
+    const sh = kkSheet_(KK.events);
+    const rows = kkGetValues_(KK.events, 5, 1, 8);
+    for (let i = 0; i < rows.length; i++) {
+      if (String(rows[i][0] || '').trim() !== eventId) continue;
+      const rowNumber = i + 5;
+      const current = rows[i].slice();
+      if (payload.event_name) current[1] = String(payload.event_name).trim();
+      if (payload.event_date) current[2] = kkDateObj_(payload.event_date);
+      if (payload.venue) current[3] = String(payload.venue).trim();
+      const posterInfo = payload.poster_url ? kkPosterForWrite_(payload.poster_url) : { url: '', drive_file_id: '', public_checked: false };
+      if (payload.poster_url) current[4] = posterInfo.url;
+      if (payload.status) {
+        const nextEventStatus = String(payload.status).toLowerCase().trim();
+        if (!['open', 'closed'].includes(nextEventStatus)) throw new Error('status must be open or closed');
+        current[5] = nextEventStatus;
+      }
+      const active = kkApiBoolOrBlank_(payload.active_on_web);
+      const currentActive = kkIsTrue_(current[6]);
+      const ownerReopenIntent = String(payload.visibility_owner_intent || '').trim() === 'explicit_owner_reopen';
+      const visibilityHistory = kkFindVisibilityHistory_(eventId, current[1], current[2], current[3]);
+      if (active === true && visibilityHistory && visibilityHistory.lock_state === 'LOCKED' && !ownerReopenIntent) {
+        throw new Error('EVENT_VISIBILITY_TOMBSTONE_LOCKED: owner-hidden event requires explicit owner reopen intent');
+      }
+      if (currentActive === false && active === true && !ownerReopenIntent) {
+        throw new Error('EVENT_VISIBILITY_OWNER_LOCKED: owner-hidden event requires explicit owner reopen intent');
+      }
+      if (active !== '') current[6] = active;
+      if (payload.note !== undefined && payload.note !== '') current[7] = payload.note;
+      sh.getRange(rowNumber, 1, 1, 8).setValues([current]);
+      let visibilityLockState = '';
+      if (active === false) {
+        visibilityLockState = kkUpsertVisibilityLock_(eventId, current[1], current[2], current[3], 'LOCKED', payload).lock_state;
+      } else if (active === true && ownerReopenIntent) {
+        visibilityLockState = kkUpsertVisibilityLock_(eventId, current[1], current[2], current[3], 'REOPENED', payload).lock_state;
+      }
+      SpreadsheetApp.flush();
+      const savedPoster = String(sh.getRange(rowNumber, 5).getValue() || '').trim();
+      if (payload.poster_url && !savedPoster) throw new Error('Poster uploaded, but poster_url was not written to 01_Events. Please try saving again.');
+      const restoredWebPrices = kkRestoreWebPackagePricesForEvent_(priceSnapshot);
+      const webReady = kkApiVerifyEventWebReady_(eventId, savedPoster);
+      return Object.assign({
+        event_id: eventId, row_number: rowNumber, poster_url: savedPoster,
+        poster_drive_file_id: posterInfo.drive_file_id || '', poster_public_checked: !!posterInfo.public_checked, poster_public_warning: posterInfo.sharing_warning || '',
+        web_package_prices_preserved: restoredWebPrices,
+        visibility_lock_state: visibilityLockState
+      }, webReady);
     }
-    const active = kkApiBoolOrBlank_(payload.active_on_web);
-    const currentActive = kkIsTrue_(current[6]);
-    const ownerReopenIntent = String(payload.visibility_owner_intent || '').trim() === 'explicit_owner_reopen';
-    const visibilityHistory = kkFindVisibilityHistory_(eventId, current[1], current[2], current[3]);
-    if (active === true && visibilityHistory && visibilityHistory.lock_state === 'LOCKED' && !ownerReopenIntent) {
-      throw new Error('EVENT_VISIBILITY_TOMBSTONE_LOCKED: owner-hidden event requires explicit owner reopen intent');
-    }
-    if (currentActive === false && active === true && !ownerReopenIntent) {
-      throw new Error('EVENT_VISIBILITY_OWNER_LOCKED: owner-hidden event requires explicit owner reopen intent');
-    }
-    if (active !== '') current[6] = active;
-    if (payload.note !== undefined && payload.note !== '') current[7] = payload.note;
-    sh.getRange(rowNumber, 1, 1, 8).setValues([current]);
-    let visibilityLockState = '';
-    if (active === false) {
-      visibilityLockState = kkUpsertVisibilityLock_(eventId, current[1], current[2], current[3], 'LOCKED', payload).lock_state;
-    } else if (active === true && ownerReopenIntent) {
-      visibilityLockState = kkUpsertVisibilityLock_(eventId, current[1], current[2], current[3], 'REOPENED', payload).lock_state;
-    }
-    SpreadsheetApp.flush();
-    const savedPoster = String(sh.getRange(rowNumber, 5).getValue() || '').trim();
-    if (payload.poster_url && !savedPoster) throw new Error('Poster uploaded, but poster_url was not written to 01_Events. Please try saving again.');
-    const restoredWebPrices = kkRestoreWebPackagePricesForEvent_(priceSnapshot);
-    const webReady = kkApiVerifyEventWebReady_(eventId, savedPoster);
-    return Object.assign({
-      event_id: eventId, row_number: rowNumber, poster_url: savedPoster,
-      poster_drive_file_id: posterInfo.drive_file_id || '', poster_public_checked: !!posterInfo.public_checked, poster_public_warning: posterInfo.sharing_warning || '',
-      web_package_prices_preserved: restoredWebPrices,
-      visibility_lock_state: visibilityLockState
-    }, webReady);
+    throw new Error('Event not found: ' + eventId);
+  } finally {
+    lock.releaseLock();
   }
-  throw new Error('Event not found: ' + eventId);
 }
 
 function kkGenerateUniqueTemplateId_(displayName) {
@@ -1942,44 +1947,56 @@ function kkGenerateUniqueTemplateId_(displayName) {
 }
 
 function kkApiCreatePackage_(payload) {
-  const displayName = String(payload.display_name || '').trim();
-  if (!displayName) throw new Error('display_name is required');
-  const templateId = String(payload.template_id || '').trim() || kkGenerateUniqueTemplateId_(displayName);
-  const modelGroup = String(payload.model_group || 'NONE').trim() || 'NONE';
-  const packageType = String(payload.package_type || '').toLowerCase().trim();
-  const lensGroup = String(payload.lens_group || 'NONE').trim() || 'NONE';
-  const standardPrice = kkApiNumber_(payload.standard_price, 'standard_price', false);
-  const active = payload.active === undefined ? true : kkIsTrue_(payload.active);
-  const useCase = payload.use_case || '';
-  if (!['phone_only', 'lens_only', 'phone_lens_bundle'].includes(packageType)) throw new Error('package_type must be phone_only, lens_only or phone_lens_bundle');
-  if ((packageType === 'phone_only' || packageType === 'phone_lens_bundle') && (!modelGroup || modelGroup === 'NONE')) throw new Error('model_group is required for phone packages');
-  if ((packageType === 'lens_only' || packageType === 'phone_lens_bundle') && (!lensGroup || lensGroup === 'NONE')) throw new Error('lens_group is required for lens packages');
-  
-  const existing = kkGetValues_(KK.packages, 5, 1, 1).flat().map(v => String(v || '').trim());
-  if (existing.includes(templateId)) throw new Error('template_id already exists: ' + templateId);
-  const row = kkFirstEmptyRow_(KK.packages, 1, 5, 1, 10);
-  kkSheet_(KK.packages).getRange(row, 1, 1, 10).setValues([[templateId, modelGroup, packageType, lensGroup, standardPrice, displayName, '', active, '', useCase]]);
-  return { template_id: templateId, row_number: row };
+  const lock = kkAcquireDocumentLock_('create package', 12000);
+  try {
+    const displayName = String(payload.display_name || '').trim();
+    if (!displayName) throw new Error('display_name is required');
+    const templateId = String(payload.template_id || '').trim() || kkGenerateUniqueTemplateId_(displayName);
+    const modelGroup = String(payload.model_group || 'NONE').trim() || 'NONE';
+    const packageType = String(payload.package_type || '').toLowerCase().trim();
+    const lensGroup = String(payload.lens_group || 'NONE').trim() || 'NONE';
+    const standardPrice = kkApiNumber_(payload.standard_price, 'standard_price', false);
+    const active = payload.active === undefined ? true : kkIsTrue_(payload.active);
+    const useCase = payload.use_case || '';
+    if (!['phone_only', 'lens_only', 'phone_lens_bundle'].includes(packageType)) throw new Error('package_type must be phone_only, lens_only or phone_lens_bundle');
+    if ((packageType === 'phone_only' || packageType === 'phone_lens_bundle') && (!modelGroup || modelGroup === 'NONE')) throw new Error('model_group is required for phone packages');
+    if ((packageType === 'lens_only' || packageType === 'phone_lens_bundle') && (!lensGroup || lensGroup === 'NONE')) throw new Error('lens_group is required for lens packages');
+
+    const existing = kkGetValues_(KK.packages, 5, 1, 1).flat().map(v => String(v || '').trim());
+    if (existing.includes(templateId)) throw new Error('template_id already exists: ' + templateId);
+    const row = kkFirstEmptyRow_(KK.packages, 1, 5, 1, 10);
+    kkSheet_(KK.packages).getRange(row, 1, 1, 10).setValues([[templateId, modelGroup, packageType, lensGroup, standardPrice, displayName, '', active, '', useCase]]);
+    SpreadsheetApp.flush();
+    return { template_id: templateId, row_number: row };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function kkApiUpdatePackage_(payload) {
-  const templateId = String(payload.template_id || '').trim();
-  if (!templateId) throw new Error('template_id is required');
-  const sh = kkSheet_(KK.packages);
-  const rows = kkGetValues_(KK.packages, 5, 1, 10);
-  for (let i = 0; i < rows.length; i++) {
-    if (String(rows[i][0] || '').trim() !== templateId) continue;
-    const rowNumber = i + 5;
-    const current = rows[i].slice();
-    if (payload.standard_price !== '' && payload.standard_price !== undefined) current[4] = kkApiNumber_(payload.standard_price, 'standard_price', false);
-    if (payload.display_name) current[5] = String(payload.display_name).trim();
-    const active = kkApiBoolOrBlank_(payload.active);
-    if (active !== '') current[7] = active;
-    if (payload.use_case !== undefined && payload.use_case !== '') current[9] = payload.use_case;
-    sh.getRange(rowNumber, 1, 1, 10).setValues([current]);
-    return { template_id: templateId, row_number: rowNumber };
+  const lock = kkAcquireDocumentLock_('update package', 12000);
+  try {
+    const templateId = String(payload.template_id || '').trim();
+    if (!templateId) throw new Error('template_id is required');
+    const sh = kkSheet_(KK.packages);
+    const rows = kkGetValues_(KK.packages, 5, 1, 10);
+    for (let i = 0; i < rows.length; i++) {
+      if (String(rows[i][0] || '').trim() !== templateId) continue;
+      const rowNumber = i + 5;
+      const current = rows[i].slice();
+      if (payload.standard_price !== '' && payload.standard_price !== undefined) current[4] = kkApiNumber_(payload.standard_price, 'standard_price', false);
+      if (payload.display_name) current[5] = String(payload.display_name).trim();
+      const active = kkApiBoolOrBlank_(payload.active);
+      if (active !== '') current[7] = active;
+      if (payload.use_case !== undefined && payload.use_case !== '') current[9] = payload.use_case;
+      sh.getRange(rowNumber, 1, 1, 10).setValues([current]);
+      SpreadsheetApp.flush();
+      return { template_id: templateId, row_number: rowNumber };
+    }
+    throw new Error('Package not found: ' + templateId);
+  } finally {
+    lock.releaseLock();
   }
-  throw new Error('Package not found: ' + templateId);
 }
 
 function kkFindOverrideRows_(eventId, templateId) {
