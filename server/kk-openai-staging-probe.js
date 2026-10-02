@@ -4,7 +4,7 @@ const Platform=require('./kk-openai-platform.js');
 const VERSION='KK_OPENAI_STAGING_RUNTIME_PROBE_V2';
 const EXPECTED_BRANCH='feat/openai-platform-agent-layer-v1';
 function text(v){return String(v==null?'':v).trim();}
-function requested(req){try{const u=new URL(text(req&&req.url)||'/api/kk-intelligence-health','https://kk.invalid');return u.searchParams.get('mode')==='openai-staging';}catch(_){return false;}}
+function requestUrl(req){try{return new URL(text(req&&req.url)||'/api/kk-intelligence-health','https://kk.invalid');}catch(_){return null;}}\nfunction requested(req){const u=requestUrl(req);return !!u&&u.searchParams.get('mode')==='openai-staging';}\nfunction queryConfirmed(req){const u=requestUrl(req);return !!u&&u.searchParams.get('confirm')==='RUN_OPENAI_STAGING_PROBE';}
 async function readJson(req){const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>4096) throw new Error('REQUEST_TOO_LARGE');chunks.push(chunk);}const raw=Buffer.concat(chunks).toString('utf8');return raw?JSON.parse(raw):{};}
 function safeAi(row){const result=row&&row.result||{};const ai=result.ai_review||result.ai_reasoning||result;return {status:text(result.status),ai_status:text(ai&&ai.status),model:text(ai&&ai.model),blocker:text(ai&&ai.blocker),http_status:Number(ai&&ai.http_status)||0,provider_error_type:text(ai&&ai.provider_error_type),provider_error_code:text(ai&&ai.provider_error_code),request_id:text(ai&&ai.request_id),production_writes:Number(result.production_writes)||0};}
 async function handle(req,res,{json}={}){
@@ -27,4 +27,4 @@ async function handle(req,res,{json}={}){
  const pass=storefrontSafe.ai_status==='READY_FOR_DESIGN_SYNTHESIS'&&discoverySafe.ai_status==='ADVISORY_READY_FOR_VERIFIER'&&storefrontSafe.production_writes===0&&discoverySafe.production_writes===0;
  return json(res,pass?200:503,{ok:pass,status:pass?'PASS':'BLOCKED',...configBase,storefront:storefrontSafe,discovery:discoverySafe});
 }
-module.exports={VERSION,EXPECTED_BRANCH,requested,readJson,safeAi,handle};
+module.exports={VERSION,EXPECTED_BRANCH,requestUrl,requested,queryConfirmed,readJson,safeAi,handle};
