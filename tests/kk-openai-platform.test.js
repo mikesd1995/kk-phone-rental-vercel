@@ -241,3 +241,12 @@ test('provider failures expose only safe diagnostic metadata',async()=>{
   assert.equal(out.retry_after,'30');
   assert.equal(JSON.stringify(out).includes('sensitive message should not escape'),false);
 });
+
+
+test('API key normalization safely strips common copy/paste wrappers',()=>{
+  assert.equal(Platform.normalizeApiKey('  sk-proj-abc  '),'sk-proj-abc');
+  assert.equal(Platform.normalizeApiKey('Bearer sk-proj-abc'),'sk-proj-abc');
+  assert.equal(Platform.normalizeApiKey('OPENAI_API_KEY=sk-proj-abc'),'sk-proj-abc');
+  assert.equal(Platform.normalizeApiKey('"sk-proj-abc"'),'sk-proj-abc');
+  assert.equal(Platform.normalizeApiKey("'sk-proj-abc'"),'sk-proj-abc');
+});
