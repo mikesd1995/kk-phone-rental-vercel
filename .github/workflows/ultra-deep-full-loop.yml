@@ -136,6 +136,7 @@ jobs:
           node --test tests/kk-github-oidc.test.js
           node --test tests/kk-final-pricing-policy.test.js
           node --test tests/kk-verifier-storefront-promotion.test.js
+          node --test tests/kk-ultra-deep-direct-workflow.test.js
 
       - name: Install pinned zero-cost DDGS fallback
         shell: bash
