@@ -11,10 +11,14 @@ function argValue(argv,name){
 }
 function redactCandidate(c={}){
  return {
+   candidate_id:text(c.candidate_id)||null,
    title:text(c.title)||null,
    event_date:text(c.event_date)||null,
+   event_time:text(c.event_time)||null,
    venue:text(c.venue)||null,
-   source_url:text(c.source_url)||null
+   artist:Array.isArray(c.artist)?c.artist.map(text).filter(Boolean):[],
+   source_url:text(c.source_url)||null,
+   confidence:Number.isFinite(Number(c.confidence))?Number(c.confidence):null
  };
 }
 async function main(){
@@ -48,13 +52,18 @@ async function main(){
      reconciliation_gap_count:result.reconciliation&&result.reconciliation.reconciliation_gap_count,
      reference_count:result.reconciliation&&result.reconciliation.reference_count,
      matched_count:result.reconciliation&&result.reconciliation.matched_count,
+     structured_reference_count:result.reconciliation&&result.reconciliation.structured_reference_count,
+     excluded_reference_count:result.reconciliation&&result.reconciliation.excluded_reference_count,
      missing_candidates:(result.reconciliation&&result.reconciliation.missing_candidates||[]).slice(0,50)
    },
    known_miss_regression:result.known_miss_regression,
    known_miss_live_recall:result.known_miss_live_recall,
    candidate_count:result.candidate_count,
    reference_candidate_count:result.reference_candidate_count,
-   candidates:(result.candidates||[]).slice(0,100).map(redactCandidate),
+   eligible_reference_candidate_count:result.eligible_reference_candidate_count,
+   reference_scope_exclusions:result.reference_scope_exclusions||{},
+   canonical_reference_alignment_count:result.canonical_reference_alignment_count||0,
+   candidates:(result.candidates||[]).map(redactCandidate),
    execution_summary:result.execution_summary,
    authoritative:false,
    verifier_required:true,
@@ -74,6 +83,10 @@ async function main(){
    known_miss_complete:evidence.known_miss_regression&&evidence.known_miss_regression.complete,
    known_miss_live_passed:evidence.known_miss_live_recall&&evidence.known_miss_live_recall.passed,
    candidate_count:evidence.candidate_count,
+   reference_candidate_count:evidence.reference_candidate_count,
+   eligible_reference_candidate_count:evidence.eligible_reference_candidate_count,
+   reference_scope_exclusions:evidence.reference_scope_exclusions,
+   canonical_reference_alignment_count:evidence.canonical_reference_alignment_count,
    production_writes:0
  },null,2)+'\n');
  if(!evidence.full) process.exitCode=2;

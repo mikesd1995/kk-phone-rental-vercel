@@ -106,3 +106,29 @@ test('DDGS search evidence extracts explicit English and ISO event dates',()=>{
  assert.equal(A.inferSearchEventDate('Bangkok concerts October 2026'),null);
 });
 
+test('search evidence expands bounded same-month multi-day ranges',()=>{
+ assert.deepEqual(A.inferSearchEventDates('Date: Oct 11-13, 2026 | Rajamangala National Stadium'),[
+  '2026-10-11','2026-10-12','2026-10-13'
+ ]);
+ assert.deepEqual(A.inferSearchEventDates('11–13 October 2026 Bangkok'),[
+  '2026-10-11','2026-10-12','2026-10-13'
+ ]);
+});
+
+test('search date-range expansion refuses unsafe long ranges',()=>{
+ assert.deepEqual(A.inferSearchEventDates('Oct 1-31, 2026 Bangkok'),[]);
+});
+
+test('DDGS emits one candidate per bounded event date from result evidence',async()=>{
+ const rows=await A.ddgsTrafilatura(
+  {query:'The Weeknd Bangkok October 2026'},
+  {ddgs_runner:async()=>[{
+    title:'The Weeknd: After Hours Til Dawn Tour, Bangkok, Tue, 13 Oct 2026',
+    body:'Date: Oct 11-13, 2026 | Rajamangala National Stadium',
+    source_url:'https://www.livenationtero.co.th/en/event/the-weeknd-after-hours-til-dawn-tour-bangkok-tickets-edp1678717'
+  }]}
+ );
+ assert.deepEqual(rows.map(row=>row.event_date),['2026-10-11','2026-10-12','2026-10-13']);
+ assert.equal(new Set(rows.map(row=>row.source_url)).size,1);
+});
+

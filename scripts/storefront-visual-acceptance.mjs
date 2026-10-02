@@ -422,12 +422,7 @@ async function main(){
         const hero=document.querySelector('.v4-hero,.v3-hero');
         const preEventSurfaces=[document.querySelector('.v4-header,.v3-header'),hero,document.querySelector('.v3-social-proof'),document.querySelector('.browse-controls-shell')].filter(visible);
         const cards=Array.from(document.querySelectorAll('.concert-card')).filter(visible);
-        const cardRects=cards.map(el=>el.getBoundingClientRect());
-        const firstTop=cardRects.length?cardRects[0].top:null;
-        // Keep summary row detection aligned with rendered state evidence.
-        // Fractional card tops may straddle a 4px rounding bucket even when
-        // the cards are visually on the same grid row (observed at 480px).
-        const firstRow=firstTop===null?[]:cardRects.filter(r=>Math.abs(r.top-firstTop)<4);
+        const cardRects=cards.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};});
         const visibleAboveFold=cardRects.filter(r=>r.bottom>0&&r.top<window.innerHeight).length;
 
         let cssText='';
@@ -455,7 +450,8 @@ async function main(){
           min_form_control_font_px:formControls.length?Math.min(...formControls):0,
           filter_rows:rowTops.length,
           filter_item_geometry:filterItems.map(el=>{const r=el.getBoundingClientRect();return {class_name:String(el.className||''),top:r.top,left:r.left,width:r.width,height:r.height};}),
-          card_columns:firstRow.length,
+          card_rects:cardRects,
+          card_columns:0,
           card_min_width_px:cardRects.length?Math.min(...cardRects.map(r=>r.width)):0,
           visible_event_cards_above_fold:visibleAboveFold,
           first_event_top_px:cardRects.length?cardRects[0].top+window.scrollY:0,
@@ -469,6 +465,10 @@ async function main(){
         };
       });
 
+      const cardGeometry=Evidence.cardColumnGeometry(metrics.card_rects||[]);
+      metrics.card_columns=cardGeometry.card_columns;
+      metrics.card_column_widths=cardGeometry.column_widths;
+      delete metrics.card_rects;
       const pageText=(await page.locator('body').innerText()).slice(0,40000);
       const rawI18nKeys=[...new Set((pageText.match(/\b(?:journey|proof|events|filter|footer|modal|faq|hero|card|search)_[a-z0-9_]+\b/gi)||[]).map(x=>x.toLowerCase()))];
       metrics.raw_i18n_key_count=rawI18nKeys.length;

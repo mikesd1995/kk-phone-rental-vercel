@@ -234,3 +234,54 @@ test('scoped reference evidence preserves explicit exclusion reasons',()=>{
   assert.equal(rows[1].reference_scope_reason,'NON_RENTAL_EVENT_NOISE');
 });
 
+
+
+test('reference scope rejects generic Bangkok festival homepage even when a date was inferred',()=>{
+  const out=Runner.referenceScopeDecision({
+    title:'Home - Bangkok Festivals',
+    event_date:'2026-10-05',
+    source_url:'https://bangkokfestivals.example/'
+  },{month:'2026-10',location:'Bangkok Thailand'});
+  assert.equal(out.eligible,false);
+  assert.equal(out.reason,'GENERIC_REFERENCE_PAGE');
+});
+
+test('reference scope rejects root homepage without an event-specific path',()=>{
+  const out=Runner.referenceScopeDecision({
+    title:'Bangkok Concert Festival',
+    event_date:'2026-10-18',
+    source_url:'https://example.com/'
+  },{month:'2026-10',location:'Bangkok Thailand'});
+  assert.equal(out.eligible,false);
+  assert.equal(out.reason,'GENERIC_REFERENCE_PAGE');
+});
+
+
+test('reference scope rejects Eventpop group listing as generic reference page',()=>{
+  const out=Runner.referenceScopeDecision({
+    title:'Fan Meeting - Eventpop',
+    event_date:'2026-10-04',
+    source_url:'https://www.eventpop.me/g/fan-meeting'
+  },{month:'2026-10',location:'Bangkok Thailand'});
+  assert.equal(out.eligible,false);
+  assert.equal(out.reason,'GENERIC_REFERENCE_PAGE');
+});
+
+test('known-miss canonical alignment reconciles Bai Lu same-date aliases without broad fuzzy matching',()=>{
+  const discovered=[{
+    title:'WeSpark_ official | 48H COUNTDOWN for MEET&LOVE BAILU SPECIAL BANGKOK',
+    event_date:'2026-10-25',
+    source_url:'https://www.instagram.com/p/DdyDifwAdOz/'
+  }];
+  const refs=Runner.scopeReferenceCandidates([{
+    title:'blue on X: "#bailu’s 林深时见鹿 personal fan meeting in bangkok"',
+    event_date:'2026-10-25',
+    source_url:'https://x.com/bailuniverse/status/2101539750658412546'
+  }],{month:'2026-10',location:'Bangkok Thailand'});
+  const aligned=Runner.alignKnownMissReferences(discovered,refs);
+  assert.equal(aligned[0].canonical_known_miss_case,'bai-lu-meet-love-20261025');
+  assert.equal(aligned[0].title,discovered[0].title);
+  const out=require('../server/kk-ultra-deep-reconciliation.js').reconcileCandidateSets(discovered,aligned);
+  assert.equal(out.complete,true);
+  assert.equal(out.reconciliation_gap_count,0);
+});
