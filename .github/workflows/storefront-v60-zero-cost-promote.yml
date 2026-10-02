@@ -73,7 +73,7 @@ jobs:
           ROOT="$(npx vercel curl "$CANDIDATE_URL/" -- --token "$VERCEL_TOKEN")"
           grep -q 'id="theme-toggle"' <<<"$ROOT"; echo "theme_marker=pass"
           grep -q 'id="faq-open-btn"' <<<"$ROOT"; echo "faq_marker=pass"
-          grep -q 'v60-premium-editorial' <<<"$ROOT"; echo "asset_marker=pass"
+          grep -q 'v66-generic-phone-i18n' <<<"$ROOT"; echo "asset_marker=pass"
           npx vercel curl "$CANDIDATE_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" -- --token "$VERCEL_TOKEN" > candidate-data
           curl -sS "$PRODUCTION_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" > production-data
           echo "candidate_data_sha=$(sha256sum candidate-data | cut -d' ' -f1)"
@@ -105,7 +105,7 @@ jobs:
           ok=0
           for i in $(seq 1 30); do
             curl -sS "$PRODUCTION_URL/" -o live.html || true
-            if grep -q 'id="theme-toggle"' live.html && grep -q 'id="faq-open-btn"' live.html && grep -q 'v60-premium-editorial' live.html; then ok=1; break; fi
+            if grep -q 'id="theme-toggle"' live.html && grep -q 'id="faq-open-btn"' live.html && grep -q 'v66-generic-phone-i18n' live.html; then ok=1; break; fi
             sleep 4
           done
           test "$ok" = 1
