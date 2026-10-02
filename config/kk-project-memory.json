@@ -102,6 +102,22 @@
       ],
       "supersedes": [],
       "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:content:x-posting-plan-live-acceptance:20261002",
+      "occurred_at": "2026-10-02T16:36:00+07:00",
+      "kind": "ACCEPTANCE",
+      "domain": "content",
+      "summary": "LIVE acceptance passed for the default KK x_posting_plan flow. GitHub Actions executed current main through the Agent Gateway with gateway status RECORDED, required and invoked kk-marketing-agent, Asia/Bangkok slots 19:30 / 21:00 / 22:30 / 00:00, unverified-event rejection, and zero publishes / zero production writes. New KK sessions should treat this Agent flow as already active and must not require the owner to re-enable it.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/issues/477",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/36990694380",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/pull/476",
+        "docs/X_POSTING_PLAN_DEFAULT_AGENT_2026-10-02.md"
+      ],
+      "supersedes": [],
+      "source": "owner+runtime"
     }
   ]
 }
