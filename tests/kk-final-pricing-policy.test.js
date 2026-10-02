@@ -92,18 +92,26 @@ test('score below publish threshold does not create score fallback prices',()=>{
  assert.equal(r.final_prices.length,0);
 });
 
-test('exact competitor presence bypasses provisional no-competitor pricing state',()=>{
+test('exact competitor evidence drives market-aligned phone and bundle prices',()=>{
  const r=P.resolve({
   event_date:'2026-10-24',
   rental_fit_score:9.4,
-  pricing:{independent_competitors:1},
+  pricing:{
+   independent_competitors:2,
+   evidence:[
+    {package_type:'PHONE_ONLY',price:690},
+    {package_type:'PHONE_LENS',price:990}
+   ]
+  },
   package_templates:[
    {template_id:'PHONE',package_type:'phone_only',standard_price:890,active:true},
    {template_id:'LENS',package_type:'lens_only',standard_price:200,active:false},
    {template_id:'BUNDLE',package_type:'phone_lens_bundle',standard_price:1090,active:true}
   ]
  });
- assert.equal(r.source,'KK_ACTIVE_STANDARD_PACKAGE_SOT');
+ assert.equal(r.source,'EXACT_EVENT_COMPETITOR_MEDIAN');
  assert.equal(r.needs_price_recheck,false);
- assert.equal(r.pricing_status,'APPROVED_BASELINE');
+ assert.equal(r.pricing_status,'APPROVED_EXACT_EVENT_MEDIAN');
+ assert.equal(r.competitor_reference_used_as_final,true);
+ assert.deepEqual(r.final_prices.map(x=>x.override_price),[740,200,940]);
 });
