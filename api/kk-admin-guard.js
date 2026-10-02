@@ -17,6 +17,8 @@ const AgentOrchestration = require('../server/kk-agent-orchestration.js');
 const DecisionLedger = require('../server/kk-decision-ledger.js');
 const ProjectMemoryLedger = require('../server/kk-project-memory-ledger.js');
 const AdminSecurity = require('../server/admin-session.js');
+const UltraDeepOIDC = require('../server/kk-github-oidc.js');
+const UltraDeepRuntime = require('../server/kk-ultra-deep-production-runtime.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -26,6 +28,10 @@ const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
 const AGENT_GATEWAY_ACTIONS = new Set(['agentGateway','agentGatewayHealth']);
+const ULTRA_DEEP_ACTIONS = new Set(['ultraDeepFullLoop','ultraDeepFullLoopHealth']);
+const ULTRA_DEEP_REPOSITORY = 'mikesd1995/kk-phone-rental-vercel';
+const ULTRA_DEEP_OWNER = 'mikesd1995';
+const ULTRA_DEEP_WORKFLOW_REF = ULTRA_DEEP_REPOSITORY+'/.github/workflows/ultra-deep-full-loop.yml@';
 const AGENT_GATEWAY_MAX_BODY_BYTES = 64 * 1024;
 const EVENT_FEED_TIMEOUT_MS = 6500;
 const EVENT_FEED_MIN_ROWS = 10;
@@ -38,6 +44,32 @@ function reply(res,status,body){
   res.setHeader('X-KK-Event-Guard-Version',EVENT_GUARD_VERSION);
   res.setHeader('X-KK-Booking-Timing-Policy',BOOKING_TIMING_POLICY_VERSION);
   res.end(JSON.stringify(Object.assign({guard_version:GUARD_VERSION,event_guard_version:EVENT_GUARD_VERSION},body||{})));
+}
+
+function bearer(req){
+  const h=String(req&&req.headers&&req.headers.authorization||'').trim();
+  return /^Bearer\s+/i.test(h)?h.replace(/^Bearer\s+/i,'').trim():'';
+}
+function ultraDeepSafeSummary(result={}){
+  const rows=result.orchestrator&&Array.isArray(result.orchestrator.rows)?result.orchestrator.rows:[];
+  return {
+    version:result.version,
+    status:result.status,
+    production_writes:Number(result.production_writes||0),
+    blockers:result.blockers||[],
+    counts:{
+      total:rows.length,
+      created_verified:rows.filter(x=>x.status==='CREATED_VERIFIED').length,
+      updated_verified:rows.filter(x=>x.status==='UPDATED_VERIFIED').length,
+      no_change:rows.filter(x=>x.status==='NO_CHANGE').length,
+      update_ready:rows.filter(x=>x.status==='UPDATE_READY').length,
+      promotion_ready:rows.filter(x=>x.status==='READY_FOR_GOVERNED_ADMIN_CREATE').length
+    },
+    dispositions:result.dispositions||[],
+    acceptance:result.orchestrator&&result.orchestrator.acceptance||null,
+    snapshot_source:result.snapshot_source,
+    snapshot_generated_at:result.snapshot_generated_at
+  };
 }
 
 function readBody(req){
@@ -411,6 +443,7 @@ module.exports=async function handler(req,res){
   try{ payload=raw?JSON.parse(raw):{}; }
   catch(_){ return LegacyAdmin(clonedRequest(req,raw),res); }
   const action=String(payload&&payload.action||'');
+  const ultraDeepAction=ULTRA_DEEP_ACTIONS.has(action);
   const agentGatewayAction=AGENT_GATEWAY_ACTIONS.has(action);
   const bookingGuarded=BOOKING_GUARDED_ACTIONS.has(action);
   const eventGuarded=EVENT_GUARDED_ACTIONS.has(action);
@@ -418,7 +451,63 @@ module.exports=async function handler(req,res){
     VisibilityGuard.requestedVisibility(payload)===true;
   const eventDateGuarded=action==='updateEvent'&&!!String(payload&&payload.event_date||'').trim();
   const cleanupGuarded=action==='cleanupOldData';
-  const passthrough=!payload||typeof payload!=='object'||Array.isArray(payload)||(!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded&&!eventDateGuarded&&!cleanupGuarded);
+  const passthrough=!payload||typeof payload!=='object'||Array.isArray(payload)||(!ultraDeepAction&&!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded&&!eventDateGuarded&&!cleanupGuarded);
+
+  if(action==='ultraDeepFullLoopHealth'){
+    return reply(res,200,{
+      ok:true,
+      service:'kk-ultra-deep-full-loop',
+      runtime_version:UltraDeepRuntime.VERSION,
+      oidc_version:UltraDeepOIDC.VERSION,
+      commit_sha:String(process.env.VERCEL_GIT_COMMIT_SHA||'').trim()||null,
+      production_writes:0
+    });
+  }
+
+  if(action==='ultraDeepFullLoop'){
+    const token=bearer(req);
+    if(!token) return reply(res,401,{ok:false,error_code:'OIDC_TOKEN_REQUIRED'});
+    const runId=String(payload.run_id||'').trim();
+    const sha=String(payload.head_sha||'').trim();
+    const eventName=String(payload.event_name||'').trim();
+    if(!/^\d+$/.test(runId)||!/^[0-9a-f]{40}$/.test(sha)||!['issue_comment','workflow_dispatch'].includes(eventName)){
+      return reply(res,400,{ok:false,error_code:'FULL_LOOP_IDENTITY_INVALID'});
+    }
+    let auth;
+    try{
+      auth=await UltraDeepOIDC.verifyToken(token,{
+        audience:UltraDeepOIDC.AUDIENCE,
+        repository:ULTRA_DEEP_REPOSITORY,
+        owner:ULTRA_DEEP_OWNER,
+        ref:'refs/heads/main',
+        workflow_ref:ULTRA_DEEP_WORKFLOW_REF,
+        run_id:runId,
+        sha,
+        actor:ULTRA_DEEP_OWNER,
+        event_name:eventName
+      });
+    }catch(err){
+      return reply(res,403,{ok:false,error_code:String(err&&err.code||'OIDC_REJECTED'),blockers:err&&err.blockers||[]});
+    }
+    const handoff=payload.handoff&&typeof payload.handoff==='object'&&!Array.isArray(payload.handoff)?payload.handoff:null;
+    if(!handoff||!handoff.verifier||!Array.isArray(handoff.verifier.verified_candidates)){
+      return reply(res,400,{ok:false,error_code:'COMMERCIAL_HANDOFF_REQUIRED'});
+    }
+    if(String(handoff.month||'').trim()!==String(payload.month||'').trim()){
+      return reply(res,400,{ok:false,error_code:'MONTH_MISMATCH'});
+    }
+    try{
+      const result=await UltraDeepRuntime.execute(handoff,{
+        executeWrites:true,
+        env:process.env,
+        fetchImpl:global.fetch,
+        correlation_id:'github-run-'+runId
+      });
+      return reply(res,200,{ok:true,auth:{verified:auth.verified,run_id:auth.claims.run_id,sha:auth.claims.sha},result:ultraDeepSafeSummary(result)});
+    }catch(err){
+      return reply(res,500,{ok:false,error_code:String(err&&err.code||'FULL_LOOP_EXECUTION_FAILED'),error:String(err&&err.message||err).slice(0,300)});
+    }
+  }
 
   const adminPin=String(process.env.KK_ADMIN_PIN||'').trim();
   const providedPin=String(req.headers&&req.headers['x-admin-pin']||'').trim();
@@ -675,4 +764,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,activeBookingHold,findEventDateAssetCollision,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,activeBookingHold,findEventDateAssetCollision,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,ULTRA_DEEP_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES,bearer,ultraDeepSafeSummary};
