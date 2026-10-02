@@ -5,6 +5,7 @@ const TEAM_ID = "team_uaeOdVIjXMSW690ZM2wPuJyt";
 const PROJECT_NAME = "kk-phone-rental-vercel";
 const PROJECT_ID = "prj_snbAmpya7YGmOuMbv1o8T16ouxl6";
 const ENVIRONMENT = "production";
+const PROJECT_MEMORY_MAX_ROWS = 80;
 
 const EXPECTED_AUDIENCE = `https://vercel.com/${TEAM_SLUG}`;
 const EXPECTED_SUBJECT =
@@ -46,14 +47,14 @@ function bearer(req: Request) {
   return match ? match[1].trim() : "";
 }
 
-async function validProbeRequest(req: Request) {
+async function parseRequest(req: Request) {
   const contentType = req.headers.get("content-type") || "";
-  if (!/^application\/json(?:;|$)/i.test(contentType)) return false;
+  if (!/^application\/json(?:;|$)/i.test(contentType)) return null;
   try {
     const body = await req.json();
-    return body?.probe === "runtime-ledger" && body?.version === "v1";
+    return body && typeof body === "object" ? body as Record<string, unknown> : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -103,13 +104,35 @@ function secretKey() {
   }
 }
 
-async function boundedLedgerRead() {
+function internalRuntime() {
   const url = (Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
   const key = secretKey();
-  if (!url || !key) {
-    throw new Error("SUPABASE_INTERNAL_CREDENTIALS_MISSING");
-  }
+  if (!url || !key) throw new Error("SUPABASE_INTERNAL_CREDENTIALS_MISSING");
+  return { url, key };
+}
 
+async function getRows(path: string) {
+  const {url,key}=internalRuntime();
+  let response: Response;
+  try {
+    response = await fetch(`${url}/rest/v1/${path}`, {
+      method: "GET",
+      headers: {apikey:key,Accept:"application/json"},
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      throw new Error("LEDGER_READ_TIMEOUT");
+    }
+    throw new Error("LEDGER_READ_TRANSPORT_FAILED");
+  }
+  if (!response.ok) throw new Error("LEDGER_READ_FAILED");
+  const body = await response.json();
+  if (!Array.isArray(body)) throw new Error("LEDGER_RESPONSE_INVALID");
+  return body;
+}
+
+async function boundedLedgerRead() {
   const params = new URLSearchParams({
     select: "occurrence_id",
     role: "eq.SCANNER",
@@ -117,44 +140,38 @@ async function boundedLedgerRead() {
     order: "scheduled_at.desc",
     limit: "1",
   });
-  let response: Response;
-  try {
-    response = await fetch(
-      `${url}/rest/v1/kk_runtime_expectations?${params.toString()}`,
-      {
-        method: "GET",
-        headers: {
-          apikey: key,
-          Accept: "application/json",
-        },
-        signal: AbortSignal.timeout(3000),
-      },
-    );
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "TimeoutError") {
-      throw new Error("LEDGER_READ_TIMEOUT");
-    }
-    throw new Error("LEDGER_READ_TRANSPORT_FAILED");
-  }
-  if (!response.ok) {
-    throw new Error("LEDGER_READ_FAILED");
-  }
-  const body = await response.json();
-  if (!Array.isArray(body)) {
-    throw new Error("LEDGER_RESPONSE_INVALID");
-  }
-  return body.length;
+  return (await getRows(`kk_runtime_expectations?${params.toString()}`)).length;
+}
+
+function safeDomains(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(v=>String(v||"").trim().toLowerCase()).filter(v=>/^[a-z0-9_:-]{2,80}$/.test(v)))].slice(0,12);
+}
+
+function safeLimit(value: unknown) {
+  const n=Number(value);
+  if (!Number.isInteger(n) || n<1) return PROJECT_MEMORY_MAX_ROWS;
+  return Math.min(n,PROJECT_MEMORY_MAX_ROWS);
+}
+
+async function boundedProjectMemoryRead(body: Record<string, unknown>) {
+  const limit=safeLimit(body.limit);
+  const domains=safeDomains(body.domains);
+  const params=new URLSearchParams({
+    select:"memory_id,occurred_at,kind,domain,summary,evidence_refs,supersedes,status,source,source_commit_sha",
+    order:"occurred_at.desc",
+    limit:String(limit),
+  });
+  if(domains.length) params.set("domain",`in.(${domains.join(",")})`);
+  const rows=await getRows(`kk_project_memory_events?${params.toString()}`);
+  return {rows,limit};
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== "POST") {
-    return fail(405, "METHOD_NOT_ALLOWED");
-  }
+  if (req.method !== "POST") return fail(405, "METHOD_NOT_ALLOWED");
 
   const token = bearer(req);
-  if (!token) {
-    return fail(401, "OIDC_TOKEN_MISSING");
-  }
+  if (!token) return fail(401, "OIDC_TOKEN_MISSING");
 
   try {
     await verifyVercelIdentity(token);
@@ -163,38 +180,37 @@ Deno.serve(async (req: Request) => {
     return fail(401, code);
   }
 
-  if (!(await validProbeRequest(req))) {
-    return json(400, {
-      ok: false,
-      error_code: "OIDC_REQUEST_CONTRACT_INVALID",
-      authenticated: true,
-      read_only: true,
-      bounded_limit: 1,
-      business_writes: 0,
-    });
+  const body=await parseRequest(req);
+  if (!body || body.version !== "v1") {
+    return json(400,{ok:false,error_code:"OIDC_REQUEST_CONTRACT_INVALID",authenticated:true,read_only:true,bounded_limit:1,business_writes:0});
   }
 
-  let rowCount = 0;
-  try {
-    rowCount = await boundedLedgerRead();
-  } catch (err) {
-    const code = err instanceof Error ? err.message : "LEDGER_READ_FAILED";
-    return json(503, {
-      ok: false,
-      error_code: code,
-      authenticated: true,
-      read_only: true,
-      bounded_limit: 1,
-      business_writes: 0,
-    });
+  if(body.probe === "runtime-ledger"){
+    let rowCount = 0;
+    try { rowCount = await boundedLedgerRead(); }
+    catch (err) {
+      const code = err instanceof Error ? err.message : "LEDGER_READ_FAILED";
+      return json(503,{ok:false,error_code:code,authenticated:true,read_only:true,bounded_limit:1,business_writes:0});
+    }
+    return json(200,{ok:true,authenticated:true,read_only:true,bounded_limit:1,row_count:rowCount,business_writes:0});
   }
 
-  return json(200, {
-    ok: true,
-    authenticated: true,
-    read_only: true,
-    bounded_limit: 1,
-    row_count: rowCount,
-    business_writes: 0,
-  });
+  if(body.probe === "project-memory"){
+    try {
+      const result=await boundedProjectMemoryRead(body);
+      return json(200,{
+        ok:true,
+        authenticated:true,
+        read_only:true,
+        bounded_limit:result.limit,
+        rows:result.rows,
+        business_writes:0
+      });
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "PROJECT_MEMORY_READ_FAILED";
+      return json(503,{ok:false,error_code:code,authenticated:true,read_only:true,bounded_limit:safeLimit(body.limit),rows:[],business_writes:0});
+    }
+  }
+
+  return json(400,{ok:false,error_code:"OIDC_REQUEST_CONTRACT_INVALID",authenticated:true,read_only:true,bounded_limit:1,business_writes:0});
 });
