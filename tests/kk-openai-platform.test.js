@@ -216,9 +216,7 @@ test('authenticated Agent Gateway path records hybrid OpenAI route evidence with
 });
 
 
-test('OpenAI base URL fails safe to official HTTPS endpoint for invalid or private overrides',()=>{
-  assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'http://example.com/v1'}).base_url,'https://api.openai.com/v1');
-  assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'https://127.0.0.1/v1'}).base_url,'https://api.openai.com/v1');
-  assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'https://localhost/v1'}).base_url,'https://api.openai.com/v1');
-  assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'https://proxy.example.com/v1'}).base_url,'https://proxy.example.com/v1');
+test('OpenAI API key is never forwarded to an environment-controlled alternate origin',()=>{
+  assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'https://proxy.example.com/v1'}).base_url,'https://api.openai.com/v1');
+  assert.equal(Platform.configState({KK_OPENAI_BASE_URL:'http://127.0.0.1/v1'}).base_url,'https://api.openai.com/v1');
 });
