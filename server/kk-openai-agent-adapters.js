@@ -82,7 +82,17 @@ const INBOX_SCHEMA={
   additionalProperties:false
 };
 function platformFailure(agent,result){
-  return safeBase(agent,result.status,{provider_status:result.status,blocker:result.blocker||'',model:result.model||'',request_id:result.request_id||''});
+  return safeBase(agent,result.status,{
+    provider_status:result.status,
+    blocker:result.blocker||'',
+    model:result.model||'',
+    request_id:result.request_id||'',
+    http_status:Number(result.http_status)||0,
+    provider_error_type:result.provider_error_type||'',
+    provider_error_code:result.provider_error_code||'',
+    provider_error_param:result.provider_error_param||'',
+    retry_after:result.retry_after||''
+  });
 }
 function validateStorefront(output={}){
   const bad=[];
