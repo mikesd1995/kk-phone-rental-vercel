@@ -209,13 +209,13 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
 });
 
 
-test('V5.8.1 screenshot fixes protect tablet proof contrast and short-phone density',()=>{
+test('V6.3 responsive reset contains tablet/mobile containment and desktop two-column catalogue',()=>{
  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
- assert.equal(css.includes('V5.8.1 screenshot-led refinement'),true);
- assert.equal(css.includes('min-width:601px) and (max-width:900px'),true);
- assert.equal(css.includes('.v3-proof strong{color:#fff!important}'),true);
- assert.equal(css.includes('max-width:360px'),true);
- assert.equal(css.includes('.v3-hero-copy>p{display:none!important}'),true);
+ assert.equal(css.includes('KK Storefront V6.3'),true);
+ assert.equal(css.includes('min-width:701px) and (max-width:900px'),true);
+ assert.match(css,/\.poster-grid\{[\s\S]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
+ assert.equal(css.includes('max-width:359px'),true);
+ assert.match(css,/\.concert-card\{[\s\S]*min-width:0!important/);
 });
 
 
@@ -245,7 +245,7 @@ test('V6.1 conversion polish keeps trust, CTA hierarchy and floating contact out
   assert.match(html,/รับ–คืนหน้างาน/);
   assert.match(html,/href="#booking-journey">วิธีการเช่า/);
   assert.match(css,/\.pi-tap\{[^}]*border:1px solid var\(--v6-line\)!important/);
-  assert.match(css,/\.sticky-line\{right:14px!important;left:auto!important/);
+  assert.match(css,/\.sticky-line\{display:none!important\}/);
 });
 
 
@@ -256,9 +256,13 @@ test('V6.1.1 customer cards hide internal KK index and dark active filters remai
 });
 
 
-test('V6.1.2 dark theme moon has explicit high-visibility yellow WebKit-safe foreground',()=>{
+test('V6.3 theme toggle uses coherent SVG sun/moon states without emoji glyphs',()=>{
+ const html=fs.readFileSync('index.html','utf8');
  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
- assert.match(css,/html\[data-theme="dark"\] \.theme-moon\{[\s\S]*color:#ffd640!important;[\s\S]*-webkit-text-fill-color:#ffd640!important;[\s\S]*opacity:1!important/);
+ assert.match(html,/class="theme-sun"[\s\S]*<svg/);
+ assert.match(html,/class="theme-moon"[\s\S]*<svg/);
+ assert.match(css,/html\[data-theme="dark"\] \.theme-sun\{display:none!important\}/);
+ assert.match(css,/html\[data-theme="dark"\] \.theme-moon\{display:grid!important\}/);
 });
 
 
@@ -267,7 +271,7 @@ test('V6.1.3 adversarial cascade cleanup owns dark language, select and narrow-s
  assert.match(css,/html\[data-theme="dark"\] \.v3-header \.lang-btn\.active\{[^}]*background:#eef4ff!important;[^}]*color:#071426!important;[^}]*-webkit-text-fill-color:#071426!important/);
  assert.match(css,/html\[data-theme="dark"\] \.month-select\{[^}]*-webkit-text-fill-color:#eef4ff!important/);
  assert.match(css,/\.status-filter-bar::-webkit-scrollbar\{display:none\}/);
- assert.match(css,/html\[data-theme="dark"\] \.modal-title,[\s\S]*overflow-wrap:anywhere/);
+ assert.match(css,/\.modal-title\{[^}]*overflow-wrap:anywhere!important/);
 });
 
 
