@@ -103,3 +103,5 @@ test('browser sanitizer blocks observed machine tokens while preserving customer
   }
   assert.equal(sanitizer('เหมาะกับถ่ายเวทีไกล ซูมชัด'), 'เหมาะกับถ่ายเวทีไกล ซูมชัด');
 });
+
+
