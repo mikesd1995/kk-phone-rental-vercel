@@ -62,7 +62,7 @@ Agent Gateway / Task Router
 
 Defaults are cost-aware and overrideable by server environment:
 
-- Storefront visual review: `gpt-6.1-sol`
+- Storefront visual review: `gpt-6-sol`
 - Ultra Deep reasoning: `gpt-6-luna`
 - Unified Inbox drafting/extraction: `gpt-6-luna`
 
@@ -251,7 +251,8 @@ This implementation does not:
 
 ## References used for implementation
 
-OpenAI current API documentation was checked on 2026-10-02:
+OpenAI current API documentation was checked on 2026-10-02. The independent review corrected the storefront default model from an invalid `gpt-6.1-sol` draft identifier to the documented `gpt-6-sol` model ID and hardened custom API base URLs to public HTTPS only:
+
 - Responses API for direct model requests;
 - Structured Outputs via `text.format` with strict JSON Schema;
 - tool/function architecture remains optional for later phases.
