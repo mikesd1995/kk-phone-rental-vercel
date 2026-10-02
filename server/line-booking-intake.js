@@ -23,10 +23,22 @@ function bookingIntent(event,booking,resolved={}){
     booking_note:'LINE webhook intake '+request_id
   }};
 }
+function buildCanonicalResolution(canonical={}){
+  const event_id=text(canonical.event_id);
+  const template_id=text(canonical.template_id);
+  const package_id=text(canonical.package_id);
+  if(!event_id||!template_id) return {ok:false,code:'CANONICAL_RESOLUTION_REQUIRED'};
+  return {ok:true,event_id,template_id,package_id};
+}
+function prepareBookingIntent(event,booking,canonical={}){
+  const resolved=buildCanonicalResolution(canonical);
+  if(!resolved.ok) return resolved;
+  return bookingIntent(event,booking,resolved);
+}
 function canonicalResult(writeResult){
   const data=writeResult&&writeResult.data||writeResult||{};
   const booking_id=text(data.booking_id);
   if(!booking_id) return {ok:false,code:'BOOKING_ID_READBACK_REQUIRED'};
   return {ok:true,booking_id,row_number:data.row_number||''};
 }
-module.exports={requestIdFromLineEvent,bookingIntent,canonicalResult};
+module.exports={requestIdFromLineEvent,bookingIntent,buildCanonicalResolution,prepareBookingIntent,canonicalResult};

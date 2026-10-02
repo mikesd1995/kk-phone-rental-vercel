@@ -20,3 +20,22 @@ test('canonical result requires booking id read back from SOT',()=>{
  assert.equal(I.canonicalResult({data:{row_number:25}}).ok,false);
  assert.deepEqual(I.canonicalResult({data:{booking_id:'BK-25',row_number:25}}),{ok:true,booking_id:'BK-25',row_number:25});
 });
+
+
+test('E2E intake boundary rejects display-only package resolution',()=>{
+ const event={webhookEventId:'evt-e2e-1',source:{userId:'U1'}};
+ const booking={nickname:'Mint',phone:'0812345678',pickup_time:'16:00'};
+ const bad=I.prepareBookingIntent(event,booking,{event_id:'EVT-1',package_id:'PKG-1'});
+ assert.equal(bad.ok,false); assert.equal(bad.code,'CANONICAL_RESOLUTION_REQUIRED');
+});
+test('E2E intake boundary produces stable pending unpaid mutation only after canonical ids',()=>{
+ const event={webhookEventId:'evt-e2e-2',source:{userId:'U1'}};
+ const booking={nickname:'Mint',phone:'0812345678',pickup_time:'16:00'};
+ const canonical={event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'};
+ const a=I.prepareBookingIntent(event,booking,canonical);
+ const b=I.prepareBookingIntent(event,booking,canonical);
+ assert.equal(a.ok,true); assert.equal(a.payload.request_id,b.payload.request_id);
+ assert.equal(a.payload.event_id,'EVT-1'); assert.equal(a.payload.template_id,'TPL-1');
+ assert.equal(a.payload.booking_status,'pending'); assert.equal(a.payload.payment_status,'unpaid');
+ assert.equal(a.payload.amount_received,0); assert.equal(a.payload.contact_channel,'LINE');
+});

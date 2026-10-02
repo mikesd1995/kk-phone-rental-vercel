@@ -24,3 +24,12 @@ A future LINE createBooking adapter must:
 8. fail closed on ambiguous event/package/customer data.
 
 No production Booking/Sheet write is introduced by this change.
+
+
+## E2E hardening update — 2026-10-02
+- Added an explicit canonical-resolution boundary before mutation intent construction.
+- Display text, package label, or displayed price alone cannot authorize a booking mutation.
+- Canonical event_id and template_id are mandatory; package_id is carried as supporting canonical identity when available.
+- Same LINE webhookEventId deterministically produces the same request_id across redelivery.
+- Synthetic regression proves the only permitted intent remains pending + unpaid + amount_received 0 + LINE contact channel.
+- Public webhook remains intentionally unwired from production booking writes until the Apps Script deployment-equivalence gate is accepted. No production booking/customer data was mutated by this hardening.
