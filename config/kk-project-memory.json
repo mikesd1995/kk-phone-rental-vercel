@@ -86,6 +86,22 @@
       ],
       "supersedes": [],
       "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:content:x-posting-plan-runtime:20261002",
+      "occurred_at": "2026-10-02T16:35:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "content",
+      "summary": "The default x_posting_plan Marketing Agent flow has a GitHub-native owner-only runtime bridge on main. When Vercel deployment quota blocks the web runtime, [KK-X-PLAN] issues execute the current Agent Gateway directly in GitHub Actions, persist invocation evidence to the issue, return Asia/Bangkok posting slots and rankings, and remain read-only with zero publishes and zero production writes.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        ".github/workflows/kk-x-posting-plan-chat-bridge.yml",
+        "scripts/kk-x-posting-plan-chat-bridge.js",
+        "tests/kk-x-posting-plan-chat-bridge.test.js",
+        "docs/X_POSTING_PLAN_DEFAULT_AGENT_2026-10-02.md"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
     }
   ]
 }

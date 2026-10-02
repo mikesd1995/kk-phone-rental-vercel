@@ -93,3 +93,18 @@ Regression coverage must prove:
 - writes and publishes remain zero.
 
 The first RED run on PR #472 produced exactly one failure because `server/kk-x-posting-plan.js` did not yet exist, while 1,094 existing tests passed. GREEN acceptance requires the current branch's full Admin Regression and Project Memory Enforcement workflows to pass before merge.
+
+
+## GitHub-native runtime fallback
+
+Vercel deployment quota must not disable the X posting-plan Agent. The repository therefore exposes an owner-only GitHub Actions bridge:
+
+- Trigger issue title prefix: `[KK-X-PLAN]`
+- Payload markers: `KK_X_POSTING_PLAN_PAYLOAD_START` / `KK_X_POSTING_PLAN_PAYLOAD_END`
+- Runtime: `scripts/kk-x-posting-plan-chat-bridge.js`
+- Workflow: `.github/workflows/kk-x-posting-plan-chat-bridge.yml`
+- Execution source: current default branch checkout
+- Evidence: invocation metadata and ranked Bangkok slots are written back to the issue before it is closed
+- Authority: read-only; no publish, deploy, spend, price write, inventory write, or other business-data mutation
+
+This bridge is a live fallback when Vercel cannot accept new deployments. It does not replace the normal Agent Gateway route; it invokes that same route directly from current repository code.
