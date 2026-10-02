@@ -341,16 +341,24 @@ jobs:
         id: production_gate
         if: ${{ steps.production.outcome == 'success' }}
         shell: bash
+        env:
+          PINNED_SHA: ${{ steps.pin.outputs.sha }}
         run: |
           set -euo pipefail
           node - <<'NODE'
-          const r=require('./ultra-deep-production-result.json');
-          const result=r.result||{};
-          const complete=result.status==='COMPLETE' && result.acceptance?.complete===true;
-          if(!complete){
-            console.error(JSON.stringify({status:result.status,blockers:result.blockers||[],acceptance:result.acceptance||null}));
-            process.exit(1);
-          }
+          const fs=require('node:fs');
+          const Gate=require('./scripts/kk-ultra-deep-production-result-gate.js');
+          const response=require('./ultra-deep-production-result.json');
+          const commercial=require('./ultra-deep-commercial-handoff.json');
+          const verdict=Gate.evaluate({
+            response,
+            commercial,
+            expectedRunId:process.env.GITHUB_RUN_ID,
+            expectedSha:process.env.PINNED_SHA
+          });
+          fs.writeFileSync('ultra-deep-production-acceptance-verdict.json',JSON.stringify(verdict,null,2));
+          console.log(JSON.stringify(verdict));
+          if(verdict.complete!==true)process.exit(1);
           NODE
 
       - name: Publish live progress summary
@@ -399,6 +407,7 @@ jobs:
             ultra-deep-commercial-summary.json
             executor-health.json
             ultra-deep-production-result.json
+            ultra-deep-production-acceptance-verdict.json
             ultra-deep-deploy-url.txt
           if-no-files-found: warn
           retention-days: 30
