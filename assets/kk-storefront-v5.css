@@ -872,3 +872,13 @@ html[data-theme="dark"] .status-filter-bar .filter-btn.active{
   border-color:#eef4ff!important;
   opacity:1!important;
 }
+
+/* V6.1.2 theme-toggle visibility — owner screenshot review 2026-10-02 */
+html[data-theme="dark"] .theme-moon{
+  background:rgba(255,214,64,.14)!important;
+  color:#ffd640!important;
+  -webkit-text-fill-color:#ffd640!important;
+  opacity:1!important;
+  text-shadow:0 0 10px rgba(255,214,64,.35);
+}
+html[data-theme="dark"] .theme-sun{opacity:.32!important}
