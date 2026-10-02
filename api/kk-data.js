@@ -104,7 +104,24 @@ function sanitizePublicCsv(sheet, text) {
   const publicTextIndexes = publicTextFields.map(idx).filter(i => i >= 0);
 
   const body = rows.slice(1);
-  const kept = body.filter(row => requiredIndexes.every(i => String(row[i] || '').trim() !== ''));
+  const identityRows = body.filter(row => requiredIndexes.every(i => String(row[i] || '').trim() !== ''));
+  const kept = sheet === '09_Web_Packages'
+    ? identityRows.filter(row => {
+        const statusIndex=idx('package_status');
+        const availableIndex=idx('available_count');
+        const priceIndex=idx('price');
+        const sortIndex=idx('sort_order');
+        if(statusIndex<0||availableIndex<0||priceIndex<0) return false;
+        const status=String(row[statusIndex]||'').trim().toLowerCase();
+        const available=Number(String(row[availableIndex]||'').replace(/,/g,''));
+        const price=Number(String(row[priceIndex]||'').replace(/,/g,''));
+        const sort=sortIndex<0||String(row[sortIndex]||'').trim()==='' ? 0 : Number(String(row[sortIndex]).replace(/,/g,''));
+        return ['available','full','hidden','open'].includes(status) &&
+          Number.isFinite(available) && available>=0 &&
+          Number.isFinite(price) && price>=0 &&
+          Number.isFinite(sort);
+      })
+    : identityRows;
   let redacted = 0;
   const cleaned = kept.map(row => {
     const next = row.slice();
