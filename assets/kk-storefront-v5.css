@@ -952,3 +952,6 @@ html[data-theme="dark"] .kk-benefit-grid{border-color:#20324b}html[data-theme="d
 
 /* V6.2.2 short viewport */
 @media(max-width:340px) and (max-height:620px){.kk-mock-hero{padding-top:8px!important;padding-bottom:6px!important}.kk-benefit-grid{margin-bottom:4px!important}.browse-controls-shell{margin-bottom:4px!important}.v3-events-heading{margin-top:6px!important;margin-bottom:6px!important}}
+
+/* V6.2.3 short-phone event-discovery threshold */
+@media(max-width:340px) and (max-height:620px){.kk-mock-hero{padding-top:4px!important;padding-bottom:2px!important}.kk-benefit-grid{margin-bottom:0!important}.browse-controls-shell{margin-bottom:0!important}.v3-events-heading{margin-top:2px!important;margin-bottom:2px!important}}
