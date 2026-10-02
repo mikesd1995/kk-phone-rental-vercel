@@ -860,3 +860,15 @@ html[data-theme="dark"] .kk-commerce-strip{border-color:#20324b;color:#eef4ff}ht
  .sticky-line{right:14px!important;left:auto!important;bottom:max(14px,env(safe-area-inset-bottom))!important}
  .overlay.active~.sticky-line,.faq-overlay.active~.sticky-line{display:none!important}
 }
+
+/* V6.1.1 production screenshot remediation — 2026-10-02
+   Remove internal catalogue numbering from customer posters and lock dark active-filter contrast. */
+.concert-card:after{content:none!important;display:none!important}
+html[data-theme="dark"] .browse-controls-shell .filter-btn.active,
+html[data-theme="dark"] .status-filter-bar .filter-btn.active{
+  background:#eef4ff!important;
+  color:#071426!important;
+  -webkit-text-fill-color:#071426!important;
+  border-color:#eef4ff!important;
+  opacity:1!important;
+}
