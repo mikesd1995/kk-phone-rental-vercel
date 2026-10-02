@@ -166,3 +166,26 @@ test('Ultra Deep AI route always carries deterministic gap planning and stays ve
   assert.equal(out.result.verifier_required,true);
   assert.equal(out.result.production_writes,0);
 });
+
+
+test('image evidence rejects local/private network URLs and accepts public HTTPS/data images',()=>{
+  assert.equal(Platform.allowedImageUrl('https://example.com/a.png'),true);
+  assert.equal(Platform.allowedImageUrl('data:image/png;base64,AAAA'),true);
+  assert.equal(Platform.allowedImageUrl('file:///tmp/a.png'),false);
+  assert.equal(Platform.allowedImageUrl('https://localhost/a.png'),false);
+  assert.equal(Platform.allowedImageUrl('https://127.0.0.1/a.png'),false);
+  assert.equal(Platform.allowedImageUrl('https://10.0.0.5/a.png'),false);
+  assert.equal(Platform.allowedImageUrl('https://192.168.1.9/a.png'),false);
+  assert.equal(Platform.allowedImageUrl('https://172.20.0.2/a.png'),false);
+});
+
+test('safety metadata cannot be overridden by model/provider extras',async()=>{
+  const output={classification:'concert',rental_fit_score:60,duplicate_risk:'LOW',reasoning_summary:'x',evidence_gaps:[],verifier_questions:[],authoritative:false,verifier_required:true,production_writes:0};
+  const out=await Agents.reasonDiscovery({candidate:{title:'x'}},{
+    env:{KK_OPENAI_PLATFORM_ENABLED:'1',OPENAI_API_KEY:'sk-test'},
+    fetchImpl:async()=>fakeResponse(output)
+  });
+  assert.equal(out.production_writes,0);
+  assert.equal(out.auto_merge,false);
+  assert.equal(out.auto_deploy,false);
+});
