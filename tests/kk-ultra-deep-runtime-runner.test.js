@@ -19,7 +19,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
      const c=byCase.get(task.source_id);
      return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
    }
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+   return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
  const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}});
  assert.equal(out.status,'READY_FOR_VERIFIER');
@@ -49,7 +49,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
      }
      return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
    }
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+   return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
@@ -82,7 +82,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
    calls.push(task.source_id||'no-source-id');
    const c=KnownMiss.CORPUS.find(x=>'knownmiss:'+x.case_id===task.source_id);
    if(c) return [{title:c.title,event_date:c.event_date,source_url:'https://proof.example/'+task.source_id}];
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
+   return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
@@ -153,7 +153,7 @@ test('reference sweep execution proof fails closed when all search providers err
 test('deterministic historical regression remains complete even when live recall is partial',async()=>{
  const search=async task=>{
    if(String(task.source_id||'').startsWith('knownmiss:')) return [];
-   return [{title:'Shared Reference Event',event_date:'2026-10-20',source_url:'https://proof.example/shared'}];
+   return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/shared'}];
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
@@ -199,3 +199,38 @@ test('reference sweep retains exact month queries and adds bounded broad fallbac
  assert.ok(p.gap_tasks[3].query_variants.includes('Bangkok concert calendar'));
  assert.ok(p.gap_tasks.every(t=>t.providers.includes('DDG_HTML')&&t.providers.includes('BING_HTML')));
 });
+
+test('reference scope rejects wrong month, foreign-city and non-rental noise while keeping event pages',()=>{
+  assert.deepEqual(
+    Runner.referenceScopeDecision({title:'The Weeknd Concert Hong Kong',event_date:'2026-10-31',source_url:'https://www.livenation.hk/event/x'},{month:'2026-10'}).eligible,
+    false
+  );
+  assert.equal(
+    Runner.referenceScopeDecision({title:'Boss & Noeul 2nd Fansign',event_date:'2026-12-26',source_url:'https://www.eventpop.me/e/174010/x'},{month:'2026-10'}).reason,
+    'OUTSIDE_TARGET_MONTH'
+  );
+  assert.equal(
+    Runner.referenceScopeDecision({title:'Anime Zero Codes (October 2026)',event_date:'2026-10-02',source_url:'https://example.com/codes'},{month:'2026-10'}).reason,
+    'NON_RENTAL_EVENT_NOISE'
+  );
+  assert.equal(
+    Runner.referenceScopeDecision({title:'Vivation Breathwork Bangkok October 2026',event_date:'2026-10-04',source_url:'https://example.com/breathwork'},{month:'2026-10'}).eligible,
+    false
+  );
+  assert.equal(
+    Runner.referenceScopeDecision({title:'ATLAS : RISING UP',event_date:'2026-10-18',source_url:'https://www.eventpop.me/e/999999/atlas-rising-up'},{month:'2026-10'}).eligible,
+    true
+  );
+});
+
+test('scoped reference evidence preserves explicit exclusion reasons',()=>{
+  const rows=Runner.scopeReferenceCandidates([
+    {title:'Bangkok Fanmeeting',event_date:'2026-10-20',source_url:'https://example.com/bangkok-fanmeeting'},
+    {title:'Pets Universe Codes October 2026',event_date:'2026-10-02',source_url:'https://example.com/codes'}
+  ],{month:'2026-10'});
+  assert.equal(rows[0].eligible_for_discovery,true);
+  assert.equal(rows[0].reference_scope_reason,'ELIGIBLE_REFERENCE');
+  assert.equal(rows[1].eligible_for_discovery,false);
+  assert.equal(rows[1].reference_scope_reason,'NON_RENTAL_EVENT_NOISE');
+});
+
