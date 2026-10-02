@@ -74,3 +74,39 @@ test('reconciliation fails closed when independent reference evidence has no str
  assert.equal(out.unstructured_reference_count,1);
 });
 
+
+test('Bangkok-scoped reference rejects dated foreign and non-event search noise',()=>{
+ const scoped=R.scopeReferenceCandidates([
+  {title:'The Weeknd: After Hours Til Dawn Tour, Hong Kong, Sat, 31 Oct 2026',event_date:'2026-10-31',source_url:'https://www.livenation.hk/event/x'},
+  {title:'Anime Zero Codes (October 2026)',event_date:'2026-10-02',source_url:'https://example.com/codes'},
+  {title:'Bangkok Bound: Jaw-Dropping Malaysian Return',event_date:'2026-10-18',source_url:'https://example.com/travel'},
+  {title:'LYKN REFLEXION CONCERT Bangkok',event_date:'2026-10-18',source_url:'https://www.thaiticketmajor.com/concert/lykn.html'}
+ ],{month:'2026-10',location:'Bangkok Thailand'});
+ assert.deepEqual(scoped.map(x=>x.eligible_for_discovery),[false,false,false,true]);
+ assert.deepEqual(scoped.slice(0,3).map(x=>x.reference_eligibility_reason),[
+  'TARGET_LOCATION_NOT_PROVEN','TARGET_LOCATION_NOT_PROVEN','EVENT_INTENT_NOT_PROVEN'
+ ]);
+});
+
+test('Bangkok-scoped reference rejects out-of-month evidence before hard reconciliation',()=>{
+ const scoped=R.scopeReferenceCandidates([
+  {title:'Bangkok Music Festival',event_date:'2026-09-28',source_url:'https://www.eventpop.me/e/test'}
+ ],{month:'2026-10',location:'Bangkok Thailand'});
+ assert.equal(scoped[0].eligible_for_discovery,false);
+ assert.equal(scoped[0].reference_eligibility_reason,'OUTSIDE_TARGET_MONTH');
+ const out=R.reconcileCandidateSets([],scoped);
+ assert.equal(out.reference_count,0);
+ assert.equal(out.ineligible_reference_count,1);
+ assert.equal(out.complete,false);
+});
+
+test('ineligible structured references cannot satisfy independent reference proof',()=>{
+ const out=R.reconcileCandidateSets(
+  [{title:'Found Bangkok Concert',event_date:'2026-10-01'}],
+  [{title:'Foreign Concert',event_date:'2026-10-02',eligible_for_discovery:false,reference_eligibility_reason:'TARGET_LOCATION_NOT_PROVEN'}]
+ );
+ assert.equal(out.reference_count,0);
+ assert.equal(out.ineligible_reference_count,1);
+ assert.equal(out.reconciliation_gap_count,0);
+ assert.equal(out.complete,false);
+});
