@@ -369,6 +369,7 @@ test('V6.7 lower-page finish prevents clipped card details and reduces CTA/foote
   const js=fs.readFileSync('script.js','utf8');
   assert.match(css,/V6\.7 lower-page professional finish/);
   assert.match(css,/V6\.7 lower-page professional finish[\s\S]*\.concert-card\{[\s\S]*height:100%!important;[\s\S]*align-self:stretch!important/);
+  assert.match(css,/@media\(max-width:700px\)\{[\s\S]*\.poster-info\{[\s\S]*min-height:188px!important/);
   assert.match(css,/@media\(max-width:700px\)\{[\s\S]*\.pi-venue\{[\s\S]*-webkit-line-clamp:2!important/);
   assert.match(css,/\.browse-more-btn\{[\s\S]*min-height:46px!important;[\s\S]*border-radius:14px!important/);
   assert.match(css,/\.kk-booking-journey\{[\s\S]*padding:18px!important;[\s\S]*border-radius:20px!important/);
@@ -377,7 +378,11 @@ test('V6.7 lower-page finish prevents clipped card details and reduces CTA/foote
   assert.match(html,/ร้านยืนยันคิว แล้วรับเครื่องหน้างาน/);
   assert.match(js,/footer_trust:"รับ–คืนหน้างาน · จองผ่าน LINE"/);
   assert.doesNotMatch(html,/FROM POSTER TO FRONT ROW/);
+  assert.doesNotMatch(html,/POSTER · AVAILABILITY · PRICE/);
+  assert.doesNotMatch(html,/คืนนี้ของคุณ/);
   assert.doesNotMatch(html,/ทัก LINE มาจองได้เลย/);
+  assert.match(js,/events_title:"Find your event"/);
+  assert.match(js,/tap_available:"View Packages \/ Book"/);
 });
 test('visual QA exposes zero-cost paid-provider policy and keeps optional OpenAI off without waiver',()=>{
   const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
