@@ -206,7 +206,7 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   const html=fs.readFileSync('index.html','utf8');
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
-  assert.equal(html.includes('v65-owner-mobile-polish'),true);
+  assert.equal(html.includes('v66-generic-phone-i18n'),true);
   // V6.2 owner-approved premium mock intentionally promotes the FAR SEAT / CLOSE MEMORY signature.
   assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
   assert.equal(html.includes('CONCERT MEMORY SERVICE'),false);
@@ -346,6 +346,19 @@ test('V6.5 owner mobile polish reduces density and makes hierarchy intentional o
   assert.match(css,/\.kk-mock-hero h1\{[\s\S]*max-width:12ch!important;[\s\S]*line-height:\.93!important/);
   assert.match(js,/hero_secondary:"How it works"/);
   assert.match(js,/benefit_onsite:"Venue pickup\/return · Setup help"/);
+});
+
+test('V6.6 professional finish keeps brand messaging generic while preserving package-level model choice',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const js=fs.readFileSync('script.js','utf8');
+  assert.match(html,/PHONE RENTAL<br><span>EVENT PICKUP<\/span>/);
+  assert.match(html,/เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต/);
+  assert.doesNotMatch(html,/VIVO X300 PRO \+ LENS/i);
+  assert.match(js,/hero_body:"Phone rental for concerts and fan meetings/);
+  assert.match(js,/event_meta_description:"Rent a phone for \{event\}/);
+  assert.doesNotMatch(js,/hero_body:"Rent a vivo/i);
+  assert.match(js,/pkg_phone_only:"Phone only"/);
+  assert.match(js,/pkg_bundle:"Phone \+ Lens"/);
 });
 
 test('visual QA exposes zero-cost paid-provider policy and keeps optional OpenAI off without waiver',()=>{
