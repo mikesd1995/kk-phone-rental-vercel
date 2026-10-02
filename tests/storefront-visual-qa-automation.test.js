@@ -216,3 +216,13 @@ test('V5.8.1 screenshot fixes protect tablet proof contrast and short-phone dens
  assert.equal(css.includes('max-width:360px'),true);
  assert.equal(css.includes('.v3-hero-copy>p{display:none!important}'),true);
 });
+
+
+test('V6 production mobile modal does not inherit the retired icon grid and uses a truthful date label',()=>{
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  const script=fs.readFileSync('script.js','utf8');
+  assert.match(css,/\.phone-row\{[^}]*grid-template-areas:none!important/);
+  assert.match(css,/\.ph-info,\.ph-right\{grid-area:auto!important\}/);
+  assert.doesNotMatch(script,/modal-date"\)\.textContent="📅 "/);
+  assert.match(script,/modal-date"\)\.textContent=\(currentLang==="en"\?"Date: ":"วันที่: "\)/);
+});
