@@ -18,3 +18,9 @@ No completion criterion was weakened. Scanner remains zero-write.
 - Fixed the preflight test module reference typo (Runner, not R).
 
 - Final CI semantic fix: preflight is no longer a single-query veto. Governed HTTPS evidence from discovery, reference sweep, or known-miss probes also proves live search. If all live evidence paths are empty, UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED still blocks FULL. This removes a false negative without weakening the zero-evidence fail-closed gate.
+
+## Runtime proof and Discovery V6 follow-up
+- October one-shot run 36958272387 still failed discovery acceptance after V5: targeted full-loop regressions passed, but monthly discovery and reference evidence remained empty.
+- The contrast with live known-miss recall showed that search transport was partially healthy while long generic monthly queries had poor recall.
+- Discovery V6 adds bounded broad fallbacks after precise month/location queries for both generic tiers and named source-universe tasks.
+- Broad results remain non-authoritative and verifier/date-window gated. Production writes remain zero in discovery acceptance; FULL/reconciliation gates are not weakened.
