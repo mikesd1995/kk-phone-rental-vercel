@@ -777,13 +777,15 @@
     const completed=rows.filter(b=>completedStatuses.includes(String(b.booking_status||'').toLowerCase()));
     const active=rows.filter(b=>activeStatuses.includes(String(b.booking_status||'').toLowerCase()));
     const cancelled=rows.filter(b=>String(b.booking_status||'').toLowerCase()==='cancelled');
-    const paid=rows.filter(b=>String(b.payment_status||'').toLowerCase()==='paid');
+    const reportableStatuses=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded','completed']);
+    const reportable=rows.filter(b=>reportableStatuses.has(String(b.booking_status||'').toLowerCase()));
+    const paid=reportable.filter(b=>String(b.payment_status||'').toLowerCase()==='paid');
     const unpaidActive=active.filter(b=>isUnpaidPayment(b.payment_status));
     const upcoming=rows.filter(b=>{ const d=daysFromToday(b.event_date); return d!==null && d>=0 && activeStatuses.includes(String(b.booking_status||'').toLowerCase()); });
     const missingContact=rows.filter(b=>!String(b.customer_phone||'').trim() && !String(b.customer_contact||'').trim());
     const missingPickup=upcoming.filter(b=>!String(b.pickup_time||'').trim());
     const missingAsset=upcoming.filter(b=>!String(b.phone_asset_id||'').trim() && /phone/i.test(String(b.package_type||'')));
-    const totalRevenue=rows.reduce((sum,b)=>sum+toNum(b.amount_received),0);
+    const totalRevenue=reportable.reduce((sum,b)=>sum+toNum(b.amount_received),0);
     const last=rows.slice().sort((a,b)=>dateValue(b.event_date)-dateValue(a.event_date))[0] || {};
     const first=rows.slice().sort((a,b)=>dateValue(a.event_date)-dateValue(b.event_date))[0] || {};
     return {
@@ -932,7 +934,7 @@
       [analytics.booking_count,"Booking ทั้งหมด"],
       [analytics.active_count,"Active ตอนนี้"],
       [analytics.cancelled_count,"ยกเลิก"],
-      [money(analytics.total_revenue),"ยอดรับรวม"],
+      [money(analytics.total_revenue),"มูลค่าคิวที่นับในรายงาน"],
       [fmtDate(analytics.last_event_date)||"-","ล่าสุด"]
     ].map(s=>`<div class="card stat"><strong>${esc(s[0])}</strong><span>${esc(s[1])}</span></div>`).join('');
     if(riskPanel){
