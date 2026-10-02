@@ -21,11 +21,13 @@ existing deterministic evidence
 Agent Gateway / Task Router
         |
         +-- storefront_ai_review
+        |      -> deterministic 7-agent Storefront Design Council
         |      -> kk-openai-storefront-reviewer
         |      -> Responses API + strict JSON Schema
         |      -> read-only findings
         |
         +-- ultra_deep_ai_reasoning
+        |      -> deterministic Ultra Deep coverage/gap plan
         |      -> kk-openai-discovery-reasoner
         |      -> Responses API + strict JSON Schema
         |      -> non-authoritative advisory
@@ -167,8 +169,8 @@ Registered agents:
 
 Registered routes:
 
-- `storefront_ai_review`
-- `ultra_deep_ai_reasoning`
+- `storefront_ai_review` — invokes the existing seven deterministic Storefront Design Council agents plus the OpenAI reviewer in one hybrid route.
+- `ultra_deep_ai_reasoning` — invokes deterministic source-watch/scanner planning plus the OpenAI discovery reasoner, with Verifier still downstream.
 - `unified_inbox_ai_draft`
 
 All routes require persistent invocation evidence under the existing Agent Gateway contract.
