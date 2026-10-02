@@ -29,7 +29,7 @@ test('GitHub OIDC token request uses Actions token endpoint and exact audience w
 });
 
 test('GitHub Actions defaults project memory to GitHub OIDC candidate without static Supabase secrets',()=>{
-  const cfg=Ledger.configState({GITHUB_ACTIONS:'true'});
+  const cfg=Ledger.configState({GITHUB_ACTIONS:'true',KK_PROJECT_MEMORY_GITHUB_OIDC_ENABLED:'true'});
   assert.equal(cfg.enabled,true);
   assert.equal(cfg.configured,true);
   assert.equal(cfg.github_oidc_candidate,true);
@@ -39,7 +39,7 @@ test('GitHub Actions defaults project memory to GitHub OIDC candidate without st
 test('GitHub OIDC project memory read is bounded and token-safe',async()=>{
   let captured;
   const out=await Bridge.readProjectMemory({
-    env:{GITHUB_ACTIONS:'true'},
+    env:{GITHUB_ACTIONS:'true',KK_PROJECT_MEMORY_GITHUB_OIDC_ENABLED:'true'},
     domains:['content','agent_orchestration','BAD SPACE'],
     limit:2,
     getTokenImpl:async()=>TOKEN,
@@ -76,10 +76,19 @@ test('all governed GitHub content workflows request id-token permission',()=>{
   for(const name of ['kk-content-chat-bridge.yml','kk-content-batch-chat-bridge.yml','kk-x-posting-plan-chat-bridge.yml']){
     const workflow=fs.readFileSync(path.join(__dirname,'..','.github','workflows',name),'utf8');
     assert.match(workflow,/id-token:\s*write/);
+    assert.match(workflow,/KK_PROJECT_MEMORY_GITHUB_OIDC_ENABLED:\s*'true'/);
   }
 });
 
 test('X posting-plan bridge no longer bypasses durable project memory',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','scripts','kk-x-posting-plan-chat-bridge.js'),'utf8');
   assert.doesNotMatch(source,/projectMemoryListFn\s*:/);
+});
+
+
+test('generic GitHub Actions jobs do not activate project memory OIDC',()=>{
+  const cfg=Ledger.configState({GITHUB_ACTIONS:'true'});
+  assert.equal(cfg.enabled,false);
+  assert.equal(cfg.github_oidc_candidate,false);
+  assert.equal(cfg.mode,'disabled');
 });
