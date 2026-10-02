@@ -28,6 +28,24 @@ function competitorRowsFor(candidate,input={}){
  const key=eventKey(candidate);
  return (input.competitor_prices||[]).filter(r=>text(r.event_key)===key&&r.exact_event===true);
 }
+function lensBaseline(input={}){
+ const templates=Array.isArray(input.package_templates)?input.package_templates:[];
+ const lens=templates.find(r=>text(r.package_type).toLowerCase()==='lens_only');
+ const n=num(lens&&lens.standard_price);
+ return n===null?200:n;
+}
+function marketComparableRowsFor(candidate,input={}){
+ const lens=lensBaseline(input);
+ return competitorRowsFor(candidate,input).flatMap(r=>{
+  const type=text(r.package_type).toUpperCase();
+  const price=num(r.price);if(price===null)return [];
+  if(type==='LENS_ONLY')return [];
+  if(['PHONE_LENS','PHONE_LENS_BUNDLE','BUNDLE'].includes(type)){
+   const derived=price-lens;return derived>0?[{...r,price:derived,normalized_from:type}]:[];
+  }
+  return [{...r,package_type:'PHONE_ONLY',price}];
+ });
+}
 function posterRowsFor(candidate,input={}){
  const key=eventKey(candidate);
  return (input.posters||[]).filter(r=>text(r.event_key)===key&&r.verified===true);
@@ -46,7 +64,7 @@ function policyInput(candidate,input,ctx){
   booking_count:ctx.booking_count,
   stock_remaining:ctx.stock_remaining,
   current_price:currentPrice(ctx.existing),
-  competitor_prices:competitorRowsFor(candidate,input),
+  competitor_prices:marketComparableRowsFor(candidate,input),
   current_poster_url:text(ctx.existing.poster_image_url||ctx.existing.poster_url),
   latest_official_poster_url:text(official.image_url),
   latest_official_poster_verified:official.verified===true
@@ -123,4 +141,4 @@ async function run(input={},options={}){
  const acceptance=Completion.evaluate({discovery,candidates:rows.map(r=>r.completion),final_report_ready:true});
  return {version:VERSION,status:acceptance.complete?'COMPLETE':'INCOMPLETE',month:text(discovery.month||input.month),rows,acceptance,production_writes:writes,production_completion_claim_allowed:acceptance.production_completion_claim_allowed===true};
 }
-module.exports={VERSION,eventKey,sameEvent,contextFor,competitorRowsFor,posterRowsFor,currentPrice,policyInput,updatePlan,completionCandidate,run};
+module.exports={VERSION,eventKey,sameEvent,contextFor,competitorRowsFor,lensBaseline,marketComparableRowsFor,posterRowsFor,currentPrice,policyInput,updatePlan,completionCandidate,run};
