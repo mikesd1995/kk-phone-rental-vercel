@@ -1150,7 +1150,7 @@
     if(kpis){
       kpis.innerHTML=[
         [m.unique_customers||0,"ลูกค้าไม่ซ้ำ"],
-        [m.non_cancelled_bookings||0,"คิวไม่ยกเลิก"],
+        [m.reportable_bookings??m.non_cancelled_bookings??0,"คิวที่นับในรายงาน"],
         [m.completed_bookings||0,"Completed"],
         [m.active_bookings||0,"Active"],
         [m.repeat_customers||0,"ลูกค้าเช่าซ้ำ"],
