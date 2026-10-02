@@ -6,6 +6,30 @@ const {execFileSync}=require('node:child_process');
 const Gateway=require('../server/kk-agent-gateway.js');
 
 function hash(value){return crypto.createHash('sha256').update(value).digest('hex');}
+function cardColumnGeometry(rects=[],tolerance=4){
+  const valid=(Array.isArray(rects)?rects:[])
+    .filter(r=>r&&Number.isFinite(Number(r.left))&&Number.isFinite(Number(r.width))&&Number(r.width)>0)
+    .map(r=>({left:Number(r.left),width:Number(r.width)}))
+    .sort((a,b)=>a.left-b.left);
+  const clusters=[];
+  for(const rect of valid){
+    let cluster=clusters.find(col=>Math.abs(rect.left-col.left)<=tolerance);
+    if(!cluster){cluster={left:rect.left,lefts:[],widths:[]};clusters.push(cluster);}
+    cluster.lefts.push(rect.left);
+    cluster.widths.push(rect.width);
+    cluster.left=cluster.lefts.reduce((sum,v)=>sum+v,0)/cluster.lefts.length;
+  }
+  const median=values=>{
+    const sorted=[...values].sort((a,b)=>a-b);
+    const mid=Math.floor(sorted.length/2);
+    return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+  };
+  clusters.sort((a,b)=>a.left-b.left);
+  return {
+    card_columns:clusters.length,
+    column_widths:clusters.map(col=>median(col.widths))
+  };
+}
 function imageResponseCache(){
   const responses=new Map();
   return {
@@ -67,7 +91,7 @@ async function inspectState(page){
     const raw=[...new Set((document.body.innerText.match(/\b(?:journey|proof|events|filter|footer|modal|faq|hero|card|search|tap|theme|book|package|no|date|available)_[a-z0-9_]+\b/gi)||[]))];
     const cards=[...document.querySelectorAll('.concert-card:not(.skeleton-card)')].filter(visible);
     const first=cards[0]?.getBoundingClientRect();
-    const row=cards.filter(el=>Math.abs(el.getBoundingClientRect().top-(first?.top||0))<4);
+    const cardRects=cards.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};});
     const escaped=[];
     for(const card of cards){const c=card.getBoundingClientRect();for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){const r=el.getBoundingClientRect();if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1)escaped.push(el.className);}}
     const modal=document.querySelector('.overlay.active .modal,.faq-overlay.active .modal');
@@ -79,7 +103,7 @@ async function inspectState(page){
     const overlappingFilters=filters.some((r,i)=>i>0&&r.left<filters[i-1].right-1);
     const mb=modal?box(modal):null;
     return {scroll_y:scrollY,raw_i18n_keys:raw,document_width:document.documentElement.scrollWidth,viewport_width:innerWidth,
-      card_columns:row.length,column_widths:row.map(el=>el.getBoundingClientRect().width),escaped_card_elements:escaped,
+      card_rects:cardRects,escaped_card_elements:escaped,
       first_event_top:first?first.top+scrollY:null,visible_event_cards_above_fold:cards.filter(el=>{const r=el.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;}).length,
       small_targets:small,clipped_controls:clipped,overlapping_filters:overlappingFilters,theme_icons:[...document.querySelectorAll('.theme-toggle span')].filter(visible).length,
       modal:mb?{...mb,scroll_width:modal.scrollWidth,client_width:modal.clientWidth,viewport_height:innerHeight,focus_inside:modal.contains(document.activeElement),title:modal.querySelector('.modal-title')?.textContent||'',package_count:modal.querySelectorAll('.phone-row').length}:null,
@@ -91,6 +115,10 @@ async function inspectState(page){
         fallback_mode:el.dataset.posterFallback||'',
         fallback_visible:Boolean(el.querySelector('.poster-placeholder-event'))
       }))};
+  }).then(state=>{
+    const geometry=cardColumnGeometry(state.card_rects||[]);
+    delete state.card_rects;
+    return {...state,...geometry};
   });
 }
 function stateFindings(state,{width,name}){
@@ -114,4 +142,4 @@ function stateFindings(state,{width,name}){
   }
   return findings;
 }
-module.exports={hash,imageResponseCache,frontendIdentity,ownerApprovalValid,invokeWithEvidence,settle,inspectState,stateFindings};
+module.exports={hash,cardColumnGeometry,imageResponseCache,frontendIdentity,ownerApprovalValid,invokeWithEvidence,settle,inspectState,stateFindings};

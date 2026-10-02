@@ -321,10 +321,12 @@ test('visual QA keeps the seven-agent council and optionally gates OpenAI screen
 
 
 
-test('visual QA card-column summary uses rendered top tolerance instead of 4px rounding buckets',()=>{
+test('visual QA card-column summary uses shared horizontal geometry, not card top alignment',()=>{
   const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
-  assert.match(source,/const firstTop=cardRects\.length\?cardRects\[0\]\.top:null/);
-  assert.match(source,/Math\.abs\(r\.top-firstTop\)<4/);
-  assert.doesNotMatch(source,/Math\.round\(cardRects\[0\]\.top\/4\)\*4/);
-  assert.doesNotMatch(source,/Math\.round\(r\.top\/4\)\*4===firstTop/);
+  const evidence=fs.readFileSync('scripts/storefront-evidence.cjs','utf8');
+  assert.match(source,/Evidence\.cardColumnGeometry\(metrics\.card_rects\|\|\[\]\)/);
+  assert.match(source,/metrics\.card_columns=cardGeometry\.card_columns/);
+  assert.match(evidence,/function cardColumnGeometry\(rects=\[\],tolerance=4\)/);
+  assert.doesNotMatch(source,/const firstTop=cardRects\.length\?cardRects\[0\]\.top:null/);
+  assert.doesNotMatch(source,/Math\.abs\(r\.top-firstTop\)<4/);
 });
