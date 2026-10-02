@@ -122,26 +122,26 @@ const AGENTS = Object.freeze({
   'kk-openai-storefront-reviewer': Object.freeze({
     version:'KK_OPENAI_AGENT_ADAPTERS_V1',
     authority:'READ_ONLY_MODEL_REVIEW',
-    runtime_state:'CALLABLE_ENV_GATED',
+    runtime_state:'OPTIONAL_PAID_ZERO_COST_DEFAULT_OFF',
     surface:'AGENT_GATEWAY',
     production_writes:0,
-    note:'Optional multimodal Responses API reviewer layered after deterministic storefront evidence. Cannot merge, deploy, publish, or mutate business truth.'
+    note:'Optional paid multimodal reviewer. Zero-cost deterministic council is canonical; paid calls require KK_ALLOW_PAID_EXTERNAL_AI=true in addition to the OpenAI enable flag. Cannot merge, deploy, publish, or mutate business truth.'
   }),
   'kk-openai-discovery-reasoner': Object.freeze({
     version:'KK_OPENAI_AGENT_ADAPTERS_V1',
     authority:'NONAUTHORITATIVE_ADVISORY',
-    runtime_state:'CALLABLE_ENV_GATED',
+    runtime_state:'OPTIONAL_PAID_ZERO_COST_DEFAULT_OFF',
     surface:'AGENT_GATEWAY',
     production_writes:0,
-    note:'Cost-routed Responses API reasoning assist for event classification/gap questions. Deterministic dedup and governed Verifier remain authoritative.'
+    note:'Optional paid reasoning assist only. Zero-cost deterministic gap planning remains canonical; paid calls require KK_ALLOW_PAID_EXTERNAL_AI=true. Deterministic dedup and governed Verifier remain authoritative.'
   }),
   'kk-openai-inbox-drafter': Object.freeze({
     version:'KK_OPENAI_AGENT_ADAPTERS_V1',
     authority:'DRAFT_ONLY',
-    runtime_state:'CALLABLE_ENV_AND_CUSTOMER_DATA_GATED',
+    runtime_state:'OPTIONAL_PAID_ZERO_COST_AND_CUSTOMER_DATA_GATED',
     surface:'AGENT_GATEWAY',
     production_writes:0,
-    note:'Structured extraction and reply drafting only. Customer data requires a separate explicit environment gate. No auto-send, booking write, pricing write, inventory write, or identity merge.'
+    note:'Optional paid extraction/drafting only; zero-cost local owner-review template remains available. Paid calls require KK_ALLOW_PAID_EXTERNAL_AI=true and customer data additionally requires its separate explicit gate. No auto-send, booking write, pricing write, inventory write, or identity merge.'
   }),
   'hf-event-assist': Object.freeze({
     version: 'scanner-hf-advisory-v1',
