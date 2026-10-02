@@ -165,7 +165,7 @@ jobs:
         run: |
           set -euo pipefail
           set +x
-          npx vercel --token="$VERCEL_TOKEN" curl '/api/kk-intelligence-health?mode=openai-staging' \
+          npx vercel curl '/api/kk-intelligence-health?mode=openai-staging' \
             --deployment "${{ steps.preview.outputs.url }}" \
             -- \
             --request POST \
