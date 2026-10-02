@@ -10,6 +10,9 @@ const require=createRequire(import.meta.url);
 const Reviewer=require('../server/kk-storefront-ux-reviewer.js');
 const ArtDirector=require('../server/kk-storefront-art-director.js');
 const VisualCritic=require('../server/kk-storefront-visual-critic.js');
+const DesignCouncil=require('../server/kk-storefront-design-council.js');
+const OpenAiAgents=require('../server/kk-openai-agent-adapters.js');
+const OpenAiPlatform=require('../server/kk-openai-platform.js');
 
 const DEFAULT_HEIGHTS=Object.freeze({
   320:568,
@@ -120,6 +123,10 @@ async function main(){
   const outputDir=path.resolve(process.cwd(),process.env.OUTPUT_DIR||'artifacts/storefront-visual-qa');
   const policy=Reviewer.loadPolicy();
   const widths=[...policy.acceptance_viewports];
+  const openAiConfig=OpenAiPlatform.configState(process.env);
+  const requestedAiWidths=String(process.env.KK_OPENAI_STOREFRONT_AI_VIEWPORTS||'390,1024')
+    .split(',').map(value=>Number(value.trim())).filter(Number.isFinite);
+  const openAiWidths=new Set(requestedAiWidths.filter(width=>widths.includes(width)));
   const { chromium }=await import('playwright');
   const dataSource=mode==='local_zero_cost'
     ? cleanDataSourceUrl(process.env.DATA_SOURCE_URL||'https://kk-phone-rental.vercel.app/')
@@ -134,6 +141,7 @@ async function main(){
   const browser=await chromium.launch(launchOptions);
   const results=[];
   const runtimeErrors=[];
+  let openAiProviderRequests=0;
 
   try{
     for(const width of widths){
@@ -407,13 +415,40 @@ async function main(){
         };
       });
 
+      const pageText=String(await page.locator('body').innerText()).slice(0,40000);
       const packet={
         platform:width<=768?'ios-contract-via-chromium':'chromium',
         viewport:{width,height},
-        metrics
+        metrics,
+        page_text:pageText
       };
       const qa=Reviewer.validateVisualQa(packet);
       const visualCritique=VisualCritic.critique(packet);
+      const designCouncil=DesignCouncil.runCouncil(packet);
+      let openAiVisualReview={
+        version:'KK_OPENAI_AGENT_ADAPTERS_V1',
+        agent:'kk-openai-storefront-reviewer',
+        status:'NOT_REQUESTED_FOR_VIEWPORT',
+        production_writes:0,
+        publishes:0,
+        auto_merge:false,
+        auto_deploy:false
+      };
+      if(openAiConfig.enabled&&openAiWidths.has(width)){
+        if(openAiConfig.api_key_present) openAiProviderRequests+=1;
+        const imageUrls=[
+          'data:image/jpeg;base64,'+fs.readFileSync(topPath).toString('base64'),
+          'data:image/jpeg;base64,'+fs.readFileSync(stickyPath).toString('base64')
+        ];
+        openAiVisualReview=await OpenAiAgents.reviewStorefront({
+          target:'KK Phone Rental storefront visual acceptance',
+          metrics,
+          design_council:designCouncil,
+          page_text:pageText,
+          owner_observations:'Automated screenshot evidence only. Owner visual acceptance remains separate.',
+          image_urls:imageUrls
+        },{env:process.env,fetchImpl:global.fetch});
+      }
       results.push({
         width,
         height,
@@ -426,7 +461,9 @@ async function main(){
         interaction_checks:interactionChecks,
         metrics,
         qa,
-        visual_critique:visualCritique
+        visual_critique:visualCritique,
+        design_council:designCouncil,
+        openai_visual_review:openAiVisualReview
       });
       runtimeErrors.push(...pageErrors.map(message=>({width,message})));
       await context.close();
@@ -434,6 +471,18 @@ async function main(){
   }finally{
     await browser.close();
   }
+
+  const openAiReviewRows=results.filter(item=>openAiWidths.has(item.width));
+  const openAiReviewPass=!openAiConfig.enabled || (
+    openAiWidths.size>0 &&
+    openAiReviewRows.length===openAiWidths.size &&
+    openAiReviewRows.every(item=>{
+      const review=item.openai_visual_review||{};
+      if(review.status!=='READY_FOR_DESIGN_SYNTHESIS') return false;
+      const findings=Array.isArray(review.review&&review.review.findings)?review.review.findings:[];
+      return !findings.some(f=>['P0','P1'].includes(String(f&&f.severity||'').toUpperCase()));
+    })
+  );
 
   const summary={
     schema_version:'KK_STOREFRONT_AUTOMATED_VISUAL_QA_V1',
@@ -447,16 +496,22 @@ async function main(){
     runtime_errors:runtimeErrors,
     pass:results.length===widths.length &&
       results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS') &&
-      runtimeErrors.length===0,
+      runtimeErrors.length===0 &&
+      openAiReviewPass,
     production_writes:0,
     publishes:0,
     clicks_performed:results.reduce((sum,item)=>sum+(item.interaction_checks||[]).filter(check=>/filter|faq|modal|language/.test(check.name)).length,0),
     forms_submitted:0,
-    technical_visual_pass:results.length===widths.length && results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS') && runtimeErrors.length===0,
+    technical_visual_pass:results.length===widths.length && results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS') && runtimeErrors.length===0 && openAiReviewPass,
+    deterministic_design_council_agents:[...new Set(results.flatMap(item=>(item.design_council&&item.design_council.invoked_agents)||[]))],
+    openai_visual_review_enabled:openAiConfig.enabled,
+    openai_visual_review_viewports:[...openAiWidths],
+    openai_visual_review_pass:openAiReviewPass,
+    openai_provider_requests:openAiProviderRequests,
     interaction_pass:results.length===widths.length && results.every(item=>(item.interaction_checks||[]).every(check=>check.pass===true)),
     protection_bypass_used:Boolean(String(process.env.VERCEL_AUTOMATION_BYPASS_SECRET||'').trim()),
-    paid_external_service_calls:0,
-    zero_cost_path:mode==='local_zero_cost'
+    paid_external_service_calls:openAiProviderRequests,
+    zero_cost_path:mode==='local_zero_cost' && openAiProviderRequests===0
   };
 
   const reviewPath=path.join(process.cwd(),'config','kk-storefront-v5-screenshot-review.json');
@@ -511,6 +566,8 @@ async function main(){
     `Approved SHA: ${approvedSha}`,
     `Result: ${summary.pass?'PASS':'FAIL'}`,
     `Art Director acceptance: ${summary.art_director_acceptance.status}`,
+    `Deterministic Design Council agents: ${(summary.deterministic_design_council_agents||[]).join(', ')||'none'}`,
+    `OpenAI visual review: ${summary.openai_visual_review_enabled?(summary.openai_visual_review_pass?'PASS':'BLOCKED'):'DISABLED'}`,
     '',
     '| Viewport | Result | Score | P0 | P1 | P2 | Sticky px | Filter rows | Card cols |',
     '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |'
