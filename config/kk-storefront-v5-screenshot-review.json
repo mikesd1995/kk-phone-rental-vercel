@@ -6,7 +6,7 @@
   "baseline": "production-v3",
   "reviewed_design_blobs": {
     "index_html": "c42c282806a032b7f47def2bd1adc2ff23025ee7",
-    "v5_css": "6e5bf03f92502fc0c99859737ec4ddeea66f8a89",
+    "v5_css": "aee9ab84d1e0f587ba981866c975cb8acb02ebd9",
     "script_js": "66def8d16eeb5c50c8594360365c300e953c1ca9"
   },
   "screenshot_artifact_id": "11206097786",
@@ -110,6 +110,11 @@
       "artifact_id": "11205989810",
       "status": "REVISE",
       "finding": "Exact-head V6.2.1 cleared all viewports except 320x568, where the first event began at 569px (1px beyond the fold). V6.2.2 applies a narrowly scoped short-viewport spacing correction without changing approved visual direction or business logic."
+    },
+    {
+      "artifact_id": "11205989810",
+      "status": "REVISE",
+      "finding": "V6.2.2 moved the 320x568 first event from 569px to 535px, but the critic contract requires <=92% of viewport height (522.56px). V6.2.3 further removes only short-phone pre-event vertical spacing to satisfy the actual ratio while preserving all other viewports and interaction geometry."
     }
   ],
   "reviewed_viewports": [
@@ -131,7 +136,7 @@
   "production_writes": 0,
   "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "b0b4c827ff2ffd01445f510387d3c0a32af1725e",
+  "reviewed_design_head": "cf63983bf98318dab71743310f639df4de6406e5",
   "owner_acceptance_evidence": {
     "accepted_at": "2026-10-02",
     "artifact_id": "11206097786",
