@@ -2,5 +2,7 @@
   "month": "2026-10",
   "mode": "FULL_LOOP",
   "requested_at": "2026-10-02",
-  "attempt": 1
+  "attempt": 2,
+  "reason": "SEARCH_ADAPTER_V5_RUNTIME_PROOF",
+  "expected_main_sha": "193d117f26d16d555ca7e40056c70c59a54b565b"
 }
