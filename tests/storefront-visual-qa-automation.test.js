@@ -250,3 +250,10 @@ test('V6.1 conversion polish keeps trust, CTA hierarchy and floating contact out
   assert.match(css,/\.pi-tap\{[^}]*border:1px solid var\(--v6-line\)!important/);
   assert.match(css,/\.sticky-line\{right:14px!important;left:auto!important/);
 });
+
+
+test('V6.1.1 customer cards hide internal KK index and dark active filters remain readable',()=>{
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  assert.match(css,/\.concert-card:after\{content:none!important;display:none!important\}/);
+  assert.match(css,/html\[data-theme="dark"\] \.browse-controls-shell \.filter-btn\.active,[\s\S]*color:#071426!important;[\s\S]*-webkit-text-fill-color:#071426!important/);
+});
