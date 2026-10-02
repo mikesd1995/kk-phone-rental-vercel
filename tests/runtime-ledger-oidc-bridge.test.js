@@ -240,12 +240,14 @@ test('Supabase Edge Function contract is exact-production, read-only and secret-
   assert.match(source,/LEDGER_READ_TRANSPORT_FAILED/);
   assert.match(source,/SUPABASE_SECRET_KEYS/);
   assert.match(source,/OIDC_REQUEST_CONTRACT_INVALID/);
-  assert.match(source,/body\?\.probe === "runtime-ledger"/);
+  assert.match(source,/body\.probe === "runtime-ledger"/);
+  assert.match(source,/body\.probe === "project-memory"/);
+  assert.match(source,/kk_project_memory_events/);
   assert.match(source,/body\?\.version === "v1"/);
   assert.match(source,/method: "GET"/);
   assert.match(source,/limit: "1"/);
   assert.match(source,/business_writes: 0/g);
-  assert.doesNotMatch(source,/method:\s*"(?:POST|PUT|PATCH|DELETE)"[\s\S]*rest\/v1\/kk_runtime_expectations/i);
+  assert.doesNotMatch(source,/method:\s*"(?:POST|PUT|PATCH|DELETE)"[\s\S]*rest\/v1\/(?:kk_runtime_expectations|kk_project_memory_events)/i);
   assert.doesNotMatch(source,/insert\s*\(|update\s*\(|delete\s*\(/i);
 
   const config=fs.readFileSync(
@@ -254,4 +256,32 @@ test('Supabase Edge Function contract is exact-production, read-only and secret-
   );
   assert.match(config,/\[functions\.kk-runtime-ledger-oidc-probe\]/);
   assert.match(config,/verify_jwt\s*=\s*false/);
+});
+
+
+test('OIDC project memory read is bounded, domain-filtered and token-safe',async()=>{
+  let captured;
+  const result=await Bridge.readProjectMemory({
+    domains:['project_memory','content','INVALID SPACE'],
+    limit:2,
+    getTokenImpl:async()=>TOKEN,
+    fetchImpl:async(url,options)=>{
+      captured={url,options,body:JSON.parse(options.body)};
+      return {
+        ok:true,status:200,
+        async json(){return {
+          ok:true,authenticated:true,read_only:true,bounded_limit:2,business_writes:0,
+          rows:[{memory_id:'kk:memory:test:oidc01',occurred_at:'2026-10-02T12:00:00+07:00',kind:'IMPLEMENTATION',domain:'project_memory',summary:'Durable project memory readback is available through the production OIDC bridge.',evidence_refs:['github:test'],supersedes:null,status:'ACTIVE',source:'test',source_commit_sha:''}]
+        };}
+      };
+    }
+  });
+  assert.equal(result.ok,true);
+  assert.equal(result.rows.length,1);
+  assert.deepEqual(captured.body.domains,['project_memory','content']);
+  assert.equal(captured.body.limit,2);
+  assert.equal(captured.body.probe,'project-memory');
+  assert.equal(captured.options.headers.Authorization,`Bearer ${TOKEN}`);
+  assert.doesNotMatch(JSON.stringify(result),/header\.payload\.signature/);
+  assert.equal(result.business_writes,0);
 });
