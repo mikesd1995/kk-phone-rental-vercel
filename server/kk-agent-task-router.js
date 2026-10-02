@@ -106,8 +106,11 @@ async function executeTask(taskType, input = {}, options = {}) {
     case 'storefront_design_council':
       const council=StorefrontDesignCouncil.runCouncil(input); return { invoked_agents:council.invoked_agents, result:council };
 
-    case 'storefront_design_council_acceptance':
-      return { invoked_agents:StorefrontDesignCouncil.ROLES.map(role=>role.agent), result:StorefrontDesignCouncil.acceptCouncil(input) };
+    case 'storefront_design_council_acceptance': {
+      const executedCouncil=StorefrontDesignCouncil.runCouncil(input);
+      const acceptance=StorefrontDesignCouncil.acceptCouncil({reviews:executedCouncil.reviews,owner_decision:input.owner_decision});
+      return { invoked_agents:executedCouncil.invoked_agents, result:{...acceptance,council:executedCouncil} };
+    }
 
     case 'storefront_art_direction':
       return { invoked_agents:['kk-storefront-art-director'], result:StorefrontArt.buildDirection(input) };
