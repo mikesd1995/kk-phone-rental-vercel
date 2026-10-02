@@ -15,6 +15,7 @@ const AgentLedger = require('../server/kk-agent-invocation-ledger.js');
 const AgentRegistry = require('../server/kk-agent-registry.js');
 const AgentOrchestration = require('../server/kk-agent-orchestration.js');
 const DecisionLedger = require('../server/kk-decision-ledger.js');
+const ProjectMemoryLedger = require('../server/kk-project-memory-ledger.js');
 const AdminSecurity = require('../server/admin-session.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
@@ -256,6 +257,44 @@ function prepareCreateEventPayload(payload){
   return {payload:next,publish_default_applied:missing};
 }
 
+function activeBookingHold(status){
+  return ['pending','confirmed','prepared','picked_up'].includes(String(status||'').trim().toLowerCase());
+}
+
+function findEventDateAssetCollision(snapshot,payload){
+  if(String(payload&&payload.action||'')!=='updateEvent'||!payload.event_date) return null;
+  const eventId=String(payload.event_id||'').trim();
+  const nextDate=normalizeEventDate(payload.event_date);
+  if(!eventId||!nextDate) return null;
+  const events=Array.isArray(snapshot&&snapshot.events)?snapshot.events:[];
+  const bookings=Array.isArray(snapshot&&snapshot.bookings)?snapshot.bookings:[];
+  const current=events.find(e=>String(e&&e.event_id||'').trim()===eventId);
+  if(current&&normalizeEventDate(current.event_date)===nextDate) return null;
+
+  const moving={phone:new Set(),lens:new Set()};
+  for(const b of bookings){
+    if(!activeBookingHold(b&&b.booking_status)||String(b&&b.event_id||'').trim()!==eventId) continue;
+    const phone=String(b&&b.phone_asset_id||'').trim();
+    const lens=String(b&&b.lens_asset_id||'').trim();
+    if(phone) moving.phone.add(phone);
+    if(lens) moving.lens.add(lens);
+  }
+  if(!moving.phone.size&&!moving.lens.size) return null;
+
+  for(const b of bookings){
+    if(!activeBookingHold(b&&b.booking_status)) continue;
+    const otherEventId=String(b&&b.event_id||'').trim();
+    if(!otherEventId||otherEventId===eventId) continue;
+    const otherEvent=events.find(e=>String(e&&e.event_id||'').trim()===otherEventId);
+    if(!otherEvent||normalizeEventDate(otherEvent.event_date)!==nextDate) continue;
+    const phone=String(b&&b.phone_asset_id||'').trim();
+    const lens=String(b&&b.lens_asset_id||'').trim();
+    if(phone&&moving.phone.has(phone)) return {asset_id:phone,asset_type:'phone',conflicting_event_id:otherEventId,event_date:nextDate,booking_id:String(b.booking_id||'')};
+    if(lens&&moving.lens.has(lens)) return {asset_id:lens,asset_type:'lens',conflicting_event_id:otherEventId,event_date:nextDate,booking_id:String(b.booking_id||'')};
+  }
+  return null;
+}
+
 function parseCsv(text){
   const rows=[];
   let row=[];
@@ -377,7 +416,9 @@ module.exports=async function handler(req,res){
   const eventGuarded=EVENT_GUARDED_ACTIONS.has(action);
   const visibilityGuarded=EVENT_VISIBILITY_GUARDED_ACTIONS.has(action) &&
     VisibilityGuard.requestedVisibility(payload)===true;
-  const passthrough=!payload||typeof payload!=='object'||Array.isArray(payload)||(!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded);
+  const eventDateGuarded=action==='updateEvent'&&!!String(payload&&payload.event_date||'').trim();
+  const cleanupGuarded=action==='cleanupOldData';
+  const passthrough=!payload||typeof payload!=='object'||Array.isArray(payload)||(!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded&&!eventDateGuarded&&!cleanupGuarded);
 
   const adminPin=String(process.env.KK_ADMIN_PIN||'').trim();
   const providedPin=String(req.headers&&req.headers['x-admin-pin']||'').trim();
@@ -389,6 +430,15 @@ module.exports=async function handler(req,res){
   const legacyPinOk=!!providedPin&&safeSecretEqual(providedPin,adminPin);
   if(!signedSession&&!legacyPinOk) return reply(res,401,{ok:false,error:'Invalid admin session'});
   if(passthrough) return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
+
+  if(cleanupGuarded){
+    return reply(res,409,{
+      ok:false,
+      error:'Archive cleanup is temporarily blocked from the web Admin until the accepted Apps Script cleanup lineage is deployed.',
+      error_code:'CLEANUP_REQUIRES_ACCEPTED_APPS_SCRIPT_9_5_12',
+      recommended_action:'deployAcceptedCleanupCandidateThenReenable'
+    });
+  }
 
   if(agentGatewayAction){
     res.setHeader('X-KK-Agent-Gateway-Version',AgentGateway.GATEWAY_VERSION);
@@ -422,6 +472,7 @@ module.exports=async function handler(req,res){
           registry:AgentRegistry.publicRegistry(),
           ledger:ledgerState,
           decision_ledger:DecisionLedger.configState(),
+          project_memory_ledger:ProjectMemoryLedger.configState(),
           coverage,
           production_writes:0,
           publishes:0
@@ -476,7 +527,7 @@ module.exports=async function handler(req,res){
     res.setHeader('X-KK-Booking-Pickup-Mode',timing.mode||'unknown');
   }
 
-  if(visibilityGuarded){
+  if(visibilityGuarded||eventDateGuarded){
     const envSheetId=String(process.env.GOOGLE_SHEET_ID||'').trim();
     const sheetId=envSheetId||DEFAULT_SHEET_ID;
     let snapshot;
@@ -485,23 +536,41 @@ module.exports=async function handler(req,res){
     }catch(err){
       return reply(res,503,{
         ok:false,
-        error:'Event visibility preflight unavailable; re-open blocked: '+(err&&err.message?err.message:String(err)),
-        error_code:'EVENT_VISIBILITY_PREFLIGHT_UNAVAILABLE',
-        recommended_action:'retryFromAdminVisibilityControl'
+        error:'Event update preflight unavailable; write blocked: '+(err&&err.message?err.message:String(err)),
+        error_code:'EVENT_UPDATE_PREFLIGHT_UNAVAILABLE',
+        recommended_action:'retryAfterFreshAdminSnapshot'
       });
     }
-    const checked=VisibilityGuard.evaluateSnapshotTransition(snapshot,payload);
-    if(!checked.ok){
-      return reply(res,409,{
-        ok:false,
-        error:'งานนี้ถูกซ่อนจากหน้าบ้านโดยเจ้าของ ระบบจะไม่เปิดกลับอัตโนมัติ',
-        error_code:checked.code,
-        event_id:checked.event_id||String(payload.event_id||''),
-        recommended_action:'reopenFromAdminVisibilityControl',
-        visibility_guard:checked
-      });
+
+    if(eventDateGuarded){
+      const collision=findEventDateAssetCollision(snapshot,payload);
+      if(collision){
+        return reply(res,409,{
+          ok:false,
+          error:'เปลี่ยนวันงานไม่ได้ เพราะ Asset '+collision.asset_id+' ถูกจองกับอีกงานในวันใหม่แล้ว',
+          error_code:'EVENT_DATE_ASSET_COLLISION',
+          event_id:String(payload.event_id||''),
+          collision,
+          recommended_action:'reassignAssetOrChooseAnotherDate'
+        });
+      }
+      res.setHeader('X-KK-Event-Date-Guard','PASS');
     }
-    res.setHeader('X-KK-Event-Visibility-Guard',checked.code||'PASS');
+
+    if(visibilityGuarded){
+      const checked=VisibilityGuard.evaluateSnapshotTransition(snapshot,payload);
+      if(!checked.ok){
+        return reply(res,409,{
+          ok:false,
+          error:'งานนี้ถูกซ่อนจากหน้าบ้านโดยเจ้าของ ระบบจะไม่เปิดกลับอัตโนมัติ',
+          error_code:checked.code,
+          event_id:checked.event_id||String(payload.event_id||''),
+          recommended_action:'reopenFromAdminVisibilityControl',
+          visibility_guard:checked
+        });
+      }
+      res.setHeader('X-KK-Event-Visibility-Guard',checked.code||'PASS');
+    }
     return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
   }
 
@@ -606,4 +675,4 @@ module.exports=async function handler(req,res){
   return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
 };
 
-module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};
+module.exports._test={normalizedTemplateId,resolvePackageType,createProposal,updateProposal,evaluate,validateCreateBookingTiming,normalizeIdentityText,normalizeEventDate,bangkokTodayISO,isPastEventDate,findDuplicateEvent,prepareCreateEventPayload,activeBookingHold,findEventDateAssetCollision,parseCsv,eventRowsFromCsv,sourceEventCountFromCsv,validateLeanEventIndex,VisibilityGuard,AGENT_GATEWAY_ACTIONS,AGENT_GATEWAY_MAX_BODY_BYTES};

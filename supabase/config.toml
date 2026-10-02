@@ -13,3 +13,9 @@ verify_jwt = false
 # Vercel Production presents a Vercel OIDC JWT. The function performs exact
 # issuer/audience/subject/team/project/environment verification in handler code.
 verify_jwt = false
+
+
+[functions.kk-project-memory-github-read]
+# Governed GitHub Agent workflows present GitHub OIDC JWTs. The function
+# verifies exact repository/workflow/ref/event claims before bounded read-only memory access.
+verify_jwt = false

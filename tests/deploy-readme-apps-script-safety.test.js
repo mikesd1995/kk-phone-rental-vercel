@@ -10,7 +10,7 @@ const codeGs = fs.readFileSync(path.join(root, 'apps-script', 'Code.gs'), 'utf8'
 test('deploy instructions fail closed while repo Apps Script trails production', () => {
   assert.match(
     codeGs,
-    /v16\.7\.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX/,
+    /v16\.7\.0_CRM_PRO_PHASE3_9_5_13_FULL_BACKEND_AUDIT/,
     'guard must be revisited when repository Apps Script version changes'
   );
 
@@ -26,10 +26,9 @@ test('deploy instructions fail closed while repo Apps Script trails production',
   );
 });
 
-test('repository Apps Script capability drift stays explicit until exact 9_5_9 recovery', () => {
-  // These assertions intentionally describe the *stale repository source*, not production.
-  // When exact live 9_5_9 is recovered and committed, this test must fail and be replaced
-  // by source-equivalence + authenticated acceptance evidence instead of silently passing.
+test('repository Apps Script deployment remains fail-closed pending production equivalence', () => {
+  // Canonical source is newer than the recovered production provenance artifact. Keep deployment fail-closed
+  // until authenticated production source-equivalence acceptance proves the candidate safe.
   assert.doesNotMatch(codeGs, /function\s+runKKLineMonitor\s*\(/,
     'repository unexpectedly gained the production LINE consumer; re-run Issue #9 source provenance review');
 

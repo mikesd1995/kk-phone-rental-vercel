@@ -93,3 +93,44 @@ Regression coverage must prove:
 - writes and publishes remain zero.
 
 The first RED run on PR #472 produced exactly one failure because `server/kk-x-posting-plan.js` did not yet exist, while 1,094 existing tests passed. GREEN acceptance requires the current branch's full Admin Regression and Project Memory Enforcement workflows to pass before merge.
+
+
+## GitHub-native runtime fallback
+
+Vercel deployment quota must not disable the X posting-plan Agent. The repository therefore exposes an owner-only GitHub Actions bridge:
+
+- Trigger issue title prefix: `[KK-X-PLAN]`
+- Payload markers: `KK_X_POSTING_PLAN_PAYLOAD_START` / `KK_X_POSTING_PLAN_PAYLOAD_END`
+- Runtime: `scripts/kk-x-posting-plan-chat-bridge.js`
+- Workflow: `.github/workflows/kk-x-posting-plan-chat-bridge.yml`
+- Execution source: current default branch checkout
+- Evidence: invocation metadata and ranked Bangkok slots are written back to the issue before it is closed
+- Authority: read-only; no publish, deploy, spend, price write, inventory write, or other business-data mutation
+
+This bridge is a live fallback when Vercel cannot accept new deployments. It does not replace the normal Agent Gateway route; it invokes that same route directly from current repository code.
+
+
+## Final canonical runtime acceptance
+
+After runtime cleanup, the canonical execution path is:
+
+`[KK-X-PLAN]` owner issue → `.github/workflows/kk-x-posting-plan-chat-bridge.yml` → `scripts/kk-x-posting-plan-chat-bridge.js` → Agent Gateway → `x_posting_plan` → `kk-marketing-agent`.
+
+Acceptance evidence on 2 October 2026:
+
+- cleanup PR #482 removed the temporary duplicate X-plan bridge;
+- current `main` contains exactly one X posting-plan workflow;
+- issue #483 triggered only the canonical `KK X Posting Plan Agent`;
+- Actions run `36991929564` completed successfully;
+- Gateway status: `RECORDED`;
+- intent: `x_posting_plan`;
+- required/invoked Agent: `kk-marketing-agent`;
+- invocation id: `agi_83a766023952d75257a2fda278d74bf92360f5ef`;
+- source commit: `6764ce4cee8be3d253149dcd25197b9beb93ff27`;
+- timezone: `Asia/Bangkok`;
+- unverified-event candidate was rejected with `EVENT_NOT_VERIFIED`;
+- `publishes=0` and `production_writes=0`.
+
+The GitHub-native runtime is therefore the accepted fallback while Vercel is unable to accept another deployment because the Free-plan deployment limit was exceeded. The Vercel quota is a web-deployment freshness blocker only; it is not an X-plan Agent runtime blocker.
+
+For future KK sessions, this flow is already active. Do not ask the owner to re-enable the X Marketing Agent before planning what to post or splitting evening/late-night posting windows.

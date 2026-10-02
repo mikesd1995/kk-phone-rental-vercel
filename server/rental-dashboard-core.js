@@ -117,7 +117,7 @@ function eventMetadata(currentCsv,archiveCsv,registryRules){
   // Archive is fallback metadata; live Current must win for restored/reopened events.
   for(const [source,csv] of [["archive",archiveCsv],["current",currentCsv]]){
     const t=table(csv),h=t.headers;
-    const ix={id:idx(h,["event_id"],source==="archive"?2:0),name:idx(h,["event_name"],source==="archive"?3:1),note:idx(h,["event_note","note"],source==="archive"?9:7),affiliation:idx(h,["talent_affiliation","artist_agency","artist_label","affiliation"],-1)};
+    const ix={id:idx(h,["event_id"],source==="archive"?2:0),name:idx(h,["event_name"],source==="archive"?3:1),date:idx(h,["event_date","event_date_text"],-1),note:idx(h,["event_note","note"],source==="archive"?9:7),affiliation:idx(h,["talent_affiliation","artist_agency","artist_label","affiliation"],-1)};
     for(const r of t.rows){
       const id=String(cell(r,ix.id)||"").trim(); if(!id) continue;
       const name=String(cell(r,ix.name)||id).trim();
@@ -126,7 +126,7 @@ function eventMetadata(currentCsv,archiveCsv,registryRules){
       const explicit=colAff||noteAff;
       const registry=explicit?"":inferFromRegistry(name,registryRules);
       const inferred=(explicit||registry)?"":inferAffiliation(name);
-      map[id]={event_name:name,affiliation:explicit||registry||inferred||"ยังไม่ระบุ / Unknown",affiliation_source:explicit?"explicit":(registry?"artist_registry":(inferred?"inferred":"unknown"))};
+      map[id]={event_name:name,event_date:ix.date>=0?String(cell(r,ix.date)||"").trim():"",affiliation:explicit||registry||inferred||"ยังไม่ระบุ / Unknown",affiliation_source:explicit?"explicit":(registry?"artist_registry":(inferred?"inferred":"unknown"))};
     }
   }
   return map;
@@ -138,10 +138,11 @@ function parseHelper(csv,eventMap,registryRules){
     const eventId=String(cell(r,ix.event)||"").trim();
     const meta=eventMap[eventId]||{};
     const eventName=String(cell(r,ix.eventName)||meta.event_name||eventId).trim();
+    const resolvedEventDate=String(cell(r,ix.eventDate)||meta.event_date||"").trim();
     const fallback=meta.affiliation&&meta.affiliation!=="ยังไม่ระบุ / Unknown" ? meta.affiliation : (inferFromRegistry(eventName,registryRules)||inferAffiliation(eventName));
     return {
       source:String(cell(r,ix.source)||"").trim(),booking_id:String(cell(r,ix.booking)||"").trim(),created_at:String(cell(r,ix.created)||"").trim(),
-      status:String(cell(r,ix.status)||"").toLowerCase().trim(),event_id:eventId,event_name:eventName,event_date:String(cell(r,ix.eventDate)||"").trim(),month:String(cell(r,ix.month)||"").trim()||eventMonth(cell(r,ix.eventDate)),
+      status:String(cell(r,ix.status)||"").toLowerCase().trim(),event_id:eventId,event_name:eventName,event_date:resolvedEventDate,month:String(cell(r,ix.month)||"").trim()||eventMonth(resolvedEventDate),
       customer_key:customerKey(r,ix),package_type:String(cell(r,ix.pkg)||"").trim()||"unknown",payment_status:String(cell(r,ix.payment)||"").toLowerCase().trim(),amount_received:num(cell(r,ix.amount)),
       affiliation:meta.affiliation&&meta.affiliation!=="ยังไม่ระบุ / Unknown"?meta.affiliation:(fallback||"ยังไม่ระบุ / Unknown"),affiliation_source:meta.affiliation_source&&meta.affiliation_source!=="unknown"?meta.affiliation_source:(fallback?"inferred":"unknown")
     };
@@ -290,3 +291,6 @@ module.exports=async function handler(req,res){
     return json(res,500,{ok:false,error:msg});
   }
 };
+
+
+module.exports._test={eventMetadata,parseHelper,aggregate,eventMonth};

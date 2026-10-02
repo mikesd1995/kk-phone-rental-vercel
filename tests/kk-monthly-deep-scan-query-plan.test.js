@@ -20,3 +20,13 @@ test('generic monthly queries use natural month variants',()=>{
  assert.ok(generic.providers.includes('DDG_HTML'));
  assert.ok(generic.providers.includes('BING_HTML'));
 });
+
+test('monthly discovery includes bounded broad fallbacks when exact month queries return no search evidence',()=>{
+ const r=P.build({month:'2026-10',location:'Bangkok Thailand'});
+ const generic=r.gap_tasks.find(x=>!x.source_id && x.source_tier==='OFFICIAL');
+ const all=[generic.query,...generic.query_variants];
+ assert.ok(all.some(q=>q.endsWith(' Bangkok')));
+ assert.ok(all.some(q=>q.endsWith(' Thailand')));
+ assert.ok(all.includes(P.TIER_TERMS.OFFICIAL[0]));
+ assert.equal(new Set(all).size,all.length);
+});

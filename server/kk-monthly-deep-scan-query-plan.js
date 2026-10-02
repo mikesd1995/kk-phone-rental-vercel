@@ -1,6 +1,6 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V2';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V3';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon Bangkok','คอนเสิร์ต แฟนมีต กรุงเทพ'],
  TICKETING:['site:thaiticketmajor.com concert Bangkok','site:ticketmelon.com Bangkok event'],
@@ -14,11 +14,17 @@ const TIER_TERMS={
 function text(v){return String(v==null?'':v).trim();}
 function queryVariantsForTerm(term,range,location){
  const labels=SourceRegistry.monthLabels(range.month);
- return [
-   term+' '+labels.en+' '+location,
-   term+' '+labels.th+' กรุงเทพ',
-   term+' '+labels.en+' Bangkok'
- ].filter(Boolean);
+ // Search engines are substantially more reliable with short intent queries.
+ // Keep the precise month/location forms, but add bounded broad fallbacks; the
+ // verifier/date-window gate decides whether returned evidence belongs in-month.
+ const compact=String(term).replace(/\s+/g,' ').trim();
+ return [...new Set([
+   compact+' '+labels.en+' Bangkok',
+   compact+' '+labels.th+' กรุงเทพ',
+   compact+' Bangkok',
+   compact+' Thailand',
+   compact
+ ])].filter(Boolean);
 }
 function monthRange(input={}){
  const raw=text(input.month);let y,m;
