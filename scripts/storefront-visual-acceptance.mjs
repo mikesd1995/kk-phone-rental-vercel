@@ -423,8 +423,11 @@ async function main(){
         const preEventSurfaces=[document.querySelector('.v4-header,.v3-header'),hero,document.querySelector('.v3-social-proof'),document.querySelector('.browse-controls-shell')].filter(visible);
         const cards=Array.from(document.querySelectorAll('.concert-card')).filter(visible);
         const cardRects=cards.map(el=>el.getBoundingClientRect());
-        const firstTop=cardRects.length?Math.round(cardRects[0].top/4)*4:null;
-        const firstRow=firstTop===null?[]:cardRects.filter(r=>Math.round(r.top/4)*4===firstTop);
+        const firstTop=cardRects.length?cardRects[0].top:null;
+        // Keep summary row detection aligned with rendered state evidence.
+        // Fractional card tops may straddle a 4px rounding bucket even when
+        // the cards are visually on the same grid row (observed at 480px).
+        const firstRow=firstTop===null?[]:cardRects.filter(r=>Math.abs(r.top-firstTop)<4);
         const visibleAboveFold=cardRects.filter(r=>r.bottom>0&&r.top<window.innerHeight).length;
 
         let cssText='';
