@@ -199,3 +199,11 @@ test('reference sweep retains exact month queries and adds bounded broad fallbac
  assert.ok(p.gap_tasks[3].query_variants.includes('Bangkok concert calendar'));
  assert.ok(p.gap_tasks.every(t=>t.providers.includes('DDG_HTML')&&t.providers.includes('BING_HTML')));
 });
+
+
+test('runtime plans prioritize DDGS before HTML search fallbacks',()=>{
+ const ref=Runner.buildReferencePlan({month:'2026-10',location:'Bangkok Thailand'});
+ const miss=Runner.buildKnownMissPlan();
+ assert.ok(ref.gap_tasks.every(t=>t.providers[0]==='DDGS_TRAFILATURA'));
+ assert.ok(miss.gap_tasks.every(t=>t.providers[0]==='DDGS_TRAFILATURA'));
+});
