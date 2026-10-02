@@ -95,8 +95,8 @@ function parseJsonLd(body=''){
 function metaValue(body,key){
  const esc=key.replace(/[.*+?^$(){}|[\]\\]/g,'\\$&');
  const patterns=[
-  new RegExp('<meta[^>]+(?:property|name)=["\\']'+esc+'["\\'][^>]+content=["\\']([^"\\']+)["\\'][^>]*>','i'),
-  new RegExp('<meta[^>]+content=["\\']([^"\\']+)["\\'][^>]+(?:property|name)=["\\']'+esc+'["\\'][^>]*>','i')
+  new RegExp("<meta[^>]+(?:property|name)=[\\\"']"+esc+"[\\\"'][^>]+content=[\\\"']([^\\\"']+)[\\\"'][^>]*>",'i'),
+  new RegExp("<meta[^>]+content=[\\\"']([^\\\"']+)[\\\"'][^>]+(?:property|name)=[\\\"']"+esc+"[\\\"'][^>]*>",'i')
  ];
  for(const p of patterns){const m=String(body).match(p);if(m)return PublicWeb.decodeHtmlEntities(m[1]);}
  return '';
