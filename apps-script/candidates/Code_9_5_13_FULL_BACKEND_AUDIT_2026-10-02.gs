@@ -679,10 +679,10 @@ function kkWebPackagePriceFormula_(rowNumber, templateId) {
   const standardExpr = templateId
     ? `IFERROR(VLOOKUP(${tplExpr},'03_Packages'!$A$5:$E$1000,5,FALSE),0)`
     : kkWebPackageStandardPriceFormula_(r);
-  // Use LOOKUP to read the latest matching override row. This fixes two real-world issues:
+  // Use FILTER + COUNTIFS to read the latest matching override row. LOOKUP(2,1/(...)) returns #N/A in the live Sheet for valid matches.
   // 1) old SUMIFS formula ignored override price = 0 and could sum duplicate old rows;
   // 2) public 09_Web_Packages did not always recalculate after an override save.
-  return `=IF(B${r}="","",IFERROR(LOOKUP(2,1/(('04_Event_Overrides'!$A$5:$A$1000=B${r})*('04_Event_Overrides'!$B$5:$B$1000=${tplExpr})*('04_Event_Overrides'!$C$5:$C$1000<>"")),'04_Event_Overrides'!$C$5:$C$1000),${standardExpr}))`;
+  return `=IF(B${r}="","",IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${tplExpr},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${tplExpr},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${standardExpr}))`;
 }
 
 function kkRepairWebPackagePriceFormulas_() {
