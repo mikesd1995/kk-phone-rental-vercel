@@ -12,7 +12,7 @@
 var APP       = window.KK_CONFIG || {};
 var KK_APP_VERSION = APP.appVersion || "v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_FIX";
 var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
-var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือถ่ายคอนเสิร์ต แฟนมีท และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ เลือกงาน ดูรุ่นที่ว่าง และจองผ่าน LINE OA กับแอดมิน";
+var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือสำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ เลือกงาน เช็กคิวว่าง และจองผ่าน LINE OA";
 var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
 var SHEET_ID  = APP.sheetId      || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 var WEB_SHEET = APP.webSheetName || "08_Web_Ready";
@@ -91,9 +91,9 @@ var I18N = {
     proof_deposit_title:"ไม่วางมัดจำ", proof_deposit_body:"พร้อมประกันเครื่องฟรี",
     proof_onsite_title:"หน้างาน", proof_onsite_body:"รับ–คืน + สอนใช้",
     proof_drive_title:"30 วัน", proof_drive_body:"เก็บไฟล์บน Drive",
-    events_eyebrow:"UPCOMING EVENTS", events_title:"เลือกงานของคุณ", events_body:"กดโปสเตอร์เพื่อดูแพ็กเกจ ราคา และคิวว่าง", journey_kicker:"จองง่ายใน 3 ขั้นตอน", journey_1_title:"เลือกงาน", journey_1_body:"เลือกโปสเตอร์ของงานที่คุณจะไป", journey_2_title:"เลือกแพ็กเกจ", journey_2_body:"ดูราคา อุปกรณ์ และคิวที่ยังว่าง", journey_3_title:"คอนเฟิร์มกับร้าน", journey_3_body:"จองผ่าน LINE แล้วรับเครื่องหน้างาน",
-    value_steps:"เลือกงาน > ดูอุปกรณ์และแพ็กเกจที่ว่าง > ระบบพาไปจองผ่าน LINE OA กับแอดมิน",
-    value_note:"( หากไม่มีงานที่ต้องการ สามารถสอบถามได้ใน LINE OA )",
+    events_eyebrow:"UPCOMING EVENTS", events_title:"เลือกงานของคุณ", events_body:"เลือกงาน → ดูแพ็กเกจ → เช็กคิวว่าง", journey_kicker:"จองง่ายใน 3 ขั้นตอน", journey_1_title:"เลือกงาน", journey_1_body:"เลือกงานที่คุณจะไป", journey_2_title:"เลือกแพ็กเกจ", journey_2_body:"ดูรุ่น ราคา และคิวว่าง", journey_3_title:"จองผ่าน LINE", journey_3_body:"ร้านยืนยันคิว แล้วรับเครื่องหน้างาน",
+    value_steps:"เลือกงาน > ดูแพ็กเกจและคิวว่าง > จองผ่าน LINE",
+    value_note:"ไม่พบงานที่ต้องการ? สอบถามผ่าน LINE OA ได้",
     follow_promo:"ติดตาม X ร้าน · ไม่ต้องวางมัดจำ · ฟรีประกันเครื่อง",
     faq_button:"FAQ",
     language_aria:"เลือกภาษา",
@@ -111,26 +111,26 @@ var I18N = {
     search_results:"พบ {count} งาน",
     browse_results:"แสดง {count} งาน",
     clear_filters:"ล้างตัวกรอง",
-    load_more:"แสดงงานเพิ่มเติม ({count})",
+    load_more:"ดูงานเพิ่มเติมอีก {count} งาน",
     card_waitlist:"คิวเต็ม · เปิดรับจองคิวหลุด",
     search_line:"ถามร้านเรื่อง “{query}”",
     share_event:"แชร์งานนี้",
     share_copied:"คัดลอกลิงก์งานแล้ว",
     card_venue:"{venue}",
-    card_price_from:"แพ็กเกจเริ่ม {price}฿",
+    card_price_from:"เริ่ม {price}฿",
     card_price_ask:"สอบถามราคา",
     select_month:"เดือน",
     filter_all:"งานทั้งหมด",
     filter_available:"งานว่าง",
     filter_waitlist:"จองคิวหลุด",
-    section_title:"เลือกงานที่ใช่ ไปถ่ายคนที่ชอบ ❤️",
+    section_title:"เลือกงาน แล้วเช็กคิวว่าง",
     updated_prefix:"ตรวจสอบข้อมูลเมื่อ",
     loading_aria:"กำลังโหลดข้อมูลงาน",
     loading_text:"กำลังตรวจสอบคิวว่าง...",
-    line_book:"ทัก LINE มาจองได้เลย",
+    line_book:"จองผ่าน LINE",
     sticky_line:"ทัก LINE จองคิว",
-    footer_tagline:"เช่าเถอะ อยากให้ชัด",
-    footer_trust:"จองง่าย คุยกับร้านโดยตรงผ่าน LINE",
+    footer_tagline:"เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต",
+    footer_trust:"รับ–คืนหน้างาน · จองผ่าน LINE",
     modal_close_aria:"ปิดหน้าต่าง",
     modal_title_placeholder:"ชื่องาน",
     modal_date_placeholder:"วันที่",
@@ -140,13 +140,13 @@ var I18N = {
     close:"ปิด",
     faq_close_aria:"ปิด FAQ",
     faq_title:"FAQ · คำถามที่พบบ่อย",
-    faq_q1:"Q: เช่าอุปกรณ์ยังไง?",
-    faq_a1:"A: เลือกงานที่ต้องการ กดดูอุปกรณ์และแพ็กเกจที่ว่าง ระบบจะพาไปจองผ่าน LINE OA เพื่อให้ร้านคอนเฟิร์ม",
+    faq_q1:"Q: เช่ามือถือยังไง?",
+    faq_a1:"A: เลือกงาน ดูแพ็กเกจและคิวว่าง แล้วจองผ่าน LINE OA เพื่อให้ร้านยืนยันคิว",
     faq_q2:"Q: ในเซ็ตเช่ามีอุปกรณ์อะไรให้บ้าง?",
     faq_a2:"A: อุปกรณ์พื้นฐานมีตัวเครื่องมือถือ กระเป๋าใส่มือถือ และแบตสำรอง หากเช่าเลนส์เพิ่มจะมีถุงใส่เลนส์และผ้าเช็ดเลนส์ให้ด้วย",
-    faq_q3:"Q: รับอุปกรณ์และคืนอุปกรณ์ที่ไหน?",
-    faq_a3:"A: รับและคืนอุปกรณ์ที่หน้างานเท่านั้น",
-    faq_q4:"Q: ต้องจ่ายมัดจำและค่าประกันอุปกรณ์ไหม?",
+    faq_q3:"Q: รับและคืนมือถือที่ไหน?",
+    faq_a3:"A: รับและคืนมือถือพร้อมอุปกรณ์ที่หน้างานเท่านั้น",
+    faq_q4:"Q: ต้องวางมัดจำหรือมีค่าประกันเครื่องไหม?",
     faq_a4:"A: ตอนนี้ร้านยังอยู่ในช่วงโปรโมชั่น จึงไม่เก็บค่ามัดจำและค่าประกัน เพียงฟอล X ของทางร้าน",
     faq_q5:"Q: การจ่ายเงินต้องจ่ายยังไง?",
     faq_a5:"A: จ่ายเงินตอนรับอุปกรณ์ที่หน้างาน",
@@ -162,7 +162,7 @@ var I18N = {
     phones_available:"ว่าง {count} เครื่อง",
     lens_only_available:"เหลือ Lens อย่างเดียว",
     available:"ว่าง",
-    empty_available:"ยังไม่มีงานที่มีอุปกรณ์ว่าง{month}",
+    empty_available:"ยังไม่มีแพ็กเกจว่าง{month}",
     empty_waitlist:"ยังไม่มีงานที่เปิดรอคิวหลุด{month}",
     empty_all:"ยังไม่มีงานที่เปิดให้จอง{month}",
     in_month:"ในเดือน {month} ",
@@ -177,10 +177,10 @@ var I18N = {
     badge_inquiry:"สอบถามราคา",
     inquiry_available:"เช็กคิว / สอบถามราคากับร้าน",
     ask_this:"สอบถามแพ็กเกจนี้",
-    card_aria_available:"ดูอุปกรณ์ที่ว่างสำหรับงาน {event}",
+    card_aria_available:"ดูแพ็กเกจสำหรับงาน {event}",
     card_aria_waitlist:"จองคิวหลุดสำหรับงาน {event}",
     no_image:"ยังไม่มีรูป",
-    tap_available:"ดูอุปกรณ์ที่ว่าง / จองคิว",
+    tap_available:"ดูแพ็กเกจ / จอง",
     tap_waitlist:"จองคิวหลุด",
     pkg_phone_only:"เฉพาะมือถือ",
     pkg_lens_only:"เลนส์เสริม",
@@ -231,9 +231,9 @@ var I18N = {
     proof_deposit_title:"No deposit", proof_deposit_body:"Free device insurance",
     proof_onsite_title:"At the venue", proof_onsite_body:"Pickup, return + setup help",
     proof_drive_title:"30 days", proof_drive_body:"Drive file storage",
-    events_eyebrow:"UPCOMING / BANGKOK", events_title:"Your night starts here", events_body:"Choose an event → view packages → check availability", journey_kicker:"FROM POSTER TO FRONT ROW", journey_1_title:"Choose event", journey_1_body:"Start with the poster for the night you are attending.", journey_2_title:"Choose package", journey_2_body:"See price, equipment and live availability.", journey_3_title:"Confirm with KK", journey_3_body:"Book via LINE and pick up at the venue.",
-    value_steps:"Choose an event > Check available equipment and packages > Book directly with our admin via LINE OA",
-    value_note:"( Can't find your event? Message us on LINE OA. )",
+    events_eyebrow:"UPCOMING EVENTS", events_title:"Find your event", events_body:"Choose an event → view packages → check availability", journey_kicker:"BOOK IN 3 STEPS", journey_1_title:"Choose event", journey_1_body:"Pick the event you are attending.", journey_2_title:"Choose package", journey_2_body:"Compare models, price and availability.", journey_3_title:"Book via LINE", journey_3_body:"We confirm your booking; pick up at the venue.",
+    value_steps:"Choose an event > Compare packages and availability > Book via LINE",
+    value_note:"Can't find your event? Ask us on LINE OA.",
     follow_promo:"Follow on X · No deposit · Free insurance",
     faq_button:"FAQ",
     language_aria:"Choose language",
@@ -251,26 +251,26 @@ var I18N = {
     search_results:"{count} events found",
     browse_results:"Showing {count} events",
     clear_filters:"Clear filters",
-    load_more:"Show more events ({count})",
+    load_more:"View {count} more events",
     card_waitlist:"Fully booked · Join the waitlist",
     search_line:"Ask us about “{query}”",
     share_event:"Share this event",
     share_copied:"Event link copied",
     card_venue:"{venue}",
-    card_price_from:"Packages from ฿{price}",
+    card_price_from:"From ฿{price}",
     card_price_ask:"Ask for price",
     select_month:"Month",
     filter_all:"All Events",
     filter_available:"Available",
     filter_waitlist:"Join Waitlist",
-    section_title:"Choose your event and capture every favorite moment ❤️",
+    section_title:"Choose an event and check availability",
     updated_prefix:"Data checked at",
     loading_aria:"Loading events",
     loading_text:"Checking availability...",
     line_book:"Book via LINE",
     sticky_line:"Book via LINE",
-    footer_tagline:"Rent it. Capture it clearly. ✨",
-    footer_trust:"Easy booking — talk directly with us on LINE",
+    footer_tagline:"Phone rental for concerts and fan meetings",
+    footer_trust:"Venue pickup & return · Book via LINE",
     modal_close_aria:"Close window",
     modal_title_placeholder:"Event name",
     modal_date_placeholder:"Date",
@@ -280,13 +280,13 @@ var I18N = {
     close:"Close",
     faq_close_aria:"Close FAQ",
     faq_title:"FAQ · Frequently Asked Questions",
-    faq_q1:"Q: How do I rent equipment?",
-    faq_a1:"A: Choose your event, check the available equipment and package, then continue to LINE OA so our admin can confirm your booking.",
+    faq_q1:"Q: How do I rent a phone?",
+    faq_a1:"A: Choose your event, compare available packages, then book via LINE OA so we can confirm your booking.",
     faq_q2:"Q: What is included in the rental set?",
     faq_a2:"A: A phone rental includes the phone, a carrying pouch and a power bank. An add-on lens rental also includes a lens pouch and cleaning cloth.",
-    faq_q3:"Q: Where do I pick up and return the equipment?",
-    faq_a3:"A: Equipment pick-up and return are available at the event venue only.",
-    faq_q4:"Q: Is a deposit or equipment insurance fee required?",
+    faq_q3:"Q: Where do I pick up and return the rental?",
+    faq_a3:"A: Phone and accessory pickup and return are available at the event venue only.",
+    faq_q4:"Q: Is a deposit or device insurance fee required?",
     faq_a4:"A: During the current promotion, the deposit and insurance fee are waived when you follow our X account.",
     faq_q5:"Q: When do I pay?",
     faq_a5:"A: Payment is made when you pick up the equipment at the event venue.",
@@ -297,16 +297,16 @@ var I18N = {
     faq_q8:"Q: How long are files stored on Google Drive?",
     faq_a8:"A: Files are stored for approximately 30 days. Please download them as soon as you receive the link.",
     every_month:"Every month",
-    full_availability:"Fully booked 😢 Join the waitlist",
+    full_availability:"Fully booked · Join the waitlist",
     one_phone_left:"Only 1 phone left",
     phones_available:"{count} phones available",
     lens_only_available:"Lens-only package available",
     available:"Available",
-    empty_available:"No equipment is available {month}yet 💙",
-    empty_waitlist:"No events are currently accepting waitlist requests {month}✨",
-    empty_all:"No events are open for booking {month}yet 💙",
+    empty_available:"No packages are available {month}yet.",
+    empty_waitlist:"No events are currently accepting waitlist requests {month}.",
+    empty_all:"No events are open for booking {month}yet.",
     in_month:"in {month} ",
-    no_event_data:"No event information is available right now 💙",
+    no_event_data:"No event information is available right now.",
     empty_detail:"Message us on LINE OA if you would like to ask about another event.",
     contact_line:"Message us on LINE OA",
     badge_full:"Fully Booked",
@@ -317,10 +317,10 @@ var I18N = {
     badge_inquiry:"Ask Price",
     inquiry_available:"Check availability / Ask for price",
     ask_this:"Ask About This Package",
-    card_aria_available:"View available equipment for {event}",
+    card_aria_available:"View packages for {event}",
     card_aria_waitlist:"Join the waitlist for {event}",
     no_image:"No image",
-    tap_available:"View Equipment / Book",
+    tap_available:"View Packages / Book",
     tap_waitlist:"Join Waitlist",
     pkg_phone_only:"Phone only",
     pkg_lens_only:"Add-on lens",
@@ -333,7 +333,7 @@ var I18N = {
     per_day:" THB/day",
     book_this:"Book This Package",
     book_aria:"Book {package} for {event}",
-    full_title:"This event is fully booked 🙏",
+    full_title:"This event is fully booked",
     full_body:"Join the waitlist and we will check for you if another customer cancels.",
     waitlist_line:"Join Waitlist via LINE",
     waitlist_aria:"Join the waitlist for {event}",
@@ -399,7 +399,7 @@ function applyStaticLanguage(){
   if(proofItems[2]){var p2s=proofItems[2].querySelector("strong"),p2b=proofItems[2].querySelector("span");if(p2s)p2s.textContent=tr("proof_drive_title");if(p2b)p2b.textContent=tr("proof_drive_body");}
   setText(".v3-events-heading span","events_eyebrow");
   var eventHeading=document.querySelector(".v3-events-heading h2");
-  if(eventHeading)eventHeading.innerHTML=currentLang==="en"?"YOUR NIGHT.<br><em>STARTS HERE.</em>":"คืนนี้ของคุณ<br><em>เริ่มจากโปสเตอร์นี้</em>";
+  if(eventHeading)eventHeading.textContent=tr("events_title");
   var eventBody=document.querySelector(".v3-events-heading p");
   if(eventBody)eventBody.textContent=tr("events_body");
   setText(".kk-journey-kicker","journey_kicker");
@@ -1287,7 +1287,7 @@ function renderEmpty(msg,detail){
   var href=contextual?getSearchInquiryUrl(currentSearch):LINE_URL;
   var label=contextual?tr("search_line",{query:currentSearch}):tr("contact_line");
   if(contextual) queueSearchMissTrack(currentSearch);
-  el.innerHTML='<div class="empty-state"><div class="empty-emoji">💙</div><h3>'+esc(msg)+'</h3><p>'+esc(detail||tr("empty_detail"))+'</p><a class="empty-line-btn" href="'+href+'" target="_blank" rel="noopener">'+esc(label)+'</a></div>';
+  el.innerHTML='<div class="empty-state"><h3>'+esc(msg)+'</h3><p>'+esc(detail||tr("empty_detail"))+'</p><a class="empty-line-btn" href="'+href+'" target="_blank" rel="noopener">'+esc(label)+'</a></div>';
   if(contextual){
     var inquiry=el.querySelector(".empty-line-btn");
     if(inquiry) inquiry.onclick=function(){
@@ -1628,7 +1628,7 @@ function closeModal(e){
 }
 function showError(m){
   var el=document.getElementById("content"); if(!el)return;
-  el.innerHTML='<div class="empty-state error-state" role="alert" aria-live="assertive"><div class="empty-emoji">🙏</div><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><div class="error-actions"><button class="empty-retry-btn" id="storefront-retry-btn" type="button">'+esc(tr("error_retry"))+'</button><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div></div>';
+  el.innerHTML='<div class="empty-state error-state" role="alert" aria-live="assertive"><h3>'+esc(tr("error_title"))+'</h3><p>'+esc(m||tr("error_detail"))+'</p><div class="error-actions"><button class="empty-retry-btn" id="storefront-retry-btn" type="button">'+esc(tr("error_retry"))+'</button><a class="empty-line-btn" href="'+LINE_URL+'" target="_blank" rel="noopener">'+esc(tr("error_line"))+'</a></div></div>';
 }
 async function refreshStorefrontData(reason){
   if(storefrontRefreshPromise) return storefrontRefreshPromise;
