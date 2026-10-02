@@ -841,3 +841,22 @@ html[data-theme="light"] .theme-sun,html[data-theme="dark"] .theme-moon{display:
  .v3-events-heading h2 br{display:none!important}
  .update-note{font-size:9px!important}
 }
+
+/* V6.1 conversion polish — screenshot-led storefront refinement 2026-10-02 */
+.kk-commerce-strip{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 18px;padding:13px 0;border-top:1px solid var(--v6-line);border-bottom:1px solid var(--v6-line);font-size:12px}
+.kk-commerce-strip strong{font-size:14px;white-space:nowrap}.kk-commerce-strip strong span{color:var(--v6-accent);margin-left:5px}.kk-commerce-strip>div{display:flex;gap:14px;color:var(--v6-sub);font-size:11px}
+.pi-tap{display:inline-flex!important;width:auto!important;padding:0 12px!important;border:1px solid var(--v6-line)!important;border-radius:999px!important;color:var(--v6-ink)!important;font-weight:700!important;letter-spacing:-.01em!important}
+.pi-tap:after{content:" →";margin-left:3px}.concert-card:hover .pi-tap,.concert-card:focus-within .pi-tap{border-color:var(--v6-ink)!important}
+.pi-meta{margin-top:7px!important}.pi-price{font-weight:800!important;letter-spacing:-.025em!important}.pi-avail{margin-top:7px!important}
+html[data-theme="dark"] .kk-commerce-strip{border-color:#20324b;color:#eef4ff}html[data-theme="dark"] .kk-commerce-strip>div{color:#91a2b8}html[data-theme="dark"] .pi-tap{border-color:#30445f!important;color:#eef4ff!important}
+@media(max-width:700px){
+ .kk-commerce-strip{display:block;margin:0 0 12px;padding:10px 0}
+ .kk-commerce-strip strong{display:flex;justify-content:space-between;font-size:12px}
+ .kk-commerce-strip>div{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:7px;font-size:9px}
+ .browse-controls-shell{margin-top:0!important}
+ .pi-tap{min-height:36px!important;padding-inline:10px!important;font-size:10px!important}
+ .poster-info{display:flex!important;flex-direction:column!important}
+ .pi-meta{margin-top:6px!important}.pi-avail{margin-top:6px!important}
+ .sticky-line{right:14px!important;left:auto!important;bottom:max(14px,env(safe-area-inset-bottom))!important}
+ .overlay.active~.sticky-line,.faq-overlay.active~.sticky-line{display:none!important}
+}
