@@ -274,3 +274,16 @@ test('V6.1.3 adversarial cascade cleanup owns dark language, select and narrow-s
  assert.match(css,/\.status-filter-bar::-webkit-scrollbar\{display:none\}/);
  assert.match(css,/html\[data-theme="dark"\] \.modal-title,[\s\S]*overflow-wrap:anywhere/);
 });
+
+
+test('visual QA always executes deterministic design council and optionally gates OpenAI screenshot review',()=>{
+  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  assert.match(source,/kk-storefront-design-council/);
+  assert.match(source,/DesignCouncil\.runCouncil\(packet\)/);
+  assert.match(source,/kk-openai-agent-adapters/);
+  assert.match(source,/OpenAiAgents\.reviewStorefront/);
+  assert.match(source,/KK_OPENAI_STOREFRONT_AI_VIEWPORTS/);
+  assert.match(source,/openai_visual_review_pass/);
+  assert.match(source,/openAiReviewPass/);
+  assert.match(source,/data:image\/jpeg;base64/);
+});
