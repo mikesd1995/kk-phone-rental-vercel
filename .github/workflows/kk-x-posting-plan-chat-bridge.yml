@@ -74,10 +74,16 @@ jobs:
             console.error('Unexpected write authority');
             process.exit(1);
           }
+          if(!result.project_memory || result.project_memory.status!=='READY' || result.project_memory.durable_mode!=='github_oidc' || Number(result.project_memory.durable_context_count||0)<1){
+            console.error(JSON.stringify({project_memory:result.project_memory||null,blocker:'PROJECT_MEMORY_GITHUB_OIDC_ACCEPTANCE_FAILED'}));
+            process.exit(1);
+          }
           console.log(JSON.stringify({
             status:result.status,
             invocation_id:result.invocation&&result.invocation.invocation_id||'',
             timezone:result.plan&&result.plan.timezone||'',
+            durable_memory_mode:result.project_memory&&result.project_memory.durable_mode||'',
+            durable_memory_rows:result.project_memory&&result.project_memory.durable_context_count||0,
             slots:(result.plan&&result.plan.slots||[]).map(x=>x.time)
           }));
           NODE
