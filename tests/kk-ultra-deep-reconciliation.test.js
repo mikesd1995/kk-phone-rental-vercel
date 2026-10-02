@@ -97,3 +97,37 @@ test('ineligible structured reference cannot create a gap or satisfy independent
  assert.equal(mixed.excluded_reference_count,1);
 });
 
+test('multi-day event series canonicalization still requires the exact expanded date',()=>{
+ const discovered13=[{
+   title:'The Weeknd: After Hours Til Dawn Tour, Bangkok, Tue, 13 Oct 2026...',
+   event_date:'2026-10-13'
+ }];
+ const reference12=[{
+   reference_id:'weeknd-12',
+   title:'The Weeknd: After Hours Til Dawn Tour, Bangkok, Mon, 12 Oct 2026...',
+   event_date:'2026-10-12',
+   eligible_for_discovery:true
+ }];
+ const stillMissing=R.reconcileCandidateSets(discovered13,reference12);
+ assert.equal(stillMissing.reconciliation_gap_count,1);
+
+ const expanded=[...discovered13,{
+   title:'The Weeknd: After Hours Til Dawn Tour, Bangkok, Tue, 13 Oct 2026...',
+   event_date:'2026-10-12'
+ }];
+ const matched=R.reconcileCandidateSets(expanded,reference12);
+ assert.equal(matched.complete,true);
+ assert.equal(matched.reconciliation_gap_count,0);
+});
+
+test('series title removes only date-location boilerplate for official search titles',()=>{
+ assert.equal(
+   R.eventSeriesTitle('The Weeknd: After Hours Til Dawn Tour, Bangkok, Tue, 13 Oct 2026...'),
+   R.eventSeriesTitle('The Weeknd: After Hours Til Dawn Tour, Bangkok, Mon, 12 Oct 2026...')
+ );
+ assert.notEqual(
+   R.eventSeriesTitle('The Weeknd: After Hours Til Dawn Tour'),
+   R.eventSeriesTitle('Young K Solo Tour <YOUNGEST> in BANGKOK')
+ );
+});
+

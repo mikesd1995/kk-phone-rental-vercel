@@ -10,6 +10,18 @@ function key(row={}){
   return [norm(row.title||row.event_name),date(row.event_date)].join('|');
 }
 
+function eventSeriesTitle(value){
+  let s=text(value).replace(/\u2026|\.\.\.+/g,' ').trim();
+  s=s.replace(/^\s*(?:tickets?|official\s+ticket)\s*[:|]\s*/i,'');
+  s=s.replace(/,\s*(?:Bangkok|กรุงเทพ(?:มหานคร)?)\s*,?\s*(?:(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\s*,?\s*)?\d{1,2}\s+[A-Za-z]+\s+20\d{2}.*$/i,'');
+  s=s.replace(/,\s*(?:Bangkok|กรุงเทพ(?:มหานคร)?)\s*,?\s*(?:(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\s*,?\s*)?[A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?(?:,)?\s+20\d{2}.*$/i,'');
+  return norm(s);
+}
+
+function reconcileKey(row={}){
+  return [eventSeriesTitle(row.title||row.event_name),date(row.event_date)].join('|');
+}
+
 function hasComparableEventIdentity(row={}){
   const title=norm(row.title||row.event_name);
   const eventDate=date(row.event_date);
@@ -64,7 +76,7 @@ function referenceScope(row={},context={}){
 }
 
 function reconcileCandidateSets(discovered=[],reference=[],context={}){
-  const found=new Set((Array.isArray(discovered)?discovered:[]).filter(hasComparableEventIdentity).map(key));
+  const found=new Set((Array.isArray(discovered)?discovered:[]).filter(hasComparableEventIdentity).map(reconcileKey));
   const refs=(Array.isArray(reference)?reference:[]).filter(Boolean);
   const structuredRefs=refs.filter(hasComparableEventIdentity);
   // Generic reconciliation must not infer business scope itself. Runtime callers
@@ -75,7 +87,7 @@ function reconcileCandidateSets(discovered=[],reference=[],context={}){
   const missing=[];
   const matched=[];
   for(const row of eligibleRefs){
-    const k=key(row);
+    const k=reconcileKey(row);
     if(found.has(k))matched.push({reference_id:text(row.reference_id)||null,key:k});
     else if(row.eligible_for_discovery!==false)missing.push({
       reference_id:text(row.reference_id)||null,
@@ -131,4 +143,4 @@ function classifyAgainstSot(candidates=[],context={}){
   });
 }
 
-module.exports={VERSION,TRUSTED_THAI_EVENT_HOSTS,key,hasComparableEventIdentity,sourceHost,referenceScope,reconcileCandidateSets,classifyAgainstSot};
+module.exports={VERSION,TRUSTED_THAI_EVENT_HOSTS,key,eventSeriesTitle,reconcileKey,hasComparableEventIdentity,sourceHost,referenceScope,reconcileCandidateSets,classifyAgainstSot};
