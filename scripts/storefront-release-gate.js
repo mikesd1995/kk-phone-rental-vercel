@@ -27,7 +27,7 @@ function assert(condition,code,detail=''){
   throw err;
 }
 function normalizeFiles(files){
-  return (Array.isArray(files)?files:[]).map(x=>text(x).replace(/^.//,'')).filter(Boolean);
+  return (Array.isArray(files)?files:[]).map(x=>{const v=text(x);return v.startsWith('./')?v.slice(2):v;}).filter(Boolean);
 }
 function changedFiles(baseSha,candidateSha){
   const base=text(baseSha),candidate=text(candidateSha);
