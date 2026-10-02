@@ -2,6 +2,7 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
 const handler=require('../api/kk-intelligence-health');
 
 function fakeRes(){
@@ -51,6 +52,7 @@ test('timing readback infers UTC+07 from live-format generated_at without mutati
             spreadsheet_id:'sheet-123',
             frontend_sheet_id:'sheet-123',
             frontend_backend_same_sheet:true,
+            admin_api_version:handler._test.EXPECTED_APPS_SCRIPT_VERSION,
             generated_at:'2026-09-27T04:30:01'
           }
         })
@@ -61,6 +63,9 @@ test('timing readback infers UTC+07 from live-format generated_at without mutati
   assert.equal(report.effective_utc_offset,'+07:00');
   assert.equal(report.effective_utc_plus_7_verified,true);
   assert.equal(report.backend_sheet_identity_verified,true);
+  assert.equal(report.admin_api_version,handler._test.EXPECTED_APPS_SCRIPT_VERSION);
+  assert.equal(report.admin_api_version_verified,true);
+  assert.equal(report.source_equivalence,'UNVERIFIED');
   assert.equal(report.named_project_timezone,'UNVERIFIED');
   assert.equal(report.installed_triggers,'UNVERIFIED');
   assert.equal(report.cleanup_trigger,'UNVERIFIED');
@@ -88,6 +93,7 @@ test('timing endpoint is the only public GET mode and remains secret-safe',async
             spreadsheet_id:'sheet-live',
             frontend_sheet_id:'sheet-live',
             frontend_backend_same_sheet:true,
+            admin_api_version:handler._test.EXPECTED_APPS_SCRIPT_VERSION,
             generated_at:new Date(Date.now()+7*60*60*1000).toISOString().slice(0,19)
           }
         })
@@ -103,6 +109,8 @@ test('timing endpoint is the only public GET mode and remains secret-safe',async
     assert.equal(out.data.status,'READBACK_COMPLETE');
     assert.equal(out.data.effective_utc_plus_7_verified,true);
     assert.equal(out.data.backend_sheet_identity_verified,true);
+    assert.equal(out.data.admin_api_version_verified,true);
+    assert.equal(out.data.source_equivalence,'UNVERIFIED');
     assert.equal(out.data.named_project_timezone,'UNVERIFIED');
     assert.equal(out.data.installed_triggers,'UNVERIFIED');
     assert.equal(calls,1);
@@ -147,3 +155,33 @@ test('canonical Apps Script URL validator rejects non-exec and non-Google hosts'
   assert.equal(handler._test.canonicalAppsScriptExecUrl('https://script.google.com/macros/s/abc123/dev'),'');
   assert.equal(handler._test.canonicalAppsScriptExecUrl('https://example.com/macros/s/abc123/exec'),'');
 });
+
+test('expected Apps Script runtime version is pinned to canonical Code.gs version',()=>{
+  const source=fs.readFileSync('apps-script/Code.gs','utf8');
+  const m=source.match(/const KK_ADMIN_VERSION = '([^']+)'/);
+  assert.ok(m);
+  assert.equal(handler._test.EXPECTED_APPS_SCRIPT_VERSION,m[1]);
+});
+
+test('mismatched deployed Apps Script version is visible but never treated as source equivalence',async()=>{
+  const t=Date.parse('2026-10-02T15:00:00Z');
+  let n=0;
+  const report=await handler._test.appsScriptTimingReadback({
+    env:{KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/deploy/exec',KK_ADMIN_API_KEY:'secret',GOOGLE_SHEET_ID:'sheet'},
+    now:()=>t+(n++?1000:0),
+    fetchImpl:async()=>({ok:true,status:200,text:async()=>JSON.stringify({ok:true,data:{
+      spreadsheet_id:'sheet',frontend_backend_same_sheet:true,admin_api_version:'older-version',generated_at:'2026-10-02T22:00:00'
+    }})})
+  });
+  assert.equal(report.status,'READBACK_COMPLETE');
+  assert.equal(report.admin_api_version_verified,false);
+  assert.equal(report.source_equivalence,'UNVERIFIED');
+  assert.equal(report.safety.apps_script_writes,0);
+});
+
+test('transient Apps Script health failures use a short anti-hammer cache window',()=>{
+  assert.equal(handler._test.timingCacheTtl({status:'READBACK_COMPLETE'}),5*60*1000);
+  assert.equal(handler._test.timingCacheTtl({status:'READBACK_BLOCKED'}),30*1000);
+  assert.ok(handler._test.APPS_SCRIPT_TIMING_FAILURE_CACHE_TTL_MS < handler._test.APPS_SCRIPT_TIMING_CACHE_TTL_MS);
+});
+
