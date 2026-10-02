@@ -6,10 +6,10 @@
   "baseline": "production-v3",
   "reviewed_design_blobs": {
     "index_html": "b9f4787ae80b1ea156e068d44a0d5f2e205258e5",
-    "v5_css": "174e6df2f0c5e00e781a0137749b3297b949a08c",
-    "script_js": "f21052721733f2309b9ecf9becdc105863df0b86"
+    "v5_css": "64d2f3f24b6b3183b9b73ae88c4262e52e8efe1a",
+    "script_js": "66def8d16eeb5c50c8594360365c300e953c1ca9"
   },
-  "screenshot_artifact_id": "11203498265",
+  "screenshot_artifact_id": "11204153038",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -75,6 +75,11 @@
       "artifact_id": "11203498265",
       "status": "PASS",
       "finding": "V6 production-cleanup exact-head screenshots: score 100, P0/P1=0 and no blockers across 320/375/390/430/480/768/1024. Mobile hero remains height 0; change removes only rejected hidden V5 source residue and leaves accepted V6 mobile composition unchanged."
+    },
+    {
+      "artifact_id": "11204153038",
+      "status": "PASS",
+      "finding": "PR #458 exact-head zero-cost Visual QA after production iPhone modal audit: technical_visual_pass=true and interaction_pass=true at 320/375/390/430/480/768/1024, runtime_errors=[], production_writes=0. Owner-supplied production evidence identified the misleading iOS calendar glyph and inherited mobile grid ghost column; both are corrected and regression-guarded."
     }
   ],
   "reviewed_viewports": [
@@ -96,10 +101,10 @@
   "production_writes": 0,
   "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "5686d988d77df9314f44bf639e8c58e865a5deab",
+  "reviewed_design_head": "aa86c88c54b9d2e60aa3fb499b620b882b62312b",
   "owner_acceptance_evidence": {
     "accepted_at": "2026-10-02",
-    "artifact_id": "11203498265",
-    "statement": "Production cleanup was explicitly requested to be completed without repeated clarification. Exact-head screenshot evidence confirms the accepted V6 mobile composition is unchanged while rejected V5 hero source residue is removed."
+    "artifact_id": "11204153038",
+    "statement": "Owner requested exhaustive production cleanup and bug fixes after supplying iPhone Safari screenshots. Exact-head automated evidence is technically clean across all required viewports; the patch is limited to the two screenshot-confirmed modal defects plus regression coverage."
   }
 }

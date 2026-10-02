@@ -1421,7 +1421,7 @@ function showModal(c,options){
   setEventUrl(c.id);
 
   document.getElementById("modal-title").textContent=c.name||tr("event_details");
-  document.getElementById("modal-date").textContent="📅 "+(c.date||"-");
+  document.getElementById("modal-date").textContent=(currentLang==="en"?"Date: ":"วันที่: ")+(c.date||"-");
   var venueEl=document.getElementById("modal-venue");
   venueEl.textContent="📍 "+(c.venue||"-");
   var eventNoteEl=document.getElementById("modal-event-note");
