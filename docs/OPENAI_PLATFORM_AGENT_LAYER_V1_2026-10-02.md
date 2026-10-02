@@ -278,3 +278,19 @@ Branch-scoped Vercel Preview variables were configured by the owner for `feat/op
 A fresh branch Preview deployment is required before these values are visible to the runtime. Production remains unchanged.
 
 - Preview deployment retry requested after the Vercel deployment-rate-limit banner cleared in the dashboard; keep scope branch-only and production-disabled.
+
+## Vercel Secret runtime acceptance correction — 2026-10-02
+
+Vercel's 2026 Secret environment-variable type is intentionally write-only after creation. It is available to deployments but is not a value that CI should retrieve with `vercel env pull` or `vercel env run` for credential acceptance. Earlier staging attempts therefore observed a redacted/absent value and incorrectly attributed that to the OpenAI key itself.
+
+The acceptance design has been corrected:
+
+- keep `OPENAI_API_KEY` as a Vercel **Secret**;
+- never convert the API key to Config merely to make CI read it;
+- add `/api/kk-openai-staging-probe`, which is POST-only, Preview-only, branch-locked, protection-bypass-gated, synthetic-data-only, and zero-write;
+- discover the exact READY Preview deployment for the PR head SHA;
+- call the probe through authenticated `vercel curl`, which handles Deployment Protection;
+- persist only safe status/model/request diagnostics, never the secret or prompt content;
+- continue to require `KK_OPENAI_ALLOW_CUSTOMER_DATA` to remain disabled.
+
+If Vercel has not created an exact READY Preview for the current head, acceptance reports `BLOCKED_PREVIEW_DEPLOYMENT_REQUIRED` instead of rotating the OpenAI key again.
