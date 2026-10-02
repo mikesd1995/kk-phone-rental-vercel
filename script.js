@@ -83,6 +83,11 @@ var I18N = {
     brand_subtitle:"Phone & Lens Rental Service",
     hero_body:"เช่า vivo X300 Pro + Lens สำหรับคอนเสิร์ตและแฟนมีต — เลือกงาน เช็กคิว แล้วรับเครื่องหน้างาน",
     hero_cta:"ดูงานที่เปิดจอง",
+    hero_secondary:"วิธีการเช่า",
+    benefit_insurance:"ฟรีประกันเครื่อง · ไม่ต้องวางมัดจำ",
+    benefit_onsite:"รับ–คืนหน้างาน · สอนใช้ก่อนเข้างาน",
+    benefit_drive:"เก็บไฟล์ฟรีบน Google Drive 30 วัน",
+    benefit_discount:"ลูกค้าใหม่ลด 40 · ลูกค้าเก่ามีรีวิวลด 100",
     proof_deposit_title:"ไม่วางมัดจำ", proof_deposit_body:"พร้อมประกันเครื่องฟรี",
     proof_onsite_title:"หน้างาน", proof_onsite_body:"รับ–คืน + สอนใช้",
     proof_drive_title:"30 วัน", proof_drive_body:"เก็บไฟล์บน Drive",
@@ -211,6 +216,11 @@ var I18N = {
     brand_subtitle:"Phone & Lens Rental Service",
     hero_body:"Rent a vivo X300 Pro + Lens for concerts and fan meetings — choose an event, check availability, and pick up at the venue.",
     hero_cta:"Browse open events",
+    hero_secondary:"How it works",
+    benefit_insurance:"Free insurance · No deposit",
+    benefit_onsite:"Venue pickup/return · Setup help",
+    benefit_drive:"Free Google Drive storage · 30 days",
+    benefit_discount:"New customer −฿40 · Returning review −฿100",
     proof_deposit_title:"No deposit", proof_deposit_body:"Free device insurance",
     proof_onsite_title:"At the venue", proof_onsite_body:"Pickup, return + setup help",
     proof_drive_title:"30 days", proof_drive_body:"Drive file storage",
@@ -363,6 +373,11 @@ function applyStaticLanguage(){
   setText(".v3-brand-copy small","brand_subtitle");
   setText(".v3-hero-copy>p","hero_body");
   var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">→</span>';
+  setText(".v3-secondary","hero_secondary");
+  var benefits=document.querySelectorAll(".kk-benefit-grid>div>span:last-child");
+  ["benefit_insurance","benefit_onsite","benefit_drive","benefit_discount"].forEach(function(key,index){
+    if(benefits[index])benefits[index].textContent=tr(key);
+  });
   var proofItems=document.querySelectorAll(".v3-proof>div:not(.kk-proof-label)");
   if(proofItems[0]){var p0s=proofItems[0].querySelector("strong"),p0b=proofItems[0].querySelector("span");if(p0s)p0s.textContent=tr("proof_deposit_title");if(p0b)p0b.textContent=tr("proof_deposit_body");}
   if(proofItems[1]){var p1s=proofItems[1].querySelector("strong"),p1b=proofItems[1].querySelector("span");if(p1s)p1s.textContent=tr("proof_onsite_title");if(p1b)p1b.textContent=tr("proof_onsite_body");}
