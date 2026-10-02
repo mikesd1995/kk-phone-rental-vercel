@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V4';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V5';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -8,7 +8,7 @@ const CORPUS=Object.freeze([
   {case_id:'minmin-frozen-candy-20260930',title:'MINMIN x TeeTeePor - THE FROZEN CANDY LAND',aliases:['frozen candy land','minmin teeteepor','teetee por frozen candy'],event_date:'2026-09-30'},
   {case_id:'sport-day-after-match-20261001',title:'SPORT DAY AFTER MATCH with TEETEE-POR',aliases:['sport day after match','teetee por sport day'],event_date:'2026-10-01'},
   {case_id:'you-maniac-blind-date-20261003',title:'YOU MANIAC BLIND DATE',aliases:['you maniac blind date','youmaniacseries','you maniac series'],event_date:'2026-10-03'},
-  {case_id:'bai-lu-meet-love-20261025',title:'MEET & LOVE BAI LU SPECIAL FANMEETING',aliases:['meet love bai lu','bai lu special fanmeeting','bailu wespark','bai lu wespark'],event_date:'2026-10-25'},
+  {case_id:'bai-lu-meet-love-20261025',title:'MEET & LOVE BAI LU SPECIAL FANMEETING',aliases:['meet love bai lu','bai lu special fanmeeting','bailu wespark','bai lu wespark','bailu personal fan meeting bangkok','bailu fan meeting bangkok'],event_date:'2026-10-25'},
   {case_id:'tutoryim-updated-20261018',title:'TUTOR YIM',aliases:['tutor yim','tutoryim','ปล่อยปลาฉลาม'],event_date:'2026-10-18'},
   {case_id:'scoopify-james-su-20261024',title:'SCOOPIFY YOGURT & YOU WITH JAMES SU',aliases:['scoopify yogurt you james su','james su scoopify','yogurt you james su','scoopifyyogurtandjamessu','summervibeth james su'],search_queries:['SCOOPIFYYogurtAndJamesSu SummerVibeTH','SCOOPIFY James Su SummerVibeTH'],event_date:'2026-10-24'},
   {case_id:'tle-firstone-20261022',title:'A TOUCH OF LOVE WITH TLE-FIRSTONE',aliases:['touch of love tle firstone','tle firstone','tle-firstone','everpink a touch of love tlefirstone','everpinkxtlefirstone'],search_queries:['EVERPINKxTleFirstone','EVERPINK A Touch of Love TleFirstone'],event_date:'2026-10-22'},
