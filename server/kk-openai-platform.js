@@ -113,6 +113,13 @@ async function callStructured(request={},options={}){
   if(!cfg.enabled) return safety('DISABLED_OPENAI_PLATFORM',{agent,model:modelFor(agent,env)});
   if(agent==='inbox'&&!cfg.allow_customer_data) return safety('BLOCKED_CUSTOMER_DATA_NOT_AUTHORIZED',{agent,model:modelFor(agent,env)});
   if(!cfg.api_key_present) return safety('BLOCKED_OPENAI_CONFIG',{agent,model:modelFor(agent,env),blocker:'OPENAI_API_KEY_MISSING'});
+  const keyShape=apiKeyDiagnostics(env.OPENAI_API_KEY);
+  if(!keyShape.starts_with_sk || !keyShape.ascii_token_charset || keyShape.normalized_length<20){
+    return safety('BLOCKED_OPENAI_CONFIG',{
+      agent,model:modelFor(agent,env),blocker:'OPENAI_API_KEY_SHAPE_INVALID',
+      api_key_diagnostics:keyShape
+    });
+  }
 
   const fetchImpl=options.fetchImpl||global.fetch;
   if(typeof fetchImpl!=='function') return safety('BLOCKED_OPENAI_RUNTIME',{agent,blocker:'FETCH_UNAVAILABLE'});
