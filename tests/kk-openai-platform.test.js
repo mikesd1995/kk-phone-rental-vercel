@@ -142,11 +142,27 @@ test('model routing defaults to cost-aware Luna for discovery/inbox and Sol for 
 test('OpenAI agents are registered as callable zero-write gateway routes',async()=>{
   const audit=Registry.runtimeProofAudit();
   assert.equal(audit.pass,true);
-  assert.deepEqual(Registry.routeForIntent('storefront_ai_review').required_agents,['kk-openai-storefront-reviewer']);
+  assert.equal(Registry.routeForIntent('storefront_ai_review').required_agents.length,8);
+  assert.ok(Registry.routeForIntent('storefront_ai_review').required_agents.includes('kk-openai-storefront-reviewer'));
+  assert.ok(Registry.routeForIntent('storefront_ai_review').required_agents.includes('kk-storefront-visual-critic'));
   assert.deepEqual(Registry.routeForIntent('ultra_deep_ai_reasoning').downstream_agents,['kk-event-verifier']);
   assert.equal(Registry.routeForIntent('unified_inbox_ai_draft').owner_review_required,true);
   const disabled=await Router.executeTask('storefront_ai_review',{target:'test'},{env:{},fetchImpl:async()=>{throw new Error('no network');}});
-  assert.deepEqual(disabled.invoked_agents,['kk-openai-storefront-reviewer']);
+  assert.equal(disabled.invoked_agents.length,8);
+  assert.ok(disabled.invoked_agents.includes('kk-openai-storefront-reviewer'));
   assert.equal(disabled.result.status,'DISABLED_OPENAI_PLATFORM');
+  assert.equal(disabled.result.ai_review.status,'DISABLED_OPENAI_PLATFORM');
+  assert.equal(disabled.result.deterministic_council.reviews.length,7);
   assert.equal(disabled.result.production_writes,0);
+});
+
+
+test('Ultra Deep AI route always carries deterministic gap planning and stays verifier-gated',async()=>{
+  const out=await Router.executeTask('ultra_deep_ai_reasoning',{observations:[]},{env:{},fetchImpl:async()=>{throw new Error('no network');}});
+  assert.deepEqual(out.invoked_agents,['kk-discovery-source-watch','kk-discovery-scanner','kk-openai-discovery-reasoner']);
+  assert.equal(out.result.deterministic_plan.status,'SEARCH_GAPS_REQUIRED');
+  assert.equal(out.result.ai_reasoning.status,'DISABLED_OPENAI_PLATFORM');
+  assert.equal(out.result.authoritative,false);
+  assert.equal(out.result.verifier_required,true);
+  assert.equal(out.result.production_writes,0);
 });
