@@ -164,3 +164,11 @@ test('poster exhaustion renders an exact-event summary fallback instead of a gen
   assert.match(source,/meta\.textContent=\[String\(c\.date\|\|""\).*String\(c\.venue\|\|""\)/s);
   assert.doesNotMatch(source,/storefrontPosterOverride\(c\).*posterFailure/);
 });
+
+test('KHOM KHLANG keeps a public owner copy as fallback behind the private canonical Drive poster',()=>{
+  assert.match(source,/dateKey==="2026-10-05"/);
+  assert.match(source,/name\.indexOf\("khom khlang"\)>=0/);
+  assert.match(source,/1f995RLhvIO-aSJb6Hu12lg8BBUgmMAYC/);
+  assert.match(source,/canonical sheet poster points to an[\s\S]*owner-private Drive file/);
+});
+

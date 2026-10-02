@@ -640,6 +640,13 @@ function storefrontPosterOverride(row){
   if(dateKey==="2026-09-30" && (name.indexOf("min min")>=0 || name.indexOf("minmin")>=0) && name.indexOf("teeteepor")>=0){
     return "/assets/event-posters/minmin-teeteepor-frozen-candy-land-2026-09-30.jpg";
   }
+  // KHOM KHLANG Special Episode 5: the canonical sheet poster points to an
+  // owner-private Drive file, so unauthenticated storefront clients cannot render it.
+  // Keep canonical SOT first and retain this publicly-readable owner copy only as the
+  // exact-event delivery fallback.
+  if(dateKey==="2026-10-05" && name.indexOf("khom khlang")>=0 && name.indexOf("special")>=0 && (name.indexOf("episode 5")>=0 || name.indexOf("ep.5")>=0 || name.indexOf("ep5")>=0)){
+    return "https://lh3.googleusercontent.com/d/1f995RLhvIO-aSJb6Hu12lg8BBUgmMAYC=w900";
+  }
   // 2026-09-28 missing-poster recovery. These rows are live/bookable in 08_Web_Ready
   // but currently have a blank poster_image_url. Exact-event sources were verified
   // before adding these bounded storefront overrides.
