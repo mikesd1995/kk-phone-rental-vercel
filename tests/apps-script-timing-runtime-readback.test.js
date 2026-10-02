@@ -53,6 +53,12 @@ test('timing readback infers UTC+07 from live-format generated_at without mutati
             frontend_sheet_id:'sheet-123',
             frontend_backend_same_sheet:true,
             admin_api_version:handler._test.EXPECTED_APPS_SCRIPT_VERSION,
+            project_timezone:'Asia/Bangkok',
+            installed_trigger_count:1,
+            installed_triggers:[{handler_function:'kkCleanupOldData30DaysAuto',event_type:'CLOCK',trigger_source:'CLOCK'}],
+            cleanup_trigger_present:true,
+            cleanup_trigger_count:1,
+            cleanup_trigger_schedule:'UNVERIFIED_BY_TRIGGER_API',
             generated_at:'2026-09-27T04:30:01'
           }
         })
@@ -66,9 +72,12 @@ test('timing readback infers UTC+07 from live-format generated_at without mutati
   assert.equal(report.admin_api_version,handler._test.EXPECTED_APPS_SCRIPT_VERSION);
   assert.equal(report.admin_api_version_verified,true);
   assert.equal(report.source_equivalence,'UNVERIFIED');
-  assert.equal(report.named_project_timezone,'UNVERIFIED');
-  assert.equal(report.installed_triggers,'UNVERIFIED');
-  assert.equal(report.cleanup_trigger,'UNVERIFIED');
+  assert.equal(report.named_project_timezone,'Asia/Bangkok');
+  assert.equal(report.installed_triggers,'VERIFIED_READBACK');
+  assert.equal(report.installed_trigger_count,1);
+  assert.equal(report.cleanup_trigger,'VERIFIED_PRESENT_SCHEDULE_UNVERIFIED');
+  assert.equal(report.cleanup_trigger_count,1);
+  assert.equal(report.cleanup_trigger_schedule,'UNVERIFIED_BY_TRIGGER_API');
   assert.deepEqual(report.safety,{
     read_only:true,apps_script_writes:0,sheet_business_writes:0,trigger_mutations:0,timezone_mutations:0,secrets_exposed:false
   });
@@ -94,6 +103,12 @@ test('timing endpoint is the only public GET mode and remains secret-safe',async
             frontend_sheet_id:'sheet-live',
             frontend_backend_same_sheet:true,
             admin_api_version:handler._test.EXPECTED_APPS_SCRIPT_VERSION,
+            project_timezone:'Asia/Bangkok',
+            installed_trigger_count:1,
+            installed_triggers:[{handler_function:'kkCleanupOldData30DaysAuto',event_type:'CLOCK',trigger_source:'CLOCK'}],
+            cleanup_trigger_present:true,
+            cleanup_trigger_count:1,
+            cleanup_trigger_schedule:'UNVERIFIED_BY_TRIGGER_API',
             generated_at:new Date(Date.now()+7*60*60*1000).toISOString().slice(0,19)
           }
         })
@@ -111,8 +126,10 @@ test('timing endpoint is the only public GET mode and remains secret-safe',async
     assert.equal(out.data.backend_sheet_identity_verified,true);
     assert.equal(out.data.admin_api_version_verified,true);
     assert.equal(out.data.source_equivalence,'UNVERIFIED');
-    assert.equal(out.data.named_project_timezone,'UNVERIFIED');
-    assert.equal(out.data.installed_triggers,'UNVERIFIED');
+    assert.equal(out.data.named_project_timezone,'Asia/Bangkok');
+    assert.equal(out.data.installed_triggers,'VERIFIED_READBACK');
+    assert.equal(out.data.installed_trigger_count,1);
+    assert.equal(out.data.cleanup_trigger,'VERIFIED_PRESENT_SCHEDULE_UNVERIFIED');
     assert.equal(calls,1);
     const serialized=JSON.stringify(out);
     assert.doesNotMatch(serialized,/secret-key|live123|sheet-live|script\.google\.com/);
@@ -183,5 +200,33 @@ test('transient Apps Script health failures use a short anti-hammer cache window
   assert.equal(handler._test.timingCacheTtl({status:'READBACK_COMPLETE'}),5*60*1000);
   assert.equal(handler._test.timingCacheTtl({status:'READBACK_BLOCKED'}),30*1000);
   assert.ok(handler._test.APPS_SCRIPT_TIMING_FAILURE_CACHE_TTL_MS < handler._test.APPS_SCRIPT_TIMING_CACHE_TTL_MS);
+});
+
+test('canonical phase1 health authority diagnostics are read-only and never claim trigger schedule',()=>{
+  const source=fs.readFileSync('apps-script/Code.gs','utf8');
+  const start=source.indexOf('function kkProjectAuthorityDiagnostics_()');
+  const end=source.indexOf('\nfunction kkPhase1Diagnostics_',start);
+  assert.ok(start>=0&&end>start);
+  const fn=source.slice(start,end);
+  assert.match(fn,/Session\.getScriptTimeZone\(\)/);
+  assert.match(fn,/ScriptApp\.getProjectTriggers\(\)/);
+  assert.match(fn,/cleanup_trigger_schedule: 'UNVERIFIED_BY_TRIGGER_API'/);
+  assert.doesNotMatch(fn,/newTrigger|deleteTrigger|setProperty|setValues|appendRow/);
+});
+
+test('authority fields remain fail-closed when deployed 9.5.9 does not expose them',async()=>{
+  const t=Date.parse('2026-10-02T15:00:00Z');
+  let n=0;
+  const report=await handler._test.appsScriptTimingReadback({
+    env:{KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/deploy/exec',KK_ADMIN_API_KEY:'secret',GOOGLE_SHEET_ID:'sheet'},
+    now:()=>t+(n++?1000:0),
+    fetchImpl:async()=>({ok:true,status:200,text:async()=>JSON.stringify({ok:true,data:{
+      spreadsheet_id:'sheet',frontend_backend_same_sheet:true,admin_api_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX',generated_at:'2026-10-02T22:00:00'
+    }})})
+  });
+  assert.equal(report.named_project_timezone,'UNVERIFIED');
+  assert.equal(report.installed_triggers,'UNVERIFIED');
+  assert.equal(report.cleanup_trigger,'UNVERIFIED');
+  assert.equal(report.source_equivalence,'UNVERIFIED');
 });
 
