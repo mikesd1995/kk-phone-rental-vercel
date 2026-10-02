@@ -5,11 +5,11 @@
   "baseline_comparison_pass": true,
   "baseline": "production-v3",
   "reviewed_design_blobs": {
-    "index_html": "7f883b19e6b4d80daaa1b0c92e01b7cada6dd70f",
+    "index_html": "b9f4787ae80b1ea156e068d44a0d5f2e205258e5",
     "v5_css": "174e6df2f0c5e00e781a0137749b3297b949a08c",
     "script_js": "f21052721733f2309b9ecf9becdc105863df0b86"
   },
-  "screenshot_artifact_id": "11188607613",
+  "screenshot_artifact_id": "11203498265",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -70,6 +70,11 @@
       "artifact_id": "11188607613",
       "status": "PASS",
       "finding": "V6.0.2 corrective screenshot review after owner rejection: mobile hero removed, catalogue appears immediately after search/filter, active filter label restored, poster-first light editorial hierarchy inspected at 390x844, and technical QA reports score 100/P0=0/P1=0 across target viewports."
+    },
+    {
+      "artifact_id": "11203498265",
+      "status": "PASS",
+      "finding": "V6 production-cleanup exact-head screenshots: score 100, P0/P1=0 and no blockers across 320/375/390/430/480/768/1024. Mobile hero remains height 0; change removes only rejected hidden V5 source residue and leaves accepted V6 mobile composition unchanged."
     }
   ],
   "reviewed_viewports": [
@@ -91,10 +96,10 @@
   "production_writes": 0,
   "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "caacc304d23f5361a86fa35f005f6ca949c98649",
+  "reviewed_design_head": "5686d988d77df9314f44bf639e8c58e865a5deab",
   "owner_acceptance_evidence": {
     "accepted_at": "2026-10-02",
-    "artifact_id": "11188607613",
-    "statement": "Owner explicitly instructed the rejected production design to be comprehensively corrected, completed, documented, and deployed without repeated clarification. This record binds acceptance to the inspected V6.0.2 corrective artifact, not the rejected V5.9 screenshots."
+    "artifact_id": "11203498265",
+    "statement": "Production cleanup was explicitly requested to be completed without repeated clarification. Exact-head screenshot evidence confirms the accepted V6 mobile composition is unchanged while rejected V5 hero source residue is removed."
   }
 }
