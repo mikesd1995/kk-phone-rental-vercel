@@ -48,3 +48,15 @@ test('Edit Booking help text explains date ordering and final-status exclusion',
 test('Edit Booking Admin JS uses a dedicated cache key',()=>{
   assert.match(html,/admin\.js\?v=bulk-event-price-edit-20260927/);
 });
+
+
+test('Edit Booking preserves the selected booking by booking_id across row shifts',()=>{
+  const start=js.indexOf('function populateBookingEditForm()');
+  const end=js.indexOf('function directPhase1ActionAvailable',start);
+  const block=js.slice(start,end);
+  assert.match(block,/currentId=String\(state\.editBookingId\|\|""\)/);
+  assert.match(block,/String\(b\.booking_id\|\|""\)\.trim\(\)===currentId/);
+  assert.match(block,/state\.editBookingId=b \? String\(b\.booking_id\|\|""\)\.trim\(\) : ""/);
+  assert.match(js,/function findBookingByIdentity\(identity\)/);
+  assert.match(js,/id:b\.booking_id\|\|b\.row_number/);
+});
