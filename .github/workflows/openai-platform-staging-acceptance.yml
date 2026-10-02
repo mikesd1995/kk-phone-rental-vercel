@@ -91,6 +91,8 @@ jobs:
           const rows=Array.isArray(report.results)?report.results:[];
           if(rows.length!==3) throw new Error('ZERO_COST_ACCEPTANCE_ROWS_MISSING');
           if(rows.some(row=>Number(row.production_writes)!==0)) throw new Error('PRODUCTION_WRITES_NONZERO');
+          if(rows[0].status!=='DETERMINISTIC_READY') throw new Error('STOREFRONT_DETERMINISTIC_PATH_NOT_READY');
+          if(!['SEARCH_GAPS_REQUIRED','COVERAGE_COMPLETE'].includes(rows[1].status)) throw new Error('DISCOVERY_DETERMINISTIC_PATH_NOT_READY');
           if(rows[0].ai_status!=='DISABLED_ZERO_COST_POLICY') throw new Error('STOREFRONT_PAID_AI_NOT_DISABLED');
           if(rows[1].ai_status!=='DISABLED_ZERO_COST_POLICY') throw new Error('DISCOVERY_PAID_AI_NOT_DISABLED');
           if(rows[2].ai_status!=='SKIPPED_CUSTOMER_DATA_GATE') throw new Error('INBOX_CUSTOMER_DATA_GATE_NOT_DISABLED');
