@@ -135,6 +135,28 @@ test('guard accepts a valid signed Admin session without relying on PIN header i
   assert.equal(JSON.parse(out.body).error_code,'BOOKING_COLLISION');
 });
 
+test('signed Admin session is forwarded to the legacy writer with server-only credentials',async t=>{
+  withEnv(t); withDirectSnapshot(t);
+  process.env.KK_ADMIN_SESSION_SECRET='guard-forward-secret';
+  const token=AdminSecurity._test.issueToken();
+  const oldFetch=global.fetch; let calls=0;
+  global.fetch=async(_url,options)=>{
+    calls++;
+    const body=JSON.parse(options.body);
+    assert.equal(body.action,'createBooking');
+    assert.equal(body.apiKey,'key');
+    return response({ok:true,row_number:99,booking_id:'BK-NEW',phone_asset_id:'PHONE-001',admin_api_version:'v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX'});
+  };
+  t.after(()=>{global.fetch=oldFetch;});
+  const r=Readable.from([JSON.stringify({action:'createBooking',event_id:'E-2026-09-20',template_id:'TPL-PHONE',booking_status:'confirmed',customer_name:'X',pickup_time:'08:00',phone_asset_id:'PHONE-001'})]);
+  r.method='POST'; r.url='/api/kk-admin'; r.headers={cookie:AdminSecurity.COOKIE_NAME+'='+token,'x-admin-pin':'__SESSION__'};
+  const out=res();
+  await Guard(r,out);
+  assert.equal(out.statusCode,200);
+  assert.equal(JSON.parse(out.body).ok,true);
+  assert.equal(calls,1);
+});
+
 test('server wrapper rejects invalid createBooking pickup_time before any upstream call',async t=>{
   withEnv(t); withDirectSnapshot(t); const oldFetch=global.fetch; let calls=0;
   global.fetch=async()=>{calls++; throw new Error('should not fetch');};
