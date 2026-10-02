@@ -197,3 +197,17 @@ test('runtime audit failure blocks acceptance of current main',()=>{
   assert.equal(result.state,'PRODUCTION_RUNTIME_AUDIT_FAILED');
   assert.equal(result.severity,'error');
 });
+
+
+test('cross-feed integrity rejects duplicate identities and orphan packages',()=>{
+  const goodEvents='event_id,event_name\\nEVT-1,A\\nEVT-2,B';
+  const goodPkgs='package_id,event_id,available_count\\nPKG-1,EVT-1,2\\nPKG-2,EVT-2,1';
+  assert.equal(Watch.crossFeedIntegrity(goodEvents,goodPkgs).ok,true);
+  const badEvents='event_id,event_name\\nEVT-1,A\\nEVT-1,A duplicate';
+  const badPkgs='package_id,event_id,available_count\\nPKG-1,EVT-1,2\\nPKG-1,EVT-MISSING,1';
+  const bad=Watch.crossFeedIntegrity(badEvents,badPkgs);
+  assert.equal(bad.ok,false);
+  assert.deepEqual(bad.duplicate_event_ids,['EVT-1']);
+  assert.deepEqual(bad.duplicate_package_ids,['PKG-1']);
+  assert.deepEqual(bad.orphan_package_ids,['PKG-1']);
+});
