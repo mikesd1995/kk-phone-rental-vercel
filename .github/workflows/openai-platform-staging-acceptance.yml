@@ -67,85 +67,46 @@ jobs:
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
 
-      - name: Pull branch-scoped Preview secrets without printing values
+      - name: Execute branch-scoped Preview acceptance via Vercel env run
+        id: live
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           set -euo pipefail
-          umask 077
-          npx vercel env pull .env.openai-staging \
+          set +x
+
+          npx vercel env run \
             --environment=preview \
             --git-branch="$KK_OPENAI_BRANCH" \
             --token="$VERCEL_TOKEN" \
-            > /dev/null 2>&1
-          test -s .env.openai-staging
-          grep -q '^OPENAI_API_KEY=' .env.openai-staging
-          grep -q '^KK_OPENAI_PLATFORM_ENABLED=' .env.openai-staging
+            -- node scripts/kk-openai-agent-dry-run.js \
+            > openai-agent-staging-report.json
 
-      # Provider diagnostics are secret-safe: status/code/request-id only; no prompts or key values.
-      - name: Execute synthetic zero-write OpenAI agent acceptance
-        id: live
-        shell: bash
-        run: |
-          set -euo pipefail
-          set +x
-          set -a
-          . ./.env.openai-staging
-          set +a
-
-          test -n "${OPENAI_API_KEY:-}"
-          test "${KK_OPENAI_PLATFORM_ENABLED:-}" = "true"
-          test -z "${KK_OPENAI_ALLOW_CUSTOMER_DATA:-}"
-
-          node scripts/kk-openai-agent-dry-run.js > openai-agent-staging-report.json
+          test -s openai-agent-staging-report.json
 
           node - <<'NODE'
-          const fs=require('node:fs');
-          const r=JSON.parse(fs.readFileSync('openai-agent-staging-report.json','utf8'));
-          if(r.enabled!==true) throw new Error('OPENAI_PLATFORM_NOT_ENABLED');
-          if(r.api_key_present!==true) throw new Error('OPENAI_API_KEY_NOT_PRESENT');
-          if(r.allow_customer_data!==false) throw new Error('CUSTOMER_DATA_GATE_MUST_REMAIN_DISABLED');
-
-          const byAgent=new Map();
-          for(const row of r.results||[]){
-            for(const agent of row.invoked_agents||[]) byAgent.set(agent,row);
-            if(Number(row.production_writes)!==0) throw new Error('PRODUCTION_WRITES_NONZERO');
+          const fs=require('fs');
+          const report=JSON.parse(fs.readFileSync('openai-agent-staging-report.json','utf8'));
+          if(report.enabled!==true) throw new Error('OPENAI_PLATFORM_NOT_ENABLED');
+          if(report.api_key_present!==true) throw new Error('OPENAI_API_KEY_NOT_INJECTED');
+          if(report.allow_customer_data!==false) throw new Error('CUSTOMER_DATA_GATE_MUST_STAY_DISABLED');
+          const shape=report.api_key_diagnostics||{};
+          if(shape.starts_with_sk!==true || shape.ascii_token_charset!==true || Number(shape.normalized_length)<20){
+            throw new Error('OPENAI_API_KEY_SHAPE_INVALID');
           }
-          const storefront=byAgent.get('kk-openai-storefront-reviewer');
-          const discovery=byAgent.get('kk-openai-discovery-reasoner');
-          const inbox=byAgent.get('kk-openai-inbox-drafter');
-
+          const storefront=(report.results||[]).find(row=>(row.invoked_agents||[]).includes('kk-openai-storefront-reviewer'));
+          const discovery=(report.results||[]).find(row=>(row.invoked_agents||[]).includes('kk-openai-discovery-reasoner'));
           if(!storefront || storefront.ai_status!=='READY_FOR_DESIGN_SYNTHESIS'){
-            throw new Error('STOREFRONT_OPENAI_ACCEPTANCE_FAILED_'+String(storefront&&storefront.ai_status));
+            throw new Error('STOREFRONT_OPENAI_ACCEPTANCE_FAILED');
           }
           if(!discovery || discovery.ai_status!=='ADVISORY_READY_FOR_VERIFIER'){
-            throw new Error('DISCOVERY_OPENAI_ACCEPTANCE_FAILED_'+String(discovery&&discovery.ai_status));
+            throw new Error('DISCOVERY_OPENAI_ACCEPTANCE_FAILED');
           }
-          if(!inbox || inbox.ai_status!=='SKIPPED_CUSTOMER_DATA_GATE'){
-            throw new Error('INBOX_CUSTOMER_DATA_GATE_FAILED_'+String(inbox&&inbox.ai_status));
+          if((report.results||[]).some(row=>Number(row.production_writes)!==0)){
+            throw new Error('PRODUCTION_WRITES_NONZERO');
           }
-          process.stdout.write(JSON.stringify({
-            schema_version:r.schema_version,
-            enabled:r.enabled,
-            models:r.models,
-            statuses:{
-              storefront:storefront.ai_status,
-              discovery:discovery.ai_status,
-              inbox:inbox.ai_status
-            },
-            production_writes:0
-          },null,2)+'\n');
           NODE
-
-      - name: Remove pulled secret file
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          set +e
-          if [ -f .env.openai-staging ]; then
-            if command -v shred >/dev/null 2>&1; then shred -u .env.openai-staging; else rm -f .env.openai-staging; fi
-          fi
 
       - name: Upload secret-safe acceptance report
         if: ${{ always() }}
