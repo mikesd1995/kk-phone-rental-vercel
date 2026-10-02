@@ -87,41 +87,6 @@ function compactNonJsonError(text, contentType, urlHost) {
   return UpstreamResponse.classifyNonJsonResponse(text, contentType, urlHost).message;
 }
 
-async function callAppsScript(scriptUrl, upstreamPayload, timeoutMs, action) {
-  const startedAt=Date.now();
-  const maxAttempts=isReadOnlyAction(action)?1:2;
-  let last=null;
-  for(let attempt=1;attempt<=maxAttempts;attempt++){
-    const upstream=await fetchWithTimeout(scriptUrl,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(upstreamPayload)
-    },timeoutMs);
-    const contentType=upstream.headers.get("content-type")||"";
-    const text=await upstream.text();
-    let data;
-    let failure=null;
-    try{ data=JSON.parse(text); }
-    catch(_){
-      failure=UpstreamResponse.classifyNonJsonResponse(text,contentType,safeUrlHost(scriptUrl),upstream.status);
-      console.warn("KK_ADMIN_UPSTREAM_PROTOCOL",JSON.stringify(UpstreamResponse.safeProtocolLog({
-        code:failure.code,status:upstream.status,content_type:contentType,host:safeUrlHost(scriptUrl),action
-      })));
-      data={ok:false,error:failure.message,error_code:"UPSTREAM_NON_JSON",upstream_failure_class:failure.code,upstream_status:upstream.status};
-    }
-    last={upstream,data,elapsed_ms:Date.now()-startedAt,attempts:attempt,failure};
-    const safeRetry=attempt===1 && maxAttempts>1 && Number(upstream.status)===404 &&
-      failure && failure.code==="APPS_SCRIPT_DEPLOYMENT_NOT_FOUND";
-    if(!safeRetry) return last;
-    console.warn("KK_ADMIN_SAFE_RETRY",JSON.stringify({
-      action:String(action||""),request_id:String(upstreamPayload&&upstreamPayload.request_id||""),
-      reason:failure.code,attempt
-    }));
-    await new Promise(resolve=>setTimeout(resolve,400));
-  }
-  return last;
-}
-
 function gvizCsvUrl(sheetId, sheet, range) {
   const params = new URLSearchParams({ tqx: "out:csv", sheet, range, t: String(Date.now()) });
   return "https://docs.google.com/spreadsheets/d/" + encodeURIComponent(sheetId) + "/gviz/tq?" + params.toString();
@@ -438,10 +403,35 @@ module.exports = async function handler(req, res) {
       sheetIdSource
     });
     const actionTimeoutMs = timeoutForAction(payload.action);
-    const call = await callAppsScript(scriptUrl, upstreamPayload, actionTimeoutMs, payload.action);
-    const upstream = call.upstream;
-    const data = call.data;
-    const upstreamElapsedMs = call.elapsed_ms;
+    const upstreamStartedAt = Date.now();
+    const upstream = await fetchWithTimeout(scriptUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(upstreamPayload),
+    }, actionTimeoutMs);
+    const upstreamElapsedMs = Date.now() - upstreamStartedAt;
+
+    const contentType = upstream.headers.get("content-type") || "";
+    const text = await upstream.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch (_) {
+      const failure = UpstreamResponse.classifyNonJsonResponse(text, contentType, safeUrlHost(scriptUrl), upstream.status);
+      console.warn("KK_ADMIN_UPSTREAM_PROTOCOL", JSON.stringify(UpstreamResponse.safeProtocolLog({
+        code: failure.code,
+        status: upstream.status,
+        content_type: contentType,
+        host: safeUrlHost(scriptUrl),
+        action: payload.action
+      })));
+      data = {
+        ok: false,
+        error: failure.message,
+        error_code: "UPSTREAM_NON_JSON",
+        upstream_failure_class: failure.code,
+        upstream_status: upstream.status
+      };
+    }
 
     if (["snapshot", "snapshotHealth"].includes(payload.action)) {
       const health = SnapshotHealth.assess(data && data.ok && upstream.ok ? data.data : null);
@@ -477,7 +467,6 @@ module.exports = async function handler(req, res) {
         data.write_transport = data.write_transport || 'legacy-apps-script';
         data.request_id = data.request_id || String(payload.request_id || '');
         data.mutation_outcome = data.ok && upstream.ok ? 'confirmed-response' : 'rejected-response';
-        data.upstream_attempts = Number(call.attempts||1);
       }
     }
 
