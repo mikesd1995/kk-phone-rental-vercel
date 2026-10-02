@@ -464,14 +464,22 @@ module.exports = async function handler(req, res) {
       data.proxy_upstream_ms = upstreamElapsedMs;
       data.proxy_timeout_ms = actionTimeoutMs;
       if (!isReadOnlyAction(payload.action)) {
+        const confirmed = !!(data.ok && upstream.ok);
+        const explicitBusinessReject = !!(upstream.ok && data.ok === false && !data.upstream_failure_class);
+        const uncertain = !confirmed && !explicitBusinessReject;
         data.write_transport = data.write_transport || 'legacy-apps-script';
         data.request_id = data.request_id || String(payload.request_id || '');
-        data.mutation_outcome = data.ok && upstream.ok ? 'confirmed-response' : 'rejected-response';
+        data.mutation_outcome = confirmed ? 'confirmed-response' : (uncertain ? 'uncertain-response' : 'rejected-response');
+        data.mutation_outcome_uncertain = uncertain;
+        data.mutation_may_have_committed = uncertain;
       }
     }
 
     if (!isReadOnlyAction(payload.action)) {
-      logMutation(data && data.ok && upstream.ok ? 'completed' : 'rejected', {
+      const confirmed = !!(data && data.ok && upstream.ok);
+      const explicitBusinessReject = !!(upstream.ok && data && data.ok === false && !data.upstream_failure_class);
+      const uncertain = !confirmed && !explicitBusinessReject;
+      logMutation(confirmed ? 'completed' : (uncertain ? 'uncertain' : 'rejected'), {
         action: String(payload.action || ''),
         request_id: String(payload.request_id || ''),
         transport: 'legacy-apps-script',
@@ -479,7 +487,7 @@ module.exports = async function handler(req, res) {
         status: Number(upstream.status || 0),
         error_code: String(data && data.error_code || (data && data.ok === false ? 'UPSTREAM_BUSINESS_REJECTED' : '')),
         error: data && data.ok === false ? String(data.error || '').slice(0, 240) : '',
-        uncertain_outcome: false
+        uncertain_outcome: uncertain
       });
     }
 
