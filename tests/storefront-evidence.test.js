@@ -20,6 +20,45 @@ test('image cache reuses only same-URL successfully delivered image bytes, never
   assert.equal(cache.evidence()[0].sha256,E.hash(body));
 });
 
+
+test('card column geometry counts horizontal lanes even when card tops are staggered',()=>{
+  const two=E.cardColumnGeometry([
+    {left:16.00,top:420,width:216.0},
+    {left:248.02,top:426.5,width:216.0},
+    {left:16.35,top:690,width:216.1},
+    {left:247.70,top:701,width:215.9}
+  ]);
+  assert.equal(two.card_columns,2);
+  assert.equal(two.column_widths.length,2);
+  assert.ok(Math.abs(two.column_widths[0]-two.column_widths[1])<1);
+
+  const one=E.cardColumnGeometry([
+    {left:12,top:300,width:296},
+    {left:12.4,top:610,width:296},
+    {left:11.8,top:925,width:296}
+  ]);
+  assert.equal(one.card_columns,1);
+
+  const three=E.cardColumnGeometry([
+    {left:20,top:300,width:180},
+    {left:216,top:301,width:180},
+    {left:412,top:307,width:180}
+  ]);
+  assert.equal(three.card_columns,3);
+});
+
+test('card column geometry ignores invalid or zero-width rectangles',()=>{
+  const out=E.cardColumnGeometry([
+    null,
+    {left:10,width:0},
+    {left:Number.NaN,width:100},
+    {left:12,width:170},
+    {left:190,width:170}
+  ]);
+  assert.equal(out.card_columns,2);
+  assert.deepEqual(out.column_widths,[170,170]);
+});
+
 const healthy=()=>({document_width:390,raw_i18n_keys:[],small_targets:[],card_columns:2,column_widths:[176,176],escaped_card_elements:[],theme_icons:1,modal:null});
 test('rendered defects fail even when the document itself has no horizontal overflow',()=>{
   assert.deepEqual(E.stateFindings(healthy(),{width:390,name:'top'}),[]);
