@@ -83,7 +83,12 @@ async function inspectState(page){
       first_event_top:first?first.top+scrollY:null,visible_event_cards_above_fold:cards.filter(el=>{const r=el.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;}).length,
       small_targets:small,clipped_controls:clipped,overlapping_filters:overlappingFilters,theme_icons:[...document.querySelectorAll('.theme-toggle span')].filter(visible).length,
       modal:mb?{...mb,scroll_width:modal.scrollWidth,client_width:modal.clientWidth,viewport_height:innerHeight,focus_inside:modal.contains(document.activeElement),title:modal.querySelector('.modal-title')?.textContent||'',package_count:modal.querySelectorAll('.phone-row').length}:null,
-      failed_posters:cards.filter(el=>el.dataset.posterFailed==='1').length};
+      failed_posters:cards.filter(el=>el.dataset.posterFailed==='1').length,
+      failed_poster_details:cards.filter(el=>el.dataset.posterFailed==='1').map(el=>({
+        event_id:el.dataset.eventId||'',
+        event_name:el.dataset.eventName||'',
+        poster_source:el.dataset.posterSource||''
+      }))};
   });
 }
 function stateFindings(state,{width,name}){
@@ -93,6 +98,7 @@ function stateFindings(state,{width,name}){
   if(state.small_targets.length)add('PRIMARY_TARGET_TOO_SMALL',JSON.stringify(state.small_targets));
   if(state.clipped_controls?.length)add('CONTROL_CLIPPED',state.clipped_controls.join(', '));
   if(state.overlapping_filters)add('FILTER_TARGETS_OVERLAP',name);
+  if(state.failed_posters)add('POSTER_DELIVERY_FAILED',JSON.stringify(state.failed_poster_details||[]));
   if(!state.modal){
     if(state.card_columns!==(width<359?1:2))add('CARD_COLUMNS_CONTRACT',String(state.card_columns));
     if(Math.max(...state.column_widths)-Math.min(...state.column_widths)>1)add('CARD_COLUMNS_UNEQUAL',JSON.stringify(state.column_widths));
