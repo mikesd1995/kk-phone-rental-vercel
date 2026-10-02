@@ -138,6 +138,9 @@ test('analytics revenue split counts completed as actual and active bookings as 
   assert.equal(out.metrics.amount_received,3270);
   assert.equal(out.metrics.completed_bookings,1);
   assert.equal(out.metrics.active_bookings,2);
+  assert.equal(out.metrics.reportable_bookings,3);
+  assert.equal(out.metrics.non_cancelled_bookings,3);
   assert.equal(out.top_events.find(x=>x.event_name==='Cancelled event'),undefined);
-  assert.equal(out.top_events.find(x=>x.event_name==='No show event').forecast_revenue,0);
+  assert.equal(out.top_events.find(x=>x.event_name==='No show event'),undefined);
+  assert.equal(out.package_mix.reduce((sum,x)=>sum+x.bookings,0),3);
 });
