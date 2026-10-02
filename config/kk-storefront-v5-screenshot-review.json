@@ -6,10 +6,10 @@
   "baseline": "production-v3",
   "reviewed_design_blobs": {
     "index_html": "6d65b135e380650c9a85d9475ac9cd07c9f4cbf0",
-    "v5_css": "e75b17084ae38a288d3987ae396576ad292d64c6",
+    "v5_css": "d221bf119f69c882a69b2df6549999ee698f8353",
     "script_js": "66def8d16eeb5c50c8594360365c300e953c1ca9"
   },
-  "screenshot_artifact_id": "11204168750",
+  "screenshot_artifact_id": "11204454890",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -85,6 +85,11 @@
       "artifact_id": "11204168750",
       "status": "PASS",
       "finding": "V6.1 exact-design Visual QA: technical_visual_pass=true, interaction_pass=true, runtime_errors=[], production_writes=0 across required 320/375/390/430/480/768/1024 viewports. Conversion trust strip, CTA hierarchy and mobile contact placement are bound to the reviewed executable blobs."
+    },
+    {
+      "artifact_id": "11204454890",
+      "status": "PASS",
+      "finding": "V6.1.1 micro-detail exact-head audit: UX Reviewer and Visual Critic PASS across 320/375/390/430/480/768/1024; technical_visual_pass=true; interaction_pass=true; runtime_errors=[]; production_writes=0. Customer-facing KK catalogue index removed and dark active-filter foreground explicitly locked for WebKit/iOS."
     }
   ],
   "reviewed_viewports": [
@@ -106,10 +111,10 @@
   "production_writes": 0,
   "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "4fe07e9448b561dcfffac771748bdf4ff2c4cdea",
+  "reviewed_design_head": "803b59c7d769403ca66a4b6cee34d3a98f8705a0",
   "owner_acceptance_evidence": {
     "accepted_at": "2026-10-02",
-    "artifact_id": "11204168750",
-    "statement": "Owner requested completion of the V6.1 storefront refinement after reviewing the production design. Automated UX Reviewer and Visual Critic pass across required viewports; exact executable design blobs are recorded here before merge."
+    "artifact_id": "11204454890",
+    "statement": "Owner requested exhaustive storefront micro-detail cleanup. Exact-head artifact reviewed after the screenshot-reported KK index and dark selected-filter contrast defects were remediated; automated visual and interaction checks pass across required viewports."
   }
 }
