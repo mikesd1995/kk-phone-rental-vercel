@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
   issues: write
+  id-token: write
 
 concurrency:
   group: kk-x-posting-plan-${{ github.event.issue.number }}
