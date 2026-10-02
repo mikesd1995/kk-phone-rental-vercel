@@ -69,3 +69,40 @@ test('batch never upgrades failed source fetch to verified',async()=>{
   assert.deepEqual(out.holds[0].blockers,['SOURCE_FETCH_FAILED']);
   assert.equal(out.production_writes,0);
 });
+
+
+test('rejects aggregated search-result titles that previously leaked into storefront',()=>{
+  const title='The Mall Lifestore Bangkapi | Bangkok - FacebookTEETEE PHILIPPINES on X: TEETEE_SCHEDULE THE MALL Bangkok Post';
+  const pre=V.prefilter({
+    title,
+    event_date:'2026-10-18',
+    source_url:'https://www.facebook.com/themalllifestorebangkapi'
+  },'2026-10');
+  assert.equal(pre.eligible,false);
+  assert.ok(pre.reasons.includes('AGGREGATED_SEARCH_RESULT_TITLE'));
+});
+
+test('social page with event words venue and poster cannot authorize auto publish',()=>{
+  const body='<html><head><meta property="og:image" content="https://cdn.example/poster.jpg"></head><body>Artist Concert at MCC Hall</body></html>';
+  const out=V.verifyHtmlCandidate({
+    title:'Artist Concert',
+    event_date:'2026-10-18',
+    source_url:'https://www.facebook.com/example/posts/123'
+  },body,{month:'2026-10'});
+  assert.equal(out.verified,false);
+  assert.ok(out.blockers.includes('AUTHORITATIVE_EVENT_SOURCE_REQUIRED'));
+});
+
+test('structured exact event on non-social official page can authorize publish',()=>{
+  const body=`<html><head>
+  <script type="application/ld+json">
+  {"@type":"MusicEvent","name":"Artist Bangkok Concert","startDate":"2026-10-20","location":{"@type":"Place","name":"Union Hall"},"image":"https://official.example/poster.jpg"}
+  </script></head></html>`;
+  const out=V.verifyHtmlCandidate({
+    title:'Artist Bangkok Concert',
+    event_date:'2026-10-20',
+    source_url:'https://artist-official.example/events/bangkok-concert'
+  },body,{month:'2026-10'});
+  assert.equal(out.verified,true);
+  assert.equal(out.evidence.authoritative_event_source,true);
+});

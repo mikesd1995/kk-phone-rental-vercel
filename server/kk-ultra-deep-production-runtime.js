@@ -4,10 +4,51 @@ const AdminSheetFallback=require('./admin-sheet-fallback.js');
 const Orchestrator=require('./kk-ultra-deep-full-loop-orchestrator.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 const VisibilityGuard=require('./event-visibility-owner-guard.js');
+const CandidateVerifier=require('./kk-ultra-deep-candidate-verifier.js');
 
-const VERSION='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V1';
+const VERSION='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V2';
 const DEFAULT_SITE='https://kk-phone-rental.vercel.app';
 const DEFAULT_SHEET_ID='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
+
+const AUTO_PROMOTION_MARKER='Verifier-approved discovery promotion';
+
+function malformedAutoPromotionRows(snapshot={}){
+ const eventById=new Map((snapshot.events||[]).map(e=>[text(e.event_id),e]));
+ return (snapshot.web_ready||[]).filter(row=>{
+  const id=text(row.event_id);const event=eventById.get(id)||{};
+  const note=text(row.event_note||event.note||event.event_note);
+  const action=text(row.action_for_web).toLowerCase();
+  const active=!['hide','hidden'].includes(action);
+  const quality=CandidateVerifier.titleQuality(row.event_name||event.event_name);
+  return !!id&&active&&note.includes(AUTO_PROMOTION_MARKER)&&quality.ok===false;
+ }).map(row=>({
+  event_id:text(row.event_id),
+  event_name:text(row.event_name),
+  event_date:date(row.event_date),
+  quality:CandidateVerifier.titleQuality(row.event_name)
+ }));
+}
+
+async function quarantineMalformedAutoPromotions(snapshot={},options={}){
+ const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch;
+ const rows=malformedAutoPromotionRows(snapshot);
+ const results=[];const blockers=[];let production_writes=0;
+ for(const row of rows){
+  try{
+   await postAdmin({action:'updateEvent',event_id:row.event_id,active_on_web:false},{env,fetchImpl});
+   production_writes++;
+   const fresh=await freshSnapshot(env,fetchImpl);
+   const rb=readbackForEvent(fresh,row.event_id,row.event_name,row.event_date);
+   const verified=text(rb.event.event_id)===row.event_id&&rb.event.active_on_web===false;
+   results.push({...row,status:verified?'QUARANTINED_VERIFIED':'QUARANTINE_READBACK_FAILED',readback_verified:verified});
+   if(!verified)blockers.push('AUTO_QUARANTINE_READBACK_FAILED:'+row.event_id);
+  }catch(err){
+   blockers.push('AUTO_QUARANTINE_FAILED:'+row.event_id+':'+text(err&&err.code||err&&err.name||'ERROR'));
+   results.push({...row,status:'QUARANTINE_FAILED',readback_verified:false});
+  }
+ }
+ return {status:blockers.length?'QUARANTINE_BLOCKED':'QUARANTINE_COMPLETE',candidate_count:rows.length,quarantined_verified:results.filter(x=>x.readback_verified).length,production_writes,results,blockers};
+}
 
 function text(v){return String(v==null?'':v).trim();}
 function norm(v){return text(v).normalize('NFKC').toLowerCase().replace(/[^a-z0-9ก-๙]+/g,' ').replace(/\s+/g,' ').trim();}
@@ -197,7 +238,11 @@ async function existingEventWriter({existing,plan},{env=process.env,fetchImpl=gl
 }
 async function execute(handoff={},options={}){
  const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch;
- const snapshot=options.snapshot||await freshSnapshot(env,fetchImpl);
+ let snapshot=options.snapshot||await freshSnapshot(env,fetchImpl);
+ const quarantine=options.executeWrites===true
+  ? await quarantineMalformedAutoPromotions(snapshot,{env,fetchImpl})
+  : {status:'QUARANTINE_DRY_RUN',candidate_count:malformedAutoPromotionRows(snapshot).length,quarantined_verified:0,production_writes:0,results:[],blockers:[]};
+ if(quarantine.production_writes>0) snapshot=await freshSnapshot(env,fetchImpl);
  const verified=handoff.verifier&&Array.isArray(handoff.verifier.verified_candidates)?handoff.verifier.verified_candidates:[];
  const reconciled=reconcileCandidates(verified,snapshot);
  const input={
@@ -221,20 +266,23 @@ async function execute(handoff={},options={}){
   existingEventWriterFn:args=>existingEventWriter(args,{env,fetchImpl})
  });
  const ambiguous=reconciled.dispositions.filter(x=>x.status==='HOLD_AMBIGUOUS_EXISTING');
+ const blockers=[...(ambiguous.length?['AMBIGUOUS_EXISTING_EVENT_REVIEW']:[]),...(quarantine.blockers||[])];
  return {
   version:VERSION,
-  status:ambiguous.length?'PARTIAL_SAFE_EXECUTION':result.status,
-  production_writes:result.production_writes,
+  status:blockers.length?'PARTIAL_SAFE_EXECUTION':result.status,
+  production_writes:Number(result.production_writes||0)+Number(quarantine.production_writes||0),
   orchestrator:result,
+  quarantine,
   dispositions:reconciled.dispositions,
-  blockers:ambiguous.length?['AMBIGUOUS_EXISTING_EVENT_REVIEW']:[],
+  blockers,
   snapshot_source:text(snapshot.snapshot_source),
   snapshot_generated_at:text(snapshot.generated_at)
  };
 }
 
 module.exports={
- VERSION,DEFAULT_SITE,DEFAULT_SHEET_ID,text,norm,date,tokens,titleOverlap,venueCompatible,sameKnownMiss,packageTemplateId,
+ VERSION,DEFAULT_SITE,DEFAULT_SHEET_ID,AUTO_PROMOTION_MARKER,text,norm,date,tokens,titleOverlap,venueCompatible,sameKnownMiss,packageTemplateId,
  snapshotEvents,matchExisting,historicalConflict,activeBookingDateSet,reconcileCandidates,storeBaselines,readbackForEvent,
+ malformedAutoPromotionRows,quarantineMalformedAutoPromotions,
  postAdmin,freshSnapshot,storefrontReadback,existingEventWriter,execute
 };

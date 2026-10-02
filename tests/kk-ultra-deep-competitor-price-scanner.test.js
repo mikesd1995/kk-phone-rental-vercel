@@ -51,3 +51,20 @@ test('phone base plus lens add-on is not misclassified as bundle price',()=>{
  assert.equal(P.packageType('vivo X300 เครื่อง 690฿ + Lens +200'),'PHONE_ONLY');
  assert.equal(P.packageType('vivo X300 พร้อม Lens 890฿'),'PHONE_LENS');
 });
+
+
+test('query plan explicitly covers all locked competitor accounts',()=>{
+ const q=P.buildQueries({title:'LYKN REFLEXION CONCERT'});
+ assert.ok(q.length>=3+P.COMPETITORS.length);
+ for(const handle of P.COMPETITORS){
+  assert.ok(q.some(x=>x.includes('site:x.com/'+handle)));
+ }
+});
+
+test('scan batch reports competitor universe even when exact evidence is absent',async()=>{
+ const out=await P.scanBatch([{event_key:'E1',title:'Unknown Event'}],{ddgs_runner:async()=>[]});
+ assert.equal(out.evidence_count,0);
+ assert.equal(out.competitor_universe_count,P.COMPETITORS.length);
+ assert.deepEqual(out.competitor_universe,P.COMPETITORS);
+ assert.equal(out.query_strategy,'GENERIC_PLUS_PER_COMPETITOR_X');
+});

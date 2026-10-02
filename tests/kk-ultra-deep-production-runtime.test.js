@@ -57,3 +57,27 @@ test('readback converts public action to active flag and returns event packages'
  assert.equal(rb.packages.length,1);
  assert.equal(R.packageTemplateId(rb.packages[0].package_id),'TPL-VIVO-X300-PRO-PHONE');
 });
+
+
+test('malformed auto-created Ultra Deep storefront rows are quarantine candidates only when automation-marked',()=>{
+ const s=snapshot();
+ s.events.push(
+  {event_id:'EVT-BAD',event_name:'The Mall Lifestore Bangkapi | Bangkok - FacebookTEETEE PHILIPPINES on X: Bangkok Post',event_date:'2026-10-18',venue:'MCC Hall',active_on_web:true,note:'Verifier-approved discovery promotion | PRICING=PROVISIONAL_NEEDS_PRICE_RECHECK'},
+  {event_id:'EVT-OWNER',event_name:'Owner Long Event | Facebook on X Bangkok Post',event_date:'2026-10-19',venue:'MCC Hall',active_on_web:true,note:'owner-created'}
+ );
+ s.web_ready.push(
+  {event_id:'EVT-BAD',event_name:'The Mall Lifestore Bangkapi | Bangkok - FacebookTEETEE PHILIPPINES on X: Bangkok Post',event_date:'2026-10-18',venue:'MCC Hall',event_note:'Verifier-approved discovery promotion | PRICING=PROVISIONAL_NEEDS_PRICE_RECHECK',action_for_web:'show'},
+  {event_id:'EVT-OWNER',event_name:'Owner Long Event | Facebook on X Bangkok Post',event_date:'2026-10-19',venue:'MCC Hall',event_note:'owner-created',action_for_web:'show'}
+ );
+ const rows=R.malformedAutoPromotionRows(s);
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].event_id,'EVT-BAD');
+ assert.ok(rows[0].quality.reasons.includes('AGGREGATED_SEARCH_RESULT_TITLE'));
+});
+
+test('already hidden malformed automation row is not quarantined again',()=>{
+ const s=snapshot();
+ s.events.push({event_id:'EVT-BAD',event_name:'Bad Facebook on X Bangkok Post',event_date:'2026-10-18',active_on_web:false,note:'Verifier-approved discovery promotion'});
+ s.web_ready.push({event_id:'EVT-BAD',event_name:'Bad Facebook on X Bangkok Post',event_date:'2026-10-18',event_note:'Verifier-approved discovery promotion',action_for_web:'hide'});
+ assert.deepEqual(R.malformedAutoPromotionRows(s),[]);
+});

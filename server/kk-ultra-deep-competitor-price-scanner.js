@@ -2,7 +2,7 @@
 
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_COMPETITOR_PRICE_SCANNER_V1';
+const VERSION='KK_ULTRA_DEEP_COMPETITOR_PRICE_SCANNER_V2';
 const COMPETITORS=Object.freeze([
  'minibestt','fundaybuddy','thisisyour3','fejay4rent','by_minnymicky',
  'npforrent','mcjmgoods','winkwink_rent','khaw4rent_2nd'
@@ -58,11 +58,13 @@ function shortenTitle(title){
 }
 function buildQueries(candidate={}){
  const title=shortenTitle(candidate.title);
- return [
+ const generic=[
   `"${title}" เช่ามือถือ vivo X300`,
   `"${title}" เช่าโทรศัพท์ lens ราคา`,
   `"${title}" phone rental bangkok`
  ];
+ const perCompetitor=COMPETITORS.map(handle=>`site:x.com/${handle} "${title}" เช่า`);
+ return [...generic,...perCompetitor];
 }
 function rowToEvidence(row,candidate={}){
  const url=text(row.source_url||row.href||row.url);
@@ -117,6 +119,9 @@ async function scanBatch(candidates=[],options={}){
  return {
   version:VERSION,
   candidate_count:rows.length,
+  competitor_universe:[...COMPETITORS],
+  competitor_universe_count:COMPETITORS.length,
+  query_strategy:'GENERIC_PLUS_PER_COMPETITOR_X',
   evidence_count:evidence.length,
   competitor_count:new Set(evidence.map(x=>x.competitor_id)).size,
   evidence,
