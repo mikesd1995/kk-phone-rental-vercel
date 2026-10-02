@@ -27,7 +27,6 @@ test('provider executor falls from DDG to Bing when DDG has no evidence',async()
  assert.deepEqual(r.attempts.map(x=>x.status),['NO_EVIDENCE','EVIDENCE_FOUND']);
 });
 
-
 test('provider executor tries query variants independently before falling to the next provider',async()=>{
  const seen=[];
  const r=await Exec.executeGapTask({
@@ -51,4 +50,28 @@ test('queryVariants deduplicates canonical and alias queries while preserving or
    Exec.queryVariants({query:'A',query_variants:['A','B','B','C']}),
    ['A','B','C']
  );
+});
+
+test('taskConcurrency is bounded and configurable',()=>{
+ assert.equal(Exec.taskConcurrency({concurrency:0}),Exec.DEFAULT_CONCURRENCY);
+ assert.equal(Exec.taskConcurrency({concurrency:1}),1);
+ assert.equal(Exec.taskConcurrency({concurrency:999}),Exec.MAX_CONCURRENCY);
+});
+
+test('executeGapPlan runs tasks concurrently but preserves result order',async()=>{
+ let active=0,maxActive=0;
+ const delays={a:30,b:5,c:15,d:1};
+ const tasks=Object.keys(delays).map(id=>({source_id:id,source_tier:'SOCIAL',query:id,providers:['DDG_HTML']}));
+ const out=await Exec.executeGapPlan({gap_tasks:tasks},{concurrency:2,providers:{
+   DDG_HTML:async task=>{
+     active++;maxActive=Math.max(maxActive,active);
+     await new Promise(resolve=>setTimeout(resolve,delays[task.source_id]));
+     active--;
+     return [{title:task.source_id,source_url:'https://example.com/'+task.source_id}];
+   }
+ }});
+ assert.equal(maxActive,2);
+ assert.deepEqual(out.results.map(r=>r.candidates[0].title),['a','b','c','d']);
+ assert.equal(out.status,'GAPS_RESOLVED');
+ assert.equal(out.production_writes,0);
 });

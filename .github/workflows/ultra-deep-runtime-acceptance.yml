@@ -93,6 +93,12 @@ jobs:
           node --test tests/kk-ultra-deep-reconciliation.test.js
           node --test tests/kk-ultra-deep-known-miss-regression.test.js
 
+      - name: Install pinned zero-cost DDGS fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-input 'ddgs==9.14.4'
+
       - name: Execute bounded zero-write October acceptance
         id: scan
         continue-on-error: true
@@ -100,6 +106,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           MANUAL_MONTH: ${{ inputs.month }}
+          KK_DDGS_TRAFILATURA_ENABLED: '1'
         run: |
           set -euo pipefail
           MONTH="2026-10"

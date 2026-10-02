@@ -657,7 +657,6 @@ async function main(){
     `Release ready: ${summary.release_ready?'PASS':'BLOCKED'}`,
     `Art Director acceptance: ${summary.art_director_acceptance.status}`,
     `Design Council agents: ${(summary.invoked_agents||[]).join(', ')||'none'}`,
-    `OpenAI visual review: ${summary.openai_visual_review_enabled?(summary.openai_visual_review_pass?'PASS':'BLOCKED'):'DISABLED'}`,
     '',
     '| Viewport | Result | Score | P0 | P1 | P2 | Sticky px | Filter rows | Card cols |',
     '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |'

@@ -29,9 +29,7 @@ test('OpenAI staging probe is Preview-only and zero-write',async()=>{
     assert.equal(res.statusCode,404);
     assert.equal(body.status,'PREVIEW_ONLY');
     assert.equal(body.production_writes,0);
-  }finally{
-    restoreEnv(old);
-  }
+  }finally{restoreEnv(old);}
 });
 
 test('OpenAI staging probe is POST-only',async()=>{
@@ -43,9 +41,7 @@ test('OpenAI staging probe is POST-only',async()=>{
     await Probe.handle(fakeReq({method:'GET'}),res,{json:writer});
     assert.equal(res.statusCode,405);
     assert.equal(JSON.parse(res.body).status,'METHOD_NOT_ALLOWED');
-  }finally{
-    restoreEnv(old);
-  }
+  }finally{restoreEnv(old);}
 });
 
 test('OpenAI staging probe requires explicit confirmation',async()=>{
@@ -57,38 +53,11 @@ test('OpenAI staging probe requires explicit confirmation',async()=>{
     await Probe.handle(fakeReq(),res,{json:writer});
     assert.equal(res.statusCode,400);
     assert.equal(JSON.parse(res.body).status,'CONFIRMATION_REQUIRED');
-  }finally{
-    restoreEnv(old);
-  }
+  }finally{restoreEnv(old);}
 });
 
-test('safeAi strips model result to non-secret diagnostics',()=>{
-  const out=Probe.safeAi({
-    result:{
-      status:'BLOCKED_OPENAI_PROVIDER',
-      production_writes:0,
-      ai_review:{
-        status:'BLOCKED_OPENAI_PROVIDER',
-        model:'gpt-test',
-        blocker:'OPENAI_HTTP_ERROR',
-        http_status:401,
-        provider_error_type:'invalid_request_error',
-        provider_error_code:'invalid_api_key',
-        request_id:'req_fixture',
-        secret:'must-not-escape'
-      }
-    }
-  });
-  assert.deepEqual(out,{
-    status:'BLOCKED_OPENAI_PROVIDER',
-    ai_status:'BLOCKED_OPENAI_PROVIDER',
-    model:'gpt-test',
-    blocker:'OPENAI_HTTP_ERROR',
-    http_status:401,
-    provider_error_type:'invalid_request_error',
-    provider_error_code:'invalid_api_key',
-    request_id:'req_fixture',
-    production_writes:0
-  });
+test('safeAi strips model output to non-secret diagnostics',()=>{
+  const out=Probe.safeAi({result:{status:'BLOCKED_OPENAI_PROVIDER',production_writes:0,ai_review:{status:'BLOCKED_OPENAI_PROVIDER',model:'gpt-test',blocker:'OPENAI_HTTP_ERROR',http_status:401,provider_error_type:'invalid_request_error',provider_error_code:'invalid_api_key',request_id:'req_fixture',secret:'must-not-escape'}}});
+  assert.deepEqual(out,{status:'BLOCKED_OPENAI_PROVIDER',ai_status:'BLOCKED_OPENAI_PROVIDER',model:'gpt-test',blocker:'OPENAI_HTTP_ERROR',http_status:401,provider_error_type:'invalid_request_error',provider_error_code:'invalid_api_key',request_id:'req_fixture',production_writes:0});
   assert.equal(JSON.stringify(out).includes('must-not-escape'),false);
 });

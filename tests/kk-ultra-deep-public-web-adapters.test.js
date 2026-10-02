@@ -68,3 +68,41 @@ test('provider factory exposes callable live DDG and Bing adapters after parser 
  assert.equal((await providers.DDG_HTML({query:'October Bangkok'})).length,1);
  assert.equal((await providers.BING_HTML({query:'October Bangkok'})).length,1);
 });
+
+test('DDGS fallback normalizes HTTPS search results without requiring live Python in unit tests',async()=>{
+ const rows=await A.ddgsTrafilatura(
+   {query:'Bangkok October 2026 concert'},
+   {ddgs_runner:async input=>{
+     assert.equal(input.query,'Bangkok October 2026 concert');
+     return [
+       {title:'Concert A',source_url:'https://eventpop.me/e/a'},
+       {title:'Unsafe',source_url:'http://example.test/b'}
+     ];
+   }}
+ );
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].title,'Concert A');
+ assert.equal(rows[0].source_url,'https://eventpop.me/e/a');
+});
+
+test('provider factory binds DDGS only when explicitly enabled',()=>{
+ const old=process.env.KK_DDGS_TRAFILATURA_ENABLED;
+ delete process.env.KK_DDGS_TRAFILATURA_ENABLED;
+ try{
+   const off=A.createProviders({searxng_endpoint:'',ddgs_trafilatura_enabled:false});
+   assert.equal(typeof off.DDGS_TRAFILATURA,'undefined');
+   const on=A.createProviders({searxng_endpoint:'',ddgs_trafilatura_enabled:true,ddgs_runner:async()=>[]});
+   assert.equal(typeof on.DDGS_TRAFILATURA,'function');
+ }finally{
+   if(old===undefined) delete process.env.KK_DDGS_TRAFILATURA_ENABLED;
+   else process.env.KK_DDGS_TRAFILATURA_ENABLED=old;
+ }
+});
+
+test('DDGS search evidence extracts explicit English and ISO event dates',()=>{
+ assert.equal(A.inferSearchEventDate('The Weeknd Bangkok Mon, 12 Oct 2026'),'2026-10-12');
+ assert.equal(A.inferSearchEventDate('Fan Meeting October 25, 2026 Bangkok'),'2026-10-25');
+ assert.equal(A.inferSearchEventDate('Event 2026-10-31'),'2026-10-31');
+ assert.equal(A.inferSearchEventDate('Bangkok concerts October 2026'),null);
+});
+

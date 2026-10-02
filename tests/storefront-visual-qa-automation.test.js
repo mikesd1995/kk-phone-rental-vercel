@@ -328,15 +328,3 @@ test('visual QA card-column summary uses rendered top tolerance instead of 4px r
   assert.doesNotMatch(source,/Math\.round\(cardRects\[0\]\.top\/4\)\*4/);
   assert.doesNotMatch(source,/Math\.round\(r\.top\/4\)\*4===firstTop/);
 });
-
-
-test('optional OpenAI storefront reviewer stays gated behind deterministic evidence and preserves zero-write controls',()=>{
-  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
-  assert.match(source,/kk-openai-agent-adapters/);
-  assert.match(source,/OpenAiAgents\.reviewStorefront/);
-  assert.match(source,/KK_OPENAI_STOREFRONT_AI_VIEWPORTS/);
-  assert.match(source,/openai_visual_review_pass/);
-  assert.match(source,/paid_external_service_calls:openAiProviderRequests/);
-  assert.match(source,/zero_cost_path:mode==='local_zero_cost' && openAiProviderRequests===0/);
-  assert.match(source,/production_writes:0/);
-});

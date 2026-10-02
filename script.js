@@ -69,6 +69,7 @@ var EN_MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oc
 var PRELOADED_IMAGES = {};
 var REQUESTED_LANG = String(URL_PARAMS.get("lang")||"").trim().toLowerCase();
 var currentLang = (REQUESTED_LANG==="en"||REQUESTED_LANG==="th") ? REQUESTED_LANG : getStoredLanguage();
+if(currentLang!=="th"&&currentLang!=="en") currentLang="th";
 var activeModalEvent = null;
 var lastDataLoadAt = 0;
 var storefrontRefreshPromise = null;
@@ -85,11 +86,11 @@ var I18N = {
     proof_deposit_title:"ไม่วางมัดจำ", proof_deposit_body:"พร้อมประกันเครื่องฟรี",
     proof_onsite_title:"หน้างาน", proof_onsite_body:"รับ–คืน + สอนใช้",
     proof_drive_title:"30 วัน", proof_drive_body:"เก็บไฟล์บน Drive",
-    events_eyebrow:"UPCOMING EVENTS", events_title:"เลือกงานของคุณ", events_body:"กดโปสเตอร์เพื่อดูแพ็กเกจ ราคา และคิวว่าง",
+    events_eyebrow:"UPCOMING EVENTS", events_title:"เลือกงานของคุณ", events_body:"กดโปสเตอร์เพื่อดูแพ็กเกจ ราคา และคิวว่าง", journey_kicker:"จองง่ายใน 3 ขั้นตอน", journey_1_title:"เลือกงาน", journey_1_body:"เลือกโปสเตอร์ของงานที่คุณจะไป", journey_2_title:"เลือกแพ็กเกจ", journey_2_body:"ดูราคา อุปกรณ์ และคิวที่ยังว่าง", journey_3_title:"คอนเฟิร์มกับร้าน", journey_3_body:"จองผ่าน LINE แล้วรับเครื่องหน้างาน",
     value_steps:"เลือกงาน > ดูอุปกรณ์และแพ็กเกจที่ว่าง > ระบบพาไปจองผ่าน LINE OA กับแอดมิน",
     value_note:"( หากไม่มีงานที่ต้องการ สามารถสอบถามได้ใน LINE OA )",
     follow_promo:"ติดตาม X ร้าน · ไม่ต้องวางมัดจำ · ฟรีประกันเครื่อง",
-    faq_button:"❔ คำถามที่พบบ่อย",
+    faq_button:"FAQ",
     language_aria:"เลือกภาษา",
     filter_group_aria:"เลือกเดือนและกรองสถานะงาน",
     search_placeholder:"ค้นหาชื่องาน / ศิลปิน / สถานที่",
@@ -113,17 +114,17 @@ var I18N = {
     section_title:"เลือกงานที่ใช่ ไปถ่ายคนที่ชอบ ❤️",
     updated_prefix:"ตรวจสอบข้อมูลเมื่อ",
     loading_aria:"กำลังโหลดข้อมูลงาน",
-    loading_text:"กำลังเช็กคิวให้น้า... 📱✨",
-    line_book:"ทัก LINE มาจองได้เลย 💚",
+    loading_text:"กำลังตรวจสอบคิวว่าง...",
+    line_book:"ทัก LINE มาจองได้เลย",
     sticky_line:"ทัก LINE จองคิว",
-    footer_tagline:"เช่าเถอะ อยากให้ชัด ✨",
+    footer_tagline:"เช่าเถอะ อยากให้ชัด",
     footer_trust:"จองง่าย คุยกับร้านโดยตรงผ่าน LINE",
     modal_close_aria:"ปิดหน้าต่าง",
     modal_title_placeholder:"ชื่องาน",
     modal_date_placeholder:"วันที่",
     modal_venue_placeholder:"สถานที่",
     modal_note_strong:"เลือกแพ็กเกจที่ต้องการ:",
-    modal_note_body:"ถ้างานยังว่างให้กดจองแพ็กเกจนี้ ถ้างานเต็มให้กดจองคิวหลุดผ่าน LINE ได้เลย 💚",
+    modal_note_body:"ถ้างานยังว่างให้กดจองแพ็กเกจนี้ ถ้างานเต็มให้กดจองคิวหลุดผ่าน LINE ได้เลย",
     close:"ปิด",
     faq_close_aria:"ปิด FAQ",
     faq_title:"FAQ · คำถามที่พบบ่อย",
@@ -144,7 +145,7 @@ var I18N = {
     faq_q8:"Q: ไฟล์บน Google Drive เก็บไว้ได้กี่วัน?",
     faq_a8:"A: ร้านจะเก็บไฟล์ไว้ประมาณ 30 วัน หลังจากนั้นจะไม่สามารถเข้าถึงไฟล์ได้ แนะนำให้ดาวน์โหลดทันทีหลังได้รับลิงก์ค่ะ",
     every_month:"ทุกเดือน",
-    full_availability:"เต็มแล้วน้า 😢 จองคิวหลุดได้",
+    full_availability:"คิวเต็ม · จองคิวหลุดได้",
     one_phone_left:"เหลือ 1 เครื่องสุดท้าย",
     phones_available:"ว่าง {count} เครื่อง",
     lens_only_available:"เหลือ Lens อย่างเดียว",
@@ -217,7 +218,7 @@ var I18N = {
     value_steps:"Choose an event > Check available equipment and packages > Book directly with our admin via LINE OA",
     value_note:"( Can't find your event? Message us on LINE OA. )",
     follow_promo:"Follow on X · No deposit · Free insurance",
-    faq_button:"❔ Frequently Asked Questions",
+    faq_button:"FAQ",
     language_aria:"Choose language",
     filter_group_aria:"Choose a month and filter event availability",
     search_placeholder:"Search event / artist / venue",
@@ -241,8 +242,8 @@ var I18N = {
     section_title:"Choose your event and capture every favorite moment ❤️",
     updated_prefix:"Data checked at",
     loading_aria:"Loading events",
-    loading_text:"Checking availability... 📱✨",
-    line_book:"Book via LINE 💚",
+    loading_text:"Checking availability...",
+    line_book:"Book via LINE",
     sticky_line:"Book via LINE",
     footer_tagline:"Rent it. Capture it clearly. ✨",
     footer_trust:"Easy booking — talk directly with us on LINE",
@@ -251,7 +252,7 @@ var I18N = {
     modal_date_placeholder:"Date",
     modal_venue_placeholder:"Venue",
     modal_note_strong:"Choose a package:",
-    modal_note_body:"Book an available package, or join the LINE waitlist when the event is fully booked. 💚",
+    modal_note_body:"Book an available package, or join the LINE waitlist when the event is fully booked.",
     close:"Close",
     faq_close_aria:"Close FAQ",
     faq_title:"FAQ · Frequently Asked Questions",
@@ -361,7 +362,7 @@ function applyStaticLanguage(){
   document.documentElement.lang=currentLang;
   setText(".v3-brand-copy small","brand_subtitle");
   setText(".v3-hero-copy>p","hero_body");
-  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">↓</span>';
+  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">→</span>';
   var proofItems=document.querySelectorAll(".v3-proof>div:not(.kk-proof-label)");
   if(proofItems[0]){var p0s=proofItems[0].querySelector("strong"),p0b=proofItems[0].querySelector("span");if(p0s)p0s.textContent=tr("proof_deposit_title");if(p0b)p0b.textContent=tr("proof_deposit_body");}
   if(proofItems[1]){var p1s=proofItems[1].querySelector("strong"),p1b=proofItems[1].querySelector("span");if(p1s)p1s.textContent=tr("proof_onsite_title");if(p1b)p1b.textContent=tr("proof_onsite_body");}
@@ -638,6 +639,13 @@ function storefrontPosterOverride(row){
   }
   if(dateKey==="2026-09-30" && (name.indexOf("min min")>=0 || name.indexOf("minmin")>=0) && name.indexOf("teeteepor")>=0){
     return "/assets/event-posters/minmin-teeteepor-frozen-candy-land-2026-09-30.jpg";
+  }
+  // KHOM KHLANG Special Episode 5: the canonical sheet poster points to an
+  // owner-private Drive file, so unauthenticated storefront clients cannot render it.
+  // Keep canonical SOT first and retain this publicly-readable owner copy only as the
+  // exact-event delivery fallback.
+  if(dateKey==="2026-10-05" && name.indexOf("khom khlang")>=0 && name.indexOf("special")>=0 && (name.indexOf("episode 5")>=0 || name.indexOf("ep.5")>=0 || name.indexOf("ep5")>=0)){
+    return "https://lh3.googleusercontent.com/d/1f995RLhvIO-aSJb6Hu12lg8BBUgmMAYC=w900";
   }
   // 2026-09-28 missing-poster recovery. These rows are live/bookable in 08_Web_Ready
   // but currently have a blank poster_image_url. Exact-event sources were verified
@@ -1296,6 +1304,9 @@ function renderConcerts(concerts){
 
     var lowStock=avail&&cnt===1;
     var card=document.createElement("button"); card.type="button"; card.className="concert-card"+(avail?"":" waitlist-card")+(lowStock?" low-stock-card":"");
+    card.dataset.eventId=String(c.id||"");
+    card.dataset.eventName=String(c.name||"");
+    card.dataset.posterSource=String(c.rawPoster||c.img||"");
     card.setAttribute("aria-label", avail ? tr("card_aria_available",{event:c.name}) : tr("card_aria_waitlist",{event:c.name}));
     card.onclick=function(){
       if(!avail) track("waitlist_card_open",{event_name:c.name, available:0, source:"card"});
@@ -1316,12 +1327,27 @@ function renderConcerts(concerts){
       var imgCandidates=c.imgThumb&&c.imgThumb.length?c.imgThumb:[imgUrl];
       var posterFailure=function(){
         card.dataset.posterFailed="1";
+        card.dataset.posterFallback="event-summary";
         // Poster delivery must never make a valid bookable event disappear.
-        // Keep the card and replace only the failed image with a local placeholder.
+        // Render a deterministic exact-event fallback from already-visible business data;
+        // never substitute an unrelated series/artist image just to make the poster gate green.
         if(img&&img.parentElement){
           var ph=document.createElement("div");
-          ph.className="poster-placeholder";
-          ph.innerHTML="<span>"+esc(tr("no_image"))+"</span>";
+          ph.className="poster-placeholder poster-placeholder-event";
+          ph.setAttribute("role","img");
+          ph.setAttribute("aria-label",tr("no_image")+" · "+String(c.name||""));
+          var kicker=document.createElement("span");
+          kicker.className="poster-placeholder-kicker";
+          kicker.textContent="KK EVENT";
+          var title=document.createElement("strong");
+          title.className="poster-placeholder-title";
+          title.textContent=String(c.name||tr("no_image"));
+          var meta=document.createElement("span");
+          meta.className="poster-placeholder-meta";
+          meta.textContent=[String(c.date||"").trim(),String(c.venue||"").trim()].filter(Boolean).join(" · ");
+          ph.appendChild(kicker);
+          ph.appendChild(title);
+          if(meta.textContent) ph.appendChild(meta);
           img.parentElement.replaceChild(ph,img);
         }
         updateBrowseChrome(grid.children.length);
@@ -1423,7 +1449,7 @@ function showModal(c,options){
   document.getElementById("modal-title").textContent=c.name||tr("event_details");
   document.getElementById("modal-date").textContent=(currentLang==="en"?"Date: ":"วันที่: ")+(c.date||"-");
   var venueEl=document.getElementById("modal-venue");
-  venueEl.textContent="📍 "+(c.venue||"-");
+  venueEl.textContent=(currentLang==="en"?"Venue: ":"สถานที่: ")+(c.venue||"-");
   var eventNoteEl=document.getElementById("modal-event-note");
   if(!eventNoteEl){
     eventNoteEl=document.createElement("div");

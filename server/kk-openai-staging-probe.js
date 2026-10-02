@@ -57,17 +57,13 @@ async function handle(req,res,{json}={}){
   if(vercelEnv!=='preview'||branch!==EXPECTED_BRANCH){
     return json(res,404,{ok:false,status:'PREVIEW_ONLY',...base});
   }
-
   if(text(req&&req.method).toUpperCase()!=='POST'){
     return json(res,405,{ok:false,status:'METHOD_NOT_ALLOWED',...base});
   }
 
   let body;
-  try{
-    body=await readJson(req);
-  }catch(_){
-    return json(res,400,{ok:false,status:'INVALID_REQUEST',...base});
-  }
+  try{body=await readJson(req);}
+  catch(_){return json(res,400,{ok:false,status:'INVALID_REQUEST',...base});}
   if(text(body&&body.confirm)!=='RUN_OPENAI_STAGING_PROBE'){
     return json(res,400,{ok:false,status:'CONFIRMATION_REQUIRED',...base});
   }

@@ -29,3 +29,71 @@ test('SOT classifier blocks tombstone resurrection and booked repricing',()=>{
  assert.equal(out[1].classification,'BOOKED');
  assert.equal(out[1].allow_auto_reprice,false);
 });
+
+test('reference search pages without a verified event date are evidence but not reconciliation gaps',()=>{
+ const out=R.reconcileCandidateSets(
+  [{title:'Found Event',event_date:'2026-10-01'}],
+  [
+   {reference_id:'r1',title:'Found Event',event_date:'2026-10-01'},
+   {reference_id:'search-page',title:'Bangkok Concerts October 2026',event_date:null,source_url:'https://example.com/calendar'}
+  ]
+ );
+ assert.equal(out.complete,true);
+ assert.equal(out.reconciliation_gap_count,0);
+ assert.equal(out.reference_count,1);
+ assert.equal(out.raw_reference_count,2);
+ assert.equal(out.unstructured_reference_count,1);
+});
+
+test('normalization collapses real whitespace so independently formatted titles reconcile',()=>{
+ const out=R.reconcileCandidateSets(
+  [{title:'Artist   Fan\nMeeting',event_date:'2026-10-25'}],
+  [{reference_id:'r1',title:'Artist Fan Meeting',event_date:'2026-10-25'}]
+ );
+ assert.equal(out.complete,true);
+ assert.equal(out.reconciliation_gap_count,0);
+});
+
+test('dated independent event remains a hard reconciliation gap',()=>{
+ const out=R.reconcileCandidateSets(
+  [{title:'Other Event',event_date:'2026-10-01'}],
+  [{reference_id:'r2',title:'Missed Event',event_date:'2026-10-02'}]
+ );
+ assert.equal(out.complete,false);
+ assert.equal(out.reconciliation_gap_count,1);
+});
+
+test('reconciliation fails closed when independent reference evidence has no structured event identity',()=>{
+ const out=R.reconcileCandidateSets(
+  [{title:'Found Event',event_date:'2026-10-01'}],
+  [{reference_id:'calendar',title:'Bangkok concerts October 2026',event_date:null}]
+ );
+ assert.equal(out.complete,false);
+ assert.equal(out.reconciliation_gap_count,0);
+ assert.equal(out.reference_count,0);
+ assert.equal(out.unstructured_reference_count,1);
+});
+
+test('ineligible structured reference cannot create a gap or satisfy independent-reference proof',()=>{
+ const excludedOnly=R.reconcileCandidateSets(
+  [{title:'Found Event',event_date:'2026-10-01'}],
+  [{reference_id:'foreign',title:'Foreign Concert',event_date:'2026-10-01',eligible_for_discovery:false}]
+ );
+ assert.equal(excludedOnly.complete,false);
+ assert.equal(excludedOnly.reconciliation_gap_count,0);
+ assert.equal(excludedOnly.reference_count,0);
+ assert.equal(excludedOnly.structured_reference_count,1);
+ assert.equal(excludedOnly.excluded_reference_count,1);
+
+ const mixed=R.reconcileCandidateSets(
+  [{title:'Bangkok Fanmeeting',event_date:'2026-10-20'}],
+  [
+   {reference_id:'foreign',title:'Foreign Concert',event_date:'2026-10-01',eligible_for_discovery:false},
+   {reference_id:'local',title:'Bangkok Fanmeeting',event_date:'2026-10-20',eligible_for_discovery:true}
+  ]
+ );
+ assert.equal(mixed.complete,true);
+ assert.equal(mixed.reference_count,1);
+ assert.equal(mixed.excluded_reference_count,1);
+});
+
