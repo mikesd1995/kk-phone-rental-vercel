@@ -95,6 +95,11 @@
       "artifact_id": "11203934707",
       "status": "PASS",
       "finding": "V6.1.3 exact-head adversarial micro-detail audit: all required 320/375/390/430/480/768/1024 viewport critiques PASS with no findings/blockers; technical_visual_pass=true; interaction_pass=true; runtime_errors=[]; production_writes=0. Covers dark-mode filter/language/month controls, yellow moon state, removal of internal KK index, narrow header, modal long-text wrapping, mobile filter scrollbar and WebKit text-fill hardening."
+    },
+    {
+      "artifact_id": "11206115955",
+      "status": "REJECTED",
+      "finding": "V6.2 first mock-parity attempt preserved the reference composition but independent mobile critique blocked 320/375/390 for EVENT_DISCOVERY_TOO_LATE and 320 for HERO_DOMINATES_MOBILE. Interaction remained PASS with runtime_errors=[] and production_writes=0. Follow-up V6.2.1 compresses hero/benefits and restores event discovery priority; this artifact is retained as rejected evidence, not acceptance."
     }
   ],
   "reviewed_viewports": [
