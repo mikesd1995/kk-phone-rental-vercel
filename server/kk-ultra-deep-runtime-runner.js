@@ -129,12 +129,11 @@ async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
+  // Preserve the established execution order and blocker semantics. A preflight is
+  // diagnostic evidence only; it must not short-circuit known-miss, discovery,
+  // reference or reconciliation gates used by acceptance.
   const preflight=await providerPreflight(providers,input);
   binding.preflight=preflight;
-  binding.unknown_url_search_bound=preflight.usable.length>0;
-  if(!binding.unknown_url_search_bound){
-    return {version:VERSION,status:'HOLD_FOR_COVERAGE',full:false,blockers:['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED'],month:text(input.month),location:text(input.location)||'Bangkok Thailand',provider_binding:binding,source_universe:{complete:false},discovery_proof:{complete:false,candidate_count:0},reference_sweep_proof:{complete:false,candidate_count:0},reconciliation:{complete:false,reconciliation_gap_count:null,reference_count:0,matched_count:0,missing_candidates:[]},known_miss_regression:KnownMiss.evaluateFixtureRegression(),known_miss_live_recall:{passed:false},candidate_count:0,candidates:[],reference_candidate_count:0,execution_summary:{preflight:preflight.result},authoritative:false,verifier_required:true,production_writes:0,final_truth_mutation:false};
-  }
 
   // Execute the bounded historical probes first. Live HTML search providers may
   // soft-throttle after a large sweep; putting the small regression corpus first
@@ -169,9 +168,10 @@ async function runMonthlyUltraDeep(input={},options={}){
   const knownMissLive=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]);
   const knownMiss=KnownMiss.evaluateFixtureRegression();
 
-  const complete=binding.unknown_url_search_bound && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete;
+  const complete=binding.unknown_url_search_bound && preflight.status==='READY' && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete;
   const blockers=[
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
+    ...(binding.unknown_url_search_bound&&preflight.status!=='READY'?['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED']:[]),
     ...(!universe.complete?['SOURCE_UNIVERSE_INCOMPLETE']:[]),
     ...(!discoveryProof.complete?['DISCOVERY_EVIDENCE_EMPTY']:[]),
     ...(!referenceProof.complete?['REFERENCE_SWEEP_INCOMPLETE']:[]),
