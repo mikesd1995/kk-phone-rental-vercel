@@ -3,7 +3,7 @@
  * Phase 1 recovery-stable baseline + audited booking/override guards + dynamic range optimization
  * Keep in sync with backend sheets: Dashboard K31:K42, Web Packages A4:N, use_case_override in 04_Event_Overrides!G.
  */
-const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_8_SNAPSHOT_TIMEOUT_STABILITY_FIX';
+const KK_ADMIN_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_13_FULL_BACKEND_AUDIT';
 const KK_PHASE1_DIRECT_FALLBACK_DISABLED = false;
 
 const KK = {
@@ -2427,6 +2427,78 @@ function kkBookingCreateResult_(rowNumber, row, replay) {
   };
 }
 
+function kkBookingArchiveIdentity_(bookingRow, eventDateOverride) {
+  const r = bookingRow || [];
+  const customerKey = kkCustomerKey_(r[4], r[5], r[6]);
+  const created = r[1] instanceof Date ? r[1].getTime() : String(r[1] || '').trim();
+  const eventDate = eventDateOverride instanceof Date ? eventDateOverride.getTime() : String(eventDateOverride || '').trim();
+  return [
+    String(r[0] || '').trim(),
+    String(r[3] || '').trim(),
+    customerKey,
+    created,
+    eventDate
+  ].join('|');
+}
+
+function kkRebuildCustomerStatsFromArchive_() {
+  kkEnsureCrmArchiveSheets_();
+  const archive = kkSheet_(KK.bookingArchive);
+  const stats = kkSheet_(KK.customerStats);
+  const lastRow = archive.getLastRow();
+  const rows = lastRow >= 2 ? archive.getRange(2, 1, lastRow - 1, Math.max(26, archive.getLastColumn())).getValues() : [];
+  const seen = {};
+  const byCustomer = {};
+
+  rows.forEach(a => {
+    // Archive metadata A:F, original booking A:T starts at G.
+    const booking = a.slice(6, 26);
+    const status = String(booking[2] || '').toLowerCase().trim();
+    if (!['picked_up', 'returned', 'uploaded', 'completed'].includes(status)) return;
+    const customerKey = String(a[5] || '').trim() || kkCustomerKey_(booking[4], booking[5], booking[6]);
+    if (!customerKey) return;
+    const eventDate = a[3] || booking[1] || '';
+    const identity = kkBookingArchiveIdentity_(booking, eventDate);
+    if (seen[identity]) return;
+    seen[identity] = true;
+
+    const rentalDate = eventDate ? kkDateObj_(eventDate) : (booking[1] ? kkDateObj_(booking[1]) : new Date());
+    let item = byCustomer[customerKey];
+    if (!item) {
+      item = byCustomer[customerKey] = {
+        key: customerKey,
+        name: booking[4] || '',
+        contact: booking[5] || '',
+        phone: booking[6] || '',
+        count: 0,
+        first: rentalDate,
+        last: rentalDate,
+        lastEvent: a[2] || '',
+        lastStatus: booking[2] || ''
+      };
+    }
+    item.count++;
+    if (rentalDate < item.first) item.first = rentalDate;
+    if (rentalDate >= item.last) {
+      item.last = rentalDate;
+      item.lastEvent = a[2] || item.lastEvent;
+      item.lastStatus = booking[2] || item.lastStatus;
+    }
+    if (booking[4]) item.name = booking[4];
+    if (booking[5]) item.contact = booking[5];
+    if (booking[6]) item.phone = booking[6];
+  });
+
+  const output = Object.keys(byCustomer).sort().map(key => {
+    const x = byCustomer[key];
+    return [x.key, x.name, x.contact, x.phone, x.count, x.first, x.last, x.lastEvent, x.lastStatus, new Date()];
+  });
+
+  if (stats.getLastRow() >= 2) stats.getRange(2, 1, stats.getLastRow() - 1, 10).clearContent();
+  if (output.length) stats.getRange(2, 1, output.length, 10).setValues(output);
+  return output.length;
+}
+
 function kkApiCreateBooking_(payload) {
   const lock = kkAcquireDocumentLock_('write operation', 12000);
   try {
@@ -2674,6 +2746,7 @@ function kkCleanupOldData30Days_() {
     const bookingArchive = kkSheet_(KK.bookingArchive);
     const bookings = kkGetValues_(KK.bookings, 5, 1, 20);
     let customerStatsUpdated = 0;
+    let skippedOrphanBookings = 0;
     
     const bookingArchiveRows = [];
     const bookingClearA1s = [];
@@ -2682,8 +2755,12 @@ function kkCleanupOldData30Days_() {
       const hasData = r[3] || r[4];
       if (!hasData) return;
       const event = eventMap[String(r[3] || '').trim()] || null;
-      let basisDate = event && event.event_date ? kkDateObj_(event.event_date) : (r[1] ? kkDateObj_(r[1]) : null);
-      if (!basisDate || basisDate >= threshold) return;
+      // Fail closed: never archive a booking from created_at when its linked
+      // event cannot be resolved. A future booking created >30 days early must
+      // not disappear merely because its event row is temporarily missing.
+      if (!event || !event.event_date) { skippedOrphanBookings++; return; }
+      const basisDate = kkDateObj_(event.event_date);
+      if (basisDate >= threshold) return;
 
       const sourceRow = i + 5;
       const customerKey = kkCustomerKey_(r[4], r[5], r[6]);
@@ -2691,8 +2768,7 @@ function kkCleanupOldData30Days_() {
         new Date(), sourceRow, event ? event.event_name : '', event ? event.event_date : '', event ? event.venue : '', customerKey
       ].concat(r));
       
-      if (kkUpsertCustomerStat_(r, event)) customerStatsUpdated++;
-      bookingClearA1s.push(`B${sourceRow}:T${sourceRow}`);
+      bookingClearA1s.push(`A${sourceRow}:T${sourceRow}`);
     });
 
     if (bookingArchiveRows.length > 0) {
@@ -2739,11 +2815,16 @@ function kkCleanupOldData30Days_() {
     }
 
     SpreadsheetApp.flush();
+    // Rebuild from archive as source-of-truth so a partial previous cleanup
+    // cannot double-increment or permanently undercount Customer Stats.
+    customerStatsUpdated = kkRebuildCustomerStatsFromArchive_();
+    SpreadsheetApp.flush();
     return {
       archived_bookings: bookingArchiveRows.length,
       archived_events: eventArchiveRows.length,
       archived_overrides: overrideArchiveRows.length,
       customer_stats_updated: customerStatsUpdated,
+      skipped_orphan_bookings: skippedOrphanBookings,
       threshold_date: kkApiDate_(threshold)
     };
   } finally {
