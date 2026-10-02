@@ -382,6 +382,8 @@ test('production storefront workflows derive the live asset marker from exact ap
   }
   assert.match(prebuilt,/git ls-remote origin refs\/heads\/main/);
   assert.match(prebuilt,/steps\.storefront\.outputs\.marker/);
+  assert.match(prebuilt,/test -s assets\/kk-storefront-v5\.css/);
+  assert.doesNotMatch(prebuilt,/V6\.0 — Premium Concert Editorial Commerce/);
   assert.match(promote,/steps\.runtime\.outputs\.marker/);
   assert.match(promote,/git diff --name-only "\$CANDIDATE_SHA" "\$APPROVED_SHA"/);
 });
