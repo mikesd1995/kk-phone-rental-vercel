@@ -34,8 +34,7 @@ function changedFiles(baseSha,candidateSha){
   assert(/^[0-9a-f]{40}$/i.test(base),'BASE_SHA_REQUIRED');
   assert(/^[0-9a-f]{40}$/i.test(candidate),'CANDIDATE_SHA_REQUIRED');
   const out=execFileSync('git',['diff','--name-only','--diff-filter=ACMRD',base,candidate],{encoding:'utf8',stdio:['ignore','pipe','pipe']});
-  return normalizeFiles(out.split(/?
-/));
+  return normalizeFiles(out.split('\\n'));
 }
 function storefrontReleaseFiles(files){
   const set=new Set(STOREFRONT_RELEASE_PATHS);
