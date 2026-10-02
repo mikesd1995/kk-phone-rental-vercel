@@ -17,6 +17,7 @@ const RUNTIME_DATASETS={
 const EXPECTED_APPS_SCRIPT_VERSION='v16.7.0_CRM_PRO_PHASE3_9_5_13_FULL_BACKEND_AUDIT';
 const APPS_SCRIPT_TIMING_CACHE_TTL_MS=5*60*1000;
 const APPS_SCRIPT_TIMING_FAILURE_CACHE_TTL_MS=30*1000;
+const RUNTIME_RECOVERY_MARKER='KK_RUNTIME_RECOVERY_2026_10_03_V1';
 function timingCacheTtl(payload){return payload&&payload.status==='READBACK_COMPLETE'?APPS_SCRIPT_TIMING_CACHE_TTL_MS:APPS_SCRIPT_TIMING_FAILURE_CACHE_TTL_MS;}
 let appsScriptTimingCache={expiresAt:0,payload:null};
 
@@ -67,6 +68,7 @@ function safeTimingPayload(status,errorCode,extra){
     cleanup_trigger:'UNVERIFIED',
     cleanup_trigger_count:null,
     cleanup_trigger_schedule:'UNVERIFIED',
+    runtime_recovery_marker:RUNTIME_RECOVERY_MARKER,
     safety:{read_only:true,apps_script_writes:0,sheet_business_writes:0,trigger_mutations:0,timezone_mutations:0,secrets_exposed:false}
   },extra||{});
 }
@@ -321,7 +323,7 @@ module.exports=async function handler(req,res){
 };
 
 module.exports._test={
-  reconcileRuntimeDatasets,RUNTIME_DATASETS,EXPECTED_APPS_SCRIPT_VERSION,APPS_SCRIPT_TIMING_CACHE_TTL_MS,APPS_SCRIPT_TIMING_FAILURE_CACHE_TTL_MS,timingCacheTtl,
+  reconcileRuntimeDatasets,RUNTIME_DATASETS,EXPECTED_APPS_SCRIPT_VERSION,APPS_SCRIPT_TIMING_CACHE_TTL_MS,APPS_SCRIPT_TIMING_FAILURE_CACHE_TTL_MS,RUNTIME_RECOVERY_MARKER,timingCacheTtl,
   canonicalAppsScriptExecUrl,naiveLocalTimestampMs,inferOffsetMinutes,offsetLabel,
   safeTimingPayload,appsScriptTimingReadback,timingProbeRequested,
   projectMemoryProbeRequested,projectMemoryRuntimeReadback,
