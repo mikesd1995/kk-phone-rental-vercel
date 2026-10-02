@@ -128,6 +128,7 @@ jobs:
           node --test tests/kk-ultra-deep-full-loop-completion-gate.test.js
           node --test tests/kk-ultra-deep-public-web-adapters.test.js
           node --test tests/kk-ultra-deep-runtime-runner.test.js
+          node --test tests/kk-ultra-deep-reconciliation.test.js
 
       - name: Install pinned zero-cost DDGS fallback
         shell: bash
@@ -137,28 +138,55 @@ jobs:
 
       - name: Execute live discovery acceptance
         id: scan
-        continue-on-error: true
         shell: bash
         env:
           KK_DDGS_TRAFILATURA_ENABLED: '1'
         run: |
-          set -euo pipefail
+          set +e
           node scripts/kk-ultra-deep-runtime-acceptance.js \
             --month "$SCAN_MONTH" \
             --location "Bangkok Thailand" \
             --output ultra-deep-runtime-acceptance.json \
             > ultra-deep-runtime-summary.json
+          RC=$?
+          set -e
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          if [ "$RC" -eq 0 ]; then echo "result=success" >> "$GITHUB_OUTPUT"; else echo "result=failure" >> "$GITHUB_OUTPUT"; fi
+          exit 0
 
+      - name: Report discovery checkpoint
+        if: ${{ github.event_name == 'issue_comment' }}
+        uses: actions/github-script@v8
+        env:
+          SCAN_RESULT: ${{ steps.scan.outputs.result }}
+        with:
+          script: |
+            const fs=require('fs');
+            let r={};
+            try { r=JSON.parse(fs.readFileSync('ultra-deep-runtime-acceptance.json','utf8')); } catch {}
+            const runUrl=`https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body=[
+              '🔎 Ultra Deep **DISCOVERY CHECKPOINT**',
+              '',
+              `Candidates: \`${r.candidate_count ?? 'n/a'}\``,
+              `Reference candidates: \`${r.reference_candidate_count ?? 'n/a'}\``,
+              `Hard-gap eligible references: \`${r.reference_hard_gap_eligible_count ?? 'n/a'}\``,
+              `Reconciliation gaps: \`${r.reconciliation?.reconciliation_gap_count ?? 'n/a'}\``,
+              `Discovery result: \`${process.env.SCAN_RESULT || 'unknown'}\``,
+              '',
+              'Next: FULL coverage gate → governed business stages.',
+              `Progress: ${runUrl}`
+            ].join('\n');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:context.issue.number,body});
       - name: Require discovery FULL before business stages
         id: gate
         if: always()
-        continue-on-error: true
         shell: bash
         env:
-          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+          SCAN_EXIT_CODE: ${{ steps.scan.outputs.exit_code }}
         run: |
           set -euo pipefail
-          test "$SCAN_OUTCOME" = "success"
+          test "$SCAN_EXIT_CODE" = "0"
           node - <<'NODE'
           const fs=require('node:fs');
           const r=JSON.parse(fs.readFileSync('ultra-deep-runtime-acceptance.json','utf8'));
@@ -192,7 +220,7 @@ jobs:
         if: always()
         shell: bash
         env:
-          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+          SCAN_RESULT: ${{ steps.scan.outputs.result }}
           GATE_OUTCOME: ${{ steps.gate.outcome }}
           PINNED_SHA: ${{ steps.pin.outputs.sha }}
         run: |
@@ -200,7 +228,7 @@ jobs:
             echo "### Ultra Deep Full Loop"
             echo "- month: $SCAN_MONTH"
             echo "- main: $PINNED_SHA"
-            echo "- discovery: $SCAN_OUTCOME"
+            echo "- discovery: $SCAN_RESULT"
             echo "- FULL gate: $GATE_OUTCOME"
             if [ -f ultra-deep-runtime-summary.json ]; then
               echo '~~~json'
@@ -226,7 +254,7 @@ jobs:
         if: ${{ always() && github.event_name == 'issue_comment' }}
         uses: actions/github-script@v8
         env:
-          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+          SCAN_RESULT: ${{ steps.scan.outputs.result }}
           GATE_OUTCOME: ${{ steps.gate.outcome }}
         with:
           script: |
@@ -237,12 +265,13 @@ jobs:
             const ok = process.env.GATE_OUTCOME === 'success';
             const blockers = Array.isArray(summary.blockers) && summary.blockers.length ? summary.blockers.join(', ') : 'none';
             const body = [
+              `@${context.repo.owner}`,
               ok ? '🟢 Ultra Deep Full Loop **DISCOVERY FULL / READY_FOR_VERIFIER**' : '🔴 Ultra Deep Full Loop **BLOCKED / FAIL-CLOSED**',
               '',
               `Month: \`${process.env.SCAN_MONTH}\``,
               `Candidates: \`${summary.candidate_count ?? 'n/a'}\``,
               `Blockers: \`${blockers}\``,
-              `Discovery: \`${process.env.SCAN_OUTCOME}\``,
+              `Discovery: \`${process.env.SCAN_RESULT}\``,
               `FULL gate: \`${process.env.GATE_OUTCOME}\``,
               '',
               `Run: ${runUrl}`
@@ -254,6 +283,3 @@ jobs:
               body
             });
 
-      - name: Fail closed when FULL gate is not satisfied
-        if: ${{ always() && steps.gate.outcome != 'success' }}
-        run: exit 1
