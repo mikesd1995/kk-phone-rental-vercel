@@ -993,6 +993,45 @@ function kkEventDateMap_() {
   return map;
 }
 
+function kkAssertEventDateChangeSafe_(eventId, nextEventDate) {
+  const eid = String(eventId || '').trim();
+  if (!eid || !nextEventDate) return true;
+  const currentEvent = kkGetEventById_(eid);
+  if (currentEvent && currentEvent.event_date && kkSameDate_(currentEvent.event_date, nextEventDate)) return true;
+
+  const eventDates = kkEventDateMap_();
+  const bookings = kkGetValues_(KK.bookings, 5, 1, 20);
+  const moving = { phone: {}, lens: {} };
+
+  bookings.forEach(r => {
+    const status = String(r[2] || '').toLowerCase().trim();
+    if (!kkActiveHold_(status) || String(r[3] || '').trim() !== eid) return;
+    const phoneId = String(r[9] || '').trim();
+    const lensId = String(r[10] || '').trim();
+    if (phoneId) moving.phone[phoneId] = true;
+    if (lensId) moving.lens[lensId] = true;
+  });
+  if (!Object.keys(moving.phone).length && !Object.keys(moving.lens).length) return true;
+
+  bookings.forEach(r => {
+    const status = String(r[2] || '').toLowerCase().trim();
+    const otherEventId = String(r[3] || '').trim();
+    if (!kkActiveHold_(status) || !otherEventId || otherEventId === eid) return;
+    const otherDate = eventDates[otherEventId];
+    if (!otherDate || !kkSameDate_(otherDate, nextEventDate)) return;
+    const phoneId = String(r[9] || '').trim();
+    const lensId = String(r[10] || '').trim();
+    if (phoneId && moving.phone[phoneId]) {
+      throw new Error('EVENT_DATE_ASSET_COLLISION: ' + phoneId + ' is already reserved by ' + otherEventId + ' on ' + kkDateKey_(nextEventDate));
+    }
+    if (lensId && moving.lens[lensId]) {
+      throw new Error('EVENT_DATE_ASSET_COLLISION: ' + lensId + ' is already reserved by ' + otherEventId + ' on ' + kkDateKey_(nextEventDate));
+    }
+  });
+  return true;
+}
+
+
 function kkBookedAssetIdsForDate_(eventDate, excludeRow) {
   const eventDates = kkEventDateMap_();
   const booked = { phone: {}, lens: {} };
@@ -1380,6 +1419,19 @@ function kkModelDisplayMap_() {
     };
   });
   return map;
+}
+
+function kkAssertModelGroupType_(modelGroup, expectedType) {
+  const group = String(modelGroup || '').trim();
+  const type = String(expectedType || '').toLowerCase().trim();
+  if (!group || group === 'NONE') throw new Error('model_group is required for ' + type + ' asset/package');
+  const model = kkModelDisplayMap_()[group];
+  if (!model) throw new Error('Unknown model_group: ' + group);
+  if (!model.active) throw new Error('Inactive model_group: ' + group);
+  if (String(model.asset_type || '').toLowerCase().trim() !== type) {
+    throw new Error('model_group ' + group + ' is ' + String(model.asset_type || '-') + ', expected ' + type);
+  }
+  return model;
 }
 
 function kkNormalizeAssetModelDisplay_(assetType, modelGroup, modelDisplay) {
@@ -1889,7 +1941,11 @@ function kkApiUpdateEvent_(payload) {
       const rowNumber = i + 5;
       const current = rows[i].slice();
       if (payload.event_name) current[1] = String(payload.event_name).trim();
-      if (payload.event_date) current[2] = kkDateObj_(payload.event_date);
+      if (payload.event_date) {
+        const nextEventDate = kkDateObj_(payload.event_date);
+        kkAssertEventDateChangeSafe_(eventId, nextEventDate);
+        current[2] = nextEventDate;
+      }
       if (payload.venue) current[3] = String(payload.venue).trim();
       const posterInfo = payload.poster_url ? kkPosterForWrite_(payload.poster_url) : { url: '', drive_file_id: '', public_checked: false };
       if (payload.poster_url) current[4] = posterInfo.url;
@@ -1961,6 +2017,8 @@ function kkApiCreatePackage_(payload) {
     if (!['phone_only', 'lens_only', 'phone_lens_bundle'].includes(packageType)) throw new Error('package_type must be phone_only, lens_only or phone_lens_bundle');
     if ((packageType === 'phone_only' || packageType === 'phone_lens_bundle') && (!modelGroup || modelGroup === 'NONE')) throw new Error('model_group is required for phone packages');
     if ((packageType === 'lens_only' || packageType === 'phone_lens_bundle') && (!lensGroup || lensGroup === 'NONE')) throw new Error('lens_group is required for lens packages');
+    if (packageType === 'phone_only' || packageType === 'phone_lens_bundle') kkAssertModelGroupType_(modelGroup, 'phone');
+    if (packageType === 'lens_only' || packageType === 'phone_lens_bundle') kkAssertModelGroupType_(lensGroup, 'lens');
 
     const existing = kkGetValues_(KK.packages, 5, 1, 1).flat().map(v => String(v || '').trim());
     if (existing.includes(templateId)) throw new Error('template_id already exists: ' + templateId);
@@ -2128,7 +2186,8 @@ function kkApiAddAssets_(payload) {
     if (!['phone', 'lens'].includes(assetType)) throw new Error('asset_type must be phone or lens');
     if (!['available', 'repair', 'inactive'].includes(status)) throw new Error('status must be available, repair, or inactive');
     if (status !== 'available') rentable = false;
-    if (!modelGroup || qty < 1 || qty > 50) throw new Error('Please fill model_group and quantity 1-50');
+    if (!modelGroup || qty < 1 || qty > 50 || Math.floor(qty) !== qty) throw new Error('Please fill model_group and integer quantity 1-50');
+    kkAssertModelGroupType_(modelGroup, assetType);
     
     const sh = kkSheet_(KK.assets);
     const ids = kkNextAssetIds_(assetType, qty);
