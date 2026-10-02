@@ -250,3 +250,10 @@ test('API key normalization safely strips common copy/paste wrappers',()=>{
   assert.equal(Platform.normalizeApiKey('"sk-proj-abc"'),'sk-proj-abc');
   assert.equal(Platform.normalizeApiKey("'sk-proj-abc'"),'sk-proj-abc');
 });
+
+
+test('API key diagnostics expose shape only and never the secret',()=>{
+  const d=Platform.apiKeyDiagnostics('OPENAI_API_KEY="sk-proj-AbC_123"');
+  assert.deepEqual(d,{normalized_length:15,starts_with_sk:true,starts_with_sk_proj:true,ascii_token_charset:true,raw_has_whitespace:false,normalized_has_whitespace:false});
+  assert.equal(JSON.stringify(d).includes('sk-proj-AbC_123'),false);
+});
