@@ -26,12 +26,13 @@ async function bootstrapProjectMemory(intent, options={}) {
   const corpus=options.projectMemoryCorpus||ProjectMemoryCorpus;
   const domains=memoryDomainsForIntent(intent);
   let durable=[];
+  let durableMode='disabled';
   const ledgerFn=options.projectMemoryListFn||ProjectMemoryLedger.listEvents;
-  try { const live=await ledgerFn({env:options.env||process.env,fetchImpl:options.fetchImpl,limit:200,domains}); durable=Array.isArray(live&&live.rows)?live.rows:[]; }
+  try { const live=await ledgerFn({env:options.env||process.env,fetchImpl:options.fetchImpl,limit:200,domains}); durable=Array.isArray(live&&live.rows)?live.rows:[]; durableMode=String(live&&live.mode||'disabled'); }
   catch(error){ throw Object.assign(new Error('project memory durable ledger unavailable'),{code:errorCode(error)}); }
   const result=ProjectMemory.buildBootstrap([...(corpus.items||[]),...durable],{domains,limit:80});
   if(result.status!=='READY') throw Object.assign(new Error('project memory unavailable'),{code:'PROJECT_MEMORY_BOOTSTRAP_BLOCKED',details:result});
-  return result;
+  return {...result,durable_mode:durableMode,durable_context_count:durable.length};
 }
 
 function stable(value) {
@@ -198,7 +199,7 @@ async function executeContentRequest(payload = {}, options = {}) {
     ledger: ledgerReceipt,
     invocation_check: invocationCheck,
     route: ready ? routed : blockedRoute(routed),
-    project_memory: {status:projectMemory.status, context_count:projectMemory.context.length},
+    project_memory: {status:projectMemory.status, context_count:projectMemory.context.length, durable_mode:projectMemory.durable_mode, durable_context_count:projectMemory.durable_context_count},
     owner_review_required: true,
     production_writes: 0,
     publishes: 0
@@ -332,7 +333,7 @@ async function executeOperationalRequest(payload = {}, options = {}) {
     invocation_check: check,
     downstream_agents: [...routeSpec.downstream_agents],
     result: executed.result,
-    project_memory: {status:projectMemory.status, context_count:projectMemory.context.length},
+    project_memory: {status:projectMemory.status, context_count:projectMemory.context.length, durable_mode:projectMemory.durable_mode, durable_context_count:projectMemory.durable_context_count},
     owner_review_required: routeSpec.owner_review_required,
     production_writes: 0,
     publishes: 0
