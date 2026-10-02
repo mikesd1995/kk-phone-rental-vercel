@@ -77,11 +77,11 @@ var STALE_REFRESH_MS = 3*60*1000;
 
 var I18N = {
   th: {
-    meta_title:"KK Phone Rental | เช่ามือถือและเลนส์สำหรับคอนเสิร์ต แฟนมีต และอีเวนต์",
-    meta_description:"KK Phone Rental บริการเช่ามือถือและเลนส์สำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ ซูมชัด เก็บครบทุกโมเมนต์ ดูคิวว่างและจองผ่าน LINE OA",
-    event_meta_description:"เช่ามือถือหรือเลนส์สำหรับงาน {event} วันที่ {date} ดูแพ็กเกจและจองผ่าน LINE OA",
-    brand_subtitle:"Phone & Lens Rental Service",
-    hero_body:"เช่า vivo X300 Pro + Lens สำหรับคอนเสิร์ตและแฟนมีต — เลือกงาน เช็กคิว แล้วรับเครื่องหน้างาน",
+    meta_title:"KK Phone Rental | เช่ามือถือสำหรับคอนเสิร์ต แฟนมีต และอีเวนต์",
+    meta_description:"KK Phone Rental บริการเช่ามือถือสำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ เลือกงาน เช็กคิวว่าง แล้วจองผ่าน LINE OA",
+    event_meta_description:"เช่ามือถือสำหรับงาน {event} วันที่ {date} ดูแพ็กเกจและจองผ่าน LINE OA",
+    brand_subtitle:"Concert Phone Rental",
+    hero_body:"เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต — เลือกงาน เช็กคิว แล้วรับเครื่องหน้างาน",
     hero_cta:"ดูงานที่เปิดจอง",
     hero_secondary:"วิธีการเช่า",
     benefit_insurance:"ฟรีประกันเครื่อง · ไม่ต้องวางมัดจำ",
@@ -97,6 +97,13 @@ var I18N = {
     follow_promo:"ติดตาม X ร้าน · ไม่ต้องวางมัดจำ · ฟรีประกันเครื่อง",
     faq_button:"FAQ",
     language_aria:"เลือกภาษา",
+    skip_link:"ข้ามไปดูงาน",
+    theme_to_light_aria:"ใช้ธีมสว่าง",
+    theme_to_dark_aria:"ใช้ธีมมืด",
+    benefit_group_aria:"จุดเด่นบริการ",
+    browse_group_aria:"ค้นหาและกรองงาน",
+    journey_aria:"ขั้นตอนการจอง",
+    select_month_aria:"เลือกเดือน",
     filter_group_aria:"เลือกเดือนและกรองสถานะงาน",
     search_placeholder:"ค้นหาชื่องาน / ศิลปิน / สถานที่",
     search_aria:"ค้นหางาน ศิลปิน หรือสถานที่",
@@ -210,11 +217,11 @@ var I18N = {
     refreshed:"อัปเดตคิวล่าสุดแล้ว"
   },
   en: {
-    meta_title:"KK Phone Rental | Phone & Lens Rental for Concerts and Events",
-    meta_description:"Rent a phone or lens for concerts, fan meetings and events. Check available packages and book directly with KK Phone Rental via LINE OA.",
-    event_meta_description:"Rent a phone or lens for {event} on {date}. View available packages and book via LINE OA.",
-    brand_subtitle:"Phone & Lens Rental Service",
-    hero_body:"Rent a vivo X300 Pro + Lens for concerts and fan meetings — choose an event, check availability, and pick up at the venue.",
+    meta_title:"KK Phone Rental | Phone Rental for Concerts and Events",
+    meta_description:"Phone rental for concerts, fan meetings and events. Choose an event, check availability, and book directly with KK Phone Rental via LINE OA.",
+    event_meta_description:"Rent a phone for {event} on {date}. View available packages and book via LINE OA.",
+    brand_subtitle:"Concert Phone Rental",
+    hero_body:"Phone rental for concerts and fan meetings — choose an event, check availability, and pick up at the venue.",
     hero_cta:"Browse open events",
     hero_secondary:"How it works",
     benefit_insurance:"Free insurance · No deposit",
@@ -230,6 +237,13 @@ var I18N = {
     follow_promo:"Follow on X · No deposit · Free insurance",
     faq_button:"FAQ",
     language_aria:"Choose language",
+    skip_link:"Skip to events",
+    theme_to_light_aria:"Switch to light theme",
+    theme_to_dark_aria:"Switch to dark theme",
+    benefit_group_aria:"Service benefits",
+    browse_group_aria:"Search and filter events",
+    journey_aria:"How to book",
+    select_month_aria:"Choose month",
     filter_group_aria:"Choose a month and filter event availability",
     search_placeholder:"Search event / artist / venue",
     search_aria:"Search events, artists or venues",
@@ -370,6 +384,7 @@ function updateLanguageButtons(){
 }
 function applyStaticLanguage(){
   document.documentElement.lang=currentLang;
+  setText(".skip-link","skip_link");
   setText(".v3-brand-copy small","brand_subtitle");
   setText(".v3-hero-copy>p","hero_body");
   var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">→</span>';
@@ -386,7 +401,7 @@ function applyStaticLanguage(){
   var eventHeading=document.querySelector(".v3-events-heading h2");
   if(eventHeading)eventHeading.innerHTML=currentLang==="en"?"YOUR NIGHT.<br><em>STARTS HERE.</em>":"คืนนี้ของคุณ<br><em>เริ่มจากโปสเตอร์นี้</em>";
   var eventBody=document.querySelector(".v3-events-heading p");
-  if(eventBody)eventBody.innerHTML=esc(tr("events_body"))+'<br><strong>vivo X300 Pro + Lens</strong>';
+  if(eventBody)eventBody.textContent=tr("events_body");
   setText(".kk-journey-kicker","journey_kicker");
   var journey=document.querySelectorAll(".kk-journey-steps>div");
   [["journey_1_title","journey_1_body"],["journey_2_title","journey_2_body"],["journey_3_title","journey_3_body"]].forEach(function(keys,i){
@@ -397,10 +412,20 @@ function applyStaticLanguage(){
   setText(".value-box .value-note","value_note");
   setText("a.quick-link","follow_promo");
   setText("#faq-open-btn","faq_button");
+  setAttr("#language-switch","aria-label","language_aria");
+  setAttr(".kk-benefit-grid","aria-label","benefit_group_aria");
+  setAttr(".browse-controls-shell","aria-label","browse_group_aria");
+  setAttr("#booking-journey","aria-label","journey_aria");
+  setText(".event-search-wrap .sr-only","search_aria");
+  setText(".month-select-wrap .sr-only","select_month_aria");
+  setAttr("#content .skeleton-grid","aria-label","loading_aria");
+  setText("#content .skeleton-loading-text","loading_text");
+  var activeTheme=document.documentElement.getAttribute("data-theme")==="dark"?"dark":"light";
+  setAttr("#theme-toggle","aria-label",activeTheme==="dark"?"theme_to_light_aria":"theme_to_dark_aria");
   document.querySelectorAll(".filter-group,.status-filter-bar").forEach(function(el){el.setAttribute("aria-label",tr("filter_group_aria"));});
   setAttr("#event-search","placeholder","search_placeholder");
   setAttr("#event-search","aria-label","search_aria");
-  setAttr("#month-filter-select","aria-label","select_month");
+  setAttr("#month-filter-select","aria-label","select_month_aria");
   setText('[data-filter="all"]',"filter_all");
   setText('[data-filter="available"]',"filter_available");
   setText('[data-filter="full"]',"filter_waitlist");
@@ -463,7 +488,7 @@ function applyTheme(theme,options){
   var next=theme==="dark"?"dark":"light";
   document.documentElement.setAttribute("data-theme",next);
   var btn=document.getElementById("theme-toggle");
-  if(btn){btn.setAttribute("aria-pressed",next==="dark"?"true":"false");btn.setAttribute("aria-label",next==="dark"?"ใช้ธีมสว่าง":"ใช้ธีมมืด");}
+  if(btn){btn.setAttribute("aria-pressed",next==="dark"?"true":"false");btn.setAttribute("aria-label",tr(next==="dark"?"theme_to_light_aria":"theme_to_dark_aria"));}
   var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute("content",next==="dark"?"#071426":"#f4f6f8");
   if(options.save!==false){try{localStorage.setItem("kk_public_theme",next);}catch(e){}}
 }
