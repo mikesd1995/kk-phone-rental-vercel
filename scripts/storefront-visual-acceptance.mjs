@@ -10,6 +10,7 @@ const require=createRequire(import.meta.url);
 const Reviewer=require('../server/kk-storefront-ux-reviewer.js');
 const ArtDirector=require('../server/kk-storefront-art-director.js');
 const VisualCritic=require('../server/kk-storefront-visual-critic.js');
+const DesignCouncil=require('../server/kk-storefront-design-council.js');
 
 const DEFAULT_HEIGHTS=Object.freeze({
   320:568,
@@ -407,13 +408,26 @@ async function main(){
         };
       });
 
+      const pageText=(await page.locator('body').innerText()).slice(0,40000);
+      const rawI18nKeys=[...new Set((pageText.match(/\b(?:journey|proof|events|filter|footer|modal|faq|hero|card|search)_[a-z0-9_]+\b/gi)||[]).map(x=>x.toLowerCase()))];
+      metrics.raw_i18n_key_count=rawI18nKeys.length;
+      metrics.raw_i18n_keys=rawI18nKeys.slice(0,20);
       const packet={
         platform:width<=768?'ios-contract-via-chromium':'chromium',
         viewport:{width,height},
-        metrics
+        metrics,
+        page_text:pageText,
+        screenshot_observations:rawI18nKeys.length?[{
+          code:'RAW_I18N_KEY_VISIBLE',
+          severity:'P0',
+          evidence:'Visible untranslated keys: '+rawI18nKeys.slice(0,8).join(', '),
+          action:'Repair localization binding before release.'
+        }]:[]
       };
       const qa=Reviewer.validateVisualQa(packet);
       const visualCritique=VisualCritic.critique(packet);
+      const designCouncil=DesignCouncil.runCouncil({packet});
+      const councilBlockingFindings=designCouncil.reviews.flatMap(r=>Array.isArray(r.findings)?r.findings:[]).filter(f=>['P0','P1'].includes(String(f&&f.severity||'').toUpperCase()));
       results.push({
         width,
         height,
@@ -426,7 +440,9 @@ async function main(){
         interaction_checks:interactionChecks,
         metrics,
         qa,
-        visual_critique:visualCritique
+        visual_critique:visualCritique,
+        design_council:designCouncil,
+        design_council_blockers:councilBlockingFindings
       });
       runtimeErrors.push(...pageErrors.map(message=>({width,message})));
       await context.close();
@@ -446,13 +462,14 @@ async function main(){
     viewports:results,
     runtime_errors:runtimeErrors,
     pass:results.length===widths.length &&
-      results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS') &&
+      results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS' && item.design_council_blockers.length===0) &&
       runtimeErrors.length===0,
     production_writes:0,
     publishes:0,
     clicks_performed:results.reduce((sum,item)=>sum+(item.interaction_checks||[]).filter(check=>/filter|faq|modal|language/.test(check.name)).length,0),
     forms_submitted:0,
-    technical_visual_pass:results.length===widths.length && results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS') && runtimeErrors.length===0,
+    technical_visual_pass:results.length===widths.length && results.every(item=>item.qa.pass===true && item.visual_critique.status==='PASS' && item.design_council_blockers.length===0) && runtimeErrors.length===0,
+    invoked_agents:[...new Set(results.flatMap(item=>item.design_council?.invoked_agents||[]))],
     interaction_pass:results.length===widths.length && results.every(item=>(item.interaction_checks||[]).every(check=>check.pass===true)),
     protection_bypass_used:Boolean(String(process.env.VERCEL_AUTOMATION_BYPASS_SECRET||'').trim()),
     paid_external_service_calls:0,
@@ -511,6 +528,7 @@ async function main(){
     `Approved SHA: ${approvedSha}`,
     `Result: ${summary.pass?'PASS':'FAIL'}`,
     `Art Director acceptance: ${summary.art_director_acceptance.status}`,
+    `Design Council agents: ${(summary.invoked_agents||[]).join(', ')||'none'}`,
     '',
     '| Viewport | Result | Score | P0 | P1 | P2 | Sticky px | Filter rows | Card cols |',
     '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |'
