@@ -17,6 +17,11 @@ function emitReport(report,{error=false}={}){
 async function main(){
   const env=process.env;
   const config=Platform.configState(env);
+  const zeroCostAssert=Platform.flag(env.KK_ZERO_COST_ASSERT);
+  let providerRequests=0;
+  const fetchImpl=zeroCostAssert
+    ? async()=>{providerRequests+=1;throw new Error('ZERO_COST_PROVIDER_CALL_ATTEMPTED');}
+    : global.fetch;
   const rows=[];
 
   rows.push(await Router.executeTask('storefront_ai_review',{
@@ -24,14 +29,14 @@ async function main(){
     metrics:{viewport_width_px:390,viewport_height_px:844,card_columns:2,event_card_count:4},
     page_text:'KK Phone Rental staging synthetic review',
     owner_observations:'Synthetic dry-run only. No customer data.'
-  },{env}));
+  },{env,fetchImpl}));
 
   rows.push(await Router.executeTask('ultra_deep_ai_reasoning',{
     candidate:{title:'Synthetic Concert',event_date:'2026-12-31',venue:'Synthetic Hall'},
     observations:[],
     evidence:[{source_tier:'OFFICIAL',source_url:'https://example.com/synthetic-event'}],
     known_events:[]
-  },{env}));
+  },{env,fetchImpl}));
 
   if(config.allow_customer_data){
     rows.push(await Router.executeTask('unified_inbox_ai_draft',{
@@ -39,14 +44,18 @@ async function main(){
       message_text:'Synthetic customer asks whether a phone is available for Synthetic Concert.',
       conversation_context:'Synthetic test fixture only.',
       business_context:{availability_verified:false}
-    },{env}));
+    },{env,fetchImpl}));
   }else{
     rows.push({invoked_agents:['kk-openai-inbox-drafter'],result:{status:'SKIPPED_CUSTOMER_DATA_GATE',production_writes:0}});
   }
 
   const report={
     schema_version:'KK_OPENAI_AGENT_DRY_RUN_V1',
+    requested:config.requested,
     enabled:config.enabled,
+    paid_external_ai_allowed:config.paid_external_ai_allowed,
+    zero_cost_mode:config.zero_cost_mode,
+    provider_requests:providerRequests,
     api_key_present:config.api_key_present,
     api_key_diagnostics:Platform.apiKeyDiagnostics(env.OPENAI_API_KEY),
     allow_customer_data:config.allow_customer_data,
@@ -74,6 +83,7 @@ async function main(){
     })
   };
   if(report.results.some(row=>row.production_writes!==0)) process.exitCode=2;
+  if(zeroCostAssert&&providerRequests!==0) process.exitCode=3;
   emitReport(report);
 }
 
