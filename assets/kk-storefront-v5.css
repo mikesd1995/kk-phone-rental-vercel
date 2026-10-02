@@ -933,3 +933,19 @@ html[data-theme="dark"] .kk-benefit-grid{border-color:#20324b}html[data-theme="d
  .v3-events-heading>div>span{display:block!important}
 }
 @media(max-width:380px){.kk-mock-hero{padding-right:20%!important}.kk-benefit-grid>div{font-size:7.5px;padding-inline:3px}}
+
+
+/* V6.2.1 mobile conversion correction — keep mock character without delaying event discovery. */
+@media(max-width:700px){
+ .kk-mock-hero{min-height:0!important;height:auto!important;padding:18px 28% 14px 0!important}
+ .kk-mock-hero:after{inset:0 -16px 0 48%!important;opacity:.62!important}
+ .kk-mock-hero .v3-eyebrow{font-size:7px!important;margin-bottom:5px!important}
+ .kk-mock-hero h1{font-size:clamp(1.95rem,9.2vw,2.65rem)!important;line-height:.9!important}
+ .kk-mock-hero .v3-hero-copy>p{margin-top:8px!important;font-size:9px!important;line-height:1.4!important;max-width:26ch!important}
+ .kk-mock-hero .v3-hero-actions{margin-top:10px!important}
+ .kk-mock-hero .v3-primary,.kk-mock-hero .v3-secondary{min-height:44px!important}
+ .kk-benefit-grid{margin-bottom:10px!important}
+ .kk-benefit-grid>div{min-height:72px!important;padding:7px 3px!important;font-size:7.5px!important}
+ .kk-benefit-grid b{font-size:17px!important;margin-bottom:4px!important}
+ .browse-controls-shell{margin-bottom:12px!important}
+}
