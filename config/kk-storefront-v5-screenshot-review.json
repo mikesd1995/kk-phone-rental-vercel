@@ -5,11 +5,11 @@
   "baseline_comparison_pass": true,
   "baseline": "production-v3",
   "reviewed_design_blobs": {
-    "index_html": "b9f4787ae80b1ea156e068d44a0d5f2e205258e5",
-    "v5_css": "64d2f3f24b6b3183b9b73ae88c4262e52e8efe1a",
+    "index_html": "6d65b135e380650c9a85d9475ac9cd07c9f4cbf0",
+    "v5_css": "e75b17084ae38a288d3987ae396576ad292d64c6",
     "script_js": "66def8d16eeb5c50c8594360365c300e953c1ca9"
   },
-  "screenshot_artifact_id": "11204153038",
+  "screenshot_artifact_id": "11204168750",
   "rounds": [
     {
       "artifact_id": "11151298431",
@@ -80,6 +80,11 @@
       "artifact_id": "11204153038",
       "status": "PASS",
       "finding": "PR #458 exact-head zero-cost Visual QA after production iPhone modal audit: technical_visual_pass=true and interaction_pass=true at 320/375/390/430/480/768/1024, runtime_errors=[], production_writes=0. Owner-supplied production evidence identified the misleading iOS calendar glyph and inherited mobile grid ghost column; both are corrected and regression-guarded."
+    },
+    {
+      "artifact_id": "11204168750",
+      "status": "PASS",
+      "finding": "V6.1 exact-design Visual QA: technical_visual_pass=true, interaction_pass=true, runtime_errors=[], production_writes=0 across required 320/375/390/430/480/768/1024 viewports. Conversion trust strip, CTA hierarchy and mobile contact placement are bound to the reviewed executable blobs."
     }
   ],
   "reviewed_viewports": [
@@ -101,10 +106,10 @@
   "production_writes": 0,
   "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "aa86c88c54b9d2e60aa3fb499b620b882b62312b",
+  "reviewed_design_head": "4fe07e9448b561dcfffac771748bdf4ff2c4cdea",
   "owner_acceptance_evidence": {
     "accepted_at": "2026-10-02",
-    "artifact_id": "11204153038",
-    "statement": "Owner requested exhaustive production cleanup and bug fixes after supplying iPhone Safari screenshots. Exact-head automated evidence is technically clean across all required viewports; the patch is limited to the two screenshot-confirmed modal defects plus regression coverage."
+    "artifact_id": "11204168750",
+    "statement": "Owner requested completion of the V6.1 storefront refinement after reviewing the production design. Automated UX Reviewer and Visual Critic pass across required viewports; exact executable design blobs are recorded here before merge."
   }
 }
