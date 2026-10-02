@@ -3,113 +3,56 @@
 const OIDC_LEDGER_PROJECT_REF='zehlsagzrpromtfqqflt';
 const OIDC_LEDGER_FUNCTION='kk-runtime-ledger-oidc-probe';
 const OIDC_BRIDGE_TIMEOUT_MS=4000;
+const PROJECT_MEMORY_MAX_ROWS=80;
 
-function text(value){
-  return String(value==null?'':value).trim();
-}
-
-function endpoint(){
-  return `https://${OIDC_LEDGER_PROJECT_REF}.supabase.co/functions/v1/${OIDC_LEDGER_FUNCTION}`;
-}
+function text(value){ return String(value==null?'':value).trim(); }
+function endpoint(){ return `https://${OIDC_LEDGER_PROJECT_REF}.supabase.co/functions/v1/${OIDC_LEDGER_FUNCTION}`; }
 
 async function officialVercelOidcToken(){
   let oidc;
-  try{
-    // @vercel/functions already exists in this project. Its OIDC re-export delegates
-    // to Vercel's supported request-context-aware token resolver.
-    oidc=require('@vercel/functions/oidc');
-  }catch(_err){
-    return '';
-  }
+  try{ oidc=require('@vercel/functions/oidc'); }catch(_err){ return ''; }
   if(!oidc || typeof oidc.getVercelOidcToken!=='function') return '';
-  try{
-    return text(await oidc.getVercelOidcToken());
-  }catch(_err){
-    return '';
-  }
+  try{ return text(await oidc.getVercelOidcToken()); }catch(_err){ return ''; }
 }
 
-async function resolveOidcToken({
-  getTokenImpl=officialVercelOidcToken
-}={}){
+async function resolveOidcToken({getTokenImpl=officialVercelOidcToken}={}){
   if(typeof getTokenImpl!=='function') return '';
-  try{
-    return text(await getTokenImpl());
-  }catch(_err){
-    return '';
-  }
+  try{ return text(await getTokenImpl()); }catch(_err){ return ''; }
 }
 
-async function parseJsonSafe(response){
-  try{return await response.json();}catch(_err){return null;}
-}
+async function parseJsonSafe(response){ try{return await response.json();}catch(_err){return null;} }
 
-async function probe({
-  fetchImpl=global.fetch,
-  getTokenImpl=officialVercelOidcToken
-}={}){
+async function request(body,{fetchImpl=global.fetch,getTokenImpl=officialVercelOidcToken}={}){
   const token=await resolveOidcToken({getTokenImpl});
-  if(!token){
-    return {
-      attempted:false,
-      ok:false,
-      error_code:'VERCEL_OIDC_TOKEN_MISSING',
-      read_only:true,
-      bounded_limit:1,
-      business_writes:0
-    };
-  }
-  if(typeof fetchImpl!=='function'){
-    return {
-      attempted:false,
-      ok:false,
-      error_code:'OIDC_BRIDGE_FETCH_UNAVAILABLE',
-      read_only:true,
-      bounded_limit:1,
-      business_writes:0
-    };
-  }
-
+  if(!token) return {attempted:false,ok:false,error_code:'VERCEL_OIDC_TOKEN_MISSING',remote_status:null};
+  if(typeof fetchImpl!=='function') return {attempted:false,ok:false,error_code:'OIDC_BRIDGE_FETCH_UNAVAILABLE',remote_status:null};
   let response;
   try{
     response=await fetchImpl(endpoint(),{
       method:'POST',
-      headers:{
-        Authorization:`Bearer ${token}`,
-        'Content-Type':'application/json',
-        Accept:'application/json'
-      },
-      body:JSON.stringify({probe:'runtime-ledger',version:'v1'}),
+      headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',Accept:'application/json'},
+      body:JSON.stringify(body),
       signal:AbortSignal.timeout(OIDC_BRIDGE_TIMEOUT_MS)
     });
   }catch(err){
-    return {
-      attempted:true,
-      ok:false,
-      error_code:String(err&&err.name)==='TimeoutError'?'OIDC_BRIDGE_TIMEOUT':'OIDC_BRIDGE_TRANSPORT_FAILED',
-      read_only:true,
-      bounded_limit:1,
-      business_writes:0
-    };
+    return {attempted:true,ok:false,error_code:String(err&&err.name)==='TimeoutError'?'OIDC_BRIDGE_TIMEOUT':'OIDC_BRIDGE_TRANSPORT_FAILED',remote_status:null};
   }
-
-  const body=await parseJsonSafe(response);
-  if(!response.ok || !body || typeof body!=='object'){
-    return {
-      attempted:true,
-      ok:false,
-      error_code:text(body&&body.error_code)||'OIDC_BRIDGE_REMOTE_FAILED',
-      remote_status:Number.isInteger(response.status)?response.status:null,
-      read_only:true,
-      bounded_limit:1,
-      business_writes:0
-    };
+  const parsed=await parseJsonSafe(response);
+  if(!response.ok || !parsed || typeof parsed!=='object'){
+    return {attempted:true,ok:false,error_code:text(parsed&&parsed.error_code)||'OIDC_BRIDGE_REMOTE_FAILED',remote_status:Number.isInteger(response.status)?response.status:null};
   }
+  return {attempted:true,ok:true,remote_status:Number.isInteger(response.status)?response.status:null,body:parsed};
+}
 
+async function probe(options={}){
+  const remote=await request({probe:'runtime-ledger',version:'v1'},options);
+  if(!remote.ok){
+    return {...remote,read_only:true,bounded_limit:1,business_writes:0};
+  }
+  const body=remote.body||{};
   return {
     attempted:true,
-    ok:body.ok===true && body.authenticated===true && body.read_only===true &&
-      body.bounded_limit===1 && body.business_writes===0,
+    ok:body.ok===true && body.authenticated===true && body.read_only===true && body.bounded_limit===1 && body.business_writes===0,
     authenticated:body.authenticated===true,
     row_count:Number.isInteger(body.row_count)?body.row_count:0,
     read_only:true,
@@ -118,12 +61,31 @@ async function probe({
   };
 }
 
+function normalizeDomains(value){
+  return [...new Set((Array.isArray(value)?value:[]).map(v=>text(v).toLowerCase()).filter(v=>/^[a-z0-9_:-]{2,80}$/.test(v)))].slice(0,12);
+}
+
+async function readProjectMemory({domains=[],limit=80,fetchImpl=global.fetch,getTokenImpl=officialVercelOidcToken}={}){
+  const safeLimit=Math.max(1,Math.min(Number(limit)||80,PROJECT_MEMORY_MAX_ROWS));
+  const remote=await request({probe:'project-memory',version:'v1',domains:normalizeDomains(domains),limit:safeLimit},{fetchImpl,getTokenImpl});
+  if(!remote.ok) return {...remote,read_only:true,bounded_limit:safeLimit,business_writes:0,rows:[]};
+  const body=remote.body||{};
+  const rows=Array.isArray(body.rows)?body.rows:[];
+  const valid=body.ok===true && body.authenticated===true && body.read_only===true && body.business_writes===0 &&
+    Number(body.bounded_limit)===safeLimit && rows.length<=safeLimit;
+  return {
+    attempted:true,
+    ok:valid,
+    authenticated:body.authenticated===true,
+    rows:valid?rows:[],
+    read_only:true,
+    bounded_limit:safeLimit,
+    business_writes:0,
+    error_code:valid?'':'PROJECT_MEMORY_OIDC_RESPONSE_INVALID'
+  };
+}
+
 module.exports={
-  OIDC_LEDGER_PROJECT_REF,
-  OIDC_LEDGER_FUNCTION,
-  OIDC_BRIDGE_TIMEOUT_MS,
-  endpoint,
-  officialVercelOidcToken,
-  resolveOidcToken,
-  probe
+  OIDC_LEDGER_PROJECT_REF,OIDC_LEDGER_FUNCTION,OIDC_BRIDGE_TIMEOUT_MS,PROJECT_MEMORY_MAX_ROWS,
+  endpoint,officialVercelOidcToken,resolveOidcToken,request,probe,normalizeDomains,readProjectMemory
 };
