@@ -70,6 +70,21 @@
       ],
       "supersedes": [],
       "source": "owner"
+    },
+    {
+      "memory_id": "kk:memory:x-posting-plan:default:20261002",
+      "occurred_at": "2026-10-02T14:00:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "content",
+      "summary": "Every KK request to decide what to post next on X, rank events, or plan posting windows/dayparts must use the x_posting_plan Agent route with current labeled X evidence and recent KK post history. Default timezone is Asia/Bangkok; planning fails closed on stale or insufficient current evidence and must not be replaced by ad-hoc manual ranking.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/X_POSTING_PLAN_AGENT_DEFAULT_2026-10-02.md",
+        "server/kk-x-posting-plan-agent.js",
+        "server/kk-agent-registry.js"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
     }
   ]
 }
