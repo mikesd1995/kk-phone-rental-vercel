@@ -135,7 +135,7 @@ test('DDGS emits one candidate per bounded event date from result evidence',asyn
 
 
 test('DDGS title-specific date wins over other dates in snippet body',async()=>{
-  const rows=await Adapters.ddgsTrafilatura({query:'The Weeknd Bangkok October 2026'},{
+  const rows=await A.ddgsTrafilatura({query:'The Weeknd Bangkok October 2026'},{
     ddgs_runner:async()=>[{
       title:'The Weeknd: After Hours Til Dawn Tour, Bangkok, Sun, 11 Oct 2026',
       body:'Shows also run 12 Oct 2026 and 13 Oct 2026 in Bangkok',
