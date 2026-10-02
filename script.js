@@ -68,7 +68,7 @@ var TH_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.�
 var EN_MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 var PRELOADED_IMAGES = {};
 var REQUESTED_LANG = String(URL_PARAMS.get("lang")||"").trim().toLowerCase();
-var currentLang = (REQUESTED_LANG==="en"||REQUESTED_LANG==="th") ? REQUESTED_LANG : getStoredLanguage();
+var currentLang = (REQUESTED_LANG==="en"||REQUESTED_LANG==="th") ? REQUESTED_LANG : getStoredLanguage();\nif(currentLang!=="th"&&currentLang!=="en") currentLang="th";
 var activeModalEvent = null;
 var lastDataLoadAt = 0;
 var storefrontRefreshPromise = null;
