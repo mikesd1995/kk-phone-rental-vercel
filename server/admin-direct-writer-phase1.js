@@ -145,6 +145,63 @@ function rowMatchesId(rows,id,index=0){
     .filter(x=>text(x.row[index])===wanted);
 }
 
+function eventDateKey(value){
+  if(typeof value==='number'&&Number.isFinite(value)){
+    const ms=Date.UTC(1899,11,30)+Math.round(value*86400000);
+    return new Date(ms).toISOString().slice(0,10);
+  }
+  const parts=normalizeEventDate(value);
+  if(!parts) return '';
+  return [parts[0],String(parts[1]).padStart(2,'0'),String(parts[2]).padStart(2,'0')].join('-');
+}
+
+function activeBookingHold(status){
+  return ['pending','confirmed','prepared','picked_up'].includes(text(status).toLowerCase());
+}
+
+function assertEventDateMoveSafe(eventId,nextEventDate,data){
+  const eid=text(eventId);
+  const nextKey=eventDateKey(nextEventDate);
+  if(!eid||!nextKey) throw Object.assign(new Error('event_date is invalid'),{code:'DIRECT_PHASE1_VALIDATION_FAILED'});
+  const eventRows=data&&data.events||[];
+  const currentHit=rowMatchesId(eventRows,eid,0)[0];
+  if(currentHit&&eventDateKey(currentHit.row[2])===nextKey) return true;
+
+  const dateByEvent={};
+  for(const row of eventRows||[]){
+    const r=padRow(row,8);
+    if(text(r[0])) dateByEvent[text(r[0])]=eventDateKey(r[2]);
+  }
+  const moving={phone:new Set(),lens:new Set()};
+  for(const row of data&&data.bookings||[]){
+    const r=padRow(row,20);
+    if(!activeBookingHold(r[2])||text(r[3])!==eid) continue;
+    if(text(r[9])) moving.phone.add(text(r[9]));
+    if(text(r[10])) moving.lens.add(text(r[10]));
+  }
+  if(!moving.phone.size&&!moving.lens.size) return true;
+
+  for(const row of data&&data.bookings||[]){
+    const r=padRow(row,20);
+    const otherEvent=text(r[3]);
+    if(!activeBookingHold(r[2])||!otherEvent||otherEvent===eid||dateByEvent[otherEvent]!==nextKey) continue;
+    const phone=text(r[9]), lens=text(r[10]);
+    if(phone&&moving.phone.has(phone)){
+      const err=new Error('Event date move would double-book phone '+phone+' with '+otherEvent+' on '+nextKey);
+      err.code='DIRECT_PHASE1_EVENT_DATE_ASSET_COLLISION';
+      err.asset_id=phone; err.conflicting_event_id=otherEvent; err.event_date=nextKey;
+      throw err;
+    }
+    if(lens&&moving.lens.has(lens)){
+      const err=new Error('Event date move would double-book lens '+lens+' with '+otherEvent+' on '+nextKey);
+      err.code='DIRECT_PHASE1_EVENT_DATE_ASSET_COLLISION';
+      err.asset_id=lens; err.conflicting_event_id=otherEvent; err.event_date=nextKey;
+      throw err;
+    }
+  }
+  return true;
+}
+
 function visibilityLockObjects(rows){
   return (rows||[]).map((row,i)=>{
     const r=padRow(row,14);
@@ -245,9 +302,18 @@ function buildUpdateEventPlan(payload,data){
   }
   const next=current.slice();
   if(payload.event_name) next[1]=text(payload.event_name);
-  if(payload.event_date) next[2]=dateSerial(payload.event_date);
+  if(payload.event_date){
+    assertEventDateMoveSafe(eventId,payload.event_date,data||{});
+    next[2]=dateSerial(payload.event_date);
+  }
   if(payload.venue) next[3]=text(payload.venue);
-  if(payload.status) next[5]=text(payload.status).toLowerCase();
+  if(payload.status){
+    const status=text(payload.status).toLowerCase();
+    if(!['open','closed'].includes(status)){
+      throw Object.assign(new Error('status must be open or closed'),{code:'DIRECT_PHASE1_VALIDATION_FAILED'});
+    }
+    next[5]=status;
+  }
   const active=boolOrBlank(payload.active_on_web);
   if(active!=='') next[6]=active;
   if(payload.note!==undefined&&payload.note!=='') next[7]=payload.note;
@@ -476,14 +542,15 @@ async function readValues(range,{token,render='UNFORMATTED_VALUE',fetchImpl=glob
 }
 
 async function loadModel(action,{token,fetchImpl=global.fetch}={}){
-  const base={events:[],packages:[],overrides:[],web:[],webPriceFormula:[],visibility_locks:[]};
+  const base={events:[],packages:[],overrides:[],web:[],webPriceFormula:[],visibility_locks:[],bookings:[]};
   if(action==='updateEvent'){
-    const [events,web,visibility_locks]=await Promise.all([
+    const [events,web,visibility_locks,bookings]=await Promise.all([
       readValues('01_Events!A5:H',{token,fetchImpl}),
       readValues('09_Web_Packages!A5:N',{token,fetchImpl}),
-      readValues('18_Event_Visibility_Locks!A2:N',{token,fetchImpl})
+      readValues('18_Event_Visibility_Locks!A2:N',{token,fetchImpl}),
+      readValues('00_Master_Booking!A5:T',{token,fetchImpl})
     ]);
-    return Object.assign(base,{events,web,visibility_locks});
+    return Object.assign(base,{events,web,visibility_locks,bookings});
   }
   if(action==='updatePackage'){
     base.packages=await readValues('03_Packages!A5:J',{token,fetchImpl});
@@ -652,7 +719,7 @@ async function tryExecute(payload,options={}){
 module.exports={
   VERSION,ADMIN_SOURCE,SUPPORTED_ACTIONS,WRITE_SHEETS,
   configuredActions,routingState,normalizeTemplateId,boolOrBlank,nonNegativeNumber,
-  normalizeEventDate,dateSerial,dateTimeSerial,visibilityLockObjects,lockRowValues,priceLensCanonical,webRowMatchesTemplate,
+  normalizeEventDate,dateSerial,dateTimeSerial,eventDateKey,activeBookingHold,assertEventDateMoveSafe,visibilityLockObjects,lockRowValues,priceLensCanonical,webRowMatchesTemplate,
   webPackagePriceFormula,buildUpdateEventPlan,buildUpdatePackagePlan,buildOverridePlan,buildPlan,
   extendedValue,cellData,updateCellsRequest,auditRow,appendAuditRequest,requestsForPlan,
   readValues,loadModel,sheetMap,executeBatch,rowsEqual,verifyReadbacks,verifyAudit,findAuditRequest,validRequestId,tryExecute
