@@ -74,3 +74,26 @@ test('reconciliation fails closed when independent reference evidence has no str
  assert.equal(out.unstructured_reference_count,1);
 });
 
+test('ineligible structured reference cannot create a gap or satisfy independent-reference proof',()=>{
+ const excludedOnly=R.reconcileCandidateSets(
+  [{title:'Found Event',event_date:'2026-10-01'}],
+  [{reference_id:'foreign',title:'Foreign Concert',event_date:'2026-10-01',eligible_for_discovery:false}]
+ );
+ assert.equal(excludedOnly.complete,false);
+ assert.equal(excludedOnly.reconciliation_gap_count,0);
+ assert.equal(excludedOnly.reference_count,0);
+ assert.equal(excludedOnly.structured_reference_count,1);
+ assert.equal(excludedOnly.excluded_reference_count,1);
+
+ const mixed=R.reconcileCandidateSets(
+  [{title:'Bangkok Fanmeeting',event_date:'2026-10-20'}],
+  [
+   {reference_id:'foreign',title:'Foreign Concert',event_date:'2026-10-01',eligible_for_discovery:false},
+   {reference_id:'local',title:'Bangkok Fanmeeting',event_date:'2026-10-20',eligible_for_discovery:true}
+  ]
+ );
+ assert.equal(mixed.complete,true);
+ assert.equal(mixed.reference_count,1);
+ assert.equal(mixed.excluded_reference_count,1);
+});
+
