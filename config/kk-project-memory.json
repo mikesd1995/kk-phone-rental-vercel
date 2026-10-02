@@ -120,6 +120,22 @@
       ],
       "supersedes": [],
       "source": "owner+runtime"
+    },
+    {
+      "memory_id": "kk:memory:content:x-signal-first-posting-plan:20261003",
+      "occurred_at": "2026-10-03T01:10:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "content",
+      "summary": "Before producing any final KK X event-posting schedule, the workflow must verify event date/status, inspect KK X recent-post history, collect current public X signal evidence, reject stale/past events, apply recent-post fatigue, then invoke the governed x_posting_plan Marketing Agent. Never invent native X views/impressions; proxy scores must be explicitly labeled evidence-derived. Final schedules use 60–90 minute standalone spacing (75-minute baseline unless evidence supports adjustment). Persist PLANNED separately from POSTED, and learn from actual publish time plus post-level reach/engagement when available.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/issues/537",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/issues/493",
+        "server/kk-x-signal-detector.js",
+        "server/kk-x-posting-plan.js"
+      ],
+      "supersedes": [],
+      "source": "owner+runtime"
     }
   ]
 }
