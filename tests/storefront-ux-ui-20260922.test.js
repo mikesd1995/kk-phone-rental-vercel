@@ -117,3 +117,19 @@ test('V6.7 lower-page finish keeps event-card details visible and removes legacy
   assert.doesNotMatch(js,/Rent it\. Capture it clearly/);
   assert.doesNotMatch(js,/empty-emoji[^\n]*💙/);
 });
+
+
+test('V6.7 structured FAQ and static fallback contain no retired rental wording',()=>{
+  assert.match(html,/"name":"เช่ามือถือยังไง\?"/);
+  assert.match(html,/"text":"เลือกงาน ดูแพ็กเกจและคิวว่าง แล้วจองผ่าน LINE OA เพื่อให้ร้านยืนยันคิว"/);
+  assert.match(html,/"name":"รับและคืนมือถือที่ไหน\?"/);
+  assert.match(html,/"name":"ต้องวางมัดจำหรือมีค่าประกันเครื่องไหม\?"/);
+  assert.match(html,/"name":"ต้องใช้เอกสารอะไรในการเช่า\?"/);
+  assert.match(js,/faq_q6:"Q: ต้องใช้เอกสารอะไรในการเช่า\?"/);
+  assert.doesNotMatch(html,/กดดูรุ่นมือถือที่ว่าง/);
+  assert.doesNotMatch(html,/เพื่อให้ร้านคอนเฟิร์ม/);
+  assert.doesNotMatch(html,/รับเครื่อง และส่งเครื่องคืนที่ไหน/);
+  assert.doesNotMatch(html,/ต้องจ่ายมัดจำเครื่องและประกันเครื่องไหม/);
+  assert.doesNotMatch(html,/อุปกรณ์ที่เช่ายืม/);
+  assert.doesNotMatch(js,/อุปกรณ์ที่เช่ายืม/);
+});
