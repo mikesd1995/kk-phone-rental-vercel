@@ -44,15 +44,15 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261002-v65-owner-mobile-polish'));
-  assert.ok(html.includes('script.js?v=storefront-v65-owner-mobile-polish-20261002'));
+  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261003-v66-generic-phone-i18n'));
+  assert.ok(html.includes('script.js?v=storefront-v66-generic-phone-i18n-20261003'));
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#f4f6f8">/);
 });
 
 
 test('V5 language switch binds hero, benefits and event-discovery DOM',()=>{
-  assert.match(js,/hero_body:"Rent a vivo X300 Pro \+ Lens/);
+  assert.match(js,/hero_body:"Phone rental for concerts and fan meetings/);
   assert.match(js,/hero_secondary:"How it works"/);
   assert.match(js,/benefit_insurance:"Free insurance · No deposit"/);
   assert.match(js,/benefit_discount:"New customer −฿40 · Returning review −฿100"/);
@@ -63,6 +63,26 @@ test('V5 language switch binds hero, benefits and event-discovery DOM',()=>{
   assert.match(js,/eventBody\.innerHTML=esc\(tr\("events_body"\)\)/);
 });
 
+
+test('brand-level storefront copy is model-agnostic and accessibility labels localize with language',()=>{
+  assert.doesNotMatch(html,/VIVO X300 PRO \+ LENS/i);
+  assert.doesNotMatch(html,/เช่า vivo X300 Pro \+ Lens/i);
+  assert.match(html,/PHONE RENTAL<br><span>EVENT PICKUP<\/span>/);
+  assert.match(js,/brand_subtitle:"Concert Phone Rental"/);
+  assert.match(js,/meta_title:"KK Phone Rental \| Phone Rental for Concerts and Events"/);
+  assert.match(js,/skip_link:"Skip to events"/);
+  assert.match(js,/theme_to_light_aria:"Switch to light theme"/);
+  assert.match(js,/benefit_group_aria:"Service benefits"/);
+  assert.match(js,/browse_group_aria:"Search and filter events"/);
+  assert.match(js,/journey_aria:"How to book"/);
+  assert.match(js,/setText\("\.skip-link","skip_link"\)/);
+  assert.match(js,/setAttr\("#language-switch","aria-label","language_aria"\)/);
+  assert.match(js,/setAttr\("\.kk-benefit-grid","aria-label","benefit_group_aria"\)/);
+  assert.match(js,/setAttr\("\.browse-controls-shell","aria-label","browse_group_aria"\)/);
+  assert.match(js,/setAttr\("#booking-journey","aria-label","journey_aria"\)/);
+  assert.match(js,/tr\(next==="dark"\?"theme_to_light_aria":"theme_to_dark_aria"\)/);
+  assert.doesNotMatch(js,/eventBody\.innerHTML=esc\(tr\("events_body"\)\)\+'<br><strong>vivo X300 Pro \+ Lens<\/strong>'/);
+});
 
 test('package and async-error surfaces expose assistive semantics',()=>{
   assert.match(html,/aria-labelledby="modal-title" aria-describedby="modal-note"/);
