@@ -134,3 +134,24 @@ Hardening:
 - the retired `v60-premium-editorial` literal is rejected by regression coverage so future storefront cache/version changes do not require weakening or manually chasing a stale deployment marker.
 
 No production write authority, deployment authorization, rollback behavior, pricing, booking, inventory or customer data contract is widened by this change.
+
+
+## 2026-10-03 lower-page legacy cleanup — owner screenshot follow-up
+
+Fresh owner iPhone screenshots exposed remaining lower-page presentation debt after V6.6. The event cards could visually cut off the venue/price/availability stack, the “show more” control was oversized, the booking journey retained a sparse legacy rule treatment, the LINE CTA dominated the viewport, and the footer still used the retired playful slogan.
+
+Changes:
+- event cards now own natural height instead of inheriting `height:100%`, preventing mobile detail text from being clipped at the card boundary;
+- mobile venue text may wrap to two lines, while price copy is shortened to `เริ่ม …฿ / From ฿…`;
+- “show more” becomes a compact secondary control;
+- booking journey is a contained service panel with tighter spacing and numbered step markers;
+- step 3 is explicitly `จองผ่าน LINE / Book via LINE`, with confirmation/pickup wording separated into supporting text;
+- LINE CTA is shorter, narrower and less visually dominant while retaining LINE brand recognition;
+- footer messaging is now `เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต / Phone rental for concerts and fan meetings` with a concise venue-pickup/LINE trust line;
+- legacy playful copy and decorative emoji were removed from empty/error states and lower-page surfaces;
+- static metadata/default description was aligned with the generic phone-rental positioning;
+- cache markers advance to V6.7.
+
+The black circular control visible at the lower-left of owner browser screenshots is not present in storefront source, DOM selectors, fixed-control CSS or exact-head QA captures. It is therefore treated as an external/browser overlay and no storefront element is hidden to imitate its removal.
+
+Safety boundary: no pricing values, package availability, inventory, booking destination, LINE payload semantics, Admin, Apps Script, event visibility, customer data or production business-write authority changed.
