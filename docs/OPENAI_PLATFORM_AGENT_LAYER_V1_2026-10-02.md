@@ -266,3 +266,13 @@ OpenAI current API documentation was checked on 2026-10-02. The independent revi
 - tool/function architecture remains optional for later phases.
 
 The v1 layer deliberately sends only supplied evidence and does not enable OpenAI web-search/tool calls, keeping cost and authority boundaries narrow.
+
+## Staging environment activation
+
+Branch-scoped Vercel Preview variables were configured by the owner for `feat/openai-platform-agent-layer-v1` on 2026-10-02:
+
+- `OPENAI_API_KEY` — Secret
+- `KK_OPENAI_PLATFORM_ENABLED=true` — Config
+- `KK_OPENAI_ALLOW_CUSTOMER_DATA` remains unset/disabled
+
+A fresh branch Preview deployment is required before these values are visible to the runtime. Production remains unchanged.
