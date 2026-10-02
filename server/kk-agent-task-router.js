@@ -27,6 +27,7 @@ const UltraDeepOwnerPolicy = require('./kk-ultra-deep-owner-policy.js');
 const UltraDeepFullLoop = require('./kk-ultra-deep-full-loop-orchestrator.js');
 const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
 const OpenAiAgents = require('./kk-openai-agent-adapters.js');
+const XPostingPlan = require('./kk-x-posting-plan.js');
 
 const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V19';
 
@@ -49,6 +50,12 @@ async function resolveDecisionHistory(input, options){
 
 async function executeTask(taskType, input = {}, options = {}) {
   switch (String(taskType || '').trim().toLowerCase()) {
+    case 'x_posting_plan':
+      return {
+        invoked_agents: ['kk-marketing-agent'],
+        result: XPostingPlan.plan(input)
+      };
+
     case 'storefront_ai_review': {
       const deterministicCouncil=StorefrontDesignCouncil.runCouncil(input);
       const aiReview=await OpenAiAgents.reviewStorefront(
