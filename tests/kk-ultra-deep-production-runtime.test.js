@@ -57,3 +57,41 @@ test('readback converts public action to active flag and returns event packages'
  assert.equal(rb.packages.length,1);
  assert.equal(R.packageTemplateId(rb.packages[0].package_id),'TPL-VIVO-X300-PRO-PHONE');
 });
+
+
+test('storefront readback fetches only public event and package feeds',async()=>{
+ const calls=[];
+ const fetchImpl=async url=>{
+  calls.push(String(url));
+  if(String(url).includes('08_Web_Ready'))return {ok:true,text:async()=>[
+   'event_id,event_name,event_date_text,venue,poster_image_url,available_phone_count,available_lens_count,line_message_template,action_for_web,data_health,extra',
+   'EVT-X,Artist Concert,27/10/2026,BITEC,https://img/x.jpg,1,1,,show,,'
+  ].join('\n')};
+  if(String(url).includes('09_Web_Packages'))return {ok:true,text:async()=>[
+   'package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case',
+   'EVT-X-TPL-VIVO-X300-PRO-PHONE,EVT-X,phone_only,,, , ,690,1,available,1,,1,'
+  ].join('\n')};
+  throw new Error('unexpected URL');
+ };
+ const snap=await R.fetchStorefrontSnapshot({KK_SITE_URL:'https://kk-phone-rental.vercel.app'},fetchImpl);
+ assert.equal(calls.length,2);
+ assert.equal(snap.web_ready[0].event_date,'2026-10-27');
+ const rb=R.readbackForEvent(snap,'EVT-X');
+ assert.equal(rb.event.active_on_web,true);
+ assert.equal(Number(rb.packages[0].price),690);
+});
+
+test('policy-only batch is COMPLETE when every verified candidate is terminally skipped',async()=>{
+ const s=snapshot();
+ s.events=[];s.web_ready=[];s.web_packages=[];s.visibility_locks=[];
+ s.bookings=[{booking_id:'B1',event_date:'2026-10-26',booking_status:'confirmed'}];
+ const out=await R.execute({
+  month:'2026-10',
+  verifier:{verified_candidates:[{event_key:'C',title:'New Artist Fan Meeting',event_date:'2026-10-26',venue:'BITEC'}]},
+  competitor_prices:[],posters:[]
+ },{snapshot:s,executeWrites:false});
+ assert.equal(out.status,'COMPLETE');
+ assert.equal(out.orchestrator.acceptance.complete,true);
+ assert.equal(out.dispositions[0].status,'SKIPPED_BOOKING_DATE');
+ assert.equal(out.production_writes,0);
+});
