@@ -168,10 +168,11 @@ async function runMonthlyUltraDeep(input={},options={}){
   const knownMissLive=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]);
   const knownMiss=KnownMiss.evaluateFixtureRegression();
 
-  const complete=binding.unknown_url_search_bound && preflight.status==='READY' && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete;
+  const liveSearchProven=preflight.status==='READY' || discoveryProof.has_evidence || referenceProof.has_evidence || knownMissCandidates.length>0;
+  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete;
   const blockers=[
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
-    ...(binding.unknown_url_search_bound&&preflight.status!=='READY'?['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED']:[]),
+    ...(binding.unknown_url_search_bound&&!liveSearchProven?['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED']:[]),
     ...(!universe.complete?['SOURCE_UNIVERSE_INCOMPLETE']:[]),
     ...(!discoveryProof.complete?['DISCOVERY_EVIDENCE_EMPTY']:[]),
     ...(!referenceProof.complete?['REFERENCE_SWEEP_INCOMPLETE']:[]),
@@ -185,7 +186,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     blockers,
     month:plan.range.month,
     location:plan.location,
-    provider_binding:binding,
+    provider_binding:{...binding,live_search_proven:liveSearchProven},
     source_universe:universe,
     discovery_proof:discoveryProof,
     reference_sweep_proof:referenceProof,
