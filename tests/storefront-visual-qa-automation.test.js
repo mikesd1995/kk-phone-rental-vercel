@@ -368,7 +368,7 @@ test('V6.7 lower-page finish prevents clipped card details and reduces CTA/foote
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const js=fs.readFileSync('script.js','utf8');
   assert.match(css,/V6\.7 lower-page professional finish/);
-  assert.match(css,/\.concert-card\{[\s\S]*height:auto!important;[\s\S]*align-self:start!important/);
+  assert.match(css,/V6\.7 lower-page professional finish[\s\S]*\.concert-card\{[\s\S]*height:100%!important;[\s\S]*align-self:stretch!important/);
   assert.match(css,/@media\(max-width:700px\)\{[\s\S]*\.pi-venue\{[\s\S]*-webkit-line-clamp:2!important/);
   assert.match(css,/\.browse-more-btn\{[\s\S]*min-height:46px!important;[\s\S]*border-radius:14px!important/);
   assert.match(css,/\.kk-booking-journey\{[\s\S]*padding:18px!important;[\s\S]*border-radius:20px!important/);
