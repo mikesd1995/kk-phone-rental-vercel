@@ -132,3 +132,15 @@ test('DDGS emits one candidate per bounded event date from result evidence',asyn
  assert.equal(new Set(rows.map(row=>row.source_url)).size,1);
 });
 
+
+
+test('DDGS title-specific date wins over other dates in snippet body',async()=>{
+  const rows=await A.ddgsTrafilatura({query:'The Weeknd Bangkok October 2026'},{
+    ddgs_runner:async()=>[{
+      title:'The Weeknd: After Hours Til Dawn Tour, Bangkok, Sun, 11 Oct 2026',
+      body:'Shows also run 12 Oct 2026 and 13 Oct 2026 in Bangkok',
+      source_url:'https://www.livenationtero.co.th/en/event/the-weeknd-11-oct'
+    }]
+  });
+  assert.deepEqual(rows.map(x=>x.event_date),['2026-10-11']);
+});
