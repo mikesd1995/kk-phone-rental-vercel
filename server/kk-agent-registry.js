@@ -426,8 +426,8 @@ const ROUTES = Object.freeze({
   storefront_ai_review: Object.freeze({
     route_id:'OPENAI_STOREFRONT_VISUAL_REVIEW',
     request_type:'OPENAI_STOREFRONT_REVIEW',
-    required_agents:Object.freeze(['kk-openai-storefront-reviewer']),
-    downstream_agents:Object.freeze(['kk-storefront-art-director','kk-storefront-ux-reviewer']),
+    required_agents:Object.freeze(['kk-storefront-art-director','kk-storefront-ux-reviewer','kk-storefront-conversion-reviewer','kk-storefront-fandom-reviewer','kk-storefront-accessibility-reviewer','kk-storefront-performance-reviewer','kk-storefront-visual-critic','kk-openai-storefront-reviewer']),
+    downstream_agents:Object.freeze([]),
     runtime_available:true,
     owner_review_required:true,
     persistent_invocation_evidence_required:true
@@ -435,7 +435,7 @@ const ROUTES = Object.freeze({
   ultra_deep_ai_reasoning: Object.freeze({
     route_id:'OPENAI_ULTRA_DEEP_REASONING_ASSIST',
     request_type:'OPENAI_DISCOVERY_REASONING',
-    required_agents:Object.freeze(['kk-openai-discovery-reasoner']),
+    required_agents:Object.freeze(['kk-discovery-source-watch','kk-discovery-scanner','kk-openai-discovery-reasoner']),
     downstream_agents:Object.freeze(['kk-event-verifier']),
     runtime_available:true,
     owner_review_required:false,
