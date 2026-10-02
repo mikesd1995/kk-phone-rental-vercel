@@ -27,7 +27,7 @@
   const signedSession = typeof window!=="undefined" && window.KK_ADMIN_SIGNED_SESSION===true;
   const state = {
     pin: safeSessionGet("kk_admin_pin") || (signedSession ? "__SESSION__" : ""),
-    data: null, loading: false, posterWarning: "", selectedCustomerKey: "",
+    data: null, loading: false, posterWarning: "", selectedCustomerKey: "", editBookingId: "",
     actionFilter: "all", actionSearch: "", reportRange: "all", reportStart: "", reportEnd: "",
     reportStatusMode: "active_revenue", systemHealth: null, pricingEventFilter: "", pricingSearch: "",
     pricingScope: "selected", rentalAnalytics: null, rentalAnalyticsError: "", rentalAnalyticsLoading: false,
@@ -308,7 +308,7 @@
     });
     ((state.data.bookings)||[]).forEach(b=>{
       const hay=[b.customer_name,b.customer_contact,b.customer_phone,b.event_name,b.event_id,b.row_number].join(" ").toLocaleLowerCase("th-TH");
-      if(hay.includes(q)) out.push({kind:"booking",title:`${b.customer_name||"Booking"} · ${b.event_name||b.event_id||""}`,sub:`Booking row ${b.row_number||"-"} · ${bookingLifecycleLabel(b.booking_status)}`,id:b.row_number});
+      if(hay.includes(q)) out.push({kind:"booking",title:`${b.customer_name||"Booking"} · ${b.event_name||b.event_id||""}`,sub:`Booking ${b.booking_id||b.row_number||"-"} · ${bookingLifecycleLabel(b.booking_status)}`,id:b.booking_id||b.row_number});
     });
     ((state.data.customer_history)||[]).forEach(c=>{
       const hay=[c.customer_name,c.customer_contact,c.customer_phone,c.last_event_name].join(" ").toLocaleLowerCase("th-TH");
@@ -729,6 +729,14 @@
     const row=String(rowNumber||'').trim();
     return ((state.data||{}).bookings||[]).find(b=>String(b.row_number||'')===row) || null;
   }
+  function findBookingById(bookingId){
+    const id=String(bookingId||'').trim();
+    return ((state.data||{}).bookings||[]).find(b=>String(b.booking_id||'').trim()===id) || null;
+  }
+  function findBookingByIdentity(identity){
+    const value=String(identity||'').trim();
+    return findBookingById(value) || findBookingByRow(value);
+  }
   function bookingMutationIdentity(b,rowNumber){
     const bookingId=String(b&&b.booking_id||"").trim();
     const row=String(rowNumber||b&&b.row_number||"").trim();
@@ -820,13 +828,15 @@
     if(type==='prep') return `สวัสดีค่ะ ${name} แอดมินขอยืนยัน booking งาน ${event} วันที่ ${date} เวลารับ ${pickup} นะคะ`;
     return `สวัสดีค่ะ ${name} ขอสรุป booking งาน ${event} วันที่ ${date} เวลารับ ${pickup} ค่ะ`;
   }
-  function openBookingEdit(rowNumber){
+  function openBookingEdit(identity){
+    const target=findBookingByIdentity(identity);
+    state.editBookingId=target ? String(target.booking_id||"").trim() : "";
     const nav=$('.nav[data-tab="edit-booking"]');
     if(nav) nav.click();
     setTimeout(()=>{
       const form=$('#bookingEditForm');
       if(!form || !form.elements.row_number) return;
-      form.elements.row_number.value=String(rowNumber||'');
+      form.elements.row_number.value=target ? String(target.row_number||"") : "";
       populateBookingEditForm();
       form.scrollIntoView({behavior:'smooth', block:'start'});
     },60);
@@ -1996,11 +2006,17 @@
     // Edit Booking has its own deterministic operational order.
     // Do not reuse the report/table sorter: changing another Booking view must never reshuffle this selector.
     const rows=sortedEditableBookings((state.data.bookings||[]).filter(shouldShowInEditBooking));
-    const current=sel.value;
+    const currentRow=String(sel.value||"");
+    const currentId=String(state.editBookingId||"").trim();
     sel.innerHTML=renderEditBookingOptions(rows);
-    if(current && rows.some(b=>String(b.row_number)===String(current))) sel.value=current;
-    else sel.value="";
-    const b=rows.find(x=>String(x.row_number)===String(sel.value));
+    // Preserve the same booking across refreshes by stable booking_id. GViz row
+    // numbers can shift when physical blank rows are added/removed.
+    const preserved=currentId
+      ? rows.find(b=>String(b.booking_id||"").trim()===currentId)
+      : rows.find(b=>String(b.row_number||"")===currentRow);
+    sel.value=preserved ? String(preserved.row_number||"") : "";
+    const b=preserved || null;
+    state.editBookingId=b ? String(b.booking_id||"").trim() : "";
     const set=(name,val)=>{ if(form.elements[name]) form.elements[name].value=val==null?"":val; };
     if(!b){
       ["booking_status","customer_name","customer_contact","customer_phone","contact_channel","payment_status","amount_received","pickup_time","phone_asset_id","lens_asset_id","booking_note"].forEach(k=>set(k,""));
@@ -2068,7 +2084,10 @@
     const afterSnapshot=snap&&snap.data;
     const check=globalThis.KKAdminWritePolicy.verifyBookingMutation(action,outbound,{},beforeSnapshot,afterSnapshot);
     if(check.status==="committed"){
-      const row=((afterSnapshot&&afterSnapshot.bookings)||[]).find(b=>String(b.row_number||"")===String(check.row_number||""))||{};
+      const rows=(afterSnapshot&&afterSnapshot.bookings)||[];
+      const row=(check.booking_id
+        ? rows.find(b=>String(b.booking_id||"").trim()===String(check.booking_id||"").trim())
+        : rows.find(b=>String(b.row_number||"")===String(check.row_number||"")))||{};
       return {
         ok:true,
         row_number:check.row_number||row.row_number||"",
@@ -3343,7 +3362,11 @@
     const packageUpdateSelect=$("#packageUpdateForm select[name='template_id']");
     if(packageUpdateSelect) packageUpdateSelect.addEventListener("change", populatePackageUpdateForm);
     const bookingEditSelect=$("#bookingEditForm select[name='row_number']");
-    if(bookingEditSelect) bookingEditSelect.addEventListener("change", populateBookingEditForm);
+    if(bookingEditSelect) bookingEditSelect.addEventListener("change", ()=>{
+      const selected=findBookingByRow(bookingEditSelect.value);
+      state.editBookingId=selected ? String(selected.booking_id||"").trim() : "";
+      populateBookingEditForm();
+    });
     const cleanupBtn=$("#cleanupBtn");
     if(cleanupBtn){
       cleanupBtn.addEventListener("click", async()=>{
