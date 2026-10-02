@@ -37,6 +37,7 @@ async function main(){
     schema_version:'KK_OPENAI_AGENT_DRY_RUN_V1',
     enabled:config.enabled,
     api_key_present:config.api_key_present,
+    api_key_diagnostics:Platform.apiKeyDiagnostics(env.OPENAI_API_KEY),
     allow_customer_data:config.allow_customer_data,
     models:config.models,
     results:rows.map(row=>{
