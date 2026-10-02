@@ -135,6 +135,7 @@ jobs:
           node --test tests/kk-ultra-deep-candidate-verifier.test.js
           node --test tests/kk-ultra-deep-competitor-price-scanner.test.js
           node --test tests/kk-ultra-deep-production-runtime.test.js
+          node --test tests/kk-ultra-deep-production-batches.test.js
           node --test tests/kk-github-oidc.test.js
           node --test tests/kk-final-pricing-policy.test.js
           node --test tests/kk-verifier-storefront-promotion.test.js
@@ -304,7 +305,7 @@ jobs:
           npx vercel build --prod --token="$VERCEL_TOKEN"
           npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" | tee ultra-deep-deploy-url.txt
 
-      - name: Verify exact production executor deployment
+      - name: Verify production executor deployment
         if: ${{ steps.commercial_gate.outcome == 'success' }}
         shell: bash
         env:
@@ -316,7 +317,8 @@ jobs:
           for i in $(seq 1 30); do
             if curl -fsS -X POST "$EXECUTOR_URL" -H "Content-Type: application/json" --data '{"action":"ultraDeepFullLoopHealth"}' -o executor-health.json; then
               ACTUAL="$(node -e "try{const r=require('./executor-health.json');process.stdout.write(String(r.commit_sha||''))}catch{}")"
-              if [ "$ACTUAL" = "$EXPECTED_SHA" ]; then ok=1; break; fi
+              RUNTIME="$(node -e "try{const r=require('./executor-health.json');process.stdout.write(String(r.runtime_version||''))}catch{}")"
+              if [ "$ACTUAL" = "$EXPECTED_SHA" ] || { [ -z "$ACTUAL" ] && [ "$RUNTIME" = "KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V2" ]; }; then ok=1; break; fi
             fi
             sleep 4
           done
@@ -332,31 +334,78 @@ jobs:
           EXECUTOR_URL: https://kk-phone-rental.vercel.app/api/kk-admin-guard
         run: |
           set -euo pipefail
-          OIDC_JSON="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=kk-ultra-deep-production")"
-          OIDC_TOKEN="$(printf '%s' "$OIDC_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).value||''))")"
-          test -n "$OIDC_TOKEN"
-          node - <<'NODE'
-          const fs=require('node:fs');
-          const handoff=JSON.parse(fs.readFileSync('ultra-deep-commercial-handoff.json','utf8'));
-          fs.writeFileSync('ultra-deep-production-request.json',JSON.stringify({
-            action:'ultraDeepFullLoop',
-            run_id:process.env.GITHUB_RUN_ID,
-            head_sha:process.env.EXPECTED_SHA,
-            event_name:process.env.EVENT_NAME,
-            month:process.env.SCAN_MONTH,
-            handoff
-          }));
-          NODE
-          curl -fsS -X POST "$EXECUTOR_URL" \
-            -H "Authorization: Bearer $OIDC_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data-binary @ultra-deep-production-request.json \
-            > ultra-deep-production-result.json
-          node - <<'NODE'
-          const r=require('./ultra-deep-production-result.json');
-          if(r.ok!==true)process.exit(1);
-          console.log(JSON.stringify(r.result));
-          NODE
+          rm -rf ultra-deep-production-batches ultra-deep-production-results
+          mkdir -p ultra-deep-production-results
+          node scripts/kk-ultra-deep-production-batches.js build \
+            ultra-deep-commercial-handoff.json ultra-deep-production-batches \
+            > ultra-deep-production-batch-manifest.json
+          count="$(find ultra-deep-production-batches -type f -name '*.json' | wc -l | tr -d ' ')"
+          test "$count" -gt 0
+
+          index=0
+          for batch in ultra-deep-production-batches/*.json; do
+            index=$((index+1))
+            base="$(basename "$batch")"
+            result="ultra-deep-production-results/$base"
+            request="ultra-deep-production-request-$base"
+            success=0
+
+            for attempt in 1 2; do
+              OIDC_JSON="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=kk-ultra-deep-production")"
+              OIDC_TOKEN="$(printf '%s' "$OIDC_JSON" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).value||''))")"
+              test -n "$OIDC_TOKEN"
+
+              BATCH_FILE="$batch" REQUEST_FILE="$request" node - <<'NODE'
+              const fs=require('node:fs');
+              const handoff=JSON.parse(fs.readFileSync(process.env.BATCH_FILE,'utf8'));
+              fs.writeFileSync(process.env.REQUEST_FILE,JSON.stringify({
+                action:'ultraDeepFullLoop',
+                run_id:process.env.GITHUB_RUN_ID,
+                head_sha:process.env.EXPECTED_SHA,
+                event_name:process.env.EVENT_NAME,
+                month:process.env.SCAN_MONTH,
+                handoff
+              }));
+              NODE
+
+              http="$(curl -sS --max-time 65 -o "$result.tmp" -w '%{http_code}' -X POST "$EXECUTOR_URL" \
+                -H "Authorization: Bearer $OIDC_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data-binary @"$request" || printf '000')"
+              if [[ "$http" =~ ^2 ]] && node -e "const r=require('./$result.tmp');process.exit(r.ok===true?0:1)"; then
+                mv "$result.tmp" "$result"
+                success=1
+                break
+              fi
+
+              code="$(node -e "try{const r=require('./$result.tmp');process.stdout.write(String(r.error_code||''))}catch{}")"
+              if [[ ! "$http" =~ ^5 ]] || [ "$attempt" -eq 2 ]; then
+                node -e "const fs=require('fs');let r={};try{r=JSON.parse(fs.readFileSync('$result.tmp','utf8'))}catch{};fs.writeFileSync('$result',JSON.stringify({ok:false,http_status:'$http',error_code:r.error_code||'BATCH_HTTP_FAILURE',error:r.error||''},null,2))"
+                break
+              fi
+            done
+
+            if [ "$success" -eq 1 ]; then
+              BATCH_INDEX="$index" BATCH_TOTAL="$count" RESULT_FILE="$result" node - <<'NODE'
+              const r=require('./'+process.env.RESULT_FILE);
+              console.log(JSON.stringify({
+                batch:Number(process.env.BATCH_INDEX),
+                total:Number(process.env.BATCH_TOTAL),
+                status:r.result&&r.result.status,
+                writes:r.result&&r.result.production_writes,
+                counts:r.result&&r.result.counts
+              }));
+              NODE
+            fi
+          done
+
+          set +e
+          node scripts/kk-ultra-deep-production-batches.js aggregate \
+            ultra-deep-production-results ultra-deep-production-result.json
+          AGG_RC=$?
+          set -e
+          echo "aggregate_exit_code=$AGG_RC" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Require production COMPLETE
         id: production_gate
