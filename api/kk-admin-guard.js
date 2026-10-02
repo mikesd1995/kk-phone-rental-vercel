@@ -63,7 +63,8 @@ function ultraDeepSafeSummary(result={}){
       updated_verified:rows.filter(x=>x.status==='UPDATED_VERIFIED').length,
       no_change:rows.filter(x=>x.status==='NO_CHANGE').length,
       update_ready:rows.filter(x=>x.status==='UPDATE_READY').length,
-      promotion_ready:rows.filter(x=>x.status==='READY_FOR_GOVERNED_ADMIN_CREATE').length
+      promotion_ready:rows.filter(x=>x.status==='READY_FOR_GOVERNED_ADMIN_CREATE').length,
+      quarantined_verified:Number(result.quarantine&&result.quarantine.quarantined_verified||0)
     },
     dispositions:result.dispositions||[],
     acceptance:result.orchestrator&&result.orchestrator.acceptance||null,
