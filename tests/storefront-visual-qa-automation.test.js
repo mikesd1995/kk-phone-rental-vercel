@@ -238,3 +238,37 @@ test('screenshot review record is bound to the current executable storefront blo
   };
   assert.deepEqual(review.reviewed_design_blobs,actual);
 });
+
+
+test('V6.1 conversion polish keeps trust, CTA hierarchy and floating contact out of the left content rail',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  assert.match(html,/class="kk-commerce-strip"/);
+  assert.match(html,/ฟรีประกัน/);
+  assert.match(html,/ไม่วางมัดจำ/);
+  assert.match(html,/รับ–คืนหน้างาน/);
+  assert.match(css,/\.pi-tap\{[^}]*border:1px solid var\(--v6-line\)!important/);
+  assert.match(css,/\.sticky-line\{right:14px!important;left:auto!important/);
+});
+
+
+test('V6.1.1 customer cards hide internal KK index and dark active filters remain readable',()=>{
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  assert.match(css,/\.concert-card:after\{content:none!important;display:none!important\}/);
+  assert.match(css,/html\[data-theme="dark"\] \.browse-controls-shell \.filter-btn\.active,[\s\S]*color:#071426!important;[\s\S]*-webkit-text-fill-color:#071426!important/);
+});
+
+
+test('V6.1.2 dark theme moon has explicit high-visibility yellow WebKit-safe foreground',()=>{
+ const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+ assert.match(css,/html\[data-theme="dark"\] \.theme-moon\{[\s\S]*color:#ffd640!important;[\s\S]*-webkit-text-fill-color:#ffd640!important;[\s\S]*opacity:1!important/);
+});
+
+
+test('V6.1.3 adversarial cascade cleanup owns dark language, select and narrow-screen states',()=>{
+ const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+ assert.match(css,/html\[data-theme="dark"\] \.v3-header \.lang-btn\.active\{[^}]*background:#eef4ff!important;[^}]*color:#071426!important;[^}]*-webkit-text-fill-color:#071426!important/);
+ assert.match(css,/html\[data-theme="dark"\] \.month-select\{[^}]*-webkit-text-fill-color:#eef4ff!important/);
+ assert.match(css,/\.status-filter-bar::-webkit-scrollbar\{display:none\}/);
+ assert.match(css,/html\[data-theme="dark"\] \.modal-title,[\s\S]*overflow-wrap:anywhere/);
+});

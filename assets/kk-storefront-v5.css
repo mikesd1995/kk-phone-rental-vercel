@@ -841,3 +841,66 @@ html[data-theme="light"] .theme-sun,html[data-theme="dark"] .theme-moon{display:
  .v3-events-heading h2 br{display:none!important}
  .update-note{font-size:9px!important}
 }
+
+/* V6.1 conversion polish — screenshot-led storefront refinement 2026-10-02 */
+.kk-commerce-strip{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 18px;padding:13px 0;border-top:1px solid var(--v6-line);border-bottom:1px solid var(--v6-line);font-size:12px}
+.kk-commerce-strip strong{font-size:14px;white-space:nowrap}.kk-commerce-strip strong span{color:var(--v6-accent);margin-left:5px}.kk-commerce-strip>div{display:flex;gap:14px;color:var(--v6-sub);font-size:11px}
+.pi-tap{display:inline-flex!important;width:auto!important;padding:0 12px!important;border:1px solid var(--v6-line)!important;border-radius:999px!important;color:var(--v6-ink)!important;font-weight:700!important;letter-spacing:-.01em!important}
+.pi-tap:after{content:" →";margin-left:3px}.concert-card:hover .pi-tap,.concert-card:focus-within .pi-tap{border-color:var(--v6-ink)!important}
+.pi-meta{margin-top:7px!important}.pi-price{font-weight:800!important;letter-spacing:-.025em!important}.pi-avail{margin-top:7px!important}
+html[data-theme="dark"] .kk-commerce-strip{border-color:#20324b;color:#eef4ff}html[data-theme="dark"] .kk-commerce-strip>div{color:#91a2b8}html[data-theme="dark"] .pi-tap{border-color:#30445f!important;color:#eef4ff!important}
+@media(max-width:700px){
+ .kk-commerce-strip{display:block;margin:0 0 12px;padding:10px 0}
+ .kk-commerce-strip strong{display:flex;justify-content:space-between;font-size:12px}
+ .kk-commerce-strip>div{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:7px;font-size:9px}
+ .browse-controls-shell{margin-top:0!important}
+ .pi-tap{min-height:36px!important;padding-inline:10px!important;font-size:10px!important}
+ .poster-info{display:flex!important;flex-direction:column!important}
+ .pi-meta{margin-top:6px!important}.pi-avail{margin-top:6px!important}
+ .sticky-line{right:14px!important;left:auto!important;bottom:max(14px,env(safe-area-inset-bottom))!important}
+ .overlay.active~.sticky-line,.faq-overlay.active~.sticky-line{display:none!important}
+}
+
+/* V6.1.1 production screenshot remediation — 2026-10-02
+   Remove internal catalogue numbering from customer posters and lock dark active-filter contrast. */
+.concert-card:after{content:none!important;display:none!important}
+html[data-theme="dark"] .browse-controls-shell .filter-btn.active,
+html[data-theme="dark"] .status-filter-bar .filter-btn.active{
+  background:#eef4ff!important;
+  color:#071426!important;
+  -webkit-text-fill-color:#071426!important;
+  border-color:#eef4ff!important;
+  opacity:1!important;
+}
+
+/* V6.1.2 theme-toggle visibility — owner screenshot review 2026-10-02 */
+html[data-theme="dark"] .theme-moon{
+  background:rgba(255,214,64,.14)!important;
+  color:#ffd640!important;
+  -webkit-text-fill-color:#ffd640!important;
+  opacity:1!important;
+  text-shadow:0 0 10px rgba(255,214,64,.35);
+}
+html[data-theme="dark"] .theme-sun{opacity:.32!important}
+
+/* V6.1.3 adversarial cascade cleanup — 2026-10-02
+   Final customer-visible state ownership after legacy V5/V6 selector audit. */
+html[data-theme="dark"] .v3-header .lang-btn{color:#aebbd0!important;-webkit-text-fill-color:#aebbd0!important}
+html[data-theme="dark"] .v3-header .lang-btn.active{background:#eef4ff!important;color:#071426!important;-webkit-text-fill-color:#071426!important}
+html[data-theme="dark"] .month-select{color:#eef4ff!important;-webkit-text-fill-color:#eef4ff!important}
+html[data-theme="dark"] .modal-close{color:#d7e1ef!important;-webkit-text-fill-color:#d7e1ef!important}
+html[data-theme="dark"] .modal-title,
+html[data-theme="dark"] .modal-meta,
+html[data-theme="dark"] .modal-note,
+html[data-theme="dark"] .ph-model,
+html[data-theme="dark"] .ph-spec,
+html[data-theme="dark"] .ph-note{overflow-wrap:anywhere}
+@media(max-width:700px){
+ .v3-header-actions{gap:5px!important}
+ .header-faq-btn{min-width:46px!important;padding-inline:8px!important}
+ .theme-toggle{flex:0 0 44px!important}
+ .language-switch{flex:0 0 auto!important}
+ .event-search::placeholder{opacity:1!important}
+ .status-filter-bar{-webkit-overflow-scrolling:touch;scrollbar-width:none}
+ .status-filter-bar::-webkit-scrollbar{display:none}
+}
