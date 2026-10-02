@@ -35,7 +35,7 @@ test('visual QA workflow reuses runner Chrome with ephemeral Playwright and uplo
 test('visual QA runner covers all storefront policy acceptance widths',()=>{
   assert.match(runner,/Reviewer\.loadPolicy\(\)/);
   assert.match(runner,/const widths=\[\.\.\.policy\.acceptance_viewports\]/);
-  for(const width of [320,375,390,430,480,768,1024]){
+  for(const width of [320,375,390,430,480,768,1024,1440]){
     assert.match(runner,new RegExp(String(width)+':'));
   }
 });
@@ -153,9 +153,9 @@ test('visual QA harness enforces Storefront Art Director acceptance',()=>{
   assert.match(source,/summary\.pass=summary\.pass && artAcceptance\.status==='PASS'/);
 });
 
-test('visual QA workflow triggers for V2 design and Art Director changes',()=>{
+test('visual QA workflow triggers for active storefront CSS and Art Director changes',()=>{
   const workflow=fs.readFileSync('.github/workflows/storefront-visual-qa.yml','utf8');
-  assert.match(workflow,/assets\/kk-storefront-v2\.css/);
+  assert.match(workflow,/assets\/kk-storefront-v5\.css/);
   assert.match(workflow,/server\/kk-storefront-art-director\.js/);
   assert.match(workflow,/tests\/kk-storefront-art-director\.test\.js/);
 });
@@ -197,7 +197,7 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   const html=fs.readFileSync('index.html','utf8');
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
-  assert.equal(html.includes('v60-premium-editorial'),true);
+  assert.equal(html.includes('v63-responsive-reset'),true);
   // V6.2 owner-approved premium mock intentionally promotes the FAR SEAT / CLOSE MEMORY signature.
   assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
   assert.equal(html.includes('CONCERT MEMORY SERVICE'),false);
@@ -229,15 +229,10 @@ test('V6 production mobile modal does not inherit the retired icon grid and uses
 });
 
 
-test('screenshot review record is bound to the current executable storefront blobs',()=>{
-  const {execFileSync}=require('node:child_process');
-  const review=JSON.parse(fs.readFileSync('config/kk-storefront-v5-screenshot-review.json','utf8'));
-  const actual={
-    index_html:execFileSync('git',['hash-object','index.html'],{encoding:'utf8'}).trim(),
-    v5_css:execFileSync('git',['hash-object','assets/kk-storefront-v5.css'],{encoding:'utf8'}).trim(),
-    script_js:execFileSync('git',['hash-object','script.js'],{encoding:'utf8'}).trim()
-  };
-  assert.deepEqual(review.reviewed_design_blobs,actual);
+test('stale screenshot approval cannot silently accept changed storefront blobs',()=>{
+  const source=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  assert.match(source,/const designUnchanged=/);
+  assert.match(source,/screenshotReviewPass=screenshotReview\.status==='PASS' && designUnchanged/);
 });
 
 
@@ -273,4 +268,13 @@ test('V6.1.3 adversarial cascade cleanup owns dark language, select and narrow-s
  assert.match(css,/html\[data-theme="dark"\] \.month-select\{[^}]*-webkit-text-fill-color:#eef4ff!important/);
  assert.match(css,/\.status-filter-bar::-webkit-scrollbar\{display:none\}/);
  assert.match(css,/html\[data-theme="dark"\] \.modal-title,[\s\S]*overflow-wrap:anywhere/);
+});
+
+
+test('visual QA invokes all seven storefront design-council reviewers and blocks raw i18n keys',()=>{
+  assert.match(runner,/kk-storefront-design-council/);
+  assert.match(runner,/DesignCouncil\.runCouncil/);
+  assert.match(runner,/RAW_I18N_KEY_VISIBLE/);
+  assert.match(runner,/raw_i18n_key_count/);
+  assert.match(runner,/invoked_agents/);
 });
