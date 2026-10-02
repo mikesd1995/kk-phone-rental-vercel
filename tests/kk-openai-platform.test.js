@@ -4,6 +4,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const Platform=require('../server/kk-openai-platform.js');
 const Agents=require('../server/kk-openai-agent-adapters.js');
+const Registry=require('../server/kk-agent-registry.js');
+const Router=require('../server/kk-agent-task-router.js');
 
 function fakeResponse(output,{status=200,requestId='req_test',id='resp_test'}={}){
   return {
@@ -134,4 +136,17 @@ test('model routing defaults to cost-aware Luna for discovery/inbox and Sol for 
   assert.equal(Platform.modelFor('discovery',{}),'gpt-6-luna');
   assert.equal(Platform.modelFor('inbox',{}),'gpt-6-luna');
   assert.equal(Platform.modelFor('storefront',{KK_OPENAI_MODEL_STOREFRONT:'custom-model'}),'custom-model');
+});
+
+
+test('OpenAI agents are registered as callable zero-write gateway routes',async()=>{
+  const audit=Registry.runtimeProofAudit();
+  assert.equal(audit.pass,true);
+  assert.deepEqual(Registry.routeForIntent('storefront_ai_review').required_agents,['kk-openai-storefront-reviewer']);
+  assert.deepEqual(Registry.routeForIntent('ultra_deep_ai_reasoning').downstream_agents,['kk-event-verifier']);
+  assert.equal(Registry.routeForIntent('unified_inbox_ai_draft').owner_review_required,true);
+  const disabled=await Router.executeTask('storefront_ai_review',{target:'test'},{env:{},fetchImpl:async()=>{throw new Error('no network');}});
+  assert.deepEqual(disabled.invoked_agents,['kk-openai-storefront-reviewer']);
+  assert.equal(disabled.result.status,'DISABLED_OPENAI_PLATFORM');
+  assert.equal(disabled.result.production_writes,0);
 });
