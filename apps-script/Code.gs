@@ -2268,6 +2268,57 @@ function kkAssertBookingAssetsNotDoubleBooked_(rowNumber, bookingRow, nextStatus
   if (lensId && booked.lens[lensId]) throw new Error('Cannot reactivate booking: lens is already booked on this event date: ' + lensId);
 }
 
+function kkNextAppendBookingRow_() {
+  const sh = kkSheet_(KK.bookings);
+  const startRow = 5;
+  const maxRows = sh.getMaxRows();
+  const numRows = Math.max(maxRows - startRow + 1, 1);
+  const values = sh.getRange(startRow, 2, numRows, 19).getDisplayValues();
+  let lastBusinessRow = startRow - 1;
+  for (let i = values.length - 1; i >= 0; i--) {
+    if (values[i].some(v => String(v == null ? '' : v).trim() !== '')) {
+      lastBusinessRow = startRow + i;
+      break;
+    }
+  }
+  const nextRow = Math.max(lastBusinessRow + 1, startRow);
+  if (nextRow > maxRows) sh.insertRowsAfter(maxRows, nextRow - maxRows);
+  return nextRow;
+}
+
+function kkAssertNewBookingIdUnique_(row) {
+  const sh = kkSheet_(KK.bookings);
+  SpreadsheetApp.flush();
+  const bookingId = String(sh.getRange(row, 1).getDisplayValue() || '').trim();
+  if (!bookingId || bookingId === 'CHECK EVENT') {
+    sh.getRange(row, 2, 1, 19).clearContent();
+    SpreadsheetApp.flush();
+    throw new Error('BOOKING_ID_GENERATION_FAILED: booking_id formula did not resolve');
+  }
+
+  let currentMatches = 0;
+  kkGetValues_(KK.bookings, 5, 1, 1).forEach(r => {
+    if (String(r[0] || '').trim() === bookingId) currentMatches++;
+  });
+
+  let archiveMatches = 0;
+  if (kkSheetExists_(KK.bookingArchive)) {
+    kkGetValues_(KK.bookingArchive, 2, 7, 1).forEach(r => {
+      if (String(r[0] || '').trim() === bookingId) archiveMatches++;
+    });
+  }
+
+  if (currentMatches !== 1 || archiveMatches > 0) {
+    sh.getRange(row, 2, 1, 19).clearContent();
+    SpreadsheetApp.flush();
+    throw new Error(
+      'BOOKING_ID_COLLISION: ' + bookingId +
+      ' current=' + currentMatches + ' archive=' + archiveMatches
+    );
+  }
+  return bookingId;
+}
+
 function kkApiCreateBooking_(payload) {
   const lock = kkAcquireDocumentLock_('write operation', 12000);
   try {
@@ -2305,12 +2356,17 @@ function kkApiCreateBooking_(payload) {
     if ((pkgType === 'phone_only' || pkgType === 'phone_lens_bundle') && !phoneAssetId) phoneAssetId = kkFindAvailableAsset_('phone', pkg.model_group, event.event_date);
     if ((pkgType === 'lens_only' || pkgType === 'phone_lens_bundle') && !lensAssetId) lensAssetId = kkFindAvailableAsset_('lens', pkg.lens_group, event.event_date);
     
-    const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
+    // Booking IDs are row-formula based. Reusing a physical gap above newer
+    // bookings can make the date sequence run backwards and duplicate an existing
+    // booking_id. Always append after the last business row, then fail closed if
+    // the generated ID is not globally unique across Current + Archive.
+    const row = kkNextAppendBookingRow_();
     kkSheet_(KK.bookings).getRange(row, 2, 1, 19).setValues([[
       new Date(), bookingStatus, eventId, customerName, customerContact, customerPhone, contactChannel,
       pkgType, phoneAssetId, lensAssetId, pickupTime, '', paymentStatus, amountReceived, '', '', '', 0, bookingNote
     ]]);
-    return { row_number: row, phone_asset_id: phoneAssetId, lens_asset_id: lensAssetId };
+    const bookingId = kkAssertNewBookingIdUnique_(row);
+    return { row_number: row, booking_id: bookingId, phone_asset_id: phoneAssetId, lens_asset_id: lensAssetId };
   } finally {
     lock.releaseLock();
   }
