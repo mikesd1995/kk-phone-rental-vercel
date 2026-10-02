@@ -34,7 +34,7 @@
     actionLimit:60, eventLimit:50, bookingLimit:50, pricingLimit:120,
     eventControlLimit:30, eventControlFilter:"needs_action", eventControlSearch:"",
     eventControlMonth:safeSessionGet("kk_admin_event_control_month") || "", eventControlSort:"date_asc",
-    eventControlSelectedOnly:false, eventControlSelected:new Set(), lastUndo:null
+    eventControlSelectedOnly:false, eventControlSelected:new Set(), lastUndo:null, mutationAction:""
   };
   const OPERATION_FILTERS = [
     ["all","ทั้งหมด"], ["today","วันนี้"], ["tomorrow","พรุ่งนี้"], ["week","7 วัน"],
@@ -2115,52 +2115,62 @@
   async function api(action, payload={}){
     const readOnlyActions=["snapshot","snapshotHealth","systemHealth","phase1Health"];
     const isMutation=!readOnlyActions.includes(action);
-    const admission=isMutation ? writeAdmission(action) : {allowed:true,mode:"read"};
-    if(isMutation && !admission.allowed) throw new Error("ระบบเขียนถูกปิดเพราะพบปัญหา write transport แบบ deterministic/ยังไม่ผ่านการยืนยัน กรุณาแก้ System Guard ก่อนบันทึก");
-    if(snapshotState.stale && isMutation) throw new Error("ข้อมูลเก่า: กรุณา Refresh ให้สำเร็จก่อนบันทึก");
-    const beforeSnapshot=isMutation ? state.data : null;
-    const outbound=Object.assign({action},payload);
-    if(!readOnlyActions.includes(action) && !outbound.request_id) outbound.request_id=adminRequestId();
-    const maxAttempts=action==="snapshot" ? 2 : 1;
-    let lastError=null;
-    for(let attempt=1; attempt<=maxAttempts; attempt++){
-      try{
-        const res=await fetch("/api/kk-admin",{
-          method:"POST",
-          headers:{"Content-Type":"application/json","X-Admin-Pin":state.pin},
-          body:JSON.stringify(outbound)
-        });
-        const data=await res.json().catch(()=>({ok:false,error:"Invalid server response"}));
-        if(!res.ok || (!data.ok && !(action==="systemHealth" && data.data && data.data.rows))){
-          const err=new Error(data.error||"Request failed");
-          err.code=data.error_code||"";
-          err.httpStatus=res.status;
-          err.upstreamStatus=Number(data.upstream_status||0);
-          err.upstreamFailureClass=String(data.upstream_failure_class||"");
-          err.retryable=data.retryable===true;
-          err.action=data.action||action;
-          throw err;
-        }
-        return data;
-      }catch(err){
-        lastError=err;
-        if(isMutation && mutationOutcomeUncertain(err)){
-          // Never retry a mutation automatically. The request may already have committed.
-          // Booking writes get one direct-Sheet readback reconciliation instead.
-          return reconcileUncertainBookingMutation(action,outbound,beforeSnapshot,err);
-        }
-        const transientStatus=Number(err.upstreamStatus||err.httpStatus||0);
-        const retryable=action==="snapshot" && attempt<maxAttempts &&
-          (err.code==="UPSTREAM_TIMEOUT" ||
-           err.code==="UPSTREAM_ERROR" ||
-           err.retryable===true ||
-           transientStatus===408 || transientStatus===429 || transientStatus>=500 ||
-           /timed out/i.test(String(err.message||"")));
-        if(!retryable) throw err;
-        await new Promise(resolve=>setTimeout(resolve,1200));
-      }
+    if(isMutation && state.mutationAction){
+      const err=new Error("มีคำสั่งกำลังบันทึกอยู่ ("+state.mutationAction+") กรุณารอให้เสร็จก่อนกดคำสั่งถัดไป");
+      err.code="ADMIN_MUTATION_IN_FLIGHT";
+      throw err;
     }
-    throw lastError||new Error("Request failed");
+    if(isMutation) state.mutationAction=action;
+    try{
+      const admission=isMutation ? writeAdmission(action) : {allowed:true,mode:"read"};
+      if(isMutation && !admission.allowed) throw new Error("ระบบเขียนถูกปิดเพราะพบปัญหา write transport แบบ deterministic/ยังไม่ผ่านการยืนยัน กรุณาแก้ System Guard ก่อนบันทึก");
+      if(snapshotState.stale && isMutation) throw new Error("ข้อมูลเก่า: กรุณา Refresh ให้สำเร็จก่อนบันทึก");
+      const beforeSnapshot=isMutation ? state.data : null;
+      const outbound=Object.assign({action},payload);
+      if(!readOnlyActions.includes(action) && !outbound.request_id) outbound.request_id=adminRequestId();
+      const maxAttempts=action==="snapshot" ? 2 : 1;
+      let lastError=null;
+      for(let attempt=1; attempt<=maxAttempts; attempt++){
+        try{
+          const res=await fetch("/api/kk-admin",{
+            method:"POST",
+            headers:{"Content-Type":"application/json","X-Admin-Pin":state.pin},
+            body:JSON.stringify(outbound)
+          });
+          const data=await res.json().catch(()=>({ok:false,error:"Invalid server response"}));
+          if(!res.ok || (!data.ok && !(action==="systemHealth" && data.data && data.data.rows))){
+            const err=new Error(data.error||"Request failed");
+            err.code=data.error_code||"";
+            err.httpStatus=res.status;
+            err.upstreamStatus=Number(data.upstream_status||0);
+            err.upstreamFailureClass=String(data.upstream_failure_class||"");
+            err.retryable=data.retryable===true;
+            err.action=data.action||action;
+            throw err;
+          }
+          return data;
+        }catch(err){
+          lastError=err;
+          if(isMutation && mutationOutcomeUncertain(err)){
+            // Never retry a mutation automatically. The request may already have committed.
+            // Booking writes get one direct-Sheet readback reconciliation instead.
+            return reconcileUncertainBookingMutation(action,outbound,beforeSnapshot,err);
+          }
+          const transientStatus=Number(err.upstreamStatus||err.httpStatus||0);
+          const retryable=action==="snapshot" && attempt<maxAttempts &&
+            (err.code==="UPSTREAM_TIMEOUT" ||
+             err.code==="UPSTREAM_ERROR" ||
+             err.retryable===true ||
+             transientStatus===408 || transientStatus===429 || transientStatus>=500 ||
+             /timed out/i.test(String(err.message||"")));
+          if(!retryable) throw err;
+          await new Promise(resolve=>setTimeout(resolve,1200));
+        }
+      }
+      throw lastError||new Error("Request failed");
+    }finally{
+      if(isMutation && state.mutationAction===action) state.mutationAction="";
+    }
   }
 
   function esc(v){
