@@ -158,10 +158,34 @@ function kkSheetExists_(name) {
   return !!SpreadsheetApp.getActive().getSheetByName(name);
 }
 
+function kkProjectAuthorityDiagnostics_() {
+  const timezone = String(Session.getScriptTimeZone() || '').trim();
+  const triggers = ScriptApp.getProjectTriggers().map(function(trigger) {
+    return {
+      handler_function: String(trigger.getHandlerFunction() || ''),
+      event_type: String(trigger.getEventType() || ''),
+      trigger_source: String(trigger.getTriggerSource() || '')
+    };
+  });
+  const cleanup = triggers.filter(function(trigger) {
+    return trigger.handler_function === 'kkCleanupOldData30DaysAuto';
+  });
+  return {
+    project_timezone: timezone,
+    installed_trigger_count: triggers.length,
+    installed_triggers: triggers,
+    cleanup_trigger_present: cleanup.length > 0,
+    cleanup_trigger_count: cleanup.length,
+    cleanup_trigger_handler: 'kkCleanupOldData30DaysAuto',
+    cleanup_trigger_schedule: 'UNVERIFIED_BY_TRIGGER_API'
+  };
+}
+
 function kkPhase1Diagnostics_(payload) {
   const props = PropertiesService.getScriptProperties();
   const frontendSheetId = payload && payload.frontendSheetId ? String(payload.frontendSheetId).trim() : '';
   const spreadsheetId = SpreadsheetApp.getActive().getId();
+  const authority = kkProjectAuthorityDiagnostics_();
   return {
     admin_api_version: KK_ADMIN_VERSION,
     spreadsheet_id: spreadsheetId,
@@ -173,6 +197,13 @@ function kkPhase1Diagnostics_(payload) {
     error_log_sheet_exists: kkSheetExists_(KK.adminErrorLog),
     log_sheets_ready: kkSheetExists_(KK.adminAuditLog) && kkSheetExists_(KK.adminErrorLog),
     direct_fallback_disabled: KK_PHASE1_DIRECT_FALLBACK_DISABLED,
+    project_timezone: authority.project_timezone,
+    installed_trigger_count: authority.installed_trigger_count,
+    installed_triggers: authority.installed_triggers,
+    cleanup_trigger_present: authority.cleanup_trigger_present,
+    cleanup_trigger_count: authority.cleanup_trigger_count,
+    cleanup_trigger_handler: authority.cleanup_trigger_handler,
+    cleanup_trigger_schedule: authority.cleanup_trigger_schedule,
     generated_at: kkApiDateTime_(new Date())
   };
 }
@@ -187,7 +218,10 @@ function kkShowPhase1Health() {
     'API key set: ' + d.admin_api_key_set + '\n' +
     'Poster folder set: ' + d.poster_folder_id_set + '\n' +
     'Audit log exists: ' + d.audit_log_sheet_exists + '\n' +
-    'Error log exists: ' + d.error_log_sheet_exists
+    'Error log exists: ' + d.error_log_sheet_exists + '\n' +
+    'Project timezone: ' + d.project_timezone + '\n' +
+    'Installed triggers: ' + d.installed_trigger_count + '\n' +
+    'Cleanup trigger present: ' + d.cleanup_trigger_present
   );
 }
 
