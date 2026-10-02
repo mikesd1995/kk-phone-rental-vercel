@@ -3,32 +3,20 @@
 const Router=require('./kk-agent-task-router.js');
 const Platform=require('./kk-openai-platform.js');
 
-const VERSION='KK_OPENAI_STAGING_RUNTIME_PROBE_V2';
+const VERSION='KK_OPENAI_STAGING_RUNTIME_PROBE_V3';
 const EXPECTED_BRANCH='feat/openai-platform-agent-layer-v1';
 
 function text(v){return String(v==null?'':v).trim();}
-
 function requestUrl(req){
-  try{
-    return new URL(text(req&&req.url)||'/api/kk-intelligence-health','https://kk.invalid');
-  }catch(_){
-    return null;
-  }
+  try{return new URL(text(req&&req.url)||'/api/kk-intelligence-health','https://kk.invalid');}
+  catch(_){return null;}
 }
-
 function requested(req){
   const u=requestUrl(req);
   return !!u&&u.searchParams.get('mode')==='openai-staging';
 }
-
-function queryConfirmed(req){
-  const u=requestUrl(req);
-  return !!u&&u.searchParams.get('confirm')==='RUN_OPENAI_STAGING_PROBE';
-}
-
 async function readJson(req){
-  const chunks=[];
-  let size=0;
+  const chunks=[];let size=0;
   for await(const chunk of req){
     size+=chunk.length;
     if(size>4096) throw new Error('REQUEST_TOO_LARGE');
@@ -37,7 +25,6 @@ async function readJson(req){
   const raw=Buffer.concat(chunks).toString('utf8');
   return raw?JSON.parse(raw):{};
 }
-
 function safeAi(row){
   const result=row&&row.result||{};
   const ai=result.ai_review||result.ai_reasoning||result;
@@ -53,7 +40,6 @@ function safeAi(row){
     production_writes:Number(result.production_writes)||0
   };
 }
-
 async function handle(req,res,{json}={}){
   if(typeof json!=='function') throw new Error('JSON_WRITER_REQUIRED');
 
@@ -72,28 +58,17 @@ async function handle(req,res,{json}={}){
     return json(res,404,{ok:false,status:'PREVIEW_ONLY',...base});
   }
 
-  const method=text(req&&req.method||'GET').toUpperCase();
-  let confirmed=false;
-
-  if(method==='GET'){
-    // Vercel MCP authenticated fetch is used only against Deployment-Protected Preview.
-    confirmed=queryConfirmed(req);
-  }else if(method==='POST'){
-    if(!text(req.headers&&req.headers['x-vercel-protection-bypass'])){
-      return json(res,403,{ok:false,status:'PROTECTED_AUTOMATION_REQUIRED',...base});
-    }
-    let body;
-    try{
-      body=await readJson(req);
-    }catch(_){
-      return json(res,400,{ok:false,status:'INVALID_REQUEST',...base});
-    }
-    confirmed=text(body&&body.confirm)==='RUN_OPENAI_STAGING_PROBE';
-  }else{
+  if(text(req&&req.method).toUpperCase()!=='POST'){
     return json(res,405,{ok:false,status:'METHOD_NOT_ALLOWED',...base});
   }
 
-  if(!confirmed){
+  let body;
+  try{
+    body=await readJson(req);
+  }catch(_){
+    return json(res,400,{ok:false,status:'INVALID_REQUEST',...base});
+  }
+  if(text(body&&body.confirm)!=='RUN_OPENAI_STAGING_PROBE'){
     return json(res,400,{ok:false,status:'CONFIRMATION_REQUIRED',...base});
   }
 
@@ -107,15 +82,9 @@ async function handle(req,res,{json}={}){
     customer_data_allowed:config.allow_customer_data
   };
 
-  if(!config.enabled){
-    return json(res,503,{ok:false,status:'OPENAI_PLATFORM_DISABLED',...configBase});
-  }
-  if(config.allow_customer_data){
-    return json(res,409,{ok:false,status:'CUSTOMER_DATA_GATE_MUST_STAY_DISABLED',...configBase});
-  }
-  if(!config.api_key_present){
-    return json(res,503,{ok:false,status:'OPENAI_API_KEY_MISSING',...configBase});
-  }
+  if(!config.enabled) return json(res,503,{ok:false,status:'OPENAI_PLATFORM_DISABLED',...configBase});
+  if(config.allow_customer_data) return json(res,409,{ok:false,status:'CUSTOMER_DATA_GATE_MUST_STAY_DISABLED',...configBase});
+  if(!config.api_key_present) return json(res,503,{ok:false,status:'OPENAI_API_KEY_MISSING',...configBase});
   if(!keyShape.starts_with_sk||!keyShape.ascii_token_charset||keyShape.normalized_length<20){
     return json(res,503,{ok:false,status:'OPENAI_API_KEY_SHAPE_INVALID',...configBase});
   }
@@ -151,13 +120,4 @@ async function handle(req,res,{json}={}){
   });
 }
 
-module.exports={
-  VERSION,
-  EXPECTED_BRANCH,
-  requestUrl,
-  requested,
-  queryConfirmed,
-  readJson,
-  safeAi,
-  handle
-};
+module.exports={VERSION,EXPECTED_BRANCH,requestUrl,requested,readJson,safeAi,handle};
