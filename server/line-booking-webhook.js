@@ -44,14 +44,54 @@ async function resolvePoster(booking, fetchImpl=fetch){
   const r=await fetchImpl(u,{headers:{'User-Agent':'KK-Line-Webhook/1.0'}});
   if(!r.ok) return '';
   const rows=parseCsv(await r.text());
-  const norm=v=>String(v||'').normalize('NFKC').trim().toLowerCase();
-  const exact=rows.find(x=>norm(x.event_name)===norm(booking.event_name) && norm(x.venue)===norm(booking.venue));
+  const exact=resolveEventRow(rows,booking);
   if(!exact || !safePosterSource(exact.poster_image_url)) return '';
   const eventId=String(exact.event_id||'').trim();
   return eventId ? 'https://kk-phone-rental.vercel.app/api/line-poster?event_id='+encodeURIComponent(eventId) : '';
 }
 
 function norm(value){ return String(value||'').normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase(); }
+function canonicalDate(value){
+  const s=String(value||'').normalize('NFKC').trim();
+  if(!s) return '';
+  let m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if(m){
+    let y=Number(m[3]); if(y>2500)y-=543;
+    return String(y).padStart(4,'0')+'-'+String(Number(m[2])).padStart(2,'0')+'-'+String(Number(m[1])).padStart(2,'0');
+  }
+  m=s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  if(m){
+    let y=Number(m[1]); if(y>2500)y-=543;
+    return String(y).padStart(4,'0')+'-'+String(Number(m[2])).padStart(2,'0')+'-'+String(Number(m[3])).padStart(2,'0');
+  }
+  const en={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  m=s.match(/^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})$/i);
+  if(m){
+    const mo=en[m[2].toLowerCase().slice(0,3)];
+    if(mo){ let y=Number(m[3]); if(y>2500)y-=543; return String(y).padStart(4,'0')+'-'+String(mo).padStart(2,'0')+'-'+String(Number(m[1])).padStart(2,'0'); }
+  }
+  const th={'ม.ค.':1,'มกราคม':1,'ก.พ.':2,'กุมภาพันธ์':2,'มี.ค.':3,'มีนาคม':3,'เม.ย.':4,'เมษายน':4,'พ.ค.':5,'พฤษภาคม':5,'มิ.ย.':6,'มิถุนายน':6,'ก.ค.':7,'กรกฎาคม':7,'ส.ค.':8,'สิงหาคม':8,'ก.ย.':9,'กันยายน':9,'ต.ค.':10,'ตุลาคม':10,'พ.ย.':11,'พฤศจิกายน':11,'ธ.ค.':12,'ธันวาคม':12};
+  for(const key of Object.keys(th).sort((a,b)=>b.length-a.length)){
+    if(!s.includes(key)) continue;
+    const parts=s.split(key);
+    const day=Number(String(parts[0]||'').replace(/\D/g,''));
+    const ym=String(parts[1]||'').match(/\d{4}/);
+    if(!day||!ym) return '';
+    let y=Number(ym[0]); if(y>2500)y-=543;
+    return String(y).padStart(4,'0')+'-'+String(th[key]).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  }
+  return '';
+}
+function resolveEventRow(rows,booking){
+  const wantedDate=canonicalDate(booking&&booking.event_date);
+  if(!wantedDate) return null;
+  const matches=(rows||[]).filter(x=>
+    norm(x.event_name)===norm(booking&&booking.event_name) &&
+    norm(x.venue)===norm(booking&&booking.venue) &&
+    canonicalDate(x.event_date_text||x.event_date)===wantedDate
+  );
+  return matches.length===1?matches[0]:null;
+}
 function packageLabel(row){
   const type=norm(row.package_type);
   const model=String(row.model_display||'').trim();
@@ -70,7 +110,7 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   const eventRes=await fetchImpl(PUBLIC_DATA_BASE+WEB_READY_QUERY,{headers});
   if(!eventRes.ok) return null;
   const events=parseCsv(await eventRes.text());
-  const event=events.find(x=>norm(x.event_name)===norm(booking.event_name) && norm(x.venue)===norm(booking.venue));
+  const event=resolveEventRow(events,booking);
   const eventId=event&&String(event.event_id||'').trim();
   if(!eventId) return null;
 
@@ -78,7 +118,13 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   if(!pkgRes.ok) return null;
   const rows=parseCsv(await pkgRes.text()).filter(x=>String(x.event_id||'').trim()===eventId);
   const wanted=norm(booking.package_name);
-  const matches=rows.filter(x=>norm(packageLabel(x))===wanted);
+  const matches=rows.filter(x=>{
+    const status=norm(x.package_status);
+    const available=Number(String(x.available_count||'').replace(/,/g,''));
+    return norm(packageLabel(x))===wanted &&
+      (status==='available'||status==='open') &&
+      Number.isFinite(available) && available>0;
+  });
   if(matches.length!==1) return null;
   const row=matches[0];
   const price=formatCanonicalPrice(row.price);
@@ -118,4 +164,4 @@ module.exports=async function handler(req,res){
   try{for(const event of events) await processEvent(event,process.env,fetch); res.statusCode=200; return res.end('OK');}
   catch(err){console.error('[line-webhook]',err&&err.message?err.message:'processing failed');res.statusCode=500;return res.end('Processing failed');}
 };
-module.exports._test={rawBody,validSignature,parseBookingText,parseCsv,resolvePoster,resolveCanonicalPackage,packageLabel,formatCanonicalPrice,replyFlex,processEvent};
+module.exports._test={rawBody,validSignature,parseBookingText,parseCsv,norm,canonicalDate,resolveEventRow,resolvePoster,resolveCanonicalPackage,packageLabel,formatCanonicalPrice,replyFlex,processEvent};
