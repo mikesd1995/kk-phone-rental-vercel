@@ -267,7 +267,7 @@ function webPackagePriceFormula(rowNumber,templateId){
   const tid=String(templateId||'').replace(/"/g,'""');
   const tplExpr='"'+tid+'"';
   const standardExpr=`IFERROR(VLOOKUP(${tplExpr},'03_Packages'!$A$5:$E,5,FALSE),0)`;
-  return `=IF(B${r}="","",IFERROR(LOOKUP(2,1/(('04_Event_Overrides'!$A$5:$A=B${r})*('04_Event_Overrides'!$B$5:$B=${tplExpr})*('04_Event_Overrides'!$C$5:$C<>"")),'04_Event_Overrides'!$C$5:$C),${standardExpr}))`;
+  return `=IF(B${r}="","",IFERROR(INDEX(FILTER('04_Event_Overrides'!$C$5:$C$1000,'04_Event_Overrides'!$A$5:$A$1000=B${r},'04_Event_Overrides'!$B$5:$B$1000=${tplExpr},'04_Event_Overrides'!$C$5:$C$1000<>""),COUNTIFS('04_Event_Overrides'!$A$5:$A$1000,B${r},'04_Event_Overrides'!$B$5:$B$1000,${tplExpr},'04_Event_Overrides'!$C$5:$C$1000,"<>")),${standardExpr}))`;
 }
 
 function mutation(sheet,row,column,values){
