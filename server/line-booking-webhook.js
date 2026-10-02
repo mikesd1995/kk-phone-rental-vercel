@@ -83,14 +83,18 @@ function canonicalDate(value){
   return '';
 }
 function resolveEventRow(rows,booking){
-  const wantedDate=canonicalDate(booking&&booking.event_date);
-  if(!wantedDate) return null;
-  const matches=(rows||[]).filter(x=>
+  const candidates=(rows||[]).filter(x=>
     norm(x.event_name)===norm(booking&&booking.event_name) &&
-    norm(x.venue)===norm(booking&&booking.venue) &&
-    canonicalDate(x.event_date_text||x.event_date)===wantedDate
+    norm(x.venue)===norm(booking&&booking.venue)
   );
-  return matches.length===1?matches[0]:null;
+  const wantedDate=canonicalDate(booking&&booking.event_date);
+  if(wantedDate){
+    const dated=candidates.filter(x=>canonicalDate(x.event_date_text||x.event_date)===wantedDate);
+    return dated.length===1?dated[0]:null;
+  }
+  // Legacy/direct helper calls may not carry a date. Preserve them only when
+  // name+venue is already unique; multi-day events must fail closed.
+  return candidates.length===1?candidates[0]:null;
 }
 function packageLabel(row){
   const type=norm(row.package_type);
