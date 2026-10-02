@@ -2232,19 +2232,28 @@ function kkIsCurrentOrFutureEventDate_(value) {
 
 function kkFindBookingRow_(rowNumber, bookingId) {
   const sh = kkSheet_(KK.bookings);
+  const id = String(bookingId || '').trim();
+
+  // booking_id is the stable identity. row_number from public GViz snapshots is
+  // only a display hint because GViz can collapse physical blank rows.
+  if (id) {
+    const values = kkGetValues_(KK.bookings, 5, 1, 1);
+    const matches = [];
+    for (let i = 0; i < values.length; i++) {
+      if (String(values[i][0] || '').trim() === id) matches.push(i + 5);
+    }
+    if (matches.length === 1) return matches[0];
+    if (matches.length > 1) throw new Error('Duplicate booking_id: ' + id);
+    throw new Error('Booking not found: ' + id);
+  }
+
   const n = Number(rowNumber || 0);
   if (n >= 5 && n <= sh.getMaxRows()) {
     const rowValues = sh.getRange(n, 1, 1, 4).getValues()[0];
     if (!rowValues[0] && !rowValues[3]) throw new Error('Booking row is empty: ' + n);
     return n;
   }
-  const id = String(bookingId || '').trim();
-  if (!id) throw new Error('booking row_number or booking_id is required');
-  const values = kkGetValues_(KK.bookings, 5, 1, 1);
-  for (let i = 0; i < values.length; i++) {
-    if (String(values[i][0] || '').trim() === id) return i + 5;
-  }
-  throw new Error('Booking not found: ' + id);
+  throw new Error('booking_id or row_number is required');
 }
 
 function kkAssertBookingAssetsNotDoubleBooked_(rowNumber, bookingRow, nextStatus) {
