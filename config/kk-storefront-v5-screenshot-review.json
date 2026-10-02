@@ -126,7 +126,7 @@
   "production_writes": 0,
   "rejection_reason": null,
   "baseline_artifact_id": "11145158829",
-  "reviewed_design_head": "44a0cb0f023b2ba7980ea315118a9cf89980e773",
+  "reviewed_design_head": "1dbee43685587ae2df391a6e6e3bfd5968980a0f",
   "owner_acceptance_evidence": {
     "accepted_at": "2026-10-02",
     "artifact_id": "11206097786",
