@@ -70,11 +70,11 @@ jobs:
         run: |
           set -euo pipefail
           npm install --no-save vercel@latest >/dev/null
-          ROOT="$(npx vercel curl "$CANDIDATE_URL/" --token="$VERCEL_TOKEN")"
+          ROOT="$(npx vercel curl "$CANDIDATE_URL/" -- --token "$VERCEL_TOKEN")"
           grep -q 'id="theme-toggle"' <<<"$ROOT"; echo "theme_marker=pass"
           grep -q 'id="faq-open-btn"' <<<"$ROOT"; echo "faq_marker=pass"
           grep -q 'v60-premium-editorial' <<<"$ROOT"; echo "asset_marker=pass"
-          npx vercel curl "$CANDIDATE_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" --token="$VERCEL_TOKEN" > candidate-data
+          npx vercel curl "$CANDIDATE_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" -- --token "$VERCEL_TOKEN" > candidate-data
           curl -sS "$PRODUCTION_URL/api/kk-data?sheet=08_Web_Ready&range=A4%3AK" > production-data
           echo "candidate_data_sha=$(sha256sum candidate-data | cut -d' ' -f1)"
           echo "production_data_sha=$(sha256sum production-data | cut -d' ' -f1)"
