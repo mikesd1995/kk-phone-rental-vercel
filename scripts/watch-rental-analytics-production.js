@@ -170,6 +170,23 @@ function csvHeader(textValue){
   return textValue==null?'':String(textValue).replace(/^\uFEFF/,'').split(/\r?\n/)[0];
 }
 
+function parseCsvRows(value){
+  const rows=[]; let row=[],cell='',quoted=false; const input=String(value||'').replace(/^\\uFEFF/,'');
+  for(let i=0;i<input.length;i++){const c=input[i]; if(quoted){if(c==='"'&&input[i+1]==='"'){cell+='"';i++;}else if(c==='"')quoted=false;else cell+=c;}else if(c==='"')quoted=true;else if(c===','){row.push(cell);cell='';}else if(c==='\\n'){row.push(cell);rows.push(row);row=[];cell='';}else if(c!=='\\r')cell+=c;}
+  if(cell!==''||row.length){row.push(cell);rows.push(row);} if(!rows.length)return[];
+  const head=rows[0].map(v=>text(v));
+  return rows.slice(1).filter(r=>r.some(v=>text(v))).map(r=>Object.fromEntries(head.map((h,i)=>[h,text(r[i])])));
+}
+function crossFeedIntegrity(eventText,pkgText){
+  const events=parseCsvRows(eventText), packages=parseCsvRows(pkgText);
+  const eventIds=events.map(r=>text(r.event_id)).filter(Boolean), packageIds=packages.map(r=>text(r.package_id)).filter(Boolean);
+  const eventSet=new Set(eventIds), packageSet=new Set(packageIds);
+  const duplicateEvents=eventIds.filter((id,i)=>eventIds.indexOf(id)!==i);
+  const duplicatePackages=packageIds.filter((id,i)=>packageIds.indexOf(id)!==i);
+  const orphanPackages=packages.filter(r=>text(r.event_id)&&!eventSet.has(text(r.event_id))).map(r=>text(r.package_id)||text(r.event_id));
+  return {ok:duplicateEvents.length===0&&duplicatePackages.length===0&&orphanPackages.length===0,duplicate_event_ids:[...new Set(duplicateEvents)],duplicate_package_ids:[...new Set(duplicatePackages)],orphan_package_ids:[...new Set(orphanPackages)],event_count:eventSet.size,package_count:packageSet.size};
+}
+
 function containsInternalPublicToken(value){
   return /OWNER_PRICE_ADJUST_|PROVISIONAL_|EXACT_EVENT_COMPETITOR_|WEEKDAY_FALLBACK_|WEEKDAY_FANDOM_TIER_|INTERNAL_ONLY|MANUAL_CUTOVER|PASS_200/i.test(String(value||''));
 }
@@ -219,6 +236,10 @@ async function runtimeSelfAudit(fetchImpl=global.fetch){
       'public-gviz-fallback','public-gviz-fallback-after-private-error','private-service-account'
     ].includes(pkgSource),pkgSource||'missing');
     if(pkgSource==='public-gviz-fallback-after-private-error') warnings.push('PRIVATE_READER_PACKAGE_FALLBACK_AFTER_ERROR');
+
+    const feedIntegrity=crossFeedIntegrity(eventText,pkgText);
+    add('STOREFRONT_BACKEND_REFERENTIAL_INTEGRITY',feedIntegrity.ok,
+      feedIntegrity.ok ? `events=${feedIntegrity.event_count}; packages=${feedIntegrity.package_count}` : JSON.stringify(feedIntegrity));
 
     const admin=await fetchImpl(`${PRODUCTION_URL}/admin`,{method:'GET',redirect:'manual',headers:{'Cache-Control':'no-cache'}});
     const adminCache=headerValue(admin,'cache-control');
@@ -462,6 +483,6 @@ module.exports={
   TEAM_ID,PROJECT_ID,PRODUCTION_URL,RENTAL_ANALYTICS_FIX_SHA,SCHEMA,
   parseArgs,httpTransport,deploymentState,deploymentCreated,deploymentSha,deploymentRef,deploymentId,
   isProduction,safeDeployment,selectProduction,listDeployments,exactMainAttempt,waitForCurrentMainProduction,
-  gitContainsFix,routeProbe,headerValue,cacheIsLiveNoStore,csvHeader,containsInternalPublicToken,
+  gitContainsFix,routeProbe,headerValue,cacheIsLiveNoStore,csvHeader,parseCsvRows,crossFeedIntegrity,containsInternalPublicToken,
   runtimeSelfAudit,isBuildRateLimited,classifyState,fingerprintPayload,fingerprint,run
 };
