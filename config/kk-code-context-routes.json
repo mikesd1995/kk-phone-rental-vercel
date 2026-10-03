@@ -8,6 +8,48 @@
   },
   "routes": [
     {
+      "id": "unified_inbox",
+      "keywords": [
+        "unified inbox",
+        "line/x",
+        "line x",
+        "inbox",
+        "dm",
+        "webhook",
+        "conversation",
+        "postgrest"
+      ],
+      "files": [
+        "admin/index.html",
+        "admin/inbox-preview.js",
+        "admin/admin.css",
+        "server/line-booking-webhook.js",
+        "server/kk-unified-inbox-contract.js",
+        "server/kk-inbox-postgrest-store.js",
+        "server/kk-line-inbox-tee.js",
+        "server/kk-line-webhook.js",
+        "server/kk-x-inbox-tee.js",
+        "server/kk-x-webhook.js"
+      ],
+      "tests": [
+        "tests/kk-admin-inbox-preview.test.js",
+        "tests/line-booking-inbox-tee.test.js",
+        "tests/kk-inbox-postgrest-store.test.js",
+        "tests/kk-line-inbox-tee.test.js",
+        "tests/kk-x-inbox-tee.test.js",
+        "tests/kk-x-webhook.test.js",
+        "tests/kk-agent-gateway.test.js"
+      ],
+      "skills": [
+        "skills/kk-reliability-learning/SKILL.md",
+        ".agents/skills/kk-code-review/SKILL.md"
+      ],
+      "docs": [
+        "docs/KK_UNIFIED_INBOX_LINE_X_V1_2026-09-30.md",
+        "docs/KK_X_INBOUND_PROVIDER_ACCEPTANCE_2026-10-01.md"
+      ]
+    },
+    {
       "id": "project_memory",
       "keywords": [
         "project memory",

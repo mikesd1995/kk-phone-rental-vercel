@@ -148,6 +148,13 @@ async function executeTask(taskType, input = {}, options = {}) {
     case 'storefront_visual_qa':
       return { invoked_agents:['kk-storefront-ux-reviewer'], result:StorefrontUx.validateVisualQa(input) };
 
+    case 'admin_unified_inbox_review': {
+      const observations=Array.isArray(input.reliability_observations)?input.reliability_observations:[];
+      const reliability=Reliability.analyzeReliability(observations,{incident_history:Array.isArray(input.incident_history)?input.incident_history:[]});
+      const ux=StorefrontUx.auditStorefront(input.ux||{});
+      return {invoked_agents:['kk-reliability-learning','kk-storefront-ux-reviewer'],result:{schema_version:'KK_ADMIN_UNIFIED_INBOX_AGENT_REVIEW_V1',status:(reliability.unknown_incident_count>0||ux.finding_counts.P0>0||ux.finding_counts.P1>0)?'NEEDS_REVIEW':'PASS',reliability,ux,code_context:input.code_context||null,reliability_invariants:Array.isArray(input.reliability_invariants)?input.reliability_invariants:[],safety:{production_writes:0,auto_merge:false,auto_deploy:false,provider_sends:0}}};
+    }
+
     case 'creative_production_plan':
       return {
         invoked_agents: ['kk-creative-production'],

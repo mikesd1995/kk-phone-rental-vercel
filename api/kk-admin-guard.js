@@ -21,6 +21,7 @@ const UltraDeepOIDC = require('../server/kk-github-oidc.js');
 const UltraDeepRuntime = require('../server/kk-ultra-deep-production-runtime.js');
 const UltraDeepCompletionGate = require('../server/kk-ultra-deep-full-loop-completion-gate.js');
 const UltraDeepDirect = require('../server/kk-ultra-deep-direct-zero-cost.js');
+const { createPostgrestStore } = require('../server/kk-inbox-postgrest-store.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -30,6 +31,7 @@ const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
 const AGENT_GATEWAY_ACTIONS = new Set(['agentGateway','agentGatewayHealth']);
+const INBOX_READ_ACTIONS = new Set(['inboxListConversations','inboxListMessages']);
 const ULTRA_DEEP_ACTIONS = new Set(['ultraDeepFullLoop','ultraDeepFullLoopHealth']);
 const ULTRA_DEEP_REPOSITORY = 'mikesd1995/kk-phone-rental-vercel';
 const ULTRA_DEEP_OWNER = 'mikesd1995';
@@ -448,13 +450,14 @@ module.exports=async function handler(req,res){
   const action=String(payload&&payload.action||'');
   const ultraDeepAction=ULTRA_DEEP_ACTIONS.has(action);
   const agentGatewayAction=AGENT_GATEWAY_ACTIONS.has(action);
+  const inboxReadAction=INBOX_READ_ACTIONS.has(action);
   const bookingGuarded=BOOKING_GUARDED_ACTIONS.has(action);
   const eventGuarded=EVENT_GUARDED_ACTIONS.has(action);
   const visibilityGuarded=EVENT_VISIBILITY_GUARDED_ACTIONS.has(action) &&
     VisibilityGuard.requestedVisibility(payload)===true;
   const eventDateGuarded=action==='updateEvent'&&!!String(payload&&payload.event_date||'').trim();
   const cleanupGuarded=action==='cleanupOldData';
-  const passthrough=!payload||typeof payload!=='object'||Array.isArray(payload)||(!ultraDeepAction&&!agentGatewayAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded&&!eventDateGuarded&&!cleanupGuarded);
+  const passthrough=!payload||typeof payload!=='object'||Array.isArray(payload)||(!ultraDeepAction&&!agentGatewayAction&&!inboxReadAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded&&!eventDateGuarded&&!cleanupGuarded);
 
   if(action==='ultraDeepFullLoopHealth'){
     return reply(res,200,{
@@ -523,6 +526,22 @@ module.exports=async function handler(req,res){
   const legacyPinOk=!!providedPin&&safeSecretEqual(providedPin,adminPin);
   if(!signedSession&&!legacyPinOk) return reply(res,401,{ok:false,error:'Invalid admin session'});
   if(passthrough) return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
+
+  if(inboxReadAction){
+    let store;
+    try{ store=createPostgrestStore(); }
+    catch(_){ return reply(res,503,{ok:false,error:'Inbox durable store unavailable',error_code:'INBOX_STORE_UNAVAILABLE'}); }
+    try{
+      if(action==='inboxListMessages'){
+        const conversationId=String(payload.conversation_id||'').trim();
+        if(!conversationId) return reply(res,400,{ok:false,error:'conversation_id is required',error_code:'INBOX_CONVERSATION_REQUIRED'});
+        const messages=await store.listMessages(conversationId,{limit:payload.limit});
+        return reply(res,200,{ok:true,messages,production_writes:0,outbound_enabled:false});
+      }
+      const conversations=await store.listConversations({channel:payload.channel,status:payload.status,search:payload.search,limit:payload.limit});
+      return reply(res,200,{ok:true,conversations,production_writes:0,outbound_enabled:false});
+    }catch(err){ return reply(res,502,{ok:false,error:'Inbox read failed',error_code:String(err&&err.code||'INBOX_READ_FAILED')}); }
+  }
 
   if(cleanupGuarded){
     return reply(res,409,{

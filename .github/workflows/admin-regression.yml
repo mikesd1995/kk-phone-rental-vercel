@@ -29,6 +29,22 @@ jobs:
       - name: Regression tests
         run: npm test
 
+      - name: Unified Inbox targeted acceptance
+        run: |
+          node --test \
+            tests/kk-admin-inbox-preview.test.js \
+            tests/line-booking-inbox-tee.test.js \
+            tests/kk-inbox-postgrest-store.test.js \
+            tests/kk-inbox-read-api.test.js \
+            tests/kk-line-inbox-tee.test.js \
+            tests/kk-x-inbox-tee.test.js \
+            tests/kk-x-webhook.test.js \
+            tests/kk-code-intelligence.test.js \
+            tests/kk-agent-gateway.test.js
+          node scripts/kk-unified-inbox-agent-review.js > /tmp/unified-inbox-agent-review.json
+          cat /tmp/unified-inbox-agent-review.json
+          node -e "const fs=require('fs');const r=JSON.parse(fs.readFileSync('/tmp/unified-inbox-agent-review.json','utf8'));if(r.status!=='RECORDED'||!Array.isArray(r.invoked_agents)||!r.invoked_agents.includes('kk-reliability-learning')||!r.invoked_agents.includes('kk-storefront-ux-reviewer')||r.production_writes!==0||r.publishes!==0||!r.result?.code_context?.files?.length||r.result?.status!=='PASS'||r.result?.reliability?.unknown_incident_count!==0||r.result?.ux?.finding_counts?.P0!==0||r.result?.ux?.finding_counts?.P1!==0||!Array.isArray(r.result?.reliability_invariants)||r.result.reliability_invariants.length<4){console.error(r);process.exit(1)}"
+
       - name: Continuous invariant gate
         run: npm run audit:invariants
 
