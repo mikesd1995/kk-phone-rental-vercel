@@ -20,7 +20,12 @@ function contextFor(candidate,input={}){
  const explicitId=text(candidate&&candidate.existing_event_id);
  const existing=(explicitId?(input.existing_events||[]).find(e=>text(e&&e.event_id)===explicitId):null)||(input.existing_events||[]).find(e=>sameEvent(candidate,e))||{};
  const date=text(candidate.event_date);
- const bookings=(input.bookings||[]).filter(b=>text(b.event_date)===date&&!['cancelled','no_show'].includes(text(b.booking_status).toLowerCase()));
+ const bookings=(input.bookings||[]).filter(b=>{
+  const active=['pending','confirmed','prepared','picked_up'].includes(text(b.booking_status).toLowerCase());
+  if(!active)return false;
+  if(text(existing.event_id))return text(b.event_id)===text(existing.event_id);
+  return false;
+ });
  const inventory=input.inventory_by_date&&input.inventory_by_date[date]||{};
  return {existing,bookings,booking_count:bookings.length,stock_remaining:Math.max(0,Number(inventory.stock_remaining)||0)};
 }
@@ -94,8 +99,8 @@ async function run(input={},options={}){
   if(policy.discovery.reason==='OWNER_HIDDEN_OR_TOMBSTONE'){
    rows.push({event_key:eventKey(candidate),status:'SKIPPED_OWNER_HIDDEN',policy,completion:completionCandidate(candidate,{verified:true,poster_verified:true,poster_url:text(ctx.existing.poster_image_url||ctx.existing.poster_url),final_price:currentPrice(ctx.existing),fallback_applied:true})});continue;
   }
-  if(ctx.booking_count>0){
-   rows.push({event_key:eventKey(candidate),status:'SKIPPED_BOOKING_DATE',policy,completion:completionCandidate(candidate,{verified:true,poster_verified:true,poster_url:text(ctx.existing.poster_image_url||ctx.existing.poster_url),final_price:currentPrice(ctx.existing),fallback_applied:true})});continue;
+  if(ctx.booking_count>0&&text(ctx.existing.event_id)){
+   rows.push({event_key:eventKey(candidate),status:'SKIPPED_BOOKED_EVENT_PRICE_LOCK',policy,completion:completionCandidate(candidate,{verified:true,poster_verified:true,poster_url:text(ctx.existing.poster_image_url||ctx.existing.poster_url),final_price:currentPrice(ctx.existing),fallback_applied:true})});continue;
   }
   if(text(ctx.existing.event_id)){
    const plan=updatePlan(candidate,input,ctx,policy);
