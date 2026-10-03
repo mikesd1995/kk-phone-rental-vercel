@@ -5,6 +5,7 @@ const {buildBookingFlex} = require('../server/line-booking-flex');
 const {safePosterSource} = require('../server/line-poster');
 const InboxTee = require('./kk-line-inbox-tee');
 const {createPostgrestStore} = require('./kk-inbox-postgrest-store');
+const OwnerApproval = require('./line-booking-owner-approval');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
 const PUBLIC_DATA_BASE = 'https://kk-phone-rental.vercel.app/api/kk-data';
@@ -169,10 +170,40 @@ async function processEvent(event, env=process.env, fetchImpl=fetch){
     resolveCanonicalPackage(booking,fetchImpl).catch(()=> null)
   ]);
   booking.poster_image_url=poster;
+
+  const readiness=OwnerApproval.automationReadiness(env);
+  let pending=null;
+  let automationStatus=readiness.ready?'CANONICAL_REQUIRED':'REPLY_ONLY';
+  if(readiness.ready && canonical){
+    pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl);
+    await OwnerApproval.notifyOwner({
+      booking_id:pending.booking_id,
+      event_name:booking.event_name,
+      event_date:booking.event_date,
+      package_name:canonical.package_name,
+      price_display:canonical.price_display,
+      nickname:booking.nickname,
+      phone:booking.phone,
+      pickup_time:booking.pickup_time
+    },env,fetchImpl);
+    automationStatus='PENDING_OWNER_APPROVAL';
+  }else if(readiness.ready && !canonical){
+    console.warn('[line-booking-automation]',JSON.stringify({
+      status:'FAIL_CLOSED_CANONICAL_REQUIRED',
+      webhook_event_id:String(event.webhookEventId||'').trim(),
+      event_name:String(booking.event_name||'').trim()
+    }));
+  }
+
   const safePackage=canonical || {package_name:booking.package_name,price_display:'รอร้านตรวจสอบราคา'};
-  const flex=buildBookingFlex({event:booking,package:safePackage,customer:{nickname:booking.nickname,pickup_time:booking.pickup_time}});
+  const flex=buildBookingFlex({
+    event:booking,
+    package:safePackage,
+    customer:{nickname:booking.nickname,pickup_time:booking.pickup_time},
+    booking:pending?{booking_id:pending.booking_id}:{}
+  });
   await replyFlex(event.replyToken,flex,env.LINE_CHANNEL_ACCESS_TOKEN,fetchImpl);
-  return {handled:true};
+  return {handled:true,booking_id:pending&&pending.booking_id||'',automation_status:automationStatus};
 }
 module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
@@ -190,11 +221,15 @@ module.exports=async function handler(req,res){
   const inboxPromise=InboxTee.persistVerifiedEvents(events,inboxPersistFn(process.env,fetch))
     .catch(err=>({status:'FAILED_ISOLATED',error:err&&err.message?err.message:'inbox failed'}));
   try{
-    for(const event of events) await processEvent(event,process.env,fetch);
+    for(const event of events){
+      const ownerDecision=await OwnerApproval.processOwnerPostback(event,process.env,fetch);
+      if(ownerDecision.handled) continue;
+      await processEvent(event,process.env,fetch);
+    }
     await inboxPromise;
     res.statusCode=200;
     return res.end('OK');
   }
   catch(err){console.error('[line-webhook]',err&&err.message?err.message:'processing failed');res.statusCode=500;return res.end('Processing failed');}
 };
-module.exports._test={inboxPersistFn,rawBody,validSignature,parseBookingText,parseCsv,norm,canonicalDate,resolveEventRow,resolvePoster,resolveCanonicalPackage,templateIdFromWebPackageId,packageLabel,formatCanonicalPrice,replyFlex,processEvent};
+module.exports._test={inboxPersistFn,rawBody,validSignature,parseBookingText,parseCsv,norm,canonicalDate,resolveEventRow,resolvePoster,resolveCanonicalPackage,templateIdFromWebPackageId,packageLabel,formatCanonicalPrice,replyFlex,processEvent,OwnerApproval};

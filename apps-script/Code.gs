@@ -1377,6 +1377,7 @@ function doPost(e) {
       case 'deleteAsset': result = kkApiDeleteAsset_(payload); break;
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
       case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
+      case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_(payload); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
@@ -2699,6 +2700,75 @@ function kkApiCreateLineBookingPending_(payload) {
       phone_asset_id: '',
       lens_asset_id: '',
       request_id: requestId,
+      idempotent_replay: false
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
+function kkApiDecideLineBookingPending_(payload) {
+  const lock = kkAcquireDocumentLock_('LINE owner booking decision', 12000);
+  try {
+    const bookingId = String(payload.booking_id || '').trim();
+    const decision = String(payload.decision || '').toLowerCase().trim();
+    if (!bookingId) throw new Error('booking_id is required');
+    if (!['approve', 'reject'].includes(decision)) throw new Error('decision must be approve or reject');
+
+    const row = kkFindBookingRow_('', bookingId);
+    const sh = kkSheet_(KK.bookings);
+    const current = sh.getRange(row, 1, 1, 20).getValues()[0];
+    if (String(current[0] || '').trim() !== bookingId) throw new Error('Booking identity mismatch: ' + bookingId);
+    if (String(current[7] || '').toUpperCase().trim() !== 'LINE') throw new Error('Owner decision is limited to LINE bookings');
+
+    const requestId = kkBookingRequestIdFromNote_(current[19]);
+    if (!/^line:[a-f0-9]{48}$/.test(String(requestId || ''))) {
+      throw new Error('Booking is not a governed LINE pending intake: ' + bookingId);
+    }
+
+    const customerContact = String(current[4] || '').trim();
+    if (!customerContact) throw new Error('LINE customer contact missing: ' + bookingId);
+
+    const currentStatus = String(current[2] || '').toLowerCase().trim();
+    const targetStatus = decision === 'approve' ? 'confirmed' : 'cancelled';
+    if (currentStatus === targetStatus) {
+      return {
+        row_number: row,
+        booking_id: bookingId,
+        booking_status: currentStatus,
+        payment_status: String(current[13] || '').toLowerCase().trim(),
+        customer_contact: customerContact,
+        phone_asset_id: String(current[9] || '').trim(),
+        lens_asset_id: String(current[10] || '').trim(),
+        decision: decision,
+        idempotent_replay: true
+      };
+    }
+    if (currentStatus !== 'pending') {
+      throw new Error('LINE pending booking already decided: ' + bookingId + ' / status=' + currentStatus);
+    }
+
+    const next = current.slice();
+    next[2] = targetStatus;
+    sh.getRange(row, 1, 1, 20).setValues([next]);
+    SpreadsheetApp.flush();
+
+    const persisted = sh.getRange(row, 1, 1, 20).getValues()[0];
+    if (String(persisted[0] || '').trim() !== bookingId) throw new Error('Booking identity readback failed: ' + bookingId);
+    if (String(persisted[2] || '').toLowerCase().trim() !== targetStatus) throw new Error('Owner decision readback failed: ' + bookingId);
+    if (kkBookingRequestIdFromNote_(persisted[19]) !== requestId) throw new Error('LINE request identity readback failed: ' + bookingId);
+    if (String(persisted[4] || '').trim() !== customerContact) throw new Error('LINE customer contact readback failed: ' + bookingId);
+
+    return {
+      row_number: row,
+      booking_id: bookingId,
+      booking_status: targetStatus,
+      payment_status: String(persisted[13] || '').toLowerCase().trim(),
+      customer_contact: customerContact,
+      phone_asset_id: String(persisted[9] || '').trim(),
+      lens_asset_id: String(persisted[10] || '').trim(),
+      decision: decision,
       idempotent_replay: false
     };
   } finally {
