@@ -14,7 +14,7 @@ test('intake fails closed without canonical resolution or customer identity',()=
 });
 test('intake can create only pending unpaid LINE booking',()=>{
  const r=I.bookingIntent({webhookEventId:'x',source:{userId:'U1'}},{nickname:'Mint',phone:'081',pickup_time:'16:00'},{event_id:'EVT-1',template_id:'TPL-1'});
- assert.equal(r.ok,true); assert.equal(r.payload.booking_status,'pending'); assert.equal(r.payload.payment_status,'unpaid'); assert.equal(r.payload.contact_channel,'LINE');
+ assert.equal(r.ok,true); assert.equal(r.payload.action,'createLineBookingPending'); assert.equal(r.payload.booking_status,'pending'); assert.equal(r.payload.payment_status,'unpaid'); assert.equal(r.payload.contact_channel,'LINE');
 });
 test('canonical result requires booking id read back from SOT',()=>{
  assert.equal(I.canonicalResult({data:{row_number:25}}).ok,false);
