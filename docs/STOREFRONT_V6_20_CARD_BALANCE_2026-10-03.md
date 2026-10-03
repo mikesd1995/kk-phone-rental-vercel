@@ -24,3 +24,10 @@ Owner iPhone screenshots showed paired catalogue cards ending at different verti
 - Used the repository's existing owner-authorized zero-cost prebuilt production workflow as fallback by commenting `/run-v60-prebuilt 923deb95ae32f9e22bd193ef193a027aca17799e` on Issue #213.
 - Workflow run `37123113729` was created for the exact current main SHA but failed before exposing step/log detail (`steps=null`, `logs_url=null`). No production deployment was created by that attempt.
 - V6.20 remains merged and source-complete; production promotion remains blocked by execution/integration infrastructure, not by the card-balance CSS itself.
+
+
+## Runner fallback diagnosis — 2026-10-03 19:32 ICT
+- The prebuilt workflow was pinned from `ubuntu-latest` to `ubuntu-24.04` at `4aa03d940ffd6a3bb4fc5c314f3af5daa4c08b9a` and retriggered. Run `37123205880` still failed before any step was exposed (`steps=null`, `logs_url=null`).
+- A second fallback pinned the same workflow to `ubuntu-22.04` at `15e6be162153bb9ed313445d2204a9915bd2d3b9`. Run `37123235310` produced the same pre-step failure.
+- Because two explicit GitHub-hosted runner images fail identically before checkout while other issue-comment workflows can enter `in_progress`, changing the storefront code or repeating deploy commands is not evidence-based. The remaining blocker is GitHub Actions job provisioning/quota/policy for this production job path.
+- No production deployment was created; canonical production remains the last READY deployment. V6.20 source remains intact on main.
