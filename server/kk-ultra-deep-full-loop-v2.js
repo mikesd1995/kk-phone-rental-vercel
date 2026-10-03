@@ -11,6 +11,8 @@ function buildPlan(input={}){
     event_key:text(candidate.event_key)||[text(candidate.event_date),text(candidate.title)].join('|'),
     title:text(candidate.title),
     event_date:text(candidate.event_date),
+    canonical_event_id:text(candidate.canonical_event_id),
+    verified_venue:text(candidate.verified_venue),
     ...Policy.plan(candidate)
   }));
   const counts=decisions.reduce((a,x)=>{a[x.decision]=(a[x.decision]||0)+1;return a;},{});
