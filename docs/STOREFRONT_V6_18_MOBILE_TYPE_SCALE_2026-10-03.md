@@ -23,3 +23,13 @@ Poster/card geometry, two-column layout, V6.17 red full-state treatment, V6.16 e
 - Three newer main production deployments from Ultra Deep V26 are ERROR, while branch previews continue to build READY. This isolates the failure to the production/Git promotion path rather than the storefront build itself.
 - Created isolated recovery branch `deploy/storefront-v618-production-recovery-20261003` with runtime marker r3 at `5ee593269533301860ab1646e992c9a8d58d0fe5` to test whether a fresh branch event restores Git deployment creation. No deployment record materialized on the verification pass.
 - No business-data or production-write semantics were changed.
+
+
+## Production recovery — PASS
+- Root cause evidence from failed V26 deployments: Hobby function-count limit (more than 12 Serverless Functions) on earlier commits, followed by an `unused_function` configuration mismatch for removed `api/kk-ultra-deep-machine.js`.
+- Current main contains only the consolidated API surface and no stale `kk-ultra-deep-machine.js` functions pattern in `vercel.json`.
+- Triggered a clean main production deployment with storefront marker r4 at commit `5d3e1120f9a0943b379e1eadad190da76d5be16c`.
+- Vercel deployment `dpl_GGWV71TkVccvXj3DWpMtAvC9mbhJ` reached `READY`, target `production`, with canonical aliases and no alias error.
+- Canonical storefront returned HTTP 200 and served marker `20261003-v618-mobile-type-scale-r4` plus V6.16 script marker `storefront-v616-exact-scroll-return-20261003`.
+- Production CSS returned HTTP 200 and contains the V6.18 mobile typography rules, including 14px event titles and 12px CTA text.
+- No pricing, booking, inventory, event-visibility or production business-write semantics were changed by this storefront recovery.
