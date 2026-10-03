@@ -186,7 +186,15 @@ module.exports=async function handler(req,res){
   if(!validSignature(body,sig,secret)){res.statusCode=401; return res.end('Invalid signature');}
   let payload; try{payload=JSON.parse(body);}catch(_){res.statusCode=400;return res.end('Invalid JSON');}
   const events=Array.isArray(payload.events)?payload.events:[];
-  // Persist only verified events; Inbox failure remains isolated from the existing booking reply path.\n  const inboxPromise=InboxTee.persistVerifiedEvents(events,inboxPersistFn(process.env,fetch)).catch(err=>({status:'FAILED_ISOLATED',error:err&&err.message?err.message:'inbox failed'}));\n  try{for(const event of events) await processEvent(event,process.env,fetch); await inboxPromise; res.statusCode=200; return res.end('OK');}
+  // Persist only verified events; Inbox failure remains isolated from the existing booking reply path.
+  const inboxPromise=InboxTee.persistVerifiedEvents(events,inboxPersistFn(process.env,fetch))
+    .catch(err=>({status:'FAILED_ISOLATED',error:err&&err.message?err.message:'inbox failed'}));
+  try{
+    for(const event of events) await processEvent(event,process.env,fetch);
+    await inboxPromise;
+    res.statusCode=200;
+    return res.end('OK');
+  }
   catch(err){console.error('[line-webhook]',err&&err.message?err.message:'processing failed');res.statusCode=500;return res.end('Processing failed');}
 };
 module.exports._test={inboxPersistFn,rawBody,validSignature,parseBookingText,parseCsv,norm,canonicalDate,resolveEventRow,resolvePoster,resolveCanonicalPackage,templateIdFromWebPackageId,packageLabel,formatCanonicalPrice,replyFlex,processEvent};
