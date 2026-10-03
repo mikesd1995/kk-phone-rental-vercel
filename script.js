@@ -1592,34 +1592,36 @@ function restoreFocus(target){
 var modalScrollY=0;
 var modalScrollX=0;
 function exactScrollRestore(){
+  // The page is never moved to a fixed-body coordinate system, so close has no
+  // intermediate top-of-page frame to correct. This is only a drift guard.
   var x=modalScrollX,y=modalScrollY;
-  // iOS Safari may apply a deferred viewport correction after fixed-body unlock/focus.
-  // Re-assert the captured coordinates across the next paint frames so close is visually stationary.
-  window.scrollTo(x,y);
-  requestAnimationFrame(function(){
-    window.scrollTo(x,y);
-    requestAnimationFrame(function(){window.scrollTo(x,y);});
-  });
-  setTimeout(function(){window.scrollTo(x,y);},80);
+  if(Math.abs((window.scrollY||window.pageYOffset||0)-y)>1)window.scrollTo(x,y);
 }
 function lockBody(){
   if(document.body.dataset.modalLocked==="1")return;
   modalScrollX=window.scrollX||window.pageXOffset||0;
   modalScrollY=window.scrollY||window.pageYOffset||0;
   document.body.dataset.modalLocked="1";
-  document.body.style.position="fixed";
-  document.body.style.top=(-modalScrollY)+"px";
-  document.body.style.left=(-modalScrollX)+"px";
-  document.body.style.right="0";
-  document.body.style.width="100%";
+  // Modern iOS Safari supports overflow locking. Keep the document in its
+  // existing coordinate space instead of position:fixed + negative top,
+  // which exposed scrollY=0 for a paint frame during modal close.
+  document.documentElement.style.overflow="hidden";
   document.body.style.overflow="hidden";
+  document.body.style.touchAction="none";
 }
 function unlockBodyIfNoModal(){
   var ov=document.getElementById("overlay"), fo=document.getElementById("faqOverlay");
   if((ov&&ov.classList.contains("active"))||(fo&&fo.classList.contains("active")))return;
-  if(document.body.dataset.modalLocked!=="1"){document.body.style.overflow="";return;}
+  if(document.body.dataset.modalLocked!=="1"){
+    document.documentElement.style.overflow="";
+    document.body.style.overflow="";
+    document.body.style.touchAction="";
+    return;
+  }
   delete document.body.dataset.modalLocked;
-  document.body.style.position="";document.body.style.top="";document.body.style.left="";document.body.style.right="";document.body.style.width="";document.body.style.overflow="";
+  document.documentElement.style.overflow="";
+  document.body.style.overflow="";
+  document.body.style.touchAction="";
   exactScrollRestore();
 }
 function homeUrl(){return window.location.origin + "/";}
