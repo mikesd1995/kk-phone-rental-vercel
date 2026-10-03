@@ -28,7 +28,7 @@ function planExisting(input={}){
  if(!booked&&targets.length){
    for(const t of targets){
      const cp=money(t.current_price), ps=(t.competitor_prices||[]).map(x=>money(x&&x.price!==undefined?x.price:x)).filter(Boolean), mm=median(ps);
-     if(cp&&mm&&cp!==mm) mutations.unshift({type:'UPDATE_PRICE',package_type:text(t.package_type).toUpperCase(),from:cp,to:mm,evidence:'FRESH_EXACT_EVENT_COMPETITOR_MEDIAN'});
+     if(cp&&mm&&cp!==mm) mutations.unshift({type:'UPDATE_PRICE',package_type:text(t.package_type).toUpperCase(),template_id:text(t.template_id||t.package_id),from:cp,to:mm,evidence:'FRESH_EXACT_EVENT_COMPETITOR_MEDIAN'});
    }
  }else if(!booked&&currentPrice&&marketMedian&&currentPrice!==marketMedian) mutations.unshift({type:'UPDATE_PRICE',from:currentPrice,to:marketMedian,evidence:'FRESH_EXACT_EVENT_COMPETITOR_MEDIAN'});
  return {decision:mutations.length?'UPDATE':'NO_CHANGE',mutations,market_median:marketMedian,price_locked:booked,price_lock_reason:booked?'ANY_BOOKING_LOCKS_PRICE':null};
