@@ -16,3 +16,11 @@ Owner iPhone screenshots showed paired catalogue cards ending at different verti
 - Fallback fresh branch event: `deploy/storefront-v620-recovery-20261003` at `d71e406e4af15ce3869ed6419bac7251e3101604`; no deployment record materialized on verification.
 - Current main source contains both V6.20 card-balance CSS lineage and V6.19 stationary-modal-close JS lineage. No business semantics were changed by the recovery attempts.
 - Production is not claimed until an exact/newer main deployment is READY and canonical readback serves V6.20.
+
+
+## Production recovery escalation — prebuilt path
+- At 2026-10-03 19:30 ICT, Vercel deployment inventory still showed no deployment newer than production V6.18 (`dpl_GGWV71TkVccvXj3DWpMtAvC9mbhJ`).
+- Direct Vercel MCP deploy remained unavailable at runtime (`Tool deploy_to_vercel not found`).
+- Used the repository's existing owner-authorized zero-cost prebuilt production workflow as fallback by commenting `/run-v60-prebuilt 923deb95ae32f9e22bd193ef193a027aca17799e` on Issue #213.
+- Workflow run `37123113729` was created for the exact current main SHA but failed before exposing step/log detail (`steps=null`, `logs_url=null`). No production deployment was created by that attempt.
+- V6.20 remains merged and source-complete; production promotion remains blocked by execution/integration infrastructure, not by the card-balance CSS itself.
