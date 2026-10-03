@@ -37,6 +37,39 @@ jobs:
           test -n "$marker"
           test -s assets/kk-storefront-v5.css
           echo "marker=$marker" >> "$GITHUB_OUTPUT"
+      - name: Resolve current READY main production
+        id: production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${VERCEL_TOKEN:-}"
+          node - <<'NODE'
+          const fs=require('fs');
+          const team=process.env.VERCEL_ORG_ID;
+          const project=process.env.VERCEL_PROJECT_ID;
+          const token=process.env.VERCEL_TOKEN;
+          const url='https://api.vercel.com/v6/deployments?projectId='+encodeURIComponent(project)+'&target=production&limit=100&teamId='+encodeURIComponent(team);
+          const r=await fetch(url,{headers:{Authorization:'Bearer '+token,Accept:'application/json'}});
+          if(!r.ok) throw new Error('VERCEL_PRODUCTION_LIST_HTTP_'+r.status);
+          const body=await r.json();
+          const rows=(Array.isArray(body.deployments)?body.deployments:[])
+            .filter(d=>String(d.readyState||d.state||'').toUpperCase()==='READY')
+            .filter(d=>String(d.meta&&d.meta.githubCommitRef||'')==='main')
+            .filter(d=>/^[0-9a-f]{40}$/i.test(String(d.meta&&d.meta.githubCommitSha||'')))
+            .sort((a,b)=>Number(b.createdAt||b.created||0)-Number(a.createdAt||a.created||0));
+          if(!rows.length) throw new Error('READY_MAIN_PRODUCTION_NOT_FOUND');
+          const sha=String(rows[0].meta.githubCommitSha).toLowerCase();
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'base_sha='+sha+'\n');
+          process.stdout.write(JSON.stringify({deployment_id:rows[0].id||rows[0].uid||'',base_sha:sha,read_only:true})+'\n');
+          NODE
+      - name: Enforce storefront owner release gate when presentation changed
+        env:
+          BASE_SHA: ${{ steps.production.outputs.base_sha }}
+          SHA: ${{ steps.authz.outputs.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/storefront-release-gate.js --base-sha "$BASE_SHA" --candidate-sha "$SHA"
       - name: Regression gates
         run: npm run check && npm test
       - name: Build and deploy prebuilt
