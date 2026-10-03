@@ -1520,3 +1520,28 @@ html[data-theme="dark"] .pi-avail.none{color:#fda4af!important}
   .pi-price{font-size:13px!important}
   .kk-benefit-grid>div{font-size:11px!important}
 }
+
+
+/* V6.20 owner screenshot correction — 2026-10-03
+   Equalize paired mobile cards and optically center the month selector label. */
+@media (min-width:360px) and (max-width:700px){
+  .poster-grid{align-items:stretch!important}
+  .concert-card{height:100%!important;align-self:stretch!important}
+  .poster-info{height:100%!important;flex:1 1 auto!important}
+  .pi-date{min-height:1.35em!important}
+  .pi-name{min-height:3.78em!important}
+  .pi-meta{display:flex!important;flex-direction:column!important;flex:1 1 auto!important}
+  .pi-venue{min-height:2.84em!important}
+  .pi-price{margin-top:auto!important;padding-top:8px!important}
+  .pi-avail{min-height:1.4em!important}
+  .pi-tap{margin-top:9px!important}
+  .status-filter-bar .month-select-wrap{
+    display:flex!important;align-items:center!important;justify-content:center!important;
+    padding:0!important;
+  }
+  .status-filter-bar .month-select{
+    width:100%!important;height:44px!important;margin:0!important;
+    padding:0 30px 0 12px!important;
+    line-height:44px!important;text-align:center!important;text-align-last:center!important;
+  }
+}
