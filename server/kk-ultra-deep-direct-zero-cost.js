@@ -5,8 +5,9 @@ const Verifier=require('./kk-ultra-deep-candidate-verifier.js');
 const Pricing=require('./kk-ultra-deep-competitor-price-scanner.js');
 const Commercial=require('./kk-discovery-commercial-prep.js');
 const Production=require('./kk-ultra-deep-production-runtime.js');
+const V2Adapter=require('./kk-ultra-deep-v2-runtime-adapter.js');
 
-const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V23';
+const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V24';
 function text(v){return String(v==null?'':v).trim();}
 
 async function run(input={},options={}){
@@ -56,10 +57,23 @@ async function run(input={},options={}){
     competitor_prices:priceScan.evidence,
     posters:verifier.posters
   });
-  if(!(commercial.ready_count>0)){
+  if(!(commercial.ready_count>0)&&options.executeWrites===true){
     return {version:VERSION,status:'BLOCKED_NO_COMMERCIAL_CANDIDATES',month,preflight,discovery,verifier,competitor_price_scan:priceScan,commercial,production_writes:0};
   }
 
+  const v2_read_only=V2Adapter.buildReadOnlyPlan({month,candidates:verifier.verified_candidates,snapshot:preflightSnapshot,commercial});
+  if(options.executeWrites!==true){
+    return {
+      version:VERSION,status:v2_read_only.status==='READY'?'V2_READ_ONLY_READY':'V2_READ_ONLY_HOLD',month,mode:'READ_ONLY_ACCEPTANCE',
+      preflight,discovery:{status:discovery.status,candidate_count:discovery.candidate_count,eligible_candidate_count:eligibleCandidates.length,full:discovery.full},
+      verifier:{verified_count:verifier.verified_count,hold_count:verifier.hold_count},
+      competitor_price_scan:{evidence_count:priceScan.evidence_count,competitor_universe_count:priceScan.competitor_universe_count},
+      commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},v2_read_only,production_writes:0
+    };
+  }
+  return {version:VERSION,status:'BLOCKED_V2_COMMIT_NOT_WIRED',month,mode:'COMMIT',preflight,discovery:{status:discovery.status,candidate_count:discovery.candidate_count,full:discovery.full},verifier:{verified_count:verifier.verified_count,hold_count:verifier.hold_count},competitor_price_scan:{evidence_count:priceScan.evidence_count},commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},v2_read_only,blockers:['V2_GOVERNED_WRITER_MAPPING_REQUIRED'],production_writes:0};
+
+  /* Legacy handoff retained below as unreachable reference until V2 writer mapping is accepted. */
   const handoff={
     schema:'KK_ULTRA_DEEP_COMMERCIAL_HANDOFF_V1',
     created_at:new Date().toISOString(),
