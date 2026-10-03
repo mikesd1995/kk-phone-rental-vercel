@@ -58,3 +58,25 @@ No change to:
 - no content obscured by storefront-owned fixed controls
 
 Rollback: revert V6.11 CSS block and restore the V6.10 stylesheet cache marker.
+
+
+## Pre-merge second-pass audit
+A second exact-diff audit found one regression risk in the first V6.11 pass: several header/filter/hero controls had been compressed to 40–42px while the established mobile interaction invariant is 44px minimum.
+
+Corrected before merge:
+- FAQ control: 44px minimum
+- theme control: 44x44px
+- TH/EN controls: 44x44px
+- hero primary/secondary actions: 44px minimum
+- month/status filter controls: 44px minimum
+- clear-filter action: 44px minimum
+- card CTA remains 44px minimum
+
+Additional verification:
+- PR diff remains presentation-only: stylesheet + cache marker + this implementation record
+- no JavaScript/business logic changed
+- Vercel Preview for the audited head lineage is reachable and serves the V6.11 marker
+- GitHub hosted workflows are currently failing before reporting any steps (`steps=null`), so those failures are not being misclassified as visual/admin assertion failures
+- no PR review comments or review findings are outstanding
+
+The branch must receive a fresh preview/check cycle after the 44px correction before production merge.
