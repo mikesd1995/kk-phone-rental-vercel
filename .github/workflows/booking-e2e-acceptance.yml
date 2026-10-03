@@ -1,0 +1,67 @@
+name: Booking E2E Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'server/line-booking-webhook.js'
+      - 'server/line-booking-intake.js'
+      - 'server/line-booking-owner-approval.js'
+      - 'apps-script/Code.gs'
+      - 'tests/line-booking-*.test.js'
+      - 'tests/line-webhook*.test.js'
+      - 'tests/same-day-inventory-date-normalization.test.js'
+      - '.github/workflows/booking-e2e-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: booking-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APPROVED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.APPROVED_SHA }}
+          fetch-depth: 1
+
+      - name: Verify exact checkout
+        run: test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Syntax
+        run: |
+          node --check server/line-booking-webhook.js
+          node --check server/line-booking-intake.js
+          node --check server/line-booking-owner-approval.js
+          node --check api/line-webhook.js
+
+      - name: Booking E2E targeted regression
+        run: |
+          node --test \
+            tests/line-booking-owner-approval.test.js \
+            tests/line-booking-locked-intake-v4.test.js \
+            tests/line-booking-intake.test.js \
+            tests/line-booking-inbox-tee.test.js \
+            tests/line-webhook.test.js \
+            tests/line-webhook-raw-body.test.js \
+            tests/same-day-inventory-date-normalization.test.js \
+            tests/booking-id-primary-close-regression-20261002.test.js
+
+      - name: Assert no provider or production acceptance side effects
+        run: |
+          test -z "${KK_LINE_BOOKING_AUTOMATION_ENABLED:-}"
+          echo "Repository acceptance is zero-write; live activation remains separately gated."
