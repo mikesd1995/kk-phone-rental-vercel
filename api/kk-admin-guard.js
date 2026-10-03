@@ -561,7 +561,7 @@ module.exports=async function handler(req,res){
       return reply(res,503,{ok:false,error_code:text(control&&control.error_code)||'VERCEL_PRODUCTION_IDENTITY_REJECTED',write_control:control||null,production_writes:0});
     }
     try{
-      const result=await UltraDeepDirect.run({month,location:text(payload.location)||'Bangkok Thailand'},{
+      const result=await UltraDeepDirect.run({month,location:text(payload.location)||'Bangkok Metropolitan Region Thailand'},{
         executeWrites:commit,
         env:process.env,
         fetchImpl:global.fetch,
@@ -582,7 +582,7 @@ module.exports=async function handler(req,res){
     if(!/^\\d{4}-\\d{2}$/.test(month)) return reply(res,400,{ok:false,error_code:'ULTRA_DEEP_MONTH_INVALID'});
     const commit=payload.commit===true;
     try{
-      const result=await UltraDeepDirect.run({month,location:String(payload.location||'Bangkok Thailand')},{
+      const result=await UltraDeepDirect.run({month,location:String(payload.location||'Bangkok Metropolitan Region Thailand')},{
         executeWrites:commit,
         env:process.env,
         fetchImpl:global.fetch,
