@@ -146,3 +146,14 @@ No OIDC, owner authorization, discovery FULL, commercial, production COMPLETE, t
 - Full Loop production writes from this repair sequence: 0
 
 Do not mark the project complete until the remaining acceptance steps pass.
+
+
+## Fresh continuation evidence — 2026-10-04
+- Repository remains private and authenticated connector reports owner/admin permission.
+- Current production deployment re-check: `dpl_8xqonqLFnB84QN2WqwELKaaYjW9V`, production SHA `12c7b0f3fbd0d4cf2e0b992c1bbbeca0cfccce88`.
+- Current repo/main history is ahead of production; the cross-chat handoff commit is `1104dab3f94b7959d996e1cbc1b49297fb842469`.
+- Latest Actions activity after the handoff is still scheduler-skipped before job execution.
+- Repository search found no pre-existing actions-runner bootstrap, registration script, runner service, or alternate self-hosted runner definition. The only self-hosted routing is the governed `kk-ultra-deep` path added in PR #600/#601.
+- Therefore there is no hidden zero-cost compute substrate already provisioned in this repository to execute the job.
+- GitHub documentation confirms self-hosted Actions jobs have no billable Actions minutes, but the runner host itself must exist, be registered, and be online. Registration requires a time-limited token and access to the host machine.
+- Do not dispatch `zero_cost_self_hosted=true` until an online runner with labels `self-hosted, linux, x64, kk-ultra-deep` is visible; otherwise the job can remain queued and provides no acceptance evidence.
