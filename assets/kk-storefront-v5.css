@@ -1493,3 +1493,30 @@ html[data-theme="dark"] .pi-avail.none{color:#fda4af!important}
     line-height:1.3!important;
   }
 }
+
+
+/* V6.18 mobile typography normalization — 2026-10-03
+   Restore normal iPhone reading sizes without changing the two-column card layout. */
+@media (max-width:700px){
+  .v3-events-heading>div>span,.update-note,.event-search-count{font-size:12px!important;line-height:1.45!important}
+  .status-badge{font-size:11.5px!important;line-height:1.2!important}
+  .pi-date{font-size:12px!important;line-height:1.35!important}
+  .pi-name{font-size:14px!important;line-height:1.35!important;letter-spacing:-.01em!important}
+  .pi-venue{font-size:12px!important;line-height:1.42!important}
+  .pi-price{font-size:13.5px!important;line-height:1.35!important}
+  .pi-avail{font-size:12px!important;line-height:1.4!important;font-weight:700!important}
+  .pi-tap{font-size:12px!important;line-height:1.3!important;font-weight:800!important}
+  .kk-benefit-grid>div{font-size:11.5px!important;line-height:1.4!important}
+  .kk-journey-kicker{font-size:11px!important;line-height:1.35!important}
+  .kk-journey-steps strong{font-size:14px!important;line-height:1.35!important}
+  .kk-journey-steps span{font-size:12px!important;line-height:1.45!important}
+  footer .trust-note{font-size:12px!important;line-height:1.45!important}
+}
+@media (max-width:359px){
+  .status-badge{font-size:11px!important}
+  .pi-date{font-size:11.5px!important}
+  .pi-name{font-size:13px!important}
+  .pi-venue,.pi-avail,.pi-tap{font-size:11.5px!important}
+  .pi-price{font-size:13px!important}
+  .kk-benefit-grid>div{font-size:11px!important}
+}
