@@ -26,3 +26,6 @@ This is the current-main successor to closed PR #391. It does not reuse #391's s
 
 ## CI guard
 Because the repository-wide Admin Regression workflow is currently manual-only, this change adds a path-scoped LINE Pending Intake Acceptance workflow. It executes the same syntax, full regression, invariant, code benchmark and fail-closed HF safety steps whenever this critical path changes. Vercel Preview quota is not used as a code-quality signal for this writer.
+
+## Canonical resolver closure
+The public Web Packages feed exposes package_id rather than a dedicated template_id column. The webhook resolver now derives canonical template_id with the same rules as Apps Script (embedded TPL- suffix first, event-prefix stripping second, package_id fallback last) and returns it with event_id/package_id. This closes the previously dormant contract gap where intake would otherwise fail CANONICAL_RESOLUTION_REQUIRED if activated.
