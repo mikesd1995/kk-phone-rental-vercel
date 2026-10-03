@@ -109,3 +109,14 @@ test('root AGENTS contract makes context-first retrieval mandatory',()=>{
   assert.match(text,/12k estimated tokens/);
   assert.match(text,/Do not enable a semantic\/Hugging Face code retriever until it beats this baseline/);
 });
+
+
+test('Unified Inbox task routes to the actual Admin and LINE/X integration surface',()=>{
+  const pack=CodeIntel.contextPack('Audit PR 430 Unified Inbox LINE/X webhook conversation PostgREST',{root});
+  assert.equal(pack.matched_routes.some(x=>x.id==='unified_inbox'),true);
+  const files=pack.selected_files.map(x=>x.path);
+  assert.equal(files.includes('server/line-booking-webhook.js'),true);
+  assert.equal(files.includes('admin/inbox-preview.js'),true);
+  assert.equal(pack.targeted_tests.includes('tests/kk-admin-inbox-preview.test.js'),true);
+  assert.equal(pack.targeted_tests.includes('tests/line-booking-inbox-tee.test.js'),true);
+});

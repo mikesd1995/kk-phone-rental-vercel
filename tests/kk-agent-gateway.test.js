@@ -285,3 +285,16 @@ test('unified-route migration expands statuses without weakening append-only acc
   assert.match(migration, /grant select, insert on table public\.kk_agent_invocations to service_role/);
   assert.doesNotMatch(migration, /grant[^;]*(update|delete)/);
 });
+
+
+test('Unified Inbox review invokes reliability and UX agents through governed gateway', async()=>{
+  const rows=[];
+  const result=await Gateway.executeAgentRequest({task_type:'admin_unified_inbox_review',correlation_id:'unified-inbox-agent-review-test',input:{code_context:{files:['admin/index.html','server/line-booking-webhook.js'],targeted_tests:['tests/kk-admin-inbox-preview.test.js']},reliability_observations:[{id:'inbox-isolation',message:'Inbox persistence failure is isolated from the existing LINE booking processing path.'},{id:'provider-gates',message:'LINE and X provider activation remain gated and outbound send is disabled.'}],ux:{viewport:{width:390,height:844},platform:'ios',metrics:{document_scroll_width_px:390,content_width_px:390,min_form_control_font_px:16,tap_targets:[{id:'inbox-search',width:320,height:44}],filter_rows:1,card_columns:1,card_min_width_px:320}}}},{ledgerFn:async row=>{rows.push(row);return {ok:true,inserted:true,invocation_id:row.invocation_id};}});
+  assert.equal(result.status,'RECORDED');
+  assert.deepEqual(result.invocation.required_agents,['kk-reliability-learning','kk-storefront-ux-reviewer']);
+  assert.deepEqual(result.invocation.invoked_agents,['kk-reliability-learning','kk-storefront-ux-reviewer']);
+  assert.equal(result.result.safety.production_writes,0);
+  assert.equal(result.result.safety.auto_merge,false);
+  assert.equal(result.result.safety.auto_deploy,false);
+  assert.equal(rows.length,1);
+});
