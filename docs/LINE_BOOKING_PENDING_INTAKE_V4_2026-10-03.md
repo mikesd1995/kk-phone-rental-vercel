@@ -23,3 +23,6 @@ Repository Apps Script is not production authority by itself. Current deployment
 
 ## Supersedes
 This is the current-main successor to closed PR #391. It does not reuse #391's stale B:T/formula-column-A write contract.
+
+## CI guard
+Because the repository-wide Admin Regression workflow is currently manual-only, this change adds a path-scoped LINE Pending Intake Acceptance workflow. It executes the same syntax, full regression, invariant, code benchmark and fail-closed HF safety steps whenever this critical path changes. Vercel Preview quota is not used as a code-quality signal for this writer.
