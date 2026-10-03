@@ -121,23 +121,45 @@ function historicalConflict(candidate={},locks=[]){
  }
  return null;
 }
-function activeBookingDateSet(snapshot={}){
- const active=new Set();
+const CAPACITY_HOLD_STATUSES=new Set(['pending','confirmed','prepared','picked_up']);
+function phoneInventoryCapacity(snapshot={}){
+ const phones=(snapshot.assets||[]).filter(a=>{
+  if(text(a.asset_type).toLowerCase()!=='phone')return false;
+  return !['retired','broken','lost','maintenance'].includes(text(a.status).toLowerCase());
+ });
+ return phones.length;
+}
+function bookingCountByDate(snapshot={}){
+ const counts=new Map();
  for(const b of snapshot.bookings||[]){
   const s=text(b.booking_status).toLowerCase();
-  if(['cancelled','no_show'].includes(s))continue;
-  const d=date(b.event_date);if(d)active.add(d);
+  if(!CAPACITY_HOLD_STATUSES.has(s))continue;
+  const d=date(b.event_date);if(!d)continue;
+  counts.set(d,(counts.get(d)||0)+1);
  }
+ return counts;
+}
+function fullBookingDateSet(snapshot={}){
+ const capacity=phoneInventoryCapacity(snapshot);
+ const full=new Set();
+ if(capacity<=0)return full;
+ for(const [d,count] of bookingCountByDate(snapshot))if(count>=capacity)full.add(d);
+ return full;
+}
+function activeBookingDateSet(snapshot={}){
+ const active=new Set();
+ for(const [d,count] of bookingCountByDate(snapshot))if(count>0)active.add(d);
  return active;
 }
 function reconcileCandidates(candidates=[],snapshot={}){
  const events=snapshotEvents(snapshot);
  const booked=activeBookingDateSet(snapshot);
+ const fullBooked=fullBookingDateSet(snapshot);
  const safe=[];const dispositions=[];
  for(const raw of Array.isArray(candidates)?candidates:[]){
   const c={...raw,event_date:date(raw.event_date)};
-  if(booked.has(c.event_date)){
-   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_BOOKING_DATE'});
+  if(fullBooked.has(c.event_date)){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_FULL_BOOKING_DATE'});
    continue;
   }
   const history=historicalConflict(c,snapshot.visibility_locks||[]);
@@ -158,7 +180,7 @@ function reconcileCandidates(candidates=[],snapshot={}){
   }
   safe.push(c);
  }
- return {events,safe_candidates:safe,dispositions,booked_dates:[...booked]};
+ return {events,safe_candidates:safe,dispositions,booked_dates:[...booked],full_booked_dates:[...fullBooked],phone_capacity:phoneInventoryCapacity(snapshot)};
 }
 function storeBaselines(snapshot={}){
  return (snapshot.packages||[]).filter(p=>p.active===true).map(p=>({
@@ -284,7 +306,7 @@ async function execute(handoff={},options={}){
 
 module.exports={
  VERSION,DEFAULT_SITE,DEFAULT_SHEET_ID,AUTO_PROMOTION_MARKER,text,norm,date,tokens,titleOverlap,venueCompatible,sameKnownMiss,packageTemplateId,
- snapshotEvents,matchExisting,historicalConflict,activeBookingDateSet,reconcileCandidates,storeBaselines,readbackForEvent,
+ snapshotEvents,matchExisting,historicalConflict,phoneInventoryCapacity,bookingCountByDate,fullBookingDateSet,activeBookingDateSet,reconcileCandidates,storeBaselines,readbackForEvent,
  malformedAutoPromotionRows,quarantineMalformedAutoPromotions,
  postAdmin,freshSnapshot,storefrontReadback,existingEventWriter,execute
 };
