@@ -63,3 +63,14 @@ test('V26 machine ingress is authorization-queue gated and cannot accept arbitra
   assert.match(source,/commandComplete/);
   assert.match(source,/READ_ONLY_WRITE_INVARIANT_BROKEN/);
 });
+
+
+test('scanner ingress GET acceptance is queue-authorized and permanently read-only',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','api','kk-scanner-dispatch.js'),'utf8');
+  assert.match(source,/readonly_command_id/);
+  assert.match(source,/commandClaim/);
+  assert.match(source,/GET_COMMIT_FORBIDDEN/);
+  assert.match(source,/executeWrites:false/);
+  assert.match(source,/READ_ONLY_WRITE_INVARIANT_BROKEN/);
+  assert.match(source,/ULTRA_DEEP_MACHINE_V26_READ_ONLY_GET/);
+});
