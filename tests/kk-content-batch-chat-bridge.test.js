@@ -114,16 +114,18 @@ test('batch bridge runs one five-agent invocation per item and returns winners o
   }
 });
 
-test('batch bridge fail-closes when selected hooks overuse the same generic prepare-device archetype',async()=>{
+test('batch bridge reselects eligible alternatives when top winners overuse a generic archetype',async()=>{
   const payload={items:[
     item(1,'ใครมีบัตร Event 1 เตรียมเครื่องไว้เก็บทุกโมเมนต์ให้ครบ'),
     item(2,'แฟน Event 2 ล็อกเครื่องไว้ก่อน จะได้เก็บทุกช็อตบนเวที'),
     item(3,'ใครรอ Event 3 จองเครื่องไว้ก่อนแล้วค่อยเก็บทุกโมเมนต์ของศิลปิน')
   ]};
   const result=await Bridge.runBridge({event:event(),payload});
-  assert.equal(result.status,'BLOCKED');
-  assert.equal(result.blocker,'BATCH_DIVERSITY_QA_FAILED');
-  assert.match(result.batch_qa.errors.join('|'),/BATCH_GENERIC_ARCHETYPE_OVERUSED:PREPARE_DEVICE/);
+  assert.equal(result.status,'PASS');
+  assert.equal(result.batch_qa.gate,'PASS');
+  assert.ok(result.items.some(row=>row.selection_mode==='BATCH_DIVERSITY_RESELECTION'));
+  assert.equal(result.production_writes,0);
+  assert.equal(result.publishes,0);
 });
 
 test('batch bridge rejects non-owner issue authors before agent execution',async()=>{
@@ -132,4 +134,41 @@ test('batch bridge rejects non-owner issue authors before agent execution',async
   const result=await Bridge.runBridge({event:e,payload:{items:[item(1,'หนึ่ง'),item(2,'สอง')]}});
   assert.equal(result.status,'BLOCKED');
   assert.match(result.blocker,/BATCH_BRIDGE_OWNER_ONLY/);
+});
+
+
+test('batch bridge reselects the highest-scoring QA-passing combination when independent winners collide',async()=>{
+  const payload={items:[
+    item(1,'ใครมีบัตร Event 1 เตรียมเครื่องไว้เก็บทุกโมเมนต์ให้ครบ'),
+    item(2,'ใครมีบัตร Event 2 เตรียมเครื่องไว้เก็บทุกโมเมนต์ให้ครบ'),
+    item(3,'ใครมีบัตร Event 3 เตรียมเครื่องไว้เก็บทุกโมเมนต์ให้ครบ')
+  ]};
+  const result=await Bridge.runBridge({event:event(),payload});
+  assert.equal(result.status,'PASS');
+  assert.equal(result.batch_qa.gate,'PASS');
+  assert.ok(result.items.some(row=>row.selection_mode==='BATCH_DIVERSITY_RESELECTION'));
+  assert.equal(result.production_writes,0);
+  assert.equal(result.publishes,0);
+});
+
+test('batch bridge remains blocked when every eligible combination repeats the same generic archetype',async()=>{
+  const payload={items:[1,2,3].map(n=>{
+    const row=item(n,'ใครมีบัตร Event '+n+' เตรียมเครื่องไว้เก็บทุกโมเมนต์ให้ครบ');
+    const hooks=[
+      'เตรียมเครื่องสำหรับ special format '+n+' แล้วโฟกัสซีนเปิดที่เป็นภาพจำของงาน',
+      'ล็อกมือถือก่อนเข้า Hall '+n+' เพื่อเก็บ fandom moment '+n+' ในมุมที่ต่างจากรอบทั่วไป',
+      'จองคิวเลนส์ไว้รับหน้างาน แล้วตามเก็บจังหวะ Artist '+n+' ที่แฟนรอใน Event '+n
+    ];
+    row.candidates=row.candidates.map((candidate,index)=>({
+      ...candidate,
+      copy:copy('#Event'+n,'#Artist'+n,'Event '+n,n+' ต.ค. 2026','Hall '+n,hooks[index])
+    }));
+    return row;
+  })};
+  const result=await Bridge.runBridge({event:event(),payload});
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.blocker,'BATCH_DIVERSITY_QA_FAILED');
+  assert.match(result.batch_qa.errors.join('|'),/BATCH_GENERIC_ARCHETYPE_OVERUSED:PREPARE_DEVICE/);
+  assert.equal(result.production_writes,0);
+  assert.equal(result.publishes,0);
 });
