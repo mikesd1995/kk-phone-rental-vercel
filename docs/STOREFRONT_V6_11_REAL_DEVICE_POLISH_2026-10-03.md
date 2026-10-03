@@ -80,3 +80,9 @@ Additional verification:
 - no PR review comments or review findings are outstanding
 
 The branch must receive a fresh preview/check cycle after the 44px correction before production merge.
+
+
+## Final invariant sweep
+A selector-level cascade sweep after the second-pass audit found one additional override: the V6.11 search input still declared `min-height:42px`, even though its containing search shell remained 44px. This was corrected to 44px so the input itself and its container share the same minimum interaction height.
+
+The final V6.11 mobile overrides now retain 44px minimum for search, FAQ, theme, language, hero actions, filters, clear-filter and card CTA.
