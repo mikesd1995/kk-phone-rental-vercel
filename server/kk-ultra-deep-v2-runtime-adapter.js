@@ -30,7 +30,7 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
  const qualification=existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0}:Rent.qualify(scoring);
  const poster=posterFor(commercialRow);
  const proposal=commercialRow.pricing&&commercialRow.pricing.proposal||{};
- const priceTargets=existing?(existing.packages||[]).map(p=>({package_type:text(p.package_type).toUpperCase(),current_price:Number(p.price)||null,competitor_prices:exact.filter(x=>!text(x.package_type)||text(x.package_type).toUpperCase()===text(p.package_type).toUpperCase())})):[];
+ const priceTargets=existing?(existing.packages||[]).map(p=>({package_type:text(p.package_type).toUpperCase(),template_id:text(p.template_id||Production.packageTemplateId(p.package_id)),current_price:Number(p.price)||null,competitor_prices:exact.filter(x=>!text(x.package_type)||text(x.package_type).toUpperCase()===text(p.package_type).toUpperCase())})):[];
  return {
   event_key:text(candidate.event_key||candidate.candidate_id),title:text(candidate.title),event_date:text(candidate.event_date),verified_venue:text(candidate.venue),
   exists_in_canonical:!!existing,canonical_event_id:existing&&text(existing.event_id)||null,
