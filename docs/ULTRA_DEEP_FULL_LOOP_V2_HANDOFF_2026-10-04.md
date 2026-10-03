@@ -115,3 +115,20 @@ Coverage added for booked metadata updates without price changes, package-type p
 
 ### Validation evidence
 PR #606 was mergeable and merged. No GitHub workflow runs were returned for merge commit `f5f9c396ba1ee9769eef5682e4fda51fbbec5891` at inspection time, so do not claim Node tests/CI passed. Next required implementation is the V2 governed-writer mapper plus exact mutation-by-mutation readback, followed by production READ_ONLY acceptance and only then COMMIT.
+
+
+## V2 live-wiring continuation — 2026-10-04
+Current main already contained V2 runtime adapter/read-only wiring when this continuation started. An initial replacement PR #605 conflicted; conflict-safe PR #607 was then intentionally CLOSED after review showed it would regress the newer V2Adapter fail-closed path. No merge from #605/#607.
+
+PR #608 merged as `a13114319848c93fc973d4987ee706f422dfc369` and patches the current architecture instead of replacing it.
+
+### Defects fixed
+1. Direct runner previously deleted every discovery candidate on a fully booked date before verifier. Fixed: full-booked-date candidates remain in verifier so an existing booked canonical event can still receive verified date/venue/poster maintenance. Price remains locked by V2 policy. Capacity is applied after canonical matching to NEW commercial candidates.
+2. Rentability scorer treated missing fandom/social/rental/event-quality evidence as numeric zero, risking false-negative WATCH exclusion. Fixed: missing evidence remains null; if fewer than 3/5 scoring signals are present, qualification fails open to VERIFY_MORE. Zero capacity retains precedence => NO_CAPACITY.
+3. Default live scope aligned to Bangkok Metropolitan Region.
+
+### Current live safety state
+The current direct runner builds V2 READ_ONLY through `kk-ultra-deep-v2-runtime-adapter.js`. READ_ONLY returns V2_READ_ONLY_READY/HOLD with production_writes=0. COMMIT remains fail-closed as BLOCKED_V2_COMMIT_NOT_WIRED / V2_GOVERNED_WRITER_MAPPING_REQUIRED. The unreachable legacy production handoff is not used for V2 commit.
+
+### Acceptance caveat
+PR #608 is merged and diff-reviewed, but connector editing alone does not prove Node test execution or a production READ_ONLY run. Do not claim production COMPLETE until runtime acceptance is executed and V2 governed-writer mapping + exact readback are implemented and proven.
