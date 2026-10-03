@@ -93,3 +93,25 @@ DISCOVER_BROAD -> RENTABILITY_SCORE -> REVENUE_POTENTIAL -> CAPACITY_CHECK -> VE
 
 ### Acceptance status
 Implementation and regression cases are committed/merged, but connector-side editing does not itself prove Node tests or live production execution. Production business writes from this change = 0. Do not call Full Loop production COMPLETE until live wiring + acceptance evidence exists.
+
+
+## V2.3 runtime wiring — implemented 2026-10-04
+PR #606 merged as `f5f9c396ba1ee9769eef5682e4fda51fbbec5891`.
+
+### Live READ_ONLY path now reaches V2
+`server/kk-ultra-deep-direct-zero-cost.js` V24 now builds a V2 read-only plan after discovery -> verifier -> competitor scan -> commercial evidence. It uses `server/kk-ultra-deep-v2-runtime-adapter.js` to join verified candidates with the fresh production snapshot, booking state, capacity, canonical events, packages and verified commercial evidence. READ_ONLY remains zero-write.
+
+### Reconciliation fixes
+The V2 adapter preserves canonical maintenance candidates even if a new-event rentability gate would reject them. It adds exact-title cross-date matching so an official date move is not automatically treated as a new event. Ambiguous identities remain non-authoritative. Booking count is joined by canonical event_id. Capacity is derived from phone inventory minus active booking holds for the date.
+
+### Package-scoped pricing
+V2 policy now accepts package-scoped price targets. Exact competitor evidence is filtered by package type before median comparison, preventing PHONE_ONLY and PHONE_LENS prices from being mixed. Any booking still suppresses every UPDATE_PRICE while verified metadata mutations remain eligible.
+
+### Fail-closed COMMIT
+V24 deliberately blocks COMMIT with `BLOCKED_V2_COMMIT_NOT_WIRED` / `V2_GOVERNED_WRITER_MAPPING_REQUIRED` instead of falling back to legacy writer semantics. This is intentional because V2 now has date/venue/poster and package-scoped mutation semantics that legacy orchestration does not implement exactly. Production writes from V2.3 = 0.
+
+### Regression cases added
+Coverage added for booked metadata updates without price changes, package-type price separation, exact-title date moves, and low-rentability new-event exclusion while canonical maintenance is retained.
+
+### Validation evidence
+PR #606 was mergeable and merged. No GitHub workflow runs were returned for merge commit `f5f9c396ba1ee9769eef5682e4fda51fbbec5891` at inspection time, so do not claim Node tests/CI passed. Next required implementation is the V2 governed-writer mapper plus exact mutation-by-mutation readback, followed by production READ_ONLY acceptance and only then COMMIT.
