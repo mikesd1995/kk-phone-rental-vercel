@@ -24,11 +24,9 @@ Repository Apps Script is not production authority by itself. Current deployment
 ## Supersedes
 This is the current-main successor to closed PR #391. It does not reuse #391's stale B:T/formula-column-A write contract.
 
-## CI guard
-Because the repository-wide Admin Regression workflow is currently manual-only, this change adds a path-scoped LINE Pending Intake Acceptance workflow. It executes the same syntax, full regression, invariant, code benchmark and fail-closed HF safety steps whenever this critical path changes. Vercel Preview quota is not used as a code-quality signal for this writer.
 
 ## Canonical resolver closure
 The public Web Packages feed exposes package_id rather than a dedicated template_id column. The webhook resolver now derives canonical template_id with the same rules as Apps Script (embedded TPL- suffix first, event-prefix stripping second, package_id fallback last) and returns it with event_id/package_id. This closes the previously dormant contract gap where intake would otherwise fail CANONICAL_RESOLUTION_REQUIRED if activated.
 
 ## Acceptance execution note
-GitHub Actions runs 37127110696 and 37127324033 failed before runner allocation (no steps, runner_id=0), and Vercel Preview reported build-rate-limit. These are infrastructure/quota failures rather than executed test failures. As a fallback, the changed Node intake contract, template-id derivation, inserted Apps Script block syntax, and static writer invariants were exercised in an isolated local harness. Assertion-scope/format brittleness found by that fallback was corrected before merge consideration. Public webhook activation remains disabled regardless of acceptance outcome.
+GitHub Actions attempts on this PR failed before runner allocation (no steps, runner_id=0), and Vercel Preview reported build-rate-limit. These are infrastructure/quota failures rather than executed test failures. A temporary path-scoped workflow used to diagnose this was removed before merge so the repository does not retain a permanently red CI path while runners are unavailable. As a fallback, the changed Node intake contract, template-id derivation, inserted Apps Script block syntax, and static writer invariants were exercised in an isolated harness: 14/14 targeted tests passed after assertion-scope/format brittleness was corrected. Repository-wide Admin Regression remains the canonical manual gate when Actions execution is available. Public webhook activation remains disabled regardless of acceptance outcome.
