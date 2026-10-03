@@ -178,7 +178,6 @@ async function processEvent(event, env=process.env, fetchImpl=fetch){
     pending=await OwnerApproval.createPendingBooking(event,booking,canonical,env,fetchImpl);
     await OwnerApproval.notifyOwner({
       booking_id:pending.booking_id,
-      customer_user_id:String(event.source&&event.source.userId||'').trim(),
       event_name:booking.event_name,
       event_date:booking.event_date,
       package_name:canonical.package_name,
