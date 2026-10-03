@@ -32,7 +32,7 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
  const proposal=commercialRow.pricing&&commercialRow.pricing.proposal||{};
  const priceTargets=existing?(existing.packages||[]).map(p=>({package_type:text(p.package_type).toUpperCase(),current_price:Number(p.price)||null,competitor_prices:exact.filter(x=>!text(x.package_type)||text(x.package_type).toUpperCase()===text(p.package_type).toUpperCase())})):[];
  return {
-  event_key:text(candidate.event_key||candidate.candidate_id),title:text(candidate.title),event_date:text(candidate.event_date),
+  event_key:text(candidate.event_key||candidate.candidate_id),title:text(candidate.title),event_date:text(candidate.event_date),verified_venue:text(candidate.venue),
   exists_in_canonical:!!existing,canonical_event_id:existing&&text(existing.event_id)||null,
   owner_hidden:existing?existing.active_on_web===false:false,tombstone_locked:existing&&existing.tombstone_locked===true,history_state:existing&&text(existing.history_state)||'',
   booking_count:existing?bookingCountForEvent(snapshot,existing.event_id):0,
