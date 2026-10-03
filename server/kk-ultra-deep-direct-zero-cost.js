@@ -74,16 +74,23 @@ async function run(input={},options={}){
       commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},v2_read_only,production_writes:0
     };
   }
-  const createMutations=(v2_read_only.plan.mutations||[]).filter(m=>m.type==='CREATE_EVENT');
-  if(createMutations.length){
-    return {version:VERSION,status:'BLOCKED_V2_CREATE_NOT_ATOMIC',month,mode:'COMMIT',preflight,v2_read_only,blockers:['V2_PACKAGE_AWARE_CREATE_REQUIRED'],production_writes:0};
-  }
   if(v2_read_only.status!=='READY'){
     return {version:VERSION,status:'BLOCKED_V2_PLAN_HOLD',month,mode:'COMMIT',preflight,v2_read_only,blockers:['V2_PLAN_NOT_READY'],production_writes:0};
   }
-  const v2_write=await V2Writer.execute(v2_read_only.plan,{executeWrites:true,env,fetchImpl});
-  const v2_acceptance=require('./kk-ultra-deep-full-loop-v2.js').acceptance(v2_read_only.plan,v2_write,{exact_match:v2_write.status==='COMPLETE'&&v2_write.receipts.every(x=>x.ok===true)});
-  return {version:VERSION,status:v2_acceptance.status==='COMPLETE'?'COMPLETE':'V2_COMMIT_INCOMPLETE',month,mode:'COMMIT',preflight,v2_read_only,v2_write,v2_acceptance,production_writes:Number(v2_write.production_writes||0)};
+  const updatePlan={...v2_read_only.plan,mutations:(v2_read_only.plan.mutations||[]).filter(m=>m.type!=='CREATE_EVENT')};
+  const v2_write=await V2Writer.execute(updatePlan,{executeWrites:true,env,fetchImpl});
+  const byKey=new Map((v2_read_only.plan.decisions||[]).map(x=>[text(x.event_key),x]));
+  const createReceipts=[];let createWrites=0;
+  for(const m of (v2_read_only.plan.mutations||[]).filter(x=>x.type==='CREATE_EVENT')){
+    const decision=byKey.get(text(m.event_key));
+    const receipt=await V2Writer.executeCreate(decision,m,{env,fetchImpl,packageTemplates:snapshot.packages||[],correlationId:text(input.correlation_id)});
+    createReceipts.push({event_key:text(m.event_key),receipt});if(receipt&&receipt.readback_verified===true)createWrites++;
+  }
+  const totalWrites=Number(v2_write.production_writes||0)+createWrites;
+  const exact=(v2_write.status==='COMPLETE'&&(v2_write.receipts||[]).every(x=>x.ok===true)&&createReceipts.every(x=>x.receipt&&x.receipt.readback_verified===true));
+  const combined={status:exact?'COMPLETE':'INCOMPLETE',production_writes:totalWrites,receipts:v2_write.receipts||[],create_receipts:createReceipts};
+  const v2_acceptance=require('./kk-ultra-deep-full-loop-v2.js').acceptance(v2_read_only.plan,combined,{exact_match:exact});
+  return {version:VERSION,status:v2_acceptance.status==='COMPLETE'?'COMPLETE':'V2_COMMIT_INCOMPLETE',month,mode:'COMMIT',preflight,v2_read_only,v2_write:combined,v2_acceptance,production_writes:totalWrites};
 
   /* Legacy handoff retained below as unreachable reference until V2 writer mapping is accepted. */
   const handoff={

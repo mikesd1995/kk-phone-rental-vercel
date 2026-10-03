@@ -1,5 +1,7 @@
 'use strict';
 const Production=require('./kk-ultra-deep-production-runtime.js');
+const Promotion=require('./kk-verifier-storefront-promotion.js');
+const Executor=require('./kk-governed-storefront-executor.js');
 const VERSION='KK_ULTRA_DEEP_V2_GOVERNED_WRITER_V1';
 function text(v){return String(v==null?'':v).trim();}
 function mapMutation(m={},decision={}){
@@ -38,7 +40,7 @@ async function execute(plan={},options={}){
  const compiled=compile(plan);if(options.executeWrites!==true)return {...compiled,status:'READ_ONLY_COMPILED'};
  const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch,receipts=[];let writes=0;
  for(const x of compiled.actions){
-  if(x.mutation.type==='CREATE_EVENT') throw Object.assign(new Error('V2 create requires package-aware governed create executor'),{code:'V2_CREATE_EXECUTOR_REQUIRED'});
+  if(x.mutation.type==='CREATE_EVENT') throw Object.assign(new Error('V2 create must be executed by package-aware create plan'),{code:'V2_CREATE_PLAN_REQUIRED'});
   const result=await Production.postAdmin(x.admin,{env,fetchImpl});writes++;
   let rb={event:{},packages:[]};
   for(let i=0;i<5;i++){const snap=await Production.freshSnapshot(env,fetchImpl);rb=Production.readbackForEvent(snap,x.admin.event_id,x.decision.title,x.decision.event_date);if(exactMatch(x,rb))break;if(i<4)await new Promise(r=>setTimeout(r,650));}
@@ -46,4 +48,19 @@ async function execute(plan={},options={}){
  }
  return {version:VERSION,status:'COMPLETE',production_writes:writes,receipts,blockers:[]};
 }
-module.exports={VERSION,mapMutation,compile,exactMatch,execute};
+function createPlan(decision={},mutation={},packageTemplates=[]){
+ const ids={phone:'',lens:'',bundle:''};for(const p of packageTemplates||[]){const id=text(p.template_id||p.package_id),t=text(p.package_type).toLowerCase();if(t==='phone_only')ids.phone=id;else if(t==='lens_only')ids.lens=id;else if(t==='phone_lens_bundle')ids.bundle=id;}
+ const price=Number(mutation.price),lensRow=(packageTemplates||[]).find(p=>text(p.package_type).toLowerCase()==='lens_only'),lens=Number(lensRow&&lensRow.standard_price)||200;
+ if(!ids.phone||!ids.lens||!ids.bundle||!Number.isFinite(price)||price<=0)throw Object.assign(new Error('package template/price unavailable'),{code:'V2_CREATE_PACKAGE_IDENTITY_REQUIRED'});
+ const payload={action:'createEvent',event_name:text(decision.title),event_date:text(decision.event_date),venue:text(decision.verified_venue),poster_url:text(mutation.poster_url),status:'open',active_on_web:true,note:'ULTRA_DEEP_V2_VERIFIED_CREATE',event_price_overrides:[
+  {template_id:ids.phone,override_price:price,active_override:true,override_note:'ULTRA_DEEP_V2_APPROVED_PRICE'},
+  {template_id:ids.lens,override_price:lens,active_override:false,override_note:'LENS_ONLY_HIDDEN_STORE_BASELINE'},
+  {template_id:ids.bundle,override_price:price+lens,active_override:true,override_note:'ULTRA_DEEP_V2_APPROVED_PRICE_PLUS_LENS'}]};
+ const plan={status:'READY_FOR_GOVERNED_ADMIN_CREATE',admin_action:'createEvent',admin_payload:payload,duplicate_guard_required:true,exact_storefront_readback_required:true,pricing_status:text(mutation.price_basis),needs_price_recheck:false};
+ Promotion.assertReady?Promotion.assertReady(plan):null;return plan;
+}
+async function executeCreate(decision,mutation,options={}){
+ const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch,plan=createPlan(decision,mutation,options.packageTemplates||[]);
+ return Executor.execute(plan,{env,fetchImpl,correlationId:text(options.correlationId),readbackFn:args=>Production.storefrontReadback({...args,env,fetchImpl})});
+}
+module.exports={VERSION,mapMutation,compile,exactMatch,createPlan,executeCreate,execute};
