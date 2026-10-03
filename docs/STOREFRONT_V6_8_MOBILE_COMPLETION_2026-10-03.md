@@ -105,3 +105,16 @@ Because hosted Actions still produced no executable steps, a read-only source-le
 - render path still emits commercial metadata, availability and CTA rows
 
 This fallback validates source invariants only; it does not substitute for rendered screenshots or successful hosted CI. No further presentation mutation was justified by the evidence. Merge/deploy remains blocked until executable rendered acceptance is available.
+
+
+## Preview-runtime fallback — 2026-10-03
+Hosted GitHub Actions remained non-executable, so acceptance was moved to the already-created Vercel Preview rather than creating another deployment.
+
+Evidence:
+- Preview deployment `dpl_8qaHdYTNgKC9KBykrrdxPwPGTqWF` for branch `fix/storefront-mobile-finish-20261003` / commit `d4efddb64a06a55967e7cfd5167797bf1f066a93` is READY.
+- The commits after `d4efddb...` are documentation-only; storefront runtime files are unchanged from V6.10.
+- Authenticated preview fetch returns HTTP 200.
+- Returned HTML loads `/assets/kk-storefront-v5.css?v=20261003-v610-final-mobile-polish` and contains the expected hero, search/filter controls, catalogue container, booking journey, LINE CTA, package modal, FAQ control, theme control and TH/EN language control.
+- A second independent live-browser visual/interactivity fallback was attempted, but the available browser provider refused to start because its wallet had insufficient balance. It made no page interaction and no external mutation.
+
+Result: preview deployment/runtime reachability is proven and the V6.10 asset lineage is proven. Pixel-level rendered/interactivity acceptance is still not claimed without executable browser evidence. No new deployment was created and production was not changed.
