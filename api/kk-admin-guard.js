@@ -536,15 +536,17 @@ module.exports=async function handler(req,res){
   if(action==='ultraDeepDirectRun'){
     const month=String(payload.month||'').trim();
     if(!/^\\d{4}-\\d{2}$/.test(month)) return reply(res,400,{ok:false,error_code:'ULTRA_DEEP_MONTH_INVALID'});
+    const commit=payload.commit===true;
     try{
       const result=await UltraDeepDirect.run({month,location:String(payload.location||'Bangkok Thailand')},{
-        executeWrites:true,
+        executeWrites:commit,
         env:process.env,
         fetchImpl:global.fetch,
         correlation_id:'admin-direct-'+Date.now()
       });
+      if(!commit&&Number(result.production_writes||0)!==0) return reply(res,500,{ok:false,error_code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
       const status=result.status==='COMPLETE'?200:409;
-      return reply(res,status,{ok:status===200,direct_runtime:UltraDeepDirect.VERSION,result});
+      return reply(res,status,{ok:status===200,direct_runtime:UltraDeepDirect.VERSION,mode:commit?'COMMIT':'READ_ONLY_ACCEPTANCE',result});
     }catch(err){
       return reply(res,500,{ok:false,error_code:String(err&&err.code||'ULTRA_DEEP_DIRECT_FAILED'),error:String(err&&err.message||err).slice(0,300)});
     }
