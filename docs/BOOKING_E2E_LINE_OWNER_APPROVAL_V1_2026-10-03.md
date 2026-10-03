@@ -35,7 +35,8 @@ signed LINE booking message
   - optional `KK_OWNER_LINE_TARGET_ID` (defaults to owner user ID; useful when notifications go to a group)
 - Booking creation still uses the dedicated `createLineBookingPending` action; it never routes to legacy `createBooking`.
 - The LINE webhook does not directly call generic `updateBooking` for owner decisions.
-- Owner actions are signed and bound to booking ID + customer LINE user ID.
+- Owner actions are HMAC-signed and bound to the decision + booking ID.
+- Customer LINE ID is not embedded in the approval button; after decision the notification target is read back from the canonical Booking row.
 - Only the configured owner LINE user can execute the decision postback.
 - The backend decision is atomic and pending-only. Repeating the same decision is idempotent; a conflicting second decision is rejected.
 - Pending/confirmed remain active stock holds by existing package-count formulas. Physical asset IDs stay blank until prepared/picked_up, preserving current allocation policy.
