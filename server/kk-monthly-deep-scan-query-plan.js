@@ -1,47 +1,37 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V3';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V4';
 const TIER_TERMS={
- OFFICIAL:['concert fanmeeting fancon Bangkok','คอนเสิร์ต แฟนมีต กรุงเทพ'],
- TICKETING:['site:thaiticketmajor.com concert Bangkok','site:ticketmelon.com Bangkok event'],
- VENUE:['IMPACT Arena event concert','BITEC Live event concert','Union Hall concert'],
- ARTIST_AGENCY:['GMMTV event concert fanmeeting','artist agency Thailand fan meeting'],
- BRAND_SPONSOR:['exclusive event artist Bangkok brand','กิจกรรม ศิลปิน แบรนด์ กรุงเทพ'],
- SOCIAL:['concert fanmeeting Bangkok X Instagram','แฟนมีต คอนเสิร์ต กรุงเทพ'],
- COMPETITOR:['เช่ามือถือ คอนเสิร์ต vivo X300 Pro','เช่ามือถือ fanmeeting Bangkok'],
- PUBLIC_CALENDAR:['Bangkok concerts events calendar','Thailand concert calendar']
+ OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล'],
+ TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล'],
+ VENUE:['Bangkok venue artist event mall hall','สถานที่จัดงาน ศิลปิน ฮอลล์ ห้าง กรุงเทพ ปริมณฑล'],
+ ARTIST_AGENCY:['artist agency Thailand event fan meeting appearance','ค่าย ศิลปิน นักแสดง กิจกรรม แฟนมีต กรุงเทพ'],
+ ORGANIZER_PROMOTER:['organizer promoter Bangkok artist event','ผู้จัด งานศิลปิน กรุงเทพ ปริมณฑล'],
+ MALL_COMMUNITY:['mall artist event Bangkok Nonthaburi Pathum Thani Samut Prakan','ห้าง กิจกรรม ศิลปิน กรุงเทพ นนทบุรี ปทุมธานี สมุทรปราการ'],
+ FAN_EVENT:['fan gathering birthday project artist Bangkok','รวมพล แฟนคลับ birthday project ศิลปิน กรุงเทพ'],
+ CEREMONY:['blessing ceremony launch opening artist Bangkok','บวงสรวง เปิดตัว เปิดงาน ศิลปิน กรุงเทพ'],
+ AWARD_RED_CARPET:['award ceremony red carpet Bangkok artist','งานประกาศรางวัล พรมแดง ศิลปิน กรุงเทพ'],
+ PRESS_BRAND:['press conference brand event artist appearance Bangkok','งานแถลงข่าว แบรนด์ ศิลปิน อีเวนต์ กรุงเทพ'],
+ SPORTS_ENTERTAINMENT:['sports entertainment artist event Bangkok','กีฬา entertainment ศิลปิน กรุงเทพ'],
+ SOCIAL:['concert fanmeeting artist appearance Bangkok X Instagram TikTok','กิจกรรม ศิลปิน กรุงเทพ ปริมณฑล X Instagram TikTok'],
+ COMPETITOR:['เช่ามือถือ คอนเสิร์ต fanmeeting Bangkok','เช่ามือถือ งานศิลปิน กรุงเทพ ปริมณฑล'],
+ PUBLIC_CALENDAR:['Bangkok events concerts fan meetings calendar','ปฏิทิน อีเวนต์ ศิลปิน กรุงเทพ ปริมณฑล']
 };
 function text(v){return String(v==null?'':v).trim();}
-function queryVariantsForTerm(term,range,location){
- const labels=SourceRegistry.monthLabels(range.month);
- // Search engines are substantially more reliable with short intent queries.
- // Keep the precise month/location forms, but add bounded broad fallbacks; the
- // verifier/date-window gate decides whether returned evidence belongs in-month.
- const compact=String(term).replace(/\s+/g,' ').trim();
- return [...new Set([
-   compact+' '+labels.en+' Bangkok',
-   compact+' '+labels.th+' กรุงเทพ',
-   compact+' Bangkok',
-   compact+' Thailand',
-   compact
- ])].filter(Boolean);
+function queryVariantsForTerm(term,range,location,learned=[]){
+ const labels=SourceRegistry.monthLabels(range.month), compact=text(term);
+ return [...new Set([compact+' '+labels.en+' '+location,compact+' '+labels.th+' กรุงเทพ ปริมณฑล',compact+' Bangkok',compact+' Nonthaburi',compact+' Pathum Thani',compact+' Samut Prakan',compact,...learned.map(text)])].filter(Boolean);
 }
 function monthRange(input={}){
  const raw=text(input.month);let y,m;
- if(/^\d{4}-\d{2}$/.test(raw)){[y,m]=raw.split('-').map(Number);}else{
-  const base=/^\d{4}-\d{2}-\d{2}$/.test(text(input.current_date))?new Date(text(input.current_date)+'T00:00:00Z'):new Date();
-  y=base.getUTCFullYear();m=base.getUTCMonth()+2;if(m===13){m=1;y++;}
- }
- const last=new Date(Date.UTC(y,m,0)).getUTCDate();const mm=String(m).padStart(2,'0');
- return {month:y+'-'+mm,start_date:y+'-'+mm+'-01',end_date:y+'-'+mm+'-'+String(last).padStart(2,'0')};
+ if(/^\d{4}-\d{2}$/.test(raw)){[y,m]=raw.split('-').map(Number);}else{const base=/^\d{4}-\d{2}-\d{2}$/.test(text(input.current_date))?new Date(text(input.current_date)+'T00:00:00Z'):new Date();y=base.getUTCFullYear();m=base.getUTCMonth()+2;if(m===13){m=1;y++;}}
+ const last=new Date(Date.UTC(y,m,0)).getUTCDate(),mm=String(m).padStart(2,'0');return {month:y+'-'+mm,start_date:y+'-'+mm+'-01',end_date:y+'-'+mm+'-'+String(last).padStart(2,'0')};
 }
 function build(input={}){
- const range=monthRange(input);const location=text(input.location)||'Bangkok Thailand';const gap_tasks=[];
- for(const [source_tier,terms] of Object.entries(TIER_TERMS))for(const term of terms){const qs=queryVariantsForTerm(term,range,location);gap_tasks.push({source_tier,query:qs[0],query_variants:qs.slice(1),providers:['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],stop_condition:'AT_LEAST_ONE_VALID_HTTPS_SOURCE',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});}
+ const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],gap_tasks=[];
+ for(const [source_tier,terms] of Object.entries(TIER_TERMS))for(const term of terms){const qs=queryVariantsForTerm(term,range,location,learned);gap_tasks.push({source_tier,query:qs[0],query_variants:qs.slice(1),providers:['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});}
  const universe=SourceRegistry.buildUniversePlan({month:range.month,location});
- for(const task of universe.tasks){
-   gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
- }
- return {version:VERSION,mode:'ULTRA_DEEP_MONTH',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),production_writes:0,authoritative:false,verifier_required:true};
+ for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
+ return {version:VERSION,mode:'ULTRA_DEEP_MONTH_LONG_TAIL',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),learned_query_count:learned.length,production_writes:0,authoritative:false,verifier_required:true};
 }
 module.exports={VERSION,TIER_TERMS,monthRange,queryVariantsForTerm,build};
