@@ -6,6 +6,7 @@ const Pricing=require('./kk-ultra-deep-competitor-price-scanner.js');
 const Commercial=require('./kk-discovery-commercial-prep.js');
 const Production=require('./kk-ultra-deep-production-runtime.js');
 const V2Adapter=require('./kk-ultra-deep-v2-runtime-adapter.js');
+const V2Writer=require('./kk-ultra-deep-v2-governed-writer.js');
 
 const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V24';
 function text(v){return String(v==null?'':v).trim();}
@@ -73,7 +74,16 @@ async function run(input={},options={}){
       commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},v2_read_only,production_writes:0
     };
   }
-  return {version:VERSION,status:'BLOCKED_V2_COMMIT_NOT_WIRED',month,mode:'COMMIT',preflight,discovery:{status:discovery.status,candidate_count:discovery.candidate_count,full:discovery.full},verifier:{verified_count:verifier.verified_count,hold_count:verifier.hold_count},competitor_price_scan:{evidence_count:priceScan.evidence_count},commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},v2_read_only,blockers:['V2_GOVERNED_WRITER_MAPPING_REQUIRED'],production_writes:0};
+  const createMutations=(v2_read_only.plan.mutations||[]).filter(m=>m.type==='CREATE_EVENT');
+  if(createMutations.length){
+    return {version:VERSION,status:'BLOCKED_V2_CREATE_NOT_ATOMIC',month,mode:'COMMIT',preflight,v2_read_only,blockers:['V2_PACKAGE_AWARE_CREATE_REQUIRED'],production_writes:0};
+  }
+  if(v2_read_only.status!=='READY'){
+    return {version:VERSION,status:'BLOCKED_V2_PLAN_HOLD',month,mode:'COMMIT',preflight,v2_read_only,blockers:['V2_PLAN_NOT_READY'],production_writes:0};
+  }
+  const v2_write=await V2Writer.execute(v2_read_only.plan,{executeWrites:true,env,fetchImpl});
+  const v2_acceptance=require('./kk-ultra-deep-full-loop-v2.js').acceptance(v2_read_only.plan,v2_write,{exact_match:v2_write.status==='COMPLETE'&&v2_write.receipts.every(x=>x.ok===true)});
+  return {version:VERSION,status:v2_acceptance.status==='COMPLETE'?'COMPLETE':'V2_COMMIT_INCOMPLETE',month,mode:'COMMIT',preflight,v2_read_only,v2_write,v2_acceptance,production_writes:Number(v2_write.production_writes||0)};
 
   /* Legacy handoff retained below as unreachable reference until V2 writer mapping is accepted. */
   const handoff={
