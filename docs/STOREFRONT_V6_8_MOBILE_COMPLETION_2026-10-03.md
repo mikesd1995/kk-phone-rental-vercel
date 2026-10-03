@@ -84,3 +84,24 @@ The failed jobs were rerun in-place rather than creating new deployment work:
 All three attempt-2 jobs terminated in roughly 2–3 seconds with **zero reported steps**. The GitHub Actions job API exposes no executed step and the runs expose no artifacts. This failure shape occurs before the repository test/visual commands can provide normal test evidence; it is therefore recorded as an execution/runner-level acceptance blocker, not as evidence that V6.10 rendered incorrectly or that an Admin test assertion failed.
 
 No speculative source change was made in response. Merge/deploy remains fail-closed. Production writes remain zero.
+
+
+## Fallback source-level acceptance — 2026-10-03
+A new exact-head run on `d4efddb64a06a55967e7cfd5167797bf1f066a93` reproduced the same pre-step failure shape:
+- Visual QA `37099776141`: failure, job steps null
+- Admin Regression `37099776106`: failure, job steps null
+- Project Memory Enforcement `37099776200`: failure, job steps null
+
+Because hosted Actions still produced no executable steps, a read-only source-level fallback audit was performed against the branch. Confirmed:
+- V6.10 cache marker is loaded by index
+- Safari search input remains 16px
+- card focus-visible treatment exists
+- reduced-motion handling exists
+- iPhone safe-area handling exists
+- bottom sheet uses bounded dvh height and internal scrolling
+- sub-360px filter recovery exists
+- price / availability / tap CTA are explicitly restored as visible block rows
+- TH/EN `badge_soon` strings both exist
+- render path still emits commercial metadata, availability and CTA rows
+
+This fallback validates source invariants only; it does not substitute for rendered screenshots or successful hosted CI. No further presentation mutation was justified by the evidence. Merge/deploy remains blocked until executable rendered acceptance is available.
