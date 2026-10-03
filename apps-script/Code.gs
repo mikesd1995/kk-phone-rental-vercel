@@ -2727,6 +2727,9 @@ function kkApiDecideLineBookingPending_(payload) {
       throw new Error('Booking is not a governed LINE pending intake: ' + bookingId);
     }
 
+    const customerContact = String(current[4] || '').trim();
+    if (!customerContact) throw new Error('LINE customer contact missing: ' + bookingId);
+
     const currentStatus = String(current[2] || '').toLowerCase().trim();
     const targetStatus = decision === 'approve' ? 'confirmed' : 'cancelled';
     if (currentStatus === targetStatus) {
@@ -2735,6 +2738,7 @@ function kkApiDecideLineBookingPending_(payload) {
         booking_id: bookingId,
         booking_status: currentStatus,
         payment_status: String(current[13] || '').toLowerCase().trim(),
+        customer_contact: customerContact,
         phone_asset_id: String(current[9] || '').trim(),
         lens_asset_id: String(current[10] || '').trim(),
         decision: decision,
@@ -2754,12 +2758,14 @@ function kkApiDecideLineBookingPending_(payload) {
     if (String(persisted[0] || '').trim() !== bookingId) throw new Error('Booking identity readback failed: ' + bookingId);
     if (String(persisted[2] || '').toLowerCase().trim() !== targetStatus) throw new Error('Owner decision readback failed: ' + bookingId);
     if (kkBookingRequestIdFromNote_(persisted[19]) !== requestId) throw new Error('LINE request identity readback failed: ' + bookingId);
+    if (String(persisted[4] || '').trim() !== customerContact) throw new Error('LINE customer contact readback failed: ' + bookingId);
 
     return {
       row_number: row,
       booking_id: bookingId,
       booking_status: targetStatus,
       payment_status: String(persisted[13] || '').toLowerCase().trim(),
+      customer_contact: customerContact,
       phone_asset_id: String(persisted[9] || '').trim(),
       lens_asset_id: String(persisted[10] || '').trim(),
       decision: decision,
