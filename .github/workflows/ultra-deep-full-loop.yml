@@ -3,6 +3,8 @@ name: Ultra Deep Full Loop Direct
 on:
   issue_comment:
     types: [created]
+  issues:
+    types: [labeled]
   workflow_dispatch:
     inputs:
       month:
@@ -26,6 +28,13 @@ concurrency:
       (
         github.event_name == 'workflow_dispatch' ||
         (
+          github.event_name == 'issues' &&
+          github.event.issue.number == 368 &&
+          github.event.action == 'labeled' &&
+          github.event.label.name == 'run-ultra-deep-full-loop' &&
+          github.actor == github.repository_owner
+        ) ||
+        (
           github.event_name == 'issue_comment' &&
           github.event.issue.number == 368 &&
           github.event.comment.user.login == github.repository_owner &&
@@ -43,6 +52,13 @@ jobs:
     if: >-
       ${{
         github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issues' &&
+          github.event.issue.number == 368 &&
+          github.event.action == 'labeled' &&
+          github.event.label.name == 'run-ultra-deep-full-loop' &&
+          github.actor == github.repository_owner
+        ) ||
         (
           github.event_name == 'issue_comment' &&
           github.event.issue.number == 368 &&
@@ -65,6 +81,7 @@ jobs:
           COMMENT_LOGIN: ${{ github.event.comment.user.login }}
           COMMENT_ASSOCIATION: ${{ github.event.comment.author_association }}
           OWNER: ${{ github.repository_owner }}
+          GITHUB_ACTOR: ${{ github.actor }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
@@ -73,6 +90,10 @@ jobs:
             printf '%s' "$MANUAL_MONTH" | grep -Eq '^[0-9]{4}-[0-9]{2}$'
             MONTH="$MANUAL_MONTH"
             test "$GITHUB_REF" = "refs/heads/main"
+          elif [ "$EVENT_NAME" = "issues" ]; then
+            test "$ISSUE_NUMBER" = "368"
+            test "$GITHUB_ACTOR" = "$OWNER"
+            MONTH="$(date -u +%Y-%m)"
           else
             test "$ISSUE_NUMBER" = "368"
             test "$COMMENT_LOGIN" = "$OWNER"
