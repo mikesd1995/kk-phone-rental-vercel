@@ -120,6 +120,25 @@
       ],
       "supersedes": [],
       "source": "owner+runtime"
+    },
+    {
+      "memory_id": "kk:memory:content:booking-inventory-first-x-posting-plan:20261003",
+      "occurred_at": "2026-10-03T01:10:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "content",
+      "summary": "Before any KK X event-posting schedule or X-signal ranking: FIRST read canonical booking/inventory truth. If a date has an active booking, exclude events on that date from promotional scheduling per owner rule; do not let X signal override this gate. Then verify event date/status, inspect KK X recent-post history, collect current public X signal evidence, reject stale/past events, apply recent-post fatigue, and invoke governed x_posting_plan Marketing Agent. Never invent native X views/impressions; proxy scores must be labeled evidence-derived. Use 60–90 minute standalone spacing (75-minute baseline). Persist PLANNED separately from POSTED and learn from actual publish time + reach/engagement.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/issues/537",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/issues/493",
+        "server/kk-x-signal-detector.js",
+        "server/kk-x-posting-plan.js",
+        "admin/operations-engine.js",
+        "admin/reservation-guard.js",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/issues/539"
+      ],
+      "supersedes": [],
+      "source": "owner+runtime"
     }
   ]
 }
