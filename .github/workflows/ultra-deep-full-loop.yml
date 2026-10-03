@@ -78,6 +78,22 @@ jobs:
     timeout-minutes: 45
 
     steps:
+      - name: Zero-cost self-hosted runner preflight
+        if: ${{ inputs.zero_cost_self_hosted == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ runner.environment }}" = "self-hosted"
+          command -v git
+          command -v node
+          command -v npm
+          command -v python3
+          command -v curl
+          node --version
+          python3 --version
+          git --version
+          df -h .
+
       - name: Authorize direct trigger
         shell: bash
         env:
