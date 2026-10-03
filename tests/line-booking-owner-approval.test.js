@@ -38,7 +38,7 @@ test('pending intake writes only the governed pending action and requires bookin
   const calls=[];
   const fetchImpl=async(url,opt)=>{
     calls.push({url,opt,body:JSON.parse(opt.body)});
-    return response({ok:true,data:{booking_id:'BK-20261003-001',row_number:25,booking_status:'pending'}});
+    return response({ok:true,booking_id:'BK-20261003-001',row_number:25,booking_status:'pending'});
   };
   const result=await Approval.createPendingBooking(
     {webhookEventId:'evt-1',source:{userId:'UCUSTOMER'}},
@@ -56,6 +56,22 @@ test('pending intake writes only the governed pending action and requires bookin
   assert.equal(calls[0].body.lens_asset_id,undefined);
 });
 
+
+test('missing customer LINE identity fails before any booking write',async()=>{
+  let calls=0;
+  await assert.rejects(
+    ()=>Approval.createPendingBooking(
+      {webhookEventId:'evt-no-user',source:{type:'group'}},
+      {nickname:'Mint',phone:'0812345678'},
+      {event_id:'EVT-1',template_id:'TPL-1'},
+      env(),
+      async()=>{calls++;throw new Error('network must not run');}
+    ),
+    err=>err&&err.code==='LINE_CUSTOMER_USER_ID_REQUIRED'
+  );
+  assert.equal(calls,0);
+});
+
 test('owner approval requires exact owner identity and performs atomic decision before customer send',async()=>{
   const e=env();
   const data=Approval.decisionData('approve','BK-1','UCUSTOMER',e);
@@ -67,7 +83,7 @@ test('owner approval requires exact owner identity and performs atomic decision 
       assert.equal(body.action,'decideLineBookingPending');
       assert.equal(body.booking_id,'BK-1');
       assert.equal(body.decision,'approve');
-      return response({ok:true,data:{booking_id:'BK-1',booking_status:'confirmed',idempotent_replay:false}});
+      return response({ok:true,booking_id:'BK-1',booking_status:'confirmed',idempotent_replay:false});
     }
     return response({ok:true});
   };
