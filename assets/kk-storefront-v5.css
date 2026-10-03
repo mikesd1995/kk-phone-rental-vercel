@@ -1404,3 +1404,45 @@ html[data-theme="dark"] .book-pill{
     box-shadow:none!important;
   }
 }
+
+
+/* V6.15 exhaustive mobile detail audit — 2026-10-03
+   Final-pass ergonomics for narrow iPhones, language/theme parity and keyboard focus. */
+:where(.header-faq-btn,.theme-toggle,.lang-btn,.filter-btn,.filter-clear-btn,.browse-more-btn,.modal-x,.modal-share,.modal-close,.book-pill,.line-btn,.sticky-line):focus-visible{
+  outline:3px solid rgba(19,120,243,.34)!important;
+  outline-offset:3px!important;
+}
+@media (max-width:359px){
+  .v3-header{height:56px!important;gap:4px!important}
+  .v3-brand-copy strong{font-size:12.5px!important;letter-spacing:-.03em!important}
+  .v3-header-actions{gap:1px!important}
+  .header-faq-btn{min-width:44px!important;width:44px!important;padding:0!important;font-size:10px!important}
+  .theme-toggle{width:44px!important;min-width:44px!important}
+  .v3-header .language-switch{
+    grid-template-columns:repeat(2,44px)!important;
+    width:94px!important;min-width:94px!important;max-width:94px!important;
+    min-height:50px!important;padding:3px!important;
+  }
+  .kk-benefit-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .kk-benefit-grid>div{
+    min-height:64px!important;padding:8px 7px!important;
+    font-size:10.5px!important;line-height:1.35!important;
+  }
+  .kk-benefit-grid>div:nth-child(2){border-right:0!important}
+  .kk-benefit-grid>div:nth-child(-n+2){border-bottom:1px solid var(--v6-line)!important}
+  .v3-events-heading>div>span,.update-note,.event-search-count{font-size:10px!important}
+  .pi-name{font-size:11.5px!important;line-height:1.35!important}
+  .pi-date,.pi-venue,.pi-avail,.pi-tap{font-size:10.5px!important}
+  .pi-price{font-size:11.5px!important}
+}
+@media (max-width:700px){
+  .overlay .modal,.faq-overlay .modal{-webkit-overflow-scrolling:touch!important}
+  .modal-title,.modal-meta,.modal-note,.ph-model,.ph-spec,.ph-note,.ph-usecase,.ph-price,.book-pill{
+    overflow-wrap:anywhere!important;
+  }
+  .sticky-line{padding-bottom:max(0px,env(safe-area-inset-bottom))!important}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto!important}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
