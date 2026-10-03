@@ -16,6 +16,11 @@ on:
         description: 'Type RUN_ULTRA_DEEP_FULL_LOOP'
         required: true
         type: string
+      zero_cost_self_hosted:
+        description: 'Use dedicated zero-cost self-hosted runner (label kk-ultra-deep)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -67,7 +72,9 @@ jobs:
           startsWith(github.event.comment.body, '/run-ultra-deep-full-loop')
         )
       }}
-    runs-on: ubuntu-latest
+    # Zero-cost execution: use a dedicated self-hosted runner when explicitly requested.
+    # Default remains GitHub-hosted so existing behavior is unchanged until the runner is registered.
+    runs-on: ${{ inputs.zero_cost_self_hosted == true && fromJSON('["self-hosted","linux","x64","kk-ultra-deep"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
 
     steps:
