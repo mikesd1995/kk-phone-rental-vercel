@@ -26,3 +26,14 @@ Final storefront-only audit after owner real-device screenshots. No pricing, inv
 - Required runtime checks: exact-head Vercel Preview HTTP 200 + V6.15 asset marker.
 - GitHub automated Visual QA/Admin/Memory results must be reported as observed; pre-step runner failures are not treated as visual regressions.
 - Production promotion only after preview is reachable and PR remains mergeable.
+
+
+## Production acceptance — 2026-10-03
+- Squash merge commit: `633df565dcf6ec9cf66d3d784245a4badff961ab`.
+- Vercel production deployment: `dpl_Fbq721EoikAeVKaqhKd2tWwWwpmf`.
+- Deployment state verified: `READY`, target `production`.
+- Canonical storefront `https://kk-phone-rental.vercel.app/` verified HTTP 200.
+- Canonical HTML verified to reference both V6.15 cache markers:
+  - CSS: `20261003-v615-detail-audit`
+  - JS: `storefront-v615-detail-audit-20261003`
+- This proves the V6.15 production lineage is live. It does not fabricate a rendered-device/interaction PASS; no exact-merge GitHub workflow runs were returned for the merge SHA at verification time.
