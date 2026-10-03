@@ -6,8 +6,8 @@ function mapMutation(m={},decision={}){
  const eventId=text(decision.canonical_event_id);
  if(m.type==='UPDATE_PRICE'){
   if(decision.price_locked===true) throw Object.assign(new Error('booked price locked'),{code:'V2_BOOKED_PRICE_LOCK'});
-  if(!eventId||!text(m.package_type)) throw Object.assign(new Error('price target identity missing'),{code:'V2_PRICE_TARGET_MISSING'});
-  return {action:'upsertEventOverride',event_id:eventId,template_id:text(m.package_type),override_price:Number(m.to),active_override:true,override_note:'ULTRA_DEEP_V2_MARKET_ALIGNMENT'};
+  if(!eventId||!text(m.package_type)||!text(m.template_id)) throw Object.assign(new Error('price target identity missing'),{code:'V2_PRICE_TARGET_MISSING'});
+  return {action:'upsertEventOverride',event_id:eventId,template_id:text(m.template_id),override_price:Number(m.to),active_override:true,override_note:'ULTRA_DEEP_V2_MARKET_ALIGNMENT'};
  }
  if(['UPDATE_DATE','UPDATE_VENUE','UPDATE_POSTER'].includes(m.type)){
   if(!eventId) throw Object.assign(new Error('event identity missing'),{code:'V2_EVENT_ID_MISSING'});
