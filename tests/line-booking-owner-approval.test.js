@@ -29,8 +29,8 @@ test('automation stays fail-closed until all production bindings are present',()
 
 test('signed approval payload rejects tampering',()=>{
   const e=env();
-  const data=Approval.decisionData('approve','BK-1','UCUSTOMER',e);
-  assert.deepEqual(Approval.parseDecisionData(data,e),{decision:'approve',booking_id:'BK-1',customer_user_id:'UCUSTOMER'});
+  const data=Approval.decisionData('approve','BK-1',e);
+  assert.deepEqual(Approval.parseDecisionData(data,e),{decision:'approve',booking_id:'BK-1'});
   assert.equal(Approval.parseDecisionData(data.replace('BK-1','BK-2'),e),null);
 });
 
@@ -74,7 +74,7 @@ test('missing customer LINE identity fails before any booking write',async()=>{
 
 test('owner approval requires exact owner identity and performs atomic decision before customer send',async()=>{
   const e=env();
-  const data=Approval.decisionData('approve','BK-1','UCUSTOMER',e);
+  const data=Approval.decisionData('approve','BK-1',e);
   let calls=[];
   const fetchImpl=async(url,opt)=>{
     const body=JSON.parse(opt.body);
@@ -83,7 +83,7 @@ test('owner approval requires exact owner identity and performs atomic decision 
       assert.equal(body.action,'decideLineBookingPending');
       assert.equal(body.booking_id,'BK-1');
       assert.equal(body.decision,'approve');
-      return response({ok:true,booking_id:'BK-1',booking_status:'confirmed',idempotent_replay:false});
+      return response({ok:true,booking_id:'BK-1',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:false});
     }
     return response({ok:true});
   };
@@ -99,9 +99,29 @@ test('owner approval requires exact owner identity and performs atomic decision 
   assert.match(customerPush.body.messages[0].text,/ยืนยันการจองแล้ว/);
 });
 
+
+test('owner decision fails closed if canonical customer contact is missing',async()=>{
+  const e=env();
+  const data=Approval.decisionData('approve','BK-NO-CONTACT',e);
+  let lineSends=0;
+  await assert.rejects(
+    ()=>Approval.processOwnerPostback({
+      type:'postback',source:{type:'user',userId:'UOWNER'},postback:{data}
+    },e,async(url,opt)=>{
+      if(String(url).startsWith('https://script.google.com/')){
+        return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed'});
+      }
+      lineSends++;
+      return response({ok:true});
+    }),
+    err=>err&&err.code==='LINE_CUSTOMER_CONTACT_READBACK_REQUIRED'
+  );
+  assert.equal(lineSends,0);
+});
+
 test('non-owner postback cannot mutate booking state',async()=>{
   const e=env();
-  const data=Approval.decisionData('reject','BK-2','UCUSTOMER',e);
+  const data=Approval.decisionData('reject','BK-2',e);
   let calls=0;
   const r=await Approval.processOwnerPostback({
     type:'postback',source:{type:'user',userId:'UATTACKER'},postback:{data}
@@ -124,4 +144,6 @@ test('Apps Script owner decision is a separate atomic pending-only action',()=>{
   assert.match(body,/idempotent_replay: true/);
   assert.match(body,/SpreadsheetApp\.flush\(\)/);
   assert.match(body,/Owner decision readback failed/);
+  assert.match(body,/LINE customer contact readback failed/);
+  assert.match(body,/customer_contact: customerContact/);
 });
