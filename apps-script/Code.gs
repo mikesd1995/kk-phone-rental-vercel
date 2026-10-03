@@ -1376,6 +1376,7 @@ function doPost(e) {
       case 'updateAsset': result = kkApiUpdateAsset_(payload); break;
       case 'deleteAsset': result = kkApiDeleteAsset_(payload); break;
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
+      case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
@@ -2532,6 +2533,179 @@ function kkRebuildCustomerStatsFromArchive_() {
   if (output.length) stats.getRange(2, 1, output.length, 10).setValues(output);
   return output.length;
 }
+
+function kkLineBookingRequestKey_(requestId) {
+  const id = String(requestId || '').trim();
+  if (!/^line:[a-f0-9]{48}$/.test(id)) throw new Error('Invalid deterministic LINE request_id');
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, id, Utilities.Charset.UTF_8);
+  return 'KK_LINE_BOOKING_REQ_' + digest.map(function(b) {
+    return ('0' + ((b + 256) % 256).toString(16)).slice(-2);
+  }).join('');
+}
+
+function kkLineBookingClaimReadback_(claim) {
+  const row = Number(claim && claim.row_number || 0);
+  const bookingId = String(claim && claim.booking_id || '').trim();
+  if (!Number.isInteger(row) || row < 5 || !bookingId) return null;
+  const sh = kkSheet_(KK.bookings);
+  const readback = sh.getRange(row, 1, 1, 20).getValues()[0];
+  if (String(readback[0] || '').trim() !== bookingId) return null;
+  if (String(readback[2] || '').toLowerCase().trim() !== 'pending') return null;
+  if (String(readback[3] || '').trim() !== String(claim.event_id || '').trim()) return null;
+  if (String(readback[4] || '').trim() !== String(claim.customer_name || '').trim()) return null;
+  if (String(readback[6] || '').trim() !== String(claim.customer_phone || '').trim()) return null;
+  if (String(readback[7] || '').toUpperCase().trim() !== 'LINE') return null;
+  if (String(readback[9] || '').trim() || String(readback[10] || '').trim()) return null;
+  if (String(readback[13] || '').toLowerCase().trim() !== 'unpaid') return null;
+  if (Number(readback[14] || 0) !== 0) return null;
+  if (kkBookingRequestIdFromNote_(readback[19]) !== String(claim.request_id || '').trim()) return null;
+  return { row_number: row, row: readback };
+}
+
+function kkApiCreateLineBookingPending_(payload) {
+  const lock = kkAcquireDocumentLock_('LINE pending booking intake', 12000);
+  try {
+    const requestId = String(payload.request_id || '').trim();
+    const requestKey = kkLineBookingRequestKey_(requestId);
+    const props = PropertiesService.getScriptProperties();
+    const existingRaw = String(props.getProperty(requestKey) || '').trim();
+    if (existingRaw) {
+      let existing = null;
+      try { existing = JSON.parse(existingRaw); } catch (_) {}
+      if (existing && existing.status === 'OK' && existing.booking_id) {
+        return {
+          row_number: Number(existing.row_number || 0),
+          booking_id: String(existing.booking_id),
+          booking_status: 'pending',
+          payment_status: 'unpaid',
+          phone_asset_id: '',
+          lens_asset_id: '',
+          request_id: requestId,
+          idempotent_replay: true
+        };
+      }
+      if (existing && existing.status === 'PENDING') {
+        const reconciled = kkLineBookingClaimReadback_(existing);
+        if (reconciled) {
+          props.setProperty(requestKey, JSON.stringify({
+            status: 'OK',
+            request_id: requestId,
+            booking_id: String(existing.booking_id),
+            row_number: reconciled.row_number,
+            event_id: String(existing.event_id || ''),
+            template_id: String(existing.template_id || ''),
+            completed_at: new Date().toISOString(),
+            reconciled: true
+          }));
+          return {
+            row_number: reconciled.row_number,
+            booking_id: String(existing.booking_id),
+            booking_status: 'pending',
+            payment_status: 'unpaid',
+            phone_asset_id: '',
+            lens_asset_id: '',
+            request_id: requestId,
+            idempotent_replay: true,
+            reconciled: true
+          };
+        }
+      }
+      throw new Error('LINE booking request is pending or uncertain; exact readback did not reconcile safely');
+    }
+
+    const eventId = String(payload.event_id || '').trim();
+    let templateId = String(payload.template_id || '').trim();
+    const customerName = String(payload.customer_name || '').trim();
+    const customerPhone = String(payload.customer_phone || '').trim();
+    const customerContact = payload.customer_contact || '';
+    const pickupTime = String(payload.pickup_time || '').trim();
+    if (!eventId || !templateId || !customerName || !customerPhone) {
+      throw new Error('LINE booking requires event_id, template_id, customer_name and customer_phone');
+    }
+    if (payload.phone_asset_id || payload.lens_asset_id) {
+      throw new Error('Pending LINE intake must not assign physical assets');
+    }
+
+    templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
+    const event = kkGetEventById_(eventId);
+    if (kkIsPastEventDate_(event.event_date)) throw new Error('Cannot create booking for a past event date: ' + kkApiDate_(event.event_date));
+    const pkg = kkGetPackageByTemplateId_(templateId);
+    if (String(event.status).toLowerCase() !== 'open') throw new Error('Event is not open: ' + eventId);
+    if (!event.active) throw new Error('Event is not active_on_web: ' + eventId);
+    if (!pkg.active) throw new Error('Package is inactive: ' + templateId);
+    kkAssertWebPackageBookable_(eventId, templateId);
+
+    // First claim blocks duplicate redelivery before any Booking mutation.
+    props.setProperty(requestKey, JSON.stringify({
+      status: 'PENDING',
+      request_id: requestId,
+      event_id: eventId,
+      template_id: templateId,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      claimed_at: new Date().toISOString()
+    }));
+
+    const pkgType = String(pkg.package_type || '').toLowerCase().trim();
+    const row = kkFirstEmptyRow_(KK.bookings, 4, 5, 2, 19);
+    const bookingId = kkGenerateUniqueBookingId_(event.event_date);
+    // Current 9.5.13 schema owns canonical IDs in column A directly. Persist the exact
+    // row + canonical ID before setValues so an uncertain write can be reconciled.
+    props.setProperty(requestKey, JSON.stringify({
+      status: 'PENDING',
+      request_id: requestId,
+      event_id: eventId,
+      template_id: templateId,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      row_number: row,
+      booking_id: bookingId,
+      claimed_at: new Date().toISOString()
+    }));
+
+    const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || 'LINE webhook intake', requestId);
+    const sh = kkSheet_(KK.bookings);
+    sh.getRange(row, 1, 1, 20).setValues([[
+      bookingId, new Date(), 'pending', eventId, customerName, customerContact, customerPhone, 'LINE',
+      pkgType, '', '', pickupTime, '', 'unpaid', 0, '', '', '', 0, bookingNote
+    ]]);
+    SpreadsheetApp.flush();
+
+    const persisted = kkLineBookingClaimReadback_({
+      request_id: requestId,
+      event_id: eventId,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      row_number: row,
+      booking_id: bookingId
+    });
+    if (!persisted) throw new Error('LINE pending booking exact A:T readback failed');
+
+    props.setProperty(requestKey, JSON.stringify({
+      status: 'OK',
+      request_id: requestId,
+      booking_id: bookingId,
+      row_number: row,
+      event_id: eventId,
+      template_id: templateId,
+      completed_at: new Date().toISOString()
+    }));
+
+    return {
+      row_number: row,
+      booking_id: bookingId,
+      booking_status: 'pending',
+      payment_status: 'unpaid',
+      phone_asset_id: '',
+      lens_asset_id: '',
+      request_id: requestId,
+      idempotent_replay: false
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 
 function kkApiCreateBooking_(payload) {
   const lock = kkAcquireDocumentLock_('write operation', 12000);
