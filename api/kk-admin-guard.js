@@ -533,6 +533,31 @@ module.exports=async function handler(req,res){
     });
   }
 
+  if(action==='ultraDeepVercelNativeRun'){
+    const month=text(payload.month);
+    if(!/^\d{4}-\d{2}$/.test(month)) return reply(res,400,{ok:false,error_code:'ULTRA_DEEP_MONTH_INVALID'});
+    const commit=payload.commit===true;
+    const control=await AdminWriteControl.health();
+    if(!(control&&control.ok===true&&control.authenticated===true)){
+      return reply(res,503,{ok:false,error_code:text(control&&control.error_code)||'VERCEL_PRODUCTION_IDENTITY_REJECTED',write_control:control||null,production_writes:0});
+    }
+    try{
+      const result=await UltraDeepDirect.run({month,location:text(payload.location)||'Bangkok Thailand'},{
+        executeWrites:commit,
+        env:process.env,
+        fetchImpl:global.fetch,
+        correlation_id:'vercel-native-'+Date.now()
+      });
+      if(!commit&&Number(result.production_writes||0)!==0){
+        return reply(res,500,{ok:false,error_code:'READ_ONLY_WRITE_INVARIANT_BROKEN',production_writes:Number(result.production_writes||0)});
+      }
+      const status=result.status==='COMPLETE'?200:409;
+      return reply(res,status,{ok:status===200,direct_runtime:UltraDeepDirect.VERSION,execution_path:'VERCEL_PRODUCTION_OIDC',mode:commit?'COMMIT':'READ_ONLY_ACCEPTANCE',write_control:{ok:true,authenticated:true,version:control.version||null},result});
+    }catch(err){
+      return reply(res,500,{ok:false,error_code:text(err&&err.code)||'ULTRA_DEEP_VERCEL_NATIVE_FAILED',error:text(err&&err.message||err).slice(0,300),production_writes:0});
+    }
+  }
+
   if(action==='ultraDeepDirectRun'){
     const month=String(payload.month||'').trim();
     if(!/^\\d{4}-\\d{2}$/.test(month)) return reply(res,400,{ok:false,error_code:'ULTRA_DEEP_MONTH_INVALID'});

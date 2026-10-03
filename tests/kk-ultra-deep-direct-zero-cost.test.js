@@ -36,3 +36,17 @@ test('V23 preflights storefront and full-booking capacity before discovery',()=>
   assert.match(src,/phone_capacity/);
   assert.match(src,/READ_ONLY_ACCEPTANCE/);
 });
+
+
+test('V25 Vercel-native path requires authenticated production OIDC control before Full Loop',()=>{
+  const src=fs.readFileSync(path.join(__dirname,'..','api','kk-admin-guard.js'),'utf8');
+  const start=src.indexOf("if(action==='ultraDeepVercelNativeRun')");
+  assert.ok(start>0);
+  const block=src.slice(start,start+2600);
+  assert.ok(block.indexOf('AdminWriteControl.health()')>=0);
+  assert.ok(block.indexOf("authenticated===true")>=0);
+  assert.ok(block.indexOf('UltraDeepDirect.run')>block.indexOf('AdminWriteControl.health()'));
+  assert.ok(block.indexOf('executeWrites:commit')>=0);
+  assert.ok(block.indexOf('READ_ONLY_WRITE_INVARIANT_BROKEN')>=0);
+  assert.ok(block.indexOf("execution_path:'VERCEL_PRODUCTION_OIDC'")>=0);
+});
