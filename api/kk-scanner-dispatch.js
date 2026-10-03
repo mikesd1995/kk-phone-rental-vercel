@@ -63,6 +63,8 @@ function readinessSnapshot(env=process.env){
   const scannerExecutionCapable=externalScannerEnabled && mode==='execute-readonly' && executionEnabled && unknownUrlSearchConfigured;
   return {
     phase:'EXTERNAL_SCANNER_WITNESS_V1',
+    machine_ingress_version:'KK_ULTRA_DEEP_MACHINE_V26',
+    machine_ingress_auth:'SUPABASE_QUEUE_VERCEL_OIDC',
     external_scanner_enabled:externalScannerEnabled,
     mode,
     hmac_secret_configured:hmacSecretConfigured,
