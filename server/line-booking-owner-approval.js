@@ -187,7 +187,7 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     booking_id:parsed.booking_id,
     decision
   },env,fetchImpl);
-  const data=result&&result.data||{};
+  const data=result&&result.data||result||{};
   const expected=decision==='approve'?'confirmed':'cancelled';
   if(text(data.booking_status).toLowerCase()!==expected){
     const err=new Error('Owner decision readback mismatch');
