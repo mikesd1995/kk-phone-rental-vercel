@@ -35,3 +35,22 @@ After runner service/quota recovers:
 - no self-hosted runner introduced
 - no new credential surface introduced
 - no production deployment requested by this recovery
+
+
+## Zero-cost exhaustion mode
+
+While GitHub-hosted private-repository runner capacity is exhausted, Admin Regression and Project Memory Enforcement are manual-dispatch only. This prevents every repository push from generating guaranteed pre-step failures and consuming CI queue/noise.
+
+This is an explicit degraded CI mode, not a PASS:
+- required repository logic is unchanged;
+- no test command is removed;
+- no safety assertion is weakened;
+- production/business writes remain zero;
+- Vercel preview/build evidence remains independent evidence only;
+- a normal hosted-runner execution is still required before restoring automatic pull_request/push triggers.
+
+Recovery procedure:
+1. Manually dispatch Project Memory Enforcement once.
+2. If it reaches step 1 and passes, manually dispatch Admin Regression.
+3. Require both to pass with normal logs.
+4. Restore automatic pull_request/push triggers in one reviewed change.
