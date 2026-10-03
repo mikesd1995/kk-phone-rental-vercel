@@ -10,7 +10,7 @@ concurrency:
 jobs:
   deploy:
     if: ${{ github.event.issue.number == 213 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && startsWith(github.event.comment.body, '/run-v60-prebuilt ') }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     env:
       VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
