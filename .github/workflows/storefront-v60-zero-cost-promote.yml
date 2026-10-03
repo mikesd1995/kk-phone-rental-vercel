@@ -10,8 +10,8 @@ concurrency:
 jobs:
   promote:
     if: ${{ github.event.issue.number == 213 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && startsWith(github.event.comment.body, '/run-v60-promote ') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
     env:
       VERCEL_ORG_ID: team_uaeOdVIjXMSW690ZM2wPuJyt
       VERCEL_PROJECT_ID: prj_snbAmpya7YGmOuMbv1o8T16ouxl6
