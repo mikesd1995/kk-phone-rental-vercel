@@ -1213,10 +1213,10 @@ html[data-theme="dark"] .kk-journey-steps b{
   .v3-header{height:56px!important}
   .v3-brand-copy strong{font-size:14px!important}
   .v3-header-actions{gap:2px!important}
-  .header-faq-btn{min-width:42px!important;padding-inline:6px!important;font-size:10px!important}
-  .theme-toggle{width:42px!important;min-width:42px!important}
+  .header-faq-btn{min-width:44px!important;min-height:44px!important;padding-inline:6px!important;font-size:10px!important}
+  .theme-toggle{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important}
   .language-switch{min-height:44px!important;border-radius:14px!important}
-  .lang-btn{width:42px!important;min-width:42px!important}
+  .lang-btn{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important}
 
   /* Hero: more product-led, less vertical takeover on 390/430px phones. */
   .kk-mock-hero{padding:10px 35% 12px 0!important}
@@ -1225,7 +1225,7 @@ html[data-theme="dark"] .kk-journey-steps b{
   .kk-mock-hero h1{max-width:11ch!important;font-size:clamp(2rem,8.2vw,2.28rem)!important;line-height:.92!important}
   .kk-mock-hero .v3-hero-copy>p{max-width:31ch!important;margin-top:8px!important;font-size:10.5px!important;line-height:1.48!important}
   .kk-mock-hero .v3-hero-actions{margin-top:10px!important}
-  .kk-mock-hero .v3-primary,.kk-mock-hero .v3-secondary{min-height:42px!important;padding-inline:12px!important;font-size:10.5px!important}
+  .kk-mock-hero .v3-primary,.kk-mock-hero .v3-secondary{min-height:44px!important;padding-inline:12px!important;font-size:10.5px!important}
 
   /* Benefits: compact service proof with consistent two-line rhythm. */
   .kk-benefit-grid{margin:0 0 14px!important;border-radius:14px!important}
@@ -1239,14 +1239,14 @@ html[data-theme="dark"] .kk-journey-steps b{
   .event-search{min-height:42px!important;font-weight:500!important}
   .event-search::placeholder{font-weight:500!important}
   .event-search-count{margin:3px 3px 0!important;font-size:9.5px!important}
-  .status-filter-bar{gap:5px!important;height:42px!important}
+  .status-filter-bar{gap:5px!important;height:44px!important}
   .status-filter-bar .month-select-wrap,.status-filter-bar .month-select,
-  .status-filter-bar .filter-btn{height:42px!important;min-height:42px!important}
+  .status-filter-bar .filter-btn{height:44px!important;min-height:44px!important}
   .status-filter-bar .filter-btn{padding-inline:6px!important;font-size:10px!important}
   .status-filter-bar .month-select{font-size:16px!important}
   .filter-clear-row{min-height:0!important;margin-top:0!important}
   .filter-clear-btn{
-    min-height:40px!important;padding:0 6px!important;
+    min-height:44px!important;padding:0 6px!important;
     background:transparent!important;box-shadow:none!important;border-radius:0!important;
     font-size:10.5px!important;
   }
@@ -1283,7 +1283,7 @@ html[data-theme="dark"] .kk-journey-steps b{
   .kk-mock-hero{padding:8px 25% 10px 0!important}
   .kk-mock-hero .v3-hero-copy>p{font-size:10px!important}
   .kk-benefit-grid>div{font-size:9px!important}
-  .filter-clear-btn{min-height:40px!important}
+  .filter-clear-btn{min-height:44px!important}
 }
 
 /* Theme parity after real-device review. */
