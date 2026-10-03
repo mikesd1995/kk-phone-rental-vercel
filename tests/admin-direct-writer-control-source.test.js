@@ -11,9 +11,9 @@ const DirectWriter=require('../server/admin-direct-writer');
 const SnapshotV6=require('../api/kk-admin-snapshot-v6');
 
 test('write-control bridge is pinned to canonical Supabase project and function',()=>{
-  assert.equal(Control.CONTROL_PROJECT_REF,'zehlsagzrpromtfqqflt');
+  assert.equal(Control.CONTROL_PROJECT_REF,'mxjnjujqjybqughsnqbz');
   assert.equal(Control.CONTROL_FUNCTION,'kk-admin-write-control');
-  assert.equal(Control.endpoint(),'https://zehlsagzrpromtfqqflt.supabase.co/functions/v1/kk-admin-write-control');
+  assert.equal(Control.endpoint(),'https://mxjnjujqjybqughsnqbz.supabase.co/functions/v1/kk-admin-write-control');
   assert.equal(Control.CONTROL_TIMEOUT_MS,5000);
 });
 
@@ -95,4 +95,18 @@ test('authenticated diagnostic separates control health from writer activation a
   assert.equal(p.direct_writer_ready,false);
   assert.equal(p.business_writes,0);
   assert.equal(p.google_sheet_writes,0);
+});
+
+test('V27 Ultra Deep machine command contract is service-role-only and preserved by bridge',()=>{
+  const bridge=fs.readFileSync(path.join(__dirname,'..','server','admin-write-control-oidc.js'),'utf8');
+  const edge=fs.readFileSync(path.join(__dirname,'..','supabase','functions','kk-admin-write-control','index.ts'),'utf8');
+  const migration=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20261003193000_ultra_deep_v27_unified_control_plane.sql'),'utf8');
+  assert.match(bridge,/'command'/);
+  assert.match(bridge,/'completed'/);
+  assert.match(edge,/action === "commandClaim"/);
+  assert.match(edge,/action === "commandComplete"/);
+  assert.match(migration,/kk_ultra_deep_commands/);
+  assert.match(migration,/enable row level security/i);
+  assert.match(migration,/revoke all on table public\.kk_ultra_deep_commands from public,anon,authenticated/i);
+  assert.match(migration,/grant execute on function public\.kk_ultra_deep_command_claim\(uuid\) to service_role/i);
 });
