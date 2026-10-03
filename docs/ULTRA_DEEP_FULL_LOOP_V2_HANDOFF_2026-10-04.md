@@ -154,3 +154,15 @@ V2 CREATE_EVENT now reuses the existing `kk-governed-storefront-executor.js` ins
 The generic V2 update executor still rejects CREATE_EVENT; create must use the dedicated package-aware path. The governed storefront executor retains duplicate/tombstone contract requirements and exact storefront readback. V2 COMMIT combines update receipts and create receipts; acceptance requires every receipt verified and total production_writes equal planned_mutation_count.
 
 No production COMMIT was executed during this implementation. GitHub connector returned zero PR-triggered workflow runs for merge SHA `e38db0a4...`, so CI/runtime acceptance remains unproven from Actions. Next operational gate: execute a fresh V2 READ_ONLY run on current deployed/runtime binding, inspect HOLD/score/coverage/mutation plan, then only execute COMMIT if runtime is current and plan is READY; verify canonical + storefront exact readback.
+
+
+## Operational acceptance / deployment audit — 2026-10-04
+Vercel production is still deployment `dpl_8xqonqLFnB84QN2WqwELKaaYjW9V`, READY target=production, Git SHA `12c7b0f3fbd0d4cf2e0b992c1bbbeca0cfccce88`. This is older than V2 atomic-create main `e38db0a4...` and acceptance-gate main `86ea736d...`. Therefore production V2 READ_ONLY/COMMIT was NOT invoked: doing so would test stale code and cannot establish V2 acceptance.
+
+Latest relevant V2 preview observed READY: `dpl_4vKxzHojqD7mvC9aybnsEpwkerqt`, branch feat/ultra-deep-v2-3-runtime-adapter-20261004, SHA `5987741834af65568c98ee3164db9cc2cae13958`; it predates governed writer + atomic create and is not sufficient for final acceptance.
+
+Vercel connector exposes a deploy action name but invocation returned tool-not-found; no supported promote action was available in the connector surface. No paid browser fallback was used.
+
+PR #612 added `.github/workflows/ultra-deep-v2-acceptance.yml` plus package.json syntax coverage for all V2 modules, merged as `86ea736d7e125609066924172b1b9148bfd91853`. PR workflow run `37148932957`, job `111278517372`, concluded failure with zero job steps and unavailable log blob. Classification: RUNNER/PROVISIONING failure before code execution, NOT a V2 regression-test failure. Do not spam reruns until runner allocation is healthy.
+
+Current blockers are operational, not an identified V2 code defect: (A) production deployment stale; (B) GitHub-hosted runner provisioning unavailable. Required next evidence: current-main Vercel READY deployment, production binding/readback to current SHA, fresh V2 READ_ONLY with production_writes=0, then COMMIT only if plan READY, followed by canonical/storefront exact readback.
