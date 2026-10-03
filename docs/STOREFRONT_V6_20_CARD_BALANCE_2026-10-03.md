@@ -38,3 +38,11 @@ Owner iPhone screenshots showed paired catalogue cards ending at different verti
 - Created fresh V6.20 candidate branch `deploy/storefront-v620-preview-promote-20261003` at `17d490e2291af2f48242d5ed042c6344f7224510` with marker r4 to attempt this alternate route.
 - Vercel did not create a deployment record for the fresh candidate either. Therefore there is no V6.20 READY preview that can be safely promoted, and promoting an older READY preview would roll back the V6.19/V6.20 runtime changes.
 - This closes the safe automated fallbacks currently available without fabricating a deployment or reverting current storefront fixes.
+
+
+## Production acceptance — recovered
+- Production deployment `dpl_F63iiVxWHPXkby1kKegRHBStncfC` for main `c0e5174130d93bd267ff33ee1ef1e6ba583a2a0b` is `READY`, target `production`, with canonical alias `kk-phone-rental.vercel.app` and `aliasError=null`.
+- Canonical root returned HTTP 200 and serves CSS marker `20261003-v620-card-balance-r2` plus JS marker `storefront-v619-stationary-modal-close-20261003`.
+- Production CSS readback confirms V6.20 invariants: stretched mobile grid, 100%/stretch cards, reserved title height, and centered native month-select text.
+- Production JS readback confirms V6.19 overflow-based modal lock and confirms the prior fixed-body/negative-top lock is absent.
+- Source/readback acceptance is PASS. Real-iPhone rendered visual acceptance remains owner/device evidence and is not inferred from source readback.
