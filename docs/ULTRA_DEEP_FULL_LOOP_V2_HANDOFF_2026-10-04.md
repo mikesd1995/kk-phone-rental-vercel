@@ -50,3 +50,25 @@ Next:
 
 ## Safety
 No production business data was changed by PR #602. Production writes from this V2 implementation step = 0.
+
+
+## V2.1 owner requirements — implemented 2026-10-04
+PR #603 merged as `af4e2a0a45055b6017833d81e3f168455266d846`.
+
+### Booking behavior corrected
+Booking no longer freezes the whole event. Any booking locks PRICE only. Verified official date, venue and poster changes remain eligible for update. Hidden/tombstone still overrides everything.
+
+### Poster fallback clarified
+Competitor storefront/poster URLs may be collected as poster discovery leads when an exact-event competitor listing exists, but they do not satisfy verification by themselves. A new event remains HOLD until the poster is independently verified as artwork for the exact event. No random/near-match image publish.
+
+### Long-tail coverage expanded
+Monthly query plan V4 defaults to Bangkok Metropolitan Region and explicitly covers: concerts, fanmeet/fancon, showcase/mini concert/festival, organizer/promoter feeds, malls/community venues, fan gatherings/birthday projects, blessing ceremonies/openings, award/red-carpet events, press/brand appearances, sports/entertainment, social signals, competitor listings and public calendars. Geographic variants include Bangkok, Nonthaburi, Pathum Thani and Samut Prakan. Search stop condition now requires exhausting bounded variants and recording receipts rather than stopping after the first HTTPS source.
+
+### Adaptive learning agent added
+`server/kk-ultra-deep-v2-learning-agent.js` learns from missed events, false positives, HOLD reasons, source successes and manual corrections. It may automatically adapt query terms, source priority and matching heuristics and emits a change log/recommendations. Protected policy cannot be self-modified: BOOKING_PRICE_LOCK, TOMBSTONE_NO_RESURRECTION, GOVERNED_ADMIN_WRITER_ONLY, EXACT_READBACK_REQUIRED, VERIFIED_EVENT_REQUIRED. Learning agent production writes = 0.
+
+### Regression coverage
+Tests now lock: booked price immutability with metadata updates; tombstone precedence; median repricing for unbooked events; competitor poster lead cannot bypass verification; verified create pricing; exact-readback COMPLETE gate; learning boundary; long-tail Bangkok-metro query tiers.
+
+### Production status
+PR #603 changes planning/discovery/learning code only. Production business writes = 0. Live V2 discovery-to-writer wiring and production acceptance remain pending; do not call V2 production COMPLETE yet.
