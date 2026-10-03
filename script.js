@@ -1586,17 +1586,30 @@ function focusDialog(el,preferred){
 }
 function restoreFocus(target){
   if(target&&document.contains(target)&&typeof target.focus==="function"){
-    try{target.focus({preventScroll:true});}catch(e){target.focus();}
+    try{target.focus({preventScroll:true});}catch(e){/* Safari fallback: skip focus rather than move viewport */}
   }
 }
 var modalScrollY=0;
+var modalScrollX=0;
+function exactScrollRestore(){
+  var x=modalScrollX,y=modalScrollY;
+  // iOS Safari may apply a deferred viewport correction after fixed-body unlock/focus.
+  // Re-assert the captured coordinates across the next paint frames so close is visually stationary.
+  window.scrollTo(x,y);
+  requestAnimationFrame(function(){
+    window.scrollTo(x,y);
+    requestAnimationFrame(function(){window.scrollTo(x,y);});
+  });
+  setTimeout(function(){window.scrollTo(x,y);},80);
+}
 function lockBody(){
   if(document.body.dataset.modalLocked==="1")return;
+  modalScrollX=window.scrollX||window.pageXOffset||0;
   modalScrollY=window.scrollY||window.pageYOffset||0;
   document.body.dataset.modalLocked="1";
   document.body.style.position="fixed";
   document.body.style.top=(-modalScrollY)+"px";
-  document.body.style.left="0";
+  document.body.style.left=(-modalScrollX)+"px";
   document.body.style.right="0";
   document.body.style.width="100%";
   document.body.style.overflow="hidden";
@@ -1607,7 +1620,7 @@ function unlockBodyIfNoModal(){
   if(document.body.dataset.modalLocked!=="1"){document.body.style.overflow="";return;}
   delete document.body.dataset.modalLocked;
   document.body.style.position="";document.body.style.top="";document.body.style.left="";document.body.style.right="";document.body.style.width="";document.body.style.overflow="";
-  window.scrollTo(0,modalScrollY);
+  exactScrollRestore();
 }
 function homeUrl(){return window.location.origin + "/";}
 function setEventUrl(eventId){
