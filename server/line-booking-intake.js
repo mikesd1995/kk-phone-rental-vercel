@@ -14,7 +14,7 @@ function bookingIntent(event,booking,resolved={}){
   if(!booking||!text(booking.nickname)||!text(booking.phone)) return {ok:false,code:'CUSTOMER_FIELDS_REQUIRED'};
   if(!text(resolved.event_id)||!text(resolved.template_id)) return {ok:false,code:'CANONICAL_RESOLUTION_REQUIRED'};
   return {ok:true,payload:{
-    action:'createBooking',request_id,
+    action:'createLineBookingPending',request_id,
     event_id:text(resolved.event_id),template_id:text(resolved.template_id),
     customer_name:text(booking.nickname),customer_contact:text(event&&event.source&&event.source.userId),
     customer_phone:text(booking.phone),contact_channel:'LINE',
