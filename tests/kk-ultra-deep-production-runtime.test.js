@@ -20,6 +20,7 @@ function snapshot(){
   packages:[
    {template_id:'TPL-VIVO-X300-PRO-PHONE',package_type:'phone_only',standard_price:790,active:true}
   ],
+  assets:[{asset_id:'PHONE-1',asset_type:'phone',status:'available'},{asset_id:'PHONE-2',asset_type:'phone',status:'available'}],
   bookings:[{booking_id:'B1',event_date:'2026-10-26',booking_status:'confirmed'}],
   visibility_locks:[{event_id:'EVT-HID',event_name:'Hidden Fan Meeting',event_date:'2026-10-25',venue:'Union Hall',lock_state:'LOCKED'}]
  };
@@ -32,11 +33,13 @@ test('reconciliation pins exact existing, skips booked and hidden history, leave
   {event_key:'C',title:'New Artist Fan Meeting',event_date:'2026-10-26',venue:'BITEC'},
   {event_key:'D',title:'Another Concert',event_date:'2026-10-27',venue:'BITEC'}
  ],snapshot());
- assert.equal(out.safe_candidates.length,2);
+ assert.equal(out.safe_candidates.length,3);
  assert.equal(out.safe_candidates[0].existing_event_id,'EVT-EX');
  assert.equal(out.dispositions.find(x=>x.event_key==='B').status,'SKIPPED_EVENT_HISTORY');
- assert.equal(out.dispositions.find(x=>x.event_key==='C').status,'SKIPPED_BOOKING_DATE');
+ assert.equal(out.dispositions.find(x=>x.event_key==='C').status,'SAFE_NEW');
  assert.equal(out.dispositions.find(x=>x.event_key==='D').status,'SAFE_NEW');
+ assert.equal(out.phone_capacity,2);
+ assert.deepEqual(out.full_booked_dates,[]);
 });
 
 test('same date venue with two close existing matches holds ambiguous',()=>{
@@ -84,7 +87,10 @@ test('already hidden malformed automation row is not quarantined again',()=>{
 
 test('production runtime completes zero-write when every verified candidate is safely terminally skipped',async()=>{
  const s=snapshot();
- s.bookings.push({booking_id:'B2',event_date:'2026-10-23',booking_status:'confirmed'});
+ s.bookings.push(
+   {booking_id:'B2',event_date:'2026-10-23',booking_status:'confirmed'},
+   {booking_id:'B3',event_date:'2026-10-23',booking_status:'confirmed'}
+ );
  s.visibility_locks.push({
    event_id:'EVT-HIST',
    event_name:'Historical Concert',
@@ -111,7 +117,7 @@ test('production runtime completes zero-write when every verified candidate is s
  assert.equal(out.orchestrator.acceptance.completion_mode,'SAFE_NOOP_TERMINAL_DISPOSITIONS');
  assert.equal(out.orchestrator.acceptance.verified_candidate_count,2);
  assert.equal(out.orchestrator.acceptance.terminal_disposition_count,2);
- assert.deepEqual(out.dispositions.map(x=>x.status),['SKIPPED_BOOKING_DATE','SKIPPED_EVENT_HISTORY']);
+ assert.deepEqual(out.dispositions.map(x=>x.status),['SKIPPED_FULL_BOOKING_DATE','SKIPPED_EVENT_HISTORY']);
 });
 
 test('production runtime still fails closed when reconciliation has an ambiguous unresolved candidate',async()=>{
@@ -135,3 +141,17 @@ test('production runtime still fails closed when reconciliation has an ambiguous
  assert.ok(out.orchestrator.acceptance.blockers.includes('UNSAFE_TERMINAL_DISPOSITION'));
 });
 
+
+
+test('full booking date requires all phone capacity; one booking with two phones stays discoverable',()=>{
+ const s=snapshot();
+ s.bookings=[{booking_id:'ONE',event_date:'2026-10-30',booking_status:'confirmed'}];
+ assert.equal(R.phoneInventoryCapacity(s),2);
+ assert.deepEqual([...R.fullBookingDateSet(s)],[]);
+ let out=R.reconcileCandidates([{event_key:'N',title:'New Event',event_date:'2026-10-30',venue:'Bangkok'}],s);
+ assert.equal(out.dispositions[0].status,'SAFE_NEW');
+ s.bookings.push({booking_id:'TWO',event_date:'2026-10-30',booking_status:'pending'});
+ assert.deepEqual([...R.fullBookingDateSet(s)],['2026-10-30']);
+ out=R.reconcileCandidates([{event_key:'N',title:'New Event',event_date:'2026-10-30',venue:'Bangkok'}],s);
+ assert.equal(out.dispositions[0].status,'SKIPPED_FULL_BOOKING_DATE');
+});
