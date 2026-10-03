@@ -1290,3 +1290,26 @@ html[data-theme="dark"] .kk-journey-steps b{
 html[data-theme="dark"] .event-search::placeholder{color:#8999ae!important}
 html[data-theme="dark"] .pi-tap{background:#0b1b2e!important;border-color:#29415d!important}
 html[data-theme="dark"] .filter-clear-btn{background:transparent!important;box-shadow:none!important}
+
+
+/* V6.12 mobile modal behavior — 2026-10-03
+   Owner real-device correction: package/FAQ dialogs are centered rather than
+   bottom sheets. Scroll restoration remains owned by JS and focus restoration
+   must not scroll the originating card into view. */
+@media (max-width:700px){
+  .overlay.active,.faq-overlay.active{
+    align-items:center!important;
+    justify-content:center!important;
+    padding:max(16px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom))!important;
+  }
+  .overlay .modal,.faq-overlay .modal{
+    width:min(100%,560px)!important;
+    max-width:560px!important;
+    max-height:min(84dvh,760px)!important;
+    margin:0!important;
+    border-radius:24px!important;
+    padding-bottom:max(18px,env(safe-area-inset-bottom))!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain!important;
+  }
+}
