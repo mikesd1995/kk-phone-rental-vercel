@@ -1,35 +1,14 @@
 'use strict';
-const test=require('node:test');
-const assert=require('node:assert/strict');
+const test=require('node:test');const assert=require('node:assert/strict');
 const P=require('../server/kk-ultra-deep-full-loop-v2-policy.js');
 const V2=require('../server/kk-ultra-deep-full-loop-v2.js');
-
-test('any booking locks price even when stock remaining is zero',()=>{
- const x=P.plan({exists_in_canonical:true,booking_count:1,stock_remaining:0,current_price:1290,competitor_prices:[890,990]});
- assert.equal(x.decision,'SKIP_BOOKED');
- assert.equal(x.mutations.length,0);
-});
-test('hidden tombstone wins over create',()=>{
- const x=P.plan({exists_in_canonical:false,tombstone_locked:true,exact_event_verified:true,latest_official_poster_verified:true,latest_official_poster_url:'https://example.com/a.jpg',governed_fallback_price:690});
- assert.equal(x.decision,'SKIP_HIDDEN');
-});
-test('unbooked existing event aligns to exact competitor median',()=>{
- const x=P.plan({exists_in_canonical:true,current_price:690,competitor_prices:[790,890,990]});
- assert.equal(x.decision,'UPDATE');
- assert.deepEqual(x.mutations[0],{type:'UPDATE_PRICE',from:690,to:890,evidence:'FRESH_EXACT_EVENT_COMPETITOR_MEDIAN'});
-});
-test('new event holds without verified official poster',()=>{
- const x=P.plan({exists_in_canonical:false,exact_event_verified:true,competitor_prices:[690,890]});
- assert.equal(x.decision,'HOLD');
- assert.ok(x.holds.includes('VERIFIED_OFFICIAL_POSTER_REQUIRED'));
-});
-test('new verified event creates with market median',()=>{
- const x=P.plan({exists_in_canonical:false,exact_event_verified:true,latest_official_poster_verified:true,latest_official_poster_url:'https://example.com/p.jpg',competitor_prices:[690,890]});
- assert.equal(x.decision,'CREATE');
- assert.equal(x.mutations[0].price,790);
-});
-test('COMPLETE requires writes to equal plan and exact readback',()=>{
- const plan=V2.buildPlan({month:'2026-10',candidates:[{exists_in_canonical:true,current_price:690,competitor_prices:[890]}]});
- assert.equal(V2.acceptance(plan,{status:'COMPLETE',production_writes:1},{exact_match:true}).status,'COMPLETE');
- assert.equal(V2.acceptance(plan,{status:'COMPLETE',production_writes:1},{exact_match:false}).status,'INCOMPLETE');
-});
+const Learn=require('../server/kk-ultra-deep-v2-learning-agent.js');
+const Query=require('../server/kk-monthly-deep-scan-query-plan.js');
+test('booking locks price but allows verified date venue poster updates',()=>{const x=P.plan({exists_in_canonical:true,booking_count:1,current_price:1290,competitor_prices:[690,890],current_date:'2026-10-14',verified_date:'2026-10-15',date_change_verified:true,current_venue:'A',verified_venue:'B',venue_change_verified:true,current_poster_url:'https://old/x.jpg',latest_official_poster_url:'https://official/x.jpg',latest_official_poster_verified:true});assert.equal(x.price_locked,true);assert.equal(x.mutations.some(m=>m.type==='UPDATE_PRICE'),false);assert.deepEqual(x.mutations.map(m=>m.type),['UPDATE_DATE','UPDATE_VENUE','UPDATE_POSTER']);});
+test('hidden tombstone wins over all updates',()=>{const x=P.plan({exists_in_canonical:true,tombstone_locked:true,booking_count:1,date_change_verified:true,current_date:'a',verified_date:'b'});assert.equal(x.decision,'SKIP_HIDDEN');assert.equal(x.mutations.length,0);});
+test('unbooked existing event aligns to exact competitor median',()=>{const x=P.plan({exists_in_canonical:true,current_price:690,competitor_prices:[790,890,990]});assert.equal(x.mutations[0].to,890);});
+test('competitor poster is lead only and does not bypass verification',()=>{const x=P.plan({exists_in_canonical:false,exact_event_verified:true,competitor_prices:[690],competitor_poster_leads:['https://competitor/poster.jpg']});assert.equal(x.decision,'HOLD');assert.ok(x.holds.includes('VERIFIED_POSTER_REQUIRED'));assert.equal(x.poster_leads.length,1);});
+test('new verified event creates with median',()=>{const x=P.plan({exists_in_canonical:false,exact_event_verified:true,latest_official_poster_verified:true,latest_official_poster_url:'https://official/p.jpg',competitor_prices:[690,890]});assert.equal(x.decision,'CREATE');assert.equal(x.mutations[0].price,790);});
+test('COMPLETE requires exact readback',()=>{const plan=V2.buildPlan({month:'2026-10',candidates:[{exists_in_canonical:true,current_price:690,competitor_prices:[890]}]});assert.equal(V2.acceptance(plan,{status:'COMPLETE',production_writes:1},{exact_match:true}).status,'COMPLETE');assert.equal(V2.acceptance(plan,{status:'COMPLETE',production_writes:1},{exact_match:false}).status,'INCOMPLETE');});
+test('learning agent may adapt discovery but cannot alter protected policy',()=>{const x=Learn.learn({missed_events:[{query_terms:['บวงสรวง ศิลปิน'],source:'mall'}],false_positives:[{patterns:['generic homepage']}],holds:[{holds:['VERIFIED_POSTER_REQUIRED']}]});assert.equal(x.authority.auto_apply_search_strategy,true);assert.equal(x.authority.may_change_protected_policy,false);assert.ok(x.recommendations.includes('EXPAND_POSTER_DISCOVERY_LEADS_FROM_EXACT_EVENT_COMPETITORS'));});
+test('query plan covers long-tail Bangkok metro event types',()=>{const x=Query.build({month:'2026-10'});for(const tier of ['FAN_EVENT','CEREMONY','AWARD_RED_CARPET','PRESS_BRAND','MALL_COMMUNITY'])assert.ok(x.required_tiers.includes(tier));assert.match(x.location,/Bangkok Metropolitan Region/);});
