@@ -20,3 +20,5 @@ test('low score stays watch unless commercial evidence overrides',()=>{const bas
 test('learning records scoring calibration controls',()=>{const x=Learn.learn({booking_outcomes:[{booked:true,revenue:890}]});assert.ok(x.recommendations.includes('CALIBRATE_RENTABILITY_WEIGHTS_AND_THRESHOLDS_FROM_BOOKING_REVENUE_OUTCOMES'));assert.ok(x.scoring_learning.change_control.includes('ROLLBACK_AVAILABLE'));});
 
 test('capacity gate preserves event for verification instead of treating it as irrelevant',()=>{const q=Rent.qualify({fandom_strength:90,social_demand:90,rental_intent:90,commercial_evidence:90,event_quality:90,available_inventory:0});assert.equal(q.decision,'NO_CAPACITY');assert.ok(q.rentability.total>=70);});
+
+test('missing scoring signals fail open to VERIFY_MORE rather than false-negative WATCH',()=>{const q=Rent.qualify({available_inventory:1});assert.equal(q.decision,'VERIFY_MORE');assert.equal(q.signal_coverage.present,0);});
