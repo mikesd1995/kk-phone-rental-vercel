@@ -1,6 +1,6 @@
 'use strict';
 
-const CONTROL_PROJECT_REF='zehlsagzrpromtfqqflt';
+const CONTROL_PROJECT_REF='mxjnjujqjybqughsnqbz';
 const CONTROL_FUNCTION='kk-admin-write-control';
 const CONTROL_TIMEOUT_MS=5000;
 
@@ -44,7 +44,7 @@ function safeRemote(body,status){
     business_writes:0,
     google_sheet_writes:0
   };
-  const fields=['error_code','version','configured','scope','fencing_token','lock_held','acquired','lease_until','released','committed','failed','receipt'];
+  const fields=['error_code','version','configured','scope','fencing_token','lock_held','acquired','lease_until','released','committed','failed','completed','receipt','command'];
   for(const key of fields){
     if(body && Object.prototype.hasOwnProperty.call(body,key)) out[key]=body[key];
   }
