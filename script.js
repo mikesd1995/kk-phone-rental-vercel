@@ -932,8 +932,19 @@ function sanitizePublicText(raw){
 function packagePublicSubtitle(p){
   if(!p)return "";
   var useCase=sanitizePublicText(p.useCase);
-  if(useCase)return useCase;
   var note=sanitizePublicText(p.note);
+  // Package feed copy can be Thai-only. Never leak Thai helper copy into EN UI:
+  // prefer an English feed value when present, otherwise use the localized fallback.
+  if(currentLang==="en"){
+    var englishCandidate=!/[\u0E00-\u0E7F]/.test(useCase)?useCase:"";
+    if(!englishCandidate&&!/[\u0E00-\u0E7F]/.test(note))englishCandidate=note;
+    if(englishCandidate)return englishCandidate;
+    if(p.type==="phone_only")return tr("pkg_tagline_phone");
+    if(p.type==="lens_only")return tr("pkg_tagline_lens");
+    if(p.type==="phone_lens_bundle")return tr("pkg_tagline_bundle");
+    return "";
+  }
+  if(useCase)return useCase;
   if(note)return note;
   if(p.type==="phone_only")return tr("pkg_tagline_phone");
   if(p.type==="lens_only")return tr("pkg_tagline_lens");

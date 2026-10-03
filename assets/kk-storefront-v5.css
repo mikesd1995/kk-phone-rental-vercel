@@ -1365,3 +1365,42 @@ html[data-theme="dark"] .filter-clear-btn{background:transparent!important;box-s
   .ph-model{font-size:15px!important}
   .ph-price{font-size:17px!important}
 }
+
+
+/* V6.14 owner real-device corrections — 2026-10-03
+   Fix dark booking CTA contrast and make the TH/EN segmented control optically balanced. */
+html[data-theme="dark"] .book-pill{
+  background:#1677ff!important;
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  border-color:#1677ff!important;
+}
+@media (max-width:700px){
+  .v3-header .language-switch{
+    display:grid!important;
+    grid-template-columns:repeat(2,44px)!important;
+    width:94px!important;
+    min-width:94px!important;
+    max-width:94px!important;
+    min-height:50px!important;
+    padding:3px!important;
+    gap:0!important;
+    border-radius:17px!important;
+  }
+  .v3-header .language-switch .lang-btn{
+    width:44px!important;
+    min-width:44px!important;
+    max-width:44px!important;
+    height:44px!important;
+    min-height:44px!important;
+    padding:0!important;
+    margin:0!important;
+    border-radius:14px!important;
+    display:grid!important;
+    place-items:center!important;
+    line-height:1!important;
+  }
+  html[data-theme="dark"] .v3-header .language-switch .lang-btn.active{
+    box-shadow:none!important;
+  }
+}
