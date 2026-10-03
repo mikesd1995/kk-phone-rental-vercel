@@ -72,3 +72,24 @@ Tests now lock: booked price immutability with metadata updates; tombstone prece
 
 ### Production status
 PR #603 changes planning/discovery/learning code only. Production business writes = 0. Live V2 discovery-to-writer wiring and production acceptance remain pending; do not call V2 production COMPLETE yet.
+
+
+## V2.2 commercial qualification — implemented 2026-10-04
+PR #604 merged as `2440b360c5441e892385bf79536fc714c3160d11`.
+
+### Rentability gate
+Discovery remains broad, but an event is not automatically storefront-worthy. New `server/kk-ultra-deep-rentability-score.js` scores 0-100 with baseline weights: Fandom Strength 30, Social Demand 25, Rental Intent 20, Commercial Evidence 15, Event Quality 10. Bounded boosts: sold-out/added round +5, high engagement velocity +5, multiple competitor rental listings +5, strong fan-project signal +3. Baseline tiers: HIGH >=70, MEDIUM 50-69.9, LOW <50.
+
+Qualification decisions: HIGH => FULL_LOOP; MEDIUM => VERIFY_MORE; LOW => WATCH. Verified competitor-rental/strong commercial evidence may promote into FULL_LOOP. This is a commercial candidate gate, not a verification bypass.
+
+### Revenue + capacity
+Revenue potential tracks demand score, booking probability, expected rental price and available inventory. available_inventory=0 => NO_CAPACITY before commercial execution. This prevents broad discovery from turning the storefront into a generic event calendar and prioritizes work that can plausibly create rental revenue.
+
+### Adaptive scoring
+Learning agent now consumes booking/revenue outcomes and may recalibrate RENTABILITY_WEIGHTS and HIGH_MEDIUM_THRESHOLDS in addition to source/query/matching strategy. Every scoring change must be versioned, record before/after, retain evidence, and be rollback-capable. Protected policy remains immutable to the learner.
+
+### Intended V2 pipeline
+DISCOVER_BROAD -> RENTABILITY_SCORE -> REVENUE_POTENTIAL -> CAPACITY_CHECK -> VERIFY -> CANONICAL/BOOKING/TOMBSTONE -> PRICE/POSTER -> PLAN -> GOVERNED_WRITE -> EXACT_READBACK -> STOREFRONT_QA -> BOOKING/REVENUE_OUTCOME -> LEARN.
+
+### Acceptance status
+Implementation and regression cases are committed/merged, but connector-side editing does not itself prove Node tests or live production execution. Production business writes from this change = 0. Do not call Full Loop production COMPLETE until live wiring + acceptance evidence exists.
