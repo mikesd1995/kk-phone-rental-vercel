@@ -33,3 +33,11 @@ Poster/card geometry, two-column layout, V6.17 red full-state treatment, V6.16 e
 - Canonical storefront returned HTTP 200 and served marker `20261003-v618-mobile-type-scale-r4` plus V6.16 script marker `storefront-v616-exact-scroll-return-20261003`.
 - Production CSS returned HTTP 200 and contains the V6.18 mobile typography rules, including 14px event titles and 12px CTA text.
 - No pricing, booking, inventory, event-visibility or production business-write semantics were changed by this storefront recovery.
+
+
+## Final production readback — PASS
+- Re-read production deployment `dpl_GGWV71TkVccvXj3DWpMtAvC9mbhJ`: `READY`, target `production`, commit `5d3e1120f9a0943b379e1eadad190da76d5be16c`, canonical aliases attached, `aliasError=null`.
+- Canonical homepage HTTP 200 and still serves V6.18 r4 + V6.16 markers.
+- Canonical CSS HTTP 200 and contains V6.18 type scale (14px event title, 12px CTA) plus V6.17 full-state red styling.
+- Canonical JS HTTP 200 and contains V6.16 `exactScrollRestore()` with multi-frame reassertion.
+- No GitHub workflow run exists for the exact production commit, so automated rendered-device/visual-agent acceptance is not claimed. Production source/readback acceptance is PASS; owner real-iPhone visual/gesture acceptance remains the only unproven layer.
