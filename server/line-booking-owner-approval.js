@@ -64,6 +64,11 @@ async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
   return parsed;
 }
 async function createPendingBooking(event,booking,canonical,env=process.env,fetchImpl=fetch){
+  if(!text(event&&event.source&&event.source.userId)){
+    const err=new Error('LINE customer userId is required for governed owner approval');
+    err.code='LINE_CUSTOMER_USER_ID_REQUIRED';
+    throw err;
+  }
   const intent=Intake.prepareBookingIntent(event,booking,canonical);
   if(!intent.ok){
     const err=new Error(intent.code);
