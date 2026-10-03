@@ -140,8 +140,48 @@ async function runOne(item,ledgerFn){
     winner:finalization.final_post,
     winner_id:finalization.selection&&finalization.selection.winner&&finalization.selection.winner.id||'',
     winner_score:finalization.selection&&finalization.selection.winner&&finalization.selection.winner.score||0,
+    candidate_pool:(finalization.selection&&Array.isArray(finalization.selection.scored_candidates)?finalization.selection.scored_candidates:[])
+      .filter(row=>row&&row.eligible)
+      .map(row=>{
+        const candidate=item.candidates.find(c=>text(c&&c.id)===text(row.id));
+        return candidate?{id:text(candidate.id),angle:text(candidate.angle),copy:text(candidate.copy),score:Number(row.score)||0}:null;
+      }).filter(Boolean),
+    selection_mode:'ITEM_SELECTOR',
     invocation:gateway.invocation||null
   };
+}
+
+function diversifyBatchSelection(results=[]){
+  const pools=results.map(item=>Array.isArray(item.candidate_pool)&&item.candidate_pool.length
+    ? item.candidate_pool.slice().sort((a,b)=>b.score-a.score||a.id.localeCompare(b.id))
+    : []);
+  if(pools.some(pool=>pool.length===0))return null;
+
+  const combinations=[];
+  function walk(index,picks,score){
+    if(index===pools.length){combinations.push({picks:[...picks],score});return;}
+    for(const candidate of pools[index]){
+      picks.push(candidate);
+      walk(index+1,picks,score+candidate.score);
+      picks.pop();
+    }
+  }
+  walk(0,[],0);
+  combinations.sort((a,b)=>b.score-a.score||a.picks.map(x=>x.id).join('|').localeCompare(b.picks.map(x=>x.id).join('|')));
+
+  for(const combination of combinations){
+    const qa=BatchQa.validateFinalPostBatch(combination.picks.map((pick,index)=>({post:pick.copy,input:results[index].input})));
+    if(qa.gate!=='PASS')continue;
+    const items=results.map((item,index)=>({
+      ...item,
+      winner:combination.picks[index].copy,
+      winner_id:combination.picks[index].id,
+      winner_score:combination.picks[index].score,
+      selection_mode:combination.picks[index].id===item.winner_id?'ITEM_SELECTOR':'BATCH_DIVERSITY_RESELECTION'
+    }));
+    return {items,batch_qa:qa};
+  }
+  return null;
 }
 
 function buildComment(result={}){
@@ -221,18 +261,25 @@ async function runBridge({event,payload,ledgerFn}={}){
     }
   }
 
-  const batchQa=BatchQa.validateFinalPostBatch(results.map(item=>({post:item.winner,input:item.input})));
+  let selectedResults=results;
+  let batchQa=BatchQa.validateFinalPostBatch(results.map(item=>({post:item.winner,input:item.input})));
   if(batchQa.gate!=='PASS'){
-    return {
-      schema_version:VERSION,status:'BLOCKED',blocker:'BATCH_DIVERSITY_QA_FAILED',
-      event_check:eventCheck,item_count:results.length,items:results,batch_qa:batchQa,ledger_rows:ledgerRows,
-      production_writes:0,publishes:0
-    };
+    const diversified=diversifyBatchSelection(results);
+    if(diversified){
+      selectedResults=diversified.items;
+      batchQa=diversified.batch_qa;
+    }else{
+      return {
+        schema_version:VERSION,status:'BLOCKED',blocker:'BATCH_DIVERSITY_QA_FAILED',
+        event_check:eventCheck,item_count:results.length,items:results,batch_qa:batchQa,ledger_rows:ledgerRows,
+        production_writes:0,publishes:0
+      };
+    }
   }
 
   return {
     schema_version:VERSION,status:'PASS',blocker:'',
-    event_check:eventCheck,item_count:results.length,items:results,batch_qa:batchQa,ledger_rows:ledgerRows,
+    event_check:eventCheck,item_count:selectedResults.length,items:selectedResults,batch_qa:batchQa,ledger_rows:ledgerRows,
     owner_review_required:true,production_writes:0,publishes:0
   };
 }
@@ -276,5 +323,5 @@ if(require.main===module){
 
 module.exports={
   VERSION,START,END,TITLE_PREFIX,MAX_BODY_BYTES,MAX_ITEMS,
-  extractPayload,validateBridgeEvent,validateEnvelope,safeInput,runOne,buildComment,runBridge
+  extractPayload,validateBridgeEvent,validateEnvelope,safeInput,runOne,diversifyBatchSelection,buildComment,runBridge
 };
