@@ -166,3 +166,6 @@ Vercel connector exposes a deploy action name but invocation returned tool-not-f
 PR #612 added `.github/workflows/ultra-deep-v2-acceptance.yml` plus package.json syntax coverage for all V2 modules, merged as `86ea736d7e125609066924172b1b9148bfd91853`. PR workflow run `37148932957`, job `111278517372`, concluded failure with zero job steps and unavailable log blob. Classification: RUNNER/PROVISIONING failure before code execution, NOT a V2 regression-test failure. Do not spam reruns until runner allocation is healthy.
 
 Current blockers are operational, not an identified V2 code defect: (A) production deployment stale; (B) GitHub-hosted runner provisioning unavailable. Required next evidence: current-main Vercel READY deployment, production binding/readback to current SHA, fresh V2 READ_ONLY with production_writes=0, then COMMIT only if plan READY, followed by canonical/storefront exact readback.
+
+
+Deployment witness trigger: branch created from current main specifically to obtain a current-code Vercel preview for V2 acceptance. This commit contains no business/runtime behavior change.
