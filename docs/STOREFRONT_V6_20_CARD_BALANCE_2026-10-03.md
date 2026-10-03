@@ -31,3 +31,10 @@ Owner iPhone screenshots showed paired catalogue cards ending at different verti
 - A second fallback pinned the same workflow to `ubuntu-22.04` at `15e6be162153bb9ed313445d2204a9915bd2d3b9`. Run `37123235310` produced the same pre-step failure.
 - Because two explicit GitHub-hosted runner images fail identically before checkout while other issue-comment workflows can enter `in_progress`, changing the storefront code or repeating deploy commands is not evidence-based. The remaining blocker is GitHub Actions job provisioning/quota/policy for this production job path.
 - No production deployment was created; canonical production remains the last READY deployment. V6.20 source remains intact on main.
+
+
+## Preview-promotion fallback
+- Audited the existing `Storefront V6 Zero Cost Promote` path. It can promote an already-READY preview only when the candidate runtime is byte-equivalent to current main and the workflow runner is available.
+- Created fresh V6.20 candidate branch `deploy/storefront-v620-preview-promote-20261003` at `17d490e2291af2f48242d5ed042c6344f7224510` with marker r4 to attempt this alternate route.
+- Vercel did not create a deployment record for the fresh candidate either. Therefore there is no V6.20 READY preview that can be safely promoted, and promoting an older READY preview would roll back the V6.19/V6.20 runtime changes.
+- This closes the safe automated fallbacks currently available without fabricating a deployment or reverting current storefront fixes.
