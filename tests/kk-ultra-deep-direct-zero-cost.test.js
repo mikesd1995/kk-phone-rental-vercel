@@ -50,3 +50,16 @@ test('V25 Vercel-native path requires authenticated production OIDC control befo
   assert.ok(block.indexOf('READ_ONLY_WRITE_INVARIANT_BROKEN')>=0);
   assert.ok(block.indexOf("execution_path:'VERCEL_PRODUCTION_OIDC'")>=0);
 });
+
+
+test('V26 machine ingress is authorization-queue gated and cannot accept arbitrary month or commit',()=>{
+  const source=fs.readFileSync(path.join(ROOT,'api','kk-scanner-dispatch.js'),'utf8');
+  assert.match(source,/ultraDeepMachineRun/);
+  assert.match(source,/commandClaim/);
+  assert.match(source,/claim\.command\.month/);
+  assert.match(source,/claim\.command\.commit/);
+  assert.doesNotMatch(source,/machineInput\.month/);
+  assert.doesNotMatch(source,/machineInput\.commit/);
+  assert.match(source,/commandComplete/);
+  assert.match(source,/READ_ONLY_WRITE_INVARIANT_BROKEN/);
+});
