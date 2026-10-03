@@ -71,3 +71,16 @@ Unchanged invariants:
 pricing, availability calculation, booking status, event visibility, inventory, LINE destination/payload, APIs, Make, Google Sheets and production-write behavior.
 
 Fresh exact-head rendered acceptance remains mandatory before merge. Source-level completion is not represented as production visual acceptance.
+
+
+## Exact-head acceptance attempt 2 — 2026-10-03
+Head: `f62ab79bc71a530cdb7b107db07f11f2a0ee0f09`
+
+The failed jobs were rerun in-place rather than creating new deployment work:
+- Storefront Automated Visual QA `37053843185`, attempt 2: failure
+- Admin Regression `37053843202`, attempt 2: failure
+- Project Memory Enforcement `37053843282`, attempt 2: failure
+
+All three attempt-2 jobs terminated in roughly 2–3 seconds with **zero reported steps**. The GitHub Actions job API exposes no executed step and the runs expose no artifacts. This failure shape occurs before the repository test/visual commands can provide normal test evidence; it is therefore recorded as an execution/runner-level acceptance blocker, not as evidence that V6.10 rendered incorrectly or that an Admin test assertion failed.
+
+No speculative source change was made in response. Merge/deploy remains fail-closed. Production writes remain zero.
