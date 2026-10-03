@@ -5,9 +5,9 @@ const Verifier=require('./kk-ultra-deep-candidate-verifier.js');
 const Pricing=require('./kk-ultra-deep-competitor-price-scanner.js');
 const Commercial=require('./kk-discovery-commercial-prep.js');
 const Production=require('./kk-ultra-deep-production-runtime.js');
-const V2Adapter=require('./kk-ultra-deep-v2-runtime-adapter.js');
+const Rentability=require('./kk-ultra-deep-rentability-score.js');
 
-const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V24';
+const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V24_V2_2';
 function text(v){return String(v==null?'':v).trim();}
 
 async function run(input={},options={}){
@@ -15,7 +15,7 @@ async function run(input={},options={}){
   if(!/^\d{4}-\d{2}$/.test(month)){
     const e=new Error('month must be YYYY-MM'); e.code='ULTRA_DEEP_MONTH_INVALID'; throw e;
   }
-  const location=text(input.location)||'Bangkok Thailand';
+  const location=text(input.location)||'Bangkok Metropolitan Region Thailand';
   const env=options.env||process.env;
   const fetchImpl=options.fetchImpl||global.fetch;
   const preflightSnapshot=await Production.freshSnapshot(env,fetchImpl);
@@ -38,9 +38,34 @@ async function run(input={},options={}){
     return {version:VERSION,status:'BLOCKED_DISCOVERY_NOT_FULL',month,preflight,discovery,production_writes:0};
   }
 
-  const eligibleCandidates=(discovery.candidates||[]).filter(c=>!preflight.full_booking_dates.includes(String(c.event_date||'').slice(0,10)));
+  // V2.2 commercial qualification is a prioritization gate, not a discovery deletion gate.
+  // Preserve every discovered row for audit/learning. Booked/full-capacity dates still need
+  // official date/venue/poster verification even when new commercial inventory is unavailable.
+  const qualified=(discovery.candidates||[]).map(candidate=>{
+    const eventDate=String(candidate.event_date||'').slice(0,10);
+    const noCapacity=preflight.full_booking_dates.includes(eventDate);
+    const q=Rentability.qualify({
+      fandom_strength:candidate.fandom_strength,
+      social_demand:candidate.social_demand,
+      rental_intent:candidate.rental_intent,
+      commercial_evidence:candidate.commercial_evidence,
+      event_quality:candidate.event_quality,
+      sold_out_or_added_round:candidate.sold_out_or_added_round,
+      engagement_velocity_high:candidate.engagement_velocity_high,
+      competitor_rental_count:candidate.competitor_rental_count,
+      strong_fan_project_signal:candidate.strong_fan_project_signal,
+      verified_competitor_rental:candidate.verified_competitor_rental,
+      strong_commercial_signal:candidate.strong_commercial_signal,
+      booking_probability:candidate.booking_probability,
+      expected_rental_price:candidate.expected_rental_price,
+      available_inventory:noCapacity?0:Math.max(1,Number(preflight.phone_capacity||1))
+    },options.rentabilityConfig||{});
+    return {...candidate,rentability:q.rentability,revenue_potential:q.revenue,rentability_decision:q.decision,capacity_blocked:noCapacity};
+  });
+  const verifierCandidates=qualified.filter(c=>['FULL_LOOP','VERIFY_MORE','NO_CAPACITY'].includes(c.rentability_decision));
+  const watchCandidates=qualified.filter(c=>c.rentability_decision==='WATCH');
   const verifier=await Verifier.verifyBatch(
-    eligibleCandidates,
+    verifierCandidates,
     {month,location},
     {concurrency:4,timeout_ms:9000,fetchImpl}
   );
@@ -57,23 +82,10 @@ async function run(input={},options={}){
     competitor_prices:priceScan.evidence,
     posters:verifier.posters
   });
-  if(!(commercial.ready_count>0)&&options.executeWrites===true){
+  if(!(commercial.ready_count>0)){
     return {version:VERSION,status:'BLOCKED_NO_COMMERCIAL_CANDIDATES',month,preflight,discovery,verifier,competitor_price_scan:priceScan,commercial,production_writes:0};
   }
 
-  const v2_read_only=V2Adapter.buildReadOnlyPlan({month,candidates:verifier.verified_candidates,snapshot:preflightSnapshot,commercial});
-  if(options.executeWrites!==true){
-    return {
-      version:VERSION,status:v2_read_only.status==='READY'?'V2_READ_ONLY_READY':'V2_READ_ONLY_HOLD',month,mode:'READ_ONLY_ACCEPTANCE',
-      preflight,discovery:{status:discovery.status,candidate_count:discovery.candidate_count,eligible_candidate_count:eligibleCandidates.length,full:discovery.full},
-      verifier:{verified_count:verifier.verified_count,hold_count:verifier.hold_count},
-      competitor_price_scan:{evidence_count:priceScan.evidence_count,competitor_universe_count:priceScan.competitor_universe_count},
-      commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},v2_read_only,production_writes:0
-    };
-  }
-  return {version:VERSION,status:'BLOCKED_V2_COMMIT_NOT_WIRED',month,mode:'COMMIT',preflight,discovery:{status:discovery.status,candidate_count:discovery.candidate_count,full:discovery.full},verifier:{verified_count:verifier.verified_count,hold_count:verifier.hold_count},competitor_price_scan:{evidence_count:priceScan.evidence_count},commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},v2_read_only,blockers:['V2_GOVERNED_WRITER_MAPPING_REQUIRED'],production_writes:0};
-
-  /* Legacy handoff retained below as unreachable reference until V2 writer mapping is accepted. */
   const handoff={
     schema:'KK_ULTRA_DEEP_COMMERCIAL_HANDOFF_V1',
     created_at:new Date().toISOString(),
@@ -97,7 +109,8 @@ async function run(input={},options={}){
     month,
     mode:options.executeWrites===true?'COMMIT':'READ_ONLY_ACCEPTANCE',
     preflight,
-    discovery:{status:discovery.status,candidate_count:discovery.candidate_count,eligible_candidate_count:eligibleCandidates.length,full:discovery.full},
+    discovery:{status:discovery.status,candidate_count:discovery.candidate_count,qualified_candidate_count:qualified.length,verifier_candidate_count:verifierCandidates.length,watch_candidate_count:watchCandidates.length,no_capacity_candidate_count:qualified.filter(c=>c.capacity_blocked).length,full:discovery.full},
+    rentability:{qualified_count:qualified.length,full_loop_count:qualified.filter(c=>c.rentability_decision==='FULL_LOOP').length,verify_more_count:qualified.filter(c=>c.rentability_decision==='VERIFY_MORE').length,watch_count:watchCandidates.length,no_capacity_count:qualified.filter(c=>c.rentability_decision==='NO_CAPACITY').length},
     verifier:{verified_count:verifier.verified_count,hold_count:verifier.hold_count},
     competitor_price_scan:{evidence_count:priceScan.evidence_count,competitor_universe_count:priceScan.competitor_universe_count},
     commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},
