@@ -361,6 +361,9 @@
     },
     "api/kk-scanner-dispatch.js": {
       "maxDuration": 10
+    },
+    "api/kk-ultra-deep-machine.js": {
+      "maxDuration": 300
     }
   }
 }
