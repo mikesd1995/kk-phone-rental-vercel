@@ -154,10 +154,10 @@ module.exports=async function handler(req,res){
     const readonlyCommandId=queryValue(req,'readonly_command_id');
     if(readonlyCommandId){
       if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(readonlyCommandId)) return json(res,400,{ok:false,error_code:'COMMAND_ID_INVALID',business_writes:0});
-      const claim=await WriteControl.call('commandClaim',{command_id:readonlyCommandId});
+      const claim=await WriteControl.call('commandClaim',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId});
       if(!(claim&&claim.ok&&claim.authenticated&&claim.command)) return json(res,409,{ok:false,error_code:text(claim&&claim.error_code)||'COMMAND_CLAIM_REJECTED',business_writes:0});
       if(claim.command.commit===true){
-        await WriteControl.call('commandComplete',{command_id:readonlyCommandId,status:'FAILED',production_writes:0,error_code:'GET_COMMIT_FORBIDDEN'}).catch(()=>null);
+        await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:'FAILED',production_writes:0,error_code:'GET_COMMIT_FORBIDDEN'}).catch(()=>null);
         return json(res,405,{ok:false,error_code:'GET_COMMIT_FORBIDDEN',business_writes:0});
       }
       const month=text(claim.command.month);
@@ -165,10 +165,10 @@ module.exports=async function handler(req,res){
         const result=await UltraDeepDirect.run({month,location:'Bangkok Thailand'},{executeWrites:false,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-readonly-'+readonlyCommandId});
         if(Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
         const complete=result.status==='COMPLETE';
-        await WriteControl.call('commandComplete',{command_id:readonlyCommandId,status:complete?'COMPLETE':'FAILED',production_writes:0,error_code:complete?null:(result.blockers&&result.blockers[0]||'FULL_LOOP_NOT_COMPLETE')});
+        await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:complete?'COMPLETE':'FAILED',production_writes:0,error_code:complete?null:(result.blockers&&result.blockers[0]||'FULL_LOOP_NOT_COMPLETE')});
         return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_MACHINE_V26_READ_ONLY_GET',command_id:readonlyCommandId,month,mode:'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],preflight:result.preflight||null,production:result.production||null,business_writes:0});
       }catch(err){
-        await WriteControl.call('commandComplete',{command_id:readonlyCommandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
+        await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
         return json(res,500,{ok:false,phase:'ULTRA_DEEP_MACHINE_V26_READ_ONLY_GET',command_id:readonlyCommandId,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED',error:text(err&&err.message).slice(0,240),business_writes:0});
       }
     }
@@ -221,7 +221,7 @@ module.exports=async function handler(req,res){
   if(text(machineInput.action)==='ultraDeepMachineRun'){
     const commandId=text(machineInput.command_id);
     if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commandId)) return json(res,400,{ok:false,error_code:'COMMAND_ID_INVALID',business_writes:0});
-    const claim=await WriteControl.call('commandClaim',{command_id:commandId});
+    const claim=await WriteControl.call('commandClaim',{request_id:'ultra-deep-command:'+commandId,command_id:commandId});
     if(!(claim&&claim.ok&&claim.authenticated&&claim.command)) return json(res,409,{ok:false,error_code:text(claim&&claim.error_code)||'COMMAND_CLAIM_REJECTED',business_writes:0});
     const month=text(claim.command.month);
     const commit=claim.command.commit===true;
@@ -229,10 +229,10 @@ module.exports=async function handler(req,res){
       const result=await UltraDeepDirect.run({month,location:'Bangkok Thailand'},{executeWrites:commit,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-'+commandId});
       if(!commit&&Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
       const complete=result.status==='COMPLETE';
-      await WriteControl.call('commandComplete',{command_id:commandId,status:complete?'COMPLETE':'FAILED',production_writes:Number(result.production_writes||0),error_code:complete?null:(result.blockers&&result.blockers[0]||'FULL_LOOP_NOT_COMPLETE')});
+      await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:complete?'COMPLETE':'FAILED',production_writes:Number(result.production_writes||0),error_code:complete?null:(result.blockers&&result.blockers[0]||'FULL_LOOP_NOT_COMPLETE')});
       return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_MACHINE_V26',command_id:commandId,month,mode:commit?'COMMIT':'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],preflight:result.preflight||null,production:result.production||null,business_writes:Number(result.production_writes||0)});
     }catch(err){
-      await WriteControl.call('commandComplete',{command_id:commandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
+      await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
       return json(res,500,{ok:false,phase:'ULTRA_DEEP_MACHINE_V26',command_id:commandId,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED',error:text(err&&err.message).slice(0,240),business_writes:0});
     }
   }
