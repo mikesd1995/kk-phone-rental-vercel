@@ -1574,7 +1574,9 @@ function focusDialog(el,preferred){
   (target||list[0]||el).focus&& (target||list[0]||el).focus();
 }
 function restoreFocus(target){
-  if(target&&document.contains(target)&&typeof target.focus==="function")target.focus();
+  if(target&&document.contains(target)&&typeof target.focus==="function"){
+    try{target.focus({preventScroll:true});}catch(e){target.focus();}
+  }
 }
 var modalScrollY=0;
 function lockBody(){
