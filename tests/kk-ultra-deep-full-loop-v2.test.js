@@ -27,3 +27,9 @@ test('V2 read-only adapter excludes low-rentability new events but retains canon
 
 test('missing rentability evidence routes to VERIFY_MORE instead of false-negative WATCH',()=>{const q=Rent.qualify({available_inventory:1});assert.equal(q.decision,'VERIFY_MORE');assert.equal(q.signal_coverage.present,0);});
 test('zero capacity remains NO_CAPACITY even with missing scoring signals',()=>{const q=Rent.qualify({available_inventory:0});assert.equal(q.decision,'NO_CAPACITY');});
+
+const Writer=require('../server/kk-ultra-deep-v2-governed-writer.js');
+test('V2 writer refuses booked price mutation',()=>{assert.throws(()=>Writer.mapMutation({type:'UPDATE_PRICE',package_type:'PHONE_ONLY',to:890},{canonical_event_id:'E1',price_locked:true}),/booked price locked/);});
+test('V2 writer maps verified date venue poster to governed updateEvent',()=>{assert.equal(Writer.mapMutation({type:'UPDATE_DATE',to:'2026-10-15'},{canonical_event_id:'E1'}).event_date,'2026-10-15');assert.equal(Writer.mapMutation({type:'UPDATE_VENUE',to:'Hall B'},{canonical_event_id:'E1'}).venue,'Hall B');assert.equal(Writer.mapMutation({type:'UPDATE_POSTER',to:'https://x/p.jpg'},{canonical_event_id:'E1'}).poster_url,'https://x/p.jpg');});
+test('V2 exact readback validates date and venue fields',()=>{assert.equal(Writer.exactMatch({mutation:{type:'UPDATE_DATE'},admin:{event_date:'2026-10-15'}},{event:{event_date:'2026-10-15'}}),true);assert.equal(Writer.exactMatch({mutation:{type:'UPDATE_VENUE'},admin:{venue:'Hall B'}},{event:{venue:'Hall A'}}),false);});
+test('V2 create execution stays fail closed until package-aware create is wired',async()=>{await assert.rejects(()=>Writer.execute({decisions:[{event_key:'n',title:'New',event_date:'2026-10-20'}],mutations:[{event_key:'n',type:'CREATE_EVENT',price:890,poster_url:'https://x/p.jpg'}]},{executeWrites:true}),e=>e.code==='V2_CREATE_EXECUTOR_REQUIRED');});
