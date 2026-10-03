@@ -96,6 +96,15 @@ function resolveEventRow(rows,booking){
   // name+venue is already unique; multi-day events must fail closed.
   return candidates.length===1?candidates[0]:null;
 }
+function templateIdFromWebPackageId(packageId,eventId){
+  const pkg=String(packageId||'').trim();
+  const eid=String(eventId||'').trim();
+  if(!pkg) return '';
+  const tplPos=pkg.indexOf('TPL-');
+  if(tplPos>=0) return pkg.slice(tplPos);
+  if(eid && pkg.startsWith(eid+'-')) return pkg.slice(eid.length+1);
+  return pkg;
+}
 function packageLabel(row){
   const type=norm(row.package_type);
   const model=String(row.model_display||'').trim();
@@ -133,7 +142,10 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   const row=matches[0];
   const price=formatCanonicalPrice(row.price);
   if(!price) return null;
-  return {event_id:eventId,package_id:String(row.package_id||'').trim(),package_name:packageLabel(row),price_display:price};
+  const packageId=String(row.package_id||'').trim();
+  const templateId=templateIdFromWebPackageId(packageId,eventId);
+  if(!templateId) return null;
+  return {event_id:eventId,package_id:packageId,template_id:templateId,package_name:packageLabel(row),price_display:price};
 }
 async function replyFlex(replyToken, message, token, fetchImpl=fetch){
   const r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
@@ -168,4 +180,4 @@ module.exports=async function handler(req,res){
   try{for(const event of events) await processEvent(event,process.env,fetch); res.statusCode=200; return res.end('OK');}
   catch(err){console.error('[line-webhook]',err&&err.message?err.message:'processing failed');res.statusCode=500;return res.end('Processing failed');}
 };
-module.exports._test={rawBody,validSignature,parseBookingText,parseCsv,norm,canonicalDate,resolveEventRow,resolvePoster,resolveCanonicalPackage,packageLabel,formatCanonicalPrice,replyFlex,processEvent};
+module.exports._test={rawBody,validSignature,parseBookingText,parseCsv,norm,canonicalDate,resolveEventRow,resolvePoster,resolveCanonicalPackage,templateIdFromWebPackageId,packageLabel,formatCanonicalPrice,replyFlex,processEvent};
