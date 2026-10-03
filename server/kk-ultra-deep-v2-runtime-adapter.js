@@ -9,12 +9,19 @@ function bookingCountForEvent(snapshot,eventId){return (snapshot.bookings||[]).f
 function availableOnDate(snapshot,eventDate){
  const cap=Production.phoneInventoryCapacity(snapshot);const counts=Production.bookingCountByDate(snapshot);return Math.max(0,cap-Number(counts.get(String(eventDate||'').slice(0,10))||0));
 }
+function matchForV2(candidate,events=[]){
+ const direct=Production.matchExisting(candidate,events);if(direct.match||direct.ambiguous)return direct;
+ const sameTitle=events.filter(e=>Production.norm(e.event_name)===Production.norm(candidate.title));
+ if(sameTitle.length===1)return {match:{event:sameTitle[0],score:.9,reason:'EXACT_NAME_DATE_CHANGE'},ambiguous:false,candidates:[]};
+ if(sameTitle.length>1)return {match:null,ambiguous:true,candidates:sameTitle.slice(0,3).map(event=>({event,score:.9,reason:'EXACT_NAME_AMBIGUOUS_DATE'}))};
+ return direct;
+}
 function commercialByKey(commercial={}){return new Map((commercial.candidates||[]).map(x=>[text(x.event_key),x]));}
 function posterFor(row={}){const p=row.poster&&row.poster.selected;return p&&p.verified===true?p:null;}
 function competitorPrices(row={}){return row.pricing&&Array.isArray(row.pricing.evidence)?row.pricing.evidence:[];}
 function signalValue(candidate,key,fallback=null){const n=Number(candidate&&candidate[key]);return Number.isFinite(n)?n:fallback;}
 function normalizeCandidate(candidate,snapshot,commercialRow={}){
- const events=Production.snapshotEvents(snapshot),match=Production.matchExisting(candidate,events),existing=match.match&&match.match.event||null;
+ const events=Production.snapshotEvents(snapshot),match=matchForV2(candidate,events),existing=match.match&&match.match.event||null;
  const available=availableOnDate(snapshot,candidate.event_date);
  const rentalFit=signalValue(candidate,'rental_intent',signalValue(candidate,'rental_fit_score',null));
  const rentalIntent=rentalFit===null?0:(rentalFit<=10?rentalFit*10:rentalFit);
@@ -23,13 +30,14 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
  const qualification=existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0}:Rent.qualify(scoring);
  const poster=posterFor(commercialRow);
  const proposal=commercialRow.pricing&&commercialRow.pricing.proposal||{};
+ const priceTargets=existing?(existing.packages||[]).map(p=>({package_type:text(p.package_type).toUpperCase(),current_price:Number(p.price)||null,competitor_prices:exact.filter(x=>!text(x.package_type)||text(x.package_type).toUpperCase()===text(p.package_type).toUpperCase())})):[];
  return {
   event_key:text(candidate.event_key||candidate.candidate_id),title:text(candidate.title),event_date:text(candidate.event_date),
   exists_in_canonical:!!existing,canonical_event_id:existing&&text(existing.event_id)||null,
   owner_hidden:existing?existing.active_on_web===false:false,tombstone_locked:existing&&existing.tombstone_locked===true,history_state:existing&&text(existing.history_state)||'',
   booking_count:existing?bookingCountForEvent(snapshot,existing.event_id):0,
   current_price:existing&&existing.packages&&existing.packages.length===1?Number(existing.packages[0].price)||null:null,
-  competitor_prices:exact,current_date:existing&&text(existing.event_date)||'',verified_date:text(candidate.event_date),date_change_verified:!!existing&&text(existing.event_date)!==text(candidate.event_date),
+  price_targets:priceTargets,competitor_prices:exact,current_date:existing&&text(existing.event_date)||'',verified_date:text(candidate.event_date),date_change_verified:!!existing&&text(existing.event_date)!==text(candidate.event_date),
   current_venue:existing&&text(existing.venue)||'',verified_venue:text(candidate.venue),venue_change_verified:!!existing&&!!text(candidate.venue)&&text(existing.venue)!==text(candidate.venue),
   current_poster_url:existing&&text(existing.poster_image_url)||'',latest_official_poster_url:poster&&text(poster.image_url)||'',latest_official_poster_verified:!!poster,
   exact_event_verified:true,governed_fallback_price:proposal.proposal_available?Number(proposal.proposed_reference_price)||null:null,
@@ -43,4 +51,4 @@ function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
  const plan=V2.buildPlan({month,candidates:selected});
  return {version:VERSION,status:plan.status,normalized_count:normalized.length,selected_count:selected.length,excluded_count:excluded.length,excluded,plan,production_writes:0};
 }
-module.exports={VERSION,statusActive,bookingCountForEvent,availableOnDate,normalizeCandidate,buildReadOnlyPlan};
+module.exports={VERSION,statusActive,bookingCountForEvent,availableOnDate,matchForV2,normalizeCandidate,buildReadOnlyPlan};
