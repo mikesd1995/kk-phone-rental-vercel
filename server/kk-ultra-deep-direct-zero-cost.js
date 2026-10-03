@@ -15,7 +15,7 @@ async function run(input={},options={}){
   if(!/^\d{4}-\d{2}$/.test(month)){
     const e=new Error('month must be YYYY-MM'); e.code='ULTRA_DEEP_MONTH_INVALID'; throw e;
   }
-  const location=text(input.location)||'Bangkok Thailand';
+  const location=text(input.location)||'Bangkok Metropolitan Region Thailand';
   const env=options.env||process.env;
   const fetchImpl=options.fetchImpl||global.fetch;
   const preflightSnapshot=await Production.freshSnapshot(env,fetchImpl);
@@ -38,7 +38,9 @@ async function run(input={},options={}){
     return {version:VERSION,status:'BLOCKED_DISCOVERY_NOT_FULL',month,preflight,discovery,production_writes:0};
   }
 
-  const eligibleCandidates=(discovery.candidates||[]).filter(c=>!preflight.full_booking_dates.includes(String(c.event_date||'').slice(0,10)));
+  // Do not delete full-booked-date candidates: existing booked events still require verified metadata maintenance.
+  // V2Adapter applies capacity to new commercial candidates after canonical matching.
+  const eligibleCandidates=(discovery.candidates||[]);
   const verifier=await Verifier.verifyBatch(
     eligibleCandidates,
     {month,location},
