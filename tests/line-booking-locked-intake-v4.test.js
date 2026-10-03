@@ -38,7 +38,7 @@ test('writer serializes idempotency claim, row allocation, canonical A:T write a
   const s=writerBody();
   assert.match(s,/kkAcquireDocumentLock_\('LINE pending booking intake', 12000\)/);
   assert.match(source,/\^line:\[a-f0-9\]\{48\}\$/);
-  assert.match(s,/status: 'PENDING'/);
+  assert.match(s,/status\s*:\s*'PENDING'/);
   assert.match(s,/const row = kkFirstEmptyRow_\(KK\.bookings, 4, 5, 2, 19\)/);
   assert.match(s,/const bookingId = kkGenerateUniqueBookingId_\(event\.event_date\)/);
   assert.match(s,/row_number: row,[\s\S]*booking_id: bookingId/);
