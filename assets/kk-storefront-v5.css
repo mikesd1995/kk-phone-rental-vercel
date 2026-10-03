@@ -1236,7 +1236,7 @@ html[data-theme="dark"] .kk-journey-steps b{
   .browse-controls-shell{margin-bottom:12px!important}
   .event-search-shell{margin-bottom:5px!important}
   .event-search-wrap{min-height:44px!important;padding-inline:12px!important;border-radius:14px!important}
-  .event-search{min-height:42px!important;font-weight:500!important}
+  .event-search{min-height:44px!important;font-weight:500!important}
   .event-search::placeholder{font-weight:500!important}
   .event-search-count{margin:3px 3px 0!important;font-size:9.5px!important}
   .status-filter-bar{gap:5px!important;height:44px!important}
