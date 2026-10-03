@@ -57,7 +57,7 @@ async function run(input={},options={}){
     competitor_prices:priceScan.evidence,
     posters:verifier.posters
   });
-  if(!(commercial.ready_count>0)){
+  if(!(commercial.ready_count>0)&&options.executeWrites===true){
     return {version:VERSION,status:'BLOCKED_NO_COMMERCIAL_CANDIDATES',month,preflight,discovery,verifier,competitor_price_scan:priceScan,commercial,production_writes:0};
   }
 
@@ -71,6 +71,9 @@ async function run(input={},options={}){
       commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},v2_read_only,production_writes:0
     };
   }
+  return {version:VERSION,status:'BLOCKED_V2_COMMIT_NOT_WIRED',month,mode:'COMMIT',preflight,discovery:{status:discovery.status,candidate_count:discovery.candidate_count,full:discovery.full},verifier:{verified_count:verifier.verified_count,hold_count:verifier.hold_count},competitor_price_scan:{evidence_count:priceScan.evidence_count},commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},v2_read_only,blockers:['V2_GOVERNED_WRITER_MAPPING_REQUIRED'],production_writes:0};
+
+  /* Legacy handoff retained below as unreachable reference until V2 writer mapping is accepted. */
   const handoff={
     schema:'KK_ULTRA_DEEP_COMMERCIAL_HANDOFF_V1',
     created_at:new Date().toISOString(),
