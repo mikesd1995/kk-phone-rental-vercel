@@ -5,7 +5,7 @@ const TEAM_ID = "team_uaeOdVIjXMSW690ZM2wPuJyt";
 const PROJECT_NAME = "kk-phone-rental-vercel";
 const PROJECT_ID = "prj_snbAmpya7YGmOuMbv1o8T16ouxl6";
 const ENVIRONMENT = "production";
-const VERSION = "kk-admin-write-control-v1";
+const VERSION = "kk-admin-write-control-v27";
 const SCOPE = "core-admin";
 
 const EXPECTED_AUDIENCE = `https://vercel.com/${TEAM_SLUG}`;
@@ -270,6 +270,31 @@ Deno.serve(async (req: Request) => {
         business_writes: 0,
         google_sheet_writes: 0,
       });
+    }
+
+    if (action === "commandClaim") {
+      const commandId = String(body.command_id || "").trim();
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commandId)) return fail(400, "COMMAND_ID_INVALID", true);
+      const result = await rpc("kk_ultra_deep_command_claim", { p_command_id: commandId });
+      const command = result && typeof result === "object" && !Array.isArray(result) ? result : null;
+      if (!command) return fail(409, "COMMAND_NOT_PENDING", true);
+      return json(200, { ok: true, authenticated: true, command, business_writes: 0, google_sheet_writes: 0 });
+    }
+
+    if (action === "commandComplete") {
+      const commandId = String(body.command_id || "").trim();
+      const status = String(body.status || "");
+      const productionWrites = Number(body.production_writes ?? 0);
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commandId)) return fail(400, "COMMAND_ID_INVALID", true);
+      if (!["COMPLETE", "FAILED"].includes(status)) return fail(400, "COMMAND_STATUS_INVALID", true);
+      if (!Number.isInteger(productionWrites) || productionWrites < 0) return fail(400, "PRODUCTION_WRITES_INVALID", true);
+      const completed = await rpc("kk_ultra_deep_command_complete", {
+        p_command_id: commandId,
+        p_status: status,
+        p_production_writes: productionWrites,
+        p_error_code: body.error_code == null ? null : String(body.error_code).slice(0, 120),
+      });
+      return json(200, { ok: completed === true, authenticated: true, completed: completed === true, business_writes: 0, google_sheet_writes: 0 });
     }
 
     if (action === "receiptGet") {
