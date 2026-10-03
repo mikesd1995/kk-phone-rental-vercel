@@ -15,3 +15,11 @@ Poster/card geometry, two-column layout, V6.17 red full-state treatment, V6.16 e
 - No GitHub workflow runs were returned for the merge SHA on that pass.
 - Attempted the available Vercel deploy action as fallback; the connector returned `Tool deploy_to_vercel not found`, so no duplicate/untracked deployment was created.
 - Production must not be reported as V6.18 until a deployment for the merge SHA exists and the canonical domain serves the V6.18 marker.
+
+
+## Production recovery escalation — pass 2
+- Rechecked deployment inventory: no deployment exists for main recovery SHA `8acf2f0d01decfa8bba359d1796a2ab4691c8706`; no GitHub workflow run exists for that SHA.
+- Last healthy storefront production remains V6.15 (`633df565dcf6ec9cf66d3d784245a4badff961ab`).
+- Three newer main production deployments from Ultra Deep V26 are ERROR, while branch previews continue to build READY. This isolates the failure to the production/Git promotion path rather than the storefront build itself.
+- Created isolated recovery branch `deploy/storefront-v618-production-recovery-20261003` with runtime marker r3 at `5ee593269533301860ab1646e992c9a8d58d0fe5` to test whether a fresh branch event restores Git deployment creation. No deployment record materialized on the verification pass.
+- No business-data or production-write semantics were changed.
