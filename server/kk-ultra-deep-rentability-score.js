@@ -22,15 +22,17 @@ function revenuePotential(input={}){
  const expected_value=demand*probability*price*inventory;
  return {expected_value:Math.round(expected_value*100)/100,demand_score:clamp(input.demand_score),booking_probability:clamp(input.booking_probability),expected_rental_price:price,available_inventory:inventory};
 }
+function signalCoverage(input={}){const keys=['fandom_strength','social_demand','rental_intent','commercial_evidence','event_quality'];const present=keys.filter(k=>Number.isFinite(Number(input[k])));return {present:present.length,total:keys.length,ratio:present.length/keys.length,keys:present};}
 function qualify(input={},config={}){
- const rentability=score(input,config), revenue=revenuePotential({...input,demand_score:input.demand_score??rentability.total});
+ const coverage=signalCoverage(input), rentability=score(input,config), revenue=revenuePotential({...input,demand_score:input.demand_score??rentability.total});
  const capacity=Math.max(0,num(input.available_inventory));
  const override=Boolean(input.strong_commercial_signal||input.verified_competitor_rental);
  let decision;
  if(capacity===0) decision='NO_CAPACITY';
+ else if(coverage.present<Number(config.min_signal_count||3)) decision='VERIFY_MORE';
  else if(rentability.tier==='HIGH'||override) decision='FULL_LOOP';
  else if(rentability.tier==='MEDIUM') decision='VERIFY_MORE';
  else decision='WATCH';
- return {version:VERSION,decision,rentability,revenue,capacity,commercial_override:override,production_writes:0};
+ return {version:VERSION,decision,rentability,revenue,capacity,signal_coverage:coverage,commercial_override:override,production_writes:0};
 }
-module.exports={VERSION,DEFAULT_WEIGHTS,score,revenuePotential,qualify};
+module.exports={VERSION,DEFAULT_WEIGHTS,score,revenuePotential,signalCoverage,qualify};
