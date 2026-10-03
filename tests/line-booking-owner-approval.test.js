@@ -146,4 +146,6 @@ test('Apps Script owner decision is a separate atomic pending-only action',()=>{
   assert.match(body,/Owner decision readback failed/);
   assert.match(body,/LINE customer contact readback failed/);
   assert.match(body,/customer_contact: customerContact/);
+  assert.match(body,/customerContact = String\(current\[5\]/);
+  assert.match(body,/String\(persisted\[5\]/);
 });
