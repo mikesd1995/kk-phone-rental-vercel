@@ -82,8 +82,9 @@ test('PENDING replay self-reconciles only an exact claimed row and never allocat
   assert.match(helper,/kkBookingRequestIdFromNote_/);
 });
 
-test('public LINE webhook remains reply-only and does not activate booking writes',()=>{
-  assert.doesNotMatch(webhook,/line-booking-intake/);
-  assert.doesNotMatch(webhook,/createLineBookingPending/);
-  assert.doesNotMatch(webhook,/createBooking/);
+test('public LINE webhook activates only the governed owner-approval runtime',()=>{
+  assert.match(webhook,/line-booking-owner-approval/);
+  assert.match(webhook,/automationReadiness/);
+  assert.doesNotMatch(webhook,/action:\s*['"]createBooking['"]/);
+  assert.doesNotMatch(webhook,/action:\s*['"]updateBooking['"]/);
 });
