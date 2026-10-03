@@ -29,3 +29,6 @@ Because the repository-wide Admin Regression workflow is currently manual-only, 
 
 ## Canonical resolver closure
 The public Web Packages feed exposes package_id rather than a dedicated template_id column. The webhook resolver now derives canonical template_id with the same rules as Apps Script (embedded TPL- suffix first, event-prefix stripping second, package_id fallback last) and returns it with event_id/package_id. This closes the previously dormant contract gap where intake would otherwise fail CANONICAL_RESOLUTION_REQUIRED if activated.
+
+## Acceptance execution note
+GitHub Actions runs 37127110696 and 37127324033 failed before runner allocation (no steps, runner_id=0), and Vercel Preview reported build-rate-limit. These are infrastructure/quota failures rather than executed test failures. As a fallback, the changed Node intake contract, template-id derivation, inserted Apps Script block syntax, and static writer invariants were exercised in an isolated local harness. Assertion-scope/format brittleness found by that fallback was corrected before merge consideration. Public webhook activation remains disabled regardless of acceptance outcome.
