@@ -144,3 +144,13 @@ CREATE_EVENT remains deliberately fail-closed: if the V2 plan contains CREATE_EV
 COMMIT also remains blocked when the V2 plan is HOLD. For update-only READY plans, the writer uses governed Admin actions and V2 acceptance requires write count equality plus every receipt exact-match.
 
 Runtime acceptance evidence at this point: GitHub connector reports no PR-triggered workflow runs for prior merged head `a1311431...`; therefore Node/production runtime execution is not yet proven by CI. Do not label production Full Loop COMPLETE solely from merge evidence.
+
+
+## V2 package-aware atomic create — 2026-10-04
+Initial PR #610 was closed without merge after main advanced and mergeability failed. Replacement PR #611 was selectively rebased on current main and merged as `e38db0a4dc3fa0f55657c62d67e6474da517f236`.
+
+V2 CREATE_EVENT now reuses the existing `kk-governed-storefront-executor.js` instead of inventing a second production create authority. The atomic create plan contains event title/date/venue, verified poster, and three canonical package overrides in the same governed create payload: PHONE_ONLY active at V2 approved target price, LENS_ONLY hidden at canonical lens baseline, PHONE_LENS_BUNDLE active at phone target + lens baseline. All three canonical template IDs must be present in the fresh snapshot; otherwise create fails closed with V2_CREATE_PACKAGE_IDENTITY_REQUIRED and writes nothing.
+
+The generic V2 update executor still rejects CREATE_EVENT; create must use the dedicated package-aware path. The governed storefront executor retains duplicate/tombstone contract requirements and exact storefront readback. V2 COMMIT combines update receipts and create receipts; acceptance requires every receipt verified and total production_writes equal planned_mutation_count.
+
+No production COMMIT was executed during this implementation. GitHub connector returned zero PR-triggered workflow runs for merge SHA `e38db0a4...`, so CI/runtime acceptance remains unproven from Actions. Next operational gate: execute a fresh V2 READ_ONLY run on current deployed/runtime binding, inspect HOLD/score/coverage/mutation plan, then only execute COMMIT if runtime is current and plan is READY; verify canonical + storefront exact readback.
