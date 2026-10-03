@@ -37,7 +37,7 @@ test('Apps Script exposes a separate pending route while legacy createBooking re
 test('writer serializes idempotency claim, row allocation, canonical A:T write and readback under document lock',()=>{
   const s=writerBody();
   assert.match(s,/kkAcquireDocumentLock_\('LINE pending booking intake', 12000\)/);
-  assert.match(s,/\^line:\[a-f0-9\]\{48\}\$/);
+  assert.match(source,/\^line:\[a-f0-9\]\{48\}\$/);
   assert.match(s,/status: 'PENDING'/);
   assert.match(s,/const row = kkFirstEmptyRow_\(KK\.bookings, 4, 5, 2, 19\)/);
   assert.match(s,/const bookingId = kkGenerateUniqueBookingId_\(event\.event_date\)/);
@@ -52,8 +52,8 @@ test('pending LINE writer never allocates phone or lens assets',()=>{
   const s=writerBody();
   assert.match(s,/Pending LINE intake must not assign physical assets/);
   assert.doesNotMatch(s,/kkFindAvailableAsset_/);
-  assert.match(s,/pkgType, '', '', pickupTime, '', 'unpaid', 0/);
-  assert.match(s,/phone_asset_id: '',[\s\S]*lens_asset_id: ''/);
+  assert.match(s,/pkgType,\s*'',\s*'',\s*pickupTime,\s*'',\s*'unpaid',\s*0/);
+  assert.match(s,/phone_asset_id\s*:\s*'',[\s\S]*lens_asset_id\s*:\s*''/);
 });
 
 test('canonical ID uses current 9.5.13 direct column-A ownership and exact readback',()=>{
@@ -76,7 +76,7 @@ test('PENDING replay self-reconciles only an exact claimed row and never allocat
   const helper=source.slice(helperStart,helperEnd);
   assert.doesNotMatch(helper,/setValues\(/);
   assert.doesNotMatch(helper,/kkFirstEmptyRow_/);
-  assert.match(helper,/status.*pending/);
+  assert.match(helper,/readback\[2\][\s\S]*'pending'/);
   assert.match(helper,/LINE/);
   assert.match(helper,/unpaid/);
   assert.match(helper,/kkBookingRequestIdFromNote_/);
