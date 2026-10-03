@@ -166,3 +166,13 @@ Vercel connector exposes a deploy action name but invocation returned tool-not-f
 PR #612 added `.github/workflows/ultra-deep-v2-acceptance.yml` plus package.json syntax coverage for all V2 modules, merged as `86ea736d7e125609066924172b1b9148bfd91853`. PR workflow run `37148932957`, job `111278517372`, concluded failure with zero job steps and unavailable log blob. Classification: RUNNER/PROVISIONING failure before code execution, NOT a V2 regression-test failure. Do not spam reruns until runner allocation is healthy.
 
 Current blockers are operational, not an identified V2 code defect: (A) production deployment stale; (B) GitHub-hosted runner provisioning unavailable. Required next evidence: current-main Vercel READY deployment, production binding/readback to current SHA, fresh V2 READ_ONLY with production_writes=0, then COMMIT only if plan READY, followed by canonical/storefront exact readback.
+
+
+## Definitive production deployment blocker — 2026-10-04
+PR #613 fixed a real runtime scope mismatch in `api/kk-admin-guard.js`: both Ultra Deep admin entrypoints now default to `Bangkok Metropolitan Region Thailand` rather than `Bangkok Thailand`, aligning production execution with the V2 Bangkok+vicinity coverage contract. Merged as `d21d5db5c22894f52a184119e4f7c4cc9b14940c`.
+
+A prior docs-only deployment-witness branch did not create a deployment because `vercel.json` intentionally enables Git deployment only for main and `scripts/vercel-ignore-build.js` intentionally ignores docs/tests-only diffs. This was expected behavior, not deployment proof.
+
+After #613, the main commit contained an actual runtime change and therefore correctly requested a Vercel production build. GitHub combined status for `d21d5db5...` reports Vercel state=FAILURE with target reason `build-rate-limit`. This is definitive evidence that the remaining deployment blocker is Vercel build quota/rate limit, not ignore-build and not an identified V2 code failure. Vercel deployment list still shows production `dpl_8xqonqLFnB84QN2WqwELKaaYjW9V` at stale SHA `12c7b0f3...`.
+
+Do NOT trigger more no-op builds while rate-limited. Do NOT run V2 COMMIT on stale production. Resume sequence when quota is available: deploy current main (>= d21d5db5) -> verify READY production SHA -> V2 READ_ONLY October with production_writes=0 -> inspect coverage/rentability/HOLD/mutations -> COMMIT only if READY -> exact canonical/storefront readback -> record Full Loop acceptance.
