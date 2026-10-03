@@ -81,7 +81,7 @@ var I18N = {
     meta_description:"KK Phone Rental บริการเช่ามือถือสำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ เลือกงาน เช็กคิวว่าง แล้วจองผ่าน LINE OA",
     event_meta_description:"เช่ามือถือสำหรับงาน {event} วันที่ {date} ดูแพ็กเกจและจองผ่าน LINE OA",
     brand_subtitle:"Concert Phone Rental",
-    hero_body:"เช่า vivo X300 Pro + Lens สำหรับคอนเสิร์ตและแฟนมีต · เช็กคิวก่อนจอง รับ–คืนที่หน้างาน",
+    hero_body:"เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต · เลือกงาน เช็กคิวว่าง แล้วรับ–คืนที่หน้างาน",
     hero_cta:"เช็กงานที่ยังว่าง",
     hero_secondary:"เช่ายังไง?",
     benefit_insurance:"จองง่ายขึ้น · ฟรีประกันเครื่องและไม่ต้องวางมัดจำ",
@@ -221,7 +221,7 @@ var I18N = {
     meta_description:"Phone rental for concerts, fan meetings and events. Choose an event, check availability, and book directly with KK Phone Rental via LINE OA.",
     event_meta_description:"Rent a phone for {event} on {date}. View available packages and book via LINE OA.",
     brand_subtitle:"Concert Phone Rental",
-    hero_body:"Rent a vivo X300 Pro + Lens for concerts and fan meetings. Check availability first, then pick up and return at the venue.",
+    hero_body:"Phone rental for concerts and fan meetings. Choose your event, check availability, then pick up and return at the venue.",
     hero_cta:"Check available events",
     hero_secondary:"How to rent",
     benefit_insurance:"Book with less hassle · Free insurance, no deposit",
@@ -386,7 +386,7 @@ function applyStaticLanguage(){
   document.documentElement.lang=currentLang;
   setText(".skip-link","skip_link");
   setText(".v3-brand-copy small","brand_subtitle");
-  var heroEyebrow=document.querySelector(".v3-eyebrow"); if(heroEyebrow)heroEyebrow.innerHTML=currentLang==="en"?"CONCERT PHONE RENTAL<br><span>VIVO X300 PRO + LENS</span>":"เช่ามือถือไปคอน<br><span>VIVO X300 PRO + LENS</span>";
+  var heroEyebrow=document.querySelector(".v3-eyebrow"); if(heroEyebrow)heroEyebrow.innerHTML=currentLang==="en"?"CONCERT PHONE RENTAL<br><span>EVENT PICKUP</span>":"เช่ามือถือไปคอน<br><span>รับ–คืนหน้างาน</span>";
   var heroTitle=document.querySelector("#v2-intro-title"); if(heroTitle)heroTitle.innerHTML=currentLang==="en"?"BRING THE STAGE<br><em>CLOSER.</em>":"ไกลแค่ไหน<br><em>ก็เก็บโมเมนต์ได้ใกล้กว่า</em>";
   setText(".v3-hero-copy>p","hero_body");
   var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">→</span>';
