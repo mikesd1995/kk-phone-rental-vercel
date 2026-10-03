@@ -84,35 +84,34 @@ async function createPendingBooking(event,booking,canonical,env=process.env,fetc
   }
   return Object.assign({status:'PENDING_CREATED',request_id:intent.payload.request_id},canonicalResult);
 }
-function sigFor(decision,bookingId,customerUserId,secret){
+function sigFor(decision,bookingId,secret){
   return crypto.createHmac('sha256',secret)
-    .update([VERSION,decision,bookingId,customerUserId].join('|'),'utf8')
+    .update([VERSION,decision,bookingId].join('|'),'utf8')
     .digest('base64url')
     .slice(0,24);
 }
-function decisionData(decision,bookingId,customerUserId,env=process.env){
+function decisionData(decision,bookingId,env=process.env){
   const d=decision==='approve'?'approve':decision==='reject'?'reject':'';
-  const bid=text(bookingId), uid=text(customerUserId), secret=approvalSecret(env);
-  if(!d||!bid||!uid||!secret) throw Object.assign(new Error('approval data incomplete'),{code:'LINE_APPROVAL_DATA_INCOMPLETE'});
-  return ['kkb1',d,bid,uid,sigFor(d,bid,uid,secret)].join('|');
+  const bid=text(bookingId), secret=approvalSecret(env);
+  if(!d||!bid||!secret) throw Object.assign(new Error('approval data incomplete'),{code:'LINE_APPROVAL_DATA_INCOMPLETE'});
+  return ['kkb1',d,bid,sigFor(d,bid,secret)].join('|');
 }
 function parseDecisionData(value,env=process.env){
   const parts=text(value).split('|');
-  if(parts.length!==5||parts[0]!=='kkb1') return null;
-  const [,decision,bookingId,customerUserId,sig]=parts;
-  if(!['approve','reject'].includes(decision)||!bookingId||!customerUserId||!sig) return null;
+  if(parts.length!==4||parts[0]!=='kkb1') return null;
+  const [,decision,bookingId,sig]=parts;
+  if(!['approve','reject'].includes(decision)||!bookingId||!sig) return null;
   const secret=approvalSecret(env);
   if(!secret) return null;
-  const expected=sigFor(decision,bookingId,customerUserId,secret);
+  const expected=sigFor(decision,bookingId,secret);
   const a=Buffer.from(expected),b=Buffer.from(sig);
   if(a.length!==b.length||!crypto.timingSafeEqual(a,b)) return null;
-  return {decision,booking_id:bookingId,customer_user_id:customerUserId};
+  return {decision,booking_id:bookingId};
 }
 function ownerApprovalMessage(ctx={},env=process.env){
   const bookingId=text(ctx.booking_id);
-  const customerUserId=text(ctx.customer_user_id);
-  const approve=decisionData('approve',bookingId,customerUserId,env);
-  const reject=decisionData('reject',bookingId,customerUserId,env);
+  const approve=decisionData('approve',bookingId,env);
+  const reject=decisionData('reject',bookingId,env);
   const eventName=text(ctx.event_name)||'-';
   const date=text(ctx.event_date)||'-';
   const packageName=text(ctx.package_name)||'-';
@@ -199,9 +198,15 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_OWNER_DECISION_READBACK_MISMATCH';
     throw err;
   }
+  const customerUserId=text(data.customer_contact);
+  if(!customerUserId){
+    const err=new Error('Canonical LINE customer contact missing after owner decision');
+    err.code='LINE_CUSTOMER_CONTACT_READBACK_REQUIRED';
+    throw err;
+  }
   const sends=[];
   if(event.replyToken) sends.push(replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl));
-  sends.push(pushMessage(parsed.customer_user_id,customerDecisionMessage(decision,parsed.booking_id),env,fetchImpl));
+  sends.push(pushMessage(customerUserId,customerDecisionMessage(decision,parsed.booking_id),env,fetchImpl));
   await Promise.all(sends);
   return {handled:true,status:expected.toUpperCase(),booking_id:parsed.booking_id,idempotent_replay:Boolean(data.idempotent_replay)};
 }
