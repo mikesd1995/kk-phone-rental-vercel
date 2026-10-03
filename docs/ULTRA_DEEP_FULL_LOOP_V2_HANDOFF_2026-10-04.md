@@ -132,3 +132,15 @@ The current direct runner builds V2 READ_ONLY through `kk-ultra-deep-v2-runtime-
 
 ### Acceptance caveat
 PR #608 is merged and diff-reviewed, but connector editing alone does not prove Node test execution or a production READ_ONLY run. Do not claim production COMPLETE until runtime acceptance is executed and V2 governed-writer mapping + exact readback are implemented and proven.
+
+
+## V2 governed writer mapping — 2026-10-04
+PR #609 merged as `29204d8fa5f5dfe2a25a59f9bcb4825fe2ccbe9f`.
+
+Added `server/kk-ultra-deep-v2-governed-writer.js` and wired safe V2 UPDATE mutations into the existing Admin guard boundary. UPDATE_DATE, UPDATE_VENUE, UPDATE_POSTER and unbooked UPDATE_PRICE compile deterministically and require exact post-write readback. UPDATE_PRICE requires canonical event_id + canonical package template_id; package_type is never guessed as template identity. Any booked price mutation is refused again at writer boundary.
+
+CREATE_EVENT remains deliberately fail-closed: if the V2 plan contains CREATE_EVENT, COMMIT returns BLOCKED_V2_CREATE_NOT_ATOMIC / V2_PACKAGE_AWARE_CREATE_REQUIRED with zero V2 writes. Reason: a new storefront event must be created with package/price semantics proven atomically; creating a bare event first risks an incomplete storefront card.
+
+COMMIT also remains blocked when the V2 plan is HOLD. For update-only READY plans, the writer uses governed Admin actions and V2 acceptance requires write count equality plus every receipt exact-match.
+
+Runtime acceptance evidence at this point: GitHub connector reports no PR-triggered workflow runs for prior merged head `a1311431...`; therefore Node/production runtime execution is not yet proven by CI. Do not label production Full Loop COMPLETE solely from merge evidence.
