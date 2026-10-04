@@ -1,0 +1,2 @@
+# Skill: incident-debugger
+Use for CI, runtime, deployment, data and provider incidents. Preserve failure evidence, classify the first failing boundary, consult existing reliability fingerprints/known repair, apply the minimum coherent repair, add/strengthen regression coverage and require independent review. Never create a replacement source of truth/runner/writer to hide a symptom.
