@@ -186,3 +186,13 @@ Attempting an authenticated Vercel fetch of production `/api/kk-admin-guard` thr
 GitHub V2 acceptance run `37148932957` was retried once now that infrastructure had changed. Retry was accepted, but new job `111428741623` again completed failure with no steps, confirming runner/provisioning failure before code execution. Do not rerun-spam.
 
 Current gate classification: V2 minimum production runtime = PASS; production business writes = 0; READ_ONLY invocation = BLOCKED by authenticated execution path; GitHub focused tests = BLOCKED by runner provisioning. Next safe action is to use an existing authorized server-to-server/OIDC execution path when available, then run October READ_ONLY with commit=false and verify production_writes=0. Do not request or expose owner PIN merely to bypass this gate.
+
+
+## Machine READ_ONLY bridge recovery — 2026-10-04
+Inspection found an existing governed machine acceptance path in `api/kk-scanner-dispatch.js`: a canonical command is claimed through `admin-write-control-oidc`, the GET READ_ONLY path forces `executeWrites:false`, and a nonzero production write count is rejected by `READ_ONLY_WRITE_INVARIANT_BROKEN`. This is safer than using the owner Admin PIN and was retained.
+
+Two bridge defects were fixed in PR #623: machine execution still hard-coded `Bangkok Thailand` instead of the V2 Bangkok Metropolitan Region scope, and machine responses were mislabeled V26. PR #623 merged as `8c4ddb9bcece6b3f74cf0ff9ce709740542af186`; it preserves existing OIDC command authority and write invariants, changes the machine/default scanner location to `Bangkok Metropolitan Region Thailand`, and reports `ULTRA_DEEP_V2_READ_ONLY_GET` / `ULTRA_DEEP_V2_MACHINE` plus `UltraDeepDirect.VERSION` in evidence.
+
+Vercel production deployment `dpl_7kWDtwQ52DbMPWnJWBhccHyEPo5t` for exact SHA `8c4ddb9...` built successfully and is READY target=production with production aliases mapped. Build completed without a code error; only non-blocking Node engine/middleware warnings were observed.
+
+Do not fabricate a `readonly_command_id`: the machine path requires a canonical command already present in the command ledger and claims it through governed write-control. Next acceptance action is to obtain/use the canonical October 2026 READ_ONLY command through the existing command creation/approval mechanism, then call the production machine GET path and verify `business_writes=0`. COMMIT remains forbidden until that result is READY/COMPLETE and inspected.
