@@ -48,3 +48,13 @@ CI/provider availability and production deployment state are acceptance concerns
 The pre-existing Admin Regression trigger mismatch was repaired in this cleanup branch. `.github/workflows/admin-regression.yml` now runs on governed pull-request changes and main pushes, while retaining manual dispatch. Path filters cover canonical contracts, skills, runtime/config/scripts/tests and workflow/package changes. This makes the existing `npm test`, invariant gate and Code Intelligence benchmark actual PR/main regression evidence instead of a manual-only assertion.
 
 A direct local clone fallback was attempted from the execution environment but failed before checkout because DNS could not resolve github.com. This is environment/network evidence, not a repository test failure. GitHub-side CI remains the canonical exact-head execution path.
+
+## Exact-head acceptance evidence
+Exact head `a9a32b9896cdfdee076d79b4f6ccc5b7a347cd85` triggered the repaired PR gates.
+
+- Admin Regression run 37173678795: attempt 1 failed before any step; job reported zero steps and no usable job log. Failed-jobs retry was requested successfully; attempt 2 again completed failure within seconds before executing repository steps.
+- Ultra Deep V2 Acceptance run 37173678789: same zero-step/provisioning failure pattern; attempt 2 also failed before repository execution.
+- Local clone fallback was attempted separately and failed before checkout because the execution environment could not resolve github.com.
+- Vercel remains externally blocked by build-rate-limit.
+
+Classification: `EXTERNAL_EXECUTION_INFRA_BLOCKED`, not `CODE_TEST_FAILED`. Do not represent these runs as regression failures of repository code, and do not merge under the canonical acceptance contract until an executable exact-head regression witness exists. Repeated retries should be avoided until runner availability changes.
