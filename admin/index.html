@@ -196,15 +196,15 @@
 
         <section class="tab-panel" id="tab-inbox">
           <div class="card inbox-hero">
-            <div><span class="eyebrow">Unified Inbox v1</span><h2>LINE + X</h2><p class="hint">ศูนย์รวมบทสนทนา LINE/X · ตอบ LINE ได้หลัง owner confirmation และเก็บ audit ทุกครั้ง</p></div>
-            <div class="inbox-safety"><span>Owner confirm</span><span>No auto-send</span><span>No auto-merge</span></div>
+            <div><span class="eyebrow">Unified Inbox</span><h2>LINE + X</h2><p class="hint">รวมแชทลูกค้าไว้ที่เดียว · ตอบ LINE จากหลังบ้านได้ · ทุกการส่งต้องยืนยันโดยเจ้าของร้าน</p></div>
+            <div class="inbox-safety"><span>ยืนยันก่อนส่ง</span><span>ไม่ส่งอัตโนมัติ</span><span>ไม่รวมข้อมูลอัตโนมัติ</span></div>
           </div>
           <div class="card inbox-toolbar">
             <label>ช่องทาง<select id="inboxChannelFilter"><option value="">ทั้งหมด</option><option value="line">LINE</option><option value="x">X</option></select></label>
             <label>สถานะ<select id="inboxStatusFilter"><option value="">ทั้งหมด</option><option value="new">ใหม่</option><option value="open">กำลังคุย</option><option value="waiting_customer">รอลูกค้า</option><option value="booked">จองแล้ว</option><option value="closed">ปิด</option></select></label>
             <label class="inbox-search">ค้นหา<input id="inboxSearch" type="search" placeholder="ชื่อ / @X / LINE / ข้อความ / Booking" autocomplete="off" /></label>
           </div>
-          <div id="inboxSafetyNotice" class="card inbox-empty"><strong>Unified Inbox แบบ fail-closed</strong><span>LINE profile จะเติมชื่ออัตโนมัติเมื่อ provider พร้อม · การส่งต้องยืนยันโดย owner ทุกครั้ง · X outbound ยังปิด</span></div>
+          <div id="inboxSafetyNotice" class="card inbox-empty"><strong>โหมดปลอดภัย</strong><span>ชื่อโปรไฟล์ LINE จะอัปเดตอัตโนมัติ · การส่งข้อความต้องยืนยันทุกครั้ง · การตอบผ่าน X ยังปิดอยู่</span></div>
           <div class="inbox-layout">
             <div class="card inbox-list-card"><div class="card-head"><div><h2>บทสนทนา</h2><small id="inboxCount">0 รายการ</small><small id="inboxLiveStatus" class="inbox-live-status" data-state="idle">อัปเดตอัตโนมัติทุก 4 วินาที</small></div></div><div id="inboxConversationList" class="inbox-conversation-list"></div></div>
             <div class="card inbox-thread-card"><div class="card-head inbox-thread-head"><div><h2 id="inboxThreadTitle">เลือกบทสนทนา</h2><small id="inboxThreadMeta">LINE / X</small></div><button class="btn secondary inbox-rename-trigger" type="button" id="inboxRenameBtn" disabled>แก้ชื่อ</button></div><div id="inboxThread" class="inbox-thread"><div class="inbox-placeholder">เลือกบทสนทนาเพื่อดู timeline</div></div><div class="inbox-compose-disabled"><textarea id="inboxComposeText" maxlength="5000" disabled placeholder="เลือกแชท LINE เพื่อพิมพ์ข้อความ"></textarea><button class="btn primary" type="button" id="inboxSendBtn" disabled>ส่งข้อความ</button></div><small id="inboxComposeStatus" class="hint">เลือกแชท LINE เพื่อเริ่มตอบลูกค้า</small></div>
@@ -227,7 +227,7 @@
             </label>
             <div id="inboxRenameError" class="inbox-rename-error" role="alert" hidden></div>
             <div class="inbox-rename-actions">
-              <button class="btn ghost" type="button" id="inboxRenameReset">ใช้ชื่อ LINE</button>
+              <button class="btn ghost" type="button" id="inboxRenameReset">ใช้ชื่อโปรไฟล์</button>
               <span class="inbox-rename-action-spacer"></span>
               <button class="btn secondary" type="button" id="inboxRenameCancelBottom">ยกเลิก</button>
               <button class="btn primary" type="button" id="inboxRenameSave">บันทึกชื่อ</button>
