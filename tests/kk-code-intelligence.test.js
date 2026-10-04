@@ -120,3 +120,21 @@ test('Unified Inbox task routes to the actual Admin and LINE/X integration surfa
   assert.equal(pack.targeted_tests.includes('tests/kk-admin-inbox-preview.test.js'),true);
   assert.equal(pack.targeted_tests.includes('tests/line-booking-inbox-tee.test.js'),true);
 });
+
+test('canonical KK contracts and domain skills are routed into relevant context packs',()=>{
+  const storefront=CodeIntel.contextPack('ปรับ UX หน้าบ้าน mobile search poster',{root});
+  assert.ok(storefront.skills.includes('skills/storefront-ux/SKILL.md'));
+  assert.ok(storefront.skills.includes('skills/visual-qa/SKILL.md'));
+  assert.ok(storefront.docs.includes('DESIGN.md'));
+  assert.ok(storefront.docs.includes('ACCEPTANCE.md'));
+
+  const pricing=CodeIntel.contextPack('ตรวจ pricing package ราคา',{root});
+  assert.ok(pricing.skills.includes('skills/pricing/SKILL.md'));
+  assert.ok(pricing.docs.includes('ARCHITECTURE.md'));
+  assert.ok(pricing.docs.includes('ACCEPTANCE.md'));
+
+  const incident=CodeIntel.contextPack('debug production incident regression',{root});
+  assert.ok(incident.skills.includes('skills/incident-debugger/SKILL.md'));
+  assert.ok(incident.skills.includes('skills/learning-review/SKILL.md'));
+  assert.ok(incident.docs.includes('RUNBOOK.md'));
+});
