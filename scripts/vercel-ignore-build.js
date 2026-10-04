@@ -6,6 +6,7 @@ const SAFE_PREVIEW_ONLY_PATTERNS = [
   /^\.github\//,
   /^docs\//,
   /^tests\//,
+  /^skills\//,
   /^scripts\//,
   /^README(?:\..*)?$/i,
   /^[^/]+\.md$/i
