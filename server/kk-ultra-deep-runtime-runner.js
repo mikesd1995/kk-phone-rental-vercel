@@ -217,7 +217,14 @@ async function runMonthlyUltraDeep(input={},options={}){
   const knownMissCandidates=flattenCandidates(knownMissExecution);
 
   const plan=MonthlyPlan.build(input);
-  const execution=await ProviderExecutor.executeGapPlan(plan,{providers});
+  const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
+  // Main discovery and the independent reference sweep are read-only and independent after
+  // the known-miss probe. Run them concurrently and use the executor's bounded max concurrency
+  // so production READ_ONLY stays inside the serverless duration without dropping coverage.
+  const [execution,referenceExecution]=await Promise.all([
+    ProviderExecutor.executeGapPlan(plan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY}),
+    ProviderExecutor.executeGapPlan(referencePlan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY})
+  ]);
   const receipts=sourceUniverseReceipts(plan,execution);
   const universe=SourceRegistry.buildUniverseProof(receipts);
   const candidates=flattenCandidates(execution);
@@ -226,8 +233,6 @@ async function runMonthlyUltraDeep(input={},options={}){
   discoveryProof.has_evidence=candidates.length>0;
   discoveryProof.complete=discoveryProof.complete && discoveryProof.has_evidence;
 
-  const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
-  const referenceExecution=await ProviderExecutor.executeGapPlan(referencePlan,{providers});
   const referenceCandidates=flattenCandidates(referenceExecution);
   const scopedReferenceCandidates=scopeReferenceCandidates(referenceCandidates,{month:plan.range.month,location:plan.location});
   const referenceProof=executionProof(referenceExecution);
