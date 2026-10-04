@@ -190,6 +190,24 @@
       ],
       "supersedes": [],
       "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:admin:small-cleanup:20261004",
+      "occurred_at": "2026-10-04T16:30:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "admin_backend",
+      "summary": "Admin backend small-cleanup audit found no duplicate static HTML ids, no nav/tab mismatch, and all eight Admin forms are wired. Low-risk Inbox cleanup adds durable audited mark-read semantics, clears unread badges when actually read, preserves unread while owner is scrolled up, formats message timestamps in Asia/Bangkok, gives non-text messages readable fallback labels, and removes internal/English copy roughness. Actual media retrieval/rendering, Booking Flex mirroring, LINE OA Manager outbound reconciliation, Apps Script source gate, Direct Writer identity, Issue #489 data integrity, and Vercel production activation remain separate larger work.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/ADMIN_BACKEND_SMALL_CLEANUP_2026-10-04.md",
+        "admin/inbox-preview.js",
+        "admin/index.html",
+        "api/kk-admin-guard.js",
+        "server/kk-inbox-postgrest-store.js",
+        "supabase/kk_inbox_v1.sql"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
     }
   ]
 }

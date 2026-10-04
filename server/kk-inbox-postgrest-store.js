@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='KK_INBOX_POSTGREST_STORE_V3';
+const VERSION='KK_INBOX_POSTGREST_STORE_V4';
 function required(v,name){const s=String(v||'').trim();if(!s)throw Object.assign(new Error(name+' required'),{code:'INBOX_STORE_CONFIG_REQUIRED'});return s;}
 function createPostgrestStore(options={}){
  const base=required(options.url||process.env.KK_INBOX_SUPABASE_URL,'KK_INBOX_SUPABASE_URL').replace(/\/$/,'');
@@ -37,11 +37,17 @@ function createPostgrestStore(options={}){
    p_actor:String(actor||'owner')
   },'INBOX_LABEL_UPDATE_FAILED');
  }
+ async function markRead(conversationId,actor='owner'){
+  return rpc('kk_inbox_mark_read',{
+   p_conversation_id:String(conversationId||''),
+   p_actor:String(actor||'owner')
+  },'INBOX_MARK_READ_FAILED');
+ }
  async function recordOutbound(message){
   const result=await rpc('kk_inbox_record_outbound',{p_message:message});
   const row=Array.isArray(result)?result[0]:result;
   return {ok:true,duplicate:Boolean(row&&row.duplicate),writes:Number(row&&row.writes||0)};
  }
- return {VERSION,persistInbound,listConversations,listMessages,getConversation,updateLineProfile,setOwnerLabel,recordOutbound};
+ return {VERSION,persistInbound,listConversations,listMessages,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound};
 }
 module.exports={VERSION,createPostgrestStore};

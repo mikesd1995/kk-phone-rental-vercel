@@ -252,3 +252,44 @@ end $$;
 
 revoke all on function public.kk_inbox_set_owner_label(text,text,text) from public,anon,authenticated;
 grant execute on function public.kk_inbox_set_owner_label(text,text,text) to service_role;
+
+
+-- Owner read state for Admin Inbox. This affects Inbox metadata only.
+create or replace function public.kk_inbox_mark_read(p_conversation_id text,p_actor text default 'owner')
+returns jsonb
+language plpgsql security invoker set search_path=pg_catalog,kk_private as $$
+declare
+ v_conversation_id text:=nullif(btrim(p_conversation_id),'');
+ v_actor text:=coalesce(nullif(btrim(p_actor),''),'owner');
+ v_old_unread integer:=0;
+ v_result jsonb;
+begin
+ if v_conversation_id is null then raise exception 'conversation_id required'; end if;
+
+ select unread_count into v_old_unread
+ from kk_private.inbox_conversations
+ where conversation_id=v_conversation_id
+ for update;
+ if not found then return null; end if;
+
+ if coalesce(v_old_unread,0)>0 then
+   update kk_private.inbox_conversations
+   set unread_count=0,updated_at=now()
+   where conversation_id=v_conversation_id;
+
+   insert into kk_private.inbox_audit(action,conversation_id,evidence)
+   values('conversation_read',v_conversation_id,
+     jsonb_build_object('actor',v_actor,'previous_unread',v_old_unread));
+ end if;
+
+ select to_jsonb(x) || jsonb_build_object('marked_read',(coalesce(v_old_unread,0)>0))
+ into v_result from (
+   select conversation_id,channel,external_user_id,display_name,owner_label,owner_label_updated_at,owner_label_updated_by,status,linked_customer_id,linked_booking_id,unread_count,last_message_at,last_message_text,last_message_type,created_at,updated_at
+   from kk_private.inbox_conversations
+   where conversation_id=v_conversation_id
+ ) x;
+ return v_result;
+end $$;
+
+revoke all on function public.kk_inbox_mark_read(text,text) from public,anon,authenticated;
+grant execute on function public.kk_inbox_mark_read(text,text) to service_role;
