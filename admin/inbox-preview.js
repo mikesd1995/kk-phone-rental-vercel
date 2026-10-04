@@ -53,8 +53,8 @@ function renderList(rows){
   return;
  }
  list.innerHTML=rows.map(r=>{
-  const custom=hasCustomLabel(r),provider=providerLabel(r),label=rowLabel(r);
-  const providerRow=custom&&provider&&provider!==label?'<small class="inbox-provider-name">LINE: '+esc(provider)+'</small>':'';
+  const custom=hasCustomLabel(r),provider=providerLabel(r),label=rowLabel(r),channel=String(r.channel||'').toUpperCase();
+  const providerRow=custom&&provider&&provider!==label?'<small class="inbox-provider-name">'+esc(channel)+': '+esc(provider)+'</small>':'';
   return '<button type="button" class="inbox-conversation'+(r.conversation_id===selected?' active':'')+'" data-inbox-id="'+esc(r.conversation_id)+'">'+
    '<span><b>'+esc(label)+'</b><em>'+esc(String(r.channel||'').toUpperCase())+'</em></span>'+
    providerRow+
@@ -118,7 +118,7 @@ function openRenameDialog(){
  if(!dialog||!input)return;
  input.value=String(selectedRow.owner_label||selectedRow.display_name||'').trim();
  if(error){error.textContent='';error.hidden=true}
- if(profile)profile.textContent='ชื่อจาก LINE: '+(providerLabel(selectedRow)||'ไม่พบชื่อโปรไฟล์');
+ if(profile)profile.textContent='ชื่อจาก '+String(selectedRow.channel||'LINE').toUpperCase()+': '+(providerLabel(selectedRow)||'ไม่พบชื่อโปรไฟล์');
  updateRenameCount();
  if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');
  setTimeout(()=>{input.focus();input.select()},0);
