@@ -156,6 +156,24 @@
       ],
       "supersedes": [],
       "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:inbox:owner-label:20261004",
+      "occurred_at": "2026-10-04T15:46:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "unified_inbox",
+      "summary": "KK Unified Inbox adds a shop-controlled owner_label separate from provider display_name, mirroring LINE OA friend-name editing. Admin shows owner_label first, preserves the original provider profile name for verification, supports an explicit rename dialog and a reset-to-provider-name action, searches owner labels, and audits changes. Suggested operational format is customer name + booking date + rented model. The canonical Inbox Supabase migration add_inbox_owner_customer_labels has been applied. Continue from docs/UNIFIED_INBOX_OWNER_LABEL_2026-10-04.md and exact deployment evidence; do not overwrite provider display_name to implement shop labels.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/UNIFIED_INBOX_OWNER_LABEL_2026-10-04.md",
+        "admin/inbox-preview.js",
+        "admin/index.html",
+        "api/kk-admin-guard.js",
+        "server/kk-inbox-postgrest-store.js",
+        "supabase/kk_inbox_v1.sql"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
     }
   ]
 }

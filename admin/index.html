@@ -207,9 +207,33 @@
           <div id="inboxSafetyNotice" class="card inbox-empty"><strong>Unified Inbox แบบ fail-closed</strong><span>LINE profile จะเติมชื่ออัตโนมัติเมื่อ provider พร้อม · การส่งต้องยืนยันโดย owner ทุกครั้ง · X outbound ยังปิด</span></div>
           <div class="inbox-layout">
             <div class="card inbox-list-card"><div class="card-head"><div><h2>บทสนทนา</h2><small id="inboxCount">0 รายการ · preview</small></div></div><div id="inboxConversationList" class="inbox-conversation-list"></div></div>
-            <div class="card inbox-thread-card"><div class="card-head"><div><h2 id="inboxThreadTitle">เลือกบทสนทนา</h2><small id="inboxThreadMeta">LINE / X</small></div></div><div id="inboxThread" class="inbox-thread"><div class="inbox-placeholder">เลือกบทสนทนาเพื่อดู timeline</div></div><div class="inbox-compose-disabled"><textarea id="inboxComposeText" maxlength="5000" disabled placeholder="เลือกแชท LINE เพื่อพิมพ์ข้อความ"></textarea><button class="btn primary" type="button" id="inboxSendBtn" disabled>ส่งข้อความ</button></div><small id="inboxComposeStatus" class="hint">เลือกแชท LINE เพื่อเริ่มตอบลูกค้า</small></div>
+            <div class="card inbox-thread-card"><div class="card-head inbox-thread-head"><div><h2 id="inboxThreadTitle">เลือกบทสนทนา</h2><small id="inboxThreadMeta">LINE / X</small></div><button class="btn secondary inbox-rename-trigger" type="button" id="inboxRenameBtn" disabled>แก้ชื่อ</button></div><div id="inboxThread" class="inbox-thread"><div class="inbox-placeholder">เลือกบทสนทนาเพื่อดู timeline</div></div><div class="inbox-compose-disabled"><textarea id="inboxComposeText" maxlength="5000" disabled placeholder="เลือกแชท LINE เพื่อพิมพ์ข้อความ"></textarea><button class="btn primary" type="button" id="inboxSendBtn" disabled>ส่งข้อความ</button></div><small id="inboxComposeStatus" class="hint">เลือกแชท LINE เพื่อเริ่มตอบลูกค้า</small></div>
           </div>
         </section>
+
+        <dialog id="inboxRenameDialog" class="inbox-rename-dialog" aria-labelledby="inboxRenameTitle">
+          <div class="inbox-rename-panel">
+            <div class="inbox-rename-head">
+              <div>
+                <span class="eyebrow">Customer label</span>
+                <h2 id="inboxRenameTitle">แก้ไขชื่อลูกค้า</h2>
+              </div>
+              <button class="btn ghost inbox-rename-close" type="button" id="inboxRenameCancel" aria-label="ปิด">×</button>
+            </div>
+            <p class="hint">ตั้งชื่อที่ร้านใช้เอง เช่น “นุ๊ก · 24/10 · X300 Pro + Lens” โดยไม่เปลี่ยนชื่อ LINE จริงของลูกค้า</p>
+            <label class="inbox-rename-field">ชื่อที่ร้านเห็น
+              <input id="inboxRenameInput" type="text" maxlength="80" autocomplete="off" placeholder="ชื่อลูกค้า · วันที่จอง · รุ่นที่จอง" />
+              <span class="inbox-rename-meta"><small id="inboxRenameProfile">ชื่อจาก LINE: —</small><small id="inboxRenameCount">0/80</small></span>
+            </label>
+            <div id="inboxRenameError" class="inbox-rename-error" role="alert" hidden></div>
+            <div class="inbox-rename-actions">
+              <button class="btn ghost" type="button" id="inboxRenameReset">ใช้ชื่อ LINE</button>
+              <span class="inbox-rename-action-spacer"></span>
+              <button class="btn secondary" type="button" id="inboxRenameCancelBottom">ยกเลิก</button>
+              <button class="btn primary" type="button" id="inboxRenameSave">บันทึกชื่อ</button>
+            </div>
+          </div>
+        </dialog>
 
         <section class="tab-panel" id="tab-today">
           <div class="card">

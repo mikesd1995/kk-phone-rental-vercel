@@ -23,6 +23,9 @@ create table if not exists kk_private.inbox_conversations (
   channel text not null check (channel in ('line','x')),
   external_user_id text not null,
   display_name text not null default '',
+  owner_label text not null default '',
+  owner_label_updated_at timestamptz,
+  owner_label_updated_by text not null default '',
   status text not null default 'new' check (status in ('new','open','waiting_customer','booked','closed')),
   linked_customer_id text not null default '',
   linked_booking_id text not null default '',
@@ -42,6 +45,10 @@ create table if not exists kk_private.inbox_audit (
   evidence jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table kk_private.inbox_conversations add column if not exists owner_label text not null default '';
+alter table kk_private.inbox_conversations add column if not exists owner_label_updated_at timestamptz;
+alter table kk_private.inbox_conversations add column if not exists owner_label_updated_by text not null default '';
 
 revoke all on schema kk_private from public, anon, authenticated;
 revoke all on all tables in schema kk_private from public, anon, authenticated;
@@ -99,11 +106,11 @@ grant execute on function public.kk_inbox_persist_inbound(jsonb) to service_role
 create or replace function public.kk_inbox_list_conversations(p_channel text default '', p_status text default '', p_search text default '', p_limit integer default 100)
 returns jsonb language sql security invoker set search_path=pg_catalog,kk_private as $$
  select coalesce(jsonb_agg(to_jsonb(x) order by x.last_message_at desc nulls last),'[]'::jsonb)
- from (select conversation_id,channel,external_user_id,display_name,status,linked_customer_id,linked_booking_id,unread_count,last_message_at,last_message_text,last_message_type,created_at,updated_at
+ from (select conversation_id,channel,external_user_id,display_name,owner_label,owner_label_updated_at,owner_label_updated_by,status,linked_customer_id,linked_booking_id,unread_count,last_message_at,last_message_text,last_message_type,created_at,updated_at
  from kk_private.inbox_conversations
  where (nullif(btrim(p_channel),'') is null or channel=lower(btrim(p_channel)))
  and (nullif(btrim(p_status),'') is null or status=lower(btrim(p_status)))
- and (nullif(btrim(p_search),'') is null or display_name ilike '%'||p_search||'%' or external_user_id ilike '%'||p_search||'%' or last_message_text ilike '%'||p_search||'%' or linked_booking_id ilike '%'||p_search||'%')
+ and (nullif(btrim(p_search),'') is null or owner_label ilike '%'||p_search||'%' or display_name ilike '%'||p_search||'%' or external_user_id ilike '%'||p_search||'%' or last_message_text ilike '%'||p_search||'%' or linked_booking_id ilike '%'||p_search||'%')
  order by last_message_at desc nulls last limit greatest(1,least(coalesce(p_limit,100),200))) x
 $$;
 create or replace function public.kk_inbox_list_messages(p_conversation_id text,p_limit integer default 200)
@@ -123,7 +130,7 @@ create or replace function public.kk_inbox_get_conversation(p_conversation_id te
 returns jsonb language sql security invoker set search_path=pg_catalog,kk_private as $$
  select to_jsonb(x)
  from (
-   select conversation_id,channel,external_user_id,display_name,status,linked_customer_id,linked_booking_id,unread_count,last_message_at,last_message_text,last_message_type,created_at,updated_at
+   select conversation_id,channel,external_user_id,display_name,owner_label,owner_label_updated_at,owner_label_updated_by,status,linked_customer_id,linked_booking_id,unread_count,last_message_at,last_message_text,last_message_type,created_at,updated_at
    from kk_private.inbox_conversations
    where conversation_id=btrim(p_conversation_id)
    limit 1
@@ -205,3 +212,43 @@ revoke all on function public.kk_inbox_record_outbound(jsonb) from public,anon,a
 grant execute on function public.kk_inbox_get_conversation(text) to service_role;
 grant execute on function public.kk_inbox_update_line_profile(text,text) to service_role;
 grant execute on function public.kk_inbox_record_outbound(jsonb) to service_role;
+
+
+-- Owner-controlled customer label, similar to LINE OA friend-name editing.
+-- This is intentionally separate from provider display_name so profile refreshes never overwrite the shop's label.
+create or replace function public.kk_inbox_set_owner_label(p_conversation_id text,p_owner_label text,p_actor text default 'owner')
+returns jsonb
+language plpgsql security invoker set search_path=pg_catalog,kk_private as $$
+declare
+ v_conversation_id text:=nullif(btrim(p_conversation_id),'');
+ v_label text:=regexp_replace(replace(replace(replace(coalesce(p_owner_label,''),E'\r',' '),E'\n',' '),E'\t',' '),'[[:space:]]+',' ','g');
+ v_actor text:=coalesce(nullif(btrim(p_actor),''),'owner');
+ v_old_label text:='';
+ v_result jsonb;
+begin
+ v_label:=btrim(v_label);
+ if v_conversation_id is null then raise exception 'conversation_id required'; end if;
+ if char_length(v_label)>80 then raise exception 'owner label too long'; end if;
+ select owner_label into v_old_label from kk_private.inbox_conversations where conversation_id=v_conversation_id for update;
+ if not found then raise exception 'inbox conversation not found'; end if;
+
+ update kk_private.inbox_conversations
+ set owner_label=v_label,
+     owner_label_updated_at=now(),
+     owner_label_updated_by=v_actor,
+     updated_at=now()
+ where conversation_id=v_conversation_id;
+
+ insert into kk_private.inbox_audit(action,conversation_id,evidence)
+ values('owner_label_updated',v_conversation_id,
+   jsonb_build_object('actor',v_actor,'old_label',coalesce(v_old_label,''),'new_label',v_label));
+
+ select to_jsonb(x) into v_result from (
+   select conversation_id,channel,external_user_id,display_name,owner_label,owner_label_updated_at,owner_label_updated_by,status,linked_customer_id,linked_booking_id,unread_count,last_message_at,last_message_text,last_message_type,created_at,updated_at
+   from kk_private.inbox_conversations where conversation_id=v_conversation_id
+ ) x;
+ return v_result;
+end $$;
+
+revoke all on function public.kk_inbox_set_owner_label(text,text,text) from public,anon,authenticated;
+grant execute on function public.kk_inbox_set_owner_label(text,text,text) to service_role;
