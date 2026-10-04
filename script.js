@@ -276,7 +276,7 @@ var I18N = {
     modal_date_placeholder:"Date",
     modal_venue_placeholder:"Venue",
     modal_note_strong:"Choose a package:",
-    modal_note_body:"Book an available package, or join the LINE waitlist when the event is fully booked.",
+    modal_note_body:"If slots are open, tap “Book now”. If full, join the waitlist via LINE.",
     close:"Close",
     faq_close_aria:"Close FAQ",
     faq_title:"FAQ · Frequently Asked Questions",
