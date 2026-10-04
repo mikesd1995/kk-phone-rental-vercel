@@ -579,7 +579,7 @@ module.exports=async function handler(req,res){
         if(!conversationId) return reply(res,400,{ok:false,error:'conversation_id is required',error_code:'INBOX_CONVERSATION_REQUIRED',production_writes:0});
         const updated=await store.markRead(conversationId,'owner');
         if(!updated) return reply(res,404,{ok:false,error:'conversation not found',error_code:'INBOX_CONVERSATION_NOT_FOUND',production_writes:0});
-        return reply(res,200,{ok:true,conversation:updated,production_writes:1,provider_sends:0});
+        return reply(res,200,{ok:true,conversation:updated,production_writes:updated.marked_read===true?1:0,provider_sends:0});
       }
       if(action==='inboxSendLineMessage'){
         if(!lineToken) return reply(res,503,{ok:false,error:'LINE Messaging API is not configured',error_code:'LINE_PROVIDER_UNAVAILABLE',production_writes:0,provider_sends:0});
