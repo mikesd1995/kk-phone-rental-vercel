@@ -22,6 +22,8 @@ const UltraDeepRuntime = require('../server/kk-ultra-deep-production-runtime.js'
 const UltraDeepCompletionGate = require('../server/kk-ultra-deep-full-loop-completion-gate.js');
 const UltraDeepDirect = require('../server/kk-ultra-deep-direct-zero-cost.js');
 const { createPostgrestStore } = require('../server/kk-inbox-postgrest-store.js');
+const InboxContract = require('../server/kk-unified-inbox-contract.js');
+const LineMessaging = require('../server/kk-line-messaging-api.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -31,7 +33,7 @@ const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
 const AGENT_GATEWAY_ACTIONS = new Set(['agentGateway','agentGatewayHealth']);
-const INBOX_READ_ACTIONS = new Set(['inboxListConversations','inboxListMessages']);
+const INBOX_ACTIONS = new Set(['inboxListConversations','inboxListMessages','inboxHydrateLineProfiles','inboxSendLineMessage']);
 const ULTRA_DEEP_ACTIONS = new Set(['ultraDeepFullLoop','ultraDeepFullLoopHealth']);
 const ULTRA_DEEP_REPOSITORY = 'mikesd1995/kk-phone-rental-vercel';
 const ULTRA_DEEP_OWNER = 'mikesd1995';
@@ -450,14 +452,14 @@ module.exports=async function handler(req,res){
   const action=String(payload&&payload.action||'');
   const ultraDeepAction=ULTRA_DEEP_ACTIONS.has(action);
   const agentGatewayAction=AGENT_GATEWAY_ACTIONS.has(action);
-  const inboxReadAction=INBOX_READ_ACTIONS.has(action);
+  const inboxAction=INBOX_ACTIONS.has(action);
   const bookingGuarded=BOOKING_GUARDED_ACTIONS.has(action);
   const eventGuarded=EVENT_GUARDED_ACTIONS.has(action);
   const visibilityGuarded=EVENT_VISIBILITY_GUARDED_ACTIONS.has(action) &&
     VisibilityGuard.requestedVisibility(payload)===true;
   const eventDateGuarded=action==='updateEvent'&&!!String(payload&&payload.event_date||'').trim();
   const cleanupGuarded=action==='cleanupOldData';
-  const passthrough=!payload||typeof payload!=='object'||Array.isArray(payload)||(!ultraDeepAction&&!agentGatewayAction&&!inboxReadAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded&&!eventDateGuarded&&!cleanupGuarded);
+  const passthrough=!payload||typeof payload!=='object'||Array.isArray(payload)||(!ultraDeepAction&&!agentGatewayAction&&!inboxAction&&!bookingGuarded&&!eventGuarded&&!visibilityGuarded&&!eventDateGuarded&&!cleanupGuarded);
 
   if(action==='ultraDeepFullLoopHealth'){
     return reply(res,200,{
@@ -527,20 +529,84 @@ module.exports=async function handler(req,res){
   if(!signedSession&&!legacyPinOk) return reply(res,401,{ok:false,error:'Invalid admin session'});
   if(passthrough) return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
 
-  if(inboxReadAction){
+  if(inboxAction){
     let store;
     try{ store=createPostgrestStore(); }
     catch(_){ return reply(res,503,{ok:false,error:'Inbox durable store unavailable',error_code:'INBOX_STORE_UNAVAILABLE'}); }
+    const lineToken=String(process.env.LINE_CHANNEL_ACCESS_TOKEN||'').trim();
+    const outboundEnabled=!!lineToken;
     try{
       if(action==='inboxListMessages'){
         const conversationId=String(payload.conversation_id||'').trim();
         if(!conversationId) return reply(res,400,{ok:false,error:'conversation_id is required',error_code:'INBOX_CONVERSATION_REQUIRED'});
         const messages=await store.listMessages(conversationId,{limit:payload.limit});
-        return reply(res,200,{ok:true,messages,production_writes:0,outbound_enabled:false});
+        return reply(res,200,{ok:true,messages,production_writes:0,outbound_enabled:outboundEnabled,profile_hydration_enabled:outboundEnabled});
       }
-      const conversations=await store.listConversations({channel:payload.channel,status:payload.status,search:payload.search,limit:payload.limit});
-      return reply(res,200,{ok:true,conversations,production_writes:0,outbound_enabled:false});
-    }catch(err){ return reply(res,502,{ok:false,error:'Inbox read failed',error_code:String(err&&err.code||'INBOX_READ_FAILED')}); }
+      if(action==='inboxListConversations'){
+        const conversations=await store.listConversations({channel:payload.channel,status:payload.status,search:payload.search,limit:payload.limit});
+        return reply(res,200,{ok:true,conversations,production_writes:0,outbound_enabled:outboundEnabled,profile_hydration_enabled:outboundEnabled});
+      }
+      if(action==='inboxHydrateLineProfiles'){
+        if(!lineToken) return reply(res,503,{ok:false,error:'LINE Messaging API is not configured',error_code:'LINE_PROVIDER_UNAVAILABLE',production_writes:0});
+        const ids=[...new Set((Array.isArray(payload.external_user_ids)?payload.external_user_ids:[])
+          .map(v=>String(v||'').trim()).filter(v=>/^U[A-Za-z0-9_-]{20,}$/.test(v)))].slice(0,20);
+        if(!ids.length) return reply(res,200,{ok:true,requested:0,hydrated:0,skipped:0,production_writes:0,outbound_enabled:true});
+        let hydrated=0,skipped=0,writes=0;
+        for(const userId of ids){
+          try{
+            const profile=await LineMessaging.getProfile(userId,lineToken,global.fetch);
+            if(!profile||!profile.display_name){ skipped++; continue; }
+            const receipt=await store.updateLineProfile(userId,profile.display_name);
+            hydrated++;
+            writes+=Number(receipt&&receipt.writes||0);
+          }catch(_){ skipped++; }
+        }
+        return reply(res,200,{ok:true,requested:ids.length,hydrated,skipped,production_writes:writes,outbound_enabled:true});
+      }
+      if(action==='inboxSendLineMessage'){
+        if(!lineToken) return reply(res,503,{ok:false,error:'LINE Messaging API is not configured',error_code:'LINE_PROVIDER_UNAVAILABLE',production_writes:0,provider_sends:0});
+        if(payload.owner_approved!==true) return reply(res,409,{ok:false,error:'Owner approval is required before sending',error_code:'OWNER_APPROVAL_REQUIRED',production_writes:0,provider_sends:0});
+        const conversationId=String(payload.conversation_id||'').trim();
+        const body=String(payload.text||'').trim();
+        if(!conversationId) return reply(res,400,{ok:false,error:'conversation_id is required',error_code:'INBOX_CONVERSATION_REQUIRED',production_writes:0,provider_sends:0});
+        if(!body) return reply(res,400,{ok:false,error:'message text is required',error_code:'INBOX_TEXT_REQUIRED',production_writes:0,provider_sends:0});
+        if(body.length>5000) return reply(res,400,{ok:false,error:'message text exceeds 5000 characters',error_code:'INBOX_TEXT_TOO_LONG',production_writes:0,provider_sends:0});
+        const conversation=await store.getConversation(conversationId);
+        if(!conversation) return reply(res,404,{ok:false,error:'conversation not found',error_code:'INBOX_CONVERSATION_NOT_FOUND',production_writes:0,provider_sends:0});
+        if(String(conversation.channel||'').toLowerCase()!=='line') return reply(res,409,{ok:false,error:'Outbound send is enabled for LINE only',error_code:'INBOX_CHANNEL_SEND_DISABLED',production_writes:0,provider_sends:0});
+        const draft=InboxContract.authorizeSend(InboxContract.outboundDraft({channel:'line',conversation_id:conversationId,text:body}),'owner');
+        let delivery;
+        try{
+          delivery=await LineMessaging.pushText({to:conversation.external_user_id,text:draft.text},{token:lineToken,fetchImpl:global.fetch});
+        }catch(err){
+          return reply(res,502,{ok:false,error:'LINE send failed',error_code:String(err&&err.code||'LINE_PUSH_FAILED'),provider_status:Number(err&&err.status||0)||null,production_writes:0,provider_sends:0});
+        }
+        const message={
+          schema_version:InboxContract.VERSION,
+          message_id:'msg_'+crypto.createHash('sha256').update('line:'+delivery.external_message_id).digest('hex').slice(0,24),
+          conversation_id:conversationId,
+          channel:'line',
+          direction:'outbound',
+          external_message_id:delivery.external_message_id,
+          external_user_id:String(conversation.external_user_id||'').trim(),
+          message_type:'text',
+          text:draft.text,
+          sent_at:delivery.sent_at,
+          send_authorized:true,
+          authorized_by:'owner',
+          provider_request_id:delivery.provider_request_id,
+          retry_key:delivery.retry_key
+        };
+        let receipt;
+        try{ receipt=await store.recordOutbound(message); }
+        catch(err){
+          return reply(res,502,{ok:false,error:'LINE message was accepted but Inbox persistence failed',error_code:'INBOX_OUTBOUND_PERSIST_FAILED_AFTER_SEND',provider_request_id:delivery.provider_request_id||null,retry_key:delivery.retry_key,production_writes:0,provider_sends:1});
+        }
+        return reply(res,200,{ok:true,message:{message_id:message.message_id,conversation_id:conversationId,direction:'outbound',message_type:'text',body_text:draft.text,sent_at:delivery.sent_at},provider_request_id:delivery.provider_request_id||null,production_writes:Number(receipt&&receipt.writes||0),provider_sends:1,outbound_enabled:true});
+      }
+    }catch(err){
+      return reply(res,502,{ok:false,error:'Inbox action failed',error_code:String(err&&err.code||'INBOX_ACTION_FAILED'),production_writes:0});
+    }
   }
 
   if(cleanupGuarded){
