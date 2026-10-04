@@ -7,7 +7,7 @@ const OidcBridge=require('../server/runtime-ledger-oidc-bridge');
 const UltraDeepRuntime=require('../server/kk-ultra-deep-runtime-runner');
 const UltraDeepDirect=require('../server/kk-ultra-deep-direct-zero-cost.js');
 const WriteControl=require('../server/admin-write-control-oidc.js');
-const PublicEventIndex=require('../server/kk-public-event-index-provider.js');
+const PublicWebAdapters=require('../server/kk-ultra-deep-public-web-adapters.js');
 
 function text(value){
   return String(value==null?'':value).trim();
@@ -198,24 +198,12 @@ module.exports=async function handler(req,res){
     const probeMode=queryValue(req,'probe').toLowerCase();
     if(probeMode==='public-index' && text(process.env.VERCEL_ENV).toLowerCase()!=='production'){
       try{
-        const targets=[
-          {name:'EVENTPOP',url:'https://www.eventpop.me/g/concert?locale=en'},
-          {name:'TTM',url:'https://www.thaiticketmajor.com/search/'},
-          {name:'BING_WEB_RSS',url:'https://www.bing.com/search?format=rss&q=Bangkok%20October%202026%20concert'},
-          {name:'GOOGLE_NEWS_RSS',url:'https://news.google.com/rss/search?q=Bangkok%20October%202026%20concert&hl=en-US&gl=US&ceid=US:en'}
-        ];
-        const checks=[];
-        for(const target of targets){
-          try{
-            const body=await PublicEventIndex.fetchPage(target.url,{fetchFn:global.fetch,timeout_ms:7000});
-            checks.push({name:target.name,ok:true,bytes:Buffer.byteLength(body,'utf8'),item_count:String(body).toLowerCase().split('<item').length-1,has_https:String(body).includes('https://')});
-          }catch(err){
-            checks.push({name:target.name,ok:false,error_code:text(err&&err.code)||text(err&&err.name)||'FETCH_FAILED'});
-          }
-        }
-        return json(res,200,{ok:true,probe:'PUBLIC_SEARCH_TRANSPORT',checks,business_writes:0});
+        const provider=PublicWebAdapters.createProviders({fetchFn:global.fetch,bing_rss_timeout_ms:7000}).BING_RSS;
+        const rows=await provider({query:'Bangkok October 2026 concert',date_window:{start:'2026-10-01',end:'2026-10-31'}});
+        const hosts=[...new Set(rows.map(row=>{try{return new URL(text(row.source_url)).hostname}catch(_){return null}}).filter(Boolean))];
+        return json(res,200,{ok:true,probe:'BING_RSS',count:rows.length,structured_count:rows.filter(row=>/^2026-10-\\d{2}$/.test(text(row.event_date))).length,hosts,sample:rows.slice(0,8).map(row=>({title:text(row.title).slice(0,160),event_date:text(row.event_date)||null})),business_writes:0});
       }catch(err){
-        return json(res,500,{ok:false,probe:'PUBLIC_SEARCH_TRANSPORT',error_code:text(err&&err.code)||text(err&&err.name)||'PUBLIC_INDEX_PROBE_FAILED',business_writes:0});
+        return json(res,500,{ok:false,probe:'BING_RSS',error_code:text(err&&err.code)||text(err&&err.name)||'BING_RSS_PROBE_FAILED',business_writes:0});
       }
     }
     if(!probeMode){
