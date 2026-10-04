@@ -59,7 +59,7 @@ function audit(){
       JSON.stringify(routes).includes('skills/storefront-ux/SKILL.md')&&JSON.stringify(routes).includes('skills/pricing/SKILL.md')&&JSON.stringify(routes).includes('skills/incident-debugger/SKILL.md'),
       'Code Intelligence must route relevant work through canonical domain skills.'),
     check('SKILLS_ONLY_DO_NOT_FORCE_VERCEL_BUILD',
-      /\/\^skills\\\\\//.test(vercelIgnore),
+      vercelIgnore.includes("/^skills\\\\//"),
       'Governance-only skill changes should not consume Vercel builds.'),
     check('PRODUCTION_ACCEPTANCE_NOT_BUILD_ONLY',
       /green build.*alone is not acceptance/i.test(acceptance)&&/fresh production evidence/i.test(acceptance),
