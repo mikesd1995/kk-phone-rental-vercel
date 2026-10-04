@@ -22,6 +22,8 @@ function audit(){
   const dashboard=read('server/rental-dashboard-core.js');
   const registry=read('server/kk-agent-registry.js');
   const router=read('server/kk-agent-task-router.js');
+  const routes=JSON.parse(read('config/kk-code-context-routes.json'));
+  const vercelIgnore=read('scripts/vercel-ignore-build.js');
 
   const checks=[
     check('ROOT_CONTRACTS_PRESENT',REQUIRED_ROOT.every(exists),'Canonical product/design/architecture/acceptance/runbook contracts must exist.'),
@@ -53,6 +55,12 @@ function audit(){
     check('DESIGN_NO_SINGLE_DEVICE_BRAND_LOCK',
       /Do not hard-code the brand around vivo X300 Pro or any single device model/.test(design),
       'Design contract must preserve multi-device future compatibility.'),
+    check('CODE_INTELLIGENCE_ROUTES_CANONICAL_SKILLS',
+      JSON.stringify(routes).includes('skills/storefront-ux/SKILL.md')&&JSON.stringify(routes).includes('skills/pricing/SKILL.md')&&JSON.stringify(routes).includes('skills/incident-debugger/SKILL.md'),
+      'Code Intelligence must route relevant work through canonical domain skills.'),
+    check('SKILLS_ONLY_DO_NOT_FORCE_VERCEL_BUILD',
+      /\/\^skills\\\\\//.test(vercelIgnore),
+      'Governance-only skill changes should not consume Vercel builds.'),
     check('PRODUCTION_ACCEPTANCE_NOT_BUILD_ONLY',
       /green build.*alone is not acceptance/i.test(acceptance)&&/fresh production evidence/i.test(acceptance),
       'A build/preview must not be treated as production acceptance.')
