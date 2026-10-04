@@ -198,10 +198,20 @@ module.exports=async function handler(req,res){
     const probeMode=queryValue(req,'probe').toLowerCase();
     if(probeMode==='public-index' && text(process.env.VERCEL_ENV).toLowerCase()!=='production'){
       try{
+        const checks=[];
+        for(const url of PublicEventIndex.DEFAULT_URLS){
+          try{
+            const body=await PublicEventIndex.fetchPage(url,{fetchFn:global.fetch,timeout_ms:7000});
+            const rows=PublicEventIndex.parseListing(url,body);
+            checks.push({host:new URL(url).hostname,ok:true,bytes:Buffer.byteLength(body,'utf8'),parsed_count:rows.length,structured_count:rows.filter(row=>/^2026-10-\\d{2}$/.test(text(row.event_date))).length});
+          }catch(err){
+            checks.push({host:(()=>{try{return new URL(url).hostname}catch(_){return 'invalid'}})(),ok:false,error_code:text(err&&err.code)||text(err&&err.name)||'FETCH_FAILED'});
+          }
+        }
         const provider=PublicEventIndex.create({fetchFn:global.fetch,timeout_ms:7000});
         const rows=await provider({query:'Bangkok October 2026 concert',date_window:{start:'2026-10-01',end:'2026-10-31'}});
         const hosts=[...new Set(rows.map(row=>{try{return new URL(text(row.source_url)).hostname}catch(_){return null}}).filter(Boolean))];
-        return json(res,200,{ok:true,probe:'PUBLIC_EVENT_INDEX',count:rows.length,structured_count:rows.filter(row=>/^2026-10-\\d{2}$/.test(text(row.event_date))).length,hosts,sample:rows.slice(0,5).map(row=>({title:text(row.title),event_date:text(row.event_date)||null,host:(()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return null}})()})),business_writes:0});
+        return json(res,200,{ok:true,probe:'PUBLIC_EVENT_INDEX',checks,count:rows.length,structured_count:rows.filter(row=>/^2026-10-\\d{2}$/.test(text(row.event_date))).length,hosts,business_writes:0});
       }catch(err){
         return json(res,500,{ok:false,probe:'PUBLIC_EVENT_INDEX',error_code:text(err&&err.code)||text(err&&err.name)||'PUBLIC_INDEX_PROBE_FAILED',business_writes:0});
       }
