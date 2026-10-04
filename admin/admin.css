@@ -541,7 +541,7 @@ td{font-size:13px!important}
 }
 
 
-/* Unified Inbox v1 — read-only acceptance surface */
+/* Unified Inbox — governed LINE operations */
 .inbox-hero{display:flex;justify-content:space-between;gap:16px;align-items:center;border-left:3px solid #2563eb}
 .inbox-safety{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .inbox-safety span{padding:5px 8px;border:1px solid #dbe3ee;border-radius:999px;background:#f8fafc;font-size:11px;font-weight:700;color:#475467}
@@ -560,3 +560,29 @@ td{font-size:13px!important}
 .inbox-conversation:hover,.inbox-conversation.active{background:#f8fafc}
 .inbox-conversation span{display:flex;gap:8px;align-items:center;justify-content:space-between}.inbox-conversation em,.inbox-conversation i{font-style:normal;font-size:12px;color:#667085}.inbox-conversation small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread{display:flex;flex-direction:column;gap:8px;overflow:auto}.inbox-message{max-width:88%;padding:10px 12px;border-radius:12px;background:#f2f4f7;align-self:flex-start}.inbox-message.outbound{align-self:flex-end;background:#eaf2ff}.inbox-message p{margin:3px 0;white-space:pre-wrap;overflow-wrap:anywhere}.inbox-message small,.inbox-message time{font-size:11px;color:#667085}
+
+
+.inbox-thread-head{align-items:center}
+.inbox-rename-trigger{min-width:82px}
+.inbox-provider-name{color:#2563eb!important;font-weight:600}
+.inbox-last-message{color:#667085}
+.inbox-rename-dialog{width:min(520px,calc(100vw - 28px));max-width:520px;border:0;border-radius:16px;padding:0;box-shadow:0 24px 70px rgba(15,23,42,.26);background:#fff;color:#101828}
+.inbox-rename-dialog::backdrop{background:rgba(15,23,42,.52)}
+.inbox-rename-panel{display:grid;gap:16px;padding:22px}
+.inbox-rename-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.inbox-rename-head h2{margin:2px 0 0}
+.inbox-rename-close{font-size:24px;line-height:1;min-width:40px;padding:5px 10px}
+.inbox-rename-field{display:grid;gap:7px;font-weight:600}
+.inbox-rename-field input{width:100%;min-height:46px;font-size:16px}
+.inbox-rename-meta{display:flex;justify-content:space-between;gap:12px;color:#667085;font-weight:400}
+.inbox-rename-error{padding:10px 12px;border-radius:10px;background:#fef2f2;border:1px solid #fecaca;color:#b42318;font-size:13px}
+.inbox-rename-actions{display:flex;align-items:center;gap:8px;padding-top:2px}
+.inbox-rename-action-spacer{flex:1}
+@media(max-width:640px){
+ .inbox-thread-head{align-items:flex-start}
+ .inbox-rename-trigger{min-width:72px}
+ .inbox-rename-panel{padding:18px}
+ .inbox-rename-actions{display:grid;grid-template-columns:1fr 1fr}
+ .inbox-rename-actions .inbox-rename-action-spacer{display:none}
+ .inbox-rename-actions #inboxRenameReset{grid-column:1/-1}
+}
