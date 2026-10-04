@@ -198,28 +198,24 @@ module.exports=async function handler(req,res){
     const probeMode=queryValue(req,'probe').toLowerCase();
     if(probeMode==='public-index' && text(process.env.VERCEL_ENV).toLowerCase()!=='production'){
       try{
-        const providers=PublicWebAdapters.createProviders({fetchFn:global.fetch,bing_rss_timeout_ms:7000});
-        const queries=[
-          'Bangkok October 2026 concert',
-          'site:thaiticketmajor.com Bangkok October 2026 concert',
-          'site:eventpop.me Bangkok October 2026 concert',
-          'LYKN REFLEXION CONCERT Bangkok 2026',
-          'The Weeknd Bangkok October 2026 concert'
+        const targets=[
+          {name:'LIVENATION_CAL',url:'https://www.livenationtero.co.th/en/event/allevents?location=bangkok&page=1'},
+          {name:'TTM_EVENT_LIVE',url:'https://event.thaiticketmajor.com/live/'},
+          {name:'TTM_BOOKING_SEARCH',url:'https://booking.thaiticketmajor.com/search/'},
+          {name:'TTM_MOBILE_LIVE',url:'https://m.thaiticketmajor.com/live/'},
+          {name:'BING_RSS',url:'https://www.bing.com/search?format=rss&q=Bangkok%20October%202026%20concert'},
+          {name:'GOOGLE_NEWS_RSS',url:'https://news.google.com/rss/search?q=Bangkok%20concert%20October%202026&hl=en-US&gl=US&ceid=US:en'}
         ];
         const checks=[];
-        for(const query of queries){
-          const rows=await providers.BING_RSS({query,date_window:{start:'2026-10-01',end:'2026-10-31'}});
-          checks.push({provider:'BING_RSS',query_label:query.slice(0,80),count:rows.length,structured_count:rows.filter(row=>/^2026-10-\\d{2}$/.test(text(row.event_date))).length,sample:rows.slice(0,3).map(row=>({title:text(row.title).slice(0,150),event_date:text(row.event_date)||null,host:(()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return null}})()}))});
+        for(const target of targets){
+          try{
+            const body=await PublicWebAdapters.fetchPage(target.url,{fetchFn:global.fetch,timeout_ms:7000});
+            checks.push({name:target.name,ok:true,bytes:Buffer.byteLength(body,'utf8'),has_october:/October|Oct|ตุลาคม|ต\.ค\./i.test(body),has_event_signal:/concert|fanmeet|fancon|คอนเสิร์ต|แฟนมีต/i.test(body),link_count:(String(body).match(/<a\\b/gi)||[]).length});
+          }catch(err){checks.push({name:target.name,ok:false,error_code:text(err&&err.code)||text(err&&err.name)||'FETCH_FAILED'});}
         }
-        for(const query of ['Bangkok concert October 2026','LYKN REFLEXION CONCERT Bangkok 2026']){
-          const u=new URL('https://news.google.com/rss/search');u.searchParams.set('q',query);u.searchParams.set('hl','en-US');u.searchParams.set('gl','US');u.searchParams.set('ceid','US:en');
-          const body=await PublicWebAdapters.fetchPage(u.toString(),{fetchFn:global.fetch,timeout_ms:7000});
-          const rows=PublicWebAdapters.parseRssItems(body,query);
-          checks.push({provider:'GOOGLE_NEWS_RSS',query_label:query,count:rows.length,structured_count:rows.filter(row=>/^2026-10-\\d{2}$/.test(text(row.event_date))).length,sample:rows.slice(0,3).map(row=>({title:text(row.title).slice(0,150),event_date:text(row.event_date)||null,host:(()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return null}})()}))});
-        }
-        return json(res,200,{ok:true,probe:'RSS_SEARCH_QUALITY',checks,business_writes:0});
+        return json(res,200,{ok:true,probe:'PUBLIC_CALENDAR_TRANSPORT',checks,business_writes:0});
       }catch(err){
-        return json(res,500,{ok:false,probe:'RSS_SEARCH_QUALITY',error_code:text(err&&err.code)||text(err&&err.name)||'RSS_SEARCH_PROBE_FAILED',business_writes:0});
+        return json(res,500,{ok:false,probe:'PUBLIC_CALENDAR_TRANSPORT',error_code:text(err&&err.code)||text(err&&err.name)||'PUBLIC_CALENDAR_PROBE_FAILED',business_writes:0});
       }
     }
     if(!probeMode){
