@@ -35,3 +35,18 @@ test('machine completion persists first inner discovery blocker',async t=>{
  assert.equal(completions[0].error_code,'SOURCE_UNIVERSE_INCOMPLETE');
  assert.equal(completions[0].production_writes,0);
 });
+
+
+test('machine completion persists bounded provider preflight statuses',async t=>{
+ const completions=[];
+ t.mock.method(Control,'call',async(action,payload)=>{
+  if(action==='commandClaim')return {ok:true,authenticated:true,command:{month:'2026-10',commit:false}};
+  completions.push(payload);return {ok:true};
+ });
+ const diagnostic={schema:'KK_ULTRA_DEEP_DISCOVERY_DIAGNOSTIC_V1',full:false,blockers:['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED'],receipts:{preflight:[{attempts:[{provider:'DDG_HTML',status:'NO_EVIDENCE'},{provider:'BING_HTML',status:'PROVIDER_ERROR'},{provider:'SEARXNG',status:'NOT_BOUND'}]}]},production_writes:0};
+ t.mock.method(Direct,'run',async()=>({status:'BLOCKED_DISCOVERY_NOT_FULL',discovery:{diagnostic},production_writes:0}));
+ const res={setHeader(){},end(body){this.body=JSON.parse(body);}};
+ await handler({method:'GET',url:'/api/kk-scanner-dispatch?readonly_command_id='+command_id,body:{}},res);
+ assert.equal(completions[0].error_code,'PREFLIGHT_DDG_HTML_NO_EVIDENCE__BING_HTML_PROVIDER_ERROR__SEARXNG_NOT_BOUND');
+ assert.equal(completions[0].production_writes,0);
+});
