@@ -176,3 +176,13 @@ A prior docs-only deployment-witness branch did not create a deployment because 
 After #613, the main commit contained an actual runtime change and therefore correctly requested a Vercel production build. GitHub combined status for `d21d5db5...` reports Vercel state=FAILURE with target reason `build-rate-limit`. This is definitive evidence that the remaining deployment blocker is Vercel build quota/rate limit, not ignore-build and not an identified V2 code failure. Vercel deployment list still shows production `dpl_8xqonqLFnB84QN2WqwELKaaYjW9V` at stale SHA `12c7b0f3...`.
 
 Do NOT trigger more no-op builds while rate-limited. Do NOT run V2 COMMIT on stale production. Resume sequence when quota is available: deploy current main (>= d21d5db5) -> verify READY production SHA -> V2 READ_ONLY October with production_writes=0 -> inspect coverage/rentability/HOLD/mutations -> COMMIT only if READY -> exact canonical/storefront readback -> record Full Loop acceptance.
+
+
+## Evening acceptance recovery — 2026-10-04
+Production is no longer the original stale V6.21 runtime. Vercel deployment `dpl_H7akCd2swfZ3Jci2cg1zf55UXZPg` is READY target=production at SHA `e1afe310afa46ec69290baef6e1dd6dd2fb316b1`. Repository inspection at that exact SHA confirms both Ultra Deep Admin entrypoints contain `Bangkok Metropolitan Region Thailand` and the V2 governed writer, rentability score, and runtime adapter files are present. Therefore the minimum V2 production-runtime deployment gate is satisfied even though current main has advanced with unrelated Admin Inbox cleanup.
+
+Attempting an authenticated Vercel fetch of production `/api/kk-admin-guard` through the connector failed at Vercel Authentication: HTTP 401 `deployment_authentication_required`; the connector's reused share-link authentication was not accepted. No auth bypass and no business write was attempted. READ_ONLY has therefore NOT executed yet.
+
+GitHub V2 acceptance run `37148932957` was retried once now that infrastructure had changed. Retry was accepted, but new job `111428741623` again completed failure with no steps, confirming runner/provisioning failure before code execution. Do not rerun-spam.
+
+Current gate classification: V2 minimum production runtime = PASS; production business writes = 0; READ_ONLY invocation = BLOCKED by authenticated execution path; GitHub focused tests = BLOCKED by runner provisioning. Next safe action is to use an existing authorized server-to-server/OIDC execution path when available, then run October READ_ONLY with commit=false and verify production_writes=0. Do not request or expose owner PIN merely to bypass this gate.
