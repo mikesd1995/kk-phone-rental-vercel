@@ -196,3 +196,11 @@ Two bridge defects were fixed in PR #623: machine execution still hard-coded `Ba
 Vercel production deployment `dpl_7kWDtwQ52DbMPWnJWBhccHyEPo5t` for exact SHA `8c4ddb9...` built successfully and is READY target=production with production aliases mapped. Build completed without a code error; only non-blocking Node engine/middleware warnings were observed.
 
 Do not fabricate a `readonly_command_id`: the machine path requires a canonical command already present in the command ledger and claims it through governed write-control. Next acceptance action is to obtain/use the canonical October 2026 READ_ONLY command through the existing command creation/approval mechanism, then call the production machine GET path and verify `business_writes=0`. COMMIT remains forbidden until that result is READY/COMPLETE and inspected.
+
+
+## First governed October V2 READ_ONLY execution — 2026-10-04
+Canonical ledger inspection found an existing October command `a4cefd53-c968-4d92-b907-42095397eddd` with `month=2026-10`, `commit=false`, `state=PENDING`, `production_writes=0`. It was invoked through the production V2 machine READ_ONLY GET path. The command was successfully claimed (state became RUNNING), proving Vercel production OIDC -> admin-write-control -> command ledger authority works end-to-end.
+
+The scan did not finish within Vercel's 300-second function duration. Runtime evidence reports `Vercel Runtime Timeout Error: Task timed out after 300 seconds` on `/api/kk-scanner-dispatch` at the exact current V2 production deployment. No production/business writes occurred. Because the process was killed before its completion callback, the command remained RUNNING; it was explicitly recovered to `FAILED` with `production_writes=0` and `error_code=VERCEL_RUNTIME_TIMEOUT_300S` so the ledger is no longer stuck.
+
+This changes the blocker classification: auth, command governance, V2 deployment, and READ_ONLY write protection are proven; the first real October scan blocker is execution duration. Do not retry the same monolithic request. The next implementation must checkpoint/split discovery-verification-pricing/planning across bounded executions or move the governed command to a runtime that can exceed 300 seconds, while preserving command ledger identity, fail-closed semantics, and zero-write READ_ONLY invariant. COMMIT remains forbidden.
