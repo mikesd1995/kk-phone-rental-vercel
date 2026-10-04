@@ -198,22 +198,24 @@ module.exports=async function handler(req,res){
     const probeMode=queryValue(req,'probe').toLowerCase();
     if(probeMode==='public-index' && text(process.env.VERCEL_ENV).toLowerCase()!=='production'){
       try{
+        const targets=[
+          {name:'EVENTPOP',url:'https://www.eventpop.me/g/concert?locale=en'},
+          {name:'TTM',url:'https://www.thaiticketmajor.com/search/'},
+          {name:'BING_WEB_RSS',url:'https://www.bing.com/search?format=rss&q=Bangkok%20October%202026%20concert'},
+          {name:'GOOGLE_NEWS_RSS',url:'https://news.google.com/rss/search?q=Bangkok%20October%202026%20concert&hl=en-US&gl=US&ceid=US:en'}
+        ];
         const checks=[];
-        for(const url of PublicEventIndex.DEFAULT_URLS){
+        for(const target of targets){
           try{
-            const body=await PublicEventIndex.fetchPage(url,{fetchFn:global.fetch,timeout_ms:7000});
-            const rows=PublicEventIndex.parseListing(url,body);
-            checks.push({host:new URL(url).hostname,ok:true,bytes:Buffer.byteLength(body,'utf8'),parsed_count:rows.length,structured_count:rows.filter(row=>/^2026-10-\\d{2}$/.test(text(row.event_date))).length});
+            const body=await PublicEventIndex.fetchPage(target.url,{fetchFn:global.fetch,timeout_ms:7000});
+            checks.push({name:target.name,ok:true,bytes:Buffer.byteLength(body,'utf8'),item_count:(body.match(/<item\\b/gi)||[]).length,https_link_count:(body.match(/https:\\/\\/[^<\\s"']+/gi)||[]).length});
           }catch(err){
-            checks.push({host:(()=>{try{return new URL(url).hostname}catch(_){return 'invalid'}})(),ok:false,error_code:text(err&&err.code)||text(err&&err.name)||'FETCH_FAILED'});
+            checks.push({name:target.name,ok:false,error_code:text(err&&err.code)||text(err&&err.name)||'FETCH_FAILED'});
           }
         }
-        const provider=PublicEventIndex.create({fetchFn:global.fetch,timeout_ms:7000});
-        const rows=await provider({query:'Bangkok October 2026 concert',date_window:{start:'2026-10-01',end:'2026-10-31'}});
-        const hosts=[...new Set(rows.map(row=>{try{return new URL(text(row.source_url)).hostname}catch(_){return null}}).filter(Boolean))];
-        return json(res,200,{ok:true,probe:'PUBLIC_EVENT_INDEX',checks,count:rows.length,structured_count:rows.filter(row=>/^2026-10-\\d{2}$/.test(text(row.event_date))).length,hosts,business_writes:0});
+        return json(res,200,{ok:true,probe:'PUBLIC_SEARCH_TRANSPORT',checks,business_writes:0});
       }catch(err){
-        return json(res,500,{ok:false,probe:'PUBLIC_EVENT_INDEX',error_code:text(err&&err.code)||text(err&&err.name)||'PUBLIC_INDEX_PROBE_FAILED',business_writes:0});
+        return json(res,500,{ok:false,probe:'PUBLIC_SEARCH_TRANSPORT',error_code:text(err&&err.code)||text(err&&err.name)||'PUBLIC_INDEX_PROBE_FAILED',business_writes:0});
       }
     }
     if(!probeMode){
