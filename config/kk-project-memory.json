@@ -139,6 +139,23 @@
       ],
       "supersedes": [],
       "source": "owner+runtime"
+    },
+    {
+      "memory_id": "kk:memory:inbox:line-send-profile:20261004",
+      "occurred_at": "2026-10-04T14:45:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "unified_inbox",
+      "summary": "KK Unified Inbox is being upgraded from read-only to governed LINE operation: verified inbound events hydrate LINE display names, blank historical LINE names are backfilled from Admin, and outbound LINE text requires authenticated owner confirmation, provider retry-key protection, durable outbound persistence and audit. X outbound and AI auto-send remain disabled. Continue from the recovery document and exact runtime acceptance evidence rather than rebuilding the old read-only foundation.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/UNIFIED_INBOX_LINE_SEND_PROFILE_RECOVERY_2026-10-04.md",
+        "server/kk-line-messaging-api.js",
+        "api/kk-admin-guard.js",
+        "admin/inbox-preview.js",
+        "supabase/kk_inbox_v1.sql"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
     }
   ]
 }

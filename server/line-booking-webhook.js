@@ -5,6 +5,7 @@ const {buildBookingFlex} = require('../server/line-booking-flex');
 const {safePosterSource} = require('../server/line-poster');
 const InboxTee = require('./kk-line-inbox-tee');
 const {createPostgrestStore} = require('./kk-inbox-postgrest-store');
+const LineMessaging = require('./kk-line-messaging-api');
 const OwnerApproval = require('./line-booking-owner-approval');
 
 const LINE_REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
@@ -218,8 +219,9 @@ module.exports=async function handler(req,res){
   let payload; try{payload=JSON.parse(body);}catch(_){res.statusCode=400;return res.end('Invalid JSON');}
   const events=Array.isArray(payload.events)?payload.events:[];
   // Persist only verified events; Inbox failure remains isolated from the existing booking reply path.
-  const inboxPromise=InboxTee.persistVerifiedEvents(events,inboxPersistFn(process.env,fetch))
-    .catch(err=>({status:'FAILED_ISOLATED',error:err&&err.message?err.message:'inbox failed'}));
+  const inboxPromise=InboxTee.persistVerifiedEvents(events,inboxPersistFn(process.env,fetch),{
+    profileFn:async userId=>LineMessaging.getProfile(userId,token,fetch)
+  }).catch(err=>({status:'FAILED_ISOLATED',error:err&&err.message?err.message:'inbox failed'}));
   try{
     for(const event of events){
       const ownerDecision=await OwnerApproval.processOwnerPostback(event,process.env,fetch);

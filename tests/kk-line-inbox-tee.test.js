@@ -29,3 +29,14 @@ test('persistence failure is isolated and later events continue',async()=>{
  assert.equal(r.status,'PARTIAL'); assert.equal(r.writes,1); assert.equal(r.errors.length,1);
  assert.equal(r.errors[0].code,'INBOX_PERSISTENCE_FAILED');
 });
+
+test('verified tee hydrates LINE display name without blocking inbound persistence',async()=>{
+ const seen=[];
+ const r=await Tee.persistVerifiedEvents([msg('profile-1','Uprofile')],async m=>{seen.push(m);return{duplicate:false};},{profileFn:async userId=>({display_name:'ลูกค้าทดสอบ '+userId})});
+ assert.equal(r.writes,1);assert.equal(seen[0].display_name,'ลูกค้าทดสอบ Uprofile');
+});
+test('profile provider failure is fail-soft and message still persists',async()=>{
+ const seen=[];
+ const r=await Tee.persistVerifiedEvents([msg('profile-2','Uprofile2')],async m=>{seen.push(m);return{duplicate:false};},{profileFn:async()=>{throw new Error('profile unavailable')}});
+ assert.equal(r.writes,1);assert.equal(seen[0].display_name,'');
+});
