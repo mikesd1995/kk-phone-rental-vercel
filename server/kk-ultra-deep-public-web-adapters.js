@@ -2,9 +2,8 @@
 
 const path=require('node:path');
 const {execFile}=require('node:child_process');
-const PublicEventIndex=require('./kk-public-event-index-provider.js');
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V6';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V7';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
@@ -115,6 +114,33 @@ async function bingHtml(task={},options={}){
  const u=new URL('https://www.bing.com/search');u.searchParams.set('q',q);u.searchParams.set('count','25');
  const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.bing_timeout_ms||options.timeout_ms||8000)});
  return parseBingHtml(body,q);
+}
+
+
+function parseRssItems(body,query=''){
+ const out=[];const seen=new Set();
+ const raw=String(body||'');
+ for(const m of raw.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)){
+  const item=m[1]||'';
+  const title=cleanHtml((item.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'')||text(query)||null;
+  const linkRaw=decodeHtmlEntities(cleanHtml((item.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||''));
+  const sourceUrl=https(linkRaw);if(!sourceUrl)continue;
+  const description=cleanHtml((item.match(/<description[^>]*>([\s\S]*?)<\/description>/i)||[])[1]||'');
+  const dates=[...new Set([...inferSearchEventDates(title),...inferSearchEventDates(description)])].slice(0,7);
+  const rows=dates.length?dates:[null];
+  for(const eventDate of rows){
+   const key=sourceUrl+'|'+String(eventDate||'');if(seen.has(key))continue;seen.add(key);
+   out.push({title,event_date:eventDate,event_time:null,venue:null,artist:[],source_url:sourceUrl,confidence:null});
+   if(out.length>=25)return out;
+  }
+ }
+ return out;
+}
+async function bingRss(task={},options={}){
+ const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
+ const u=new URL('https://www.bing.com/search');u.searchParams.set('format','rss');u.searchParams.set('q',q);u.searchParams.set('count','25');
+ const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.bing_rss_timeout_ms||options.timeout_ms||7000)});
+ return parseRssItems(body,q);
 }
 
 async function searxng(task={},options={}){
@@ -233,7 +259,7 @@ async function ddgsTrafilatura(task={},options={}){
 
 function createProviders(options={}){
  const out={OFFICIAL_DIRECT:t=>officialDirect(t,options),RSS_OR_PUBLIC_FEED:t=>rssOrPublicFeed(t,options)};
- if(options.public_event_index_enabled!==false)out.PUBLIC_EVENT_INDEX=PublicEventIndex.create({fetchFn:options.fetchFn,timeout_ms:Number(options.public_event_index_timeout_ms||7000),urls:options.public_event_index_urls});
+ if(options.bing_rss_enabled!==false)out.BING_RSS=t=>bingRss(t,options);
  if(options.ddg_enabled!==false)out.DDG_HTML=t=>duckDuckGoHtml(t,options);
  if(options.bing_enabled!==false)out.BING_HTML=t=>bingHtml(t,options);
  const endpoint=https(options.searxng_endpoint||process.env.KK_SEARXNG_ENDPOINT||DEFAULT_SEARXNG_ENDPOINT);
@@ -242,4 +268,4 @@ function createProviders(options={}){
  if(ddgsEnabled)out.DDGS_TRAFILATURA=t=>ddgsTrafilatura(t,options);
  return out;
 }
-module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,DEFAULT_DDGS_TIMEOUT_MS,DEFAULT_DDGS_MAX_RESULTS,decodeHtmlEntities,cleanHtml,decodeEntities,extractAnchors,ddgResultUrl,bingResultUrl,parseDuckDuckGoHtml,parseBingHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,searxng,execFileJson,runDdgsSearch,inferSearchEventDates,inferSearchEventDate,ddgsTrafilatura,createProviders};
+module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,DEFAULT_DDGS_TIMEOUT_MS,DEFAULT_DDGS_MAX_RESULTS,decodeHtmlEntities,cleanHtml,decodeEntities,extractAnchors,ddgResultUrl,bingResultUrl,parseDuckDuckGoHtml,parseBingHtml,parseRssItems,bingRss,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,searxng,execFileJson,runDdgsSearch,inferSearchEventDates,inferSearchEventDate,ddgsTrafilatura,createProviders};
