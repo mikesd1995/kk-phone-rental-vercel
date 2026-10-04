@@ -1,9 +1,13 @@
 (function(){
 'use strict';
-const VERSION='KK_ADMIN_INBOX_V5_LIVE_REFRESH';
+const VERSION='KK_ADMIN_INBOX_V6_SMALL_CLEANUP';
 const POLL_MS=4000;
 const $=s=>document.querySelector(s);
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const MESSAGE_TYPE_LABELS=Object.freeze({
+ text:'ข้อความ',sticker:'สติกเกอร์',image:'รูปภาพ',video:'วิดีโอ',audio:'เสียง',
+ file:'ไฟล์',location:'ตำแหน่ง',flex:'การ์ด',template:'การ์ด',imagemap:'รูปภาพแบบโต้ตอบ'
+});
 let selected='',selectedRow=null,outboundEnabled=false,hydrating=false,sending=false,renaming=false;
 let searchTimer=null,pollTimer=null,pollBusy=false,lastRefreshAt=0;
 
@@ -11,6 +15,36 @@ function pin(){try{return sessionStorage.getItem('kk_admin_pin')||''}catch(_){re
 function rowLabel(row){return String(row?.owner_label||row?.display_name||row?.external_user_id||'').trim()}
 function providerLabel(row){return String(row?.display_name||row?.external_user_id||'').trim()}
 function hasCustomLabel(row){return !!String(row?.owner_label||'').trim()}
+function typeLabel(value){
+ const type=String(value||'text').trim().toLowerCase();
+ return MESSAGE_TYPE_LABELS[type]||type||'ข้อความ';
+}
+function messagePreview(row){
+ const body=String(row?.last_message_text||'').trim();
+ return body||typeLabel(row?.last_message_type||'text');
+}
+function messageBody(message){
+ const body=String(message?.body_text||'').trim();
+ if(body)return body;
+ const type=String(message?.message_type||'text').trim().toLowerCase();
+ if(type==='image')return 'รูปภาพ (ยังเปิดดูไฟล์จาก Inbox นี้ไม่ได้)';
+ if(type==='video')return 'วิดีโอ (ยังเปิดดูไฟล์จาก Inbox นี้ไม่ได้)';
+ if(type==='audio')return 'ข้อความเสียง (ยังเปิดฟังจาก Inbox นี้ไม่ได้)';
+ if(type==='file')return 'ไฟล์แนบ (ยังเปิดจาก Inbox นี้ไม่ได้)';
+ return typeLabel(type);
+}
+function fmtMessageTime(value){
+ const raw=String(value||'').trim();
+ if(!raw)return '';
+ const d=new Date(raw);
+ if(Number.isNaN(d.getTime()))return raw;
+ try{
+  return new Intl.DateTimeFormat('th-TH',{
+   timeZone:'Asia/Bangkok',day:'2-digit',month:'short',year:'2-digit',
+   hour:'2-digit',minute:'2-digit',second:'2-digit'
+  }).format(d);
+ }catch(_){return raw}
+}
 function conversationVersion(row){
  if(!row)return '';
  return [
@@ -81,11 +115,13 @@ function renderList(rows){
  list.innerHTML=rows.map(r=>{
   const custom=hasCustomLabel(r),provider=providerLabel(r),label=rowLabel(r),channel=String(r.channel||'').toUpperCase();
   const providerRow=custom&&provider&&provider!==label?'<small class="inbox-provider-name">'+esc(channel)+': '+esc(provider)+'</small>':'';
+  const unread=Math.max(0,Number(r.unread_count||0));
+  const unreadBadge=unread?'<i>'+unread+' ใหม่</i>':'';
   return '<button type="button" class="inbox-conversation'+(r.conversation_id===selected?' active':'')+'" data-inbox-id="'+esc(r.conversation_id)+'">'+
    '<span><b>'+esc(label)+'</b><em>'+esc(channel)+'</em></span>'+
    providerRow+
-   '<small class="inbox-last-message">'+esc(r.last_message_text||r.last_message_type||'')+'</small>'+
-   '<i>'+Number(r.unread_count||0)+' unread</i></button>';
+   '<small class="inbox-last-message">'+esc(messagePreview(r))+'</small>'+
+   unreadBadge+'</button>';
  }).join('');
  list.querySelectorAll('[data-inbox-id]').forEach(el=>el.addEventListener('click',()=>loadThread(el.dataset.inboxId,rows.find(r=>r.conversation_id===el.dataset.inboxId))));
 }
@@ -101,12 +137,39 @@ async function hydrateMissingProfiles(rows,enabled){
  finally{hydrating=false}
 }
 function renderThread(messages,{preserveScroll=false}={}){
- const n=$('#inboxThread');if(!n)return;
+ const n=$('#inboxThread');if(!n)return {wasNearBottom:true};
  const oldTop=n.scrollTop;
  const wasNearBottom=(n.scrollHeight-n.scrollTop-n.clientHeight)<96;
- n.innerHTML=(messages||[]).map(m=>'<div class="inbox-message '+esc(m.direction||'inbound')+'"><small>'+esc(m.message_type||'text')+'</small><p>'+esc(m.body_text||'')+'</p><time>'+esc(m.received_at||m.sent_at||m.created_at||'')+'</time></div>').join('')||'<div class="inbox-placeholder">ยังไม่มีข้อความ</div>';
+ n.innerHTML=(messages||[]).map(m=>
+  '<div class="inbox-message '+esc(m.direction||'inbound')+'">'+
+   '<small>'+esc(typeLabel(m.message_type||'text'))+'</small>'+
+   '<p>'+esc(messageBody(m))+'</p>'+
+   '<time title="'+esc(String(m.received_at||m.sent_at||m.created_at||''))+'">'+esc(fmtMessageTime(m.received_at||m.sent_at||m.created_at||''))+'</time>'+
+  '</div>'
+ ).join('')||'<div class="inbox-placeholder">ยังไม่มีข้อความ</div>';
  if(!preserveScroll||wasNearBottom)n.scrollTop=n.scrollHeight;
  else n.scrollTop=oldTop;
+ return {wasNearBottom};
+}
+function clearUnreadBadge(conversationId){
+ const button=[...document.querySelectorAll('[data-inbox-id]')].find(el=>String(el.dataset.inboxId||'')===String(conversationId||''));
+ if(button){
+  const badge=button.querySelector('i');
+  if(badge)badge.remove();
+ }
+}
+async function markConversationRead(conversationId){
+ if(!selectedRow||String(selectedRow.conversation_id||'')!==String(conversationId||'')||Number(selectedRow.unread_count||0)<=0)return;
+ try{
+  const d=await api('inboxMarkRead',{conversation_id:conversationId});
+  if(selected!==String(conversationId||''))return;
+  if(d.conversation)selectedRow=d.conversation;
+  else selectedRow=Object.assign({},selectedRow,{unread_count:0});
+  clearUnreadBadge(conversationId);
+  renderThreadHeader();
+ }catch(_){
+  // Mark-read is convenience metadata; never hide an otherwise readable thread on failure.
+ }
 }
 async function loadThread(id,row,options={}){
  const requestId=String(id||'');
@@ -117,7 +180,9 @@ async function loadThread(id,row,options={}){
   const d=await api('inboxListMessages',{conversation_id:requestId,limit:'200'});
   if(selected!==requestId)return;
   outboundEnabled=d.outbound_enabled===true;
-  renderThread(d.messages||[],{preserveScroll:options.preserveScroll===true});
+  const renderState=renderThread(d.messages||[],{preserveScroll:options.preserveScroll===true});
+  const shouldMarkRead=options.markRead!==false&&(!options.preserveScroll||renderState.wasNearBottom);
+  if(shouldMarkRead)await markConversationRead(requestId);
   composeState();
   if(options.markRefresh!==false)markRefreshed();
  }catch(e){
@@ -233,7 +298,7 @@ async function sendMessage(){
   await api('inboxSendLineMessage',{conversation_id:selected,text:body,owner_approved:true});
   if(box)box.value='';
   composeState('ส่งสำเร็จและบันทึกใน Inbox แล้ว');
-  await loadThread(selected,selectedRow,{preserveScroll:false});
+  await loadThread(selected,selectedRow,{preserveScroll:false,markRead:true});
   await loadList(false,{silent:true});
  }catch(e){composeState('ส่งไม่สำเร็จ: '+e.message)}
  finally{sending=false;composeState()}
@@ -270,7 +335,7 @@ function bind(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 window.KKInboxPreview=Object.freeze({
  VERSION,
- mode:'owner-approved-line-send-with-owner-label-live-refresh',
+ mode:'owner-approved-line-send-owner-label-live-refresh-read-state',
  autoMerge:false,
  pollMs:POLL_MS,
  reload:()=>refreshInboxNow({forceThread:true,silent:false}),
