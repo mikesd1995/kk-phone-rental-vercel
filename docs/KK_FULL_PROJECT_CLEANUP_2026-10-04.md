@@ -43,3 +43,8 @@ User task -> Code Intelligence context route -> smallest applicable canonical co
 
 ## Remaining non-cleanup blockers
 CI/provider availability and production deployment state are acceptance concerns, not reasons to delete code. Current production acceptance must continue to use fresh exact-head/runtime evidence.
+
+## CI trigger repair (follow-up)
+The pre-existing Admin Regression trigger mismatch was repaired in this cleanup branch. `.github/workflows/admin-regression.yml` now runs on governed pull-request changes and main pushes, while retaining manual dispatch. Path filters cover canonical contracts, skills, runtime/config/scripts/tests and workflow/package changes. This makes the existing `npm test`, invariant gate and Code Intelligence benchmark actual PR/main regression evidence instead of a manual-only assertion.
+
+A direct local clone fallback was attempted from the execution environment but failed before checkout because DNS could not resolve github.com. This is environment/network evidence, not a repository test failure. GitHub-side CI remains the canonical exact-head execution path.
