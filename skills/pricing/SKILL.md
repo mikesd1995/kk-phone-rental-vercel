@@ -1,0 +1,2 @@
+# Skill: pricing
+Use for KK rental pricing decisions. Preserve booking price locks and governed pricing writes. Compare exact-event competitor evidence when available; otherwise use comparable artist/fandom/type/venue/seat-map evidence, then prior comparable period, then current base policy, then demand/seat-map adjustment. Never leave publishable pricing blank merely because exact competitor evidence is unavailable. Canonical evidence and exact readback are required for writes.
