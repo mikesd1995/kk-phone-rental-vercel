@@ -1,0 +1,2 @@
+# Skill: visual-qa
+Use to validate material UI changes with concrete viewport/runtime evidence. Compare intended behavior to DESIGN.md; cover affected mobile width and representative wider widths, Light/Dark and TH/EN when affected. Check image failure, search/keyboard, overflow, sticky controls and key states. P0/P1 blocks acceptance. A build or preview URL is not visual acceptance.
