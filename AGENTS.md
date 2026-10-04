@@ -66,6 +66,8 @@ Do not repeatedly read the full repo, all docs, or all tests unless the task tru
 
 ## Mandatory Product / UX / UI gate
 
+Before any customer-facing or Admin UI design/review/implementation task, read and enforce the repository-root `DESIGN.md` as the canonical visual/interaction contract. `DESIGN.md` complements this engineering gate; it does not override business truth, safety, accessibility, governed write authority, Visual QA, or production acceptance.
+
 For every task that changes or reviews customer-facing storefront UI, Admin UI, product flow, navigation, forms, filters, modals, sticky/fixed controls, responsive layout, accessibility, or other user interaction:
 
 1. Invoke the registered `kk-storefront-ux-reviewer` through the Agent Gateway using `storefront_ux_review` before implementation. Do not substitute an informal prose review.
