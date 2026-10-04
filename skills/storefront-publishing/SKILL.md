@@ -1,0 +1,2 @@
+# Skill: storefront-publishing
+Use to move verified event/package information toward the public storefront. Inputs must already satisfy verification/commercial policy. Preserve owner-hidden/tombstoned state, customer-safe sanitization, pricing/availability authority and existing governed Admin writer. Require exact readback plus storefront/runtime evidence. Discovery or advisory agents cannot publish directly.
