@@ -162,14 +162,14 @@ module.exports=async function handler(req,res){
       }
       const month=text(claim.command.month);
       try{
-        const result=await UltraDeepDirect.run({month,location:'Bangkok Thailand'},{executeWrites:false,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-readonly-'+readonlyCommandId});
+        const result=await UltraDeepDirect.run({month,location:'Bangkok Metropolitan Region Thailand'},{executeWrites:false,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-readonly-'+readonlyCommandId});
         if(Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
         const complete=result.status==='COMPLETE';
         await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:complete?'COMPLETE':'FAILED',production_writes:0,error_code:complete?null:(result.blockers&&result.blockers[0]||'FULL_LOOP_NOT_COMPLETE')});
-        return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_MACHINE_V26_READ_ONLY_GET',command_id:readonlyCommandId,month,mode:'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],preflight:result.preflight||null,production:result.production||null,business_writes:0});
+        return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_READ_ONLY_GET',direct_runtime:UltraDeepDirect.VERSION,command_id:readonlyCommandId,month,mode:'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],preflight:result.preflight||null,production:result.production||null,business_writes:0});
       }catch(err){
         await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
-        return json(res,500,{ok:false,phase:'ULTRA_DEEP_MACHINE_V26_READ_ONLY_GET',command_id:readonlyCommandId,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED',error:text(err&&err.message).slice(0,240),business_writes:0});
+        return json(res,500,{ok:false,phase:'ULTRA_DEEP_V2_READ_ONLY_GET',direct_runtime:UltraDeepDirect.VERSION,command_id:readonlyCommandId,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED',error:text(err&&err.message).slice(0,240),business_writes:0});
       }
     }
     const probeMode=queryValue(req,'probe').toLowerCase();
@@ -226,14 +226,14 @@ module.exports=async function handler(req,res){
     const month=text(claim.command.month);
     const commit=claim.command.commit===true;
     try{
-      const result=await UltraDeepDirect.run({month,location:'Bangkok Thailand'},{executeWrites:commit,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-'+commandId});
+      const result=await UltraDeepDirect.run({month,location:'Bangkok Metropolitan Region Thailand'},{executeWrites:commit,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-'+commandId});
       if(!commit&&Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
       const complete=result.status==='COMPLETE';
       await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:complete?'COMPLETE':'FAILED',production_writes:Number(result.production_writes||0),error_code:complete?null:(result.blockers&&result.blockers[0]||'FULL_LOOP_NOT_COMPLETE')});
-      return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_MACHINE_V26',command_id:commandId,month,mode:commit?'COMMIT':'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],preflight:result.preflight||null,production:result.production||null,business_writes:Number(result.production_writes||0)});
+      return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_MACHINE',direct_runtime:UltraDeepDirect.VERSION,command_id:commandId,month,mode:commit?'COMMIT':'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],preflight:result.preflight||null,production:result.production||null,business_writes:Number(result.production_writes||0)});
     }catch(err){
       await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
-      return json(res,500,{ok:false,phase:'ULTRA_DEEP_MACHINE_V26',command_id:commandId,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED',error:text(err&&err.message).slice(0,240),business_writes:0});
+      return json(res,500,{ok:false,phase:'ULTRA_DEEP_V2_MACHINE',direct_runtime:UltraDeepDirect.VERSION,command_id:commandId,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED',error:text(err&&err.message).slice(0,240),business_writes:0});
     }
   }
 
@@ -314,7 +314,7 @@ module.exports=async function handler(req,res){
     const scheduledDate=text(verified.envelope.scheduled_at).slice(0,10);
     const scan=await UltraDeepRuntime.runMonthlyUltraDeep({
       current_date:scheduledDate,
-      location:'Bangkok Thailand'
+      location:'Bangkok Metropolitan Region Thailand'
     },{
       publicWebOptions:{searxng_endpoint:text(env.KK_SEARXNG_ENDPOINT)}
     });
