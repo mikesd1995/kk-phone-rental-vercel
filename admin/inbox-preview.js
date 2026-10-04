@@ -177,6 +177,7 @@ function bind(){
  $('#inboxComposeText')?.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();sendMessage()}});
  $('#inboxRenameBtn')?.addEventListener('click',openRenameDialog);
  $('#inboxRenameCancel')?.addEventListener('click',closeRenameDialog);
+ $('#inboxRenameCancelBottom')?.addEventListener('click',closeRenameDialog);
  $('#inboxRenameSave')?.addEventListener('click',saveOwnerLabel);
  $('#inboxRenameReset')?.addEventListener('click',resetOwnerLabel);
  $('#inboxRenameInput')?.addEventListener('input',updateRenameCount);
