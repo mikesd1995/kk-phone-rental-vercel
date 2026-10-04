@@ -1,4 +1,5 @@
 'use strict';
+// Production deployment retrigger 2026-10-05: no runtime behavior change.
 
 const Runtime=require('../server/external-scanner-runtime');
 const Ledger=require('../server/runtime-ledger');
