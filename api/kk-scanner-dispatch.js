@@ -198,25 +198,15 @@ module.exports=async function handler(req,res){
     const probeMode=queryValue(req,'probe').toLowerCase();
     if(probeMode==='public-index' && text(process.env.VERCEL_ENV).toLowerCase()!=='production'){
       try{
-        const targets=[
-          {name:'LIVENATION_CAL',url:'https://www.livenationtero.co.th/en/event/allevents?location=bangkok&page=1'},
-          {name:'TTM_EVENT_LIVE',url:'https://event.thaiticketmajor.com/live/'},
-          {name:'TTM_BOOKING_SEARCH',url:'https://booking.thaiticketmajor.com/search/'},
-          {name:'TTM_MOBILE_LIVE',url:'https://m.thaiticketmajor.com/live/'},
-          {name:'BING_RSS',url:'https://www.bing.com/search?format=rss&q=Bangkok%20October%202026%20concert'},
-          {name:'GOOGLE_NEWS_RSS',url:'https://news.google.com/rss/search?q=Bangkok%20concert%20October%202026&hl=en-US&gl=US&ceid=US:en'}
-        ];
-        const checks=[];
-        for(const target of targets){
-          try{
-            const body=await PublicWebAdapters.fetchPage(target.url,{fetchFn:global.fetch,timeout_ms:7000});
-            checks.push({name:target.name,ok:true,bytes:Buffer.byteLength(body,'utf8'),has_october:/October|Oct|ตุลาคม|ต\.ค\./i.test(body),has_event_signal:/concert|fanmeet|fancon|คอนเสิร์ต|แฟนมีต/i.test(body),link_count:(String(body).match(/<a\\b/gi)||[]).length});
-          }catch(err){checks.push({name:target.name,ok:false,error_code:text(err&&err.code)||text(err&&err.name)||'FETCH_FAILED'});}
+        const url='https://www.livenationtero.co.th/en/event/allevents?location=bangkok&page=1';
+        const body=await PublicWebAdapters.fetchPage(url,{fetchFn:global.fetch,timeout_ms:7000});
+        const snippets={};
+        for(const needle of ['The Weeknd','Young K','October 2026','eventDate','startDate','eventUrl','__NEXT_DATA__']){
+          const i=String(body).indexOf(needle);
+          snippets[needle]={index:i,snippet:i>=0?String(body).slice(Math.max(0,i-500),Math.min(String(body).length,i+900)):null};
         }
-        return json(res,200,{ok:true,probe:'PUBLIC_CALENDAR_TRANSPORT',checks,business_writes:0});
-      }catch(err){
-        return json(res,500,{ok:false,probe:'PUBLIC_CALENDAR_TRANSPORT',error_code:text(err&&err.code)||text(err&&err.name)||'PUBLIC_CALENDAR_PROBE_FAILED',business_writes:0});
-      }
+        return json(res,200,{ok:true,probe:'LIVENATION_STRUCTURE',bytes:Buffer.byteLength(body,'utf8'),snippets,business_writes:0});
+      }catch(err){return json(res,500,{ok:false,probe:'LIVENATION_STRUCTURE',error_code:text(err&&err.code)||text(err&&err.name)||'LIVENATION_PROBE_FAILED',business_writes:0});}
     }
     if(!probeMode){
       return json(res,200,{ok:true,data:readiness});
