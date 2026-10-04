@@ -586,3 +586,9 @@ td{font-size:13px!important}
  .inbox-rename-actions .inbox-rename-action-spacer{display:none}
  .inbox-rename-actions #inboxRenameReset{grid-column:1/-1}
 }
+
+
+.inbox-live-status{display:block;margin-top:3px;color:#667085}
+.inbox-live-status[data-state="ok"]{color:#166534}
+.inbox-live-status[data-state="warn"]{color:#b54708}
+.inbox-live-status[data-state="error"]{color:#b42318}
