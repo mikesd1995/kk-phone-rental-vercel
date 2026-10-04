@@ -208,7 +208,7 @@ module.exports=async function handler(req,res){
         for(const target of targets){
           try{
             const body=await PublicEventIndex.fetchPage(target.url,{fetchFn:global.fetch,timeout_ms:7000});
-            checks.push({name:target.name,ok:true,bytes:Buffer.byteLength(body,'utf8'),item_count:(body.match(/<item\\b/gi)||[]).length,https_link_count:(body.match(/https:\\/\\/[^<\\s"']+/gi)||[]).length});
+            checks.push({name:target.name,ok:true,bytes:Buffer.byteLength(body,'utf8'),item_count:String(body).toLowerCase().split('<item').length-1,has_https:String(body).includes('https://')});
           }catch(err){
             checks.push({name:target.name,ok:false,error_code:text(err&&err.code)||text(err&&err.name)||'FETCH_FAILED'});
           }
