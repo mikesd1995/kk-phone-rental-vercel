@@ -205,6 +205,23 @@ function providerBindingState(providers={}){
   return {bound,unknown_url_search_bound:bound.length>0};
 }
 
+// Only project fixed contract fields. Provider payloads, URLs, queries and raw
+// errors must never reach the machine diagnostic response.
+function diagnosticReceipts(plan={},execution={}){
+ const tasks=Array.isArray(plan.gap_tasks)?plan.gap_tasks:[];
+ return tasks.map((task,index)=>{
+  const result=(execution.results||[])[index]||{};
+  const attempts=(result.attempts||[]).map(a=>({
+   provider:ProviderExecutor.ALLOWED_PROVIDERS.has(a.provider)?a.provider:'UNKNOWN',
+   status:['NOT_BOUND','EVIDENCE_FOUND','NO_EVIDENCE','PROVIDER_ERROR'].includes(a.status)?a.status:'UNKNOWN',
+   count:Number.isFinite(a.count)?a.count:0
+  }));
+  return {task_index:index,source_id:task.source_id||null,source_tier:task.source_tier,
+   query_variant_count:ProviderExecutor.queryVariants(task).length,
+   executed:(result.attempts||[]).some(attemptExecuted),candidate_count:(result.candidates||[]).length,attempts};
+ });
+}
+
 async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
@@ -268,11 +285,28 @@ async function runMonthlyUltraDeep(input={},options={}){
     ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
     ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[])
   ];
+  const diagnostic={
+    schema:'KK_ULTRA_DEEP_DISCOVERY_DIAGNOSTIC_V1',full:complete,blockers,
+    gates:Object.fromEntries(Object.entries({provider_bound:binding.unknown_url_search_bound,live_search:liveSearchProven,
+      source_universe:universe.complete,discovery:discoveryProof.complete,reference:referenceProof.complete,
+      reconciliation:reconciliation.complete,known_miss_regression:knownMiss.complete}).map(([gate,observed])=>[gate,{expected:true,observed}])),
+    counts:{required_sources:universe.required_source_count,passed_sources:universe.passed_required_source_count,
+      discovery_tasks:discoveryProof.task_count,discovery_executed:discoveryProof.executed_count,discovery_candidates:candidates.length,
+      reference_tasks:referenceProof.task_count,reference_executed:referenceProof.executed_count,reference_candidates:referenceCandidates.length,
+      reference_recovered:recovered.recovered_count,reconciliation_gaps:reconciliation.reconciliation_gap_count,
+      known_miss_live_passed:knownMissLive.passed,known_miss_live_total:knownMissLive.case_count},
+    missing_required_sources:universe.missing_required_sources,source_tiers:universe.by_tier,
+    known_miss_live:{complete:knownMissLive.complete,missing_cases:knownMissLive.missing_cases},
+    receipts:{discovery:diagnosticReceipts(plan,execution),reference:diagnosticReceipts(referencePlan,referenceExecution),
+      known_miss:diagnosticReceipts(knownMissPlan,knownMissExecution),preflight:diagnosticReceipts({gap_tasks:[{source_tier:'PUBLIC_CALENDAR'}]},{results:[preflight.result]})},
+    production_writes:0
+  };
   return {
     version:VERSION,
     status:complete?'READY_FOR_VERIFIER':'HOLD_FOR_COVERAGE',
     full:complete,
     blockers,
+    diagnostic,
     month:plan.range.month,
     location:plan.location,
     provider_binding:{...binding,live_search_proven:liveSearchProven},

@@ -300,3 +300,21 @@ test('ineligible reference is never recovered into verifier candidate pool',()=>
  const out=Runner.recoverEligibleReferenceCandidates([],[{title:'Generic Event',event_date:'2026-10-11',source_url:'https://example.com/x',eligible_for_discovery:false}]);
  assert.equal(out.recovered_count,0);assert.equal(out.candidates.length,0);
 });
+
+test('failed FULL gates expose bounded source/task/provider receipts without provider payloads',async()=>{
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'}, {
+  publicWebOptions:{ddg_enabled:false,bing_enabled:false,searxng_endpoint:''},
+  providers:{EXA:async()=>{throw Object.assign(new Error('secret-provider-payload'),{code:'sensitive-token'});}}
+ });
+ assert.equal(out.full,false);
+ assert.ok(out.diagnostic);
+ assert.equal(out.diagnostic.gates.source_universe.expected,true);
+ assert.equal(out.diagnostic.gates.source_universe.observed,false);
+ assert.equal(out.diagnostic.gates.discovery.observed,false);
+ assert.ok(out.diagnostic.receipts.discovery.length>20);
+ assert.ok(out.diagnostic.receipts.discovery.some(r=>r.source_id==='eventpop'));
+ assert.ok(out.diagnostic.receipts.discovery.every(r=>r.attempts.some(a=>a.provider==='EXA'&&a.status==='PROVIDER_ERROR')));
+ assert.equal(JSON.stringify(out.diagnostic).includes('sensitive-token'),false);
+ assert.equal(JSON.stringify(out.diagnostic).includes('secret-provider-payload'),false);
+ assert.equal(out.diagnostic.production_writes,0);
+});
