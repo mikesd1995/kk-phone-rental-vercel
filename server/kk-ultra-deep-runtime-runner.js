@@ -7,8 +7,8 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V8';
-const UNKNOWN_SEARCH_PROVIDERS=new Set(['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V9';
+const UNKNOWN_SEARCH_PROVIDERS=new Set(['PUBLIC_EVENT_INDEX','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
 function attemptExecuted(attempt={}){
@@ -72,7 +72,7 @@ function buildReferencePlan(input={}){
       source_id:'reference-'+(i+1),
       query:queries[0],
       query_variants:queries.slice(1),
-      providers:['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+      providers:['PUBLIC_EVENT_INDEX','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
       evidence_required:true
     })),
     production_writes:0
@@ -90,7 +90,7 @@ function buildKnownMissPlan(){
         source_id:'knownmiss:'+c.case_id,
         query:queries[0]||[c.title,c.event_date,'Bangkok Thailand'].filter(Boolean).join(' '),
         query_variants:queries.slice(1),
-        providers:['DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+        providers:['PUBLIC_EVENT_INDEX','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
         evidence_required:true
       };
     }),
