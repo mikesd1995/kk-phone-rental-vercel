@@ -200,13 +200,20 @@ module.exports=async function handler(req,res){
       try{
         const url='https://www.livenationtero.co.th/en/event/allevents?location=bangkok&page=1';
         const body=await PublicWebAdapters.fetchPage(url,{fetchFn:global.fetch,timeout_ms:7000});
+        const needles=['discovery','graphql','api/','api.','eventSearch','event-list','eventlist','ticketmaster','events?','events.json','searchEvents','eventDate'];
         const snippets={};
-        for(const needle of ['The Weeknd','Young K','October 2026','eventDate','startDate','eventUrl','__NEXT_DATA__']){
-          const i=String(body).indexOf(needle);
-          snippets[needle]={index:i,snippet:i>=0?String(body).slice(Math.max(0,i-500),Math.min(String(body).length,i+900)):null};
+        for(const needle of needles){
+          const lower=String(body).toLowerCase(),i=lower.indexOf(needle.toLowerCase());
+          snippets[needle]={index:i,snippet:i>=0?String(body).slice(Math.max(0,i-350),Math.min(String(body).length,i+700)):null};
         }
-        return json(res,200,{ok:true,probe:'LIVENATION_STRUCTURE',bytes:Buffer.byteLength(body,'utf8'),snippets,business_writes:0});
-      }catch(err){return json(res,500,{ok:false,probe:'LIVENATION_STRUCTURE',error_code:text(err&&err.code)||text(err&&err.name)||'LIVENATION_PROBE_FAILED',business_writes:0});}
+        const scriptSrc=[];
+        for(const part of String(body).split('<script').slice(1)){
+          const m=part.match(/src=["']([^"']+)["']/i);
+          if(m){try{scriptSrc.push(new URL(m[1],url).toString())}catch(_){}}
+          if(scriptSrc.length>=30)break;
+        }
+        return json(res,200,{ok:true,probe:'LIVENATION_API_DISCOVERY',bytes:Buffer.byteLength(body,'utf8'),script_src:scriptSrc,snippets,business_writes:0});
+      }catch(err){return json(res,500,{ok:false,probe:'LIVENATION_API_DISCOVERY',error_code:text(err&&err.code)||text(err&&err.name)||'LIVENATION_PROBE_FAILED',business_writes:0});}
     }
     if(!probeMode){
       return json(res,200,{ok:true,data:readiness});
