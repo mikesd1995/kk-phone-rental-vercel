@@ -198,22 +198,23 @@ module.exports=async function handler(req,res){
     const probeMode=queryValue(req,'probe').toLowerCase();
     if(probeMode==='public-index' && text(process.env.VERCEL_ENV).toLowerCase()!=='production'){
       try{
-        const url='https://www.livenationtero.co.th/en/event/allevents?location=bangkok&page=1';
-        const body=await PublicWebAdapters.fetchPage(url,{fetchFn:global.fetch,timeout_ms:7000});
-        const needles=['discovery','graphql','api/','api.','eventSearch','event-list','eventlist','ticketmaster','events?','events.json','searchEvents','eventDate'];
-        const snippets={};
-        for(const needle of needles){
-          const lower=String(body).toLowerCase(),i=lower.indexOf(needle.toLowerCase());
-          snippets[needle]={index:i,snippet:i>=0?String(body).slice(Math.max(0,i-350),Math.min(String(body).length,i+700)):null};
+        const targets=[
+          'https://www.livenationtero.co.th/api/search/events?location=bangkok&page=1',
+          'https://www.livenationtero.co.th/api/search/events?page=1&location=bangkok',
+          'https://www.livenationtero.co.th/api/search/events?page=1',
+          'https://www.livenationtero.co.th/api/search/events?location=bangkok'
+        ];
+        const checks=[];
+        for(const url of targets){
+          try{
+            const body=await PublicWebAdapters.fetchPage(url,{fetchFn:global.fetch,timeout_ms:7000});
+            let parsed=null;try{parsed=JSON.parse(body)}catch(_){}
+            const shape=parsed&&typeof parsed==='object'?{keys:Object.keys(parsed).slice(0,30),array_length:Array.isArray(parsed)?parsed.length:null}:null;
+            checks.push({query:new URL(url).search,ok:true,bytes:Buffer.byteLength(body,'utf8'),json:Boolean(parsed),shape,sample:parsed?JSON.stringify(parsed).slice(0,1800):String(body).slice(0,800)});
+          }catch(err){checks.push({query:new URL(url).search,ok:false,error_code:text(err&&err.code)||text(err&&err.name)||'FETCH_FAILED'});}
         }
-        const scriptSrc=[];
-        for(const part of String(body).split('<script').slice(1)){
-          const m=part.match(/src=["']([^"']+)["']/i);
-          if(m){try{scriptSrc.push(new URL(m[1],url).toString())}catch(_){}}
-          if(scriptSrc.length>=30)break;
-        }
-        return json(res,200,{ok:true,probe:'LIVENATION_API_DISCOVERY',bytes:Buffer.byteLength(body,'utf8'),script_src:scriptSrc,snippets,business_writes:0});
-      }catch(err){return json(res,500,{ok:false,probe:'LIVENATION_API_DISCOVERY',error_code:text(err&&err.code)||text(err&&err.name)||'LIVENATION_PROBE_FAILED',business_writes:0});}
+        return json(res,200,{ok:true,probe:'LIVENATION_SEARCH_API',checks,business_writes:0});
+      }catch(err){return json(res,500,{ok:false,probe:'LIVENATION_SEARCH_API',error_code:text(err&&err.code)||text(err&&err.name)||'LIVENATION_API_PROBE_FAILED',business_writes:0});}
     }
     if(!probeMode){
       return json(res,200,{ok:true,data:readiness});
