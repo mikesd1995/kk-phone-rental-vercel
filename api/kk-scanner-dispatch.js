@@ -50,6 +50,20 @@ function queryValue(req,key){
   return '';
 }
 
+function terminalErrorCode(result={}){
+  const top=text(result&&result.blockers&&result.blockers[0]);
+  if(top) return top;
+  const diagnostic=result&&result.discovery&&result.discovery.diagnostic||{};
+  const inner=text(diagnostic.blockers&&diagnostic.blockers[0]);
+  if(inner==='UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED'){
+    const rows=diagnostic.receipts&&diagnostic.receipts.preflight;
+    const attempts=Array.isArray(rows)&&rows[0]&&Array.isArray(rows[0].attempts)?rows[0].attempts:[];
+    const summary=attempts.map(a=>[text(a.provider),text(a.status)].filter(Boolean).join('_')).filter(Boolean).join('__').toUpperCase().replace(/[^A-Z0-9_]/g,'_').slice(0,200);
+    if(summary) return 'PREFLIGHT_'+summary;
+  }
+  return inner||text(result&&result.status)||'FULL_LOOP_NOT_COMPLETE';
+}
+
 function readinessSnapshot(env=process.env){
   const ledger=Ledger.configState(env);
   const externalScannerEnabled=enabled(env.KK_EXTERNAL_SCANNER_ENABLED);
@@ -165,7 +179,7 @@ module.exports=async function handler(req,res){
         const result=await UltraDeepDirect.run({month,location:'Bangkok Metropolitan Region Thailand'},{executeWrites:false,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-readonly-'+readonlyCommandId});
         if(Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
         const complete=result.status==='COMPLETE';
-        await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:complete?'COMPLETE':'FAILED',production_writes:0,error_code:complete?null:(result.blockers&&result.blockers[0]||result.discovery&&result.discovery.diagnostic&&result.discovery.diagnostic.blockers&&result.discovery.diagnostic.blockers[0]||result.status||'FULL_LOOP_NOT_COMPLETE')});
+        await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:complete?'COMPLETE':'FAILED',production_writes:0,error_code:complete?null:terminalErrorCode(result)});
         return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_READ_ONLY_GET',direct_runtime:UltraDeepDirect.VERSION,command_id:readonlyCommandId,month,mode:'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],discovery_diagnostic:result.discovery&&result.discovery.diagnostic||null,preflight:result.preflight||null,production:result.production||null,business_writes:0});
       }catch(err){
         await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
@@ -229,7 +243,7 @@ module.exports=async function handler(req,res){
       const result=await UltraDeepDirect.run({month,location:'Bangkok Metropolitan Region Thailand'},{executeWrites:commit,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-'+commandId});
       if(!commit&&Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
       const complete=result.status==='COMPLETE';
-      await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:complete?'COMPLETE':'FAILED',production_writes:Number(result.production_writes||0),error_code:complete?null:(result.blockers&&result.blockers[0]||result.discovery&&result.discovery.diagnostic&&result.discovery.diagnostic.blockers&&result.discovery.diagnostic.blockers[0]||result.status||'FULL_LOOP_NOT_COMPLETE')});
+      await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:complete?'COMPLETE':'FAILED',production_writes:Number(result.production_writes||0),error_code:complete?null:terminalErrorCode(result)});
       return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_MACHINE',direct_runtime:UltraDeepDirect.VERSION,command_id:commandId,month,mode:commit?'COMMIT':'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],discovery_diagnostic:result.discovery&&result.discovery.diagnostic||null,preflight:result.preflight||null,production:result.production||null,business_writes:Number(result.production_writes||0)});
     }catch(err){
       await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
