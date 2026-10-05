@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V10';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V11';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -110,7 +110,7 @@ function trustedEventPath(value){
   if(host.endsWith('eventpop.me')) return /^\/e\//.test(path);
   if(host.endsWith('thaiticketmajor.com')) return /^\/(concert|performance|event)\//.test(path);
   if(host.endsWith('ticketmelon.com')) return path.split('/').filter(Boolean).length>=2;
-  if(host.endsWith('livenationtero.co.th')) return /^\/[^/]*event\//.test(path)||path.includes('/event/');
+  if(host.endsWith('livenationtero.co.th')) return /^\/show\//.test(path)||/^\/[^/]*event\//.test(path)||path.includes('/event/');
   if(host.endsWith('songkick.com')) return path.includes('/concerts/');
   return false;
  }catch(_){return false;}
