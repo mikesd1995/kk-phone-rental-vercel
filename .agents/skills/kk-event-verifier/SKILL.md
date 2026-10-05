@@ -122,3 +122,23 @@ Only produce a final governed handoff when all current control-plane requirement
 For a newly promoted event, standalone `lens_only` must not be published as available by default. The governed create payload must force the lens-only package inactive even when a proposed price exists. Lens-only becomes eligible later only through the storefront inventory rule when the same event has an active `phone_only` booking and spare lens stock. Phone and phone+lens bundle remain governed by their normal package rules.
 
 A final promotion readback must fail closed if a newly created event reports `lens_only` as `available` or `open`. Poster evidence must remain a verified HTTPS source before promotion.
+
+
+## Phase 2 learning feedback contract
+
+Every read-only verification result must emit a machine-readable disposition for the complete candidate pool:
+- VERIFIED
+- VERIFY_REQUIRED
+- STATUS_CHANGED
+- REJECT_WITH_REASON
+
+VERIFY_REQUIRED is not a terminal dead end. Convert the unresolved reason into a generalized learning miss class and feed it to the Ultra Deep Learning Agent:
+- official confirmation missing -> OFFICIAL_SOURCE_GAP
+- only secondary/community evidence -> SECONDARY_ONLY_VERIFICATION_GAP
+- date/venue/title/status disagreement -> FIELD_CONFLICT_GAP
+- ambiguous candidate identity -> IDENTITY_AMBIGUITY_GAP
+- evidence too old to establish current status -> FRESHNESS_GAP
+
+Apply the Learning Agent's source/query expansion and retry verification within the bounded recovery loop. Do not hard-code a missed event name as the fix.
+
+Phase 2 is complete only when every candidate has a disposition and every VERIFY_REQUIRED item has either been recovered or has an explicit unresolved reason plus retained evidence provenance. Learning/recovery remains read-only and production_writes=0.
