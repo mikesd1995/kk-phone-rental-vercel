@@ -17,6 +17,9 @@ const TIER_TERMS={
  COMPETITOR:['เช่ามือถือ คอนเสิร์ต fanmeeting Bangkok','เช่ามือถือ งานศิลปิน กรุงเทพ ปริมณฑล'],
  PUBLIC_CALENDAR:['Bangkok events concerts fan meetings calendar','ปฏิทิน อีเวนต์ ศิลปิน กรุงเทพ ปริมณฑล']
 };
+const OPERATIONAL_TIERS=Object.freeze([
+ 'OFFICIAL','TICKETING','ORGANIZER_PROMOTER','VENUE','ARTIST_AGENCY','SOCIAL','PUBLIC_CALENDAR'
+]);
 function text(v){return String(v==null?'':v).trim();}
 function queryVariantsForTerm(term,range,location,learned=[]){
  const labels=SourceRegistry.monthLabels(range.month), compact=text(term);
@@ -34,4 +37,32 @@ function build(input={}){
  for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
  return {version:VERSION,mode:'ULTRA_DEEP_MONTH_LONG_TAIL',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),learned_query_count:learned.length,production_writes:0,authoritative:false,verifier_required:true};
 }
-module.exports={VERSION,TIER_TERMS,monthRange,queryVariantsForTerm,build};
+function buildOperational(input={}){
+ const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],gap_tasks=[];
+ for(const source_tier of OPERATIONAL_TIERS){
+  const term=(TIER_TERMS[source_tier]||[])[0];if(!term)continue;
+  const qs=queryVariantsForTerm(term,range,location,learned);
+  const liveNationEligible=['OFFICIAL','TICKETING','VENUE','ARTIST_AGENCY','ORGANIZER_PROMOTER','PUBLIC_CALENDAR'].includes(source_tier);
+  gap_tasks.push({
+   source_tier,
+   source_id:'smart-'+source_tier.toLowerCase().replace(/_/g,'-'),
+   query:qs[0],
+   query_variants:qs.slice(1,4),
+   providers:[...(liveNationEligible?['LIVENATION_PUBLIC']:[]),'BING_RSS','OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA'],
+   stop_condition:'FIRST_USABLE_EVIDENCE_OR_BOUNDED_NO_EVIDENCE',
+   evidence_required:false,
+   date_window:{start:range.start_date,end:range.end_date}
+  });
+ }
+ return {
+  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V1',
+  mode:'SMART_OPERATIONAL',
+  range,location,gap_tasks,
+  operational_tiers:[...OPERATIONAL_TIERS],
+  audit_required:true,
+  production_writes:0,
+  authoritative:false,
+  verifier_required:true
+ };
+}
+module.exports={VERSION,TIER_TERMS,OPERATIONAL_TIERS,monthRange,queryVariantsForTerm,build,buildOperational};
