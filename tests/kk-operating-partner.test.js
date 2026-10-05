@@ -12,7 +12,7 @@ const fs=require('fs');
 const path=require('path');
 
 test('Operating Partner registry route is callable but advisory',()=>{
-  assert.equal(Registry.REGISTRY_VERSION,'KK_AGENT_REGISTRY_V29');
+  assert.equal(Registry.REGISTRY_VERSION,'KK_AGENT_REGISTRY_V34');
   assert.equal(Registry.AGENTS['kk-operating-partner'].authority,'ADVISORY_DECISION_SUPPORT');
   assert.equal(Registry.AGENTS['kk-operating-partner'].production_writes,0);
   const route=Registry.routeForIntent('operating_partner_brief');
