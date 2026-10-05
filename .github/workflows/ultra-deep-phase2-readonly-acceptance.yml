@@ -1,0 +1,109 @@
+name: Ultra Deep Phase 2 Read Only Acceptance
+
+on:
+  push:
+    branches:
+      - fix/ultra-deep-learn-ryo-brand-social-miss
+    paths:
+      - 'server/kk-ultra-deep-candidate-verifier.js'
+      - 'server/kk-ultra-deep-phase2-controller.js'
+      - 'server/kk-ultra-deep-phase2-runtime.js'
+      - 'server/kk-ultra-deep-v2-learning-agent.js'
+      - 'server/kk-agent-task-router.js'
+      - 'scripts/kk-ultra-deep-phase2-acceptance.js'
+      - 'tests/kk-ultra-deep-candidate-verifier.test.js'
+      - 'tests/kk-ultra-deep-phase2-controller.test.js'
+      - 'tests/kk-ultra-deep-phase2-runtime.test.js'
+      - 'tests/kk-agent-task-router-phase2.test.js'
+      - '.github/workflows/ultra-deep-phase2-readonly-acceptance.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-ultra-deep-phase2-readonly
+  cancel-in-progress: false
+
+jobs:
+  phase2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      KK_DDGS_TRAFILATURA_ENABLED: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Install pinned zero-cost search fallback
+        run: python3 -m pip install --disable-pip-version-check --no-input 'ddgs==9.14.4'
+
+      - name: Phase 2 regressions
+        run: |
+          set -euo pipefail
+          node --check server/kk-ultra-deep-candidate-verifier.js
+          node --check server/kk-ultra-deep-phase2-controller.js
+          node --check server/kk-ultra-deep-phase2-runtime.js
+          node --check scripts/kk-ultra-deep-phase2-acceptance.js
+          node --test tests/kk-ultra-deep-candidate-verifier.test.js
+          node --test tests/kk-ultra-deep-phase2-controller.test.js
+          node --test tests/kk-ultra-deep-phase2-runtime.test.js
+          node --test tests/kk-agent-task-router-phase2.test.js
+          node --test tests/kk-ultra-deep-phase-handoff-gate.test.js
+
+      - name: Materialize current October candidate pool
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts
+          set +e
+          node scripts/kk-ultra-deep-runtime-acceptance.js             --month 2026-10             --location "Bangkok Thailand"             --output .artifacts/ultra-deep-runtime-acceptance.json             > .artifacts/ultra-deep-runtime-summary.json
+          code=$?
+          set -e
+          echo "$code" > .artifacts/discovery-exit-code.txt
+          test "$code" -eq 0 -o "$code" -eq 2
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('.artifacts/ultra-deep-runtime-acceptance.json','utf8'));
+          if(r.production_writes!==0)throw new Error('DISCOVERY_PRODUCTION_WRITES_NONZERO');
+          if(!Array.isArray(r.candidates)||r.candidates.length===0)throw new Error('CANDIDATE_POOL_EMPTY');
+          console.log(JSON.stringify({status:r.status,full:r.full,candidate_count:r.candidates.length,blockers:r.blockers||[],production_writes:r.production_writes},null,2));
+          NODE
+
+      - name: Execute Phase 2 Verifier + Learning recovery
+        run: |
+          set -euo pipefail
+          set +e
+          node scripts/kk-ultra-deep-phase2-acceptance.js             --input .artifacts/ultra-deep-runtime-acceptance.json             --output .artifacts/ultra-deep-phase2-acceptance.json             --max-rounds 3             > .artifacts/ultra-deep-phase2-summary.json
+          code=$?
+          set -e
+          echo "$code" > .artifacts/phase2-exit-code.txt
+          test "$code" -eq 0 -o "$code" -eq 2
+
+      - name: Upload Phase 2 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultra-deep-phase2-readonly-${{ github.run_id }}
+          path: |
+            .artifacts/ultra-deep-runtime-acceptance.json
+            .artifacts/ultra-deep-runtime-summary.json
+            .artifacts/discovery-exit-code.txt
+            .artifacts/ultra-deep-phase2-acceptance.json
+            .artifacts/ultra-deep-phase2-summary.json
+            .artifacts/phase2-exit-code.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Require Phase 2 acceptance before Phase 3
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('.artifacts/ultra-deep-phase2-acceptance.json','utf8'));
+          if(r.production_writes!==0||r.phase3_started!==false)throw new Error('PHASE_BOUNDARY_VIOLATION');
+          if(r.status!=='PHASE2_ACCEPTED'||r.ready_for_phase3!==true){
+            console.error(JSON.stringify({status:r.status,ready_for_phase3:r.ready_for_phase3,rounds:r.rounds,blockers:r.gate&&r.gate.blockers||[],unresolved:(r.results||[]).filter(x=>x.disposition==='VERIFY_REQUIRED').map(x=>({candidate_id:x.candidate_id,title:x.title,event_date:x.event_date,reason:x.reason}))},null,2));
+            process.exit(2);
+          }
+          console.log(JSON.stringify({status:r.status,ready_for_phase3:true,candidate_count:r.candidate_count,pool_fingerprint:r.pool_fingerprint,production_writes:0,phase3_started:false},null,2));
+          NODE
