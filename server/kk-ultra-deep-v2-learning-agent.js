@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V5';
+const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V6';
 const PROTECTED_POLICY=Object.freeze(['BOOKING_PRICE_LOCK','TOMBSTONE_NO_RESURRECTION','GOVERNED_ADMIN_WRITER_ONLY','EXACT_READBACK_REQUIRED','VERIFIED_EVENT_REQUIRED']);
 const ADAPTIVE_SCORING=Object.freeze(['RENTABILITY_WEIGHTS','HIGH_MEDIUM_THRESHOLDS','SOURCE_PRIORITY','QUERY_TERMS','MATCHING_HEURISTICS']);
 
@@ -16,6 +16,7 @@ function learn(input={}){
  const missClasses=uniq(missed.map(x=>x.miss_class));
  const broadCoverageMiss=missed.some(x=>['INTERNATIONAL_CONCERT_SOURCE_GAP','THAI_LIVE_SOURCE_GAP','FESTIVAL_TAXONOMY_GAP','FAN_BIRTHDAY_SOURCE_GAP','VENUE_CALENDAR_GAP','TICKETING_SOURCE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const artistBrandSocialMiss=missed.some(x=>['ARTIST_BRAND_SOCIAL_KEYWORDLESS_APPEARANCE','ARTIST_SCHEDULE_GAP','BRAND_SOCIAL_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
+ const verificationMiss=missed.some(x=>['OFFICIAL_SOURCE_GAP','SECONDARY_ONLY_VERIFICATION_GAP','FIELD_CONFLICT_GAP','IDENTITY_AMBIGUITY_GAP','FRESHNESS_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const statusStalenessMiss=missed.some(x=>['STATUS_CHANGE_GAP','STALE_LISTING_GAP','CANCELLATION_STATUS_GAP','POSTPONEMENT_STATUS_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const organizerTimelineMiss=missed.some(x=>['ORGANIZER_ACCOUNT_TIMELINE_GAP','PROMOTER_ACCOUNT_TIMELINE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const expansionQueries=artistBrandSocialMiss?uniq(missed.flatMap(x=>{
@@ -33,6 +34,10 @@ function learn(input={}){
    const title=text(x.title||x.event_name);
    const artists=Array.isArray(x.artists)?x.artists:[];
    return [title+' cancelled postponed rescheduled',title+' official update',...artists.map(a=>a+' cancelled postponed rescheduled '+(text(x.month)||''))];
+ })) : [];
+ const verificationExpansion=verificationMiss?uniq(missed.flatMap(x=>{
+   const title=text(x.title||x.event_name); const artists=Array.isArray(x.artists)?x.artists:[]; const organizers=Array.isArray(x.organizers)?x.organizers:[]; const venue=text(x.venue);
+   return [title+' official',title+' official ticket',title+' official venue',...artists.map(a=>a+' official '+title),...organizers.map(o=>o+' '+title),venue?venue+' '+title:''];
  })) : [];
  const organizerExpansion=organizerTimelineMiss?uniq(missed.flatMap(x=>{
    const organizers=Array.isArray(x.organizers)?x.organizers:[];
@@ -59,6 +64,7 @@ function learn(input={}){
  if(broadCoverageMiss) recommendations.push('MANDATORY_MULTI_AXIS_SOURCE_UNIVERSE_SWEEP_AND_KNOWN_POSITIVE_BACKTEST');
  if(organizerTimelineMiss) recommendations.push('MANDATORY_ORGANIZER_ACCOUNT_TIMELINE_SWEEP');
  if(statusStalenessMiss) recommendations.push('MANDATORY_CURRENT_STATUS_CROSSCHECK');
+ if(verificationMiss) recommendations.push('MANDATORY_OFFICIAL_SOURCE_ESCALATION_AND_FIELD_RECONCILIATION');
  if(falsePositives.length) recommendations.push('TIGHTEN_IDENTITY_AND_GENERIC_PAGE_FILTERS');
  if(holds.some(x=>(x.holds||[]).includes('VERIFIED_POSTER_REQUIRED'))) recommendations.push('EXPAND_POSTER_DISCOVERY_LEADS_FROM_EXACT_EVENT_COMPETITORS');
  if(corrections.length) recommendations.push('REVIEW_REPEATED_MANUAL_CORRECTIONS_FOR_HEURISTIC_UPDATE');
@@ -66,10 +72,11 @@ function learn(input={}){
  return {
    version:VERSION,
    status:'LEARNED',
-   adaptive:{query_terms:uniq([...learnedQueries,...expansionQueries,...organizerExpansion,...statusExpansion,...coverageExpansion]),miss_classes:missClasses,mandatory_expansion:uniq([
+   adaptive:{query_terms:uniq([...learnedQueries,...expansionQueries,...organizerExpansion,...statusExpansion,...verificationExpansion,...coverageExpansion]),miss_classes:missClasses,mandatory_expansion:uniq([
      ...(artistBrandSocialMiss?['ARTIST_MONTH_SCHEDULE','BRAND_OFFICIAL_SOCIAL','VENUE_MALL_SOCIAL','ARTIST_TO_RELATED_EVENT_PIVOT']:[]),
      ...(organizerTimelineMiss?['ORGANIZER_ACCOUNT_TIMELINE','ORGANIZER_TO_RELATED_EVENT_PIVOT']:[]),
      ...(statusStalenessMiss?['CURRENT_STATUS_OFFICIAL_CROSSCHECK','CANCELLATION_POSTPONEMENT_SWEEP','STALE_LISTING_RECONCILIATION']:[]),
+     ...(verificationMiss?['OFFICIAL_ARTIST_ORGANIZER_ESCALATION','OFFICIAL_TICKETING_CROSSCHECK','OFFICIAL_VENUE_CROSSCHECK','FIELD_LEVEL_CONFLICT_RECONCILIATION']:[]),
      ...(broadCoverageMiss?['TICKETING_UNIVERSE','ORGANIZER_PROMOTER_UNIVERSE','VENUE_CALENDAR_UNIVERSE','BROAD_CONCERT_LIVE_UNIVERSE','FESTIVAL_TAXONOMY_UNIVERSE','KNOWN_POSITIVE_BACKTEST']:[])
    ]),source_priority_candidates:learnedSources,suppress_patterns:suppressPatterns,hold_signals:holdSignals},
    recommendations,
