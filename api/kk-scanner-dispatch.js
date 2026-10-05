@@ -195,6 +195,41 @@ module.exports=async function handler(req,res){
       }
     }
     const probeMode=queryValue(req,'probe').toLowerCase();
+    if(probeMode==='full-loop-readonly' && text(process.env.VERCEL_ENV).toLowerCase()!=='production'){
+      const month=queryValue(req,'month');
+      if(!/^\d{4}-\d{2}$/.test(month)) return json(res,400,{ok:false,error_code:'ULTRA_DEEP_MONTH_INVALID',business_writes:0});
+      try{
+        const result=await UltraDeepDirect.run(
+          {month,location:'Bangkok Metropolitan Region Thailand'},
+          {executeWrites:false,env:process.env,fetchImpl:global.fetch,correlation_id:'preview-readonly-'+month}
+        );
+        const writes=Number(result&&result.production_writes||0);
+        if(writes!==0) return json(res,500,{ok:false,error_code:'READ_ONLY_WRITE_INVARIANT_BROKEN',business_writes:writes});
+        return json(res,200,{
+          ok:true,
+          phase:'ULTRA_DEEP_V2_PREVIEW_READ_ONLY_DIAGNOSTIC',
+          runtime:UltraDeepDirect.VERSION,
+          month,
+          status:text(result&&result.status),
+          blocker:terminalErrorCode(result),
+          preflight:result&&result.preflight||null,
+          discovery:result&&result.discovery||null,
+          verifier:result&&result.verifier||null,
+          competitor_price_scan:result&&result.competitor_price_scan||null,
+          commercial:result&&result.commercial||null,
+          v2_read_only:result&&result.v2_read_only||null,
+          business_writes:0
+        });
+      }catch(err){
+        return json(res,500,{
+          ok:false,
+          phase:'ULTRA_DEEP_V2_PREVIEW_READ_ONLY_DIAGNOSTIC',
+          error_code:text(err&&err.code)||'PREVIEW_READ_ONLY_FAILED',
+          error:text(err&&err.message).slice(0,240),
+          business_writes:0
+        });
+      }
+    }
     if(!probeMode){
       return json(res,200,{ok:true,data:readiness});
     }
