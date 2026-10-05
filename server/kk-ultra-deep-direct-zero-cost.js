@@ -69,10 +69,20 @@ async function run(input={},options={}){
     verifier.verified_candidates,
     {concurrency:3,max_results:20,fetchImpl}
   );
+  const baselinePrices=(preflightSnapshot.packages||[])
+    .filter(p=>text(p.package_type).toLowerCase()==='phone_only'&&Number(p.standard_price)>0)
+    .map(p=>({
+      reference_id:text(p.template_id||p.package_id)||'KK_PHONE_BASELINE',
+      package_type:'PHONE_ONLY',
+      price:Number(p.standard_price),
+      reference_kind:'KK_APPROVED_BASELINE',
+      approved:true
+    }));
   const commercial=Commercial.prepareBatch({
     candidates:verifier.verified_candidates,
     competitor_prices:priceScan.evidence,
-    posters:verifier.posters
+    posters:verifier.posters,
+    store_baseline_prices:baselinePrices
   });
   if(!(commercial.ready_count>0)&&options.executeWrites===true){
     return {version:VERSION,status:'BLOCKED_NO_COMMERCIAL_CANDIDATES',month,preflight,discovery,verifier,competitor_price_scan:priceScan,commercial,production_writes:0};
