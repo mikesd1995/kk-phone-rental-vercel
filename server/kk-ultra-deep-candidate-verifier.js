@@ -80,18 +80,19 @@ function authoritativeEventSource(url='',picked=null,verified={},options={}){
  const structuredExact=!!(picked&&picked.d===verified.date&&text(picked.e&&picked.e.name)&&verified.venue&&(phase2IdentityStatus||verified.poster));
  return {ok:trustedDetail||(!socialOrSearch&&structuredExact),trusted_detail:trustedDetail,structured_exact:structuredExact,social_or_search:socialOrSearch,verification_scope:phase2IdentityStatus?'PHASE2_IDENTITY_STATUS':'FULL_COMMERCIAL'};
 }
-function prefilter(candidate={},month=''){
+function prefilter(candidate={},month='',options={}){
  const title=text(candidate.title);
  const date=isoDate(candidate.event_date);
  const url=https(candidate.source_url);
  const reasons=[];
+ const phase2IdentityStatus=String(options.verification_scope||'').toUpperCase()==='PHASE2_IDENTITY_STATUS';
  if(!url)reasons.push('HTTPS_SOURCE_REQUIRED');
  if(!date)reasons.push('EVENT_DATE_REQUIRED');
  else if(month&&!monthMatches(date,month))reasons.push('OUTSIDE_TARGET_MONTH');
  const quality=titleQuality(title);reasons.push(...quality.reasons);
- if(LOW_FIT_SIGNAL.test(title))reasons.push('NON_RENTAL_EVENT_SIGNAL');
+ if(!phase2IdentityStatus&&LOW_FIT_SIGNAL.test(title))reasons.push('NON_RENTAL_EVENT_SIGNAL');
  const explicit=EVENT_SIGNAL.test(title);
- if(!explicit&&!eventSpecificUrl(url))reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
+ if(!phase2IdentityStatus&&!explicit&&!eventSpecificUrl(url))reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
  return {eligible:reasons.length===0,reasons,event_date:date,event_specific_url:eventSpecificUrl(url)};
 }
 function flattenJsonLd(value,out=[]){
@@ -172,7 +173,7 @@ function chooseJsonLdEvent(events=[],candidate={},month=''){
 }
 function verifyHtmlCandidate(candidate={},body='',context={}){
  const month=text(context.month);
- const pre=prefilter(candidate,month);
+ const pre=prefilter(candidate,month,context);
  if(!pre.eligible)return {status:'HOLD_VERIFIER',verified:false,blockers:pre.reasons,candidate};
  const events=parseJsonLd(body);
  const picked=chooseJsonLdEvent(events,candidate,month);
@@ -211,7 +212,7 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  };
 }
 async function verifyCandidate(candidate={},context={},options={}){
- const pre=prefilter(candidate,context.month);
+ const pre=prefilter(candidate,context.month,context);
  if(!pre.eligible)return {status:'HOLD_VERIFIER',verified:false,blockers:pre.reasons,candidate};
  try{
   const body=await PublicWeb.fetchPage(candidate.source_url,{fetchFn:options.fetchFn,timeout_ms:Number(options.timeout_ms||10000)});
@@ -228,7 +229,7 @@ async function verifyBatch(candidates=[],context={},options={}){
  const rows=Array.isArray(candidates)?candidates:[];
  const selected=[];const preHeld=[];const seen=new Set();
  for(const c of rows){
-  const pre=prefilter(c,context.month);
+  const pre=prefilter(c,context.month,context);
   const k=[text(c.title).toLowerCase(),isoDate(c.event_date),https(c.source_url)].join('|');
   if(seen.has(k))continue;seen.add(k);
   if(pre.eligible)selected.push(c);else preHeld.push({status:'HOLD_VERIFIER',verified:false,blockers:pre.reasons,candidate:c});
