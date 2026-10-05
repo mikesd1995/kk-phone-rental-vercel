@@ -115,3 +115,35 @@ test('exact competitor evidence drives market-aligned phone and bundle prices',(
  assert.equal(r.competitor_reference_used_as_final,true);
  assert.deepEqual(r.final_prices.map(x=>x.override_price),[740,200,940]);
 });
+
+
+test('accepted Phase3 price decision is preserved exactly and not recomputed',()=>{
+ const r=P.resolve({
+  phase3_price_decision:{
+   status:'PRICE_READY',
+   price_source:'COMPARABLE_EVENT_MEDIAN',
+   price_confidence:'MEDIUM_LOW',
+   target_prices:{phone:790,bundle:990,lens:200}
+  },
+  pricing:{independent_competitors:9,evidence:[
+   {package_type:'PHONE_ONLY',price:1290},
+   {package_type:'PHONE_ONLY',price:1390}
+  ]}
+ });
+ assert.equal(r.source,'PHASE3_LOCKED_TARGET');
+ assert.equal(r.upstream_price_source,'COMPARABLE_EVENT_MEDIAN');
+ assert.deepEqual(r.final_prices.map(x=>x.override_price),[790,200,990]);
+ assert.equal(r.needs_price_recheck,false);
+});
+
+test('booked Phase3 price lock remains unchanged downstream',()=>{
+ const r=P.resolve({
+  phase3_price_decision:{
+   status:'PRICE_LOCKED_BOOKING',
+   price_source:'CURRENT_BOOKED_PRICE',
+   target_prices:{phone:590,bundle:790,lens:200}
+  }
+ });
+ assert.equal(r.source,'PHASE3_LOCKED_TARGET');
+ assert.deepEqual(r.final_prices.map(x=>x.override_price),[590,200,790]);
+});
