@@ -183,11 +183,11 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  const poster=imageUrl(picked&&picked.e&&picked.e.image)||https(metaValue(body,'og:image'));
  const url=https(candidate.source_url);
  const blockers=[];
+ const phase2IdentityStatus=String(context.verification_scope||'').toUpperCase()==='PHASE2_IDENTITY_STATUS';
  const quality=titleQuality(title);blockers.push(...quality.reasons);
  if(!date||!monthMatches(date,month))blockers.push('VERIFIED_TARGET_MONTH_DATE_REQUIRED');
  if(!venue)blockers.push('VERIFIED_VENUE_REQUIRED');
- if(!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url))blockers.push('VERIFIED_EVENT_IDENTITY_REQUIRED');
- const phase2IdentityStatus=String(context.verification_scope||'').toUpperCase()==='PHASE2_IDENTITY_STATUS';
+ if(!phase2IdentityStatus&&!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url))blockers.push('VERIFIED_EVENT_IDENTITY_REQUIRED');
  if(!phase2IdentityStatus&&!poster)blockers.push('VERIFIED_POSTER_REQUIRED');
  const authority=authoritativeEventSource(url,picked,{date,venue,poster,title},{verification_scope:context.verification_scope});
  if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
