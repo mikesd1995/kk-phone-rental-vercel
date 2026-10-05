@@ -26,10 +26,12 @@ function queriesFor(candidate={},missClass=''){
   case 'PRICE_FRESHNESS_UNKNOWN':
     return uniq([...common,`"${title}" ${date} เช่า ราคา ล่าสุด`,`"${title}" latest phone rental price`]);
   case 'PACKAGE_AMBIGUITY':
+  case 'PACKAGE_PARITY_GAP':
     return uniq([...common,`"${title}" เครื่องอย่างเดียว ราคา`,`"${title}" พร้อมเลนส์ ราคา`,`"${title}" Lens + ราคา`]);
   case 'COMPETITOR_IDENTITY_GAP':
     return uniq([...common,`"${title}" ร้านเช่ามือถือ x300`,`"${title}" phone rental Bangkok`]);
   case 'OUTLIER_PRICE_GAP':
+  case 'COMPETITOR_COVERAGE_THIN':
     return uniq([...common,`"${title}" เช่า x300 690 790 890 990`]);
   case 'COMPARABLE_GAP':
     return uniq([
@@ -53,9 +55,9 @@ function learn(input={}){
   extra_queries_by_candidate[id]=uniq([...(extra_queries_by_candidate[id]||[]),...queriesFor(candidate,miss.miss_class)]);
  }
  const expansions=[];
- if(miss_classes.some(x=>['NO_EXACT_PRICE_GAP','COMPETITOR_IDENTITY_GAP'].includes(x)))expansions.push('EXPAND_COMPETITOR_UNIVERSE');
+ if(miss_classes.some(x=>['NO_EXACT_PRICE_GAP','COMPETITOR_IDENTITY_GAP','COMPETITOR_COVERAGE_THIN'].includes(x)))expansions.push('EXPAND_COMPETITOR_UNIVERSE');
  if(miss_classes.some(x=>['STALE_PRICE_GAP','PRICE_FRESHNESS_UNKNOWN'].includes(x)))expansions.push('FRESH_PRICE_TIMESTAMP_RECOVERY');
- if(miss_classes.includes('PACKAGE_AMBIGUITY'))expansions.push('PACKAGE_SEMANTIC_RECONCILIATION');
+ if(miss_classes.some(x=>['PACKAGE_AMBIGUITY','PACKAGE_PARITY_GAP'].includes(x)))expansions.push('PACKAGE_SEMANTIC_RECONCILIATION');
  if(miss_classes.includes('OUTLIER_PRICE_GAP'))expansions.push('OUTLIER_CROSSCHECK_MORE_SHOPS');
  if(miss_classes.includes('COMPARABLE_GAP'))expansions.push('COMPARABLE_GRAPH_EXPANSION');
  return {
