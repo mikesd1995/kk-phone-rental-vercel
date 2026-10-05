@@ -33,6 +33,9 @@ test('Phase 2 runtime accepts authoritative event identity without requiring pos
  assert.equal(out.results[0].disposition,'VERIFIED');
  assert.equal(out.production_writes,0);
  assert.equal(out.phase3_started,false);
+ assert.equal(out.phase2_artifact.frozen,true);
+ assert.deepEqual(out.phase2_artifact.pricing_candidate_ids,[out.results[0].candidate_id]);
+ assert.match(out.phase2_artifact.fingerprint,/^[a-f0-9]{64}$/);
 });
 
 test('Learning recovery retries VERIFY_REQUIRED against expanded official-source search',async()=>{
