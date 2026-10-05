@@ -182,3 +182,19 @@ This diagnostic is not evidence that operational Phase 3 is accepted. Official P
 The competitor universe is no longer capped at 10. The existing 10 X rental accounts are protected seed coverage only. Target roughly 20 shops/accounts when credible rental evidence is discoverable; >20 is allowed, with the current scanner bounded at 50 for runtime/query control. Expanded accounts must pass rental-shop evidence checks and are read-only. Exact-event pricing uses the valid independent evidence actually found; 20 prices are not required per event.
 
 Canonical policy: `docs/COMPETITOR_UNIVERSE_POLICY_V1_2026-10-05.md`.
+
+
+## Cross-chat Phase 3 hardening handoff — 2026-10-05
+
+Phase 3 diagnostic hardening is now documented canonically in:
+`docs/ULTRA_DEEP_PHASE3_HARDENING_2026-10-05.md`.
+
+Important cross-chat state:
+- official Phase 3 is still locked until real `PHASE2_ACCEPTED`;
+- Phase 2 now emits an immutable Phase-2 artifact on acceptance;
+- Phase 3 requires the exact VERIFIED candidate ID set from that artifact;
+- Phase 3 pricing evidence now has identity/freshness/semantic/package/comparable/booking guards;
+- Phase-3 Learning runtime performs bounded recovery and may use governed fallback after recovery;
+- competitor baseline 10 is not a cap; universe target ~20, bounded 50, desired ~5 credible independent shops per event when available;
+- accepted Phase-3 price decisions are frozen into a Phase-3 artifact and downstream pricing must preserve `PHASE3_LOCKED_TARGET`;
+- `production_writes=0`, `phase4_started=false`, and no automatic phase crossing remain mandatory.
