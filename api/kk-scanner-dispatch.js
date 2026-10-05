@@ -7,7 +7,6 @@ const OidcBridge=require('../server/runtime-ledger-oidc-bridge');
 const UltraDeepRuntime=require('../server/kk-ultra-deep-runtime-runner');
 const UltraDeepDirect=require('../server/kk-ultra-deep-direct-zero-cost.js');
 const WriteControl=require('../server/admin-write-control-oidc.js');
-const PublicWebAdapters=require('../server/kk-ultra-deep-public-web-adapters.js');
 
 function text(value){
   return String(value==null?'':value).trim();
@@ -196,18 +195,6 @@ module.exports=async function handler(req,res){
       }
     }
     const probeMode=queryValue(req,'probe').toLowerCase();
-    if(probeMode==='public-index' && text(process.env.VERCEL_ENV).toLowerCase()!=='production'){
-      try{
-        const provider=PublicWebAdapters.createProviders({fetchFn:global.fetch,livenation_timeout_ms:7000}).LIVENATION_PUBLIC;
-        const generic=await provider({query:'Bangkok October 2026 concert',date_window:{start:'2026-10-01',end:'2026-10-31'}});
-        const exact=await provider({query:'Young K Bangkok Thailand',date_window:{start:'2026-10-01',end:'2026-10-31'}});
-        return json(res,200,{ok:true,probe:'LIVENATION_PROVIDER_ACCEPTANCE',
-          generic_count:generic.length,generic_structured:generic.filter(row=>/^2026-10-\\d{2}$/.test(text(row.event_date))).length,
-          exact_count:exact.length,
-          sample:generic.slice(0,5).map(row=>({title:text(row.title),event_date:text(row.event_date),venue:text(row.venue),source_host:(()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return null}})()})),
-          business_writes:0});
-      }catch(err){return json(res,500,{ok:false,probe:'LIVENATION_PROVIDER_ACCEPTANCE',error_code:text(err&&err.code)||text(err&&err.name)||'LIVENATION_PROVIDER_FAILED',business_writes:0});}
-    }
     if(!probeMode){
       return json(res,200,{ok:true,data:readiness});
     }
