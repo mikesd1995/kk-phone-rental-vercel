@@ -22,6 +22,7 @@ test('Phase3 runtime remains zero-write and can accept governed base fallback af
  });
  assert.equal(out.status,'PHASE3_ACCEPTED');assert.equal(out.ready_for_phase4,true);assert.equal(out.production_writes,0);assert.equal(out.phase4_started,false);
  assert.equal(out.results[0].price_source,'BASE_690_890');assert.ok(out.rounds.length>=1);
+ assert.ok(out.phase3_artifact);assert.equal(out.phase3_artifact.frozen,true);assert.deepEqual(out.phase3_artifact.actionable_candidate_ids,['c1']);
 });
 test('Phase3 runtime refuses a candidate set not matching Phase2 artifact',async()=>{
  const out=await R.run({
