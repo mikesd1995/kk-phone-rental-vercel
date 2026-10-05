@@ -3,14 +3,16 @@
 const path=require('node:path');
 const {execFile}=require('node:child_process');
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V5';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V8';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
 const DDG_MIN_INTERVAL_MS=250;
 const DEFAULT_DDGS_TIMEOUT_MS=10000;
 const DEFAULT_DDGS_MAX_RESULTS=10;
+const LIVENATION_EVENTS_ENDPOINT='https://www.livenationtero.co.th/api/search/events?location=bangkok&page=1';
 let ddgLastRequestAt=0;
+let ddgCircuitOpenUntil=0;
 function text(v){return String(v==null?'':v).trim();}
 function https(v){try{const u=new URL(text(v));return u.protocol==='https:'?u.toString():'';}catch(_){return '';}}
 function decodeHtmlEntities(raw){
@@ -76,11 +78,17 @@ function parseDuckDuckGoHtml(body,query=''){
 
 async function duckDuckGoHtml(task={},options={}){
  const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
+ if(Date.now()<ddgCircuitOpenUntil)return [];
  const interval=Number.isFinite(Number(options.ddg_min_interval_ms))?Number(options.ddg_min_interval_ms):DDG_MIN_INTERVAL_MS;
  if(interval>0){const wait=Math.max(0,ddgLastRequestAt+interval-Date.now());if(wait>0)await new Promise(resolve=>setTimeout(resolve,wait));ddgLastRequestAt=Date.now();}
  const u=new URL('https://html.duckduckgo.com/html/');u.searchParams.set('q',q);
- const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.ddg_timeout_ms||options.timeout_ms||8000)});
- return parseDuckDuckGoHtml(body,q);
+ try{
+  const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.ddg_timeout_ms||options.timeout_ms||8000)});
+  return parseDuckDuckGoHtml(body,q);
+ }catch(error){
+  ddgCircuitOpenUntil=Date.now()+Math.max(1000,Number(options.ddg_circuit_ms||60000));
+  throw error;
+ }
 }
 
 
@@ -107,6 +115,101 @@ async function bingHtml(task={},options={}){
  const u=new URL('https://www.bing.com/search');u.searchParams.set('q',q);u.searchParams.set('count','25');
  const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.bing_timeout_ms||options.timeout_ms||8000)});
  return parseBingHtml(body,q);
+}
+
+
+function parseRssItems(body,query=''){
+ const out=[];const seen=new Set();
+ const raw=String(body||'');
+ for(const m of raw.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)){
+  const item=m[1]||'';
+  const title=cleanHtml((item.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'')||text(query)||null;
+  const linkRaw=decodeHtmlEntities(cleanHtml((item.match(/<link[^>]*>([\s\S]*?)<\/link>/i)||[])[1]||''));
+  const sourceUrl=https(linkRaw);if(!sourceUrl)continue;
+  const description=cleanHtml((item.match(/<description[^>]*>([\s\S]*?)<\/description>/i)||[])[1]||'');
+  const dates=[...new Set([...inferSearchEventDates(title),...inferSearchEventDates(description)])].slice(0,7);
+  const rows=dates.length?dates:[null];
+  for(const eventDate of rows){
+   const key=sourceUrl+'|'+String(eventDate||'');if(seen.has(key))continue;seen.add(key);
+   out.push({title,event_date:eventDate,event_time:null,venue:null,artist:[],source_url:sourceUrl,confidence:null});
+   if(out.length>=25)return out;
+  }
+ }
+ return out;
+}
+async function bingRss(task={},options={}){
+ const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
+ const u=new URL('https://www.bing.com/search');u.searchParams.set('format','rss');u.searchParams.set('q',q);u.searchParams.set('count','25');
+ const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.bing_rss_timeout_ms||options.timeout_ms||7000)});
+ return parseRssItems(body,q);
+}
+
+
+const LIVENATION_GENERIC_TOKENS=new Set([
+ 'bangkok','thailand','metro','metropolitan','region','concert','concerts','event','events','calendar',
+ 'ticket','tickets','artist','artists','fanmeeting','fancon','fansign','festival','showcase','live','tour',
+ 'official','organizer','promoter','venue','hall','mall','agency','appearance','public',
+ 'january','february','march','april','may','june','july','august','september','october','november','december',
+ 'กรุงเทพ','กรุงเทพมหานคร','ประเทศไทย','คอนเสิร์ต','งาน','กิจกรรม','ศิลปิน','แฟนมีต','แฟนคอน','แฟนไซน์','เทศกาล','โชว์เคส'
+]);
+function liveNationTargetMonth(task={},query=''){
+ const start=text(task.date_window&&task.date_window.start);
+ if(/^\d{4}-\d{2}/.test(start))return start.slice(0,7);
+ const iso=text(query).match(/\b(20\d{2})-(\d{2})\b/);if(iso)return iso[1]+'-'+iso[2];
+ const m=text(query).match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(20\d{2})\b/i);
+ if(m){const month=SEARCH_MONTHS[m[1].toLowerCase()];return m[2]+'-'+String(month).padStart(2,'0');}
+ return '';
+}
+function liveNationSpecificTokens(query=''){
+ return text(query).toLowerCase().replace(/\bsite:[a-z0-9.-]+/g,' ').replace(/20\d{2}(?:-\d{2}(?:-\d{2})?)?/g,' ')
+  .replace(/[^a-z0-9\u0E00-\u0E7F]+/g,' ').split(/\s+/).filter(Boolean)
+  .filter(token=>token.length>=3&&!LIVENATION_GENERIC_TOKENS.has(token));
+}
+function liveNationCanonicalUrl(doc={}){
+ const localizations=Array.isArray(doc.localizations)?doc.localizations:[];
+ const preferred=localizations.find(x=>/^en(?:-|$)/i.test(text(x&&x.cultureName)))||localizations[0]||{};
+ return https(preferred.url||doc.url||doc.externalUrl);
+}
+function normalizeLiveNationDocument(doc={}){
+ const eventDate=text(doc.eventDate||doc.eventDateUtc).slice(0,10);
+ const sourceUrl=liveNationCanonicalUrl(doc);
+ const title=text(doc.name||doc.eventName||doc.title);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)||!sourceUrl||!title)return null;
+ return {
+  title,
+  event_date:eventDate,
+  event_time:text(doc.showTime)||null,
+  venue:text(doc.venue&&doc.venue.name)||null,
+  artist:(Array.isArray(doc.lineup)?doc.lineup:[]).map(x=>text(x&&x.name)).filter(Boolean).slice(0,20),
+  source_url:sourceUrl,
+  confidence:null,
+  poster_url:https(doc.image)||null
+ };
+}
+async function fetchLiveNationRows(options={}){
+ const body=await fetchPage(LIVENATION_EVENTS_ENDPOINT,{...options,timeout_ms:Number(options.livenation_timeout_ms||options.timeout_ms||8000)});
+ let parsed;try{parsed=JSON.parse(body);}catch(_){const e=new Error('LIVENATION_INVALID_JSON');e.code='LIVENATION_INVALID_JSON';throw e;}
+ if(parsed&&parsed.hasError===true){const e=new Error('LIVENATION_API_ERROR');e.code='LIVENATION_API_ERROR';throw e;}
+ return (Array.isArray(parsed&&parsed.documents)?parsed.documents:[]).map(normalizeLiveNationDocument).filter(Boolean).slice(0,100);
+}
+async function liveNationPublic(task={},options={}){
+ const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
+ const loader=typeof options.livenation_loader==='function'?options.livenation_loader:()=>fetchLiveNationRows(options);
+ const rows=await loader();
+ const month=liveNationTargetMonth(task,q);
+ const tokens=liveNationSpecificTokens(q);
+ const out=[];
+ for(const row of Array.isArray(rows)?rows:[]){
+  if(month&&!text(row.event_date).startsWith(month+'-'))continue;
+  if(tokens.length){
+   const hay=[row.title,row.venue,...(Array.isArray(row.artist)?row.artist:[])].map(text).join(' ').toLowerCase();
+   const hits=tokens.filter(token=>hay.includes(token)).length;
+   const needed=tokens.length<=2?1:Math.min(2,tokens.length);
+   if(hits<needed)continue;
+  }
+  out.push(row);if(out.length>=25)break;
+ }
+ return out;
 }
 
 async function searxng(task={},options={}){
@@ -225,6 +328,9 @@ async function ddgsTrafilatura(task={},options={}){
 
 function createProviders(options={}){
  const out={OFFICIAL_DIRECT:t=>officialDirect(t,options),RSS_OR_PUBLIC_FEED:t=>rssOrPublicFeed(t,options)};
+ let liveNationPromise=null;
+ if(options.livenation_enabled!==false)out.LIVENATION_PUBLIC=t=>liveNationPublic(t,{...options,livenation_loader:()=>liveNationPromise||(liveNationPromise=fetchLiveNationRows(options))});
+ if(options.bing_rss_enabled!==false)out.BING_RSS=t=>bingRss(t,options);
  if(options.ddg_enabled!==false)out.DDG_HTML=t=>duckDuckGoHtml(t,options);
  if(options.bing_enabled!==false)out.BING_HTML=t=>bingHtml(t,options);
  const endpoint=https(options.searxng_endpoint||process.env.KK_SEARXNG_ENDPOINT||DEFAULT_SEARXNG_ENDPOINT);
@@ -233,4 +339,4 @@ function createProviders(options={}){
  if(ddgsEnabled)out.DDGS_TRAFILATURA=t=>ddgsTrafilatura(t,options);
  return out;
 }
-module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,DEFAULT_DDGS_TIMEOUT_MS,DEFAULT_DDGS_MAX_RESULTS,decodeHtmlEntities,cleanHtml,decodeEntities,extractAnchors,ddgResultUrl,bingResultUrl,parseDuckDuckGoHtml,parseBingHtml,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,searxng,execFileJson,runDdgsSearch,inferSearchEventDates,inferSearchEventDate,ddgsTrafilatura,createProviders};
+module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,DEFAULT_DDGS_TIMEOUT_MS,DEFAULT_DDGS_MAX_RESULTS,LIVENATION_EVENTS_ENDPOINT,decodeHtmlEntities,cleanHtml,decodeEntities,extractAnchors,ddgResultUrl,bingResultUrl,parseDuckDuckGoHtml,parseBingHtml,parseRssItems,bingRss,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,LIVENATION_GENERIC_TOKENS,liveNationTargetMonth,liveNationSpecificTokens,liveNationCanonicalUrl,normalizeLiveNationDocument,fetchLiveNationRows,liveNationPublic,searxng,execFileJson,runDdgsSearch,inferSearchEventDates,inferSearchEventDate,ddgsTrafilatura,createProviders};

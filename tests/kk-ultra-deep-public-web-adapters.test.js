@@ -144,3 +144,52 @@ test('DDGS title-specific date wins over other dates in snippet body',async()=>{
   });
   assert.deepEqual(rows.map(x=>x.event_date),['2026-10-11']);
 });
+
+
+test('Live Nation public adapter normalizes official event JSON with canonical URL',async()=>{
+ const doc={
+  id:'1688334',
+  name:'Young K Solo Tour <YOUNGEST> in BANGKOK',
+  eventDate:'2026-10-10T00:00:00Z',
+  showTime:'18:00',
+  image:'https://dynamicmedia.livenationinternational.com/i/f/n/x.png',
+  venue:{name:'Samyan Mitrtown Hall'},
+  lineup:[{name:'Young K',isPrimary:true}],
+  localizations:[{cultureName:'en-GB',url:'https://www.livenationtero.co.th/show/1688334/young-k-solo-tour/bangkok/2026-10-10/en'}]
+ };
+ const row=A.normalizeLiveNationDocument(doc);
+ assert.equal(row.title,'Young K Solo Tour <YOUNGEST> in BANGKOK');
+ assert.equal(row.event_date,'2026-10-10');
+ assert.equal(row.venue,'Samyan Mitrtown Hall');
+ assert.deepEqual(row.artist,['Young K']);
+ assert.match(row.source_url,/livenationtero\.co\.th\/show\/1688334/);
+});
+
+test('Live Nation public adapter filters by target month and specific identity',async()=>{
+ const rows=[
+  A.normalizeLiveNationDocument({id:'1',name:'Young K Solo Tour in BANGKOK',eventDate:'2026-10-10T00:00:00Z',venue:{name:'Samyan Mitrtown Hall'},lineup:[{name:'Young K'}],localizations:[{cultureName:'en-GB',url:'https://www.livenationtero.co.th/show/1/young-k/bangkok/2026-10-10/en'}]}),
+  A.normalizeLiveNationDocument({id:'2',name:'November Artist Concert',eventDate:'2026-11-09T00:00:00Z',venue:{name:'UOB LIVE'},lineup:[{name:'Artist'}],localizations:[{cultureName:'en-GB',url:'https://www.livenationtero.co.th/show/2/artist/bangkok/2026-11-09/en'}]})
+ ];
+ const generic=await A.liveNationPublic({query:'Bangkok October 2026 concert',date_window:{start:'2026-10-01'}},{livenation_loader:async()=>rows});
+ assert.equal(generic.length,1);
+ assert.equal(generic[0].event_date,'2026-10-10');
+ const exact=await A.liveNationPublic({query:'Young K Bangkok Thailand',date_window:{start:'2026-10-01'}},{livenation_loader:async()=>rows});
+ assert.equal(exact.length,1);
+ assert.match(exact[0].title,/Young K/);
+ const miss=await A.liveNationPublic({query:'LYKN REFLEXION Bangkok Thailand',date_window:{start:'2026-10-01'}},{livenation_loader:async()=>rows});
+ assert.equal(miss.length,0);
+});
+
+test('createProviders binds Live Nation as credential-free unknown-url evidence',async()=>{
+ let calls=0;
+ const payload={hasError:false,documents:[{
+  id:'1688334',name:'Young K Solo Tour in BANGKOK',eventDate:'2026-10-10T00:00:00Z',
+  venue:{name:'Samyan Mitrtown Hall'},lineup:[{name:'Young K'}],
+  localizations:[{cultureName:'en-GB',url:'https://www.livenationtero.co.th/show/1688334/young-k/bangkok/2026-10-10/en'}]
+ }]};
+ const p=A.createProviders({fetchFn:async url=>{calls++;assert.match(String(url),/livenationtero\.co\.th\/api\/search\/events/);return response(JSON.stringify(payload));}});
+ assert.equal(typeof p.LIVENATION_PUBLIC,'function');
+ const one=await p.LIVENATION_PUBLIC({query:'Bangkok October 2026 concert',date_window:{start:'2026-10-01'}});
+ const two=await p.LIVENATION_PUBLIC({query:'Young K Bangkok',date_window:{start:'2026-10-01'}});
+ assert.equal(one.length,1);assert.equal(two.length,1);assert.equal(calls,1);
+});

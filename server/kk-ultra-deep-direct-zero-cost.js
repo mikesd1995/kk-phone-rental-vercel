@@ -8,7 +8,7 @@ const Production=require('./kk-ultra-deep-production-runtime.js');
 const V2Adapter=require('./kk-ultra-deep-v2-runtime-adapter.js');
 const V2Writer=require('./kk-ultra-deep-v2-governed-writer.js');
 
-const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V24';
+const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V25';
 function text(v){return String(v==null?'':v).trim();}
 
 async function run(input={},options={}){
@@ -83,7 +83,7 @@ async function run(input={},options={}){
   const createReceipts=[];let createWrites=0;
   for(const m of (v2_read_only.plan.mutations||[]).filter(x=>x.type==='CREATE_EVENT')){
     const decision=byKey.get(text(m.event_key));
-    const receipt=await V2Writer.executeCreate(decision,m,{env,fetchImpl,packageTemplates:snapshot.packages||[],correlationId:text(input.correlation_id)});
+    const receipt=await V2Writer.executeCreate(decision,m,{env,fetchImpl,packageTemplates:preflightSnapshot.packages||[],correlationId:text(input.correlation_id)});
     createReceipts.push({event_key:text(m.event_key),receipt});if(receipt&&receipt.readback_verified===true)createWrites++;
   }
   const totalWrites=Number(v2_write.production_writes||0)+createWrites;

@@ -50,3 +50,42 @@ test('machine completion persists bounded provider preflight statuses',async t=>
  assert.equal(completions[0].error_code,'PREFLIGHT_DDG_HTML_NO_EVIDENCE__BING_HTML_PROVIDER_ERROR__SEARXNG_NOT_BOUND');
  assert.equal(completions[0].production_writes,0);
 });
+
+
+test('machine marks exact V2 read-only READY as COMPLETE with zero writes',async t=>{
+ const completions=[];
+ t.mock.method(Control,'call',async(action,payload)=>{
+  if(action==='commandClaim')return {ok:true,authenticated:true,command:{month:'2026-10',commit:false}};
+  completions.push(payload);return {ok:true};
+ });
+ t.mock.method(Direct,'run',async()=>({
+  status:'V2_READ_ONLY_READY',
+  v2_read_only:{status:'READY'},
+  production_writes:0
+ }));
+ const res={setHeader(){},end(body){this.body=JSON.parse(body);}};
+ await handler({method:'GET',url:'/api/kk-scanner-dispatch?readonly_command_id='+command_id,body:{}},res);
+ assert.equal(res.statusCode,200);
+ assert.equal(res.body.ok,true);
+ assert.equal(completions[0].status,'COMPLETE');
+ assert.equal(completions[0].error_code,null);
+ assert.equal(completions[0].production_writes,0);
+});
+
+test('machine does not treat V2 read-only HOLD as COMPLETE',async t=>{
+ const completions=[];
+ t.mock.method(Control,'call',async(action,payload)=>{
+  if(action==='commandClaim')return {ok:true,authenticated:true,command:{month:'2026-10',commit:false}};
+  completions.push(payload);return {ok:true};
+ });
+ t.mock.method(Direct,'run',async()=>({
+  status:'V2_READ_ONLY_HOLD',
+  v2_read_only:{status:'HOLD'},
+  production_writes:0
+ }));
+ const res={setHeader(){},end(body){this.body=JSON.parse(body);}};
+ await handler({method:'GET',url:'/api/kk-scanner-dispatch?readonly_command_id='+command_id,body:{}},res);
+ assert.equal(res.statusCode,409);
+ assert.equal(res.body.ok,false);
+ assert.equal(completions[0].status,'FAILED');
+});

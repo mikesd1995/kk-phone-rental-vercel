@@ -51,6 +51,13 @@ function queryValue(req,key){
   return '';
 }
 
+function machineResultComplete(result={},commit=false){
+ const status=text(result&&result.status);
+ if(commit===true)return status==='COMPLETE';
+ return status==='V2_READ_ONLY_READY' && Number(result&&result.production_writes||0)===0 &&
+  text(result&&result.v2_read_only&&result.v2_read_only.status)==='READY';
+}
+
 function terminalErrorCode(result={}){
   const top=text(result&&result.blockers&&result.blockers[0]);
   if(top) return top;
@@ -179,7 +186,7 @@ module.exports=async function handler(req,res){
       try{
         const result=await UltraDeepDirect.run({month,location:'Bangkok Metropolitan Region Thailand'},{executeWrites:false,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-readonly-'+readonlyCommandId});
         if(Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
-        const complete=result.status==='COMPLETE';
+        const complete=machineResultComplete(result,false);
         await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:complete?'COMPLETE':'FAILED',production_writes:0,error_code:complete?null:terminalErrorCode(result)});
         return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_READ_ONLY_GET',direct_runtime:UltraDeepDirect.VERSION,command_id:readonlyCommandId,month,mode:'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],discovery_diagnostic:result.discovery&&result.discovery.diagnostic||null,preflight:result.preflight||null,production:result.production||null,business_writes:0});
       }catch(err){
@@ -243,7 +250,7 @@ module.exports=async function handler(req,res){
     try{
       const result=await UltraDeepDirect.run({month,location:'Bangkok Metropolitan Region Thailand'},{executeWrites:commit,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-'+commandId});
       if(!commit&&Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
-      const complete=result.status==='COMPLETE';
+      const complete=machineResultComplete(result,commit);
       await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:complete?'COMPLETE':'FAILED',production_writes:Number(result.production_writes||0),error_code:complete?null:terminalErrorCode(result)});
       return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_MACHINE',direct_runtime:UltraDeepDirect.VERSION,command_id:commandId,month,mode:commit?'COMMIT':'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],discovery_diagnostic:result.discovery&&result.discovery.diagnostic||null,preflight:result.preflight||null,production:result.production||null,business_writes:Number(result.production_writes||0)});
     }catch(err){
