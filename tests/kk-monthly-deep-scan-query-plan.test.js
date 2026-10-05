@@ -30,3 +30,14 @@ test('monthly discovery includes bounded broad fallbacks when exact month querie
  assert.ok(all.includes(P.TIER_TERMS.OFFICIAL[0]));
  assert.equal(new Set(all).size,all.length);
 });
+
+test('smart operational query plan stays intentionally small and leaves exhaustive coverage to audit',()=>{
+ const r=P.buildOperational({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'});
+ assert.equal(r.mode,'SMART_OPERATIONAL');
+ assert.equal(r.gap_tasks.length,7);
+ assert.equal(r.operational_tiers.length,7);
+ assert.equal(r.audit_required,true);
+ assert.ok(r.gap_tasks.every(x=>x.source_id.startsWith('smart-')));
+ assert.ok(r.gap_tasks.every(x=>x.query_variants.length<=3));
+ assert.ok(r.gap_tasks.some(x=>x.providers.includes('LIVENATION_PUBLIC')));
+});
