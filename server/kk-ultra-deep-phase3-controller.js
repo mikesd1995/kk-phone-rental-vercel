@@ -25,11 +25,14 @@ function normalizePackage(v=''){
  return '';
 }
 function priceAgeDays(row={},now=Date.now()){
- if(Number.isFinite(Number(row.source_age_days)))return Math.max(0,Number(row.source_age_days));
+ const supplied=row.source_age_days;
+ if(supplied!==null&&supplied!==undefined&&text(supplied)!==''&&Number.isFinite(Number(supplied)))return Math.max(0,Number(supplied));
  const raw=text(row.source_published_at||row.published_at);
  if(!raw)return null;
  const t=new Date(raw).getTime();if(!Number.isFinite(t))return null;
- return Math.max(0,(Number(now)-t)/86400000);
+ const nowMs=typeof now==='number'?now:new Date(now).getTime();
+ if(!Number.isFinite(nowMs))return null;
+ return Math.max(0,(nowMs-t)/86400000);
 }
 function freshness(row={},options={}){
  const max=Math.max(1,Number(options.max_price_age_days||DEFAULT_MAX_PRICE_AGE_DAYS));
