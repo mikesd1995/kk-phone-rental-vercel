@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V30';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V31';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -217,6 +217,15 @@ const ROUTES = Object.freeze({
   verifier_no_drop_audit: Object.freeze({
     route_id: 'VERIFIER_NO_DROP_AUDIT',
     request_type: 'VERIFIER_AUDIT',
+    required_agents: Object.freeze(['kk-event-verifier','kk-reliability-learning']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
+  phase2_verification_learning: Object.freeze({
+    route_id: 'ULTRA_DEEP_PHASE2_VERIFICATION_LEARNING',
+    request_type: 'ULTRA_DEEP_PHASE2_VERIFICATION',
     required_agents: Object.freeze(['kk-event-verifier','kk-reliability-learning']),
     downstream_agents: Object.freeze([]),
     runtime_available: true,
