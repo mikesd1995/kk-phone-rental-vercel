@@ -33,12 +33,22 @@ function buildPlan(input={}){
 }
 
 function acceptance(plan={},writeResult={},readback={}){
-  const planned=Number(plan.planned_mutation_count||0);
-  const writes=Number(writeResult.production_writes||0);
+  const validCount=value=>Number.isSafeInteger(value)&&value>=0;
+  const planned=plan.planned_mutation_count;
+  const writes=writeResult.production_writes;
   const readbackMatched=readback.exact_match===true;
-  const pending=Number(plan.pending_candidate_count==null?(plan.status==='READY'?0:1):plan.pending_candidate_count);
-  const terminalCoverage=pending===0;
-  const complete=plan.status==='READY'&&terminalCoverage&&writeResult.status==='COMPLETE'&&writes===planned&&readbackMatched;
+  const terminalDecisions=new Set(['CREATE','UPDATE','NO_CHANGE','SKIP_HIDDEN']);
+  const terminalCoverage=validCount(plan.candidate_count)&&
+    validCount(plan.terminal_disposition_count)&&validCount(plan.pending_candidate_count)&&
+    plan.pending_candidate_count===0&&plan.terminal_disposition_count===plan.candidate_count&&
+    Array.isArray(plan.decisions)&&plan.decisions.length===plan.candidate_count&&
+    plan.decisions.every(d=>d&&terminalDecisions.has(d.decision));
+  const writeCountMatched=validCount(planned)&&validCount(writes)&&writes===planned;
+  const mutationEvidence=validCount(planned)&&Array.isArray(plan.mutations)&&plan.mutations.length===planned&&
+    Array.isArray(plan.decisions)&&plan.decisions.every(d=>d&&Array.isArray(d.mutations)&&
+      (['CREATE','UPDATE'].includes(d.decision)?d.mutations.length>0:d.mutations.length===0))&&
+    plan.decisions.reduce((sum,d)=>sum+d.mutations.length,0)===planned;
+  const complete=plan.status==='READY'&&terminalCoverage&&mutationEvidence&&writeResult.status==='COMPLETE'&&writeCountMatched&&readbackMatched;
   return {
     version:VERSION,
     status:complete?'COMPLETE':'INCOMPLETE',
@@ -48,8 +58,9 @@ function acceptance(plan={},writeResult={},readback={}){
     blockers:[
       ...(plan.status==='READY'?[]:['PLAN_NOT_READY']),
       ...(terminalCoverage?[]:['CANDIDATE_TERMINAL_COVERAGE_REQUIRED']),
+      ...(mutationEvidence?[]:['PLAN_MUTATION_EVIDENCE_REQUIRED']),
       ...(writeResult.status==='COMPLETE'?[]:['WRITE_NOT_COMPLETE']),
-      ...(writes===planned?[]:['WRITE_COUNT_MISMATCH']),
+      ...(writeCountMatched?[]:['WRITE_COUNT_MISMATCH']),
       ...(readbackMatched?[]:['EXACT_READBACK_REQUIRED'])
     ]
   };

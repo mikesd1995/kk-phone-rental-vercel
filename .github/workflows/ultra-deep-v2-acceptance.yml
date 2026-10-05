@@ -3,8 +3,11 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - '.github/workflows/ultra-deep-v2-acceptance.yml'
       - 'server/kk-ultra-deep-*.js'
-      - 'tests/kk-ultra-deep-full-loop-v2.test.js'
+      - 'server/kk-monthly-deep-scan-query-plan.js'
+      - 'tests/kk-ultra-deep-*.test.js'
+      - 'tests/kk-monthly-deep-scan-query-plan.test.js'
       - 'package.json'
 jobs:
   v2-acceptance:
@@ -19,4 +22,4 @@ jobs:
       - name: Syntax gate
         run: npm run check
       - name: Focused V2 regression
-        run: node --test tests/kk-ultra-deep-full-loop-v2.test.js
+        run: node --test tests/kk-ultra-deep-full-loop-v2.test.js tests/kk-ultra-deep-terminal-evidence.test.js tests/kk-ultra-deep-inventory-pipeline-v28.test.js tests/kk-monthly-deep-scan-query-plan.test.js tests/kk-ultra-deep-source-registry.test.js tests/kk-ultra-deep-runtime-runner.test.js
