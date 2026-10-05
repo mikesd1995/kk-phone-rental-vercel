@@ -29,8 +29,9 @@ const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
 const OpenAiAgents = require('./kk-openai-agent-adapters.js');
 const XPostingPlan = require('./kk-x-posting-plan.js');
 const UltraDeepPhase2 = require('./kk-ultra-deep-phase2-controller.js');
+const UltraDeepPhase2Runtime = require('./kk-ultra-deep-phase2-runtime.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V20';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V21';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -292,11 +293,20 @@ async function executeTask(taskType, input = {}, options = {}) {
         result: StorefrontPromotion.verifyStorefrontReadback(input.plan || {}, input.readback || {})
       };
 
-    case 'phase2_verification_learning':
+    case 'phase2_verification_learning': {
+      const runtimeRequested=Boolean(input.phase1_artifact)||input.execute_runtime===true;
       return {
         invoked_agents: ['kk-event-verifier','kk-reliability-learning'],
-        result: UltraDeepPhase2.next(input)
+        result: runtimeRequested
+          ? await UltraDeepPhase2Runtime.run(input,{
+              fetchFn:options.fetchImpl||global.fetch,
+              fetchImpl:options.fetchImpl||global.fetch,
+              providers:options.ultraDeepProviders||options.providers||{},
+              concurrency:Number(options.phase2Concurrency||4)
+            })
+          : UltraDeepPhase2.next(input)
       };
+    }
 
     case 'verifier_no_drop_audit':
       return {
