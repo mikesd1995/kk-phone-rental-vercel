@@ -36,7 +36,7 @@ test('learning acceptance requires regression plus live rerun and non-regressing
 });
 
 test('learning routes are registry-backed and executable',async()=>{
- assert.equal(Registry.REGISTRY_VERSION,'KK_AGENT_REGISTRY_V29');
+ assert.equal(Registry.REGISTRY_VERSION,'KK_AGENT_REGISTRY_V34');
  const route=Registry.routeForIntent('learn_ultra_deep_miss');
  assert.equal(route.route_id,'ULTRA_DEEP_KNOWN_MISS_LEARNING');
  const out=await Router.executeTask('learn_ultra_deep_miss',{verified_event:true,was_missed:true,title:'Another Miss',event_date:'2026-12-02',source_url:'https://example.com/miss',aliases:['another miss']});
