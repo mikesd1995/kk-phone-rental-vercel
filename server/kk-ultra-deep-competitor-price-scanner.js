@@ -2,7 +2,7 @@
 
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_COMPETITOR_PRICE_SCANNER_V5';
+const VERSION='KK_ULTRA_DEEP_COMPETITOR_PRICE_SCANNER_V6';
 const BASE_COMPETITORS=Object.freeze([
  'faleem_rent2','minibestt','fundaybuddy','thisisyour3','fejay4rent','by_minnymicky',
  'npforrent','mcjmgoods','winkwink_rent','khaw4rent_2nd'
@@ -17,7 +17,15 @@ const RENTAL_SHOP_SIGNAL=/(?:เช่า|rent(?:al)?|phone|มือถือ|�
 function text(v){return String(v==null?'':v).trim();}
 function norm(v){return text(v).toLowerCase().replace(/[^a-z0-9ก-๙]+/g,' ').replace(/\s+/g,' ').trim();}
 function tokens(v){return norm(v).split(' ').filter(x=>x.length>=3);}
-function money(v){const n=Number(v);return Number.isFinite(n)&&n>=300&&n<=2500?n:null;}
+function amount(v,min=0,max=Infinity){const n=Number(v);return Number.isFinite(n)&&n>=min&&n<=max?n:null;}
+function money(v){const n=amount(v,300,2500);return n&&!(n>=2020&&n<=2035)?n:null;}
+function sanitizeNumericContext(v){
+ return text(v)
+  .replace(/vivo\s*x300\s*pro/gi,'VIVO_MODEL')
+  .replace(/vivo\s*x300/gi,'VIVO_MODEL')
+  .replace(/vivo\s*x200\s*pro/gi,'VIVO_MODEL')
+  .replace(/\b2\.35x?\b/gi,'LENS_MODEL');
+}
 function titleOverlap(candidateTitle,evidenceText){
  const wanted=tokens(candidateTitle);
  if(!wanted.length)return 0;
@@ -65,30 +73,34 @@ function competitorFromUrl(url,universe=BASE_COMPETITORS,evidenceText=''){
  if(known.includes(handle))return handle;
  return RENTAL_SHOP_SIGNAL.test(text(evidenceText))?handle:'';
 }
-function allMoneyMentions(value){
- const s=text(value).replace(/,/g,'');
+function allAmountMentions(value,min=0,max=Infinity){
+ const s=sanitizeNumericContext(value).replace(/,/g,'');
  const re=/(?:฿\s*)?(\d{2,4})(?:\s*(?:บาท|thb|฿|\.-))?/gi;
  const out=[];
  for(const m of s.matchAll(re)){
-  const n=money(m[1]);if(n)out.push({value:n,index:m.index||0,raw:m[0]});
+  const raw=Number(m[1]);
+  if(raw>=2020&&raw<=2035)continue;
+  const n=amount(raw,min,max);if(n!==null)out.push({value:n,index:m.index||0,raw:m[0]});
  }
  return out;
 }
-function keywordMoney(value,keywordRe,maxGap=28){
- const s=text(value).replace(/,/g,'');
+function allMoneyMentions(value){return allAmountMentions(value,300,2500);}
+function keywordAmount(value,keywordRe,maxGap=28,min=0,max=Infinity){
+ const s=sanitizeNumericContext(value).replace(/,/g,'');
  const out=[];
  const re=new RegExp(keywordRe.source,'gi');
  for(const m of s.matchAll(re)){
   const tail=s.slice((m.index||0)+m[0].length,(m.index||0)+m[0].length+maxGap);
-  const n=tail.match(/(?:฿\s*)?(\d{2,4})(?:\s*(?:บาท|thb|฿|\.-))?/i);
-  const v=n&&money(n[1]);if(v)out.push({value:v,index:(m.index||0),keyword:m[0]});
+  const matches=allAmountMentions(tail,min,max);
+  if(matches.length)out.push({value:matches[0].value,index:(m.index||0),keyword:m[0]});
  }
  return out;
 }
+function keywordMoney(value,keywordRe,maxGap=28){return keywordAmount(value,keywordRe,maxGap,300,2500);}
 function parseRentalOffer(value){
  const raw=text(value);const s=raw.replace(/,/g,'');
- const deposits=keywordMoney(s,/(?:มัดจำ|deposit|ประกัน)/i,24);
- const lensAdds=keywordMoney(s,/(?:lens|เลนส์|zeiss)/i,24).filter(x=>{
+ const deposits=keywordAmount(s,/(?:มัดจำ|deposit|ประกัน)/i,24,100,5000);
+ const lensAdds=keywordAmount(s,/(?:lens|เลนส์|zeiss)/i,24,50,1000).filter(x=>{
   const around=s.slice(x.index,Math.min(s.length,x.index+32));return /\+/.test(around)||x.value<500;
  });
  const explicitRental=[
@@ -235,7 +247,7 @@ const COMPETITORS=BASE_COMPETITORS;
 module.exports={
  VERSION,BASE_COMPETITORS,COMPETITORS,DEFAULT_TARGET_COMPETITOR_UNIVERSE,MAX_COMPETITOR_UNIVERSE,
  DEFAULT_DESIRED_EVENT_COMPETITORS,MAX_DESIRED_EVENT_COMPETITORS,X_EPOCH_MS,RENTAL_SHOP_SIGNAL,
- text,norm,tokens,money,titleOverlap,configuredUniverse,xHandle,xStatusTimestamp,sourceTimestamp,competitorFromUrl,
- allMoneyMentions,keywordMoney,parseRentalOffer,parsePrice,packageType,deviceModel,deviceCompatible,
+ text,norm,tokens,amount,money,sanitizeNumericContext,titleOverlap,configuredUniverse,xHandle,xStatusTimestamp,sourceTimestamp,competitorFromUrl,
+ allAmountMentions,allMoneyMentions,keywordAmount,keywordMoney,parseRentalOffer,parsePrice,packageType,deviceModel,deviceCompatible,
  shortenTitle,buildQueries,rowToEvidence,scanCandidate,scanBatch
 };
