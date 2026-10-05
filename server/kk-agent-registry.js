@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V32';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V33';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -19,12 +19,12 @@ const AGENTS = Object.freeze({
     production_writes: 0
   }),
   'kk-commercial-evidence': Object.freeze({
-    version: 'KK_DISCOVERY_COMMERCIAL_PREP_V1',
+    version: 'KK_DISCOVERY_COMMERCIAL_PREP_V4',
     authority: 'STAGING_ONLY',
     runtime_state: 'CALLABLE_EVIDENCE_GATED',
     surface: 'AGENT_GATEWAY',
     production_writes: 0,
-    note: 'Requires at least three independent exact-event competitor price sources and a verified HTTPS poster source before a candidate can advance to final Verifier.'
+    note: 'Phase-3 pricing scope is read-only and separate from Phase-4 poster evidence. It uses exact-event competitor median when available, then comparable event, prior-month comparable, and governed 690/890 base fallback with bounded demand/seat-map adjustment. Full-commercial mode still requires verified poster evidence before promotion.'
   }),
   'kk-event-verifier': Object.freeze({
     version: 'verifier-no-drop-reconciliation-v2-learning-feedback',
@@ -222,6 +222,16 @@ const ROUTES = Object.freeze({
     runtime_available: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true
+  }),
+  phase3_commercial_pricing: Object.freeze({
+    route_id: 'ULTRA_DEEP_PHASE3_COMMERCIAL_PRICING',
+    request_type: 'ULTRA_DEEP_PHASE3_PRICING',
+    required_agents: Object.freeze(['kk-commercial-evidence','kk-reliability-learning']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: false,
+    persistent_invocation_evidence_required: true,
+    note: 'Official execution requires PHASE2_ACCEPTED + ready_for_phase3. diagnostic_only may exercise pricing logic without crossing the phase boundary. Always production_writes=0 and never starts Phase 4.'
   }),
   phase2_verification_learning: Object.freeze({
     route_id: 'ULTRA_DEEP_PHASE2_VERIFICATION_LEARNING',
