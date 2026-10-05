@@ -361,6 +361,9 @@
     },
     "api/kk-scanner-dispatch.js": {
       "maxDuration": 300
+    },
+    "api/kk-ultra-deep-phase2-preview.js": {
+      "maxDuration": 300
     }
   },
   "git": {
