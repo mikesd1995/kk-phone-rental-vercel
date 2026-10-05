@@ -198,23 +198,17 @@ module.exports=async function handler(req,res){
     const probeMode=queryValue(req,'probe').toLowerCase();
     if(probeMode==='public-index' && text(process.env.VERCEL_ENV).toLowerCase()!=='production'){
       try{
-        const targets=[
-          'https://www.livenationtero.co.th/api/search/events?location=bangkok&page=1',
-          'https://www.livenationtero.co.th/api/search/events?page=1&location=bangkok',
-          'https://www.livenationtero.co.th/api/search/events?page=1',
-          'https://www.livenationtero.co.th/api/search/events?location=bangkok'
-        ];
-        const checks=[];
-        for(const url of targets){
-          try{
-            const body=await PublicWebAdapters.fetchPage(url,{fetchFn:global.fetch,timeout_ms:7000});
-            let parsed=null;try{parsed=JSON.parse(body)}catch(_){}
-            const shape=parsed&&typeof parsed==='object'?{keys:Object.keys(parsed).slice(0,30),array_length:Array.isArray(parsed)?parsed.length:null}:null;
-            checks.push({query:new URL(url).search,ok:true,bytes:Buffer.byteLength(body,'utf8'),json:Boolean(parsed),shape,sample:parsed?JSON.stringify(parsed).slice(0,1800):String(body).slice(0,800)});
-          }catch(err){checks.push({query:new URL(url).search,ok:false,error_code:text(err&&err.code)||text(err&&err.name)||'FETCH_FAILED'});}
-        }
-        return json(res,200,{ok:true,probe:'LIVENATION_SEARCH_API',checks,business_writes:0});
-      }catch(err){return json(res,500,{ok:false,probe:'LIVENATION_SEARCH_API',error_code:text(err&&err.code)||text(err&&err.name)||'LIVENATION_API_PROBE_FAILED',business_writes:0});}
+        const url='https://www.livenationtero.co.th/api/search/events?location=bangkok&page=1';
+        const body=await PublicWebAdapters.fetchPage(url,{fetchFn:global.fetch,timeout_ms:7000});
+        const parsed=JSON.parse(body);const doc=Array.isArray(parsed&&parsed.documents)?parsed.documents[0]:null;
+        return json(res,200,{ok:true,probe:'LIVENATION_DOCUMENT_SHAPE',total:Number(parsed&&parsed.total||0),doc:doc?{
+          keys:Object.keys(doc),
+          id:doc.id||null,encodedName:doc.encodedName||null,eventDate:doc.eventDate||null,eventDateTo:doc.eventDateTo||null,
+          name:doc.name||doc.eventName||doc.title||null,image:doc.image||null,location:doc.location||null,venue:doc.venue||null,
+          venues:doc.venues||null,city:doc.city||null,localizations:Array.isArray(doc.localizations)?doc.localizations.slice(0,2):null,
+          lineup:Array.isArray(doc.lineup)?doc.lineup.slice(0,3).map(x=>({name:x.name||null,isPrimary:x.isPrimary===true,url:x.url||null})):null
+        }:null,business_writes:0});
+      }catch(err){return json(res,500,{ok:false,probe:'LIVENATION_DOCUMENT_SHAPE',error_code:text(err&&err.code)||text(err&&err.name)||'LIVENATION_SHAPE_FAILED',business_writes:0});}
     }
     if(!probeMode){
       return json(res,200,{ok:true,data:readiness});
