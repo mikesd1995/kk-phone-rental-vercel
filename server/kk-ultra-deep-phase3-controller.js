@@ -142,16 +142,18 @@ function qualifiedReferenceMedian(candidate={},rows=[],minimum=MIN_COMPARABLE_SC
  return {median:median(qualified.map(x=>x.price)),qualified};
 }
 function phase2Gate(input={}){
- const p=input.phase2||{};const blockers=[];
- if(p.status!=='PHASE2_ACCEPTED')blockers.push('PHASE2_ACCEPTED_REQUIRED');
- if(p.ready_for_phase3!==true)blockers.push('PHASE2_READY_FOR_PHASE3_REQUIRED');
- if(Number(p.production_writes||0)!==0)blockers.push('PHASE2_PRODUCTION_WRITES_MUST_BE_ZERO');
- if(p.phase3_started!==false)blockers.push('PHASE2_PHASE3_STARTED_MUST_BE_FALSE');
+ const p=input.phase2&&typeof input.phase2==='object'?input.phase2:null;const blockers=[];
  const artifact=input.phase2_artifact;
  if(!artifact)blockers.push('PHASE2_ARTIFACT_REQUIRED');
  else{
   const checked=Phase2Artifact.validateForPhase3(artifact);
   for(const b of checked.blockers)blockers.push('PHASE2_ARTIFACT:'+b);
+ }
+ if(p){
+  if(p.status!=='PHASE2_ACCEPTED')blockers.push('PHASE2_ACCEPTED_REQUIRED');
+  if(p.ready_for_phase3!==true)blockers.push('PHASE2_READY_FOR_PHASE3_REQUIRED');
+  if(Number(p.production_writes||0)!==0)blockers.push('PHASE2_PRODUCTION_WRITES_MUST_BE_ZERO');
+  if(p.phase3_started!==false)blockers.push('PHASE2_PHASE3_STARTED_MUST_BE_FALSE');
  }
  return {pass:blockers.length===0,blockers};
 }
