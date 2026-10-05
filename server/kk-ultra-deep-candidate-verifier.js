@@ -3,7 +3,7 @@
 const crypto=require('node:crypto');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V3';
+const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V4';
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=6;
 
@@ -73,11 +73,12 @@ function titleQuality(title=''){
  if((value.match(/\|/g)||[]).length>=2)reasons.push('AGGREGATED_SEARCH_RESULT_TITLE');
  return {ok:reasons.length===0,reasons:[...new Set(reasons)]};
 }
-function authoritativeEventSource(url='',picked=null,verified={}){
+function authoritativeEventSource(url='',picked=null,verified={},options={}){
  const h=host(url);const trustedDetail=TRUSTED_EVENT_HOSTS.has(h)&&eventSpecificUrl(url);
  const socialOrSearch=SOCIAL_OR_SEARCH_HOST.test(h);
- const structuredExact=!!(picked&&picked.d===verified.date&&text(picked.e&&picked.e.name)&&verified.venue&&verified.poster);
- return {ok:trustedDetail||(!socialOrSearch&&structuredExact),trusted_detail:trustedDetail,structured_exact:structuredExact,social_or_search:socialOrSearch};
+ const phase2IdentityStatus=String(options.verification_scope||'').toUpperCase()==='PHASE2_IDENTITY_STATUS';
+ const structuredExact=!!(picked&&picked.d===verified.date&&text(picked.e&&picked.e.name)&&verified.venue&&(phase2IdentityStatus||verified.poster));
+ return {ok:trustedDetail||(!socialOrSearch&&structuredExact),trusted_detail:trustedDetail,structured_exact:structuredExact,social_or_search:socialOrSearch,verification_scope:phase2IdentityStatus?'PHASE2_IDENTITY_STATUS':'FULL_COMMERCIAL'};
 }
 function prefilter(candidate={},month=''){
  const title=text(candidate.title);
@@ -185,16 +186,17 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  if(!date||!monthMatches(date,month))blockers.push('VERIFIED_TARGET_MONTH_DATE_REQUIRED');
  if(!venue)blockers.push('VERIFIED_VENUE_REQUIRED');
  if(!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url))blockers.push('VERIFIED_EVENT_IDENTITY_REQUIRED');
- if(!poster)blockers.push('VERIFIED_POSTER_REQUIRED');
- const authority=authoritativeEventSource(url,picked,{date,venue,poster,title});
+ const phase2IdentityStatus=String(context.verification_scope||'').toUpperCase()==='PHASE2_IDENTITY_STATUS';
+ if(!phase2IdentityStatus&&!poster)blockers.push('VERIFIED_POSTER_REQUIRED');
+ const authority=authoritativeEventSource(url,picked,{date,venue,poster,title},{verification_scope:context.verification_scope});
  if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
  const fit=rentalFitScore(title);
- if(fit<7)blockers.push('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD');
+ if(!phase2IdentityStatus&&fit<7)blockers.push('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD');
  const key=eventKey({title,event_date:date});
  const verified=blockers.length===0;
  return {
   version:VERSION,
-  status:verified?'VERIFIED_FOR_COMMERCIAL':'HOLD_VERIFIER',
+  status:verified?(phase2IdentityStatus?'VERIFIED_FOR_PHASE2':'VERIFIED_FOR_COMMERCIAL'):'HOLD_VERIFIER',
   verified,
   blockers,
   candidate:{
