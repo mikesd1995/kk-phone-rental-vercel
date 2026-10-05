@@ -16,6 +16,7 @@ async function main(){
  const raw=JSON.parse(fs.readFileSync(inputPath,'utf8'));
  const candidates=Array.isArray(raw.candidates)?raw.candidates:[];
  if(raw.production_writes!==0)throw Object.assign(new Error('PHASE1_ARTIFACT_PRODUCTION_WRITES_NONZERO'),{code:'PHASE1_ARTIFACT_PRODUCTION_WRITES_NONZERO'});
+ if(raw.full!==true||text(raw.status)!=='READY_FOR_VERIFIER')throw Object.assign(new Error('PHASE1_ARTIFACT_NOT_ACCEPTED'),{code:'PHASE1_ARTIFACT_NOT_ACCEPTED'});
  if(!candidates.length)throw Object.assign(new Error('PHASE2_CANDIDATE_POOL_EMPTY'),{code:'PHASE2_CANDIDATE_POOL_EMPTY'});
  const result=await Runtime.run({
   month:text(raw.month)||arg('month','2026-10'),
