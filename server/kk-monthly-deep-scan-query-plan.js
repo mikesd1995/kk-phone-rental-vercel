@@ -18,7 +18,8 @@ const TIER_TERMS={
  PUBLIC_CALENDAR:['Bangkok events concerts fan meetings calendar','ปฏิทิน อีเวนต์ ศิลปิน กรุงเทพ ปริมณฑล']
 };
 const OPERATIONAL_TIERS=Object.freeze([
- 'OFFICIAL','TICKETING','ORGANIZER_PROMOTER','VENUE','ARTIST_AGENCY','SOCIAL','PUBLIC_CALENDAR'
+ 'OFFICIAL','TICKETING','ORGANIZER_PROMOTER','VENUE','ARTIST_AGENCY',
+ 'MALL_COMMUNITY','FAN_EVENT','PRESS_BRAND','SPORTS_ENTERTAINMENT','SOCIAL','PUBLIC_CALENDAR'
 ]);
 function text(v){return String(v==null?'':v).trim();}
 function queryVariantsForTerm(term,range,location,learned=[]){
