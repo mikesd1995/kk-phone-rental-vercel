@@ -3,8 +3,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const K=require('../server/kk-ultra-deep-known-miss-regression.js');
 
-test('known-miss corpus contains ten historical discovery misses',()=>{
- assert.equal(K.CORPUS.length,10);
+test('known-miss corpus contains expanded historical discovery misses',()=>{
+ assert.ok(K.CORPUS.length>=19);
  assert.ok(K.CORPUS.some(x=>x.case_id==='remaster-20261010'));
  assert.ok(K.CORPUS.some(x=>x.case_id==='bai-lu-meet-love-20261025'));
  assert.ok(K.CORPUS.some(x=>x.case_id==='fortreasure-20261129'));
@@ -37,9 +37,9 @@ test('evidence-grounded query hints are present for the three remaining live mis
  assert.ok(byId.get('fortreasure-20261129').search_queries.includes('FORTREASURE site:eventpop.me'));
 });
 
-test('deterministic fixture regression covers all ten historical misses',()=>{
+test('deterministic fixture regression covers the full historical corpus',()=>{
  const out=K.evaluateFixtureRegression();
  assert.equal(out.complete,true);
- assert.equal(out.passed,10);
+ assert.equal(out.passed,K.CORPUS.length);
  assert.equal(out.proof_type,'DETERMINISTIC_HISTORICAL_FIXTURE');
 });
