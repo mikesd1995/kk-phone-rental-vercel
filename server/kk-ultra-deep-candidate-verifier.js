@@ -16,6 +16,8 @@ const GENERIC_TITLE=/^(home|homepage|google|ticketmaster|events?|concerts?\s+in\
 const AGGREGATED_RESULT_SIGNAL=/(facebook\b.*(?:on\s+x|twitter)|(?:on\s+x|twitter)\b.*facebook|bangkok\s+post|youtube|google\s+search|search\s+results?|teetee\s+philippines\s+on\s+x)/i;
 const SOCIAL_OR_SEARCH_HOST=/(^|\.)(facebook\.com|x\.com|twitter\.com|instagram\.com|youtube\.com|youtu\.be|google\.com|bing\.com|duckduckgo\.com)$/i;
 const MAX_VERIFIED_TITLE_LENGTH=180;
+const STATUS_CANCELLED_SIGNAL=/(cancelled|canceled|ยกเลิก)/i;
+const STATUS_POSTPONED_SIGNAL=/(postponed|rescheduled|เลื่อน(?:ออกไป|การแสดง|งาน)?)/i;
 
 const TRUSTED_EVENT_HOSTS=new Set([
  'www.thaiticketmajor.com','thaiticketmajor.com',
@@ -193,12 +195,18 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
  const fit=rentalFitScore(title);
  if(!phase2IdentityStatus&&fit<7)blockers.push('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD');
+ const pageText=phase2IdentityStatus?PublicWeb.cleanHtml(String(body).slice(0,800000)):'';
+ const officialDateChanged=Boolean(phase2IdentityStatus&&authority.ok&&picked&&picked.d&&pre.event_date&&picked.d!==pre.event_date);
+ const cancellation=Boolean(phase2IdentityStatus&&authority.ok&&STATUS_CANCELLED_SIGNAL.test(pageText));
+ const postponement=Boolean(phase2IdentityStatus&&authority.ok&&STATUS_POSTPONED_SIGNAL.test(pageText));
+ const statusChanged=officialDateChanged||cancellation||postponement;
  const key=eventKey({title,event_date:date});
- const verified=blockers.length===0;
+ const verified=blockers.length===0&&!statusChanged;
  return {
   version:VERSION,
-  status:verified?(phase2IdentityStatus?'VERIFIED_FOR_PHASE2':'VERIFIED_FOR_COMMERCIAL'):'HOLD_VERIFIER',
+  status:statusChanged?'STATUS_CHANGED':(verified?(phase2IdentityStatus?'VERIFIED_FOR_PHASE2':'VERIFIED_FOR_COMMERCIAL'):'HOLD_VERIFIER'),
   verified,
+  status_change:statusChanged?{previous_event_date:pre.event_date,current_event_date:date,change_type:cancellation?'CANCELLED':(postponement?'POSTPONED':'DATE_CHANGED')}:null,
   blockers,
   candidate:{
    candidate_id:text(candidate.candidate_id)||key,
@@ -258,7 +266,7 @@ async function verifyBatch(candidates=[],context={},options={}){
 }
 
 module.exports={
- VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,
+ VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,STATUS_CANCELLED_SIGNAL,STATUS_POSTPONED_SIGNAL,
  text,https,isoDate,eventKey,host,eventSpecificUrl,monthMatches,titleQuality,authoritativeEventSource,prefilter,flattenJsonLd,parseJsonLd,metaValue,locationName,imageUrl,
  findKnownVenue,rentalFitScore,sourceTier,chooseJsonLdEvent,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
 };
