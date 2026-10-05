@@ -1,0 +1,80 @@
+name: Ultra Deep Phase 2 Read Only Acceptance
+on:
+  push:
+    branches:
+      - fix/ultra-deep-learn-ryo-brand-social-miss
+    paths:
+      - '.github/workflows/ultra-deep-phase2-readonly.yml'
+      - 'server/kk-ultra-deep-phase2-*.js'
+      - 'server/kk-ultra-deep-candidate-verifier.js'
+      - 'server/kk-ultra-deep-v2-learning-agent.js'
+      - 'server/kk-ultra-deep-public-web-adapters.js'
+      - 'server/kk-ultra-deep-runtime-runner.js'
+      - 'server/kk-ultra-deep-reconciliation.js'
+      - 'scripts/kk-ultra-deep-runtime-acceptance.js'
+      - 'scripts/kk-ultra-deep-phase2-acceptance.js'
+      - 'tests/kk-ultra-deep-phase2-*.test.js'
+      - 'tests/kk-ultra-deep-candidate-verifier.test.js'
+      - 'tests/kk-agent-task-router-phase2.test.js'
+permissions:
+  contents: read
+concurrency:
+  group: kk-ultra-deep-phase2-readonly
+  cancel-in-progress: true
+jobs:
+  phase2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Syntax and targeted regressions
+        run: |
+          set -euo pipefail
+          node --check server/kk-ultra-deep-candidate-verifier.js
+          node --check server/kk-ultra-deep-phase2-controller.js
+          node --check server/kk-ultra-deep-phase2-runtime.js
+          node --check scripts/kk-ultra-deep-phase2-acceptance.js
+          node --test tests/kk-ultra-deep-candidate-verifier.test.js
+          node --test tests/kk-ultra-deep-phase2-controller.test.js
+          node --test tests/kk-ultra-deep-phase2-runtime.test.js
+          node --test tests/kk-agent-task-router-phase2.test.js
+      - name: Install pinned zero-cost search fallback
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --no-input 'ddgs==9.14.4'
+      - name: Reconstruct accepted Phase 1 candidate pool
+        env:
+          KK_DDGS_TRAFILATURA_ENABLED: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts
+          node scripts/kk-ultra-deep-runtime-acceptance.js --month 2026-10 --location "Bangkok Thailand" --output .artifacts/ultra-deep-runtime-acceptance.json
+      - name: Execute Phase 2 verifier-learning acceptance
+        env:
+          KK_DDGS_TRAFILATURA_ENABLED: '1'
+        run: |
+          set -euo pipefail
+          node scripts/kk-ultra-deep-phase2-acceptance.js --input .artifacts/ultra-deep-runtime-acceptance.json --output .artifacts/ultra-deep-phase2-acceptance.json --max-rounds 3
+      - name: Require Phase 2 acceptance and zero writes
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('.artifacts/ultra-deep-phase2-acceptance.json','utf8'));
+          if(r.status!=='PHASE2_ACCEPTED'||r.ready_for_phase3!==true||r.production_writes!==0||r.phase3_started!==false){
+            console.error(JSON.stringify({status:r.status,ready_for_phase3:r.ready_for_phase3,production_writes:r.production_writes,phase3_started:r.phase3_started,blockers:r.gate&&r.gate.blockers||[],unresolved:(r.results||[]).filter(x=>x.disposition==='VERIFY_REQUIRED').length},null,2));
+            process.exit(1);
+          }
+          NODE
+      - name: Upload Phase 2 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultra-deep-phase2-readonly-${{ github.run_id }}
+          path: |
+            .artifacts/ultra-deep-runtime-acceptance.json
+            .artifacts/ultra-deep-phase2-acceptance.json
+          if-no-files-found: warn
+          retention-days: 30
