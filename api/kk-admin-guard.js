@@ -34,7 +34,7 @@ const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
 const AGENT_GATEWAY_ACTIONS = new Set(['agentGateway','agentGatewayHealth']);
 const INBOX_ACTIONS = new Set(['inboxListConversations','inboxListMessages','inboxHydrateLineProfiles','inboxSetOwnerLabel','inboxMarkRead','inboxSendLineMessage']);
-const ULTRA_DEEP_ACTIONS = new Set(['ultraDeepFullLoop','ultraDeepFullLoopHealth','ultraDeepDirectRun','ultraDeepVercelNativeRun','smartLoopRun']);
+const ULTRA_DEEP_ACTIONS = new Set(['ultraDeepFullLoop','ultraDeepFullLoopHealth','ultraDeepDirectRun','ultraDeepVercelNativeRun','ultraDeepPhase2ReadOnly','smartLoopRun']);
 const ULTRA_DEEP_REPOSITORY = 'mikesd1995/kk-phone-rental-vercel';
 const ULTRA_DEEP_OWNER = 'mikesd1995';
 const ULTRA_DEEP_WORKFLOW_REF = ULTRA_DEEP_REPOSITORY+'/.github/workflows/ultra-deep-full-loop.yml@';
@@ -634,6 +634,42 @@ module.exports=async function handler(req,res){
       error_code:'CLEANUP_REQUIRES_ACCEPTED_APPS_SCRIPT_9_5_12',
       recommended_action:'deployAcceptedCleanupCandidateThenReenable'
     });
+  }
+
+  if(action==='ultraDeepPhase2ReadOnly'){
+    const month=String(payload.month||'').trim();
+    if(!/^\d{4}-\d{2}$/.test(month)) return reply(res,400,{ok:false,error_code:'PHASE2_MONTH_INVALID',production_writes:0});
+    try{
+      const result=await UltraDeepDirect.run({
+        month,
+        location:String(payload.location||'Bangkok Metropolitan Region Thailand'),
+        phase:'PHASE2',
+        max_rounds:Math.max(1,Math.min(5,Number(payload.max_rounds||3)||3)),
+        phase1_artifact:payload.phase1_artifact&&typeof payload.phase1_artifact==='object'?payload.phase1_artifact:null
+      },{
+        phase:'PHASE2',
+        stopAfterPhase2:true,
+        executeWrites:false,
+        env:process.env,
+        fetchImpl:global.fetch,
+        correlation_id:'admin-phase2-readonly-'+Date.now()
+      });
+      if(Number(result.production_writes||0)!==0||result.phase3_started!==false){
+        return reply(res,500,{ok:false,error_code:'PHASE2_READ_ONLY_INVARIANT_BROKEN',production_writes:Number(result.production_writes||0),phase3_started:result.phase3_started});
+      }
+      const accepted=result.status==='PHASE2_ACCEPTED'&&result.ready_for_phase3===true;
+      return reply(res,accepted?200:409,{
+        ok:accepted,
+        service:'kk-ultra-deep-phase2-readonly',
+        direct_runtime:UltraDeepDirect.VERSION,
+        mode:'PHASE2_READ_ONLY',
+        result,
+        production_writes:0,
+        phase3_started:false
+      });
+    }catch(err){
+      return reply(res,500,{ok:false,error_code:String(err&&err.code||'PHASE2_READ_ONLY_FAILED'),error:String(err&&err.message||err).slice(0,300),production_writes:0,phase3_started:false});
+    }
   }
 
   if(action==='smartLoopRun'){
