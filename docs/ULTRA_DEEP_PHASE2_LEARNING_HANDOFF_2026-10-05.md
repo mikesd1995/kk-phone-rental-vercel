@@ -148,3 +148,30 @@ Only the runtime result may unlock Phase 3:
 `PHASE2_ACCEPTED && ready_for_phase3=true && production_writes=0 && phase3_started=false`.
 
 Otherwise report `PHASE2_HOLD` with the exact unresolved list after bounded Learning recovery.
+
+
+## 2026-10-05 — Isolated Phase 3 diagnostic preflight
+
+Owner explicitly authorized a Phase-3 test run to find defects before the official phase boundary opens. This was executed as `diagnostic_only`; it did **not** start operational Phase 3 and did not require or fabricate `PHASE2_ACCEPTED`.
+
+Defects found and repaired:
+- competitor scanner watchlist had only 9/10 locked accounts; `faleem_rent2` was missing. Scanner V3 restores the complete 10-account universe.
+- commercial prep mixed Phase-3 pricing with Phase-4 poster evidence. Prep V4 now supports `phase_scope=PHASE3_PRICING`, where missing poster cannot block pricing. Full-commercial mode still requires poster evidence.
+- no explicit phase-3 boundary/controller existed. `KK_ULTRA_DEEP_PHASE3_CONTROLLER_V1` now enforces:
+  - official Phase 3 requires `PHASE2_ACCEPTED && ready_for_phase3=true`;
+  - diagnostic-only preflight may exercise pricing logic without opening Phase 4;
+  - booked candidates are price-locked and cannot be repriced;
+  - hidden/tombstoned candidates are skipped and never re-added;
+  - exact-event competitor price uses package-specific median;
+  - no-exact-evidence fallback order is comparable event -> prior-month comparable -> base 690/890 -> bounded demand/seat-map adjustment;
+  - competitor evidence is keyed by candidate ID so prices cannot bleed between events;
+  - `production_writes=0` and `phase4_started=false`.
+- Agent Task Router V22 / Agent Registry V33 expose `phase3_commercial_pricing` for the isolated diagnostic and later official gated run.
+
+Local isolated Node execution evidence:
+- syntax check passed;
+- 9/9 Phase-3 controller regression tests passed;
+- synthetic diagnostic covered exact-market median, booked-price lock and no-market 690/890 fallback;
+- diagnostic result kept `ready_for_phase4=false`, `production_writes=0`, `phase4_started=false`.
+
+This diagnostic is not evidence that operational Phase 3 is accepted. Official Phase 3 must still wait for a real `PHASE2_ACCEPTED` artifact.
