@@ -1,7 +1,7 @@
 'use strict';
 
 const Policy=require('./kk-ultra-deep-full-loop-v2-policy.js');
-const VERSION='KK_ULTRA_DEEP_FULL_LOOP_V2_V1';
+const VERSION='KK_ULTRA_DEEP_FULL_LOOP_V2_V2';
 
 function text(v){return String(v==null?'':v).trim();}
 
@@ -25,6 +25,8 @@ function buildPlan(input={}){
     counts,
     decisions,
     planned_mutation_count:mutations.length,
+    terminal_disposition_count:decisions.filter(d=>d.decision!=='HOLD').length,
+    pending_candidate_count:decisions.filter(d=>d.decision==='HOLD').length,
     mutations,
     production_writes:0
   };
@@ -34,7 +36,9 @@ function acceptance(plan={},writeResult={},readback={}){
   const planned=Number(plan.planned_mutation_count||0);
   const writes=Number(writeResult.production_writes||0);
   const readbackMatched=readback.exact_match===true;
-  const complete=plan.status==='READY'&&writeResult.status==='COMPLETE'&&writes===planned&&readbackMatched;
+  const pending=Number(plan.pending_candidate_count==null?(plan.status==='READY'?0:1):plan.pending_candidate_count);
+  const terminalCoverage=pending===0;
+  const complete=plan.status==='READY'&&terminalCoverage&&writeResult.status==='COMPLETE'&&writes===planned&&readbackMatched;
   return {
     version:VERSION,
     status:complete?'COMPLETE':'INCOMPLETE',
@@ -43,6 +47,7 @@ function acceptance(plan={},writeResult={},readback={}){
     exact_readback:readbackMatched,
     blockers:[
       ...(plan.status==='READY'?[]:['PLAN_NOT_READY']),
+      ...(terminalCoverage?[]:['CANDIDATE_TERMINAL_COVERAGE_REQUIRED']),
       ...(writeResult.status==='COMPLETE'?[]:['WRITE_NOT_COMPLETE']),
       ...(writes===planned?[]:['WRITE_COUNT_MISMATCH']),
       ...(readbackMatched?[]:['EXACT_READBACK_REQUIRED'])
