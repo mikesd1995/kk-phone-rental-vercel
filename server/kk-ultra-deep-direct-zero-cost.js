@@ -8,7 +8,7 @@ const Production=require('./kk-ultra-deep-production-runtime.js');
 const V2Adapter=require('./kk-ultra-deep-v2-runtime-adapter.js');
 const V2Writer=require('./kk-ultra-deep-v2-governed-writer.js');
 
-const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V25';
+const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V26';
 function text(v){return String(v==null?'':v).trim();}
 
 async function run(input={},options={}){
@@ -31,12 +31,26 @@ async function run(input={},options={}){
     production_writes:0
   };
 
-  const discovery=await Runtime.runMonthlyUltraDeep(
-    {month,location},
-    {publicWebOptions:{fetchImpl},providers:options.providers||{}}
-  );
-  if(discovery.full!==true||discovery.status!=='READY_FOR_VERIFIER'){
-    return {version:VERSION,status:'BLOCKED_DISCOVERY_NOT_FULL',month,preflight,discovery,production_writes:0};
+  const operational=options.operational===true;
+  const discovery=operational
+    ? await Runtime.runOperationalDiscovery(
+        {month,location},
+        {publicWebOptions:{fetchImpl},providers:options.providers||{}}
+      )
+    : await Runtime.runMonthlyUltraDeep(
+        {month,location},
+        {publicWebOptions:{fetchImpl},providers:options.providers||{}}
+      );
+  const discoveryReady=operational
+    ? discovery.operational_ready===true&&discovery.status==='READY_FOR_VERIFIER'
+    : discovery.full===true&&discovery.status==='READY_FOR_VERIFIER';
+  if(!discoveryReady){
+    return {
+      version:VERSION,
+      status:operational?'BLOCKED_OPERATIONAL_DISCOVERY':'BLOCKED_DISCOVERY_NOT_FULL',
+      month,mode:operational?'SMART_OPERATIONAL':'ULTRA_DEEP_AUDIT',
+      preflight,discovery,production_writes:0
+    };
   }
 
   // Do not delete full-booked-date candidates: existing booked events still require verified metadata maintenance.
@@ -67,15 +81,15 @@ async function run(input={},options={}){
   const v2_read_only=V2Adapter.buildReadOnlyPlan({month,candidates:verifier.verified_candidates,snapshot:preflightSnapshot,commercial});
   if(options.executeWrites!==true){
     return {
-      version:VERSION,status:v2_read_only.status==='READY'?'V2_READ_ONLY_READY':'V2_READ_ONLY_HOLD',month,mode:'READ_ONLY_ACCEPTANCE',
-      preflight,discovery:{status:discovery.status,candidate_count:discovery.candidate_count,eligible_candidate_count:eligibleCandidates.length,full:discovery.full},
+      version:VERSION,status:v2_read_only.status==='READY'?'V2_READ_ONLY_READY':'V2_READ_ONLY_HOLD',month,mode:operational?'SMART_OPERATIONAL_READ_ONLY':'READ_ONLY_ACCEPTANCE',
+      preflight,discovery:{status:discovery.status,candidate_count:discovery.candidate_count,eligible_candidate_count:eligibleCandidates.length,full:discovery.full===true,operational_ready:discovery.operational_ready===true,audit_required:discovery.audit_required===true,audit_blocking:discovery.audit_blocking===true},
       verifier:{verified_count:verifier.verified_count,hold_count:verifier.hold_count},
       competitor_price_scan:{evidence_count:priceScan.evidence_count,competitor_universe_count:priceScan.competitor_universe_count},
       commercial:{ready_count:commercial.ready_count,hold_count:commercial.hold_count},v2_read_only,production_writes:0
     };
   }
   if(v2_read_only.status!=='READY'){
-    return {version:VERSION,status:'BLOCKED_V2_PLAN_HOLD',month,mode:'COMMIT',preflight,v2_read_only,blockers:['V2_PLAN_NOT_READY'],production_writes:0};
+    return {version:VERSION,status:'BLOCKED_V2_PLAN_HOLD',month,mode:operational?'SMART_OPERATIONAL_COMMIT':'COMMIT',preflight,v2_read_only,blockers:['V2_PLAN_NOT_READY'],production_writes:0};
   }
   const updatePlan={...v2_read_only.plan,mutations:(v2_read_only.plan.mutations||[]).filter(m=>m.type!=='CREATE_EVENT')};
   const v2_write=await V2Writer.execute(updatePlan,{executeWrites:true,env,fetchImpl});
@@ -90,7 +104,7 @@ async function run(input={},options={}){
   const exact=(v2_write.status==='COMPLETE'&&(v2_write.receipts||[]).every(x=>x.ok===true)&&createReceipts.every(x=>x.receipt&&x.receipt.readback_verified===true));
   const combined={status:exact?'COMPLETE':'INCOMPLETE',production_writes:totalWrites,receipts:v2_write.receipts||[],create_receipts:createReceipts};
   const v2_acceptance=require('./kk-ultra-deep-full-loop-v2.js').acceptance(v2_read_only.plan,combined,{exact_match:exact});
-  return {version:VERSION,status:v2_acceptance.status==='COMPLETE'?'COMPLETE':'V2_COMMIT_INCOMPLETE',month,mode:'COMMIT',preflight,v2_read_only,v2_write:combined,v2_acceptance,production_writes:totalWrites};
+  return {version:VERSION,status:v2_acceptance.status==='COMPLETE'?'COMPLETE':'V2_COMMIT_INCOMPLETE',month,mode:operational?'SMART_OPERATIONAL_COMMIT':'COMMIT',preflight,v2_read_only,v2_write:combined,v2_acceptance,production_writes:totalWrites};
 
   /* Legacy handoff retained below as unreachable reference until V2 writer mapping is accepted. */
   const handoff={
