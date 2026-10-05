@@ -5,8 +5,9 @@ const Verifier=require('./kk-ultra-deep-candidate-verifier.js');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const Controller=require('./kk-ultra-deep-phase2-controller.js');
+const PhaseArtifact=require('./kk-ultra-deep-phase-artifact.js');
 
-const VERSION='KK_ULTRA_DEEP_PHASE2_RUNTIME_V1';
+const VERSION='KK_ULTRA_DEEP_PHASE2_RUNTIME_V2';
 const DEFAULT_MAX_ROUNDS=3;
 const DEFAULT_CONCURRENCY=4;
 const HARD_REJECT_BLOCKERS=new Set([
@@ -214,10 +215,27 @@ async function recoverOne(candidate={},prior={},controllerOut={},context={},opti
  mapped.recovery={query_count:queries.length,queries,provider:null,status:'GAP_UNRESOLVED',attempts:searchAttempts};
  return mapped;
 }
+function poolFromInput(input={}){
+ if(input.phase1_artifact){
+  const checked=PhaseArtifact.validateForPhase2(input.phase1_artifact);
+  if(!checked.pass)return {valid:false,blockers:checked.blockers,pool:[],fingerprint:checked.fingerprint,expected_candidate_ids:checked.candidate_ids,source:'PHASE1_ARTIFACT'};
+  return {
+   valid:true,blockers:[],pool:input.phase1_artifact.candidates.map(x=>({...x})),
+   fingerprint:input.phase1_artifact.fingerprint,
+   expected_candidate_ids:[...input.phase1_artifact.candidate_ids],
+   source:'PHASE1_ARTIFACT'
+  };
+ }
+ const reconstructed=freezeCandidatePool(input.candidates||[]);
+ return {...reconstructed,valid:true,blockers:[],source:'RECONSTRUCTED_COMPATIBILITY'};
+}
 async function run(input={},options={}){
- const month=text(input.month);
+ const month=text(input.month||input.phase1_artifact&&input.phase1_artifact.month);
  const location=text(input.location)||'Bangkok Thailand';
- const frozen=freezeCandidatePool(input.candidates||[]);
+ const frozen=poolFromInput(input);
+ if(!frozen.valid){
+  return {version:VERSION,status:'PHASE2_HOLD',month,location,candidate_master_pool_frozen:false,pool_source:frozen.source,pool_fingerprint:frozen.fingerprint,candidate_count:0,expected_candidate_ids:frozen.expected_candidate_ids||[],results:[],rounds:[],gate:{blockers:frozen.blockers||[]},ready_for_phase3:false,next_action:'STOP_AND_REPORT_INVALID_PHASE1_ARTIFACT',production_writes:0,phase3_started:false};
+ }
  const expected=frozen.pool.length;
  const maxRounds=Math.max(1,Math.min(5,Number(input.max_rounds||DEFAULT_MAX_ROUNDS)));
  const base={
@@ -261,6 +279,7 @@ async function run(input={},options={}){
   status,
   month,location,
   candidate_master_pool_frozen:true,
+  pool_source:frozen.source,
   pool_fingerprint:frozen.fingerprint,
   candidate_count:expected,
   expected_candidate_ids:frozen.expected_candidate_ids,
@@ -275,4 +294,4 @@ async function run(input={},options={}){
  };
 }
 
-module.exports={VERSION,DEFAULT_MAX_ROUNDS,DEFAULT_CONCURRENCY,HARD_REJECT_BLOCKERS,text,https,sha,uniq,sourceRank,rawKey,freezeCandidatePool,hardReject,evidenceUrlList,mapVerification,mapLimit,verifyKnownSources,recoveryQueries,identityTokens,identityCompatible,recoverOne,run};
+module.exports={VERSION,DEFAULT_MAX_ROUNDS,DEFAULT_CONCURRENCY,HARD_REJECT_BLOCKERS,text,https,sha,uniq,sourceRank,rawKey,freezeCandidatePool,poolFromInput,hardReject,evidenceUrlList,mapVerification,mapLimit,verifyKnownSources,recoveryQueries,identityTokens,identityCompatible,recoverOne,run};
