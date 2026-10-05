@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V6';
+const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V7';
 const PROTECTED_POLICY=Object.freeze(['BOOKING_PRICE_LOCK','TOMBSTONE_NO_RESURRECTION','GOVERNED_ADMIN_WRITER_ONLY','EXACT_READBACK_REQUIRED','VERIFIED_EVENT_REQUIRED']);
 const ADAPTIVE_SCORING=Object.freeze(['RENTABILITY_WEIGHTS','HIGH_MEDIUM_THRESHOLDS','SOURCE_PRIORITY','QUERY_TERMS','MATCHING_HEURISTICS']);
 
@@ -19,6 +19,7 @@ function learn(input={}){
  const verificationMiss=missed.some(x=>['OFFICIAL_SOURCE_GAP','SECONDARY_ONLY_VERIFICATION_GAP','FIELD_CONFLICT_GAP','IDENTITY_AMBIGUITY_GAP','FRESHNESS_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const statusStalenessMiss=missed.some(x=>['STATUS_CHANGE_GAP','STALE_LISTING_GAP','CANCELLATION_STATUS_GAP','POSTPONEMENT_STATUS_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const organizerTimelineMiss=missed.some(x=>['ORGANIZER_ACCOUNT_TIMELINE_GAP','PROMOTER_ACCOUNT_TIMELINE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
+ const phaseHandoffPersistenceMiss=missed.some(x=>['PHASE_HANDOFF_PERSISTENCE_GAP','FROZEN_POOL_ARTIFACT_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const expansionQueries=artistBrandSocialMiss?uniq(missed.flatMap(x=>{
    const artists=Array.isArray(x.artists)?x.artists:[];
    const brands=Array.isArray(x.brands)?x.brands:[];
@@ -65,6 +66,7 @@ function learn(input={}){
  if(organizerTimelineMiss) recommendations.push('MANDATORY_ORGANIZER_ACCOUNT_TIMELINE_SWEEP');
  if(statusStalenessMiss) recommendations.push('MANDATORY_CURRENT_STATUS_CROSSCHECK');
  if(verificationMiss) recommendations.push('MANDATORY_OFFICIAL_SOURCE_ESCALATION_AND_FIELD_RECONCILIATION');
+ if(phaseHandoffPersistenceMiss) recommendations.push('MANDATORY_PHASE_ARTIFACT_PERSISTENCE_AND_REPLAY');
  if(falsePositives.length) recommendations.push('TIGHTEN_IDENTITY_AND_GENERIC_PAGE_FILTERS');
  if(holds.some(x=>(x.holds||[]).includes('VERIFIED_POSTER_REQUIRED'))) recommendations.push('EXPAND_POSTER_DISCOVERY_LEADS_FROM_EXACT_EVENT_COMPETITORS');
  if(corrections.length) recommendations.push('REVIEW_REPEATED_MANUAL_CORRECTIONS_FOR_HEURISTIC_UPDATE');
@@ -77,7 +79,8 @@ function learn(input={}){
      ...(organizerTimelineMiss?['ORGANIZER_ACCOUNT_TIMELINE','ORGANIZER_TO_RELATED_EVENT_PIVOT']:[]),
      ...(statusStalenessMiss?['CURRENT_STATUS_OFFICIAL_CROSSCHECK','CANCELLATION_POSTPONEMENT_SWEEP','STALE_LISTING_RECONCILIATION']:[]),
      ...(verificationMiss?['OFFICIAL_ARTIST_ORGANIZER_ESCALATION','OFFICIAL_TICKETING_CROSSCHECK','OFFICIAL_VENUE_CROSSCHECK','FIELD_LEVEL_CONFLICT_RECONCILIATION']:[]),
-     ...(broadCoverageMiss?['TICKETING_UNIVERSE','ORGANIZER_PROMOTER_UNIVERSE','VENUE_CALENDAR_UNIVERSE','BROAD_CONCERT_LIVE_UNIVERSE','FESTIVAL_TAXONOMY_UNIVERSE','KNOWN_POSITIVE_BACKTEST']:[])
+     ...(broadCoverageMiss?['TICKETING_UNIVERSE','ORGANIZER_PROMOTER_UNIVERSE','VENUE_CALENDAR_UNIVERSE','BROAD_CONCERT_LIVE_UNIVERSE','FESTIVAL_TAXONOMY_UNIVERSE','KNOWN_POSITIVE_BACKTEST']:[]),
+     ...(phaseHandoffPersistenceMiss?['FREEZE_ACCEPTED_PHASE_ARTIFACT','EXACT_ID_SET_FINGERPRINT','REPLAY_FROM_DURABLE_ARTIFACT']:[])
    ]),source_priority_candidates:learnedSources,suppress_patterns:suppressPatterns,hold_signals:holdSignals},
    recommendations,
    change_log:{missed_events:missed.length,false_positives:falsePositives.length,holds:holds.length,manual_corrections:corrections.length,booking_outcomes:outcomes.length},
