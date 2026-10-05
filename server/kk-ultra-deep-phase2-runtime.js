@@ -179,11 +179,14 @@ async function recoverOne(candidate={},prior={},controllerOut={},context={},opti
  const providerOrder=['LIVENATION_PUBLIC','DDGS_TRAFILATURA','BING_RSS','DDG_HTML','BING_HTML'];
  const seen=new Set(uniq(candidate.source_urls));
  const attempts=Array.isArray(prior.verifier_attempts)?[...prior.verifier_attempts]:[];
+ const priorSearchAttempts=prior&&prior.recovery&&Array.isArray(prior.recovery.attempts)?prior.recovery.attempts:[];
+ const terminalPairs=new Set(priorSearchAttempts.filter(a=>['NO_EVIDENCE','EVIDENCE_FOUND'].includes(text(a&&a.status).toUpperCase())).map(a=>text(a.provider)+'|'+text(a.query)));
  const searchAttempts=[];
  for(const provider of providerOrder){
   const fn=providers[provider];
   if(typeof fn!=='function'){searchAttempts.push({provider,status:'NOT_BOUND'});continue;}
   for(const query of queries){
+   if(terminalPairs.has(provider+'|'+query))continue;
    let hits=[];
    try{
     const raw=await fn({query,date_window:{start:text(candidate.event_date),end:text(candidate.event_date)}});
@@ -212,7 +215,12 @@ async function recoverOne(candidate={},prior={},controllerOut={},context={},opti
   }
  }
  const mapped=mapVerification({...candidate,source_urls:[...seen]},attempts);
- mapped.recovery={query_count:queries.length,queries,provider:null,status:'GAP_UNRESOLVED',attempts:searchAttempts};
+ const combinedSearch=[...priorSearchAttempts,...searchAttempts];
+ const terminalCombined=new Set(combinedSearch.filter(a=>['NO_EVIDENCE','EVIDENCE_FOUND'].includes(text(a&&a.status).toUpperCase())).map(a=>text(a.provider)+'|'+text(a.query)));
+ const boundProviders=providerOrder.filter(provider=>typeof providers[provider]==='function');
+ const expectedPairs=boundProviders.flatMap(provider=>queries.map(query=>provider+'|'+query));
+ const exhausted=expectedPairs.length>0&&expectedPairs.every(pair=>terminalCombined.has(pair));
+ mapped.recovery={query_count:queries.length,queries,provider:null,status:exhausted?'EVIDENCE_EXHAUSTED':'GAP_UNRESOLVED',attempts:combinedSearch,exhausted};
  return mapped;
 }
 function poolFromInput(input={}){
@@ -271,6 +279,24 @@ async function run(input={},options={}){
   const recovered=await mapLimit(frozen.pool.filter(x=>unresolvedIds.has(x.candidate_id)),Math.min(3,Number(options.concurrency||DEFAULT_CONCURRENCY)),candidate=>recoverOne(candidate,byId.get(candidate.candidate_id),gate,{month,location},options));
   for(const row of recovered)byId.set(row.candidate_id,row);
   results=frozen.expected_candidate_ids.map(id=>byId.get(id)).filter(Boolean);
+  const unresolvedAfter=results.filter(x=>x.disposition==='VERIFY_REQUIRED');
+  const noProgress=unresolvedAfter.length===unresolvedIds.size;
+  const exhausted=noProgress&&unresolvedAfter.length>0&&unresolvedAfter.every(x=>x.recovery&&x.recovery.exhausted===true);
+  if(exhausted){
+   const terminalGate=Controller.next({...base,round:maxRounds,max_rounds:maxRounds,results});
+   rounds.push({
+    round:maxRounds,status:terminalGate.status,blockers:terminalGate.blockers||[],
+    verified:results.filter(x=>x.disposition==='VERIFIED').length,
+    status_changed:results.filter(x=>x.disposition==='STATUS_CHANGED').length,
+    rejected:results.filter(x=>x.disposition==='REJECT_WITH_REASON').length,
+    verify_required:unresolvedAfter.length,
+    learning_miss_classes:uniq((terminalGate.learning_misses||[]).map(x=>x.miss_class)),
+    mandatory_expansion:terminalGate.mandatory_expansion||[],
+    recovery_exhausted:true
+   });
+   gate=terminalGate;
+   break;
+  }
  }
  const finalGate=Controller.next({...base,round:Math.min(maxRounds,rounds.length||1),max_rounds:maxRounds,results});
  const status=finalGate.status==='PHASE2_ACCEPTED'?'PHASE2_ACCEPTED':'PHASE2_HOLD';
