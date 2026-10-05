@@ -49,3 +49,10 @@ test('cross-checked stale history with one current status may proceed',()=>{
  const out=C.next({receipts,candidates:[{event_date:'2026-10-24',title:'Example',...signals,status_evidence:[{status:'UPCOMING',stale:true,current:false},{status:'CANCELLED',current:true}]}],discovery_pool_preserved:true,deterministic_dedup_passed:true,full_pool_confidence_scored:true,known_positive_backtest_executed:true,known_positive_misses:[]});
  assert.equal(out.status,'PHASE1_ACCEPTED');
 });
+
+test('stale status failure automatically teaches status recovery strategy',()=>{
+ const out=C.next({receipts,candidates:[{event_date:'2026-10-24',title:'OMEGA X',...signals,status_evidence:[{status:'UPCOMING',stale:true,current:false}]}],discovery_pool_preserved:true,deterministic_dedup_passed:true,full_pool_confidence_scored:true,known_positive_backtest_executed:true,known_positive_misses:[]});
+ assert.ok(out.status_learning_misses.some(x=>x.miss_class==='STALE_LISTING_GAP'));
+ assert.ok(out.mandatory_expansion.includes('CURRENT_STATUS_OFFICIAL_CROSSCHECK'));
+ assert.ok(out.mandatory_expansion.includes('CANCELLATION_POSTPONEMENT_SWEEP'));
+});
