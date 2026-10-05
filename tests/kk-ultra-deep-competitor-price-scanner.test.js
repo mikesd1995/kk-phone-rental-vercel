@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const P=require('../server/kk-ultra-deep-competitor-price-scanner.js');
 
 test('extracts only known competitor X URLs',()=>{
+ assert.equal(P.competitorFromUrl('https://x.com/faleem_rent2/status/111'),'faleem_rent2');
  assert.equal(P.competitorFromUrl('https://x.com/minibestt/status/123'),'minibestt');
  assert.equal(P.competitorFromUrl('https://twitter.com/fundaybuddy/status/9'),'fundaybuddy');
  assert.equal(P.competitorFromUrl('https://x.com/randomshop/status/1'),'');
@@ -54,6 +55,8 @@ test('phone base plus lens add-on is not misclassified as bundle price',()=>{
 
 
 test('query plan explicitly covers all locked competitor accounts',()=>{
+ assert.equal(P.COMPETITORS.length,10);
+ assert.ok(P.COMPETITORS.includes('faleem_rent2'));
  const q=P.buildQueries({title:'LYKN REFLEXION CONCERT'});
  assert.ok(q.length>=3+P.COMPETITORS.length);
  for(const handle of P.COMPETITORS){
