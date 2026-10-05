@@ -6,8 +6,9 @@ const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const Controller=require('./kk-ultra-deep-phase2-controller.js');
 const PhaseArtifact=require('./kk-ultra-deep-phase-artifact.js');
+const Phase2Artifact=require('./kk-ultra-deep-phase2-artifact.js');
 
-const VERSION='KK_ULTRA_DEEP_PHASE2_RUNTIME_V2';
+const VERSION='KK_ULTRA_DEEP_PHASE2_RUNTIME_V3';
 const DEFAULT_MAX_ROUNDS=3;
 const DEFAULT_CONCURRENCY=4;
 const HARD_REJECT_BLOCKERS=new Set([
@@ -301,7 +302,13 @@ async function run(input={},options={}){
  const finalGate=gate&&['PHASE2_ACCEPTED','PHASE2_HOLD'].includes(gate.status)
   ? gate
   : Controller.next({...base,round:Math.min(maxRounds,rounds.length||1),max_rounds:maxRounds,results});
- const status=finalGate.status==='PHASE2_ACCEPTED'?'PHASE2_ACCEPTED':'PHASE2_HOLD';
+ const accepted=finalGate.status==='PHASE2_ACCEPTED';
+ const phase2_artifact=accepted?Phase2Artifact.freezePhase2({
+  status:'PHASE2_ACCEPTED',ready_for_phase3:true,production_writes:0,phase3_started:false,
+  month,phase1_fingerprint:frozen.fingerprint,accepted_at:new Date().toISOString(),results
+ }):null;
+ const artifactOk=!accepted||(phase2_artifact&&phase2_artifact.frozen===true);
+ const status=accepted&&artifactOk?'PHASE2_ACCEPTED':'PHASE2_HOLD';
  return {
   version:VERSION,
   status,
@@ -314,7 +321,8 @@ async function run(input={},options={}){
   candidates:frozen.pool,
   results,
   rounds,
-  gate:finalGate,
+  gate:artifactOk?finalGate:{...finalGate,blockers:[...(finalGate.blockers||[]),'PHASE2_ARTIFACT_FREEZE_FAILED']},
+  phase2_artifact,
   ready_for_phase3:status==='PHASE2_ACCEPTED',
   next_action:status==='PHASE2_ACCEPTED'?'STOP_AND_REPORT_READY_FOR_OWNER_PHASE3_APPROVAL':'STOP_AND_REPORT_UNRESOLVED_VERIFICATION',
   production_writes:0,
