@@ -16,8 +16,8 @@ const GENERIC_TITLE=/^(home|homepage|google|ticketmaster|events?|concerts?\s+in\
 const AGGREGATED_RESULT_SIGNAL=/(facebook\b.*(?:on\s+x|twitter)|(?:on\s+x|twitter)\b.*facebook|bangkok\s+post|youtube|google\s+search|search\s+results?|teetee\s+philippines\s+on\s+x)/i;
 const SOCIAL_OR_SEARCH_HOST=/(^|\.)(facebook\.com|x\.com|twitter\.com|instagram\.com|youtube\.com|youtu\.be|google\.com|bing\.com|duckduckgo\.com)$/i;
 const MAX_VERIFIED_TITLE_LENGTH=180;
-const STATUS_CANCELLED_SIGNAL=/(cancelled|canceled|ยกเลิก)/i;
-const STATUS_POSTPONED_SIGNAL=/(postponed|rescheduled|เลื่อน(?:ออกไป|การแสดง|งาน)?)/i;
+const STATUS_CANCELLED_SIGNAL=/(?:event|concert|show|performance|งาน|คอนเสิร์ต|การแสดง).{0,100}(?:has been |is |ถูก)?(?:cancelled|canceled|ยกเลิก)|(?:ประกาศ|ขอแจ้ง).{0,80}(?:ยกเลิก)(?:การจัด)?(?:งาน|คอนเสิร์ต|การแสดง)/i;
+const STATUS_POSTPONED_SIGNAL=/(?:event|concert|show|performance|งาน|คอนเสิร์ต|การแสดง).{0,100}(?:has been |is )?(?:postponed|rescheduled)|(?:ประกาศ|ขอแจ้ง).{0,80}(?:เลื่อน)(?:การจัด)?(?:งาน|คอนเสิร์ต|การแสดง)|(?:เลื่อนกำหนดการ|กำหนดวันใหม่)/i;
 
 const TRUSTED_EVENT_HOSTS=new Set([
  'www.thaiticketmajor.com','thaiticketmajor.com',
