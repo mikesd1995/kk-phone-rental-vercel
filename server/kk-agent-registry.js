@@ -19,7 +19,7 @@ const AGENTS = Object.freeze({
     production_writes: 0
   }),
   'kk-commercial-evidence': Object.freeze({
-    version: 'KK_DISCOVERY_COMMERCIAL_PREP_V5',
+    version: 'KK_DISCOVERY_COMMERCIAL_PREP_V4',
     authority: 'STAGING_ONLY',
     runtime_state: 'CALLABLE_EVIDENCE_GATED',
     surface: 'AGENT_GATEWAY',
