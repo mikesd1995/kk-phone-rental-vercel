@@ -97,3 +97,54 @@ Commit 88c9998595a35f1dc0a36d30bc8ffd2a1e850037:
 Commit 76f411eaa53bf383af08ac294255de8bd4efc5fb adds a routing regression test proving the task route returns PHASE2_ACCEPTED for a complete verified pool and never starts Phase 3.
 
 Important: tests are committed but must not be described as executed/passed until runtime/CI evidence exists.
+
+
+## 2026-10-05 — Phase 2 execution closure / recurring-failure repair
+
+A deeper audit found three remaining architectural causes of repeated owner prompts:
+
+1. **Phase-1 handoff was verbal instead of immutable.**
+   Phase 2 was being asked to run without a durable exact Candidate Master Pool count/ID/fingerprint. A chat list is not acceptance evidence.
+2. **The Phase-2 critical path was incorrectly moved to an unprovisioned self-hosted runner.**
+   The `kk-ultra-deep` label had no proven online runner, so the job could sit queued forever. This is now a learned reliability failure and must never be used again without positive runner-availability proof.
+3. **Agent route execution stopped at controller evaluation instead of always owning the live verifier/recovery runtime.**
+   The Agent Gateway route now executes the canonical Phase-2 runtime when a frozen Phase-1 artifact is supplied, while controller-only evaluation is retained only for pre-materialized result fixtures.
+
+### Repairs now in source
+
+- `KK_ULTRA_DEEP_PHASE_ARTIFACT_V2`
+  - derives deterministic Phase-1 candidate IDs;
+  - preserves source provenance;
+  - stores exact count, IDs and fingerprint;
+  - rejects missing provenance, duplicate IDs and tampering.
+- `KK_ULTRA_DEEP_PHASE1_CONTROLLER_V6`
+  - cannot report owner handoff readiness unless a frozen Phase-1 artifact can be produced.
+- `KK_ULTRA_DEEP_PHASE2_RUNTIME_V2`
+  - consumes the exact frozen Phase-1 artifact and preserves its candidate IDs/fingerprint;
+  - rejects a tampered/invalid artifact before any verification.
+- `scripts/kk-ultra-deep-phase2-acceptance.js`
+  - materializes and readbacks `.artifacts/ultra-deep-phase1-artifact.json` before Phase 2;
+  - emits Phase-2 acceptance V2.
+- `KK_ULTRA_DEEP_DIRECT_ZERO_COST_V27`
+  - adds a dedicated `PHASE2_READ_ONLY` execution mode;
+  - runs before storefront/SOT preflight and never enters pricing/publish;
+  - permanently rejects `executeWrites=true`;
+  - can reconstruct+freeze a currently accepted Phase-1 pool when no artifact was supplied.
+- Authenticated Admin action `ultraDeepPhase2ReadOnly`
+  - reuses the existing signed Admin/PIN boundary;
+  - invokes the direct Phase-2 runtime with `executeWrites=false`;
+  - enforces `production_writes=0` and `phase3_started=false`.
+- Agent Task Router V21 + Agent Registry V32
+  - `phase2_verification_learning` now invokes the actual Phase-2 verifier + Learning recovery runtime when given the frozen artifact.
+- The duplicate unprovisioned self-hosted Phase-2 workflow was removed.
+  GitHub Actions is audit/fallback only; it is no longer the operational critical path.
+- Reliability memory now contains `ULTRA_DEEP_SELF_HOSTED_RUNNER_ASSUMED` so future repair logic must not repeat that infrastructure mistake.
+
+### Current acceptance rule
+
+Do not call Phase 2 complete from code readiness, preview READY, GitHub workflow status, or partial official-source checks.
+
+Only the runtime result may unlock Phase 3:
+`PHASE2_ACCEPTED && ready_for_phase3=true && production_writes=0 && phase3_started=false`.
+
+Otherwise report `PHASE2_HOLD` with the exact unresolved list after bounded Learning recovery.
