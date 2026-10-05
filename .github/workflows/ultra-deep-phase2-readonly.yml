@@ -1,5 +1,21 @@
 name: Ultra Deep Phase 2 Read Only Acceptance
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ultra-deep-phase2-readonly.yml'
+      - 'server/kk-ultra-deep-phase2-*.js'
+      - 'server/kk-ultra-deep-candidate-verifier.js'
+      - 'server/kk-ultra-deep-v2-learning-agent.js'
+      - 'server/kk-ultra-deep-public-web-adapters.js'
+      - 'server/kk-ultra-deep-runtime-runner.js'
+      - 'server/kk-ultra-deep-reconciliation.js'
+      - 'scripts/kk-ultra-deep-runtime-acceptance.js'
+      - 'scripts/kk-ultra-deep-phase2-acceptance.js'
+      - 'tests/kk-ultra-deep-phase2-*.test.js'
+      - 'tests/kk-ultra-deep-candidate-verifier.test.js'
+      - 'tests/kk-agent-task-router-phase2.test.js'
   push:
     branches:
       - fix/ultra-deep-learn-ryo-brand-social-miss
