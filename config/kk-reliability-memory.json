@@ -495,6 +495,116 @@
         "skip commercial/poster/storefront evidence because discovery is FULL",
         "claim production completion before exact readback"
       ]
+    },
+    {
+      "id": "ULTRA_DEEP_PHASE_SCOPE_LEAKAGE",
+      "severity": "P0",
+      "domains": [
+        "ultra_deep",
+        "verifier",
+        "acceptance"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "ULTRA_DEEP_PHASE_SCOPE_LEAKAGE",
+          "PHASE2_LATER_GATE_LEAKAGE"
+        ],
+        "phrases_any": [
+          "poster required in phase 2",
+          "rentability blocked verification",
+          "phase scope leakage",
+          "keyword filter dropped candidate"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Keep Phase 2 limited to event identity, canonical date/venue, source authority and current status. Poster, rentability and commercial pricing are later-phase gates and must not suppress or block a Phase-2 candidate.",
+      "regression_guards": [
+        "Phase2 identity/status scope does not require poster",
+        "Phase2 does not reject a candidate on rentability threshold",
+        "keywordless brand/social candidates survive Phase2 prefilter",
+        "full-commercial scope still enforces poster and commercial gates"
+      ],
+      "never_do": [
+        "reuse publish eligibility as Phase2 verification eligibility",
+        "drop a discovered candidate because it lacks event keywords",
+        "move poster or pricing requirements earlier just to make one verifier reusable"
+      ]
+    },
+    {
+      "id": "ULTRA_DEEP_RUNTIME_ROUTE_GAP",
+      "severity": "P0",
+      "domains": [
+        "ultra_deep",
+        "agent_registry",
+        "task_router"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "AGENT_TASK_NOT_SUPPORTED",
+          "ULTRA_DEEP_RUNTIME_ROUTE_GAP",
+          "REGISTERED_ROUTE_NOT_EXECUTABLE"
+        ],
+        "phrases_any": [
+          "route registered but task router missing",
+          "agent task not supported",
+          "runtime route gap"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Require registry↔task-router parity for every runtime_available route. A route cannot be declared runnable until a deterministic router test invokes the exact required agents and returns the expected controller contract.",
+      "regression_guards": [
+        "every runtime_available registry route has an executable task-router case",
+        "Phase2 route invokes kk-event-verifier plus kk-reliability-learning",
+        "route test asserts phase3_started=false",
+        "unsupported task is fail-closed"
+      ],
+      "never_do": [
+        "call a registry declaration runtime readiness",
+        "announce ready-to-run before exercising route parity",
+        "add duplicate runtime paths to mask a missing router case"
+      ]
+    },
+    {
+      "id": "GITHUB_ACTIONS_RUNNER_NOT_ALLOCATED",
+      "severity": "P1",
+      "domains": [
+        "github_actions",
+        "ci",
+        "acceptance"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN_EXTERNAL",
+      "match": {
+        "codes": [
+          "GITHUB_ACTIONS_RUNNER_NOT_ALLOCATED",
+          "RUNNER_ID_ZERO",
+          "WORKFLOW_STEPS_EMPTY"
+        ],
+        "phrases_any": [
+          "runner_id=0",
+          "runner id 0",
+          "steps=[]",
+          "runner not allocated",
+          "no workflow steps executed"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Classify a completed workflow job with runner_id=0 and zero steps as an external runner-allocation failure, not a code/test result. Preserve the run/job evidence, do not infer pass/fail from tests, and switch to the approved runnerless deterministic/local read-only acceptance path when available.",
+      "regression_guards": [
+        "runner_id and step count checked before interpreting workflow conclusion",
+        "zero-step job cannot be described as test failure",
+        "runnerless read-only fallback keeps production_writes=0",
+        "CI evidence is rechecked when runner capacity returns"
+      ],
+      "never_do": [
+        "rerun indefinitely without checking runner allocation",
+        "describe a zero-step workflow as application test failure",
+        "pay for unrelated deployment capacity to solve GitHub runner allocation"
+      ]
     }
   ]
 }
