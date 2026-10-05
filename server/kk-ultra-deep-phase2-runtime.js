@@ -298,7 +298,9 @@ async function run(input={},options={}){
    break;
   }
  }
- const finalGate=Controller.next({...base,round:Math.min(maxRounds,rounds.length||1),max_rounds:maxRounds,results});
+ const finalGate=gate&&['PHASE2_ACCEPTED','PHASE2_HOLD'].includes(gate.status)
+  ? gate
+  : Controller.next({...base,round:Math.min(maxRounds,rounds.length||1),max_rounds:maxRounds,results});
  const status=finalGate.status==='PHASE2_ACCEPTED'?'PHASE2_ACCEPTED':'PHASE2_HOLD';
  return {
   version:VERSION,
