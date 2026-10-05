@@ -74,3 +74,16 @@ test('scanner ingress GET acceptance is queue-authorized and permanently read-on
   assert.match(source,/READ_ONLY_WRITE_INVARIANT_BROKEN/);
   assert.match(source,/ULTRA_DEEP_MACHINE_V26_READ_ONLY_GET/);
 });
+
+test('Smart Loop exposes one authenticated operational action without weakening write guards',()=>{
+  const src=fs.readFileSync(require.resolve('../api/kk-admin-guard.js'),'utf8');
+  const auth=src.indexOf("if(!signedSession&&!legacyPinOk) return reply(res,401");
+  const smart=src.indexOf("if(action==='smartLoopRun')");
+  assert.ok(auth>0&&smart>auth,'Smart Loop must remain behind existing Admin authentication');
+  const block=src.slice(smart,smart+2600);
+  assert.match(block,/operational:true/);
+  assert.match(block,/executeWrites:commit/);
+  assert.match(block,/READ_ONLY_WRITE_INVARIANT_BROKEN/);
+  assert.match(block,/audit_blocking:false/);
+  assert.match(block,/V2_READ_ONLY_READY/);
+});
