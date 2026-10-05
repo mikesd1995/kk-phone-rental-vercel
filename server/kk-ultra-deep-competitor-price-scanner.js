@@ -2,9 +2,9 @@
 
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_COMPETITOR_PRICE_SCANNER_V2';
+const VERSION='KK_ULTRA_DEEP_COMPETITOR_PRICE_SCANNER_V3';
 const COMPETITORS=Object.freeze([
- 'minibestt','fundaybuddy','thisisyour3','fejay4rent','by_minnymicky',
+ 'faleem_rent2','minibestt','fundaybuddy','thisisyour3','fejay4rent','by_minnymicky',
  'npforrent','mcjmgoods','winkwink_rent','khaw4rent_2nd'
 ]);
 
