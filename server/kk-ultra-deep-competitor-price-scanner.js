@@ -2,8 +2,8 @@
 
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_COMPETITOR_PRICE_SCANNER_V3';
-const COMPETITORS=Object.freeze([
+const VERSION='KK_ULTRA_DEEP_COMPETITOR_PRICE_SCANNER_V4';
+const BASE_COMPETITORS=Object.freeze([
  'faleem_rent2','minibestt','fundaybuddy','thisisyour3','fejay4rent','by_minnymicky',
  'npforrent','mcjmgoods','winkwink_rent','khaw4rent_2nd'
 ]);
@@ -18,13 +18,28 @@ function titleOverlap(candidateTitle,evidenceText){
  const hits=wanted.filter(x=>hay.has(x)).length;
  return hits/wanted.length;
 }
-function competitorFromUrl(url){
+const DEFAULT_TARGET_COMPETITOR_UNIVERSE=20;
+const MAX_COMPETITOR_UNIVERSE=50;
+const RENTAL_SHOP_SIGNAL=/(?:เช่า|rent(?:al)?|phone|มือถือ|เครื่อง|vivo|x300|lens|เลนส์)/i;
+function configuredUniverse(options={}){
+ const supplied=[
+  ...(Array.isArray(options.competitor_universe)?options.competitor_universe:[]),
+  ...(Array.isArray(options.learned_competitors)?options.learned_competitors:[])
+ ].map(x=>text(x).replace(/^@/,'').toLowerCase()).filter(Boolean);
+ return [...new Set([...BASE_COMPETITORS,...supplied])].slice(0,MAX_COMPETITOR_UNIVERSE);
+}
+function xHandle(url){
  try{
   const u=new URL(text(url));
   if(!/(^|\.)x\.com$|(^|\.)twitter\.com$/i.test(u.hostname))return '';
-  const handle=(u.pathname.split('/').filter(Boolean)[0]||'').toLowerCase();
-  return COMPETITORS.includes(handle)?handle:'';
+  return (u.pathname.split('/').filter(Boolean)[0]||'').toLowerCase();
  }catch(_){return '';}
+}
+function competitorFromUrl(url,universe=BASE_COMPETITORS,evidenceText=''){
+ const handle=xHandle(url);if(!handle)return '';
+ const known=(Array.isArray(universe)?universe:BASE_COMPETITORS).map(x=>text(x).toLowerCase());
+ if(known.includes(handle))return handle;
+ return RENTAL_SHOP_SIGNAL.test(text(evidenceText))?handle:'';
 }
 function parsePrice(value){
  const s=text(value).replace(/,/g,'');
@@ -56,21 +71,22 @@ function packageType(value){
 function shortenTitle(title){
  return text(title).replace(/[|•].*$/,'').replace(/\s+/g,' ').slice(0,110);
 }
-function buildQueries(candidate={}){
+function buildQueries(candidate={},options={}){
  const title=shortenTitle(candidate.title);
+ const universe=configuredUniverse(options);
  const generic=[
   `"${title}" เช่ามือถือ vivo X300`,
   `"${title}" เช่าโทรศัพท์ lens ราคา`,
   `"${title}" phone rental bangkok`
  ];
- const perCompetitor=COMPETITORS.map(handle=>`site:x.com/${handle} "${title}" เช่า`);
+ const perCompetitor=universe.map(handle=>`site:x.com/${handle} "${title}" เช่า`);
  return [...generic,...perCompetitor];
 }
-function rowToEvidence(row,candidate={}){
+function rowToEvidence(row,candidate={},options={}){
  const url=text(row.source_url||row.href||row.url);
- const competitor=competitorFromUrl(url);
- if(!competitor)return null;
  const evidence=[row.title,row.body,row.snippet].filter(Boolean).join(' ');
+ const competitor=competitorFromUrl(url,configuredUniverse(options),evidence);
+ if(!competitor)return null;
  const price=parsePrice(evidence);
  if(!price)return null;
  const overlap=titleOverlap(candidate.title,evidence);
@@ -89,13 +105,13 @@ function rowToEvidence(row,candidate={}){
 async function scanCandidate(candidate={},options={}){
  const runner=typeof options.ddgs_runner==='function'?options.ddgs_runner:PublicWeb.runDdgsSearch;
  const out=[];const seen=new Set();
- for(const query of buildQueries(candidate)){
+ for(const query of buildQueries(candidate,options)){
   let rows=[];
   try{
    rows=await runner({query,max_results:Number(options.max_results||20),region:'th-th',backend:text(options.backend||'auto')},options);
   }catch(_){continue;}
   for(const row of Array.isArray(rows)?rows:[]){
-   const e=rowToEvidence(row,candidate);if(!e)continue;
+   const e=rowToEvidence(row,candidate,options);if(!e)continue;
    const k=e.competitor_id+'|'+e.package_type+'|'+e.price+'|'+e.source_url;
    if(seen.has(k))continue;seen.add(k);out.push(e);
   }
@@ -116,12 +132,20 @@ async function scanBatch(candidates=[],options={}){
  }
  await Promise.all(Array.from({length:Math.min(concurrency,rows.length||1)},()=>worker()));
  const evidence=results.flatMap(x=>x&&x.evidence||[]);
+ const configured=configuredUniverse(options);
+ const discovered=[...new Set(evidence.map(x=>x.competitor_id).filter(x=>!configured.includes(x)))];
+ const universe=[...new Set([...configured,...discovered])].slice(0,MAX_COMPETITOR_UNIVERSE);
  return {
   version:VERSION,
   candidate_count:rows.length,
-  competitor_universe:[...COMPETITORS],
-  competitor_universe_count:COMPETITORS.length,
-  query_strategy:'GENERIC_PLUS_PER_COMPETITOR_X',
+  competitor_universe:universe,
+  competitor_universe_count:universe.length,
+  base_competitor_count:BASE_COMPETITORS.length,
+  target_competitor_universe:Number(options.target_competitor_universe||DEFAULT_TARGET_COMPETITOR_UNIVERSE),
+  max_competitor_universe:MAX_COMPETITOR_UNIVERSE,
+  competitor_universe_expandable:true,
+  discovered_competitors:discovered,
+  query_strategy:'GENERIC_PLUS_EXPANDABLE_PER_COMPETITOR_X',
   evidence_count:evidence.length,
   competitor_count:new Set(evidence.map(x=>x.competitor_id)).size,
   evidence,
@@ -129,4 +153,5 @@ async function scanBatch(candidates=[],options={}){
  };
 }
 
-module.exports={VERSION,COMPETITORS,text,norm,tokens,titleOverlap,competitorFromUrl,parsePrice,packageType,shortenTitle,buildQueries,rowToEvidence,scanCandidate,scanBatch};
+const COMPETITORS=BASE_COMPETITORS;
+module.exports={VERSION,BASE_COMPETITORS,COMPETITORS,DEFAULT_TARGET_COMPETITOR_UNIVERSE,MAX_COMPETITOR_UNIVERSE,RENTAL_SHOP_SIGNAL,text,norm,tokens,titleOverlap,configuredUniverse,xHandle,competitorFromUrl,parsePrice,packageType,shortenTitle,buildQueries,rowToEvidence,scanCandidate,scanBatch};
