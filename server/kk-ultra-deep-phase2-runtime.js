@@ -169,13 +169,13 @@ function identityCompatible(candidate={},verified={}){
 }
 async function recoverOne(candidate={},prior={},controllerOut={},context={},options={}){
  const queries=recoveryQueries(candidate,controllerOut);
- const providers=options.providers||PublicWeb.createProviders({
+ const providers=Object.assign({},PublicWeb.createProviders({
    fetchFn:options.fetchFn,
    ddgs_trafilatura_enabled:true,
    ddgs_max_results:10,
    ddgs_timeout_ms:10000,
    timeout_ms:10000
- });
+ }),options.providers||{});
  const providerOrder=['LIVENATION_PUBLIC','DDGS_TRAFILATURA','BING_RSS','DDG_HTML','BING_HTML'];
  const seen=new Set(uniq(candidate.source_urls));
  const attempts=Array.isArray(prior.verifier_attempts)?[...prior.verifier_attempts]:[];
