@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_DISCOVERY_COMMERCIAL_PREP_V3';
+const VERSION='KK_DISCOVERY_COMMERCIAL_PREP_V4';
 const MIN_EXACT_COMPETITORS=3;
 const MIN_PUBLISH_SCORE=7;
 
@@ -79,6 +79,7 @@ function posterEvidence(candidate={},posters=[]){
 }
 
 function prepareCandidate(candidate={},input={}){
+ const pricingOnly=text(input.phase_scope).toUpperCase()==='PHASE3_PRICING';
  const pricing=priceEvidence(candidate,input.competitor_prices||[]);
  const proposal=proposalEvidence(candidate,input,pricing);
  const poster=posterEvidence(candidate,input.posters||[]);
@@ -89,7 +90,7 @@ function prepareCandidate(candidate={},input={}){
  if(!text(candidate.venue))blockers.push('EVENT_VENUE_REQUIRED');
  if(publish_eligibility.eligible===false) blockers.push('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD');
  if(!proposal.proposal_available&&publish_eligibility.eligible!==true) blockers.push('PRICING_REFERENCE_UNAVAILABLE');
- if(!poster.complete)blockers.push('VERIFIED_POSTER_EVIDENCE_MISSING');
+ if(!pricingOnly&&!poster.complete)blockers.push('VERIFIED_POSTER_EVIDENCE_MISSING');
  return {
   schema_version:VERSION,
   candidate_id:text(candidate.candidate_id),
@@ -102,7 +103,8 @@ function prepareCandidate(candidate={},input={}){
   publish_eligibility,
   pricing:{...pricing,proposal,reference_missing:!proposal.proposal_available,reference_required_for_publish:publish_eligibility.eligible!==true},
   poster,
-  status:blockers.length?'HOLD_FOR_COMMERCIAL_EVIDENCE':'READY_FOR_FINAL_VERIFIER',
+  status:blockers.length?(pricingOnly?'HOLD_FOR_PHASE3_PRICING':'HOLD_FOR_COMMERCIAL_EVIDENCE'):(pricingOnly?'READY_FOR_PHASE3_PRICING':'READY_FOR_FINAL_VERIFIER'),
+  phase_scope:pricingOnly?'PHASE3_PRICING':'FULL_COMMERCIAL',
   blockers,
   authoritative:false,
   verifier_required:true,
@@ -115,12 +117,16 @@ function prepareCandidate(candidate={},input={}){
 function prepareBatch(input={}){
  const candidates=Array.isArray(input.candidates)?input.candidates:[];
  const prepared=candidates.map(c=>prepareCandidate(c,input));
+ const pricingOnly=text(input.phase_scope).toUpperCase()==='PHASE3_PRICING';
+ const readyStatus=pricingOnly?'READY_FOR_PHASE3_PRICING':'READY_FOR_FINAL_VERIFIER';
+ const holdStatus=pricingOnly?'HOLD_FOR_PHASE3_PRICING':'HOLD_FOR_COMMERCIAL_EVIDENCE';
  return {
   schema_version:VERSION,
-  status:prepared.length&&prepared.every(x=>x.status==='READY_FOR_FINAL_VERIFIER')?'READY_FOR_FINAL_VERIFIER':'HOLD_FOR_COMMERCIAL_EVIDENCE',
+  phase_scope:pricingOnly?'PHASE3_PRICING':'FULL_COMMERCIAL',
+  status:prepared.length&&prepared.every(x=>x.status===readyStatus)?readyStatus:holdStatus,
   candidates:prepared,
-  ready_count:prepared.filter(x=>x.status==='READY_FOR_FINAL_VERIFIER').length,
-  hold_count:prepared.filter(x=>x.status!=='READY_FOR_FINAL_VERIFIER').length,
+  ready_count:prepared.filter(x=>x.status===readyStatus).length,
+  hold_count:prepared.filter(x=>x.status!==readyStatus).length,
   production_writes:0,
   publishes:0
  };
