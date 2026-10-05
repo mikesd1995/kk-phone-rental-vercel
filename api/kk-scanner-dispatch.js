@@ -198,17 +198,15 @@ module.exports=async function handler(req,res){
     const probeMode=queryValue(req,'probe').toLowerCase();
     if(probeMode==='public-index' && text(process.env.VERCEL_ENV).toLowerCase()!=='production'){
       try{
-        const url='https://www.livenationtero.co.th/api/search/events?location=bangkok&page=1';
-        const body=await PublicWebAdapters.fetchPage(url,{fetchFn:global.fetch,timeout_ms:7000});
-        const parsed=JSON.parse(body);const doc=Array.isArray(parsed&&parsed.documents)?parsed.documents[0]:null;
-        return json(res,200,{ok:true,probe:'LIVENATION_DOCUMENT_SHAPE',total:Number(parsed&&parsed.total||0),doc:doc?{
-          keys:Object.keys(doc),
-          id:doc.id||null,encodedName:doc.encodedName||null,eventDate:doc.eventDate||null,eventDateTo:doc.eventDateTo||null,
-          name:doc.name||doc.eventName||doc.title||null,image:doc.image||null,location:doc.location||null,venue:doc.venue||null,
-          venues:doc.venues||null,city:doc.city||null,localizations:Array.isArray(doc.localizations)?doc.localizations.slice(0,2):null,
-          lineup:Array.isArray(doc.lineup)?doc.lineup.slice(0,3).map(x=>({name:x.name||null,isPrimary:x.isPrimary===true,url:x.url||null})):null
-        }:null,business_writes:0});
-      }catch(err){return json(res,500,{ok:false,probe:'LIVENATION_DOCUMENT_SHAPE',error_code:text(err&&err.code)||text(err&&err.name)||'LIVENATION_SHAPE_FAILED',business_writes:0});}
+        const provider=PublicWebAdapters.createProviders({fetchFn:global.fetch,livenation_timeout_ms:7000}).LIVENATION_PUBLIC;
+        const generic=await provider({query:'Bangkok October 2026 concert',date_window:{start:'2026-10-01',end:'2026-10-31'}});
+        const exact=await provider({query:'Young K Bangkok Thailand',date_window:{start:'2026-10-01',end:'2026-10-31'}});
+        return json(res,200,{ok:true,probe:'LIVENATION_PROVIDER_ACCEPTANCE',
+          generic_count:generic.length,generic_structured:generic.filter(row=>/^2026-10-\\d{2}$/.test(text(row.event_date))).length,
+          exact_count:exact.length,
+          sample:generic.slice(0,5).map(row=>({title:text(row.title),event_date:text(row.event_date),venue:text(row.venue),source_host:(()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return null}})()})),
+          business_writes:0});
+      }catch(err){return json(res,500,{ok:false,probe:'LIVENATION_PROVIDER_ACCEPTANCE',error_code:text(err&&err.code)||text(err&&err.name)||'LIVENATION_PROVIDER_FAILED',business_writes:0});}
     }
     if(!probeMode){
       return json(res,200,{ok:true,data:readiness});
