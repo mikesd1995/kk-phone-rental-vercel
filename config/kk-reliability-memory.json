@@ -605,6 +605,44 @@
         "describe a zero-step workflow as application test failure",
         "pay for unrelated deployment capacity to solve GitHub runner allocation"
       ]
+    },
+    {
+      "id": "ULTRA_DEEP_PHASE_HANDOFF_ARTIFACT_MISSING",
+      "severity": "P0",
+      "domains": [
+        "ultra_deep",
+        "phase_handoff",
+        "acceptance"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "ULTRA_DEEP_PHASE_HANDOFF_ARTIFACT_MISSING",
+          "CANDIDATE_POOL_NOT_PERSISTED",
+          "PHASE2_POOL_NOT_FROZEN"
+        ],
+        "phrases_any": [
+          "candidate master pool was not persisted",
+          "candidate pool not frozen",
+          "verbal candidate register",
+          "missing phase handoff artifact"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Every Phase-1 handoff must persist an immutable read-only Candidate Master Pool artifact with deterministic candidate IDs, exact count, pool fingerprint and source provenance. Phase 2 must consume that artifact or explicitly reconstruct and persist a replacement before verification; a chat summary or verbal list is not acceptance evidence.",
+      "regression_guards": [
+        "Phase1 handoff artifact contains deterministic candidate IDs",
+        "artifact candidate_count equals exact unique row count",
+        "artifact contains pool fingerprint and source provenance",
+        "Phase2 expected candidate IDs exactly match the frozen artifact",
+        "chat-only candidate lists cannot satisfy the Phase2 handoff gate"
+      ],
+      "never_do": [
+        "start Phase2 from an unfrozen verbal candidate list",
+        "invent an exact candidate count after the fact",
+        "treat a partial historical artifact as the current Candidate Master Pool"
+      ]
     }
   ]
 }
