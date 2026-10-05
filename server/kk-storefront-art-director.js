@@ -1,6 +1,7 @@
 'use strict';
 
-const VERSION='KK_STOREFRONT_ART_DIRECTOR_V4';
+const VERSION='KK_STOREFRONT_ART_DIRECTOR_V5_INSPO_REFERENCE';
+const Inspo=require('./kk-inspo-reference-gate.js');
 
 const DESIGN_SYSTEM=Object.freeze({
   direction:'proprietary-editorial-concert-optics',
@@ -27,13 +28,15 @@ const DESIGN_SYSTEM=Object.freeze({
 
 function clean(v){return String(v==null?'':v).trim();}
 function buildDirection(input={}){
+  const reference_gate=Inspo.validateEvidence(input);
   const references=(Array.isArray(input.references)?input.references:[]).map(clean).filter(Boolean);
   const goals=(Array.isArray(input.goals)?input.goals:[
     'premium visual hierarchy','fast event discovery','high-confidence LINE conversion','mobile-first polish'
   ]).map(clean).filter(Boolean);
   return {
     schema_version:VERSION,
-    status:'READY_FOR_IMPLEMENTATION',
+    status:reference_gate.status==='BLOCKED'?'BLOCKED_REFERENCE_RESEARCH':'READY_FOR_IMPLEMENTATION',
+    reference_gate,
     design_system:DESIGN_SYSTEM,
     goals,
     references,
@@ -86,6 +89,8 @@ function buildDirection(input={}){
 function evaluateImplementation(input={}){
   const evidence=input.evidence||{};
   const blockers=[];
+  const referenceGate=Inspo.validateEvidence(input);
+  if(referenceGate.status==='BLOCKED') blockers.push(...referenceGate.blockers);
   if(!evidence.multi_viewport) blockers.push('MULTI_VIEWPORT_EVIDENCE_MISSING');
   if(!evidence.no_horizontal_overflow) blockers.push('HORIZONTAL_OVERFLOW_NOT_PROVEN');
   if(!evidence.business_truth_unchanged) blockers.push('BUSINESS_TRUTH_PRESERVATION_NOT_PROVEN');
