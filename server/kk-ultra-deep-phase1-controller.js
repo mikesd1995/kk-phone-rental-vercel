@@ -4,7 +4,7 @@ const V3=require('./kk-ultra-deep-v3.js');
 const Learning=require('./kk-ultra-deep-v2-learning-agent.js');
 const Rentability=require('./kk-ultra-deep-rentability-score.js');
 
-const VERSION='KK_ULTRA_DEEP_PHASE1_CONTROLLER_V2';
+const VERSION='KK_ULTRA_DEEP_PHASE1_CONTROLLER_V3';
 const DEFAULT_MAX_ROUNDS=3;
 function arr(v){return Array.isArray(v)?v:[];}
 function text(v){return String(v==null?'':v).trim();}
@@ -32,8 +32,15 @@ function evaluateRound(input={}){
  const pool=dedup(input.candidates);
  const scored=scorePool(pool,input.scoring_config||{});
  const misses=arr(input.known_positive_misses).map(normalizeMiss);
+ const statusLearningMisses=pool.flatMap(candidate=>{
+   const s=statusEvidence(candidate);
+   if(s.conflicting)return [{...candidate,miss_class:'STATUS_CHANGE_GAP',query_terms:[text(candidate.title||candidate.event_name)+' cancelled postponed rescheduled']}];
+   if(s.stale&&s.evidence_count<2)return [{...candidate,miss_class:'STALE_LISTING_GAP',query_terms:[text(candidate.title||candidate.event_name)+' official update']}];
+   return [];
+ });
+ const learningMisses=[...misses,...statusLearningMisses].map(normalizeMiss);
  const unresolved=arr(input.external_source_unresolved);
- const learning=Learning.learn({missed_events:misses,false_positives:arr(input.false_positives),holds:arr(input.holds),source_successes:arr(input.source_successes)});
+ const learning=Learning.learn({missed_events:learningMisses,false_positives:arr(input.false_positives),holds:arr(input.holds),source_successes:arr(input.source_successes)});
  const coverage=V3.phase1Acceptance({
    receipts:arr(input.receipts),
    discovery_pool_preserved:input.discovery_pool_preserved===true,
@@ -49,7 +56,7 @@ function evaluateRound(input={}){
  if(input.known_positive_backtest_executed!==true)blockers.push('KNOWN_POSITIVE_BACKTEST_NOT_EXECUTED');
  if(misses.length)blockers.push('KNOWN_POSITIVE_RECALL_BELOW_100');
  if(unresolved.some(x=>!text(x.reason)||!text(x.evidence_url)))blockers.push('UNRESOLVED_WITHOUT_EVIDENCE');
- return {version:VERSION,pool,scored,status_checks,misses,unresolved,learning,coverage,blockers,status:blockers.length?'RECOVERY_REQUIRED':'PHASE1_ACCEPTED',production_writes:0,phase2_started:false};
+ return {version:VERSION,pool,scored,status_checks,misses,status_learning_misses:statusLearningMisses,unresolved,learning,coverage,blockers,status:blockers.length?'RECOVERY_REQUIRED':'PHASE1_ACCEPTED',production_writes:0,phase2_started:false};
 }
 function next(input={}){
  const round=Math.max(1,Number(input.round||1));
