@@ -66,3 +66,19 @@ Tests are written but must not be described as passed until execution evidence e
 At the last inspected PR state after commit 354f09c6, PR #642 reported mergeable=true, 26 commits, 13 changed files. This is source readiness, not CI/deployment acceptance.
 
 Next action: run Phase 2 read-only using Verifier + Learning V6 + Phase-2 Controller V1. Report the entire frozen Candidate Master Pool, learning/recovery rounds, final dispositions, unresolved evidence, Phase2 acceptance, and whether Phase3 is ready. Do not auto-start Phase3.
+
+
+## Phase boundary hardening after owner review
+Commits 8b2ea7e1168fce19970872fe0cd0a74ee371b57e and 8ea0b7af534f6cc10fb9b6034b853c7c3a519bc1 add a canonical phase-handoff gate and regression tests.
+
+The gate encodes the six owner-facing phases:
+1. PHASE1 discovery
+2. PHASE2 verification/dedup
+3. PHASE3 commercial pricing
+4. PHASE4 poster/storefront reconciliation
+5. PHASE5 governed publish
+6. PHASE6 production readback
+
+No phase may claim readiness for the next phase until its report is complete. Phases 1-4 additionally require learning recovery completion where applicable. Phases 1-3 fail closed on any production write. The gate never auto-starts the next phase.
+
+This prevents the prior failure mode where work was described as started/ready without a complete phase artifact and ensures Learning/Recovery is a first-class handoff requirement rather than an optional side process.
