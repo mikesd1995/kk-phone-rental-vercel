@@ -3,6 +3,7 @@
 const Controller=require('./kk-ultra-deep-phase3-controller.js');
 const Learning=require('./kk-ultra-deep-phase3-learning-agent.js');
 const Scanner=require('./kk-ultra-deep-competitor-price-scanner.js');
+const Phase3Artifact=require('./kk-ultra-deep-phase3-artifact.js');
 
 const VERSION='KK_ULTRA_DEEP_PHASE3_RUNTIME_V1';
 const DEFAULT_MAX_ROUNDS=3;
@@ -66,9 +67,19 @@ async function run(input={},options={}){
   if(round>1&&before===Number(rounds[rounds.length-2]&&rounds[rounds.length-2].evidence_count||-1))break;
  }
  const accepted=final&&final.status==='PHASE3_ACCEPTED';
+ const shouldFreeze=accepted&&!diagnostic&&final.ready_for_phase4===true;
+ const phase3_artifact=shouldFreeze?Phase3Artifact.freezePhase3({
+  status:'PHASE3_ACCEPTED',ready_for_phase4:true,production_writes:0,phase4_started:false,
+  month:text(input.month||input.phase2_artifact&&input.phase2_artifact.month),
+  accepted_at:new Date().toISOString(),
+  phase2_fingerprint:text(input.phase2_artifact&&input.phase2_artifact.fingerprint),
+  results:final.results
+ }):null;
+ const artifactOk=!shouldFreeze||(phase3_artifact&&phase3_artifact.frozen===true);
+ const status=accepted&&artifactOk?'PHASE3_ACCEPTED':(final&&final.status==='PHASE3_BLOCKED'?'PHASE3_BLOCKED':'PHASE3_HOLD');
  return {
   version:VERSION,
-  status:accepted?'PHASE3_ACCEPTED':(final?final.status:'PHASE3_HOLD'),
+  status,
   diagnostic_only:diagnostic,
   candidate_count:candidates.length,
   competitor_evidence_count:competitor_prices.length,
@@ -76,11 +87,12 @@ async function run(input={},options={}){
   rounds,
   results:final?final.results:[],
   learning_misses:final?final.learning_misses:[],
-  blockers:final?final.blockers:['PHASE3_RUNTIME_NO_RESULT'],
+  blockers:artifactOk?(final?final.blockers:['PHASE3_RUNTIME_NO_RESULT']):[...(final&&final.blockers||[]),'PHASE3_ARTIFACT_FREEZE_FAILED'],
   phase2_gate:final?final.phase2_gate:null,
   candidate_set:final?final.candidate_set:null,
+  phase3_artifact,
   recovery_exhausted:Boolean(final&&final.learning_misses.length&&rounds.length>=maxRounds),
-  ready_for_phase4:Boolean(accepted&&!diagnostic&&final.ready_for_phase4===true),
+  ready_for_phase4:Boolean(status==='PHASE3_ACCEPTED'&&!diagnostic&&phase3_artifact&&phase3_artifact.frozen===true),
   production_writes:0,
   phase4_started:false
  };
