@@ -35,7 +35,7 @@ test('Ultra Deep V3 is callable through governed agent routes',async()=>{
   const out=await Router.executeTask('plan_ultra_deep_scan',{observations:[]});
   assert.deepEqual(out.invoked_agents,['kk-discovery-source-watch','kk-discovery-scanner']);
   assert.equal(out.result.status,'SEARCH_GAPS_REQUIRED');
-  assert.equal(Registry.REGISTRY_VERSION,'KK_AGENT_REGISTRY_V29');
+  assert.equal(Registry.REGISTRY_VERSION,'KK_AGENT_REGISTRY_V34');
 });
 
 
