@@ -223,6 +223,16 @@ test('reference scope rejects wrong month, foreign-city and non-rental noise whi
   );
 });
 
+test('reference scope accepts current Live Nation Tero /show/ canonical event URLs',()=>{
+  const out=Runner.referenceScopeDecision({
+    title:'Young K Solo Tour <YOUNGEST> in BANGKOK',
+    event_date:'2026-10-10',
+    source_url:'https://www.livenationtero.co.th/show/1688334/young-k-solo-tour-youngest-in-bangkok/bangkok/2026-10-10/en'
+  },{month:'2026-10',location:'Bangkok Thailand'});
+  assert.equal(out.eligible,true);
+  assert.equal(out.reason,'ELIGIBLE_REFERENCE');
+});
+
 test('scoped reference evidence preserves explicit exclusion reasons',()=>{
   const rows=Runner.scopeReferenceCandidates([
     {title:'Bangkok Fanmeeting',event_date:'2026-10-20',source_url:'https://example.com/bangkok-fanmeeting'},

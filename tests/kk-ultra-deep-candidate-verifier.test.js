@@ -106,3 +106,12 @@ test('structured exact event on non-social official page can authorize publish',
   assert.equal(out.verified,true);
   assert.equal(out.evidence.authoritative_event_source,true);
 });
+
+
+test('Live Nation Tero /show/ URL is event-specific and eligible for verifier prefilter',()=>{
+  const url='https://www.livenationtero.co.th/show/1672772/the-weeknd-after-hours-til-dawn-tour/bangkok/2026-10-11/en';
+  assert.equal(V.eventSpecificUrl(url),true);
+  const pre=V.prefilter({title:'The Weeknd: After Hours Til Dawn Tour',event_date:'2026-10-11',source_url:url},'2026-10');
+  assert.equal(pre.eligible,true);
+  assert.deepEqual(pre.reasons,[]);
+});
