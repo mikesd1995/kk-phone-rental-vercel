@@ -175,3 +175,10 @@ Local isolated Node execution evidence:
 - diagnostic result kept `ready_for_phase4=false`, `production_writes=0`, `phase4_started=false`.
 
 This diagnostic is not evidence that operational Phase 3 is accepted. Official Phase 3 must still wait for a real `PHASE2_ACCEPTED` artifact.
+
+
+## Owner policy update — competitor universe (2026-10-05)
+
+The competitor universe is no longer capped at 10. The existing 10 X rental accounts are protected seed coverage only. Target roughly 20 shops/accounts when credible rental evidence is discoverable; >20 is allowed, with the current scanner bounded at 50 for runtime/query control. Expanded accounts must pass rental-shop evidence checks and are read-only. Exact-event pricing uses the valid independent evidence actually found; 20 prices are not required per event.
+
+Canonical policy: `docs/COMPETITOR_UNIVERSE_POLICY_V1_2026-10-05.md`.
