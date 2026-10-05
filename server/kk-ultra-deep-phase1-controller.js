@@ -5,7 +5,7 @@ const Learning=require('./kk-ultra-deep-v2-learning-agent.js');
 const Rentability=require('./kk-ultra-deep-rentability-score.js');
 const LearningLoop=require('./kk-ultra-deep-learning-loop.js');
 
-const VERSION='KK_ULTRA_DEEP_PHASE1_CONTROLLER_V4';
+const VERSION='KK_ULTRA_DEEP_PHASE1_CONTROLLER_V5';
 const DEFAULT_MAX_ROUNDS=3;
 function arr(v){return Array.isArray(v)?v:[];}
 function text(v){return String(v==null?'':v).trim();}
@@ -67,12 +67,21 @@ function evaluateRound(input={}){
  if(unresolved.some(x=>!text(x.reason)||!text(x.evidence_url)))blockers.push('UNRESOLVED_WITHOUT_EVIDENCE');
  return {version:VERSION,pool,scored,status_checks,misses,status_learning_misses:statusLearningMisses,unresolved,learning,learning_acceptance,coverage,blockers,status:blockers.length?'RECOVERY_REQUIRED':'PHASE1_ACCEPTED',production_writes:0,phase2_started:false};
 }
+const HARD_PHASE2_BLOCKERS=Object.freeze(['DISCOVERY_POOL_NOT_PRESERVED','SCORING_MUST_NOT_FILTER_DISCOVERY','DETERMINISTIC_DEDUP_NOT_PASSED']);
+function phase2ReadOnlyGate(result={}){
+ const blockers=arr(result.blockers);
+ const hard=blockers.filter(b=>HARD_PHASE2_BLOCKERS.some(x=>b===x||b.endsWith(x)));
+ const verify=blockers.filter(b=>!hard.includes(b));
+ const allowed=hard.length===0;
+ return {allowed,mode:allowed?'PHASE2_READ_ONLY_ALLOWED':'PHASE2_BLOCKED',hard_blockers:hard,verify_required:verify,production_writes:0,mutation_allowed:false};
+}
 function next(input={}){
  const round=Math.max(1,Number(input.round||1));
  const maxRounds=Math.max(1,Math.min(5,Number(input.max_rounds||DEFAULT_MAX_ROUNDS)));
  const result=evaluateRound(input);
- if(result.status==='PHASE1_ACCEPTED')return {...result,round,max_rounds:maxRounds,next_action:'STOP_AND_REPORT_READY_FOR_OWNER_PHASE2_APPROVAL'};
- if(round>=maxRounds)return {...result,round,max_rounds:maxRounds,status:'PHASE1_HOLD',next_action:'STOP_AND_REPORT_EXTERNAL_SOURCE_UNRESOLVED'};
- return {...result,round,max_rounds:maxRounds,next_action:'APPLY_LEARNING_STRATEGY_AND_RECOVERY_SCAN',recovery_queries:result.learning.adaptive.query_terms,mandatory_expansion:result.learning.adaptive.mandatory_expansion};
+ const phase2_read_only=phase2ReadOnlyGate(result);
+ if(result.status==='PHASE1_ACCEPTED')return {...result,phase2_read_only,round,max_rounds:maxRounds,next_action:'STOP_AND_REPORT_READY_FOR_OWNER_PHASE2_APPROVAL'};
+ if(round>=maxRounds)return {...result,phase2_read_only,round,max_rounds:maxRounds,status:'PHASE1_HOLD',next_action:phase2_read_only.allowed?'STOP_AND_REPORT_PHASE2_READ_ONLY_ALLOWED_WITH_VERIFY_FLAGS':'STOP_AND_REPORT_EXTERNAL_SOURCE_UNRESOLVED'};
+ return {...result,phase2_read_only,round,max_rounds:maxRounds,next_action:'APPLY_LEARNING_STRATEGY_AND_RECOVERY_SCAN',recovery_queries:result.learning.adaptive.query_terms,mandatory_expansion:result.learning.adaptive.mandatory_expansion};
 }
-module.exports={VERSION,DEFAULT_MAX_ROUNDS,dedup,scorePool,statusEvidence,evaluateRound,next};
+module.exports={VERSION,DEFAULT_MAX_ROUNDS,HARD_PHASE2_BLOCKERS,dedup,scorePool,statusEvidence,evaluateRound,phase2ReadOnlyGate,next};
