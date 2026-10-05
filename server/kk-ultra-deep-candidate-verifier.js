@@ -3,7 +3,7 @@
 const crypto=require('node:crypto');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V4';
+const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V5';
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=6;
 
@@ -16,6 +16,11 @@ const GENERIC_TITLE=/^(home|homepage|google|ticketmaster|events?|concerts?\s+in\
 const AGGREGATED_RESULT_SIGNAL=/(facebook\b.*(?:on\s+x|twitter)|(?:on\s+x|twitter)\b.*facebook|bangkok\s+post|youtube|google\s+search|search\s+results?|teetee\s+philippines\s+on\s+x)/i;
 const SOCIAL_OR_SEARCH_HOST=/(^|\.)(facebook\.com|x\.com|twitter\.com|instagram\.com|youtube\.com|youtu\.be|google\.com|bing\.com|duckduckgo\.com)$/i;
 const MAX_VERIFIED_TITLE_LENGTH=180;
+const STATUS_PATTERNS=Object.freeze({
+ CANCELLED:/(?:\bcancelled\b|\bcanceled\b|event\s+cancelled|ประกาศยกเลิก|ยกเลิก(?:งาน|การแสดง|คอนเสิร์ต))/i,
+ POSTPONED:/(?:\bpostponed\b|ประกาศเลื่อน|เลื่อน(?:งาน|การแสดง|คอนเสิร์ต|การจัด))/i,
+ RESCHEDULED:/(?:\brescheduled\b|\bnew\s+date\b|กำหนดการใหม่|วันจัดงานใหม่)/i
+});
 const STATUS_CANCELLED_SIGNAL=/(?:event|concert|show|performance|งาน|คอนเสิร์ต|การแสดง).{0,100}(?:has been |is |ถูก)?(?:cancelled|canceled|ยกเลิก)|(?:ประกาศ|ขอแจ้ง).{0,80}(?:ยกเลิก)(?:การจัด)?(?:งาน|คอนเสิร์ต|การแสดง)/i;
 const STATUS_POSTPONED_SIGNAL=/(?:event|concert|show|performance|งาน|คอนเสิร์ต|การแสดง).{0,100}(?:has been |is )?(?:postponed|rescheduled)|(?:ประกาศ|ขอแจ้ง).{0,80}(?:เลื่อน)(?:การจัด)?(?:งาน|คอนเสิร์ต|การแสดง)|(?:เลื่อนกำหนดการ|กำหนดวันใหม่)/i;
 
@@ -75,6 +80,13 @@ function titleQuality(title=''){
  if((value.match(/\|/g)||[]).length>=2)reasons.push('AGGREGATED_SEARCH_RESULT_TITLE');
  return {ok:reasons.length===0,reasons:[...new Set(reasons)]};
 }
+function detectEventStatus(body=''){
+ const hay=PublicWeb.cleanHtml(String(body).slice(0,900000));
+ if(STATUS_PATTERNS.CANCELLED.test(hay))return 'CANCELLED';
+ if(STATUS_PATTERNS.POSTPONED.test(hay))return 'POSTPONED';
+ if(STATUS_PATTERNS.RESCHEDULED.test(hay))return 'RESCHEDULED';
+ return 'ACTIVE_OR_UNCHANGED';
+}
 function authoritativeEventSource(url='',picked=null,verified={},options={}){
  const h=host(url);const trustedDetail=TRUSTED_EVENT_HOSTS.has(h)&&eventSpecificUrl(url);
  const socialOrSearch=SOCIAL_OR_SEARCH_HOST.test(h);
@@ -91,10 +103,12 @@ function prefilter(candidate={},month='',options={}){
  if(!url)reasons.push('HTTPS_SOURCE_REQUIRED');
  if(!date)reasons.push('EVENT_DATE_REQUIRED');
  else if(month&&!monthMatches(date,month))reasons.push('OUTSIDE_TARGET_MONTH');
- const quality=titleQuality(title);reasons.push(...quality.reasons);
- if(!phase2IdentityStatus&&LOW_FIT_SIGNAL.test(title))reasons.push('NON_RENTAL_EVENT_SIGNAL');
- const explicit=EVENT_SIGNAL.test(title);
- if(!phase2IdentityStatus&&!explicit&&!eventSpecificUrl(url))reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
+ if(!phase2IdentityStatus){
+  const quality=titleQuality(title);reasons.push(...quality.reasons);
+  if(LOW_FIT_SIGNAL.test(title))reasons.push('NON_RENTAL_EVENT_SIGNAL');
+  const explicit=EVENT_SIGNAL.test(title);
+  if(!explicit&&!eventSpecificUrl(url))reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
+ }
  return {eligible:reasons.length===0,reasons,event_date:date,event_specific_url:eventSpecificUrl(url)};
 }
 function flattenJsonLd(value,out=[]){
@@ -193,6 +207,7 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  if(!phase2IdentityStatus&&!poster)blockers.push('VERIFIED_POSTER_REQUIRED');
  const authority=authoritativeEventSource(url,picked,{date,venue,poster,title},{verification_scope:context.verification_scope});
  if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
+ const eventStatus=authority.ok?detectEventStatus(body):'UNVERIFIED_STATUS';
  const fit=rentalFitScore(title);
  if(!phase2IdentityStatus&&fit<7)blockers.push('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD');
  const pageText=phase2IdentityStatus?PublicWeb.cleanHtml(String(body).slice(0,800000)):'';
@@ -216,7 +231,8 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
    publish_eligibility:{status:fit>=7?'ELIGIBLE':'REJECTED_LOW_RENTAL_FIT',eligible:fit>=7,rental_fit_score:fit,minimum_publish_score:7}
   },
   poster:poster?{event_key:key,source_tier:sourceTier(url),source_url:url,image_url:poster,official:TRUSTED_EVENT_HOSTS.has(host(url)),verified:authority.ok}:null,
-  evidence:{jsonld_event_count:events.length,event_specific_url:eventSpecificUrl(url),source_tier:sourceTier(url),authoritative_event_source:authority.ok,authority}
+  event_status:eventStatus,
+  evidence:{jsonld_event_count:events.length,event_specific_url:eventSpecificUrl(url),source_tier:sourceTier(url),authoritative_event_source:authority.ok,authority,status_detected:eventStatus}
  };
 }
 async function verifyCandidate(candidate={},context={},options={}){
@@ -266,7 +282,7 @@ async function verifyBatch(candidates=[],context={},options={}){
 }
 
 module.exports={
- VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,STATUS_CANCELLED_SIGNAL,STATUS_POSTPONED_SIGNAL,
+ VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,STATUS_PATTERNS,STATUS_CANCELLED_SIGNAL,STATUS_POSTPONED_SIGNAL,
  text,https,isoDate,eventKey,host,eventSpecificUrl,monthMatches,titleQuality,authoritativeEventSource,prefilter,flattenJsonLd,parseJsonLd,metaValue,locationName,imageUrl,
- findKnownVenue,rentalFitScore,sourceTier,chooseJsonLdEvent,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
+ findKnownVenue,rentalFitScore,sourceTier,chooseJsonLdEvent,detectEventStatus,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
 };
