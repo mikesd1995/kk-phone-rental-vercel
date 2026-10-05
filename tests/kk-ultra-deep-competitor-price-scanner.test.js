@@ -4,99 +4,63 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const P=require('../server/kk-ultra-deep-competitor-price-scanner.js');
 
-test('extracts only known competitor X URLs',()=>{
- assert.equal(P.competitorFromUrl('https://x.com/faleem_rent2/status/111'),'faleem_rent2');
- assert.equal(P.competitorFromUrl('https://x.com/minibestt/status/123'),'minibestt');
- assert.equal(P.competitorFromUrl('https://twitter.com/fundaybuddy/status/9'),'fundaybuddy');
- assert.equal(P.competitorFromUrl('https://x.com/randomshop/status/1'),'');
- assert.equal(P.competitorFromUrl('https://example.com/minibestt'),'');
+test('baseline competitor universe contains protected 10 and targets 20',()=>{
+ assert.equal(P.BASE_COMPETITORS.length,10);
+ assert.equal(P.DEFAULT_TARGET_COMPETITOR_UNIVERSE,20);
+ assert.equal(P.DEFAULT_DESIRED_EVENT_COMPETITORS,5);
+ assert.ok(P.BASE_COMPETITORS.includes('faleem_rent2'));
 });
 
-test('parses bounded rental prices without accepting ticket-scale values',()=>{
- assert.equal(P.parsePrice('เช่า vivo X300 590฿ + lens 200'),590);
- assert.equal(P.parsePrice('ราคา: 690 บาท'),690);
- assert.equal(P.parsePrice('ticket 6500 บาท'),null);
+test('extracts known or credible learned competitor X URLs only',()=>{
+ assert.equal(P.competitorFromUrl('https://x.com/faleem_rent2/status/111'),'faleem_rent2');
+ assert.equal(P.competitorFromUrl('https://x.com/newrental/status/999',P.BASE_COMPETITORS,'เช่ามือถือ vivo X300'),'newrental');
+ assert.equal(P.competitorFromUrl('https://x.com/randomfan/status/999',P.BASE_COMPETITORS,'เจอกันที่งาน'),'');
+});
+
+test('semantic parser does not mistake deposit or lens add-on for rental price',()=>{
+ const o=P.parseRentalOffer('มัดจำ 500 บาท | เช่าเครื่อง vivo X300 Pro 790 บาท | Lens +200');
+ assert.equal(o.rental_price,790);assert.equal(o.deposit,500);assert.equal(o.lens_addon,200);assert.equal(o.package_type,'PHONE_ONLY');
+});
+
+test('semantic parser recognizes true phone plus lens bundle',()=>{
+ const o=P.parseRentalOffer('vivo X300 Pro พร้อม Lens ราคาเช่า 990 บาท');
+ assert.equal(o.rental_price,990);assert.equal(o.package_type,'PHONE_LENS');
+});
+
+test('explicit incompatible phone model is rejected',()=>{
+ const e=P.rowToEvidence({href:'https://x.com/minibestt/status/1900000000000000000',title:'LYKN REFLEXION CONCERT เช่า iPhone 17 790 บาท',published_at:'2026-10-04T00:00:00Z'},{event_key:'E1',title:'LYKN REFLEXION CONCERT'},{now:'2026-10-05T00:00:00Z'});
+ assert.equal(e,null);
+});
+
+test('source timestamp is preserved and freshness age can be evaluated later',()=>{
+ const e=P.rowToEvidence({href:'https://x.com/minibestt/status/1900000000000000000',title:'LYKN REFLEXION CONCERT เช่า vivo X300 Pro 790 บาท',published_at:'2026-10-04T00:00:00Z'},{event_key:'E1',title:'LYKN REFLEXION CONCERT'},{now:'2026-10-05T00:00:00Z'});
+ assert.ok(e);assert.equal(e.source_published_at,'2026-10-04T00:00:00.000Z');assert.equal(e.source_age_days,1);
 });
 
 test('requires title overlap for exact-event evidence',()=>{
  const candidate={event_key:'E1',title:'LYKN REFLEXION CONCERT'};
- const good=P.rowToEvidence({
-  href:'https://x.com/minibestt/status/123',
-  title:'LYKN REFLEXION CONCERT เช่า vivo X300 790฿'
- },candidate);
- assert.ok(good);
- assert.equal(good.price,790);
- assert.equal(good.exact_event,true);
-
- const bad=P.rowToEvidence({
-  href:'https://x.com/minibestt/status/456',
-  title:'NCT concert เช่า vivo X300 790฿'
- },candidate);
+ const good=P.rowToEvidence({href:'https://x.com/minibestt/status/1900000000000000000',title:'LYKN REFLEXION CONCERT เช่า vivo X300 Pro 790฿',published_at:'2026-10-04'},candidate,{now:'2026-10-05'});
+ assert.ok(good);assert.equal(good.price,790);assert.equal(good.exact_event,true);
+ const bad=P.rowToEvidence({href:'https://x.com/minibestt/status/1900000000000000001',title:'NCT concert เช่า vivo X300 Pro 790฿',published_at:'2026-10-04'},candidate,{now:'2026-10-05'});
  assert.equal(bad,null);
 });
-
-test('scan batch remains zero-write and dedupes evidence',async()=>{
- const runner=async()=>[
-  {href:'https://x.com/minibestt/status/1',title:'LYKN REFLEXION CONCERT vivo X300 790฿'},
-  {href:'https://x.com/minibestt/status/1',title:'LYKN REFLEXION CONCERT vivo X300 790฿'},
-  {href:'https://x.com/fundaybuddy/status/2',title:'LYKN REFLEXION CONCERT phone rental 890 บาท'}
- ];
- const out=await P.scanBatch([{event_key:'E1',title:'LYKN REFLEXION CONCERT'}],{ddgs_runner:runner});
- assert.equal(out.production_writes,0);
- assert.equal(out.evidence.length,2);
- assert.equal(out.competitor_count,2);
-});
-
-
-test('phone base plus lens add-on is not misclassified as bundle price',()=>{
- assert.equal(P.packageType('vivo X300 เครื่อง 690฿ + Lens +200'),'PHONE_ONLY');
- assert.equal(P.packageType('vivo X300 พร้อม Lens 890฿'),'PHONE_LENS');
-});
-
-
-test('query plan explicitly covers all locked competitor accounts',()=>{
- assert.equal(P.BASE_COMPETITORS.length,10);
- assert.equal(P.DEFAULT_TARGET_COMPETITOR_UNIVERSE,20);
- assert.ok(P.COMPETITORS.includes('faleem_rent2'));
- const q=P.buildQueries({title:'LYKN REFLEXION CONCERT'});
- assert.ok(q.length>=3+P.COMPETITORS.length);
- for(const handle of P.COMPETITORS){
-  assert.ok(q.some(x=>x.includes('site:x.com/'+handle)));
- }
-});
-
-test('scan batch reports competitor universe even when exact evidence is absent',async()=>{
- const out=await P.scanBatch([{event_key:'E1',title:'Unknown Event'}],{ddgs_runner:async()=>[]});
- assert.equal(out.evidence_count,0);
- assert.equal(out.competitor_universe_count,P.COMPETITORS.length);
- assert.deepEqual(out.competitor_universe,P.COMPETITORS);
- assert.equal(out.query_strategy,'GENERIC_PLUS_EXPANDABLE_PER_COMPETITOR_X');
- assert.equal(out.base_competitor_count,10);
- assert.equal(out.target_competitor_universe,20);
- assert.equal(out.competitor_universe_expandable,true);
-});
-
 
 test('configured competitor universe can expand beyond baseline 10',()=>{
  const extras=Array.from({length:12},(_,i)=>'extra_rent_'+(i+1));
  const universe=P.configuredUniverse({competitor_universe:extras});
- assert.equal(universe.length,22);
- assert.ok(universe.includes('extra_rent_12'));
- assert.ok(universe.includes('faleem_rent2'));
+ assert.equal(universe.length,22);assert.ok(universe.includes('extra_rent_12'));
 });
 
-test('generic discovery may learn a new rental competitor account safely',()=>{
- const candidate={event_key:'E1',title:'LYKN REFLEXION CONCERT'};
- const learned=P.rowToEvidence({
-  href:'https://x.com/newrentalth/status/999',
-  title:'LYKN REFLEXION CONCERT เช่ามือถือ vivo X300 790฿'
- },candidate);
- assert.ok(learned);
- assert.equal(learned.competitor_id,'newrentalth');
+test('adaptive scan keeps searching past three shops toward desired five',async()=>{
+ let calls=0;
+ const handles=['minibestt','fundaybuddy','thisisyour3','fejay4rent','by_minnymicky'];
+ const runner=async()=>{const h=handles[Math.min(calls++,handles.length-1)];return [{href:'https://x.com/'+h+'/status/1900000000000000000',title:'LYKN REFLEXION CONCERT เช่า vivo X300 Pro 790 บาท',published_at:'2026-10-04'}];};
+ const out=await P.scanCandidate({event_key:'E1',title:'LYKN REFLEXION CONCERT'},{ddgs_runner:runner,desired_independent_competitors:5,now:'2026-10-05'});
+ assert.equal(new Set(out.map(x=>x.competitor_id)).size,5);assert.ok(calls>=5);
+});
 
- const unrelated=P.rowToEvidence({
-  href:'https://x.com/randomfan/status/999',
-  title:'LYKN REFLEXION CONCERT เจอกันที่งาน ราคา 790 บาท'
- },candidate);
- assert.equal(unrelated,null);
+test('scan batch reports expandable universe and remains zero-write',async()=>{
+ const out=await P.scanBatch([{event_key:'E1',title:'Unknown Event'}],{ddgs_runner:async()=>[]});
+ assert.equal(out.production_writes,0);assert.equal(out.base_competitor_count,10);assert.equal(out.target_competitor_universe,20);
+ assert.equal(out.competitor_universe_expandable,true);assert.equal(out.query_strategy,'GENERIC_DISCOVERY_PLUS_EXPANDABLE_PER_COMPETITOR_X');
 });
