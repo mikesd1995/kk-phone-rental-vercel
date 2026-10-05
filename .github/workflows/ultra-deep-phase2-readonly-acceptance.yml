@@ -1,4 +1,4 @@
-name: Ultra Deep Phase 2 Read Only Acceptance
+name: Ultra Deep Phase 2 CI Audit
 
 on:
   push:
@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: kk-ultra-deep-phase2-readonly
+  group: kk-ultra-deep-phase2-ci-audit
   cancel-in-progress: false
 
 jobs:
@@ -47,8 +47,10 @@ jobs:
           node --check server/kk-ultra-deep-phase2-runtime.js
           node --check scripts/kk-ultra-deep-phase2-acceptance.js
           node --test tests/kk-ultra-deep-candidate-verifier.test.js
+          node --test tests/kk-ultra-deep-phase-artifact.test.js
           node --test tests/kk-ultra-deep-phase2-controller.test.js
           node --test tests/kk-ultra-deep-phase2-runtime.test.js
+          node --test tests/kk-ultra-deep-phase2-direct.test.js
           node --test tests/kk-agent-task-router-phase2.test.js
           node --test tests/kk-ultra-deep-phase-handoff-gate.test.js
 
@@ -74,7 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           set +e
-          node scripts/kk-ultra-deep-phase2-acceptance.js             --input .artifacts/ultra-deep-runtime-acceptance.json             --output .artifacts/ultra-deep-phase2-acceptance.json             --max-rounds 3             > .artifacts/ultra-deep-phase2-summary.json
+          node scripts/kk-ultra-deep-phase2-acceptance.js             --input .artifacts/ultra-deep-runtime-acceptance.json             --output .artifacts/ultra-deep-phase2-acceptance.json             --phase1-artifact-output .artifacts/ultra-deep-phase1-artifact.json             --max-rounds 3             > .artifacts/ultra-deep-phase2-summary.json
           code=$?
           set -e
           echo "$code" > .artifacts/phase2-exit-code.txt
@@ -88,6 +90,7 @@ jobs:
           path: |
             .artifacts/ultra-deep-runtime-acceptance.json
             .artifacts/ultra-deep-runtime-summary.json
+            .artifacts/ultra-deep-phase1-artifact.json
             .artifacts/discovery-exit-code.txt
             .artifacts/ultra-deep-phase2-acceptance.json
             .artifacts/ultra-deep-phase2-summary.json
