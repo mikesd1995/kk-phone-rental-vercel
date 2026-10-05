@@ -184,6 +184,7 @@ function learningMisses(candidate={},input={},analysis={}){
  if(missingIdentity.length)misses.push({candidate_id:id,miss_class:'COMPETITOR_IDENTITY_GAP',count:missingIdentity.length});
  if(ambiguous.length)misses.push({candidate_id:id,miss_class:'PACKAGE_AMBIGUITY',count:ambiguous.length});
  if(analysis.outliers&&analysis.outliers.length)misses.push({candidate_id:id,miss_class:'OUTLIER_PRICE_GAP',count:analysis.outliers.length});
+ if(analysis.hasFreshExact&&Number(analysis.exactCompetitorCount||0)<3)misses.push({candidate_id:id,miss_class:'COMPETITOR_COVERAGE_THIN',count:Number(analysis.exactCompetitorCount||0)});
  if(!analysis.hasFreshExact)misses.push({candidate_id:id,miss_class:'NO_EXACT_PRICE_GAP'});
  if(!analysis.hasFreshExact&&!analysis.comparableQualified&&!analysis.priorQualified)misses.push({candidate_id:id,miss_class:'COMPARABLE_GAP'});
  return misses;
@@ -209,6 +210,7 @@ function resolveCandidate(candidate={},input={}){
  const analysis={
   hasFreshExact:Boolean(exact.phone||exact.bundle),
   outliers:exact.outliers,
+  exactCompetitorCount:exact.competitor_count,
   comparableQualified:comparable.qualified.length,
   priorQualified:prior.qualified.length
  };
@@ -222,7 +224,8 @@ function resolveCandidate(candidate={},input={}){
    if(delta<100||delta>500){bundle=phone+lens;packageParity='RECONSTRUCTED_FROM_PHONE_PLUS_LENS';}
   }
   const confidence=exact.competitor_count>=5?'HIGH':(exact.competitor_count>=3?'MEDIUM_HIGH':'MEDIUM');
-  return {...base,status:'PRICE_READY',reason:'EXACT_EVENT_COMPETITOR_MEDIAN',price_source:'EXACT_EVENT_COMPETITOR_MEDIAN',price_confidence:confidence,target_prices:{phone,bundle,lens},competitor_count:exact.competitor_count,evidence:exact.evidence,outliers:exact.outliers,package_parity:packageParity,adjustment:0,learning_misses:misses};
+  const exactMisses=packageParity==='OK'?misses:[...misses,{candidate_id:id,miss_class:'PACKAGE_PARITY_GAP'}];
+  return {...base,status:'PRICE_READY',reason:'EXACT_EVENT_COMPETITOR_MEDIAN',price_source:'EXACT_EVENT_COMPETITOR_MEDIAN',price_confidence:confidence,target_prices:{phone,bundle,lens},competitor_count:exact.competitor_count,evidence:exact.evidence,outliers:exact.outliers,package_parity:packageParity,adjustment:0,learning_misses:exactMisses};
  }
  if(comparable.median){
   return {...base,status:'PRICE_READY',reason:'COMPARABLE_EVENT_MEDIAN',price_source:'COMPARABLE_EVENT_MEDIAN',price_confidence:'MEDIUM_LOW',target_prices:{phone:comparable.median,bundle:comparable.median+lens,lens},comparable_evidence:comparable.qualified,competitor_count:0,adjustment:0,learning_misses:misses};
