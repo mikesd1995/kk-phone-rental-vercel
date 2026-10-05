@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION = 'KK_ULTRA_DEEP_V3';
+const VERSION = 'KK_ULTRA_DEEP_V3_PHASE1_V3';
 const REQUIRED_TIERS = Object.freeze([
   'OFFICIAL','TICKETING','VENUE','ARTIST_AGENCY','BRAND_SPONSOR','SOCIAL','COMPETITOR','PUBLIC_CALENDAR'
 ]);
@@ -49,6 +49,41 @@ function planGapSearch(observations=[], options={}){
   };
 }
 
+function buildPhase1Coverage(input={}){
+  const requiredFamilies=['TICKETING','ORGANIZER_PROMOTER','VENUE','ARTIST_SCHEDULE','BRAND_SOCIAL','FESTIVAL','BROAD_LIVE'];
+  const receipts=Array.isArray(input.receipts)?input.receipts:[];
+  const family={};
+  for(const name of requiredFamilies){
+    const rows=receipts.filter(x=>upper(x&&x.family)===name);
+    family[name]={attempted:rows.filter(x=>x&&x.executed===true).length,total:rows.length,complete:rows.length>0&&rows.every(x=>x&&x.executed===true)};
+  }
+  const missing=requiredFamilies.filter(x=>!family[x].complete);
+  return {version:VERSION,required_families:requiredFamilies,family,missing_families:missing,complete:missing.length===0,production_writes:0};
+}
+
+function recursiveExpansion(seed={},options={}){
+  const maxDepth=Math.max(1,Math.min(3,Number(options.max_depth||2)));
+  const entities=[...(seed.artists||[]).map(x=>({type:'ARTIST',value:clean(x)})),...(seed.brands||[]).map(x=>({type:'BRAND',value:clean(x)})),...(seed.venues||[]).map(x=>({type:'VENUE',value:clean(x)})),...(seed.organizers||[]).map(x=>({type:'ORGANIZER',value:clean(x)}))].filter(x=>x.value);
+  const tasks=[]; const seen=new Set();
+  for(const e of entities){
+    for(let depth=1;depth<=maxDepth;depth++){
+      const key=e.type+'|'+e.value+'|'+depth;if(seen.has(key))continue;seen.add(key);
+      tasks.push({entity_type:e.type,entity:e.value,depth,queries:[e.value+' monthly schedule Bangkok',e.value+' event concert fanmeeting Bangkok',e.value+' official October 2026']});
+    }
+  }
+  return {version:VERSION,max_depth:maxDepth,tasks,dedup_required:true,discovery_only:true,production_writes:0};
+}
+
+function phase1Acceptance(input={}){
+  const coverage=buildPhase1Coverage(input);
+  const blockers=[];
+  if(!coverage.complete) blockers.push(...coverage.missing_families.map(x=>'MISSING_DISCOVERY_FAMILY:'+x));
+  if(input.discovery_pool_preserved!==true) blockers.push('DISCOVERY_POOL_NOT_PRESERVED');
+  if(input.scoring_used_as_discovery_filter===true) blockers.push('SCORING_MUST_NOT_FILTER_DISCOVERY');
+  if(input.deterministic_dedup_passed!==true) blockers.push('DETERMINISTIC_DEDUP_NOT_PASSED');
+  return {version:VERSION,status:blockers.length?'PHASE1_HOLD':'PHASE1_DISCOVERY_COMPLETE',blockers,coverage,production_writes:0,phase2_started:false};
+}
+
 function acceptance(input={}){
   const coverage=buildCoverageMap(input.observations||[]);
   const blockers=[];
@@ -66,4 +101,4 @@ function acceptance(input={}){
   };
 }
 
-module.exports={VERSION,REQUIRED_TIERS,FREE_FIRST_PROVIDER_ORDER,buildCoverageMap,planGapSearch,acceptance};
+module.exports={VERSION,REQUIRED_TIERS,FREE_FIRST_PROVIDER_ORDER,buildCoverageMap,planGapSearch,buildPhase1Coverage,recursiveExpansion,phase1Acceptance,acceptance};
