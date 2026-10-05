@@ -115,3 +115,34 @@ test('Live Nation Tero /show/ URL is event-specific and eligible for verifier pr
   assert.equal(pre.eligible,true);
   assert.deepEqual(pre.reasons,[]);
 });
+
+
+test('Phase 2 identity/status verification does not require poster or rentability threshold',()=>{
+  const body=`<html><head>
+  <script type="application/ld+json">
+  {"@type":"MusicEvent","name":"Example Artist Appearance","startDate":"2026-10-20","location":{"@type":"Place","name":"Union Hall"}}
+  </script></head></html>`;
+  const out=V.verifyHtmlCandidate({
+    title:'Example Artist Appearance',
+    event_date:'2026-10-20',
+    source_url:'https://artist-official.example/events/example'
+  },body,{month:'2026-10',verification_scope:'PHASE2_IDENTITY_STATUS'});
+  assert.equal(out.verified,true);
+  assert.equal(out.status,'VERIFIED_FOR_PHASE2');
+  assert.equal(out.blockers.includes('VERIFIED_POSTER_REQUIRED'),false);
+  assert.equal(out.blockers.includes('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD'),false);
+});
+
+test('full commercial verification still requires poster',()=>{
+  const body=`<html><head>
+  <script type="application/ld+json">
+  {"@type":"MusicEvent","name":"Example Concert","startDate":"2026-10-20","location":{"@type":"Place","name":"Union Hall"}}
+  </script></head></html>`;
+  const out=V.verifyHtmlCandidate({
+    title:'Example Concert',
+    event_date:'2026-10-20',
+    source_url:'https://artist-official.example/events/example'
+  },body,{month:'2026-10'});
+  assert.equal(out.verified,false);
+  assert.ok(out.blockers.includes('VERIFIED_POSTER_REQUIRED'));
+});
