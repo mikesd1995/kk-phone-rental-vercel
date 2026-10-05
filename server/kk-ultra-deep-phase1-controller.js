@@ -3,8 +3,9 @@
 const V3=require('./kk-ultra-deep-v3.js');
 const Learning=require('./kk-ultra-deep-v2-learning-agent.js');
 const Rentability=require('./kk-ultra-deep-rentability-score.js');
+const LearningLoop=require('./kk-ultra-deep-learning-loop.js');
 
-const VERSION='KK_ULTRA_DEEP_PHASE1_CONTROLLER_V3';
+const VERSION='KK_ULTRA_DEEP_PHASE1_CONTROLLER_V4';
 const DEFAULT_MAX_ROUNDS=3;
 function arr(v){return Array.isArray(v)?v:[];}
 function text(v){return String(v==null?'':v).trim();}
@@ -48,6 +49,14 @@ function evaluateRound(input={}){
    scoring_used_as_discovery_filter:false
  });
  const blockers=[...coverage.blockers];
+ const learning_acceptance=LearningLoop.evaluateClosedLoop({
+   before_missed_count:Number(input.before_missed_count),
+   after_missed_count:learningMisses.length,
+   known_miss_regression_passed:input.known_miss_regression_passed===true,
+   live_discovery_acceptance_passed:input.live_discovery_acceptance_passed===true,
+   original_failure_evidence_preserved:input.original_failure_evidence_preserved===true
+ });
+ if(learning_acceptance.status!=='LEARNING_ACCEPTED')blockers.push(...learning_acceptance.blockers.map(x=>'LEARNING:'+x));
  const status_checks=pool.map(candidate=>({candidate_key:key(candidate),...statusEvidence(candidate)}));
  if(status_checks.some(x=>x.conflicting))blockers.push('CONFLICTING_CURRENT_STATUS_EVIDENCE');
  if(status_checks.some(x=>x.stale&&x.evidence_count<2))blockers.push('STALE_STATUS_REQUIRES_CROSSCHECK');
@@ -56,7 +65,7 @@ function evaluateRound(input={}){
  if(input.known_positive_backtest_executed!==true)blockers.push('KNOWN_POSITIVE_BACKTEST_NOT_EXECUTED');
  if(misses.length)blockers.push('KNOWN_POSITIVE_RECALL_BELOW_100');
  if(unresolved.some(x=>!text(x.reason)||!text(x.evidence_url)))blockers.push('UNRESOLVED_WITHOUT_EVIDENCE');
- return {version:VERSION,pool,scored,status_checks,misses,status_learning_misses:statusLearningMisses,unresolved,learning,coverage,blockers,status:blockers.length?'RECOVERY_REQUIRED':'PHASE1_ACCEPTED',production_writes:0,phase2_started:false};
+ return {version:VERSION,pool,scored,status_checks,misses,status_learning_misses:statusLearningMisses,unresolved,learning,learning_acceptance,coverage,blockers,status:blockers.length?'RECOVERY_REQUIRED':'PHASE1_ACCEPTED',production_writes:0,phase2_started:false};
 }
 function next(input={}){
  const round=Math.max(1,Number(input.round||1));
