@@ -643,6 +643,44 @@
         "invent an exact candidate count after the fact",
         "treat a partial historical artifact as the current Candidate Master Pool"
       ]
+    },
+    {
+      "id": "ULTRA_DEEP_SELF_HOSTED_RUNNER_ASSUMED",
+      "severity": "P0",
+      "domains": [
+        "ultra_deep",
+        "github_actions",
+        "execution"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "SELF_HOSTED_RUNNER_NOT_PROVISIONED",
+          "PHASE2_JOB_QUEUED_NO_RUNNER"
+        ],
+        "phrases_any": [
+          "self-hosted runner",
+          "kk-ultra-deep",
+          "queued waiting for runner",
+          "no self-hosted runner"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Never move Ultra Deep critical-path acceptance to a self-hosted runner unless runner availability is positively proven first. Keep GitHub Actions as audit/fallback and use the authenticated runnerless Admin Phase-2 read-only path for the operational critical path when hosted runners are unavailable.",
+      "regression_guards": [
+        "self-hosted runner availability must be proven before workflow routing",
+        "no duplicate Phase2 workflows compete for the same acceptance responsibility",
+        "runnerless authenticated Phase2 path keeps production_writes=0",
+        "Phase2 direct path stops before pricing and Phase3",
+        "GitHub runner failure cannot be treated as application verification failure"
+      ],
+      "never_do": [
+        "route a critical job to an unregistered self-hosted label",
+        "create duplicate acceptance workflows to work around runner allocation",
+        "ask owner to repeat Phase2 because infrastructure polling failed",
+        "recommend paid capacity while a safe zero-cost runnerless path exists"
+      ]
     }
   ]
 }
