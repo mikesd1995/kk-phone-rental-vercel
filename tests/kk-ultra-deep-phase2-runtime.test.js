@@ -3,6 +3,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const Runtime=require('../server/kk-ultra-deep-phase2-runtime.js');
+const Artifact=require('../server/kk-ultra-deep-phase-artifact.js');
 
 function response(body){
  return {ok:true,headers:{get:()=>null},text:async()=>body};
@@ -55,4 +56,34 @@ test('Learning recovery retries VERIFY_REQUIRED against expanded official-source
  assert.equal(out.results[0].disposition,'VERIFIED');
  assert.ok(out.rounds.some(x=>x.learning_miss_classes.includes('OFFICIAL_SOURCE_GAP')));
  assert.equal(out.production_writes,0);
+});
+
+
+test('Phase 2 consumes exact frozen Phase 1 candidate IDs and fingerprint',async()=>{
+ const artifact=Artifact.freezePhase1({
+  phase:'PHASE1',status:'PHASE1_ACCEPTED',month:'2026-10',production_writes:0,
+  candidates:[{title:'Artist Concert',event_date:'2026-10-10',source_url:'https://official.example/events/artist-concert'}]
+ });
+ const body=`<html><head><script type="application/ld+json">
+ {"@type":"MusicEvent","name":"Artist Concert","startDate":"2026-10-10","location":{"@type":"Place","name":"Union Hall"}}
+ </script></head><body>Artist Concert</body></html>`;
+ const out=await Runtime.run({phase1_artifact:artifact,location:'Bangkok Thailand'},{fetchFn:async()=>response(body),providers:{}});
+ assert.equal(out.status,'PHASE2_ACCEPTED');
+ assert.equal(out.pool_source,'PHASE1_ARTIFACT');
+ assert.equal(out.pool_fingerprint,artifact.fingerprint);
+ assert.deepEqual(out.expected_candidate_ids,artifact.candidate_ids);
+ assert.equal(out.results[0].candidate_id,artifact.candidate_ids[0]);
+});
+
+test('tampered Phase 1 artifact fails closed before verification',async()=>{
+ const artifact=Artifact.freezePhase1({
+  phase:'PHASE1',status:'PHASE1_ACCEPTED',month:'2026-10',production_writes:0,
+  candidates:[{title:'Artist Concert',event_date:'2026-10-10',source_url:'https://official.example/events/artist-concert'}]
+ });
+ const tampered={...artifact,candidates:[{...artifact.candidates[0],event_date:'2026-10-11'}]};
+ const out=await Runtime.run({phase1_artifact:tampered,location:'Bangkok Thailand'},{fetchFn:async()=>{throw new Error('must not fetch')}});
+ assert.equal(out.status,'PHASE2_HOLD');
+ assert.equal(out.candidate_master_pool_frozen,false);
+ assert.equal(out.ready_for_phase3,false);
+ assert.ok(out.gate.blockers.includes('PHASE1_ARTIFACT_CANDIDATE_ID_MISMATCH')||out.gate.blockers.includes('PHASE1_ARTIFACT_FINGERPRINT_MISMATCH'));
 });
