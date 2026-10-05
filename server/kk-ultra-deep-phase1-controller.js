@@ -4,7 +4,7 @@ const V3=require('./kk-ultra-deep-v3.js');
 const Learning=require('./kk-ultra-deep-v2-learning-agent.js');
 const Rentability=require('./kk-ultra-deep-rentability-score.js');
 
-const VERSION='KK_ULTRA_DEEP_PHASE1_CONTROLLER_V1';
+const VERSION='KK_ULTRA_DEEP_PHASE1_CONTROLLER_V2';
 const DEFAULT_MAX_ROUNDS=3;
 function arr(v){return Array.isArray(v)?v:[];}
 function text(v){return String(v==null?'':v).trim();}
@@ -16,6 +16,14 @@ function dedup(rows=[]){
 }
 function scorePool(rows=[],config={}){
  return arr(rows).map(candidate=>({candidate,qualification:Rentability.qualify(candidate,config)}));
+}
+function statusEvidence(x={}){
+ const evidence=arr(x.status_evidence);
+ const current=evidence.filter(e=>e&&e.current===true&&text(e.status));
+ const statuses=[...new Set(current.map(e=>text(e.status).toUpperCase()))];
+ const conflicting=statuses.length>1;
+ const stale=evidence.some(e=>e&&e.stale===true);
+ return {statuses,conflicting,stale,evidence_count:evidence.length};
 }
 function normalizeMiss(x={}){
  return {...x,title:text(x.title||x.event_name),miss_class:text(x.miss_class)||'UNCLASSIFIED_DISCOVERY_GAP',month:text(x.month)||'October 2026'};
@@ -33,12 +41,15 @@ function evaluateRound(input={}){
    scoring_used_as_discovery_filter:false
  });
  const blockers=[...coverage.blockers];
+ const status_checks=pool.map(candidate=>({candidate_key:key(candidate),...statusEvidence(candidate)}));
+ if(status_checks.some(x=>x.conflicting))blockers.push('CONFLICTING_CURRENT_STATUS_EVIDENCE');
+ if(status_checks.some(x=>x.stale&&x.evidence_count<2))blockers.push('STALE_STATUS_REQUIRES_CROSSCHECK');
  if(scored.length!==pool.length)blockers.push('FULL_POOL_SCORING_INCOMPLETE');
  if(input.full_pool_confidence_scored!==true)blockers.push('FULL_POOL_CONFIDENCE_INCOMPLETE');
  if(input.known_positive_backtest_executed!==true)blockers.push('KNOWN_POSITIVE_BACKTEST_NOT_EXECUTED');
  if(misses.length)blockers.push('KNOWN_POSITIVE_RECALL_BELOW_100');
  if(unresolved.some(x=>!text(x.reason)||!text(x.evidence_url)))blockers.push('UNRESOLVED_WITHOUT_EVIDENCE');
- return {version:VERSION,pool,scored,misses,unresolved,learning,coverage,blockers,status:blockers.length?'RECOVERY_REQUIRED':'PHASE1_ACCEPTED',production_writes:0,phase2_started:false};
+ return {version:VERSION,pool,scored,status_checks,misses,unresolved,learning,coverage,blockers,status:blockers.length?'RECOVERY_REQUIRED':'PHASE1_ACCEPTED',production_writes:0,phase2_started:false};
 }
 function next(input={}){
  const round=Math.max(1,Number(input.round||1));
@@ -48,4 +59,4 @@ function next(input={}){
  if(round>=maxRounds)return {...result,round,max_rounds:maxRounds,status:'PHASE1_HOLD',next_action:'STOP_AND_REPORT_EXTERNAL_SOURCE_UNRESOLVED'};
  return {...result,round,max_rounds:maxRounds,next_action:'APPLY_LEARNING_STRATEGY_AND_RECOVERY_SCAN',recovery_queries:result.learning.adaptive.query_terms,mandatory_expansion:result.learning.adaptive.mandatory_expansion};
 }
-module.exports={VERSION,DEFAULT_MAX_ROUNDS,dedup,scorePool,evaluateRound,next};
+module.exports={VERSION,DEFAULT_MAX_ROUNDS,dedup,scorePool,statusEvidence,evaluateRound,next};
