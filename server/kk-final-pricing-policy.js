@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_FINAL_PRICING_POLICY_V4';
+const VERSION='KK_FINAL_PRICING_POLICY_V5';
 
 const DEFAULT_SCORE_FALLBACK_POLICY=Object.freeze({
   policy_approved:true,
@@ -185,7 +185,47 @@ function decorate(prices=[],meta={}){
   }));
 }
 
+function phase3LockedTarget(input={}){
+  const d=input.phase3_price_decision&&typeof input.phase3_price_decision==='object'?input.phase3_price_decision:null;
+  if(!d||!['PRICE_READY','PRICE_LOCKED_BOOKING'].includes(text(d.status)))return null;
+  const target=d.target_prices||{};
+  const phone=money(target.phone),bundle=money(target.bundle),lens=money(target.lens)||lensBaseline(input);
+  if(!phone&&!bundle)return null;
+  const resolvedPhone=phone||(bundle?bundle-lens:null);
+  const resolvedBundle=bundle||(resolvedPhone?resolvedPhone+lens:null);
+  if(!resolvedPhone||!resolvedBundle)return null;
+  const ids=templateIds(input,fallbackPolicy(input));
+  return {
+    decision_status:text(d.status),
+    price_source:text(d.price_source)||'PHASE3_LOCKED_TARGET',
+    price_confidence:text(d.price_confidence)||'PHASE3_ACCEPTED',
+    final_prices:[
+      {template_id:ids.phone,override_price:resolvedPhone,active_override:true,override_note:'PHASE3_LOCKED_TARGET'},
+      {template_id:ids.lens,override_price:lens,active_override:false,override_note:'LENS_ONLY_HIDDEN_STORE_BASELINE'},
+      {template_id:ids.bundle,override_price:resolvedBundle,active_override:true,override_note:'PHASE3_LOCKED_TARGET'}
+    ]
+  };
+}
 function resolve(input={}){
+ const phase3=phase3LockedTarget(input);
+ if(phase3){
+  return {
+    schema_version:VERSION,
+    status:'FINAL_PRICES_RESOLVED',
+    final_prices:phase3.final_prices,
+    policy_approved:true,
+    source:'PHASE3_LOCKED_TARGET',
+    upstream_price_source:phase3.price_source,
+    pricing_status:'APPROVED_PHASE3_LOCKED_TARGET',
+    price_confidence:phase3.price_confidence,
+    needs_price_recheck:false,
+    rental_fit_score:eventScore(input),
+    minimum_publish_score:fallbackPolicy(input).minimum_publish_score,
+    competitor_evidence_count:exactCompetitorCount(input),
+    competitor_reference_used_as_final:phase3.price_source==='EXACT_EVENT_COMPETITOR_MEDIAN',
+    requires_per_event_owner_price_decision:false
+  };
+ }
   const competitorCount=exactCompetitorCount(input);
   const date=eventDate(input);
   const weekend=isWeekendDate(date);
@@ -257,6 +297,6 @@ module.exports={
   fallbackPolicy,
   templateIds,
   scoreFallback,
-  median,lensBaseline,exactCompetitorMedian,baselinePrices,
+  median,lensBaseline,exactCompetitorMedian,baselinePrices,phase3LockedTarget,
   resolve
 };
