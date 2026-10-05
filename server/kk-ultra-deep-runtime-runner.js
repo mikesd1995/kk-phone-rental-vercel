@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V11';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V12';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -222,6 +222,44 @@ function diagnosticReceipts(plan={},execution={}){
  });
 }
 
+async function runOperationalDiscovery(input={},options={}){
+  const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
+  const providers=Object.assign({},publicProviders,options.providers||{});
+  const plan=MonthlyPlan.buildOperational(input);
+  const execution=await ProviderExecutor.executeGapPlan(plan,{providers,concurrency:Math.min(4,ProviderExecutor.MAX_CONCURRENCY)});
+  const candidates=flattenCandidates(execution);
+  const proof=executionProof(execution);
+  proof.candidate_count=candidates.length;
+  proof.has_evidence=candidates.length>0;
+  const minimumExecuted=Math.min(3,proof.task_count);
+  const operationalReady=proof.has_evidence&&proof.executed_count>=minimumExecuted;
+  const blockers=[
+    ...(!proof.has_evidence?['OPERATIONAL_DISCOVERY_EMPTY']:[]),
+    ...(proof.executed_count<minimumExecuted?['OPERATIONAL_PROVIDER_EVIDENCE_INSUFFICIENT']:[])
+  ];
+  return {
+    version:VERSION,
+    mode:'SMART_OPERATIONAL',
+    status:operationalReady?'READY_FOR_VERIFIER':'HOLD_FOR_OPERATIONAL_DISCOVERY',
+    operational_ready:operationalReady,
+    audit_required:true,
+    audit_blocking:false,
+    month:plan.range.month,
+    location:plan.location,
+    discovery_proof:proof,
+    candidate_count:candidates.length,
+    candidates,
+    task_count:proof.task_count,
+    executed_task_count:proof.executed_count,
+    execution_summary:summarizeExecution(execution),
+    blockers,
+    authoritative:false,
+    verifier_required:true,
+    production_writes:0,
+    final_truth_mutation:false
+  };
+}
+
 async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
@@ -341,5 +379,5 @@ async function runMonthlyUltraDeep(input={},options={}){
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
-  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,recoverEligibleReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runMonthlyUltraDeep
+  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,recoverEligibleReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runOperationalDiscovery,runMonthlyUltraDeep
 };

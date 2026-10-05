@@ -328,3 +328,20 @@ test('failed FULL gates expose bounded source/task/provider receipts without pro
  assert.equal(JSON.stringify(out.diagnostic).includes('secret-provider-payload'),false);
  assert.equal(out.diagnostic.production_writes,0);
 });
+
+test('operational discovery can proceed without exhaustive audit gates',async()=>{
+ const search=async task=>task.source_tier==='OFFICIAL'
+   ? [{title:'Bangkok Fanmeeting',event_date:'2026-10-20',source_url:'https://proof.example/fanmeeting'}]
+   : [];
+ const out=await Runner.runOperationalDiscovery(
+   {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
+   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+ );
+ assert.equal(out.mode,'SMART_OPERATIONAL');
+ assert.equal(out.status,'READY_FOR_VERIFIER');
+ assert.equal(out.operational_ready,true);
+ assert.equal(out.audit_required,true);
+ assert.equal(out.audit_blocking,false);
+ assert.ok(out.candidate_count>0);
+ assert.equal(out.production_writes,0);
+});

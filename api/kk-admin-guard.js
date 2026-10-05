@@ -34,7 +34,7 @@ const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
 const AGENT_GATEWAY_ACTIONS = new Set(['agentGateway','agentGatewayHealth']);
 const INBOX_ACTIONS = new Set(['inboxListConversations','inboxListMessages','inboxHydrateLineProfiles','inboxSetOwnerLabel','inboxMarkRead','inboxSendLineMessage']);
-const ULTRA_DEEP_ACTIONS = new Set(['ultraDeepFullLoop','ultraDeepFullLoopHealth']);
+const ULTRA_DEEP_ACTIONS = new Set(['ultraDeepFullLoop','ultraDeepFullLoopHealth','ultraDeepDirectRun','ultraDeepVercelNativeRun','smartLoopRun']);
 const ULTRA_DEEP_REPOSITORY = 'mikesd1995/kk-phone-rental-vercel';
 const ULTRA_DEEP_OWNER = 'mikesd1995';
 const ULTRA_DEEP_WORKFLOW_REF = ULTRA_DEEP_REPOSITORY+'/.github/workflows/ultra-deep-full-loop.yml@';
@@ -634,6 +634,39 @@ module.exports=async function handler(req,res){
       error_code:'CLEANUP_REQUIRES_ACCEPTED_APPS_SCRIPT_9_5_12',
       recommended_action:'deployAcceptedCleanupCandidateThenReenable'
     });
+  }
+
+  if(action==='smartLoopRun'){
+    const month=text(payload.month);
+    if(!/^\d{4}-\d{2}$/.test(month)) return reply(res,400,{ok:false,error_code:'SMART_LOOP_MONTH_INVALID'});
+    const commit=payload.commit===true;
+    try{
+      const result=await UltraDeepDirect.run(
+        {month,location:text(payload.location)||'Bangkok Metropolitan Region Thailand'},
+        {
+          operational:true,
+          executeWrites:commit,
+          env:process.env,
+          fetchImpl:global.fetch,
+          correlation_id:'smart-loop-'+Date.now()
+        }
+      );
+      if(!commit&&Number(result.production_writes||0)!==0){
+        return reply(res,500,{ok:false,error_code:'READ_ONLY_WRITE_INVARIANT_BROKEN',production_writes:Number(result.production_writes||0)});
+      }
+      const accepted=commit?result.status==='COMPLETE':result.status==='V2_READ_ONLY_READY';
+      return reply(res,accepted?200:409,{
+        ok:accepted,
+        service:'kk-smart-loop',
+        direct_runtime:UltraDeepDirect.VERSION,
+        mode:commit?'SMART_OPERATIONAL_COMMIT':'SMART_OPERATIONAL_READ_ONLY',
+        audit_required:true,
+        audit_blocking:false,
+        result
+      });
+    }catch(err){
+      return reply(res,500,{ok:false,error_code:text(err&&err.code)||'SMART_LOOP_FAILED',error:text(err&&err.message||err).slice(0,300),production_writes:0});
+    }
   }
 
   if(action==='ultraDeepVercelNativeRun'){
