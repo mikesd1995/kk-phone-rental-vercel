@@ -56,3 +56,15 @@ test('stale status failure automatically teaches status recovery strategy',()=>{
  assert.ok(out.mandatory_expansion.includes('CURRENT_STATUS_OFFICIAL_CROSSCHECK'));
  assert.ok(out.mandatory_expansion.includes('CANCELLATION_POSTPONEMENT_SWEEP'));
 });
+
+test('soft Phase 1 completeness gaps do not block Phase 2 read-only verification',()=>{
+ const gate=C.phase2ReadOnlyGate({blockers:['KNOWN_POSITIVE_RECALL_BELOW_100','FULL_POOL_CONFIDENCE_INCOMPLETE','LEARNING:KNOWN_MISS_REGRESSION_NOT_PASSED']});
+ assert.equal(gate.allowed,true);
+ assert.equal(gate.mode,'PHASE2_READ_ONLY_ALLOWED');
+ assert.equal(gate.mutation_allowed,false);
+});
+test('candidate preservation or dedup safety failure still blocks Phase 2',()=>{
+ const gate=C.phase2ReadOnlyGate({blockers:['DISCOVERY_POOL_NOT_PRESERVED','DETERMINISTIC_DEDUP_NOT_PASSED']});
+ assert.equal(gate.allowed,false);
+ assert.equal(gate.mode,'PHASE2_BLOCKED');
+});
