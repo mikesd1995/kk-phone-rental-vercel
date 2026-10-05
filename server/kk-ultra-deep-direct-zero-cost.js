@@ -7,9 +7,67 @@ const Commercial=require('./kk-discovery-commercial-prep.js');
 const Production=require('./kk-ultra-deep-production-runtime.js');
 const V2Adapter=require('./kk-ultra-deep-v2-runtime-adapter.js');
 const V2Writer=require('./kk-ultra-deep-v2-governed-writer.js');
+const Phase2Runtime=require('./kk-ultra-deep-phase2-runtime.js');
+const PhaseArtifact=require('./kk-ultra-deep-phase-artifact.js');
 
-const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V26';
+const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V27';
 function text(v){return String(v==null?'':v).trim();}
+
+async function runPhase2Only(input={},options={}){
+  const month=text(input.month||input.phase1_artifact&&input.phase1_artifact.month);
+  if(!/^\d{4}-\d{2}$/.test(month)){
+    const e=new Error('month must be YYYY-MM');e.code='ULTRA_DEEP_MONTH_INVALID';throw e;
+  }
+  if(options.executeWrites===true){
+    const e=new Error('Phase 2 is read-only');e.code='PHASE2_PRODUCTION_WRITES_PROHIBITED';throw e;
+  }
+  const location=text(input.location)||'Bangkok Metropolitan Region Thailand';
+  const fetchImpl=options.fetchImpl||global.fetch;
+  let artifact=input.phase1_artifact||null;
+  let discovery=null;
+  if(artifact){
+    const checked=PhaseArtifact.validateForPhase2(artifact);
+    if(!checked.pass){
+      return {version:VERSION,status:'PHASE2_HOLD',mode:'PHASE2_READ_ONLY',month,phase1_artifact:{valid:false,blockers:checked.blockers,fingerprint:checked.fingerprint},ready_for_phase3:false,production_writes:0,phase3_started:false};
+    }
+  }else{
+    const discoveryFn=typeof options.discoveryFn==='function'
+      ? options.discoveryFn
+      : (payload=>Runtime.runMonthlyUltraDeep(payload,{publicWebOptions:{fetchImpl},providers:options.providers||{}}));
+    discovery=await discoveryFn({month,location});
+    if(!(discovery&&discovery.full===true&&discovery.status==='READY_FOR_VERIFIER')){
+      return {version:VERSION,status:'PHASE2_HOLD',mode:'PHASE2_READ_ONLY',month,discovery,blockers:['PHASE1_POOL_RECONSTRUCTION_NOT_ACCEPTED'],ready_for_phase3:false,production_writes:0,phase3_started:false};
+    }
+    artifact=PhaseArtifact.freezePhase1({
+      phase:'PHASE1',status:'PHASE1_ACCEPTED',month,
+      accepted_at:text(discovery.finished_at||discovery.created_at),
+      candidates:discovery.candidates||[],production_writes:0
+    });
+    if(!artifact.frozen){
+      return {version:VERSION,status:'PHASE2_HOLD',mode:'PHASE2_READ_ONLY',month,discovery:{status:discovery.status,full:discovery.full,candidate_count:discovery.candidate_count},phase1_artifact:artifact,blockers:artifact.blockers.map(x=>'PHASE1_ARTIFACT:'+x),ready_for_phase3:false,production_writes:0,phase3_started:false};
+    }
+  }
+  const phase2Fn=typeof options.phase2RunFn==='function'?options.phase2RunFn:Phase2Runtime.run;
+  const phase2=await phase2Fn({
+    phase1_artifact:artifact,month,location,max_rounds:Number(input.max_rounds||3)
+  },{
+    fetchFn:fetchImpl,fetchImpl,
+    providers:options.providers||{},
+    concurrency:Number(options.phase2Concurrency||4)
+  });
+  return {
+    version:VERSION,
+    status:phase2.status,
+    mode:'PHASE2_READ_ONLY',
+    month,
+    discovery:discovery?{status:discovery.status,full:discovery.full===true,candidate_count:discovery.candidate_count}:null,
+    phase1_artifact:artifact,
+    phase2,
+    ready_for_phase3:phase2.status==='PHASE2_ACCEPTED'&&phase2.ready_for_phase3===true,
+    production_writes:0,
+    phase3_started:false
+  };
+}
 
 async function run(input={},options={}){
   const month=text(input.month);
@@ -17,6 +75,8 @@ async function run(input={},options={}){
     const e=new Error('month must be YYYY-MM'); e.code='ULTRA_DEEP_MONTH_INVALID'; throw e;
   }
   const location=text(input.location)||'Bangkok Metropolitan Region Thailand';
+  const phase=text(input.phase||options.phase).toUpperCase();
+  if(phase==='PHASE2'||options.stopAfterPhase2===true) return runPhase2Only({...input,month,location},options);
   const env=options.env||process.env;
   const fetchImpl=options.fetchImpl||global.fetch;
   const preflightSnapshot=await Production.freshSnapshot(env,fetchImpl);
@@ -149,4 +209,4 @@ async function run(input={},options={}){
   };
 }
 
-module.exports={VERSION,run};
+module.exports={VERSION,runPhase2Only,run};
