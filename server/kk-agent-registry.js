@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V31';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V32';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -230,7 +230,8 @@ const ROUTES = Object.freeze({
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: false,
-    persistent_invocation_evidence_required: true
+    persistent_invocation_evidence_required: true,
+    note: 'Executes the autonomous Phase-2 verifier + Learning recovery runtime when given a frozen Phase-1 artifact; controller-only evaluation remains supported for already-materialized results. Always read-only and never starts Phase 3.'
   }),
   canary_audit: Object.freeze({
     route_id: 'CANARY_SAFETY_AUDIT',
