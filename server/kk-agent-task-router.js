@@ -30,8 +30,9 @@ const OpenAiAgents = require('./kk-openai-agent-adapters.js');
 const XPostingPlan = require('./kk-x-posting-plan.js');
 const UltraDeepPhase2 = require('./kk-ultra-deep-phase2-controller.js');
 const UltraDeepPhase2Runtime = require('./kk-ultra-deep-phase2-runtime.js');
+const UltraDeepPhase3 = require('./kk-ultra-deep-phase3-controller.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V21';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V22';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -307,6 +308,12 @@ async function executeTask(taskType, input = {}, options = {}) {
           : UltraDeepPhase2.next(input)
       };
     }
+
+    case 'phase3_commercial_pricing':
+      return {
+        invoked_agents: ['kk-commercial-evidence','kk-reliability-learning'],
+        result: UltraDeepPhase3.evaluate(input,{diagnostic_only:input.diagnostic_only===true})
+      };
 
     case 'verifier_no_drop_audit':
       return {
