@@ -89,3 +89,15 @@ test('zero candidates with no verified-input accounting remains blocked',()=>{
  assert.ok(r.blockers.includes('NO_VERIFIED_CANDIDATES'));
 });
 
+
+test('full-capacity booking skip is terminal but unknown booking outcomes remain blocked',()=>{
+ const input={discovery,candidates:[],verified_candidate_count:1,final_report_ready:true};
+ const complete=Gate.evaluate({...input,terminal_dispositions:[{event_key:'A',status:'SKIPPED_FULL_BOOKING_DATE'}]});
+ assert.equal(complete.complete,true);
+ assert.equal(complete.completion_mode,'SAFE_NOOP_TERMINAL_DISPOSITIONS');
+ for(const status of ['HOLD_BOOKING_CHECK','SAFE_NEW','SKIPPED_UNKNOWN']){
+  const blocked=Gate.evaluate({...input,terminal_dispositions:[{event_key:'A',status}]});
+  assert.equal(blocked.complete,false);
+  assert.ok(blocked.blockers.includes('UNSAFE_TERMINAL_DISPOSITION'));
+ }
+});

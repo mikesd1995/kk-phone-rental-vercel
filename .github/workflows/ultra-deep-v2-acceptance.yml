@@ -22,4 +22,4 @@ jobs:
       - name: Syntax gate
         run: npm run check
       - name: Focused V2 regression
-        run: node --test tests/kk-ultra-deep-full-loop-v2.test.js tests/kk-ultra-deep-terminal-evidence.test.js tests/kk-ultra-deep-inventory-pipeline-v28.test.js tests/kk-monthly-deep-scan-query-plan.test.js tests/kk-ultra-deep-source-registry.test.js tests/kk-ultra-deep-runtime-runner.test.js
+        run: node --test tests/kk-ultra-deep-direct-zero-cost.test.js tests/kk-ultra-deep-full-loop-completion-gate.test.js tests/kk-ultra-deep-production-runtime.test.js tests/kk-ultra-deep-full-loop-v2.test.js tests/kk-ultra-deep-terminal-evidence.test.js tests/kk-ultra-deep-inventory-pipeline-v28.test.js tests/kk-monthly-deep-scan-query-plan.test.js tests/kk-ultra-deep-source-registry.test.js tests/kk-ultra-deep-runtime-runner.test.js

@@ -3,7 +3,7 @@
 Status: SOURCE FIX REVIEWED; PRODUCTION P0s REMAIN OPEN. Do not merge/deploy from this checkpoint.
 
 ## Scope and exact source
-Owner asked to continue the latest whole-project audit and close P0s in order as far as safely possible. Reused PR #641, exact parent 1deb0a3cf414e9e2db346d217c94a84ee28c9ebc. All 726 repository text blobs were materialized and verified against Git blob hashes before baseline regression. No changes were made to concurrently evolving PR #642.
+Owner asked to continue the latest whole-project audit and close P0s in order as far as safely possible. Reused PR #641; first reviewed patch published as b2c000ba4d47954385f404e476dbd46c25aa00e0, followed by the additional repair documented below. Original exact parent 1deb0a3cf414e9e2db346d217c94a84ee28c9ebc. All 726 repository text blobs were materialized and verified against Git blob hashes before baseline regression. No changes were made to concurrently evolving PR #642.
 
 ## P0 order and fresh evidence
 1. Apps Script / LINE Booking (Issue #9): production timing GET on 2026-10-05 19:11:50Z returned READBACK_COMPLETE, effective UTC+07 and backend Sheet identity verified. Deployed API remains 9_5_9_PRICE_INTEGRITY_FIX; expected 9_5_13_FULL_BACKEND_AUDIT; admin_api_version_verified=false; source_equivalence=UNVERIFIED. Named timezone/installed triggers/cleanup schedule remain unverified. One immediately preceding read timed out (PHASE1_HEALTH_TIMEOUT); the bounded retry recovered. Connected Drive MIME search exposed no accessible Apps Script project. No authenticated project/deployment source/rollback authority was available. Do not enable booking automation from repo source alone.
@@ -24,15 +24,23 @@ Regression improvements:
 - runtime-runner unit tests disable all live default search transports, clear/restore environment overrides, deny both HTTP and DDGS subprocess transports, and assert zero transport calls;
 - existing V2 workflow now triggers on these files and executes the additional regressions; no runner/security/acceptance gate was weakened.
 
+Additional repair after the first checkpoint:
+- Runtime emits SKIPPED_FULL_BOOKING_DATE only after all phone capacity is booked, but completion gate knew only the legacy booking status. Added the precise runtime disposition to its closed vocabulary, retaining legacy compatibility. Reproduced failing runtime and new gate regression before repair; unknown/hold/SAFE_NEW dispositions remain blocked.
+- Corrected the low-rentability fixture to provide explicit low observed signals. Added an adapter regression proving missing evidence remains in verification rather than being falsely discarded. No scoring policy changed.
+- Fixed missing node:path/ROOT setup in the direct-runtime regression file so three authorization/read-only assertions actually execute, then updated its stale phase label to the exact current V2 runtime label. All nine tests pass with queue/authentication/commit/zero-write checks retained.
+- Added direct-runtime, completion-gate and production-runtime tests to the existing focused workflow. Independent reviewer approved this follow-up for PR storage only.
+
 ## Validation
 - Node v24.19.0.
 - Focused five-file regression:44/44 PASS, including a hostile-environment run with KK_SEARXNG_ENDPOINT=https://example.invalid and KK_DDGS_TRAFILATURA_ENABLED=true.
-- Code Intelligence selected targeted regression:78/78 PASS.
+- Code Intelligence selected targeted regression:78/78 PASS initially; follow-up context-selected regression:87/87 PASS.
+- Follow-up completion, V2 adapter and production-runtime regression:42/42 PASS.
 - npm run check:PASS.
 - Full offline baseline:1398 tests,1381 pass,17 fail.
-- Full offline final:1405 tests,1390 pass,15 fail; no new failure names. Two preexisting failing tests repaired.
+- First checkpoint full offline:1405 tests,1390 pass,15 fail.
+- Final follow-up full offline:1407 tests,1397 pass,10 fail; no new failure names. Seven preexisting failing tests repaired across both checkpoints.
 - Independent reviewer approved final focused source/test/workflow diff. Review is not production acceptance.
-- KK_ENGINEERING_EXECUTION_GATE_V1 remains BLOCKED: missing RELEASE_READBACK and full_regression has15 existing failures.
+- KK_ENGINEERING_EXECUTION_GATE_V1 remains BLOCKED: missing RELEASE_READBACK and full_regression has10 existing failures.
 
 The first unrestricted full npm test was stopped by automatic approval review because a test attempted an outbound Bing request with an unverified payload. It was not treated as a successful run. A materially safer local harness then denied real fetch/net/http/https/tls/datagram connections and the entire baseline/final suite completed offline. Do not rerun unrestricted live-network tests or infer provider acceptance from offline results.
 
@@ -40,9 +48,6 @@ The first unrestricted full npm test was stopped by automatic approval review be
 - Admin regression workflow covers PR and main push
 - Inbox reads reuse the existing admin guard and remain zero-write
 - Unified Inbox task routes to the actual Admin and LINE/X integration surface
-- V2 read-only adapter excludes low-rentability new events but retains canonical maintenance
-- V25 Vercel-native path requires authenticated production OIDC control before Full Loop
-- V26 machine ingress is authorization-queue gated and cannot accept arbitrary month or commit
 - V5 language switch binds hero, benefits and event-discovery DOM
 - V5.8 uses proprietary editorial optics rather than literal trend decoration
 - V6.1 conversion polish keeps trust, CTA hierarchy and floating contact out of the left content rail
@@ -50,8 +55,6 @@ The first unrestricted full npm test was stopped by automatic approval review be
 - admin Inbox has readable timestamps, non-text fallbacks and read-state cleanup
 - mobile modal scroll lock is valid source and restores the captured position
 - new storefront assets are cache-busted
-- production runtime completes zero-write when every verified candidate is safely terminally skipped
-- scanner ingress GET acceptance is queue-authorized and permanently read-only
 
 ## Smallest next gates
 - Source repair: inspect this exact PR commit, resolve/classify the remaining regression failures without weakening tests, then require CI/review/release evidence. No merge is authorized by a green focused subset alone.
