@@ -39,6 +39,7 @@ async function main(){
  const inputPath=arg('input','.artifacts/ultra-deep-runtime-acceptance.json');
  const outputPath=arg('output','.artifacts/ultra-deep-phase2-acceptance.json');
  const artifactPath=arg('phase1-artifact-output','.artifacts/ultra-deep-phase1-artifact.json');
+ const phase2ArtifactPath=arg('phase2-artifact-output','.artifacts/ultra-deep-phase2-artifact.json');
  const maxRounds=Math.max(1,Math.min(5,Number(arg('max-rounds','3'))||3));
  const raw=JSON.parse(fs.readFileSync(inputPath,'utf8'));
  const artifact=artifactFromInput(raw);
@@ -66,6 +67,7 @@ async function main(){
   ...result
  };
  persist(outputPath,evidence);
+ if(evidence.status==='PHASE2_ACCEPTED'&&evidence.phase2_artifact&&evidence.phase2_artifact.frozen===true)persist(phase2ArtifactPath,evidence.phase2_artifact);
  process.stdout.write(JSON.stringify({
   status:evidence.status,
   ready_for_phase3:evidence.ready_for_phase3,
@@ -73,6 +75,7 @@ async function main(){
   pool_source:evidence.pool_source,
   pool_fingerprint:evidence.pool_fingerprint,
   phase1_fingerprint:artifact.fingerprint,
+  phase2_fingerprint:evidence.phase2_artifact&&evidence.phase2_artifact.fingerprint||null,
   rounds:evidence.rounds,
   final_counts:{
    verified:(evidence.results||[]).filter(x=>x.disposition==='VERIFIED').length,
