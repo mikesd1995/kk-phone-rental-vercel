@@ -185,9 +185,8 @@ async function recoverOne(candidate={},prior={},controllerOut={},context={},opti
   for(const query of queries){
    let hits=[];
    try{
-    hits=Array.isArray(await fn({query,date_window:{start:text(candidate.event_date),end:text(candidate.event_date)}}))
-      ? await fn({query,date_window:{start:text(candidate.event_date),end:text(candidate.event_date)}})
-      : [];
+    const raw=await fn({query,date_window:{start:text(candidate.event_date),end:text(candidate.event_date)}});
+    hits=Array.isArray(raw)?raw:(Array.isArray(raw&&raw.candidates)?raw.candidates:[]);
    }catch(error){
     searchAttempts.push({provider,status:'PROVIDER_ERROR',query,error_class:text(error&&(error.code||error.name))||'ERROR'});
     continue;
