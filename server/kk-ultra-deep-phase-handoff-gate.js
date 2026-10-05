@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_PHASE_HANDOFF_GATE_V1';
+const VERSION='KK_ULTRA_DEEP_PHASE_HANDOFF_GATE_V2';
 const ORDER=Object.freeze([
  ['PHASE1','discovery'],
  ['PHASE2','verification_dedup'],
@@ -19,6 +19,10 @@ function evaluate(input={}){
  if(input.phase_report_complete!==true)blockers.push('CURRENT_PHASE_REPORT_INCOMPLETE');
  if(input.candidate_pool_complete!==true && ['PHASE1','PHASE2'].includes(current))blockers.push('CANDIDATE_POOL_INCOMPLETE');
  if(input.learning_recovery_complete!==true && ['PHASE1','PHASE2','PHASE3','PHASE4'].includes(current))blockers.push('LEARNING_RECOVERY_INCOMPLETE');
+ if(['PHASE2','PHASE3'].includes(current)){
+  if(input.phase_artifact_frozen!==true)blockers.push('CURRENT_PHASE_ARTIFACT_NOT_FROZEN');
+  if(!text(input.phase_artifact_fingerprint))blockers.push('CURRENT_PHASE_ARTIFACT_FINGERPRINT_REQUIRED');
+ }
  if(input.owner_approval===true && input.phase_report_complete!==true)blockers.push('OWNER_APPROVAL_CANNOT_OVERRIDE_INCOMPLETE_REPORT');
  const ready=blockers.length===0;
  const next=idx>=0&&idx<ORDER.length-1?ORDER[idx+1][0]:'COMPLETE';
