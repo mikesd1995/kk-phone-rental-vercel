@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V29';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V30';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -27,7 +27,7 @@ const AGENTS = Object.freeze({
     note: 'Requires at least three independent exact-event competitor price sources and a verified HTTPS poster source before a candidate can advance to final Verifier.'
   }),
   'kk-event-verifier': Object.freeze({
-    version: 'verifier-no-drop-reconciliation-v1',
+    version: 'verifier-no-drop-reconciliation-v2-learning-feedback',
     authority: 'GOVERNED_VERIFICATION_SUPPORT',
     runtime_state: 'CALLABLE_GOVERNED_PROMOTION',
     surface: 'AGENT_GATEWAY',
@@ -217,7 +217,7 @@ const ROUTES = Object.freeze({
   verifier_no_drop_audit: Object.freeze({
     route_id: 'VERIFIER_NO_DROP_AUDIT',
     request_type: 'VERIFIER_AUDIT',
-    required_agents: Object.freeze(['kk-event-verifier']),
+    required_agents: Object.freeze(['kk-event-verifier','kk-reliability-learning']),
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: false,
