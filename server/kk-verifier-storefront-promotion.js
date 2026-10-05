@@ -1,7 +1,7 @@
 'use strict';
 
 const VisibilityGuard=require('./event-visibility-owner-guard.js');
-const VERSION='KK_VERIFIER_STOREFRONT_PROMOTION_V6_EXACT_MARKET';
+const VERSION='KK_VERIFIER_STOREFRONT_PROMOTION_V7_PHASE3_LOCK';
 const OWNER_REOPEN_INTENT='explicit_owner_reopen';
 
 function text(v){return String(v==null?'':v).trim();}
@@ -54,7 +54,8 @@ function preparePromotion(input={}){
     'KK_APPROVED_BASELINE',
     'KK_ACTIVE_STANDARD_PACKAGE_SOT',
     'KK_RENTAL_FIT_SCORE_FALLBACK',
-    'EXACT_EVENT_COMPETITOR_MEDIAN'
+    'EXACT_EVENT_COMPETITOR_MEDIAN',
+    'PHASE3_LOCKED_TARGET'
   ].includes(text(policy.source));
 
   const proposalReady=proposal.proposal_available===true&&Number.isFinite(Number(proposal.proposed_reference_price));
