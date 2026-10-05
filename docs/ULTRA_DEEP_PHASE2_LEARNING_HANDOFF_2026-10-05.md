@@ -82,3 +82,18 @@ The gate encodes the six owner-facing phases:
 No phase may claim readiness for the next phase until its report is complete. Phases 1-4 additionally require learning recovery completion where applicable. Phases 1-3 fail closed on any production write. The gate never auto-starts the next phase.
 
 This prevents the prior failure mode where work was described as started/ready without a complete phase artifact and ensures Learning/Recovery is a first-class handoff requirement rather than an optional side process.
+
+
+## Runtime wiring defect found and repaired
+A follow-up runtime audit found that Agent Registry V31 declared phase2_verification_learning as runtime_available, but server/kk-agent-task-router.js had no matching execution case. That meant the route would reach the gateway and then fail as AGENT_TASK_NOT_SUPPORTED instead of running the Phase-2 Controller. This was a real orchestration defect and explains why repeated readiness statements did not produce a complete Phase-2 run.
+
+Commit 88c9998595a35f1dc0a36d30bc8ffd2a1e850037:
+- Task Router V19 -> V20
+- imports kk-ultra-deep-phase2-controller.js
+- wires phase2_verification_learning
+- invokes both kk-event-verifier and kk-reliability-learning
+- executes UltraDeepPhase2.next(input)
+
+Commit 76f411eaa53bf383af08ac294255de8bd4efc5fb adds a routing regression test proving the task route returns PHASE2_ACCEPTED for a complete verified pool and never starts Phase 3.
+
+Important: tests are committed but must not be described as executed/passed until runtime/CI evidence exists.
