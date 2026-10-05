@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V33';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V34';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -19,12 +19,12 @@ const AGENTS = Object.freeze({
     production_writes: 0
   }),
   'kk-commercial-evidence': Object.freeze({
-    version: 'KK_DISCOVERY_COMMERCIAL_PREP_V4',
+    version: 'KK_DISCOVERY_COMMERCIAL_PREP_V5',
     authority: 'STAGING_ONLY',
     runtime_state: 'CALLABLE_EVIDENCE_GATED',
     surface: 'AGENT_GATEWAY',
     production_writes: 0,
-    note: 'Phase-3 pricing scope is read-only and separate from Phase-4 poster evidence. It uses exact-event competitor median when available, then comparable event, prior-month comparable, and governed 690/890 base fallback with bounded demand/seat-map adjustment. Full-commercial mode still requires verified poster evidence before promotion.'
+    note: 'Phase-3 pricing is read-only and owns fresh semantic competitor evidence, exact Phase2 handoff identity, comparable matching, booking price locks, adaptive competitor expansion and bounded Learning recovery. It uses fresh exact-event package medians first, then qualified comparable, qualified prior-month comparable, governed 690/890 base and only verified demand/seat-map adjustment. Full-commercial mode still requires verified poster evidence in Phase 4.'
   }),
   'kk-event-verifier': Object.freeze({
     version: 'verifier-no-drop-reconciliation-v2-learning-feedback',
@@ -231,7 +231,7 @@ const ROUTES = Object.freeze({
     runtime_available: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true,
-    note: 'Official execution requires PHASE2_ACCEPTED + ready_for_phase3. diagnostic_only may exercise pricing logic without crossing the phase boundary. Always production_writes=0 and never starts Phase 4.'
+    note: 'Official execution requires a valid immutable Phase2 artifact and an exact pricing candidate ID set. The runtime performs bounded commercial Learning recovery for stale/unknown price freshness, package ambiguity, competitor identity, outliers and comparable gaps. diagnostic_only may exercise pricing logic without crossing the phase boundary. Always production_writes=0 and never starts Phase 4.'
   }),
   phase2_verification_learning: Object.freeze({
     route_id: 'ULTRA_DEEP_PHASE2_VERIFICATION_LEARNING',
