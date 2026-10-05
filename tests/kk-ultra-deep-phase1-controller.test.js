@@ -34,3 +34,18 @@ test('bounded learning stops fail-closed instead of looping forever',()=>{
  assert.equal(out.status,'PHASE1_HOLD');
  assert.equal(out.next_action,'STOP_AND_REPORT_EXTERNAL_SOURCE_UNRESOLVED');
 });
+
+test('stale single-source status holds for cross-check',()=>{
+ const out=C.next({receipts,candidates:[{event_date:'2026-10-24',title:'OMEGA X',...signals,status_evidence:[{status:'UPCOMING',stale:true,current:false}]}],discovery_pool_preserved:true,deterministic_dedup_passed:true,full_pool_confidence_scored:true,known_positive_backtest_executed:true,known_positive_misses:[]});
+ assert.equal(out.status,'RECOVERY_REQUIRED');
+ assert.ok(out.blockers.includes('STALE_STATUS_REQUIRES_CROSSCHECK'));
+});
+test('conflicting current status evidence fails closed',()=>{
+ const out=C.next({receipts,candidates:[{event_date:'2026-10-30',title:'PiXXiE',...signals,status_evidence:[{status:'UPCOMING',current:true},{status:'CANCELLED',current:true}]}],discovery_pool_preserved:true,deterministic_dedup_passed:true,full_pool_confidence_scored:true,known_positive_backtest_executed:true,known_positive_misses:[]});
+ assert.equal(out.status,'RECOVERY_REQUIRED');
+ assert.ok(out.blockers.includes('CONFLICTING_CURRENT_STATUS_EVIDENCE'));
+});
+test('cross-checked stale history with one current status may proceed',()=>{
+ const out=C.next({receipts,candidates:[{event_date:'2026-10-24',title:'Example',...signals,status_evidence:[{status:'UPCOMING',stale:true,current:false},{status:'CANCELLED',current:true}]}],discovery_pool_preserved:true,deterministic_dedup_passed:true,full_pool_confidence_scored:true,known_positive_backtest_executed:true,known_positive_misses:[]});
+ assert.equal(out.status,'PHASE1_ACCEPTED');
+});
