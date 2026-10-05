@@ -11,6 +11,8 @@ on:
       - 'server/kk-ultra-deep-phase-artifact.js'
       - 'server/kk-ultra-deep-direct-zero-cost.js'
       - 'api/kk-admin-guard.js'
+      - 'api/kk-ultra-deep-phase2-preview.js'
+      - 'vercel.json'
       - 'server/kk-ultra-deep-v2-learning-agent.js'
       - 'server/kk-agent-task-router.js'
       - 'scripts/kk-ultra-deep-phase2-acceptance.js'
@@ -19,6 +21,7 @@ on:
       - 'tests/kk-ultra-deep-phase2-runtime.test.js'
       - 'tests/kk-ultra-deep-phase-artifact.test.js'
       - 'tests/kk-ultra-deep-phase2-direct.test.js'
+      - 'tests/kk-ultra-deep-phase2-preview.test.js'
       - 'tests/kk-agent-task-router-phase2.test.js'
       - '.github/workflows/ultra-deep-phase2-readonly-acceptance.yml'
 
@@ -56,6 +59,7 @@ jobs:
           node --test tests/kk-ultra-deep-phase2-controller.test.js
           node --test tests/kk-ultra-deep-phase2-runtime.test.js
           node --test tests/kk-ultra-deep-phase2-direct.test.js
+          node --test tests/kk-ultra-deep-phase2-preview.test.js
           node --test tests/kk-agent-task-router-phase2.test.js
           node --test tests/kk-ultra-deep-phase-handoff-gate.test.js
 
