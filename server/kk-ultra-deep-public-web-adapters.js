@@ -149,6 +149,7 @@ const LIVENATION_GENERIC_TOKENS=new Set([
  'bangkok','thailand','metro','metropolitan','region','concert','concerts','event','events','calendar',
  'ticket','tickets','artist','artists','fanmeeting','fancon','fansign','festival','showcase','live','tour',
  'official','organizer','promoter','venue','hall','mall','agency','appearance','public',
+ 'january','february','march','april','may','june','july','august','september','october','november','december',
  'กรุงเทพ','กรุงเทพมหานคร','ประเทศไทย','คอนเสิร์ต','งาน','กิจกรรม','ศิลปิน','แฟนมีต','แฟนคอน','แฟนไซน์','เทศกาล','โชว์เคส'
 ]);
 function liveNationTargetMonth(task={},query=''){
