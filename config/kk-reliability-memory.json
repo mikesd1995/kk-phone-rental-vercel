@@ -681,6 +681,98 @@
         "ask owner to repeat Phase2 because infrastructure polling failed",
         "recommend paid capacity while a safe zero-cost runnerless path exists"
       ]
+    },
+    {
+      "id": "PHASE3_PRICING_EVIDENCE_INTEGRITY_GAP",
+      "severity": "P0",
+      "domains": [
+        "ultra_deep",
+        "phase3",
+        "pricing",
+        "competitor"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "PHASE3_PRICING_EVIDENCE_INTEGRITY_GAP",
+          "STALE_PRICE_GAP",
+          "PRICE_FRESHNESS_UNKNOWN",
+          "COMPETITOR_IDENTITY_GAP",
+          "PACKAGE_AMBIGUITY",
+          "PACKAGE_PARITY_GAP",
+          "COMPETITOR_COVERAGE_THIN",
+          "OUTLIER_PRICE_GAP",
+          "COMPARABLE_GAP"
+        ],
+        "phrases_any": [
+          "competitor price bleed",
+          "stale competitor price",
+          "deposit parsed as rental price",
+          "package ambiguity",
+          "thin competitor coverage",
+          "comparable mismatch"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Phase 3 must key exact-event price evidence to the verified candidate ID, require current/fresh source time, semantically separate rental price from deposit/lens add-on, reject explicit wrong-device evidence, compute package-specific independent medians, cross-check outliers, qualify comparable events by artist/fandom/type/venue-capacity/seat-map similarity, lock any booked event price, and run bounded commercial Learning recovery before governed fallback.",
+      "regression_guards": [
+        "exact-event evidence requires exact candidate/event identity",
+        "stale or unknown-timestamp exact evidence cannot drive current median",
+        "deposit and lens add-on cannot become rental price",
+        "event/date booking count uses normalized numeric max and locks price",
+        "comparable references require HTTPS provenance plus similarity threshold",
+        "adaptive scan continues beyond three shops when more credible evidence is available",
+        "Phase3 remains production_writes=0"
+      ],
+      "never_do": [
+        "apply identityless competitor evidence to every candidate",
+        "treat observed_at as the source publication time",
+        "choose the smallest money token as rental price",
+        "reprice an event with any active booking",
+        "use arbitrary comparable rows solely because they have a price",
+        "stop market coverage at a hard-coded 10-shop ceiling"
+      ]
+    },
+    {
+      "id": "PHASE3_DOWNSTREAM_PRICE_RECOMPUTE",
+      "severity": "P0",
+      "domains": [
+        "ultra_deep",
+        "phase3",
+        "phase4",
+        "pricing",
+        "handoff"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "PHASE3_DOWNSTREAM_PRICE_RECOMPUTE",
+          "PHASE3_ARTIFACT_MISSING",
+          "PHASE2_PHASE3_CANDIDATE_SET_MISMATCH"
+        ],
+        "phrases_any": [
+          "phase 3 price changed downstream",
+          "pricing recomputed in phase 4",
+          "phase3 handoff artifact",
+          "candidate set mismatch"
+        ],
+        "phrases_all": []
+      },
+      "known_repair": "Freeze accepted Phase-2 verification results into an immutable Phase-2 artifact, require Phase-3 candidate IDs to exactly match the VERIFIED pricing set, then freeze accepted Phase-3 price decisions into an immutable Phase-3 artifact. Downstream final-pricing/promotion must consume PHASE3_LOCKED_TARGET rather than recomputing from raw market evidence.",
+      "regression_guards": [
+        "Phase2 artifact contains exact pricing_candidate_ids and fingerprint",
+        "official Phase3 rejects candidate-set drift",
+        "Phase3 artifact contains accepted target prices and fingerprint",
+        "Phase4 accepts PHASE3_LOCKED_TARGET without recompute",
+        "phase handoff gate never auto-starts the next phase"
+      ],
+      "never_do": [
+        "start official Phase3 from a verbal or reconstructed candidate list",
+        "let Phase4 recalculate an already accepted booked or market price",
+        "allow owner approval to override a missing handoff artifact"
+      ]
     }
   ]
 }
