@@ -39,7 +39,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   phase2:
-    runs-on: ubuntu-latest
+    # Zero-cost path: bypass GitHub-hosted runner allocation/billing failures.
+    runs-on: [self-hosted, linux, x64, kk-ultra-deep]
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
