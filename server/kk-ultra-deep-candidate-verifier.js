@@ -3,7 +3,7 @@
 const crypto=require('node:crypto');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V2';
+const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V3';
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=6;
 
@@ -55,7 +55,7 @@ function eventSpecificUrl(url){
   const u=new URL(text(url));const h=u.hostname.toLowerCase();const p=u.pathname.toLowerCase();
   if(/eventpop\.me$/.test(h)) return /^\/e\//.test(p);
   if(/thaiticketmajor\.com$/.test(h)) return /^\/(concert|performance|event)\//.test(p);
-  if(/livenationtero\.co\.th$/.test(h)) return p.includes('/event/');
+  if(/livenationtero\.co\.th$/.test(h)) return /^\/show\//.test(p)||p.includes('/event/');
   if(/zipeventapp\.com$/.test(h)) return /^\/e\//.test(p);
   if(/songkick\.com$/.test(h)) return p.includes('/concerts/');
   if(/ticketmelon\.com$/.test(h)) return p.split('/').filter(Boolean).length>=2;
