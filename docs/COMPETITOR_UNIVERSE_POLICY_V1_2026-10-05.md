@@ -33,3 +33,18 @@ Expanded competitor discovery is read-only and must keep `production_writes=0`.
 - bounded maximum: 50;
 - supports configured and learned competitor accounts;
 - generic search can learn a new account only when rental-shop evidence passes the scanner checks.
+
+
+## Evidence quality and per-event coverage hardening
+
+Current scanner behavior after Phase-3 hardening:
+- default desired independent competitors per event = **5** when credible evidence is available;
+- max desired per event = 8;
+- scanner may stop earlier only when queries are exhausted, not simply because 3 shops were found;
+- source publication time is required for current-market confidence; stale/unknown-timestamp evidence is excluded from the current exact median and routed into Learning recovery;
+- X/Twitter status Snowflake IDs are used to recover source timestamps when possible;
+- semantic parsing separates rental price from deposit and Lens add-on;
+- explicit wrong-device offers are rejected;
+- exact-event evidence must remain keyed to the candidate/event identity.
+
+This does not change the owner rule that 20 prices are not required for one event. The ~20 target is the **overall competitor universe**, while each event should gather the best independent evidence available before falling through the governed pricing ladder.
