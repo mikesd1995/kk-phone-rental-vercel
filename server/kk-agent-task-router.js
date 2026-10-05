@@ -28,8 +28,9 @@ const UltraDeepFullLoop = require('./kk-ultra-deep-full-loop-orchestrator.js');
 const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
 const OpenAiAgents = require('./kk-openai-agent-adapters.js');
 const XPostingPlan = require('./kk-x-posting-plan.js');
+const UltraDeepPhase2 = require('./kk-ultra-deep-phase2-controller.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V19';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V20';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -289,6 +290,12 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-event-verifier'],
         result: StorefrontPromotion.verifyStorefrontReadback(input.plan || {}, input.readback || {})
+      };
+
+    case 'phase2_verification_learning':
+      return {
+        invoked_agents: ['kk-event-verifier','kk-reliability-learning'],
+        result: UltraDeepPhase2.next(input)
       };
 
     case 'verifier_no_drop_audit':
