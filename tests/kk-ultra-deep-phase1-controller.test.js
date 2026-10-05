@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const C=require('../server/kk-ultra-deep-phase1-controller.js');
 const families=['TICKETING','ORGANIZER_PROMOTER','VENUE','ARTIST_SCHEDULE','BRAND_SOCIAL','FESTIVAL','BROAD_LIVE'];
 const receipts=families.map(f=>({family:f,executed:true}));
-const signals={fandom_strength:70,camera_value:80,social_demand:70,event_format:80,historical_similarity:60,venue_attendance:60,competitor_activity:0,operational_feasibility:80,independent_source_count:2,official_source:true,identity_match:true,date_match:true};
+const signals={fandom_strength:70,camera_value:80,social_demand:70,event_format:80,historical_similarity:60,venue_attendance:60,competitor_activity:0,operational_feasibility:80,independent_source_count:2,official_source:true,identity_match:true,date_match:true,source_url:'https://example.com/event'};
 
 test('dedup is deterministic on date and normalized title',()=>{
  const out=C.dedup([{event_date:'2026-10-24',title:'TEEHENG GEN OF US'},{event_date:'2026-10-24',title:'TEEHENG   GEN OF US',organizers:['DeeHupHouse']}]);
@@ -28,6 +28,10 @@ test('passes only with all families, preserved pool, scoring, confidence, backte
  assert.equal(out.status,'PHASE1_ACCEPTED');
  assert.equal(out.next_action,'STOP_AND_REPORT_READY_FOR_OWNER_PHASE2_APPROVAL');
  assert.equal(out.phase2_started,false);
+ assert.equal(out.phase1_artifact.frozen,true);
+ assert.equal(out.phase1_artifact.candidate_count,1);
+ assert.match(out.phase1_artifact.candidate_ids[0],/^P1-[a-f0-9]{18}$/);
+ assert.match(out.phase1_artifact.fingerprint,/^[a-f0-9]{64}$/);
 });
 test('bounded learning stops fail-closed instead of looping forever',()=>{
  const out=C.next({round:3,max_rounds:3,receipts,candidates:[],discovery_pool_preserved:true,deterministic_dedup_passed:true,full_pool_confidence_scored:true,known_positive_backtest_executed:true,known_positive_misses:[{title:'Still missing',event_date:'2026-10-20'}]});
@@ -67,4 +71,14 @@ test('candidate preservation or dedup safety failure still blocks Phase 2',()=>{
  const gate=C.phase2ReadOnlyGate({blockers:['DISCOVERY_POOL_NOT_PRESERVED','DETERMINISTIC_DEDUP_NOT_PASSED']});
  assert.equal(gate.allowed,false);
  assert.equal(gate.mode,'PHASE2_BLOCKED');
+});
+
+
+test('accepted Phase 1 refuses handoff artifact without source provenance',()=>{
+ const noSource={...signals}; delete noSource.source_url;
+ const out=C.next({receipts,candidates:[{event_date:'2026-10-24',title:'NO SOURCE',...noSource}],discovery_pool_preserved:true,deterministic_dedup_passed:true,full_pool_confidence_scored:true,known_positive_backtest_executed:true,known_positive_misses:[]});
+ assert.equal(out.status,'RECOVERY_REQUIRED');
+ assert.equal(out.phase1_artifact.frozen,false);
+ assert.ok(out.blockers.includes('PHASE1_ARTIFACT:CANDIDATE_SOURCE_PROVENANCE_REQUIRED'));
+ assert.equal(out.phase2_started,false);
 });
