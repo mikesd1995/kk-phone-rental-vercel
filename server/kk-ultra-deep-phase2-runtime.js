@@ -2,7 +2,6 @@
 
 const crypto=require('node:crypto');
 const Verifier=require('./kk-ultra-deep-candidate-verifier.js');
-const ProviderExecutor=require('./kk-ultra-deep-provider-executor.js');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const Controller=require('./kk-ultra-deep-phase2-controller.js');
@@ -75,12 +74,12 @@ function evidenceUrlList(candidate={},attempts=[]){
  return uniq([...(candidate.source_urls||[]),...attempts.map(x=>x&&x.source_url)]);
 }
 function mapVerification(candidate={},attempts=[]){
- const statusChange=attempts.find(x=>x&&x.status==='STATUS_CHANGED');
+ const statusChange=attempts.find(x=>x&&(['CANCELLED','POSTPONED','RESCHEDULED'].includes(text(x.event_status).toUpperCase())||x.status==='STATUS_CHANGED'));
  if(statusChange){
   return {
     candidate_id:candidate.candidate_id,title:candidate.title,event_date:candidate.event_date,
     disposition:'STATUS_CHANGED',
-    reason:text(statusChange.status_change&&statusChange.status_change.change_type)||'OFFICIAL_STATUS_CHANGED',
+    reason:text(statusChange.status_change&&statusChange.status_change.change_type)||text(statusChange.event_status)||'OFFICIAL_STATUS_CHANGED',
     evidence:evidenceUrlList(candidate,attempts),
     status_change:statusChange.status_change||null,
     verifier_attempts:attempts
@@ -152,6 +151,21 @@ function recoveryQueries(candidate={},controllerOut={}){
   ...relevantLearned
  ]).slice(0,10);
 }
+function identityTokens(value=''){
+ return text(value).toLowerCase().replace(/[^a-z0-9\u0E00-\u0E7F]+/g,' ').split(/\s+/)
+  .filter(x=>x&&x.length>1&&!['concert','live','tour','world','bangkok','thailand','official','event','festival','fan','meeting','fanmeeting','fancon','showcase','the','in','at','and','2026'].includes(x));
+}
+function identityCompatible(candidate={},verified={}){
+ const expectedDate=text(candidate.event_date),observedDate=text(verified.event_date);
+ if(expectedDate&&observedDate&&expectedDate!==observedDate)return false;
+ const a=new Set(identityTokens(candidate.title||candidate.event_name));
+ const b=new Set(identityTokens(verified.title||verified.event_name));
+ if(!a.size||!b.size)return false;
+ let hits=0;for(const token of a)if(b.has(token))hits++;
+ const ratio=hits/Math.min(a.size,b.size);
+ const as=[...a].join(' '),bs=[...b].join(' ');
+ return ratio>=0.5||as.includes(bs)||bs.includes(as);
+}
 async function recoverOne(candidate={},prior={},controllerOut={},context={},options={}){
  const queries=recoveryQueries(candidate,controllerOut);
  const providers=options.providers||PublicWeb.createProviders({
@@ -161,31 +175,44 @@ async function recoverOne(candidate={},prior={},controllerOut={},context={},opti
    ddgs_timeout_ms:10000,
    timeout_ms:10000
  });
- const task={
-  source_tier:'VERIFICATION_RECOVERY',
-  query:queries[0]||[candidate.title,candidate.event_date,'official'].filter(Boolean).join(' '),
-  query_variants:queries.slice(1),
-  providers:['LIVENATION_PUBLIC','DDGS_TRAFILATURA','BING_RSS','DDG_HTML','BING_HTML'],
-  evidence_required:true
- };
- const searched=await ProviderExecutor.executeGapTask(task,{providers});
+ const providerOrder=['LIVENATION_PUBLIC','DDGS_TRAFILATURA','BING_RSS','DDG_HTML','BING_HTML'];
  const seen=new Set(uniq(candidate.source_urls));
  const attempts=Array.isArray(prior.verifier_attempts)?[...prior.verifier_attempts]:[];
- for(const hit of Array.isArray(searched.candidates)?searched.candidates:[]){
-  const source_url=https(hit.source_url);if(!source_url||seen.has(source_url))continue;seen.add(source_url);
-  const row={...candidate,source_url};
-  const result=await Verifier.verifyCandidate(row,{...context,verification_scope:'PHASE2_IDENTITY_STATUS'},{fetchFn:options.fetchFn,timeout_ms:options.timeout_ms||10000});
-  attempts.push({...result,source_url,recovery_provider:searched.provider||null});
-  if(result.verified===true||result.status==='STATUS_CHANGED')break;
+ const searchAttempts=[];
+ for(const provider of providerOrder){
+  const fn=providers[provider];
+  if(typeof fn!=='function'){searchAttempts.push({provider,status:'NOT_BOUND'});continue;}
+  for(const query of queries){
+   let hits=[];
+   try{
+    hits=Array.isArray(await fn({query,date_window:{start:text(candidate.event_date),end:text(candidate.event_date)}}))
+      ? await fn({query,date_window:{start:text(candidate.event_date),end:text(candidate.event_date)}})
+      : [];
+   }catch(error){
+    searchAttempts.push({provider,status:'PROVIDER_ERROR',query,error_class:text(error&&(error.code||error.name))||'ERROR'});
+    continue;
+   }
+   searchAttempts.push({provider,status:hits.length?'EVIDENCE_FOUND':'NO_EVIDENCE',query,count:hits.length});
+   for(const hit of hits.slice(0,10)){
+    const source_url=https(hit.source_url);if(!source_url||seen.has(source_url))continue;seen.add(source_url);
+    const row={...candidate,source_url,title:text(hit.title)||candidate.title,event_date:text(hit.event_date)||candidate.event_date};
+    const result=await Verifier.verifyCandidate(row,{...context,verification_scope:'PHASE2_IDENTITY_STATUS'},{fetchFn:options.fetchFn,timeout_ms:options.timeout_ms||10000});
+    attempts.push({...result,source_url,recovery_provider:provider,recovery_query:query});
+    if(result.verified===true&&identityCompatible(candidate,result.candidate||row)){
+     const mapped=mapVerification({...candidate,source_urls:[...seen]},attempts);
+     mapped.recovery={query_count:queries.length,queries,provider,status:'EVIDENCE_FOUND',attempts:searchAttempts};
+     return mapped;
+    }
+    if(['CANCELLED','POSTPONED','RESCHEDULED'].includes(text(result.event_status).toUpperCase())&&identityCompatible(candidate,result.candidate||row)){
+     const mapped=mapVerification({...candidate,source_urls:[...seen]},attempts);
+     mapped.recovery={query_count:queries.length,queries,provider,status:'STATUS_CHANGED',attempts:searchAttempts};
+     return mapped;
+    }
+   }
+  }
  }
  const mapped=mapVerification({...candidate,source_urls:[...seen]},attempts);
- mapped.recovery={
-  query_count:queries.length,
-  queries,
-  provider:searched.provider||null,
-  status:searched.status,
-  attempts:searched.attempts||[]
- };
+ mapped.recovery={query_count:queries.length,queries,provider:null,status:'GAP_UNRESOLVED',attempts:searchAttempts};
  return mapped;
 }
 async function run(input={},options={}){
@@ -249,4 +276,4 @@ async function run(input={},options={}){
  };
 }
 
-module.exports={VERSION,DEFAULT_MAX_ROUNDS,DEFAULT_CONCURRENCY,HARD_REJECT_BLOCKERS,text,https,sha,uniq,sourceRank,rawKey,freezeCandidatePool,hardReject,evidenceUrlList,mapVerification,mapLimit,verifyKnownSources,recoveryQueries,recoverOne,run};
+module.exports={VERSION,DEFAULT_MAX_ROUNDS,DEFAULT_CONCURRENCY,HARD_REJECT_BLOCKERS,text,https,sha,uniq,sourceRank,rawKey,freezeCandidatePool,hardReject,evidenceUrlList,mapVerification,mapLimit,verifyKnownSources,recoveryQueries,identityTokens,identityCompatible,recoverOne,run};
