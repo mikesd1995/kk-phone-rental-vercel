@@ -208,6 +208,22 @@
       ],
       "supersedes": [],
       "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:marketing:activation-attribution-phase1:20261005",
+      "occurred_at": "2026-10-05T07:45:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "content",
+      "summary": "KK Marketing Phase 1 extends the existing Marketing Agent/X posting-plan stack instead of duplicating Ultra Deep. Ultra Deep remains upstream event/pricing/storefront authority. New read-only shadow contract adds deterministic campaign identity, fail-closed Marketing Queue eligibility, strict X to storefront to LINE to booking to completed revenue attribution, completed-only Actual revenue, and advisory learning after minimum evidence. No auto publish, spend, price/inventory/Machine-SOT writes or production writes. Production activation beyond shadow remains gated on clean Ultra Deep V27 production, READ_ONLY_ACCEPTANCE, Full Loop evidence and exact readback.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "server/kk-marketing-attribution.js",
+        "tests/kk-marketing-attribution.test.js",
+        "docs/MARKETING_ACTIVATION_ATTRIBUTION_PHASE1_2026-10-05.md",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/issues/635"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
     }
   ]
 }
