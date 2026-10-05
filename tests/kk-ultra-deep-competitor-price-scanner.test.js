@@ -55,7 +55,8 @@ test('phone base plus lens add-on is not misclassified as bundle price',()=>{
 
 
 test('query plan explicitly covers all locked competitor accounts',()=>{
- assert.equal(P.COMPETITORS.length,10);
+ assert.equal(P.BASE_COMPETITORS.length,10);
+ assert.equal(P.DEFAULT_TARGET_COMPETITOR_UNIVERSE,20);
  assert.ok(P.COMPETITORS.includes('faleem_rent2'));
  const q=P.buildQueries({title:'LYKN REFLEXION CONCERT'});
  assert.ok(q.length>=3+P.COMPETITORS.length);
@@ -69,5 +70,33 @@ test('scan batch reports competitor universe even when exact evidence is absent'
  assert.equal(out.evidence_count,0);
  assert.equal(out.competitor_universe_count,P.COMPETITORS.length);
  assert.deepEqual(out.competitor_universe,P.COMPETITORS);
- assert.equal(out.query_strategy,'GENERIC_PLUS_PER_COMPETITOR_X');
+ assert.equal(out.query_strategy,'GENERIC_PLUS_EXPANDABLE_PER_COMPETITOR_X');
+ assert.equal(out.base_competitor_count,10);
+ assert.equal(out.target_competitor_universe,20);
+ assert.equal(out.competitor_universe_expandable,true);
+});
+
+
+test('configured competitor universe can expand beyond baseline 10',()=>{
+ const extras=Array.from({length:12},(_,i)=>'extra_rent_'+(i+1));
+ const universe=P.configuredUniverse({competitor_universe:extras});
+ assert.equal(universe.length,22);
+ assert.ok(universe.includes('extra_rent_12'));
+ assert.ok(universe.includes('faleem_rent2'));
+});
+
+test('generic discovery may learn a new rental competitor account safely',()=>{
+ const candidate={event_key:'E1',title:'LYKN REFLEXION CONCERT'};
+ const learned=P.rowToEvidence({
+  href:'https://x.com/newrentalth/status/999',
+  title:'LYKN REFLEXION CONCERT เช่ามือถือ vivo X300 790฿'
+ },candidate);
+ assert.ok(learned);
+ assert.equal(learned.competitor_id,'newrentalth');
+
+ const unrelated=P.rowToEvidence({
+  href:'https://x.com/randomfan/status/999',
+  title:'LYKN REFLEXION CONCERT เจอกันที่งาน ราคา 790 บาท'
+ },candidate);
+ assert.equal(unrelated,null);
 });
