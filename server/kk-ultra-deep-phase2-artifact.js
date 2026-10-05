@@ -39,6 +39,7 @@ function freezePhase2(input={}){
  if(new Set(allIds).size!==allIds.length)blockers.push('PHASE2_DUPLICATE_CANDIDATE_ID');
  if(rows.some(x=>!['VERIFIED','VERIFY_REQUIRED','STATUS_CHANGED','REJECT_WITH_REASON'].includes(x.disposition)))blockers.push('PHASE2_DISPOSITION_INVALID');
  if(rows.some(x=>x.disposition==='VERIFIED'&&!x.evidence.length))blockers.push('PHASE2_VERIFIED_EVIDENCE_REQUIRED');
+ if(rows.some(x=>x.disposition==='VERIFY_REQUIRED'))blockers.push('PHASE2_UNRESOLVED_VERIFY_REQUIRED');
  const payload={
   schema:VERSION,
   phase:'PHASE2',
