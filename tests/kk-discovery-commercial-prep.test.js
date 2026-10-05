@@ -76,3 +76,23 @@ test('proposal never becomes final price automatically',()=>{
  assert.equal(r.final_price_write_allowed,false);
  assert.equal(r.production_writes,0);
 });
+
+
+test('Phase 3 pricing scope does not require poster evidence from Phase 4',()=>{
+ const scored={...candidate,rental_fit_score:8.2};
+ const r=Prep.prepareBatch({phase_scope:'PHASE3_PRICING',candidates:[scored],competitor_prices:[price('a',890)]});
+ const row=r.candidates[0];
+ assert.equal(r.status,'READY_FOR_PHASE3_PRICING');
+ assert.equal(row.status,'READY_FOR_PHASE3_PRICING');
+ assert.equal(row.phase_scope,'PHASE3_PRICING');
+ assert.equal(row.poster.complete,false);
+ assert.equal(row.blockers.includes('VERIFIED_POSTER_EVIDENCE_MISSING'),false);
+ assert.equal(row.production_writes,0);
+});
+
+test('full commercial scope still requires verified poster evidence',()=>{
+ const scored={...candidate,rental_fit_score:8.2};
+ const r=Prep.prepareBatch({candidates:[scored],competitor_prices:[price('a',890)]});
+ assert.equal(r.status,'HOLD_FOR_COMMERCIAL_EVIDENCE');
+ assert.ok(r.candidates[0].blockers.includes('VERIFIED_POSTER_EVIDENCE_MISSING'));
+});
