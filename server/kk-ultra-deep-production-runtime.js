@@ -87,7 +87,8 @@ function snapshotEvents(snapshot={}){
    poster_image_url:text(web.poster_image_url||e.poster_url),
    packages,
    tombstone_locked:!!(lock&&text(lock.lock_state).toUpperCase()==='LOCKED'),
-   history_state:lock?text(lock.lock_state).toUpperCase():''
+   history_state:lock?text(lock.lock_state).toUpperCase():'',
+   history_reason:lock?text(lock.lock_reason):''
   };
  });
 }
