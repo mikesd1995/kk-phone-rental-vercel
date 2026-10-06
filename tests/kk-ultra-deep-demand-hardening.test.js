@@ -27,3 +27,16 @@ test('calibration uses external outcomes for threshold fit and KK only as diagno
  assert.equal(r.rows.PRIORITY[0].outcome.external_positive,true);assert.equal(r.rows.REJECT[0].outcome.kk_booking_count,2);assert.equal(r.rows.REJECT[0].outcome.kk_used_for_threshold_fit,false);assert.equal(r.internal_outcomes_are_diagnostic_only,true);
 });
 test('small samples never auto-change thresholds',()=>{assert.equal(Calibration.backtest([{external_score:80}]).recommendation,'KEEP_THRESHOLDS_COLLECT_MORE_EXTERNAL_OUTCOMES');});
+
+test('monthly adapter fail-closes before candidate planning on critical state drift',()=>{
+ const Adapter=require('../server/kk-ultra-deep-v2-runtime-adapter.js');
+ const r=Adapter.buildReadOnlyPlan({month:'2026-10',candidates:[],snapshot:{events:[{event_id:'E1',active_on_web:true}],visibility_locks:[{event_id:'E1',lock_state:'LOCKED'}],web_ready:[{event_id:'E1',action_for_web:'show'}]},commercial:{}});
+ assert.equal(r.status,'BLOCKED_STATE_CONSISTENCY');assert.equal(r.production_writes,0);
+});
+test('monthly adapter emits evidence receipt when external evidence is supplied',()=>{
+ const Adapter=require('../server/kk-ultra-deep-v2-runtime-adapter.js');
+ const ev=['competitor_rental','social_engagement','ticket_demand','fandom_photo_intent'].map((type,i)=>({type,score:80+i,source_url:'https://example.com/'+type,observed_at:'2026-10-07T01:00:00+07:00',summary:'external '+type}));
+ const snapshot={events:[],visibility_locks:[],web_ready:[],assets:[{asset_type:'phone',status:'active'}],bookings:[]};
+ const r=Adapter.normalizeCandidate({event_key:'E1',title:'Event',event_date:'2026-10-20',venue:'Bangkok',external_evidence:ev},snapshot,{});
+ assert.ok(r.external_evidence_receipt);assert.match(r.external_evidence_receipt.evidence_hash,/^[a-f0-9]{64}$/);assert.equal(r.external_evidence_receipt.internal_business_signals_affect_score,false);
+});
