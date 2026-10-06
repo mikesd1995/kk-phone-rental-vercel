@@ -7,7 +7,8 @@ const Ledger=require('./kk-ultra-deep-demand-evidence-ledger.js');
 const StateConsistency=require('./kk-ultra-deep-state-consistency.js');
 const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V5';
 function text(v){return String(v==null?'':v).trim();}
-function statusActive(v){return !['cancelled','canceled','no_show'].includes(text(v).toLowerCase());}
+const ACTIVE_BOOKING_STATUSES=new Set(['pending','confirmed','prepared','picked_up']);
+function statusActive(v){return ACTIVE_BOOKING_STATUSES.has(text(v).toLowerCase());}
 function bookingCountForEvent(snapshot,eventId){return (snapshot.bookings||[]).filter(b=>statusActive(b.booking_status)&&text(b.event_id)===text(eventId)).length;}
 function bookingCountOnDate(snapshot,eventDate){const counts=Production.bookingCountByDate(snapshot);return Number(counts.get(String(eventDate||'').slice(0,10))||0);}
 function availableOnDate(snapshot,eventDate){
@@ -111,4 +112,4 @@ function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
    plan,production_writes:0
  };
 }
-module.exports={VERSION,statusActive,bookingCountForEvent,bookingCountOnDate,availableOnDate,matchForV2,normalizeCandidate,buildReadOnlyPlan};
+module.exports={VERSION,ACTIVE_BOOKING_STATUSES,statusActive,bookingCountForEvent,bookingCountOnDate,availableOnDate,matchForV2,normalizeCandidate,buildReadOnlyPlan};
