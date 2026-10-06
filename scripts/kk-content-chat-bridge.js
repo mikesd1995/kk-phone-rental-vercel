@@ -3,6 +3,7 @@
 const fs=require('fs');
 const path=require('path');
 const Gateway=require('../server/kk-agent-gateway.js');
+const AgentLedger=require('../server/kk-agent-invocation-ledger.js');
 const Router=require('../server/kk-content-request-router.js');
 
 const VERSION='KK_CONTENT_CHAT_BRIDGE_V1';
@@ -149,7 +150,7 @@ async function runBridge({event,payload,ledgerFn}={}){
   const ledgerRows=[];
   const effectiveLedgerFn=typeof ledgerFn==='function'?ledgerFn:async row=>{
     ledgerRows.push(row);
-    return {ok:true,inserted:true,provider:'github_issue_bridge',invocation_id:row.invocation_id};
+    return AgentLedger.recordInvocation({row});
   };
 
   const request={
