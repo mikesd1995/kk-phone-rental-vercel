@@ -60,3 +60,18 @@ Root cause: both sanitizers required at least two underscores. `OWNER_HIDDEN` co
 5. Accept private Sheet reads and durable observability. Then improve Inbox media, mobile visual coverage, Canva master organization and marketing attribution.
 
 Do not add another architecture, scheduler, paid service or redesign before these operational gates. Do not assign a new system-wide completion percentage from a partial audit.
+
+## Continuation: remaining regression failures resolved in combined snapshot
+
+The follow-up replaced seven stale assertion failures without changing runtime UI:
+- Inbox unread-count rendering now executes the real renderer in a test VM, verifies the Thai badge, zero/negative-count suppression, media label and HTML escaping.
+- Modal scroll-lock coverage executes the real functions and verifies nested overlays preserve the original position, final close restores drift exactly, style cleanup, and repeated/no-drift closes do not jump.
+- Cache keys and bilingual copy assertions now match the existing production-source copy; no customer copy was changed by this follow-up.
+
+Independent reviewer approved all three test-file changes and independently reproduced **53/53 scoped tests passing** using the network-denying preload.
+
+Fresh full-suite results:
+- Audit branch based on main: **1,390/1,397 pass, 7 fail**. The remaining failures are the Ultra Deep/test-isolation issues already repaired in the reviewed PR #641 snapshot.
+- Local combined snapshot of PR #641 at `b1a7fb228ee70c70ca7f5f30c4ad40827214e2d2` plus this audit patch: **1,409/1,409 pass, zero failures**.
+
+This supersedes the earlier 1,402/1,409 combined result above. It is local regression evidence, not a GitHub CI run or production acceptance. Both PRs still require their release prerequisites, exact deployed-source proof and readback. Do not activate scanners or claim the public annotation leak is production-closed from this test result alone.
