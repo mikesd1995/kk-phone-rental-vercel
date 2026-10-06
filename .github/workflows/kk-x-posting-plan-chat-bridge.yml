@@ -11,6 +11,7 @@ permissions:
 
 env:
   KK_PROJECT_MEMORY_GITHUB_OIDC_ENABLED: 'true'
+  KK_AGENT_INVOCATION_GITHUB_OIDC_ENABLED: 'true'
 
 concurrency:
   group: kk-x-posting-plan-${{ github.event.issue.number }}

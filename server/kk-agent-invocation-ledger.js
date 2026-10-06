@@ -1,6 +1,8 @@
 'use strict';
 
 const RuntimeLedger = require('./runtime-ledger.js');
+const VercelOidcBridge = require('./runtime-ledger-oidc-bridge.js');
+const GithubOidcBridge = require('./kk-project-memory-github-oidc-bridge.js');
 
 const TABLE = 'kk_agent_invocations';
 const VALID_GATE_STATUSES = new Set(['READY_FOR_OWNER_REVIEW','RECORDED','BLOCKED_CONTENT_GATE','BLOCKED_REQUIRED_AGENT_NOT_INVOKED','BLOCKED_LEDGER_UNAVAILABLE','BLOCKED_RUNTIME_NOT_AVAILABLE','BLOCKED_AGENT_EXECUTION_FAILED']);
@@ -16,7 +18,9 @@ function boolValue(value) {
 function enabledState(env = process.env) {
   const explicit = text(env.KK_AGENT_INVOCATION_LEDGER_ENABLED);
   if (explicit) return boolValue(explicit);
-  return boolValue(env.KK_RUNTIME_LEDGER_ENABLED);
+  return boolValue(env.KK_RUNTIME_LEDGER_ENABLED) ||
+    text(env.VERCEL_ENV).toLowerCase() === 'production' ||
+    (text(env.GITHUB_ACTIONS).toLowerCase() === 'true' && boolValue(env.KK_AGENT_INVOCATION_GITHUB_OIDC_ENABLED));
 }
 
 function configState(env = process.env) {
@@ -29,10 +33,18 @@ function configState(env = process.env) {
   const enabled = enabledState(env);
   const projectBindingMatches =
     !!expectedProjectRef && !!actualProjectRef && expectedProjectRef === actualProjectRef;
+  const directConfigured = enabled && !!url && !!serverKey.value && projectBindingMatches;
+  const vercelOidcCandidate = enabled && !directConfigured && text(env.VERCEL_ENV).toLowerCase() === 'production';
+  const githubOidcCandidate = enabled && !directConfigured && !vercelOidcCandidate &&
+    text(env.GITHUB_ACTIONS).toLowerCase() === 'true' && boolValue(env.KK_AGENT_INVOCATION_GITHUB_OIDC_ENABLED);
 
   return {
     enabled,
-    configured: enabled && !!url && !!serverKey.value && projectBindingMatches,
+    configured: directConfigured || vercelOidcCandidate || githubOidcCandidate,
+    direct_configured: directConfigured,
+    vercel_oidc_candidate: vercelOidcCandidate,
+    github_oidc_candidate: githubOidcCandidate,
+    mode: directConfigured ? 'direct' : (vercelOidcCandidate ? 'vercel_oidc' : (githubOidcCandidate ? 'github_oidc' : 'disabled')),
     url_configured: !!url,
     server_key_configured: !!serverKey.value,
     key_mode: serverKey.mode,
@@ -140,6 +152,24 @@ async function recordInvocation({
     publishes: 0
   };
 
+  if (!cfg.direct_configured) {
+    const remote = cfg.vercel_oidc_candidate
+      ? await VercelOidcBridge.writeAgentInvocation({row:payload,fetchImpl})
+      : await GithubOidcBridge.writeAgentInvocation({env,row:payload,fetchImpl});
+    if (!remote || remote.ok !== true) {
+      throw Object.assign(new Error('agent invocation OIDC ledger write failed'), {
+        code: remote && remote.error_code || 'AGENT_INVOCATION_OIDC_WRITE_FAILED'
+      });
+    }
+    return {
+      ok:true,
+      inserted:remote.inserted===true,
+      idempotent_duplicate:remote.idempotent_duplicate===true,
+      invocation_id:payload.invocation_id,
+      mode:cfg.mode
+    };
+  }
+
   const endpoint = `${text(env.SUPABASE_URL).replace(/\/+$/, '')}/rest/v1/${TABLE}?on_conflict=invocation_id`;
   const response = await fetchImpl(endpoint, {
     method: 'POST',
@@ -181,6 +211,14 @@ async function listRecentInvocations({
     });
   }
   const safeLimit = Math.max(1, Math.min(Number.isInteger(Number(limit)) ? Number(limit) : 20, 100));
+  if (!cfg.direct_configured) {
+    if (!cfg.vercel_oidc_candidate) {
+      throw Object.assign(new Error('agent invocation ledger read unavailable in GitHub OIDC mode'), {code:'AGENT_INVOCATION_LEDGER_READ_NOT_SUPPORTED'});
+    }
+    const remote=await VercelOidcBridge.readAgentInvocations({limit:safeLimit,fetchImpl});
+    if(!remote||remote.ok!==true)throw Object.assign(new Error('agent invocation OIDC ledger read failed'),{code:remote&&remote.error_code||'AGENT_INVOCATION_OIDC_READ_FAILED'});
+    return {ok:true,rows:remote.rows,mode:cfg.mode};
+  }
   const params = new URLSearchParams({
     select: 'invocation_id,occurred_at,request_type,intent,route_id,required_agents,invoked_agents,agent_versions,registry_version,gateway_version,gate_status,blocked_reason,content_gate,source_commit_sha,owner_review_required,production_writes,publishes',
     order: 'occurred_at.desc',
