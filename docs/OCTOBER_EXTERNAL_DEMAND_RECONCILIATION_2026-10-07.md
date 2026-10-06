@@ -163,3 +163,7 @@ When owner says "สแกนเดือน X ใหม่":
 8. LOCKED owner tombstones never reopen;
 9. output exact ADDED/REMOVED/REACTIVATED/RESTORED/KEPT/WATCH/PROTECTED report;
 10. exact derived + production readback.
+
+## Durable owner-keep exception
+
+`EVT-20261014-LOVE-ON-HIRE-BLESSING` now has a persistent visibility-history row with reason `OWNER_KEEP_DEMAND_PRUNE_EXCEPTION_2026-10-07`, changed_by `OWNER_COMMAND`. This is not a hide lock; it is a durable owner keep instruction. Current derived readback remains `show` with phone=2/lens=2.
