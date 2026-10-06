@@ -187,7 +187,7 @@ Existing-card decisions:
 - <45 => `REMOVE_RECOMMENDED`; when the owner explicitly requested the monthly reconciliation to apply, write `active_on_web=false` through the governed visibility path and record the prune reason
 - insufficient external evidence => `VERIFY_MORE_KEEP`; insufficient evidence alone is not permission to remove an existing visible card
 - active KK booking => `KEEP_PROTECTED_ACTIVE_BOOKING`; this protects visibility but **does not change External Demand Score**
-- explicit owner keep or durable `REOPENED` history => `OWNER_KEEP`
+- explicit owner keep (including durable visibility-history reason prefixed `OWNER_KEEP`) or durable `REOPENED` history => `OWNER_KEEP`
 - persistent `LOCKED` tombstone => `OWNER_HIDDEN`; never reopen from score
 
 Hidden non-LOCKED canonical events are also requalified:
