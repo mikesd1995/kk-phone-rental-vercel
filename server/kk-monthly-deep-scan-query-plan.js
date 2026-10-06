@@ -1,6 +1,6 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V7';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V8';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล'],
  TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล'],
@@ -33,17 +33,17 @@ function monthRange(input={}){
  const last=new Date(Date.UTC(y,m,0)).getUTCDate(),mm=String(m).padStart(2,'0');return {month:y+'-'+mm,start_date:y+'-'+mm+'-01',end_date:y+'-'+mm+'-'+String(last).padStart(2,'0')};
 }
 function build(input={}){
- const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],hotFandoms=(Array.isArray(input.hot_fandom_terms)?input.hot_fandom_terms:[]).map(text).filter(Boolean).slice(0,12),gap_tasks=[];
+ const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],hotFandoms=(Array.isArray(input.hot_fandom_terms)?input.hot_fandom_terms:[]).map(text).filter(Boolean).slice(0,12),activeBookingDates=[...new Set((input.active_booking_dates||[]).map(text).filter(Boolean))],gap_tasks=[];
  for(const [source_tier,terms] of Object.entries(TIER_TERMS))for(const term of terms){const qs=queryVariantsForTerm(term,range,location,learned);const liveNationEligible=['OFFICIAL','TICKETING','VENUE','ARTIST_AGENCY','ORGANIZER_PROMOTER','PUBLIC_CALENDAR'].includes(source_tier);gap_tasks.push({source_tier,query:qs[0],query_variants:qs.slice(1),providers:[...(liveNationEligible?['LIVENATION_PUBLIC']:[]),'OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});}
  for(const fandom of hotFandoms){
   gap_tasks.push({source_tier:'FANDOM_GRAPH',source_id:'fandom-'+fandom.toLowerCase().replace(/[^a-z0-9ก-๙]+/gi,'-').slice(0,60),query:fandom+' fanmeeting fancon fansign brand event birthday Bangkok '+range.month,query_variants:[fandom+' เช่ามือถือ กรุงเทพ '+range.month,fandom+' lucky fan meet greet กรุงเทพ '+range.month,fandom+' added show sold out Bangkok '+range.month],providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});
  }
   const universe=SourceRegistry.buildUniversePlan({month:range.month,location});
  for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
- return {version:VERSION,mode:'ULTRA_DEEP_MONTH_LONG_TAIL',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),learned_query_count:learned.length,hot_fandom_query_count:hotFandoms.length,production_writes:0,authoritative:false,verifier_required:true};
+ return {version:VERSION,mode:'ULTRA_DEEP_MONTH_LONG_TAIL',range,location,gap_tasks,excluded_dates:activeBookingDates,date_exclusion_rule:'ANY_ACTIVE_BOOKING_BLOCKS_OTHER_EVENT_DISCOVERY_AND_PUBLISH',source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),learned_query_count:learned.length,hot_fandom_query_count:hotFandoms.length,production_writes:0,authoritative:false,verifier_required:true};
 }
 function buildOperational(input={}){
- const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],hotFandoms=(Array.isArray(input.hot_fandom_terms)?input.hot_fandom_terms:[]).map(text).filter(Boolean).slice(0,6),gap_tasks=[];
+ const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],hotFandoms=(Array.isArray(input.hot_fandom_terms)?input.hot_fandom_terms:[]).map(text).filter(Boolean).slice(0,6),activeBookingDates=[...new Set((input.active_booking_dates||[]).map(text).filter(Boolean))],gap_tasks=[];
  for(const source_tier of OPERATIONAL_TIERS){
   const term=(TIER_TERMS[source_tier]||[])[0];if(!term)continue;
   const qs=queryVariantsForTerm(term,range,location,learned);
@@ -72,6 +72,8 @@ function buildOperational(input={}){
   version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V2',
   mode:'SMART_OPERATIONAL',
   range,location,gap_tasks,
+  excluded_dates:activeBookingDates,
+  date_exclusion_rule:'ANY_ACTIVE_BOOKING_BLOCKS_OTHER_EVENT_DISCOVERY_AND_PUBLISH',
   operational_tiers:[...OPERATIONAL_TIERS],hot_fandom_query_count:hotFandoms.length,
   audit_required:true,
   production_writes:0,
