@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V5';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V8';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -12,6 +12,15 @@ const CORPUS=Object.freeze([
   {case_id:'tutoryim-updated-20261018',title:'TUTOR YIM',aliases:['tutor yim','tutoryim','ปล่อยปลาฉลาม'],event_date:'2026-10-18'},
   {case_id:'scoopify-james-su-20261024',title:'SCOOPIFY YOGURT & YOU WITH JAMES SU',aliases:['scoopify yogurt you james su','james su scoopify','yogurt you james su','scoopifyyogurtandjamessu','summervibeth james su'],search_queries:['SCOOPIFYYogurtAndJamesSu SummerVibeTH','SCOOPIFY James Su SummerVibeTH'],event_date:'2026-10-24'},
   {case_id:'tle-firstone-20261022',title:'A TOUCH OF LOVE WITH TLE-FIRSTONE',aliases:['touch of love tle firstone','tle firstone','tle-firstone','everpink a touch of love tlefirstone','everpinkxtlefirstone'],search_queries:['EVERPINKxTleFirstone','EVERPINK A Touch of Love TleFirstone'],event_date:'2026-10-22'},
+  {case_id:'ryo-teeteepor-20261007',title:'RYO Strong Roots, Bright Stars with TeeTee & Por',aliases:['ryo hair teeteepor','strong roots bright stars teetee por','ryo hair x ttp','ryohairxteeteepor'],search_queries:['TeeTee Por October 2026 schedule','TeeTeePor RYO Hair 7 October 2026','RYO Hair TeeTee Por Central Pinklao'],event_date:'2026-10-07',miss_class:'ARTIST_BRAND_SOCIAL_KEYWORDLESS_APPEARANCE'},
+  {case_id:'the-weeknd-20261011',title:'The Weeknd: After Hours Til Dawn Tour',aliases:['the weeknd after hours til dawn bangkok'],search_queries:['the weeknd after hours til dawn bangkok October 2026'],event_date:'2026-10-11',miss_class:'INTERNATIONAL_CONCERT_SOURCE_GAP'},
+  {case_id:'mindaryn-20261016',title:'MindaRyn 1st Asia Tour Calling Back',aliases:['mindaryn calling back bangkok'],search_queries:['mindaryn calling back bangkok October 2026'],event_date:'2026-10-16',miss_class:'INTERNATIONAL_CONCERT_SOURCE_GAP'},
+  {case_id:'klive-bandage-20261017',title:'K-LIVE FESTIVAL BAND:AGE IN BANGKOK',aliases:['k live festival band age bangkok'],search_queries:['k live festival band age bangkok October 2026'],event_date:'2026-10-17',miss_class:'INTERNATIONAL_CONCERT_SOURCE_GAP'},
+  {case_id:'meme-fest-20261017',title:'MEME FEST 2026',aliases:['meme fest 2026 bangkok'],search_queries:['meme fest 2026 bangkok October 2026'],event_date:'2026-10-17',miss_class:'FESTIVAL_TAXONOMY_GAP'},
+  {case_id:'0wave-20261021',title:'VERY Live Presents 0WAVE Live In Bangkok 2026',aliases:['0wave live bangkok 2026'],search_queries:['0wave live bangkok 2026 October 2026'],event_date:'2026-10-21',miss_class:'THAI_LIVE_SOURCE_GAP'},
+  {case_id:'interstellar-live-20261028',title:'INTERSTELLAR LIVE CONCERT',aliases:['interstellar live concert bangkok'],search_queries:['interstellar live concert bangkok October 2026'],event_date:'2026-10-28',miss_class:'TICKETING_SOURCE_GAP'},
+  {case_id:'pixxie-soundscape-20261030',title:'PiXXiE live at Bangkok Soundscape',aliases:['pixxie bangkok soundscape'],search_queries:['pixxie bangkok soundscape October 2026'],event_date:'2026-10-30',miss_class:'THAI_LIVE_SOURCE_GAP'},
+  {case_id:'nct127-redline-20261031',title:'NCT 127 5TH TOUR NEO CITY - THE REDLINE',aliases:['nct 127 redline bangkok'],search_queries:['nct 127 redline bangkok October 2026'],event_date:'2026-10-31',miss_class:'INTERNATIONAL_CONCERT_SOURCE_GAP'},
   {case_id:'fortreasure-20261129',title:'FORTREASURE BEYOND THE HORIZON CONCERT',aliases:['fortreasure beyond the horizon','fort treasure beyond horizon','fortreasure concert','beyond the horizon concert fortfts','fortfts fortreasure'],search_queries:['FORTREASURE site:eventpop.me','FORTREASURE FortFTS Eventpop'],event_date:'2026-11-29'}
 ]);
 const FIXTURE_EVIDENCE=Object.freeze({
@@ -24,6 +33,7 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'tutoryim-updated-20261018':{title:'ปล่อยปลาฉลาม Meet TutorYim updated date',source_url:'https://www.kazz-magazine.com/'},
   'scoopify-james-su-20261024':{title:'HOW TO BUY TICKETS SCOOPIFY YOGURT & YOU WITH JAMES SU',source_url:'https://x.com/SummerVibeTH'},
   'tle-firstone-20261022':{title:'EVERPINK A Touch of Love with TleFirstone',source_url:'https://x.com/everpink_th'},
+  'ryo-teeteepor-20261007':{title:'RYO Strong Roots, Bright Stars with TeeTee & Por',source_url:'https://x.com/RYOHairThailand'},
   'fortreasure-20261129':{title:'FORTREASURE BEYOND THE HORIZON CONCERT',source_url:'https://www.eventpop.me/e/173408/fortreasure-beyond-the-horizon-concert'}
 });
 

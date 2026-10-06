@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V2';
+const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V3';
 const PROTECTED_POLICY=Object.freeze([
   'BOOKING_PRICE_LOCK','TOMBSTONE_NO_RESURRECTION','GOVERNED_ADMIN_WRITER_ONLY',
   'EXACT_READBACK_REQUIRED','VERIFIED_EVENT_REQUIRED','EXTERNAL_DEMAND_SCORE_EXCLUDES_KK_INTERNAL_OUTCOMES'
@@ -15,6 +15,7 @@ const ADAPTIVE_SCORING=Object.freeze([
 
 function text(v){return String(v==null?'':v).trim();}
 function uniq(xs){return [...new Set((xs||[]).map(text).filter(Boolean))];}
+function list(v){return Array.isArray(v)?v:(text(v)?[v]:[]);}
 function learn(input={}){
  const missed=Array.isArray(input.missed_events)?input.missed_events:[];
  const falsePositives=Array.isArray(input.false_positives)?input.false_positives:[];
@@ -28,6 +29,20 @@ function learn(input={}){
  const learnedSources=uniq([...missed.map(x=>x.source),...sourceWins.map(x=>x.source)]);
  const suppressPatterns=uniq(falsePositives.flatMap(x=>x.patterns||[]));
  const holdSignals=uniq(holds.flatMap(x=>x.reasons||x.holds||[]));
+ const missClasses=uniq(missed.map(x=>x.miss_class));
+ const artistBrandSocialMiss=missed.some(x=>['ARTIST_BRAND_SOCIAL_KEYWORDLESS_APPEARANCE','ARTIST_SCHEDULE_GAP','BRAND_SOCIAL_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
+ const broadCoverageMiss=missed.some(x=>['INTERNATIONAL_CONCERT_SOURCE_GAP','THAI_LIVE_SOURCE_GAP','FESTIVAL_TAXONOMY_GAP','FAN_BIRTHDAY_SOURCE_GAP','VENUE_CALENDAR_GAP','TICKETING_SOURCE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
+ const expansionQueries=artistBrandSocialMiss?uniq(missed.flatMap(x=>{
+   const artists=list(x&&x.artists||x&&x.artist),brands=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);
+   return [...artists.map(a=>a+' '+month+' schedule'),...artists.map(a=>a+' '+month+' brand event'),...brands.flatMap(b=>artists.map(a=>b+' '+a+' '+month)),...artists.map(a=>a+' lucky fan top spender fansign appearance')];
+ })):[];
+ const coverageExpansion=broadCoverageMiss?[
+   'ticketing Bangkok concert fanmeeting festival',
+   'Bangkok venue concert event calendar',
+   'Thailand promoter concert fan meeting',
+   'Bangkok festival livehouse showcase',
+   'Bangkok birthday fan event fancon'
+ ]:[];
  const hotFandoms=uniq([
    ...outcomes.flatMap(x=>x.fandom||x.artist||x.pair||[]),
    ...waitlists.flatMap(x=>x.fandom||x.artist||x.pair||[]),
@@ -35,6 +50,8 @@ function learn(input={}){
  ]);
  const recommendations=[];
  if(missed.length) recommendations.push('EXPAND_LONG_TAIL_QUERIES_AND_SOURCE_PRIORITY');
+ if(artistBrandSocialMiss) recommendations.push('MANDATORY_ARTIST_MONTH_SCHEDULE_AND_BRAND_SOCIAL_EXPANSION');
+ if(broadCoverageMiss) recommendations.push('MANDATORY_MULTI_AXIS_SOURCE_UNIVERSE_SWEEP_AND_KNOWN_POSITIVE_BACKTEST');
  if(falsePositives.length) recommendations.push('TIGHTEN_IDENTITY_AND_GENERIC_PAGE_FILTERS');
  if(holds.some(x=>(x.holds||[]).includes('VERIFIED_POSTER_REQUIRED'))) recommendations.push('EXPAND_POSTER_DISCOVERY_LEADS_FROM_EXACT_EVENT_COMPETITORS');
  if(corrections.length) recommendations.push('REVIEW_REPEATED_MANUAL_CORRECTIONS_FOR_HEURISTIC_UPDATE');
@@ -44,7 +61,12 @@ function learn(input={}){
    version:VERSION,
    status:'LEARNED',
    adaptive:{
-     query_terms:learnedQueries,
+     query_terms:uniq([...learnedQueries,...expansionQueries,...coverageExpansion]),
+     miss_classes:missClasses,
+     mandatory_expansion:uniq([
+       ...(artistBrandSocialMiss?['ARTIST_MONTH_SCHEDULE','BRAND_OFFICIAL_SOCIAL','VENUE_MALL_SOCIAL','ARTIST_TO_RELATED_EVENT_PIVOT']:[]),
+       ...(broadCoverageMiss?['TICKETING_UNIVERSE','ORGANIZER_PROMOTER_UNIVERSE','VENUE_CALENDAR_UNIVERSE','BROAD_CONCERT_LIVE_UNIVERSE','FESTIVAL_TAXONOMY_UNIVERSE','KNOWN_POSITIVE_BACKTEST']:[])
+     ]),
      source_priority_candidates:learnedSources,
      suppress_patterns:suppressPatterns,
      hold_signals:holdSignals,
