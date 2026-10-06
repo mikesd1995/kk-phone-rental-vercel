@@ -143,3 +143,16 @@ A full/high-waitlist event should trigger adjacent-fandom expansion and announce
 Discovery is intentionally broad. Keep viable discoveries in Candidate Master Pool even when they are not storefront-worthy. Required candidate fields should preserve event identity, date, venue/city, event type, artist/fandom, organizer, ticketing/official source, poster lead, discovery source class, observed time, confidence and change state.
 
 Discovery output is not storefront publication. New-event publication requires the downstream External Demand hard gate.
+
+## Parent vs fandom sub-event rule (2026-10-07)
+
+When discovery finds a high-demand fansign/artist slot inside an existing parent event, do not create a duplicate storefront card by default.
+
+If child and parent share date, venue, admission and operational pickup/return boundary:
+- attach child external rental/social/photo-intent evidence to the parent;
+- use only external-market child evidence to strengthen the parent external score;
+- keep one storefront identity.
+
+Create a separate candidate only when date, venue, admission, pickup window or another operational boundary is genuinely distinct.
+
+A high-demand child signal may never reopen a LOCKED or owner-hidden parent.
