@@ -4,8 +4,27 @@ const assert=require('node:assert/strict');
 const Runner=require('../server/kk-ultra-deep-runtime-runner.js');
 const KnownMiss=require('../server/kk-ultra-deep-known-miss-regression.js');
 
+let liveTransportCalls=0;
+const discoveryEnvKeys=['KK_SEARXNG_ENDPOINT','KK_DDGS_TRAFILATURA_ENABLED'];
+const savedDiscoveryEnv=Object.fromEntries(discoveryEnvKeys.map(key=>[key,process.env[key]]));
+for(const key of discoveryEnvKeys) delete process.env[key];
+const rejectLiveTransport=async()=>{liveTransportCalls++;throw new Error('LIVE_TRANSPORT_FORBIDDEN_IN_UNIT_TEST');};
+const OFFLINE_PUBLIC_WEB_OPTIONS={
+ searxng_endpoint:'',ddg_enabled:false,bing_enabled:false,
+ livenation_enabled:false,bing_rss_enabled:false,ddgs_trafilatura_enabled:false,
+ fetchFn:rejectLiveTransport,ddgs_runner:rejectLiveTransport
+};
+test.after(()=>{
+ for(const key of discoveryEnvKeys){
+  if(savedDiscoveryEnv[key]===undefined) delete process.env[key];
+  else process.env[key]=savedDiscoveryEnv[key];
+ }
+ assert.equal(liveTransportCalls,0,'unit tests must not call live provider transports');
+});
+
+
 test('runtime runner fails closed when no unknown-URL search provider is bound',async()=>{
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
  assert.equal(out.status,'HOLD_FOR_COVERAGE');
  assert.equal(out.full,false);
  assert.ok(out.blockers.includes('UNKNOWN_URL_SEARCH_NOT_BOUND'));
@@ -21,7 +40,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
    }
    return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
  assert.equal(out.provider_binding.unknown_url_search_bound,true);
@@ -53,7 +72,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
@@ -86,7 +105,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.full,true);
  assert.ok(calls[0].startsWith('knownmiss:'));
@@ -112,7 +131,7 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand',known_miss_classifications:classifications},
-   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.known_miss_regression.complete,true);
  assert.equal(out.known_miss_live_recall.complete,true);
@@ -142,7 +161,7 @@ test('reference sweep execution proof fails closed when all search providers err
  const classifications=KnownMiss.CORPUS.map(c=>({case_id:c.case_id,executed:true,status:'SOURCE_UNAVAILABLE'}));
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand',known_miss_classifications:classifications},
-   {providers:{SEARXNG:fail},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+   {providers:{SEARXNG:fail},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.full,false);
  assert.equal(out.reference_sweep_proof.complete,false);
@@ -157,7 +176,7 @@ test('deterministic historical regression remains complete even when live recall
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.known_miss_regression.complete,true);
  assert.ok(out.known_miss_live_recall.passed<out.known_miss_live_recall.case_count);
@@ -175,7 +194,7 @@ test('empty current-month discovery blocks FULL even when provider calls execute
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.discovery_proof.has_evidence,false);
  assert.ok(out.blockers.includes('DISCOVERY_EVIDENCE_EMPTY'));
@@ -313,7 +332,7 @@ test('ineligible reference is never recovered into verifier candidate pool',()=>
 
 test('failed FULL gates expose bounded source/task/provider receipts without provider payloads',async()=>{
  const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'}, {
-  publicWebOptions:{ddg_enabled:false,bing_enabled:false,searxng_endpoint:''},
+  publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS,
   providers:{EXA:async()=>{throw Object.assign(new Error('secret-provider-payload'),{code:'sensitive-token'});}}
  });
  assert.equal(out.full,false);
@@ -335,7 +354,7 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
    : [];
  const out=await Runner.runOperationalDiscovery(
    {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
-   {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
+   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.mode,'SMART_OPERATIONAL');
  assert.equal(out.status,'READY_FOR_VERIFIER');

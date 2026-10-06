@@ -75,3 +75,22 @@ Fresh full-suite results:
 - Local combined snapshot of PR #641 at `b1a7fb228ee70c70ca7f5f30c4ad40827214e2d2` plus this audit patch: **1,409/1,409 pass, zero failures**.
 
 This supersedes the earlier 1,402/1,409 combined result above. It is local regression evidence, not a GitHub CI run or production acceptance. Both PRs still require their release prerequisites, exact deployed-source proof and readback. Do not activate scanners or claim the public annotation leak is production-closed from this test result alone.
+
+## Continuation: independently passing audit branch and preview readback
+
+The audit branch now includes only the six portability/regression fixes needed to remove its dependency on PR #641 for local regression. It does not import V28 source-registry or inventory-pipeline features:
+- Recognize the existing producer's `SKIPPED_FULL_BOOKING_DATE` as a safe zero-write terminal outcome; unknown/held outcomes still block.
+- Repair missing test imports and the current read-only phase label.
+- Give the low-rentability fixture explicit low signals; retain unknown-evidence candidates for verification.
+- Isolate runtime unit tests from live discovery transports and ambient provider environment variables.
+- Assert all 15 actual discovery tier identities rather than the obsolete count of eight.
+
+Standalone offline full regression passed **1,399/1,399**. Independent review approved the six-file diff and reproduced **81/81** scoped tests. The explicit-tier follow-up passed **6/6**. Syntax and invariants also passed. These results supersede the standalone seven-failure status above.
+
+### Preview evidence and skipped-build explanation
+
+Vercel deployment `dpl_Fvmb4qWRkka4RcSr6igGHiWqMo2j`, source `9ecd6ab62556531c091abceef36315417edf8f55`, is **READY**. A read-only request to its `/api/kk-data?sheet=08_Web_Ready&range=A4:K` returned HTTP 200 with neither `OWNER_HIDDEN` nor `owner instruction` in the response. This confirms the original public-note patch on that preview only.
+
+The subsequent source `fee4a6dbfbbb97ee978fe768a1e16e550c2d9131` was skipped by the documented ignored-build script because it changed only tests/docs. This was not evidence of a failed runtime build. The new terminal-gate source change still requires its own deployment evidence.
+
+Production deployment readback remained `dpl_223VryapZtXQpVBjsfzife3xSPfx` at main `bfc3ab8391ca84e28da0c39ae595cddce05865ec`, READY. No merge/promotion was made: hosted-CI recovery and exact production release/readback prerequisites remain separate gates. No new scheduler, paid service, customer message or business-data write was introduced.
