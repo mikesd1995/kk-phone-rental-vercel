@@ -85,7 +85,33 @@ async function readProjectMemory({domains=[],limit=80,fetchImpl=global.fetch,get
   };
 }
 
+
+async function writeAgentInvocation({row,fetchImpl=global.fetch,getTokenImpl=officialVercelOidcToken}={}){
+  const remote=await request({probe:'agent-invocation-write',version:'v1',row},{fetchImpl,getTokenImpl});
+  if(!remote.ok)return {...remote,read_only:false,audit_writes:0,business_writes:0};
+  const body=remote.body||{};
+  const valid=body.ok===true&&body.authenticated===true&&body.read_only===false&&body.business_writes===0&&
+    String(body.invocation_id||'')===String(row&&row.invocation_id||'')&&[0,1].includes(Number(body.audit_writes));
+  return {
+    attempted:true,ok:valid,authenticated:body.authenticated===true,
+    inserted:valid&&body.inserted===true,idempotent_duplicate:valid&&body.inserted!==true,
+    invocation_id:valid?String(body.invocation_id||''):'',
+    read_only:false,audit_writes:valid?Number(body.audit_writes):0,business_writes:0,
+    error_code:valid?'':'AGENT_INVOCATION_OIDC_RESPONSE_INVALID'
+  };
+}
+
+async function readAgentInvocations({limit=20,fetchImpl=global.fetch,getTokenImpl=officialVercelOidcToken}={}){
+  const safeLimit=Math.max(1,Math.min(Number(limit)||20,100));
+  const remote=await request({probe:'agent-invocation-read',version:'v1',limit:safeLimit},{fetchImpl,getTokenImpl});
+  if(!remote.ok)return {...remote,read_only:true,bounded_limit:safeLimit,business_writes:0,rows:[]};
+  const body=remote.body||{},rows=Array.isArray(body.rows)?body.rows:[];
+  const valid=body.ok===true&&body.authenticated===true&&body.read_only===true&&body.business_writes===0&&Number(body.bounded_limit)===safeLimit&&rows.length<=safeLimit;
+  return {attempted:true,ok:valid,authenticated:body.authenticated===true,rows:valid?rows:[],read_only:true,bounded_limit:safeLimit,business_writes:0,error_code:valid?'':'AGENT_INVOCATION_OIDC_READ_INVALID'};
+}
+
 module.exports={
   OIDC_LEDGER_PROJECT_REF,OIDC_LEDGER_FUNCTION,OIDC_BRIDGE_TIMEOUT_MS,PROJECT_MEMORY_MAX_ROWS,
-  endpoint,officialVercelOidcToken,resolveOidcToken,request,probe,normalizeDomains,readProjectMemory
+  endpoint,officialVercelOidcToken,resolveOidcToken,request,probe,normalizeDomains,readProjectMemory,
+  writeAgentInvocation,readAgentInvocations
 };
