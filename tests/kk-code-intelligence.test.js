@@ -120,3 +120,9 @@ test('Unified Inbox task routes to the actual Admin and LINE/X integration surfa
   assert.equal(pack.targeted_tests.includes('tests/kk-admin-inbox-preview.test.js'),true);
   assert.equal(pack.targeted_tests.includes('tests/line-booking-inbox-tee.test.js'),true);
 });
+
+test('route file order preserves ingress and UI context within a two-file budget',()=>{
+ const pack=CodeIntel.contextPack('Unified Inbox LINE/X webhook conversation PostgREST',{root,maxFiles:2});
+ assert.deepEqual(pack.selected_files.map(x=>x.path),['server/line-booking-webhook.js','admin/inbox-preview.js']);
+ assert.ok(pack.estimated_context_tokens<=12000);
+});

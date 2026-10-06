@@ -1,0 +1,138 @@
+{
+  "scope": "Observed desktop only. No mobile or production repair acceptance.",
+  "observed_url": "https://kk-phone-rental.vercel.app/",
+  "result": {
+    "schema_version": "KK_AGENT_GATEWAY_V5",
+    "status": "RECORDED",
+    "intent": "storefront_ux_review",
+    "matched": true,
+    "invocation": {
+      "invocation_id": "agi_d6840e99bec50c620b2ebfa0c58d939c7facf17d",
+      "request_type": "STOREFRONT_UX_REVIEW",
+      "intent": "storefront_ux_review",
+      "route_id": "STOREFRONT_UX_REVIEW",
+      "required_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "invoked_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "agent_versions": {
+        "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+      },
+      "registry_version": "KK_AGENT_REGISTRY_V29",
+      "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+      "gate_status": "RECORDED",
+      "blocked_reason": "",
+      "content_gate": "",
+      "request_hash": "4a44f97d4b7ccfbab8355508e02d76de2717118a46b7398ed84be7c2ba569f64",
+      "truth_hash": "78496d1e03cba1fa7af99840452228efbba8eed39cee3b8eae0aba5df203ab48",
+      "source_commit_sha": "",
+      "owner_review_required": true,
+      "production_writes": 0,
+      "publishes": 0
+    },
+    "ledger": {
+      "ok": true,
+      "inserted": true,
+      "invocation_id": "agi_d6840e99bec50c620b2ebfa0c58d939c7facf17d",
+      "mode": "LOCAL_FILE_EVIDENCE"
+    },
+    "invocation_check": {
+      "registry_version": "KK_AGENT_REGISTRY_V29",
+      "applicable": true,
+      "pass": true,
+      "route_id": "STOREFRONT_UX_REVIEW",
+      "runtime_available": true,
+      "required_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "downstream_agents": [],
+      "invoked_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "missing_agents": [],
+      "owner_review_required": true,
+      "persistent_invocation_evidence_required": true,
+      "agent_versions": {
+        "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+      }
+    },
+    "downstream_agents": [],
+    "result": {
+      "schema_version": "KK_STOREFRONT_UX_REVIEWER_V1",
+      "agent": "kk-storefront-ux-reviewer",
+      "mode": "READ_ONLY_DESIGN_ADVISOR",
+      "status": "PASS",
+      "professional_readiness_score": 100,
+      "viewport": {
+        "width": 1363,
+        "height": 936,
+        "class": "desktop",
+        "platform": "desktop"
+      },
+      "finding_counts": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      },
+      "findings": [],
+      "recommendations": [],
+      "acceptance_matrix": {
+        "widths": [
+          320,
+          375,
+          390,
+          430,
+          480,
+          768,
+          1024,
+          1440
+        ],
+        "required_checks": [
+          "no_horizontal_overflow",
+          "ios_form_controls_at_least_16px",
+          "sticky_controls_within_budget",
+          "bottom_cta_within_budget",
+          "tap_targets_within_budget",
+          "filter_toolbar_not_wrapped_on_mobile",
+          "event_cards_not_obscured",
+          "safe_area_respected",
+          "reduced_motion_respected"
+        ],
+        "owner_visual_review_required": true
+      },
+      "design_constraints": {
+        "sticky_search_allowed": true,
+        "mobile_filter_rows": 1,
+        "min_tap_target_px": 40,
+        "ios_form_font_min_px": 16,
+        "max_sticky_height_px": 220,
+        "max_sticky_viewport_ratio": 0.18,
+        "max_bottom_cta_height_px": 72,
+        "no_horizontal_overflow": true,
+        "preserve_event_truth_and_booking_logic": true
+      },
+      "safety": {
+        "production_writes": 0,
+        "auto_merge": false,
+        "auto_deploy": false,
+        "pricing_mutation": false,
+        "booking_mutation": false,
+        "inventory_mutation": false,
+        "machine_sot_mutation": false,
+        "owner_review_required": true
+      }
+    },
+    "project_memory": {
+      "status": "READY",
+      "context_count": 2,
+      "durable_mode": "disabled",
+      "durable_context_count": 0
+    },
+    "owner_review_required": true,
+    "production_writes": 0,
+    "publishes": 0
+  }
+}

@@ -92,6 +92,9 @@ test('browser sanitizer blocks observed machine tokens while preserving customer
   const sanitizer = Function(source.slice(start, end) + '; return sanitizePublicText;')();
 
   for (const token of [
+    'OWNER_HIDDEN 2026-09-29 | owner instruction: hide event',
+    'คำแนะนำ|PRICE_LOCKED',
+    'OWNER_HIDDEN|คำแนะนำ',
     'WEEKDAY_FALLBACK_HIGH_FANDOM_2026-09-28',
     'OWNER_PRICE_ADJUST_2026-09-28_BIG_EVENT_COLLISION',
     'EXACT_EVENT_COMPETITOR_690_2026-09-28',

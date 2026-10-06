@@ -921,7 +921,7 @@ function looksInternalPublicText(raw){
 
   // Customer-facing notes must never render machine/internal annotations.
   // This generic guard catches operational tokens even when a new token name appears.
-  var machineToken=/(?:^|[\s([{])(?:[A-Z][A-Z0-9-]{1,})(?:_[A-Z0-9-]+){2,}(?=$|[\s)\]}.,;:])/;
+  var machineToken=/(?:^|[\s([{|])(?:[A-Z][A-Z0-9-]{1,})(?:_[A-Z0-9-]+){1,}(?=$|[\s)\]}.,;:|])/;
   if(machineToken.test(s))return true;
 
   return /(?:^|\b)v\d+(?:\.\d+){1,3}\b|capacity\s*(?:tight|blocked|readback)|exact\s+capacity|readback|owner[_\s-]?locked|core\s+promotion|promotion\s+repair|reopened\s+after|manifest|write\s+transaction|pass[_\s-]?200|policy\s+version|restored\s+\d{4}-\d{2}-\d{2}|scanner\s+raw|verifier\s+backlog|machine[_\s-]?sot|manual[_\s-]?cutover|internal[_\s-]?(?:note|only)|override[_\s-]?(?:note|reason)/i.test(s);
