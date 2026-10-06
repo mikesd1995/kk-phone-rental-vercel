@@ -48,3 +48,17 @@ This hardening therefore lives in a separate PR and must not be merged/deployed 
 - no deployment
 - no owner LOCKED override
 - no internal KK business signal in External Demand Score
+
+## 6. Active booking date exclusivity
+
+Owner correction: any active booking on a date reserves that date operationally for the booked event. Spare phone inventory is not offered to a different event on the same date.
+
+Runtime effects:
+- candidate reconciliation => `SKIPPED_ACTIVE_BOOKING_DATE`;
+- new-candidate adapter => `ACTIVE_BOOKING_DATE_EXCLUDED`;
+- existing booked event => `KEEP_PROTECTED_ACTIVE_BOOKING`;
+- other visible card on same date => `BOOKING_DAY_EXCLUDED` and hide when owner-applied;
+- other hidden/`REOPENED` card => `HIDDEN_BOOKING_DAY_EXCLUDED`;
+- state consistency => another active/visible event on a booked date is CRITICAL and fail-closed.
+
+This rule supersedes the former "one booked / one free can sell another event" behavior.
