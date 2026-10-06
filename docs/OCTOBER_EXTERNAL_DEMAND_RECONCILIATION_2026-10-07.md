@@ -1,5 +1,8 @@
 # October 2026 External-Demand Reconciliation — 2026-10-07
 
+> **CURRENT TRUTH CORRECTION — 2026-10-07 02:11 +07**  
+> The earlier 50-card result is superseded by the owner-locked active-booking-day rule. Current 7–31 Oct storefront = **45 visible cards: 42 show / 3 show_full**. On 24 Oct, **LYKN REFLEXION CONCERT is the only visible event** because booking BK-20261024-001 is confirmed. Spare inventory does not permit other events that date.
+
 ## Scope
 
 Owner requested a fresh October storefront scan after locking the new fandom-first / external-demand policy.
