@@ -3,7 +3,25 @@ const VERSION='KK_ULTRA_DEEP_FANDOM_SUBEVENT_V1';
 function text(v){return String(v==null?'':v).trim();}
 function norm(v){return text(v).toLowerCase().replace(/[^a-z0-9ก-๙]+/g,'');}
 function sameDate(a,b){return text(a).slice(0,10)===text(b).slice(0,10);}
-function sameVenue(a,b){const x=norm(a),y=norm(b);return !!x&&!!y&&(x===y||x.includes(y)||y.includes(x));}
+function venueQualifier(v){
+  const s=text(v).toLowerCase();
+  const m=s.match(/(hall|ฮอลล์|room|ห้อง|zone|โซน|stage|เวที)\s*(\d+)/iu);
+  return m?{kind:m[1],number:m[2]}:null;
+}
+function genericVenue(v){
+  return norm(text(v).toLowerCase().replace(/(hall|ฮอลล์|room|ห้อง|zone|โซน|stage|เวที)\s*\d+/giu,'$1'));
+}
+function sameVenue(a,b){
+  const x=norm(a),y=norm(b);
+  if(!x||!y) return false;
+  if(x===y||x.includes(y)||y.includes(x)) return true;
+  const qa=venueQualifier(a),qb=venueQualifier(b);
+  // A numbered sub-hall may attach to a generic parent venue, but two
+  // explicitly different hall/room/zone numbers are distinct boundaries.
+  if(qa&&qb) return qa.number===qb.number&&genericVenue(a)===genericVenue(b);
+  if(Boolean(qa)!==Boolean(qb)) return genericVenue(a)===genericVenue(b);
+  return false;
+}
 
 function classify(child={},parent={}){
   if(!text(parent.event_id)) return {version:VERSION,decision:'SEPARATE_CANDIDATE',reason:'NO_PARENT_IDENTITY'};
