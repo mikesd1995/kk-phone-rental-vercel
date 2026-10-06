@@ -2,7 +2,8 @@
 const Production=require('./kk-ultra-deep-production-runtime.js');
 const Rent=require('./kk-ultra-deep-rentability-score.js');
 const V2=require('./kk-ultra-deep-full-loop-v2.js');
-const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V2';
+const Requal=require('./kk-ultra-deep-storefront-requalification.js');
+const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V3';
 function text(v){return String(v==null?'':v).trim();}
 function statusActive(v){return !['cancelled','canceled','no_show'].includes(text(v).toLowerCase());}
 function bookingCountForEvent(snapshot,eventId){return (snapshot.bookings||[]).filter(b=>statusActive(b.booking_status)&&text(b.event_id)===text(eventId)).length;}
@@ -49,6 +50,17 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
    kk_revenue:signalValue(candidate,'kk_revenue',null)
  };
  const qualification=existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0,internal_business_signals_affect_score:false}:Rent.qualify(scoring);
+ const requalification=existing?Requal.requalify({
+   external_scoring:scoring,
+   active_booking_count:bookingCountForEvent(snapshot,existing.event_id),
+   owner_keep:candidate.owner_keep===true||existing.owner_keep===true,
+   owner_hidden:existing.active_on_web===false,
+   tombstone_locked:existing.tombstone_locked===true,
+   history_state:text(existing.history_state),
+   active_on_web:existing.active_on_web!==false,
+   owner_monthly_reconciliation_apply:candidate.owner_monthly_reconciliation_apply===true,
+   visibility_lock_reason:'OWNER_MONTHLY_DEMAND_PRUNE'
+ }):null;
  const poster=posterFor(commercialRow);
  const proposal=commercialRow.pricing&&commercialRow.pricing.proposal||{};
  const priceTargets=existing?(existing.packages||[]).map(p=>({package_type:text(p.package_type).toUpperCase(),template_id:text(p.template_id||Production.packageTemplateId(p.package_id)),current_price:Number(p.price)||null,competitor_prices:exact.filter(x=>!text(x.package_type)||text(x.package_type).toUpperCase()===text(p.package_type).toUpperCase())})):[];
@@ -62,7 +74,7 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
   current_venue:existing&&text(existing.venue)||'',verified_venue:text(candidate.venue),venue_change_verified:!!existing&&!!text(candidate.venue)&&text(existing.venue)!==text(candidate.venue),
   current_poster_url:existing&&text(existing.poster_image_url)||'',latest_official_poster_url:poster&&text(poster.image_url)||'',latest_official_poster_verified:!!poster,
   exact_event_verified:true,governed_fallback_price:proposal.proposal_available?Number(proposal.proposed_reference_price)||null:null,
-  rentability:qualification,available_inventory:available
+  rentability:qualification,storefront_requalification:requalification,external_scoring:scoring,available_inventory:available
  };
 }
 function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
@@ -79,7 +91,9 @@ function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
  return {
    version:VERSION,status:plan.status,normalized_count:normalized.length,selected_count:selected.length,excluded_count:excluded.length,
    external_demand_publish_gate:{publish_threshold:Rent.DEFAULT_THRESHOLDS.publish,priority_threshold:Rent.DEFAULT_THRESHOLDS.priority,watch_threshold:Rent.DEFAULT_THRESHOLDS.watch,internal_business_signals_affect_score:false},
-   excluded,plan,production_writes:0
+   excluded,
+   storefront_requalification:Requal.report(normalized.filter(c=>c.exists_in_canonical)),
+   plan,production_writes:0
  };
 }
 module.exports={VERSION,statusActive,bookingCountForEvent,availableOnDate,matchForV2,normalizeCandidate,buildReadOnlyPlan};
