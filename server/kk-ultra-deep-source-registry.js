@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V4';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V5';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -27,6 +27,10 @@ const REGISTRY=Object.freeze({
   ARTIST_AGENCY:Object.freeze([
     {source_id:'gmmtv',label:'GMMTV',domain:'gmmtv.com',required:true},
     {source_id:'one31',label:'one31',domain:'one31.net',required:true},
+    {source_id:'domundi-mandee',label:'DOMUNDI / Mandee Work',required:true},
+    {source_id:'change2561',label:'CHANGE2561',required:true},
+    {source_id:'idolfactory',label:'IDOLFACTORY',required:true},
+    {source_id:'channel3-bl-gl',label:'Channel 3 BL GL artist ecosystem',required:true},
     {source_id:'thai-artist-agencies',label:'Thai artist agencies',required:true},
     {source_id:'international-promoters',label:'International promoters',required:true}
   ]),
@@ -83,6 +87,8 @@ function buildUniversePlan(input={}){
       [domain,row.label,labels.en,'Bangkok'].filter(Boolean).join(' '),
       [domain,'concert fanmeeting',labels.en,'Bangkok'].filter(Boolean).join(' '),
       [domain,'artist event lucky fan',labels.en,'Bangkok'].filter(Boolean).join(' '),
+      [domain,'BL GL fanmeeting final ep first ep fan gathering fansign lucky fan',labels.en,'Bangkok'].filter(Boolean).join(' '),
+      [row.label,'ซีรีส์วาย ซีรีส์ยูริ แฟนมีต final ep บวงสรวง รวมพล ลัคกี้แฟน',labels.th,'กรุงเทพ'].filter(Boolean).join(' '),
       [row.label,labels.th,'กรุงเทพ'].filter(Boolean).join(' '),
       [domain,row.label,'Bangkok'].filter(Boolean).join(' '),
       [domain,'concert fanmeeting Bangkok'].filter(Boolean).join(' '),
