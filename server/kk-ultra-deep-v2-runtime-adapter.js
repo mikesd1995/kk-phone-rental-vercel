@@ -53,6 +53,7 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
  const requalification=existing?Requal.requalify({
    external_scoring:scoring,
    active_booking_count:bookingCountForEvent(snapshot,existing.event_id),
+   available_inventory:available,
    owner_keep:candidate.owner_keep===true||existing.owner_keep===true,
    owner_hidden:existing.owner_hidden===true,
    tombstone_locked:existing.tombstone_locked===true,
