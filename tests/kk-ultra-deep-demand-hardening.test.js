@@ -40,3 +40,31 @@ test('monthly adapter emits evidence receipt when external evidence is supplied'
  const r=Adapter.normalizeCandidate({event_key:'E1',title:'Event',event_date:'2026-10-20',venue:'Bangkok',external_evidence:ev},snapshot,{});
  assert.ok(r.external_evidence_receipt);assert.match(r.external_evidence_receipt.evidence_hash,/^[a-f0-9]{64}$/);assert.equal(r.external_evidence_receipt.internal_business_signals_affect_score,false);
 });
+
+test('state consistency fail-closes when another event is visible on an active booking date',()=>{
+ const r=State.audit({
+  events:[{event_id:'BOOKED',event_date:'2026-10-24',active_on_web:true},{event_id:'OTHER',event_date:'2026-10-24',active_on_web:true}],
+  bookings:[{booking_id:'B1',event_id:'BOOKED',event_date:'2026-10-24',booking_status:'confirmed'}],
+  visibility_locks:[],
+  web_ready:[{event_id:'BOOKED',action_for_web:'show'},{event_id:'OTHER',action_for_web:'show'}]
+ });
+ assert.equal(r.status,'FAIL_CLOSED');
+ assert.ok(r.violations.some(x=>x.event_id==='OTHER'&&x.code==='OTHER_EVENT_VISIBLE_ON_BOOKING_DAY'));
+});
+test('booked event stays protected while other visible event on same date is excluded',()=>{
+ const Requal=require('../server/kk-ultra-deep-storefront-requalification.js');
+ const external={competitor_rental_activity:100,social_engagement:100,ticket_demand:100,fandom_photo_intent:100,venue_capture_value:100,historical_market_rental:100};
+ const booked=Requal.requalify({external_scoring:external,active_booking_count:1,date_booking_count:1,active_on_web:true,owner_monthly_reconciliation_apply:true});
+ const other=Requal.requalify({external_scoring:external,active_booking_count:0,date_booking_count:1,active_on_web:true,owner_monthly_reconciliation_apply:true});
+ assert.equal(booked.decision,'KEEP_PROTECTED_ACTIVE_BOOKING');
+ assert.equal(other.decision,'BOOKING_DAY_EXCLUDED');
+ assert.equal(other.apply_visibility_change,true);
+ assert.equal(other.visibility_mutation.to,false);
+});
+test('hidden REOPENED event on an active booking date stays hidden',()=>{
+ const Requal=require('../server/kk-ultra-deep-storefront-requalification.js');
+ const external={competitor_rental_activity:100,social_engagement:100,ticket_demand:100,fandom_photo_intent:100,venue_capture_value:100,historical_market_rental:100};
+ const r=Requal.requalify({external_scoring:external,active_booking_count:0,date_booking_count:1,history_state:'REOPENED',active_on_web:false,owner_monthly_reconciliation_apply:true});
+ assert.equal(r.decision,'HIDDEN_BOOKING_DAY_EXCLUDED');
+ assert.equal(r.apply_visibility_change,false);
+});
