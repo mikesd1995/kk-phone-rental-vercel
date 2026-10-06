@@ -208,6 +208,24 @@
       ],
       "supersedes": [],
       "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:storefront:inspo-reference-gate:20261005",
+      "occurred_at": "2026-10-05T08:15:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "storefront_ux",
+      "summary": "Major KK storefront redesign work now has a fail-closed pre-design reference gate for Nutlope/inspo evidence before Art Director synthesis. Inspo is reference-only: at least three references plus adopted/rejected patterns are required for redesign/new-surface/major-layout work; small bugfix/copy/data fixes remain exempt. It cannot become business-truth or acceptance authority and verbatim copying is blocked. Design Council, rendered multi-viewport Visual QA and owner acceptance remain authoritative. No paid provider or production write is introduced.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "server/kk-inspo-reference-gate.js",
+        "server/kk-storefront-art-director.js",
+        "tests/kk-inspo-reference-gate.test.js",
+        "tests/kk-storefront-art-director.test.js",
+        "docs/INSPO_DESIGN_REFERENCE_GATE_2026-10-05.md",
+        "https://github.com/Nutlope/inspo"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
     }
   ]
 }
