@@ -5,6 +5,7 @@ const VERSION='KK_ULTRA_DEEP_STOREFRONT_REQUALIFICATION_V1';
 function text(v){return String(v==null?'':v).trim();}
 function num(v,d=0){const n=Number(v);return Number.isFinite(n)?n:d;}
 function locked(input={}){return input.owner_hidden===true||input.tombstone_locked===true||text(input.history_state).toUpperCase()==='LOCKED';}
+function reopened(input={}){return text(input.history_state).toUpperCase()==='REOPENED';}
 
 function externalQualification(input={},config={}){
   const scoring=input.external_scoring||{};
@@ -26,9 +27,41 @@ function requalify(input={},config={}){
     reason:'OWNER_HIDDEN_OR_TOMBSTONE',...external,internal_business_signals_affect_score:false
   };
 
-  if(ownerKeep||text(input.history_state).toUpperCase()==='REOPENED') return {
+  if(reopened(input)&&!activeOnWeb) return {
+    version:VERSION,
+    decision:apply?'RESTORE_OWNER_REOPEN':'RESTORE_OWNER_REOPEN_RECOMMENDED',
+    apply_visibility_change:apply,
+    reason:'EXPLICIT_OWNER_REOPEN_HISTORY_REQUIRES_VISIBLE_CORE',
+    visibility_mutation:apply?{
+      type:'UPDATE_VISIBILITY',from:false,to:true,
+      evidence:'DURABLE_OWNER_REOPEN_HISTORY',
+      visibility_lock_reason:'OWNER_EXPLICIT_REOPEN_RECONCILIATION'
+    }:null,
+    ...external,internal_business_signals_affect_score:false
+  };
+
+  if(ownerKeep&& !activeOnWeb) return {
+    version:VERSION,
+    decision:apply?'RESTORE_OWNER_KEEP':'RESTORE_OWNER_KEEP_RECOMMENDED',
+    apply_visibility_change:apply,
+    reason:'EXPLICIT_OWNER_KEEP_REQUIRES_VISIBLE_CORE',
+    visibility_mutation:apply?{
+      type:'UPDATE_VISIBILITY',from:false,to:true,
+      evidence:'EXPLICIT_OWNER_KEEP',
+      visibility_lock_reason:'OWNER_KEEP_RECONCILIATION'
+    }:null,
+    ...external,internal_business_signals_affect_score:false
+  };
+
+  if(ownerKeep||reopened(input)) return {
     version:VERSION,decision:'OWNER_KEEP',apply_visibility_change:false,
     reason:ownerKeep?'EXPLICIT_OWNER_KEEP':'EXPLICIT_OWNER_REOPEN_HISTORY_PROTECTS_VISIBILITY',
+    ...external,internal_business_signals_affect_score:false
+  };
+
+  if(!activeOnWeb) return {
+    version:VERSION,decision:'CURRENT_HIDDEN_PRESERVE',apply_visibility_change:false,
+    reason:'HIDDEN_WITHOUT_EXPLICIT_REOPEN_DO_NOT_AUTO_REOPEN',
     ...external,internal_business_signals_affect_score:false
   };
 
@@ -72,7 +105,7 @@ function requalify(input={},config={}){
 }
 
 function report(rows=[]){
-  const out={KEEP:[],WATCH:[],REMOVE:[],OWNER_KEEP:[],PROTECTED:[],VERIFY_MORE:[],OWNER_HIDDEN:[]};
+  const out={KEEP:[],WATCH:[],REMOVE:[],OWNER_KEEP:[],RESTORE:[],PROTECTED:[],VERIFY_MORE:[],OWNER_HIDDEN:[],HIDDEN_PRESERVE:[]};
   for(const row of rows||[]){
     const d=text(row&&row.requalification&&row.requalification.decision);
     const item={
@@ -85,9 +118,11 @@ function report(rows=[]){
     else if(d==='WATCH_KEEP')out.WATCH.push(item);
     else if(d==='REMOVE'||d==='REMOVE_RECOMMENDED')out.REMOVE.push(item);
     else if(d==='OWNER_KEEP')out.OWNER_KEEP.push(item);
+    else if(d==='RESTORE_OWNER_REOPEN'||d==='RESTORE_OWNER_REOPEN_RECOMMENDED'||d==='RESTORE_OWNER_KEEP'||d==='RESTORE_OWNER_KEEP_RECOMMENDED')out.RESTORE.push(item);
     else if(d==='KEEP_PROTECTED_ACTIVE_BOOKING')out.PROTECTED.push(item);
     else if(d==='VERIFY_MORE_KEEP')out.VERIFY_MORE.push(item);
     else if(d==='OWNER_HIDDEN')out.OWNER_HIDDEN.push(item);
+    else if(d==='CURRENT_HIDDEN_PRESERVE')out.HIDDEN_PRESERVE.push(item);
   }
   return {version:VERSION,counts:Object.fromEntries(Object.entries(out).map(([k,v])=>[k,v.length])),groups:out};
 }
