@@ -176,3 +176,39 @@ When the owner says **"สแกนหางานเพิ่มหน้าบ
 - Verifier does not bypass owner locks.
 - Governed writer remains the only write authority.
 - No auto-merge, auto-deploy or paid provider/top-up is authorized by this policy.
+
+## Existing storefront monthly requalification
+
+A monthly/full reconciliation must re-score **existing visible cards**, not only qualify new candidates.
+
+Existing-card decisions:
+- External Demand >=60 => `KEEP`
+- 45-59.9 => `WATCH_KEEP` (hysteresis; do not churn an existing card around the publish threshold)
+- <45 => `REMOVE_RECOMMENDED`; when the owner explicitly requested the monthly reconciliation to apply, write `active_on_web=false` through the governed visibility path and record the prune reason
+- insufficient external evidence => `VERIFY_MORE_KEEP`; insufficient evidence alone is not permission to remove an existing visible card
+- active KK booking => `KEEP_PROTECTED_ACTIVE_BOOKING`; this protects visibility but **does not change External Demand Score**
+- explicit owner keep or durable `REOPENED` history => `OWNER_KEEP`
+- persistent `LOCKED` tombstone => `OWNER_HIDDEN`; never reopen from score
+
+Hidden non-LOCKED canonical events are also requalified:
+- no phone capacity => remain hidden
+- score >=60 + capacity >0 + sufficient external evidence => `REACTIVATE`
+- WATCH/REJECT/VERIFY_MORE => remain hidden
+- durable `REOPENED` history + Core accidentally false => restore owner intent; this is visibility reconciliation, not demand-score override
+
+Every monthly run must emit a storefront diff:
+`ADDED / REMOVED / REACTIVATED / OWNER_RESTORED / KEPT / WATCH / PROTECTED / OWNER_HIDDEN`.
+
+## Parent event vs fandom sub-event
+
+Do not duplicate a storefront card merely because a parent event contains high-demand fandom slots.
+
+If a fandom sub-event shares the same date, venue and admission/operational boundary as the parent:
+- attach its external rental/social/photo-intent evidence to the parent;
+- strengthen the parent External Demand Score only with external-market evidence;
+- do not create a duplicate card.
+
+Create a separate candidate only when the sub-event has a distinct date, venue, admission, pickup window or other operational boundary.
+
+A high-demand child event may never auto-reopen a `LOCKED` or owner-hidden parent.
+
