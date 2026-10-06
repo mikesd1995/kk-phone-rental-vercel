@@ -72,6 +72,28 @@ function terminalErrorCode(result={}){
   return inner||text(result&&result.status)||'FULL_LOOP_NOT_COMPLETE';
 }
 
+function verifierDiagnostic(verifier={}){
+  const counts={};
+  const holds=Array.isArray(verifier&&verifier.holds)?verifier.holds:[];
+  for(const hold of holds){
+    for(const raw of Array.isArray(hold&&hold.blockers)?hold.blockers:[]){
+      const key=text(raw).toUpperCase().replace(/[^A-Z0-9_]/g,'_').slice(0,96)||'UNKNOWN';
+      counts[key]=(counts[key]||0)+1;
+    }
+  }
+  const blocker_histogram=Object.fromEntries(Object.entries(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,16));
+  return {
+    status:text(verifier&&verifier.status)||null,
+    input_count:Number(verifier&&verifier.input_count||0),
+    fetched_count:Number(verifier&&verifier.fetched_count||0),
+    verified_count:Number(verifier&&verifier.verified_count||0),
+    hold_count:Number(verifier&&verifier.hold_count||0),
+    blocker_histogram,
+    privacy:'COUNTS_ONLY_NO_TITLE_URL_PAYLOAD',
+    production_writes:0
+  };
+}
+
 function readinessSnapshot(env=process.env){
   const ledger=Ledger.configState(env);
   const externalScannerEnabled=enabled(env.KK_EXTERNAL_SCANNER_ENABLED);
@@ -188,7 +210,7 @@ module.exports=async function handler(req,res){
         if(Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
         const complete=machineResultComplete(result,false);
         await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:complete?'COMPLETE':'FAILED',production_writes:0,error_code:complete?null:terminalErrorCode(result)});
-        return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_READ_ONLY_GET',direct_runtime:UltraDeepDirect.VERSION,command_id:readonlyCommandId,month,mode:'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],discovery_diagnostic:result.discovery&&result.discovery.diagnostic||null,preflight:result.preflight||null,production:result.production||null,business_writes:0});
+        return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_READ_ONLY_GET',direct_runtime:UltraDeepDirect.VERSION,command_id:readonlyCommandId,month,mode:'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],discovery_diagnostic:result.discovery&&result.discovery.diagnostic||null,verifier_diagnostic:verifierDiagnostic(result.verifier||{}),preflight:result.preflight||null,production:result.production||null,business_writes:0});
       }catch(err){
         await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
         return json(res,500,{ok:false,phase:'ULTRA_DEEP_V2_READ_ONLY_GET',direct_runtime:UltraDeepDirect.VERSION,command_id:readonlyCommandId,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED',error:text(err&&err.message).slice(0,240),business_writes:0});
@@ -252,7 +274,7 @@ module.exports=async function handler(req,res){
       if(!commit&&Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
       const complete=machineResultComplete(result,commit);
       await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:complete?'COMPLETE':'FAILED',production_writes:Number(result.production_writes||0),error_code:complete?null:terminalErrorCode(result)});
-      return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_MACHINE',direct_runtime:UltraDeepDirect.VERSION,command_id:commandId,month,mode:commit?'COMMIT':'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],discovery_diagnostic:result.discovery&&result.discovery.diagnostic||null,preflight:result.preflight||null,production:result.production||null,business_writes:Number(result.production_writes||0)});
+      return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_MACHINE',direct_runtime:UltraDeepDirect.VERSION,command_id:commandId,month,mode:commit?'COMMIT':'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],discovery_diagnostic:result.discovery&&result.discovery.diagnostic||null,verifier_diagnostic:verifierDiagnostic(result.verifier||{}),preflight:result.preflight||null,production:result.production||null,business_writes:Number(result.production_writes||0)});
     }catch(err){
       await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
       return json(res,500,{ok:false,phase:'ULTRA_DEEP_V2_MACHINE',direct_runtime:UltraDeepDirect.VERSION,command_id:commandId,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED',error:text(err&&err.message).slice(0,240),business_writes:0});
@@ -370,6 +392,7 @@ module.exports._test={
   bodyObject,
   enabled,
   queryValue,
+  verifierDiagnostic,
   readinessSnapshot,
   ledgerConnectivityProbe
 };
