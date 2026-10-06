@@ -244,6 +244,24 @@
       ],
       "supersedes": [],
       "source": "owner+sheet+production+repo"
+    },
+    {
+      "memory_id": "kk:memory:ultradeep:demand-hardening-v4:20261007",
+      "occurred_at": "2026-10-07T02:00:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "discovery_scanner",
+      "status": "ACTIVE",
+      "summary": "Post-October Ultra Deep demand hardening adds a fail-closed state consistency gate, machine-readable external evidence receipts with URL/timestamp/SHA-256 hash, durable OWNER_KEEP semantics, and read-only threshold calibration that uses only external outcomes for fit while KK bookings remain diagnostic-only. PR #650 was discovered merged despite exact-head acceptance run 37513493864 failing before steps with BlobNotFound; that run must not be treated as a pass. Hardening is isolated on a new branch/PR and must not merge/deploy until executable exact-head acceptance exists.",
+      "evidence_refs": [
+        "docs/ULTRA_DEEP_DEMAND_HARDENING_V4_2026-10-07.md",
+        "server/kk-ultra-deep-state-consistency.js",
+        "server/kk-ultra-deep-demand-evidence-ledger.js",
+        "server/kk-ultra-deep-demand-calibration.js",
+        "tests/kk-ultra-deep-demand-hardening.test.js",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/37513493864"
+      ],
+      "supersedes": [],
+      "source": "owner+repo+runtime"
     }
   ]
 }
