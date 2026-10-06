@@ -392,6 +392,7 @@ module.exports._test={
   bodyObject,
   enabled,
   queryValue,
+  verifierDiagnostic,
   readinessSnapshot,
   ledgerConnectivityProbe
 };
