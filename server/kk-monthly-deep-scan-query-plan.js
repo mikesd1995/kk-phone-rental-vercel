@@ -1,17 +1,17 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V7';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V8';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล'],
  TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล'],
  VENUE:['Bangkok venue artist event mall hall','สถานที่จัดงาน ศิลปิน ฮอลล์ ห้าง กรุงเทพ ปริมณฑล'],
- ARTIST_AGENCY:['artist agency Thailand event fan meeting appearance','ค่าย ศิลปิน นักแสดง กิจกรรม แฟนมีต กรุงเทพ'],
+ ARTIST_AGENCY:['artist agency Thailand event fan meeting appearance','ค่าย ศิลปิน นักแสดง กิจกรรม แฟนมีต กรุงเทพ','GMMTV DOMUNDI Mandee CHANGE2561 IDOLFACT one31 Channel 3 BL GL event Bangkok','ซีรีส์วาย ซีรีส์ยูริ BL GL คู่จิ้น นักแสดง งานแฟน กรุงเทพ'],
  ORGANIZER_PROMOTER:['organizer promoter Bangkok artist event','ผู้จัด งานศิลปิน กรุงเทพ ปริมณฑล'],
  MALL_COMMUNITY:['mall artist event Bangkok Nonthaburi Pathum Thani Samut Prakan','ห้าง กิจกรรม ศิลปิน กรุงเทพ นนทบุรี ปทุมธานี สมุทรปราการ'],
- FAN_EVENT:['fanmeeting fancon fansign meet greet lucky fan birthday final episode premiere artist Bangkok','แฟนมีต แฟนคอน แฟนไซน์ มีตแอนด์กรี๊ด lucky fan วันเกิด final ep premiere ศิลปิน กรุงเทพ'],
- CEREMONY:['blessing ceremony launch opening artist Bangkok','บวงสรวง เปิดตัว เปิดงาน ศิลปิน กรุงเทพ'],
+ FAN_EVENT:['fanmeeting fancon fansign meet greet lucky fan birthday final episode premiere artist Bangkok','แฟนมีต แฟนคอน แฟนไซน์ มีตแอนด์กรี๊ด lucky fan วันเกิด final ep premiere ศิลปิน กรุงเทพ','fan gathering birthday project artist Bangkok','รวมพล แฟนคลับ birthday project ศิลปิน กรุงเทพ','BL GL fan meeting fancon final ep first ep screening Bangkok','ซีรีส์วาย ซีรีส์ยูริ final ep first ep แฟนมีต แฟนคอน รวมพล นัดรวมด้อม กรุงเทพ','fansign hi touch hi bye send off group photo fan call Bangkok'],
+ CEREMONY:['blessing ceremony launch opening artist Bangkok','บวงสรวง เปิดตัว เปิดงาน ศิลปิน กรุงเทพ','BL GL series บวงสรวง เปิดกล้อง ปิดกล้อง premiere Bangkok'],
  AWARD_RED_CARPET:['award ceremony red carpet Bangkok artist','งานประกาศรางวัล พรมแดง ศิลปิน กรุงเทพ'],
- PRESS_BRAND:['press conference brand event artist appearance Bangkok','งานแถลงข่าว แบรนด์ ศิลปิน อีเวนต์ กรุงเทพ'],
+ PRESS_BRAND:['press conference brand event artist appearance Bangkok','งานแถลงข่าว แบรนด์ ศิลปิน อีเวนต์ กรุงเทพ','lucky fan lucky draw top spender top buyer purchase to win artist Bangkok','ลัคกี้แฟน top spender presenter store opening pop up ศิลปิน กรุงเทพ'],
  SPORTS_ENTERTAINMENT:['sports entertainment artist event Bangkok','กีฬา entertainment ศิลปิน กรุงเทพ'],
  SOCIAL:['concert fanmeeting artist appearance Bangkok X Instagram TikTok','กิจกรรม ศิลปิน กรุงเทพ ปริมณฑล X Instagram TikTok'],
  COMPETITOR:['เช่ามือถือ vivo X300 Pro iPhone Samsung concert fanmeeting fansign Bangkok','เช่ามือถือ งานศิลปิน แฟนมีต แฟนไซน์ คิวหลุด กรุงเทพ ปริมณฑล'],
