@@ -25,13 +25,14 @@ function classify(child={},parent={}){
 }
 
 function aggregate(parentScoring={},children=[]){
+  const keys=['competitor_rental_activity','social_engagement','ticket_demand','fandom_photo_intent','venue_capture_value','historical_market_rental'];
   const external=children.map(x=>x&&x.external_scoring||{});
   const max=(key)=>{
     const xs=external.map(x=>Number(x[key])).filter(Number.isFinite);
     return xs.length?Math.max(...xs):null;
   };
-  const out={...parentScoring};
-  for(const key of ['competitor_rental_activity','social_engagement','ticket_demand','fandom_photo_intent','venue_capture_value','historical_market_rental']){
+  const out=Object.fromEntries(keys.filter(key=>Number.isFinite(Number(parentScoring[key]))).map(key=>[key,Number(parentScoring[key])]));
+  for(const key of keys){
     const childMax=max(key),base=Number(parentScoring[key]);
     if(Number.isFinite(childMax)) out[key]=Number.isFinite(base)?Math.max(base,childMax):childMax;
   }
