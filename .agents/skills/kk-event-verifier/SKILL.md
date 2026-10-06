@@ -148,3 +148,25 @@ No competitor-rental or commercial-evidence flag may bypass the numeric publish 
 KK booking count, revenue, conversion, inquiry volume, full-stock state and waitlist volume are explicitly forbidden External Demand inputs. They may feed discovery-priority learning only.
 
 Existing canonical events remain eligible for verified metadata maintenance under normal owner-lock/booking rules; this hard gate governs whether a **new candidate** becomes a storefront offering.
+
+## Monthly existing-card requalification (2026-10-07)
+
+A monthly/full reconciliation must qualify both **new candidates** and **existing storefront cards**.
+
+Existing visible card:
+- >=60 external score -> KEEP
+- 45-59.9 -> WATCH_KEEP (hysteresis)
+- <45 -> REMOVE_RECOMMENDED; apply hide only when the owner has explicitly asked the monthly reconciliation to apply
+- insufficient external evidence -> VERIFY_MORE_KEEP
+- active booking -> KEEP_PROTECTED_ACTIVE_BOOKING; booking does not alter the external score
+- explicit owner keep or durable REOPENED history -> OWNER_KEEP
+- LOCKED tombstone -> OWNER_HIDDEN, never reopen
+
+Existing hidden card:
+- LOCKED -> never reopen
+- no phone capacity -> remain hidden
+- non-LOCKED + sufficient external evidence + score >=60 + phone capacity >0 -> REACTIVATE when owner monthly apply is active
+- WATCH/REJECT/VERIFY_MORE -> remain hidden
+- durable REOPENED history that drifted false -> restore owner intent through visibility reconciliation
+
+The run must emit ADDED / REMOVED / REACTIVATED / OWNER_RESTORED / KEPT / WATCH / PROTECTED / OWNER_HIDDEN and perform derived plus production readback.
