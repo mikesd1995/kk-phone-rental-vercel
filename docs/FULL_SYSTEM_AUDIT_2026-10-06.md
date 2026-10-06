@@ -94,3 +94,24 @@ Vercel deployment `dpl_Fvmb4qWRkka4RcSr6igGHiWqMo2j`, source `9ecd6ab62556531c09
 The subsequent source `fee4a6dbfbbb97ee978fe768a1e16e550c2d9131` was skipped by the documented ignored-build script because it changed only tests/docs. This was not evidence of a failed runtime build. The new terminal-gate source change still requires its own deployment evidence.
 
 Production deployment readback remained `dpl_223VryapZtXQpVBjsfzife3xSPfx` at main `bfc3ab8391ca84e28da0c39ae595cddce05865ec`, READY. No merge/promotion was made: hosted-CI recovery and exact production release/readback prerequisites remain separate gates. No new scheduler, paid service, customer message or business-data write was introduced.
+
+## Final P0 source consolidation and release boundary
+
+The false-COMPLETE fix previously reviewed on PR #641 is now included directly in the audit release candidate, without V28 discovery features. V2 acceptance requires explicit nonnegative safe-integer counts, complete terminal-candidate accounting, a closed decision vocabulary, consistent mutation arrays/counts, zero pending candidates, and exact readback. Missing, coerced, partial or inconsistent evidence remains INCOMPLETE.
+
+- Standalone full offline regression after consolidation: **1,406/1,406 PASS**, zero failures (supersedes 1,399 above).
+- Independent review confirmed both files exactly match the previously reviewed patch and independently passed **49/49** relevant tests, including seven terminal-evidence regression cases.
+- Syntax and diff checks passed.
+
+The prior independent source `1f4dfc3d3e072e1c23edd5506f140244e35c9e94` reached READY on `dpl_5zUcMa8qsH12kqKDndWJ9Vn9xYUU`. Readback of event CSV and package CSV returned 200 with no OWNER_HIDDEN/owner-instruction leakage. Scanner GET returned 200 with execution_enabled=false, business_writes_capable=false, runtime_ledger_configured=false, ready_for_execution=false. This is evidence of preserved fail-closed behavior, not scanner operational acceptance.
+
+Fresh hosted-CI evidence: Ultra Deep V2 Acceptance run `37431280859`, job `112162482173`, against `1f4dfc3...` failed with no step evidence and no logs URL. The actual provider cause is not established; no paid recovery, repeated rerun or alternate runner was used. Local green must not be substituted for a hosted-CI PASS.
+
+### Handoff order
+1. Read PR #644 latest head, its current preview and this report. Do not restart the audit or reintroduce an artificial dependency on all of PR #641.
+2. Restore the existing hosted CI execution path through the documented recovery procedure; require actual executed steps/logs. The available GitHub connector exposes failed-job rerun but no workflow-dispatch operation; repeating pre-step failures has no evidence value.
+3. Before production release, confirm approved exact source, target binding compatibility and rollback identity. Deploy only through the existing governed path, then read back both public feeds, event visibility, critical routes and runtime errors. Public leak is not production-closed until this succeeds.
+4. Apps Script P0 remains blocked on authenticated bound-project/source/deployment/rollback access. Do not infer deployed code parity from the repository version.
+5. Scanner/Verifier and Make remain governed by their actor persistence, credential/binding, runnable-capacity and provider-ACK prerequisites. Do not create a second scheduler or invent stock/customer facts.
+
+No production merge, promotion, business-data write, automation activation, outgoing customer message or paid action was performed in this continuation.
