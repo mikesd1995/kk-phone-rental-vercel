@@ -20,6 +20,8 @@ function nonPriceMutations(input={}){
 function planExisting(input={}){
  if(hidden(input)) return {decision:'SKIP_HIDDEN',mutations:[],reason:'OWNER_HIDDEN_OR_TOMBSTONE'};
  const mutations=nonPriceMutations(input);
+ const rq=input.storefront_requalification||{};
+ if(rq.apply_visibility_change===true&&rq.visibility_mutation)mutations.push(rq.visibility_mutation);
  const booked=bookingCount(input)>0;
  const currentPrice=money(input.current_price);
  const prices=(input.competitor_prices||[]).map(x=>money(x&&x.price!==undefined?x.price:x)).filter(Boolean);
