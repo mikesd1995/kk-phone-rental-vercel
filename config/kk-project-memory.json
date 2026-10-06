@@ -208,6 +208,24 @@
       ],
       "supersedes": [],
       "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:ultradeep:external-demand-fandom-discovery:20261006",
+      "occurred_at": "2026-10-06T23:39:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "discovery_scanner",
+      "summary": "When the owner asks to scan/add events to the KK storefront, Discovery must be recall-first and fandom/rental-opportunity centric, then new-event publication must pass an external-market-only demand gate. Score weights: competitor rental activity 30, public social engagement 20, ticket demand/sold-out/added-round 15, fandom photo intent 15, venue capture value 10, historical external rental activity 10. PRIORITY >=75; publish >=60; WATCH 45-59.9; reject <45; insufficient evidence VERIFY_MORE. KK booking, revenue, conversion, inquiry, full-stock and waitlist data must never affect External Demand Score; they may only raise discovery priority for the same/adjacent fandom. VERIFY_MORE/WATCH/REJECT must never reach CREATE_EVENT. Owner visibility locks remain authoritative and no automatic reopen is allowed.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/ULTRA_DEEP_EXTERNAL_DEMAND_DISCOVERY_V3_2026-10-06.md",
+        "server/kk-ultra-deep-rentability-score.js",
+        "server/kk-ultra-deep-v2-runtime-adapter.js",
+        "server/kk-monthly-deep-scan-query-plan.js",
+        ".agents/skills/kk-discovery-scanner/SKILL.md",
+        ".agents/skills/kk-event-verifier/SKILL.md"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
     }
   ]
 }
