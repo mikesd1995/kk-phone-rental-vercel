@@ -301,3 +301,21 @@ test('public package feed drops malformed generated status/sort rows fail-closed
     });
   }finally{global.fetch=originalFetch;}
 });
+
+
+test('public event CSV removes short operational tokens without changing visibility or customer copy',()=>{
+ const csv=[
+  'event_id,event_name,event_note,action_for_web,line_message_template',
+  'HIDDEN,Hidden event,OWNER_HIDDEN 2026-09-29 | owner instruction: hide event,hide,สนใจจองผ่าน LINE',
+  'VISIBLE,Visible event,ฟรีประกันเครื่อง ไม่มีมัดจำ,show,จอง vivo X300 Pro + Lens',
+  'PIPE,Pipe event,คำแนะนำ|PRICE_LOCKED,show,USB-C พร้อมใช้งาน'
+ ].join('\n');
+ const out=handler._test.sanitizePublicCsv('08_Web_Ready',csv);
+ const rows=handler._test.parseCsvRows(out.text);
+ assert.equal(out.redacted,2);
+ assert.equal(rows[1][2],'');assert.equal(rows[1][3],'hide');
+ assert.equal(rows[2][2],'ฟรีประกันเครื่อง ไม่มีมัดจำ');
+ assert.equal(rows[2][4],'จอง vivo X300 Pro + Lens');
+ assert.equal(rows[3][2],'');assert.equal(rows[3][4],'USB-C พร้อมใช้งาน');
+ assert.doesNotMatch(out.text,/OWNER_HIDDEN|owner instruction|PRICE_LOCKED/);
+});
