@@ -98,3 +98,13 @@ test('canonical phone baseline is wired into final pricing fallback',()=>{
   assert.match(src,/store_baseline_prices:baselinePrices/);
   assert.match(src,/approved:true/);
 });
+
+test('direct runtime passes active booking dates into discovery and filters booked dates before verifier',()=>{
+  const src=fs.readFileSync(require.resolve('../server/kk-ultra-deep-direct-zero-cost.js'),'utf8');
+  assert.match(src,/active_booking_dates:preflight\.active_booking_dates/);
+  assert.match(src,/const blockedDates=new Set\(preflight\.active_booking_dates\|\|\[\]\)/);
+  assert.match(src,/bookingDateExcludedCandidates/);
+  const filter=src.indexOf('const eligibleCandidates=');
+  const verifier=src.indexOf('Verifier.verifyBatch');
+  assert.ok(filter>0&&verifier>filter);
+});
