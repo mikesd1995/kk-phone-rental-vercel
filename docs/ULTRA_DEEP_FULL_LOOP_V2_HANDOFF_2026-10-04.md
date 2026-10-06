@@ -233,3 +233,18 @@ PR #629 was then added and merged as `c59334ffcf11d80005660634db18fe84a9b23542`:
 Production environment inventory (names only, values not read) has no `KK_SEARXNG_ENDPOINT` or `KK_DDGS_TRAFILATURA_ENABLED`. Current provider factory therefore binds built-in DDG_HTML/BING_HTML by default; SearXNG is unbound; the existing DDGS fallback code is present but not enabled in production and relies on a Python `ddgs` package that is only explicitly installed in GitHub acceptance workflows, not by the current Vercel Node deployment.
 
 PR #630 adds only bounded provider/status persistence for preflight failures (no URLs, queries, raw errors or payloads), so the next production run can distinguish DDG/Bing NO_EVIDENCE vs PROVIDER_ERROR. It merged as `e22b4fc9c17fe4a6dd14e0381eae67c0592a2b2e`. Its preview deployment `dpl_BonJ9Tp1NWnJoHAzqdkNXaoFZVcA` is READY, but the main/production build was rejected by Vercel with `build-rate-limit`. Do not promote the preview blindly because preview deployments use Preview-scoped environment variables whereas this machine path depends on Production-scoped OIDC/admin secrets. Current safe blocker is therefore: production deployment quota for #630, then one fresh commit=false October READ_ONLY to capture exact provider statuses. COMMIT remains forbidden and business writes remain zero.
+
+## External-demand + fandom discovery lock — 2026-10-06
+
+Owner corrected the business objective: Ultra Deep must discover broadly, but storefront publication must optimize for external phone-rental demand. KK bookings/revenue/waitlists/inquiries are not scoring inputs.
+
+Forward rule:
+- External Demand Score uses competitor rental activity 30, public social engagement 20, ticket demand 15, fandom photo intent 15, venue capture value 10, historical external rental activity 10.
+- PRIORITY >=75; publish gate >=60; WATCH 45-59.9; REJECT <45; insufficient evidence => VERIFY_MORE.
+- VERIFY_MORE/WATCH/REJECT new candidates are forbidden from CREATE_EVENT.
+- No competitor/commercial override may bypass the >=60 hard gate.
+- KK booking/full/waitlist/inquiry outcomes feed discovery priority and Fandom Graph expansion only.
+- Monthly discovery adds competitor-rental radar, rental keywords, FAN_EVENT long-tail formats, announcement/change detection and hot-fandom expansion.
+- Canonical contract: `docs/ULTRA_DEEP_EXTERNAL_DEMAND_DISCOVERY_V3_2026-10-06.md`.
+- production_writes remain 0 in planning/scanning; no deployment or COMMIT authority is changed by this patch.
+

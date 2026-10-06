@@ -122,3 +122,51 @@ Only produce a final governed handoff when all current control-plane requirement
 For a newly promoted event, standalone `lens_only` must not be published as available by default. The governed create payload must force the lens-only package inactive even when a proposed price exists. Lens-only becomes eligible later only through the storefront inventory rule when the same event has an active `phone_only` booking and spare lens stock. Phone and phone+lens bundle remain governed by their normal package rules.
 
 A final promotion readback must fail closed if a newly created event reports `lens_only` as `available` or `open`. Poster evidence must remain a verified HTTPS source before promotion.
+
+## External Demand storefront hard gate (2026-10-06)
+
+For **new** storefront events, verification of event existence is necessary but not sufficient. Verifier must require the external-market demand gate after exact-event verification and before governed promotion.
+
+External Demand Score is 0-100 and excludes KK internal business outcomes completely:
+
+- competitor rental activity: 30
+- public social engagement: 20
+- ticket demand / sold-out / added-round evidence: 15
+- fandom photo/capture intent: 15
+- venue/stage capture value: 10
+- historical external rental activity for the artist/fandom/event type: 10
+
+Thresholds:
+- 75-100: PRIORITY and publish-eligible;
+- 60-74.9: PUBLISH and publish-eligible;
+- 45-59.9: WATCH / Candidate Master Pool only;
+- below 45: REJECT from storefront;
+- insufficient external evidence: VERIFY_MORE and **not publish-eligible**.
+
+No competitor-rental or commercial-evidence flag may bypass the numeric publish threshold. A new candidate in VERIFY_MORE/WATCH/REJECT must not reach CREATE_EVENT.
+
+KK booking count, revenue, conversion, inquiry volume, full-stock state and waitlist volume are explicitly forbidden External Demand inputs. They may feed discovery-priority learning only.
+
+Existing canonical events remain eligible for verified metadata maintenance under normal owner-lock/booking rules; this hard gate governs whether a **new candidate** becomes a storefront offering.
+
+## Monthly existing-card requalification (2026-10-07)
+
+A monthly/full reconciliation must qualify both **new candidates** and **existing storefront cards**.
+
+Existing visible card:
+- >=60 external score -> KEEP
+- 45-59.9 -> WATCH_KEEP (hysteresis)
+- <45 -> REMOVE_RECOMMENDED; apply hide only when the owner has explicitly asked the monthly reconciliation to apply
+- insufficient external evidence -> VERIFY_MORE_KEEP
+- active booking -> KEEP_PROTECTED_ACTIVE_BOOKING; booking does not alter the external score
+- explicit owner keep or durable REOPENED history -> OWNER_KEEP
+- LOCKED tombstone -> OWNER_HIDDEN, never reopen
+
+Existing hidden card:
+- LOCKED -> never reopen
+- no phone capacity -> remain hidden
+- non-LOCKED + sufficient external evidence + score >=60 + phone capacity >0 -> REACTIVATE when owner monthly apply is active
+- WATCH/REJECT/VERIFY_MORE -> remain hidden
+- durable REOPENED history that drifted false -> restore owner intent through visibility reconciliation
+
+The run must emit ADDED / REMOVED / REACTIVATED / OWNER_RESTORED / KEPT / WATCH / PROTECTED / OWNER_HIDDEN and perform derived plus production readback.

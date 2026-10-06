@@ -2,7 +2,7 @@
 const Production=require('./kk-ultra-deep-production-runtime.js');
 const Promotion=require('./kk-verifier-storefront-promotion.js');
 const Executor=require('./kk-governed-storefront-executor.js');
-const VERSION='KK_ULTRA_DEEP_V2_GOVERNED_WRITER_V1';
+const VERSION='KK_ULTRA_DEEP_V2_GOVERNED_WRITER_V2';
 function text(v){return String(v==null?'':v).trim();}
 function mapMutation(m={},decision={}){
  const eventId=text(decision.canonical_event_id);
@@ -10,6 +10,10 @@ function mapMutation(m={},decision={}){
   if(decision.price_locked===true) throw Object.assign(new Error('booked price locked'),{code:'V2_BOOKED_PRICE_LOCK'});
   if(!eventId||!text(m.package_type)||!text(m.template_id)) throw Object.assign(new Error('price target identity missing'),{code:'V2_PRICE_TARGET_MISSING'});
   return {action:'upsertEventOverride',event_id:eventId,template_id:text(m.template_id),override_price:Number(m.to),active_override:true,override_note:'ULTRA_DEEP_V2_MARKET_ALIGNMENT'};
+ }
+ if(m.type==='UPDATE_VISIBILITY'){
+  if(!eventId) throw Object.assign(new Error('event identity missing'),{code:'V2_EVENT_ID_MISSING'});
+  return {action:'updateEvent',event_id:eventId,active_on_web:m.to===true,visibility_lock_reason:text(m.visibility_lock_reason||'OWNER_MONTHLY_DEMAND_PRUNE'),visibility_changed_by:'OWNER_MONTHLY_RECONCILIATION',visibility_source_evidence:'ULTRA_DEEP_EXTERNAL_DEMAND_REQUALIFICATION',note:'ULTRA_DEEP_V2_EXTERNAL_DEMAND_REQUALIFICATION'};
  }
  if(['UPDATE_DATE','UPDATE_VENUE','UPDATE_POSTER'].includes(m.type)){
   if(!eventId) throw Object.assign(new Error('event identity missing'),{code:'V2_EVENT_ID_MISSING'});
@@ -32,6 +36,7 @@ function exactMatch(action,rb={}){
  if(m.type==='UPDATE_DATE')return Production.date(e.event_date)===Production.date(a.event_date);
  if(m.type==='UPDATE_VENUE')return Production.norm(e.venue)===Production.norm(a.venue);
  if(m.type==='UPDATE_POSTER')return text(e.poster_image_url||e.poster_url)===text(a.poster_url);
+ if(m.type==='UPDATE_VISIBILITY')return Boolean(e.active_on_web)===Boolean(a.active_on_web);
  if(m.type==='UPDATE_PRICE'){const row=(rb.packages||[]).find(p=>text(p.package_type).toUpperCase()===text(m.package_type).toUpperCase()||Production.packageTemplateId(p.package_id)===text(a.template_id));return !!row&&Number(row.price)===Number(a.override_price);}
  if(m.type==='CREATE_EVENT')return !!text(e.event_id)&&Production.norm(e.event_name)===Production.norm(a.event_name)&&Production.date(e.event_date)===Production.date(a.event_date)&&text(e.poster_image_url||e.poster_url)===text(a.poster_url);
  return false;
