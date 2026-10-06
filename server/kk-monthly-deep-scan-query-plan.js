@@ -1,6 +1,6 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V6';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V7';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล'],
  TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล'],
@@ -8,18 +8,19 @@ const TIER_TERMS={
  ARTIST_AGENCY:['artist agency Thailand event fan meeting appearance','ค่าย ศิลปิน นักแสดง กิจกรรม แฟนมีต กรุงเทพ'],
  ORGANIZER_PROMOTER:['organizer promoter Bangkok artist event','ผู้จัด งานศิลปิน กรุงเทพ ปริมณฑล'],
  MALL_COMMUNITY:['mall artist event Bangkok Nonthaburi Pathum Thani Samut Prakan','ห้าง กิจกรรม ศิลปิน กรุงเทพ นนทบุรี ปทุมธานี สมุทรปราการ'],
- FAN_EVENT:['fan gathering birthday project artist Bangkok','รวมพล แฟนคลับ birthday project ศิลปิน กรุงเทพ'],
+ FAN_EVENT:['fanmeeting fancon fansign meet greet lucky fan birthday final episode premiere artist Bangkok','แฟนมีต แฟนคอน แฟนไซน์ มีตแอนด์กรี๊ด lucky fan วันเกิด final ep premiere ศิลปิน กรุงเทพ'],
  CEREMONY:['blessing ceremony launch opening artist Bangkok','บวงสรวง เปิดตัว เปิดงาน ศิลปิน กรุงเทพ'],
  AWARD_RED_CARPET:['award ceremony red carpet Bangkok artist','งานประกาศรางวัล พรมแดง ศิลปิน กรุงเทพ'],
  PRESS_BRAND:['press conference brand event artist appearance Bangkok','งานแถลงข่าว แบรนด์ ศิลปิน อีเวนต์ กรุงเทพ'],
  SPORTS_ENTERTAINMENT:['sports entertainment artist event Bangkok','กีฬา entertainment ศิลปิน กรุงเทพ'],
  SOCIAL:['concert fanmeeting artist appearance Bangkok X Instagram TikTok','กิจกรรม ศิลปิน กรุงเทพ ปริมณฑล X Instagram TikTok'],
- COMPETITOR:['เช่ามือถือ คอนเสิร์ต fanmeeting Bangkok','เช่ามือถือ งานศิลปิน กรุงเทพ ปริมณฑล'],
+ COMPETITOR:['เช่ามือถือ vivo X300 Pro iPhone Samsung concert fanmeeting fansign Bangkok','เช่ามือถือ งานศิลปิน แฟนมีต แฟนไซน์ คิวหลุด กรุงเทพ ปริมณฑล'],
+ ANNOUNCEMENT_CHANGE:['added show sold out postponed cancelled new date venue Bangkok artist','เพิ่มรอบ sold out เต็ม เลื่อน ยกเลิก เปลี่ยนวัน เปลี่ยนสถานที่ ศิลปิน กรุงเทพ'],
  PUBLIC_CALENDAR:['Bangkok events concerts fan meetings calendar','ปฏิทิน อีเวนต์ ศิลปิน กรุงเทพ ปริมณฑล']
 };
 const OPERATIONAL_TIERS=Object.freeze([
  'OFFICIAL','TICKETING','ORGANIZER_PROMOTER','VENUE','ARTIST_AGENCY',
- 'MALL_COMMUNITY','FAN_EVENT','PRESS_BRAND','SPORTS_ENTERTAINMENT','SOCIAL','PUBLIC_CALENDAR'
+ 'MALL_COMMUNITY','FAN_EVENT','CEREMONY','PRESS_BRAND','SPORTS_ENTERTAINMENT','SOCIAL','COMPETITOR','ANNOUNCEMENT_CHANGE','PUBLIC_CALENDAR'
 ]);
 function text(v){return String(v==null?'':v).trim();}
 function queryVariantsForTerm(term,range,location,learned=[]){
@@ -32,14 +33,17 @@ function monthRange(input={}){
  const last=new Date(Date.UTC(y,m,0)).getUTCDate(),mm=String(m).padStart(2,'0');return {month:y+'-'+mm,start_date:y+'-'+mm+'-01',end_date:y+'-'+mm+'-'+String(last).padStart(2,'0')};
 }
 function build(input={}){
- const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],gap_tasks=[];
+ const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],hotFandoms=(Array.isArray(input.hot_fandom_terms)?input.hot_fandom_terms:[]).map(text).filter(Boolean).slice(0,12),gap_tasks=[];
  for(const [source_tier,terms] of Object.entries(TIER_TERMS))for(const term of terms){const qs=queryVariantsForTerm(term,range,location,learned);const liveNationEligible=['OFFICIAL','TICKETING','VENUE','ARTIST_AGENCY','ORGANIZER_PROMOTER','PUBLIC_CALENDAR'].includes(source_tier);gap_tasks.push({source_tier,query:qs[0],query_variants:qs.slice(1),providers:[...(liveNationEligible?['LIVENATION_PUBLIC']:[]),'OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});}
- const universe=SourceRegistry.buildUniversePlan({month:range.month,location});
+ for(const fandom of hotFandoms){
+  gap_tasks.push({source_tier:'FANDOM_GRAPH',source_id:'fandom-'+fandom.toLowerCase().replace(/[^a-z0-9ก-๙]+/gi,'-').slice(0,60),query:fandom+' fanmeeting fancon fansign brand event birthday Bangkok '+range.month,query_variants:[fandom+' เช่ามือถือ กรุงเทพ '+range.month,fandom+' lucky fan meet greet กรุงเทพ '+range.month,fandom+' added show sold out Bangkok '+range.month],providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});
+ }
+  const universe=SourceRegistry.buildUniversePlan({month:range.month,location});
  for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
- return {version:VERSION,mode:'ULTRA_DEEP_MONTH_LONG_TAIL',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),learned_query_count:learned.length,production_writes:0,authoritative:false,verifier_required:true};
+ return {version:VERSION,mode:'ULTRA_DEEP_MONTH_LONG_TAIL',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),learned_query_count:learned.length,hot_fandom_query_count:hotFandoms.length,production_writes:0,authoritative:false,verifier_required:true};
 }
 function buildOperational(input={}){
- const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],gap_tasks=[];
+ const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],hotFandoms=(Array.isArray(input.hot_fandom_terms)?input.hot_fandom_terms:[]).map(text).filter(Boolean).slice(0,6),gap_tasks=[];
  for(const source_tier of OPERATIONAL_TIERS){
   const term=(TIER_TERMS[source_tier]||[])[0];if(!term)continue;
   const qs=queryVariantsForTerm(term,range,location,learned);
@@ -55,11 +59,20 @@ function buildOperational(input={}){
    date_window:{start:range.start_date,end:range.end_date}
   });
  }
+ for(const fandom of hotFandoms){
+  gap_tasks.push({
+   source_tier:'FANDOM_GRAPH',source_id:'smart-fandom-'+fandom.toLowerCase().replace(/[^a-z0-9ก-๙]+/gi,'-').slice(0,50),
+   query:fandom+' fanmeet fansign brand event Bangkok '+range.month,
+   query_variants:[fandom+' เช่ามือถือ กรุงเทพ '+range.month,fandom+' added show sold out Bangkok '+range.month],
+   providers:['BING_RSS','OFFICIAL_DIRECT','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA'],
+   stop_condition:'FIRST_USABLE_EVIDENCE_OR_BOUNDED_NO_EVIDENCE',evidence_required:false,date_window:{start:range.start_date,end:range.end_date}
+  });
+ }
  return {
-  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V1',
+  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V2',
   mode:'SMART_OPERATIONAL',
   range,location,gap_tasks,
-  operational_tiers:[...OPERATIONAL_TIERS],
+  operational_tiers:[...OPERATIONAL_TIERS],hot_fandom_query_count:hotFandoms.length,
   audit_required:true,
   production_writes:0,
   authoritative:false,
