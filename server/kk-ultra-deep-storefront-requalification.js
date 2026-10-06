@@ -26,9 +26,10 @@ function requalify(input={},config={}){
     reason:'OWNER_HIDDEN_OR_TOMBSTONE',...external,internal_business_signals_affect_score:false
   };
 
-  if(ownerKeep) return {
+  if(ownerKeep||text(input.history_state).toUpperCase()==='REOPENED') return {
     version:VERSION,decision:'OWNER_KEEP',apply_visibility_change:false,
-    reason:'EXPLICIT_OWNER_KEEP',...external,internal_business_signals_affect_score:false
+    reason:ownerKeep?'EXPLICIT_OWNER_KEEP':'EXPLICIT_OWNER_REOPEN_HISTORY_PROTECTS_VISIBILITY',
+    ...external,internal_business_signals_affect_score:false
   };
 
   if(activeBookingCount>0) return {
