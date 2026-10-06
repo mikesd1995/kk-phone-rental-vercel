@@ -63,4 +63,26 @@ async function readProjectMemory({env=process.env,domains=[],limit=80,fetchImpl=
   };
 }
 
-module.exports={PROJECT_REF,FUNCTION_SLUG,MAX_ROWS,TIMEOUT_MS,endpoint,normalizeDomains,officialGithubOidcToken,readProjectMemory};
+
+async function writeAgentInvocation({env=process.env,row,fetchImpl=global.fetch,getTokenImpl}={}){
+  const token=typeof getTokenImpl==='function'?text(await getTokenImpl()):await officialGithubOidcToken({env,fetchImpl});
+  if(!token)return {attempted:false,ok:false,error_code:'GITHUB_OIDC_TOKEN_MISSING',read_only:false,audit_writes:0,business_writes:0};
+  if(typeof fetchImpl!=='function')return {attempted:false,ok:false,error_code:'GITHUB_OIDC_FETCH_UNAVAILABLE',read_only:false,audit_writes:0,business_writes:0};
+  let r;
+  try{
+    r=await fetchImpl(endpoint(),{
+      method:'POST',
+      headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',Accept:'application/json'},
+      body:JSON.stringify({probe:'agent-invocation-write',version:'v1',row}),
+      signal:AbortSignal.timeout(TIMEOUT_MS)
+    });
+  }catch(err){
+    return {attempted:true,ok:false,error_code:String(err&&err.name)==='TimeoutError'?'GITHUB_OIDC_AGENT_LEDGER_TIMEOUT':'GITHUB_OIDC_AGENT_LEDGER_TRANSPORT_FAILED',read_only:false,audit_writes:0,business_writes:0};
+  }
+  let body=null;try{body=await r.json();}catch(_){}
+  if(!r.ok||!body||typeof body!=='object')return {attempted:true,ok:false,error_code:text(body&&body.error_code)||'GITHUB_OIDC_AGENT_LEDGER_REMOTE_FAILED',remote_status:r.status,read_only:false,audit_writes:0,business_writes:0};
+  const valid=body.ok===true&&body.authenticated===true&&body.read_only===false&&body.business_writes===0&&String(body.invocation_id||'')===text(row&&row.invocation_id)&&[0,1].includes(Number(body.audit_writes));
+  return {attempted:true,ok:valid,authenticated:body.authenticated===true,inserted:valid&&body.inserted===true,idempotent_duplicate:valid&&body.inserted!==true,invocation_id:valid?text(body.invocation_id):'',read_only:false,audit_writes:valid?Number(body.audit_writes):0,business_writes:0,error_code:valid?'':'GITHUB_OIDC_AGENT_LEDGER_RESPONSE_INVALID'};
+}
+
+module.exports={PROJECT_REF,FUNCTION_SLUG,MAX_ROWS,TIMEOUT_MS,endpoint,normalizeDomains,officialGithubOidcToken,readProjectMemory,writeAgentInvocation};
