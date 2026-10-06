@@ -156,3 +156,15 @@ If child and parent share date, venue, admission and operational pickup/return b
 Create a separate candidate only when date, venue, admission, pickup window or another operational boundary is genuinely distinct.
 
 A high-demand child signal may never reopen a LOCKED or owner-hidden parent.
+
+## Active booking date exclusion (owner-locked 2026-10-07)
+
+This rule supersedes the earlier spare-capacity interpretation for Discovery/Storefront.
+
+- If **any active booking** exists on a date (`pending|confirmed|prepared|picked_up`), that date is excluded from discovering, enriching, scoring, or publishing **other events**.
+- The booked event itself may remain visible and may receive verified metadata maintenance.
+- Spare inventory does **not** permit another event on the same booked date.
+- Scanner output for another event on that date is `SKIPPED_ACTIVE_BOOKING_DATE`; do not spend competitor/demand enrichment on it.
+- If the booking is later cancelled/no_show and no other active booking remains, the date may re-enter normal discovery subject to owner locks/history.
+- Active-booking date exclusion overrides `REOPENED`, OWNER_KEEP, External Demand Score, and spare inventory for **other** events on that date; it does not alter the external score itself.
+- This rule is also the canonical rule for X promotion scheduling: do not promote other events on an active-booking date.
