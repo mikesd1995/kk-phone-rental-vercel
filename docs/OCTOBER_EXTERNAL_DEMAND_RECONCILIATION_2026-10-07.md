@@ -167,3 +167,19 @@ When owner says "สแกนเดือน X ใหม่":
 ## Durable owner-keep exception
 
 `EVT-20261014-LOVE-ON-HIRE-BLESSING` now has a persistent visibility-history row with reason `OWNER_KEEP_DEMAND_PRUNE_EXCEPTION_2026-10-07`, changed_by `OWNER_COMMAND`. This is not a hide lock; it is a durable owner keep instruction. Current derived readback remains `show` with phone=2/lens=2.
+
+## Correction — 24 Oct booking-day exclusivity
+
+The earlier reconciliation incorrectly treated spare inventory on 24 Oct as permission to expose other events. Owner clarified that **any active booking blocks all other events on the same date**, even when one phone remains.
+
+Canonical booking evidence: `BK-20261024-001`, `confirmed`, `EVT-20261024-LYKN-REFLEXION-CONCERT`.
+
+Corrections applied:
+- LYKN REFLEXION CONCERT remains the booked/customer-facing event.
+- TEEHENG GEN OF US 1st FANMEETING => hidden.
+- OMEGA X [BEYOND] Bangkok => hidden.
+- GUN NAPAT Birthday Event => hidden.
+- T.O.P PRE-STUDIO 2026 in Bangkok => hidden.
+- FAYE PERAYA Birthday Party remains Candidate/SEEN_CORE only and hidden.
+
+The four prior `REOPENED` histories are retained as history, but active-booking-day exclusion has higher runtime precedence while LYKN remains active. The earlier +8 storefront result must not be used as current truth without this correction.
