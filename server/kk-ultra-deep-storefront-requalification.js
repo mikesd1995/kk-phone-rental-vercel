@@ -92,4 +92,22 @@ function report(rows=[]){
   return {version:VERSION,counts:Object.fromEntries(Object.entries(out).map(([k,v])=>[k,v.length])),groups:out};
 }
 
-module.exports={VERSION,externalQualification,requalify,report};
+function monthlyDiff(input={}){
+  const before=new Set((input.before_visible_event_ids||[]).map(text).filter(Boolean));
+  const after=new Set((input.after_visible_event_ids||[]).map(text).filter(Boolean));
+  const details=new Map((input.event_details||[]).map(x=>[text(x.event_id||x.event_key),x]));
+  const added=[...after].filter(id=>!before.has(id)).map(id=>({event_id:id,...(details.get(id)||{})}));
+  const removed=[...before].filter(id=>!after.has(id)).map(id=>({event_id:id,...(details.get(id)||{})}));
+  const kept=[...after].filter(id=>before.has(id)).map(id=>({event_id:id,...(details.get(id)||{})}));
+  return {
+    version:VERSION,
+    before_visible_count:before.size,
+    after_visible_count:after.size,
+    added_count:added.length,
+    removed_count:removed.length,
+    kept_count:kept.length,
+    added,removed,kept
+  };
+}
+
+module.exports={VERSION,externalQualification,requalify,report,monthlyDiff};
