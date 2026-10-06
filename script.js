@@ -320,7 +320,7 @@ var I18N = {
     card_aria_available:"View available equipment for {event}",
     card_aria_waitlist:"Join the waitlist for {event}",
     no_image:"No image",
-    tap_available:"Choose your model",
+    tap_available:"Check slots & packages",
     tap_waitlist:"Join waitlist",
     pkg_phone_only:"Phone only",
     pkg_lens_only:"Add-on lens",
