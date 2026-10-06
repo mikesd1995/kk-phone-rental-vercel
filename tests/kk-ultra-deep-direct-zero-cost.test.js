@@ -27,11 +27,12 @@ test('V22 direct runtime preserves all governed stages',()=>{
 });
 
 
-test('V23 preflights storefront and full-booking capacity before discovery',()=>{
+test('V23 preflights storefront and active-booking dates before discovery',()=>{
   const src=fs.readFileSync(require.resolve('../server/kk-ultra-deep-direct-zero-cost.js'),'utf8');
   const preflight=src.indexOf('Production.freshSnapshot');
   const discovery=src.indexOf('Runtime.runMonthlyUltraDeep');
   assert.ok(preflight>0&&discovery>preflight,'fresh storefront SOT must be read before discovery');
+  assert.match(src,/active_booking_dates/);
   assert.match(src,/full_booking_dates/);
   assert.match(src,/phone_capacity/);
   assert.match(src,/READ_ONLY_ACCEPTANCE/);
