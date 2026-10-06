@@ -2,7 +2,7 @@
 const Production=require('./kk-ultra-deep-production-runtime.js');
 const Rent=require('./kk-ultra-deep-rentability-score.js');
 const V2=require('./kk-ultra-deep-full-loop-v2.js');
-const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V1';
+const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V2';
 function text(v){return String(v==null?'':v).trim();}
 function statusActive(v){return !['cancelled','canceled','no_show'].includes(text(v).toLowerCase());}
 function bookingCountForEvent(snapshot,eventId){return (snapshot.bookings||[]).filter(b=>statusActive(b.booking_status)&&text(b.event_id)===text(eventId)).length;}
@@ -20,14 +20,35 @@ function commercialByKey(commercial={}){return new Map((commercial.candidates||[
 function posterFor(row={}){const p=row.poster&&row.poster.selected;return p&&p.verified===true?p:null;}
 function competitorPrices(row={}){return row.pricing&&Array.isArray(row.pricing.evidence)?row.pricing.evidence:[];}
 function signalValue(candidate,key,fallback=null){const n=Number(candidate&&candidate[key]);return Number.isFinite(n)?n:fallback;}
+function averagePresent(values=[]){const xs=values.filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))).map(Number);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;}
+function competitorActivity(count){const n=Math.max(0,Number(count)||0);return n>=4?100:n===3?90:n===2?75:n===1?45:null;}
 function normalizeCandidate(candidate,snapshot,commercialRow={}){
  const events=Production.snapshotEvents(snapshot),match=matchForV2(candidate,events),existing=match.match&&match.match.event||null;
  const available=availableOnDate(snapshot,candidate.event_date);
- const rentalFit=signalValue(candidate,'rental_intent',signalValue(candidate,'rental_fit_score',null));
- const rentalIntent=rentalFit===null?0:(rentalFit<=10?rentalFit*10:rentalFit);
- const exact=competitorPrices(commercialRow),commercialEvidence=Math.min(100,(new Set(exact.map(x=>x.competitor_id)).size/3)*100);
- const scoring={fandom_strength:signalValue(candidate,'fandom_strength',null),social_demand:signalValue(candidate,'social_demand',null),rental_intent:rentalFit===null?null:rentalIntent,commercial_evidence:exact.length?commercialEvidence:null,event_quality:signalValue(candidate,'event_quality',null),available_inventory:available,expected_rental_price:commercialRow.pricing&&commercialRow.pricing.proposal&&commercialRow.pricing.proposal.proposed_reference_price||0,booking_probability:signalValue(candidate,'booking_probability',0),verified_competitor_rental:exact.length>0,competitor_rental_count:new Set(exact.map(x=>x.competitor_id)).size,engagement_velocity_high:candidate.engagement_velocity_high===true,sold_out_or_added_round:candidate.sold_out_or_added_round===true,strong_fan_project_signal:candidate.strong_fan_project_signal===true};
- const qualification=existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0}:Rent.qualify(scoring);
+ const exact=competitorPrices(commercialRow);
+ const competitorCount=new Set(exact.map(x=>x.competitor_id).filter(Boolean)).size;
+ const legacyRental=signalValue(candidate,'rental_intent',signalValue(candidate,'rental_fit_score',null));
+ const normalizedLegacyRental=legacyRental===null?null:(legacyRental<=10?legacyRental*10:legacyRental);
+ const fandom=signalValue(candidate,'fandom_strength',null);
+ const scoring={
+   competitor_rental_activity:signalValue(candidate,'competitor_rental_activity',competitorActivity(competitorCount)),
+   social_engagement:signalValue(candidate,'social_engagement',signalValue(candidate,'social_demand',null)),
+   ticket_demand:signalValue(candidate,'ticket_demand',candidate.sold_out_or_added_round===true?100:null),
+   fandom_photo_intent:signalValue(candidate,'fandom_photo_intent',averagePresent([fandom,normalizedLegacyRental])),
+   venue_capture_value:signalValue(candidate,'venue_capture_value',signalValue(candidate,'event_quality',null)),
+   historical_market_rental:signalValue(candidate,'historical_market_rental',signalValue(candidate,'historical_rental_activity',null)),
+   available_inventory:available,
+   expected_rental_price:commercialRow.pricing&&commercialRow.pricing.proposal&&commercialRow.pricing.proposal.proposed_reference_price||0,
+   market_conversion_probability:signalValue(candidate,'market_conversion_probability',0),
+
+   // Explicitly carried only so the scorer can prove they are ignored.
+   booking_count:existing?bookingCountForEvent(snapshot,existing.event_id):0,
+   kk_booking_count:signalValue(candidate,'kk_booking_count',null),
+   kk_waitlist_count:signalValue(candidate,'kk_waitlist_count',null),
+   kk_inquiry_count:signalValue(candidate,'kk_inquiry_count',null),
+   kk_revenue:signalValue(candidate,'kk_revenue',null)
+ };
+ const qualification=existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0,internal_business_signals_affect_score:false}:Rent.qualify(scoring);
  const poster=posterFor(commercialRow);
  const proposal=commercialRow.pricing&&commercialRow.pricing.proposal||{};
  const priceTargets=existing?(existing.packages||[]).map(p=>({package_type:text(p.package_type).toUpperCase(),template_id:text(p.template_id||Production.packageTemplateId(p.package_id)),current_price:Number(p.price)||null,competitor_prices:exact.filter(x=>!text(x.package_type)||text(x.package_type).toUpperCase()===text(p.package_type).toUpperCase())})):[];
@@ -46,9 +67,19 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
 }
 function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
  const byKey=commercialByKey(commercial),normalized=candidates.map(c=>normalizeCandidate(c,snapshot,byKey.get(text(c.event_key||c.candidate_id))||{}));
- const selected=normalized.filter(c=>c.exists_in_canonical||['FULL_LOOP','VERIFY_MORE'].includes(c.rentability.decision));
- const excluded=normalized.filter(c=>!selected.includes(c)).map(c=>({event_key:c.event_key,title:c.title,decision:c.rentability.decision,score:c.rentability.rentability&&c.rentability.rentability.total}));
+ // Existing canonical events remain eligible for maintenance. New candidates must pass the external-demand publish gate.
+ const selected=normalized.filter(c=>c.exists_in_canonical||c.rentability.decision==='FULL_LOOP');
+ const excluded=normalized.filter(c=>!selected.includes(c)).map(c=>({
+   event_key:c.event_key,title:c.title,decision:c.rentability.decision,
+   score:c.rentability.rentability&&c.rentability.rentability.total,
+   tier:c.rentability.rentability&&c.rentability.rentability.tier,
+   signal_coverage:c.rentability.signal_coverage||null
+ }));
  const plan=V2.buildPlan({month,candidates:selected});
- return {version:VERSION,status:plan.status,normalized_count:normalized.length,selected_count:selected.length,excluded_count:excluded.length,excluded,plan,production_writes:0};
+ return {
+   version:VERSION,status:plan.status,normalized_count:normalized.length,selected_count:selected.length,excluded_count:excluded.length,
+   external_demand_publish_gate:{publish_threshold:Rent.DEFAULT_THRESHOLDS.publish,priority_threshold:Rent.DEFAULT_THRESHOLDS.priority,watch_threshold:Rent.DEFAULT_THRESHOLDS.watch,internal_business_signals_affect_score:false},
+   excluded,plan,production_writes:0
+ };
 }
 module.exports={VERSION,statusActive,bookingCountForEvent,availableOnDate,matchForV2,normalizeCandidate,buildReadOnlyPlan};
