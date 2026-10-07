@@ -59,7 +59,7 @@ test('card column geometry ignores invalid or zero-width rectangles',()=>{
   assert.deepEqual(out.column_widths,[170,170]);
 });
 
-const healthy=()=>({document_width:390,raw_i18n_keys:[],small_targets:[],card_columns:2,column_widths:[176,176],escaped_card_elements:[],poster_treatment_issues:[],theme_icons:1,modal:null});
+const healthy=()=>({document_width:390,raw_i18n_keys:[],small_targets:[],card_columns:2,column_widths:[176,176],card_height_spread_px:0,poster_frame_ratios:[0.75,0.75],escaped_card_elements:[],poster_treatment_issues:[],theme_icons:1,modal:null});
 test('rendered defects fail even when the document itself has no horizontal overflow',()=>{
   assert.deepEqual(E.stateFindings(healthy(),{width:390,name:'top'}),[]);
   for(const change of [{card_columns:1},{overlapping_filters:true},{clipped_controls:['filter-full']},{column_widths:[176,190]},{escaped_card_elements:['pi-price']},{poster_treatment_issues:[{event_id:'evt',coverage:.61,treatment:'missing'}]},{theme_icons:2},{small_targets:[{id:'theme',width:42,height:44}]},{raw_i18n_keys:['journey_1_title']}]){
@@ -94,4 +94,12 @@ test('gateway executes real reviewer, bootstraps memory and persists exact local
     assert.equal(JSON.parse(bytes).record.source_commit_sha,'a'.repeat(40));
     assert.ok(out.result.findings.some(f=>f.code==='RAW_I18N_KEY_VISIBLE'));
   }finally{fs.rmSync(outputDir,{recursive:true,force:true});}
+});
+
+
+test('desktop card geometry blocks uneven heights and poster rails outside the visual contract',()=>{
+  const base={...healthy(),document_width:1440,card_height_spread_px:0,poster_frame_ratios:[0.75,0.75]};
+  assert.deepEqual(E.stateFindings(base,{width:1440,name:'catalogue'}),[]);
+  assert.ok(E.stateFindings({...base,card_height_spread_px:3.2},{width:1440,name:'catalogue'}).some(x=>x.code==='CARD_HEIGHT_MISMATCH'));
+  assert.ok(E.stateFindings({...base,poster_frame_ratios:[0.75,0.64]},{width:1440,name:'catalogue'}).some(x=>x.code==='POSTER_FRAME_RATIO_MISMATCH'));
 });
