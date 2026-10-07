@@ -111,6 +111,22 @@ function matchExisting(candidate={},events=[]){
  if(scored.length>1&&scored[0].score-scored[1].score<.15)return {match:null,ambiguous:true,candidates:scored.slice(0,3)};
  return {match:scored[0],ambiguous:false,candidates:scored.slice(0,3)};
 }
+function dateDistanceDays(a,b){
+ const x=date(a),y=date(b);if(!x||!y)return Infinity;
+ return Math.abs(new Date(x+'T00:00:00Z').getTime()-new Date(y+'T00:00:00Z').getTime())/86400000;
+}
+function persistentLockedHistoryConflict(candidate={},locks=[]){
+ const d=date(candidate.event_date);if(!d)return null;
+ for(const l of Array.isArray(locks)?locks:[]){
+  if(text(l.lock_state).toUpperCase()!=='LOCKED')continue;
+  const ld=date(l.event_date);if(!ld||ld===d||dateDistanceDays(ld,d)>183)continue;
+  const exact=norm(l.event_name)===norm(candidate.title);
+  const known=sameKnownMiss({title:l.event_name,event_date:ld},{title:candidate.title,event_date:d});
+  const overlap=Math.max(titleOverlap(candidate.title,l.event_name),titleOverlap(l.event_name,candidate.title));
+  if(exact||known||overlap>=.85)return Object.assign({match_kind:'LOCKED_NAME_DATE_DRIFT'},l);
+ }
+ return null;
+}
 function historicalConflict(candidate={},locks=[]){
  const d=date(candidate.event_date);if(!d)return null;
  for(const l of Array.isArray(locks)?locks:[]){
@@ -118,9 +134,31 @@ function historicalConflict(candidate={},locks=[]){
   const exact=norm(l.event_name)===norm(candidate.title);
   const known=sameKnownMiss({title:l.event_name,event_date:d},{title:candidate.title,event_date:d});
   const overlap=Math.max(titleOverlap(candidate.title,l.event_name),titleOverlap(l.event_name,candidate.title));
-  if(exact||known||(venueCompatible(candidate.venue,l.venue)&&overlap>=.6))return l;
+  if(exact||known||(venueCompatible(candidate.venue,l.venue)&&overlap>=.6))return Object.assign({match_kind:'SAME_DATE_HISTORY'},l);
  }
- return null;
+ return persistentLockedHistoryConflict(candidate,locks);
+}
+function materialSuppressedChanges(candidate={},history={},events=[]){
+ const current=(events||[]).find(e=>text(e.event_id)===text(history.event_id))||{};
+ const baseline=Object.keys(current).length?current:history;
+ const changes=[];
+ const add=(field,oldValue,newValue,normalizer=norm)=>{
+  const next=text(newValue);if(!next)return;
+  const prev=text(oldValue);
+  if(normalizer(prev)!==normalizer(next))changes.push({field,old_value:prev,new_value:next});
+ };
+ const oldDate=date(baseline.event_date),newDate=date(candidate.event_date);
+ if(newDate&&oldDate!==newDate)changes.push({field:'event_date',old_value:oldDate,new_value:newDate});
+ add('venue',baseline.venue,candidate.venue);
+ add('poster_url',baseline.poster_image_url||baseline.poster_url,candidate.poster_image_url||candidate.poster_url||candidate.official_poster_url,v=>text(v));
+ add('event_time',baseline.event_time||baseline.show_time||baseline.start_time,candidate.event_time||candidate.show_time||candidate.start_time,v=>text(v).toLowerCase());
+ add('event_status',baseline.event_status||baseline.ticket_status,candidate.event_status||candidate.ticket_status,v=>text(v).toLowerCase());
+ return {
+  suppression_preserved:true,
+  material_update_detected:changes.length>0,
+  observed_changes:changes,
+  source_url:text(candidate.official_source_url||candidate.source_url||candidate.url)
+ };
 }
 const CAPACITY_HOLD_STATUSES=new Set(['pending','confirmed','prepared','picked_up']);
 function phoneInventoryCapacity(snapshot={}){
@@ -159,26 +197,51 @@ function reconcileCandidates(candidates=[],snapshot={}){
  const safe=[];const dispositions=[];
  for(const raw of Array.isArray(candidates)?candidates:[]){
   const c={...raw,event_date:date(raw.event_date)};
-  if(fullBooked.has(c.event_date)){
-   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_FULL_BOOKING_DATE'});
-   continue;
-  }
   const history=historicalConflict(c,snapshot.visibility_locks||[]);
-  if(history&&['LOCKED','SEEN_CORE'].includes(text(history.lock_state).toUpperCase())){
-   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_EVENT_HISTORY',history_event_id:text(history.event_id),history_state:text(history.lock_state)});
+  const historyState=text(history&&history.lock_state).toUpperCase();
+  const match=matchExisting(c,events);
+
+  if(history&&historyState==='LOCKED'){
+   const observation=materialSuppressedChanges(c,history,events);
+   dispositions.push({
+    event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_EVENT_HISTORY',
+    history_event_id:text(history.event_id),history_state:historyState,history_match_kind:text(history.match_kind),
+    suppression_reason:text(history.lock_reason),...observation
+   });
    continue;
   }
-  const match=matchExisting(c,events);
+
   if(match.ambiguous){
    dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'HOLD_AMBIGUOUS_EXISTING',matches:match.candidates.map(x=>({event_id:text(x.event.event_id),event_name:text(x.event.event_name),score:x.score,reason:x.reason}))});
    continue;
   }
+
   if(match.match){
    c.existing_event_id=text(match.match.event.event_id);
-   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_EXISTING',existing_event_id:c.existing_event_id,match_reason:match.match.reason});
-  }else{
-   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_NEW'});
+   dispositions.push({
+    event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_EXISTING',
+    existing_event_id:c.existing_event_id,match_reason:match.match.reason,
+    history_state:historyState||'',history_event_id:text(history&&history.event_id)
+   });
+   safe.push(c);
+   continue;
   }
+
+  if(history&&['SEEN_CORE','REOPENED'].includes(historyState)){
+   dispositions.push({
+    event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_EVENT_HISTORY',
+    history_event_id:text(history.event_id),history_state:historyState,history_match_kind:text(history.match_kind),
+    suppression_preserved:false,material_update_detected:false,observed_changes:[]
+   });
+   continue;
+  }
+
+  if(fullBooked.has(c.event_date)){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_FULL_BOOKING_DATE'});
+   continue;
+  }
+
+  dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_NEW'});
   safe.push(c);
  }
  return {events,safe_candidates:safe,dispositions,booked_dates:[...booked],full_booked_dates:[...fullBooked],phone_capacity:phoneInventoryCapacity(snapshot)};
@@ -291,6 +354,7 @@ async function execute(handoff={},options={}){
   existingEventWriterFn:args=>existingEventWriter(args,{env,fetchImpl})
  });
  const ambiguous=reconciled.dispositions.filter(x=>x.status==='HOLD_AMBIGUOUS_EXISTING');
+ const suppressedObservations=reconciled.dispositions.filter(x=>x.suppression_preserved===true);
  const blockers=[...(ambiguous.length?['AMBIGUOUS_EXISTING_EVENT_REVIEW']:[]),...(quarantine.blockers||[])];
  return {
   version:VERSION,
@@ -299,6 +363,8 @@ async function execute(handoff={},options={}){
   orchestrator:result,
   quarantine,
   dispositions:reconciled.dispositions,
+  suppressed_update_count:suppressedObservations.filter(x=>x.material_update_detected===true).length,
+  suppressed_observations:suppressedObservations,
   blockers,
   snapshot_source:text(snapshot.snapshot_source),
   snapshot_generated_at:text(snapshot.generated_at)
@@ -307,7 +373,7 @@ async function execute(handoff={},options={}){
 
 module.exports={
  VERSION,DEFAULT_SITE,DEFAULT_SHEET_ID,AUTO_PROMOTION_MARKER,text,norm,date,tokens,titleOverlap,venueCompatible,sameKnownMiss,packageTemplateId,
- snapshotEvents,matchExisting,historicalConflict,phoneInventoryCapacity,bookingCountByDate,fullBookingDateSet,activeBookingDateSet,reconcileCandidates,storeBaselines,readbackForEvent,
+ snapshotEvents,matchExisting,dateDistanceDays,persistentLockedHistoryConflict,historicalConflict,materialSuppressedChanges,phoneInventoryCapacity,bookingCountByDate,fullBookingDateSet,activeBookingDateSet,reconcileCandidates,storeBaselines,readbackForEvent,
  malformedAutoPromotionRows,quarantineMalformedAutoPromotions,
  postAdmin,freshSnapshot,storefrontReadback,existingEventWriter,execute
 };
