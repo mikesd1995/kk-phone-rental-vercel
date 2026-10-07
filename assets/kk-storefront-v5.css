@@ -1790,3 +1790,67 @@ html[data-theme="dark"] .pi-avail.none{color:#fda4af!important}
   .poster-img-wrap .poster-placeholder{position:relative!important;z-index:2!important}
 }
 html[data-theme="dark"] .poster-img-wrap.poster-has-image{background:#06111f!important}
+
+
+/* V6.30 desktop card geometry contract — 2026-10-07
+   Make the poster rail and paired card geometry deterministic instead of letting
+   copy length stretch the image column. 3:4 is the catalogue poster frame;
+   the exact official poster remains uncropped and V6.29 fills any small residual
+   mismatch with the same-poster backdrop. */
+@media (min-width:901px){
+  .poster-grid{
+    align-items:stretch!important;
+  }
+  .concert-card{
+    grid-template-columns:minmax(0,44%) minmax(0,56%)!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    aspect-ratio:1.70/1!important;
+    align-self:stretch!important;
+  }
+  .poster-img-wrap{
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    aspect-ratio:auto!important;
+  }
+  .poster-info{
+    min-height:0!important;
+    height:100%!important;
+    justify-content:flex-start!important;
+  }
+  .pi-date{
+    min-height:1.4em!important;
+  }
+  .pi-name{
+    min-height:2.68em!important;
+    max-height:2.68em!important;
+  }
+  .pi-venue{
+    min-height:1.45em!important;
+  }
+  .pi-price{
+    min-height:1.35em!important;
+  }
+  .pi-avail{
+    min-height:1.4em!important;
+  }
+  .pi-tap{
+    margin-top:auto!important;
+    width:100%!important;
+  }
+}
+
+/* Keep the two-column desktop catalogue usable near the breakpoint while
+   preserving enough vertical room for the fixed information rhythm. */
+@media (min-width:901px) and (max-width:1100px){
+  .concert-card{
+    grid-template-columns:minmax(0,46%) minmax(0,54%)!important;
+    aspect-ratio:1.48/1!important;
+  }
+  .poster-info{padding:18px!important}
+  .pi-name{font-size:18px!important}
+  .pi-price{font-size:16px!important}
+  .pi-tap{font-size:13px!important}
+}
