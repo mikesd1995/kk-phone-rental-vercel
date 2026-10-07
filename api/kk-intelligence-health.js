@@ -6,7 +6,6 @@ const crmReconciliation = require('./lib/crm-reconciliation');
 const AdminSecurity = require('../server/admin-session.js');
 const ProjectMemoryLedger = require('../server/kk-project-memory-ledger.js');
 const OpenAiStagingProbe = require('../server/kk-openai-staging-probe.js');
-const UltraDeepRuntime = require('../server/kk-ultra-deep-production-runtime.js');
 
 const DEFAULT_CRM_SHEET_ID = '1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
 const DEFAULT_CORE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -138,56 +137,6 @@ function projectMemoryProbeRequested(req){
     return u.searchParams.get('mode')==='project-memory';
   }catch(_){return false;}
 }
-function ultraDeepRegressionProbeRequested(req){
-  try{
-    const u=new URL(String(req&&req.url||'/api/kk-intelligence-health'),'https://kk.invalid');
-    return u.searchParams.get('mode')==='ultra-deep-regression';
-  }catch(_){return false;}
-}
-function ultraDeepRegressionProbe(){
-  const checks=[];
-  const base=()=>({
-    events:[],web_ready:[],web_packages:[],
-    packages:[{template_id:'TPL-VIVO-X300-PRO-PHONE',package_type:'phone_only',standard_price:790,active:true}],
-    assets:[{asset_id:'PHONE-1',asset_type:'phone',status:'available'},{asset_id:'PHONE-2',asset_type:'phone',status:'available'}],
-    bookings:[],visibility_locks:[]
-  });
-
-  {
-    const s=base();
-    s.events=[{event_id:'EVT-HID',event_name:'Hidden Fan Meeting',event_date:'2026-11-01',venue:'Old Hall',poster_url:'https://img/old.jpg',active_on_web:false}];
-    s.web_ready=[{event_id:'EVT-HID',event_name:'Hidden Fan Meeting',event_date:'2026-11-01',venue:'Old Hall',poster_image_url:'https://img/old.jpg',action_for_web:'hide'}];
-    s.visibility_locks=[{event_id:'EVT-HID',event_name:'Hidden Fan Meeting',event_date:'2026-11-01',venue:'Old Hall',lock_state:'LOCKED',lock_reason:'OWNER_DO_NOT_AUTO_REOPEN',explicit_reopen_required:true}];
-    const out=UltraDeepRuntime.reconcileCandidates([{event_key:'HID-NEW-DATE',title:'Hidden Fan Meeting',event_date:'2026-11-20',venue:'New Hall',official_poster_url:'https://img/new.jpg',source_url:'https://official.example/event'}],s);
-    const d=out.dispositions[0]||{};
-    checks.push({name:'LOCKED_RESCHEDULE_REMAINS_SUPPRESSED',pass:out.safe_candidates.length===0&&d.status==='SKIPPED_EVENT_HISTORY'&&d.history_match_kind==='LOCKED_NAME_DATE_DRIFT'&&d.suppression_preserved===true&&d.material_update_detected===true&&JSON.stringify((d.observed_changes||[]).map(x=>x.field))===JSON.stringify(['event_date','venue','poster_url']),disposition:d});
-  }
-  {
-    const s=base();
-    s.events=[{event_id:'EVT-EX',event_name:'Existing Concert',event_date:'2026-11-15',venue:'IMPACT Arena',poster_url:'https://img/ex.jpg',active_on_web:true}];
-    s.web_ready=[{event_id:'EVT-EX',event_name:'Existing Concert',event_date:'2026-11-15',venue:'IMPACT Arena',poster_image_url:'https://img/ex.jpg',action_for_web:'show'}];
-    s.visibility_locks=[{event_id:'EVT-EX',event_name:'Existing Concert',event_date:'2026-11-15',venue:'IMPACT Arena',lock_state:'SEEN_CORE'}];
-    s.bookings=[{booking_id:'F1',event_date:'2026-11-15',booking_status:'confirmed'},{booking_id:'F2',event_date:'2026-11-15',booking_status:'pending'}];
-    const out=UltraDeepRuntime.reconcileCandidates([{event_key:'EX',title:'Existing Concert',event_date:'2026-11-15',venue:'IMPACT Arena',poster_url:'https://img/ex-new.jpg'}],s);
-    const d=out.dispositions[0]||{};
-    checks.push({name:'SEEN_CORE_EXISTING_METADATA_RECONCILABLE_WHEN_FULL',pass:out.safe_candidates.length===1&&out.safe_candidates[0].existing_event_id==='EVT-EX'&&d.status==='SAFE_EXISTING'&&d.history_state==='SEEN_CORE',disposition:d});
-  }
-  {
-    const s=base();
-    s.visibility_locks=[{event_id:'EVT-OLD',event_name:'Annual Fan Meeting',event_date:'2026-01-10',venue:'Hall A',lock_state:'LOCKED',explicit_reopen_required:true}];
-    const out=UltraDeepRuntime.reconcileCandidates([{event_key:'ANNUAL-NEW',title:'Annual Fan Meeting',event_date:'2027-01-10',venue:'Hall A'}],s);
-    const d=out.dispositions[0]||{};
-    checks.push({name:'DISTANT_ANNUAL_EVENT_NOT_FALSELY_TOMBSTONED',pass:d.status==='SAFE_NEW'&&out.safe_candidates.length===1,disposition:d});
-  }
-  {
-    const s=base();
-    s.visibility_locks=[{event_id:'EVT-HIST',event_name:'Historical Concert',event_date:'2026-11-28',venue:'BITEC',lock_state:'SEEN_CORE'}];
-    const out=UltraDeepRuntime.reconcileCandidates([{event_key:'HISTORY',title:'Historical Concert',event_date:'2026-11-28',venue:'BITEC'}],s);
-    const d=out.dispositions[0]||{};
-    checks.push({name:'SEEN_CORE_WITHOUT_CURRENT_CORE_BLOCKS_RECREATE',pass:out.safe_candidates.length===0&&d.status==='SKIPPED_EVENT_HISTORY'&&d.history_state==='SEEN_CORE',disposition:d});
-  }
-  return {ok:checks.every(x=>x.pass),version:UltraDeepRuntime.VERSION,checks};
-}
 async function projectMemoryRuntimeReadback({env=process.env,fetchImpl=global.fetch,getTokenImpl}={}){
   const cfg=ProjectMemoryLedger.configState(env);
   const base={
@@ -277,10 +226,6 @@ module.exports=async function handler(req,res){
   if(req.method==='GET' && projectMemoryProbeRequested(req)){
     const payload=await projectMemoryRuntimeReadback();
     return json(res,payload.status==='READBACK_COMPLETE'?200:503,{ok:payload.status==='READBACK_COMPLETE',data:payload});
-  }
-  if(req.method==='GET' && ultraDeepRegressionProbeRequested(req) && process.env.VERCEL_ENV==='preview'){
-    const payload=ultraDeepRegressionProbe();
-    return json(res,payload.ok?200:500,{ok:payload.ok,data:payload});
   }
   if(req.method!=='POST') return json(res,405,{ok:false,error:'Method not allowed'});
   if(!AdminSecurity.authorizeApi(req,res)) return;
@@ -380,6 +325,5 @@ module.exports._test={
   canonicalAppsScriptExecUrl,naiveLocalTimestampMs,inferOffsetMinutes,offsetLabel,
   safeTimingPayload,appsScriptTimingReadback,timingProbeRequested,
   projectMemoryProbeRequested,projectMemoryRuntimeReadback,
-  ultraDeepRegressionProbeRequested,ultraDeepRegressionProbe,
   resetTimingCache(){appsScriptTimingCache={expiresAt:0,payload:null};}
 };
