@@ -1624,3 +1624,123 @@ html[data-theme="dark"] .pi-avail.none{color:#fda4af!important}
   .kk-journey-steps strong{font-size:14px!important}
   .kk-journey-steps span{font-size:12px!important}
 }
+
+
+/* V6.28 AI-assisted desktop readability pass — 2026-10-07
+   Desktop companion to V6.27 mobile readability. Preserve the existing
+   two-column desktop catalogue while increasing primary commercial hierarchy. */
+@media (min-width:901px){
+  .v3-brand-copy strong{
+    font-size:18px!important;
+  }
+  .header-faq-btn{
+    font-size:13px!important;
+  }
+  .lang-btn{
+    font-size:12px!important;
+  }
+
+  .kk-mock-hero .v3-eyebrow{
+    font-size:10.5px!important;
+  }
+  .kk-mock-hero .v3-hero-copy>p{
+    font-size:15px!important;
+    line-height:1.65!important;
+  }
+  .kk-mock-hero .v3-primary,
+  .kk-mock-hero .v3-secondary{
+    font-size:14px!important;
+  }
+
+  .kk-benefit-grid>div{
+    font-size:12px!important;
+    line-height:1.5!important;
+  }
+
+  .v3-events-heading>div>span{
+    font-size:10.5px!important;
+  }
+  .update-note{
+    font-size:12px!important;
+  }
+
+  .status-badge{
+    font-size:12px!important;
+    min-height:32px!important;
+    padding-inline:11px!important;
+  }
+  .poster-info{
+    padding:22px!important;
+  }
+  .pi-date{
+    font-size:13px!important;
+    line-height:1.4!important;
+  }
+  .pi-name{
+    font-size:20px!important;
+    line-height:1.34!important;
+    letter-spacing:-.018em!important;
+  }
+  .pi-venue{
+    font-size:13px!important;
+    line-height:1.45!important;
+  }
+  .pi-price{
+    font-size:17px!important;
+    line-height:1.35!important;
+  }
+  .pi-avail{
+    font-size:13px!important;
+    line-height:1.4!important;
+  }
+  .pi-tap{
+    min-height:50px!important;
+    padding-inline:16px!important;
+    font-size:14px!important;
+    line-height:1.3!important;
+  }
+
+  .kk-journey-kicker{
+    font-size:11px!important;
+  }
+  .kk-journey-steps strong{
+    font-size:15px!important;
+  }
+  .kk-journey-steps span{
+    font-size:13px!important;
+  }
+  footer .trust-note{
+    font-size:13px!important;
+  }
+
+  .modal-title{
+    font-size:27px!important;
+  }
+  .modal-meta{
+    font-size:15px!important;
+  }
+  .modal-note{
+    font-size:14px!important;
+  }
+  .ph-model{
+    font-size:20px!important;
+  }
+  .ph-spec,.ph-note,.ph-usecase{
+    font-size:13px!important;
+  }
+  .ph-price{
+    font-size:23px!important;
+  }
+  .book-pill{
+    font-size:13.5px!important;
+  }
+  .modal-share,.modal-close{
+    font-size:14px!important;
+  }
+  .faq-q{
+    font-size:14px!important;
+  }
+  .faq-a{
+    font-size:13px!important;
+  }
+}
