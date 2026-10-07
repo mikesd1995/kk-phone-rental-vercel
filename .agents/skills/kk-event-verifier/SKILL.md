@@ -89,7 +89,9 @@ Before Core promotion, read `18_Event_Visibility_Locks` and resolve the candidat
 - `LOCKED` → `OWNER_HIDDEN_RECREATE_PROHIBITED`; do not create or reopen.
 - `SEEN_CORE` or `REOPENED` with no current Core row → `HISTORICAL_EVENT_RECREATE_PROHIBITED`; treat it as historical reconciliation debt and do not create a replacement under a new event ID.
 - Existing Core row → reconcile/update the existing identity only; creation is not allowed.
-- Match exact `event_id` first, then normalized event name + date + venue. Event-ID regeneration is not an escape hatch.
+- A `LOCKED` tombstone blocks publication but does not block evidence maintenance. Verified poster/date/time/venue/added-show/postponement/cancellation changes must be reported as suppressed-event observations without flipping storefront visibility.
+- Match exact `event_id` first, then normalized event identity. A plausible reschedule with the same/strong title identity must not escape a `LOCKED` tombstone merely because the date or venue changed.
+- `SEEN_CORE` or `REOPENED` history must not suppress metadata reconciliation when the same current Core row still exists; it only blocks recreation when that Core row is missing.
 - A legitimate owner reopen must use the existing event update path with `visibility_owner_intent=explicit_owner_reopen`, which transitions the lock record to `REOPENED` while preserving history.
 - Final storefront readback must respect the data-plane lock even if a raw writer accidentally flips `01_Events.active_on_web` back to TRUE.
 

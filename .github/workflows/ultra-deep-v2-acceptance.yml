@@ -5,6 +5,7 @@ on:
     paths:
       - 'server/kk-ultra-deep-*.js'
       - 'tests/kk-ultra-deep-full-loop-v2.test.js'
+      - 'tests/kk-ultra-deep-production-runtime.test.js'
       - 'package.json'
 jobs:
   v2-acceptance:
@@ -18,5 +19,5 @@ jobs:
       - run: npm ci
       - name: Syntax gate
         run: npm run check
-      - name: Focused V2 regression
-        run: node --test tests/kk-ultra-deep-full-loop-v2.test.js
+      - name: Focused V2 + production runtime regression
+        run: node --test tests/kk-ultra-deep-full-loop-v2.test.js tests/kk-ultra-deep-production-runtime.test.js

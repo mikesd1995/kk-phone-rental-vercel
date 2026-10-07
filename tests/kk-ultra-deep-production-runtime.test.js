@@ -42,6 +42,44 @@ test('reconciliation pins exact existing, skips booked and hidden history, leave
  assert.deepEqual(out.full_booked_dates,[]);
 });
 
+test('existing SEEN_CORE event remains reconcilable even on a full booking date',()=>{
+ const s=snapshot();
+ s.visibility_locks.push({event_id:'EVT-EX',event_name:'LYKN REFLEXION CONCERT',event_date:'2026-10-23',venue:'IMPACT Arena',lock_state:'SEEN_CORE'});
+ s.bookings=[
+  {booking_id:'F1',event_date:'2026-10-23',booking_status:'confirmed'},
+  {booking_id:'F2',event_date:'2026-10-23',booking_status:'pending'}
+ ];
+ const out=R.reconcileCandidates([{event_key:'EX',title:'LYKN REFLEXION CONCERT',event_date:'2026-10-23',venue:'IMPACT Arena',poster_url:'https://img/ex-new.jpg'}],s);
+ assert.equal(out.safe_candidates.length,1);
+ assert.equal(out.safe_candidates[0].existing_event_id,'EVT-EX');
+ assert.equal(out.dispositions[0].status,'SAFE_EXISTING');
+ assert.equal(out.dispositions[0].history_state,'SEEN_CORE');
+});
+
+test('locked suppressed event stays hidden across date/venue/poster changes and reports the changes',()=>{
+ const s=snapshot();
+ s.events=[{event_id:'EVT-HID',event_name:'Hidden Fan Meeting',event_date:'2026-11-01',venue:'Old Hall',poster_url:'https://img/old.jpg',active_on_web:false}];
+ s.web_ready=[{event_id:'EVT-HID',event_name:'Hidden Fan Meeting',event_date:'2026-11-01',venue:'Old Hall',poster_image_url:'https://img/old.jpg',action_for_web:'hide'}];
+ s.web_packages=[];
+ s.bookings=[];
+ s.visibility_locks=[{event_id:'EVT-HID',event_name:'Hidden Fan Meeting',event_date:'2026-11-01',venue:'Old Hall',lock_state:'LOCKED',lock_reason:'OWNER_DO_NOT_AUTO_REOPEN',explicit_reopen_required:true}];
+ const out=R.reconcileCandidates([{event_key:'HID-NEW-DATE',title:'Hidden Fan Meeting',event_date:'2026-11-20',venue:'New Hall',official_poster_url:'https://img/new.jpg',source_url:'https://official.example/event'}],s);
+ assert.equal(out.safe_candidates.length,0);
+ assert.equal(out.dispositions[0].status,'SKIPPED_EVENT_HISTORY');
+ assert.equal(out.dispositions[0].history_match_kind,'LOCKED_NAME_DATE_DRIFT');
+ assert.equal(out.dispositions[0].suppression_preserved,true);
+ assert.equal(out.dispositions[0].material_update_detected,true);
+ assert.deepEqual(out.dispositions[0].observed_changes.map(x=>x.field),['event_date','venue','poster_url']);
+});
+
+test('locked same-name event beyond reschedule window is not treated as the old tombstone',()=>{
+ const s=snapshot();
+ s.events=[];s.web_ready=[];s.web_packages=[];s.bookings=[];
+ s.visibility_locks=[{event_id:'EVT-OLD',event_name:'Annual Fan Meeting',event_date:'2026-01-10',venue:'Hall A',lock_state:'LOCKED',explicit_reopen_required:true}];
+ const out=R.reconcileCandidates([{event_key:'ANNUAL-NEW',title:'Annual Fan Meeting',event_date:'2027-01-10',venue:'Hall A'}],s);
+ assert.equal(out.dispositions[0].status,'SAFE_NEW');
+});
+
 test('same date venue with two close existing matches holds ambiguous',()=>{
  const s=snapshot();
  s.events=[
