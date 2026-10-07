@@ -134,6 +134,9 @@ This avoids self-reinforcing storefront bias while using real business feedback 
 - one phone booked / one phone available => other eligible events may still be offered;
 - `18_Event_Visibility_Locks.LOCKED` with `explicit_reopen_required=TRUE` always wins;
 - Scanner/Verifier may never automatically reopen an owner-hidden event.
+- A LOCKED/owner-hidden event is still re-checked for official metadata changes. Verified poster/date/venue/status changes are emitted as **REPORT_ONLY** evidence and must not change storefront visibility or create a replacement event.
+- Existing visible storefront events continue metadata reconciliation even on dates with bookings. Booking/date capacity locks block repricing, not verified poster/date/venue refreshes.
+- Multi-day identities are handled per event/date. A tombstone on one show date must not reopen or suppress a separate explicitly open sibling date.
 
 ## Candidate Master Pool
 

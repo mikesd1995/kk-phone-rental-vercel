@@ -16,11 +16,12 @@ function discoveryDecision(input={}){
 
 function pricingDecision(input={}){
  const bookingCount=Math.max(0,Number(input.booking_count)||0);
+ const dateBookingCount=Math.max(0,Number(input.date_booking_count)||0);
  const stockRemaining=Math.max(0,Number(input.stock_remaining)||0);
  const current=money(input.current_price);
  const prices=(input.competitor_prices||[]).map(x=>money(x&&x.price!==undefined?x.price:x)).filter(Boolean);
  const market=median(prices);
- if(bookingCount>0&&stockRemaining>0) return {status:'KEEP',reason:'BOOKING_WITH_REMAINING_STOCK_PRICE_LOCK',current_price:current,target_price:current,market_median:market,write_required:false};
+ if(bookingCount>0||dateBookingCount>0) return {status:'KEEP',reason:stockRemaining>0?'BOOKING_DATE_PRICE_LOCK_WITH_REMAINING_STOCK':'BOOKING_DATE_PRICE_LOCK',current_price:current,target_price:current,market_median:market,write_required:false};
  if(!current) return {status:'HOLD',reason:'CURRENT_PRICE_MISSING',current_price:null,target_price:null,market_median:market,write_required:false};
  if(!market) return {status:'KEEP',reason:'NO_FRESH_COMPETITOR_PRICE',current_price:current,target_price:current,market_median:null,write_required:false};
  if(current===market) return {status:'KEEP',reason:'ALIGNED_WITH_MARKET',current_price:current,target_price:current,market_median:market,write_required:false};

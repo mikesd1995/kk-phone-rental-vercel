@@ -155,3 +155,36 @@ test('full booking date requires all phone capacity; one booking with two phones
  out=R.reconcileCandidates([{event_key:'N',title:'New Event',event_date:'2026-10-30',venue:'Bangkok'}],s);
  assert.equal(out.dispositions[0].status,'SKIPPED_FULL_BOOKING_DATE');
 });
+
+test('locked historical event reports verified metadata changes but remains excluded from publish candidates',()=>{
+ const s=snapshot();
+ const out=R.reconcileCandidates([{event_key:'LOCKED-UPDATE',canonical_event_id:'EVT-HID',title:'Hidden Fan Meeting',event_date:'2026-10-25',venue:'New Union Hall',poster_url:'https://img/new-h.jpg'}],s);
+ assert.equal(out.safe_candidates.length,0);
+ assert.equal(out.dispositions[0].status,'SKIPPED_EVENT_HISTORY');
+ assert.equal(out.dispositions[0].update_report.publish_allowed,false);
+ assert.equal(out.dispositions[0].update_report.material_update,true);
+ assert.deepEqual(out.dispositions[0].update_report.changes.map(x=>x.field).sort(),['poster','venue']);
+ assert.equal(out.suppressed_updates.length,1);
+});
+
+test('canonical id keeps a locked event suppressed even when the verified official date changes',()=>{
+ const s=snapshot();
+ const out=R.reconcileCandidates([{event_key:'LOCKED-DATE',canonical_event_id:'EVT-HID',title:'Hidden Fan Meeting',event_date:'2026-10-26',venue:'Union Hall'}],s);
+ assert.equal(out.safe_candidates.length,0);
+ assert.equal(out.dispositions[0].status,'SKIPPED_EVENT_HISTORY');
+ assert.equal(out.dispositions[0].update_report.changes[0].field,'event_date');
+ assert.equal(out.dispositions[0].update_report.changes[0].to,'2026-10-26');
+});
+
+test('existing active event remains eligible for metadata reconciliation even when the date is at full phone capacity',()=>{
+ const s=snapshot();
+ s.bookings=[
+  {booking_id:'B2',event_id:'EVT-EX',event_date:'2026-10-23',booking_status:'confirmed'},
+  {booking_id:'B3',event_id:'OTHER',event_date:'2026-10-23',booking_status:'confirmed'}
+ ];
+ const out=R.reconcileCandidates([{event_key:'EXISTING-FULL',canonical_event_id:'EVT-EX',title:'LYKN REFLEXION CONCERT',event_date:'2026-10-23',venue:'IMPACT Arena'}],s);
+ assert.equal(out.full_booked_dates.includes('2026-10-23'),true);
+ assert.equal(out.safe_candidates.length,1);
+ assert.equal(out.dispositions[0].status,'SAFE_EXISTING');
+ assert.equal(out.safe_candidates[0].existing_event_id,'EVT-EX');
+});
