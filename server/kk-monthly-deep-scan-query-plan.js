@@ -1,17 +1,19 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V8';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V9';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล'],
  TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล'],
  VENUE:['Bangkok venue artist event mall hall','สถานที่จัดงาน ศิลปิน ฮอลล์ ห้าง กรุงเทพ ปริมณฑล'],
  ARTIST_AGENCY:['artist agency Thailand event fan meeting appearance','ค่าย ศิลปิน นักแสดง กิจกรรม แฟนมีต กรุงเทพ','GMMTV DOMUNDI Mandee CHANGE2561 IDOLFACT one31 Channel 3 BL GL event Bangkok','ซีรีส์วาย ซีรีส์ยูริ BL GL คู่จิ้น นักแสดง งานแฟน กรุงเทพ'],
  ORGANIZER_PROMOTER:['organizer promoter Bangkok artist event','ผู้จัด งานศิลปิน กรุงเทพ ปริมณฑล'],
- MALL_COMMUNITY:['mall artist event Bangkok Nonthaburi Pathum Thani Samut Prakan','ห้าง กิจกรรม ศิลปิน กรุงเทพ นนทบุรี ปทุมธานี สมุทรปราการ'],
+ MALL_COMMUNITY:['mall artist event Bangkok Nonthaburi Pathum Thani Samut Prakan','ห้าง กิจกรรม ศิลปิน กรุงเทพ นนทบุรี ปทุมธานี สมุทรปราการ','performance schedule artist mall brand booth Bangkok','ตารางงานศิลปิน performance schedule ห้าง แบรนด์ กรุงเทพ'],
  FAN_EVENT:['fanmeeting fancon fansign meet greet lucky fan birthday final episode premiere artist Bangkok','แฟนมีต แฟนคอน แฟนไซน์ มีตแอนด์กรี๊ด lucky fan วันเกิด final ep premiere ศิลปิน กรุงเทพ','fan gathering birthday project artist Bangkok','รวมพล แฟนคลับ birthday project ศิลปิน กรุงเทพ','BL GL fan meeting fancon final ep first ep screening Bangkok','ซีรีส์วาย ซีรีส์ยูริ final ep first ep แฟนมีต แฟนคอน รวมพล นัดรวมด้อม กรุงเทพ','fansign hi touch hi bye send off group photo fan call Bangkok'],
  CEREMONY:['blessing ceremony launch opening artist Bangkok','บวงสรวง เปิดตัว เปิดงาน ศิลปิน กรุงเทพ','BL GL series บวงสรวง เปิดกล้อง ปิดกล้อง premiere Bangkok'],
  AWARD_RED_CARPET:['award ceremony red carpet Bangkok artist','งานประกาศรางวัล พรมแดง ศิลปิน กรุงเทพ'],
- PRESS_BRAND:['press conference brand event artist appearance Bangkok','งานแถลงข่าว แบรนด์ ศิลปิน อีเวนต์ กรุงเทพ','lucky fan lucky draw top spender top buyer purchase to win artist Bangkok','ลัคกี้แฟน top spender presenter store opening pop up ศิลปิน กรุงเทพ'],
+ PRESS_BRAND:['press conference brand event artist appearance Bangkok','งานแถลงข่าว แบรนด์ ศิลปิน อีเวนต์ กรุงเทพ','lucky fan lucky draw top spender top buyer purchase to win artist Bangkok','ลัคกี้แฟน top spender presenter store opening pop up ศิลปิน กรุงเทพ','buy spend register redeem winner announcement confirmation artist brand Bangkok','ซื้อครบ สะสมยอด ลงทะเบียน ลุ้นสิทธิ์ ประกาศรายชื่อ ยืนยันสิทธิ์ ศิลปิน แบรนด์ กรุงเทพ','private talk workshop polaroid one day trip exclusive benefit artist brand Bangkok','private trip workshop ถ่ายภาพ polaroid พูดคุย ศิลปิน แบรนด์ กรุงเทพ'],
+ CAMPAIGN_LEAD_TIME:['artist brand campaign registration winner announcement next month Bangkok','กิจกรรมแบรนด์ ศิลปิน สะสมยอด ประกาศผู้โชคดี งานเดือนหน้า กรุงเทพ'],
+ VISUAL_SCHEDULE:['artist performance schedule mall brand Bangkok','ตารางงานศิลปิน performance schedule lineup ห้าง แบรนด์ กรุงเทพ'],
  SPORTS_ENTERTAINMENT:['sports entertainment artist event Bangkok','กีฬา entertainment ศิลปิน กรุงเทพ'],
  SOCIAL:['concert fanmeeting artist appearance Bangkok X Instagram TikTok','กิจกรรม ศิลปิน กรุงเทพ ปริมณฑล X Instagram TikTok'],
  COMPETITOR:['เช่ามือถือ vivo X300 Pro iPhone Samsung concert fanmeeting fansign Bangkok','เช่ามือถือ งานศิลปิน แฟนมีต แฟนไซน์ คิวหลุด กรุงเทพ ปริมณฑล'],
@@ -20,7 +22,7 @@ const TIER_TERMS={
 };
 const OPERATIONAL_TIERS=Object.freeze([
  'OFFICIAL','TICKETING','ORGANIZER_PROMOTER','VENUE','ARTIST_AGENCY',
- 'MALL_COMMUNITY','FAN_EVENT','CEREMONY','PRESS_BRAND','SPORTS_ENTERTAINMENT','SOCIAL','COMPETITOR','ANNOUNCEMENT_CHANGE','PUBLIC_CALENDAR'
+ 'MALL_COMMUNITY','FAN_EVENT','CEREMONY','PRESS_BRAND','CAMPAIGN_LEAD_TIME','VISUAL_SCHEDULE','SPORTS_ENTERTAINMENT','SOCIAL','COMPETITOR','ANNOUNCEMENT_CHANGE','PUBLIC_CALENDAR'
 ]);
 function text(v){return String(v==null?'':v).trim();}
 function queryVariantsForTerm(term,range,location,learned=[]){
@@ -32,9 +34,10 @@ function monthRange(input={}){
  if(/^\d{4}-\d{2}$/.test(raw)){[y,m]=raw.split('-').map(Number);}else{const base=/^\d{4}-\d{2}-\d{2}$/.test(text(input.current_date))?new Date(text(input.current_date)+'T00:00:00Z'):new Date();y=base.getUTCFullYear();m=base.getUTCMonth()+2;if(m===13){m=1;y++;}}
  const last=new Date(Date.UTC(y,m,0)).getUTCDate(),mm=String(m).padStart(2,'0');return {month:y+'-'+mm,start_date:y+'-'+mm+'-01',end_date:y+'-'+mm+'-'+String(last).padStart(2,'0')};
 }
+function leadTimeEnd(range){const [y,m]=range.month.split('-').map(Number),ny=m===12?y+1:y,nm=m===12?1:m+1,last=new Date(Date.UTC(ny,nm,0)).getUTCDate();return ny+'-'+String(nm).padStart(2,'0')+'-'+String(last).padStart(2,'0');}
 function build(input={}){
  const range=monthRange(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand',learned=Array.isArray(input.learned_query_terms)?input.learned_query_terms:[],hotFandoms=(Array.isArray(input.hot_fandom_terms)?input.hot_fandom_terms:[]).map(text).filter(Boolean).slice(0,12),gap_tasks=[];
- for(const [source_tier,terms] of Object.entries(TIER_TERMS))for(const term of terms){const qs=queryVariantsForTerm(term,range,location,learned);const liveNationEligible=['OFFICIAL','TICKETING','VENUE','ARTIST_AGENCY','ORGANIZER_PROMOTER','PUBLIC_CALENDAR'].includes(source_tier);gap_tasks.push({source_tier,query:qs[0],query_variants:qs.slice(1),providers:[...(liveNationEligible?['LIVENATION_PUBLIC']:[]),'OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});}
+ for(const [source_tier,terms] of Object.entries(TIER_TERMS))for(const term of terms){const qs=queryVariantsForTerm(term,range,location,learned);const liveNationEligible=['OFFICIAL','TICKETING','VENUE','ARTIST_AGENCY','ORGANIZER_PROMOTER','PUBLIC_CALENDAR'].includes(source_tier);gap_tasks.push({source_tier,query:qs[0],query_variants:qs.slice(1),providers:[...(liveNationEligible?['LIVENATION_PUBLIC']:[]),'OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:source_tier==='CAMPAIGN_LEAD_TIME'?leadTimeEnd(range):range.end_date},campaign_lead_time:source_tier==='CAMPAIGN_LEAD_TIME'});}
  for(const fandom of hotFandoms){
   gap_tasks.push({source_tier:'FANDOM_GRAPH',source_id:'fandom-'+fandom.toLowerCase().replace(/[^a-z0-9ก-๙]+/gi,'-').slice(0,60),query:fandom+' fanmeeting fancon fansign brand event birthday Bangkok '+range.month,query_variants:[fandom+' เช่ามือถือ กรุงเทพ '+range.month,fandom+' lucky fan meet greet กรุงเทพ '+range.month,fandom+' added show sold out Bangkok '+range.month],providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});
  }
@@ -56,7 +59,8 @@ function buildOperational(input={}){
    providers:[...(liveNationEligible?['LIVENATION_PUBLIC']:[]),'BING_RSS','OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA'],
    stop_condition:'FIRST_USABLE_EVIDENCE_OR_BOUNDED_NO_EVIDENCE',
    evidence_required:false,
-   date_window:{start:range.start_date,end:range.end_date}
+   date_window:{start:range.start_date,end:source_tier==='CAMPAIGN_LEAD_TIME'?leadTimeEnd(range):range.end_date},
+   campaign_lead_time:source_tier==='CAMPAIGN_LEAD_TIME'
   });
  }
  for(const fandom of hotFandoms){
@@ -69,7 +73,7 @@ function buildOperational(input={}){
   });
  }
  return {
-  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V2',
+  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V3',
   mode:'SMART_OPERATIONAL',
   range,location,gap_tasks,
   operational_tiers:[...OPERATIONAL_TIERS],hot_fandom_query_count:hotFandoms.length,
@@ -79,4 +83,4 @@ function buildOperational(input={}){
   verifier_required:true
  };
 }
-module.exports={VERSION,TIER_TERMS,OPERATIONAL_TIERS,monthRange,queryVariantsForTerm,build,buildOperational};
+module.exports={VERSION,TIER_TERMS,OPERATIONAL_TIERS,monthRange,leadTimeEnd,queryVariantsForTerm,build,buildOperational};
