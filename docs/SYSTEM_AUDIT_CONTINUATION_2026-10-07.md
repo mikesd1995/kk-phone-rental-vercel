@@ -47,3 +47,21 @@ Production `/api/kk-data?sheet=08_Web_Ready&range=A4:K`: HTTP 200. No OWNER_HIDD
 5. Do not replay customer messages, activate paused scenarios, alter stock/bookings or cross governed COMMIT gates as a test.
 
 Production business writes this continuation: 0. No release performed by this patch preparation. Engineering release/readback remains pending until deployment checks are actually satisfied.
+
+## Continuation at 13:11 Bangkok — six regression failures repaired
+
+The six earlier failures have now been diagnosed and repaired in test infrastructure, without production-source changes:
+1. Three ingress tests lacked node:path and ROOT; once restored, the GET assertion also needed the actual V2 ingress identifier already deployed by #623. Authentication, canonical queue claim and read-only assertions remain.
+2. Two corpus tests assumed ten cases. Current policy intentionally has nineteen after #656. Tests now enumerate all nineteen required case IDs and require exact set equality, preserving old misses and expanded RYO/October coverage. Fixture success must cover all nineteen.
+3. The no-provider test disabled only DDG/Bing HTML but left LiveNation/Bing RSS defaults enabled. Runner fixtures now disable all real provider transports, save/restore relevant environment, and use a counter that fails if a live transport is invoked. Injected fixture providers still exercise execution evidence. Independent review caught one differently ordered options object; fixed and reran.
+4. V2 workflow now triggers for the Ultra Deep tests/workflow itself and executes terminal-evidence, direct ingress, corpus and runner regression files alongside V2. The old workflow did not execute the new terminal regression file.
+
+Validation after final repair: Ultra Deep 210/210 PASS under offline guard; npm run check PASS; diff check PASS. This supersedes the six-failure status above. No claim of a green repository-wide full suite or hosted CI is made.
+
+### Title-quality correction from fresh field-level readback
+
+Production feed HTTP 200. The concatenated title containing TEETEE_SCHEDULE belongs to EVT-20261018-THE-MALL-LIFESTORE-BANGKAPI-, whose action_for_web is hide and event_note is empty. It is a hidden historical data-quality defect still present in the public feed, not a proven visible customer card. Do not invent an official replacement title or reopen the row. No Sheet mutation was made.
+
+### Cross-chat resume
+
+Use PR #661 current head and read its body for exact deployment/Actions evidence. Tests are now repaired locally; infrastructure readiness must be checked on the new head. Do not rerun-spam zero-step jobs, pay for quota, invent an alternate scheduler or bypass required checks. Production release remains pending; business writes remain zero.
