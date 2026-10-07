@@ -1744,3 +1744,49 @@ html[data-theme="dark"] .pi-avail.none{color:#fda4af!important}
     font-size:13px!important;
   }
 }
+
+
+/* V6.29 desktop poster framing correction — 2026-10-07
+   Preserve the complete official poster while removing accidental letterbox-looking
+   empty bands. The same poster becomes a restrained blurred backdrop behind the
+   uncropped foreground image. No event/poster business data is changed. */
+@media (min-width:901px){
+  .poster-img-wrap.poster-has-image{
+    isolation:isolate!important;
+    background:#081525!important;
+  }
+  .poster-img-wrap.poster-has-image::before{
+    content:""!important;
+    position:absolute!important;
+    inset:-24px!important;
+    z-index:0!important;
+    pointer-events:none!important;
+    background-image:var(--poster-bg)!important;
+    background-position:center!important;
+    background-size:cover!important;
+    background-repeat:no-repeat!important;
+    filter:blur(20px) saturate(.88) brightness(.72)!important;
+    transform:scale(1.12)!important;
+    opacity:.82!important;
+  }
+  .poster-img-wrap.poster-has-image::after{
+    content:""!important;
+    position:absolute!important;
+    inset:0!important;
+    z-index:1!important;
+    pointer-events:none!important;
+    background:linear-gradient(180deg,rgba(4,13,25,.06),rgba(4,13,25,.16))!important;
+  }
+  .poster-img-wrap.poster-has-image>img{
+    position:absolute!important;
+    inset:0!important;
+    z-index:2!important;
+    width:100%!important;
+    height:100%!important;
+    object-fit:contain!important;
+    object-position:center!important;
+  }
+  .poster-img-wrap .status-badge{z-index:4!important}
+  .poster-img-wrap .poster-placeholder{position:relative!important;z-index:2!important}
+}
+html[data-theme="dark"] .poster-img-wrap.poster-has-image{background:#06111f!important}
