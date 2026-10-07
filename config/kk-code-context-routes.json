@@ -137,11 +137,14 @@
         "tests/kk-agent-gateway.test.js"
       ],
       "skills": [
-        "skills/kk-reliability-learning/SKILL.md"
+        "skills/kk-reliability-learning/SKILL.md",
+        "skills/learning-review/SKILL.md"
       ],
       "docs": [
         "docs/UNIFIED_AGENT_ORCHESTRATION_2026-09-27.md",
-        "docs/AGENT_INVOCATION_GATEWAY_P0_2026-09-27.md"
+        "docs/AGENT_INVOCATION_GATEWAY_P0_2026-09-27.md",
+        "ARCHITECTURE.md",
+        "ACCEPTANCE.md"
       ]
     },
     {
@@ -217,10 +220,15 @@
       ],
       "skills": [
         ".agents/skills/kk-code-change/SKILL.md",
-        ".agents/skills/kk-code-review/SKILL.md"
+        ".agents/skills/kk-code-review/SKILL.md",
+        "skills/storefront-ux/SKILL.md",
+        "skills/visual-qa/SKILL.md"
       ],
       "docs": [
-        "docs/STOREFRONT_ADMIN_DETAIL_HARDENING_2026-09-22.md"
+        "docs/STOREFRONT_ADMIN_DETAIL_HARDENING_2026-09-22.md",
+        "PRODUCT.md",
+        "DESIGN.md",
+        "ACCEPTANCE.md"
       ]
     },
     {
@@ -252,10 +260,13 @@
       ],
       "skills": [
         ".agents/skills/kk-code-change/SKILL.md",
-        ".agents/skills/kk-code-review/SKILL.md"
+        ".agents/skills/kk-code-review/SKILL.md",
+        "skills/booking-integrity/SKILL.md"
       ],
       "docs": [
-        "docs/GATE2_BOOKING_TIME_HARDENING_2026-09-21.md"
+        "docs/GATE2_BOOKING_TIME_HARDENING_2026-09-21.md",
+        "ARCHITECTURE.md",
+        "ACCEPTANCE.md"
       ]
     },
     {
@@ -316,10 +327,13 @@
       ],
       "skills": [
         ".agents/skills/kk-code-change/SKILL.md",
-        ".agents/skills/kk-code-review/SKILL.md"
+        ".agents/skills/kk-code-review/SKILL.md",
+        "skills/pricing/SKILL.md"
       ],
       "docs": [
-        "docs/ADMIN_BULK_EVENT_PRICE_EDIT_2026-09-27.md"
+        "docs/ADMIN_BULK_EVENT_PRICE_EDIT_2026-09-27.md",
+        "ARCHITECTURE.md",
+        "ACCEPTANCE.md"
       ]
     },
     {
@@ -386,11 +400,14 @@
       ],
       "skills": [
         ".agents/skills/kk-discovery-scanner/SKILL.md",
-        ".agents/skills/kk-discovery-source-watch/SKILL.md"
+        ".agents/skills/kk-discovery-source-watch/SKILL.md",
+        "skills/event-discovery/SKILL.md"
       ],
       "docs": [
         "docs/DISCOVERY_MESH_FOUNDATION_2026-09-20.md",
-        "docs/EXTERNAL_SCANNER_RUNTIME_V1_2026-09-18.md"
+        "docs/EXTERNAL_SCANNER_RUNTIME_V1_2026-09-18.md",
+        "ARCHITECTURE.md",
+        "ACCEPTANCE.md"
       ]
     },
     {
@@ -418,11 +435,15 @@
         "tests/event-integrity-plan.test.js"
       ],
       "skills": [
-        ".agents/skills/kk-event-verifier/SKILL.md"
+        ".agents/skills/kk-event-verifier/SKILL.md",
+        "skills/event-verification/SKILL.md",
+        "skills/storefront-publishing/SKILL.md"
       ],
       "docs": [
         "docs/VERIFIER_NO_DROP_RECONCILIATION_2026-09-23.md",
-        "docs/event-tracker-core-lineage-contract.md"
+        "docs/event-tracker-core-lineage-contract.md",
+        "ARCHITECTURE.md",
+        "ACCEPTANCE.md"
       ]
     },
     {
@@ -471,10 +492,14 @@
       ],
       "skills": [
         "skills/kk-reliability-learning/SKILL.md",
-        ".agents/skills/kk-debugging/SKILL.md"
+        ".agents/skills/kk-debugging/SKILL.md",
+        "skills/incident-debugger/SKILL.md",
+        "skills/learning-review/SKILL.md"
       ],
       "docs": [
-        "docs/RELIABILITY_LEARNING_AGENT_2026-09-25.md"
+        "docs/RELIABILITY_LEARNING_AGENT_2026-09-25.md",
+        "RUNBOOK.md",
+        "ACCEPTANCE.md"
       ]
     },
     {
@@ -564,11 +589,15 @@
       ],
       "skills": [
         ".agents/skills/kk-production-release/SKILL.md",
-        ".agents/skills/kk-debugging/SKILL.md"
+        ".agents/skills/kk-debugging/SKILL.md",
+        "skills/production-release/SKILL.md",
+        "skills/incident-debugger/SKILL.md"
       ],
       "docs": [
         "docs/PHASE4_ZERO_COST_EXISTING_PREVIEW_RECOVERY_2026-09-26.md",
-        "docs/RENTAL_ANALYTICS_PREBUILT_PRODUCTION_RECOVERY_2026-09-22.md"
+        "docs/RENTAL_ANALYTICS_PREBUILT_PRODUCTION_RECOVERY_2026-09-22.md",
+        "RUNBOOK.md",
+        "ACCEPTANCE.md"
       ]
     },
     {

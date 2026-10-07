@@ -1,0 +1,2 @@
+# Skill: event-discovery
+Use for event discovery and Ultra Deep work. Discovery is staging/evidence only. Cross-check organizer/label/agency, venue, ticketing, artist calendars and relevant public engagement evidence. Respect booking-day exclusions and hidden/tombstoned events. Reconcile known misses. Never use storefront as the discovery source or publish unverified truth.

@@ -32,7 +32,8 @@
     "ux:visual:accept": "node scripts/storefront-visual-acceptance.mjs",
     "memory:bootstrap": "node scripts/kk-project-memory-bootstrap.js",
     "openai:agents:dry-run": "node scripts/kk-openai-agent-dry-run.js",
-    "agent:inbox:review": "node scripts/kk-unified-inbox-agent-review.js"
+    "agent:inbox:review": "node scripts/kk-unified-inbox-agent-review.js",
+    "audit:agent-contracts": "node scripts/kk-agent-contract-audit.js"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"

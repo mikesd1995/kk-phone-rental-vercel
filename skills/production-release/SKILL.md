@@ -1,0 +1,2 @@
+# Skill: production-release
+Use whenever a result is claimed deployed/live/production-ready. Distinguish source, CI, preview, deployment request, READY deployment, runtime binding and production acceptance. Separate code failures from runner/provider/quota failures. Require fresh runtime/readback evidence for the exact version. Follow RUNBOOK.md on failure and never bypass safety gates to ship.

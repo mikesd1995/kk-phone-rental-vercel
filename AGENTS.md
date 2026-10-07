@@ -18,6 +18,26 @@ For a repo/dependency map:
 
     npm run code:map
 
+## Canonical project contracts and skills
+
+Before planning a material task, load the smallest applicable authority set:
+
+- `PRODUCT.md` — product goals, scope and non-goals.
+- `DESIGN.md` — visual/interaction rules.
+- `ARCHITECTURE.md` — system flow and authority boundaries.
+- `ACCEPTANCE.md` — definition of done and evidence states.
+- `RUNBOOK.md` — failure diagnosis/recovery.
+
+Reusable domain procedures live under `skills/*/SKILL.md`. Load only the skills relevant to the task; do not load the entire catalogue by default.
+
+Current core skills: `storefront-ux`, `visual-qa`, `event-discovery`, `event-verification`, `pricing`, `booking-integrity`, `storefront-publishing`, `production-release`, `incident-debugger`, and `learning-review`.
+
+These skill contracts orchestrate existing registered agents and governed code paths. Do not create a duplicate runtime agent, memory store, writer, scanner, verifier or reviewer merely because a skill name exists.
+
+### Learning/promotion rule
+
+Use existing reliability/project-memory/Ultra Deep learning mechanisms. A learning result is a candidate until it satisfies the learning gate in `ACCEPTANCE.md`. Promote validated lessons to the narrowest durable authority: PRODUCT, DESIGN, ARCHITECTURE, ACCEPTANCE, RUNBOOK, a domain skill, or an executable regression guard. Never auto-promote an unverified workaround or silently change protected business policy.
+
 ## Engineering flow
 
 1. Classify the subsystem and risk.
@@ -65,6 +85,8 @@ Do not repeatedly read the full repo, all docs, or all tests unless the task tru
 - Avoid new runtime dependencies when Node built-ins are sufficient.
 
 ## Mandatory Product / UX / UI gate
+
+Before any customer-facing or Admin UI design/review/implementation task, read and enforce the repository-root `DESIGN.md` as the canonical visual/interaction contract. `DESIGN.md` complements this engineering gate; it does not override business truth, safety, accessibility, governed write authority, Visual QA, or production acceptance.
 
 For every task that changes or reviews customer-facing storefront UI, Admin UI, product flow, navigation, forms, filters, modals, sticky/fixed controls, responsive layout, accessibility, or other user interaction:
 

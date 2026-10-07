@@ -44,6 +44,16 @@ test('preview skips when every changed file is documentation, tests, or GitHub w
   assert.equal(result.reason, 'SAFE_PREVIEW_ONLY_CHANGE');
 });
 
+test('preview skips skills-only governance changes', () => {
+  const result = decide('agent-governance', [
+    'skills/pricing/SKILL.md',
+    'skills/storefront-ux/SKILL.md',
+    'ACCEPTANCE.md'
+  ]);
+  assert.equal(result.ignore, true);
+  assert.equal(result.reason, 'SAFE_PREVIEW_ONLY_CHANGE');
+});
+
 test('preview builds when runtime API changes', () => {
   const result = decide('admin-fix', ['api/kk-admin-snapshot-v5.js', 'tests/snapshot-upstream-error.test.js']);
   assert.equal(result.ignore, false);

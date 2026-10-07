@@ -1,0 +1,2 @@
+# Skill: event-verification
+Use after discovery to establish event identity/date/venue/poster/commercial evidence before governed promotion. Preserve no-drop reconciliation, tombstone rules and existing Verifier authority. Ambiguous identity stays held. Promotion must use the existing governed writer and exact readback; verification itself grants no arbitrary write authority.

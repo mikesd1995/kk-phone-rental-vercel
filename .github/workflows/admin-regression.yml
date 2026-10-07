@@ -1,6 +1,48 @@
 name: Admin Regression
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'AGENTS.md'
+      - 'PRODUCT.md'
+      - 'DESIGN.md'
+      - 'ARCHITECTURE.md'
+      - 'ACCEPTANCE.md'
+      - 'RUNBOOK.md'
+      - 'skills/**'
+      - '.agents/skills/**'
+      - 'server/**'
+      - 'api/**'
+      - 'admin/**'
+      - 'apps-script/**'
+      - 'config/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/admin-regression.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'AGENTS.md'
+      - 'PRODUCT.md'
+      - 'DESIGN.md'
+      - 'ARCHITECTURE.md'
+      - 'ACCEPTANCE.md'
+      - 'RUNBOOK.md'
+      - 'skills/**'
+      - '.agents/skills/**'
+      - 'server/**'
+      - 'api/**'
+      - 'admin/**'
+      - 'apps-script/**'
+      - 'config/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/admin-regression.yml'
   workflow_dispatch:
 
 permissions:

@@ -1,0 +1,2 @@
+# Skill: storefront-ux
+Use for storefront/Admin customer-facing UI changes. Read DESIGN.md first. Run the registered storefront UX review before implementation and Visual QA after. Preserve mobile-first, TH/EN, Light/Dark, search/image resilience, CTA hierarchy, FAQ and accessibility. Do not mutate business truth. Completion requires ACCEPTANCE.md, including production evidence when claiming live status.

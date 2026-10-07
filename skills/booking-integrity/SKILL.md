@@ -1,0 +1,2 @@
+# Skill: booking-integrity
+Use for booking, day rules, inventory/availability and revenue integrity. Resolve canonical booking/event/device identity before mutation. Preserve day locks and statuses. Revenue: Actual=completed; Future=pending/confirmed/prepared/picked_up/returned/uploaded; Forecast=Actual+Future; cancelled/no_show/blank excluded. Use governed writer paths and exact readback. Never repair by broad row rewrites.
