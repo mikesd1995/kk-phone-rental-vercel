@@ -37,7 +37,23 @@ test('admin Inbox has readable timestamps, non-text fallbacks and read-state cle
  assert.match(js,/MESSAGE_TYPE_LABELS/);
  assert.match(js,/รูปภาพ \(ยังเปิดดูไฟล์จาก Inbox นี้ไม่ได้\)/);
  assert.match(js,/ข้อความเสียง \(ยังเปิดฟังจาก Inbox นี้ไม่ได้\)/);
- assert.match(js,/unread\+' ใหม่'/);
+ const vm=require('node:vm');
+ const list={innerHTML:'',querySelectorAll:()=>[]},count={textContent:''};
+ const document={readyState:'loading',addEventListener:()=>{},querySelector:selector=>selector==='#inboxConversationList'?list:selector==='#inboxCount'?count:null};
+ const window={};
+ // Expose the real renderer only inside the isolated test VM; do not run bind/polling.
+ const source=js.replace('window.KKInboxPreview=Object.freeze({','window.testRenderList=renderList;\nwindow.KKInboxPreview=Object.freeze({');
+ vm.runInNewContext(source,{document,window});
+ window.testRenderList([{conversation_id:'c1',channel:'line',display_name:'<unsafe>',unread_count:3,last_message_type:'image'}]);
+ assert.match(list.innerHTML,/<i>3 ใหม่<\/i>/);
+ assert.match(list.innerHTML,/&lt;unsafe&gt;/);
+ assert.match(list.innerHTML,/รูปภาพ/);
+ assert.equal(count.textContent,'1 รายการ');
+ for(const unread_count of [0,-2]){
+  window.testRenderList([{conversation_id:'c1',channel:'line',display_name:'Test',unread_count}]);
+  assert.doesNotMatch(list.innerHTML,/<i>/);
+ }
+
  assert.match(js,/async function markConversationRead/);
  assert.match(js,/shouldMarkRead=options\.markRead!==false/);
  assert.match(js,/clearUnreadBadge/);

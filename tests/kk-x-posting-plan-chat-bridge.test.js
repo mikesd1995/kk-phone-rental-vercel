@@ -43,6 +43,11 @@ test('bridge strips obvious secrets from request input',()=>{
 
 test('bridge invokes the real x_posting_plan gateway route and persists invocation evidence',async()=>{
   const event={issue:{number:99,title:'[KK-X-PLAN] acceptance',author_association:'OWNER'}};
+  const Ledger=require('../server/kk-agent-invocation-ledger.js');
+  const original=Ledger.recordInvocation;
+  const receipts=[];
+  Ledger.recordInvocation=async ({row})=>{receipts.push(row);return {ok:true,inserted:true,invocation_id:row.invocation_id};};
+  try {
   const result=await Bridge.runBridge({event,payload:payload()});
   assert.equal(result.status,'PASS');
   assert.equal(result.gateway_status,'RECORDED');
@@ -56,6 +61,9 @@ test('bridge invokes the real x_posting_plan gateway route and persists invocati
   assert.equal(result.ledger_rows.length,1);
   assert.equal(result.production_writes,0);
   assert.equal(result.publishes,0);
+  assert.ok(receipts.length>0);
+  assert.ok(receipts.every(r=>r.production_writes===0&&r.publishes===0));
+  } finally { Ledger.recordInvocation=original; }
 });
 
 test('workflow is owner-only, posts evidence, closes issue and never deploys',()=>{

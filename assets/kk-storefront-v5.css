@@ -1545,3 +1545,404 @@ html[data-theme="dark"] .pi-avail.none{color:#fda4af!important}
     line-height:44px!important;text-align:center!important;text-align-last:center!important;
   }
 }
+
+
+/* V6.27 AI-assisted mobile readability pass — 2026-10-07
+   Guided by KK Storefront Art Director / UX Reviewer constraints:
+   stronger mobile hierarchy, no business-truth changes, preserve the 2-column
+   event catalogue, >=44px touch targets, and no horizontal overflow. */
+@media (max-width:700px){
+  /* Primary event-card reading hierarchy */
+  .status-badge{
+    font-size:12.5px!important;
+    line-height:1.2!important;
+    min-height:30px!important;
+    padding-inline:10px!important;
+  }
+  .pi-date{
+    font-size:13px!important;
+    line-height:1.4!important;
+  }
+  .pi-name{
+    font-size:16px!important;
+    line-height:1.38!important;
+    letter-spacing:-.01em!important;
+  }
+  .pi-venue{
+    font-size:13px!important;
+    line-height:1.45!important;
+  }
+  .pi-price{
+    font-size:15.5px!important;
+    line-height:1.35!important;
+  }
+  .pi-avail{
+    font-size:13.5px!important;
+    line-height:1.4!important;
+    font-weight:750!important;
+  }
+  .pi-tap{
+    min-height:50px!important;
+    padding:10px 9px!important;
+    font-size:13.5px!important;
+    line-height:1.3!important;
+    font-weight:800!important;
+  }
+
+  /* Discovery/supporting copy: raise only the text that was sub-12px. */
+  .header-faq-btn{font-size:11px!important}
+  .v3-header .language-switch .lang-btn{font-size:12px!important}
+  .kk-mock-hero .v3-eyebrow{font-size:8.5px!important}
+  .kk-mock-hero .v3-hero-copy>p{font-size:12px!important;line-height:1.55!important}
+  .kk-mock-hero .v3-primary,.kk-mock-hero .v3-secondary{font-size:11.5px!important}
+  .status-filter-bar .filter-btn{font-size:11.5px!important}
+  .filter-clear-btn{font-size:11.5px!important}
+  .kk-journey-kicker{font-size:12px!important}
+  .kk-journey-steps strong{font-size:15px!important}
+  .kk-journey-steps span{font-size:13px!important}
+  footer .trust-note{font-size:12.5px!important}
+
+  /* Detail/FAQ readability without changing package or booking behavior. */
+  .modal-meta{font-size:12.5px!important}
+  .modal-note{font-size:12px!important;line-height:1.55!important}
+  .ph-spec,.ph-note,.ph-usecase{font-size:11.5px!important;line-height:1.45!important}
+  .book-pill{font-size:12.5px!important}
+  .modal-share,.modal-close{font-size:12.5px!important}
+  .faq-q{font-size:13.5px!important}
+  .faq-a{font-size:12.5px!important;line-height:1.65!important}
+}
+
+/* Narrow iPhones stay readable while protecting the two-column catalogue. */
+@media (max-width:359px){
+  .status-badge{font-size:11.5px!important}
+  .pi-date{font-size:12px!important}
+  .pi-name{font-size:14.5px!important;line-height:1.38!important}
+  .pi-venue{font-size:12px!important}
+  .pi-price{font-size:14px!important}
+  .pi-avail{font-size:12px!important}
+  .pi-tap{font-size:12px!important;min-height:48px!important}
+  .kk-journey-steps strong{font-size:14px!important}
+  .kk-journey-steps span{font-size:12px!important}
+}
+
+
+/* V6.28 AI-assisted desktop readability pass — 2026-10-07
+   Desktop companion to V6.27 mobile readability. Preserve the existing
+   two-column desktop catalogue while increasing primary commercial hierarchy. */
+@media (min-width:901px){
+  .v3-brand-copy strong{
+    font-size:18px!important;
+  }
+  .header-faq-btn{
+    font-size:13px!important;
+  }
+  .lang-btn{
+    font-size:12px!important;
+  }
+
+  .kk-mock-hero .v3-eyebrow{
+    font-size:10.5px!important;
+  }
+  .kk-mock-hero .v3-hero-copy>p{
+    font-size:15px!important;
+    line-height:1.65!important;
+  }
+  .kk-mock-hero .v3-primary,
+  .kk-mock-hero .v3-secondary{
+    font-size:14px!important;
+  }
+
+  .kk-benefit-grid>div{
+    font-size:12px!important;
+    line-height:1.5!important;
+  }
+
+  .v3-events-heading>div>span{
+    font-size:10.5px!important;
+  }
+  .update-note{
+    font-size:12px!important;
+  }
+
+  .status-badge{
+    font-size:12px!important;
+    min-height:32px!important;
+    padding-inline:11px!important;
+  }
+  .poster-info{
+    padding:22px!important;
+  }
+  .pi-date{
+    font-size:13px!important;
+    line-height:1.4!important;
+  }
+  .pi-name{
+    font-size:20px!important;
+    line-height:1.34!important;
+    letter-spacing:-.018em!important;
+  }
+  .pi-venue{
+    font-size:13px!important;
+    line-height:1.45!important;
+  }
+  .pi-price{
+    font-size:17px!important;
+    line-height:1.35!important;
+  }
+  .pi-avail{
+    font-size:13px!important;
+    line-height:1.4!important;
+  }
+  .pi-tap{
+    min-height:50px!important;
+    padding-inline:16px!important;
+    font-size:14px!important;
+    line-height:1.3!important;
+  }
+
+  .kk-journey-kicker{
+    font-size:11px!important;
+  }
+  .kk-journey-steps strong{
+    font-size:15px!important;
+  }
+  .kk-journey-steps span{
+    font-size:13px!important;
+  }
+  footer .trust-note{
+    font-size:13px!important;
+  }
+
+  .modal-title{
+    font-size:27px!important;
+  }
+  .modal-meta{
+    font-size:15px!important;
+  }
+  .modal-note{
+    font-size:14px!important;
+  }
+  .ph-model{
+    font-size:20px!important;
+  }
+  .ph-spec,.ph-note,.ph-usecase{
+    font-size:13px!important;
+  }
+  .ph-price{
+    font-size:23px!important;
+  }
+  .book-pill{
+    font-size:13.5px!important;
+  }
+  .modal-share,.modal-close{
+    font-size:14px!important;
+  }
+  .faq-q{
+    font-size:14px!important;
+  }
+  .faq-a{
+    font-size:13px!important;
+  }
+}
+
+
+/* V6.29 desktop poster framing correction — 2026-10-07
+   Preserve the complete official poster while removing accidental letterbox-looking
+   empty bands. The same poster becomes a restrained blurred backdrop behind the
+   uncropped foreground image. No event/poster business data is changed. */
+@media (min-width:901px){
+  .poster-img-wrap.poster-has-image{
+    isolation:isolate!important;
+    background:#081525!important;
+  }
+  .poster-img-wrap.poster-has-image::before{
+    content:""!important;
+    position:absolute!important;
+    inset:-24px!important;
+    z-index:0!important;
+    pointer-events:none!important;
+    background-image:var(--poster-bg)!important;
+    background-position:center!important;
+    background-size:cover!important;
+    background-repeat:no-repeat!important;
+    filter:blur(20px) saturate(.88) brightness(.72)!important;
+    transform:scale(1.12)!important;
+    opacity:.82!important;
+  }
+  .poster-img-wrap.poster-has-image::after{
+    content:""!important;
+    position:absolute!important;
+    inset:0!important;
+    z-index:1!important;
+    pointer-events:none!important;
+    background:linear-gradient(180deg,rgba(4,13,25,.06),rgba(4,13,25,.16))!important;
+  }
+  .poster-img-wrap.poster-has-image>img{
+    position:absolute!important;
+    inset:0!important;
+    z-index:2!important;
+    width:100%!important;
+    height:100%!important;
+    object-fit:contain!important;
+    object-position:center!important;
+  }
+  .poster-img-wrap .status-badge{z-index:4!important}
+  .poster-img-wrap .poster-placeholder{position:relative!important;z-index:2!important}
+}
+html[data-theme="dark"] .poster-img-wrap.poster-has-image{background:#06111f!important}
+
+
+/* V6.30 desktop card geometry contract — 2026-10-07
+   Make the poster rail and paired card geometry deterministic instead of letting
+   copy length stretch the image column. 3:4 is the catalogue poster frame;
+   the exact official poster remains uncropped and V6.29 fills any small residual
+   mismatch with the same-poster backdrop. */
+@media (min-width:901px){
+  .poster-grid{
+    align-items:stretch!important;
+  }
+  .concert-card{
+    grid-template-columns:minmax(0,44%) minmax(0,56%)!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    aspect-ratio:1.70/1!important;
+    align-self:stretch!important;
+  }
+  .poster-img-wrap{
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    aspect-ratio:auto!important;
+  }
+  .poster-info{
+    min-height:0!important;
+    height:100%!important;
+    justify-content:flex-start!important;
+  }
+  .pi-date{
+    min-height:1.4em!important;
+  }
+  .pi-name{
+    min-height:2.68em!important;
+    max-height:2.68em!important;
+  }
+  .pi-venue{
+    min-height:1.45em!important;
+  }
+  .pi-price{
+    min-height:1.35em!important;
+  }
+  .pi-avail{
+    min-height:1.4em!important;
+  }
+  .pi-tap{
+    margin-top:auto!important;
+    width:100%!important;
+  }
+}
+
+/* Keep the two-column desktop catalogue usable near the breakpoint while
+   preserving enough vertical room for the fixed information rhythm. */
+@media (min-width:901px) and (max-width:1100px){
+  .concert-card{
+    grid-template-columns:minmax(0,46%) minmax(0,54%)!important;
+    aspect-ratio:1.48/1!important;
+  }
+  .poster-info{padding:18px!important}
+  .pi-name{font-size:18px!important}
+  .pi-price{font-size:16px!important}
+  .pi-tap{font-size:13px!important}
+}
+
+
+/* V6.31 exhaustive UX polish — 2026-10-07
+   Source/readback audit pass after V6.30. Keep business truth untouched while
+   tightening poster safety, near-breakpoint geometry, scanability and touch feedback. */
+
+/* Use the same successfully loaded poster as treatment at every viewport.
+   The official artwork stays uncropped; residual frame mismatch is intentional,
+   branded background rather than raw empty bands. */
+.poster-img-wrap.poster-has-image{
+  isolation:isolate!important;
+  background:#081525!important;
+}
+.poster-img-wrap.poster-has-image::before{
+  content:""!important;
+  position:absolute!important;
+  inset:-22px!important;
+  z-index:0!important;
+  pointer-events:none!important;
+  background-image:var(--poster-bg)!important;
+  background-position:center!important;
+  background-size:cover!important;
+  background-repeat:no-repeat!important;
+  filter:blur(18px) saturate(.9) brightness(.7)!important;
+  transform:scale(1.12)!important;
+  opacity:.78!important;
+}
+.poster-img-wrap.poster-has-image::after{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  z-index:1!important;
+  pointer-events:none!important;
+  background:linear-gradient(180deg,rgba(4,13,25,.04),rgba(4,13,25,.15))!important;
+}
+.poster-img-wrap.poster-has-image>img{
+  position:absolute!important;
+  inset:0!important;
+  z-index:2!important;
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain!important;
+  object-position:center!important;
+}
+.poster-img-wrap .status-badge{z-index:4!important}
+.poster-img-wrap .poster-placeholder{position:relative!important;z-index:2!important}
+
+/* V6.30's 901–1100 fallback used 46% × 1.48 = .681 poster ratio while the
+   audit contract requires .72–.79. Keep the denser split but restore ~3:4. */
+@media (min-width:901px) and (max-width:1100px){
+  .concert-card{
+    grid-template-columns:minmax(0,46%) minmax(0,54%)!important;
+    aspect-ratio:1.63/1!important;
+  }
+}
+
+/* Mobile scanning: show useful venue context instead of reserving two lines for
+   a one-line ellipsis, and keep poster information uncropped. */
+@media (max-width:700px){
+  .pi-venue{
+    display:-webkit-box!important;
+    -webkit-box-orient:vertical!important;
+    -webkit-line-clamp:2!important;
+    white-space:normal!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    overflow-wrap:anywhere!important;
+  }
+  .pi-name{overflow-wrap:anywhere!important}
+  .kk-mock-hero .v3-eyebrow{
+    font-size:10px!important;
+    line-height:1.35!important;
+  }
+  .kk-mock-hero .v3-primary,
+  .kk-mock-hero .v3-secondary{
+    font-size:12px!important;
+  }
+}
+
+/* Touch UX: avoid sticky hover transforms and provide deliberate press feedback. */
+:where(.concert-card,.header-faq-btn,.theme-toggle,.lang-btn,.filter-btn,.filter-clear-btn,.browse-more-btn,.modal-x,.modal-share,.modal-close,.book-pill,.line-btn){
+  touch-action:manipulation!important;
+}
+@media (hover:none){
+  .concert-card:hover{transform:none!important;box-shadow:none!important}
+}
+@media (prefers-reduced-motion:no-preference){
+  .concert-card:active{transform:scale(.995)!important}
+  :where(.header-faq-btn,.theme-toggle,.lang-btn,.filter-btn,.filter-clear-btn,.browse-more-btn,.modal-x,.modal-share,.modal-close,.book-pill,.line-btn):active{
+    transform:scale(.985)!important;
+  }
+}
