@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V3';
+const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V4';
 const PROTECTED_POLICY=Object.freeze([
   'BOOKING_PRICE_LOCK','TOMBSTONE_NO_RESURRECTION','GOVERNED_ADMIN_WRITER_ONLY',
   'EXACT_READBACK_REQUIRED','VERIFIED_EVENT_REQUIRED','EXTERNAL_DEMAND_SCORE_EXCLUDES_KK_INTERNAL_OUTCOMES'
@@ -32,10 +32,12 @@ function learn(input={}){
  const missClasses=uniq(missed.map(x=>x.miss_class));
  const artistBrandSocialMiss=missed.some(x=>['ARTIST_BRAND_SOCIAL_KEYWORDLESS_APPEARANCE','ARTIST_SCHEDULE_GAP','BRAND_SOCIAL_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const broadCoverageMiss=missed.some(x=>['INTERNATIONAL_CONCERT_SOURCE_GAP','THAI_LIVE_SOURCE_GAP','FESTIVAL_TAXONOMY_GAP','FAN_BIRTHDAY_SOURCE_GAP','VENUE_CALENDAR_GAP','TICKETING_SOURCE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
+ const campaignVisualMiss=missed.some(x=>['BRAND_PURCHASE_CAMPAIGN_GAP','BRAND_LEAD_TIME_CAMPAIGN_GAP','RETAIL_SCHEDULE_BOARD_GAP','IMAGE_ONLY_SCHEDULE_GAP','BRAND_PRIVATE_EXPERIENCE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const expansionQueries=artistBrandSocialMiss?uniq(missed.flatMap(x=>{
    const artists=list(x&&x.artists||x&&x.artist),brands=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);
    return [...artists.map(a=>a+' '+month+' schedule'),...artists.map(a=>a+' '+month+' brand event'),...brands.flatMap(b=>artists.map(a=>b+' '+a+' '+month)),...artists.map(a=>a+' lucky fan top spender fansign appearance')];
  })):[];
+ const campaignExpansion=campaignVisualMiss?uniq(missed.flatMap(x=>{const artists=list(x&&x.artists||x&&x.artist),brands=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);return [...artists.map(a=>a+' '+month+' performance schedule'),...artists.map(a=>a+' lucky fan purchase register winner announcement'),...artists.map(a=>a+' private talk workshop polaroid one day trip'),...brands.flatMap(b=>artists.map(a=>b+' '+a+' campaign')), ...brands.map(b=>b+' artist lucky fan top spender purchase register '+month)];})):[];
  const coverageExpansion=broadCoverageMiss?[
    'ticketing Bangkok concert fanmeeting festival',
    'Bangkok venue concert event calendar',
@@ -52,6 +54,7 @@ function learn(input={}){
  if(missed.length) recommendations.push('EXPAND_LONG_TAIL_QUERIES_AND_SOURCE_PRIORITY');
  if(artistBrandSocialMiss) recommendations.push('MANDATORY_ARTIST_MONTH_SCHEDULE_AND_BRAND_SOCIAL_EXPANSION');
  if(broadCoverageMiss) recommendations.push('MANDATORY_MULTI_AXIS_SOURCE_UNIVERSE_SWEEP_AND_KNOWN_POSITIVE_BACKTEST');
+ if(campaignVisualMiss) recommendations.push('MANDATORY_BRAND_CAMPAIGN_VISUAL_SCHEDULE_AND_LEAD_TIME_EXPANSION');
  if(falsePositives.length) recommendations.push('TIGHTEN_IDENTITY_AND_GENERIC_PAGE_FILTERS');
  if(holds.some(x=>(x.holds||[]).includes('VERIFIED_POSTER_REQUIRED'))) recommendations.push('EXPAND_POSTER_DISCOVERY_LEADS_FROM_EXACT_EVENT_COMPETITORS');
  if(corrections.length) recommendations.push('REVIEW_REPEATED_MANUAL_CORRECTIONS_FOR_HEURISTIC_UPDATE');
@@ -61,10 +64,11 @@ function learn(input={}){
    version:VERSION,
    status:'LEARNED',
    adaptive:{
-     query_terms:uniq([...learnedQueries,...expansionQueries,...coverageExpansion]),
+     query_terms:uniq([...learnedQueries,...expansionQueries,...campaignExpansion,...coverageExpansion]),
      miss_classes:missClasses,
      mandatory_expansion:uniq([
        ...(artistBrandSocialMiss?['ARTIST_MONTH_SCHEDULE','BRAND_OFFICIAL_SOCIAL','VENUE_MALL_SOCIAL','ARTIST_TO_RELATED_EVENT_PIVOT']:[]),
+       ...(campaignVisualMiss?['BRAND_PURCHASE_CAMPAIGN','RETAIL_PERFORMANCE_SCHEDULE','IMAGE_SCHEDULE_SEGMENTATION','CAMPAIGN_LEAD_TIME_NEXT_MONTH','WINNER_CONFIRMATION_WINDOW']:[]),
        ...(broadCoverageMiss?['TICKETING_UNIVERSE','ORGANIZER_PROMOTER_UNIVERSE','VENUE_CALENDAR_UNIVERSE','BROAD_CONCERT_LIVE_UNIVERSE','FESTIVAL_TAXONOMY_UNIVERSE','KNOWN_POSITIVE_BACKTEST']:[])
      ]),
      source_priority_candidates:learnedSources,
