@@ -59,10 +59,10 @@ test('card column geometry ignores invalid or zero-width rectangles',()=>{
   assert.deepEqual(out.column_widths,[170,170]);
 });
 
-const healthy=()=>({document_width:390,raw_i18n_keys:[],small_targets:[],card_columns:2,column_widths:[176,176],escaped_card_elements:[],theme_icons:1,modal:null});
+const healthy=()=>({document_width:390,raw_i18n_keys:[],small_targets:[],card_columns:2,column_widths:[176,176],escaped_card_elements:[],poster_treatment_issues:[],theme_icons:1,modal:null});
 test('rendered defects fail even when the document itself has no horizontal overflow',()=>{
   assert.deepEqual(E.stateFindings(healthy(),{width:390,name:'top'}),[]);
-  for(const change of [{card_columns:1},{overlapping_filters:true},{clipped_controls:['filter-full']},{column_widths:[176,190]},{escaped_card_elements:['pi-price']},{theme_icons:2},{small_targets:[{id:'theme',width:42,height:44}]},{raw_i18n_keys:['journey_1_title']}]){
+  for(const change of [{card_columns:1},{overlapping_filters:true},{clipped_controls:['filter-full']},{column_widths:[176,190]},{escaped_card_elements:['pi-price']},{poster_treatment_issues:[{event_id:'evt',coverage:.61,treatment:'missing'}]},{theme_icons:2},{small_targets:[{id:'theme',width:42,height:44}]},{raw_i18n_keys:['journey_1_title']}]){
     assert.ok(E.stateFindings({...healthy(),...change},{width:390,name:'english'}).length,JSON.stringify(change));
   }
 });

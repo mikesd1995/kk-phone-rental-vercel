@@ -1378,7 +1378,16 @@ function renderConcerts(concerts){
       if("fetchPriority" in img) img.fetchPriority=idx<2?"high":"auto";
       imgWrap.appendChild(img);
       var imgCandidates=c.imgThumb&&c.imgThumb.length?c.imgThumb:[imgUrl];
+      var syncPosterTreatment=function(){
+        var src=String(img.currentSrc||img.src||"").trim();
+        if(!src||!img.naturalWidth||!img.naturalHeight)return;
+        imgWrap.style.setProperty("--poster-bg","url("+JSON.stringify(src)+")");
+        imgWrap.classList.add("poster-has-image");
+      };
+      img.addEventListener("load",syncPosterTreatment);
       var posterFailure=function(){
+        imgWrap.classList.remove("poster-has-image");
+        imgWrap.style.removeProperty("--poster-bg");
         card.dataset.posterFailed="1";
         card.dataset.posterFallback="event-summary";
         // Poster delivery must never make a valid bookable event disappear.
