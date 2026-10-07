@@ -329,6 +329,88 @@ async function readPublicGvizCsv(sheetId, sheet, range) {
   return text;
 }
 
+
+const POSTER_RESOLVE_HOSTS = new Set([
+  'www.ticketmelon.com','ticketmelon.com',
+  'www.thaiticketmajor.com','thaiticketmajor.com',
+  'ticket.eventpass.co','www.eventpop.me','eventpop.me',
+  'hoshilive.com','www.hoshilive.com'
+]);
+
+function decodePosterMeta(value) {
+  return String(value || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function posterMeta(html, key) {
+  const tags = String(html || '').match(/<meta\s+[^>]*>/gi) || [];
+  const wanted = String(key || '').toLowerCase();
+  for (const tag of tags) {
+    const prop = (tag.match(/(?:property|name)=["']([^"']+)["']/i) || [])[1] || '';
+    if (prop.toLowerCase() !== wanted) continue;
+    const value = (tag.match(/content=["']([^"']+)["']/i) || [])[1] || '';
+    if (value) return decodePosterMeta(value);
+  }
+  return '';
+}
+
+function posterAbsoluteUrl(value, base) {
+  if (!value) return '';
+  try { return new URL(decodePosterMeta(value), base).toString(); }
+  catch (_err) { return ''; }
+}
+
+async function resolvePosterMetadata(rawUrl) {
+  let input;
+  try { input = new URL(String(rawUrl || '').trim()); }
+  catch (_err) { return {ok:false,error:'INVALID_URL'}; }
+  if (input.protocol !== 'https:' || !POSTER_RESOLVE_HOSTS.has(input.hostname.toLowerCase())) {
+    return {ok:false,error:'HOST_NOT_ALLOWED',host:input.hostname};
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(input.toString(), {
+      redirect:'follow',
+      signal:controller.signal,
+      headers:{
+        'user-agent':'Mozilla/5.0 (compatible; KKPhoneRentalPosterAudit/1.0)',
+        'accept':'text/html,application/xhtml+xml'
+      }
+    });
+    const html = (await response.text()).slice(0, 1500000);
+    if (!response.ok) {
+      return {ok:false,error:'UPSTREAM_HTTP',status:response.status,final_url:response.url};
+    }
+    const title = posterMeta(html,'og:title') || posterMeta(html,'twitter:title') || '';
+    const rawCandidates = [
+      ['og:image',posterMeta(html,'og:image:secure_url')],
+      ['og:image',posterMeta(html,'og:image')],
+      ['twitter:image',posterMeta(html,'twitter:image:src')],
+      ['twitter:image',posterMeta(html,'twitter:image')]
+    ];
+    const candidates = [];
+    const seen = new Set();
+    for (const [source, value] of rawCandidates) {
+      const url = posterAbsoluteUrl(value, response.url);
+      if (url && !seen.has(url)) {
+        seen.add(url);
+        candidates.push({source,url});
+      }
+    }
+    return {ok:true,input_url:input.toString(),final_url:response.url,title,candidates};
+  } catch (error) {
+    return {ok:false,error:'RESOLVE_FAILED',message:String(error && error.message || error)};
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (requestQueryValue(req, '__kk_line_webhook') === '1') return lineBookingWebhook(req, res);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -337,6 +419,15 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return send(res, 204, '');
   if (req.method !== 'GET') return send(res, 405, 'Method Not Allowed');
+
+  // Diagnostic-only on preview branch: reuse this existing serverless function so Hobby
+  // function-count limits are not increased. This block is not intended for main.
+  const posterResolve = String(requestQueryValue(req, 'posterResolve') || '').trim();
+  if (posterResolve) {
+    const result = await resolvePosterMetadata(posterResolve);
+    res.setHeader('Cache-Control', 'no-store');
+    return send(res, result.ok ? 200 : 502, JSON.stringify(result), 'application/json; charset=utf-8');
+  }
 
   const eventShareId = safeShareEventId(requestQueryValue(req, 'eventShare'));
   const sheet = eventShareId ? '08_Web_Ready' : String(requestQueryValue(req, 'sheet') || '').trim();
