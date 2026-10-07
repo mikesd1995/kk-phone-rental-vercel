@@ -27,11 +27,12 @@ test('V22 direct runtime preserves all governed stages',()=>{
 });
 
 
-test('V23 preflights storefront and full-booking capacity before discovery',()=>{
+test('V23 preflights storefront and active-booking dates before discovery',()=>{
   const src=fs.readFileSync(require.resolve('../server/kk-ultra-deep-direct-zero-cost.js'),'utf8');
   const preflight=src.indexOf('Production.freshSnapshot');
   const discovery=src.indexOf('Runtime.runMonthlyUltraDeep');
   assert.ok(preflight>0&&discovery>preflight,'fresh storefront SOT must be read before discovery');
+  assert.match(src,/active_booking_dates/);
   assert.match(src,/full_booking_dates/);
   assert.match(src,/phone_capacity/);
   assert.match(src,/READ_ONLY_ACCEPTANCE/);
@@ -96,4 +97,14 @@ test('canonical phone baseline is wired into final pricing fallback',()=>{
   assert.match(src,/package_type\)\.toLowerCase\(\)==='phone_only'/);
   assert.match(src,/store_baseline_prices:baselinePrices/);
   assert.match(src,/approved:true/);
+});
+
+test('direct runtime passes active booking dates into discovery and filters booked dates before verifier',()=>{
+  const src=fs.readFileSync(require.resolve('../server/kk-ultra-deep-direct-zero-cost.js'),'utf8');
+  assert.match(src,/active_booking_dates:preflight\.active_booking_dates/);
+  assert.match(src,/const blockedDates=new Set\(preflight\.active_booking_dates\|\|\[\]\)/);
+  assert.match(src,/bookingDateExcludedCandidates/);
+  const filter=src.indexOf('const eligibleCandidates=');
+  const verifier=src.indexOf('Verifier.verifyBatch');
+  assert.ok(filter>0&&verifier>filter);
 });

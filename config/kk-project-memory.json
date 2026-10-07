@@ -233,7 +233,7 @@
       "kind": "RUN_RESULT",
       "domain": "discovery_scanner",
       "summary": "October 2026 external-demand reconciliation rerun completed for 7-31 Oct under the new fandom-first policy. Initial visible storefront count 42; final production-visible count 50 (47 show, 3 show_full). Net +8: added FAYE PERAYA BIRTHDAY PARTY 2026 1410 STATIC; restored 4 durable owner REOPENED rows (TEEHENG 24 Oct, OMEGA X 24 Oct, GUN NAPAT Birthday 24 Oct, T.O.P PRE-STUDIO 24 Oct); external-demand-reactivated 3 non-LOCKED hidden rows with capacity (LINGORM 18 Oct score ~97, GMMTV FANIVAL 7 Oct ~84, Avenged Sevenfold 7 Oct ~79). No additional removals in this rerun; prior low-demand prune remains LOCKED and Love On Hire Blessing Ceremony remains retained. Production /api/kk-data readback found all 8 changed event IDs as show and 3 package rows each. Monthly flow now re-scores existing visible cards, can remove <45 when owner apply is active, keeps 45-59.9 existing cards as WATCH_KEEP, reactivates hidden non-LOCKED >=60 only with capacity, restores durable REOPENED intent, never overrides LOCKED, and emits an ADDED/REMOVED/REACTIVATED/RESTORED diff.",
-      "status": "ACTIVE",
+      "status": "SUPERSEDED",
       "evidence_refs": [
         "docs/OCTOBER_EXTERNAL_DEMAND_RECONCILIATION_2026-10-07.md",
         "docs/ULTRA_DEEP_EXTERNAL_DEMAND_DISCOVERY_V3_2026-10-06.md",
@@ -244,6 +244,48 @@
       ],
       "supersedes": [],
       "source": "owner+sheet+production+repo"
+    },
+    {
+      "memory_id": "kk:memory:ultradeep:demand-hardening-v4:20261007",
+      "occurred_at": "2026-10-07T02:00:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "discovery_scanner",
+      "status": "ACTIVE",
+      "summary": "Post-October Ultra Deep demand hardening adds a fail-closed state consistency gate, machine-readable external evidence receipts with URL/timestamp/SHA-256 hash, durable OWNER_KEEP semantics, and read-only threshold calibration that uses only external outcomes for fit while KK bookings remain diagnostic-only. PR #650 was discovered merged despite exact-head acceptance run 37513493864 failing before steps with BlobNotFound; that run must not be treated as a pass. Hardening is isolated on a new branch/PR and must not merge/deploy until executable exact-head acceptance exists.",
+      "evidence_refs": [
+        "docs/ULTRA_DEEP_DEMAND_HARDENING_V4_2026-10-07.md",
+        "server/kk-ultra-deep-state-consistency.js",
+        "server/kk-ultra-deep-demand-evidence-ledger.js",
+        "server/kk-ultra-deep-demand-calibration.js",
+        "tests/kk-ultra-deep-demand-hardening.test.js",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/37513493864"
+      ],
+      "supersedes": [],
+      "source": "owner+repo+runtime"
+    },
+    {
+      "memory_id": "kk:memory:booking-day-exclusive:20261007",
+      "occurred_at": "2026-10-07T02:11:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "discovery_scanner",
+      "status": "ACTIVE",
+      "summary": "OWNER-LOCKED BOOKING-DAY EXCLUSIVITY: if any active booking (pending/confirmed/prepared/picked_up) exists on a date, KK must not discover/enrich/score/publish/reactivate/promote any other event on that date, even when another phone remains available. The booked event itself may remain visible and receive verified metadata maintenance. This rule supersedes the earlier spare-capacity interpretation that one booked + one free allowed another event. Cancellation/no_show may unblock the date on a fresh canonical read. On 24 Oct 2026, confirmed LYKN booking BK-20261024-001 means LYKN is the only customer-facing event; TEEHENG, OMEGA X, GUN NAPAT, T.O.P PRE-STUDIO and FAYE remain hidden/candidate-only. External Demand Score is unchanged by KK bookings; booking state is a separate operational hard gate.",
+      "evidence_refs": [
+        "docs/ULTRA_DEEP_EXTERNAL_DEMAND_DISCOVERY_V3_2026-10-06.md",
+        "docs/ULTRA_DEEP_DEMAND_HARDENING_V4_2026-10-07.md",
+        "docs/OCTOBER_EXTERNAL_DEMAND_RECONCILIATION_2026-10-07.md",
+        "server/kk-ultra-deep-production-runtime.js",
+        "server/kk-ultra-deep-v2-runtime-adapter.js",
+        "server/kk-ultra-deep-storefront-requalification.js",
+        "server/kk-ultra-deep-state-consistency.js",
+        "server/kk-monthly-deep-scan-query-plan.js",
+        ".agents/skills/kk-discovery-scanner/SKILL.md",
+        ".agents/skills/kk-event-verifier/SKILL.md"
+      ],
+      "supersedes": [
+        "kk:memory:october-external-demand-reconciliation:20261007"
+      ],
+      "source": "owner+booking-sot+repo"
     }
   ]
 }

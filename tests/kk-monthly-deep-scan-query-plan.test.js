@@ -1,5 +1,5 @@
 'use strict';const test=require('node:test');const assert=require('node:assert/strict');const P=require('../server/kk-monthly-deep-scan-query-plan.js');
-test('next month resolves deterministically from supplied date',()=>{const r=P.build({current_date:'2026-09-28',location:'Bangkok Thailand'});assert.equal(r.range.month,'2026-10');assert.equal(r.range.start_date,'2026-10-01');assert.equal(r.range.end_date,'2026-10-31');assert.equal(new Set(r.gap_tasks.map(x=>x.source_tier)).size,8);assert.ok(r.gap_tasks.every(x=>x.date_window&&x.date_window.start==='2026-10-01'&&x.date_window.end==='2026-10-31'));assert.ok(r.gap_tasks.some(x=>x.query.includes('October 2026')));});
+test('next month resolves deterministically from supplied date',()=>{const r=P.build({current_date:'2026-09-28',location:'Bangkok Thailand'});assert.equal(r.range.month,'2026-10');assert.equal(r.range.start_date,'2026-10-01');assert.equal(r.range.end_date,'2026-10-31');assert.equal(new Set(r.gap_tasks.map(x=>x.source_tier)).size,15);assert.ok(r.gap_tasks.every(x=>x.date_window&&x.date_window.start==='2026-10-01'&&x.date_window.end==='2026-10-31'));assert.ok(r.gap_tasks.some(x=>x.query.includes('October 2026')));});
 test('explicit month handles leap-year end date',()=>{assert.equal(P.monthRange({month:'2028-02'}).end_date,'2028-02-29');});
 
 test('monthly plan expands named source universe beyond generic tier queries',()=>{
@@ -34,10 +34,18 @@ test('monthly discovery includes bounded broad fallbacks when exact month querie
 test('smart operational query plan stays intentionally small and leaves exhaustive coverage to audit',()=>{
  const r=P.buildOperational({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'});
  assert.equal(r.mode,'SMART_OPERATIONAL');
- assert.equal(r.gap_tasks.length,11);
- assert.equal(r.operational_tiers.length,11);
+ assert.equal(r.gap_tasks.length,14);
+ assert.equal(r.operational_tiers.length,14);
  assert.equal(r.audit_required,true);
  assert.ok(r.gap_tasks.every(x=>x.source_id.startsWith('smart-')));
  assert.ok(r.gap_tasks.every(x=>x.query_variants.length<=3));
  assert.ok(r.gap_tasks.some(x=>x.providers.includes('LIVENATION_PUBLIC')));
+});
+
+test('active booking dates are carried as discovery exclusions',()=>{
+ const r=P.build({month:'2026-10',active_booking_dates:['2026-10-24','2026-10-23']});
+ assert.deepEqual(r.excluded_dates,['2026-10-24','2026-10-23']);
+ assert.equal(r.date_exclusion_rule,'ANY_ACTIVE_BOOKING_BLOCKS_OTHER_EVENT_DISCOVERY_AND_PUBLISH');
+ const op=P.buildOperational({month:'2026-10',active_booking_dates:['2026-10-24']});
+ assert.deepEqual(op.excluded_dates,['2026-10-24']);
 });

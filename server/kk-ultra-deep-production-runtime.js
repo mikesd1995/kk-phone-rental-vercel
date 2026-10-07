@@ -6,7 +6,7 @@ const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 const VisibilityGuard=require('./event-visibility-owner-guard.js');
 const CandidateVerifier=require('./kk-ultra-deep-candidate-verifier.js');
 
-const VERSION='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V2';
+const VERSION='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V3';
 const DEFAULT_SITE='https://kk-phone-rental.vercel.app';
 const DEFAULT_SHEET_ID='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 
@@ -159,8 +159,8 @@ function reconcileCandidates(candidates=[],snapshot={}){
  const safe=[];const dispositions=[];
  for(const raw of Array.isArray(candidates)?candidates:[]){
   const c={...raw,event_date:date(raw.event_date)};
-  if(fullBooked.has(c.event_date)){
-   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_FULL_BOOKING_DATE'});
+  if(booked.has(c.event_date)){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_ACTIVE_BOOKING_DATE',reason:'OWNER_RULE_ANY_ACTIVE_BOOKING_BLOCKS_OTHER_EVENT_DISCOVERY'});
    continue;
   }
   const history=historicalConflict(c,snapshot.visibility_locks||[]);

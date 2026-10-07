@@ -170,3 +170,13 @@ Existing hidden card:
 - durable REOPENED history that drifted false -> restore owner intent through visibility reconciliation
 
 The run must emit ADDED / REMOVED / REACTIVATED / OWNER_RESTORED / KEPT / WATCH / PROTECTED / OWNER_HIDDEN and perform derived plus production readback.
+
+## Active booking date hard gate (owner-locked 2026-10-07)
+
+Before External Demand or hidden-event reactivation, read canonical booking state.
+
+- If the candidate event itself has an active booking, keep/protect that event; KK booking still contributes **zero** points to External Demand Score.
+- If another event on the same date has any active booking, return `ACTIVE_BOOKING_DATE_EXCLUDED` / `BOOKING_DAY_EXCLUDED` and keep or make the candidate hidden.
+- Do not reactivate a `REOPENED` or OWNER_KEEP event on that date unless it is the booked event itself.
+- Spare phone count does not bypass this gate.
+- Cancellation/no_show may unblock the date on a later fresh read.

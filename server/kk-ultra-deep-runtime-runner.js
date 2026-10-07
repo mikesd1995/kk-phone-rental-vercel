@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V12';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V13';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -15,6 +15,8 @@ function attemptExecuted(attempt={}){
   return UNKNOWN_SEARCH_PROVIDERS.has(text(attempt.provider).toUpperCase()) &&
     ['EVIDENCE_FOUND','NO_EVIDENCE'].includes(text(attempt.status).toUpperCase());
 }
+function candidateDate(v){return text(v&&v.event_date).slice(0,10);}
+function filterExcludedDates(rows=[],plan={}){const excluded=new Set((plan.excluded_dates||[]).map(text));return {eligible:(rows||[]).filter(x=>!excluded.has(candidateDate(x))),excluded:(rows||[]).filter(x=>excluded.has(candidateDate(x)))};}
 function flattenCandidates(execution={}){
   const out=[];const seen=new Set();
   for(const result of Array.isArray(execution.results)?execution.results:[]){
@@ -227,7 +229,9 @@ async function runOperationalDiscovery(input={},options={}){
   const providers=Object.assign({},publicProviders,options.providers||{});
   const plan=MonthlyPlan.buildOperational(input);
   const execution=await ProviderExecutor.executeGapPlan(plan,{providers,concurrency:Math.min(4,ProviderExecutor.MAX_CONCURRENCY)});
-  const candidates=flattenCandidates(execution);
+  const rawCandidates=flattenCandidates(execution);
+  const dateFilter=filterExcludedDates(rawCandidates,plan);
+  const candidates=dateFilter.eligible;
   const proof=executionProof(execution);
   proof.candidate_count=candidates.length;
   proof.has_evidence=candidates.length>0;
@@ -248,6 +252,8 @@ async function runOperationalDiscovery(input={},options={}){
     location:plan.location,
     discovery_proof:proof,
     candidate_count:candidates.length,
+    booking_date_excluded_count:dateFilter.excluded.length,
+    excluded_dates:plan.excluded_dates||[],
     candidates,
     task_count:proof.task_count,
     executed_task_count:proof.executed_count,
@@ -282,7 +288,9 @@ async function runMonthlyUltraDeep(input={},options={}){
   ]);
   const receipts=sourceUniverseReceipts(plan,execution);
   const universe=SourceRegistry.buildUniverseProof(receipts);
-  const candidates=flattenCandidates(execution);
+  const rawCandidates=flattenCandidates(execution);
+  const dateFilter=filterExcludedDates(rawCandidates,plan);
+  const candidates=dateFilter.eligible;
   const discoveryProof=executionProof(execution);
   discoveryProof.candidate_count=candidates.length;
   discoveryProof.has_evidence=candidates.length>0;
@@ -356,6 +364,8 @@ async function runMonthlyUltraDeep(input={},options={}){
     known_miss_live_recall:knownMissLive,
     candidate_count:verifierCandidates.length,
     discovery_candidate_count:candidates.length,
+    booking_date_excluded_count:dateFilter.excluded.length,
+    excluded_dates:plan.excluded_dates||[],
     reference_recovered_candidate_count:recovered.recovered_count,
     candidates:verifierCandidates,
     reference_candidate_count:referenceCandidates.length,
@@ -378,6 +388,6 @@ async function runMonthlyUltraDeep(input={},options={}){
 }
 
 module.exports={
-  VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
+  VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,candidateDate,filterExcludedDates,flattenCandidates,sourceUniverseReceipts,
   buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,recoverEligibleReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runOperationalDiscovery,runMonthlyUltraDeep
 };

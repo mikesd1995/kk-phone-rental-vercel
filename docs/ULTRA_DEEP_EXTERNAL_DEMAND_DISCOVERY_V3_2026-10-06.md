@@ -128,10 +128,14 @@ William/Est full + repeated waitlist inquiries
 
 This avoids self-reinforcing storefront bias while using real business feedback to reduce future misses.
 
-## Capacity and owner locks
+## Booking-date exclusivity, capacity and owner locks
 
-- full phone capacity on a date => new commercial events on that date are NO_CAPACITY;
-- one phone booked / one phone available => other eligible events may still be offered;
+**Owner correction 2026-10-07 supersedes the former spare-capacity rule.**
+
+- any active booking on a date => do not discover, enrich, score, publish, reactivate, or promote other events on that date;
+- the booked event itself may remain visible and receive verified metadata maintenance;
+- one phone booked / one phone available does **not** authorize another event on the same date;
+- if all bookings on that date become cancelled/no_show, a fresh run may evaluate the date again;
 - `18_Event_Visibility_Locks.LOCKED` with `explicit_reopen_required=TRUE` always wins;
 - Scanner/Verifier may never automatically reopen an owner-hidden event.
 
@@ -192,7 +196,7 @@ Existing-card decisions:
 
 Hidden non-LOCKED canonical events are also requalified:
 - no phone capacity => remain hidden
-- score >=60 + capacity >0 + sufficient external evidence => `REACTIVATE`
+- score >=60 + capacity >0 + sufficient external evidence + **no active booking elsewhere on that date** => `REACTIVATE`
 - WATCH/REJECT/VERIFY_MORE => remain hidden
 - durable `REOPENED` history + Core accidentally false => restore owner intent; this is visibility reconciliation, not demand-score override
 

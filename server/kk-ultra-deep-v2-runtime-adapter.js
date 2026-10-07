@@ -3,12 +3,16 @@ const Production=require('./kk-ultra-deep-production-runtime.js');
 const Rent=require('./kk-ultra-deep-rentability-score.js');
 const V2=require('./kk-ultra-deep-full-loop-v2.js');
 const Requal=require('./kk-ultra-deep-storefront-requalification.js');
-const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V3';
+const Ledger=require('./kk-ultra-deep-demand-evidence-ledger.js');
+const StateConsistency=require('./kk-ultra-deep-state-consistency.js');
+const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V5';
 function text(v){return String(v==null?'':v).trim();}
-function statusActive(v){return !['cancelled','canceled','no_show'].includes(text(v).toLowerCase());}
+const ACTIVE_BOOKING_STATUSES=new Set(['pending','confirmed','prepared','picked_up']);
+function statusActive(v){return ACTIVE_BOOKING_STATUSES.has(text(v).toLowerCase());}
 function bookingCountForEvent(snapshot,eventId){return (snapshot.bookings||[]).filter(b=>statusActive(b.booking_status)&&text(b.event_id)===text(eventId)).length;}
+function bookingCountOnDate(snapshot,eventDate){const counts=Production.bookingCountByDate(snapshot);return Number(counts.get(String(eventDate||'').slice(0,10))||0);}
 function availableOnDate(snapshot,eventDate){
- const cap=Production.phoneInventoryCapacity(snapshot);const counts=Production.bookingCountByDate(snapshot);return Math.max(0,cap-Number(counts.get(String(eventDate||'').slice(0,10))||0));
+ const cap=Production.phoneInventoryCapacity(snapshot);return Math.max(0,cap-bookingCountOnDate(snapshot,eventDate));
 }
 function matchForV2(candidate,events=[]){
  const direct=Production.matchExisting(candidate,events);if(direct.match||direct.ambiguous)return direct;
@@ -23,8 +27,14 @@ function competitorPrices(row={}){return row.pricing&&Array.isArray(row.pricing.
 function signalValue(candidate,key,fallback=null){const n=Number(candidate&&candidate[key]);return Number.isFinite(n)?n:fallback;}
 function averagePresent(values=[]){const xs=values.filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))).map(Number);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;}
 function competitorActivity(count){const n=Math.max(0,Number(count)||0);return n>=4?100:n===3?90:n===2?75:n===1?45:null;}
+function evidenceReceipt(candidate,scoring={}){
+ const evidence=Array.isArray(candidate.external_evidence)?candidate.external_evidence:[];
+ if(!evidence.length)return null;
+ return Ledger.build({event_id:text(candidate.existing_event_id||candidate.event_id),event_key:text(candidate.event_key||candidate.candidate_id),event_name:text(candidate.title),event_date:text(candidate.event_date),evidence});
+}
 function normalizeCandidate(candidate,snapshot,commercialRow={}){
  const events=Production.snapshotEvents(snapshot),match=matchForV2(candidate,events),existing=match.match&&match.match.event||null;
+ const dateBookingCount=bookingCountOnDate(snapshot,candidate.event_date);
  const available=availableOnDate(snapshot,candidate.event_date);
  const exact=competitorPrices(commercialRow);
  const competitorCount=new Set(exact.map(x=>x.competitor_id).filter(Boolean)).size;
@@ -49,10 +59,13 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
    kk_inquiry_count:signalValue(candidate,'kk_inquiry_count',null),
    kk_revenue:signalValue(candidate,'kk_revenue',null)
  };
- const qualification=existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0,internal_business_signals_affect_score:false}:Rent.qualify(scoring);
+ const receipt=evidenceReceipt({...candidate,existing_event_id:existing&&existing.event_id},scoring);
+ const effectiveScoring=receipt?{...scoring,...receipt.signals}:scoring;
+ const qualification=existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0,internal_business_signals_affect_score:false}:(dateBookingCount>0?{decision:'ACTIVE_BOOKING_DATE_EXCLUDED',publish_eligible:false,production_writes:0,internal_business_signals_affect_score:false}:Rent.qualify(effectiveScoring));
  const requalification=existing?Requal.requalify({
-   external_scoring:scoring,
+   external_scoring:effectiveScoring,
    active_booking_count:bookingCountForEvent(snapshot,existing.event_id),
+   date_booking_count:dateBookingCount,
    available_inventory:available,
    owner_keep:candidate.owner_keep===true||existing.owner_keep===true||text(existing.history_reason).toUpperCase().startsWith('OWNER_KEEP'),
    owner_hidden:existing.owner_hidden===true,
@@ -75,10 +88,12 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
   current_venue:existing&&text(existing.venue)||'',verified_venue:text(candidate.venue),venue_change_verified:!!existing&&!!text(candidate.venue)&&text(existing.venue)!==text(candidate.venue),
   current_poster_url:existing&&text(existing.poster_image_url)||'',latest_official_poster_url:poster&&text(poster.image_url)||'',latest_official_poster_verified:!!poster,
   exact_event_verified:true,governed_fallback_price:proposal.proposal_available?Number(proposal.proposed_reference_price)||null:null,
-  rentability:qualification,storefront_requalification:requalification,external_scoring:scoring,available_inventory:available
+  rentability:qualification,storefront_requalification:requalification,external_scoring:effectiveScoring,external_evidence_receipt:receipt,date_booking_count:dateBookingCount,booking_day_blocked:dateBookingCount>0,available_inventory:available
  };
 }
 function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
+ const consistency=StateConsistency.audit(snapshot);
+ if(consistency.status==='FAIL_CLOSED')return {version:VERSION,status:'BLOCKED_STATE_CONSISTENCY',state_consistency:consistency,production_writes:0};
  const byKey=commercialByKey(commercial),normalized=candidates.map(c=>normalizeCandidate(c,snapshot,byKey.get(text(c.event_key||c.candidate_id))||{}));
  // Existing canonical events remain eligible for maintenance. New candidates must pass the external-demand publish gate.
  const selected=normalized.filter(c=>c.exists_in_canonical||c.rentability.decision==='FULL_LOOP');
@@ -90,11 +105,11 @@ function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
  }));
  const plan=V2.buildPlan({month,candidates:selected});
  return {
-   version:VERSION,status:plan.status,normalized_count:normalized.length,selected_count:selected.length,excluded_count:excluded.length,
+   version:VERSION,status:plan.status,state_consistency:consistency,normalized_count:normalized.length,selected_count:selected.length,excluded_count:excluded.length,
    external_demand_publish_gate:{publish_threshold:Rent.DEFAULT_THRESHOLDS.publish,priority_threshold:Rent.DEFAULT_THRESHOLDS.priority,watch_threshold:Rent.DEFAULT_THRESHOLDS.watch,internal_business_signals_affect_score:false},
    excluded,
    storefront_requalification:Requal.report(normalized.filter(c=>c.exists_in_canonical)),
    plan,production_writes:0
  };
 }
-module.exports={VERSION,statusActive,bookingCountForEvent,availableOnDate,matchForV2,normalizeCandidate,buildReadOnlyPlan};
+module.exports={VERSION,ACTIVE_BOOKING_STATUSES,statusActive,bookingCountForEvent,bookingCountOnDate,availableOnDate,matchForV2,normalizeCandidate,buildReadOnlyPlan};

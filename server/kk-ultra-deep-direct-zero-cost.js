@@ -34,11 +34,11 @@ async function run(input={},options={}){
   const operational=options.operational===true;
   const discovery=operational
     ? await Runtime.runOperationalDiscovery(
-        {month,location},
+        {month,location,active_booking_dates:preflight.active_booking_dates},
         {publicWebOptions:{fetchImpl},providers:options.providers||{}}
       )
     : await Runtime.runMonthlyUltraDeep(
-        {month,location},
+        {month,location,active_booking_dates:preflight.active_booking_dates},
         {publicWebOptions:{fetchImpl},providers:options.providers||{}}
       );
   const discoveryReady=operational
@@ -53,16 +53,18 @@ async function run(input={},options={}){
     };
   }
 
-  // Do not delete full-booked-date candidates: existing booked events still require verified metadata maintenance.
-  // V2Adapter applies capacity to new commercial candidates after canonical matching.
-  const eligibleCandidates=(discovery.candidates||[]);
+  // Owner rule: any active booking reserves the date for the booked event.
+  // Discovery candidates on active-booking dates are terminally excluded before Verifier/pricing.
+  const blockedDates=new Set(preflight.active_booking_dates||[]);
+  const bookingDateExcludedCandidates=(discovery.candidates||[]).filter(c=>blockedDates.has(text(c.event_date).slice(0,10)));
+  const eligibleCandidates=(discovery.candidates||[]).filter(c=>!blockedDates.has(text(c.event_date).slice(0,10)));
   const verifier=await Verifier.verifyBatch(
     eligibleCandidates,
     {month,location},
     {concurrency:4,timeout_ms:9000,fetchImpl}
   );
   if(!(verifier.verified_count>0)){
-    return {version:VERSION,status:'BLOCKED_NO_VERIFIED_CANDIDATES',month,preflight,discovery,verifier,production_writes:0};
+    return {version:VERSION,status:'BLOCKED_NO_VERIFIED_CANDIDATES',month,preflight,discovery,booking_date_excluded_count:bookingDateExcludedCandidates.length,verifier,production_writes:0};
   }
 
   const priceScan=await Pricing.scanBatch(

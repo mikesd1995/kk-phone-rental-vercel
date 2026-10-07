@@ -1,6 +1,6 @@
 'use strict';
 const Rent=require('./kk-ultra-deep-rentability-score.js');
-const VERSION='KK_ULTRA_DEEP_STOREFRONT_REQUALIFICATION_V1';
+const VERSION='KK_ULTRA_DEEP_STOREFRONT_REQUALIFICATION_V2';
 
 function text(v){return String(v==null?'':v).trim();}
 function num(v,d=0){const n=Number(v);return Number.isFinite(n)?n:d;}
@@ -18,6 +18,7 @@ function externalQualification(input={},config={}){
 function requalify(input={},config={}){
   const external=externalQualification(input,config);
   const activeBookingCount=Math.max(0,num(input.active_booking_count));
+  const dateBookingCount=Math.max(0,num(input.date_booking_count));
   const availableInventory=Math.max(0,num(input.available_inventory));
   const ownerKeep=input.owner_keep===true;
   const activeOnWeb=input.active_on_web!==false;
@@ -26,6 +27,29 @@ function requalify(input={},config={}){
   if(locked(input)) return {
     version:VERSION,decision:'OWNER_HIDDEN',apply_visibility_change:false,
     reason:'OWNER_HIDDEN_OR_TOMBSTONE',...external,internal_business_signals_affect_score:false
+  };
+
+  if(activeBookingCount>0) return {
+    version:VERSION,decision:'KEEP_PROTECTED_ACTIVE_BOOKING',apply_visibility_change:false,
+    reason:'BOOKED_EVENT_REMAINS_VISIBLE; INTERNAL_BOOKING_DOES_NOT_AFFECT_EXTERNAL_SCORE',
+    active_booking_count:activeBookingCount,date_booking_count:dateBookingCount,...external,internal_business_signals_affect_score:false
+  };
+
+  if(dateBookingCount>0){
+    const hidden=!activeOnWeb;
+    return {
+      version:VERSION,
+      decision:hidden?'HIDDEN_BOOKING_DAY_EXCLUDED':(apply?'BOOKING_DAY_EXCLUDED':'BOOKING_DAY_EXCLUDED_RECOMMENDED'),
+      apply_visibility_change:!hidden&&apply,
+      reason:'OWNER_RULE_ANY_ACTIVE_BOOKING_BLOCKS_ALL_OTHER_EVENTS_ON_DATE',
+      date_booking_count:dateBookingCount,
+      visibility_mutation:!hidden&&apply?{
+        type:'UPDATE_VISIBILITY',from:true,to:false,
+        evidence:'ACTIVE_BOOKING_DATE_EXCLUSION',
+        visibility_lock_reason:'ACTIVE_BOOKING_DAY_EXCLUDED'
+      }:null,
+      ...external,internal_business_signals_affect_score:false
+    };
   };
 
   if(reopened(input)&&!activeOnWeb) return {
@@ -93,11 +117,6 @@ function requalify(input={},config={}){
     };
   }
 
-  if(activeBookingCount>0) return {
-    version:VERSION,decision:'KEEP_PROTECTED_ACTIVE_BOOKING',apply_visibility_change:false,
-    reason:'ACTIVE_BOOKING_PROTECTS_VISIBILITY_BUT_DOES_NOT_AFFECT_SCORE',
-    active_booking_count:activeBookingCount,...external,internal_business_signals_affect_score:false
-  };
 
   if(external.insufficient) return {
     version:VERSION,decision:'VERIFY_MORE_KEEP',apply_visibility_change:false,
@@ -133,7 +152,7 @@ function requalify(input={},config={}){
 }
 
 function report(rows=[]){
-  const out={KEEP:[],WATCH:[],REMOVE:[],OWNER_KEEP:[],RESTORE:[],REACTIVATE:[],PROTECTED:[],VERIFY_MORE:[],OWNER_HIDDEN:[],HIDDEN:[]};
+  const out={KEEP:[],WATCH:[],REMOVE:[],BOOKING_DAY:[],OWNER_KEEP:[],RESTORE:[],REACTIVATE:[],PROTECTED:[],VERIFY_MORE:[],OWNER_HIDDEN:[],HIDDEN:[]};
   for(const row of rows||[]){
     const d=text(row&&row.requalification&&row.requalification.decision);
     const item={
@@ -145,6 +164,7 @@ function report(rows=[]){
     if(d==='KEEP')out.KEEP.push(item);
     else if(d==='WATCH_KEEP')out.WATCH.push(item);
     else if(d==='REMOVE'||d==='REMOVE_RECOMMENDED')out.REMOVE.push(item);
+    else if(d==='BOOKING_DAY_EXCLUDED'||d==='BOOKING_DAY_EXCLUDED_RECOMMENDED'||d==='HIDDEN_BOOKING_DAY_EXCLUDED')out.BOOKING_DAY.push(item);
     else if(d==='OWNER_KEEP')out.OWNER_KEEP.push(item);
     else if(d==='RESTORE_OWNER_REOPEN'||d==='RESTORE_OWNER_REOPEN_RECOMMENDED'||d==='RESTORE_OWNER_KEEP'||d==='RESTORE_OWNER_KEEP_RECOMMENDED')out.RESTORE.push(item);
     else if(d==='REACTIVATE'||d==='REACTIVATE_RECOMMENDED')out.REACTIVATE.push(item);
