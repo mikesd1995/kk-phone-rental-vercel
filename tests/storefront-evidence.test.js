@@ -59,7 +59,7 @@ test('card column geometry ignores invalid or zero-width rectangles',()=>{
   assert.deepEqual(out.column_widths,[170,170]);
 });
 
-const healthy=()=>({document_width:390,raw_i18n_keys:[],small_targets:[],card_columns:2,column_widths:[176,176],card_height_spread_px:0,poster_frame_ratios:[0.75,0.75],escaped_card_elements:[],poster_treatment_issues:[],theme_icons:1,modal:null});
+const healthy=()=>({document_width:390,raw_i18n_keys:[],small_targets:[],card_columns:2,column_widths:[176,176],card_height_spread_px:0,poster_frame_ratios:[0.75,0.75],escaped_card_elements:[],poster_source_issues:[],poster_treatment_issues:[],theme_icons:1,modal:null});
 test('rendered defects fail even when the document itself has no horizontal overflow',()=>{
   assert.deepEqual(E.stateFindings(healthy(),{width:390,name:'top'}),[]);
   for(const change of [{card_columns:1},{overlapping_filters:true},{clipped_controls:['filter-full']},{column_widths:[176,190]},{escaped_card_elements:['pi-price']},{poster_treatment_issues:[{event_id:'evt',coverage:.61,treatment:'missing'}]},{theme_icons:2},{small_targets:[{id:'theme',width:42,height:44}]},{raw_i18n_keys:['journey_1_title']}]){
@@ -102,4 +102,10 @@ test('desktop card geometry blocks uneven heights and poster rails outside the v
   assert.deepEqual(E.stateFindings(base,{width:1440,name:'catalogue'}),[]);
   assert.ok(E.stateFindings({...base,card_height_spread_px:3.2},{width:1440,name:'catalogue'}).some(x=>x.code==='CARD_HEIGHT_MISMATCH'));
   assert.ok(E.stateFindings({...base,poster_frame_ratios:[0.75,0.64]},{width:1440,name:'catalogue'}).some(x=>x.code==='POSTER_FRAME_RATIO_MISMATCH'));
+});
+
+
+test('storefront visual evidence blocks webpage screenshots used as poster artwork',()=>{
+  const state={...healthy(),poster_source_issues:[{event_id:'evt',poster_source:'https://image.thum.io/get/width/1200/https://tickets.example/event',reason:'webpage_screenshot_service'}]};
+  assert.ok(E.stateFindings(state,{width:390,name:'catalogue'}).some(x=>x.code==='POSTER_SOURCE_NOT_ARTWORK'));
 });
