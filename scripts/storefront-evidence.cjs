@@ -92,6 +92,14 @@ async function inspectState(page){
     const cards=[...document.querySelectorAll('.concert-card:not(.skeleton-card)')].filter(visible);
     const first=cards[0]?.getBoundingClientRect();
     const cardRects=cards.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};});
+    const cardHeights=cardRects.map(r=>r.height).filter(Number.isFinite);
+    const cardHeightSpread=cardHeights.length?Math.max(...cardHeights)-Math.min(...cardHeights):0;
+    const posterFrameRatios=cards.map(card=>{
+      const wrap=card.querySelector('.poster-img-wrap');
+      if(!wrap)return null;
+      const r=wrap.getBoundingClientRect();
+      return r.height>0?Number((r.width/r.height).toFixed(3)):null;
+    }).filter(v=>Number.isFinite(v));
     const posterTreatmentIssues=cards.flatMap(card=>{
       const wrap=card.querySelector('.poster-img-wrap');
       const img=wrap&&wrap.querySelector('img');
@@ -122,7 +130,8 @@ async function inspectState(page){
     const overlappingFilters=filters.some((r,i)=>i>0&&r.left<filters[i-1].right-1);
     const mb=modal?box(modal):null;
     return {scroll_y:scrollY,raw_i18n_keys:raw,document_width:document.documentElement.scrollWidth,viewport_width:innerWidth,
-      card_rects:cardRects,escaped_card_elements:escaped,poster_treatment_issues:posterTreatmentIssues,
+      card_rects:cardRects,card_height_spread_px:Number(cardHeightSpread.toFixed(2)),poster_frame_ratios:posterFrameRatios,
+      escaped_card_elements:escaped,poster_treatment_issues:posterTreatmentIssues,
       first_event_top:first?first.top+scrollY:null,visible_event_cards_above_fold:cards.filter(el=>{const r=el.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;}).length,
       small_targets:small,clipped_controls:clipped,overlapping_filters:overlappingFilters,theme_icons:[...document.querySelectorAll('.theme-toggle span')].filter(visible).length,
       modal:mb?{...mb,scroll_width:modal.scrollWidth,client_width:modal.clientWidth,viewport_height:innerHeight,focus_inside:modal.contains(document.activeElement),title:modal.querySelector('.modal-title')?.textContent||'',package_count:modal.querySelectorAll('.phone-row').length}:null,
@@ -150,6 +159,8 @@ function stateFindings(state,{width,name}){
   if(!state.modal){
     if(state.card_columns!==(width<359?1:2))add('CARD_COLUMNS_CONTRACT',String(state.card_columns));
     if(Math.max(...state.column_widths)-Math.min(...state.column_widths)>1)add('CARD_COLUMNS_UNEQUAL',JSON.stringify(state.column_widths));
+    if(width>=901&&Number(state.card_height_spread_px||0)>1.5)add('CARD_HEIGHT_MISMATCH',String(state.card_height_spread_px));
+    if(width>=901&&(state.poster_frame_ratios||[]).some(r=>r<0.72||r>0.79))add('POSTER_FRAME_RATIO_MISMATCH',JSON.stringify(state.poster_frame_ratios));
     if(state.escaped_card_elements.length)add('CARD_CONTENT_ESCAPES',state.escaped_card_elements.join(','));
     if(state.poster_treatment_issues?.length)add('POSTER_LETTERBOX_UNTREATED',JSON.stringify(state.poster_treatment_issues));
     if(state.theme_icons!==1)add('THEME_ICON_STATE',String(state.theme_icons));
