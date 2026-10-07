@@ -20,14 +20,13 @@ function contextFor(candidate,input={}){
  const explicitId=text(candidate&&candidate.existing_event_id);
  const existing=(explicitId?(input.existing_events||[]).find(e=>text(e&&e.event_id)===explicitId):null)||(input.existing_events||[]).find(e=>sameEvent(candidate,e))||{};
  const date=text(candidate.event_date);
- const bookings=(input.bookings||[]).filter(b=>{
+ const dateBookings=(input.bookings||[]).filter(b=>{
   const active=['pending','confirmed','prepared','picked_up'].includes(text(b.booking_status).toLowerCase());
-  if(!active)return false;
-  if(text(existing.event_id))return text(b.event_id)===text(existing.event_id);
-  return false;
+  return active&&text(b.event_date)===date;
  });
+ const bookings=dateBookings.filter(b=>text(existing.event_id)&&text(b.event_id)===text(existing.event_id));
  const inventory=input.inventory_by_date&&input.inventory_by_date[date]||{};
- return {existing,bookings,booking_count:bookings.length,stock_remaining:Math.max(0,Number(inventory.stock_remaining)||0)};
+ return {existing,bookings,booking_count:bookings.length,date_bookings:dateBookings,date_booking_count:dateBookings.length,stock_remaining:Math.max(0,Number(inventory.stock_remaining)||0)};
 }
 function competitorRowsFor(candidate,input={}){
  const key=eventKey(candidate);
@@ -49,6 +48,7 @@ function policyInput(candidate,input,ctx){
   tombstone_locked:ctx.existing.tombstone_locked===true,
   history_state:ctx.existing.history_state,
   booking_count:ctx.booking_count,
+  date_booking_count:ctx.date_booking_count,
   stock_remaining:ctx.stock_remaining,
   current_price:currentPrice(ctx.existing),
   competitor_prices:competitorRowsFor(candidate,input),
@@ -69,9 +69,12 @@ function updatePlan(candidate,input,ctx,policy){
    actions.push({action:'upsertEventOverride',event_id:text(ctx.existing.event_id),template_id:text(p.template_id||p.package_id),override_price:Math.max(1,current+delta),active_override:p.active_override!==false,override_note:'ULTRA_DEEP_MARKET_ALIGNMENT'});
   }
  }
- if(policy.poster.write_required){
-  actions.push({action:'updateEvent',event_id:text(ctx.existing.event_id),poster_url:policy.poster.target_poster_url,note:'ULTRA_DEEP_VERIFIED_OFFICIAL_POSTER_REFRESH'});
- }
+ const metadata={action:'updateEvent',event_id:text(ctx.existing.event_id),note:'ULTRA_DEEP_VERIFIED_METADATA_SYNC'};
+ let metadataWrite=false;
+ if(text(candidate.event_date)&&text(candidate.event_date)!==text(ctx.existing.event_date)){metadata.event_date=text(candidate.event_date);metadataWrite=true;}
+ if(text(candidate.venue)&&text(candidate.venue)!==text(ctx.existing.venue)){metadata.venue=text(candidate.venue);metadataWrite=true;}
+ if(policy.poster.write_required){metadata.poster_url=policy.poster.target_poster_url;metadataWrite=true;}
+ if(metadataWrite) actions.push(metadata);
  return {status:actions.length?'READY_FOR_GOVERNED_EXISTING_EVENT_UPDATE':'NO_CHANGE',actions,exact_readback_required:actions.length>0};
 }
 function completionCandidate(candidate,meta={}){
@@ -98,9 +101,6 @@ async function run(input={},options={}){
   const policy=OwnerPolicy.evaluate(policyInput(candidate,input,ctx));
   if(policy.discovery.reason==='OWNER_HIDDEN_OR_TOMBSTONE'){
    rows.push({event_key:eventKey(candidate),status:'SKIPPED_OWNER_HIDDEN',policy,completion:completionCandidate(candidate,{verified:true,poster_verified:true,poster_url:text(ctx.existing.poster_image_url||ctx.existing.poster_url),final_price:currentPrice(ctx.existing),fallback_applied:true})});continue;
-  }
-  if(ctx.booking_count>0&&text(ctx.existing.event_id)){
-   rows.push({event_key:eventKey(candidate),status:'SKIPPED_BOOKED_EVENT_PRICE_LOCK',policy,completion:completionCandidate(candidate,{verified:true,poster_verified:true,poster_url:text(ctx.existing.poster_image_url||ctx.existing.poster_url),final_price:currentPrice(ctx.existing),fallback_applied:true})});continue;
   }
   if(text(ctx.existing.event_id)){
    const plan=updatePlan(candidate,input,ctx,policy);
