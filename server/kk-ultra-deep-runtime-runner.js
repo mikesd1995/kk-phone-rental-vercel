@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V12';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V13';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -62,13 +62,14 @@ function buildReferencePlan(input={}){
   const groups=[
     ['Bangkok '+labels.en+' concert',labels.en+' Bangkok concerts','คอนเสิร์ต กรุงเทพ '+labels.th,'Bangkok concert','Thailand concert'],
     ['Bangkok '+labels.en+' fan meeting',labels.en+' Bangkok fanmeeting fancon','แฟนมีต กรุงเทพ '+labels.th,'Bangkok fanmeeting','Bangkok fancon'],
-    ['Bangkok '+labels.en+' lucky fan artist event','artist brand event Bangkok '+labels.en,'กิจกรรมศิลปิน ลัคกี้แฟน กรุงเทพ '+labels.th,'Bangkok lucky fan artist','Bangkok artist brand event'],
-    ['Bangkok '+labels.en+' event calendar','Thailand '+labels.en+' concert calendar','ตารางคอนเสิร์ต กรุงเทพ '+labels.th,'Bangkok concert calendar','Thailand concert calendar']
+    ['Bangkok '+labels.en+' lucky fan artist event','artist brand event Bangkok '+labels.en,'กิจกรรมศิลปิน ลัคกี้แฟน กรุงเทพ '+labels.th,'Bangkok lucky fan artist','Bangkok artist brand event','purchase register redeem winner announcement artist Bangkok','ซื้อครบ สะสมยอด ลงทะเบียน ประกาศรายชื่อ ยืนยันสิทธิ์ ศิลปิน กรุงเทพ','private talk workshop polaroid one day trip artist brand Bangkok'],
+    ['Bangkok '+labels.en+' event calendar','Thailand '+labels.en+' concert calendar','ตารางคอนเสิร์ต กรุงเทพ '+labels.th,'Bangkok concert calendar','Thailand concert calendar'],
+    ['performance schedule artist mall Bangkok '+labels.en,'ตารางงานศิลปิน ห้าง แบรนด์ กรุงเทพ '+labels.th,'brand booth artist performance schedule Bangkok','artist monthly schedule brand campaign Bangkok']
   ];
   return {
-    version:'KK_ULTRA_DEEP_REFERENCE_SWEEP_V2',
+    version:'KK_ULTRA_DEEP_REFERENCE_SWEEP_V3',
     gap_tasks:groups.map((queries,i)=>({
-      source_tier:i===2?'BRAND_SPONSOR':'PUBLIC_CALENDAR',
+      source_tier:[2,4].includes(i)?'BRAND_SPONSOR':'PUBLIC_CALENDAR',
       source_id:'reference-'+(i+1),
       query:queries[0],
       query_variants:queries.slice(1),
