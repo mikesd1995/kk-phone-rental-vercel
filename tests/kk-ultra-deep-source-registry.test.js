@@ -12,6 +12,10 @@ test('source registry covers all eight required Ultra Deep tiers',()=>{
  assert.ok(plan.tasks.some(x=>x.source_id==='zipevent'));
  assert.ok(plan.tasks.some(x=>x.source_id==='iconsiam-hall'));
  assert.ok(plan.tasks.some(x=>x.source_id==='watsons-campaigns'));
+ assert.ok(plan.tasks.some(x=>x.source_id==='beauty-personal-care-campaigns'));
+ assert.ok(plan.tasks.some(x=>x.source_id==='retail-performance-schedules'));
+ assert.ok(plan.tasks.some(x=>x.source_id==='purchase-register-redeem-campaigns'));
+ assert.ok(plan.tasks.some(x=>x.source_id==='brand-private-experience-campaigns'));
  assert.ok(plan.tasks.every(x=>x.production_writes===undefined));
  assert.equal(plan.production_writes,0);
 });
