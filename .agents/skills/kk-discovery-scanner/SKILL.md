@@ -44,6 +44,9 @@ Always preserve:
 - `SEEN_CORE` records that an event has already existed in Core. If its Core row later disappears, rediscovery is historical reconciliation debt, not permission to create a fresh event automatically.
 - Match history by exact `event_id` first, then normalized event name + event date + venue. A new generated event ID does not bypass the tombstone.
 - Ultra Deep output for any history hit must be `EXISTS/RECONCILE/HOLD_OWNER_HIDDEN`, never `NEW_AUTO_PUBLISH`.
+- A `LOCKED` event remains eligible for evidence observation: Scanner must still report verified poster, date/time, venue, added-show, postponement, cancellation, or other canonical changes while preserving the lock.
+- When an exact/strong event identity reappears within a plausible reschedule window with a changed date or venue, treat it as the same tombstoned event for suppression purposes, not as a fresh publish candidate.
+- Observation and publication are separate: `SUPPRESSION_PRESERVED + MATERIAL_UPDATE_DETECTED` may be true while `production_writes=0` and storefront visibility remains hidden.
 - Only an explicit owner/Admin reopen may transition `LOCKED → REOPENED`; Scanner cannot emit that intent.
 
 ## Publish eligibility is independent from competitor pricing
