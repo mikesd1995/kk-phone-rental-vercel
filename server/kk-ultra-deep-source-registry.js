@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V5';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V6';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -39,7 +39,11 @@ const REGISTRY=Object.freeze({
     {source_id:'wetv-campaigns',label:'WeTV campaigns',required:true},
     {source_id:'smtrue-campaigns',label:'SM True campaigns',required:true},
     {source_id:'mall-brand-campaigns',label:'Mall / retail brand campaigns',required:true},
-    {source_id:'lucky-fan-top-spender',label:'Lucky fan / top spender campaigns',required:true}
+    {source_id:'lucky-fan-top-spender',label:'Lucky fan / top spender campaigns',required:true},
+    {source_id:'beauty-personal-care-campaigns',label:'Beauty / personal-care artist campaigns',required:true},
+    {source_id:'retail-performance-schedules',label:'Retail / mall artist performance schedules',required:true},
+    {source_id:'purchase-register-redeem-campaigns',label:'Purchase / register / redeem artist campaigns',required:true},
+    {source_id:'brand-private-experience-campaigns',label:'Brand private trip / workshop / talk / polaroid experiences',required:true}
   ]),
   SOCIAL:Object.freeze([
     {source_id:'x-public',label:'X public discovery',required:true},
