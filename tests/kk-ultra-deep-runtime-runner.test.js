@@ -115,11 +115,12 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
    {providers:{SEARXNG:search},publicWebOptions:{searxng_endpoint:'',ddg_enabled:false,bing_enabled:false}}
  );
  assert.equal(out.known_miss_regression.complete,true);
- assert.equal(out.known_miss_live_recall.complete,true);
+ assert.equal(out.known_miss_live_recall.complete,false);
  const recovered=out.known_miss_live_recall.results.find(x=>x.case_id===target.case_id);
  assert.equal(recovered.proof,'DISCOVERED');
  assert.equal(recovered.matched_source_url,'https://proof.example/bailu-live');
- assert.equal(out.full,true);
+ assert.equal(out.full,false);
+ assert.ok(out.blockers.includes('KNOWN_MISS_LIVE_RECALL_INCOMPLETE'));
  assert.equal(out.production_writes,0);
 });
 
@@ -161,6 +162,8 @@ test('deterministic historical regression remains complete even when live recall
  );
  assert.equal(out.known_miss_regression.complete,true);
  assert.ok(out.known_miss_live_recall.passed<out.known_miss_live_recall.case_count);
+ assert.equal(out.full,false);
+ assert.ok(out.blockers.includes('KNOWN_MISS_LIVE_RECALL_INCOMPLETE'));
  assert.equal(out.production_writes,0);
 });
 
