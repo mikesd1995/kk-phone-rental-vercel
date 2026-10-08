@@ -64,3 +64,13 @@ test('strict live known-miss classification requires sourced proof; SOURCE_UNAVA
  const proof=K.evaluate([{...rows[0],source_url:'https://www.sotwe.com/looke_world'}],[],{month:'2026-10',strict_live:true});
  assert.ok(!proof.missing_cases.includes(f.case_id));
 });
+
+test('live proof rejects title-only recurrence without exact event date',()=>{
+ const c=K.CORPUS.find(x=>x.case_id==='mrfanboy-busking-20261011');
+ const missing=K.evaluate([{title:c.title,source_url:'https://x.com/official/status/100'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(missing.missing_cases.includes(c.case_id));
+ const old=K.evaluate([{title:c.title,event_date:'2026-09-13',source_url:'https://x.com/official/status/100'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(old.missing_cases.includes(c.case_id));
+ const current=K.evaluate([{title:c.title,event_date:c.event_date,source_url:'https://x.com/official/status/101'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(!current.missing_cases.includes(c.case_id));
+});
