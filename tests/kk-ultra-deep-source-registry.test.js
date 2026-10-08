@@ -9,6 +9,7 @@ test('source registry covers all eight required Ultra Deep tiers',()=>{
  const plan=R.buildUniversePlan({month:'2026-10',location:'Bangkok Thailand'});
  assert.ok(plan.tasks.length>=20);
  assert.ok(plan.tasks.some(x=>x.source_id==='eventpop'));
+ for(const id of ['kazz-market-activity','deehup-house-ticketing','looke-gelboys','labx-clinic-idol-private']) assert.equal(plan.tasks.some(x=>x.source_id===id&&x.required===true),true,id);
  assert.ok(plan.tasks.some(x=>x.source_id==='zipevent'));
  assert.ok(plan.tasks.some(x=>x.source_id==='iconsiam-hall'));
  assert.ok(plan.tasks.some(x=>x.source_id==='watsons-campaigns'));
