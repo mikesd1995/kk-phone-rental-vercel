@@ -84,7 +84,8 @@ function evaluate(candidates=[],classifications=[],options={}){
   const strictLive=options.strict_live===true;
   const scoped=scanMonth?CORPUS.filter(c=>text(c.event_date).startsWith(scanMonth)||(Array.isArray(c.discovery_months)&&c.discovery_months.includes(scanMonth))):CORPUS;
   const results=scoped.map(caseRow=>{
-    const matched=rows.find(c=>sameCase(c,caseRow)&&(!strictLive||!!text(c.source_url||c.url)));
+    // A repeat show with the same franchise name but no confirmed event date is NOT live proof.
+    const matched=rows.find(c=>sameCase(c,caseRow)&&(!strictLive||(date(c&&c.event_date)===caseRow.event_date&&!!text(c.source_url||c.url))));
     const receipt=cls.get(caseRow.case_id);
     const status=text(receipt&&receipt.status).toUpperCase();
     // SOURCE_UNAVAILABLE is a valid historical diagnostic disposition, never live FULL evidence.
