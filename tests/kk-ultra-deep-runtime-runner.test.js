@@ -350,3 +350,35 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
  assert.ok(out.candidate_count>0);
  assert.equal(out.production_writes,0);
 });
+
+
+test('source-universe receipts are month-bound and attributable to executed provider query',()=>{
+ const Registry=require('../server/kk-ultra-deep-source-registry.js');
+ const task={source_id:'eventpop',source_tier:'TICKETING',query:'Eventpop October 2026 Bangkok'};
+ const plan={range:{month:'2026-10'},gap_tasks:[task]};
+ const exec={results:[{status:'EVIDENCE_FOUND',provider:'SEARXNG',
+  candidates:[{title:'Bangkok event',event_date:'2026-10-20',source_url:'https://example.com/event'}],
+  attempts:[{provider:'EXA',status:'PROVIDER_ERROR',query:task.query},
+    {provider:'SEARXNG',status:'EVIDENCE_FOUND',count:1,query:task.query}]
+ }]};
+ const receipts=Runner.sourceUniverseReceipts(plan,exec);
+ assert.equal(receipts.length,1);
+ assert.equal(receipts[0].month,'2026-10');
+ assert.equal(receipts[0].task_source_id,'eventpop');
+ assert.equal(receipts[0].provider,'SEARXNG');
+ assert.equal(receipts[0].candidate_count,1);
+ assert.equal(receipts[0].attempts.length,1,'provider errors are excluded from execution receipts');
+ const live=Registry.buildUniverseProof(receipts,{strict_live:true,month:'2026-10'});
+ assert.equal(live.sources.find(x=>x.source_id==='eventpop').pass,true);
+ assert.equal(live.complete,false,'other required source receipts still absent');
+});
+test('source-universe receipts do not count failed queries or unsupported search provider as execution',()=>{
+ const plan={range:{month:'2026-10'},gap_tasks:[{source_id:'eventpop',query:'eventpop October 2026'}]};
+ const exec={results:[{status:'GAP_UNRESOLVED',provider:null,attempts:[
+  {provider:'EXA',status:'PROVIDER_ERROR',query:'eventpop October 2026'},
+  {provider:'FAKE_PROVIDER',status:'NO_EVIDENCE',query:'eventpop October 2026'}]}]};
+ const receipt=Runner.sourceUniverseReceipts(plan,exec)[0];
+ assert.equal(receipt.executed,false);
+ assert.equal(receipt.status,'NOT_BOUND');
+ assert.equal(receipt.candidate_count,0);
+});
