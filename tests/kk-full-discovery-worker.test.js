@@ -195,3 +195,38 @@ test('Ultra Deep full worker rejects synthetic executed=true rows even with comp
  assert.equal(output.quality_evidence.source_universe_proof.strict_live,true);
  assert.equal(output.production_writes,0);
 });
+
+
+test('Full Discovery Worker requires sourced month-scoped live known-miss proof',async()=>{
+ const tiers=Worker.ULTRA_DEEP_REQUIRED_SOURCE_TIERS;
+ const observations=tiers.map((tier,i)=>obsTier('strict-known-'+i,tier,'UNCHANGED'));
+ const resultRows=tiers.map(()=>result([]));
+ const fakeKnown=KnownMiss.CORPUS.map(x=>({title:x.title,event_date:x.event_date}));
+ const output=await Worker.runFullDiscovery({
+  scan_mode:'ULTRA_DEEP',month:'2026-09',observations,provider_results:resultRows,
+  source_universe_receipts:universeReceipts('2026-09'),
+  known_miss_probe_candidates:fakeKnown,
+  known_miss_classifications:[{case_id:'pink-aura-20260928',executed:true,status:'SOURCE_UNAVAILABLE'}],
+  reconciliation_reference_candidates:[]
+ },{sourceWatchOptions:{nowMs:Date.parse(NOW)}});
+ assert.equal(output.status,'BLOCKED_INCOMPLETE_SOURCE_COVERAGE');
+ assert.equal(output.quality_evidence.source_universe_proof.complete,true);
+ assert.equal(output.quality_evidence.known_miss_regression.complete,false);
+ assert.equal(output.quality_evidence.known_miss_regression.strict_live,true);
+ assert.ok(output.quality_evidence.known_miss_regression.missing_cases.includes('pink-aura-20260928'));
+ assert.equal(output.production_writes,0);
+});
+test('Full Discovery Worker rejects wrong-month known-miss candidate even with source URL',async()=>{
+ const tiers=Worker.ULTRA_DEEP_REQUIRED_SOURCE_TIERS;
+ const observations=tiers.map((tier,i)=>obsTier('wrongmonth-'+i,tier,'UNCHANGED'));
+ const bad=KnownMiss.CORPUS.filter(x=>x.event_date.startsWith('2026-09')).map(x=>({
+  title:x.title,event_date:'2026-08-28',source_url:'https://example.com/old-announcement'
+ }));
+ const output=await Worker.runFullDiscovery({
+  scan_mode:'ULTRA_DEEP',month:'2026-09',observations,provider_results:tiers.map(()=>result([])),
+  source_universe_receipts:universeReceipts('2026-09'),
+  known_miss_probe_candidates:bad,reconciliation_reference_candidates:[]
+ },{sourceWatchOptions:{nowMs:Date.parse(NOW)}});
+ assert.equal(output.quality_evidence.known_miss_regression.complete,false);
+ assert.equal(output.status,'BLOCKED_INCOMPLETE_SOURCE_COVERAGE');
+});
