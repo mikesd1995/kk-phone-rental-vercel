@@ -29,6 +29,16 @@ function findExact(rows,id){
   const hits=(Array.isArray(rows)?rows:[]).filter(r=>text(r.event_id)===id);
   return hits.length===1?hits[0]:null;
 }
+// Strictly routes imperative owner poster requests, not questions/status checks.
+function detectOwnerPosterRequest(message){
+  const s=text(message).normalize('NFKC').toLowerCase();
+  if(!s||/(ไม่ต้อง|อย่า|ห้าม).{0,20}(เปลี่ยน|แก้|อัปเดต|อัพเดต|ใส่|รูป|โปสเตอร์)/.test(s))return false;
+  if(/(ควร|ดีไหม|หรือยัง|เปลี่ยนแล้ว|สำเร็จไหม|why|should|how to)/.test(s))return false;
+  const action=/(เปลี่ยน|แก้|อัปเดต|อัพเดต|อัพเดท|ใส่|replace|update|swap|change)/.test(s);
+  const media=/(โปสเตอร์|รูป|ภาพ|poster|artwork|image)/.test(s);
+  const unrelated=/(ทวิตเตอร์|twitter|โพสต์บน x|โพสลง x)/.test(s)&&!/(หน้าบ้าน|หน้าเว็บ|storefront)/.test(s);
+  return action&&media&&!unrelated;
+}
 function validateTargets(input={}){
   const targets=Array.isArray(input.targets)?input.targets:[];
   const core=Array.isArray(input.core_events)?input.core_events:[];
@@ -112,4 +122,4 @@ function acceptReadback(input={}){
     safety:{production_writes:0,price_writes:0,booking_writes:0,visibility_writes:0,inventory_writes:0}
   };
 }
-module.exports={VERSION,isoDate,canonicalPoster,posterFileId,validateTargets,acceptReadback};
+module.exports={VERSION,isoDate,canonicalPoster,posterFileId,detectOwnerPosterRequest,validateTargets,acceptReadback};
