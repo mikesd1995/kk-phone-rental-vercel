@@ -3,7 +3,8 @@ const Production=require('./kk-ultra-deep-production-runtime.js');
 const Rent=require('./kk-ultra-deep-rentability-score.js');
 const V2=require('./kk-ultra-deep-full-loop-v2.js');
 const Requal=require('./kk-ultra-deep-storefront-requalification.js');
-const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V5_DATE_IDENTITY';
+const StateConsistency=require('./kk-ultra-deep-state-consistency.js');
+const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V6_STATE_CONSISTENCY';
 function text(v){return String(v==null?'':v).trim();}
 const ACTIVE_BOOKING_STATUSES=new Set(['pending','confirmed','prepared','picked_up']);
 function statusActive(v){return ACTIVE_BOOKING_STATUSES.has(text(v).toLowerCase());}
@@ -108,6 +109,12 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
  };
 }
 function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
+ const consistency=StateConsistency.audit(snapshot);
+ if(consistency.status==='FAIL_CLOSED')return {
+   version:VERSION,status:'BLOCKED_STATE_CONSISTENCY',state_consistency:consistency,
+   normalized_count:0,selected_count:0,excluded_count:0,
+   read_only:true,production_writes:0
+ };
  const byKey=commercialByKey(commercial),normalized=candidates.map(c=>normalizeCandidate(c,snapshot,byKey.get(text(c.event_key||c.candidate_id))||{}));
  // Existing canonical events remain eligible for maintenance. New candidates must pass the external-demand publish gate.
  const selected=normalized.filter(c=>!c.booking_day_excluded&&(c.exists_in_canonical||c.rentability.decision==='FULL_LOOP'));
@@ -119,7 +126,7 @@ function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
  }));
  const plan=V2.buildPlan({month,candidates:selected});
  return {
-   version:VERSION,status:plan.status,normalized_count:normalized.length,selected_count:selected.length,excluded_count:excluded.length,
+   version:VERSION,status:plan.status,state_consistency:consistency,normalized_count:normalized.length,selected_count:selected.length,excluded_count:excluded.length,
    external_demand_publish_gate:{publish_threshold:Rent.DEFAULT_THRESHOLDS.publish,priority_threshold:Rent.DEFAULT_THRESHOLDS.priority,watch_threshold:Rent.DEFAULT_THRESHOLDS.watch,internal_business_signals_affect_score:false},
    excluded,
    storefront_requalification:Requal.report(normalized.filter(c=>c.exists_in_canonical)),
