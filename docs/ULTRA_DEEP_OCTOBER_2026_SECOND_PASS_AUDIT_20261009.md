@@ -92,3 +92,38 @@ The old `SourceRegistry.buildUniverseProof(receipts)` counted a source as fully 
 Original October booking locks remain: Oct18 OH MY FOURTH 2/2, Oct23 LYKN 2/2, Oct31 NCT127 2/2 (latest confirmed spreadsheet snapshots in earlier audit); always reread before any commercial action. Oct30 vs Oct31 DAOUOFFROAD are distinct shows; preserve Oct30 live card, Oct31 report-only while inventory full. Owner hidden tombstones must never be reopened by scan logic. Free usage only; no paid Exa top-up, no duplicate scheduler, no automatic X post/booking confirmation.
 
 **Classification:** `SOURCE_GATE_BUG_FIXED_AND_PREVIEW_TESTED`; `FULL_MONTH_SCAN_NOT_VERIFIED`; `PRODUCTION_WRITES=0`; `PR680_DRAFT_UNMERGED`.
+
+
+## 2026-10-09 22:27–22:xx +07 — Continued acceptance investigation, V27 command readback and Verifier V4 recovery
+
+### Supabase control-plane inventory (read only, **actual external status**)
+
+At inspection, canonical unified project `kk-unified-inbox` (see `docs/ULTRA_DEEP_V27_UNIFIED_CONTROL_PLANE_MIGRATION_2026-10-03.md`) was `ACTIVE_HEALTHY`; the `kk-admin-write-control` Edge Function was `ACTIVE`. `public.kk_ultra_deep_commands` contained **9 October commands, all commit=false**: **1 COMPLETE (2026-10-03 control-plane lifecycle)**, **8 FAILED**, with **maximum production_writes=0** across records. This does **not** mean one Full Loop scan passed. Last two attempts, created Oct6 18:51 and 18:56 UTC, both failed `BLOCKED_NO_VERIFIED_CANDIDATES`. Earlier failures: provider preflight (DDG/BING/SEARXNG/EXA) and incomplete discovery, including one runtime timeout. Source of this evidence: read-only `SELECT` against control-plane table, not invented acceptance.
+
+At same inspection, Vercel production deployment remained `READY` on `main` SHA `69390a94972b8c636317bbf00d62ab677c0cc66f`. Draft source fixes are **not deployed**. Production scanner ingress on prior owner/runtime read remained V26 disabled, not proven V27 activated. No control-plane task enqueue/claim/complete call was made.
+
+### The key blocker addressed: Verifier rejects otherwise checkable source details
+
+PR #654 (open/draft, old base, mergeable=false) already contained the correct proposed V4 verifier repair. Its target files in this repository were unchanged from the current main baseline (exact same original blob SHAs) when rechecked. To avoid a duplicate Verifier architecture, the isolated and source-compatible V4 portion was incorporated on PR #680:
+
+1. `server/kk-ultra-deep-candidate-verifier.js` — V4 exact event-detail verification scope `EXTERNAL_DEMAND_IDENTITY`. Allows missing search-result date **only for an event-specific trusted URL**, fetches the source page, requires exact target-month event date, canonical location, poster and authoritative evidence; keeps noisy/generic search URLs on HOLD. Low legacy rental-fit score is no longer an identity blocker on this scope. **Crucially, identity verification returns `DEFER_TO_EXTERNAL_DEMAND_GATE` with eligible=null**, so it cannot authorize publication or skip External Demand >=60 / booking / tombstone / pricing / governed writer rules.
+2. `server/kk-ultra-deep-direct-zero-cost.js` — canonical runtime now requests `verification_scope:'EXTERNAL_DEMAND_IDENTITY'`, without auto-enabling writes or changing production scheduling.
+3. `tests/kk-ultra-deep-external-demand-verifier.test.js` — V4 original tests plus wrong-month, missing poster/event details, and injected fetch transport regression.
+4. Additional actual bug: direct runtime passed `fetchImpl` but `verifyCandidate` originally forwarded only `options.fetchFn`; now `fetchFn:options.fetchFn||options.fetchImpl` preserves injected bounded HTTP access. Test proves correct HTTP call, confirmed identity, and publication eligibility stays null.
+5. `package.json` includes verifier tests in existing zero-cost `test:ultradeep:recall` postinstall. This builds on the prior Source Registry V10 strict live receipt gate and full-worker strict known-miss proof.
+
+**Exact code and test SHA:** `e51fb5a7ec946ba558c02b1cf857c505da1ccad8`. **Vercel Preview `dpl_EFftnQU3TonXBEdUSVsZBrVuPqz6` READY** with logged **83/83 Ultra Deep/Full Discovery/Verifier tests PASS**, plus **1/1 original poster test PASS**. No authenticated V27 production scan acceptance was run in this repair; no commercial writes, PR remains Draft.
+
+### Cross-PR owner rule / merge order safeguard
+
+Important owner policy from Draft **PR #655** and its project memory: on any event date with an active booking (pending/confirmed/prepared/picked_up), **do not discover, enrich, score, publish, reactivate or promote other events on that date even if one phone remains free**. This is stricter than the earlier spare-capacity rule. The booked event itself can stay visible and receive verified metadata maintenance. Persistent owner-locked hidden tombstones remain authoritative. PR #655 also adds evidence-ledger/state-consistency logic; it is **still an open Draft with unresolved mergeability**, and its booking-day safeguards are **not silently assumed live**. No integration/production release of PR #680 is safe until this booking-day policy is enforced/reconciled in all relevant new-event/hidden-event runtime paths, its tests pass and owner-level gates are satisfied.
+
+### Remaining acceptance and external market blockers
+
+- Full source-universe and known-miss *live* receipts, official brand/fandom candidates and source date/access/poster verification.
+- Real current independent 10–20 competitor price sources per exact event/bundle; earlier snapshots are inadequate to establish median; never override booked-day price.
+- Resolve cross-PR dependencies with booking-day rule (#655), final V27 production machine binding and authenticated controlled Oct `READ_ONLY_ACCEPTANCE`. Fail closed if acceptance or exact readback missing.
+- Do not interpret source Preview (83/83) or one Supabase migration command marked COMPLETE as production Full Scan evidence.
+- No extra paid service/top-up (Exa had 402), no duplicate scheduler, no booking or storefront mutation, no auto-merge/auto-deploy, no X post.
+
+**Current handoff truth:** `SOURCE_RECALL_COVERAGE_AND_VERIFIER_FIX_TESTED` / `SUPABASE_VERIFIER_BLOCKER_EVIDENCED` / `BOOKING_DAY_POLICY_DEPENDENCY_UNRESOLVED` / `OCTOBER_AUTONOMOUS_FULL_NOT_ACCEPTED` / `PRODUCTION_BUSINESS_WRITES=0`.
