@@ -223,3 +223,21 @@ test('Beauty Buffet branded August-announcement miss expands official campaign a
  assert.ok(out.adaptive.query_terms.some(x=>x.includes('previous month')));
  assert.equal(out.authority.production_writes,0);
 });
+
+test('November seven known-miss cases include four brand lanes and all four distinct LOLLI days',()=>{
+ const nov=K.CORPUS.filter(c=>c.event_date.startsWith('2026-11'));
+ const ids=['senka-junior-20261106','loreal-elseve-auau-20261120',
+  'lolli-mew-20261126','lolli-jamessu-20261127','lolli-bevertonliew-20261128',
+  'lolli-emibonnie-20261129','d7-nunew-20261129'];
+ for(const id of ids)assert.ok(nov.some(c=>c.case_id===id),id);
+ assert.equal(new Set(nov.map(c=>c.case_id)).size,nov.length);
+ const input=K.evaluate([],[],{month:'2026-11',strict_live:true});
+ assert.equal(input.complete,false);
+ for(const id of ids)assert.ok(input.missing_cases.includes(id),id);
+ const oct=K.evaluate([],[],{month:'2026-10',strict_live:true});
+ for(const id of ids)assert.ok(!oct.missing_cases.includes(id));
+ const fixtures=K.evaluateFixtureRegression();
+ assert.equal(fixtures.complete,true,'fixtures match dates but cannot certify live scan');
+ assert.equal(fixtures.proof_type,'DETERMINISTIC_HISTORICAL_FIXTURE');
+ assert.equal(fixtures.production_writes,0);
+});
