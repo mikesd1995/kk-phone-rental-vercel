@@ -41,3 +41,19 @@ test('smart operational query plan stays intentionally small and leaves exhausti
  assert.ok(r.gap_tasks.every(x=>x.query_variants.length<=3));
  assert.ok(r.gap_tasks.some(x=>x.providers.includes('LIVENATION_PUBLIC')));
 });
+
+test('November month-targeted plan removes October campaign noise and pivots into seven brand artist official lanes',()=>{
+ const p=P.build({month:'2026-11',location:'Bangkok Metropolitan Region Thailand'});
+ const targeted=p.gap_tasks.filter(x=>!x.source_id).map(x=>x.query).join('\n');
+ for(const name of ['BEAUTRIUM','LOLLI','D7 NuNew','Elseve','November','พฤศจิกายน'])
+  assert.ok(targeted.includes(name),name);
+ for(const wrong of ['Beauty Buffet LIPTOK Event x AUAUSAVE','BeautyBuffetLiptokEventxAUAUSAVE',
+   '9 October 2026','9 ตุลาคม 2569','TeeTeePor October 2026'])
+  assert.equal(targeted.includes(wrong),false,'stale Oct query: '+wrong);
+ assert.ok(P.tierTermsForMonth('PRESS_BRAND','2026-11').some(q=>q.includes('LOLLI')));
+ assert.ok(P.tierTermsForMonth('CAMPAIGN_LEAD_TIME','2026-11').some(q=>q.includes('October buy register')));
+ assert.ok(!P.tierTermsForMonth('PRESS_BRAND','2026-11').some(q=>q.includes('LIPTOK')));
+ assert.ok(P.tierTermsForMonth('PRESS_BRAND','2026-10').some(q=>q.includes('LIPTOK')));
+ assert.equal(p.production_writes,0);
+ assert.equal(p.authoritative,false);
+});
