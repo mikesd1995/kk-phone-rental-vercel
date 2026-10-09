@@ -95,3 +95,24 @@ test('JMNK Oct ticket sale and November concert are both in November discovery o
  assert.ok(n.missing_cases.includes('jmnk-she-serve-20261121'));
  assert.ok(o.missing_cases.includes('jmnk-she-serve-20261121'));
 });
+
+
+test('October 21/23/25 brand-event misses are required even when old deterministic fixtures pass',()=>{
+ const ids=['herhyness-lingling-20261021','cathydoll-orm-20261023','nars-teeteepor-20261025'];
+ const live=K.evaluate([],[],{month:'2026-10',strict_live:true});
+ for(const id of ids){
+  assert.ok(K.CORPUS.some(x=>x.case_id===id),id);
+  assert.ok(live.missing_cases.includes(id),id);
+ }
+ assert.equal(K.evaluateFixtureRegression().complete,true);
+});
+
+test('October brand recall requires an exact day and URL, not a generic brand campaign announcement',()=>{
+ const f=K.CORPUS.find(x=>x.case_id==='herhyness-lingling-20261021');
+ const missing=K.evaluate([{title:f.title,event_date:'2026-09-16',source_url:'https://www.herhynessbeauty.com/'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(missing.missing_cases.includes(f.case_id));
+ const discovered=K.evaluate([{title:f.title,event_date:'2026-10-21',source_url:'https://www.herhynessbeauty.com/blogs/blog-the-clean-side/her-hyness-x-lingling-kwong-unlock-the-ultimate-protection-campaign'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(!discovered.missing_cases.includes(f.case_id));
+ // Known-miss discovery receipt does not qualify a listing for governed storefront publication.
+ assert.equal(discovered.production_writes,0);
+});
