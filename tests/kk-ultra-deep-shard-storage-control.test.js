@@ -50,7 +50,7 @@ test('OIDC bridge stores only public search envelope and preserves idempotent re
  assert.equal(calls.length,1);
  assert.equal(calls[0].body.action,'shardReceiptStore');
  assert.equal(calls[0].body.command_id,commandId);
- assert.equal(calls[0].body.receipt,receipt);
+ assert.deepEqual(calls[0].body.receipt,receipt);
  assert.equal(calls[0].authorization,'Bearer test-v1-token');
 });
 test('reading shards via production OIDC is read only and refuses absent token',async()=>{
