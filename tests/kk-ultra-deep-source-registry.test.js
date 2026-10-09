@@ -52,3 +52,24 @@ test('radio free music festivals and mall public plaza sources are mandatory',()
   assert.ok(a.some(x=>x.source_id===id&&x.required===true),id);
  }
 });
+
+
+test('October brand-campaign source expansion makes secondary artist calendars explicit but not authoritative',()=>{
+ const required=['lingorm-artist-schedule-discovery','teeteepor-artist-schedule-discovery','her-hyness-lucky-fan-artist','cathy-doll-artist-event','nars-thailand-artist-event'];
+ const entries=R.allSources();
+ for(const id of required) assert.ok(entries.some(x=>x.source_id===id&&x.required===true),id);
+ const tasks=R.buildUniversePlan({month:'2026-10'}).tasks;
+ for(const id of required) assert.ok(tasks.some(x=>x.source_id===id),id);
+ const receipt=R.allSources().filter(x=>!required.includes(x.source_id)).map(x=>({source_id:x.source_id,executed:true,status:'NO_EVIDENCE'}));
+ const proof=R.buildUniverseProof(receipt);
+ assert.equal(proof.complete,false);
+ for(const id of required) assert.ok(proof.missing_required_sources.includes(id),id);
+});
+test('monthly October query plan includes public artist schedules and exact branded lucky-fan pivots',()=>{
+ const Q=require('../server/kk-monthly-deep-scan-query-plan.js');
+ const plan=Q.build({month:'2026-10'});
+ assert.equal(plan.production_writes,0);
+ assert.equal(plan.verifier_required,true);
+ assert.ok(plan.gap_tasks.some(t=>t.source_tier==='PRESS_BRAND' && /HER HYNESS Lingling Cathy Doll Orm NARS TeeTeePor/.test([t.query,...t.query_variants].join(' '))));
+ assert.ok(plan.gap_tasks.some(t=>t.source_tier==='VISUAL_SCHEDULE' && /LingOrm official source vs fan schedule/.test([t.query,...t.query_variants].join(' '))));
+});
