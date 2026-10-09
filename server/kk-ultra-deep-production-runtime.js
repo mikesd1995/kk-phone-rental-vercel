@@ -211,12 +211,20 @@ function reconcileCandidates(candidates=[],snapshot={}){
   }
   if(match.match){
    c.existing_event_id=text(match.match.event.event_id);
+   const bookedSameEvent=(snapshot.bookings||[]).some(b=>
+     CAPACITY_HOLD_STATUSES.has(text(b.booking_status).toLowerCase()) &&
+     text(b.event_id)===c.existing_event_id && date(b.event_date)===c.event_date
+   );
+   if(booked.has(c.event_date)&&!bookedSameEvent){
+    dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_ACTIVE_BOOKING_DATE',reason:'OWNER_BOOKING_DAY_EXCLUSIVITY_OTHER_EVENT'});
+    continue;
+   }
    dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_EXISTING',existing_event_id:c.existing_event_id,match_reason:match.match.reason});
    safe.push(c);
    continue;
   }
-  if(fullBooked.has(c.event_date)){
-   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_FULL_BOOKING_DATE'});
+  if(booked.has(c.event_date)){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_ACTIVE_BOOKING_DATE',reason:'OWNER_BOOKING_DAY_EXCLUSIVITY_NEW_EVENT'});
    continue;
   }
   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_NEW'});
