@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V10';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V11';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -150,8 +150,14 @@ function buildUniverseProof(receipts=[],options={}){
     // In live mode the receipt must come from an attributable provider attempt
     // with an exact task/source identity and a query recorded at execution time.
     const attempts=Array.isArray(receipt&&receipt.attempts)?receipt.attempts:[];
+    // A valid search attempt must execute a query belonging to this source task.
+    // Unrelated searches against the same provider cannot complete source coverage.
+    const authorizedQueries=new Set([
+      text(receipt&&receipt.planned_query),
+      ...(Array.isArray(receipt&&receipt.query_variants)?receipt.query_variants.map(text):[])
+    ].filter(Boolean));
     const successful=attempts.filter(a=>['NO_EVIDENCE','EVIDENCE_FOUND'].includes(upper(a&&a.status)) &&
-      text(a&&a.query) && text(a&&a.provider));
+      text(a&&a.provider) && authorizedQueries.has(text(a&&a.query)));
     const providerProof=successful.some(a=>text(a.provider)===text(receipt&&receipt.provider) ||
       text(a.provider)===text(receipt&&receipt.executed_provider));
     const liveProvenance=!!receipt && !!requiredMonth &&
