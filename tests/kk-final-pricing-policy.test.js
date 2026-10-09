@@ -174,3 +174,10 @@ test('live Google Sheets DD/MM/YYYY dates resolve the identical owner prices',()
   assert.equal(result.final_prices[2].override_price,bundle,date);
  }
 });
+
+test('invalid nonempty event date holds rather than falling into expensive scored price',()=>{
+ const p=P.resolve({event_date:'2026-11-31',rental_fit_score:10,pricing:{independent_competitors:0}});
+ assert.equal(p.status,'HOLD_FOR_VALID_EVENT_DATE');
+ assert.equal(p.final_prices.length,0);
+ assert.equal(p.production_writes,0);
+});
