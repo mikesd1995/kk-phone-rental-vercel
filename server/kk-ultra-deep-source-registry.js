@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V11';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V12';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -20,6 +20,7 @@ const REGISTRY=Object.freeze({
     {source_id:'impact-thunderdome',label:'IMPACT / Thunder Dome',required:true},
     {source_id:'bitec',label:'BITEC / BITEC LIVE',required:true},
     {source_id:'union-hall-mall',label:'Union Hall / Union Mall',required:true},
+    {source_id:'unionmall-gfloor-brand-appearance',label:'Union Mall G Floor Union Co-Event Space Zone A artist brand activation and fan-zone',required:true},
     {source_id:'iconsiam-hall',label:'ICONSIAM Hall',required:true},
     {source_id:'mcc-hall',label:'MCC Hall',required:true},
     {source_id:'paragon-hall',label:'Paragon Hall',required:true},
@@ -31,6 +32,7 @@ const REGISTRY=Object.freeze({
     {source_id:'gmmtv',label:'GMMTV',domain:'gmmtv.com',required:true},
     {source_id:'one31',label:'one31',domain:'one31.net',required:true},
     {source_id:'domundi-mandee',label:'DOMUNDI / Mandee Work',required:true},
+    {source_id:'auausave-schedule',label:'AuAu Save MhiiPraew artist brand appearance schedule (cross-check Domundi official)',domain:'auausaveth.com',required:true},
     {source_id:'deehup-house-ticketing',label:'Dee Hup House official fanmeet ticketing',domain:'deehuphouse.com',required:true},
     {source_id:'looke-gelboys',label:'LOOKE / GELBOYS fanmeeting and ticket announcements',required:true},
     {source_id:'change2561',label:'CHANGE2561',required:true},
@@ -53,6 +55,7 @@ const REGISTRY=Object.freeze({
     {source_id:'mall-brand-campaigns',label:'Mall / retail brand campaigns',required:true},
     {source_id:'lucky-fan-top-spender',label:'Lucky fan / top spender campaigns',required:true},
     {source_id:'beauty-personal-care-campaigns',label:'Beauty / personal-care artist campaigns',required:true},
+    {source_id:'beautybuffet-liptok-artist',label:'Beauty Buffet Thailand LIPTOK AuAuSave brand event Lucky Fan Top Spender September October',required:true},
     {source_id:'her-hyness-lucky-fan-artist',label:'HER HYNESS top fan / lucky fan artist event campaigns',domain:'herhynessbeauty.com',required:true},
     {source_id:'cathy-doll-artist-event',label:'Cathy Doll artist private experience and brand events (official social required)',required:true},
     {source_id:'nars-thailand-artist-event',label:'NARS Thailand artist top fan and brand events (official social required)',required:true},
