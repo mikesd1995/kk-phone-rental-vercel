@@ -188,3 +188,19 @@ test('brand lucky fan lead-time miss requires named Beauty Buffet, AuAuSave cale
  assert.equal(proof.complete,false,'all three omitted source lanes are mandatory');
  for(const id of ids)assert.ok(proof.missing_required_sources.includes(id));
 });
+
+test('November primary brand source lanes are mandatory but never automatically verified by fixtures',()=>{
+ const ids=['beautrium-senka-brand-artist','loreal-paris-elseve-brand-artist',
+  'lolli-skincare-pop-up-artist','d7-nunew-brand-artist'];
+ const rows=R.allSources();
+ const plan=R.buildUniversePlan({month:'2026-11'});
+ for(const id of ids){
+  assert.ok(rows.some(r=>r.source_id===id&&r.required),id);
+  const task=plan.tasks.find(t=>t.source_id===id);
+  assert.ok(task&&task.query.includes('November 2026'),id);
+ }
+ const x=R.buildUniverseProof([],{strict_live:true,month:'2026-11'});
+ assert.equal(x.complete,false);
+ for(const id of ids)assert.ok(x.missing_required_sources.includes(id));
+ assert.equal(x.production_writes,0);
+});
