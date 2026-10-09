@@ -6,6 +6,8 @@ const Ledger=require('../server/runtime-ledger');
 const OidcBridge=require('../server/runtime-ledger-oidc-bridge');
 const UltraDeepRuntime=require('../server/kk-ultra-deep-runtime-runner');
 const UltraDeepDirect=require('../server/kk-ultra-deep-direct-zero-cost.js');
+const MonthlyShards=require('../server/kk-ultra-deep-month-shard-runner.js');
+const PublicWeb=require('../server/kk-ultra-deep-public-web-adapters.js');
 const WriteControl=require('../server/admin-write-control-oidc.js');
 
 function text(value){
@@ -195,9 +197,54 @@ module.exports=async function handler(req,res){
   if(req.method==='OPTIONS') return json(res,204,{});
   if(req.method==='GET'){
     const readiness=readinessSnapshot(process.env);
+    const shardCommandId=queryValue(req,'shard_command_id');
+    if(shardCommandId){
+      if(queryValue(req,'readonly_command_id'))return json(res,400,{ok:false,error_code:'COMMAND_ROUTE_AMBIGUOUS',business_writes:0});
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(shardCommandId))
+        return json(res,400,{ok:false,error_code:'COMMAND_ID_INVALID',business_writes:0});
+      const inspected=await WriteControl.shardCommandInspect(shardCommandId);
+      if(!(inspected&&inspected.ok&&inspected.authenticated&&inspected.command&&
+        inspected.command.command_kind==='SHARDED_READ_ONLY'&&inspected.command.commit===false))
+        return json(res,409,{ok:false,error_code:'SHARDED_COMMAND_NOT_AUTHORIZED',business_writes:0});
+      let command=inspected.command;
+      if(command.state==='PENDING'){
+        const claimed=await WriteControl.call('commandClaim',{
+          request_id:'ultra-deep-command:'+shardCommandId,command_id:shardCommandId
+        });
+        if(!(claimed&&claimed.ok&&claimed.authenticated&&claimed.command&&
+          claimed.command.command_kind==='SHARDED_READ_ONLY'&&claimed.command.commit===false))
+          return json(res,409,{ok:false,error_code:'SHARDED_COMMAND_CLAIM_REJECTED',business_writes:0});
+        command=claimed.command;
+      }
+      if(command.state!=='RUNNING'&&inspected.command.state!=='PENDING')
+        return json(res,409,{ok:false,error_code:'SHARDED_COMMAND_NOT_RUNNING',business_writes:0});
+      try{
+        const result=await MonthlyShards.nextReadonlyShard({
+          command_id:shardCommandId,month:text(command.month),
+          location:'Bangkok Metropolitan Region Thailand'
+        },{providers:PublicWeb.createProviders({}),shardBudgetMs:18000,concurrency:4});
+        if(result.production_writes!==0)throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
+        return json(res,result.status.startsWith('BLOCKED')?409:202,{
+          ok:!result.status.startsWith('BLOCKED'),
+          phase:'ULTRA_DEEP_SHARDED_V1_READ_ONLY',command_id:shardCommandId,
+          month:text(command.month),status:result.status,
+          shard_phase:result.phase||null,start:result.start??null,end:result.end??null,
+          remaining:result.remaining||null,rejected:result.rejected||null,
+          ready_for_verifier:false,full:false,business_writes:0
+        });
+      }catch(err){
+        // Keep the command RUNNING for an idempotent retry of this shard.
+        return json(res,503,{ok:false,phase:'ULTRA_DEEP_SHARDED_V1_READ_ONLY',
+          command_id:shardCommandId,error_code:text(err&&err.code)||'SHARD_EXECUTION_FAILED',
+          full:false,business_writes:0});
+      }
+    }
     const readonlyCommandId=queryValue(req,'readonly_command_id');
     if(readonlyCommandId){
       if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(readonlyCommandId)) return json(res,400,{ok:false,error_code:'COMMAND_ID_INVALID',business_writes:0});
+      const shardProbe=await WriteControl.shardCommandInspect(readonlyCommandId);
+      if(shardProbe&&shardProbe.ok&&shardProbe.command&&shardProbe.command.command_kind==='SHARDED_READ_ONLY')
+        return json(res,409,{ok:false,error_code:'SHARDED_COMMAND_USE_SHARD_INGRESS',business_writes:0});
       const claim=await WriteControl.call('commandClaim',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId});
       if(!(claim&&claim.ok&&claim.authenticated&&claim.command)) return json(res,409,{ok:false,error_code:text(claim&&claim.error_code)||'COMMAND_CLAIM_REJECTED',business_writes:0});
       if(claim.command.commit===true){
