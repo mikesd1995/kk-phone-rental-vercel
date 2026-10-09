@@ -230,6 +230,10 @@ module.exports=async function handler(req,res){
           month:text(command.month),status:result.status,
           shard_phase:result.phase||null,start:result.start??null,end:result.end??null,
           remaining:result.remaining||null,rejected:result.rejected||null,
+          source_evidence_status:result.source_evidence_status||null,
+          source_evidence_full:result.source_evidence_full===true,
+          source_blockers:result.source_blockers||null,
+          source_candidate_count:result.source_candidate_count||0,
           ready_for_verifier:false,full:false,business_writes:0
         });
       }catch(err){
