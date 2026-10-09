@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V10';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V11';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -30,7 +30,11 @@ const CORPUS=Object.freeze([
   {case_id:'mrfanboy-busking-20261011',title:'MR.FANBOY BUSKING presented by true5G',aliases:['mr fanboy busking true5g centralworld','mr fanboy busking 11 october','mr fanboy busking 11 ตุลาคม'],search_queries:['MR FANBOY BUSKING true5G centralWorld 11 October 2026','MandeeWork Mr Fanboy BUSKING 11 October 2026'],event_date:'2026-10-11',miss_class:'REPEATED_EVENT_NEW_DATE_SOURCE_GAP'},
   {case_id:'teeheng-gen-of-us-20261024',title:'TEEHENG GEN OF US 1st FANMEETING',aliases:['tee heng gen of us 1st fanmeeting','tee boonyakait heng thatpong one bangkok'],search_queries:['TEEHENG GEN OF US site:deehuphouse.com','Tee Heng 24 October 2026 One Bangkok Forum'],event_date:'2026-10-24',miss_class:'STALE_CANDIDATE_ONSALE_STATE_GAP'},
   {case_id:'gelboys-last-painting-20261122',title:'GELBOYS THE LAST PAINTING FANMEET',aliases:['gelboys the last painting','gelboys last painting fanmeet nov 22','gelboys last painting siam pic hall'],search_queries:['GELBOYS THE LAST PAINTING LOOKE 22 November 2026','GELBOYS fanmeet tickets on sale 24 October 2026'],event_date:'2026-11-22',discovery_months:['2026-10'],miss_class:'TICKET_SALE_VS_EVENT_DATE_GAP'},
-  {case_id:'dexx-labx-private-20261122',title:'LABX DEXX HOTEL DE RÊVE PRIVATE SECRET SESSION NO.01',aliases:['dexx hotel de reve private secret session','labx dexx the private session n01','labx dexx 22 november'],search_queries:['LABXClinic DEXX private session 22 Nov 2026','DEXX HOTEL DE REVE 20 top spenders 30 lucky fans'],event_date:'2026-11-22',discovery_months:['2026-10'],miss_class:'PRIVATE_SESSION_CROSSMONTH_NAMED_EVENT_GAP'}
+  {case_id:'dexx-labx-private-20261122',title:'LABX DEXX HOTEL DE RÊVE PRIVATE SECRET SESSION NO.01',aliases:['dexx hotel de reve private secret session','labx dexx the private session n01','labx dexx 22 november'],search_queries:['LABXClinic DEXX private session 22 Nov 2026','DEXX HOTEL DE REVE 20 top spenders 30 lucky fans'],event_date:'2026-11-22',discovery_months:['2026-10'],miss_class:'PRIVATE_SESSION_CROSSMONTH_NAMED_EVENT_GAP'},
+  {case_id:'siam-halloween-20261030',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 30 October 2026 Siam Square'],event_date:'2026-10-30',discovery_months:['2026-11'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
+  {case_id:'siam-halloween-20261031',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 31 October 2026 Siam Square'],event_date:'2026-10-31',discovery_months:['2026-11'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
+  {case_id:'siam-halloween-20261101',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 1 November 2026 Siam Square'],event_date:'2026-11-01',discovery_months:['2026-10'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
+  {case_id:'jmnk-she-serve-20261121',title:'JMNK SHEเสิร์ฟ CONCERT',aliases:['jmnk she serve concert','jmnk concert november 21 2026'],search_queries:['JMNK SHEเสิร์ฟ Concert Pulse Hall 21 Nov 2026','JMNK Justmine Nika Eventpop ticket public sale Oct31'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'ARTIST_OFFICIAL_SALE_WINDOW_NEXTMONTH_GAP'}
 ]);
 const FIXTURE_EVIDENCE=Object.freeze({
   'remaster-20261010':{title:'REMASTER CONCERT TIMESHOWBIZ',source_url:'https://www.paragonhall.com/en/events'},
@@ -52,7 +56,11 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'mrfanboy-busking-20261011':{title:'MR.FANBOY BUSKING presented by true5G',source_url:null},
   'teeheng-gen-of-us-20261024':{title:'TEEHENG GEN OF US 1st FANMEETING',source_url:'https://www.deehuphouse.com/'},
   'gelboys-last-painting-20261122':{title:'GELBOYS THE LAST PAINTING FANMEET',source_url:'https://www.sotwe.com/looke_world'},
-  'dexx-labx-private-20261122':{title:'LABX DEXX HOTEL DE RÊVE PRIVATE SECRET SESSION NO.01',source_url:'https://www.sotwe.com/LABXClinic'}
+  'dexx-labx-private-20261122':{title:'LABX DEXX HOTEL DE RÊVE PRIVATE SECRET SESSION NO.01',source_url:'https://www.sotwe.com/LABXClinic'},
+  'siam-halloween-20261030':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
+  'siam-halloween-20261031':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
+  'siam-halloween-20261101':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
+  'jmnk-she-serve-20261121':{title:'JMNK SHEเสิร์ฟ CONCERT',source_url:'https://x.com/jmnkofficial'}
 });
 
 function text(v){return String(v==null?'':v).trim();}
