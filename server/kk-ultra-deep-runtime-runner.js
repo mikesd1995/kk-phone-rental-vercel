@@ -224,7 +224,7 @@ function diagnosticReceipts(plan={},execution={}){
 }
 
 async function runOperationalDiscovery(input={},options={}){
-  const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
+  const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const plan=MonthlyPlan.buildOperational(input);
   const execution=await ProviderExecutor.executeGapPlan(plan,{providers,concurrency:Math.min(4,ProviderExecutor.MAX_CONCURRENCY)});
@@ -262,7 +262,7 @@ async function runOperationalDiscovery(input={},options={}){
 }
 
 async function runMonthlyUltraDeep(input={},options={}){
-  const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
+  const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
   // Execute the bounded historical probes first. Live HTML search providers may
