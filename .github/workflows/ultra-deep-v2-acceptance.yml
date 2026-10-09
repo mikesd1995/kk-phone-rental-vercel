@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - 'server/kk-ultra-deep-*.js'
-      - 'tests/kk-ultra-deep-full-loop-v2.test.js'
+      - 'tests/kk-ultra-deep-*.test.js'
+      - '.github/workflows/ultra-deep-v2-acceptance.yml'
       - 'package.json'
 jobs:
   v2-acceptance:
@@ -19,4 +20,4 @@ jobs:
       - name: Syntax gate
         run: npm run check
       - name: Focused V2 regression
-        run: node --test tests/kk-ultra-deep-full-loop-v2.test.js
+        run: node --test tests/kk-ultra-deep-full-loop-v2.test.js tests/kk-ultra-deep-terminal-evidence.test.js tests/kk-ultra-deep-direct-zero-cost.test.js tests/kk-ultra-deep-known-miss-regression.test.js tests/kk-ultra-deep-runtime-runner.test.js

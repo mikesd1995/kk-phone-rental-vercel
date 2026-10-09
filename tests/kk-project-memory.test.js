@@ -28,3 +28,16 @@ test('gateway merges durable ledger memory and fail-closes when enabled ledger i
  const bad=await Gateway.executeAgentRequest({task_type:'reliability_audit',input:{observations:[]}},{ledgerFn,projectMemoryListFn:async()=>{throw Object.assign(new Error('down'),{code:'PROJECT_MEMORY_LEDGER_READ_FAILED'});}});
  assert.equal(bad.status,'BLOCKED_PROJECT_MEMORY_UNAVAILABLE'); assert.equal(bad.blocker,'PROJECT_MEMORY_LEDGER_READ_FAILED');
 });
+
+test('checked-in project memory corpus is valid across every domain',()=>{
+ const corpus=require('../config/kk-project-memory.json');
+ const result=Memory.buildBootstrap(corpus.items);
+ assert.equal(result.status,'READY',JSON.stringify(result.blockers));
+ assert.equal(result.generated_from,corpus.items.length);
+});
+
+test('unsupported run-result kind still fails closed',()=>{
+ const result=Memory.buildBootstrap([row({kind:'RUN_RESULT'})]);
+ assert.equal(result.status,'BLOCKED_INVALID_MEMORY');
+ assert.deepEqual(result.blockers[0].errors,['KIND_INVALID']);
+});

@@ -294,14 +294,20 @@ test('Admin asset path handling rejects traversal and resolves only real files u
   assert.equal(auth._test.contentType('x.js'),'application/javascript; charset=utf-8');
 });
 
-test('Admin asset resolver rejects a symlink that escapes the protected Admin root',()=>{
-  const link=path.join(root,'admin','__auth_escape_test__');
+test('Admin asset resolver rejects a filesystem link that escapes the protected Admin root',()=>{
+  const fixture=fs.mkdtempSync(path.join(root,'admin','__auth_escape_test__'));
+  const link=path.join(fixture,'escape');
+  const windows=process.platform==='win32';
+  const relative=path.basename(fixture)+'/escape'+(windows?'/package.json':'');
   try{
-    try{ fs.unlinkSync(link); }catch(_){ }
-    fs.symlinkSync(path.join(root,'package.json'),link);
-    assert.equal(auth._test.resolveAdminFile('__auth_escape_test__'),'');
+    // Windows junctions exercise realpath containment without symlink privilege.
+    // Linux keeps the original file-symlink escape coverage.
+    fs.symlinkSync(windows?root:path.join(root,'package.json'),link,windows?'junction':'file');
+    assert.equal(fs.realpathSync(path.join(root,'admin',relative)),fs.realpathSync(path.join(root,'package.json')));
+    assert.equal(auth._test.resolveAdminFile(relative),'');
   }finally{
-    try{ fs.unlinkSync(link); }catch(_){ }
+    if(fs.existsSync(link)) { if(windows) fs.rmdirSync(link); else fs.unlinkSync(link); }
+    fs.rmdirSync(fixture);
   }
 });
 

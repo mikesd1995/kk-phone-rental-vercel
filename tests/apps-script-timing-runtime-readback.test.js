@@ -230,3 +230,24 @@ test('authority fields remain fail-closed when deployed 9.5.9 does not expose th
   assert.equal(report.source_equivalence,'UNVERIFIED');
 });
 
+for (const value of [null, '', '0', false, [], -1, 0.5, 9007199254740992]) {
+  test(`trigger counts reject non-canonical evidence: ${JSON.stringify(value)}`, async()=>{
+    const report=await handler._test.appsScriptTimingReadback({
+      env:{KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/deploy/exec',KK_ADMIN_API_KEY:'secret',GOOGLE_SHEET_ID:'sheet'},
+      fetchImpl:async()=>({ok:true,text:async()=>JSON.stringify({ok:true,data:{installed_trigger_count:value,cleanup_trigger_count:value}})})
+    });
+    assert.equal(report.installed_trigger_count,null);
+    assert.equal(report.cleanup_trigger_count,null);
+    assert.equal(report.installed_triggers,'UNVERIFIED');
+  });
+}
+test('explicit numeric zero remains valid trigger count evidence', async()=>{
+  const report=await handler._test.appsScriptTimingReadback({
+    env:{KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/deploy/exec',KK_ADMIN_API_KEY:'secret',GOOGLE_SHEET_ID:'sheet'},
+    fetchImpl:async()=>({ok:true,text:async()=>JSON.stringify({ok:true,data:{installed_trigger_count:0,cleanup_trigger_count:0,cleanup_trigger_present:false,installed_triggers:[]}})})
+  });
+  assert.equal(report.installed_trigger_count,0);
+  assert.equal(report.cleanup_trigger_count,0);
+  assert.equal(report.installed_triggers,'VERIFIED_READBACK');
+  assert.equal(report.cleanup_trigger,'VERIFIED_ABSENT');
+});

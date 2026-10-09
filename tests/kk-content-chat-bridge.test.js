@@ -136,6 +136,11 @@ test('owner bridge runs five-Agent gateway, QA and selector and emits one winner
 });
 
 test('bridge comment persists invocation evidence without exposing internal candidates',async()=>{
+  const Ledger=require('../server/kk-agent-invocation-ledger.js');
+  const original=Ledger.recordInvocation;
+  const receipts=[];
+  Ledger.recordInvocation=async ({row})=>{receipts.push(row);return {ok:true,inserted:true,invocation_id:row.invocation_id};};
+  try {
   const result=await Bridge.runBridge({event:event(),payload:payload()});
   assert.equal(result.status,'PASS');
   const comment=Bridge.buildComment(result);
@@ -147,4 +152,7 @@ test('bridge comment persists invocation evidence without exposing internal cand
   assert.match(comment,/Hook B เน้นแฟนด้อม/);
   assert.doesNotMatch(comment,/Hook A เน้นธีมงาน/);
   assert.doesNotMatch(comment,/Hook C เน้นความสะดวก/);
+  assert.ok(receipts.length>0);
+  assert.ok(receipts.every(r=>r.production_writes===0&&r.publishes===0));
+  } finally { Ledger.recordInvocation=original; }
 });

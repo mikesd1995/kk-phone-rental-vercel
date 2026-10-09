@@ -1,6 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const vm=require('node:vm');
 const path=require('node:path');
 
 const root=path.join(__dirname,'..');
@@ -44,8 +45,8 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261003-v67-lower-page-finish'));
-  assert.ok(html.includes('script.js?v=storefront-v67-lower-page-finish-20261003'));
+  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261007-v631-exhaustive-ux-polish'));
+  assert.ok(html.includes('script.js?v=storefront-v627-poster-framing-20261007'));
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#f4f6f8">/);
 });
@@ -53,8 +54,8 @@ test('new storefront assets are cache-busted',()=>{
 
 test('V5 language switch binds hero, benefits and event-discovery DOM',()=>{
   assert.match(js,/hero_body:"Phone rental for concerts and fan meetings/);
-  assert.match(js,/hero_secondary:"How it works"/);
-  assert.match(js,/benefit_insurance:"Free insurance · No deposit"/);
+  assert.match(js,/hero_secondary:"How to rent"/);
+  assert.match(js,/benefit_insurance:"Book with less hassle · Free insurance, no deposit"/);
   assert.match(js,/benefit_discount:"New customer −฿40 · Returning review −฿100"/);
   assert.match(js,/setText\("\.v3-hero-copy>p","hero_body"\)/);
   assert.match(js,/setText\("\.v3-secondary","hero_secondary"\)/);
@@ -91,11 +92,42 @@ test('package and async-error surfaces expose assistive semantics',()=>{
 });
 
 
-test('mobile modal scroll lock is valid source and restores the captured position',()=>{
-  assert.match(js,/var modalScrollY=0;\s*function lockBody\(\)/);
-  assert.match(js,/document\.body\.style\.position="fixed"/);
-  assert.match(js,/window\.scrollTo\(0,modalScrollY\)/);
-  assert.doesNotMatch(js,/modalScrollY=0;\\nfunction lockBody/);
+test('modal locking preserves position across nested overlays and restores drift on final close',()=>{
+  const start=js.indexOf('var modalScrollY=0;');
+  const end=js.indexOf('function homeUrl()',start);
+  assert.ok(start>=0&&end>start,'scroll-lock implementation must be present');
+  const active=new Set(['overlay']);
+  const calls=[];
+  const document={
+    body:{dataset:{},style:{}},documentElement:{style:{}},
+    getElementById:id=>({classList:{contains:()=>active.has(id)}})
+  };
+  const window={scrollX:17,scrollY:840,scrollTo:(x,y)=>{calls.push([x,y]);window.scrollX=x;window.scrollY=y;}};
+  const ctx=vm.createContext({document,window});
+  vm.runInContext(js.slice(start,end),ctx);
+  ctx.lockBody();
+  assert.equal(document.body.dataset.modalLocked,'1');
+  assert.equal(document.body.style.overflow,'hidden');
+  assert.equal(document.documentElement.style.overflow,'hidden');
+  assert.notEqual(document.body.style.position,'fixed');
+  active.add('faqOverlay');
+  window.scrollY=0;
+  ctx.lockBody(); // A nested open must not overwrite the original position.
+  active.delete('overlay');
+  ctx.unlockBodyIfNoModal();
+  assert.equal(document.body.dataset.modalLocked,'1');
+  assert.equal(calls.length,0);
+  active.clear();
+  ctx.unlockBodyIfNoModal();
+  assert.deepEqual(calls,[[17,840]]);
+  assert.equal(document.body.dataset.modalLocked,undefined);
+  assert.equal(document.body.style.overflow,'');
+  assert.equal(document.documentElement.style.overflow,'');
+  assert.equal(document.body.style.touchAction,'');
+  ctx.unlockBodyIfNoModal();
+  assert.equal(calls.length,1,'repeated close must not jump again');
+  ctx.lockBody();ctx.unlockBodyIfNoModal();
+  assert.equal(calls.length,1,'no drift must not cause a redundant scroll');
 });
 
 
