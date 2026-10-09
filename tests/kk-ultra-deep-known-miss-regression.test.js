@@ -226,7 +226,7 @@ test('Beauty Buffet branded August-announcement miss expands official campaign a
 
 test('November seven known-miss cases include four brand lanes and all four distinct LOLLI days',()=>{
  const nov=K.CORPUS.filter(c=>c.event_date.startsWith('2026-11'));
- const ids=['senka-junior-20261106','loreal-elseve-auau-20261120',
+ const ids=['mizumi-phuwin-20261105','senka-junior-20261106','loreal-elseve-auau-20261120',
   'lolli-mew-20261126','lolli-jamessu-20261127','lolli-bevertonliew-20261128',
   'lolli-emibonnie-20261129','d7-nunew-20261129'];
  for(const id of ids)assert.ok(nov.some(c=>c.case_id===id),id);
@@ -240,4 +240,18 @@ test('November seven known-miss cases include four brand lanes and all four dist
  assert.equal(fixtures.complete,true,'fixtures match dates but cannot certify live scan');
  assert.equal(fixtures.proof_type,'DETERMINISTIC_HISTORICAL_FIXTURE');
  assert.equal(fixtures.production_writes,0);
+});
+
+test('cross-month MizuMi November date cannot pass strict live on October campaign mention alone',()=>{
+ const item=K.CORPUS.find(x=>x.case_id==='mizumi-phuwin-20261105');
+ assert.ok(item);
+ assert.equal(item.event_date,'2026-11-05');
+ assert.ok(item.discovery_months.includes('2026-10'));
+ const wrong=K.evaluate([{title:item.title,event_date:'2026-10-05',source_url:'https://x.com/MizuMi__'}],[],
+  {month:'2026-11',strict_live:true});
+ assert.equal(wrong.complete,false);
+ assert.ok(wrong.missing_cases.includes(item.case_id));
+ const right=K.evaluate([{title:item.title,event_date:'2026-11-05',source_url:'https://x.com/MizuMi__'}],[],
+  {month:'2026-11',strict_live:true});
+ assert.ok(!right.missing_cases.includes(item.case_id));
 });
