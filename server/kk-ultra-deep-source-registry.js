@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V8';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V9';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -42,7 +42,9 @@ const REGISTRY=Object.freeze({
     {source_id:'international-promoters',label:'International promoters',required:true},
     {source_id:'flex1045-radio-promoter',label:'Flex 104.5 / FlexConnect official radio-organized concert and festival announcements',domain:'flexconnect.net',required:true},
     {source_id:'cat-radio-free-festivals',label:'CAT Radio and other station-hosted public music festivals',required:true},
-    {source_id:'xoxo-jmnk',label:'XOXO Entertainment and JMNK official concert schedule',required:true}
+    {source_id:'xoxo-jmnk',label:'XOXO Entertainment and JMNK official concert schedule',required:true},
+    {source_id:'open-label-daouoffroad',label:'OPEN LABEL and One31 DaouOffroad added shows / exact date announcements',required:true},
+    {source_id:'indie-idol-labels-fansigns',label:'Independent Thai idol labels and release fansign calendars (MINDY, SNS, LE7EL and peer groups)',required:true}
   ]),
   BRAND_SPONSOR:Object.freeze([
     {source_id:'watsons-campaigns',label:'Watsons campaigns',required:true},
@@ -70,6 +72,10 @@ const REGISTRY=Object.freeze({
   ]),
   PUBLIC_CALENDAR:Object.freeze([
     {source_id:'public-event-calendars',label:'Public event calendars',required:true},
+    {source_id:'popradar-tpop-small-idol',label:'PopRadar public T-POP and fan-sign discovery (secondary, verify official)',domain:'popradar.app',required:true},
+    {source_id:'eveduler-date-calendar',label:'EVEDULER Thai artist date-level and mall-show discovery (secondary, verify official)',domain:'eveduler.com',required:true},
+    {source_id:'nekoneko-idol-calendars',label:'Nekoneko idol/cosplay small-venue discovery (secondary, verify official)',domain:'nekoneko.website',required:true},
+    {source_id:'natgan-blgl-artist-events',label:'Natgan BL GL fansign and brand activities (secondary, verify official)',domain:'natgan.com',required:true},
     {source_id:'venue-event-calendars',label:'Venue event calendars',required:true}
   ])
 });
