@@ -107,7 +107,7 @@ function mergeCandidates(rows=[]){
 }
 
 function buildQualityEvidence(input,coverage,merged){
-  const universe=SourceRegistry.buildUniverseProof(input.source_universe_receipts||[]);
+  const universe=SourceRegistry.buildUniverseProof(input.source_universe_receipts||[],{strict_live:true,month:text(input.month)});
   const reconciliation=Reconciliation.reconcileCandidateSets(
     merged.candidates,
     input.reconciliation_reference_candidates||[]
