@@ -239,3 +239,25 @@ Ported the minimal, dependency-independent **publication safety** from PR #655 i
 - All previous V4 Verifier, Booking-Day guard, date-sibling, Known-Miss V14 and Learning V8 source changes remain on PR #680. Official event dates/posters, current 10–20-shop exact-event competitor prices, external-only demand and Core→Web→public readback remain pending. User repeatedly asked for completion without spend or bypass; **result remains PARTIALLY IMPLEMENTED, NOT PRODUCTION COMPLETE**.
 
 **Latest safe classification:** `SOURCE_PROVENANCE_HARDENED`, `SERVERLESS_TIMEOUT_FAIL_CLOSED`, `PR680_DRAFT_UNMERGED`, `EXACT_HEAD_CI_NOT_PASS`, `FULL_LOOP_NOT_ACCEPTED`, `PRODUCTION_WRITES_ZERO`.
+
+
+## 2026-10-09 sixth pass — cross-source false-positive correction and 116/116 source acceptance
+
+### Verified correction to previously logged October miss
+- **Sapphic Vampire Lair Halloween**, 2026-10-24 20:00, `The Red Door`, appears in nightlife/bar event directory `https://nightify.co/events`, also `https://www.nightify.co/events`. The previous October independent-fandom known-miss row `SAPPHIC VAMPIRELIAR` was a **mistaken inference from a similarly spelled secondary-calendar title**. The page lists a Halloween nightlife event, **not evidence of a GL artist/actress fanmeeting or concert**. Do **not** publish this as a KK artist rental event, do not invent an artist, and do not treat nightlife attendance as External Demand Score evidence for cameras.
+- Corrected `server/kk-ultra-deep-known-miss-regression.js` **V15** by removing the wrongly mandatory `sapphic-vampireliar-20261024` item and its fixture. The October third-pass **six** other date-specific categories remain report/verify leads until primary artist/venue evidence is found; no official publication inference.
+- Corrected `server/kk-ultra-deep-v2-learning-agent.js` **V9**: remove the made-up `SAPPHIC_INDEPENDENT_FANDOM_EVENT_GAP` trigger, targeted false-positive search prompt and `SAPPHIC_FANDOM_EVENT` mandatory escalation. Retains genuinely relevant GL/BL official fanmeeting discovery elsewhere (this correction is only for the particular nightlife listing).
+- Updated `tests/kk-ultra-deep-known-miss-regression.test.js` to assert (a) six independent date leads rather than seven, (b) absence of this false-positive case and mandatory label, (c) zero business writes.
+
+### Last verified actual source code and test deployment
+- **Code/test commit** `34853d9311017bef9f5199994bc3cb7d04f00724`
+- **Vercel Preview** `dpl_47mPVSpGpWqqUsSaLBGSDnEXZTym` **READY**; build logs report **116/116 Ultra Deep and associated tests PASS, 0 failures**, plus **1/1 poster test PASS**.
+- The previous intermediate commits `169d4d07e023dc492f96ca045fcdb4fe2a478b8a` and `a528d665249a0909a461743fb64dccd273ffa40b` had **ERROR** Preview builds while the linked tests were not yet updated. Those intermediate errors have been addressed by the exact passing code/test commit above; don't mistake them for remaining failures.
+- Source proof V11, Provider Executor V6 with shared 210s deadline, Runtime hard `!budgetExhausted` FULL gate, Verifier V4, owner booking-day lock and distinct added-show date protections remain covered in the 116 passing test set.
+
+### Remaining status and explicit boundaries
+- Real October autonomous Full Loop **NOT ACCEPTED**; the matching V27/OIDC production runtime is not yet deployed, final provenance-complete sharded source-universe run has not been executed, and external-only demand and the independent 10–20-shop exact price median have not been fully corroborated.
+- No business sheet or public storefront rows, current bookings, owner-hidden event history, price package, or X-post were changed; no paid credits topped up.
+- PR #680 remains **DRAFT**, not merged to main. Audit document and linked Issue #672 are the cross-chat truth source. Final rollout must satisfy CI/owner/source authorization and exact readback, not source Preview alone.
+
+**Final sixth-pass source classification:** `KNOWN_MISS_V15`, `LEARNING_V9`, `NIGHTLIFE_FALSE_POSITIVE_EXCLUDED`, `PREVIEW_116_116_GREEN`, `AUTONOMOUS_MONTH_FULL_NOT_ACCEPTED`, `PRODUCTION_WRITES_0`.
