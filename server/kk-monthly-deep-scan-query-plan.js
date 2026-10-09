@@ -1,6 +1,6 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V15';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V16';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล','free concert radio station Flex1045 PMCU Siam Halloween multi-day October November Bangkok','ฟรีคอนเสิร์ต สยามฮาโลวีน PMCU Flex 104.5 เทศกาล 30 ตุลาคม 1 พฤศจิกายน ศิลปิน'],
  TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล','KAZZ MARKET activity TutorYim fanmeeting one day trip ticket updated date','LOOKE GELBOYS AllTicket fanmeet onsale event date Thailand'],
@@ -33,12 +33,14 @@ const OCTOBER_ONLY_TERMS_RE=/(?:October 2026|ตุลาคม 2569|9 October 2
 const NOVEMBER_2026_TERMS=Object.freeze({
  PRESS_BRAND:Object.freeze([
   'BEAUTRIUM Junior SENKA lucky 30 fan November 6 Siam Square',
+  'MizuMi x PHUWIN FIND YOUR MOISTURE MATCH November 5 Eden CentralWorld 120 lucky fan 20 super fan',
   "L Oreal Paris Elseve Day AuAu 50 lucky fans 20 November Bangkok",
   'LOLLI POP-UP GET GLOWING November 26 Mew 27 JamesSu 28 BeverTonliew 29 EmiBonnie',
   'D7 NuNew นุนิวชวนม่วน งานวัดนี้มีรัก 29 พฤศจิกายน ยูเนี่ยนมอลล์'
  ]),
  CAMPAIGN_LEAD_TIME:Object.freeze([
   '2026 October buy register lucky fan campaign whose artist event occurs November Bangkok',
+  'October 4 to 23 MizuMi PHUWIN moisturizer purchase 7 Eleven Shopee event November 5 Eden CentralWorld',
   'พฤศจิกายน 2569 งานลัคกี้แฟน เปิดลงทะเบียนตุลาคม BEAUTRIUM LOREAL LOLLI D7',
   'Thai skincare beauty brands 7-Eleven Lotus Watsons Lucky Fans Top Spender November 2026 artist'
  ]),
