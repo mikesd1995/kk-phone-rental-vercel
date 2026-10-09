@@ -71,3 +71,22 @@ test('External Demand scope must not elevate a candidate without official event 
  assert.ok(result.blockers.includes('VERIFIED_TARGET_MONTH_DATE_REQUIRED'));
  assert.ok(result.blockers.includes('VERIFIED_POSTER_REQUIRED'));
 });
+
+test('canonical direct verifier uses injected HTTP client and never makes an uncontrolled fetch',async()=>{
+ const seen=[];
+ const fetchImpl=async(url,opts)=>{
+  seen.push({url,method:opts.method});
+  return {ok:true,status:200,headers:{get:()=>null},text:async()=>html};
+ };
+ const candidate={title:'Strong Roots Bright Stars with TeeTee & Por',event_date:null,
+  source_url:'https://www.eventpop.me/e/ryo-strong-roots'};
+ const out=await Verifier.verifyBatch([candidate],
+  {month:'2026-10',verification_scope:'EXTERNAL_DEMAND_IDENTITY'},
+  {fetchImpl,concurrency:1,timeout_ms:500});
+ assert.equal(seen.length,1);
+ assert.equal(seen[0].url,candidate.source_url);
+ assert.equal(seen[0].method,'GET');
+ assert.equal(out.verified_count,1);
+ assert.equal(out.verified_candidates[0].publish_eligibility.eligible,null);
+ assert.equal(out.production_writes,0);
+});
