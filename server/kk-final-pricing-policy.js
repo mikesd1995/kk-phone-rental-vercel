@@ -42,7 +42,10 @@ function exactCompetitorCount(input={}){
 }
 
 function eventDate(input={}){
-  return text(input.event_date||(input.candidate&&input.candidate.event_date));
+  const raw=text(input.event_date||(input.candidate&&input.candidate.event_date));
+  const thai=raw.match(/^(\d{1,2})\/(\d{1,2})\/(20\d{2})$/);
+  if(thai)return thai[3]+'-'+thai[2].padStart(2,'0')+'-'+thai[1].padStart(2,'0');
+  return raw;
 }
 
 function eventScore(input={}){
@@ -94,8 +97,9 @@ function templateIds(input={},policy=DEFAULT_SCORE_FALLBACK_POLICY){
 function ownerWeekpartFallback(input={}){
  const date=eventDate(input);
  if(!isIsoDate(date))return null;
- const n=new Date(date+'T00:00:00Z').getUTCDay();
- if(new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)return null;
+ const parsed=new Date(date+'T00:00:00Z');
+ if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)return null;
+ const n=parsed.getUTCDay();
  const weekend=n===0||n===5||n===6;
  const phone=weekend?690:490,bundle=weekend?890:590;
  const ids=templateIds(input,fallbackPolicy(input));
