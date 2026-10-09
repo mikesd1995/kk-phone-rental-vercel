@@ -116,3 +116,29 @@ test('October brand recall requires an exact day and URL, not a generic brand ca
  // Known-miss discovery receipt does not qualify a listing for governed storefront publication.
  assert.equal(discovered.production_writes,0);
 });
+
+
+test('October second-pass date-level discovery recall includes nine new independent misses',()=>{
+ const ids=[
+  'daouoffroad-added-show-20261031','mindy-shoot-your-shot-20261029',
+  'sns-ear-candy-fansign-20261031','miu-caltex-kebdao-20261019',
+  'lena-dolce-italia-20261012','le7el-debut-20261015',
+  'pop-pah-halloween-20261030','endless-us-vol1-20261017',
+  'vvv-tornado-shopping-20261025'
+ ];
+ const live=K.evaluate([],[],{month:'2026-10',strict_live:true});
+ for(const id of ids){
+  assert.ok(K.CORPUS.some(x=>x.case_id===id),id);
+  assert.ok(live.missing_cases.includes(id),id);
+ }
+ assert.equal(K.evaluateFixtureRegression().complete,true);
+});
+test('DaouOffroad extra day is separate; existing October 30 round cannot satisfy October 31 live recall',()=>{
+ const source='https://event.thaiticketmajor.com/venue/central-world-live-central-world.html';
+ const title='DAOUOFFROAD HALLOWEEN FAN PARTY 2026';
+ const previous=K.evaluate([{title,event_date:'2026-10-30',source_url:source}],[],{month:'2026-10',strict_live:true});
+ assert.ok(previous.missing_cases.includes('daouoffroad-added-show-20261031'));
+ const newDay=K.evaluate([{title,event_date:'2026-10-31',source_url:source}],[],{month:'2026-10',strict_live:true});
+ assert.ok(!newDay.missing_cases.includes('daouoffroad-added-show-20261031'));
+ assert.equal(newDay.production_writes,0);
+});
