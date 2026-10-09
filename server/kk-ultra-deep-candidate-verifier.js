@@ -229,7 +229,7 @@ async function verifyCandidate(candidate={},context={},options={}){
  const pre=prefilter(candidate,context.month,context);
  if(!pre.eligible)return {status:'HOLD_VERIFIER',verified:false,blockers:pre.reasons,candidate};
  try{
-  const body=await PublicWeb.fetchPage(candidate.source_url,{fetchFn:options.fetchFn,timeout_ms:Number(options.timeout_ms||10000)});
+  const body=await PublicWeb.fetchPage(candidate.source_url,{fetchFn:options.fetchFn||options.fetchImpl,timeout_ms:Number(options.timeout_ms||10000)});
   return verifyHtmlCandidate(candidate,body,context);
  }catch(err){
   return {status:'HOLD_VERIFIER',verified:false,blockers:['SOURCE_FETCH_FAILED'],candidate,error_class:text(err&&(err.code||err.name))||'ERROR'};
