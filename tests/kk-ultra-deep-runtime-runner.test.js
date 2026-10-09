@@ -418,3 +418,13 @@ test('partially executed provider query after time budget is never accepted as F
  assert.equal(observed.complete,false);
  assert.equal(observed.executed_count,0);
 });
+
+
+test('FULL state is impossible when any phase, including preflight, hits shared timeout',()=>{
+ const fs=require('node:fs');
+ const source=fs.readFileSync(require.resolve('../server/kk-ultra-deep-runtime-runner.js'),'utf8');
+ assert.match(source,/const budgetExhausted=\[knownMissExecution,execution,referenceExecution\]\.some\(/);
+ assert.match(source,/\|\|preflight\.result\.status==='TIME_BUDGET_EXCEEDED'/);
+ assert.match(source,/const complete=!budgetExhausted && binding\.unknown_url_search_bound/);
+ assert.match(source,/\.\.\.\(budgetExhausted\?\['INCOMPLETE_TIME_BUDGET'\]:\[\]\)/);
+});
