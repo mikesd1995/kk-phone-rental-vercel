@@ -1,8 +1,18 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V16';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V17';
 
 const CORPUS=Object.freeze([
+  // November 2026: first-party brand/fandom discoveries that broad concert calendars missed.
+  // The Nov28 LOLLI appearance is intentionally a recall target but NEVER eligible
+  // for storefront publication because an existing STARLYMPICS booking locks that day.
+  {case_id:'senka-junior-20261106',title:"Junior's Bright Day with SENKA",aliases:['SENKA Bright with Junior','Junior Bright Day BEAUTRIUM'],event_date:'2026-11-06',search_queries:['site:x.com/TheBeautrium/status Junior SENKA 6 November 2026','BEAUTRIUM Junior Bright Day 6 พฤศจิกายน 2569'],miss_class:'BRAND_LUCKY_FAN_SOCIAL_LEAD_TIME_GAP'},
+  {case_id:'loreal-elseve-auau-20261120',title:"L OREAL PARIS ELSEVE DAY WITH AUAU",aliases:["L'Oréal Paris Elseve Day with AuAu",'Elseve AuAu lucky fan 50'],event_date:'2026-11-20',search_queries:['site:x.com/LOrealParisTH/status Elseve Day AuAu 20 November 2026','อู่อู๋ ELSEVE DAY 20 พฤศจิกายน 2569 50 Lucky Fans'],miss_class:'BRAND_PRIVATE_EXPERIENCE_CROSSMONTH_GAP'},
+  {case_id:'lolli-mew-20261126',title:'LOLLI POP-UP GET GLOWING MEW SUPPASIT',aliases:['LOLLI POP UP Mew 26 November','LOLLI Mew Suppasit Get Glowing'],event_date:'2026-11-26',search_queries:['site:instagram.com/lolliofficialth Lolli Mew Suppasit 26 November 2026','LOLLI Get Glowing Mew 26 พฤศจิกายน 2569'],miss_class:'BRAND_MULTIDAY_ARTIST_SPLIT'},
+  {case_id:'lolli-jamessu-20261127',title:'LOLLI POP-UP GET GLOWING JAMESSU',aliases:['LOLLI JamesSu 27 November','LOLLI Get Glowing with James Su'],event_date:'2026-11-27',search_queries:['site:instagram.com/lolliofficialth JamesSu LOLLI 27 November 2026','LOLLI James Su 50 Lucky Fans 27 พฤศจิกายน 2569'],miss_class:'BRAND_MULTIDAY_ARTIST_SPLIT'},
+  {case_id:'lolli-bevertonliew-20261128',title:'LOLLI POP-UP GET GLOWING BEVERTONLIEW',aliases:['LOLLI Bever Tonliew 28 November','LOLLI Get Glowing BeverTonliew'],event_date:'2026-11-28',search_queries:['site:instagram.com/lolliofficialth BeverTonliew 28 November 2026','LOLLI POP UP Bever Tonliew 28 พฤศจิกายน 2569'],miss_class:'BOOKING_LOCKED_BRAND_APPEARANCE_REPORT_ONLY'},
+  {case_id:'lolli-emibonnie-20261129',title:'LOLLI POP-UP GET GLOWING EMIBONNIE',aliases:['LOLLI EmiBonnie 29 November','LOLLI Get Glowing Emi Bonnie'],event_date:'2026-11-29',search_queries:['site:instagram.com/lolliofficialth EmiBonnie 29 November 2026','LOLLI POP UP Emi Bonnie 29 พฤศจิกายน 2569'],miss_class:'BRAND_MULTIDAY_ARTIST_SPLIT'},
+  {case_id:'d7-nunew-20261129',title:'D7 NUNEW นุนิวชวนม่วน งานวัดนี้มีรัก',aliases:['NuNew Invites U to Muan A Fair Full of Love','D7 NuNew Union Mall November 29'],event_date:'2026-11-29',search_queries:['site:x.com/D7Thailand/status NuNew 29 November 2026 Union Mall','D7 นุนิวชวนม่วน 29 พฤศจิกายน 2569'],miss_class:'BRAND_LUCKY_FAN_SOCIAL_LEAD_TIME_GAP'},
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
   {case_id:'pink-aura-20260928',title:'THE PINK AURA',aliases:['the pink aura','pink aura'],event_date:'2026-09-28'},
   {case_id:'minmin-frozen-candy-20260930',title:'MINMIN x TeeTeePor - THE FROZEN CANDY LAND',aliases:['frozen candy land','minmin teeteepor','teetee por frozen candy'],event_date:'2026-09-30'},
@@ -56,6 +66,13 @@ const CORPUS=Object.freeze([
   {case_id:'jmnk-she-serve-20261121',title:'JMNK SHEเสิร์ฟ CONCERT',aliases:['jmnk she serve concert','jmnk concert november 21 2026'],search_queries:['JMNK SHEเสิร์ฟ Concert Pulse Hall 21 Nov 2026','JMNK Justmine Nika Eventpop ticket public sale Oct31'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'ARTIST_OFFICIAL_SALE_WINDOW_NEXTMONTH_GAP'}
 ]);
 const FIXTURE_EVIDENCE=Object.freeze({
+  'senka-junior-20261106':{title:"Junior's Bright Day with SENKA",source_url:'https://x.com/TheBeautrium/status/2106604292421681359'},
+  'loreal-elseve-auau-20261120':{title:"L'Oréal Paris Elseve Day with AuAu",source_url:'https://x.com/LOrealParisTH/status/2091707064217145662'},
+  'lolli-mew-20261126':{title:'LOLLI POP-UP GET GLOWING Mew Suppasit',source_url:'https://www.instagram.com/p/DeLkoF9SLss/'},
+  'lolli-jamessu-20261127':{title:'LOLLI POP-UP GET GLOWING JamesSu',source_url:'https://www.instagram.com/p/DeLkoF9SLss/'},
+  'lolli-bevertonliew-20261128':{title:'LOLLI POP-UP GET GLOWING BeverTonliew',source_url:'https://www.instagram.com/p/DeLkoF9SLss/'},
+  'lolli-emibonnie-20261129':{title:'LOLLI POP-UP GET GLOWING EmiBonnie',source_url:'https://www.instagram.com/p/DeLkoF9SLss/'},
+  'd7-nunew-20261129':{title:'D7 NuNew นุนิวชวนม่วน งานวัดนี้มีรัก',source_url:'https://x.com/D7Thailand/status/2106981183045460166'},
   'remaster-20261010':{title:'REMASTER CONCERT TIMESHOWBIZ',source_url:'https://www.paragonhall.com/en/events'},
   'pink-aura-20260928':{title:'MizuMi x PP KRIT - THE PINK AURA',source_url:'https://www.watsons.co.th/th/mizumixpp-p926'},
   'minmin-frozen-candy-20260930':{title:'MIN MIN x TeeTeePor : The Frozen Candy Land',source_url:'https://x.com/2TEEPH'},
