@@ -42,12 +42,21 @@ function sourceUniverseReceipts(plan={},execution={}){
     const task=tasks[i];if(!task.source_id)continue;
     const result=results[i]||{};
     const attempts=Array.isArray(result.attempts)?result.attempts:[];
-    const executed=attempts.some(attemptExecuted);
+    const successful=attempts.filter(attemptExecuted);
+    const executed=successful.length>0;
+    const candidates=Array.isArray(result.candidates)?result.candidates:[];
+    const hasEvidence=executed&&result.status==='EVIDENCE_FOUND'&&candidates.length>0;
     receipts.push({
       source_id:task.source_id,
+      task_source_id:task.source_id,
+      month:text(plan.range&&plan.range.month),
+      planned_query:text(task.query),
       executed,
-      status:executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
-      provider:result.provider||null
+      status:executed?(hasEvidence?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
+      provider:result.provider||text(successful[0]&&successful[0].provider)||null,
+      candidate_count:hasEvidence?candidates.length:0,
+      // Only provider/status/query are retained; never persist provider error payloads.
+      attempts:successful.map(a=>({provider:text(a.provider),status:text(a.status),query:text(a.query)}))
     });
   }
   return receipts;
@@ -282,7 +291,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     ProviderExecutor.executeGapPlan(referencePlan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY})
   ]);
   const receipts=sourceUniverseReceipts(plan,execution);
-  const universe=SourceRegistry.buildUniverseProof(receipts);
+  const universe=SourceRegistry.buildUniverseProof(receipts,{strict_live:true,month:plan.range.month});
   const candidates=flattenCandidates(execution);
   const discoveryProof=executionProof(execution);
   discoveryProof.candidate_count=candidates.length;
