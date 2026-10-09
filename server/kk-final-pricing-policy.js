@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_FINAL_PRICING_POLICY_V4';
+const VERSION='KK_FINAL_PRICING_POLICY_V5_OWNER_WEEKPART';
 
 const DEFAULT_SCORE_FALLBACK_POLICY=Object.freeze({
   policy_approved:true,
@@ -88,6 +88,26 @@ function templateIds(input={},policy=DEFAULT_SCORE_FALLBACK_POLICY){
   return ids;
 }
 
+// Owner lock 2026-10-10. Only when exact-event independent market evidence is
+// insufficient: Mon-Thu 490/590; Fri-Sun 690/890. Rental fit and booking
+// locks remain independent blockers; weekend is Fri/Sat/Sun by Thai calendar.
+function ownerWeekpartFallback(input={}){
+ const date=eventDate(input);
+ if(!isIsoDate(date))return null;
+ const n=new Date(date+'T00:00:00Z').getUTCDay();
+ if(new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)return null;
+ const weekend=n===0||n===5||n===6;
+ const phone=weekend?690:490,bundle=weekend?890:590;
+ const ids=templateIds(input,fallbackPolicy(input));
+ const lens=lensBaseline(input);
+ const note=weekend?'OWNER_FRI_SAT_SUN_FALLBACK':'OWNER_MON_THU_FALLBACK';
+ return {weekend,phone,bundle,lens,
+  final_prices:[
+   {template_id:ids.phone,override_price:phone,active_override:true,override_note:note+'|NOT_COMPETITOR_MEDIAN'},
+   {template_id:ids.lens,override_price:lens,active_override:false,override_note:'LENS_ONLY_DISABLED|NOT_COMPETITOR_MEDIAN'},
+   {template_id:ids.bundle,override_price:bundle,active_override:true,override_note:note+'|NOT_COMPETITOR_MEDIAN'}
+  ]};
+}
 function scoreFallback(input={}){
   const policy=fallbackPolicy(input);
   const value=eventScore(input);
@@ -186,11 +206,23 @@ function decorate(prices=[],meta={}){
 }
 
 function resolve(input={}){
+  // A booked date is a price lock, including one remaining unallocated phone.
+  if(input.has_active_booking_on_date===true || input.booking_day_locked===true){
+    return {schema_version:VERSION,status:'HOLD_BOOKING_DATE_PRICE_LOCK',
+      final_prices:[],policy_approved:false,source:'BOOKING_DAY_LOCK',
+      pricing_status:'NO_REPRICE_ON_BOOKING_DATE',price_confidence:'NONE',
+      needs_price_recheck:false,competitor_reference_used_as_final:false,
+      requires_per_event_owner_price_decision:false,production_writes:0};
+  }
   const competitorCount=exactCompetitorCount(input);
   const date=eventDate(input);
   const weekend=isWeekendDate(date);
   const exact=competitorCount>0?exactCompetitorMedian(input):null;
-  const fallback=competitorCount===0?scoreFallback(input):null;
+  const candidateScore=eventScore(input);
+  const fitThreshold=fallbackPolicy(input).minimum_publish_score;
+  const lowFit=candidateScore!==null&&candidateScore<fitThreshold;
+  const weekpart=!exact && !lowFit?ownerWeekpartFallback(input):null;
+  const fallback=!weekpart && !exact && !lowFit?scoreFallback(input):null;
 
   if(exact){
     return {
@@ -207,6 +239,25 @@ function resolve(input={}){
       competitor_evidence_count:competitorCount,
       competitor_reference_used_as_final:true,
       requires_per_event_owner_price_decision:false
+    };
+  }
+
+  if(weekpart){
+    return {
+      schema_version:VERSION,
+      status:'FINAL_PRICES_RESOLVED',
+      final_prices:decorate(weekpart.final_prices,{needs_price_recheck:true}),
+      policy_approved:true,
+      source:'OWNER_WEEKPART_FALLBACK',
+      pricing_status:'PROVISIONAL_NEEDS_PRICE_RECHECK',
+      price_confidence:'PROVISIONAL',
+      needs_price_recheck:true,
+      rental_fit_score:candidateScore,
+      minimum_publish_score:fitThreshold,
+      competitor_evidence_count:competitorCount,
+      competitor_reference_used_as_final:false,
+      requires_per_event_owner_price_decision:false,
+      production_writes:0
     };
   }
 
@@ -256,6 +307,7 @@ module.exports={
   eventScore,
   fallbackPolicy,
   templateIds,
+  ownerWeekpartFallback,
   scoreFallback,
   median,lensBaseline,exactCompetitorMedian,baselinePrices,
   resolve
