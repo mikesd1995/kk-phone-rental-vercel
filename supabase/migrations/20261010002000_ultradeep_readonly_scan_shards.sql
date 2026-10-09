@@ -4,6 +4,30 @@
 -- Deploy only with source/owner acceptance; RLS applies before first insert.
 begin;
 
+alter table public.kk_ultra_deep_commands
+ add column if not exists command_kind text not null default 'FULL_READ_ONLY';
+do $constraint$
+begin
+ if not exists(select 1 from pg_constraint where conname='kk_ultra_deep_command_kind_check') then
+  alter table public.kk_ultra_deep_commands
+   add constraint kk_ultra_deep_command_kind_check
+    check(command_kind in('FULL_READ_ONLY','SHARDED_READ_ONLY'));
+ end if;
+end $constraint$;
+
+-- Backward-compatible queue claim returns one extra authenticated command type
+-- while rejecting sharded commands from the legacy monolithic execution path.
+create or replace function public.kk_ultra_deep_command_claim(p_command_id uuid)
+returns jsonb language plpgsql security definer set search_path='' as $
+declare v public.kk_ultra_deep_commands%rowtype;
+begin
+ update public.kk_ultra_deep_commands set state='RUNNING',claimed_at=now(),updated_at=now()
+ where command_id=p_command_id and state='PENDING' returning * into v;
+ if not found then return null; end if;
+ return jsonb_build_object('command_id',v.command_id,'month',v.month,
+   'commit',v.commit,'command_kind',v.command_kind);
+end $;
+
 create table if not exists public.kk_ultra_deep_scan_shards (
  command_id uuid not null references public.kk_ultra_deep_commands(command_id) on delete cascade,
  month text not null check(month ~ '^20[0-9]{2}-(0[1-9]|1[0-2])$'),
@@ -41,7 +65,7 @@ declare v_old public.kk_ultra_deep_scan_shards%rowtype;
 begin
  select * into v_command from public.kk_ultra_deep_commands
   where command_id=p_command_id and month=p_month and commit=false
-    and state='RUNNING';
+    and command_kind='SHARDED_READ_ONLY' and state='RUNNING';
  if not found then raise exception 'SHARD_COMMAND_NOT_AUTHORIZED'; end if;
  if p_shard_start is null or p_shard_end is null or p_shard_end-p_shard_start>16
  then raise exception 'SHARD_EXCEEDS_SAFE_BATCH'; end if;
