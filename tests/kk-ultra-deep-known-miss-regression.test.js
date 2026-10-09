@@ -206,3 +206,20 @@ test('Beauty Buffet LIPTOK x AUAUSAVE Oct9 is a mandatory named brand-fandom kno
  assert.equal(recovered.production_writes,0);
  assert.equal(K.evaluateFixtureRegression().complete,true,'fixture is only a matching test, not live proof');
 });
+
+
+test('Beauty Buffet branded August-announcement miss expands official campaign and artist-schedule pivots',()=>{
+ const Learning=require('../server/kk-ultra-deep-v2-learning-agent.js');
+ const out=Learning.learn({missed_events:[{
+  miss_class:'BRAND_ARTIST_LUCKY_FAN_LEAD_TIME_GAP',
+  event_name:'Beauty Buffet LIPTOK Event x AUAUSAVE',event_date:'2026-10-09',
+  brand:'Beauty Buffet',artists:['AuAuSave','MhiiPraew'],month:'2026-10',
+  source:'BeautyBuffetTH brand announcement',query_terms:['BeautyBuffetLiptokEventxAUAUSAVE']
+ }]});
+ assert.ok(out.adaptive.mandatory_expansion.includes('BRAND_OFFICIAL_SOCIAL'));
+ assert.ok(out.adaptive.mandatory_expansion.includes('CAMPAIGN_LEAD_TIME_NEXT_MONTH'));
+ assert.ok(out.adaptive.mandatory_expansion.includes('BEAUTY_BRAND_ACTIVATION_PREVIOUS_MONTH_ANNOUNCEMENT'));
+ assert.ok(out.adaptive.query_terms.some(x=>x.includes('Beauty Buffet AuAuSave')));
+ assert.ok(out.adaptive.query_terms.some(x=>x.includes('previous month')));
+ assert.equal(out.authority.production_writes,0);
+});
