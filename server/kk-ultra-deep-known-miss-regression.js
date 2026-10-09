@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V14';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V15';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -29,7 +29,6 @@ const CORPUS=Object.freeze([
   {case_id:'viral-hits-spotlight-20261017',title:'The Viral Hits Thailand Spotlight Awards 2026',aliases:["viral hits thailand spotlight awards 2026","calypso theatre asiatique october 17"],search_queries:["The Viral Hits Thailand Spotlight Awards 2026 Bangkok 2026 official artist lineup"],event_date:'2026-10-17',miss_class:'PUBLIC_AWARD_FANDOM_ROSTER_GAP'},
   {case_id:'paseo-pop-stage-20261017',title:'The Paseo POP THE STAGE',aliases:["the paseo pop the stage 17 october","paseo ramkhamhaeng tpop October 2026"],search_queries:["The Paseo POP THE STAGE Bangkok 2026 official artist lineup"],event_date:'2026-10-17',miss_class:'FREE_MALL_TPOP_STAGE_GAP'},
   {case_id:'idol-live-stage-20261024',title:'Idol Live Stage The Street Ratchada',aliases:["idol live stage the street ratchada 24 october","idol live stage 24 October 2026"],search_queries:["Idol Live Stage The Street Ratchada Bangkok 2026 official artist lineup"],event_date:'2026-10-24',miss_class:'INDIE_IDOL_DEBUT_SHOW_GAP'},
-  {case_id:'sapphic-vampireliar-20261024',title:'SAPPHIC VAMPIRELIAR',aliases:["sapphic vampireliar October 24 2026","vampireliar the red door suk 24"],search_queries:["SAPPHIC VAMPIRELIAR Bangkok 2026 official artist lineup"],event_date:'2026-10-24',miss_class:'SAPPHIC_INDEPENDENT_FANDOM_EVENT_GAP'},
   {case_id:'af-halloween-afterlife-20261030',title:'AF Halloween Party AFTERLIFE',aliases:["af halloween party afterlife 30 october","afterlife CHANG CANVAS One Bangkok October 2026"],search_queries:["AF Halloween Party AFTERLIFE Bangkok 2026 official artist lineup"],event_date:'2026-10-30',miss_class:'FANCLUB_HALLOWEEN_STAGE_GAP'},
   {case_id:'tday-music-playground-20261031',title:'T-DAY MUSIC PLAYGROUND LE7EL',aliases:["t day music playground search studio October 31","tday music playground le7el"],search_queries:["T-DAY MUSIC PLAYGROUND LE7EL Bangkok 2026 official artist lineup"],event_date:'2026-10-31',miss_class:'INDIE_IDOL_DEBUT_SHOW_GAP'},
   {case_id:'daouoffroad-added-show-20261031',title:'DAOUOFFROAD HALLOWEEN FAN PARTY 2026 — 31 OCT SHOW',aliases:["daouoffroad halloween fan party 31 october","daouoffroad 31 oct","daouoffroad halloween fan party 2026"],search_queries:["DAOUOFFROAD HALLOWEEN FAN PARTY 2026 — 31 OCT SHOW Bangkok October 2026"],event_date:'2026-10-31',miss_class:'ADDED_SHOW_DATE_SIBLING_GAP'},
@@ -74,7 +73,6 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'viral-hits-spotlight-20261017':{title:'The Viral Hits Thailand Spotlight Awards 2026',source_url:'https://popradar.app/events'},
   'paseo-pop-stage-20261017':{title:'The Paseo POP THE STAGE',source_url:'https://popradar.app/events'},
   'idol-live-stage-20261024':{title:'Idol Live Stage The Street Ratchada',source_url:'https://popradar.app/events'},
-  'sapphic-vampireliar-20261024':{title:'SAPPHIC VAMPIRELIAR',source_url:'https://popradar.app/events'},
   'af-halloween-afterlife-20261030':{title:'AF Halloween Party AFTERLIFE',source_url:'https://popradar.app/events'},
   'tday-music-playground-20261031':{title:'T-DAY MUSIC PLAYGROUND LE7EL',source_url:'https://popradar.app/events'},
   'daouoffroad-added-show-20261031':{title:'DAOUOFFROAD HALLOWEEN FAN PARTY 2026 — 31 OCT SHOW',source_url:'https://event.thaiticketmajor.com/venue/central-world-live-central-world.html'},
