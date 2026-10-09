@@ -26,6 +26,16 @@ const before=[mk(idA,'17/10/2026'),mk(idB,'14/10/2026'),mk(idC,'29/10/2026')];
 const after=before.map((r,i)=>({...r,poster_image_url:Ops.canonicalPoster([fileA,fileB,fileC][i])}));
 const targets=before.map((r,i)=>target(r,[fileA,fileB,fileC][i]));
 
+test('chat routing recognizes owner poster instructions on first command, not questions',()=>{
+  assert.equal(Ops.detectOwnerPosterRequest('ไปเปลี่ยนโปสเตอร์งานนี้ให้หน่อย'),true);
+  assert.equal(Ops.detectOwnerPosterRequest('เอารูปนี้ไปใส่งาน SHADES'),true);
+  assert.equal(Ops.detectOwnerPosterRequest('เปลี่ยนรูปหน้าบ้านสามงานนี้'),true);
+  assert.equal(Ops.detectOwnerPosterRequest('เปลี่ยนโปสเตอร์สำเร็จไหม'),false);
+  assert.equal(Ops.detectOwnerPosterRequest('ควรเปลี่ยนรูปโปสเตอร์ไหม'),false);
+  assert.equal(Ops.detectOwnerPosterRequest('อย่าเปลี่ยนโปสเตอร์งานนี้'),false);
+  assert.equal(Ops.detectOwnerPosterRequest('แก้รูปโพสต์บน X'),false);
+});
+
 test('owner poster route and advisory agents are wired without production writes',async()=>{
   const route=Registry.routeForIntent('owner_poster_update');
   assert.equal(route.runtime_available,true);
