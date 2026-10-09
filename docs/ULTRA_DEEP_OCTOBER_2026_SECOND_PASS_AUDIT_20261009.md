@@ -127,3 +127,38 @@ Important owner policy from Draft **PR #655** and its project memory: on any eve
 - No extra paid service/top-up (Exa had 402), no duplicate scheduler, no booking or storefront mutation, no auto-merge/auto-deploy, no X post.
 
 **Current handoff truth:** `SOURCE_RECALL_COVERAGE_AND_VERIFIER_FIX_TESTED` / `SUPABASE_VERIFIER_BLOCKER_EVIDENCED` / `BOOKING_DAY_POLICY_DEPENDENCY_UNRESOLVED` / `OCTOBER_AUTONOMOUS_FULL_NOT_ACCEPTED` / `PRODUCTION_BUSINESS_WRITES=0`.
+
+
+## 2026-10-09 final fourth-pass code acceptance — booking-day publish exclusion, exact Preview and remaining production gates
+
+**Decision at execution:** user requires end-to-end repair without repeated questions; authority remains fail-closed and no-cost. All edits below are **source-only on PR #680 Draft**, and no booking, owner visibility history, prices, derived Web Ready, Candidate Queue or production event records were written.
+
+### Owner-booking-day exclusivity, superseding old spare-capacity policy
+
+The owner-locked Oct7 rule (recorded on Draft PR #655 memory) is stricter than old `fullBookingDateSet` semantics: **if one active booking exists on a date, do not newly publish/promote/reopen OTHER events on that date, even with one spare phone**. The booked event itself remains eligible for verified metadata maintenance; owner tombstones still precede any other action. A cancelled/no_show booking does not create an active date lock.
+
+Ported the minimal, dependency-independent **publication safety** from PR #655 into PR #680, not its whole draft or state-mutation mechanism:
+
+- `server/kk-ultra-deep-production-runtime.js` `reconcileCandidates`: exact/new, and existing but *not the booked event* are dispositioned `SKIPPED_ACTIVE_BOOKING_DATE`; existing booked canonical event remains `SAFE_EXISTING`. Per-event check uses canonical event ID, booking event date and active statuses `pending|confirmed|prepared|picked_up`. Previously a single booking with spare phone yielded `SAFE_NEW`, violating current owner policy.
+- `server/kk-ultra-deep-v2-runtime-adapter.js`: `bookingCountOnDate` plus active status set; reject unmatched/new event on any active-booking date with `ACTIVE_BOOKING_DATE_EXCLUDED`; skip existing but unrelated candidates from `V2.buildPlan` even if they were previously visible; preserve the booked event's metadata maintenance. Candidate is marked `booking_day_excluded=true` for diagnostic readback.
+- `server/kk-ultra-deep-full-loop-completion-gate.js`: `SKIPPED_ACTIVE_BOOKING_DATE` becomes a legitimate no-write terminal disposition; it is **not** a general Publish gate bypass.
+- Updated `tests/kk-ultra-deep-production-runtime.test.js` historical pre-Oct7 spare-capacity assertions and added same-day existing mismatch test. Added `tests/kk-ultra-deep-booking-day-policy.test.js` for two phone inventory, one active booking, same-day existing/new events, cancellation/no-show rule and V2 selected/excluded counts. Both suites are part of existing `test:ultradeep:recall` script.
+- **Boundary:** this source patch blocks NEW/OTHER candidate publication decisions but does **not** automatically apply a visibility mutation to already-visible unrelated cards; reconciliation/hiding remains governed and PR #655's comprehensive consistency gate is a separate release dependency. Do not claim those production visible cards were hidden.
+
+### Exact build, test and deployment evidence
+
+- Code+test SHA `d2c48bdd1c92ba7b9a94b02a873befe4aa89ff8c`.
+- Zero-cost Vercel Preview `dpl_ARsgzQCW9VnSHaHviBHdh6p7NreE` **READY**. Source build logs: **97/97 passing Ultra Deep/Full Discovery/Verifier/Booking-day tests**, **1/1 poster asset test**, 0 failing tests. The subsequent *documentation only* GitHub commit does not alter code/test source.
+- Old Verifier `BLOCKED_NO_VERIFIED_CANDIDATES` was documented on **2 latest real Supabase October read-only commands** dated 2026-10-06. Verifier V4 External Demand scope + correct `fetchImpl` injection have source-level test coverage but have **not been run under authenticated production October READ_ONLY_ACCEPTANCE**.
+- Supabase V27 control-plane row read-only query found 9 Oct commands (`commit=false`), 1 historical control-plane `COMPLETE`, 8 `FAILED`, all maximum `production_writes=0`; do **not** conflate the control-plane COMPLETE with source+Verifier Full Loop COMPLETE.
+- Production Vercel alias `kk-phone-rental.vercel.app` verified READY on unchanged `main` SHA `69390a94972b8c636317bbf00d62ab677c0cc66f` at last check; **no deployment, merge, new queue command, or business write** was performed. Do not claim live customer availability changed.
+
+### Next reliable delivery gates (in priority order)
+
+1. Independently review PR #680 exact diff and reconcile overlapping Draft PR #654 Verifier V4 (its compatible targeted source proposal was reused here) and PR #655 booking-day/evidence/consistency policy. Avoid losing newer main changes or merging both branches blindly.
+2. Prove full source-universe receipts, true date-scoped known misses, live Verifier counts, official event/photo/access evidence and adequate current exact-event competitor sample without paid Exa. A PASSING deterministic fixture is insufficient.
+3. Confirm actual V27 production ingress and run ONE authorization-bound October `READ_ONLY_ACCEPTANCE` with `commit=false`, current booking/tombstone truth, no hidden-event revival and exact readback. Stop on failed checks; no duplicate schedules.
+4. Only after required CI/owner acceptances, source review and safe rollout may merge/deploy. Separately governed business writes require owner approval, exact event/date identity, poster/price and production readback; no automatic price changes on booked dates.
+5. Only once source universe, live known misses, verifier, demand eligibility, booking guard, current competitor prices, and end-to-end storefront readback **all** have evidence may label October Ultra Deep `COMPLETE`.
+
+**Classification at handoff:** `97_TESTS_PASS_SOURCE_PREVIEW_READY` / `COVERAGE_AND_VERIFIER_AND_BOOKING_DAY_SOURCE_HARDENED` / `PR680_DRAFT_UNMERGED` / `PRODUCTION_FULL_LOOP_NOT_CONFIRMED` / `PRODUCTION_WRITES_ZERO`.
