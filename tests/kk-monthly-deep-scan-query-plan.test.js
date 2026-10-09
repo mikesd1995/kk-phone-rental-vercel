@@ -57,3 +57,13 @@ test('November month-targeted plan removes October campaign noise and pivots int
  assert.equal(p.production_writes,0);
  assert.equal(p.authoritative,false);
 });
+
+test('November queries contain 5 Nov MizuMi PHUWIN and prior-October purchase, without publish authority',()=>{
+ const plan=P.build({month:'2026-11',location:'Bangkok Metropolitan Region Thailand'});
+ const terms=plan.gap_tasks.flatMap(t=>[t.query,...(t.query_variants||[])]).filter(Boolean);
+ assert.ok(terms.some(x=>/MizuMi x PHUWIN FIND YOUR MOISTURE MATCH/.test(x)));
+ assert.ok(terms.some(x=>/October 4 to 23 MizuMi PHUWIN/.test(x)));
+ assert.ok(plan.gap_tasks.some(x=>x.source_id==='mizumi-phuwin-crossmonth-brand-campaign'));
+ assert.equal(plan.production_writes,0);
+ assert.equal(plan.verifier_required,true);
+});
