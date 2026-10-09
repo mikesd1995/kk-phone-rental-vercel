@@ -48,11 +48,17 @@ function selectShard(plan={},options={}){
 function acceptableExecution(result={},task={}){
  if(result.status==='TIME_BUDGET_EXCEEDED')return false;
  const queries=new Set(Executor.queryVariants(task).filter(Boolean));
- return (Array.isArray(result.attempts)?result.attempts:[]).some(attempt=>
-  Executor.ALLOWED_PROVIDERS.has(text(attempt.provider).toUpperCase()) &&
-  ['NO_EVIDENCE','EVIDENCE_FOUND'].includes(text(attempt.status).toUpperCase()) &&
-  queries.has(text(attempt.query))
- );
+ const allowedProviders=new Set((Array.isArray(task.providers)?task.providers:[]).map(x=>text(x).toUpperCase()));
+ const attempts=Array.isArray(result.attempts)?result.attempts:[];
+ const successful=attempts.filter(a=>['NO_EVIDENCE','EVIDENCE_FOUND'].includes(text(a.status).toUpperCase()));
+ // A single legitimate query cannot launder an unrelated/forged successful attempt.
+ if(!successful.length || successful.some(a=>
+   !Executor.ALLOWED_PROVIDERS.has(text(a.provider).toUpperCase()) ||
+   !allowedProviders.has(text(a.provider).toUpperCase()) ||
+   !queries.has(text(a.query))))return false;
+ if(result.status==='EVIDENCE_FOUND' &&
+   !(Array.isArray(result.candidates)&&result.candidates.length>0))return false;
+ return true;
 }
 function receiptResult(result={},task={}){
  // Preserve canonical public URL candidates for later independent verification.
