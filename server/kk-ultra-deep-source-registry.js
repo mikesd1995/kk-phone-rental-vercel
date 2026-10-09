@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V12';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V13';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -56,6 +56,10 @@ const REGISTRY=Object.freeze({
     {source_id:'lucky-fan-top-spender',label:'Lucky fan / top spender campaigns',required:true},
     {source_id:'beauty-personal-care-campaigns',label:'Beauty / personal-care artist campaigns',required:true},
     {source_id:'beautybuffet-liptok-artist',label:'Beauty Buffet Thailand LIPTOK AuAuSave brand event Lucky Fan Top Spender September October',required:true},
+    {source_id:'beautrium-senka-brand-artist',label:'BEAUTRIUM SENKA lucky fan skincare Thailand November artist events',required:true},
+    {source_id:'loreal-paris-elseve-brand-artist',label:'L Oreal Paris Thailand Elseve brand artist Lucky Fan November event',required:true},
+    {source_id:'lolli-skincare-pop-up-artist',label:'LOLLI Official Thailand POP-UP GET GLOWING distinct daily artist appearance and Lucky Fan',required:true},
+    {source_id:'d7-nunew-brand-artist',label:'D7 Thailand NuNew Bangkok lucky fan mall activation',required:true},
     {source_id:'her-hyness-lucky-fan-artist',label:'HER HYNESS top fan / lucky fan artist event campaigns',domain:'herhynessbeauty.com',required:true},
     {source_id:'cathy-doll-artist-event',label:'Cathy Doll artist private experience and brand events (official social required)',required:true},
     {source_id:'nars-thailand-artist-event',label:'NARS Thailand artist top fan and brand events (official social required)',required:true},
