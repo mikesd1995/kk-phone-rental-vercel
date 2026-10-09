@@ -5,7 +5,7 @@ const REQUIRED_STAGES=Object.freeze([
   'discovery','verification_dedup','commercial_pricing','poster',
   'storefront_comparison','governed_publish','production_readback','final_report'
 ]);
-const SAFE_TERMINAL_DISPOSITIONS=Object.freeze(new Set(['SKIPPED_BOOKING_DATE','SKIPPED_FULL_BOOKING_DATE','SKIPPED_EVENT_HISTORY','SKIPPED_OWNER_HIDDEN']));
+const SAFE_TERMINAL_DISPOSITIONS=Object.freeze(new Set(['SKIPPED_BOOKING_DATE','SKIPPED_FULL_BOOKING_DATE','SKIPPED_ACTIVE_BOOKING_DATE','SKIPPED_EVENT_HISTORY','SKIPPED_OWNER_HIDDEN']));
 
 function text(v){return String(v==null?'':v).trim();}
 function ok(v){return v===true || ['PASS','PASSED','COMPLETE','COMPLETED','VERIFIED','PUBLISHED','READY'].includes(text(v).toUpperCase());}
