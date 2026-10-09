@@ -9,6 +9,7 @@ test('source registry covers all eight required Ultra Deep tiers',()=>{
  const plan=R.buildUniversePlan({month:'2026-10',location:'Bangkok Thailand'});
  assert.ok(plan.tasks.length>=20);
  assert.ok(plan.tasks.some(x=>x.source_id==='eventpop'));
+ for(const id of ['kazz-market-activity','deehup-house-ticketing','looke-gelboys','labx-clinic-idol-private']) assert.equal(plan.tasks.some(x=>x.source_id===id&&x.required===true),true,id);
  assert.ok(plan.tasks.some(x=>x.source_id==='zipevent'));
  assert.ok(plan.tasks.some(x=>x.source_id==='iconsiam-hall'));
  assert.ok(plan.tasks.some(x=>x.source_id==='watsons-campaigns'));
@@ -43,4 +44,11 @@ test('source universe emits natural-month query variants instead of ISO-only ove
  assert.match(eventpop.query,/October 2026/);
  assert.ok(eventpop.query_variants.some(q=>/ตุลาคม 2569/.test(q)));
  assert.ok(eventpop.query_variants.length>=2);
+});
+
+test('radio free music festivals and mall public plaza sources are mandatory',()=>{
+ const a=R.allSources();
+ for(const id of ['flex1045-radio-promoter','pmcu-siam-square','siam-center-free-stage','cat-radio-free-festivals','xoxo-jmnk']){
+  assert.ok(a.some(x=>x.source_id===id&&x.required===true),id);
+ }
 });

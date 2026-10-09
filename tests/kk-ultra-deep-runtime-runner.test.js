@@ -24,7 +24,7 @@ test.after(()=>{
 
 
 test('runtime runner fails closed when no unknown-URL search provider is bound',async()=>{
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
  assert.equal(out.status,'HOLD_FOR_COVERAGE');
  assert.equal(out.full,false);
  assert.ok(out.blockers.includes('UNKNOWN_URL_SEARCH_NOT_BOUND'));
@@ -40,7 +40,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
    }
    return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
  assert.equal(out.provider_binding.unknown_url_search_bound,true);
@@ -72,7 +72,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
@@ -105,7 +105,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.full,true);
  assert.ok(calls[0].startsWith('knownmiss:'));
@@ -131,14 +131,15 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand',known_miss_classifications:classifications},
-   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.known_miss_regression.complete,true);
- assert.equal(out.known_miss_live_recall.complete,true);
+ assert.equal(out.known_miss_live_recall.complete,false);
  const recovered=out.known_miss_live_recall.results.find(x=>x.case_id===target.case_id);
  assert.equal(recovered.proof,'DISCOVERED');
  assert.equal(recovered.matched_source_url,'https://proof.example/bailu-live');
- assert.equal(out.full,true);
+ assert.equal(out.full,false);
+ assert.ok(out.blockers.includes('KNOWN_MISS_LIVE_RECALL_INCOMPLETE'));
  assert.equal(out.production_writes,0);
 });
 
@@ -161,7 +162,7 @@ test('reference sweep execution proof fails closed when all search providers err
  const classifications=KnownMiss.CORPUS.map(c=>({case_id:c.case_id,executed:true,status:'SOURCE_UNAVAILABLE'}));
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand',known_miss_classifications:classifications},
-   {providers:{SEARXNG:fail},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:fail},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.full,false);
  assert.equal(out.reference_sweep_proof.complete,false);
@@ -176,10 +177,12 @@ test('deterministic historical regression remains complete even when live recall
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.known_miss_regression.complete,true);
  assert.ok(out.known_miss_live_recall.passed<out.known_miss_live_recall.case_count);
+ assert.equal(out.full,false);
+ assert.ok(out.blockers.includes('KNOWN_MISS_LIVE_RECALL_INCOMPLETE'));
  assert.equal(out.production_writes,0);
 });
 
@@ -194,7 +197,7 @@ test('empty current-month discovery blocks FULL even when provider calls execute
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.discovery_proof.has_evidence,false);
  assert.ok(out.blockers.includes('DISCOVERY_EVIDENCE_EMPTY'));
@@ -216,8 +219,8 @@ test('reference sweep retains exact month queries and adds bounded broad fallbac
  assert.ok(p.gap_tasks[1].query_variants.includes('Bangkok fanmeeting'));
  assert.ok(p.gap_tasks[2].query_variants.includes('Bangkok lucky fan artist'));
  assert.ok(p.gap_tasks[3].query_variants.includes('Bangkok concert calendar'));
- assert.match(p.gap_tasks[4].query,/performance schedule artist mall Bangkok October 2026/);
- assert.ok(p.gap_tasks[4].query_variants.includes('artist monthly schedule brand campaign Bangkok'));
+ assert.ok(p.gap_tasks[4].query_variants.some(q=>/performance schedule|ตารางงานศิลปิน/i.test(q)));
+ assert.equal(p.gap_tasks[4].source_tier,'BRAND_SPONSOR');
  assert.ok(p.gap_tasks.every(t=>t.providers.includes('DDG_HTML')&&t.providers.includes('BING_HTML')));
 });
 
@@ -334,7 +337,7 @@ test('ineligible reference is never recovered into verifier candidate pool',()=>
 
 test('failed FULL gates expose bounded source/task/provider receipts without provider payloads',async()=>{
  const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'}, {
-  publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS,
+  use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS,
   providers:{EXA:async()=>{throw Object.assign(new Error('secret-provider-payload'),{code:'sensitive-token'});}}
  });
  assert.equal(out.full,false);
@@ -356,7 +359,7 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
    : [];
  const out=await Runner.runOperationalDiscovery(
    {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
-   {providers:{SEARXNG:search},publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.mode,'SMART_OPERATIONAL');
  assert.equal(out.status,'READY_FOR_VERIFIER');
