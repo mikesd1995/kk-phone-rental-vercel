@@ -220,6 +220,16 @@ function resolve(input={}){
   }
   const competitorCount=exactCompetitorCount(input);
   const date=eventDate(input);
+  // A typed but unparseable date cannot safely choose the owner daypart.
+  // Preserve approved explicit pricing with absent date for historic callers;
+  // NEVER silently fall through to expensive scored tiers on an invalid date.
+  if(date&&!ownerWeekpartFallback(input)){
+    return {schema_version:VERSION,status:'HOLD_FOR_VALID_EVENT_DATE',
+      final_prices:[],policy_approved:false,source:'INVALID_EVENT_DATE',
+      pricing_status:'DATE_REQUIRED_FOR_WEEKPART',price_confidence:'NONE',
+      needs_price_recheck:false,competitor_reference_used_as_final:false,
+      requires_per_event_owner_price_decision:false,production_writes:0};
+  }
   const weekend=isWeekendDate(date);
   const exact=competitorCount>0?exactCompetitorMedian(input):null;
   const candidateScore=eventScore(input);
