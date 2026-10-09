@@ -38,6 +38,12 @@ test('one active booking forbids another commercial event despite spare phone in
  assert.equal(other.rentability.decision,'ACTIVE_BOOKING_DATE_EXCLUDED');
  assert.equal(newEvent.booking_day_excluded,true);
  assert.equal(newEvent.rentability.publish_eligible,false);
+ const blocked=Adapter.buildReadOnlyPlan({month:'2026-10',candidates,snapshot:snap});
+ assert.equal(blocked.status,'BLOCKED_STATE_CONSISTENCY');
+ assert.equal(blocked.state_consistency.counts.critical>0,true);
+ assert.equal(blocked.production_writes,0);
+ // No automatic hide: only a governed state repair may release the policy.
+ snap.events[1].active_on_web=false;
  const out=Adapter.buildReadOnlyPlan({month:'2026-10',candidates,snapshot:snap});
  assert.equal(out.selected_count,1);
  assert.equal(out.excluded_count,2);
