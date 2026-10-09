@@ -95,5 +95,5 @@ test('unknown query variant and forged success metadata cannot be replayed as a 
  modified.receipt_hash=Shard.digest(withoutHash); // untrusted actors can recompute a checksum
  const check=Shard.collect(p,{...opts,receipts:[modified]});
  assert.equal(check.assembled,false);
- assert.ok(check.rejected.includes('SHARD_RESULT_UNVERIFIED'));
+ assert.ok(check.rejected.includes('SHARD_RESULT_UNVERIFIED'),JSON.stringify({rejected:check.rejected,record:modified.records[0]}));
 });
