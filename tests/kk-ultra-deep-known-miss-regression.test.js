@@ -186,3 +186,23 @@ test('third-party Halloween nightlife listing does not become a required fandom 
  assert.ok(!learned.adaptive.mandatory_expansion.includes('SAPPHIC_FANDOM_EVENT'));
  assert.equal(learned.authority.production_writes,0);
 });
+
+
+test('Beauty Buffet LIPTOK x AUAUSAVE Oct9 is a mandatory named brand-fandom known miss',()=>{
+ const id='beautybuffet-liptok-auausave-20261009';
+ const row=K.CORPUS.find(c=>c.case_id===id);
+ assert.ok(row,'missing August-announced October brand activation must remain in regression');
+ assert.equal(row.event_date,'2026-10-09');
+ assert.equal(row.miss_class,'BRAND_ARTIST_LUCKY_FAN_LEAD_TIME_GAP');
+ assert.ok(row.search_queries.some(q=>q.includes('BeautyBuffetTH')));
+ assert.ok(row.search_queries.some(q=>q.includes('25 August')));
+ const source='https://www.lemon8-app.com/%40beautybuffet_th/7677921730569159176?region=th';
+ const live=K.evaluate([],[],{month:'2026-10',strict_live:true});
+ assert.ok(live.missing_cases.includes(id));
+ const wrongDay=K.evaluate([{title:'Beauty Buffet LIPTOK Event x AUAUSAVE',event_date:'2026-10-08',source_url:source}],[],{month:'2026-10',strict_live:true});
+ assert.ok(wrongDay.missing_cases.includes(id),'different event date is not event-day confirmation');
+ const recovered=K.evaluate([{title:'AUAUSAVE MHIIPRAEW AT LIPTOK EVENT',event_date:'2026-10-09',source_url:source}],[],{month:'2026-10',strict_live:true});
+ assert.ok(!recovered.missing_cases.includes(id),'official date + recognised alias must be counted');
+ assert.equal(recovered.production_writes,0);
+ assert.equal(K.evaluateFixtureRegression().complete,true,'fixture is only a matching test, not live proof');
+});
