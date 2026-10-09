@@ -67,7 +67,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
 
 test('known-miss plan keeps one task per case and does not concatenate every alias into one over-constrained query',()=>{
  const plan=Runner.buildKnownMissPlan();
- assert.equal(plan.version,'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2');
+ assert.equal(plan.version,'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V3_MONTH_SCOPED');
  assert.equal(plan.gap_tasks.length,KnownMiss.CORPUS.length);
  const remaster=plan.gap_tasks.find(x=>x.source_id==='knownmiss:remaster-20261010');
  assert.equal(remaster.query,'REMASTER CONCERT Bangkok Thailand');
@@ -91,7 +91,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
  assert.equal(out.full,true);
  assert.ok(calls[0].startsWith('knownmiss:'));
  const firstNonKnown=calls.findIndex(x=>!x.startsWith('knownmiss:'));
- assert.ok(firstNonKnown>=KnownMiss.CORPUS.length);
+ assert.ok(firstNonKnown>=KnownMiss.CORPUS.filter(c=>c.event_date.startsWith('2026-10')||(c.discovery_months||[]).includes('2026-10')).length);
 });
 
 test('runtime known-miss gate accepts a governed hit from the main discovery sweep',async()=>{
@@ -427,4 +427,23 @@ test('FULL state is impossible when any phase, including preflight, hits shared 
  assert.match(source,/\|\|preflight\.result\.status==='TIME_BUDGET_EXCEEDED'/);
  assert.match(source,/const complete=!budgetExhausted && binding\.unknown_url_search_bound/);
  assert.match(source,/\.\.\.\(budgetExhausted\?\['INCOMPLETE_TIME_BUDGET'\]:\[\]\)/);
+});
+
+test('November known-miss phase scans November only, including booked Nov28 as evidence not a publish instruction',()=>{
+ const nov=Runner.buildKnownMissPlan('2026-11');
+ const oct=Runner.buildKnownMissPlan('2026-10');
+ assert.equal(nov.month,'2026-11');
+ assert.ok(nov.gap_tasks.length>0);
+ assert.ok(nov.gap_tasks.length<KnownMiss.CORPUS.length);
+ for(const task of nov.gap_tasks){
+  const id=task.source_id.replace('knownmiss:','');
+  const c=KnownMiss.CORPUS.find(x=>x.case_id===id);
+  assert.ok(c);
+  assert.ok(c.event_date.startsWith('2026-11')||(c.discovery_months||[]).includes('2026-11'));
+ }
+ assert.ok(nov.gap_tasks.some(x=>x.source_id==='knownmiss:lolli-bevertonliew-20261128'));
+ assert.ok(!nov.gap_tasks.some(x=>x.source_id==='knownmiss:beautybuffet-liptok-auausave-20261009'));
+ assert.ok(oct.gap_tasks.some(x=>x.source_id==='knownmiss:beautybuffet-liptok-auausave-20261009'));
+ assert.ok(!oct.gap_tasks.some(x=>x.source_id==='knownmiss:lolli-jamessu-20261127'));
+ assert.equal(nov.production_writes,0);
 });
