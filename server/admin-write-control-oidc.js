@@ -150,6 +150,11 @@ async function receiptFail(requestId,fencingToken,errorCode,options){
   },options);
 }
 
+function shardCommandInspect(commandId,options={}){
+  return call('shardCommandInspect',{
+    request_id:'ultradeep-shard-inspect:'+text(commandId),command_id:text(commandId)
+  },options);
+}
 function shardReceiptStore(commandId,receipt,options={}){
   return call('shardReceiptStore',{
     request_id:'ultradeep-shard:'+text(commandId)+':'+text(receipt&&receipt.phase)+':'+String(receipt&&receipt.start),
@@ -177,6 +182,7 @@ module.exports={
   receiptPrepare,
   receiptCommit,
   receiptFail,
+  shardCommandInspect,
   shardReceiptStore,
   shardReceiptList
 };
