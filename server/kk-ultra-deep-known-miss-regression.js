@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V12';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V13';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -25,6 +25,15 @@ const CORPUS=Object.freeze([
   {case_id:'herhyness-lingling-20261021',title:'HER HYNESS x LINGLING UNLOCK THE ULTIMATE PROTECTION',aliases:['her hyness lingling ultimate protection','herhyness x lingling kwong','herhyness lingling top fan 21 october'],search_queries:['HER HYNESS LINGLING CentralWorld 21 October 2026','HerHynessBeauty Lingling unlock the ultimate protection top fan'],event_date:'2026-10-21',miss_class:'BRAND_PURCHASE_CAMPAIGN_GAP'},
   {case_id:'cathydoll-orm-20261023',title:'CATHY DOLL x ORM THE MISSION LOVE PARTY',aliases:['cathy doll orm mission love party','cathydoll x orm kornnaphat','orm cathy doll 23 october'],search_queries:['Cathy Doll Orm Mission Love Party 23 October 2026 Asiatique','CathyDoll Thailand Orm 23 Oct 2026 official'],event_date:'2026-10-23',miss_class:'ARTIST_SCHEDULE_GAP'},
   {case_id:'nars-teeteepor-20261025',title:'NARS x TEETEEPOR BRAND EVENT',aliases:['nars teeteepor 25 october','nars tee tee por','nars x teeteepor lucky fan'],search_queries:['NARS Thailand TeeTeePor 25 October 2026 official lucky fan','NARS TeeTeePor 25 ตุลาคม 2569'],event_date:'2026-10-25',miss_class:'BRAND_PRIVATE_EXPERIENCE_GAP'},
+  {case_id:'daouoffroad-added-show-20261031',title:'DAOUOFFROAD HALLOWEEN FAN PARTY 2026 — 31 OCT SHOW',aliases:["daouoffroad halloween fan party 31 october","daouoffroad 31 oct"],search_queries:["DAOUOFFROAD HALLOWEEN FAN PARTY 2026 — 31 OCT SHOW Bangkok October 2026"],event_date:'2026-10-31',miss_class:'ADDED_SHOW_DATE_SIBLING_GAP'},
+  {case_id:'mindy-shoot-your-shot-20261029',title:'MINDY SHOOT YOUR SHOT FANSIGN EVENT',aliases:["mindy shoot your shot fansign","mindy shoot your shot 29 october"],search_queries:["MINDY SHOOT YOUR SHOT FANSIGN EVENT Bangkok October 2026"],event_date:'2026-10-29',miss_class:'INDIE_IDOL_ALBUM_FANSIGN_GAP'},
+  {case_id:'sns-ear-candy-fansign-20261031',title:'SUGAR N SPICE SNS EAR CANDY FAN SIGN EVENT',aliases:["sns ear candy fan sign","sugar n spice first album fan sign"],search_queries:["SUGAR N SPICE SNS EAR CANDY FAN SIGN EVENT Bangkok October 2026"],event_date:'2026-10-31',miss_class:'INDIE_IDOL_ALBUM_FANSIGN_GAP'},
+  {case_id:'miu-caltex-kebdao-20261019',title:'MIU NATSHA KEB DAO BY CALTEX GRAND OPENING',aliases:["miu natsha keb dao caltex","keb dao caltex miu"],search_queries:["MIU NATSHA KEB DAO BY CALTEX GRAND OPENING Bangkok October 2026"],event_date:'2026-10-19',miss_class:'ARTIST_BRAND_SOCIAL_KEYWORDLESS_APPEARANCE'},
+  {case_id:'lena-dolce-italia-20261012',title:'LENA LALINA CENTRAL DOLCE ITALIA',aliases:["lena lalina central dolce italia","lena central chidlom 12 october"],search_queries:["LENA LALINA CENTRAL DOLCE ITALIA Bangkok October 2026"],event_date:'2026-10-12',miss_class:'RETAIL_SCHEDULE_BOARD_GAP'},
+  {case_id:'le7el-debut-20261015',title:'LE7EL 1ST DEBUT ANNIVERSARY',aliases:["1st debut anniversary with le7el","le7el ais siam"],search_queries:["LE7EL 1ST DEBUT ANNIVERSARY Bangkok October 2026"],event_date:'2026-10-15',miss_class:'INDIE_IDOL_ALBUM_FANSIGN_GAP'},
+  {case_id:'pop-pah-halloween-20261030',title:'SIAM CENTER POP PAH HALLOWEEN BAN PHEE POP',aliases:["pop-ป่ะห์ halloween บ้านผี pop","pop pah 4 halloween siam center"],search_queries:["SIAM CENTER POP PAH HALLOWEEN BAN PHEE POP Bangkok October 2026"],event_date:'2026-10-30',miss_class:'FREE_MALL_TPOP_STAGE_GAP'},
+  {case_id:'endless-us-vol1-20261017',title:'ENDLESS US VOL.1 YOU MAYBE ME THE DEBUT',aliases:["endless us vol.1","you maybe me debut union mall"],search_queries:["ENDLESS US VOL.1 YOU MAYBE ME THE DEBUT Bangkok October 2026"],event_date:'2026-10-17',miss_class:'INDIE_IDOL_DEBUT_SHOW_GAP'},
+  {case_id:'vvv-tornado-shopping-20261025',title:'TORNADO SHOPPING WITH VVV XIAOMI STORE',aliases:["tornado shopping vvv","vvv xiaomi store dusit central park"],search_queries:["TORNADO SHOPPING WITH VVV XIAOMI STORE Bangkok October 2026"],event_date:'2026-10-25',miss_class:'RETAIL_SCHEDULE_BOARD_GAP'},
   {case_id:'sing-infinity-20261024',title:'SING INFINITY เพลงเพราะไม่รู้จบ',aliases:['sing infinity','the giving concert sing infinity','เพลงเพราะไม่รู้จบ'],search_queries:['SING INFINITY SiamPic Hall 24 October 2026','NuNew Tle FirstOne SING INFINITY'],event_date:'2026-10-24',miss_class:'PUBLIC_CHARITY_CONCERT_SOURCE_GAP'},
   {case_id:'love-at-first-trip-20261108',title:'Love at First Trip with TleFirstone',aliases:['love at first trip tlefirstone','saraan tle firstone trip','tlefirstone 8 nov 2026'],search_queries:['Saraan Love at First Trip TleFirstone 8 Nov 2026','TleFirstone Saraan November 2026'],event_date:'2026-11-08',miss_class:'BRAND_PURCHASE_CAMPAIGN_GAP'},
   {case_id:'elseve-auau-20261120',title:'L’Oreal Paris Elseve Day with AuAu',aliases:['elseve day with auau','loreal paris elseve auau','auau 20 november 2026'],search_queries:['LOrealParisTH Elseve Day With AuAu 20 November 2026','AuAu Elseve lucky fan 50'],event_date:'2026-11-20',miss_class:'BRAND_PURCHASE_CAMPAIGN_GAP'},
@@ -54,6 +63,15 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'herhyness-lingling-20261021':{title:'HER HYNESS x LINGLING UNLOCK THE ULTIMATE PROTECTION',source_url:'https://www.herhynessbeauty.com/blogs/blog-the-clean-side/her-hyness-x-lingling-kwong-unlock-the-ultimate-protection-campaign'},
   'cathydoll-orm-20261023':{title:'CATHY DOLL X Orm Kornnaphat The Mission Love Party',source_url:'https://www.lingorm.site/upcoming-schedule'},
   'nars-teeteepor-20261025':{title:'NARS x TeeTeePor',source_url:'https://sites.google.com/view/porteetee-octomarchchronicles/schedule'},
+  'daouoffroad-added-show-20261031':{title:'DAOUOFFROAD HALLOWEEN FAN PARTY 2026 — 31 OCT SHOW',source_url:'https://event.thaiticketmajor.com/venue/central-world-live-central-world.html'},
+  'mindy-shoot-your-shot-20261029':{title:'MINDY SHOOT YOUR SHOT FANSIGN EVENT',source_url:'https://popradar.app/events/meetup/calendar'},
+  'sns-ear-candy-fansign-20261031':{title:'SUGAR N SPICE SNS EAR CANDY FAN SIGN EVENT',source_url:'https://eveduler.com/calendar/month?d=2026-10-31'},
+  'miu-caltex-kebdao-20261019':{title:'MIU NATSHA KEB DAO BY CALTEX GRAND OPENING',source_url:'https://asiangl.com/event/miu-natsha-keb-dao-caltex-october-19-2026/'},
+  'lena-dolce-italia-20261012':{title:'LENA LALINA CENTRAL DOLCE ITALIA',source_url:'https://asiangl.com/event/lena-lalina-central-dolce-italia-october-12-2026/'},
+  'le7el-debut-20261015':{title:'LE7EL 1ST DEBUT ANNIVERSARY',source_url:'https://eveduler.com/artists/le7el'},
+  'pop-pah-halloween-20261030':{title:'SIAM CENTER POP PAH HALLOWEEN BAN PHEE POP',source_url:'https://popradar.app/events/festival/pop-pah-4-halloween-siam-center-2026'},
+  'endless-us-vol1-20261017':{title:'ENDLESS US VOL.1 YOU MAYBE ME THE DEBUT',source_url:'https://nekoneko.website/'},
+  'vvv-tornado-shopping-20261025':{title:'TORNADO SHOPPING WITH VVV XIAOMI STORE',source_url:'https://popradar.app/events/meetup/calendar'},
   'sing-infinity-20261024':{title:'SING INFINITY เพลงเพราะไม่รู้จบ',source_url:'https://spacebar.th/culture/the-giving-concert-3-generations-1-heart'},
   'love-at-first-trip-20261108':{title:'Love at First Trip with TleFirstone',source_url:'https://x.com/Saraanofficial'},
   'elseve-auau-20261120':{title:'L’Oreal Paris Elseve Day with AuAu',source_url:'https://x.com/LOrealParisTH'},
