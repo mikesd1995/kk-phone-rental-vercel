@@ -165,3 +165,26 @@ test('strict live source receipt rejects successful unrelated query from a bound
  forged[0].attempts=[{provider:'BING_RSS',status:'NO_EVIDENCE',query:forged[0].query_variants[0]}];
  assert.equal(R.buildUniverseProof(forged,{strict_live:true,month:'2026-10'}).complete,true);
 });
+
+
+test('brand lucky fan lead-time miss requires named Beauty Buffet, AuAuSave calendar and G-floor venue lanes',()=>{
+ const rows=R.allSources();
+ const ids=['beautybuffet-liptok-artist','auausave-schedule','unionmall-gfloor-brand-appearance'];
+ for(const id of ids)assert.ok(rows.some(x=>x.source_id===id&&x.required===true),id);
+ const required=R.buildUniversePlan({month:'2026-10'});
+ for(const id of ids){
+  const task=required.tasks.find(t=>t.source_id===id);
+  assert.ok(task,'source lane must have a live search task: '+id);
+  assert.match(task.query,/October 2026/);
+ }
+ const Q=require('../server/kk-monthly-deep-scan-query-plan.js');
+ const plan=Q.build({month:'2026-10'});
+ const terms=plan.gap_tasks.flatMap(x=>[x.query,...(x.query_variants||[])]).filter(Boolean);
+ assert.ok(terms.some(x=>/Beauty Buffet LIPTOK Event x AUAUSAVE/i.test(x)));
+ assert.ok(terms.some(x=>/BeautyBuffetTH/.test(x)));
+ assert.ok(terms.some(x=>/AuauSaveHouseTH/.test(x)));
+ assert.ok(terms.some(x=>/25 August/.test(x)),'previous-month campaign announcements are discoverable');
+ const proof=R.buildUniverseProof(rows.filter(x=>!ids.includes(x.source_id)).map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true})));
+ assert.equal(proof.complete,false,'all three omitted source lanes are mandatory');
+ for(const id of ids)assert.ok(proof.missing_required_sources.includes(id));
+});
