@@ -58,7 +58,7 @@ async function run(input={},options={}){
   const eligibleCandidates=(discovery.candidates||[]);
   const verifier=await Verifier.verifyBatch(
     eligibleCandidates,
-    {month,location},
+    {month,location,verification_scope:'EXTERNAL_DEMAND_IDENTITY'},
     {concurrency:4,timeout_ms:9000,fetchImpl}
   );
   if(!(verifier.verified_count>0)){
