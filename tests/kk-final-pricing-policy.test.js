@@ -160,3 +160,17 @@ test('pricing refuses to invent a calendar price from an invalid date',()=>{
  assert.equal(P.ownerWeekpartFallback({event_date:'2026-11-31'}),null);
  assert.equal(P.ownerWeekpartFallback({event_date:'2026-11'}),null);
 });
+
+test('live Google Sheets DD/MM/YYYY dates resolve the identical owner prices',()=>{
+ for(const [date,phone,bundle] of [
+   ['05/11/2026',490,590],['06/11/2026',690,890],
+   ['20/11/2026',690,890],['26/11/2026',490,590],
+   ['27/11/2026',690,890],['29/11/2026',690,890]
+ ]){
+  const result=P.resolve({event_date:date,rental_fit_score:9.8,
+   pricing:{independent_competitors:0}});
+  assert.equal(result.source,'OWNER_WEEKPART_FALLBACK',date);
+  assert.equal(result.final_prices[0].override_price,phone,date);
+  assert.equal(result.final_prices[2].override_price,bundle,date);
+ }
+});
