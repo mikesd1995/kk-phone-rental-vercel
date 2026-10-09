@@ -114,7 +114,8 @@ function buildQualityEvidence(input,coverage,merged){
   );
   const knownMiss=KnownMiss.evaluate(
     input.known_miss_probe_candidates||[],
-    input.known_miss_classifications||[]
+    input.known_miss_classifications||[],
+    {month:text(input.month),strict_live:true}
   );
   const complete=coverage.proof_complete && universe.complete && reconciliation.complete && knownMiss.complete;
   const blockers=[
