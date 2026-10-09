@@ -433,7 +433,7 @@ async function runMonthlyFromCheckpoint(input={},phaseExecutions={},options={}){
   });
   return {...result,resumed_from_oidc_shards:true,ready_for_publication:false,
     authoritative:false,production_writes:0};
-
+}
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
