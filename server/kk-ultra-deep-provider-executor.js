@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V5';
+const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V6';
 const ALLOWED_PROVIDERS=new Set(['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 const MAX_RESULTS=25;
 const DEFAULT_CONCURRENCY=4;
@@ -34,13 +34,25 @@ function taskConcurrency(options={}){
   if(!Number.isFinite(raw)) return DEFAULT_CONCURRENCY;
   return Math.max(1,Math.min(Math.floor(raw),MAX_CONCURRENCY));
 }
+function deadlineExceeded(options={}){
+ const deadline=Number(options.deadlineMs);
+ return Number.isFinite(deadline) && deadline>0 && Date.now()>=deadline;
+}
+function timeBudgetHold(task={},attempts=[]){
+ return {version:VERSION,status:'TIME_BUDGET_EXCEEDED',provider:null,
+  source_tier:upper(task.source_tier),candidates:[],attempts,
+  authoritative:false,verifier_required:true,production_writes:0};
+}
 async function executeGapTask(task={},options={}){
+ if(deadlineExceeded(options))return timeBudgetHold(task);
   const providers=(Array.isArray(task.providers)?task.providers:[]).map(upper).filter(p=>ALLOWED_PROVIDERS.has(p));
   const attempts=[];
   for(const provider of providers){
+    if(deadlineExceeded(options))return timeBudgetHold(task,attempts);
     const fn=options.providers&&options.providers[provider];
     if(typeof fn!=='function'){attempts.push({provider,status:'NOT_BOUND'});continue;}
     for(const query of queryVariants(task)){
+      if(deadlineExceeded(options))return timeBudgetHold(task,attempts);
       const callTask=query===null?{...task,provider}:{...task,provider,query};
       try{
         const raw=await fn(callTask);
@@ -68,6 +80,8 @@ async function executeGapPlan(plan={},options={}){
     }
   }
   await Promise.all(Array.from({length:workerCount},()=>worker()));
-  return {version:VERSION,status:results.every(r=>r.status==='EVIDENCE_FOUND')?'GAPS_RESOLVED':'GAPS_REMAIN',results,authoritative:false,verifier_required:true,production_writes:0};
+  const deadline_exceeded_count=results.filter(r=>r&&r.status==='TIME_BUDGET_EXCEEDED').length;
+  return {version:VERSION,status:deadline_exceeded_count?'INCOMPLETE_TIME_BUDGET':(results.every(r=>r.status==='EVIDENCE_FOUND')?'GAPS_RESOLVED':'GAPS_REMAIN'),
+    results,deadline_exceeded_count,task_count:tasks.length,authoritative:false,verifier_required:true,production_writes:0};
 }
-module.exports={VERSION,ALLOWED_PROVIDERS,MAX_RESULTS,DEFAULT_CONCURRENCY,MAX_CONCURRENCY,queryVariants,normalizeCandidate,taskConcurrency,executeGapTask,executeGapPlan};
+module.exports={VERSION,ALLOWED_PROVIDERS,MAX_RESULTS,DEFAULT_CONCURRENCY,MAX_CONCURRENCY,queryVariants,normalizeCandidate,taskConcurrency,deadlineExceeded,timeBudgetHold,executeGapTask,executeGapPlan};
