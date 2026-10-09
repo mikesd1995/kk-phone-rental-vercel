@@ -142,3 +142,36 @@ test('DaouOffroad extra day is separate; existing October 30 round cannot satisf
  assert.ok(!newDay.missing_cases.includes('daouoffroad-added-show-20261031'));
  assert.equal(newDay.production_writes,0);
 });
+
+
+test('October third external-first sweep requires exact dates for seven newly identified small-stage misses',()=>{
+ const ids=[
+  'vvv-tornado-busking-20261014','viral-hits-spotlight-20261017',
+  'paseo-pop-stage-20261017','idol-live-stage-20261024',
+  'sapphic-vampireliar-20261024','af-halloween-afterlife-20261030',
+  'tday-music-playground-20261031'
+ ];
+ const src=K.CORPUS.filter(x=>ids.includes(x.case_id));
+ assert.equal(src.length,7);
+ for(const row of src){
+  const wrongDate='2026-09-'+row.event_date.slice(-2);
+  const miss=K.evaluate([{title:row.title,event_date:wrongDate,source_url:'https://popradar.app/events'}],[],{month:'2026-10',strict_live:true});
+  assert.ok(miss.missing_cases.includes(row.case_id),row.case_id);
+  const seen=K.evaluate([{title:row.title,event_date:row.event_date,source_url:'https://popradar.app/events'}],[],{month:'2026-10',strict_live:true});
+  assert.ok(!seen.missing_cases.includes(row.case_id),row.case_id);
+  assert.equal(seen.production_writes,0);
+ }
+ assert.equal(K.evaluateFixtureRegression().complete,true);
+});
+test('new small-idol, sapphic and award misses force named source expansion in Learning Agent',()=>{
+ const Learning=require('../server/kk-ultra-deep-v2-learning-agent.js');
+ const learned=Learning.learn({missed_events:[
+  {miss_class:'SMALL_IDOL_BUSKING_DATE_GAP',query_terms:['VVV CentralWorld'],source:'PopRadar'},
+  {miss_class:'SAPPHIC_INDEPENDENT_FANDOM_EVENT_GAP',query_terms:['SAPPHIC VAMPIRELIAR'],source:'PopRadar'},
+  {miss_class:'PUBLIC_AWARD_FANDOM_ROSTER_GAP',query_terms:['Viral Hits Spotlight'],source:'PopRadar'}
+ ]});
+ assert.ok(learned.adaptive.mandatory_expansion.includes('PUBLIC_AWARD_LINEUP'));
+ assert.ok(learned.adaptive.mandatory_expansion.includes('SAPPHIC_FANDOM_EVENT'));
+ assert.ok(learned.adaptive.query_terms.some(q=>q.includes('VVV Tornado Busking')));
+ assert.equal(learned.authority.production_writes,0);
+});
