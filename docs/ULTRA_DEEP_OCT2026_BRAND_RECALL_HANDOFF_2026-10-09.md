@@ -30,7 +30,7 @@
 
 ## Required next acceptance, no shortcuts
 
-1. Run `node --test tests/kk-ultra-deep-known-miss-regression.test.js tests/kk-ultra-deep-source-registry.test.js` on the exact branch head. **No executable test result was produced in this connector-only fix session**; do not imply pass before runtime results. Check existing CI budget; no paid minutes or repeated quota-exhausted reruns.
+1. **Source/Preview executable tests passed on code-complete SHA `04d80e13cb271e48fcd1db86e9069ea418625c0d`**: Vercel Preview `dpl_BPWanWk7FMLiUivRpKh2zz1KhQBm` READY; postinstall executed `test:ultradeep:recall` and produced **52 tests / 52 pass / 0 fail**, including all 4 newly authored October recall / source / query tests; poster check 1/1 pass. Later branch commits amended only documentation; no runtime/test source changes. Independently, GitHub Actions `Ultra Deep V2 Acceptance` run `37911881408` failed pre-run with job `113758717582` steps=[] and BlobNotFound on log retrieval. This is **not** a verified Full Loop acceptance pass. Do not rerun exhausted CI or infer a production-runtime green check.
 2. Independent code diff review (no accidental broadening of publish authorization), then source test/Verifier acceptance. Draft PR remains unmerged until the normal required gates are met.
 3. Obtain primary Cathy Doll/NARS event/day identity and public filming/access conditions, official poster, latest exact-event rental competitors, external-only demand evidence. Record manual Candidate entries only through authorized discovery intake (no direct derived sheet writes).
 4. Confirm current Oct10 owner visibility policy, Oct23/31 full-stock and Oct18 full-stock from canonical rows immediately before any business action. **Never auto-reopen suppressed events.**
@@ -41,3 +41,10 @@
 ## Long-lived cross-chat continuation
 
 Canonical context: GitHub Issue #672 (October misses), Issue #651 (external-only score), Issue #368 (runtime activation). Latest doc is **source-recovery proposal**, not proof of production runtime activation. The answer to “เสร็จหรือยัง?” remains **no** until FULL and readback are independently demonstrated.
+
+## 2026-10-09 acceptance evidence update
+
+- Source-code exact test-bearing commit: `04d80e13cb271e48fcd1db86e9069ea418625c0d` (Vercel READY Preview; 52/52 + poster 1/1 passed).
+- PR is **#680 DRAFT**, unmerged; GitHub Actions acceptance is **infrastructure-blocked**, not a proven code assertion failure, and Vercel deployment of later docs-only HEAD was intentionally ignored (`SAFE_PREVIEW_ONLY_CHANGE`).
+- Main production remains at SHA `69390a94972b8c636317bbf00d62ab677c0cc66f`, Vercel deployment `dpl_AmYtTipVdrzuT1i5XdYBGp3wdY1L` READY. No source patch promoted to production and no Candidate or booking edits performed.
+- Require real source-universe October receipts + Verifier, and governed `READ_ONLY_ACCEPTANCE` before asserting finished.
