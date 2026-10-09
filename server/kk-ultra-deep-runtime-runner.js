@@ -89,10 +89,15 @@ function buildReferencePlan(input={}){
     production_writes:0
   };
 }
-function buildKnownMissPlan(){
+function buildKnownMissPlan(month){
+  const scoped=month?KnownMiss.CORPUS.filter(c=>
+    text(c.event_date).startsWith(text(month))||
+    (Array.isArray(c.discovery_months)&&c.discovery_months.includes(text(month)))
+  ):KnownMiss.CORPUS;
   return {
-    version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2',
-    gap_tasks:KnownMiss.CORPUS.map(c=>{
+    version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V3_MONTH_SCOPED',
+    month:text(month)||null,
+    gap_tasks:scoped.map(c=>{
       const phrases=[c.title,...(Array.isArray(c.aliases)?c.aliases:[])].map(text).filter(Boolean);
       const evidenceQueries=(Array.isArray(c.search_queries)?c.search_queries:[]).map(text).filter(Boolean);
       const queries=[...new Set([...evidenceQueries,...phrases.map(v=>v+' Bangkok Thailand')])];
@@ -282,7 +287,7 @@ async function runMonthlyUltraDeep(input={},options={}){
   // Execute the bounded historical probes first. Live HTML search providers may
   // soft-throttle after a large sweep; putting the small regression corpus first
   // prevents broad discovery traffic from starving the recall gate.
-  const knownMissPlan=buildKnownMissPlan();
+  const knownMissPlan=buildKnownMissPlan(MonthlyPlan.monthRange(input).month);
   const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers,deadlineMs});
 
   const plan=MonthlyPlan.build(input);
@@ -411,7 +416,7 @@ async function runMonthlyFromCheckpoint(input={},phaseExecutions={},options={}){
   const month=text(input.month);
   const plan=MonthlyPlan.build(input);
   const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
-  const knownMissPlan=buildKnownMissPlan();
+  const knownMissPlan=buildKnownMissPlan(MonthlyPlan.monthRange(input).month);
   const mapping=[['KNOWN_MISS',knownMissPlan],['DISCOVERY',plan],['REFERENCE',referencePlan]];
   for(const [phase,source] of mapping){
     const evidence=phaseExecutions[phase];
