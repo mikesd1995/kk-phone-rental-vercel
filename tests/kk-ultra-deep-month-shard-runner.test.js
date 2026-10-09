@@ -55,6 +55,9 @@ test('a fully replayed monthly checkpoint never authorizes Verifier, publishing 
  }
  assert.equal(latest.status,'SHARDS_ASSEMBLED_NEEDS_VERIFIER');
  assert.equal(latest.ready_for_verifier,false);
+ assert.equal(latest.source_evidence_status,'HOLD_FOR_COVERAGE');
+ assert.equal(latest.source_evidence_full,false);
+ assert.ok(latest.source_blockers.length>0);
  assert.equal(latest.publish_eligible,false);
  assert.equal(latest.authoritative,false);
  assert.equal(latest.production_writes,0);
