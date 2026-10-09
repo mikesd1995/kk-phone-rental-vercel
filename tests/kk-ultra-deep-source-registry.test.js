@@ -145,3 +145,23 @@ test('strict live evidence-found receipts require actual candidate count, not st
  receipts[0].candidate_count=1;
  assert.equal(R.buildUniverseProof(receipts,{strict_live:true,month:'2026-10'}).complete,true);
 });
+
+
+test('strict live source receipt rejects successful unrelated query from a bound provider',()=>{
+ const rows=R.allSources().map(x=>({
+  source_id:x.source_id,task_source_id:x.source_id,
+  month:'2026-10',planned_query:x.label+' Bangkok October 2026',
+  query_variants:[x.label+' Thai idol October 2026'],
+  provider:'BING_RSS',status:'NO_EVIDENCE',executed:true,candidate_count:0,
+  attempts:[{provider:'BING_RSS',status:'NO_EVIDENCE',query:x.label+' Bangkok October 2026'}]
+ }));
+ const valid=R.buildUniverseProof(rows,{strict_live:true,month:'2026-10'});
+ assert.equal(valid.complete,true);
+ const forged=rows.map(r=>({...r}));
+ forged[0]={...forged[0],attempts:[{provider:'BING_RSS',status:'NO_EVIDENCE',query:'completely unrelated weather forecast'}]};
+ const check=R.buildUniverseProof(forged,{strict_live:true,month:'2026-10'});
+ assert.equal(check.complete,false);
+ assert.ok(check.missing_required_sources.includes(forged[0].source_id));
+ forged[0].attempts=[{provider:'BING_RSS',status:'NO_EVIDENCE',query:forged[0].query_variants[0]}];
+ assert.equal(R.buildUniverseProof(forged,{strict_live:true,month:'2026-10'}).complete,true);
+});
