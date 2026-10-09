@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V9';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V10';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -133,7 +133,9 @@ function buildUniversePlan(input={}){
   return {version:VERSION,month:month||null,location,tasks,production_writes:0,authoritative:false,verifier_required:true};
 }
 
-function buildUniverseProof(receipts=[]){
+function buildUniverseProof(receipts=[],options={}){
+  const strictLive=options.strict_live===true;
+  const requiredMonth=text(options.month);
   const byId=new Map();
   for(const row of Array.isArray(receipts)?receipts:[]){
     const id=text(row&&row.source_id);
@@ -144,13 +146,29 @@ function buildUniverseProof(receipts=[]){
     const receipt=byId.get(source.source_id);
     const status=upper(receipt&&receipt.status);
     const executed=receipt&&receipt.executed===true;
-    const pass=!!receipt && executed && ACCEPTED_STATUSES.has(status);
+    // A bare {executed:true,status:'NO_EVIDENCE'} is not proof of a live month scan.
+    // In live mode the receipt must come from an attributable provider attempt
+    // with an exact task/source identity and a query recorded at execution time.
+    const attempts=Array.isArray(receipt&&receipt.attempts)?receipt.attempts:[];
+    const successful=attempts.filter(a=>['NO_EVIDENCE','EVIDENCE_FOUND'].includes(upper(a&&a.status)) &&
+      text(a&&a.query) && text(a&&a.provider));
+    const providerProof=successful.some(a=>text(a.provider)===text(receipt&&receipt.provider) ||
+      text(a.provider)===text(receipt&&receipt.executed_provider));
+    const liveProvenance=!!receipt && !!requiredMonth &&
+      text(receipt.month)===requiredMonth &&
+      text(receipt.task_source_id)===source.source_id &&
+      !!text(receipt.planned_query) &&
+      providerProof &&
+      (status!=='EVIDENCE_FOUND' || (Number(receipt.candidate_count)>0 &&
+        successful.some(a=>upper(a.status)==='EVIDENCE_FOUND')));
+    const pass=!!receipt && executed && ACCEPTED_STATUSES.has(status) && (!strictLive || liveProvenance);
     return {
       source_id:source.source_id,
       source_tier:source.source_tier,
       required:source.required===true,
       status:status||'MISSING',
       executed:!!executed,
+      provenance_verified:strictLive?liveProvenance:null,
       pass
     };
   });
@@ -163,6 +181,8 @@ function buildUniverseProof(receipts=[]){
   }
   return {
     version:VERSION,
+    strict_live:strictLive,
+    month:requiredMonth||null,
     complete:missing.length===0,
     missing_required_sources:missing,
     required_source_count:required.length,
