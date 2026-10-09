@@ -63,3 +63,32 @@ Date: 2026-10-09 Asia/Bangkok. Run state: PARTIAL_MANUAL_RECON, NOT FULL_MONTH_C
 4. Only after accepted gates, distinct owner-authorized governed Admin writer action; no direct derived Sheet edits, auto X publishing, paid upgrades, duplicate schedules or booked-day repricing.
 
 Final classification: OCTOBER_MANUAL_SCAN_PARTIAL; RECALL_FIX_PREVIEW_TESTED; AUTONOMOUS_FULL_ACCEPTANCE_NOT_PROVEN; PRODUCTION_BUSINESS_WRITES=0.
+
+
+## 2026-10-09 later continuation: live coverage proof fix — implementation and acceptance
+
+### Root cause isolated
+
+The old `SourceRegistry.buildUniverseProof(receipts)` counted a source as fully checked from a bare entry `{source_id,executed:true,status:'NO_EVIDENCE'}` without an attributable successful provider call, executed query, source-task identity, or target month. Such test-only/supplied rows could incorrectly satisfy the *source-universe* gate. This does NOT establish that an autonomous scan had executed or that any work was commercially publishable. Two actual consumers had to be fixed: `server/kk-ultra-deep-runtime-runner.js` and `server/kk-full-discovery-worker.js`.
+
+### Concrete source changes on Draft PR #680
+
+1. `server/kk-ultra-deep-source-registry.js`: V10; add opt-in `buildUniverseProof(receipts,{strict_live:true,month:'YYYY-MM'})`. A required source passes live proof only with matching month, canonical source/task ID, planned query, a successful attributable provider/query attempt, and (for `EVIDENCE_FOUND`) a positive candidate count and corresponding successful evidence attempt. Exposes `strict_live`, `month`, and per-source `provenance_verified` diagnostics. The legacy bare-bool API is preserved solely for backward compatibility of offline helper callers; production FULL consumers use strict mode.
+2. `server/kk-ultra-deep-runtime-runner.js`: `sourceUniverseReceipts` now generates task-bound/month-bound receipts from real provider `attempts` with provider/query/status and candidate count, excluding provider errors; `runMonthlyUltraDeep` invokes strict-month proof.
+3. `server/kk-full-discovery-worker.js`: `buildQualityEvidence` now invokes strict-month source proof, failing closed if the scan lacks an explicit `month` or supplies synthetic bare-bool receipts.
+4. Tests expanded across `tests/kk-ultra-deep-source-registry.test.js`, `tests/kk-ultra-deep-runtime-runner.test.js`, and `tests/kk-full-discovery-worker.test.js`. New assertions cover wrong month, missing provider/query, failure-only attempts, source ID mismatch, evidence status without candidate count and forged complete-but-boolean-only worker observations. Existing valid fixture worker receipt fields were updated to keep deterministic offline tests.
+5. `package.json` now includes full-discovery-worker tests in the existing zero-cost `test:ultradeep:recall` Vercel Preview postinstall gate, so this regression cannot accidentally be skipped by preview builds.
+
+### Test and production readback
+
+- Code/Test HEAD SHA: `11688b1210c40cd2010ef08add690d02153b5e42`. Vercel Preview `dpl_B219Un8DoMMjSLGNbMVjpaa6bGax` build log shows **74/74 Ultra Deep + Full Discovery tests PASS**, plus **1/1 poster asset PASS**, and the build completed. This is source-level acceptance only, **not** a live full-month scan or successful GitHub V2 Acceptance.
+- At time of readback, Vercel production `kk-phone-rental.vercel.app` remained deployment `dpl_AmYtTipVdrzuT1i5XdYBGp3wdY1L` `READY` at unchanged `main` SHA `69390a94972b8c636317bbf00d62ab677c0cc66f`. This patch has not been merged or deployed into production.
+- Previous GitHub Actions Ultra Deep V2 acceptance returned FAILURE with job steps=[] and `BlobNotFound` log retrieval; neither an assertion failure nor a passing Full Loop acceptance can be inferred from it. Do not rerun repeatedly at user expense.
+
+### Operational / commercial boundary and remaining blocker
+
+**Still NOT complete:** autonomous V27-or-later correct production ingress, actual critical source receipts covering every required source and date (not synthetic tests), known-miss live recall, the Verifier, normalized current competitor prices across the owner requested 10–20 shops, owner booking/visibility locks and exact production readback. No new Candidate/CreateEvent/price/booking/owner visibility writes were performed. A new event can enter governed publication only after verified exact event/date/venue, eligibility and filming permissions, External Demand Score >=60 on external evidence, true inventory availability, current pricing authority and authorized writer/readback.
+
+Original October booking locks remain: Oct18 OH MY FOURTH 2/2, Oct23 LYKN 2/2, Oct31 NCT127 2/2 (latest confirmed spreadsheet snapshots in earlier audit); always reread before any commercial action. Oct30 vs Oct31 DAOUOFFROAD are distinct shows; preserve Oct30 live card, Oct31 report-only while inventory full. Owner hidden tombstones must never be reopened by scan logic. Free usage only; no paid Exa top-up, no duplicate scheduler, no automatic X post/booking confirmation.
+
+**Classification:** `SOURCE_GATE_BUG_FIXED_AND_PREVIEW_TESTED`; `FULL_MONTH_SCAN_NOT_VERIFIED`; `PRODUCTION_WRITES=0`; `PR680_DRAFT_UNMERGED`.
