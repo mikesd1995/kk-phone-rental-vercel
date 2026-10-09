@@ -73,3 +73,35 @@ test('monthly October query plan includes public artist schedules and exact bran
  assert.ok(plan.gap_tasks.some(t=>t.source_tier==='PRESS_BRAND' && /HER HYNESS Lingling Cathy Doll Orm NARS TeeTeePor/.test([t.query,...t.query_variants].join(' '))));
  assert.ok(plan.gap_tasks.some(t=>t.source_tier==='VISUAL_SCHEDULE' && /LingOrm official source vs fan schedule/.test([t.query,...t.query_variants].join(' '))));
 });
+
+
+test('October second-pass discovery forces calendar and indie-fansign source receipts',()=>{
+ const required=['open-label-daouoffroad','indie-idol-labels-fansigns',
+  'popradar-tpop-small-idol','eveduler-date-calendar','nekoneko-idol-calendars','natgan-blgl-artist-events'];
+ const registry=R.allSources();
+ for(const id of required)assert.ok(registry.some(x=>x.source_id===id&&x.required),id);
+ const receipts=registry.filter(x=>!required.includes(x.source_id)).map(x=>({source_id:x.source_id,executed:true,status:'NO_EVIDENCE'}));
+ const proof=R.buildUniverseProof(receipts);
+ assert.equal(proof.complete,false);
+ for(const id of required)assert.ok(proof.missing_required_sources.includes(id),id);
+});
+test('indie idol, added show and non-ticketed mall recovery appear in October query plan',()=>{
+ const Q=require('../server/kk-monthly-deep-scan-query-plan.js');
+ const q=Q.build({month:'2026-10'});
+ assert.ok(q.gap_tasks.some(x=>x.source_tier==='FAN_EVENT'&&/MINDY Sugar N Spice SNS LE7EL/.test([x.query,...x.query_variants].join(' '))));
+ assert.ok(q.gap_tasks.some(x=>x.source_tier==='ANNOUNCEMENT_CHANGE'&&/DaouOffroad Halloween Fan Party NEW ROUND ADDED/.test([x.query,...x.query_variants].join(' '))));
+ assert.ok(q.gap_tasks.some(x=>x.source_tier==='MALL_COMMUNITY'&&/NAMP XOXO Siam Center POP-ป่ะห์/.test([x.query,...x.query_variants].join(' '))));
+ assert.equal(q.production_writes,0);
+});
+test('Learning Agent V7 prioritizes indie fansigns and added show without changing booking/scoring policy',()=>{
+ const Learning=require('../server/kk-ultra-deep-v2-learning-agent.js');
+ const result=Learning.learn({missed_events:[
+  {miss_class:'INDIE_IDOL_ALBUM_FANSIGN_GAP',query_terms:['MINDY fansign'],source:'PopRadar'},
+  {miss_class:'ADDED_SHOW_DATE_SIBLING_GAP',query_terms:['DaouOffroad Oct31'],source:'ThaiTicketMajor'}
+ ]});
+ assert.ok(result.adaptive.mandatory_expansion.includes('ADDED_SHOW_DATE_SIBLING_RECEIPTS'));
+ assert.ok(result.adaptive.mandatory_expansion.includes('ALBUM_FANSIGN'));
+ assert.ok(result.adaptive.query_terms.some(x=>x.includes('new round added original show date')));
+ assert.equal(result.scoring_learning.internal_outcomes_affect_external_score,false);
+ assert.equal(result.authority.production_writes,0);
+});
