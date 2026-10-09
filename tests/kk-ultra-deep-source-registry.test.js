@@ -105,3 +105,43 @@ test('Learning Agent V7 prioritizes indie fansigns and added show without changi
  assert.equal(result.scoring_learning.internal_outcomes_affect_external_score,false);
  assert.equal(result.authority.production_writes,0);
 });
+
+
+test('strict live source proof rejects boolean-only fake receipts and wrong-month reuse',()=>{
+ const fake=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ assert.equal(R.buildUniverseProof(fake).complete,true,'legacy test contract remains compatible');
+ const live=R.buildUniverseProof(fake,{strict_live:true,month:'2026-10'});
+ assert.equal(live.complete,false);
+ assert.equal(live.passed_required_source_count,0);
+ assert.equal(live.strict_live,true);
+ assert.equal(live.month,'2026-10');
+});
+test('strict live source proof requires source identity month query and successful provider attempt',()=>{
+ const receipts=R.allSources().map(x=>({
+  source_id:x.source_id,task_source_id:x.source_id,month:'2026-10',
+  planned_query:x.label+' October 2026 Bangkok',
+  status:'NO_EVIDENCE',executed:true,provider:'SEARXNG',
+  candidate_count:0,
+  attempts:[{provider:'SEARXNG',status:'NO_EVIDENCE',query:x.label+' October 2026 Bangkok'}]
+ }));
+ assert.equal(R.buildUniverseProof(receipts,{strict_live:true,month:'2026-10'}).complete,true);
+ const wrongMonth=receipts.map(x=>({...x,month:'2026-09'}));
+ assert.equal(R.buildUniverseProof(wrongMonth,{strict_live:true,month:'2026-10'}).complete,false);
+ const corrupt=receipts.map(x=>({...x}));
+ corrupt[0]={...corrupt[0],attempts:[{provider:'EXA',status:'PROVIDER_ERROR',query:corrupt[0].planned_query}]};
+ const invalid=R.buildUniverseProof(corrupt,{strict_live:true,month:'2026-10'});
+ assert.equal(invalid.complete,false);
+ assert.ok(invalid.missing_required_sources.includes(corrupt[0].source_id));
+});
+test('strict live evidence-found receipts require actual candidate count, not status flag alone',()=>{
+ const receipts=R.allSources().map(x=>({
+  source_id:x.source_id,task_source_id:x.source_id,month:'2026-10',planned_query:'October '+x.label,
+  executed:true,provider:'BING_RSS',status:'NO_EVIDENCE',candidate_count:0,
+  attempts:[{provider:'BING_RSS',status:'NO_EVIDENCE',query:'October '+x.label}]
+ }));
+ receipts[0]={...receipts[0],status:'EVIDENCE_FOUND',candidate_count:0,
+  attempts:[{provider:'BING_RSS',status:'EVIDENCE_FOUND',query:receipts[0].planned_query}]};
+ assert.equal(R.buildUniverseProof(receipts,{strict_live:true,month:'2026-10'}).complete,false);
+ receipts[0].candidate_count=1;
+ assert.equal(R.buildUniverseProof(receipts,{strict_live:true,month:'2026-10'}).complete,true);
+});
