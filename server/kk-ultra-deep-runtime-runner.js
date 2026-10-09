@@ -51,6 +51,7 @@ function sourceUniverseReceipts(plan={},execution={}){
       task_source_id:task.source_id,
       month:text(plan.range&&plan.range.month),
       planned_query:text(task.query),
+      query_variants:Array.isArray(task.query_variants)?task.query_variants.map(text).filter(Boolean):[],
       executed,
       status:executed?(hasEvidence?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
       provider:result.provider||text(successful[0]&&successful[0].provider)||null,
