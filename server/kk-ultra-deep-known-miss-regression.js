@@ -1,8 +1,9 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V17';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V18';
 
 const CORPUS=Object.freeze([
+  {case_id:'mizumi-phuwin-20261105',title:'MizuMi x PHUWIN FIND YOUR MOISTURE MATCH',aliases:['mizumixphuwin find your moisture match','MizuMi PHUWIN PERMPOON lucky fan 120','MizuMi moisture barrier balance Phuwin'],search_queries:['site:x.com/MizuMi__ MizuMi PHUWIN 5 พฤศจิกายน 2569 CENTRAL WORLD','MizuMi x PHUWIN FIND YOUR MOISTURE MATCH 5 November 2026 Eden Zone lucky fans','MizuMi Phuwin 5 October 2026 purchase campaign November event'],event_date:'2026-11-05',discovery_months:['2026-10'],miss_class:'OCTOBER_PURCHASE_NOVEMBER_BRAND_LUCKY_FAN_MISS'},
   // November 2026: first-party brand/fandom discoveries that broad concert calendars missed.
   // The Nov28 LOLLI appearance is intentionally a recall target but NEVER eligible
   // for storefront publication because an existing STARLYMPICS booking locks that day.
@@ -66,6 +67,7 @@ const CORPUS=Object.freeze([
   {case_id:'jmnk-she-serve-20261121',title:'JMNK SHEเสิร์ฟ CONCERT',aliases:['jmnk she serve concert','jmnk concert november 21 2026'],search_queries:['JMNK SHEเสิร์ฟ Concert Pulse Hall 21 Nov 2026','JMNK Justmine Nika Eventpop ticket public sale Oct31'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'ARTIST_OFFICIAL_SALE_WINDOW_NEXTMONTH_GAP'}
 ]);
 const FIXTURE_EVIDENCE=Object.freeze({
+  'mizumi-phuwin-20261105':{title:'MizuMi x PHUWIN FIND YOUR MOISTURE MATCH',source_url:'https://x.com/MizuMi__'},
   'senka-junior-20261106':{title:"Junior's Bright Day with SENKA",source_url:'https://x.com/TheBeautrium/status/2106604292421681359'},
   'loreal-elseve-auau-20261120':{title:"L'Oréal Paris Elseve Day with AuAu",source_url:'https://x.com/LOrealParisTH/status/2091707064217145662'},
   'lolli-mew-20261126':{title:'LOLLI POP-UP GET GLOWING Mew Suppasit',source_url:'https://www.instagram.com/p/DeLkoF9SLss/'},
