@@ -331,8 +331,9 @@ async function runMonthlyUltraDeep(input={},options={}){
   const knownMiss=KnownMiss.evaluateFixtureRegression();
 
   const liveSearchProven=preflight.status==='READY' || discoveryProof.has_evidence || referenceProof.has_evidence || knownMissCandidates.length>0;
-  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete;
   const budgetExhausted=[knownMissExecution,execution,referenceExecution].some(x=>x.deadline_exceeded_count>0)||preflight.result.status==='TIME_BUDGET_EXCEEDED';
+  // A skipped preflight/probe never produces FULL, even if other evidence happened to be sufficient.
+  const complete=!budgetExhausted && binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete;
   const blockers=[
     ...(budgetExhausted?['INCOMPLETE_TIME_BUDGET']:[]),
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
