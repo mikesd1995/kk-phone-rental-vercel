@@ -52,33 +52,33 @@ test('active 03_Packages templates are authoritative fallback final prices',()=>
  assert.equal(r.competitor_reference_used_as_final,false);
 });
 
-test('weekend high-score event with zero exact competitors gets provisional score fallback',()=>{
+test('weekend high-score event with zero exact competitors uses owner weekend price, never score markup',()=>{
  const r=P.resolve({
   event_date:'2026-10-24',
   rental_fit_score:9.1,
   pricing:{independent_competitors:0}
  });
  assert.equal(r.status,'FINAL_PRICES_RESOLVED');
- assert.equal(r.source,'KK_RENTAL_FIT_SCORE_FALLBACK');
+ assert.equal(r.source,'OWNER_WEEKPART_FALLBACK');
  assert.equal(r.pricing_status,'PROVISIONAL_NEEDS_PRICE_RECHECK');
  assert.equal(r.needs_price_recheck,true);
  assert.equal(r.price_confidence,'PROVISIONAL');
- assert.deepEqual(r.final_prices.map(x=>x.override_price),[890,200,1090]);
+ assert.deepEqual(r.final_prices.map(x=>x.override_price),[690,200,890]);
  assert.deepEqual(r.final_prices.map(x=>x.active_override),[true,false,true]);
  assert.ok(r.final_prices.every(x=>x.override_note.includes('PROVISIONAL_NEEDS_PRICE_RECHECK')));
 });
 
-test('weekday high-score event with zero exact competitors may use approved score fallback without provisional flag',()=>{
+test('weekday high-score event with zero exact competitors uses owner weekday price',()=>{
  const r=P.resolve({
   event_date:'2026-10-21',
   rental_fit_score:8.4,
   pricing:{independent_competitors:0}
  });
  assert.equal(r.status,'FINAL_PRICES_RESOLVED');
- assert.equal(r.source,'KK_RENTAL_FIT_SCORE_FALLBACK');
- assert.equal(r.pricing_status,'APPROVED_SCORE_FALLBACK');
- assert.equal(r.needs_price_recheck,false);
- assert.deepEqual(r.final_prices.map(x=>x.override_price),[790,200,990]);
+ assert.equal(r.source,'OWNER_WEEKPART_FALLBACK');
+ assert.equal(r.pricing_status,'PROVISIONAL_NEEDS_PRICE_RECHECK');
+ assert.equal(r.needs_price_recheck,true);
+ assert.deepEqual(r.final_prices.map(x=>x.override_price),[490,200,590]);
  assert.deepEqual(r.final_prices.map(x=>x.active_override),[true,false,true]);
 });
 
@@ -114,4 +114,49 @@ test('exact competitor evidence drives market-aligned phone and bundle prices',(
  assert.equal(r.pricing_status,'APPROVED_EXACT_EVENT_MEDIAN');
  assert.equal(r.competitor_reference_used_as_final,true);
  assert.deepEqual(r.final_prices.map(x=>x.override_price),[740,200,940]);
+});
+
+test('owner weekpart is calendar-correct for each Nov 2026 weekdays and weekends',()=>{
+ const cases=[
+  ['2026-11-02',490,590], // Monday
+  ['2026-11-03',490,590], // Tuesday
+  ['2026-11-04',490,590], // Wednesday
+  ['2026-11-05',490,590], // Thursday
+  ['2026-11-06',690,890], // Friday
+  ['2026-11-07',690,890], // Saturday
+  ['2026-11-08',690,890], // Sunday
+  ['2026-11-20',690,890],['2026-11-26',490,590],
+  ['2026-11-27',690,890],['2026-11-29',690,890]
+ ];
+ for(const [event_date,phone,bundle] of cases){
+  const result=P.resolve({event_date,pricing:{independent_competitors:0},
+   rental_fit_score:9.7});
+  assert.equal(result.status,'FINAL_PRICES_RESOLVED',event_date);
+  assert.equal(result.source,'OWNER_WEEKPART_FALLBACK',event_date);
+  assert.equal(result.final_prices[0].override_price,phone,event_date);
+  assert.equal(result.final_prices[2].override_price,bundle,event_date);
+  assert.equal(result.final_prices[1].active_override,false);
+  assert.ok(result.final_prices[0].override_note.includes('NOT_COMPETITOR_MEDIAN'));
+  assert.equal(result.needs_price_recheck,true);
+ }
+});
+test('active booking locks ALL price overrides even when inventory remains',()=>{
+ const r=P.resolve({event_date:'2026-11-29',has_active_booking_on_date:true,
+  rental_fit_score:9.2,pricing:{independent_competitors:0}});
+ assert.equal(r.status,'HOLD_BOOKING_DATE_PRICE_LOCK');
+ assert.equal(r.final_prices.length,0);
+ assert.equal(r.production_writes,0);
+});
+test('missing reliable exact-event competitor evidence cannot trigger old expensive scored price',()=>{
+ const r=P.resolve({event_date:'2026-11-26',rental_fit_score:10,
+  pricing:{independent_competitors:5,evidence:[]},
+  package_templates:[{template_id:'PHONE',package_type:'phone_only',standard_price:890,active:true},
+   {template_id:'BUNDLE',package_type:'phone_lens_bundle',standard_price:1090,active:true}]});
+ assert.equal(r.source,'OWNER_WEEKPART_FALLBACK');
+ assert.deepEqual([r.final_prices[0].override_price,r.final_prices[2].override_price],[490,590]);
+ assert.equal(r.competitor_reference_used_as_final,false);
+});
+test('pricing refuses to invent a calendar price from an invalid date',()=>{
+ assert.equal(P.ownerWeekpartFallback({event_date:'2026-11-31'}),null);
+ assert.equal(P.ownerWeekpartFallback({event_date:'2026-11'}),null);
 });
