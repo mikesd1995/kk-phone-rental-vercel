@@ -45,3 +45,10 @@ test('source universe emits natural-month query variants instead of ISO-only ove
  assert.ok(eventpop.query_variants.some(q=>/ตุลาคม 2569/.test(q)));
  assert.ok(eventpop.query_variants.length>=2);
 });
+
+test('radio free music festivals and mall public plaza sources are mandatory',()=>{
+ const a=R.allSources();
+ for(const id of ['flex1045-radio-promoter','pmcu-siam-square','siam-center-free-stage','cat-radio-free-festivals','xoxo-jmnk']){
+  assert.ok(a.some(x=>x.source_id===id&&x.required===true),id);
+ }
+});

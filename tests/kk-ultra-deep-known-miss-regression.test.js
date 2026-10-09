@@ -74,3 +74,24 @@ test('live proof rejects title-only recurrence without exact event date',()=>{
  const current=K.evaluate([{title:c.title,event_date:c.event_date,source_url:'https://x.com/official/status/101'}],[],{month:'2026-10',strict_live:true});
  assert.ok(!current.missing_cases.includes(c.case_id));
 });
+
+test('Siam Halloween cross-month campaign requires three distinct event-date receipts',()=>{
+ const ids=['siam-halloween-20261030','siam-halloween-20261031','siam-halloween-20261101'];
+ const nov=K.evaluate([],[],{month:'2026-11',strict_live:true});
+ for(const id of ids) assert.ok(nov.missing_cases.includes(id),id);
+ const one=K.CORPUS.find(x=>x.case_id===ids[2]);
+ const hit={title:one.title,event_date:'2026-11-01',source_url:'https://www.flexconnect.net/category/article/entertainment/'};
+ const subset=K.evaluate([hit],[],{month:'2026-11',strict_live:true});
+ assert.ok(!subset.missing_cases.includes(ids[2]));
+ assert.ok(subset.missing_cases.includes(ids[0]));
+ assert.ok(subset.missing_cases.includes(ids[1]));
+ const oct=K.evaluate([],[],{month:'2026-10',strict_live:true});
+ assert.ok(oct.missing_cases.includes(ids[2]));
+});
+
+test('JMNK Oct ticket sale and November concert are both in November discovery obligations',()=>{
+ const n=K.evaluate([],[],{month:'2026-11',strict_live:true});
+ const o=K.evaluate([],[],{month:'2026-10',strict_live:true});
+ assert.ok(n.missing_cases.includes('jmnk-she-serve-20261121'));
+ assert.ok(o.missing_cases.includes('jmnk-she-serve-20261121'));
+});
