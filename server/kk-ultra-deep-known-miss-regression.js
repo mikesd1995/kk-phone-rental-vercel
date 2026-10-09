@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V9';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V10';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -26,7 +26,11 @@ const CORPUS=Object.freeze([
   {case_id:'love-at-first-trip-20261108',title:'Love at First Trip with TleFirstone',aliases:['love at first trip tlefirstone','saraan tle firstone trip','tlefirstone 8 nov 2026'],search_queries:['Saraan Love at First Trip TleFirstone 8 Nov 2026','TleFirstone Saraan November 2026'],event_date:'2026-11-08',miss_class:'BRAND_PURCHASE_CAMPAIGN_GAP'},
   {case_id:'elseve-auau-20261120',title:'L’Oreal Paris Elseve Day with AuAu',aliases:['elseve day with auau','loreal paris elseve auau','auau 20 november 2026'],search_queries:['LOrealParisTH Elseve Day With AuAu 20 November 2026','AuAu Elseve lucky fan 50'],event_date:'2026-11-20',miss_class:'BRAND_PURCHASE_CAMPAIGN_GAP'},
   {case_id:'curel-auu-save-20261219',title:'Curél Sun-safe & Fan-fun! Auu & Save',aliases:['curel auu save','sun safe fan fun auu save','auu save 19 december 2026'],search_queries:['Curel Auu Save 19 December 2026','Sun-safe Fan-fun Auu Save Curel'],event_date:'2026-12-19',miss_class:'BRAND_LEAD_TIME_CAMPAIGN_GAP'},
-  {case_id:'tops-beauty-schedule-20261001',title:'TOPS OF BEAUTY PERFORMANCE SCHEDULE',aliases:['tops of beauty performance schedule','central pinklao performance schedule'],search_queries:['Tops of Beauty Performance Schedule Central Pinklao October 2026','TOPS Thailand artist schedule Central Pinklao'],event_date:'2026-10-01',miss_class:'RETAIL_SCHEDULE_BOARD_GAP'}
+  {case_id:'tops-beauty-schedule-20261001',title:'TOPS OF BEAUTY PERFORMANCE SCHEDULE',aliases:['tops of beauty performance schedule','central pinklao performance schedule'],search_queries:['Tops of Beauty Performance Schedule Central Pinklao October 2026','TOPS Thailand artist schedule Central Pinklao'],event_date:'2026-10-01',miss_class:'RETAIL_SCHEDULE_BOARD_GAP'},
+  {case_id:'mrfanboy-busking-20261011',title:'MR.FANBOY BUSKING presented by true5G',aliases:['mr fanboy busking true5g centralworld','mr fanboy busking 11 october','mr fanboy busking 11 ตุลาคม'],search_queries:['MR FANBOY BUSKING true5G centralWorld 11 October 2026','MandeeWork Mr Fanboy BUSKING 11 October 2026'],event_date:'2026-10-11',miss_class:'REPEATED_EVENT_NEW_DATE_SOURCE_GAP'},
+  {case_id:'teeheng-gen-of-us-20261024',title:'TEEHENG GEN OF US 1st FANMEETING',aliases:['tee heng gen of us 1st fanmeeting','tee boonyakait heng thatpong one bangkok'],search_queries:['TEEHENG GEN OF US site:deehuphouse.com','Tee Heng 24 October 2026 One Bangkok Forum'],event_date:'2026-10-24',miss_class:'STALE_CANDIDATE_ONSALE_STATE_GAP'},
+  {case_id:'gelboys-last-painting-20261122',title:'GELBOYS THE LAST PAINTING FANMEET',aliases:['gelboys the last painting','gelboys last painting fanmeet nov 22','gelboys last painting siam pic hall'],search_queries:['GELBOYS THE LAST PAINTING LOOKE 22 November 2026','GELBOYS fanmeet tickets on sale 24 October 2026'],event_date:'2026-11-22',discovery_months:['2026-10'],miss_class:'TICKET_SALE_VS_EVENT_DATE_GAP'},
+  {case_id:'dexx-labx-private-20261122',title:'LABX DEXX HOTEL DE RÊVE PRIVATE SECRET SESSION NO.01',aliases:['dexx hotel de reve private secret session','labx dexx the private session n01','labx dexx 22 november'],search_queries:['LABXClinic DEXX private session 22 Nov 2026','DEXX HOTEL DE REVE 20 top spenders 30 lucky fans'],event_date:'2026-11-22',discovery_months:['2026-10'],miss_class:'PRIVATE_SESSION_CROSSMONTH_NAMED_EVENT_GAP'}
 ]);
 const FIXTURE_EVIDENCE=Object.freeze({
   'remaster-20261010':{title:'REMASTER CONCERT TIMESHOWBIZ',source_url:'https://www.paragonhall.com/en/events'},
@@ -44,7 +48,11 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'love-at-first-trip-20261108':{title:'Love at First Trip with TleFirstone',source_url:'https://x.com/Saraanofficial'},
   'elseve-auau-20261120':{title:'L’Oreal Paris Elseve Day with AuAu',source_url:'https://x.com/LOrealParisTH'},
   'curel-auu-save-20261219':{title:'Curél Sun-safe & Fan-fun! Auu & Save',source_url:null},
-  'tops-beauty-schedule-20261001':{title:'TOPS OF BEAUTY PERFORMANCE SCHEDULE',source_url:'https://x.com/topsthailand'}
+  'tops-beauty-schedule-20261001':{title:'TOPS OF BEAUTY PERFORMANCE SCHEDULE',source_url:'https://x.com/topsthailand'},
+  'mrfanboy-busking-20261011':{title:'MR.FANBOY BUSKING presented by true5G',source_url:null},
+  'teeheng-gen-of-us-20261024':{title:'TEEHENG GEN OF US 1st FANMEETING',source_url:'https://www.deehuphouse.com/'},
+  'gelboys-last-painting-20261122':{title:'GELBOYS THE LAST PAINTING FANMEET',source_url:'https://www.sotwe.com/looke_world'},
+  'dexx-labx-private-20261122':{title:'LABX DEXX HOTEL DE RÊVE PRIVATE SECRET SESSION NO.01',source_url:'https://www.sotwe.com/LABXClinic'}
 });
 
 function text(v){return String(v==null?'':v).trim();}
@@ -69,13 +77,21 @@ function sameCase(c,caseRow){
   return titleMatch && (!caseRow.event_date || !eventDate || eventDate===caseRow.event_date);
 }
 
-function evaluate(candidates=[],classifications=[]){
+function evaluate(candidates=[],classifications=[],options={}){
   const rows=Array.isArray(candidates)?candidates:[];
   const cls=new Map((Array.isArray(classifications)?classifications:[]).map(x=>[text(x&&x.case_id),x]));
-  const results=CORPUS.map(caseRow=>{
-    const matched=rows.find(c=>sameCase(c,caseRow));
+  const scanMonth=text(options.month);
+  const strictLive=options.strict_live===true;
+  const scoped=scanMonth?CORPUS.filter(c=>text(c.event_date).startsWith(scanMonth)||(Array.isArray(c.discovery_months)&&c.discovery_months.includes(scanMonth))):CORPUS;
+  const results=scoped.map(caseRow=>{
+    // A repeat show with the same franchise name but no confirmed event date is NOT live proof.
+    const matched=rows.find(c=>sameCase(c,caseRow)&&(!strictLive||(date(c&&c.event_date)===caseRow.event_date&&!!text(c.source_url||c.url))));
     const receipt=cls.get(caseRow.case_id);
-    const classified=!!receipt && receipt.executed===true && ['DISCOVERED','NOT_ELIGIBLE','SOURCE_UNAVAILABLE'].includes(text(receipt.status).toUpperCase());
+    const status=text(receipt&&receipt.status).toUpperCase();
+    // SOURCE_UNAVAILABLE is a valid historical diagnostic disposition, never live FULL evidence.
+    const classified=!!receipt && receipt.executed===true && (strictLive?
+      (['DISCOVERED','NOT_ELIGIBLE'].includes(status)&&!!text(receipt.source_url||receipt.evidence_url)):
+      ['DISCOVERED','NOT_ELIGIBLE','SOURCE_UNAVAILABLE'].includes(status));
     const pass=!!matched||classified;
     return {
       case_id:caseRow.case_id,
@@ -87,7 +103,7 @@ function evaluate(candidates=[],classifications=[]){
     };
   });
   const missing=results.filter(x=>!x.pass).map(x=>x.case_id);
-  return {version:VERSION,complete:missing.length===0,case_count:CORPUS.length,passed:results.filter(x=>x.pass).length,missing_cases:missing,results,production_writes:0};
+  return {version:VERSION,complete:missing.length===0,case_count:scoped.length,passed:results.filter(x=>x.pass).length,missing_cases:missing,results,month:scanMonth||null,strict_live:strictLive,production_writes:0};
 }
 
 function evaluateFixtureRegression(){

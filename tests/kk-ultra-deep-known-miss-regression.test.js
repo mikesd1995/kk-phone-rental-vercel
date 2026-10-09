@@ -3,8 +3,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const K=require('../server/kk-ultra-deep-known-miss-regression.js');
 
-test('known-miss corpus contains ten historical discovery misses',()=>{
- assert.equal(K.CORPUS.length,10);
+test('known-miss corpus contains current and historical discovery misses',()=>{
+ assert.ok(K.CORPUS.length>=25);
  assert.ok(K.CORPUS.some(x=>x.case_id==='remaster-20261010'));
  assert.ok(K.CORPUS.some(x=>x.case_id==='bai-lu-meet-love-20261025'));
  assert.ok(K.CORPUS.some(x=>x.case_id==='fortreasure-20261129'));
@@ -37,9 +37,40 @@ test('evidence-grounded query hints are present for the three remaining live mis
  assert.ok(byId.get('fortreasure-20261129').search_queries.includes('FORTREASURE site:eventpop.me'));
 });
 
-test('deterministic fixture regression covers all ten historical misses',()=>{
+test('deterministic fixture regression validates matching only, not live recall',()=>{
  const out=K.evaluateFixtureRegression();
  assert.equal(out.complete,true);
- assert.equal(out.passed,10);
+ assert.equal(out.passed,K.CORPUS.length);
  assert.equal(out.proof_type,'DETERMINISTIC_HISTORICAL_FIXTURE');
+});
+
+test('month-scoped live recall fails closed with no evidence while synthetic fixture still passes',()=>{
+ const fixture=K.evaluateFixtureRegression();
+ const live=K.evaluate([],[],{month:'2026-10',strict_live:true});
+ assert.equal(fixture.complete,true);
+ assert.equal(live.complete,false);
+ assert.ok(live.missing_cases.includes('tutoryim-updated-20261018'));
+ assert.ok(live.missing_cases.includes('mrfanboy-busking-20261011'));
+ assert.ok(live.missing_cases.includes('gelboys-last-painting-20261122'));
+ assert.ok(live.missing_cases.includes('dexx-labx-private-20261122'));
+ assert.ok(!live.missing_cases.includes('fortreasure-20261129'));
+ assert.ok(!live.missing_cases.includes('curel-auu-save-20261219'));
+});
+test('strict live known-miss classification requires sourced proof; SOURCE_UNAVAILABLE is not a pass',()=>{
+ const f=K.CORPUS.find(x=>x.case_id==='gelboys-last-painting-20261122');
+ const rows=[{title:f.title,event_date:f.event_date}];
+ const u=K.evaluate(rows,[{case_id:f.case_id,executed:true,status:'SOURCE_UNAVAILABLE'}],{month:'2026-10',strict_live:true});
+ assert.ok(u.missing_cases.includes(f.case_id));
+ const proof=K.evaluate([{...rows[0],source_url:'https://www.sotwe.com/looke_world'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(!proof.missing_cases.includes(f.case_id));
+});
+
+test('live proof rejects title-only recurrence without exact event date',()=>{
+ const c=K.CORPUS.find(x=>x.case_id==='mrfanboy-busking-20261011');
+ const missing=K.evaluate([{title:c.title,source_url:'https://x.com/official/status/100'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(missing.missing_cases.includes(c.case_id));
+ const old=K.evaluate([{title:c.title,event_date:'2026-09-13',source_url:'https://x.com/official/status/100'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(old.missing_cases.includes(c.case_id));
+ const current=K.evaluate([{title:c.title,event_date:c.event_date,source_url:'https://x.com/official/status/101'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(!current.missing_cases.includes(c.case_id));
 });

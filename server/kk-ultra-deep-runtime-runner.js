@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V13';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V14';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -224,7 +224,7 @@ function diagnosticReceipts(plan={},execution={}){
 }
 
 async function runOperationalDiscovery(input={},options={}){
-  const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
+  const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const plan=MonthlyPlan.buildOperational(input);
   const execution=await ProviderExecutor.executeGapPlan(plan,{providers,concurrency:Math.min(4,ProviderExecutor.MAX_CONCURRENCY)});
@@ -262,7 +262,7 @@ async function runOperationalDiscovery(input={},options={}){
 }
 
 async function runMonthlyUltraDeep(input={},options={}){
-  const publicProviders=PublicWeb.createProviders(options.publicWebOptions||{});
+  const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
   // Execute the bounded historical probes first. Live HTML search providers may
@@ -310,11 +310,13 @@ async function runMonthlyUltraDeep(input={},options={}){
   // Do not discard a valid main/reference sweep hit merely because the dedicated
   // probe endpoint returned no results.
   const knownMissEvidence=[...knownMissCandidates,...candidates,...referenceCandidates];
-  const knownMissLive=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[]);
+  // Historical fixture tests the matcher only. FULL must use real month-scoped live hits.
+  // Source-unavailable and unsourced synthetic classifications cannot certify coverage.
+  const knownMissLive=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[],{month:plan.range.month,strict_live:true});
   const knownMiss=KnownMiss.evaluateFixtureRegression();
 
   const liveSearchProven=preflight.status==='READY' || discoveryProof.has_evidence || referenceProof.has_evidence || knownMissCandidates.length>0;
-  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete;
+  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete;
   const blockers=[
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
     ...(binding.unknown_url_search_bound&&!liveSearchProven?['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED']:[]),
@@ -322,13 +324,14 @@ async function runMonthlyUltraDeep(input={},options={}){
     ...(!discoveryProof.complete?['DISCOVERY_EVIDENCE_EMPTY']:[]),
     ...(!referenceProof.complete?['REFERENCE_SWEEP_INCOMPLETE']:[]),
     ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
-    ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[])
+    ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[]),
+    ...(!knownMissLive.complete?['KNOWN_MISS_LIVE_RECALL_INCOMPLETE']:[])
   ];
   const diagnostic={
     schema:'KK_ULTRA_DEEP_DISCOVERY_DIAGNOSTIC_V1',full:complete,blockers,
     gates:Object.fromEntries(Object.entries({provider_bound:binding.unknown_url_search_bound,live_search:liveSearchProven,
       source_universe:universe.complete,discovery:discoveryProof.complete,reference:referenceProof.complete,
-      reconciliation:reconciliation.complete,known_miss_regression:knownMiss.complete}).map(([gate,observed])=>[gate,{expected:true,observed}])),
+      reconciliation:reconciliation.complete,known_miss_regression:knownMiss.complete,known_miss_live_recall:knownMissLive.complete}).map(([gate,observed])=>[gate,{expected:true,observed}])),
     counts:{required_sources:universe.required_source_count,passed_sources:universe.passed_required_source_count,
       discovery_tasks:discoveryProof.task_count,discovery_executed:discoveryProof.executed_count,discovery_candidates:candidates.length,
       reference_tasks:referenceProof.task_count,reference_executed:referenceProof.executed_count,reference_candidates:referenceCandidates.length,

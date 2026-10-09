@@ -83,3 +83,20 @@ test('brand campaign learning adds campaign, visual schedule and lead-time lanes
   for(const lane of ['BRAND_PURCHASE_CAMPAIGN','RETAIL_PERFORMANCE_SCHEDULE','IMAGE_SCHEDULE_SEGMENTATION','CAMPAIGN_LEAD_TIME_NEXT_MONTH','WINNER_CONFIRMATION_WINDOW']) assert.ok(out.adaptive.mandatory_expansion.includes(lane),lane);
   assert.ok(out.adaptive.query_terms.some(x=>/winner announcement|lucky fan|performance schedule/i.test(x)));
 });
+
+test('owner poster challenge covers repeat busking, ticket-sale-date split, private session and revised KAZZ date',()=>{
+ const ids=new Set(Known.CORPUS.map(x=>x.case_id));
+ for(const id of ['mrfanboy-busking-20261011','teeheng-gen-of-us-20261024','tutoryim-updated-20261018','gelboys-last-painting-20261122','dexx-labx-private-20261122','bai-lu-meet-love-20261025']) assert.ok(ids.has(id),id);
+ assert.match(Query.TIER_TERMS.TICKETING.join(' '),/KAZZ MARKET|LOOKE GELBOYS/);
+ assert.match(Query.TIER_TERMS.ANNOUNCEMENT_CHANGE.join(' '),/updated date|โปสเตอร์ใหม่/);
+ assert.match(Query.TIER_TERMS.CAMPAIGN_LEAD_TIME.join(' '),/ticket on sale|DEXX top spender/i);
+ const out=Learn.learn({missed_events:[
+  {miss_class:'REPEATED_EVENT_NEW_DATE_SOURCE_GAP',artists:['AuAu Save'],brands:['MandeeWork'],month:'2026-10'},
+  {miss_class:'UPDATED_DATE_PRIMARY_PAGE_CONFLICT_GAP',artists:['TutorYim'],brands:['KAZZ'],month:'2026-10'},
+  {miss_class:'TICKET_SALE_VS_EVENT_DATE_GAP',artists:['GELBOYS'],brands:['LOOKE'],month:'2026-10'}
+ ]});
+ assert.ok(out.recommendations.includes('MANDATORY_EVENT_DATE_VS_SALE_DATE_AND_OFFICIAL_DATE_REVISION_RECONCILIATION'));
+ for(const lane of ['REPEAT_EVENT_DATE_DISAMBIGUATION','EVENT_DATE_VS_TICKET_SALE_DATE','OFFICIAL_POSTER_PRIMARY_PAGE_DATE_CONFLICT_CHECK','EXISTING_CANDIDATE_LIFECYCLE_REFRESH']) assert.ok(out.adaptive.mandatory_expansion.includes(lane),lane);
+ assert.equal(out.authority.may_change_protected_policy,false);
+ assert.equal(out.scoring_learning.internal_outcomes_affect_external_score,false);
+});

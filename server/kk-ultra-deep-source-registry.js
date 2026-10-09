@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V6';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V7';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -13,6 +13,7 @@ const REGISTRY=Object.freeze({
     {source_id:'eventpop',label:'Eventpop',domain:'eventpop.me',required:true},
     {source_id:'zipevent',label:'Zipevent',domain:'zipeventapp.com',required:true},
     {source_id:'allticket',label:'AllTicket',domain:'allticket.com',required:true},
+    {source_id:'kazz-market-activity',label:'KAZZ Magazine event activity ticketing',domain:'kazzmarket.com',required:true},
     {source_id:'megatix',label:'Megatix',domain:'megatix.in.th',required:false}
   ]),
   VENUE:Object.freeze([
@@ -28,6 +29,8 @@ const REGISTRY=Object.freeze({
     {source_id:'gmmtv',label:'GMMTV',domain:'gmmtv.com',required:true},
     {source_id:'one31',label:'one31',domain:'one31.net',required:true},
     {source_id:'domundi-mandee',label:'DOMUNDI / Mandee Work',required:true},
+    {source_id:'deehup-house-ticketing',label:'Dee Hup House official fanmeet ticketing',domain:'deehuphouse.com',required:true},
+    {source_id:'looke-gelboys',label:'LOOKE / GELBOYS fanmeeting and ticket announcements',required:true},
     {source_id:'change2561',label:'CHANGE2561',required:true},
     {source_id:'idolfactory',label:'IDOLFACTORY',required:true},
     {source_id:'channel3-bl-gl',label:'Channel 3 BL GL artist ecosystem',required:true},
@@ -43,7 +46,8 @@ const REGISTRY=Object.freeze({
     {source_id:'beauty-personal-care-campaigns',label:'Beauty / personal-care artist campaigns',required:true},
     {source_id:'retail-performance-schedules',label:'Retail / mall artist performance schedules',required:true},
     {source_id:'purchase-register-redeem-campaigns',label:'Purchase / register / redeem artist campaigns',required:true},
-    {source_id:'brand-private-experience-campaigns',label:'Brand private trip / workshop / talk / polaroid experiences',required:true}
+    {source_id:'brand-private-experience-campaigns',label:'Brand private trip / workshop / talk / polaroid experiences',required:true},
+    {source_id:'labx-clinic-idol-private',label:'LABX Clinic artist Top Spender and private-session activities',required:true}
   ]),
   SOCIAL:Object.freeze([
     {source_id:'x-public',label:'X public discovery',required:true},
