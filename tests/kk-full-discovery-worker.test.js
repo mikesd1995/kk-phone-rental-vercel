@@ -13,14 +13,20 @@ function obsTier(id,tier,state='UNCHANGED'){
  const hash=Watch.sha256(id);
  return {observation_id:id,provider:'EXA',source_tier:tier,state,source_url:'https://'+id+'.example/events',observed_at:NOW,content_hash:hash,previous_content_hash:state==='UNCHANGED'?hash:null};
 }
-function universeReceipts(){
- return Registry.allSources().map(s=>({source_id:s.source_id,status:'NO_EVIDENCE',executed:true}));
+function universeReceipts(month='2026-09'){
+ return Registry.allSources().map(s=>({
+  source_id:s.source_id,task_source_id:s.source_id,month,
+  status:'NO_EVIDENCE',executed:true,provider:'BING_RSS',candidate_count:0,
+  planned_query:s.label+' '+month+' Bangkok',
+  attempts:[{provider:'BING_RSS',status:'NO_EVIDENCE',query:s.label+' '+month+' Bangkok'}]
+ }));
 }
 function knownMissProbeCandidates(){
  return KnownMiss.CORPUS.map((c,i)=>({title:c.title,event_date:c.event_date,source_url:'https://known.example/'+i}));
 }
 function ultraEvidence(reference=[]){
  return {
+   month:'2026-09',
    source_universe_receipts:universeReceipts(),
    reconciliation_reference_candidates:reference,
    known_miss_probe_candidates:knownMissProbeCandidates()
@@ -171,4 +177,21 @@ test('independent reconciliation gap blocks FULL',async()=>{
  assert.equal(r.status,'BLOCKED_INCOMPLETE_SOURCE_COVERAGE');
  assert.equal(r.quality_evidence.reconciliation.reconciliation_gap_count,1);
  assert.ok(r.blockers.includes('RECONCILIATION_GAPS_REMAIN'));
+});
+
+test('Ultra Deep full worker rejects synthetic executed=true rows even with complete tier coverage',async()=>{
+ const tiers=Worker.ULTRA_DEEP_REQUIRED_SOURCE_TIERS;
+ const observations=tiers.map((tier,i)=>obsTier('unproved-'+i,tier,'UNCHANGED'));
+ const forged=Registry.allSources().map(s=>({source_id:s.source_id,status:'NO_EVIDENCE',executed:true}));
+ const output=await Worker.runFullDiscovery({
+  scan_mode:'ULTRA_DEEP',month:'2026-10',observations,
+  provider_results:tiers.map(()=>result([])),
+  source_universe_receipts:forged,
+  known_miss_probe_candidates:knownMissProbeCandidates(),
+  reconciliation_reference_candidates:[]
+ },{sourceWatchOptions:{nowMs:Date.parse(NOW)}});
+ assert.equal(output.status,'BLOCKED_INCOMPLETE_SOURCE_COVERAGE');
+ assert.equal(output.quality_evidence.source_universe_proof.complete,false);
+ assert.equal(output.quality_evidence.source_universe_proof.strict_live,true);
+ assert.equal(output.production_writes,0);
 });
