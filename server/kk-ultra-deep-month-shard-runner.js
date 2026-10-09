@@ -15,7 +15,7 @@ function phasePlans(input={}){
  const month=text(input.month);
  const discovery=Monthly.build(input), reference=Runner.buildReferencePlan({month,location:discovery.location});
  return {
-  KNOWN_MISS:Runner.buildKnownMissPlan(),
+  KNOWN_MISS:Runner.buildKnownMissPlan(month),
   DISCOVERY:discovery,
   REFERENCE:reference
  };
