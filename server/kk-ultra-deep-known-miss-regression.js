@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V15';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V16';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -12,6 +12,7 @@ const CORPUS=Object.freeze([
   {case_id:'tutoryim-updated-20261018',title:'TUTOR YIM',aliases:['tutor yim','tutoryim','ปล่อยปลาฉลาม'],event_date:'2026-10-18'},
   {case_id:'scoopify-james-su-20261024',title:'SCOOPIFY YOGURT & YOU WITH JAMES SU',aliases:['scoopify yogurt you james su','james su scoopify','yogurt you james su','scoopifyyogurtandjamessu','summervibeth james su'],search_queries:['SCOOPIFYYogurtAndJamesSu SummerVibeTH','SCOOPIFY James Su SummerVibeTH'],event_date:'2026-10-24'},
   {case_id:'tle-firstone-20261022',title:'A TOUCH OF LOVE WITH TLE-FIRSTONE',aliases:['touch of love tle firstone','tle firstone','tle-firstone','everpink a touch of love tlefirstone','everpinkxtlefirstone'],search_queries:['EVERPINKxTleFirstone','EVERPINK A Touch of Love TleFirstone'],event_date:'2026-10-22'},
+  {case_id:'beautybuffet-liptok-auausave-20261009',title:'BEAUTY BUFFET LIPTOK EVENT X AUAUSAVE',aliases:['BeautyBuffetLiptokEventxAUAUSAVE','AUAUSAVE MHIIPRAEW AT LIPTOK EVENT','Beauty Buffet LIPTOK Event x AuAu Save','Beauty Buffet LIPTOK Union Mall'],search_queries:['Beauty Buffet LIPTOK Event x AUAUSAVE 9 October 2026 Union Mall','BeautyBuffetLiptokEventxAUAUSAVE BeautyBuffetTH','AuAuSave MHIIPRAEW Domundi schedule 09.10.2026','Beauty Buffet Top Spenders 60 Lucky Fans 25 August 2026 campaign announcement'],event_date:'2026-10-09',miss_class:'BRAND_ARTIST_LUCKY_FAN_LEAD_TIME_GAP'},
   {case_id:'ryo-teeteepor-20261007',title:'RYO Strong Roots, Bright Stars with TeeTee & Por',aliases:['ryo hair teeteepor','strong roots bright stars teetee por','ryo hair x ttp','ryohairxteeteepor'],search_queries:['TeeTee Por October 2026 schedule','TeeTeePor RYO Hair 7 October 2026','RYO Hair TeeTee Por Central Pinklao'],event_date:'2026-10-07',miss_class:'ARTIST_BRAND_SOCIAL_KEYWORDLESS_APPEARANCE'},
   {case_id:'the-weeknd-20261011',title:'The Weeknd: After Hours Til Dawn Tour',aliases:['the weeknd after hours til dawn bangkok'],search_queries:['the weeknd after hours til dawn bangkok October 2026'],event_date:'2026-10-11',miss_class:'INTERNATIONAL_CONCERT_SOURCE_GAP'},
   {case_id:'mindaryn-20261016',title:'MindaRyn 1st Asia Tour Calling Back',aliases:['mindaryn calling back bangkok'],search_queries:['mindaryn calling back bangkok October 2026'],event_date:'2026-10-16',miss_class:'INTERNATIONAL_CONCERT_SOURCE_GAP'},
@@ -64,6 +65,7 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'tutoryim-updated-20261018':{title:'ปล่อยปลาฉลาม Meet TutorYim updated date',source_url:'https://www.kazz-magazine.com/'},
   'scoopify-james-su-20261024':{title:'HOW TO BUY TICKETS SCOOPIFY YOGURT & YOU WITH JAMES SU',source_url:'https://x.com/SummerVibeTH'},
   'tle-firstone-20261022':{title:'EVERPINK A Touch of Love with TleFirstone',source_url:'https://x.com/everpink_th'},
+  'beautybuffet-liptok-auausave-20261009':{title:'Beauty Buffet LIPTOK Event x AUAUSAVE',source_url:'https://www.lemon8-app.com/%40beautybuffet_th/7677921730569159176?region=th'},
   'ryo-teeteepor-20261007':{title:'RYO Strong Roots, Bright Stars with TeeTee & Por',source_url:'https://x.com/RYOHairThailand'},
   'fortreasure-20261129':{title:'FORTREASURE BEYOND THE HORIZON CONCERT',source_url:'https://www.eventpop.me/e/173408/fortreasure-beyond-the-horizon-concert'},
   'herhyness-lingling-20261021':{title:'HER HYNESS x LINGLING UNLOCK THE ULTIMATE PROTECTION',source_url:'https://www.herhynessbeauty.com/blogs/blog-the-clean-side/her-hyness-x-lingling-kwong-unlock-the-ultimate-protection-campaign'},
