@@ -274,7 +274,6 @@ async function runOperationalDiscovery(input={},options={}){
 async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
-  const binding=providerBindingState(providers);
   // One deadline across historical probes, monthly discovery, references and preflight.
   // Incomplete tasks remain HOLD; no partial source receipt can certify FULL.
   const requestedBudget=Number(options.maxRuntimeMs);
@@ -285,7 +284,6 @@ async function runMonthlyUltraDeep(input={},options={}){
   // prevents broad discovery traffic from starving the recall gate.
   const knownMissPlan=buildKnownMissPlan();
   const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers,deadlineMs});
-  const knownMissCandidates=flattenCandidates(knownMissExecution);
 
   const plan=MonthlyPlan.build(input);
   const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
@@ -296,6 +294,14 @@ async function runMonthlyUltraDeep(input={},options={}){
     ProviderExecutor.executeGapPlan(plan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY,deadlineMs}),
     ProviderExecutor.executeGapPlan(referencePlan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY,deadlineMs})
   ]);
+  return assembleMonthlyEvidence(input,{plan,referencePlan,knownMissPlan,
+    execution,referenceExecution,knownMissExecution,providers,deadlineMs});
+}
+async function assembleMonthlyEvidence(input={},parts={}){
+  const {plan,referencePlan,knownMissPlan,
+    execution,referenceExecution,knownMissExecution,providers,deadlineMs}=parts;
+  const binding=providerBindingState(providers);
+  const knownMissCandidates=flattenCandidates(knownMissExecution);
   const receipts=sourceUniverseReceipts(plan,execution);
   const universe=SourceRegistry.buildUniverseProof(receipts,{strict_live:true,month:plan.range.month});
   const candidates=flattenCandidates(execution);
@@ -399,8 +405,37 @@ async function runMonthlyUltraDeep(input={},options={}){
     final_truth_mutation:false
   };
 }
+async function runMonthlyFromCheckpoint(input={},phaseExecutions={},options={}){
+  // This API only accepts assembled phase results from OIDC-verified checkpoint
+  // storage; consumers must validate Shards.collect first. Never publish here.
+  const month=text(input.month);
+  const plan=MonthlyPlan.build(input);
+  const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
+  const knownMissPlan=buildKnownMissPlan();
+  const mapping=[['KNOWN_MISS',knownMissPlan],['DISCOVERY',plan],['REFERENCE',referencePlan]];
+  for(const [phase,source] of mapping){
+    const evidence=phaseExecutions[phase];
+    if(!evidence||!Array.isArray(evidence.results)||
+      evidence.results.length!==source.gap_tasks.length ||
+      evidence.production_writes!==0)
+      return {version:VERSION,status:'HOLD_FOR_CHECKPOINT_EVIDENCE',
+        full:false,month,blockers:['MISSING_OR_UNVERIFIED_PHASE_'+phase],
+        authoritative:false,verifier_required:true,production_writes:0};
+  }
+  const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
+  const providers=Object.assign({},publicProviders,options.providers||{});
+  const result=await assembleMonthlyEvidence(input,{
+    plan,referencePlan,knownMissPlan,
+    execution:phaseExecutions.DISCOVERY,
+    referenceExecution:phaseExecutions.REFERENCE,
+    knownMissExecution:phaseExecutions.KNOWN_MISS,
+    providers,deadlineMs:Date.now()+Math.min(30000,Math.max(2000,Number(options.maxRuntimeMs)||20000))
+  });
+  return {...result,resumed_from_oidc_shards:true,ready_for_publication:false,
+    authoritative:false,production_writes:0};
+
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
-  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,recoverEligibleReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runOperationalDiscovery,runMonthlyUltraDeep
+  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,recoverEligibleReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runOperationalDiscovery,assembleMonthlyEvidence,runMonthlyFromCheckpoint,runMonthlyUltraDeep
 };
