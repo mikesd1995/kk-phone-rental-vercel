@@ -235,7 +235,8 @@ test('November seven known-miss cases include four brand lanes and all four dist
  assert.equal(input.complete,false);
  for(const id of ids)assert.ok(input.missing_cases.includes(id),id);
  const oct=K.evaluate([],[],{month:'2026-10',strict_live:true});
- for(const id of ids)assert.ok(!oct.missing_cases.includes(id));
+ for(const id of ids.filter(x=>x!=='mizumi-phuwin-20261105'))assert.ok(!oct.missing_cases.includes(id));
+ assert.ok(oct.missing_cases.includes('mizumi-phuwin-20261105'),'October campaign qualification must probe November event but not claim live proof');
  const fixtures=K.evaluateFixtureRegression();
  assert.equal(fixtures.complete,true,'fixtures match dates but cannot certify live scan');
  assert.equal(fixtures.proof_type,'DETERMINISTIC_HISTORICAL_FIXTURE');
