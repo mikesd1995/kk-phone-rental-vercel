@@ -3,7 +3,7 @@ const Production=require('./kk-ultra-deep-production-runtime.js');
 const Rent=require('./kk-ultra-deep-rentability-score.js');
 const V2=require('./kk-ultra-deep-full-loop-v2.js');
 const Requal=require('./kk-ultra-deep-storefront-requalification.js');
-const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V4_BOOKING_DAY_LOCK';
+const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V5_DATE_IDENTITY';
 function text(v){return String(v==null?'':v).trim();}
 const ACTIVE_BOOKING_STATUSES=new Set(['pending','confirmed','prepared','picked_up']);
 function statusActive(v){return ACTIVE_BOOKING_STATUSES.has(text(v).toLowerCase());}
@@ -12,12 +12,31 @@ function bookingCountOnDate(snapshot,eventDate){return Number(Production.booking
 function availableOnDate(snapshot,eventDate){
  const cap=Production.phoneInventoryCapacity(snapshot);const counts=Production.bookingCountByDate(snapshot);return Math.max(0,cap-Number(counts.get(String(eventDate||'').slice(0,10))||0));
 }
+function dateChangeAuthority(candidate={},sameTitle=[]){
+ const targetDate=text(candidate.event_date).slice(0,10);
+ const priorId=text(candidate.canonical_event_id||candidate.existing_event_id||candidate.event_id);
+ const explicit= candidate.official_date_change_verified===true &&
+  ['POSTPONED','RESCHEDULED','DATE_CHANGED'].includes(text(candidate.change_state||candidate.lifecycle_state).toUpperCase());
+ return explicit && !!priorId && sameTitle.length===1 &&
+  text(sameTitle[0].event_id)===priorId &&
+  text(sameTitle[0].event_date).slice(0,10)!==targetDate;
+}
+function addedShowIdentity(candidate={}){
+ return candidate.verified_added_show===true &&
+  ['ADDED_SHOW','NEW_ROUND_ADDED','EXTRA_SHOW'].includes(text(candidate.change_state||candidate.lifecycle_state).toUpperCase());
+}
 function matchForV2(candidate,events=[]){
- const direct=Production.matchExisting(candidate,events);if(direct.match||direct.ambiguous)return direct;
+ const direct=Production.matchExisting(candidate,events);
+ if(direct.match||direct.ambiguous)return direct;
  const sameTitle=events.filter(e=>Production.norm(e.event_name)===Production.norm(candidate.title));
- if(sameTitle.length===1)return {match:{event:sameTitle[0],score:.9,reason:'EXACT_NAME_DATE_CHANGE'},ambiguous:false,candidates:[]};
- if(sameTitle.length>1)return {match:null,ambiguous:true,candidates:sameTitle.slice(0,3).map(event=>({event,score:.9,reason:'EXACT_NAME_AMBIGUOUS_DATE'}))};
- return direct;
+ if(!sameTitle.length)return direct;
+ // Repeated same-title shows are separate date identities, never implicit date edits.
+ // A date change needs a verified primary announcement and an explicit canonical ID.
+ if(dateChangeAuthority(candidate,sameTitle))return {match:{event:sameTitle[0],score:1,reason:'OFFICIALLY_VERIFIED_DATE_CHANGE'},ambiguous:false,candidates:[]};
+ if(addedShowIdentity(candidate))return direct;
+ return {match:null,ambiguous:true,candidates:sameTitle.slice(0,3).map(event=>({
+  event,score:.9,reason:'DATE_SIBLING_OR_POSTPONEMENT_UNRESOLVED'
+ }))};
 }
 function commercialByKey(commercial={}){return new Map((commercial.candidates||[]).map(x=>[text(x.event_key),x]));}
 function posterFor(row={}){const p=row.poster&&row.poster.selected;return p&&p.verified===true?p:null;}
@@ -30,6 +49,7 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
  const dateBookingCount=bookingCountOnDate(snapshot,candidate.event_date);
  const sameEventBookingCount=existing?bookingCountForEvent(snapshot,existing.event_id):0;
  const bookingDayExcluded=dateBookingCount>0&&sameEventBookingCount===0;
+ const identityAmbiguous=match.ambiguous===true;
  const available=availableOnDate(snapshot,candidate.event_date);
  const exact=competitorPrices(commercialRow);
  const competitorCount=new Set(exact.map(x=>x.competitor_id).filter(Boolean)).size;
@@ -54,9 +74,10 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
    kk_inquiry_count:signalValue(candidate,'kk_inquiry_count',null),
    kk_revenue:signalValue(candidate,'kk_revenue',null)
  };
- const qualification=bookingDayExcluded?
-  {decision:'ACTIVE_BOOKING_DATE_EXCLUDED',publish_eligible:false,production_writes:0,internal_business_signals_affect_score:false}:
-  (existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0,internal_business_signals_affect_score:false}:Rent.qualify(scoring));
+ const qualification=identityAmbiguous?
+  {decision:'HOLD_DATE_SIBLING_IDENTITY',publish_eligible:false,production_writes:0,internal_business_signals_affect_score:false}:
+  (bookingDayExcluded?{decision:'ACTIVE_BOOKING_DATE_EXCLUDED',publish_eligible:false,production_writes:0,internal_business_signals_affect_score:false}:
+  (existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0,internal_business_signals_affect_score:false}:Rent.qualify(scoring)));
  const requalification=existing?(bookingDayExcluded?{decision:'BOOKING_DAY_EXCLUDED',apply_visibility_change:false,reason:'OWNER_BOOKING_DAY_EXCLUSIVITY_REQUIRES_GOVERNED_RECONCILIATION',internal_business_signals_affect_score:false}:Requal.requalify({
    external_scoring:scoring,
    active_booking_count:bookingCountForEvent(snapshot,existing.event_id),
@@ -77,6 +98,7 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
   exists_in_canonical:!!existing,canonical_event_id:existing&&text(existing.event_id)||null,
   owner_hidden:existing?existing.active_on_web===false:false,tombstone_locked:existing&&existing.tombstone_locked===true,history_state:existing&&text(existing.history_state)||'',
   booking_count:sameEventBookingCount,date_booking_count:dateBookingCount,booking_day_excluded:bookingDayExcluded,
+  identity_ambiguous:identityAmbiguous,identity_hold_reason:identityAmbiguous?'DATE_SIBLING_OR_POSTPONEMENT_UNRESOLVED':null,
   current_price:existing&&existing.packages&&existing.packages.length===1?Number(existing.packages[0].price)||null:null,
   price_targets:priceTargets,competitor_prices:exact,current_date:existing&&text(existing.event_date)||'',verified_date:text(candidate.event_date),date_change_verified:!!existing&&text(existing.event_date)!==text(candidate.event_date),
   current_venue:existing&&text(existing.venue)||'',verified_venue:text(candidate.venue),venue_change_verified:!!existing&&!!text(candidate.venue)&&text(existing.venue)!==text(candidate.venue),
@@ -104,4 +126,4 @@ function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
    plan,production_writes:0
  };
 }
-module.exports={VERSION,ACTIVE_BOOKING_STATUSES,statusActive,bookingCountForEvent,bookingCountOnDate,availableOnDate,matchForV2,normalizeCandidate,buildReadOnlyPlan};
+module.exports={VERSION,ACTIVE_BOOKING_STATUSES,statusActive,bookingCountForEvent,bookingCountOnDate,availableOnDate,dateChangeAuthority,addedShowIdentity,matchForV2,normalizeCandidate,buildReadOnlyPlan};
