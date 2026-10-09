@@ -75,3 +75,36 @@ test('executeGapPlan runs tasks concurrently but preserves result order',async()
  assert.equal(out.status,'GAPS_RESOLVED');
  assert.equal(out.production_writes,0);
 });
+
+
+test('shared expired deadline prevents provider calls and preserves aligned incomplete task receipts',async()=>{
+ let calls=0;
+ const task={source_tier:'PUBLIC_CALENDAR',source_id:'month-202610',query:'Bangkok October',
+  providers:['BING_RSS','DDG_HTML']};
+ const result=await Exec.executeGapPlan({gap_tasks:[task,{...task,source_id:'second'}]},{
+  deadlineMs:Date.now()-100,providers:{BING_RSS:async()=>{calls++;return [];}},concurrency:2
+ });
+ assert.equal(calls,0);
+ assert.equal(result.status,'INCOMPLETE_TIME_BUDGET');
+ assert.equal(result.results.length,2);
+ assert.equal(result.deadline_exceeded_count,2);
+ assert.deepEqual(result.results.map(r=>r.status),['TIME_BUDGET_EXCEEDED','TIME_BUDGET_EXCEEDED']);
+ assert.equal(result.production_writes,0);
+});
+test('bounded executor retains completed attempt without classifying an interrupted source as exhausted',async()=>{
+ let queries=0;
+ const options={deadlineMs:Date.now()+60000,providers:{}};
+ options.providers.BING_RSS=async()=>{
+  queries++;options.deadlineMs=Date.now()-100;
+  return [];
+ };
+ const result=await Exec.executeGapTask({
+  source_tier:'PUBLIC_CALENDAR',source_id:'popradar',query:'primary search',
+  query_variants:['fallback search'],providers:['BING_RSS']
+ },options);
+ assert.equal(queries,1);
+ assert.equal(result.status,'TIME_BUDGET_EXCEEDED');
+ assert.equal(result.attempts.length,1);
+ assert.equal(result.attempts[0].status,'NO_EVIDENCE');
+ assert.equal(result.production_writes,0);
+});
