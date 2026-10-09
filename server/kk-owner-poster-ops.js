@@ -31,7 +31,7 @@ function findExact(rows,id){
 }
 // Strictly routes imperative owner poster requests, not questions/status checks.
 function detectOwnerPosterRequest(message){
-  const s=text(message).normalize('NFKC').toLowerCase();
+  const s=text(message).toLowerCase(); // Preserve Thai vowel code points: NFKC breaks literal intent phrases.
   if(!s||/(ไม่ต้อง|อย่า|ห้าม).{0,20}(เปลี่ยน|แก้|อัปเดต|อัพเดต|ใส่|รูป|โปสเตอร์)/.test(s))return false;
   if(/(ควร|ดีไหม|หรือยัง|เปลี่ยนแล้ว|สำเร็จไหม|why|should|how to)/.test(s))return false;
   const action=/(เปลี่ยน|แก้|อัปเดต|อัพเดต|อัพเดท|ใส่|replace|update|swap|change)/.test(s);
