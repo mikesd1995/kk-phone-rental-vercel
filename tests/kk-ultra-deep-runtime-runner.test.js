@@ -399,3 +399,22 @@ test('runner preserves explicit fallback query as authorized live receipt withou
  receipt.attempts=[{provider:'BING_RSS',status:'NO_EVIDENCE',query:'not part of source task'}];
  assert.equal(Registry.buildUniverseProof([receipt],{strict_live:true,month:'2026-10'}).sources.find(x=>x.source_id==='eventpop').pass,false);
 });
+
+
+test('partially executed provider query after time budget is never accepted as FULL source coverage',()=>{
+ const Registry=require('../server/kk-ultra-deep-source-registry.js');
+ const task={source_id:'eventpop',source_tier:'TICKETING',query:'eventpop Bangkok October 2026',
+  query_variants:['eventpop Thai fansign October 2026']};
+ const plan={range:{month:'2026-10'},gap_tasks:[task]};
+ const execution={results:[{status:'TIME_BUDGET_EXCEEDED',provider:null,candidates:[],
+  attempts:[{provider:'BING_RSS',status:'NO_EVIDENCE',query:task.query}]}]};
+ const receipt=Runner.sourceUniverseReceipts(plan,execution)[0];
+ assert.equal(receipt.executed,false);
+ assert.equal(receipt.status,'TIME_BUDGET_EXCEEDED');
+ const proof=Registry.buildUniverseProof([receipt],{strict_live:true,month:'2026-10'});
+ assert.equal(proof.sources.find(x=>x.source_id==='eventpop').pass,false);
+ assert.ok(proof.missing_required_sources.includes('eventpop'));
+ const observed=Runner.executionProof(execution);
+ assert.equal(observed.complete,false);
+ assert.equal(observed.executed_count,0);
+});
