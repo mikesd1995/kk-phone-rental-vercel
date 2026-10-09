@@ -32,6 +32,7 @@ async function nextReadonlyShard(input={},options={}){
  const plans=phasePlans({month,location:input.location||'Bangkok Metropolitan Region Thailand'});
  const list=options.listImpl||Bridge.shardReceiptList;
  const store=options.storeImpl||Bridge.shardReceiptStore;
+ const completed={};
  for(const phase of PHASES){
   const plan=plans[phase];
   const stored=await list(commandId,phase,options.bridgeOptions||{});
@@ -44,7 +45,10 @@ async function nextReadonlyShard(input={},options={}){
   if(checkpoint.rejected.length||checkpoint.incomplete_indexes.length)
    return safeReturn('BLOCKED_INVALID_PERSISTED_RECEIPT',{phase,month,
     rejected:checkpoint.rejected,incomplete_indexes:checkpoint.incomplete_indexes});
-  if(checkpoint.assembled)continue;
+  if(checkpoint.assembled){
+    completed[phase]={results:checkpoint.results,production_writes:0};
+    continue;
+  }
   const start=checkpoint.missing_indexes[0];
   if(!Number.isSafeInteger(start))return safeReturn('BLOCKED_SHARD_CURSOR_INVALID',{phase,month});
   const expectedStart=Math.floor(start/Shards.MAX_BATCH)*Shards.MAX_BATCH;
@@ -66,8 +70,19 @@ async function nextReadonlyShard(input={},options={}){
    start,end:receipt.end,next_start:receipt.end<plan.gap_tasks.length?receipt.end:null,
    receipt_hash:receipt.receipt_hash});
  }
+ // Replay ALL persisted provider attempts through the original strict source
+ // universe, historical known miss and reference reconciliation gates. This is
+ // evidence preparation, not commercial approval or a production COMPLETE.
+ const evidence=await Runner.runMonthlyFromCheckpoint({
+   month,location:input.location||'Bangkok Metropolitan Region Thailand'
+ },completed,{providers:options.providers||{},use_only_injected_providers:true,
+   maxRuntimeMs:Math.min(16000,Math.max(2000,Number(options.replayBudgetMs)||12000))});
  return safeReturn('SHARDS_ASSEMBLED_NEEDS_VERIFIER',{month,
-  // Actual Full Loop acceptance requires fresh official/verifier/booking/pricing readback.
+  source_evidence_status:evidence.status,
+  source_evidence_full:evidence.full===true,
+  source_blockers:(evidence.blockers||[]).slice(0,24),
+  source_candidate_count:Number(evidence.candidate_count||0),
+  // Actual Full Loop acceptance still requires verified detail and finance/owner gates.
   remaining:['LIVE_SOURCE_VALIDATION','KNOWN_MISS_LIVE_RECALL','EXTERNAL_DEMAND',
    'OWNER_BOOKING_TOMBSTONE_LOCK','INDEPENDENT_MARKET_PRICING','CORE_WEB_PUBLIC_READBACK']
  });
