@@ -382,3 +382,20 @@ test('source-universe receipts do not count failed queries or unsupported search
  assert.equal(receipt.status,'NOT_BOUND');
  assert.equal(receipt.candidate_count,0);
 });
+
+
+test('runner preserves explicit fallback query as authorized live receipt without granting arbitrary queries',()=>{
+ const Registry=require('../server/kk-ultra-deep-source-registry.js');
+ const task={source_id:'eventpop',source_tier:'TICKETING',
+  query:'eventpop Bangkok 2026-10',query_variants:['eventpop ไทย ตุลาคม 2569']};
+ const execution={results:[{status:'GAP_UNRESOLVED',provider:null,candidates:[],
+  attempts:[{provider:'BING_RSS',status:'NO_EVIDENCE',query:task.query_variants[0]}]}]};
+ const receipt=Runner.sourceUniverseReceipts({range:{month:'2026-10'},gap_tasks:[task]},execution)[0];
+ assert.deepEqual(receipt.query_variants,task.query_variants);
+ assert.equal(receipt.executed,true);
+ assert.equal(receipt.status,'NO_EVIDENCE');
+ const proof=Registry.buildUniverseProof([receipt],{strict_live:true,month:'2026-10'});
+ assert.equal(proof.sources.find(x=>x.source_id==='eventpop').pass,true);
+ receipt.attempts=[{provider:'BING_RSS',status:'NO_EVIDENCE',query:'not part of source task'}];
+ assert.equal(Registry.buildUniverseProof([receipt],{strict_live:true,month:'2026-10'}).sources.find(x=>x.source_id==='eventpop').pass,false);
+});
