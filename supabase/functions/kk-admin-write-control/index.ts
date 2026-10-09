@@ -283,6 +283,27 @@ Deno.serve(async (req: Request) => {
 
     // Scanner checkpoint artifacts use the same Vercel Production OIDC boundary
     // as commandClaim. They cannot modify storefront, prices or booking truth.
+    if (action === "shardCommandInspect") {
+      const commandId = String(body.command_id || "").trim();
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commandId))
+        return fail(400, "COMMAND_ID_INVALID", true);
+      const params=new URLSearchParams({
+        select:"command_id,month,commit,state,command_kind,production_writes",
+        command_id:"eq."+commandId,limit:"1"
+      });
+      const data=await rest("/rest/v1/kk_ultra_deep_commands?"+params.toString(),{method:"GET"});
+      const rows=Array.isArray(data)?data:[];
+      const command=rows[0]&&typeof rows[0]==="object"?rows[0] as Record<string,unknown>:null;
+      if (!command || command.commit!==false ||
+        command.command_kind!=="SHARDED_READ_ONLY" || command.production_writes!==0 ||
+        !["PENDING","RUNNING"].includes(String(command.state)))
+        return fail(409, "SHARD_COMMAND_NOT_AUTHORIZED", true);
+      return json(200,{ok:true,authenticated:true,command:{
+        command_id:commandId,month:command.month,commit:false,
+        command_kind:"SHARDED_READ_ONLY",state:command.state
+      },business_writes:0,google_sheet_writes:0});
+    }
+
     if (action === "shardReceiptStore") {
       const commandId = String(body.command_id || "").trim();
       const envelope = body.receipt && typeof body.receipt === "object" &&
