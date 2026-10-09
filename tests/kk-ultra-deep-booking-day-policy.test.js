@@ -54,3 +54,56 @@ test('cancellation releases booking-day discovery only when no other active book
  snap.bookings=[{booking_id:'B2',event_id:'EVT-BOOK',booking_status:'pending',event_date:'2026-10-24'}];
  assert.equal(Adapter.normalizeCandidate(candidates[2],snap).booking_day_excluded,true);
 });
+
+
+test('same-title Oct30 and Oct31 rounds cannot silently become an unverified date edit',()=>{
+ const snap=snapshot();
+ snap.events=[{event_id:'EVT-DAOU-30',event_name:'DAOUOFFROAD HALLOWEEN FAN PARTY 2026',
+  event_date:'2026-10-30',venue:'centralwOrld Live',active_on_web:true}];
+ snap.bookings=[];
+ const oct31={event_key:'DAOU-31',title:'DAOUOFFROAD HALLOWEEN FAN PARTY 2026',
+  event_date:'2026-10-31',venue:'centralwOrld Live',...strongDemand};
+ const match=Adapter.matchForV2(oct31,Prod.snapshotEvents(snap));
+ assert.equal(match.match,null);
+ assert.equal(match.ambiguous,true);
+ const candidate=Adapter.normalizeCandidate(oct31,snap);
+ assert.equal(candidate.exists_in_canonical,false);
+ assert.equal(candidate.identity_ambiguous,true);
+ assert.equal(candidate.rentability.decision,'HOLD_DATE_SIBLING_IDENTITY');
+ const plan=Adapter.buildReadOnlyPlan({month:'2026-10',candidates:[oct31],snapshot:snap});
+ assert.equal(plan.selected_count,0);
+ assert.equal(plan.production_writes,0);
+});
+test('explicit documented added-show identity keeps existing original date intact',()=>{
+ const snap=snapshot();
+ snap.events=[{event_id:'EVT-DAOU-30',event_name:'DAOUOFFROAD HALLOWEEN FAN PARTY 2026',
+  event_date:'2026-10-30',venue:'centralwOrld Live',active_on_web:true}];
+ snap.bookings=[];
+ const oct31={event_key:'DAOU-31',title:'DAOUOFFROAD HALLOWEEN FAN PARTY 2026',
+  event_date:'2026-10-31',venue:'centralwOrld Live',
+  verified_added_show:true,change_state:'ADDED_SHOW',...strongDemand};
+ const match=Adapter.matchForV2(oct31,Prod.snapshotEvents(snap));
+ assert.equal(match.match,null);
+ assert.equal(match.ambiguous,false);
+ const candidate=Adapter.normalizeCandidate(oct31,snap);
+ assert.equal(candidate.identity_ambiguous,false);
+ assert.equal(candidate.exists_in_canonical,false,'cannot overwrite the existing Oct30 event');
+ assert.equal(candidate.current_date,'');
+ assert.equal(snap.events[0].event_date,'2026-10-30');
+});
+test('verified reschedule requires original canonical ID; title overlap is not sufficient',()=>{
+ const snap=snapshot();
+ snap.events=[{event_id:'EVT-DAOU-30',event_name:'DAOUOFFROAD HALLOWEEN FAN PARTY 2026',
+  event_date:'2026-10-30',venue:'centralwOrld Live',active_on_web:true}];
+ snap.bookings=[];
+ const candidate={event_key:'POSTPONED',title:'DAOUOFFROAD HALLOWEEN FAN PARTY 2026',
+  event_date:'2026-11-01',venue:'centralwOrld Live',
+  official_date_change_verified:true,change_state:'POSTPONED',
+  canonical_event_id:'EVT-DAOU-30',...strongDemand};
+ const m=Adapter.matchForV2(candidate,Prod.snapshotEvents(snap));
+ assert.equal(m.match.event.event_id,'EVT-DAOU-30');
+ assert.equal(m.match.reason,'OFFICIALLY_VERIFIED_DATE_CHANGE');
+ assert.equal(Adapter.normalizeCandidate(candidate,snap).canonical_event_id,'EVT-DAOU-30');
+ const bad={...candidate,canonical_event_id:'WRONG-EVENT-ID'};
+ assert.equal(Adapter.normalizeCandidate(bad,snap).rentability.decision,'HOLD_DATE_SIBLING_IDENTITY');
+});
