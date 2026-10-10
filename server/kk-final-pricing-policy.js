@@ -161,45 +161,53 @@ function lensBaseline(input={}){
 }
 // Retained export name for callers. For one/two independent shops this is a
 // *reference*, not a reliable market median; only three+ yields a median.
-// Each quote must have been matched to the same event/date and comparable
-// rental model upstream. Deduplicate same-account reposts when shop identity
-// is supplied, and never count two packages from one shop as two shops.
+// Each quote must have been verified as the same event/date and comparable
+// rental model upstream. Group package quotes by shop: use its actual phone
+// AND bundle values where offered, not an invented flat lens add-on.
+// Unnamed source rows cannot be confidently joined, so keep them separate.
 function exactCompetitorMedian(input={}){
   const pricing=input.pricing||{};
   const evidence=Array.isArray(pricing.evidence)?pricing.evidence:[];
   const lens=lensBaseline(input);
-  const samples=[],seen=new Set();
+  const shops=new Map();
+  let unnamed=0;
   for(const row of evidence){
     const p=money(row&&row.price);if(!p)continue;
     const type=text(row&&row.package_type).toUpperCase();
-    const value=(type==='PHONE_ONLY'||type==='PHONE')?p:
-      (type==='PHONE_LENS'||type==='PHONE_LENS_BUNDLE'||type==='BUNDLE')?p-lens:null;
-    if(!(value>0))continue;
+    const phoneType=type==='PHONE_ONLY'||type==='PHONE';
+    const bundleType=type==='PHONE_LENS'||type==='PHONE_LENS_BUNDLE'||type==='BUNDLE';
+    if(!phoneType&&!bundleType)continue;
     const account=text(row.shop_id||row.competitor_account||row.shop||row.account||row.source_shop).toLowerCase();
-    if(account&&seen.has(account))continue;
-    if(account)seen.add(account);
-    samples.push(value);
+    const key=account||'unnamed-shop-row-'+(++unnamed);
+    if(!shops.has(key))shops.set(key,{phone:null,bundle:null});
+    const shop=shops.get(key);
+    if(phoneType&&shop.phone===null)shop.phone=p;
+    if(bundleType&&shop.bundle===null)shop.bundle=p;
+  }
+  const samples=[];
+  for(const shop of shops.values()){
+    const phone=shop.phone||(shop.bundle&&shop.bundle>lens?shop.bundle-lens:null);
+    const bundle=shop.bundle||(shop.phone?shop.phone+lens:null);
+    if(phone>0&&bundle>0)samples.push({phone,bundle});
   }
   const count=Math.min(exactCompetitorCount(input),samples.length);
   if(count<1)return null;
-  const value=median(samples.slice(0,count));
-  if(!value)return null;
+  const selected=samples.slice(0,count);
+  const phoneValues=selected.map(v=>v.phone),bundleValues=selected.map(v=>v.bundle);
+  const phone=median(phoneValues),bundle=median(bundleValues);
+  if(!phone||!bundle)return null;
   const referenceOnly=count<3;
   const method=count>=3?'EXACT_EVENT_COMPETITOR_MEDIAN':count===2?'EXACT_EVENT_TWO_SHOP_REFERENCE_MIDPOINT':'EXACT_EVENT_ONE_SHOP_REFERENCE';
   const policy=fallbackPolicy(input);
   const ids=templateIds(input,policy);
   return {
-    phone:value,
-    lens,
-    bundle:value+lens,
-    shop_count:count,
-    reference_only:referenceOnly,
-    method,
-    sample_range:[Math.min(...samples.slice(0,count)),Math.max(...samples.slice(0,count))],
+    phone,lens,bundle,shop_count:count,reference_only:referenceOnly,method,
+    sample_range:[Math.min(...phoneValues),Math.max(...phoneValues)],
+    bundle_price_range:[Math.min(...bundleValues),Math.max(...bundleValues)],
     final_prices:[
-      {template_id:ids.phone,override_price:value,active_override:true,override_note:method+(referenceOnly?'|PROVISIONAL_RECHECK_COMPETITOR':'')},
+      {template_id:ids.phone,override_price:phone,active_override:true,override_note:method+(referenceOnly?'|PROVISIONAL_RECHECK_COMPETITOR':'')},
       {template_id:ids.lens,override_price:lens,active_override:false,override_note:'LENS_ONLY_HIDDEN_STORE_BASELINE'},
-      {template_id:ids.bundle,override_price:value+lens,active_override:true,override_note:method+'_PLUS_LENS'+(referenceOnly?'|PROVISIONAL_RECHECK_COMPETITOR':'')}
+      {template_id:ids.bundle,override_price:bundle,active_override:true,override_note:method+'_BUNDLE'+(referenceOnly?'|PROVISIONAL_RECHECK_COMPETITOR':'')}
     ]
   };
 }
@@ -293,6 +301,7 @@ function resolve(input={}){
       minimum_publish_score:fallbackPolicy(input).minimum_publish_score,
       competitor_evidence_count:exact.shop_count,
       competitor_price_range:exact.sample_range,
+      competitor_bundle_range:exact.bundle_price_range,
       competitor_reference_used_as_final:true,
       requires_per_event_owner_price_decision:false
     };
