@@ -18,6 +18,7 @@ const UltraDeepProvider = require('./kk-ultra-deep-provider-executor.js');
 const UltraDeepPublicWeb = require('./kk-ultra-deep-public-web-adapters.js');
 const MonthlyDeepScan = require('./kk-monthly-deep-scan-query-plan.js');
 const FinalPricingPolicy = require('./kk-final-pricing-policy.js');
+const DemandPricingShadow = require('./kk-demand-pricing-shadow.js');
 const StorefrontUx = require('./kk-storefront-ux-reviewer.js');
 const StorefrontArt = require('./kk-storefront-art-director.js');
 const UltraDeepRuntime = require('./kk-ultra-deep-runtime-runner.js');
@@ -29,7 +30,7 @@ const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
 const OpenAiAgents = require('./kk-openai-agent-adapters.js');
 const XPostingPlan = require('./kk-x-posting-plan.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V19';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V20_DEMAND_SHADOW';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -260,6 +261,19 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-discovery-source-watch'],
         result: SourceWatch.evaluateObservation(input, options.sourceWatchOptions || {})
+      };
+
+    // Dedicated report-only dynamic price intelligence: NEVER business writes.
+    case 'demand_pricing_shadow':
+      return {
+        invoked_agents:['kk-demand-pricing-shadow','kk-pricing-learning-shadow'],
+        result:DemandPricingShadow.propose(input)
+      };
+
+    case 'learn_demand_pricing_outcome':
+      return {
+        invoked_agents:['kk-pricing-learning-shadow'],
+        result:DemandPricingShadow.learn(input)
       };
 
     case 'resolve_final_pricing':
