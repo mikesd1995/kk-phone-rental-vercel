@@ -50,4 +50,49 @@
 4. **P1 X attribution** counted `assumed_posted` is NOT verified post publication; owner receives one best draft; train only from actual URLs and completed bookings.
 5. **P2 Consolidate source PRs** without erasing latest known-miss calendar work. Keep #49, #368, #677, #686 and this document as cross-chat references.
 
-**Mutation summary:** 6 code/test/CI commits + this documentation checkpoint in draft PR; NO production business write, no pricing change, no X post, no paid operation, no scheduler activation, no Apps Script edits, no protected-main merge. **Project NOT production-complete.**
+**Historical 10 Oct earlier checkpoint:** 6 source/test/CI commits and documentation were recorded then; subsequent independently verified repairs are detailed below. No protected-main merge or business write.
+
+## 6. Additional owner-directed implementation — 2026-10-10 ~22:30 Asia/Bangkok (P0/P1 source closure)
+
+**Owner authorized:** continue deep repairs without repeating basic questions. The previously deferred Booking/LINE/Apps Script project #1 remains out of scope. However, ALL booking-date, exact-event, owner-hidden, price lock and inventory safety gates must remain active, including when scanning or suggesting prices.
+
+### A. Terminal Ultra Deep acceptance — fixed from already-reviewed PR #681 safety patch
+- **Problem:** old `server/kk-ultra-deep-full-loop-v2.js` coerced missing/ambiguous `planned_mutation_count` and `production_writes` to zero. A result could be labelled `COMPLETE` with no truthful candidate-terminal proof or mutation reconciliation.
+- **Repair:** `82e3f4acb117ad0086f015bf868d8bbc0a2262d8` source port from the narrower exact PR #681 patch; strict safe nonnegative integer type evidence, complete candidate disposition and mutations, matching write result and exact readback. No Booking/Apps Script code ported.
+- **Regression:** `85495e20766cfc2d997ce2ee577367c7ede2a3aa` adds seven terminal-evidence safety test cases, proving fail-closed on missing/forged counters and correct NO_CHANGE/owner-hidden outcomes.
+
+### B. Canonical Project Memory corpus schema — fixed
+- **Problem:** `config/kk-project-memory.json` still contained `kind=RUN_RESULT`, an unsupported type causing `KK_PROJECT_MEMORY_V1` bootstrap fail-closed.
+- **Repair:** `9124bedf2128cb1a6a49cd50a76c19ee01b7cd92` switches *only* memory id `kk:memory:october-external-demand-reconciliation:20261007` to canonical `kind=ACCEPTANCE`, keeping its factual summary and evidence.
+- **Tests:** `e38efaafed2ac5d5ea4d59e382b4ced2fb02675b` validates entire checked-in corpus and keeps invalid RUN_RESULT rejected (no opening of schema to arbitrary kinds).
+- **Durable cross-chat memory:** `999341e30c201fb9d412a2bd8726a1fb176513a3` added IMPLEMENTATION record `kk:memory:ultradeep-terminal-poster-gates:20261010`, referring to this handoff and exact technical evidence. This memory file is SOURCE-ONLY until PR merge, not proof of persisted live Agent learning.
+
+### C. Poster audit false-PASS defect — fixed in source
+- **Problem:** `scripts/audit-storefront-posters.js` previously treated a fallback-loaded card as PASS even when `08_Web_Ready.poster_image_url` was blank or primary image had failed. It did not report canonical-missing counts separately.
+- **Repair:** `9c55cb2eb70f76f41ff3638dc965d47f9f0759cf` added pure `assessPoster`, `canonical_missing`, `canonical_delivery_ok`, `canonical_integrity_status`, per-event metadata and aggregate `canonical_missing_count`/`canonical_delivery_failed_count`. New CLI audit fails when any canonical is blank/broken, even with a working event-specific fallback; never changes Canonical Sheets/Prod.
+- **Tests:** `e3e27e904bfab50d4f7ff3f37a3286109b269aac` added five cases: blank canonical, exact-event fallback, broken original with working fallback, healthy original, and no unrelated poster substitutions. `1e364e54861f4598cddcc1ba210cbfd01428d3f0` wired them into existing Vercel postinstall gate.
+- **Actual source of truth audit:** `KK Phone rental backend` `08_Web_Ready!A4:K600` on 10 Oct = 335 rows, **96 public visible** and exactly **10 public rows with missing original poster URL**. The IDs are listed verbatim in §4 above and GitHub Issue #677. 3 LOLLI Nov26/27/29 original URL fields are now nonempty. The verified public customer API previously responded HTTP 200 and contained relevant IDs. No rendered-browser claims and **0 live poster repairs** were made in this continuation because no exact original asset provenance was verified for those 10; never use a May MizuMi poster for a November event.
+- **Still required:** obtain 10 primary-source original images with exact date/event provenance and access rights, write ONLY exact `01_Events.poster_image_url` through owner-authorized governed updater, derive `08_Web_Ready`, check public feed and rendered full poster; do not overwrite generated Web Ready or use arbitrary screenshots.
+
+### D. Executed code acceptance: Vercel Preview source test receipts, not synthetic claims
+- Commit `f2143d5e23b8766d26f732d978cdf8625eecbcf2` -> Vercel Preview **`dpl_GH9fqjYDjB48AhYcpnWsDjuSPpy2` READY**, build log **202/202 PASS** (Ultra Deep/Pricing/Project Memory/Terminal) and **1/1 original-poster asset PASS**.
+- Commit `1e364e54861f4598cddcc1ba210cbfd01428d3f0` -> Vercel Preview **`dpl_98W6UWj8FS8hYtKV5ggqFXJHH43p` READY**, build log **207/207 PASS** (includes five new canonical poster audit tests) and **1/1 original-poster asset PASS**; 0 failures; deployment completed.
+- Later `config/kk-project-memory.json` addition `999341e30c201fb9d412a2bd8726a1fb176513a3` is a distinct newer commit: **do not assert its exact-head Preview passed without checking**. If later document commit is canceled/ignored, preserve the last exact executable source test commit evidence honestly.
+- GitHub Actions workflows previously failed before job steps with `BlobNotFound` for logs; Vercel Preview was a legitimate no-extra-cost **source/test fallback**, NOT a substitute for formal GitHub-hosted CI, rendered Visual QA, external live Source receipts, authenticated V27 command or full Production release gate.
+
+### E. Actual V27 / cost / governance revalidation
+- Canonical Supabase unified control plane `kk-unified-inbox` project `mxjnjujqjybqughsnqbz`: SQL read-only **9** `kk_ultra_deep_commands` (1 old COMPLETE, 8 FAILED), all `commit=false`, all `production_writes=0`.
+- No `kk_ultra_deep_scan_shards`/other sharded checkpoint public table; command schema has no typed sharded column. The migration and corresponding authenticated service-role/OIDC readback/Edge control action proposed on PR #680 **have not been deployed**.
+- Source Candidate/Verifier still lacks accepted live FULL/known-miss/official coverage receipts, so **NO autonomous monthly FULL status**. A Vercel Preview Ready tests source only; current Production alias still points to `dpl_AmYtTipVdrzuT1i5XdYBGp3wdY1L` unless rechecked.
+- Do not rerun paid/hosted pipelines repeatedly just to get green badges. No TinyFish/Make credit spend or user top-up; no extra scheduler, Writer, business price, Booking, LINE or X publication mutations.
+
+### F. Resume instructions in a new chat
+1. Start from this doc, PR #680 and Issues #368 / #677 / #49; check latest exact branch/head, not this text's historical commit.
+2. Re-read latest exact-head Vercel Preview logs for memory/doc commits and price/candidate/poster CI. Maintain Draft if source gate unproven.
+3. Security/review compare PR #680 vs #681 (the two safe repairs above are now included) plus overlapping #654/#655. Avoid merge of stale Apps Script changes.
+4. Fix external runtime availability and genuine candidate verification receipts, then service-role-only Supabase shard storage/OIDC **only after auth/security/source readiness review**. Run Oct/Nov `commit=false` and exact target-month Source/Verifier reconciliation. **Business writes stay 0** for read-only gates.
+5. Resolve all 10 missing official poster sources; use exact owner-approved data write and Core→derived→public→rendered readback. If no primary art exists, report HOLD, no substitutes.
+6. Backtest demand pricing suggestions against 10+ anonymized completed comparable outcomes and 1–2 competitor raw quotes, current owner locks; no model/causal-lift claim. For X, only real publication URLs count toward learning.
+7. Mark project final completion only after CI, production command, full independent source proof, Verifier, readback and owner approvals, not source tests alone.
+
+**Current actual outcomes:** additional repairs are SOURCE/PREVIEW tested; live business mutations=0, paid spend=0, Production FULL not accepted. This report and Project Memory SOURCE record explicitly persist across chats.
