@@ -74,3 +74,17 @@ test('reading shards via production OIDC is read only and refuses absent token',
  assert.equal(good.read_only,true);
  assert.equal(good.business_writes,0);
 });
+
+test('production shard migration parses with balanced PostgreSQL dollar delimiters and typed zero-write guard',()=>{
+ // A lone AS $ (not AS $$) is invalid PostgreSQL and blocked source release.
+ assert.doesNotMatch(migration,/as \$\s*\n/i);
+ assert.match(migration,/returns jsonb language plpgsql security definer set search_path='' as \$\$/);
+ assert.match(migration,/end \$\$;/);
+ assert.match(migration,/kk_ultra_deep_sharded_readonly_check/);
+ assert.match(migration,/check\(command_kind<>'SHARDED_READ_ONLY' or \(commit=false and production_writes=0\)\)/);
+ assert.match(migration,/shard_end-shard_start<=16/);
+ assert.match(migration,/SHARD_PAYLOAD_INVALID/);
+ assert.match(migration,/jsonb_array_length\(p_receipt_json->'records'\)<>p_shard_end-p_shard_start/);
+ assert.match(migration,/revoke all on function public\.kk_ultra_deep_scan_shard_insert/);
+ assert.ok((migration.match(/\$\$/g)||[]).length%2===0,'balanced $$ quotes');
+});
