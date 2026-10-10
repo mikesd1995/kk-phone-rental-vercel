@@ -12,6 +12,9 @@ const SIGNAL_WEIGHTS=Object.freeze({
 });
 const COMPLETED=new Set(['completed']);
 function text(v){return String(v===null||v===undefined?'':v).trim();}
+// Sheets readback can use TRUE/FALSE or 0/1 strings; never interpret a
+// nonempty string such as "FALSE" as an affirmative owner/booking lock.
+function enabled(v){return v===true||v===1||['true','1','yes','on'].includes(text(v).toLowerCase());}
 function number(v){if(v===null||v===undefined||text(v)==='')return null;const n=Number(v);return Number.isFinite(n)?n:null;}
 function price(v){const n=number(v);return n!==null&&n>0&&n<=10000?n:null;}
 function score(v){const n=number(v);return n!==null&&n>=0&&n<=100?n:null;}
@@ -56,10 +59,14 @@ function verifiedPaidHistory(rows=[],eventId=''){
  }).map(r=>({event_id:text(r.event_id),event_date:text(r.event_date),paid_phone_price:price(r.paid_phone_price),source_ref:text(r.source_ref)}));
 }
 function guard(input={}){
- if(input.tombstone_locked===true||input.owner_hidden===true)return 'HOLD_OWNER_HIDDEN_TOMBSTONE';
- if(input.has_active_booking_on_date===true||input.booking_day_locked===true)return 'HOLD_BOOKING_DATE_PRICE_LOCK';
- if(input.owner_price_locked===true||input.owner_final_price===true)return 'HOLD_OWNER_FINAL_PRICE_LOCK';
- if(input.available_inventory===0||input.inventory_conflict===true)return 'HOLD_NO_INVENTORY_OR_COLLISION';
+ if(enabled(input.tombstone_locked)||enabled(input.owner_hidden))return 'HOLD_OWNER_HIDDEN_TOMBSTONE';
+ if(enabled(input.has_active_booking_on_date)||enabled(input.booking_day_locked))return 'HOLD_BOOKING_DATE_PRICE_LOCK';
+ if(enabled(input.owner_price_locked)||enabled(input.owner_final_price))return 'HOLD_OWNER_FINAL_PRICE_LOCK';
+ // Numeric zero, string "0", negative or uncertain inventory must never
+ // lead to a positive phone-price proposal. Zero-price Lens offers are separate.
+ const available=number(input.available_inventory);
+ if(enabled(input.inventory_conflict)||(available!==null&&available<=0))return 'HOLD_NO_INVENTORY_OR_COLLISION';
+ if(!Number.isSafeInteger(available)||available<1)return 'HOLD_INVENTORY_NOT_VERIFIED';
  if(input.event_verified!==true)return 'HOLD_EVENT_NOT_VERIFIED';
  if(!text(input.event_id)||!/^\d{4}-\d{2}-\d{2}$/.test(text(input.event_date)))return 'HOLD_EVENT_IDENTITY_DATE_REQUIRED';
  const d=new Date(text(input.event_date)+'T00:00:00Z');
@@ -141,8 +148,18 @@ function propose(input={}){
 function learn(input={}){
  const proposal=input.proposal||{};
  const rows=Array.isArray(input.outcomes)?input.outcomes:[];
- const verified=rows.filter(r=>r&&r.verified===true&&text(r.event_id)===text(proposal.event_id)&&
-   text(r.source_ref)&&['completed','cancelled','no_show'].includes(text(r.booking_status).toLowerCase()));
+ // Deduplicate proven outcome receipts before computing Actual, confidence or
+ // cancellations. Repeated ingestion of one receipt is not another rental.
+ const seen=new Set();
+ const verified=rows.filter(r=>{
+  if(!r||r.verified!==true||!text(proposal.event_id)||text(r.event_id)!==text(proposal.event_id)||
+     !text(r.source_ref)||!['completed','cancelled','no_show'].includes(text(r.booking_status).toLowerCase()))return false;
+  const receiptId=text(r.booking_id||r.observation_id||r.source_ref);
+  const key=text(r.event_id)+'|'+receiptId;
+  if(seen.has(key))return false;
+  seen.add(key);
+  return true;
+ });
  const completed=verified.filter(r=>text(r.booking_status).toLowerCase()==='completed'&&price(r.paid_price)!==null);
  const gross=completed.reduce((a,b)=>a+price(b.paid_price),0);
  const noPaid=verified.filter(r=>text(r.booking_status).toLowerCase()!=='completed').length;
