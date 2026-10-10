@@ -79,3 +79,42 @@ Owner asked to complete October Ultra Deep Scan and fix old/new storefront price
 - Production is a separate earlier READY main deployment, not Oct-only PR. Releasing without full CI acceptance/Verifier/owner governance is prohibited.
 
 **Updated handoff:** `OCT_ONLY|PR689_DRAFT|SHADOW_V2|SNAPSHOT_ADAPTER_V1|ISOLATED_TESTS_37_PASS|CORE_OCT_143_VISIBLE_57_FUTURE_43|SOURCE_HOLD_52|BOOKING_HOLD_4|DATE_CONFLICT_HOLD_1|ORIGINAL_POSTERS_MISSING_7|TRACKER_CHILLIZ_ROW361_OK|TRACKER_VVV_CONFLICT_ROW362_OK|CORE_PRICE_WRITES_0|PRODUCTION_DEPLOYS_0|NOVEMBER_WRITES_0|FREE_BUILD_RATE_LIMIT|CI_ACTIONS_RED`.
+
+---
+
+## 2026-10-11 continuation — source-precedence bug, refreshed October market, source-of-truth verification
+
+**Scope remains ONLY 2026-10; user asked complete thoroughly without repeat questions.** New work this turn is source verification, four actual Google Sheets tracker note writes with independent readback, and a new source-precedence adapter safety fix on Draft #689, NOT a claimed production repricing.
+
+### 1) October production data verified again
+- Read connected Core Google Sheet `12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU` from `01_Events`, `08_Web_Ready`, `09_Web_Packages` and bookings. **57 October visible events have both phone and phone+lens rows; none has a bundle lower than phone and no event package price was missing**. This is a structural verification, NOT a declaration that prices are optimal.
+- Owner-specific readbacks unchanged: The Weeknd Oct11–13 **990/1090**, OH MY FOURTH Oct16–18 **890/1090**, LYKN Oct23–25 **990/1290**, BENTON Oct28 **490/590**, NARS Oct25 **790/990**.
+- **7 October visible original poster source URLs remain missing.** Public LE7EL official artist post confirms Oct15 18:00 AIS SIAM (https://www.sotwe.com/mollymmmale and https://www30.twstalker.com/mornordotjpg_), but searched poster images repeatedly returned **2025 debut, May 2026 schedules or April 2026 appearances**; none passed strict exact-event original media provenance, so no counterfeit/poster write.
+- There is no new confirmed direct-source current competitor price for BENTON/NARS. Ticket-purchase/Lucky Fan entry prices are NOT phone-rental peer prices. Public THE FACE SHOP direct brand site https://www.thefaceshopthailand.com/index.php/ lists campaign `Rice & Radiance with TEETEEPOR`, social https://03-presentation.twstalker.com/thefaceshop_th verifies Oct30/30 selected Lucky Fans/purchase draw, but still no exact venue, camera/filming permission, original current event poster, or safe KK final packages: remain `VERIFIED_HOLD`.
+
+### 2) Fresh October competitor source review and dedup
+- Search via public X mirrors yielded specific quotes; **verified those are ALREADY in Tracker `_Price_Evidence` rows 225–233 (checked `2026-10-09T01:05:00+07:00`, quality `Medium`)**. Do NOT append duplicates or misrepresent as brand-new quotes.
+- **OH MY FOURTH 16–18 Oct, X300 Pro + lens** observed via 5 historical indexed account/offer rows: LetsSnapandGo **900**, arikatohforrent **950**, memeowyy **900**, thewendypp **990**, `kkphonerental` **1050**; *raw sample median* 950 THB, KK current **1090** (140 higher). The `@kkphonerental` account is a separate shop, NOT automatically user KK Phone Rental. These are mirror/aggregated quotes with source URLs in Tracker, not primary authenticated fresh verified offers; **do not convert median into a production change or claim 140 realized revenue loss**. Oct18 BOOKING LOCK. Oct16/17 require true demand and owner safety check.
+- **LINGORM 17–18 Oct, X300 Pro+Lens** four October 9 mirror rows: Memorlens **900**, arikatohforrent **950**, memeowyy **990**, `kkphonerental` **1000**; sample median 970, KK **990**. These are *informational*, not verified apples-to-apples pickup/deposit/availability. Do not auto-adjust.
+- Public mirror sources: https://www.sotwe.com/memeowyy?lang=tr and https://www.sotwe.com/hashtag/lingormconcert?lang=id ; ledger exact per-shop original links remain in rows 225–233. Do not count event TICKET face values in phone competitor market. Owner 1–2 peer rule still per shop for future exact events.
+
+### 3) Major source conflict found: Melody Of Life 17 dates
+- Official organizer-connected 29 Sep press coverage `Chang Music Connection Presents Melody Of Life 17` **16–18 Oct at centralwOrld, free, four stages, 100+ performers**: https://www.ppat2508.org/46489/ ; corroboration https://www.prachachat.net/sd/news-2069932 .
+- **PopRadar single event page incorrectly shows 15–17 Oct**: https://popradar.app/events/festival/melody-of-life-17-centralworld-2026-10-16 . NEVER let it create fake Oct15 card or delete official Oct18 event. Existing Oct18 booking-day lock from OH MY FOURTH still takes precedence.
+- Third-party community timetable at https://idoltrack.thaicyberpoint.com/event/melody-of-life-17-oct-2026 contains Oct16/17 performer/stage rows; it marks estimates and has inconsistent timezone translation. **DO NOT copy stage clock times to customer pickup/return until organizer's original stage poster is verified.**
+- **Actual tracker writes**: only `_Candidate_Queue!L238:L240` for Oct16/17/18 and `L320` for Oct30 THE FACE SHOP. Added `OCT11_OFFICIAL_DATE_PRIORITY_16_18...` source/hold notes and `OCT11_DIRECT_BRAND_CAMPAIGN_ENTRY_RECONFIRMED...` source/hold note. Google Sheets batch `4/4` success, separate readback `4/4` exact note tags verified, statuses retained `HOLD/HOLD/HOLD/VERIFIED_HOLD`; no price, poster, Booking, visibility, event new Core or November writes.
+- Previously staged CHILLIZ Oct30 row361 and existing-core VVV date conflict review row362 remain undisturbed.
+
+### 4) Code changes: October Snapshot official primary schedule precedence
+- Added `officialSchedule={verified:true,source_url:'https://...',dates:['YYYY-MM-DD',...]}` optional evidence input to `server/kk-october-pricing-snapshot.js` V2 `KK_OCT2026_PRICING_SNAPSHOT_V2_OFFICIAL_DATES`. The adapter checks exact verified, sourced official dates and sets `event_source_conflict` if the indexed event's day is *not* among those dates. Unverified/malformed schedules do NOT get falsely labelled primary. `server/kk-demand-pricing-shadow.js` V2 then fail-closes `HOLD_CONFLICTING_EVENT_DATE_OR_SOURCE` before recommending a price.
+- Example: official Melody Oct16/17/18, third-party erroneous Oct15 => safety HOLD. Legitimate Oct16 input => no conflict. This is **a shadow-only source-precedence guard, not a change to scanner production publication code**.
+- Version declared consistently in `server/kk-agent-registry.js` as `KK_OCT2026_PRICING_SNAPSHOT_V2_OFFICIAL_DATES`.
+- Appended two regression tests for organizer/aggregator conflict and unverified schedule, with **isolated JavaScript harness 39/39 passing** on code prior to version-only bump. This is NOT the full native Node or GitHub CI suite. The focused test script remains `npm run test:demand-pricing:shadow`. Production status is still unchanged.
+
+### 5) Release truth
+- Oct-only PR #689 remains DRAFT and unmerged, on source branch `fix/oct2026-demand-pricing-isolated-20261010`. Source-only changes do not imply production rollout. Previous Vercel check `?upgradeToPro=build-rate-limit` (free build rate exhaustion), GitHub Ultra Deep V2 / Storefront Visual QA / OpenAI Optional workflows independently FAILED with logs returning `404 BlobNotFound`; no root-cause claim beyond that.
+- **Read-only Vercel production check 2026-10-11**: alias `kk-phone-rental.vercel.app` still READY on deployment `dpl_AmYtTipVdrzuT1i5XdYBGp3wdY1L`, main commit `69390a94972b8c636317bbf00d62ab677c0cc66f`; Draft PR #689 has not shipped.
+- **Zero Core price writes, zero poster updates, zero new public events, zero November writes, zero paid external spending.** This is meaningful progress in source/booking safety and durable evidence, not full original poster/new-event/pricing completion.
+
+**Cross-chat checkpoint (2026-10-11):**
+`OCT_2026_ONLY | CORE_VISIBLE57_PACKAGE_ROWS_ALL_VALID | POSTER_MISSING7 | PR689_DRAFT_NOT_PROD | MELODY_PRIMARY_16_18_POPRADAR_15_17_CONFLICT | TRACKER_NOTES_238_239_240_320_READBACK4/4 | TFS_CANDIDATE_ONLY | OCT9_COMPETITOR_ROWS225_233_ALREADY_PRESENT_NO_DUPLICATES | OHMY4_MIRROR_MEDIAN950_CURRENT1090_NO_WRITE | LINGORM_MIRROR_MEDIAN970_CURRENT990_NO_WRITE | OFFICIAL_SCHEDULE_SNAPSHOT_V2 | 39_FOCUSED_TESTS_PASS_ISOLATED | GITHUB_CI_RED | VERCEL_FREE_BUILD_RATE_LIMIT | CORE_WRITES0 | NOV_WRITES0 | PAID0`.
