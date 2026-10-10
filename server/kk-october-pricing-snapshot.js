@@ -1,7 +1,7 @@
 'use strict';
 // Zero-cost pure adapter between canonical read-only Core Sheet rows and
 // October 2026 Demand Shadow. No connector, mutation, network, or PII output.
-const VERSION='KK_OCT2026_PRICING_SNAPSHOT_V1';
+const VERSION='KK_OCT2026_PRICING_SNAPSHOT_V2_OFFICIAL_DATES';
 const ACTIVE_BOOKING=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded']);
 const CLOSABLE=new Set(['completed']);
 const PACKAGE=new Set(['phone_only','phone_lens_bundle']);
