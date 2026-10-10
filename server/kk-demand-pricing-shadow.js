@@ -106,6 +106,9 @@ function verifiedPaidHistory(rows=[],eventId=''){
  return out;
 }
 function guard(input={}){
+ if(enabled(input.event_source_conflict)||enabled(input.event_date_conflict)||
+  (text(input.official_event_date)&&text(input.official_event_date)!==text(input.event_date)))
+  return 'HOLD_CONFLICTING_EVENT_DATE_OR_SOURCE';
  if(enabled(input.tombstone_locked)||enabled(input.owner_hidden))return 'HOLD_OWNER_HIDDEN_TOMBSTONE';
  if(enabled(input.has_active_booking_on_date)||enabled(input.booking_day_locked))return 'HOLD_BOOKING_DATE_PRICE_LOCK';
  if(enabled(input.owner_price_locked)||enabled(input.owner_final_price))return 'HOLD_OWNER_FINAL_PRICE_LOCK';
