@@ -1,0 +1,37 @@
+# KK Phone Rental — Vercel Hobby Deployment Storage zero-cost recovery (10 Oct 2026)
+
+## Why this exists
+The owner supplied an authenticated Vercel warning email (10 Oct ~23:19 Asia/Bangkok) that team `mikesd1995s-projects` has consumed the included **10 GB of Deployment Storage**. This is NOT proof that storefront bandwidth or Vercel Blob storage is exhausted. **Do not upgrade Pro, pay for extra storage, or delete KK storefront Production.**
+
+### Audited exact data (Vercel connected account)
+- Team: `team_uaeOdVIjXMSW690ZM2wPuJyt`; project `kk-phone-rental-vercel` ID `prj_snbAmpya7YGmOuMbv1o8T16ouxl6`.
+- Last 100 stored Vercel deployments from 9–10 Oct: 50 READY, 33 CANCELED, 17 ERROR; branch distribution **73** `fix/ultra-deep-oct-brand-schedule-recall-20261009`, **21** `fix/unified-inbox-private-line-images-20261010`, **6** `fix/oct2026-demand-pricing-isolated-20261010`. This is **high deployment churn**, likely materially contributing to the 10GB usage. **Per-deployment bytes and exact team storage breakdown were not exposed by available connector**; do not fabricate total MB savings.
+- Main customer alias `kk-phone-rental.vercel.app` remains assigned to Production `dpl_AmYtTipVdrzuT1i5XdYBGp3wdY1L` after the emergency settings change. No production alias reassign, deployment delete, or billing changes.
+- Existing `vercel.json` only set `git.deploymentEnabled.main=true`; Vercel docs default other unmatched branches to true. Old `scripts/vercel-ignore-build.js` skips docs/tests but wrongly treated EVERY `scripts/*` file as safe; some scripts are build-time gate logic. `config/kk-project-memory.json` is live Agent source input, so DO NOT just globally ignore its changes as docs.
+
+## Immediate intervention applied via Vercel connection
+- Vercel Project Update API accepted `previewDeploymentsDisabled:true` for this exact project; update timestamp changed and a follow-up lookup found the original customer Production alias unchanged. **The normalized Vercel project readback does not expose `previewDeploymentsDisabled`**, so record the flag as *API-accepted, indirect evidence*, not independently proven by a raw setting readback.
+- New branch `fix/vercel-deployment-storage-zero-cost-20261010` created from `main`; after the first source commit, list of deployments for this branch returned **0**. This is compatible with Preview being disabled, but not a guaranteed long-term toggle confirmation.
+- This project toggle is a reversible **emergency brake**; it can suppress *all* auto Preview builds including any desired release candidate. Do not turn it off until the narrower source branch policy has been merged to main and unnecessary active branches assessed. Do not cancel or interrupt Production.
+
+## Proposed permanent zero-cost source changes — isolated PR
+- `vercel.json` `git.deploymentEnabled` now has `{'**':false,'main':true,'release/**':true}`. Vercel minimatch docs state if multiple patterns match, any matching `true` takes priority. So `main` remains an auto Production deployment, `release/*` is deliberately whitelisted when global Preview is reenabled, and normal `fix/*` and `feat/*` branches do not auto-deploy on every commit.
+- `scripts/vercel-ignore-build.js`: remove blanket `/^scripts\\//` safe exclusion. Only keep exact 2 existing ops-only scripts `resolve-current-production.js` / `accept-oidc-production.js` safe to skip. Other build-critical scripts require a build when their branch is intentionally deployed.
+- Regression tests added in `tests/vercel-ignore-build.test.js` and `tests/vercel-deployment-policy.test.js` to assert default deny, main/release allowlist, existing production routing, and that changes in scanner/poster/build scripts or runtime `kk-project-memory.json` still require build.
+- **This branch is not merged or live on Production yet; new tests are SOURCE-CHECKED, not executed by an exact-head CI or Vercel Preview** due emergency quota brake. Changes only become the ongoing Vercel policy when gated and merged.
+
+## Recovery sequence — no extra spend
+1. **Immediately** halt new Preview generation (emergency project toggle accepted; verify on Settings → Git/Environments if the UI supports this setting), pause agent workflows that auto-dispatch Vercel deployments, and avoid manual redeploys. Do not shut off Production.
+2. **Now** open Vercel → team `mikesd1995s-projects` → **Usage → Deployment Storage** and inspect exact project breakdown / retained bytes. Separately examine v0-accounting-dashboard-ui and project-75ee2 to determine whether dormant projects also contribute; no deletion without evidence.
+3. Under `kk-phone-rental-vercel` → **Settings → Security → Deployment Retention**, choose *shortest supported safe* retention for CANCELED/ERROR (e.g. 1–7 days when available), and Preview (7–30 days when offered). Preserve active Production and essential rollback deployment. Also inspect whether active-branch previews are protected from automatic deletion. On Sep 16 2026, Hobby policy was changed to retain 3 most recent Production, 3 most recent any state, and protect active branch/aliased Production; per-plan UI options may differ.
+4. Review this isolated PR source and `npm test` including new tests through **no-cost local/GitHub capacity** rather than forcing Vercel at 10GB. Merge only after Vercel config semantics and protected production route parity confirmed. A merge into `main` will trigger ONE production build and may fail while storage remains 10GB; resolve storage headroom first.
+5. Once main includes allowlist and storage usage has headroom, consider re-enabling Preview at the project level. Vercel should then generate only deliberately named `release/*` preview branches, while ordinary `fix/*` agent commits stay offline. Do not claim this works until first controlled release candidate has exact-head Preview acceptance.
+6. Stop writing routine scanner/agent snapshots into deployment-critical files. Keep full audit records in GitHub Issues, Google Sheets/Supabase controlled ledgers (free quotas only), or documentation-only commits. If source Agent runtime JSON changes, retain deliberate gated test/build even though it costs a Deployment.
+7. Recheck Usage after Vercel's retention/deletion accounting updates; DO NOT claim space was freed before dashboard confirms. Target: <=7 GB sustained with room for 1 Production + 1 gated RC; exact space savings unknown until usage measurement.
+
+## Safety checklist / rollback
+- Reversible emergency toggle: use Vercel Project settings to set `previewDeploymentsDisabled:false` **only when ready**. Roll back the isolated `git.deploymentEnabled` source change if it blocks an essential release, but preserve production branch auto deploy.
+- No Vercel deploy deletion executed, no upgrade/paid service/Blob purchase, no alias or domain edit, no current-storefront shutdown, no Business/Booking/LINE/Apps Script writer change.
+- Existing Ultra Deep Draft #680 is not merged by this storage PR. Keep its security and runtime gates separate.
+- Official Vercel docs: https://vercel.com/docs/project-configuration/git-configuration ; https://vercel.com/docs/deployment-storage/optimize ; https://vercel.com/changelog/hobby-projects-now-retain-fewer-deployments-to-free-up-storage .
+- Owner can continue from this doc and the PR in a new ChatGPT chat; check current Vercel Usage and exact branch HEAD before declaring storage recovered.
