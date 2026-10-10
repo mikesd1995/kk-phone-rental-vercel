@@ -2,6 +2,8 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const S=require('../server/kk-october-pricing-snapshot.js');
+const Router=require('../server/kk-agent-task-router.js');
+const Registry=require('../server/kk-agent-registry.js');
 const id='EVT-20261028-BENTON-JOURNEY-BACK-TO-GLOW';
 const other='EVT-20261007-RYO-HAIR-X-TEETEEPOR';
 function ev(date='28/10/2026',visible='TRUE',poster=''){
@@ -98,4 +100,24 @@ test('no paid or future completed receipts can be counted as history',()=>{
   targetEventId:id,targetEventDate:'2026-10-20'});
  assert.equal(q.length,1);
  assert.equal(q[0].booking_id,'OLDER');
+});
+
+test('October Core snapshot is reachable through declared read-only Agent Gateway route',async()=>{
+ const r=await Router.executeTask('prepare_october_pricing_snapshot',{
+  eventRow:ev(),packageRows:packageRows(),bookingRows:[b('confirmed','2026-10-28')],
+  options:{eventVerified:true}
+ });
+ assert.equal(r.result.input.has_active_booking_on_date,true);
+ assert.equal(r.result.input.current_bundle_price,590);
+ assert.equal(r.result.production_writes,0);
+ assert.equal(Registry.validateInvocation('prepare_october_pricing_snapshot',r.invoked_agents).pass,true);
+});
+test('October paid comparable extraction route is declared and remains PII free',async()=>{
+ const rows=[b('completed',46295,other,'690','phone_lens_bundle','BK-POST')];
+ const r=await Router.executeTask('prepare_october_completed_history',{bookingRows:rows,options:{
+  targetEventId:id,targetEventDate:'2026-10-28',verifiedComparableEventIds:[other]}});
+ assert.equal(r.result.length,1);
+ assert.equal(r.result[0].paid_price,690);
+ assert.equal(Registry.validateInvocation('prepare_october_completed_history',r.invoked_agents).pass,true);
+ assert.equal(JSON.stringify(r.result).includes('CUSTOMER NAME'),false);
 });
