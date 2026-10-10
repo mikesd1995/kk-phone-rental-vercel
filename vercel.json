@@ -361,6 +361,9 @@
     },
     "api/kk-scanner-dispatch.js": {
       "maxDuration": 300
+    },
+    "api/kk-data.js": {
+      "maxDuration": 30
     }
   },
   "git": {
