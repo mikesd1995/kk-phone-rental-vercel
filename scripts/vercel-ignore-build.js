@@ -24,6 +24,12 @@ function isSafePreviewOnlyPath(file) {
   return SAFE_PREVIEW_ONLY_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
+// Expensive preview builds are opt-in on Hobby. PRs can still run GitHub tests,
+// and release/ or preview/ branches may request a Vercel visual/runtime preview.
+function isOptInPreviewBranch(branch) {
+  return /^(?:preview|release)\/[a-z0-9][a-z0-9._/-]*$/i.test(String(branch || '').trim());
+}
+
 function decideIgnoredBuild({ branch, previousSha, commitSha, changedFiles }) {
   const ref = String(branch || '').trim();
   const before = String(previousSha || '').trim();
@@ -32,6 +38,9 @@ function decideIgnoredBuild({ branch, previousSha, commitSha, changedFiles }) {
 
   if (!ref) {
     return { ignore: false, reason: 'UNKNOWN_BRANCH' };
+  }
+  if (ref !== 'main' && !isOptInPreviewBranch(ref)) {
+    return { ignore: true, reason: 'PREVIEW_OPT_IN_REQUIRED', branch: ref };
   }
   if (!before || !after) {
     return { ignore: false, reason: 'MISSING_GIT_SHA' };
@@ -77,6 +86,14 @@ function runCli(env = process.env) {
     return 1;
   }
 
+  // Skip non-opted preview work before SHA validation or any git subprocess.
+  // Missing VERCEL_GIT_PREVIOUS_SHA is common on a branch's first deployment.
+  if (branch !== 'main' && !isOptInPreviewBranch(branch)) {
+    const decision = decideIgnoredBuild({ branch, previousSha, commitSha, changedFiles: [] });
+    console.log(JSON.stringify(decision));
+    return 0;
+  }
+
   if (!previousSha || !commitSha) {
     const decision = decideIgnoredBuild({ branch, previousSha, commitSha, changedFiles: [] });
     console.log(JSON.stringify(decision));
@@ -109,6 +126,7 @@ if (require.main === module) {
 
 module.exports = {
   SAFE_PREVIEW_ONLY_PATTERNS,
+  isOptInPreviewBranch,
   normalizeFiles,
   isSafePreviewOnlyPath,
   decideIgnoredBuild,
