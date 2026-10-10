@@ -266,7 +266,7 @@ async function executeTask(taskType, input = {}, options = {}) {
     // Dedicated report-only dynamic price intelligence: NEVER business writes.
     case 'demand_pricing_shadow':
       return {
-        invoked_agents:['kk-demand-pricing-shadow','kk-pricing-learning-shadow'],
+        invoked_agents:['kk-demand-pricing-shadow'],
         result:DemandPricingShadow.propose(input)
       };
 
