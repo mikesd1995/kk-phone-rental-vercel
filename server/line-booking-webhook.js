@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const {buildBookingFlex} = require('../server/line-booking-flex');
 const {safePosterSource} = require('../server/line-poster');
 const InboxTee = require('./kk-line-inbox-tee');
+const InboxMedia = require('./kk-inbox-media');
 const {createPostgrestStore} = require('./kk-inbox-postgrest-store');
 const LineMessaging = require('./kk-line-messaging-api');
 const OwnerApproval = require('./line-booking-owner-approval');
@@ -220,7 +221,13 @@ module.exports=async function handler(req,res){
   const events=Array.isArray(payload.events)?payload.events:[];
   // Persist only verified events; Inbox failure remains isolated from the existing booking reply path.
   const inboxPromise=InboxTee.persistVerifiedEvents(events,inboxPersistFn(process.env,fetch),{
-    profileFn:async userId=>LineMessaging.getProfile(userId,token,fetch)
+    profileFn:async userId=>LineMessaging.getProfile(userId,token,fetch),
+    mediaFn:async (event,message)=>InboxMedia.capture(event,message,{
+      token,fetchImpl:fetch
+    })
+  }).then(receipt=>{
+    if(receipt.media_errors&&receipt.media_errors.length)console.warn('[line-inbox-media]',JSON.stringify({count:receipt.media_errors.length,codes:receipt.media_errors.map(x=>x.code)}));
+    return receipt;
   }).catch(err=>({status:'FAILED_ISOLATED',error:err&&err.message?err.message:'inbox failed'}));
   try{
     for(const event of events){
