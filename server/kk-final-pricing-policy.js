@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_FINAL_PRICING_POLICY_V6_OWNER_COMPETITOR_REFERENCE';
+const VERSION='KK_FINAL_PRICING_POLICY_V7_OWNER_QUOTES_NO_AUTO_REPRICE';
 
 const DEFAULT_SCORE_FALLBACK_POLICY=Object.freeze({
   policy_approved:true,
@@ -212,6 +212,35 @@ function exactCompetitorMedian(input={}){
   };
 }
 
+// Report actual published competing prices verbatim; do NOT compute a
+// suggested midpoint or synthesize an absent bundle for owner review.
+function competitorQuoteReports(input={}){
+  const evidence=Array.isArray(input.pricing&&input.pricing.evidence)?input.pricing.evidence:[];
+  const reports=[],byShop=new Map();
+  for(let i=0;i<evidence.length;i++){
+    const row=evidence[i]||{};
+    const price=money(row.price);
+    const type=text(row.package_type).toUpperCase();
+    const group=(type==='PHONE_ONLY'||type==='PHONE')?'phone':
+      (type==='PHONE_LENS'||type==='PHONE_LENS_BUNDLE'||type==='BUNDLE')?'bundle':null;
+    if(!group||!price)continue;
+    const shop=text(row.shop_id||row.competitor_account||row.shop||row.account||row.source_shop);
+    const key=shop?shop.toLowerCase():'unknown-source-row-'+i;
+    let report=byShop.get(key);
+    if(!report){
+      report={shop:shop||'UNIDENTIFIED_SHOP',phone_price:null,bundle_price:null,
+        source_url:text(row.post_url||row.source_url||row.url),
+        checked_at:text(row.last_checked||row.checked_at||row.observed_at),
+        freshness:text(row.freshness||row.market_freshness)};
+      byShop.set(key,report);reports.push(report);
+    }
+    if(report[group+'_price']===null)report[group+'_price']=price;
+    if(!report.source_url)report.source_url=text(row.post_url||row.source_url||row.url);
+    if(!report.checked_at)report.checked_at=text(row.last_checked||row.checked_at||row.observed_at);
+  }
+  return reports;
+}
+
 function baselinePrices(input={}){
   const explicit=Array.isArray(input.store_baseline_prices)?input.store_baseline_prices:[];
   const templates=Array.isArray(input.package_templates)?input.package_templates:[];
@@ -268,6 +297,9 @@ function resolve(input={}){
       requires_per_event_owner_price_decision:false,production_writes:0};
   }
   const competitorCount=exactCompetitorCount(input);
+  const observedQuotes=competitorQuoteReports(input);
+  const competitorStatus=text((input.pricing||{}).market_status||input.competitor_market_status).toUpperCase();
+  const competitorFound=competitorCount>0||observedQuotes.length>0||competitorStatus.startsWith('COMPETITOR_FOUND');
   const date=eventDate(input);
   // A typed but unparseable date cannot safely choose the owner daypart.
   // Preserve approved explicit pricing with absent date for historic callers;
@@ -281,6 +313,31 @@ function resolve(input={}){
   }
   const weekend=isWeekendDate(date);
   const exact=competitorCount>0?exactCompetitorMedian(input):null;
+
+  // Owner final clarification: even ONE or TWO independent competing shops
+  // must be reported with their ACTUAL prices, without changing the initial
+  // existing event price. The owner will decide per event. Also fail closed
+  // when competing shops exist but their current prices are unverified.
+  // Only 3+ independently evidenced shops may reach the median path below.
+  if(competitorFound&&(!exact||exact.shop_count<3)){
+    return {
+      schema_version:VERSION,
+      status:'HOLD_FOR_OWNER_COMPETITOR_PRICE_DECISION',
+      final_prices:[],
+      policy_approved:false,
+      source:'COMPETITOR_QUOTES_REPORT_ONLY',
+      pricing_status:observedQuotes.length?'OWNER_REVIEW_1_2_COMPETITOR_QUOTES':'COMPETITOR_FOUND_PRICE_EVIDENCE_MISSING',
+      price_confidence:'REFERENCE_ONLY',
+      needs_price_recheck:true,
+      competitor_evidence_count:Math.max(competitorCount,observedQuotes.length),
+      competitor_quotes:observedQuotes,
+      competitor_reference_used_as_final:false,
+      existing_prices_preserved:true,
+      requires_per_event_owner_price_decision:true,
+      production_writes:0
+    };
+  }
+
   const candidateScore=eventScore(input);
   const fitThreshold=fallbackPolicy(input).minimum_publish_score;
   const lowFit=candidateScore!==null&&candidateScore<fitThreshold;
@@ -374,6 +431,6 @@ module.exports={
   templateIds,
   ownerWeekpartFallback,
   scoreFallback,
-  median,lensBaseline,exactCompetitorMedian,baselinePrices,
+  median,lensBaseline,exactCompetitorMedian,competitorQuoteReports,baselinePrices,
   resolve
 };
