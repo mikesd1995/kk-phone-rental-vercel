@@ -267,3 +267,16 @@ test('explicit found shop has priority over conflicting zero count; never zero-s
  assert.deepEqual(r.final_prices.map(x=>x.override_price),[690,200,890]);
  assert.ok(r.final_prices[0].override_note.includes('COMPETITOR_FOUND_NO_VALID_QUOTE'));
 });
+
+test('one shop quoting both phone and actual bundle uses each advertised price, not assumed lens add-on',()=>{
+ const r=P.resolve({event_date:'2026-10-17',pricing:{independent_competitors:1,evidence:[
+  {shop:'duen_munk',package_type:'PHONE_ONLY',price:900},
+  {shop:'duen_munk',package_type:'BUNDLE',price:1200}
+ ]}});
+ assert.equal(r.source,'EXACT_EVENT_ONE_SHOP_REFERENCE');
+ assert.equal(r.competitor_evidence_count,1);
+ assert.deepEqual(r.competitor_price_range,[900,900]);
+ assert.deepEqual(r.competitor_bundle_range,[1200,1200]);
+ assert.deepEqual(r.final_prices.map(x=>x.override_price),[900,200,1200]);
+ assert.equal(r.needs_price_recheck,true);
+});
