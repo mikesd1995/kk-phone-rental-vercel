@@ -57,13 +57,24 @@ function verifiedSignals(input={}){
  return {signals:available,score:weighted,missing:Object.keys(SIGNAL_WEIGHTS).filter(k=>!available.some(s=>s.signal===k))};
 }
 function verifiedPaidHistory(rows=[],eventId=''){
- return (Array.isArray(rows)?rows:[]).filter(x=>{
-  const r=x||{};
-  // A real comparable means completed + dated event + verified source.
-  // Never count same current event as a prior observation.
-  return r.comparable_verified===true&&r.verified===true&&COMPLETED.has(text(r.booking_status).toLowerCase())&&
-   text(r.event_id)&&text(r.event_id)!==eventId&&text(r.event_date)&&text(r.source_ref)&&price(r.paid_phone_price)!==null;
- }).map(r=>({event_id:text(r.event_id),event_date:text(r.event_date),paid_phone_price:price(r.paid_phone_price),source_ref:text(r.source_ref)}));
+ // Real completed Google Booking bundle receipts are NOT phone-only prices.
+ const out=[],seen=new Set();
+ for(const row of Array.isArray(rows)?rows:[]){
+  const r=row||{},id=text(r.event_id),type=text(r.package_type).toLowerCase();
+  if(r.comparable_verified!==true||r.verified!==true||
+   !COMPLETED.has(text(r.booking_status).toLowerCase())||!id||id===eventId||
+   !text(r.event_date)||!text(r.source_ref))continue;
+  const phone=price(r.paid_phone_price)||(['phone_only','phone'].includes(type)?price(r.paid_price):null);
+  const bundle=price(r.paid_bundle_price)||(['phone_lens_bundle','bundle'].includes(type)?price(r.paid_price):null);
+  if(phone===null&&bundle===null)continue;
+  const key=id+'|'+text(r.booking_id||r.observation_id||r.source_ref);
+  if(seen.has(key))continue;
+  seen.add(key);
+  out.push({event_id:id,event_date:text(r.event_date),
+    package_type:bundle!==null?'phone_lens_bundle':'phone_only',
+    paid_phone_price:phone,paid_bundle_price:bundle,source_ref:text(r.source_ref)});
+ }
+ return out;
 }
 function guard(input={}){
  if(enabled(input.tombstone_locked)||enabled(input.owner_hidden))return 'HOLD_OWNER_HIDDEN_TOMBSTONE';
@@ -113,17 +124,23 @@ function propose(input={}){
  const signals=verifiedSignals(input);
  const history=verifiedPaidHistory(input.completed_history,text(input.event_id));
  const knownSampleCount=history.length;
+ const phoneHistory=history.filter(x=>x.paid_phone_price!==null);
+ const bundleHistory=history.filter(x=>x.paid_bundle_price!==null);
+ const observedBundleMedian=median(bundleHistory.map(x=>x.paid_bundle_price));
  if(signals.signals.length<2||signals.score===null||!signals.signals.some(s=>s.signal==='fandom_photo_intent'||s.signal==='qualified_inquiry_intent')){
   return base(input,'HOLD_INSUFFICIENT_DEMAND_EVIDENCE',{
    demand_score:signals.score,verified_signals:signals.signals,missing_signals:signals.missing,
-   historical_completed_comparables:knownSampleCount,blockers:['MIN_TWO_VERIFIED_SIGNALS_ONE_PHOTO_OR_INQUIRY']
+   historical_completed_comparables:knownSampleCount,
+   historical_phone_comparables:phoneHistory.length,historical_bundle_comparables:bundleHistory.length,
+   historical_paid_bundle_median:observedBundleMedian,
+   blockers:['MIN_TWO_VERIFIED_SIGNALS_ONE_PHOTO_OR_INQUIRY']
   });
  }
  // No weekday/weekend hardcoded rate. These bands are testable hypotheses,
  // NOT machine-learned demand elasticities or proven optimal revenue.
  const demand=signals.score;
  const band=demand>=92?990:demand>=82?890:demand>=68?790:demand>=52?690:demand>=35?590:490;
- const observed=median(history.map(x=>x.paid_phone_price));
+ const observed=median(phoneHistory.map(x=>x.paid_phone_price));
  // Avoid sudden downpricing an observed, verified comparable willingness to pay.
  const anchor=observed===null?null:nearestBand(observed);
  const hypothesis=anchor===null?band:Math.max(anchor,Math.min(band,anchor+100));
@@ -133,9 +150,10 @@ function propose(input={}){
    demand_score:demand,blockers:['PROPOSED_BELOW_OWNER_COST_FLOOR'],minimum_viable_phone_price:floor});
  // Keep the store's existing bundle premium; cannot invent lens cost.
  const premium=currentPhone!==null&&currentBundle!==null&&currentBundle>=currentPhone?currentBundle-currentPhone:null;
- const confidence=signals.signals.length>=3&&knownSampleCount>=5?'MEDIUM':'LOW';
+ const confidence=signals.signals.length>=3&&phoneHistory.length>=5?'MEDIUM':'LOW';
  const issues=[];
- if(history.length<3)issues.push('LIMITED_COMPLETED_RENTAL_HISTORY');
+ if(phoneHistory.length<3)issues.push('LIMITED_COMPLETED_PHONE_ONLY_HISTORY');
+ if(bundleHistory.length&&phoneHistory.length<3)issues.push('BUNDLE_ONLY_OBSERVATIONS_NOT_PHONE_PRICE');
  if(signals.signals.length<3)issues.push('LIMITED_DEMAND_SIGNAL_COVERAGE');
  if(premium===null)issues.push('NO_VERIFIED_CURRENT_BUNDLE_PREMIUM');
  if(known===0&&count===null&&marketStatus!=='NO_COMPETITOR_FOUND')issues.push('COMPETITOR_MARKET_NOT_VERIFIED');
@@ -145,6 +163,9 @@ function propose(input={}){
   confidence,verified_signals:signals.signals,missing_signals:signals.missing,
   historical_completed_comparables:knownSampleCount,
   historical_paid_price_median:observed,
+  historical_paid_bundle_median:observedBundleMedian,
+  historical_phone_comparables:phoneHistory.length,
+  historical_bundle_comparables:bundleHistory.length,
   price_basis:{demand_band:band,historical_verified_anchor:anchor,used_weekday_multiplier:false},
   evidence_gaps:issues,
   competitor_quotes:quotes,
@@ -169,6 +190,16 @@ function learn(input={}){
  });
  const completed=verified.filter(r=>text(r.booking_status).toLowerCase()==='completed'&&price(r.paid_price)!==null);
  const gross=completed.reduce((a,b)=>a+price(b.paid_price),0);
+ const packageRows=completed.reduce((acc,r)=>{
+   const t=text(r.package_type).toLowerCase();
+   const key=['phone_only','phone'].includes(t)?'phone_only':
+     ['phone_lens_bundle','bundle'].includes(t)?'phone_lens_bundle':'unattributed';
+   acc[key].push(price(r.paid_price));return acc;
+ },{phone_only:[],phone_lens_bundle:[],unattributed:[]});
+ const byPackage=Object.fromEntries(Object.entries(packageRows).map(([key,prices])=>[key,{
+   completed_count:prices.length,observed_completed_gross:prices.reduce((a,b)=>a+b,0),
+   observed_paid_median:median(prices)
+ }]));
  const noPaid=verified.filter(r=>text(r.booking_status).toLowerCase()!=='completed').length;
  // Observational sales do NOT identify counterfactual conversion rates.
  const acceptable=verified.length>=5;
@@ -176,6 +207,7 @@ function learn(input={}){
   schema_version:VERSION,status:acceptable?'OUTCOME_REVIEW_FOR_OWNER':'INSUFFICIENT_OBSERVED_OUTCOMES',
   event_id:text(proposal.event_id),outcome_count:verified.length,completed_count:completed.length,
   excluded_cancelled_or_no_show:noPaid,observed_completed_gross:gross,
+  completed_by_package:byPackage,
   observed_completed_average_paid:completed.length?Math.round(gross/completed.length):null,
   causal_price_lift_claim:false,trained_model_updated:false,
   learning_signal:acceptable?'REVIEW_PRICE_HYPOTHESIS_WITH_EXPOSURE_BASELINE':'NEED_MORE_RENTAL_AND_INQUIRY_EVIDENCE',
