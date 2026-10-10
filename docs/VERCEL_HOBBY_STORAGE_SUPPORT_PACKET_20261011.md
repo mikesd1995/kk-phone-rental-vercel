@@ -41,7 +41,7 @@ Thank you.
 ## Vercel dashboard checks before marking resolved
 1. Dashboard > team `mikesd1995s-projects` > **Usage > Deployment Storage**: note current 30-day GB-month, daily project breakdown, last refreshed timestamp, and whether deploys are still blocked. Check **Functions Storage separately**, because the two quotas can be distinct.
 2. Project > **Settings > Security > Deployment Retention**: inspect policy and Recently Deleted; record current values. Hobby policy already does automatic pruning; do not arbitrarily force a shorter Production rollback window or remove protected active branches.
-3. If below limit with headroom for 1 Production build, run the targeted actual `npm run test:vercel:storage` on a no-cost Node runner, complete release gate, then merge PR #690 once and verify production alias + branch configuration. Reenable Preview only if needed for deliberate `release/*` RCs.
+3. If below limit with headroom for 1 Production build, run the targeted actual `node --test tests/vercel-ignore-build.test.js tests/vercel-deployment-policy.test.js` on a no-cost Node runner (the temporary package.json npm alias was removed to avoid unrelated Ultra Deep CI triggers), complete release gate, then merge PR #690 once and verify production alias + branch configuration. Reenable Preview only if needed for deliberate `release/*` RCs.
 4. If still at limit with 20 records, submit the support body above and screenshot. **No fabricated reset date**: support/account specific 30-day window decides when the quota becomes usable.
 
 ## Verified public references
