@@ -59,8 +59,11 @@ function guard(input={}){
  if(input.tombstone_locked===true||input.owner_hidden===true)return 'HOLD_OWNER_HIDDEN_TOMBSTONE';
  if(input.has_active_booking_on_date===true||input.booking_day_locked===true)return 'HOLD_BOOKING_DATE_PRICE_LOCK';
  if(input.owner_price_locked===true||input.owner_final_price===true)return 'HOLD_OWNER_FINAL_PRICE_LOCK';
+ if(input.available_inventory===0||input.inventory_conflict===true)return 'HOLD_NO_INVENTORY_OR_COLLISION';
  if(input.event_verified!==true)return 'HOLD_EVENT_NOT_VERIFIED';
  if(!text(input.event_id)||!/^\d{4}-\d{2}-\d{2}$/.test(text(input.event_date)))return 'HOLD_EVENT_IDENTITY_DATE_REQUIRED';
+ const d=new Date(text(input.event_date)+'T00:00:00Z');
+ if(!Number.isFinite(d.getTime())||d.toISOString().slice(0,10)!==text(input.event_date))return 'HOLD_EVENT_IDENTITY_DATE_REQUIRED';
  return '';
 }
 function base(input,status,extras={}){
@@ -81,7 +84,7 @@ function propose(input={}){
  const known=Math.max(quotes.length,count===null?0:count);
  // Do NOT conflate unscanned with searched-zero.
  const marketStatus=text(input.competitor_market_status).toUpperCase();
- if(known>0&&known<3){
+ if((known>0&&known<3)||(marketStatus.startsWith('COMPETITOR_FOUND')&&known===0)){
   return base(input,'HOLD_COMPETITOR_QUOTES_OWNER_DECISION',{
    competitor_quotes:quotes,competitor_shops_found:known,
    review_note:'รายงานราคาคู่แข่งแต่ละร้าน ให้เจ้าของร้านตัดสินใจเอง ห้ามปรับราคาอัตโนมัติ'
