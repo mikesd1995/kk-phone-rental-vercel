@@ -32,7 +32,7 @@ function uniqueQuotes(rows){
  for(const [index,item] of (Array.isArray(rows)?rows:[]).entries()){
   const r=item||{},shop=text(r.shop||r.shop_id||r.competitor_account||r.account);
   // Unknown source rows must NOT count as N independent rental shops.
-  const key=shop?shop.toLowerCase():'UNKNOWN_SOURCE';
+  const key=shop?shop.toLowerCase():'UNKNOWN_SOURCE_ROW_'+index;
   if(!map.has(key)){
    const v={shop:shop||'UNIDENTIFIED',phone_price:null,bundle_price:null,
     source_url:text(r.source_url||r.post_url),observed_at:text(r.observed_at||r.checked_at)};
@@ -49,6 +49,7 @@ function verifiedIndependentShopCount(rows=[],asOfDate=''){
  // verified comparability, identity, and recent timestamps; no raw count trust.
  const observed=new Set();
  const anchor=/^\d{4}-\d{2}-\d{2}$/.test(text(asOfDate))?Date.parse(asOfDate+'T00:00:00Z'):null;
+ if(anchor===null||!Number.isFinite(anchor))return 0;
  for(const r of Array.isArray(rows)?rows:[]){
   if(!r||r.verified!==true||r.comparable_verified!==true)continue;
   const shop=text(r.shop||r.shop_id||r.competitor_account||r.account).toLowerCase();
