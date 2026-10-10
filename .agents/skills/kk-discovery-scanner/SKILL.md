@@ -156,3 +156,11 @@ If child and parent share date, venue, admission and operational pickup/return b
 Create a separate candidate only when date, venue, admission, pickup window or another operational boundary is genuinely distinct.
 
 A high-demand child signal may never reopen a LOCKED or owner-hidden parent.
+
+## Pricing-agent source packet — latest owner requirement 2026-10-10
+
+For pricing proposals, Scanner also collects *evidence packets* keyed by exact event ID and event date: artist/fandom photo intent, public engagement with timestamp, ticket demand, vetted rental inquiry aggregate without customer PII, exact-event rental competitors grouped by independent shop (phone and phone+lens separately), prior comparable event IDs, source URLs, checked timestamps and freshness.
+
+Never interpret **0 collected quotes** as **verified zero competitors** without executed competitor-search receipts. Never inflate shop counts with one shop's multiple posts. Preserve 1–2 competitor price observations per shop for **owner review only**, not an auto-pricing midpoint. The Demand Pricing Shadow, when called by the Agent Gateway, is **zero-cost advisory with production_writes=0**. A weekday high-fandom event must not be artificially priced down simply because its event date is not Fri/Sat/Sun.
+
+Keep the original External Demand publish score independent from KK internal outcomes. Booking outcome and price-learning evidence may feed the separate pricing *advisory*, not event-publish eligibility, and not Scanner writes. Existing live price is unchanged until owner + verifier govern a change. See `docs/DEMAND_BASED_PRICING_SHADOW_V1_20261010.md`.
