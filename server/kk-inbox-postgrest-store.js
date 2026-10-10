@@ -48,6 +48,6 @@ function createPostgrestStore(options={}){
   const row=Array.isArray(result)?result[0]:result;
   return {ok:true,duplicate:Boolean(row&&row.duplicate),writes:Number(row&&row.writes||0)};
  }
- return {VERSION,persistInbound,listConversations,listMessages,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound};
+ return {VERSION,persistInbound,listConversations,listMessages,getMediaMetadata,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound};
 }
 module.exports={VERSION,createPostgrestStore};
