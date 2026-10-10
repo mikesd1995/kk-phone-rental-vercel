@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V29';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V31_OCT_SNAPSHOT';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -85,6 +85,30 @@ const AGENTS = Object.freeze({
     runtime_state: 'LIVE_AUDIT_AND_CALLABLE',
     surface: 'SYSTEM_AUDIT_AND_AGENT_GATEWAY',
     production_writes: 0
+  }),
+  'kk-october-pricing-snapshot': Object.freeze({
+    version:'KK_OCT2026_PRICING_SNAPSHOT_V2_OFFICIAL_DATES',
+    authority:'READ_ONLY_CORE_OCTOBER_EVIDENCE_ADAPTER',
+    runtime_state:'DRAFT_CALLABLE_SHADOW_ONLY',
+    surface:'AGENT_GATEWAY',
+    production_writes:0,
+    note:'October-only Core Sheet event/package/booking snapshots with serial date locks; excludes all customer PII and never invents market prices.'
+  }),
+  'kk-demand-pricing-shadow': Object.freeze({
+    version:'KK_DEMAND_PRICING_SHADOW_V1',
+    authority:'ZERO_COST_READ_ONLY_ADVISORY',
+    runtime_state:'DRAFT_CALLABLE_SHADOW_ONLY',
+    surface:'AGENT_GATEWAY',
+    production_writes:0,
+    note:'Uses source-verified demand and completed comparable rental outcomes to propose per-event price with confidence and owner review. No trained AI accuracy claim; no business writes.'
+  }),
+  'kk-pricing-learning-shadow': Object.freeze({
+    version:'KK_DEMAND_PRICING_SHADOW_V1',
+    authority:'OBSERVATIONAL_LEARNING_REVIEW_ONLY',
+    runtime_state:'DRAFT_CALLABLE_SHADOW_ONLY',
+    surface:'AGENT_GATEWAY',
+    production_writes:0,
+    note:'Review verified completed outcomes without claiming causal price lift, self-training or autonomous writes.'
   }),
   'kk-operating-partner': Object.freeze({
     version: 'KK_OPERATING_PARTNER_V1',
@@ -294,6 +318,38 @@ const ROUTES = Object.freeze({
     runtime_available: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true
+  }),
+  prepare_october_pricing_snapshot: Object.freeze({
+    route_id:'OCTOBER_CORE_READBACK_PRICE_SNAPSHOT',
+    request_type:'READ_ONLY_CORE_BOOKING_PACKAGE_SNAPSHOT',
+    required_agents:Object.freeze(['kk-october-pricing-snapshot']),
+    downstream_agents:Object.freeze(['kk-demand-pricing-shadow']),
+    runtime_available:true,owner_review_required:false,persistent_invocation_evidence_required:true
+  }),
+  prepare_october_completed_history: Object.freeze({
+    route_id:'OCTOBER_COMPLETED_PACKAGE_OUTCOME_EXTRACT',
+    request_type:'READ_ONLY_COMPLETE_BOOKING_HISTORY',
+    required_agents:Object.freeze(['kk-october-pricing-snapshot']),
+    downstream_agents:Object.freeze(['kk-pricing-learning-shadow']),
+    runtime_available:true,owner_review_required:false,persistent_invocation_evidence_required:true
+  }),
+  demand_pricing_shadow: Object.freeze({
+    route_id:'DEMAND_PRICING_EVIDENCE_SHADOW',
+    request_type:'READ_ONLY_DEMAND_PRICING_PROPOSAL',
+    required_agents:Object.freeze(['kk-demand-pricing-shadow']),
+    downstream_agents:Object.freeze(['kk-pricing-learning-shadow','kk-event-verifier']),
+    runtime_available:true,
+    owner_review_required:true,
+    persistent_invocation_evidence_required:true
+  }),
+  learn_demand_pricing_outcome: Object.freeze({
+    route_id:'DEMAND_PRICING_OUTCOME_LEARNING_REVIEW',
+    request_type:'READ_ONLY_PRICING_LEARNING',
+    required_agents:Object.freeze(['kk-pricing-learning-shadow']),
+    downstream_agents:Object.freeze([]),
+    runtime_available:true,
+    owner_review_required:true,
+    persistent_invocation_evidence_required:true
   }),
   plan_monthly_deep_scan: Object.freeze({
     route_id: 'ULTRA_DEEP_MONTHLY_QUERY_PLAN',

@@ -1,0 +1,120 @@
+# KK Phone Rental — OCTOBER 2026 ONLY — Final action/readback handoff (2026-10-10)
+
+Owner asked to complete October Ultra Deep Scan and fix old/new storefront prices using AI/Learning AI; then explicitly scoped work to **October only**. No changes to November events or event pricing are authorized in this effort.
+
+## Scope and production truth
+- Oct-only code vehicle is **Draft [PR #689](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/689)**, branch `fix/oct2026-demand-pricing-isolated-20261010`, **created from main**, not from mixed-month PR #680. This is important because merging #680 would also ship unrelated November scanner code.
+- Oct pricing production source is [Core Google Sheet](https://docs.google.com/spreadsheets/d/12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU), read-only `01_Events`, `08_Web_Ready`, `09_Web_Packages` and `00_Master_Booking`. At Oct10 readback: **143 October Core event rows, 57 visible, 86 hidden, 43 visible Oct11–31**. Four visible October cards on protected future booking days, **Oct18, Oct23, Oct24, Oct31**. Other October booked-event cards on these dates do not license repricing of remaining capacity.
+- **7 missing verified official poster image URLs** on visible October cards: Oct15 LE7EL; Oct17 Manekineko Halloween and The Paseo POP THE STAGE; Oct25 VVV × Xiaomi; Oct30 AF Halloween AFTERLIFE, POP-ป่ะห์ #4 NAMP and VVV GO Wholesale Rama2. Google Image/search produced unrelated calendar/older product pictures; **DO NOT insert those images or falsely mark poster done**. Original-source image URLs still unverified.
+- **0 live Core pricing/package/poster/visibility/Booking writes**, 0 new public event cards and 0 November writes in this turn. October Tracker did receive a NEW staged candidate (below).
+- Verified current production package snapshots:
+  - BENTON × TeeTeePor **Oct28** phone **490**, phone+lens **590**.
+  - NARS × TeeTeePor **Oct25** phone **790**, phone+lens **990**.
+  - MEME FEST Oct17 **690/890**; one *old* dated competitor quote `duen_munk` **900/1200** as of Aug8, not proof of current pricing. Owner explicitly requires 1–2 competing shops **per-shop original quote report only and OWNER DECISION**; no midpoint/no auto application.
+- **Actual same-pair completed rental observations** from Core `00_Master_Booking`: **Oct1 Sport Day with TeeTeePor** and **Oct7 RYO × TeeTeePor**, each **phone_lens_bundle paid 690 THB**. This is evidence of completed **bundle** willingness-to-pay in other events, not paid phone-only 690/790 and not causal optimal revenue.
+- Shadow `propose` performed on BENTON and NARS real event+package snapshots with these two verified prior completed same-pair **bundle** observations: both return `HOLD_INSUFFICIENT_DEMAND_EVIDENCE`, `historical_paid_bundle_median=690`, `historical_paid_price_median=null`, `suggested_prices=null`, `production_writes=0`. This is safer than inventing numeric fandom scores or forcing price increases.
+
+## Actual mutations with readback
+1. Tracker [October Candidate Pool](https://docs.google.com/spreadsheets/d/1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo) `_Candidate_Queue!A361:AK361` **created new exact 30 October 2026 `CHILLIZ @ Gamescom Asia × Thailand Game Show 2026`**, from Online Station [official programme](https://www.online-station.net/pc-console-game/1001710): 15:00–16:00 meet & greet at QSNCC. Secondary [PopRadar](https://popradar.app/events/concert/chilliz-gamescom-asia-thailand-game-show-2026) places a show at 18:30; **primary event stage slot yet to be confirmed**. Row is `VERIFIED_HOLD` due to original poster missing, photo/camera/filming rules, current shop evidence, Demand Price signals, owner publication review. Search confirmed it was **not already in Core, Candidate Queue or Core visibility locks**. Exact **37/37 cells read back**. No public event created.
+2. Earlier October Tracker `_Candidate_Queue` four Notes `L238:L240`, `L320` updated with official source leads, statuses remained HOLD/HOLD/HOLD/VERIFIED_HOLD and readback passed. No duplicate reopened.
+3. Oct-only isolated Draft PR #689 from main contains **seven source files** initially: Demand Pricing Shadow, its tests, Agent Gateway router and registry, `package.json` scoped test script, two detailed October price/source audit Markdown docs.
+4. Demand Pricing Shadow actual code fix: `verifiedPaidHistory` now deduplicates booking/source receipts and separates real completed `phone_only` / `phone_lens_bundle`, emits each package's median, and `learn` reports `completed_by_package` gross count, explicitly excluding cancelled, no_show and future. Must **never call a THB690 bundle a THB690 phone-only price**.
+5. Test selection on exact October-only Draft branch: **18/18 Pricing Shadow tests passed** using JS isolated evaluation with other unrelated imports stubbed; **7/8 legacy main V4 pricing policy tests exercised PASS and 1 unrelated Verifier integration case SKIPPED**. Total 25/26 exercised/skip, **NOT native Node full project or GitHub CI**. Previous 42 tests passed on mixed PR #680 cannot be claimed for this branch.
+6. One limitation: main final pricing policy remains **`KK_FINAL_PRICING_POLICY_V4`**; Oct-only PR specifically adds new report-only Shadow route, not live repricing. Prior owner 1–2 competitor quote HOLD rules are present inside Shadow but are not yet deployed to existing live legacy pricing path. Do not assume production supports the new policy.
+
+## Why not published or auto-priced yet
+- True event-specific demand signal receipts are missing on 39 unbooked Oct11–31 visible cards and 4 October visible cards are booking-locked. Artificial qualitative fandom labels are not 0–100 calibrated conversion features.
+- 30 Oct CHILLIZ is legitimate new discovery, but staging is not final published event; original venue-program poster and recording permissions still lack first-party verifiable artifacts; any arbitrary default price is provisional and must pass verifier.
+- 30 Oct THE FACE SHOP Rice & Radiance TeeTeePor already staged `_Candidate_Queue!320`, owner approved candidate, but private 30 Lucky Fan venue/poster/access restrictions unresolved and not safe to create without evidence. 16/17/18 Oct Melody of Life remains `_Candidate_Queue!238:240`, 18 booked; 16/17 require exact lineup, official poster and camera policy.
+- **Draft PR #689 still blocked by acceptance.** At SHA `f2ecc5d...`, Vercel combined check `failure` and GitHub Actions for Storefront Visual QA, Optional Zero-Cost Acceptance, Ultra Deep V2 Acceptance all reported `failure`. Prior PR #680 repeated failures. GitHub job log retrieval in earlier attempts produced `404 BlobNotFound` and job steps were empty; cannot assert a particular test regression or fix blindly. No paid fixes or quota topup.
+- Full scanner source universe and externally verified complete new-event coverage have NOT been proven; October scan remains targeted reconciliation with a new verified candidate.
+
+## Approval and audit
+- Current scope: October 2026 only. No Nov changes; avoid merging mixed PR #680.
+- Production writes 0, deploys 0, paid credits 0.
+- Owner review for 1–2 competitor shop prices; independently evidenced >=3 shop prices can be a benchmark, not an automatic valid optimal price.
+- All fixed prices, booked dates and hidden events stay locked; no deposit, collecting on pickup, Actual only after completed status and verified media upload.
+- Before enabling live AI repricing: source-verified, time-stamped numeric demand, comparable paid *package*-level history, explicit test/CI/Verifier acceptance and production readback, bounded price floor and rollback. Small inventory (2 phones) makes raw conversion extrapolation unreliable.
+- Change manifest and next gates are in [October 43-card Price Matrix](./OCT_2026_VISIBLE_EVENT_PRICING_MATRIX_20261010.md), [October-only scan](./OCTOBER_2026_ONLY_ULTRA_DEEP_PRICING_RESCAN_20261010.md), [Pricing issue #687](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/687), [October issue #685](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/685).
+
+**Machine-readable handoff:** `SCOPE=2026-10_ONLY|PR=689_DRAFT_UNMERGED|CORE_OCT=143_VISIBLE57_HIDDEN86|FUTURE_VISIBLE=43|FUTURE_BOOKING_LOCK=18_23_24_31|POSTERS_MISSING=7|NEW_CANDIDATE=CHILLIZ_20261030_TRACKER_ROW361_HOLD_READBACK_OK|TT_HISTORICAL_PAID_BUNDLE_MEDIAN=690_PHONE_MEDIAN=NULL|SHADOW_BRANCH_TESTS=18_PASS|LEGACY_ISOLATED_TESTS=7_PASS_1_SKIP|CORE_PRICE_CHANGES=0|NEW_PUBLIC_CARDS=0|NOV_WRITES=0|CI_RED|COST=0`.
+
+---
+
+## Continued execution — October pricing safety, readback adapter and conflict reconciliation (2026-10-10)
+
+**This is a new chronological update overriding earlier Shadow V1/test-count details where they differ.** Scope remains October 2026 only, no November business edits.
+
+### Pricing Shadow V2 fixes actually committed
+- `server/kk-demand-pricing-shadow.js` `KK_DEMAND_PRICING_SHADOW_V2_VALIDATED_QUOTE_SAFETY`: first-party source conflicts, `event_date_conflict` or a conflicting `official_event_date` fail closed as `HOLD_CONFLICTING_EVENT_DATE_OR_SOURCE`; Booking day, hidden and owner-fixed locks remain.
+- Independent competitor receipt counting is **identified by shop**, not each indexed post. Unidentified shop rows remain separate so no synthetic multi-post independent shop count. One/two actual competitors still trigger `HOLD_COMPETITOR_QUOTES_OWNER_DECISION` and preserve owner's default price.
+- Three or more competitors cannot be treated as a **current trusted market** without exact original quote/shop identities, validated comparable package, source URL, `verified=true`, `comparable_verified=true`, observed ISO date and an explicit `scan_date` (up to **14 days freshness**). Otherwise `HOLD_COMPETITOR_EVIDENCE_INCOMPLETE`. Multiple posts by one shop count once.
+- Strong demand does not bypass event-date source conflicts. Completed `phone_lens_bundle` receipts remain separate from `phone_only`, including records that mistakenly carry both price fields. This prevents fabricated phone-only willingness-to-pay.
+
+### New 100% read-only Core Booking/Package snapshot adapter
+- `server/kk-october-pricing-snapshot.js` (`KK_OCT2026_PRICING_SNAPSHOT_V1`) transforms the actual Core `01_Events`, `09_Web_Packages`, `00_Master_Booking` row arrays into safe Shadow evidence packets.
+- Handles **numeric Google Sheet serial dates** and `DD/MM/YYYY` correctly (e.g., serial **46318 = 2026-10-23**). Locks any same-day active Booking regardless of event identity / remaining inventory. Does not mistakenly lock cancelled/no_show/completed; completed historical receipts are filtered separately.
+- `completedComparableHistory` requires explicit independently approved comparable event IDs, actual `completed`, positive `amount_received`, prior event date and package identity. Produces pseudonymous source-bound booking IDs without customer name/phone/LINE. Never uses future/pending/cancelled as Actual, or ticket/purchase prices as phone rental receipts.
+- **Hard October-only enforcement** at adapter boundary; any November event date errors out. `market_status=UNKNOWN` until actual competitor-search evidence is provided, never invented searched-zero.
+- Agent Gateway `server/kk-agent-task-router.js` V21 adds `prepare_october_pricing_snapshot`, `prepare_october_completed_history`. Agent Registry V31 binds both to `kk-october-pricing-snapshot` as read-only with explicit invocation evidence. No direct connector credentials, no writes, no paid calls.
+- Added `tests/kk-october-pricing-snapshot.test.js` (12 cases including registry/agent routes), extended `tests/kk-demand-pricing-shadow.test.js` for date conflicts, stale/unidentified market, income category mixing, and unchanged one/two-shop owner hold.
+- On **current exact Draft PR #689 branch source**, an isolated JavaScript test runner executed **37/37 focused tests PASS** (Shadow + snapshot + agent-route/reg validation), no failures. This is **NOT** a native Node test invocation of full project nor GitHub CI acceptance. `package.json` now includes both focused files in `npm run test:demand-pricing:shadow` and both syntax checks.
+
+### Actual October read-only replay, exact Core rows
+- Current October 2026 `01_Events` **143** rows; `08_Web_Ready` **57** visible, of which **43** are 11–31 October. Packages read from live `09_Web_Packages`, locks read from `00_Master_Booking`.
+- With `event_verified=true` as a **dry-run verification assumption only** (not a production attestation) and **no invented quantitative fandom/engagement/ticket/inquiry signals**, of all 57 October visible cards: **52 HOLD_INSUFFICIENT_DEMAND_EVIDENCE, 4 HOLD_BOOKING_DATE_PRICE_LOCK and 1 HOLD_CONFLICTING_EVENT_DATE_OR_SOURCE**. For Oct11–31 (43 cards): **38 / 4 / 1** respectively. **No price proposal, no pricing or Booking production mutation.** Protected booking days **18,23,24,31 October**.
+- Unverified date-source conflict singled out is existing Core `EVT-20261030-VVV-SHOW-GO-WHOLESALE-RAMA2`: one calendar claims **30 October** (https://popradar.app/events), another promotional summary references the same brand/artist at GO Wholesale Rama2 on **2 October** (https://weibo.com/2/detail/5346994828086288). These **might be separate show dates**, so never assert confirmed error, cancellation or forced hide; require the official Oct30 original announcement. Shadow flags date conflict until resolved.
+- Read-only rerun still finds 7 original poster URL gaps for LE7EL (15), Manekineko (17), Paseo POP THE STAGE (17), VVV Xiaomi (25), AF Afterlife (30), POP-ป่ะห์ NAMP (30), VVV GO Wholesale (30). Official LE7EL post is discoverable but an unmodified exact current image CDN URL was not verified; historical 2025 debut image is **not** correct. Never fill these slots with generic/unrelated images.
+- Price examples remain: **BENTON TeeTeePor Wed Oct28 490/590**, **NARS TeeTeePor Sun Oct25 790/990**. Two same-pair completed bundles paid **690** were used as verified bundle observations only; no causal uplift or unjustified 790 price assertion.
+
+### Tracker business readbacks (actual writes, October only)
+- Existing October Candidate row **361**: CHILLIZ at Gamescom Asia × Thailand Game Show (Oct30) in `VERIFIED_HOLD` from prior verified official programme; all 37 columns read back.
+- **New October data-integrity review** row **362** `_Candidate_Queue!A362:AK362`: `VVV Show — GO Wholesale Rama 2 [EXISTING CORE DATE CONFLICT REVIEW]`, `VERIFIED_HOLD`, `Conflict Flag=TRUE`, references existing Core event (01_Events row338). **37/37 fields independently read back**. It is an *existing-card discrepancy*, NOT a newly published event or new sellable candidate. No false duplicate Core event created and no customer-visible price/date/hidden change.
+- Previous October Candidate `L238:L240` (Melody Of Life) and `L320` (RICE & RADIANCE) note updates remain. No November Tracker writes.
+- 0 Core price, poster, event visibility, inventory, Booking, Supabase or X publication writes. 0 paid provider/tool calls.
+
+### Release acceptance still blocking full launch
+- Exact latest Oct-only PR #689 HEAD prior to this documentation update `8c141b8ecf045fafb3bf9a5d7d9f595d4ff2a52d` stayed **OPEN/DRAFT/unmerged**.
+- GitHub combined Vercel status `failure` target URL shows **`build-rate-limit`** from the FREE tier, do not purchase Pro or request repeated paid builds. Three GitHub Actions on that commit `OpenAI Optional Zero-Cost Acceptance` run `38066296401`, `Storefront Automated Visual QA` `38066296392` and `Ultra Deep V2 Acceptance` `38066296375` each `failure`. Job log endpoints previously returned 404 BlobNotFound, therefore their cause is **UNKNOWN**; don't say the build quota explains those failures.
+- Production is a separate earlier READY main deployment, not Oct-only PR. Releasing without full CI acceptance/Verifier/owner governance is prohibited.
+
+**Updated handoff:** `OCT_ONLY|PR689_DRAFT|SHADOW_V2|SNAPSHOT_ADAPTER_V1|ISOLATED_TESTS_37_PASS|CORE_OCT_143_VISIBLE_57_FUTURE_43|SOURCE_HOLD_52|BOOKING_HOLD_4|DATE_CONFLICT_HOLD_1|ORIGINAL_POSTERS_MISSING_7|TRACKER_CHILLIZ_ROW361_OK|TRACKER_VVV_CONFLICT_ROW362_OK|CORE_PRICE_WRITES_0|PRODUCTION_DEPLOYS_0|NOVEMBER_WRITES_0|FREE_BUILD_RATE_LIMIT|CI_ACTIONS_RED`.
+
+---
+
+## 2026-10-11 continuation — source-precedence bug, refreshed October market, source-of-truth verification
+
+**Scope remains ONLY 2026-10; user asked complete thoroughly without repeat questions.** New work this turn is source verification, four actual Google Sheets tracker note writes with independent readback, and a new source-precedence adapter safety fix on Draft #689, NOT a claimed production repricing.
+
+### 1) October production data verified again
+- Read connected Core Google Sheet `12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU` from `01_Events`, `08_Web_Ready`, `09_Web_Packages` and bookings. **57 October visible events have both phone and phone+lens rows; none has a bundle lower than phone and no event package price was missing**. This is a structural verification, NOT a declaration that prices are optimal.
+- Owner-specific readbacks unchanged: The Weeknd Oct11–13 **990/1090**, OH MY FOURTH Oct16–18 **890/1090**, LYKN Oct23–25 **990/1290**, BENTON Oct28 **490/590**, NARS Oct25 **790/990**.
+- **7 October visible original poster source URLs remain missing.** Public LE7EL official artist post confirms Oct15 18:00 AIS SIAM (https://www.sotwe.com/mollymmmale and https://www30.twstalker.com/mornordotjpg_), but searched poster images repeatedly returned **2025 debut, May 2026 schedules or April 2026 appearances**; none passed strict exact-event original media provenance, so no counterfeit/poster write.
+- There is no new confirmed direct-source current competitor price for BENTON/NARS. Ticket-purchase/Lucky Fan entry prices are NOT phone-rental peer prices. Public THE FACE SHOP direct brand site https://www.thefaceshopthailand.com/index.php/ lists campaign `Rice & Radiance with TEETEEPOR`, social https://03-presentation.twstalker.com/thefaceshop_th verifies Oct30/30 selected Lucky Fans/purchase draw, but still no exact venue, camera/filming permission, original current event poster, or safe KK final packages: remain `VERIFIED_HOLD`.
+
+### 2) Fresh October competitor source review and dedup
+- Search via public X mirrors yielded specific quotes; **verified those are ALREADY in Tracker `_Price_Evidence` rows 225–233 (checked `2026-10-09T01:05:00+07:00`, quality `Medium`)**. Do NOT append duplicates or misrepresent as brand-new quotes.
+- **OH MY FOURTH 16–18 Oct, X300 Pro + lens** observed via 5 historical indexed account/offer rows: LetsSnapandGo **900**, arikatohforrent **950**, memeowyy **900**, thewendypp **990**, `kkphonerental` **1050**; *raw sample median* 950 THB, KK current **1090** (140 higher). The `@kkphonerental` account is a separate shop, NOT automatically user KK Phone Rental. These are mirror/aggregated quotes with source URLs in Tracker, not primary authenticated fresh verified offers; **do not convert median into a production change or claim 140 realized revenue loss**. Oct18 BOOKING LOCK. Oct16/17 require true demand and owner safety check.
+- **LINGORM 17–18 Oct, X300 Pro+Lens** four October 9 mirror rows: Memorlens **900**, arikatohforrent **950**, memeowyy **990**, `kkphonerental` **1000**; sample median 970, KK **990**. These are *informational*, not verified apples-to-apples pickup/deposit/availability. Do not auto-adjust.
+- Public mirror sources: https://www.sotwe.com/memeowyy?lang=tr and https://www.sotwe.com/hashtag/lingormconcert?lang=id ; ledger exact per-shop original links remain in rows 225–233. Do not count event TICKET face values in phone competitor market. Owner 1–2 peer rule still per shop for future exact events.
+
+### 3) Major source conflict found: Melody Of Life 17 dates
+- Official organizer-connected 29 Sep press coverage `Chang Music Connection Presents Melody Of Life 17` **16–18 Oct at centralwOrld, free, four stages, 100+ performers**: https://www.ppat2508.org/46489/ ; corroboration https://www.prachachat.net/sd/news-2069932 .
+- **PopRadar single event page incorrectly shows 15–17 Oct**: https://popradar.app/events/festival/melody-of-life-17-centralworld-2026-10-16 . NEVER let it create fake Oct15 card or delete official Oct18 event. Existing Oct18 booking-day lock from OH MY FOURTH still takes precedence.
+- Third-party community timetable at https://idoltrack.thaicyberpoint.com/event/melody-of-life-17-oct-2026 contains Oct16/17 performer/stage rows; it marks estimates and has inconsistent timezone translation. **DO NOT copy stage clock times to customer pickup/return until organizer's original stage poster is verified.**
+- **Actual tracker writes**: only `_Candidate_Queue!L238:L240` for Oct16/17/18 and `L320` for Oct30 THE FACE SHOP. Added `OCT11_OFFICIAL_DATE_PRIORITY_16_18...` source/hold notes and `OCT11_DIRECT_BRAND_CAMPAIGN_ENTRY_RECONFIRMED...` source/hold note. Google Sheets batch `4/4` success, separate readback `4/4` exact note tags verified, statuses retained `HOLD/HOLD/HOLD/VERIFIED_HOLD`; no price, poster, Booking, visibility, event new Core or November writes.
+- Previously staged CHILLIZ Oct30 row361 and existing-core VVV date conflict review row362 remain undisturbed.
+
+### 4) Code changes: October Snapshot official primary schedule precedence
+- Added `officialSchedule={verified:true,source_url:'https://...',dates:['YYYY-MM-DD',...]}` optional evidence input to `server/kk-october-pricing-snapshot.js` V2 `KK_OCT2026_PRICING_SNAPSHOT_V2_OFFICIAL_DATES`. The adapter checks exact verified, sourced official dates and sets `event_source_conflict` if the indexed event's day is *not* among those dates. Unverified/malformed schedules do NOT get falsely labelled primary. `server/kk-demand-pricing-shadow.js` V2 then fail-closes `HOLD_CONFLICTING_EVENT_DATE_OR_SOURCE` before recommending a price.
+- Example: official Melody Oct16/17/18, third-party erroneous Oct15 => safety HOLD. Legitimate Oct16 input => no conflict. This is **a shadow-only source-precedence guard, not a change to scanner production publication code**.
+- Version declared consistently in `server/kk-agent-registry.js` as `KK_OCT2026_PRICING_SNAPSHOT_V2_OFFICIAL_DATES`.
+- Appended two regression tests for organizer/aggregator conflict and unverified schedule, with **isolated JavaScript harness 39/39 passing** on code prior to version-only bump. This is NOT the full native Node or GitHub CI suite. The focused test script remains `npm run test:demand-pricing:shadow`. Production status is still unchanged.
+
+### 5) Release truth
+- Oct-only PR #689 remains DRAFT and unmerged, on source branch `fix/oct2026-demand-pricing-isolated-20261010`. Source-only changes do not imply production rollout. Previous Vercel check `?upgradeToPro=build-rate-limit` (free build rate exhaustion), GitHub Ultra Deep V2 / Storefront Visual QA / OpenAI Optional workflows independently FAILED with logs returning `404 BlobNotFound`; no root-cause claim beyond that.
+- **Read-only Vercel production check 2026-10-11**: alias `kk-phone-rental.vercel.app` still READY on deployment `dpl_AmYtTipVdrzuT1i5XdYBGp3wdY1L`, main commit `69390a94972b8c636317bbf00d62ab677c0cc66f`; Draft PR #689 has not shipped.
+- **Zero Core price writes, zero poster updates, zero new public events, zero November writes, zero paid external spending.** This is meaningful progress in source/booking safety and durable evidence, not full original poster/new-event/pricing completion.
+
+**Cross-chat checkpoint (2026-10-11):**
+`OCT_2026_ONLY | CORE_VISIBLE57_PACKAGE_ROWS_ALL_VALID | POSTER_MISSING7 | PR689_DRAFT_NOT_PROD | MELODY_PRIMARY_16_18_POPRADAR_15_17_CONFLICT | TRACKER_NOTES_238_239_240_320_READBACK4/4 | TFS_CANDIDATE_ONLY | OCT9_COMPETITOR_ROWS225_233_ALREADY_PRESENT_NO_DUPLICATES | OHMY4_MIRROR_MEDIAN950_CURRENT1090_NO_WRITE | LINGORM_MIRROR_MEDIAN970_CURRENT990_NO_WRITE | OFFICIAL_SCHEDULE_SNAPSHOT_V2 | 39_FOCUSED_TESTS_PASS_ISOLATED | GITHUB_CI_RED | VERCEL_FREE_BUILD_RATE_LIMIT | CORE_WRITES0 | NOV_WRITES0 | PAID0`.
