@@ -93,27 +93,21 @@ test('score below publish threshold does not create score fallback prices',()=>{
 });
 
 test('exact competitor evidence drives market-aligned phone and bundle prices',()=>{
- const r=P.resolve({
-  event_date:'2026-10-24',
-  rental_fit_score:9.4,
-  pricing:{
-   independent_competitors:2,
-   evidence:[
-    {package_type:'PHONE_ONLY',price:690},
-    {package_type:'PHONE_LENS',price:990}
-   ]
-  },
-  package_templates:[
-   {template_id:'PHONE',package_type:'phone_only',standard_price:890,active:true},
-   {template_id:'LENS',package_type:'lens_only',standard_price:200,active:false},
-   {template_id:'BUNDLE',package_type:'phone_lens_bundle',standard_price:1090,active:true}
-  ]
- });
- assert.equal(r.source,'EXACT_EVENT_TWO_SHOP_REFERENCE_MIDPOINT');
- assert.equal(r.needs_price_recheck,true);
- assert.equal(r.pricing_status,'PROVISIONAL_EXACT_EVENT_REFERENCE');
- assert.equal(r.competitor_reference_used_as_final,true);
- assert.deepEqual(r.final_prices.map(x=>x.override_price),[740,200,940]);
+ const r=P.resolve({event_date:'2026-10-24',rental_fit_score:9.4,
+  store_baseline_prices:[{template_id:'PHONE',price:790,approved:true}],
+  pricing:{independent_competitors:2,evidence:[
+   {shop:'shop-a',package_type:'PHONE_ONLY',price:690,post_url:'https://example.com/a'},
+   {shop:'shop-b',package_type:'PHONE_LENS',price:990,post_url:'https://example.com/b'}
+  ]}});
+ assert.equal(r.status,'HOLD_FOR_OWNER_COMPETITOR_PRICE_DECISION');
+ assert.equal(r.source,'COMPETITOR_QUOTES_REPORT_ONLY');
+ assert.equal(r.requires_per_event_owner_price_decision,true);
+ assert.equal(r.competitor_reference_used_as_final,false);
+ assert.equal(r.production_writes,0);
+ assert.deepEqual(r.final_prices,[]);
+ assert.deepEqual(r.competitor_quotes.map(x=>[x.shop,x.phone_price,x.bundle_price,x.source_url]),[
+  ['shop-a',690,null,'https://example.com/a'],['shop-b',null,990,'https://example.com/b']]);
+ assert.equal(r.existing_prices_preserved,true);
 });
 
 test('owner weekpart is calendar-correct for each Nov 2026 weekdays and weekends',()=>{
@@ -152,10 +146,13 @@ test('missing reliable exact-event competitor evidence cannot trigger old expens
   pricing:{independent_competitors:5,evidence:[]},
   package_templates:[{template_id:'PHONE',package_type:'phone_only',standard_price:890,active:true},
    {template_id:'BUNDLE',package_type:'phone_lens_bundle',standard_price:1090,active:true}]});
- assert.equal(r.source,'OWNER_WEEKPART_FALLBACK');
- assert.deepEqual([r.final_prices[0].override_price,r.final_prices[2].override_price],[490,590]);
- assert.equal(r.competitor_reference_used_as_final,false);
+ assert.equal(r.status,'HOLD_FOR_OWNER_COMPETITOR_PRICE_DECISION');
+ assert.deepEqual(r.final_prices,[]);
+ assert.deepEqual(r.competitor_quotes,[]);
+ assert.equal(r.existing_prices_preserved,true);
+ assert.equal(r.production_writes,0);
 });
+
 test('pricing refuses to invent a calendar price from an invalid date',()=>{
  assert.equal(P.ownerWeekpartFallback({event_date:'2026-11-31'}),null);
  assert.equal(P.ownerWeekpartFallback({event_date:'2026-11'}),null);
@@ -185,15 +182,19 @@ test('invalid nonempty event date holds rather than falling into expensive score
 test('one verified competing shop is a provisional price reference, NOT a market median',()=>{
  const r=P.resolve({event_date:'2026-11-06',rental_fit_score:8,
   pricing:{independent_competitors:1,evidence:[
-   {package_type:'PHONE_ONLY',shop:'shop-a',price:820}
+   {package_type:'PHONE_ONLY',shop:'shop-a',price:820,post_url:'https://example.com/shop-a',checked_at:'2026-10-10'}
   ]}});
- assert.equal(r.source,'EXACT_EVENT_ONE_SHOP_REFERENCE');
- assert.equal(r.pricing_status,'PROVISIONAL_EXACT_EVENT_REFERENCE');
+ assert.equal(r.status,'HOLD_FOR_OWNER_COMPETITOR_PRICE_DECISION');
+ assert.equal(r.source,'COMPETITOR_QUOTES_REPORT_ONLY');
+ assert.equal(r.pricing_status,'OWNER_REVIEW_1_2_COMPETITOR_QUOTES');
+ assert.equal(r.requires_per_event_owner_price_decision,true);
  assert.equal(r.needs_price_recheck,true);
  assert.equal(r.competitor_evidence_count,1);
- assert.deepEqual(r.competitor_price_range,[820,820]);
- assert.deepEqual(r.final_prices.map(x=>x.override_price),[820,200,1020]);
- assert.ok(r.final_prices[0].override_note.includes('PROVISIONAL'));
+ assert.deepEqual(r.final_prices,[]);
+ assert.deepEqual(r.competitor_quotes,[{
+  shop:'shop-a',phone_price:820,bundle_price:null,
+  source_url:'https://example.com/shop-a',checked_at:'2026-10-10',freshness:''
+ }]);
 });
 
 test('two independent competing shops give midpoint/range reference without pretending high-confidence median',()=>{
@@ -201,10 +202,14 @@ test('two independent competing shops give midpoint/range reference without pret
   {package_type:'PHONE_ONLY',shop:'shop-a',price:690},
   {package_type:'PHONE_ONLY',shop:'shop-b',price:990}
  ]}});
- assert.equal(r.source,'EXACT_EVENT_TWO_SHOP_REFERENCE_MIDPOINT');
- assert.equal(r.needs_price_recheck,true);
- assert.deepEqual(r.competitor_price_range,[690,990]);
- assert.deepEqual(r.final_prices.map(x=>x.override_price),[840,200,1040]);
+ assert.equal(r.status,'HOLD_FOR_OWNER_COMPETITOR_PRICE_DECISION');
+ assert.deepEqual(r.competitor_quotes.map(x=>({shop:x.shop,price:x.phone_price})),[
+  {shop:'shop-a',price:690},{shop:'shop-b',price:990}]);
+ assert.equal(r.competitor_evidence_count,2);
+ assert.equal(r.competitor_reference_used_as_final,false);
+ assert.equal(r.requires_per_event_owner_price_decision,true);
+ assert.deepEqual(r.final_prices,[]);
+ assert.equal(r.production_writes,0);
 });
 
 test('three independent comparable shops qualify for real median and not a provisional reference',()=>{
@@ -226,17 +231,20 @@ test('reposted quotes from one shop do not inflate the independent shop count',(
   {package_type:'PHONE_ONLY',shop:'shop-a',price:1190},
   {package_type:'PHONE_ONLY',shop:'shop-b',price:990}
  ]}});
- assert.equal(r.source,'EXACT_EVENT_TWO_SHOP_REFERENCE_MIDPOINT');
- assert.deepEqual(r.competitor_price_range,[690,990]);
- assert.equal(r.competitor_evidence_count,2);
+ assert.equal(r.status,'HOLD_FOR_OWNER_COMPETITOR_PRICE_DECISION');
+ assert.deepEqual(r.final_prices,[]);
+ assert.deepEqual(r.competitor_quotes.map(x=>x.shop),['shop-a','shop-b']);
+ assert.equal(r.production_writes,0);
 });
 
 test('existing competitor with unpriced or stale offer must NEVER get zero-competitor weekend uplift',()=>{
  const r=P.resolve({event_date:'2026-10-17',pricing:{independent_competitors:1,evidence:[]}});
- assert.equal(r.source,'OWNER_WEEKPART_FALLBACK');
- assert.deepEqual(r.final_prices.map(x=>x.override_price),[690,200,890]);
- assert.ok(r.final_prices[0].override_note.includes('COMPETITOR_FOUND_NO_VALID_QUOTE'));
- assert.equal(r.needs_price_recheck,true);
+ assert.equal(r.status,'HOLD_FOR_OWNER_COMPETITOR_PRICE_DECISION');
+ assert.equal(r.pricing_status,'COMPETITOR_FOUND_PRICE_EVIDENCE_MISSING');
+ assert.deepEqual(r.competitor_quotes,[]);
+ assert.deepEqual(r.final_prices,[]);
+ assert.equal(r.existing_prices_preserved,true);
+ assert.equal(r.production_writes,0);
 });
 
 test('owner-approved prices never reprice regardless of competing shop count',()=>{
@@ -264,8 +272,10 @@ test('explicit found shop has priority over conflicting zero count; never zero-s
   independent_competitors:0,
   evidence:[{package_type:'PHONE_ONLY',shop:'shop-a',price:800}]
  }});
- assert.deepEqual(r.final_prices.map(x=>x.override_price),[690,200,890]);
- assert.ok(r.final_prices[0].override_note.includes('COMPETITOR_FOUND_NO_VALID_QUOTE'));
+ assert.equal(r.status,'HOLD_FOR_OWNER_COMPETITOR_PRICE_DECISION');
+ assert.deepEqual(r.final_prices,[]);
+ assert.deepEqual(r.competitor_quotes.map(x=>[x.shop,x.phone_price]),[['shop-a',800]]);
+ assert.equal(r.production_writes,0);
 });
 
 test('one shop quoting both phone and actual bundle uses each advertised price, not assumed lens add-on',()=>{
@@ -273,10 +283,34 @@ test('one shop quoting both phone and actual bundle uses each advertised price, 
   {shop:'duen_munk',package_type:'PHONE_ONLY',price:900},
   {shop:'duen_munk',package_type:'BUNDLE',price:1200}
  ]}});
- assert.equal(r.source,'EXACT_EVENT_ONE_SHOP_REFERENCE');
+ assert.equal(r.status,'HOLD_FOR_OWNER_COMPETITOR_PRICE_DECISION');
+ assert.deepEqual(r.final_prices,[]);
  assert.equal(r.competitor_evidence_count,1);
- assert.deepEqual(r.competitor_price_range,[900,900]);
- assert.deepEqual(r.competitor_bundle_range,[1200,1200]);
- assert.deepEqual(r.final_prices.map(x=>x.override_price),[900,200,1200]);
- assert.equal(r.needs_price_recheck,true);
+ assert.deepEqual(r.competitor_quotes.map(x=>[x.shop,x.phone_price,x.bundle_price]),
+  [['duen_munk',900,1200]]);
+ assert.equal(r.requires_per_event_owner_price_decision,true);
+ assert.equal(r.production_writes,0);
+});
+
+test('two shops never trigger price change even when store already has 790/990 prices',()=>{
+ const r=P.resolve({event_date:'2026-11-27',
+  store_baseline_prices:[{template_id:'PHONE',price:790,approved:true},
+   {template_id:'BUNDLE',price:990,approved:true}],
+  pricing:{independent_competitors:2,evidence:[
+   {shop:'A',package_type:'PHONE_ONLY',price:790},
+   {shop:'B',package_type:'BUNDLE',price:1190}
+  ]}});
+ assert.equal(r.status,'HOLD_FOR_OWNER_COMPETITOR_PRICE_DECISION');
+ assert.equal(r.existing_prices_preserved,true);
+ assert.deepEqual(r.final_prices,[]);
+ assert.equal(r.production_writes,0);
+});
+
+test('one shop remains a report-only case even if event score is high',()=>{
+ const r=P.resolve({event_date:'2026-10-17',rental_fit_score:9.9,
+   pricing:{independent_competitors:1,evidence:[{shop:'A',package_type:'BUNDLE',price:990}]}});
+ assert.deepEqual(r.final_prices,[]);
+ assert.equal(r.production_writes,0);
+ assert.equal(r.competitor_quotes[0].bundle_price,990);
+ assert.equal(r.competitor_quotes[0].phone_price,null);
 });
