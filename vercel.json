@@ -367,5 +367,6 @@
     "deploymentEnabled": {
       "main": true
     }
-  }
+  },
+  "buildCommand": "npm run test:ultradeep:recall && npm run test:siam-halloween:poster && npm run test:inbox:media && npm run check"
 }
