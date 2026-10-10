@@ -2,7 +2,7 @@
 
 // This is a ZERO-COST EVIDENCE-BASED agent policy, not a fitted ML model.
 // Advisory shadow only; never submit a business write from this module.
-const VERSION='KK_DEMAND_PRICING_SHADOW_V1';
+const VERSION='KK_DEMAND_PRICING_SHADOW_V2_VALIDATED_QUOTE_SAFETY';
 const PRICE_BANDS=Object.freeze([490,590,690,790,890,990,1090,1290]);
 const SIGNAL_WEIGHTS=Object.freeze({
  fandom_photo_intent:0.38,
@@ -30,15 +30,40 @@ function nearestBand(v){return PRICE_BANDS.reduce((a,b)=>Math.abs(b-v)<Math.abs(
 function uniqueQuotes(rows){
  const result=[],map=new Map();
  for(const [index,item] of (Array.isArray(rows)?rows:[]).entries()){
-  const r=item||{};
-  const shop=text(r.shop||r.shop_id||r.competitor_account||r.account);
-  const key=shop?shop.toLowerCase():'UNKNOWN_'+index;
-  if(!map.has(key)){const v={shop:shop||'UNIDENTIFIED',phone_price:null,bundle_price:null,source_url:text(r.source_url||r.post_url),observed_at:text(r.observed_at||r.checked_at)};map.set(key,v);result.push(v);}
+  const r=item||{},shop=text(r.shop||r.shop_id||r.competitor_account||r.account);
+  // Unknown source rows must NOT count as N independent rental shops.
+  const key=shop?shop.toLowerCase():'UNKNOWN_SOURCE';
+  if(!map.has(key)){
+   const v={shop:shop||'UNIDENTIFIED',phone_price:null,bundle_price:null,
+    source_url:text(r.source_url||r.post_url),observed_at:text(r.observed_at||r.checked_at)};
+   map.set(key,v);result.push(v);
+  }
   const v=map.get(key),kind=text(r.package_type).toUpperCase();
   if(['PHONE','PHONE_ONLY'].includes(kind)&&v.phone_price===null)v.phone_price=price(r.price);
   if(['PHONE_LENS','PHONE_LENS_BUNDLE','BUNDLE'].includes(kind)&&v.bundle_price===null)v.bundle_price=price(r.price);
  }
  return result;
+}
+function verifiedIndependentShopCount(rows=[],asOfDate=''){
+ // Median/reference claims from 3+ peers require individual receipts,
+ // verified comparability, identity, and recent timestamps; no raw count trust.
+ const observed=new Set();
+ const anchor=/^\\d{4}-\\d{2}-\\d{2}$/.test(text(asOfDate))?Date.parse(asOfDate+'T00:00:00Z'):null;
+ for(const r of Array.isArray(rows)?rows:[]){
+  if(!r||r.verified!==true||r.comparable_verified!==true)continue;
+  const shop=text(r.shop||r.shop_id||r.competitor_account||r.account).toLowerCase();
+  const url=text(r.source_url||r.post_url),checked=text(r.observed_at||r.checked_at).slice(0,10);
+  if(!shop||!/^https:\/\//i.test(url)||!/^\\d{4}-\\d{2}-\\d{2}$/.test(checked))continue;
+  const ts=Date.parse(checked+'T00:00:00Z');
+  if(!Number.isFinite(ts))continue;
+  // 14-day freshness window applies only to verifying *current* shop
+  // price evidence; do not silently label older historical posts current.
+  if(anchor!==null&&(ts>anchor||anchor-ts>14*86400000))continue;
+  if(!['PHONE','PHONE_ONLY','PHONE_LENS','PHONE_LENS_BUNDLE','BUNDLE']
+   .includes(text(r.package_type).toUpperCase())||price(r.price)===null)continue;
+  observed.add(shop);
+ }
+ return observed.size;
 }
 function verifiedSignals(input={}){
  const available=[];
@@ -64,8 +89,12 @@ function verifiedPaidHistory(rows=[],eventId=''){
   if(r.comparable_verified!==true||r.verified!==true||
    !COMPLETED.has(text(r.booking_status).toLowerCase())||!id||id===eventId||
    !text(r.event_date)||!text(r.source_ref))continue;
-  const phone=price(r.paid_phone_price)||(['phone_only','phone'].includes(type)?price(r.paid_price):null);
-  const bundle=price(r.paid_bundle_price)||(['phone_lens_bundle','bundle'].includes(type)?price(r.paid_price):null);
+  // Never let a typed BUNDLE receipt poison phone-only observations even
+  // if an imported record incorrectly has both paid_phone_price fields.
+  const phone=type==='phone_lens_bundle'||type==='bundle'?null:
+   price(r.paid_phone_price)||(['phone_only','phone'].includes(type)?price(r.paid_price):null);
+  const bundle=['phone_only','phone'].includes(type)?null:
+   price(r.paid_bundle_price)||(['phone_lens_bundle','bundle'].includes(type)?price(r.paid_price):null);
   if(phone===null&&bundle===null)continue;
   const key=id+'|'+text(r.booking_id||r.observation_id||r.source_ref);
   if(seen.has(key))continue;
@@ -106,7 +135,9 @@ function propose(input={}){
  if(blocked)return base(input,blocked,{blockers:[blocked]});
  const quotes=uniqueQuotes(input.competitor_evidence);
  const count=number(input.independent_competitors);
- const known=Math.max(quotes.length,count===null?0:count);
+ const identified=quotes.filter(q=>q.shop!=='UNIDENTIFIED').length;
+ const known=Math.max(identified,count===null?0:count);
+ const anonymousRows=quotes.some(q=>q.shop==='UNIDENTIFIED');
  // Do NOT conflate unscanned with searched-zero.
  const marketStatus=text(input.competitor_market_status).toUpperCase();
  if((known>0&&known<3)||(marketStatus.startsWith('COMPETITOR_FOUND')&&known===0)){
@@ -115,10 +146,11 @@ function propose(input={}){
    review_note:'รายงานราคาคู่แข่งแต่ละร้าน ให้เจ้าของร้านตัดสินใจเอง ห้ามปรับราคาอัตโนมัติ'
   });
  }
- if(known>0&&quotes.length<3){
+ const trusted=verifiedIndependentShopCount(input.competitor_evidence,input.scan_date||input.as_of_date||'');
+ if(anonymousRows||known>0&&trusted<3){
   return base(input,'HOLD_COMPETITOR_EVIDENCE_INCOMPLETE',{
-   competitor_quotes:quotes,competitor_shops_found:known,
-   blockers:['COMPETITOR_VERIFIED_QUOTES_LT_3']
+   competitor_quotes:quotes,competitor_shops_found:known,competitor_shops_verified_fresh:trusted,
+   blockers:[anonymousRows?'UNIDENTIFIED_COMPETITOR_SHOP':'COMPETITOR_VERIFIED_FRESH_SHOPS_LT_3']
   });
  }
  const signals=verifiedSignals(input);
@@ -214,4 +246,4 @@ function learn(input={}){
   owner_review_required:true,production_writes:0,learning_writes:0
  };
 }
-module.exports={VERSION,PRICE_BANDS,SIGNAL_WEIGHTS,uniqueQuotes,verifiedSignals,verifiedPaidHistory,propose,learn};
+module.exports={VERSION,PRICE_BANDS,SIGNAL_WEIGHTS,uniqueQuotes,verifiedIndependentShopCount,verifiedSignals,verifiedPaidHistory,propose,learn};
