@@ -86,6 +86,28 @@ async function pool(items,worker,limit=CONCURRENCY){
   async function run(){while(true){const i=next++;if(i>=items.length)return;out[i]=await worker(items[i],i);}}
   await Promise.all(Array.from({length:Math.min(limit,items.length)},run)); return out;
 }
+function assessPoster(r,byUrl=new Map()){
+  const canonical=candidates(r.poster_image_url);
+  const fallback=emergencyPoster(r);
+  const fallbackCandidates=fallback&&fallback!==text(r.poster_image_url)?candidates(fallback):[];
+  const chain=[...canonical,...fallbackCandidates.filter(u=>!canonical.includes(u))];
+  const checks=chain.map(u=>byUrl.get(u));
+  const firstHealthy=checks.find(x=>x&&x.ok);
+  const canonicalDeliveryOk=canonical.some(url=>byUrl.get(url)?.ok===true);
+  const canonicalMissing=!text(r.poster_image_url);
+  return {
+    event_id:text(r.event_id),event_name:text(r.event_name),event_date:text(r.event_date_text),
+    canonical:text(r.poster_image_url),canonical_host:host(text(r.poster_image_url)),
+    emergency_fallback:fallback||'',candidate_count:chain.length,
+    status:firstHealthy?'PASS':'FAIL',
+    // Delivery fallback never turns a blank Core poster into canonical PASS.
+    canonical_missing:canonicalMissing,canonical_delivery_ok:canonicalDeliveryOk,
+    canonical_integrity_status:canonicalMissing?'HOLD_CANONICAL_POSTER_MISSING':canonicalDeliveryOk?'PASS':'HOLD_CANONICAL_POSTER_DELIVERY',
+    recovered_by_fallback:!!(firstHealthy&&!canonicalDeliveryOk&&fallbackCandidates.includes(firstHealthy.url)),
+    first_healthy_url:firstHealthy?firstHealthy.url:'',
+    candidates:checks
+  };
+}
 async function main(){
   const feedRes=await fetch(FEED,{headers:{'Cache-Control':'no-cache','User-Agent':'KK-Storefront-Poster-Audit/1.0'}});
   if(!feedRes.ok)throw new Error('EVENT_FEED_HTTP_'+feedRes.status);
@@ -100,38 +122,31 @@ async function main(){
   const probed=await pool(unique,url=>probe(url));
   const byUrl=new Map(probed.map(x=>[x.url,x]));
 
-  const events=rows.map(r=>{
-    const canonical=candidates(r.poster_image_url);
-    const fallback=emergencyPoster(r);
-    const fallbackCandidates=fallback&&fallback!==text(r.poster_image_url)?candidates(fallback):[];
-    const chain=[...canonical,...fallbackCandidates.filter(u=>!canonical.includes(u))];
-    const checks=chain.map(u=>byUrl.get(u));
-    const firstHealthy=checks.find(x=>x&&x.ok);
-    return {
-      event_id:text(r.event_id),event_name:text(r.event_name),event_date:text(r.event_date_text),
-      canonical:text(r.poster_image_url),canonical_host:host(text(r.poster_image_url)),
-      emergency_fallback:fallback||'',candidate_count:chain.length,
-      status:firstHealthy?'PASS':'FAIL',
-      recovered_by_fallback:!!(firstHealthy&&canonical.length&&firstHealthy.url!==canonical[0]),
-      first_healthy_url:firstHealthy?firstHealthy.url:'',
-      candidates:checks
-    };
-  });
+  const events=rows.map(r=>assessPoster(r,byUrl));
   const failed=events.filter(e=>e.status==='FAIL');
   const recovered=events.filter(e=>e.recovered_by_fallback);
+  const missingCanonical=events.filter(e=>e.canonical_missing);
+  const canonicalDeliveryFailed=events.filter(e=>!e.canonical_missing&&!e.canonical_delivery_ok);
   const hostCounts={};
   for(const e of events)hostCounts[e.canonical_host]=(hostCounts[e.canonical_host]||0)+1;
   const report={
     schema:'kk-storefront-poster-health/v1',checked_at:new Date().toISOString(),
     feed:FEED,visible_events:events.length,unique_candidate_urls:unique.length,
     pass_events:events.length-failed.length,failed_events:failed.length,recovered_by_fallback:recovered.length,
+    canonical_missing_count:missingCanonical.length,
+    canonical_delivery_failed_count:canonicalDeliveryFailed.length,
+    canonical_integrity_pass_count:events.length-missingCanonical.length-canonicalDeliveryFailed.length,
+    missing_canonical:missingCanonical.map(e=>({event_id:e.event_id,event_name:e.event_name,event_date:e.event_date,emergency_fallback:e.emergency_fallback})),
+    canonical_delivery_failed:canonicalDeliveryFailed.map(e=>({event_id:e.event_id,event_name:e.event_name,event_date:e.event_date,canonical:e.canonical})),
     host_counts:hostCounts,
     failed:failed.map(e=>({event_id:e.event_id,event_name:e.event_name,event_date:e.event_date,canonical:e.canonical,emergency_fallback:e.emergency_fallback,candidates:e.candidates})),
     recovered:recovered.map(e=>({event_id:e.event_id,event_name:e.event_name,event_date:e.event_date,canonical:e.canonical,first_healthy_url:e.first_healthy_url})),
     events,production_writes:0,business_data_mutations:0
   };
   process.stdout.write(JSON.stringify(report,null,2)+'\n');
-  if(failed.length)process.exitCode=2;
+  // Fallback images can keep a card viewable, but cannot certify the official
+  // canonical artwork field. Fail the audit without mutating a business row.
+  if(failed.length||missingCanonical.length||canonicalDeliveryFailed.length)process.exitCode=2;
 }
 if(require.main===module)main().catch(err=>{console.error(JSON.stringify({ok:false,error:text(err&&err.message)||'AUDIT_FAILED'}));process.exit(1);});
-module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,probe,pool};
+module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,probe,pool,assessPoster};
