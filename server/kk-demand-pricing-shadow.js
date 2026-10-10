@@ -20,7 +20,7 @@ function price(v){
  // Read-only Google Sheets returns display-formatted THB such as "1,090".
  // Accept strictly grouped thousands, but never coerce malformed grouping.
  const raw=typeof v==='string'?v.trim():'';
- const normalized=/^\\d{1,3}(,\\d{3})+(?:\\.\\d+)?$/.test(raw)?raw.replace(/,/g,''):v;
+ const normalized=/^\d{1,3}(,\d{3})+(?:\.\d+)?$/.test(raw)?raw.replace(/,/g,''):v;
  const n=number(normalized);
  return n!==null&&n>0&&n<=10000?n:null;
 }
