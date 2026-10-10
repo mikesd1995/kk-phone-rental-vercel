@@ -35,8 +35,9 @@
     "openai:agents:dry-run": "node scripts/kk-openai-agent-dry-run.js",
     "agent:inbox:review": "node scripts/kk-unified-inbox-agent-review.js",
     "test:ultradeep:recall": "node --test tests/kk-ultra-deep-known-miss-regression.test.js tests/kk-ultra-deep-runtime-runner.test.js tests/kk-ultra-deep-source-registry.test.js tests/kk-closure-discovery-fresh-port.test.js",
-    "postinstall": "npm run test:ultradeep:recall && npm run test:siam-halloween:poster",
-    "test:siam-halloween:poster": "node --test tests/siam-halloween-original-asset.test.js"
+    "postinstall": "npm run test:ultradeep:recall && npm run test:siam-halloween:poster && npm run test:inbox:ship-gate && npm run check",
+    "test:siam-halloween:poster": "node --test tests/siam-halloween-original-asset.test.js",
+    "test:inbox:ship-gate": "node --test tests/kk-inbox-private-media.test.js tests/kk-line-inbox-tee.test.js tests/kk-line-webhook.test.js tests/kk-admin-inbox-preview.test.js tests/line-booking-owner-approval.test.js tests/line-booking-locked-intake-v4.test.js tests/line-booking-intake.test.js tests/line-booking-inbox-tee.test.js tests/line-webhook.test.js tests/line-webhook-raw-body.test.js tests/same-day-inventory-date-normalization.test.js tests/booking-id-primary-close-regression-20261002.test.js tests/kk-ultra-deep-full-loop-v2.test.js"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"
