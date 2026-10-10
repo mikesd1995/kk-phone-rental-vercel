@@ -255,8 +255,8 @@ test('missing shop identifiers must not manufacture three independent competitor
  assert.equal(r.status,'HOLD_COMPETITOR_EVIDENCE_INCOMPLETE');
  assert.equal(r.suggested_prices,null);
  assert.equal(r.production_writes,0);
- assert.equal(r.competitor_quotes.length,1);
- assert.equal(r.competitor_quotes[0].shop,'UNIDENTIFIED');
+ assert.equal(r.competitor_quotes.length,3);
+ assert.equal(r.competitor_quotes.every(x=>x.shop==='UNIDENTIFIED'),true);
 });
 test('three historical or unverified shop price rows cannot be treated as CURRENT market',()=>{
  const r=S.propose({...base(),independent_competitors:3,scan_date:'2026-10-10',
@@ -306,4 +306,15 @@ test('bundle receipt with erroneous paid_phone_price cannot become phone-only hi
  assert.equal(rows.length,1);
  assert.equal(rows[0].paid_phone_price,null);
  assert.equal(rows[0].paid_bundle_price,690);
+});
+
+test('no timestamped scan cannot claim three quotes are fresh market evidence',()=>{
+ const evidence=['a','b','c'].map(shop=>({shop,package_type:'BUNDLE',
+ price:1090,verified:true,comparable_verified:true,
+ source_url:'https://example.com/'+shop,observed_at:'2026-10-08'}));
+ assert.equal(S.verifiedIndependentShopCount(evidence,''),0);
+ const r=S.propose({...base(),independent_competitors:3,competitor_evidence:evidence});
+ assert.equal(r.status,'HOLD_COMPETITOR_EVIDENCE_INCOMPLETE');
+ assert.equal(r.suggested_prices,null);
+ assert.equal(r.production_writes,0);
 });
