@@ -5,6 +5,7 @@ const root=path.join(__dirname,'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const edge=read('supabase/functions/kk-admin-write-control/index.ts');
 const migration=read('supabase/migrations/20261010002000_ultradeep_readonly_scan_shards.sql');
+const aclLockdown=read('supabase/migrations/20261010162000_ultradeep_readonly_shard_privilege_lockdown.sql');
 
 test('scan checkpoints stored separately from business truth with no anon access, immutable service-role rows',()=>{
  assert.match(migration,/create table if not exists public\.kk_ultra_deep_scan_shards/);
@@ -87,4 +88,11 @@ test('production shard migration parses with balanced PostgreSQL dollar delimite
  assert.match(migration,/jsonb_array_length\(p_receipt_json->'records'\)<>p_shard_end-p_shard_start/);
  assert.match(migration,/revoke all on function public\.kk_ultra_deep_scan_shard_insert/);
  assert.ok((migration.match(/\$\$/g)||[]).length%2===0,'balanced $$ quotes');
+});
+
+test('Supabase default-grant remediation removes service role UPDATE DELETE TRUNCATE',()=>{
+ assert.match(aclLockdown,/revoke all on table public\.kk_ultra_deep_scan_shards/);
+ assert.match(aclLockdown,/from public, anon, authenticated, service_role/);
+ assert.match(aclLockdown,/grant select, insert on table public\.kk_ultra_deep_scan_shards to service_role/);
+ assert.doesNotMatch(aclLockdown,/grant\s+(?:all|update|delete|truncate)\b/i);
 });
