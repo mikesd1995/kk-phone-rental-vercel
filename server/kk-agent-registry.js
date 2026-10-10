@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V30_DEMAND_SHADOW';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V31_OCT_SNAPSHOT';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -85,6 +85,14 @@ const AGENTS = Object.freeze({
     runtime_state: 'LIVE_AUDIT_AND_CALLABLE',
     surface: 'SYSTEM_AUDIT_AND_AGENT_GATEWAY',
     production_writes: 0
+  }),
+  'kk-october-pricing-snapshot': Object.freeze({
+    version:'KK_OCT2026_PRICING_SNAPSHOT_V1',
+    authority:'READ_ONLY_CORE_OCTOBER_EVIDENCE_ADAPTER',
+    runtime_state:'DRAFT_CALLABLE_SHADOW_ONLY',
+    surface:'AGENT_GATEWAY',
+    production_writes:0,
+    note:'October-only Core Sheet event/package/booking snapshots with serial date locks; excludes all customer PII and never invents market prices.'
   }),
   'kk-demand-pricing-shadow': Object.freeze({
     version:'KK_DEMAND_PRICING_SHADOW_V1',
@@ -310,6 +318,20 @@ const ROUTES = Object.freeze({
     runtime_available: true,
     owner_review_required: false,
     persistent_invocation_evidence_required: true
+  }),
+  prepare_october_pricing_snapshot: Object.freeze({
+    route_id:'OCTOBER_CORE_READBACK_PRICE_SNAPSHOT',
+    request_type:'READ_ONLY_CORE_BOOKING_PACKAGE_SNAPSHOT',
+    required_agents:Object.freeze(['kk-october-pricing-snapshot']),
+    downstream_agents:Object.freeze(['kk-demand-pricing-shadow']),
+    runtime_available:true,owner_review_required:false,persistent_invocation_evidence_required:true
+  }),
+  prepare_october_completed_history: Object.freeze({
+    route_id:'OCTOBER_COMPLETED_PACKAGE_OUTCOME_EXTRACT',
+    request_type:'READ_ONLY_COMPLETE_BOOKING_HISTORY',
+    required_agents:Object.freeze(['kk-october-pricing-snapshot']),
+    downstream_agents:Object.freeze(['kk-pricing-learning-shadow']),
+    runtime_available:true,owner_review_required:false,persistent_invocation_evidence_required:true
   }),
   demand_pricing_shadow: Object.freeze({
     route_id:'DEMAND_PRICING_EVIDENCE_SHADOW',
