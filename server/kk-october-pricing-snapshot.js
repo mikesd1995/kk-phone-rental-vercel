@@ -52,6 +52,13 @@ function currentSnapshot(eventRow,packageRows,bookingRows,options={}){
  const hidden=vis==='false'||vis==='0'||vis==='hide'||vis==='hidden'||eventRow[6]===false;
  const inventory=phone&&['available','open'].includes(text(phone[9]).toLowerCase())?
   Number(text(phone[8])):null;
+ const schedule=options.officialSchedule||{};
+ // Official festival date windows trump third-party calendars; NEVER infer
+ // a phantom rental day from an aggregator when primary evidence conflicts.
+ const scheduleVerified=schedule.verified===true&&
+  /^https:\/\//i.test(text(schedule.source_url))&&Array.isArray(schedule.dates)&&
+  schedule.dates.length>0&&schedule.dates.every(d=>validISO(d));
+ const officialDateConflict=scheduleVerified&&!schedule.dates.includes(eventDate);
  const input={
   event_id:eventId,event_date:eventDate,event_verified:options.eventVerified===true,
   owner_hidden:hidden||yes(options.ownerHidden),tombstone_locked:yes(options.tombstoneLocked),
@@ -64,7 +71,7 @@ function currentSnapshot(eventRow,packageRows,bookingRows,options={}){
   competitor_market_status:'UNKNOWN',
   independent_competitors:null,
   signals:{},competitor_evidence:[],completed_history:[],
-  event_source_conflict:yes(options.eventSourceConflict),
+  event_source_conflict:yes(options.eventSourceConflict)||officialDateConflict,
   production_writes:0
  };
  // No customer names, phone numbers, Line IDs or exact identity-bearing
@@ -76,7 +83,10 @@ function currentSnapshot(eventRow,packageRows,bookingRows,options={}){
    poster_source_present:/^https:\/\//i.test(text(eventRow[4])),
    approved_owner_lock:input.owner_price_locked,
    availability_verified:input.available_inventory!==null,
-   market_search_unverified:true}
+   market_search_unverified:true,
+   first_party_schedule_checked:scheduleVerified,
+   event_date_conflicts_official:scheduleVerified&&officialDateConflict,
+   official_schedule_source:scheduleVerified?text(schedule.source_url):null}
  };
 }
 function completedComparableHistory(bookingRows,options={}){
