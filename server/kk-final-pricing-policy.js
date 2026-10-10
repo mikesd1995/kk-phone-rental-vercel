@@ -28,17 +28,24 @@ function isWeekendDate(v){
   return d===0||d===5||d===6;
 }
 
-function exactCompetitorCount(input={}){
+// An unknown/unscanned competitor count is NOT the same thing as a verified
+// zero. Preserve that distinction before using the special 790/990 uplift.
+function explicitCompetitorCount(input={}){
   const sources=[
     input.independent_competitors,
     input.pricing&&input.pricing.independent_competitors,
     input.candidate&&input.candidate.pricing&&input.candidate.pricing.independent_competitors
   ];
   for(const v of sources){
+    if(v===null||v===undefined||text(v)==='')continue;
     const n=Number(v);
-    if(Number.isFinite(n)&&n>=0) return n;
+    if(Number.isInteger(n)&&n>=0)return n;
   }
-  return 0;
+  return null;
+}
+function exactCompetitorCount(input={}){
+  const count=explicitCompetitorCount(input);
+  return count===null?0:count;
 }
 
 function eventDate(input={}){
@@ -103,13 +110,17 @@ function ownerWeekpartFallback(input={}){
  if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)return null;
  const n=parsed.getUTCDay();
  const weekend=n===0||n===5||n===6;
- const evidence=Array.isArray((input.pricing||{}).evidence)?input.pricing.evidence:[];
- const competitorExists=exactCompetitorCount(input)>0||evidence.some(r=>money(r&&r.price));
- const phone=weekend?(competitorExists?690:790):490;
- const bundle=weekend?(competitorExists?890:990):590;
+ const pricing=input.pricing||{};
+ const evidence=Array.isArray(pricing.evidence)?pricing.evidence:[];
+ const count=explicitCompetitorCount(input);
+ const marketStatus=text(pricing.market_status||input.competitor_market_status).toUpperCase();
+ const competitorExists=(count!==null&&count>0)||evidence.some(r=>money(r&&r.price))||marketStatus.startsWith('COMPETITOR_FOUND');
+ const noCompetitorFound=!competitorExists&&(count===0||marketStatus==='NO_COMPETITOR_FOUND');
+ const phone=weekend?(noCompetitorFound?790:690):490;
+ const bundle=weekend?(noCompetitorFound?990:890):590;
  const ids=templateIds(input,fallbackPolicy(input));
  const lens=lensBaseline(input);
- const note=weekend?(competitorExists?'OWNER_WEEKEND_COMPETITOR_FOUND_NO_VALID_QUOTE':'OWNER_WEEKEND_NO_COMPETITOR_FOUND'):'OWNER_MON_THU_FALLBACK';
+ const note=weekend?(noCompetitorFound?'OWNER_WEEKEND_NO_COMPETITOR_FOUND':competitorExists?'OWNER_WEEKEND_COMPETITOR_FOUND_NO_VALID_QUOTE':'OWNER_WEEKEND_COMPETITOR_STATUS_UNKNOWN'):'OWNER_MON_THU_FALLBACK';
  return {weekend,phone,bundle,lens,
   final_prices:[
    {template_id:ids.phone,override_price:phone,active_override:true,override_note:note+'|NOT_COMPETITOR_MEDIAN'},
@@ -348,7 +359,7 @@ module.exports={
   VERSION,
   DEFAULT_SCORE_FALLBACK_POLICY,
   isWeekendDate,
-  exactCompetitorCount,
+  explicitCompetitorCount,exactCompetitorCount,
   eventScore,
   fallbackPolicy,
   templateIds,
