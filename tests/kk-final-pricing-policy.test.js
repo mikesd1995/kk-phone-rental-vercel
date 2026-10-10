@@ -246,3 +246,24 @@ test('owner-approved prices never reprice regardless of competing shop count',()
  assert.deepEqual(r.final_prices,[]);
  assert.equal(r.production_writes,0);
 });
+
+test('competitor search not performed or declared cannot be misclassified as zero competitors',()=>{
+ const unknown=P.resolve({event_date:'2026-11-06',rental_fit_score:8.4});
+ assert.deepEqual(unknown.final_prices.map(x=>x.override_price),[690,200,890]);
+ assert.ok(unknown.final_prices[0].override_note.includes('COMPETITOR_STATUS_UNKNOWN'));
+ assert.equal(P.explicitCompetitorCount({}),null);
+ assert.equal(P.explicitCompetitorCount({pricing:{independent_competitors:null}}),null);
+ const noShop=P.resolve({event_date:'2026-11-06',rental_fit_score:8.4,
+  pricing:{independent_competitors:0}});
+ assert.deepEqual(noShop.final_prices.map(x=>x.override_price),[790,200,990]);
+ assert.ok(noShop.final_prices[0].override_note.includes('NO_COMPETITOR_FOUND'));
+});
+
+test('explicit found shop has priority over conflicting zero count; never zero-shop uplift',()=>{
+ const r=P.resolve({event_date:'2026-11-06',pricing:{
+  independent_competitors:0,
+  evidence:[{package_type:'PHONE_ONLY',shop:'shop-a',price:800}]
+ }});
+ assert.deepEqual(r.final_prices.map(x=>x.override_price),[690,200,890]);
+ assert.ok(r.final_prices[0].override_note.includes('COMPETITOR_FOUND_NO_VALID_QUOTE'));
+});
