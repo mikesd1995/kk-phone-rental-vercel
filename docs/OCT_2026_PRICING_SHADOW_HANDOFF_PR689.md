@@ -38,3 +38,44 @@ Owner asked to complete October Ultra Deep Scan and fix old/new storefront price
 - Change manifest and next gates are in [October 43-card Price Matrix](./OCT_2026_VISIBLE_EVENT_PRICING_MATRIX_20261010.md), [October-only scan](./OCTOBER_2026_ONLY_ULTRA_DEEP_PRICING_RESCAN_20261010.md), [Pricing issue #687](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/687), [October issue #685](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/685).
 
 **Machine-readable handoff:** `SCOPE=2026-10_ONLY|PR=689_DRAFT_UNMERGED|CORE_OCT=143_VISIBLE57_HIDDEN86|FUTURE_VISIBLE=43|FUTURE_BOOKING_LOCK=18_23_24_31|POSTERS_MISSING=7|NEW_CANDIDATE=CHILLIZ_20261030_TRACKER_ROW361_HOLD_READBACK_OK|TT_HISTORICAL_PAID_BUNDLE_MEDIAN=690_PHONE_MEDIAN=NULL|SHADOW_BRANCH_TESTS=18_PASS|LEGACY_ISOLATED_TESTS=7_PASS_1_SKIP|CORE_PRICE_CHANGES=0|NEW_PUBLIC_CARDS=0|NOV_WRITES=0|CI_RED|COST=0`.
+
+---
+
+## Continued execution — October pricing safety, readback adapter and conflict reconciliation (2026-10-10)
+
+**This is a new chronological update overriding earlier Shadow V1/test-count details where they differ.** Scope remains October 2026 only, no November business edits.
+
+### Pricing Shadow V2 fixes actually committed
+- `server/kk-demand-pricing-shadow.js` `KK_DEMAND_PRICING_SHADOW_V2_VALIDATED_QUOTE_SAFETY`: first-party source conflicts, `event_date_conflict` or a conflicting `official_event_date` fail closed as `HOLD_CONFLICTING_EVENT_DATE_OR_SOURCE`; Booking day, hidden and owner-fixed locks remain.
+- Independent competitor receipt counting is **identified by shop**, not each indexed post. Unidentified shop rows remain separate so no synthetic multi-post independent shop count. One/two actual competitors still trigger `HOLD_COMPETITOR_QUOTES_OWNER_DECISION` and preserve owner's default price.
+- Three or more competitors cannot be treated as a **current trusted market** without exact original quote/shop identities, validated comparable package, source URL, `verified=true`, `comparable_verified=true`, observed ISO date and an explicit `scan_date` (up to **14 days freshness**). Otherwise `HOLD_COMPETITOR_EVIDENCE_INCOMPLETE`. Multiple posts by one shop count once.
+- Strong demand does not bypass event-date source conflicts. Completed `phone_lens_bundle` receipts remain separate from `phone_only`, including records that mistakenly carry both price fields. This prevents fabricated phone-only willingness-to-pay.
+
+### New 100% read-only Core Booking/Package snapshot adapter
+- `server/kk-october-pricing-snapshot.js` (`KK_OCT2026_PRICING_SNAPSHOT_V1`) transforms the actual Core `01_Events`, `09_Web_Packages`, `00_Master_Booking` row arrays into safe Shadow evidence packets.
+- Handles **numeric Google Sheet serial dates** and `DD/MM/YYYY` correctly (e.g., serial **46318 = 2026-10-23**). Locks any same-day active Booking regardless of event identity / remaining inventory. Does not mistakenly lock cancelled/no_show/completed; completed historical receipts are filtered separately.
+- `completedComparableHistory` requires explicit independently approved comparable event IDs, actual `completed`, positive `amount_received`, prior event date and package identity. Produces pseudonymous source-bound booking IDs without customer name/phone/LINE. Never uses future/pending/cancelled as Actual, or ticket/purchase prices as phone rental receipts.
+- **Hard October-only enforcement** at adapter boundary; any November event date errors out. `market_status=UNKNOWN` until actual competitor-search evidence is provided, never invented searched-zero.
+- Agent Gateway `server/kk-agent-task-router.js` V21 adds `prepare_october_pricing_snapshot`, `prepare_october_completed_history`. Agent Registry V31 binds both to `kk-october-pricing-snapshot` as read-only with explicit invocation evidence. No direct connector credentials, no writes, no paid calls.
+- Added `tests/kk-october-pricing-snapshot.test.js` (12 cases including registry/agent routes), extended `tests/kk-demand-pricing-shadow.test.js` for date conflicts, stale/unidentified market, income category mixing, and unchanged one/two-shop owner hold.
+- On **current exact Draft PR #689 branch source**, an isolated JavaScript test runner executed **37/37 focused tests PASS** (Shadow + snapshot + agent-route/reg validation), no failures. This is **NOT** a native Node test invocation of full project nor GitHub CI acceptance. `package.json` now includes both focused files in `npm run test:demand-pricing:shadow` and both syntax checks.
+
+### Actual October read-only replay, exact Core rows
+- Current October 2026 `01_Events` **143** rows; `08_Web_Ready` **57** visible, of which **43** are 11–31 October. Packages read from live `09_Web_Packages`, locks read from `00_Master_Booking`.
+- With `event_verified=true` as a **dry-run verification assumption only** (not a production attestation) and **no invented quantitative fandom/engagement/ticket/inquiry signals**, of all 57 October visible cards: **52 HOLD_INSUFFICIENT_DEMAND_EVIDENCE, 4 HOLD_BOOKING_DATE_PRICE_LOCK and 1 HOLD_CONFLICTING_EVENT_DATE_OR_SOURCE**. For Oct11–31 (43 cards): **38 / 4 / 1** respectively. **No price proposal, no pricing or Booking production mutation.** Protected booking days **18,23,24,31 October**.
+- Unverified date-source conflict singled out is existing Core `EVT-20261030-VVV-SHOW-GO-WHOLESALE-RAMA2`: one calendar claims **30 October** (https://popradar.app/events), another promotional summary references the same brand/artist at GO Wholesale Rama2 on **2 October** (https://weibo.com/2/detail/5346994828086288). These **might be separate show dates**, so never assert confirmed error, cancellation or forced hide; require the official Oct30 original announcement. Shadow flags date conflict until resolved.
+- Read-only rerun still finds 7 original poster URL gaps for LE7EL (15), Manekineko (17), Paseo POP THE STAGE (17), VVV Xiaomi (25), AF Afterlife (30), POP-ป่ะห์ NAMP (30), VVV GO Wholesale (30). Official LE7EL post is discoverable but an unmodified exact current image CDN URL was not verified; historical 2025 debut image is **not** correct. Never fill these slots with generic/unrelated images.
+- Price examples remain: **BENTON TeeTeePor Wed Oct28 490/590**, **NARS TeeTeePor Sun Oct25 790/990**. Two same-pair completed bundles paid **690** were used as verified bundle observations only; no causal uplift or unjustified 790 price assertion.
+
+### Tracker business readbacks (actual writes, October only)
+- Existing October Candidate row **361**: CHILLIZ at Gamescom Asia × Thailand Game Show (Oct30) in `VERIFIED_HOLD` from prior verified official programme; all 37 columns read back.
+- **New October data-integrity review** row **362** `_Candidate_Queue!A362:AK362`: `VVV Show — GO Wholesale Rama 2 [EXISTING CORE DATE CONFLICT REVIEW]`, `VERIFIED_HOLD`, `Conflict Flag=TRUE`, references existing Core event (01_Events row338). **37/37 fields independently read back**. It is an *existing-card discrepancy*, NOT a newly published event or new sellable candidate. No false duplicate Core event created and no customer-visible price/date/hidden change.
+- Previous October Candidate `L238:L240` (Melody Of Life) and `L320` (RICE & RADIANCE) note updates remain. No November Tracker writes.
+- 0 Core price, poster, event visibility, inventory, Booking, Supabase or X publication writes. 0 paid provider/tool calls.
+
+### Release acceptance still blocking full launch
+- Exact latest Oct-only PR #689 HEAD prior to this documentation update `8c141b8ecf045fafb3bf9a5d7d9f595d4ff2a52d` stayed **OPEN/DRAFT/unmerged**.
+- GitHub combined Vercel status `failure` target URL shows **`build-rate-limit`** from the FREE tier, do not purchase Pro or request repeated paid builds. Three GitHub Actions on that commit `OpenAI Optional Zero-Cost Acceptance` run `38066296401`, `Storefront Automated Visual QA` `38066296392` and `Ultra Deep V2 Acceptance` `38066296375` each `failure`. Job log endpoints previously returned 404 BlobNotFound, therefore their cause is **UNKNOWN**; don't say the build quota explains those failures.
+- Production is a separate earlier READY main deployment, not Oct-only PR. Releasing without full CI acceptance/Verifier/owner governance is prohibited.
+
+**Updated handoff:** `OCT_ONLY|PR689_DRAFT|SHADOW_V2|SNAPSHOT_ADAPTER_V1|ISOLATED_TESTS_37_PASS|CORE_OCT_143_VISIBLE_57_FUTURE_43|SOURCE_HOLD_52|BOOKING_HOLD_4|DATE_CONFLICT_HOLD_1|ORIGINAL_POSTERS_MISSING_7|TRACKER_CHILLIZ_ROW361_OK|TRACKER_VVV_CONFLICT_ROW362_OK|CORE_PRICE_WRITES_0|PRODUCTION_DEPLOYS_0|NOVEMBER_WRITES_0|FREE_BUILD_RATE_LIMIT|CI_ACTIONS_RED`.
