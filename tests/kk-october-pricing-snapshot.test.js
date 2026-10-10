@@ -121,3 +121,26 @@ test('October paid comparable extraction route is declared and remains PII free'
  assert.equal(Registry.validateInvocation('prepare_october_completed_history',r.invoked_agents).pass,true);
  assert.equal(JSON.stringify(r.result).includes('CUSTOMER NAME'),false);
 });
+
+test('organizer-confirmed 16–18 October supersedes conflicting aggregator festival date',()=>{
+ const schedule={verified:true,source_url:'https://www.ppat2508.org/46489/',dates:[
+ '2026-10-16','2026-10-17','2026-10-18']};
+ const friday=S.currentSnapshot(ev('16/10/2026'),packageRows(),[],{officialSchedule:schedule,eventVerified:true});
+ const phantom=S.currentSnapshot(ev('15/10/2026'),packageRows(),[],{officialSchedule:schedule,eventVerified:true});
+ assert.equal(friday.input.event_source_conflict,false);
+ assert.equal(friday.safety_summary.first_party_schedule_checked,true);
+ assert.equal(phantom.input.event_source_conflict,true);
+ assert.equal(phantom.safety_summary.event_date_conflicts_official,true);
+ assert.equal(phantom.input.production_writes,0);
+});
+test('unverified or malformed organizer schedule cannot be asserted as verified',()=>{
+ const x=S.currentSnapshot(ev('15/10/2026'),packageRows(),[],{
+  officialSchedule:{verified:false,source_url:'https://example.com/schedule',dates:['2026-10-16']}
+ });
+ const y=S.currentSnapshot(ev('15/10/2026'),packageRows(),[],{
+  officialSchedule:{verified:true,source_url:'not-an-url',dates:['2026-10-16']}
+ });
+ assert.equal(x.safety_summary.first_party_schedule_checked,false);
+ assert.equal(y.safety_summary.first_party_schedule_checked,false);
+ assert.equal(x.input.event_source_conflict,false);
+});
