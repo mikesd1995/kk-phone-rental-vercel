@@ -69,6 +69,13 @@ test('preview skips CLI and workflow tooling changes under scripts', () => {
   assert.equal(result.reason, 'SAFE_PREVIEW_ONLY_CHANGE');
 });
 
+test('build-critical scripts are not treated as documentation-only changes', () => {
+  assert.equal(decide('release/candidate', ['scripts/audit-storefront-posters.js']).ignore, false);
+  assert.equal(decide('release/candidate', ['scripts/verify-event-integrity.js']).ignore, false);
+  assert.equal(decide('release/candidate', ['scripts/storefront-evidence.cjs']).ignore, false);
+  assert.equal(decide('release/candidate', ['config/kk-project-memory.json']).ignore, false);
+});
+
 test('preview builds when the ignored-build guard itself changes', () => {
   const result = decide('guard-change', ['scripts/vercel-ignore-build.js']);
   assert.equal(result.ignore, false);
