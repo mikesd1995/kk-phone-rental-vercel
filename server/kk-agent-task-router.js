@@ -19,6 +19,7 @@ const UltraDeepPublicWeb = require('./kk-ultra-deep-public-web-adapters.js');
 const MonthlyDeepScan = require('./kk-monthly-deep-scan-query-plan.js');
 const FinalPricingPolicy = require('./kk-final-pricing-policy.js');
 const DemandPricingShadow = require('./kk-demand-pricing-shadow.js');
+const OctoberPricingSnapshot = require('./kk-october-pricing-snapshot.js');
 const StorefrontUx = require('./kk-storefront-ux-reviewer.js');
 const StorefrontArt = require('./kk-storefront-art-director.js');
 const UltraDeepRuntime = require('./kk-ultra-deep-runtime-runner.js');
@@ -30,7 +31,7 @@ const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
 const OpenAiAgents = require('./kk-openai-agent-adapters.js');
 const XPostingPlan = require('./kk-x-posting-plan.js');
 
-const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V20_DEMAND_SHADOW';
+const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V21_OCTOBER_SNAPSHOT';
 
 async function resolveDecisionHistory(input, options){
   if(Array.isArray(input.decision_history)) return {rows:input.decision_history,status:'SUPPLIED'};
@@ -261,6 +262,22 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-discovery-source-watch'],
         result: SourceWatch.evaluateObservation(input, options.sourceWatchOptions || {})
+      };
+
+    // Canonical October Sheet rows to privacy-safe pricing evidence packet.
+    // No Google authentication, writes, posts, or price mutation here.
+    case 'prepare_october_pricing_snapshot':
+      return {
+        invoked_agents:['kk-october-pricing-snapshot'],
+        result:OctoberPricingSnapshot.currentSnapshot(
+          input.eventRow,input.packageRows,input.bookingRows,input.options||{})
+      };
+
+    case 'prepare_october_completed_history':
+      return {
+        invoked_agents:['kk-october-pricing-snapshot'],
+        result:OctoberPricingSnapshot.completedComparableHistory(
+          input.bookingRows,input.options||{})
       };
 
     // Dedicated report-only dynamic price intelligence: NEVER business writes.
