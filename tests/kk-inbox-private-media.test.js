@@ -95,6 +95,6 @@ test('Admin image route authenticates, checks exact conversation membership, and
  assert.match(browser,/URL\.revokeObjectURL/);
  assert.match(browser,/action:'inboxGetImage'/);
  assert.doesNotMatch(browser,/SERVICE_ROLE|SUPABASE_SERVICE/i);
- assert.match(migration,/values\\('kk-inbox-media','kk-inbox-media',false/);
+ assert.ok(migration.includes("values('kk-inbox-media','kk-inbox-media',false"));
  assert.match(migration,/revoke all on function public\.kk_inbox_media_metadata/);
 });
