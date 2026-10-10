@@ -140,3 +140,18 @@ The owner supplied an authenticated Vercel warning email (10 Oct ~23:19 Asia/Ban
 
 ### Cross-chat delta
 Earlier count 15/15 isolated V8 cases is superseded by latest **16/16** after the new exact-key branch allowlist regression test. No Production changes from this continuation. The user explicitly requested thorough autonomous remediation and durable changelog, not repeated generic questions.
+
+
+## 2026-10-11 targeted CI de-churn fix — no package.json delta on PR #690
+
+### Confirmed root of unrelated failed workflow trigger
+- The repository's **actual** `.github/workflows/ultra-deep-v2-acceptance.yml` is configured as `pull_request.paths`: `server/kk-ultra-deep-*.js`, `tests/kk-ultra-deep-full-loop-v2.test.js`, **`package.json`**. It is unrelated to Vercel storage.
+- Earlier PR #690 added only `"test:vercel:storage": "node --test tests/vercel-ignore-build.test.js tests/vercel-deployment-policy.test.js"` to `package.json`. That innocuous addition **made the entirely unrelated Ultra Deep CI eligible on each new PR head**. A live workflow run associated with PR head `08ca4ba63fc839110335f47928b8bacc0705baec` was `38079577125`, job `114293527902`, outcome `failure`. `fetch_workflow_job_steps` returned 0 steps and `fetch_workflow_job_logs` returned `404 BlobNotFound`. The failure is undiagnosed, and not evidence of Vercel tests failing. Earlier October 4 V2 handoff records a similar CI runner/provisioning symptom. Avoid repeated paid Actions reruns.
+- **Actual fix performed:** restored Draft branch `package.json` **byte-for-byte identical to original `main`**, after verifying it differed only in that temporary npm test script. New GitHub commit `0b9f09fda4c0ed2f81aaee2c721b58b79dbabc4a`, content blob SHA readback matched `main` exactly. Subsequent GitHub PR changed-files API verified **6 remaining files**, **no `package.json`**. This removes the PR path condition that made Ultra Deep acceptance run; no workflow source modifications. Other unrelated workflows can still trigger based on their own path conditions. No new Vercel Deployments.
+- **Latest correct zero-cost Node command:** `node --test tests/vercel-ignore-build.test.js tests/vercel-deployment-policy.test.js` (from the repo root on a Node.js >=20 runner). **Do not instruct `npm run test:vercel:storage` anymore**: that temporary package script has deliberately been reverted, to prevent unrelated Ultra Deep Workflow churn. Previous entries below noting that script and its earlier commit describe history, **not current PR state**.
+- Project Production must remain unmodified; keeping Preview disabled while Usage and retention are unmeasured is still the valid fail-closed gate. No source-level default-deny policy live until gated PR merge, no actual Storage reclaimed-bytes proof yet.
+
+### Cross-chat resume point
+- **Draft PR #690** `https://github.com/mikesd1995/kk-phone-rental-vercel/pull/690`, tests in `tests/vercel-ignore-build.test.js` and `tests/vercel-deployment-policy.test.js`; source policy `vercel.json` allows main and deliberate release candidates only.
+- **Separately prepared Vercel support packet** `docs/VERCEL_HOBBY_STORAGE_SUPPORT_PACKET_20261011.md`; NOT submitted.
+- User explicitly forbids paid action; no Production or rollback deletion/overwrite, no X/customer price/booking writes. Need dashboard current Usage GB and genuine free Node test before merge.
