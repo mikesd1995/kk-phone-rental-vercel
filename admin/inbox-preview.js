@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='KK_ADMIN_INBOX_V6_SMALL_CLEANUP';
+const VERSION='KK_ADMIN_INBOX_V7_PRIVATE_LINE_IMAGES';
 const POLL_MS=4000;
 const $=s=>document.querySelector(s);
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -10,6 +10,7 @@ const MESSAGE_TYPE_LABELS=Object.freeze({
 });
 let selected='',selectedRow=null,outboundEnabled=false,hydrating=false,sending=false,renaming=false;
 let searchTimer=null,pollTimer=null,pollBusy=false,lastRefreshAt=0;
+let inboxImageUrls=[];
 
 function pin(){try{return sessionStorage.getItem('kk_admin_pin')||''}catch(_){return ''}}
 function rowLabel(row){return String(row?.owner_label||row?.display_name||row?.external_user_id||'').trim()}
@@ -27,7 +28,7 @@ function messageBody(message){
  const body=String(message?.body_text||'').trim();
  if(body)return body;
  const type=String(message?.message_type||'text').trim().toLowerCase();
- if(type==='image')return 'รูปภาพ (ยังเปิดดูไฟล์จาก Inbox นี้ไม่ได้)';
+ if(type==='image')return 'รูปภาพ (ไม่มีไฟล์ภาพที่เปิดได้)';
  if(type==='video')return 'วิดีโอ (ยังเปิดดูไฟล์จาก Inbox นี้ไม่ได้)';
  if(type==='audio')return 'ข้อความเสียง (ยังเปิดฟังจาก Inbox นี้ไม่ได้)';
  if(type==='file')return 'ไฟล์แนบ (ยังเปิดจาก Inbox นี้ไม่ได้)';
@@ -136,17 +137,68 @@ async function hydrateMissingProfiles(rows,enabled){
  }catch(_){}
  finally{hydrating=false}
 }
+function releaseInboxImages(){
+ for(const url of inboxImageUrls)URL.revokeObjectURL(url);
+ inboxImageUrls=[];
+}
+async function openInboxImage(node,conversationId,messageId){
+ const status=node.querySelector('.inbox-image-status');
+ if(status)status.textContent='กำลังโหลดรูปภาพ…';
+ try{
+  const response=await fetch('/api/kk-admin-guard',{
+   method:'POST',cache:'no-store',credentials:'same-origin',
+   headers:{'Content-Type':'application/json','X-Admin-Pin':pin()},
+   body:JSON.stringify({action:'inboxGetImage',conversation_id:conversationId,message_id:messageId})
+  });
+  if(!response.ok){
+   const failure=await response.json().catch(()=>({}));
+   const e=new Error('เปิดภาพไม่สำเร็จ');e.code=failure.error_code||'';throw e;
+  }
+  const mime=String(response.headers.get('content-type')||'').split(';')[0];
+  if(!['image/jpeg','image/png','image/webp','image/gif'].includes(mime))throw new Error('ชนิดรูปภาพไม่ถูกต้อง');
+  const imageBlob=await response.blob();
+  if(imageBlob.size>8*1024*1024||!imageBlob.size)throw new Error('ขนาดไฟล์รูปภาพไม่ถูกต้อง');
+  const url=URL.createObjectURL(imageBlob);
+  if(!node.isConnected||selected!==conversationId){URL.revokeObjectURL(url);return;}
+  inboxImageUrls.push(url);
+  const button=document.createElement('button');
+  button.type='button';button.className='inbox-image-open';button.title='แตะเพื่อเปิดรูปขนาดเต็ม';
+  const img=document.createElement('img');
+  img.src=url;img.alt='รูปภาพจากลูกค้าผ่าน LINE';img.className='inbox-media-image';img.loading='lazy';
+  button.append(img);
+  button.addEventListener('click',()=>window.open(url,'_blank','noopener,noreferrer'));
+  node.replaceChildren(button);
+ }catch(err){
+  if(!node.isConnected||selected!==conversationId)return;
+  const missing=['INBOX_MEDIA_NOT_ARCHIVED','INBOX_LINE_MEDIA_EXPIRED','INBOX_LINE_MEDIA_ID_MISSING'].includes(err.code);
+  node.textContent=missing?'รูปภาพเก่าไม่มีไฟล์สำรองในระบบ':'เปิดรูปไม่สำเร็จ ';
+  if(!missing){
+   const retry=document.createElement('button');retry.type='button';retry.textContent='ลองใหม่';
+   retry.className='inbox-image-retry';retry.addEventListener('click',()=>openInboxImage(node,conversationId,messageId));
+   node.append(retry);
+  }
+ }
+}
+function hydrateInboxImages(container,conversationId){
+ container.querySelectorAll('[data-inbox-image]').forEach(node=>
+  openInboxImage(node,conversationId,node.dataset.inboxImage));
+}
+
 function renderThread(messages,{preserveScroll=false}={}){
  const n=$('#inboxThread');if(!n)return {wasNearBottom:true};
+ releaseInboxImages();
  const oldTop=n.scrollTop;
  const wasNearBottom=(n.scrollHeight-n.scrollTop-n.clientHeight)<96;
  n.innerHTML=(messages||[]).map(m=>
   '<div class="inbox-message '+esc(m.direction||'inbound')+'">'+
    '<small>'+esc(typeLabel(m.message_type||'text'))+'</small>'+
-   '<p>'+esc(messageBody(m))+'</p>'+
+   (m.message_type==='image'&&m.channel==='line'&&m.direction==='inbound' ?
+    '<div class="inbox-image-slot" data-inbox-image="'+esc(m.message_id||'')+'"><span class="inbox-image-status">กำลังโหลดรูปภาพ…</span></div>' :
+    '<p>'+esc(messageBody(m))+'</p>')+
    '<time title="'+esc(String(m.received_at||m.sent_at||m.created_at||''))+'">'+esc(fmtMessageTime(m.received_at||m.sent_at||m.created_at||''))+'</time>'+
   '</div>'
  ).join('')||'<div class="inbox-placeholder">ยังไม่มีข้อความ</div>';
+ hydrateInboxImages(n,selected);
  if(!preserveScroll||wasNearBottom)n.scrollTop=n.scrollHeight;
  else n.scrollTop=oldTop;
  return {wasNearBottom};
