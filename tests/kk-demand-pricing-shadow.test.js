@@ -245,3 +245,65 @@ test('completed learning separates phone and bundle realized revenue, never coun
  assert.equal(r.outcome_count,3);
  assert.equal(r.production_writes,0);
 });
+
+test('missing shop identifiers must not manufacture three independent competitors',()=>{
+ const r=S.propose({...base(),independent_competitors:0,scan_date:'2026-10-10',competitor_evidence:[
+  {package_type:'PHONE_ONLY',price:590,source_url:'https://example.com/1',observed_at:'2026-10-10'},
+  {package_type:'BUNDLE',price:990,source_url:'https://example.com/2',observed_at:'2026-10-10'},
+  {package_type:'BUNDLE',price:1190,source_url:'https://example.com/3',observed_at:'2026-10-10'}
+ ]});
+ assert.equal(r.status,'HOLD_COMPETITOR_EVIDENCE_INCOMPLETE');
+ assert.equal(r.suggested_prices,null);
+ assert.equal(r.production_writes,0);
+ assert.equal(r.competitor_quotes.length,1);
+ assert.equal(r.competitor_quotes[0].shop,'UNIDENTIFIED');
+});
+test('three historical or unverified shop price rows cannot be treated as CURRENT market',()=>{
+ const r=S.propose({...base(),independent_competitors:3,scan_date:'2026-10-10',
+ competitor_evidence:['a','b','c'].map((shop,i)=>({shop,package_type:'PHONE_ONLY',
+  price:790+i*100,verified:true,comparable_verified:true,
+  source_url:'https://example.com/'+shop,observed_at:'2026-08-10'}))});
+ assert.equal(r.status,'HOLD_COMPETITOR_EVIDENCE_INCOMPLETE');
+ assert.equal(r.competitor_shops_verified_fresh,0);
+ assert.equal(r.production_writes,0);
+});
+test('three independent verified recent shops can support a shadow proposal without writing',()=>{
+ const evidence=['a','b','c'].map((shop,i)=>({shop,package_type:'BUNDLE',
+ price:990+i*100,verified:true,comparable_verified:true,
+ source_url:'https://example.com/'+shop,observed_at:'2026-10-08'}));
+ const r=S.propose({...base(),scan_date:'2026-10-10',independent_competitors:3,competitor_evidence:evidence});
+ assert.equal(S.verifiedIndependentShopCount(evidence,'2026-10-10'),3);
+ assert.equal(r.status,'SHADOW_PRICE_PROPOSAL_OWNER_REVIEW');
+ assert.equal(r.suggested_prices.phone>=790,true);
+ assert.equal(r.production_writes,0);
+ assert.equal(r.owner_approval_required,true);
+});
+test('owner 1–2 shops rule still holds even if all posted quotes are verified',()=>{
+ for(const n of [1,2]){
+  const r=S.propose({...base(),scan_date:'2026-10-10',independent_competitors:n,
+   competitor_evidence:['a','b'].slice(0,n).map((shop,i)=>({shop,package_type:'BUNDLE',
+    price:1090+i*100,verified:true,comparable_verified:true,
+    source_url:'https://example.com/'+shop,observed_at:'2026-10-08'}))});
+  assert.equal(r.status,'HOLD_COMPETITOR_QUOTES_OWNER_DECISION');
+  assert.equal(r.suggested_prices,null);
+  assert.equal(r.production_writes,0);
+ }
+});
+test('dated official evidence conflicts block pricing even with strong fandom signals',()=>{
+ const a=S.propose({...base(),event_date_conflict:true});
+ const b=S.propose({...base(),official_event_date:'2026-10-02',event_date:'2026-10-30'});
+ assert.equal(a.status,'HOLD_CONFLICTING_EVENT_DATE_OR_SOURCE');
+ assert.equal(b.status,'HOLD_CONFLICTING_EVENT_DATE_OR_SOURCE');
+ assert.equal(a.production_writes,0);
+ assert.equal(b.suggested_prices,null);
+});
+test('bundle receipt with erroneous paid_phone_price cannot become phone-only history',()=>{
+ const rows=S.verifiedPaidHistory([{
+  event_id:'EVT-20261007-RYO',event_date:'2026-10-07',
+  booking_status:'completed',package_type:'phone_lens_bundle',paid_price:690,
+  paid_phone_price:690,verified:true,comparable_verified:true,source_ref:'B:RYO'
+ }],'EVT-20261028-BENTON');
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].paid_phone_price,null);
+ assert.equal(rows[0].paid_bundle_price,690);
+});
