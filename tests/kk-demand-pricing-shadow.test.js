@@ -193,3 +193,55 @@ test('agent registry routes are owner-review read-only with matching agent contr
  assert.equal(learning.result.learning_writes,0);
  assert.equal(Registry.validateInvocation('learn_demand_pricing_outcome',learning.invoked_agents).pass,true);
 });
+
+test('TeeTeePor prior completed BUNDLE 690 is bundle observation, never phone-only willingness to pay',()=>{
+ const history=[
+  {event_id:'EVT-20261007-RYO-HAIR-X-TEETEEPOR',booking_id:'BK-20261007-001',
+   event_date:'2026-10-07',package_type:'phone_lens_bundle',booking_status:'completed',
+   paid_price:690,comparable_verified:true,verified:true,source_ref:'BOOKING_AGG_BK-20261007-001'},
+  {event_id:'EVT-20261001-THE-MALL-LIFESTORE-SPORT-DAY-AFTER-MATCH',
+   booking_id:'BK-20261001-001',event_date:'2026-10-01',
+   package_type:'phone_lens_bundle',booking_status:'completed',paid_price:690,
+   comparable_verified:true,verified:true,source_ref:'BOOKING_AGG_BK-20261001-001'}
+ ];
+ const rows=S.verifiedPaidHistory(history,'EVT-20261028-BENTON-JOURNEY-BACK-TO-GLOW');
+ assert.equal(rows.length,2);
+ assert.ok(rows.every(r=>r.paid_phone_price===null&&r.paid_bundle_price===690));
+ const r=S.propose({...base(),completed_history:history});
+ assert.equal(r.status,'SHADOW_PRICE_PROPOSAL_OWNER_REVIEW');
+ assert.equal(r.historical_paid_price_median,null);
+ assert.equal(r.historical_paid_bundle_median,690);
+ assert.equal(r.historical_phone_comparables,0);
+ assert.equal(r.historical_bundle_comparables,2);
+ assert.equal(r.confidence,'LOW');
+ assert.equal(r.existing_prices_preserved,true);
+ assert.equal(r.production_writes,0);
+});
+test('insufficient demand still surfaces verified past bundle evidence without repricing',()=>{
+ const history=[{event_id:'EVT-RYO',event_date:'2026-10-07',package_type:'phone_lens_bundle',
+  booking_status:'completed',paid_price:690,comparable_verified:true,verified:true,source_ref:'BOOKING_AGG_RYO'}];
+ const r=S.propose({...base(),signals:{},completed_history:history});
+ assert.equal(r.status,'HOLD_INSUFFICIENT_DEMAND_EVIDENCE');
+ assert.equal(r.historical_paid_bundle_median,690);
+ assert.equal(r.historical_phone_comparables,0);
+ assert.equal(r.suggested_prices,null);
+ assert.equal(r.production_writes,0);
+});
+test('completed learning separates phone and bundle realized revenue, never counts future or cancelled',()=>{
+ const proposal={event_id:'EVT-TT'};
+ const outcomes=[
+  {booking_id:'a',event_id:'EVT-TT',booking_status:'completed',package_type:'phone_only',paid_price:490,verified:true,source_ref:'AGG_A'},
+  {booking_id:'b',event_id:'EVT-TT',booking_status:'completed',package_type:'phone_lens_bundle',paid_price:690,verified:true,source_ref:'AGG_B'},
+  {booking_id:'c',event_id:'EVT-TT',booking_status:'confirmed',package_type:'phone_lens_bundle',paid_price:1290,verified:true,source_ref:'AGG_C'},
+  {booking_id:'d',event_id:'EVT-TT',booking_status:'cancelled',package_type:'phone_only',paid_price:990,verified:true,source_ref:'AGG_D'},
+  {booking_id:'b',event_id:'EVT-TT',booking_status:'completed',package_type:'phone_lens_bundle',paid_price:690,verified:true,source_ref:'AGG_B'}
+ ];
+ const r=S.learn({proposal,outcomes});
+ assert.equal(r.observed_completed_gross,1180);
+ assert.equal(r.completed_count,2);
+ assert.equal(r.completed_by_package.phone_only.observed_paid_median,490);
+ assert.equal(r.completed_by_package.phone_lens_bundle.observed_paid_median,690);
+ assert.equal(r.completed_by_package.unattributed.completed_count,0);
+ assert.equal(r.outcome_count,3);
+ assert.equal(r.production_writes,0);
+});
