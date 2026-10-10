@@ -16,7 +16,14 @@ function text(v){return String(v===null||v===undefined?'':v).trim();}
 // nonempty string such as "FALSE" as an affirmative owner/booking lock.
 function enabled(v){return v===true||v===1||['true','1','yes','on'].includes(text(v).toLowerCase());}
 function number(v){if(v===null||v===undefined||text(v)==='')return null;const n=Number(v);return Number.isFinite(n)?n:null;}
-function price(v){const n=number(v);return n!==null&&n>0&&n<=10000?n:null;}
+function price(v){
+ // Read-only Google Sheets returns display-formatted THB such as "1,090".
+ // Accept strictly grouped thousands, but never coerce malformed grouping.
+ const raw=typeof v==='string'?v.trim():'';
+ const normalized=/^\\d{1,3}(,\\d{3})+(?:\\.\\d+)?$/.test(raw)?raw.replace(/,/g,''):v;
+ const n=number(normalized);
+ return n!==null&&n>0&&n<=10000?n:null;
+}
 function score(v){const n=number(v);return n!==null&&n>=0&&n<=100?n:null;}
 function median(xs){const a=xs.filter(Number.isFinite).sort((a,b)=>a-b);if(!a.length)return null;const mid=a.length>>1;return a.length%2?a[mid]:(a[mid-1]+a[mid])/2;}
 function nearestBand(v){return PRICE_BANDS.reduce((a,b)=>Math.abs(b-v)<Math.abs(a-v)?b:a);}
