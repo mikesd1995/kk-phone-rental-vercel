@@ -35,8 +35,7 @@
     "agent:inbox:review": "node scripts/kk-unified-inbox-agent-review.js",
     "test:ultradeep:recall": "node --test tests/kk-ultra-deep-known-miss-regression.test.js tests/kk-ultra-deep-runtime-runner.test.js tests/kk-ultra-deep-source-registry.test.js tests/kk-closure-discovery-fresh-port.test.js",
     "postinstall": "npm run test:ultradeep:recall && npm run test:siam-halloween:poster",
-    "test:siam-halloween:poster": "node --test tests/siam-halloween-original-asset.test.js",
-    "test:vercel:storage": "node --test tests/vercel-ignore-build.test.js tests/vercel-deployment-policy.test.js"
+    "test:siam-halloween:poster": "node --test tests/siam-halloween-original-asset.test.js"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"
