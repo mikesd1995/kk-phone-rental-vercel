@@ -35,7 +35,7 @@ test('admin Inbox has readable timestamps, non-text fallbacks and read-state cle
  const js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
  assert.match(js,/timeZone:'Asia\/Bangkok'/);
  assert.match(js,/MESSAGE_TYPE_LABELS/);
- assert.match(js,/รูปภาพ \(ยังเปิดดูไฟล์จาก Inbox นี้ไม่ได้\)/);
+ assert.match(js,/data-inbox-image/);assert.match(js,/inboxGetImage/);
  assert.match(js,/ข้อความเสียง \(ยังเปิดฟังจาก Inbox นี้ไม่ได้\)/);
  assert.match(js,/unread\+' ใหม่'/);
  assert.match(js,/async function markConversationRead/);
