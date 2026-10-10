@@ -17,6 +17,13 @@
 - Vercel source-file-tree endpoint for Git-backed deployments returned `404 File tree not found`; does not quantify bundle size.
 - No exposed authenticated tool to view team Usage's exact GB, change retention, or delete old deployments. No historical deployment deleted. **Storage reduced by this change: not yet measurable/verified.**
 
+## Emergency live Vercel setting — 2026-10-11
+
+- Submitted an authorized no-cost project PATCH to Vercel `prj_snbAmpya7YGmOuMbv1o8T16ouxl6`, **`previewDeploymentsDisabled=true`**. API returned success (no error) for the correct project/team. This is an **immediate temporary freeze of ALL new Preview deployments**, independent of the unmerged source branch. It does **not** modify Production or delete old builds.
+- Post-PATCH readback: Production alias `kk-phone-rental.vercel.app` still maps to `dpl_AmYtTipVdrzuT1i5XdYBGp3wdY1L`; project retains all four expected domains. Vercel tool's GET-project projection **does not expose** `previewDeploymentsDisabled`, so we **cannot independently attest that the configuration persisted**; confirm in the authenticated project Settings UI or a full Vercel API response before calling this verified.
+- **Recovery / reversal:** call Vercel project PATCH `previewDeploymentsDisabled=false` for the same project, and verify. Preview/ and release/ opt-in branches in the draft script will not be able to deploy while the emergency freeze remains enabled. Re-enable previews only for a necessary acceptance window after ensuring available quota, then turn freeze back on if needed.
+- This may block PR visual validation for unrelated work; coordinated explicit reactivation is required. GitHub source/test workflows remain available.
+
 ## Safe source remediation — draft branch (not live until merged and accepted)
 
 Branch `fix/vercel-hobby-storage-preview-gate-20261011`.
@@ -46,6 +53,8 @@ Required Vercel account-side follow-up:
 - [x] Team and Production alias identified and protected (read-only).
 - [x] Representative deployments, source repository structure and existing build guard inspected.
 - [x] Draft source guard and regression tests committed on separate branch.
+- [x] Vercel project preview-disable PATCH submitted successfully; Production alias preserved; PATCH setting itself not visible in GET-project projection.
+- [x] Exact source Git blob SHA `f037306a234b5d15bf00ced95bed456d71090d34` mirrored locally; Node syntax passed and 11 targeted behavior subtests passed.
 - [ ] Exact-head CI regression verified.
 - [ ] Main/release promotion approved under project gates.
 - [ ] Verified Vercel old-deployment retention or cleanup happened.
