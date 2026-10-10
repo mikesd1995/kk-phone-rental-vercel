@@ -87,7 +87,7 @@ const AGENTS = Object.freeze({
     production_writes: 0
   }),
   'kk-october-pricing-snapshot': Object.freeze({
-    version:'KK_OCT2026_PRICING_SNAPSHOT_V1',
+    version:'KK_OCT2026_PRICING_SNAPSHOT_V2_OFFICIAL_DATES',
     authority:'READ_ONLY_CORE_OCTOBER_EVIDENCE_ADAPTER',
     runtime_state:'DRAFT_CALLABLE_SHADOW_ONLY',
     surface:'AGENT_GATEWAY',
