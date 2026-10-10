@@ -262,7 +262,7 @@
     },
     {
       "memory_id": "kk:memory:ultradeep-shard-db-oidc-live:20261010",
-      "occurred_at": "2026-10-10T23:00:00+07:00",
+      "occurred_at": "2026-10-10T22:30:00+07:00",
       "kind": "IMPLEMENTATION",
       "domain": "discovery_scanner",
       "summary": "Ultra Deep Read-only Shard infrastructure actually deployed to canonical Supabase kk-unified-inbox on Oct 10: SQL fixed malformed dollar quote, added typed SHARDED_READ_ONLY commit=false/writes=0 check, 16-task bound, immutable idempotent receipts table with RLS, and service_role only SELECT/INSERT after explicit default-grant remediation. OIDC Edge kk-admin-write-control upgraded to v2 with exact file readback and retained cryptographically verified Vercel production claims. DB transactional rollback smoke confirmed claim, insert, idempotent replay, conflict rejection with 9 prior commands and 0 residual shards/writes. Draft PR 680 now adds a separate constant-time Bearer check to protect public queue GET; this source has not shipped to Vercel Production or obtained new exact-head full hosted CI. Autonomous Full Loop/official Source receipts remain unaccepted. Never auto-enable scanner or business writer; no user top-up, no booking, price or X writes.",
