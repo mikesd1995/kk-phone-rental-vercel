@@ -314,8 +314,8 @@ const ROUTES = Object.freeze({
   demand_pricing_shadow: Object.freeze({
     route_id:'DEMAND_PRICING_EVIDENCE_SHADOW',
     request_type:'READ_ONLY_DEMAND_PRICING_PROPOSAL',
-    required_agents:Object.freeze(['kk-demand-pricing-shadow','kk-pricing-learning-shadow']),
-    downstream_agents:Object.freeze(['kk-event-verifier']),
+    required_agents:Object.freeze(['kk-demand-pricing-shadow']),
+    downstream_agents:Object.freeze(['kk-pricing-learning-shadow','kk-event-verifier']),
     runtime_available:true,
     owner_review_required:true,
     persistent_invocation_evidence_required:true
