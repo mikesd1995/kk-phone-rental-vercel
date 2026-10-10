@@ -1,6 +1,7 @@
 'use strict';
 // Production deployment retrigger 2026-10-05: no runtime behavior change.
 
+const crypto=require('node:crypto');
 const Runtime=require('../server/external-scanner-runtime');
 const Ledger=require('../server/runtime-ledger');
 const OidcBridge=require('../server/runtime-ledger-oidc-bridge');
@@ -18,6 +19,18 @@ function enabled(value){
   return ['1','true','yes','on'].includes(text(value).toLowerCase());
 }
 
+// A public command UUID cannot authorize server-side OIDC execution.
+// The queue HTTP caller must present the configured Vercel Cron/admin Bearer
+// secret. This is additional to Supabase's verified Production OIDC token.
+function dispatchAuthorized(req,env=process.env){
+  const secret=text(env.KK_ULTRA_DEEP_DISPATCH_SECRET||env.CRON_SECRET);
+  const header=text(req&&req.headers&&(req.headers.authorization||req.headers.Authorization));
+  const m=header.match(/^Bearer\s+([^\s]+)$/i);
+  if(secret.length<24||!m)return false;
+  const expected=crypto.createHash('sha256').update(secret).digest();
+  const supplied=crypto.createHash('sha256').update(m[1]).digest();
+  return crypto.timingSafeEqual(expected,supplied);
+}
 function json(res,status,body){
   res.statusCode=status;
   res.setHeader('Content-Type','application/json; charset=utf-8');
@@ -200,7 +213,9 @@ module.exports=async function handler(req,res){
     const shardCommandId=queryValue(req,'shard_command_id');
     if(shardCommandId){
       if(queryValue(req,'readonly_command_id'))return json(res,400,{ok:false,error_code:'COMMAND_ROUTE_AMBIGUOUS',business_writes:0});
-      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(shardCommandId))
+      if(!dispatchAuthorized(req,process.env))
+        return json(res,401,{ok:false,error_code:'SHARDED_DISPATCH_AUTH_REQUIRED',business_writes:0});
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(shardCommandId))
         return json(res,400,{ok:false,error_code:'COMMAND_ID_INVALID',business_writes:0});
       const inspected=await WriteControl.shardCommandInspect(shardCommandId);
       if(!(inspected&&inspected.ok&&inspected.authenticated&&inspected.command&&
@@ -245,6 +260,8 @@ module.exports=async function handler(req,res){
     }
     const readonlyCommandId=queryValue(req,'readonly_command_id');
     if(readonlyCommandId){
+      if(!dispatchAuthorized(req,process.env))
+        return json(res,401,{ok:false,error_code:'READONLY_DISPATCH_AUTH_REQUIRED',business_writes:0});
       if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(readonlyCommandId)) return json(res,400,{ok:false,error_code:'COMMAND_ID_INVALID',business_writes:0});
       const shardProbe=await WriteControl.shardCommandInspect(readonlyCommandId);
       if(shardProbe&&shardProbe.ok&&shardProbe.command&&shardProbe.command.command_kind==='SHARDED_READ_ONLY')
