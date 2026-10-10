@@ -244,6 +244,21 @@
       ],
       "supersedes": [],
       "source": "owner+sheet+production+repo"
+    },
+    {
+      "memory_id": "kk:memory:ultradeep-terminal-poster-gates:20261010",
+      "occurred_at": "2026-10-10T22:30:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "discovery_scanner",
+      "summary": "Draft PR 680 source hardening on 10 Oct: strict Ultra Deep candidate terminal coverage and exact mutation-count evidence (ported safely from Draft PR 681, excluding Apps Script); fixed an unsupported Project Memory kind; poster audit now separately fails canonical missing or broken originals even if an event-specific fallback renders. Vercel Preview for source SHA 1e364e54861f4598cddcc1ba210cbfd01428d3f0 ran 207 of 207 regression checks and 1 original poster asset check, all passed. Source changes are NOT merged to main or business Production. Canonical 08_Web_Ready read-only shows 10 of 96 visible events without poster URLs. V27 authenticated sharded Full Loop and natural Scanner/Verifier runtime remain unaccepted. No paid services, business writes, automatic pricing or X posts.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/KK_RECOVERY_SHADOW_PRICING_POSTER_ULTRA_DEEP_20261010.md",
+        "server/kk-ultra-deep-full-loop-v2.js",
+        "scripts/audit-storefront-posters.js",
+        "tests/kk-ultra-deep-terminal-evidence.test.js",
+        "tests/storefront-poster-canonical-integrity.test.js"
+      ]
     }
   ]
 }
