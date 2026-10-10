@@ -365,7 +365,9 @@
   },
   "git": {
     "deploymentEnabled": {
-      "main": true
+      "**": false,
+      "main": true,
+      "release/**": true
     }
   }
 }
