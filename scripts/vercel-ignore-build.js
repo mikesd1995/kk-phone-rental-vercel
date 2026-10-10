@@ -6,7 +6,9 @@ const SAFE_PREVIEW_ONLY_PATTERNS = [
   /^\.github\//,
   /^docs\//,
   /^tests\//,
-  /^scripts\//,
+  // Only two proven ops-only CLI helpers can skip a preview build.
+  // Other scripts may run during install/build and must be tested.
+  /^scripts\/(?:resolve-current-production|accept-oidc-production)\.js$/,
   /^README(?:\..*)?$/i,
   /^[^/]+\.md$/i
 ];
