@@ -128,6 +128,25 @@ test('replayed outcome source cannot inflate completed gross or learning confide
  assert.equal(distinct.observed_completed_gross,1580);
  assert.equal(distinct.production_writes,0);
 });
+test('formatted Thai baht values preserve existing bundle premium and completed Actual',()=>{
+ const r=S.propose({...base(),current_phone_price:'1,090',current_bundle_price:'1,290',
+  completed_history:[{event_id:'PRIOR-EVENT',event_date:'2026-09-01',
+   booking_status:'completed',paid_phone_price:'1,090',verified:true,
+   comparable_verified:true,source_ref:'PAID_OBS_1090'}]});
+ assert.equal(r.status,'SHADOW_PRICE_PROPOSAL_OWNER_REVIEW');
+ assert.equal(r.current_prices.phone,1090);
+ assert.equal(r.current_prices.bundle,1290);
+ assert.equal(r.historical_paid_price_median,1090);
+ assert.equal(r.suggested_prices.bundle-r.suggested_prices.phone,200);
+ const bad=S.propose({...base(),current_phone_price:'1,09',current_bundle_price:'1,290'});
+ assert.equal(bad.current_prices.phone,null);
+ assert.equal(bad.suggested_prices.bundle,null);
+ const learned=S.learn({proposal:r,outcomes:[{event_id:r.event_id,
+  booking_status:'completed',paid_price:'1,090',verified:true,source_ref:'REC_1090'}]});
+ assert.equal(learned.observed_completed_gross,1090);
+ assert.equal(learned.observed_completed_average_paid,1090);
+ assert.equal(learned.production_writes,0);
+});
 test('invalid date or event identity and unverified event fail closed',()=>{
  assert.equal(S.propose({...base(),event_date:'2026-10-32'}).status,'HOLD_EVENT_IDENTITY_DATE_REQUIRED');
  assert.equal(S.propose({...base(),event_verified:false}).status,'HOLD_EVENT_NOT_VERIFIED');
