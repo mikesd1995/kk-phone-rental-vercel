@@ -70,3 +70,17 @@ Shadow-only SOURCE acceptance:
 - [October Issue #685](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/685)
 - [November Issue #686](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/686)
 - [Competitor 1–2 shop policy](./PRICING_COMPETITOR_REFERENCE_OWNER_POLICY_20261010.md)
+
+## H. Read-only current-core pilot & exact-head gate (2026-10-10 evening Bangkok)
+
+Connected canonical Core Sheet `12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU`, `09_Web_Packages` readback:
+- **BENTON × TeeTeePor**, 2026-10-28, `EVT-20261028-BENTON-JOURNEY-BACK-TO-GLOW`: existing phone **THB 490**, bundle **THB 590**, packages currently available. Shadow input supplied verified event identity/date and current package values, but **did NOT invent** independent photo/inquiry/ticket receipts or analogous completed paid price. Result `HOLD_INSUFFICIENT_DEMAND_EVIDENCE`, suggested price `null`, 0 writes.
+- **NARS × TeeTeePor**, 2026-10-25, `EVT-20261025-NARS-TEETEEPOR-EXCLUSIVE-EVENT`: existing phone **THB 790**, bundle **THB 990**, packages available. Same real evidence gap and same HOLD, suggested price `null`, 0 writes.
+- Tracker `_Score_Feature_Snapshot` first three inspected historic snapshots have `Demand/Fandom Raw`, `Ticket Heat Raw`, `Rental Fit Raw`, `Social Engagement Raw`, `KK Historical Raw` as **empty**, not zero. `_Business_Outcome` includes a small number of historical completed gross records but does **NOT** prove they represent same-fandom phone-only paid rentals or exposure-adjusted demand; they were **NOT injected** as fake comparable training samples.
+- An **illustrative synthetic fixture**, explicitly NOT live TeeTeePor data, with 4 verified signal receipts and two comparable completed rentals paid THB 790, generates a higher-than-590 weekday proposal, but that is a deterministic **unit-test demonstration**, not a production owner pricing recommendation.
+- Focused isolated JavaScript run with current branch files `server/kk-demand-pricing-shadow.js`, task-router, agent-registry, `server/kk-final-pricing-policy.js`: **36/36 executed tests passed, one unrelated Verifier integration test deliberately skipped**. All 12 Shadow tests including route+registry pass with unrelated router dependencies stubbed. Full `npm test`, full CI and frontend rendered acceptance were **NOT** executed or proven by this harness.
+- Exact branch HEAD at final read `323f3504dc43874a230b11c9df46de84ad810875`; Draft PR #680 OPEN not merged. GitHub Actions latest read `38055235287` OpenAI Optional Zero-Cost Acceptance FAIL, `38055235323` Storefront Automated Visual QA FAIL, `38055235345` Ultra Deep V2 Acceptance FAIL. Individual logs previous same-branch attempt returned 404 `BlobNotFound`, so do **not** claim exact test failure cause. Vercel commit status success **not** equivalent to passing CI. No merge, production write or paid calls.
+- Agent policy propagated to `.agents/skills/kk-event-verifier/SKILL.md` and `.agents/skills/kk-discovery-scanner/SKILL.md` so future source reviews do not regress to weekday-only pricing or confuse KK internal pricing outcomes with External Demand publish eligibility.
+- Roadmap/production acceptance tracker: [GitHub Issue #687](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/687).
+
+**Final turn handoff:** SOURCE_SHADOW_IMPLEMENTED | TESTS_ISOLATED_36_PASS_1_SKIP | REAL_TT_2_HOLD_NO_VERIFIED_DEMAND_FEATURES | LIVE_PRICING_UNCHANGED | LEARNING_NOT_TRAINED | 3_GITHUB_WORKFLOWS_FAILED | PR680_DRAFT_NOT_MERGED | PRODUCTION_WRITES_0.
