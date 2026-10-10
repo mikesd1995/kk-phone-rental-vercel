@@ -86,6 +86,48 @@ test('owner locks, booking-day locks, tombstones and inventory collisions take p
  }
  assert.equal(S.propose({...base(),available_inventory:0}).status,'HOLD_NO_INVENTORY_OR_COLLISION');
 });
+test('Sheets boolean/text booking locks and inventory readings cannot bypass Shadow safety',()=>{
+ for(const [field,value,expected] of [
+  ['has_active_booking_on_date','TRUE','HOLD_BOOKING_DATE_PRICE_LOCK'],
+  ['booking_day_locked','1','HOLD_BOOKING_DATE_PRICE_LOCK'],
+  ['owner_hidden','YES','HOLD_OWNER_HIDDEN_TOMBSTONE'],
+  ['tombstone_locked','true','HOLD_OWNER_HIDDEN_TOMBSTONE'],
+  ['owner_price_locked','TRUE','HOLD_OWNER_FINAL_PRICE_LOCK'],
+  ['owner_final_price','1','HOLD_OWNER_FINAL_PRICE_LOCK'],
+  ['inventory_conflict','TRUE','HOLD_NO_INVENTORY_OR_COLLISION'],
+  ['available_inventory','0','HOLD_NO_INVENTORY_OR_COLLISION'],
+  ['available_inventory',-1,'HOLD_NO_INVENTORY_OR_COLLISION'],
+  ['available_inventory','not-read','HOLD_INVENTORY_NOT_VERIFIED'],
+  ['available_inventory',null,'HOLD_INVENTORY_NOT_VERIFIED']
+ ]){
+  const r=S.propose({...base(),[field]:value});
+  assert.equal(r.status,expected,field+'='+String(value));
+  assert.equal(r.suggested_prices,null);
+  assert.equal(r.production_writes,0);
+ }
+ assert.equal(S.propose({...base(),available_inventory:'2',
+   has_active_booking_on_date:'FALSE',owner_hidden:'FALSE'}).status,
+   'SHADOW_PRICE_PROPOSAL_OWNER_REVIEW');
+ assert.equal(S.propose({...base(),available_inventory:undefined}).status,
+   'HOLD_INVENTORY_NOT_VERIFIED');
+});
+test('replayed outcome source cannot inflate completed gross or learning confidence',()=>{
+ const proposal=S.propose(base());
+ const receipt={event_id:proposal.event_id,booking_status:'completed',paid_price:790,
+  verified:true,source_ref:'BOOKING_RECEIPT_01'};
+ const replayed=S.learn({proposal,outcomes:Array(6).fill(receipt)});
+ assert.equal(replayed.outcome_count,1);
+ assert.equal(replayed.completed_count,1);
+ assert.equal(replayed.observed_completed_gross,790);
+ assert.equal(replayed.status,'INSUFFICIENT_OBSERVED_OUTCOMES');
+ const distinct=S.learn({proposal,outcomes:[
+  {...receipt,booking_id:'BOOKING_01'},
+  {...receipt,booking_id:'BOOKING_02'}
+ ]});
+ assert.equal(distinct.outcome_count,2);
+ assert.equal(distinct.observed_completed_gross,1580);
+ assert.equal(distinct.production_writes,0);
+});
 test('invalid date or event identity and unverified event fail closed',()=>{
  assert.equal(S.propose({...base(),event_date:'2026-10-32'}).status,'HOLD_EVENT_IDENTITY_DATE_REQUIRED');
  assert.equal(S.propose({...base(),event_verified:false}).status,'HOLD_EVENT_NOT_VERIFIED');
