@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_FINAL_PRICING_POLICY_V5_OWNER_WEEKPART';
+const VERSION='KK_FINAL_PRICING_POLICY_V6_OWNER_COMPETITOR_REFERENCE';
 
 const DEFAULT_SCORE_FALLBACK_POLICY=Object.freeze({
   policy_approved:true,
@@ -91,9 +91,11 @@ function templateIds(input={},policy=DEFAULT_SCORE_FALLBACK_POLICY){
   return ids;
 }
 
-// Owner lock 2026-10-10. Only when exact-event independent market evidence is
-// insufficient: Mon-Thu 490/590; Fri-Sun 690/890. Rental fit and booking
-// locks remain independent blockers; weekend is Fri/Sat/Sun by Thai calendar.
+// Owner clarification 2026-10-10: zero exact-event rental competitors FOUND
+// in checked sources => Fri-Sun 790/990; with competitors found but NO
+// usable quotes => retain the distinct Fri-Sun 690/890 provisional baseline.
+// Mon-Thu remains 490/590. "Not found" is not proof of web-wide absence.
+// Booked and owner-final dates are never repriced.
 function ownerWeekpartFallback(input={}){
  const date=eventDate(input);
  if(!isIsoDate(date))return null;
@@ -101,10 +103,13 @@ function ownerWeekpartFallback(input={}){
  if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)return null;
  const n=parsed.getUTCDay();
  const weekend=n===0||n===5||n===6;
- const phone=weekend?690:490,bundle=weekend?890:590;
+ const evidence=Array.isArray((input.pricing||{}).evidence)?input.pricing.evidence:[];
+ const competitorExists=exactCompetitorCount(input)>0||evidence.some(r=>money(r&&r.price));
+ const phone=weekend?(competitorExists?690:790):490;
+ const bundle=weekend?(competitorExists?890:990):590;
  const ids=templateIds(input,fallbackPolicy(input));
  const lens=lensBaseline(input);
- const note=weekend?'OWNER_FRI_SAT_SUN_FALLBACK':'OWNER_MON_THU_FALLBACK';
+ const note=weekend?(competitorExists?'OWNER_WEEKEND_COMPETITOR_FOUND_NO_VALID_QUOTE':'OWNER_WEEKEND_NO_COMPETITOR_FOUND'):'OWNER_MON_THU_FALLBACK';
  return {weekend,phone,bundle,lens,
   final_prices:[
    {template_id:ids.phone,override_price:phone,active_override:true,override_note:note+'|NOT_COMPETITOR_MEDIAN'},
@@ -143,31 +148,47 @@ function lensBaseline(input={}){
   const lens=templates.find(r=>text(r.package_type).toLowerCase()==='lens_only');
   return money(lens&&lens.standard_price)||200;
 }
+// Retained export name for callers. For one/two independent shops this is a
+// *reference*, not a reliable market median; only three+ yields a median.
+// Each quote must have been matched to the same event/date and comparable
+// rental model upstream. Deduplicate same-account reposts when shop identity
+// is supplied, and never count two packages from one shop as two shops.
 function exactCompetitorMedian(input={}){
   const pricing=input.pricing||{};
   const evidence=Array.isArray(pricing.evidence)?pricing.evidence:[];
   const lens=lensBaseline(input);
-  const phone=[];
+  const samples=[],seen=new Set();
   for(const row of evidence){
     const p=money(row&&row.price);if(!p)continue;
     const type=text(row&&row.package_type).toUpperCase();
-    if(type==='PHONE_ONLY'||type==='PHONE') phone.push(p);
-    else if(type==='PHONE_LENS'||type==='PHONE_LENS_BUNDLE'||type==='BUNDLE'){
-      const derived=p-lens;if(derived>0)phone.push(derived);
-    }
+    const value=(type==='PHONE_ONLY'||type==='PHONE')?p:
+      (type==='PHONE_LENS'||type==='PHONE_LENS_BUNDLE'||type==='BUNDLE')?p-lens:null;
+    if(!(value>0))continue;
+    const account=text(row.shop_id||row.competitor_account||row.shop||row.account||row.source_shop).toLowerCase();
+    if(account&&seen.has(account))continue;
+    if(account)seen.add(account);
+    samples.push(value);
   }
-  const value=median(phone);
+  const count=Math.min(exactCompetitorCount(input),samples.length);
+  if(count<1)return null;
+  const value=median(samples.slice(0,count));
   if(!value)return null;
+  const referenceOnly=count<3;
+  const method=count>=3?'EXACT_EVENT_COMPETITOR_MEDIAN':count===2?'EXACT_EVENT_TWO_SHOP_REFERENCE_MIDPOINT':'EXACT_EVENT_ONE_SHOP_REFERENCE';
   const policy=fallbackPolicy(input);
   const ids=templateIds(input,policy);
   return {
     phone:value,
     lens,
     bundle:value+lens,
+    shop_count:count,
+    reference_only:referenceOnly,
+    method,
+    sample_range:[Math.min(...samples.slice(0,count)),Math.max(...samples.slice(0,count))],
     final_prices:[
-      {template_id:ids.phone,override_price:value,active_override:true,override_note:'EXACT_EVENT_COMPETITOR_MEDIAN'},
+      {template_id:ids.phone,override_price:value,active_override:true,override_note:method+(referenceOnly?'|PROVISIONAL_RECHECK_COMPETITOR':'')},
       {template_id:ids.lens,override_price:lens,active_override:false,override_note:'LENS_ONLY_HIDDEN_STORE_BASELINE'},
-      {template_id:ids.bundle,override_price:value+lens,active_override:true,override_note:'EXACT_EVENT_COMPETITOR_MEDIAN_PLUS_LENS'}
+      {template_id:ids.bundle,override_price:value+lens,active_override:true,override_note:method+'_PLUS_LENS'+(referenceOnly?'|PROVISIONAL_RECHECK_COMPETITOR':'')}
     ]
   };
 }
@@ -218,6 +239,15 @@ function resolve(input={}){
       needs_price_recheck:false,competitor_reference_used_as_final:false,
       requires_per_event_owner_price_decision:false,production_writes:0};
   }
+  // Preserve user-approved event-specific prices before any market reference.
+  if(input.owner_price_locked===true || input.has_owner_final_price===true ||
+     input.owner_approved_price_locked===true){
+    return {schema_version:VERSION,status:'HOLD_OWNER_FINAL_PRICE_LOCK',
+      final_prices:[],policy_approved:false,source:'OWNER_PRICE_LOCK',
+      pricing_status:'NO_REPRICE_ON_OWNER_LOCKED_EVENT',price_confidence:'NONE',
+      needs_price_recheck:false,competitor_reference_used_as_final:false,
+      requires_per_event_owner_price_decision:false,production_writes:0};
+  }
   const competitorCount=exactCompetitorCount(input);
   const date=eventDate(input);
   // A typed but unparseable date cannot safely choose the owner daypart.
@@ -242,15 +272,16 @@ function resolve(input={}){
     return {
       schema_version:VERSION,
       status:'FINAL_PRICES_RESOLVED',
-      final_prices:decorate(exact.final_prices,{needs_price_recheck:false}),
+      final_prices:decorate(exact.final_prices,{needs_price_recheck:exact.reference_only}),
       policy_approved:true,
-      source:'EXACT_EVENT_COMPETITOR_MEDIAN',
-      pricing_status:'APPROVED_EXACT_EVENT_MEDIAN',
-      price_confidence:competitorCount>=3?'HIGH':'MEDIUM',
-      needs_price_recheck:false,
+      source:exact.method,
+      pricing_status:exact.reference_only?'PROVISIONAL_EXACT_EVENT_REFERENCE':'APPROVED_EXACT_EVENT_MEDIAN',
+      price_confidence:exact.reference_only?(exact.shop_count===1?'LOW':'MEDIUM'):'HIGH',
+      needs_price_recheck:exact.reference_only,
       rental_fit_score:eventScore(input),
       minimum_publish_score:fallbackPolicy(input).minimum_publish_score,
-      competitor_evidence_count:competitorCount,
+      competitor_evidence_count:exact.shop_count,
+      competitor_price_range:exact.sample_range,
       competitor_reference_used_as_final:true,
       requires_per_event_owner_price_decision:false
     };
