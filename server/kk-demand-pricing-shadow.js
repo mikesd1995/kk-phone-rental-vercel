@@ -48,12 +48,12 @@ function verifiedIndependentShopCount(rows=[],asOfDate=''){
  // Median/reference claims from 3+ peers require individual receipts,
  // verified comparability, identity, and recent timestamps; no raw count trust.
  const observed=new Set();
- const anchor=/^\\d{4}-\\d{2}-\\d{2}$/.test(text(asOfDate))?Date.parse(asOfDate+'T00:00:00Z'):null;
+ const anchor=/^\d{4}-\d{2}-\d{2}$/.test(text(asOfDate))?Date.parse(asOfDate+'T00:00:00Z'):null;
  for(const r of Array.isArray(rows)?rows:[]){
   if(!r||r.verified!==true||r.comparable_verified!==true)continue;
   const shop=text(r.shop||r.shop_id||r.competitor_account||r.account).toLowerCase();
   const url=text(r.source_url||r.post_url),checked=text(r.observed_at||r.checked_at).slice(0,10);
-  if(!shop||!/^https:\/\//i.test(url)||!/^\\d{4}-\\d{2}-\\d{2}$/.test(checked))continue;
+  if(!shop||!/^https:\/\//i.test(url)||!/^\d{4}-\d{2}-\d{2}$/.test(checked))continue;
   const ts=Date.parse(checked+'T00:00:00Z');
   if(!Number.isFinite(ts))continue;
   // 14-day freshness window applies only to verifying *current* shop
