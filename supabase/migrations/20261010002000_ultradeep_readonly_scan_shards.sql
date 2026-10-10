@@ -1,7 +1,8 @@
 -- KK Ultra Deep read-only, resumable scan checkpoints (proposed; NOT applied to production).
 -- This table captures PUBLIC search receipts only. It is NOT authorized to write
 -- bookings, owner hidden history, prices, Google Sheets, or storefront.
--- Deploy only with source/owner acceptance; RLS applies before first insert.
+-- Apply only after source/security acceptance; RLS applies before first insert.
+-- Typed SHARDED_READ_ONLY commands must never commit or record business writes.
 begin;
 
 alter table public.kk_ultra_deep_commands
@@ -15,18 +16,30 @@ begin
  end if;
 end $constraint$;
 
+do $constraints$
+begin
+ if not exists(select 1 from pg_constraint where conname='kk_ultra_deep_sharded_readonly_check') then
+  alter table public.kk_ultra_deep_commands
+   add constraint kk_ultra_deep_sharded_readonly_check
+   check(command_kind<>'SHARDED_READ_ONLY' or (commit=false and production_writes=0));
+ end if;
+end $constraints$;
+
 -- Backward-compatible queue claim returns one extra authenticated command type
--- while rejecting sharded commands from the legacy monolithic execution path.
+-- with typed command_kind in its authenticated result; typed shards always
+-- use commit=false and zero business writes.
 create or replace function public.kk_ultra_deep_command_claim(p_command_id uuid)
-returns jsonb language plpgsql security definer set search_path='' as $
+returns jsonb language plpgsql security definer set search_path='' as $$
 declare v public.kk_ultra_deep_commands%rowtype;
 begin
  update public.kk_ultra_deep_commands set state='RUNNING',claimed_at=now(),updated_at=now()
- where command_id=p_command_id and state='PENDING' returning * into v;
+ where command_id=p_command_id and state='PENDING'
+ and (command_kind='FULL_READ_ONLY' or (command_kind='SHARDED_READ_ONLY' and commit=false))
+ returning * into v;
  if not found then return null; end if;
  return jsonb_build_object('command_id',v.command_id,'month',v.month,
    'commit',v.commit,'command_kind',v.command_kind);
-end $;
+end $$;
 
 create table if not exists public.kk_ultra_deep_scan_shards (
  command_id uuid not null references public.kk_ultra_deep_commands(command_id) on delete cascade,
@@ -34,7 +47,7 @@ create table if not exists public.kk_ultra_deep_scan_shards (
  phase text not null check(phase in ('KNOWN_MISS','DISCOVERY','REFERENCE','SOURCE_UNIVERSE')),
  plan_hash text not null check(plan_hash ~ '^[a-f0-9]{64}$'),
  shard_start integer not null check(shard_start>=0),
- shard_end integer not null check(shard_end>shard_start and shard_end<=2000),
+ shard_end integer not null check(shard_end>shard_start and shard_end<=2000 and shard_end-shard_start<=16),
  receipt_hash text not null check(receipt_hash ~ '^[a-f0-9]{64}$'),
  receipt_json jsonb not null,
  production_writes integer not null default 0 check(production_writes=0),
@@ -67,8 +80,16 @@ begin
   where command_id=p_command_id and month=p_month and commit=false
     and command_kind='SHARDED_READ_ONLY' and state='RUNNING';
  if not found then raise exception 'SHARD_COMMAND_NOT_AUTHORIZED'; end if;
- if p_shard_start is null or p_shard_end is null or p_shard_end-p_shard_start>16
+ if p_shard_start is null or p_shard_end is null or p_shard_start<0 or
+    p_shard_end<=p_shard_start or p_shard_end-p_shard_start>16 or p_shard_end>2000
  then raise exception 'SHARD_EXCEEDS_SAFE_BATCH'; end if;
+ if p_receipt_json->>'version'<>'KK_ULTRA_DEEP_SHARD_CHECKPOINT_V1' or
+    p_receipt_json->>'authoritative'<>'false' or
+    p_receipt_json->>'production_writes'<>'0' or
+    jsonb_typeof(p_receipt_json->'records')<>'array' or
+    jsonb_array_length(p_receipt_json->'records')<>p_shard_end-p_shard_start or
+    pg_catalog.octet_length(p_receipt_json::text)>240000
+ then raise exception 'SHARD_PAYLOAD_INVALID'; end if;
  insert into public.kk_ultra_deep_scan_shards(
   command_id,month,phase,plan_hash,shard_start,shard_end,receipt_hash,receipt_json
  ) values (
