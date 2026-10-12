@@ -38,6 +38,9 @@ function validatePost(post,input={}){
   const rawStatuses=Array.isArray(input.day_statuses)?input.day_statuses:[];
   if(input.day_statuses_verified!==true)errors.push('OWNER_X_DAY_STATUS_EVIDENCE_REQUIRED');
   if(rawStatuses.length===0)errors.push('OWNER_X_DAY_STATUS_LIST_REQUIRED');
+  const eventDates=Array.isArray(input.event_dates)?input.event_dates.map(text).filter(Boolean):[];
+  if(input.event_dates_verified!==true||eventDates.length===0)
+    errors.push('OWNER_X_ALL_EVENT_DATES_EVIDENCE_REQUIRED');
   const knownDays=new Set();
   for(const day of rawStatuses){
     const label=text(day&&day.date_label),state=text(day&&day.status).toLowerCase();
@@ -50,6 +53,12 @@ function validatePost(post,input={}){
     if(lines.filter(line=>line===expected).length!==1)errors.push('OWNER_X_DAY_STATUS_MISSING_OR_WRONG:'+label);
     if(lines.some(line=>line.startsWith(label+' ')&&/✅|❌|🚫/u.test(line)&&line!==expected))
       errors.push('OWNER_X_DAY_STATUS_CONTRADICTS_SOURCE:'+label);
+  }
+  for(const label of new Set(eventDates)){
+    if(!knownDays.has(label))errors.push('OWNER_X_SOURCE_DATE_OMITTED:'+label);
+  }
+  for(const label of knownDays){
+    if(!eventDates.includes(label))errors.push('OWNER_X_UNVERIFIED_SOURCE_DATE:'+label);
   }
   for(const line of lines){
     if(/(?:✅\s*ว่าง|❌\s*เต็ม|🚫\s*ปิด)$/u.test(line)&&![...knownDays].some(label=>
