@@ -59,3 +59,12 @@ test('current/future boundary and public sold-out remain visible',()=>{
  assert.equal(r.counts.public_current_or_future,2);
  assert.equal(r.counts.owner_core_hidden_but_public,1);
 });
+
+test('an active booking with unknown event/date raises unresolved risk, never certifies an unbooked day',()=>{
+ const b=[...bookings,['BOOK-UNKNOWN','','pending','EVT-NOT-IN-CORE','']];
+ const r=R.audit({core_rows:core,web_ready_rows:web,booking_rows:b,as_of_date:'2026-10-12'});
+ assert.equal(r.status,'READ_ONLY_AUDIT_WITH_UNRESOLVED_BOOKINGS');
+ assert.equal(r.counts.unresolved_active_booking_dates,1);
+ assert.equal(r.integrity.unresolved_active_booking_dates[0].event_id,'EVT-NOT-IN-CORE');
+ assert.equal(r.safety.pricing_write_authorized,false);
+});
