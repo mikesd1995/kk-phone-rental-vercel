@@ -28,14 +28,14 @@ function find(node,klass){
  for(const item of node.children||[]){const result=find(item,klass);if(result)return result;}
  return null;
 }
-function renderFixture(concerts,lang='th'){
+function renderFixture(concerts,lang='th',availability=1){
  const root=element('main'),head=element('head');
  let browseCount=-1,shown=null,posterFailure=null;
  const context={
    document:{getElementById:id=>id==='content'?root:null,createElement:element,head},
    renderMonthSelect(){},filtered:list=>list,updateBrowseChrome:n=>{browseCount=n;},
    renderEmpty:()=>{},emptyMsg:()=>'',tr:(key,params)=>params?.venue||key,
-   browseLimit:12,PRELOADED_IMAGES:{},availCnt:()=>1,availTextFor:()=> '1 เครื่อง',
+   browseLimit:12,PRELOADED_IMAGES:{},availCnt:()=>availability,availTextFor:()=> availability?'1 เครื่อง':'เต็ม',
    isSoon:()=>false,getBadgeText:()=> 'ว่าง',currentLang:lang,
    eventArtworkAlt:(name,temporary)=>temporary?'ภาพประกอบชั่วคราว '+name:'โปสเตอร์ '+name,
    cardPriceText:()=> '690 / 890',showModal:c=>{shown=c;},
@@ -90,4 +90,23 @@ test('known KK-owned temporary art receives a visible label; other event poster 
  const official=renderFixture([{...event,img:'https://official.example/event.jpg',rawPoster:'https://official.example/event.jpg'}]);
  assert.equal(official.card.dataset.posterStatus,undefined);
  assert.equal(find(official.card,'poster-temporary-brand-label'),null);
+});
+
+test('image-less sold-out event remains waitlist-only; fallback must never invent inventory',()=>{
+ const sold=renderFixture([{...event,phoneCnt:0,lensCnt:0}], 'th',0);
+ assert.equal(sold.count,1);
+ assert.match(sold.card.className,/waitlist-card/);
+ assert.equal(find(sold.card,'status-badge').textContent,'ว่าง');
+ assert.equal(sold.card.dataset.posterMissing,'1');
+ sold.card.onclick();
+ assert.equal(sold.shown().id,event.id);
+ assert.equal(sold.shown().phoneCnt,0);
+});
+test('broken official poster preserves sold-out status and exact event identity',()=>{
+ const sold=renderFixture([{...event,img:'https://official.example/poster.jpg',imgThumb:['https://official.example/poster.jpg'],rawPoster:'https://official.example/poster.jpg',phoneCnt:0}], 'en',0);
+ sold.posterFailure()();
+ assert.match(sold.card.className,/waitlist-card/);
+ assert.equal(sold.card.dataset.eventId,event.id);
+ assert.equal(find(sold.card,'poster-placeholder-title').textContent,event.name);
+ assert.equal(sold.root.children[0].children.length,1);
 });
