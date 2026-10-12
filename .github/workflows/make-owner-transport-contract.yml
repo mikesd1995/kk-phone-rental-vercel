@@ -25,7 +25,8 @@ jobs:
           node-version: '20'
       - name: Syntax and offline contract checks
         run: |
-          node --check api/kk-make-owner-notify.js
+          node --check server/kk-make-owner-notify.js
+          node --check api/kk-scanner-dispatch.js
           node --check server/make-owner-transport-contract.js
           node --check server/make-owner-alert-producer.js
           node --check server/admin-make-gate.js
