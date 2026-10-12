@@ -270,12 +270,12 @@
               <label>เบอร์โทร <input name="customer_phone" inputmode="tel" /></label>
             </div>
             <div class="row two">
-              <label>สถานะชำระเงิน
-                <select name="payment_status"><option value="unpaid">ยังไม่จ่าย</option><option value="partial">จ่ายบางส่วน</option><option value="paid">จ่ายแล้ว</option></select>
+              <label>สถานะชำระเงิน (ไม่เก็บมัดจำ)
+                <select name="payment_status"><option value="unpaid">ยังไม่จ่าย · รับเงินตอนส่งเครื่อง</option></select>
               </label>
-              <label>ยอดรับแล้ว
-                <input name="amount_received" type="number" min="0" step="1" value="0" />
-                <small id="bookingAmountAutoHint">ระบบเติมราคาหน้าบ้านให้อัตโนมัติ แต่แก้เองได้</small>
+              <label>ยอดรับเงินจริง
+                <input name="amount_received" type="number" min="0" step="1" value="0" readonly />
+                <small id="bookingAmountAutoHint">เลือกแพ็กเกจเพื่อดูราคาอ้างอิง · ยอดรับแล้วเริ่มที่ 0</small>
               </label>
             </div>
             <details class="booking-advanced-details">
@@ -286,8 +286,7 @@
                     <select name="booking_status">
                       <option value="confirmed">ยืนยันแล้ว</option>
                       <option value="pending">รอยืนยัน</option>
-                      <option value="prepared">เตรียมอุปกรณ์แล้ว</option>
-                      <option value="cancelled">ยกเลิก</option>
+                      <!-- New bookings only pending/confirmed; later states in Edit Booking. -->
                     </select>
                   </label>
                   <label>ช่องทาง
