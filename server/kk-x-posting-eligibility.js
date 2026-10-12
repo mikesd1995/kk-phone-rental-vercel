@@ -65,6 +65,7 @@ function eligibility(candidate={},input={},context=inputGate(input)){
   const errors=[];
   const id=text(candidate.event_id),date=text(candidate.event_date_text);
   if(candidate.verified_event!==true)errors.push('EVENT_NOT_VERIFIED');
+  if(!text(candidate.event||candidate.name||candidate.title))errors.push('EVENT_NAME_REQUIRED');
   if(candidate.verified_pricing!==true)errors.push('PRICE_NOT_VERIFIED');
   if(!id||!eventDay(date))errors.push('EVENT_ID_DATE_REQUIRED');
   if(eventDay(date)&&eventDay(date)<bangkokDate(context.now))errors.push('EVENT_DATE_IN_PAST');
@@ -76,9 +77,11 @@ function eligibility(candidate={},input={},context=inputGate(input)){
       errors.push('STOREFRONT_NOT_RENTABLE');
   }
   if(!context.errors.includes('FRESH_POST_LOG_READBACK_REQUIRED')){
-    const collision=(input.post_log||[]).map(logRow).some(row=>
-      row.id===id&&BLOCKING_STATUSES.has(row.status)&&operatingDay(row.date)===context.operating_day);
-    if(collision)errors.push('DAILY_DUPLICATE_REJECT');
+    const relevant=(input.post_log||[]).map(logRow).filter(row=>
+      row.id===id&&BLOCKING_STATUSES.has(row.status));
+    if(relevant.some(row=>!operatingDay(row.date)))errors.push('POST_LOG_DATE_UNVERIFIED');
+    if(relevant.some(row=>operatingDay(row.date)===context.operating_day))
+      errors.push('DAILY_DUPLICATE_REJECT');
   }
   return {eligible:errors.length===0,errors:[...new Set(errors)]};
 }
