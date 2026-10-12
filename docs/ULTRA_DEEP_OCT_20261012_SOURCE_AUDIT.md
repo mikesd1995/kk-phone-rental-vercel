@@ -80,3 +80,37 @@ Focus on obtaining genuine Ultra Deep official source receipts and an authentica
 - Live readback on updated module blob ccf00d2e0386c6ed3d67368b7ea84f22bee0ac53: 01_Events, 08_Web_Ready, 00_Master_Booking freshly read again. READ_ONLY_AUDIT status with 0 Core/Web date conflicts, 0 active Booking/Core date conflicts, 0 unresolved active Booking dates, 0 invalid public dates, 0 duplicate IDs, 0 Core-inactive-but-public in bounded reads.
 - Other live counts unchanged: 96 Core active, 89 effective public, 72 public current/future, 7 Core active but Web Ready hidden, 3 public canonical poster URL blanks all in November. October booked-day price locks are 2026-10-18 (2 bookings), 2026-10-23 (2), 2026-10-24 (1), 2026-10-31 (2).
 - Outcome is source safety/read-only evidence only; NOT a Production deploy, successful monthly source-universe FULL coverage, accepted shard receipts, Verifier PASS, real AI Pricing model invocation, or customer-visible poster fix.
+
+## 2026-10-12 owner-authorized temporary brand image release — actual business-data mutation
+
+Owner explicitly allowed temporary alternative images instead of blocking event cards pending official posters. Used KK's own existing site-brand hero asset, NOT a photo of a different event, not an organizer poster:
+https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png
+The URL is referenced by main index.html and the exact binary file exists in GitHub main under assets (blob b765094a5c8afebc3ca55570d94f6180728eb01b). Public HTTP status / rendered-browser visual acceptance could NOT be independently checked in this session: the web fetch failed and container DNS was unavailable. No claim that public pixels are confirmed.
+
+Google Sheets backend 12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU; correct authorized Core 01_Events sheetId 416044968. Precondition read A345:I347 verified three IDs all poster blank, event_status open, active_on_web TRUE. Single updateCells request applied ONLY userEnteredValue to column E, exact rows 345, 346 and 347 (zero-based start rowIndex 344, columnIndex 4); no other field edited.
+
+1. E345 EVT-20261105-MIZUMI-PHUWIN-MOISTURE-MATCH — 05/11/2026.
+2. E346 EVT-20261106-BRICE-POND-NARAVIT-FAN-EVENT — 06/11/2026.
+3. E347 EVT-20261102-SUPER-SUN-ZEE-PRUK-BIRTHDAY-FANSIGN — 02/11/2026.
+
+Immediate exact-readback Core 01_Events A345:I347 and generated 08_Web_Ready A346:K348 confirmed all 3 poster URLs equal target and web action remains show; Core status open and active TRUE unchanged. This is **data-readback success**, not independent browser pixel validation. All three event access/filming caveats and their original notes remain in place, and official event artwork remains TODO. For rollback to earlier state, first re-check exact event ID, event status and current poster URL; if it is still this precise temporary brand URL, authorized writer can clear only the matching E cell. Do not overwrite a later official poster or touch other columns.
+
+### Concurrent source changes and public-count correction
+Originally 89 Web Ready public show/show_full. Re-read after authorized 3-row modification reported **94 public**, **96 Core active**, with **2 Core active but derived hide**. The assistant's own write touched exactly the three November E cells above. Separately, five previously hidden October rows had acquired new nonblank image URLs in Core in the interval, which explains the additional public display; actor and time of those five other changes were NOT verified. Specifically:
+- LE7EL Oct15: Core now a thai2music.com art image; Web Ready show.
+- Manekineko Oct17: Core now the same KK temporary brand hero; Web Ready show.
+- VVV Xiaomi Oct25: Core now a pbs.twimg.com image; Web Ready show.
+- AF Halloween Oct30: Core now the same KK temporary brand hero; Web Ready show.
+- POP-ป่ะห์ NAMP Oct30: Core now amarintv.com image; Web Ready show.
+Do NOT attribute these five changes to the three-cell batch, certify ownership of their media rights or infer that official images are correct without primary evidence.
+
+The two remaining effective hidden rows are:
+- EVT-20261017-THE-PASEO-POP-THE-STAGE (Core row 334), poster still blank, data_health SOURCE_DATE_UNVERIFIED. A third-party calendar https://popradar.app/events/concert/calendar lists Oct17–23, but the organizer schedule, photo rights and exact rentable performance are not independently accepted. HOLD, no auto-unhide.
+- EVT-20261030-VVV-SHOW-GO-WHOLESALE-RAMA2 (Core row 338), poster still blank, data_health SOURCE_DATE_UNVERIFIED; third-party PopRadar Oct30 listing conflicts with a public event announcement for **Oct2 VVV** at same GO Wholesale location, https://weibo.com/2/detail/5346994828086288 . Could be different sessions; do not claim either without direct GO Wholesale/VVV Oct30 confirmation. HOLD, no auto-unhide.
+Owner booking locks Oct18,23,24,31 remain unchanged; effective confirmed bookings on Oct17/Oct30 not found in bounded Master Booking read.
+
+### Shadow source-regression protection added to Draft PR #703
+- Source commit 8d18c656debb475688b3bea1e8c21793010301b7 + tests 77b075dfbe841f41da0be7cdfeba7d07ea640a0b: public brand-placeholder URLs now report HOLD_TEMP_BRAND_PLACEHOLDER_OFFICIAL_POSTER_REQUIRED, tracked as public_temporary_brand_posters and public_awaiting_official_posters. Presence of a placeholder must NOT be called canonical official-artwork pass.
+- Source commit a413fe05b59938069b2c47435de75767f08a0c38 + tests 92b9ed9d4cd37d7a693ab264c81079efa9a37cfa: flag if a Core SOURCE_DATE_UNVERIFIED event is erroneously promoted to derived public, using READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS. Pure read-only alert, no auto hide/unhide or price write. **13/13 isolated V8 functional callbacks PASS**; genuine hosted Node/CI not passed.
+- Read-only live Sheet audit on latest source blob e194789054287921c5a520df790684b9abc03be2: status READ_ONLY_AUDIT_WITH_TEMPORARY_POSTERS; 94 public show/show_full, 77 current/future public, 5 public temporary brand images (Manekineko Oct17, AF Halloween Oct30, SUPER SUN Nov2, MizuMi Nov5, Brice Nov6), **0 blank poster fields among effectively public**, 2 Core active but derived hidden, 0 invalid/contradictory event dates among public, 0 duplicate IDs, 0 active Booking date conflicts. Counts distinguish real media provenance from mere URL presence.
+- PR #703 exact-head 92b9ed9d4cd37d7a693ab264c81079efa9a37cfa remains DRAFT; Github Actions Vercel Deployment Source Contract run 38240003401 and Ultra Deep V2 Acceptance run 38240003365 both failure with 0 job steps, exact-head preview absent. Do not imply passing CI. October Supabase scan shard receipt count still 0; autonomous FULL not accepted; no new scanner/AI Pricing model invocation.
