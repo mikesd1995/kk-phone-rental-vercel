@@ -24,6 +24,7 @@ const UltraDeepDirect = require('../server/kk-ultra-deep-direct-zero-cost.js');
 const { createPostgrestStore } = require('../server/kk-inbox-postgrest-store.js');
 const InboxContract = require('../server/kk-unified-inbox-contract.js');
 const LineMessaging = require('../server/kk-line-messaging-api.js');
+const InboxMedia = require('../server/kk-inbox-media.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
@@ -34,7 +35,7 @@ const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
 const AGENT_GATEWAY_ACTIONS = new Set(['agentGateway','agentGatewayHealth']);
-const INBOX_ACTIONS = new Set(['inboxListConversations','inboxListMessages','inboxHydrateLineProfiles','inboxSetOwnerLabel','inboxMarkRead','inboxSendLineMessage']);
+const INBOX_ACTIONS = new Set(['inboxListConversations','inboxListMessages','inboxGetImage','inboxHydrateLineProfiles','inboxSetOwnerLabel','inboxMarkRead','inboxSendLineMessage']);
 const ULTRA_DEEP_ACTIONS = new Set(['ultraDeepFullLoop','ultraDeepFullLoopHealth','ultraDeepDirectRun','ultraDeepVercelNativeRun','smartLoopRun']);
 const ULTRA_DEEP_REPOSITORY = 'mikesd1995/kk-phone-rental-vercel';
 const ULTRA_DEEP_OWNER = 'mikesd1995';
@@ -537,6 +538,31 @@ module.exports=async function handler(req,res){
     const lineToken=String(process.env.LINE_CHANNEL_ACCESS_TOKEN||'').trim();
     const outboundEnabled=!!lineToken;
     try{
+      if(action==='inboxGetImage'){
+        const conversationId=String(payload.conversation_id||'').trim();
+        const messageId=String(payload.message_id||'').trim();
+        if(!/^conv_[a-f0-9]{24}$/.test(conversationId)||!/^msg_[a-f0-9]{24}$/.test(messageId)){
+          return reply(res,400,{ok:false,error:'Invalid inbox image identity',error_code:'INBOX_MEDIA_ID_INVALID',production_writes:0});
+        }
+        const metadata=await store.getMediaMetadata(conversationId,messageId);
+        if(!metadata||metadata.channel!=='line'||metadata.message_type!=='image'||metadata.direction!=='inbound'){
+          return reply(res,404,{ok:false,error:'Image message not found',error_code:'INBOX_MEDIA_NOT_FOUND',production_writes:0});
+        }
+        try{
+          const image=await InboxMedia.readOrRecover(metadata,{token:lineToken,fetchImpl:global.fetch});
+          res.statusCode=200;
+          res.setHeader('Content-Type',image.mime);
+          res.setHeader('X-Content-Type-Options','nosniff');
+          res.setHeader('Cache-Control','private, no-store, max-age=0');
+          res.setHeader('Content-Disposition','inline');
+          res.setHeader('Content-Length',String(image.bytes.length));
+          return res.end(image.bytes);
+        }catch(err){
+          const code=String(err&&err.code||'INBOX_MEDIA_FAILED');
+          const status=Number(err&&err.status)||502;
+          return reply(res,[400,404,413,415,503].includes(status)?status:502,{ok:false,error:'Image unavailable',error_code:code,production_writes:0});
+        }
+      }
       if(action==='inboxListMessages'){
         const conversationId=String(payload.conversation_id||'').trim();
         if(!conversationId) return reply(res,400,{ok:false,error:'conversation_id is required',error_code:'INBOX_CONVERSATION_REQUIRED'});

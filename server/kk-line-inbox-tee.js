@@ -4,7 +4,8 @@ const VERSION='KK_LINE_INBOX_TEE_V2';
 
 async function persistVerifiedEvents(events=[], persistFn, options={}){
   if(typeof persistFn!=='function') return {schema_version:VERSION,status:'DISABLED_NO_STORE',writes:0,duplicates:0,skipped:0,errors:[]};
-  let writes=0,duplicates=0,skipped=0;
+  let writes=0,duplicates=0,skipped=0,mediaSaved=0;
+  const mediaErrors=[];
   const errors=[];
   for(const event of Array.isArray(events)?events:[]){
     try{
@@ -19,6 +20,10 @@ async function persistVerifiedEvents(events=[], persistFn, options={}){
       const receipt=await persistFn(message);
       if(receipt&&receipt.duplicate===true) duplicates++;
       else writes++;
+      if(message.message_type==='image'&&typeof options.mediaFn==='function'){
+        try{const saved=await options.mediaFn(event,message);if(saved&&saved.saved)mediaSaved++;}
+        catch(err){mediaErrors.push({code:String(err&&err.code||'INBOX_MEDIA_CAPTURE_FAILED')});}
+      }
     }catch(err){
       errors.push({
         webhook_event_id:String(event&&event.webhookEventId||'').trim(),
@@ -27,6 +32,6 @@ async function persistVerifiedEvents(events=[], persistFn, options={}){
       });
     }
   }
-  return {schema_version:VERSION,status:errors.length?'PARTIAL':'ACCEPTED',writes,duplicates,skipped,errors};
+  return {schema_version:VERSION,status:errors.length||mediaErrors.length?'PARTIAL':'ACCEPTED',writes,duplicates,skipped,errors,media_saved:mediaSaved,media_errors:mediaErrors};
 }
 module.exports={VERSION,persistVerifiedEvents};

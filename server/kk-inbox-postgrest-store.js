@@ -17,6 +17,15 @@ function createPostgrestStore(options={}){
  async function listMessages(conversationId,query={}){
   return rpc('kk_inbox_list_messages',{p_conversation_id:String(conversationId||''),p_limit:Number(query.limit||200)},'INBOX_READ_FAILED');
  }
+ async function getMediaMetadata(conversationId,messageId){
+  // Only server-side service-role RPC can confirm exact conversation ownership.
+  // Never expose provider media IDs or storage metadata directly to a browser.
+  const result=await rpc('kk_inbox_media_metadata',{
+   p_conversation_id:String(conversationId||'').trim(),
+   p_message_id:String(messageId||'').trim()
+  },'INBOX_MEDIA_METADATA_FAILED');
+  return Array.isArray(result)?(result[0]||null):(result||null);
+ }
  async function getConversation(conversationId){
   return rpc('kk_inbox_get_conversation',{p_conversation_id:String(conversationId||'')},'INBOX_READ_FAILED');
  }
@@ -48,6 +57,6 @@ function createPostgrestStore(options={}){
   const row=Array.isArray(result)?result[0]:result;
   return {ok:true,duplicate:Boolean(row&&row.duplicate),writes:Number(row&&row.writes||0)};
  }
- return {VERSION,persistInbound,listConversations,listMessages,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound};
+ return {VERSION,persistInbound,listConversations,listMessages,getMediaMetadata,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound};
 }
 module.exports={VERSION,createPostgrestStore};
