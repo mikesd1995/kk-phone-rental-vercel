@@ -590,8 +590,8 @@
       if(!hasContact){
         pushBooking(b,{type:"data", priority:1, task:"ข้อมูลติดต่อไม่ครบ", risk_flag:true});
       }
-      if(isUnpaidPayment(b.payment_status)){
-        pushBooking(b,{type:"payment", priority:1, task:"ตามชำระเงิน", risk_flag:true});
+      if(['picked_up','returned','uploaded'].includes(st) && isUnpaidPayment(b.payment_status)){
+        pushBooking(b,{type:"payment", priority:1, task:"ตรวจยอดรับตอนส่งเครื่อง", risk_flag:true});
       }
       if(["pending","confirmed","prepared"].includes(st) && diff!==null && diff>=0 && diff<=7){
         const pickupTbd=!String(b.pickup_time||"").trim();
@@ -780,7 +780,7 @@
     const reportableStatuses=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded','completed']);
     const reportable=rows.filter(b=>reportableStatuses.has(String(b.booking_status||'').toLowerCase()));
     const paid=reportable.filter(b=>String(b.payment_status||'').toLowerCase()==='paid');
-    const unpaidActive=active.filter(b=>isUnpaidPayment(b.payment_status));
+    const unpaidActive=active.filter(b=>String(b.booking_status||'').toLowerCase()==='picked_up' && isUnpaidPayment(b.payment_status));
     const upcoming=rows.filter(b=>{ const d=daysFromToday(b.event_date); return d!==null && d>=0 && activeStatuses.includes(String(b.booking_status||'').toLowerCase()); });
     const missingContact=rows.filter(b=>!String(b.customer_phone||'').trim() && !String(b.customer_contact||'').trim());
     const missingPickup=upcoming.filter(b=>!String(b.pickup_time||'').trim());
@@ -822,7 +822,7 @@
     const event=b.event_name || b.event_id || '-';
     const date=fmtDate(b.event_date) || '-';
     const pickup=fmtPickupTime(b.pickup_time) || '-';
-    if(type==='payment') return `สวัสดีค่ะ ${name} ขอแจ้งเตือนเรื่องยอดชำระสำหรับงาน ${event} วันที่ ${date} ค่ะ หากชำระแล้วสามารถส่งสลิปกลับมาได้เลยนะคะ`;
+    if(type==='payment') return `สวัสดีค่ะ ${name} ยืนยันชำระค่าเช่างาน ${event} วันที่ ${date} โดยชำระเต็มจำนวนตอนรับเครื่องตามนัดนะคะ ร้านไม่เก็บมัดจำค่ะ`;
     if(type==='pickup') return `สวัสดีค่ะ ${name} ยืนยันนัดรับเครื่องสำหรับงาน ${event} วันที่ ${date} เวลา ${pickup} นะคะ`;
     if(type==='return') return `สวัสดีค่ะ ${name} หลังจบงาน ${event} รบกวนคืนเครื่องตามจุดนัดหมาย และรอแอดมินตรวจเครื่อง/เลนส์ก่อนปิดงานนะคะ`;
     if(type==='upload') return `สวัสดีค่ะ ${name} แอดมินกำลังอัปโหลดไฟล์จากงาน ${event} วันที่ ${date} ให้นะคะ หากเสร็จแล้วจะส่งลิงก์ Google Drive ให้ค่ะ`;
@@ -857,7 +857,7 @@
     const buttons=[];
     buttons.push(`<button class="mini-btn" type="button" data-edit-booking-row="${esc(r.row_number)}">แก้</button>`);
     buttons.push(`<button class="mini-btn" type="button" data-customer-key="${esc(r.ref)}">CRM</button>`);
-    if(isUnpaidPayment(r.payment_status)) buttons.push(`<button class="mini-btn danger-soft" type="button" data-quick-action="paid" data-row="${esc(r.row_number)}">Paid</button>`);
+    if(['picked_up','returned','uploaded'].includes(st) && isUnpaidPayment(r.payment_status)) buttons.push(`<button class="mini-btn warn-soft" type="button" data-edit-booking-row="${esc(r.row_number)}">ตรวจยอดรับเงินจริง</button>`);
     if(['pending','confirmed'].includes(st)) buttons.push(`<button class="mini-btn" type="button" data-quick-action="prepared" data-row="${esc(r.row_number)}">เตรียมแล้ว</button>`);
     if(['prepared','picked_up'].includes(st) && bookingMissingRequiredAsset(r)) buttons.push(`<button class="mini-btn warn-soft" type="button" data-quick-action="assign_assets" data-row="${esc(r.row_number)}">จัด Asset</button>`);
     if(['pending','confirmed','prepared'].includes(st)) buttons.push(`<button class="mini-btn" type="button" data-quick-action="picked_up" data-row="${esc(r.row_number)}">รับแล้ว</button>`);
@@ -1697,10 +1697,10 @@
     const hint=$("#bookingAmountAutoHint");
     if(!hint) return;
     if(info && toNum(info.price)>0){
-      hint.textContent=`Auto จาก${info.source}: ${money(info.price)}฿ · แก้เลขเองได้ถ้ามีโปร/ส่วนลด`;
+      hint.textContent=`ราคาอ้างอิง ${money(info.price)}฿ (${info.source}) · ร้านไม่เก็บมัดจำ ยอดรับแล้วเป็น 0 จนกว่าจะส่งเครื่องและรับเงินจริง`;
       hint.classList.remove("warn");
     }else{
-      hint.textContent="เลือกแพ็กเกจแล้วระบบจะเติมราคาที่ลูกค้าเห็นจริงให้อัตโนมัติ แต่ยังแก้เลขเองได้";
+      hint.textContent="เลือกแพ็กเกจเพื่อดูราคาอ้างอิง · ยอดรับแล้วเป็น 0 เมื่อจอง (รับเงินตอนส่งเครื่อง)";
       hint.classList.add("warn");
     }
   }
@@ -1710,12 +1710,11 @@
     if(!form || !form.elements.amount_received) return;
     const info=bookingSelectedPackagePrice();
     updateBookingAmountHint(info);
-    if(!info || toNum(info.price)<=0) return;
-    // Always refill when package changes. Admin can type a new amount after selecting the package
-    // for promos, discounts, partial payment, or special cases.
-    form.elements.amount_received.value=String(info.price);
-    form.elements.amount_received.dataset.autoPrice=String(info.price);
-    form.elements.amount_received.dataset.autoPriceSource=info.source||"";
+    // The package price is a quote, never a receipt. Core booking column X
+    // maintains the authoritative quoted package price independently.
+    form.elements.amount_received.value="0";
+    form.elements.amount_received.dataset.autoPrice="";
+    form.elements.amount_received.dataset.autoPriceSource="no-deposit";
   }
   function populateBookingPackages(){
     const form=$("#bookingForm");
@@ -3338,8 +3337,9 @@
       let payload=bookingMutationIdentity(b,row);
       let label="";
       if(action==="paid"){
-        if(toNum(b.amount_received)<=0 && !confirm("Booking นี้ยอดรับแล้วยังเป็น 0 ต้องการเปลี่ยนสถานะเป็น paid อยู่ใช่ไหม?")) return;
-        payload.payment_status="paid"; label="สถานะชำระเงินเป็น paid";
+        // Legacy shortcut must never mark a receipt paid without handover evidence.
+        openBookingEdit(b.booking_id || row);
+        return showNotice("ร้านรับเงินตอนส่งเครื่อง: กรุณาตรวจยอดรับเงินจริงและบันทึกหลักฐานใน Edit Booking ก่อนเปลี่ยนสถานะ", "warn");
       }else if(action==="prepared"){
         payload.booking_status="prepared"; label="สถานะเป็นเตรียมอุปกรณ์แล้ว และจัด Asset ให้ booking";
       }else if(action==="assign_assets"){
@@ -3604,6 +3604,11 @@
       try{
         if(String(ev.target.elements.amount_received && ev.target.elements.amount_received.value || "").trim()==="") autofillBookingAmountFromPackage();
         const payload=formData(ev.target);
+        // Client check complements the authenticated server-side no-deposit rule.
+        payload.payment_status="unpaid";
+        if(String(payload.amount_received||"").trim()!=="" && toNum(payload.amount_received)!==0)
+          throw new Error("ร้านไม่เก็บมัดจำ: ยอดรับแล้วต้องเป็น 0 เมื่อสร้าง Booking (รับเงินตอนส่งเครื่อง)");
+        payload.amount_received="0";
         if(hasWebPackageSource()){
           if(!eventHasBookablePackage(payload.event_id)) throw new Error("งานนี้เต็มแล้วหรือไม่มีแพ็กเกจว่าง กรุณา Refresh แล้วเลือกงานใหม่");
           const okPkg=bookableWebPackagesForEvent(payload.event_id).some(p=>String(templateIdFromWebPackage(p))===String(payload.template_id));
