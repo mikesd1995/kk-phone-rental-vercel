@@ -79,3 +79,11 @@ test('fallback buildFromRaw computes Booking closure audit from canonical persis
  assert.equal(snap.booking_closure_evidence_shadow.safety.production_writes,0);
  assert.equal(JSON.stringify(snap.booking_closure_evidence_shadow).includes('BK-TEST-1'),false);
 });
+
+test('live System Health still includes aggregate Booking closure warnings',()=>{
+ const fs=require('node:fs');
+ const ui=fs.readFileSync(require.resolve('../admin/admin.js'),'utf8');
+ assert.match(ui,/function bookingClosureGuardRows\(data\)/);
+ assert.match(ui,/rows\.push\(\.\.\.bookingClosureGuardRows\(d\)\)/);
+ assert.match(ui,/state\.systemHealth\.rows\.concat\(bookingClosureGuardRows\(state\.data\|\|\{\}\)\)/);
+});
