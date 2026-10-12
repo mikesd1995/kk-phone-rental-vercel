@@ -170,3 +170,15 @@ Existing hidden card:
 - durable REOPENED history that drifted false -> restore owner intent through visibility reconciliation
 
 The run must emit ADDED / REMOVED / REACTIVATED / OWNER_RESTORED / KEPT / WATCH / PROTECTED / OWNER_HIDDEN and perform derived plus production readback.
+
+## Event-specific Demand Pricing Shadow — owner directive 2026-10-10
+
+**Newest owner intent supersedes any assumption that the fixed weekday/weekend default, a generic market median, or a rental-fit score determines the best price.** Existing live/default prices remain unchanged until a governed owner pricing decision.
+
+- Pricing demand assessment is **separate** from new-event External Demand publish eligibility. Do not feed KK internal bookings or paid revenue into the external *publish* score. Pricing Shadow may use anonymized, source-verified comparable **completed** rentals as a distinct willingness-to-pay observation.
+- For a verified high-fandom midweek event (e.g., TeeTeePor), evaluate event-specific rental history, current public photo/fandom engagement, ticket demand, and qualified inquiries. Weekday must not automatically discount the proposal.
+- New read-only route `demand_pricing_shadow` is advisory; `production_writes=0`, owner review mandatory. Validate event identity/date, Booking/on-date lock, owner price and visibility locks, inventory collisions, minimum viable price when owner supplies it, and evidence provenance.
+- Competitor evidence with **1–2 actual shops** must list **each original quoted package price and source**. Do not set or suggest an automatic two-shop midpoint as a final price; wait for the owner. For >=3 comparable current independent shops the market median may be referenced under existing governed pricing policy, but Demand Shadow cannot write live price.
+- `learn_demand_pricing_outcome` is an **observational** report, not proof of causal price lift; include only `completed` in Actual. No self-modification of price policy or automatic production writes.
+- Old Mon–Thu 490/590 and Fri–Sun 790/990 remain **operational seeded prices** only where approved; not a replacement for demand evidence. Existing event package values are SOT until owner+Verifier+writer+readback.
+- The unmerged Draft #680 code is not deployed to Production. Never mark AI pricing autonomous/accepted until all CI, historical backtest and owner acceptance gates pass.

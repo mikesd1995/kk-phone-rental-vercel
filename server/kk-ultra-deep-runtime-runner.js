@@ -29,7 +29,7 @@ function executionProof(execution={}){
   const results=Array.isArray(execution.results)?execution.results:[];
   const rows=results.map((result,index)=>{
     const attempts=Array.isArray(result&&result.attempts)?result.attempts:[];
-    const executed=attempts.some(attemptExecuted);
+    const executed=text(result&&result.status)!=='TIME_BUDGET_EXCEEDED' && attempts.some(attemptExecuted);
     return {index,executed,status:text(result&&result.status)||'MISSING'};
   });
   return {complete:rows.length>0&&rows.every(x=>x.executed),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,rows};
@@ -42,12 +42,22 @@ function sourceUniverseReceipts(plan={},execution={}){
     const task=tasks[i];if(!task.source_id)continue;
     const result=results[i]||{};
     const attempts=Array.isArray(result.attempts)?result.attempts:[];
-    const executed=attempts.some(attemptExecuted);
+    const successful=attempts.filter(attemptExecuted);
+    const executed=result.status!=='TIME_BUDGET_EXCEEDED' && successful.length>0;
+    const candidates=Array.isArray(result.candidates)?result.candidates:[];
+    const hasEvidence=executed&&result.status==='EVIDENCE_FOUND'&&candidates.length>0;
     receipts.push({
       source_id:task.source_id,
+      task_source_id:task.source_id,
+      month:text(plan.range&&plan.range.month),
+      planned_query:text(task.query),
+      query_variants:Array.isArray(task.query_variants)?task.query_variants.map(text).filter(Boolean):[],
       executed,
-      status:executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
-      provider:result.provider||null
+      status:result.status==='TIME_BUDGET_EXCEEDED'?'TIME_BUDGET_EXCEEDED':(executed?(hasEvidence?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND'),
+      provider:result.provider||text(successful[0]&&successful[0].provider)||null,
+      candidate_count:hasEvidence?candidates.length:0,
+      // Only provider/status/query are retained; never persist provider error payloads.
+      attempts:successful.map(a=>({provider:text(a.provider),status:text(a.status),query:text(a.query)}))
     });
   }
   return receipts;
@@ -79,10 +89,15 @@ function buildReferencePlan(input={}){
     production_writes:0
   };
 }
-function buildKnownMissPlan(){
+function buildKnownMissPlan(month){
+  const scoped=month?KnownMiss.CORPUS.filter(c=>
+    text(c.event_date).startsWith(text(month))||
+    (Array.isArray(c.discovery_months)&&c.discovery_months.includes(text(month)))
+  ):KnownMiss.CORPUS;
   return {
-    version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2',
-    gap_tasks:KnownMiss.CORPUS.map(c=>{
+    version:'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V3_MONTH_SCOPED',
+    month:text(month)||null,
+    gap_tasks:scoped.map(c=>{
       const phrases=[c.title,...(Array.isArray(c.aliases)?c.aliases:[])].map(text).filter(Boolean);
       const evidenceQueries=(Array.isArray(c.search_queries)?c.search_queries:[]).map(text).filter(Boolean);
       const queries=[...new Set([...evidenceQueries,...phrases.map(v=>v+' Bangkok Thailand')])];
@@ -194,9 +209,9 @@ function summarizeExecution(execution={}){
   return out;
 }
 
-async function providerPreflight(providers={},input={}){
+async function providerPreflight(providers={},input={},options={}){
  const probe={source_tier:'PUBLIC_CALENDAR',query:['Bangkok',text(input.month),'concert'].filter(Boolean).join(' '),providers:[...UNKNOWN_SEARCH_PROVIDERS],evidence_required:true};
- const result=await ProviderExecutor.executeGapTask(probe,{providers});
+ const result=await ProviderExecutor.executeGapTask(probe,{providers,deadlineMs:options.deadlineMs});
  const usable=new Set((result.attempts||[]).filter(a=>a.status==='EVIDENCE_FOUND').map(a=>text(a.provider).toUpperCase()));
  if(result.provider)usable.add(text(result.provider).toUpperCase());
  return {status:usable.size?'READY':'NO_LIVE_SEARCH_EVIDENCE',usable:[...usable],result};
@@ -264,13 +279,16 @@ async function runOperationalDiscovery(input={},options={}){
 async function runMonthlyUltraDeep(input={},options={}){
   const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
-  const binding=providerBindingState(providers);
+  // One deadline across historical probes, monthly discovery, references and preflight.
+  // Incomplete tasks remain HOLD; no partial source receipt can certify FULL.
+  const requestedBudget=Number(options.maxRuntimeMs);
+  const budgetMs=Number.isFinite(requestedBudget)&&requestedBudget>0?Math.max(1,Math.min(requestedBudget,240000)):210000;
+  const deadlineMs=Date.now()+budgetMs;
   // Execute the bounded historical probes first. Live HTML search providers may
   // soft-throttle after a large sweep; putting the small regression corpus first
   // prevents broad discovery traffic from starving the recall gate.
-  const knownMissPlan=buildKnownMissPlan();
-  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers});
-  const knownMissCandidates=flattenCandidates(knownMissExecution);
+  const knownMissPlan=buildKnownMissPlan(MonthlyPlan.monthRange(input).month);
+  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers,deadlineMs});
 
   const plan=MonthlyPlan.build(input);
   const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
@@ -278,11 +296,19 @@ async function runMonthlyUltraDeep(input={},options={}){
   // the known-miss probe. Run them concurrently and use the executor's bounded max concurrency
   // so production READ_ONLY stays inside the serverless duration without dropping coverage.
   const [execution,referenceExecution]=await Promise.all([
-    ProviderExecutor.executeGapPlan(plan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY}),
-    ProviderExecutor.executeGapPlan(referencePlan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY})
+    ProviderExecutor.executeGapPlan(plan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY,deadlineMs}),
+    ProviderExecutor.executeGapPlan(referencePlan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY,deadlineMs})
   ]);
+  return assembleMonthlyEvidence(input,{plan,referencePlan,knownMissPlan,
+    execution,referenceExecution,knownMissExecution,providers,deadlineMs});
+}
+async function assembleMonthlyEvidence(input={},parts={}){
+  const {plan,referencePlan,knownMissPlan,
+    execution,referenceExecution,knownMissExecution,providers,deadlineMs}=parts;
+  const binding=providerBindingState(providers);
+  const knownMissCandidates=flattenCandidates(knownMissExecution);
   const receipts=sourceUniverseReceipts(plan,execution);
-  const universe=SourceRegistry.buildUniverseProof(receipts);
+  const universe=SourceRegistry.buildUniverseProof(receipts,{strict_live:true,month:plan.range.month});
   const candidates=flattenCandidates(execution);
   const discoveryProof=executionProof(execution);
   discoveryProof.candidate_count=candidates.length;
@@ -303,7 +329,7 @@ async function runMonthlyUltraDeep(input={},options={}){
   // Preflight is intentionally evaluated only after the established evidence
   // sequence, so it can gate completion without changing known-miss/discovery/
   // reference ordering or hiding their diagnostics.
-  const preflight=await providerPreflight(providers,input);
+  const preflight=await providerPreflight(providers,input,{deadlineMs});
   binding.preflight=preflight;
 
   // A known miss is recovered if any governed live discovery path finds it.
@@ -316,8 +342,11 @@ async function runMonthlyUltraDeep(input={},options={}){
   const knownMiss=KnownMiss.evaluateFixtureRegression();
 
   const liveSearchProven=preflight.status==='READY' || discoveryProof.has_evidence || referenceProof.has_evidence || knownMissCandidates.length>0;
-  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete;
+  const budgetExhausted=[knownMissExecution,execution,referenceExecution].some(x=>x.deadline_exceeded_count>0)||preflight.result.status==='TIME_BUDGET_EXCEEDED';
+  // A skipped preflight/probe never produces FULL, even if other evidence happened to be sufficient.
+  const complete=!budgetExhausted && binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete;
   const blockers=[
+    ...(budgetExhausted?['INCOMPLETE_TIME_BUDGET']:[]),
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
     ...(binding.unknown_url_search_bound&&!liveSearchProven?['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED']:[]),
     ...(!universe.complete?['SOURCE_UNIVERSE_INCOMPLETE']:[]),
@@ -332,7 +361,8 @@ async function runMonthlyUltraDeep(input={},options={}){
     gates:Object.fromEntries(Object.entries({provider_bound:binding.unknown_url_search_bound,live_search:liveSearchProven,
       source_universe:universe.complete,discovery:discoveryProof.complete,reference:referenceProof.complete,
       reconciliation:reconciliation.complete,known_miss_regression:knownMiss.complete,known_miss_live_recall:knownMissLive.complete}).map(([gate,observed])=>[gate,{expected:true,observed}])),
-    counts:{required_sources:universe.required_source_count,passed_sources:universe.passed_required_source_count,
+    counts:{time_budget_exhausted:budgetExhausted,deadline_exceeded_tasks:[knownMissExecution,execution,referenceExecution].reduce((n,x)=>n+Number(x.deadline_exceeded_count||0),0),
+      required_sources:universe.required_source_count,passed_sources:universe.passed_required_source_count,
       discovery_tasks:discoveryProof.task_count,discovery_executed:discoveryProof.executed_count,discovery_candidates:candidates.length,
       reference_tasks:referenceProof.task_count,reference_executed:referenceProof.executed_count,reference_candidates:referenceCandidates.length,
       reference_recovered:recovered.recovered_count,reconciliation_gaps:reconciliation.reconciliation_gap_count,
@@ -380,8 +410,37 @@ async function runMonthlyUltraDeep(input={},options={}){
     final_truth_mutation:false
   };
 }
+async function runMonthlyFromCheckpoint(input={},phaseExecutions={},options={}){
+  // This API only accepts assembled phase results from OIDC-verified checkpoint
+  // storage; consumers must validate Shards.collect first. Never publish here.
+  const month=text(input.month);
+  const plan=MonthlyPlan.build(input);
+  const referencePlan=buildReferencePlan({month:plan.range.month,location:plan.location});
+  const knownMissPlan=buildKnownMissPlan(MonthlyPlan.monthRange(input).month);
+  const mapping=[['KNOWN_MISS',knownMissPlan],['DISCOVERY',plan],['REFERENCE',referencePlan]];
+  for(const [phase,source] of mapping){
+    const evidence=phaseExecutions[phase];
+    if(!evidence||!Array.isArray(evidence.results)||
+      evidence.results.length!==source.gap_tasks.length ||
+      evidence.production_writes!==0)
+      return {version:VERSION,status:'HOLD_FOR_CHECKPOINT_EVIDENCE',
+        full:false,month,blockers:['MISSING_OR_UNVERIFIED_PHASE_'+phase],
+        authoritative:false,verifier_required:true,production_writes:0};
+  }
+  const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
+  const providers=Object.assign({},publicProviders,options.providers||{});
+  const result=await assembleMonthlyEvidence(input,{
+    plan,referencePlan,knownMissPlan,
+    execution:phaseExecutions.DISCOVERY,
+    referenceExecution:phaseExecutions.REFERENCE,
+    knownMissExecution:phaseExecutions.KNOWN_MISS,
+    providers,deadlineMs:Date.now()+Math.min(30000,Math.max(2000,Number(options.maxRuntimeMs)||20000))
+  });
+  return {...result,resumed_from_oidc_shards:true,ready_for_publication:false,
+    authoritative:false,production_writes:0};
+}
 
 module.exports={
   VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
-  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,recoverEligibleReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runOperationalDiscovery,runMonthlyUltraDeep
+  buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,recoverEligibleReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runOperationalDiscovery,assembleMonthlyEvidence,runMonthlyFromCheckpoint,runMonthlyUltraDeep
 };

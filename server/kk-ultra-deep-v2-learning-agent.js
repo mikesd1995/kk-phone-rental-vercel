@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V6';
+const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V10';
 const PROTECTED_POLICY=Object.freeze([
   'BOOKING_PRICE_LOCK','TOMBSTONE_NO_RESURRECTION','GOVERNED_ADMIN_WRITER_ONLY',
   'EXACT_READBACK_REQUIRED','VERIFIED_EVENT_REQUIRED','EXTERNAL_DEMAND_SCORE_EXCLUDES_KK_INTERNAL_OUTCOMES'
@@ -30,18 +30,20 @@ function learn(input={}){
  const suppressPatterns=uniq(falsePositives.flatMap(x=>x.patterns||[]));
  const holdSignals=uniq(holds.flatMap(x=>x.reasons||x.holds||[]));
  const missClasses=uniq(missed.map(x=>x.miss_class));
- const artistBrandSocialMiss=missed.some(x=>['ARTIST_BRAND_SOCIAL_KEYWORDLESS_APPEARANCE','ARTIST_SCHEDULE_GAP','BRAND_SOCIAL_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
+ const artistBrandSocialMiss=missed.some(x=>['ARTIST_BRAND_SOCIAL_KEYWORDLESS_APPEARANCE','ARTIST_SCHEDULE_GAP','BRAND_SOCIAL_GAP','BRAND_ARTIST_LUCKY_FAN_LEAD_TIME_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const broadCoverageMiss=missed.some(x=>['INTERNATIONAL_CONCERT_SOURCE_GAP','THAI_LIVE_SOURCE_GAP','FESTIVAL_TAXONOMY_GAP','FAN_BIRTHDAY_SOURCE_GAP','VENUE_CALENDAR_GAP','TICKETING_SOURCE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
- const campaignVisualMiss=missed.some(x=>['BRAND_PURCHASE_CAMPAIGN_GAP','BRAND_LEAD_TIME_CAMPAIGN_GAP','RETAIL_SCHEDULE_BOARD_GAP','IMAGE_ONLY_SCHEDULE_GAP','BRAND_PRIVATE_EXPERIENCE_GAP','PRIVATE_SESSION_CROSSMONTH_NAMED_EVENT_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
+ const campaignVisualMiss=missed.some(x=>['BRAND_PURCHASE_CAMPAIGN_GAP','BRAND_LEAD_TIME_CAMPAIGN_GAP','RETAIL_SCHEDULE_BOARD_GAP','IMAGE_ONLY_SCHEDULE_GAP','BRAND_PRIVATE_EXPERIENCE_GAP','PRIVATE_SESSION_CROSSMONTH_NAMED_EVENT_GAP','BRAND_ARTIST_LUCKY_FAN_LEAD_TIME_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const freeCrossMonthMiss=missed.some(x=>['FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP','FREE_PUBLIC_FESTIVAL_MEDIA_ORGANIZER_CROSS_MONTH_RECALL_GAP','ARTIST_OFFICIAL_SALE_WINDOW_NEXTMONTH_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
+ const smallIdolAndAddedShowMiss=missed.some(x=>['INDIE_IDOL_ALBUM_FANSIGN_GAP','INDIE_IDOL_DEBUT_SHOW_GAP','FREE_MALL_TPOP_STAGE_GAP','ADDED_SHOW_DATE_SIBLING_GAP','SMALL_IDOL_BUSKING_DATE_GAP','PUBLIC_AWARD_FANDOM_ROSTER_GAP','FANCLUB_HALLOWEEN_STAGE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const dateIdentityMiss=missed.some(x=>['REPEATED_EVENT_NEW_DATE_SOURCE_GAP','TICKET_SALE_VS_EVENT_DATE_GAP','UPDATED_DATE_PRIMARY_PAGE_CONFLICT_GAP','STALE_KNOWN_CANDIDATE_LIFECYCLE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const expansionQueries=artistBrandSocialMiss?uniq(missed.flatMap(x=>{
    const artists=list(x&&x.artists||x&&x.artist),brands=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);
    return [...artists.map(a=>a+' '+month+' schedule'),...artists.map(a=>a+' '+month+' brand event'),...brands.flatMap(b=>artists.map(a=>b+' '+a+' '+month)),...artists.map(a=>a+' lucky fan top spender fansign appearance')];
  })):[];
- const campaignExpansion=campaignVisualMiss?uniq(missed.flatMap(x=>{const artists=list(x&&x.artists||x&&x.artist),brands=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);return [...artists.map(a=>a+' '+month+' performance schedule'),...artists.map(a=>a+' lucky fan purchase register winner announcement'),...artists.map(a=>a+' private talk workshop polaroid one day trip'),...brands.flatMap(b=>artists.map(a=>b+' '+a+' campaign')), ...brands.map(b=>b+' artist lucky fan top spender purchase register '+month)];})):[];
+ const campaignExpansion=campaignVisualMiss?uniq(missed.flatMap(x=>{const artists=list(x&&x.artists||x&&x.artist),brands=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);return [...artists.map(a=>a+' '+month+' performance schedule'),...artists.map(a=>a+' lucky fan purchase register winner announcement'),...artists.map(a=>a+' private talk workshop polaroid one day trip'),...brands.flatMap(b=>artists.map(a=>b+' '+a+' campaign')), ...brands.map(b=>b+' artist lucky fan top spender purchase register '+month),...brands.map(b=>b+' artist announced previous month for '+month+' event')];})):[];
  const dateIdentityExpansion=dateIdentityMiss?uniq(missed.flatMap(x=>{const artist=list(x&&x.artists||x&&x.artist),source=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);return [...artist.map(a=>a+' '+month+' updated date new schedule ticket on sale'),...artist.map(a=>a+' busking repeat new show date'),...source.map(b=>b+' official announcement revised poster old product date'),...source.map(b=>b+' event date vs ticket onsale next month')];})) : [];
  const freeCrossMonthExpansion=freeCrossMonthMiss?['radio station free music festival Bangkok PMCU Flex1045 Siam Halloween 30 Oct 1 Nov','ฟรีคอนเสิร์ต งานฟรี ปฏิทินศิลปินห้าง สยามฮาโลวีน งานที่คร่อมเดือน','official artist concerts announced in previous month JMNK SHEเสิร์ฟ 21 November'] : [];
+ const smallIdolExpansion=smallIdolAndAddedShowMiss?['independent Thai idol album fansign debut anniversary MINDY SNS LE7EL October Bangkok','new round added original show date separate day Open Label DaouOffroad October 30 31','free TPOP Siam Center POP-ป่ะห์ NAMP and stage timetable per date','artist schedule PopRadar EVEDULER Nekoneko Natgan crosscheck official organizer','VVV Tornado Busking CentralWorld PULSE October 14 and VVV Xiaomi October 25','The Viral Hits Spotlight Awards Calypso Asiatique The Paseo POP THE STAGE October 17 artist lineup','Idol Live Stage The Street Hall October 24 independent idol lineup','AF Halloween AFTERLIFE One Bangkok and T-DAY LE7EL Search Studio October 30 31'] : [];
  const coverageExpansion=broadCoverageMiss?[
    'ticketing Bangkok concert fanmeeting festival',
    'Bangkok venue concert event calendar',
@@ -59,6 +61,7 @@ function learn(input={}){
  if(artistBrandSocialMiss) recommendations.push('MANDATORY_ARTIST_MONTH_SCHEDULE_AND_BRAND_SOCIAL_EXPANSION');
  if(broadCoverageMiss) recommendations.push('MANDATORY_MULTI_AXIS_SOURCE_UNIVERSE_SWEEP_AND_KNOWN_POSITIVE_BACKTEST');
  if(campaignVisualMiss) recommendations.push('MANDATORY_BRAND_CAMPAIGN_VISUAL_SCHEDULE_AND_LEAD_TIME_EXPANSION');
+ if(smallIdolAndAddedShowMiss) recommendations.push('REQUIRE_INDEPENDENT_IDOL_FANSIGN_MALL_STAGE_AND_ADDED_SHOW_PER_DATE_DISCOVERY');
  if(dateIdentityMiss) recommendations.push('MANDATORY_EVENT_DATE_VS_SALE_DATE_AND_OFFICIAL_DATE_REVISION_RECONCILIATION');
  if(freeCrossMonthMiss) recommendations.push('REQUIRE_RADIO_FREE_FESTIVAL_MALL_AND_THREE_DAY_CROSSMONTH_DISCOVERY');
  if(falsePositives.length) recommendations.push('TIGHTEN_IDENTITY_AND_GENERIC_PAGE_FILTERS');
@@ -70,11 +73,12 @@ function learn(input={}){
    version:VERSION,
    status:'LEARNED',
    adaptive:{
-     query_terms:uniq([...learnedQueries,...expansionQueries,...campaignExpansion,...dateIdentityExpansion,...freeCrossMonthExpansion,...coverageExpansion]),
+     query_terms:uniq([...learnedQueries,...expansionQueries,...campaignExpansion,...dateIdentityExpansion,...freeCrossMonthExpansion,...smallIdolExpansion,...coverageExpansion]),
      miss_classes:missClasses,
      mandatory_expansion:uniq([
        ...(artistBrandSocialMiss?['ARTIST_MONTH_SCHEDULE','BRAND_OFFICIAL_SOCIAL','VENUE_MALL_SOCIAL','ARTIST_TO_RELATED_EVENT_PIVOT']:[]),
-       ...(campaignVisualMiss?['BRAND_PURCHASE_CAMPAIGN','RETAIL_PERFORMANCE_SCHEDULE','IMAGE_SCHEDULE_SEGMENTATION','CAMPAIGN_LEAD_TIME_NEXT_MONTH','WINNER_CONFIRMATION_WINDOW']:[]),
+       ...(campaignVisualMiss?['BRAND_PURCHASE_CAMPAIGN','RETAIL_PERFORMANCE_SCHEDULE','IMAGE_SCHEDULE_SEGMENTATION','CAMPAIGN_LEAD_TIME_NEXT_MONTH','WINNER_CONFIRMATION_WINDOW','BEAUTY_BRAND_ACTIVATION_PREVIOUS_MONTH_ANNOUNCEMENT']:[]),
+       ...(smallIdolAndAddedShowMiss?['INDEPENDENT_IDOL_LABELS','ALBUM_FANSIGN','MALL_PUBLIC_STAGE','ADDED_SHOW_DATE_SIBLING_RECEIPTS','PUBLIC_AWARD_LINEUP','FANCLUB_HALLOWEEN_STAGE']:[]),
        ...(freeCrossMonthMiss?['RADIO_MEDIA_FREE_FESTIVAL_SOURCE','CROSS_MONTH_MULTI_DAY_EXPANSION','EXACT_DATE_ARTIST_LINEUP_EVIDENCE','NON_TICKETED_EVENT_DISCOVERY']:[]),
        ...(dateIdentityMiss?['REPEAT_EVENT_DATE_DISAMBIGUATION','EVENT_DATE_VS_TICKET_SALE_DATE','OFFICIAL_POSTER_PRIMARY_PAGE_DATE_CONFLICT_CHECK','EXISTING_CANDIDATE_LIFECYCLE_REFRESH']:[]),
        ...(broadCoverageMiss?['TICKETING_UNIVERSE','ORGANIZER_PROMOTER_UNIVERSE','VENUE_CALENDAR_UNIVERSE','BROAD_CONCERT_LIVE_UNIVERSE','FESTIVAL_TAXONOMY_UNIVERSE','KNOWN_POSITIVE_BACKTEST']:[])

@@ -230,7 +230,7 @@
     {
       "memory_id": "kk:memory:october-external-demand-reconciliation:20261007",
       "occurred_at": "2026-10-07T01:00:00+07:00",
-      "kind": "RUN_RESULT",
+      "kind": "ACCEPTANCE",
       "domain": "discovery_scanner",
       "summary": "October 2026 external-demand reconciliation rerun completed for 7-31 Oct under the new fandom-first policy. Initial visible storefront count 42; final production-visible count 50 (47 show, 3 show_full). Net +8: added FAYE PERAYA BIRTHDAY PARTY 2026 1410 STATIC; restored 4 durable owner REOPENED rows (TEEHENG 24 Oct, OMEGA X 24 Oct, GUN NAPAT Birthday 24 Oct, T.O.P PRE-STUDIO 24 Oct); external-demand-reactivated 3 non-LOCKED hidden rows with capacity (LINGORM 18 Oct score ~97, GMMTV FANIVAL 7 Oct ~84, Avenged Sevenfold 7 Oct ~79). No additional removals in this rerun; prior low-demand prune remains LOCKED and Love On Hire Blessing Ceremony remains retained. Production /api/kk-data readback found all 8 changed event IDs as show and 3 package rows each. Monthly flow now re-scores existing visible cards, can remove <45 when owner apply is active, keeps 45-59.9 existing cards as WATCH_KEEP, reactivates hidden non-LOCKED >=60 only with capacity, restores durable REOPENED intent, never overrides LOCKED, and emits an ADDED/REMOVED/REACTIVATED/RESTORED diff.",
       "status": "ACTIVE",
@@ -244,6 +244,36 @@
       ],
       "supersedes": [],
       "source": "owner+sheet+production+repo"
+    },
+    {
+      "memory_id": "kk:memory:ultradeep-terminal-poster-gates:20261010",
+      "occurred_at": "2026-10-10T22:30:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "discovery_scanner",
+      "summary": "Draft PR 680 source hardening on 10 Oct: strict Ultra Deep candidate terminal coverage and exact mutation-count evidence (ported safely from Draft PR 681, excluding Apps Script); fixed an unsupported Project Memory kind; poster audit now separately fails canonical missing or broken originals even if an event-specific fallback renders. Vercel Preview for source SHA 1e364e54861f4598cddcc1ba210cbfd01428d3f0 ran 207 of 207 regression checks and 1 original poster asset check, all passed. Source changes are NOT merged to main or business Production. Canonical 08_Web_Ready read-only shows 10 of 96 visible events without poster URLs. V27 authenticated sharded Full Loop and natural Scanner/Verifier runtime remain unaccepted. No paid services, business writes, automatic pricing or X posts.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/KK_RECOVERY_SHADOW_PRICING_POSTER_ULTRA_DEEP_20261010.md",
+        "server/kk-ultra-deep-full-loop-v2.js",
+        "scripts/audit-storefront-posters.js",
+        "tests/kk-ultra-deep-terminal-evidence.test.js",
+        "tests/storefront-poster-canonical-integrity.test.js"
+      ]
+    },
+    {
+      "memory_id": "kk:memory:ultradeep-shard-db-oidc-live:20261010",
+      "occurred_at": "2026-10-10T22:30:00+07:00",
+      "kind": "IMPLEMENTATION",
+      "domain": "discovery_scanner",
+      "summary": "Ultra Deep Read-only Shard infrastructure actually deployed to canonical Supabase kk-unified-inbox on Oct 10: SQL fixed malformed dollar quote, added typed SHARDED_READ_ONLY commit=false/writes=0 check, 16-task bound, immutable idempotent receipts table with RLS, and service_role only SELECT/INSERT after explicit default-grant remediation. OIDC Edge kk-admin-write-control upgraded to v2 with exact file readback and retained cryptographically verified Vercel production claims. DB transactional rollback smoke confirmed claim, insert, idempotent replay, conflict rejection with 9 prior commands and 0 residual shards/writes. Draft PR 680 now adds a separate constant-time Bearer check to protect public queue GET; this source has not shipped to Vercel Production or obtained new exact-head full hosted CI. Autonomous Full Loop/official Source receipts remain unaccepted. Never auto-enable scanner or business writer; no user top-up, no booking, price or X writes.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/KK_RECOVERY_SHADOW_PRICING_POSTER_ULTRA_DEEP_20261010.md",
+        "supabase/migrations/20261010002000_ultradeep_readonly_scan_shards.sql",
+        "supabase/migrations/20261010162000_ultradeep_readonly_shard_privilege_lockdown.sql",
+        "supabase/functions/kk-admin-write-control/index.ts",
+        "api/kk-scanner-dispatch.js"
+      ]
     }
   ]
 }

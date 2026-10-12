@@ -281,6 +281,81 @@ Deno.serve(async (req: Request) => {
       return json(200, { ok: true, authenticated: true, command, business_writes: 0, google_sheet_writes: 0 });
     }
 
+    // Scanner checkpoint artifacts use the same Vercel Production OIDC boundary
+    // as commandClaim. They cannot modify storefront, prices or booking truth.
+    if (action === "shardCommandInspect") {
+      const commandId = String(body.command_id || "").trim();
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commandId))
+        return fail(400, "COMMAND_ID_INVALID", true);
+      const params=new URLSearchParams({
+        select:"command_id,month,commit,state,command_kind,production_writes",
+        command_id:"eq."+commandId,limit:"1"
+      });
+      const data=await rest("/rest/v1/kk_ultra_deep_commands?"+params.toString(),{method:"GET"});
+      const rows=Array.isArray(data)?data:[];
+      const command=rows[0]&&typeof rows[0]==="object"?rows[0] as Record<string,unknown>:null;
+      if (!command || command.commit!==false ||
+        command.command_kind!=="SHARDED_READ_ONLY" || command.production_writes!==0 ||
+        !["PENDING","RUNNING"].includes(String(command.state)))
+        return fail(409, "SHARD_COMMAND_NOT_AUTHORIZED", true);
+      return json(200,{ok:true,authenticated:true,command:{
+        command_id:commandId,month:command.month,commit:false,
+        command_kind:"SHARDED_READ_ONLY",state:command.state
+      },business_writes:0,google_sheet_writes:0});
+    }
+
+    if (action === "shardReceiptStore") {
+      const commandId = String(body.command_id || "").trim();
+      const envelope = body.receipt && typeof body.receipt === "object" &&
+        !Array.isArray(body.receipt) ? body.receipt as Record<string, unknown> : null;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commandId))
+        return fail(400, "COMMAND_ID_INVALID", true);
+      if (!envelope || envelope.version !== "KK_ULTRA_DEEP_SHARD_CHECKPOINT_V1" ||
+          envelope.authoritative !== false || envelope.production_writes !== 0)
+        return fail(400, "SHARD_ENVELOPE_INVALID", true);
+      const month = String(envelope.month || "");
+      const phase = String(envelope.phase || "");
+      const start = Number(envelope.start), end = Number(envelope.end);
+      if (!/^20[0-9]{2}-(0[1-9]|1[0-2])$/.test(month) ||
+          !["KNOWN_MISS","DISCOVERY","REFERENCE","SOURCE_UNIVERSE"].includes(phase) ||
+          !Number.isSafeInteger(start) || !Number.isSafeInteger(end) ||
+          start < 0 || end <= start || end - start > 16 || end > 2000 ||
+          !safeHash(envelope.plan_hash) || !safeHash(envelope.receipt_hash) ||
+          !Array.isArray(envelope.records) || envelope.records.length !== end-start)
+        return fail(400, "SHARD_SCOPE_INVALID", true);
+      const {receipt_hash: suppliedHash, ...unsigned } = envelope;
+      const canonicalBytes = new TextEncoder().encode(JSON.stringify(unsigned));
+      if (canonicalBytes.byteLength > 240000) return fail(413, "SHARD_PAYLOAD_TOO_LARGE", true);
+      const sha = await crypto.subtle.digest("SHA-256", canonicalBytes);
+      const actualHash = Array.from(new Uint8Array(sha)).map(x=>x.toString(16).padStart(2,"0")).join("");
+      if (actualHash !== suppliedHash) return fail(400, "SHARD_INTEGRITY_HASH_MISMATCH", true);
+      const stored = await rpc("kk_ultra_deep_scan_shard_insert", {
+        p_command_id:commandId,p_month:month,p_phase:phase,
+        p_plan_hash:envelope.plan_hash,p_shard_start:start,p_shard_end:end,
+        p_receipt_hash:suppliedHash,p_receipt_json:envelope
+      });
+      if (!["STORED","IDEMPOTENT_MATCH"].includes(String(stored)))
+        return fail(503, "SHARD_STORAGE_RESPONSE_INVALID", true);
+      return json(200, {ok:true,authenticated:true,status:stored,
+        command_id:commandId,month,phase,start,end,receipt_hash:suppliedHash,
+        business_writes:0,google_sheet_writes:0});
+    }
+
+    if (action === "shardReceiptList") {
+      const commandId = String(body.command_id || "").trim();
+      const phase = String(body.phase || "");
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commandId))
+        return fail(400, "COMMAND_ID_INVALID", true);
+      if (!["KNOWN_MISS","DISCOVERY","REFERENCE","SOURCE_UNIVERSE"].includes(phase))
+        return fail(400, "SHARD_PHASE_INVALID", true);
+      const params=new URLSearchParams({select:"receipt_json",
+        command_id:"eq."+commandId,phase:"eq."+phase,order:"shard_start.asc",limit:"20"});
+      const rows=await rest("/rest/v1/kk_ultra_deep_scan_shards?"+params.toString(),{method:"GET"});
+      const receipts=Array.isArray(rows)?rows.map(x=>x&&x.receipt_json).filter(Boolean):[];
+      return json(200,{ok:true,authenticated:true,command_id:commandId,
+        phase,receipts,read_only:true,business_writes:0,google_sheet_writes:0});
+    }
+
     if (action === "commandComplete") {
       const commandId = String(body.command_id || "").trim();
       const status = String(body.status || "");

@@ -44,7 +44,7 @@ function safeRemote(body,status){
     business_writes:0,
     google_sheet_writes:0
   };
-  const fields=['error_code','version','configured','scope','fencing_token','lock_held','acquired','lease_until','released','committed','failed','completed','receipt','command'];
+  const fields=['error_code','version','configured','scope','fencing_token','lock_held','acquired','lease_until','released','committed','failed','completed','receipt','command','status','phase','month','start','end','receipt_hash','receipts','read_only'];
   for(const key of fields){
     if(body && Object.prototype.hasOwnProperty.call(body,key)) out[key]=body[key];
   }
@@ -150,6 +150,23 @@ async function receiptFail(requestId,fencingToken,errorCode,options){
   },options);
 }
 
+function shardCommandInspect(commandId,options={}){
+  return call('shardCommandInspect',{
+    request_id:'ultradeep-shard-inspect:'+text(commandId),command_id:text(commandId)
+  },options);
+}
+function shardReceiptStore(commandId,receipt,options={}){
+  return call('shardReceiptStore',{
+    request_id:'ultradeep-shard:'+text(commandId)+':'+text(receipt&&receipt.phase)+':'+String(receipt&&receipt.start),
+    command_id:text(commandId),receipt
+  },options);
+}
+function shardReceiptList(commandId,phase,options={}){
+  return call('shardReceiptList',{
+    request_id:'ultradeep-shards-list:'+text(commandId)+':'+text(phase),
+    command_id:text(commandId),phase:text(phase)
+  },options);
+}
 module.exports={
   CONTROL_PROJECT_REF,
   CONTROL_FUNCTION,
@@ -164,5 +181,8 @@ module.exports={
   receiptGet,
   receiptPrepare,
   receiptCommit,
-  receiptFail
+  receiptFail,
+  shardCommandInspect,
+  shardReceiptStore,
+  shardReceiptList
 };

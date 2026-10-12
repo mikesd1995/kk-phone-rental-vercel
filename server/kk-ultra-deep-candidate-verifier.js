@@ -3,7 +3,7 @@
 const crypto=require('node:crypto');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V3';
+const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V4';
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=6;
 
@@ -79,19 +79,29 @@ function authoritativeEventSource(url='',picked=null,verified={}){
  const structuredExact=!!(picked&&picked.d===verified.date&&text(picked.e&&picked.e.name)&&verified.venue&&verified.poster);
  return {ok:trustedDetail||(!socialOrSearch&&structuredExact),trusted_detail:trustedDetail,structured_exact:structuredExact,social_or_search:socialOrSearch};
 }
-function prefilter(candidate={},month=''){
+function externalDemandIdentity(context={}){return text(context&&context.verification_scope).toUpperCase()==='EXTERNAL_DEMAND_IDENTITY';}
+function prefilter(candidate={},month='',context={}){
  const title=text(candidate.title);
  const date=isoDate(candidate.event_date);
  const url=https(candidate.source_url);
  const reasons=[];
+ const externalDemand=externalDemandIdentity(context);
+ const specific=eventSpecificUrl(url);
  if(!url)reasons.push('HTTPS_SOURCE_REQUIRED');
- if(!date)reasons.push('EVENT_DATE_REQUIRED');
- else if(month&&!monthMatches(date,month))reasons.push('OUTSIDE_TARGET_MONTH');
- const quality=titleQuality(title);reasons.push(...quality.reasons);
- if(LOW_FIT_SIGNAL.test(title))reasons.push('NON_RENTAL_EVENT_SIGNAL');
+ // Search discovery may not carry a structured date even when it points at an
+ // authoritative event-detail page. In the External Demand path, fetch that
+ // bounded detail page and require the exact target-month date after parsing.
+ if(!date&&!(externalDemand&&specific))reasons.push('EVENT_DATE_REQUIRED');
+ else if(date&&month&&!monthMatches(date,month))reasons.push('OUTSIDE_TARGET_MONTH');
+ // Generic/noisy search-result titles still fail closed. Event-detail pages may
+ // replace a weak search title with canonical JSON-LD/metadata before final verification.
+ if(!(externalDemand&&specific)){
+  const quality=titleQuality(title);reasons.push(...quality.reasons);
+ }
+ if(!externalDemand&&LOW_FIT_SIGNAL.test(title))reasons.push('NON_RENTAL_EVENT_SIGNAL');
  const explicit=EVENT_SIGNAL.test(title);
- if(!explicit&&!eventSpecificUrl(url))reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
- return {eligible:reasons.length===0,reasons,event_date:date,event_specific_url:eventSpecificUrl(url)};
+ if(!explicit&&!specific)reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
+ return {eligible:reasons.length===0,reasons,event_date:date,event_specific_url:specific,verification_scope:externalDemand?'EXTERNAL_DEMAND_IDENTITY':'LEGACY_COMMERCIAL'};
 }
 function flattenJsonLd(value,out=[]){
  if(Array.isArray(value)){for(const x of value)flattenJsonLd(x,out);return out;}
@@ -171,14 +181,16 @@ function chooseJsonLdEvent(events=[],candidate={},month=''){
 }
 function verifyHtmlCandidate(candidate={},body='',context={}){
  const month=text(context.month);
- const pre=prefilter(candidate,month);
+ const pre=prefilter(candidate,month,context);
  if(!pre.eligible)return {status:'HOLD_VERIFIER',verified:false,blockers:pre.reasons,candidate};
  const events=parseJsonLd(body);
  const picked=chooseJsonLdEvent(events,candidate,month);
  const title=text(picked&&picked.e&&picked.e.name)||text(candidate.title)||metaValue(body,'og:title');
  const date=isoDate(picked&&picked.d)||pre.event_date;
- const venue=locationName(picked&&picked.e&&picked.e.location)||findKnownVenue(body,title);
- const poster=imageUrl(picked&&picked.e&&picked.e.image)||https(metaValue(body,'og:image'));
+ const externalDemand=externalDemandIdentity(context);
+ const detailSource=eventSpecificUrl(candidate.source_url);
+ const venue=locationName(picked&&picked.e&&picked.e.location)||(externalDemand&&detailSource?text(candidate.venue):'')||findKnownVenue(body,title);
+ const poster=imageUrl(picked&&picked.e&&picked.e.image)||(externalDemand&&detailSource?https(candidate.poster_url):'')||https(metaValue(body,'og:image'));
  const url=https(candidate.source_url);
  const blockers=[];
  const quality=titleQuality(title);blockers.push(...quality.reasons);
@@ -189,12 +201,15 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  const authority=authoritativeEventSource(url,picked,{date,venue,poster,title});
  if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
  const fit=rentalFitScore(title);
- if(fit<7)blockers.push('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD');
+ // Identity/evidence verification and commercial publication are separate gates.
+ // External Demand Score is the sole publication qualification authority on the
+ // canonical V3 path; legacy callers retain the historical rental-fit blocker.
+ if(!externalDemand&&fit<7)blockers.push('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD');
  const key=eventKey({title,event_date:date});
  const verified=blockers.length===0;
  return {
   version:VERSION,
-  status:verified?'VERIFIED_FOR_COMMERCIAL':'HOLD_VERIFIER',
+  status:verified?(externalDemand?'VERIFIED_FOR_EXTERNAL_DEMAND_GATE':'VERIFIED_FOR_COMMERCIAL'):'HOLD_VERIFIER',
   verified,
   blockers,
   candidate:{
@@ -202,17 +217,19 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
    event_key:key,title,event_date:date,event_time:text(candidate.event_time)||null,venue,
    artist:Array.isArray(candidate.artist)?candidate.artist.map(text).filter(Boolean):[],
    source_url:url,confidence:verified?0.9:0.4,rental_fit_score:fit,
-   publish_eligibility:{status:fit>=7?'ELIGIBLE':'REJECTED_LOW_RENTAL_FIT',eligible:fit>=7,rental_fit_score:fit,minimum_publish_score:7}
+   publish_eligibility:externalDemand
+    ? {status:'DEFER_TO_EXTERNAL_DEMAND_GATE',eligible:null,rental_fit_score:fit,minimum_publish_score:null,decision_authority:'EXTERNAL_DEMAND_SCORE'}
+    : {status:fit>=7?'ELIGIBLE':'REJECTED_LOW_RENTAL_FIT',eligible:fit>=7,rental_fit_score:fit,minimum_publish_score:7}
   },
   poster:poster?{event_key:key,source_tier:sourceTier(url),source_url:url,image_url:poster,official:TRUSTED_EVENT_HOSTS.has(host(url)),verified:authority.ok}:null,
   evidence:{jsonld_event_count:events.length,event_specific_url:eventSpecificUrl(url),source_tier:sourceTier(url),authoritative_event_source:authority.ok,authority}
  };
 }
 async function verifyCandidate(candidate={},context={},options={}){
- const pre=prefilter(candidate,context.month);
+ const pre=prefilter(candidate,context.month,context);
  if(!pre.eligible)return {status:'HOLD_VERIFIER',verified:false,blockers:pre.reasons,candidate};
  try{
-  const body=await PublicWeb.fetchPage(candidate.source_url,{fetchFn:options.fetchFn,timeout_ms:Number(options.timeout_ms||10000)});
+  const body=await PublicWeb.fetchPage(candidate.source_url,{fetchFn:options.fetchFn||options.fetchImpl,timeout_ms:Number(options.timeout_ms||10000)});
   return verifyHtmlCandidate(candidate,body,context);
  }catch(err){
   return {status:'HOLD_VERIFIER',verified:false,blockers:['SOURCE_FETCH_FAILED'],candidate,error_class:text(err&&(err.code||err.name))||'ERROR'};
@@ -226,7 +243,7 @@ async function verifyBatch(candidates=[],context={},options={}){
  const rows=Array.isArray(candidates)?candidates:[];
  const selected=[];const preHeld=[];const seen=new Set();
  for(const c of rows){
-  const pre=prefilter(c,context.month);
+  const pre=prefilter(c,context.month,context);
   const k=[text(c.title).toLowerCase(),isoDate(c.event_date),https(c.source_url)].join('|');
   if(seen.has(k))continue;seen.add(k);
   if(pre.eligible)selected.push(c);else preHeld.push({status:'HOLD_VERIFIER',verified:false,blockers:pre.reasons,candidate:c});
@@ -256,6 +273,6 @@ async function verifyBatch(candidates=[],context={},options={}){
 
 module.exports={
  VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,
- text,https,isoDate,eventKey,host,eventSpecificUrl,monthMatches,titleQuality,authoritativeEventSource,prefilter,flattenJsonLd,parseJsonLd,metaValue,locationName,imageUrl,
+ text,https,isoDate,eventKey,host,eventSpecificUrl,monthMatches,titleQuality,authoritativeEventSource,externalDemandIdentity,prefilter,flattenJsonLd,parseJsonLd,metaValue,locationName,imageUrl,
  findKnownVenue,rentalFitScore,sourceTier,chooseJsonLdEvent,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
 };

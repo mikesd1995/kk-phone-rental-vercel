@@ -67,7 +67,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
 
 test('known-miss plan keeps one task per case and does not concatenate every alias into one over-constrained query',()=>{
  const plan=Runner.buildKnownMissPlan();
- assert.equal(plan.version,'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2');
+ assert.equal(plan.version,'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V3_MONTH_SCOPED');
  assert.equal(plan.gap_tasks.length,KnownMiss.CORPUS.length);
  const remaster=plan.gap_tasks.find(x=>x.source_id==='knownmiss:remaster-20261010');
  assert.equal(remaster.query,'REMASTER CONCERT Bangkok Thailand');
@@ -91,7 +91,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
  assert.equal(out.full,true);
  assert.ok(calls[0].startsWith('knownmiss:'));
  const firstNonKnown=calls.findIndex(x=>!x.startsWith('knownmiss:'));
- assert.ok(firstNonKnown>=KnownMiss.CORPUS.length);
+ assert.ok(firstNonKnown>=KnownMiss.CORPUS.filter(c=>c.event_date.startsWith('2026-10')||(c.discovery_months||[]).includes('2026-10')).length);
 });
 
 test('runtime known-miss gate accepts a governed hit from the main discovery sweep',async()=>{
@@ -349,4 +349,101 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
  assert.equal(out.audit_blocking,false);
  assert.ok(out.candidate_count>0);
  assert.equal(out.production_writes,0);
+});
+
+
+test('source-universe receipts are month-bound and attributable to executed provider query',()=>{
+ const Registry=require('../server/kk-ultra-deep-source-registry.js');
+ const task={source_id:'eventpop',source_tier:'TICKETING',query:'Eventpop October 2026 Bangkok'};
+ const plan={range:{month:'2026-10'},gap_tasks:[task]};
+ const exec={results:[{status:'EVIDENCE_FOUND',provider:'SEARXNG',
+  candidates:[{title:'Bangkok event',event_date:'2026-10-20',source_url:'https://example.com/event'}],
+  attempts:[{provider:'EXA',status:'PROVIDER_ERROR',query:task.query},
+    {provider:'SEARXNG',status:'EVIDENCE_FOUND',count:1,query:task.query}]
+ }]};
+ const receipts=Runner.sourceUniverseReceipts(plan,exec);
+ assert.equal(receipts.length,1);
+ assert.equal(receipts[0].month,'2026-10');
+ assert.equal(receipts[0].task_source_id,'eventpop');
+ assert.equal(receipts[0].provider,'SEARXNG');
+ assert.equal(receipts[0].candidate_count,1);
+ assert.equal(receipts[0].attempts.length,1,'provider errors are excluded from execution receipts');
+ const live=Registry.buildUniverseProof(receipts,{strict_live:true,month:'2026-10'});
+ assert.equal(live.sources.find(x=>x.source_id==='eventpop').pass,true);
+ assert.equal(live.complete,false,'other required source receipts still absent');
+});
+test('source-universe receipts do not count failed queries or unsupported search provider as execution',()=>{
+ const plan={range:{month:'2026-10'},gap_tasks:[{source_id:'eventpop',query:'eventpop October 2026'}]};
+ const exec={results:[{status:'GAP_UNRESOLVED',provider:null,attempts:[
+  {provider:'EXA',status:'PROVIDER_ERROR',query:'eventpop October 2026'},
+  {provider:'FAKE_PROVIDER',status:'NO_EVIDENCE',query:'eventpop October 2026'}]}]};
+ const receipt=Runner.sourceUniverseReceipts(plan,exec)[0];
+ assert.equal(receipt.executed,false);
+ assert.equal(receipt.status,'NOT_BOUND');
+ assert.equal(receipt.candidate_count,0);
+});
+
+
+test('runner preserves explicit fallback query as authorized live receipt without granting arbitrary queries',()=>{
+ const Registry=require('../server/kk-ultra-deep-source-registry.js');
+ const task={source_id:'eventpop',source_tier:'TICKETING',
+  query:'eventpop Bangkok 2026-10',query_variants:['eventpop ไทย ตุลาคม 2569']};
+ const execution={results:[{status:'GAP_UNRESOLVED',provider:null,candidates:[],
+  attempts:[{provider:'BING_RSS',status:'NO_EVIDENCE',query:task.query_variants[0]}]}]};
+ const receipt=Runner.sourceUniverseReceipts({range:{month:'2026-10'},gap_tasks:[task]},execution)[0];
+ assert.deepEqual(receipt.query_variants,task.query_variants);
+ assert.equal(receipt.executed,true);
+ assert.equal(receipt.status,'NO_EVIDENCE');
+ const proof=Registry.buildUniverseProof([receipt],{strict_live:true,month:'2026-10'});
+ assert.equal(proof.sources.find(x=>x.source_id==='eventpop').pass,true);
+ receipt.attempts=[{provider:'BING_RSS',status:'NO_EVIDENCE',query:'not part of source task'}];
+ assert.equal(Registry.buildUniverseProof([receipt],{strict_live:true,month:'2026-10'}).sources.find(x=>x.source_id==='eventpop').pass,false);
+});
+
+
+test('partially executed provider query after time budget is never accepted as FULL source coverage',()=>{
+ const Registry=require('../server/kk-ultra-deep-source-registry.js');
+ const task={source_id:'eventpop',source_tier:'TICKETING',query:'eventpop Bangkok October 2026',
+  query_variants:['eventpop Thai fansign October 2026']};
+ const plan={range:{month:'2026-10'},gap_tasks:[task]};
+ const execution={results:[{status:'TIME_BUDGET_EXCEEDED',provider:null,candidates:[],
+  attempts:[{provider:'BING_RSS',status:'NO_EVIDENCE',query:task.query}]}]};
+ const receipt=Runner.sourceUniverseReceipts(plan,execution)[0];
+ assert.equal(receipt.executed,false);
+ assert.equal(receipt.status,'TIME_BUDGET_EXCEEDED');
+ const proof=Registry.buildUniverseProof([receipt],{strict_live:true,month:'2026-10'});
+ assert.equal(proof.sources.find(x=>x.source_id==='eventpop').pass,false);
+ assert.ok(proof.missing_required_sources.includes('eventpop'));
+ const observed=Runner.executionProof(execution);
+ assert.equal(observed.complete,false);
+ assert.equal(observed.executed_count,0);
+});
+
+
+test('FULL state is impossible when any phase, including preflight, hits shared timeout',()=>{
+ const fs=require('node:fs');
+ const source=fs.readFileSync(require.resolve('../server/kk-ultra-deep-runtime-runner.js'),'utf8');
+ assert.match(source,/const budgetExhausted=\[knownMissExecution,execution,referenceExecution\]\.some\(/);
+ assert.match(source,/\|\|preflight\.result\.status==='TIME_BUDGET_EXCEEDED'/);
+ assert.match(source,/const complete=!budgetExhausted && binding\.unknown_url_search_bound/);
+ assert.match(source,/\.\.\.\(budgetExhausted\?\['INCOMPLETE_TIME_BUDGET'\]:\[\]\)/);
+});
+
+test('November known-miss phase scans November only, including booked Nov28 as evidence not a publish instruction',()=>{
+ const nov=Runner.buildKnownMissPlan('2026-11');
+ const oct=Runner.buildKnownMissPlan('2026-10');
+ assert.equal(nov.month,'2026-11');
+ assert.ok(nov.gap_tasks.length>0);
+ assert.ok(nov.gap_tasks.length<KnownMiss.CORPUS.length);
+ for(const task of nov.gap_tasks){
+  const id=task.source_id.replace('knownmiss:','');
+  const c=KnownMiss.CORPUS.find(x=>x.case_id===id);
+  assert.ok(c);
+  assert.ok(c.event_date.startsWith('2026-11')||(c.discovery_months||[]).includes('2026-11'));
+ }
+ assert.ok(nov.gap_tasks.some(x=>x.source_id==='knownmiss:lolli-bevertonliew-20261128'));
+ assert.ok(!nov.gap_tasks.some(x=>x.source_id==='knownmiss:beautybuffet-liptok-auausave-20261009'));
+ assert.ok(oct.gap_tasks.some(x=>x.source_id==='knownmiss:beautybuffet-liptok-auausave-20261009'));
+ assert.ok(!oct.gap_tasks.some(x=>x.source_id==='knownmiss:lolli-jamessu-20261127'));
+ assert.equal(nov.production_writes,0);
 });
