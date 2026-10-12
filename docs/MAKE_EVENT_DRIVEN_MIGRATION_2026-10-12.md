@@ -11,7 +11,7 @@ _As of 2026-10-12 (Asia/Bangkok). Source work and Make draft are NOT a productio
 ## Live Make changes and safe rollback
 Source of truth for all preceding changes: [Issue #696](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/696).
 
-**2026-10-12** Make A (org `8618622`) & B (org `8709610`) Free plans, each 1000 unused credits at final inspection, auto purchasing OFF. All legacy 15 scenarios inactive; original webhook backlog admin 2, staging 1 remains isolated. Never activate to flush.
+**2026-10-12** Make A (org `8618622`) & B (org `8709610`) Free plans, each 1000 unused credits at earlier inspected baseline, auto purchasing OFF. All legacy 15 scenarios inactive; original webhook backlog admin 2, staging 1 remains isolated. Never activate to flush.
 
 Previous safety patches:
 - A Admin Bridge `6336390`: disable Google writer #6, queue 2.
@@ -19,10 +19,10 @@ Previous safety patches:
 - A Gemini `5911509`: disable AI #20.
 - A Telegram Control `5901592`: disable all 12 add/update/send modules.
 - B Staging Gateway `5988323`: disable all 17 add/update/send/AI modules, queue 1.
-- A Telegram Ledger `6176241`: change 900s->21600s while inactive; six-hour cadence is *not suitable for urgent alerts* and not the target production architecture.
+- A Telegram Ledger `6176241`: changed 900s scheduled polling -> 21600s fallback -> **on-demand** while inactive; verified `trigger.kind=on-demand`, no periodic credit drain even if activated. Manual use remains prohibited until dedupe/replay acceptance.
 - Permanent Make canvas notes created (#356413–#356420), with exact module IDs and rollback.
 
-**New** Make A Scenario `6600107`: `KK_OWNER_EVENT_DRIVEN_GATEWAY_V1_STAGING_BLOCKED`, webhook trigger #1 -> 503 deny response #2, **INACTIVE**, queue 0. Fresh webhook does NOT inherit the 2+1 legacy requests. Neither the webhook URL nor bot credentials are in repository source. Until acceptance it sends no Telegram and writes no booking/Sheet records. Link: https://us2.make.com/2671496/scenarios/6600107
+**New** Make A Scenario `6600107`: `KK_OWNER_EVENT_DRIVEN_GATEWAY_V1_STAGING_BLOCKED`, webhook trigger #1 -> 503 deny response #2, **INACTIVE**, queue 0. Fresh webhook does NOT inherit the 2+1 legacy requests. Neither the webhook URL nor bot credentials are in repository source. There are now 16 total stored scenarios across A+B (15 old + 1 new draft), all intended to remain inactive. Until acceptance it sends no Telegram and writes no booking/Sheet records. Link: https://us2.make.com/2671496/scenarios/6600107
 
 ## Branch source now staged
 
@@ -72,3 +72,9 @@ Do not reuse admin PIN/LINE token as signing secret. A Free-plan Make bot connec
 
 ## Rollback
 Keep all legacy scenarios inactive; new Scenario 6600107 can remain disabled. Revert the feature branch without affecting Production and set `KK_MAKE_OWNER_TRANSPORT_ENABLED=false` to fail-close if ever deployed. Do not clear or recycle `RESERVED` receipts without verifying provider delivery. Never rollback by replaying old webhooks.
+
+### Final Make change (additional verified readback)
+
+- On **2026-10-12 09:11 UTC** legacy Telegram Ledger #6176241 scheduling changed to **on-demand**, no scheduled polling. `scenario_get` verified Inactive, `trigger.kind=on-demand`, `scheduling.type=on-demand`, no module issues. This supersedes the six-hour fallback shown in earlier Issue #696 comments. Extra canvas note #356423.
+- New Make webhook Scenario #6600107 Inactive and queue 0 as inspected; anchored canvas note #356422. **No incoming sample or provider delivery.**
+- Source files passed JavaScript syntax parsing on fetched exact branch contents; **this is not a node:test execution**, and GitHub PR exact-head workflow runs were not available at the initial check.
