@@ -1,0 +1,50 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const R=require('../server/kk-booking-lifecycle-shadow.js');
+const good={booking_id:'TEST-A',booking_status:'uploaded',payment_status:'paid',amount_received:'1,090',return_status:'returned',file_transfer_status:'uploaded',drive_link:'https://drive.google.com/drive/folders/demo'};
+test('persisted receipt, returned equipment, upload and link are required',()=>{
+ const r=R.checkCompletionTransition(good,{booking_status:'completed'});
+ assert.equal(r.ok,true);assert.equal(r.stage,'READY_FOR_GOVERNED_WRITER');assert.equal(r.production_writes,0);
+});
+test('client cannot spoof persisted payment, return, upload or Drive',()=>{
+ const prior={...good,payment_status:'unpaid',return_status:'',file_transfer_status:'',drive_link:''};
+ const r=R.checkCompletionTransition(prior,{...good,booking_status:'completed'});
+ assert.equal(r.ok,false);assert.equal(r.errors.length,4);
+});
+test('confirmed, picked_up and returned cannot skip uploaded stage',()=>{
+ for(const st of ['confirmed','picked_up','returned']){
+  const r=R.checkCompletionTransition({...good,booking_status:st},{booking_status:'completed'});
+  assert.equal(r.ok,false);assert.ok(r.errors.includes('COMPLETION_REQUIRES_UPLOADED_STATE'));
+ }
+});
+test('Drive domain must be exact HTTPS, never lookalike',()=>{
+ assert.equal(R.validDrive(good.drive_link),true);assert.equal(R.validDrive('https://docs.google.com/document/d/demo'),true);
+ for(const url of ['https://drive.google.com.evil.org/x','http://drive.google.com/x','https://drive.google.com@evil.com/a','https://example.com/x','invalid']){
+  assert.equal(R.validDrive(url),false);
+ }
+});
+test('unrelated updates and completed historical rows never rewritten',()=>{
+ assert.equal(R.checkCompletionTransition({...good,booking_status:'confirmed'},{booking_status:'prepared'}).ok,true);
+ assert.equal(R.checkCompletionTransition({...good,booking_status:'completed'},{booking_status:'completed'}).stage,'ALREADY_COMPLETED_NO_TRANSITION');
+});
+test('monetary field parses formatted baht values, not suspicious amounts',()=>{
+ assert.equal(R.amount('1,090'),1090);assert.equal(R.amount('890'),890);assert.equal(R.amount(''),0);
+ assert.equal(R.amount('-1'),null);assert.equal(R.amount('1,xxx'),null);
+});
+test('Actual completed-only, Future active-only; cancelled excluded',()=>{
+ const rows=[{...good,booking_status:'completed'},
+ {...good,booking_id:'TEST-B',booking_status:'confirmed',payment_status:'unpaid',amount_received:'990'},
+ {...good,booking_id:'TEST-C',booking_status:'cancelled',payment_status:'paid',amount_received:'500'},
+ {...good,booking_id:'TEST-D',booking_status:'',amount_received:'800'}];
+ const a=R.audit(rows);assert.equal(a.totals.actual_completed_by_status,1090);
+ assert.equal(a.totals.future_active_quote,990);assert.equal(a.totals.forecast_by_status,2080);
+ assert.equal(a.issues.cancelled_paid_refund_review,1);
+ assert.equal(a.issues.confirmed_unpaid_with_amount_field,1);assert.equal(a.safety.production_writes,0);
+});
+test('legacy completed with missing evidence is flagged, never auto-reclassified',()=>{
+ const a=R.audit([{...good,booking_status:'completed',return_status:'',file_transfer_status:'',drive_link:''}]);
+ assert.equal(a.issues.historical_completed_missing_evidence,1);
+ assert.equal(a.totals.actual_completed_by_status,1090);
+ assert.equal(a.totals.verified_completed_receipt,0);
+ assert.equal(a.safety.historical_reclassification_authorized,false);
+});
