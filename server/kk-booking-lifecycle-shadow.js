@@ -13,7 +13,7 @@ function amount(x){
 }
 function validDrive(link){
  const s=String(link||'').trim();
- if(!s || /[\\s\\\\]/.test(s))return false;
+ if(!s || /[\s\\]/.test(s))return false;
  try{
   const u=new URL(s),host=u.hostname.toLowerCase(),path=u.pathname;
   if(u.protocol!=='https:'||u.username||u.password||u.port||u.hash)return false;
