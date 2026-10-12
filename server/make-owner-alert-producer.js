@@ -11,7 +11,9 @@ const VERSION='kk-make-owner-producer-v1';
 const VERIFIED_SOURCE='KK_CANONICAL_VERIFIER_READBACK_V1';
 const ENTITY=/^[A-Za-z0-9:_-]{1,128}$/;
 const REVISION=/^[a-f0-9]{64}$/i;
-const OWNER_TYPES=new Set(['OWNER_ALERT','OWNER_APPROVAL_PREVIEW']);
+// Approval previews stay out of the live producer until actor/version-bound
+// approval decision handling and PII-redaction acceptance are proven.
+const OWNER_TYPES=new Set(['OWNER_ALERT']);
 
 function t(v){return String(v===undefined||v===null?'':v).trim();}
 function sha(v){return crypto.createHash('sha256').update(String(v),'utf8').digest('hex');}
