@@ -130,10 +130,18 @@ test('unsigned shadow fields are forbidden even when signature for known fields 
   }
 });
 
-test('outbox migration revokes Supabase default service-role delete/truncate privileges',()=>{
+test('owner transport is alert-only; staging SQL grants checked when source is present',()=>{
   const fs=require('node:fs');
   const path=require('node:path');
-  const sql=fs.readFileSync(path.join(__dirname,'..','supabase','staging','kk-make-owner-notification-v1.sql'),'utf8');
+  // This behavioral contract runs in Vercel too, where .vercelignore omits SQL.
+  assert.equal(C.ALLOWED_TYPES.has('OWNER_ALERT'),true);
+  assert.equal(C.ALLOWED_TYPES.has('OWNER_APPROVAL_PREVIEW'),false);
+  assert.equal(C.ALLOWED_TYPES.size,1);
+  const sqlPath=path.join(__dirname,'..','supabase','staging','kk-make-owner-notification-v1.sql');
+  // In a source checkout, additionally assert the SQL migration is restrictive.
+  // Supabase live grant readback is independently required before production.
+  if(!fs.existsSync(sqlPath))return;
+  const sql=fs.readFileSync(sqlPath,'utf8');
   assert.match(sql,/revoke all on public\.kk_make_owner_notification_outbox from service_role;/);
   assert.match(sql,/grant select, insert, update on public\.kk_make_owner_notification_outbox to service_role;/);
   assert.doesNotMatch(sql,/grant[^;]*(?:delete|truncate)[^;]*to service_role;/i);
