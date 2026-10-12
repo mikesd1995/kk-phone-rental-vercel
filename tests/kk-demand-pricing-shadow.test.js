@@ -245,3 +245,49 @@ test('completed learning separates phone and bundle realized revenue, never coun
  assert.equal(r.outcome_count,3);
  assert.equal(r.production_writes,0);
 });
+
+test('three claimed shops without dated same-event verified receipts cannot unlock shadow price',()=>{
+ const rows=['A','B','C'].map(shop=>({
+  shop,package_type:'PHONE_ONLY',price:890,
+  source_url:'https://example.org/'+shop
+ }));
+ const p=S.propose({...base(),independent_competitors:3,competitor_market_status:'COMPETITOR_FOUND',competitor_evidence:rows});
+ assert.equal(p.status,'HOLD_COMPETITOR_EVIDENCE_INCOMPLETE');
+ assert.equal(p.suggested_prices,null);
+ assert.equal(p.production_writes,0);
+ assert.equal(p.verified_competitor_quotes.length,0);
+});
+
+test('only three distinct exact-event and exact-day independently sourced shops clear evidence gate',()=>{
+ const b=base();
+ const receipt=(shop)=>({shop,event_id:b.event_id,event_date:b.event_date,
+  package_type:'PHONE_ONLY',price:890,
+  verified:true,comparable_verified:true,
+  source_url:'https://example.org/'+shop,observed_at:'2026-10-10'});
+ const rows=[receipt('A'),receipt('A'),receipt('B'),receipt('C')];
+ const out=S.propose({...b,independent_competitors:3,competitor_market_status:'COMPETITOR_FOUND',competitor_evidence:rows});
+ assert.equal(out.status,'SHADOW_PRICE_PROPOSAL_OWNER_REVIEW');
+ assert.equal(out.verified_competitor_quotes.length,3);
+ assert.equal(out.production_writes,0);
+ assert.equal(out.owner_approval_required,true);
+ const two=S.propose({...b,independent_competitors:3,competitor_market_status:'COMPETITOR_FOUND',
+  competitor_evidence:[receipt('A'),receipt('A'),receipt('B')]});
+ assert.equal(two.status,'HOLD_COMPETITOR_EVIDENCE_INCOMPLETE');
+ assert.equal(two.suggested_prices,null);
+});
+
+test('quotes for wrong event or wrong date and unsearched market remain HOLD',()=>{
+ const b=base();
+ const receipt=(shop,event_id,event_date)=>({shop,event_id,event_date,
+  package_type:'PHONE_ONLY',price:890,verified:true,comparable_verified:true,
+  source_url:'https://example.org/'+shop,observed_at:'2026-10-10'});
+ const r=S.propose({...b,independent_competitors:3,competitor_market_status:'COMPETITOR_FOUND',
+  competitor_evidence:[receipt('A',b.event_id,b.event_date),
+   receipt('B','WRONG-EVENT',b.event_date),receipt('C',b.event_id,'2026-10-15')]});
+ assert.equal(r.status,'HOLD_COMPETITOR_EVIDENCE_INCOMPLETE');
+ assert.equal(r.verified_competitor_quotes.length,1);
+ const unsearched=S.propose({...b,independent_competitors:0,
+  competitor_market_status:'UNKNOWN',competitor_evidence:[]});
+ assert.equal(unsearched.status,'HOLD_COMPETITOR_MARKET_NOT_CHECKED');
+ assert.equal(unsearched.production_writes,0);
+});
