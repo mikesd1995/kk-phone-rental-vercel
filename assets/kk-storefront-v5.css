@@ -2164,3 +2164,33 @@ html[data-theme="dark"] .kk-mock-hero .v3-secondary{
 @media (prefers-reduced-motion:reduce){
   html .kk-mock-hero :is(.v3-primary,.v3-secondary){transition:none!important}
 }
+
+/* KK-owned, explicitly temporary brand artwork on individual eligible event cards.
+   Never advertise this graphic as an organizer poster. */
+.poster-img-wrap:has(.poster-temporary-brand-label){position:relative!important}
+.poster-img-wrap .poster-temporary-brand-label{
+  position:absolute!important;
+  left:10px!important;
+  right:10px!important;
+  bottom:10px!important;
+  z-index:5!important;
+  box-sizing:border-box!important;
+  width:max-content!important;
+  max-width:calc(100% - 20px)!important;
+  padding:6px 9px!important;
+  font-size:10px!important;
+  font-weight:750!important;
+  line-height:1.25!important;
+  letter-spacing:.015em!important;
+  border-radius:9px!important;
+  color:#132139!important;
+  border:1px solid rgba(255,255,255,.75)!important;
+  background:rgba(255,255,255,.94)!important;
+  box-shadow:0 3px 12px rgba(4,24,53,.15)!important;
+  pointer-events:none!important;
+}
+[data-theme="dark"] .poster-img-wrap .poster-temporary-brand-label{
+  color:#f5f8ff!important;
+  border-color:rgba(167,195,242,.35)!important;
+  background:rgba(19,30,49,.92)!important;
+}
