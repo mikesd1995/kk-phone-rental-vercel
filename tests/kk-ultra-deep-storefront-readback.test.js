@@ -112,3 +112,17 @@ test('temporary brand artwork recognizer does not misclassify official poster or
  assert.equal(R.temporaryPoster('https://attacker.invalid/assets/kk-brand-hero-final-20260920.png'),false);
  assert.equal(R.temporaryPoster('https://example.org/real-official-event.jpg'),false);
 });
+
+test('a publicly displayed SOURCE_DATE_UNVERIFIED Core event emits integrity HOLD',()=>{
+ const healthCore=core.map((row,i)=>i===0?
+  [...row,'event_note','data_health']:
+  [...row,'',row[0]==='EVT-HIDDEN'?'SOURCE_DATE_UNVERIFIED':'OK']);
+ const hidden=R.audit({core_rows:healthCore,web_ready_rows:web,booking_rows:bookings,as_of_date:'2026-10-12'});
+ assert.equal(hidden.counts.public_unverified_source_dates,0);
+ const publicRows=web.map(row=>row[0]==='EVT-HIDDEN'?[...row.slice(0,9),'show']:row);
+ const displayed=R.audit({core_rows:healthCore,web_ready_rows:publicRows,booking_rows:bookings,as_of_date:'2026-10-12'});
+ assert.equal(displayed.status,'READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS');
+ assert.equal(displayed.counts.public_unverified_source_dates,1);
+ assert.equal(displayed.integrity.public_unverified_source_dates[0].event_id,'EVT-HIDDEN');
+ assert.equal(displayed.safety.auto_unhide,false);
+});
