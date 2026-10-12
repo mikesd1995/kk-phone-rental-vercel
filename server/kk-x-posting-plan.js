@@ -147,8 +147,11 @@ function plan(input={}){
     const date=Eligibility.eventDay(candidate.event_date_text);
     const today=Eligibility.bangkokDate(gate.now);
     const delta=Math.round((Date.parse(date+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);
-    // Recompute urgency from the verified event date, never stale input flags.
-    return {...candidate,days_to_event:delta,event_is_today:delta===0,event_is_tomorrow:delta===1};
+    // Exact Web Ready row, not a stale candidate claim, owns remaining phones.
+    const web=(input.storefront_rows||[]).map(Eligibility.webRow).find(row=>
+      row.id===text(candidate.event_id)&&row.date===text(candidate.event_date_text));
+    return {...candidate,days_to_event:delta,event_is_today:delta===0,event_is_tomorrow:delta===1,
+      inventory_available:true,inventory_remaining:web.available,phone_inventory_remaining:web.available};
   });
   const ranking=eligibleCandidates.map(scoreCandidate).sort((a,b)=>b.base_score-a.base_score);
   const slots=normalizeSlots(input.slots);
