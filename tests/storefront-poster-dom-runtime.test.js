@@ -96,7 +96,7 @@ test('image-less sold-out event remains waitlist-only; fallback must never inven
  const sold=renderFixture([{...event,phoneCnt:0,lensCnt:0}], 'th',0);
  assert.equal(sold.count,1);
  assert.match(sold.card.className,/waitlist-card/);
- assert.equal(find(sold.card,'status-badge').textContent,'ว่าง');
+ assert.match(find(sold.card,'status-badge').className,/full/);
  assert.equal(sold.card.dataset.posterMissing,'1');
  sold.card.onclick();
  assert.equal(sold.shown().id,event.id);
