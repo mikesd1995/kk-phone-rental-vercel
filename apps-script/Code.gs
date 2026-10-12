@@ -2772,8 +2772,11 @@ function kkApiDecideLineBookingPending_(payload, requireVersion) {
       if (String(current[13]||'').trim().toLowerCase() !== 'unpaid' ||
           Number(current[14]||0) !== 0) throw new Error('LINE owner no-deposit booking state changed');
       const liveEvent = kkGetEventById_(String(current[3]||'').trim());
-      if (String(liveEvent.status||'').trim().toLowerCase() !== 'open' || !liveEvent.active ||
-          kkIsPastEventDate_(liveEvent.event_date)) {
+      // Rejecting a stale/cancelled event may still be a valid owner action.
+      // Only APPROVAL must be gated by the event being currently open and eligible.
+      if (decision === 'approve' &&
+          (String(liveEvent.status||'').trim().toLowerCase() !== 'open' || !liveEvent.active ||
+          kkIsPastEventDate_(liveEvent.event_date))) {
         throw new Error('LINE owner event is no longer eligible for confirmation');
       }
     }
