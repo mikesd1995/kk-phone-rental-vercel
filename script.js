@@ -703,6 +703,11 @@ function storefrontPosterOverride(row){
   }
   return "";
 }
+// This exact first-party asset is an approved temporary placeholder, never official event artwork.
+function isKKTemporaryBrandArtwork(url){
+  return String(url||"").trim().split(/[?#]/)[0]===
+    "https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png";
+}
 function getDriveId(url){
   var s=String(url||"").trim();
   var pats=[
@@ -1368,6 +1373,16 @@ function renderConcerts(concerts){
 
     var imgWrap=document.createElement("div"); imgWrap.className="poster-img-wrap";
     var badge=document.createElement("div"); badge.className="status-badge"+(avail?"":" full")+(isSoon(c)&&avail?" soon":""); badge.textContent=getBadgeText(c); imgWrap.appendChild(badge);
+    // A loaded shop-brand illustration is still temporary, not an official event poster.
+    // Do not add this label to actual event artwork or change booking/visibility eligibility.
+    var temporaryBrandArtwork=isKKTemporaryBrandArtwork(c.rawPoster||c.img);
+    if(temporaryBrandArtwork){
+      card.dataset.posterStatus="temporary";
+      var tempIndicator=document.createElement("span");
+      tempIndicator.className="poster-temporary-brand-label";
+      tempIndicator.textContent=currentLang==="en"?"TEMPORARY IMAGE":"ภาพประกอบชั่วคราว";
+      imgWrap.appendChild(tempIndicator);
+    }
     // This artwork-like panel is visibly temporary, not an official event poster.
     // Build it entirely from already-visible verified event name/date/venue.
     function eventSummaryFallback(){
