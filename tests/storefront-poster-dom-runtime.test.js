@@ -49,7 +49,7 @@ function renderFixture(concerts,lang='th',availability=1){
    actualFunction('renderConcerts','// ─── Modal'),context
  );
  context.renderConcerts(concerts);
- return {root,head,card:root.children[0]?.children[0],count:browseCount,shown:()=>shown,posterFailure:()=>posterFailure};
+ return {root,head,card:root.children[0]?.children[0],count:browseCount,countNow:()=>browseCount,shown:()=>shown,posterFailure:()=>posterFailure};
 }
 const event={
  id:'EVT-TEST-VERIFIED',name:'Exact Verified Event',date:'2026-11-14',venue:'Bangkok Test Venue',
@@ -109,4 +109,14 @@ test('broken official poster preserves sold-out status and exact event identity'
  assert.equal(sold.card.dataset.eventId,event.id);
  assert.equal(find(sold.card,'poster-placeholder-title').textContent,event.name);
  assert.equal(sold.root.children[0].children.length,1);
+});
+
+test('one failed poster does not reduce global result count to first page size',()=>{
+ const events=Array.from({length:13},(_,i)=>({...event,id:'EVT-PAGINATION-'+i,name:'Valid Event '+i,img:'https://official.example/'+i+'.jpg',imgThumb:['https://official.example/'+i+'.jpg'],rawPoster:'https://official.example/'+i+'.jpg'}));
+ const r=renderFixture(events);
+ assert.equal(r.countNow(),13,'all eligible results counted before poster fails');
+ assert.equal(r.root.children[0].children.length,12,'one page contains 12 cards');
+ r.posterFailure()();
+ assert.equal(r.countNow(),13,'image delivery failure must not corrupt the total count');
+ assert.equal(r.root.children[0].children.length,12,'poster failure must not remove the card');
 });
