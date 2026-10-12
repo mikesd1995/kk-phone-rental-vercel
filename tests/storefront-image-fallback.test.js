@@ -172,3 +172,26 @@ test('KHOM KHLANG keeps a public owner copy as fallback behind the private canon
   assert.match(source,/canonical sheet poster points to an[\s\S]*owner-private Drive file/);
 });
 
+
+
+test('missing image alone never hides a date/bookable event card',()=>{
+  assert.match(source,/var vis=filtered\(concerts\);/);
+  assert.doesNotMatch(source,/vis=vis\.filter\(function\(c\)\{ return !!\(c&&c\.img/);
+  assert.match(source,/card\.dataset\.posterMissing="1"/);
+  assert.match(source,/imgWrap\.appendChild\(eventSummaryFallback\(\)\)/);
+});
+
+test('temporary artwork is clearly marked and derived from the exact event not an unrelated poster',()=>{
+  assert.match(source,/function eventSummaryFallback\(\)/);
+  assert.match(source,/card\.dataset\.posterFallback="event-summary"/);
+  assert.match(source,/card\.dataset\.posterStatus="temporary"/);
+  assert.match(source,/currentLang==="en"\?"TEMPORARY EVENT ART":"ภาพประกอบชั่วคราว"/);
+  assert.match(source,/title\.textContent=String\(c\.name\|\|tr\("no_image"\)\)/);
+  assert.match(source,/meta\.textContent=\[String\(c\.date\|\|""\).*String\(c\.venue\|\|""\)/s);
+});
+
+test('show-only gate remains upstream and fallback does not promote owner-hidden events',()=>{
+  assert.match(source,/a&&a!=="hide"/);
+  assert.match(source,/var vis=filtered\(concerts\);/);
+  assert.match(source,/var rawPoster\s*=\s*String\(r\.poster_image_url\|\|""\)\.trim\(\)\s*\|\|\s*storefrontPosterOverride\(r\);/);
+});
