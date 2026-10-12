@@ -51,6 +51,7 @@ test('unverified and stale or wrong canonical identity cannot produce events',as
     {...canonical,source:'OWNER_CALLER'},
     {...canonical,entity_id:'EVT-OTHER'},
     {...canonical,event_type:'BOOKING_CONFIRM'},
+    {...canonical,event_type:'OWNER_APPROVAL_PREVIEW'},
     {...canonical,content_version:'not-sha256'},
     {...canonical,text:''},
     {...canonical,text:'x'.repeat(2100)}
