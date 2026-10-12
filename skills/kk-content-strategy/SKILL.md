@@ -182,9 +182,15 @@ For direct rental posts:
 - Use current verified offer/pricing only.
 - Keep: 📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน
 - Keep: ☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน
-- Booking CTA: 👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
+- Booking CTA: 👉 เลือกวันแล้วจองคิว (next line: kk-phone-rental.vercel.app)
 - Put **exactly 3 strongest verified closing hashtags at the end by default**. Do not duplicate `#เช่ามือถือ` or the main event hashtag already used above.
 - Do not repeat the brand line at the bottom.
+- Brand/header appears **once only**. Do not name "KK" or the shop again in the body or hook.
+- Device model must be visible only in the verified offer/price line. Never repeat it in story paragraphs or CTA.
+- For every day the event is scheduled, show the correct compact booking state: `14 ต.ค. ✅ ว่าง`, `15 ต.ค. ❌ เต็ม`, or `16 ต.ค. 🚫 ปิด`. Verified full/closed days are included, but zero remaining inventory counts or scarcity claims.
+- Use a different, verifiable artist/fandom/format-specific angle for each post. Repeating generic hook/closing skeletons is unacceptable.
+- Reject all commercial X content without verified `event_dates`, `event_dates_verified`, `day_statuses` and `day_statuses_verified`. The actual validator is `server/kk-x-owner-copy-policy.js`.
+- The owner rules source is `docs/X_POST_OWNER_COPY_RULES_2026-10-12.md`. If a ChatGPT request has no persistent PASS bridge invocation, say so and do not imply Agent/learning/Hugging Face scoring was used. Learning means actual performance evidence, not autonomous retraining.
 - Add a promotion/discount line only when the promotion is currently approved and verified.
 
 For awareness/education posts, do not mechanically paste the full rental footer. Lead with utility; add a soft rental mention only if it naturally helps the reader.
