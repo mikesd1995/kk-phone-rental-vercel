@@ -2268,6 +2268,29 @@
     return rows;
   }
 
+  function bookingClosureGuardRows(data){
+    const rows=[];
+    const closure=data&&data.booking_closure_evidence_shadow;
+    if(closure && closure.issues && closure.counts){
+      const old=Number(closure.issues.historical_completed_missing_evidence||0);
+      const quote=Number(closure.issues.confirmed_unpaid_with_amount_field||0);
+      const missingQuote=Number(closure.issues.active_missing_package_price||0);
+      const refunds=Number(closure.issues.cancelled_paid_refund_review||0);
+      rows.push({label:"Booking · หลักฐานปิดงาน",status:old?"WARN":"OK",
+        detail:old+" completed ยังไม่มีหลักฐานคืนเครื่อง/อัปโหลด/Drive ครบ",
+        suggestion:old?"ตรวจหลักฐานจริงก่อน backfill; ห้ามแก้สถานะย้อนหลังอัตโนมัติ":""});
+      if(quote)rows.push({label:"Booking · ยอดเสนอราคาเทียบยอดรับ",status:"WARN",
+        detail:quote+" confirmed/unpaid มียอดในช่อง amount_received",
+        suggestion:"ตรวจแยกราคาเสนอจากยอดรับเงินจริงก่อนส่งมอบเครื่อง"});
+      if(missingQuote)rows.push({label:"Booking · ราคาจองยังไม่ครบ",status:"WARN",
+        detail:missingQuote+" active booking ไม่มีราคาจองจาก Master คอลัมน์ X",
+        suggestion:"ตรวจ package_price ใน Master ก่อนอ้างยอด Future; ห้ามใช้ amount_received แทนราคาเสนอ"});
+      if(refunds)rows.push({label:"Booking · ยกเลิกแต่บันทึก paid",status:"WARN",
+        detail:refunds+" รายการต้องกระทบยอด",suggestion:"ตรวจหลักฐานกับเจ้าของก่อนคืนเงินหรือปรับยอด"});
+    }
+    return rows;
+  }
+
   function buildSnapshotGuardRows(data){
     const d=data||{};
     const diag=d.phase1_diagnostics||{};
@@ -2285,12 +2308,17 @@
     const h=KKSnapshotHealth.assess(d);
     for(const key of KKSnapshotHealth.KEYS) rows.push({label:"Snapshot · "+key,status:h.counts[key]===null ? "FAIL" : h.counts[key]===0 ? "WARN" : "OK",detail:String(h.counts[key] ?? "invalid")+" rows",suggestion:""});
     rows.push(...storefrontGuardRows(h.storefront_integrity));
+    rows.push(...bookingClosureGuardRows(d));
     rows.push({label:"Snapshot freshness",status:snapshotState.stale ? "FAIL" : "OK",detail:snapshotState.error || snapshotState.goodAt || "Not loaded",suggestion:snapshotState.stale ? "Refresh successfully before making changes" : ""});
     return rows;
   }
 
   function currentSystemGuardRows(){
-    if(state.systemHealth && state.systemHealth.rows) return state.systemHealth.rows;
+    // Live System Health must not silently hide Booking warnings in the
+    // fallback snapshot. Append the same aggregate facts exactly once.
+    if(state.systemHealth && state.systemHealth.rows){
+      return state.systemHealth.rows.concat(bookingClosureGuardRows(state.data||{}));
+    }
     return buildSnapshotGuardRows(state.data||{});
   }
 
