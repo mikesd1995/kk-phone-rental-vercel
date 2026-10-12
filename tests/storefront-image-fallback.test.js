@@ -195,3 +195,8 @@ test('show-only gate remains upstream and fallback does not promote owner-hidden
   assert.match(source,/var vis=filtered\(concerts\);/);
   assert.match(source,/var rawPoster\s*=\s*String\(r\.poster_image_url\|\|""\)\.trim\(\)\s*\|\|\s*storefrontPosterOverride\(r\);/);
 });
+
+test('script cache key changes when temporary artwork becomes first-class fallback',()=>{
+  const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
+  assert.match(html,/script\.js\?v=storefront-temporary-event-art-20261012/);
+});
