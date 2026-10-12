@@ -36,6 +36,12 @@ test('existing Vercel production policy and postinstall acceptance remain intact
   const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert.equal(vercel.git.deploymentEnabled.main, true);
+  // Vercel documents minimatch rules: when both '*' false and main true match,
+  // true wins; only main receives an automatic Git deployment.
+  assert.equal(vercel.git.deploymentEnabled['*'], false,
+    'Hobby quota requires unapproved Preview auto-deployments to stay disabled');
+  assert.deepEqual(Object.keys(vercel.git.deploymentEnabled).sort(), ['*', 'main'],
+    'No uncontrolled branch-specific automatic Preview exceptions');
   assert.match(vercel.ignoreCommand, /vercel-ignore-build\.js/);
   assert.match(pkg.scripts.postinstall, /test:ultradeep:recall/);
   assert.match(pkg.scripts.postinstall, /test:siam-halloween:poster/);
