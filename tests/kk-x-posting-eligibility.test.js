@@ -75,10 +75,12 @@ test('undated post log and missing event name cannot silently pass eligibility',
   assert.ok(missingName.errors.includes('EVENT_NAME_REQUIRED'));
 });
 test('fresh available event with an existing booking remains promotable when one phone is left',()=>{
-  const p=Planner.plan(input({candidates:[candidate({booking_already_confirmed:true})]}));
+  const p=Planner.plan(input({candidates:[candidate({booking_already_confirmed:true,inventory_available:false,inventory_remaining:0})]}));
   assert.equal(p.status,'READY_FOR_OWNER_REVIEW');
   assert.equal(p.slots[0].event,'K-LIVE EXAMPLE');
   assert.equal(p.ranking[0].dimensions.event_proximity,62);
+  assert.equal(p.ranking[0].candidate.inventory_remaining,1);
+  assert.equal(p.ranking[0].marketing_agent.campaign_mode!=='HOLD_NO_PHONE_INVENTORY',true);
   assert.equal(p.ranking[0].confidence,'LOW_NO_VERIFIED_X');
   assert.equal(p.ranking[0].dimensions.conversation_volume,0);
   assert.equal(p.safety.auto_publish,false);
