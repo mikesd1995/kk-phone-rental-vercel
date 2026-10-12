@@ -49,3 +49,16 @@ Cross-chat project changelog: https://github.com/mikesd1995/kk-phone-rental-verc
 V2 remains OFF until the owner-controlled live Apps Script deployed version matches source and one approved *owner-only* noncustomer staging test proves the signed challenge round trip, exact immutable version, stale price/date rejection, no duplicate messages and readback. A canonical price/availability check for actual bookable stock, tombstone/owner-hidden day policy and X approval governance still require independent acceptance; **do not assume the A:T/price fingerprint is a substitute for verifying every event-day and equipment-lock business rule**.
 
 No new booking, customer message, Telegram send, X post, event/image publication, paid upgrade, or production deploy was performed in this work.
+
+### 2026-10-12 compatibility hardening — do NOT break legacy intake
+
+An important post-implementation check found that unconditionally computing V2 `approval_version` in every Apps Script `createLineBookingPending` response would retroactively require new `09_Web_Packages` commercial data for **legacy V1 bookings**. That could fail AFTER an existing booking had already been created. Fixed before any deployment:
+
+- `server/line-booking-owner-approval.js` now sends `approval_mode:'v2'` to canonical Apps Script intake ONLY when V2 is explicitly enabled. Legacy V1 sends the exact previous intake payload, without the mode field (commit `5c3d78867ade4db0eaa74b3212108172477d4659`).
+- `apps-script/Code.gs` computes a 64-character approval fingerprint in all three create/replay result paths ONLY for explicit V2 mode; V1 always returns an empty version without a new source lookup. V2 must verify one exact current public package with a positive price **before** claiming a request or writing a new Booking (commit `7be7493431bba69d1c2a5a7a7c774705268f3250`).
+- Added two runtime Node tests for both V2 source-backed request/return and V1 mode backwards-compatibility (commit `6030077a469bd84c5d457b4250ae6d0e9a5e9e23`). Added a source-only test asserting V2 preflight runs before claim/Booking writes and V1 route remains independently available (commit `9f1f61961c403eb6f279358c74e317f8d80efa6b`).
+- Thus the V2 schema change is **opt-in on both ends**; never deploy the GitHub Source alone and infer that the active Google Apps Script Web App deployment changed. Verified official Google documentation: versioned Apps Script Web Apps must be explicitly updated to point to a new version; the repository source by itself does not update that live version.
+
+The independent mocked helper tests (not live Apps Script) found changing price, date, event status, package status, pickup, invalid price and wrong claim all invalidate/reject. Source-only verification and app version readiness must be replayed after any change.
+
+V2 remains OFF in Production, and all three PRs remain Draft pending actual acceptance.
