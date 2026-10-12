@@ -4,6 +4,10 @@ const crypto=require('node:crypto');
 const Intake=require('./line-booking-intake');
 
 const VERSION='KK_LINE_BOOKING_OWNER_APPROVAL_V1';
+const VERSION_V2='KK_LINE_BOOKING_OWNER_APPROVAL_V2';
+const APPROVAL_VERSION=/^[a-f0-9]{64}$/i;
+const MAX_CHALLENGE_SECONDS=24*60*60;
+function version2Enabled(env=process.env){return enabled(env.KK_LINE_OWNER_APPROVAL_V2_ENABLED);}
 const LINE_PUSH_URL='https://api.line.me/v2/bot/message/push';
 const LINE_REPLY_URL='https://api.line.me/v2/bot/message/reply';
 
@@ -27,6 +31,7 @@ function automationReadiness(env=process.env){
   if(!approvalSecret(env)) reasons.push('APPROVAL_SECRET_MISSING');
   if(!ownerUserId(env)) reasons.push('OWNER_USER_ID_MISSING');
   if(!ownerTargetId(env)) reasons.push('OWNER_TARGET_ID_MISSING');
+  if(version2Enabled(env) && !enabled(env.KK_LINE_OWNER_APPROVAL_V2_SOURCE_READY)) reasons.push('OWNER_V2_CANONICAL_APPS_SCRIPT_UNVERIFIED');
   return {version:VERSION,ready:reasons.length===0,reasons};
 }
 async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
@@ -82,7 +87,15 @@ async function createPendingBooking(event,booking,canonical,env=process.env,fetc
     err.code=canonicalResult.code;
     throw err;
   }
-  return Object.assign({status:'PENDING_CREATED',request_id:intent.payload.request_id},canonicalResult);
+  const data=result&&result.data||result||{};
+  const approvalVersion=text(data.approval_version);
+  if(version2Enabled(env) && !APPROVAL_VERSION.test(approvalVersion)){
+    const err=new Error('Canonical approval version missing from pending intake');
+    err.code='LINE_OWNER_APPROVAL_VERSION_REQUIRED';
+    throw err;
+  }
+  return Object.assign({status:'PENDING_CREATED',request_id:intent.payload.request_id,
+    approval_version:approvalVersion},canonicalResult);
 }
 function sigFor(decision,bookingId,secret){
   return crypto.createHmac('sha256',secret)
@@ -90,13 +103,44 @@ function sigFor(decision,bookingId,secret){
     .digest('base64url')
     .slice(0,24);
 }
-function decisionData(decision,bookingId,env=process.env){
+function sigForV2(decision,bookingId,version,expiry,secret){
+  return crypto.createHmac('sha256',secret)
+    .update([VERSION_V2,decision,bookingId,version,String(expiry)].join('|'),'utf8')
+    .digest('base64url').slice(0,24);
+}
+function decisionData(decision,bookingId,env=process.env,approvalVersion='',now=Date.now()){
   const d=decision==='approve'?'approve':decision==='reject'?'reject':'';
   const bid=text(bookingId), secret=approvalSecret(env);
   if(!d||!bid||!secret) throw Object.assign(new Error('approval data incomplete'),{code:'LINE_APPROVAL_DATA_INCOMPLETE'});
+  if(version2Enabled(env)){
+    const ver=text(approvalVersion);
+    if(!APPROVAL_VERSION.test(ver)){
+      throw Object.assign(new Error('canonical version required'),{code:'LINE_OWNER_APPROVAL_VERSION_REQUIRED'});
+    }
+    const expiry=Math.floor(Number(now)/1000)+MAX_CHALLENGE_SECONDS;
+    return ['kkb2',d,bid,ver,String(expiry),sigForV2(d,bid,ver,expiry,secret)].join('|');
+  }
   return ['kkb1',d,bid,sigFor(d,bid,secret)].join('|');
 }
-function parseDecisionData(value,env=process.env){
+function parseDecisionData(value,env=process.env,now=Date.now()){
+  const raw=text(value),v2=version2Enabled(env);
+  if(v2){
+    const parts=raw.split('|');
+    if(parts.length!==6||parts[0]!=='kkb2')return null;
+    const [,decision,bookingId,version,expiresRaw,sig]=parts;
+    const expiration=Number(expiresRaw),nowSecs=Math.floor(Number(now)/1000);
+    if(!['approve','reject'].includes(decision)||!bookingId||
+       !APPROVAL_VERSION.test(version)||!/^[0-9]{10}$/.test(expiresRaw)||
+       !Number.isSafeInteger(expiration)||expiration<=nowSecs||
+       expiration>nowSecs+MAX_CHALLENGE_SECONDS||!sig)return null;
+    const secret=approvalSecret(env);
+    if(!secret)return null;
+    const expected=sigForV2(decision,bookingId,version,expiration,secret);
+    const a=Buffer.from(expected),b=Buffer.from(sig);
+    if(a.length!==b.length||!crypto.timingSafeEqual(a,b))return null;
+    return {decision,booking_id:bookingId,approval_version:version,
+      expires_at:expiration,protocol:'kkb2'};
+  }
   const parts=text(value).split('|');
   if(parts.length!==4||parts[0]!=='kkb1') return null;
   const [,decision,bookingId,sig]=parts;
@@ -110,8 +154,9 @@ function parseDecisionData(value,env=process.env){
 }
 function ownerApprovalMessage(ctx={},env=process.env){
   const bookingId=text(ctx.booking_id);
-  const approve=decisionData('approve',bookingId,env);
-  const reject=decisionData('reject',bookingId,env);
+  const approvalVersion=text(ctx.approval_version);
+  const approve=decisionData('approve',bookingId,env,approvalVersion);
+  const reject=decisionData('reject',bookingId,env,approvalVersion);
   const eventName=text(ctx.event_name)||'-';
   const date=text(ctx.event_date)||'-';
   const packageName=text(ctx.package_name)||'-';
@@ -187,9 +232,10 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
   }
   const decision=parsed.decision;
   const result=await appsScriptCall({
-    action:'decideLineBookingPending',
+    action:parsed.protocol==='kkb2'?'decideLineBookingPendingV2':'decideLineBookingPending',
     booking_id:parsed.booking_id,
-    decision
+    decision,
+    ...(parsed.protocol==='kkb2'?{expected_version:parsed.approval_version}:{})
   },env,fetchImpl);
   const data=result&&result.data||result||{};
   // Owner callbacks are valid only against the same canonical booking identity.
@@ -197,6 +243,12 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
   if(text(data.booking_id)!==parsed.booking_id){
     const err=new Error('Owner decision booking identity mismatch');
     err.code='LINE_OWNER_DECISION_BOOKING_ID_MISMATCH';
+    throw err;
+  }
+  if(parsed.protocol==='kkb2' &&
+     text(data.approved_version)!==parsed.approval_version){
+    const err=new Error('Canonical version verification missing');
+    err.code='LINE_OWNER_DECISION_VERSION_READBACK_MISMATCH';
     throw err;
   }
   const expected=decision==='approve'?'confirmed':'cancelled';
@@ -228,7 +280,7 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
 }
 
 module.exports={
-  VERSION,automationReadiness,ownerUserId,ownerTargetId,approvalSecret,
+  VERSION,VERSION_V2,version2Enabled,automationReadiness,ownerUserId,ownerTargetId,approvalSecret,
   appsScriptCall,createPendingBooking,decisionData,parseDecisionData,
   ownerApprovalMessage,notifyOwner,processOwnerPostback,
   customerDecisionMessage,ownerDecisionMessage,pushMessage,replyMessage
