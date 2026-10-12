@@ -23,3 +23,29 @@ The signed LINE owner postback in `server/line-booking-owner-approval.js` previo
 - No customer messages, business writes or owner decisions were performed while writing/testing this Draft PR.
 
 Cross-chat project changelog: https://github.com/mikesd1995/kk-phone-rental-vercel/issues/696.
+
+## 2026-10-12 continuation — opt-in Version 2 for owner-signed approval
+
+**This section updates the earlier outstanding version-lock gate in the original document.** V2 source and tests are now implemented, but V2 is NOT deployed or activated; the existing v1 production behavior and all booking data remain unchanged.
+
+### Source additions
+
+- `server/line-booking-owner-approval.js`: optional `KK_LINE_OWNER_APPROVAL_V2_ENABLED` flag, with independent `KK_LINE_OWNER_APPROVAL_V2_SOURCE_READY` readiness gate (neither currently configured in Production). When enabled, approval/rejection postback is a `kkb2` HMAC of `[protocol,decision,bookingId,approvalVersion,expiry]`, with maximum 24-hour lifetime; tamper, expired/future timestamps, version changes, old `kkb1` tokens and non-owner actors fail closed.
+- `server/line-booking-webhook.js`: source-returned `pending.approval_version` is passed to the owner Flex message; never generate version from unverified booking chat text.
+- `server/line-booking-owner-approval.js` requires a valid `approval_version` in the Apps Script *canonical pending intake response* in V2 mode, calls `decideLineBookingPendingV2` with `expected_version`, then requires returned `approved_version` to match the signed challenge before any customer/owner LINE reply.
+- `apps-script/Code.gs`: adds `kkLineBookingApprovalVersion_(row)` using SHA-256 of canonical A:T booking identity/status/contact/pickup/payment/receipt/note fields **AND** `kkLineBookingCommercialSnapshot_(row)`. The latter independently resolves the exact governed LINE request claim from script properties and current event/date/open state/active status plus the exact public package ID/price/status from `09_Web_Packages`; nonexistent/ambiguous price or mismatched claim fail closed. The historical v1 `decideLineBookingPending` route remains unchanged and V2 uses its own `decideLineBookingPendingV2` route.
+- The V2 compare occurs **inside the existing Apps Script document lock, BEFORE any booking state mutation**, requires `pending`, enforces unpaid/no-deposit receipt=0, and blocks approval if event is no longer open/active or in the past. A genuine owner **reject** does not require the event to remain open, but does require the matching signed version. The response includes `approved_version` only for V2.
+- Production-side Apps Script deployment and V2 env flags MUST be coordinated; source changes in GitHub alone do not update a live Apps Script deployment.
+
+### Tests / evidence
+
+- New `tests/line-booking-owner-approval-v2.test.js`: 8 Node test cases covering V2 readiness gate, 24-hour signed HMAC binding, tamper/mutation/expiry, legacy V1 rejection while V2 enabled, owner Flex signed payload, missing upstream version, exact v2 RPC/readback gate, wrong version denies sends, wrong owner denies all actions, and source version handoff. This runs alongside the 10 existing V1/replay tests in Vercel `postinstall`.
+- Updated `tests/line-booking-owner-approval-apps-script-contract.test.js` (source-only command `npm run test:line:apps-script-contract`; Apps Script source is excluded from Vercel by `.vercelignore`).
+- A direct isolated V8 evaluation of the **actual** `kkLineBookingCommercialSnapshot_` and `kkLineBookingApprovalVersion_` source, with mocked `PropertiesService`, `Utilities.computeDigest`, `kkGetEventById_`, and public package rows, verified eight conditions: 64-hex baseline, price changed invalidates, date changed invalidates, event status closed invalidates, package status changed invalidates, pickup changed invalidates, zero price throws, wrong claim booking ID throws. **This is a mock test of the real source, NOT a live Apps Script execution.**
+- Exact-head Vercel Preview **`dpl_3tRAcqfHSmnL6vnnnmupa3hVGExT`**, SHA `3f30a290c8850c25eac2180bb7d53d6314f4afaa`, READY: **18/18 runtime LINE approval tests PASS**, 0 failed, as verified from deployment build logs. All changes after this commit are Apps Script source and source-only checks; repeat exact-head Preview if any new Vercel runtime source changes are made.
+
+### Guardrails still outstanding
+
+V2 remains OFF until the owner-controlled live Apps Script deployed version matches source and one approved *owner-only* noncustomer staging test proves the signed challenge round trip, exact immutable version, stale price/date rejection, no duplicate messages and readback. A canonical price/availability check for actual bookable stock, tombstone/owner-hidden day policy and X approval governance still require independent acceptance; **do not assume the A:T/price fingerprint is a substitute for verifying every event-day and equipment-lock business rule**.
+
+No new booking, customer message, Telegram send, X post, event/image publication, paid upgrade, or production deploy was performed in this work.
