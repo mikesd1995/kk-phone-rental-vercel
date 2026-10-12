@@ -39,7 +39,7 @@
     "test:vercel:storage-contract": "node --test tests/vercel-deployment-footprint.test.js tests/vercel-ignore-build.test.js",
     "test:booking:no-deposit": "node --test tests/kk-no-deposit-booking-create.test.js",
     "test:make:outbox-sql": "node --test tests/make-owner-outbox-sql-contract.test.js",
-    "test:make:owner-transport": "node --test tests/make-owner-transport-contract.test.js tests/make-owner-notify-api.test.js tests/make-owner-alert-producer.test.js tests/admin-make-write-bridge.test.js"
+    "test:make:owner-transport": "node --test tests/make-owner-transport-contract.test.js tests/make-owner-notify-api.test.js tests/make-owner-alert-producer.test.js tests/admin-make-write-bridge.test.js && node --check server/make-owner-transport-contract.js && node --check server/kk-make-owner-notify.js"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"
