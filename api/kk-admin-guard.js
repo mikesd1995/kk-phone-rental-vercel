@@ -29,6 +29,7 @@ const GUARD_VERSION = ReservationGuard.VERSION;
 const EVENT_GUARD_VERSION = 'event-create-integrity-lean-3';
 const BOOKING_TIMING_POLICY_VERSION = 'booking-timing-optional-safe-fallback-2';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
+const NoDepositBooking = require('../server/kk-no-deposit-booking-create.js');
 const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
@@ -787,6 +788,18 @@ module.exports=async function handler(req,res){
   }
 
   if(bookingGuarded){
+    // Owner-locked no-deposit intake rule. Reject invalid client/provider requests
+    // *before* invoking the authoritative writer. Existing bookings are unchanged.
+    if(action==='createBooking'){
+      const zeroDeposit=NoDepositBooking.checkCreateBooking(payload);
+      if(!zeroDeposit.ok) return reply(res,422,{
+        ok:false,
+        error_code:zeroDeposit.error_code,
+        error:zeroDeposit.message,
+        recommended_action:'createUnpaidBookingThenCollectAtPhysicalHandover'
+      });
+      res.setHeader('X-KK-No-Deposit-Create','PASS');
+    }
     res.setHeader('X-KK-Booking-Timing-Policy',BOOKING_TIMING_POLICY_VERSION);
     const timing=validateCreateBookingTiming(payload);
     if(!timing.ok){
