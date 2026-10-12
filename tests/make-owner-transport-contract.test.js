@@ -55,7 +55,7 @@ test('no secret, signature forgery, malformed signature and clock future fail cl
   assert.equal(C.verifyEnvelope(signed(),KEY,new Date(NOW.getTime()-16000)).error_code,'TRANSPORT_EXPIRED');
 });
 test('oversized text and missing exact content version are rejected by signer',()=>{
-  for(const patch of [{text:'x'.repeat(2050)},{content_version:''},{event_type:'X_POST'}]){
+  for(const patch of [{text:'x'.repeat(2050)},{content_version:''},{event_type:'X_POST'},{event_type:'OWNER_APPROVAL_PREVIEW'}]){
     assert.throws(()=>C.buildEnvelope({...fields,...patch},KEY,NOW));
   }
 });
