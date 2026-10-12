@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const R=require('../server/kk-booking-lifecycle-shadow.js');
-const good={booking_id:'TEST-A',booking_status:'uploaded',payment_status:'paid',amount_received:'1,090',return_status:'returned',file_transfer_status:'uploaded',drive_link:'https://drive.google.com/drive/folders/demo'};
+const good={booking_id:'TEST-A',booking_status:'uploaded',payment_status:'paid',amount_received:'1,090',package_price:'1,090',return_status:'returned',file_transfer_status:'uploaded',drive_link:'https://drive.google.com/drive/folders/demo'};
 test('persisted receipt, returned equipment, upload and link are required',()=>{
  const r=R.checkCompletionTransition(good,{booking_status:'completed'});
  assert.equal(r.ok,true);assert.equal(r.stage,'READY_FOR_GOVERNED_WRITER');assert.equal(r.production_writes,0);
@@ -33,7 +33,7 @@ test('monetary field parses formatted baht values, not suspicious amounts',()=>{
 });
 test('Actual completed-only, Future active-only; cancelled excluded',()=>{
  const rows=[{...good,booking_status:'completed'},
- {...good,booking_id:'TEST-B',booking_status:'confirmed',payment_status:'unpaid',amount_received:'990'},
+ {...good,booking_id:'TEST-B',booking_status:'confirmed',payment_status:'unpaid',amount_received:'990',package_price:'990'},
  {...good,booking_id:'TEST-C',booking_status:'cancelled',payment_status:'paid',amount_received:'500'},
  {...good,booking_id:'TEST-D',booking_status:'',amount_received:'800'}];
  const a=R.audit(rows);assert.equal(a.totals.actual_completed_by_status,1090);
@@ -86,4 +86,34 @@ test('live System Health still includes aggregate Booking closure warnings',()=>
  assert.match(ui,/function bookingClosureGuardRows\(data\)/);
  assert.match(ui,/rows\.push\(\.\.\.bookingClosureGuardRows\(d\)\)/);
  assert.match(ui,/state\.systemHealth\.rows\.concat\(bookingClosureGuardRows\(state\.data\|\|\{\}\)\)/);
+});
+
+
+test('Future uses locked package_price even with zero deposit or a different handover receipt',()=>{
+ const a=R.audit([
+  {...good,booking_id:'FUTURE-NO-DEPOSIT',booking_status:'confirmed',payment_status:'unpaid',amount_received:0,package_price:'1,290'},
+  {...good,booking_id:'FUTURE-HANDOVER',booking_status:'picked_up',payment_status:'paid',amount_received:890,package_price:'990'},
+  {...good,booking_id:'EXCLUDED',booking_status:'cancelled',package_price:'700',amount_received:700}
+ ]);
+ assert.equal(a.totals.future_active_quote,2280);
+ assert.equal(a.totals.actual_completed_by_status,0);
+ assert.equal(a.totals.forecast_by_status,2280);
+ assert.equal(a.issues.active_missing_package_price,0);
+ assert.match(a.policy.future_source,/package_price/);
+});
+test('missing active booking package quote is warned about, never filled using fake cash',()=>{
+ const a=R.audit([{...good,booking_id:'MISSING-QUOTE',booking_status:'confirmed',payment_status:'unpaid',amount_received:0,package_price:''}]);
+ assert.equal(a.totals.future_active_quote,0);
+ assert.equal(a.issues.active_missing_package_price,1);
+ assert.equal(a.safety.production_writes,0);
+});
+test('Admin fallback reads Master column X and includes quote in read-only booking projection',()=>{
+ const Fallback=require('../server/admin-sheet-fallback.js');
+ assert.equal(Fallback.SPECS.bookings.range,'A4:X');
+ const raw=Object.fromEntries(Object.keys(Fallback.SPECS).map(k=>[k,[]]));
+ raw.bookings=[{__row_number:5,booking_id:'SHADOW-FUTURE',booking_status:'confirmed',payment_status:'unpaid',amount_received:'0',package_price:'690'}];
+ const snap=Fallback.buildFromRaw(raw,'SHADOW_TEST',Date.now());
+ assert.equal(snap.bookings[0].package_price,690);
+ assert.equal(snap.booking_closure_evidence_shadow.totals.future_active_quote,690);
+ assert.equal(snap.booking_closure_evidence_shadow.issues.active_missing_package_price,0);
 });
