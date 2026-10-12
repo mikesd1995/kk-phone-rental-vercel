@@ -54,6 +54,7 @@ function competitorActivity(candidate={}){
 }
 
 function recentPostFatigue(candidate={}){
+  if(candidate.recent_posted_evidence_verified!==true)return 0;
   const hours=Number(candidate.recent_posted_hours_ago);
   if(!Number.isFinite(hours)||hours<0)return 0;
   if(hours<2)return 40;
@@ -88,7 +89,7 @@ function scoreCandidate(candidate={}){
     conversation_volume:dimensionValue(candidate,'conversation_volume',marketingAgent),
     event_proximity:eventProximity(candidate),
     fandom_strength:dimensionValue(candidate,'fandom_strength',marketingAgent),
-    competitor_activity:competitorActivity(candidate),
+    competitor_activity:dimensionValue(candidate,'competitor_activity',marketingAgent),
     booking_opportunity:dimensionValue(candidate,'booking_opportunity',marketingAgent)
   };
   const raw=Object.entries(WEIGHTS).reduce((sum,[key,weight])=>sum+(dimensions[key]*weight),0);
@@ -99,7 +100,7 @@ function scoreCandidate(candidate={}){
     dimensions,
     recent_post_fatigue:fatigue,
     base_score:Math.round(clamp(raw-fatigue)),
-    confidence:marketingAgent.x_signal_analysis.gate==='PASS'?'EVIDENCE_BACKED':'LOW_NO_VERIFIED_X',
+    confidence:marketingAgent.x_signal_analysis.gate==='PASS'?'X_SIGNAL_'+String(marketingAgent.x_signal_analysis.confidence||'low').toUpperCase():'LOW_NO_VERIFIED_X',
     score_interpretation:'HEURISTIC_ADVISORY_NOT_MEASURED_REACH',
     marketing_agent:marketingAgent
   };
@@ -170,7 +171,7 @@ function plan(input={}){
       objective:winner&&winner.marketing_agent?winner.marketing_agent.objective:'',
       campaign_mode:winner&&winner.marketing_agent?winner.marketing_agent.campaign_mode:'',
       reason:winner?[
-        'ranked_by_x_and_commercial_signals',
+        winner.confidence==='LOW_NO_VERIFIED_X'?'proximity_and_verified_stock_only':'verified_x_and_commercial_signals',
         winner.recent_post_fatigue>0?'recent_post_fatigue_applied':'no_recent_post_penalty',
         slot.zone.toLowerCase()
       ]:[]
