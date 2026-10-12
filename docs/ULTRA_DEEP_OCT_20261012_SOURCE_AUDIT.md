@@ -35,3 +35,40 @@ P0: independently accepted exact-head CI, security and free-tier preview, authen
 P1: three publicly missing November posters only via authorized exact poster_image_url writer with Core -> Web Ready -> Public API -> rendered QA. P1: AI Pricing to remain shadow-only until model invocation, competitor evidence, booking-date owner locks, Learning calibration and authorized writer are proven.
 
 **Overall:** durable source repair and real backend diagnostic PASS; October autonomous FULL acceptance and business storefront edits NOT COMPLETE.
+
+
+## Addendum — 12 Oct: exact reconciliation of the 19 historical unmatched leads
+
+This corrects the previous 10 Oct finding in GitHub Issue #685 that **19 leads were then unmatched**. Newly inspected live 01_Events A4:I550 against the 19 named/date-scoped entries shows **15/19 now present in Core**, **4/19 still unmatched by exact identity**. The latter all occur on owner-booking-locked dates and therefore are **REPORT/HOLD, NOT a request to create 4 storefront cards**. Identifying a Core row is not proof of official image rights, public photography access, current sellability, package QA or that its Web Ready action is show; inspect derived visibility separately.
+
+| Date | Historical lead | Current Core event_id / disposition |
+|---|---|---|
+| 14 Oct | VVV Tornado Busking centralwOrld | EVT-20261014-VVV-TORNADO-BUSKING-CENTRALWORLD |
+| 15 Oct | LE7EL 1st Debut Anniversary | EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY; Web Ready hide |
+| 15 Oct | MAYA TV AWARDS | EVT-20261015-MAYA-TV-AWARDS-2026 |
+| 15 Oct | IN2IT EVEANDBOY Tle FirstOne | EVT-20261015-IN2IT-EVEANDBOY-TLE-FIRSTONE; lucky-selected access still needs verification |
+| 17 Oct | endless us you maybe me debut | EVT-20261017-ENDLESS-US-YOU-MAYBE-ME-DEBUT |
+| 17 Oct | Viral Hits Thailand Spotlight Awards | EVT-20261017-VIRAL-HITS-THAILAND-SPOTLIGHT-AWARDS |
+| 17 Oct | Manekineko Halloween | EVT-20261017-MANEKINEKO-IDOL-PARTY-HALLOWEEN; Web Ready hide |
+| 17 Oct | The Paseo POP THE STAGE | EVT-20261017-THE-PASEO-POP-THE-STAGE; Web Ready hide |
+| 21 Oct | HER HYNESS Lingling | EVT-20261021-HER-HYNESS-LINGLING-KWONG |
+| **23 Oct** | **Cathy Doll × Orm Mission Love Party** | **NO MATCH**; 23 Oct LYKN has 2 confirmed bookings, day-wide HOLD, organizer access/source review only |
+| **24 Oct** | **Idol Live Stage The Street** | **NO MATCH**; 24 Oct LYKN has 1 confirmed booking, day-wide HOLD even with nominal spare phone |
+| 25 Oct | NARS TeeTeePor | EVT-20261025-NARS-TEETEEPOR-EXCLUSIVE-EVENT |
+| 25 Oct | VVV Xiaomi shopping | EVT-20261025-VVV-TORNADO-SHOPPING-XIAOMI; Web Ready hide |
+| 29 Oct | MINDY Shoot Your Shot Fansign | EVT-20261029-MINDY-SHOOT-YOUR-SHOT-FANSIGN |
+| 30 Oct | AF Halloween AFTERLIFE | EVT-20261030-AF-HALLOWEEN-AFTERLIFE; Web Ready hide |
+| 30 Oct | POP-ป่ะห์ #4 NAMP | EVT-20261030-POPPAH4-HALLOWEEN-NAMP; Web Ready hide |
+| 30 Oct | VVV GO Wholesale Rama 2 | EVT-20261030-VVV-SHOW-GO-WHOLESALE-RAMA2; Web Ready hide; source date is in conflict (Oct 2 vs Oct 30 claim); needs first-party resolution |
+| **31 Oct** | **Sugar ’N Spice Ear Candy Fansign** | **NO MATCH**; 31 Oct NCT127 has 2 confirmed bookings, day-wide HOLD, official exact-source/access review only |
+| **31 Oct** | **T-DAY MUSIC PLAYGROUND** | **NO MATCH**; 31 Oct NCT127 has 2 confirmed bookings, day-wide HOLD, official exact-source/access review only |
+
+### Evidence / limitations
+- 19 original leads and original source tiers are recorded in Issue #685. This addendum is a **12 Oct Core reconciliation**, not a fresh external official verification for every row.
+- Actual Core row IDs observed in backend, each date checked against the day-scoped lead; earlier September VVV events are different. The search in Candidate is also bounded; do not mistake absence in Candidate for absence in Core.
+- Official organizer reports for **CHiLLiZ** on 30 Oct: https://www.online-station.net/pc-console-game/1001710 (15:00–16:00 Meet & Greet) and https://www.online-station.net/entertainment/1001798 (18:30–19:00 Mini Concert). Already present as VERIFIED_HOLD in Tracker Candidate; not part of the old 19, do not duplicate. Event attendance ticket/photography and external lens rights unverified, HOLD.
+- The four remaining unmatched leads currently have at most secondary/indexed evidence in the earlier sweep; do not claim rentable, ticketed or photographable without first-party confirmation. Booking-day lock alone is sufficient for no-publish and no-price-write under current owner rules.
+- No new event rows, package rows, bookings, prices, visibility, poster URLs or Supabase shard receipts were written in this addendum. **October Full Scan remains NOT ACCEPTED (0 scan shard receipts)**.
+
+### Updated operational priority
+Focus on obtaining genuine Ultra Deep official source receipts and an authenticated zero-write Verifier/shard acceptance. Repeating the outdated claim **19 events missing from Core today** would be false; the actionable backlog is **15 Core-matched with per-event QA and 4 report-only owner-booked-day leads**, plus any new independently verified discoveries from a broader source universe.
