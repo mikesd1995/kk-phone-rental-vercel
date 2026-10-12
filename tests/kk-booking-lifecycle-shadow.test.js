@@ -54,7 +54,7 @@ test('read-only snapshot attaches aggregate audit and Admin renders owner warnin
  const src=fs.readFileSync(require.resolve('../server/admin-sheet-fallback.js'),'utf8');
  const ui=fs.readFileSync(require.resolve('../admin/admin.js'),'utf8');
  assert.match(src,/booking_closure_evidence_shadow:BookingLifecycleShadow\.audit\(bookings\)/);
- assert.match(ui,/const closure=d\.booking_closure_evidence_shadow/);
+ assert.match(ui,/const closure=data&&data\.booking_closure_evidence_shadow/);
  assert.match(ui,/Booking · หลักฐานปิดงาน/);
 });
 test('aggregate shadow never leaks customer PII or enables writes',()=>{
