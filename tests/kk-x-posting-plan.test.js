@@ -22,6 +22,7 @@ function candidates(){
       fandom_strength:92,
       competitor_activity:70,
       booking_opportunity:88,
+      recent_posted_evidence_verified:true,
       recent_posted_hours_ago:1
     },
     {
@@ -36,6 +37,7 @@ function candidates(){
       fandom_strength:88,
       competitor_activity:76,
       booking_opportunity:94,
+      recent_posted_evidence_verified:true,
       recent_posted_hours_ago:9
     },
     {
@@ -49,6 +51,7 @@ function candidates(){
       fandom_strength:82,
       competitor_activity:60,
       booking_opportunity:76,
+      recent_posted_evidence_verified:true,
       recent_posted_hours_ago:24
     },
     {
@@ -62,6 +65,7 @@ function candidates(){
       fandom_strength:74,
       competitor_activity:45,
       booking_opportunity:62,
+      recent_posted_evidence_verified:true,
       recent_posted_hours_ago:24
     }
   ].map((row,index)=>({
