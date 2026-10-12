@@ -56,6 +56,7 @@ test('read-only snapshot attaches aggregate audit and Admin renders owner warnin
  assert.match(src,/booking_closure_evidence_shadow:BookingLifecycleShadow\.audit\(bookings\)/);
  assert.match(ui,/const closure=data&&data\.booking_closure_evidence_shadow/);
  assert.match(ui,/Booking · หลักฐานปิดงาน/);
+ assert.match(ui,/Booking · ราคาจองยังไม่ครบ/);
 });
 test('aggregate shadow never leaks customer PII or enables writes',()=>{
  const a=R.audit([{booking_id:'B',customer_name:'SECRET',customer_phone:'0123456789',booking_status:'completed',
