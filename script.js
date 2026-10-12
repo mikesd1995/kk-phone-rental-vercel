@@ -1458,7 +1458,8 @@ function renderConcerts(concerts){
         if(img&&img.parentElement){
           img.parentElement.replaceChild(eventSummaryFallback(),img);
         }
-        updateBrowseChrome(grid.children.length);
+        // Do not reset global search result count to the current page size
+        // when a single image exhausts its delivery candidates.
       };
       if(idx<6){
         setImgFallback(img,imgCandidates,{timeoutMs:4000,onExhausted:posterFailure});
