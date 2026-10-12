@@ -13,6 +13,8 @@ const input={
   verified_pricing:true,
   inventory_available:true,
   day_statuses_verified:true,
+  event_dates_verified:true,
+  event_dates:['30 ต.ค.','31 ต.ค.'],
   day_statuses:[
     {date_label:'30 ต.ค.',status:'available'},
     {date_label:'31 ต.ค.',status:'full'}
