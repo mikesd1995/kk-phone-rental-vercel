@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const R=require('../server/kk-booking-lifecycle-shadow.js');
-const good={booking_id:'TEST-A',booking_status:'uploaded',payment_status:'paid',amount_received:'1,090',package_price:'1,090',return_status:'returned',file_transfer_status:'uploaded',drive_link:'https://drive.google.com/drive/folders/demo'};
+const good={booking_id:'TEST-A',booking_status:'uploaded',payment_status:'paid',amount_received:'1,090',package_price:'1,090',return_status:'returned',file_transfer_status:'sent',drive_link:'https://drive.google.com/drive/folders/1ExampleFolder0123456789'};
 test('persisted receipt, returned equipment, upload and link are required',()=>{
  const r=R.checkCompletionTransition(good,{booking_status:'completed'});
  assert.equal(r.ok,true);assert.equal(r.stage,'READY_FOR_GOVERNED_WRITER');assert.equal(r.production_writes,0);
@@ -18,8 +18,8 @@ test('confirmed, picked_up and returned cannot skip uploaded stage',()=>{
  }
 });
 test('Drive domain must be exact HTTPS, never lookalike',()=>{
- assert.equal(R.validDrive(good.drive_link),true);assert.equal(R.validDrive('https://docs.google.com/document/d/demo'),true);
- for(const url of ['https://drive.google.com.evil.org/x','http://drive.google.com/x','https://drive.google.com@evil.com/a','https://example.com/x','invalid']){
+ assert.equal(R.validDrive(good.drive_link),true);assert.equal(R.validDrive('https://docs.google.com/document/d/1ExampleDocument0123456'),true);
+ for(const url of ['https://drive.google.com.evil.org/x','http://drive.google.com/x','https://drive.google.com@evil.com/a','https://example.com/x','https://drive.google.com/','https://docs.google.com/','https://drive.google.com/drive/folders/demo','https://drive.google.com/drive/folders/1ExampleFolder0123456789#anchor','invalid']){
   assert.equal(R.validDrive(url),false);
  }
 });
@@ -117,4 +117,22 @@ test('Admin fallback reads Master column X and includes quote in read-only booki
  assert.equal(snap.bookings[0].package_price,690);
  assert.equal(snap.booking_closure_evidence_shadow.totals.future_active_quote,690);
  assert.equal(snap.booking_closure_evidence_shadow.issues.active_missing_package_price,0);
+});
+
+
+test('completed cannot be approved after upload until customer link has been delivered',()=>{
+ const stillUploading=R.checkCompletionTransition({...good,file_transfer_status:'uploaded'},{booking_status:'completed'});
+ assert.equal(stillUploading.ok,false);
+ assert.ok(stillUploading.errors.includes('DRIVE_UPLOAD_UNVERIFIED'));
+ const sent=R.checkCompletionTransition({...good,file_transfer_status:'sent'},{booking_status:'completed'});
+ assert.equal(sent.ok,true);
+});
+test('completed requires full agreed booking price collected on physical handover',()=>{
+ for(const receipt of [0,890]){
+  const result=R.checkCompletionTransition({...good,amount_received:receipt,package_price:1090},{booking_status:'completed'});
+  assert.equal(result.ok,false);
+  assert.ok(result.errors.includes('HANDOVER_RECEIPT_UNVERIFIED'));
+ }
+ assert.equal(R.checkCompletionTransition({...good,amount_received:1090,package_price:1090},{booking_status:'completed'}).ok,true);
+ assert.equal(R.checkCompletionTransition({...good,package_price:''},{booking_status:'completed'}).ok,false,'unknown agreed quote must fail closed');
 });
