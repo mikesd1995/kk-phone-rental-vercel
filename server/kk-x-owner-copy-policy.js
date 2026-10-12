@@ -16,6 +16,7 @@ function requiresPolicy(input={}){
 function validatePost(post,input={}){
   const errors=[];
   if(!requiresPolicy(input))return {schema_version:VERSION,gate:'NOT_APPLICABLE',errors:[],safety:SAFETY};
+  if(input.recent_context_checked!==true)errors.push('OWNER_X_RECENT_POST_HISTORY_NOT_CHECKED');
   const copy=text(post);
   const lines=copy.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
   if(lines[0]!==BRAND)errors.push('OWNER_X_BRAND_HEADER_REQUIRED');
