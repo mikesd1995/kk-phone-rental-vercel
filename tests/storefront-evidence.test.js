@@ -66,10 +66,21 @@ test('rendered defects fail even when the document itself has no horizontal over
     assert.ok(E.stateFindings({...healthy(),...change},{width:390,name:'english'}).length,JSON.stringify(change));
   }
 });
-test('modal clipping, horizontal overflow and focus escape are release blocking',()=>{
-  const modal={left:0,right:390,top:150,bottom:844,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
+test('centered mobile dialogs pass; legacy bottom sheets, clipping and focus loss fail',()=>{
+  // The owner's current mobile modal is centered (CSS V6.12), not bottom anchored.
+  const modal={left:0,right:390,top:84,bottom:760,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
   assert.deepEqual(E.stateFindings({...healthy(),modal},{width:390,name:'modal'}),[]);
-  for(const change of [{bottom:850},{scroll_width:420},{focus_inside:false},{title:''}])assert.ok(E.stateFindings({...healthy(),modal:{...modal,...change}},{width:390,name:'modal'}).length);
+  const lowerSheet={...modal,top:150,bottom:844};
+  assert.ok(E.stateFindings({...healthy(),modal:lowerSheet},{width:390,name:'modal'})
+    .some(f=>f.code==='MOBILE_MODAL_NOT_CENTERED'));
+  const offsetCenter={...modal,top:121,bottom:760};
+  assert.ok(E.stateFindings({...healthy(),modal:offsetCenter},{width:390,name:'modal'})
+    .some(f=>f.code==='MOBILE_MODAL_NOT_CENTERED'));
+  for(const change of [{bottom:850},{scroll_width:420},{focus_inside:false},{title:''}])
+    assert.ok(E.stateFindings({...healthy(),modal:{...modal,...change}},{width:390,name:'modal'}).length);
+  // Width at desktop is not subject to the mobile centering assertion.
+  assert.ok(!E.stateFindings({...healthy(),document_width:1024,modal:{...modal,left:100,right:490}},{width:1024,name:'modal'})
+    .some(f=>f.code==='MOBILE_MODAL_NOT_CENTERED'));
 });
 test('owner direction approval cannot accept a rendered candidate or changed dependency digest',()=>{
   const widths=[320,375,390,430,480,768,1024,1440];
