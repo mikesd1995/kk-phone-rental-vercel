@@ -1332,9 +1332,9 @@ function renderConcerts(concerts){
   el.innerHTML="";
   if(!concerts||!concerts.length){updateBrowseChrome(0);renderEmpty(tr("no_event_data"));return;}
   var vis=filtered(concerts);
-  // Owner rule: an event without a usable poster must not render on the storefront.
-  // Blank URLs fail closed here; dead URLs fail closed after the bounded fallback chain below.
-  vis=vis.filter(function(c){ return !!(c&&c.img&&String(c.img).trim()); });
+  // Owner 2026-10-12: missing official art is not a visibility/tombstone gate.
+  // Preserve action_for_web/booking controls and render a clearly temporary
+  // exact-event summary in place of the image; do not invent unrelated posters.
   updateBrowseChrome(vis.length);
   if(!vis.length){renderEmpty(emptyMsg());return;}
 
@@ -1368,6 +1368,29 @@ function renderConcerts(concerts){
 
     var imgWrap=document.createElement("div"); imgWrap.className="poster-img-wrap";
     var badge=document.createElement("div"); badge.className="status-badge"+(avail?"":" full")+(isSoon(c)&&avail?" soon":""); badge.textContent=getBadgeText(c); imgWrap.appendChild(badge);
+    // This artwork-like panel is visibly temporary, not an official event poster.
+    // Build it entirely from already-visible verified event name/date/venue.
+    function eventSummaryFallback(){
+      card.dataset.posterFallback="event-summary";
+      card.dataset.posterStatus="temporary";
+      var ph=document.createElement("div");
+      ph.className="poster-placeholder poster-placeholder-event";
+      ph.setAttribute("role","img");
+      ph.setAttribute("aria-label",tr("no_image")+" · "+String(c.name||""));
+      var kicker=document.createElement("span");
+      kicker.className="poster-placeholder-kicker";
+      kicker.textContent=currentLang==="en"?"TEMPORARY EVENT ART":"ภาพประกอบชั่วคราว";
+      var title=document.createElement("strong");
+      title.className="poster-placeholder-title";
+      title.textContent=String(c.name||tr("no_image"));
+      var meta=document.createElement("span");
+      meta.className="poster-placeholder-meta";
+      meta.textContent=[String(c.date||"").trim(),String(c.venue||"").trim()].filter(Boolean).join(" · ");
+      ph.appendChild(kicker);
+      ph.appendChild(title);
+      if(meta.textContent) ph.appendChild(meta);
+      return ph;
+    }
 
     var imgUrl=c.img?String(c.img).trim():"";
     if(imgUrl){
@@ -1394,23 +1417,7 @@ function renderConcerts(concerts){
         // Render a deterministic exact-event fallback from already-visible business data;
         // never substitute an unrelated series/artist image just to make the poster gate green.
         if(img&&img.parentElement){
-          var ph=document.createElement("div");
-          ph.className="poster-placeholder poster-placeholder-event";
-          ph.setAttribute("role","img");
-          ph.setAttribute("aria-label",tr("no_image")+" · "+String(c.name||""));
-          var kicker=document.createElement("span");
-          kicker.className="poster-placeholder-kicker";
-          kicker.textContent="KK EVENT";
-          var title=document.createElement("strong");
-          title.className="poster-placeholder-title";
-          title.textContent=String(c.name||tr("no_image"));
-          var meta=document.createElement("span");
-          meta.className="poster-placeholder-meta";
-          meta.textContent=[String(c.date||"").trim(),String(c.venue||"").trim()].filter(Boolean).join(" · ");
-          ph.appendChild(kicker);
-          ph.appendChild(title);
-          if(meta.textContent) ph.appendChild(meta);
-          img.parentElement.replaceChild(ph,img);
+          img.parentElement.replaceChild(eventSummaryFallback(),img);
         }
         updateBrowseChrome(grid.children.length);
       };
@@ -1422,7 +1429,9 @@ function renderConcerts(concerts){
         setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure});
       }
     } else {
-      var ph=document.createElement("div"); ph.className="poster-placeholder"; ph.innerHTML="<span>"+esc(tr("no_image"))+"</span>"; imgWrap.appendChild(ph);
+      card.dataset.posterMissing="1";
+      // A blank poster is no longer grounds to suppress an otherwise showable event.
+      imgWrap.appendChild(eventSummaryFallback());
     }
 
     var info=document.createElement("div"); info.className="poster-info";
