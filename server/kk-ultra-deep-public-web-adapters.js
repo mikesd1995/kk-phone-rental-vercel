@@ -259,6 +259,20 @@ async function runDdgsSearch(input={},options={}){
 }
 
 const SEARCH_MONTHS={jan:1,january:1,feb:2,february:2,mar:3,march:3,apr:4,april:4,may:5,jun:6,june:6,jul:7,july:7,aug:8,august:8,sep:9,sept:9,september:9,oct:10,october:10,nov:11,november:11,dec:12,december:12};
+const SEARCH_THAI_MONTHS=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const SEARCH_THAI_MONTH_ABBR=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function explicitThaiYear(value,era){
+ const year=Number(value);
+ if(era==='พ.ศ.'||(year>=2543&&year<=2643&&era!=='ค.ศ.'))return year-543;
+ return era==='ค.ศ.'&&year>2100?NaN:year;
+}
+function standaloneDateMatch(value,match){
+ // Ranges are not expanded by the Thai/numeric parser. Do not silently keep
+ // just the final day of an unsupported range or match inside longer numbers.
+ const before=value.slice(0,match.index),after=value.slice(match.index+match[0].length);
+ return !/[\d/]$/.test(before)&&!/^\d/.test(after)&&
+  !/\d\s*(?:-|ถึง|to)\s*$/i.test(before)&&!/^\s*(?:-|ถึง|to)\s*\d/i.test(after);
+}
 function isoDate(year,month,day){
  const y=Number(year),m=Number(month),d=Number(day);
  if(!Number.isInteger(y)||!Number.isInteger(m)||!Number.isInteger(d)||y<2000||y>2100||m<1||m>12||d<1||d>31)return null;
@@ -277,6 +291,16 @@ function inferSearchEventDates(value){
  const s=text(value).replace(/[–—]/g,'-');
  const found=[];
  const add=v=>{if(v&&!found.includes(v))found.push(v);};
+ const thaiMonths=[...SEARCH_THAI_MONTHS,...SEARCH_THAI_MONTH_ABBR].map(v=>v.replace(/\./g,'\\.')).join('|');
+ const thaiDate=new RegExp('(\\d{1,2})\\s*('+thaiMonths+')\\s*(?:(พ\\.ศ\\.|ค\\.ศ\\.)\\s*)?(\\d{4})(?!\\d)','g');
+ for(const match of s.matchAll(thaiDate)){
+  if(!standaloneDateMatch(s,match))continue;
+  const month=SEARCH_THAI_MONTHS.indexOf(match[2])+1||SEARCH_THAI_MONTH_ABBR.indexOf(match[2])+1;
+  add(isoDate(explicitThaiYear(match[4],match[3]),month,match[1]));
+ }
+ for(const match of s.matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?!\d)/g)){
+  if(standaloneDateMatch(s,match))add(isoDate(explicitThaiYear(match[3]),match[2],match[1]));
+ }
  let m;
  const monthPattern='Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
 

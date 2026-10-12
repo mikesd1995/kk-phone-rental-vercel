@@ -161,7 +161,22 @@ function alignKnownMissReferences(discovered=[],references=[]){
  });
 }
 
-function recoverEligibleReferenceCandidates(discovered=[],references=[]){
+function scopeProbeCandidates(rows=[],context={}){
+ return rows.map(row=>{
+  const decision=referenceScopeDecision(row,context);
+  const exactCase=KnownMiss.CORPUS.find(c=>c.event_date===text(row.event_date)&&KnownMiss.sameCase(row,c));
+  const inScope=exactCase&&(exactCase.event_date.startsWith(context.month+'-')||(exactCase.discovery_months||[]).includes(context.month));
+  let sourced=false,foreignHost=false;try{const url=new URL(text(row.source_url));sourced=url.protocol==='https:';foreignHost=/\.hk$/i.test(url.hostname);}catch(_){}
+  // A known brand/cross-month identity may lack generic concert keywords. Its
+  // actual source and exact date are still mandatory; corpus fields are not evidence.
+  const foreign=foreignHost||REFERENCE_FOREIGN_RE.test(text(row.title)+' '+text(row.venue));
+  const noise=REFERENCE_NOISE_RE.test(text(row.title));
+  const eligible=sourced&&!foreign&&!noise&&(!!inScope||decision.eligible);
+  return {...row,eligible_for_discovery:eligible,reference_scope_reason:foreign?'OUTSIDE_BANGKOK_SCOPE':noise?'NON_RENTAL_EVENT_NOISE':!sourced?'MISSING_SOURCE':inScope?'ELIGIBLE_KNOWN_MISS_PROBE':decision.reason};
+ });
+}
+
+function recoverEligibleReferenceCandidates(discovered=[],references=[],origin='INDEPENDENT_REFERENCE_RECOVERY'){
  const out=[...(Array.isArray(discovered)?discovered:[])];
  const titleDate=new Set(out.filter(Reconciliation.hasComparableEventIdentity).map(Reconciliation.reconcileKey));
  const sourceDate=new Set(out.map(Reconciliation.sourceDateKey).filter(Boolean));
@@ -170,7 +185,7 @@ function recoverEligibleReferenceCandidates(discovered=[],references=[]){
   if(!row||row.eligible_for_discovery===false||!Reconciliation.hasComparableEventIdentity(row))continue;
   const rk=Reconciliation.reconcileKey(row),sk=Reconciliation.sourceDateKey(row);
   if(titleDate.has(rk)||(sk&&sourceDate.has(sk)))continue;
-  const next={...row,candidate_origin:'INDEPENDENT_REFERENCE_RECOVERY',verifier_required:true,authoritative:false};
+  const next={...row,candidate_origin:origin,verifier_required:true,authoritative:false};
   out.push(next);titleDate.add(rk);if(sk)sourceDate.add(sk);recovered++;
  }
  return {candidates:out,recovered_count:recovered};
@@ -269,7 +284,12 @@ async function runMonthlyUltraDeep(input={},options={}){
   // soft-throttle after a large sweep; putting the small regression corpus first
   // prevents broad discovery traffic from starving the recall gate.
   const knownMissPlan=buildKnownMissPlan();
-  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers});
+  const knownCases=new Map(KnownMiss.CORPUS.map(row=>['knownmiss:'+row.case_id,row]));
+  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers,
+    acceptCandidate:(row,task)=>{
+      const expected=knownCases.get(task.source_id);
+      return !!expected&&text(row.event_date)===expected.event_date&&KnownMiss.sameCase(row,expected);
+    }});
   const knownMissCandidates=flattenCandidates(knownMissExecution);
 
   const plan=MonthlyPlan.build(input);
@@ -297,7 +317,9 @@ async function runMonthlyUltraDeep(input={},options={}){
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
   const alignedReferenceCandidates=alignKnownMissReferences(candidates,scopedReferenceCandidates);
   const recovered= recoverEligibleReferenceCandidates(candidates,alignedReferenceCandidates);
-  const verifierCandidates=recovered.candidates;
+  const scopedProbeCandidates=scopeProbeCandidates(knownMissCandidates,{month:plan.range.month,location:plan.location});
+  const probeRecovered=recoverEligibleReferenceCandidates(recovered.candidates,scopedProbeCandidates,'KNOWN_MISS_PROBE_RECOVERY');
+  const verifierCandidates=probeRecovered.candidates;
   const reconciliation=Reconciliation.reconcileCandidateSets(verifierCandidates,alignedReferenceCandidates);
 
   // Preflight is intentionally evaluated only after the established evidence
@@ -335,10 +357,11 @@ async function runMonthlyUltraDeep(input={},options={}){
     counts:{required_sources:universe.required_source_count,passed_sources:universe.passed_required_source_count,
       discovery_tasks:discoveryProof.task_count,discovery_executed:discoveryProof.executed_count,discovery_candidates:candidates.length,
       reference_tasks:referenceProof.task_count,reference_executed:referenceProof.executed_count,reference_candidates:referenceCandidates.length,
-      reference_recovered:recovered.recovered_count,reconciliation_gaps:reconciliation.reconciliation_gap_count,
+      reference_recovered:recovered.recovered_count,known_miss_recovered:probeRecovered.recovered_count,reconciliation_gaps:reconciliation.reconciliation_gap_count,
       known_miss_live_passed:knownMissLive.passed,known_miss_live_total:knownMissLive.case_count},
     missing_required_sources:universe.missing_required_sources,source_tiers:universe.by_tier,
     known_miss_live:{complete:knownMissLive.complete,missing_cases:knownMissLive.missing_cases},
+    known_miss_handoff:scopedProbeCandidates.map(row=>({title:row.title,event_date:row.event_date,source_url:row.source_url,eligible:row.eligible_for_discovery,reason:row.reference_scope_reason})),
     receipts:{discovery:diagnosticReceipts(plan,execution),reference:diagnosticReceipts(referencePlan,referenceExecution),
       known_miss:diagnosticReceipts(knownMissPlan,knownMissExecution),preflight:diagnosticReceipts({gap_tasks:[{source_tier:'PUBLIC_CALENDAR'}]},{results:[preflight.result]})},
     production_writes:0
@@ -360,6 +383,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     known_miss_live_recall:knownMissLive,
     candidate_count:verifierCandidates.length,
     discovery_candidate_count:candidates.length,
+    known_miss_recovered_candidate_count:probeRecovered.recovered_count,
     reference_recovered_candidate_count:recovered.recovered_count,
     candidates:verifierCandidates,
     reference_candidate_count:referenceCandidates.length,
