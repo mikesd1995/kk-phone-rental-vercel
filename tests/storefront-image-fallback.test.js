@@ -290,3 +290,13 @@ test('runtime fallback renders a first-party image and keeps exact-event text if
   context.currentLang='en';
   assert.ok(render().children.some(n=>n.textContent==='TEMPORARY EVENT ART'));
 });
+
+test('temporary card artwork has an explicit accessible alt, official poster keeps its event name',()=>{
+  const code=extractFunction('eventArtworkAlt','function getDriveId');
+  const ctx={}; vm.createContext(ctx); vm.runInContext(code,ctx);
+  assert.equal(ctx.eventArtworkAlt('MizuMi × PHUWIN',true,'th'),'ภาพประกอบชั่วคราว KK สำหรับงาน: MizuMi × PHUWIN');
+  assert.equal(ctx.eventArtworkAlt('Brice × Pond Naravit',true,'en'),'Temporary KK illustration for event: Brice × Pond Naravit');
+  assert.equal(ctx.eventArtworkAlt('Real Event Poster',false,'th'),'Real Event Poster');
+  assert.equal(ctx.eventArtworkAlt('',false,'en'),'Event poster');
+  assert.match(source,/img\.alt=eventArtworkAlt\(c\.name,temporaryBrandArtwork,currentLang\)/);
+});
