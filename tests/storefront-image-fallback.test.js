@@ -192,7 +192,7 @@ test('temporary artwork is clearly marked and derived from the exact event not a
 });
 
 test('show-only gate remains upstream and fallback does not promote owner-hidden events',()=>{
-  assert.match(source,/a&&a!=="hide"/);
+  assert.match(source,/return isVisibleWebAction\(r\.action_for_web\)/);
   assert.match(source,/var vis=filtered\(concerts\);/);
   assert.match(source,/var rawPoster\s*=\s*String\(r\.poster_image_url\|\|""\)\.trim\(\)\s*\|\|\s*storefrontPosterOverride\(r\);/);
 });
@@ -223,4 +223,18 @@ test('temporary-brand detector requires the exact first-party artwork URL',()=>{
   assert.equal(isolated.isKKTemporaryBrandArtwork(valid+'?v=12'),true);
   assert.equal(isolated.isKKTemporaryBrandArtwork('https://example.com/assets/kk-brand-hero-final-20260920.png'),false);
   assert.equal(isolated.isKKTemporaryBrandArtwork('https://kk-phone-rental.vercel.app/assets/actual-event-poster.jpg'),false);
+});
+
+// Exercise the real allow-list implementation, rather than just matching source
+// syntax. These are the only action_for_web states in the verified Core feed.
+test('only canonical show/show_full actions are eligible, even with a missing poster',()=>{
+  const gate=extractFunction('isVisibleWebAction','async function loadData');
+  const isolated={}; vm.createContext(isolated); vm.runInContext(gate,isolated);
+  for(const action of ['show','show_full','SHOW',' Show_Full ']){
+    assert.equal(isolated.isVisibleWebAction(action),true,action);
+  }
+  for(const action of ['hide','owner_hidden','deleted','archived','pending','waitlist','show_full_pending','',null,undefined]){
+    assert.equal(isolated.isVisibleWebAction(action),false,String(action));
+  }
+  assert.match(source,/dedupeWebRowsByEventId\(webRows\)\.filter\(function\(r\)\{ return isVisibleWebAction\(r\.action_for_web\); \}\)/);
 });
