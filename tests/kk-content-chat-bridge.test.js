@@ -69,6 +69,8 @@ function payload(){
         inventory_available:true,
         recent_context_checked:true,
         day_statuses_verified:true,
+        event_dates_verified:true,
+        event_dates:['3 ต.ค.'],
         day_statuses:[{date_label:'3 ต.ค.',status:'available'}],
         official_event_hashtag:'#ExampleConcert',
         verified_hashtags:['#ExampleConcert','#ArtistExample','#เช่ามือถือ']
