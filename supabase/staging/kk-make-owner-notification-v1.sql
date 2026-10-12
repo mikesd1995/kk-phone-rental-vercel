@@ -28,6 +28,9 @@ create index if not exists kk_make_owner_notify_status_idx
   on public.kk_make_owner_notification_outbox(status,expires_at);
 alter table public.kk_make_owner_notification_outbox enable row level security;
 revoke all on public.kk_make_owner_notification_outbox from public, anon, authenticated;
+-- Existing Supabase projects can auto-grant DELETE/TRUNCATE to service_role on
+-- public tables. Drop those defaults for this immutable delivery ledger.
+revoke all on public.kk_make_owner_notification_outbox from service_role;
 grant select, insert, update on public.kk_make_owner_notification_outbox to service_role;
 
 create or replace function public.kk_make_owner_notification_claim(
