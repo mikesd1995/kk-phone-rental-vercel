@@ -199,7 +199,7 @@ test('show-only gate remains upstream and fallback does not promote owner-hidden
 
 test('script cache key changes when temporary artwork becomes first-class fallback',()=>{
   const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
-  assert.match(html,/script\.js\?v=storefront-temporary-brand-flag-20261012/);
+  assert.match(html,/script\.js\?v=storefront-temporary-brand-image-20261012/);
 });
 
 test('a loaded KK-owned brand image is visibly marked temporary; official event artwork is not',()=>{
