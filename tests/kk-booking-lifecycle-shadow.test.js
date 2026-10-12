@@ -65,3 +65,17 @@ test('aggregate shadow never leaks customer PII or enables writes',()=>{
  assert.equal(JSON.stringify(a).includes('0123456789'),false);
  assert.equal(a.safety.production_writes,0);
 });
+
+test('fallback buildFromRaw computes Booking closure audit from canonical persisted fields',()=>{
+ const Fallback=require('../server/admin-sheet-fallback.js');
+ const raw=Object.fromEntries(Object.keys(Fallback.SPECS).map(k=>[k,[]]));
+ raw.bookings=[{__row_number:5,booking_id:'BK-TEST-1',booking_status:'completed',
+   payment_status:'paid',amount_received:'590',return_status:'',
+   file_transfer_status:'',drive_link:''}];
+ const snap=Fallback.buildFromRaw(raw,'SHEET_TEST',Date.now());
+ assert.equal(snap.bookings.length,1);
+ assert.equal(snap.booking_closure_evidence_shadow.counts.completed,1);
+ assert.equal(snap.booking_closure_evidence_shadow.issues.historical_completed_missing_evidence,1);
+ assert.equal(snap.booking_closure_evidence_shadow.safety.production_writes,0);
+ assert.equal(JSON.stringify(snap.booking_closure_evidence_shadow).includes('BK-TEST-1'),false);
+});
