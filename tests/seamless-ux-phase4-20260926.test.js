@@ -56,7 +56,7 @@ test('Booking form keeps the daily path short and hides overrides under Advanced
   assert.match(adminHtml,/class="booking-advanced-details"/);
   assert.match(adminHtml,/<summary>ตัวเลือกเพิ่มเติม<\/summary>/);
   assert.match(adminHtml,/<option value="confirmed">ยืนยันแล้ว<\/option>/);
-  assert.match(adminHtml,/<option value="unpaid">ยังไม่จ่าย<\/option>/);
+  assert.match(adminHtml,/<select name="payment_status"><option value="unpaid">ยังไม่จ่าย · รับเงินตอนส่งเครื่อง<\/option><\/select>/);
 });
 
 test('Event Control batch mutation shows a concrete preview before write',()=>{

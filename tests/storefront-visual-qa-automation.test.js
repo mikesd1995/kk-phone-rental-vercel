@@ -206,7 +206,7 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   const html=fs.readFileSync('index.html','utf8');
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
-  assert.equal(html.includes('20261007-v631-exhaustive-ux-polish'),true);
+  assert.equal(html.includes('/assets/kk-storefront-v5.css?v=20261012-v632-editorial-hero'),true);
   // Current Thai default hero retains the close-memory message and editorial emphasis.
   assert.equal(html.includes('ไกลแค่ไหน<br><em>ก็เก็บโมเมนต์ได้ใกล้กว่า</em>'),true);
   assert.equal(html.includes('CONCERT MEMORY SERVICE'),false);
