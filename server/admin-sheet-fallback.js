@@ -4,6 +4,7 @@
 // This module NEVER writes. It reconstructs the Admin snapshot from Google Sheets
 // only when the Apps Script snapshot upstream is unavailable.
 const privateSheets = require('../api/lib/private-google-sheets.js');
+const BookingLifecycleShadow = require('./kk-booking-lifecycle-shadow.js');
 const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3.1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const FALLBACK_CACHE_TTL_MS = 2000;
@@ -14,7 +15,7 @@ let nextFetchIdentity = 1;
 
 const SPECS = {
   events:       { sheet:'01_Events', range:'A4:I', header:'event_id', startRow:4 },
-  bookings:     { sheet:'00_Master_Booking', range:'A4:T', header:'booking_id', startRow:4 },
+  bookings:     { sheet:'00_Master_Booking', range:'A4:X', header:'booking_id', startRow:4 },
   assets:       { sheet:'02_Assets', range:'A4:G', header:'asset_id', startRow:4 },
   packages:     { sheet:'03_Packages', range:'A4:J', header:'template_id', startRow:4 },
   overrides:    { sheet:'04_Event_Overrides', range:'A4:G', header:'event_id', startRow:4 },
@@ -200,6 +201,7 @@ function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
       phone_asset_id:phoneId,phone_model_display:phone.model_display||phoneId||'',phone_model_group:phone.model_group||'',
       lens_asset_id:lensId,lens_model_display:lens.model_display||lensId||'',lens_model_group:lens.model_group||'',
       pickup_time:r.pickup_time||'',return_time:r.return_time||'',payment_status:r.payment_status||'',amount_received:num(r.amount_received),
+      package_price:num(r.package_price),
       return_status:r.return_status||'',file_transfer_status:r.file_transfer_status||'',drive_link:r.drive_link||'',damage_fee:num(r.damage_fee),
       work_task:task,is_cancelled:st==='cancelled',is_active_hold:['pending','confirmed','prepared','picked_up'].includes(st),
       should_show_current:workflowOpen(st),note:cleanBookingNote(r.staff_note)};
@@ -240,6 +242,8 @@ function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
 
   return {
     events,packages,overrides,assets,bookings,current_bookings:current,web_ready:webReady,web_packages:webPackages,visibility_locks:visibilityLocks,
+    // Aggregates only: no customer PII or mutable booking fields exposed by this audit.
+    booking_closure_evidence_shadow:BookingLifecycleShadow.audit(bookings),
     today_working:todayWorking,today_key:today,model_master:Object.keys(models).map(k=>models[k]),customers,health,
     generated_at:new Date().toISOString(),spreadsheet_id:sheetId,admin_api_version:FALLBACK_VERSION,
     degraded_read_only:true,snapshot_source:transportMeta.snapshot_source||'direct-sheet-gviz-readonly-fallback',
