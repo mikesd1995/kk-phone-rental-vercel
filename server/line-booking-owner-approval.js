@@ -262,6 +262,13 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_OWNER_DECISION_READBACK_MISMATCH';
     throw err;
   }
+  // V2 must return an explicit replay decision from the canonical locked writer.
+  // An absent or stringified flag must never be treated as a first-time send.
+  if(parsed.protocol==='kkb2' && typeof data.idempotent_replay!=='boolean'){
+    const err=new Error('Canonical replay status missing after owner decision');
+    err.code='LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED';
+    throw err;
+  }
   // The atomic pending-only Apps Script writer labels retries idempotent_replay.
   // Never re-send customer or owner notifications for a replayed callback: an
   // ambiguous prior provider send requires manual delivery reconciliation, not
