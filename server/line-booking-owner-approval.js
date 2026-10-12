@@ -80,7 +80,12 @@ async function createPendingBooking(event,booking,canonical,env=process.env,fetc
     err.code=intent.code;
     throw err;
   }
-  const result=await appsScriptCall(intent.payload,env,fetchImpl);
+  const payload=Object.assign({},intent.payload);
+  // Compatibility contract: legacy pending intake never requires V2 commercial
+  // fingerprint computation. Enable only after the Apps Script V2 deployment
+  // and its canonical price/date readback are independently accepted.
+  if(version2Enabled(env)) payload.approval_mode='v2';
+  const result=await appsScriptCall(payload,env,fetchImpl);
   const canonicalResult=Intake.canonicalResult(result);
   if(!canonicalResult.ok){
     const err=new Error(canonicalResult.code);
