@@ -199,5 +199,17 @@ test('show-only gate remains upstream and fallback does not promote owner-hidden
 
 test('script cache key changes when temporary artwork becomes first-class fallback',()=>{
   const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
-  assert.match(html,/script\.js\?v=storefront-temporary-event-art-20261012/);
+  assert.match(html,/script\.js\?v=storefront-temporary-brand-flag-20261012/);
+});
+
+test('a loaded KK-owned brand image is visibly marked temporary; official event artwork is not',()=>{
+  const css=fs.readFileSync(require.resolve('../assets/kk-storefront-v5.css'),'utf8');
+  assert.match(source,/function isKKTemporaryBrandArtwork\(url\)/);
+  assert.match(source,/kk-brand-hero-final-20260920\.png/);
+  assert.match(source,/var temporaryBrandArtwork=isKKTemporaryBrandArtwork\(c\.rawPoster\|\|c\.img\)/);
+  assert.match(source,/if\(temporaryBrandArtwork\)\{/);
+  assert.match(source,/card\.dataset\.posterStatus="temporary"/);
+  assert.match(source,/tempIndicator\.textContent=currentLang==="en"\?"TEMPORARY IMAGE":"ภาพประกอบชั่วคราว"/);
+  assert.match(css,/\.poster-img-wrap \.poster-temporary-brand-label/);
+  assert.match(source,/var rows=dedupeWebRowsByEventId\(webRows\)\.filter/);
 });
