@@ -192,11 +192,27 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     decision
   },env,fetchImpl);
   const data=result&&result.data||result||{};
+  // Owner callbacks are valid only against the same canonical booking identity.
+  // A stale/wrong upstream readback must never notify another customer's LINE ID.
+  if(text(data.booking_id)!==parsed.booking_id){
+    const err=new Error('Owner decision booking identity mismatch');
+    err.code='LINE_OWNER_DECISION_BOOKING_ID_MISMATCH';
+    throw err;
+  }
   const expected=decision==='approve'?'confirmed':'cancelled';
   if(text(data.booking_status).toLowerCase()!==expected){
     const err=new Error('Owner decision readback mismatch');
     err.code='LINE_OWNER_DECISION_READBACK_MISMATCH';
     throw err;
+  }
+  // The atomic pending-only Apps Script writer labels retries idempotent_replay.
+  // Never re-send customer or owner notifications for a replayed callback: an
+  // ambiguous prior provider send requires manual delivery reconciliation, not
+  // another potentially duplicate message.
+  if(data.idempotent_replay===true){
+    return {handled:true,status:'ALREADY_APPLIED',booking_id:parsed.booking_id,
+      idempotent_replay:true,customer_notifications:0,owner_notifications:0,
+      requires_manual_delivery_review:true};
   }
   const customerUserId=text(data.customer_contact);
   if(!customerUserId){
