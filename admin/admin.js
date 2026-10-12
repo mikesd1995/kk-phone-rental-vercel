@@ -2285,6 +2285,20 @@
     const h=KKSnapshotHealth.assess(d);
     for(const key of KKSnapshotHealth.KEYS) rows.push({label:"Snapshot · "+key,status:h.counts[key]===null ? "FAIL" : h.counts[key]===0 ? "WARN" : "OK",detail:String(h.counts[key] ?? "invalid")+" rows",suggestion:""});
     rows.push(...storefrontGuardRows(h.storefront_integrity));
+    const closure=d.booking_closure_evidence_shadow;
+    if(closure && closure.issues && closure.counts){
+      const old=Number(closure.issues.historical_completed_missing_evidence||0);
+      const quote=Number(closure.issues.confirmed_unpaid_with_amount_field||0);
+      const refunds=Number(closure.issues.cancelled_paid_refund_review||0);
+      rows.push({label:"Booking · หลักฐานปิดงาน",status:old?"WARN":"OK",
+        detail:old+" completed ยังไม่มีหลักฐานคืนเครื่อง/อัปโหลด/Drive ครบ",
+        suggestion:old?"ตรวจหลักฐานจริงก่อน backfill; ห้ามแก้สถานะย้อนหลังอัตโนมัติ":""});
+      if(quote)rows.push({label:"Booking · ยอดเสนอราคาเทียบยอดรับ",status:"WARN",
+        detail:quote+" confirmed/unpaid มียอดในช่อง amount_received",
+        suggestion:"ตรวจแยกราคาเสนอจากยอดรับเงินจริงก่อนส่งมอบเครื่อง"});
+      if(refunds)rows.push({label:"Booking · ยกเลิกแต่บันทึก paid",status:"WARN",
+        detail:refunds+" รายการต้องกระทบยอด",suggestion:"ตรวจหลักฐานกับเจ้าของก่อนคืนเงินหรือปรับยอด"});
+    }
     rows.push({label:"Snapshot freshness",status:snapshotState.stale ? "FAIL" : "OK",detail:snapshotState.error || snapshotState.goodAt || "Not loaded",suggestion:snapshotState.stale ? "Refresh successfully before making changes" : ""});
     return rows;
   }
