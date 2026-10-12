@@ -1,0 +1,15 @@
+# KK Phone Rental — deployment-only exclusions (2026-10-11).
+# Keep ALL runtime source, assets, admin UI, tests, scripts, package.json,
+# middleware.ts and vercel.json. Vercel npm postinstall uses tests and scripts.
+# These paths are repository-only operating evidence or independently deployed
+# Apps Script / Supabase source; not part of the Vercel site's runtime.
+docs/
+.github/
+.agents/
+skills/
+apps-script/
+supabase/
+DEPLOY_README.txt
+README_AUDIT.md
+README_SAFE_DEPLOY.md
+AGENTS.md
