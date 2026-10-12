@@ -72,3 +72,11 @@ This corrects the previous 10 Oct finding in GitHub Issue #685 that **19 leads w
 
 ### Updated operational priority
 Focus on obtaining genuine Ultra Deep official source receipts and an authenticated zero-write Verifier/shard acceptance. Repeating the outdated claim **19 events missing from Core today** would be false; the actionable backlog is **15 Core-matched with per-event QA and 4 report-only owner-booked-day leads**, plus any new independently verified discoveries from a broader source universe.
+
+## Final 12 Oct acceptance checkpoint — contradiction guard and fresh real source readback
+
+- Source commit 58c8ca85f37dc0d4f5505c31f2cccf2f0091762d: server/kk-ultra-deep-storefront-readback.js now detects Core-vs-derived event-date disagreements, active Booking date contradicting Core, and public rows with unparseable dates. An integrity contradiction produces READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS; duplicate event IDs or owner-hidden-but-public also raise integrity risk. No auto repair or write permission introduced.
+- Test commit c84fe3f2ac7e0d0794a443e4366ce52b04616511: added 3 regression cases for date drift, Booking/Core contradiction, invalid public date and duplicated IDs. 10/10 isolated V8 functional checks PASS, 0 fail. This is not Node-hosted CI acceptance.
+- Live readback on updated module blob ccf00d2e0386c6ed3d67368b7ea84f22bee0ac53: 01_Events, 08_Web_Ready, 00_Master_Booking freshly read again. READ_ONLY_AUDIT status with 0 Core/Web date conflicts, 0 active Booking/Core date conflicts, 0 unresolved active Booking dates, 0 invalid public dates, 0 duplicate IDs, 0 Core-inactive-but-public in bounded reads.
+- Other live counts unchanged: 96 Core active, 89 effective public, 72 public current/future, 7 Core active but Web Ready hidden, 3 public canonical poster URL blanks all in November. October booked-day price locks are 2026-10-18 (2 bookings), 2026-10-23 (2), 2026-10-24 (1), 2026-10-31 (2).
+- Outcome is source safety/read-only evidence only; NOT a Production deploy, successful monthly source-universe FULL coverage, accepted shard receipts, Verifier PASS, real AI Pricing model invocation, or customer-visible poster fix.
