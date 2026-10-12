@@ -192,7 +192,17 @@ function stateFindings(state,{width,name}){
     if(m.left<0||m.right>width+1||m.top<0||m.bottom>m.viewport_height+1||m.scroll_width>m.client_width+1)add('MODAL_VIEWPORT_CONTAINMENT',JSON.stringify(m));
     if(!m.focus_inside)add('MODAL_FOCUS_ESCAPED',name);
     if(!m.title.trim())add('MODAL_EVENT_IDENTITY_MISSING',name);
-    if(width<=700&&Math.abs(m.bottom-m.viewport_height)>1)add('MOBILE_SHEET_NOT_ANCHORED',name);
+    // Owner-approved mobile dialogs are centered, not legacy bottom sheets.
+    // Allow small fractional layout and safe-area offsets, but reject a sheet
+    // anchored to the viewport bottom or a materially off-center modal.
+    if(width<=700){
+      const centerDelta=Math.abs((m.top+m.bottom-m.viewport_height)/2);
+      if(centerDelta>Math.max(12,m.viewport_height*0.025))
+        add('MOBILE_MODAL_NOT_CENTERED',JSON.stringify({
+          top:m.top,bottom:m.bottom,viewport_height:m.viewport_height,
+          center_delta_px:Number(centerDelta.toFixed(1))
+        }));
+    }
   }
   return findings;
 }
