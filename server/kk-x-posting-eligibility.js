@@ -41,6 +41,9 @@ function eventDay(value){
     date.toISOString().slice(0,10):'';
 }
 function fresh(timestamp,now){
+  // A date-only string is not evidence of a recent actual readback.
+  const stamped=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+  if(!stamped.test(text(timestamp)))return false;
   const at=ms(timestamp),base=ms(now);
   return at!==null&&base!==null&&base-at<=MAX_READBACK_AGE_MS&&base-at>=-5*60*1000;
 }
