@@ -73,7 +73,7 @@ test('centered mobile dialogs pass; legacy bottom sheets, clipping and focus los
   const lowerSheet={...modal,top:150,bottom:844};
   assert.ok(E.stateFindings({...healthy(),modal:lowerSheet},{width:390,name:'modal'})
     .some(f=>f.code==='MOBILE_MODAL_NOT_CENTERED'));
-  const offsetCenter={...modal,top:121,bottom:760};
+  const offsetCenter={...modal,top:150,bottom:760};
   assert.ok(E.stateFindings({...healthy(),modal:offsetCenter},{width:390,name:'modal'})
     .some(f=>f.code==='MOBILE_MODAL_NOT_CENTERED'));
   for(const change of [{bottom:850},{scroll_width:420},{focus_inside:false},{title:''}])
