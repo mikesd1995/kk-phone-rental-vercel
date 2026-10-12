@@ -255,3 +255,38 @@ test('blank or exhausted official poster uses an actual KK-owned image without i
   assert.match(css,/\.poster-placeholder-event \.poster-placeholder-title/);
   assert.doesNotMatch(source,/if\(card\.parentElement\) card\.remove\(\)/);
 });
+
+test('runtime fallback renders a first-party image and keeps exact-event text if it breaks',()=>{
+  const match=source.match(/    (function eventSummaryFallback\(\)\{[\s\S]*?\n    \})\n\n    var imgUrl=/);
+  assert.ok(match,'extract the actual storefront inner fallback function');
+  const createNode=tag=>({
+    tag,children:[],attributes:{},parentElement:null,textContent:'',
+    appendChild(child){child.parentElement=this;this.children.push(child);return child;},
+    removeChild(child){const i=this.children.indexOf(child);if(i>=0)this.children.splice(i,1);child.parentElement=null;},
+    setAttribute(k,v){this.attributes[k]=v;}
+  });
+  const context={
+    document:{createElement:createNode},
+    card:{dataset:{}},
+    c:{name:'TEST OWNER-VERIFIED EVENT',date:'17 ต.ค. 2026',venue:'Test Venue'},
+    currentLang:'th',tr:()=> 'ไม่มีภาพ'
+  };
+  vm.createContext(context);
+  const render=vm.runInContext('('+match[1]+')',context);
+  const panel=render();
+  const artwork=panel.children.find(n=>n.tag==='img');
+  assert.ok(artwork,'real decorative image exists, not text-only');
+  assert.equal(artwork.src,'/assets/kk-brand-hero-final-20260920.png');
+  assert.equal(artwork.attributes['aria-hidden'],'true');
+  assert.equal(artwork.alt,'');
+  assert.equal(context.card.dataset.posterStatus,'temporary');
+  assert.ok(panel.children.some(n=>n.tag==='strong'&&n.textContent==='TEST OWNER-VERIFIED EVENT'));
+  assert.ok(panel.children.some(n=>n.textContent.includes('Test Venue')));
+  assert.ok(panel.children.some(n=>n.textContent==='ภาพประกอบชั่วคราว'));
+  artwork.onerror();
+  assert.equal(panel.children.some(n=>n.tag==='img'),false,'broken fallback image must be removed');
+  assert.ok(panel.children.some(n=>n.tag==='strong'&&n.textContent==='TEST OWNER-VERIFIED EVENT'),
+    'a broken image never removes the bookable event identity');
+  context.currentLang='en';
+  assert.ok(render().children.some(n=>n.textContent==='TEMPORARY EVENT ART'));
+});
