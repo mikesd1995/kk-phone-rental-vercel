@@ -1,0 +1,74 @@
+'use strict';
+
+// Owner-approved X commercial-copy contract. Read-only; no publishing or spend.
+const VERSION='KK_X_OWNER_COPY_POLICY_V1';
+const BRAND='📱 KK Phone Rental | #เช่ามือถือ';
+const CTA='👉 เลือกวันแล้วจองคิว';
+const STATUS=Object.freeze({available:'✅ ว่าง',full:'❌ เต็ม',closed:'🚫 ปิด'});
+const SAFETY=Object.freeze({owner_approval_required:true,auto_publish:false,production_writes:0});
+
+function text(value){return String(value===null||value===undefined?'':value).trim();}
+function uniq(a){return [...new Set(a.filter(Boolean))];}
+function requiresPolicy(input={}){
+  return input.owner_x_policy_required===true ||
+    text(input.requested_intent).toLowerCase()==='direct_rental_x';
+}
+function validatePost(post,input={}){
+  const errors=[];
+  if(!requiresPolicy(input))return {schema_version:VERSION,gate:'NOT_APPLICABLE',errors:[],safety:SAFETY};
+  const copy=text(post);
+  const lines=copy.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+  if(lines[0]!==BRAND)errors.push('OWNER_X_BRAND_HEADER_REQUIRED');
+  if(lines.filter(line=>line===BRAND).length!==1)errors.push('OWNER_X_BRAND_HEADER_ONCE_ONLY');
+  if(lines.slice(1).some(line=>/\bKK\b|KK Phone Rental/iu.test(line)))errors.push('OWNER_X_BRAND_REPEATED_IN_BODY');
+
+  const price=text(input.price_display);
+  const offerLines=price?lines.filter(line=>line.includes(price)):[];
+  if(!price||offerLines.length!==1)errors.push('OWNER_X_SINGLE_VERIFIED_OFFER_LINE_REQUIRED');
+  const model=(text(input.model_display)||'vivo X300 Pro').toLowerCase();
+  const modelLines=lines.filter(line=>line.toLowerCase().includes(model));
+  if(modelLines.length!==1||!offerLines.includes(modelLines[0]))errors.push('OWNER_X_MODEL_ONLY_ON_PRICE_LINE');
+
+  if(!lines.includes(CTA))errors.push('OWNER_X_SHORT_CTA_REQUIRED');
+  if(!copy.includes('kk-phone-rental.vercel.app'))errors.push('OWNER_X_BOOKING_LINK_REQUIRED');
+  if(/(?:\d+\s*\/\s*\d+)\s*(?:เครื่อง)?/u.test(copy)||
+    /(?:เหลือ|คงเหลือ|สุดท้าย).{0,22}(?:เครื่อง|คิว)|(?:เครื่อง|คิว)(?:สุดท้าย)/iu.test(copy))
+    errors.push('OWNER_X_STOCK_QUANTITY_OR_SCARCITY_FORBIDDEN');
+
+  const rawStatuses=Array.isArray(input.day_statuses)?input.day_statuses:[];
+  if(input.day_statuses_verified!==true)errors.push('OWNER_X_DAY_STATUS_EVIDENCE_REQUIRED');
+  if(rawStatuses.length===0)errors.push('OWNER_X_DAY_STATUS_LIST_REQUIRED');
+  const knownDays=new Set();
+  for(const day of rawStatuses){
+    const label=text(day&&day.date_label),state=text(day&&day.status).toLowerCase();
+    if(!label||!Object.prototype.hasOwnProperty.call(STATUS,state)){
+      errors.push('OWNER_X_DAY_STATUS_INVALID');continue;
+    }
+    if(knownDays.has(label))errors.push('OWNER_X_DUPLICATE_SOURCE_DAY:'+label);
+    knownDays.add(label);
+    const expected=label+' '+STATUS[state];
+    if(lines.filter(line=>line===expected).length!==1)errors.push('OWNER_X_DAY_STATUS_MISSING_OR_WRONG:'+label);
+    if(lines.some(line=>line.startsWith(label+' ')&&/✅|❌|🚫/u.test(line)&&line!==expected))
+      errors.push('OWNER_X_DAY_STATUS_CONTRADICTS_SOURCE:'+label);
+  }
+  for(const line of lines){
+    if(/(?:✅\s*ว่าง|❌\s*เต็ม|🚫\s*ปิด)$/u.test(line)&&![...knownDays].some(label=>
+      Object.values(STATUS).some(marker=>line===label+' '+marker)))
+      errors.push('OWNER_X_UNVERIFIED_DAY_STATUS:'+line);
+  }
+  return {schema_version:VERSION,gate:errors.length?'BLOCKED':'PASS',errors:uniq(errors),day_statuses_checked:rawStatuses.length,safety:SAFETY};
+}
+function validateVariants(candidates=[],input={}){
+  if(!requiresPolicy(input))return {schema_version:VERSION,gate:'NOT_APPLICABLE',errors:[],results:[],safety:SAFETY};
+  const list=Array.isArray(candidates)?candidates:[];
+  const errors=[];
+  if(list.length!==3)errors.push('OWNER_X_THREE_INTERNAL_CANDIDATES_REQUIRED');
+  const results=list.map((candidate,index)=>{
+    const copy=typeof candidate==='string'?candidate:text(candidate&&candidate.copy);
+    const result=validatePost(copy,input);
+    errors.push(...result.errors.map(error=>'CANDIDATE_'+(index+1)+':'+error));
+    return result;
+  });
+  return {schema_version:VERSION,gate:errors.length?'BLOCKED':'PASS',errors:uniq(errors),results,safety:SAFETY};
+}
+module.exports={VERSION,BRAND,CTA,STATUS,SAFETY,requiresPolicy,validatePost,validateVariants};
