@@ -113,3 +113,19 @@ test('missing configured owner chat does not consume the durable reservation',as
   assert.equal(r.error_code,'OWNER_CHAT_NOT_CONFIGURED');
   assert.equal(claims,0);
 });
+
+test('null, arrays and primitive envelopes are rejected without a parser exception',()=>{
+  for(const value of [null,[],42,'invalid']){
+    assert.doesNotThrow(()=>C.verifyEnvelope(value,KEY,NOW));
+    const r=C.verifyEnvelope(value,KEY,NOW);
+    assert.equal(r.ok,false);
+    assert.equal(r.error_code,'TRANSPORT_ENVELOPE_INVALID');
+  }
+});
+test('unsigned shadow fields are forbidden even when signature for known fields is valid',()=>{
+  for(const field of ['owner_approved','chatId','reply_markup','booking_id','price']){
+    const r=C.verifyEnvelope({...signed(),[field]:'injected'},KEY,NOW);
+    assert.equal(r.ok,false,field);
+    assert.equal(r.error_code,'FORBIDDEN_TRANSPORT_FIELD');
+  }
+});
