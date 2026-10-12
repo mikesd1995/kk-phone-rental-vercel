@@ -68,6 +68,12 @@ test('assumed and planned posts block duplicate day but do not qualify as publis
   assert.equal(Planner.plan(input({post_log:[{event_id:ID,planned_at:'2026-10-12T23:30:00+07:00',status:'superseded'}]})).status,'READY_FOR_OWNER_REVIEW');
   assert.equal(Planner.plan(input({post_log:[{event_id:ID,planned_at:'2026-10-11T23:30:00+07:00',status:'confirmed_posted'}]})).status,'READY_FOR_OWNER_REVIEW');
 });
+test('undated post log and missing event name cannot silently pass eligibility',()=>{
+  const undated=E.eligibility(candidate(),input({post_log:[{event_id:ID,status:'assumed_posted',planned_at:''}]}));
+  assert.ok(undated.errors.includes('POST_LOG_DATE_UNVERIFIED'));
+  const missingName=E.eligibility(candidate({event:''}),input());
+  assert.ok(missingName.errors.includes('EVENT_NAME_REQUIRED'));
+});
 test('fresh available event with an existing booking remains promotable when one phone is left',()=>{
   const p=Planner.plan(input({candidates:[candidate({booking_already_confirmed:true})]}));
   assert.equal(p.status,'READY_FOR_OWNER_REVIEW');
