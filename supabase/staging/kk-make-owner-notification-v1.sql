@@ -8,7 +8,7 @@
 create table if not exists public.kk_make_owner_notification_outbox (
   notification_id text primary key,
   request_id text not null unique,
-  event_type text not null check (event_type in ('OWNER_ALERT','OWNER_APPROVAL_PREVIEW')),
+  event_type text not null check (event_type in ('OWNER_ALERT')),
   entity_id text not null,
   content_version text not null check (content_version ~ '^[a-f0-9]{64}$'),
   text_sha256 text not null check (text_sha256 ~ '^[a-f0-9]{64}$'),
