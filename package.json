@@ -37,7 +37,8 @@
     "postinstall": "npm run test:booking:no-deposit && npm run test:vercel:storage-contract && npm run test:ultradeep:recall && npm run test:siam-halloween:poster && node --test tests/storefront-hero-editorial-contract.test.js && node --test tests/line-booking-owner-approval.test.js",
     "test:siam-halloween:poster": "node --test tests/siam-halloween-original-asset.test.js",
     "test:vercel:storage-contract": "node --test tests/vercel-deployment-footprint.test.js tests/vercel-ignore-build.test.js",
-    "test:booking:no-deposit": "node --test tests/kk-no-deposit-booking-create.test.js"
+    "test:booking:no-deposit": "node --test tests/kk-no-deposit-booking-create.test.js",
+    "test:line:apps-script-contract": "node --test tests/line-booking-owner-approval-apps-script-contract.test.js"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"
