@@ -12,10 +12,16 @@ function payload(){
     request:{
       message:'ไปตรวจสอบ X ว่าตอนนี้ควรโพสอะไรต่อจากเดิม ตั้งแต่ 19.30 ไปจนถึงช่วง late night',
       input:{
+        now:'2026-10-13T02:39:00+07:00',
+        storefront_source:'08_Web_Ready',storefront_verified:true,
+        storefront_readback_at:'2026-10-13T02:30:00+07:00',
+        post_log_verified:true,post_log_readback_at:'2026-10-13T02:30:00+07:00',
+        post_log:[],
+        storefront_rows:[0,1,2].map(i=>({event_id:'EVT-TEST-'+i,event_date_text:'17/10/2026',action_for_web:'show',booking_status_for_web:'เปิดจอง',available_phone_count:1})),
         candidates:[
-          {event:'Event A',verified_event:true,event_is_tomorrow:true,engagement_velocity:95,conversation_volume:91,fandom_strength:92,competitor_activity:60,booking_opportunity:86,recent_posted_hours_ago:1},
-          {event:'Event B',verified_event:true,event_is_tomorrow:true,engagement_velocity:86,conversation_volume:89,fandom_strength:90,competitor_activity:72,booking_opportunity:95,recent_posted_hours_ago:12},
-          {event:'Event C',verified_event:true,days_to_event:2,engagement_velocity:82,conversation_volume:84,fandom_strength:87,competitor_activity:58,booking_opportunity:81,recent_posted_hours_ago:24},
+          {event:'Event A',event_id:'EVT-TEST-0',event_date_text:'17/10/2026',verified_event:true,verified_pricing:true,event_is_tomorrow:true,engagement_velocity:95,conversation_volume:91,fandom_strength:92,competitor_activity:60,booking_opportunity:86,recent_posted_hours_ago:1},
+          {event:'Event B',event_id:'EVT-TEST-1',event_date_text:'17/10/2026',verified_event:true,verified_pricing:true,event_is_tomorrow:true,engagement_velocity:86,conversation_volume:89,fandom_strength:90,competitor_activity:72,booking_opportunity:95,recent_posted_hours_ago:12},
+          {event:'Event C',event_id:'EVT-TEST-2',event_date_text:'17/10/2026',verified_event:true,verified_pricing:true,days_to_event:2,engagement_velocity:82,conversation_volume:84,fandom_strength:87,competitor_activity:58,booking_opportunity:81,recent_posted_hours_ago:24},
           {event:'Unverified Viral',verified_event:false,event_is_tomorrow:true,engagement_velocity:100,conversation_volume:100,fandom_strength:100,competitor_activity:100,booking_opportunity:100}
         ]
       }
