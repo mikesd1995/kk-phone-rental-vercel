@@ -44,3 +44,13 @@ Candidate code prepared on `fix/hero-editorial-phone-art-20261012`. **Do not int
 - Vercel alias live readback still READY at `dpl_HTYhdt5iWjCgqwgrSuWAae7EWosb`, main SHA `2159770730126605610a5ddaee549e43bee0f647`; the redesign PR has **NOT** deployed to production.
 - Vercel preview not created in this attempt, respecting unresolved Hobby deployment storage/quota cost controls. No data or booking writes.
 - Blockers: GitHub Actions runner/no-steps failure; missing exact-head runtime render in eight viewports; original promo art crop may expose baked-in copy; no successful Hugging Face connector invocation. Before release, obtain actual screenshots and visual acceptance, pass release gates, then merge/deploy once within free-tier limits.
+
+## 2026-10-12 16:4x ICT — alternate Vercel acceptance path
+- GitHub Actions visual QA run 38228506101 failed twice **without runner steps**. Connector retry did not solve platform setup. We avoided infinite CI reruns.
+- Successful single Vercel Git Preview build **dpl_2HhSMxjHZzoNSxxptL24zQxm819y**, commit `314559b71e4ed446c00d10489c538a1739fcb483`, READY, source branch `fix/hero-editorial-phone-art-20261012`.
+- Vercel build logs prove **16/16 storage and ignore-build checks**, **48/48 Ultra Deep recall regression**, **1/1 official poster asset check** (65 total) passed, build finished and static outputs were deployed. These are independent of broken GitHub runner, but do not prove pixel-level visual correctness.
+- Read-only authenticated Vercel preview HTTP readback: `/` 200, `/style.css` 200, `/script.js` 200, `/assets/kk-storefront-v5.css?v=20261012-v632-editorial-hero` 200 and official hero image 200. The preview HTML contains `<div class="kk-hero-art" aria-hidden="true">`.
+- `/api/kk-data` without an allowed sheet/range returns 400 `Sheet/range not allowed` by the API's normal input guard; **not** evidence of data outage. No booking/payout/customer write attempted.
+- New booking PR #699 merged independently to Main (`d01acc5ae757ac4bc7d6d23fc008fd8ca9b8bf2d`), Vercel production READY deployment `dpl_FLVfZLYvmYhG6yYBvu9Yo7LDB1V8`. It changes Admin/API/package booking rules, not `index.html`, `assets/kk-storefront-v5.css`, or `script.js`.
+- To protect #699, the Hero branch package now copies latest Main's `package.json` with `test:booking:no-deposit` FIRST in `postinstall`, plus appends `node --test tests/storefront-hero-editorial-contract.test.js`. No booking enforcement was overwritten.
+- Next: create an exact-head Vercel Preview with the new test, inspect build and HTTP readback. Avoid Paid/TinyFish/browser services. Visual screenshots, cropped banner-art appearance and the full seven-reviewer visual acceptance remain separate gates; do not conflate build success with screenshots.
