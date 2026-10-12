@@ -78,3 +78,10 @@ Keep all legacy scenarios inactive; new Scenario 6600107 can remain disabled. Re
 - On **2026-10-12 09:11 UTC** legacy Telegram Ledger #6176241 scheduling changed to **on-demand**, no scheduled polling. `scenario_get` verified Inactive, `trigger.kind=on-demand`, `scheduling.type=on-demand`, no module issues. This supersedes the six-hour fallback shown in earlier Issue #696 comments. Extra canvas note #356423.
 - New Make webhook Scenario #6600107 Inactive and queue 0 as inspected; anchored canvas note #356422. **No incoming sample or provider delivery.**
 - Source files passed JavaScript syntax parsing on fetched exact branch contents; **this is not a node:test execution**, and GitHub PR exact-head workflow runs were not available at the initial check.
+
+### Additional credit safety: legacy autonomous ticks removed (2026-10-12)
+
+- Gemini Scout `5911509`: schedule `indefinitely/900s + windows` -> **on-demand**; AI extraction module #20 remains disabled. Readback `inactive`, `kind=on-demand`, lastEdit `2026-10-12T09:15:10.920Z`.
+- Shadow Observer main-team `6224679`: schedule `indefinitely/900s` -> **on-demand**; Readback inactive, lastEdit `2026-10-12T09:15:19.216Z`.
+- Shadow Observer private-space `6224686`: 900s -> **on-demand**, saved after transient Make API rate-limits, lastEdit `2026-10-12T09:16:50.664Z` (readback follow-up required).
+- Along with legacy Telegram Transport `6176241`, **four** nonessential scheduled jobs are configured on-demand. This reduces potential automatic operations; all have remained inactive, so no saved historical credit usage is claimed.
