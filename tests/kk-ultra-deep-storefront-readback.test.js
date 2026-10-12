@@ -94,3 +94,21 @@ test('public rows without resolvable date and duplicated IDs never yield clean a
  assert.equal(duplicates.status,'READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS');
  assert.equal(duplicates.counts.web_duplicate_ids,1);
 });
+
+test('current owner-approved branded temporary images remain explicit official-poster HOLD',()=>{
+ const temp=R.TEMP_BRAND_POSTER_URL;
+ const rows=web.map(row=>row[0]==='EVT-SHOW'?[...row.slice(0,4),temp,...row.slice(5)]:row);
+ const result=R.audit({core_rows:core,web_ready_rows:rows,booking_rows:bookings,as_of_date:'2026-10-12'});
+ assert.equal(result.status,'READ_ONLY_AUDIT_WITH_TEMPORARY_POSTERS');
+ assert.equal(result.counts.public_missing_canonical_posters,0);
+ assert.equal(result.counts.public_temporary_brand_posters,1);
+ assert.equal(result.counts.public_awaiting_official_posters,1);
+ assert.equal(result.public_temporary_brand_posters[0].event_id,'EVT-SHOW');
+ assert.equal(result.safety.production_writes,0);
+});
+test('temporary brand artwork recognizer does not misclassify official poster or spoof hostname',()=>{
+ assert.equal(R.temporaryPoster(R.TEMP_BRAND_POSTER_URL),true);
+ assert.equal(R.temporaryPoster(R.TEMP_BRAND_POSTER_URL+'?ref=temporary'),true);
+ assert.equal(R.temporaryPoster('https://attacker.invalid/assets/kk-brand-hero-final-20260920.png'),false);
+ assert.equal(R.temporaryPoster('https://example.org/real-official-event.jpg'),false);
+});
