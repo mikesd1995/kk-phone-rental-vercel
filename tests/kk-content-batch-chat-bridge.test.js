@@ -71,6 +71,8 @@ function item(n,hookWinner){
     price_display:'vivo X300 Pro 690฿ | + Lens รวม 890฿',
     inventory_available:true,
     day_statuses_verified:true,
+    event_dates_verified:true,
+    event_dates:[date],
     day_statuses:[{date_label:date,status:'available'}],
     official_event_hashtag:tag,
     verified_hashtags:[tag,artist,'#เช่ามือถือ'],
