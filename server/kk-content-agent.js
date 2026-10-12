@@ -244,7 +244,14 @@ function buildCreativePlan(input = {}, performanceRows = []) {
       fandom_notes: cleanText(input.fandom_notes),
       timing_context: cleanText(input.timing_context),
       event_dna: Array.isArray(input.event_dna) ? input.event_dna.map(cleanText).filter(Boolean) : [],
-      creative_anchors: Array.isArray(input.creative_anchors) ? input.creative_anchors.map(cleanText).filter(Boolean) : []
+      creative_anchors: Array.isArray(input.creative_anchors) ? input.creative_anchors.map(cleanText).filter(Boolean) : [],
+      event_dates_verified: input.event_dates_verified === true,
+      event_dates: Array.isArray(input.event_dates) ? input.event_dates.map(cleanText).filter(Boolean) : [],
+      day_statuses_verified: input.day_statuses_verified === true,
+      day_statuses: Array.isArray(input.day_statuses) ? input.day_statuses.map(day => ({
+        date_label: cleanText(day && day.date_label),
+        status: cleanText(day && day.status)
+      })).filter(day => day.date_label && day.status) : []
     },
     readiness,
     content_mix_target: CONTENT_MIX_TARGET,
