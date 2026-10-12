@@ -68,7 +68,7 @@ test('duplicate/rejected/uncertain claim never produces send authorization',asyn
   for(const status of ['DUPLICATE','ALREADY_SENT','UNKNOWN','CONFLICT']){
     const result=await C.prepareDispatch(signed(),{
       secret:KEY,now:NOW,ownerChatId:'-555',
-      claimFn:async()=>({status,receipt_id:'receipt_123'})
+      claimFn:async()=>({status,receipt_id:'11111111-2222-4333-8444-555555555555'})
     });
     assert.equal(result.send_allowed,false,status);
     assert.equal(result.provider_sends,0);
@@ -78,11 +78,11 @@ test('owner chat is a trusted server option, not caller payload',async()=>{
   let seen;
   const result=await C.prepareDispatch(signed(),{
     secret:KEY,now:NOW,ownerChatId:'-555',
-    claimFn:async req=>{seen=req;return {status:'RESERVED',receipt_id:'receipt_123'};}
+    claimFn:async req=>{seen=req;return {status:'RESERVED',receipt_id:'11111111-2222-4333-8444-555555555555'};}
   });
   assert.equal(result.send_allowed,true);
   assert.equal(result.target_chat_id,'-555');
-  assert.equal(result.receipt_id,'receipt_123');
+  assert.equal(result.receipt_id,'11111111-2222-4333-8444-555555555555');
   assert.equal(result.provider_sends,0);
   assert.equal(seen.entity_id,fields.entity_id);
   assert.equal(seen.text_sha256,C.hash(fields.text));
@@ -91,6 +91,25 @@ test('owner chat is a trusted server option, not caller payload',async()=>{
 test('claim failure or missing owner chat cannot authorize dispatch',async()=>{
   const a=await C.prepareDispatch(signed(),{secret:KEY,now:NOW,ownerChatId:'-555',claimFn:async()=>{throw Error('db down');}});
   assert.equal(a.error_code,'DURABLE_CLAIM_FAILED');
-  const b=await C.prepareDispatch(signed(),{secret:KEY,now:NOW,claimFn:async()=>({status:'RESERVED',receipt_id:'receipt_123'})});
+  const b=await C.prepareDispatch(signed(),{secret:KEY,now:NOW,claimFn:async()=>({status:'RESERVED',receipt_id:'11111111-2222-4333-8444-555555555555'})});
   assert.equal(b.error_code,'OWNER_CHAT_NOT_CONFIGURED');
+});
+
+test('malformed reserved receipt cannot unlock provider send',async()=>{
+  const r=await C.prepareDispatch(signed(),{
+    secret:KEY,now:NOW,ownerChatId:'-555',
+    claimFn:async()=>({status:'RESERVED',receipt_id:'not-a-uuid'})
+  });
+  assert.equal(r.send_allowed,false);
+  assert.equal(r.error_code,'DISPATCH_NOT_RESERVED');
+});
+test('missing configured owner chat does not consume the durable reservation',async()=>{
+  let claims=0;
+  const r=await C.prepareDispatch(signed(),{
+    secret:KEY,now:NOW,
+    claimFn:async()=>{claims++;return {status:'RESERVED',receipt_id:'11111111-2222-4333-8444-555555555555'};}
+  });
+  assert.equal(r.send_allowed,false);
+  assert.equal(r.error_code,'OWNER_CHAT_NOT_CONFIGURED');
+  assert.equal(claims,0);
 });
