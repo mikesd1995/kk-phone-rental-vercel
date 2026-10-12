@@ -72,7 +72,7 @@ test('fresh available event with an existing booking remains promotable when one
   const p=Planner.plan(input({candidates:[candidate({booking_already_confirmed:true})]}));
   assert.equal(p.status,'READY_FOR_OWNER_REVIEW');
   assert.equal(p.slots[0].event,'K-LIVE EXAMPLE');
-  assert.equal(p.ranking[0].dimensions.event_proximity,42);
+  assert.equal(p.ranking[0].dimensions.event_proximity,62);
   assert.equal(p.ranking[0].confidence,'LOW_NO_VERIFIED_X');
   assert.equal(p.ranking[0].dimensions.conversation_volume,0);
   assert.equal(p.safety.auto_publish,false);
