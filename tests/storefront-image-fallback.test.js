@@ -213,3 +213,14 @@ test('a loaded KK-owned brand image is visibly marked temporary; official event 
   assert.match(css,/\.poster-img-wrap \.poster-temporary-brand-label/);
   assert.match(source,/var rows=dedupeWebRowsByEventId\(webRows\)\.filter/);
 });
+
+test('temporary-brand detector requires the exact first-party artwork URL',()=>{
+  const isolated={};
+  vm.createContext(isolated);
+  vm.runInContext(extractFunction('isKKTemporaryBrandArtwork','function getDriveId'),isolated);
+  const valid='https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png';
+  assert.equal(isolated.isKKTemporaryBrandArtwork(valid),true);
+  assert.equal(isolated.isKKTemporaryBrandArtwork(valid+'?v=12'),true);
+  assert.equal(isolated.isKKTemporaryBrandArtwork('https://example.com/assets/kk-brand-hero-final-20260920.png'),false);
+  assert.equal(isolated.isKKTemporaryBrandArtwork('https://kk-phone-rental.vercel.app/assets/actual-event-poster.jpg'),false);
+});
