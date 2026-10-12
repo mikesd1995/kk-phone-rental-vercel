@@ -36,10 +36,57 @@ function table(raw,required){
  if(required.some(key=>!headers.includes(key)))throw Error('READBACK_HEADERS_MISSING:'+required.join(','));
  return raw.slice(1).filter(r=>Array.isArray(r)&&r.some(v=>text(v))).map(r=>Object.fromEntries(headers.map((key,i)=>[key,r[i]])));
 }
+const LIFECYCLE_HEADERS=['booking_id','booking_status','payment_status','amount_received','return_status','file_transfer_status','drive_link'];
+const VERIFIED_RETURN=new Set(['returned','complete','completed','done','yes','true']);
+const VERIFIED_UPLOAD=new Set(['uploaded','complete','completed','done','yes','true']);
+function amount(v){
+ const s=text(v).replace(/,/g,'');
+ if(!s)return 0;
+ const n=Number(s);
+ return Number.isFinite(n)&&n>=0?n:NaN;
+}
+function auditLifecycleEvidence(raw,bookings){
+ const columns=new Set(Array.isArray(raw&&raw[0])?raw[0].map(text):Object.keys(raw&&raw[0]||{}));
+ const missing=LIFECYCLE_HEADERS.filter(key=>!columns.has(key));
+ if(missing.length)return {status:'NOT_VERIFIABLE_SCHEMA',missing_columns:missing,
+  completed_total:null,completed_missing_proof:null,confirmed_unpaid_amount_ambiguous:null,
+  cancelled_paid_review:null,gaps:[],warnings:[],
+  safety:{production_writes:0,auto_complete:false,actual_revenue_status_rule:'completed_only'}};
+ const gaps=[],warnings=[];
+ let completed=0,ambiguous=0,cancelledPaid=0;
+ for(const b of bookings){
+  const st=text(b.booking_status).toLowerCase(),id=text(b.booking_id)||'UNKNOWN_BOOKING_ID';
+  const pay=text(b.payment_status).toLowerCase(),money=amount(b.amount_received);
+  if(st==='completed'){
+   completed++;
+   const failed=[];
+   if(pay!=='paid')failed.push('PAYMENT_NOT_VERIFIED_PAID');
+   if(!(money>0))failed.push('RECEIPT_AMOUNT_NOT_VERIFIED_POSITIVE');
+   if(!VERIFIED_RETURN.has(text(b.return_status).toLowerCase()))failed.push('RETURN_NOT_VERIFIED');
+   if(!VERIFIED_UPLOAD.has(text(b.file_transfer_status).toLowerCase()))failed.push('FILE_UPLOAD_NOT_VERIFIED');
+   if(!/^https:\/\/(?:drive|docs)\.google\.com\//i.test(text(b.drive_link)))failed.push('GOOGLE_DRIVE_LINK_MISSING_OR_UNVERIFIED');
+   if(failed.length)gaps.push({booking_id:id,missing_evidence:failed});
+  }
+  if(st==='confirmed'&&pay==='unpaid'&&money>0){
+   ambiguous++;
+   warnings.push({booking_id:id,reason:'CONFIRMED_UNPAID_AMOUNT_FIELD_IS_NOT_CASH_RECEIPT'});
+  }
+  if(st==='cancelled'&&pay==='paid'){
+   cancelledPaid++;
+   warnings.push({booking_id:id,reason:'CANCELLED_PAID_REFUND_RECONCILIATION_REQUIRED'});
+  }
+ }
+ return {status:gaps.length||cancelledPaid?'EVIDENCE_GAPS_REVIEW_REQUIRED':'READ_ONLY_RECONCILED',
+  completed_total:completed,completed_missing_proof:gaps.length,
+  confirmed_unpaid_amount_ambiguous:ambiguous,cancelled_paid_review:cancelledPaid,
+  gaps,warnings,
+  safety:{production_writes:0,auto_complete:false,actual_revenue_status_rule:'completed_only'}};
+}
 function audit(input={}){
  const core=table(input.core_rows,['event_id','event_date','active_on_web']);
  const derived=table(input.web_ready_rows,['event_id','event_date_text','action_for_web','poster_image_url']);
  const bookings=table(input.booking_rows,['booking_status','event_id']);
+ const lifecycleEvidence=auditLifecycleEvidence(input.booking_rows,bookings);
  const current=isoDate(input.as_of_date);
  if(!current)throw Error('AS_OF_DATE_REQUIRED');
  const byCore=new Map(),coreDuplicates=[],webDuplicates=[],byWeb=new Map();
@@ -145,6 +192,7 @@ function audit(input={}){
   public_future_booked_date_locks:publicFutureLocked,
   public_other_events_on_booked_date:otherPublicOnBookedDates,
   protected_dates:protectedDates,
+  booking_lifecycle_evidence:lifecycleEvidence,
   integrity:{public_core_inactive_ids:publicCoreInactive,core_duplicate_ids:coreDuplicates,web_duplicate_ids:webDuplicates,
    unresolved_active_booking_dates:unresolvedActiveBookings,
    source_date_conflicts:sourceDateConflicts,booking_date_conflicts:bookingDateConflicts,
@@ -156,4 +204,4 @@ function audit(input={}){
    pricing_write_authorized:false,booking_changes:0,requires_live_verifier:true}
  };
 }
-module.exports={VERSION,SHOWN,ACTIVE_BOOKING,TEMP_BRAND_POSTER_URL,temporaryPoster,isoDate,table,audit};
+module.exports={VERSION,SHOWN,ACTIVE_BOOKING,TEMP_BRAND_POSTER_URL,temporaryPoster,isoDate,table,audit,auditLifecycleEvidence};
