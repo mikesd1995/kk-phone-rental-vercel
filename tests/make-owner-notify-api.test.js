@@ -2,7 +2,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {Readable}=require('node:stream');
-const API=require('../api/kk-make-owner-notify.js');
+const API=require('../server/kk-make-owner-notify.js');
 const Contract=require('../server/make-owner-transport-contract.js');
 
 const REF='zehlsagzrpromtfqqflt';
