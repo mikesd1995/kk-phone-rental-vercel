@@ -4,6 +4,7 @@
 // This module NEVER writes. It reconstructs the Admin snapshot from Google Sheets
 // only when the Apps Script snapshot upstream is unavailable.
 const privateSheets = require('../api/lib/private-google-sheets.js');
+const BookingLifecycleShadow = require('./kk-booking-lifecycle-shadow.js');
 const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3.1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const FALLBACK_CACHE_TTL_MS = 2000;
@@ -240,6 +241,8 @@ function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
 
   return {
     events,packages,overrides,assets,bookings,current_bookings:current,web_ready:webReady,web_packages:webPackages,visibility_locks:visibilityLocks,
+    // Aggregates only: no customer PII or mutable booking fields exposed by this audit.
+    booking_closure_evidence_shadow:BookingLifecycleShadow.audit(bookings),
     today_working:todayWorking,today_key:today,model_master:Object.keys(models).map(k=>models[k]),customers,health,
     generated_at:new Date().toISOString(),spreadsheet_id:sheetId,admin_api_version:FALLBACK_VERSION,
     degraded_read_only:true,snapshot_source:transportMeta.snapshot_source||'direct-sheet-gviz-readonly-fallback',
