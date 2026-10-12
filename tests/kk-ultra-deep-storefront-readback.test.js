@@ -170,3 +170,33 @@ test('booked-day nonbooked event with rentable stock is an integrity conflict, n
  assert.equal(baseline.counts.public_other_events_on_booked_date_with_stock,0);
  assert.equal(baseline.integrity.booked_date_other_event_rentable_exposure_ids.length,0);
 });
+
+test('historical completed bookings without handover-return-upload evidence report gaps, never retroactively change Actual',()=>{
+ const h=['booking_id','booking_status','event_id','event_date','payment_status','amount_received','return_status','file_transfer_status','drive_link'];
+ const b=[
+  h,
+  ['B-COMPLETE','completed','EVT-SHOW','18/10/2026','paid','1,090','','',''],
+  ['B-PROVEN','completed','EVT-SHOW','18/10/2026','paid','790','returned','uploaded','https://drive.google.com/drive/folders/abc'],
+  ['B-QUOTE','confirmed','EVT-SHOW','18/10/2026','unpaid','890','','',''],
+  ['B-CANCEL','cancelled','EVT-SHOW','18/10/2026','paid','590','','','']
+ ];
+ const r=R.audit({core_rows:core,web_ready_rows:web,booking_rows:b,as_of_date:'2026-10-12'});
+ const l=r.booking_lifecycle_evidence;
+ assert.equal(l.completed_total,2);
+ assert.equal(l.completed_missing_proof,1);
+ assert.equal(l.gaps[0].booking_id,'B-COMPLETE');
+ assert.equal(l.gaps[0].missing_evidence.includes('FILE_UPLOAD_NOT_VERIFIED'),true);
+ assert.equal(l.gaps[0].missing_evidence.includes('GOOGLE_DRIVE_LINK_MISSING_OR_UNVERIFIED'),true);
+ assert.equal(l.confirmed_unpaid_amount_ambiguous,1);
+ assert.equal(l.cancelled_paid_review,1);
+ assert.equal(l.status,'EVIDENCE_GAPS_REVIEW_REQUIRED');
+ assert.equal(l.safety.auto_complete,false);
+ assert.equal(l.safety.production_writes,0);
+ assert.equal(l.safety.actual_revenue_status_rule,'completed_only');
+});
+test('missing lifecycle columns never yields a clean evidence certificate',()=>{
+ const r=R.audit({core_rows:core,web_ready_rows:web,booking_rows:bookings,as_of_date:'2026-10-12'});
+ assert.equal(r.booking_lifecycle_evidence.status,'NOT_VERIFIABLE_SCHEMA');
+ assert.equal(r.booking_lifecycle_evidence.completed_missing_proof,null);
+ assert.equal(r.booking_lifecycle_evidence.missing_columns.includes('drive_link'),true);
+});
