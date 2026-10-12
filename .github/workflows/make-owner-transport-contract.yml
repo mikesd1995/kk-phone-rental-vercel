@@ -1,0 +1,57 @@
+name: Make Owner Transport Contract (zero external sends)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/make-owner-transport-contract.yml'
+      - 'api/kk-make-owner-notify.js'
+      - 'server/make-owner-transport-contract.js'
+      - 'server/admin-make-gate.js'
+      - 'supabase/staging/kk-make-owner-notification-v1.sql'
+      - 'tests/make-owner-transport-contract.test.js'
+      - 'tests/make-owner-notify-api.test.js'
+      - 'tests/admin-make-write-bridge.test.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: make-owner-contract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  owner-transport-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    env:
+      KK_MAKE_OWNER_TRANSPORT_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax and offline contract checks
+        run: |
+          node --check api/kk-make-owner-notify.js
+          node --check server/make-owner-transport-contract.js
+          node --check server/admin-make-gate.js
+          node --test \
+            tests/make-owner-transport-contract.test.js \
+            tests/make-owner-notify-api.test.js \
+            tests/admin-make-write-bridge.test.js
+      - name: Guard SQL privileges and zero side-effect contract
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const assert=require('node:assert/strict');
+          const sql=fs.readFileSync('supabase/staging/kk-make-owner-notification-v1.sql','utf8');
+          assert.equal((sql.match(/security invoker set search_path = ''/g)||[]).length,2);
+          assert.doesNotMatch(sql,/security definer/i);
+          assert.match(sql,/enable row level security/i);
+          assert.match(sql,/from public,anon,authenticated/i);
+          assert.match(sql,/to service_role/i);
+          const gate=fs.readFileSync('server/admin-make-gate.js','utf8');
+          assert.match(gate,/BRIDGE_RUNTIME_ENABLED=false/);
+          console.log('PASS — SQL RLS/invoker and legacy bridge fail closed; no network sends');
+          NODE
