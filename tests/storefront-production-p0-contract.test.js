@@ -73,3 +73,6 @@ test('temporary image and inventory clamps remain intact',()=>{
  assert.match(source,/p\.avail = p\.avail && lensCnt>0/);
  assert.match(source,/p\.avail = p\.avail && phoneCnt>0 && lensCnt>0/);
 });
+test('latest storefront JavaScript cache key is bumped for mobile Safari/CDN',()=>{
+ assert.match(html,/script\.js\?v=storefront-p0-price-line-th-en-20261013/);
+});
