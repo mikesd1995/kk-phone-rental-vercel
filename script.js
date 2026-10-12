@@ -1089,6 +1089,13 @@ function buildPackagesFromWebRow(r){
   return pkgs;
 }
 
+// Explicit allow-list prevents future unknown statuses from surfacing owner-hidden
+// events. Missing poster is NEVER a reason to loosen this gate.
+function isVisibleWebAction(action){
+  var value=String(action||"").trim().toLowerCase();
+  return value==="show"||value==="show_full";
+}
+
 async function loadData(){
   var results=await Promise.all([
     fetchWebRows(),
@@ -1104,7 +1111,7 @@ async function loadData(){
     if(isPkgVisible(p))pkgMap[id].push(p);
   });
 
-  var rows=dedupeWebRowsByEventId(webRows).filter(function(r){ var a=String(r.action_for_web||"").trim().toLowerCase(); return a&&a!=="hide"; });
+  var rows=dedupeWebRowsByEventId(webRows).filter(function(r){ return isVisibleWebAction(r.action_for_web); });
 
   return rows.map(function(r){
     var eventId    = String(r.event_id||"").trim();
