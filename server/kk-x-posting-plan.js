@@ -70,7 +70,7 @@ function dimensionValue(candidate,key,marketingPlan){
   // Never turn owner-supplied or guessed social numbers into "measured X".
   const signal=marketingPlan&&marketingPlan.x_signal_analysis;
   if(!signal||signal.gate!=='PASS')return 0;
-  if(Number.isFinite(Number(candidate[key]))&&candidate[key]!==null&&candidate[key]!=='')return clamp(candidate[key]);
+  if(candidate.signal_metrics_verified===true&&Number.isFinite(Number(candidate[key]))&&candidate[key]!==null&&candidate[key]!=='')return clamp(candidate[key]);
   if(key==='engagement_velocity'&&Number.isFinite(signal.priority_score))return clamp(signal.priority_score);
   return 0;
 }
