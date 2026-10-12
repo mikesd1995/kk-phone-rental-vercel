@@ -41,3 +41,24 @@ test('v2 approval snapshot binds A:T booking state and rejects changed version u
   assert.match(body,/kkIsPastEventDate_\(liveEvent\.event_date\)/);
   assert.match(body,/approved_version:approvedVersion/);
 });
+
+test('v2 commercial version binds current event and exact public package price',()=>{
+  const code=fs.readFileSync(path.join(__dirname,'..','apps-script','Code.gs'),'utf8');
+  assert.match(code,/function kkLineBookingCommercialSnapshot_\(row\)/);
+  const start=code.indexOf('function kkLineBookingCommercialSnapshot_');
+  const end=code.indexOf('function kkLineBookingApprovalVersionAtRow_',start);
+  assert.ok(end>start,'version helper section must be contiguous');
+  const body=code.slice(start,end);
+  assert.match(body,/kkBookingRequestIdFromNote_\(row\[19\]\)/);
+  assert.match(body,/claim\.status !== 'OK'/);
+  assert.match(body,/String\(claim\.booking_id\|\|''\)\.trim\(\) !== bookingId/);
+  assert.match(body,/String\(claim\.event_id\|\|''\)\.trim\(\) !== eventId/);
+  assert.match(body,/kkGetEventById_\(eventId\)/);
+  assert.match(body,/kkApiWebPackageRows_\(\)\.filter/);
+  assert.match(body,/matching\.length !== 1 \|\| !\(Number\(matching\[0\]\.price\|\|0\)>0\)/);
+  assert.match(body,/kkApiDate_\(event\.event_date\)/);
+  assert.match(body,/Number\(pkg\.price\)/);
+  assert.match(body,/JSON\.stringify\(\['KK_LINE_BOOKING_OWNER_APPROVAL_V2', normalized, commercial\]\)/);
+  assert.match(code,/decision === 'approve' &&\s*\(String\(liveEvent\.status/);
+  assert.match(code,/approvedVersion !== expectedVersion/);
+});
