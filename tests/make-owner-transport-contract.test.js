@@ -129,3 +129,16 @@ test('unsigned shadow fields are forbidden even when signature for known fields 
     assert.equal(r.error_code,'FORBIDDEN_TRANSPORT_FIELD');
   }
 });
+
+test('outbox migration revokes Supabase default service-role delete/truncate privileges',()=>{
+  const fs=require('node:fs');
+  const path=require('node:path');
+  const sql=fs.readFileSync(path.join(__dirname,'..','supabase','staging','kk-make-owner-notification-v1.sql'),'utf8');
+  assert.match(sql,/revoke all on public\.kk_make_owner_notification_outbox from service_role;/);
+  assert.match(sql,/grant select, insert, update on public\.kk_make_owner_notification_outbox to service_role;/);
+  assert.doesNotMatch(sql,/grant[^;]*(?:delete|truncate)[^;]*to service_role;/i);
+  assert.match(sql,/event_type in \('OWNER_ALERT'\)/);
+  assert.match(sql,/alter table public\.kk_make_owner_notification_outbox enable row level security;/);
+  assert.match(sql,/revoke all on function public\.kk_make_owner_notification_claim/);
+  assert.match(sql,/revoke all on function public\.kk_make_owner_notification_ack/);
+});
