@@ -64,6 +64,18 @@ test('bridge invokes the real x_posting_plan gateway route and persists invocati
   assert.equal(result.publishes,0);
 });
 
+test('bridge stays BLOCKED when readback is stale, even if agent invocation was recorded',async()=>{
+  const body=payload();
+  body.request.input.storefront_readback_at='2026-10-12T16:00:00+07:00';
+  const event={issue:{number:100,title:'[KK-X-PLAN] blocked readiness',author_association:'OWNER'}};
+  const result=await Bridge.runBridge({event,payload:body,ledgerFn:async row=>({ok:true,inserted:true,invocation_id:row.invocation_id})});
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.blocker,'BLOCKED_NO_ELIGIBLE_EVENTS');
+  assert.equal(result.plan.slots.filter(x=>x.event).length,0);
+  assert.equal(result.publishes,0);
+  assert.equal(result.production_writes,0);
+});
+
 test('workflow is owner-only, posts evidence, closes issue and never deploys',()=>{
   const workflow=fs.readFileSync(path.join(__dirname,'..','.github','workflows','kk-x-posting-plan-chat-bridge.yml'),'utf8');
   assert.match(workflow,/\[KK-X-PLAN\]/);
