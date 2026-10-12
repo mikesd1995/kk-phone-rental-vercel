@@ -82,6 +82,9 @@ function verifyEnvelope(input={},secret,now=Date.now()){
 async function prepareDispatch(envelope,options={}){
   const result=verifyEnvelope(envelope,options.secret,options.now===undefined?Date.now():options.now);
   if(!result.ok) return Object.assign({send_allowed:false,provider_sends:0},result);
+  if(!t(options.ownerChatId)){
+    return {ok:false,send_allowed:false,provider_sends:0,error_code:'OWNER_CHAT_NOT_CONFIGURED'};
+  }
   if(typeof options.claimFn!=='function'){
     return {ok:false,send_allowed:false,provider_sends:0,error_code:'DURABLE_CLAIM_UNAVAILABLE'};
   }
@@ -99,11 +102,9 @@ async function prepareDispatch(envelope,options={}){
   }catch(_){
     return {ok:false,send_allowed:false,provider_sends:0,error_code:'DURABLE_CLAIM_FAILED'};
   }
-  if(!claim||claim.status!=='RESERVED'||!t(claim.receipt_id)){
+  if(!claim||claim.status!=='RESERVED'||
+     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t(claim.receipt_id))){
     return {ok:false,send_allowed:false,provider_sends:0,error_code:'DISPATCH_NOT_RESERVED'};
-  }
-  if(!t(options.ownerChatId)){
-    return {ok:false,send_allowed:false,provider_sends:0,error_code:'OWNER_CHAT_NOT_CONFIGURED'};
   }
   return {
     ok:true,send_allowed:true,provider_sends:0,protocol:VERSION,
