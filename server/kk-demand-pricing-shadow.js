@@ -40,6 +40,27 @@ function uniqueQuotes(rows){
  }
  return result;
 }
+// Distinct current same-event / same-day comparable quote receipts are
+// mandatory before any market-count-based price suggestion.
+function verifiedComparableQuotes(rows=[],input={}){
+ const shops=new Map();
+ for(const row of Array.isArray(rows)?rows:[]){
+  const r=row||{};
+  const shop=text(r.shop||r.shop_id||r.competitor_account||r.account).toLowerCase();
+  const source=text(r.source_url||r.post_url);
+  const observed=text(r.observed_at||r.checked_at);
+  const kind=text(r.package_type).toUpperCase();
+  const p=price(r.price);
+  if(!shop||!/^https?:\/\/[^\s/]+/i.test(source)||!/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(observed)||
+     p===null||r.verified!==true||r.comparable_verified!==true||
+     text(r.event_id)!==text(input.event_id)||text(r.event_date)!==text(input.event_date)||
+     !['PHONE','PHONE_ONLY','PHONE_LENS','PHONE_LENS_BUNDLE','BUNDLE'].includes(kind))continue;
+  if(!shops.has(shop))shops.set(shop,{shop,source_url:source,observed_at:observed,phone_price:null,bundle_price:null});
+  const item=shops.get(shop),field=['PHONE','PHONE_ONLY'].includes(kind)?'phone_price':'bundle_price';
+  if(item[field]===null)item[field]=p;
+ }
+ return [...shops.values()];
+}
 function verifiedSignals(input={}){
  const available=[];
  for(const [key,weight] of Object.entries(SIGNAL_WEIGHTS)){
@@ -107,6 +128,7 @@ function propose(input={}){
  const quotes=uniqueQuotes(input.competitor_evidence);
  const count=number(input.independent_competitors);
  const known=Math.max(quotes.length,count===null?0:count);
+ const verifiedQuotes=verifiedComparableQuotes(input.competitor_evidence,input);
  // Do NOT conflate unscanned with searched-zero.
  const marketStatus=text(input.competitor_market_status).toUpperCase();
  if((known>0&&known<3)||(marketStatus.startsWith('COMPETITOR_FOUND')&&known===0)){
@@ -115,10 +137,15 @@ function propose(input={}){
    review_note:'รายงานราคาคู่แข่งแต่ละร้าน ให้เจ้าของร้านตัดสินใจเอง ห้ามปรับราคาอัตโนมัติ'
   });
  }
- if(known>0&&quotes.length<3){
+ if(known>0&&verifiedQuotes.length<3){
   return base(input,'HOLD_COMPETITOR_EVIDENCE_INCOMPLETE',{
-   competitor_quotes:quotes,competitor_shops_found:known,
-   blockers:['COMPETITOR_VERIFIED_QUOTES_LT_3']
+   competitor_quotes:quotes,verified_competitor_quotes:verifiedQuotes,competitor_shops_found:known,
+   blockers:['COMPETITOR_VERIFIED_EXACT_EVENT_DATED_QUOTES_LT_3']
+  });
+ }
+ if(known===0&&marketStatus!=='NO_COMPETITOR_FOUND'){
+  return base(input,'HOLD_COMPETITOR_MARKET_NOT_CHECKED',{
+   blockers:['NO_CURRENT_MARKET_SEARCH_EVIDENCE'],competitor_quotes:quotes
   });
  }
  const signals=verifiedSignals(input);
@@ -169,6 +196,7 @@ function propose(input={}){
   price_basis:{demand_band:band,historical_verified_anchor:anchor,used_weekday_multiplier:false},
   evidence_gaps:issues,
   competitor_quotes:quotes,
+  verified_competitor_quotes:verifiedQuotes,
   competitor_shops_found:known,
   review_note:'ราคาเสนอเพื่อพิจารณาเท่านั้น ไม่มีการเปลี่ยนราคาในหน้าบ้าน'
  });
@@ -214,4 +242,4 @@ function learn(input={}){
   owner_review_required:true,production_writes:0,learning_writes:0
  };
 }
-module.exports={VERSION,PRICE_BANDS,SIGNAL_WEIGHTS,uniqueQuotes,verifiedSignals,verifiedPaidHistory,propose,learn};
+module.exports={VERSION,PRICE_BANDS,SIGNAL_WEIGHTS,uniqueQuotes,verifiedComparableQuotes,verifiedSignals,verifiedPaidHistory,propose,learn};
