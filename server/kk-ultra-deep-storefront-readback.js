@@ -6,6 +6,8 @@
 const VERSION='KK_ULTRA_DEEP_STOREFRONT_READBACK_V1';
 const SHOWN=new Set(['show','show_full']);
 const ACTIVE_BOOKING=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded','completed']);
+const TEMP_BRAND_POSTER_URL='https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png';
+function temporaryPoster(url){return text(url).split(/[?#]/)[0]===TEMP_BRAND_POSTER_URL;}
 const DATE_RE=/^(\d{4})-(\d{2})-(\d{2})$/;
 
 function text(v){return String(v==null?'':v).trim();}
@@ -73,6 +75,10 @@ function audit(input={}){
   event_id:text(e.event_id),event_date:isoDate(e.event_date_text),
   status:'HOLD_CANONICAL_POSTER_MISSING'
  }));
+ const publicTemporary=publicRows.filter(e=>temporaryPoster(e.poster_image_url)).map(e=>({
+  event_id:text(e.event_id),event_date:isoDate(e.event_date_text),
+  status:'HOLD_TEMP_BRAND_PLACEHOLDER_OFFICIAL_POSTER_REQUIRED'
+ }));
  const publicFuture=publicRows.filter(e=>{const date=isoDate(e.event_date_text);return date&&date>=current;});
  const publicFutureLocked=publicFuture.filter(e=>locked.has(isoDate(e.event_date_text))).map(e=>({
   event_id:text(e.event_id),event_date:isoDate(e.event_date_text),reason:'BOOKING_DAY_LOCK'
@@ -83,10 +89,14 @@ function audit(input={}){
  const protectedDates=[...locked.values()].map(r=>({date:r.date,active_bookings:r.active_bookings,
   event_ids:[...r.related_event_ids].sort()})).sort((a,b)=>a.date.localeCompare(b.date));
  return {
-  schema_version:VERSION,as_of_date:current,status:unresolvedActiveBookings.length?'READ_ONLY_AUDIT_WITH_UNRESOLVED_BOOKINGS':hasIntegrityRisk?'READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS':'READ_ONLY_AUDIT',
+  schema_version:VERSION,as_of_date:current,status:unresolvedActiveBookings.length?'READ_ONLY_AUDIT_WITH_UNRESOLVED_BOOKINGS':
+   hasIntegrityRisk?'READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS':
+   publicTemporary.length?'READ_ONLY_AUDIT_WITH_TEMPORARY_POSTERS':'READ_ONLY_AUDIT',
   counts:{core_active:active.length,effective_public_visible:publicRows.length,
    public_current_or_future:publicFuture.length,core_active_not_public:coreActiveNotPublic.length,
    public_missing_canonical_posters:publicMissing.length,
+   public_temporary_brand_posters:publicTemporary.length,
+   public_awaiting_official_posters:publicMissing.length+publicTemporary.length,
    public_future_on_booked_date:publicFutureLocked.length,
    unresolved_active_booking_dates:unresolvedActiveBookings.length,
    source_date_conflicts:sourceDateConflicts.length,
@@ -96,6 +106,7 @@ function audit(input={}){
    core_duplicate_ids:coreDuplicates.length,web_duplicate_ids:webDuplicates.length},
   core_active_not_public:coreActiveNotPublic,
   public_missing_canonical_posters:publicMissing,
+  public_temporary_brand_posters:publicTemporary,
   public_future_booked_date_locks:publicFutureLocked,
   protected_dates:protectedDates,
   integrity:{public_core_inactive_ids:publicCoreInactive,core_duplicate_ids:coreDuplicates,web_duplicate_ids:webDuplicates,
@@ -107,4 +118,4 @@ function audit(input={}){
    pricing_write_authorized:false,booking_changes:0,requires_live_verifier:true}
  };
 }
-module.exports={VERSION,SHOWN,ACTIVE_BOOKING,isoDate,table,audit};
+module.exports={VERSION,SHOWN,ACTIVE_BOOKING,TEMP_BRAND_POSTER_URL,temporaryPoster,isoDate,table,audit};
