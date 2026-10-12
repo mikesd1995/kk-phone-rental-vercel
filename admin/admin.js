@@ -2274,6 +2274,7 @@
     if(closure && closure.issues && closure.counts){
       const old=Number(closure.issues.historical_completed_missing_evidence||0);
       const quote=Number(closure.issues.confirmed_unpaid_with_amount_field||0);
+      const missingQuote=Number(closure.issues.active_missing_package_price||0);
       const refunds=Number(closure.issues.cancelled_paid_refund_review||0);
       rows.push({label:"Booking · หลักฐานปิดงาน",status:old?"WARN":"OK",
         detail:old+" completed ยังไม่มีหลักฐานคืนเครื่อง/อัปโหลด/Drive ครบ",
@@ -2281,6 +2282,9 @@
       if(quote)rows.push({label:"Booking · ยอดเสนอราคาเทียบยอดรับ",status:"WARN",
         detail:quote+" confirmed/unpaid มียอดในช่อง amount_received",
         suggestion:"ตรวจแยกราคาเสนอจากยอดรับเงินจริงก่อนส่งมอบเครื่อง"});
+      if(missingQuote)rows.push({label:"Booking · ราคาจองยังไม่ครบ",status:"WARN",
+        detail:missingQuote+" active booking ไม่มีราคาจองจาก Master คอลัมน์ X",
+        suggestion:"ตรวจ package_price ใน Master ก่อนอ้างยอด Future; ห้ามใช้ amount_received แทนราคาเสนอ"});
       if(refunds)rows.push({label:"Booking · ยกเลิกแต่บันทึก paid",status:"WARN",
         detail:refunds+" รายการต้องกระทบยอด",suggestion:"ตรวจหลักฐานกับเจ้าของก่อนคืนเงินหรือปรับยอด"});
     }
