@@ -1401,6 +1401,16 @@ function renderConcerts(concerts){
       var meta=document.createElement("span");
       meta.className="poster-placeholder-meta";
       meta.textContent=[String(c.date||"").trim(),String(c.venue||"").trim()].filter(Boolean).join(" · ");
+      // An actual, owned image backs the exact-event summary until an official poster exists.
+      // Never reuse another event's poster. If even this local image fails, text stays visible.
+      var art=document.createElement("img");
+      art.className="poster-placeholder-brand-art";
+      art.src="/assets/kk-brand-hero-final-20260920.png";
+      art.alt="";
+      art.setAttribute("aria-hidden","true");
+      art.decoding="async";
+      art.onerror=function(){if(art.parentElement) art.parentElement.removeChild(art);};
+      ph.appendChild(art);
       ph.appendChild(kicker);
       ph.appendChild(title);
       if(meta.textContent) ph.appendChild(meta);
