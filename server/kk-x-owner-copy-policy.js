@@ -20,7 +20,7 @@ function validatePost(post,input={}){
   const lines=copy.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
   if(lines[0]!==BRAND)errors.push('OWNER_X_BRAND_HEADER_REQUIRED');
   if(lines.filter(line=>line===BRAND).length!==1)errors.push('OWNER_X_BRAND_HEADER_ONCE_ONLY');
-  if(lines.slice(1).some(line=>/\bKK\b|KK Phone Rental/iu.test(line)))errors.push('OWNER_X_BRAND_REPEATED_IN_BODY');
+  if(lines.slice(1).some(line=>/\bKK\b|KK Phone Rental/iu.test(line.replace(/(?:https?:\/\/)?kk-phone-rental\.vercel\.app\/?/giu,''))))errors.push('OWNER_X_BRAND_REPEATED_IN_BODY');
 
   const price=text(input.price_display);
   const offerLines=price?lines.filter(line=>line.includes(price)):[];
