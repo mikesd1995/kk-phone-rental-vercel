@@ -73,6 +73,9 @@ begin
   where n.notification_id=p_notification_id
     and n.receipt_id=p_receipt_id
     and n.status='RESERVED'
+    -- A delayed or replayed provider ACK must not resurrect an expired lease.
+    -- Unknown/late deliveries remain for manual reconciliation, not auto-retry.
+    and n.expires_at>pg_catalog.now()
   returning 'SENT'::text,n.provider_message_id;
 end;
 $$;
