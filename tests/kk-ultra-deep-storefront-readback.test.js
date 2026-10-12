@@ -11,7 +11,7 @@ const core=[
 ];
 const web=[
  ['event_id','event_name','event_date_text','venue','poster_image_url','event_note','available_phone_count','available_lens_count','booking_status_for_web','action_for_web'],
- ['EVT-SHOW','Shown','18/10/2026','Bangkok','','','1','1','open','show'],
+ ['EVT-SHOW','Shown','18/10/2026','Bangkok','','','0','0','fully booked','show_full'],
  ['EVT-HIDDEN','Not public','17/10/2026','Bangkok','','','0','0','hide','hide'],
  ['EVT-BOOKED','Other event','18/10/2026','Bangkok','x','','0','0','hide','hide']
 ];
@@ -147,11 +147,26 @@ test('nonbooked public cards on an active booking date are flagged without chang
  const withWaitlist=[...web,['EVT-WAITLIST','Another event','18/10/2026','Bangkok','official','','0','0','full','show_full']];
  const r=R.audit({core_rows:core,web_ready_rows:withWaitlist,booking_rows:bookings,as_of_date:'2026-10-12'});
  assert.equal(r.counts.public_other_events_on_booked_date,2);
- assert.equal(r.counts.public_other_events_on_booked_date_with_stock,1);
+ assert.equal(r.counts.public_other_events_on_booked_date_with_stock,0);
  const soldOut=r.public_other_events_on_booked_date.find(e=>e.event_id==='EVT-WAITLIST');
  assert.equal(soldOut.classification,'REVIEW_BOOKED_DATE_NONBOOKED_EVENT_WAITLIST_ONLY');
  assert.equal(soldOut.available_phone_count,0);
  assert.equal(r.safety.auto_unhide,false);
  assert.equal(r.safety.production_writes,0);
  assert.equal(r.safety.price_writes,0);
+});
+
+test('booked-day nonbooked event with rentable stock is an integrity conflict, not a normal waitlist',()=>{
+ const changed=web.map(row=>row[0]==='EVT-SHOW'?[...row.slice(0,6),'1','0','open','show']:row);
+ const r=R.audit({core_rows:core,web_ready_rows:changed,booking_rows:bookings,as_of_date:'2026-10-12'});
+ assert.equal(r.status,'READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS');
+ assert.equal(r.counts.public_other_events_on_booked_date_with_stock,1);
+ assert.equal(r.integrity.booked_date_other_event_rentable_exposure_ids[0],'EVT-SHOW');
+ assert.equal(r.safety.auto_unhide,false);
+ assert.equal(r.safety.production_writes,0);
+ assert.equal(r.safety.price_writes,0);
+ const baseline=R.audit({core_rows:core,web_ready_rows:web,booking_rows:bookings,as_of_date:'2026-10-12'});
+ assert.equal(baseline.counts.public_other_events_on_booked_date,1);
+ assert.equal(baseline.counts.public_other_events_on_booked_date_with_stock,0);
+ assert.equal(baseline.integrity.booked_date_other_event_rentable_exposure_ids.length,0);
 });
