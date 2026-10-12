@@ -149,3 +149,59 @@ test('Apps Script owner decision is a separate atomic pending-only action',()=>{
   assert.match(body,/customerContact = String\(current\[5\]/);
   assert.match(body,/String\(persisted\[5\]/);
 });
+
+
+test('replayed owner postback never re-sends LINE messages or re-confirms customer',async()=>{
+  const e=env(),data=Approval.decisionData('approve','BK-REPLAY',e);
+  const sends=[];
+  const r=await Approval.processOwnerPostback({
+    type:'postback',replyToken:'reply-owner',source:{type:'user',userId:'UOWNER'},postback:{data}
+  },e,async(url,opt)=>{
+    sends.push(url);
+    if(url.startsWith('https://script.google.com/')){
+      return response({ok:true,booking_id:'BK-REPLAY',booking_status:'confirmed',
+        customer_contact:'UCUSTOMER',idempotent_replay:true});
+    }
+    throw new Error('LINE provider must NOT be called on replay');
+  });
+  assert.equal(r.status,'ALREADY_APPLIED');
+  assert.equal(r.idempotent_replay,true);
+  assert.equal(r.customer_notifications,0);
+  assert.equal(r.owner_notifications,0);
+  assert.equal(r.requires_manual_delivery_review,true);
+  assert.equal(sends.length,1,'exactly the canonical Apps Script readback, no LINE pushes/replies');
+});
+
+test('wrong canonical booking-id readback cannot notify another customer',async()=>{
+  const e=env(),data=Approval.decisionData('approve','BK-CORRECT',e);
+  let providerCalls=0;
+  await assert.rejects(
+    ()=>Approval.processOwnerPostback({
+      type:'postback',replyToken:'reply-owner',source:{type:'user',userId:'UOWNER'},postback:{data}
+    },e,async(url)=>{
+      if(url.startsWith('https://script.google.com/')) return response({
+        ok:true,booking_id:'BK-WRONG',booking_status:'confirmed',customer_contact:'UWRONG',idempotent_replay:false
+      });
+      providerCalls++;
+      return response({ok:true});
+    }),
+    err=>err?.code==='LINE_OWNER_DECISION_BOOKING_ID_MISMATCH'
+  );
+  assert.equal(providerCalls,0);
+});
+
+test('already cancelled owner rejection does not generate repeat customer cancellation',async()=>{
+  const e=env(),data=Approval.decisionData('reject','BK-REJECT',e);
+  let pushes=0;
+  const r=await Approval.processOwnerPostback({
+    type:'postback',source:{type:'user',userId:'UOWNER'},postback:{data}
+  },e,async url=>{
+    if(url.startsWith('https://script.google.com/')) return response({
+      ok:true,booking_id:'BK-REJECT',booking_status:'cancelled',customer_contact:'UCUSTOMER',idempotent_replay:true
+    });
+    pushes++;
+    return response({ok:true});
+  });
+  assert.equal(r.status,'ALREADY_APPLIED');
+  assert.equal(pushes,0);
+});
