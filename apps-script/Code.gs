@@ -1378,6 +1378,7 @@ function doPost(e) {
       case 'createBooking': result = kkApiCreateBooking_(payload); break;
       case 'createLineBookingPending': result = kkApiCreateLineBookingPending_(payload); break;
       case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_(payload); break;
+      case 'decideLineBookingPendingV2': result = kkApiDecideLineBookingPending_(payload, true); break;
       case 'updateBooking': result = kkApiUpdateBooking_(payload); break;
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
@@ -2563,6 +2564,32 @@ function kkLineBookingClaimReadback_(claim) {
   return { row_number: row, row: readback };
 }
 
+
+// Approval v2 binds the owner's signed decision to the canonical A:T booking
+// snapshot. This is a fingerprint, NOT a signature and contains no raw PII.
+// Compute the expected value under the same document lock as the decision.
+function kkLineBookingApprovalVersion_(row) {
+  if (!Array.isArray(row) || row.length < 20) throw new Error('LINE approval snapshot missing');
+  const indices = [0,1,2,3,4,5,6,7,8,9,10,11,13,14,19];
+  const normalized = indices.map(i => {
+    const v = row[i];
+    return i === 1 ? kkApiDateTime_(v) : String(v === null || typeof v === 'undefined' ? '' : v).trim();
+  });
+  const input = JSON.stringify(['KK_LINE_BOOKING_OWNER_APPROVAL_V2', normalized]);
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, input, Utilities.Charset.UTF_8);
+  return bytes.map(v => ('0'+((v+256)%256).toString(16)).slice(-2)).join('');
+}
+function kkLineBookingApprovalVersionAtRow_(rowNumber, bookingId) {
+  const row = kkSheet_(KK.bookings).getRange(rowNumber,1,1,20).getValues()[0];
+  if (String(row[0]||'').trim() !== String(bookingId||'').trim()) {
+    throw new Error('LINE owner approval booking row version identity mismatch');
+  }
+  if (String(row[2]||'').trim().toLowerCase() !== 'pending') {
+    throw new Error('LINE owner approval version requires pending canonical row');
+  }
+  return kkLineBookingApprovalVersion_(row);
+}
+
 function kkApiCreateLineBookingPending_(payload) {
   const lock = kkAcquireDocumentLock_('LINE pending booking intake', 12000);
   try {
@@ -2582,7 +2609,8 @@ function kkApiCreateLineBookingPending_(payload) {
           phone_asset_id: '',
           lens_asset_id: '',
           request_id: requestId,
-          idempotent_replay: true
+          idempotent_replay: true,
+          approval_version:kkLineBookingApprovalVersionAtRow_(Number(existing.row_number),String(existing.booking_id))
         };
       }
       if (existing && existing.status === 'PENDING') {
@@ -2607,6 +2635,7 @@ function kkApiCreateLineBookingPending_(payload) {
             lens_asset_id: '',
             request_id: requestId,
             idempotent_replay: true,
+            approval_version:kkLineBookingApprovalVersionAtRow_(reconciled.row_number,String(existing.booking_id)),
             reconciled: true
           };
         }
@@ -2700,7 +2729,8 @@ function kkApiCreateLineBookingPending_(payload) {
       phone_asset_id: '',
       lens_asset_id: '',
       request_id: requestId,
-      idempotent_replay: false
+      idempotent_replay: false,
+      approval_version:kkLineBookingApprovalVersionAtRow_(row,bookingId)
     };
   } finally {
     lock.releaseLock();
@@ -2708,7 +2738,7 @@ function kkApiCreateLineBookingPending_(payload) {
 }
 
 
-function kkApiDecideLineBookingPending_(payload) {
+function kkApiDecideLineBookingPending_(payload, requireVersion) {
   const lock = kkAcquireDocumentLock_('LINE owner booking decision', 12000);
   try {
     const bookingId = String(payload.booking_id || '').trim();
@@ -2731,6 +2761,22 @@ function kkApiDecideLineBookingPending_(payload) {
     if (!customerContact) throw new Error('LINE customer contact missing: ' + bookingId);
 
     const currentStatus = String(current[2] || '').toLowerCase().trim();
+    let approvedVersion = '';
+    if (requireVersion === true) {
+      const expectedVersion = String(payload.expected_version||'').trim();
+      if (!/^[a-f0-9]{64}$/i.test(expectedVersion)) throw new Error('LINE owner decision expected_version missing');
+      // Reject stale callbacks BEFORE modifying booking state, under document lock.
+      approvedVersion = kkLineBookingApprovalVersion_(current);
+      if (approvedVersion !== expectedVersion) throw new Error('LINE owner decision VERSION_CONFLICT');
+      if (currentStatus !== 'pending') throw new Error('LINE owner decision is no longer pending');
+      if (String(current[13]||'').trim().toLowerCase() !== 'unpaid' ||
+          Number(current[14]||0) !== 0) throw new Error('LINE owner no-deposit booking state changed');
+      const liveEvent = kkGetEventById_(String(current[3]||'').trim());
+      if (String(liveEvent.status||'').trim().toLowerCase() !== 'open' || !liveEvent.active ||
+          kkIsPastEventDate_(liveEvent.event_date)) {
+        throw new Error('LINE owner event is no longer eligible for confirmation');
+      }
+    }
     const targetStatus = decision === 'approve' ? 'confirmed' : 'cancelled';
     if (currentStatus === targetStatus) {
       return {
@@ -2769,7 +2815,8 @@ function kkApiDecideLineBookingPending_(payload) {
       phone_asset_id: String(persisted[9] || '').trim(),
       lens_asset_id: String(persisted[10] || '').trim(),
       decision: decision,
-      idempotent_replay: false
+      idempotent_replay: false,
+      ...(requireVersion === true ? {approved_version:approvedVersion} : {})
     };
   } finally {
     lock.releaseLock();
