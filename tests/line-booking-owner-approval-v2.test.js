@@ -99,3 +99,35 @@ test('webhook passes source-backed version into owner Flex message',()=>{
  const source=fs.readFileSync(path.join(__dirname,'../server/line-booking-webhook.js'),'utf8');
  assert.match(source,/approval_version:pending\.approval_version/);
 });
+
+test('v2 pending intake explicitly requests version source and forwards it from canonical readback',async()=>{
+ const e=env();let count=0;
+ const result=await Approval.createPendingBooking(
+  {webhookEventId:'event-v2',source:{userId:'UCUSTOMER'}},
+  {nickname:'Mint',phone:'0812345678'},
+  {event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'},e,
+  async (_url,opt)=>{
+   count++;const payload=JSON.parse(opt.body);
+   assert.equal(payload.action,'createLineBookingPending');
+   assert.equal(payload.approval_mode,'v2');
+   return response({booking_id:'BK-V2',row_number:20,booking_status:'pending',approval_version:VERSION});
+  });
+ assert.equal(result.approval_version,VERSION);
+ assert.equal(count,1);
+});
+test('legacy v1 remains compatible: pending intake does not demand new price/version contract',async()=>{
+ const e={...env(),KK_LINE_OWNER_APPROVAL_V2_ENABLED:'false'};
+ let count=0;
+ const result=await Approval.createPendingBooking(
+  {webhookEventId:'event-v1',source:{userId:'UCUSTOMER'}},
+  {nickname:'Mint',phone:'0812345678'},
+  {event_id:'EVT-1',template_id:'TPL-1'},e,
+  async (_url,opt)=>{
+   count++;const payload=JSON.parse(opt.body);
+   assert.equal(Object.prototype.hasOwnProperty.call(payload,'approval_mode'),false);
+   return response({booking_id:'BK-V1',row_number:21,booking_status:'pending'});
+  });
+ assert.equal(result.booking_id,'BK-V1');
+ assert.equal(result.approval_version,'');
+ assert.equal(count,1);
+});
