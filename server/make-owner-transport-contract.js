@@ -6,7 +6,9 @@ const crypto = require('node:crypto');
 
 const VERSION = 'kk-make-owner-transport-v1';
 const AUDIENCE = 'KK_OWNER_TELEGRAM_ONLY';
-const ALLOWED_TYPES = new Set(['OWNER_ALERT','OWNER_APPROVAL_PREVIEW']);
+// Until owner decision callbacks, actor binding and redaction pass acceptance,
+// the transport is restricted to notifications, never approval previews.
+const ALLOWED_TYPES = new Set(['OWNER_ALERT']);
 const MAX_AGE_MS = 120000;
 const MAX_FUTURE_SKEW_MS = 15000;
 const MAX_MESSAGE_LENGTH = 2048;
