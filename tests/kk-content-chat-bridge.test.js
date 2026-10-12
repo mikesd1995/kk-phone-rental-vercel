@@ -16,21 +16,25 @@ function event(body=''){
 }
 
 function copy(hook){
-  return `📱 KK Phone Rental | #เช่ามือถือ
-
-🔥 #ExampleConcert
-
-${hook}
-
-🎤 vivo X300 Pro 690฿ | เพิ่ม Lens +200฿
-📍 3 ต.ค. | Example Hall
-
-💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ
-📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน
-☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน
-👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
-
-#ArtistExample`;
+  return [
+    '📱 KK Phone Rental | #เช่ามือถือ',
+    '',
+    '🔥 #ExampleConcert',
+    '',
+    hook,
+    '',
+    '🎤 vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
+    '📍 Example Hall',
+    '3 ต.ค. ✅ ว่าง',
+    '',
+    '💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ',
+    '📱 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน',
+    '☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน',
+    '👉 เลือกวันแล้วจองคิว',
+    'kk-phone-rental.vercel.app',
+    '',
+    '#ArtistExample'
+  ].join('\n');
 }
 
 function metrics(overrides={}){
@@ -63,6 +67,9 @@ function payload(){
         verified_pricing:true,
         price_display:'vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
         inventory_available:true,
+        recent_context_checked:true,
+        day_statuses_verified:true,
+        day_statuses:[{date_label:'3 ต.ค.',status:'available'}],
         official_event_hashtag:'#ExampleConcert',
         verified_hashtags:['#ExampleConcert','#ArtistExample','#เช่ามือถือ']
       }
