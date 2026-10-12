@@ -2194,3 +2194,44 @@ html[data-theme="dark"] .kk-mock-hero .v3-secondary{
   border-color:rgba(167,195,242,.35)!important;
   background:rgba(19,30,49,.92)!important;
 }
+
+/* Temporary first-party shop image behind exact-event title. It is NOT an
+   organizer/event poster; if image load fails, the title panel remains usable. */
+.poster-placeholder.poster-placeholder-event{
+  position:relative!important;
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:flex-end!important;
+  align-items:flex-start!important;
+  isolation:isolate!important;
+}
+.poster-placeholder-event .poster-placeholder-brand-art{
+  position:absolute!important;
+  inset:0 0 auto 0!important;
+  width:100%!important;
+  height:70%!important;
+  max-width:100%!important;
+  display:block!important;
+  object-fit:contain!important;
+  object-position:center center!important;
+  opacity:.82!important;
+  z-index:0!important;
+  pointer-events:none!important;
+  transform:none!important;
+}
+.poster-placeholder-event .poster-placeholder-kicker,
+.poster-placeholder-event .poster-placeholder-title,
+.poster-placeholder-event .poster-placeholder-meta{
+  position:relative!important;
+  z-index:1!important;
+}
+.poster-placeholder-event .poster-placeholder-title{
+  background:rgba(248,251,255,.88)!important;
+  border-radius:8px!important;
+  padding:4px 6px!important;
+  box-decoration-break:clone!important;
+}
+[data-theme="dark"] .poster-placeholder-event .poster-placeholder-title{
+  background:rgba(13,22,38,.86)!important;
+}
