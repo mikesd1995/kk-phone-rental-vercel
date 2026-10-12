@@ -28,3 +28,10 @@ Other events already use explicit `TEMP_IMAGE_2026-10-12` provenance in `01_Even
 - Required before Production: exact-head Node tests, visual QA (mobile 320/375/390/430/480 and desktop 768/1024), distinct rendered screenshot for an allowed event missing poster, correct TH/EN, actions and inventory unchanged, owner approval, release readback.
 
 Persistent coordination: https://github.com/mikesd1995/kk-phone-rental-vercel/issues/696
+
+## 2026-10-12 owner follow-up — real first-party image instead of text-only fallback
+- Owner requested an actual temporary image when a verified visible event lacks official poster. The prior code created only a name/date/venue HTML panel. This revision puts the existing repository-owned public image `/assets/kk-brand-hero-final-20260920.png` behind that exact-event summary; it remains labeled `ภาพประกอบชั่วคราว` / `TEMPORARY EVENT ART`. No event/artist image is invented or reused from another event.
+- The decorative image uses `alt=""`, `aria-hidden="true"`; the exact event name/date/venue remain visible above it. On image load error, the image is removed while the text remains, so no permanent white poster. CSS uses containment and an overlay for readable text in light/dark modes.
+- Applied to two safe paths only: (1) already-visible source row has blank `poster_image_url`, (2) every canonical photo candidate has failed. It never changes `action_for_web`, date/booking lock, package availability, price, owner hide/tombstone.
+- Updated CSS/JS cache keys and dedicated regression tests. Source changes are PR-only, **not** live Production until release acceptance.
+- Keep direct screenshot checks at widths 320, 375, 390, 430, 480, 768, 1024, plus TH/EN, dark mode, working LINE CTA and known hidden-event absence. Unit/static tests and Preview READY are not evidence of rendered browser screenshot success.
