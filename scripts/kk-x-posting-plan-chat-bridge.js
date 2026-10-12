@@ -142,6 +142,19 @@ async function runBridge({event,payload,ledgerFn}={}){
       publishes:0
     };
   }
+  // A recorded invocation is not proof of a promotable event.
+  // Never turn a fail-closed planner result into a PASS owner schedule.
+  if(gateway.result.status!=='READY_FOR_OWNER_REVIEW'){
+    return {
+      schema_version:VERSION,status:'BLOCKED',
+      gateway_status:gateway.status,intent:gateway.intent,
+      blocker:text(gateway.result.status)||'POSTING_PLAN_NOT_READY',
+      event_check:eventCheck,invocation:gateway.invocation,
+      plan:gateway.result,project_memory:gateway.project_memory,
+      ledger_rows:ledgerRows,owner_review_required:true,
+      production_writes:0,publishes:0
+    };
+  }
   return {
     schema_version:VERSION,
     status:'PASS',
