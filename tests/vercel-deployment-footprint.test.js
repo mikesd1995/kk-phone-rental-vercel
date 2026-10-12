@@ -48,3 +48,14 @@ test('existing Vercel production policy and postinstall acceptance remain intact
   assert.ok(rules.every(rule => !rule.includes('*') && !rule.startsWith('!')),
     'new deployment exclusions must remain explicit');
 });
+
+test('cross-chat recovery memory corpus remains valid for existing agent bootstrap', () => {
+  const Memory = require('../server/kk-project-memory.js');
+  const corpus = JSON.parse(fs.readFileSync(path.join(root, 'config/kk-project-memory.json'), 'utf8'));
+  const bootstrap = Memory.buildBootstrap(corpus.items, { limit: 200 });
+  assert.equal(bootstrap.status, 'READY',
+    'new handoff entry must not block the entire KK agent project-memory corpus');
+  assert.ok(bootstrap.context.some(row =>
+    row.memory_id === 'kk:memory:vercel-hobby-deployment-storage-recovery:20261012'
+  ), 'missing durable storage recovery context');
+});
