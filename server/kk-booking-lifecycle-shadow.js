@@ -2,7 +2,8 @@
 const VERSION='KK_BOOKING_LIFECYCLE_SHADOW_V1';
 const ACTIVE=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded']);
 const RETURN_OK=new Set(['returned','received','verified','confirmed','complete','completed','ok','pass']);
-const TRANSFER_OK=new Set(['uploaded','sent','delivered','verified','complete','completed','done','ok']);
+// Upload alone is NOT delivery: customer must receive the Drive link before closure.
+const TRANSFER_OK=new Set(['sent','delivered','confirmed']);
 const norm=x=>String(x==null?'':x).trim().toLowerCase();
 function amount(x){
  const s=String(x==null?'':x).replace(/,/g,'').trim();
@@ -12,10 +13,25 @@ function amount(x){
 }
 function validDrive(link){
  const s=String(link||'').trim();
- return /^https:\/\/(?:drive|docs)\.google\.com(?:\/|$)/i.test(s)&&!/[\s\\]/.test(s);
+ if(!s || /[\\s\\\\]/.test(s))return false;
+ try{
+  const u=new URL(s),host=u.hostname.toLowerCase(),path=u.pathname;
+  if(u.protocol!=='https:'||u.username||u.password||u.port||u.hash)return false;
+  const id='[A-Za-z0-9_-]{10,}';
+  if(host==='drive.google.com'){
+   return new RegExp('^/(?:file/d/|drive/(?:u/[0-9]+/)?folders/)'+id+'(?:/|$)').test(path) ||
+     (path==='/open' && new RegExp('^'+id+'$').test(u.searchParams.get('id')||''));
+  }
+  if(host==='docs.google.com'){
+   return new RegExp('^/(?:document|spreadsheets|presentation)/d/'+id+'(?:/|$)').test(path);
+  }
+  return false;
+ }catch(_){return false;}
 }
 function evidence(row={}){
- const paid=norm(row.payment_status)==='paid'&&amount(row.amount_received)!==null&&amount(row.amount_received)>0;
+ const received=amount(row.amount_received),quote=amount(row.package_price);
+ const paid=norm(row.payment_status)==='paid'&&received!==null&&quote!==null&&
+  received>0&&quote>0&&received>=quote;
  const returned=RETURN_OK.has(norm(row.return_status));
  const uploaded=TRANSFER_OK.has(norm(row.file_transfer_status));
  const drive=validDrive(row.drive_link);
