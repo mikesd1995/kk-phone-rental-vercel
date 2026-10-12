@@ -82,4 +82,4 @@ function eligibility(candidate={},input={},context=inputGate(input)){
   }
   return {eligible:errors.length===0,errors:[...new Set(errors)]};
 }
-module.exports={SOURCE,BLOCKING_STATUSES,MAX_READBACK_AGE_MS,operatingDay,webRow,logRow,inputGate,eligibility};
+module.exports={SOURCE,BLOCKING_STATUSES,MAX_READBACK_AGE_MS,operatingDay,bangkokDate,eventDay,webRow,logRow,inputGate,eligibility};
