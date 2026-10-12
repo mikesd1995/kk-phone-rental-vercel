@@ -238,3 +238,20 @@ test('only canonical show/show_full actions are eligible, even with a missing po
   }
   assert.match(source,/dedupeWebRowsByEventId\(webRows\)\.filter\(function\(r\)\{ return isVisibleWebAction\(r\.action_for_web\); \}\)/);
 });
+
+test('blank or exhausted official poster uses an actual KK-owned image without inventing another event',()=>{
+  const css=fs.readFileSync(require.resolve('../assets/kk-storefront-v5.css'),'utf8');
+  assert.match(source,/function eventSummaryFallback\(\)/);
+  assert.match(source,/art\.src="\/assets\/kk-brand-hero-final-20260920\.png"/);
+  assert.match(source,/art\.className="poster-placeholder-brand-art"/);
+  assert.match(source,/art\.alt=""/);
+  assert.match(source,/art\.setAttribute\("aria-hidden","true"\)/);
+  assert.match(source,/art\.onerror=function\(\)\{if\(art\.parentElement\) art\.parentElement\.removeChild\(art\);\}/);
+  assert.match(source,/ph\.appendChild\(art\)/);
+  assert.match(source,/ph\.appendChild\(title\)/);
+  assert.match(source,/title\.textContent=String\(c\.name\|\|tr\("no_image"\)\)/);
+  assert.match(css,/\.poster-placeholder-event \.poster-placeholder-brand-art/);
+  assert.match(css,/object-fit:contain!important/);
+  assert.match(css,/\.poster-placeholder-event \.poster-placeholder-title/);
+  assert.doesNotMatch(source,/if\(card\.parentElement\) card\.remove\(\)/);
+});
