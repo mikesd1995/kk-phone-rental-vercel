@@ -131,3 +131,35 @@ test('legacy v1 remains compatible: pending intake does not demand new price/ver
  assert.equal(result.approval_version,'');
  assert.equal(count,1);
 });
+
+
+test('v2 missing, null or stringified replay flag cannot send customer or owner LINE messages',async()=>{
+ const e=env(),data=Approval.decisionData('approve','BK-V2',e,VERSION);
+ for(const replay of [undefined,null,'false',0]){
+  let lineSends=0,upstreamCalls=0;
+  await assert.rejects(()=>Approval.processOwnerPostback({type:'postback',replyToken:'reply',source:{userId:'UOWNER'},postback:{data}},e,
+   async(url)=>{
+    if(url.startsWith('https://script.google.com/')){
+     upstreamCalls++;
+     return response({booking_id:'BK-V2',booking_status:'confirmed',approved_version:VERSION,
+      customer_contact:'UCUSTOMER',idempotent_replay:replay});
+    }
+    lineSends++;return response({});
+   }),err=>err.code==='LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED');
+  assert.equal(upstreamCalls,1);
+  assert.equal(lineSends,0);
+ }
+});
+test('v2 canonical replay:true triggers no provider calls and needs manual delivery reconciliation',async()=>{
+ const e=env(),data=Approval.decisionData('reject','BK-V2',e,VERSION);
+ let lineSends=0;
+ const result=await Approval.processOwnerPostback({type:'postback',replyToken:'owner-reply',source:{userId:'UOWNER'},postback:{data}},e,
+  async url=>{
+   if(url.startsWith('https://script.google.com/'))return response({booking_id:'BK-V2',booking_status:'cancelled',approved_version:VERSION,
+    customer_contact:'UCUSTOMER',idempotent_replay:true});
+   lineSends++;return response({});
+  });
+ assert.equal(result.status,'ALREADY_APPLIED');
+ assert.equal(result.requires_manual_delivery_review,true);
+ assert.equal(lineSends,0);
+});
