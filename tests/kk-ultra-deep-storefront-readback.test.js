@@ -68,3 +68,29 @@ test('an active booking with unknown event/date raises unresolved risk, never ce
  assert.equal(r.integrity.unresolved_active_booking_dates[0].event_id,'EVT-NOT-IN-CORE');
  assert.equal(r.safety.pricing_write_authorized,false);
 });
+
+test('Core/Web Ready date disagreement is explicit fail-closed source integrity risk',()=>{
+ const altered=web.map(r=>r[0]==='EVT-SHOW'?[...r.slice(0,2),'19/10/2026',...r.slice(3)]:r);
+ const result=R.audit({core_rows:core,web_ready_rows:altered,booking_rows:bookings,as_of_date:'2026-10-12'});
+ assert.equal(result.status,'READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS');
+ assert.equal(result.counts.source_date_conflicts,1);
+ assert.equal(result.integrity.source_date_conflicts[0].event_id,'EVT-SHOW');
+ assert.equal(result.safety.production_writes,0);
+});
+test('active Booking explicit date conflicting with Core raises lock provenance review',()=>{
+ const changed=bookings.map(r=>r[0]==='BOOK-1'?[...r.slice(0,4),'19/10/2026']:r);
+ const result=R.audit({core_rows:core,web_ready_rows:web,booking_rows:changed,as_of_date:'2026-10-12'});
+ assert.equal(result.status,'READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS');
+ assert.equal(result.counts.booking_date_conflicts,1);
+ assert.equal(result.integrity.booking_date_conflicts[0].event_id,'EVT-BOOKED');
+ assert.equal(result.safety.pricing_write_authorized,false);
+});
+test('public rows without resolvable date and duplicated IDs never yield clean acceptance',()=>{
+ const unknown=[...web,['EVT-NODATE','Date unknown','n/a','Bangkok','official','','0','0','open','show']];
+ const result=R.audit({core_rows:core,web_ready_rows:unknown,booking_rows:bookings,as_of_date:'2026-10-12'});
+ assert.equal(result.status,'READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS');
+ assert.equal(result.counts.public_unresolved_event_dates,1);
+ const duplicates=R.audit({core_rows:core,web_ready_rows:[...web,web[1]],booking_rows:bookings,as_of_date:'2026-10-12'});
+ assert.equal(duplicates.status,'READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS');
+ assert.equal(duplicates.counts.web_duplicate_ids,1);
+});
