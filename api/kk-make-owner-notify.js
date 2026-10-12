@@ -43,12 +43,12 @@ async function readJson(req){
   return parsed;
 }
 async function rpc(name,body,cfg,fetchImpl=global.fetch){
+  const headers={apikey:cfg.key,'Content-Type':'application/json',Accept:'application/json'};
+  // New sb_secret_ keys authenticate through apikey. Do not send opaque keys
+  // as JWT Bearer credentials; legacy service_role JWTs still require Bearer.
+  if(!/^sb_secret_/.test(cfg.key)) headers.Authorization='Bearer '+cfg.key;
   const reply=await fetchImpl(cfg.url+'/rest/v1/rpc/'+name,{
-    method:'POST',
-    headers:{
-      apikey:cfg.key,Authorization:'Bearer '+cfg.key,
-      'Content-Type':'application/json',Accept:'application/json'
-    },
+    method:'POST',headers,
     body:JSON.stringify(body)
   });
   if(!reply.ok) throw Object.assign(new Error('owner transport durable store rejected'),{code:'DURABLE_STORE_REJECTED',http:reply.status});
