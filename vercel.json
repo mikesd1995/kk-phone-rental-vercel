@@ -293,9 +293,26 @@
           "value": "no-store, no-cache, must-revalidate, max-age=0"
         }
       ]
+    },
+    {
+      "source": "/api/kk-make-owner-notify",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, max-age=0"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        }
+      ]
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/kk-make-owner-notify",
+      "destination": "/api/kk-scanner-dispatch?owner_transport=v1"
+    },
     {
       "source": "/api/kk-admin",
       "destination": "/api/kk-admin-snapshot-v6"

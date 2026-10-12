@@ -113,12 +113,12 @@ test('verifier accepts exact write readback hash',async t=>{
 });
 
 
-test('bridge runtime is quarantined while Make Free-plan credits are exhausted',()=>{
+test('bridge runtime stays quarantined after credit recovery until stale queues and acceptance clear',()=>{
   assert.equal(MakeGate._test.BRIDGE_RUNTIME_ENABLED,false);
   const body=MakeGate._test.quarantineBody();
   assert.equal(body.error_code,'BRIDGE_RUNTIME_QUARANTINED');
-  assert.equal(body.reason,'MAKE_FREE_CREDITS_EXHAUSTED');
-  assert.equal(body.recheck_date,'2026-10-10');
+  assert.equal(body.reason,'MAKE_LEGACY_QUEUE_AND_ACCEPTANCE_PENDING');
+  assert.equal(body.recheck_date,'2026-10-12');
   assert.equal(body.write_actions_enabled,false);
 });
 

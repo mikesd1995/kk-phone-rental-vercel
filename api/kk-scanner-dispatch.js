@@ -7,6 +7,7 @@ const OidcBridge=require('../server/runtime-ledger-oidc-bridge');
 const UltraDeepRuntime=require('../server/kk-ultra-deep-runtime-runner');
 const UltraDeepDirect=require('../server/kk-ultra-deep-direct-zero-cost.js');
 const WriteControl=require('../server/admin-write-control-oidc.js');
+const OwnerNotifyTransport=require('../server/kk-make-owner-notify.js');
 
 function text(value){
   return String(value==null?'':value).trim();
@@ -192,6 +193,9 @@ async function ledgerConnectivityProbe({
 }
 
 module.exports=async function handler(req,res){
+  // Reuse this existing Vercel Function to remain within the Hobby limit of 12.
+  // Same auth/HMAC/feature flags from the isolated transport handler apply.
+  if(queryValue(req,'owner_transport')==='v1') return OwnerNotifyTransport(req,res);
   if(req.method==='OPTIONS') return json(res,204,{});
   if(req.method==='GET'){
     const readiness=readinessSnapshot(process.env);
