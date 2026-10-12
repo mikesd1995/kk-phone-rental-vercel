@@ -33,13 +33,13 @@ function audit(input={}){
  const byCore=new Map(),coreDuplicates=[],webDuplicates=[],byWeb=new Map();
  for(const e of core){const id=text(e.event_id);if(!id)continue;if(byCore.has(id)){coreDuplicates.push(id);continue;}byCore.set(id,e);}
  for(const e of derived){const id=text(e.event_id);if(!id)continue;if(byWeb.has(id)){webDuplicates.push(id);continue;}byWeb.set(id,e);}
- const locked=new Map();
+ const locked=new Map(),unresolvedActiveBookings=[];
  for(const b of bookings){
   const status=text(b.booking_status).toLowerCase();
   if(!ACTIVE_BOOKING.has(status))continue;
   const eventId=text(b.event_id);
   const date=isoDate(b.event_date)||isoDate(byCore.get(eventId)?.event_date)||isoDate(byWeb.get(eventId)?.event_date_text);
-  if(!date)continue; // Unknown booking day can never prove safe pricing.
+  if(!date){unresolvedActiveBookings.push({event_id:eventId,booking_status:status,reason:'BOOKING_EVENT_DATE_UNRESOLVED'});continue;}
   const r=locked.get(date)||{date,active_bookings:0,related_event_ids:new Set()};
   r.active_bookings+=1;r.related_event_ids.add(eventId);locked.set(date,r);
  }
@@ -63,18 +63,20 @@ function audit(input={}){
  const protectedDates=[...locked.values()].map(r=>({date:r.date,active_bookings:r.active_bookings,
   event_ids:[...r.related_event_ids].sort()})).sort((a,b)=>a.date.localeCompare(b.date));
  return {
-  schema_version:VERSION,as_of_date:current,status:'READ_ONLY_AUDIT',
+  schema_version:VERSION,as_of_date:current,status:unresolvedActiveBookings.length?'READ_ONLY_AUDIT_WITH_UNRESOLVED_BOOKINGS':'READ_ONLY_AUDIT',
   counts:{core_active:active.length,effective_public_visible:publicRows.length,
    public_current_or_future:publicFuture.length,core_active_not_public:coreActiveNotPublic.length,
    public_missing_canonical_posters:publicMissing.length,
    public_future_on_booked_date:publicFutureLocked.length,
+   unresolved_active_booking_dates:unresolvedActiveBookings.length,
    owner_core_hidden_but_public:publicCoreInactive.length,
    core_duplicate_ids:coreDuplicates.length,web_duplicate_ids:webDuplicates.length},
   core_active_not_public:coreActiveNotPublic,
   public_missing_canonical_posters:publicMissing,
   public_future_booked_date_locks:publicFutureLocked,
   protected_dates:protectedDates,
-  integrity:{public_core_inactive_ids:publicCoreInactive,core_duplicate_ids:coreDuplicates,web_duplicate_ids:webDuplicates},
+  integrity:{public_core_inactive_ids:publicCoreInactive,core_duplicate_ids:coreDuplicates,web_duplicate_ids:webDuplicates,
+   unresolved_active_booking_dates:unresolvedActiveBookings},
   provenance:{core:'01_Events',derived:'08_Web_Ready',bookings:'00_Master_Booking'},
   safety:{production_writes:0,price_writes:0,poster_writes:0,auto_unhide:false,
    pricing_write_authorized:false,booking_changes:0,requires_live_verifier:true}
