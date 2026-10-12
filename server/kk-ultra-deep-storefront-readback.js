@@ -116,7 +116,8 @@ function audit(input={}){
  });
  const publicUnknownDates=publicRows.filter(e=>!isoDate(e.event_date_text)).map(e=>text(e.event_id));
  const hasIntegrityRisk=sourceDateConflicts.length>0||bookingDateConflicts.length>0||
-  publicUnknownDates.length>0||coreDuplicates.length>0||webDuplicates.length>0||publicCoreInactive.length>0||publicUnverifiedDates.length>0;
+  publicUnknownDates.length>0||coreDuplicates.length>0||webDuplicates.length>0||publicCoreInactive.length>0||publicUnverifiedDates.length>0||
+  otherPublicOnBookedDates.some(e=>e.classification==='REVIEW_BOOKED_DATE_NONBOOKED_EVENT_WITH_STOCK');
  const protectedDates=[...locked.values()].map(r=>({date:r.date,active_bookings:r.active_bookings,
   event_ids:[...r.related_event_ids].sort()})).sort((a,b)=>a.date.localeCompare(b.date));
  return {
@@ -148,7 +149,8 @@ function audit(input={}){
    unresolved_active_booking_dates:unresolvedActiveBookings,
    source_date_conflicts:sourceDateConflicts,booking_date_conflicts:bookingDateConflicts,
    public_unresolved_event_date_ids:publicUnknownDates,
-   public_unverified_source_dates:publicUnverifiedDates},
+   public_unverified_source_dates:publicUnverifiedDates,
+   booked_date_other_event_rentable_exposure_ids:otherPublicOnBookedDates.filter(e=>e.classification==='REVIEW_BOOKED_DATE_NONBOOKED_EVENT_WITH_STOCK').map(e=>e.event_id)},
   provenance:{core:'01_Events',derived:'08_Web_Ready',bookings:'00_Master_Booking'},
   safety:{production_writes:0,price_writes:0,poster_writes:0,auto_unhide:false,
    pricing_write_authorized:false,booking_changes:0,requires_live_verifier:true}
