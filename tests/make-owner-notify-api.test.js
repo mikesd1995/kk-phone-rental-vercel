@@ -112,3 +112,22 @@ test('new opaque Supabase secret key uses only apikey, legacy JWT keeps Bearer',
     if(!key.startsWith('sb_secret_'))assert.equal(seen.Authorization,'Bearer '+key);
   }
 });
+
+test('Hobby deployment shares scanner Function; owner route remains fail-closed by default',async()=>{
+  const fs=require('node:fs');
+  const path=require('node:path');
+  const root=path.resolve(__dirname,'..');
+  const vercel=JSON.parse(fs.readFileSync(path.join(root,'vercel.json'),'utf8'));
+  const route=vercel.rewrites.find(r=>r.source==='/api/kk-make-owner-notify');
+  assert.equal(route.destination,'/api/kk-scanner-dispatch?owner_transport=v1');
+  assert.equal(fs.existsSync(path.join(root,'api/kk-make-owner-notify.js')),false);
+  assert.equal(fs.existsSync(path.join(root,'server/kk-make-owner-notify.js')),true);
+  const scanner=require('../api/kk-scanner-dispatch.js');
+  const request=req({stage:'prepare',envelope:envelope()});
+  request.url='/api/kk-scanner-dispatch?owner_transport=v1';
+  const output=res();
+  await scanner(request,output);
+  assert.equal(output.statusCode,503);
+  assert.equal(output.data().error_code,'MAKE_OWNER_TRANSPORT_DISABLED_OR_UNBOUND');
+  assert.equal(output.data().send_allowed,false);
+});
