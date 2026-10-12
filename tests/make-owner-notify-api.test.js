@@ -97,3 +97,18 @@ test('conflicting ack never claims delivery success',async()=>{
   assert.equal(out.statusCode,409);
   assert.equal(out.data().status,undefined);
 });
+
+test('new opaque Supabase secret key uses only apikey, legacy JWT keeps Bearer',async()=>{
+  for(const key of ['sb_secret_test_dummy','eyJfakeLegacyJwt']){
+    let seen;
+    const data=await API._test.rpc('kk_make_owner_notification_claim',{},
+      {url:'https://example.supabase.co',key},async(_url,options)=>{
+        seen=options.headers;
+        return {ok:true,json:async()=>[]};
+      });
+    assert.deepEqual(data,[]);
+    assert.equal(seen.apikey,key);
+    assert.equal(Object.hasOwn(seen,'Authorization'),!key.startsWith('sb_secret_'));
+    if(!key.startsWith('sb_secret_'))assert.equal(seen.Authorization,'Bearer '+key);
+  }
+});
