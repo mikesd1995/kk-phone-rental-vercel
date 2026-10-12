@@ -38,7 +38,7 @@
     "test:siam-halloween:poster": "node --test tests/siam-halloween-original-asset.test.js",
     "test:vercel:storage-contract": "node --test tests/vercel-deployment-footprint.test.js tests/vercel-ignore-build.test.js",
     "test:booking:no-deposit": "node --test tests/kk-no-deposit-booking-create.test.js",
-    "test:storefront:temporary-artwork": "node --test tests/storefront-image-fallback.test.js"
+    "test:storefront:temporary-artwork": "node --test tests/storefront-image-fallback.test.js tests/storefront-poster-dom-runtime.test.js"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"
