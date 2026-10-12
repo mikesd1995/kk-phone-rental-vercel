@@ -708,6 +708,13 @@ function isKKTemporaryBrandArtwork(url){
   return String(url||"").trim().split(/[?#]/)[0]===
     "https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png";
 }
+function eventArtworkAlt(name,isTemporary,lang){
+  var n=String(name||"").trim();
+  if(isTemporary){
+    return (lang==="en"?"Temporary KK illustration for event: ":"ภาพประกอบชั่วคราว KK สำหรับงาน: ")+(n||"—");
+  }
+  return n||"Event poster";
+}
 function getDriveId(url){
   var s=String(url||"").trim();
   var pats=[
@@ -1426,7 +1433,7 @@ function renderConcerts(concerts){
 
     var imgUrl=c.img?String(c.img).trim():"";
     if(imgUrl){
-      var img=document.createElement("img"); img.alt=c.name||"Event poster";
+      var img=document.createElement("img"); img.alt=eventArtworkAlt(c.name,temporaryBrandArtwork,currentLang);
       // Keep the first viewport worth of posters eager. Remaining cards stay lazy.
       // Timeout failover handles Safari/iOS requests that remain pending without onerror.
       img.loading=idx<6?"eager":"lazy"; img.decoding="async";
