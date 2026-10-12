@@ -3337,8 +3337,9 @@
       let payload=bookingMutationIdentity(b,row);
       let label="";
       if(action==="paid"){
-        if(toNum(b.amount_received)<=0 && !confirm("Booking นี้ยอดรับแล้วยังเป็น 0 ต้องการเปลี่ยนสถานะเป็น paid อยู่ใช่ไหม?")) return;
-        payload.payment_status="paid"; label="สถานะชำระเงินเป็น paid";
+        // Legacy shortcut must never mark a receipt paid without handover evidence.
+        openBookingEdit(b.booking_id || row);
+        return showNotice("ร้านรับเงินตอนส่งเครื่อง: กรุณาตรวจยอดรับเงินจริงและบันทึกหลักฐานใน Edit Booking ก่อนเปลี่ยนสถานะ", "warn");
       }else if(action==="prepared"){
         payload.booking_status="prepared"; label="สถานะเป็นเตรียมอุปกรณ์แล้ว และจัด Asset ให้ booking";
       }else if(action==="assign_assets"){
