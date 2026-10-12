@@ -2568,6 +2568,23 @@ function kkLineBookingClaimReadback_(claim) {
 // Include the live commercial context in the challenge version, not merely
 // the booking row. An event date/status or package price change invalidates
 // an old button even when the A:T booking row itself is unchanged.
+// V2 authorization must use the canonical storefront's effective visibility,
+// NOT only 01_Events.active_on_web. Derived hide can encode owner booking-day,
+// tombstone, date-verifier and stock restrictions independent of that flag.
+function kkLineBookingVisibleEventV2_(eventId, expectedDate) {
+  const matches=kkApiWebReadyRows_().filter(e => String(e.event_id||'').trim() === String(eventId||'').trim());
+  if (matches.length !== 1) throw new Error('LINE owner V2 canonical storefront event missing or duplicated');
+  const web=matches[0];
+  const action=String(web.action_for_web||'').trim().toLowerCase();
+  if (action !== 'show' && action !== 'show_full') {
+    throw new Error('LINE owner V2 event hidden by effective storefront visibility');
+  }
+  if (!expectedDate || String(web.event_date||'').trim() !== String(expectedDate)) {
+    throw new Error('LINE owner V2 storefront/core event date mismatch');
+  }
+  return {action,phone_count:Number(web.available_phone_count||0),lens_count:Number(web.available_lens_count||0)};
+}
+
 function kkLineBookingCommercialSnapshot_(row) {
   const bookingId = String(row[0]||'').trim();
   const eventId = String(row[3]||'').trim();
@@ -2585,6 +2602,8 @@ function kkLineBookingCommercialSnapshot_(row) {
   }
   const templateId = kkNormalizeTemplateIdForEvent_(eventId,String(claim.template_id||''));
   const event = kkGetEventById_(eventId);
+  const liveDate=kkApiDate_(event.event_date);
+  const web=kkLineBookingVisibleEventV2_(eventId,liveDate);
   const matching = kkApiWebPackageRows_().filter(p => {
     if (String(p.event_id||'').trim() !== eventId) return false;
     const publicId = String(p.package_id||'').trim();
@@ -2595,8 +2614,10 @@ function kkLineBookingCommercialSnapshot_(row) {
     throw new Error('LINE owner version cannot verify exact live package price');
   }
   const pkg=matching[0];
-  return [eventId,kkApiDate_(event.event_date),String(event.status||'').trim().toLowerCase(),
-    Boolean(event.active),templateId,Number(pkg.price),String(pkg.package_status||'').trim().toLowerCase()];
+  return [eventId,liveDate,String(event.status||'').trim().toLowerCase(),
+    Boolean(event.active),web.action,web.phone_count,web.lens_count,
+    templateId,Number(pkg.price),String(pkg.package_status||'').trim().toLowerCase(),
+    Number(pkg.available_count||0),Number(pkg.raw_available_count||0)];
 }
 
 // Approval v2 binds the owner's signed decision to the canonical A:T booking
@@ -2703,6 +2724,10 @@ function kkApiCreateLineBookingPending_(payload) {
     if (!pkg.active) throw new Error('Package is inactive: ' + templateId);
     kkAssertWebPackageBookable_(eventId, templateId);
     if (requestV2) {
+      // Derived web visibility is authoritative for owner day/hidden locks;
+      // show_full may be valid for an ALREADY pending booking, not new intake.
+      const web=kkLineBookingVisibleEventV2_(eventId,kkApiDate_(event.event_date));
+      if (web.action !== 'show') throw new Error('LINE owner V2 new booking must be visibly open');
       // Fail *before* creating any Booking if the exact public package price
       // required by the versioned challenge cannot be independently resolved.
       const exact = kkApiWebPackageRows_().filter(p =>
