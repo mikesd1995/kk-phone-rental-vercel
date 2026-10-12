@@ -2565,6 +2565,40 @@ function kkLineBookingClaimReadback_(claim) {
 }
 
 
+// Include the live commercial context in the challenge version, not merely
+// the booking row. An event date/status or package price change invalidates
+// an old button even when the A:T booking row itself is unchanged.
+function kkLineBookingCommercialSnapshot_(row) {
+  const bookingId = String(row[0]||'').trim();
+  const eventId = String(row[3]||'').trim();
+  const requestId = kkBookingRequestIdFromNote_(row[19]);
+  if (!/^line:[a-f0-9]{48}$/.test(String(requestId||''))) {
+    throw new Error('LINE owner version has no governed intake request');
+  }
+  const claimRaw = String(PropertiesService.getScriptProperties()
+    .getProperty(kkLineBookingRequestKey_(requestId))||'').trim();
+  let claim = null;
+  try { claim = JSON.parse(claimRaw); } catch (_) {}
+  if (!claim || claim.status !== 'OK' || String(claim.booking_id||'').trim() !== bookingId ||
+      String(claim.event_id||'').trim() !== eventId || !String(claim.template_id||'').trim()) {
+    throw new Error('LINE owner version missing exact canonical claim');
+  }
+  const templateId = kkNormalizeTemplateIdForEvent_(eventId,String(claim.template_id||''));
+  const event = kkGetEventById_(eventId);
+  const matching = kkApiWebPackageRows_().filter(p => {
+    if (String(p.event_id||'').trim() !== eventId) return false;
+    const publicId = String(p.package_id||'').trim();
+    return publicId === templateId ||
+      kkTemplateIdFromWebPackageId_(publicId,eventId) === templateId;
+  });
+  if (matching.length !== 1 || !(Number(matching[0].price||0)>0)) {
+    throw new Error('LINE owner version cannot verify exact live package price');
+  }
+  const pkg=matching[0];
+  return [eventId,kkApiDate_(event.event_date),String(event.status||'').trim().toLowerCase(),
+    Boolean(event.active),templateId,Number(pkg.price),String(pkg.package_status||'').trim().toLowerCase()];
+}
+
 // Approval v2 binds the owner's signed decision to the canonical A:T booking
 // snapshot. This is a fingerprint, NOT a signature and contains no raw PII.
 // Compute the expected value under the same document lock as the decision.
@@ -2575,7 +2609,8 @@ function kkLineBookingApprovalVersion_(row) {
     const v = row[i];
     return i === 1 ? kkApiDateTime_(v) : String(v === null || typeof v === 'undefined' ? '' : v).trim();
   });
-  const input = JSON.stringify(['KK_LINE_BOOKING_OWNER_APPROVAL_V2', normalized]);
+  const commercial=kkLineBookingCommercialSnapshot_(row);
+  const input = JSON.stringify(['KK_LINE_BOOKING_OWNER_APPROVAL_V2', normalized, commercial]);
   const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, input, Utilities.Charset.UTF_8);
   return bytes.map(v => ('0'+((v+256)%256).toString(16)).slice(-2)).join('');
 }
