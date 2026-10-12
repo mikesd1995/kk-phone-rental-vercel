@@ -36,3 +36,11 @@ Hugging Face connector calls (`space_search`, `hf_doc_search`) returned `Tool ..
 
 ## Current state
 Candidate code prepared on `fix/hero-editorial-phone-art-20261012`. **Do not interpret prepared source as deployed.** Production remains unchanged pending gates, especially image crop rendering and CI.
+
+## 2026-10-12T16:xx+07:00 — post-PR verification / no-cost stop
+- Draft PR: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/698 ; head before this note `c23fd278a98abc2a2577b19c6818059abbe94a2b`, base `2159770730126605610a5ddaee549e43bee0f647`. GitHub indicates mergeable=true but draft/unmerged.
+- Readback after patch: HTML image sibling exists; authoritative CSS marker exactly once; CTA fragments, current stylesheet cache version, bilingual script bindings, mobile fallback and braces validated with **static string/brace checks only**. Source-only result: PASS. New Node test file exists but **has not executed**.
+- GitHub Actions `Storefront Automated Visual QA` run `38228506101`, initial job `114741867910`: failure, steps=null, log URL unavailable; independent job log request returned `BlobNotFound`. Reran failed jobs once; second job `114742396776`: failure, steps=[] on explicit step fetch. Cannot claim QA/test PASS. Do not rerun indefinitely.
+- Vercel alias live readback still READY at `dpl_HTYhdt5iWjCgqwgrSuWAae7EWosb`, main SHA `2159770730126605610a5ddaee549e43bee0f647`; the redesign PR has **NOT** deployed to production.
+- Vercel preview not created in this attempt, respecting unresolved Hobby deployment storage/quota cost controls. No data or booking writes.
+- Blockers: GitHub Actions runner/no-steps failure; missing exact-head runtime render in eight viewports; original promo art crop may expose baked-in copy; no successful Hugging Face connector invocation. Before release, obtain actual screenshots and visual acceptance, pass release gates, then merge/deploy once within free-tier limits.
