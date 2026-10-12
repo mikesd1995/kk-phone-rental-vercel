@@ -62,3 +62,16 @@ test('v2 commercial version binds current event and exact public package price',
   assert.match(code,/decision === 'approve' &&\s*\(String\(liveEvent\.status/);
   assert.match(code,/approvedVersion !== expectedVersion/);
 });
+
+test('legacy pending create never requires V2 canonical price; V2 preflights before Booking write',()=>{
+  const src=fs.readFileSync(path.join(__dirname,'..','apps-script','Code.gs'),'utf8');
+  const start=src.indexOf('function kkApiCreateLineBookingPending_');
+  const end=src.indexOf('\nfunction kkApiDecideLineBookingPending_',start);
+  const body=src.slice(start,end);
+  assert.match(body,/const requestV2 = String\(payload\.approval_mode\|\|''\)\.trim\(\)\.toLowerCase\(\) === 'v2'/);
+  assert.match(body,/if \(requestV2\) \{[\s\S]*exact\.length !== 1[\s\S]*exact price unavailable before booking create/);
+  assert.ok(body.indexOf('exact price unavailable before booking create') < body.indexOf('status: \'PENDING\''),'V2 price must be checked before claim and booking mutation');
+  assert.equal((body.match(/approval_version:requestV2 \? kkLineBookingApprovalVersionAtRow_/g)||[]).length,3,'every pending/replayed intake response must be opt-in');
+  assert.match(src,/case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_\(payload\); break;/);
+  assert.match(src,/case 'decideLineBookingPendingV2': result = kkApiDecideLineBookingPending_\(payload, true\); break;/);
+});
