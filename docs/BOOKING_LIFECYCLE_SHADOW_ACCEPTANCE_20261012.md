@@ -87,3 +87,13 @@ Admin writer currently delegates Booking mutations to a legacy Apps Script route
 **Verified fresh connected Google Sheet read, bounded A4:X160:** 53 Booking IDs comprising 16 completed, 24 active/confirmed, 12 cancelled and 1 blank status. The **24 active quotes total THB 28,320** from X, **0 active missing quotes**, and `amount_received` for the active group currently totals **THB 0**. Completed main-tab amount field sums THB 11,930. These are **main tab only**, not the business's all-time Actual because completed archival rows are separate. Do **not** confuse main-tab Actual with the all-time Revenue Dashboard; original earlier row count and legacy amount-field totals were a different snapshot and are superseded. No proof of any historic receipt/return/upload was invented.
 
 **Release safety:** this is an aggregate read-only SHADOW, not authorization to change cash, Booking statuses, prices, refunds, Archive or customer PII. The normalized production Booking writer must implement paid-at-handover and returned/uploaded/Drive-link proof before closure enforcement can be activated. Verified Source SHA and Vercel Preview acceptance must be recorded separately; no blind merge.
+
+
+## 2026-10-13 completion-evidence gate hardening (still shadow/read-only)
+
+The historical pure closure checker originally treated `file_transfer_status=uploaded` as sufficient and accepted an HTTPS Drive **homepage** as a valid link. This could certify a future completion before the customer received any files. Corrected:
+- Evidence of customer delivery requires `file_transfer_status=sent/delivered/confirmed`, not `uploaded/uploading/verified` by itself.
+- A valid `drive_link` must be an HTTPS, exact-host Google Drive file/folder URL or Google Docs/Sheets/Slides document URL with an actual ID (10+ permitted characters). Bare root pages, lookalike domains, short fake IDs, embedded credentials, anchors, and non-HTTPS URLs fail closed.
+- `payment_status=paid` alone no longer passes; `amount_received` must cover **the canonical final booked `package_price`** (from Master X). If quote or receipt is absent or only partial, closure is held for owner review. Exception settlements require a separately authenticated policy path, not a fabricated receipt.
+- No Production Booking writer has been modified or wired to these rules. This is a safety contract that must be connected only after an authenticated return/Drive/payments evidence write+readback route exists. No old booking was changed.
+- Tests include upload-only denial, partial/no cash denial, fake Drive root/link rejection and normal sent/fully paid acceptance; hosted validation is tracked by exact SHA in Issue #696.
