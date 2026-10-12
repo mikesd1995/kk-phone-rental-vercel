@@ -2628,6 +2628,9 @@ function kkLineBookingApprovalVersionAtRow_(rowNumber, bookingId) {
 function kkApiCreateLineBookingPending_(payload) {
   const lock = kkAcquireDocumentLock_('LINE pending booking intake', 12000);
   try {
+    // Do not break existing V1 pending intake when 09_Web_Packages source
+    // prices are incomplete. V2 is an explicit, independent opt-in.
+    const requestV2 = String(payload.approval_mode||'').trim().toLowerCase() === 'v2';
     const requestId = String(payload.request_id || '').trim();
     const requestKey = kkLineBookingRequestKey_(requestId);
     const props = PropertiesService.getScriptProperties();
@@ -2645,7 +2648,7 @@ function kkApiCreateLineBookingPending_(payload) {
           lens_asset_id: '',
           request_id: requestId,
           idempotent_replay: true,
-          approval_version:kkLineBookingApprovalVersionAtRow_(Number(existing.row_number),String(existing.booking_id))
+          approval_version:requestV2 ? kkLineBookingApprovalVersionAtRow_(Number(existing.row_number),String(existing.booking_id)) : ''
         };
       }
       if (existing && existing.status === 'PENDING') {
@@ -2670,7 +2673,7 @@ function kkApiCreateLineBookingPending_(payload) {
             lens_asset_id: '',
             request_id: requestId,
             idempotent_replay: true,
-            approval_version:kkLineBookingApprovalVersionAtRow_(reconciled.row_number,String(existing.booking_id)),
+            approval_version:requestV2 ? kkLineBookingApprovalVersionAtRow_(reconciled.row_number,String(existing.booking_id)) : '',
             reconciled: true
           };
         }
@@ -2699,6 +2702,17 @@ function kkApiCreateLineBookingPending_(payload) {
     if (!event.active) throw new Error('Event is not active_on_web: ' + eventId);
     if (!pkg.active) throw new Error('Package is inactive: ' + templateId);
     kkAssertWebPackageBookable_(eventId, templateId);
+    if (requestV2) {
+      // Fail *before* creating any Booking if the exact public package price
+      // required by the versioned challenge cannot be independently resolved.
+      const exact = kkApiWebPackageRows_().filter(p =>
+        String(p.event_id||'').trim() === eventId &&
+        (String(p.package_id||'').trim() === templateId ||
+         kkTemplateIdFromWebPackageId_(String(p.package_id||'').trim(),eventId) === templateId));
+      if (exact.length !== 1 || !(Number(exact[0].price||0)>0)) {
+        throw new Error('LINE owner V2 exact price unavailable before booking create');
+      }
+    }
 
     // First claim blocks duplicate redelivery before any Booking mutation.
     props.setProperty(requestKey, JSON.stringify({
@@ -2765,7 +2779,7 @@ function kkApiCreateLineBookingPending_(payload) {
       lens_asset_id: '',
       request_id: requestId,
       idempotent_replay: false,
-      approval_version:kkLineBookingApprovalVersionAtRow_(row,bookingId)
+      approval_version:requestV2 ? kkLineBookingApprovalVersionAtRow_(row,bookingId) : ''
     };
   } finally {
     lock.releaseLock();
