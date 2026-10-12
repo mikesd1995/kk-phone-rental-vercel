@@ -17,6 +17,8 @@ const input={
   verified_pricing:true,
   price_display:'vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
   inventory_available:true,
+  recent_context_checked:true,
+  recent_posts:[],
   event_dates_verified:true,
   event_dates:['3 ต.ค.'],
   day_statuses_verified:true,
