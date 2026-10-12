@@ -1230,8 +1230,11 @@ function availTextFor(c){
 }
 function startingPriceFor(c){
   var min=0;
+  // Only advertise a price the customer can actually select in the modal.
+  // Full/hidden packages may be cheaper but must not set the "from" price.
   (c&&c.packages||[]).forEach(function(p){
-    var n=toNum(p&&p.price);
+    if(!p||!p.avail)return;
+    var n=toNum(p.price);
     if(n>0&&(min===0||n<min))min=n;
   });
   return min;
@@ -1509,11 +1512,11 @@ function buildBookingMsg(c,p){
   // Keep LINE OA message short and package-specific.
   // The pick-up field intentionally says "equipment" so lens-only rentals are covered.
   return [
-    "สนใจเช่ามือถือ",
+    currentLang==="en"?"Hello, I'd like to rent this package.":"สวัสดีค่ะ สนใจเช่าแพ็กเกจนี้ค่ะ",
     "🎫 "+tr("line_event")+": "+lineVal(c&&c.name),
     "📅 "+tr("line_date")+": "+lineVal(c&&c.date),
     "📍 "+tr("line_venue")+": "+lineVal(c&&c.venue),
-    "📱 รุ่น: "+lineVal(p&&p.model),
+    "📱 "+(currentLang==="en"?"Package / model":"รุ่น/แพ็กเกจ")+": "+lineVal(p&&p.model),
     "💰 "+tr("line_price")+": "+((p&&p.inquiryOnly)?tr("ask_price"):fmtPriceLine(p&&p.price)),
     "⏰ "+tr("line_pickup")+": ",
     "",
