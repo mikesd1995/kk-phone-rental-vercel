@@ -14,6 +14,16 @@ function text(v){return String(v==null?'':v).trim();}
 function truthy(v){return v===true||v===1||['true','1','yes'].includes(text(v).toLowerCase());}
 function isoDate(v){
  const s=text(v),m=DATE_RE.exec(s);
+ // Native Google Sheets readback can expose dates as Excel/Sheets day serials.
+ // Handle integer and integer-looking values explicitly before DD/MM parsing;
+ // never silently rely on Core fallback when a typed booking date is present.
+ if(/^\d{5}(?:\.0+)?$/.test(s)){
+  const serial=Number(s);
+  if(serial>=30000&&serial<=80000){
+   const d=new Date(Date.UTC(1899,11,30)+serial*86400000);
+   return Number.isFinite(d.getTime())?d.toISOString().slice(0,10):'';
+  }
+ }
  if(m){const d=new Date(s+'T00:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===s?s:'';}
  const parts=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
  if(!parts)return '';
@@ -87,6 +97,23 @@ function audit(input={}){
  const publicFutureLocked=publicFuture.filter(e=>locked.has(isoDate(e.event_date_text))).map(e=>({
   event_id:text(e.event_id),event_date:isoDate(e.event_date_text),reason:'BOOKING_DAY_LOCK'
  }));
+ // A date with an existing confirmed/active booking can still expose non-booked
+ // sold-out waitlist cards. Report separately: zero stock is NOT proof of a
+ // second rentable phone, but the owner may want all other cards hidden.
+ // Never infer authority to mutate derived visibility from this audit.
+ const otherPublicOnBookedDates=publicFuture.filter(e=>{
+  const lock=locked.get(isoDate(e.event_date_text));
+  return lock&&!lock.related_event_ids.has(text(e.event_id));
+ }).map(e=>{
+  const date=isoDate(e.event_date_text),lock=locked.get(date);
+  const phones=Number(e.available_phone_count||0),lens=Number(e.available_lens_count||0);
+  const hasStock=Number.isFinite(phones)&&phones>0||Number.isFinite(lens)&&lens>0;
+  return {event_id:text(e.event_id),event_date:date,action_for_web:text(e.action_for_web),
+   booked_event_ids:[...lock.related_event_ids].sort(),
+   available_phone_count:Number.isFinite(phones)?phones:null,
+   available_lens_count:Number.isFinite(lens)?lens:null,
+   classification:hasStock?'REVIEW_BOOKED_DATE_NONBOOKED_EVENT_WITH_STOCK':'REVIEW_BOOKED_DATE_NONBOOKED_EVENT_WAITLIST_ONLY'};
+ });
  const publicUnknownDates=publicRows.filter(e=>!isoDate(e.event_date_text)).map(e=>text(e.event_id));
  const hasIntegrityRisk=sourceDateConflicts.length>0||bookingDateConflicts.length>0||
   publicUnknownDates.length>0||coreDuplicates.length>0||webDuplicates.length>0||publicCoreInactive.length>0||publicUnverifiedDates.length>0;
@@ -102,6 +129,8 @@ function audit(input={}){
    public_temporary_brand_posters:publicTemporary.length,
    public_awaiting_official_posters:publicMissing.length+publicTemporary.length,
    public_future_on_booked_date:publicFutureLocked.length,
+   public_other_events_on_booked_date:otherPublicOnBookedDates.length,
+   public_other_events_on_booked_date_with_stock:otherPublicOnBookedDates.filter(e=>e.classification==='REVIEW_BOOKED_DATE_NONBOOKED_EVENT_WITH_STOCK').length,
    unresolved_active_booking_dates:unresolvedActiveBookings.length,
    source_date_conflicts:sourceDateConflicts.length,
    booking_date_conflicts:bookingDateConflicts.length,
@@ -113,6 +142,7 @@ function audit(input={}){
   public_missing_canonical_posters:publicMissing,
   public_temporary_brand_posters:publicTemporary,
   public_future_booked_date_locks:publicFutureLocked,
+  public_other_events_on_booked_date:otherPublicOnBookedDates,
   protected_dates:protectedDates,
   integrity:{public_core_inactive_ids:publicCoreInactive,core_duplicate_ids:coreDuplicates,web_duplicate_ids:webDuplicates,
    unresolved_active_booking_dates:unresolvedActiveBookings,
