@@ -3,6 +3,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const vm=require('node:vm');
+const crypto=require('node:crypto');
 
 test('Apps Script owner decision is a separate atomic pending-only action',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','apps-script','Code.gs'),'utf8');
@@ -74,4 +76,66 @@ test('legacy pending create never requires V2 canonical price; V2 preflights bef
   assert.equal((body.match(/approval_version:requestV2 \? kkLineBookingApprovalVersionAtRow_/g)||[]).length,3,'every pending/replayed intake response must be opt-in');
   assert.match(src,/case 'decideLineBookingPending': result = kkApiDecideLineBookingPending_\(payload\); break;/);
   assert.match(src,/case 'decideLineBookingPendingV2': result = kkApiDecideLineBookingPending_\(payload, true\); break;/);
+});
+
+
+test('V2 effective owner-hidden/date gate and package stock are source-bound, not only event.active',()=>{
+ const code=fs.readFileSync(path.join(__dirname,'..','apps-script','Code.gs'),'utf8');
+ assert.match(code,/function kkLineBookingVisibleEventV2_\(eventId, expectedDate\)/);
+ assert.match(code,/action !== 'show' && action !== 'show_full'/);
+ assert.match(code,/LINE owner V2 event hidden by effective storefront visibility/);
+ assert.match(code,/LINE owner V2 storefront\/core event date mismatch/);
+ assert.match(code,/const web=kkLineBookingVisibleEventV2_\(eventId,liveDate\)/);
+ assert.match(code,/web\.action,web\.phone_count,web\.lens_count/);
+ assert.match(code,/Number\(pkg\.available_count\|\|0\),Number\(pkg\.raw_available_count\|\|0\)/);
+ const intake=code.slice(code.indexOf('function kkApiCreateLineBookingPending_'),code.indexOf('function kkApiDecideLineBookingPending_',code.indexOf('function kkApiCreateLineBookingPending_')));
+ assert.match(intake,/kkLineBookingVisibleEventV2_\(eventId,kkApiDate_\(event\.event_date\)\)/);
+ assert.match(intake,/web\.action !== 'show'/);
+ assert.ok(intake.indexOf("web.action !== 'show'") < intake.indexOf("status: 'PENDING'"),'owner-day guard must happen before booking claim');
+});
+
+test('actual Apps Script V2 fingerprint detects owner-hidden, stale dates and package stock without touching bookings',()=>{
+ const code=fs.readFileSync(path.join(__dirname,'..','apps-script','Code.gs'),'utf8');
+ const start=code.indexOf('function kkLineBookingVisibleEventV2_');
+ const end=code.indexOf('function kkLineBookingApprovalVersionAtRow_',start);
+ assert.ok(start>=0 && end>start,'extract actual Apps Script V2 authorization functions');
+ const requestId='line:'+'a'.repeat(48);
+ const claim={status:'OK',booking_id:'BK-TEST',event_id:'EVT-1',template_id:'TPL-1'};
+ const core={event_date:'2026-11-14',status:'open',active:true};
+ const web={event_id:'EVT-1',event_date:'2026-11-14',action_for_web:'show',available_phone_count:2,available_lens_count:2};
+ const pkg={event_id:'EVT-1',package_id:'EVT-1-TPL-1',price:890,package_status:'available',available_count:2,raw_available_count:2};
+ let webRows=[web];
+ const sandbox={
+   PropertiesService:{getScriptProperties(){return {getProperty(){return JSON.stringify(claim);}};}},
+   Utilities:{DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},computeDigest(_alg,text){return Array.from(crypto.createHash('sha256').update(text,'utf8').digest());}},
+   kkBookingRequestIdFromNote_:()=>requestId,
+   kkLineBookingRequestKey_:id=>'claim:'+id,
+   kkNormalizeTemplateIdForEvent_:(_id,t)=>t,
+   kkTemplateIdFromWebPackageId_:(id,eventId)=>id.slice(eventId.length+1),
+   kkGetEventById_:()=>core,
+   kkApiDate_:x=>String(x),
+   kkApiDateTime_:x=>String(x),
+   kkApiWebReadyRows_:()=>webRows,
+   kkApiWebPackageRows_:()=>[pkg]
+ };
+ vm.runInNewContext(code.slice(start,end),sandbox);
+ const booking=Array(20).fill('');
+ booking[0]='BK-TEST';booking[1]='2026-10-12';booking[2]='pending';booking[3]='EVT-1';booking[13]='unpaid';booking[14]=0;booking[19]='governed LINE request';
+ const baseline=sandbox.kkLineBookingApprovalVersion_(booking);
+ assert.match(baseline,/^[a-f0-9]{64}$/);
+ web.action_for_web='hide';
+ assert.throws(()=>sandbox.kkLineBookingApprovalVersion_(booking),/hidden by effective storefront visibility/);
+ web.action_for_web='show';web.event_date='2026-11-15';
+ assert.throws(()=>sandbox.kkLineBookingApprovalVersion_(booking),/storefront\/core event date mismatch/);
+ web.event_date='2026-11-14';
+ pkg.available_count=1;
+ assert.notEqual(sandbox.kkLineBookingApprovalVersion_(booking),baseline,'new booking reduces available stock: stale owner approval invalid');
+ pkg.available_count=2;web.available_phone_count=1;
+ assert.notEqual(sandbox.kkLineBookingApprovalVersion_(booking),baseline,'owner daily stock count change invalidates revision');
+ web.available_phone_count=2;web.action_for_web='show_full';
+ assert.notEqual(sandbox.kkLineBookingApprovalVersion_(booking),baseline,'pending reservation may cause full display; must require matching signed version');
+ web.action_for_web='show';webRows=[];
+ assert.throws(()=>sandbox.kkLineBookingApprovalVersion_(booking),/missing or duplicated/);
+ webRows=[web,web];
+ assert.throws(()=>sandbox.kkLineBookingApprovalVersion_(booking),/missing or duplicated/);
 });
