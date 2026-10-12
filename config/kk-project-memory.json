@@ -230,7 +230,7 @@
     {
       "memory_id": "kk:memory:october-external-demand-reconciliation:20261007",
       "occurred_at": "2026-10-07T01:00:00+07:00",
-      "kind": "RUN_RESULT",
+      "kind": "ACCEPTANCE",
       "domain": "discovery_scanner",
       "summary": "October 2026 external-demand reconciliation rerun completed for 7-31 Oct under the new fandom-first policy. Initial visible storefront count 42; final production-visible count 50 (47 show, 3 show_full). Net +8: added FAYE PERAYA BIRTHDAY PARTY 2026 1410 STATIC; restored 4 durable owner REOPENED rows (TEEHENG 24 Oct, OMEGA X 24 Oct, GUN NAPAT Birthday 24 Oct, T.O.P PRE-STUDIO 24 Oct); external-demand-reactivated 3 non-LOCKED hidden rows with capacity (LINGORM 18 Oct score ~97, GMMTV FANIVAL 7 Oct ~84, Avenged Sevenfold 7 Oct ~79). No additional removals in this rerun; prior low-demand prune remains LOCKED and Love On Hire Blessing Ceremony remains retained. Production /api/kk-data readback found all 8 changed event IDs as show and 3 package rows each. Monthly flow now re-scores existing visible cards, can remove <45 when owner apply is active, keeps 45-59.9 existing cards as WATCH_KEEP, reactivates hidden non-LOCKED >=60 only with capacity, restores durable REOPENED intent, never overrides LOCKED, and emits an ADDED/REMOVED/REACTIVATED/RESTORED diff.",
       "status": "ACTIVE",
@@ -248,9 +248,9 @@
     {
       "memory_id": "kk:memory:vercel-hobby-deployment-storage-recovery:20261012",
       "occurred_at": "2026-10-12T14:11:00+07:00",
-      "kind": "RUN_RESULT",
+      "kind": "BLOCKER",
       "domain": "infrastructure",
-      "summary": "Owner requires KK Phone Rental Vercel Hobby 10GB Deployment Storage recovery at zero paid cost, preserving production, rollback, bookings, prices, official event posters, owner write gates. Actual Vercel production alias continues READY on dpl_AmYtTipVdrzuT1i5XdYBGp3wdY1L main 69390a9. PR #693 Draft branch fix/vercel-hobby-storage-free-recovery-20261011 excludes 330 repo-only files (2,933,586 source bytes) via .vercelignore without excluding runtime/postinstall tests. Branch gate vercel.json git.deploymentEnabled {'*':false,'main':true} prevents automatic non-main Git previews once merged. NOT merged: no exact-head passing CI, no proven storage GB-month reduction or successful new production deployment. GitHub Actions jobs across three workflows failed before runner assignment (runner_id=0, steps=[]). Vercel Storage/Functions Usage and Retention Policy not exposed by current connector; a prior project preview suppression PATCH was accepted but effect unverified. Unrelated inbox preview deploy fails getMediaMetadata undefined 100/101 tests. Detailed cross-chat handoff in docs/VERCEL_DEPLOYMENT_STORAGE_RECOVERY_20261011.md and PR #693 comments; require real Usage metric and safe acceptance before claiming done. Avoid paid upgrade, accidental reenable of all previews or deleting Production/rollback.",
+      "summary": "Owner requires recovery of KK Phone Rental Vercel Hobby Deployment Storage 10GB with no paid upgrades and no impact on Production, rollback, bookings, prices or posters. Production alias still READY at deployment dpl_AmYtTipVdrzuT1i5XdYBGp3wdY1L, main 69390a9. Draft PR #693 trims 330 repo-only files (2,933,586 Git-source bytes) without excluding live runtime or postinstall tests, and adds git.deploymentEnabled {'*':false,'main':true} to prevent future automatic non-main previews after merge. Not merged; measured GB-month reclaim and safe new deployment unproven. GitHub Actions fails before runner assignment (runner_id=0, steps=[]), including unrelated production-watch jobs. Vercel retention and measured Team Usage unavailable through this connector; prior Preview suppression PATCH response omitted confirmation. Separate Inbox build error: getMediaMetadata undefined. Canonical handoff: docs/VERCEL_DEPLOYMENT_STORAGE_RECOVERY_20261011.md. Never claim resolved without numerical Usage and successful accepted deployment.",
       "status": "ACTIVE",
       "evidence_refs": [
         "docs/VERCEL_DEPLOYMENT_STORAGE_RECOVERY_20261011.md",
