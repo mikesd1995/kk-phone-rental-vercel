@@ -30,7 +30,13 @@ function safeEqHex(left,right){
   if(!/^[a-f0-9]{64}$/i.test(t(left))||!/^[a-f0-9]{64}$/i.test(t(right))) return false;
   return crypto.timingSafeEqual(Buffer.from(t(left),'hex'),Buffer.from(t(right),'hex'));
 }
+const ENVELOPE_FIELDS=new Set([
+  'version','audience','notification_id','request_id','event_type','entity_id',
+  'content_version','text','created_at','expires_at','signature'
+]);
 function checkBody(e={},now=Date.now()){
+  if(!e||typeof e!=='object'||Array.isArray(e)) return 'TRANSPORT_ENVELOPE_INVALID';
+  if(Object.keys(e).some(key=>!ENVELOPE_FIELDS.has(key))) return 'FORBIDDEN_TRANSPORT_FIELD';
   if(e.version!==VERSION||e.audience!==AUDIENCE) return 'TRANSPORT_VERSION_OR_AUDIENCE_INVALID';
   if(!/^[a-zA-Z0-9:_-]{12,128}$/.test(t(e.notification_id))) return 'NOTIFICATION_ID_INVALID';
   if(!/^[a-zA-Z0-9:_-]{12,128}$/.test(t(e.request_id))) return 'REQUEST_ID_INVALID';
