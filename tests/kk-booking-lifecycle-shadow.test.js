@@ -48,3 +48,20 @@ test('legacy completed with missing evidence is flagged, never auto-reclassified
  assert.equal(a.totals.verified_completed_receipt,0);
  assert.equal(a.safety.historical_reclassification_authorized,false);
 });
+
+test('read-only snapshot attaches aggregate audit and Admin renders owner warnings',()=>{
+ const fs=require('node:fs');
+ const src=fs.readFileSync(require.resolve('../server/admin-sheet-fallback.js'),'utf8');
+ const ui=fs.readFileSync(require.resolve('../admin/admin.js'),'utf8');
+ assert.match(src,/booking_closure_evidence_shadow:BookingLifecycleShadow\.audit\(bookings\)/);
+ assert.match(ui,/const closure=d\.booking_closure_evidence_shadow/);
+ assert.match(ui,/Booking · หลักฐานปิดงาน/);
+});
+test('aggregate shadow never leaks customer PII or enables writes',()=>{
+ const a=R.audit([{booking_id:'B',customer_name:'SECRET',customer_phone:'0123456789',booking_status:'completed',
+  payment_status:'paid',amount_received:'590',return_status:'',file_transfer_status:'',drive_link:''}]);
+ assert.equal(a.issues.historical_completed_missing_evidence,1);
+ assert.equal(JSON.stringify(a).includes('SECRET'),false);
+ assert.equal(JSON.stringify(a).includes('0123456789'),false);
+ assert.equal(a.safety.production_writes,0);
+});
