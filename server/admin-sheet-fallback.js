@@ -15,7 +15,7 @@ let nextFetchIdentity = 1;
 
 const SPECS = {
   events:       { sheet:'01_Events', range:'A4:I', header:'event_id', startRow:4 },
-  bookings:     { sheet:'00_Master_Booking', range:'A4:T', header:'booking_id', startRow:4 },
+  bookings:     { sheet:'00_Master_Booking', range:'A4:X', header:'booking_id', startRow:4 },
   assets:       { sheet:'02_Assets', range:'A4:G', header:'asset_id', startRow:4 },
   packages:     { sheet:'03_Packages', range:'A4:J', header:'template_id', startRow:4 },
   overrides:    { sheet:'04_Event_Overrides', range:'A4:G', header:'event_id', startRow:4 },
@@ -201,6 +201,7 @@ function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
       phone_asset_id:phoneId,phone_model_display:phone.model_display||phoneId||'',phone_model_group:phone.model_group||'',
       lens_asset_id:lensId,lens_model_display:lens.model_display||lensId||'',lens_model_group:lens.model_group||'',
       pickup_time:r.pickup_time||'',return_time:r.return_time||'',payment_status:r.payment_status||'',amount_received:num(r.amount_received),
+      package_price:num(r.package_price),
       return_status:r.return_status||'',file_transfer_status:r.file_transfer_status||'',drive_link:r.drive_link||'',damage_fee:num(r.damage_fee),
       work_task:task,is_cancelled:st==='cancelled',is_active_hold:['pending','confirmed','prepared','picked_up'].includes(st),
       should_show_current:workflowOpen(st),note:cleanBookingNote(r.staff_note)};
