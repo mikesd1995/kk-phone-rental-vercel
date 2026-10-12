@@ -135,7 +135,9 @@ async function postToMake(payload,cfg,fetchImpl=global.fetch){
     const receipt=await response.json().catch(()=>null);
     if(!receipt||receipt.ok!==true||receipt.notification_id!==payload.envelope.notification_id||
        receipt.status!=='SENT') return {ok:false,reason:'MAKE_DELIVERY_NOT_ACKNOWLEDGED'};
-    return {ok:true,status:'SENT',notification_id:receipt.notification_id};
+    // Transport claims to have ACKed. Canonical delivery still requires a
+    // separate durable outbox readback of provider_message_id and SENT state.
+    return {ok:true,status:'MAKE_ACK_CLAIMED_NOT_DB_VERIFIED',notification_id:receipt.notification_id};
   }catch(_){return {ok:false,reason:'MAKE_TRANSPORT_UNCONFIRMED'};}
   finally{clearTimeout(timer);}
 }
