@@ -349,9 +349,24 @@ async function main(){
       await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
       await captureState('english',path.join(outputDir,`${width}x${height}-english.jpg`));
       const modalCard=page.locator('#content .concert-card:not(.skeleton-card)').first();
+      // Deliberately open a real card from below the top of the catalogue.
+      // A modal that jumps the document to top can otherwise pass a focus-only test.
+      await modalCard.scrollIntoViewIfNeeded();
+      await page.evaluate(()=>{
+        const card=document.querySelector('#content .concert-card:not(.skeleton-card)');
+        if(!card)return;
+        const targetY=window.scrollY+card.getBoundingClientRect().top-90;
+        window.scrollTo({top:Math.max(0,targetY),behavior:'instant'});
+      });
       await modalCard.click();
+      const openModalScrollY=await page.evaluate(()=>window.scrollY);
+      recordInteraction('modal_open_preserves_scrolled_position',width>700 || openModalScrollY>20,
+        'width='+width+', open_scroll_y='+openModalScrollY);
       await captureState('english-modal',path.join(outputDir,`${width}x${height}-english-modal.jpg`));
       await page.keyboard.press('Escape');
+      const closeModalScrollY=await page.evaluate(()=>window.scrollY);
+      recordInteraction('modal_scroll_restored',Math.abs(closeModalScrollY-openModalScrollY)<=2,
+        'open_scroll_y='+openModalScrollY+', close_scroll_y='+closeModalScrollY);
       recordInteraction('modal_focus_restored',await modalCard.evaluate(el=>el===document.activeElement));
       await page.locator('.lang-btn[data-lang="th"]').click();
       await page.locator('#theme-toggle').click();
