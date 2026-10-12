@@ -85,3 +85,37 @@ Keep all legacy scenarios inactive; new Scenario 6600107 can remain disabled. Re
 - Shadow Observer main-team `6224679`: schedule `indefinitely/900s` -> **on-demand**; Readback inactive, lastEdit `2026-10-12T09:15:19.216Z`.
 - Shadow Observer private-space `6224686`: 900s -> **on-demand**, saved after transient Make API rate-limits, lastEdit `2026-10-12T09:16:50.664Z` (readback follow-up required).
 - Along with legacy Telegram Transport `6176241`, **four** nonessential scheduled jobs are configured on-demand. This reduces potential automatic operations; all have remained inactive, so no saved historical credit usage is claimed.
+
+## 2026-10-12 follow-up: Verified offline tests, SQL privilege hardening, runner issue
+
+### Actions committed on PR #697 this turn
+- **SQL privilege correction** `supabase/staging/kk-make-owner-notification-v1.sql`: both `kk_make_owner_notification_claim` and `kk_make_owner_notification_ack` changed from `SECURITY DEFINER` to **`SECURITY INVOKER`**, preserve `RLS`, only service-role EXECUTE, explicit `pg_catalog` functions. Commit `2f472a2239dc08a9b7cba699dd46aff476cafe85`. No SQL executed on any Supabase project. Runtime-ledger project `zehlsagzrpromtfqqflt` existing tables inspected read-only: no `kk_make_owner_notification_outbox` yet.
+- **Safer reservation**: validate owner target **before** consuming durable claim; require UUID-shaped receipt, not just non-empty. Commit `6a68220673726a7c80b27affe0098ea26a92de0b` and regression tests `3dd1148ec39866563d8db9d8b0c114c001bdedc5`.
+- **Malformed-envelope and shadow data hardening**: null/array/primitive envelopes fail with a structured error (no thrown parse exception); reject any unrecognized unsigned envelope key, including `owner_approved`, `reply_markup`, `chatId`, `booking_id`, `price`. Commits `51047fcf639e2213df8d96e3f584955fe5552742`, `59a73d37a598bfb91e8e3b887802b13d7cf7f7fe`. No provider send paths added.
+- **Targeted CI workflow** `.github/workflows/make-owner-transport-contract.yml`: read-only syntax, HMAC, API, SQL privilege/static gate. Initial PR-triggered GitHub Actions run **#38237515721**, job **#114771738544**, completed **failure**; it yielded **zero job steps**, and the log fetch returned **BlobNotFound**. Thus this was not evidence of a failing unit assertion nor a CI pass. To avoid repeated GitHub runner consumption during this unresolved runner/log incident, changed to `workflow_dispatch` only (commit `629a8b873b2d761d8acab55f888dd54255ea6ecf`), timeout 4 minutes. **CI run remains unresolved**, and must be retried manually only when the runner service/Free quota is ready.
+
+### Independent exact-source Node test evidence
+Network git clone of repository failed in execution container due DNS resolution. Alternative used: retrieved source files via authenticated GitHub connector, reconstituted them locally, then verified **git blob SHA** against current PR file contents. No secret credentials were copied.
+- `server/make-owner-transport-contract.js`: exact git blob SHA `d06ad2d8b9be6fa7dc88a5afddbc8c44d07203f0`
+- `tests/make-owner-transport-contract.test.js`: `f1626b374d6f72c7aa0aa729d58768f65ed2235e`
+- `server/runtime-ledger.js` from main: `db45b163465d6bdab47577cac7c8775d3e6428e9`
+- `api/kk-make-owner-notify.js`: `6ecf5c1bbde0782085bd0546366b818d24425d9d`
+- `tests/make-owner-notify-api.test.js`: `381bea00fa1abc983958889ae6f4727ae056655d`
+- Command: `node --test tests/make-owner-transport-contract.test.js tests/make-owner-notify-api.test.js` from equivalent reconstructed tree, Node **v22.16.0**. **21 tests passed, 0 failed**, duration about **77.5 ms**. This verifies offline Contract + API behavior with **mocked Supabase RPC responses only**. It does **not** execute PostgreSQL migration, real webhook processing, Telegram delivery, full `npm test`, or exact-head GitHub Actions CI. Do not conflate these.
+
+### Latest live readback (no production changes)
+- New Make A `6600107`: **INACTIVE**, 2 modules only (custom webhook -> fixed HTTP503 deny), queue **0**.
+- Old Make A Admin Bridge `6336390`: queued **2**, deliberately not replayed.
+- Old Make B staging `5988323`: queued **1**, deliberately not replayed.
+- Make A/B quotas: each **1000/1000 remaining**, **0 used**, **0 active**, auto purchasing **OFF**. No Telegram sends or extra charge.
+- Existing `6176241` legacy Telegram transport remains `INACTIVE`, schedule **on-demand**, not a polling source.
+- PR #697 remains **DRAFT**; none of this code is merged/deployed. Canonical event producer, signed Make -> Prepare -> Telegram -> ACK mapping, live receipt and authorized owner decision path are still required. DO NOT activate or merge solely because 21 offline tests pass.
+
+### Next safe acceptance steps
+1. Run the manual bounded CI workflow on PR head once GitHub runner is healthy; reconcile any failures.
+2. Verify RLS and invoker-only SQL on an approved no-business-write staging database before migration; do not run against unrelated/Production by assumption.
+3. Implement controlled canonical producer and immutable outbox insertion with exact event/version and no customer PII.
+4. Complete Make send/ack wiring against a deployed **staging** endpoint; test one owner-only non-customer alert, provider receipt, replay rejection, ambiguity hold and Free credits. Keep 3 old webhook deliveries quarantined.
+5. Implement separate owner-authenticated decision callbacks (X/Booking), including exact-version, booking-day/hidden-event/price locks and no-deposit payment state.
+6. Require Production acceptance proof before merge/deploy/activation. Zero business writes until then.
+
