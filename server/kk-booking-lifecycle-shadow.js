@@ -37,7 +37,8 @@ function audit(rows){
  if(!Array.isArray(rows))throw Error('BOOKING_ROWS_REQUIRED');
  const status_mix={},counts={completed:0,active:0,excluded:0,blank:0},
   issues={historical_completed_missing_evidence:0,confirmed_unpaid_with_amount_field:0,
-   cancelled_paid_refund_review:0,active_paid_before_handover:0,invalid_amount_field:0,missing_booking_id:0},
+   cancelled_paid_refund_review:0,active_paid_before_handover:0,invalid_amount_field:0,missing_booking_id:0,
+   active_missing_package_price:0},
   totals={actual_completed_by_status:0,future_active_quote:0,forecast_by_status:0,verified_completed_receipt:0};
  for(const r of rows){
   if(!r||typeof r!=='object')continue;
@@ -52,7 +53,12 @@ function audit(rows){
    if(evidence(r).missing.length)issues.historical_completed_missing_evidence++;
    else totals.verified_completed_receipt+=n;
   }else if(ACTIVE.has(st)){
-   counts.active++;totals.future_active_quote+=n;
+   counts.active++;
+   // Future is the AGREED booking package quote (Master column X), never
+   // the cash-receipt field O: KK collects zero deposit before handover.
+   const quoted=amount(r.package_price);
+   if(quoted===null || quoted<=0)issues.active_missing_package_price++;
+   else totals.future_active_quote+=quoted;
    if(st==='confirmed'&&norm(r.payment_status)==='unpaid'&&n>0)issues.confirmed_unpaid_with_amount_field++;
    if(norm(r.payment_status)==='paid'&&['pending','confirmed','prepared'].includes(st))issues.active_paid_before_handover++;
   }else if(!st){counts.blank++;}
@@ -63,7 +69,7 @@ function audit(rows){
   'READ_ONLY_HISTORICAL_EVIDENCE_GAPS':'READ_ONLY_AUDIT',
   status_mix,counts,issues,totals,
   policy:{no_deposit:true,cash_at_handover:true,actual:'completed only',future:'active only',
-   excluded:['cancelled','no_show','blank','unknown'],amount_field_not_cash_proof:true},
+   excluded:['cancelled','no_show','blank','unknown'],amount_field_not_cash_proof:true,future_source:'canonical package_price (Master column X), not amount_received'},
   safety:{read_only:true,production_writes:0,booking_writes:0,
    historical_reclassification_authorized:false,server_completion_guard_wired:false}};
 }
