@@ -71,6 +71,10 @@ function audit(input={}){
   classification:'CORE_ACTIVE_NOT_PUBLIC_REVIEW_ONLY'
  }));
  const publicCoreInactive=publicRows.filter(e=>!truthy(byCore.get(text(e.event_id))?.active_on_web)).map(e=>text(e.event_id));
+ const publicUnverifiedDates=publicRows.filter(e=>{
+  const row=byCore.get(text(e.event_id));
+  return row&&text(row.data_health).toUpperCase().includes('SOURCE_DATE_UNVERIFIED');
+ }).map(e=>({event_id:text(e.event_id),status:'HOLD_PUBLIC_DATE_NOT_OFFICIALLY_VERIFIED'}));
  const publicMissing=publicRows.filter(e=>!text(e.poster_image_url)).map(e=>({
   event_id:text(e.event_id),event_date:isoDate(e.event_date_text),
   status:'HOLD_CANONICAL_POSTER_MISSING'
@@ -85,7 +89,7 @@ function audit(input={}){
  }));
  const publicUnknownDates=publicRows.filter(e=>!isoDate(e.event_date_text)).map(e=>text(e.event_id));
  const hasIntegrityRisk=sourceDateConflicts.length>0||bookingDateConflicts.length>0||
-  publicUnknownDates.length>0||coreDuplicates.length>0||webDuplicates.length>0||publicCoreInactive.length>0;
+  publicUnknownDates.length>0||coreDuplicates.length>0||webDuplicates.length>0||publicCoreInactive.length>0||publicUnverifiedDates.length>0;
  const protectedDates=[...locked.values()].map(r=>({date:r.date,active_bookings:r.active_bookings,
   event_ids:[...r.related_event_ids].sort()})).sort((a,b)=>a.date.localeCompare(b.date));
  return {
@@ -102,6 +106,7 @@ function audit(input={}){
    source_date_conflicts:sourceDateConflicts.length,
    booking_date_conflicts:bookingDateConflicts.length,
    public_unresolved_event_dates:publicUnknownDates.length,
+   public_unverified_source_dates:publicUnverifiedDates.length,
    owner_core_hidden_but_public:publicCoreInactive.length,
    core_duplicate_ids:coreDuplicates.length,web_duplicate_ids:webDuplicates.length},
   core_active_not_public:coreActiveNotPublic,
@@ -112,7 +117,8 @@ function audit(input={}){
   integrity:{public_core_inactive_ids:publicCoreInactive,core_duplicate_ids:coreDuplicates,web_duplicate_ids:webDuplicates,
    unresolved_active_booking_dates:unresolvedActiveBookings,
    source_date_conflicts:sourceDateConflicts,booking_date_conflicts:bookingDateConflicts,
-   public_unresolved_event_date_ids:publicUnknownDates},
+   public_unresolved_event_date_ids:publicUnknownDates,
+   public_unverified_source_dates:publicUnverifiedDates},
   provenance:{core:'01_Events',derived:'08_Web_Ready',bookings:'00_Master_Booking'},
   safety:{production_writes:0,price_writes:0,poster_writes:0,auto_unhide:false,
    pricing_write_authorized:false,booking_changes:0,requires_live_verifier:true}
