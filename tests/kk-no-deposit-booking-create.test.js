@@ -46,5 +46,5 @@ test('Admin displays no future-booking debt alert and server guards writes',()=>
   const guard=fs.readFileSync(path.join(root,'api/kk-admin-guard.js'),'utf8');
   assert.match(s,/\['picked_up','returned','uploaded'\]\.includes\(st\) && isUnpaidPayment\(b\.payment_status\)/);
   assert.match(guard,/NoDepositBooking\.checkCreateBooking\(payload\)/);
-  assert.match(guard,/NO_DEPOSIT_PREPAYMENT_FORBIDDEN/);
+  assert.match(guard,/error_code:zeroDeposit\.error_code/);
 });
