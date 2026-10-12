@@ -59,6 +59,18 @@ test('visual QA runner captures screenshots and exercises only read-only storefr
   assert.doesNotMatch(runner,/\.submit\(/);
 });
 
+test('rendered mobile QA rejects scroll-to-top regression after closing a catalogue modal',()=>{
+  assert.match(runner,/modal_open_preserves_scrolled_position/);
+  assert.match(runner,/modal_scroll_restored/);
+  assert.match(runner,/modal_focus_restored/);
+  assert.match(runner,/openModalScrollY>20/);
+  assert.match(runner,/Math\.abs\(closeModalScrollY-openModalScrollY\)<=2/);
+  const before=runner.indexOf('const openModalScrollY=await page.evaluate');
+  const after=runner.indexOf("recordInteraction('modal_scroll_restored'");
+  assert.ok(before>=0 && after>before,'scroll evidence must be captured across modal close');
+  assert.match(runner.slice(before,after),/page\.keyboard\.press\('Escape'\)/);
+});
+
 test('visual QA runner measures the mobile failure classes and invokes reviewer acceptance',()=>{
   for(const token of [
     'document_scroll_width_px',
