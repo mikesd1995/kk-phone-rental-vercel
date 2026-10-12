@@ -98,3 +98,28 @@ test('Admin image route authenticates, checks exact conversation membership, and
  assert.ok(migration.includes("values('kk-inbox-media','kk-inbox-media',false"));
  assert.match(migration,/revoke all on function public\.kk_inbox_media_metadata/);
 });
+
+test('store exposes only service-role exact-conversation media lookup and normalizes RPC null',async()=>{
+ const {createPostgrestStore}=require('../server/kk-inbox-postgrest-store.js');
+ const requests=[];
+ const expected={message_id:'msg-test',conversation_id:'conv-test',channel:'line',direction:'inbound',message_type:'image',provider_message_id:'line-original'};
+ const store=createPostgrestStore({
+  url:'https://inbox.example.invalid',
+  serviceKey:'unit-test-service-only',
+  fetchImpl:async (url,request)=>{
+   requests.push({url,request});
+   return new Response(JSON.stringify(expected),{status:200,headers:{'Content-Type':'application/json'}});
+  }
+ });
+ const one=await store.getMediaMetadata(' conv-test ',' msg-test ');
+ assert.deepEqual(one,expected);
+ assert.equal(requests.length,1);
+ assert.equal(requests[0].url,'https://inbox.example.invalid/rest/v1/rpc/kk_inbox_media_metadata');
+ assert.equal(requests[0].request.headers.Authorization,'Bearer unit-test-service-only');
+ assert.deepEqual(JSON.parse(requests[0].request.body),{p_conversation_id:'conv-test',p_message_id:'msg-test'});
+ const missing=createPostgrestStore({
+  url:'https://inbox.example.invalid',serviceKey:'fixture-key',
+  fetchImpl:async()=>new Response('null',{status:200})
+ });
+ assert.equal(await missing.getMediaMetadata('other-conv','msg-test'),null);
+});
