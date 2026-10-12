@@ -3,8 +3,8 @@
 const Bridge=require('./admin-make-bridge.js');
 
 const BRIDGE_RUNTIME_ENABLED=false;
-const BRIDGE_RUNTIME_REASON='MAKE_FREE_CREDITS_EXHAUSTED';
-const BRIDGE_RECHECK_DATE='2026-10-10';
+const BRIDGE_RUNTIME_REASON='MAKE_LEGACY_QUEUE_AND_ACCEPTANCE_PENDING';
+const BRIDGE_RECHECK_DATE='2026-10-12';
 
 function quarantineBody(){
   return {
