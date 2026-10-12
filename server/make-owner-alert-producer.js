@@ -119,4 +119,24 @@ async function notifyVerifiedOwner(lookup={},options={}){
     notification_id:identity.notification_id,request_id:identity.request_id,
     status:'PENDING_PROVIDER_ACK'};
 }
-module.exports={VERSION,VERIFIED_SOURCE,config,makeIdentity,insertOutbox,notifyVerifiedOwner};
+// Server-only Make handoff. Successful HTTP does not imply Telegram delivery.
+// A signed receipt must be independently read from the outbox before declaring SENT.
+async function postToMake(payload,cfg,fetchImpl=global.fetch){
+  if(!cfg.ready||typeof fetchImpl!=='function'||!payload||payload.stage!=='prepare'||
+     !Transport.verifyEnvelope(payload.envelope,cfg.secret).ok) return {ok:false,reason:'MAKE_HANDOFF_DISABLED_OR_INVALID'};
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),10000);
+  try{
+    const response=await fetchImpl(cfg.webhook,{
+      method:'POST',headers:{'Content-Type':'application/json','User-Agent':'KK-Owner-Transport/1'},
+      body:JSON.stringify(payload),signal:controller.signal,redirect:'error'
+    });
+    if(!response.ok) return {ok:false,reason:'MAKE_HANDOFF_NON_2XX'};
+    const receipt=await response.json().catch(()=>null);
+    if(!receipt||receipt.ok!==true||receipt.notification_id!==payload.envelope.notification_id||
+       receipt.status!=='SENT') return {ok:false,reason:'MAKE_DELIVERY_NOT_ACKNOWLEDGED'};
+    return {ok:true,status:'SENT',notification_id:receipt.notification_id};
+  }catch(_){return {ok:false,reason:'MAKE_TRANSPORT_UNCONFIRMED'};}
+  finally{clearTimeout(timer);}
+}
+module.exports={VERSION,VERIFIED_SOURCE,config,makeIdentity,insertOutbox,postToMake,notifyVerifiedOwner};
