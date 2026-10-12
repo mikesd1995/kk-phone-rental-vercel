@@ -2,6 +2,8 @@
 -- Migration is NOT deployed by merging this source; apply only after controlled
 -- Supabase project binding, security review and source-of-truth acceptance.
 -- The canonical booking/event/price and Notification_Ledger are never mutated here.
+-- SECURITY INVOKER: functions run only as the caller (service_role), never as postgres owner.
+-- Neither PUBLIC nor anon/authenticated has table privileges or function execute grants.
 
 create table if not exists public.kk_make_owner_notification_outbox (
   notification_id text primary key,
@@ -33,12 +35,12 @@ create or replace function public.kk_make_owner_notification_claim(
   p_entity_id text, p_content_version text, p_text_sha256 text,
   p_expires_at timestamptz
 ) returns table(status text,receipt_id uuid)
-language plpgsql security definer set search_path = ''
+language plpgsql security invoker set search_path = ''
 as $$
 begin
   return query
   update public.kk_make_owner_notification_outbox as n
-  set status='RESERVED', receipt_id=gen_random_uuid(), reserved_at=now()
+  set status='RESERVED', receipt_id=pg_catalog.gen_random_uuid(), reserved_at=pg_catalog.now()
   where n.notification_id=p_notification_id
     and n.request_id=p_request_id
     and n.event_type=p_event_type
@@ -46,7 +48,7 @@ begin
     and n.content_version=p_content_version
     and n.text_sha256=p_text_sha256
     and n.expires_at=p_expires_at
-    and n.expires_at>now()
+    and n.expires_at>pg_catalog.now()
     and n.status='QUEUED'
   returning 'RESERVED'::text,n.receipt_id;
 end;
@@ -59,7 +61,7 @@ grant execute on function public.kk_make_owner_notification_claim(text,text,text
 create or replace function public.kk_make_owner_notification_ack(
   p_notification_id text, p_receipt_id uuid, p_provider_message_id text
 ) returns table(status text,provider_message_id text)
-language plpgsql security definer set search_path = ''
+language plpgsql security invoker set search_path = ''
 as $$
 begin
   if p_provider_message_id !~ '^[0-9]{1,20}$' then
@@ -67,7 +69,7 @@ begin
   end if;
   return query
   update public.kk_make_owner_notification_outbox as n
-  set status='SENT', provider_message_id=p_provider_message_id, delivered_at=now()
+  set status='SENT', provider_message_id=p_provider_message_id, delivered_at=pg_catalog.now()
   where n.notification_id=p_notification_id
     and n.receipt_id=p_receipt_id
     and n.status='RESERVED'
