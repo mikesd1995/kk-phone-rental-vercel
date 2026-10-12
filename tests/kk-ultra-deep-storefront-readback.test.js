@@ -126,3 +126,32 @@ test('a publicly displayed SOURCE_DATE_UNVERIFIED Core event emits integrity HOL
  assert.equal(displayed.integrity.public_unverified_source_dates[0].event_id,'EVT-HIDDEN');
  assert.equal(displayed.safety.auto_unhide,false);
 });
+
+test('Google Sheets integer date serial is treated as a real booking date, never ignored',()=>{
+ assert.equal(R.isoDate('46318'),'2026-10-23');
+ assert.equal(R.isoDate(46318),'2026-10-23');
+ assert.equal(R.isoDate('46318.0'),'2026-10-23');
+ assert.equal(R.isoDate('46326'),'2026-10-31');
+ assert.equal(R.isoDate('2026-10-23'),'2026-10-23');
+ assert.equal(R.isoDate('23/10/2026'),'2026-10-23');
+ assert.equal(R.isoDate('123'),'');
+ const b=[...bookings,['BOOK-SERIAL','','confirmed','EVT-BOOKED','46313']];
+ const result=R.audit({core_rows:core,web_ready_rows:web,booking_rows:b,as_of_date:'2026-10-12'});
+ assert.equal(result.counts.booking_date_conflicts,0);
+ const wrong=[...bookings,['BOOK-SERIAL','','confirmed','EVT-BOOKED','46318']];
+ const mismatch=R.audit({core_rows:core,web_ready_rows:web,booking_rows:wrong,as_of_date:'2026-10-12'});
+ assert.equal(mismatch.counts.booking_date_conflicts,1);
+ assert.equal(mismatch.status,'READ_ONLY_AUDIT_WITH_INTEGRITY_CONFLICTS');
+});
+test('nonbooked public cards on an active booking date are flagged without changing visibility or prices',()=>{
+ const withWaitlist=[...web,['EVT-WAITLIST','Another event','18/10/2026','Bangkok','official','','0','0','full','show_full']];
+ const r=R.audit({core_rows:core,web_ready_rows:withWaitlist,booking_rows:bookings,as_of_date:'2026-10-12'});
+ assert.equal(r.counts.public_other_events_on_booked_date,2);
+ assert.equal(r.counts.public_other_events_on_booked_date_with_stock,1);
+ const soldOut=r.public_other_events_on_booked_date.find(e=>e.event_id==='EVT-WAITLIST');
+ assert.equal(soldOut.classification,'REVIEW_BOOKED_DATE_NONBOOKED_EVENT_WAITLIST_ONLY');
+ assert.equal(soldOut.available_phone_count,0);
+ assert.equal(r.safety.auto_unhide,false);
+ assert.equal(r.safety.production_writes,0);
+ assert.equal(r.safety.price_writes,0);
+});
