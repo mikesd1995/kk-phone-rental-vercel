@@ -1,16 +1,8 @@
 name: Make Owner Transport Contract (zero external sends)
 
+# Manual bounded CI: GitHub hosted runner returned failure with no steps/log blob on 2026-10-12.
+# Do not automatically burn Actions quota for every PR commit.
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/make-owner-transport-contract.yml'
-      - 'api/kk-make-owner-notify.js'
-      - 'server/make-owner-transport-contract.js'
-      - 'server/admin-make-gate.js'
-      - 'supabase/staging/kk-make-owner-notification-v1.sql'
-      - 'tests/make-owner-transport-contract.test.js'
-      - 'tests/make-owner-notify-api.test.js'
-      - 'tests/admin-make-write-bridge.test.js'
   workflow_dispatch:
 
 permissions:
