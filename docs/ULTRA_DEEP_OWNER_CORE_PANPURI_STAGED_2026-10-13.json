@@ -8,7 +8,7 @@
   "source": {
     "repository": "mikesd1995/kk-phone-rental-vercel",
     "branch": "audit/ultra-deep-panpuri-oct21-20261013",
-    "owner_lineage_source_sha": "6be93c862cd02a2b45a1cae281f909619c510ccd",
+    "owner_lineage_source_sha": "17a8cb8c3b5403c3a9115f95ec5e475a3e46f082",
     "backend_sheet_title": "KK Phone rental backend",
     "tracker_sheet_title": "KK Phone Rental — Event Tracker 2569",
     "read_scope": [
@@ -52,7 +52,8 @@
         "range": "A1:M2000",
         "rows_returned": 35
       }
-    ]
+    ],
+    "learning_source_sha": "d9c003627a9eb403e37e2f8d5c97ec6daad44d8b"
   },
   "reconciliation": {
     "version": "KK_ULTRA_DEEP_OWNER_CORE_LINEAGE_V1",
@@ -196,5 +197,21 @@
     "core": 0,
     "tracker": 0,
     "production": 0
+  },
+  "learning_observation": {
+    "review_only": true,
+    "status": "OWNER_CORE_REVIEW_PENDING",
+    "verified_scanner_miss": false,
+    "adaptive_query_terms_created_from_owner_observation": 0,
+    "learned_miss_classes_created_from_owner_observation": 0,
+    "auto_write_tracker": false,
+    "training_eligible": false
+  },
+  "validation": {
+    "kind": "isolated V8 exact branch JS with mocked Node builtins",
+    "owner_lineage_test_cases": 15,
+    "owner_lineage_passed": 15,
+    "real_node_ci_acceptance": false,
+    "source_checked_after_strict_webready_identity": true
   }
 }
