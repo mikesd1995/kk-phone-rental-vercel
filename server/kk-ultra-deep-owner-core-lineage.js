@@ -59,8 +59,11 @@ function linkedToCore(row={},core={},surface=''){
  const id=text(core.event_id);
  const direct=text(row.event_id);
  if(direct)return direct===id;
- const notes=[row.Notes,row.notes,row['Notes'],row['Show ID']].map(text).join(' ');
- if(notes.includes(id))return true;
+ const notes=[row.Notes,row.notes,row['Notes'],row['Show ID'],row['Miss ID']].map(text).join(' ');
+ if(notes.includes(id)){
+  const suppliedDate=isoDate(row.event_date||row.event_date_text||row['Suspected Event Date']||row['วันที่งานจัด']||row['Event Date']);
+  return !suppliedDate||suppliedDate===isoDate(core.event_date);
+ }
  return eventIdentity(row)===eventIdentity(core) &&
   nameDate(row).split('|')[0].length>=7&&nameDate(row).split('|')[1]!=='';
 }
@@ -135,6 +138,8 @@ function prepare(input={}){
    if(webRows.length!==1||webRows[0]&&isoDate(webRows[0].event_date_text)!==date)blockers.push('CORE_WEBREADY_MISMATCH');
    if(lockRows.length!==1)blockers.push('VISIBILITY_LOCK_SNAPSHOT_MISMATCH');
    if(!ownerProof)blockers.push('OWNER_PROVENANCE_NOT_CONFIRMED');
+   if(lockRows.length===1&&(isoDate(lock.event_date)!==date||
+     normalize(lock.venue)!==normalize(core.venue)))blockers.push('VISIBILITY_LOCK_IDENTITY_CONFLICT');
    if(['LOCKED'].includes(text(lock.lock_state).toUpperCase()))blockers.push('OWNER_TOMBSTONE_LOCKED');
    const typeCount=new Map();
    for(const row of packageRows)typeCount.set(text(row.package_type),(typeCount.get(text(row.package_type))||0)+1);
