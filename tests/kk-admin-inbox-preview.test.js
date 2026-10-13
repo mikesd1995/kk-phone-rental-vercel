@@ -282,7 +282,7 @@ test('ambiguous LINE send outcome prevents another send in the same page session
   loadList:async()=>{},loadThread:async()=>{}
  };
  vm.runInNewContext(
-  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();\n"+
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();let pendingIntentionalRepeat=null;\n"+
   js.slice(a,b)+"\nglobalThis.sendMessage=sendMessage;globalThis.held=()=>uncertainSendRooms.has('conv_A');",ctx
  );
  const first=ctx.sendMessage();
@@ -323,7 +323,7 @@ test('owner send refuses identity mismatch before any LINE request',async()=>{
   api:async()=>{calls++},composeState:()=>{},loadList:async()=>{},loadThread:async()=>{}
  };
  vm.runInNewContext(
-  "let selected='conv_B',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();\n"+
+  "let selected='conv_B',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();let pendingIntentionalRepeat=null;\n"+
   js.slice(a,b)+"\nglobalThis.sendMessage=sendMessage;",ctx
  );
  await ctx.sendMessage();
@@ -342,7 +342,7 @@ test('confirmed LINE send is not misclassified as uncertain when thread refresh 
   loadList:async()=>{throw new Error('list failed')}
  };
  vm.runInNewContext(
-  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();\n"+
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();let pendingIntentionalRepeat=null;\n"+
   js.slice(a,b)+"\nglobalThis.sendMessage=sendMessage;globalThis.held=()=>uncertainSendRooms.has('conv_A');",ctx
  );
  await ctx.sendMessage();
@@ -361,7 +361,7 @@ test('HTTP success without matching provider receipt is treated as uncertain and
   composeState:msg=>statuses.push(String(msg||'')),loadThread:async()=>{},loadList:async()=>{}
  };
  vm.runInNewContext(
-  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();\n"+
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();let pendingIntentionalRepeat=null;\n"+
   js.slice(a,b)+"\nglobalThis.sendMessage=sendMessage;globalThis.held=()=>uncertainSendRooms.has('conv_A');",ctx
  );
  await ctx.sendMessage();
