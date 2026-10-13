@@ -1,10 +1,11 @@
 'use strict';
 
 // Owner-approved X commercial-copy contract. Read-only; no publishing or spend.
-const VERSION='KK_X_OWNER_COPY_POLICY_V1';
+const VERSION='KK_X_OWNER_COPY_POLICY_V2';
 const BRAND='📱 KK Phone Rental | #เช่ามือถือ';
 const CTA='👉 เลือกวันแล้วจองคิว';
-const STATUS=Object.freeze({available:'✅ ว่าง',full:'❌ เต็ม',closed:'🚫 ปิด'});
+// Customer-facing X status is binary; internal closed/hidden/owner-locked reasons remain unchanged.
+const STATUS=Object.freeze({available:'✅ ว่าง',full:'❌ เต็ม',closed:'❌ เต็ม',hidden:'❌ เต็ม',hide:'❌ เต็ม',owner_closed:'❌ เต็ม',locked:'❌ เต็ม'});
 const SAFETY=Object.freeze({owner_approval_required:true,auto_publish:false,production_writes:0});
 
 function text(value){return String(value===null||value===undefined?'':value).trim();}
@@ -36,6 +37,8 @@ function validatePost(post,input={}){
     /(?:เหลือ|คงเหลือ|สุดท้าย).{0,22}(?:เครื่อง|คิว)|(?:เครื่อง|คิว)(?:สุดท้าย)/iu.test(copy))
     errors.push('OWNER_X_STOCK_QUANTITY_OR_SCARCITY_FORBIDDEN');
 
+  if(/🚫\s*(?:ปิด(?:รับจอง)?|งด(?:รับจอง)?)/u.test(copy))
+    errors.push('OWNER_X_PUBLIC_CLOSED_LABEL_FORBIDDEN');
   const rawStatuses=Array.isArray(input.day_statuses)?input.day_statuses:[];
   if(input.day_statuses_verified!==true)errors.push('OWNER_X_DAY_STATUS_EVIDENCE_REQUIRED');
   if(rawStatuses.length===0)errors.push('OWNER_X_DAY_STATUS_LIST_REQUIRED');
