@@ -178,3 +178,28 @@ test('static API, frontend and migration contracts require owner approval and se
  assert.match(migration,/grant execute .* to service_role/i);
  assert.doesNotMatch(migration,/customer_phone|customer_name|booking_status|\bbody_text\b/i);
 });
+
+test('missing, empty, or duplicate Inbox persistence receipts cannot confirm a LINE send',async()=>{
+ for(const receipt of [null,undefined,{ok:true,writes:0},{ok:true,writes:1,duplicate:true},{ok:false,writes:1}]){
+  const store=makeStore(),line=lineMock();
+  store.recordOutbound=async()=>receipt;
+  const result=await run(store,line);
+  assert.equal(result.ok,false);
+  assert.equal(result.error_code,'INBOX_OUTBOUND_PERSIST_UNCERTAIN');
+  assert.equal(result.provider_sends,1);
+  assert.equal(store.byRequest.get(requestA).status,'UNCERTAIN');
+  const again=await run(store,line);
+  assert.equal(again.http_status,409);
+  assert.equal(line.calls.length,1);
+ }
+});
+
+test('verified Inbox persistence requires an exact single newly written row',async()=>{
+ const store=makeStore(),line=lineMock();
+ store.recordOutbound=async()=>({ok:true,writes:'1'});
+ const result=await run(store,line);
+ assert.equal(result.error_code,'INBOX_OUTBOUND_PERSIST_UNCERTAIN',
+  'string or malformed row counts are not proof of committed Inbox write');
+ assert.equal(store.byRequest.get(requestA).status,'UNCERTAIN');
+ assert.equal(line.calls.length,1);
+});
