@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_RECONCILIATION_V2';
+const VERSION='KK_ULTRA_DEEP_RECONCILIATION_V3';
 
 function text(v){return String(v==null?'':v).trim();}
 function norm(v){return text(v).toLowerCase().replace(/[^a-z0-9฀-๿]+/g,' ').replace(/\s+/g,' ').trim();}
@@ -90,7 +90,23 @@ function reconcileCandidateSets(discovered=[],reference=[],context={}){
   // month/location/category policy. Undefined remains backwards-compatible and
   // eligible for deterministic/unit callers.
   const eligibleRefs=structuredRefs.filter(row=>row.eligible_for_discovery!==false);
-  const missing=[];
+  // A scoped, event-specific reference without a structured day is not
+  // equivalent to a verified event. It is a pending Verifier obligation.
+  // Ordinary unscoped search/calendar pages are still excluded, preserving
+  // backwards-compatible reconciliation semantics and zero fake FULL claims.
+  const pendingSourceDate=refs.filter(row=>
+    row.eligible_for_discovery===true &&
+    !hasComparableEventIdentity(row) &&
+    !text(row.event_date) &&
+    text(row.reference_scope_reason)==='SOURCE_DATE_PENDING_PRIMARY_VERIFIER'
+  );
+  const missing=pendingSourceDate.map(row=>({
+    reference_id:text(row.reference_id)||null,
+    title:text(row.title||row.event_name)||null,
+    event_date:null,
+    source_url:text(row.source_url)||null,
+    reason:'SOURCE_EVENT_DATE_PENDING_VERIFIER'
+  }));
   const matched=[];
   for(const row of eligibleRefs){
     const k=reconcileKey(row);
@@ -113,6 +129,7 @@ function reconcileCandidateSets(discovered=[],reference=[],context={}){
     excluded_reference_count:structuredRefs.length-eligibleRefs.length,
     unstructured_reference_count:refs.length-structuredRefs.length,
     matched_count:matched.length,
+    pending_source_date_count:pendingSourceDate.length,
     missing_candidates:missing,
     production_writes:0
   };

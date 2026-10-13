@@ -7,6 +7,8 @@ on:
       - 'tests/vercel-deployment-footprint.test.js'
       - 'vercel.json'
       - 'package.json'
+      - 'scripts/kk-ci-offline-dependency-gate.js'
+      - 'tests/kk-ci-offline-dependency-gate.test.js'
       - '.github/workflows/vercel-storage-source-contract.yml'
   push:
     branches:
@@ -37,6 +39,12 @@ jobs:
         run: |
           git rev-parse HEAD
           test -f .vercelignore
+      - name: Prove zero-install Node-only test closure
+        run: |
+          node --version
+          npm --version
+          node --test tests/kk-ci-offline-dependency-gate.test.js
+          node scripts/kk-ci-offline-dependency-gate.js storage
       - name: Verify packaging and existing Vercel build guard
         run: node --test tests/vercel-deployment-footprint.test.js tests/vercel-ignore-build.test.js
       - name: Verify Vercel postinstall gates without paid external services

@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V15';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V16';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -116,28 +116,51 @@ function trustedEventPath(value){
   const u=new URL(text(value));
   const host=u.hostname.toLowerCase();
   const path=u.pathname.toLowerCase();
-  if(host.endsWith('eventpop.me')) return /^\/e\//.test(path);
-  if(host.endsWith('thaiticketmajor.com')) return /^\/(concert|performance|event)\//.test(path);
-  if(host.endsWith('ticketmelon.com')) return path.split('/').filter(Boolean).length>=2;
-  if(host.endsWith('livenationtero.co.th')) return /^\/show\//.test(path)||/^\/[^/]*event\//.test(path)||path.includes('/event/');
-  if(host.endsWith('songkick.com')) return path.includes('/concerts/');
+  if(host==='eventpop.me'||host.endsWith('.eventpop.me')) return /^\/e\//.test(path);
+  if(host==='thaiticketmajor.com'||host.endsWith('.thaiticketmajor.com')) return /^\/(concert|performance|event)\//.test(path);
+  if(host==='ticketmelon.com'||host.endsWith('.ticketmelon.com')) return path.split('/').filter(Boolean).length>=2;
+  if(host==='livenationtero.co.th'||host.endsWith('.livenationtero.co.th')) return /^\/show\//.test(path)||/^\/[^/]*event\//.test(path)||path.includes('/event/');
+  if(host==='songkick.com'||host.endsWith('.songkick.com')) return path.includes('/concerts/');
   return false;
  }catch(_){return false;}
+}
+
+function validReferenceDate(value){
+ const v=text(value);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
+ const [y,m,d]=v.split('-').map(Number);
+ const check=new Date(Date.UTC(y,m-1,d));
+ return y>=2000&&y<=2100&&check.getUTCFullYear()===y&&
+   check.getUTCMonth()===m-1&&check.getUTCDate()===d;
+}
+function usableReferenceDetailUrl(value){
+ try{
+  const u=new URL(text(value));
+  if(u.protocol!=='https:'||!u.hostname||u.username||u.password)return false;
+  const p=u.pathname.toLowerCase().replace(/\/+$/,'');
+  if(!p||p==='/event'||p==='/events'||/^\/(?:search|category|categories|calendar|g)(?:\/|$)/.test(p))return false;
+  return /[a-z0-9\u0e00-\u0e7f]{5,}/i.test(p);
+ }catch(_){return false;}
+}
+function bangkokReferenceLocation(row={}){
+ const hay=[row.title,row.event_name,row.venue,row.location].map(text).join(' ');
+ return /\b(?:bangkok|nonthaburi|pathum thani|samut prakan|centralw[oO]rld|bitec|impact arena|thunder dome|siam paragon|one bangkok)\b|กรุงเทพ|นนทบุรี|ปทุมธานี|สมุทรปราการ|เซ็นทรัลเวิลด์|พารากอน|ไบเทค/i.test(hay);
 }
 
 function referenceScopeDecision(row={},context={}){
  const title=text(row.title||row.event_name);
  const eventDate=text(row.event_date);
  const month=text(context.month);
- if(!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return {eligible:false,reason:'NO_STRUCTURED_DATE'};
- if(month&&!eventDate.startsWith(month+'-')) return {eligible:false,reason:'OUTSIDE_TARGET_MONTH'};
+ const datePending=!eventDate;
+ if(eventDate&&!validReferenceDate(eventDate))return {eligible:false,reason:'INVALID_STRUCTURED_DATE'};
+ if(eventDate&&month&&!eventDate.startsWith(month+'-'))return {eligible:false,reason:'OUTSIDE_TARGET_MONTH'};
  if(REFERENCE_NOISE_RE.test(title)) return {eligible:false,reason:'NON_RENTAL_EVENT_NOISE'};
  if(/^\s*home\s*(?:[-|:–—]\s*.*)?$/i.test(title)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
  try{
   const u=new URL(text(row.source_url));
   const host=u.hostname.toLowerCase();
   const path=(u.pathname||'/').toLowerCase();
-  if(host.endsWith('eventpop.me')&&/^\/g(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+  if((host==='eventpop.me'||host.endsWith('.eventpop.me'))&&/^\/g(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
   if(/\/(search|category|categories)(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
  }catch(_){}
  try{
@@ -145,7 +168,7 @@ function referenceScopeDecision(row={},context={}){
   const path=(u.pathname||'/').replace(/\/+$/,'')||'/';
   if(path==='/'&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
  }catch(_){}
- if(REFERENCE_FOREIGN_RE.test(title)||/\.hk$/i.test((()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return''}})())) return {eligible:false,reason:'OUTSIDE_BANGKOK_SCOPE'};
+ if(REFERENCE_FOREIGN_RE.test([title,row.venue,row.location].map(text).join(' '))||/\.hk$/i.test((()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return''}})())) return {eligible:false,reason:'OUTSIDE_BANGKOK_SCOPE'};
  // A brand pop-up with a named artist is a discovery lead, not a publish decision.
  // Generic retail promotions stay excluded. Explicit Bangkok location and event date
  // are required; the verifier still needs an independent primary-source receipt.
@@ -158,6 +181,15 @@ function referenceScopeDecision(row={},context={}){
    /(bangkok|กรุงเทพ|centralworld|centralw[oO]rld|เซ็นทรัลเวิลด์)/i.test(explicitVenue);
 
  if(!REFERENCE_EVENT_RE.test(title)&&!trustedEventPath(row.source_url)&&!artistAppearancePopup) return {eligible:false,reason:'EVENT_IDENTITY_NOT_STRONG_ENOUGH'};
+ if(datePending){
+  // The scanner month is a search constraint, NOT proof of the event date.
+  // Admit only an event-specific HTTPS URL and explicit Bangkok-area signal.
+  // The source's JSON-LD Event.startDate, venue and owner policy still govern.
+  if(!/^\d{4}-\d{2}$/.test(month))return {eligible:false,reason:'UNDATED_TARGET_MONTH_REQUIRED'};
+  if(!usableReferenceDetailUrl(row.source_url))return {eligible:false,reason:'UNDATED_EVENT_DETAIL_HTTPS_REQUIRED'};
+  if(!bangkokReferenceLocation(row))return {eligible:false,reason:'UNDATED_BANGKOK_LOCATION_REQUIRED'};
+  return {eligible:true,reason:'SOURCE_DATE_PENDING_PRIMARY_VERIFIER'};
+ }
  return {eligible:true,reason:'ELIGIBLE_REFERENCE'};
 }
 
@@ -180,19 +212,37 @@ function alignKnownMissReferences(discovered=[],references=[]){
  });
 }
 
-function recoverEligibleReferenceCandidates(discovered=[],references=[]){
+function recoverEligibleReferenceCandidates(discovered=[],references=[],context={}){
  const out=[...(Array.isArray(discovered)?discovered:[])];
  const titleDate=new Set(out.filter(Reconciliation.hasComparableEventIdentity).map(Reconciliation.reconcileKey));
  const sourceDate=new Set(out.map(Reconciliation.sourceDateKey).filter(Boolean));
- let recovered=0;
+ const undatedKey=row=>[
+  Reconciliation.canonicalSourceUrl(row),
+  Reconciliation.eventSeriesTitle(row.title||row.event_name),
+  text(row.venue||row.location).toLowerCase()
+ ].join('|');
+ const undatedSeen=new Set(out.filter(row=>!text(row.event_date)&&row.source_url).map(undatedKey));
+ let recovered=0,undatedRecovered=0;
  for(const row of Array.isArray(references)?references:[]){
-  if(!row||row.eligible_for_discovery===false||!Reconciliation.hasComparableEventIdentity(row))continue;
+  if(!row||row.eligible_for_discovery===false)continue;
+  const structured=Reconciliation.hasComparableEventIdentity(row);
+  if(!structured){
+   // Never grant undated recovery from an unscoped third-party caller.
+   if(text(row.event_date)||row.eligible_for_discovery!==true||
+     referenceScopeDecision(row,context).reason!=='SOURCE_DATE_PENDING_PRIMARY_VERIFIER')continue;
+   const k=undatedKey(row);
+   if(undatedSeen.has(k))continue;
+   out.push({...row,event_date:null,candidate_origin:'INDEPENDENT_REFERENCE_RECOVERY',
+    date_pending_verification:true,verifier_required:true,authoritative:false});
+   undatedSeen.add(k);recovered++;undatedRecovered++;
+   continue;
+  }
   const rk=Reconciliation.reconcileKey(row),sk=Reconciliation.sourceDateKey(row);
   if(titleDate.has(rk)||(sk&&sourceDate.has(sk)))continue;
   const next={...row,candidate_origin:'INDEPENDENT_REFERENCE_RECOVERY',verifier_required:true,authoritative:false};
   out.push(next);titleDate.add(rk);if(sk)sourceDate.add(sk);recovered++;
  }
- return {candidates:out,recovered_count:recovered};
+ return {candidates:out,recovered_count:recovered,undated_recovered_count:undatedRecovered};
 }
 
 function summarizeExecution(execution={}){
@@ -317,7 +367,7 @@ async function runMonthlyUltraDeep(input={},options={}){
   referenceProof.has_evidence=referenceCandidates.length>0;
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
   const alignedReferenceCandidates=alignKnownMissReferences(candidates,scopedReferenceCandidates);
-  const recovered= recoverEligibleReferenceCandidates(candidates,alignedReferenceCandidates);
+  const recovered= recoverEligibleReferenceCandidates(candidates,alignedReferenceCandidates,{month:plan.range.month,location:plan.location});
   const verifierCandidates=recovered.candidates;
   const reconciliation=Reconciliation.reconcileCandidateSets(verifierCandidates,alignedReferenceCandidates);
 
@@ -349,6 +399,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     ...(!discoveryProof.complete?['DISCOVERY_EVIDENCE_EMPTY']:[]),
     ...(!referenceProof.complete?['REFERENCE_SWEEP_INCOMPLETE']:[]),
     ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
+    ...(reconciliation.pending_source_date_count>0?['REFERENCE_SOURCE_DATE_VERIFICATION_PENDING']:[]),
     ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[]),
     ...(!knownMissLive.complete?['KNOWN_MISS_LIVE_RECALL_INCOMPLETE']:[])
   ];
@@ -360,7 +411,8 @@ async function runMonthlyUltraDeep(input={},options={}){
     counts:{required_sources:universe.required_source_count,passed_sources:universe.passed_required_source_count,
       discovery_tasks:discoveryProof.task_count,discovery_executed:discoveryProof.executed_count,discovery_candidates:candidates.length,
       reference_tasks:referenceProof.task_count,reference_executed:referenceProof.executed_count,reference_candidates:referenceCandidates.length,
-      reference_recovered:recovered.recovered_count,reconciliation_gaps:reconciliation.reconciliation_gap_count,
+      reference_recovered:recovered.recovered_count,reference_undated_recovered:recovered.undated_recovered_count,
+      reference_pending_source_date:reconciliation.pending_source_date_count,reconciliation_gaps:reconciliation.reconciliation_gap_count,
       known_miss_live_passed:knownMissLive.passed,known_miss_live_total:knownMissLive.case_count},
     missing_required_sources:universe.missing_required_sources,source_tiers:universe.by_tier,
     known_miss_live:{complete:knownMissLive.complete,missing_cases:knownMissLive.missing_cases},
@@ -387,6 +439,8 @@ async function runMonthlyUltraDeep(input={},options={}){
     candidate_count:verifierCandidates.length,
     discovery_candidate_count:candidates.length,
     reference_recovered_candidate_count:recovered.recovered_count,
+    reference_undated_recovered_count:recovered.undated_recovered_count,
+    reference_pending_source_date_count:reconciliation.pending_source_date_count,
     candidates:verifierCandidates,
     reference_candidate_count:referenceCandidates.length,
     eligible_reference_candidate_count:alignedReferenceCandidates.filter(row=>row.eligible_for_discovery!==false).length,
