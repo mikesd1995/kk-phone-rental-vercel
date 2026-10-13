@@ -108,3 +108,34 @@ test('a partial shard timeout is explicitly incomplete even after earlier provid
  assert.equal(report.full,false);
  assert.equal(report.release_eligible,false);
 });
+
+test('all 12 offline source receipts still HOLD when an eligible independent event is missing its date',async()=>{
+ const cases=require('../server/kk-ultra-deep-known-miss-regression.js').CORPUS;
+ const byCase=new Map(cases.map(c=>['knownmiss:'+c.case_id,c]));
+ const provider=async task=>{
+  const hit=byCase.get(task.source_id);
+  if(hit)return [{title:hit.title,event_date:hit.event_date,
+   source_url:'https://proof.example/'+task.source_id}];
+  if(task.source_id==='reference-6')return [{
+   title:'ATLAS RISING UP FANMEET BANGKOK',
+   event_date:null,venue:'BITEC LIVE Bangkok',
+   source_url:'https://www.eventpop.me/e/2100/atlas-rising-up'
+  }];
+  return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',
+   source_url:'https://proof.example/'+(task.source_id||'generic')}];
+ };
+ const reports=[];
+ for(const shard of S.manifest(M).shards){
+  reports.push(await S.runShard({...M,shard_index:shard.index},
+   {read_only:true,providers:{BING_RSS:provider},runtime_budget_ms:5000}));
+ }
+ const merged=S.combineReports(M,reports);
+ assert.equal(merged.received_shards,12);
+ assert.equal(merged.reconciliation.pending_source_date_count,1);
+ assert.ok(merged.blockers.includes('REFERENCE_SOURCE_DATE_VERIFICATION_PENDING'));
+ assert.equal(merged.status,'HOLD_OFFLINE_DISCOVERY_INCOMPLETE');
+ assert.equal(merged.receipts_complete,false);
+ assert.equal(merged.full,false);
+ assert.equal(merged.release_eligible,false);
+ assert.equal(merged.production_writes,0);
+});
