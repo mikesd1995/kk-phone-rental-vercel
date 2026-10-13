@@ -31,6 +31,7 @@ Separately, `reconcileCandidateSets` ignored unstructured references, which coul
 
 - Strong date-less reference checks `Event.startDate`, matching **JSON-LD exact-event title**, source-originated Bangkok-area `Place/address`, and poster/authority before commercial acceptance; wrong event/foreign venue is HOLD even if the search snippet claimed Bangkok.
 - Prioritizes matching Event titles when a source page embeds multiple JSON-LD Events during the same month.
+- Accepts short distinctive artist identities such as BTS/NCT/VVV while rejecting unrelated band names; preserves the source-title and venue gates.
 - Named-artist PAÑPURI pop-up is always `HOLD_OWNER_ARTIST_POPUP_REVIEW` until organizer access/photography/lens restrictions and owner authorization, even if the HTML contains date/venue/poster. **Owner-provided image is not proof AI independently discovered the event.**
 
 ### 4. Direct Read-only V28
@@ -41,10 +42,10 @@ Separately, `reconcileCandidateSets` ignored unstructured references, which coul
 
 ## Regression and evidence
 
-- New `tests/kk-ultra-deep-reference-date-recovery.test.js`: **23 cases**, including snippet missing date, named pop-up, exact ticket URL, impossible/off-month dates, generic/counterfeit host, missing/foreign location, date-less duplicate, different event identities, existing multi-date dedupe, FULL still blocked, unscoped calendar exception, verified JSON-LD date, wrong JSON-LD title, foreign JSON-LD venue, wrong month/missing source date, multi-event JSON-LD selection, owner access HOLD, runtime provider-to-Verifier queue, real `Direct.run` mocked dependency behavior for read-only vs commit-intent.
+- New `tests/kk-ultra-deep-reference-date-recovery.test.js`: **24 cases**, including snippet missing date, named pop-up, exact ticket URL, impossible/off-month dates, generic/counterfeit host, missing/foreign location, date-less duplicate, different event identities, existing multi-date dedupe, FULL still blocked, unscoped calendar exception, verified JSON-LD date, wrong JSON-LD title, foreign JSON-LD venue, wrong month/missing source date, multi-event JSON-LD selection, owner access HOLD, runtime provider-to-Verifier queue, real `Direct.run` mocked dependency behavior for read-only vs commit-intent.
 - Updated `tests/ultra-deep-panpuri-popup-reference.test.js`: replace outdated assertion that all missing-date leads are excluded with guarded Verifier-only admission test.
 - `package.json`: register new test within existing `test:ultradeep:recall` and include new test/source syntax checks.
-- **Isolated exact-source V8 execution: 89/89 pass across five relevant files**: new date-less recovery suite, existing PAÑPURI popup suite, Reconciliation suite, Runtime Runner suite and Candidate Verifier suite. Mocks supplied Node builtins, URL, Web adapter and fake Provider/HTML; it is **NOT** a Node/npm/hosted GitHub CI pass or evidence that live public providers found any October event.
+- **Isolated exact-source V8 execution: 90/90 pass across five relevant files**: new date-less recovery suite, existing PAÑPURI popup suite, Reconciliation suite, Runtime Runner suite and Candidate Verifier suite. Mocks supplied Node builtins, URL, Web adapter and fake Provider/HTML; it is **NOT** a Node/npm/hosted GitHub CI pass or evidence that live public providers found any October event.
 - Native Node v22 was present in the local container, but the private GitHub branch could not be cloned there (`Could not resolve host: github.com`). No exact-head native Node test of the full repo was obtained in this workflow.
 - Previously observed exact-head GitHub Actions: no executed step details and `BlobNotFound` Logs; zero-cost CI/Node acceptance is still an independent HOLD gate. Never report these new tests as hosted CI green.
 
