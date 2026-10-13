@@ -8,7 +8,7 @@ test('admin exposes governed LINE send, provider names and owner customer labels
  assert.match(html,/id="inboxRenameBtn"/);assert.match(html,/id="inboxRenameDialog"/);assert.match(html,/id="inboxRenameInput"/);assert.match(html,/id="inboxRenameSave"/);
  assert.match(html,/ใช้ชื่อโปรไฟล์/);
  assert.match(js,/\/api\/kk-admin-guard/);assert.match(js,/inboxListConversations/);assert.match(js,/inboxHydrateLineProfiles/);assert.match(js,/inboxSendLineMessage/);assert.match(js,/inboxSetOwnerLabel/);assert.match(js,/inboxMarkRead/);
- assert.match(js,/owner_label\|\|row\?\.display_name/);assert.match(js,/ชื่อโปรไฟล์:/);assert.match(js,/owner_approved:true/);assert.match(js,/window\.confirm/);
+ assert.match(js,/owner_label\|\|row\?\.display_name/);assert.match(js,/ชื่อโปรไฟล์:/);assert.match(js,/owner_approved:true/);assert.match(js,/send_request_id:sendRequestId/);assert.match(js,/window\.confirm/);
  assert.match(js,/'X-Admin-Pin':pin\(\)/);assert.match(js,/autoMerge:false/);
  assert.doesNotMatch(js,/SERVICE_ROLE|SUPABASE_SERVICE/i);
 });
@@ -125,7 +125,7 @@ test('switching LINE rooms during send never wipes another customer draft or ref
  const input={value:'  reply to customer A  '},calls=[],threads=[],lists=[];
  let finish;
  const ctx={
-  $:()=>input,window:{confirm:()=>true},composeState:()=>{},
+  $:()=>input,window:{confirm:()=>true,crypto:{randomUUID:()=> '123e4567-e89b-42d3-a456-426614174000'}},composeState:()=>{},
   api:(action,payload)=>new Promise(resolve=>{calls.push({action,payload});finish=resolve;}),
   loadThread:async id=>threads.push(id),
   loadList:async()=>lists.push('refreshed')
@@ -155,7 +155,7 @@ test('LINE owner reply preserves an edited draft but clears the original complet
  const input={value:'first draft'},threads=[],calls=[];
  const pending=[];
  const ctx={
-  $:()=>input,window:{confirm:()=>true},composeState:()=>{},
+  $:()=>input,window:{confirm:()=>true,crypto:{randomUUID:()=> '123e4567-e89b-42d3-a456-426614174000'}},composeState:()=>{},
   api:(action,payload)=>new Promise(resolve=>{calls.push({action,payload});pending.push(resolve);}),
   loadThread:async id=>threads.push(id),loadList:async()=>{}
  };
@@ -208,7 +208,7 @@ test('successful in-flight reply cannot resurrect a sent draft after switching r
  const input={value:'send A'},threads=[];
  let resolveSend;
  const ctx={
-  $:()=>input,window:{confirm:()=>true},composeState:()=>{},
+  $:()=>input,window:{confirm:()=>true,crypto:{randomUUID:()=> '123e4567-e89b-42d3-a456-426614174000'}},composeState:()=>{},
   api:()=>new Promise(resolve=>{resolveSend=resolve}),
   loadThread:async id=>threads.push(id),loadList:async()=>{}
  };
@@ -277,7 +277,7 @@ test('ambiguous LINE send outcome prevents another send in the same page session
  const input={value:'reply A'},calls=[],statuses=[];
  let rejectSend;
  const ctx={
-  $:()=>input,window:{confirm:()=>true},composeState:s=>statuses.push(s||''),
+  $:()=>input,window:{confirm:()=>true,crypto:{randomUUID:()=> '123e4567-e89b-42d3-a456-426614174000'}},composeState:s=>statuses.push(s||''),
   api:(action,payload)=>new Promise((resolve,reject)=>{calls.push({action,payload});rejectSend=reject}),
   loadList:async()=>{},loadThread:async()=>{}
  };
@@ -319,7 +319,7 @@ test('owner send refuses identity mismatch before any LINE request',async()=>{
  assert.ok(a>0&&b>a);
  let calls=0;
  const ctx={
-  $:()=>({value:'send to A'}),window:{confirm:()=>true},
+  $:()=>({value:'send to A'}),window:{confirm:()=>true,crypto:{randomUUID:()=> '123e4567-e89b-42d3-a456-426614174000'}},
   api:async()=>{calls++},composeState:()=>{},loadList:async()=>{},loadThread:async()=>{}
  };
  vm.runInNewContext(
