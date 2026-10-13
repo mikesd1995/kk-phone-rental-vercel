@@ -8,6 +8,7 @@ on:
       - 'tests/ultra-deep-panpuri-popup-reference.test.js'
       - 'scripts/kk-ci-offline-dependency-gate.js'
       - 'tests/kk-ci-offline-dependency-gate.test.js'
+      - 'tests/ultra-deep-v2-workflow-contract.test.js'
       - '.github/workflows/ultra-deep-v2-acceptance.yml'
       - 'package.json'
 
@@ -15,16 +16,28 @@ permissions:
   contents: read
 
 concurrency:
-  group: ultra-deep-v2-acceptance-${{ github.ref }}
+  group: kk-ultra-deep-v2-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   v2-acceptance:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      APPROVED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact PR head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.APPROVED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify checked-out candidate SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+          printf 'accepted_sha=%s\n' "$APPROVED_SHA"
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
@@ -48,3 +61,5 @@ jobs:
         run: npm run test:ultradeep:recall
       - name: Focused V2 regression
         run: node --test tests/kk-ultra-deep-full-loop-v2.test.js
+      - name: Workflow release-safety regression
+        run: node --test tests/ultra-deep-v2-workflow-contract.test.js
