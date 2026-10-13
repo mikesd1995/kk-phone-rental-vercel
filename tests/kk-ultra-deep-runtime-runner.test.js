@@ -67,7 +67,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
 
 test('known-miss plan keeps one task per case and does not concatenate every alias into one over-constrained query',()=>{
  const plan=Runner.buildKnownMissPlan();
- assert.equal(plan.version,'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2');
+ assert.equal(plan.version,'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V3');
  assert.equal(plan.gap_tasks.length,KnownMiss.CORPUS.length);
  const remaster=plan.gap_tasks.find(x=>x.source_id==='knownmiss:remaster-20261010');
  assert.equal(remaster.query,'REMASTER CONCERT Bangkok Thailand');
@@ -91,7 +91,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
  assert.equal(out.full,true);
  assert.ok(calls[0].startsWith('knownmiss:'));
  const firstNonKnown=calls.findIndex(x=>!x.startsWith('knownmiss:'));
- assert.ok(firstNonKnown>=KnownMiss.CORPUS.length);
+ assert.ok(firstNonKnown>=Runner.buildKnownMissPlan({month:'2026-10'}).gap_tasks.length);
 });
 
 test('runtime known-miss gate accepts a governed hit from the main discovery sweep',async()=>{
@@ -372,4 +372,18 @@ test('full scan time budget returns explicit HOLD, never forged FULL or provider
  assert.equal(out.diagnostic.receipts.known_miss[0].attempts[0].status,'TIME_BUDGET_EXHAUSTED');
  assert.equal(out.diagnostic.receipts.discovery[0].attempts[0].status,'TIME_BUDGET_EXHAUSTED');
  assert.equal(out.production_writes,0);
+});
+
+test('October known-miss live probes omit irrelevant old/future dates but retain declared October discovery leads',()=>{
+ const cases=Runner.buildKnownMissPlan({month:'2026-10'}).gap_tasks;
+ const sourceIds=new Set(cases.map(x=>x.source_id));
+ const expected=KnownMiss.CORPUS.filter(c=>c.event_date.startsWith('2026-10')||
+  (c.discovery_months||[]).includes('2026-10'));
+ assert.equal(cases.length,expected.length);
+ assert.equal(cases.length,27);
+ assert.ok(sourceIds.has('knownmiss:panpuri-phutatchai-pop-up-20261021'));
+ assert.ok(sourceIds.has('knownmiss:gelboys-last-painting-20261122'));
+ assert.ok(sourceIds.has('knownmiss:siam-halloween-20261101'));
+ assert.equal(sourceIds.has('knownmiss:pink-aura-20260928'),false);
+ assert.equal(sourceIds.has('knownmiss:fortreasure-20261129'),false);
 });
