@@ -39,3 +39,8 @@ Related, but not future-visible under the derived current public feed:
 - **1 visible case** (LE7EL) remains marked temporary with accurate artist-profile alt.
 - **0 of the 6** official poster source URLs have been replaced, because first-party original image validation could not be completed.
 - **0 production deployments**, **0 core/derived Sheet cell updates**, **0 booking/price/inventory/visibility mutations**.
+
+## Exact-head external validation addendum (14 Oct 2026)
+- Vercel connector readback: newest Production READY `dpl_7TYLb87ir9qNzXRtkeb49543dwVm`, aliases include `kk-phone-rental.vercel.app`, SHA `d6dc3bfe4cc0c4dd6fdfec407823752da0572464`; **NOT** this patched Draft branch.
+- GitHub Action for patched documentation head `e742f531a08c9a0e893e38216e43eddd3844576e`: [Storefront Automated Visual QA run 38455870985](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38455870985) **completed failure**; job `visual-qa` had no returned steps, and the workflow job log download returned 404 BlobNotFound. Underlying cause could not be confirmed; do **not** report green or assume the workflow exercised tests.
+- This documentation addendum commit is another branch-only change; all exact-head release checks require rerun before merge, Vercel Production unchanged.
