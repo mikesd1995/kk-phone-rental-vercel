@@ -66,3 +66,20 @@ For AI review evidence, the supplied record must include `event_id`, `event_date
 ## Cross-chat continuation
 
 On next turn: inspect this document, the new Draft PR and linked issue. First distinguish **verified shipped** vs **staged source** vs **unavailable original images**. Next complete Node test readback and signed-out browse/inventory of 57 events; triage the eight missing (including K*Pop Masterz & FORTREASURE); accept only evidence-bound vision verdicts; keep owner/verifier approval for replacement. Do not automatically promote any poster based on a model's confidence.
+
+## Follow-up readback — 14 October 2026, ~04:11 Asia/Bangkok
+
+**This newer readback supersedes the older 8/57 snapshot above; the event feed changed between reads, and this audit did not cause the change.** Preserve historical counts with timestamps.
+
+- Refetched derived `08_Web_Ready!A4:J380`: 57 future-visible, **9 P0 missing posters**, **48 nonblank URLs** still awaiting delivery and pixel review; 48 in vision review queue.
+- New ninth missing source: **LYKN REFLEXION CONCERT, 23 Oct 2026**, `EVT-20261023-LYKN-REFLEXION-CONCERT-2`. Not in the previous eight-blank snapshot.
+- Canonical `01_Events!E29` blank (active_on_web=TRUE), derived `08_Web_Ready!E29` blank and `J29=show_full`, count available_phone_count=0. Other LYKN 24 Oct (row 14) and 25 Oct (row 15) retain their own nonblank Drive poster URLs. **Never touch Booking, price, stock, date availability or merge posters across those dates.**
+- Added regression coverage for show_full missing poster alert without mutating source Booking fields. Source-only suite now **19** scenarios across evaluator + CLI, all **19/19 V8 harness PASS** against exact retrieved branch. Full checked-out Node/CI remains unverified.
+- New P1 same-image SHA256/reused-file detection across different URLs, provided independent byte observations exist. Multi-event joint posters remain review-only. Event notes declaring temporary art create a P1 review signal, not a forced poster change.
+
+### Updated priority queue
+1. LYKN REFLEXION 23 Oct: show_full, zero available phones, poster blank. Preserve booking and owner lock.
+2. LE7EL 15 Oct; VVV/Xiaomi 25 Oct; AF AFTERLIFE 30 Oct; POP-ป่ะห์ #4 30 Oct; SUPER SUN 2 Nov; MizuMi/PHUWIN 5 Nov.
+3. 2026 K*Pop Masterz 15 Nov and FORTREASURE 27 Nov.
+
+**Latest snapshot:** 57 future-visible, 9 missing poster URLs, 48 with URL not yet validated against real image bytes. No Google Sheet, Booking, LINE, pricing, visibility or Production writes made by this audit.
