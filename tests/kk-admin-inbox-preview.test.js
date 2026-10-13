@@ -140,7 +140,7 @@ test('switching LINE rooms during send never wipes another customer draft or ref
  assert.equal(calls[0].payload.text,'reply to customer A');
  ctx.switchRoom('conv_B');
  input.value='draft for customer B';
- finish({ok:true});
+ finish({ok:true,provider_sends:1,message:{conversation_id:'conv_A',message_id:'msg_ok'}});
  await request;
  assert.equal(input.value,'draft for customer B');
  assert.deepEqual(threads,[]);
@@ -165,12 +165,12 @@ test('LINE owner reply preserves an edited draft but clears the original complet
  );
  const first=ctx.sendMessage();
  input.value='new unsent draft';
- pending.shift()({ok:true});
+ pending.shift()({ok:true,provider_sends:1,message:{conversation_id:'conv_A',message_id:'msg_ok'}});
  await first;
  assert.equal(input.value,'new unsent draft');
  assert.deepEqual(threads,['conv_A']);
  const second=ctx.sendMessage();
- pending.shift()({ok:true});
+ pending.shift()({ok:true,provider_sends:1,message:{conversation_id:'conv_A',message_id:'msg_ok'}});
  await second;
  assert.equal(input.value,'');
  assert.deepEqual(threads,['conv_A','conv_A']);
@@ -219,7 +219,7 @@ test('successful in-flight reply cannot resurrect a sent draft after switching r
  );
  const pending=ctx.sendMessage();
  ctx.switchRoom('conv_B');input.value='unsent B';
- resolveSend({ok:true});await pending;
+ resolveSend({ok:true,provider_sends:1,message:{conversation_id:'conv_A',message_id:'msg_ok'}});await pending;
  assert.equal(input.value,'unsent B');
  ctx.switchRoom('conv_A');
  assert.equal(input.value,'','the completed A message must not become an unsent draft');
@@ -328,4 +328,44 @@ test('owner send refuses identity mismatch before any LINE request',async()=>{
  );
  await ctx.sendMessage();
  assert.equal(calls,0);
+});
+
+test('confirmed LINE send is not misclassified as uncertain when thread refresh fails',async()=>{
+ const vm=require('node:vm'),js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const a=js.indexOf('async function sendMessage(){'),b=js.indexOf('\nfunction scheduleSearch(',a);
+ const input={value:'reply confirmed'},statuses=[];
+ const ctx={
+  $:()=>input,window:{confirm:()=>true,crypto:{randomUUID:()=> '123e4567-e89b-42d3-a456-426614174000'}},
+  api:async()=>({ok:true,provider_sends:1,message:{conversation_id:'conv_A',message_id:'msg_ok'}}),
+  composeState:msg=>statuses.push(String(msg||'')),
+  loadThread:async()=>{throw new Error('refresh failed')},
+  loadList:async()=>{throw new Error('list failed')}
+ };
+ vm.runInNewContext(
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();\n"+
+  js.slice(a,b)+"\nglobalThis.sendMessage=sendMessage;globalThis.held=()=>uncertainSendRooms.has('conv_A');",ctx
+ );
+ await ctx.sendMessage();
+ assert.equal(input.value,'','confirmed send clears completed draft');
+ assert.equal(ctx.held(),false,'refresh error cannot convert confirmed delivery to uncertain');
+ assert.match(statuses.at(-1),/ส่ง LINE และบันทึกสำเร็จแล้ว/);
+});
+
+test('HTTP success without matching provider receipt is treated as uncertain and held',async()=>{
+ const vm=require('node:vm'),js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const a=js.indexOf('async function sendMessage(){'),b=js.indexOf('\nfunction scheduleSearch(',a);
+ const input={value:'do not silently mark sent'},statuses=[];
+ const ctx={
+  $:()=>input,window:{confirm:()=>true,crypto:{randomUUID:()=> '123e4567-e89b-42d3-a456-426614174000'}},
+  api:async()=>({ok:true,provider_sends:1,message:{conversation_id:'conv_B',message_id:'msg_wrong'}}),
+  composeState:msg=>statuses.push(String(msg||'')),loadThread:async()=>{},loadList:async()=>{}
+ };
+ vm.runInNewContext(
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();\n"+
+  js.slice(a,b)+"\nglobalThis.sendMessage=sendMessage;globalThis.held=()=>uncertainSendRooms.has('conv_A');",ctx
+ );
+ await ctx.sendMessage();
+ assert.equal(ctx.held(),true);
+ assert.equal(input.value,'do not silently mark sent');
+ assert.match(statuses.at(-1),/สถานะส่งไม่ยืนยัน/);
 });
