@@ -80,7 +80,7 @@ async function runShard(input={},options={}){
   shard_index:index,shard_start:shard.start,shard_end:shard.end,task_ids:taskIds,
   results:result.results,executed_count:proof.executed_count,task_count:tasks.length,
   time_budget_exhausted:result.time_budget_exhausted===true,
-  status:proof.complete?'SHARD_RECEIPTS_EXECUTED':'SHARD_INCOMPLETE',
+  status:proof.complete&&!result.time_budget_exhausted?'SHARD_RECEIPTS_EXECUTED':'SHARD_INCOMPLETE',
   providers_bound:Object.keys(providers),
   full:false,authoritative:false,verifier_required:true,production_writes:0
  };
@@ -99,6 +99,8 @@ function combineReports(input={},reports=[]){
    JSON.stringify(report.task_ids)!==JSON.stringify(m.allTasks.slice(shard.start,shard.end).map(x=>x.task_id))||
    !Array.isArray(report.results)||report.results.length!==shard.count)
     throw new Error('READONLY_SHARD_REPORT_INVALID_OR_DUPLICATE');
+  if(report.time_budget_exhausted===true||report.status!=='SHARD_RECEIPTS_EXECUTED')
+   blockers.push('SHARD_TIMEOUT_OR_INCOMPLETE');
   valid.set(idx,report);
  }
  if(valid.size!==m.shards.length)blockers.push('MISSING_SHARDS');
