@@ -178,6 +178,7 @@ function stateFindings(state,{width,name}){
   if(state.small_targets.length)add('PRIMARY_TARGET_TOO_SMALL',JSON.stringify(state.small_targets));
   if(state.clipped_controls?.length)add('CONTROL_CLIPPED',state.clipped_controls.join(', '));
   if(state.overlapping_filters)add('FILTER_TARGETS_OVERLAP',name);
+  if(Number(state.failed_posters||0)>0)add('POSTER_IMAGE_LOAD_FAILED',JSON.stringify(state.failed_poster_details||[]));
   if(!state.modal){
     if(state.card_columns!==(width<359?1:2))add('CARD_COLUMNS_CONTRACT',String(state.card_columns));
     if(Math.max(...state.column_widths)-Math.min(...state.column_widths)>1)add('CARD_COLUMNS_UNEQUAL',JSON.stringify(state.column_widths));
