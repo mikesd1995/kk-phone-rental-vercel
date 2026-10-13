@@ -84,3 +84,7 @@ Only `01_Events` Sheet ID `416044968`, column E (`poster_image_url`), six cells,
 4. Avoid scanner auto-restoring any of the six original incorrect URLs; retain this ledger for cross-chat continuity.
 
 **Live result:** 6 confirmed incorrect/non-event picture URLs removed from the production data source, with record visibility preserved. **Not delivered:** 6 replacement organizer-original posters and verified client screenshots. No Booking, price, inventory, status, LINE send, Vercel release, or Google Drive ACL changed.
+
+### Public feed cache/visibility code audit (read-only)
+- Production `api/kk-data.js` at main `d6dc3bfe`: `sanitizePublicCsv` requires `event_id` and `event_name` for public event identity but **not** `poster_image_url`, so the six now-empty poster records are not discarded by this code. The CSV endpoint sets `Cache-Control: no-store, max-age=0, must-revalidate`; storefront `fetchWebRows` uses `CACHE_TTL=0` and cache-buster `t=Date.now()`. Event-share HTML caches separately for 60s, not the primary grid feed.
+- These are static code checks plus Google Sheet exact readback, **not** a successful external production `GET` or visual screenshot; any API transport incident must still be diagnosed against the actual alias/browser.
