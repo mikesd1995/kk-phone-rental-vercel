@@ -66,10 +66,11 @@ function buildReferencePlan(input={}){
     ['Bangkok '+labels.en+' event calendar','Thailand '+labels.en+' concert calendar','ตารางคอนเสิร์ต กรุงเทพ '+labels.th,'Bangkok concert calendar','Thailand concert calendar'],
     ['performance schedule artist mall Bangkok '+labels.en,'ตารางงานศิลปิน ห้าง แบรนด์ กรุงเทพ '+labels.th,'brand booth artist performance schedule Bangkok','artist monthly schedule brand campaign Bangkok']
   ];
+  groups.push(['Bangkok artist brand pop-up appearance '+labels.en,'ศิลปิน ป๊อปอัพ ห้าง กรุงเทพ '+labels.th,'beauty skincare pop up artist centralwOrld Bangkok','brand pop-up meet artist fan support Bangkok']);
   return {
-    version:'KK_ULTRA_DEEP_REFERENCE_SWEEP_V3',
+    version:'KK_ULTRA_DEEP_REFERENCE_SWEEP_V4',
     gap_tasks:groups.map((queries,i)=>({
-      source_tier:[2,4].includes(i)?'BRAND_SPONSOR':'PUBLIC_CALENDAR',
+      source_tier:[2,4,5].includes(i)?'BRAND_SPONSOR':'PUBLIC_CALENDAR',
       source_id:'reference-'+(i+1),
       query:queries[0],
       query_variants:queries.slice(1),
