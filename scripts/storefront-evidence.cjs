@@ -192,7 +192,13 @@ function stateFindings(state,{width,name}){
     if(m.left<0||m.right>width+1||m.top<0||m.bottom>m.viewport_height+1||m.scroll_width>m.client_width+1)add('MODAL_VIEWPORT_CONTAINMENT',JSON.stringify(m));
     if(!m.focus_inside)add('MODAL_FOCUS_ESCAPED',name);
     if(!m.title.trim())add('MODAL_EVENT_IDENTITY_MISSING',name);
-    if(width<=700&&Math.abs(m.bottom-m.viewport_height)>1)add('MOBILE_SHEET_NOT_ANCHORED',name);
+    if(width<=700){
+      // V6.12 owner-approved UX: both event and FAQ modals are centered,
+      // not bottom sheets. Retain containment/focus/title checks above.
+      const modalMid=(m.top+m.bottom)/2,viewportMid=m.viewport_height/2;
+      if(Math.abs(modalMid-viewportMid)>Math.max(12,m.viewport_height*.035))
+        add('MOBILE_MODAL_NOT_CENTERED',JSON.stringify({modal_center:modalMid,viewport_center:viewportMid,name}));
+    }
   }
   return findings;
 }

@@ -233,3 +233,34 @@ html .kk-mock-hero .kk-hero-art::after{
   html .kk-mock-hero .v3-primary{min-height:44px!important}
   html .kk-mock-hero .v3-secondary{display:none!important}
 }
+
+
+/* 2026-10-13 measured QA card containment: 320px cards measured 352px high
+   against 372px poster + 232px text, while 375–480px prices overflow left
+   because the former nowrap line is wider than its two-column card. */
+@media (max-width:700px){
+  html .poster-grid{grid-auto-rows:auto!important;align-items:stretch!important}
+  html .concert-card{
+    height:auto!important;
+    min-height:0!important;
+    aspect-ratio:auto!important;
+    align-self:stretch!important;
+    box-sizing:border-box!important;
+  }
+  html .concert-card .poster-info{
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+  html .concert-card .pi-meta{min-width:0!important;max-width:100%!important;display:block!important}
+  html .concert-card .pi-price{
+    display:block!important;
+    width:auto!important;
+    max-width:100%!important;
+    min-width:0!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+    word-break:normal!important;
+    text-align:start!important;
+  }
+}

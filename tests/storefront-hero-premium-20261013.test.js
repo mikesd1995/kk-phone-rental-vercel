@@ -69,3 +69,12 @@ test('visual QA mobile P1 correction keeps first-fold Hero compact and live two-
  assert.match(finish,/min-height:44px!important/);
  assert.match(finish,/background-size:auto 100%!important/);
 });
+
+test('mobile prices wrap without escaping the card and 320px height is content-owned',()=>{
+  const fix=css.slice(css.indexOf('2026-10-13 measured QA card containment'));
+  assert.ok(fix.length>500);
+  assert.match(fix,/aspect-ratio:auto!important/);
+  assert.match(fix,/height:auto!important/);
+  assert.match(fix,/white-space:normal!important/);
+  assert.match(fix,/overflow-wrap:anywhere!important/);
+});
