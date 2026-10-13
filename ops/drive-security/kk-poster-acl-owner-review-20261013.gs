@@ -66,7 +66,29 @@ function kkAclDryRun_20261013(){
   const s=kkAclSnapshot_20261013();
   const info={dry_run:true,active_files:s.active,scoped_files:s.images,folders:s.folders,
               public_writer:s.writers,fingerprint:s.fingerprint,changed:0};
-  Logger.log(JSON.stringify(info));return info;
+  // The approved fingerprint encompasses every descendant, not just 35 active
+  // files. Make the full proposed blast radius independently reviewable before
+  // anyone pastes the fingerprint into the owner-only apply entrypoint.
+  info.scoped_items=s.items.length;
+  info.historical_images=s.images-s.active;
+  info.active_public_writer=s.items.filter(x=>x.kind==='image'&&
+    KKACL_EXPECTED.includes(x.id)&&x.role===String(DriveApp.Permission.EDIT)).length;
+  info.other_public_writer=s.writers-info.active_public_writer;
+  Logger.log(JSON.stringify(info));
+  for(let offset=0;offset<s.items.length;offset+=20){
+    Logger.log(JSON.stringify({
+      dry_run_inventory_page:Math.floor(offset/20)+1,
+      total_pages:Math.ceil(s.items.length/20),
+      items:s.items.slice(offset,offset+20).map(x=>({
+        kind:x.kind,
+        name:x.obj.getName(),
+        id_suffix:x.id.slice(-6),
+        public_role:x.role,
+        active_poster:KKACL_EXPECTED.includes(x.id)
+      }))
+    }));
+  }
+  return info;
 }
 // Enter fingerprint only after OWNER has reviewed Dry Run output. Nothing runs automatically.
 function kkAclApply_20261013(approvedFingerprint){
