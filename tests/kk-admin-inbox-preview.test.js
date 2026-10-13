@@ -213,7 +213,7 @@ test('successful in-flight reply cannot resurrect a sent draft after switching r
   loadThread:async id=>threads.push(id),loadList:async()=>{}
  };
  vm.runInNewContext(
-  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);const uncertainSendRooms=new Set();let pendingIntentionalRepeat=null;\n"+
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);const uncertainSendRooms=new Set();let pendingIntentionalRepeat=null,outboundSelected=null,outboundReviewRows=[],outboundReviewSeq=0;\n"+
   js.slice(helperStart,helperEnd)+"\n"+js.slice(sendStart,sendEnd)+
   "\nglobalThis.sendMessage=sendMessage;globalThis.switchRoom=id=>{prepareComposerForThread(id);selected=id;selectedRow={conversation_id:id,channel:'line'};};",ctx
  );
