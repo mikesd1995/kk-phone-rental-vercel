@@ -24,9 +24,11 @@ function fixture(opts = {}) {
   const roles = Object.create(null);
   const nodes = new Map();
   let writes = 0;
+  const logs = [];
   function node(id, folder = false) {
     const out = {
       getId: () => id,
+      getName: () => 'Mock asset ' + id.slice(-6),
       getMimeType: () => 'image/jpeg',
       getSharingAccess: () => 'ANYONE_WITH_LINK',
       getSharingPermission: () => roles[id] || 'EDIT',
@@ -115,14 +117,14 @@ function fixture(opts = {}) {
       n => n > 127 ? n - 256 : n
     )
   };
-  const sandbox = {SpreadsheetApp, DriveApp, Utilities, Logger: {log: () => {}}};
+  const sandbox = {SpreadsheetApp, DriveApp, Utilities, Logger: {log: msg => logs.push(String(msg))}};
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox, {timeout: 2000});
   const api = vm.runInContext(
     '({dry:kkAclDryRun_20261013, apply:kkAclApply_20261013, owner:kkAclOwnerApprovedApply_20261013})',
     sandbox
   );
-  return {api, getWrites: () => writes, roles, nodes};
+  return {api, getWrites: () => writes, roles, nodes, logs};
 }
 
 test('dry run discovers 76 Oct-Dec visible / 44 references / 35 unique without writing', () => {
@@ -132,6 +134,22 @@ test('dry run discovers 76 Oct-Dec visible / 44 references / 35 unique without w
   assert.equal(r.scoped_files, 38);
   assert.equal(r.folders, 4);
   assert.equal(r.public_writer, 42);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('dry run prints complete asset scope with paged provenance, without editing', () => {
+  const f = fixture();
+  const summary = f.api.dry();
+  assert.equal(summary.scoped_items, 42);
+  assert.equal(summary.active_public_writer, 35);
+  assert.equal(summary.other_public_writer, 7);
+  assert.equal(summary.historical_images, 3);
+  assert.equal(f.logs.length, 4, 'summary and 3 detail pages with 20,20,2 items');
+  const pages = f.logs.slice(1).map(JSON.parse);
+  assert.deepEqual(pages.map(x => x.items.length), [20, 20, 2]);
+  assert.equal(pages.flatMap(x => x.items).filter(x => x.active_poster).length, 35);
+  assert.ok(pages.flatMap(x => x.items).every(x => x.name.startsWith('Mock asset ')));
+  assert.ok(pages.flatMap(x => x.items).every(x => x.id_suffix.length === 6));
   assert.equal(f.getWrites(), 0);
 });
 
