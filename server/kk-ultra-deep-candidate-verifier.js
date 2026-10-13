@@ -88,8 +88,17 @@ function artistPopupLead(row={},title=text(row.title||row.event_name)){
 function sourceConfirmsPopupArtist(body='',candidate={}){
  const page=text(body).slice(0,800000).toLowerCase();
  const artists=namedPopupArtists(candidate);
+ // Short aliases such as THAI must not match "Thailand".
+ return artists.length?artists.every(a=>{
+  if(/[ก-๙]/.test(a))return page.includes(a.toLowerCase());
+  const escaped=a.replace(/[.*+?^$()|[\]{}\\]/g,'\\function sourceConfirmsPopupArtist(body='',candidate={}){
+ const page=text(body).slice(0,800000).toLowerCase();
+ const artists=namedPopupArtists(candidate);
  return artists.length?artists.some(a=>page.includes(a.toLowerCase())):
   ARTIST_APPEARANCE_SIGNAL.test(page)&&ARTIST_POPUP_SIGNAL.test(page);
+}');
+  return new RegExp('(^|[^a-z0-9])'+escaped+'($|[^a-z0-9])','i').test(page);
+ }):ARTIST_APPEARANCE_SIGNAL.test(page)&&ARTIST_POPUP_SIGNAL.test(page);
 }
 
 function authoritativeEventSource(url='',picked=null,verified={}){
@@ -217,6 +226,10 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  // or photography at a brand appearance. Owner review is mandatory.
  const authority=popupLead?{...baseAuthority,ok:false,owner_review_required:true}:baseAuthority;
  if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
+ if(popupLead&&text(candidate.venue)&&picked&&locationName(picked.e&&picked.e.location)){
+  const a=text(candidate.venue).toLowerCase(),b=locationName(picked.e.location).toLowerCase();
+  if(!a.includes(b)&&!b.includes(a))blockers.push('ARTIST_POPUP_VENUE_CONFLICT');
+ }
  if(popupLead){
   if(!picked||!text(picked.e&&picked.e.name)||!locationName(picked.e.location)||!imageUrl(picked.e.image))
    blockers.push('ARTIST_POPUP_PRIMARY_EVENT_RECEIPT_REQUIRED');
