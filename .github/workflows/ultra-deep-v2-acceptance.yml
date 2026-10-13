@@ -10,6 +10,8 @@ on:
       - 'scripts/kk-ci-offline-dependency-gate.js'
       - 'tests/kk-ci-offline-dependency-gate.test.js'
       - 'tests/ultra-deep-v2-workflow-contract.test.js'
+      - 'tests/kk-ci-exact-head-local.test.js'
+      - 'scripts/kk-ci-exact-head-local.sh'
       - '.github/workflows/ultra-deep-v2-acceptance.yml'
       - 'package.json'
 
@@ -54,7 +56,7 @@ jobs:
           test ! -f package-lock.json && test ! -f npm-shrinkwrap.json
       - name: Prove zero-install dependency closure (fail closed)
         run: |
-          node --test tests/kk-ci-offline-dependency-gate.test.js
+          node --test tests/kk-ci-offline-dependency-gate.test.js tests/kk-ci-exact-head-local.test.js
           node scripts/kk-ci-offline-dependency-gate.js ultradeep
       - name: Syntax gate (source-only)
         run: npm run check

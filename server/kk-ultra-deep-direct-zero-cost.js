@@ -8,7 +8,7 @@ const Production=require('./kk-ultra-deep-production-runtime.js');
 const V2Adapter=require('./kk-ultra-deep-v2-runtime-adapter.js');
 const V2Writer=require('./kk-ultra-deep-v2-governed-writer.js');
 
-const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V28';
+const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V29';
 function text(v){return String(v==null?'':v).trim();}
 
 async function run(input={},options={}){
@@ -55,7 +55,17 @@ async function run(input={},options={}){
     // October FULL fails. This is a bounded READ-ONLY diagnostic lane only;
     // it cannot unlock pricing, the governed writer or release acceptance.
     let reference_source_date_review=null;
-    if(options.executeWrites!==true&&!operational){
+    if(options.executeWrites!==true&&!operational &&
+      Number(discovery.reference_source_resolution?.attempted_count||0)>0){
+      // Runtime already fetched primary sources during coverage reconciliation.
+      // Reuse its sanitized read-only receipt; do not fetch identical URLs twice.
+      reference_source_date_review={
+        ...discovery.reference_source_resolution,
+        status:'READ_ONLY_RUNTIME_SOURCE_DATE_RECEIPT',
+        authorized_to_publish:false,
+        production_writes:0
+      };
+    }else if(options.executeWrites!==true&&!operational){
       const pending=(discovery.candidates||[])
         .filter(x=>x&&x.date_pending_verification===true&&
           x.candidate_origin==='INDEPENDENT_REFERENCE_RECOVERY')

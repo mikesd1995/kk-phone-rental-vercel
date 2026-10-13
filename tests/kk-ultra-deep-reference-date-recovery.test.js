@@ -295,3 +295,35 @@ test('short artist names BTS NCT VVV survive strict matching without matching un
  assert.equal(Verifier.sourceTitleMatchesUndatedLead('BTS Concert Bangkok','NCT Concert Bangkok'),false);
  assert.equal(Verifier.sourceTitleMatchesUndatedLead('VVV Concert Bangkok','Other Concert Bangkok'),false);
 });
+
+test('Direct reuses source-date receipt when FULL HOLD runtime already performed read-only fetch',async()=>{
+ const Direct=require('../server/kk-ultra-deep-direct-zero-cost.js');
+ const Production=require('../server/kk-ultra-deep-production-runtime.js');
+ const oldSnapshot=Production.freshSnapshot,oldRunner=Runner.runMonthlyUltraDeep;
+ try{
+  Production.freshSnapshot=async()=>({
+   snapshot_source:'TEST_READ_ONLY',generated_at:'2026-10-13T12:00:00Z',
+   assets:[{asset_type:'phone',status:'ready'}],events:[],bookings:[],packages:[],web_ready:[],visibility_locks:[]
+  });
+  Runner.runMonthlyUltraDeep=async()=>({
+   full:false,status:'HOLD_FOR_COVERAGE',
+   reference_source_resolution:{
+    enabled:true,pending_input_count:1,attempted_count:1,verified_count:0,
+    unresolved_count:1,holds:[{reference_index:0,status:'HOLD_PRIMARY_SOURCE',
+      blockers:['SOURCE_EVENT_DATE_REQUIRED']}],production_writes:0
+   },
+   candidates:Runner.recoverEligibleReferenceCandidates([],[scope(CONCERT)],CTX).candidates,
+   production_writes:0
+  });
+  const out=await Direct.run({month:'2026-10'},{executeWrites:false,env:{},
+   fetchImpl:async()=>{throw Error('DUPLICATE_SOURCE_FETCH_MUST_NOT_OCCUR')}});
+  assert.equal(out.status,'BLOCKED_DISCOVERY_NOT_FULL');
+  assert.equal(out.reference_source_date_review.status,'READ_ONLY_RUNTIME_SOURCE_DATE_RECEIPT');
+  assert.equal(out.reference_source_date_review.attempted_count,1);
+  assert.equal(out.reference_source_date_review.authorized_to_publish,false);
+  assert.equal(out.production_writes,0);
+ }finally{
+  Production.freshSnapshot=oldSnapshot;
+  Runner.runMonthlyUltraDeep=oldRunner;
+ }
+});

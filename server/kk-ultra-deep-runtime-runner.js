@@ -5,9 +5,10 @@ const ProviderExecutor=require('./kk-ultra-deep-provider-executor.js');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
+const SourceDateResolution=require('./kk-ultra-deep-reference-source-resolution.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V16';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V17';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -137,6 +138,10 @@ function usableReferenceDetailUrl(value){
  try{
   const u=new URL(text(value));
   if(u.protocol!=='https:'||!u.hostname||u.username||u.password)return false;
+  // Public source verifier must never fetch literal IP, localhost, or internal origins.
+  const h=u.hostname.toLowerCase();
+  if(!h.includes('.')||h.startsWith('[')||/^\d+\.\d+\.\d+\.\d+$/.test(h)||
+    /(?:^|\.)(?:localhost|local|internal|test|invalid)$/.test(h))return false;
   const p=u.pathname.toLowerCase().replace(/\/+$/,'');
   if(!p||p==='/event'||p==='/events'||/^\/(?:search|category|categories|calendar|g)(?:\/|$)/.test(p))return false;
   return /[a-z0-9\u0e00-\u0e7f]{5,}/i.test(p);
@@ -367,9 +372,25 @@ async function runMonthlyUltraDeep(input={},options={}){
   referenceProof.has_evidence=referenceCandidates.length>0;
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
   const alignedReferenceCandidates=alignKnownMissReferences(candidates,scopedReferenceCandidates);
-  const recovered= recoverEligibleReferenceCandidates(candidates,alignedReferenceCandidates,{month:plan.range.month,location:plan.location});
+  // Independent references lacking snippet dates are not silently lost or
+  // permanently stuck: a bounded primary-source Verifier can resolve them.
+  // Source failure, access/artist holds and missing date retain FULL=false.
+  const referenceContext={month:plan.range.month,location:plan.location};
+  const sourceDateVerificationEnabled=options.reference_source_verification===true ||
+    (options.reference_source_verification!==false&&options.use_only_injected_providers!==true);
+  const sourceDateResolution=await SourceDateResolution.resolve(
+    alignedReferenceCandidates,referenceContext,{
+      enabled:sourceDateVerificationEnabled,
+      deadline_ms,
+      fetchFn:options.referenceFetchFn||options.publicWebOptions?.fetchFn||options.publicWebOptions?.fetchImpl
+    }
+  );
+  const referenceForReconciliation=sourceDateResolution.rows;
+  const recovered=recoverEligibleReferenceCandidates(
+    candidates,referenceForReconciliation,referenceContext);
   const verifierCandidates=recovered.candidates;
-  const reconciliation=Reconciliation.reconcileCandidateSets(verifierCandidates,alignedReferenceCandidates);
+  const reconciliation=Reconciliation.reconcileCandidateSets(
+    verifierCandidates,referenceForReconciliation);
 
   // Preflight is intentionally evaluated only after the established evidence
   // sequence, so it can gate completion without changing known-miss/discovery/
@@ -380,7 +401,8 @@ async function runMonthlyUltraDeep(input={},options={}){
   // A known miss is recovered if any governed live discovery path finds it.
   // Do not discard a valid main/reference sweep hit merely because the dedicated
   // probe endpoint returned no results.
-  const knownMissEvidence=[...knownMissCandidates,...candidates,...referenceCandidates];
+  const knownMissEvidence=[...knownMissCandidates,...candidates,...referenceCandidates,
+    ...referenceForReconciliation.filter(row=>row.source_date_verified===true)];
   // Historical fixture tests the matcher only. FULL must use real month-scoped live hits.
   // Source-unavailable and unsourced synthetic classifications cannot certify coverage.
   const knownMissLive=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[],{month:plan.range.month,strict_live:true});
@@ -411,13 +433,25 @@ async function runMonthlyUltraDeep(input={},options={}){
     counts:{required_sources:universe.required_source_count,passed_sources:universe.passed_required_source_count,
       discovery_tasks:discoveryProof.task_count,discovery_executed:discoveryProof.executed_count,discovery_candidates:candidates.length,
       reference_tasks:referenceProof.task_count,reference_executed:referenceProof.executed_count,reference_candidates:referenceCandidates.length,
-      reference_recovered:recovered.recovered_count,reference_undated_recovered:recovered.undated_recovered_count,
-      reference_pending_source_date:reconciliation.pending_source_date_count,reconciliation_gaps:reconciliation.reconciliation_gap_count,
+      reference_recovered:recovered.recovered_count,
+      reference_undated_recovered:sourceDateResolution.pending_input_count,
+      reference_source_date_verified:sourceDateResolution.verified_count,
+      reference_pending_source_date:reconciliation.pending_source_date_count,
+      reconciliation_gaps:reconciliation.reconciliation_gap_count,
       known_miss_live_passed:knownMissLive.passed,known_miss_live_total:knownMissLive.case_count},
     missing_required_sources:universe.missing_required_sources,source_tiers:universe.by_tier,
     known_miss_live:{complete:knownMissLive.complete,missing_cases:knownMissLive.missing_cases},
     receipts:{discovery:diagnosticReceipts(plan,execution),reference:diagnosticReceipts(referencePlan,referenceExecution),
       known_miss:diagnosticReceipts(knownMissPlan,knownMissExecution),preflight:diagnosticReceipts({gap_tasks:[{source_tier:'PUBLIC_CALENDAR'}]},{results:[preflight.result]})},
+    reference_source_resolution:{
+      enabled:sourceDateVerificationEnabled,
+      pending_input_count:sourceDateResolution.pending_input_count,
+      attempted_count:sourceDateResolution.attempted_count,
+      verified_count:sourceDateResolution.verified_count,
+      unresolved_count:sourceDateResolution.unresolved_count,
+      holds:sourceDateResolution.holds,
+      production_writes:0
+    },
     production_writes:0
   };
   return {
@@ -434,12 +468,14 @@ async function runMonthlyUltraDeep(input={},options={}){
     discovery_proof:discoveryProof,
     reference_sweep_proof:referenceProof,
     reconciliation,
+    reference_source_resolution:diagnostic.reference_source_resolution,
     known_miss_regression:knownMiss,
     known_miss_live_recall:knownMissLive,
     candidate_count:verifierCandidates.length,
     discovery_candidate_count:candidates.length,
     reference_recovered_candidate_count:recovered.recovered_count,
-    reference_undated_recovered_count:recovered.undated_recovered_count,
+    reference_undated_recovered_count:sourceDateResolution.pending_input_count,
+    reference_source_date_verified_count:sourceDateResolution.verified_count,
     reference_pending_source_date_count:reconciliation.pending_source_date_count,
     candidates:verifierCandidates,
     reference_candidate_count:referenceCandidates.length,
