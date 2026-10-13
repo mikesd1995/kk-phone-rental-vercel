@@ -2,6 +2,7 @@
 
 const Marketing=require('./kk-marketing-agent.js');
 const Eligibility=require('./kk-x-posting-eligibility.js');
+const VisibilityRecovery=require('./kk-x-visibility-recovery.js');
 
 const VERSION='KK_X_POSTING_PLAN_V1';
 const TIMEZONE='Asia/Bangkok';
@@ -155,8 +156,19 @@ function plan(input={}){
   });
   const ranking=eligibleCandidates.map(scoreCandidate).sort((a,b)=>b.base_score-a.base_score);
   const slots=normalizeSlots(input.slots);
+  // Account-wide advisory: even distinct events must not flood the same X account.
+  const visibilityRecovery=VisibilityRecovery.assess(input,slots,gate);
+  const allowed=new Set(visibilityRecovery.allowed_indexes);
   const used=new Set();
-  const assignments=slots.map(slot=>{
+  const assignments=slots.map((slot,index)=>{
+    if(!allowed.has(index)){
+      return {
+        time:slot.time,zone:slot.zone,action:slot.action,
+        event:'',event_id:'',score:0,confidence:'BLOCKED_VISIBILITY_RECOVERY',
+        objective:'',campaign_mode:'',
+        reason:[visibilityRecovery.slot_reasons[index]||'RECOVERY_SLOT_NOT_ALLOWED']
+      };
+    }
     const eligible=ranking
       .filter(row=>row.event&&!used.has(row.event.toLocaleLowerCase()))
       .map(row=>({...row,slot_score:slotScore(row,slot)}))
@@ -183,8 +195,10 @@ function plan(input={}){
 
   return {
     schema_version:VERSION,
-    status:ranking.length?'READY_FOR_OWNER_REVIEW':'BLOCKED_NO_ELIGIBLE_EVENTS',
-    readiness_gates:gate.errors,
+    status:ranking.length&&assignments.some(slot=>slot.event)?'READY_FOR_OWNER_REVIEW':
+      ranking.length?'BLOCKED_VISIBILITY_RECOVERY':'BLOCKED_NO_ELIGIBLE_EVENTS',
+    readiness_gates:[...new Set([...gate.errors,...visibilityRecovery.errors])],
+    visibility_recovery:visibilityRecovery,
     operating_day:gate.operating_day,
     evidence_policy:'Storefront and Post Log <=6h readback; no assumed posts treated as measured performance',
     timezone:text(input.timezone)||TIMEZONE,
