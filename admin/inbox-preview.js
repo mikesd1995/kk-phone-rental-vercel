@@ -12,6 +12,7 @@ let selected='',selectedRow=null,outboundEnabled=false,hydrating=false,sending=f
 let searchTimer=null,pollTimer=null,pollBusy=false,lastRefreshAt=0;
 // Read-only request version for the displayed conversation; prevents stale replies.
 let threadRequestSeq=0;
+let listRequestSeq=0;
 let inboxImageUrls=[];
 
 function pin(){try{return sessionStorage.getItem('kk_admin_pin')||''}catch(_){return ''}}
@@ -253,9 +254,12 @@ async function loadThread(id,row,options={}){
  }
 }
 async function loadList(runHydration=true,options={}){
- const previousVersion=conversationVersion(selectedRow);
+ const requestSeq=++listRequestSeq;
  try{
   const d=await api('inboxListConversations',{channel:$('#inboxChannelFilter')?.value||'',status:$('#inboxStatusFilter')?.value||'',search:$('#inboxSearch')?.value||'',limit:'100'});
+  // Overlapping search/poll/manual requests must not overwrite newer lists.
+  if(requestSeq!==listRequestSeq)return null;
+  const previousVersion=conversationVersion(selectedRow);
   outboundEnabled=d.outbound_enabled===true;
   const rows=d.conversations||[];
   renderList(rows);
@@ -276,6 +280,7 @@ async function loadList(runHydration=true,options={}){
   if(runHydration)hydrateMissingProfiles(rows,d.profile_hydration_enabled===true);
   return rows;
  }catch(e){
+  if(requestSeq!==listRequestSeq)return null;
   if(options.silent){
    liveStatus('กำลังเชื่อมต่อใหม่…','warn');
    return null;
