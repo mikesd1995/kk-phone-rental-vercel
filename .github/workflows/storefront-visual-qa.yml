@@ -207,7 +207,7 @@ jobs:
           exit 1
 
       - name: Run owner-centered modal, premium hero and visual-evidence regression tests
-        run: node --test tests/storefront-hero-editorial-contract.test.js tests/storefront-hero-premium-20261013.test.js tests/storefront-evidence.test.js tests/storefront-poster-fit-contract.test.js tests/storefront-poster-dom-runtime.test.js
+        run: node --test tests/storefront-hero-editorial-contract.test.js tests/storefront-hero-premium-20261013.test.js tests/storefront-evidence.test.js tests/storefront-poster-fit-contract.test.js tests/storefront-poster-dom-runtime.test.js tests/storefront-hero-poster-integration.test.js
 
       - name: Syntax-check visual QA harness
         run: node --check scripts/storefront-visual-acceptance.mjs
