@@ -194,7 +194,7 @@ test('provider preflight accepts only provider with real HTTPS evidence',async()
 
 test('reference sweep retains exact month queries and adds bounded broad fallbacks',()=>{
  const p=Runner.buildReferencePlan({month:'2026-10',location:'Bangkok Thailand'});
- assert.equal(p.gap_tasks.length,5);
+ assert.equal(p.gap_tasks.length,6);
  assert.ok(p.gap_tasks.every(t=>t.query.includes('October 2026')));
  assert.ok(p.gap_tasks[0].query_variants.includes('Bangkok concert'));
  assert.ok(p.gap_tasks[1].query_variants.includes('Bangkok fanmeeting'));
@@ -202,6 +202,8 @@ test('reference sweep retains exact month queries and adds bounded broad fallbac
  assert.ok(p.gap_tasks[3].query_variants.includes('Bangkok concert calendar'));
  assert.ok(p.gap_tasks[4].query_variants.some(q=>/performance schedule|ตารางงานศิลปิน/i.test(q)));
  assert.equal(p.gap_tasks[4].source_tier,'BRAND_SPONSOR');
+ assert.equal(p.gap_tasks[5].source_tier,'BRAND_SPONSOR');
+ assert.ok(p.gap_tasks[5].query.toLowerCase().includes('pop-up'));
  assert.ok(p.gap_tasks.every(t=>t.providers.includes('DDG_HTML')&&t.providers.includes('BING_HTML')));
 });
 
