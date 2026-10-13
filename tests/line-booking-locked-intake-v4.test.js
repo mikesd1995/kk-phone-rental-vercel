@@ -38,6 +38,18 @@ test('pending LINE writer treats verified LINE contact as customer identity; pho
  assert.match(writer,/payment_status: 'unpaid'|pkgType,\s*'',\s*'',\s*pickupTime,\s*'',\s*'unpaid',\s*0/);
 });
 
+test('pending replay and exact readback keep LINE contact identity even without a phone',()=>{
+ const writer=writerBody();
+ const helperStart=source.indexOf('function kkLineBookingClaimReadback_');
+ const helperEnd=source.indexOf('\nfunction kkApiCreateLineBookingPending_',helperStart);
+ const helper=source.slice(helperStart,helperEnd);
+ assert.match(helper,/const lineContact = String\(readback\[5\] \|\| ''\)\.trim\(\)/);
+ assert.match(helper,/if \(!lineContact\) return null/);
+ assert.match(helper,/lineContact !== String\(claim\.customer_contact \|\| ''\)\.trim\(\)/);
+ assert.equal((writer.match(/customer_contact: customerContact,/g)||[]).length,3);
+ assert.match(writer,/bookingId, new Date\(\), 'pending'/);
+});
+
 test('Apps Script exposes a separate pending route while legacy createBooking remains separate',()=>{
   assert.match(source,/case 'createLineBookingPending': result = kkApiCreateLineBookingPending_\(payload\); break;/);
   assert.match(source,/case 'createBooking': result = kkApiCreateBooking_\(payload\); break;/);
