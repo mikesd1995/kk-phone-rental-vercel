@@ -76,6 +76,18 @@ function publicImageUrl(url){
     return true;
   }catch{return false;}
 }
+function hasImageSignature(bytes,type){
+  if(!bytes||!bytes.length)return false;
+  const ct=text(type).split(';')[0].toLowerCase();
+  const b=bytes;
+  if(ct==='image/jpeg')return b.length>=3&&b[0]===0xff&&b[1]===0xd8&&b[2]===0xff;
+  if(ct==='image/png')return b.length>=8&&[137,80,78,71,13,10,26,10].every((v,i)=>b[i]===v);
+  if(ct==='image/gif')return b.length>=6&&b[0]===71&&b[1]===73&&b[2]===70&&b[3]===56&&(b[4]===55||b[4]===57)&&b[5]===97;
+  if(ct==='image/webp')return b.length>=12&&b[0]===82&&b[1]===73&&b[2]===70&&b[3]===70&&b[8]===87&&b[9]===69&&b[10]===66&&b[11]===80;
+  if(ct==='image/avif')return b.length>=12&&b[4]===102&&b[5]===116&&b[6]===121&&b[7]===112&&
+    ([97,109,105,102].some((v,i)=>b[8+i]!==v)===false||[97,118,105,102].every((v,i)=>b[8+i]===v));
+  return false;
+}
 async function probe(url,fetchImpl=global.fetch){
   if(!publicImageUrl(url))return {url,ok:false,status:0,content_type:'',latency_ms:0,final_url:'',error:'UNSAFE_IMAGE_URL'};
   const controller=new AbortController();
@@ -95,15 +107,19 @@ async function probe(url,fetchImpl=global.fetch){
         continue;
       }
       const ct=text(res.headers.get('content-type')).toLowerCase();
-      let hasBytes=false;
+      const header=[];
       if(res.body){
         const reader=res.body.getReader();
-        const first=await reader.read();
-        hasBytes=!!(first.value&&first.value.byteLength);
+        for(let i=0;i<4&&header.length<32;i++){
+          const part=await reader.read();
+          if(part.done)break;
+          for(const b of part.value||[]){if(header.length>=32)break;header.push(b);}
+        }
         try{await reader.cancel();}catch(_){}
       }
-      const ok=res.ok&&ct.startsWith('image/')&&hasBytes;
-      return {url,ok,status:res.status,content_type:ct,latency_ms:Date.now()-started,final_url:target,error:ok?'':res.ok?'NOT_IMAGE_BYTES':'IMAGE_HTTP_'+res.status};
+      const valid=res.ok&&hasImageSignature(header,ct);
+      const error=valid?'':!res.ok?'IMAGE_HTTP_'+res.status:!ct.startsWith('image/')?'NON_IMAGE_CONTENT_TYPE':'INVALID_OR_UNSUPPORTED_IMAGE_SIGNATURE';
+      return {url,ok:valid,status:res.status,content_type:ct,latency_ms:Date.now()-started,final_url:target,error};
     }
     return {url,ok:false,status:0,content_type:'',latency_ms:Date.now()-started,final_url:target,error:'IMAGE_REDIRECT_LIMIT'};
   }catch(err){
@@ -173,4 +189,4 @@ async function main(fetchImpl=global.fetch, options={}){
   return report;
 }
 if(require.main===module)main().catch(err=>{console.error(JSON.stringify({ok:false,error:text(err&&err.message)||'AUDIT_FAILED'}));process.exit(1);});
-module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,publicImageUrl,probe,pool,main};
+module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,publicImageUrl,hasImageSignature,probe,pool,main};
