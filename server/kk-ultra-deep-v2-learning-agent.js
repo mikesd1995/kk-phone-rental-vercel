@@ -1,8 +1,10 @@
 'use strict';
-const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V6';
+const OwnerLineage=require('./kk-ultra-deep-owner-core-lineage.js');
+const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V7';
 const PROTECTED_POLICY=Object.freeze([
   'BOOKING_PRICE_LOCK','TOMBSTONE_NO_RESURRECTION','GOVERNED_ADMIN_WRITER_ONLY',
-  'EXACT_READBACK_REQUIRED','VERIFIED_EVENT_REQUIRED','EXTERNAL_DEMAND_SCORE_EXCLUDES_KK_INTERNAL_OUTCOMES'
+  'EXACT_READBACK_REQUIRED','VERIFIED_EVENT_REQUIRED','EXTERNAL_DEMAND_SCORE_EXCLUDES_KK_INTERNAL_OUTCOMES',
+  'OWNER_CORE_LINEAGE_CANNOT_FAKE_SCANNER_DISCOVERY_OR_VERIFIED_MISS'
 ]);
 const ADAPTIVE_DISCOVERY=Object.freeze([
   'SOURCE_PRIORITY','QUERY_TERMS','MATCHING_HEURISTICS','FANDOM_GRAPH_EXPANSION',
@@ -25,6 +27,7 @@ function learn(input={}){
  const outcomes=Array.isArray(input.booking_outcomes)?input.booking_outcomes:[];
  const waitlists=Array.isArray(input.waitlist_signals)?input.waitlist_signals:[];
  const inquiries=Array.isArray(input.inquiry_signals)?input.inquiry_signals:[];
+ const ownerCorePlan=input.owner_core_snapshot?OwnerLineage.prepare(input.owner_core_snapshot):null;
  const learnedQueries=uniq(missed.flatMap(x=>x.query_terms||[]));
  const learnedSources=uniq([...missed.map(x=>x.source),...sourceWins.map(x=>x.source)]);
  const suppressPatterns=uniq(falsePositives.flatMap(x=>x.patterns||[]));
@@ -64,6 +67,7 @@ function learn(input={}){
  if(falsePositives.length) recommendations.push('TIGHTEN_IDENTITY_AND_GENERIC_PAGE_FILTERS');
  if(holds.some(x=>(x.holds||[]).includes('VERIFIED_POSTER_REQUIRED'))) recommendations.push('EXPAND_POSTER_DISCOVERY_LEADS_FROM_EXACT_EVENT_COMPETITORS');
  if(corrections.length) recommendations.push('REVIEW_REPEATED_MANUAL_CORRECTIONS_FOR_HEURISTIC_UPDATE');
+ if(ownerCorePlan&&ownerCorePlan.review_proposal_count>0)recommendations.push('OWNER_CORE_TRACKER_LINEAGE_GOVERNED_REVIEW_REQUIRED');
  if(outcomes.length||waitlists.length||inquiries.length) recommendations.push('BOOST_ADJACENT_FANDOM_DISCOVERY_PRIORITY_ONLY');
  if(waitlists.length||inquiries.length) recommendations.push('EXPAND_FANDOM_GRAPH_AND_RENTAL_KEYWORD_RADAR');
  return {
@@ -85,9 +89,10 @@ function learn(input={}){
      hot_fandom_discovery_priority:hotFandoms
    },
    recommendations,
+   owner_core_reconciliation:ownerCorePlan,
    change_log:{
      missed_events:missed.length,false_positives:falsePositives.length,holds:holds.length,
-     manual_corrections:corrections.length,booking_outcomes:outcomes.length,
+     manual_corrections:corrections.length,owner_core_review_proposals:ownerCorePlan?ownerCorePlan.review_proposal_count:0,booking_outcomes:outcomes.length,
      waitlist_signals:waitlists.length,inquiry_signals:inquiries.length
    },
    scoring_learning:{
@@ -104,7 +109,9 @@ function learn(input={}){
    authority:{
      auto_apply_search_strategy:true,auto_apply_source_priority:true,auto_apply_matching_heuristics:true,
      may_change_external_score_from_kk_internal_outcomes:false,
-     protected_policy:[...PROTECTED_POLICY],may_change_protected_policy:false,production_writes:0
+     protected_policy:[...PROTECTED_POLICY],may_change_protected_policy:false,production_writes:0,
+     may_auto_write_tracker:false,may_claim_owner_core_as_scanner_discovered:false,
+     may_mark_owner_core_gap_as_verified_miss:false
    }
  };
 }
