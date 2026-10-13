@@ -46,6 +46,20 @@ function kkActiveDate_(v) {
     return d;
   } catch (_) { throw new Error('CLEANUP_DATE_INVALID'); }
 }
+function kkActiveCreatedAt_(value) {
+  // Validation-only boundary for the verified legacy booking timestamp format.
+  // Raw source/archive values stay unchanged; event dates still use kkActiveDate_.
+  const text=typeof value==='string'?value.trim():'';
+  const match=/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/.exec(text);
+  if(!match)return kkActiveDate_(value);
+  const day=Number(match[1]),month=Number(match[2]),year=Number(match[3]),hour=Number(match[4]),minute=Number(match[5]);
+  if(month<1||month>12||day<1||day>31||hour>23||minute>59)throw new Error('CLEANUP_DATE_INVALID');
+  const iso=match[3]+'-'+match[2]+'-'+match[1],calendar=new Date(iso+'T00:00:00Z');
+  if(!isFinite(calendar.getTime())||calendar.getUTCFullYear()!==year||calendar.getUTCMonth()!==month-1||calendar.getUTCDate()!==day)throw new Error('CLEANUP_DATE_INVALID');
+  const stamp=new Date(iso+'T'+match[4]+':'+match[5]+':00+07:00');
+  if(!isFinite(stamp.getTime()))throw new Error('CLEANUP_DATE_INVALID');
+  return stamp;
+}
 function kkActiveRead_(name,start,width) {
   const sh=kkSheet_(name), count=Math.max(0,sh.getLastRow()-start+1);
   return count ? sh.getRange(start,1,count,width).getValues() : [];
@@ -154,8 +168,8 @@ function kkActivePreflight_() {
   const data={bookings:kkActiveRead_(KK.bookings,5,20),events:kkActiveRead_(KK.events,5,9),overrides:kkActiveRead_(KK.overrides,5,7),archive:kkActiveRead_(KK.bookingArchive,2,26),stats:kkActiveRead_(KK.customerStats,2,10)};
   function unique(rows,column) { const ids={}; rows.forEach(r=>{const id=String(r[column]||'').trim();if(id){if(ids[id])throw new Error('CLEANUP_DUPLICATE_ID');ids[id]=true;}}); }
   unique(data.bookings,0);unique(data.events,0);unique(data.archive,6);unique(data.stats,0);
-  data.events.forEach(r=>{if(r[2])kkActiveDate_(r[2]);}); data.bookings.forEach(r=>{if(r[1])kkActiveDate_(r[1]);});
-  data.archive.forEach(r=>{if(!kkActiveBlank_(r)){if(!r[6]||!r[9])throw new Error('CLEANUP_ARCHIVE_ID_INVALID');kkActiveDate_(r[0]);kkActiveDate_(r[3]);kkActiveDate_(r[7]);}});
+  data.events.forEach(r=>{if(r[2])kkActiveDate_(r[2]);}); data.bookings.forEach(r=>{if(r[1])kkActiveCreatedAt_(r[1]);});
+  data.archive.forEach(r=>{if(!kkActiveBlank_(r)){if(!r[6]||!r[9])throw new Error('CLEANUP_ARCHIVE_ID_INVALID');kkActiveDate_(r[0]);kkActiveDate_(r[3]);kkActiveCreatedAt_(r[7]);}});
   data.stats.forEach(r=>{if(!kkActiveBlank_(r)){if(!r[0]||!Number.isInteger(Number(r[4]))||Number(r[4])<0)throw new Error('CLEANUP_STATS_INVALID');kkActiveDate_(r[5]);kkActiveDate_(r[6]);}});
   [KK.bookingArchive,KK.eventArchive,KK.overrideArchive,KK.customerStats].forEach(name=>{const n=kkSheet_(name).getLastRow();if(n>1){const width=name===KK.bookingArchive?26:name===KK.eventArchive?11:name===KK.overrideArchive?9:10;if(kkSheet_(name).getRange(2,1,n-1,width).getFormulas().some(r=>r.some(Boolean)))throw new Error('CLEANUP_FORMULA_CONFLICT');}});
   kkActiveRead_(KK.eventArchive,2,11).forEach(r=>{if(r[0])kkActiveDate_(r[0]);if(r[4])kkActiveDate_(r[4]);});
