@@ -204,3 +204,12 @@ test('Learning Agent consumes proposed owner lineage without creating a verified
  assert.ok(out.recommendations.includes('OWNER_CORE_TRACKER_LINEAGE_GOVERNED_REVIEW_REQUIRED'));
  assert.equal(out.authority.production_writes,0);
 });
+
+
+test('owner lineage CLI explicitly refuses any write, update or deployment flags',()=>{
+ const CLI=require('../scripts/kk-ultra-deep-owner-lineage-review.js');
+ assert.deepEqual(CLI.parseArgs(['--snapshot-json','./snapshots/oct.json','--event-id',ID]),
+  {'snapshot-json':'./snapshots/oct.json','event-id':ID});
+ assert.throws(()=>CLI.parseArgs(['--write','true','--event-id',ID]),/READ_ONLY_FLAGS_ONLY/);
+ assert.throws(()=>CLI.parseArgs(['--event-id',ID]),/EXPLICIT_INPUT_REQUIRED/);
+});
