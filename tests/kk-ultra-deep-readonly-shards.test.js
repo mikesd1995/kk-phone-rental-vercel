@@ -1,0 +1,88 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const S=require('../server/kk-ultra-deep-readonly-shards.js');
+const M={month:'2026-10',location:'Bangkok Metropolitan Region Thailand',shard_size:12};
+
+test('150 October tasks have deterministic 13-shard manifest and stable fingerprint',()=>{
+ const a=S.manifest(M),b=S.manifest(M);
+ assert.equal(a.task_count,150);
+ assert.equal(a.shards.length,13);
+ assert.deepEqual(a.groups,{known_miss:33,monthly:111,reference:6});
+ assert.equal(a.fingerprint,b.fingerprint);
+ assert.equal(a.shards[0].start,0);
+ assert.equal(a.shards[12].end,150);
+ assert.notEqual(a.fingerprint,S.manifest({...M,month:'2026-11'}).fingerprint);
+ assert.notEqual(a.fingerprint,S.manifest({...M,shard_size:10}).fingerprint);
+ assert.equal(a.production_writes,0);
+});
+
+test('free provider whitelist refuses EXA even if injected, and standalone shard never publishes',async()=>{
+ let paid=0,free=0;
+ const output=await S.runShard({...M,shard_index:0},{
+  read_only:true,providers:{
+   BING_RSS:async task=>{free++;return [{title:task.query,event_date:'2026-10-21',source_url:'https://example.org/event'}];},
+   EXA:async()=>{paid++;throw Error('paid provider must not be invoked');}
+  },runtime_budget_ms:5000
+ });
+ assert.equal(paid,0);
+ assert.equal(free,12);
+ assert.deepEqual(output.providers_bound,['BING_RSS']);
+ assert.equal(output.executed_count,12);
+ assert.equal(output.status,'SHARD_RECEIPTS_EXECUTED');
+ assert.equal(output.full,false);
+ assert.equal(output.authoritative,false);
+ assert.equal(output.production_writes,0);
+});
+
+test('a missing shard yields HOLD with exact manifest and missing work instead of fake FULL',async()=>{
+ const output=await S.runShard({...M,shard_index:0},{read_only:true,
+  providers:{BING_RSS:async()=>[]},runtime_budget_ms:5000});
+ const report=S.combineReports(M,[output]);
+ assert.equal(report.received_shards,1);
+ assert.equal(report.status,'HOLD_OFFLINE_DISCOVERY_INCOMPLETE');
+ assert.ok(report.blockers.includes('MISSING_SHARDS'));
+ assert.ok(report.blockers.includes('MONTHLY_INCOMPLETE'));
+ assert.equal(report.release_eligible,false);
+ assert.equal(report.full,false);
+ assert.equal(report.production_writes,0);
+});
+
+test('expired source evidence or explicit production-write value is never accepted',async()=>{
+ const output=await S.runShard({...M,shard_index:0},{read_only:true,
+  providers:{BING_RSS:async()=>[]},runtime_budget_ms:5000});
+ assert.throws(()=>S.combineReports(M,[{...output,manifest_fingerprint:'tampered'}]),
+  /READONLY_SHARD_REPORT_INVALID_OR_DUPLICATE/);
+ assert.throws(()=>S.combineReports(M,[{...output,production_writes:1}]),
+  /READONLY_SHARD_REPORT_INVALID_OR_DUPLICATE/);
+ assert.throws(()=>S.combineReports(M,[{...output,full:true}]),
+  /READONLY_SHARD_REPORT_INVALID_OR_DUPLICATE/);
+ assert.throws(()=>S.combineReports(M,[output,output]),
+  /READONLY_SHARD_REPORT_INVALID_OR_DUPLICATE/);
+});
+
+test('shard execution cannot proceed without explicit read-only permission',async()=>{
+ await assert.rejects(()=>S.runShard({...M,shard_index:0},{}),
+  /READONLY_SHARD_EXPLICIT_OPT_IN_REQUIRED/);
+ await assert.rejects(()=>S.runShard({...M,shard_index:99},{read_only:true}),
+  /READONLY_SHARD_INDEX_INVALID/);
+ assert.throws(()=>S.manifest({...M,month:'not-a-month'}),/READONLY_SHARD_MONTH_INVALID/);
+});
+
+test('even all artificially executed shards cannot authorize commercial or production release',async()=>{
+ const reports=[];
+ for(const shard of S.manifest(M).shards){
+  reports.push(await S.runShard({...M,shard_index:shard.index},{read_only:true,
+   providers:{BING_RSS:async task=>[{title:'Synthetic '+(task.source_id||task.query),
+     event_date:'2026-10-21',source_url:'https://synthetic.example/'+shard.index+'/'+task.query.length}]},
+   runtime_budget_ms:5000
+  }));
+ }
+ const report=S.combineReports(M,reports);
+ assert.equal(report.received_shards,13);
+ assert.equal(report.expected_tasks,150);
+ assert.equal(report.full,false);
+ assert.equal(report.authoritative,false);
+ assert.equal(report.release_eligible,false);
+ assert.equal(report.production_writes,0);
+});
