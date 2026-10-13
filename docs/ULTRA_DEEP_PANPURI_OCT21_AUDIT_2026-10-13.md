@@ -31,3 +31,10 @@ Status: INVESTIGATING / FAIL-CLOSED. Scope: discovery-only, no production writes
 ## Gates
 G1 official source and timing verified; G2 receipts and root-cause classified; G3 October coverage reconciled; G4 tests executed and passing; G5 reviewer approval and production readback plan. All currently NOT PROVEN.
 No merge, deploy, paid API, automatic publication or production writes. production_writes=0.
+
+## Implementation checkpoint — 2026-10-13
+- Branch-only source change `server/kk-ultra-deep-runtime-runner.js` commit `5ab28708520176bd7ca6a130e4637bfebabcf967`: explicit artist-led brand pop-up reference candidate recognition, while generic promotions remain excluded; date/month gates and verifier-only recovery retained.
+- Branch-only test `tests/ultra-deep-panpuri-popup-reference.test.js` commit `d378781999e750cd90230acc0ae2bca00583ec0d`: four Node test cases covering positive artist pop-up, negative generic promotion, date/month, verifier-only provenance.
+- Branch-only learning change `server/kk-ultra-deep-v2-learning-agent.js` commit `6966a2475821311b24cbf1ec07b471d3d3f682fb`: new `BRAND_POPUP_ARTIST_APPEARANCE_GAP` class and artist/brand pop-up expansion queries. Does not change protected scoring or production authority.
+- These are source edits, NOT verified passing tests. No live October scan, source verification, provider receipts, candidate pool/backend readback, CI or deployment acceptance has been performed at this checkpoint. G1–G5 remain HOLD. Avoid claiming complete coverage.
+- Follow-up: execute Node tests on isolated branch, run independent October provider sweep and compare event IDs with backend in read-only mode, classify missed-event receipts, then seek owner acceptance before any merge/deploy.
