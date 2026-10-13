@@ -223,7 +223,7 @@ function sourceTitleMatchesUndatedLead(candidateTitle='',sourceTitle=''){
   'fanmeeting','festival','tour','popup','pop','up','2026','2027']);
  const words=x=>new Set(text(x).normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
   .toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').split(/\s+/)
-  .filter(t=>t.length>=4&&!stop.has(t)));
+  .filter(t=>t.length>=3&&!stop.has(t)));
  const wanted=words(candidateTitle),found=words(sourceTitle);
  const overlap=[...wanted].filter(w=>found.has(w)).length;
  return wanted.size>0&&overlap>=Math.min(2,wanted.size);
