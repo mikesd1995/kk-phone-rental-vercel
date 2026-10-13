@@ -141,3 +141,25 @@ Next permissible safe route: run targeted tests on a real isolated checkout with
 - Backend PAÑPURI owner-added row and 490/590 pricing are **unchanged**, with the earlier VVV October 30 date/poster HOLD preserved. Independent PopRadar/Natgan/Zipevent/centralwOrld partial check does not replace all 144 October discovery receipts.
 
 **Release remains HOLD:** The next real gate is trusted local zero-cost Node execution of all 12 shards, complete per-task provider receipts and live Known-Miss/primary-source verification; then separate clean Node/CI, owner acceptance, booking/tombstone and governed release review. Never merge/deploy or write business truth based only on isolated test successes.
+
+## Phase 3: Owner Core ↔ Tracker ↔ AI Learning — read-only reconciliation (2026-10-13 ICT)
+
+**Selected user task:** #5, link an already owner-added PAÑPURI Oct21 Core event to its missing Tracker and Miss Learning lineage *without inventing Scanner discovery, duplicate Core events, new pricing or unauthorized direct Sheets writes*.
+
+**Actual eight-sheet readback, not synthetic:**
+- Backend `01_Events` unique ID `EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP`, 21 Oct, current Core; `08_Web_Ready` same date/id show; 3 packages `phone_only=490`, `phone_lens_bundle=590`, `lens_only=hidden`; visibility history `SEEN_CORE / OWNER_EXPLICIT_ADD_2026-10-13` with Sheets serial event date 46316. Exact event ID absent from checked `00_Master_Booking!A4:W500`.
+- Candidate Queue `A1:AL2000`, October Tracker `A1:U1017` and Miss Learning `A1:M2000`: **0 matching canonical/alias PAÑPURI lineage rows**. Other tracked Oct21 events are unrelated; do not conflate by date.
+- The new strict owner-Core review module consumed all **eight actual returned values matrices** in one read-only run. Outcome **`STAGED_REVIEW_ONLY`**, 3 proposals, 0 conflicts, 0 writes, existing Core and owner settings unchanged. Re-run after stronger Core↔WebReady consistency checks also remained `STAGED_REVIEW_ONLY`.
+- Static Known-Miss V12 already contains case `panpuri-phutatchai-pop-up-20261021`; **do not add another**. This is a regression obligation, not a proven successful live Scanner finding.
+
+**Code / reproducibility:**
+- `server/kk-ultra-deep-owner-core-lineage.js` V1 and `prepareFromSheets`: strict exact Core event ID, Thai/ISO/serial date, unique title+date+venue, Core/WebReady agreement, owner-lock `SEEN_CORE` history, package-type identity, visibility/tombstones, active booking presence. Detects duplicate Tracker and conflicting date/venue, requires every snapshot surface and real headers (October Tracker row 4).
+- `server/kk-ultra-deep-v2-learning-agent.js` V7 integrates optional `owner_core_snapshot`. Owner-only snapshot returns **`OWNER_CORE_REVIEW_PENDING`**, not `LEARNED`; `missed_events=0`, `adaptive.query_terms=[]`, `miss_classes=[]`, `owner_core_learning_accepted=false`, no Tracker or price/visibility writes.
+- `scripts/kk-ultra-deep-owner-lineage-review.js`: explicit local `--snapshot-json` and `--event-id` read-only CLI; rejects writer flags.
+- `package.json`: dedicated `ultradeep:owner-lineage:review` script, syntax gates and owner-lineage regression in existing `test:ultradeep:recall`.
+- `tests/kk-ultra-deep-owner-core-lineage.test.js`: **15/15 isolated V8 cases pass**, including replay idempotency, duplicate/cross-date identities, missing headers, owner-hidden, invalid dates, inconsistent WebReady/closed event, confirmed booking, Learning policy separation, and CLI write flag rejection. **Not** full Node/npm CI evidence.
+- Persisted **minimal no-PII stage artifact**: [ULTRA_DEEP_OWNER_CORE_PANPURI_STAGED_2026-10-13.json](./ULTRA_DEEP_OWNER_CORE_PANPURI_STAGED_2026-10-13.json); comprehensive [Phase 3 audit/runbook](./ULTRA_DEEP_OWNER_CORE_LINEAGE_AUDIT_2026-10-13.md). Raw booking/customer snapshots are not committed.
+
+**Three reviewer-only proposals, never yet applied:** `_Candidate_Queue: HOLD_OWNER_CORE_LINEAGE_REVIEW`, `ต.ค. 2569: HOLD_OWNER_CORE_MONTHLY_LINEAGE_REVIEW`, `_Miss_Learning: PROPOSED_REVIEW_NOT_LEARNED` under deterministic ID `MISS|OWNERCORE|20261021|EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP`. All mark origin `OWNER_SUPPLIED_NOT_SCANNER_DISCOVERED`; official organizer/venue/photo/lens evidence remains unverified.
+
+**Guarded write/Release status:** Tracker Sheets **NOT modified**, no Admin writer request, Core unchanged, price 490/590 unchanged, no booking/tombstone override, no merge or deployment. Any future authorized Tracker repair requires a fresh eight-surface readback, duplicate-safe canonical/monthly row plan, owner-approved governed Verifier/Admin writer and exact readback. A real source/full October scan and official PAÑPURI evidence remain separate HOLD gates. Do not mark AI learning accepted until they pass.
