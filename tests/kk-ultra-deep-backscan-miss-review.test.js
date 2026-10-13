@@ -195,3 +195,35 @@ test('case catalog cannot be mutated and empty/manual malformed case sets fail c
  assert.equal(B.review(bad).cases[0].disposition,'HOLD_INVALID_OR_DUPLICATE_CASE');
  assert.equal(B.review(bad).proposal_count,0);
 });
+
+test('ex-Core owner LOCKED tombstone is report-only and never added to new Miss Learning',()=>{
+ const s=snapshot();
+ s.events=s.events.filter(x=>x.event_id!=='EVT-20261026-ZATO-BASE-022-BLACKBEANS');
+ const out=B.review(s),x=get(out,'zato-blackbeans-20261026');
+ assert.equal(x.disposition,'HOLD_HISTORICAL_VISIBILITY_LOCK');
+ assert.equal(x.blocked_reason,'OWNER_LOCK_OR_TOMBSTONE_HISTORY');
+ assert.equal(x.historical_lock_count,1);
+ assert.equal(x.proposal,false);
+ assert.equal(out.proposals.some(p=>p['Miss ID']===x.proposed_miss_id),false);
+ assert.equal(out.authority.may_reopen_owner_hidden,false);
+});
+test('Google Sheets historical SEEN_CORE date and event title block recreation after Core removal',()=>{
+ const s=snapshot();
+ s.visibility_locks.push({event_id:'EVT-REMOVED-GUERLAIN',
+  event_name:'BLUE PONGTIWAT — Guerlain Holiday Collection 2026',
+  event_date:'15 ต.ค. 2569',lock_state:'SEEN_CORE'});
+ const out=B.review(s),x=get(out,'guerlain-blue-20261015');
+ assert.equal(x.disposition,'HOLD_HISTORICAL_VISIBILITY_LOCK');
+ assert.equal(x.historical_lock_count,1);
+ assert.equal(x.proposal,false);
+});
+test('historical visibility lock does not suppress a different date of the same brand event',()=>{
+ const s=snapshot();
+ s.visibility_locks.push({event_id:'EVT-OLD-GUERLAIN',
+  event_name:'BLUE PONGTIWAT — Guerlain Holiday Collection 2026',
+  event_date:'14 ต.ค. 2569',lock_state:'LOCKED'});
+ const x=get(B.review(s),'guerlain-blue-20261015');
+ assert.equal(x.disposition,'DISCOVERY_REVIEW_NOT_IN_TRACKER');
+ assert.equal(x.historical_lock_count,0);
+ assert.equal(x.proposal,true);
+});
