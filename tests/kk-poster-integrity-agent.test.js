@@ -3,6 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const P=require('../server/kk-poster-integrity-agent.js');
 const Registry=require('../server/kk-agent-registry.js');
+const Audit=require('../scripts/audit-storefront-posters.js');
 
 function row(id='E1',name='Event A',url='https://assets.example.com/event-a.jpg',date='14/10/2026',action='show'){
   return {event_id:id,event_name:name,event_date_text:date,poster_image_url:url,action_for_web:action,
@@ -89,4 +90,34 @@ test('registry has a governed callable poster review agent that cannot write',()
  assert.deepEqual([...r.required_agents],['kk-poster-integrity-advisor']);
  assert.equal(Registry.AGENTS['kk-poster-integrity-advisor'].production_writes,0);
  assert.equal(Registry.validateInvocation('poster_integrity_review',['kk-poster-integrity-advisor']).pass,true);
+});
+
+test('production poster audit remains zero-write and combines HTTP image check with identity advisory offline',async()=>{
+  const csv=[
+   'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web',
+   'E1,Healthy Event,14/10/2026,Bangkok,https://static.example.com/healthy.jpg,,2,2,,show',
+   'E2,Missing Event,15/10/2026,Bangkok,,,2,2,,show'
+  ].join('\n')+'\n';
+  const urls=[];
+  async function fakeFetch(url){
+    urls.push(url);
+    if(url.includes('/api/kk-data?'))return new Response(csv,{status:200,headers:{'content-type':'text/csv'}});
+    if(url==='https://static.example.com/healthy.jpg')
+      return new Response(new Uint8Array([0xff,0xd8,0xff,0xd9]),{status:200,headers:{'content-type':'image/jpeg'}});
+    throw new Error('UNEXPECTED_NETWORK '+url);
+  }
+  const before=process.exitCode;
+  const out=await Audit.main(fakeFetch,{silent:true});
+  assert.equal(out.schema,'kk-storefront-poster-health/v1');
+  assert.equal(out.visible_events,2);
+  assert.equal(out.pass_events,1);
+  assert.equal(out.failed_events,1);
+  assert.equal(out.poster_integrity.blocked,1);
+  assert.equal(out.poster_integrity.findings[0].delivery_status,'IMAGE_DELIVERED');
+  assert.equal(out.poster_integrity.findings[0].official_poster_verified,false);
+  assert.equal(out.poster_integrity.findings[1].reasons[0],'POSTER_SOURCE_MISSING');
+  assert.equal(out.poster_integrity.production_writes,0);
+  assert.equal(out.business_data_mutations,0);
+  assert.equal(urls.length,2,'one public CSV read and one read-only image GET only');
+  assert.equal(process.exitCode,before,'silent acceptance does not change process exit code');
 });
