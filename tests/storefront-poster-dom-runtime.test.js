@@ -81,15 +81,42 @@ test('failed verified poster degrades into temporary art without removing its ev
  assert.equal(r.card.dataset.posterFallback,'event-summary');
  assert.equal(find(r.card,'poster-placeholder-title').textContent,event.name);
 });
-test('known KK-owned temporary art receives a visible label; other event poster is not mislabeled',()=>{
- const branded=renderFixture([{...event,img:'https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png',rawPoster:'https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png',imgThumb:['https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png']}]);
+test('shop-branded placeholder becomes truthful per-event summary, never an official poster',()=>{
+ const placeholder='https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png';
+ const branded=renderFixture([{...event,img:placeholder,rawPoster:placeholder,imgThumb:[placeholder]}]);
  assert.equal(branded.card.dataset.posterStatus,'temporary');
- assert.equal(find(branded.card,'poster-temporary-brand-label').textContent,'ภาพประกอบชั่วคราว');
- const english=renderFixture([{...event,img:'https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png',rawPoster:'https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png'}],'en');
- assert.equal(find(english.card,'poster-temporary-brand-label').textContent,'TEMPORARY IMAGE');
+ assert.equal(branded.card.dataset.posterSourceRejected,'shop-placeholder');
+ assert.equal(branded.card.dataset.posterReplacementPending,'1');
+ assert.equal(find(branded.card,'poster-placeholder-title').textContent,event.name);
+ assert.equal(find(branded.card,'poster-placeholder-brand-art').alt,'');
+ assert.equal(find(branded.card,'poster-temporary-brand-label'),null,'no duplicated temporary label');
+ const english=renderFixture([{...event,img:placeholder,rawPoster:placeholder,imgThumb:[placeholder]}],'en');
+ assert.equal(find(english.card,'poster-placeholder-kicker').textContent,'TEMPORARY EVENT ART');
  const official=renderFixture([{...event,img:'https://official.example/event.jpg',rawPoster:'https://official.example/event.jpg'}]);
- assert.equal(official.card.dataset.posterStatus,undefined);
- assert.equal(find(official.card,'poster-temporary-brand-label'),null);
+ assert.equal(official.card.dataset.posterReplacementPending,undefined);
+ assert.equal(find(official.card,'poster-placeholder-event'),null);
+});
+
+test('audited wrong-event photographs are suppressed only on exact event/source pairs',()=>{
+ const cases=[
+  ['EVT-20261025-VVV-TORNADO-SHOPPING-XIAOMI','https://pbs.twimg.com/media/G3iTTicXMAAbtyE.jpg','VVV — Tornado Shopping × Xiaomi'],
+  ['EVT-20261030-POPPAH4-HALLOWEEN-NAMP','https://static.amarintv.com/media/PJVlR0ljpO7yvkfhEH4VNNZ54YMVWAxlVfBQwSENDkv21tWvbtjShU6FnewvzElMDb.jpg','POP-ป่ะห์ #4 Halloween — NAMP Live']
+ ];
+ for(const [id,url,name] of cases){
+  const actual={...event,id,name,img:url,rawPoster:url,imgThumb:[url]};
+  const out=renderFixture([actual]);
+  assert.equal(out.card.dataset.posterSourceRejected,'wrong-event-art');
+  assert.equal(out.card.dataset.posterReplacementPending,'1');
+  assert.equal(find(out.card,'poster-placeholder-title').textContent,name);
+  assert.equal(find(out.card,'poster-placeholder-meta').textContent.includes(actual.date),true);
+  out.card.onclick();assert.equal(out.shown(),actual,'unchanged booking event identity');
+  const otherEvent=renderFixture([{...actual,id:'EVT-UNRELATED'}]);
+  assert.equal(otherEvent.card.dataset.posterSourceRejected,undefined,'never suppress another event');
+  assert.equal(find(otherEvent.card,'poster-placeholder-event'),null);
+  const correctedSource=renderFixture([{...actual,img:'https://official.example/new-poster.jpg',
+   rawPoster:'https://official.example/new-poster.jpg',imgThumb:['https://official.example/new-poster.jpg']}]);
+  assert.equal(correctedSource.card.dataset.posterReplacementPending,undefined,'verified future correction is not blocked');
+ }
 });
 
 test('LE7EL temporary artist profile is clearly labeled only for audited exact event and URL',()=>{
