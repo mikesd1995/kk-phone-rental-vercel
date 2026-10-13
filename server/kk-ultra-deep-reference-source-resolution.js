@@ -5,7 +5,7 @@
 const Verifier=require('./kk-ultra-deep-candidate-verifier.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 
-const VERSION='KK_ULTRA_DEEP_REFERENCE_SOURCE_RESOLUTION_V1';
+const VERSION='KK_ULTRA_DEEP_REFERENCE_SOURCE_RESOLUTION_V2';
 const MAX_PENDING_LOOKUPS=4;
 function text(v){return String(v==null?'':v).trim();}
 function pending(row={}){
@@ -46,9 +46,23 @@ async function resolve(rows=[],context={},options={}){
     attempted++;
     let verification;
     try{
+     // Public search hits may be attacker-controlled. Do not follow redirects
+     // to internal services; require final response to remain at the requested
+     // exact event URL. Existing public-adapter fetch remains unchanged.
+     const controlledFetch=async(url,init={})=>{
+      const http=fetchFn||global.fetch;
+      const response=await http(url,{...init,redirect:'manual'});
+      if(response&&(response.redirected===true||
+        (Number(response.status)>=300&&Number(response.status)<400)||
+        (text(response.url)&&!sameSource(response.url,url)))){
+       const error=new Error('SOURCE_REDIRECT_NOT_ALLOWED');
+       error.code='SOURCE_REDIRECT_NOT_ALLOWED';throw error;
+      }
+      return response;
+     };
      verification=await Verifier.verifyCandidate(
       {...item.row,event_date:null,date_pending_verification:true},
-      context,{fetchFn,timeout_ms:Math.min(5000,millisUntilDeadline(deadline))}
+      context,{fetchFn:controlledFetch,timeout_ms:Math.min(5000,millisUntilDeadline(deadline))}
      );
     }catch(_){
      results.set(item.index,{status:'SOURCE_FETCH_FAILED'});
@@ -61,6 +75,8 @@ async function resolve(rows=[],context={},options={}){
        /^\d{4}-\d{2}-\d{2}$/.test(text(candidate.event_date)) &&
        String(candidate.event_date).startsWith(text(context.month)+'-') &&
        sameSource(candidate.source_url,item.row.source_url) &&
+       Verifier.TRUSTED_EVENT_HOSTS.has(Verifier.host(candidate.source_url)) &&
+       Verifier.eventSpecificUrl(candidate.source_url) &&
        verification.evidence&&verification.evidence.authoritative_event_source===true){
       verified++;
       results.set(item.index,{status:'SOURCE_DATE_VERIFIED',
@@ -71,9 +87,13 @@ async function resolve(rows=[],context={},options={}){
          candidate_origin:'INDEPENDENT_REFERENCE_RECOVERY',
          authoritative:false,verifier_required:true}});
     }else{
-      results.set(item.index,{status:'HOLD_PRIMARY_SOURCE',
-       blockers:Array.isArray(verification&&verification.blockers)?
-         verification.blockers.slice(0,12):['SOURCE_EVENT_DATE_NOT_VERIFIED']});
+      const reasons=Array.isArray(verification&&verification.blockers)?
+        verification.blockers.slice(0,12):['SOURCE_EVENT_DATE_NOT_VERIFIED'];
+      if(verification&&verification.verified===true&&
+        !(Verifier.TRUSTED_EVENT_HOSTS.has(Verifier.host(item.row.source_url))&&
+          Verifier.eventSpecificUrl(item.row.source_url)))
+        reasons.push('UNTRUSTED_SOURCE_FOR_DATE_CLOSURE');
+      results.set(item.index,{status:'HOLD_PRIMARY_SOURCE',blockers:reasons});
     }
    }
   }
