@@ -15,6 +15,8 @@ let threadRequestSeq=0;
 let listRequestSeq=0;
 // Ephemeral, per-conversation drafts; never store customer text in localStorage.
 const inboxDrafts=Object.create(null);
+// A provider send can succeed while the app loses its receipt. Never invite a blind retry.
+const uncertainSendRooms=new Set();
 let inboxImageUrls=[];
 
 function pin(){try{return sessionStorage.getItem('kk_admin_pin')||''}catch(_){return ''}}
@@ -88,10 +90,12 @@ function showError(e){
 }
 function composeState(message){
  const box=$('#inboxComposeText'),btn=$('#inboxSendBtn'),status=$('#inboxComposeStatus');
- const canSend=!!selectedRow&&String(selectedRow.channel||'').toLowerCase()==='line'&&outboundEnabled&&!sending;
+ const exactRoom=!!selectedRow&&selected===String(selectedRow.conversation_id||'');
+ const uncertain=exactRoom&&uncertainSendRooms.has(selected);
+ const canSend=exactRoom&&String(selectedRow.channel||'').toLowerCase()==='line'&&outboundEnabled&&!sending&&!uncertain;
  if(box)box.disabled=!canSend;
  if(btn)btn.disabled=!canSend;
- if(status)status.textContent=message||(canSend?'พร้อมส่งผ่าน LINE · ต้องยืนยันทุกครั้งก่อนส่ง':(selectedRow&&String(selectedRow.channel||'').toLowerCase()!=='line'?'ยังไม่เปิดส่งสำหรับช่องทางนี้':'เลือกแชท LINE เพื่อเริ่มตอบลูกค้า'));
+ if(status)status.textContent=uncertain?'สถานะส่ง LINE ยังไม่ยืนยัน · ตรวจแชท LINE OA และหลักฐานก่อนรีโหลดเพื่อส่งอีกครั้ง':message||(canSend?'พร้อมส่งผ่าน LINE · ต้องยืนยันทุกครั้งก่อนส่ง':(selectedRow&&String(selectedRow.channel||'').toLowerCase()!=='line'?'ยังไม่เปิดส่งสำหรับช่องทางนี้':'เลือกแชท LINE เพื่อเริ่มตอบลูกค้า'));
 }
 function renderThreadHeader(){
  const title=$('#inboxThreadTitle'),meta=$('#inboxThreadMeta'),rename=$('#inboxRenameBtn');
@@ -236,6 +240,8 @@ function prepareComposerForThread(requestId){
 }
 async function loadThread(id,row,options={}){
  const requestId=String(id||'');
+ // Never reuse customer identity metadata from a different selected conversation.
+ if(!requestId||!row||String(row.conversation_id||'')!==requestId)return;
  const requestSeq=++threadRequestSeq;
  // Prevent an unsent reply to customer A appearing in customer B's composer.
  prepareComposerForThread(requestId);
@@ -263,6 +269,16 @@ async function loadThread(id,row,options={}){
   composeState('โหลดข้อความไม่สำเร็จ');
  }
 }
+function clearSelectionAfterFilter(){
+ if(!selected)return;
+ const box=$('#inboxComposeText');
+ if(box){inboxDrafts[selected]=String(box.value||'');box.value='';}
+ threadRequestSeq++;
+ selected='';selectedRow=null;
+ releaseInboxImages();
+ const thread=$('#inboxThread');
+ if(thread)thread.innerHTML='<div class="inbox-placeholder">เลือกบทสนทนาจากรายการเพื่อดูข้อความ</div>';
+}
 async function loadList(runHydration=true,options={}){
  const requestSeq=++listRequestSeq;
  try{
@@ -279,6 +295,9 @@ async function loadList(runHydration=true,options={}){
    if(refreshed){
     selectedChanged=conversationVersion(refreshed)!==previousVersion;
     selectedRow=refreshed;
+   }else{
+    // A filtered-out or unavailable room must not retain an enabled composer.
+    clearSelectionAfterFilter();
    }
   }
   renderThreadHeader();
