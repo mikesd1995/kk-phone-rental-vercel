@@ -44,3 +44,13 @@ test('CLI live-read offline mock excludes past and hidden, no write or model cal
 test('invalid date does not silently broaden audit scope',async()=>{
  await assert.rejects(()=>Cli.run(['--as-of=2026-02-30'],{fetchImpl:fakeFetch}),/INVALID_AS_OF_DATE/);
 });
+
+test('unavailable/empty feed never produces a false green audit',async()=>{
+ await assert.rejects(()=>Cli.loadRows({},async()=>({ok:true,text:async()=>
+  'event_id,event_name,poster_image_url,action_for_web\n'})),/EMPTY_PUBLIC_FEED/);
+ const emptyVisibility='event_id,event_name,event_date_text,poster_image_url,action_for_web\n'+
+  'EVT-20261014-OWNER-HIDDEN,Hidden,14/10/2026,,hide\n';
+ await assert.rejects(()=>Cli.run(['--as-of=2026-10-14'],{
+  fetchImpl:async()=>({ok:true,text:async()=>emptyVisibility})
+ }),/NO_VISIBLE_FUTURE_EVENTS/);
+});
