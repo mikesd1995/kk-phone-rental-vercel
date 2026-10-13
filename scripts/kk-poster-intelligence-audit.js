@@ -31,7 +31,9 @@ async function loadRows(args,fetchImpl=global.fetch){
   const header=raw[0]||[];
   if(!['event_id','event_name','poster_image_url','action_for_web'].every(key=>header.includes(key)))
    throw Error('UNEXPECTED_FEED_SCHEMA');
-  return objects(raw);
+  const parsed=objects(raw);
+  if(!parsed.length)throw Error('EMPTY_PUBLIC_FEED');
+  return parsed;
  }finally{clearTimeout(timer);}
 }
 function bangkokDate(now=new Date()){
@@ -62,7 +64,9 @@ async function run(argv=process.argv.slice(2),deps={}){
   }
  }
  const vision_reviews=args['vision-file']?readArray(args['vision-file'],'VISION'):[];
- return audit({rows,observations,vision_reviews,as_of:args['as-of']||bangkokDate(deps.now||new Date())});
+ const report=audit({rows,observations,vision_reviews,as_of:args['as-of']||bangkokDate(deps.now||new Date())});
+ if(!report.visible_events)throw Error('NO_VISIBLE_FUTURE_EVENTS');
+ return report;
 }
 if(require.main===module)run().then(report=>{
  process.stdout.write(JSON.stringify(report,null,2)+'\n');
