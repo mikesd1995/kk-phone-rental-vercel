@@ -46,3 +46,9 @@ No merge, deploy, paid API, automatic publication or production writes. producti
 - Follow-up source patch commit `55fdee67cf8ab4602dd3a2fa10ecfc2387f305ed` corrected a bug in prior patch: no longer uses scanner's context.location as proof of the candidate venue. Explicit candidate venue/location is required; popup artist regex corrected.
 - Draft PR #720: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/720 . No merge.
 - Execution limitation: GitHub connector can read/write source, but this session has no GitHub checkout/network access in the local container; Node tests and full runtime provider scan cannot be claimed executed. CI and live data readback remain HOLD. Do not upgrade G1–G5 status.
+
+## Follow-up checkpoint 2026-10-13
+- Reference plan now adds an independent artist brand pop-up query group, version V4, commit 48e791de1b981073251b0ae84f8c623bb6a499af. Previously only reference eligibility was patched, which could not guarantee recall when the query lane itself missed the event.
+- Added negative regression for venue inference from scanner context, commit d69d6a27b7420e5e58669082b84273f48c75e878.
+- GitHub workflow runs queried for commit 48e791d: empty list; this is NOT a passing CI result. Local git clone unavailable due DNS/network resolution failure. Tests remain unexecuted.
+- Full October source sweep and Candidate Master Pool/Backend reconciliation are still pending, as are official event publication date and primary-source verification. Production acceptance remains HOLD. No merge/deploy/production writes.
