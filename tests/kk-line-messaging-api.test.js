@@ -34,3 +34,21 @@ test('pushText always sends retry key and returns provider identity',async()=>{
 test('pushText fails closed on provider rejection',async()=>{
  await assert.rejects(()=>Line.pushText({to:'U12345678901234567890123456789012',text:'hello'},{token:'token',fetchImpl:async()=>({ok:false,status:401,headers:{get:()=>''},text:async()=>'unauthorized'})}),err=>err&&err.code==='LINE_PUSH_FAILED'&&err.status===401);
 });
+
+test('missing sentMessages ID cannot be treated as confirmed provider receipt',async()=>{
+ const r=await Line.pushText({to:'U12345678901234567890123456789012',text:'hello'},{
+  token:'token',retryKey:'123e4567-e89b-42d3-a456-426614174000',
+  fetchImpl:async()=>({ok:true,status:200,headers:{get:()=>''},text:async()=>JSON.stringify({sentMessages:[]})})
+ });
+ assert.equal(r.provider_confirmed,false);
+ assert.equal(r.external_message_id,'');
+});
+
+test('genuine provider message ID is required to mark delivery confirmed',async()=>{
+ const r=await Line.pushText({to:'U12345678901234567890123456789012',text:'hello'},{
+  token:'token',retryKey:'123e4567-e89b-42d3-a456-426614174000',
+  fetchImpl:async()=>({ok:true,status:200,headers:{get:()=>''},text:async()=>JSON.stringify({sentMessages:[{id:'msg-verified-2'}]})})
+ });
+ assert.equal(r.provider_confirmed,true);
+ assert.equal(r.external_message_id,'msg-verified-2');
+});
