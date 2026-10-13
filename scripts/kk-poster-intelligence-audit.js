@@ -2,13 +2,14 @@
 // Manual, zero-cost, read-only audit. Never updates a Sheet, PR, or event.
 const fs=require('node:fs');
 const {audit}=require('../server/kk-poster-intelligence.js');
-const {objects,parseCsv}=require('./audit-storefront-posters.js');
+const {objects,parseCsv,probe,pool}=require('./audit-storefront-posters.js');
 const FEED='https://kk-phone-rental.vercel.app/api/kk-data?sheet=08_Web_Ready&range=A4%3AK';
 function parseArgs(argv){
  const args={};
  for(const arg of argv){
   if(arg==='--help'){args.help=true;continue;}
-  const m=arg.match(/^--(rows-file|observations-file|vision-file)=(.+)$/);
+  if(arg==='--probe'){args.probe=true;continue;}
+  const m=arg.match(/^--(rows-file|observations-file|vision-file|as-of)=(.+)$/);
   if(!m)throw Error('UNRECOGNIZED_OPTION_'+arg);
   if(args[m[1]])throw Error('DUPLICATE_OPTION_'+m[1]);
   args[m[1]]=m[2];
@@ -33,16 +34,33 @@ async function loadRows(args,fetchImpl=global.fetch){
   return objects(raw);
  }finally{clearTimeout(timer);}
 }
+function bangkokDate(now=new Date()){
+ const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{
+  timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'
+ }).formatToParts(now).map(v=>[v.type,v.value]));
+ return parts.year+'-'+parts.month+'-'+parts.day;
+}
 async function run(argv=process.argv.slice(2),deps={}){
  const args=parseArgs(argv);
- if(args.help)return {help:'node scripts/kk-poster-intelligence-audit.js [--rows-file=fixtures.json] [--observations-file=network-and-decoding.json] [--vision-file=ai-evidence.json]\nRead-only. Reports suspected mismatches and evidence queue; AI does not auto-approve or change data.'};
+ if(args.help)return {help:'node scripts/kk-poster-intelligence-audit.js [--rows-file=fixtures.json] [--as-of=2026-10-14] [--probe] [--observations-file=network-and-decoding.json] [--vision-file=ai-evidence.json]\nRead-only. Reports suspected mismatches and evidence queue; AI does not auto-approve or change data.'};
  const rows=await loadRows(args,deps.fetchImpl||global.fetch);
  const observations=args['observations-file']?readArray(args['observations-file'],'OBSERVATIONS'):[];
+ if(args.probe){
+  const scoped=rows.filter(r=>['show','show_full'].includes(String(r.action_for_web||'').trim().toLowerCase())&&
+   (!args['as-of']||String(r.event_date_text||'').trim()));
+  const sources=[...new Set(scoped.map(r=>String(r.poster_image_url||'').trim()).filter(u=>u&&(/^https:\/\//i.test(u)||u.startsWith('/'))))];
+  const results=await pool(sources,u=>probe(u.startsWith('/')?'https://kk-phone-rental.vercel.app'+u:u));
+  const bySource=new Map(sources.map((u,i)=>[u,results[i]]));
+  for(const row of scoped){const u=String(row.poster_image_url||'').trim(),result=bySource.get(u);
+   if(result)observations.push({event_id:row.event_id,poster_url:u,ok:result.ok,content_type:result.content_type,
+    status:result.status,final_url:result.final_url,probe_error:result.error});
+  }
+ }
  const vision_reviews=args['vision-file']?readArray(args['vision-file'],'VISION'):[];
- return audit({rows,observations,vision_reviews});
+ return audit({rows,observations,vision_reviews,as_of:args['as-of']||bangkokDate(deps.now||new Date())});
 }
 if(require.main===module)run().then(report=>{
  process.stdout.write(JSON.stringify(report,null,2)+'\n');
  if(report.p0>0)process.exitCode=2;
 }).catch(err=>{console.error(JSON.stringify({ok:false,error:String(err&&err.message||err)}));process.exitCode=1;});
-module.exports={FEED,parseArgs,readArray,loadRows,run};
+module.exports={FEED,parseArgs,readArray,loadRows,bangkokDate,run};
