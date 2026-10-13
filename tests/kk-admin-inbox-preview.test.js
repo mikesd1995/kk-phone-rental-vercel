@@ -79,3 +79,99 @@ test('older concurrent message fetch cannot overwrite newer thread data or show 
  assert.deepEqual(rendered,['newest','latest']);
  assert.equal(messages.some(m=>m.includes('outdated network error')),false);
 });
+
+test('overlapping Inbox lists discard stale success and stale failures',async()=>{
+ const vm=require('node:vm');
+ const js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const start=js.indexOf('async function loadList(runHydration=true,options={}){');
+ const end=js.indexOf('\nasync function refreshInboxNow(',start);
+ assert.ok(start>0&&end>start);
+ const pending=[],rendered=[],errors=[];
+ const ctx={
+  api:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),
+  $:()=>({value:''}),conversationVersion:r=>String(r?.updated_at||''),
+  renderList:rows=>rendered.push(rows.map(r=>r.conversation_id).join(',')),
+  renderThreadHeader:()=>{},composeState:()=>{},markRefreshed:()=>{},
+  hydrateMissingProfiles:()=>{},loadThread:async()=>{},
+  liveStatus:v=>errors.push(String(v)),showError:e=>errors.push(e.message)
+ };
+ vm.runInNewContext(
+  "let selected='',selectedRow=null,outboundEnabled=false,listRequestSeq=0;\n"+
+  js.slice(start,end)+"\nglobalThis.loadList=loadList;",ctx
+ );
+ const stale=ctx.loadList(false),latest=ctx.loadList(false);
+ assert.equal(pending.length,2);
+ pending[1].resolve({conversations:[{conversation_id:'conv_latest'}],outbound_enabled:true});
+ await latest;
+ pending[0].resolve({conversations:[{conversation_id:'conv_old'}],outbound_enabled:false});
+ await stale;
+ assert.deepEqual(rendered,['conv_latest']);
+ const staleFailure=ctx.loadList(false),newer=ctx.loadList(false);
+ pending[3].resolve({conversations:[{conversation_id:'conv_newer'}],outbound_enabled:true});
+ await newer;
+ pending[2].reject(new Error('obsolete list failure'));
+ await staleFailure;
+ assert.deepEqual(rendered,['conv_latest','conv_newer']);
+ assert.equal(errors.some(e=>e.includes('obsolete list failure')),false);
+});
+
+test('switching LINE rooms during send never wipes another customer draft or refreshes the wrong thread',async()=>{
+ const vm=require('node:vm');
+ const js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const start=js.indexOf('async function sendMessage(){');
+ const end=js.indexOf('\nfunction scheduleSearch(',start);
+ assert.ok(start>0&&end>start);
+ const input={value:'  reply to customer A  '},calls=[],threads=[],lists=[];
+ let finish;
+ const ctx={
+  $:()=>input,window:{confirm:()=>true},composeState:()=>{},
+  api:(action,payload)=>new Promise(resolve=>{calls.push({action,payload});finish=resolve;}),
+  loadThread:async id=>threads.push(id),
+  loadList:async()=>lists.push('refreshed')
+ };
+ vm.runInNewContext(
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;\n"+
+  js.slice(start,end)+"\nglobalThis.sendMessage=sendMessage;globalThis.switchRoom=id=>{selected=id;selectedRow={conversation_id:id,channel:'line'};};",ctx
+ );
+ const request=ctx.sendMessage();
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].payload.conversation_id,'conv_A');
+ assert.equal(calls[0].payload.text,'reply to customer A');
+ ctx.switchRoom('conv_B');
+ input.value='draft for customer B';
+ finish({ok:true});
+ await request;
+ assert.equal(input.value,'draft for customer B');
+ assert.deepEqual(threads,[]);
+ assert.deepEqual(lists,['refreshed']);
+});
+
+test('LINE owner reply preserves an edited draft but clears the original completed draft',async()=>{
+ const vm=require('node:vm');
+ const js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const start=js.indexOf('async function sendMessage(){');
+ const end=js.indexOf('\nfunction scheduleSearch(',start);
+ const input={value:'first draft'},threads=[],calls=[];
+ const pending=[];
+ const ctx={
+  $:()=>input,window:{confirm:()=>true},composeState:()=>{},
+  api:(action,payload)=>new Promise(resolve=>{calls.push({action,payload});pending.push(resolve);}),
+  loadThread:async id=>threads.push(id),loadList:async()=>{}
+ };
+ vm.runInNewContext(
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;\n"+
+  js.slice(start,end)+"\nglobalThis.sendMessage=sendMessage;",ctx
+ );
+ const first=ctx.sendMessage();
+ input.value='new unsent draft';
+ pending.shift()({ok:true});
+ await first;
+ assert.equal(input.value,'new unsent draft');
+ assert.deepEqual(threads,['conv_A']);
+ const second=ctx.sendMessage();
+ pending.shift()({ok:true});
+ await second;
+ assert.equal(input.value,'');
+ assert.deepEqual(threads,['conv_A','conv_A']);
+ assert.deepEqual(calls.map(c=>c.payload.text),['first draft','new unsent draft']);
+});
