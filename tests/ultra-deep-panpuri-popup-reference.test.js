@@ -19,10 +19,17 @@ test('generic retail pop-up without named artist is not recovered',()=>{
  const row={title:'PAÑPURI HOLIDAY POP-UP',event_date:'2026-10-21',venue:'centralwOrld',source_url};
  assert.equal(referenceScopeDecision(row,context).eligible,false);
 });
-test('outside month or missing date remains excluded',()=>{
+test('outside month remains excluded while a strong date-less Bangkok source enters verification only',()=>{
  const base={title:'PAÑPURI POP-UP with PHUTATCHAI',venue:'centralwOrld',source_url};
  assert.equal(referenceScopeDecision({...base,event_date:'2026-11-21'},context).eligible,false);
- assert.equal(referenceScopeDecision(base,context).eligible,false);
+ const scoped=scopeReferenceCandidates([base],context);
+ assert.equal(scoped[0].eligible_for_discovery,true);
+ assert.equal(scoped[0].reference_scope_reason,'SOURCE_DATE_PENDING_PRIMARY_VERIFIER');
+ const recovered=recoverEligibleReferenceCandidates([],scoped,context);
+ assert.equal(recovered.recovered_count,1);
+ assert.equal(recovered.candidates[0].event_date,null);
+ assert.equal(recovered.candidates[0].date_pending_verification,true);
+ assert.equal(recovered.candidates[0].authoritative,false);
 });
 test('source is still needed for publication evidence and not manufactured by recovery',()=>{
  const row={title:'PAÑPURI POP-UP with PHUTATCHAI',event_date:'2026-10-21',venue:'centralwOrld',source_url};
