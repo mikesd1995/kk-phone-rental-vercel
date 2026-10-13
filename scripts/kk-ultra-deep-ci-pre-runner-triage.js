@@ -1,10 +1,13 @@
 'use strict';
 // Read-only GitHub Actions incident classifier. This does NOT rerun a workflow,
 // authorize a deployment, fetch private job logs, or enable paid billing.
-const VERSION='KK_ULTRA_DEEP_CI_PRE_RUNNER_TRIAGE_V1';
+const VERSION='KK_ULTRA_DEEP_CI_PRE_RUNNER_TRIAGE_V2';
 const MAX_RUNS=10;
 function text(v){return String(v==null?'':v).trim();}
-function validRepo(repo){return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(text(repo));}
+function validRepo(repo){
+ const parts=text(repo).split('/');
+ return parts.length===2&&parts.every(p=>/^[A-Za-z0-9_.-]+$/.test(p)&&p!=='.'&&p!=='..');
+}
 function validRun(value){return /^\d{7,16}$/.test(String(value));}
 function parseArgs(argv=[]){
  let repo='',runs=[];
@@ -26,34 +29,39 @@ function classify(run={},jobs=[],timing={}){
  const steps=rows.flatMap(x=>Array.isArray(x.steps)?x.steps:[]);
  const allMissingSteps=rows.length>0&&rows.every(x=>!Array.isArray(x.steps)||x.steps.length===0);
  const failed=run.status==='completed'&&run.conclusion==='failure';
- const dataComplete=rows.length>0&&jobRuns.length>0&&Number.isFinite(total);
+ // GitHub may report duration_ms=0 even for successful jobs with full steps,
+ // so duration is metadata, never proof that runner execution did not occur.
  let classification='EVIDENCE_INCOMPLETE';
  if(run.status!=='completed')classification='RUN_NOT_TERMINAL';
- else if(dataComplete&&failed&&allMissingSteps&&total===0)
-  classification='FAILED_BEFORE_RECORDED_RUNNER_EXECUTION';
- else if(dataComplete&&steps.length>0&&failed)
+ else if(failed&&allMissingSteps)
+  classification='FAILED_WITHOUT_VISIBLE_STEPS';
+ else if(steps.length>0&&failed)
   classification='EXECUTED_TEST_OR_RUNNER_STEP_FAILURE';
- else if(run.conclusion==='success'&&dataComplete&&steps.length>0)
+ else if(run.conclusion==='success'&&steps.length>0)
   classification='RECORDED_RUN_SUCCESS';
  return {
   version:VERSION,run_id:run.id||null,head_sha:text(run.head_sha)||null,
   workflow:text(run.name)||null,status:text(run.status),conclusion:text(run.conclusion),
-  classification,diagnostic_certainty:classification==='FAILED_BEFORE_RECORDED_RUNNER_EXECUTION'?
-    'ZERO_RECORDED_JOB_EXECUTION_TIME_NOT_ROOT_CAUSE':'EVIDENCE_ONLY',
+  classification,diagnostic_certainty:classification==='FAILED_WITHOUT_VISIBLE_STEPS'?
+    'NO_STEPS_VISIBLE; ROOT_CAUSE_NOT_PROVEN_BY_ZERO_BILLABLE_MS':'EVIDENCE_ONLY',
   job_count:rows.length,job_ids:rows.map(x=>x.id).filter(Boolean),
   visible_step_count:steps.length,steps_missing:allMissingSteps,
   recorded_job_runtime_ms:jobRuns.length?total:null,
   run_duration_ms:Number.isFinite(Number(timing.run_duration_ms))?
     Number(timing.run_duration_ms):null,
-  possible_causes_not_proven:classification==='FAILED_BEFORE_RECORDED_RUNNER_EXECUTION'?
+  possible_causes_not_proven:classification==='FAILED_WITHOUT_VISIBLE_STEPS'?
     ['REPO_ACTIONS_POLICY','ACCOUNT_BILLING_OR_USAGE','RUNNER_PROVISIONING','GITHUB_SERVICE_RESTRICTION']:[],
   root_cause_confirmed:false,
-  runner_execution_confirmed:steps.length>0&&total>0,
+  runner_execution_confirmed:steps.length>0,
   production_writes:0,github_actions_reruns:0,paid_provider_calls:0
  };
 }
 async function requestJson(url,{fetchImpl=global.fetch,token=''}={}){
- // All URLs are assembled below from validated repo and numeric run IDs.
+ // The exported helper also refuses to send tokens to arbitrary origins.
+ const parsed=new URL(url);
+ if(parsed.protocol!=='https:'||parsed.hostname!=='api.github.com'||
+    parsed.username||parsed.password||parsed.port)
+  throw Error('GITHUB_API_ORIGIN_REQUIRED');
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
  try{
   const headers={Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
