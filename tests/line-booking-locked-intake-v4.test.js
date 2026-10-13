@@ -29,6 +29,15 @@ test('LINE intake targets dedicated pending writer, never legacy createBooking',
   assert.equal(r.payload.amount_received,0);
 });
 
+test('pending LINE writer treats verified LINE contact as customer identity; phone is optional',()=>{
+ const writer=writerBody();
+ assert.match(writer,/const customerContact = String\(payload\.customer_contact \|\| ''\)\.trim\(\)/);
+ assert.match(writer,/!eventId \|\| !templateId \|\| !customerName \|\| !customerContact/);
+ assert.doesNotMatch(writer,/!customerPhone\)/);
+ assert.match(writer,/customerContact, customerPhone, 'LINE'/);
+ assert.match(writer,/payment_status: 'unpaid'|pkgType,\s*'',\s*'',\s*pickupTime,\s*'',\s*'unpaid',\s*0/);
+});
+
 test('Apps Script exposes a separate pending route while legacy createBooking remains separate',()=>{
   assert.match(source,/case 'createLineBookingPending': result = kkApiCreateLineBookingPending_\(payload\); break;/);
   assert.match(source,/case 'createBooking': result = kkApiCreateBooking_\(payload\); break;/);
