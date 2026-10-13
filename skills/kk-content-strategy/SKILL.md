@@ -183,7 +183,7 @@ For direct rental posts:
 - Keep: 📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน
 - Keep: ☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน
 - Booking CTA: 👉 เลือกวันแล้วจองคิว (next line: kk-phone-rental.vercel.app)
-- Put **exactly 3 strongest verified closing hashtags at the end by default**. Do not duplicate `#เช่ามือถือ` or the main event hashtag already used above.
+- **At least 5 DISTINCT verified, relevant hashtags per X rental post (mandatory):** `#เช่ามือถือ` once in the brand header + one verified main event hashtag + **at least 3 other distinct, verified closing hashtags at the end**. Prefer 3 strong closing tags and do not exceed existing QA reach-tag limits. Do not repeat the main event tag or `#เช่ามือถือ` at the end. If adequate verified tags cannot be found, fail closed rather than inventing tags.
 - Do not repeat the brand line at the bottom.
 - Brand/header appears **once only**. Do not name "KK" or the shop again in the body or hook.
 - Device model must be visible only in the verified offer/price line. Never repeat it in story paragraphs or CTA.
