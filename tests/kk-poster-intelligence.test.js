@@ -103,3 +103,21 @@ test('review queue provides bounded explicit task, never recommends auto-publish
  ['event_id','event_name','event_date','poster_url','required_checks','instruction'].sort());
  assert.equal(out.ai_review_queue[0].instruction.includes('Never write Sheet'),true);
 });
+
+test('same decoded SHA256 at different source URLs triggers review, not automatic removal',()=>{
+ const hash='f'.repeat(64);
+ const second=base(id('20261015','OTHER'),'Other event','15/10/2026','https://different.example.com/other.jpg');
+ const out=P.audit({rows:[good,second],observations:[
+ {event_id:good.event_id,poster_url:asset,loaded:true,natural_width:1200,sha256:hash,content_type:'image/jpeg'},
+ {event_id:second.event_id,poster_url:second.poster_image_url,loaded:true,natural_width:1200,sha256:hash,content_type:'image/jpeg'}
+ ]});
+ assert.equal(out.events.every(e=>has(e,'CROSS_EVENT_IMAGE_BYTES_REUSED')),true);
+ assert.equal(out.events.every(e=>e.owner_approved===false&&e.production_writes===0),true);
+});
+test('current nonempty temporary-art note yields review without pretending image is incorrect',()=>{
+ const row={...good,event_note:'TEMP_IMAGE: รอโปสเตอร์ต้นฉบับ'};
+ const report=details(row);
+ assert.equal(has(report,'TEMPORARY_POSTER_PROVENANCE_REVIEW'),true);
+ assert.equal(has(report,'KNOWN_WRONG_EVENT_IMAGE'),false);
+ assert.equal(report.priority,'P1');
+});
