@@ -280,3 +280,10 @@ test('date-less Verifier selects matching JSON-LD event when page contains sever
  assert.equal(result.poster.image_url,'https://poster.example/correct.jpg');
  assert.equal(result.production_writes,undefined);
 });
+
+test('lookalike ticket platform hostname is never treated as a trusted event-detail host',()=>{
+ const row={title:'ATLAS RISING UP',event_date:'2026-10-21',
+  source_url:'https://fakeeventpop.me/e/1234/atlas-rising-up'};
+ assert.equal(Runner.referenceScopeDecision(row,CTX).eligible,false);
+ assert.equal(Runner.referenceScopeDecision({...row,source_url:'https://www.eventpop.me/e/1234/atlas-rising-up'},CTX).eligible,true);
+});
