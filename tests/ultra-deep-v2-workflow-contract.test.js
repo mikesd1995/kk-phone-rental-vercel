@@ -47,3 +47,10 @@ test('Backscan and shard script edits re-trigger exact-head checks without paid 
   assert.doesNotMatch(workflow,/^\s+(?:-\s+)?run:\s*npm (?:ci|install|i)\b/m);
   assert.doesNotMatch(workflow,/^\s+continue-on-error:\s*true\s*$/m);
 });
+
+test('trusted local exact-head helper safety tests are part of the free offline CI gate',()=>{
+  assert.match(workflow,/'tests\/kk-ci-exact-head-local\.test\.js'/);
+  assert.match(workflow,/'scripts\/kk-ci-exact-head-local\.sh'/);
+  assert.match(workflow,/node --test tests\/kk-ci-offline-dependency-gate\.test\.js tests\/kk-ci-exact-head-local\.test\.js/);
+  assert.doesNotMatch(workflow,/\b(?:npm ci|npm install|vercel --prod)\b/);
+});
