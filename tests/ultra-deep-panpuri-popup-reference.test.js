@@ -35,3 +35,16 @@ test('missing venue is not inferred from scanner context',()=>{
  const row={title:'PAÑPURI POP-UP with PHUTATCHAI',event_date:'2026-10-21',source_url};
  assert.equal(referenceScopeDecision(row,context).eligible,false);
 });
+
+test('title-based artist appearance is recognized without a structured artist property',()=>{
+ const row={title:'Beauty Brand POP-UP with SOMENAME',event_date:'2026-10-21',venue:'centralwOrld',source_url};
+ assert.equal(referenceScopeDecision(row,context).eligible,true);
+});
+test('independent brand popup discovery lane is configured read-only',()=>{
+ const {buildReferencePlan}=require('../server/kk-ultra-deep-runtime-runner');
+ const plan=buildReferencePlan({month:'2026-10',location:'Bangkok Thailand'});
+ assert.equal(plan.version,'KK_ULTRA_DEEP_REFERENCE_SWEEP_V4');
+ assert.equal(plan.gap_tasks.length,6);
+ assert.ok(plan.gap_tasks.some(t=>t.source_tier==='BRAND_SPONSOR'&&/pop-up/i.test(t.query)));
+ assert.equal(plan.production_writes,0);
+});
