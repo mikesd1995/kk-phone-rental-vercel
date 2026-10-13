@@ -86,3 +86,12 @@ test('even all artificially executed shards cannot authorize commercial or produ
  assert.equal(report.release_eligible,false);
  assert.equal(report.production_writes,0);
 });
+
+
+test('local CLI defaults to explicit flags and does not implicitly execute a scan on import',()=>{
+ const CLI=require('../scripts/kk-ultra-deep-local-readonly-shards.js');
+ assert.deepEqual(CLI.parseArgs(['--month','2026-10','--plan']),{month:'2026-10',plan:true});
+ assert.deepEqual(CLI.parseArgs(['--month','2026-10','--run-all','--size','12']),{month:'2026-10','run-all':true,size:'12'});
+ assert.equal(CLI.filename(2),'readonly-shard-002.json');
+ assert.throws(()=>CLI.parseArgs(['--execute-writes']),/INVALID_SHARD_OPTION/);
+});
