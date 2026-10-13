@@ -177,3 +177,68 @@ test('API has guarded owner-only review actions, no automatic LINE send',()=>{
  assert.match(html,/id="inboxOutboundSaveReviewBtn"/);
  assert.match(html,/id="inboxPrepareRepeatBtn"/);
 });
+
+test('owner history UI reads ledger but cannot auto-send or expose retry keys',async()=>{
+ const vm=require('node:vm');
+ const js=fs.readFileSync(path.join(__dirname,'../admin/inbox-preview.js'),'utf8');
+ const a=js.indexOf('function renderOutboundReview(){'),b=js.indexOf('async function sendMessage(){',a);
+ assert.ok(a>0&&b>a);
+ const elements={
+  '#inboxOutboundReviewPanel':{hidden:true},
+  '#inboxOutboundReviewStatus':{textContent:''},
+  '#inboxOutboundAttempts':{innerHTML:''},
+  '#inboxOutboundSaveReviewBtn':{disabled:true},
+  '#inboxPrepareRepeatBtn':{disabled:true}
+ };
+ const calls=[];
+ const ctx={
+  $:key=>elements[key]||{value:''},
+  esc:val=>String(val).replaceAll('<','&lt;').replaceAll('>','&gt;'),
+  api:async(action,payload)=>{
+   calls.push({action,payload});
+   if(action!=='inboxListOutboundAttempts')throw Error('Unexpected send or mutation');
+   return {ok:true,attempts:[{
+    request_id:priorId,created_at:'2026-10-13T09:00:00Z',status:'UNCERTAIN',review_status:'UNREVIEWED',
+    retry_key:'must-not-show',body_fingerprint:'must-not-show'
+   }]};
+  },
+  window:{confirm:()=>true},composeState:()=>{}
+ };
+ vm.runInNewContext(
+  "let selected='"+conversationId+"',selectedRow={conversation_id:'"+conversationId+"',channel:'line'};"+
+  "let outboundReviewSeq=0,outboundReviewRows=[],outboundSelected=null,pendingIntentionalRepeat=null;\n"+
+  js.slice(a,b)+"\nglobalThis.load=loadOutboundHistory;",ctx
+ );
+ await ctx.load();
+ assert.equal(elements['#inboxOutboundReviewPanel'].hidden,false);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].action,'inboxListOutboundAttempts');
+ assert.doesNotMatch(elements['#inboxOutboundAttempts'].innerHTML,/must-not-show/);
+ assert.match(elements['#inboxOutboundAttempts'].innerHTML,/UNCERTAIN/);
+ assert.equal(elements['#inboxPrepareRepeatBtn'].disabled,true);
+});
+
+test('owner cannot prepare an UNCERTAIN send as a deliberate repeat',()=>{
+ const vm=require('node:vm'),js=fs.readFileSync(path.join(__dirname,'../admin/inbox-preview.js'),'utf8');
+ const a=js.indexOf('function renderOutboundReview(){'),b=js.indexOf('async function sendMessage(){',a);
+ let confirmations=0;
+ const elements={
+  '#inboxIntentionalRepeatReason':{value:'Documented deliberate repeat of receipt'},
+  '#inboxComposeText':{value:'original text'},
+  '#inboxOutboundReviewStatus':{textContent:''}
+ };
+ const ctx={
+  $:key=>elements[key]||{disabled:true,innerHTML:''},
+  window:{confirm:()=>{confirmations++;return true}},
+  composeState:()=>{},esc:s=>String(s)
+ };
+ vm.runInNewContext(
+  "let selected='"+conversationId+"',selectedRow={conversation_id:'"+conversationId+"',channel:'line'};"+
+  "let outboundReviewSeq=0,outboundReviewRows=[],outboundSelected={request_id:'"+priorId+"',status:'UNCERTAIN',review_status:'VERIFIED_SENT',provider_message_id:'x'},pendingIntentionalRepeat=null;\n"+
+  js.slice(a,b)+"\nglobalThis.prepare=prepareIntentionalRepeat;globalThis.pending=()=>pendingIntentionalRepeat;",ctx
+ );
+ ctx.prepare();
+ assert.equal(ctx.pending(),null);
+ assert.equal(confirmations,0);
+ assert.match(elements['#inboxOutboundReviewStatus'].textContent,/SENT/);
+});
