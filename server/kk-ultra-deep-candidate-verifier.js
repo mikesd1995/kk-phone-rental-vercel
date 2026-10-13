@@ -47,6 +47,19 @@ function isoDate(v){
  const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[1]+'-'+m[2]+'-'+m[3];
  const d=new Date(raw);return Number.isNaN(d.getTime())?'':d.toISOString().slice(0,10);
 }
+function bangkokLocalTime(value=''){
+ const raw=text(value);
+ // Keep the announced local wall clock only when the source uses Thailand
+ // offset (+07:00), or deliberately supplies no offset. Never mislabel UTC.
+ const m=raw.match(/T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/i);
+ if(!m||m[2]&&!/^\+07:?00$/.test(m[2]))return '';
+ return m[1];
+}
+function venueTokens(value=''){
+ return text(value).toLowerCase().replace(/([a-z])(\d)/g,'$1 $2')
+  .replace(/[^a-z0-9ก-๙]+/g,' ').split(' ')
+  .filter(x=>x.length>=3&&!['bangkok','floor','zone','กรุงเทพ','ชั้น'].includes(x));
+}
 function eventKey(row={}){
  const base=[text(row.title||row.event_name).toLowerCase().replace(/[^a-z0-9฀-๿]+/g,' ').replace(/\s+/g,' ').trim(),isoDate(row.event_date)].join('|');
  return 'UD-'+crypto.createHash('sha1').update(base).digest('hex').slice(0,16);
@@ -222,8 +235,10 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  const authority=popupLead?{...baseAuthority,ok:false,owner_review_required:true}:baseAuthority;
  if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
  if(popupLead&&text(candidate.venue)&&picked&&locationName(picked.e&&picked.e.location)){
-  const a=text(candidate.venue).toLowerCase(),b=locationName(picked.e.location).toLowerCase();
-  if(!a.includes(b)&&!b.includes(a))blockers.push('ARTIST_POPUP_VENUE_CONFLICT');
+  const wanted=venueTokens(candidate.venue),received=new Set(venueTokens(locationName(picked.e.location)));
+  const overlap=wanted.filter(x=>received.has(x)).length;
+  if(wanted.length&&overlap<Math.min(2,wanted.length))
+   blockers.push('ARTIST_POPUP_VENUE_CONFLICT');
  }
  if(popupLead){
   if(!picked||!text(picked.e&&picked.e.name)||!locationName(picked.e.location)||!imageUrl(picked.e.image))
@@ -245,7 +260,7 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
   blockers,
   candidate:{
    candidate_id:text(candidate.candidate_id)||key,
-   event_key:key,title,event_date:date,event_time:text(candidate.event_time)||null,venue,
+   event_key:key,title,event_date:date,event_time:text(candidate.event_time)||bangkokLocalTime(picked&&picked.e&&picked.e.startDate)||null,venue,
    artist:namedPopupArtists(candidate),
    source_url:url,confidence:verified?0.9:0.4,rental_fit_score:fit,
    publish_eligibility:{status:popupLead?'HOLD_OWNER_ARTIST_POPUP_REVIEW':(fit>=7?'ELIGIBLE':'REJECTED_LOW_RENTAL_FIT'),eligible:!popupLead&&fit>=7,rental_fit_score:fit,minimum_publish_score:7}
@@ -314,5 +329,5 @@ async function verifyBatch(candidates=[],context={},options={}){
 module.exports={
  VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,ARTIST_POPUP_SIGNAL,ARTIST_APPEARANCE_SIGNAL,artistPopupLead,namedPopupArtists,sourceConfirmsPopupArtist,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,
  text,https,isoDate,eventKey,host,eventSpecificUrl,monthMatches,titleQuality,authoritativeEventSource,prefilter,flattenJsonLd,parseJsonLd,metaValue,locationName,imageUrl,
- findKnownVenue,rentalFitScore,sourceTier,chooseJsonLdEvent,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
+ findKnownVenue,rentalFitScore,bangkokLocalTime,venueTokens,sourceTier,chooseJsonLdEvent,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
 };
