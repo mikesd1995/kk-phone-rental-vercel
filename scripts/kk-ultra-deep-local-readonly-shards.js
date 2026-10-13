@@ -19,7 +19,12 @@ function parseArgs(argv=[]){
 function filename(i){return 'readonly-shard-'+String(i).padStart(3,'0')+'.json';}
 function writeLocal(file,receipt){
  fs.mkdirSync(path.dirname(file),{recursive:true});
- fs.writeFileSync(file,JSON.stringify(receipt,null,2)+'\n',{flag:'wx'});
+ const temp=file+'.tmp-'+process.pid;
+ try{
+  fs.writeFileSync(temp,JSON.stringify(receipt,null,2)+'\n',{flag:'wx'});
+  if(fs.existsSync(file))throw new Error('READONLY_RECEIPT_ALREADY_EXISTS');
+  fs.renameSync(temp,file);
+ }finally{if(fs.existsSync(temp))fs.unlinkSync(temp);}
 }
 async function main(argv=process.argv.slice(2)){
  const args=parseArgs(argv);
