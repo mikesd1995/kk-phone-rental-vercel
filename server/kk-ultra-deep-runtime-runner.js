@@ -141,9 +141,14 @@ function referenceScopeDecision(row={},context={}){
  // A brand pop-up with a named artist is a discovery lead, not a publish decision.
  // Generic retail promotions stay excluded. Explicit Bangkok location and event date
  // are required; the verifier still needs an independent primary-source receipt.
- const artistAppearancePopup=/(pop[ -]?up|ป๊อปอัพ|ป็อปอัพ)/i.test(title) &&
-   /(?:phutatchai|ภูธัชชัย|พุฒิชัย|ศิลปิน|artist|appearance|with\\s+[a-z]{3,}|x\\s+[a-z]{3,})/i.test(title+' '+text(row.artists||row.artist)) &&
-   /(bangkok|กรุงเทพ|centralworld|centralw[oO]rld|เซ็นทรัลเวิลด์)/i.test([title,row.venue,row.location,context.location].map(text).join(' '));
+ const popupText=[title,row.event_name].map(text).join(' ');
+ const namedArtists=[row.artists,row.artist].flat().map(text).filter(Boolean);
+ const artistInTitle=/(?:\\bwith\\s+[a-z]{3,}|\\bx\\s+[a-z]{3,}|phutatchai|ภูธัชชัย|พุฒิชัย|ศิลปิน|artist appearance)/i.test(popupText);
+ const explicitVenue=[title,row.venue,row.location].map(text).join(' ');
+ const artistAppearancePopup=/(pop[ -]?up|ป๊อปอัพ|ป็อปอัพ)/i.test(popupText) &&
+   (namedArtists.length>0||artistInTitle) &&
+   /(bangkok|กรุงเทพ|centralworld|centralw[oO]rld|เซ็นทรัลเวิลด์)/i.test(explicitVenue);
+
  if(!REFERENCE_EVENT_RE.test(title)&&!trustedEventPath(row.source_url)&&!artistAppearancePopup) return {eligible:false,reason:'EVENT_IDENTITY_NOT_STRONG_ENOUGH'};
  return {eligible:true,reason:'ELIGIBLE_REFERENCE'};
 }
