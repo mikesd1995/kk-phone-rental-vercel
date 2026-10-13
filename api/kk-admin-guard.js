@@ -36,7 +36,7 @@ const BOOKING_GUARDED_ACTIONS = new Set(['createBooking','updateBooking']);
 const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
 const AGENT_GATEWAY_ACTIONS = new Set(['agentGateway','agentGatewayHealth']);
-const INBOX_ACTIONS = new Set(['inboxListConversations','inboxListMessages','inboxGetImage','inboxHydrateLineProfiles','inboxSetOwnerLabel','inboxMarkRead','inboxSendLineMessage']);
+const INBOX_ACTIONS = new Set(['inboxListConversations','inboxListMessages','inboxGetImage','inboxHydrateLineProfiles','inboxSetOwnerLabel','inboxMarkRead','inboxListOutboundAttempts','inboxReviewOutboundAttempt','inboxSendLineMessage']);
 const ULTRA_DEEP_ACTIONS = new Set(['ultraDeepFullLoop','ultraDeepFullLoopHealth','ultraDeepDirectRun','ultraDeepVercelNativeRun','smartLoopRun']);
 const ULTRA_DEEP_REPOSITORY = 'mikesd1995/kk-phone-rental-vercel';
 const ULTRA_DEEP_OWNER = 'mikesd1995';
@@ -609,12 +609,46 @@ module.exports=async function handler(req,res){
         if(!updated) return reply(res,404,{ok:false,error:'conversation not found',error_code:'INBOX_CONVERSATION_NOT_FOUND',production_writes:0});
         return reply(res,200,{ok:true,conversation:updated,production_writes:updated.marked_read===true?1:0,provider_sends:0});
       }
+      if(action==='inboxListOutboundAttempts'){
+        const conversationId=String(payload.conversation_id||'').trim();
+        if(!conversationId)return reply(res,400,{ok:false,error:'conversation required',error_code:'INBOX_CONVERSATION_REQUIRED',production_writes:0,provider_sends:0});
+        const conversation=await store.getConversation(conversationId);
+        if(!conversation||String(conversation.channel||'').toLowerCase()!=='line')
+          return reply(res,404,{ok:false,error:'LINE conversation not found',error_code:'INBOX_CONVERSATION_NOT_FOUND',production_writes:0,provider_sends:0});
+        const attempts=await store.listOutboundAttempts(conversationId,30);
+        return reply(res,200,{ok:true,attempts,production_writes:0,provider_sends:0});
+      }
+      if(action==='inboxReviewOutboundAttempt'){
+        if(payload.owner_approved!==true)
+          return reply(res,409,{ok:false,error:'Owner approval required',error_code:'OWNER_APPROVAL_REQUIRED',production_writes:0,provider_sends:0});
+        const conversationId=String(payload.conversation_id||'').trim();
+        const requestId=String(payload.request_id||'').trim();
+        const reviewStatus=String(payload.review_status||'').trim();
+        const evidenceRef=String(payload.evidence_ref||'').trim();
+        const note=String(payload.review_note||'').trim();
+        if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)||
+           !['NEEDS_INVESTIGATION','VERIFIED_SENT'].includes(reviewStatus)||
+           evidenceRef.length>160||note.length>240)
+          return reply(res,400,{ok:false,error:'Invalid review input',error_code:'INBOX_OUTBOUND_REVIEW_INVALID',production_writes:0,provider_sends:0});
+        const conversation=await store.getConversation(conversationId);
+        if(!conversation||String(conversation.channel||'').toLowerCase()!=='line')
+          return reply(res,404,{ok:false,error:'LINE conversation not found',error_code:'INBOX_CONVERSATION_NOT_FOUND',production_writes:0,provider_sends:0});
+        const result=await store.reviewOutboundAttempt({conversationId,requestId,reviewStatus,evidenceRef,note});
+        if(result?.ok!==true||result?.request_id!==requestId||result?.review_status!==reviewStatus)
+          return reply(res,502,{ok:false,error:'Review write receipt unavailable',error_code:'INBOX_OUTBOUND_REVIEW_UNVERIFIED',production_writes:0,provider_sends:0});
+        return reply(res,200,{ok:true,review:{request_id:result.request_id,review_status:result.review_status},production_writes:1,provider_sends:0});
+      }
       if(action==='inboxSendLineMessage'){
         if(!lineToken) return reply(res,503,{ok:false,error:'LINE Messaging API is not configured',error_code:'LINE_PROVIDER_UNAVAILABLE',production_writes:0,provider_sends:0});
         if(payload.owner_approved!==true) return reply(res,409,{ok:false,error:'Owner approval is required before sending',error_code:'OWNER_APPROVAL_REQUIRED',production_writes:0,provider_sends:0});
         const conversationId=String(payload.conversation_id||'').trim();
         const body=String(payload.text||'').trim();
         const requestId=String(payload.send_request_id||'').trim();
+        const repeatOf=String(payload.intentional_repeat_of||'').trim();
+        const repeatReason=String(payload.intentional_repeat_reason||'').trim();
+        const repeatApproved=payload.intentional_repeat_approved===true;
+        if(repeatOf&&!repeatApproved)
+          return reply(res,409,{ok:false,error:'Explicit repeat approval required',error_code:'INBOX_INTENTIONAL_REPEAT_APPROVAL_REQUIRED',production_writes:0,provider_sends:0});
         if(!conversationId) return reply(res,400,{ok:false,error:'conversation_id is required',error_code:'INBOX_CONVERSATION_REQUIRED',production_writes:0,provider_sends:0});
         if(!body) return reply(res,400,{ok:false,error:'message text is required',error_code:'INBOX_TEXT_REQUIRED',production_writes:0,provider_sends:0});
         if(body.length>5000) return reply(res,400,{ok:false,error:'message text exceeds 5000 characters',error_code:'INBOX_TEXT_TOO_LONG',production_writes:0,provider_sends:0});
@@ -626,7 +660,7 @@ module.exports=async function handler(req,res){
         // Unlike ephemeral browser holds, this service-role reservation is atomic
         // across serverless instances and survives reloads and process restarts.
         const result=await DurableLineSend.sendOnce({
-          conversationId,body,requestId,conversation
+          conversationId,body,requestId,conversation,repeatOf,repeatReason,repeatApproved
         },{
           store,lineMessaging:LineMessaging,serviceKey:process.env.KK_INBOX_SUPABASE_SERVICE_ROLE_KEY,
           lineToken,fetchImpl:global.fetch
