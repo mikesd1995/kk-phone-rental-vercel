@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V14';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V15';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -206,9 +206,9 @@ function summarizeExecution(execution={}){
   return out;
 }
 
-async function providerPreflight(providers={},input={}){
+async function providerPreflight(providers={},input={},options={}){
  const probe={source_tier:'PUBLIC_CALENDAR',query:['Bangkok',text(input.month),'concert'].filter(Boolean).join(' '),providers:[...UNKNOWN_SEARCH_PROVIDERS],evidence_required:true};
- const result=await ProviderExecutor.executeGapTask(probe,{providers});
+ const result=await ProviderExecutor.executeGapTask(probe,{providers,deadline_ms:options.deadline_ms});
  const usable=new Set((result.attempts||[]).filter(a=>a.status==='EVIDENCE_FOUND').map(a=>text(a.provider).toUpperCase()));
  if(result.provider)usable.add(text(result.provider).toUpperCase());
  return {status:usable.size?'READY':'NO_LIVE_SEARCH_EVIDENCE',usable:[...usable],result};
@@ -274,6 +274,8 @@ async function runOperationalDiscovery(input={},options={}){
 }
 
 async function runMonthlyUltraDeep(input={},options={}){
+  const maxMs=Number(options.runtime_budget_ms||0);
+  const deadline_ms=Number.isFinite(maxMs)&&maxMs>0?Date.now()+Math.floor(maxMs):undefined;
   const publicProviders=options.use_only_injected_providers===true?{}:PublicWeb.createProviders(options.publicWebOptions||{});
   const providers=Object.assign({},publicProviders,options.providers||{});
   const binding=providerBindingState(providers);
@@ -281,7 +283,7 @@ async function runMonthlyUltraDeep(input={},options={}){
   // soft-throttle after a large sweep; putting the small regression corpus first
   // prevents broad discovery traffic from starving the recall gate.
   const knownMissPlan=buildKnownMissPlan();
-  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers});
+  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers,deadline_ms});
   const knownMissCandidates=flattenCandidates(knownMissExecution);
 
   const plan=MonthlyPlan.build(input);
@@ -290,8 +292,8 @@ async function runMonthlyUltraDeep(input={},options={}){
   // the known-miss probe. Run them concurrently and use the executor's bounded max concurrency
   // so production READ_ONLY stays inside the serverless duration without dropping coverage.
   const [execution,referenceExecution]=await Promise.all([
-    ProviderExecutor.executeGapPlan(plan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY}),
-    ProviderExecutor.executeGapPlan(referencePlan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY})
+    ProviderExecutor.executeGapPlan(plan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY,deadline_ms}),
+    ProviderExecutor.executeGapPlan(referencePlan,{providers,concurrency:ProviderExecutor.MAX_CONCURRENCY,deadline_ms})
   ]);
   const receipts=sourceUniverseReceipts(plan,execution);
   const universe=SourceRegistry.buildUniverseProof(receipts);
@@ -315,7 +317,7 @@ async function runMonthlyUltraDeep(input={},options={}){
   // Preflight is intentionally evaluated only after the established evidence
   // sequence, so it can gate completion without changing known-miss/discovery/
   // reference ordering or hiding their diagnostics.
-  const preflight=await providerPreflight(providers,input);
+  const preflight=await providerPreflight(providers,input,{deadline_ms});
   binding.preflight=preflight;
 
   // A known miss is recovered if any governed live discovery path finds it.
@@ -328,8 +330,12 @@ async function runMonthlyUltraDeep(input={},options={}){
   const knownMiss=KnownMiss.evaluateFixtureRegression();
 
   const liveSearchProven=preflight.status==='READY' || discoveryProof.has_evidence || referenceProof.has_evidence || knownMissCandidates.length>0;
-  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete;
+  // A timed-out query variant is never evidence of complete source coverage.
+  const budgetExhausted=[knownMissExecution,execution,referenceExecution].some(x=>x.time_budget_exhausted===true)||
+    (preflight.result&&preflight.result.time_budget_exhausted===true);
+  const complete=!budgetExhausted && binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete;
   const blockers=[
+    ...(budgetExhausted?['RUNTIME_BUDGET_EXHAUSTED']:[]),
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
     ...(binding.unknown_url_search_bound&&!liveSearchProven?['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED']:[]),
     ...(!universe.complete?['SOURCE_UNIVERSE_INCOMPLETE']:[]),
@@ -340,7 +346,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     ...(!knownMissLive.complete?['KNOWN_MISS_LIVE_RECALL_INCOMPLETE']:[])
   ];
   const diagnostic={
-    schema:'KK_ULTRA_DEEP_DISCOVERY_DIAGNOSTIC_V1',full:complete,blockers,
+    schema:'KK_ULTRA_DEEP_DISCOVERY_DIAGNOSTIC_V2',full:complete,blockers,budget_exhausted:budgetExhausted,
     gates:Object.fromEntries(Object.entries({provider_bound:binding.unknown_url_search_bound,live_search:liveSearchProven,
       source_universe:universe.complete,discovery:discoveryProof.complete,reference:referenceProof.complete,
       reconciliation:reconciliation.complete,known_miss_regression:knownMiss.complete,known_miss_live_recall:knownMissLive.complete}).map(([gate,observed])=>[gate,{expected:true,observed}])),
@@ -360,6 +366,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     status:complete?'READY_FOR_VERIFIER':'HOLD_FOR_COVERAGE',
     full:complete,
     blockers,
+    budget_exhausted:budgetExhausted,
     diagnostic,
     month:plan.range.month,
     location:plan.location,
