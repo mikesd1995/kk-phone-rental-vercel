@@ -117,7 +117,8 @@ function ownerApprovalMessage(ctx={},env=process.env){
   const packageName=text(ctx.package_name)||'-';
   const price=text(ctx.price_display)||'-';
   const customer=text(ctx.nickname)||'-';
-  const phone=text(ctx.phone)||'-';
+  const phone=text(ctx.phone);
+  const contactLabel=phone?'โทร  '+phone:'ติดต่อทาง LINE · ไม่ระบุเบอร์โทรศัพท์';
   const pickup=text(ctx.pickup_time)||'-';
   return {
     type:'flex',
@@ -133,7 +134,7 @@ function ownerApprovalMessage(ctx={},env=process.env){
         {type:'text',text:'ราคา  '+price,size:'sm',weight:'bold',wrap:true},
         {type:'separator',margin:'md'},
         {type:'text',text:'ลูกค้า  '+customer,size:'sm',wrap:true,margin:'md'},
-        {type:'text',text:'โทร  '+phone,size:'sm',wrap:true},
+        {type:'text',text:contactLabel,size:'sm',wrap:true},
         {type:'text',text:'เวลารับ  '+pickup,size:'sm',wrap:true}
       ]},
       footer:{type:'box',layout:'horizontal',spacing:'sm',contents:[
