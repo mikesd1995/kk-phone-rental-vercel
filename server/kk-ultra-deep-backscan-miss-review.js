@@ -67,6 +67,11 @@ function review(input={}){
   }
   used.add(id);
   const matchCore=input.events.filter(x=>matches(x,c));
+  // An event removed from Core can retain an owner visibility/tombstone history.
+  // Match exact event identity and day, including Google-Sheets date serials;
+  // refuse a fresh discovery proposal even if the historical lock was SEEN_CORE.
+  const historicalLocks=input.visibility_locks.filter(x=>matches(x,c)&&
+   !input.events.some(e=>text(e.event_id)&&text(e.event_id)===text(x.event_id)));
   const matchCandidate=input.tracker_candidates.filter(x=>matches(x,c));
   const matchMonthly=input.tracker_monthly.filter(x=>matches(x,c));
   const existingMiss=input.miss_learning.filter(x=>text(x['Miss ID'])===missId(c)||matches(x,c));
@@ -77,6 +82,7 @@ function review(input={}){
   if(unresolvedActiveBookings){disposition='HOLD_UNRESOLVED_BOOKINGS';blocker='ACTIVE_BOOKING_DATE_UNRESOLVED';}
   else if(protectedDay){disposition='REPORT_ONLY_PROTECTED_BOOKING_DAY';blocker='BOOKING_DAY_EXCLUSIVITY';}
   else if(matchCore.length>1){disposition='HOLD_CORE_DUPLICATE_IDENTITY';blocker='DUPLICATE_CORE';}
+  else if(!matchCore.length&&historicalLocks.length){disposition='HOLD_HISTORICAL_VISIBILITY_LOCK';blocker='OWNER_LOCK_OR_TOMBSTONE_HISTORY';}
   else if(matchCore.length===1){
    const core=matchCore[0],web=input.web_ready.find(x=>text(x.event_id)===text(core.event_id));
    const lock=input.visibility_locks.filter(x=>text(x.event_id)===text(core.event_id));
@@ -93,9 +99,11 @@ function review(input={}){
    disposition,blocked_reason:blocker,core_count:matchCore.length,
    candidate_count:matchCandidate.length,monthly_count:matchMonthly.length,
    prior_miss_count:existingMiss.length,protected_booking_day:protectedDay,
+   historical_lock_count:historicalLocks.length,
    source_primary_verified:false,training_eligible:false,may_create_core:false,may_publish:false,
    proposed_miss_id:missId(c),proposal:false};
   const reportOnly=disposition.startsWith('REPORT_ONLY_')||disposition.startsWith('EXISTING_CORE_')||
+   disposition==='HOLD_HISTORICAL_VISIBILITY_LOCK'||
    disposition==='HOLD_INVALID_OR_DUPLICATE_CASE'||disposition==='HOLD_UNRESOLVED_BOOKINGS'||disposition==='HOLD_CORE_DUPLICATE_IDENTITY'||disposition==='HOLD_DUPLICATED_TRACKER_IDENTITY';
   if(!reportOnly&&!existingMiss.length){
    const reason=disposition==='TRACKER_TO_CORE_REVIEW'?'KNOWN_IN_TRACKER_NOT_IN_CORE':
