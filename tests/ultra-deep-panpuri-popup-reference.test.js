@@ -30,3 +30,8 @@ test('source is still needed for publication evidence and not manufactured by re
  assert.equal(recovered.candidates[0].source_url,source_url);
  assert.equal(recovered.candidates[0].verifier_required,true);
 });
+
+test('missing venue is not inferred from scanner context',()=>{
+ const row={title:'PAÑPURI POP-UP with PHUTATCHAI',event_date:'2026-10-21',source_url};
+ assert.equal(referenceScopeDecision(row,context).eligible,false);
+});
