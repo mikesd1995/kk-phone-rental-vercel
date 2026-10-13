@@ -62,7 +62,22 @@ function host(url){
   try{return new URL(url.startsWith('/')?ORIGIN+url:url).hostname.toLowerCase();}
   catch{return 'invalid';}
 }
+function publicImageUrl(url){
+  try{
+    const u=new URL(url);
+    if(u.protocol!=='https:'||u.username||u.password||u.port&&u.port!=='443')return false;
+    const host=u.hostname.replace(/^\[|\]$/g,'').toLowerCase();
+    if(host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||host==='::1'||host==='0.0.0.0'||host.startsWith('fc')&&host.includes(':')||host.startsWith('fd')&&host.includes(':')||host.startsWith('fe80:'))return false;
+    const ip=host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if(ip){
+      const [a,b,c,d]=ip.slice(1).map(Number);
+      if([a,b,c,d].some(n=>n>255)||a===0||a===10||a===127||a>=224||a===169&&b===254||a===172&&b>=16&&b<=31||a===192&&b===168||a===100&&b>=64&&b<=127)return false;
+    }
+    return true;
+  }catch{return false;}
+}
 async function probe(url,fetchImpl=global.fetch){
+  if(!publicImageUrl(url))return {url,ok:false,status:0,content_type:'',latency_ms:0,final_url:'',error:'UNSAFE_IMAGE_URL'};
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),TIMEOUT_MS);
   const started=Date.now();
@@ -144,4 +159,4 @@ async function main(fetchImpl=global.fetch, options={}){
   return report;
 }
 if(require.main===module)main().catch(err=>{console.error(JSON.stringify({ok:false,error:text(err&&err.message)||'AUDIT_FAILED'}));process.exit(1);});
-module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,probe,pool,main};
+module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,publicImageUrl,probe,pool,main};
