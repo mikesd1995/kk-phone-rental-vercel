@@ -1,0 +1,200 @@
+{
+  "schema": "KK_OWNER_CORE_REVERSE_LINEAGE_STAGED_REVIEW_V1",
+  "as_of_local_date": "2026-10-13",
+  "owner_decision": "PENDING_GOVERNED_TRACKER_WRITE_REVIEW",
+  "stage_only": true,
+  "applied_to_tracker": false,
+  "verified_live_source": false,
+  "source": {
+    "repository": "mikesd1995/kk-phone-rental-vercel",
+    "branch": "audit/ultra-deep-panpuri-oct21-20261013",
+    "owner_lineage_source_sha": "6be93c862cd02a2b45a1cae281f909619c510ccd",
+    "backend_sheet_title": "KK Phone rental backend",
+    "tracker_sheet_title": "KK Phone Rental — Event Tracker 2569",
+    "read_scope": [
+      {
+        "surface": "01_Events",
+        "range": "A4:I600",
+        "rows_returned": 345
+      },
+      {
+        "surface": "08_Web_Ready",
+        "range": "A4:K600",
+        "rows_returned": 346
+      },
+      {
+        "surface": "09_Web_Packages",
+        "range": "A4:N1300",
+        "rows_returned": 1033
+      },
+      {
+        "surface": "18_Event_Visibility_Locks",
+        "range": "A1:N1100",
+        "rows_returned": 260
+      },
+      {
+        "surface": "00_Master_Booking",
+        "range": "A4:W500",
+        "rows_returned": 57
+      },
+      {
+        "surface": "_Candidate_Queue",
+        "range": "A1:AL2000",
+        "rows_returned": 368
+      },
+      {
+        "surface": "ต.ค. 2569",
+        "range": "A1:U1017",
+        "rows_returned": 1013
+      },
+      {
+        "surface": "_Miss_Learning",
+        "range": "A1:M2000",
+        "rows_returned": 35
+      }
+    ]
+  },
+  "reconciliation": {
+    "version": "KK_ULTRA_DEEP_OWNER_CORE_LINEAGE_V1",
+    "as_of": "2026-10-13",
+    "scope_event_ids": [
+      "EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP"
+    ],
+    "status": "STAGED_REVIEW_ONLY",
+    "blockers": [],
+    "events": [
+      {
+        "event_id": "EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP",
+        "event_date": "2026-10-21",
+        "event_name": "PAÑPURI LIMINAL CURRENTS HOLIDAY 2027 POP-UP — PHUTATCHAI | THAI",
+        "core_exists": true,
+        "core_active_on_web": true,
+        "core_webready_action": "show",
+        "owner_provenance_confirmed": true,
+        "visibility_lock": "SEEN_CORE",
+        "active_booking_present": false,
+        "existing_core_packages": 3,
+        "lineage_found": {
+          "tracker_candidates": 0,
+          "tracker_monthly": 0,
+          "miss_learning": 0
+        },
+        "missing_surfaces": [
+          "tracker_candidates",
+          "tracker_monthly",
+          "miss_learning"
+        ],
+        "status": "STAGE_OWNER_CORE_TRACKER_REVIEW",
+        "blockers": [],
+        "proposals": [
+          {
+            "event_id": "EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP",
+            "event_date": "2026-10-21",
+            "event_name": "PAÑPURI LIMINAL CURRENTS HOLIDAY 2027 POP-UP — PHUTATCHAI | THAI",
+            "venue": "Beacon 3, ชั้น 1, centralwOrld, Bangkok",
+            "lineage_key": "OWNER_CORE_TRACKER|EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP|2026-10-21",
+            "provenance": "OWNER_SUPPLIED_NOT_SCANNER_DISCOVERED",
+            "primary_source_verified": false,
+            "scanner_discovered": false,
+            "requires_owner_review": true,
+            "requires_governed_writer": true,
+            "auto_apply": false,
+            "surface": "_Candidate_Queue",
+            "action": "REVIEW_CREATE_IF_ABSENT",
+            "status": "HOLD_OWNER_CORE_LINEAGE_REVIEW",
+            "discovery_channel": "OWNER_REVERSE_CORE_NOT_SCANNER",
+            "discovery_source_url": null,
+            "evidence_type": "OWNER_SUPPLIED_POSTER_PRIMARY_SOURCE_PENDING",
+            "official_verification": "UNVERIFIED_OFFICIAL_EVENT_ANNOUNCEMENT",
+            "blocked_reason": "SOURCE_AND_PHOTOGRAPHY_ACCESS_POLICY_PENDING",
+            "note": "EXISTING_CORE_EVENT_ID=EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP; source_provenance=OWNER_EXPLICIT_ADD; do not create Core/AI READY packet"
+          },
+          {
+            "event_id": "EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP",
+            "event_date": "2026-10-21",
+            "event_name": "PAÑPURI LIMINAL CURRENTS HOLIDAY 2027 POP-UP — PHUTATCHAI | THAI",
+            "venue": "Beacon 3, ชั้น 1, centralwOrld, Bangkok",
+            "lineage_key": "OWNER_CORE_TRACKER|EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP|2026-10-21",
+            "provenance": "OWNER_SUPPLIED_NOT_SCANNER_DISCOVERED",
+            "primary_source_verified": false,
+            "scanner_discovered": false,
+            "requires_owner_review": true,
+            "requires_governed_writer": true,
+            "auto_apply": false,
+            "surface": "ต.ค. 2569",
+            "action": "REVIEW_EXISTING_CORE_MONTHLY_DISPOSITION",
+            "status": "HOLD_OWNER_CORE_MONTHLY_LINEAGE_REVIEW",
+            "proposed_price": null,
+            "proposed_visibility": null,
+            "proposed_inventory": null,
+            "note": "EXISTING_CORE_EVENT_ID=EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP; no date-sorted row insert without governed verifier"
+          },
+          {
+            "event_id": "EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP",
+            "event_date": "2026-10-21",
+            "event_name": "PAÑPURI LIMINAL CURRENTS HOLIDAY 2027 POP-UP — PHUTATCHAI | THAI",
+            "venue": "Beacon 3, ชั้น 1, centralwOrld, Bangkok",
+            "lineage_key": "OWNER_CORE_TRACKER|EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP|2026-10-21",
+            "provenance": "OWNER_SUPPLIED_NOT_SCANNER_DISCOVERED",
+            "primary_source_verified": false,
+            "scanner_discovered": false,
+            "requires_owner_review": true,
+            "requires_governed_writer": true,
+            "auto_apply": false,
+            "surface": "_Miss_Learning",
+            "action": "REVIEW_OBSERVED_GAP_NOT_CONFIRMED_SCANNER_MISS",
+            "miss_id": "MISS|OWNERCORE|20261021|EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP",
+            "miss_class": "OWNER_CORE_TRACKER_LINEAGE_GAP",
+            "status": "PROPOSED_REVIEW_NOT_LEARNED",
+            "verified_scanner_failure": false,
+            "training_eligible": false,
+            "root_cause": "REVERSE_CORE_LINEAGE_MISSING__SCANNER_MISS_NOT_YET_PROVEN",
+            "note": "Visibility lock SEEN_CORE; owner poster is not independent official announcement"
+          }
+        ],
+        "known_miss_can_be_auto_accepted": false,
+        "scanner_discovered": false,
+        "primary_source_verified": false,
+        "pricing_mutation": false,
+        "visibility_mutation": false,
+        "inventory_mutation": false,
+        "production_writes": 0
+      }
+    ],
+    "review_proposal_count": 3,
+    "authority": {
+      "stage_only": true,
+      "approved": false,
+      "auto_apply": false,
+      "tracker_writes": 0,
+      "backend_writes": 0,
+      "production_writes": 0,
+      "may_change_price": false,
+      "may_change_visibility": false,
+      "may_create_core_event": false,
+      "may_mark_scanner_discovered": false,
+      "may_mark_miss_learned": false
+    }
+  },
+  "known_miss_existing_in_code": [
+    {
+      "case_id": "panpuri-phutatchai-pop-up-20261021",
+      "event_date": "2026-10-21",
+      "miss_class": "BRAND_POPUP_ARTIST_APPEARANCE_GAP"
+    }
+  ],
+  "explicit_guards": [
+    "OWNER_ADDED_CORE_MUST_NOT_BE_RECREATED",
+    "DO_NOT_CHANGE_490_590_OWNER_PRICES",
+    "NO_STORE_VISIBILITY_OR_CAPACITY_CHANGE",
+    "NO_AI_READY_PACKET",
+    "NO_SCANNER_DISCOVERY_OR_LIVE_MISS_CLAIM",
+    "NO_LEARNED_TRAINING_UNTIL_PRIMARY_AND_LIVE_EVIDENCE",
+    "BEFORE_ANY_AUTHORIZED_TRACKER_WRITE_REREAD_AND_VERIFY_IDEMPOTENCY"
+  ],
+  "writes": {
+    "core": 0,
+    "tracker": 0,
+    "production": 0
+  }
+}
