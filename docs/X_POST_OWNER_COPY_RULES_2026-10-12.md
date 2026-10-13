@@ -39,3 +39,6 @@ Record candidate angles, selected angle, factual sources, duplicate/novelty QA, 
 
 ## Owner update 2026-10-14 — locked display convention
 All public X date-status labels are binary: ✅ ว่าง / ❌ เต็ม. A date intentionally closed by the shop is shown as ❌ เต็ม in the **post only**. Never alter Booking, dates, hidden flags or the owner lock to satisfy this copy rule. This replaces the previous three-label convention.
+
+## Owner update 2026-10-14 — hashtag floor
+Each X rental post must have at least 5 distinct, relevant, verified hashtags: `#เช่ามือถือ` in the opening brand line, one verified primary event hashtag in the event section, and at least 3 additional relevant and verified hashtags together at the end. Never count repeated tags twice, repeat the brand/event tag in the closing block, or invent tags to fill the quota. If fewer than 3 suitable verified closing tags are available, halt for verification; do not publish an incomplete post. Applies to every event and batch.
