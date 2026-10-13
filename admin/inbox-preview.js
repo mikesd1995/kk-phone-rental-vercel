@@ -392,22 +392,31 @@ async function sendMessage(){
  const sendRequestId=window.crypto?.randomUUID?.();
  if(!sendRequestId){composeState('อุปกรณ์นี้ไม่รองรับรหัสคำขอ LINE ที่ปลอดภัย');return;}
  sending=true;composeState('กำลังส่งผ่าน LINE…');
+ let providerAccepted=false,outcomeStatus='';
  try{
   // Keep the approved recipient and draft stable while LINE is in flight.
-  await api('inboxSendLineMessage',{conversation_id:conversationId,text:body,owner_approved:true,send_request_id:sendRequestId});
+  const response=await api('inboxSendLineMessage',{conversation_id:conversationId,text:body,owner_approved:true,send_request_id:sendRequestId});
+  // A generic HTTP 200 without the exact Inbox delivery receipt is ambiguous.
+  if(response?.provider_sends!==1||response?.message?.conversation_id!==conversationId||
+     !response?.message?.message_id)throw new Error('LINE delivery receipt incomplete');
+  providerAccepted=true;
   if(inboxDrafts[conversationId]===originalDraft)delete inboxDrafts[conversationId];
   if(selected===conversationId){
    if(box&&box.value===originalDraft)box.value='';
-   composeState('ส่งสำเร็จและบันทึกใน Inbox แล้ว');
    await loadThread(conversationId,selectedRow,{preserveScroll:false,markRead:true});
   }
-  await loadList(false,{silent:true});
+  const refreshed=await loadList(false,{silent:true});
+  outcomeStatus=refreshed===null?'ส่ง LINE และบันทึกสำเร็จแล้ว · รายการแชทยังไม่อัปเดต':'ส่งสำเร็จและบันทึกใน Inbox แล้ว';
  }catch(_){
-  // Timeout or lost post-send persistence can mean the customer already received it.
-  // Block retries in this session until the owner verifies the actual LINE history.
-  uncertainSendRooms.add(conversationId);
-  if(selected===conversationId)composeState('สถานะส่งไม่ยืนยัน · ตรวจ LINE OA ก่อนลองส่งซ้ำ');
- }finally{sending=false;composeState()}
+  if(!providerAccepted){
+   // Timeout or lost persistence receipt may mean customer already received it.
+   uncertainSendRooms.add(conversationId);
+   outcomeStatus='สถานะส่งไม่ยืนยัน · ตรวจ LINE OA ก่อนลองส่งซ้ำ';
+  }else{
+   // A thread refresh failure AFTER an exact delivery receipt is not a send failure.
+   outcomeStatus='ส่ง LINE และบันทึกสำเร็จแล้ว · โหลดแชทล่าสุดไม่สำเร็จ';
+  }
+ }finally{sending=false;composeState(outcomeStatus)}
 }
 function scheduleSearch(){
  clearTimeout(searchTimer);
