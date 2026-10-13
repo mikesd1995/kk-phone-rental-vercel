@@ -7,13 +7,14 @@ const run={id:38404082846,head_sha:'9df5d802cff1d30c616fd20dcaaa90376f4fcda8',
 const job={id:115318973550,conclusion:'failure',steps:null};
 const zero={billable:{UBUNTU:{total_ms:0,jobs:1,
   job_runs:[{job_id:115318973550,duration_ms:0}]}},run_duration_ms:4000};
-test('real recorded 0ms failed job with no steps is a pre-runner evidence case',()=>{
+test('failed job with zero billed ms and no visible steps is inconclusive about runner root cause',()=>{
  const x=Triage.classify(run,[job],zero);
- assert.equal(x.classification,'FAILED_BEFORE_RECORDED_RUNNER_EXECUTION');
+ assert.equal(x.classification,'FAILED_WITHOUT_VISIBLE_STEPS');
  assert.equal(x.recorded_job_runtime_ms,0);
  assert.equal(x.run_duration_ms,4000);
  assert.equal(x.root_cause_confirmed,false);
  assert.equal(x.runner_execution_confirmed,false);
+ assert.match(x.diagnostic_certainty,/ROOT_CAUSE_NOT_PROVEN/);
  assert.equal(x.production_writes,0);
  assert.equal(x.github_actions_reruns,0);
  assert.ok(x.possible_causes_not_proven.includes('ACCOUNT_BILLING_OR_USAGE'));
@@ -66,7 +67,7 @@ test('inspectOne merges three independent GitHub read receipts without a mutatio
   throw Error('UNEXPECTED_URL '+url);
  }});
  const x=await Triage.inspectOne('mikesd1995/kk-phone-rental-vercel','38404082846',{fetchImpl:fake});
- assert.equal(x.classification,'FAILED_BEFORE_RECORDED_RUNNER_EXECUTION');
+ assert.equal(x.classification,'FAILED_WITHOUT_VISIBLE_STEPS');
  assert.equal(x.job_count,1);
  assert.equal(x.visible_step_count,0);
 });
@@ -79,4 +80,21 @@ test('pagination ambiguity fails closed',async()=>{
  }});
  await assert.rejects(()=>Triage.inspectOne('mikesd1995/kk-phone-rental-vercel',
   '38404082846',{fetchImpl:fake}),/GITHUB_JOBS_PAGE_INCOMPLETE/);
+});
+
+test('zero billable milliseconds cannot negate recorded successful Node checkout steps',()=>{
+ const x=Triage.classify({...run,conclusion:'success'},[
+  {...job,conclusion:'success',steps:[
+   {name:'Set up job',conclusion:'success'},
+   {name:'Run npm run test:ultradeep:recall',conclusion:'success'}
+  ]}],zero);
+ assert.equal(x.recorded_job_runtime_ms,0);
+ assert.equal(x.classification,'RECORDED_RUN_SUCCESS');
+ assert.equal(x.runner_execution_confirmed,true);
+ assert.equal(x.root_cause_confirmed,false);
+});
+test('GitHub read-only helper never sends bearer tokens to external host',async()=>{
+ await assert.rejects(()=>Triage.requestJson('https://evil.example/log',{
+  fetchImpl:async()=>{throw Error('SHOULD_NOT_FETCH')},token:'CANARY'
+ }),/GITHUB_API_ORIGIN_REQUIRED/);
 });
