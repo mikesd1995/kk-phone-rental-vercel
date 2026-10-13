@@ -88,3 +88,34 @@ No merge, deploy, paid API, automatic publication or production writes. producti
 - G5 CI + owner acceptance + production release: **HOLD**. No merge, deploy, paid provider action, price adjustment, tombstone reopen, or production data write performed in this audit.
 
 Next permissible safe route: run targeted tests on a real isolated checkout with available zero-cost execution, obtain authoritative primary-source event receipt, rerun **read-only** October scan using legitimately bound providers, compare Candidate Queue/known-miss live recall and independent reference receipts, stage a governed tracker-learning entry for owner review, and accept only after all gates.
+
+## Phase 1 closed in branch — Discovery → Artist Pop-up Verifier source fix (2026-10-13)
+
+### Scope and root cause (code-proven)
+- Previously the independent reference discovery lane could surface an artist-led brand pop-up, but `server/kk-ultra-deep-candidate-verifier.js` V3 `EVENT_SIGNAL` excluded `POP-UP`, `prefilter` rejected the record as `EVENT_IDENTITY_NOT_STRONG_ENOUGH`, and `rentalFitScore` returned 5.0 against a 7.0 commercial threshold. Missing search-snippet date blocked fetching a first-party event page. Therefore reference recovery alone did **not** make the event verifiable.
+- This is a **proven source-level defect**, not proof of which provider first missed PAÑPURI or of the official announcement's original publication timestamp.
+
+### Code implementation (branch PR #720 only)
+1. `d55f782` — Verifier V4: introduce `ARTIST_POPUP_SIGNAL` and named-artist appearance identity; allow an identified pop-up to enter prefilter with HTTPS even if the search snippet lacks a date. Existing generic retail popup, non-HTTPS, wrong-month, aggregate-result, and noise exclusions stay in place.
+2. `b695620` — Parse structured first-party date, venue, and poster; return normalized array of named performers even when the candidate supplied the artists as a pipe-separated string. Set *preliminary* artist-led popup rental fit to 7.0 **without lowering the universal threshold or auto-publish guard**. Require an owner access/filming/lens permission decision; `verified=false`, `publish_eligibility.eligible=false`, `poster.verified=false`, and `ARTIST_POPUP_OWNER_ACCESS_PHOTO_POLICY_REVIEW_REQUIRED` remain even when all sample source fields are populated. Pop-up source authority stays owner-gated, not asserted from generic JSON-LD or a social result.
+3. `f3d1440` and `adcc5a9` — Artist source corroboration tightened; transient malformed regex-replacement in branch fixed in `adcc5a9` *before* isolated validation. The final version was parsed and exercised successfully.
+4. `bebbad1` — Verifier `holds[]` now exposes actionable review fields (title, date, time, venue, artists, source URL, unverified poster URL, status and explicit blockers) without elevating them to published candidates.
+5. `0b5b459` — Order-independent venue matching (e.g. Beacon 3 centralwOrld vs centralwOrld Beacon 3) with explicit mismatch blocker, plus Thailand-local source start-time extraction without mislabeling UTC / non-+07 time.
+6. `a2cd7c8` — Require *all* named artists as exact source tokens and require a title-extracted artist to match the source, preventing `THAI` from being satisfied by `Thailand` or `with SOMENAME` by `with OTHERNAME`. Separate source-level evidence from final owner approval.
+7. `98d8128`, `f0ac8da`, `f4b29e5` — Added popup/venue/time/negative/owner HOLD regression cases to `tests/kk-ultra-deep-candidate-verifier.test.js`.
+8. `61bcd80` — Integration regression `tests/ultra-deep-panpuri-popup-reference.test.js`: `scopeReferenceCandidates -> recoverEligibleReferenceCandidates -> Verifier.verifyBatch`, exact 21 Oct evidence, `verified_count=0`, review HOLD, `production_writes=0`.
+9. `50964a4` — Added both Verifier and pop-up integration files to the existing `test:ultradeep:recall` command in package.json, which is invoked by the repository's `postinstall` acceptance path. This is a source change only; do not treat it as a green CI run.
+
+### Executed validations — label exactly
+- The **exact files fetched from this GitHub branch** were evaluated with a local JavaScript V8 harness, stubbing Node-specific imports, deterministic hash, and network response, not running a real Node checkout or Actions runner:
+  - `tests/kk-ultra-deep-candidate-verifier.test.js`: **17/17 passed**
+  - `tests/ultra-deep-panpuri-popup-reference.test.js`: **9/9 passed** (actual Runner, Reconciliation, KnownMiss, Learning Agent, and Verifier source modules loaded with provider stubs)
+  - `tests/kk-ultra-deep-known-miss-regression.test.js`: **12/12 passed**
+  - Total **38/38 isolated V8 checks**. These prove selected pure-JS behavior and mocks, **not GitHub CI / npm / real live provider acceptance**.
+- CI exact-head observation after `50964a4`: `Vercel Deployment Source Contract` run `38366095589` FAILED, `Ultra Deep V2 Acceptance` run `38366095649` FAILED. Both had zero surfaced steps/logs in connected API; cannot attribute to code failure or runner quota without further receipts. **CI remains RED/HOLD.**
+
+### Safety and remaining work
+- PAÑPURI Oct 21 is already owner-added to `01_Events` / `08_Web_Ready` with phone 490 / phone+lens 590. No duplicate event, price modification, external booking, approval, or production business write was made here.
+- Pop-up verification results are **review leads** only. Owner must confirm exact primary announcement, date/time, fan-public observation area, venue capacity, photography/recording and external lens permissions. No social/search result or JSON-LD alone may grant renter access. If evidence is missing, status stays HOLD.
+- This closes **item #1 in the isolated branch only**: candidate detection, source enrichment, fail-closed handoff to manual review, and source-level regression coverage. It does **not** close item #2 (paid-free live provider preflight and October read-only FULL scan), #3 (business-truth tracker learning reconciliation), #4 (official evidence for PAÑPURI/VVV), or #5 (Node/CI/release approval).
+- PR #720 must remain **DRAFT/UNMERGED/UNDEPLOYED**; production SHA and business data unchanged. Rollback if needed: revert the Verifier V4 file, new/changed tests, and package.json test gate on this branch; preserve independent existing owner business records.
