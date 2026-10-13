@@ -195,6 +195,8 @@ test('Learning Agent consumes proposed owner lineage without creating a verified
  const snapshot=fixture();
  const out=Learning.learn({owner_core_snapshot:snapshot});
  assert.equal(out.version,'KK_ULTRA_DEEP_V2_LEARNING_AGENT_V7');
+ assert.equal(out.status,'OWNER_CORE_REVIEW_PENDING');
+ assert.equal(out.owner_core_learning_accepted,false);
  assert.equal(out.owner_core_reconciliation.review_proposal_count,3);
  assert.equal(out.change_log.missed_events,0);
  assert.equal(out.change_log.owner_core_review_proposals,3);
