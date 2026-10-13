@@ -72,7 +72,11 @@ function learn(input={}){
  if(waitlists.length||inquiries.length) recommendations.push('EXPAND_FANDOM_GRAPH_AND_RENTAL_KEYWORD_RADAR');
  return {
    version:VERSION,
-   status:'LEARNED',
+   // A manual Core reverse orphan is an observation, never a verified live
+   // Scanner miss. A review-only invocation must not report 'LEARNED'.
+   status:ownerCorePlan&&!(missed.length||falsePositives.length||holds.length||corrections.length||
+    sourceWins.length||outcomes.length||waitlists.length||inquiries.length)?
+    'OWNER_CORE_REVIEW_PENDING':'LEARNED',
    adaptive:{
      query_terms:uniq([...learnedQueries,...expansionQueries,...campaignExpansion,...dateIdentityExpansion,...freeCrossMonthExpansion,...coverageExpansion]),
      miss_classes:missClasses,
@@ -90,6 +94,7 @@ function learn(input={}){
    },
    recommendations,
    owner_core_reconciliation:ownerCorePlan,
+   owner_core_learning_accepted:false,
    change_log:{
      missed_events:missed.length,false_positives:falsePositives.length,holds:holds.length,
      manual_corrections:corrections.length,owner_core_review_proposals:ownerCorePlan?ownerCorePlan.review_proposal_count:0,booking_outcomes:outcomes.length,
