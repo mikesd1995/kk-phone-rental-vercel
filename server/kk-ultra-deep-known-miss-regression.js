@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V11';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V12';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -17,6 +17,7 @@ const CORPUS=Object.freeze([
   {case_id:'mindaryn-20261016',title:'MindaRyn 1st Asia Tour Calling Back',aliases:['mindaryn calling back bangkok'],search_queries:['mindaryn calling back bangkok October 2026'],event_date:'2026-10-16',miss_class:'INTERNATIONAL_CONCERT_SOURCE_GAP'},
   {case_id:'klive-bandage-20261017',title:'K-LIVE FESTIVAL BAND:AGE IN BANGKOK',aliases:['k live festival band age bangkok'],search_queries:['k live festival band age bangkok October 2026'],event_date:'2026-10-17',miss_class:'INTERNATIONAL_CONCERT_SOURCE_GAP'},
   {case_id:'meme-fest-20261017',title:'MEME FEST 2026',aliases:['meme fest 2026 bangkok'],search_queries:['meme fest 2026 bangkok October 2026'],event_date:'2026-10-17',miss_class:'FESTIVAL_TAXONOMY_GAP'},
+  {case_id:'panpuri-phutatchai-pop-up-20261021',title:'PAÑPURI LIMINAL CURRENTS HOLIDAY 2027 POP-UP',aliases:['liminal currents holiday 2027 pop up','panpuri liminal currents phutatchai','panpuri pop up phutatchai thai'],search_queries:['PAÑPURI LIMINAL CURRENTS PHUTATCHAI October 21 2026','PANPURI THAI PHUTATCHAI pop up centralWorld October 2026','ปัญญ์ปุริ ภูธัชชัย ไทย ป๊อปอัพ 21 ตุลาคม 2569'],event_date:'2026-10-21',miss_class:'BRAND_POPUP_ARTIST_APPEARANCE_GAP'},
   {case_id:'0wave-20261021',title:'VERY Live Presents 0WAVE Live In Bangkok 2026',aliases:['0wave live bangkok 2026'],search_queries:['0wave live bangkok 2026 October 2026'],event_date:'2026-10-21',miss_class:'THAI_LIVE_SOURCE_GAP'},
   {case_id:'interstellar-live-20261028',title:'INTERSTELLAR LIVE CONCERT',aliases:['interstellar live concert bangkok'],search_queries:['interstellar live concert bangkok October 2026'],event_date:'2026-10-28',miss_class:'TICKETING_SOURCE_GAP'},
   {case_id:'pixxie-soundscape-20261030',title:'PiXXiE live at Bangkok Soundscape',aliases:['pixxie bangkok soundscape'],search_queries:['pixxie bangkok soundscape October 2026'],event_date:'2026-10-30',miss_class:'THAI_LIVE_SOURCE_GAP'},
