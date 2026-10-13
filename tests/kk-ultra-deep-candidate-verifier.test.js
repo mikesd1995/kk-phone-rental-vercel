@@ -115,3 +115,83 @@ test('Live Nation Tero /show/ URL is event-specific and eligible for verifier pr
   assert.equal(pre.eligible,true);
   assert.deepEqual(pre.reasons,[]);
 });
+
+
+const POPUP_CANDIDATE={
+ title:'PAÑPURI LIMINAL CURRENTS HOLIDAY 2027 POP-UP',
+ artist:'PHUTATCHAI | THAI',event_date:'2026-10-21',
+ venue:'Beacon 3 centralwOrld Bangkok',
+ source_url:'https://official-brand.example/events/holiday-pop-up'
+};
+function popupPage({date='2026-10-21T16:00:00+07:00',venue='Beacon 3 centralwOrld Bangkok',artist='PHUTATCHAI and THAI',image='https://official-brand.example/poster.jpg'}={}){
+ return '<html><head><script type="application/ld+json">'+JSON.stringify({
+  '@type':'Event',name:'PAÑPURI LIMINAL CURRENTS HOLIDAY 2027 POP-UP',
+  startDate:date,location:{'@type':'Place',name:venue},image
+ })+'</script></head><body>'+artist+'</body></html>';
+}
+
+test('artist-led pop-up is discoverable and receives source-backed enrichment but never auto-publishes',()=>{
+ const pre=V.prefilter(POPUP_CANDIDATE,'2026-10');
+ assert.equal(pre.eligible,true);
+ assert.equal(pre.artist_popup_lead,true);
+ const out=V.verifyHtmlCandidate(POPUP_CANDIDATE,popupPage(),{month:'2026-10'});
+ assert.equal(out.verified,false);
+ assert.equal(out.status,'HOLD_OWNER_ARTIST_POPUP_REVIEW');
+ assert.equal(out.candidate.event_date,'2026-10-21');
+ assert.equal(out.candidate.venue,'Beacon 3 centralwOrld Bangkok');
+ assert.deepEqual(out.candidate.artist,['PHUTATCHAI','THAI']);
+ assert.equal(out.candidate.rental_fit_score,7);
+ assert.equal(out.candidate.publish_eligibility.eligible,false);
+ assert.equal(out.candidate.publish_eligibility.status,'HOLD_OWNER_ARTIST_POPUP_REVIEW');
+ assert.equal(out.evidence.source_artist_confirmed,true);
+ assert.equal(out.evidence.authoritative_event_source,false);
+ assert.equal(out.poster.verified,false);
+ assert.ok(out.blockers.includes('ARTIST_POPUP_OWNER_ACCESS_PHOTO_POLICY_REVIEW_REQUIRED'));
+});
+
+test('pop-up search snippet may omit date only when source provides exact month, venue and poster',()=>{
+ const candidate={...POPUP_CANDIDATE,event_date:''};
+ assert.equal(V.prefilter(candidate,'2026-10').eligible,true);
+ const good=V.verifyHtmlCandidate(candidate,popupPage(),{month:'2026-10'});
+ assert.equal(good.candidate.event_date,'2026-10-21');
+ assert.equal(good.verified,false);
+ const outside=V.verifyHtmlCandidate(candidate,popupPage({date:'2026-11-21T16:00:00+07:00'}),{month:'2026-10'});
+ assert.ok(outside.blockers.includes('VERIFIED_TARGET_MONTH_DATE_REQUIRED'));
+ const noDate=V.verifyHtmlCandidate(candidate,'<html>PHUTATCHAI and THAI Beacon 3</html>',{month:'2026-10'});
+ assert.ok(noDate.blockers.includes('VERIFIED_TARGET_MONTH_DATE_REQUIRED'));
+});
+
+test('pop-up wrong date, conflicting venue or missing artist proofs remain HOLD',()=>{
+ const wrongDate=V.verifyHtmlCandidate(POPUP_CANDIDATE,popupPage({date:'2026-10-22T16:00:00+07:00'}),{month:'2026-10'});
+ assert.ok(wrongDate.blockers.includes('ARTIST_POPUP_DATE_CONFLICT'));
+ const conflicting=V.verifyHtmlCandidate(POPUP_CANDIDATE,popupPage({venue:'IMPACT Arena'}),{month:'2026-10'});
+ assert.ok(conflicting.blockers.includes('ARTIST_POPUP_VENUE_CONFLICT'));
+ const uncorroborated=V.verifyHtmlCandidate(POPUP_CANDIDATE,popupPage({artist:'Brand promotion in Thailand'}),{month:'2026-10'});
+ assert.ok(uncorroborated.blockers.includes('ARTIST_POPUP_ARTIST_SOURCE_CONFIRMATION_REQUIRED'));
+ const missingPoster=V.verifyHtmlCandidate(POPUP_CANDIDATE,popupPage({image:''}),{month:'2026-10'});
+ assert.ok(missingPoster.blockers.includes('ARTIST_POPUP_PRIMARY_EVENT_RECEIPT_REQUIRED'));
+ for(const x of [wrongDate,conflicting,uncorroborated,missingPoster])assert.equal(x.verified,false);
+});
+
+test('generic retail POP-UP, cross-month, missing HTTPS and old social posts do not pass',()=>{
+ assert.equal(V.prefilter({...POPUP_CANDIDATE,artist:'',title:'PAÑPURI HOLIDAY POP-UP'},'2026-10').eligible,false);
+ assert.equal(V.prefilter({...POPUP_CANDIDATE,event_date:'2026-11-21'},'2026-10').eligible,false);
+ assert.equal(V.prefilter({...POPUP_CANDIDATE,source_url:'http://not-https.example/'},'2026-10').eligible,false);
+ const social=V.verifyHtmlCandidate({...POPUP_CANDIDATE,source_url:'https://x.com/brand/status/123'},popupPage(),{month:'2026-10'});
+ assert.equal(social.verified,false);
+ assert.equal(social.evidence.authoritative_event_source,false);
+ assert.ok(social.blockers.includes('ARTIST_POPUP_OWNER_ACCESS_PHOTO_POLICY_REVIEW_REQUIRED'));
+});
+
+test('verifier batch returns actionable pop-up HOLD details without verified candidates or writes',async()=>{
+ const out=await V.verifyBatch([POPUP_CANDIDATE],{month:'2026-10'},
+  {fetchFn:async()=>({ok:true,status:200,headers:{get:()=>null},text:async()=>popupPage()})});
+ assert.equal(out.verified_count,0);
+ assert.equal(out.hold_count,1);
+ assert.equal(out.status,'HOLD_NO_VERIFIED_CANDIDATES');
+ assert.equal(out.holds[0].status,'HOLD_OWNER_ARTIST_POPUP_REVIEW');
+ assert.equal(out.holds[0].venue,'Beacon 3 centralwOrld Bangkok');
+ assert.deepEqual(out.holds[0].artist,['PHUTATCHAI','THAI']);
+ assert.equal(out.holds[0].artist_popup_lead,true);
+ assert.equal(out.production_writes,0);
+});
