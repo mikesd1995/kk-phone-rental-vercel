@@ -2554,6 +2554,11 @@ function kkLineBookingClaimReadback_(claim) {
   if (String(readback[2] || '').toLowerCase().trim() !== 'pending') return null;
   if (String(readback[3] || '').trim() !== String(claim.event_id || '').trim()) return null;
   if (String(readback[4] || '').trim() !== String(claim.customer_name || '').trim()) return null;
+  // LINE identity is authoritative even when international renters provide no phone.
+  const lineContact = String(readback[5] || '').trim();
+  if (!lineContact) return null;
+  if (String(claim.customer_contact || '').trim() &&
+      lineContact !== String(claim.customer_contact || '').trim()) return null;
   if (String(readback[6] || '').trim() !== String(claim.customer_phone || '').trim()) return null;
   if (String(readback[7] || '').toUpperCase().trim() !== 'LINE') return null;
   if (String(readback[9] || '').trim() || String(readback[10] || '').trim()) return null;
@@ -2645,6 +2650,7 @@ function kkApiCreateLineBookingPending_(payload) {
       event_id: eventId,
       template_id: templateId,
       customer_name: customerName,
+      customer_contact: customerContact,
       customer_phone: customerPhone,
       claimed_at: new Date().toISOString()
     }));
@@ -2660,6 +2666,7 @@ function kkApiCreateLineBookingPending_(payload) {
       event_id: eventId,
       template_id: templateId,
       customer_name: customerName,
+      customer_contact: customerContact,
       customer_phone: customerPhone,
       row_number: row,
       booking_id: bookingId,
@@ -2678,6 +2685,7 @@ function kkApiCreateLineBookingPending_(payload) {
       request_id: requestId,
       event_id: eventId,
       customer_name: customerName,
+      customer_contact: customerContact,
       customer_phone: customerPhone,
       row_number: row,
       booking_id: bookingId
