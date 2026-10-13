@@ -47,10 +47,20 @@ function audit(input={}){
   const d=date(r.event_date_text||r.event_date||r.date);
   return !asOf||!d||d>=asOf;
  });
- const duplicateId=new Map(),shared=new Map();
+ const duplicateId=new Map(),shared=new Map(),imageBytes=new Map();
  rows.forEach(r=>{const id=t(r.event_id),k=key(r.poster_image_url);duplicateId.set(id,(duplicateId.get(id)||0)+1);
   if(k){const v=shared.get(k)||[];v.push(r);shared.set(k,v);}
  });
+ // A verified digest can reveal the same artwork behind different URLs.
+ // Treat it as a review signal only: an official multi-event poster may be shared.
+ for(const row of rows){
+  const id=t(row.event_id),url=t(row.poster_image_url);
+  const obs=firstExact(input.observations,id,url);
+  const hash=obs&&t(obs.sha256).toLowerCase();
+  if(!obs||obs.loaded!==true||!(Number(obs.natural_width)>0)||!hash||!/^[a-f0-9]{64}$/.test(hash))continue;
+  const seen=imageBytes.get(hash)||[];
+  seen.push(row);imageBytes.set(hash,seen);
+ }
  const events=rows.map(r=>{
   const event_id=t(r.event_id),event_name=t(r.event_name),event_date=date(r.event_date_text||r.event_date||r.date),
    venue=t(r.venue||r.event_venue||r.event_location),poster_url=t(r.poster_image_url);
@@ -62,6 +72,13 @@ function audit(input={}){
   if(poster_url&&WRONG[event_id]&&key(WRONG[event_id])===key(poster_url))put('KNOWN_WRONG_EVENT_IMAGE','P0');
   if(poster_url&&(shared.get(key(poster_url))||[]).some(x=>t(x.event_name).normalize('NFKC').toLowerCase()!==event_name.normalize('NFKC').toLowerCase()))
    put('CROSS_EVENT_IMAGE_REUSE','P1');
+  const matchedObservation=firstExact(input.observations,event_id,poster_url);
+  const digest=matchedObservation&&t(matchedObservation.sha256).toLowerCase();
+  if(digest&&(imageBytes.get(digest)||[]).some(x=>
+   t(x.event_name).normalize('NFKC').toLowerCase()!==event_name.normalize('NFKC').toLowerCase()))
+   put('CROSS_EVENT_IMAGE_BYTES_REUSED','P1');
+  if(poster_url&&/(?:TEMP_IMAGE|รอโปสเตอร์ต้นฉบับ|ภาพประกอบชั่วคราว|ไม่ใช่โปสเตอร์)/i.test(t(r.event_note)))
+   put('TEMPORARY_POSTER_PROVENANCE_REVIEW','P1');
   const observation=firstExact(input.observations,event_id,poster_url);
   if(observation){
    if(observation.loaded===false||observation.ok===false||observation.natural_width===0)put('IMAGE_DELIVERY_FAILED','P0');
