@@ -4,6 +4,7 @@ const ORIGIN='https://kk-phone-rental.vercel.app';
 const FEED=ORIGIN+'/api/kk-data?sheet=08_Web_Ready&range=A4%3AK';
 const TIMEOUT_MS=8000;
 const CONCURRENCY=6;
+const PosterIntegrity=require('../server/kk-poster-integrity-agent.js');
 
 function text(v){return String(v==null?'':v).trim();}
 function parseCsv(input){
@@ -117,6 +118,12 @@ async function main(){
       candidates:checks
     };
   });
+  // Source/image identity is independent of HTTP health. No AI network calls or
+  // source-of-truth mutation are ever performed by this advisory audit.
+  const integrity=PosterIntegrity.triage({
+    rows,
+    delivery_by_event:Object.fromEntries(events.map(e=>[e.event_id,{candidates:e.candidates}]))
+  });
   const failed=events.filter(e=>e.status==='FAIL');
   const recovered=events.filter(e=>e.recovered_by_fallback);
   const hostCounts={};
@@ -128,10 +135,10 @@ async function main(){
     host_counts:hostCounts,
     failed:failed.map(e=>({event_id:e.event_id,event_name:e.event_name,event_date:e.event_date,canonical:e.canonical,emergency_fallback:e.emergency_fallback,candidates:e.candidates})),
     recovered:recovered.map(e=>({event_id:e.event_id,event_name:e.event_name,event_date:e.event_date,canonical:e.canonical,first_healthy_url:e.first_healthy_url})),
-    events,production_writes:0,business_data_mutations:0
+    events,poster_integrity:integrity,production_writes:0,business_data_mutations:0
   };
   process.stdout.write(JSON.stringify(report,null,2)+'\n');
-  if(failed.length)process.exitCode=2;
+  if(failed.length||integrity.blocked)process.exitCode=2;
 }
 if(require.main===module)main().catch(err=>{console.error(JSON.stringify({ok:false,error:text(err&&err.message)||'AUDIT_FAILED'}));process.exit(1);});
 module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,probe,pool};
