@@ -160,3 +160,25 @@ test('injected provider-only runtime defaults to zero unexpected source fetches'
  assert.equal(out.full,false);
  assert.equal(out.production_writes,0);
 });
+
+test('redirect responses are rejected and never followed into another origin',async()=>{
+ let requestInit;
+ const x=await Resolve.resolve([scoped(row)],ctx,{enabled:true,
+  fetchFn:async(_,init)=>{
+   requestInit=init;
+   return {ok:false,status:302,redirected:false,url:'https://localhost/metadata',
+    headers:{get:()=>null},text:async()=>event()};
+  }});
+ assert.equal(requestInit.redirect,'manual');
+ assert.equal(x.verified_count,0);
+ assert.ok(x.holds[0].blockers.includes('SOURCE_FETCH_FAILED'));
+ assert.equal(x.rows[0].event_date,null);
+});
+test('unlisted publisher cannot self-authorize date resolution with fabricated JSON-LD',async()=>{
+ const ref=scoped({...row,source_url:'https://publisher.example/events/atlas-rising-up'});
+ const x=await Resolve.resolve([ref],ctx,{enabled:true,fetchFn:fetchFn(event())});
+ assert.equal(ref.eligible_for_discovery,true);
+ assert.equal(x.verified_count,0);
+ assert.equal(x.unresolved_count,1);
+ assert.ok(x.holds[0].blockers.includes('UNTRUSTED_SOURCE_FOR_DATE_CLOSURE'));
+});
