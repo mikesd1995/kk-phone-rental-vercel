@@ -287,3 +287,11 @@ test('lookalike ticket platform hostname is never treated as a trusted event-det
  assert.equal(Runner.referenceScopeDecision(row,CTX).eligible,false);
  assert.equal(Runner.referenceScopeDecision({...row,source_url:'https://www.eventpop.me/e/1234/atlas-rising-up'},CTX).eligible,true);
 });
+
+test('short artist names BTS NCT VVV survive strict matching without matching unrelated bands',()=>{
+ for(const name of ['BTS','NCT','VVV']){
+  assert.equal(Verifier.sourceTitleMatchesUndatedLead(name+' Concert Bangkok',name+' Live in Bangkok'),true);
+ }
+ assert.equal(Verifier.sourceTitleMatchesUndatedLead('BTS Concert Bangkok','NCT Concert Bangkok'),false);
+ assert.equal(Verifier.sourceTitleMatchesUndatedLead('VVV Concert Bangkok','Other Concert Bangkok'),false);
+});
