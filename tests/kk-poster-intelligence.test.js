@@ -121,3 +121,17 @@ test('current nonempty temporary-art note yields review without pretending image
  assert.equal(has(report,'KNOWN_WRONG_EVENT_IMAGE'),false);
  assert.equal(report.priority,'P1');
 });
+
+test('show_full is included as a poster alert without changing a booked date',()=>{
+ const full=base(id('20261023','LYKN-REFLEXION-CONCERT-2'),'LYKN REFLEXION CONCERT','23/10/2026','', 'show_full');
+ full.booking_status_for_web='เต็ม';
+ full.available_phone_count='0';
+ const original=JSON.stringify(full);
+ const r=P.audit({rows:[full],as_of:'2026-10-14'});
+ assert.equal(r.visible_events,1);
+ assert.equal(r.missing_poster,1);
+ assert.equal(r.events[0].priority,'P0');
+ assert.equal(r.safety.booking_writes,0);
+ assert.equal(r.safety.visibility_writes,0);
+ assert.equal(JSON.stringify(full),original);
+});
