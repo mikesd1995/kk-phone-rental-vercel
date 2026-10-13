@@ -139,6 +139,7 @@ test('artist-led pop-up is discoverable and receives source-backed enrichment bu
  assert.equal(out.status,'HOLD_OWNER_ARTIST_POPUP_REVIEW');
  assert.equal(out.candidate.event_date,'2026-10-21');
  assert.equal(out.candidate.venue,'Beacon 3 centralwOrld Bangkok');
+ assert.equal(out.candidate.event_time,'16:00');
  assert.deepEqual(out.candidate.artist,['PHUTATCHAI','THAI']);
  assert.equal(out.candidate.rental_fit_score,7);
  assert.equal(out.candidate.publish_eligibility.eligible,false);
@@ -194,4 +195,15 @@ test('verifier batch returns actionable pop-up HOLD details without verified can
  assert.deepEqual(out.holds[0].artist,['PHUTATCHAI','THAI']);
  assert.equal(out.holds[0].artist_popup_lead,true);
  assert.equal(out.production_writes,0);
+});
+
+test('popup venue may reorder Beacon 3 / centralwOrld without spurious conflict',()=>{
+ const out=V.verifyHtmlCandidate(POPUP_CANDIDATE,popupPage({venue:'centralwOrld Beacon 3'}),{month:'2026-10'});
+ assert.equal(out.blockers.includes('ARTIST_POPUP_VENUE_CONFLICT'),false);
+ assert.equal(out.verified,false);
+});
+test('popup announced time is not fabricated by interpreting a non-Bangkok timezone',()=>{
+ assert.equal(V.bangkokLocalTime('2026-10-21T16:00:00+07:00'),'16:00');
+ assert.equal(V.bangkokLocalTime('2026-10-21T09:00:00Z'),'');
+ assert.equal(V.bangkokLocalTime('2026-10-21T16:00:00+08:00'),'');
 });
