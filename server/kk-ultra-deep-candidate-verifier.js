@@ -3,7 +3,7 @@
 const crypto=require('node:crypto');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V5';
+const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V6';
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=6;
 
@@ -214,6 +214,30 @@ function chooseJsonLdEvent(events=[],candidate={},month=''){
  }).filter(x=>x.d&&(!month||x.d.startsWith(month+'-'))).sort((a,b)=>b.score-a.score);
  return scored[0]||null;
 }
+function sourceTitleMatchesUndatedLead(candidateTitle='',sourceTitle=''){
+ // Avoid attaching a different October JSON-LD Event from an event-list page.
+ // General category/date words do not count as event identity proof.
+ const stop=new Set(['event','events','concert','concerts','live','in','at','the','and',
+  'bangkok','thailand','official','tickets','ticket','show','fanmeet',
+  'fanmeeting','festival','tour','popup','pop','up','2026','2027']);
+ const words=x=>new Set(text(x).normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+  .toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').split(/\s+/)
+  .filter(t=>t.length>=4&&!stop.has(t)));
+ const wanted=words(candidateTitle),found=words(sourceTitle);
+ const overlap=[...wanted].filter(w=>found.has(w)).length;
+ return wanted.size>0&&overlap>=Math.min(2,wanted.size);
+}
+function sourceVenueInBangkok(location){
+ // Evidence comes from JSON-LD Place/address, never from a search query or
+ // candidate's user-supplied location. Missing/foreign provenance is HOLD.
+ const v=text(locationName(location));
+ const address=location&&typeof location==='object'?location.address:null;
+ const details=typeof address==='object'?[address.addressLocality,address.addressRegion,address.streetAddress].map(text).join(' '):text(address);
+ const combined=[v,details].join(' ');
+ if(/hong\s*kong|singapore|seoul|tokyo|osaka|manila|taipei|jakarta|hanoi|chiang\s*mai|phuket|ชลบุรี|เชียงใหม่|ภูเก็ต/i.test(combined))return false;
+ return /\b(?:bangkok|nonthaburi|pathum\s*thani|samut\s*prakan|centralworld|bitec|impact\s*arena|impact\s*challenger|thunder\s*dome|one\s*bangkok|siam\s*paragon|paragon\s*hall|lido\s*connect|union\s*hall|uob\s*live)\b|กรุงเทพ|นนทบุรี|ปทุมธานี|สมุทรปราการ|เซ็นทรัลเวิลด์|ไบเทค|พารากอน/i.test(combined);
+}
+
 function verifyHtmlCandidate(candidate={},body='',context={}){
  const month=text(context.month);
  const pre=prefilter(candidate,month);
@@ -231,6 +255,15 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  if(!date||!monthMatches(date,month))blockers.push('VERIFIED_TARGET_MONTH_DATE_REQUIRED');
  // Do not promote a date inferred only from an unverified search snippet.
  if(!picked||!isoDate(picked.d))blockers.push('SOURCE_EVENT_DATE_REQUIRED');
+ if(candidate.date_pending_verification===true){
+  // Recovery may submit an undated lead, but only the matching exact-event
+  // structured source can establish its date, identity and Bangkok venue.
+  if(!picked||!text(picked.e&&picked.e.name)||
+    !sourceTitleMatchesUndatedLead(candidate.title,picked.e.name))
+    blockers.push('SOURCE_EVENT_TITLE_CONFLICT');
+  if(!picked||!sourceVenueInBangkok(picked.e&&picked.e.location))
+    blockers.push('SOURCE_BANGKOK_VENUE_PROOF_REQUIRED');
+ }
  if(pre.event_date&&picked&&isoDate(picked.d)&&isoDate(picked.d)!==pre.event_date)
   blockers.push('CANDIDATE_SOURCE_DATE_CONFLICT');
  if(!venue)blockers.push('VERIFIED_VENUE_REQUIRED');
@@ -336,5 +369,5 @@ async function verifyBatch(candidates=[],context={},options={}){
 module.exports={
  VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,ARTIST_POPUP_SIGNAL,ARTIST_APPEARANCE_SIGNAL,artistPopupLead,namedPopupArtists,sourceConfirmsPopupArtist,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,
  text,https,isoDate,eventKey,host,eventSpecificUrl,monthMatches,titleQuality,authoritativeEventSource,prefilter,flattenJsonLd,parseJsonLd,metaValue,locationName,imageUrl,
- findKnownVenue,rentalFitScore,bangkokLocalTime,venueTokens,sourceTier,chooseJsonLdEvent,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
+ findKnownVenue,rentalFitScore,bangkokLocalTime,venueTokens,sourceTier,chooseJsonLdEvent,sourceTitleMatchesUndatedLead,sourceVenueInBangkok,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
 };
