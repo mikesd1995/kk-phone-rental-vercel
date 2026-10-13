@@ -12,7 +12,7 @@ const source = fs.readFileSync(path.join(__dirname, 'kk-poster-acl-owner-review-
 const match = source.match(/const KKACL_EXPECTED=(\[[^\n]+\]);/);
 assert.ok(match, 'A pinned exact file ID manifest is required');
 const expected = JSON.parse(match[1]);
-assert.equal(expected.length, 36);
+assert.equal(expected.length, 35);
 const folderIDs = [
   '1avy3Up3NJskqB7kCzQoQPWKK3-j1qJqS',
   '1haTk15ElLwZM8NFcLvK36tbyLZo5wnzw',
@@ -68,8 +68,14 @@ function fixture(opts = {}) {
     'EVT-' + i, 'Example event', '21/10/2026', '',
     'https://drive.google.com/thumbnail?id=' + id
   ]);
-  for (let i = core.length; i < 79; i++) {
+  for (let i = core.length; i < 76; i++) {
     core.push(['EVT-' + i, 'Example event', '21/10/2026', '', 'https://images.example.test/poster.jpg']);
+  }
+  // A past-September public-card reference may be owner-private; do NOT scan it
+  // or accidentally upgrade it to public Reader just to make the repair pass.
+  if (opts.pastSeptemberPrivate) {
+    core.push(['EVT-SEPT-PRIVATE', 'Past event', '28/09/2026', '',
+      'https://drive.google.com/thumbnail?id=PAST_OWNER_PRIVATE']);
   }
   if (opts.extraCard) {
     core.push(['EVT-EXTRA', 'Extra event', '21/10/2026', '', 'https://images.example.test/extra.jpg']);
@@ -119,13 +125,21 @@ function fixture(opts = {}) {
   return {api, getWrites: () => writes, roles, nodes};
 }
 
-test('dry run discovers 79 visible / 45 references / 36 unique without writing', () => {
+test('dry run discovers 76 Oct-Dec visible / 44 references / 35 unique without writing', () => {
   const f = fixture();
   const r = f.api.dry();
-  assert.equal(r.active_files, 36);
-  assert.equal(r.scoped_files, 39);
+  assert.equal(r.active_files, 35);
+  assert.equal(r.scoped_files, 38);
   assert.equal(r.folders, 4);
-  assert.equal(r.public_writer, 43);
+  assert.equal(r.public_writer, 42);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('private September reference excluded without weakening active repair guard', () => {
+  const f = fixture({pastSeptemberPrivate: true});
+  const dry = f.api.dry();
+  assert.equal(dry.active_files, 35);
+  assert.equal(dry.public_writer, 42);
   assert.equal(f.getWrites(), 0);
 });
 
@@ -171,8 +185,8 @@ test('approved repair downgrades mock folder and poster ACLs and readbacks', () 
   const dry = f.api.dry();
   const r = f.api.apply(dry.fingerprint);
   assert.equal(r.ok, true);
-  assert.equal(r.reader_verified, 43);
-  assert.equal(f.getWrites(), 43);
+  assert.equal(r.reader_verified, 42);
+  assert.equal(f.getWrites(), 42);
   assert.ok(Object.values(f.roles).every(role => role === 'VIEW'));
   assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
 });
