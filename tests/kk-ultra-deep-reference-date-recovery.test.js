@@ -205,3 +205,64 @@ test('Direct ZERO-COST path only verifies incomplete reference leads as read-onl
  assert.match(block,/BLOCKED_DISCOVERY_NOT_FULL/);
  assert.match(block,/production_writes:0/);
 });
+
+test('actual Direct.run sends undated FULL-HOLD lead to bounded read-only Verifier without writes',async()=>{
+ const Direct=require('../server/kk-ultra-deep-direct-zero-cost.js');
+ const Production=require('../server/kk-ultra-deep-production-runtime.js');
+ const oldSnapshot=Production.freshSnapshot;
+ const oldRunner=Runner.runMonthlyUltraDeep;
+ let runs=0;
+ try{
+  Production.freshSnapshot=async()=>({
+   snapshot_source:'TEST_READ_ONLY',generated_at:'2026-10-13T10:00:00Z',
+   assets:[{asset_type:'phone',status:'ready'}],
+   events:[],bookings:[],packages:[],web_ready:[],visibility_locks:[]
+  });
+  const lead=Runner.recoverEligibleReferenceCandidates([],[scope(POPUP)],CTX).candidates[0];
+  Runner.runMonthlyUltraDeep=async()=>({
+   full:false,status:'HOLD_FOR_COVERAGE',candidates:[lead],production_writes:0
+  });
+  const html=htmlEvent(POPUP.title,'2026-10-21T16:00:00+07:00',
+   'centralwOrld Beacon 3','https://brand.example/panpuri.jpg','PHUTATCHAI invited guests only');
+  const out=await Direct.run({month:'2026-10'},{
+   executeWrites:false,env:{},
+   fetchImpl:async()=>{runs++;return {ok:true,status:200,headers:{get:()=>null},text:async()=>html};}
+  });
+  assert.equal(out.status,'BLOCKED_DISCOVERY_NOT_FULL');
+  assert.equal(out.reference_source_date_review.examined_count,1);
+  assert.equal(out.reference_source_date_review.verified_count,0);
+  assert.equal(out.reference_source_date_review.hold_count,1);
+  assert.equal(out.reference_source_date_review.authorized_to_publish,false);
+  assert.equal(out.production_writes,0);
+  assert.equal(runs,1);
+ }finally{
+  Production.freshSnapshot=oldSnapshot;
+  Runner.runMonthlyUltraDeep=oldRunner;
+ }
+});
+test('Direct.run commit intent NEVER inspects undated reference through bypass when FULL is HOLD',async()=>{
+ const Direct=require('../server/kk-ultra-deep-direct-zero-cost.js');
+ const Production=require('../server/kk-ultra-deep-production-runtime.js');
+ const oldSnapshot=Production.freshSnapshot,oldRunner=Runner.runMonthlyUltraDeep;
+ try{
+  Production.freshSnapshot=async()=>({
+   snapshot_source:'TEST_READ_ONLY',generated_at:'2026-10-13T10:00:00Z',
+   assets:[{asset_type:'phone',status:'ready'}],
+   events:[],bookings:[],packages:[],web_ready:[],visibility_locks:[]
+  });
+  Runner.runMonthlyUltraDeep=async()=>({
+   full:false,status:'HOLD_FOR_COVERAGE',
+   candidates:Runner.recoverEligibleReferenceCandidates([],[scope(CONCERT)],CTX).candidates
+  });
+  const out=await Direct.run({month:'2026-10'},{
+   executeWrites:true,env:{},
+   fetchImpl:async()=>{throw Error('MUST_NOT_FETCH_OR_WRITE');}
+  });
+  assert.equal(out.status,'BLOCKED_DISCOVERY_NOT_FULL');
+  assert.equal(out.reference_source_date_review,null);
+  assert.equal(out.production_writes,0);
+ }finally{
+  Production.freshSnapshot=oldSnapshot;
+  Runner.runMonthlyUltraDeep=oldRunner;
+ }
+});
