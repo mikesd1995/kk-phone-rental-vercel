@@ -76,8 +76,14 @@ async function sendOnce(input={},deps={}){
   outbound_request_id:requestId
  };
  let receipt;
- try{receipt=await deps.store.recordOutbound(message);}
- catch(_){
+ try{
+  receipt=await deps.store.recordOutbound(message);
+  // RPC HTTP 200 with a null/empty body is NOT proof of persistence.
+  // Nor is a conflict/duplicate proof that the accepted LINE delivery was
+  // correctly associated with this exact new outbound reservation.
+  if(receipt?.ok!==true||receipt.duplicate===true||receipt.writes!==1)
+   throw Object.assign(new Error('Missing verified Inbox persistence receipt'),{code:'INBOX_OUTBOUND_READBACK_REQUIRED'});
+ }catch(_){
   await markUncertain(deps.store,requestId,delivery);
   return errorResponse('INBOX_OUTBOUND_PERSIST_UNCERTAIN',502,1);
  }
