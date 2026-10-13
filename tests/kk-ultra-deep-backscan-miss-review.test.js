@@ -28,7 +28,9 @@ function snapshot(){
   ],
   miss_learning:[],
   bookings:[{event_id:'EVT-20261024-LYKN-REFLEXION-CONCERT',booking_status:'confirmed',customer_name:'PRIVATE-NOT-IN-REPORT'}],
-  visibility_locks:[{event_id:'EVT-20261026-ZATO-BASE-022-BLACKBEANS',lock_state:'LOCKED'}],
+  visibility_locks:[{event_id:'EVT-20261026-ZATO-BASE-022-BLACKBEANS',
+   event_name:'ZATO PRESENTS BASE 022 : Blackbeans SPECIAL SHOW',
+   event_date:'26/10/2026',lock_state:'LOCKED'}],
   owner_exclusive_dates:['17 ต.ค. 2569','18 ต.ค. 2569','23 ต.ค. 2569','31 ต.ค. 2569']
  };
 }
