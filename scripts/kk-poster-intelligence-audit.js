@@ -42,6 +42,7 @@ function bangkokDate(now=new Date()){
 }
 async function run(argv=process.argv.slice(2),deps={}){
  const args=parseArgs(argv);
+ if(args['as-of']&&!date(args['as-of']))throw Error('INVALID_AS_OF_DATE');
  if(args.help)return {help:'node scripts/kk-poster-intelligence-audit.js [--rows-file=fixtures.json] [--as-of=2026-10-14] [--probe] [--observations-file=network-and-decoding.json] [--vision-file=ai-evidence.json]\nRead-only. Reports suspected mismatches and evidence queue; AI does not auto-approve or change data.'};
  const rows=await loadRows(args,deps.fetchImpl||global.fetch);
  const observations=args['observations-file']?readArray(args['observations-file'],'OBSERVATIONS'):[];
