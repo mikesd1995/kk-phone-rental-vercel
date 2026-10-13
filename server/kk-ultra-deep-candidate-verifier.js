@@ -293,7 +293,18 @@ async function verifyBatch(candidates=[],context={},options={}){
   hold_count:holds.length,
   verified_candidates:verified.map(x=>x.candidate),
   posters,
-  holds:holds.slice(0,200).map(x=>({title:text(x&&x.candidate&&x.candidate.title)||null,event_date:isoDate(x&&x.candidate&&x.candidate.event_date)||null,source_url:https(x&&x.candidate&&x.candidate.source_url)||null,blockers:x&&x.blockers||['UNKNOWN']})),
+  holds:holds.slice(0,200).map(x=>({
+   title:text(x&&x.candidate&&x.candidate.title)||null,
+   event_date:isoDate(x&&x.candidate&&x.candidate.event_date)||null,
+   event_time:text(x&&x.candidate&&x.candidate.event_time)||null,
+   venue:text(x&&x.candidate&&x.candidate.venue)||null,
+   artist:Array.isArray(x&&x.candidate&&x.candidate.artist)?x.candidate.artist:[],
+   source_url:https(x&&x.candidate&&x.candidate.source_url)||null,
+   status:text(x&&x.status)||'HOLD_VERIFIER',
+   poster_for_review:x&&x.poster&&https(x.poster.image_url)||null,
+   artist_popup_lead:!!(x&&x.evidence&&x.evidence.artist_popup_lead),
+   blockers:x&&x.blockers||['UNKNOWN']
+  })),
   production_writes:0,
   authoritative:false,
   verifier_required:true
