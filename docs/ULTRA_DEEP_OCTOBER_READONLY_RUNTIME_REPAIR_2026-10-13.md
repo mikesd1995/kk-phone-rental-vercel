@@ -9,7 +9,7 @@
 
 - Authoritative command control plane: Supabase `kk-unified-inbox` (`mxjnjujqjybqughsnqbz`), `public.kk_ultra_deep_commands`. Read-only SQL on 2026-10-13 finds **nine** October `FULL_READ_ONLY` commands: **eight FAILED**, one early migration acceptance `COMPLETE` dated 2026-10-03. All show `commit=false` and `production_writes=0`.
 - Latest FAILED created 2026-10-06 18:56:49 UTC and completed 18:57:09 UTC: `BLOCKED_NO_VERIFIED_CANDIDATES`. Earlier explicit errors: `VERCEL_RUNTIME_TIMEOUT_300S`, `BLOCKED_DISCOVERY_NOT_FULL`, `UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED`, and DDG/Bing/provider-binding failures. Neither the initial COMPLETE nor a schema-level migration health check proves FULL monthly discovery coverage.
-- Actual source plans in PR #720 for October: **33 known-miss tasks + 111 monthly tasks (48 source-universe) + 6 independent reference tasks = 150 tasks**; provider query-variant counts **159 + 489 + 31 = 679** before provider fallback. This makes a monolithic 300-second serverless command risky; **not** proof of the cause of every failure.
+- Original unscoped plans required **33 historical known-miss + 111 monthly + 6 reference = 150 tasks**, with **679** query variants. Source repair now scopes known-miss probes to the requested October event/discovery month **while retaining four November cross-month leads**: **27 + 111 + 6 = 144 tasks**; **126 + 489 + 31 = 646** variants before fallback. Six irrelevant historical tasks and 33 redundant query variants were removed without weakening current-month recall. This makes a monolithic 300-second serverless command risky; **not** proof of the cause of every failure.
 - In `server/kk-ultra-deep-candidate-verifier.js` V4, date-less generic search/RSS concert candidates were excluded at `prefilter` before source extraction, even though a first-party JSON-LD event page could contain the exact date. This was a **source-proven blind spot**, not evidence that a live provider successfully returned such a result.
 - CI jobs generated from the Draft PR have returned failed conclusions with no retrievable job steps and `BlobNotFound` on job log fetch. Do not label the observed failure as either source test failure or purely quota: exact reason unconfirmed.
 
@@ -36,9 +36,9 @@ npm run ultradeep:readonly:shards -- --month 2026-10 --size 12 --run-all
 npm run ultradeep:readonly:shards -- --month 2026-10 --size 12 --merge-dir ./.ultra-deep-local-readonly/2026-10
 ```
 
-The plan is **13 shards** at 12 tasks/shard (last shard 6). Each local receipt includes its deterministic manifest fingerprint, exact task IDs, attempt receipts, unexecuted/timeout state and `production_writes=0`. `--run-all` records one shard at a time and skips existing matching receipts; if a shard was incomplete, remove only that specific local receipt file and rerun that shard with `--shard N`. A changed query plan or shard size invalidates earlier receipts rather than silently merging them.
+The October plan is **12 shards** at 12 tasks/shard (no remainder). Each local receipt includes its deterministic manifest fingerprint, exact task IDs, attempt receipts, unexecuted/timeout state and `production_writes=0`. `--run-all` records one shard at a time and skips existing matching receipts; if a shard was incomplete, remove only that specific local receipt file and rerun that shard with `--shard N`. A changed query plan or shard size invalidates earlier receipts rather than silently merging them.
 
-**Key qualification:** The aggregator's `receipts_complete` means only that the offline reports supplied source-attempt coverage and passed deterministic cross-checks. It **never** authorizes Production; even all 13 synthetic or free-search receipts yield `full=false`, `release_eligible=false`. Source-primary verification, confirmed booking locks, owner acceptance, official trusted runtime and storefront exact readback remain separate required gates.
+**Key qualification:** The aggregator's `receipts_complete` means only that the offline reports supplied source-attempt coverage and passed deterministic cross-checks. It **never** authorizes Production; even all 12 synthetic or free-search receipts yield `full=false`, `release_eligible=false`. Source-primary verification, confirmed booking locks, owner acceptance, official trusted runtime and storefront exact readback remain separate required gates.
 
 ## 4. Executed isolated regression evidence (not actual Node CI)
 
@@ -81,4 +81,11 @@ All changes and evidence remain under Draft PR #720; Owner may decide subsequent
 - Commit `d9b4dd7` therefore marks a shard `SHARD_INCOMPLETE` whenever `time_budget_exhausted=true`, even if earlier provider attempts were valid. `combineReports` now requires explicit `SHARD_TIMEOUT_OR_INCOMPLETE` blocker for those receipts.
 - Commit `1ed0fe2` preserves `TIME_BUDGET_EXHAUSTED` in provider and source-universe diagnostic receipts instead of normalizing it to `UNKNOWN`; `0707c71` locks that contract in the Runtime Test.
 - Commit `ab56888` adds an interrupted-shard regression; exact branch Shard+CLI isolated V8 validations now **8/8**.
-- Original GitHub CI and all 13 live-source shard runs **still unverified**. This correction strictly improves failure reporting and does not declare the October sweep complete.
+- Original GitHub CI and all 12 live-source shard runs **still unverified**. This correction strictly improves failure reporting and does not declare the October sweep complete.
+
+## 8. Month-scoped historical probe reduction
+
+- Old Known-Miss Plan V2 ran all 33 historical misses before every monthly scan, including September and unrelated November/December events, even though `KnownMiss.evaluate(...,strict_live:true,month:'2026-10')` only requires 27 October event/discovery cases.
+- `Runner.buildKnownMissPlan({month:'2026-10'})` V3 now retains **23 event-date October cases plus 4 explicit November cross-month discovery requirements**: GELBOYS, DEXX/LABX private experience, SIAM HALLOWEEN 1 November and JMNK 21 November. It drops six unrelated historical probes. A no-argument call still builds all 33 for historical deterministic tests.
+- `runMonthlyUltraDeep` and the offline Shard Manifest both use the same month-scoped plan. Current October topology is **144 Tasks, 646 query variants, 12 local shards** (size 12), not the original 150/679/13. Fingerprints generated from the old plan are intentionally incompatible and must not be merged.
+- This reduces unnecessary public queries by **33 variants** without lowering known-miss live recall, independent source-universe receipts, booking locks or any commercial gate.
