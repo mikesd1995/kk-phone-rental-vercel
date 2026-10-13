@@ -11,7 +11,10 @@ function normalize(v){
 function isoDate(v){
  const s=text(v);
  if(!s)return '';
- if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+ if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
+  const [y,m,d]=s.split('-').map(Number);
+  return validDate(y,m,d);
+ }
  const dm=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
  if(dm){
   const yyyy=Number(dm[3])>=2400?Number(dm[3])-543:Number(dm[3]);
@@ -139,7 +142,14 @@ function prepare(input={}){
    const blockers=[];
    if(!date)blockers.push('CORE_DATE_INVALID');
    if(other.length)blockers.push('CORE_DUPLICATE_EVENT_IDENTITY');
-   if(webRows.length!==1||webRows[0]&&isoDate(webRows[0].event_date_text)!==date)blockers.push('CORE_WEBREADY_MISMATCH');
+   if(webRows.length!==1||webRows[0]&&isoDate(webRows[0].event_date_text)!==date||
+      webRows[0]&&normalize(webRows[0].event_name)!==normalize(core.event_name)||
+      webRows[0]&&normalize(webRows[0].venue)!==normalize(core.venue))blockers.push('CORE_WEBREADY_MISMATCH');
+   if(text(core.event_status)&&!['open','active'].includes(text(core.event_status).toLowerCase()))
+    blockers.push('CORE_EVENT_STATUS_NOT_OPEN');
+   if(text(core.active_on_web).toUpperCase()==='FALSE'&&webRows[0]&&
+      ['show','show_full'].includes(text(webRows[0].action_for_web).toLowerCase()))
+    blockers.push('OWNER_HIDDEN_BUT_WEBREADY_VISIBLE');
    if(lockRows.length!==1)blockers.push('VISIBILITY_LOCK_SNAPSHOT_MISMATCH');
    if(!ownerProof)blockers.push('OWNER_PROVENANCE_NOT_CONFIRMED');
    if(lockRows.length===1&&(isoDate(lock.event_date)!==date||
@@ -149,7 +159,7 @@ function prepare(input={}){
    for(const row of packageRows)typeCount.set(text(row.package_type),(typeCount.get(text(row.package_type))||0)+1);
    if(typeCount.get('phone_only')!==1||typeCount.get('phone_lens_bundle')!==1)
     blockers.push('CORE_PACKAGE_IDENTITY_INCOMPLETE');
-   if(typeCount.get('lens_only')===1&&text(packageRows.find(x=>x.package_type==='lens_only').package_status)==='available')
+   if(typeCount.get('lens_only')===1&&text(packageRows.find(x=>x.package_type==='lens_only').package_status).toLowerCase()==='available')
     blockers.push('CORE_LENS_ONLY_NOT_HIDDEN');
    const grouped={
     tracker_candidates:findLineage(input.tracker_candidates,core),
