@@ -369,5 +369,7 @@ test('full scan time budget returns explicit HOLD, never forged FULL or provider
  assert.equal(out.diagnostic.budget_exhausted,true);
  assert.ok(out.blockers.includes('RUNTIME_BUDGET_EXHAUSTED'));
  assert.ok(out.diagnostic.receipts.known_miss.some(x=>!x.executed));
+ assert.equal(out.diagnostic.receipts.known_miss[0].attempts[0].status,'TIME_BUDGET_EXHAUSTED');
+ assert.equal(out.diagnostic.receipts.discovery[0].attempts[0].status,'TIME_BUDGET_EXHAUSTED');
  assert.equal(out.production_writes,0);
 });
