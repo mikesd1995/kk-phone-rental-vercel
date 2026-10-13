@@ -91,12 +91,7 @@ function sourceConfirmsPopupArtist(body='',candidate={}){
  // Short aliases such as THAI must not match "Thailand".
  return artists.length?artists.every(a=>{
   if(/[ก-๙]/.test(a))return page.includes(a.toLowerCase());
-  const escaped=a.replace(/[.*+?^$()|[\]{}\\]/g,'\\function sourceConfirmsPopupArtist(body='',candidate={}){
- const page=text(body).slice(0,800000).toLowerCase();
- const artists=namedPopupArtists(candidate);
- return artists.length?artists.some(a=>page.includes(a.toLowerCase())):
-  ARTIST_APPEARANCE_SIGNAL.test(page)&&ARTIST_POPUP_SIGNAL.test(page);
-}');
+  const escaped=a.replace(/[.*+?^$()|[\]{}\\]/g,'\\$&');
   return new RegExp('(^|[^a-z0-9])'+escaped+'($|[^a-z0-9])','i').test(page);
  }):ARTIST_APPEARANCE_SIGNAL.test(page)&&ARTIST_POPUP_SIGNAL.test(page);
 }
