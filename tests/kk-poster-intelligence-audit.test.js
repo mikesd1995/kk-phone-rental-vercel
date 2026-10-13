@@ -54,3 +54,14 @@ test('unavailable/empty feed never produces a false green audit',async()=>{
   fetchImpl:async()=>({ok:true,text:async()=>emptyVisibility})
  }),/NO_VISIBLE_FUTURE_EVENTS/);
 });
+
+test('optional network probing is disabled until a hardened redirect and image signature checker ships',async()=>{
+ const BaseAudit=require('../scripts/audit-storefront-posters.js');
+ if(typeof BaseAudit.publicImageUrl!=='function'||typeof BaseAudit.hasImageSignature!=='function'){
+  await assert.rejects(()=>Cli.run(['--as-of=2026-10-14','--probe'],{fetchImpl:fakeFetch}),
+   /HARDENED_PUBLIC_IMAGE_PROBE_REQUIRED/);
+ }else{
+  assert.equal(BaseAudit.publicImageUrl('https://127.0.0.1/image.jpg'),false);
+  assert.equal(BaseAudit.hasImageSignature(new Uint8Array([255,216,255,217]),'image/jpeg'),true);
+ }
+});
