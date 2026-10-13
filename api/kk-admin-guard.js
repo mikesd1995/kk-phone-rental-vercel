@@ -24,6 +24,7 @@ const UltraDeepDirect = require('../server/kk-ultra-deep-direct-zero-cost.js');
 const { createPostgrestStore } = require('../server/kk-inbox-postgrest-store.js');
 const InboxContract = require('../server/kk-unified-inbox-contract.js');
 const LineMessaging = require('../server/kk-line-messaging-api.js');
+const DurableLineSend = require('../server/kk-inbox-outbound-delivery.js');
 const InboxMedia = require('../server/kk-inbox-media.js');
 
 const GUARD_VERSION = ReservationGuard.VERSION;
@@ -613,41 +614,24 @@ module.exports=async function handler(req,res){
         if(payload.owner_approved!==true) return reply(res,409,{ok:false,error:'Owner approval is required before sending',error_code:'OWNER_APPROVAL_REQUIRED',production_writes:0,provider_sends:0});
         const conversationId=String(payload.conversation_id||'').trim();
         const body=String(payload.text||'').trim();
+        const requestId=String(payload.send_request_id||'').trim();
         if(!conversationId) return reply(res,400,{ok:false,error:'conversation_id is required',error_code:'INBOX_CONVERSATION_REQUIRED',production_writes:0,provider_sends:0});
         if(!body) return reply(res,400,{ok:false,error:'message text is required',error_code:'INBOX_TEXT_REQUIRED',production_writes:0,provider_sends:0});
         if(body.length>5000) return reply(res,400,{ok:false,error:'message text exceeds 5000 characters',error_code:'INBOX_TEXT_TOO_LONG',production_writes:0,provider_sends:0});
+        if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)){
+          return reply(res,400,{ok:false,error:'A fresh owner-approved send request ID is required',error_code:'INBOX_SEND_REQUEST_ID_REQUIRED',production_writes:0,provider_sends:0});
+        }
         const conversation=await store.getConversation(conversationId);
         if(!conversation) return reply(res,404,{ok:false,error:'conversation not found',error_code:'INBOX_CONVERSATION_NOT_FOUND',production_writes:0,provider_sends:0});
-        if(String(conversation.channel||'').toLowerCase()!=='line') return reply(res,409,{ok:false,error:'Outbound send is enabled for LINE only',error_code:'INBOX_CHANNEL_SEND_DISABLED',production_writes:0,provider_sends:0});
-        const draft=InboxContract.authorizeSend(InboxContract.outboundDraft({channel:'line',conversation_id:conversationId,text:body}),'owner');
-        let delivery;
-        try{
-          delivery=await LineMessaging.pushText({to:conversation.external_user_id,text:draft.text},{token:lineToken,fetchImpl:global.fetch});
-        }catch(err){
-          return reply(res,502,{ok:false,error:'LINE send failed',error_code:String(err&&err.code||'LINE_PUSH_FAILED'),provider_status:Number(err&&err.status||0)||null,production_writes:0,provider_sends:0});
-        }
-        const message={
-          schema_version:InboxContract.VERSION,
-          message_id:'msg_'+crypto.createHash('sha256').update('line:'+delivery.external_message_id).digest('hex').slice(0,24),
-          conversation_id:conversationId,
-          channel:'line',
-          direction:'outbound',
-          external_message_id:delivery.external_message_id,
-          external_user_id:String(conversation.external_user_id||'').trim(),
-          message_type:'text',
-          text:draft.text,
-          sent_at:delivery.sent_at,
-          send_authorized:true,
-          authorized_by:'owner',
-          provider_request_id:delivery.provider_request_id,
-          retry_key:delivery.retry_key
-        };
-        let receipt;
-        try{ receipt=await store.recordOutbound(message); }
-        catch(err){
-          return reply(res,502,{ok:false,error:'LINE message was accepted but Inbox persistence failed',error_code:'INBOX_OUTBOUND_PERSIST_FAILED_AFTER_SEND',provider_request_id:delivery.provider_request_id||null,retry_key:delivery.retry_key,production_writes:0,provider_sends:1});
-        }
-        return reply(res,200,{ok:true,message:{message_id:message.message_id,conversation_id:conversationId,direction:'outbound',message_type:'text',body_text:draft.text,sent_at:delivery.sent_at},provider_request_id:delivery.provider_request_id||null,production_writes:Number(receipt&&receipt.writes||0),provider_sends:1,outbound_enabled:true});
+        // Unlike ephemeral browser holds, this service-role reservation is atomic
+        // across serverless instances and survives reloads and process restarts.
+        const result=await DurableLineSend.sendOnce({
+          conversationId,body,requestId,conversation
+        },{
+          store,lineMessaging:LineMessaging,serviceKey:process.env.KK_INBOX_SUPABASE_SERVICE_ROLE_KEY,
+          lineToken,fetchImpl:global.fetch
+        });
+        return reply(res,result.http_status||502,result);
       }
     }catch(err){
       return reply(res,502,{ok:false,error:'Inbox action failed',error_code:String(err&&err.code||'INBOX_ACTION_FAILED'),production_writes:0});
