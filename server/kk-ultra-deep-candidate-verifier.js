@@ -100,13 +100,15 @@ function artistPopupLead(row={},title=text(row.title||row.event_name)){
 }
 function sourceConfirmsPopupArtist(body='',candidate={}){
  const page=text(body).slice(0,800000).toLowerCase();
- const artists=namedPopupArtists(candidate);
- // Short aliases such as THAI must not match "Thailand".
+ const named=namedPopupArtists(candidate);
+ const inTitle=text(candidate.title||candidate.event_name).match(/\b(?:with|x|featuring)\s+([a-z][a-z0-9_-]{2,})\b/i);
+ const artists=named.length?named:(inTitle?[inTitle[1]]:[]);
+ // Do not let THAI match 'Thailand' or another artist replace the title artist.
  return artists.length?artists.every(a=>{
   if(/[ก-๙]/.test(a))return page.includes(a.toLowerCase());
   const escaped=a.replace(/[.*+?^$()|[\]{}\\]/g,'\\$&');
   return new RegExp('(^|[^a-z0-9])'+escaped+'($|[^a-z0-9])','i').test(page);
- }):ARTIST_APPEARANCE_SIGNAL.test(page)&&ARTIST_POPUP_SIGNAL.test(page);
+ }):false;
 }
 
 function authoritativeEventSource(url='',picked=null,verified={}){
@@ -233,7 +235,7 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  // A structured page on an arbitrary domain cannot authorize customer access
  // or photography at a brand appearance. Owner review is mandatory.
  const authority=popupLead?{...baseAuthority,ok:false,owner_review_required:true}:baseAuthority;
- if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
+ if(!baseAuthority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
  if(popupLead&&text(candidate.venue)&&picked&&locationName(picked.e&&picked.e.location)){
   const wanted=venueTokens(candidate.venue),received=new Set(venueTokens(locationName(picked.e.location)));
   const overlap=wanted.filter(x=>received.has(x)).length;
