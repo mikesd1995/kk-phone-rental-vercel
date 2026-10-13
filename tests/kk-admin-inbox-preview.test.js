@@ -131,7 +131,7 @@ test('switching LINE rooms during send never wipes another customer draft or ref
   loadList:async()=>lists.push('refreshed')
  };
  vm.runInNewContext(
-  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);const uncertainSendRooms=new Set();\n"+
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);const uncertainSendRooms=new Set();let pendingIntentionalRepeat=null;\n"+
   js.slice(start,end)+"\nglobalThis.sendMessage=sendMessage;globalThis.switchRoom=id=>{selected=id;selectedRow={conversation_id:id,channel:'line'};};",ctx
  );
  const request=ctx.sendMessage();
@@ -160,7 +160,7 @@ test('LINE owner reply preserves an edited draft but clears the original complet
   loadThread:async id=>threads.push(id),loadList:async()=>{}
  };
  vm.runInNewContext(
-  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);const uncertainSendRooms=new Set();\n"+
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);const uncertainSendRooms=new Set();let pendingIntentionalRepeat=null;\n"+
   js.slice(start,end)+"\nglobalThis.sendMessage=sendMessage;",ctx
  );
  const first=ctx.sendMessage();
@@ -213,7 +213,7 @@ test('successful in-flight reply cannot resurrect a sent draft after switching r
   loadThread:async id=>threads.push(id),loadList:async()=>{}
  };
  vm.runInNewContext(
-  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);const uncertainSendRooms=new Set();\n"+
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);const uncertainSendRooms=new Set();let pendingIntentionalRepeat=null;\n"+
   js.slice(helperStart,helperEnd)+"\n"+js.slice(sendStart,sendEnd)+
   "\nglobalThis.sendMessage=sendMessage;globalThis.switchRoom=id=>{prepareComposerForThread(id);selected=id;selectedRow={conversation_id:id,channel:'line'};};",ctx
  );
