@@ -6,9 +6,9 @@ This is **Phase 1: read-only automatic source triage**, not an AI model that ind
 
 ### Changes in Draft PR
 - `server/kk-poster-integrity-agent.js` — deterministic evidence advisor: missing URLs, already owner-audited exact wrong-image pairs (LE7EL, VVV, POP), shared generic KK brand hero, image transport failure, missing event identity, reused image for differently named events (review only), and optional externally supplied visual date/name conflict (review only). Unknown images are marked `DELIVERY_ONLY_IDENTITY_UNVERIFIED`, **never** "official verified."
-- `scripts/audit-storefront-posters.js` — adds `poster_integrity` beside its existing HTTP candidate checks; injects an optional fetch implementation for offline acceptance. Script remains a read-only public GET and exits nonzero on missing/broken/known-wrong image. No automatic Sheets changes.
+- `scripts/audit-storefront-posters.js` — adds `poster_integrity` beside its existing HTTP candidate checks; injects an optional fetch implementation for offline acceptance. Script remains a read-only public GET and exits nonzero on missing/broken/known-wrong image. No automatic Sheets changes. A new public-source guard blocks private/loopback/non-HTTPS URL targets and validates up to three bounded redirect hops before downloading, then checks a JPEG/PNG/GIF/WebP/AVIF binary header rather than trusting only the HTTP image MIME; unrecognized formats fail closed for verification.
 - `server/kk-agent-registry.js` / `server/kk-agent-task-router.js` — callable `poster_integrity_review` via existing governed Agent Gateway, with `kk-poster-integrity-advisor` authority `READ_ONLY_EVIDENCE_TRIAGE`; gateway continues requiring project-memory bootstrap and durable invocation evidence. It is **not** a new privileged writer.
-- `tests/kk-poster-integrity-agent.test.js` — no-network mocks for canonical media, missing, known mismatches, ambiguous cross-event reuse, invalid dates, stale/contradictory visual observations, immutable business fields and the existing HTTP audit report.
+- `tests/kk-poster-integrity-agent.test.js` — no-network mocks for canonical media, missing, known mismatches, ambiguous cross-event reuse, invalid dates, stale/contradictory visual observations, immutable business fields, image content-type spoofing, unsafe image URLs and private redirect rejection, and the existing HTTP audit report.
 
 ## Read-only canonical production-data baseline
 
@@ -62,7 +62,7 @@ The audit's normal output includes `poster_integrity`; the existing GitHub healt
 
 ### Test evidence and honesty
 
-- **13/13 targeted tests passed** in a standalone exact-file V8 mock harness loading file bytes from the GitHub Draft branch (not a real Node test process). This includes a full synthetic public-feed CSV + injected no-network image GET and a check for zero business writes. Detailed source checks are in the test file.
+- **17/17 targeted tests passed** in a standalone exact-file V8 mock harness loading file bytes from the GitHub Draft branch (not a real Node test process). This includes a full synthetic public-feed CSV + injected no-network image GET and a check for zero business writes. Detailed source checks are in the test file.
 - No Vercel Preview/Production deployment, GitHub merge, paid API, new automation, or Google Sheet modification was performed.
 - Not yet accepted: real Node CI on the exact candidate head, signed-out image network/visual QA for 57 event cards, and independent actual image pixels/date/artist verification. These remain distinct release gates.
 - This branch edits source modules and documentation only, **does not touch Booking, price, stock, LINE**, and does not depend on TinyFish.
@@ -77,3 +77,15 @@ The audit's normal output includes `poster_integrity`; the existing GitHub healt
 ### Cross-chat handoff
 
 Branch `fix/poster-integrity-advisor-zero-cost-20261014`. This audit is safe to resume by fetching this document and running the above targeted tests. Current mode: advisory source code in Draft; `production_writes=0`, zero model charges, all releases HOLD.
+
+### Network hardening details
+
+The prior poster-health probe trusted HTTP `image/*` plus at least one byte; it could classify a forged image-MIME HTML page as delivered. The candidate now checks supported image-file magic bytes and rejects misleading content. Fetch is GET-only and uses a hard timeout, bounded concurrency, 3-hop redirect cap and HTTPS-only public targets. Private/loopback and link-local IPv4/IPv6 literals, localhost, non-HTTPS and unsafe redirect targets are rejected before another GET. This is defense in depth, **not** a complete DNS-rebinding-proof sandbox: production execution requires an egress policy or isolated runner if untrusted hosts are introduced.
+
+Visual identity is **still not pixel-verified** by this protocol; valid JPEG bytes could depict the wrong event. These continue to require organizer and owner visual evidence.
+
+### Change/provenance accounting
+
+- Earlier state: 57 future-visible, six known blank poster sources. New direct 14 Oct sheet readback confirms **eight blank sources** including K*Pop Masterz SPECIAL LIVE (15 Nov) and FORTREASURE BEYOND THE HORIZON (27 Nov). These two extra rows were **already blank** when read; no source was cleared by this branch.
+- No new automatic nightly/posting task was registered, no Hugging Face or OpenAI inference endpoint invoked, and no GitHub Actions workflow was manually triggered.
+- New agent task route is callable when given an explicit event list. The only automatic component at present is within the existing poster-health audit when that audit is invoked. Fully unattended visual classification or autonomous repair is **not enabled**.
