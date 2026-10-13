@@ -46,7 +46,7 @@ Executed the precise GitHub branch JavaScript files in isolated V8 with injected
 
 - Provider Executor + Runtime Runner: **34/34** pass (includes exhausted deadline returning HOLD and zero writes).
 - Candidate Verifier V5: **20/20** pass (dated source, missing dates, date conflicts, Pop-up owner HOLD).
-- Local shard module + CLI: **7/7** pass (150-task plan, 13 shards, free-only allowlist, report tamper/duplicate rejection, non-release invariant).
+- Local shard module + CLI: **8/8** pass (150-task plan, 13 shards, free-only allowlist, report tamper/duplicate rejection, non-release invariant).
 - Previous independent integration and known-miss exercises: **9/9** and **12/12** before the runtime patches; re-run against the final exact HEAD for final acceptance.
 - Direct-run V27 isolated stub invocation: `runtime_budget_ms=900000` clamps to **210000**; rejected discovery returns `BLOCKED_DISCOVERY_NOT_FULL`, `production_writes=0`. No real provider called.
 
@@ -75,3 +75,10 @@ Sources for further verification: `https://panpuri.com/th/about/our-stores/disco
 - **Zero-cost next execution**: Use a genuinely free connected local/self-hosted Node environment to execute shard receipts, perform read-only full report independently, then request release acceptance only when other gates are green. This CLI is a safe alternative pathway, not a claim that the October scan has finished.
 
 All changes and evidence remain under Draft PR #720; Owner may decide subsequent gates.
+## 7. Follow-up fail-close correction (2026-10-13)
+
+- A resumed shard can have an earlier successful provider attempt **and still exceed its deadline on a later query**. Previously `executionProof` could count the earlier `NO_EVIDENCE` as executed; the offline shard merger must not treat that as exhaustive query coverage.
+- Commit `d9b4dd7` therefore marks a shard `SHARD_INCOMPLETE` whenever `time_budget_exhausted=true`, even if earlier provider attempts were valid. `combineReports` now requires explicit `SHARD_TIMEOUT_OR_INCOMPLETE` blocker for those receipts.
+- Commit `1ed0fe2` preserves `TIME_BUDGET_EXHAUSTED` in provider and source-universe diagnostic receipts instead of normalizing it to `UNKNOWN`; `0707c71` locks that contract in the Runtime Test.
+- Commit `ab56888` adds an interrupted-shard regression; exact branch Shard+CLI isolated V8 validations now **8/8**.
+- Original GitHub CI and all 13 live-source shard runs **still unverified**. This correction strictly improves failure reporting and does not declare the October sweep complete.
