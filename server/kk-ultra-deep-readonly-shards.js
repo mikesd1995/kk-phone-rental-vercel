@@ -99,6 +99,25 @@ function combineReports(input={},reports=[]){
    JSON.stringify(report.task_ids)!==JSON.stringify(m.allTasks.slice(shard.start,shard.end).map(x=>x.task_id))||
    !Array.isArray(report.results)||report.results.length!==shard.count)
     throw new Error('READONLY_SHARD_REPORT_INVALID_OR_DUPLICATE');
+  // Validate claimed coverage against the recorded zero-cost source attempts.
+  // Receipt summary counts/statuses and nested authorities are untrusted input.
+  // A forged "all executed" local receipt must never become clean evidence.
+  const actual=Runner.executionProof({results:report.results});
+  const bound=Array.isArray(report.providers_bound)&&
+   report.providers_bound.every(x=>FREE_PROVIDERS.includes(text(x).toUpperCase()));
+  const verifiedRows=report.results.every(row=>row&&
+   ['EVIDENCE_FOUND','GAP_UNRESOLVED'].includes(text(row.status))&&
+   row.authoritative===false&&row.verifier_required===true&&
+   Number(row.production_writes)===0&&
+   Array.isArray(row.attempts)&&
+   row.attempts.every(attempt=>attempt&&FREE_PROVIDERS.includes(text(attempt.provider).toUpperCase())));
+  const countsMatch=Number.isInteger(report.executed_count)&&
+   report.executed_count===actual.executed_count&&
+   Number.isInteger(report.task_count)&&report.task_count===shard.count;
+  if(!bound||!verifiedRows||!countsMatch||
+   !['SHARD_RECEIPTS_EXECUTED','SHARD_INCOMPLETE'].includes(report.status)||
+   (report.status==='SHARD_RECEIPTS_EXECUTED'&&!actual.complete))
+    throw new Error('READONLY_SHARD_PROVENANCE_INVALID');
   if(report.time_budget_exhausted===true||report.status!=='SHARD_RECEIPTS_EXECUTED')
    blockers.push('SHARD_TIMEOUT_OR_INCOMPLETE');
   valid.set(idx,report);
