@@ -128,8 +128,21 @@ async function inspectState(page){
         treatment:'missing'
       }]:[];
     });
-    const escaped=[];
-    for(const card of cards){const c=card.getBoundingClientRect();for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){const r=el.getBoundingClientRect();if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1)escaped.push(el.className);}}
+    const escaped=[],escapedDetails=[];
+    for(const card of cards){
+      const c=card.getBoundingClientRect();
+      for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){
+        const r=el.getBoundingClientRect();
+        if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1){
+          escaped.push(el.className);
+          if(escapedDetails.length<24)escapedDetails.push({event_id:card.dataset.eventId||'',
+            child:el.className,card:{left:c.left,right:c.right,top:c.top,bottom:c.bottom,height:c.height},
+            child_rect:{left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height},
+            overshoot:{left:Number((c.left-r.left).toFixed(2)),right:Number((r.right-c.right).toFixed(2)),
+              top:Number((c.top-r.top).toFixed(2)),bottom:Number((r.bottom-c.bottom).toFixed(2))}});
+        }
+      }
+    }
     const modal=document.querySelector('.overlay.active .modal,.faq-overlay.active .modal');
     const scope=modal||document;
     const targets=[...scope.querySelectorAll('button,a[href],input,select')].filter(visible).filter(el=>!el.classList.contains('skip-link'));
@@ -140,7 +153,7 @@ async function inspectState(page){
     const mb=modal?box(modal):null;
     return {scroll_y:scrollY,raw_i18n_keys:raw,document_width:document.documentElement.scrollWidth,viewport_width:innerWidth,
       card_rects:cardRects,card_height_spread_px:Number(cardHeightSpread.toFixed(2)),poster_frame_ratios:posterFrameRatios,
-      escaped_card_elements:escaped,poster_source_issues:posterSourceIssues,poster_treatment_issues:posterTreatmentIssues,
+      escaped_card_elements:escaped,escaped_card_details:escapedDetails,poster_source_issues:posterSourceIssues,poster_treatment_issues:posterTreatmentIssues,
       first_event_top:first?first.top+scrollY:null,visible_event_cards_above_fold:cards.filter(el=>{const r=el.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;}).length,
       small_targets:small,clipped_controls:clipped,overlapping_filters:overlappingFilters,theme_icons:[...document.querySelectorAll('.theme-toggle span')].filter(visible).length,
       modal:mb?{...mb,scroll_width:modal.scrollWidth,client_width:modal.clientWidth,viewport_height:innerHeight,focus_inside:modal.contains(document.activeElement),title:modal.querySelector('.modal-title')?.textContent||'',package_count:modal.querySelectorAll('.phone-row').length}:null,
