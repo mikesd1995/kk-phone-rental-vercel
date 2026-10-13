@@ -43,10 +43,11 @@ function sourceUniverseReceipts(plan={},execution={}){
     const result=results[i]||{};
     const attempts=Array.isArray(result.attempts)?result.attempts:[];
     const executed=attempts.some(attemptExecuted);
+    const timedOut=attempts.some(a=>a.status==='TIME_BUDGET_EXHAUSTED');
     receipts.push({
       source_id:task.source_id,
       executed,
-      status:executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
+      status:executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):(timedOut?'TIME_BUDGET_EXHAUSTED':'NOT_BOUND'),
       provider:result.provider||null
     });
   }
@@ -226,7 +227,7 @@ function diagnosticReceipts(plan={},execution={}){
   const result=(execution.results||[])[index]||{};
   const attempts=(result.attempts||[]).map(a=>({
    provider:ProviderExecutor.ALLOWED_PROVIDERS.has(a.provider)?a.provider:'UNKNOWN',
-   status:['NOT_BOUND','EVIDENCE_FOUND','NO_EVIDENCE','PROVIDER_ERROR'].includes(a.status)?a.status:'UNKNOWN',
+   status:['NOT_BOUND','EVIDENCE_FOUND','NO_EVIDENCE','PROVIDER_ERROR','TIME_BUDGET_EXHAUSTED'].includes(a.status)?a.status:'UNKNOWN',
    count:Number.isFinite(a.count)?a.count:0
   }));
   return {task_index:index,source_id:task.source_id||null,source_tier:task.source_tier,
