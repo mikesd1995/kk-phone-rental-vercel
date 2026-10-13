@@ -138,6 +138,10 @@ function usableReferenceDetailUrl(value){
  try{
   const u=new URL(text(value));
   if(u.protocol!=='https:'||!u.hostname||u.username||u.password)return false;
+  // Public source verifier must never fetch literal IP, localhost, or internal origins.
+  const h=u.hostname.toLowerCase();
+  if(!h.includes('.')||h.startsWith('[')||/^\d+\.\d+\.\d+\.\d+$/.test(h)||
+    /(?:^|\.)(?:localhost|local|internal|test|invalid)$/.test(h))return false;
   const p=u.pathname.toLowerCase().replace(/\/+$/,'');
   if(!p||p==='/event'||p==='/events'||/^\/(?:search|category|categories|calendar|g)(?:\/|$)/.test(p))return false;
   return /[a-z0-9\u0e00-\u0e7f]{5,}/i.test(p);
