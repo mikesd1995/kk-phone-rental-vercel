@@ -87,8 +87,8 @@ async function pool(items,worker,limit=CONCURRENCY){
   async function run(){while(true){const i=next++;if(i>=items.length)return;out[i]=await worker(items[i],i);}}
   await Promise.all(Array.from({length:Math.min(limit,items.length)},run)); return out;
 }
-async function main(){
-  const feedRes=await fetch(FEED,{headers:{'Cache-Control':'no-cache','User-Agent':'KK-Storefront-Poster-Audit/1.0'}});
+async function main(fetchImpl=global.fetch, options={}){
+  const feedRes=await fetchImpl(FEED,{headers:{'Cache-Control':'no-cache','User-Agent':'KK-Storefront-Poster-Audit/1.0'}});
   if(!feedRes.ok)throw new Error('EVENT_FEED_HTTP_'+feedRes.status);
   const rows=objects(parseCsv(await feedRes.text()))
     .filter(r=>['show','show_full'].includes(text(r.action_for_web)));
@@ -98,7 +98,7 @@ async function main(){
     const fallback=emergencyPoster(r);
     return [...canonical,...(fallback&&fallback!==text(r.poster_image_url)?candidates(fallback):[])];
   }))];
-  const probed=await pool(unique,url=>probe(url));
+  const probed=await pool(unique,url=>probe(url,fetchImpl));
   const byUrl=new Map(probed.map(x=>[x.url,x]));
 
   const events=rows.map(r=>{
@@ -137,8 +137,11 @@ async function main(){
     recovered:recovered.map(e=>({event_id:e.event_id,event_name:e.event_name,event_date:e.event_date,canonical:e.canonical,first_healthy_url:e.first_healthy_url})),
     events,poster_integrity:integrity,production_writes:0,business_data_mutations:0
   };
-  process.stdout.write(JSON.stringify(report,null,2)+'\n');
-  if(failed.length||integrity.blocked)process.exitCode=2;
+  if(options.silent!==true){
+    process.stdout.write(JSON.stringify(report,null,2)+'\n');
+    if(failed.length||integrity.blocked)process.exitCode=2;
+  }
+  return report;
 }
 if(require.main===module)main().catch(err=>{console.error(JSON.stringify({ok:false,error:text(err&&err.message)||'AUDIT_FAILED'}));process.exit(1);});
-module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,probe,pool};
+module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,probe,pool,main};
