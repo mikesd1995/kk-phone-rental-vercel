@@ -28,3 +28,45 @@
 - [ ] GitHub Actions included minutes were exhausted 2,032/2,000 until reported Nov 1 reset. Do **not** bypass Required Checks, spend or auto-run extra jobs. Draft only pending genuine tests and approval.
 
 **Safety:** No live X post, no scheduled social posts, no prices/booking/events/stock changed, no LINE sends, no Production deploy or automatic merge.
+
+
+## Follow-up: X discoverability / suspected shadowban risk (2026-10-13)
+**Diagnosis confidence:** elevated *content and scheduling risk*; **NOT a confirmed Search Ban, Search Suggestion Ban, Reply deboost, or account penalty**. Public index snapshots for [@KK_PhoneRental](https://www.sotwe.com/kk_phonerental?lang=en) show multiple rental posts where event and hook change but lengthy promotional benefit/discount/booking-link blocks remain similar. External mirrors are not authenticated X Search/analytics and their crawl timestamps are not precise publication proof. Never treat indexed existence or view-count guesses as proof the X account is unrestricted.
+
+**Applicable X rules (primary sources, retrieved 13 Oct 2026):**
+- https://help.x.com/en/rules-and-policies/x-search-policies — duplicate/near-duplicate posts, keyword-triggered automated posting/replies, hashtag abuse, similar messages across accounts may cause filtering from search.
+- https://help.x.com/en/rules-and-policies/authenticity — bulk duplicative content, coordinated accounts, unrelated hashtags and copy/paste behaviors are restricted.
+- https://help.x.com/en/rules-and-policies/x-automation — compliant automation may be allowed; unsolicited automated replies and spam/duplicates are not.
+**No official X numeric daily-post threshold exists in these sources.** The following 2/day is KK's voluntary conservative advisory, not a promised method for removing platform restrictions.
+
+### Implemented on THIS DRAFT branch
+- Added `server/kk-x-visibility-recovery.js` and integrated it into `server/kk-x-posting-plan.js` (owner-review recommendation path, *not* the live X publication path).
+- **Account-wide 2 new recommendations / Bangkok operating day**, not merely per-event: count `confirmed_posted`, `assumed_posted`, and `planned` rows across ALL events in the canonical Post Log before filling any more recommendation slots. `superseded` does not consume capacity. Budget is reduced if earlier slots/posts exist.
+- **At least 90 minutes between recommended slots and active log timestamps**, including late-night time slots; `00:00–05:59` maps to the previous 06:00 operational day. Thai timestamps in `DD/MM/YYYY HH:mm` are supported.
+- Invalid timestamp on any active Post Log row **fails closed** (`ACTIVE_POST_LOG_TIME_UNVERIFIED`) instead of making unsupported account-wide frequency claims. Missing or stale canonical source readback continues blocking under PR #716 rules.
+- New planner response reports `visibility_recovery`, `RECOVERY_DAILY_POST_CAP`, `RECOVERY_SPACING_UNDER_90_MIN`, or `BLOCKED_VISIBILITY_RECOVERY`. Account guard is independent of event-level eligibility; distinct events are no exception.
+- Added seven regression cases in `tests/kk-x-visibility-recovery.test.js` for daily cap, cross-event post log, exact 90-minute spacing, close intervals, Thai format, midnight and stale/invalid evidence.
+- All posts remain **manually approved;** publishes=0, paid spend=0, price/booking/LINE/inventory changes=0. No X account OAuth, account settings, or existing post edits were performed. **Not deployed/merged.**
+
+### Real account verification still blocked by missing X session/analytics
+To classify actual shadowban, perform the following **from a genuinely separate viewer account**, logged out of KK:
+1. Search `from:KK_PhoneRental` in Latest with an unrestricted viewer; save screenshot including visible query, time, and found/missing **exact post URLs**.
+2. Search a distinctive verbatim sentence from a recent *public* post; compare Latest results with the profile timeline, using Search settings that do not filter sensitive content.
+3. Check whether the handle appears under autocomplete from that viewer. For reply rank testing, inspect a recent reply while logged out/other-account, controlling for parent-post context.
+4. In the owner X account, check account status/security notifications; record any platform label or appeal option. Compare **real X Analytics** impressions across similar posts over 7–14 days, with time-of-day, follower vs nonfollower reach and publication times. Reach declining alone is not proof of a penalty.
+5. Store screenshots, exact X status URLs, source/account and dates in an evidence log; mark each outcome `PASS`, `FAIL`, or `UNVERIFIED`. Do **not** supply account passwords, automation tokens or X session cookies to GitHub.
+
+### Operational recovery protocol until proof is available
+- Prefer no more than two *distinct, evidence-verified and owner-approved* commercial posts per Bangkok operating day as a temporary precaution. Space at least 90 minutes. These are **internal business guardrails, not X requirements**; review once firsthand search/analytics evidence exists.
+- Stop mass generic replies, near-identical benefits blocks, recycled hashtag lists and identical cross-posts on `@KK_PhoneRental2`. Avoid deleting and reposting the same copy.
+- Rewrite each piece around independently verified event-specific value; do not invent scarcity, outcomes, hashtags or booking availability. Do not post sold-out/owner-hidden dates. Avoid putting a repeated link/discount paragraph into every post.
+- Monitor actual discovery and engagement; *do not* promise account will be unbanned. If X shows an enforcement label, follow the platform's in-product appeal route instead of attempting to evade a restriction with the backup account.
+
+### Verification and release boundary
+- [x] Branch file changes and explicit test cases persisted in GitHub.
+- [ ] Execute **exact-head** Node tests: `node --test tests/kk-x-visibility-recovery.test.js tests/kk-x-posting-eligibility.test.js tests/kk-x-posting-plan.test.js tests/kk-x-posting-plan-chat-bridge.test.js` plus affected Gateway suite. Source presence is not test execution.
+- [ ] Genuine external X visibility checks and owner analytics readback with dates.
+- [ ] Reconcile with PR #694 copy-policy branch without discarding its stronger anti-repeat gates. Never publish through an unverified bridge.
+- [ ] Confirm no repository quota, required-check, or Production safety gate is bypassed. Leave this PR **DRAFT**, do not merge/deploy without passing acceptance and owner approval.
+
+**Disposition:** SAFETY_CODE_DRAFTED / CI_UNVERIFIED / X_ENFORCEMENT_UNVERIFIED / PRODUCTION_UNCHANGED.
