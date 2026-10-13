@@ -2235,3 +2235,8 @@ html[data-theme="dark"] .kk-mock-hero .v3-secondary{
 [data-theme="dark"] .poster-placeholder-event .poster-placeholder-title{
   background:rgba(13,22,38,.86)!important;
 }
+
+/* V6.34 — 2026-10-13: retain complete English prices on narrow event cards. */
+@media (max-width:700px){
+  .pi-price{white-space:normal!important;min-width:0!important;max-width:100%!important;overflow-wrap:anywhere!important}
+}

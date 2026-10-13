@@ -38,5 +38,5 @@ test('booking CTA destinations and accessible nav are not altered by hero redesi
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261012-v633-temp-brand-image/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261013-v634-mobile-price-wrap/);
 });
