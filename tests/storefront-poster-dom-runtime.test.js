@@ -99,6 +99,9 @@ test('shop-branded placeholder becomes truthful per-event summary, never an offi
 
 test('audited wrong-event photographs are suppressed only on exact event/source pairs',()=>{
  const cases=[
+  ['EVT-20261023-LYKN-REFLEXION-CONCERT-2','https://drive.google.com/thumbnail?id=1YAcm8q9b9YBJcAKeEgxRB5fnVIPXbiDS&sz=w1200','LYKN REFLEXION — 23 October additional show'],
+  ['EVT-20261115-2026-K-POP-MASTERZ-SPECIAL-L','https://drive.google.com/thumbnail?id=1yMVpy4pNNuitIb6FFsBiEo4y9-ogFA2i&sz=w1200','K*Pop Masterz — 15 November added show'],
+  ['EVT-20261127-FORTREASURE-BEYOND-HORIZON','https://drive.google.com/thumbnail?id=1OVYGQIlzt-n_la8eKKwgFIBcrrVxix78&sz=w1200','FORTREASURE — 27 November benefit day'],
   ['EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY','https://www.thai2music.com/uploads/artists/photo_cover/cover_1035_1762919037.jpg','LE7EL — 1st Debut Anniversary'],
   ['EVT-20261025-VVV-TORNADO-SHOPPING-XIAOMI','https://pbs.twimg.com/media/G3iTTicXMAAbtyE.jpg','VVV — Tornado Shopping × Xiaomi'],
   ['EVT-20261030-POPPAH4-HALLOWEEN-NAMP','https://static.amarintv.com/media/PJVlR0ljpO7yvkfhEH4VNNZ54YMVWAxlVfBQwSENDkv21tWvbtjShU6FnewvzElMDb.jpg','POP-ป่ะห์ #4 Halloween — NAMP Live']
