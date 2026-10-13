@@ -1,0 +1,79 @@
+# KK Phone Rental — Zero-cost Poster Integrity Advisor (2026-10-14)
+
+## Executive state
+
+This is **Phase 1: read-only automatic source triage**, not an AI model that independently views a poster. No pretrained model is invoked, no OCR is performed, and HTTP 200 or a valid image content type is **not** taken as proof that the flyer matches its event. Owner or independently reviewed visual evidence is still mandatory before source replacement. It does **not** replace the separate one-command owner poster upload flow in [PR #678](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/678).
+
+### Changes in Draft PR
+- `server/kk-poster-integrity-agent.js` — deterministic evidence advisor: missing URLs, already owner-audited exact wrong-image pairs (LE7EL, VVV, POP), shared generic KK brand hero, image transport failure, missing event identity, reused image for differently named events (review only), and optional externally supplied visual date/name conflict (review only). Unknown images are marked `DELIVERY_ONLY_IDENTITY_UNVERIFIED`, **never** "official verified."
+- `scripts/audit-storefront-posters.js` — adds `poster_integrity` beside its existing HTTP candidate checks; injects an optional fetch implementation for offline acceptance. Script remains a read-only public GET and exits nonzero on missing/broken/known-wrong image. No automatic Sheets changes.
+- `server/kk-agent-registry.js` / `server/kk-agent-task-router.js` — callable `poster_integrity_review` via existing governed Agent Gateway, with `kk-poster-integrity-advisor` authority `READ_ONLY_EVIDENCE_TRIAGE`; gateway continues requiring project-memory bootstrap and durable invocation evidence. It is **not** a new privileged writer.
+- `tests/kk-poster-integrity-agent.test.js` — no-network mocks for canonical media, missing, known mismatches, ambiguous cross-event reuse, invalid dates, stale/contradictory visual observations, immutable business fields and the existing HTTP audit report.
+
+## Read-only canonical production-data baseline
+
+Read owner-connected native Google Sheet `12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU` > `08_Web_Ready!A4:J380` on **2026-10-14**. Rows at or after 2026-10-14 with `action_for_web` equal to `show` or `show_full`:
+
+| Finding | Count | Meaning |
+|---|---:|---|
+| Visible future events | 57 | Sheet-visible, not signed-out production browser proof |
+| Missing canonical poster URL | **8** | Confirmed blank `poster_image_url` |
+| Shared image by distinct names | **2** | Moonshadow Fan Party / After Party; potentially legitimate, **review only** |
+| Others without these metadata flags | 47 | **Not confirmed official**, and not proof of successful delivery |
+| Official poster replacements executed in this PR | 0 | This PR deliberately does not write to business data |
+| Paid AI calls, new schedules, booking/price/stock writes | 0 | Code contract and input-source readback |
+
+Eight blank poster-source events (two additional versus the previous six-item repair ledger):
+1. `EVT-20261115-2026-K-POP-MASTERZ-SPECIAL-L` — **2026 K*Pop Masterz SPECIAL LIVE IN BANGKOK** (15 Nov)
+2. `EVT-20261127-FORTREASURE-BEYOND-HORIZON` — **FORTREASURE BEYOND THE HORIZON CONCERT** (27 Nov)
+3. LE7EL — 1st Debut Anniversary (15 Oct)
+4. VVV × Xiaomi (25 Oct)
+5. AF Halloween Party — AFTERLIFE (30 Oct)
+6. POP-ป่ะห์ #4 Halloween — NAMP Live (30 Oct)
+7. MizuMi × PHUWIN — FIND YOUR MOISTURE MATCH (5 Nov)
+8. SUPER SUN × ZEE PRUK BIRTHDAY FANSIGN (2 Nov)
+
+**No automatic owner-hidden event unhide**, no fabricated poster, no auto-upload, and no `08_Web_Ready` formula edits.
+
+## Evidence rules and limits
+
+| Category | System verdict | Required handling |
+|---|---|---|
+| No URL / verified historical wrong URL / generic brand hero | `BLOCKED_NEEDS_POSTER` | Organizer artwork provenance and exact owner approval |
+| HTTP image transport fails | `BLOCKED_NEEDS_POSTER` | Check permission, URL redirects, image bytes and cache |
+| Same URL, different event names | `OWNER_REVIEW_REQUIRED` | May be one festival flyer spanning dates; never claim wrong just from URL reuse |
+| Optional OCR/visual annotation conflicts with canonical date/name | `OWNER_REVIEW_REQUIRED` | Validate annotation, exact event poster and provenance |
+| Transport delivered with no known mismatch | `DELIVERY_ONLY_IDENTITY_UNVERIFIED` | Human/verified AI visual inspection still needed |
+| Missing canonical event ID or invalid calendar date | `BLOCKED_NEEDS_POSTER` | Do not guess event identity |
+
+Visual observations have to supply the exact `event_id` and the current `poster_url`; stale URL evidence is ignored. They do not automatically set `official_poster_verified=true`. The advisor never calls a vision API, books reservations, writes logs to paid services, or approves its own suggested replacement.
+
+## How to test (no external write)
+
+```bash
+node --test tests/kk-poster-integrity-agent.test.js
+# Optional read-only live network audit: GET only; run intentionally, never by default
+node scripts/audit-storefront-posters.js > storefront-poster-health.json
+```
+
+Caller can pass rows directly via `TaskRouter.executeTask('poster_integrity_review',{rows,delivery_by_event,visual_observations})`. The existing Agent Gateway must have its durable invocation ledger and project-memory bootstrap available and will otherwise fail closed; this is not a bypass.
+
+The audit's normal output includes `poster_integrity`; the existing GitHub health workflow is **manual/on existing main script change only** (no new recurrence). It may fail due to intentionally blank source URLs; a failing gate must not be masked by a fallback or treated as permission to change Core SOT.
+
+### Test evidence and honesty
+
+- **13/13 targeted tests passed** in a standalone exact-file V8 mock harness loading file bytes from the GitHub Draft branch (not a real Node test process). This includes a full synthetic public-feed CSV + injected no-network image GET and a check for zero business writes. Detailed source checks are in the test file.
+- No Vercel Preview/Production deployment, GitHub merge, paid API, new automation, or Google Sheet modification was performed.
+- Not yet accepted: real Node CI on the exact candidate head, signed-out image network/visual QA for 57 event cards, and independent actual image pixels/date/artist verification. These remain distinct release gates.
+- This branch edits source modules and documentation only, **does not touch Booking, price, stock, LINE**, and does not depend on TinyFish.
+
+## Next bounded steps
+
+1. Run the 13 tests in a Node>=20 runtime in the repository, then run normal CI only within existing free quotas. Do not claim green on the basis of mock harness alone.
+2. Add **optional local/free** visual evidence extraction where permitted (e.g., human-provided checked OCR/vision observations) and verify provider provenance and event/date before changing poster fields. Do not invoke paid models or silently treat guesses as truth.
+3. Remediate the 8 blank-source events using owner-reviewed exact official originals through the existing governed poster-only writer; check both Core `01_Events.poster_image_url` and derived WebReady, then signed-out production `naturalWidth>0` and object-fit `contain`. Changes in PR #727 and #678 are independent Draft branches and must be reconciled with this new branch before a unified release.
+4. Only after exact-head CI, independent visual screenshots, owner approval and free Vercel quota proof, merge/deploy and collect rollback evidence. Do not mark entire automatic visual-validation program complete at this stage.
+
+### Cross-chat handoff
+
+Branch `fix/poster-integrity-advisor-zero-cost-20261014`. This audit is safe to resume by fetching this document and running the above targeted tests. Current mode: advisory source code in Draft; `production_writes=0`, zero model charges, all releases HOLD.
