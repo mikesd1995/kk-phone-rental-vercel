@@ -4,19 +4,47 @@ on:
   pull_request:
     paths:
       - 'server/kk-ultra-deep-*.js'
-      - 'tests/kk-ultra-deep-full-loop-v2.test.js'
+      - 'tests/kk-ultra-deep-*.test.js'
+      - 'tests/ultra-deep-panpuri-popup-reference.test.js'
+      - 'scripts/kk-ci-offline-dependency-gate.js'
+      - 'tests/kk-ci-offline-dependency-gate.test.js'
+      - '.github/workflows/ultra-deep-v2-acceptance.yml'
       - 'package.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ultra-deep-v2-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   v2-acceptance:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci
-      - name: Syntax gate
+      - name: Capture source and runner preflight
+        run: |
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          git rev-parse HEAD
+          node --version
+          npm --version
+          echo "This source tree intentionally has no npm lockfile."
+          echo "No npm ci or network dependency install is run in this source-only gate."
+          test ! -f package-lock.json && test ! -f npm-shrinkwrap.json
+      - name: Prove zero-install dependency closure (fail closed)
+        run: |
+          node --test tests/kk-ci-offline-dependency-gate.test.js
+          node scripts/kk-ci-offline-dependency-gate.js ultradeep
+      - name: Syntax gate (source-only)
         run: npm run check
+      - name: Ultra Deep October recall and owner-lineage regressions
+        run: npm run test:ultradeep:recall
       - name: Focused V2 regression
         run: node --test tests/kk-ultra-deep-full-loop-v2.test.js
