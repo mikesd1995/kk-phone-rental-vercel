@@ -1441,7 +1441,11 @@ function renderConcerts(concerts){
 
     var imgUrl=c.img?String(c.img).trim():"";
     if(imgUrl){
-      var img=document.createElement("img"); img.alt=eventArtworkAlt(c.name,temporaryBrandArtwork,currentLang);
+      var img=document.createElement("img");
+      // This profile photograph is not a KK-made illustration or official event poster.
+      img.alt=auditedTemporaryLE7EL
+        ? (currentLang==="en"?"Temporary artist profile, not event poster: ":"ภาพศิลปินชั่วคราว ไม่ใช่โปสเตอร์งาน: ")+String(c.name||"")
+        : eventArtworkAlt(c.name,temporaryBrandArtwork,currentLang);
       // Keep the first viewport worth of posters eager. Remaining cards stay lazy.
       // Timeout failover handles Safari/iOS requests that remain pending without onerror.
       img.loading=idx<6?"eager":"lazy"; img.decoding="async";
