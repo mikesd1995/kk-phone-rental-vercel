@@ -17,7 +17,7 @@ const BACKSCAN_CASES=Object.freeze([
  {case_id:'face-shop-teeteepor-20261030',title:'THE FACE SHOP Rice & Radiance Experience with TeeTeePor',date:'2026-10-30',sources:['https://www.thefaceshopthailand.com/index.php/','https://03-presentation.twstalker.com/thefaceshop_th'],source_tier:'BRAND_SITE_AND_INDEXED_BRAND_POST_NEEDS_DIRECT_EVENT_POST',lane:'BRAND_ARTIST_APPEARANCE',rental_fit:'UNVERIFIED'},
  {case_id:'lenamiu-plslove-20261030',title:'LenaMiu PLS Love Promotion (Oct 30)',date:'2026-10-30',sources:['https://asiangl.com/events/'],source_tier:'ARTIST_SCHEDULE',lane:'TV_BRAND_APPEARANCE',rental_fit:'UNVERIFIED'},
  {case_id:'siam-halloween-20261030',title:'SIAM HALLOWEEN 2026 — Flex 104.5 × PMCU',date:'2026-10-30',aliases:['Flex 104.5 PMCU SIAM HALLOWEEN 2026'],sources:['https://www.flexconnect.net/'],source_tier:'MEDIA_ORGANIZER',lane:'FREE_FESTIVAL',rental_fit:'UNVERIFIED'}
-]);
+].map(c=>Object.freeze({...c,aliases:Object.freeze([...(c.aliases||[])]),sources:Object.freeze([...c.sources])})));
 const ACTIVE=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded']);
 function text(x){return String(x==null?'':x).trim();}
 function norm(x){return text(x).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').replace(/\s+/g,' ').trim();}
@@ -42,7 +42,7 @@ function review(input={}){
  const absent=required.filter(k=>!Array.isArray(input[k]));
  const asOf=dateOf(input.as_of);
  const cases=Array.isArray(input.cases)?input.cases:BACKSCAN_CASES;
- if(absent.length||!asOf||!Array.isArray(cases))
+ if(absent.length||!asOf||!Array.isArray(cases)||cases.length===0)
   return {version:VERSION,status:'HOLD_INCOMPLETE_SNAPSHOT',missing_surfaces:absent,invalid_as_of:!asOf,cases:[],proposals:[],proposal_count:0,authority:{production_writes:0,may_write_tracker:false,may_mark_learned:false,may_publish:false}};
  const coreById=new Map(input.events.map(x=>[text(x.event_id),x]));
  const booked=new Set();
@@ -57,7 +57,8 @@ function review(input={}){
  const processed=[];
  const proposals=[];
  const used=new Set();
- for(const c of cases){
+ for(const candidate of cases){
+  const c=candidate&&typeof candidate==='object'?candidate:{};
   const id=text(c.case_id),date=dateOf(c.date);
   const valid=/^[a-z0-9][a-z0-9-]+$/.test(id)&&date.startsWith('2026-10-')&&text(c.title).length>5&&
    Array.isArray(c.sources)&&c.sources.length>0&&c.sources.every(x=>/^https:\/\/[^/\s]+/.test(text(x)))&&!used.has(id);
