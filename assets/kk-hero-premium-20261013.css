@@ -144,3 +144,34 @@ html .kk-mock-hero .kk-hero-art::after{
 @media(prefers-reduced-motion:reduce){
   html .kk-mock-hero .v3-primary,html .kk-mock-hero .v3-secondary{transition:none!important}
 }
+
+/* Mobile typography fix — 2026-10-13
+   Owner-screenshot follow-up: at 390–480px the two-column hero wraps the
+   Thai headline into an orphan final syllable. Stack the isolated image below
+   live text between 376px and 540px; >=541px keeps the split desktop-like hero.
+   Preserve <=375px content-only fallback and clickable first-fold CTA. */
+@media (min-width:376px) and (max-width:540px){
+  html .kk-mock-hero{
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:16px!important;
+    padding:18px!important;
+  }
+  html .kk-mock-hero h1{
+    font-size:clamp(27px,6.9vw,34px)!important;
+    line-height:1.15!important;
+    max-width:100%!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important;
+  }
+  html .kk-mock-hero .kk-hero-art{
+    display:block!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-height:0!important;
+    height:auto!important;
+    aspect-ratio:765/541!important;
+    border-radius:15px!important;
+  }
+  html .kk-mock-hero .v3-hero-actions{margin-top:15px!important}
+  html .kk-mock-hero .v3-primary{min-height:44px!important}
+}
