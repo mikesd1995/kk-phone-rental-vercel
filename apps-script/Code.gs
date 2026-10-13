@@ -2618,10 +2618,12 @@ function kkApiCreateLineBookingPending_(payload) {
     let templateId = String(payload.template_id || '').trim();
     const customerName = String(payload.customer_name || '').trim();
     const customerPhone = String(payload.customer_phone || '').trim();
-    const customerContact = payload.customer_contact || '';
+    // A verified LINE contact identifies international customers without a phone.
+    // Caller identity is enforced upstream; keep canonical customer_contact mandatory.
+    const customerContact = String(payload.customer_contact || '').trim();
     const pickupTime = String(payload.pickup_time || '').trim();
-    if (!eventId || !templateId || !customerName || !customerPhone) {
-      throw new Error('LINE booking requires event_id, template_id, customer_name and customer_phone');
+    if (!eventId || !templateId || !customerName || !customerContact) {
+      throw new Error('LINE booking requires event_id, template_id, customer_name and customer_contact');
     }
     if (payload.phone_asset_id || payload.lens_asset_id) {
       throw new Error('Pending LINE intake must not assign physical assets');
