@@ -29,7 +29,7 @@ function shardSize(input={}){
 function plans(input={}){
  const mo=month(input),location=text(input.location)||'Bangkok Metropolitan Region Thailand';
  return {
-  known_miss:Runner.buildKnownMissPlan(),
+  known_miss:Runner.buildKnownMissPlan({month:mo}),
   monthly:Monthly.build({month:mo,location}),
   reference:Runner.buildReferencePlan({month:mo,location})
  };
