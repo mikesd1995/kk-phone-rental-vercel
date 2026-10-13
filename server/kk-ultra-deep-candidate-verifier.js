@@ -36,7 +36,7 @@ const KNOWN_VENUES=[
  'IMPACT Arena','IMPACT Challenger','Thunder Dome','Thunderdome',
  'Union Hall','Paragon Hall','ICONSIAM Hall','TRUE ICON HALL',
  'Rajamangala National Stadium','BITEC','QSNCC','Queen Sirikit National Convention Center',
- 'CentralWorld Live','CentralwOrld Pulse','MCC Hall','Siam Pavalai Royal Grand Theatre',
+ 'centralwOrld Beacon 3','CentralWorld Live','CentralwOrld Pulse','centralwOrld','MCC Hall','Siam Pavalai Royal Grand Theatre',
  'Lido Connect','Sphere Hall','UOB LIVE','One Bangkok Forum','The Street Hall'
 ];
 
@@ -161,12 +161,15 @@ function findKnownVenue(body,title=''){
  for(const venue of KNOWN_VENUES){if(hay.includes(venue.toLowerCase()))return venue;}
  return '';
 }
-function rentalFitScore(title=''){
+function rentalFitScore(title='',candidate={}){
  const t=text(title);
  if(LOW_FIT_SIGNAL.test(t))return 4.5;
  if(HIGH_FIT_SIGNAL.test(t))return 9.0;
  if(CONCERT_SIGNAL.test(t))return 8.2;
  if(MID_FIT_SIGNAL.test(t))return 7.5;
+ // Pop-up artist involvement is promising, but owner access and filming review
+ // always remain required; a fit score alone never authorizes publication.
+ if(artistPopupLead(candidate,t))return 7.0;
  if(EVENT_SIGNAL.test(t))return 7.0;
  return 5.0;
 }
@@ -199,6 +202,7 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  const picked=chooseJsonLdEvent(events,candidate,month);
  const title=text(picked&&picked.e&&picked.e.name)||text(candidate.title)||metaValue(body,'og:title');
  const date=isoDate(picked&&picked.d)||pre.event_date;
+ const popupLead=pre.artist_popup_lead||artistPopupLead(candidate,title);
  const venue=locationName(picked&&picked.e&&picked.e.location)||findKnownVenue(body,title);
  const poster=imageUrl(picked&&picked.e&&picked.e.image)||https(metaValue(body,'og:image'));
  const url=https(candidate.source_url);
@@ -206,28 +210,40 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  const quality=titleQuality(title);blockers.push(...quality.reasons);
  if(!date||!monthMatches(date,month))blockers.push('VERIFIED_TARGET_MONTH_DATE_REQUIRED');
  if(!venue)blockers.push('VERIFIED_VENUE_REQUIRED');
- if(!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url))blockers.push('VERIFIED_EVENT_IDENTITY_REQUIRED');
+ if(!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url)&&!popupLead)blockers.push('VERIFIED_EVENT_IDENTITY_REQUIRED');
  if(!poster)blockers.push('VERIFIED_POSTER_REQUIRED');
- const authority=authoritativeEventSource(url,picked,{date,venue,poster,title});
+ const baseAuthority=authoritativeEventSource(url,picked,{date,venue,poster,title});
+ // A structured page on an arbitrary domain cannot authorize customer access
+ // or photography at a brand appearance. Owner review is mandatory.
+ const authority=popupLead?{...baseAuthority,ok:false,owner_review_required:true}:baseAuthority;
  if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
- const fit=rentalFitScore(title);
+ if(popupLead){
+  if(!picked||!text(picked.e&&picked.e.name)||!locationName(picked.e.location)||!imageUrl(picked.e.image))
+   blockers.push('ARTIST_POPUP_PRIMARY_EVENT_RECEIPT_REQUIRED');
+  if(pre.event_date&&picked&&isoDate(picked.d)&&isoDate(picked.d)!==pre.event_date)
+   blockers.push('ARTIST_POPUP_DATE_CONFLICT');
+  if(!sourceConfirmsPopupArtist(body,candidate))
+   blockers.push('ARTIST_POPUP_ARTIST_SOURCE_CONFIRMATION_REQUIRED');
+  blockers.push('ARTIST_POPUP_OWNER_ACCESS_PHOTO_POLICY_REVIEW_REQUIRED');
+ }
+ const fit=rentalFitScore(title,candidate);
  if(fit<7)blockers.push('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD');
  const key=eventKey({title,event_date:date});
  const verified=blockers.length===0;
  return {
   version:VERSION,
-  status:verified?'VERIFIED_FOR_COMMERCIAL':'HOLD_VERIFIER',
+  status:verified?'VERIFIED_FOR_COMMERCIAL':(popupLead?'HOLD_OWNER_ARTIST_POPUP_REVIEW':'HOLD_VERIFIER'),
   verified,
   blockers,
   candidate:{
    candidate_id:text(candidate.candidate_id)||key,
    event_key:key,title,event_date:date,event_time:text(candidate.event_time)||null,venue,
-   artist:Array.isArray(candidate.artist)?candidate.artist.map(text).filter(Boolean):[],
+   artist:namedPopupArtists(candidate),
    source_url:url,confidence:verified?0.9:0.4,rental_fit_score:fit,
-   publish_eligibility:{status:fit>=7?'ELIGIBLE':'REJECTED_LOW_RENTAL_FIT',eligible:fit>=7,rental_fit_score:fit,minimum_publish_score:7}
+   publish_eligibility:{status:popupLead?'HOLD_OWNER_ARTIST_POPUP_REVIEW':(fit>=7?'ELIGIBLE':'REJECTED_LOW_RENTAL_FIT'),eligible:!popupLead&&fit>=7,rental_fit_score:fit,minimum_publish_score:7}
   },
   poster:poster?{event_key:key,source_tier:sourceTier(url),source_url:url,image_url:poster,official:TRUSTED_EVENT_HOSTS.has(host(url)),verified:authority.ok}:null,
-  evidence:{jsonld_event_count:events.length,event_specific_url:eventSpecificUrl(url),source_tier:sourceTier(url),authoritative_event_source:authority.ok,authority}
+  evidence:{jsonld_event_count:events.length,event_specific_url:eventSpecificUrl(url),source_tier:sourceTier(url),authoritative_event_source:authority.ok,artist_popup_lead:popupLead,source_artist_confirmed:popupLead?sourceConfirmsPopupArtist(body,candidate):null,authority}
  };
 }
 async function verifyCandidate(candidate={},context={},options={}){
@@ -277,7 +293,7 @@ async function verifyBatch(candidates=[],context={},options={}){
 }
 
 module.exports={
- VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,
+ VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,ARTIST_POPUP_SIGNAL,ARTIST_APPEARANCE_SIGNAL,artistPopupLead,namedPopupArtists,sourceConfirmsPopupArtist,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,
  text,https,isoDate,eventKey,host,eventSpecificUrl,monthMatches,titleQuality,authoritativeEventSource,prefilter,flattenJsonLd,parseJsonLd,metaValue,locationName,imageUrl,
  findKnownVenue,rentalFitScore,sourceTier,chooseJsonLdEvent,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
 };
