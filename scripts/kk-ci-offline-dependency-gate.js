@@ -20,6 +20,7 @@ function entriesFor(root,mode){
  const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
  const recall=parseRecall(pkg.scripts&&pkg.scripts['test:ultradeep:recall']);
  const entries=[...recall,'tests/kk-ultra-deep-full-loop-v2.test.js'];
+ if(mode==='ultradeep')entries.push('tests/ultra-deep-v2-workflow-contract.test.js');
  if(mode==='storage')entries.push('tests/vercel-deployment-footprint.test.js',
   'tests/vercel-ignore-build.test.js','tests/siam-halloween-original-asset.test.js');
  return [...new Set(entries)];
