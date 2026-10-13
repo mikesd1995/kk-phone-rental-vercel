@@ -352,3 +352,22 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
  assert.ok(out.candidate_count>0);
  assert.equal(out.production_writes,0);
 });
+
+
+test('full scan time budget returns explicit HOLD, never forged FULL or provider receipts',async()=>{
+ let calls=0;
+ const input={month:'2026-10',location:'Bangkok Thailand'};
+ const out=await Runner.runMonthlyUltraDeep(input,{
+  use_only_injected_providers:true,
+  runtime_budget_ms:0.1,
+  providers:{SEARXNG:async()=>{calls++;return [{title:'False Positive',event_date:'2026-10-21',source_url:'https://example.org/synthetic'}];}}
+ });
+ assert.equal(calls,0);
+ assert.equal(out.full,false);
+ assert.equal(out.status,'HOLD_FOR_COVERAGE');
+ assert.equal(out.budget_exhausted,true);
+ assert.equal(out.diagnostic.budget_exhausted,true);
+ assert.ok(out.blockers.includes('RUNTIME_BUDGET_EXHAUSTED'));
+ assert.ok(out.diagnostic.receipts.known_miss.some(x=>!x.executed));
+ assert.equal(out.production_writes,0);
+});
