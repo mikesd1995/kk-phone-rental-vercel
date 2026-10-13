@@ -1,6 +1,7 @@
 'use strict';
 const OwnerLineage=require('./kk-ultra-deep-owner-core-lineage.js');
-const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V7';
+const BackscanMissReview=require('./kk-ultra-deep-backscan-miss-review.js');
+const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V8';
 const PROTECTED_POLICY=Object.freeze([
   'BOOKING_PRICE_LOCK','TOMBSTONE_NO_RESURRECTION','GOVERNED_ADMIN_WRITER_ONLY',
   'EXACT_READBACK_REQUIRED','VERIFIED_EVENT_REQUIRED','EXTERNAL_DEMAND_SCORE_EXCLUDES_KK_INTERNAL_OUTCOMES',
@@ -28,6 +29,8 @@ function learn(input={}){
  const waitlists=Array.isArray(input.waitlist_signals)?input.waitlist_signals:[];
  const inquiries=Array.isArray(input.inquiry_signals)?input.inquiry_signals:[];
  const ownerCorePlan=input.owner_core_snapshot?OwnerLineage.prepare(input.owner_core_snapshot):null;
+ // Backscan observations are strictly review-only and must not enter missed_events.
+ const backscanPlan=input.backscan_review_snapshot?BackscanMissReview.review(input.backscan_review_snapshot):null;
  const learnedQueries=uniq(missed.flatMap(x=>x.query_terms||[]));
  const learnedSources=uniq([...missed.map(x=>x.source),...sourceWins.map(x=>x.source)]);
  const suppressPatterns=uniq(falsePositives.flatMap(x=>x.patterns||[]));
@@ -68,6 +71,7 @@ function learn(input={}){
  if(holds.some(x=>(x.holds||[]).includes('VERIFIED_POSTER_REQUIRED'))) recommendations.push('EXPAND_POSTER_DISCOVERY_LEADS_FROM_EXACT_EVENT_COMPETITORS');
  if(corrections.length) recommendations.push('REVIEW_REPEATED_MANUAL_CORRECTIONS_FOR_HEURISTIC_UPDATE');
  if(ownerCorePlan&&ownerCorePlan.review_proposal_count>0)recommendations.push('OWNER_CORE_TRACKER_LINEAGE_GOVERNED_REVIEW_REQUIRED');
+ if(backscanPlan&&backscanPlan.proposal_count>0)recommendations.push('BACKSCAN_MISS_LEARNING_GOVERNED_REVIEW_REQUIRED');
  if(outcomes.length||waitlists.length||inquiries.length) recommendations.push('BOOST_ADJACENT_FANDOM_DISCOVERY_PRIORITY_ONLY');
  if(waitlists.length||inquiries.length) recommendations.push('EXPAND_FANDOM_GRAPH_AND_RENTAL_KEYWORD_RADAR');
  return {
@@ -76,7 +80,9 @@ function learn(input={}){
    // Scanner miss. A review-only invocation must not report 'LEARNED'.
    status:ownerCorePlan&&!(missed.length||falsePositives.length||holds.length||corrections.length||
     sourceWins.length||outcomes.length||waitlists.length||inquiries.length)?
-    'OWNER_CORE_REVIEW_PENDING':'LEARNED',
+    'OWNER_CORE_REVIEW_PENDING':(backscanPlan&&!(missed.length||falsePositives.length||holds.length||corrections.length||
+    sourceWins.length||outcomes.length||waitlists.length||inquiries.length)?
+    (backscanPlan.status==='STAGED_REVIEW_ONLY'?'BACKSCAN_REVIEW_PENDING':'HOLD_BACKSCAN_INCOMPLETE_SNAPSHOT'):'LEARNED'),
    adaptive:{
      query_terms:uniq([...learnedQueries,...expansionQueries,...campaignExpansion,...dateIdentityExpansion,...freeCrossMonthExpansion,...coverageExpansion]),
      miss_classes:missClasses,
@@ -95,9 +101,12 @@ function learn(input={}){
    recommendations,
    owner_core_reconciliation:ownerCorePlan,
    owner_core_learning_accepted:false,
+   backscan_miss_learning:backscanPlan,
+   backscan_learning_accepted:false,
    change_log:{
      missed_events:missed.length,false_positives:falsePositives.length,holds:holds.length,
-     manual_corrections:corrections.length,owner_core_review_proposals:ownerCorePlan?ownerCorePlan.review_proposal_count:0,booking_outcomes:outcomes.length,
+     manual_corrections:corrections.length,owner_core_review_proposals:ownerCorePlan?ownerCorePlan.review_proposal_count:0,
+     backscan_review_proposals:backscanPlan?backscanPlan.proposal_count:0,booking_outcomes:outcomes.length,
      waitlist_signals:waitlists.length,inquiry_signals:inquiries.length
    },
    scoring_learning:{
@@ -116,7 +125,8 @@ function learn(input={}){
      may_change_external_score_from_kk_internal_outcomes:false,
      protected_policy:[...PROTECTED_POLICY],may_change_protected_policy:false,production_writes:0,
      may_auto_write_tracker:false,may_claim_owner_core_as_scanner_discovered:false,
-     may_mark_owner_core_gap_as_verified_miss:false
+     may_mark_owner_core_gap_as_verified_miss:false,
+     may_mark_backscan_as_verified_miss:false
    }
  };
 }
