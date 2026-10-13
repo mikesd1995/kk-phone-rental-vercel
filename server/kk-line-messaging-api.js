@@ -62,7 +62,10 @@ async function pushText(input={},options={}){
   const requestId=String(r.headers&&r.headers.get?r.headers.get('x-line-request-id')||'':'').trim();
   return {
     ok:true,
-    external_message_id:safeText(sent.id||requestId||retryKey,200),
+    // Missing sentMessages[0].id is an uncertain receipt, never impersonate
+    // provider confirmation by substituting a local retry-key UUID.
+    provider_confirmed:!!safeText(sent.id),
+    external_message_id:safeText(sent.id,200),
     provider_request_id:requestId,
     retry_key:retryKey,
     sent_at:new Date().toISOString()
