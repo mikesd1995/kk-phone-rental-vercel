@@ -194,7 +194,7 @@ test('actual Sheet header offsets decode a complete missing-lineage snapshot',()
 test('Learning Agent consumes proposed owner lineage without creating a verified scanner miss',()=>{
  const snapshot=fixture();
  const out=Learning.learn({owner_core_snapshot:snapshot});
- assert.equal(out.version,'KK_ULTRA_DEEP_V2_LEARNING_AGENT_V7');
+ assert.equal(out.version,'KK_ULTRA_DEEP_V2_LEARNING_AGENT_V8');
  assert.equal(out.status,'OWNER_CORE_REVIEW_PENDING');
  assert.equal(out.owner_core_learning_accepted,false);
  assert.equal(out.owner_core_reconciliation.review_proposal_count,3);
