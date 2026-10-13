@@ -19,6 +19,12 @@ test('new product asset is a complete compact WEBP and contains no flattened UI'
   assert.equal(art.toString('ascii',8,12),'WEBP');
   assert.equal(art.readUInt32LE(4),art.length-8,'asset must not be truncated');
   assert.ok(art.length>1000 && art.length<30000);
+  // The approved production-candidate asset must not regress to the 240x170 soft draft.
+  // VP8 lossy WEBP: frame start 0x9d012a, width/height 14-bit values at offsets 26/28.
+  assert.equal(art.toString('ascii',12,16),'VP8 ');
+  assert.equal(art.toString('hex',23,26),'9d012a');
+  assert.equal(art.readUInt16LE(26)&0x3fff,560);
+  assert.equal(art.readUInt16LE(28)&0x3fff,396);
 });
 test('premium hero uses the dedicated product crop with no old banner text overlay',()=>{
   assert.match(css,/background-image:url\('\/assets\/kk-hero-product-20261013\.webp'\)!important/);
