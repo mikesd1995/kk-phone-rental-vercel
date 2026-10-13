@@ -36,7 +36,7 @@ Authoritative current October Core snapshot: 144 dated rows, 44 WebReady show, 3
 1. server/kk-ultra-deep-backscan-miss-review.js: pure immutable case catalog, strict date + event identity matching, reconciliation of seven required snapshots, 13-column Miss Learning PROPOSED_REVIEW_NOT_LEARNED rows. Idempotent by stable MISS|OCTBACKSCAN|YYYYMMDD|CASEID. Never writes a data source.
 2. server/kk-ultra-deep-v2-learning-agent.js V8: consumes optional backscan_review_snapshot. Returns backscan_miss_learning and BACKSCAN_REVIEW_PENDING. Does NOT create missed_events, adaptive query terms, miss classes or accepted training; adds explicit may_mark_backscan_as_verified_miss=false.
 3. scripts/kk-ultra-deep-backscan-miss-review.js: local JSON input, read-only output. Only --snapshot-json and --as-of allowed, all other flags rejected.
-4. tests/kk-ultra-deep-backscan-miss-review.test.js: 17 authored regression cases including conflicts, exact-date dedup, booked-day exclusivity even 1/2 spare, owner tombstone, past date, duplicate Miss ID, PII exclusion, incomplete snapshot, no-auto-learn, CLI read-only.
+4. tests/kk-ultra-deep-backscan-miss-review.test.js: 18 authored regression cases including conflicts, exact-date dedup, booked-day exclusivity even 1/2 spare, owner tombstone, past date, duplicate Miss ID, PII exclusion, incomplete snapshot, no-auto-learn, CLI read-only.
 5. package.json: tests wired to test:ultradeep:recall and thus postinstall; check adds syntax checks for new module, CLI and test. Existing owner-core-learning VERSION assertion adjusted to V8.
 
 ## Zero-cost verification sequence — NOT accepted as executed
