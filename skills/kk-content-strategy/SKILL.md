@@ -182,7 +182,7 @@ For direct rental posts:
 - Use current verified offer/pricing only.
 - Keep: 📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน
 - Keep: ☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน
-- Booking CTA: 👉 เลือกวันแล้วจองคิว (next line: kk-phone-rental.vercel.app)
+- Booking CTA: one concise **event/fandom-specific invitation to book**, unique among the batch and recent posts; vary the actual booking action, not just emoji. Always put `kk-phone-rental.vercel.app` on the next line. Avoid a fixed generic phrase repeated across all events.
 - **At least 5 DISTINCT verified, relevant hashtags per X rental post (mandatory):** `#เช่ามือถือ` once in the brand header + one verified main event hashtag + **at least 3 other distinct, verified closing hashtags at the end**. Prefer 3 strong closing tags and do not exceed existing QA reach-tag limits. Do not repeat the main event tag or `#เช่ามือถือ` at the end. If adequate verified tags cannot be found, fail closed rather than inventing tags.
 - Do not repeat the brand line at the bottom.
 - Brand/header appears **once only**. Do not name "KK" or the shop again in the body or hook.
@@ -237,3 +237,6 @@ When asked for any final KK social copy, generate three differentiated candidate
 ## Rollout rule
 
 Start manually. Capture real post results for 1–2 weeks before using performance history to materially narrow creative choices. Scale by evidence, not by component count.
+
+## Owner CTA update — 2026-10-14
+Owner requires **distinct natural, event-specific CTAs** for all X rental drafts. No repeated universal sentence like `👉 เลือกวันแล้วจองคิว` across every event. Anchor each CTA to the artist, fandom, show format, verified available day or booking intent while remaining short, professional, and conversion-oriented. Compare the final CTA and its lead-in across all posts and recent history; reject identical or near-duplicate CTA structures. Keep booking link `kk-phone-rental.vercel.app` unchanged, never repeat KK/shop name or phone model in CTA, and never invent scarcity, booking pressure or unverified benefits. This supersedes earlier fixed CTA guidance. **Runtime owner-X validator and batch CTA duplicate QA still need code changes/tests**; documentation is not proof of live enforcement.
