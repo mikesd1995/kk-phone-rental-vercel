@@ -154,7 +154,9 @@ test('SQL prevents uncertain repeat, requires owner-reviewed evidence and latest
  assert.match(sql,/p_repeat_of<>v_match\.request_id/);
  assert.match(sql,/length\(v_reason\)<12/);
  assert.match(sql,/pg_advisory_xact_lock/);
- assert.match(sql,/enable row level security/i.test(sql) ? /./ : /review_status/); // RLS enabled in prior migration
+ assert.match(sql,/UNRESOLVED_OUTBOUND_IN_WINDOW/);
+ assert.match(sql,/status in \('RESERVED','UNCERTAIN'\)/);
+ assert.match(sql,/notify pgrst, 'reload schema'/);
  assert.match(sql,/grant execute on function public\.kk_inbox_reserve_outbound\(uuid,text,text,uuid,text\) to service_role/);
  assert.match(sql,/drop function if exists public\.kk_inbox_reserve_outbound\(uuid,text,text\)/);
  assert.doesNotMatch(sql,/grant execute .* to authenticated/i);
