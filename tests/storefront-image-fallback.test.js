@@ -4,7 +4,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-const source=fs.readFileSync(require.resolve('../script.js'),'utf8');
+// Git uses CRLF on Windows; normalize only fixture extraction, preserving runtime logic.
+const source=fs.readFileSync(require.resolve('../script.js'),'utf8').replace(/\r\n/g,'\n');
 function extractFunction(name,nextMarker){
   const start=source.indexOf('function '+name+'(');
   assert.notEqual(start,-1,'missing '+name);
@@ -119,10 +120,11 @@ test('image loader can fail closed through an onExhausted hook',()=>{
 });
 
 test('storefront keeps valid events visible when poster delivery is exhausted',()=>{
-  assert.match(source,/vis=vis\.filter\(function\(c\)\{ return !!\(c&&c\.img&&String\(c\.img\)\.trim\(\)\); \}\)/);
+  assert.doesNotMatch(source,/vis=vis\.filter\(function\(c\)\{ return !!\(c&&c\.img/);
   assert.match(source,/onExhausted:posterFailure/);
   assert.match(source,/card\.dataset\.posterFailed="1"/);
-  assert.match(source,/img\.parentElement\.replaceChild\(ph,img\)/);
+  assert.match(source,/img\.parentElement\.replaceChild\(eventSummaryFallback\(\),img\)/);
+  assert.match(source,/imgWrap\.appendChild\(eventSummaryFallback\(\)\)/);
   assert.doesNotMatch(source,/if\(card\.parentElement\) card\.remove\(\)/);
 });
 
@@ -172,3 +174,130 @@ test('KHOM KHLANG keeps a public owner copy as fallback behind the private canon
   assert.match(source,/canonical sheet poster points to an[\s\S]*owner-private Drive file/);
 });
 
+
+
+test('missing image alone never hides a date/bookable event card',()=>{
+  assert.match(source,/var vis=filtered\(concerts\);/);
+  assert.doesNotMatch(source,/vis=vis\.filter\(function\(c\)\{ return !!\(c&&c\.img/);
+  assert.match(source,/card\.dataset\.posterMissing="1"/);
+  assert.match(source,/imgWrap\.appendChild\(eventSummaryFallback\(\)\)/);
+});
+
+test('temporary artwork is clearly marked and derived from the exact event not an unrelated poster',()=>{
+  assert.match(source,/function eventSummaryFallback\(\)/);
+  assert.match(source,/card\.dataset\.posterFallback="event-summary"/);
+  assert.match(source,/card\.dataset\.posterStatus="temporary"/);
+  assert.match(source,/currentLang==="en"\?"TEMPORARY EVENT ART":"ภาพประกอบชั่วคราว"/);
+  assert.match(source,/title\.textContent=String\(c\.name\|\|tr\("no_image"\)\)/);
+  assert.match(source,/meta\.textContent=\[String\(c\.date\|\|""\).*String\(c\.venue\|\|""\)/s);
+});
+
+test('show-only gate remains upstream and fallback does not promote owner-hidden events',()=>{
+  assert.match(source,/return isVisibleWebAction\(r\.action_for_web\)/);
+  assert.match(source,/var vis=filtered\(concerts\);/);
+  assert.match(source,/var rawPoster\s*=\s*String\(r\.poster_image_url\|\|""\)\.trim\(\)\s*\|\|\s*storefrontPosterOverride\(r\);/);
+});
+
+test('script cache key changes when temporary artwork becomes first-class fallback',()=>{
+  const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
+  assert.match(html,/script\.js\?v=storefront-temporary-brand-image-20261012/);
+});
+
+test('a loaded KK-owned brand image is visibly marked temporary; official event artwork is not',()=>{
+  const css=fs.readFileSync(require.resolve('../assets/kk-storefront-v5.css'),'utf8');
+  assert.match(source,/function isKKTemporaryBrandArtwork\(url\)/);
+  assert.match(source,/kk-brand-hero-final-20260920\.png/);
+  assert.match(source,/var temporaryBrandArtwork=isKKTemporaryBrandArtwork\(c\.rawPoster\|\|c\.img\)/);
+  assert.match(source,/if\(temporaryBrandArtwork\)\{/);
+  assert.match(source,/card\.dataset\.posterStatus="temporary"/);
+  assert.match(source,/tempIndicator\.textContent=currentLang==="en"\?"TEMPORARY IMAGE":"ภาพประกอบชั่วคราว"/);
+  assert.match(css,/\.poster-img-wrap \.poster-temporary-brand-label/);
+  assert.match(source,/var rows=dedupeWebRowsByEventId\(webRows\)\.filter/);
+});
+
+test('temporary-brand detector requires the exact first-party artwork URL',()=>{
+  const isolated={};
+  vm.createContext(isolated);
+  vm.runInContext(extractFunction('isKKTemporaryBrandArtwork','function getDriveId'),isolated);
+  const valid='https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png';
+  assert.equal(isolated.isKKTemporaryBrandArtwork(valid),true);
+  assert.equal(isolated.isKKTemporaryBrandArtwork(valid+'?v=12'),true);
+  assert.equal(isolated.isKKTemporaryBrandArtwork('https://example.com/assets/kk-brand-hero-final-20260920.png'),false);
+  assert.equal(isolated.isKKTemporaryBrandArtwork('https://kk-phone-rental.vercel.app/assets/actual-event-poster.jpg'),false);
+});
+
+// Exercise the real allow-list implementation, rather than just matching source
+// syntax. These are the only action_for_web states in the verified Core feed.
+test('only canonical show/show_full actions are eligible, even with a missing poster',()=>{
+  const gate=extractFunction('isVisibleWebAction','async function loadData');
+  const isolated={}; vm.createContext(isolated); vm.runInContext(gate,isolated);
+  for(const action of ['show','show_full','SHOW',' Show_Full ']){
+    assert.equal(isolated.isVisibleWebAction(action),true,action);
+  }
+  for(const action of ['hide','owner_hidden','deleted','archived','pending','waitlist','show_full_pending','',null,undefined]){
+    assert.equal(isolated.isVisibleWebAction(action),false,String(action));
+  }
+  assert.match(source,/dedupeWebRowsByEventId\(webRows\)\.filter\(function\(r\)\{ return isVisibleWebAction\(r\.action_for_web\); \}\)/);
+});
+
+test('blank or exhausted official poster uses an actual KK-owned image without inventing another event',()=>{
+  const css=fs.readFileSync(require.resolve('../assets/kk-storefront-v5.css'),'utf8');
+  assert.match(source,/function eventSummaryFallback\(\)/);
+  assert.match(source,/art\.src="\/assets\/kk-brand-hero-final-20260920\.png"/);
+  assert.match(source,/art\.className="poster-placeholder-brand-art"/);
+  assert.match(source,/art\.alt=""/);
+  assert.match(source,/art\.setAttribute\("aria-hidden","true"\)/);
+  assert.match(source,/art\.onerror=function\(\)\{if\(art\.parentElement\) art\.parentElement\.removeChild\(art\);\}/);
+  assert.match(source,/ph\.appendChild\(art\)/);
+  assert.match(source,/ph\.appendChild\(title\)/);
+  assert.match(source,/title\.textContent=String\(c\.name\|\|tr\("no_image"\)\)/);
+  assert.match(css,/\.poster-placeholder-event \.poster-placeholder-brand-art/);
+  assert.match(css,/object-fit:contain!important/);
+  assert.match(css,/\.poster-placeholder-event \.poster-placeholder-title/);
+  assert.doesNotMatch(source,/if\(card\.parentElement\) card\.remove\(\)/);
+});
+
+test('runtime fallback renders a first-party image and keeps exact-event text if it breaks',()=>{
+  const match=source.match(/    (function eventSummaryFallback\(\)\{[\s\S]*?\n    \})\n\n    var imgUrl=/);
+  assert.ok(match,'extract the actual storefront inner fallback function');
+  const createNode=tag=>({
+    tag,children:[],attributes:{},parentElement:null,textContent:'',
+    appendChild(child){child.parentElement=this;this.children.push(child);return child;},
+    removeChild(child){const i=this.children.indexOf(child);if(i>=0)this.children.splice(i,1);child.parentElement=null;},
+    setAttribute(k,v){this.attributes[k]=v;}
+  });
+  const context={
+    document:{createElement:createNode},
+    card:{dataset:{}},
+    c:{name:'TEST OWNER-VERIFIED EVENT',date:'17 ต.ค. 2026',venue:'Test Venue'},
+    currentLang:'th',tr:()=> 'ไม่มีภาพ'
+  };
+  vm.createContext(context);
+  const render=vm.runInContext('('+match[1]+')',context);
+  const panel=render();
+  const artwork=panel.children.find(n=>n.tag==='img');
+  assert.ok(artwork,'real decorative image exists, not text-only');
+  assert.equal(artwork.src,'/assets/kk-brand-hero-final-20260920.png');
+  assert.equal(artwork.attributes['aria-hidden'],'true');
+  assert.equal(artwork.alt,'');
+  assert.equal(context.card.dataset.posterStatus,'temporary');
+  assert.ok(panel.children.some(n=>n.tag==='strong'&&n.textContent==='TEST OWNER-VERIFIED EVENT'));
+  assert.ok(panel.children.some(n=>n.textContent.includes('Test Venue')));
+  assert.ok(panel.children.some(n=>n.textContent==='ภาพประกอบชั่วคราว'));
+  artwork.onerror();
+  assert.equal(panel.children.some(n=>n.tag==='img'),false,'broken fallback image must be removed');
+  assert.ok(panel.children.some(n=>n.tag==='strong'&&n.textContent==='TEST OWNER-VERIFIED EVENT'),
+    'a broken image never removes the bookable event identity');
+  context.currentLang='en';
+  assert.ok(render().children.some(n=>n.textContent==='TEMPORARY EVENT ART'));
+});
+
+test('temporary card artwork has an explicit accessible alt, official poster keeps its event name',()=>{
+  const code=extractFunction('eventArtworkAlt','function getDriveId');
+  const ctx={}; vm.createContext(ctx); vm.runInContext(code,ctx);
+  assert.equal(ctx.eventArtworkAlt('MizuMi × PHUWIN',true,'th'),'ภาพประกอบชั่วคราว KK สำหรับงาน: MizuMi × PHUWIN');
+  assert.equal(ctx.eventArtworkAlt('Brice × Pond Naravit',true,'en'),'Temporary KK illustration for event: Brice × Pond Naravit');
+  assert.equal(ctx.eventArtworkAlt('Real Event Poster',false,'th'),'Real Event Poster');
+  assert.equal(ctx.eventArtworkAlt('',false,'en'),'Event poster');
+  assert.match(source,/img\.alt=eventArtworkAlt\(c\.name,temporaryBrandArtwork,currentLang\)/);
+});

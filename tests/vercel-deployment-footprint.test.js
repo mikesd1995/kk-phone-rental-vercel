@@ -23,13 +23,24 @@ test('deployment retains real runtime, assets, scanner, CI test and postinstall 
   const protectedPaths = [
     'api/', 'admin/', 'assets/', 'server/', 'config/', 'scripts/',
     'tests/', 'index.html', 'script.js', 'style.css', 'middleware.ts',
-    'package.json', 'vercel.json', '.vercelignore'
+    'package.json', 'package-lock.json', 'vercel.json', '.vercelignore'
   ];
   for (const target of protectedPaths) {
     assert.ok(!rules.includes(target), 'deployment must retain ' + target);
     assert.ok(fs.existsSync(path.join(root, target)), 'missing runtime source ' + target);
   }
   assert.ok(!rules.includes('/*'), 'dangerous default-deny build packaging');
+});
+
+test('clean CI installation has a matching pinned dependency lock and lock changes trigger acceptance', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
+  assert.ok([2, 3].includes(lock.lockfileVersion));
+  assert.deepEqual(lock.packages[''].dependencies, pkg.dependencies);
+  assert.equal(lock.packages['node_modules/@vercel/functions'].version, pkg.dependencies['@vercel/functions']);
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/ultra-deep-v2-acceptance.yml'), 'utf8');
+  assert.match(workflow, /- run: npm ci(?:\r?\n|$)/);
+  assert.match(workflow, /- 'package-lock\.json'/);
 });
 
 test('existing Vercel production policy and postinstall acceptance remain intact', () => {

@@ -7,6 +7,7 @@ on:
       - 'tests/kk-ultra-deep-*.test.js'
       - '.github/workflows/ultra-deep-v2-acceptance.yml'
       - 'package.json'
+      - 'package-lock.json'
 jobs:
   v2-acceptance:
     runs-on: ubuntu-latest
