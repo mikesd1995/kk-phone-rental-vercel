@@ -139,3 +139,35 @@ test('all 12 offline source receipts still HOLD when an eligible independent eve
  assert.equal(merged.release_eligible,false);
  assert.equal(merged.production_writes,0);
 });
+
+test('merge rejects forged shard task/execution counts and executed-status claims',async()=>{
+ const real=await S.runShard({...M,shard_index:0},{read_only:true,
+  providers:{BING_RSS:async()=>[]},runtime_budget_ms:5000});
+ const cases=[
+  {...real,executed_count:real.executed_count+1},
+  {...real,task_count:real.task_count-1},
+  {...real,providers_bound:['EXA']},
+  {...real,status:'SHARD_RECEIPTS_EXECUTED',results:real.results.map((r,i)=>
+   i===0?{...r,attempts:[]}:r)}
+ ];
+ for(const forged of cases)assert.throws(()=>S.combineReports(M,[forged]),
+  /READONLY_SHARD_PROVENANCE_INVALID/);
+ const valid=S.combineReports(M,[real]);
+ assert.equal(valid.full,false);
+ assert.equal(valid.authoritative,false);
+ assert.ok(valid.blockers.includes('MISSING_SHARDS'));
+});
+test('merge rejects paid-provider traces or nested business write authority',async()=>{
+ const real=await S.runShard({...M,shard_index:0},{read_only:true,
+  providers:{BING_RSS:async()=>[]},runtime_budget_ms:5000});
+ const bad=[
+  {...real,results:real.results.map((r,i)=>i===0?
+   {...r,attempts:[{provider:'EXA',status:'EVIDENCE_FOUND'}]}:r)},
+  {...real,results:real.results.map((r,i)=>i===0?
+   {...r,production_writes:1}:r)},
+  {...real,results:real.results.map((r,i)=>i===0?
+   {...r,authoritative:true}:r)}
+ ];
+ for(const forged of bad)assert.throws(()=>S.combineReports(M,[forged]),
+  /READONLY_SHARD_PROVENANCE_INVALID/);
+});
