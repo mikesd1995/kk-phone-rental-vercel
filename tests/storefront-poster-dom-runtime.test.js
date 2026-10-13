@@ -99,6 +99,7 @@ test('shop-branded placeholder becomes truthful per-event summary, never an offi
 
 test('audited wrong-event photographs are suppressed only on exact event/source pairs',()=>{
  const cases=[
+  ['EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY','https://www.thai2music.com/uploads/artists/photo_cover/cover_1035_1762919037.jpg','LE7EL — 1st Debut Anniversary'],
   ['EVT-20261025-VVV-TORNADO-SHOPPING-XIAOMI','https://pbs.twimg.com/media/G3iTTicXMAAbtyE.jpg','VVV — Tornado Shopping × Xiaomi'],
   ['EVT-20261030-POPPAH4-HALLOWEEN-NAMP','https://static.amarintv.com/media/PJVlR0ljpO7yvkfhEH4VNNZ54YMVWAxlVfBQwSENDkv21tWvbtjShU6FnewvzElMDb.jpg','POP-ป่ะห์ #4 Halloween — NAMP Live']
  ];
@@ -119,25 +120,29 @@ test('audited wrong-event photographs are suppressed only on exact event/source 
  }
 });
 
-test('LE7EL temporary artist profile is clearly labeled only for audited exact event and URL',()=>{
+test('audited LE7EL artist profile never masquerades as an anniversary event poster',()=>{
  const photo='https://www.thai2music.com/uploads/artists/photo_cover/cover_1035_1762919037.jpg';
  const card={...event,id:'EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY',
    name:'LE7EL — 1st Debut Anniversary',date:'2026-10-15',img:photo,rawPoster:photo,imgThumb:[photo]};
- const thai=renderFixture([card]);
- assert.equal(thai.card.dataset.posterStatus,'temporary');
- assert.equal(find(thai.card,'poster-temporary-brand-label').textContent,'ภาพประกอบชั่วคราว');
- assert.match(thai.card.children[0].children.find(child=>child.tag==='img').alt,/^ภาพศิลปินชั่วคราว ไม่ใช่โปสเตอร์งาน:/);
- thai.card.onclick();assert.equal(thai.shown(),card,'poster label must not affect actual event booking identity');
- const english=renderFixture([card],'en');
- assert.equal(find(english.card,'poster-temporary-brand-label').textContent,'TEMPORARY IMAGE');
- assert.match(english.card.children[0].children.find(child=>child.tag==='img').alt,/^Temporary artist profile, not event poster:/);
+ for(const lang of ['th','en']){
+  const out=renderFixture([card],lang);
+  assert.equal(out.card.dataset.posterSourceRejected,'wrong-event-art');
+  assert.equal(out.card.dataset.posterStatus,'temporary');
+  assert.equal(out.card.dataset.posterReplacementPending,'1');
+  assert.equal(find(out.card,'poster-placeholder-title').textContent,card.name);
+  assert.equal(find(out.card,'poster-temporary-brand-label'),null);
+  assert.equal(find(out.card,'poster-placeholder-kicker').textContent,
+   lang==='en'?'TEMPORARY EVENT ART':'ภาพประกอบชั่วคราว');
+  out.card.onclick();assert.equal(out.shown(),card,'do not change booking identity');
+ }
  const otherEvent=renderFixture([{...card,id:'EVT-OTHER'}]);
- assert.equal(otherEvent.card.dataset.posterStatus,undefined,'photo URL alone must not label another event');
+ assert.equal(otherEvent.card.dataset.posterSourceRejected,undefined,
+  'artist source cannot trigger cross-event blocking');
  const correctedSource=renderFixture([{...card,img:'https://official.example/le7el-oct15.jpg',
    rawPoster:'https://official.example/le7el-oct15.jpg',imgThumb:['https://official.example/le7el-oct15.jpg']}]);
- assert.equal(correctedSource.card.dataset.posterStatus,undefined,'exact event can transition to official art without stale temporary label');
+ assert.equal(correctedSource.card.dataset.posterSourceRejected,undefined,
+  'validated organizer poster can replace old profile without code changes');
 });
-
 test('image-less sold-out event remains waitlist-only; fallback must never invent inventory',()=>{
  const sold=renderFixture([{...event,phoneCnt:0,lensCnt:0}], 'th',0);
  assert.equal(sold.count,1);
