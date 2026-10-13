@@ -13,6 +13,8 @@ let searchTimer=null,pollTimer=null,pollBusy=false,lastRefreshAt=0;
 // Read-only request version for the displayed conversation; prevents stale replies.
 let threadRequestSeq=0;
 let listRequestSeq=0;
+// Ephemeral, per-conversation drafts; never store customer text in localStorage.
+const inboxDrafts=Object.create(null);
 let inboxImageUrls=[];
 
 function pin(){try{return sessionStorage.getItem('kk_admin_pin')||''}catch(_){return ''}}
@@ -226,9 +228,17 @@ async function markConversationRead(conversationId){
   // Mark-read is convenience metadata; never hide an otherwise readable thread on failure.
  }
 }
+function prepareComposerForThread(requestId){
+ const box=$('#inboxComposeText');
+ if(!box||selected===requestId)return;
+ if(selected)inboxDrafts[selected]=String(box.value||'');
+ box.value=Object.prototype.hasOwnProperty.call(inboxDrafts,requestId)?inboxDrafts[requestId]:'';
+}
 async function loadThread(id,row,options={}){
  const requestId=String(id||'');
  const requestSeq=++threadRequestSeq;
+ // Prevent an unsent reply to customer A appearing in customer B's composer.
+ prepareComposerForThread(requestId);
  selected=requestId;selectedRow=row||selectedRow||null;
  renderThreadHeader();
  composeState();
@@ -361,6 +371,7 @@ async function sendMessage(){
  try{
   // Keep the approved recipient and draft stable while LINE is in flight.
   await api('inboxSendLineMessage',{conversation_id:conversationId,text:body,owner_approved:true});
+  if(inboxDrafts[conversationId]===originalDraft)delete inboxDrafts[conversationId];
   if(selected===conversationId){
    if(box&&box.value===originalDraft)box.value='';
    composeState('ส่งสำเร็จและบันทึกใน Inbox แล้ว');
