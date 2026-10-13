@@ -48,3 +48,13 @@ test('independent brand popup discovery lane is configured read-only',()=>{
  assert.ok(plan.gap_tasks.some(t=>t.source_tier==='BRAND_SPONSOR'&&/pop-up/i.test(t.query)));
  assert.equal(plan.production_writes,0);
 });
+
+test('learned brand popup class adds artist/brand search terms without changing protected policy',()=>{
+ const {learn}=require('../server/kk-ultra-deep-v2-learning-agent');
+ const result=learn({missed_events:[{miss_class:'BRAND_POPUP_ARTIST_APPEARANCE_GAP',artist:'PHUTATCHAI',brand:'PANPURI',month:'2026-10'}]});
+ assert.ok(result.adaptive.miss_classes.includes('BRAND_POPUP_ARTIST_APPEARANCE_GAP'));
+ assert.ok(result.adaptive.query_terms.some(q=>/PANPURI PHUTATCHAI pop-up appearance/i.test(q)));
+ assert.ok(result.adaptive.mandatory_expansion.includes('BRAND_POPUP_ARTIST_APPEARANCE'));
+ assert.equal(result.authority.production_writes,0);
+ assert.equal(result.authority.may_change_protected_policy,false);
+});
