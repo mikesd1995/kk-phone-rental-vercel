@@ -708,6 +708,16 @@ function isKKTemporaryBrandArtwork(url){
   return String(url||"").trim().split(/[?#]/)[0]===
     "https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png";
 }
+// Exact owner-source readback (14 Oct): these external images are NOT the listed event's poster.
+// Keep the event visible with its truthful event-specific fallback rather than advertising wrong art.
+// Replacing the source URL with a verified official poster automatically removes this safeguard.
+function isAuditedNonEventPoster(eventId,url){
+  var id=String(eventId||"").trim(), src=String(url||"").trim();
+  return (id==="EVT-20261025-VVV-TORNADO-SHOPPING-XIAOMI" &&
+          src==="https://pbs.twimg.com/media/G3iTTicXMAAbtyE.jpg") ||
+         (id==="EVT-20261030-POPPAH4-HALLOWEEN-NAMP" &&
+          src==="https://static.amarintv.com/media/PJVlR0ljpO7yvkfhEH4VNNZ54YMVWAxlVfBQwSENDkv21tWvbtjShU6FnewvzElMDb.jpg");
+}
 function eventArtworkAlt(name,isTemporary,lang){
   var n=String(name||"").trim();
   if(isTemporary){
@@ -1403,7 +1413,7 @@ function renderConcerts(concerts){
       String(c.rawPoster||c.img||"").trim().split(/[?#]/)[0]===
         "https://www.thai2music.com/uploads/artists/photo_cover/cover_1035_1762919037.jpg";
     if(auditedTemporaryLE7EL)temporaryBrandArtwork=true;
-    if(temporaryBrandArtwork){
+    if(temporaryBrandArtwork && !isKKTemporaryBrandArtwork(c.rawPoster||c.img)){
       card.dataset.posterStatus="temporary";
       var tempIndicator=document.createElement("span");
       tempIndicator.className="poster-temporary-brand-label";
@@ -1445,7 +1455,16 @@ function renderConcerts(concerts){
     }
 
     var imgUrl=c.img?String(c.img).trim():"";
-    if(imgUrl){
+    var auditedNonEventPoster=isAuditedNonEventPoster(c.id,c.rawPoster||c.img);
+    var brandPlaceholder=isKKTemporaryBrandArtwork(c.rawPoster||c.img);
+    if(auditedNonEventPoster||brandPlaceholder){
+      // No poster from the organizer is verified: use exact event/date/venue
+      // instead of a misleading old campaign photo or identical shop-brand card.
+      // This is a temporary presentation fix, not a replacement for an official poster.
+      card.dataset.posterReplacementPending="1";
+      card.dataset.posterSourceRejected=auditedNonEventPoster?"wrong-event-art":"shop-placeholder";
+      imgWrap.appendChild(eventSummaryFallback());
+    }else if(imgUrl){
       var img=document.createElement("img");
       // This profile photograph is not a KK-made illustration or official event poster.
       img.alt=auditedTemporaryLE7EL
