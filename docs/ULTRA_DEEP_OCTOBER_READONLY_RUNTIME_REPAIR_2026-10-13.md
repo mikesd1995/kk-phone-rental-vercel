@@ -102,3 +102,18 @@ All changes and evidence remain under Draft PR #720; Owner may decide subsequent
 **Immutable safety:** No Production, Supabase, Booking, Core, Tracker, price, inventory, poster, visibility or owner-source edits. No paid provider execution; PR remains Draft/Unmerged/Undeployed. No claim Scanner independently found PAÑPURI. Live October 12-shard source receipts and official event/access/photo permissions remain unverified.
 
 **Full technical handoff and exact regression cases:** [ULTRA_DEEP_REFERENCE_DATELESS_RECOVERY_2026-10-13.md](./ULTRA_DEEP_REFERENCE_DATELESS_RECOVERY_2026-10-13.md).
+
+
+## Phase 4 follow-up — end-to-end Source Date → Reconciliation closure (2026-10-13 ICT)
+
+Following the earlier Reference Recovery V16/V6/V28 source fix, an additional P0 was found: **a date-less reference stayed a permanent FULL Reconciliation gap because the independently fetched source date was not fed back into the monthly reference set**. Implemented an isolated, bounded read-only closure in Draft PR #720:
+
+- `server/kk-ultra-deep-reference-source-resolution.js` V2: up to four undated, previously scoped references per monthly pass; exact HTTPS trusted event-detail source; target October source-backed date/identity/Bangkok venue, redirects blocked, no private/IP/internal origins, no unknown publisher self-attestation. Time-limited, status/HOLD receipts, **0 writes**.
+- Runner V17: verified source dates re-enter candidate recovery and Reconciliation; unresolved/mismatched/inaccessible references still hard-block FULL. Known-Miss evidence never accepts undated raw search snippets as live proof.
+- Direct V29: if Runner already fetched a source, reuse its sanitized diagnostic receipt instead of making a second HTTP call; commit-intent remains blocked while FULL incomplete.
+- Offline Shards V2: 12-shard merge explicitly identifies `REFERENCE_SOURCE_DATE_VERIFICATION_PENDING`, count and `FULL=false`. New shard manifest version invalidates older fingerprints; do not mix V1 reports.
+- Regression files and package recall/check scripts updated. Source-isolated V8 test execution **105/105** (core relevant cases) + **9/9** (offline shard suite); do not describe as Node/npm/CI.
+- **Actual native Node v22.16.0 isolated smoke: 11/11 PASS**, with the *exact GitHub blob* `71c076c7c5bd674175cd4c97c438f0ce0ae8ae7f` of the new SourceResolution module (`git hash-object` matched). The Node smoke uses mocked Verifier/Reconciliation dependencies, **not** a full checkout, npm regression, full CI, or live scan.
+- Fresh Production alias still `dpl_7TYLb87ir9qNzXRtkeb49543dwVm`. PAÑPURI remains in Backend Core; missing Candidate/Monthly/Miss Tracker rows have **not** been written. Full October 12-shard real provider scan has **not** run. PR remains Draft/Unmerged/Undeployed and all downstream production gates HOLD.
+
+**Precise standalone runbook and cross-chat evidence:** [ULTRA_DEEP_REFERENCE_SOURCE_CLOSURE_FOLLOWUP_2026-10-13.md](./ULTRA_DEEP_REFERENCE_SOURCE_CLOSURE_FOLLOWUP_2026-10-13.md). Phase 4's original read-only root cause and 90-case pre-closure tests remain historical snapshots; this follow-up supersedes the pending source-date closure behavior only.
