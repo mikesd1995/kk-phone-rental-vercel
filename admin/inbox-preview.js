@@ -383,6 +383,9 @@ async function resetOwnerLabel(){
 async function sendMessage(){
  if(sending||!selectedRow)return;
  const conversationId=String(selected||'');
+ if(!conversationId||String(selectedRow.conversation_id||'')!==conversationId||uncertainSendRooms.has(conversationId)){
+  composeState();return;
+ }
  const box=$('#inboxComposeText'),originalDraft=String(box?.value||''),body=originalDraft.trim();
  if(!conversationId||!body){composeState('กรอกข้อความก่อนส่ง');return}
  if(!window.confirm('ยืนยันส่งข้อความนี้ถึงลูกค้าผ่าน LINE?'))return;
@@ -397,8 +400,11 @@ async function sendMessage(){
    await loadThread(conversationId,selectedRow,{preserveScroll:false,markRead:true});
   }
   await loadList(false,{silent:true});
- }catch(e){
-  if(selected===conversationId)composeState('ส่งไม่สำเร็จ: '+e.message);
+ }catch(_){
+  // Timeout or lost post-send persistence can mean the customer already received it.
+  // Block retries in this session until the owner verifies the actual LINE history.
+  uncertainSendRooms.add(conversationId);
+  if(selected===conversationId)composeState('สถานะส่งไม่ยืนยัน · ตรวจ LINE OA ก่อนลองส่งซ้ำ');
  }finally{sending=false;composeState()}
 }
 function scheduleSearch(){
