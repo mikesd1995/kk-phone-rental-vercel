@@ -68,6 +68,8 @@ function audit(input={}){
   if(review){
    if(t(review.verdict).toUpperCase()==='MISMATCH'){vision_status='MISMATCH_REPORTED';put('VISION_SUSPECTED_MISMATCH','P0');}
    else if(t(review.verdict).toUpperCase()==='MATCH'&&/^[a-f0-9]{64}$/i.test(t(review.asset_sha256))&&
+    observation&&observation.loaded===true&&Number(observation.natural_width)>0&&
+    t(observation.sha256).toLowerCase()===t(review.asset_sha256).toLowerCase()&&
     /^https:\/\//i.test(t(review.evidence_url))&&review.title_match===true&&review.date_match===true&&
     Number(review.confidence)>=0.8&&Number(review.confidence)<=1)
      vision_status='AI_MATCH_UNVERIFIED_BY_OWNER';
