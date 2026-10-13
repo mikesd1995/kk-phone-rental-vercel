@@ -52,3 +52,39 @@ No merge, deploy, paid API, automatic publication or production writes. producti
 - Added negative regression for venue inference from scanner context, commit d69d6a27b7420e5e58669082b84273f48c75e878.
 - GitHub workflow runs queried for commit 48e791d: empty list; this is NOT a passing CI result. Local git clone unavailable due DNS/network resolution failure. Tests remain unexecuted.
 - Full October source sweep and Candidate Master Pool/Backend reconciliation are still pending, as are official event publication date and primary-source verification. Production acceptance remains HOLD. No merge/deploy/production writes.
+
+## 2026-10-13 cross-chat live reconciliation — authoritative READ ONLY
+
+### Authoritative sheet readback (not a data mutation)
+- Backend: [KK Phone rental backend](https://docs.google.com/spreadsheets/d/12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU/edit), actual `01_Events` and calculated `08_Web_Ready` (not snapshot/archive tabs).
+- October 2026: **144** event rows; **48** have active_on_web TRUE; **47** have WebReady action show/show_full.
+- October 13–31: **87** events, **31** active TRUE, **30** WebReady show/show_full.
+- Exact active/WebReady mismatch: `EVT-20261030-VVV-SHOW-GO-WHOLESALE-RAMA2` active TRUE but WebReady hide; independently unverified event date/poster, **DO NOT auto-publish**.
+- PAÑPURI found, do not create duplicate: `01_Events` row 348 ID `EVT-20261021-PANPURI-PHUTATCHAI-THAI-POPUP`, date 21/10/2026, venue Beacon 3 centralwOrld Bangkok, poster Drive thumbnail present, status open, active TRUE, note `OWNER_EXPLICIT_ADD_2026-10-13_PRICE_490_590`. `08_Web_Ready` row 349 action show, count 2 phones and 2 lenses. `09_Web_Packages` rows 1034–1036: phone 490 available, standalone lens hidden, phone+lens bundle 590 available. These records came from an **owner-explicit manual addition**; do not imply scanner automatically discovered or officially corroborated it.
+- Event Tracker: [Event Tracker 2569](https://docs.google.com/spreadsheets/d/1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo/edit), **zero matches for LIMINAL** in October tab, Candidate Queue, Miss Learning, Unlisted Inbox, source snapshots, field evidence and event lifecycle within scanned bounded ranges. Search PHUTATCHAI in Candidate Queue also returned zero. This is a cross-system provenance/learning gap, not a reason to re-create the Core event.
+- The historic `_Scan_Status` records read contain no 2026-10-13 occurrence (last populated checkpoint 2026-09-30). `_Run_Manifest` read contains no Oct 13 occurrence; this absence is limited to these tracker sheets, not proof no run exists elsewhere.
+
+### Control-plane runtime receipts — distinguish project identities
+- **Authoritative command control plane:** Supabase `kk-unified-inbox` project `mxjnjujqjybqughsnqbz`, table `public.kk_ultra_deep_commands`, 9 October read-only rows: **8 FAILED**, one initial **COMPLETE** 2026-10-03 (early migration acceptance only; does not certify full October event coverage).
+- Latest run created 2026-10-06 18:56:49 UTC, claimed 18:57:03 UTC, completed 18:57:09 UTC: `FULL_READ_ONLY`, `FAILED`, `BLOCKED_NO_VERIFIED_CANDIDATES`, `production_writes=0`. Other failures: `UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED`, `BLOCKED_DISCOVERY_NOT_FULL`, `VERCEL_RUNTIME_TIMEOUT_300S`, and `FULL_LOOP_NOT_COMPLETE`. Full source coverage is **not proven**.
+- Separate legacy `kk-phone-rental-runtime-ledger` project `zehlsagzrpromtfqqflt` has 2 older October QUEUED rows and is not the authoritative command plane after V27 migration. Do not confuse their states.
+- GitHub PR workflow Ultra Deep V2 Acceptance has failed runs, e.g. run `38358933754` and `38361036134`; attempting job log read gave BlobNotFound/404, and job steps unavailable. **Failure type unproven; CI acceptance NOT GREEN.**
+
+### Isolated source fixes (draft PR #720; not merged)
+- `54a454b`: corrected regex accidental double escaping, so title-based "with ARTIST" and "x ARTIST" can match.
+- `64c094b`: synchronized previous 5-lane test assertion with the new 6-lane independent reference plan.
+- `7f283e8`: KnownMiss V12 adds `panpuri-phutatchai-pop-up-20261021`, targeted queries/aliases and `BRAND_POPUP_ARTIST_APPEARANCE_GAP`; **no fabricated official source URL or evidence fixture**. Live FULL cannot ignore the missed event.
+- `236aba2`: strict-live regression asserts unsourced/wrong-date evidence cannot pass PAÑPURI.
+- `55606ca`: explicit title artist and reference lane tests.
+- `0dad37a`: verifies Learning Agent's artist+brand query expansion without protected policy or production writes.
+- Existing corrections: `55fdee6` (candidate venue must be explicit, no inherited scanner location), `48e791d` (sixth independent brand pop-up query lane), `d69d6a2` (no inferred venue), prior learning and safety changes.
+- Unit tests are **committed but have not been executed successfully** on this isolated branch in a complete reproducible Node checkout; do not claim passing tests.
+
+### Safety disposition / work still blocked
+- G1 Primary source / official announcement timestamp: **HOLD**; owner-supplied poster is not independent event-authority evidence.
+- G2 Full October source/provider receipts and candidate discovery coverage: **HOLD**; latest command FAILED.
+- G3 Code/AI Learning/Regression: **source committed, test execution HOLD**.
+- G4 Cross-system reconciliation: **Core PAÑPURI already live in sheet**, but tracker candidate + learning records absent. Preserve existing owner pricing/poster, do not duplicate/backfill records via ungoverned writer. VVV date discrepancy HOLD.
+- G5 CI + owner acceptance + production release: **HOLD**. No merge, deploy, paid provider action, price adjustment, tombstone reopen, or production data write performed in this audit.
+
+Next permissible safe route: run targeted tests on a real isolated checkout with available zero-cost execution, obtain authoritative primary-source event receipt, rerun **read-only** October scan using legitimately bound providers, compare Candidate Queue/known-miss live recall and independent reference receipts, stage a governed tracker-learning entry for owner review, and accept only after all gates.
