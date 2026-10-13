@@ -1,22 +1,69 @@
 name: Ultra Deep V2 Acceptance
+
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - 'server/kk-ultra-deep-*.js'
-      - 'tests/kk-ultra-deep-full-loop-v2.test.js'
+      - 'tests/kk-ultra-deep-*.test.js'
+      - 'tests/ultra-deep-panpuri-popup-reference.test.js'
+      - 'tests/ultra-deep-v2-workflow-contract.test.js'
+      - 'scripts/kk-ci-offline-dependency-gate.js'
+      - 'scripts/kk-ultra-deep-backscan-miss-review.js'
+      - 'tests/kk-ci-offline-dependency-gate.test.js'
+      - '.github/workflows/ultra-deep-v2-acceptance.yml'
       - 'package.json'
+
+permissions:
+  contents: read
+
+# Keep the latest check for each PR; cancel obsolete attempts to preserve
+# free included minutes. Never treat cancellation as passed acceptance.
+concurrency:
+  group: kk-ultra-deep-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   v2-acceptance:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      APPROVED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout exact candidate SHA without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.APPROVED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Reject stale or synthetic-merge checkout and lockfile drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$APPROVED_SHA"
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+          test ! -f package-lock.json
+          test ! -f npm-shrinkwrap.json
+          echo "Verified exact PR HEAD without npm install or npm ci."
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci
-      - name: Syntax gate
+
+      - name: Prove zero-install offline dependency and workflow contracts
+        run: |
+          node --version
+          npm --version
+          node --test tests/kk-ci-offline-dependency-gate.test.js tests/ultra-deep-v2-workflow-contract.test.js
+          node scripts/kk-ci-offline-dependency-gate.js ultradeep
+
+      - name: Syntax gate (no dependency installation)
         run: npm run check
-      - name: Focused V2 regression
+
+      - name: October recall, owner-lineage and Backscan regressions
+        run: npm run test:ultradeep:recall
+
+      - name: Focused Ultra Deep V2 full-loop regression
         run: node --test tests/kk-ultra-deep-full-loop-v2.test.js
