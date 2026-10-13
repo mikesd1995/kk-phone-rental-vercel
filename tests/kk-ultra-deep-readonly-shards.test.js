@@ -4,14 +4,14 @@ const assert=require('node:assert/strict');
 const S=require('../server/kk-ultra-deep-readonly-shards.js');
 const M={month:'2026-10',location:'Bangkok Metropolitan Region Thailand',shard_size:12};
 
-test('150 October tasks have deterministic 13-shard manifest and stable fingerprint',()=>{
+test('144 October-scoped tasks have deterministic 12-shard manifest and stable fingerprint',()=>{
  const a=S.manifest(M),b=S.manifest(M);
- assert.equal(a.task_count,150);
- assert.equal(a.shards.length,13);
- assert.deepEqual(a.groups,{known_miss:33,monthly:111,reference:6});
+ assert.equal(a.task_count,144);
+ assert.equal(a.shards.length,12);
+ assert.deepEqual(a.groups,{known_miss:27,monthly:111,reference:6});
  assert.equal(a.fingerprint,b.fingerprint);
  assert.equal(a.shards[0].start,0);
- assert.equal(a.shards[12].end,150);
+ assert.equal(a.shards[11].end,144);
  assert.notEqual(a.fingerprint,S.manifest({...M,month:'2026-11'}).fingerprint);
  assert.notEqual(a.fingerprint,S.manifest({...M,shard_size:10}).fingerprint);
  assert.equal(a.production_writes,0);
@@ -79,8 +79,8 @@ test('even all artificially executed shards cannot authorize commercial or produ
   }));
  }
  const report=S.combineReports(M,reports);
- assert.equal(report.received_shards,13);
- assert.equal(report.expected_tasks,150);
+ assert.equal(report.received_shards,12);
+ assert.equal(report.expected_tasks,144);
  assert.equal(report.full,false);
  assert.equal(report.authoritative,false);
  assert.equal(report.release_eligible,false);
