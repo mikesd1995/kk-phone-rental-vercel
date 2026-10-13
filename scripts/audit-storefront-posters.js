@@ -81,22 +81,36 @@ async function probe(url,fetchImpl=global.fetch){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),TIMEOUT_MS);
   const started=Date.now();
+  let target=url;
   try{
-    const res=await fetchImpl(url,{method:'GET',redirect:'follow',signal:controller.signal,headers:{'Cache-Control':'no-cache','User-Agent':'KK-Storefront-Poster-Audit/1.0'}});
-    const ct=text(res.headers.get('content-type')).toLowerCase();
-    let hasBytes=false;
-    if(res.body){
-      const reader=res.body.getReader();
-      const first=await reader.read();
-      hasBytes=!!(first.value&&first.value.byteLength);
-      try{await reader.cancel();}catch(_){}
+    for(let hop=0;hop<=3;hop++){
+      if(!publicImageUrl(target))return {url,ok:false,status:0,content_type:'',latency_ms:Date.now()-started,final_url:'',error:'UNSAFE_IMAGE_REDIRECT'};
+      const res=await fetchImpl(target,{method:'GET',redirect:'manual',signal:controller.signal,headers:{'Cache-Control':'no-cache','User-Agent':'KK-Storefront-Poster-Audit/1.0'}});
+      if([301,302,303,307,308].includes(res.status)){
+        const location=res.headers.get('location');
+        if(!location)return {url,ok:false,status:res.status,content_type:'',latency_ms:Date.now()-started,final_url:target,error:'REDIRECT_WITHOUT_LOCATION'};
+        const next=new URL(location,target).href;
+        if(!publicImageUrl(next))return {url,ok:false,status:res.status,content_type:'',latency_ms:Date.now()-started,final_url:target,error:'UNSAFE_IMAGE_REDIRECT'};
+        target=next;
+        continue;
+      }
+      const ct=text(res.headers.get('content-type')).toLowerCase();
+      let hasBytes=false;
+      if(res.body){
+        const reader=res.body.getReader();
+        const first=await reader.read();
+        hasBytes=!!(first.value&&first.value.byteLength);
+        try{await reader.cancel();}catch(_){}
+      }
+      const ok=res.ok&&ct.startsWith('image/')&&hasBytes;
+      return {url,ok,status:res.status,content_type:ct,latency_ms:Date.now()-started,final_url:target,error:ok?'':res.ok?'NOT_IMAGE_BYTES':'IMAGE_HTTP_'+res.status};
     }
-    const ok=res.ok&&ct.startsWith('image/')&&hasBytes;
-    return {url,ok,status:res.status,content_type:ct,latency_ms:Date.now()-started,final_url:res.url,error:''};
+    return {url,ok:false,status:0,content_type:'',latency_ms:Date.now()-started,final_url:target,error:'IMAGE_REDIRECT_LIMIT'};
   }catch(err){
     return {url,ok:false,status:0,content_type:'',latency_ms:Date.now()-started,final_url:'',error:[text(err&&err.name),text(err&&err.message)].filter(Boolean).join(': ')||'FETCH_ERROR'};
   }finally{clearTimeout(timer);}
 }
+
 async function pool(items,worker,limit=CONCURRENCY){
   const out=new Array(items.length); let next=0;
   async function run(){while(true){const i=next++;if(i>=items.length)return;out[i]=await worker(items[i],i);}}
