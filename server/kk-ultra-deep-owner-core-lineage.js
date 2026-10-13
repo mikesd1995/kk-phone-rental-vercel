@@ -190,4 +190,35 @@ function prepare(input={}){
    may_mark_scanner_discovered:false,may_mark_miss_learned:false}
  };
 }
-module.exports={VERSION,THAI_MONTHS,normalize,isoDate,rowsToObjects,eventIdentity,nameDate,linkedToCore,findLineage,prepare};
+
+function prepareFromSheets(input={}){
+ // Every snapshot header is compulsory. Empty queues are valid, absent queues
+ // are not. Tracker monthly header is row 4 of an A1:U range.
+ const definitions=[
+  ['events_values','events',0,'event_id'],
+  ['web_ready_values','web_ready',0,'event_id'],
+  ['web_packages_values','web_packages',0,'event_id'],
+  ['visibility_locks_values','visibility_locks',0,'lock_id'],
+  ['tracker_candidates_values','tracker_candidates',0,'Discovered At'],
+  ['tracker_monthly_values','tracker_monthly',3,'วันที่งานจัด'],
+  ['miss_learning_values','miss_learning',0,'Miss ID'],
+  ['bookings_values','bookings',0,'booking_id']
+ ];
+ const missing=[];
+ const decoded={event_ids:input.event_ids,as_of:input.as_of};
+ for(const [key,dest,offset,header] of definitions){
+  const rows=input[key];
+  if(!Array.isArray(rows)||!Array.isArray(rows[offset])||!rows[offset].map(text).includes(header)){
+   missing.push(key+'#'+header);
+   continue;
+  }
+  decoded[dest]=rowsToObjects(rows,offset);
+ }
+ if(missing.length)return {version:VERSION,status:'HOLD_SNAPSHOT_HEADER_MISMATCH',
+  blockers:['REQUIRED_SNAPSHOT_HEADER_MISMATCH'],missing_inputs:missing,events:[],review_proposal_count:0,
+  authority:{stage_only:true,approved:false,auto_apply:false,tracker_writes:0,backend_writes:0,production_writes:0,
+   may_change_price:false,may_change_visibility:false,may_create_core_event:false,may_mark_scanner_discovered:false,may_mark_miss_learned:false}};
+ return prepare(decoded);
+}
+
+module.exports={VERSION,THAI_MONTHS,normalize,isoDate,rowsToObjects,eventIdentity,nameDate,linkedToCore,findLineage,prepare,prepareFromSheets};
