@@ -138,7 +138,7 @@ function usableReferenceDetailUrl(value){
   const u=new URL(text(value));
   if(u.protocol!=='https:'||!u.hostname||u.username||u.password)return false;
   const p=u.pathname.toLowerCase().replace(/\/+$/,'');
-  if(!p||/^\/(?:search|category|categories|calendar|events?|g)(?:\/|$)/.test(p))return false;
+  if(!p||p==='/event'||p==='/events'||/^\/(?:search|category|categories|calendar|g)(?:\/|$)/.test(p))return false;
   return /[a-z0-9\u0e00-\u0e7f]{5,}/i.test(p);
  }catch(_){return false;}
 }
