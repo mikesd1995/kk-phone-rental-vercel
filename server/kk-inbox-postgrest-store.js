@@ -57,12 +57,31 @@ function createPostgrestStore(options={}){
   const row=Array.isArray(result)?result[0]:result;
   return {ok:true,duplicate:Boolean(row&&row.duplicate),writes:Number(row&&row.writes||0)};
  }
- async function reserveOutbound(requestId,conversationId,fingerprint){
-  // Fail closed if the additive service-role ledger migration is not applied.
+ async function reserveOutbound(requestId,conversationId,fingerprint,options={}){
+  // Fail closed until BOTH durable ledger and owner-review migrations exist.
   const result=await rpc('kk_inbox_reserve_outbound',{
    p_request_id:String(requestId||''),p_conversation_id:String(conversationId||''),
-   p_body_fingerprint:String(fingerprint||'')
+   p_body_fingerprint:String(fingerprint||''),
+   p_repeat_of:options.repeatOf||null,
+   p_repeat_reason:String(options.repeatReason||'')
   },'INBOX_OUTBOUND_LEDGER_UNAVAILABLE');
+  return Array.isArray(result)?(result[0]||null):(result||null);
+ }
+ async function listOutboundAttempts(conversationId,limit=30){
+  const rows=await rpc('kk_inbox_list_outbound_attempts',{
+   p_conversation_id:String(conversationId||'').trim(),p_limit:Number(limit||30)
+  },'INBOX_OUTBOUND_REVIEW_UNAVAILABLE');
+  if(!Array.isArray(rows))throw Object.assign(new Error('Invalid outbound review response'),{code:'INBOX_OUTBOUND_REVIEW_UNAVAILABLE'});
+  return rows;
+ }
+ async function reviewOutboundAttempt(input={}){
+  const result=await rpc('kk_inbox_review_outbound',{
+   p_conversation_id:String(input.conversationId||'').trim(),
+   p_request_id:String(input.requestId||''),
+   p_review_status:String(input.reviewStatus||''),
+   p_evidence_ref:String(input.evidenceRef||''),
+   p_note:String(input.note||'')
+  },'INBOX_OUTBOUND_REVIEW_UNAVAILABLE');
   return Array.isArray(result)?(result[0]||null):(result||null);
  }
  async function finishOutbound(requestId,status,providerMessageId='',providerRequestId=''){
@@ -73,6 +92,6 @@ function createPostgrestStore(options={}){
   },'INBOX_OUTBOUND_FINISH_UNAVAILABLE');
   return Array.isArray(result)?(result[0]||null):(result||null);
  }
- return {VERSION,persistInbound,listConversations,listMessages,getMediaMetadata,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound,reserveOutbound,finishOutbound};
+ return {VERSION,persistInbound,listConversations,listMessages,getMediaMetadata,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound,reserveOutbound,finishOutbound,listOutboundAttempts,reviewOutboundAttempt};
 }
 module.exports={VERSION,createPostgrestStore};
