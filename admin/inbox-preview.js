@@ -10,6 +10,8 @@ const MESSAGE_TYPE_LABELS=Object.freeze({
 });
 let selected='',selectedRow=null,outboundEnabled=false,hydrating=false,sending=false,renaming=false;
 let searchTimer=null,pollTimer=null,pollBusy=false,lastRefreshAt=0;
+// Read-only request version for the displayed conversation; prevents stale replies.
+let threadRequestSeq=0;
 let inboxImageUrls=[];
 
 function pin(){try{return sessionStorage.getItem('kk_admin_pin')||''}catch(_){return ''}}
@@ -225,19 +227,23 @@ async function markConversationRead(conversationId){
 }
 async function loadThread(id,row,options={}){
  const requestId=String(id||'');
+ const requestSeq=++threadRequestSeq;
  selected=requestId;selectedRow=row||selectedRow||null;
  renderThreadHeader();
  composeState();
  try{
   const d=await api('inboxListMessages',{conversation_id:requestId,limit:'200'});
-  if(selected!==requestId)return;
+  if(selected!==requestId||requestSeq!==threadRequestSeq)return;
   outboundEnabled=d.outbound_enabled===true;
   const renderState=renderThread(d.messages||[],{preserveScroll:options.preserveScroll===true});
   const shouldMarkRead=options.markRead!==false&&(!options.preserveScroll||renderState.wasNearBottom);
   if(shouldMarkRead)await markConversationRead(requestId);
+  if(selected!==requestId||requestSeq!==threadRequestSeq)return;
   composeState();
   if(options.markRefresh!==false)markRefreshed();
  }catch(e){
+  // An older failing request must not replace a newer successful thread.
+  if(selected!==requestId||requestSeq!==threadRequestSeq)return;
   if(options.silent){
    liveStatus('กำลังเชื่อมต่อใหม่…','warn');
    return;
