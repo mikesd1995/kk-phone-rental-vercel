@@ -207,6 +207,7 @@ function chooseJsonLdEvent(events=[],candidate={},month=''){
   let score=0;
   if(wanted&&d===wanted)score+=5;
   else if(month&&d.startsWith(month+'-'))score+=2;
+  if(candidate.date_pending_verification===true&&sourceTitleMatchesUndatedLead(candidate.title||candidate.event_name,e.name))score+=8;
   if(locationName(e.location))score+=2;
   if(imageUrl(e.image))score+=1;
   if(text(e.name))score+=1;
