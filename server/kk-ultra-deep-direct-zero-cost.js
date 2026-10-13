@@ -8,7 +8,7 @@ const Production=require('./kk-ultra-deep-production-runtime.js');
 const V2Adapter=require('./kk-ultra-deep-v2-runtime-adapter.js');
 const V2Writer=require('./kk-ultra-deep-v2-governed-writer.js');
 
-const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V27';
+const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V28';
 function text(v){return String(v==null?'':v).trim();}
 
 async function run(input={},options={}){
@@ -51,11 +51,40 @@ async function run(input={},options={}){
     ? discovery.operational_ready===true&&discovery.status==='READY_FOR_VERIFIER'
     : discovery.full===true&&discovery.status==='READY_FOR_VERIFIER';
   if(!discoveryReady){
+    // A date-less independent lead must reach the source verifier even when
+    // October FULL fails. This is a bounded READ-ONLY diagnostic lane only;
+    // it cannot unlock pricing, the governed writer or release acceptance.
+    let reference_source_date_review=null;
+    if(options.executeWrites!==true&&!operational){
+      const pending=(discovery.candidates||[])
+        .filter(x=>x&&x.date_pending_verification===true&&
+          x.candidate_origin==='INDEPENDENT_REFERENCE_RECOVERY')
+        .slice(0,4);
+      if(pending.length){
+        const reviewed=await Verifier.verifyBatch(
+          pending,{month,location},{concurrency:2,timeout_ms:5000,fetchFn:fetchImpl}
+        );
+        reference_source_date_review={
+          status:'READ_ONLY_DIAGNOSTIC_NOT_FULL_ACCEPTANCE',
+          examined_count:pending.length,
+          verified_count:reviewed.verified_count,
+          hold_count:reviewed.hold_count,
+          holds:(reviewed.holds||[]).slice(0,4).map(h=>({
+            title:text(h.title)||null,
+            event_date:text(h.event_date)||null,
+            blockers:h.blockers||[],
+            status:text(h.status)||'HOLD_VERIFIER'
+          })),
+          production_writes:0,
+          authorized_to_publish:false
+        };
+      }
+    }
     return {
       version:VERSION,
       status:operational?'BLOCKED_OPERATIONAL_DISCOVERY':'BLOCKED_DISCOVERY_NOT_FULL',
       month,mode:operational?'SMART_OPERATIONAL':'ULTRA_DEEP_AUDIT',
-      preflight,discovery,production_writes:0
+      preflight,discovery,reference_source_date_review,production_writes:0
     };
   }
 
