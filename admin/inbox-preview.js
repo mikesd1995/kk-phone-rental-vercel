@@ -389,10 +389,12 @@ async function sendMessage(){
  const box=$('#inboxComposeText'),originalDraft=String(box?.value||''),body=originalDraft.trim();
  if(!conversationId||!body){composeState('กรอกข้อความก่อนส่ง');return}
  if(!window.confirm('ยืนยันส่งข้อความนี้ถึงลูกค้าผ่าน LINE?'))return;
+ const sendRequestId=window.crypto?.randomUUID?.();
+ if(!sendRequestId){composeState('อุปกรณ์นี้ไม่รองรับรหัสคำขอ LINE ที่ปลอดภัย');return;}
  sending=true;composeState('กำลังส่งผ่าน LINE…');
  try{
   // Keep the approved recipient and draft stable while LINE is in flight.
-  await api('inboxSendLineMessage',{conversation_id:conversationId,text:body,owner_approved:true});
+  await api('inboxSendLineMessage',{conversation_id:conversationId,text:body,owner_approved:true,send_request_id:sendRequestId});
   if(inboxDrafts[conversationId]===originalDraft)delete inboxDrafts[conversationId];
   if(selected===conversationId){
    if(box&&box.value===originalDraft)box.value='';
