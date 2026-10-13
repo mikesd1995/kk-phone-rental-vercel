@@ -92,6 +92,23 @@ test('known KK-owned temporary art receives a visible label; other event poster 
  assert.equal(find(official.card,'poster-temporary-brand-label'),null);
 });
 
+test('LE7EL temporary artist profile is clearly labeled only for audited exact event and URL',()=>{
+ const photo='https://www.thai2music.com/uploads/artists/photo_cover/cover_1035_1762919037.jpg';
+ const card={...event,id:'EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY',
+   name:'LE7EL — 1st Debut Anniversary',date:'2026-10-15',img:photo,rawPoster:photo,imgThumb:[photo]};
+ const thai=renderFixture([card]);
+ assert.equal(thai.card.dataset.posterStatus,'temporary');
+ assert.equal(find(thai.card,'poster-temporary-brand-label').textContent,'ภาพประกอบชั่วคราว');
+ thai.card.onclick();assert.equal(thai.shown(),card,'poster label must not affect actual event booking identity');
+ const english=renderFixture([card],'en');
+ assert.equal(find(english.card,'poster-temporary-brand-label').textContent,'TEMPORARY IMAGE');
+ const otherEvent=renderFixture([{...card,id:'EVT-OTHER'}]);
+ assert.equal(otherEvent.card.dataset.posterStatus,undefined,'photo URL alone must not label another event');
+ const correctedSource=renderFixture([{...card,img:'https://official.example/le7el-oct15.jpg',
+   rawPoster:'https://official.example/le7el-oct15.jpg',imgThumb:['https://official.example/le7el-oct15.jpg']}]);
+ assert.equal(correctedSource.card.dataset.posterStatus,undefined,'exact event can transition to official art without stale temporary label');
+});
+
 test('image-less sold-out event remains waitlist-only; fallback must never invent inventory',()=>{
  const sold=renderFixture([{...event,phoneCnt:0,lensCnt:0}], 'th',0);
  assert.equal(sold.count,1);
