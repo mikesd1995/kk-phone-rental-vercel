@@ -98,3 +98,46 @@ test('unknown branch fails safe by building', () => {
   assert.equal(result.ignore, false);
   assert.equal(result.reason, 'UNKNOWN_BRANCH');
 });
+
+test('build-critical scripts fail closed on main and optional preview decisions', () => {
+  for (const branch of ['main', 'release/acceptance']) {
+    for (const path of [
+      'scripts/storefront-evidence.cjs',
+      'scripts/audit-storefront-posters.js',
+      'scripts/kk-ci-offline-dependency-gate.js',
+      'scripts/new-runtime-helper.js',
+      'scripts/vercel-ignore-build.js'
+    ]) {
+      const result = decide(branch, [path]);
+      assert.equal(result.ignore, false, branch + ':' + path);
+      assert.equal(result.reason, 'RUNTIME_OR_UNKNOWN_CHANGE', branch + ':' + path);
+      assert.deepEqual(result.build_required_files, [path]);
+    }
+  }
+});
+
+test('only explicitly reviewed CLI-only scripts can skip a Git build', () => {
+  for (const path of ['scripts/resolve-current-production.js', 'scripts/accept-oidc-production.js']) {
+    const result = decide('main', [path]);
+    assert.equal(result.ignore, true);
+    assert.equal(result.reason, 'SAFE_PREVIEW_ONLY_CHANGE');
+  }
+  for (const path of [
+    'scripts/resolve-current-production.js.map',
+    'scripts/accept-oidc-production.js.bak',
+    'scripts/resolve-current-production-helper.js',
+    'scripts/verify-event-integrity.js'
+  ]) {
+    assert.equal(decide('main', [path]).ignore, false, path);
+  }
+});
+
+test('mixed documentation and build-critical script changes cannot skip production', () => {
+  const result = decide('main', [
+    'docs/RELEASE.md',
+    'scripts/storefront-evidence.cjs',
+    'tests/vercel-ignore-build.test.js'
+  ]);
+  assert.equal(result.ignore, false);
+  assert.deepEqual(result.build_required_files, ['scripts/storefront-evidence.cjs']);
+});
