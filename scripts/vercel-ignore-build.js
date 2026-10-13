@@ -6,7 +6,9 @@ const SAFE_PREVIEW_ONLY_PATTERNS = [
   /^\.github\//,
   /^docs\//,
   /^tests\//,
-  /^scripts\//,
+  // Only reviewed CLI-only scripts may skip a Git build.
+  // Other scripts may execute at postinstall/runtime; changed code must deploy.
+  /^scripts\/(?:resolve-current-production|accept-oidc-production)\.js$/,
   /^README(?:\..*)?$/i,
   /^[^/]+\.md$/i
 ];
