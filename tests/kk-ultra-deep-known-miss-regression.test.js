@@ -95,3 +95,21 @@ test('JMNK Oct ticket sale and November concert are both in November discovery o
  assert.ok(n.missing_cases.includes('jmnk-she-serve-20261121'));
  assert.ok(o.missing_cases.includes('jmnk-she-serve-20261121'));
 });
+ 
+test('PAÑPURI Oct21 is a live known miss, not a fabricated verified fixture',()=>{
+ const c=K.CORPUS.find(x=>x.case_id==='panpuri-phutatchai-pop-up-20261021');
+ assert.ok(c);
+ assert.equal(c.event_date,'2026-10-21');
+ assert.equal(c.miss_class,'BRAND_POPUP_ARTIST_APPEARANCE_GAP');
+ assert.ok(c.search_queries.some(q=>/PANPURI|PAÑPURI/.test(q)));
+ assert.equal(K.FIXTURE_EVIDENCE[c.case_id],undefined);
+ const live=K.evaluate([],[],{month:'2026-10',strict_live:true});
+ assert.ok(live.missing_cases.includes(c.case_id));
+ const unsourced=K.evaluate([{title:c.title,event_date:c.event_date}],[],{month:'2026-10',strict_live:true});
+ assert.ok(unsourced.missing_cases.includes(c.case_id));
+ const wrongDate=K.evaluate([{title:c.title,event_date:'2026-10-22',source_url:'https://example.org/post'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(wrongDate.missing_cases.includes(c.case_id));
+ const simulated=K.evaluate([{title:c.title,event_date:c.event_date,source_url:'https://example.org/post'}],[],{month:'2026-10',strict_live:true});
+ assert.ok(!simulated.missing_cases.includes(c.case_id));
+ assert.equal(simulated.production_writes,0);
+});
