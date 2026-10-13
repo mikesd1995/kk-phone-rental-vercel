@@ -41,7 +41,12 @@ function firstExact(rows,id,url,eventDate){
  return all.length===1?all[0]:null;
 }
 function audit(input={}){
- const rows=(Array.isArray(input.rows)?input.rows:[]).filter(r=>['show','show_full'].includes(t(r.action_for_web).toLowerCase()));
+ const asOf=date(input.as_of);
+ const rows=(Array.isArray(input.rows)?input.rows:[]).filter(r=>{
+  if(!['show','show_full'].includes(t(r.action_for_web).toLowerCase()))return false;
+  const d=date(r.event_date_text||r.event_date||r.date);
+  return !asOf||!d||d>=asOf;
+ });
  const duplicateId=new Map(),shared=new Map();
  rows.forEach(r=>{const id=t(r.event_id),k=key(r.poster_image_url);duplicateId.set(id,(duplicateId.get(id)||0)+1);
   if(k){const v=shared.get(k)||[];v.push(r);shared.set(k,v);}
@@ -83,7 +88,7 @@ function audit(input={}){
    vision_status,disposition:priority==='P0'?'HOLD_REPLACE_OR_VERIFY':'REVIEW_REQUIRED',
    owner_approved:false,production_writes:0};
  });
- return {schema:VERSION,source:'08_Web_Ready',generated_at:t(input.generated_at)||new Date().toISOString(),
+ return {schema:VERSION,source:'08_Web_Ready',as_of:asOf||null,generated_at:t(input.generated_at)||new Date().toISOString(),
   visible_events:events.length,missing_poster:events.filter(e=>e.issues.some(x=>x.code==='MISSING_POSTER')).length,
   p0:events.filter(e=>e.priority==='P0').length,p1:events.filter(e=>e.priority==='P1').length,
   flagged_events:events.filter(e=>e.issues.length).length,events,
