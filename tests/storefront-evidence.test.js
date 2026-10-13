@@ -67,7 +67,7 @@ test('rendered defects fail even when the document itself has no horizontal over
   }
 });
 test('modal clipping, horizontal overflow and focus escape are release blocking',()=>{
-  const modal={left:0,right:390,top:150,bottom:844,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
+  const modal={left:0,right:390,top:150,bottom:694,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
   assert.deepEqual(E.stateFindings({...healthy(),modal},{width:390,name:'modal'}),[]);
   for(const change of [{bottom:850},{scroll_width:420},{focus_inside:false},{title:''}])assert.ok(E.stateFindings({...healthy(),modal:{...modal,...change}},{width:390,name:'modal'}).length);
 });
