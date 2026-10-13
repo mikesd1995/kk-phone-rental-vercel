@@ -175,3 +175,18 @@ html .kk-mock-hero .kk-hero-art::after{
   html .kk-mock-hero .v3-hero-actions{margin-top:15px!important}
   html .kk-mock-hero .v3-primary{min-height:44px!important}
 }
+
+
+/* Intermediate tablet 541–700px — keep Thai headline coherent.
+   Prevent the last Thai syllable from sitting alone when the product column
+   reduces the live title width. Mobile <=540px remains stacked. */
+@media (min-width:541px) and (max-width:700px){
+  html .kk-mock-hero h1{
+    font-size:clamp(27px,5vw,33px)!important;
+    line-height:1.18!important;
+  }
+  html .kk-mock-hero h1 em{
+    font-size:.81em!important;
+    letter-spacing:-.035em!important;
+  }
+}
