@@ -95,3 +95,16 @@ test('local CLI defaults to explicit flags and does not implicitly execute a sca
  assert.equal(CLI.filename(2),'readonly-shard-002.json');
  assert.throws(()=>CLI.parseArgs(['--execute-writes']),/INVALID_SHARD_OPTION/);
 });
+
+
+test('a partial shard timeout is explicitly incomplete even after earlier provider attempts',async()=>{
+ const receipt=await S.runShard({...M,shard_index:0},{read_only:true,
+  providers:{BING_RSS:async task=>[{title:task.query,
+   event_date:'2026-10-21',source_url:'https://example.org/event'}]},runtime_budget_ms:5000});
+ const interrupted={...receipt,status:'SHARD_INCOMPLETE',time_budget_exhausted:true};
+ const report=S.combineReports(M,[interrupted]);
+ assert.ok(report.blockers.includes('SHARD_TIMEOUT_OR_INCOMPLETE'));
+ assert.equal(report.receipts_complete,false);
+ assert.equal(report.full,false);
+ assert.equal(report.release_eligible,false);
+});
