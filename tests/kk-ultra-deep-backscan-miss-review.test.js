@@ -180,3 +180,18 @@ test('local Backscan CLI is explicitly read-only: no write, deploy, publish or p
   assert.throws(()=>CLI.parseArgs(['--snapshot-json','data.json',flag,'true']),/READ_ONLY_FLAGS_ONLY/);
  assert.throws(()=>CLI.parseArgs([]),/SNAPSHOT_REQUIRED/);
 });
+
+test('case catalog cannot be mutated and empty/manual malformed case sets fail closed',()=>{
+ const canonical=B.BACKSCAN_CASES[0].title;
+ assert.equal(Object.isFrozen(B.BACKSCAN_CASES),true);
+ assert.equal(Object.isFrozen(B.BACKSCAN_CASES[0]),true);
+ assert.equal(Object.isFrozen(B.BACKSCAN_CASES[0].sources),true);
+ assert.throws(()=>{B.BACKSCAN_CASES[0].title='TAMPERED';},TypeError);
+ assert.equal(B.BACKSCAN_CASES[0].title,canonical);
+ const empty=snapshot();empty.cases=[];
+ assert.equal(B.review(empty).status,'HOLD_INCOMPLETE_SNAPSHOT');
+ assert.equal(B.review(empty).proposal_count,0);
+ const bad=snapshot();bad.cases=[null];
+ assert.equal(B.review(bad).cases[0].disposition,'HOLD_INVALID_OR_DUPLICATE_CASE');
+ assert.equal(B.review(bad).proposal_count,0);
+});
