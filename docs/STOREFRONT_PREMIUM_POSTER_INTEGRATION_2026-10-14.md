@@ -45,3 +45,11 @@ Task #05A–C continuation from owner request. Prepare a safe combined source wi
 2. If computed poster `contain` detector flags real crop, inspect active cascade ordering, lazy loading, image success/error state, and source validity; modify CSS only with exact visual evidence.
 3. If CI is blocked by account spending/minutes, do not pay or spam rerun; keep candidate Draft and use approved zero-cost full-source checks where available.
 4. If 560px asset cannot be transported by connected binary tools, preserve verified asset path/hash for next Work local Git environment; **do not fake GitHub upload or use a low-quality upscale.**
+
+## 2026-10-14 — high-resolution asset binary GitHub readback (supersedes prior pending 05A)
+- **05A source-asset upload DONE on Draft integration branch**: base old artwork 240x170/4,618 B replaced at unchanged URL path `assets/kk-hero-product-20261013.webp` with **560x396 WEBP / 17,504 B**, exact Git blob `fb05590ab37f576c0049d213fd0ec67fcc12bb9b`.
+- Optimized source from original approved concept has SHA-256 `3e3e0087d27bc98795bb54e6e1368be650f80ae072423093411d948897f2ab58` (verified with local Python prior to upload). GitHub `fetch_file encoding=base64` returned an **exact byte-for-byte equal base64** to the original archived source, length 23,340 encoded characters. No alias/filename change; existing CSS URL remains valid.
+- `tests/storefront-hero-premium-20261013.test.js` now asserts RIFF/WEBP/VP8 marker AND exactly `560x396` decoded VP8 frame dimensions, preventing regression back to 240x170.
+- **05B candidate source integrated**: #725 source baseline plus #722 crop/fallback/image-source fixes, preserved centered modal and cached pixel background. Added poster contract+DOM tests to the established official visual workflow.
+- Important: asset upload and code integration are GitHub **Draft branch only**. Prior 8/8 screens apply to earlier #725 SHA and must be repeated on final integrated commit; no Production deployment or price/Booking/data writes.
+- Still HOLD: independent reviewer, full CI / 8-width rendered TH/EN Dark/Light QA on new exact head, owner screenshot-digest acceptance, Vercel headroom, release/rollback evidence. Previous checklist image pending is now completed **as source upload**, not as release acceptance.
