@@ -28,3 +28,114 @@ Connected Supabase `kk-unified-inbox` `mxjnjujqjybqughsnqbz` read-only SQL retur
 
 ## Cross-chat
 No Google Sheet booking mutation, no manual customer send, no paid plan/credits, no Supabase migration reapply, no hidden event/owner-priced event release. Historical app-specific guide: `docs/UNIFIED_INBOX_PRIVATE_LINE_IMAGES_2026-10-10.md`.
+
+
+## 2026-10-13 — stale-room and ambiguous-send safeguards (DRAFT ONLY)
+
+**Continuation of owner-requested P0 repair.** This is an additional checkpoint, not evidence of
+production acceptance. Source changes were committed to PR #700, branch
+\`fix/unified-inbox-private-media-current-main-20261012\`, beginning at
+\`47f928548835992867205bc90bccf7fea12be0c6\`.
+
+### Reproduced source-level risks and fixes
+
+1. Filtering/searching the Inbox could leave the *previous* selectedRow and shared
+   composer active even after that conversation disappeared from the visible list.
+   A stale row may misleadingly display one person's identity while targeting
+   another conversation. Added \`clearSelectionAfterFilter()\`: save the unsent
+   room-specific draft in ephemeral memory, invalidate in-flight thread requests,
+   clear selected/selectedRow, revoke image object URLs, empty the shared composer,
+   render an explicit choose-conversation placeholder, and require a fresh
+   selected row before sending. \`loadThread\` rejects absent/mismatched
+   \`conversation_id\` metadata without fetching.
+   Commit: \`c582e360884912302d7d2b25491e7435fbff536b\`.
+
+2. After LINE accepts a send, an Inbox write or provider/HTTP response can fail;
+   the earlier UI always said "send failed", and another click generated another
+   request with a fresh LINE retry key. This can create a duplicate customer
+   message. An **uncertain per-conversation send hold** now disables sending
+   for that room **within the current page session** and explicitly tells the
+   owner to verify the actual LINE OA history before reloading. The shared
+   button/composer stays disabled while the hold is set, and reply attempts also
+   reject stale recipient-row identity. Nothing is sent or retried automatically.
+   Commit: \`32a8c37a5f32c208f93002baa10dae3cdb178aeb\`.
+
+3. Regression changes: test fixture alignment \`65f09ce736c7e086db8f1a7c7b3cbfdb0cdcfdb7\`;
+   3 targeted tests for missing selected conversation, mismatched thread identity,
+   and ambiguous-send double-send guard \`16564b412088ef751f0bd3d68f56422fe55adf2a\`;
+   2 tests for disabled controls + warning and mismatched outgoing row
+   \`12e5b321089dde104112da5c994ee00ef3852c0a\`.
+   Existing 9 source test cases become **14 definitions total** in
+   \`tests/kk-admin-inbox-preview.test.js\`; the five new tests
+   have **NOT** been executed in Node.
+
+### Evidence run and exact scope
+
+- GitHub source/blob readback: \`admin/inbox-preview.js\` and
+  \`tests/kk-admin-inbox-preview.test.js\` are the ONLY modified paths
+  versus earlier head \`47f92854\` (5 new commits).
+- \`new Function\` V8 source syntax compilation **2/2 PASS** (full current
+  browser script and test source); this is a parser check, not a Node test run.
+- Actual functions extracted from the GitHub exact-head browser source exercised
+  with synthetic inputs in V8: **7/7 isolated checks PASS** for hidden selected
+  row clearing, safe draft retention, invalidated stale thread, ambiguous
+  send hold, draft preservation, recipient-row mismatch, and metadata mismatch.
+  Also executed the latest source \`composeState()\` on simulated controls;
+  both controls remained disabled and LINE OA warning was displayed.
+  **No LINE API/provider sends or Supabase writes.**
+- At exact pre-document SHA \`12e5b321089dde104112da5c994ee00ef3852c0a\`,
+  GitHub Actions checks were **3/3 FAIL, 0 runner steps, runner null**:
+  Ultra Deep \`38362586432\`, Vercel Source Contract \`38362586584\`,
+  Booking E2E \`38362586480\`. They do not establish Node code failures.
+  Included GitHub Actions usage alert earlier 2,032/2,000 with stated reset
+  2026-11-01; current billing stop flag is not independently readable.
+  No Actions rerun or extra paid usage was requested.
+- Vercel **0 Preview** at that SHA; Production alias remains READY deployment
+  \`dpl_7TYLb87ir9qNzXRtkeb49543dwVm\` on older \`main d6dc3bfe...\`.
+  This patch is NOT live. No deploy/merge/paid build.
+- Read-only Supabase 2026-10-13: 43 conversations and **zero**
+  \`linked_booking_id\` values; 23 incoming LINE images with **zero**
+  \`payload.line_message_id\` and **zero** storage.objects in the private
+  \`kk-inbox-media\` bucket. Existing historical bytes CANNOT be represented
+  as archived or recovered. Previous same-turn bucket/RPC readback:
+  \`public=false\`, max 8MiB, \`kk_inbox_media_metadata\` executable only
+  by service_role, not anonymous or ordinary authenticated roles.
+  LINE-only international customer identity policy is staged, not Production.
+
+### Important residual safety gates (not solved by UI-only controls)
+
+- **Backend durable idempotency across reloads/processes is still not proven.**
+  The client-side uncertain-send hold deliberately expires on page reload.
+  The server currently calls \`LineMessaging.pushText\` with a newly generated
+  retry key for each new send; until a tested provider receipt/atomic outbox
+  protocol exists, never treat "timeout" or "post-send persist failure" as safe
+  authorization to repeat a send. Require an explicit owner-reviewed receipt
+  and a verified E2E attempt, never automatically replay customer messages.
+- Need exact-head Node \`test:inbox:ship-gate\` and applicable booking/webhook
+  suites + Required CI actually allocated (>0 steps) and green, with $0 usage.
+- Need exact-head FREE Preview and authenticated Admin mobile/desktop real
+  UI QA (all relevant focus, polling, filtering, drafts, send ambiguity),
+  LINE owner-approved reply E2E, and **NEW consented legitimate incoming LINE
+  image** to prove signed webhook, private archival, owner read and wrong-room
+  denial; historical 23 image records are not currently recoverable.
+- Owner-confirmed exact \`conversation_id ↔ booking_id\` linkage is still
+  not implemented/proven. Never auto-link from similar names or phone numbers.
+  Blank phone for a verified international LINE customer is valid, not a ghost.
+- Verify overlap with separate Storefront Draft #711 booking prefill parser,
+  Apps Script pending writer and real source-of-truth readback before release.
+- Retain $0 top-up policy, existing booked-day locks, no-deposit lifecycle,
+  no new sends, no business data changes and owner signoff. **RELEASE HOLD.**
+
+### Operational cross-chat recovery
+
+1. Read [PR #700](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/700)
+   HEAD and this guide, plus Issues [#715](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/715),
+   [#707](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/707) and
+   [#692](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/692).
+2. Read exact current GitHub SHA **again** before edits; inspect both changed
+   files, source tests, and saved comments, then run only real zero-cost
+   acceptance when entitlement and Preview storage gates are actually clear.
+3. After all Required Checks, browser/media/reply/booking-link owner review,
+   merge/deploy only the reviewed SHA and verify Production/rollback SHA.
+   Otherwise remain Draft. Never claim full Inbox fix while 23 historic
+   images remain unarchived or booking links remain unverified.
