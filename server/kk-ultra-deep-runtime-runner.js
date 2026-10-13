@@ -138,7 +138,13 @@ function referenceScopeDecision(row={},context={}){
   if(path==='/'&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
  }catch(_){}
  if(REFERENCE_FOREIGN_RE.test(title)||/\.hk$/i.test((()=>{try{return new URL(text(row.source_url)).hostname}catch(_){return''}})())) return {eligible:false,reason:'OUTSIDE_BANGKOK_SCOPE'};
- if(!REFERENCE_EVENT_RE.test(title)&&!trustedEventPath(row.source_url)) return {eligible:false,reason:'EVENT_IDENTITY_NOT_STRONG_ENOUGH'};
+ // A brand pop-up with a named artist is a discovery lead, not a publish decision.
+ // Generic retail promotions stay excluded. Explicit Bangkok location and event date
+ // are required; the verifier still needs an independent primary-source receipt.
+ const artistAppearancePopup=/(pop[ -]?up|ป๊อปอัพ|ป็อปอัพ)/i.test(title) &&
+   /(?:phutatchai|ภูธัชชัย|พุฒิชัย|ศิลปิน|artist|appearance|with\\s+[a-z]{3,}|x\\s+[a-z]{3,})/i.test(title+' '+text(row.artists||row.artist)) &&
+   /(bangkok|กรุงเทพ|centralworld|centralw[oO]rld|เซ็นทรัลเวิลด์)/i.test([title,row.venue,row.location,context.location].map(text).join(' '));
+ if(!REFERENCE_EVENT_RE.test(title)&&!trustedEventPath(row.source_url)&&!artistAppearancePopup) return {eligible:false,reason:'EVENT_IDENTITY_NOT_STRONG_ENOUGH'};
  return {eligible:true,reason:'ELIGIBLE_REFERENCE'};
 }
 
