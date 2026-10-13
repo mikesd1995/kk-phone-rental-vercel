@@ -21,7 +21,15 @@ async function markUncertain(store,requestId,delivery){
 }
 async function sendOnce(input={},deps={}){
  const conversationId=text(input.conversationId),body=text(input.body),requestId=text(input.requestId);
+ const repeatOf=text(input.repeatOf),repeatReason=text(input.repeatReason);
  const conversation=input.conversation||{};
+ if(repeatOf){
+  if(!UUID.test(repeatOf)||repeatOf===requestId||input.repeatApproved!==true||
+     repeatReason.length<12||repeatReason.length>240)
+   return errorResponse('INBOX_INTENTIONAL_REPEAT_APPROVAL_REQUIRED',409);
+ }else if(repeatReason||input.repeatApproved===true){
+  return errorResponse('INBOX_INTENTIONAL_REPEAT_CONTEXT_INVALID',409);
+ }
  if(!UUID.test(requestId))return errorResponse('INBOX_SEND_REQUEST_ID_REQUIRED',400);
  if(!conversationId||text(conversation.conversation_id)!==conversationId||
     String(conversation.channel||'').toLowerCase()!=='line'||
@@ -39,7 +47,9 @@ async function sendOnce(input={},deps={}){
  catch(_){return errorResponse('INBOX_OUTBOUND_LEDGER_UNAVAILABLE',503)}
  // Must commit a single durable reservation BEFORE any provider traffic.
  let reservation;
- try{reservation=await deps.store.reserveOutbound(requestId,conversationId,digest);}
+ try{reservation=await deps.store.reserveOutbound(requestId,conversationId,digest,{
+  repeatOf:repeatOf||null,repeatReason
+ });}
  catch(_){return errorResponse('INBOX_OUTBOUND_LEDGER_UNAVAILABLE',503)}
  if(!reservation||reservation.allowed!==true)
    return errorResponse(reservation?.status==='REQUEST_CONFLICT'?'INBOX_OUTBOUND_REQUEST_CONFLICT':
