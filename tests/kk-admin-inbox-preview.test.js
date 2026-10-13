@@ -292,3 +292,40 @@ test('ambiguous LINE send outcome prevents another send in the same page session
  await ctx.sendMessage();
  assert.equal(calls.length,1,'never send a second LINE push while outcome is unknown');
 });
+
+test('unknown LINE send disables the composer until review instead of advertising retry',()=>{
+ const vm=require('node:vm'),js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const a=js.indexOf('function composeState(message){'),b=js.indexOf('\nfunction renderThreadHeader(',a);
+ assert.ok(a>0&&b>a);
+ const elements={
+  '#inboxComposeText':{disabled:false},
+  '#inboxSendBtn':{disabled:false},
+  '#inboxComposeStatus':{textContent:''}
+ };
+ const ctx={$:key=>elements[key]};
+ vm.runInNewContext(
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},outboundEnabled=true,sending=false;const uncertainSendRooms=new Set(['conv_A']);\n"+
+  js.slice(a,b)+"\nglobalThis.composeState=composeState;",ctx
+ );
+ ctx.composeState();
+ assert.equal(elements['#inboxComposeText'].disabled,true);
+ assert.equal(elements['#inboxSendBtn'].disabled,true);
+ assert.match(elements['#inboxComposeStatus'].textContent,/LINE OA/);
+});
+
+test('owner send refuses identity mismatch before any LINE request',async()=>{
+ const vm=require('node:vm'),js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const a=js.indexOf('async function sendMessage(){'),b=js.indexOf('\nfunction scheduleSearch(',a);
+ assert.ok(a>0&&b>a);
+ let calls=0;
+ const ctx={
+  $:()=>({value:'send to A'}),window:{confirm:()=>true},
+  api:async()=>{calls++},composeState:()=>{},loadList:async()=>{},loadThread:async()=>{}
+ };
+ vm.runInNewContext(
+  "let selected='conv_B',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();\n"+
+  js.slice(a,b)+"\nglobalThis.sendMessage=sendMessage;",ctx
+ );
+ await ctx.sendMessage();
+ assert.equal(calls,0);
+});
