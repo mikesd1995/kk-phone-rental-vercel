@@ -58,3 +58,28 @@ test('learned brand popup class adds artist/brand search terms without changing 
  assert.equal(result.authority.production_writes,0);
  assert.equal(result.authority.may_change_protected_policy,false);
 });
+
+test('independent reference recovery enters Verifier but an invited-guest pop-up cannot auto-publish',async()=>{
+ const Verifier=require('../server/kk-ultra-deep-candidate-verifier');
+ const row={title:'PAÑPURI LIMINAL CURRENTS HOLIDAY 2027 POP-UP',
+  artist:'PHUTATCHAI | THAI',event_date:'2026-10-21',
+  venue:'Beacon 3 centralwOrld Bangkok',source_url};
+ const scoped=scopeReferenceCandidates([row],context);
+ const recovered=recoverEligibleReferenceCandidates([],scoped);
+ assert.equal(recovered.recovered_count,1);
+ const html='<html><script type="application/ld+json">'+JSON.stringify({
+   '@type':'Event',name:row.title,startDate:'2026-10-21T16:00:00+07:00',
+   location:{'@type':'Place',name:'centralwOrld Beacon 3'},
+   image:'https://example.org/images/official-event-poster.jpg'
+  })+'</script>PHUTATCHAI | THAI invited guests only; fans outside designated area</html>';
+ const result=await Verifier.verifyBatch(recovered.candidates,context,{
+   fetchFn:async()=>({ok:true,status:200,headers:{get:()=>null},text:async()=>html})
+ });
+ assert.equal(result.input_count,1);
+ assert.equal(result.verified_count,0);
+ assert.equal(result.hold_count,1);
+ assert.equal(result.holds[0].artist_popup_lead,true);
+ assert.equal(result.holds[0].status,'HOLD_OWNER_ARTIST_POPUP_REVIEW');
+ assert.ok(result.holds[0].blockers.includes('ARTIST_POPUP_OWNER_ACCESS_PHOTO_POLICY_REVIEW_REQUIRED'));
+ assert.equal(result.production_writes,0);
+});
