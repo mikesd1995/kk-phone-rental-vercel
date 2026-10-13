@@ -72,3 +72,11 @@ Prepared in a feature branch for review. **Not deployed / not production-accepte
 
 ### Decision — blocked safely
 This work is not ready for merge. Maintain PR #725 as DRAFT/HOLD. Fix blocked CI/account runner first or use an explicitly approved equivalent zero-cost integrated test execution environment with real viewport screenshots and registered reviewer receipts. Upgrade product artwork, solve first-fold and breakpoint tradeoff, then request project acceptance and deploy only when gates are green. No external billing, GitHub permissions or business data changes were made during this follow-up.
+
+
+### Final incremental QA / handoff (additional)
+- Tested browser mock matrix `16 viewport widths × 2 TH/EN copy modes × 2 theme flags = 64 cases`, **64/64 pass** for (i) horizontal overflow <=1px, (ii) primary CTA target >=44px, (iii) CTA within viewport. This covers responsive shell only, **not production or live business flow**. Platform Playwright prevents localhost/file navigation; tests used `page.set_content` with embedded artwork (no network).
+- Detected intermediate 541px viewport orphan `กว่า`, verified in before/after screenshots and repaired by scoped CSS `@media (min-width:541px) and (max-width:700px)`. Verified at 541, 600 and 700px: no horizontal overflow; CTA 44px.
+- Final PR source patch: `assets/kk-hero-premium-20261013.css`, `tests/storefront-hero-premium-20261013.test.js`; new test provides deterministic tablet typography contract. `npm run test` is NOT claimed. Last visual QA job on exact tested branch revision [38403159266](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38403159266) failed in 3 seconds with no steps. This is not an acceptable green gate.
+- **Only local** 560×396 optimized artwork was prepared (`17,504 bytes`, SHA-256 `3e3e0087d27bc98795bb54e6e1368be650f80ae072423093411d948897f2ab58`). It was used for mock screenshots but NOT committed into the GitHub PR; GitHub still contains small 240×170 original. A high-resolution source remains available as uploaded conversation attachment if the next workspace can write binary artifacts.
+- Real app end-to-end, registered UX agents, GitHub runner repair and production acceptance remain blocked/not proven. Keep Draft HOLD; prevent undocumented merge/deploy. No price/inventory/booking changes.
