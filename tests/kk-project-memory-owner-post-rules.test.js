@@ -13,5 +13,7 @@ test('canonical project memory bootstraps with the owner X content rule',()=>{
   assert.match(rule.summary,/Agent/);
   assert.match(rule.summary,/✅ ว่าง/);
   assert.match(rule.summary,/❌ เต็ม/);
+  assert.match(rule.summary,/ONLY ✅ ว่าง or ❌ เต็ม/);
+  assert.doesNotMatch(rule.summary,/🚫 ปิด/);
   assert.match(rule.summary,/owner-facing copy/);
 });
