@@ -57,6 +57,22 @@ function createPostgrestStore(options={}){
   const row=Array.isArray(result)?result[0]:result;
   return {ok:true,duplicate:Boolean(row&&row.duplicate),writes:Number(row&&row.writes||0)};
  }
- return {VERSION,persistInbound,listConversations,listMessages,getMediaMetadata,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound};
+ async function reserveOutbound(requestId,conversationId,fingerprint){
+  // Fail closed if the additive service-role ledger migration is not applied.
+  const result=await rpc('kk_inbox_reserve_outbound',{
+   p_request_id:String(requestId||''),p_conversation_id:String(conversationId||''),
+   p_body_fingerprint:String(fingerprint||'')
+  },'INBOX_OUTBOUND_LEDGER_UNAVAILABLE');
+  return Array.isArray(result)?(result[0]||null):(result||null);
+ }
+ async function finishOutbound(requestId,status,providerMessageId='',providerRequestId=''){
+  const result=await rpc('kk_inbox_finish_outbound',{
+   p_request_id:String(requestId||''),p_status:String(status||''),
+   p_provider_message_id:String(providerMessageId||''),
+   p_provider_request_id:String(providerRequestId||'')
+  },'INBOX_OUTBOUND_FINISH_UNAVAILABLE');
+  return Array.isArray(result)?(result[0]||null):(result||null);
+ }
+ return {VERSION,persistInbound,listConversations,listMessages,getMediaMetadata,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound,reserveOutbound,finishOutbound};
 }
 module.exports={VERSION,createPostgrestStore};
