@@ -121,3 +121,26 @@ test('production poster audit remains zero-write and combines HTTP image check w
   assert.equal(urls.length,2,'one public CSV read and one read-only image GET only');
   assert.equal(process.exitCode,before,'silent acceptance does not change process exit code');
 });
+
+test('poster health probe rejects private, unsafe, and non-HTTPS targets before any GET',async()=>{
+ const blocked=['http://example.com/p.jpg','https://127.0.0.1/img.jpg','https://localhost/secret.png',
+ 'https://10.0.0.5/art.jpg','https://192.168.1.1/a.jpg','https://169.254.169.254/latest/meta-data/',
+ 'https://[::1]/a.jpg','file:///etc/passwd','javascript:alert(1)'];
+ let called=0;
+ for(const url of blocked){
+   assert.equal(Audit.publicImageUrl(url),false,url);
+   const outcome=await Audit.probe(url,async()=>{called++;throw Error('MUST_NOT_FETCH');});
+   assert.equal(outcome.error,'UNSAFE_IMAGE_URL');
+ }
+ assert.equal(called,0);
+ assert.equal(Audit.publicImageUrl('https://drive.google.com/thumbnail?id=12345'),true);
+});
+test('poster probe refuses redirect to private endpoint without requesting redirect target',async()=>{
+ let calls=[];
+ const out=await Audit.probe('https://images.example.com/start',async(url)=>{
+   calls.push(url);
+   return new Response(null,{status:302,headers:{location:'https://127.0.0.1/admin'}});
+ });
+ assert.equal(out.error,'UNSAFE_IMAGE_REDIRECT');
+ assert.deepEqual(calls,['https://images.example.com/start']);
+});
