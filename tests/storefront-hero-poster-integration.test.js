@@ -26,13 +26,20 @@ test('integrated stylesheet order retains live Hero and full poster containment'
   assert.match(hero,/background-image:url\('\/assets\/kk-hero-product-20261013\.webp'\)!important/);
 });
 
-test('poster pixel-success callback and exact-event profile disclaimer coexist',()=>{
+test('poster cached-pixel success and audited wrong-art fallback coexist',()=>{
   assert.match(script,/function imageHasPixels\(\)/);
   assert.match(script,/if\(imageHasPixels\(\) && typeof options\.onLoaded==="function"\)/);
   assert.match(script,/onLoaded:syncPosterTreatment,onExhausted:posterFailure/);
+  assert.match(script,/function isAuditedNonEventPoster\(eventId,url\)/);
   assert.match(script,/EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY/);
-  assert.match(script,/Temporary artist profile, not event poster:/);
-  assert.match(script,/ภาพศิลปินชั่วคราว ไม่ใช่โปสเตอร์งาน:/);
+  assert.match(script,/EVT-20261025-VVV-TORNADO-SHOPPING-XIAOMI/);
+  assert.match(script,/EVT-20261030-POPPAH4-HALLOWEEN-NAMP/);
+  assert.match(script,/var auditedNonEventPoster=isAuditedNonEventPoster\(c\.id,c\.rawPoster\|\|c\.img\)/);
+  assert.match(script,/if\(auditedNonEventPoster\|\|brandPlaceholder\)/);
+  assert.match(script,/card\.dataset\.posterSourceRejected=auditedNonEventPoster\?"wrong-event-art":"shop-placeholder"/);
+  assert.match(script,/imgWrap\.appendChild\(eventSummaryFallback\(\)\)/);
+  assert.doesNotMatch(script,/Temporary artist profile, not event poster:/);
+  assert.doesNotMatch(script,/ภาพศิลปินชั่วคราว ไม่ใช่โปสเตอร์งาน:/);
 });
 
 test('integrated visual evidence fails closed on crop and image failure without false positives',()=>{
