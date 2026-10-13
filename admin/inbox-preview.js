@@ -353,18 +353,23 @@ async function resetOwnerLabel(){
 }
 async function sendMessage(){
  if(sending||!selectedRow)return;
- const box=$('#inboxComposeText'),body=String(box?.value||'').trim();
- if(!body){composeState('กรอกข้อความก่อนส่ง');return}
+ const conversationId=String(selected||'');
+ const box=$('#inboxComposeText'),originalDraft=String(box?.value||''),body=originalDraft.trim();
+ if(!conversationId||!body){composeState('กรอกข้อความก่อนส่ง');return}
  if(!window.confirm('ยืนยันส่งข้อความนี้ถึงลูกค้าผ่าน LINE?'))return;
  sending=true;composeState('กำลังส่งผ่าน LINE…');
  try{
-  await api('inboxSendLineMessage',{conversation_id:selected,text:body,owner_approved:true});
-  if(box)box.value='';
-  composeState('ส่งสำเร็จและบันทึกใน Inbox แล้ว');
-  await loadThread(selected,selectedRow,{preserveScroll:false,markRead:true});
+  // Keep the approved recipient and draft stable while LINE is in flight.
+  await api('inboxSendLineMessage',{conversation_id:conversationId,text:body,owner_approved:true});
+  if(selected===conversationId){
+   if(box&&box.value===originalDraft)box.value='';
+   composeState('ส่งสำเร็จและบันทึกใน Inbox แล้ว');
+   await loadThread(conversationId,selectedRow,{preserveScroll:false,markRead:true});
+  }
   await loadList(false,{silent:true});
- }catch(e){composeState('ส่งไม่สำเร็จ: '+e.message)}
- finally{sending=false;composeState()}
+ }catch(e){
+  if(selected===conversationId)composeState('ส่งไม่สำเร็จ: '+e.message);
+ }finally{sending=false;composeState()}
 }
 function scheduleSearch(){
  clearTimeout(searchTimer);
