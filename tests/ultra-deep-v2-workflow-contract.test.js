@@ -39,3 +39,11 @@ test('October recall, owner lineage and V2 suites remain mandatory',()=>{
   assert.match(workflow,/run: node --test tests\/ultra-deep-v2-workflow-contract\.test\.js/);
   assert.match(workflow,/^\s+timeout-minutes: 10\s*$/m);
 });
+
+test('Backscan and shard script edits re-trigger exact-head checks without paid dependency installs',()=>{
+  assert.match(workflow,/'scripts\/kk-ultra-deep-\*\.js'/);
+  assert.match(workflow,/'tests\/kk-ultra-deep-\*\.test\.js'/);
+  assert.match(workflow,/'tests\/ultra-deep-v2-workflow-contract\.test\.js'/);
+  assert.doesNotMatch(workflow,/^\s+(?:-\s+)?run:\s*npm (?:ci|install|i)\b/m);
+  assert.doesNotMatch(workflow,/^\s+continue-on-error:\s*true\s*$/m);
+});
