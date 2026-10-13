@@ -123,6 +123,14 @@ begin
                        or v_match.body_fingerprint<>p_body_fingerprint
                    then 'REQUEST_CONFLICT' else 'ALREADY_RESERVED' end);
  end if;
+ -- An older unresolved send in the 30-day window takes precedence even
+ -- if a newer row somehow appears SENT. Never override ambiguous delivery.
+ if exists(select 1 from kk_private.inbox_outbound_attempts
+   where conversation_id=p_conversation_id and body_fingerprint=p_body_fingerprint
+   and created_at >= now()-interval '30 days'
+   and status in ('RESERVED','UNCERTAIN')) then
+   return jsonb_build_object('allowed',false,'status','UNRESOLVED_OUTBOUND_IN_WINDOW');
+ end if;
  select * into v_match from kk_private.inbox_outbound_attempts
  where conversation_id=p_conversation_id and body_fingerprint=p_body_fingerprint
    and created_at >= now()-interval '30 days'
@@ -153,3 +161,6 @@ grant execute on function public.kk_inbox_reserve_outbound(uuid,text,text,uuid,t
 drop function if exists public.kk_inbox_reserve_outbound(uuid,text,text);
 comment on function public.kk_inbox_reserve_outbound(uuid,text,text,uuid,text) is
  'Durable at-most-once LINE send; intentional repeats require latest verified SENT owner-reviewed proof and new click. Never retry uncertain.';
+
+-- The old 3-argument RPC was dropped; refresh PostgREST signature cache.
+notify pgrst, 'reload schema';
