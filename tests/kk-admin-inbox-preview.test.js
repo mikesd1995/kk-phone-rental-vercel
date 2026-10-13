@@ -42,3 +42,40 @@ test('admin Inbox has readable timestamps, non-text fallbacks and read-state cle
  assert.match(js,/shouldMarkRead=options\.markRead!==false/);
  assert.match(js,/clearUnreadBadge/);
 });
+
+test('older concurrent message fetch cannot overwrite newer thread data or show stale failures',async()=>{
+ const vm=require('node:vm');
+ const js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const start=js.indexOf('async function loadThread(id,row,options={}){');
+ const end=js.indexOf('\nasync function loadList(',start);
+ assert.ok(start>0 && end>start,'loadThread block is present');
+ const pending=[],rendered=[],messages=[];
+ const ctx={
+  api:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),
+  renderThreadHeader:()=>{},composeState:message=>messages.push(String(message||'')),
+  renderThread:rows=>{rendered.push(rows.map(row=>row.body_text).join('|'));return {wasNearBottom:true}},
+  markConversationRead:async()=>{},markRefreshed:()=>{},liveStatus:()=>{},
+  $:()=>({set innerHTML(v){messages.push(v)}}),esc:x=>String(x||'')
+ };
+ vm.runInNewContext(
+  "let selected='',selectedRow=null,outboundEnabled=false,threadRequestSeq=0;\n"+
+  js.slice(start,end)+"\nglobalThis.loadThread=loadThread;",ctx
+ );
+ const room={conversation_id:'conv_demo'};
+ const stale=ctx.loadThread('conv_demo',room,{markRead:false});
+ const newest=ctx.loadThread('conv_demo',room,{markRead:false});
+ assert.equal(pending.length,2);
+ pending[1].resolve({messages:[{body_text:'newest'}],outbound_enabled:true});
+ await newest;
+ pending[0].resolve({messages:[{body_text:'stale'}],outbound_enabled:true});
+ await stale;
+ assert.deepEqual(rendered,['newest'],'later HTTP response must be the only rendered thread');
+ const olderError=ctx.loadThread('conv_demo',room,{markRead:false});
+ const latest=ctx.loadThread('conv_demo',room,{markRead:false});
+ pending[3].resolve({messages:[{body_text:'latest'}],outbound_enabled:true});
+ await latest;
+ pending[2].reject(new Error('outdated network error'));
+ await olderError;
+ assert.deepEqual(rendered,['newest','latest']);
+ assert.equal(messages.some(m=>m.includes('outdated network error')),false);
+});
