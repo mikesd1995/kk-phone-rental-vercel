@@ -55,6 +55,8 @@ test('both workflow acceptance modes select exact dedicated regression entrypoin
   const u=Gate.entriesFor(root,'ultradeep'),s=Gate.entriesFor(root,'storage');
   assert.ok(u.includes('tests/a.test.js'));
   assert.ok(u.includes('tests/kk-ultra-deep-full-loop-v2.test.js'));
+  assert.ok(u.includes('tests/ultra-deep-v2-workflow-contract.test.js'));
+  assert.ok(!s.includes('tests/ultra-deep-v2-workflow-contract.test.js'));
   assert.ok(s.includes('tests/vercel-deployment-footprint.test.js'));
   assert.ok(s.includes('tests/siam-halloween-original-asset.test.js'));
  });
