@@ -3,7 +3,7 @@
 const crypto=require('node:crypto');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V3';
+const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V4';
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=6;
 
@@ -12,6 +12,8 @@ const HIGH_FIT_SIGNAL=/(fan\s*-?\s*meet(?:ing)?|fanmeet|fancon|fansign|showcase|
 const CONCERT_SIGNAL=/(concert|world\s+tour|live\s+in|live\s+tour|คอนเสิร์ต)/i;
 const MID_FIT_SIGNAL=/(festival|awards?|premiere|เฟสติวัล|เทศกาลดนตรี|งานรางวัล|รอบปฐมทัศน์)/i;
 const LOW_FIT_SIGNAL=/(pool\s+party|exhibition|expo|trade\s+show|workshop|webinar|orchestra|symphony|conference|oktoberfest|codes?\b|roblox|นิทรรศการ|เวิร์กช็อป|สัมมนา)/i;
+const ARTIST_POPUP_SIGNAL=/(?:\bpop[\s-]?up\b|ป๊อปอัพ|ป็อปอัพ|ป๊อปอัป)/i;
+const ARTIST_APPEARANCE_SIGNAL=/(?:\bwith\s+[a-z][a-z0-9_-]{2,}|\b(?:x|feat\.?|featuring)\s+[a-z][a-z0-9_-]{2,}|(?:พบกับ|ศิลปิน)\s*[\u0e00-\u0e7f]{3,}|artist\s+appearance)/i;
 const GENERIC_TITLE=/^(home|homepage|google|ticketmaster|events?|concerts?\s+in\s+bangkok|bangkok\s+concerts?|thailand\s+events?)\b/i;
 const AGGREGATED_RESULT_SIGNAL=/(facebook\b.*(?:on\s+x|twitter)|(?:on\s+x|twitter)\b.*facebook|bangkok\s+post|youtube|google\s+search|search\s+results?|teetee\s+philippines\s+on\s+x)/i;
 const SOCIAL_OR_SEARCH_HOST=/(^|\.)(facebook\.com|x\.com|twitter\.com|instagram\.com|youtube\.com|youtu\.be|google\.com|bing\.com|duckduckgo\.com)$/i;
@@ -73,6 +75,23 @@ function titleQuality(title=''){
  if((value.match(/\|/g)||[]).length>=2)reasons.push('AGGREGATED_SEARCH_RESULT_TITLE');
  return {ok:reasons.length===0,reasons:[...new Set(reasons)]};
 }
+
+function namedPopupArtists(row={}){
+ const raw=[row.artist,row.artists].filter(Boolean).flatMap(x=>Array.isArray(x)?x:[x]);
+ return [...new Set(raw.flatMap(x=>text(x).split(/\s*\|\s*|,\s*/)).map(text)
+  .filter(x=>x.length>=3&&!/^(artist|unknown|none|n\/a|tbd|ศิลปิน)$/i.test(x)))];
+}
+function artistPopupLead(row={},title=text(row.title||row.event_name)){
+ return ARTIST_POPUP_SIGNAL.test(title)&&
+  (namedPopupArtists(row).length>0||ARTIST_APPEARANCE_SIGNAL.test(title));
+}
+function sourceConfirmsPopupArtist(body='',candidate={}){
+ const page=text(body).slice(0,800000).toLowerCase();
+ const artists=namedPopupArtists(candidate);
+ return artists.length?artists.some(a=>page.includes(a.toLowerCase())):
+  ARTIST_APPEARANCE_SIGNAL.test(page)&&ARTIST_POPUP_SIGNAL.test(page);
+}
+
 function authoritativeEventSource(url='',picked=null,verified={}){
  const h=host(url);const trustedDetail=TRUSTED_EVENT_HOSTS.has(h)&&eventSpecificUrl(url);
  const socialOrSearch=SOCIAL_OR_SEARCH_HOST.test(h);
@@ -83,15 +102,18 @@ function prefilter(candidate={},month=''){
  const title=text(candidate.title);
  const date=isoDate(candidate.event_date);
  const url=https(candidate.source_url);
+ const popupLead=artistPopupLead(candidate,title);
  const reasons=[];
  if(!url)reasons.push('HTTPS_SOURCE_REQUIRED');
- if(!date)reasons.push('EVENT_DATE_REQUIRED');
- else if(month&&!monthMatches(date,month))reasons.push('OUTSIDE_TARGET_MONTH');
+ // A popup lead may lack a date in the search snippet: fetch first-party
+ // evidence but require a source-backed date before verification/publishing.
+ if(!date&&!popupLead)reasons.push('EVENT_DATE_REQUIRED');
+ else if(date&&month&&!monthMatches(date,month))reasons.push('OUTSIDE_TARGET_MONTH');
  const quality=titleQuality(title);reasons.push(...quality.reasons);
  if(LOW_FIT_SIGNAL.test(title))reasons.push('NON_RENTAL_EVENT_SIGNAL');
- const explicit=EVENT_SIGNAL.test(title);
- if(!explicit&&!eventSpecificUrl(url))reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
- return {eligible:reasons.length===0,reasons,event_date:date,event_specific_url:eventSpecificUrl(url)};
+ if(!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url)&&!popupLead)
+  reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
+ return {eligible:reasons.length===0,reasons,event_date:date,event_specific_url:eventSpecificUrl(url),artist_popup_lead:popupLead};
 }
 function flattenJsonLd(value,out=[]){
  if(Array.isArray(value)){for(const x of value)flattenJsonLd(x,out);return out;}
