@@ -62,7 +62,11 @@ function linkedToCore(row={},core={},surface=''){
  const notes=[row.Notes,row.notes,row['Notes'],row['Show ID'],row['Miss ID']].map(text).join(' ');
  if(notes.includes(id)){
   const suppliedDate=isoDate(row.event_date||row.event_date_text||row['Suspected Event Date']||row['วันที่งานจัด']||row['Event Date']);
-  return !suppliedDate||suppliedDate===isoDate(core.event_date);
+  const suppliedName=normalize(row.event_name||row['Event Name / Keyword']||row['ชื่องาน']||row['Event Name']);
+  const suppliedVenue=normalize(row.venue||row['Suspected Venue']||row['สถานที่จัดงาน']||row['Venue']);
+  return (!suppliedDate||suppliedDate===isoDate(core.event_date))&&
+   (!suppliedName||suppliedName===normalize(core.event_name))&&
+   (!suppliedVenue||suppliedVenue===normalize(core.venue));
  }
  return eventIdentity(row)===eventIdentity(core) &&
   nameDate(row).split('|')[0].length>=7&&nameDate(row).split('|')[1]!=='';
@@ -154,6 +158,12 @@ function prepare(input={}){
    };
    const missing=Object.keys(grouped).filter(k=>grouped[k].length===0);
    for(const [k,rows] of Object.entries(grouped))if(rows.length>1)blockers.push('DUPLICATE_'+k.toUpperCase());
+   for(const [k,rows] of Object.entries({
+    tracker_candidates:input.tracker_candidates,tracker_monthly:input.tracker_monthly,miss_learning:input.miss_learning
+   })){
+    if(rows.some(row=>[row.Notes,row.notes,row['Miss ID']].map(text).join(' ').includes(id)&&!linkedToCore(row,core)))
+     blockers.push('EXPLICIT_CORE_ID_CONFLICT_'+k.toUpperCase());
+   }
    for(const [k,rows] of Object.entries({
     tracker_candidates:input.tracker_candidates,tracker_monthly:input.tracker_monthly,miss_learning:input.miss_learning
    })){
