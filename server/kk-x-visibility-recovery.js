@@ -22,7 +22,6 @@ function assess(input={},slots=[],context=E.inputGate(input)){
   // When any active record has no reliable timestamp, don't silently assume no prior posts.
   if(active.some(row=>!E.operatingDay(row.date)))errors.push('ACTIVE_POST_LOG_TIME_UNVERIFIED');
   const daily=active.filter(row=>E.operatingDay(row.date)===context.operating_day);
-  const activeTimes=daily.map(row=>Date.parse(text(row.date))||null).filter(Number.isFinite);
   // Thai dd/mm/yyyy HH:mm timestamps are also supported by eligibility's date parser,
   // so derive those without trusting the host's locale-dependent Date.parse.
   const normalizedTimes=daily.map(row=>{
