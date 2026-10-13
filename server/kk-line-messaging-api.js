@@ -1,9 +1,9 @@
 'use strict';
-const crypto=require('node:crypto');
 
 const PROFILE_URL='https://api.line.me/v2/bot/profile/';
 const PUSH_URL='https://api.line.me/v2/bot/message/push';
-const VERSION='KK_LINE_MESSAGING_API_V1';
+const VERSION='KK_LINE_MESSAGING_API_V2_EXPLICIT_RETRY_KEY';
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function required(value,name){
   const s=String(value||'').trim();
@@ -36,7 +36,9 @@ async function pushText(input={},options={}){
   if(!text) throw Object.assign(new Error('LINE message text required'),{code:'LINE_TEXT_REQUIRED'});
   const token=required(options.token||process.env.LINE_CHANNEL_ACCESS_TOKEN,'LINE channel access token');
   const fetchImpl=options.fetchImpl||fetch;
-  const retryKey=safeText(options.retryKey||crypto.randomUUID(),80);
+  // A caller must supply an already durable retry key; never mint one here.
+  const retryKey=safeText(options.retryKey,80);
+  if(!UUID.test(retryKey))throw Object.assign(new Error('Pre-reserved LINE retry key required'),{code:'LINE_RETRY_KEY_REQUIRED'});
   const r=await fetchImpl(PUSH_URL,{
     method:'POST',
     headers:{
