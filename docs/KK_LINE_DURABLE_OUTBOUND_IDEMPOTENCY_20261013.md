@@ -165,3 +165,30 @@ Use this document alongside [PR #700](https://github.com/mikesd1995/kk-phone-ren
 [CI #707](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/707),
 [Vercel Hobby #692](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/692).
 No production writes or paid services were authorized by creating this Draft.
+
+## 2026-10-13 exact-head second-pass acceptance — source hardening
+
+**This checkpoint is Draft-only. Production and the private Supabase schema remain unchanged.**
+
+### Confirmed implementation risks closed in source
+
+1. `server/kk-line-messaging-api.js` no longer creates a fresh random retry UUID when the caller does not provide one. A syntactically valid explicitly supplied pre-reserved retry UUID is mandatory, otherwise `LINE_RETRY_KEY_REQUIRED` before provider traffic. GitHub code search for `pushText` in the repo found the messaging module, Admin route, and its tests as callers. The Admin route obtains the UUID from the committed private reservation RPC. A valid-looking UUID alone is *not* evidence of an existing ledger row; only the orchestrator-plus-RPC authorizes sending.
+2. `server/kk-inbox-outbound-delivery.js` now requires an unambiguous persistence result (`ok:true`, `duplicate!==true`, numeric `writes===1`). An HTTP 200 with missing/null RPC output, writes=0, a duplicate flag, or a malformed count is not proof an outbound Inbox record exists. This is treated as `INBOX_OUTBOUND_PERSIST_UNCERTAIN` and the request remains reserved/uncertain, with **no new provider push**. The accepted provider receipt is never discarded as if it were a confirmed failure.
+3. `admin/inbox-preview.js` now distinguishes a completed send with exact server receipt from later thread/list refresh failures. Those display failures cannot turn an already verified send into an unconfirmed send; conversely a malformed or wrong-conversation server receipt remains uncertain. Warning text explicitly prohibits blind retries or assuming page reload authorizes another send.
+
+### Verified source-derived test coverage (not native Node)
+
+- `tests/kk-inbox-outbound-delivery.test.js`: 13 original Node test definitions, including new bad/missing/duplicate receipt cases.
+- `tests/kk-line-messaging-api.test.js`: 7 original definitions, including absent/malformed retry UUID with zero provider calls.
+- `tests/kk-admin-inbox-preview.test.js`: 16 original UI regression definitions, including success-receipt/refresh-failure separation and wrong-conversation receipt hold.
+- The **actual current source's original Backend/LINE test bodies** were executed in isolated tool-local V8 with synthetic Node-compatible `crypto`, `fs`, `path`, and `node:test` shims: **20/20 passed**, zero provider/network/database calls.
+- The **actual current source's original UI test bodies** were executed in isolated V8 with synthetic `vm.runInNewContext`, DOM and API fixtures: **16/16 passed**.
+- IMPORTANT: these are emulations with synthetic crypto and fake APIs. **Not native Node, not real PostgreSQL advisory locks, not actual required CI, not a browser and not signed LINE E2E**. Two later wording-only changes preserve asserted keywords but still require final exact-SHA native run.
+- The source ship-gate still lists both Backend/LINE suites and the existing Inbox UI suite, but GitHub runners are unavailable.
+
+### Verified remaining gates
+
+- Read-only Supabase on the current workstream found `kk_private.inbox_outbound_attempts` and `kk_inbox_reserve_outbound` / `kk_inbox_finish_outbound` **absent**. They are intentionally staged as migration source only, not installed on Production.
+- Production main still uses older SHA `d6dc3bfe4cc0c4dd6fdfec407823752da0572464`, not this Draft. No actual LINE outbound was initiated. No Booking, customer, price, inventory, visibility or storage data was modified. No paid features or credits.
+- Production acceptance still requires: truly free isolated PostgreSQL TEST migration and two-concurrent-writer proof; verified RLS/service_role-only permissions; real native Node Inbox ship-gate and GitHub Required Checks with allocated runner logs; exact HEAD Vercel Free Preview and mobile/desktop Admin QA; consented test LINE OA E2E; explicit owner signoff; safe rollback and exact Production SHA readback.
+- **Unresolved intentional-repeat policy:** matching text to the same customer with different request IDs is blocked for 30 days. This protects uncertain retries but also blocks legitimate repetitions. A separate owner-reviewed ledger-status/reconciliation and explicit new-send policy must be accepted before releasing this behavior; do not silently reduce the deduplication window or bypass the ledger.
