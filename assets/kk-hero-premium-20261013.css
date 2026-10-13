@@ -190,3 +190,46 @@ html .kk-mock-hero .kk-hero-art::after{
     letter-spacing:-.035em!important;
   }
 }
+
+
+/* Compact mobile hero — 2026-10-13 visual QA P1 fix.
+   Registered exact-HEAD reviewer found HERO_DOMINATES_MOBILE at 390,430,480.
+   The previous 376-540 stacked panel pushed first event below the fold.
+   Use a narrow product showcase alongside smaller balanced live copy instead.
+   Preserve TH/EN DOM text, keyboard links and 44px touch target. */
+@media (min-width:376px) and (max-width:540px){
+  html .kk-mock-hero{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(112px,.56fr)!important;
+    align-items:center!important;
+    gap:10px!important;
+    padding:17px!important;
+    min-height:0!important;
+  }
+  html .kk-mock-hero h1{
+    font-size:clamp(25px,5.8vw,31px)!important;
+    line-height:1.13!important;
+    letter-spacing:-.035em!important;
+  }
+  html .kk-mock-hero h1 em{
+    font-size:.79em!important;
+    letter-spacing:-.03em!important;
+    text-wrap:balance!important;
+  }
+  html .kk-mock-hero .kk-hero-art{
+    display:block!important;
+    min-width:0!important;
+    width:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+    height:auto!important;
+    aspect-ratio:.75!important;
+    background-position:53% center!important;
+    background-size:auto 100%!important;
+    border-radius:14px!important;
+  }
+  html .kk-mock-hero .v3-eyebrow{font-size:10px!important;margin-bottom:10px!important}
+  html .kk-mock-hero .v3-hero-actions{margin-top:16px!important}
+  html .kk-mock-hero .v3-primary{min-height:44px!important}
+  html .kk-mock-hero .v3-secondary{display:none!important}
+}

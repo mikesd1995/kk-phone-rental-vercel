@@ -10,7 +10,7 @@ const art = fs.readFileSync(path.join(root,'assets/kk-hero-product-20261013.webp
 
 test('premium hero stylesheet is loaded after the storefront authoritative CSS exactly once',()=>{
   const old = html.indexOf('/assets/kk-storefront-v5.css?v=');
-  const next = html.indexOf('/assets/kk-hero-premium-20261013.css?v=20261013-hero-premium-a1');
+  const next = html.indexOf('/assets/kk-hero-premium-20261013.css?v=20261013-hero-premium-a2');
   assert.ok(old > 0 && next > old);
   assert.equal(html.split('kk-hero-premium-20261013.css').length-1,1);
 });
@@ -41,7 +41,7 @@ test('mobile viewport accommodations and 44px hit-target floor stay enabled',()=
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
 });
 
-test('mobile 376–540 keeps full-width Thai text and standalone product artwork',()=>{
+test('mobile 376–540 legacy stacked fallback remains intact underneath compact override',()=>{
   const mobile = css.slice(css.indexOf('Mobile typography fix — 2026-10-13'));
   assert.ok(mobile.length>500,'scoped mobile override must exist');
   assert.match(mobile,/@media \(min-width:376px\) and \(max-width:540px\)/);
@@ -57,4 +57,15 @@ test('tablet 541–700 prevents the headline orphan while retaining split artwor
   assert.match(tablet,/@media \(min-width:541px\) and \(max-width:700px\)/);
   assert.match(tablet,/font-size:clamp\(27px,5vw,33px\)!important/);
   assert.match(tablet,/font-size:\.81em!important/);
+});
+
+test('visual QA mobile P1 correction keeps first-fold Hero compact and live two-column',()=>{
+ const finish=css.slice(css.indexOf('Compact mobile hero — 2026-10-13 visual QA P1 fix.'));
+ assert.ok(finish.length>800,'compact override must be appended last');
+ assert.match(finish,/@media \(min-width:376px\) and \(max-width:540px\)/);
+ assert.match(finish,/grid-template-columns:minmax\(0,1fr\) minmax\(112px,\.56fr\)!important/);
+ assert.match(finish,/font-size:\.79em!important/);
+ assert.match(finish,/aspect-ratio:\.75!important/);
+ assert.match(finish,/min-height:44px!important/);
+ assert.match(finish,/background-size:auto 100%!important/);
 });
