@@ -187,7 +187,7 @@ For direct rental posts:
 - Do not repeat the brand line at the bottom.
 - Brand/header appears **once only**. Do not name "KK" or the shop again in the body or hook.
 - Device model must be visible only in the verified offer/price line. Never repeat it in story paragraphs or CTA.
-- For every day the event is scheduled, show the correct compact booking state: `14 ต.ค. ✅ ว่าง`, `15 ต.ค. ❌ เต็ม`, or `16 ต.ค. 🚫 ปิด`. Verified full/closed days are included, but zero remaining inventory counts or scarcity claims.
+- For every day the event is scheduled, show **only** `14 ต.ค. ✅ ว่าง` or `15 ต.ค. ❌ เต็ม`. Verified shop-closed/hidden/owner-locked dates also display `❌ เต็ม` in customer-facing X copy. Preserve true internal booking/visibility states and explain nothing about closure in the public status block. Never infer a state from missing rows, and never show counts or scarcity claims.
 - Use a different, verifiable artist/fandom/format-specific angle for each post. Repeating generic hook/closing skeletons is unacceptable.
 - Reject all commercial X content without verified `event_dates`, `event_dates_verified`, `day_statuses` and `day_statuses_verified`. The actual validator is `server/kk-x-owner-copy-policy.js`.
 - The owner rules source is `docs/X_POST_OWNER_COPY_RULES_2026-10-12.md`. If a ChatGPT request has no persistent PASS bridge invocation, say so and do not imply Agent/learning/Hugging Face scoring was used. Learning means actual performance evidence, not autonomous retraining.
