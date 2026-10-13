@@ -99,9 +99,11 @@ test('LE7EL temporary artist profile is clearly labeled only for audited exact e
  const thai=renderFixture([card]);
  assert.equal(thai.card.dataset.posterStatus,'temporary');
  assert.equal(find(thai.card,'poster-temporary-brand-label').textContent,'ภาพประกอบชั่วคราว');
+ assert.match(thai.card.children[0].children.find(child=>child.tag==='img').alt,/^ภาพศิลปินชั่วคราว ไม่ใช่โปสเตอร์งาน:/);
  thai.card.onclick();assert.equal(thai.shown(),card,'poster label must not affect actual event booking identity');
  const english=renderFixture([card],'en');
  assert.equal(find(english.card,'poster-temporary-brand-label').textContent,'TEMPORARY IMAGE');
+ assert.match(english.card.children[0].children.find(child=>child.tag==='img').alt,/^Temporary artist profile, not event poster:/);
  const otherEvent=renderFixture([{...card,id:'EVT-OTHER'}]);
  assert.equal(otherEvent.card.dataset.posterStatus,undefined,'photo URL alone must not label another event');
  const correctedSource=renderFixture([{...card,img:'https://official.example/le7el-oct15.jpg',
