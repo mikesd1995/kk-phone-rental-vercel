@@ -186,7 +186,7 @@ test('drafts are separated by conversation and restored only when returning to t
  assert.ok(start>0&&end>start);
  const input={value:'unsent draft A'},ctx={$:()=>input};
  vm.runInNewContext(
-  "let selected='conv_A';const inboxDrafts=Object.create(null);\n"+
+  "let selected='conv_A';const inboxDrafts=Object.create(null);let pendingIntentionalRepeat=null,outboundSelected=null,outboundReviewRows=[],outboundReviewSeq=0;\n"+
   js.slice(start,end)+"\nglobalThis.prepare=prepareComposerForThread;globalThis.setRoom=id=>{selected=id};",ctx
  );
  ctx.prepare('conv_B');ctx.setRoom('conv_B');
@@ -242,7 +242,7 @@ test('filtering out a selected room disables reply and clears customer draft fro
   liveStatus:()=>{},showError:()=>{}
  };
  vm.runInNewContext(
-  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},threadRequestSeq=0,listRequestSeq=0,outboundEnabled=false;const inboxDrafts=Object.create(null);\n"+
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},threadRequestSeq=0,listRequestSeq=0,outboundEnabled=false;const inboxDrafts=Object.create(null);let pendingIntentionalRepeat=null,outboundSelected=null,outboundReviewRows=[],outboundReviewSeq=0;\n"+
   js.slice(a,c)+
   "\nglobalThis.loadList=loadList;globalThis.get=()=>({selected,selectedRow,version:threadRequestSeq,saved:inboxDrafts.conv_A});",ctx
  );
