@@ -95,7 +95,7 @@ function composeState(message){
  const canSend=exactRoom&&String(selectedRow.channel||'').toLowerCase()==='line'&&outboundEnabled&&!sending&&!uncertain;
  if(box)box.disabled=!canSend;
  if(btn)btn.disabled=!canSend;
- if(status)status.textContent=uncertain?'สถานะส่ง LINE ยังไม่ยืนยัน · ตรวจแชท LINE OA และหลักฐานก่อนรีโหลดเพื่อส่งอีกครั้ง':message||(canSend?'พร้อมส่งผ่าน LINE · ต้องยืนยันทุกครั้งก่อนส่ง':(selectedRow&&String(selectedRow.channel||'').toLowerCase()!=='line'?'ยังไม่เปิดส่งสำหรับช่องทางนี้':'เลือกแชท LINE เพื่อเริ่มตอบลูกค้า'));
+ if(status)status.textContent=uncertain?'สถานะส่ง LINE ยังไม่ยืนยัน · ตรวจ LINE OA และหลักฐานในระบบก่อนพิจารณาส่งใหม่ ห้ามกดส่งซ้ำโดยไม่ตรวจสอบ':message||(canSend?'พร้อมส่งผ่าน LINE · ต้องยืนยันทุกครั้งก่อนส่ง':(selectedRow&&String(selectedRow.channel||'').toLowerCase()!=='line'?'ยังไม่เปิดส่งสำหรับช่องทางนี้':'เลือกแชท LINE เพื่อเริ่มตอบลูกค้า'));
 }
 function renderThreadHeader(){
  const title=$('#inboxThreadTitle'),meta=$('#inboxThreadMeta'),rename=$('#inboxRenameBtn');
@@ -411,7 +411,7 @@ async function sendMessage(){
   if(!providerAccepted){
    // Timeout or lost persistence receipt may mean customer already received it.
    uncertainSendRooms.add(conversationId);
-   outcomeStatus='สถานะส่งไม่ยืนยัน · ตรวจ LINE OA ก่อนลองส่งซ้ำ';
+   outcomeStatus='สถานะส่งไม่ยืนยัน · ตรวจ LINE OA และหลักฐานการส่งก่อนดำเนินการต่อ';
   }else{
    // A thread refresh failure AFTER an exact delivery receipt is not a send failure.
    outcomeStatus='ส่ง LINE และบันทึกสำเร็จแล้ว · โหลดแชทล่าสุดไม่สำเร็จ';
