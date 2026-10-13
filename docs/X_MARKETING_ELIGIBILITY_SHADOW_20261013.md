@@ -70,3 +70,9 @@ To classify actual shadowban, perform the following **from a genuinely separate 
 - [ ] Confirm no repository quota, required-check, or Production safety gate is bypassed. Leave this PR **DRAFT**, do not merge/deploy without passing acceptance and owner approval.
 
 **Disposition:** SAFETY_CODE_DRAFTED / CI_UNVERIFIED / X_ENFORCEMENT_UNVERIFIED / PRODUCTION_UNCHANGED.
+
+
+### Read-only smoke evidence added this session
+- Re-fetched the **committed branch sources** for `kk-x-posting-eligibility.js`, `kk-x-visibility-recovery.js`, and `kk-x-posting-plan.js` and executed their functions in an in-memory V8 harness with a *stubbed* Marketing Agent. No external data or production mutations.
+- Seven scenarios **PASS (7/7, FAIL 0)**: (1) account-wide 2/day recommendation cap, (2) previous two cross-event posts block, (3) 90-minute cross-event spacing, (4) midnight to previous operating day mapping, (5) invalid active timestamp fails closed, (6) historical or superseded entries excluded, (7) stale readback refuses recommendations.
+- This is **targeted V8 smoke, NOT exact-head `node --test`, a genuine Marketing Agent end-to-end test, GitHub CI or Production acceptance**. Node/CI gates above remain unchecked.
