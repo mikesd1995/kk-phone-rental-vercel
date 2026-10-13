@@ -38,3 +38,11 @@ No merge, deploy, paid API, automatic publication or production writes. producti
 - Branch-only learning change `server/kk-ultra-deep-v2-learning-agent.js` commit `6966a2475821311b24cbf1ec07b471d3d3f682fb`: new `BRAND_POPUP_ARTIST_APPEARANCE_GAP` class and artist/brand pop-up expansion queries. Does not change protected scoring or production authority.
 - These are source edits, NOT verified passing tests. No live October scan, source verification, provider receipts, candidate pool/backend readback, CI or deployment acceptance has been performed at this checkpoint. G1–G5 remain HOLD. Avoid claiming complete coverage.
 - Follow-up: execute Node tests on isolated branch, run independent October provider sweep and compare event IDs with backend in read-only mode, classify missed-event receipts, then seek owner acceptance before any merge/deploy.
+
+## Follow-up verification — 2026-10-13
+- Public-web targeted lookup for exact `PAÑPURI LIMINAL CURRENTS HOLIDAY 2027 PHUTATCHAI THAI 21 October 2026` did **not** surface an independently attributable official announcement. The brand's boutique page (https://panpuri.com/th/about/our-stores/discover-our-stores/central-world/) confirms PAÑPURI operates at centralwOrld, but it describes a *different second-floor boutique*, NOT the poster's first-floor Beacon 3 event. Do not conflate these.
+- centralwOrld public What's On (https://www.centralworld.co.th/blog) did not show the exact event in retrieved listing. Absence from indexed pages is not proof of event nonexistence.
+- User-provided schedule poster remains the only event-specific evidence checked in this pass. Official first-publication timestamp and organizer authorization remain unresolved.
+- Follow-up source patch commit `55fdee67cf8ab4602dd3a2fa10ecfc2387f305ed` corrected a bug in prior patch: no longer uses scanner's context.location as proof of the candidate venue. Explicit candidate venue/location is required; popup artist regex corrected.
+- Draft PR #720: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/720 . No merge.
+- Execution limitation: GitHub connector can read/write source, but this session has no GitHub checkout/network access in the local container; Node tests and full runtime provider scan cannot be claimed executed. CI and live data readback remain HOLD. Do not upgrade G1–G5 status.
