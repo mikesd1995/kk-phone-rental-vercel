@@ -116,11 +116,11 @@ function trustedEventPath(value){
   const u=new URL(text(value));
   const host=u.hostname.toLowerCase();
   const path=u.pathname.toLowerCase();
-  if(host.endsWith('eventpop.me')) return /^\/e\//.test(path);
-  if(host.endsWith('thaiticketmajor.com')) return /^\/(concert|performance|event)\//.test(path);
-  if(host.endsWith('ticketmelon.com')) return path.split('/').filter(Boolean).length>=2;
-  if(host.endsWith('livenationtero.co.th')) return /^\/show\//.test(path)||/^\/[^/]*event\//.test(path)||path.includes('/event/');
-  if(host.endsWith('songkick.com')) return path.includes('/concerts/');
+  if(host==='eventpop.me'||host.endsWith('.eventpop.me')) return /^\/e\//.test(path);
+  if(host==='thaiticketmajor.com'||host.endsWith('.thaiticketmajor.com')) return /^\/(concert|performance|event)\//.test(path);
+  if(host==='ticketmelon.com'||host.endsWith('.ticketmelon.com')) return path.split('/').filter(Boolean).length>=2;
+  if(host==='livenationtero.co.th'||host.endsWith('.livenationtero.co.th')) return /^\/show\//.test(path)||/^\/[^/]*event\//.test(path)||path.includes('/event/');
+  if(host==='songkick.com'||host.endsWith('.songkick.com')) return path.includes('/concerts/');
   return false;
  }catch(_){return false;}
 }
@@ -160,7 +160,7 @@ function referenceScopeDecision(row={},context={}){
   const u=new URL(text(row.source_url));
   const host=u.hostname.toLowerCase();
   const path=(u.pathname||'/').toLowerCase();
-  if(host.endsWith('eventpop.me')&&/^\/g(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
+  if((host==='eventpop.me'||host.endsWith('.eventpop.me'))&&/^\/g(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
   if(/\/(search|category|categories)(?:\/|$)/.test(path)) return {eligible:false,reason:'GENERIC_REFERENCE_PAGE'};
  }catch(_){}
  try{
