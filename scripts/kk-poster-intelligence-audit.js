@@ -1,7 +1,7 @@
 'use strict';
 // Manual, zero-cost, read-only audit. Never updates a Sheet, PR, or event.
 const fs=require('node:fs');
-const {audit}=require('../server/kk-poster-intelligence.js');
+const {audit,date,urlRisk}=require('../server/kk-poster-intelligence.js');
 const {objects,parseCsv,probe,pool}=require('./audit-storefront-posters.js');
 const FEED='https://kk-phone-rental.vercel.app/api/kk-data?sheet=08_Web_Ready&range=A4%3AK';
 function parseArgs(argv){
@@ -46,9 +46,13 @@ async function run(argv=process.argv.slice(2),deps={}){
  const rows=await loadRows(args,deps.fetchImpl||global.fetch);
  const observations=args['observations-file']?readArray(args['observations-file'],'OBSERVATIONS'):[];
  if(args.probe){
-  const scoped=rows.filter(r=>['show','show_full'].includes(String(r.action_for_web||'').trim().toLowerCase())&&
-   (!args['as-of']||String(r.event_date_text||'').trim()));
-  const sources=[...new Set(scoped.map(r=>String(r.poster_image_url||'').trim()).filter(u=>u&&(/^https:\/\//i.test(u)||u.startsWith('/'))))];
+  const cutoff=args['as-of']||bangkokDate(deps.now||new Date());
+  const scoped=rows.filter(r=>{
+   if(!['show','show_full'].includes(String(r.action_for_web||'').trim().toLowerCase()))return false;
+   const eventDay=date(r.event_date_text||r.event_date||r.date);
+   return !eventDay||eventDay>=cutoff;
+  });
+  const sources=[...new Set(scoped.map(r=>String(r.poster_image_url||'').trim()).filter(u=>u&&!urlRisk(u)))];
   const results=await pool(sources,u=>probe(u.startsWith('/')?'https://kk-phone-rental.vercel.app'+u:u));
   const bySource=new Map(sources.map((u,i)=>[u,results[i]]));
   for(const row of scoped){const u=String(row.poster_image_url||'').trim(),result=bySource.get(u);
