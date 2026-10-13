@@ -207,3 +207,17 @@ test('popup announced time is not fabricated by interpreting a non-Bangkok timez
  assert.equal(V.bangkokLocalTime('2026-10-21T09:00:00Z'),'');
  assert.equal(V.bangkokLocalTime('2026-10-21T16:00:00+08:00'),'');
 });
+
+test('title-only artist name must agree with source, not merely some other performer',()=>{
+ const candidate={title:'Beauty Brand POP-UP with SOMENAME',event_date:'2026-10-21',
+  venue:'centralwOrld',source_url:'https://brand.example/events/popup'};
+ const misleading='<html><script type="application/ld+json">'+JSON.stringify({
+  '@type':'Event',name:'Beauty Brand POP-UP with OTHERNAME',startDate:'2026-10-21',
+  location:{name:'centralwOrld'},image:'https://brand.example/art.jpg'
+ })+'</script></html>';
+ assert.equal(V.prefilter(candidate,'2026-10').eligible,true);
+ const out=V.verifyHtmlCandidate(candidate,misleading,{month:'2026-10'});
+ assert.equal(out.evidence.source_artist_confirmed,false);
+ assert.ok(out.blockers.includes('ARTIST_POPUP_ARTIST_SOURCE_CONFIRMATION_REQUIRED'));
+ assert.equal(out.verified,false);
+});
