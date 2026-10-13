@@ -88,3 +88,28 @@ Only `01_Events` Sheet ID `416044968`, column E (`poster_image_url`), six cells,
 ### Public feed cache/visibility code audit (read-only)
 - Production `api/kk-data.js` at main `d6dc3bfe`: `sanitizePublicCsv` requires `event_id` and `event_name` for public event identity but **not** `poster_image_url`, so the six now-empty poster records are not discarded by this code. The CSV endpoint sets `Cache-Control: no-store, max-age=0, must-revalidate`; storefront `fetchWebRows` uses `CACHE_TTL=0` and cache-buster `t=Date.now()`. Event-share HTML caches separately for 60s, not the primary grid feed.
 - These are static code checks plus Google Sheet exact readback, **not** a successful external production `GET` or visual screenshot; any API transport incident must still be diagnosed against the actual alias/browser.
+
+## Follow-up 14 Oct 2026 — exact-source suppression and official artwork research
+
+### Draft PR #727 source fix (NOT production deployment)
+- script.js isAuditedNonEventPoster now rejects all three exact misattributed photos: LE7EL artist-profile 2026 anniversary, VVV/Xiaomi general promotional photo, and older POP/NAMP media. The recognized generic KK-brand hero remains safely rejected on AF AFTERLIFE, MizuMi/PHUWIN, and SUPER SUN/ZEE. This is 6/6 of the known original misleading URL event classes.
+- Removed old LE7EL special image-alt/badge branch. When a stale photo recurs for the same event ID, the card shows the owned temporary event summary with true name/date/venue and no wrong portrait. When owner supplies a new verified organizer URL the exact URL guard no longer blocks it.
+- Updated tests/storefront-poster-dom-runtime.test.js. An independently executed V8 mock-DOM evaluation of the fetched actual modified script.js passed **9/9** cases (LE7EL, VVV, POP, AF, MizuMi, SUPER SUN, verified original, blank poster, cross-event URL). This is NOT a full Node suite or real browser/CI acceptance.
+
+### Owner-connected source readback after earlier live repair
+- Fresh 08_Web_Ready!A5:J380 census: 57 future-visible records as of 14 Oct. Six image URL cells remain blank, 51 keep URL; all six blank-poster rows retain action_for_web=show and available_phone_count=2. No additional Google Sheet edits in this follow-up.
+- No booking, pricing, inventory, event visibility, LINE, Vercel production, preview or paid provider changes.
+- GitHub Visual QA on changed test commit 11382ffdcd72deefd1c41a1bc1901d0a812740de: [run 38464735697](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38464735697) returned **failure**, visual-qa job had **zero exposed steps**, and log fetch returned **404 BlobNotFound**. Cause unverified; no CI-green claim.
+- Public web browser tool could not fetch the live storefront; cannot claim signed-out image naturalWidth screenshot acceptance.
+
+### Organizer research and rejected images
+- LE7EL official 1st anniversary post mirrored at https://www.sotwe.com/mollymmmale (15 Oct 2026, AIS SIAM, 18:00). The tweet references photo media but verified downloadable original bytes and a stable publicly accessible direct image URL were not retrieved.
+- SUPER SUN official event announcement mirrored at https://www.sotwe.com/hashtag/SUPERSUNxZEEPRUKBDFANSIGN?lang=en and reported at https://entertainment.trueid.net/detail/RZwQD7PJgwK2 (2 Nov 2026 13:00 SF World Cinema). No independently verified original image bytes/public URL were obtained.
+- MizuMi x PHUWIN 5 Nov entry: https://ppw-schedule.vercel.app/ . Image search results were May 2026 Pajamas Party art, not this event: reject.
+- POP-ป่ะห์ #4 30 Oct description https://popradar.app/events/festival/pop-pah-4-halloween-siam-center-2026 . Old Amarintv POP news photo is not the date-specific original: reject.
+- VVV/Xiaomi and AF AFTERLIFE listed on https://popradar.app/events, but no publicly validated organizer graphics obtained. Likewise NuNew Oct 31/Nov 1 concert poster bearing sponsor SUPER SUN is not Nov 2 SUPER SUN/ZEE FANSIGN art: reject.
+
+### Outcome
+- **Live bad-image source removal is complete** (6/6 blank source, all six event identities remain show).
+- **Draft source safeguard improved**, 9/9 selected V8 mock-DOM cases passed. PR remains DRAFT/HOLD (failed Actions and missing visual acceptance).
+- **Verified official image replacement remains 0/6.** No fabricated official posters, no guessed URL, and no acceptance claim.
