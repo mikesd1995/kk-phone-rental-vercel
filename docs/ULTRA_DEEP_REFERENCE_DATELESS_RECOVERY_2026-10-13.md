@@ -59,3 +59,12 @@ Separately, `reconcileCandidateSets` ignored unstructured references, which coul
 6. Perform governed end-to-end acceptance, duplicate/booking/tombstone checks and exact storefront readback before any release. PR #720 stays DRAFT and not deployed.
 
 **Bottom line:** The pre-Verifier loss of date-less references is repaired at source level, with safety-gated read-only Verifier inspection. Production remains unchanged, source-backed Full October discovery and native CI remain unverified.
+
+
+## Post-patch GitHub CI readback (2026-10-13 ICT)
+
+GitHub PR #720 still DRAFT / OPEN / UNMERGED. Read the latest returned PR commit `3ff446b3c8fad7e4c9d707bf2ff71b194891f830` and the exact commit's PR-triggered workflow runs:
+- **Vercel Deployment Source Contract**: run `38390966537`, job `115274367665`, status completed / conclusion failure; job `steps=null`, `logs_url=null`; attempting job logs returned 404 `BlobNotFound`.
+- **Ultra Deep V2 Acceptance**: run `38390966568`, job `115274368371`, completed / failure; `steps=null`, `logs_url=null`; attempting job logs returned 404 `BlobNotFound`.
+
+These job results provide **no evidence that source Checkout, offline dependency preflight, Node 20/24 syntax or regression tests actually ran**. It is not legitimate to attribute these particular failures to the new source code or to mark them as passed. Incident is separate GitHub Actions/runner/service access investigation. The CI source fix from prior Phase 4 on the same Draft branch also stays unaccepted until actual executor receipts. **This source-level task is repaired, but the project is not ready for merge/release.**
