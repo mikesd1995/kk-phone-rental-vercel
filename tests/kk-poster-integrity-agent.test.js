@@ -144,3 +144,29 @@ test('poster probe refuses redirect to private endpoint without requesting redir
  assert.equal(out.error,'UNSAFE_IMAGE_REDIRECT');
  assert.deepEqual(calls,['https://images.example.com/start']);
 });
+
+test('image content-type cannot pass without real recognizable magic bytes',async()=>{
+ assert.equal(Audit.hasImageSignature(new Uint8Array([255,216,255,217]),'image/jpeg'),true);
+ assert.equal(Audit.hasImageSignature(new TextEncoder().encode('<html>login</html>'),'image/jpeg'),false);
+ assert.equal(Audit.hasImageSignature(new Uint8Array([137,80,78,71,13,10,26,10]),'image/png'),true);
+ assert.equal(Audit.hasImageSignature(new Uint8Array([82,73,70,70,0,0,0,0,87,69,66,80]),'image/webp'),true);
+ let calls=0;
+ const out=await Audit.probe('https://static.example.com/p.jpg',async()=>{
+   calls++;
+   return new Response(new TextEncoder().encode('<html>login</html>'),{status:200,headers:{'content-type':'image/jpeg'}});
+ });
+ assert.equal(calls,1);
+ assert.equal(out.ok,false);
+ assert.equal(out.error,'INVALID_OR_UNSUPPORTED_IMAGE_SIGNATURE');
+});
+test('public redirect to public image remains supported and bounded',async()=>{
+ const calls=[];
+ const out=await Audit.probe('https://media.example.com/old',async url=>{
+  calls.push(url);
+  if(url.endsWith('/old'))return new Response(null,{status:302,headers:{location:'https://cdn.example.com/new.jpg'}});
+  return new Response(new Uint8Array([255,216,255,217]),{status:200,headers:{'content-type':'image/jpeg'}});
+ });
+ assert.equal(out.ok,true);
+ assert.equal(out.final_url,'https://cdn.example.com/new.jpg');
+ assert.deepEqual(calls,['https://media.example.com/old','https://cdn.example.com/new.jpg']);
+});
