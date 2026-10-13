@@ -17,6 +17,8 @@ let listRequestSeq=0;
 const inboxDrafts=Object.create(null);
 // A provider send can succeed while the app loses its receipt. Never invite a blind retry.
 const uncertainSendRooms=new Set();
+// Owner review is in-memory only. It never authorizes a provider call by itself.
+let outboundReviewSeq=0,outboundReviewRows=[],outboundSelected=null,pendingIntentionalRepeat=null;
 let inboxImageUrls=[];
 
 function pin(){try{return sessionStorage.getItem('kk_admin_pin')||''}catch(_){return ''}}
@@ -89,12 +91,13 @@ function showError(e){
  if(list)list.innerHTML='<div class="inbox-placeholder"><strong>โหลด Inbox ไม่สำเร็จ</strong><span>'+esc(e.message)+'</span></div>';
 }
 function composeState(message){
- const box=$('#inboxComposeText'),btn=$('#inboxSendBtn'),status=$('#inboxComposeStatus');
+ const box=$('#inboxComposeText'),btn=$('#inboxSendBtn'),status=$('#inboxComposeStatus'),historyBtn=$('#inboxOutboundReviewBtn');
  const exactRoom=!!selectedRow&&selected===String(selectedRow.conversation_id||'');
  const uncertain=exactRoom&&uncertainSendRooms.has(selected);
  const canSend=exactRoom&&String(selectedRow.channel||'').toLowerCase()==='line'&&outboundEnabled&&!sending&&!uncertain;
  if(box)box.disabled=!canSend;
  if(btn)btn.disabled=!canSend;
+ if(historyBtn)historyBtn.disabled=!exactRoom||String(selectedRow.channel||'').toLowerCase()!=='line';
  if(status)status.textContent=uncertain?'สถานะส่ง LINE ยังไม่ยืนยัน · ตรวจ LINE OA และหลักฐานในระบบก่อนพิจารณาส่งใหม่ ห้ามกดส่งซ้ำโดยไม่ตรวจสอบ':message||(canSend?'พร้อมส่งผ่าน LINE · ต้องยืนยันทุกครั้งก่อนส่ง':(selectedRow&&String(selectedRow.channel||'').toLowerCase()!=='line'?'ยังไม่เปิดส่งสำหรับช่องทางนี้':'เลือกแชท LINE เพื่อเริ่มตอบลูกค้า'));
 }
 function renderThreadHeader(){
@@ -235,6 +238,8 @@ async function markConversationRead(conversationId){
 function prepareComposerForThread(requestId){
  const box=$('#inboxComposeText');
  if(!box||selected===requestId)return;
+ pendingIntentionalRepeat=null;outboundSelected=null;outboundReviewRows=[];outboundReviewSeq++;
+ const review=$('#inboxOutboundReviewPanel');if(review)review.hidden=true;
  if(selected)inboxDrafts[selected]=String(box.value||'');
  box.value=Object.prototype.hasOwnProperty.call(inboxDrafts,requestId)?inboxDrafts[requestId]:'';
 }
@@ -271,6 +276,8 @@ async function loadThread(id,row,options={}){
 }
 function clearSelectionAfterFilter(){
  if(!selected)return;
+ pendingIntentionalRepeat=null;outboundSelected=null;outboundReviewRows=[];outboundReviewSeq++;
+ const review=$('#inboxOutboundReviewPanel');if(review)review.hidden=true;
  const box=$('#inboxComposeText');
  if(box){inboxDrafts[selected]=String(box.value||'');box.value='';}
  threadRequestSeq++;
@@ -379,6 +386,96 @@ async function resetOwnerLabel(){
  if(input)input.value='';
  updateRenameCount();
  await saveOwnerLabel();
+}
+function renderOutboundReview(){
+ const list=$('#inboxOutboundAttempts'),status=$('#inboxOutboundReviewStatus');
+ if(list){
+  list.innerHTML=outboundReviewRows.length?outboundReviewRows.map(a=>{
+   const active=outboundSelected&&outboundSelected.request_id===a.request_id;
+   return '<button type="button" class="btn secondary" data-outbound-request-id="'+esc(a.request_id)+'"'+
+     (active?' aria-pressed="true"':' aria-pressed="false"')+'>'+
+     esc(String(a.created_at||'').slice(0,19))+' · '+esc(a.status)+' · '+esc(a.review_status||'UNREVIEWED')+
+     (a.intentional_repeat_of?' · ส่งซ้ำโดยตั้งใจ':'')+'</button>';
+  }).join(' '):'<p class="hint">ยังไม่มีประวัติการส่งจาก Outbound Ledger</p>';
+ }
+ if(status)status.textContent=outboundSelected?
+  'เลือกคำขอ '+String(outboundSelected.request_id).slice(0,8)+'… · '+outboundSelected.status+' / '+outboundSelected.review_status:
+  'เลือกคำขอด้านบนเพื่อดูหลักฐานและบันทึกผลตรวจ';
+ const save=$('#inboxOutboundSaveReviewBtn'),repeat=$('#inboxPrepareRepeatBtn');
+ if(save)save.disabled=!outboundSelected;
+ if(repeat)repeat.disabled=!outboundSelected||outboundSelected.status!=='SENT'||
+   outboundSelected.review_status!=='VERIFIED_SENT'||!String(outboundSelected.provider_message_id||'').trim();
+}
+async function loadOutboundHistory(){
+ const room=String(selected||''),version=++outboundReviewSeq;
+ const panel=$('#inboxOutboundReviewPanel'),status=$('#inboxOutboundReviewStatus');
+ if(!room||!selectedRow||selectedRow.conversation_id!==room||
+    String(selectedRow.channel||'').toLowerCase()!=='line')return;
+ if(panel)panel.hidden=false;
+ if(status)status.textContent='กำลังตรวจประวัติส่งจาก Ledger…';
+ try{
+  const data=await api('inboxListOutboundAttempts',{conversation_id:room});
+  if(room!==selected||version!==outboundReviewSeq)return;
+  outboundReviewRows=Array.isArray(data.attempts)?data.attempts:[];
+  outboundSelected=outboundSelected?
+   outboundReviewRows.find(a=>a.request_id===outboundSelected.request_id)||null:null;
+  renderOutboundReview();
+ }catch(_){
+  if(room!==selected||version!==outboundReviewSeq)return;
+  outboundReviewRows=[];outboundSelected=null;
+  renderOutboundReview();
+  if(status)status.textContent='ยังอ่าน Ledger ไม่ได้ · ไม่อนุญาตส่งซ้ำจนกว่าจะตรวจและติดตั้ง Migration ผ่าน';
+ }
+}
+function chooseOutboundAttempt(ev){
+ const button=ev.target?.closest?.('[data-outbound-request-id]');
+ if(!button||!selectedRow||selected!==selectedRow.conversation_id)return;
+ outboundSelected=outboundReviewRows.find(a=>a.request_id===button.dataset.outboundRequestId)||null;
+ renderOutboundReview();
+}
+async function saveOutboundReview(){
+ const item=outboundSelected,room=String(selected||'');
+ if(!item||!selectedRow||selectedRow.conversation_id!==room)return;
+ const status=$('#inboxOutboundReviewVerdict')?.value||'';
+ const evidence=$('#inboxOutboundEvidenceRef')?.value?.trim()||'';
+ const note=$('#inboxOutboundReviewNote')?.value?.trim()||'';
+ if(!['NEEDS_INVESTIGATION','VERIFIED_SENT'].includes(status)||evidence.length>160||note.length>240||
+    (status==='VERIFIED_SENT'&&(item.status!=='SENT'||!item.provider_message_id||evidence.length<6))){
+  const label=$('#inboxOutboundReviewStatus');
+  if(label)label.textContent='ยืนยันส่งสำเร็จได้เฉพาะ SENT ที่มี Provider ID และหลักฐานจาก LINE OA';
+  return;
+ }
+ if(!window.confirm('ยืนยันบันทึกผลตรวจ LINE OA ของคำขอนี้? การบันทึกไม่ส่ง LINE และไม่ปลดล็อกคำขอ UNCERTAIN'))return;
+ try{
+  const data=await api('inboxReviewOutboundAttempt',{
+   conversation_id:room,request_id:item.request_id,review_status:status,
+   evidence_ref:evidence,review_note:note,owner_approved:true
+  });
+  if(room!==selected)return;
+  if(!data.review||data.review.request_id!==item.request_id||data.review.review_status!==status)
+   throw new Error('Review receipt mismatch');
+  await loadOutboundHistory();
+ }catch(_){
+  const label=$('#inboxOutboundReviewStatus');
+  if(room===selected&&label)label.textContent='บันทึกผลตรวจยังไม่ยืนยัน · ตรวจ Ledger อีกครั้ง ห้ามส่งซ้ำ';
+ }
+}
+function prepareIntentionalRepeat(){
+ const item=outboundSelected,room=String(selected||'');
+ const reason=$('#inboxIntentionalRepeatReason')?.value?.trim()||'';
+ const body=$('#inboxComposeText')?.value?.trim()||'';
+ if(!item||!selectedRow||selectedRow.conversation_id!==room||item.status!=='SENT'||
+    item.review_status!=='VERIFIED_SENT'||!item.provider_message_id||
+    reason.length<12||reason.length>240||!body){
+  const label=$('#inboxOutboundReviewStatus');
+  if(label)label.textContent='ต้องมี SENT ที่เจ้าของยืนยัน, เหตุผล 12–240 ตัวอักษร และข้อความที่จะส่ง';
+  return;
+ }
+ if(!window.confirm('เตรียมส่งข้อความเดิมซ้ำโดยตั้งใจ? ตรวจข้อความและหลักฐาน LINE OA อีกครั้งก่อนกดส่งจริง'))return;
+ pendingIntentionalRepeat={room,requestId:item.request_id,reason,body};
+ const label=$('#inboxOutboundReviewStatus');
+ if(label)label.textContent='เตรียมคำขอส่งซ้ำแล้ว · ต้องกดส่งและยืนยันอีกครั้ง ไม่มีการส่งอัตโนมัติ';
+ composeState('เตรียมส่งข้อความเดิมซ้ำโดยตั้งใจ · ต้องกดส่งและยืนยันอีกครั้ง');
 }
 async function sendMessage(){
  if(sending||!selectedRow)return;
