@@ -144,7 +144,7 @@ function referenceScopeDecision(row={},context={}){
  // are required; the verifier still needs an independent primary-source receipt.
  const popupText=[title,row.event_name].map(text).join(' ');
  const namedArtists=[row.artists,row.artist].flat().map(text).filter(Boolean);
- const artistInTitle=/(?:\\bwith\\s+[a-z]{3,}|\\bx\\s+[a-z]{3,}|phutatchai|ภูธัชชัย|พุฒิชัย|ศิลปิน|artist appearance)/i.test(popupText);
+ const artistInTitle=/(?:\bwith\s+[a-z]{3,}|\bx\s+[a-z]{3,}|phutatchai|ภูธัชชัย|พุฒิชัย|ศิลปิน|artist appearance)/i.test(popupText);
  const explicitVenue=[title,row.venue,row.location].map(text).join(' ');
  const artistAppearancePopup=/(pop[ -]?up|ป๊อปอัพ|ป็อปอัพ)/i.test(popupText) &&
    (namedArtists.length>0||artistInTitle) &&
