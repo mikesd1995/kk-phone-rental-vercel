@@ -8,7 +8,7 @@ const Production=require('./kk-ultra-deep-production-runtime.js');
 const V2Adapter=require('./kk-ultra-deep-v2-runtime-adapter.js');
 const V2Writer=require('./kk-ultra-deep-v2-governed-writer.js');
 
-const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V26';
+const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V27';
 function text(v){return String(v==null?'':v).trim();}
 
 async function run(input={},options={}){
@@ -31,6 +31,12 @@ async function run(input={},options={}){
     production_writes:0
   };
 
+  // Reserve time for the verifier, commercial stages and governed readback.
+  // A month-wide search that overruns the local deadline is an explicit HOLD,
+  // never a fabricated FULL result and never a production write.
+  const requestedBudget=Number(options.runtime_budget_ms||180000);
+  const runtimeBudgetMs=Number.isFinite(requestedBudget)?
+    Math.max(1000,Math.min(210000,Math.floor(requestedBudget))):180000;
   const operational=options.operational===true;
   const discovery=operational
     ? await Runtime.runOperationalDiscovery(
@@ -39,7 +45,7 @@ async function run(input={},options={}){
       )
     : await Runtime.runMonthlyUltraDeep(
         {month,location},
-        {publicWebOptions:{fetchImpl},providers:options.providers||{}}
+        {publicWebOptions:{fetchImpl},providers:options.providers||{},runtime_budget_ms:runtimeBudgetMs}
       );
   const discoveryReady=operational
     ? discovery.operational_ready===true&&discovery.status==='READY_FOR_VERIFIER'
