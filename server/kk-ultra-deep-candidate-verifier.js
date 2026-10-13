@@ -3,7 +3,7 @@
 const crypto=require('node:crypto');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V4';
+const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V5';
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=6;
 
@@ -124,9 +124,10 @@ function prefilter(candidate={},month=''){
  const popupLead=artistPopupLead(candidate,title);
  const reasons=[];
  if(!url)reasons.push('HTTPS_SOURCE_REQUIRED');
- // A popup lead may lack a date in the search snippet: fetch first-party
- // evidence but require a source-backed date before verification/publishing.
- if(!date&&!popupLead)reasons.push('EVENT_DATE_REQUIRED');
+ // Search/RSS snippets often omit the event date. Retain strong event leads
+ // only for source verification; a missing source-backed date can NEVER publish.
+ const eventLead=EVENT_SIGNAL.test(title)||popupLead||eventSpecificUrl(url);
+ if(!date&&!eventLead)reasons.push('EVENT_DATE_REQUIRED');
  else if(date&&month&&!monthMatches(date,month))reasons.push('OUTSIDE_TARGET_MONTH');
  const quality=titleQuality(title);reasons.push(...quality.reasons);
  if(LOW_FIT_SIGNAL.test(title))reasons.push('NON_RENTAL_EVENT_SIGNAL');
@@ -228,6 +229,10 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  const blockers=[];
  const quality=titleQuality(title);blockers.push(...quality.reasons);
  if(!date||!monthMatches(date,month))blockers.push('VERIFIED_TARGET_MONTH_DATE_REQUIRED');
+ // Do not promote a date inferred only from an unverified search snippet.
+ if(!picked||!isoDate(picked.d))blockers.push('SOURCE_EVENT_DATE_REQUIRED');
+ if(pre.event_date&&picked&&isoDate(picked.d)&&isoDate(picked.d)!==pre.event_date)
+  blockers.push('CANDIDATE_SOURCE_DATE_CONFLICT');
  if(!venue)blockers.push('VERIFIED_VENUE_REQUIRED');
  if(!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url)&&!popupLead)blockers.push('VERIFIED_EVENT_IDENTITY_REQUIRED');
  if(!poster)blockers.push('VERIFIED_POSTER_REQUIRED');
