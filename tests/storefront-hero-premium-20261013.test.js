@@ -50,3 +50,11 @@ test('mobile 376–540 keeps full-width Thai text and standalone product artwork
   assert.match(mobile,/width:100%!important/);
   assert.match(mobile,/word-break:normal!important/);
 });
+
+test('tablet 541–700 prevents the headline orphan while retaining split artwork',()=>{
+  const tablet=css.slice(css.indexOf('Intermediate tablet 541–700px'));
+  assert.ok(tablet.length>200,'tablet rule must be present');
+  assert.match(tablet,/@media \(min-width:541px\) and \(max-width:700px\)/);
+  assert.match(tablet,/font-size:clamp\(27px,5vw,33px\)!important/);
+  assert.match(tablet,/font-size:\.81em!important/);
+});
