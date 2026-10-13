@@ -44,3 +44,43 @@ Related, but not future-visible under the derived current public feed:
 - Vercel connector readback: newest Production READY `dpl_7TYLb87ir9qNzXRtkeb49543dwVm`, aliases include `kk-phone-rental.vercel.app`, SHA `d6dc3bfe4cc0c4dd6fdfec407823752da0572464`; **NOT** this patched Draft branch.
 - GitHub Action for patched documentation head `e742f531a08c9a0e893e38216e43eddd3844576e`: [Storefront Automated Visual QA run 38455870985](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38455870985) **completed failure**; job `visual-qa` had no returned steps, and the workflow job log download returned 404 BlobNotFound. Underlying cause could not be confirmed; do **not** report green or assume the workflow exercised tests.
 - This documentation addendum commit is another branch-only change; all exact-head release checks require rerun before merge, Vercel Production unchanged.
+
+
+## Same-day owner-requested LIVE poster-source correction — 14 Oct 2026
+**This section supersedes the preceding "0 Sheet writes" snapshot, which described the earlier PR-only pass.**
+
+Owner explicitly requested a completed fix without repeated handoff. To prevent known inaccurate imagery from continuing to appear in Production while verified organizer originals are unavailable, made a **scoped live Core Sheet write** to clear exactly six unverified/incorrect **poster URL cells only**, preserving the 6 event records. Production \`main\` at \`d6dc3bfe\` already has a no-poster event-summary fallback, so a client refreshing canonical WebReady can display the event name/date/venue as temporary artwork instead of an unrelated photo or falsely official brand hero **without any Vercel deploy**.
+
+### Exact change and rollback ledger
+Backend spreadsheet: \`12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU\`
+Only \`01_Events\` Sheet ID \`416044968\`, column E (\`poster_image_url\`), six cells, changed to **empty string**; original URL values preserved below for exact rollback.
+
+| Core cell | Event ID | Before (rollback URL) | After | Derived |
+|---|---|---|---|---|
+| \`E331\` | \`EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY\` | \`https://www.thai2music.com/uploads/artists/photo_cover/cover_1035_1762919037.jpg\` | empty | \`08_Web_Ready!E332\` |
+| \`E335\` | \`EVT-20261025-VVV-TORNADO-SHOPPING-XIAOMI\` | \`https://pbs.twimg.com/media/G3iTTicXMAAbtyE.jpg\` | empty | \`08_Web_Ready!E336\` |
+| \`E336\` | \`EVT-20261030-AF-HALLOWEEN-AFTERLIFE\` | \`https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png\` | empty | \`08_Web_Ready!E337\` |
+| \`E337\` | \`EVT-20261030-POPPAH4-HALLOWEEN-NAMP\` | \`https://static.amarintv.com/media/PJVlR0ljpO7yvkfhEH4VNNZ54YMVWAxlVfBQwSENDkv21tWvbtjShU6FnewvzElMDb.jpg\` | empty | \`08_Web_Ready!E338\` |
+| \`E345\` | \`EVT-20261105-MIZUMI-PHUWIN-MOISTURE-MATCH\` | \`https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png\` | empty | \`08_Web_Ready!E346\` |
+| \`E347\` | \`EVT-20261102-SUPER-SUN-ZEE-PRUK-BIRTHDAY-FANSIGN\` | \`https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png\` | empty | \`08_Web_Ready!E348\` |
+
+### Verified readback after live write
+- Google Sheets \`batch_update_spreadsheet\`: **6/6** mutation replies. Independent \`get_spreadsheet_cells\` immediately confirmed **all six Core E cells and their derived WebReady E cells empty**; derived formulas preserved in place.
+- Every matched \`08_Web_Ready!J\` remains exactly \`show\`; inventory readback for each event remained \`2\`, no change to packages/stocks or owner visibility.
+- Whole \`08_Web_Ready!A5:J380\` **57 future-visible** records on the 14 Oct date boundary, **6/57** now intentionally missing poster source, **51/57** retain their original URL. Exactly one cross-*name* identical image is Moonshadow Fan Party & After Party, both within its 14–15 Oct official dual-event poster series (not actionable as a mistaken image without new counterevidence). All six temporary image source notes remain as historical provenance; their former media URLs are no longer live.
+- Existing Production \`script.js\` on SHA \`d6dc3bfe\` inspected: \`renderConcerts()\` keeps image-less cards visible and renders \`poster-placeholder-event\` with name/date/venue. \`fetchWebRows\` cache TTL is **zero**; refreshed clients should receive new feed data.
+- **Network/browser signed-out visible readback remains unverified**: live \`/api/kk-data\` was not retrievable using available web tool, and the prior GitHub Visual QA runner remains failed. Do not claim 6 visual screenshots or official media delivered.
+
+### Evidence-based official image search status
+- Official/fan-reposted announcements confirm event details, but trustworthy image bytes of the **six exact 2026 events** and stable anonymous URLs have **not** been validated; avoid swapping in any similar artist imagery or older MizuMi May event / NuNew Oct31–Nov1 images.
+- Visually decoded \`assets/event-posters/siam-halloween-2026-nov01-owner-original.webp\` from GitHub main: **official festival-wide flyer explicitly prints \`30 OCTOBER - 1 NOVEMBER 2026\`**, so reusing this festival poster on Oct30 is **not a false-date image**. Retained untouched.
+- Drive filename search \`SUPER SUN\` returned actual NuNew concert flyers with SUPER SUN as sponsor; \`MizuMi\` returned old PondPhuwin May events. Both **rejected as wrong posters**.
+- The earlier #727 exact-original-URL guards remain defense-in-depth if stale or historical content is reintroduced. Do not merge other unrelated PRs or deploy untested code.
+
+### Next acceptance
+1. Obtain/download actual first-party poster **for each of 6 events**, inspect image bytes/printed event title/date, check stable signed-out image delivery and appropriate rights/provenance.
+2. Update only respective \`01_Events!E\` from empty to verified URL; read Core+WebReady, confirm \`J=show\` and verify in live customer browser.
+3. Run the intended 320–1440px poster fit and rendered UX checks on #727's exact HEAD, resolve the GitHub Actions fail/no-steps issue without paid quota, obtain reviewer/owner accepted screenshots, then separately merge/deploy with rollback.
+4. Avoid scanner auto-restoring any of the six original incorrect URLs; retain this ledger for cross-chat continuity.
+
+**Live result:** 6 confirmed incorrect/non-event picture URLs removed from the production data source, with record visibility preserved. **Not delivered:** 6 replacement organizer-original posters and verified client screenshots. No Booking, price, inventory, status, LINE send, Vercel release, or Google Drive ACL changed.
