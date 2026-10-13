@@ -70,9 +70,17 @@ test('blocks repeated brand or model in prose and quantity or urgency claims',()
 test('short standard CTA required; long legacy CTA blocked',()=>{
   fail(copy().replace('👉 เลือกวันแล้วจองคิว','👉 จองคิว / เช็กคิวว่าง'),{},/SHORT_CTA_REQUIRED/);
 });
-test('full vs owner-closed are distinct statuses',()=>{
-  const status=[{date_label:'30 ต.ค.',status:'available'},{date_label:'31 ต.ค.',status:'closed'}];
-  assert.equal(Policy.validatePost(copy().replace('31 ต.ค. ❌ เต็ม','31 ต.ค. 🚫 ปิด'),{...input,day_statuses:status}).gate,'PASS');
+test('verified owner-closed and hidden dates display as FULL only in X copy',()=>{
+  for(const state of ['closed','hidden','hide','owner_closed','locked']){
+    const source=[{date_label:'30 ต.ค.',status:'available'},{date_label:'31 ต.ค.',status:state}];
+    assert.equal(Policy.validatePost(copy(),{...input,day_statuses:source}).gate,'PASS',state);
+    fail(copy().replace('31 ต.ค. ❌ เต็ม','31 ต.ค. 🚫 ปิด'),{day_statuses:source},/PUBLIC_CLOSED_LABEL_FORBIDDEN|DAY_STATUS_MISSING_OR_WRONG/);
+    fail(copy().replace('31 ต.ค. ❌ เต็ม','31 ต.ค. ✅ ว่าง'),{day_statuses:source},/DAY_STATUS_MISSING_OR_WRONG|DAY_STATUS_CONTRADICTS_SOURCE/);
+  }
+});
+test('unknown or unverified day cannot be relabeled as full',()=>{
+  fail(copy(),{day_statuses:[{date_label:'30 ต.ค.',status:'available'},{date_label:'31 ต.ค.',status:'unknown'}]},/DAY_STATUS_INVALID/);
+  fail(copy(),{day_statuses_verified:false},/DAY_STATUS_EVIDENCE_REQUIRED/);
 });
 test('all three internal candidates must pass before selector',()=>{
   const candidates=[{copy:copy('Halloween theme เน้นบรรยากาศพิเศษ')},
