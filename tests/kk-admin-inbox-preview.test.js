@@ -52,7 +52,7 @@ test('older concurrent message fetch cannot overwrite newer thread data or show 
  const pending=[],rendered=[],messages=[];
  const ctx={
   api:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),
-  renderThreadHeader:()=>{},composeState:message=>messages.push(String(message||'')),
+  renderThreadHeader:()=>{},prepareComposerForThread:()=>{},composeState:message=>messages.push(String(message||'')),
   renderThread:rows=>{rendered.push(rows.map(row=>row.body_text).join('|'));return {wasNearBottom:true}},
   markConversationRead:async()=>{},markRefreshed:()=>{},liveStatus:()=>{},
   $:()=>({set innerHTML(v){messages.push(v)}}),esc:x=>String(x||'')
@@ -130,7 +130,7 @@ test('switching LINE rooms during send never wipes another customer draft or ref
   loadList:async()=>lists.push('refreshed')
  };
  vm.runInNewContext(
-  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;\n"+
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);\n"+
   js.slice(start,end)+"\nglobalThis.sendMessage=sendMessage;globalThis.switchRoom=id=>{selected=id;selectedRow={conversation_id:id,channel:'line'};};",ctx
  );
  const request=ctx.sendMessage();
@@ -159,7 +159,7 @@ test('LINE owner reply preserves an edited draft but clears the original complet
   loadThread:async id=>threads.push(id),loadList:async()=>{}
  };
  vm.runInNewContext(
-  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;\n"+
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);\n"+
   js.slice(start,end)+"\nglobalThis.sendMessage=sendMessage;",ctx
  );
  const first=ctx.sendMessage();
@@ -174,4 +174,53 @@ test('LINE owner reply preserves an edited draft but clears the original complet
  assert.equal(input.value,'');
  assert.deepEqual(threads,['conv_A','conv_A']);
  assert.deepEqual(calls.map(c=>c.payload.text),['first draft','new unsent draft']);
+});
+
+
+test('drafts are separated by conversation and restored only when returning to that conversation',()=>{
+ const vm=require('node:vm');
+ const js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const start=js.indexOf('function prepareComposerForThread(requestId){');
+ const end=js.indexOf('\nasync function loadThread(',start);
+ assert.ok(start>0&&end>start);
+ const input={value:'unsent draft A'},ctx={$:()=>input};
+ vm.runInNewContext(
+  "let selected='conv_A';const inboxDrafts=Object.create(null);\n"+
+  js.slice(start,end)+"\nglobalThis.prepare=prepareComposerForThread;globalThis.setRoom=id=>{selected=id};",ctx
+ );
+ ctx.prepare('conv_B');ctx.setRoom('conv_B');
+ assert.equal(input.value,'','customer B must not see customer A draft');
+ input.value='unsent draft B';
+ ctx.prepare('conv_A');ctx.setRoom('conv_A');
+ assert.equal(input.value,'unsent draft A');
+ ctx.prepare('conv_B');ctx.setRoom('conv_B');
+ assert.equal(input.value,'unsent draft B');
+});
+
+test('successful in-flight reply cannot resurrect a sent draft after switching rooms',async()=>{
+ const vm=require('node:vm');
+ const js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const helperStart=js.indexOf('function prepareComposerForThread(requestId){');
+ const helperEnd=js.indexOf('\nasync function loadThread(',helperStart);
+ const sendStart=js.indexOf('async function sendMessage(){');
+ const sendEnd=js.indexOf('\nfunction scheduleSearch(',sendStart);
+ const input={value:'send A'},threads=[];
+ let resolveSend;
+ const ctx={
+  $:()=>input,window:{confirm:()=>true},composeState:()=>{},
+  api:()=>new Promise(resolve=>{resolveSend=resolve}),
+  loadThread:async id=>threads.push(id),loadList:async()=>{}
+ };
+ vm.runInNewContext(
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null);\n"+
+  js.slice(helperStart,helperEnd)+"\n"+js.slice(sendStart,sendEnd)+
+  "\nglobalThis.sendMessage=sendMessage;globalThis.switchRoom=id=>{prepareComposerForThread(id);selected=id;selectedRow={conversation_id:id,channel:'line'};};",ctx
+ );
+ const pending=ctx.sendMessage();
+ ctx.switchRoom('conv_B');input.value='unsent B';
+ resolveSend({ok:true});await pending;
+ assert.equal(input.value,'unsent B');
+ ctx.switchRoom('conv_A');
+ assert.equal(input.value,'','the completed A message must not become an unsent draft');
+ assert.deepEqual(threads,[],'do not refresh a different room after send');
 });
