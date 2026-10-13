@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V14';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V15';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -30,9 +30,10 @@ function executionProof(execution={}){
   const rows=results.map((result,index)=>{
     const attempts=Array.isArray(result&&result.attempts)?result.attempts:[];
     const executed=attempts.some(attemptExecuted);
-    return {index,executed,status:text(result&&result.status)||'MISSING'};
+    const truncated=result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0;
+    return {index,executed,truncated,status:text(result&&result.status)||'MISSING'};
   });
-  return {complete:rows.length>0&&rows.every(x=>x.executed),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,rows};
+  return {complete:rows.length>0&&rows.every(x=>x.executed&&!x.truncated),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,truncated_task_count:rows.filter(x=>x.truncated).length,rows};
 }
 function sourceUniverseReceipts(plan={},execution={}){
   const tasks=Array.isArray(plan.gap_tasks)?plan.gap_tasks:[];
@@ -211,7 +212,17 @@ function summarizeExecution(execution={}){
 
 async function providerPreflight(providers={},input={}){
  const probe={source_tier:'PUBLIC_CALENDAR',query:['Bangkok',text(input.month),'concert'].filter(Boolean).join(' '),providers:[...UNKNOWN_SEARCH_PROVIDERS],evidence_required:true};
- const result=await ProviderExecutor.executeGapTask(probe,{providers});
+ const result=await ProviderExecutor.executeGapTask(probe,{providers,acceptCandidate:row=>{
+   // Reachable HTTPS search results alone do not establish usable event search.
+   // Dates/venues remain optional here; final verification retains its own gates.
+   const title=text(row.title);
+   if(REFERENCE_EVENT_RE.test(title)||/(lucky\s*fan|meet\s*(?:&|and)?\s*greet|private\s+(?:session|talk)|brand\s+event|artist\s+(?:event|appearance)|ลัคกี้แฟน|กิจกรรมศิลปิน|ตารางงานศิลปิน)/i.test(title))return true;
+   try{
+     const host=new URL(text(row.source_url)).hostname.toLowerCase();
+     const trusted=['eventpop.me','thaiticketmajor.com','ticketmelon.com','livenationtero.co.th','songkick.com'].some(domain=>host===domain||host.endsWith('.'+domain));
+     return trusted&&trustedEventPath(row.source_url);
+   }catch(_){return false;}
+ }});
  const usable=new Set((result.attempts||[]).filter(a=>a.status==='EVIDENCE_FOUND').map(a=>text(a.provider).toUpperCase()));
  if(result.provider)usable.add(text(result.provider).toUpperCase());
  return {status:usable.size?'READY':'NO_LIVE_SEARCH_EVIDENCE',usable:[...usable],result};
@@ -344,6 +355,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     ...(binding.unknown_url_search_bound&&!liveSearchProven?['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED']:[]),
     ...(!universe.complete?['SOURCE_UNIVERSE_INCOMPLETE']:[]),
     ...(!discoveryProof.complete?['DISCOVERY_EVIDENCE_EMPTY']:[]),
+    ...(discoveryProof.truncated_task_count>0?['DISCOVERY_RESULTS_TRUNCATED']:[]),
     ...(!referenceProof.complete?['REFERENCE_SWEEP_INCOMPLETE']:[]),
     ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
     ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[]),

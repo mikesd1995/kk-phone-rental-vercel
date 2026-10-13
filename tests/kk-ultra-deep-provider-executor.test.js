@@ -75,3 +75,41 @@ test('executeGapPlan runs tasks concurrently but preserves result order',async()
  assert.equal(out.status,'GAPS_RESOLVED');
  assert.equal(out.production_writes,0);
 });
+
+test('explicit Ultra exhaustive task retains later aliases and providers after first evidence',async()=>{
+ const calls=[];
+ const r=await Exec.executeGapTask({query:'first',query_variants:['alias'],providers:['BING_RSS','DDG_HTML'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS'},{providers:{
+  BING_RSS:async t=>{calls.push('BING:'+t.query);return [{title:t.query,source_url:'https://example.com/'+t.query}];},
+  DDG_HTML:async t=>{calls.push('DDG:'+t.query);return [{title:'Later event',event_date:'2026-10-24',source_url:'https://example.com/later'}];}
+ }});
+ assert.deepEqual(calls,['BING:first','BING:alias','DDG:first','DDG:alias']);
+ assert.equal(r.provider,'BING_RSS');assert.equal(r.candidates.length,3);assert.equal(r.attempts.length,4);
+ assert.ok(r.candidates.some(c=>c.title==='Later event'));
+ assert.equal(r.authoritative,false);assert.equal(r.verifier_required,true);assert.equal(r.production_writes,0);
+});
+
+test('explicit exhaustive evidence cap is honest and preserves distinct event dates',async()=>{
+ const first=Array.from({length:Exec.MAX_RESULTS},(_,i)=>({title:'Event '+i,event_date:'2026-10-24',source_url:'https://example.com/'+i}));
+ const r=await Exec.executeGapTask({query:'q',providers:['BING_RSS','DDG_HTML'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS'},{providers:{
+  BING_RSS:async()=>first,
+  DDG_HTML:async()=>[first[0],{...first[0],event_date:'2026-10-25'}]
+ }});
+ assert.equal(r.attempts.length,2);assert.equal(r.candidates.length,Exec.MAX_RESULTS);
+ assert.equal(r.dropped_unique_candidate_count,1);assert.equal(r.candidate_truncated,true);
+});
+
+test('exhaustive mode keeps error and unbound receipts while applying candidate admission',async()=>{
+ const r=await Exec.executeGapTask({query:'q',providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS'},{acceptCandidate:r=>r.event_date==='2026-10-24',providers:{
+  BING_RSS:async()=>{throw Object.assign(new Error('offline'),{code:'OFFLINE'});},
+  DDG_HTML:async()=>[{title:'Undated',source_url:'https://example.com/no-date'},{title:'Event',event_date:'2026-10-24',source_url:'https://example.com/event'}]
+ }});
+ assert.deepEqual(r.attempts.map(a=>a.status),['NOT_BOUND','PROVIDER_ERROR','EVIDENCE_FOUND','NOT_BOUND']);
+ assert.equal(r.candidates.length,1);assert.equal(r.attempts[2].rejected_count,1);
+});
+
+test('exhaustive mode reports uninspected provider overflow rather than silently accepting completeness',async()=>{
+ const rows=Array.from({length:Exec.MAX_RESULTS+1},(_,i)=>({title:'Event '+i,source_url:'https://example.com/'+i}));
+ const r=await Exec.executeGapTask({query:'q',providers:['BING_RSS'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS'},{providers:{BING_RSS:async()=>rows}});
+ assert.equal(r.candidates.length,Exec.MAX_RESULTS);assert.equal(r.candidate_truncated,true);
+ assert.equal(r.dropped_uninspected_row_count,1);assert.equal(r.dropped_unique_candidate_count,0);
+});
