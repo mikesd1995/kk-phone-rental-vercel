@@ -45,8 +45,10 @@ async function executeGapTask(task={},options={}){
       try{
         const raw=await fn(callTask);
         const rows=Array.isArray(raw)?raw:(Array.isArray(raw&&raw.candidates)?raw.candidates:[]);
-        const candidates=rows.slice(0,MAX_RESULTS).map(r=>normalizeCandidate(r,callTask)).filter(r=>r.source_url);
-        attempts.push({provider,status:candidates.length?'EVIDENCE_FOUND':'NO_EVIDENCE',count:candidates.length,query});
+        const sourced=rows.slice(0,MAX_RESULTS).map(r=>normalizeCandidate(r,callTask)).filter(r=>r.source_url);
+        const candidates=typeof options.acceptCandidate==='function'?sourced.filter(row=>options.acceptCandidate(row,callTask)===true):sourced;
+        attempts.push({provider,status:candidates.length?'EVIDENCE_FOUND':'NO_EVIDENCE',count:candidates.length,query,
+          ...(typeof options.acceptCandidate==='function'?{rejected_count:sourced.length-candidates.length}: {})});
         if(candidates.length){
           return {version:VERSION,status:'EVIDENCE_FOUND',provider,source_tier:upper(task.source_tier),candidates,attempts,authoritative:false,verifier_required:true,production_writes:0};
         }

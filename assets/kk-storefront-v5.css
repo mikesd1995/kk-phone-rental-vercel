@@ -2235,3 +2235,65 @@ html[data-theme="dark"] .kk-mock-hero .v3-secondary{
 [data-theme="dark"] .poster-placeholder-event .poster-placeholder-title{
   background:rgba(13,22,38,.86)!important;
 }
+
+/* V6.34 — 2026-10-13: retain complete English prices on narrow event cards. */
+@media (max-width:700px){
+  .pi-price{white-space:normal!important;min-width:0!important;max-width:100%!important;overflow-wrap:anywhere!important}
+}
+
+/* V6.35 — 2026-10-14: owner-approved phone podium hero.
+   Dedicated decorative artwork; all copy remains live bilingual DOM.
+   Shared temporary event-card art, service facts and catalogue remain unchanged. */
+html .kk-mock-hero{
+  grid-template-columns:minmax(0,1.07fr) minmax(0,.93fr)!important;
+  gap:28px!important;padding:30px 34px!important;
+  border-color:rgba(92,164,255,.62)!important;
+  background:radial-gradient(ellipse at 86% 20%,rgba(20,84,188,.38),transparent 63%),linear-gradient(122deg,#061428,#091d3b 58%,#102f66)!important;
+}
+html .kk-mock-hero h1 em,html[data-theme="dark"] .kk-mock-hero .v3-hero-copy h1 em{color:#8bd4ff!important}
+html .kk-mock-hero .kk-hero-art{
+  height:320px!important;min-height:0!important;max-height:none!important;
+  background-image:url("/assets/kk-hero-phones-podium-20261014.png")!important;
+  background-size:contain!important;background-position:center!important;
+  background-color:#071d40!important;border-color:rgba(112,174,255,.65)!important;
+}
+html .kk-mock-hero .kk-hero-art::after{background:none!important}
+html .kk-mock-hero .v3-primary{box-shadow:0 0 22px rgba(21,117,255,.42)!important}
+.kk-hero-trust{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:22px}
+.hero-trust-item{display:flex;align-items:center;gap:8px;min-width:0}
+.hero-trust-item>svg{flex:0 0 30px;width:30px;height:30px;padding:6px;box-sizing:border-box;border:1px solid #315c94;border-radius:50%;fill:none;stroke:#78bdff;stroke-width:1.7}
+.hero-trust-item>div{min-width:0}
+.hero-trust-item strong,.hero-trust-item span{display:block;overflow-wrap:anywhere}
+.hero-trust-item strong{color:#f1f7ff;font-size:11.5px;line-height:1.45;font-weight:600}
+.hero-trust-item span{color:#bcd2ee;font-size:10px;line-height:1.45;margin-top:2px}
+@media (min-width:701px) and (max-width:1100px){
+  html .kk-mock-hero{padding:24px!important;gap:20px!important}
+  html .kk-mock-hero .kk-hero-art{height:252px!important}
+  .kk-hero-trust{gap:8px;margin-top:18px}
+  .hero-trust-item{gap:5px}.hero-trust-item>svg{flex-basis:24px;width:24px;height:24px;padding:4px}
+  .hero-trust-item strong{font-size:10.5px}.hero-trust-item span{font-size:9px}
+}
+@media (max-width:700px){
+  html .kk-mock-hero{padding:15px!important;gap:10px!important}
+  html .kk-mock-hero .kk-hero-art{height:auto!important;aspect-ratio:4/3;min-height:0!important;align-self:center!important}
+  html .kk-mock-hero .v3-primary,html .kk-mock-hero .v3-secondary{min-height:44px!important;font-size:11px!important;padding-inline:10px!important}
+  html .kk-mock-hero .v3-secondary{display:inline-flex!important}
+  .kk-hero-trust{gap:5px;margin-top:10px}
+  .hero-trust-item{display:block}.hero-trust-item>svg{display:none}
+  .hero-trust-item strong{font-size:10.5px}.hero-trust-item span{font-size:10px;line-height:1.35;margin-top:1px}
+}
+@media (max-width:480px){
+  html .kk-mock-hero{grid-template-columns:minmax(0,1fr) minmax(100px,.45fr)!important;padding:13px!important;gap:8px!important}
+  html .kk-mock-hero .kk-hero-art{height:auto!important;aspect-ratio:4/3}
+  html .kk-mock-hero .v3-hero-actions{gap:6px!important}
+}
+@media (max-width:375px){
+  html .kk-mock-hero{display:block!important;padding:10px 16px!important}
+  html .kk-mock-hero .kk-hero-art{display:none!important}
+  html .kk-mock-hero h1{font-size:clamp(25px,7.6vw,28px)!important}
+  html .kk-mock-hero .v3-eyebrow{margin-bottom:6px!important}
+  html .kk-mock-hero .v3-eyebrow br{display:none}
+  html .kk-mock-hero .v3-eyebrow span{margin-left:5px}
+  /* The complete service details remain in the unchanged benefit grid below. */
+  .hero-trust-item span{display:none}
+}

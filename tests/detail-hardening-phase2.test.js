@@ -6,7 +6,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 
-const storefront=fs.readFileSync(path.join(__dirname,'..','script.js'),'utf8');
+const storefront=fs.readFileSync(path.join(__dirname,'..','script.js'),'utf8').replace(/\r\n/g,'\n');
 const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 const style=fs.readFileSync(path.join(__dirname,'..','style.css'),'utf8');
 const admin=fs.readFileSync(path.join(__dirname,'..','admin','admin.js'),'utf8');

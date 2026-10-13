@@ -2189,15 +2189,21 @@
     const spreadsheetId = d.spreadsheet_id || "";
     const frontendSheetId = d.frontend_sheet_id || "";
     const sameSheet = spreadsheetId && frontendSheetId && spreadsheetId === frontendSheetId;
+    const readerSnapshot=d.phase1_diagnostics?.fallback_mode===true;
     rows.push({check:"Version · Admin UI", status:"OK", detail:KK_ADMIN_UI_VERSION, note:"Line-by-line audited frontend/admin package"});
     rows.push({check:"Version · Vercel Proxy", status: proxyVersion===EXPECTED_PROXY_VERSION ? "OK" : "CHECK", detail:proxyVersion || "missing", note:"Expected "+EXPECTED_PROXY_VERSION});
-    rows.push({check:"Version · Apps Script", status: backendVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:backendVersion || "missing", note:"Expected "+EXPECTED_BACKEND_VERSION+". Verify the deployed source; never overwrite deployed 9_5_9 with repository 9_5_8"});
-    rows.push({check:"Sheet ID · Frontend vs Apps Script", status: sameSheet ? "OK" : "CHECK", detail:(frontendSheetId||"missing")+" / "+(spreadsheetId||"missing"), note:sameSheet ? "Same backend" : "GOOGLE_SHEET_ID may not match Apps Script spreadsheet"});
+    rows.push({check:"Version · Apps Script", status: !readerSnapshot && backendVersion===EXPECTED_BACKEND_VERSION ? "OK" : "CHECK", detail:readerSnapshot ? "ยังไม่ยืนยันจาก Apps Script" : backendVersion || "missing", note:"Expected "+EXPECTED_BACKEND_VERSION+". Verify the deployed source; never overwrite deployed 9_5_9 with repository 9_5_8"});
+    rows.push({check:"Sheet ID · Frontend vs Apps Script", status: !readerSnapshot && sameSheet ? "OK" : "CHECK", detail:readerSnapshot ? "ยังไม่ยืนยันจาก Apps Script" : (frontendSheetId||"missing")+" / "+(spreadsheetId||"missing"), note:readerSnapshot ? "Snapshot reader identity does not independently verify Apps Script binding" : sameSheet ? "Same backend" : "GOOGLE_SHEET_ID may not match Apps Script spreadsheet"});
+    if(readerSnapshot){
+      rows.push({check:"Version · Snapshot Reader",status:"INFO",detail:backendVersion||"ยังไม่ยืนยัน",note:"Read-source version; not the deployed Apps Script revision"});
+      rows.push({check:"Sheet ID · Read Source",status:sameSheet?"OK":"CHECK",detail:(frontendSheetId||"missing")+" / "+(spreadsheetId||"missing"),note:"Configured frontend and snapshot read-source binding only"});
+    }
     if(d.phase1_diagnostics){
       const x=d.phase1_diagnostics;
-      rows.push({check:"ENV · KK_POSTER_FOLDER_ID", status:x.poster_folder_id_set ? "OK" : "CHECK", detail:x.poster_folder_id_set ? "set" : "missing", note:"Needed for Upload Poster"});
-      rows.push({check:"Log Sheets", status:x.log_sheets_ready ? "OK" : "CHECK", detail:x.log_sheets_ready ? "15/16 logs ready" : "missing", note:"Run KK Admin > Setup/Repair Named Ranges"});
-      rows.push({check:"Read fallback", status:x.direct_fallback_disabled ? "CHECK" : "OK", detail:x.direct_fallback_disabled ? "disabled" : "emergency fallback available", note:x.direct_fallback_disabled ? "Public website may go blank if /api/kk-data fails" : "API-first, but site can recover if Vercel ENV/API fails"});
+      const folderKnown=typeof x.poster_folder_id_set==="boolean",logsKnown=typeof x.log_sheets_ready==="boolean",fallbackKnown=typeof x.direct_fallback_disabled==="boolean";
+      rows.push({check:"ENV · KK_POSTER_FOLDER_ID", status:folderKnown && x.poster_folder_id_set ? "OK" : "CHECK", detail:folderKnown ? x.poster_folder_id_set ? "set" : "missing" : "ยังไม่ยืนยัน", note:folderKnown ? "Needed for Upload Poster" : "รอผลตรวจค่าจาก Apps Script; ไม่สรุปว่าโฟลเดอร์ขาด"});
+      rows.push({check:"Log Sheets", status:logsKnown && x.log_sheets_ready ? "OK" : "CHECK", detail:logsKnown ? x.log_sheets_ready ? "15/16 logs ready" : "missing" : "ยังไม่ยืนยัน", note:logsKnown ? x.log_sheets_ready ? "15/16 logs ready" : "Run KK Admin > Setup/Repair Named Ranges" : "รอผลตรวจจาก Apps Script; ไม่สรุปว่า Log ขาด"});
+      rows.push({check:"Read fallback", status:fallbackKnown && !x.direct_fallback_disabled ? "OK" : "CHECK", detail:fallbackKnown ? x.direct_fallback_disabled ? "disabled" : "emergency fallback available" : "ยังไม่ยืนยัน", note:fallbackKnown ? x.direct_fallback_disabled ? "Public website may go blank if /api/kk-data fails" : "API-first, but site can recover if Vercel ENV/API fails" : "รอผลตรวจการตั้งค่า fallback จาก Apps Script"});
     }
     return rows;
   }
@@ -2294,17 +2300,20 @@
   function buildSnapshotGuardRows(data){
     const d=data||{};
     const diag=d.phase1_diagnostics||{};
+    const readerSnapshot=diag.fallback_mode===true;
     const rows=[];
     const backendVersion=d.admin_api_version || diag.admin_api_version || "";
     const proxyVersion=d.frontend_proxy_version || "";
     const spreadsheetId=d.spreadsheet_id || diag.spreadsheet_id || "";
     const frontendSheetId=d.frontend_sheet_id || diag.frontend_sheet_id || "";
     rows.push({label:"Admin UI Version",status:"OK",detail:KK_ADMIN_UI_VERSION,suggestion:""});
-    rows.push({label:"Apps Script Version",status:backendVersion===EXPECTED_BACKEND_VERSION?"OK":"WARN",detail:backendVersion||"missing",suggestion:backendVersion===EXPECTED_BACKEND_VERSION?"":"Verify deployed source; do not deploy repository 9_5_8 over 9_5_9"});
+    rows.push({label:"Apps Script Version",status:!readerSnapshot && backendVersion===EXPECTED_BACKEND_VERSION?"OK":"WARN",detail:readerSnapshot?"ยังไม่ยืนยันจาก Apps Script":backendVersion||"missing",suggestion:!readerSnapshot && backendVersion===EXPECTED_BACKEND_VERSION?"":"Verify deployed source; do not deploy repository 9_5_8 over 9_5_9"});
     rows.push({label:"Vercel Proxy Version",status:proxyVersion===EXPECTED_PROXY_VERSION?"OK":"WARN",detail:proxyVersion||"missing",suggestion:proxyVersion===EXPECTED_PROXY_VERSION?"":"Redeploy Vercel with latest api/kk-admin.js"});
-    rows.push({label:"Sheet ID Match",status:(spreadsheetId&&frontendSheetId&&spreadsheetId===frontendSheetId)?"OK":"FAIL",detail:(spreadsheetId||"missing")+" / "+(frontendSheetId||"missing"),suggestion:"GOOGLE_SHEET_ID in Vercel must match Apps Script spreadsheet"});
-    if(diag.poster_folder_id_set!==undefined) rows.push({label:"Poster Folder",status:diag.poster_folder_id_set?"OK":"WARN",detail:diag.poster_folder_id_set?"set":"missing",suggestion:"Set Script Property KK_POSTER_FOLDER_ID before uploading posters"});
-    if(diag.log_sheets_ready!==undefined) rows.push({label:"Audit/Error Logs",status:diag.log_sheets_ready?"OK":"WARN",detail:diag.log_sheets_ready?"ready":"missing",suggestion:"Run setup/repair in Google Sheet menu"});
+    rows.push({label:"Sheet ID Match",status:readerSnapshot?"WARN":(spreadsheetId&&frontendSheetId&&spreadsheetId===frontendSheetId)?"OK":"FAIL",detail:readerSnapshot?"ยังไม่ยืนยันจาก Apps Script":(spreadsheetId||"missing")+" / "+(frontendSheetId||"missing"),suggestion:"GOOGLE_SHEET_ID in Vercel must match Apps Script spreadsheet"});
+    if(readerSnapshot)rows.push({label:"Snapshot Reader",status:"INFO",detail:backendVersion||"ยังไม่ยืนยัน",suggestion:"Read-source version only; Apps Script health remains separate"});
+    const folderKnown=typeof diag.poster_folder_id_set==="boolean",logsKnown=typeof diag.log_sheets_ready==="boolean";
+    rows.push({label:"Poster Folder",status:folderKnown && diag.poster_folder_id_set?"OK":"WARN",detail:folderKnown?diag.poster_folder_id_set?"set":"missing":"ยังไม่ยืนยัน",suggestion:folderKnown && !diag.poster_folder_id_set?"Set Script Property KK_POSTER_FOLDER_ID before uploading posters":"รอผลตรวจค่าจาก Apps Script"});
+    rows.push({label:"Audit/Error Logs",status:logsKnown && diag.log_sheets_ready?"OK":"WARN",detail:logsKnown?diag.log_sheets_ready?"ready":"missing":"ยังไม่ยืนยัน",suggestion:logsKnown && !diag.log_sheets_ready?"Run setup/repair in Google Sheet menu":"รอผลตรวจค่าจาก Apps Script"});
     const h=KKSnapshotHealth.assess(d);
     for(const key of KKSnapshotHealth.KEYS) rows.push({label:"Snapshot · "+key,status:h.counts[key]===null ? "FAIL" : h.counts[key]===0 ? "WARN" : "OK",detail:String(h.counts[key] ?? "invalid")+" rows",suggestion:""});
     rows.push(...storefrontGuardRows(h.storefront_integrity));
@@ -2384,7 +2393,8 @@
         detail:snap ? snap.latency_ms+" ms (proxy round trip)" : blockedDetail
       });
       rows.push({label:"Live Check latency",status:"OK",detail:(Date.now()-startedAt)+" ms (browser round trip)"});
-      rows.push({label:"Versions · UI / Proxy / Apps Script",status:snap && snap.proxy_version===KK_ADMIN_UI_VERSION && snap.backend_version===EXPECTED_BACKEND_VERSION ? "OK" : "WARN",detail:KK_ADMIN_UI_VERSION+" / "+(snap?.proxy_version||"unknown")+" / "+(snap?.backend_version||"unknown"),suggestion:"Inspect deployed source on mismatch; never deploy repo 9_5_8 over deployed 9_5_9."});
+      const readerVersion=String(snap?.backend_version||"").startsWith("admin-direct-sheet-readonly-fallback-");
+      rows.push({label:readerVersion?"Versions · UI / Proxy / Snapshot Reader":"Versions · UI / Proxy / Apps Script",status:!readerVersion && snap && snap.proxy_version===KK_ADMIN_UI_VERSION && snap.backend_version===EXPECTED_BACKEND_VERSION ? "OK" : "WARN",detail:KK_ADMIN_UI_VERSION+" / "+(snap?.proxy_version||"unknown")+" / "+(snap?.backend_version||"unknown"),suggestion:readerVersion?"Read-source version only; Apps Script revision remains unverified":"Inspect deployed source on mismatch; never deploy repo 9_5_8 over deployed 9_5_9."});
       state.systemHealth={generated_at:new Date().toISOString(),rows,summary:{fail:rows.filter(r=>r.status==="FAIL").length,warn:rows.filter(r=>r.status==="WARN").length}};
       renderSystemGuard();
       const fail=(state.systemHealth && state.systemHealth.summary && state.systemHealth.summary.fail)||0;
@@ -2951,7 +2961,7 @@
       render();
       loadRentalAnalytics();
       const backendVersion = state.data.admin_api_version || (state.data.phase1_diagnostics && state.data.phase1_diagnostics.admin_api_version) || "";
-      if(backendVersion && backendVersion !== EXPECTED_BACKEND_VERSION){
+      if(state.data.phase1_diagnostics?.fallback_mode!==true && backendVersion && backendVersion !== EXPECTED_BACKEND_VERSION){
         showNotice("Version ไม่ตรงกัน: Admin UI "+KK_ADMIN_UI_VERSION+" / Expected Apps Script "+EXPECTED_BACKEND_VERSION+" แต่ Apps Script จริงคือ "+backendVersion, "bad");
       }
       if(state.data.spreadsheet_id && state.data.frontend_sheet_id && state.data.spreadsheet_id !== state.data.frontend_sheet_id){

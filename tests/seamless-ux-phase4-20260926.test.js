@@ -56,7 +56,7 @@ test('Booking form keeps the daily path short and hides overrides under Advanced
   assert.match(adminHtml,/class="booking-advanced-details"/);
   assert.match(adminHtml,/<summary>ตัวเลือกเพิ่มเติม<\/summary>/);
   assert.match(adminHtml,/<option value="confirmed">ยืนยันแล้ว<\/option>/);
-  assert.match(adminHtml,/<option value="unpaid">ยังไม่จ่าย<\/option>/);
+  assert.match(adminHtml,/<select name="payment_status"><option value="unpaid">ยังไม่จ่าย · รับเงินตอนส่งเครื่อง<\/option><\/select>/);
 });
 
 test('Event Control batch mutation shows a concrete preview before write',()=>{
@@ -85,5 +85,5 @@ test('phase 4 assets are cache-busted',()=>{
   assert.match(storeHtml,/style\.css\?v=clear-filter-containment-20260930/);
   assert.match(storeHtml,/script\.js\?v=[A-Za-z0-9][A-Za-z0-9._-]*/);
   assert.match(adminHtml,/admin\.css\?v=health-triage-20260926/);
-  assert.match(adminHtml,/admin\.js\?v=bulk-event-price-edit-20260927/);
+  assert.match(adminHtml,/admin\.js\?v=diagnostic-evidence-authority-20261013/);
 });

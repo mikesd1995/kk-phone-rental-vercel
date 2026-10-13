@@ -120,10 +120,18 @@ test('batch bridge fail-closes when selected hooks overuse the same generic prep
     item(2,'แฟน Event 2 ล็อกเครื่องไว้ก่อน จะได้เก็บทุกช็อตบนเวที'),
     item(3,'ใครรอ Event 3 จองเครื่องไว้ก่อนแล้วค่อยเก็บทุกโมเมนต์ของศิลปิน')
   ]};
+  const Ledger=require('../server/kk-agent-invocation-ledger.js');
+  const original=Ledger.recordInvocation;
+  const receipts=[];
+  Ledger.recordInvocation=async ({row})=>{receipts.push(row);return {ok:true,inserted:true,invocation_id:row.invocation_id};};
+  try {
   const result=await Bridge.runBridge({event:event(),payload});
   assert.equal(result.status,'BLOCKED');
   assert.equal(result.blocker,'BATCH_DIVERSITY_QA_FAILED');
   assert.match(result.batch_qa.errors.join('|'),/BATCH_GENERIC_ARCHETYPE_OVERUSED:PREPARE_DEVICE/);
+  assert.ok(receipts.length>0);
+  assert.ok(receipts.every(r=>r.production_writes===0&&r.publishes===0));
+  } finally { Ledger.recordInvocation=original; }
 });
 
 test('batch bridge rejects non-owner issue authors before agent execution',async()=>{

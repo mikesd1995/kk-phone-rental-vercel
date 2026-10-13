@@ -67,9 +67,13 @@ test('rendered defects fail even when the document itself has no horizontal over
   }
 });
 test('modal clipping, horizontal overflow and focus escape are release blocking',()=>{
-  const modal={left:0,right:390,top:150,bottom:844,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
+  const modal={left:12,right:378,top:150,bottom:694,viewport_height:844,scroll_width:366,client_width:366,focus_inside:true,title:'Event'};
   assert.deepEqual(E.stateFindings({...healthy(),modal},{width:390,name:'modal'}),[]);
-  for(const change of [{bottom:850},{scroll_width:420},{focus_inside:false},{title:''}])assert.ok(E.stateFindings({...healthy(),modal:{...modal,...change}},{width:390,name:'modal'}).length);
+  for(const change of [{bottom:850},{scroll_width:420},{focus_inside:false},{title:''},{top:30,bottom:574}])assert.ok(E.stateFindings({...healthy(),modal:{...modal,...change}},{width:390,name:'modal'}).length);
+});
+test('invalid temporary artwork blocks acceptance while ordinary direct-poster letterboxing stays blocking',()=>{
+  assert.ok(E.stateFindings({...healthy(),temporary_artwork_issues:[{event_id:'evt',reason:'invalid'}]},{width:390,name:'catalogue'}).some(x=>x.code==='TEMPORARY_ARTWORK_INVALID'));
+  assert.ok(E.stateFindings({...healthy(),poster_treatment_issues:[{event_id:'evt',coverage:.27,treatment:'missing'}]},{width:390,name:'catalogue'}).some(x=>x.code==='POSTER_LETTERBOX_UNTREATED'));
 });
 test('owner direction approval cannot accept a rendered candidate or changed dependency digest',()=>{
   const widths=[320,375,390,430,480,768,1024,1440];

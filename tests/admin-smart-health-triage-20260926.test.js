@@ -48,7 +48,7 @@ test('root-cause checklist is copyable without a write action',()=>{
 
 test('smart health triage assets are cache-busted and mobile readable',()=>{
   assert.match(html,/admin\.css\?v=health-triage-20260926/);
-  assert.match(html,/admin\.js\?v=bulk-event-price-edit-20260927/);
+  assert.match(html,/admin\.js\?v=diagnostic-evidence-authority-20261013/);
   assert.match(css,/Smart Health Root-Cause Triage/);
   assert.match(css,/\.health-triage-list/);
   assert.match(css,/@media\(max-width:640px\)/);

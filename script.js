@@ -391,6 +391,13 @@ function applyStaticLanguage(){
   setText(".v3-hero-copy>p","hero_body");
   var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">→</span>';
   setText(".v3-secondary","hero_secondary");
+  setAttr(".kk-hero-trust","aria-label","benefit_group_aria");
+  var heroTrustItems=document.querySelectorAll(".kk-hero-trust .hero-trust-item");
+  ["proof_deposit","proof_onsite","proof_drive"].forEach(function(key,index){
+    var item=heroTrustItems[index];if(!item)return;
+    var title=item.querySelector("strong"),body=item.querySelector("span");
+    if(title)title.textContent=tr(key+"_title");if(body)body.textContent=tr(key+"_body");
+  });
   var benefits=document.querySelectorAll(".kk-benefit-grid>div>span:last-child");
   ["benefit_insurance","benefit_onsite","benefit_drive","benefit_discount"].forEach(function(key,index){
     if(benefits[index])benefits[index].textContent=tr(key);

@@ -4,7 +4,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-const source=fs.readFileSync(require.resolve('../script.js'),'utf8');
+// Git uses CRLF on Windows; normalize only fixture extraction, preserving runtime logic.
+const source=fs.readFileSync(require.resolve('../script.js'),'utf8').replace(/\r\n/g,'\n');
 function extractFunction(name,nextMarker){
   const start=source.indexOf('function '+name+'(');
   assert.notEqual(start,-1,'missing '+name);
@@ -199,7 +200,7 @@ test('show-only gate remains upstream and fallback does not promote owner-hidden
 
 test('script cache key changes when temporary artwork becomes first-class fallback',()=>{
   const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
-  assert.match(html,/script\.js\?v=storefront-temporary-brand-image-20261012/);
+  assert.match(html,/script\.js\?v=storefront-owner-podium-hero-20261014/);
 });
 
 test('a loaded KK-owned brand image is visibly marked temporary; official event artwork is not',()=>{
