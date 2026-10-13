@@ -713,7 +713,15 @@ function isKKTemporaryBrandArtwork(url){
 // Replacing the source URL with a verified official poster automatically removes this safeguard.
 function isAuditedNonEventPoster(eventId,url){
   var id=String(eventId||"").trim(), src=String(url||"").trim();
-  return (id==="EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY" &&
+  // Source/date-pair embargo: legitimate event-wide art for OTHER show dates
+  // must stay usable. Do not remove the event or affect availability/booking.
+  return (id==="EVT-20261023-LYKN-REFLEXION-CONCERT-2" &&
+          src==="https://drive.google.com/thumbnail?id=1YAcm8q9b9YBJcAKeEgxRB5fnVIPXbiDS&sz=w1200") ||
+         (id==="EVT-20261115-2026-K-POP-MASTERZ-SPECIAL-L" &&
+          src==="https://drive.google.com/thumbnail?id=1yMVpy4pNNuitIb6FFsBiEo4y9-ogFA2i&sz=w1200") ||
+         (id==="EVT-20261127-FORTREASURE-BEYOND-HORIZON" &&
+          src==="https://drive.google.com/thumbnail?id=1OVYGQIlzt-n_la8eKKwgFIBcrrVxix78&sz=w1200") ||
+         (id==="EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY" &&
           src==="https://www.thai2music.com/uploads/artists/photo_cover/cover_1035_1762919037.jpg") ||
          (id==="EVT-20261025-VVV-TORNADO-SHOPPING-XIAOMI" &&
           src==="https://pbs.twimg.com/media/G3iTTicXMAAbtyE.jpg") ||
