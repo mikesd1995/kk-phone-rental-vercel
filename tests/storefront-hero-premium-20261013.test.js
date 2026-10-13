@@ -40,3 +40,13 @@ test('mobile viewport accommodations and 44px hit-target floor stay enabled',()=
   assert.match(css,/html \.kk-mock-hero \.kk-hero-art\{display:none!important\}/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
 });
+
+test('mobile 376–540 keeps full-width Thai text and standalone product artwork',()=>{
+  const mobile = css.slice(css.indexOf('Mobile typography fix — 2026-10-13'));
+  assert.ok(mobile.length>500,'scoped mobile override must exist');
+  assert.match(mobile,/@media \(min-width:376px\) and \(max-width:540px\)/);
+  assert.match(mobile,/grid-template-columns:minmax\(0,1fr\)!important/);
+  assert.match(mobile,/html \.kk-mock-hero \.kk-hero-art\{/);
+  assert.match(mobile,/width:100%!important/);
+  assert.match(mobile,/word-break:normal!important/);
+});
