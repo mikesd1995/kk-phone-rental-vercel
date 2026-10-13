@@ -221,3 +221,42 @@ test('title-only artist name must agree with source, not merely some other perfo
  assert.ok(out.blockers.includes('ARTIST_POPUP_ARTIST_SOURCE_CONFIRMATION_REQUIRED'));
  assert.equal(out.verified,false);
 });
+
+
+test('date-less ticketing and RSS event leads reach source verifier but cannot use snippet as date authority',()=>{
+ const candidate={title:'LYKN REFLEXION CONCERT',event_date:null,source_url:'https://www.eventpop.me/e/lykn'};
+ assert.equal(V.prefilter(candidate,'2026-10').eligible,true);
+ const body='<html><script type="application/ld+json">'+JSON.stringify({
+   '@type':'MusicEvent',name:'LYKN REFLEXION CONCERT',
+   startDate:'2026-10-23T19:00:00+07:00',location:{name:'IMPACT Arena'},image:'https://assets.example/lykn.jpg'
+ })+'</script></html>';
+ const good=V.verifyHtmlCandidate(candidate,body,{month:'2026-10'});
+ assert.equal(good.verified,true);
+ assert.equal(good.candidate.event_date,'2026-10-23');
+ assert.equal(good.candidate.event_time,'19:00');
+ const noStructured=V.verifyHtmlCandidate(candidate,
+   '<html><head><meta property="og:image" content="https://assets.example/event.jpg"></head><body>LYKN Concert at IMPACT Arena Oct 23 2026</body></html>',
+   {month:'2026-10'});
+ assert.equal(noStructured.verified,false);
+ assert.ok(noStructured.blockers.includes('SOURCE_EVENT_DATE_REQUIRED'));
+});
+test('conflicting event date from search and source is never silently accepted',()=>{
+ const candidate={title:'LYKN REFLEXION CONCERT',event_date:'2026-10-22',source_url:'https://www.eventpop.me/e/lykn'};
+ const body='<html><script type="application/ld+json">'+JSON.stringify({
+  '@type':'MusicEvent',name:'LYKN REFLEXION CONCERT',
+  startDate:'2026-10-23T19:00:00+07:00',
+  location:{name:'IMPACT Arena'},image:'https://assets.example/poster.jpg'
+ })+'</script></html>';
+ const out=V.verifyHtmlCandidate(candidate,body,{month:'2026-10'});
+ assert.equal(out.verified,false);
+ assert.ok(out.blockers.includes('CANDIDATE_SOURCE_DATE_CONFLICT'));
+ assert.equal(out.candidate.event_date,'2026-10-23');
+});
+test('date-less generic retail and non-event search noise stay excluded',()=>{
+ const generic={title:'Bangkok mall promotions',event_date:'',source_url:'https://example.org/sales'};
+ assert.equal(V.prefilter(generic,'2026-10').eligible,false);
+ assert.ok(V.prefilter(generic,'2026-10').reasons.includes('EVENT_DATE_REQUIRED'));
+ const prohibited={title:'Roblox Concert',event_date:'',source_url:'https://example.org/events'};
+ assert.equal(V.prefilter(prohibited,'2026-10').eligible,false);
+ assert.ok(V.prefilter(prohibited,'2026-10').reasons.includes('NON_RENTAL_EVENT_SIGNAL'));
+});
