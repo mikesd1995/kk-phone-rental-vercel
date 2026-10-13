@@ -5,7 +5,7 @@ Status: Owner-approved editorial requirements. Apply to every future X rental po
 ## Required
 1. Use the existing KK/L Y K N-style information structure as a guide, **not a verbatim template**: brand opener `📱 KK Phone Rental | #เช่ามือถือ`, event/fandom, verified offer, verified venue/dates, relevant persuasive copy, truthful benefits, booking link, and selective hashtags.
 2. Show device model **only on the offer/price line**. Never repeat device model in the hook, body or CTA. Brand `📱 KK Phone Rental | #เช่ามือถือ` appears ONCE in the header; do not repeat `KK` / shop name in the body. Standard CTA on its own line: `👉 เลือกวันแล้วจองคิว`, followed by `kk-phone-rental.vercel.app`.
-3. **Never disclose remaining stock quantity** in customer-facing copy: no 1/2, 2/2, “last unit”, etc. Internally verify all dates in the event against bookings and owner locks. Include ALL event dates with compact truthful status: `14 ต.ค. ✅ ว่าง`, `15 ต.ค. ❌ เต็ม`, `16 ต.ค. 🚫 ปิด` where a day is intentionally closed rather than full. Never infer FULL solely from a missing listing; check booking-day truth. The status block must reflect verified source data, not the artist's public ticket sold-out status.
+3. **Never disclose remaining stock quantity** in customer-facing copy: no 1/2, 2/2, “last unit”, etc. Internally verify all dates in the event against bookings and owner locks. **X copy has exactly two customer-visible date labels:** `14 ต.ค. ✅ ว่าง` and `15 ต.ค. ❌ เต็ม`. A verified owner-closed, hidden, locked or unavailable date must also render **`❌ เต็ม`** in public X copy; never print `🚫 ปิด` or `ปิดรับจอง` as a date state. Keep the actual internal `closed`/`hidden`/`owner_closed`/`full` reasons unchanged in backend and audit; display mapping is not a Booking mutation. Never infer a date's state from a missing listing or public concert ticket sell-out; verify all event dates against canonical event truth, Booking and owner locks first.
 4. Avoid repeated hooks, metaphors, sentence rhythms and generic phrases across posts. Explicit anti-examples: “ทุกสายตา ทุกรอยยิ้ม”, “โมเมนต์ที่รอคอย”, “เตรียมไปด้วยเลย”. Do not mechanically swap artist names in one copy.
 5. Each event requires a genuinely distinct audience insight and sales angle grounded in its actual artist, fandom, show format, access rules, date and context. Concert: live set/performance; fan meeting: encounter and participation; themed event: unique program; festival: lineup; sports: on-field moments. These are prompts for research, not fixed language.
 6. Generate three **internal** diverse candidates, run Marketing Agent → Content Strategy → Content Agent → QA → Selector and show **only one best version per event**. In a multi-event batch, also perform cross-post diversity QA before showing any copy. Do not claim an agent ran or scored when no actual run evidence exists.
@@ -17,8 +17,8 @@ Status: Owner-approved editorial requirements. Apply to every future X rental po
 - Device model appears outside price line.
 - Customer-facing stock count or scarcity claim.
 - Repeated `KK` or shop name in the body, device model outside offer line, or non-standard verbose CTA.
-- Missing per-day verified statuses, incorrect `✅ ว่าง` / `❌ เต็ม`, or false FULL for an owner-hidden day.
-- Event dates closed/hidden or conflict with bookings.
+- Missing per-day verified statuses, incorrect `✅ ว่าง` / `❌ เต็ม`, or a public `🚫 ปิด` label. Owner-hidden/closed days **must** map to `❌ เต็ม` after verifying internal lock state; no blind assumptions from a missing row.
+- Event dates omitted, status contradicts verified backend evidence, or a hidden/closed date is incorrectly represented as available.
 - Hook/paragraph near-duplicate of another post in the batch or recent history.
 - Generic event copy with no concrete event-specific insight.
 - More than one candidate displayed per event.
@@ -36,3 +36,6 @@ Record candidate angles, selected angle, factual sources, duplicate/novelty QA, 
 - **Learning:** rule-based scores are not evidence of model training. Mark \`RULE_BASED_COLD_START\` until real post-performance records are provided, and avoid fictional engagement or booking scores.
 - **Hugging Face:** no claim of its use without a separately verified, successful model invocation, provenance and proof of no incremental paid usage; HF is not a mandatory provider for the existing free content bridge.
 - Do not turn an unverified chat-generated draft into an “Agent PASS” without a persistent bridge result and the exact five required/invoked agents. Do not auto-publish.
+
+## Owner update 2026-10-14 — locked display convention
+All public X date-status labels are binary: ✅ ว่าง / ❌ เต็ม. A date intentionally closed by the shop is shown as ❌ เต็ม in the **post only**. Never alter Booking, dates, hidden flags or the owner lock to satisfy this copy rule. This replaces the previous three-label convention.
