@@ -264,3 +264,17 @@ html .kk-mock-hero .kk-hero-art::after{
     text-align:start!important;
   }
 }
+
+/* Measured offscreen-card visibility correction — 2026-10-13.
+   Native content-visibility:auto + contain-intrinsic-size:350px was measured
+   by full-list QA before offscreen content laid out: card placeholder 352px
+   while poster 372px + text 232px. Eliminate phantom clipping on the 24-card
+   mobile catalogue without hiding any commercial text or changing inventory. */
+@media(max-width:700px){
+  html .poster-grid .concert-card{
+    content-visibility:visible!important;
+    contain-intrinsic-size:none!important;
+    height:auto!important;
+    aspect-ratio:auto!important;
+  }
+}

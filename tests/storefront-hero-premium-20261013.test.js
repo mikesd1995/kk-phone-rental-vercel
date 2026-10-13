@@ -78,3 +78,11 @@ test('mobile prices wrap without escaping the card and 320px height is content-o
   assert.match(fix,/white-space:normal!important/);
   assert.match(fix,/overflow-wrap:anywhere!important/);
 });
+
+test('mobile cards calculate actual offscreen poster and price height',()=>{
+  const end=css.slice(css.indexOf('Measured offscreen-card visibility correction — 2026-10-13'));
+  assert.ok(end.length>280);
+  assert.match(end,/content-visibility:visible!important/);
+  assert.match(end,/contain-intrinsic-size:none!important/);
+  assert.match(end,/height:auto!important/);
+});
