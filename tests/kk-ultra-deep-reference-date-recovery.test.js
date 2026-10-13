@@ -266,3 +266,17 @@ test('Direct.run commit intent NEVER inspects undated reference through bypass w
   Runner.runMonthlyUltraDeep=oldRunner;
  }
 });
+
+test('date-less Verifier selects matching JSON-LD event when page contains several October events',()=>{
+ const candidate=Runner.recoverEligibleReferenceCandidates([],[scope(CONCERT)],CTX).candidates[0];
+ const wrong={'@type':'MusicEvent',name:'Random Other Bangkok Event',startDate:'2026-10-21T19:00:00+07:00',
+  location:{'@type':'Place',name:'BITEC LIVE'},image:'https://poster.example/wrong.jpg'};
+ const right={'@type':'MusicEvent',name:CONCERT.title,startDate:'2026-10-22T18:30:00+07:00',
+  location:{'@type':'Place',name:'BITEC LIVE'},image:'https://poster.example/correct.jpg'};
+ const html='<html><script type="application/ld+json">'+JSON.stringify({'@graph':[wrong,right]})+'</script></html>';
+ const result=Verifier.verifyHtmlCandidate(candidate,html,CTX);
+ assert.equal(result.verified,true);
+ assert.equal(result.candidate.event_date,'2026-10-22');
+ assert.equal(result.poster.image_url,'https://poster.example/correct.jpg');
+ assert.equal(result.production_writes,undefined);
+});
