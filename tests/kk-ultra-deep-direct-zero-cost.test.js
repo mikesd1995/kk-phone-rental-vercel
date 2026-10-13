@@ -2,6 +2,8 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const path=require('node:path');
+const ROOT=path.resolve(__dirname,'..');
 const Direct=require('../server/kk-ultra-deep-direct-zero-cost.js');
 
 test('V22 rejects malformed month before any live provider call',async()=>{
@@ -96,4 +98,13 @@ test('canonical phone baseline is wired into final pricing fallback',()=>{
   assert.match(src,/package_type\)\.toLowerCase\(\)==='phone_only'/);
   assert.match(src,/store_baseline_prices:baselinePrices/);
   assert.match(src,/approved:true/);
+});
+
+
+test('V27 serverless full sweep has a bounded default budget and returns explicit zero-write HOLD',()=>{
+ const src=fs.readFileSync(path.join(ROOT,'server','kk-ultra-deep-direct-zero-cost.js'),'utf8');
+ assert.match(src,/runtime_budget_ms:runtimeBudgetMs/);
+ assert.match(src,/Math\.min\(210000/);
+ assert.match(src,/BLOCKED_DISCOVERY_NOT_FULL/);
+ assert.match(src,/production_writes:0/);
 });

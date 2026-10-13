@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V5';
+const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V6';
 const ALLOWED_PROVIDERS=new Set(['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 const MAX_RESULTS=25;
 const DEFAULT_CONCURRENCY=4;
@@ -34,13 +34,25 @@ function taskConcurrency(options={}){
   if(!Number.isFinite(raw)) return DEFAULT_CONCURRENCY;
   return Math.max(1,Math.min(Math.floor(raw),MAX_CONCURRENCY));
 }
+function timeBudgetExpired(options={}){
+ const deadline=Number(options.deadline_ms||0);
+ return deadline>0&&Number.isFinite(deadline)&&Date.now()>=deadline;
+}
 async function executeGapTask(task={},options={}){
   const providers=(Array.isArray(task.providers)?task.providers:[]).map(upper).filter(p=>ALLOWED_PROVIDERS.has(p));
   const attempts=[];
   for(const provider of providers){
+    if(timeBudgetExpired(options)){
+      attempts.push({provider,status:'TIME_BUDGET_EXHAUSTED'});
+      break;
+    }
     const fn=options.providers&&options.providers[provider];
     if(typeof fn!=='function'){attempts.push({provider,status:'NOT_BOUND'});continue;}
     for(const query of queryVariants(task)){
+      if(timeBudgetExpired(options)){
+        attempts.push({provider,status:'TIME_BUDGET_EXHAUSTED'});
+        break;
+      }
       const callTask=query===null?{...task,provider}:{...task,provider,query};
       try{
         const raw=await fn(callTask);
@@ -53,7 +65,7 @@ async function executeGapTask(task={},options={}){
       }catch(error){attempts.push({provider,status:'PROVIDER_ERROR',error_class:text(error&&(error.code||error.name))||'ERROR',query});}
     }
   }
-  return {version:VERSION,status:'GAP_UNRESOLVED',provider:null,source_tier:upper(task.source_tier),candidates:[],attempts,authoritative:false,verifier_required:true,production_writes:0};
+  return {version:VERSION,status:'GAP_UNRESOLVED',provider:null,source_tier:upper(task.source_tier),candidates:[],attempts,time_budget_exhausted:attempts.some(x=>x.status==='TIME_BUDGET_EXHAUSTED'),authoritative:false,verifier_required:true,production_writes:0};
 }
 async function executeGapPlan(plan={},options={}){
   const tasks=Array.isArray(plan.gap_tasks)?plan.gap_tasks:[];
@@ -68,6 +80,6 @@ async function executeGapPlan(plan={},options={}){
     }
   }
   await Promise.all(Array.from({length:workerCount},()=>worker()));
-  return {version:VERSION,status:results.every(r=>r.status==='EVIDENCE_FOUND')?'GAPS_RESOLVED':'GAPS_REMAIN',results,authoritative:false,verifier_required:true,production_writes:0};
+  return {version:VERSION,status:results.every(r=>r.status==='EVIDENCE_FOUND')?'GAPS_RESOLVED':'GAPS_REMAIN',results,time_budget_exhausted:results.some(r=>r.time_budget_exhausted),authoritative:false,verifier_required:true,production_writes:0};
 }
-module.exports={VERSION,ALLOWED_PROVIDERS,MAX_RESULTS,DEFAULT_CONCURRENCY,MAX_CONCURRENCY,queryVariants,normalizeCandidate,taskConcurrency,executeGapTask,executeGapPlan};
+module.exports={VERSION,ALLOWED_PROVIDERS,MAX_RESULTS,DEFAULT_CONCURRENCY,MAX_CONCURRENCY,queryVariants,normalizeCandidate,taskConcurrency,timeBudgetExpired,executeGapTask,executeGapPlan};

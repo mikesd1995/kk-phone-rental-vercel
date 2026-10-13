@@ -67,7 +67,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
 
 test('known-miss plan keeps one task per case and does not concatenate every alias into one over-constrained query',()=>{
  const plan=Runner.buildKnownMissPlan();
- assert.equal(plan.version,'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V2');
+ assert.equal(plan.version,'KK_ULTRA_DEEP_KNOWN_MISS_PROBE_V3');
  assert.equal(plan.gap_tasks.length,KnownMiss.CORPUS.length);
  const remaster=plan.gap_tasks.find(x=>x.source_id==='knownmiss:remaster-20261010');
  assert.equal(remaster.query,'REMASTER CONCERT Bangkok Thailand');
@@ -91,7 +91,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
  assert.equal(out.full,true);
  assert.ok(calls[0].startsWith('knownmiss:'));
  const firstNonKnown=calls.findIndex(x=>!x.startsWith('knownmiss:'));
- assert.ok(firstNonKnown>=KnownMiss.CORPUS.length);
+ assert.ok(firstNonKnown>=Runner.buildKnownMissPlan({month:'2026-10'}).gap_tasks.length);
 });
 
 test('runtime known-miss gate accepts a governed hit from the main discovery sweep',async()=>{
@@ -194,7 +194,7 @@ test('provider preflight accepts only provider with real HTTPS evidence',async()
 
 test('reference sweep retains exact month queries and adds bounded broad fallbacks',()=>{
  const p=Runner.buildReferencePlan({month:'2026-10',location:'Bangkok Thailand'});
- assert.equal(p.gap_tasks.length,5);
+ assert.equal(p.gap_tasks.length,6);
  assert.ok(p.gap_tasks.every(t=>t.query.includes('October 2026')));
  assert.ok(p.gap_tasks[0].query_variants.includes('Bangkok concert'));
  assert.ok(p.gap_tasks[1].query_variants.includes('Bangkok fanmeeting'));
@@ -202,6 +202,8 @@ test('reference sweep retains exact month queries and adds bounded broad fallbac
  assert.ok(p.gap_tasks[3].query_variants.includes('Bangkok concert calendar'));
  assert.ok(p.gap_tasks[4].query_variants.some(q=>/performance schedule|ตารางงานศิลปิน/i.test(q)));
  assert.equal(p.gap_tasks[4].source_tier,'BRAND_SPONSOR');
+ assert.equal(p.gap_tasks[5].source_tier,'BRAND_SPONSOR');
+ assert.ok(p.gap_tasks[5].query.toLowerCase().includes('pop-up'));
  assert.ok(p.gap_tasks.every(t=>t.providers.includes('DDG_HTML')&&t.providers.includes('BING_HTML')));
 });
 
@@ -349,4 +351,39 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
  assert.equal(out.audit_blocking,false);
  assert.ok(out.candidate_count>0);
  assert.equal(out.production_writes,0);
+});
+
+
+test('full scan time budget returns explicit HOLD, never forged FULL or provider receipts',async()=>{
+ let calls=0;
+ const input={month:'2026-10',location:'Bangkok Thailand'};
+ const out=await Runner.runMonthlyUltraDeep(input,{
+  use_only_injected_providers:true,
+  runtime_budget_ms:0.1,
+  providers:{SEARXNG:async()=>{calls++;return [{title:'False Positive',event_date:'2026-10-21',source_url:'https://example.org/synthetic'}];}}
+ });
+ assert.equal(calls,0);
+ assert.equal(out.full,false);
+ assert.equal(out.status,'HOLD_FOR_COVERAGE');
+ assert.equal(out.budget_exhausted,true);
+ assert.equal(out.diagnostic.budget_exhausted,true);
+ assert.ok(out.blockers.includes('RUNTIME_BUDGET_EXHAUSTED'));
+ assert.ok(out.diagnostic.receipts.known_miss.some(x=>!x.executed));
+ assert.equal(out.diagnostic.receipts.known_miss[0].attempts[0].status,'TIME_BUDGET_EXHAUSTED');
+ assert.equal(out.diagnostic.receipts.discovery[0].attempts[0].status,'TIME_BUDGET_EXHAUSTED');
+ assert.equal(out.production_writes,0);
+});
+
+test('October known-miss live probes omit irrelevant old/future dates but retain declared October discovery leads',()=>{
+ const cases=Runner.buildKnownMissPlan({month:'2026-10'}).gap_tasks;
+ const sourceIds=new Set(cases.map(x=>x.source_id));
+ const expected=KnownMiss.CORPUS.filter(c=>c.event_date.startsWith('2026-10')||
+  (c.discovery_months||[]).includes('2026-10'));
+ assert.equal(cases.length,expected.length);
+ assert.equal(cases.length,27);
+ assert.ok(sourceIds.has('knownmiss:panpuri-phutatchai-pop-up-20261021'));
+ assert.ok(sourceIds.has('knownmiss:gelboys-last-painting-20261122'));
+ assert.ok(sourceIds.has('knownmiss:siam-halloween-20261101'));
+ assert.equal(sourceIds.has('knownmiss:pink-aura-20260928'),false);
+ assert.equal(sourceIds.has('knownmiss:fortreasure-20261129'),false);
 });

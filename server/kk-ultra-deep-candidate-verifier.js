@@ -3,7 +3,7 @@
 const crypto=require('node:crypto');
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V3';
+const VERSION='KK_ULTRA_DEEP_CANDIDATE_VERIFIER_V6';
 const DEFAULT_CONCURRENCY=4;
 const MAX_CONCURRENCY=6;
 
@@ -12,6 +12,8 @@ const HIGH_FIT_SIGNAL=/(fan\s*-?\s*meet(?:ing)?|fanmeet|fancon|fansign|showcase|
 const CONCERT_SIGNAL=/(concert|world\s+tour|live\s+in|live\s+tour|คอนเสิร์ต)/i;
 const MID_FIT_SIGNAL=/(festival|awards?|premiere|เฟสติวัล|เทศกาลดนตรี|งานรางวัล|รอบปฐมทัศน์)/i;
 const LOW_FIT_SIGNAL=/(pool\s+party|exhibition|expo|trade\s+show|workshop|webinar|orchestra|symphony|conference|oktoberfest|codes?\b|roblox|นิทรรศการ|เวิร์กช็อป|สัมมนา)/i;
+const ARTIST_POPUP_SIGNAL=/(?:\bpop[\s-]?up\b|ป๊อปอัพ|ป็อปอัพ|ป๊อปอัป)/i;
+const ARTIST_APPEARANCE_SIGNAL=/(?:\bwith\s+[a-z][a-z0-9_-]{2,}|\b(?:x|feat\.?|featuring)\s+[a-z][a-z0-9_-]{2,}|(?:พบกับ|ศิลปิน)\s*[\u0e00-\u0e7f]{3,}|artist\s+appearance)/i;
 const GENERIC_TITLE=/^(home|homepage|google|ticketmaster|events?|concerts?\s+in\s+bangkok|bangkok\s+concerts?|thailand\s+events?)\b/i;
 const AGGREGATED_RESULT_SIGNAL=/(facebook\b.*(?:on\s+x|twitter)|(?:on\s+x|twitter)\b.*facebook|bangkok\s+post|youtube|google\s+search|search\s+results?|teetee\s+philippines\s+on\s+x)/i;
 const SOCIAL_OR_SEARCH_HOST=/(^|\.)(facebook\.com|x\.com|twitter\.com|instagram\.com|youtube\.com|youtu\.be|google\.com|bing\.com|duckduckgo\.com)$/i;
@@ -34,7 +36,7 @@ const KNOWN_VENUES=[
  'IMPACT Arena','IMPACT Challenger','Thunder Dome','Thunderdome',
  'Union Hall','Paragon Hall','ICONSIAM Hall','TRUE ICON HALL',
  'Rajamangala National Stadium','BITEC','QSNCC','Queen Sirikit National Convention Center',
- 'CentralWorld Live','CentralwOrld Pulse','MCC Hall','Siam Pavalai Royal Grand Theatre',
+ 'centralwOrld Beacon 3','CentralWorld Live','CentralwOrld Pulse','centralwOrld','MCC Hall','Siam Pavalai Royal Grand Theatre',
  'Lido Connect','Sphere Hall','UOB LIVE','One Bangkok Forum','The Street Hall'
 ];
 
@@ -44,6 +46,19 @@ function isoDate(v){
  const raw=text(v);if(!raw)return '';
  const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[1]+'-'+m[2]+'-'+m[3];
  const d=new Date(raw);return Number.isNaN(d.getTime())?'':d.toISOString().slice(0,10);
+}
+function bangkokLocalTime(value=''){
+ const raw=text(value);
+ // Keep the announced local wall clock only when the source uses Thailand
+ // offset (+07:00), or deliberately supplies no offset. Never mislabel UTC.
+ const m=raw.match(/T(\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/i);
+ if(!m||m[2]&&!/^\+07:?00$/.test(m[2]))return '';
+ return m[1];
+}
+function venueTokens(value=''){
+ return text(value).toLowerCase().replace(/([a-z])(\d)/g,'$1 $2')
+  .replace(/[^a-z0-9ก-๙]+/g,' ').split(' ')
+  .filter(x=>x.length>=3&&!['bangkok','floor','zone','กรุงเทพ','ชั้น'].includes(x));
 }
 function eventKey(row={}){
  const base=[text(row.title||row.event_name).toLowerCase().replace(/[^a-z0-9฀-๿]+/g,' ').replace(/\s+/g,' ').trim(),isoDate(row.event_date)].join('|');
@@ -73,6 +88,29 @@ function titleQuality(title=''){
  if((value.match(/\|/g)||[]).length>=2)reasons.push('AGGREGATED_SEARCH_RESULT_TITLE');
  return {ok:reasons.length===0,reasons:[...new Set(reasons)]};
 }
+
+function namedPopupArtists(row={}){
+ const raw=[row.artist,row.artists].filter(Boolean).flatMap(x=>Array.isArray(x)?x:[x]);
+ return [...new Set(raw.flatMap(x=>text(x).split(/\s*\|\s*|,\s*/)).map(text)
+  .filter(x=>x.length>=3&&!/^(artist|unknown|none|n\/a|tbd|ศิลปิน)$/i.test(x)))];
+}
+function artistPopupLead(row={},title=text(row.title||row.event_name)){
+ return ARTIST_POPUP_SIGNAL.test(title)&&
+  (namedPopupArtists(row).length>0||ARTIST_APPEARANCE_SIGNAL.test(title));
+}
+function sourceConfirmsPopupArtist(body='',candidate={}){
+ const page=text(body).slice(0,800000).toLowerCase();
+ const named=namedPopupArtists(candidate);
+ const inTitle=text(candidate.title||candidate.event_name).match(/\b(?:with|x|featuring)\s+([a-z][a-z0-9_-]{2,})\b/i);
+ const artists=named.length?named:(inTitle?[inTitle[1]]:[]);
+ // Do not let THAI match 'Thailand' or another artist replace the title artist.
+ return artists.length?artists.every(a=>{
+  if(/[ก-๙]/.test(a))return page.includes(a.toLowerCase());
+  const escaped=a.replace(/[.*+?^$()|[\]{}\\]/g,'\\$&');
+  return new RegExp('(^|[^a-z0-9])'+escaped+'($|[^a-z0-9])','i').test(page);
+ }):false;
+}
+
 function authoritativeEventSource(url='',picked=null,verified={}){
  const h=host(url);const trustedDetail=TRUSTED_EVENT_HOSTS.has(h)&&eventSpecificUrl(url);
  const socialOrSearch=SOCIAL_OR_SEARCH_HOST.test(h);
@@ -83,15 +121,19 @@ function prefilter(candidate={},month=''){
  const title=text(candidate.title);
  const date=isoDate(candidate.event_date);
  const url=https(candidate.source_url);
+ const popupLead=artistPopupLead(candidate,title);
  const reasons=[];
  if(!url)reasons.push('HTTPS_SOURCE_REQUIRED');
- if(!date)reasons.push('EVENT_DATE_REQUIRED');
- else if(month&&!monthMatches(date,month))reasons.push('OUTSIDE_TARGET_MONTH');
+ // Search/RSS snippets often omit the event date. Retain strong event leads
+ // only for source verification; a missing source-backed date can NEVER publish.
+ const eventLead=EVENT_SIGNAL.test(title)||popupLead||eventSpecificUrl(url);
+ if(!date&&!eventLead)reasons.push('EVENT_DATE_REQUIRED');
+ else if(date&&month&&!monthMatches(date,month))reasons.push('OUTSIDE_TARGET_MONTH');
  const quality=titleQuality(title);reasons.push(...quality.reasons);
  if(LOW_FIT_SIGNAL.test(title))reasons.push('NON_RENTAL_EVENT_SIGNAL');
- const explicit=EVENT_SIGNAL.test(title);
- if(!explicit&&!eventSpecificUrl(url))reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
- return {eligible:reasons.length===0,reasons,event_date:date,event_specific_url:eventSpecificUrl(url)};
+ if(!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url)&&!popupLead)
+  reasons.push('EVENT_IDENTITY_NOT_STRONG_ENOUGH');
+ return {eligible:reasons.length===0,reasons,event_date:date,event_specific_url:eventSpecificUrl(url),artist_popup_lead:popupLead};
 }
 function flattenJsonLd(value,out=[]){
  if(Array.isArray(value)){for(const x of value)flattenJsonLd(x,out);return out;}
@@ -139,12 +181,15 @@ function findKnownVenue(body,title=''){
  for(const venue of KNOWN_VENUES){if(hay.includes(venue.toLowerCase()))return venue;}
  return '';
 }
-function rentalFitScore(title=''){
+function rentalFitScore(title='',candidate={}){
  const t=text(title);
  if(LOW_FIT_SIGNAL.test(t))return 4.5;
  if(HIGH_FIT_SIGNAL.test(t))return 9.0;
  if(CONCERT_SIGNAL.test(t))return 8.2;
  if(MID_FIT_SIGNAL.test(t))return 7.5;
+ // Pop-up artist involvement is promising, but owner access and filming review
+ // always remain required; a fit score alone never authorizes publication.
+ if(artistPopupLead(candidate,t))return 7.0;
  if(EVENT_SIGNAL.test(t))return 7.0;
  return 5.0;
 }
@@ -162,6 +207,7 @@ function chooseJsonLdEvent(events=[],candidate={},month=''){
   let score=0;
   if(wanted&&d===wanted)score+=5;
   else if(month&&d.startsWith(month+'-'))score+=2;
+  if(candidate.date_pending_verification===true&&sourceTitleMatchesUndatedLead(candidate.title||candidate.event_name,e.name))score+=8;
   if(locationName(e.location))score+=2;
   if(imageUrl(e.image))score+=1;
   if(text(e.name))score+=1;
@@ -169,6 +215,30 @@ function chooseJsonLdEvent(events=[],candidate={},month=''){
  }).filter(x=>x.d&&(!month||x.d.startsWith(month+'-'))).sort((a,b)=>b.score-a.score);
  return scored[0]||null;
 }
+function sourceTitleMatchesUndatedLead(candidateTitle='',sourceTitle=''){
+ // Avoid attaching a different October JSON-LD Event from an event-list page.
+ // General category/date words do not count as event identity proof.
+ const stop=new Set(['event','events','concert','concerts','live','in','at','the','and',
+  'bangkok','thailand','official','tickets','ticket','show','fanmeet',
+  'fanmeeting','festival','tour','popup','pop','up','2026','2027']);
+ const words=x=>new Set(text(x).normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+  .toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').split(/\s+/)
+  .filter(t=>t.length>=3&&!stop.has(t)));
+ const wanted=words(candidateTitle),found=words(sourceTitle);
+ const overlap=[...wanted].filter(w=>found.has(w)).length;
+ return wanted.size>0&&overlap>=Math.min(2,wanted.size);
+}
+function sourceVenueInBangkok(location){
+ // Evidence comes from JSON-LD Place/address, never from a search query or
+ // candidate's user-supplied location. Missing/foreign provenance is HOLD.
+ const v=text(locationName(location));
+ const address=location&&typeof location==='object'?location.address:null;
+ const details=typeof address==='object'?[address.addressLocality,address.addressRegion,address.streetAddress].map(text).join(' '):text(address);
+ const combined=[v,details].join(' ');
+ if(/hong\s*kong|singapore|seoul|tokyo|osaka|manila|taipei|jakarta|hanoi|chiang\s*mai|phuket|ชลบุรี|เชียงใหม่|ภูเก็ต/i.test(combined))return false;
+ return /\b(?:bangkok|nonthaburi|pathum\s*thani|samut\s*prakan|centralworld|bitec|impact\s*arena|impact\s*challenger|thunder\s*dome|one\s*bangkok|siam\s*paragon|paragon\s*hall|lido\s*connect|union\s*hall|uob\s*live)\b|กรุงเทพ|นนทบุรี|ปทุมธานี|สมุทรปราการ|เซ็นทรัลเวิลด์|ไบเทค|พารากอน/i.test(combined);
+}
+
 function verifyHtmlCandidate(candidate={},body='',context={}){
  const month=text(context.month);
  const pre=prefilter(candidate,month);
@@ -177,35 +247,67 @@ function verifyHtmlCandidate(candidate={},body='',context={}){
  const picked=chooseJsonLdEvent(events,candidate,month);
  const title=text(picked&&picked.e&&picked.e.name)||text(candidate.title)||metaValue(body,'og:title');
  const date=isoDate(picked&&picked.d)||pre.event_date;
+ const popupLead=pre.artist_popup_lead||artistPopupLead(candidate,title);
  const venue=locationName(picked&&picked.e&&picked.e.location)||findKnownVenue(body,title);
  const poster=imageUrl(picked&&picked.e&&picked.e.image)||https(metaValue(body,'og:image'));
  const url=https(candidate.source_url);
  const blockers=[];
  const quality=titleQuality(title);blockers.push(...quality.reasons);
  if(!date||!monthMatches(date,month))blockers.push('VERIFIED_TARGET_MONTH_DATE_REQUIRED');
+ // Do not promote a date inferred only from an unverified search snippet.
+ if(!picked||!isoDate(picked.d))blockers.push('SOURCE_EVENT_DATE_REQUIRED');
+ if(candidate.date_pending_verification===true){
+  // Recovery may submit an undated lead, but only the matching exact-event
+  // structured source can establish its date, identity and Bangkok venue.
+  if(!picked||!text(picked.e&&picked.e.name)||
+    !sourceTitleMatchesUndatedLead(candidate.title,picked.e.name))
+    blockers.push('SOURCE_EVENT_TITLE_CONFLICT');
+  if(!picked||!sourceVenueInBangkok(picked.e&&picked.e.location))
+    blockers.push('SOURCE_BANGKOK_VENUE_PROOF_REQUIRED');
+ }
+ if(pre.event_date&&picked&&isoDate(picked.d)&&isoDate(picked.d)!==pre.event_date)
+  blockers.push('CANDIDATE_SOURCE_DATE_CONFLICT');
  if(!venue)blockers.push('VERIFIED_VENUE_REQUIRED');
- if(!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url))blockers.push('VERIFIED_EVENT_IDENTITY_REQUIRED');
+ if(!EVENT_SIGNAL.test(title)&&!eventSpecificUrl(url)&&!popupLead)blockers.push('VERIFIED_EVENT_IDENTITY_REQUIRED');
  if(!poster)blockers.push('VERIFIED_POSTER_REQUIRED');
- const authority=authoritativeEventSource(url,picked,{date,venue,poster,title});
- if(!authority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
- const fit=rentalFitScore(title);
+ const baseAuthority=authoritativeEventSource(url,picked,{date,venue,poster,title});
+ // A structured page on an arbitrary domain cannot authorize customer access
+ // or photography at a brand appearance. Owner review is mandatory.
+ const authority=popupLead?{...baseAuthority,ok:false,owner_review_required:true}:baseAuthority;
+ if(!baseAuthority.ok)blockers.push('AUTHORITATIVE_EVENT_SOURCE_REQUIRED');
+ if(popupLead&&text(candidate.venue)&&picked&&locationName(picked.e&&picked.e.location)){
+  const wanted=venueTokens(candidate.venue),received=new Set(venueTokens(locationName(picked.e.location)));
+  const overlap=wanted.filter(x=>received.has(x)).length;
+  if(wanted.length&&overlap<Math.min(2,wanted.length))
+   blockers.push('ARTIST_POPUP_VENUE_CONFLICT');
+ }
+ if(popupLead){
+  if(!picked||!text(picked.e&&picked.e.name)||!locationName(picked.e.location)||!imageUrl(picked.e.image))
+   blockers.push('ARTIST_POPUP_PRIMARY_EVENT_RECEIPT_REQUIRED');
+  if(pre.event_date&&picked&&isoDate(picked.d)&&isoDate(picked.d)!==pre.event_date)
+   blockers.push('ARTIST_POPUP_DATE_CONFLICT');
+  if(!sourceConfirmsPopupArtist(body,candidate))
+   blockers.push('ARTIST_POPUP_ARTIST_SOURCE_CONFIRMATION_REQUIRED');
+  blockers.push('ARTIST_POPUP_OWNER_ACCESS_PHOTO_POLICY_REVIEW_REQUIRED');
+ }
+ const fit=rentalFitScore(title,candidate);
  if(fit<7)blockers.push('RENTAL_FIT_BELOW_PUBLISH_THRESHOLD');
  const key=eventKey({title,event_date:date});
  const verified=blockers.length===0;
  return {
   version:VERSION,
-  status:verified?'VERIFIED_FOR_COMMERCIAL':'HOLD_VERIFIER',
+  status:verified?'VERIFIED_FOR_COMMERCIAL':(popupLead?'HOLD_OWNER_ARTIST_POPUP_REVIEW':'HOLD_VERIFIER'),
   verified,
   blockers,
   candidate:{
    candidate_id:text(candidate.candidate_id)||key,
-   event_key:key,title,event_date:date,event_time:text(candidate.event_time)||null,venue,
-   artist:Array.isArray(candidate.artist)?candidate.artist.map(text).filter(Boolean):[],
+   event_key:key,title,event_date:date,event_time:text(candidate.event_time)||bangkokLocalTime(picked&&picked.e&&picked.e.startDate)||null,venue,
+   artist:namedPopupArtists(candidate),
    source_url:url,confidence:verified?0.9:0.4,rental_fit_score:fit,
-   publish_eligibility:{status:fit>=7?'ELIGIBLE':'REJECTED_LOW_RENTAL_FIT',eligible:fit>=7,rental_fit_score:fit,minimum_publish_score:7}
+   publish_eligibility:{status:popupLead?'HOLD_OWNER_ARTIST_POPUP_REVIEW':(fit>=7?'ELIGIBLE':'REJECTED_LOW_RENTAL_FIT'),eligible:!popupLead&&fit>=7,rental_fit_score:fit,minimum_publish_score:7}
   },
   poster:poster?{event_key:key,source_tier:sourceTier(url),source_url:url,image_url:poster,official:TRUSTED_EVENT_HOSTS.has(host(url)),verified:authority.ok}:null,
-  evidence:{jsonld_event_count:events.length,event_specific_url:eventSpecificUrl(url),source_tier:sourceTier(url),authoritative_event_source:authority.ok,authority}
+  evidence:{jsonld_event_count:events.length,event_specific_url:eventSpecificUrl(url),source_tier:sourceTier(url),authoritative_event_source:authority.ok,artist_popup_lead:popupLead,source_artist_confirmed:popupLead?sourceConfirmsPopupArtist(body,candidate):null,authority}
  };
 }
 async function verifyCandidate(candidate={},context={},options={}){
@@ -247,7 +349,18 @@ async function verifyBatch(candidates=[],context={},options={}){
   hold_count:holds.length,
   verified_candidates:verified.map(x=>x.candidate),
   posters,
-  holds:holds.slice(0,200).map(x=>({title:text(x&&x.candidate&&x.candidate.title)||null,event_date:isoDate(x&&x.candidate&&x.candidate.event_date)||null,source_url:https(x&&x.candidate&&x.candidate.source_url)||null,blockers:x&&x.blockers||['UNKNOWN']})),
+  holds:holds.slice(0,200).map(x=>({
+   title:text(x&&x.candidate&&x.candidate.title)||null,
+   event_date:isoDate(x&&x.candidate&&x.candidate.event_date)||null,
+   event_time:text(x&&x.candidate&&x.candidate.event_time)||null,
+   venue:text(x&&x.candidate&&x.candidate.venue)||null,
+   artist:Array.isArray(x&&x.candidate&&x.candidate.artist)?x.candidate.artist:[],
+   source_url:https(x&&x.candidate&&x.candidate.source_url)||null,
+   status:text(x&&x.status)||'HOLD_VERIFIER',
+   poster_for_review:x&&x.poster&&https(x.poster.image_url)||null,
+   artist_popup_lead:!!(x&&x.evidence&&x.evidence.artist_popup_lead),
+   blockers:x&&x.blockers||['UNKNOWN']
+  })),
   production_writes:0,
   authoritative:false,
   verifier_required:true
@@ -255,7 +368,7 @@ async function verifyBatch(candidates=[],context={},options={}){
 }
 
 module.exports={
- VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,
+ VERSION,TRUSTED_EVENT_HOSTS,KNOWN_VENUES,EVENT_SIGNAL,ARTIST_POPUP_SIGNAL,ARTIST_APPEARANCE_SIGNAL,artistPopupLead,namedPopupArtists,sourceConfirmsPopupArtist,HIGH_FIT_SIGNAL,CONCERT_SIGNAL,MID_FIT_SIGNAL,LOW_FIT_SIGNAL,AGGREGATED_RESULT_SIGNAL,SOCIAL_OR_SEARCH_HOST,MAX_VERIFIED_TITLE_LENGTH,
  text,https,isoDate,eventKey,host,eventSpecificUrl,monthMatches,titleQuality,authoritativeEventSource,prefilter,flattenJsonLd,parseJsonLd,metaValue,locationName,imageUrl,
- findKnownVenue,rentalFitScore,sourceTier,chooseJsonLdEvent,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
+ findKnownVenue,rentalFitScore,bangkokLocalTime,venueTokens,sourceTier,chooseJsonLdEvent,sourceTitleMatchesUndatedLead,sourceVenueInBangkok,verifyHtmlCandidate,verifyCandidate,verifyBatch,concurrency
 };

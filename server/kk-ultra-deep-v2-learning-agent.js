@@ -1,8 +1,10 @@
 'use strict';
-const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V6';
+const OwnerLineage=require('./kk-ultra-deep-owner-core-lineage.js');
+const VERSION='KK_ULTRA_DEEP_V2_LEARNING_AGENT_V7';
 const PROTECTED_POLICY=Object.freeze([
   'BOOKING_PRICE_LOCK','TOMBSTONE_NO_RESURRECTION','GOVERNED_ADMIN_WRITER_ONLY',
-  'EXACT_READBACK_REQUIRED','VERIFIED_EVENT_REQUIRED','EXTERNAL_DEMAND_SCORE_EXCLUDES_KK_INTERNAL_OUTCOMES'
+  'EXACT_READBACK_REQUIRED','VERIFIED_EVENT_REQUIRED','EXTERNAL_DEMAND_SCORE_EXCLUDES_KK_INTERNAL_OUTCOMES',
+  'OWNER_CORE_LINEAGE_CANNOT_FAKE_SCANNER_DISCOVERY_OR_VERIFIED_MISS'
 ]);
 const ADAPTIVE_DISCOVERY=Object.freeze([
   'SOURCE_PRIORITY','QUERY_TERMS','MATCHING_HEURISTICS','FANDOM_GRAPH_EXPANSION',
@@ -25,6 +27,7 @@ function learn(input={}){
  const outcomes=Array.isArray(input.booking_outcomes)?input.booking_outcomes:[];
  const waitlists=Array.isArray(input.waitlist_signals)?input.waitlist_signals:[];
  const inquiries=Array.isArray(input.inquiry_signals)?input.inquiry_signals:[];
+ const ownerCorePlan=input.owner_core_snapshot?OwnerLineage.prepare(input.owner_core_snapshot):null;
  const learnedQueries=uniq(missed.flatMap(x=>x.query_terms||[]));
  const learnedSources=uniq([...missed.map(x=>x.source),...sourceWins.map(x=>x.source)]);
  const suppressPatterns=uniq(falsePositives.flatMap(x=>x.patterns||[]));
@@ -32,14 +35,14 @@ function learn(input={}){
  const missClasses=uniq(missed.map(x=>x.miss_class));
  const artistBrandSocialMiss=missed.some(x=>['ARTIST_BRAND_SOCIAL_KEYWORDLESS_APPEARANCE','ARTIST_SCHEDULE_GAP','BRAND_SOCIAL_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const broadCoverageMiss=missed.some(x=>['INTERNATIONAL_CONCERT_SOURCE_GAP','THAI_LIVE_SOURCE_GAP','FESTIVAL_TAXONOMY_GAP','FAN_BIRTHDAY_SOURCE_GAP','VENUE_CALENDAR_GAP','TICKETING_SOURCE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
- const campaignVisualMiss=missed.some(x=>['BRAND_PURCHASE_CAMPAIGN_GAP','BRAND_LEAD_TIME_CAMPAIGN_GAP','RETAIL_SCHEDULE_BOARD_GAP','IMAGE_ONLY_SCHEDULE_GAP','BRAND_PRIVATE_EXPERIENCE_GAP','PRIVATE_SESSION_CROSSMONTH_NAMED_EVENT_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
+ const campaignVisualMiss=missed.some(x=>['BRAND_PURCHASE_CAMPAIGN_GAP','BRAND_LEAD_TIME_CAMPAIGN_GAP','RETAIL_SCHEDULE_BOARD_GAP','IMAGE_ONLY_SCHEDULE_GAP','BRAND_PRIVATE_EXPERIENCE_GAP','PRIVATE_SESSION_CROSSMONTH_NAMED_EVENT_GAP','BRAND_POPUP_ARTIST_APPEARANCE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const freeCrossMonthMiss=missed.some(x=>['FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP','FREE_PUBLIC_FESTIVAL_MEDIA_ORGANIZER_CROSS_MONTH_RECALL_GAP','ARTIST_OFFICIAL_SALE_WINDOW_NEXTMONTH_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const dateIdentityMiss=missed.some(x=>['REPEATED_EVENT_NEW_DATE_SOURCE_GAP','TICKET_SALE_VS_EVENT_DATE_GAP','UPDATED_DATE_PRIMARY_PAGE_CONFLICT_GAP','STALE_KNOWN_CANDIDATE_LIFECYCLE_GAP'].includes(text(x&&x.miss_class).toUpperCase()));
  const expansionQueries=artistBrandSocialMiss?uniq(missed.flatMap(x=>{
    const artists=list(x&&x.artists||x&&x.artist),brands=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);
    return [...artists.map(a=>a+' '+month+' schedule'),...artists.map(a=>a+' '+month+' brand event'),...brands.flatMap(b=>artists.map(a=>b+' '+a+' '+month)),...artists.map(a=>a+' lucky fan top spender fansign appearance')];
  })):[];
- const campaignExpansion=campaignVisualMiss?uniq(missed.flatMap(x=>{const artists=list(x&&x.artists||x&&x.artist),brands=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);return [...artists.map(a=>a+' '+month+' performance schedule'),...artists.map(a=>a+' lucky fan purchase register winner announcement'),...artists.map(a=>a+' private talk workshop polaroid one day trip'),...brands.flatMap(b=>artists.map(a=>b+' '+a+' campaign')), ...brands.map(b=>b+' artist lucky fan top spender purchase register '+month)];})):[];
+ const campaignExpansion=campaignVisualMiss?uniq(missed.flatMap(x=>{const artists=list(x&&x.artists||x&&x.artist),brands=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);return [...artists.map(a=>a+' '+month+' performance schedule'),...artists.map(a=>a+' lucky fan purchase register winner announcement'),...artists.map(a=>a+' private talk workshop polaroid one day trip'),...brands.flatMap(b=>artists.map(a=>b+' '+a+' campaign')), ...brands.map(b=>b+' artist lucky fan top spender purchase register '+month),...brands.flatMap(b=>artists.map(a=>b+' '+a+' pop-up appearance '+month))];})):[];
  const dateIdentityExpansion=dateIdentityMiss?uniq(missed.flatMap(x=>{const artist=list(x&&x.artists||x&&x.artist),source=list(x&&x.brands||x&&x.brand),month=text(x&&x.month);return [...artist.map(a=>a+' '+month+' updated date new schedule ticket on sale'),...artist.map(a=>a+' busking repeat new show date'),...source.map(b=>b+' official announcement revised poster old product date'),...source.map(b=>b+' event date vs ticket onsale next month')];})) : [];
  const freeCrossMonthExpansion=freeCrossMonthMiss?['radio station free music festival Bangkok PMCU Flex1045 Siam Halloween 30 Oct 1 Nov','ฟรีคอนเสิร์ต งานฟรี ปฏิทินศิลปินห้าง สยามฮาโลวีน งานที่คร่อมเดือน','official artist concerts announced in previous month JMNK SHEเสิร์ฟ 21 November'] : [];
  const coverageExpansion=broadCoverageMiss?[
@@ -64,17 +67,22 @@ function learn(input={}){
  if(falsePositives.length) recommendations.push('TIGHTEN_IDENTITY_AND_GENERIC_PAGE_FILTERS');
  if(holds.some(x=>(x.holds||[]).includes('VERIFIED_POSTER_REQUIRED'))) recommendations.push('EXPAND_POSTER_DISCOVERY_LEADS_FROM_EXACT_EVENT_COMPETITORS');
  if(corrections.length) recommendations.push('REVIEW_REPEATED_MANUAL_CORRECTIONS_FOR_HEURISTIC_UPDATE');
+ if(ownerCorePlan&&ownerCorePlan.review_proposal_count>0)recommendations.push('OWNER_CORE_TRACKER_LINEAGE_GOVERNED_REVIEW_REQUIRED');
  if(outcomes.length||waitlists.length||inquiries.length) recommendations.push('BOOST_ADJACENT_FANDOM_DISCOVERY_PRIORITY_ONLY');
  if(waitlists.length||inquiries.length) recommendations.push('EXPAND_FANDOM_GRAPH_AND_RENTAL_KEYWORD_RADAR');
  return {
    version:VERSION,
-   status:'LEARNED',
+   // A manual Core reverse orphan is an observation, never a verified live
+   // Scanner miss. A review-only invocation must not report 'LEARNED'.
+   status:ownerCorePlan&&!(missed.length||falsePositives.length||holds.length||corrections.length||
+    sourceWins.length||outcomes.length||waitlists.length||inquiries.length)?
+    'OWNER_CORE_REVIEW_PENDING':'LEARNED',
    adaptive:{
      query_terms:uniq([...learnedQueries,...expansionQueries,...campaignExpansion,...dateIdentityExpansion,...freeCrossMonthExpansion,...coverageExpansion]),
      miss_classes:missClasses,
      mandatory_expansion:uniq([
        ...(artistBrandSocialMiss?['ARTIST_MONTH_SCHEDULE','BRAND_OFFICIAL_SOCIAL','VENUE_MALL_SOCIAL','ARTIST_TO_RELATED_EVENT_PIVOT']:[]),
-       ...(campaignVisualMiss?['BRAND_PURCHASE_CAMPAIGN','RETAIL_PERFORMANCE_SCHEDULE','IMAGE_SCHEDULE_SEGMENTATION','CAMPAIGN_LEAD_TIME_NEXT_MONTH','WINNER_CONFIRMATION_WINDOW']:[]),
+       ...(campaignVisualMiss?['BRAND_PURCHASE_CAMPAIGN','BRAND_POPUP_ARTIST_APPEARANCE','RETAIL_PERFORMANCE_SCHEDULE','IMAGE_SCHEDULE_SEGMENTATION','CAMPAIGN_LEAD_TIME_NEXT_MONTH','WINNER_CONFIRMATION_WINDOW']:[]),
        ...(freeCrossMonthMiss?['RADIO_MEDIA_FREE_FESTIVAL_SOURCE','CROSS_MONTH_MULTI_DAY_EXPANSION','EXACT_DATE_ARTIST_LINEUP_EVIDENCE','NON_TICKETED_EVENT_DISCOVERY']:[]),
        ...(dateIdentityMiss?['REPEAT_EVENT_DATE_DISAMBIGUATION','EVENT_DATE_VS_TICKET_SALE_DATE','OFFICIAL_POSTER_PRIMARY_PAGE_DATE_CONFLICT_CHECK','EXISTING_CANDIDATE_LIFECYCLE_REFRESH']:[]),
        ...(broadCoverageMiss?['TICKETING_UNIVERSE','ORGANIZER_PROMOTER_UNIVERSE','VENUE_CALENDAR_UNIVERSE','BROAD_CONCERT_LIVE_UNIVERSE','FESTIVAL_TAXONOMY_UNIVERSE','KNOWN_POSITIVE_BACKTEST']:[])
@@ -85,9 +93,11 @@ function learn(input={}){
      hot_fandom_discovery_priority:hotFandoms
    },
    recommendations,
+   owner_core_reconciliation:ownerCorePlan,
+   owner_core_learning_accepted:false,
    change_log:{
      missed_events:missed.length,false_positives:falsePositives.length,holds:holds.length,
-     manual_corrections:corrections.length,booking_outcomes:outcomes.length,
+     manual_corrections:corrections.length,owner_core_review_proposals:ownerCorePlan?ownerCorePlan.review_proposal_count:0,booking_outcomes:outcomes.length,
      waitlist_signals:waitlists.length,inquiry_signals:inquiries.length
    },
    scoring_learning:{
@@ -104,7 +114,9 @@ function learn(input={}){
    authority:{
      auto_apply_search_strategy:true,auto_apply_source_priority:true,auto_apply_matching_heuristics:true,
      may_change_external_score_from_kk_internal_outcomes:false,
-     protected_policy:[...PROTECTED_POLICY],may_change_protected_policy:false,production_writes:0
+     protected_policy:[...PROTECTED_POLICY],may_change_protected_policy:false,production_writes:0,
+     may_auto_write_tracker:false,may_claim_owner_core_as_scanner_discovered:false,
+     may_mark_owner_core_gap_as_verified_miss:false
    }
  };
 }

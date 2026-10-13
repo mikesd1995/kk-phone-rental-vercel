@@ -8,7 +8,7 @@ const Production=require('./kk-ultra-deep-production-runtime.js');
 const V2Adapter=require('./kk-ultra-deep-v2-runtime-adapter.js');
 const V2Writer=require('./kk-ultra-deep-v2-governed-writer.js');
 
-const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V26';
+const VERSION='KK_ULTRA_DEEP_DIRECT_ZERO_COST_V29';
 function text(v){return String(v==null?'':v).trim();}
 
 async function run(input={},options={}){
@@ -31,6 +31,12 @@ async function run(input={},options={}){
     production_writes:0
   };
 
+  // Reserve time for the verifier, commercial stages and governed readback.
+  // A month-wide search that overruns the local deadline is an explicit HOLD,
+  // never a fabricated FULL result and never a production write.
+  const requestedBudget=Number(options.runtime_budget_ms||180000);
+  const runtimeBudgetMs=Number.isFinite(requestedBudget)?
+    Math.max(1000,Math.min(210000,Math.floor(requestedBudget))):180000;
   const operational=options.operational===true;
   const discovery=operational
     ? await Runtime.runOperationalDiscovery(
@@ -39,17 +45,56 @@ async function run(input={},options={}){
       )
     : await Runtime.runMonthlyUltraDeep(
         {month,location},
-        {publicWebOptions:{fetchImpl},providers:options.providers||{}}
+        {publicWebOptions:{fetchImpl},providers:options.providers||{},runtime_budget_ms:runtimeBudgetMs}
       );
   const discoveryReady=operational
     ? discovery.operational_ready===true&&discovery.status==='READY_FOR_VERIFIER'
     : discovery.full===true&&discovery.status==='READY_FOR_VERIFIER';
   if(!discoveryReady){
+    // A date-less independent lead must reach the source verifier even when
+    // October FULL fails. This is a bounded READ-ONLY diagnostic lane only;
+    // it cannot unlock pricing, the governed writer or release acceptance.
+    let reference_source_date_review=null;
+    if(options.executeWrites!==true&&!operational &&
+      Number(discovery.reference_source_resolution?.attempted_count||0)>0){
+      // Runtime already fetched primary sources during coverage reconciliation.
+      // Reuse its sanitized read-only receipt; do not fetch identical URLs twice.
+      reference_source_date_review={
+        ...discovery.reference_source_resolution,
+        status:'READ_ONLY_RUNTIME_SOURCE_DATE_RECEIPT',
+        authorized_to_publish:false,
+        production_writes:0
+      };
+    }else if(options.executeWrites!==true&&!operational){
+      const pending=(discovery.candidates||[])
+        .filter(x=>x&&x.date_pending_verification===true&&
+          x.candidate_origin==='INDEPENDENT_REFERENCE_RECOVERY')
+        .slice(0,4);
+      if(pending.length){
+        const reviewed=await Verifier.verifyBatch(
+          pending,{month,location},{concurrency:2,timeout_ms:5000,fetchFn:fetchImpl}
+        );
+        reference_source_date_review={
+          status:'READ_ONLY_DIAGNOSTIC_NOT_FULL_ACCEPTANCE',
+          examined_count:pending.length,
+          verified_count:reviewed.verified_count,
+          hold_count:reviewed.hold_count,
+          holds:(reviewed.holds||[]).slice(0,4).map(h=>({
+            title:text(h.title)||null,
+            event_date:text(h.event_date)||null,
+            blockers:h.blockers||[],
+            status:text(h.status)||'HOLD_VERIFIER'
+          })),
+          production_writes:0,
+          authorized_to_publish:false
+        };
+      }
+    }
     return {
       version:VERSION,
       status:operational?'BLOCKED_OPERATIONAL_DISCOVERY':'BLOCKED_DISCOVERY_NOT_FULL',
       month,mode:operational?'SMART_OPERATIONAL':'ULTRA_DEEP_AUDIT',
-      preflight,discovery,production_writes:0
+      preflight,discovery,reference_source_date_review,production_writes:0
     };
   }
 

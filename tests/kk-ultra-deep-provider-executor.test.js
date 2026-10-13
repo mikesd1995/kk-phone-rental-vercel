@@ -75,3 +75,32 @@ test('executeGapPlan runs tasks concurrently but preserves result order',async()
  assert.equal(out.status,'GAPS_RESOLVED');
  assert.equal(out.production_writes,0);
 });
+
+
+test('expired query deadline prevents provider calls and remains an unexecuted gap',async()=>{
+ let calls=0;
+ const plan={gap_tasks:[{source_tier:'SOCIAL',providers:['BING_RSS'],query:'Bangkok Oct 2026'}]};
+ const out=await Exec.executeGapPlan(plan,{providers:{BING_RSS:async()=>{calls++;return [{title:'Fake Concert',source_url:'https://example.org/fake'}];}},deadline_ms:Date.now()-1000});
+ assert.equal(calls,0);
+ assert.equal(out.status,'GAPS_REMAIN');
+ assert.equal(out.time_budget_exhausted,true);
+ assert.equal(out.results[0].status,'GAP_UNRESOLVED');
+ assert.equal(out.results[0].attempts[0].status,'TIME_BUDGET_EXHAUSTED');
+ assert.equal(out.production_writes,0);
+});
+
+test('partial query execution does not disguise a later exhausted deadline as FULL',async()=>{
+ let now=10; const realNow=Date.now;
+ try{
+  Date.now=()=>now;
+  let first=true;
+  const out=await Exec.executeGapTask({source_tier:'SOCIAL',providers:['BING_RSS'],query:'A',query_variants:['B']},{
+   providers:{BING_RSS:async()=>{if(first){first=false;now=30;}return [];}},
+   deadline_ms:20
+  });
+  assert.equal(out.status,'GAP_UNRESOLVED');
+  assert.equal(out.time_budget_exhausted,true);
+  assert.deepEqual(out.attempts.map(x=>x.status),['NO_EVIDENCE','TIME_BUDGET_EXHAUSTED']);
+  assert.equal(out.production_writes,0);
+ }finally{Date.now=realNow;}
+});
