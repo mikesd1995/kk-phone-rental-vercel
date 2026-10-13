@@ -12,7 +12,7 @@ function fixture(){
   events:[{event_id:ID,event_name:TITLE,event_date:'21/10/2026',venue:VENUE,
    active_on_web:'TRUE',poster_image_url:'https://drive.google.com/thumbnail?id=owner-image',
    event_note:'OWNER_EXPLICIT_ADD_2026-10-13_PRICE_490_590|invited guests only'}],
-  web_ready:[{event_id:ID,event_name:TITLE,event_date_text:'21/10/2026',
+  web_ready:[{event_id:ID,event_name:TITLE,event_date_text:'21/10/2026',venue:VENUE,
    action_for_web:'show',available_phone_count:'2',available_lens_count:'2'}],
   web_packages:[
    {event_id:ID,package_type:'phone_only',price:'490',package_status:'available'},
@@ -169,7 +169,7 @@ function sheetInput(f){
  return {
   event_ids:f.event_ids,as_of:f.as_of,
   events_values:values(['event_id','event_name','event_date','venue','active_on_web','event_note'],f.events),
-  web_ready_values:values(['event_id','event_name','event_date_text','action_for_web'],f.web_ready),
+  web_ready_values:values(['event_id','event_name','event_date_text','venue','action_for_web'],f.web_ready),
   web_packages_values:values(['event_id','package_type','price','package_status'],f.web_packages),
   visibility_locks_values:values(['lock_id','event_id','event_date','venue','lock_state','lock_reason'],f.visibility_locks),
   tracker_candidates_values:values(['Discovered At','Event Name / Keyword','Suspected Event Date','Suspected Venue','Notes'],f.tracker_candidates),
@@ -188,6 +188,7 @@ test('actual Sheet header offsets decode a complete missing-lineage snapshot',()
  assert.equal(Owner.isoDate('46316'),'2026-10-21');
  assert.equal(Owner.isoDate('22 ต.ค. 2569'),'2026-10-22');
  assert.equal(Owner.isoDate('31/02/2026'),'');
+ assert.equal(Owner.isoDate('2026-02-31'),'');
  assert.equal(Owner.normalize('PAÑPURI'),Owner.normalize('PANPURI'));
 });
 test('Learning Agent consumes proposed owner lineage without creating a verified scanner miss',()=>{
@@ -212,4 +213,13 @@ test('owner lineage CLI explicitly refuses any write, update or deployment flags
   {'snapshot-json':'./snapshots/oct.json','event-id':ID});
  assert.throws(()=>CLI.parseArgs(['--write','true','--event-id',ID]),/READ_ONLY_FLAGS_ONLY/);
  assert.throws(()=>CLI.parseArgs(['--event-id',ID]),/EXPLICIT_INPUT_REQUIRED/);
+});
+
+test('Core/WebReady identity mismatches or already-closed event block owner lineage staging',()=>{
+ const swapped=fixture();swapped.web_ready[0].event_name='Another artist fanmeet';
+ assert.ok(Owner.prepare(swapped).events[0].blockers.includes('CORE_WEBREADY_MISMATCH'));
+ const closed=fixture();closed.events[0].event_status='cancelled';
+ assert.ok(Owner.prepare(closed).events[0].blockers.includes('CORE_EVENT_STATUS_NOT_OPEN'));
+ const hidden=fixture();hidden.events[0].active_on_web='FALSE';
+ assert.ok(Owner.prepare(hidden).events[0].blockers.includes('OWNER_HIDDEN_BUT_WEBREADY_VISIBLE'));
 });
