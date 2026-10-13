@@ -170,3 +170,13 @@ test('Learning Agent receives review proposals without adapting source strategie
  assert.equal(out.authority.may_mark_backscan_as_verified_miss,false);
  assert.equal(out.authority.production_writes,0);
 });
+
+test('local Backscan CLI is explicitly read-only: no write, deploy, publish or price flags',()=>{
+ const CLI=require('../scripts/kk-ultra-deep-backscan-miss-review.js');
+ assert.deepEqual(CLI.parseArgs(['--snapshot-json','./safe-oct-snapshot.json','--as-of','2026-10-13']),{
+  'snapshot-json':'./safe-oct-snapshot.json','as-of':'2026-10-13'
+ });
+ for(const flag of ['--write','--deploy','--publish','--reprice','--commit'])
+  assert.throws(()=>CLI.parseArgs(['--snapshot-json','data.json',flag,'true']),/READ_ONLY_FLAGS_ONLY/);
+ assert.throws(()=>CLI.parseArgs([]),/SNAPSHOT_REQUIRED/);
+});
