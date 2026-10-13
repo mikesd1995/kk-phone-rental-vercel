@@ -485,14 +485,25 @@ async function sendMessage(){
  }
  const box=$('#inboxComposeText'),originalDraft=String(box?.value||''),body=originalDraft.trim();
  if(!conversationId||!body){composeState('กรอกข้อความก่อนส่ง');return}
- if(!window.confirm('ยืนยันส่งข้อความนี้ถึงลูกค้าผ่าน LINE?'))return;
+ const repeat=pendingIntentionalRepeat&&pendingIntentionalRepeat.room===conversationId?pendingIntentionalRepeat:null;
+ if(repeat&&repeat.body!==body){
+  composeState('ข้อความเปลี่ยนหลังเตรียมส่งซ้ำ · ตรวจหลักฐานและอนุมัติใหม่');return;
+ }
+ if(!window.confirm(repeat?'ยืนยันส่งข้อความเดิมซ้ำโดยตั้งใจอีกครั้ง หลังตรวจ LINE OA แล้ว?':'ยืนยันส่งข้อความนี้ถึงลูกค้าผ่าน LINE?'))return;
  const sendRequestId=window.crypto?.randomUUID?.();
  if(!sendRequestId){composeState('อุปกรณ์นี้ไม่รองรับรหัสคำขอ LINE ที่ปลอดภัย');return;}
+ // An approval is single-use even when the response is lost.
+ pendingIntentionalRepeat=null;
  sending=true;composeState('กำลังส่งผ่าน LINE…');
  let providerAccepted=false,outcomeStatus='';
  try{
   // Keep the approved recipient and draft stable while LINE is in flight.
-  const response=await api('inboxSendLineMessage',{conversation_id:conversationId,text:body,owner_approved:true,send_request_id:sendRequestId});
+  const response=await api('inboxSendLineMessage',{
+   conversation_id:conversationId,text:body,owner_approved:true,send_request_id:sendRequestId,
+   intentional_repeat_of:repeat?.requestId||'',
+   intentional_repeat_reason:repeat?.reason||'',
+   intentional_repeat_approved:!!repeat
+  });
   // A generic HTTP 200 without the exact Inbox delivery receipt is ambiguous.
   if(response?.provider_sends!==1||response?.message?.conversation_id!==conversationId||
      !response?.message?.message_id)throw new Error('LINE delivery receipt incomplete');
@@ -504,11 +515,18 @@ async function sendMessage(){
   }
   const refreshed=await loadList(false,{silent:true});
   outcomeStatus=refreshed===null?'ส่ง LINE และบันทึกสำเร็จแล้ว · รายการแชทยังไม่อัปเดต':'ส่งสำเร็จและบันทึกใน Inbox แล้ว';
- }catch(_){
+ }catch(err){
   if(!providerAccepted){
-   // Timeout or lost persistence receipt may mean customer already received it.
-   uncertainSendRooms.add(conversationId);
-   outcomeStatus='สถานะส่งไม่ยืนยัน · ตรวจ LINE OA และหลักฐานการส่งก่อนดำเนินการต่อ';
+   // An explicit pre-send dedup refusal is known to have zero provider pushes.
+   const refusedBeforeSend=['INBOX_OUTBOUND_ALREADY_RESERVED','INBOX_OUTBOUND_REQUEST_CONFLICT',
+    'INBOX_INTENTIONAL_REPEAT_APPROVAL_REQUIRED','INBOX_INTENTIONAL_REPEAT_CONTEXT_INVALID'];
+   if(refusedBeforeSend.includes(String(err?.code||''))){
+    outcomeStatus='ข้อความซ้ำถูกบล็อกก่อนส่ง · เปิดประวัติ Ledger ตรวจหลักฐานและขออนุมัติส่งใหม่';
+   }else{
+    // Timeout/lost receipt may mean the customer already received the message.
+    uncertainSendRooms.add(conversationId);
+    outcomeStatus='สถานะส่งไม่ยืนยัน · ตรวจ LINE OA และหลักฐานการส่งก่อนดำเนินการต่อ';
+   }
   }else{
    // A thread refresh failure AFTER an exact delivery receipt is not a send failure.
    outcomeStatus='ส่ง LINE และบันทึกสำเร็จแล้ว · โหลดแชทล่าสุดไม่สำเร็จ';
@@ -523,6 +541,14 @@ function bind(){
  ['#inboxChannelFilter','#inboxStatusFilter'].forEach(s=>$(s)?.addEventListener('change',()=>loadList(false,{silent:true,refreshSelected:true})));
  $('#inboxSearch')?.addEventListener('input',scheduleSearch);
  $('#inboxSendBtn')?.addEventListener('click',sendMessage);
+ $('#inboxOutboundReviewBtn')?.addEventListener('click',loadOutboundHistory);
+ $('#inboxOutboundReviewCloseBtn')?.addEventListener('click',()=>{
+  const panel=$('#inboxOutboundReviewPanel');if(panel)panel.hidden=true;
+  pendingIntentionalRepeat=null;
+ });
+ $('#inboxOutboundAttempts')?.addEventListener('click',chooseOutboundAttempt);
+ $('#inboxOutboundSaveReviewBtn')?.addEventListener('click',saveOutboundReview);
+ $('#inboxPrepareRepeatBtn')?.addEventListener('click',prepareIntentionalRepeat);
  $('#inboxComposeText')?.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();sendMessage()}});
  $('#inboxRenameBtn')?.addEventListener('click',openRenameDialog);
  $('#inboxRenameCancel')?.addEventListener('click',closeRenameDialog);
