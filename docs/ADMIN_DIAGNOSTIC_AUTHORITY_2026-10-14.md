@@ -1,0 +1,15 @@
+# Admin diagnostic evidence authority — 2026-10-14 Bangkok
+
+Scope is source/local diagnostic correctness. The observed live Apps Script15s timeout remains unexplained; this repair does not claim its cause or resolution. The Admin session expired before a fresh Live Check could execute; neither failed UI locator attempt submitted a request.
+
+Fresh baseline15e289e, current main d6dc3bfe; live Machine SOT exactly one Active globalv4.9.44 and existing persistence escalation remain authoritative. Backend metadata confirms both audit/error log tabs exist, while the direct-Sheet reader snapshot contains no runtime folder/log/fallback booleans. Admin incorrectly labelled absent diagnostic evidence as missing and suggested setup. It also labelled the reader revision and configured reader Sheet identity as independently observed Apps Script runtime facts.
+
+Both Admin diagnostic renderers now retain three states: exacttrue/exactfalse/unknown. Unknown stays CHECK/WARN with no inferred setup. Genuine negative evidence remains warning. Fallback reader revision and configured binding are shown separately; cached write-probe success does not certify current deployed-source identity. Summary labels and refresh mismatch notices follow the same provenance boundary. Existing canonical write admission is unchanged.
+
+Offline reproduction also proved HTTP503 with JSON ok:true could make buildSystemHealth report AppsScriptOK and accept derived identity. Health now requires HTTPsuccess, strict applicationoktrue and a non-array diagnostic object with nonempty string spreadsheet_id before accepting derived rows. Optional runtime flags remain unknown unless boolean. Timeout, rejected envelope, authentication HTML, sheet mismatch and genuine missing settings stay distinct. No timeout extension, retry, writer provisioning or business mutation was added.
+
+DirectGooglePhase1 writer_ready=false only describes the staged optional writer, whose allowlisted supported actions are updateEvent/updatePackage/upsertEventOverride. It does not prove all canonical AppsScript writes are unavailable. Legacy write_path_health, cache/grace and admission mode remain separate existing authority.
+
+Red regressions reproduced unknown→missing, reader→runtime and HTTPfailure→OK before patch. New8tests pass; final full1609/1609 zero fail/skip and syntax0. Independent40tests plus13adversarial cases pass, no scoped source BLOCKER/MATERIAL. Existing five cache assertions paired with Admin JS markerdiagnostic-evidence-authority-20261013; marker date reflects start of work before midnight. Preimplementation registered Gateway UX receipt is retained at workspaceoutputs/admin-diagnostic-prereview-20261013. Final local synthetic rendering/registeredVisualQA evidence and live release remain separate requirements.
+
+No AppsScript/editor save, deployment, protected-main merge, Sheet/business write, task activation or customer/support send was performed. Preserve the owner-approved hero reference as a separate upcoming UI delta.

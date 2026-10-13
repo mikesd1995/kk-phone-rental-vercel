@@ -29,5 +29,5 @@ test('Bulk editor keeps failed rows as retryable drafts after partial failure',(
 });
 
 test('Bulk price change ships with a dedicated admin cache key',()=>{
-  assert.match(html,/admin\.js\?v=bulk-event-price-edit-20260927/);
+  assert.match(html,/admin\.js\?v=diagnostic-evidence-authority-20261013/);
 });

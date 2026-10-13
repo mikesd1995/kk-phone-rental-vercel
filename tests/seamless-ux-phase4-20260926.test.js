@@ -85,5 +85,5 @@ test('phase 4 assets are cache-busted',()=>{
   assert.match(storeHtml,/style\.css\?v=clear-filter-containment-20260930/);
   assert.match(storeHtml,/script\.js\?v=[A-Za-z0-9][A-Za-z0-9._-]*/);
   assert.match(adminHtml,/admin\.css\?v=health-triage-20260926/);
-  assert.match(adminHtml,/admin\.js\?v=bulk-event-price-edit-20260927/);
+  assert.match(adminHtml,/admin\.js\?v=diagnostic-evidence-authority-20261013/);
 });
