@@ -10,7 +10,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 
-const VERSION='KK_ULTRA_DEEP_LOCAL_READONLY_SHARDS_V1';
+const VERSION='KK_ULTRA_DEEP_LOCAL_READONLY_SHARDS_V2';
 const FREE_PROVIDERS=Object.freeze([
  'OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','LIVENATION_PUBLIC','BING_RSS',
  'DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA'
@@ -134,6 +134,7 @@ function combineReports(input={},reports=[]){
  const knownMiss=KnownMiss.evaluate([...knownCandidates,...discovered,...reference],[],{month:m.month,strict_live:true});
  if(!knownMiss.complete)blockers.push('KNOWN_MISS_LIVE_RECALL_INCOMPLETE');
  if(!reconciliation.complete)blockers.push('RECONCILIATION_GAPS_REMAIN');
+ if(reconciliation.pending_source_date_count>0)blockers.push('REFERENCE_SOURCE_DATE_VERIFICATION_PENDING');
  const receipts_complete=blockers.length===0;
  return {
   version:VERSION,month:m.month,manifest_fingerprint:m.fingerprint,shard_count:m.shards.length,
@@ -141,7 +142,8 @@ function combineReports(input={},reports=[]){
   source_universe:{complete:universe.complete,required:universe.required_source_count,passed:universe.passed_required_source_count,missing:universe.missing_required_sources},
   candidates:{discovered:discovered.length,reference:reference.length,recovered:recovered.recovered_count},
   known_miss_live:{complete:knownMiss.complete,passed:knownMiss.passed,case_count:knownMiss.case_count,missing_cases:knownMiss.missing_cases},
-  reconciliation:{complete:reconciliation.complete,missing:reconciliation.reconciliation_gap_count},
+  reconciliation:{complete:reconciliation.complete,missing:reconciliation.reconciliation_gap_count,
+    pending_source_date_count:reconciliation.pending_source_date_count||0},
   receipts_complete,blockers:[...new Set(blockers)],
   // A local merge has no signed production provider identity and cannot authorize
   // commercial, owner, booking, writer, or release gates.
