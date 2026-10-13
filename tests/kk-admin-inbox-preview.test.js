@@ -225,3 +225,70 @@ test('successful in-flight reply cannot resurrect a sent draft after switching r
  assert.equal(input.value,'','the completed A message must not become an unsent draft');
  assert.deepEqual(threads,[],'do not refresh a different room after send');
 });
+
+test('filtering out a selected room disables reply and clears customer draft from shared composer',async()=>{
+ const vm=require('node:vm'),js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const a=js.indexOf('function clearSelectionAfterFilter(){');
+ const b=js.indexOf('\nasync function loadList(',a);
+ const c=js.indexOf('\nasync function refreshInboxNow(',b);
+ assert.ok(a>0&&b>a&&c>b);
+ const input={value:'private reply for room A'},thread={innerHTML:'old thread'},list=[];
+ const ctx={
+  $:id=>id==='#inboxComposeText'?input:id==='#inboxThread'?thread:{value:''},
+  api:async()=>({conversations:[{conversation_id:'conv_B'}],outbound_enabled:true}),
+  conversationVersion:()=>'',renderList:v=>list.push(v.length),
+  renderThreadHeader:()=>{},composeState:()=>{},markRefreshed:()=>{},
+  releaseInboxImages:()=>{},hydrateMissingProfiles:()=>{},loadThread:async()=>{},
+  liveStatus:()=>{},showError:()=>{}
+ };
+ vm.runInNewContext(
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},threadRequestSeq=0,listRequestSeq=0,outboundEnabled=false;const inboxDrafts=Object.create(null);\n"+
+  js.slice(a,c)+
+  "\nglobalThis.loadList=loadList;globalThis.get=()=>({selected,selectedRow,version:threadRequestSeq,saved:inboxDrafts.conv_A});",ctx
+ );
+ await ctx.loadList(false);
+ const state=ctx.get();
+ assert.equal(state.selected,'');assert.equal(state.selectedRow,null);
+ assert.equal(state.version,1);assert.equal(state.saved,'private reply for room A');
+ assert.equal(input.value,'');
+ assert.match(thread.innerHTML,/เลือกบทสนทนา/);
+ assert.deepEqual(list,[1]);
+});
+
+test('mismatched conversation metadata cannot begin a message request',async()=>{
+ const vm=require('node:vm'),js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const a=js.indexOf('async function loadThread(id,row,options={}){'),b=js.indexOf('\nfunction clearSelectionAfterFilter(',a);
+ assert.ok(a>0&&b>a);
+ let calls=0;
+ const ctx={api:async()=>{calls++;return {messages:[]}},renderThreadHeader:()=>{},composeState:()=>{}};
+ vm.runInNewContext(
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A'},threadRequestSeq=0;\n"+
+  js.slice(a,b)+"\nglobalThis.loadThread=loadThread;",ctx
+ );
+ await ctx.loadThread('conv_B',{conversation_id:'conv_A'});
+ await ctx.loadThread('conv_B',null);
+ assert.equal(calls,0);
+});
+
+test('ambiguous LINE send outcome prevents another send in the same page session',async()=>{
+ const vm=require('node:vm'),js=fs.readFileSync(path.join(root,'admin/inbox-preview.js'),'utf8');
+ const a=js.indexOf('async function sendMessage(){'),b=js.indexOf('\nfunction scheduleSearch(',a);
+ assert.ok(a>0&&b>a);
+ const input={value:'reply A'},calls=[],statuses=[];
+ let rejectSend;
+ const ctx={
+  $:()=>input,window:{confirm:()=>true},composeState:s=>statuses.push(s||''),
+  api:(action,payload)=>new Promise((resolve,reject)=>{calls.push({action,payload});rejectSend=reject}),
+  loadList:async()=>{},loadThread:async()=>{}
+ };
+ vm.runInNewContext(
+  "let selected='conv_A',selectedRow={conversation_id:'conv_A',channel:'line'},sending=false;const inboxDrafts=Object.create(null),uncertainSendRooms=new Set();\n"+
+  js.slice(a,b)+"\nglobalThis.sendMessage=sendMessage;globalThis.held=()=>uncertainSendRooms.has('conv_A');",ctx
+ );
+ const first=ctx.sendMessage();
+ rejectSend(Object.assign(new Error('post-send receipt unavailable'),{code:'INBOX_OUTBOUND_PERSIST_FAILED_AFTER_SEND'}));
+ await first;
+ assert.equal(ctx.held(),true);assert.equal(input.value,'reply A');
+ await ctx.sendMessage();
+ assert.equal(calls.length,1,'never send a second LINE push while outcome is unknown');
+});
