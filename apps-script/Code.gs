@@ -76,6 +76,18 @@ function kkSafeAlert_(message) {
   }
 }
 
+function kkRedactSecretText_(value) {
+  let safe=String(value==null?'':value);
+  try{
+    const props=PropertiesService.getScriptProperties();
+    for(const key of ['KK_ADMIN_API_KEY','KK_CORE_PRIVATE_READ_KEY']){
+      const secret=String(props.getProperty(key)||'');
+      if(secret.length>=16)safe=safe.split(secret).join('[redacted]');
+    }
+  }catch(_){return '[redaction unavailable]';}
+  return safe;
+}
+
 function kkSafeStringify_(value, maxLen) {
   const limit = maxLen || 1500;
   try {
@@ -86,7 +98,7 @@ function kkSafeStringify_(value, maxLen) {
       return val;
     }));
     const text = JSON.stringify(clean);
-    return text.length > limit ? text.slice(0, limit) + '…' : text;
+    return kkRedactSecretText_(text.length > limit ? text.slice(0, limit) + '…' : text);
   } catch (err) {
     return '[unserializable payload]';
   }
@@ -146,10 +158,10 @@ function kkErrorLog_(action, payload, err, startedAt) {
     new Date(),
     KK_ADMIN_VERSION,
     action || '',
-    err && err.message ? err.message : String(err),
+    kkRedactSecretText_(err && err.message ? err.message : String(err)),
     duration,
     kkSafeStringify_(payload, 1000),
-    err && err.stack ? String(err.stack).slice(0, 1500) : '',
+    kkRedactSecretText_(err && err.stack ? String(err.stack).slice(0, 1500) : ''),
     payload && payload.proxyVersion ? payload.proxyVersion : ''
   ]);
 }
@@ -1444,6 +1456,7 @@ function doPost(e) {
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
     if (keyOk && action !== 'privateCoreRead') kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
+    if(action==='privateCoreRead') return kkApiJson_({ok:false,admin_api_version:KK_ADMIN_VERSION,error_code:'PRIVATE_CORE_READ_UNAVAILABLE',error:'Private Core read unavailable'});
     return kkApiJson_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, kkApiFail_(err)));
   }
 }
