@@ -389,6 +389,18 @@ async function main(){
       await page.locator('#content .concert-card:not(.skeleton-card)').first().click();
       await captureState('dark-modal',path.join(outputDir,`${width}x${height}-dark-modal.jpg`));
       await page.keyboard.press('Escape');
+      // Cross-product coverage: earlier matrix captured EN/light and TH/dark
+      // but silently omitted EN/dark, including its package modal.
+      await page.locator('.lang-btn[data-lang="en"]').click();
+      recordInteraction('english_dark_selected',
+        (await page.locator('.lang-btn[data-lang="en"]').getAttribute('aria-pressed'))==='true' &&
+        (await page.locator('html').getAttribute('data-theme'))==='dark');
+      await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+      await captureState('english-dark',path.join(outputDir,`${width}x${height}-english-dark.jpg`));
+      await page.locator('#content .concert-card:not(.skeleton-card)').first().click();
+      await captureState('english-dark-modal',path.join(outputDir,`${width}x${height}-english-dark-modal.jpg`));
+      await page.keyboard.press('Escape');
+      await page.locator('.lang-btn[data-lang="th"]').click();
       await page.locator('#theme-toggle').click();
       await page.locator('#content .concert-card:not(.skeleton-card)').first().click();
       await captureState('modal',path.join(outputDir,`${width}x${height}-modal.jpg`));
