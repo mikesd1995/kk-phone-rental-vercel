@@ -2,6 +2,24 @@
   "version": "KK_PROJECT_MEMORY_CORPUS_V1",
   "items": [
     {
+      "memory_id": "kk:memory:content:x-post-intent-final-only-mandatory-agent:20261015",
+      "occurred_at": "2026-10-15T00:22:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "content",
+      "summary": "OWNER LOCKED (2026-10-15): Whenever owner asks in Thai 'ขอโพสปล่อยเช่างานนี้บน X', 'ขอโพสงานนี้บน X' or equivalent for one or multiple KK Phone Rental events, treat this as a mandatory governed FINISHED-POST intent, never an offer of multiple versions, a style-choice question, or an unverified self-written draft labeled AI Final. For EACH event: (1) check canonical Storefront/Core booking + inventory, packages/prices, exact event dates and venue, poster, official related hashtags and latest shop X post history; retain underlying owner-hidden/closed truth; (2) invoke and record actual Marketing Agent -> Content Strategy -> Content Agent (3 meaningfully distinct INTERNAL candidates) -> Content QA -> Selector, plus Batch Diversity QA across multiple events, with verifiable persistent PASS/invocation evidence; (3) performance-based Learning AI may use ONLY measured engagement/booking outcomes, never imaginary measured metrics; Hugging Face may be claimed ONLY if a real successful HF model call/provenance is evidenced, without added cost; (4) show EXACTLY ONE BEST FINAL COPYABLE BOX per event, never ask owner to choose among variants or provide unsolicited alternatives. Public post format: top line '📱 KK Phone Rental | #เช่ามือถือ' once; no brand repeat in body; one verified main event hashtag; at least 3 other relevant VERIFIED distinct hashtags at end (>=5 total); model name ONLY in verified offer/price line; benefit copy not invented; CTA must be concise DIFFERENT for each event/fandom (compare batch and recent posts), never repeat brand/model or fabricate urgency; unchanged canonical booking URL; all event dates must be shown as only '✅ ว่าง' or '❌ เต็ม' based on verified booking/locks (a verified owner-hidden/closed day displays '❌ เต็ม' publicly but internal status remains unmodified), no remaining device counts; respect owner approval before posting or scheduling on X, no paid services. IF Agent/selector/Hugging Face invocation or data verification fails, disclose exact limitation, do not fabricate 'Agent-selected', PASS, Learning AI scores or claim final governed execution; do not ask owner to choose or silently bypass gates. No automatic production, price, booking or permission writes. Github draft policy/PR does not automatically intercept ChatGPT prompts; each chat must explicitly run and verify the real bridge.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/X_POST_OWNER_COPY_RULES_2026-10-12.md",
+        "skills/kk-content-strategy/SKILL.md",
+        "docs/CHAT_CONTENT_AGENT_BRIDGE_2026-09-28.md",
+        "docs/CONTENT_BATCH_DIVERSITY_AGENT_BRIDGE_2026-10-01.md",
+        "server/kk-content-request-router.js",
+        "server/kk-x-owner-copy-policy.js"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
+    },
+    {
       "memory_id": "kk:memory:content:x-owner-gated-copy:20261013",
       "occurred_at": "2026-10-13T02:41:00+07:00",
       "kind": "LOCKED_RULE",
