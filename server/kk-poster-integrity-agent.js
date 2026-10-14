@@ -41,6 +41,27 @@ function urlKey(v){
 }
 function normalizedName(v){return str(v).normalize('NFKC').toLowerCase().replace(/\s+/g,' ');}
 function isBrandHero(url){return /(?:^|\/)kk-brand-hero-final-20260920\.png(?:[?#]|$)/i.test(str(url));}
+function safePosterUrl(value){
+  const raw=str(value);
+  if(!raw)return false;
+  if(raw.startsWith('/')&&!raw.startsWith('//')&&!raw.includes('\\'))return true;
+  try{
+    const url=new URL(raw);
+    if(url.protocol!=='https:'||url.username||url.password)return false;
+    const host=url.hostname.toLowerCase().replace(/^\[|\]$/g,'');
+    if(host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||
+       host.endsWith('.internal')||host==='::1'||host==='0.0.0.0'||host.startsWith('fc')&&host.includes(':')||
+       host.startsWith('fd')&&host.includes(':')||host.startsWith('fe80:'))return false;
+    const ip=host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if(ip){
+      const [a,b,c,d]=ip.slice(1).map(Number);
+      if([a,b,c,d].some(x=>x>255)||a===0||a===10||a===127||a>=224||
+        a===169&&b===254||a===172&&b>=16&&b<=31||a===192&&b===168||
+        a===100&&b>=64&&b<=127)return false;
+    }
+    return true;
+  }catch{return false;}
+}
 function visible(row){return ['show','show_full'].includes(str(row.action_for_web||row.action));}
 function source(row){return str(row.poster_image_url||row.canonical||row.poster_url);}
 function triage(input={}){
@@ -67,6 +88,7 @@ function triage(input={}){
     const tested=checks.length>0,healthy=checks.some(x=>x&&x.ok===true);
     const reasons=[];
     if(!url)reasons.push('POSTER_SOURCE_MISSING');
+    else if(!safePosterUrl(url))reasons.push('UNSAFE_OR_INVALID_POSTER_SOURCE');
     else if(KNOWN_WRONG[id]&&urlKey(KNOWN_WRONG[id])===key)reasons.push('KNOWN_WRONG_EVENT_ART');
     else if(isBrandHero(url))reasons.push('GENERIC_BRAND_HERO_NOT_OFFICIAL_POSTER');
     if(!id||!name||!day)reasons.push('EVENT_IDENTITY_INCOMPLETE');
@@ -102,7 +124,7 @@ function triage(input={}){
       }else if(verdict==='MATCH'&&/^[a-f0-9]{64}$/.test(str(v.asset_sha256).toLowerCase())&&
         observation.loaded===true&&Number(observation.natural_width)>0&&
         str(observation.poster_url)===url&&sha===str(v.asset_sha256).toLowerCase()&&
-        /^https:\/\//i.test(str(v.evidence_url))&&v.title_match===true&&v.date_match===true&&
+        /safePosterUrl(v.evidence_url)&&/^https:\/\//i.test(str(v.evidence_url))&&v.title_match===true&&v.date_match===true&&
         Number(v.confidence)>=0.8&&Number(v.confidence)<=1){
         vision_status='AI_MATCH_UNVERIFIED_BY_OWNER';
       }else{
@@ -116,7 +138,7 @@ function triage(input={}){
       instruction:'Review original pixels; never publish or change Sheets from AI results.'
     });
     const unique=[...new Set(reasons)];
-    const critical=unique.some(x=>['POSTER_SOURCE_MISSING','KNOWN_WRONG_EVENT_ART','GENERIC_BRAND_HERO_NOT_OFFICIAL_POSTER','NO_HEALTHY_IMAGE_DELIVERY','EVENT_IDENTITY_INCOMPLETE'].includes(x));
+    const critical=unique.some(x=>['POSTER_SOURCE_MISSING','KNOWN_WRONG_EVENT_ART','GENERIC_BRAND_HERO_NOT_OFFICIAL_POSTER','NO_HEALTHY_IMAGE_DELIVERY','EVENT_IDENTITY_INCOMPLETE','UNSAFE_OR_INVALID_POSTER_SOURCE'].includes(x));
     const verdict=critical?'BLOCKED_NEEDS_POSTER':unique.length?'OWNER_REVIEW_REQUIRED':'DELIVERY_ONLY_IDENTITY_UNVERIFIED';
     const next=critical?'REPLACE_WITH_VERIFIED_EXACT_EVENT_POSTER':unique.length?'REVIEW_EVENT_ARTWORK_AND_SOURCE':'VERIFY_ORGANIZER_ARTWORK';
     return {event_id:id,event_name:name,event_date:day,poster_url:url,delivery_status:tested?(healthy?'IMAGE_DELIVERED':'IMAGE_DELIVERY_FAILED'):'NOT_TESTED',verdict,reasons:unique,vision_status,owner_review_required:true,owner_approved:false,next_action:next,official_poster_verified:false};
@@ -130,4 +152,4 @@ function triage(input={}){
     inventory_writes:0,visibility_writes:0,poster_writes:0,auto_publish:false,ai_can_approve:false,owner_approval_required:true
   };
 }
-module.exports={VERSION,KNOWN_WRONG,dateKey,urlKey,triage};
+module.exports={VERSION,KNOWN_WRONG,dateKey,urlKey,safePosterUrl,triage};
