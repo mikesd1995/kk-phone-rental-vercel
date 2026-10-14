@@ -35,3 +35,22 @@ Only two source paths modified:
 5. If no free-minute access, leave this branch ready, CI issue #707 open, and await confirmed free reset rather than bypassing safety with a paid runner.
 
 **Authoritative handoff:** this document and GitHub CI Issue #707. Keep exact SHA, source-vs-hosted proof and spent-vs-unverified budget clearly separate.
+
+
+## 2026-10-14 follow-up: native Node regression with exact Git blobs
+
+**Independent offline acceptance upgrade (no GitHub Actions or Vercel credits):**
+
+- Fetched existing scoped branch `fix/ci-v2-no-install-scoped-20261014` and immutable main via GitHub connector. Main source `.github/workflows/ultra-deep-v2-acceptance.yml` has blob `9248f19cc3811d5ad349b1aa19cd31e3c7f787a3`. Scoped fix has workflow blob `087ddebfd201843f7745e211a5276da80c41ba4f`, regression test blob `b6461187da7a383bfa5b6d0b81466138db330b98`. A recursive 812-entry HEAD tree has **zero** `package-lock.json` or `npm-shrinkwrap.json`.
+- Reconstructed the exact workflow and regression test in a local isolated container; verified all Git SHA-1 blob hashes against GitHub, byte-for-byte, BEFORE tests. Node `v22.16.0`, no dependency installation.
+- `node --check tests/ci-ultra-deep-v2-workflow-safety.test.js`: **exit 0**.
+- `node --test tests/ci-ultra-deep-v2-workflow-safety.test.js` on scoped fixed workflow: **exit 0, 6/6 PASS, 0 FAIL**, TAP elapsed approximately 55–79ms in separate runs.
+- **Negative control:** replaced only the temporary local workflow with the original `main` blob, confirmed exact `9248f19c...` SHA, ran the same 6-test suite: **exit 1; 1 PASS / 5 FAIL**. Restored the exact fixed workflow and reran: **exit 0; 6 PASS / 0 FAIL**. Final restored local blob SHA reverified `087ddebfd...`.
+- Parsed the restored fixed YAML using `ruamel.yaml` safe parser: **PASS**; top-level `on` includes `workflow_dispatch` and `pull_request`, one `v2-acceptance` job with six steps. No `actionlint` binary available; do **not** present YAML parsing as official actionlint or GitHub runner acceptance.
+- Live GitHub zero-step failure `38506266901` job `115664380139`: still **0 exposed steps**; genuine Oct 13 successful `38413734525` job `115352505381`: **13 executed steps**. This confirms the two very different failure/success classes; source `npm ci` defect is not the cause of a zero-step job.
+
+**What improved:** the staged no-install repair is now **native Node-verified**, with an original-main negative control rather than only a mocked V8 test. No modifications to the executable fix were necessary during this follow-up; do not create a duplicate branch/PR for the same correction.
+
+**Still blocked:** the branch is NOT merged to `main`, source has NOT run in a newly admitted GitHub-hosted runner, current GitHub included minutes / spending budget are NOT exposed by the installed connector, and no official actionlint/full repo test result exists. Opening a PR may trigger automatic GitHub Actions in this private repo, so keep this branch isolated under the owner's zero-spend constraint until a **read-only** billing/budget and workflow admission check confirms a free route. No hosted re-run, billing change, paid service, merge, deploy or production write occurred.
+
+**How to resume:** read this exact HEAD/branch, issue [#707](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/707), and [Vercel quota #692](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/692); verify owner GitHub Billing → Budgets / Actions usage and then execute exactly one approved free exact-head CI canary (require >0 runner steps, logs, `npm run check`, regression PASS). Separate the source fix from capacity recovery.
