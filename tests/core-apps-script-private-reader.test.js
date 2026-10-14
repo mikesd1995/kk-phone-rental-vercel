@@ -77,8 +77,9 @@ test('server private Core API dispatches explicitly selected Apps Script transpo
    assert.equal(count,2);
  }finally{script.readValues=orig}
 });
-test('Apps Script action requires admin key and extra Script Property, exact allowlist, bounded source, and skips request audit logging',()=>{
- assert.match(appSource,/kkApiRequireKey_\(payload\);[\s\S]*?switch \(action\)/);
+test('Apps Script action requires a separate private read key and extra Script Property, exact allowlist, bounded source, and skips request audit logging',()=>{
+ assert.match(appSource,/if\(action==='privateCoreRead'\) kkApiRequirePrivateReadKey_\(payload\);/);
+ assert.match(appSource,/else kkApiRequireKey_\(payload\);/);
  assert.match(appSource,/case 'privateCoreRead': result = kkApiPrivateCoreRead_\(payload\); break;/);
  assert.match(appSource,/KK_CORE_PRIVATE_READ_ENABLED/);
  assert.match(appSource,/KK_PRIVATE_CORE_READ_ALLOWLIST/);
