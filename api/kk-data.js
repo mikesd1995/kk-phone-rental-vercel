@@ -87,8 +87,8 @@ function sanitizePublicTextValue(value) {
 }
 
 function sanitizePublicCsv(sheet, text) {
-  const rows = validatedPublicFeedRows(sheet,text);
-  if(!rows)return {text:'',dropped:0,redacted:0,invalid:true};
+  const rows = parseCsvRows(text);
+  if (!rows.length) return {text:'',dropped:0,redacted:0,invalid:true};
   const header = rows[0].map(v => String(v || '').trim().toLowerCase());
   const idx = name => header.indexOf(name);
   let required = [];
@@ -285,7 +285,7 @@ function validatedPublicFeedRows(sheet,text){
   if(!expected||rows.length===0)return null;
   const header=rows[0].map(x=>String(x||'').trim().toLowerCase());
   if(header.length<=(sheet==='08_Web_Ready'?10:11)||header.length>expected.length
-    ||header.some((name,i)=>name!==expected[i])
+    ||header.some((name,i)=>name!==expected[i] && !(sheet==='09_Web_Packages' && i===11 && name==='package_note'))
     ||rows.slice(1).some(row=>row.length>header.length))return null;
   return rows;
 }
@@ -437,7 +437,7 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  if (!csvHeaderLooksValid(sheet, text)) {
+  if (!csvHeaderLooksValid(sheet, text) || !validatedPublicFeedRows(sheet,text)) {
     res.setHeader('X-KK-Sheet-Source', source || 'unknown');
     return send(res, 502, 'Google Sheets returned an invalid public-data schema.');
   }
