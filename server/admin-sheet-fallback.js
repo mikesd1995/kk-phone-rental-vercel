@@ -4,6 +4,7 @@
 // This module NEVER writes. It reconstructs the Admin snapshot from Google Sheets
 // only when the Apps Script snapshot upstream is unavailable.
 const privateSheets = require('../api/lib/private-google-sheets.js');
+const CorePrivacy = require('./core-sheet-private-reader.js');
 const BookingLifecycleShadow = require('./kk-booking-lifecycle-shadow.js');
 const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3.1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -271,7 +272,7 @@ function fetchIdentityKey(fetchImpl){
 }
 
 function snapshotCacheKey(sheetId,env,fetchImpl){
-  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE);
+  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE)||CorePrivacy.enabled(env);
   const privateConfigured=!!privateSheets.credentialsFromEnv(env);
   return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',fetchIdentityKey(fetchImpl)].join('|');
 }
@@ -286,9 +287,10 @@ async function buildSnapshotUncached(options={}){
   const sheetId=String(options.sheetId||env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
   const fetchImpl=options.fetchImpl||fetch;
   if(!sheetId) throw new Error('Fallback sheet id missing');
+  if(CorePrivacy.enabled(env)) CorePrivacy.requireExplicitPrivateSource(sheetId,env);
   const startedAt=Date.now();
   const keys=Object.keys(SPECS);
-  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE);
+  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE)||CorePrivacy.enabled(env);
   const privateConfigured=!!privateSheets.credentialsFromEnv(env);
   let values=null;
   let transportMeta={snapshot_source:'direct-sheet-gviz-readonly-fallback',fallback_reader:'public-gviz',fallback_private_attempted:false,fallback_private_error_code:''};
