@@ -135,3 +135,14 @@
 **Decision:** 0 PR closures or merges, 0 deleted branches, 0 discarded unique file modifications. Next cleanup wave should compare the remaining pairwise blobs for #722/#727, #695/#732, #661/#681/#705; if a PR is fully superseded after successful fresh-main integration and full safety tests, preserve its unique documentation and evidence before marking obsolete.
 
 **Additional runtime constraint from [#707](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/707):** October 2 account notice stated 2,032/2,000 included GitHub Actions minutes used, reset date November 1. Genuine October 13 GitHub-hosted tests also succeeded for a particular PR #724 SHA, so not all recent failures are explained solely by quota. Current balance and actions billing flags remain unreadable from the connector; no paid reruns or new hosted jobs initiated by this cleanup.
+
+## GitHub reusable workflow specification review — 2026-10-14
+
+Read-only review against official GitHub reusable workflow documentation (no hosted execution):
+- Official GitHub docs require a called workflow to have `on.workflow_call` and a caller job to use `jobs.<id>.uses`; the allowed caller job keys include `if`, `permissions`, and `secrets`. The staged router has these keys.
+- GitHub documents that the `github` context inside the called workflow is associated with the **caller**; existing `github.event_name == 'issue_comment'` gates should therefore continue to read the owner comment event. This is **documentation-level compatibility**, not an executed end-to-end acceptance.
+- GitHub documents that nested reusable workflows cannot increase `GITHUB_TOKEN` permissions. Every caller job explicitly mirrors the permissions required by its target workflow; test asserts these scopes, including `id-token: write` only for the existing Ultra Deep OIDC path.
+- Eight target workflows use `secrets.VERCEL_TOKEN` and explicitly declare an optional `workflow_call` secret; the other two do not receive a secret. All values remain stored in existing GitHub Secrets only.
+- Official references: https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows and https://github.com/github/docs/blob/main/content/actions/reference/workflows-and-actions/reusing-workflow-configurations.md
+
+**Still not accepted without independent actionlint/Node/hosted runner evidence.** A plausible workflow graph and 124 passing connector assertions cannot prove GitHub Actions accepts and executes each comment command.
