@@ -182,6 +182,7 @@ var I18N = {
     card_aria_waitlist:"จองคิวหลุดสำหรับงาน {event}",
     no_image:"ยังไม่มีรูป",
     tap_available:"เลือกรุ่นที่ถูกใจ",
+    tap_lens_only:"ดูแพ็กเกจ Lens",
     tap_waitlist:"จองคิวหลุด",
     pkg_phone_only:"เฉพาะมือถือ",
     pkg_lens_only:"เลนส์เสริม",
@@ -323,6 +324,7 @@ var I18N = {
     card_aria_waitlist:"Join the waitlist for {event}",
     no_image:"No image",
     tap_available:"Check slots & packages",
+    tap_lens_only:"View lens-only package",
     tap_waitlist:"Join waitlist",
     pkg_phone_only:"Phone only",
     pkg_lens_only:"Add-on lens",
@@ -1496,7 +1498,7 @@ function renderConcerts(concerts){
     var priceEl=document.createElement("div"); priceEl.className="pi-price"; priceEl.textContent=cardPriceText(c);
     metaEl.appendChild(venueEl); metaEl.appendChild(priceEl);
     var availEl=document.createElement("div"); availEl.className="pi-avail"+(avail?(lowStock?" low":""):" none"); availEl.textContent=availText+pkgHint;
-    var tap=document.createElement("div"); tap.className="pi-tap"+(avail?"":" full"); tap.textContent=avail?tr("tap_available"):tr("tap_waitlist");
+    var tap=document.createElement("div"); tap.className="pi-tap"+(avail?"":" full"); tap.textContent=avail?(onlyLensBookable(c)?tr("tap_lens_only"):tr("tap_available")):tr("tap_waitlist");
     info.appendChild(dateEl); info.appendChild(nameEl); info.appendChild(metaEl); info.appendChild(availEl); info.appendChild(tap);
     card.appendChild(imgWrap); card.appendChild(info); grid.appendChild(card);
   });
