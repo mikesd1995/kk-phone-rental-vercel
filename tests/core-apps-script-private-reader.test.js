@@ -117,7 +117,7 @@ test('ContentService redirect is checked BEFORE following; second GET carries ze
 });
 
 
-function simulateScriptRead({property='1',id='private-core-example',lastRow=2}={}){
+function simulateScriptRead({property='1',id='private-core-example',lastRow=6}={}){
  const acl=appSource.match(/const KK_PRIVATE_CORE_READ_ALLOWLIST = Object\.freeze\([\s\S]*?\n\}\);/);
  const fn=appSource.match(/function kkApiPrivateCoreRead_\(payload\)\{[\s\S]*?\n\}/);
  assert.ok(acl&&fn,'private Core Apps Script allowlist or function missing');
