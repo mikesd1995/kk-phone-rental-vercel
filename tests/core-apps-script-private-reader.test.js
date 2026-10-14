@@ -115,3 +115,31 @@ test('ContentService redirect is checked BEFORE following; second GET carries ze
  }),e=>e.code==='CORE_APPS_SCRIPT_BAD_REDIRECT');
  assert.equal(second,1);
 });
+
+
+function simulateScriptRead({property='1',id='private-core-example',lastRow=2}={}){
+ const acl=appSource.match(/const KK_PRIVATE_CORE_READ_ALLOWLIST = Object\.freeze\([\s\S]*?\n\}\);/);
+ const fn=appSource.match(/function kkApiPrivateCoreRead_\(payload\)\{[\s\S]*?\n\}/);
+ assert.ok(acl&&fn,'private Core Apps Script allowlist or function missing');
+ const scriptProps={getScriptProperties(){return {getProperty:()=>property}}};
+ const spreadsheet={getId:()=>id,getSheetByName:name=>name==='08_Web_Ready'?{
+   getLastRow:()=>lastRow,getRange:a1=>({getDisplayValues:()=>[['event_id','event_name'],['EVT-1','Concert']]})
+ }:null};
+ const factory=Function('PropertiesService','SpreadsheetApp',acl[0]+'\n'+fn[0]+'\nreturn kkApiPrivateCoreRead_;');
+ return factory(scriptProps,{getActive:()=>spreadsheet});
+}
+test('Apps Script function itself rejects disabled service, spoofed workbook and arbitrary range',()=>{
+ const input={coreSheetId:'private-core-example',sheet:'08_Web_Ready',range:'A4:K'};
+ assert.throws(()=>simulateScriptRead({property:''})(input),/PRIVATE_CORE_READ_DISABLED/);
+ assert.throws(()=>simulateScriptRead({id:'other'})(input),/PRIVATE_CORE_ID_MISMATCH/);
+ assert.throws(()=>simulateScriptRead()({...input,sheet:'00_Master_Booking',range:'A1:ZZ'}),/PRIVATE_CORE_RANGE_DENIED/);
+ assert.throws(()=>simulateScriptRead()({...input,range:'A1:K'}),/PRIVATE_CORE_RANGE_DENIED/);
+ assert.throws(()=>simulateScriptRead({lastRow:4001})(input),/PRIVATE_CORE_RANGE_NOT_READY/);
+});
+test('Apps Script function exact allowed range returns selected display values with canonical identity',()=>{
+ const result=simulateScriptRead()({coreSheetId:'private-core-example',sheet:'08_Web_Ready',range:'A4:K'});
+ assert.equal(result.data.spreadsheet_id,'private-core-example');
+ assert.equal(result.data.sheet,'08_Web_Ready');
+ assert.equal(result.data.range,'A4:K');
+ assert.deepEqual(result.data.values,[['event_id','event_name'],['EVT-1','Concert']]);
+});
