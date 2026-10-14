@@ -135,8 +135,17 @@ async function pool(items,worker,limit=CONCURRENCY){
 async function main(fetchImpl=global.fetch, options={}){
   const feedRes=await fetchImpl(FEED,{headers:{'Cache-Control':'no-cache','User-Agent':'KK-Storefront-Poster-Audit/1.0'}});
   if(!feedRes.ok)throw new Error('EVENT_FEED_HTTP_'+feedRes.status);
-  const rows=objects(parseCsv(await feedRes.text()))
-    .filter(r=>['show','show_full'].includes(text(r.action_for_web)));
+  const csv=parseCsv(await feedRes.text());
+  if(!csv.length||!['event_id','event_name','poster_image_url','action_for_web'].every(k=>csv[0].map(text).includes(k)))
+    throw new Error('POSTER_FEED_SCHEMA_INVALID');
+  const allRows=objects(csv);
+  if(!allRows.length)throw new Error('POSTER_FEED_EMPTY');
+  const asOf=options.as_of?PosterIntegrity.dateKey(options.as_of):'';
+  if(options.as_of&&!asOf)throw new Error('POSTER_AS_OF_DATE_INVALID');
+  const rows=allRows.filter(r=>['show','show_full'].includes(text(r.action_for_web)))
+    .filter(r=>!asOf||!PosterIntegrity.dateKey(r.event_date_text||r.event_date||r.date)||
+      PosterIntegrity.dateKey(r.event_date_text||r.event_date||r.date)>=asOf);
+  if(!rows.length)throw new Error('POSTER_NO_VISIBLE_EVENTS');
 
   const unique=[...new Set(rows.flatMap(r=>{
     const canonical=candidates(r.poster_image_url);
@@ -166,7 +175,7 @@ async function main(fetchImpl=global.fetch, options={}){
   // Source/image identity is independent of HTTP health. No AI network calls or
   // source-of-truth mutation are ever performed by this advisory audit.
   const integrity=PosterIntegrity.triage({
-    rows,
+    rows,as_of:asOf,
     delivery_by_event:Object.fromEntries(events.map(e=>[e.event_id,{candidates:e.candidates}]))
   });
   const failed=events.filter(e=>e.status==='FAIL');
@@ -188,5 +197,13 @@ async function main(fetchImpl=global.fetch, options={}){
   }
   return report;
 }
-if(require.main===module)main().catch(err=>{console.error(JSON.stringify({ok:false,error:text(err&&err.message)||'AUDIT_FAILED'}));process.exit(1);});
+if(require.main===module){
+  const args=process.argv.slice(2);
+  const flags=args.filter(a=>/^--as-of=\d{4}-\d{2}-\d{2}$/.test(a));
+  if(args.length!==flags.length||flags.length>1){
+    console.error(JSON.stringify({ok:false,error:'INVALID_AUDIT_ARGUMENTS'}));
+    process.exitCode=1;
+  }else main(global.fetch,{as_of:flags.length?flags[0].slice('--as-of='.length):undefined})
+   .catch(err=>{console.error(JSON.stringify({ok:false,error:text(err&&err.message)||'AUDIT_FAILED'}));process.exitCode=1;});
+}
 module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,publicImageUrl,hasImageSignature,probe,pool,main};
