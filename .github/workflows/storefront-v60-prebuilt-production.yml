@@ -1,7 +1,6 @@
 name: Storefront V6 Prebuilt Production
 on:
-  issue_comment:
-    types: [created]
+  workflow_call:
 permissions:
   contents: read
 concurrency:
