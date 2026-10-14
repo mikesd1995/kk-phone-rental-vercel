@@ -216,10 +216,13 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
   if(data.idempotent_replay===true){
     return {handled:true,status:expected.toUpperCase(),booking_id:parsed.booking_id,idempotent_replay:true};
   }
-  const sends=[];
-  if(event.replyToken) sends.push(replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl));
-  sends.push(pushMessage(customerUserId,customerDecisionMessage(decision,parsed.booking_id),env,fetchImpl));
-  await Promise.all(sends);
+  // Customer delivery must finish before telling the owner the notification was sent.
+  // This does not make the flow exactly-once: durable outbox/receipt is still required
+  // to recover a committed decision after provider failure.
+  await pushMessage(customerUserId,customerDecisionMessage(decision,parsed.booking_id),env,fetchImpl);
+  if(event.replyToken){
+    await replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl);
+  }
   return {handled:true,status:expected.toUpperCase(),booking_id:parsed.booking_id,idempotent_replay:Boolean(data.idempotent_replay)};
 }
 
