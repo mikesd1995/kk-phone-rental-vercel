@@ -86,3 +86,32 @@ test('Apps Script action requires admin key and extra Script Property, exact all
  assert.ok(open);
  assert.doesNotMatch(open[0],/spreadsheet_id/);
 });
+
+
+test('ContentService redirect is checked BEFORE following; second GET carries zero credentials',async()=>{
+ const calls=[];
+ const values=await script.readValues({env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',
+   fetchImpl:async(url,options)=>{
+     calls.push({url,options});
+     if(calls.length===1)return {
+       status:302,ok:false,url:env.KK_ADMIN_SCRIPT_URL,
+       headers:{get:()=> 'https://script.googleusercontent.com/macros/echo?user_content_key=REDACTED'}
+     };
+     return okResponse([['event_id'],['E1']]);
+   }
+ });
+ assert.equal(calls.length,2);
+ assert.equal(values.length,2);
+ assert.equal(calls[0].options.method,'POST');
+ assert.equal(calls[0].options.redirect,'manual');
+ assert.equal(calls[1].options.method,'GET');
+ assert.equal(calls[1].options.redirect,'error');
+ assert.equal(calls[1].options.body,undefined);
+ assert.equal(calls[1].options.headers,undefined);
+ assert.doesNotMatch(JSON.stringify(calls[1]),/SECRET_NOT_FOR_OUTPUT/);
+ let second=0;
+ await assert.rejects(()=>script.readValues({env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',
+   fetchImpl:async()=>{second++;return {status:302,ok:false,headers:{get:()=> 'https://evil.example/private'}}}
+ }),e=>e.code==='CORE_APPS_SCRIPT_BAD_REDIRECT');
+ assert.equal(second,1);
+});
