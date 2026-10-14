@@ -23,7 +23,8 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/bounded-oidc-production-acceptance.yml
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   current_prod_readback:
     if: >-
@@ -37,7 +38,8 @@ jobs:
       contents: read
       issues: read
     uses: ./.github/workflows/current-production-readback.yml
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   phase4_recovery:
     if: >-
@@ -52,7 +54,8 @@ jobs:
       issues: write
       pull-requests: write
     uses: ./.github/workflows/phase4-zero-cost-existing-preview-recovery.yml
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   storefront_v59:
     if: >-
@@ -65,7 +68,8 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/storefront-v59-zero-cost-promote.yml
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   storefront_v60_prebuilt:
     if: >-
@@ -78,7 +82,8 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/storefront-v60-prebuilt-production.yml
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   storefront_v60_promote:
     if: >-
@@ -91,7 +96,8 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/storefront-v60-zero-cost-promote.yml
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   ultra_deep_full_loop:
     if: >-
@@ -106,7 +112,8 @@ jobs:
       issues: write
       id-token: write
     uses: ./.github/workflows/ultra-deep-full-loop.yml
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   storefront_screenshot:
     if: >-
@@ -120,7 +127,6 @@ jobs:
       contents: read
       issues: write
     uses: ./.github/workflows/storefront-production-screenshot-capture.yml
-    secrets: inherit
 
   rental_analytics:
     if: >-
@@ -135,7 +141,8 @@ jobs:
       issues: write
       pull-requests: write
     uses: ./.github/workflows/rental-analytics-prebuilt-production-recovery.yml
-    secrets: inherit
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
   ultra_deep_runtime:
     if: >-
@@ -149,5 +156,4 @@ jobs:
       contents: read
       issues: read
     uses: ./.github/workflows/ultra-deep-runtime-acceptance.yml
-    secrets: inherit
 
