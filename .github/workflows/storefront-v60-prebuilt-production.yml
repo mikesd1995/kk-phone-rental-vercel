@@ -1,6 +1,9 @@
 name: Storefront V6 Prebuilt Production
 on:
   workflow_call:
+    secrets:
+      VERCEL_TOKEN:
+        required: false
 permissions:
   contents: read
 concurrency:
