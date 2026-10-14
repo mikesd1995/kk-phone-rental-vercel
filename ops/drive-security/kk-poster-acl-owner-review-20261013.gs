@@ -34,29 +34,32 @@ function kkAclRole_20261013(o){
 function kkAclSnapshot_20261013(){
   const active=kkAclReadActive_20261013(),want=new Set(active);
   const visited=new Set(),found=new Set(),foundFolders=new Set(),items=[];
-  function traverse(folder,depth){
+  function traverse(folder,depth,parentId){
     if(depth>8||items.length>1200)throw Error('ACL_BOUND_EXCEEDED');
     const id=String(folder.getId());
     if(visited.has(id))return;
     visited.add(id);foundFolders.add(id);
-    items.push({id:id,depth:depth,kind:'folder',role:kkAclRole_20261013(folder),obj:folder});
+    items.push({id:id,parent:parentId||'ROOT',depth:depth,kind:'folder',role:kkAclRole_20261013(folder),obj:folder});
     const files=folder.getFiles();
     while(files.hasNext()){
       const f=files.next(),fid=String(f.getId());
       if(visited.has(fid))continue;
       if(!String(f.getMimeType()).startsWith('image/'))throw Error('NON_IMAGE_IN_KK_ASSET_TREE:'+fid);
       visited.add(fid);found.add(fid);
-      items.push({id:fid,depth:depth+1,kind:'image',role:kkAclRole_20261013(f),obj:f});
+      items.push({id:fid,parent:id,depth:depth+1,kind:'image',role:kkAclRole_20261013(f),obj:f});
       if(items.length>1200)throw Error('ACL_BOUND_EXCEEDED');
     }
     const sub=folder.getFolders();
-    while(sub.hasNext())traverse(sub.next(),depth+1);
+    while(sub.hasNext())traverse(sub.next(),depth+1,id);
   }
   traverse(DriveApp.getFolderById(KKACL_FOLDERS[0]),0);
   traverse(DriveApp.getFolderById(KKACL_FOLDERS[3]),0);
   if(KKACL_FOLDERS.some(id=>!foundFolders.has(id)))throw Error('KK_ASSET_FOLDER_TREE_DRIFT');
   if(active.some(id=>!found.has(id)))throw Error('ACTIVE_DRIVE_IMAGE_OUTSIDE_KK_ASSET_TREES');
-  const manifest=items.map(x=>x.kind+'|'+x.id+'|'+x.role).sort().join('\n');
+  // Fingerprint binds identity, name and parent hierarchy as well as role.
+  // A file moved/renamed between owner Dry Run and Apply invalidates approval.
+  const manifest=items.map(x=>[x.kind,x.id,x.parent,x.depth,x.obj.getName(),x.role].join('|')).sort().join('
+');
   const fingerprint=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,manifest)
     .map(b=>('0'+((b+256)%256).toString(16)).slice(-2)).join('');
   return {items,active:active.length,images:found.size,folders:foundFolders.size,
