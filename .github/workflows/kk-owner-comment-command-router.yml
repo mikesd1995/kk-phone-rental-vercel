@@ -105,7 +105,10 @@ jobs:
         github.event.issue.number == 368 &&
         github.event.comment.user.login == github.repository_owner &&
         github.event.comment.author_association == 'OWNER' &&
-        startsWith(github.event.comment.body, '/run-ultra-deep-full-loop')
+        (
+          github.event.comment.body == '/run-ultra-deep-full-loop' ||
+          startsWith(github.event.comment.body, '/run-ultra-deep-full-loop ')
+        )
       }}
     permissions:
       contents: read
