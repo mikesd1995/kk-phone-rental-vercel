@@ -62,3 +62,9 @@ test('bundle-only availability shows actual bundle price, not hidden lower phone
   assert.equal(f.startingPriceFor(c),990);
   assert.equal(f.cardPriceText(c),'เริ่ม 990฿');
 });
+
+test('lens-only card uses a specific call to action, not generic phone-model selection',()=>{
+  assert.match(script,/tap_lens_only:"ดูแพ็กเกจ Lens"/);
+  assert.match(script,/tap_lens_only:"View lens-only package"/);
+  assert.match(script,/tap\.textContent=avail\?\(onlyLensBookable\(c\)\?tr\("tap_lens_only"\):tr\("tap_available"\)\):tr\("tap_waitlist"\)/);
+});
