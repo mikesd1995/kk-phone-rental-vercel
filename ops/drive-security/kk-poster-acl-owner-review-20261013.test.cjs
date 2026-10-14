@@ -38,6 +38,10 @@ function fixture(opts = {}) {
         if (opts.failID === id) throw new Error('permission update rejected');
         writes++;
         roles[id] = role;
+        if (opts.folderCascadesToHistory && folder && id === folderIDs[0]) {
+          // Simulate an inherited permission side effect on a history item.
+          roles['brand-logo'] = role;
+        }
       }
     };
     if (folder) {
@@ -276,6 +280,13 @@ test('owner can never publish private historical assets even after active scope 
   assert.equal(report.active_scope_completed, true);
   assert.equal(f.roles['brand-logo'], undefined);
   assert.equal(report.ok, false);
+});
+
+test('unexpected parent-folder ACL cascading to historical item fails closed', () => {
+  const f = fixture({folderCascadesToHistory: true});
+  const dry = f.api.dry();
+  assert.throws(() => f.api.apply(dry.fingerprint), /PARTIAL_OR_DRIFTED_ACL_REPAIR/);
+  assert.equal(f.roles['brand-logo'], 'VIEW', 'mock simulates unintended inherited change');
 });
 
 test('provider write failure is partial and never reported as success', () => {
