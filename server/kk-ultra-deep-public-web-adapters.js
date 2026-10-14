@@ -5,7 +5,7 @@ const {execFile}=require('node:child_process');
 const DetailFollowup=require('./kk-public-event-detail-followup.js');
 const {createHash}=require('node:crypto');
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V10';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V11';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
@@ -17,8 +17,8 @@ let ddgLastRequestAt=0;
 let ddgCircuitOpenUntil=0;
 function text(v){return String(v==null?'':v).trim();}
 function https(v){try{const u=new URL(text(v));return u.protocol==='https:'&&!u.username&&!u.password?u.toString():'';}catch(_){return '';}}
-function decodeHtmlEntities(raw){
- return text(raw)
+function decodeHtmlEntities(raw,preserveWhitespace=false){
+ return (preserveWhitespace===true?String(raw==null?'':raw):text(raw))
   .replace(/&#x([0-9a-f]+);/gi,(_,h)=>String.fromCodePoint(parseInt(h,16)))
   .replace(/&#([0-9]+);/g,(_,d)=>String.fromCodePoint(parseInt(d,10)))
   .replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"')
@@ -109,7 +109,7 @@ async function fetchPage(url,options={}){
    if(r.body&&typeof r.body.cancel==='function')Promise.resolve(r.body.cancel()).catch(()=>{});
    target=next;
   }
-  if(!r.ok){const e=new Error('HTTP_'+r.status);e.code='HTTP_'+r.status;throw e;}
+  if(!r.ok||(options.require_status===200&&r.status!==200)){const e=new Error('HTTP_'+r.status);e.code='HTTP_'+r.status;throw e;}
   if(options.require_html===true&&!/^(text\/html|application\/xhtml\+xml)(?:\s*;|$)/i.test(text(r.headers&&r.headers.get&&r.headers.get('content-type')))){const e=new Error('DETAIL_NOT_HTML');e.code='DETAIL_NOT_HTML';throw e;}
   const len=Number(r.headers&&r.headers.get&&r.headers.get('content-length')||0);if(len>MAX_BYTES){const e=new Error('RESPONSE_TOO_LARGE');e.code='RESPONSE_TOO_LARGE';throw e;}
   let body;
@@ -140,7 +140,7 @@ async function fetchPage(url,options={}){
   return body;
  }finally{
   clearTimeout(timer);
-  if(guarded){
+  if(guarded||options.require_status===200){
    controller.abort();
    try{if(responseForCleanup&&responseForCleanup.body&&!responseForCleanup.body.locked)Promise.resolve(responseForCleanup.body.cancel()).catch(()=>{});}catch(_){}
   }
@@ -206,17 +206,45 @@ function parseDuckDuckGoHtml(body,query=''){
 }
 
 
+function hasDdgChallenge(body){
+ const markup=String(body||''),tags=/<!--[\s\S]*?(?:-->|$)|<(?:[^>"']|"[^"]*"|'[^']*')*>/g;
+ let templateDepth=0,match;
+ while((match=tags.exec(markup))){
+  const tag=match[0];
+  if(/^<!--/.test(tag))continue;
+  if(/^<plaintext\b/i.test(tag))break;
+  const raw=tag.match(/^<(script|style|textarea|title|xmp|iframe|noembed|noframes|noscript)\b/i);
+  if(raw){
+   const close=new RegExp('<\\/'+raw[1]+'\\s*>','gi');close.lastIndex=tags.lastIndex;
+   const end=close.exec(markup);if(!end)break;tags.lastIndex=end.index+end[0].length;continue;
+  }
+  if(/^<template\b/i.test(tag)){templateDepth++;continue;}
+  if(/^<\/template\b/i.test(tag)){templateDepth=Math.max(0,templateDepth-1);continue;}
+  if(templateDepth)continue;
+  if(!/^<form\b/i.test(tag))continue;
+  let id;
+  for(const a of tag.matchAll(/\s+([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g)){
+   if(a[1].toLowerCase()==='id'&&id===undefined)id=decodeHtmlEntities(a[2]??a[3]??a[4]??'',true);
+  }
+  if(/^(challenge|anomaly)-form$/i.test(id||''))return true;
+ }
+ return false;
+}
 async function duckDuckGoHtml(task={},options={}){
  const q=text(task.query||task.search_query||task.source_tier);if(!q)return [];
- if(Date.now()<ddgCircuitOpenUntil)return [];
+ const checkCircuit=()=>{if(Date.now()<ddgCircuitOpenUntil){const e=new Error('DDG_CIRCUIT_OPEN');e.code='DDG_CIRCUIT_OPEN';throw e;}};
+ checkCircuit();
  const interval=Number.isFinite(Number(options.ddg_min_interval_ms))?Number(options.ddg_min_interval_ms):DDG_MIN_INTERVAL_MS;
  if(interval>0){const wait=Math.max(0,ddgLastRequestAt+interval-Date.now());if(wait>0)await new Promise(resolve=>setTimeout(resolve,wait));ddgLastRequestAt=Date.now();}
+ checkCircuit();
  const u=new URL('https://html.duckduckgo.com/html/');u.searchParams.set('q',q);
  try{
-  const body=await fetchPage(u.toString(),{...options,timeout_ms:Number(options.ddg_timeout_ms||options.timeout_ms||8000)});
+  const body=await fetchPage(u.toString(),{...options,require_status:200,timeout_ms:Number(options.ddg_timeout_ms||options.timeout_ms||8000)});
+  if(hasDdgChallenge(body)){const e=new Error('DDG_CHALLENGE');e.code='DDG_CHALLENGE';throw e;}
   return parseDuckDuckGoHtml(body,q);
  }catch(error){
-  ddgCircuitOpenUntil=Date.now()+Math.max(1000,Number(options.ddg_circuit_ms||60000));
+  const configured=Number(options.ddg_circuit_ms),cooldown=Number.isFinite(configured)?Math.max(1000,Math.min(60000,configured)):60000;
+  ddgCircuitOpenUntil=Date.now()+cooldown;
   throw error;
  }
 }
