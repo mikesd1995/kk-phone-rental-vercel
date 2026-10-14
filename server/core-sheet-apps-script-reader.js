@@ -21,15 +21,23 @@ async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),15000);
   try{
-    const response=await fetchImpl(String(env.KK_ADMIN_SCRIPT_URL).trim(),{
-      method:'POST',redirect:'follow',
+    let response=await fetchImpl(String(env.KK_ADMIN_SCRIPT_URL).trim(),{
+      method:'POST',redirect:'manual',
       headers:{'Content-Type':'text/plain; charset=utf-8'},
       body:JSON.stringify({
         action:'privateCoreRead',apiKey:String(env.KK_ADMIN_API_KEY),
         coreSheetId:canonical,sheet:String(sheet),range:String(range)
       }),signal:controller.signal
     });
-    // Apps Script's ContentService may redirect to Google's content host.
+    // ContentService redirects the response to Google's content host. Validate
+    // BEFORE following, and forward NO API key, body or auth header to the host.
+    if(response.status>=300&&response.status<400){
+      const location=String(response.headers&&response.headers.get('location')||'');
+      let target;try{target=new URL(location)}catch(_){throw err('CORE_APPS_SCRIPT_BAD_REDIRECT')}
+      if(target.protocol!=='https:'||target.hostname!=='script.googleusercontent.com')
+        throw err('CORE_APPS_SCRIPT_BAD_REDIRECT');
+      response=await fetchImpl(location,{method:'GET',redirect:'error',signal:controller.signal});
+    }
     const finalUrl=String(response.url||'');
     if(finalUrl){
       let parsed;try{parsed=new URL(finalUrl)}catch(_){throw err('CORE_APPS_SCRIPT_BAD_REDIRECT')}
