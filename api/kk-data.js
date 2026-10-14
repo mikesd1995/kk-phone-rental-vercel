@@ -390,7 +390,7 @@ module.exports = async function handler(req, res) {
       text = corePrivateStrict
         ? await CorePrivacy.readCsv({sheetId,sheet,range})
         : await readPrivateCsv(sheetId, sheet, range);
-      source = 'private-service-account';
+      source = corePrivateStrict && coreState.transport==='apps-script' ? 'private-owner-apps-script' : 'private-service-account';
     } catch (err) {
       privateError = err;
       if (requirePrivate) {
