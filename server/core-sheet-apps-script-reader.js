@@ -9,7 +9,11 @@ function scriptState(env=process.env){
   try{url=new URL(raw);}catch(_){}
   const allowed=!!(url&&url.protocol==='https:'&&url.hostname===ALLOWED_HOST&&
     /^\/macros\/s\/[A-Za-z0-9_-]+\/exec\/?$/.test(url.pathname)&&!url.search&&!url.hash);
-  return {configured:!!(allowed&&String(env.KK_ADMIN_API_KEY||'').trim()),validUrl:allowed};
+  const readerKey=String(env.KK_CORE_PRIVATE_READ_KEY||'').trim();
+  const adminKey=String(env.KK_ADMIN_API_KEY||'').trim();
+  // A read credential must not also permit booking/admin mutations.
+  const independent=readerKey.length>=32&&readerKey!==adminKey;
+  return {configured:!!(allowed&&independent),validUrl:allowed,independentReadKey:independent};
 }
 function err(code){const x=new Error(code);x.code=code;return x;}
 async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.fetch}={}){
@@ -25,7 +29,7 @@ async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.
       method:'POST',redirect:'manual',
       headers:{'Content-Type':'text/plain; charset=utf-8'},
       body:JSON.stringify({
-        action:'privateCoreRead',apiKey:String(env.KK_ADMIN_API_KEY),
+        action:'privateCoreRead',readKey:String(env.KK_CORE_PRIVATE_READ_KEY),
         coreSheetId:canonical,sheet:String(sheet),range:String(range)
       }),signal:controller.signal
     });
