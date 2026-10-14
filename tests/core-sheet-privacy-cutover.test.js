@@ -171,3 +171,75 @@ test('Core security source contract includes private Health endpoint and forbids
   assert.match(proxy,/if\(corePrivateStrict\)\{/);
   assert.doesNotMatch(browser,/12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU/);
 });
+
+
+test('legacy KK_PUBLIC_SHEET_REQUIRE_PRIVATE rejects empty authorized result without anonymous fallback',async()=>{
+  const originalRead=privateSheets.readValuesCsv,originalFetch=global.fetch;
+  let publicCalls=0,privateCalls=0;
+  privateSheets.readValuesCsv=async()=>{privateCalls++;return '';};
+  global.fetch=async()=>{publicCalls++;throw Error('Anonymous GViz forbidden');};
+  try{
+    const legacy={
+      ...authorized,
+      KK_CORE_SHEET_REQUIRE_PRIVATE:undefined,
+      KK_PUBLIC_SHEET_REQUIRE_PRIVATE:'1',
+      KK_CRM_SHEET_ID:undefined
+    };
+    await envChange(legacy,async()=>{
+      const response=res();
+      await publicProxy(request,response);
+      assert.equal(response.statusCode,503);
+      assert.equal(response.headers['x-kk-sheet-source'],'private-empty');
+      assert.equal(response.headers['x-kk-private-reader-strict'],'1');
+      assert.equal(privateCalls,1);
+      assert.equal(publicCalls,0);
+      assert.doesNotMatch(JSON.stringify(response.headers)+response.body,/reader@example.invalid|test-key-only-no-real-key/);
+    });
+  }finally{privateSheets.readValuesCsv=originalRead;global.fetch=originalFetch;}
+});
+
+test('legacy strict mode still permits successful authenticated read with no public fallback',async()=>{
+  const originalRead=privateSheets.readValuesCsv,originalFetch=global.fetch;
+  let publicCalls=0,privateCalls=0;
+  privateSheets.readValuesCsv=async()=>{privateCalls++;return publicCsv;};
+  global.fetch=async()=>{publicCalls++;throw Error('Anonymous GViz forbidden');};
+  try{
+    const legacy={
+      ...authorized,
+      KK_CORE_SHEET_REQUIRE_PRIVATE:undefined,
+      KK_PUBLIC_SHEET_REQUIRE_PRIVATE:'1',
+      KK_CRM_SHEET_ID:undefined
+    };
+    await envChange(legacy,async()=>{
+      const response=res();
+      await publicProxy(request,response);
+      assert.equal(response.statusCode,200);
+      assert.equal(response.headers['x-kk-sheet-source'],'private-service-account');
+      assert.equal(publicCalls,0);
+      assert.equal(privateCalls,1);
+      assert.doesNotMatch(response.body,/OWNER_LOCKED_INTERNAL_ONLY|booking_id|customer_phone/);
+    });
+  }finally{privateSheets.readValuesCsv=originalRead;global.fetch=originalFetch;}
+});
+
+test('legacy strict mode rejects thrown private errors without public fallback',async()=>{
+  const originalRead=privateSheets.readValuesCsv,originalFetch=global.fetch;
+  let publicCalls=0;
+  privateSheets.readValuesCsv=async()=>{throw Error('simulated private outage');};
+  global.fetch=async()=>{publicCalls++;throw Error('Anonymous GViz forbidden');};
+  try{
+    const legacy={
+      ...authorized,
+      KK_CORE_SHEET_REQUIRE_PRIVATE:undefined,
+      KK_PUBLIC_SHEET_REQUIRE_PRIVATE:'1',
+      KK_CRM_SHEET_ID:undefined
+    };
+    await envChange(legacy,async()=>{
+      const response=res();
+      await publicProxy(request,response);
+      assert.equal(response.statusCode,503);
+      assert.equal(response.headers['x-kk-sheet-source'],'private-read-failed');
+      assert.equal(publicCalls,0);
+    });
+  }finally{privateSheets.readValuesCsv=originalRead;global.fetch=originalFetch;}
+});
