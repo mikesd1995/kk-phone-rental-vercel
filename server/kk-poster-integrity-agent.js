@@ -12,7 +12,7 @@ const KNOWN_WRONG=Object.freeze({
 function str(v){return String(v==null?'':v).trim();}
 function dateKey(v){
   const s=str(v);let m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if(m){ const d=`${m[3]}-${m[2]}-${m[1]}`;return validDay(d)?d:''; }
+  if(m){const y=Number(m[3])>2500?Number(m[3])-543:Number(m[3]);const d=`${String(y).padStart(4,'0')}-${m[2]}-${m[1]}`;return validDay(d)?d:'';}
   m=s.match(/^(\d{4}-\d{2}-\d{2})(?:T|$)/);
   return m&&validDay(m[1])?m[1]:'';
 }
@@ -42,9 +42,19 @@ function triage(input={}){
   const rows=Array.isArray(input.rows)?input.rows:[];
   const delivery=input.delivery_by_event&&typeof input.delivery_by_event==='object'?input.delivery_by_event:{};
   const observations=Array.isArray(input.visual_observations)?input.visual_observations:[];
-  const chosen=rows.filter(visible);
-  const groups=new Map();
+  const asOf=dateKey(input.as_of||'');
+  const chosen=rows.filter(r=>visible(r)&&(!asOf||!dateKey(r.event_date_text||r.event_date||r.date)||dateKey(r.event_date_text||r.event_date||r.date)>=asOf));
+  const groups=new Map(),sameBytes=new Map();
   for(const row of chosen){const key=urlKey(source(row));if(!key)continue;let g=groups.get(key)||[];g.push(row);groups.set(key,g);}
+  // Independently decoded same-byte fingerprints enable review across unlike URLs.
+  for(const row of chosen){
+    const evidence=delivery[str(row.event_id)]||{};
+    const sha=str(evidence.sha256).toLowerCase();
+    if(evidence.loaded!==true||!(Number(evidence.natural_width)>0)||!/^[a-f0-9]{64}$/.test(sha)||
+       str(evidence.poster_url)!==source(row))continue;
+    const group=sameBytes.get(sha)||[];group.push(row);sameBytes.set(sha,group);
+  }
+  const reviewQueue=[];
   const findings=chosen.map(row=>{
     const id=str(row.event_id),name=str(row.event_name),day=dateKey(row.event_date_text||row.event_date||row.date);
     const url=source(row),key=urlKey(url),d=delivery[id]||{};
@@ -69,19 +79,50 @@ function triage(input={}){
       if(extractedName&&normalizedName(name)!==extractedName)reasons.push('VISUAL_NAME_CONFLICT_REVIEW');
       // Unrecognized/ambiguous OCR MUST NOT be treated as verified official artwork.
     }
+    const observation=delivery[id]||{};
+    const sha=str(observation.sha256).toLowerCase();
+    if(sha&&(sameBytes.get(sha)||[]).some(other=>
+      str(other.event_id)!==id&&normalizedName(other.event_name)!==normalizedName(name)))
+      reasons.push('SAME_IMAGE_BYTES_CROSS_EVENT_REVIEW');
+    if(url&&/(?:TEMP_IMAGE|รอโปสเตอร์ต้นฉบับ|ภาพประกอบชั่วคราว|ไม่ใช่โปสเตอร์)/i.test(str(row.event_note)))
+      reasons.push('TEMPORARY_ARTWORK_REVIEW');
+    // An AI verdict is advisory and tied to the exact URL, event ID, date and decoded bytes.
+    const matching=(Array.isArray(input.vision_reviews)?input.vision_reviews:[]).filter(v=>
+      str(v.event_id)===id&&str(v.poster_url)===url&&dateKey(v.event_date)===day);
+    let vision_status='NOT_REVIEWED';
+    if(matching.length===1){
+      const v=matching[0],verdict=str(v.verdict).toUpperCase();
+      if(verdict==='MISMATCH'){
+        vision_status='MISMATCH_REPORTED';reasons.push('AI_REPORTED_ART_MISMATCH_REVIEW');
+      }else if(verdict==='MATCH'&&/^[a-f0-9]{64}$/.test(str(v.asset_sha256).toLowerCase())&&
+        observation.loaded===true&&Number(observation.natural_width)>0&&
+        str(observation.poster_url)===url&&sha===str(v.asset_sha256).toLowerCase()&&
+        /^https:\/\//i.test(str(v.evidence_url))&&v.title_match===true&&v.date_match===true&&
+        Number(v.confidence)>=0.8&&Number(v.confidence)<=1){
+        vision_status='AI_MATCH_UNVERIFIED_BY_OWNER';
+      }else{
+        vision_status='INCOMPLETE';reasons.push('AI_EVIDENCE_INCOMPLETE_REVIEW');
+      }
+    }
+    if(url&&vision_status==='NOT_REVIEWED')reviewQueue.push({
+      event_id:id,event_name:name,event_date:day,poster_url:url,
+      required_checks:['original image pixels and printed artist/title','date on image vs exact event',
+       'same decoded file SHA256','official source evidence URL','signed-out load and crop check'],
+      instruction:'Review original pixels; never publish or change Sheets from AI results.'
+    });
     const unique=[...new Set(reasons)];
     const critical=unique.some(x=>['POSTER_SOURCE_MISSING','KNOWN_WRONG_EVENT_ART','GENERIC_BRAND_HERO_NOT_OFFICIAL_POSTER','NO_HEALTHY_IMAGE_DELIVERY','EVENT_IDENTITY_INCOMPLETE'].includes(x));
     const verdict=critical?'BLOCKED_NEEDS_POSTER':unique.length?'OWNER_REVIEW_REQUIRED':'DELIVERY_ONLY_IDENTITY_UNVERIFIED';
     const next=critical?'REPLACE_WITH_VERIFIED_EXACT_EVENT_POSTER':unique.length?'REVIEW_EVENT_ARTWORK_AND_SOURCE':'VERIFY_ORGANIZER_ARTWORK';
-    return {event_id:id,event_name:name,event_date:day,poster_url:url,delivery_status:tested?(healthy?'IMAGE_DELIVERED':'IMAGE_DELIVERY_FAILED'):'NOT_TESTED',verdict,reasons:unique,owner_review_required:verdict!=='DELIVERY_ONLY_IDENTITY_UNVERIFIED',next_action:next,official_poster_verified:false};
+    return {event_id:id,event_name:name,event_date:day,poster_url:url,delivery_status:tested?(healthy?'IMAGE_DELIVERED':'IMAGE_DELIVERY_FAILED'):'NOT_TESTED',verdict,reasons:unique,vision_status,owner_review_required:true,owner_approved:false,next_action:next,official_poster_verified:false};
   });
   return {
     schema_version:VERSION,status:findings.some(x=>x.verdict==='BLOCKED_NEEDS_POSTER')?'NEEDS_REPAIR':findings.some(x=>x.verdict==='OWNER_REVIEW_REQUIRED')?'NEEDS_OWNER_REVIEW':'IDENTITY_UNVERIFIED',
-    visible_events:findings.length,blocked:findings.filter(x=>x.verdict==='BLOCKED_NEEDS_POSTER').length,
+    as_of:asOf||null,visible_events:findings.length,blocked:findings.filter(x=>x.verdict==='BLOCKED_NEEDS_POSTER').length,
     review:findings.filter(x=>x.verdict==='OWNER_REVIEW_REQUIRED').length,
     delivery_only:findings.filter(x=>x.verdict==='DELIVERY_ONLY_IDENTITY_UNVERIFIED').length,
-    findings,provider_calls:0,paid_ai_calls:0,production_writes:0,booking_writes:0,pricing_writes:0,
-    inventory_writes:0,auto_publish:false,owner_approval_required:true
+    findings,ai_review_queue:reviewQueue,provider_calls:0,paid_ai_calls:0,production_writes:0,booking_writes:0,pricing_writes:0,
+    inventory_writes:0,visibility_writes:0,poster_writes:0,auto_publish:false,ai_can_approve:false,owner_approval_required:true
   };
 }
 module.exports={VERSION,KNOWN_WRONG,dateKey,urlKey,triage};
