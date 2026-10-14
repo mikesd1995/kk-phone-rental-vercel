@@ -354,3 +354,31 @@ test('conflicting duplicate digest observations cannot certify the original post
  assert.equal(report.findings[0].owner_approved,false);
  assert.equal(report.ai_can_approve,false);
 });
+
+
+test('standalone agent blocks insecure/private image sources before any poster approval',()=>{
+ for(const u of ['http://public.example.com/a.jpg','https://127.0.0.1/image.jpg',
+ 'https://localhost/a.png','https://10.1.2.3/a.jpg','https://192.168.0.1/image.png',
+ 'https://169.254.169.254/latest/meta-data','https://user:pass@public.example.com/a.jpg',
+ 'file:///etc/passwd']){
+  const r=row('EVT-20261014-UNSAFE','Unsafe',u);
+  const out=P.triage({rows:[r]});
+  assert.equal(out.blocked,1,u);
+  assert.ok(out.findings[0].reasons.includes('UNSAFE_OR_INVALID_POSTER_SOURCE'),u);
+  assert.equal(out.production_writes,0);
+ }
+ assert.equal(P.safePosterUrl('https://organizer.example.com/poster.jpg'),true);
+ assert.equal(P.safePosterUrl('/assets/event-posters/valid.jpg'),true);
+});
+test('AI proof links must be publicly safe HTTPS sources',()=>{
+ const id='EVT-20261014-UNTRUSTED',poster='https://organizer.example.com/poster.jpg',sha='a'.repeat(64);
+ const r=row(id,'Event',poster);
+ const result=P.triage({rows:[r],
+  delivery_by_event:{[id]:{poster_url:poster,sha256:sha,loaded:true,natural_width:1200}},
+  vision_reviews:[{event_id:id,event_date:'14/10/2026',poster_url:poster,
+   verdict:'MATCH',asset_sha256:sha,evidence_url:'https://127.0.0.1/fake-official',
+   title_match:true,date_match:true,confidence:0.99}]
+ });
+ assert.equal(result.findings[0].vision_status,'INCOMPLETE');
+ assert.equal(result.findings[0].owner_approved,false);
+});
