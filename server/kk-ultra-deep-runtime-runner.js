@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V15';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V16';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -231,6 +231,15 @@ function providerBindingState(providers={}){
   const bound=[...UNKNOWN_SEARCH_PROVIDERS].filter(p=>typeof providers[p]==='function');
   return {bound,unknown_url_search_bound:bound.length>0};
 }
+function detailFollowupProof(publicProviders={}){
+ const keys=['http_requests','cache_hits','hydrated_rows','skipped_rows','budget_deferred','failed_reads','identity_mismatch','field_conflicts','peak_concurrency'];
+ const empty=Object.fromEntries(keys.map(key=>[key,0]));
+ if(typeof publicProviders.detailReadback!=='function')return {enabled:false,complete:true,counts:empty};
+ try{
+  const r=publicProviders.detailReadback();
+  return {enabled:r.enabled===true,complete:r.complete===true,counts:Object.fromEntries(keys.map(key=>[key,Number.isFinite(r.counts&&r.counts[key])?Math.max(0,r.counts[key]):0]))};
+ }catch(_){return {enabled:true,complete:false,counts:empty};}
+}
 
 // Only project fixed contract fields. Provider payloads, URLs, queries and raw
 // errors must never reach the machine diagnostic response.
@@ -256,6 +265,7 @@ async function runOperationalDiscovery(input={},options={}){
   const execution=await ProviderExecutor.executeGapPlan(plan,{providers,concurrency:Math.min(4,ProviderExecutor.MAX_CONCURRENCY)});
   const candidates=flattenCandidates(execution);
   const proof=executionProof(execution);
+  const detailFollowup=detailFollowupProof(publicProviders);
   proof.candidate_count=candidates.length;
   proof.has_evidence=candidates.length>0;
   const minimumExecuted=Math.min(3,proof.task_count);
@@ -274,6 +284,7 @@ async function runOperationalDiscovery(input={},options={}){
     month:plan.range.month,
     location:plan.location,
     discovery_proof:proof,
+    detail_followup:detailFollowup,
     candidate_count:candidates.length,
     candidates,
     task_count:proof.task_count,
@@ -347,9 +358,10 @@ async function runMonthlyUltraDeep(input={},options={}){
   // Source-unavailable and unsourced synthetic classifications cannot certify coverage.
   const knownMissLive=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[],{month:plan.range.month,strict_live:true});
   const knownMiss=KnownMiss.evaluateFixtureRegression();
+  const detailFollowup=detailFollowupProof(publicProviders);
 
   const liveSearchProven=preflight.status==='READY' || discoveryProof.has_evidence || referenceProof.has_evidence || knownMissCandidates.length>0;
-  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete;
+  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete && detailFollowup.complete;
   const blockers=[
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
     ...(binding.unknown_url_search_bound&&!liveSearchProven?['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED']:[]),
@@ -359,13 +371,15 @@ async function runMonthlyUltraDeep(input={},options={}){
     ...(!referenceProof.complete?['REFERENCE_SWEEP_INCOMPLETE']:[]),
     ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
     ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[]),
-    ...(!knownMissLive.complete?['KNOWN_MISS_LIVE_RECALL_INCOMPLETE']:[])
+    ...(!knownMissLive.complete?['KNOWN_MISS_LIVE_RECALL_INCOMPLETE']:[]),
+    ...(!detailFollowup.complete?['DETAIL_FOLLOWUP_INCOMPLETE']:[])
   ];
   const diagnostic={
     schema:'KK_ULTRA_DEEP_DISCOVERY_DIAGNOSTIC_V1',full:complete,blockers,
     gates:Object.fromEntries(Object.entries({provider_bound:binding.unknown_url_search_bound,live_search:liveSearchProven,
       source_universe:universe.complete,discovery:discoveryProof.complete,reference:referenceProof.complete,
-      reconciliation:reconciliation.complete,known_miss_regression:knownMiss.complete,known_miss_live_recall:knownMissLive.complete}).map(([gate,observed])=>[gate,{expected:true,observed}])),
+      reconciliation:reconciliation.complete,known_miss_regression:knownMiss.complete,known_miss_live_recall:knownMissLive.complete,detail_followup:detailFollowup.complete}).map(([gate,observed])=>[gate,{expected:true,observed}])),
+    detail_followup:detailFollowup,
     counts:{required_sources:universe.required_source_count,passed_sources:universe.passed_required_source_count,
       discovery_tasks:discoveryProof.task_count,discovery_executed:discoveryProof.executed_count,discovery_candidates:candidates.length,
       reference_tasks:referenceProof.task_count,reference_executed:referenceProof.executed_count,reference_candidates:referenceCandidates.length,
@@ -393,6 +407,7 @@ async function runMonthlyUltraDeep(input={},options={}){
     reconciliation,
     known_miss_regression:knownMiss,
     known_miss_live_recall:knownMissLive,
+    detail_followup:detailFollowup,
     candidate_count:verifierCandidates.length,
     discovery_candidate_count:candidates.length,
     known_miss_recovered_candidate_count:probeRecovered.recovered_count,

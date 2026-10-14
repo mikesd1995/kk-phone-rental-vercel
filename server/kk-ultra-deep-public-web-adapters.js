@@ -2,8 +2,10 @@
 
 const path=require('node:path');
 const {execFile}=require('node:child_process');
+const DetailFollowup=require('./kk-public-event-detail-followup.js');
+const {createHash}=require('node:crypto');
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V9';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V10';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
@@ -89,13 +91,44 @@ function candidateFromPage(url,body,task={}){
 async function fetchPage(url,options={}){
  const safe=https(url); if(!safe){const e=new Error('HTTPS_URL_REQUIRED');e.code='HTTPS_URL_REQUIRED';throw e;}
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),Number(options.timeout_ms||DEFAULT_TIMEOUT_MS));
+ const guarded=typeof options.redirect_guard==='function';let responseForCleanup=null;
  try{
-  const r=await (options.fetchFn||fetch)(safe,{method:'GET',redirect:'follow',signal:controller.signal,headers:{'user-agent':'KKPhoneRental-Discovery/1.0'}});
+  let target=safe,r,hops=0;
+  while(true){
+   if(guarded&&typeof options.redirect_normalize==='function')target=options.redirect_normalize(target)||'';
+   if(guarded&&options.redirect_guard(target)!==true){const e=new Error('DETAIL_REDIRECT_NOT_ALLOWED');e.code='DETAIL_REDIRECT_NOT_ALLOWED';throw e;}
+   if(typeof options.before_request==='function')options.before_request(target);
+   r=await (options.fetchFn||fetch)(target,{method:'GET',redirect:guarded?'manual':'follow',signal:controller.signal,headers:{'user-agent':'KKPhoneRental-Discovery/1.0'}});
+   responseForCleanup=r;
+   if(!guarded||![301,302,303,307,308].includes(r.status))break;
+   if(hops++>=Math.min(2,Number(options.max_redirects??2))){const e=new Error('DETAIL_REDIRECT_LIMIT');e.code='DETAIL_REDIRECT_LIMIT';throw e;}
+   const location=r.headers&&r.headers.get&&r.headers.get('location');
+   if(!location){const e=new Error('DETAIL_REDIRECT_MISSING');e.code='DETAIL_REDIRECT_MISSING';throw e;}
+   const next=new URL(location,target).toString();
+   if(options.redirect_guard(next)!==true){const e=new Error('DETAIL_REDIRECT_NOT_ALLOWED');e.code='DETAIL_REDIRECT_NOT_ALLOWED';throw e;}
+   if(r.body&&typeof r.body.cancel==='function')Promise.resolve(r.body.cancel()).catch(()=>{});
+   target=next;
+  }
   if(!r.ok){const e=new Error('HTTP_'+r.status);e.code='HTTP_'+r.status;throw e;}
+  if(options.require_html===true&&!/^(text\/html|application\/xhtml\+xml)(?:\s*;|$)/i.test(text(r.headers&&r.headers.get&&r.headers.get('content-type')))){const e=new Error('DETAIL_NOT_HTML');e.code='DETAIL_NOT_HTML';throw e;}
   const len=Number(r.headers&&r.headers.get&&r.headers.get('content-length')||0);if(len>MAX_BYTES){const e=new Error('RESPONSE_TOO_LARGE');e.code='RESPONSE_TOO_LARGE';throw e;}
   let body;
   if(typeof r.arrayBuffer==='function'){
-   const bytes=Buffer.from(await r.arrayBuffer());
+   let bytes;
+   if(guarded&&r.body&&typeof r.body.getReader==='function'){
+    const reader=r.body.getReader(),chunks=[];let size=0,rejectAbort;
+    const aborted=new Promise((resolve,reject)=>{rejectAbort=()=>{const e=new Error('DETAIL_TIMEOUT');e.name='AbortError';reject(e);};controller.signal.addEventListener('abort',rejectAbort,{once:true});});
+    try{
+     while(true){
+      const part=await Promise.race([reader.read(),aborted]);if(part.done)break;
+      size+=part.value.byteLength;
+      if(size>MAX_BYTES){const e=new Error('RESPONSE_TOO_LARGE');e.code='RESPONSE_TOO_LARGE';throw e;}
+      chunks.push(Buffer.from(part.value));
+     }
+     bytes=Buffer.concat(chunks,size);
+    }catch(error){Promise.resolve(reader.cancel()).catch(()=>{});throw error;}
+    finally{controller.signal.removeEventListener('abort',rejectAbort);try{reader.releaseLock();}catch(_){}}
+   }else bytes=Buffer.from(await r.arrayBuffer());
    if(bytes.length>MAX_BYTES){const e=new Error('RESPONSE_TOO_LARGE');e.code='RESPONSE_TOO_LARGE';throw e;}
    const header=text(r.headers&&r.headers.get&&r.headers.get('content-type'));
    const prefix=bytes.subarray(0,2048).toString('latin1');
@@ -103,8 +136,15 @@ async function fetchPage(url,options={}){
    try{body=new TextDecoder(charset).decode(bytes);}catch(_){body=new TextDecoder('utf-8').decode(bytes);}
   }else body=await r.text();
   if(Buffer.byteLength(body,'utf8')>MAX_BYTES){const e=new Error('RESPONSE_TOO_LARGE');e.code='RESPONSE_TOO_LARGE';throw e;}
+  if(typeof options.on_page_read==='function')options.on_page_read({final_url:target,body_sha256:createHash('sha256').update(body).digest('hex')});
   return body;
- }finally{clearTimeout(timer);}
+ }finally{
+  clearTimeout(timer);
+  if(guarded){
+   controller.abort();
+   try{if(responseForCleanup&&responseForCleanup.body&&!responseForCleanup.body.locked)Promise.resolve(responseForCleanup.body.cancel()).catch(()=>{});}catch(_){}
+  }
+ }
 }
 async function officialDirect(task={},options={}){
  const urls=[task.source_url,...(Array.isArray(task.seed_urls)?task.seed_urls:[])].map(https).filter(Boolean).slice(0,10);
@@ -454,6 +494,16 @@ function createProviders(options={}){
  if(endpoint)out.SEARXNG=t=>searxng(t,{...options,searxng_endpoint:endpoint});
  const ddgsEnabled=options.ddgs_trafilatura_enabled===true || /^(1|true|yes)$/i.test(text(process.env.KK_DDGS_TRAFILATURA_ENABLED));
  if(ddgsEnabled)out.DDGS_TRAFILATURA=t=>ddgsTrafilatura(t,options);
+ const details=DetailFollowup.createFollowup(async(url,guard)=>{
+  let meta;
+  const body=await fetchPage(url,{...options,...guard,on_page_read:row=>{meta=row;}});
+  return {...meta,candidate:candidateFromPage(url,body)};
+ },options);
+ for(const name of ['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA']){
+  if(typeof out[name]!=='function')continue;
+  const search=out[name];out[name]=async task=>details.enrich(await search(task),task);
+ }
+ Object.defineProperty(out,'detailReadback',{value:details.readback});
  return out;
 }
 module.exports={VERSION,MAX_BYTES,DEFAULT_TIMEOUT_MS,DEFAULT_SEARXNG_ENDPOINT,DDG_MIN_INTERVAL_MS,DEFAULT_DDGS_TIMEOUT_MS,DEFAULT_DDGS_MAX_RESULTS,LIVENATION_EVENTS_ENDPOINT,decodeHtmlEntities,cleanHtml,decodeEntities,extractAnchors,ddgResultUrl,bingResultUrl,parseDuckDuckGoHtml,parseBingHtml,parseRssItems,bingRss,candidateFromPage,fetchPage,officialDirect,rssOrPublicFeed,duckDuckGoHtml,bingHtml,LIVENATION_GENERIC_TOKENS,liveNationTargetMonth,liveNationSpecificTokens,liveNationCanonicalUrl,normalizeLiveNationDocument,fetchLiveNationRows,liveNationPublic,searxng,execFileJson,runDdgsSearch,inferSearchEventDates,inferSearchEventDate,ddgsTrafilatura,createProviders};

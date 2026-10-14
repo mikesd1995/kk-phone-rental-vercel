@@ -31,6 +31,17 @@ test('runtime runner fails closed when no unknown-URL search provider is bound',
  assert.equal(out.production_writes,0);
 });
 
+test('monthly detail budget debt is explicit and cannot certify FULL or expose raw URL receipts',async()=>{
+ const url='https://www.eventpop.me/e/999991/aurora-lantern-fanmeeting';
+ const html='<a class="result__a" href="'+url+'">Aurora Lantern FANMEETING</a>';
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{publicWebOptions:{...OFFLINE_PUBLIC_WEB_OPTIONS,ddg_enabled:true,ddg_min_interval_ms:0,detail_max_requests:0,fetchFn:async address=>{
+  assert.match(String(address),/duckduckgo\.com/);return new Response(html,{headers:{'content-type':'text/html'}});
+ }}});
+ assert.equal(out.full,false);assert.ok(out.blockers.includes('DETAIL_FOLLOWUP_INCOMPLETE'));
+ assert.equal(out.detail_followup?.complete,false);assert.ok(out.detail_followup?.counts.budget_deferred>0);
+ assert.equal(JSON.stringify(out.diagnostic).includes(url),false);assert.equal(out.production_writes,0);
+});
+
 test('runtime runner can prove FULL only from executed provider evidence',async()=>{
  const byCase=new Map(KnownMiss.CORPUS.map(c=>['knownmiss:'+c.case_id,c]));
  const search=async task=>{
