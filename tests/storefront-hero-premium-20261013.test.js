@@ -116,3 +116,16 @@ test('FAQ entry cannot disappear silently on 320px devices or pass skipped visua
  assert.match(visualQA,/recordInteraction\('faq_entry_missing',false,/);
  assert.match(visualQA,/recordInteraction\('faq_open',await page\.locator\('#faqOverlay'\)/);
 });
+
+test('320px header preserves brand semantics and non-overlapping 44px primary controls',()=>{
+  const css320=css.slice(css.lastIndexOf('320px first-fold correction — 2026-10-14'));
+  assert.match(css320, /html \.v3-header \.v3-brand\s*\{[^}]*flex:1 1 auto!important;[^}]*min-width:0!important/);
+  assert.match(css320, /html \.v3-header \.v3-brand-copy strong\s*\{[^}]*text-overflow:ellipsis!important/);
+  assert.match(css320, /html \.v3-header \.v3-header-actions\s*\{[^}]*flex:0 0 auto!important/);
+  assert.match(css320, /html \.v3-header \.header-faq-btn\s*\{[^}]*min-width:44px!important;[^}]*min-height:44px!important/);
+  assert.match(html, /<a class="v3-brand" href="\/" aria-label="KK Phone Rental">/);
+  const qa=fs.readFileSync(path.join(root,'scripts','storefront-visual-acceptance.mjs'),'utf8');
+  assert.match(qa, /recordInteraction\('header_controls_contained',headerGeometry\.contained,/);
+  assert.match(qa, /targets\.every\(r=>r\.left>=h\.left-1 && r\.right<=h\.right\+1/);
+  assert.match(qa, /r\.width>=43\.5 && r\.height>=43\.5/);
+});
