@@ -107,3 +107,17 @@
 5. Maintain `DONE`, `BLOCKED`, `NOT STARTED`, `ROLLBACK` separately. Never present a created draft PR as a Production fix.
 
 **References:** [Quota / Preview bypass #692](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/692), [Core Sheet ACL P0 #738](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/738), [CI exact-head #707](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/707), [Final acceptance #49](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/49).
+
+## Continuation — owner command workflow fanout remediation (2026-10-14)
+
+**Implementation staged only in Draft PR #744, not merged or deployed.**
+- Added `.github/workflows/kk-owner-comment-command-router.yml` with one top-level `issue_comment: created` listener and **10 owner/issue/command-gated** reusable workflow call jobs. The router itself contains no Vercel API/deploy/build command.
+- Converted exactly 10 historical direct `issue_comment` workflow subscriptions to `workflow_call`. For each target, read back current `main` and the draft branch, and compared the complete contents: **exactly one trigger stanza changed per file**; job bodies, command parsing, existing `workflow_dispatch` (where present), `issues: labeled` (where present), concurrency and individual safety gates stayed byte-for-byte intact.
+- Included least-privilege per-caller-job GITHUB_TOKEN permission scopes matching each prior target workflow. Secret availability is forwarded with `secrets: inherit` because the original direct workflows already accessed repository secrets; this must receive independent security review before merge. No new secret names or secrets were written to GitHub.
+- Added `tests/kk-owner-comment-command-router.test.js` (3 Node test cases): single repository comment listener, 10 exact owner+command+issue routes and scopes, and preserved original authorization/manual/labeled triggers.
+- **Expected topology after accepted merge:** comment -> exactly one top-level command router run -> zero or one permitted reusable target. Other workflows still react to manual, issue labeled, push, pull request, or schedule as before. This is a design expectation, **not GitHub-hosted runtime evidence**.
+- **Static diff verification 10/10 PASSED** from fresh GitHub main-vs-branch file readback. Independent static structure verification and Node test execution must be tracked separately (Node test is not automatically a CI pass).
+- **Do not claim reduction in GitHub billed minutes or Vercel storage**. Skipped jobs may already have zero billed minutes; this cleanup reduces top-level event fanout only. Vercel app-sourced Preview deployment bypass remains an independent problem in #692.
+- **Release gate:** targeted `node --test tests/kk-owner-comment-command-router.test.js` on exact head; GitHub workflow YAML validation; non-production owner and unauthorized-comment dry-run proving no deploy; independent reviewer; owner approval and measured free resources before merge. Preserve active Production `d6dc3bfe4cc0c4dd6fdfec407823752da0572464` until release approval.
+
+**Rollback**: revert the new router YAML and restore `issue_comment: types: [created]` to the ten target workflows in one approved revert, using exact pre-PR `main` content. Do not roll back the security checks in the original job bodies.
