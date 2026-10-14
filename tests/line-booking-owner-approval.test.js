@@ -169,3 +169,22 @@ test('replayed owner approval does not send duplicate customer or owner messages
   assert.equal(calls.length,1);
   assert.equal(calls[0].body.action,'decideLineBookingPending');
 });
+
+test('owner decision rejects mismatched canonical booking id before any LINE send',async()=>{
+  const e=env();
+  const data=Approval.decisionData('approve','BK-EXPECTED',e);
+  let sends=0;
+  await assert.rejects(
+    ()=>Approval.processOwnerPostback({
+      type:'postback',replyToken:'reply-owner',source:{type:'user',userId:'UOWNER'},postback:{data}
+    },e,async(url)=>{
+      if(String(url).startsWith('https://script.google.com/')){
+        return response({ok:true,booking_id:'BK-OTHER',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:false});
+      }
+      sends++;
+      return response({ok:true});
+    }),
+    err=>err&&err.code==='LINE_OWNER_DECISION_BOOKING_ID_MISMATCH'
+  );
+  assert.equal(sends,0);
+});
