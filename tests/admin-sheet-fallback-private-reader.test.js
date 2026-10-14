@@ -52,3 +52,32 @@ test('private parser maps physical rows from a ranged read',()=>{
   const rows=F.valuesAsObjects([['booking_id','event_id'],['BK1','EV1']],'booking_id',4);
   assert.equal(rows[0].__row_number,5);
 });
+
+
+test('strict Apps Script cache never reuses prior owner read-key snapshot after rotation',async()=>{
+ const appReader=require('../server/core-sheet-apps-script-reader.js');
+ const saved=appReader.readValues;
+ const noopFetch=async()=>{throw Error('PUBLIC_GVIZ_FORBIDDEN');};
+ const key1='r'.repeat(48),key2='s'.repeat(48),adminKey='a'.repeat(48);
+ const env={GOOGLE_SHEET_ID:'safe-sheet-test',KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+   KK_CORE_PRIVATE_TRANSPORT:'apps-script',
+   KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/test_script/exec',
+   KK_ADMIN_API_KEY:adminKey,KK_CORE_PRIVATE_READ_KEY:key1};
+ const headers=Object.values(F.SPECS).reduce((m,c)=>{m[c.sheet]=c.header;return m;},{});
+ let reads=0;
+ appReader.readValues=async x=>{reads++;return [[headers[x.sheet]||'id']];};
+ F.clearSnapshotCache();
+ try{
+   const first=await F.buildSnapshot({env,sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noopFetch,cacheTtlMs:60000});
+   assert.equal(first.fallback_reader,'private-owner-apps-script');
+   assert.equal(reads,11);
+   const same=await F.buildSnapshot({env,sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noopFetch,cacheTtlMs:60000});
+   assert.equal(same.fallback_cache_status,'hit');
+   assert.equal(reads,11);
+   const rotated={...env,KK_CORE_PRIVATE_READ_KEY:key2};
+   const second=await F.buildSnapshot({env:rotated,sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noopFetch,cacheTtlMs:60000});
+   assert.equal(second.fallback_cache_status,'miss');
+   assert.equal(reads,22);
+   assert.doesNotMatch(JSON.stringify(second),new RegExp(key1+'|'+key2));
+ }finally{appReader.readValues=saved;F.clearSnapshotCache();}
+});
