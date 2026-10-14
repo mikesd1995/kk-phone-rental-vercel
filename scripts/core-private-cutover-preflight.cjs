@@ -11,10 +11,24 @@ const EXTRA_SPECS=Object.freeze({
   rental_dashboard_data:{sheet:'_Rental_Dashboard_Data',range:'A1:O',header:'booking_id'},
   event_archive:{sheet:'13_Event_Archive',range:'A1:Z',header:null}
 });
+const SAFE_PRIVATE_FAILURE_CODES=new Set([
+  'CORE_PRIVATE_CUTOVER_NOT_ENABLED',
+  'CORE_PRIVATE_SHEET_ID_NOT_CONFIGURED',
+  'CORE_PRIVATE_SHEET_ID_MISMATCH',
+  'CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED',
+  'CORE_PRIVATE_RANGE_INVALID',
+  'CORE_PRIVATE_SCHEMA_INVALID',
+  'CRM_SHEET_ID_CONFLICT',
+  'CRM_SHEET_ID_MISSING',
+  'CRM_READER_NOT_CONFIGURED',
+  'CRM_TOKEN_EXCHANGE_FAILED',
+  'CRM_PRIVATE_READ_FAILED'
+]);
 function classify(err){
+  // Error.code can be populated by an upstream provider. Never echo arbitrary
+  // prefixed text (including credentials/customer values) into public reports.
   const code=String(err&&err.code||'');
-  return /^(?:CORE_PRIVATE_|CRM_(?:PRIVATE_|TOKEN_|READER_|SHEET_))/.test(code)
-    ? code : 'CORE_PRIVATE_PROBE_FAILED';
+  return SAFE_PRIVATE_FAILURE_CODES.has(code)?code:'CORE_PRIVATE_PROBE_FAILED';
 }
 function hasHeader(values,required){
   if(!required)return Array.isArray(values)&&values.length>0;
