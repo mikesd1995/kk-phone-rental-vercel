@@ -1,0 +1,153 @@
+# Single entry point for owner issue-comment commands.
+# Existing target workflows retain manual dispatch, labeled events, authorization
+# and runtime validation. This router reduces fanout of top-level workflow RUNS;
+# it does NOT claim savings in billed CI minutes or Vercel storage.
+name: KK Owner Comment Command Router
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  bounded_oidc:
+    if: >-
+      ${{
+        github.event.issue.number == 47 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.body == '/run-bounded-oidc'
+      }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/bounded-oidc-production-acceptance.yml
+    secrets: inherit
+
+  current_prod_readback:
+    if: >-
+      ${{
+        github.event.issue.number == 164 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        startsWith(github.event.comment.body, '/verify-current-production ')
+      }}
+    permissions:
+      contents: read
+      issues: read
+    uses: ./.github/workflows/current-production-readback.yml
+    secrets: inherit
+
+  phase4_recovery:
+    if: >-
+      ${{
+        github.event.issue.number == 213 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        startsWith(github.event.comment.body, '/run-phase4-zero-cost-promote ')
+      }}
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/phase4-zero-cost-existing-preview-recovery.yml
+    secrets: inherit
+
+  storefront_v59:
+    if: >-
+      ${{
+        github.event.issue.number == 213 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        startsWith(github.event.comment.body, '/run-v59-promote ')
+      }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/storefront-v59-zero-cost-promote.yml
+    secrets: inherit
+
+  storefront_v60_prebuilt:
+    if: >-
+      ${{
+        github.event.issue.number == 213 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        startsWith(github.event.comment.body, '/run-v60-prebuilt ')
+      }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/storefront-v60-prebuilt-production.yml
+    secrets: inherit
+
+  storefront_v60_promote:
+    if: >-
+      ${{
+        github.event.issue.number == 213 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        startsWith(github.event.comment.body, '/run-v60-promote ')
+      }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/storefront-v60-zero-cost-promote.yml
+    secrets: inherit
+
+  ultra_deep_full_loop:
+    if: >-
+      ${{
+        github.event.issue.number == 368 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        startsWith(github.event.comment.body, '/run-ultra-deep-full-loop')
+      }}
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    uses: ./.github/workflows/ultra-deep-full-loop.yml
+    secrets: inherit
+
+  storefront_screenshot:
+    if: >-
+      ${{
+        github.event.issue.number == 213 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.body == '/capture-v59-production'
+      }}
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/storefront-production-screenshot-capture.yml
+    secrets: inherit
+
+  rental_analytics:
+    if: >-
+      ${{
+        github.event.issue.number == 164 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        startsWith(github.event.comment.body, '/run-rental-analytics-prebuilt ')
+      }}
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/rental-analytics-prebuilt-production-recovery.yml
+    secrets: inherit
+
+  ultra_deep_runtime:
+    if: >-
+      ${{
+        github.event.issue.number == 368 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.body == '/run-ultra-deep-acceptance'
+      }}
+    permissions:
+      contents: read
+      issues: read
+    uses: ./.github/workflows/ultra-deep-runtime-acceptance.yml
+    secrets: inherit
+
