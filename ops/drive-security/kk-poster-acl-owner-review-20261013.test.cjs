@@ -277,8 +277,26 @@ test('moved Drive asset invalidates previously approved ACL fingerprint', () => 
   assert.equal(f.getWrites(), 0);
 });
 
-test('private historical asset aborts before any ACL mutation', () => {
+test('restricted historical asset is fingerprinted but never made public', () => {
   const f = fixture({privateID: 'brand-logo'});
+  const dry = f.api.dry();
+  assert.equal(dry.public_writer, 39);
+  assert.equal(dry.historical_images, 3);
+  assert.equal(f.getWrites(), 0);
+  const first = f.api.apply(dry.fingerprint);
+  assert.equal(first.ok, false);
+  assert.equal(first.updated, 25);
+  assert.equal(f.roles['brand-logo'], undefined);
+  const secondDry = f.api.dry();
+  assert.equal(secondDry.public_writer, 14);
+  const last = f.api.apply(secondDry.fingerprint);
+  assert.equal(last.ok, true);
+  assert.equal(last.remaining_writers, 0);
+  assert.equal(f.roles['brand-logo'], undefined);
+});
+
+test('private ACTIVE poster still fails closed before owner approval', () => {
+  const f = fixture({privateID: expected[0]});
   assert.throws(() => f.api.dry(), /UNEXPECTED_SHARING_ACCESS/);
   assert.equal(f.getWrites(), 0);
 });
