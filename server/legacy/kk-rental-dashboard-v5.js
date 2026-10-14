@@ -5,6 +5,7 @@
 // otherwise preserve the existing Core analytics endpoint as an explicit fallback.
 const legacyHandler = require('../rental-dashboard-core.js');
 const privateSheets = require('../../api/lib/private-google-sheets');
+const CorePrivacy = require('../core-sheet-private-reader.js');
 const AdminSecurity = require('../admin-session.js');
 
 const DEFAULT_CORE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -243,7 +244,7 @@ module.exports=async function handler(req,res){
   const crmSheetId=String(process.env.KK_CRM_SHEET_ID||DEFAULT_CRM_SHEET_ID).trim();
   const trackerId=String(process.env.KK_EVENT_TRACKER_SHEET_ID||DEFAULT_TRACKER_ID).trim();
   const env=Object.assign({},process.env,{KK_CRM_SHEET_ID:crmSheetId});
-  const cfg=privateSheets.configState(env);
+  const cfg=privateSheets.configState(CorePrivacy.enabled()?Object.assign({},env,{GOOGLE_SHEET_ID:''}):env);
   if(!cfg.configured)return coreFallback(req,res,'PRIVATE_READER_NOT_CONFIGURED');
 
   const started=Date.now();
@@ -251,7 +252,7 @@ module.exports=async function handler(req,res){
     const [helperCsv,archiveEventsCsv,currentEventsCsv,registryResult]=await Promise.all([
       privateSheets.readValuesCsv({sheetId:crmSheetId,range:'_Rental_Dashboard_Data!A1:O',env}),
       privateSheets.readValuesCsv({sheetId:crmSheetId,range:'13_Event_Archive!A1:Z',env}),
-      fetchCsv(coreSheetId,'01_Events','A4:Z'),
+      (CorePrivacy.enabled()?CorePrivacy.readCsv({sheetId:coreSheetId,sheet:'01_Events',range:'A4:Z'}):fetchCsv(coreSheetId,'01_Events','A4:Z')),
       fetchCsv(trackerId,'_Artist_Registry','A1:E').then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:''}))
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
