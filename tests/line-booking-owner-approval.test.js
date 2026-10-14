@@ -149,3 +149,23 @@ test('Apps Script owner decision is a separate atomic pending-only action',()=>{
   assert.match(body,/customerContact = String\(current\[5\]/);
   assert.match(body,/String\(persisted\[5\]/);
 });
+
+test('replayed owner approval does not send duplicate customer or owner messages',async()=>{
+  const e=env();
+  const data=Approval.decisionData('approve','BK-REPLAY',e);
+  const calls=[];
+  const r=await Approval.processOwnerPostback({
+    type:'postback',replyToken:'reply-replayed',source:{type:'user',userId:'UOWNER'},postback:{data}
+  },e,async(url,opt)=>{
+    calls.push({url,body:JSON.parse(opt.body)});
+    if(url.startsWith('https://script.google.com/')){
+      return response({ok:true,booking_id:'BK-REPLAY',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:true});
+    }
+    throw new Error('no LINE send allowed for replay');
+  });
+  assert.equal(r.handled,true);
+  assert.equal(r.status,'CONFIRMED');
+  assert.equal(r.idempotent_replay,true);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].body.action,'decideLineBookingPending');
+});
