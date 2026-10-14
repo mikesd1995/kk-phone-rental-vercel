@@ -104,3 +104,15 @@ test('320px first-fold release guard preserves live CTA while reclaiming narrow 
  assert.match(css,/\.kk-mock-hero \.v3-primary[^\n]*min-height:44px!important|\.kk-mock-hero \.v3-primary\s*\{min-height:44px!important/);
  assert.match(html,/<a class="v3-primary" href="#content">/);
 });
+
+test('FAQ entry cannot disappear silently on 320px devices or pass skipped visual QA',()=>{
+ const last=css.slice(css.lastIndexOf('320px first-fold correction — 2026-10-14'));
+ assert.match(last,/@media \(max-width:359px\)/);
+ assert.match(last,/html \.v3-header \.header-faq-btn\s*\{[^}]*display:inline-flex!important/);
+ assert.match(last,/html \.v3-header \.header-faq-btn\s*\{[^}]*min-width:44px!important/);
+ assert.match(last,/html \.v3-header \.header-faq-btn\s*\{[^}]*min-height:44px!important/);
+ assert.match(html,/<button class="mini-btn header-faq-btn" id="faq-open-btn" type="button">FAQ<\/button>/);
+ const visualQA=fs.readFileSync(path.join(root,'scripts','storefront-visual-acceptance.mjs'),'utf8');
+ assert.match(visualQA,/recordInteraction\('faq_entry_missing',false,/);
+ assert.match(visualQA,/recordInteraction\('faq_open',await page\.locator\('#faqOverlay'\)/);
+});
