@@ -2,6 +2,17 @@
 
 Status: Owner-approved editorial requirements. Apply to every future X rental post draft, including batch requests. This file is a persistent source of truth for the marketing/content agents; it does not authorize publishing.
 
+## Owner command trigger — 2026-10-15 (HIGHEST PRIORITY)
+When the owner says **"ขอโพสปล่อยเช่างานนี้บน X"**, **"ขอโพสงานนี้บน X"**, or gives a table of events and asks for X rental posts:
+- Treat the request as an order for **a finished, selected output**, not brainstorming. Never ask the owner to select between versions or offer unsolicited alternative styles.
+- Verify **current** Core/Storefront, Booking and owner locks, event dates, poster, prices, venue and actual related hashtags; check post history. Do not recycle old prices, statuses or invented tags.
+- Invoke the actual five-stage Marketing → Strategy → Content → QA → Selector bridge (3 **internal** differentiated candidates per event), and Batch Diversity QA across multiple events. Read back persistent PASS invocation evidence. If unavailable, be explicit about failure; never pass off an assistant-chosen draft as an Agent Final.
+- Return **exactly 1 best copy-ready Final per event**. Preserve original event order; separate copy boxes per event.
+- The copy requirements remain binding: brand once in header; model only in price; verified event main hashtag + 3 distinct verified closing tags + #เช่ามือถือ (≥5); only binary ✅ ว่าง or ❌ เต็ม per verified day (owner-closed maps to ❌ เต็ม in customer copy only); no device counts; artist/event-specific non-repetitive CTA and canonical booking URL; factual benefits.
+- Learning AI can use actual measured prior-post performance only. Hugging Face usage must have **verified successful call evidence**, otherwise state not used. No fabricated selector scores, training claims or X metrics.
+- Owner approval always required for X publish/schedule. Do not spend money, merge/deploy, or mutate production/Booking without separate permission.
+- **Repo docs/Project Memory are not an automatic ChatGPT prompt hook.** Each chat invocation must explicitly run the authenticated project bridge before claiming Agent-backed final acceptance.
+
 ## Required
 1. Use the existing KK/L Y K N-style information structure as a guide, **not a verbatim template**: brand opener `📱 KK Phone Rental | #เช่ามือถือ`, event/fandom, verified offer, verified venue/dates, relevant persuasive copy, truthful benefits, booking link, and selective hashtags.
 2. Show device model **only on the offer/price line**. Never repeat device model in the hook, body or CTA. Brand `📱 KK Phone Rental | #เช่ามือถือ` appears ONCE in the header; do not repeat `KK` / shop name in the body. Use a concise, direct, **event-specific CTA that differs between events** (not a fixed phrase), followed by the canonical `kk-phone-rental.vercel.app` on its own line. Do not repeat the artist/date claim without a verified basis.
