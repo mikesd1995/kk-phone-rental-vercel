@@ -198,21 +198,24 @@ async function main(fetchImpl=global.fetch, options={}){
     vision_reviews:Array.isArray(options.vision_reviews)?options.vision_reviews:[]
   });
   const failed=events.filter(e=>e.status==='FAIL');
+  const canonicalFailed=events.filter(e=>e.canonical_candidate_count>0&&!e.canonical_healthy);
   const recovered=events.filter(e=>e.recovered_by_fallback);
   const hostCounts={};
   for(const e of events)hostCounts[e.canonical_host]=(hostCounts[e.canonical_host]||0)+1;
   const report={
     schema:'kk-storefront-poster-health/v1',checked_at:new Date().toISOString(),
     feed:FEED,visible_events:events.length,unique_candidate_urls:unique.length,
-    pass_events:events.length-failed.length,failed_events:failed.length,recovered_by_fallback:recovered.length,
+    pass_events:events.length-failed.length,failed_events:failed.length,
+    canonical_failed_events:canonicalFailed.length,recovered_by_fallback:recovered.length,
     host_counts:hostCounts,
     failed:failed.map(e=>({event_id:e.event_id,event_name:e.event_name,event_date:e.event_date,canonical:e.canonical,emergency_fallback:e.emergency_fallback,candidates:e.candidates})),
+    canonical_failed:canonicalFailed.map(e=>({event_id:e.event_id,event_name:e.event_name,event_date:e.event_date,canonical:e.canonical,recovered_by_fallback:e.recovered_by_fallback})),
     recovered:recovered.map(e=>({event_id:e.event_id,event_name:e.event_name,event_date:e.event_date,canonical:e.canonical,first_healthy_url:e.first_healthy_url})),
     events,poster_integrity:integrity,production_writes:0,business_data_mutations:0
   };
   if(options.silent!==true){
     process.stdout.write(JSON.stringify(report,null,2)+'\n');
-    if(failed.length||integrity.blocked)process.exitCode=2;
+    if(failed.length||canonicalFailed.length||integrity.blocked)process.exitCode=2;
   }
   return report;
 }
