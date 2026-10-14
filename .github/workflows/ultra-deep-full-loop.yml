@@ -1,8 +1,7 @@
 name: Ultra Deep Full Loop Direct
 
 on:
-  issue_comment:
-    types: [created]
+  workflow_call:
   issues:
     types: [labeled]
   workflow_dispatch:
