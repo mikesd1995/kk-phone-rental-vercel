@@ -14,7 +14,7 @@ var KK_APP_VERSION = APP.appVersion || "v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STO
 var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
 var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือสำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ เลือกงาน เช็กคิวว่าง และจองผ่าน LINE OA";
 var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
-var SHEET_ID  = APP.sheetId      || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
+var SHEET_ID  = "api-only"; // A customer browser must never contain the private Core workbook ID.
 var WEB_SHEET = APP.webSheetName || "08_Web_Ready";
 var WEB_RANGE = APP.webRange     || "A4:K";
 var PKG_SHEET = APP.pkgSheetName || "09_Web_Packages";
@@ -873,7 +873,7 @@ async function withRetry(fn,tries,delay){
   for(var i=0;i<tries;i++){ try{return await fn();}catch(e){err=e;if(i<tries-1)await new Promise(function(r){setTimeout(r,delay);});} }
   throw err;
 }
-function directSheetUrl(name,range){ if(!SHEET_ID) throw new Error("Direct Google Sheet fallback is not configured. Please check config.js sheetId or /api/kk-data."); return "https://docs.google.com/spreadsheets/d/"+encodeURIComponent(SHEET_ID)+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now(); }
+function directSheetUrl(){ throw new Error("Direct Google Sheets browser access is disabled; use /api/kk-data"); }
 function apiSheetUrl(name,range){
   var url=API_ENDPOINT+"?sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now();
   if(SHOW_PAST) url+="&showPast=1";
