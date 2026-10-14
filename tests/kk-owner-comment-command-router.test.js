@@ -91,3 +91,10 @@ test('called workflows keep command authorization, manual/labeled entry points a
     if (route.labeled) assert.match(source, /^  issues:\s*$/m, route.workflow + ' labeled retained');
   }
 });
+
+test('one owner command router serializes by issue without cancelling active jobs',()=>{
+  const source=read(ROUTER_NAME);
+  assert.match(source,/^concurrency:\n  group: owner-command-router-\$\{\{ github\.event\.issue\.number \}\}\n  cancel-in-progress: false$/m);
+  assert.doesNotMatch(source,/secrets: inherit/);
+  assert.equal(fs.existsSync(path.join(WORKFLOWS,'owner-command-router.yml')),false,'do not create duplicate router');
+});

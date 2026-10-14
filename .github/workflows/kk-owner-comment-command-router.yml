@@ -11,6 +11,12 @@ on:
 permissions:
   contents: read
 
+# Serialize owner issue commands by issue without cancelling an executing workflow.
+# Do not add a second router or broaden token/secret permissions.
+concurrency:
+  group: owner-command-router-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
 jobs:
   bounded_oidc:
     if: >-
