@@ -11,8 +11,7 @@ on:
         description: 'Exact current main SHA approved for Production'
         required: true
         type: string
-  issue_comment:
-    types: [created]
+  workflow_call:
 
 permissions:
   contents: read
