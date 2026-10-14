@@ -456,6 +456,7 @@ test('alternate Google Drive host image candidate is canonical, not unrelated em
  assert.equal(out.events[0].canonical_healthy,true);
  assert.equal(out.events[0].recovered_by_fallback,false);
  assert.equal(out.recovered_by_fallback,0);
+ assert.equal(out.canonical_failed_events,0);
  assert.equal(out.poster_integrity.blocked,0);
  assert.equal(out.poster_integrity.findings[0].canonical_status,'HEALTHY');
 });
@@ -474,6 +475,8 @@ test('network health cannot conceal broken canonical source, even when valid eme
  assert.equal(out.events[0].status,'PASS','fallback keeps card visual continuity');
  assert.equal(out.events[0].canonical_healthy,false);
  assert.equal(out.events[0].recovered_by_fallback,true);
+ assert.equal(out.canonical_failed_events,1,'canonical source failure must appear in top-level metrics');
+ assert.equal(out.canonical_failed[0].event_id,'EVT-20261108-MAXKYBAS-ARCADE');
  assert.equal(out.poster_integrity.blocked,1,'broken canonical cannot be silently treated as correct');
  assert.ok(out.poster_integrity.findings[0].reasons.includes('CANONICAL_POSTER_DELIVERY_FAILED'));
  assert.equal(out.production_writes,0);
