@@ -61,6 +61,7 @@ test('fail closed on missing, duplicate, nonpositive, malformed and package/stat
   master(),
   master(row('BK-1','EV-1','confirmed','phone_only',0)),
   master(row('BK-1','EV-1','confirmed','phone_only','1,000oops')),
+  master(row('BK-1','EV-1','confirmed','phone_only','1,2')),
   master(row('BK-1','EV-1','confirmed','phone_only',790),row('BK-1','EV-1','confirmed','phone_only',790)),
   master(row('BK-1','EV-1','cancelled','phone_only',790)),
   master(row('BK-1','EV-1','confirmed','phone_lens_bundle',790)),
