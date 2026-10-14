@@ -20,9 +20,7 @@ for(const [name,code] of [['Core',core],['CRM',crm]]){
   test(name+' reads private canonical Master quotes with explicit opt-in and no GViz fallback',()=>{
     assert.match(code,/if\(!CorePrivacy\.enabled\(\) \|\| !CorePrivacy\.state\(\)\.configured\)/);
     assert.match(code,/RENTAL_MASTER_PRIVATE_SOURCE_REQUIRED/);
-    assert.match(code,/CorePrivacy\.readCsv\(\{sheetId(?::coreSheetId)?,sheet:'00_Master_Booking',range:'A4:X'\}\)/.test(code)
-      ? /CorePrivacy\.readCsv/
-      : /CorePrivacy\.readCsv\(\{sheetId,sheet:"00_Master_Booking",range:"A4:X"\}\)/);
+    assert.match(code,/CorePrivacy\.readCsv\(\{sheetId(?::coreSheetId)?,sheet:['\"]00_Master_Booking['\"],range:['\"]A4:X['\"]\}\)/);
     assert.doesNotMatch(code,/fetchCsv\([^\n]*['"]00_Master_Booking['"]/);
     assert.match(code,/RENTAL_/);
   });
