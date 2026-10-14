@@ -204,6 +204,11 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_CUSTOMER_CONTACT_READBACK_REQUIRED';
     throw err;
   }
+  // An idempotent owner postback is already decided. Do not send a second
+  // customer confirmation/rejection on webhook retries or repeated taps.
+  if(data.idempotent_replay===true){
+    return {handled:true,status:expected.toUpperCase(),booking_id:parsed.booking_id,idempotent_replay:true};
+  }
   const sends=[];
   if(event.replyToken) sends.push(replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl));
   sends.push(pushMessage(customerUserId,customerDecisionMessage(decision,parsed.booking_id),env,fetchImpl));
