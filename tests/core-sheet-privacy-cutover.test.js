@@ -113,6 +113,9 @@ test('Admin snapshot fallback inherits Core private requirement, including cache
 test('browser API-only path blocks direct fallback for packages as well as events',()=>{
   const script=fs.readFileSync(path.join(__dirname,'../script.js'),'utf8');
   const config=fs.readFileSync(path.join(__dirname,'../config.js'),'utf8');
+  assert.doesNotMatch(script,/12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU/);
+  assert.doesNotMatch(script,/https:\/\/docs\\.google\\.com\/spreadsheets\/d\//);
+  assert.match(script,/function directSheetUrl\(\)\{ throw new Error\("Direct Google Sheets browser access is disabled/);
   assert.match(config,/disableDirectFallback:\s*true/);
   assert.match(config,/publicDataMode:\s*"api-only"/);
   assert.doesNotMatch(script,/disableDirectFallback\s*&&\s*name\s*!==\s*PKG_SHEET/);
