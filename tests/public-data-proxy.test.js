@@ -319,3 +319,96 @@ test('public event CSV removes short operational tokens without changing visibil
  assert.equal(rows[3][2],'');assert.equal(rows[3][4],'USB-C พร้อมใช้งาน');
  assert.doesNotMatch(out.text,/OWNER_HIDDEN|owner instruction|PRICE_LOCKED/);
 });
+
+
+test('strict private mode rejects an empty authorized feed without trying public GViz', async () => {
+  const sheets = require('../api/lib/private-google-sheets');
+  const savedRead = sheets.readValuesCsv;
+  const savedFetch = global.fetch;
+  let publicCalls = 0;
+  sheets.readValuesCsv = async () => '';
+  global.fetch = async () => { publicCalls++; throw new Error('public GViz must not run'); };
+  try {
+    await withEnv(withoutPrivateCredentials({
+      GOOGLE_SHEET_ID: 'sheet-test-123',
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: 'audit@example.test',
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: 'test-dummy-not-an-actual-key',
+      KK_PUBLIC_SHEET_REQUIRE_PRIVATE: '1',
+      KK_CRM_SHEET_ID: undefined,
+    }), async () => {
+      const res = fakeRes({rejectNonAsciiHeaders: true});
+      await handler({method: 'GET', query: {sheet:'08_Web_Ready', range:'A4:K'}}, res);
+      assert.equal(res.statusCode, 503);
+      assert.equal(res.headers['x-kk-sheet-source'], 'private-empty');
+      assert.equal(res.headers['x-kk-private-reader-strict'], '1');
+      assert.equal(publicCalls, 0);
+      assert.doesNotMatch(JSON.stringify(res.headers)+res.body, /test-dummy-not-an-actual-key|audit@example\.test/);
+    });
+  } finally {
+    sheets.readValuesCsv = savedRead;
+    global.fetch = savedFetch;
+  }
+});
+
+test('strict private mode accepts an authorized feed and never calls public GViz', async () => {
+  const sheets = require('../api/lib/private-google-sheets');
+  const savedRead = sheets.readValuesCsv;
+  const savedFetch = global.fetch;
+  let privateCalls = 0;
+  let publicCalls = 0;
+  sheets.readValuesCsv = async () => {
+    privateCalls++;
+    return [
+      'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template',
+      'EVT-TEST,Private event,15/10/2026,Venue,https://example.test/a.png,,2,2,open,show,Customer-facing',
+    ].join('\n');
+  };
+  global.fetch = async () => { publicCalls++; throw new Error('public GViz must not run'); };
+  try {
+    await withEnv(withoutPrivateCredentials({
+      GOOGLE_SHEET_ID: 'sheet-test-123',
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: 'audit@example.test',
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: 'test-dummy-not-an-actual-key',
+      KK_PUBLIC_SHEET_REQUIRE_PRIVATE: '1',
+      KK_CRM_SHEET_ID: undefined,
+    }), async () => {
+      const res = fakeRes({rejectNonAsciiHeaders: true});
+      await handler({method:'GET',query:{sheet:'08_Web_Ready',range:'A4:K'}},res);
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.headers['x-kk-sheet-source'], 'private-service-account');
+      assert.equal(privateCalls, 1);
+      assert.equal(publicCalls, 0);
+      assert.match(res.body, /EVT-TEST,Private event/);
+    });
+  } finally {
+    sheets.readValuesCsv = savedRead;
+    global.fetch = savedFetch;
+  }
+});
+
+test('strict private mode still blocks GViz after a private-reader exception', async () => {
+  const sheets = require('../api/lib/private-google-sheets');
+  const savedRead = sheets.readValuesCsv;
+  const savedFetch = global.fetch;
+  let publicCalls = 0;
+  sheets.readValuesCsv = async () => { throw new Error('simulated read failure'); };
+  global.fetch = async () => { publicCalls++; throw new Error('public GViz must not run'); };
+  try {
+    await withEnv(withoutPrivateCredentials({
+      GOOGLE_SHEET_ID: 'sheet-test-123',
+      GOOGLE_SERVICE_ACCOUNT_EMAIL: 'audit@example.test',
+      GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: 'test-dummy-not-an-actual-key',
+      KK_PUBLIC_SHEET_REQUIRE_PRIVATE: '1',
+      KK_CRM_SHEET_ID: undefined,
+    }), async () => {
+      const res = fakeRes({rejectNonAsciiHeaders: true});
+      await handler({method:'GET',query:{sheet:'08_Web_Ready',range:'A4:K'}},res);
+      assert.equal(res.statusCode, 503);
+      assert.equal(res.headers['x-kk-sheet-source'], 'private-read-failed');
+      assert.equal(publicCalls, 0);
+    });
+  } finally {
+    sheets.readValuesCsv = savedRead;
+    global.fetch = savedFetch;
+  }
+});
