@@ -65,7 +65,7 @@ function fixture(opts = {}) {
   if (opts.missingActive) legacy.files.shift();
   if (opts.unexpectedRole) roles[expected[0]] = 'COMMENT';
 
-  const refs = [...expected, ...expected.slice(0, 8)];
+  const refs = [...expected, ...expected.slice(0, 9)];
   const core = refs.map((id, i) => [
     'EVT-' + i, 'Example event', '21/10/2026', '',
     'https://drive.google.com/thumbnail?id=' + id
@@ -139,7 +139,7 @@ test('standalone owner-only Apps Script uses openById; no bound spreadsheet or t
   assert.ok(!source.includes('function doPost('));
 });
 
-test('dry run discovers 76 Oct-Dec visible / 41 references / 33 unique without writing', () => {
+test('dry run discovers 76 Oct-Dec visible / 42 references / 33 unique without writing', () => {
   const f = fixture();
   const r = f.api.dry();
   assert.equal(r.active_files, 33);
