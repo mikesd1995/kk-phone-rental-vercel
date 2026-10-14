@@ -43,3 +43,11 @@ NOT PASSED. Require exact-head green CI, signed LINE webhook tests, canonical bo
 - Test commit `2700dc550b61af165b09db076cd9b69248ade20b` adds a negative-path regression asserting mismatched canonical booking ID produces zero LINE sends.
 - GitHub Actions lookup for exact head `2700dc550b61af165b09db076cd9b69248ade20b` returned zero workflow runs at time of check. **No claim that tests passed.** Earlier run `38557774876` for previous head failed.
 - Remaining P0: durable LINE decision delivery outbox and receipt to avoid lost notifications; signed Telegram TTL/ACK; queue state/retries; owner identity and UAT; CI/E2E evidence. No merge/deploy/live sends/Make activation.
+
+## 2026-10-14 additional attempted recovery and real code changes
+- Tested direct local GitHub access using `git ls-remote https://github.com/mikesd1995/kk-phone-rental-vercel.git HEAD`; container DNS failed: `Could not resolve host: github.com`. Node 22.16.0 is installed locally, but without an exact-head repository checkout and dependency tree no full Node test result can be claimed.
+- PR #742 code commit `cc57c67748b5b0da3b3312bd3047516e71cdf86b`: replaces parallel owner reply/customer push with sequential customer push first, owner reply only after successful LINE provider response. Prevents misleading owner acknowledgement on a known customer push failure.
+- PR #742 test commit `c31da558914af401574f3f5907e342bf8f803239`: negative test for LINE push HTTP 503, asserts no owner reply and error propagated.
+- Exact-head GitHub Actions lookup for `c31da558914af401574f3f5907e342bf8f803239` returned no runs at check time. Tests are **added but not verified passing**.
+- **Unresolved:** canonical decision is committed before customer push; on push failure a replay may return `idempotent_replay:true` and suppress further delivery. Durable outbox + delivery receipt/reconciliation is required. This branch is not safe to merge or deploy until this is fixed and exact-head CI is green.
+- Telegram gateway, Make activation, live LINE owner ID, and end-to-end UAT remain gated and unchanged. No production writes or customer sends.
