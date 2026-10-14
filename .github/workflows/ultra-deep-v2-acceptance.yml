@@ -6,17 +6,41 @@ on:
       - 'server/kk-ultra-deep-*.js'
       - 'tests/kk-ultra-deep-full-loop-v2.test.js'
       - 'package.json'
+      - '.github/workflows/ultra-deep-v2-acceptance.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-ultra-deep-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   v2-acceptance:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      APPROVED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout exact reviewed source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.APPROVED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Require exact SHA and zero-install source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+          test ! -f package-lock.json
+          test ! -f npm-shrinkwrap.json
+          echo "No lockfile; intentionally skip npm ci / npm install and paid network services."
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci
-      - name: Syntax gate
+      - name: Syntax gate (source-only)
         run: npm run check
-      - name: Focused V2 regression
+      - name: Focused V2 regression (source-only)
         run: node --test tests/kk-ultra-deep-full-loop-v2.test.js
