@@ -382,3 +382,62 @@ test('AI proof links must be publicly safe HTTPS sources',()=>{
  assert.equal(result.findings[0].vision_status,'INCOMPLETE');
  assert.equal(result.findings[0].owner_approved,false);
 });
+
+
+test('canonical image failure remains P0 when alternate artwork successfully serves the card',()=>{
+ const poster='https://organizer.example.com/canonical-poster.jpg';
+ const r=row('EVT-20261108-MAXKYBAS-ARCADE','MaxkyBas Arcade',poster,'08/11/2026');
+ const x=P.triage({rows:[r],delivery_by_event:{
+  [r.event_id]:{canonical_url:poster,canonical_candidate_count:1,canonical_healthy:false,
+   recovered_by_fallback:true,candidates:[{url:poster,ok:false},{url:'https://kk-phone-rental.vercel.app/assets/event-posters/maxkybas-arcade-2026-11-08.jpg',ok:true}]}
+ }});
+ assert.equal(x.visible_events,1);
+ assert.equal(x.blocked,1);
+ assert.ok(x.findings[0].reasons.includes('CANONICAL_POSTER_DELIVERY_FAILED'));
+ assert.equal(x.findings[0].delivery_status,'IMAGE_DELIVERED');
+ assert.equal(x.findings[0].canonical_status,'FAILED');
+ assert.equal(x.findings[0].emergency_recovery,true);
+ assert.equal(x.production_writes,0);
+});
+test('alternate Google Drive host image candidate is canonical, not unrelated emergency art',async()=>{
+ const id='1AbcDeFGhIJKLMNopQRS_12345678';
+ const url='https://drive.google.com/thumbnail?id='+id+'&sz=w1200';
+ const target='https://lh3.googleusercontent.com/d/'+id+'=w600';
+ const csv=[
+ 'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web',
+ ['EVT-20261014-DRIVE','Drive Exact Event','14/10/2026','Bangkok',url,'','2','2','','show'].join(',')
+ ].join('\n')+'\n';
+ const fetch=async requested=>{
+  if(requested.includes('/api/kk-data?'))return new Response(csv,{status:200,headers:{'content-type':'text/csv'}});
+  if(requested===target)return new Response(new Uint8Array([255,216,255,217]),{status:200,headers:{'content-type':'image/jpeg'}});
+  return new Response('not found',{status:404,headers:{'content-type':'text/plain'}});
+ };
+ const out=await Audit.main(fetch,{silent:true,as_of:'2026-10-14'});
+ assert.equal(out.visible_events,1);
+ assert.equal(out.events[0].status,'PASS');
+ assert.equal(out.events[0].canonical_candidate_count,3);
+ assert.equal(out.events[0].canonical_healthy,true);
+ assert.equal(out.events[0].recovered_by_fallback,false);
+ assert.equal(out.recovered_by_fallback,0);
+ assert.equal(out.poster_integrity.blocked,0);
+ assert.equal(out.poster_integrity.findings[0].canonical_status,'HEALTHY');
+});
+test('network health cannot conceal broken canonical source, even when valid emergency poster loads',async()=>{
+ const bad='https://organizer.example.com/broken.jpg';
+ const emergency='https://kk-phone-rental.vercel.app/assets/event-posters/maxkybas-arcade-2026-11-08.jpg';
+ const csv=[
+ 'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web',
+ ['EVT-20261108-MAXKYBAS-ARCADE','MaxkyBas Arcade','08/11/2026','Bangkok',bad,'','2','2','','show'].join(',')
+ ].join('\n')+'\n';
+ const out=await Audit.main(async requested=>{
+  if(requested.includes('/api/kk-data?'))return new Response(csv,{status:200,headers:{'content-type':'text/csv'}});
+  if(requested===emergency)return new Response(new Uint8Array([255,216,255,217]),{status:200,headers:{'content-type':'image/jpeg'}});
+  return new Response('poster not found',{status:404,headers:{'content-type':'text/plain'}});
+ },{silent:true,as_of:'2026-10-14'});
+ assert.equal(out.events[0].status,'PASS','fallback keeps card visual continuity');
+ assert.equal(out.events[0].canonical_healthy,false);
+ assert.equal(out.events[0].recovered_by_fallback,true);
+ assert.equal(out.poster_integrity.blocked,1,'broken canonical cannot be silently treated as correct');
+ assert.ok(out.poster_integrity.findings[0].reasons.includes('CANONICAL_POSTER_DELIVERY_FAILED'));
+ assert.equal(out.production_writes,0);
+});
