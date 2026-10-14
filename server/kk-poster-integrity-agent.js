@@ -63,7 +63,15 @@ function safePosterUrl(value){
   }catch{return false;}
 }
 function visible(row){return ['show','show_full'].includes(str(row.action_for_web||row.action));}
-function source(row){return str(row.poster_image_url||row.canonical||row.poster_url);}
+function source(row){
+  // An explicitly empty canonical poster must stay empty: never resurrect an
+  // old alias, emergency preview or stale feed field from a merged event record.
+  if(Object.prototype.hasOwnProperty.call(row,'poster_image_url'))
+    return str(row.poster_image_url);
+  if(Object.prototype.hasOwnProperty.call(row,'canonical'))
+    return str(row.canonical);
+  return str(row.poster_url);
+}
 function triage(input={}){
   const rows=Array.isArray(input.rows)?input.rows:[];
   const delivery=input.delivery_by_event&&typeof input.delivery_by_event==='object'?input.delivery_by_event:{};
@@ -83,7 +91,11 @@ function triage(input={}){
   const reviewQueue=[];
   const findings=chosen.map(row=>{
     const id=str(row.event_id),name=str(row.event_name),day=dateKey(row.event_date_text||row.event_date||row.date);
-    const url=source(row),key=urlKey(url),d=delivery[id]||{};
+    const url=source(row),key=urlKey(url),rawEvidence=delivery[id]||{};
+    // Reject stale delivery evidence tied to a different canonical URL, even
+    // if it claims a healthy fallback or includes another event's valid image.
+    const d=Object.prototype.hasOwnProperty.call(rawEvidence,'canonical_url')&&
+      str(rawEvidence.canonical_url)!==url ? {} : rawEvidence;
     const checks=Array.isArray(d.candidates)?d.candidates:[];
     const tested=checks.length>0,healthy=checks.some(x=>x&&x.ok===true);
     const reasons=[];
