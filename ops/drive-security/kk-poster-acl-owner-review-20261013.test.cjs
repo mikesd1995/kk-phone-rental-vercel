@@ -228,7 +228,7 @@ test('active file missing from scanned tree aborts before writing', () => {
   assert.equal(f.getWrites(), 0);
 });
 
-test('owner-approved 25-item ACL batch is partial until NEW fingerprint authorizes remainder', () => {
+test('active-only owner batches 25+12; historical writers remain unresolved and untouched', () => {
   const f = fixture();
   const dry = f.api.dry();
   const first = f.api.apply(dry.fingerprint);
@@ -250,13 +250,32 @@ test('owner-approved 25-item ACL batch is partial until NEW fingerprint authoriz
   assert.equal(secondDry.public_writer, 15);
   assert.ok(secondDry.fingerprint !== dry.fingerprint);
   const second = f.api.apply(secondDry.fingerprint);
-  assert.equal(second.ok, true);
-  assert.equal(second.partial, false);
-  assert.equal(second.updated, 15);
-  assert.equal(second.remaining_writers, 0);
-  assert.equal(second.reader_verified, 40);
-  assert.equal(f.getWrites(), 40);
-  assert.ok(Object.values(f.roles).every(role => role === 'VIEW'));
+  assert.equal(second.ok, false, 'historic writers must keep complete remediation open');
+  assert.equal(second.active_scope_completed, true);
+  assert.equal(second.partial, true);
+  assert.equal(second.updated, 12);
+  assert.equal(second.remaining_writers, 3);
+  assert.equal(second.remaining_active_writers, 0);
+  assert.equal(second.historical_public_writers, 3);
+  assert.equal(second.reader_verified, 37);
+  assert.equal(second.need_new_owner_dry_run, false);
+  assert.equal(f.getWrites(), 37);
+  assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
+  assert.ok(expected.every(id => f.roles[id] === 'VIEW'));
+  for (const id of ['brand-logo','kit-photo-a','kit-photo-b']) {
+    assert.equal(f.roles[id], undefined, 'NO historic Drive write allowed');
+  }
+});
+
+test('owner can never publish private historical assets even after active scope completes', () => {
+  const f = fixture({privateID: 'brand-logo'});
+  const a = f.api.dry();
+  f.api.apply(a.fingerprint);
+  const b = f.api.dry();
+  const report = f.api.apply(b.fingerprint);
+  assert.equal(report.active_scope_completed, true);
+  assert.equal(f.roles['brand-logo'], undefined);
+  assert.equal(report.ok, false);
 });
 
 test('provider write failure is partial and never reported as success', () => {
@@ -299,8 +318,12 @@ test('restricted historical asset is fingerprinted but never made public', () =>
   const secondDry = f.api.dry();
   assert.equal(secondDry.public_writer, 14);
   const last = f.api.apply(secondDry.fingerprint);
-  assert.equal(last.ok, true);
-  assert.equal(last.remaining_writers, 0);
+  assert.equal(last.ok, false, 'other two historic public Writers remain');
+  assert.equal(last.active_scope_completed, true);
+  assert.equal(last.remaining_writers, 2);
+  assert.equal(last.remaining_active_writers, 0);
+  assert.equal(last.historical_public_writers, 2);
+  assert.equal(f.getWrites(), 37);
   assert.equal(f.roles['brand-logo'], undefined);
 });
 
