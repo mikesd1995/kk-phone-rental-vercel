@@ -37,3 +37,9 @@ NOT PASSED. Require exact-head green CI, signed LINE webhook tests, canonical bo
 - **Critical acceptance caveat:** PR #742 suppresses sends on `idempotent_replay:true`, but an earlier Apps Script decision may have committed successfully while the first LINE customer push failed. A later webhook retry would be suppressed, causing a **lost notification**. Before merging, design durable delivery outbox/receipt (separate decision idempotency from notification-delivery idempotency), plus a deterministic regression test for commit-success/push-failure/retry. This is a known gap, not an accepted fix.
 - Local exact-head checkout unavailable in this execution environment (GitHub host DNS inaccessible); do not represent source review or mocks as executed Node test results.
 - Zero production env changes, zero live sends, zero Make scenario activations, zero merges/deployments.
+
+## Additional code hardening — 2026-10-14
+- Draft PR #742 branch `fix/line-owner-decision-replay-20261014`: code commit `04dd75a877347a0aafa49f70d690b93f327ade22` adds canonical booking ID equality check in `processOwnerPostback` before LINE sends; error `LINE_OWNER_DECISION_BOOKING_ID_MISMATCH` on mismatch.
+- Test commit `2700dc550b61af165b09db076cd9b69248ade20b` adds a negative-path regression asserting mismatched canonical booking ID produces zero LINE sends.
+- GitHub Actions lookup for exact head `2700dc550b61af165b09db076cd9b69248ade20b` returned zero workflow runs at time of check. **No claim that tests passed.** Earlier run `38557774876` for previous head failed.
+- Remaining P0: durable LINE decision delivery outbox and receipt to avoid lost notifications; signed Telegram TTL/ACK; queue state/retries; owner identity and UAT; CI/E2E evidence. No merge/deploy/live sends/Make activation.
