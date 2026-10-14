@@ -1391,10 +1391,11 @@ function doPost(e) {
 }
 
 function doGet() {
+  // Public unauthenticated liveness only; NEVER disclose canonical Sheet ID or
+  // internal workbook metadata. Authenticated phase1Health supplies admin checks.
   return kkApiJson_({
     ok: true,
     version: KK_ADMIN_VERSION,
-    spreadsheet_id: SpreadsheetApp.getActive().getId(),
     message: 'KK Phone Rental Admin CRM API is running. Use POST through the Vercel proxy.'
   });
 }
