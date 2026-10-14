@@ -87,8 +87,8 @@ function sanitizePublicTextValue(value) {
 }
 
 function sanitizePublicCsv(sheet, text) {
-  const rows = parseCsvRows(text);
-  if (!rows.length) return {text: String(text || ''), dropped: 0, redacted: 0};
+  const rows = validatedPublicFeedRows(sheet,text);
+  if(!rows)return {text:'',dropped:0,redacted:0,invalid:true};
   const header = rows[0].map(v => String(v || '').trim().toLowerCase());
   const idx = name => header.indexOf(name);
   let required = [];
@@ -97,7 +97,7 @@ function sanitizePublicCsv(sheet, text) {
   if (!required.length) return {text: String(text || ''), dropped: 0, redacted: 0};
 
   const requiredIndexes = required.map(idx);
-  if (requiredIndexes.some(i => i < 0)) return {text: String(text || ''), dropped: 0, redacted: 0};
+  if (requiredIndexes.some(i => i < 0)) return {text:'',dropped:0,redacted:0,invalid:true};
 
   const publicTextFields = sheet === '08_Web_Ready'
     ? ['event_note', 'line_message_template']
@@ -275,6 +275,20 @@ function renderEventSharePage(eventId, text) {
     '</head><body><p>กำลังเปิดรายละเอียดงาน… <a href="' + escapeHtml(target) + '">เปิด KK Phone Rental</a></p></body></html>';
 }
 
+const PUBLIC_FEED_HEADERS=Object.freeze({
+  '08_Web_Ready':Object.freeze(['event_id','event_name','event_date_text','venue','poster_image_url','event_note','available_phone_count','available_lens_count','booking_status_for_web','action_for_web','line_message_template']),
+  '09_Web_Packages':Object.freeze(['package_id','event_id','package_type','model_group','model_display','lens_group','lens_display','price','available_count','package_status','sort_order','web_note','raw_available_count','use_case'])
+});
+function validatedPublicFeedRows(sheet,text){
+  const expected=PUBLIC_FEED_HEADERS[sheet];
+  const rows=parseCsvRows(text);
+  if(!expected||rows.length===0)return null;
+  const header=rows[0].map(x=>String(x||'').trim().toLowerCase());
+  if(header.length<=(sheet==='08_Web_Ready'?10:11)||header.length>expected.length
+    ||header.some((name,i)=>name!==expected[i])
+    ||rows.slice(1).some(row=>row.length>header.length))return null;
+  return rows;
+}
 function csvHeaderLooksValid(sheet, text) {
   const firstLine = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/)[0] || '';
   const normalized = firstLine.toLowerCase();
@@ -429,6 +443,10 @@ module.exports = async function handler(req, res) {
   }
 
   const sanitized = sanitizePublicCsv(sheet, text);
+  if(sanitized.invalid){
+    res.setHeader('X-KK-Sheet-Source','invalid-public-projection');
+    return send(res,502,'Public-data projection schema rejected.');
+  }
   text = sanitized.text;
   if (sanitized.dropped > 0) {
     res.setHeader('X-KK-Public-Rows-Dropped', String(sanitized.dropped));
