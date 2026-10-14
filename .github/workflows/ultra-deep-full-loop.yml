@@ -2,6 +2,9 @@ name: Ultra Deep Full Loop Direct
 
 on:
   workflow_call:
+    secrets:
+      VERCEL_TOKEN:
+        required: false
   issues:
     types: [labeled]
   workflow_dispatch:
