@@ -229,6 +229,13 @@ test('owner-approved 25-item ACL batch is partial until NEW fingerprint authoriz
   assert.equal(first.remaining_writers, 15);
   assert.equal(first.need_new_owner_dry_run, true);
   assert.equal(f.getWrites(), 25);
+  // Stage 1 must harden all 4 risky folders and 21 of 33 active storefront
+  // images BEFORE touching any previously hidden or archival image.
+  assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
+  assert.equal(expected.filter(id => f.roles[id] === 'VIEW').length, 21);
+  assert.equal(f.roles['brand-logo'], undefined);
+  assert.equal(f.roles['kit-photo-a'], undefined);
+  assert.equal(f.roles['kit-photo-b'], undefined);
   assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
   const secondDry = f.api.dry();
   assert.equal(secondDry.public_writer, 15);
