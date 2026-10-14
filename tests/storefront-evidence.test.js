@@ -73,8 +73,10 @@ test('modal clipping, horizontal overflow and focus escape are release blocking'
 });
 test('owner direction approval cannot accept a rendered candidate or changed dependency digest',()=>{
   const widths=[320,375,390,430,480,768,1024,1440];
-  const record={status:'PASS',owner_decision:'ACCEPTED',acceptance_scope:'rendered_candidate',frontend_digest:'a',artifacts:widths.flatMap(width=>['top','catalogue','modal','footer','dark','english','english-modal','dark-modal'].map(state=>({width,state,sha256:'f'.repeat(64)})))};
+  const record={status:'PASS',owner_decision:'ACCEPTED',acceptance_scope:'rendered_candidate',frontend_digest:'a',artifacts:widths.flatMap(width=>['top','catalogue','modal','footer','dark','english','english-modal','dark-modal','english-dark','english-dark-modal'].map(state=>({width,state,sha256:'f'.repeat(64)})))};
   assert.equal(E.ownerApprovalValid(record,{digest:'a'},widths,record.artifacts),true);
+  assert.equal(E.ownerApprovalValid({...record,artifacts:record.artifacts.filter(x=>x.state!=='english-dark')},{digest:'a'},widths,record.artifacts),false,'English Dark screenshots are mandatory');
+  assert.equal(E.ownerApprovalValid({...record,artifacts:record.artifacts.filter(x=>x.state!=='english-dark-modal')},{digest:'a'},widths,record.artifacts),false,'English Dark modal screenshots are mandatory');
   assert.equal(E.ownerApprovalValid(record,{digest:'changed'},widths,record.artifacts),false);
   assert.equal(E.ownerApprovalValid({...record,acceptance_scope:'mock_direction'},{digest:'a'},widths,record.artifacts),false);
   assert.equal(E.ownerApprovalValid({...record,artifacts:record.artifacts.filter(x=>x.width!==1440)},{digest:'a'},widths,record.artifacts),false);
