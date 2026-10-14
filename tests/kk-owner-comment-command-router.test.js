@@ -35,7 +35,7 @@ function jobBlock(source, id) {
 
 test('issue comments have exactly one repository-level workflow listener', () => {
   const matched = fs.readdirSync(WORKFLOWS).filter((file) => /\.ya?ml$/.test(file))
-    .filter((name) => /^  issue_comment:\s*\r?\n\s+types:\s*\[created\]/m.test(read(name)));
+    .filter((name) => /^  issue_comment:\s*$/m.test(read(name)));
   assert.deepEqual(matched, [ROUTER_NAME]);
   assert.match(read(ROUTER_NAME), /on:\s*\n  issue_comment:\s*\n    types: \[created\]/);
 });
