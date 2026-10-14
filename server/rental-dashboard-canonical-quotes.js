@@ -58,7 +58,7 @@ function attachQuotes(rows,quotes){
   return (rows||[]).map(r=>{
     const id=String(r.booking_id||'').trim(),event=String(r.event_id||'').trim();
     const exact=composite[id+'\u001f'+event];
-    const quote=positiveAmount(exact)||positiveAmount(byId[id]);
+    const quote=event?positiveAmount(exact):positiveAmount(byId[id]);
     // In strictly reconciled private-read mode, Master column X wins over any
     // receipt/deposit amount; do not mutate source rows or the Sheet.
     return {...r,package_price:quote};
