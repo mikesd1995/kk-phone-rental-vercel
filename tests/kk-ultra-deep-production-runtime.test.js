@@ -188,3 +188,20 @@ test('existing active event remains eligible for metadata reconciliation even wh
  assert.equal(out.dispositions[0].status,'SAFE_EXISTING');
  assert.equal(out.safe_candidates[0].existing_event_id,'EVT-EX');
 });
+
+
+test('full booking blocks fuzzy existing candidates but preserves canonical direct reconciliation',()=>{
+ const s=snapshot();
+ s.bookings=[
+  {booking_id:'B2',event_id:'EVT-EX',event_date:'2026-10-23',booking_status:'confirmed'},
+  {booking_id:'B3',event_id:'OTHER',event_date:'2026-10-23',booking_status:'confirmed'}
+ ];
+ const candidate={event_key:'FUZZY',title:'LYKN REFLEXION CONCERT',event_date:'2026-10-23',venue:'IMPACT Arena'};
+ const fuzzy=R.reconcileCandidates([candidate],s);
+ assert.equal(fuzzy.full_booked_dates.includes('2026-10-23'),true);
+ assert.equal(fuzzy.dispositions[0].status,'SKIPPED_FULL_BOOKING_DATE');
+ assert.equal(fuzzy.safe_candidates.length,0);
+ const direct=R.reconcileCandidates([{...candidate,canonical_event_id:'EVT-EX'}],s);
+ assert.equal(direct.dispositions[0].status,'SAFE_EXISTING');
+ assert.equal(direct.safe_candidates[0].existing_event_id,'EVT-EX');
+});

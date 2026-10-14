@@ -209,14 +209,14 @@ function reconcileCandidates(candidates=[],snapshot={}){
    dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'HOLD_AMBIGUOUS_EXISTING',matches:match.candidates.map(x=>({event_id:text(x.event.event_id),event_name:text(x.event.event_name),score:x.score,reason:x.reason}))});
    continue;
   }
+  if(!directExisting && fullBooked.has(c.event_date)){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_FULL_BOOKING_DATE'});
+   continue;
+  }
   if(match.match){
    c.existing_event_id=text(match.match.event.event_id);
    dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_EXISTING',existing_event_id:c.existing_event_id,match_reason:match.match.reason});
    safe.push(c);
-   continue;
-  }
-  if(fullBooked.has(c.event_date)){
-   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_FULL_BOOKING_DATE'});
    continue;
   }
   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_NEW'});
