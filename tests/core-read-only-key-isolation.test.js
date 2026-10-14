@@ -64,8 +64,37 @@ test('read action authenticates separately and cannot dispatch an Admin write wi
 });
 
 test('audit serializer masks protected request fields',()=>{
-  const serialize=Function(extract('kkSafeStringify_')+';return kkSafeStringify_;')();
+  const serialize=Function('kkRedactSecretText_',extract('kkSafeStringify_')+';return kkSafeStringify_;')(v=>v);
   const logged=serialize({readKey:'fixture_123',apiKey:'fixture_456',action:'snapshot'});
   assert.doesNotMatch(logged,/fixture_123|fixture_456/);
   assert.match(logged,/redacted/);
+});
+
+
+test('raw error and stack redaction masks both protected credential values',()=>{
+ const reader=READ_KEY,admin=ADMIN_KEY;
+ const getSecret=Function('PropertiesService',extract('kkRedactSecretText_')+';return kkRedactSecretText_;')({
+   getScriptProperties:()=>({getProperty:k=>k==='KK_CORE_PRIVATE_READ_KEY'?reader:k==='KK_ADMIN_API_KEY'?admin:''})
+ });
+ const unsafe='context '+reader+' private stack '+admin;
+ const safe=getSecret(unsafe);
+ assert.doesNotMatch(safe,new RegExp(reader));
+ assert.doesNotMatch(safe,new RegExp(admin));
+ assert.match(safe,/\[redacted\]/);
+ assert.match(source,/kkRedactSecretText_\(err && err.message/);
+ assert.match(source,/kkRedactSecretText_\(err && err.stack/);
+});
+test('private reader errors are generic even when upstream error contains protected data',()=>{
+ const calls=[];
+ const factory=Function('kkApiRequirePrivateReadKey_','kkApiRequireKey_','kkApiPrivateCoreRead_',
+   'kkApiJson_','kkApiOk_','kkApiFail_','kkErrorLog_','kkAuditLog_','KK_ADMIN_VERSION',
+   extract('doPost')+';return doPost;');
+ const doPost=factory(()=>{},()=>{},()=>{throw Error('sensitive upstream secret');},
+    x=>x,x=>Object.assign({ok:true},x),e=>({ok:false,error:e.message}),
+    ()=>calls.push('error mutation'),()=>calls.push('audit mutation'),'test-version');
+ const res=doPost({postData:{contents:JSON.stringify({action:'privateCoreRead',readKey:READ_KEY})}});
+ assert.equal(res.ok,false);
+ assert.equal(res.error_code,'PRIVATE_CORE_READ_UNAVAILABLE');
+ assert.doesNotMatch(JSON.stringify(res),/sensitive upstream secret/);
+ assert.deepEqual(calls,[]);
 });
