@@ -29,8 +29,8 @@ function fixture(opts = {}) {
     const out = {
       getId: () => id,
       getName: () => 'Mock asset ' + id.slice(-6),
-      getMimeType: () => 'image/jpeg',
-      getSharingAccess: () => 'ANYONE_WITH_LINK',
+      getMimeType: () => opts.nonImageID === id ? 'application/pdf' : 'image/jpeg',
+      getSharingAccess: () => opts.privateID === id ? 'PRIVATE' : 'ANYONE_WITH_LINK',
       getSharingPermission: () => roles[id] || 'EDIT',
       setSharing: (access, role) => {
         assert.equal(access, 'ANYONE_WITH_LINK');
@@ -246,5 +246,17 @@ test('moved Drive asset invalidates previously approved ACL fingerprint', () => 
   assert.ok(i >= 0, 'known poster must be in its originally approved parent folder');
   targetFolder.files.push(...sourceFolder.files.splice(i, 1));
   assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('private historical asset aborts before any ACL mutation', () => {
+  const f = fixture({privateID: 'brand-logo'});
+  assert.throws(() => f.api.dry(), /UNEXPECTED_SHARING_ACCESS/);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('non-image file mixed into historical asset tree aborts before mutation', () => {
+  const f = fixture({nonImageID: 'kit-photo-a'});
+  assert.throws(() => f.api.dry(), /NON_IMAGE_IN_KK_ASSET_TREE/);
   assert.equal(f.getWrites(), 0);
 });
