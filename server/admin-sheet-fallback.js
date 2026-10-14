@@ -296,8 +296,9 @@ async function buildSnapshotUncached(options={}){
     transportMeta.fallback_private_attempted=true;
     try{
       values=await Promise.all(keys.map(k=>readSpecPrivate(sheetId,k,env,fetchImpl)));
-      transportMeta.snapshot_source='direct-sheet-private-service-account-readonly-fallback';
-      transportMeta.fallback_reader='private-service-account';
+      const viaScript=CorePrivacy.enabled(env)&&CorePrivacy.state(env).transport==='apps-script';
+      transportMeta.snapshot_source=viaScript?'direct-sheet-private-owner-apps-script-readonly-fallback':'direct-sheet-private-service-account-readonly-fallback';
+      transportMeta.fallback_reader=viaScript?'private-owner-apps-script':'private-service-account';
     }catch(err){
       transportMeta.fallback_private_error_code=String((err&&err.code)||'PRIVATE_FALLBACK_READ_FAILED');
       if(requirePrivate) throw err;
