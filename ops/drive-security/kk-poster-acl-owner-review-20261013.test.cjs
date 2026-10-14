@@ -149,10 +149,10 @@ test('standalone read-only Apps Script matches exact owner script preflight pref
 });
 
 test('standalone read-only script has no permission change, trigger or executable apply entrypoint', () => {
-  assert.ok(!/\\.setSharing\\s*\\(/.test(readOnly));
-  assert.ok(!/\\bfunction\\s+kkAclApply_/.test(readOnly));
-  assert.ok(!/\\bfunction\\s+kkAclOwnerApprovedApply_/.test(readOnly));
-  assert.ok(!/ScriptApp\\./.test(readOnly));
+  assert.ok(!readOnly.includes('.setSharing('));
+  assert.ok(!readOnly.includes('function kkAclApply_'));
+  assert.ok(!readOnly.includes('function kkAclOwnerApprovedApply_'));
+  assert.ok(!readOnly.includes('ScriptApp.'));
   assert.ok(readOnly.includes('SpreadsheetApp.openById(KKACL_BOOK)'));
 });
 
