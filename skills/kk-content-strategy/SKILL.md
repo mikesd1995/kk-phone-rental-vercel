@@ -21,6 +21,16 @@ This skill is guidance only. It never becomes event truth, pricing truth, invent
 6. No auto-publish, auto-schedule, auto-spend, price write, inventory write, or Machine SOT write.
 7. If event/pricing/inventory is not verified, useful educational content may still be planned only when its factual claims are independently verified; direct rental copy stays blocked.
 
+## Hard owner trigger (2026-10-15): final-only X rental requests
+
+The phrases **"ขอโพสปล่อยเช่างานนี้บน X"**, **"ขอโพสงานนี้บน X"**, **"ขอโพสต์ปล่อยเช่า"**, and equivalent multi-event table requests mean **produce the final selected post**, not provide three versions, a choice menu, or ask the owner to pick a tone.
+
+For every named event: verify live booking/status including all dates, current package price, event identity/venue, owner locks, original poster, verified hashtags, and recent X posts; run the genuine five-Agent chat bridge using 3 INTERNAL candidates; require actual persistent QA/Selector PASS; one best copyable box per event; multi-event requests also require batch CTA/hook diversity. If an invocation cannot be evidenced, say **not executed** and do not label any self-drafted post as Agent-selected.
+
+**Brand once** (`📱 KK Phone Rental | #เช่ามือถือ`) and never inside body; device model only on price line; every date in customer post is verified `✅ ว่าง` or `❌ เต็ม` (source closed/hidden maps to public เต็ม only, internal truth untouched); no remaining device quantity. Minimum 5 distinct **verified** hashtags: rental header 1 + primary event 1 + closing 3. CTA must be short, specific to fandom/event/date, not repeated across batch, followed by canonical site URL. No invented urgency, metrics, model calls, pricing, artist facts, or engagement. Use real measured content outcomes for learning; claim Hugging Face only if successfully invoked with provenance, no new cost. One OWNER-REVIEW winner only; never auto-post or spend.
+
+This trigger supersedes any old fixed CTA wording or invitation to show multiple drafts. It is a **skill/policy**, not an automatically-installed ChatGPT hook; every runtime must execute its actual bridge and read back PASS.
+
 ## Mandatory routing for X content
 
 Any request equivalent to **“ขอโพสปล่อยเช่างานนี้บน X”**, **“ขอโพสต์งานนี้บน X”**, or another KK content/caption request must route through:
