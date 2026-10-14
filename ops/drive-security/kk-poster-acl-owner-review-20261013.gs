@@ -26,8 +26,12 @@ function kkAclReadActive_20261013(){
      files.some((x,i)=>x!==KKACL_EXPECTED[i]))throw Error('SCOPED_ACTIVE_POSTER_DRIFT');
   return files;
 }
-function kkAclRole_20261013(o){
+function kkAclRole_20261013(o, historical){
   const access=String(o.getSharingAccess()),role=String(o.getSharingPermission());
+  // Prior private/restricted historic images are not ours to publish or modify.
+  // Include their exact access/role in the reviewed fingerprint without writes.
+  if(historical && access!==String(DriveApp.Access.ANYONE_WITH_LINK))
+    return 'RESTRICTED_HISTORICAL:'+access+':'+role;
   if(access!==String(DriveApp.Access.ANYONE_WITH_LINK) ||
      (role!==String(DriveApp.Permission.EDIT)&&role!==String(DriveApp.Permission.VIEW)))
        throw Error('UNEXPECTED_SHARING_ACCESS:'+o.getId()+':'+access+':'+role);
@@ -48,7 +52,7 @@ function kkAclSnapshot_20261013(){
       if(visited.has(fid))continue;
       if(!String(f.getMimeType()).startsWith('image/'))throw Error('NON_IMAGE_IN_KK_ASSET_TREE:'+fid);
       visited.add(fid);found.add(fid);
-      items.push({id:fid,parent:id,depth:depth+1,kind:'image',role:kkAclRole_20261013(f),obj:f});
+      items.push({id:fid,parent:id,depth:depth+1,kind:'image',role:kkAclRole_20261013(f,!want.has(fid)),obj:f});
       if(items.length>1200)throw Error('ACL_BOUND_EXCEEDED');
     }
     const sub=folder.getFolders();
