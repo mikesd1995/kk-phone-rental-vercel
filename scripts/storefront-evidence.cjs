@@ -53,7 +53,7 @@ function frontendIdentity(root=process.cwd()){
 function ownerApprovalValid(record,identity,widths,captured=[]){
   return record?.status==='PASS' && record.owner_decision==='ACCEPTED' &&
     record.acceptance_scope==='rendered_candidate' && record.frontend_digest===identity.digest &&
-    widths.every(width=>['top','catalogue','modal','footer','dark','english','english-modal','dark-modal'].every(state=>
+    widths.every(width=>['top','catalogue','modal','footer','dark','english','english-modal','dark-modal','english-dark','english-dark-modal'].every(state=>
       record.artifacts?.some(x=>x.width===width&&x.state===state&&typeof x.sha256==='string'&&/^[a-f0-9]{64}$/.test(x.sha256)&&captured.some(y=>y.width===width&&y.state===state&&y.sha256===x.sha256))));
 }
 async function invokeWithEvidence(intent,input,{outputDir,sourceSha,identity}){
