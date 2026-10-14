@@ -2,6 +2,7 @@
 // Reads aggregate-helper/event metadata through Google Sheets gviz. Returns aggregate metrics only; no PII leaves this endpoint.
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 const AdminSecurity = require('./admin-session.js');
+const CanonicalQuote = require('./rental-dashboard-canonical-quotes.js');
 
 function json(res,status,body){
   res.statusCode=status;
@@ -168,7 +169,7 @@ function aggregate(rows){
   for(const r of non){
     const amount=r.amount_received||0;
     const actualAmount=r.status==="completed"?amount:0;
-    const futureAmount=activeSet.has(r.status)?amount:0;
+    const futureAmount=activeSet.has(r.status)?(CanonicalQuote.positiveAmount(r.package_price)||amount):0;
     const forecastAmount=actualAmount+futureAmount;
     actualRevenue+=actualAmount;
     futureRevenue+=futureAmount;
@@ -276,17 +277,22 @@ module.exports=async function handler(req,res){
   const sheetId=String(process.env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
   const trackerId=String(process.env.KK_EVENT_TRACKER_SHEET_ID||"1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo").trim();
   try{
-    const [helperCsv,currentEventsCsv,archiveEventsCsv,registryResult]=await Promise.all([
+    const [helperCsv,currentEventsCsv,archiveEventsCsv,registryResult,privateMaster]=await Promise.all([
       fetchCsv(sheetId,"_Rental_Dashboard_Data","A1:O"),
       fetchCsv(sheetId,"01_Events","A4:Z"),
       fetchCsv(sheetId,"13_Event_Archive","A1:Z"),
-      fetchCsv(trackerId,"_Artist_Registry","A1:E").then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:""}))
+      fetchCsv(trackerId,"_Artist_Registry","A1:E").then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:""})),
+      CanonicalQuote.readPrivateMaster(sheetId,process.env)
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
     const meta=eventMetadata(currentEventsCsv,archiveEventsCsv,registryRules);
-    const rows=parseHelper(helperCsv,meta,registryRules);
-    return json(res,200,{ok:true,data:aggregate(rows)});
+    const rows=CanonicalQuote.attachQuotes(parseHelper(helperCsv,meta,registryRules),CanonicalQuote.bookingQuoteMap(privateMaster.csv));
+    const data=aggregate(rows);
+    data.revenue_quote_source=privateMaster.status;
+    return json(res,200,{ok:true,data});
   }catch(err){
+    if(String(process.env[CanonicalQuote.FLAG]||'').trim()==='1'&&String(err&&err.code||'').startsWith('CORE_QUOTE_'))
+      return json(res,503,{ok:false,error:'Canonical private quote reader unavailable',error_code:'CORE_QUOTE_PRIVATE_READ_FAILED'});
     const msg=err&&err.name==="AbortError"?"Google Sheet analytics timeout":(err&&err.message?err.message:String(err));
     return json(res,500,{ok:false,error:msg});
   }

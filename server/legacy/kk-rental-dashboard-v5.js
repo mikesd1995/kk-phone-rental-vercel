@@ -6,6 +6,7 @@
 const legacyHandler = require('../rental-dashboard-core.js');
 const privateSheets = require('../../api/lib/private-google-sheets');
 const AdminSecurity = require('../admin-session.js');
+const CanonicalQuote = require('../rental-dashboard-canonical-quotes.js');
 
 const DEFAULT_CORE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const DEFAULT_CRM_SHEET_ID = '1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
@@ -133,7 +134,7 @@ function aggregate(rows){
   for(const r of non){
     const amount=r.amount_received||0;
     const actualAmount=r.status==="completed"?amount:0;
-    const futureAmount=activeSet.has(r.status)?amount:0;
+    const futureAmount=activeSet.has(r.status)?(CanonicalQuote.positiveAmount(r.package_price)||amount):0;
     const forecastAmount=actualAmount+futureAmount;
     actualRevenue+=actualAmount;
     futureRevenue+=futureAmount;
@@ -248,19 +249,23 @@ module.exports=async function handler(req,res){
 
   const started=Date.now();
   try{
-    const [helperCsv,archiveEventsCsv,currentEventsCsv,registryResult]=await Promise.all([
+    const [helperCsv,archiveEventsCsv,currentEventsCsv,registryResult,privateMaster]=await Promise.all([
       privateSheets.readValuesCsv({sheetId:crmSheetId,range:'_Rental_Dashboard_Data!A1:O',env}),
       privateSheets.readValuesCsv({sheetId:crmSheetId,range:'13_Event_Archive!A1:Z',env}),
       fetchCsv(coreSheetId,'01_Events','A4:Z'),
-      fetchCsv(trackerId,'_Artist_Registry','A1:E').then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:''}))
+      fetchCsv(trackerId,'_Artist_Registry','A1:E').then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:''})),
+      CanonicalQuote.readPrivateMaster(coreSheetId,env)
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
     const meta=eventMetadata(currentEventsCsv,archiveEventsCsv,registryRules);
-    const rows=parseHelper(helperCsv,meta,registryRules);
+    const rows=CanonicalQuote.attachQuotes(parseHelper(helperCsv,meta,registryRules),CanonicalQuote.bookingQuoteMap(privateMaster.csv));
     const data=aggregate(rows);
+    data.revenue_quote_source=privateMaster.status;
     data.data_source={mode:'crm_private',private_reader:true,auth_mode:cfg.authMode,core_sheet_id:coreSheetId,crm_sheet_id:crmSheetId,latency_ms:Date.now()-started,read_model:'VALUES_ONLY'};
     return json(res,200,{ok:true,data});
   }catch(err){
+    if(String(env[CanonicalQuote.FLAG]||'').trim()==='1'&&String(err&&err.code||'').startsWith('CORE_QUOTE_'))
+      return json(res,503,{ok:false,error:'Canonical private quote reader unavailable',error_code:'CORE_QUOTE_PRIVATE_READ_FAILED'});
     if(String(process.env.KK_CRM_REQUIRE_PRIVATE||'').trim()==='1'){
       return json(res,503,{ok:false,error:'CRM private reader unavailable',error_code:String((err&&err.code)||'CRM_PRIVATE_READ_FAILED')});
     }
