@@ -80,7 +80,7 @@ function kkSafeStringify_(value, maxLen) {
   const limit = maxLen || 1500;
   try {
     const clean = JSON.parse(JSON.stringify(value || {}, function(key, val) {
-      if (key === 'apiKey') return '[redacted]';
+      if (key === 'apiKey' || key === 'readKey' || key === 'KK_CORE_PRIVATE_READ_KEY') return '[redacted]';
       if (key === 'base64') return '[base64 omitted]';
       if (typeof val === 'string' && val.length > 300) return val.slice(0, 300) + '…';
       return val;
@@ -88,7 +88,7 @@ function kkSafeStringify_(value, maxLen) {
     const text = JSON.stringify(clean);
     return text.length > limit ? text.slice(0, limit) + '…' : text;
   } catch (err) {
-    return String(value || '').slice(0, limit);
+    return '[unserializable payload]';
   }
 }
 
