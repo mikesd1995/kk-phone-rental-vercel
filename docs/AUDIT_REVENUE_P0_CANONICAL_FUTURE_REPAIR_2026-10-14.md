@@ -31,6 +31,7 @@ Owner Google Sheets (no edits): `00_Master_Booking!A4:X170` and `_Rental_Dashboa
 
 ## Other P0 issues unaffected
 - Drive Anyone Writer 35 active files + 4 folders: #718/#721. Reader grant does NOT revoke old Writer. Owner-permission correction still pending.
+- NEW independently confirmed privacy P0 #738: owner-connected canonical Core Booking document permissions include `anyone/reader` (not discoverable). This workbook contains customer contact data. Restrict only AFTER migrating all public/Core readers to authorized private projections; no immediate ACL toggle that breaks storefront. Draft PR #737's Master read requires explicit privacy review before deployment.
 - LINE production inbox media E2E and booking binding: #715/#700.
 - Booking 17–18 Oct and price/package quote disagreements: #714. No auto-edit.
 - Storefront posters + signed-out QA: #731/#713/#727. The 27-Nov FORTREASURE canonical image cell was blank on a fresh source read, despite issue #733 saying a 3-row write was complete; do not replace a 27-Nov benefit image with 29-Nov concert artwork without verifying exact event-day appropriateness.
@@ -45,3 +46,9 @@ npm test
 ```
 
 **Release decision: DRAFT / HOLD** until all above gates pass and owner signs off.
+
+## Latest source/PR verification
+- Draft PR: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/737
+- Last verified branch source head prior to this documentation commit: `42f09426a02735111639010d61386c66b388432b`; actual PR head changes when this note is committed.
+- Money parser additionally rejects malformed comma grouping (for example `1,2`); six authored V8 exact-source regression cases re-ran **6/6**, with the stricter case added.
+- Exact-head GitHub Checks currently `[]` (no reported statuses), not a PASS. Latest Vercel production still `d6dc3bfe`, no branch preview in latest listed deployments.
