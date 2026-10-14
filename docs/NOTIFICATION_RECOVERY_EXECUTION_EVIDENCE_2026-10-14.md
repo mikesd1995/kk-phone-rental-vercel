@@ -28,3 +28,12 @@ NOT PASSED. Require exact-head green CI, signed LINE webhook tests, canonical bo
 - Runbook PR: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/741
 - Code fix PR: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/742
 - Next immediate step: diagnose run 38557774876 logs and pass exact-head CI; separately establish verified owner LINE user ID before any live owner push.
+
+## 2026-10-14 19:11+07 follow-up (new verification)
+- Rechecked PR #742 head `d9e54e12f04349bc2628126306f7cc86b5f230d6`: GitHub reports draft/open and mergeable at metadata level, but this is **not** a safety-gate pass.
+- Combined commit statuses returned zero legacy statuses; GitHub Actions workflow run `38557774876` is completed/failure. Job `115831077248` failure; connector returned no steps/logs, so root cause remains unverified. Do not assert the new test itself failed.
+- Rechecked Make A org `8618622`: Free, 1000 unused operations, zero active scenarios, no auto-purchase, next reset 2026-11-10. Make B org `8709610`: Free, 1000 unused operations, zero active scenarios, no auto-purchase, next reset 2026-10-19.
+- Rechecked scenario `6600107`: inactive, zero incomplete executions; Prepare HTTP #3, Telegram #4 and ACK #5 disabled; webhook trigger #1 and response #2 remain. Do not reactivate.
+- **Critical acceptance caveat:** PR #742 suppresses sends on `idempotent_replay:true`, but an earlier Apps Script decision may have committed successfully while the first LINE customer push failed. A later webhook retry would be suppressed, causing a **lost notification**. Before merging, design durable delivery outbox/receipt (separate decision idempotency from notification-delivery idempotency), plus a deterministic regression test for commit-success/push-failure/retry. This is a known gap, not an accepted fix.
+- Local exact-head checkout unavailable in this execution environment (GitHub host DNS inaccessible); do not represent source review or mocks as executed Node test results.
+- Zero production env changes, zero live sends, zero Make scenario activations, zero merges/deployments.
