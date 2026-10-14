@@ -278,6 +278,10 @@ async function main(){
           recordInteraction('faq_open',await page.locator('#faqOverlay').isVisible().catch(()=>false));
           await page.keyboard.press('Escape');
           recordInteraction('faq_escape_close',!(await page.locator('#faqOverlay').isVisible().catch(()=>true)));
+        }else{
+          // FAQ is a required primary UX feature at 320px as well as desktop.
+          // Previously the QA silently skipped it when CSS hid the only entry.
+          recordInteraction('faq_entry_missing',false,'No visible FAQ entry point at this viewport');
         }
 
         const firstCard=page.locator('#content .concert-card:not(.skeleton-card)').first();
