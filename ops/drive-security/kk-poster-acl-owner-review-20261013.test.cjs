@@ -131,6 +131,14 @@ function fixture(opts = {}) {
   return {api, getWrites: () => writes, roles, nodes, logs};
 }
 
+test('standalone owner-only Apps Script uses openById; no bound spreadsheet or trigger dependency', () => {
+  assert.ok(source.includes('SpreadsheetApp.openById(KKACL_BOOK)'));
+  assert.ok(!source.includes('SpreadsheetApp.getActiveSpreadsheet('));
+  assert.ok(!source.includes('ScriptApp.newTrigger('));
+  assert.ok(!source.includes('function doGet('));
+  assert.ok(!source.includes('function doPost('));
+});
+
 test('dry run discovers 76 Oct-Dec visible / 41 references / 33 unique without writing', () => {
   const f = fixture();
   const r = f.api.dry();
