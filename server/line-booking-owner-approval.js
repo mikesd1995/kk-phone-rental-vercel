@@ -192,6 +192,13 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     decision
   },env,fetchImpl);
   const data=result&&result.data||result||{};
+  // The canonical writer must confirm the same booking we authorized.
+  // A mismatched response must never trigger a customer notification.
+  if(text(data.booking_id)!==parsed.booking_id){
+    const err=new Error('Owner decision booking identity readback mismatch');
+    err.code='LINE_OWNER_DECISION_BOOKING_ID_MISMATCH';
+    throw err;
+  }
   const expected=decision==='approve'?'confirmed':'cancelled';
   if(text(data.booking_status).toLowerCase()!==expected){
     const err=new Error('Owner decision readback mismatch');
