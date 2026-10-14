@@ -167,7 +167,11 @@ async function main(fetchImpl=global.fetch, options={}){
       canonical:text(r.poster_image_url),canonical_host:host(text(r.poster_image_url)),
       emergency_fallback:fallback||'',candidate_count:chain.length,
       status:firstHealthy?'PASS':'FAIL',
-      recovered_by_fallback:!!(firstHealthy&&canonical.length&&firstHealthy.url!==canonical[0]),
+      // Google Drive alternative sizes/hosts are still the SAME canonical image.
+      // Only a source outside the canonical candidate set is emergency fallback art.
+      canonical_candidate_count:canonical.length,
+      canonical_healthy:canonical.some(u=>byUrl.get(u)&&byUrl.get(u).ok===true),
+      recovered_by_fallback:!!(firstHealthy&&!canonical.includes(firstHealthy.url)),
       first_healthy_url:firstHealthy?firstHealthy.url:'',
       candidates:checks
     };
@@ -182,6 +186,9 @@ async function main(fetchImpl=global.fetch, options={}){
     const obs=hits.length===1?hits[0]:null;
     return [e.event_id,{
       candidates:e.candidates,
+      canonical_url:e.canonical,canonical_candidate_count:e.canonical_candidate_count,
+      canonical_healthy:e.canonical_healthy,
+      recovered_by_fallback:e.recovered_by_fallback,
       ...(obs?{poster_url:e.canonical,loaded:obs.loaded===true,
         natural_width:Number(obs.natural_width)||0,sha256:text(obs.sha256)}:{})
     }];
