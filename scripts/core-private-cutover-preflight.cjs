@@ -23,9 +23,10 @@ function hasHeader(values,required){
 function plan(env=process.env){
   const source=PrivateCore.state(env);
   return {
-    mode:'CONFIG_ONLY',ok:source.strict&&source.explicitSheetId&&source.credentialsReady,
+    mode:'CONFIG_ONLY',ok:source.strict&&source.explicitSheetId&&source.transportReady,
     strict_enabled:source.strict,explicit_core_id:source.explicitSheetId,
     credentials_ready:source.credentialsReady,
+    transport:source.transport,transport_ready:source.transportReady,
     data_writes:0,permission_writes:0,public_gviz_reads:0
   };
 }
