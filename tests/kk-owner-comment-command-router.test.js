@@ -27,8 +27,10 @@ function jobBlock(source, id) {
   const needle = '\n  ' + id + ':\n';
   const begin = source.indexOf(needle);
   assert.notEqual(begin, -1, 'missing router job ' + id);
-  const next = source.indexOf('\n  ', begin + needle.length);
-  return source.slice(begin + 1, next < 0 ? undefined : next);
+  const later = source.slice(begin + needle.length);
+  const nextJob = /^  [a-z][a-z0-9_]*:\s*$/gm.exec(later);
+  const end = nextJob ? begin + needle.length + nextJob.index : undefined;
+  return source.slice(begin + 1, end);
 }
 
 test('issue comments have exactly one repository-level workflow listener', () => {
