@@ -92,3 +92,15 @@ test('mobile cards calculate actual offscreen poster and price height',()=>{
   assert.match(end,/contain-intrinsic-size:none!important/);
   assert.match(end,/height:auto!important/);
 });
+
+test('320px first-fold release guard preserves live CTA while reclaiming narrow hero space',()=>{
+ const start=css.lastIndexOf('320px first-fold correction — 2026-10-14');
+ assert.ok(start>0,'targeted 320px correction must be present in last-loaded premium CSS');
+ const rule=css.slice(start);
+ assert.match(rule,/@media \(max-width:359px\)/);
+ assert.match(rule,/html \.kk-mock-hero\s*\{\s*padding:8px 17px!important;/);
+ assert.doesNotMatch(rule,/\.v3-primary\s*\{[^}]*display:none/);
+ assert.doesNotMatch(rule,/\.v3-hero-copy\s*\{[^}]*display:none/);
+ assert.match(css,/\.kk-mock-hero \.v3-primary[^\n]*min-height:44px!important|\.kk-mock-hero \.v3-primary\s*\{min-height:44px!important/);
+ assert.match(html,/<a class="v3-primary" href="#content">/);
+});
