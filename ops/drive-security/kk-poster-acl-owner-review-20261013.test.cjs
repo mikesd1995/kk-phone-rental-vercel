@@ -228,3 +228,23 @@ test('provider write failure is partial and never reported as success', () => {
   assert.throws(() => f.api.apply(dry.fingerprint), /PARTIAL_OR_DRIFTED_ACL_REPAIR/);
   assert.ok(f.getWrites() > 0, 'partial updates must be detected, not rolled back to Writer');
 });
+
+test('renamed Drive asset invalidates previously approved ACL fingerprint', () => {
+  const f = fixture();
+  const dry = f.api.dry();
+  f.nodes.get(expected[0]).getName = () => 'Unexpected renamed asset';
+  assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('moved Drive asset invalidates previously approved ACL fingerprint', () => {
+  const f = fixture();
+  const dry = f.api.dry();
+  const sourceFolder = f.nodes.get(folderIDs[1]);
+  const targetFolder = f.nodes.get(folderIDs[3]);
+  const i = sourceFolder.files.findIndex(x => x.getId() === expected[0]);
+  assert.ok(i >= 0, 'known poster must be in its originally approved parent folder');
+  targetFolder.files.push(...sourceFolder.files.splice(i, 1));
+  assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
+  assert.equal(f.getWrites(), 0);
+});
