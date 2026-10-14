@@ -9,6 +9,7 @@ const legacyHandler=require('../server/rental-dashboard-core.js');
 const privateSheets=require('./lib/private-google-sheets');
 const crmFreshness=require('./lib/crm-freshness');
 const crmReconciliation=require('./lib/crm-reconciliation');
+const CorePrivacy=require('../server/core-sheet-private-reader.js');
 const AdminSecurity=require('../server/admin-session.js');
 
 const DEFAULT_CRM_SHEET_ID='1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
@@ -81,7 +82,9 @@ async function reconcileRuntimeDatasets({coreSheetId,crmSheetId,env}){
   const entries=Object.entries(RUNTIME_DATASETS);
   const reads=[];
   for(const [,cfg] of entries){
-    reads.push(crmReconciliation.fetchPublicValues({sheetId:coreSheetId,sheet:cfg.sheet,range:cfg.range}));
+    reads.push(CorePrivacy.enabled(env)
+      ? CorePrivacy.readValues({sheetId:coreSheetId,sheet:cfg.sheet,range:cfg.range,env})
+      : crmReconciliation.fetchPublicValues({sheetId:coreSheetId,sheet:cfg.sheet,range:cfg.range}));
     reads.push(privateSheets.readValues({sheetId:crmSheetId,range:cfg.privateRange,env}));
   }
   const values=await Promise.all(reads);
@@ -101,7 +104,7 @@ module.exports=async function handler(req,res){
   const crmSheetId=String(process.env.KK_CRM_SHEET_ID||DEFAULT_CRM_SHEET_ID).trim();
   const coreSheetId=String(process.env.GOOGLE_SHEET_ID||DEFAULT_CORE_SHEET_ID).trim();
   const env=Object.assign({},process.env,{KK_CRM_SHEET_ID:crmSheetId});
-  const cfg=privateSheets.configState(env);
+  const cfg=privateSheets.configState(CorePrivacy.enabled(env)?Object.assign({},env,{GOOGLE_SHEET_ID:''}):env);
   if(!cfg.configured) return coreFallback(req,res,'CRM_READER_NOT_CONFIGURED',null,null);
 
   const maxAgeMin=crmFreshness.maxAgeMinutes(env);
