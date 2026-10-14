@@ -480,7 +480,7 @@ module.exports=async function handler(req,res){
     const runId=String(payload.run_id||'').trim();
     const sha=String(payload.head_sha||'').trim();
     const eventName=String(payload.event_name||'').trim();
-    if(!/^\d+$/.test(runId)||!/^[0-9a-f]{40}$/.test(sha)||!['issue_comment','workflow_dispatch'].includes(eventName)){
+    if(!/^\d+$/.test(runId)||!/^[0-9a-f]{40}$/.test(sha)||!['issue_comment','workflow_dispatch','issues'].includes(eventName)){
       return reply(res,400,{ok:false,error_code:'FULL_LOOP_IDENTITY_INVALID'});
     }
     let auth;
