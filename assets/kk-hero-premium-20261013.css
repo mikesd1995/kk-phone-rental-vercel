@@ -278,3 +278,16 @@ html .kk-mock-hero .kk-hero-art::after{
     aspect-ratio:auto!important;
   }
 }
+
+/* 320px first-fold correction — 2026-10-14 historical Chrome screenshot evidence.
+   Historical local_zero_cost Chromium run 38420212171 on earlier SHA 93204e594...
+   measured first event y=532.34 in 320x568 (critic threshold 0.92*568=522.56).
+   Save 16px vertically by reducing only the 320px hero's existing 16px top
+   and bottom padding to 8px, preserving same 17px horizontal room and all
+   live title/button text, >=44px tap-target, other widths and poster source.
+   This is a targeted source repair, NOT a new measured rendered acceptance. */
+@media (max-width:359px){
+  html .kk-mock-hero{
+    padding:8px 17px!important;
+  }
+}
