@@ -140,12 +140,9 @@ function valuesAsObjects(values,requiredHeader,startRow=1){
 
 async function readSpecPrivate(sheetId,key,env,fetchImpl){
   const spec=SPECS[key];
-  const values=await privateSheets.readValues({
-    sheetId,
-    range:spec.sheet+'!'+spec.range,
-    env,
-    fetchImpl
-  });
+  const values=CorePrivacy.enabled(env)
+    ? await CorePrivacy.readValues({sheetId,sheet:spec.sheet,range:spec.range,env})
+    : await privateSheets.readValues({sheetId,range:spec.sheet+'!'+spec.range,env,fetchImpl});
   return valuesAsObjects(values,spec.header,spec.startRow||1);
 }
 
@@ -273,7 +270,7 @@ function fetchIdentityKey(fetchImpl){
 
 function snapshotCacheKey(sheetId,env,fetchImpl){
   const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE)||CorePrivacy.enabled(env);
-  const privateConfigured=!!privateSheets.credentialsFromEnv(env);
+  const privateConfigured=CorePrivacy.enabled(env) ? CorePrivacy.state(env).configured : !!privateSheets.credentialsFromEnv(env);
   return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',fetchIdentityKey(fetchImpl)].join('|');
 }
 
@@ -291,7 +288,7 @@ async function buildSnapshotUncached(options={}){
   const startedAt=Date.now();
   const keys=Object.keys(SPECS);
   const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE)||CorePrivacy.enabled(env);
-  const privateConfigured=!!privateSheets.credentialsFromEnv(env);
+  const privateConfigured=CorePrivacy.enabled(env) ? CorePrivacy.state(env).configured : !!privateSheets.credentialsFromEnv(env);
   let values=null;
   let transportMeta={snapshot_source:'direct-sheet-gviz-readonly-fallback',fallback_reader:'public-gviz',fallback_private_attempted:false,fallback_private_error_code:''};
 
