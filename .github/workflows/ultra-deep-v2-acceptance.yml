@@ -5,6 +5,7 @@ on:
     paths:
       - 'server/kk-ultra-deep-*.js'
       - 'tests/kk-ultra-deep-full-loop-v2.test.js'
+      - 'tests/ci-ultra-deep-v2-workflow-safety.test.js'
       - 'package.json'
       - '.github/workflows/ultra-deep-v2-acceptance.yml'
 
@@ -40,6 +41,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Protect zero-install workflow and SHA gate
+        run: node --test tests/ci-ultra-deep-v2-workflow-safety.test.js
       - name: Syntax gate (source-only)
         run: npm run check
       - name: Focused V2 regression (source-only)
