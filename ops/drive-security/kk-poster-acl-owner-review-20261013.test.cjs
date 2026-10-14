@@ -9,6 +9,7 @@ const vm = require('node:vm');
 const crypto = require('node:crypto');
 
 const source = fs.readFileSync(path.join(__dirname, 'kk-poster-acl-owner-review-20261013.gs'), 'utf8');
+const readOnly = fs.readFileSync(path.join(__dirname, 'kk-poster-acl-READONLY-preflight-20261014.gs'), 'utf8');
 const match = source.match(/const KKACL_EXPECTED=(\[[^\n]+\]);/);
 assert.ok(match, 'A pinned exact file ID manifest is required');
 const expected = JSON.parse(match[1]);
@@ -130,13 +131,42 @@ function fixture(opts = {}) {
   };
   const sandbox = {SpreadsheetApp, DriveApp, Utilities, Logger: {log: msg => logs.push(String(msg))}};
   vm.createContext(sandbox);
-  vm.runInContext(source, sandbox, {timeout: 2000});
+  vm.runInContext(opts.readOnly ? readOnly : source, sandbox, {timeout: 2000});
   const api = vm.runInContext(
-    '({dry:kkAclDryRun_20261013, apply:kkAclApply_20261013, owner:kkAclOwnerApprovedApply_20261013})',
+    opts.readOnly
+      ? '({dry:kkAclDryRun_20261013, apply:typeof kkAclApply_20261013, owner:typeof kkAclOwnerApprovedApply_20261013})'
+      : '({dry:kkAclDryRun_20261013, apply:kkAclApply_20261013, owner:kkAclOwnerApprovedApply_20261013})',
     sandbox
   );
   return {api, getWrites: () => writes, roles, nodes, logs};
 }
+
+test('standalone read-only Apps Script matches exact owner script preflight prefix', () => {
+  const cut = source.indexOf('// Enter fingerprint only after OWNER has reviewed Dry Run output.');
+  assert.ok(cut > 1000);
+  assert.ok(readOnly.endsWith(source.slice(0, cut)),
+    'all source-of-truth, folder, fingerprint and pagination guards must remain byte identical');
+});
+
+test('standalone read-only script has no permission change, trigger or executable apply entrypoint', () => {
+  assert.ok(!/\\.setSharing\\s*\\(/.test(readOnly));
+  assert.ok(!/\\bfunction\\s+kkAclApply_/.test(readOnly));
+  assert.ok(!/\\bfunction\\s+kkAclOwnerApprovedApply_/.test(readOnly));
+  assert.ok(!/ScriptApp\\./.test(readOnly));
+  assert.ok(readOnly.includes('SpreadsheetApp.openById(KKACL_BOOK)'));
+});
+
+test('standalone read-only preflight audits complete mocked current scope without ACL writes', () => {
+  const f = fixture({readOnly: true});
+  const r = f.api.dry();
+  assert.equal(r.active_files, 33);
+  assert.equal(r.scoped_files, 36);
+  assert.equal(r.folders, 4);
+  assert.equal(r.public_writer, 40);
+  assert.equal(f.api.apply, 'undefined');
+  assert.equal(f.api.owner, 'undefined');
+  assert.equal(f.getWrites(), 0);
+});
 
 test('standalone owner-only Apps Script uses openById; no bound spreadsheet or trigger dependency', () => {
   assert.ok(source.includes('SpreadsheetApp.openById(KKACL_BOOK)'));
