@@ -5,6 +5,11 @@
 // module never calls providers or writes to Google Sheets, GitHub, or production.
 const VERSION='KK_POSTER_INTEGRITY_ADVISOR_V1';
 const KNOWN_WRONG=Object.freeze({
+  // Exact source/date exclusions from the verified 57-card owner poster audit.
+  // A multi-day event's correct-date artwork must stay valid on OTHER days.
+  'EVT-20261023-LYKN-REFLEXION-CONCERT-2':'https://drive.google.com/thumbnail?id=1YAcm8q9b9YBJcAKeEgxRB5fnVIPXbiDS&sz=w1200',
+  'EVT-20261115-2026-K-POP-MASTERZ-SPECIAL-L':'https://drive.google.com/thumbnail?id=1yMVpy4pNNuitIb6FFsBiEo4y9-ogFA2i&sz=w1200',
+  'EVT-20261127-FORTREASURE-BEYOND-HORIZON':'https://drive.google.com/thumbnail?id=1OVYGQIlzt-n_la8eKKwgFIBcrrVxix78&sz=w1200',
   'EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY':'https://www.thai2music.com/uploads/artists/photo_cover/cover_1035_1762919037.jpg',
   'EVT-20261025-VVV-TORNADO-SHOPPING-XIAOMI':'https://pbs.twimg.com/media/G3iTTicXMAAbtyE.jpg',
   'EVT-20261030-POPPAH4-HALLOWEEN-NAMP':'https://static.amarintv.com/media/PJVlR0ljpO7yvkfhEH4VNNZ54YMVWAxlVfBQwSENDkv21tWvbtjShU6FnewvzElMDb.jpg'
