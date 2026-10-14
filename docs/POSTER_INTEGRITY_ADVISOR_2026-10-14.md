@@ -115,3 +115,32 @@ First read the full [57-row per-event snapshot](https://github.com/mikesd1995/kk
 ### Exact-head 14 Oct follow-up CI readback
 - Current Draft PR #736 branch head after follow-up doc change: `eda27a1f9899e9165091c352f8346faeb1774d2f` at time of run submission. GitHub Actions [zero-cost acceptance 38502214008](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38502214008) and [visual QA 38502214092](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38502214092) both **completed FAILURE**. Their jobs exposed **0 steps**, and `fetch_workflow_job_logs` for both returned HTTP 404 `BlobNotFound`. The failure cannot be attributed to application tests from this evidence; it does **not** establish native Node green. No reruns, paid services or deploys were requested.
 - Current 57-row canonical Sheets triage with per-ID URL parsing: 9 missing, 2 Moonshadow cross-name review, 46 URL-present **identity/delivery unverified**. No auto-publishing and zero source writes during this continuation. Earlier 8-source statements are dated snapshots, superseded by latest 9.
+
+## Consolidation acceptance 14 Oct 2026 — Option 5 continuation
+
+### One canonical integration, no competing poster agents
+- PR #736 remains primary **read-only poster-integrity advisor**, Agent Registry and Router route `poster_integrity_review`. Features unique to experimental PR #735 were moved into this existing agent and existing CLI, not deployed as a second agent.
+- `server/kk-poster-integrity-agent.js`: optional `as_of` date filter; Buddhist/ISO date normalization; exact event+URL+date AI evidence; independent decoded-image SHA256 equality plus successful image decode and organizer source URL; same-byte hashes across different URLs are review-only; `ai_review_queue` for model-assisted visual review; owner approval remains always false; brand/wrong event URL blocks; temporary-source notes receive review; safe HTTPS public host checks for poster and AI evidence.
+- `scripts/audit-storefront-posters.js`: keeps its hardened HTTPS redirect/magic-bytes network guard; manual optional `--as-of=YYYY-MM-DD`, `--observations-file=...`, `--vision-file=...` JSON input; only binds decoded evidence when event ID and **current canonical URL** match. Invalid/missing CSV schema, empty data, no visible records or invalid date fail closed. **No automatic writer, model job, recurring scheduler or spend.**
+- `tests/kk-poster-integrity-agent.test.js`: 31 cases exercised from exact connected branch source in isolated JavaScript V8 environment (mocked URL/Response, timer, AbortController, process): **31/31 passed** including legacy advisor/router and new byte/evidence, private URL, no-booking-write and CLI cases. This is NOT a checked-out native Node suite or GitHub CI.
+
+### Current source and event scope
+- Owner-connected `08_Web_Ready!A4:J380` on 14 Oct: **57 future-visible records**, **9 missing poster URLs** (previous six plus LYKN REFLEXION 23 Oct / K*Pop Masterz 15 Nov / FORTREASURE 27 Nov), **48 with URL**, not necessarily verified or healthy. Core and derived both had LYKN 23 Oct poster empty and `show_full`; do not touch Bookings, price, available stock or owner locks.
+- When Drive thumbnail query IDs are compared accurately (real Node WHATWG URL or parsed id), the sole same-file cross-name pair on these 57 future records is `Moonshadow : The Afterglow Fan Party` (14 Oct) and `Moonshadow : The Afterglow After Party` (15 Oct), potentially valid shared event flyer. **Review required**, not known wrong. Do NOT strip Drive thumbnail IDs and collapse every Google Drive image to `/thumbnail`.
+- Even healthy image delivery proves only bytes/MIME, not event/date; `official_poster_verified=false` for all without separate organizer image inspection. There has been NO live model inference or customer-browser screenshot proof.
+
+### Run commands and evidence contract (manual/free)
+```bash
+node --test tests/kk-poster-integrity-agent.test.js
+node scripts/audit-storefront-posters.js --as-of=2026-10-14
+node scripts/audit-storefront-posters.js --as-of=2026-10-14 --observations-file=/path/decoded.json --vision-file=/path/vision.json
+```
+Only operator-supplied decoded image evidence may carry `event_id`, `poster_url` (exact canonical), `sha256` (64 hex), `loaded=true`, `natural_width>0`; a separate AI vision record requires matching `event_id`, `poster_url`, `event_date`, `asset_sha256`, `verdict`, organizer `evidence_url`, `title_match`, `date_match`, and confidence 0.8–1. Positive AI evidence is labeled `AI_MATCH_UNVERIFIED_BY_OWNER`, never an approval/Sheet write. Missing/suspicious evidence remains alert/review. No source data or Booking may be copied into provider payloads.
+
+### Explicit release/rollback gates
+- Preserve this Draft PR; **not** merged, not deployed, no Vercel quota consumed by this assistant. Existing production READY SHA is not evidence that these Draft code changes are live.
+- Full native Node exact-head CI and browser signed-out 57-card naturalWidth/pixel/`object-fit:contain` QA are still pending; earlier GitHub runners have failed without exposed steps/BlobNotFound, so cannot assert CI green.
+- Official organizer originals for nine blank sources remain pending through owner-approved poster-only path (Issue #731). No inferred/fan/older art substitutions; preserve LYKN 23 Oct show_full booking lock.
+- Recommended branch cleanup: close duplicate Draft PR #735 as **superseded by #736** only after confirming its unique source evidence gates were copied and reviewed. Keep its history/doc accessible across chats.
+
+**Measured outcome: merged features inside Draft #736; read-only code & mock tests ready; production poster original replacement = 0 in this pass; customer-browser visual acceptance NOT YET PASSED.**
