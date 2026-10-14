@@ -8,7 +8,7 @@ function assess(env=process.env){
   const checks={
     reader_key_present:read.length>0,
     reader_key_length_ok:read.length>=32,
-    separate_from_admin_key:read.length>=32&&(!admin||read!==admin),
+    separate_from_admin_key:read.length>=32&&admin.length>0&&read!==admin,
     usable_character_set:/^[A-Za-z0-9_-]+$/.test(read)
   };
   return {ready:Object.values(checks).every(Boolean),checks};
