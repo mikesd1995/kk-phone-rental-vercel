@@ -61,6 +61,43 @@ test('date-specific poster exclusions cannot block the valid other day or new of
   assert.equal(newPoster.visibility_writes,0);
  }
 });
+test('explicit empty canonical poster never resurrects obsolete alternate image fields',()=>{
+ const original={...row('EVENT-POSTER-MISSING','Zero source',''),poster_url:'https://cdn.example.com/old-unrelated.jpg',
+   canonical:'https://cdn.example.com/old-unrelated.jpg'};
+ const before=JSON.stringify(original);
+ const r=find([original],{delivery_by_event:{'EVENT-POSTER-MISSING':{
+   canonical_url:'https://cdn.example.com/old-unrelated.jpg',
+   candidates:[{url:'https://cdn.example.com/old-unrelated.jpg',ok:true}],
+   canonical_healthy:true
+ }}});
+ assert.equal(r.blocked,1);
+ assert.equal(r.findings[0].poster_url,'');
+ assert.equal(r.findings[0].canonical_status,'MISSING');
+ assert.equal(r.findings[0].delivery_status,'NOT_TESTED');
+ assert.ok(r.findings[0].reasons.includes('POSTER_SOURCE_MISSING'));
+ assert.equal(JSON.stringify(original),before);
+ assert.equal(r.production_writes,0);
+});
+test('stale delivery evidence cannot certify a different current canonical image',()=>{
+ const current=row('E-FRESH','New poster','https://cdn.example.com/new-correct.jpg');
+ const stale={canonical_url:'https://cdn.example.com/previous.jpg',
+   candidates:[{url:'https://cdn.example.com/previous.jpg',ok:true}],
+   canonical_candidate_count:1,canonical_healthy:true,recovered_by_fallback:true};
+ const out=find([current],{delivery_by_event:{'E-FRESH':stale}});
+ assert.equal(out.blocked,0,'source remains a candidate, not confirmed corrupt');
+ assert.equal(out.findings[0].poster_url,current.poster_image_url);
+ assert.equal(out.findings[0].canonical_status,'NOT_TESTED');
+ assert.equal(out.findings[0].delivery_status,'NOT_TESTED');
+ assert.equal(out.findings[0].emergency_recovery,false);
+ assert.equal(out.findings[0].official_poster_verified,false);
+ assert.equal(out.production_writes,0);assert.equal(out.booking_writes,0);
+ const fresh={...stale,canonical_url:current.poster_image_url,
+   candidates:[{url:current.poster_image_url,ok:true}]};
+ const now=find([current],{delivery_by_event:{'E-FRESH':fresh}});
+ assert.equal(now.findings[0].canonical_status,'HEALTHY');
+ assert.equal(now.findings[0].delivery_status,'IMAGE_DELIVERED');
+ assert.equal(now.findings[0].official_poster_verified,false);
+});
 test('shop hero flags generic source regardless of event name',()=>{
  const url='https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png?v=1';
  assert.ok(find([row('E', 'MizuMi',url)]).findings[0].reasons.includes('GENERIC_BRAND_HERO_NOT_OFFICIAL_POSTER'));
