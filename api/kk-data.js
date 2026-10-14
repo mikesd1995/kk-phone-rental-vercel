@@ -83,7 +83,10 @@ function looksInternalPublicText(value) {
 
 function sanitizePublicTextValue(value) {
   const text = String(value == null ? '' : value).replace(/\[INQUIRY_ONLY\]/ig, '').trim();
-  return looksInternalPublicText(text) ? '' : text;
+  // Prevent contact details accidentally copied into owner-facing notes/templates
+  // from becoming public via the derived feeds. Never copy the raw value to logs.
+  const contact=/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|(?:\+66|0)[\s().-]?[689](?:[\s().-]?\d){8}\b/i;
+  return looksInternalPublicText(text)||contact.test(text) ? '' : text;
 }
 
 function sanitizePublicCsv(sheet, text) {
