@@ -1331,6 +1331,47 @@ function kkApiRequireKey_(payload) {
   if (!provided || provided !== expected) throw new Error('Invalid admin API key');
 }
 
+// Zero-cost fallback when Google service-account provisioning is unavailable.
+// Explicitly disabled by default in Script Properties. Existing doPost API key
+// must be authenticated BEFORE dispatch. These are exact read-only ranges; no
+// ad-hoc tabs or arbitrary A1 ranges are accepted.
+const KK_PRIVATE_CORE_READ_ALLOWLIST = Object.freeze({
+  '01_Events':['A4:I','A4:Z'],
+  '00_Master_Booking':['A4:X'],
+  '02_Assets':['A4:G'],
+  '03_Packages':['A4:J'],
+  '04_Event_Overrides':['A4:G'],
+  '08_Web_Ready':['A4:K','A4:J500'],
+  '09_Web_Packages':['A4:N','A4:M','A4:L'],
+  '11_Customer_Stats':['A1:H'],
+  '10_Admin_Health_Check':['A4:D','A4:B40'],
+  'Model_Master':['A4:E'],
+  '18_Event_Visibility_Locks':['A1:N','A1:N500'],
+  '_Rental_Dashboard_Data':['A1:O'],
+  '13_Event_Archive':['A1:Z']
+});
+function kkApiPrivateCoreRead_(payload){
+  if(String(PropertiesService.getScriptProperties().getProperty('KK_CORE_PRIVATE_READ_ENABLED')||'')!=='1') throw new Error('PRIVATE_CORE_READ_DISABLED');
+  const ss=SpreadsheetApp.getActive();
+  if(String(payload.coreSheetId||'')!==ss.getId()) throw new Error('PRIVATE_CORE_ID_MISMATCH');
+  const sheet=String(payload.sheet||'');
+  const range=String(payload.range||'');
+  if(!Object.prototype.hasOwnProperty.call(KK_PRIVATE_CORE_READ_ALLOWLIST,sheet) ||
+     KK_PRIVATE_CORE_READ_ALLOWLIST[sheet].indexOf(range)<0) throw new Error('PRIVATE_CORE_RANGE_DENIED');
+  const sh=ss.getSheetByName(sheet);
+  if(!sh) throw new Error('PRIVATE_CORE_SOURCE_MISSING');
+  const match=range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d*)$/);
+  if(!match) throw new Error('PRIVATE_CORE_RANGE_INVALID');
+  const start=Number(match[2]);
+  const requestedEnd=match[4]?Number(match[4]):sh.getLastRow();
+  // Refuse huge datasets rather than secretly truncating or consuming paid quota.
+  if(requestedEnd>4000 || requestedEnd<start) throw new Error('PRIVATE_CORE_RANGE_NOT_READY');
+  const safeRange=match[1]+start+':'+match[3]+requestedEnd;
+  const values=sh.getRange(safeRange).getDisplayValues();
+  return {data:{spreadsheet_id:ss.getId(),sheet:sheet,range:range,values:values}};
+}
+
+
 function kkAcquireDocumentLock_(label, waitMs) {
   const lock = LockService.getDocumentLock();
   const ms = Math.max(1000, Number(waitMs || 8000));
@@ -1364,6 +1405,7 @@ function doPost(e) {
 
     switch (action) {
       case 'snapshot': result = kkApiSnapshot_(payload); break;
+      case 'privateCoreRead': result = kkApiPrivateCoreRead_(payload); break;
       case 'phase1Health': result = { data: kkPhase1Diagnostics_(payload) }; break;
       case 'uploadPoster': result = kkApiUploadPoster_(payload); break;
       case 'createEvent': result = kkApiCreateEvent_(payload); break;
@@ -1382,10 +1424,10 @@ function doPost(e) {
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action && action !== 'snapshot' && action !== 'phase1Health') kkAuditLog_(action, payload, result, startedAt);
+    if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') kkAuditLog_(action, payload, result, startedAt);
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
-    if (keyOk) kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
+    if (keyOk && action !== 'privateCoreRead') kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
     return kkApiJson_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, kkApiFail_(err)));
   }
 }
