@@ -66,6 +66,11 @@ function fixture(opts = {}) {
   brand.files.push(node('brand-logo'));
   kit.files.push(node('kit-photo-a'), node('kit-photo-b'));
   legacy.files.push(...expected.slice(0, 29).map(id => node(id)));
+  if (opts.historicExtras) {
+    for (let i = 0; i < opts.historicExtras; i++) {
+      legacy.files.push(node('synthetic-historical-' + String(i).padStart(4, '0')));
+    }
+  }
   newer.files.push(...expected.slice(29).map(id => node(id)));
   if (opts.missingActive) legacy.files.shift();
   if (opts.unexpectedRole) roles[expected[0]] = 'COMMENT';
@@ -317,6 +322,34 @@ test('unexpected parent-folder ACL cascading to historical item fails closed', (
   const dry = f.api.dry();
   assert.throws(() => f.api.apply(dry.fingerprint), /PARTIAL_OR_DRIFTED_ACL_REPAIR/);
   assert.equal(f.roles['brand-logo'], 'VIEW', 'mock simulates unintended inherited change');
+});
+
+test('real-sized 242-image scope: all 209 history stays untouched after 25+12 active updates', () => {
+  const f = fixture({historicExtras: 206});
+  const before = f.api.dry();
+  assert.equal(before.active_files, 33);
+  assert.equal(before.scoped_files, 242);
+  assert.equal(before.folders, 4);
+  assert.equal(before.historical_images, 209);
+  assert.equal(before.public_writer, 246);
+  assert.equal(before.scoped_items, 246);
+  assert.equal(f.getWrites(), 0);
+  const batch1 = f.api.apply(before.fingerprint);
+  assert.equal(batch1.updated, 25);
+  assert.equal(batch1.remaining_active_writers, 12);
+  assert.equal(batch1.historical_public_writers, 209);
+  const batch2 = f.api.apply(f.api.dry().fingerprint);
+  assert.equal(batch2.updated, 12);
+  assert.equal(batch2.active_scope_completed, true);
+  assert.equal(batch2.remaining_active_writers, 0);
+  assert.equal(batch2.historical_public_writers, 209);
+  assert.equal(batch2.remaining_writers, 209);
+  assert.equal(batch2.ok, false, '209 archived public Writers must prevent false full security PASS');
+  assert.equal(f.getWrites(), 37);
+  assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
+  assert.ok(expected.every(id => f.roles[id] === 'VIEW'));
+  assert.equal(f.roles['synthetic-historical-0000'], undefined);
+  assert.equal(f.roles['synthetic-historical-0205'], undefined);
 });
 
 test('provider write failure is partial and never reported as success', () => {
