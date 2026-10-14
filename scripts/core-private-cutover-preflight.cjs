@@ -18,7 +18,10 @@ function classify(err){
 }
 function hasHeader(values,required){
   if(!required)return Array.isArray(values)&&values.length>0;
-  return Array.isArray(values)&&values.some(row=>Array.isArray(row)&&row.some(v=>String(v||'').trim()===required));
+  // A1/A4 range begins at the required header; data-row values cannot stand in
+  // for a missing header. Fail closed before any owner ACL cutover approval.
+  return Array.isArray(values)&&values.length>0&&Array.isArray(values[0])&&
+    values[0].some(v=>String(v||'').trim()===required);
 }
 function plan(env=process.env){
   const source=PrivateCore.state(env);
