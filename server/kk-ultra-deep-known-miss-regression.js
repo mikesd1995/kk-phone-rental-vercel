@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V11';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V12';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -68,13 +68,35 @@ function norm(v){return text(v).toLowerCase().replace(/[^a-z0-9\u0E00-\u0E7F]+/g
 function date(v){const s=text(v);if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'):s;}
 
 function tokens(v){return norm(v).split(' ').filter(x=>x.length>=3);}
+// Context may affect fuzzy scoring, but cannot establish performer/event identity.
+const IDENTITY_CONTEXT=new Set('the a an and with in on at by for of to official special exclusive updated date asia overseas bangkok thailand personal tour live concert concerts event events fan fans fansign fancon fanmeet fanmeeting meet meeting festival festivals showcase show tickets ticket performance schedule first st nd rd th january february march april may june july august september october november december jan feb mar apr jun jul aug sep sept oct nov dec'.split(' '));
+function identityWord(word){
+  return word.length>=2&&!IDENTITY_CONTEXT.has(word)&&!/^\d{1,2}$|^(?:20|25)\d{2}$|^\d+(?:st|nd|rd|th)$/.test(word);
+}
+function wordCoverage(wanted,have){
+  const actual=new Set(have),adjacent=new Set(),adjacentIdentity=new Set();
+  for(let i=0;i<have.length-1;i++){
+    const joined=have[i]+have[i+1];adjacent.add(joined);
+    if(identityWord(have[i])&&identityWord(have[i+1]))adjacentIdentity.add(joined);
+  }
+  const covered=wanted.map(word=>actual.has(word)||(identityWord(word)?adjacentIdentity:adjacent).has(word));
+  for(let i=0;i<wanted.length-1;i++){
+    // A format/article joined to a name is not a split performer identity.
+    if(identityWord(wanted[i])!==identityWord(wanted[i+1]))continue;
+    if(actual.has(wanted[i]+wanted[i+1])){covered[i]=true;covered[i+1]=true;}
+  }
+  return covered;
+}
 function fuzzyAliasMatch(title,alias){
   const t=norm(title),a=norm(alias);if(!t||!a)return false;
-  if(t.includes(a)||a.includes(t))return true;
-  const wanted=tokens(a);if(wanted.length<2)return false;
-  const have=new Set(tokens(t));
-  const hit=wanted.filter(x=>have.has(x)).length;
-  return hit>=Math.max(2,Math.ceil(wanted.length*0.75));
+  const wanted=a.split(' '),have=t.split(' '),covered=wordCoverage(wanted,have);
+  const identity=wanted.map((word,index)=>({word,index})).filter(row=>identityWord(row.word));
+  if(!identity.length||identity.some(row=>!covered[row.index]))return false;
+  if((' '+t+' ').includes(' '+a+' '))return true;
+  const scored=wanted.map((word,index)=>({word,index})).filter(row=>row.word.length>=3);
+  if(scored.length<2)return covered.every(Boolean);
+  const hit=scored.filter(row=>covered[row.index]).length;
+  return hit>=Math.max(2,Math.ceil(scored.length*0.75));
 }
 function sameCase(c,caseRow){
   const title=norm(c&&c.title);

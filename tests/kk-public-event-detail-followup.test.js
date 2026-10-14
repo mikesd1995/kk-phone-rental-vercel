@@ -210,3 +210,30 @@ test('each redirected detail URL strips tracking and fragments before transport 
  const [row]=await f.p.DDG_HTML({query:'Aurora Lantern'});
  assert.equal(row.event_date,'2026-10-24');assert.equal(f.detailCalls()[1].url,URL_B);assert.equal(f.p.detailReadback().receipts[0].final_url,URL_B);
 });
+
+const ONE_URL='https://www.onebangkok.com/en/whats-happening/aurora-lantern-fanmeeting/';
+function onePage(title='Aurora Lantern FANMEETING'){
+ return '<html><head><title>'+title+'</title><meta name="template" content="event-content"><link rel="canonical" href="'+ONE_URL+'"></head><body><main><section class="mainBreadCrumbMediaSec"><section class="breadcrumb"></section><h3 class="titleText">'+title+'</h3><p><i class="icon-ic-calendar"></i>10 Oct 2026</p><p><i class="icon-ic-location"></i>Sample Hall</p></section><section class="richTextIntroWithIcons mainContentMediaDetailSec"><div class="boxShop"><ul><li><img src="/images/icon-circle-date.png"><p>10 October 2026</p></li><li><img src="/images/icon-circle-time.png"><p>18.00 hrs. onwards</p></li><li><img src="/images/icon-circle-location.png"><p>Sample Hall</p></li></ul></div></section></main></body></html>';
+}
+test('both actual generic geography query forms admit the exact One Bangkok follow-up through the factory',async()=>{
+ for(const query of ['concert fanmeeting fancon showcase mini concert festival Bangkok October 2026 Bangkok Metropolitan Region Thailand','Bangkok ticket concert fanmeeting showcase festival October 2026 Bangkok Metropolitan Region Thailand']){
+  const f=fixture([{url:ONE_URL,title:'Aurora Lantern FANMEETING'}],onePage());
+  const [row]=await f.p.DDG_HTML({query});assert.equal(row.event_date,'2026-10-10');assert.equal(row.event_time,'18:00');assert.equal(row.venue,'Sample Hall');assert.equal(f.detailCalls().length,1);
+  assert.equal(f.p.detailReadback().authoritative,false);assert.equal(f.p.detailReadback().production_writes,0);
+ }
+});
+test('context-only geography and mini concert normalization preserve named query and page identity gates',async()=>{
+ const f=fixture([{url:ONE_URL,title:'Aurora Lantern FANMEETING'}],onePage());
+ const [unrelated]=await f.p.DDG_HTML({query:'Different Starlight mini concert Bangkok Metropolitan Region Thailand'});assert.equal(unrelated.event_date,null);assert.equal(f.detailCalls().length,0);
+ const mismatch=fixture([{url:ONE_URL,title:'Aurora Lantern FANMEETING'}],onePage('Different Starlight FANMEETING'));
+ const [row]=await mismatch.p.DDG_HTML({query:'Aurora Lantern mini concert Bangkok Metropolitan Region Thailand'});assert.equal(row.event_date,null);assert.equal(mismatch.detailCalls().length,1);assert.equal(mismatch.p.detailReadback().counts.identity_mismatch,1);
+});
+test('One Bangkok redirects retain existing exact-host public-path fencing and normalization',async()=>{
+ for(const destination of ['https://preview.onebangkok.com/en/whats-happening/a/','https://www.onebangkok.com/en/whats-happening/a/checkout/','https://www.ticketmelon.com/event/fixture','https://127.0.0.1/','https://www.onebangkok.com/en/whats-happening/a/?token=fixture']){
+  const f=fixture([{url:ONE_URL,title:'Aurora Lantern FANMEETING'}],()=>new Response(null,{status:302,headers:{location:destination}}));
+  const [row]=await f.p.DDG_HTML({query:'Bangkok fanmeeting'});assert.equal(row.event_date,null);assert.equal(f.detailCalls().length,1,destination);
+ }
+ const alias=ONE_URL.replace('www.','');
+ const f=fixture([{url:alias,title:'Aurora Lantern FANMEETING'}],url=>url===alias?new Response(null,{status:302,headers:{location:ONE_URL+'?utm_source=fixture#poster'}}):new Response(onePage(),{headers:{'content-type':'text/html'}}));
+ const [row]=await f.p.DDG_HTML({query:'Bangkok fanmeeting'});assert.equal(row.event_date,'2026-10-10');assert.equal(row.source_url,alias);assert.equal(f.detailCalls()[1].url,ONE_URL);
+});

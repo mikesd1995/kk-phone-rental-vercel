@@ -1,5 +1,6 @@
 'use strict';
 const {REGISTRY}=require('./kk-ultra-deep-source-registry.js');
+const OneBangkok=require('./kk-onebangkok-event-detail.js');
 const REGISTERED=new Set(Object.values(REGISTRY).flat().map(row=>row.domain).filter(Boolean));
 const GENERIC=new Set(['concert','concerts','fanmeeting','fanmeet','fan','meet','meeting','fancon','fansign','showcase','festival','halloween','calendar','schedule','performance','guide','event','events','live','tour','tickets','ticket','official','bangkok','thailand','eventpop','deehuphouse','dee','hup','house','www','com','co','th','me','คอนเสิร์ต','กรุงเทพ','กรุงเทพมหานคร','ประเทศไทย','แฟนมีต','แฟนคอน','แฟนไซน์','เทศกาล']);
 const EVENT_RE=/(concert|fan\s*-?\s*meet|fanmeet|fancon|fansign|festival|showcase|live\s+in|tour|halloween|คอนเสิร์ต|แฟนมีต|แฟนคอน|แฟนไซน์|เทศกาล)/i;
@@ -8,7 +9,8 @@ function text(value){return String(value==null?'':value).trim();}
 function tokens(value){return text(value).toLowerCase().replace(/[^a-z0-9\u0E00-\u0E7F]+/g,' ').split(/\s+/).filter(token=>token.length>=3&&!/^\d+$/.test(token)&&!GENERIC.has(token));}
 function specificTitle(value){return EVENT_RE.test(text(value))&&tokens(value).some(token=>token.length>=4);}
 function queryRelevantTitle(title,query){
- const q=text(query).replace(/(?:^|[\s(])[-+]?site:[^\s)]*\)?/gi,' ');
+ const q=text(query).replace(/\bBangkok\s+Metropolitan\s+Region\s+Thailand\s*$/i,' ')
+  .replace(/\bmini\s+concert\b/gi,' ').replace(/(?:^|[\s(])[-+]?site:[^\s)]*\)?/gi,' ');
  const wanted=tokens(q).filter(token=>token.length>=4&&!MONTH_WORDS.has(token));
  const have=new Set(tokens(title));return !wanted.length||wanted.some(token=>have.has(token));
 }
@@ -17,6 +19,7 @@ function compatibleTitle(lead,page){
  return specificTitle(lead)&&specificTitle(page)&&wanted.length>0&&wanted.length===have.size&&wanted.every(token=>have.has(token));
 }
 function publicDetailUrl(value){
+ const oneBangkok=OneBangkok.publicEventUrl(value);if(oneBangkok)return oneBangkok;
  try{
   const u=new URL(text(value)),host=u.hostname.toLowerCase().replace(/^www\./,'');
   if(u.protocol!=='https:'||u.username||u.password||u.port||!REGISTERED.has(host))return null;

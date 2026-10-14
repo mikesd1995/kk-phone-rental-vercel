@@ -3,9 +3,10 @@
 const path=require('node:path');
 const {execFile}=require('node:child_process');
 const DetailFollowup=require('./kk-public-event-detail-followup.js');
+const OneBangkok=require('./kk-onebangkok-event-detail.js');
 const {createHash}=require('node:crypto');
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V11';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V12';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
@@ -84,6 +85,7 @@ function pageEvidenceMarkup(body){
  return depth>0?out:out+raw.slice(cursor);
 }
 function candidateFromPage(url,body,task={}){
+ if(OneBangkok.publicEventUrl(url))return OneBangkok.candidateFromOneBangkokPage(url,body,{cleanHtml,inferSearchEventDates});
  const markup=pageEvidenceMarkup(body);
  const title=(markup.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'';
  return {title:cleanHtml(title)||null,...pageEventFields(markup),artist:[],source_url:url,confidence:null};
