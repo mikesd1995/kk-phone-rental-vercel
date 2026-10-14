@@ -152,3 +152,11 @@ Read-only review against official GitHub reusable workflow documentation (no hos
 - #695 versus #732: all six #695 files accessible on both heads; 3/6 blob SHA identical (historical recall doc plus probe-handoff and Thai-date tests), 3/6 runtime JS blobs different. Their base SHAs also differ. HOLD; don't mark fully superseded.
 - Comparison tally: #725/#727 2/9 identical, #722/#727 3/6 identical, #695/#732 3/6 identical, #675/#681 2/2 identical among shared code/test paths, but #675 has unique documentation. No PR closed or discarded.
 - Test hardening: `tests/kk-owner-comment-command-router.test.js` now detects ANY top-level `issue_comment` subscriber, not merely `types: [created]`.
+
+## Additional issue-comment admission boundary — 2026-10-14
+
+- Root-cause during independent route simulation: original `ultra-deep-full-loop.yml` had a permissive GitHub `startsWith(..., '/run-ultra-deep-full-loop')` job-level predicate, so malformed commands such as `/run-ultra-deep-full-loopEVIL` could previously allocate a hosted runner before the existing Bash argument validation rejected them. Existing Bash itself verifies the exact command and optional YYYY-MM argument; do not weaken it.
+- Draft router hardening: accept `/run-ultra-deep-full-loop` exactly OR the prefix with a separating ordinary space; malformed unseparated suffix now fails at job routing without runner allocation. **This narrows only the early routing gate** and preserves the supported no-argument and spaced-argument forms. Extra tab-separated argument commands would be rejected earlier, even though Bash previously accepted generic whitespace; do not claim absolute backwards compatibility with obscure tab formatting without owner review.
+- Updated checked-in Node regression source to cover the no-argument case and reject the unsafe broad prefix; Node runner execution remains pending.
+- **101/101 dynamic scenarios PASSED in isolated JS on conditions extracted from actual latest router YAML:** 11 positive (including Ultra Deep no-arg) and 90 negative (wrong issue, owner, association, malformed command and untrusted-comment noise). This checks the route predicate model only, not GitHub's hosted expression interpreter or Actions runner execution.
+- Zero Vercel deploy/preview, no GitHub Actions dispatch and no external business writes during this simulation.
