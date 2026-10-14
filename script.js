@@ -1237,11 +1237,13 @@ function availTextFor(c){
   return tr("available");
 }
 function startingPriceFor(c){
-  var min=0;
-  // Only advertise a price the customer can actually select in the modal.
-  // Full/hidden packages may be cheaper but must not set the "from" price.
-  (c&&c.packages||[]).forEach(function(p){
-    if(!p||!p.avail)return;
+  var min=0, ap=availPkgs(c);
+  // This is a PHONE rental storefront. Advertise the cheapest bookable PHONE
+  // package when a phone is available. A cheaper standalone lens must not
+  // misrepresent a phone as available for that lens price.
+  var hasPhone=ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
+  ap.forEach(function(p){
+    if(hasPhone && p.type==="lens_only") return;
     var n=toNum(p.price);
     if(n>0&&(min===0||n<min))min=n;
   });
