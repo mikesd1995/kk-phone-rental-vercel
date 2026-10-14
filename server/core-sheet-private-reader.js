@@ -3,6 +3,7 @@
 // Security cutover building block. No production mutation or permission update.
 // Opt-in only: KK_CORE_SHEET_REQUIRE_PRIVATE=1 after strict owner acceptance.
 const privateSheets=require('../api/lib/private-google-sheets.js');
+const AppsScriptReader=require('./core-sheet-apps-script-reader.js');
 const FLAG='KK_CORE_SHEET_REQUIRE_PRIVATE';
 
 function enabled(env=process.env){
@@ -11,9 +12,13 @@ function enabled(env=process.env){
 function state(env=process.env){
   const id=String(env.GOOGLE_SHEET_ID||'').trim();
   const credentialsReady=!!privateSheets.credentialsFromEnv(env);
+  const transport=String(env.KK_CORE_PRIVATE_TRANSPORT||'service-account').trim();
+  const appsScriptReady=transport==='apps-script'&&AppsScriptReader.scriptState(env).configured;
+  const transportReady=transport==='apps-script'?appsScriptReady:transport==='service-account'?credentialsReady:false;
   return {
     strict:enabled(env),sheetId:id,explicitSheetId:!!id,credentialsReady,
-    configured:!!(id&&credentialsReady)
+    transport,transportReady,configured:!!(id&&transportReady),
+    authMode:transport==='apps-script'?'apps_script_key':credentialsReady?'service_account':'none'
   };
 }
 function fail(code){
@@ -24,7 +29,7 @@ function requireExplicitPrivateSource(sheetId,env=process.env){
   if(!s.strict)throw fail('CORE_PRIVATE_CUTOVER_NOT_ENABLED');
   if(!s.explicitSheetId)throw fail('CORE_PRIVATE_SHEET_ID_NOT_CONFIGURED');
   if(String(sheetId||'').trim()!==s.sheetId)throw fail('CORE_PRIVATE_SHEET_ID_MISMATCH');
-  if(!s.credentialsReady)throw fail('CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED');
+  if(!s.transportReady)throw fail(s.transport==='apps-script'?'CORE_APPS_SCRIPT_NOT_CONFIGURED':'CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED');
   return s.sheetId;
 }
 function verifiedRange(sheet,range){
@@ -37,10 +42,18 @@ function verifiedRange(sheet,range){
 }
 async function readCsv({sheetId,sheet,range,env=process.env}={}){
   const sid=requireExplicitPrivateSource(sheetId,env);
-  return privateSheets.readValuesCsv({sheetId:sid,range:verifiedRange(sheet,range),env});
+  const a1=verifiedRange(sheet,range);
+  if(state(env).transport==='apps-script'){
+    const values=await AppsScriptReader.readValues({sheetId:sid,sheet,range,env});
+    return privateSheets.valuesToCsv(values);
+  }
+  return privateSheets.readValuesCsv({sheetId:sid,range:a1,env});
 }
 async function readValues({sheetId,sheet,range,env=process.env}={}){
   const sid=requireExplicitPrivateSource(sheetId,env);
-  return privateSheets.readValues({sheetId:sid,range:verifiedRange(sheet,range),env});
+  const a1=verifiedRange(sheet,range);
+  return state(env).transport==='apps-script'
+    ? AppsScriptReader.readValues({sheetId:sid,sheet,range,env})
+    : privateSheets.readValues({sheetId:sid,range:a1,env});
 }
 module.exports={FLAG,enabled,state,requireExplicitPrivateSource,verifiedRange,readCsv,readValues};
