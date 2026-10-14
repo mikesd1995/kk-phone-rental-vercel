@@ -1,7 +1,6 @@
 name: Storefront V5.9 Zero Cost Promote
 on:
-  issue_comment:
-    types: [created]
+  workflow_call:
 permissions:
   contents: read
 concurrency:
