@@ -902,9 +902,12 @@ async function fetchSheetCsv(name,range,ms){
       // package proxy failed. Direct fallback may not include the newest override, but it is safer
       // than showing every event as package-less / ask-price.
       console.warn("KK proxy failed or returned invalid CSV; falling back to read-only Google Sheets", e);
-      if(APP.disableDirectFallback && name!==PKG_SHEET) throw e;
+      // Privacy contract: package pricing is not exempt from the API-only mode.
+      if(APP.disableDirectFallback) throw e;
     }
   }
+  // Never bypass the server's private reader in a browser whose config is API-only.
+  if(APP.disableDirectFallback || APP.publicDataMode==='api-only') throw new Error('Browser direct Google Sheets access disabled');
   return await fetchValidatedSheetCsv(directSheetUrl(name,range),name,range,ms||9000,"direct Google Sheets");
 }
 
