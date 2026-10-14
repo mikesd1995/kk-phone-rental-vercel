@@ -70,6 +70,9 @@ function fixture(opts = {}) {
     'EVT-' + i, 'Example event', '21/10/2026', '',
     'https://drive.google.com/thumbnail?id=' + id
   ]);
+  // Preserve 33 active unique file IDs while reducing the number of
+  // reference uses by one: a stale 41/42 reference manifest must fail closed.
+  if (opts.referenceCountDrift) core[refs.length - 1][4] = 'https://images.example.test/replaced-duplicate.jpg';
   for (let i = core.length; i < 76; i++) {
     core.push(['EVT-' + i, 'Example event', '21/10/2026', '', 'https://images.example.test/poster.jpg']);
   }
@@ -192,6 +195,12 @@ test('invalid and stale fingerprint cannot write', () => {
   const f = fixture();
   assert.throws(() => f.api.apply('invalid'), /FINGERPRINT_REQUIRED/);
   assert.throws(() => f.api.apply('a'.repeat(64)), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('42-to-41 thumbnail reference drift stops before any permissions write, even with same 33 file IDs', () => {
+  const f = fixture({referenceCountDrift: true});
+  assert.throws(() => f.api.dry(), /SCOPED_ACTIVE_POSTER_DRIFT/);
   assert.equal(f.getWrites(), 0);
 });
 
