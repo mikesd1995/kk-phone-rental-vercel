@@ -124,7 +124,7 @@ function triage(input={}){
       }else if(verdict==='MATCH'&&/^[a-f0-9]{64}$/.test(str(v.asset_sha256).toLowerCase())&&
         observation.loaded===true&&Number(observation.natural_width)>0&&
         str(observation.poster_url)===url&&sha===str(v.asset_sha256).toLowerCase()&&
-        /safePosterUrl(v.evidence_url)&&/^https:\/\//i.test(str(v.evidence_url))&&v.title_match===true&&v.date_match===true&&
+        safePosterUrl(v.evidence_url)&&/^https:\/\//i.test(str(v.evidence_url))&&v.title_match===true&&v.date_match===true&&
         Number(v.confidence)>=0.8&&Number(v.confidence)<=1){
         vision_status='AI_MATCH_UNVERIFIED_BY_OWNER';
       }else{
