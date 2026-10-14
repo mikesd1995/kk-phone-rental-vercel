@@ -3,6 +3,7 @@
 const privateSheets = require('./lib/private-google-sheets');
 const crmFreshness = require('./lib/crm-freshness');
 const crmReconciliation = require('./lib/crm-reconciliation');
+const CorePrivacy = require('../server/core-sheet-private-reader.js');
 const AdminSecurity = require('../server/admin-session.js');
 const ProjectMemoryLedger = require('../server/kk-project-memory-ledger.js');
 const OpenAiStagingProbe = require('../server/kk-openai-staging-probe.js');
@@ -198,7 +199,9 @@ async function reconcileRuntimeDatasets({coreSheetId,crmSheetId,env}){
   const entries=Object.entries(RUNTIME_DATASETS);
   const reads=[];
   for(const [,cfg] of entries){
-    reads.push(crmReconciliation.fetchPublicValues({sheetId:coreSheetId,sheet:cfg.sheet,range:cfg.range}));
+    reads.push(CorePrivacy.enabled(env)
+      ? CorePrivacy.readValues({sheetId:coreSheetId,sheet:cfg.sheet,range:cfg.range,env})
+      : crmReconciliation.fetchPublicValues({sheetId:coreSheetId,sheet:cfg.sheet,range:cfg.range}));
     reads.push(privateSheets.readValues({sheetId:crmSheetId,range:cfg.privateRange,env}));
   }
   const values=await Promise.all(reads);
@@ -233,7 +236,8 @@ module.exports=async function handler(req,res){
   const crmSheetId=String(process.env.KK_CRM_SHEET_ID||DEFAULT_CRM_SHEET_ID).trim();
   const coreSheetId=String(process.env.GOOGLE_SHEET_ID||DEFAULT_CORE_SHEET_ID).trim();
   const env=Object.assign({},process.env,{KK_CRM_SHEET_ID:crmSheetId});
-  const cfg=privateSheets.configState(env);
+  // Core and private CRM are independent workbook identities after the Core cutover.
+  const cfg=privateSheets.configState(CorePrivacy.enabled(env)?Object.assign({},env,{GOOGLE_SHEET_ID:''}):env);
   const maxAgeMin=crmFreshness.maxAgeMinutes(env);
   const base={
     core_sheet_id:coreSheetId,
