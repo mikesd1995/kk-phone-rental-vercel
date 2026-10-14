@@ -62,3 +62,10 @@ test('read action authenticates separately and cannot dispatch an Admin write wi
   assert.equal(denied.ok,false);
   assert.deepEqual(calls,['admin-auth']);
 });
+
+test('audit serializer masks protected request fields',()=>{
+  const serialize=Function(extract('kkSafeStringify_')+';return kkSafeStringify_;')();
+  const logged=serialize({readKey:'fixture_123',apiKey:'fixture_456',action:'snapshot'});
+  assert.doesNotMatch(logged,/fixture_123|fixture_456/);
+  assert.match(logged,/redacted/);
+});
