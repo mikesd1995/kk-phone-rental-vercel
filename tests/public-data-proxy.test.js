@@ -328,7 +328,7 @@ test('HTTP public projection rejects unapproved/shifted column and never echoes 
    ['09_Web_Packages','A4:N','package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,customer_phone,use_case'],
    ['08_Web_Ready','A4:K','event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template,private_extra']
  ]){
-   global.fetch=async()=>({ok:true,status:200,text:async()=>feed[2]+'\\nTEST,PRIVATE_FIXTURE_EMAIL,9999999999'});
+   global.fetch=async()=>({ok:true,status:200,text:async()=>feed[2]+'\nTEST,PRIVATE_FIXTURE_EMAIL,9999999999'});
    try{await withEnv(withoutPrivateCredentials({GOOGLE_SHEET_ID:'sheet-test-123',KK_CRM_SHEET_ID:undefined,KK_CORE_SHEET_REQUIRE_PRIVATE:undefined}),async()=>{
      const response=fakeRes();await handler({method:'GET',query:{sheet:feed[0],range:feed[1]}},response);
      assert.equal(response.statusCode,502);
@@ -339,7 +339,7 @@ test('HTTP public projection rejects unapproved/shifted column and never echoes 
 });
 test('public projection rejects row-width overflow, preserves current production safe column shapes',()=>{
  const header='event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template';
- const good=header+'\\nEVT-1,Event,14/10/2026,Venue,,,2,2,available,show,book';
+ const good=header+'\nEVT-1,Event,14/10/2026,Venue,,,2,2,available,show,book';
  const unsafe=good+',SECRET_PRIVATE_PHONE';
  assert.ok(handler._test.validatedPublicFeedRows('08_Web_Ready',good));
  assert.equal(handler._test.validatedPublicFeedRows('08_Web_Ready',unsafe),null);
