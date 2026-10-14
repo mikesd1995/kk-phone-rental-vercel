@@ -11,6 +11,7 @@
 const {installRuntimeWarningTracer}=require('../server/runtime-warning-tracer');
 installRuntimeWarningTracer('kk-data');
 const privateSheets = require('./lib/private-google-sheets');
+const CorePrivacy = require('../server/core-sheet-private-reader.js');
 const lineBookingWebhook = require('../server/line-booking-webhook');
 
 const KK_APP_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_FIX';
@@ -348,13 +349,21 @@ module.exports = async function handler(req, res) {
 
   const envSheetId = String(process.env.GOOGLE_SHEET_ID || '').trim();
   const privateEnvSheetId = String(process.env.KK_CRM_SHEET_ID || '').trim();
-  if(envSheetId && privateEnvSheetId && envSheetId!==privateEnvSheetId){
+  const corePrivateStrict=CorePrivacy.enabled(process.env);
+  if(!corePrivateStrict && envSheetId && privateEnvSheetId && envSheetId!==privateEnvSheetId){
     res.setHeader('X-KK-Sheet-Source', 'sheet-id-config-conflict');
     return send(res, 503, 'Public-data reader Sheet ID configuration conflicts.');
   }
-  const sheetId = envSheetId || privateEnvSheetId || DEFAULT_SHEET_ID;
-  const requirePrivate = isTrue(process.env.KK_PUBLIC_SHEET_REQUIRE_PRIVATE);
-  const privateState = privateSheets.configState(process.env);
+  // Private Core and CRM are separate workbooks. In strict Core mode the
+  // independent canonical Core ID takes precedence without a false CRM conflict.
+  const sheetId = corePrivateStrict ? envSheetId : (envSheetId || privateEnvSheetId || DEFAULT_SHEET_ID);
+  const requirePrivate = corePrivateStrict || isTrue(process.env.KK_PUBLIC_SHEET_REQUIRE_PRIVATE);
+  const coreState=CorePrivacy.state(process.env);
+  const privateState = corePrivateStrict ? {
+    configured:coreState.configured,
+    authMode:coreState.credentialsReady?'service_account':'none',
+    sheetIdState:coreState.explicitSheetId?'CORE_SHEET_ID_EXPLICIT':'CORE_SHEET_ID_MISSING'
+  } : privateSheets.configState(process.env);
   const hasPrivateReader = privateState.configured;
 
   // Non-secret runtime diagnostics for cutover acceptance. Never expose email, key,
@@ -378,7 +387,9 @@ module.exports = async function handler(req, res) {
 
   if (hasPrivateReader) {
     try {
-      text = await readPrivateCsv(sheetId, sheet, range);
+      text = corePrivateStrict
+        ? await CorePrivacy.readCsv({sheetId,sheet,range})
+        : await readPrivateCsv(sheetId, sheet, range);
       source = 'private-service-account';
     } catch (err) {
       privateError = err;
@@ -393,6 +404,12 @@ module.exports = async function handler(req, res) {
   }
 
   if (!text) {
+    // Never attempt public GViz when the privacy cutover is armed, even if
+    // private authentication returned an error or an empty dataset.
+    if(corePrivateStrict){
+      res.setHeader('X-KK-Sheet-Source','core-private-unavailable');
+      return send(res,503,'Private Core reader is unavailable.');
+    }
     try {
       text = await readPublicGvizCsv(sheetId, sheet, range);
       source = privateError ? 'public-gviz-fallback-after-private-error' : 'public-gviz-fallback';
