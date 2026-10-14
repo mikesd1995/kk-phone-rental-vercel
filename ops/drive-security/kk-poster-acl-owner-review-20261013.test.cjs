@@ -211,15 +211,28 @@ test('active file missing from scanned tree aborts before writing', () => {
   assert.equal(f.getWrites(), 0);
 });
 
-test('approved repair downgrades mock folder and poster ACLs and readbacks', () => {
+test('owner-approved 25-item ACL batch is partial until NEW fingerprint authorizes remainder', () => {
   const f = fixture();
   const dry = f.api.dry();
-  const r = f.api.apply(dry.fingerprint);
-  assert.equal(r.ok, true);
-  assert.equal(r.reader_verified, 40);
+  const first = f.api.apply(dry.fingerprint);
+  assert.equal(first.ok, false, 'must never claim success while writers remain');
+  assert.equal(first.partial, true);
+  assert.equal(first.updated, 25);
+  assert.equal(first.remaining_writers, 15);
+  assert.equal(first.need_new_owner_dry_run, true);
+  assert.equal(f.getWrites(), 25);
+  assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
+  const secondDry = f.api.dry();
+  assert.equal(secondDry.public_writer, 15);
+  assert.ok(secondDry.fingerprint !== dry.fingerprint);
+  const second = f.api.apply(secondDry.fingerprint);
+  assert.equal(second.ok, true);
+  assert.equal(second.partial, false);
+  assert.equal(second.updated, 15);
+  assert.equal(second.remaining_writers, 0);
+  assert.equal(second.reader_verified, 40);
   assert.equal(f.getWrites(), 40);
   assert.ok(Object.values(f.roles).every(role => role === 'VIEW'));
-  assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
 });
 
 test('provider write failure is partial and never reported as success', () => {
