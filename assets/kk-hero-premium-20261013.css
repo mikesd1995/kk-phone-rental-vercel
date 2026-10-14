@@ -290,4 +290,15 @@ html .kk-mock-hero .kk-hero-art::after{
   html .kk-mock-hero{
     padding:8px 17px!important;
   }
+  /* Earlier V5 hides the only FAQ entry point at 320px. Restore it as a
+     44px keyboard/touch button without removing the theme/language controls. */
+  html .v3-header .header-faq-btn{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    min-width:44px!important;
+    min-height:44px!important;
+    width:44px!important;
+    padding:0!important;
+  }
 }
