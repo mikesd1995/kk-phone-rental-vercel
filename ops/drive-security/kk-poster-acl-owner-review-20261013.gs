@@ -22,7 +22,7 @@ function kkAclReadActive_20261013(){
     if(m)refs.push(m[1]);
   }
   const files=[...new Set(refs)].sort();
-  if(cards.length!==76||refs.length!==41||files.length!==KKACL_EXPECTED.length||
+  if(cards.length!==76||refs.length!==42||files.length!==KKACL_EXPECTED.length||
      files.some((x,i)=>x!==KKACL_EXPECTED[i]))throw Error('SCOPED_ACTIVE_POSTER_DRIFT');
   return files;
 }
