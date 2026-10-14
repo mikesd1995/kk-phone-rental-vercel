@@ -5,6 +5,7 @@
 const SnapshotHealth = require("../admin/snapshot-health.js");
 const UpstreamResponse = require("../server/upstream-response.js");
 const DirectWriterPhase1 = require("./admin-direct-writer-phase1.js");
+const CorePrivacy = require("./core-sheet-private-reader.js");
 const KK_APP_VERSION = SnapshotHealth.VERSION;
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
@@ -254,9 +255,14 @@ async function buildSystemHealth(payload, env) {
       continue;
     }
     try {
-      const r = await fetchWithTimeout(gvizCsvUrl(frontendSheetId, sheet, range), {}, 12000);
-      const text = await r.text();
-      const ok = r.ok && csvHeaderLooksValid(sheet, text);
+      const text = CorePrivacy.enabled()
+        ? await CorePrivacy.readCsv({sheetId:frontendSheetId,sheet,range})
+        : await (async()=>{
+            const r=await fetchWithTimeout(gvizCsvUrl(frontendSheetId,sheet,range),{},12000);
+            if(!r.ok) throw new Error('Public diagnostic feed unavailable');
+            return r.text();
+          })();
+      const ok = csvHeaderLooksValid(sheet, text);
       rows.push(diagnosticRow(
         "feed_" + sheet,
         label,
