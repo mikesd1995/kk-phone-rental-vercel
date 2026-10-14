@@ -316,3 +316,41 @@ test('public poster audit fails closed for bad feed, empty rows, hidden-only and
   'event_id,event_name,event_date_text,poster_image_url,action_for_web\nE1,Shown,14/10/2026,,show\n'),
   {silent:true,as_of:'2026-02-30'}),/POSTER_AS_OF_DATE_INVALID/);
 });
+
+
+test('primary poster audit binds imported vision evidence to same decoded byte digest and exact URL',async()=>{
+ const id='EVT-20261014-EXACT-POSTER',url='https://organizer.example.com/artist.jpg',sha='e'.repeat(64);
+ const csv=[
+ 'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web',
+ [id,'Exact Event','14/10/2026','Bangkok',url,'','2','2','','show'].join(',')
+ ].join('\n')+'\n';
+ const fetch=async requested=>{
+  if(requested.includes('/api/kk-data'))return new Response(csv,{status:200,headers:{'content-type':'text/csv'}});
+  if(requested===url)return new Response(new Uint8Array([255,216,255,217]),{status:200,headers:{'content-type':'image/jpeg'}});
+  throw Error('unexpected URL '+requested);
+ };
+ const delivery={event_id:id,poster_url:url,loaded:true,natural_width:1200,sha256:sha};
+ const review={event_id:id,event_date:'14/10/2026',poster_url:url,verdict:'MATCH',asset_sha256:sha,confidence:0.95,
+   evidence_url:'https://organizer.example.com/announcement',title_match:true,date_match:true};
+ const ok=await Audit.main(fetch,{silent:true,as_of:'2026-10-14',
+  decoded_observations:[delivery],vision_reviews:[review]});
+ assert.equal(ok.poster_integrity.findings[0].vision_status,'AI_MATCH_UNVERIFIED_BY_OWNER');
+ assert.equal(ok.poster_integrity.findings[0].official_poster_verified,false);
+ assert.equal(ok.poster_integrity.production_writes,0);
+ const swapped=await Audit.main(fetch,{silent:true,as_of:'2026-10-14',
+  decoded_observations:[{...delivery,poster_url:'https://organizer.example.com/old.jpg'}],
+  vision_reviews:[review]});
+ assert.equal(swapped.poster_integrity.findings[0].vision_status,'INCOMPLETE');
+ assert.equal(swapped.poster_integrity.findings[0].official_poster_verified,false);
+});
+test('conflicting duplicate digest observations cannot certify the original poster',()=>{
+ const r=row('EVT-20261014-UNIQUE','Event','https://organizer.example.com/image.jpg');
+ const sha='a'.repeat(64);
+ const evidence={poster_url:r.poster_image_url,sha256:sha,loaded:true,natural_width:1200};
+ const review={event_id:r.event_id,event_date:'14/10/2026',poster_url:r.poster_image_url,asset_sha256:sha,
+  verdict:'MATCH',confidence:0.99,evidence_url:'https://organizer.example.com/show',title_match:true,date_match:true};
+ const report=P.triage({rows:[r],delivery_by_event:{[r.event_id]:evidence},vision_reviews:[review,{...review}]});
+ assert.equal(report.findings[0].vision_status,'NOT_REVIEWED');
+ assert.equal(report.findings[0].owner_approved,false);
+ assert.equal(report.ai_can_approve,false);
+});
