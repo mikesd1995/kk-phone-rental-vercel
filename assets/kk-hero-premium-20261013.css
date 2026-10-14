@@ -290,6 +290,31 @@ html .kk-mock-hero .kk-hero-art::after{
   html .kk-mock-hero{
     padding:8px 17px!important;
   }
+  /* Preserve all four header actions within the 320px row, including
+     large-font / translated browser settings. The named brand link retains
+     its aria-label; only overflowed visible brand text may ellipsize. */
+  html .v3-header .v3-brand{
+    flex:1 1 auto!important;
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  html .v3-header .v3-brand-copy{
+    min-width:0!important;
+    max-width:100%!important;
+    overflow:hidden!important;
+  }
+  html .v3-header .v3-brand-copy strong{
+    display:block!important;
+    max-width:100%!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  html .v3-header .v3-header-actions{
+    flex:0 0 auto!important;
+    margin-left:0!important;
+    gap:1px!important;
+  }
   /* Earlier V5 hides the only FAQ entry point at 320px. Restore it as a
      44px keyboard/touch button without removing the theme/language controls. */
   html .v3-header .header-faq-btn{
