@@ -4,6 +4,8 @@
 const KKACL_BOOK='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const KKACL_EXPECTED=["11lLELLP0U5s26pSnq83KEoJErDaRVbhc","11n_PykjFNHUaHN_Qn98dAKxRi-is3PY6","16EZbR0m4aKuiJqC9X-hX21u1ANa9_WIZ","17d_8sRmJZTfqY2niE7LjLY1cwXM_sh7b","1IJQ-3QTldmIMN886hs639cDh8l0I7l1N","1IuFwiQGTLFKu_kLy0IRDYQXlwWdeAXxB","1JhOUPGj9Qoi6r--zFEG0Bl-QCM5FK0O1","1MSARhcxKGVuZo4-HxdDmB6le2tl2mkrl","1OVYGQIlzt-n_la8eKKwgFIBcrrVxix78","1TKVc01SYSIP0TLFG9R3Ay3w0SKT-_S83","1UZRolQljkxmbbIWdH0k_Zl3XnQh_Gi8L","1V2sHeGxCuWZxGfL7JJIAAdTDBWGWrgNj","1YAQKhOGwvtug-Z2Uae3wjFEYsxPGPz9J","1a72uNH2xAv_srOWwLY35tmXAvTJDw1Aw","1ayPxgd5_3Qa7DUwLu_5Kka90uwEPBMp2","1bsdn_iG_QEXudZIyqu-EL2gFaAkPZUHo","1dNV0SMV-y1UJraKmor2d7mYY-FvZn-9Y","1gRBzNK9FzB4dFd79Ifmfl_tuKOa4WDV9","1g_FLQ20KKd4hnxgUtJxyS775v5eX6PS2","1m-nHtWvAiVjeMycJdpWY5hTyyzNaLAuz","1nC3VeMJdiK3zie_6i1LV6m5aOPpEz_Ka","1oIzFoFiN3fz4mWUBaP82rtWrgLxptX2z","1oqhMwTdMLcIrVCUOTeJqDWvYeey3Fgxc","1qzZg3s9Wshx5IwAQ1ibnUP8oihuJSWL4","1sPjzmpjXPX5ax0e0ecYsC_Oj38K9gENI","1tFUzjXutDTuDTJxSg9vIHU2Pdg-Ob9m4","1tHq2I1PH4G7N0DECJvRCCghMZ8mP91u8","1uBAI1XN1U2MtT_kHFWFG8WLOcKMrXqPb","1usY7HMNml4plj98EQSJ9JGvvAlbsZSs0","1xCGMxDDqmKadYua8bjmlcHz-bzjMlQAO","1xpd3LaQEYjXB-yb-MS7z5xA_WdNEEp79","1yV2GACqS2IkzfBGGNTQFOwL6zUt1s7mo","1zt_jnwkr7mnFHUHOh8kXVdcd0MlgPErj"];
 const KKACL_FOLDERS=['1avy3Up3NJskqB7kCzQoQPWKK3-j1qJqS','1haTk15ElLwZM8NFcLvK36tbyLZo5wnzw','1uIfM-KV6FrJRQIP0ZNso7-ibZiSo1nwQ','1m6sOf1vl6l_tHscb-tNkTUjlEy82ELHl'];
+// Limit each explicitly owner-approved run; refresh Dry Run + fingerprint before each batch.
+const KKACL_MAX_WRITES_PER_APPROVAL=25;
 
 function kkAclReadActive_20261013(){
   const ss=SpreadsheetApp.openById(KKACL_BOOK), a=ss.getSheetByName('01_Events'),b=ss.getSheetByName('08_Web_Ready');
@@ -98,29 +100,38 @@ function kkAclApply_20261013(approvedFingerprint){
   const before=kkAclSnapshot_20261013();
   if(approvedFingerprint!==before.fingerprint)throw Error('ACL_CHANGED_SINCE_OWNER_APPROVAL');
   const ordered=before.items.slice().sort((a,b)=>a.depth-b.depth||(a.kind==='folder'?-1:1));
+  const pending=ordered.filter(it=>it.role===String(DriveApp.Permission.EDIT));
+  const batch=pending.slice(0,KKACL_MAX_WRITES_PER_APPROVAL);
   const updated=[],failed=[];
-  for(const it of ordered){
-    if(it.role===String(DriveApp.Permission.VIEW))continue;
+  for(const it of batch){
     try {
       it.obj.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW);
       if(kkAclRole_20261013(it.obj)!==String(DriveApp.Permission.VIEW))throw Error('ACL_READBACK_FAIL');
       updated.push(it.id);
-    }catch(e){failed.push({id:it.id,reason:String(e)});}
+    }catch(e){failed.push({id:it.id,reason:String(e)});break;} // Stop on first provider failure; no broad cascading attempt.
   }
   const after=kkAclSnapshot_20261013();
-  const result={updated:updated.length,failures:failed,residual_writers:after.writers,
-                active:after.active,images:after.images,folders:after.folders};
+  const result={updated:updated.length,batch_limit:KKACL_MAX_WRITES_PER_APPROVAL,
+                failures:failed,residual_writers:after.writers,active:after.active,
+                images:after.images,folders:after.folders,need_new_owner_dry_run:after.writers>0};
   Logger.log(JSON.stringify(result));
-  if(failed.length||after.writers||after.images!==before.images||after.folders!==before.folders)
+  if(failed.length||after.writers>before.writers||after.images!==before.images||
+     after.folders!==before.folders||after.items.length!==before.items.length)
     throw Error('PARTIAL_OR_DRIFTED_ACL_REPAIR:'+JSON.stringify(result));
-  return {ok:true,updated:updated.length,reader_verified:after.items.length,active_files:after.active};
+  // Remaining writers are an explicit HOLD, never falsely report a completed repair.
+  // Any subsequent batch REQUIRES a new owner-reviewed Dry Run and fingerprint.
+  return {ok:after.writers===0,partial:after.writers>0,
+          updated:updated.length,remaining_writers:after.writers,
+          reader_verified:after.items.length-after.writers,active_files:after.active,
+          need_new_owner_dry_run:after.writers>0};
 }
 
 
 /**
  * Owner UI entrypoint. Replace the placeholder ONLY after reviewing the Dry Run
  * fingerprint and ALL scoped descendants of Brand/Brand Kit and both Posters
- * directories. No automatic trigger should be set.
+ * directories. Each run changes at most 25 entries; review a NEW Dry Run and
+ * fingerprint before the next batch. Never add an automatic trigger.
  *
  * Note: Google Apps Script's editor cannot pass function arguments directly.
  * Replacing this placeholder is an explicit owner approval of the live
