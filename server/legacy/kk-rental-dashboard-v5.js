@@ -6,6 +6,7 @@
 const legacyHandler = require('../rental-dashboard-core.js');
 const privateSheets = require('../../api/lib/private-google-sheets');
 const CorePrivacy = require('../core-sheet-private-reader.js');
+const BookedQuote = require('../rental-analytics-booked-quote.js');
 const AdminSecurity = require('../admin-session.js');
 
 const DEFAULT_CORE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -134,7 +135,10 @@ function aggregate(rows){
   for(const r of non){
     const amount=r.amount_received||0;
     const actualAmount=r.status==="completed"?amount:0;
-    const futureAmount=activeSet.has(r.status)?amount:0;
+    const futureAmount=activeSet.has(r.status)?BookedQuote.positivePrice(r.package_price):0;
+    if(activeSet.has(r.status) && futureAmount===null){
+      const err=new Error('RENTAL_ACTIVE_QUOTE_UNVERIFIED');err.code='RENTAL_ACTIVE_QUOTE_UNVERIFIED';throw err;
+    }
     const forecastAmount=actualAmount+futureAmount;
     actualRevenue+=actualAmount;
     futureRevenue+=futureAmount;
@@ -226,7 +230,7 @@ function aggregate(rows){
     `Affiliation Coverage ตอนนี้ ${non.length?((affKnown/non.length)*100).toFixed(1):"0.0"}% ของ booking ที่นับในรายงาน; Unknown ${affUnknown} คิว`,
     "Top Affiliation เรียงจากลูกค้าไม่ซ้ำ → Booking → จำนวนงาน เพื่อใช้ตัดสินใจว่าจะโฟกัสค่ายใดเป็นพิเศษ",
     "รายรับจริง = SUM(amount_received) เฉพาะ booking ที่ status=completed",
-    "รายรับในอนาคต = SUM(amount_received) เฉพาะ booking ที่ยัง Active: pending / confirmed / prepared / picked_up / returned / uploaded",
+    "รายรับในอนาคต = SUM(package_price) จาก Master Booking X ที่ยืนยัน booking_id + event_id + status + package_type ตรงกัน สำหรับ pending / confirmed / prepared / picked_up / returned / uploaded เท่านั้น (ไม่ใช่ amount_received O)",
     "คาดการณ์รายรับรวม = รายรับจริง + รายรับในอนาคต; cancelled / no_show / สถานะว่างไม่ถูกนับ และ booking หนึ่งรายการอยู่ได้เพียง bucket เดียว",
     "metrics.amount_received คงไว้เป็น compatibility alias ของ forecast_revenue; UI ไม่แสดง field นี้ว่าเป็นยอดรับจริงอีก",
     "API response ไม่ส่งชื่อ เบอร์โทร หรือ contact ลูกค้ารายบุคคลกลับ browser"
@@ -243,25 +247,34 @@ module.exports=async function handler(req,res){
   const coreSheetId=String(process.env.GOOGLE_SHEET_ID||DEFAULT_CORE_SHEET_ID).trim();
   const crmSheetId=String(process.env.KK_CRM_SHEET_ID||DEFAULT_CRM_SHEET_ID).trim();
   const trackerId=String(process.env.KK_EVENT_TRACKER_SHEET_ID||DEFAULT_TRACKER_ID).trim();
+  // Active Booking quotes may never be read from public Core GViz.
+  if(!CorePrivacy.enabled() || !CorePrivacy.state().configured){
+    return json(res,503,{ok:false,error:'RENTAL_MASTER_PRIVATE_SOURCE_REQUIRED'});
+  }
   const env=Object.assign({},process.env,{KK_CRM_SHEET_ID:crmSheetId});
   const cfg=privateSheets.configState(CorePrivacy.enabled()?Object.assign({},env,{GOOGLE_SHEET_ID:''}):env);
   if(!cfg.configured)return coreFallback(req,res,'PRIVATE_READER_NOT_CONFIGURED');
 
   const started=Date.now();
   try{
-    const [helperCsv,archiveEventsCsv,currentEventsCsv,registryResult]=await Promise.all([
+    const [helperCsv,archiveEventsCsv,currentEventsCsv,masterCsv,registryResult]=await Promise.all([
       privateSheets.readValuesCsv({sheetId:crmSheetId,range:'_Rental_Dashboard_Data!A1:O',env}),
       privateSheets.readValuesCsv({sheetId:crmSheetId,range:'13_Event_Archive!A1:Z',env}),
       (CorePrivacy.enabled()?CorePrivacy.readCsv({sheetId:coreSheetId,sheet:'01_Events',range:'A4:Z'}):fetchCsv(coreSheetId,'01_Events','A4:Z')),
+      CorePrivacy.readCsv({sheetId:coreSheetId,sheet:'00_Master_Booking',range:'A4:X'}),
       fetchCsv(trackerId,'_Artist_Registry','A1:E').then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:''}))
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
     const meta=eventMetadata(currentEventsCsv,archiveEventsCsv,registryRules);
     const rows=parseHelper(helperCsv,meta,registryRules);
-    const data=aggregate(rows);
+    const verified=BookedQuote.bookedPriceRows(rows,masterCsv,parseCsv);
+    const data=aggregate(verified);
     data.data_source={mode:'crm_private',private_reader:true,auth_mode:cfg.authMode,core_sheet_id:coreSheetId,crm_sheet_id:crmSheetId,latency_ms:Date.now()-started,read_model:'VALUES_ONLY'};
     return json(res,200,{ok:true,data});
   }catch(err){
+    if(err&&String(err.code||'').startsWith('RENTAL_')){
+      return json(res,503,{ok:false,error:String(err.code)});
+    }
     if(String(process.env.KK_CRM_REQUIRE_PRIVATE||'').trim()==='1'){
       return json(res,503,{ok:false,error:'CRM private reader unavailable',error_code:String((err&&err.code)||'CRM_PRIVATE_READ_FAILED')});
     }
