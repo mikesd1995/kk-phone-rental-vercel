@@ -5,9 +5,9 @@ const ACTIVE=new Set(['pending','confirmed','prepared','picked_up','returned','u
 const norm=v=>String(v==null?'':v).trim();
 function error(code){const e=new Error(code);e.code=code;return e;}
 function positivePrice(value){
-  const s=norm(value).replace(/,/g,'');
-  if(!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(s))return null;
-  const n=Number(s);
+  const raw=norm(value);
+  if(!/^(?:(?:0|[1-9]\d*)(?:\.\d{1,2})?|[1-9]\d{0,2}(?:,\d{3})+(?:\.\d{1,2})?)$/.test(raw))return null;
+  const n=Number(raw.replace(/,/g,''));
   return Number.isFinite(n)&&n>0&&Number.isSafeInteger(Math.round(n*100))?n:null;
 }
 function key(id,eventId){return norm(id)+'\u0000'+norm(eventId);}
