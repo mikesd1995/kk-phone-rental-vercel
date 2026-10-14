@@ -344,3 +344,20 @@ test('public projection rejects row-width overflow, preserves current production
  assert.ok(handler._test.validatedPublicFeedRows('08_Web_Ready',good));
  assert.equal(handler._test.validatedPublicFeedRows('08_Web_Ready',unsafe),null);
 });
+
+
+test('public advertising notes redact synthetic contact indicators without affecting event/date/price copy',()=>{
+ const csv=[
+  'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template',
+  'EVT-SAFE,Event,14/10/2026,Venue,,คอนเสิร์ต 2026 ราคา 890 บาท,2,1,available,show,จองทาง LINE',
+  'EVT-MOBILE,Event,14/10/2026,Venue,,ติดต่อ 0999999999,2,1,available,show,จอง',
+  'EVT-EMAIL,Event,14/10/2026,Venue,,อีเมล dummy@example.invalid,2,1,available,show,จอง'
+ ].join('\n');
+ const result=handler._test.sanitizePublicCsv('08_Web_Ready',csv);
+ const parsed=handler._test.parseCsvRows(result.text);
+ assert.equal(result.redacted,2);
+ assert.match(parsed[1][5],/ราคา 890/);
+ assert.equal(parsed[2][5],'');
+ assert.equal(parsed[3][5],'');
+ assert.doesNotMatch(result.text,/0999999999|dummy@example.invalid/);
+});
