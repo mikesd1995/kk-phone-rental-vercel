@@ -23,7 +23,7 @@ test('missing image keeps event visible and never requests writes',()=>{
   assert.equal(JSON.stringify(original),frozen);
 });
 
-test('all 3 verified past wrong-event URL pairs fail closed',()=>{
+test('all 6 verified past wrong-event or wrong-date URL pairs fail closed',()=>{
  for(const [id,url] of Object.entries(P.KNOWN_WRONG)){
    const out=find([row(id,'Exact Event',url)]);
    assert.ok(out.findings[0].reasons.includes('KNOWN_WRONG_EVENT_ART'));
@@ -32,6 +32,33 @@ test('all 3 verified past wrong-event URL pairs fail closed',()=>{
    assert.equal(corrected.blocked,0,'a new verified poster is not suppressed by stale exact URL');
    const other=find([row('NOT-'+id,'Different Event',url)]);
    assert.ok(!other.findings[0].reasons.includes('KNOWN_WRONG_EVENT_ART'));
+ }
+});
+test('date-specific poster exclusions cannot block the valid other day or new official image',()=>{
+ const cases=[
+  {bad:'EVT-20261023-LYKN-REFLEXION-CONCERT-2',good:'EVT-20261024-LYKN-REFLEXION-CONCERT',date:'23/10/2026'},
+  {bad:'EVT-20261115-2026-K-POP-MASTERZ-SPECIAL-L',good:'EVT-20261114-2026-K-POP-MASTERZ-SPECIAL-L',date:'15/11/2026'},
+  {bad:'EVT-20261127-FORTREASURE-BEYOND-HORIZON',good:'EVT-20261129-FORTREASURE-BEYOND-HORIZON',date:'27/11/2026'}
+ ];
+ assert.equal(Object.keys(P.KNOWN_WRONG).length,6);
+ for(const c of cases){
+  const url=P.KNOWN_WRONG[c.bad];assert.ok(url);
+  const bad=row(c.bad,'Original concert',url,c.date);
+  const frozen=JSON.stringify(bad);
+  const flagged=find([bad]).findings[0];
+  assert.equal(flagged.verdict,'BLOCKED_NEEDS_POSTER');
+  assert.ok(flagged.reasons.includes('KNOWN_WRONG_EVENT_ART'));
+  assert.equal(JSON.stringify(bad),frozen,'do not mutate business records');
+  const correctShow=row(c.good,'Original concert',url,'29/11/2026','show_full');
+  const okay=find([correctShow]);
+  assert.equal(okay.blocked,0,'the other show day must not be blocked by ID-specific evidence');
+  assert.ok(!okay.findings[0].reasons.includes('KNOWN_WRONG_EVENT_ART'));
+  const newPoster=find([row(c.bad,'Original concert','https://organizer.example.org/updated-exact-date-poster.jpg',c.date)]);
+  assert.equal(newPoster.blocked,0,'new verified media URL can be installed after human review');
+  assert.equal(newPoster.production_writes,0);
+  assert.equal(newPoster.booking_writes,0);
+  assert.equal(newPoster.pricing_writes,0);
+  assert.equal(newPoster.visibility_writes,0);
  }
 });
 test('shop hero flags generic source regardless of event name',()=>{
