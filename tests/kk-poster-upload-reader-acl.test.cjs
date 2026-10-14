@@ -12,7 +12,10 @@ const names = [
   'kkVerifyDriveAnyoneReader_',
   'kkDrivePermissionApiSetAnyone_',
   'kkEnsureDriveFilePublic_',
-  'kkApiUploadPoster_'
+  'kkApiUploadPoster_',
+  'kkExtractDriveFileId_',
+  'kkNormalizePoster_',
+  'kkPosterForWrite_'
 ];
 function extract(name) {
   const marker = 'function ' + name + '(';
@@ -98,6 +101,7 @@ function fixture(overrides = {}) {
   return {state, verify:id => sandbox.kkVerifyDriveAnyoneReader_(id),
     ensure:id => sandbox.kkEnsureDriveFilePublic_(id),
     api:id => sandbox.kkDrivePermissionApiSetAnyone_(id),
+    poster:url => sandbox.kkPosterForWrite_(url),
     upload:() => sandbox.kkApiUploadPoster_({
       base64:'synthetic-image-bytes', mimeType:'image/jpeg', fileName:'verified-event.jpg'
     })};
@@ -162,4 +166,31 @@ test('verified reader parent and reader file allow normal poster URL result', ()
   assert.equal(x.public_checked,true);
   assert.match(x.url,/^https:\/\/drive.google.com\/thumbnail\?id=EXACT_POSTER_ID/);
   assert.equal(f.state.created,1);
+});
+
+test('owner-supplied existing Drive poster URL cannot publish Writer permission', () => {
+  const f=fixture({apiAnyoneRole:'writer',postStatus:409});
+  assert.throws(() => f.poster('https://drive.google.com/thumbnail?id=EXACT_POSTER_ID'),
+    /POSTER_EXISTING_DRIVE_FILE_NOT_READER/);
+});
+test('owner-supplied Drive poster is accepted after provider Reader readback', () => {
+  const f=fixture();
+  const r=f.poster('https://drive.google.com/thumbnail?id=EXACT_POSTER_ID');
+  assert.equal(r.public_checked,true);
+  assert.match(r.url,/thumbnail\?id=EXACT_POSTER_ID/);
+});
+test('empty poster URL stays empty and does not perform provider writes', () => {
+  const f=fixture();
+  const r=f.poster('');
+  assert.equal(r.url,'');
+  assert.equal(f.state.getCalls,0);
+  assert.equal(f.state.postCalls,0);
+});
+test('external non-Drive image URL stays outside Drive ACL changer', () => {
+  const f=fixture();
+  const url='https://cdn.example.test/official-specific-event.jpg';
+  const r=f.poster(url);
+  assert.equal(r.url,url);
+  assert.equal(f.state.postCalls,0);
+  assert.equal(f.state.setSharingCalls,0);
 });
