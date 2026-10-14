@@ -85,7 +85,7 @@ test('schema validation must not mistake a private data row for the header',()=>
   assert.equal(Preflight.hasHeader([['not_booking_id']],'booking_id'),false);
 });
 test('private probe fails closed if a missing header appears only as a data value',async()=>{
-  const expected=new Map(Object.values(AdminFallback.SPECS).map(s=>[s.sheet,s.header]));
+  const expected=new Map([...Object.values(AdminFallback.SPECS),...Object.values(Preflight.EXTRA_SPECS)].map(s=>[s.sheet,s.header]));
   const state=await Preflight.probe({
     env,
     reader:async ({sheet})=>{
