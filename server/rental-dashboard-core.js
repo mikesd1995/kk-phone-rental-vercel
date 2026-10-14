@@ -2,6 +2,7 @@
 // Reads aggregate-helper/event metadata through Google Sheets gviz. Returns aggregate metrics only; no PII leaves this endpoint.
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 const AdminSecurity = require('./admin-session.js');
+const CorePrivacy = require('./core-sheet-private-reader.js');
 
 function json(res,status,body){
   res.statusCode=status;
@@ -277,9 +278,9 @@ module.exports=async function handler(req,res){
   const trackerId=String(process.env.KK_EVENT_TRACKER_SHEET_ID||"1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo").trim();
   try{
     const [helperCsv,currentEventsCsv,archiveEventsCsv,registryResult]=await Promise.all([
-      fetchCsv(sheetId,"_Rental_Dashboard_Data","A1:O"),
-      fetchCsv(sheetId,"01_Events","A4:Z"),
-      fetchCsv(sheetId,"13_Event_Archive","A1:Z"),
+      (CorePrivacy.enabled()?CorePrivacy.readCsv({sheetId,sheet:"_Rental_Dashboard_Data",range:"A1:O"}):fetchCsv(sheetId,"_Rental_Dashboard_Data","A1:O")),
+      (CorePrivacy.enabled()?CorePrivacy.readCsv({sheetId,sheet:"01_Events",range:"A4:Z"}):fetchCsv(sheetId,"01_Events","A4:Z")),
+      (CorePrivacy.enabled()?CorePrivacy.readCsv({sheetId,sheet:"13_Event_Archive",range:"A1:Z"}):fetchCsv(sheetId,"13_Event_Archive","A1:Z")),
       fetchCsv(trackerId,"_Artist_Registry","A1:E").then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:""}))
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
