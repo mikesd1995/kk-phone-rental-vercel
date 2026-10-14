@@ -174,9 +174,21 @@ async function main(fetchImpl=global.fetch, options={}){
   });
   // Source/image identity is independent of HTTP health. No AI network calls or
   // source-of-truth mutation are ever performed by this advisory audit.
+  // Only attach supplemental digest evidence to its exact current event/source.
+  // A stale/wrong-URL observation cannot upgrade the current poster review.
+  const supplemental=Array.isArray(options.decoded_observations)?options.decoded_observations:[];
+  const deliveryByEvent=Object.fromEntries(events.map(e=>{
+    const hits=supplemental.filter(x=>text(x.event_id)===e.event_id&&text(x.poster_url)===e.canonical);
+    const obs=hits.length===1?hits[0]:null;
+    return [e.event_id,{
+      candidates:e.candidates,
+      ...(obs?{poster_url:e.canonical,loaded:obs.loaded===true,
+        natural_width:Number(obs.natural_width)||0,sha256:text(obs.sha256)}:{})
+    }];
+  }));
   const integrity=PosterIntegrity.triage({
-    rows,as_of:asOf,
-    delivery_by_event:Object.fromEntries(events.map(e=>[e.event_id,{candidates:e.candidates}]))
+    rows,as_of:asOf,delivery_by_event:deliveryByEvent,
+    vision_reviews:Array.isArray(options.vision_reviews)?options.vision_reviews:[]
   });
   const failed=events.filter(e=>e.status==='FAIL');
   const recovered=events.filter(e=>e.recovered_by_fallback);
@@ -198,12 +210,27 @@ async function main(fetchImpl=global.fetch, options={}){
   return report;
 }
 if(require.main===module){
-  const args=process.argv.slice(2);
-  const flags=args.filter(a=>/^--as-of=\d{4}-\d{2}-\d{2}$/.test(a));
-  if(args.length!==flags.length||flags.length>1){
-    console.error(JSON.stringify({ok:false,error:'INVALID_AUDIT_ARGUMENTS'}));
+  const argv=process.argv.slice(2),raw={};
+  try{
+    for(const arg of argv){
+      const m=arg.match(/^--(as-of|observations-file|vision-file)=(.+)$/);
+      if(!m||raw[m[1]])throw Error('INVALID_AUDIT_ARGUMENTS');
+      raw[m[1]]=m[2];
+    }
+    const readJson=path=>{
+      if(!path)return [];
+      const values=JSON.parse(require('node:fs').readFileSync(path,'utf8'));
+      if(!Array.isArray(values))throw Error('POSTER_EVIDENCE_MUST_BE_ARRAY');
+      return values;
+    };
+    main(global.fetch,{
+      as_of:raw['as-of'],
+      decoded_observations:readJson(raw['observations-file']),
+      vision_reviews:readJson(raw['vision-file'])
+    }).catch(err=>{console.error(JSON.stringify({ok:false,error:text(err&&err.message)||'AUDIT_FAILED'}));process.exitCode=1;});
+  }catch(err){
+    console.error(JSON.stringify({ok:false,error:text(err&&err.message)||'INVALID_AUDIT_ARGUMENTS'}));
     process.exitCode=1;
-  }else main(global.fetch,{as_of:flags.length?flags[0].slice('--as-of='.length):undefined})
-   .catch(err=>{console.error(JSON.stringify({ok:false,error:text(err&&err.message)||'AUDIT_FAILED'}));process.exitCode=1;});
+  }
 }
 module.exports={parseCsv,objects,eventDateKey,emergencyPoster,driveId,candidates,host,publicImageUrl,hasImageSignature,probe,pool,main};
