@@ -170,3 +170,89 @@ test('public redirect to public image remains supported and bounded',async()=>{
  assert.equal(out.final_url,'https://cdn.example.com/new.jpg');
  assert.deepEqual(calls,['https://media.example.com/old','https://cdn.example.com/new.jpg']);
 });
+
+
+test('Bangkok date scope includes show_full with blank poster but does not mutate Booking',()=>{
+ const booked=row('EVT-20261023-LYKN-REFLEXION-CONCERT-2','LYKN REFLEXION CONCERT','','23/10/2026','show_full');
+ const past=row('EVT-20261012-PAST','Past','', '12/10/2026','show');
+ const hidden=row('EVT-20261024-HIDDEN','Hidden','','24/10/2026','hide');
+ const original=JSON.stringify([booked,past,hidden]);
+ const out=P.triage({rows:[booked,past,hidden],as_of:'2026-10-14'});
+ assert.equal(out.visible_events,1);
+ assert.equal(out.findings[0].event_id,booked.event_id);
+ assert.equal(out.blocked,1);
+ assert.equal(out.as_of,'2026-10-14');
+ assert.equal(out.booking_writes,0);assert.equal(out.visibility_writes,0);
+ assert.equal(JSON.stringify([booked,past,hidden]),original);
+});
+test('Buddhist calendar date is normalized for Thai poster reviews',()=>{
+ assert.equal(P.dateKey('14/10/2569'),'2026-10-14');
+ assert.equal(P.dateKey('31/02/2569'),'');
+});
+test('same proven byte hash across distinct URLs is review only',()=>{
+ const a=row('EVT-20261015-ONE','First event','https://one.example.com/photo.jpg','15/10/2026');
+ const b=row('EVT-20261016-TWO','Second event','https://other.example.com/copy.jpg','16/10/2026');
+ const hash='a'.repeat(64);
+ const input={rows:[a,b],delivery_by_event:{
+ [a.event_id]:{poster_url:a.poster_image_url,loaded:true,natural_width:1000,sha256:hash},
+ [b.event_id]:{poster_url:b.poster_image_url,loaded:true,natural_width:1000,sha256:hash}
+ }};
+ const out=P.triage(input);
+ assert.equal(out.review,2);
+ assert.ok(out.findings.every(f=>f.reasons.includes('SAME_IMAGE_BYTES_CROSS_EVENT_REVIEW')));
+ assert.ok(out.findings.every(f=>f.official_poster_verified===false));
+ assert.equal(out.production_writes,0);
+});
+test('vision MATCH requires exact event source date bytes independent delivery evidence',()=>{
+ const id='EVT-20261014-POSTER';
+ const a=row(id,'Correct example','https://organizer.example.com/poster.jpg','14/10/2026');
+ const hash='1'.repeat(64);
+ const observation={poster_url:a.poster_image_url,loaded:true,natural_width:1200,sha256:hash};
+ const review={event_id:id,poster_url:a.poster_image_url,event_date:'14/10/2026',verdict:'MATCH',
+  asset_sha256:hash,evidence_url:'https://organizer.example.com/notice',title_match:true,date_match:true,confidence:0.91};
+ const correct=P.triage({rows:[a],delivery_by_event:{[id]:observation},vision_reviews:[review]});
+ assert.equal(correct.findings[0].vision_status,'AI_MATCH_UNVERIFIED_BY_OWNER');
+ assert.equal(correct.findings[0].official_poster_verified,false);
+ assert.equal(correct.findings[0].owner_approved,false);
+ assert.equal(correct.ai_can_approve,false);
+ assert.equal(correct.production_writes,0);
+ const forged=P.triage({rows:[a],delivery_by_event:{[id]:observation},vision_reviews:[{...review,asset_sha256:'2'.repeat(64)}]});
+ assert.equal(forged.findings[0].vision_status,'INCOMPLETE');
+ assert.ok(forged.findings[0].reasons.includes('AI_EVIDENCE_INCOMPLETE_REVIEW'));
+ const stale=P.triage({rows:[a],delivery_by_event:{[id]:observation},vision_reviews:[{...review,poster_url:'https://old.example.com/old.jpg'}]});
+ assert.equal(stale.findings[0].vision_status,'NOT_REVIEWED');
+ const wrongDate=P.triage({rows:[a],delivery_by_event:{[id]:observation},vision_reviews:[{...review,event_date:'15/10/2026'}]});
+ assert.equal(wrongDate.findings[0].vision_status,'NOT_REVIEWED');
+});
+test('AI negative feedback is owner-review warning, never autonomous poster change',()=>{
+ const a=row('EVT-20261014-POSTER','Event','https://organizer.example.com/poster.jpg');
+ const report=P.triage({rows:[a],vision_reviews:[{
+  event_id:a.event_id,poster_url:a.poster_image_url,event_date:'14/10/2026',verdict:'MISMATCH'
+ }]});
+ assert.equal(report.findings[0].vision_status,'MISMATCH_REPORTED');
+ assert.ok(report.findings[0].reasons.includes('AI_REPORTED_ART_MISMATCH_REVIEW'));
+ assert.equal(report.findings[0].official_poster_verified,false);
+ assert.equal(report.poster_writes,0);
+});
+test('temporary artwork note and evidence review queue do not certify source',()=>{
+ const r=row('EVT-20261014-TEMP','Temporary','https://organizer.example.com/photo.jpg');
+ r.event_note='TEMP_IMAGE รอโปสเตอร์ต้นฉบับ';
+ const out=P.triage({rows:[r]});
+ assert.equal(out.review,1);
+ assert.ok(out.findings[0].reasons.includes('TEMPORARY_ARTWORK_REVIEW'));
+ assert.equal(out.ai_review_queue.length,1);
+ assert.equal(out.ai_review_queue[0].poster_url,r.poster_image_url);
+ assert.equal(out.ai_can_approve,false);
+ assert.equal(out.auto_publish,false);
+});
+test('owner/agent review cannot inject unknown Booking, price, or contact fields in evidence',()=>{
+ const r=row('EVT-20261014-SENSITIVE','Secure','https://event.example.com/photo.png');
+ r.booking_id='BKG-MUST-NOT-BE-EMITTED';
+ r.customer_phone='PRIVATE123';
+ const out=P.triage({rows:[r]});
+ assert.equal(JSON.stringify(out).includes('BKG-MUST-NOT-BE-EMITTED'),false);
+ assert.equal(JSON.stringify(out).includes('PRIVATE123'),false);
+ assert.equal(out.booking_writes,0);
+ assert.equal(out.pricing_writes,0);
+ assert.equal(out.inventory_writes,0);
+});
