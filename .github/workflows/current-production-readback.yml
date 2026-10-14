@@ -2,6 +2,9 @@ name: Current Production Readback
 
 on:
   workflow_call:
+    secrets:
+      VERCEL_TOKEN:
+        required: false
 
 permissions:
   contents: read
