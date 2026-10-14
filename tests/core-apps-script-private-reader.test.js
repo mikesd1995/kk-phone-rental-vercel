@@ -11,7 +11,8 @@ const env={
   KK_CORE_SHEET_REQUIRE_PRIVATE:'1',KK_CORE_PRIVATE_TRANSPORT:'apps-script',
   GOOGLE_SHEET_ID:'private-core-example',
   KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/example_123-AB/exec',
-  KK_ADMIN_API_KEY:'SECRET_NOT_FOR_OUTPUT'
+  KK_ADMIN_API_KEY:'SECRET_NOT_FOR_OUTPUT',
+  KK_CORE_PRIVATE_READ_KEY:'unit_fixture_read_key_abcdefghijklmnopqrstuvwxyz_12345'
 };
 const config={...env,GOOGLE_SERVICE_ACCOUNT_EMAIL:undefined,GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:undefined};
 function okResponse(values,extra={}){
@@ -31,7 +32,9 @@ test('alternate transport is strictly opt-in and rejects non-Google/script URL/c
   'https://script.google.com.evil.test/macros/s/example/exec',
   'https://script.google.com/macros/s/example/exec#xx'
  ])assert.equal(script.scriptState({...config,KK_ADMIN_SCRIPT_URL:bad}).configured,false,bad);
- assert.equal(script.scriptState({...config,KK_ADMIN_API_KEY:''}).configured,false);
+ assert.equal(script.scriptState({...config,KK_ADMIN_API_KEY:''}).configured,true);
+ assert.equal(script.scriptState({...config,KK_CORE_PRIVATE_READ_KEY:''}).configured,false);
+ assert.equal(script.scriptState({...config,KK_CORE_PRIVATE_READ_KEY:'short'}).configured,false);
 });
 test('Apps Script Core read stays bound to canonical Core ID and Google HTTPS URL',async()=>{
  let sent=null;
@@ -45,7 +48,8 @@ test('Apps Script Core read stays bound to canonical Core ID and Google HTTPS UR
  const body=JSON.parse(sent.options.body);
  assert.equal(body.action,'privateCoreRead');
  assert.equal(body.coreSheetId,env.GOOGLE_SHEET_ID);
- assert.equal(body.apiKey,env.KK_ADMIN_API_KEY);
+ assert.equal(body.readKey,env.KK_CORE_PRIVATE_READ_KEY);
+ assert.equal(body.apiKey,undefined);
  assert.equal(body.sheet,'08_Web_Ready');
  assert.equal(body.range,'A4:K');
  assert.equal(core.requireExplicitPrivateSource(env.GOOGLE_SHEET_ID,config),env.GOOGLE_SHEET_ID);
