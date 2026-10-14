@@ -271,7 +271,14 @@ function fetchIdentityKey(fetchImpl){
 function snapshotCacheKey(sheetId,env,fetchImpl){
   const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE)||CorePrivacy.enabled(env);
   const privateConfigured=CorePrivacy.enabled(env) ? CorePrivacy.state(env).configured : !!privateSheets.credentialsFromEnv(env);
-  return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',fetchIdentityKey(fetchImpl)].join('|');
+  // Never reuse a snapshot across private transport/credential cutovers.
+  // Hash the credential identity, not the key itself; no secrets in cache keys/logs.
+  const crypto=require('node:crypto');
+  const source=CorePrivacy.enabled(env)?CorePrivacy.state(env):null;
+  const transport=source?source.transport:'legacy';
+  const credential=source&&transport==='apps-script'?String(env.KK_CORE_PRIVATE_READ_KEY||''):'';
+  const credentialTag=credential?crypto.createHash('sha256').update(credential).digest('hex').slice(0,16):'unset';
+  return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',transport,credentialTag,fetchIdentityKey(fetchImpl)].join('|');
 }
 
 function clearSnapshotCache(){
