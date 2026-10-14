@@ -46,13 +46,21 @@ test('router has exactly ten strictly owner-gated target jobs with least privile
   assert.doesNotMatch(source, /vercel\s+(?:deploy|build)|actions\/checkout|curl .*api\.vercel\.com/i);
   for (const route of ROUTES) {
     const block = jobBlock(source, route.id);
-    const check = route.prefix
-      ? "startsWith(github.event.comment.body, '" + route.command + "')"
-      : "github.event.comment.body == '" + route.command + "'";
+    const check = route.id === 'ultra_deep_full_loop'
+      ? "startsWith(github.event.comment.body, '/run-ultra-deep-full-loop ')"
+      : route.prefix
+        ? "startsWith(github.event.comment.body, '" + route.command + "')"
+        : "github.event.comment.body == '" + route.command + "'";
     assert.ok(block.includes('github.event.issue.number == ' + route.issue), route.id + ' issue gate');
     assert.ok(block.includes('github.event.comment.user.login == github.repository_owner'), route.id + ' owner gate');
     assert.ok(block.includes("github.event.comment.author_association == 'OWNER'"), route.id + ' association');
     assert.ok(block.includes(check), route.id + ' command gate');
+    if (route.id === 'ultra_deep_full_loop') {
+      assert.ok(block.includes("github.event.comment.body == '/run-ultra-deep-full-loop'"),
+        'Ultra Deep no-argument form remains allowed');
+      assert.ok(!block.includes("startsWith(github.event.comment.body, '/run-ultra-deep-full-loop')"),
+        'Malformed command suffix must never start the expensive full-loop job');
+    }
     assert.ok(block.includes('uses: ./.github/workflows/' + route.workflow), route.id + ' exact target');
     assert.ok(!block.includes('secrets: inherit'), route.id + ' must not inherit all secrets');
     const needsVercelToken = route.workflow !== 'storefront-production-screenshot-capture.yml' &&
