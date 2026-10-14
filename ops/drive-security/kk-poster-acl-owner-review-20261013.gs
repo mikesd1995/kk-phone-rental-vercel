@@ -99,7 +99,12 @@ function kkAclApply_20261013(approvedFingerprint){
   if(!/^[a-f0-9]{64}$/.test(String(approvedFingerprint||'')))throw Error('OWNER_DRY_RUN_APPROVAL_FINGERPRINT_REQUIRED');
   const before=kkAclSnapshot_20261013();
   if(approvedFingerprint!==before.fingerprint)throw Error('ACL_CHANGED_SINCE_OWNER_APPROVAL');
-  const ordered=before.items.slice().sort((a,b)=>a.depth-b.depth||(a.kind==='folder'?-1:1));
+  // Address currently public-facing surfaces first. Historic images must not
+  // consume the first approval batch while active images remain publicly writable.
+  // Roots and descendant folders remain before images; never reorder after approval.
+  const priority=it=>it.kind==='folder'?0:KKACL_EXPECTED.includes(it.id)?1:2;
+  const ordered=before.items.slice().sort((a,b)=>priority(a)-priority(b)||a.depth-b.depth||
+    (a.id<b.id?-1:a.id>b.id?1:0));
   const pending=ordered.filter(it=>it.role===String(DriveApp.Permission.EDIT));
   const batch=pending.slice(0,KKACL_MAX_WRITES_PER_APPROVAL);
   const updated=[],failed=[];
