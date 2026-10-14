@@ -73,6 +73,10 @@ test('schema error or private auth outage fails the complete probe, with classif
 test('preflight explicitly redacts unrecognized error messages',()=>{
   const e=new Error('CUSTOMER_IDENTIFIER_AND_PRIVATE_TOKEN');
   assert.equal(Preflight.classify(e),'CORE_PRIVATE_PROBE_FAILED');
+  assert.equal(Preflight.classify({code:'CORE_PRIVATE_CUSTOMER_PHONE_66812345678'}),'CORE_PRIVATE_PROBE_FAILED');
+  assert.equal(Preflight.classify({code:'CRM_PRIVATE_READ_FAILED;token=PRIVATE_TOKEN'}),'CORE_PRIVATE_PROBE_FAILED');
+  assert.equal(Preflight.classify({code:'CRM_PRIVATE_READ_FAILED'}),'CRM_PRIVATE_READ_FAILED');
+  assert.equal(Preflight.classify({code:'CORE_PRIVATE_SCHEMA_INVALID'}),'CORE_PRIVATE_SCHEMA_INVALID');
 });
 
 
