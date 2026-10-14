@@ -361,7 +361,7 @@ module.exports = async function handler(req, res) {
   const coreState=CorePrivacy.state(process.env);
   const privateState = corePrivateStrict ? {
     configured:coreState.configured,
-    authMode:coreState.credentialsReady?'service_account':'none',
+    authMode:coreState.authMode,
     sheetIdState:coreState.explicitSheetId?'CORE_SHEET_ID_EXPLICIT':'CORE_SHEET_ID_MISSING'
   } : privateSheets.configState(process.env);
   const hasPrivateReader = privateState.configured;
