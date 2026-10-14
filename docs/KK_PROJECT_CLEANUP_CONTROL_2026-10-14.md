@@ -146,3 +146,9 @@ Read-only review against official GitHub reusable workflow documentation (no hos
 - Official references: https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows and https://github.com/github/docs/blob/main/content/actions/reference/workflows-and-actions/reusing-workflow-configurations.md
 
 **Still not accepted without independent actionlint/Node/hosted runner evidence.** A plausible workflow graph and 124 passing connector assertions cannot prove GitHub Actions accepts and executes each comment command.
+
+## Scanner PR content comparison — 2026-10-14
+
+- #695 versus #732: all six #695 files accessible on both heads; 3/6 blob SHA identical (historical recall doc plus probe-handoff and Thai-date tests), 3/6 runtime JS blobs different. Their base SHAs also differ. HOLD; don't mark fully superseded.
+- Comparison tally: #725/#727 2/9 identical, #722/#727 3/6 identical, #695/#732 3/6 identical, #675/#681 2/2 identical among shared code/test paths, but #675 has unique documentation. No PR closed or discarded.
+- Test hardening: `tests/kk-owner-comment-command-router.test.js` now detects ANY top-level `issue_comment` subscriber, not merely `types: [created]`.
