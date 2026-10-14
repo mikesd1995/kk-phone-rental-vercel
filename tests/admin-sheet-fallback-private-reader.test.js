@@ -81,3 +81,38 @@ test('strict Apps Script cache never reuses prior owner read-key snapshot after 
    assert.doesNotMatch(JSON.stringify(second),new RegExp(key1+'|'+key2));
  }finally{appReader.readValues=saved;F.clearSnapshotCache();}
 });
+
+
+test('strict Core admin snapshot rejects data-row values masquerading as headers',async()=>{
+ const CorePrivacy=require('../server/core-sheet-private-reader.js');
+ const oldRead=CorePrivacy.readValues;
+ const env={
+   GOOGLE_SHEET_ID:'isolated-core-sot',
+   KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+   KK_CORE_PRIVATE_TRANSPORT:'apps-script',
+   KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/isolated_script/exec',
+   KK_ADMIN_API_KEY:'a'.repeat(48),
+   KK_CORE_PRIVATE_READ_KEY:'r'.repeat(48)
+ };
+ const originalHeaders=Object.fromEntries(Object.values(F.SPECS).map(s=>[s.sheet,s.header]));
+ let privateReads=0;
+ CorePrivacy.readValues=async ({sheet})=>{
+   privateReads++;
+   if(sheet==='00_Master_Booking')return [['wrong_heading'],['booking_id','PRIVATE_CUSTOMER_PHONE_FIXTURE']];
+   return [[originalHeaders[sheet]]];
+ };
+ F.clearSnapshotCache();
+ try{
+   await assert.rejects(
+     ()=>F.buildSnapshot({
+       env,sheetId:env.GOOGLE_SHEET_ID,cache:false,
+       fetchImpl:async()=>{throw Error('ANONYMOUS_GVIZ_FORBIDDEN');}
+     }),
+     e=>e&&e.code==='CORE_PRIVATE_SCHEMA_INVALID'&&e.dataset==='bookings'
+   );
+   assert.equal(privateReads,Object.keys(F.SPECS).length);
+ }finally{
+   CorePrivacy.readValues=oldRead;
+   F.clearSnapshotCache();
+ }
+});
