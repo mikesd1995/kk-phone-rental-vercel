@@ -283,3 +283,36 @@ test('owner/agent review cannot inject unknown Booking, price, or contact fields
  assert.equal(out.pricing_writes,0);
  assert.equal(out.inventory_writes,0);
 });
+
+
+test('manual poster health scan limits to selected date, leaves full-booking events unchanged',async()=>{
+ const csv=[
+  'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web',
+  'EVT-20261012-OLD,Old Show,12/10/2026,Bangkok,,,2,2,,show',
+  'EVT-20261023-LYKN-REFLEXION-CONCERT-2,LYKN REFLEXION CONCERT,23/10/2026,IMPACT,,,0,0,เต็ม,show_full',
+  'EVT-20261025-HIDDEN,Owner Hidden,25/10/2026,Bangkok,,,2,2,,hide'
+ ].join('\n')+'\n';
+ let calls=0;
+ const out=await Audit.main(async()=>{
+  calls++;
+  return new Response(csv,{status:200,headers:{'content-type':'text/csv'}});
+ },{silent:true,as_of:'2026-10-14'});
+ assert.equal(calls,1,'no image GET when only selected event poster is empty');
+ assert.equal(out.visible_events,1);
+ assert.equal(out.poster_integrity.visible_events,1);
+ assert.equal(out.poster_integrity.blocked,1);
+ assert.equal(out.poster_integrity.as_of,'2026-10-14');
+ assert.equal(out.production_writes,0);
+ assert.equal(out.business_data_mutations,0);
+});
+test('public poster audit fails closed for bad feed, empty rows, hidden-only and invalid date',async()=>{
+ const feed=async csv=>new Response(csv,{status:200,headers:{'content-type':'text/csv'}});
+ await assert.rejects(()=>Audit.main(()=>feed('wrong,headers\n1,2\n'),{silent:true}),/POSTER_FEED_SCHEMA_INVALID/);
+ await assert.rejects(()=>Audit.main(()=>feed(
+  'event_id,event_name,poster_image_url,action_for_web\n'),{silent:true}),/POSTER_FEED_EMPTY/);
+ await assert.rejects(()=>Audit.main(()=>feed(
+  'event_id,event_name,event_date_text,poster_image_url,action_for_web\nE1,Hidden,14/10/2026,,hide\n'),{silent:true}),/POSTER_NO_VISIBLE_EVENTS/);
+ await assert.rejects(()=>Audit.main(()=>feed(
+  'event_id,event_name,event_date_text,poster_image_url,action_for_web\nE1,Shown,14/10/2026,,show\n'),
+  {silent:true,as_of:'2026-02-30'}),/POSTER_AS_OF_DATE_INVALID/);
+});
