@@ -30,8 +30,16 @@ function kkAclRole_20261013(o, historical){
   const access=String(o.getSharingAccess()),role=String(o.getSharingPermission());
   // Prior private/restricted historic images are not ours to publish or modify.
   // Include their exact access/role in the reviewed fingerprint without writes.
-  if(historical && access!==String(DriveApp.Access.ANYONE_WITH_LINK))
-    return 'RESTRICTED_HISTORICAL:'+access+':'+role;
+  if(historical && access!==String(DriveApp.Access.ANYONE_WITH_LINK)){
+    // ANYONE means public/discoverable, NOT private/restricted. Never silently
+    // exclude a potentially publicly writable historic image from this audit.
+    if(access===String(DriveApp.Access.ANYONE))throw Error('PUBLIC_DISCOVERABLE_HISTORICAL_REVIEW_REQUIRED:'+o.getId());
+    if(access===String(DriveApp.Access.PRIVATE) ||
+       access===String(DriveApp.Access.DOMAIN) ||
+       access===String(DriveApp.Access.DOMAIN_WITH_LINK))
+      return 'RESTRICTED_HISTORICAL:'+access+':'+role;
+    throw Error('UNKNOWN_HISTORICAL_ACCESS:'+o.getId()+':'+access+':'+role);
+  }
   if(access!==String(DriveApp.Access.ANYONE_WITH_LINK) ||
      (role!==String(DriveApp.Permission.EDIT)&&role!==String(DriveApp.Permission.VIEW)))
        throw Error('UNEXPECTED_SHARING_ACCESS:'+o.getId()+':'+access+':'+role);
