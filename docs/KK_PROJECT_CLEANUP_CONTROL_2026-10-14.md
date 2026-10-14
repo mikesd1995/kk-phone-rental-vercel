@@ -160,3 +160,15 @@ Read-only review against official GitHub reusable workflow documentation (no hos
 - Updated checked-in Node regression source to cover the no-argument case and reject the unsafe broad prefix; Node runner execution remains pending.
 - **101/101 dynamic scenarios PASSED in isolated JS on conditions extracted from actual latest router YAML:** 11 positive (including Ultra Deep no-arg) and 90 negative (wrong issue, owner, association, malformed command and untrusted-comment noise). This checks the route predicate model only, not GitHub's hosted expression interpreter or Actions runner execution.
 - Zero Vercel deploy/preview, no GitHub Actions dispatch and no external business writes during this simulation.
+
+## Native offline Node & YAML acceptance — 2026-10-14
+
+**Native execution achieved without Vercel or GitHub-hosted runner:**
+1. GitHub connector fetched the exact branch router `.github/workflows/kk-owner-comment-command-router.yml` with Git blob SHA `03066fd11833dce72d4b437b5324f3c5549d6234`. Reconstructed it byte-for-byte in an isolated container; local computed Git blob SHA matched `03066fd11833dce72d4b437b5324f3c5549d6234` exactly (5,237 bytes).
+2. Parsed the exact YAML with **ruamel.yaml safe parser: PASS**, `on.issue_comment.types=[created]`, **10 jobs**.
+3. Executed Node.js v22.16.0 native `node --check tests/kk-owner-comment-router-evaluation.test.js` **PASS, exit 0** and `node --test tests/kk-owner-comment-router-evaluation.test.js` **2/2 PASS, exit 0**, on local Router whose blob exactly matches GitHub.
+4. Committed the actual Node test under `tests/kk-owner-comment-router-evaluation.test.js` (Git commit `91beedcc13e7bf554e87cf358c82adc63c2412b7`). The tested local test file was 3,918 bytes, Git blob SHA `d0d1c6b294d1c6e57fd03df4c34cda562b63787f`; GitHub branch readback returned the **same blob SHA and byte count**, proving the checked-in test matches the file executed.
+5. Test method: use Node built-ins `node:test`, `node:vm`, `assert`, `fs`; extract **actual** GitHub-style `if` expressions from the exact local Router YAML; emulate `github` event and GitHub `startsWith` for authorized/unauthorized comments without deploying, posting or reading secrets. Includes 10 owner command routes, wrong issue/actor/role, malformed Ultra Deep command boundary and strict equality commands.
+6. This is **native Node predicate acceptance and YAML structural validation**, not an official `actionlint` run, a GitHub-hosted job, a production acceptance test or a proof of Vercel storage savings. `actionlint` is **not installed** in the isolated container and network Git download is unavailable (`Could not resolve host github.com`). No paid dependencies installed.
+
+**Full release gate still HOLD:** exact-head all-repository test suite, GitHub actionlint/workflow validation (including reusable invocation), bounded non-production GitHub-hosted canary, current free-minute/storage measurements, independent security review, owner approval before any Merge/Deploy.
