@@ -30,7 +30,7 @@ function fixture(opts = {}) {
       getId: () => id,
       getName: () => 'Mock asset ' + id.slice(-6),
       getMimeType: () => opts.nonImageID === id ? 'application/pdf' : 'image/jpeg',
-      getSharingAccess: () => opts.privateID === id ? 'PRIVATE' : 'ANYONE_WITH_LINK',
+      getSharingAccess: () => opts.publicDiscoverableID === id ? 'ANYONE' : opts.privateID === id ? 'PRIVATE' : 'ANYONE_WITH_LINK',
       getSharingPermission: () => roles[id] || 'EDIT',
       setSharing: (access, role) => {
         assert.equal(access, 'ANYONE_WITH_LINK');
@@ -106,7 +106,7 @@ function fixture(opts = {}) {
     })
   };
   const DriveApp = {
-    Access: {ANYONE_WITH_LINK: 'ANYONE_WITH_LINK'},
+    Access: {ANYONE_WITH_LINK: 'ANYONE_WITH_LINK', ANYONE: 'ANYONE', PRIVATE: 'PRIVATE', DOMAIN: 'DOMAIN', DOMAIN_WITH_LINK: 'DOMAIN_WITH_LINK'},
     Permission: {EDIT: 'EDIT', VIEW: 'VIEW'},
     getFolderById: id => {
       const folder = nodes.get(id);
@@ -298,6 +298,12 @@ test('restricted historical asset is fingerprinted but never made public', () =>
 test('private ACTIVE poster still fails closed before owner approval', () => {
   const f = fixture({privateID: expected[0]});
   assert.throws(() => f.api.dry(), /UNEXPECTED_SHARING_ACCESS/);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('discoverable publicly writable historical image fails closed instead of being treated as private', () => {
+  const f = fixture({publicDiscoverableID: 'brand-logo'});
+  assert.throws(() => f.api.dry(), /PUBLIC_DISCOVERABLE_HISTORICAL_REVIEW_REQUIRED/);
   assert.equal(f.getWrites(), 0);
 });
 
