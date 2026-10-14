@@ -118,6 +118,7 @@ var I18N = {
     share_copied:"คัดลอกลิงก์งานแล้ว",
     card_venue:"{venue}",
     card_price_from:"เริ่ม {price}฿",
+    card_price_lens_only:"เฉพาะ Lens {price}฿ · มือถือเต็ม",
     card_price_ask:"สอบถามราคา",
     select_month:"ทุกเดือน",
     filter_all:"ทุกงาน",
@@ -258,6 +259,7 @@ var I18N = {
     share_copied:"Event link copied",
     card_venue:"{venue}",
     card_price_from:"From ฿{price}",
+    card_price_lens_only:"Lens only ฿{price} · Phones fully booked",
     card_price_ask:"Ask for price",
     select_month:"All months",
     filter_all:"All events",
@@ -1207,6 +1209,12 @@ function getMonthOptions(concerts){
   out.sort(); return out;
 }
 function availPkgs(c){ return (c.packages||[]).filter(function(p){return p.avail;}); }
+function onlyLensBookable(c){
+  // A lens-only offer must never be labelled as an available rental phone.
+  // Check actual bookable packages after shared phone/lens inventory clamping.
+  var ap=availPkgs(c);
+  return ap.length>0 && ap.every(function(p){return p.type==="lens_only";});
+}
 function availCnt(c){
   // Event-level stock is the canonical shared pool. Never use MAX(package counts):
   // phone_only and phone_lens_bundle draw from the same phones, so taking MAX can
@@ -1242,6 +1250,7 @@ function startingPriceFor(c){
 function cardPriceText(c){
   if(availCnt(c)<=0) return tr("card_waitlist");
   var p=startingPriceFor(c);
+  if(onlyLensBookable(c) && p>0) return tr("card_price_lens_only",{price:p.toLocaleString(numberLocale())});
   return p>0 ? tr("card_price_from",{price:p.toLocaleString(numberLocale())}) : tr("card_price_ask");
 }
 function hasBrowseFilters(){
@@ -1330,7 +1339,7 @@ function renderEmpty(msg,detail){
     };
   }
 }
-function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return tr("badge_full"); if(isToday(c))return tr("badge_today"); if(isSoon(c))return tr("badge_soon"); if(ap.some(function(p){return p.inquiryOnly;}))return tr("badge_inquiry"); return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? tr("badge_available",{count:cnt}) : tr("badge_lens"); }
+function getBadgeText(c){ var cnt=availCnt(c), ap=availPkgs(c); if(cnt<=0)return tr("badge_full"); if(onlyLensBookable(c))return tr("badge_lens"); if(isToday(c))return tr("badge_today"); if(isSoon(c))return tr("badge_soon"); if(ap.some(function(p){return p.inquiryOnly;}))return tr("badge_inquiry"); return ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";}) ? tr("badge_available",{count:cnt}) : tr("badge_lens"); }
 
 function renderMonthSelect(concerts){
   var sel=document.getElementById("month-filter-select"); if(!sel)return;
