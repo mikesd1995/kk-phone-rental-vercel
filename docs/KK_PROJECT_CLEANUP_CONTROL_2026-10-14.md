@@ -172,3 +172,25 @@ Read-only review against official GitHub reusable workflow documentation (no hos
 6. This is **native Node predicate acceptance and YAML structural validation**, not an official `actionlint` run, a GitHub-hosted job, a production acceptance test or a proof of Vercel storage savings. `actionlint` is **not installed** in the isolated container and network Git download is unavailable (`Could not resolve host github.com`). No paid dependencies installed.
 
 **Full release gate still HOLD:** exact-head all-repository test suite, GitHub actionlint/workflow validation (including reusable invocation), bounded non-production GitHub-hosted canary, current free-minute/storage measurements, independent security review, owner approval before any Merge/Deploy.
+
+## 2026-10-14 independent offline revalidation and regression mutation audit
+
+**Revalidation environment**: isolated local container, Node.js `v22.16.0`, npm `10.9.2`, `ruamel.yaml` `0.18.17`; no GitHub clone or external dependency download. GitHub repository URL cannot resolve from this container, so bytes were taken from the connected GitHub file readback and checked against actual Git blob SHA.
+
+**Exact-source integrity (both PASS)**:
+- `.github/workflows/kk-owner-comment-command-router.yml` 5,237 bytes, SHA-1 git blob `03066fd11833dce72d4b437b5324f3c5549d6234` equals current Draft GitHub blob.
+- `tests/kk-owner-comment-router-evaluation.test.js` 3,918 bytes, SHA-1 git blob `d0d1c6b294d1c6e57fd03df4c34cda562b63787f` equals current Draft GitHub blob.
+
+**Commands actually run, with observed results**:
+- `node --check tests/kk-owner-comment-router-evaluation.test.js`: exit **0**.
+- `node --test tests/kk-owner-comment-router-evaluation.test.js`: exit **0**; 2 passed, 0 failed, 0 skipped; TAP duration **504.193 ms**.
+- `ruamel.yaml.YAML(typ='safe').load(router)`: PASS, `on.issue_comment.types: [created]`, 10 Jobs, 8 narrowly passed `VERCEL_TOKEN` and 2 Jobs with no secrets.
+- **Mutation sensitivity (offline only):** sequentially modified a *temporary working copy* of the router (never GitHub) and re-ran the same Node tests. Three intentionally bad modifications each caused nonzero `node --test` exit **1** as expected: (1) remove owner-login check, (2) change issue #47 requirement to #48, (3) restore unsafe Ultra Deep broad prefix. Original exact file bytes were restored in a `finally` path and rechecked. **3/3 mutants rejected**. No actual protected workflow, Vercel operation or customer action was invoked.
+
+**Additional Git blob-to-main PR triage (read-only, do not discard)**:
+- [#599](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/599): current PR has 3 changed paths; two runtime/test files differ from current main, and one PR doc is absent from main. NOT NO-OP.
+- [#605](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/605): all three changed code/test files differ from current main. NOT NO-OP.
+- [#610](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/610): all three changed code/test files differ from current main. NOT NO-OP.
+- [#675](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/675): all three unique files are absent from main, even though two files are identical to #681's draft head. NOT NO-OP. Do not delete existing source until one accepted integrated replacement is actually on main.
+
+**Assessment / blockers:** This offline acceptance is reproducible and stronger than text-only static checks but **still cannot substitute** for actionlint, complete native repo regression, GitHub-hosted workflow-call invocation and a verified Production release. Account-included GitHub minutes were historically exhausted on Oct 2; live free balance not accessible. Vercel GB recovery/current measured storage is not accessible by supported connector; see #692. No paid use, CI rerun, merges, deployments, PR closures, or production ACL/data changes were made.
