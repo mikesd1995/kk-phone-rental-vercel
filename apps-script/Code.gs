@@ -1331,9 +1331,24 @@ function kkApiRequireKey_(payload) {
   if (!provided || provided !== expected) throw new Error('Invalid admin API key');
 }
 
+// Separate, read-only capability. The existing Admin key can create/update
+// bookings and MUST NOT be accepted for private Core reads.
+function kkApiRequirePrivateReadKey_(payload){
+  const props=PropertiesService.getScriptProperties();
+  const expected=String(props.getProperty('KK_CORE_PRIVATE_READ_KEY')||'').trim();
+  const admin=String(props.getProperty('KK_ADMIN_API_KEY')||'').trim();
+  const supplied=String(payload&&payload.readKey||'').trim();
+  if(expected.length<32 || (admin&&expected===admin))throw new Error('PRIVATE_CORE_READER_KEY_NOT_READY');
+  // Fixed-size comparison avoids an early exit on a wrong byte.
+  let difference=expected.length^supplied.length;
+  for(let i=0;i<expected.length;i++) difference|=expected.charCodeAt(i)^(supplied.charCodeAt(i)||0);
+  if(difference!==0)throw new Error('PRIVATE_CORE_READER_KEY_INVALID');
+}
+
 // Zero-cost fallback when Google service-account provisioning is unavailable.
-// Explicitly disabled by default in Script Properties. Existing doPost API key
-// must be authenticated BEFORE dispatch. These are exact read-only ranges; no
+// Explicitly disabled by default in Script Properties. The dedicated
+// KK_CORE_PRIVATE_READ_KEY (NOT the mutating Admin API key) authenticates reads.
+// The action is selected before authentication but dispatch is AFTER auth. No
 // ad-hoc tabs or arbitrary A1 ranges are accepted.
 const KK_PRIVATE_CORE_READ_ALLOWLIST = Object.freeze({
   '01_Events':['A4:I','A4:Z'],
@@ -1398,9 +1413,10 @@ function doPost(e) {
   let keyOk = false;
   try {
     payload = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
-    kkApiRequireKey_(payload);
-    keyOk = true;
     action = String(payload.action || '').trim();
+    if(action==='privateCoreRead') kkApiRequirePrivateReadKey_(payload);
+    else kkApiRequireKey_(payload);
+    keyOk = true;
     let result;
 
     switch (action) {
