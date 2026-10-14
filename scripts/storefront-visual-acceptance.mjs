@@ -249,6 +249,31 @@ async function main(){
       // Never click LINE/external booking links and never submit forms.
       const interactionChecks=[];
       const recordInteraction=(name,pass,detail='')=>interactionChecks.push({name,pass:Boolean(pass),detail:String(detail||'')});
+      // Detect overlaps within the header: document.scrollWidth alone misses
+      // an over-wide FAQ/theme/TH/EN row clipped by a responsive container.
+      // Probe actual browser geometry for every accepted viewport.
+      const headerGeometry=await page.evaluate(()=>{
+        const header=document.querySelector('.v3-header');
+        const brand=header?.querySelector('.v3-brand');
+        const actions=header?.querySelector('.v3-header-actions');
+        const faq=document.querySelector('#faq-open-btn');
+        const theme=document.querySelector('#theme-toggle');
+        const langs=Array.from(document.querySelectorAll('.v3-header .lang-btn'));
+        const rect=element=>{
+          if(!element || getComputedStyle(element).display==='none')return null;
+          const r=element.getBoundingClientRect();
+          return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};
+        };
+        const h=rect(header),b=rect(brand),a=rect(actions);
+        const targets=[faq,theme,...langs].map(rect);
+        const contained=Boolean(h && b && a && targets.length===4 && targets.every(Boolean)) &&
+          b.left>=h.left-1 && b.right<=a.left+1 &&
+          a.right<=h.right+1 && a.left>=h.left-1 &&
+          targets.every(r=>r.left>=h.left-1 && r.right<=h.right+1 &&
+            r.top>=h.top-1 && r.bottom<=h.bottom+1 && r.width>=43.5 && r.height>=43.5);
+        return {contained,viewport:innerWidth,header:h,brand:b,actions:a,targets};
+      });
+      recordInteraction('header_controls_contained',headerGeometry.contained,JSON.stringify(headerGeometry));
       try{
         const search=page.locator('#event-search');
         await search.fill('__kk_visual_qa_no_match__');
