@@ -188,3 +188,25 @@ test('owner decision rejects mismatched canonical booking id before any LINE sen
   );
   assert.equal(sends,0);
 });
+
+test('customer LINE push failure does not falsely acknowledge delivery to owner',async()=>{
+  const e=env();
+  const data=Approval.decisionData('approve','BK-PUSH-FAIL',e);
+  const lineCalls=[];
+  await assert.rejects(
+    ()=>Approval.processOwnerPostback({
+      type:'postback',replyToken:'owner-reply-token',source:{type:'user',userId:'UOWNER'},postback:{data}
+    },e,async(url,opt)=>{
+      if(String(url).startsWith('https://script.google.com/')){
+        return response({ok:true,booking_id:'BK-PUSH-FAIL',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:false});
+      }
+      lineCalls.push({url,body:JSON.parse(opt.body)});
+      if(String(url).includes('/push')) return response('provider temporarily unavailable',503);
+      return response({ok:true});
+    }),
+    err=>err&&err.code==='LINE_SEND_FAILED'&&err.status===503
+  );
+  assert.equal(lineCalls.length,1);
+  assert.ok(lineCalls[0].url.includes('/push'));
+  assert.equal(lineCalls[0].body.to,'UCUSTOMER');
+});
