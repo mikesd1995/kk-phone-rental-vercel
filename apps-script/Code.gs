@@ -486,6 +486,38 @@ function kkExtractDriveFileId_(value) {
   return '';
 }
 
+function kkVerifyDriveAnyoneReader_(fileId) {
+  const id = String(fileId || '').trim();
+  if (!id) throw new Error('POSTER_DRIVE_ID_REQUIRED');
+  // A successful permissions.create or DriveApp.setSharing call is NOT proof
+  // that an older/inherited anyone:writer grant is gone.
+  const url = 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
+    '/permissions?fields=nextPageToken,permissions(id,type,role)&pageSize=100&supportsAllDrives=true';
+  const response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  });
+  const status = response.getResponseCode();
+  if (status < 200 || status >= 300) throw new Error('POSTER_ACL_READBACK_HTTP_' + status);
+  let payload;
+  try { payload = JSON.parse(String(response.getContentText() || '{}')); }
+  catch (e) { throw new Error('POSTER_ACL_READBACK_BAD_JSON'); }
+  if (payload.nextPageToken || !Array.isArray(payload.permissions)) {
+    throw new Error('POSTER_ACL_READBACK_INCOMPLETE');
+  }
+  const anyone = payload.permissions.filter(p => p && p.type === 'anyone');
+  if (anyone.length !== 1 || anyone[0].role !== 'reader') {
+    throw new Error('POSTER_ACL_NOT_ANYONE_READER');
+  }
+  const file = DriveApp.getFileById(id);
+  if (String(file.getSharingAccess()) !== String(DriveApp.Access.ANYONE_WITH_LINK) ||
+      String(file.getSharingPermission()) !== String(DriveApp.Permission.VIEW)) {
+    throw new Error('POSTER_ACL_EFFECTIVE_ROLE_NOT_VIEW');
+  }
+  return true;
+}
+
 function kkDrivePermissionApiSetAnyone_(fileId) {
   const id = String(fileId || '').trim();
   if (!id) throw new Error('Missing Drive file ID');
@@ -499,7 +531,11 @@ function kkDrivePermissionApiSetAnyone_(fileId) {
     muteHttpExceptions: true
   });
   const code = resp.getResponseCode();
-  if ((code >= 200 && code < 300) || code === 409) return { ok: true, status: code, method: 'Drive API' };
+  if ((code >= 200 && code < 300) || code === 409) {
+    // A 409 only means a permission exists; it may still be public Writer.
+    kkVerifyDriveAnyoneReader_(id);
+    return { ok: true, status: code, method: 'Drive API + reader readback' };
+  }
   const body = String(resp.getContentText() || '').slice(0, 500);
   throw new Error('Drive API HTTP ' + code + (body ? ': ' + body : ''));
 }
@@ -515,6 +551,7 @@ function kkEnsureDriveFilePublic_(fileId, options) {
     viewUrl = file.getUrl();
     try {
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      kkVerifyDriveAnyoneReader_(id);
       return {
         file_id: id,
         view_url: viewUrl,
@@ -1865,8 +1902,18 @@ function kkApiUploadPoster_(payload) {
   if (bytes.length > 3 * 1024 * 1024) throw new Error('Poster image is too large. Please use a file below 3 MB.');
 
   const folder = DriveApp.getFolderById(folderId);
+  // Fail before creating a public-writable child in a public-writable folder.
+  if (String(folder.getSharingAccess()) !== String(DriveApp.Access.ANYONE_WITH_LINK) ||
+      String(folder.getSharingPermission()) !== String(DriveApp.Permission.VIEW)) {
+    throw new Error('POSTER_FOLDER_NOT_ANYONE_READER');
+  }
   const file = folder.createFile(Utilities.newBlob(bytes, mimeType, fileName));
   const publicInfo = kkEnsureDriveFilePublic_(file.getId(), { strict: false });
+  if (!publicInfo.public_checked) {
+    // An orphan image in the already-reader folder is safer than publishing an
+    // image URL whose effective permission is still Anyone Writer.
+    throw new Error('POSTER_FILE_NOT_VERIFIED_READER: ' + publicInfo.sharing_warning);
+  }
   const posterUrl = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(file.getId()) + '&sz=w1200';
 
   return {
