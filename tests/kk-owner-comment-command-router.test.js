@@ -54,7 +54,16 @@ test('router has exactly ten strictly owner-gated target jobs with least privile
     assert.ok(block.includes("github.event.comment.author_association == 'OWNER'"), route.id + ' association');
     assert.ok(block.includes(check), route.id + ' command gate');
     assert.ok(block.includes('uses: ./.github/workflows/' + route.workflow), route.id + ' exact target');
-    assert.ok(block.includes('secrets: inherit'), route.id + ' preserve old secret access');
+    assert.ok(!block.includes('secrets: inherit'), route.id + ' must not inherit all secrets');
+    const needsVercelToken = route.workflow !== 'storefront-production-screenshot-capture.yml' &&
+      route.workflow !== 'ultra-deep-runtime-acceptance.yml';
+    if (needsVercelToken) {
+      assert.ok(block.includes('VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}'), route.id + ' restricted token');
+      assert.ok(read(route.workflow).includes('  workflow_call:\n    secrets:\n      VERCEL_TOKEN:\n        required: false'),
+        route.id + ' declares exact reusable token');
+    } else {
+      assert.ok(!block.includes('secrets:'), route.id + ' must not forward any secrets');
+    }
     for (const permission of route.permissions) {
       assert.ok(block.includes('      ' + permission), route.id + ' permission ' + permission);
     }
