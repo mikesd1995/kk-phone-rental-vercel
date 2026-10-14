@@ -475,6 +475,7 @@ module.exports = async function handler(req, res) {
 
 module.exports._test = {
   ALLOWED,
+  validatedPublicFeedRows,
   isTrue,
   parseCsvRows,
   serializeCsvRows,
