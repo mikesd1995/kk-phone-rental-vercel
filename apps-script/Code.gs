@@ -599,6 +599,9 @@ function kkNormalizePoster_(url, options) {
   const id = kkExtractDriveFileId_(s);
   if (id) {
     const publicInfo = opts.ensurePublic ? kkEnsureDriveFilePublic_(id, { strict: opts.strictPublic === true }) : { file_id: id, view_url: '', public_checked: false, sharing_warning: '' };
+    if (opts.ensurePublic && !publicInfo.public_checked) {
+      throw new Error('POSTER_EXISTING_DRIVE_FILE_NOT_READER: ' + (publicInfo.sharing_warning || 'No verified Reader grant'));
+    }
     return {
       url: 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w1200',
       drive_file_id: id,
