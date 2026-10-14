@@ -93,6 +93,11 @@ function triage(input={}){
     else if(isBrandHero(url))reasons.push('GENERIC_BRAND_HERO_NOT_OFFICIAL_POSTER');
     if(!id||!name||!day)reasons.push('EVENT_IDENTITY_INCOMPLETE');
     if(url&&tested&&!healthy)reasons.push('NO_HEALTHY_IMAGE_DELIVERY');
+    // Fallback artwork may keep a storefront card visible but cannot certify
+    // the canonical exact-event poster. A broken canonical source stays P0.
+    if(url&&tested&&d.canonical_healthy===false&&
+       Number.isInteger(d.canonical_candidate_count)&&d.canonical_candidate_count>0)
+      reasons.push('CANONICAL_POSTER_DELIVERY_FAILED');
     const sharing=groups.get(key)||[];
     if(url&&sharing.some(other=>str(other.event_id)!==id && normalizedName(other.event_name)!==normalizedName(name))){
       // One flyer may legitimately cover multiple concert days/events.
@@ -138,10 +143,12 @@ function triage(input={}){
       instruction:'Review original pixels; never publish or change Sheets from AI results.'
     });
     const unique=[...new Set(reasons)];
-    const critical=unique.some(x=>['POSTER_SOURCE_MISSING','KNOWN_WRONG_EVENT_ART','GENERIC_BRAND_HERO_NOT_OFFICIAL_POSTER','NO_HEALTHY_IMAGE_DELIVERY','EVENT_IDENTITY_INCOMPLETE','UNSAFE_OR_INVALID_POSTER_SOURCE'].includes(x));
+    const critical=unique.some(x=>['POSTER_SOURCE_MISSING','KNOWN_WRONG_EVENT_ART','GENERIC_BRAND_HERO_NOT_OFFICIAL_POSTER','NO_HEALTHY_IMAGE_DELIVERY','CANONICAL_POSTER_DELIVERY_FAILED','EVENT_IDENTITY_INCOMPLETE','UNSAFE_OR_INVALID_POSTER_SOURCE'].includes(x));
     const verdict=critical?'BLOCKED_NEEDS_POSTER':unique.length?'OWNER_REVIEW_REQUIRED':'DELIVERY_ONLY_IDENTITY_UNVERIFIED';
     const next=critical?'REPLACE_WITH_VERIFIED_EXACT_EVENT_POSTER':unique.length?'REVIEW_EVENT_ARTWORK_AND_SOURCE':'VERIFY_ORGANIZER_ARTWORK';
-    return {event_id:id,event_name:name,event_date:day,poster_url:url,delivery_status:tested?(healthy?'IMAGE_DELIVERED':'IMAGE_DELIVERY_FAILED'):'NOT_TESTED',verdict,reasons:unique,vision_status,owner_review_required:true,owner_approved:false,next_action:next,official_poster_verified:false};
+    const canonical_status=!url?'MISSING':d.canonical_healthy===true?'HEALTHY':d.canonical_healthy===false&&
+      Number.isInteger(d.canonical_candidate_count)&&d.canonical_candidate_count>0?'FAILED':'NOT_TESTED';
+    return {event_id:id,event_name:name,event_date:day,poster_url:url,delivery_status:tested?(healthy?'IMAGE_DELIVERED':'IMAGE_DELIVERY_FAILED'):'NOT_TESTED',canonical_status,emergency_recovery:d.recovered_by_fallback===true,verdict,reasons:unique,vision_status,owner_review_required:true,owner_approved:false,next_action:next,official_poster_verified:false};
   });
   return {
     schema_version:VERSION,status:findings.some(x=>x.verdict==='BLOCKED_NEEDS_POSTER')?'NEEDS_REPAIR':findings.some(x=>x.verdict==='OWNER_REVIEW_REQUIRED')?'NEEDS_OWNER_REVIEW':'IDENTITY_UNVERIFIED',
