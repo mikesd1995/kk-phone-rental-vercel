@@ -74,3 +74,31 @@ test('preflight explicitly redacts unrecognized error messages',()=>{
   const e=new Error('CUSTOMER_IDENTIFIER_AND_PRIVATE_TOKEN');
   assert.equal(Preflight.classify(e),'CORE_PRIVATE_PROBE_FAILED');
 });
+
+
+test('schema validation must not mistake a private data row for the header',()=>{
+  assert.equal(Preflight.hasHeader([['booking_id','event_id'],['A','B']],'booking_id'),true);
+  assert.equal(Preflight.hasHeader([['other_column'],['booking_id']],'booking_id'),false);
+  assert.equal(Preflight.hasHeader([[],['booking_id']],'booking_id'),false);
+  assert.equal(Preflight.hasHeader([['booking_id']],'booking_id'),true);
+  assert.equal(Preflight.hasHeader([],'booking_id'),false);
+  assert.equal(Preflight.hasHeader([['not_booking_id']],'booking_id'),false);
+});
+test('private probe fails closed if a missing header appears only as a data value',async()=>{
+  const expected=new Map(Object.values(AdminFallback.SPECS).map(s=>[s.sheet,s.header]));
+  const state=await Preflight.probe({
+    env,
+    reader:async ({sheet})=>{
+      if(sheet==='00_Master_Booking')return [['wrong_heading'],['booking_id','PRIVATE_PHONE_SHOULD_NOT_BE_EXPOSED']];
+      return [[expected.get(sheet)||'archive_col'],['safe_fixture']];
+    }
+  });
+  assert.equal(state.datasets_checked,13);
+  assert.equal(state.passed,12);
+  assert.equal(state.failed,1);
+  assert.equal(state.ok,false);
+  assert.equal(state.status,'PRIVATE_READS_BLOCKED');
+  assert.deepEqual(state.results.filter(x=>!x.ok).map(x=>x.dataset),['bookings']);
+  assert.equal(state.results.find(x=>x.dataset==='bookings').classification,'PRIVATE_SCHEMA_INVALID');
+  assert.doesNotMatch(JSON.stringify(state),/PRIVATE_PHONE_SHOULD_NOT_BE_EXPOSED|wrong_heading/);
+});
