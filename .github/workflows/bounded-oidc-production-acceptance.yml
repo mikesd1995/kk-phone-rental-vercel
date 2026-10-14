@@ -12,6 +12,9 @@ on:
         required: false
         type: string
   workflow_call:
+    secrets:
+      VERCEL_TOKEN:
+        required: false
 
 permissions:
   contents: read
