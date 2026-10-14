@@ -6,6 +6,9 @@ const KKACL_EXPECTED=["11lLELLP0U5s26pSnq83KEoJErDaRVbhc","11n_PykjFNHUaHN_Qn98d
 const KKACL_FOLDERS=['1avy3Up3NJskqB7kCzQoQPWKK3-j1qJqS','1haTk15ElLwZM8NFcLvK36tbyLZo5wnzw','1uIfM-KV6FrJRQIP0ZNso7-ibZiSo1nwQ','1m6sOf1vl6l_tHscb-tNkTUjlEy82ELHl'];
 // Limit each explicitly owner-approved run; refresh Dry Run + fingerprint before each batch.
 const KKACL_MAX_WRITES_PER_APPROVAL=25;
+// Default is strictly 33 currently visible image IDs + 4 reviewed folders.
+// Historical files are inventoried / fingerprinted but NEVER setSharing-ed.
+const KKACL_WRITE_SCOPE='ACTIVE_ONLY';
 
 function kkAclReadActive_20261013(){
   const ss=SpreadsheetApp.openById(KKACL_BOOK), a=ss.getSheetByName('01_Events'),b=ss.getSheetByName('08_Web_Ready');
@@ -114,8 +117,10 @@ function kkAclApply_20261013(approvedFingerprint){
   // Address currently public-facing surfaces first. Historic images must not
   // consume the first approval batch while active images remain publicly writable.
   // Roots and descendant folders remain before images; never reorder after approval.
-  const priority=it=>it.kind==='folder'?0:KKACL_EXPECTED.includes(it.id)?1:2;
-  const ordered=before.items.slice().sort((a,b)=>priority(a)-priority(b)||a.depth-b.depth||
+  const inActiveScope=it=>it.kind==='folder'||(it.kind==='image'&&KKACL_EXPECTED.includes(it.id));
+  if(KKACL_WRITE_SCOPE!=='ACTIVE_ONLY')throw Error('ACL_WRITE_SCOPE_MUST_BE_ACTIVE_ONLY');
+  const ordered=before.items.filter(inActiveScope).sort((a,b)=>
+    (a.kind==='folder'?0:1)-(b.kind==='folder'?0:1)||a.depth-b.depth||
     (a.id<b.id?-1:a.id>b.id?1:0));
   const pending=ordered.filter(it=>it.role===String(DriveApp.Permission.EDIT));
   const batch=pending.slice(0,KKACL_MAX_WRITES_PER_APPROVAL);
@@ -128,19 +133,32 @@ function kkAclApply_20261013(approvedFingerprint){
     }catch(e){failed.push({id:it.id,reason:String(e)});break;} // Stop on first provider failure; no broad cascading attempt.
   }
   const after=kkAclSnapshot_20261013();
-  const result={updated:updated.length,batch_limit:KKACL_MAX_WRITES_PER_APPROVAL,
-                failures:failed,residual_writers:after.writers,active:after.active,
-                images:after.images,folders:after.folders,need_new_owner_dry_run:after.writers>0};
+  const afterActiveWriters=after.items.filter(it=>inActiveScope(it)&&it.role===String(DriveApp.Permission.EDIT)).length;
+  const beforeActiveWriters=before.items.filter(it=>inActiveScope(it)&&it.role===String(DriveApp.Permission.EDIT)).length;
+  const historicalBefore=before.items.filter(it=>!inActiveScope(it)).map(it=>[it.id,it.role]);
+  const historicalAfter=new Map(after.items.filter(it=>!inActiveScope(it)).map(it=>[it.id,it.role]));
+  const historyChanged=historicalBefore.some(([id,role])=>historicalAfter.get(id)!==role);
+  const result={scope:KKACL_WRITE_SCOPE,updated:updated.length,
+                batch_limit:KKACL_MAX_WRITES_PER_APPROVAL,failures:failed,
+                residual_active_scope_writers:afterActiveWriters,
+                historical_public_writers:after.writers-afterActiveWriters,
+                historical_acl_changed:historyChanged,active:after.active,
+                images:after.images,folders:after.folders,
+                need_new_owner_dry_run:afterActiveWriters>0};
   Logger.log(JSON.stringify(result));
-  if(failed.length||after.writers>before.writers||after.images!==before.images||
-     after.folders!==before.folders||after.items.length!==before.items.length)
+  if(failed.length||historyChanged||afterActiveWriters>beforeActiveWriters||
+     after.images!==before.images||after.folders!==before.folders||
+     after.items.length!==before.items.length)
     throw Error('PARTIAL_OR_DRIFTED_ACL_REPAIR:'+JSON.stringify(result));
-  // Remaining writers are an explicit HOLD, never falsely report a completed repair.
-  // Any subsequent batch REQUIRES a new owner-reviewed Dry Run and fingerprint.
-  return {ok:after.writers===0,partial:after.writers>0,
+  // "ok" is the WHOLE historical+active scope, never merely the active subset.
+  // The exact active scope may complete while Issue #718 stays OPEN for history.
+  return {ok:after.writers===0,active_scope_completed:afterActiveWriters===0,
+          partial:after.writers>0,scope:KKACL_WRITE_SCOPE,
           updated:updated.length,remaining_writers:after.writers,
+          remaining_active_writers:afterActiveWriters,
+          historical_public_writers:after.writers-afterActiveWriters,
           reader_verified:after.items.length-after.writers,active_files:after.active,
-          need_new_owner_dry_run:after.writers>0};
+          need_new_owner_dry_run:afterActiveWriters>0};
 }
 
 
