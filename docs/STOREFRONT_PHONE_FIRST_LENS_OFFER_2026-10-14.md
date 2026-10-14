@@ -31,3 +31,9 @@ Date: 2026-10-14, Asia/Bangkok. User-directed continuation **TASKS 2–13; TASK 
 4. Official poster #731 may be addressed independently by verifying correct source/image bytes before exact Core E edit; keep visibility unchanged.
 
 **Status: SOURCE FIX+ISOLATED TEST PASS, RELEASE HOLD.** No local/published stock or Booking claims beyond verified business data.
+
+
+## Follow-up acceptance increment — exact branch latest at 2026-10-14
+Detected a related card CTA: on lens-only days, the old `tap_available` copy still implied choosing a phone model (`เลือกรุ่นที่ถูกใจ`). Patched `script.js` to show `tap_lens_only="ดูแพ็กเกจ Lens"` in Thai and `tap_lens_only="View lens-only package"` in English if and only if `onlyLensBookable(c)`. The normal booking phone CTA and full-day waitlist CTA remain unchanged.
+Added a sixth exact-source regression to `tests/storefront-phone-first-lens-only-offer.test.js`. Re-fetched both GitHub blobs; V8 source+test syntax **2/2 PASS** and authored extracted-source tests **6/6 PASS** in an in-memory Node-shim (not native Node/CI or visual QA). Source update [1a09119](https://github.com/mikesd1995/kk-phone-rental-vercel/commit/1a09119fef68c8d6de662a4604b42544860940de); test [df0aa139](https://github.com/mikesd1995/kk-phone-rental-vercel/commit/df0aa13993f241541a7e27834476da9a22748b5a).
+**Still source-only, no storefront Production deploy**.
