@@ -134,3 +134,40 @@ test('all core analytics and admin lean reads have an explicit Core private bran
     assert.match(source,/CorePrivacy\.(?:readCsv|readValues|requireExplicitPrivateSource)/,p);
   }
 });
+
+
+test('Core-vs-CRM health and rental reconciliation use private Core without a GViz attempt',async()=>{
+  const CoreReader=require('../server/core-sheet-private-reader.js');
+  const CRMReader=require('../api/lib/private-google-sheets.js');
+  const Recon=require('../api/lib/crm-reconciliation.js');
+  const Dashboard=require('../api/kk-rental-dashboard-v6.js');
+  const Health=require('../api/kk-intelligence-health.js');
+  const saved={core:CoreReader.readValues,crm:CRMReader.readValues,public:Recon.fetchPublicValues};
+  const calls=[];let publicCalls=0;
+  CoreReader.readValues=async x=>{calls.push({source:'CORE_PRIVATE',sheetId:x.sheetId,range:x.range});return [['id','event'],['A','B']];};
+  CRMReader.readValues=async x=>{calls.push({source:'CRM_PRIVATE',sheetId:x.sheetId,range:x.range});return [['id','event'],['A','B']];};
+  Recon.fetchPublicValues=async()=>{publicCalls++;throw Error('PUBLIC_CORE_GVIZ_FORBIDDEN');};
+  const opts={coreSheetId:'test-core-sheet-id',crmSheetId:'different-private-crm-id',env:authorized};
+  try{
+    for(const mod of [Dashboard,Health]){
+      await mod._test.reconcileRuntimeDatasets(opts);
+    }
+    assert.equal(publicCalls,0);
+    assert.equal(calls.filter(c=>c.source==='CORE_PRIVATE'&&c.sheetId===opts.coreSheetId).length,4);
+    assert.equal(calls.filter(c=>c.source==='CRM_PRIVATE'&&c.sheetId===opts.crmSheetId).length,4);
+    assert.equal(calls.filter(c=>c.sheetId!==opts.coreSheetId&&c.sheetId!==opts.crmSheetId).length,0);
+  }finally{
+    CoreReader.readValues=saved.core;
+    CRMReader.readValues=saved.crm;
+    Recon.fetchPublicValues=saved.public;
+  }
+});
+test('Core security source contract includes private Health endpoint and forbids a browser Core identifier',()=>{
+  const health=fs.readFileSync(path.join(__dirname,'../api/kk-intelligence-health.js'),'utf8');
+  const proxy=fs.readFileSync(path.join(__dirname,'../api/kk-data.js'),'utf8');
+  const browser=fs.readFileSync(path.join(__dirname,'../script.js'),'utf8');
+  assert.match(health,/CorePrivacy\.enabled\(env\)/);
+  assert.match(health,/CorePrivacy\.readValues\(/);
+  assert.match(proxy,/if\(corePrivateStrict\)\{/);
+  assert.doesNotMatch(browser,/12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU/);
+});
