@@ -392,6 +392,13 @@ module.exports = async function handler(req, res) {
     return send(res, 503, 'Private public-data reader is not configured.');
   }
 
+  // Strict private cutover must fail closed even when the authorized reader
+  // returns empty text without throwing. Never fall through to public GViz.
+  if (requirePrivate && !text) {
+    res.setHeader('X-KK-Sheet-Source', 'private-empty');
+    return send(res, 503, 'Private public-data reader returned no data.');
+  }
+
   if (!text) {
     try {
       text = await readPublicGvizCsv(sheetId, sheet, range);
