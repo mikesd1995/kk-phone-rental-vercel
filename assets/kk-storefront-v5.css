@@ -2244,7 +2244,11 @@ html[data-theme="dark"] .kk-mock-hero .v3-secondary{
   /* Legacy style.css grid-auto-rows:1fr compressed every 320px card to 352px
      while a 298px-wide 4:5 poster alone needs 373px. Let content size rows. */
   .poster-grid{align-items:start!important;grid-auto-rows:max-content!important}
-  .concert-card{height:max-content!important;min-height:max-content!important;align-self:start!important}
+  /* style.css also applies content-visibility:auto with a 350px intrinsic
+     placeholder (352px with borders), smaller than the 4:5 poster alone.
+     Disable that virtualization only on single-column micro viewports so
+     every booking card is measurable and its copy never sits outside the box. */
+  .concert-card{height:max-content!important;min-height:max-content!important;align-self:start!important;content-visibility:visible!important;contain-intrinsic-size:none!important}
   .concert-card .poster-img-wrap{flex:0 0 auto!important}
   .concert-card .poster-info{height:auto!important;min-height:0!important;flex:0 0 auto!important;overflow:visible!important}
 }
