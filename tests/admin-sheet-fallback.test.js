@@ -16,7 +16,7 @@ test('rowsAsObjects locates a header below title rows',()=>{
 
 test('fallback GViz ranges start at each real schema header row',()=>{
   assert.equal(F.SPECS.events.range,'A4:I');
-  assert.equal(F.SPECS.bookings.range,'A4:T');
+  assert.equal(F.SPECS.bookings.range,'A4:X');
   assert.equal(F.SPECS.assets.range,'A4:G');
   assert.equal(F.SPECS.packages.range,'A4:J');
   assert.equal(F.SPECS.overrides.range,'A4:G');
