@@ -12,10 +12,18 @@ function payload(){
     request:{
       message:'ไปตรวจสอบ X ว่าตอนนี้ควรโพสอะไรต่อจากเดิม ตั้งแต่ 19.30 ไปจนถึงช่วง late night',
       input:{
+        now:'2026-10-13T02:39:00+07:00',
+        booking_source:'00_Master_Booking',booking_verified:true,booking_readback_at:'2026-10-13T02:30:00+07:00',booking_rows:[],
+        visibility_source:'18_Event_Visibility_Locks',visibility_verified:true,visibility_readback_at:'2026-10-13T02:30:00+07:00',visibility_locks:[],
+        storefront_source:'08_Web_Ready',storefront_verified:true,
+        storefront_readback_at:'2026-10-13T02:30:00+07:00',
+        post_log_verified:true,post_log_readback_at:'2026-10-13T02:30:00+07:00',
+        post_log:[],
+        storefront_rows:[0,1,2].map(i=>({event_id:'EVT-TEST-'+i,event_date_text:'17/10/2026',action_for_web:'show',booking_status_for_web:'เปิดจอง',available_phone_count:1})),
         candidates:[
-          {event:'Event A',verified_event:true,event_is_tomorrow:true,engagement_velocity:95,conversation_volume:91,fandom_strength:92,competitor_activity:60,booking_opportunity:86,recent_posted_hours_ago:1},
-          {event:'Event B',verified_event:true,event_is_tomorrow:true,engagement_velocity:86,conversation_volume:89,fandom_strength:90,competitor_activity:72,booking_opportunity:95,recent_posted_hours_ago:12},
-          {event:'Event C',verified_event:true,days_to_event:2,engagement_velocity:82,conversation_volume:84,fandom_strength:87,competitor_activity:58,booking_opportunity:81,recent_posted_hours_ago:24},
+          {event:'Event A',event_id:'EVT-TEST-0',event_date_text:'17/10/2026',verified_event:true,verified_pricing:true,event_is_tomorrow:true,engagement_velocity:95,conversation_volume:91,fandom_strength:92,competitor_activity:60,booking_opportunity:86,recent_posted_hours_ago:1},
+          {event:'Event B',event_id:'EVT-TEST-1',event_date_text:'17/10/2026',verified_event:true,verified_pricing:true,event_is_tomorrow:true,engagement_velocity:86,conversation_volume:89,fandom_strength:90,competitor_activity:72,booking_opportunity:95,recent_posted_hours_ago:12},
+          {event:'Event C',event_id:'EVT-TEST-2',event_date_text:'17/10/2026',verified_event:true,verified_pricing:true,days_to_event:2,engagement_velocity:82,conversation_volume:84,fandom_strength:87,competitor_activity:58,booking_opportunity:81,recent_posted_hours_ago:24},
           {event:'Unverified Viral',verified_event:false,event_is_tomorrow:true,engagement_velocity:100,conversation_volume:100,fandom_strength:100,competitor_activity:100,booking_opportunity:100}
         ]
       }
@@ -41,6 +49,36 @@ test('bridge strips obvious secrets from request input',()=>{
   assert.deepEqual(clean,{event:'safe'});
 });
 
+test('GitHub Issue payload rejects full Booking Sheet rows or customer PII before any agent invocation',async()=>{
+  const safe=payload();
+  safe.request.input.booking_rows=[{booking_status:'confirmed',event_id:'EVT-A',event_date:'17/10/2026'}];
+  safe.request.input.visibility_locks=[{event_id:'EVT-A',event_date:'17/10/2026',lock_state:'LOCKED'}];
+  assert.equal(Bridge.validateEnvelope(safe).pass,true);
+  safe.request.input.booking_rows[0].customer_phone='PRIVATE_TEST_VALUE';
+  assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:booking_rows'));
+  delete safe.request.input.booking_rows[0].customer_phone;
+  safe.request.input.booking_rows=[Array(39).fill('PRIVATE_TEST_VALUE')];
+  assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:booking_rows'));
+  safe.request.input.booking_rows=[];
+  safe.request.input.visibility_locks[0].notes='PRIVATE_TEST_VALUE';
+  assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:visibility_locks'));
+  delete safe.request.input.visibility_locks[0].notes;
+  safe.request.input.storefront_rows[0].line_message_template='PRIVATE_TEST_VALUE';
+  assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:storefront_rows'));
+  delete safe.request.input.storefront_rows[0].line_message_template;
+  safe.request.input.post_log=[{event_id:'EVT-A',status:'planned',planned_at:'2026-10-15T12:00:00+07:00',customer_contact:'PRIVATE_TEST_VALUE'}];
+  assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:post_log'));
+  let ledgerAttempts=0;
+  const result=await Bridge.runBridge({
+    event:{issue:{number:99,title:'[KK-X-PLAN] private input guard',author_association:'OWNER'}},
+    payload:safe,
+    ledgerFn:async()=>{ledgerAttempts++;return {ok:true,inserted:true};}
+  });
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.gateway_status,'NOT_RUN');
+  assert.equal(ledgerAttempts,0);
+});
+
 test('bridge invokes the real x_posting_plan gateway route and persists invocation evidence',async()=>{
   const event={issue:{number:99,title:'[KK-X-PLAN] acceptance',author_association:'OWNER'}};
   const recorded=[];
@@ -57,10 +95,22 @@ test('bridge invokes the real x_posting_plan gateway route and persists invocati
   assert.deepEqual(result.plan.slots.map(x=>x.time),['19:30','21:00','22:30','00:00']);
   assert.equal(result.plan.slots.some(x=>x.event==='Unverified Viral'),false);
   assert.ok(result.plan.rejected_candidates.some(x=>x.event==='Unverified Viral'&&x.reason==='EVENT_NOT_VERIFIED'));
-  assert.equal(recorded.length,1,'mocked durable ledger receives exactly one invocation');
-  assert.equal(result.ledger_rows.length,0,'injected read-only ledger must not claim local records');
+  assert.equal(recorded.length,1);
+  assert.equal(result.ledger_rows.length,0);
   assert.equal(result.production_writes,0);
   assert.equal(result.publishes,0);
+});
+
+test('bridge stays BLOCKED when readback is stale, even if agent invocation was recorded',async()=>{
+  const body=payload();
+  body.request.input.storefront_readback_at='2026-10-12T16:00:00+07:00';
+  const event={issue:{number:100,title:'[KK-X-PLAN] blocked readiness',author_association:'OWNER'}};
+  const result=await Bridge.runBridge({event,payload:body,ledgerFn:async row=>({ok:true,inserted:true,invocation_id:row.invocation_id})});
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.blocker,'BLOCKED_NO_ELIGIBLE_EVENTS');
+  assert.equal(result.plan.slots.filter(x=>x.event).length,0);
+  assert.equal(result.publishes,0);
+  assert.equal(result.production_writes,0);
 });
 
 test('workflow is owner-only, posts evidence, closes issue and never deploys',()=>{

@@ -28,14 +28,15 @@ const COPY_CONTRACT = Object.freeze({
   direct_rental_layout_rule: 'Current preferred baseline is Brand → Event hashtag → Offer/price → Date → Venue → Event-specific hook → Benefits → Booking CTA → 3 closing hashtags. It is a quality baseline, not a rigid order gate; verified facts, brand-first identity, CTA and anti-repeat remain hard requirements.',
   handoff_line: '📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน',
   file_storage_line: '☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน',
-  booking_cta: '👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/',
-  hashtag_rule: 'Use only hashtags verified for the current event/artist/fandom context. Never synthesize a hashtag from an event name. By default put exactly 3 strongest verified closing hashtags at the end and do not duplicate #เช่ามือถือ or the main event hashtag already used above.',
-  duplicate_fact_rule: 'Date and venue have one canonical information block. Do not repeat date/venue inside the hook unless timing itself is the verified marketing message (for example today, tomorrow, DAY 2, or last call).',
+  booking_cta: '👉 [event-specific booking invitation]\nkk-phone-rental.vercel.app',
+  hashtag_rule: 'Use only hashtags verified for the current event/artist/fandom context. Never synthesize a hashtag from an event name. By default put exactly 3 strongest verified closing hashtags at the end, resulting in at least FIVE distinct verified tags including #เช่ามือถือ in the header and the main event tag. Do not duplicate or invent unverified tags.',
+  duplicate_fact_rule: 'Date and venue have one canonical information block. Do not repeat date/venue facts. Never put a date in the hook or CTA, including multi-day events. Use a short natural event-specific hook; avoid อยู่โซนไกล, เตรียมกล้อง, เตรียมเลนส์, ซูม and เก็บทุกโมเมนต์.',
   promotion_rule: 'Include discounts or promotions only when they are current, explicitly approved, and verified for the post.',
   pricing_rule: 'Use only current approved pricing from verified business truth. Never infer, copy from stale examples, or invent a price.',
-  brand_rule: 'Keep the brand line first and do not repeat it at the bottom of the post.',
-  creative_freedom_rule: 'Do not force every post into one visual/text template. Preserve event-specific voice, organic pacing, vivid but concise language, and a natural transition back to the rental use case.',
-  hard_gate_rule: 'Hard gates cover verified event facts, live approved price/inventory, verified hashtags, brand identity, booking CTA for commercial posts, recent-copy anti-repeat, three distinct internal candidates, QA and Selector PASS. Multi-event batches additionally require batch-level hook diversity QA before any winners are returned.'
+  brand_rule: 'Keep the brand line first; never repeat the shop name KK or KK Phone Rental anywhere else in body, hook, benefits or CTA.',
+  owner_x_rule: 'Commercial X posts must show model only in the verified price/offer line, never repeat it in body or CTA. Every verified event date uses a compact status line: 14 ต.ค. ✅ ว่าง, 15 ต.ค. ❌ เต็ม; verified shop-closed event dates may use the owner-approved ❌ เต็ม customer label without asserting booked-full or changing backend truth; hidden/locked dates remain excluded. Keep canonical day truth and promote only genuinely available dates. Never mention remaining phone counts. Never invent a day status. Use one selected copy only.',
+  creative_freedom_rule: 'Do not force every post into one visual/text template. Preserve event-specific voice, organic pacing and X Premium long-form language when the verified event context benefits from detail; do not impose a non-Premium 280-character cap. Transition naturally to the rental benefit.',
+  hard_gate_rule: 'Hard gates cover verified event facts, live approved price/inventory, FIVE distinct verified hashtags, brand identity, one event-specific booking CTA for commercial posts, recent-copy anti-repeat, three distinct internal candidates, QA and Selector PASS. Multi-event batches additionally require hook and CTA diversity QA before any winners are returned.'
 });
 
 const ANTI_REPEAT_CONTRACT = Object.freeze({
@@ -243,7 +244,14 @@ function buildCreativePlan(input = {}, performanceRows = []) {
       fandom_notes: cleanText(input.fandom_notes),
       timing_context: cleanText(input.timing_context),
       event_dna: Array.isArray(input.event_dna) ? input.event_dna.map(cleanText).filter(Boolean) : [],
-      creative_anchors: Array.isArray(input.creative_anchors) ? input.creative_anchors.map(cleanText).filter(Boolean) : []
+      creative_anchors: Array.isArray(input.creative_anchors) ? input.creative_anchors.map(cleanText).filter(Boolean) : [],
+      event_dates_verified: input.event_dates_verified === true,
+      event_dates: Array.isArray(input.event_dates) ? input.event_dates.map(cleanText).filter(Boolean) : [],
+      day_statuses_verified: input.day_statuses_verified === true,
+      day_statuses: Array.isArray(input.day_statuses) ? input.day_statuses.map(day => ({
+        date_label: cleanText(day && day.date_label),
+        status: cleanText(day && day.status)
+      })).filter(day => day.date_label && day.status) : []
     },
     readiness,
     content_mix_target: CONTENT_MIX_TARGET,
@@ -264,14 +272,15 @@ function buildCreativePlan(input = {}, performanceRows = []) {
       'Verified event truth and current approved pricing/inventory always outrank creative suggestions or historical performance.',
       'Do not invent event facts, venue, date, price, availability, promotion, hashtag status, artist lore, fandom lore, or event concept.',
       'Never synthesize hashtags from event names. Use only current verified hashtags supplied in the input.',
-      'Do not repeat canonical date/venue facts in the hook when they already appear in the Date/Venue block, unless timing is intentionally the marketing message.',
+      'Never include any date in the hook or CTA; keep dates only in verified status lines. Use natural event-specific wording; do not use อยู่โซนไกล, เตรียมกล้อง, เตรียมเลนส์, ซูม or เก็บทุกโมเมนต์.',
       'Performance evidence is a nudge, not an automatic winner-selection system; preserve creative diversity.',
       'Useful/engagement content should lead with audience value. Add a rental mention only when it improves relevance.',
       'Direct rental copy is allowed only when readiness.commercial_ready is true.',
       'For every publishable KK social-post request, generate exactly three internal candidates with different primary angles and different hook structures. Do not expose all candidates to the owner.',
       'Each internal candidate must include selector metrics from 0–100 for hook_strength, event_fandom_relevance, timing_relevance, novelty, hashtag_relevance, readability, event_specificity, naturalness, non_template_feel, hook_originality, sales_pressure_balance, and commercial_relevance when the marketing objective is conversion.',
       'After QA, the selector chooses exactly one final post for Owner Review. Public output must contain only that winner unless the owner explicitly asks to inspect alternatives.',
-      'For commercial rental posts, keep the KK brand first and include verified event hashtag, exact verified offer/price, canonical date/venue when supplied, and booking CTA. Do NOT force a single paragraph order; hook, offer, context, benefits and emoji may move when strategy supports it.',
+      'For commercial rental posts, keep the KK brand first ONCE; include verified event hashtag, exact verified offer/price, and canonical event venue; use only two verified public date labels (✅ ว่าง / ❌ เต็ม), labeling verified shop-closed dates ❌ เต็ม only as customer copy while excluding hidden/locked dates, and using a distinct event-specific CTA without dates. Never mention remaining counts, scarcity, or repeat model/shop name outside the brand/price lines.',
+      'Every direct rental X final candidate must satisfy server/kk-x-owner-copy-policy.js V4 before QA and Selector. Missing verified per-day statuses fail closed.',
       'Creative direction benchmark: event-specific and organic, vivid but concise, not overly salesy, with a natural transition from the event/fandom moment back to the rental use case. The liked Khom Khlang-style direction is a quality reference, not a phrase/template to copy.',
       'Do not make cosmetic rewrites: changing emoji, synonyms, or sentence order does not count as a distinct variant.',
       'Compare against anti_repeat_context.recent_posts and avoid repeated hooks, metaphors, sentence skeletons, and generic filler.',

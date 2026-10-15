@@ -1,6 +1,8 @@
 'use strict';
 
 const Marketing=require('./kk-marketing-agent.js');
+const Eligibility=require('./kk-x-posting-eligibility.js');
+const VisibilityRecovery=require('./kk-x-visibility-recovery.js');
 
 const VERSION='KK_X_POSTING_PLAN_V1';
 const TIMEZONE='Asia/Bangkok';
@@ -53,6 +55,7 @@ function competitorActivity(candidate={}){
 }
 
 function recentPostFatigue(candidate={}){
+  if(candidate.recent_posted_evidence_verified!==true)return 0;
   const hours=Number(candidate.recent_posted_hours_ago);
   if(!Number.isFinite(hours)||hours<0)return 0;
   if(hours<2)return 40;
@@ -64,27 +67,30 @@ function recentPostFatigue(candidate={}){
 }
 
 function dimensionValue(candidate,key,marketingPlan){
-  if(Number.isFinite(Number(candidate[key])))return clamp(candidate[key]);
-  if(key==='engagement_velocity'){
-    const signal=marketingPlan&&marketingPlan.x_signal_analysis;
-    if(signal&&signal.gate==='PASS'&&Number.isFinite(Number(signal.priority_score)))return clamp(signal.priority_score);
-  }
   if(key==='event_proximity')return eventProximity(candidate);
-  if(key==='competitor_activity')return competitorActivity(candidate);
-  if(key==='booking_opportunity'){
-    return clamp(marketingPlan&&marketingPlan.opportunity&&marketingPlan.opportunity.score);
-  }
-  return 50;
+  if(key==='booking_opportunity')return clamp(marketingPlan&&marketingPlan.opportunity&&marketingPlan.opportunity.score);
+  // Never turn owner-supplied or guessed social numbers into "measured X".
+  const signal=marketingPlan&&marketingPlan.x_signal_analysis;
+  if(!signal||signal.gate!=='PASS')return 0;
+  if(candidate.signal_metrics_verified===true&&Number.isFinite(Number(candidate[key]))&&candidate[key]!==null&&candidate[key]!=='')return clamp(candidate[key]);
+  if(key==='engagement_velocity'&&Number.isFinite(signal.priority_score))return clamp(signal.priority_score);
+  return 0;
 }
 
 function scoreCandidate(candidate={}){
-  const marketingAgent=Marketing.plan(candidate,Array.isArray(candidate.performance_rows)?candidate.performance_rows:[]);
+  // Learning is allowed only from link-backed, expressly verified published posts.
+  const measuredRows=Array.isArray(candidate.performance_rows)?candidate.performance_rows.filter(row=>
+    row&&row.evidence_verified===true&&
+    /^https:\/\/(?:x\.com|twitter\.com)\/[a-zA-Z0-9_]+\/status\/\d+/.test(text(row.x_post_url||row.post_url))&&
+    ['measured','confirmed_posted'].includes(text(row.status).toLowerCase())
+  ):[];
+  const marketingAgent=Marketing.plan(candidate,measuredRows);
   const dimensions={
     engagement_velocity:dimensionValue(candidate,'engagement_velocity',marketingAgent),
     conversation_volume:dimensionValue(candidate,'conversation_volume',marketingAgent),
     event_proximity:eventProximity(candidate),
     fandom_strength:dimensionValue(candidate,'fandom_strength',marketingAgent),
-    competitor_activity:competitorActivity(candidate),
+    competitor_activity:dimensionValue(candidate,'competitor_activity',marketingAgent),
     booking_opportunity:dimensionValue(candidate,'booking_opportunity',marketingAgent)
   };
   const raw=Object.entries(WEIGHTS).reduce((sum,[key,weight])=>sum+(dimensions[key]*weight),0);
@@ -94,7 +100,9 @@ function scoreCandidate(candidate={}){
     candidate,
     dimensions,
     recent_post_fatigue:fatigue,
-    base_score:clamp(raw-fatigue),
+    base_score:Math.round(clamp(raw-fatigue)),
+    confidence:marketingAgent.x_signal_analysis.gate==='PASS'?'X_SIGNAL_'+String(marketingAgent.x_signal_analysis.confidence||'low').toUpperCase():'LOW_NO_VERIFIED_X',
+    score_interpretation:'HEURISTIC_ADVISORY_NOT_MEASURED_REACH',
     marketing_agent:marketingAgent
   };
 }
@@ -106,7 +114,7 @@ function slotScore(row,slot){
   else if(slot.zone==='PRIME_CORE')bonus=(d.booking_opportunity*0.08)+(d.conversation_volume*0.06);
   else if(slot.zone==='LATE_PRIME')bonus=(d.engagement_velocity*0.08)+(d.conversation_volume*0.04);
   else if(slot.zone==='LATE_NIGHT')bonus=(d.conversation_volume*0.10)+(d.fandom_strength*0.03);
-  return clamp(row.base_score+bonus);
+  return Math.round(clamp(row.base_score+bonus));
 }
 
 function normalizeSlots(slots){
@@ -127,33 +135,58 @@ function normalizeSlots(slots){
 
 function plan(input={}){
   const candidates=Array.isArray(input.candidates)?input.candidates.filter(Boolean):[];
-  const rejectedCandidates=candidates
-    .filter(candidate=>candidate.verified_event!==true)
-    .map(candidate=>({
-      event:text(candidate.event||candidate.name||candidate.title),
-      reason:'EVENT_NOT_VERIFIED'
-    }));
-  const eligibleCandidates=candidates.filter(candidate=>candidate.verified_event===true);
+  const gate=Eligibility.inputGate(input);
+  const evaluations=candidates.map(candidate=>({candidate,gate:Eligibility.eligibility(candidate,input,gate)}));
+  const rejectedCandidates=evaluations.filter(row=>!row.gate.eligible).map(row=>({
+    event:text(row.candidate.event||row.candidate.name||row.candidate.title),
+    event_id:text(row.candidate.event_id),
+    reason:row.gate.errors[0],
+    reasons:row.gate.errors
+  }));
+  const eligibleCandidates=evaluations.filter(row=>row.gate.eligible).map(row=>{
+    const candidate=row.candidate;
+    const date=Eligibility.eventDay(candidate.event_date_text);
+    const today=Eligibility.bangkokDate(gate.now);
+    const delta=Math.round((Date.parse(date+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);
+    // Exact Web Ready row, not a stale candidate claim, owns remaining phones.
+    const web=(input.storefront_rows||[]).map(Eligibility.webRow).find(row=>
+      row.id===text(candidate.event_id)&&row.date===text(candidate.event_date_text));
+    return {...candidate,days_to_event:delta,event_is_today:delta===0,event_is_tomorrow:delta===1,
+      inventory_available:true,inventory_remaining:web.available,phone_inventory_remaining:web.available};
+  });
   const ranking=eligibleCandidates.map(scoreCandidate).sort((a,b)=>b.base_score-a.base_score);
   const slots=normalizeSlots(input.slots);
+  // Account-wide advisory: even distinct events must not flood the same X account.
+  const visibilityRecovery=VisibilityRecovery.assess(input,slots,gate);
+  const allowed=new Set(visibilityRecovery.allowed_indexes);
   const used=new Set();
-  const assignments=slots.map(slot=>{
+  const assignments=slots.map((slot,index)=>{
+    if(!allowed.has(index)){
+      return {
+        time:slot.time,zone:slot.zone,action:slot.action,
+        event:'',event_id:'',score:0,confidence:'BLOCKED_VISIBILITY_RECOVERY',
+        objective:'',campaign_mode:'',
+        reason:[visibilityRecovery.slot_reasons[index]||'RECOVERY_SLOT_NOT_ALLOWED']
+      };
+    }
     const eligible=ranking
-      .filter(row=>row.event&&!used.has(row.event))
+      .filter(row=>row.event&&!used.has(row.event.toLocaleLowerCase()))
       .map(row=>({...row,slot_score:slotScore(row,slot)}))
       .sort((a,b)=>b.slot_score-a.slot_score);
     const winner=eligible[0]||null;
-    if(winner)used.add(winner.event);
+    if(winner)used.add(winner.event.toLocaleLowerCase());
     return {
       time:slot.time,
       zone:slot.zone,
       action:slot.action,
       event:winner?winner.event:'',
       score:winner?winner.slot_score:0,
+      confidence:winner?winner.confidence:'NO_ELIGIBLE_EVENT',
+      event_id:winner?text(winner.candidate.event_id):'',
       objective:winner&&winner.marketing_agent?winner.marketing_agent.objective:'',
       campaign_mode:winner&&winner.marketing_agent?winner.marketing_agent.campaign_mode:'',
       reason:winner?[
-        'ranked_by_x_and_commercial_signals',
+        winner.confidence==='LOW_NO_VERIFIED_X'?'proximity_and_verified_stock_only':'verified_x_and_commercial_signals',
         winner.recent_post_fatigue>0?'recent_post_fatigue_applied':'no_recent_post_penalty',
         slot.zone.toLowerCase()
       ]:[]
@@ -162,7 +195,12 @@ function plan(input={}){
 
   return {
     schema_version:VERSION,
-    status:'READY_FOR_OWNER_REVIEW',
+    status:ranking.length&&assignments.some(slot=>slot.event)?'READY_FOR_OWNER_REVIEW':
+      ranking.length?'BLOCKED_VISIBILITY_RECOVERY':'BLOCKED_NO_ELIGIBLE_EVENTS',
+    readiness_gates:[...new Set([...gate.errors,...visibilityRecovery.errors])],
+    visibility_recovery:visibilityRecovery,
+    operating_day:gate.operating_day,
+    evidence_policy:'Booking, Owner Locks, Storefront and Post Log <=6h readback; planned/assumed not measured published X',
     timezone:text(input.timezone)||TIMEZONE,
     objective:'MAXIMIZE_QUALIFIED_REACH_AND_ENGAGEMENT_WITH_BOOKING_INTENT',
     weights:{...WEIGHTS},
