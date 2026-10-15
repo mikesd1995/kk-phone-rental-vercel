@@ -55,12 +55,25 @@ test('Core and legacy calculate completed Actual, exact package-X Future and For
   assert.doesNotMatch(JSON.stringify(metrics),/Customer One|0811111111/);
  }
 });
-test('mismatched, ambiguous, missing, zero-price active quotes reject',()=>{
+test('strict Master X: exact identity, duplicate and missing quotes fail closed',()=>{
  const seed={booking_id:'B1',event_id:'EV1',status:'confirmed',package_type:'phone_only'};
- for(const bad of [{...seed,booking_id:'UNKNOWN'},{...seed,event_id:'WRONG'},{...seed,status:'pending'},{...seed,package_type:'phone_lens'}])
-  assert.throws(()=>Booked.bookedPriceRows([bad],master,Quote.parseCsv),e=>e.code==='RENTAL_ACTIVE_QUOTE_UNVERIFIED');
- for(const badCsv of [master+'\n'+row('B1','EV1','confirmed','phone_only',890),[header,row('B1','EV1','confirmed','phone_only',0)].join('\n')])
-  assert.throws(()=>Booked.bookedPriceRows([seed],badCsv,Quote.parseCsv),e=>e.code==='RENTAL_ACTIVE_QUOTE_UNVERIFIED');
+ for(const bad of [
+  {...seed,booking_id:'UNKNOWN'},{...seed,event_id:'WRONG'},
+  {...seed,status:'pending'},{...seed,package_type:'phone_lens'},
+  {...seed,package_type:''}
+ ])assert.throws(()=>Booked.bookedPriceRows([bad],master,Quote.parseCsv),e=>e.code==='MISSING_QUOTE');
+ assert.throws(()=>Booked.bookedPriceRows([seed],master+'\n'+row('B1','EV1','confirmed','phone_only',890),Quote.parseCsv),e=>e.code==='DUPLICATE_QUOTE');
+ assert.throws(()=>Booked.bookedPriceRows([seed],[header,row('B1','EV1','confirmed','phone_only',0)].join('\n'),Quote.parseCsv),e=>e.code==='MISSING_QUOTE');
+});
+test('named Core and Legacy adapters require private opt-in and strict quote schema',async()=>{
+ for(const mod of [Core,Legacy]){
+  const index=mod.buildStrictBookingQuoteMap(master);
+  assert.equal(Booked.bookedPriceRows([{booking_id:'B1',event_id:'EV1',status:'confirmed',package_type:'phone_only',amount_received:0}],index)[0].package_price,890);
+  assert.equal((await mod.fetchAppsScriptPrivateQuotes('synthetic-core',{})).status,'NOT_ENABLED');
+ }
+ assert.equal((await Quote.fetchAppsScriptPrivateQuotes('synthetic-core',{})).status,'NOT_ENABLED');
+ assert.throws(()=>Booked.buildStrictBookingQuoteMap(header.replace('package_price','other_price')+'\n'+row('B1','EV1','confirmed','phone_only',890),Quote.parseCsv),
+   e=>e.code==='RENTAL_MASTER_QUOTE_SCHEMA_INVALID');
 });
 test('strict mode cannot fall back to amount_received when quote invalid',()=>{
  for(const m of [Core,Legacy])

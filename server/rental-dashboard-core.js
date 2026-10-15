@@ -32,6 +32,13 @@ async function coreCsv(sheetId,sheet,range,env=process.env){
   try{return await CorePrivacy.readCsv({sheetId,sheet,range,env});}
   catch(_){const e=new Error('CORE_QUOTE_PRIVATE_READ_FAILED');e.code='CORE_QUOTE_PRIVATE_READ_FAILED';throw e;}
 }
+function buildStrictBookingQuoteMap(csv){
+ return BookedQuote.buildStrictBookingQuoteMap(csv,CanonicalQuote.parseCsv);
+}
+async function fetchAppsScriptPrivateQuotes(sheetId,env=process.env){
+ // Disabled until owner explicitly enables both private gates and read-key.
+ return CanonicalQuote.fetchAppsScriptPrivateQuotes(sheetId,env);
+}
 function parseCsv(text){
   const rows=[]; let row=[],value="",quoted=false;
   const s=String(text||"").replace(/^\uFEFF/,"");
@@ -272,7 +279,7 @@ function aggregate(rows,{strictQuotes=false}={}){
     `Affiliation Coverage ตอนนี้ ${non.length?((affKnown/non.length)*100).toFixed(1):"0.0"}% ของ booking ที่นับในรายงาน; Unknown ${affUnknown} คิว`,
     "Top Affiliation เรียงจากลูกค้าไม่ซ้ำ → Booking → จำนวนงาน เพื่อใช้ตัดสินใจว่าจะโฟกัสค่ายใดเป็นพิเศษ",
     "รายรับจริง = SUM(amount_received) เฉพาะ booking ที่ status=completed",
-    "รายรับในอนาคต = SUM(amount_received) เฉพาะ booking ที่ยัง Active: pending / confirmed / prepared / picked_up / returned / uploaded",
+    "รายรับในอนาคต = SUM(package_price) คอลัมน์ X เมื่อเปิดและตรวจรับ Private Canonical Quote สำหรับ pending / confirmed / prepared / picked_up / returned / uploaded; ก่อนเปิด Feature Flag ยังคงใช้ amount_received ตาม Legacy",
     "คาดการณ์รายรับรวม = รายรับจริง + รายรับในอนาคต; cancelled / no_show / สถานะว่างไม่ถูกนับ และ booking หนึ่งรายการอยู่ได้เพียง bucket เดียว",
     "metrics.amount_received คงไว้เป็น compatibility alias ของ forecast_revenue; UI ไม่แสดง field นี้ว่าเป็นยอดรับจริงอีก",
     "API response ไม่ส่งชื่อ เบอร์โทร หรือ contact ลูกค้ารายบุคคลกลับ browser"
@@ -293,20 +300,20 @@ module.exports=async function handler(req,res){
       coreCsv(sheetId,"01_Events","A4:Z"),
       coreCsv(sheetId,"13_Event_Archive","A1:Z"),
       fetchCsv(trackerId,"_Artist_Registry","A1:E").then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:""})),
-      CanonicalQuote.readPrivateMaster(sheetId,process.env)
+      fetchAppsScriptPrivateQuotes(sheetId,process.env)
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
     const meta=eventMetadata(currentEventsCsv,archiveEventsCsv,registryRules);
     const helperRows=parseHelper(helperCsv,meta,registryRules);
     const strictQuotes=privateMaster.status==='PRIVATE_VERIFIED';
     const rows=strictQuotes
-      ? BookedQuote.bookedPriceRows(helperRows,privateMaster.csv,CanonicalQuote.parseCsv)
+      ? BookedQuote.bookedPriceRows(helperRows,buildStrictBookingQuoteMap(privateMaster.csv))
       : CanonicalQuote.attachQuotes(helperRows,CanonicalQuote.bookingQuoteMap(privateMaster.csv));
     const data=aggregate(rows,{strictQuotes});
     data.revenue_quote_source=privateMaster.status;
     return json(res,200,{ok:true,data});
   }catch(err){
-    if(String(process.env[CanonicalQuote.FLAG]||'').trim()==='1'&&/^(CORE_QUOTE_|RENTAL_)/.test(String(err&&err.code||'')))
+    if(String(process.env[CanonicalQuote.FLAG]||'').trim()==='1'&&/^(CORE_QUOTE_|RENTAL_|DUPLICATE_QUOTE$|MISSING_QUOTE$)/.test(String(err&&err.code||'')))
       return json(res,503,{ok:false,error:'Canonical private quote reader unavailable',error_code:'CORE_QUOTE_PRIVATE_READ_FAILED'});
     const msg=err&&err.name==="AbortError"?"Google Sheet analytics timeout":(err&&err.message?err.message:String(err));
     return json(res,500,{ok:false,error:msg});
@@ -314,4 +321,4 @@ module.exports=async function handler(req,res){
 };
 
 
-module.exports._test={eventMetadata,parseHelper,aggregate,eventMonth,coreCsv};
+module.exports._test={eventMetadata,parseHelper,aggregate,eventMonth,coreCsv,buildStrictBookingQuoteMap,fetchAppsScriptPrivateQuotes};

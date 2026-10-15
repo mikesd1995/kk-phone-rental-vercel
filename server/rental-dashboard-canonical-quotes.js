@@ -79,4 +79,8 @@ async function readPrivateMaster(sheetId,env=process.env,reader=CorePrivacy.read
     return {status:'PRIVATE_VERIFIED',csv};
   }catch(_){throw fail('CORE_QUOTE_PRIVATE_READ_FAILED');}
 }
-module.exports={FLAG,parseCsv,bookingQuoteMap,attachQuotes,readPrivateMaster,positiveAmount};
+// Named adapter routes only through independently authenticated private Apps Script.
+async function fetchAppsScriptPrivateQuotes(sheetId,env=process.env,reader){
+ return readPrivateMaster(sheetId,env,reader||CorePrivacy.readCsv);
+}
+module.exports={FLAG,parseCsv,bookingQuoteMap,attachQuotes,readPrivateMaster,fetchAppsScriptPrivateQuotes,positiveAmount};

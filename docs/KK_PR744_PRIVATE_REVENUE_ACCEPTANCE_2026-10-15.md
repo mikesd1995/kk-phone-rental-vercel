@@ -31,3 +31,9 @@
 - Branch was independently updated during review: `54e43aca...` Full 1523 suite had 21 fails, `bda5866f...` reduced these to 1 fail and `7a23556a...` corrected the injected X ledger expectation. These intervening commits are preserved, not rewritten.
 - Verified GitHub run evidence: [failed full regression 21 cases](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38672562727), [subsequent 1-case failure](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38673270808). New exact-head Hosted CI remains required; no claim of full PASS without its readback.
 - Existing Router's exact `workflow_ref` / `job_workflow_ref` security, owner event allowlist, Bangkok `formatToParts`, full-booking guard, and strict private Revenue integration left intact. Production feature flags remain OFF, Google Sheets ACL remains unchanged; PR remains Draft / release blocked pending independent acceptance.
+
+## 2026-10-15 — Requested six-point Master Cleanup follow-up
+- User baseline 643cdc1 was stale; safely based on live Draft PR #744 HEAD 44833139ae288a438fb7608476f40feb6bc1d818 (no force update).
+- Points 1–5 already implemented, preserved unmodified: exact paired OIDC workflow_ref/job_workflow_ref (stricter than startsWith), admin issues event, Zero-install CI plus recall, both Bangkok formatToParts, and full-booked skip before match.
+- Point 6 completed in staged source: strict quote map Master X=package_price; match booking_id+event_id+status+package_type; DUPLICATE_QUOTE/MISSING_QUOTE on ambiguous/missing/mismatched/invalid. Both revenue dashboards call named fetchAppsScriptPrivateQuotes (separate read key) and buildStrictBookingQuoteMap; 503 sanitized error in strict mode.
+- Production flag KK_CORE_CANONICAL_QUOTE_PRIVATE_ENABLED remains OFF by default. No permissions, deployments, booking/stock/price or customer-data writes. Exact new SHA CI and live private reader cutover separately required before release.
