@@ -58,7 +58,7 @@ function logRow(row){
 
 const BOOKING_SOURCE='00_Master_Booking';
 const LOCK_SOURCE='18_Event_Visibility_Locks';
-const IGNORED_BOOKING_STATUSES=new Set(['','cancelled','canceled','no_show','no-show']);
+const IGNORED_BOOKING_STATUSES=new Set(['','booking_status','cancelled','canceled','no_show','no-show']);
 function calendarDay(value){
   const s=text(value);
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
