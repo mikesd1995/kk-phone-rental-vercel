@@ -2,11 +2,11 @@
 // DO NOT install as trigger. Audit first. Apply needs explicit Dry Run fingerprint.
 // No booking, business spreadsheet, event-price or poster URL writes.
 const KKACL_BOOK='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
-const KKACL_EXPECTED=["11lLELLP0U5s26pSnq83KEoJErDaRVbhc","11n_PykjFNHUaHN_Qn98dAKxRi-is3PY6","16EZbR0m4aKuiJqC9X-hX21u1ANa9_WIZ","17d_8sRmJZTfqY2niE7LjLY1cwXM_sh7b","1IJQ-3QTldmIMN886hs639cDh8l0I7l1N","1IuFwiQGTLFKu_kLy0IRDYQXlwWdeAXxB","1JhOUPGj9Qoi6r--zFEG0Bl-QCM5FK0O1","1MSARhcxKGVuZo4-HxdDmB6le2tl2mkrl","1OVYGQIlzt-n_la8eKKwgFIBcrrVxix78","1TKVc01SYSIP0TLFG9R3Ay3w0SKT-_S83","1UZRolQljkxmbbIWdH0k_Zl3XnQh_Gi8L","1V2sHeGxCuWZxGfL7JJIAAdTDBWGWrgNj","1YAQKhOGwvtug-Z2Uae3wjFEYsxPGPz9J","1a72uNH2xAv_srOWwLY35tmXAvTJDw1Aw","1ayPxgd5_3Qa7DUwLu_5Kka90uwEPBMp2","1bsdn_iG_QEXudZIyqu-EL2gFaAkPZUHo","1dNV0SMV-y1UJraKmor2d7mYY-FvZn-9Y","1gRBzNK9FzB4dFd79Ifmfl_tuKOa4WDV9","1g_FLQ20KKd4hnxgUtJxyS775v5eX6PS2","1m-nHtWvAiVjeMycJdpWY5hTyyzNaLAuz","1nC3VeMJdiK3zie_6i1LV6m5aOPpEz_Ka","1oIzFoFiN3fz4mWUBaP82rtWrgLxptX2z","1oqhMwTdMLcIrVCUOTeJqDWvYeey3Fgxc","1qzZg3s9Wshx5IwAQ1ibnUP8oihuJSWL4","1sPjzmpjXPX5ax0e0ecYsC_Oj38K9gENI","1tFUzjXutDTuDTJxSg9vIHU2Pdg-Ob9m4","1tHq2I1PH4G7N0DECJvRCCghMZ8mP91u8","1uBAI1XN1U2MtT_kHFWFG8WLOcKMrXqPb","1usY7HMNml4plj98EQSJ9JGvvAlbsZSs0","1xCGMxDDqmKadYua8bjmlcHz-bzjMlQAO","1xpd3LaQEYjXB-yb-MS7z5xA_WdNEEp79","1yV2GACqS2IkzfBGGNTQFOwL6zUt1s7mo","1zt_jnwkr7mnFHUHOh8kXVdcd0MlgPErj"];
+const KKACL_EXPECTED=["11lLELLP0U5s26pSnq83KEoJErDaRVbhc","11n_PykjFNHUaHN_Qn98dAKxRi-is3PY6","16EZbR0m4aKuiJqC9X-hX21u1ANa9_WIZ","17d_8sRmJZTfqY2niE7LjLY1cwXM_sh7b","1HFY4aRt9jFDME1KXtGMCNakRZyCEpHgl","1IJQ-3QTldmIMN886hs639cDh8l0I7l1N","1IuFwiQGTLFKu_kLy0IRDYQXlwWdeAXxB","1JhOUPGj9Qoi6r--zFEG0Bl-QCM5FK0O1","1MSARhcxKGVuZo4-HxdDmB6le2tl2mkrl","1OVYGQIlzt-n_la8eKKwgFIBcrrVxix78","1TKVc01SYSIP0TLFG9R3Ay3w0SKT-_S83","1UZRolQljkxmbbIWdH0k_Zl3XnQh_Gi8L","1V2sHeGxCuWZxGfL7JJIAAdTDBWGWrgNj","1YAQKhOGwvtug-Z2Uae3wjFEYsxPGPz9J","1a72uNH2xAv_srOWwLY35tmXAvTJDw1Aw","1ayPxgd5_3Qa7DUwLu_5Kka90uwEPBMp2","1bsdn_iG_QEXudZIyqu-EL2gFaAkPZUHo","1dNV0SMV-y1UJraKmor2d7mYY-FvZn-9Y","1gRBzNK9FzB4dFd79Ifmfl_tuKOa4WDV9","1g_FLQ20KKd4hnxgUtJxyS775v5eX6PS2","1m-nHtWvAiVjeMycJdpWY5hTyyzNaLAuz","1nC3VeMJdiK3zie_6i1LV6m5aOPpEz_Ka","1oIzFoFiN3fz4mWUBaP82rtWrgLxptX2z","1oqhMwTdMLcIrVCUOTeJqDWvYeey3Fgxc","1qzZg3s9Wshx5IwAQ1ibnUP8oihuJSWL4","1sPjzmpjXPX5ax0e0ecYsC_Oj38K9gENI","1tFUzjXutDTuDTJxSg9vIHU2Pdg-Ob9m4","1tHq2I1PH4G7N0DECJvRCCghMZ8mP91u8","1uBAI1XN1U2MtT_kHFWFG8WLOcKMrXqPb","1usY7HMNml4plj98EQSJ9JGvvAlbsZSs0","1xCGMxDDqmKadYua8bjmlcHz-bzjMlQAO","1xpd3LaQEYjXB-yb-MS7z5xA_WdNEEp79","1yMVpy4pNNuitIb6FFsBiEo4y9-ogFA2i","1yV2GACqS2IkzfBGGNTQFOwL6zUt1s7mo","1zt_jnwkr7mnFHUHOh8kXVdcd0MlgPErj"];
 const KKACL_FOLDERS=['1avy3Up3NJskqB7kCzQoQPWKK3-j1qJqS','1haTk15ElLwZM8NFcLvK36tbyLZo5wnzw','1uIfM-KV6FrJRQIP0ZNso7-ibZiSo1nwQ','1m6sOf1vl6l_tHscb-tNkTUjlEy82ELHl'];
 // Limit each explicitly owner-approved run; refresh Dry Run + fingerprint before each batch.
 const KKACL_MAX_WRITES_PER_APPROVAL=25;
-// Default is strictly 33 currently visible image IDs + 4 reviewed folders.
+// Default is strictly 35 currently visible image IDs + 4 reviewed folders.
 // Historical files are inventoried / fingerprinted but NEVER setSharing-ed.
 const KKACL_WRITE_SCOPE='ACTIVE_ONLY';
 
@@ -25,7 +25,7 @@ function kkAclReadActive_20261013(){
     if(m)refs.push(m[1]);
   }
   const files=[...new Set(refs)].sort();
-  if(cards.length!==76||refs.length!==42||files.length!==KKACL_EXPECTED.length||
+  if(cards.length!==76||refs.length!==44||files.length!==KKACL_EXPECTED.length||
      files.some((x,i)=>x!==KKACL_EXPECTED[i]))throw Error('SCOPED_ACTIVE_POSTER_DRIFT');
   return files;
 }
