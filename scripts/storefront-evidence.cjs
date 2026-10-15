@@ -111,7 +111,9 @@ async function inspectState(page){
     });
     const posterTreatmentIssues=cards.flatMap(card=>{
       const wrap=card.querySelector('.poster-img-wrap');
-      const img=wrap&&wrap.querySelector('img');
+      // A nested shop-brand illustration belongs to the exact-event fallback panel,
+      // not to an uncropped organizer poster. Inspect only the direct poster image.
+      const img=wrap&&wrap.querySelector(':scope > img');
       if(!wrap||!img||!img.complete||!img.naturalWidth||!img.naturalHeight)return [];
       const wr=wrap.getBoundingClientRect();
       const fit=getComputedStyle(img).objectFit;
@@ -179,7 +181,9 @@ function stateFindings(state,{width,name}){
     if(m.left<0||m.right>width+1||m.top<0||m.bottom>m.viewport_height+1||m.scroll_width>m.client_width+1)add('MODAL_VIEWPORT_CONTAINMENT',JSON.stringify(m));
     if(!m.focus_inside)add('MODAL_FOCUS_ESCAPED',name);
     if(!m.title.trim())add('MODAL_EVENT_IDENTITY_MISSING',name);
-    if(width<=700&&Math.abs(m.bottom-m.viewport_height)>1)add('MOBILE_SHEET_NOT_ANCHORED',name);
+    // Owner-approved mobile UX is a centered dialog (V6.12+), NOT a bottom sheet.
+    // Still fail closed on vertical drift, clipping and focus escape.
+    if(width<=700&&Math.abs((m.top+m.bottom)-m.viewport_height)>2)add('MOBILE_DIALOG_NOT_CENTERED',JSON.stringify(m));
   }
   return findings;
 }
