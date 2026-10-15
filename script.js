@@ -793,6 +793,11 @@ function setImgFallback(img, urls, options){
   function settleLoaded(){
     clearTimer(); settled=true;
     img.onerror=null; img.onload=null;
+    // A cached or delayed-success image can bypass the DOM load event. Ensure
+    // presentation treatment follows actual decoded pixels, never source guesses.
+    if(imageHasPixels()&&typeof options.onLoaded==="function"){
+      try{options.onLoaded(img);}catch(e){}
+    }
   }
   function exhausted(){
     // Safari/iOS may paint a cross-origin/Drive image before the expected load callback
@@ -1462,11 +1467,11 @@ function renderConcerts(concerts){
         // when a single image exhausts its delivery candidates.
       };
       if(idx<6){
-        setImgFallback(img,imgCandidates,{timeoutMs:4000,onExhausted:posterFailure});
+        setImgFallback(img,imgCandidates,{timeoutMs:4000,onLoaded:syncPosterTreatment,onExhausted:posterFailure});
       }else{
         // Do not start a timeout while a native-lazy image is still off-screen.
         // Start the fallback chain when the card is near the viewport.
-        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure});
+        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onLoaded:syncPosterTreatment,onExhausted:posterFailure});
       }
     } else {
       card.dataset.posterMissing="1";
