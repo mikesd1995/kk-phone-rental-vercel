@@ -146,3 +146,27 @@ test('quarantined health probe does not call Make transport',async()=>{
     Bridge.callBridge=original;
   }
 });
+
+test('direct bridge call is quarantined even without using the Make API gate',async()=>{
+  let outbound=0;
+  const options={
+    env:{KK_ADMIN_API_KEY:KEY,KK_ADMIN_DIRECT_WRITER_ENABLED:'1',
+      KK_ADMIN_DIRECT_WRITER_ACCEPTED:'1',
+      KK_ADMIN_DIRECT_WRITER_WRITE_PROBE_PASSED:'1'},
+    fetchImpl:async()=>{outbound++;throw Error('external Make invocation forbidden');}
+  };
+  for(const plan of [Bridge.healthPlan(),bookingPlan()]){
+    await assert.rejects(()=>Bridge.callBridge(plan,options),
+      e=>e&&e.code==='BRIDGE_RUNTIME_QUARANTINED');
+  }
+  assert.equal(outbound,0);
+});
+
+test('legacy Make webhook literal is absent and direct-call quarantine is immutable',()=>{
+  const fs=require('node:fs'),path=require('node:path');
+  const source=fs.readFileSync(path.join(__dirname,'../server/admin-make-bridge.js'),'utf8');
+  assert.doesNotMatch(source,/https:\/\/hook\.us2\.make\.com\//);
+  assert.match(source,/const LEGACY_TRANSPORT_QUARANTINED=true/);
+  assert.match(source,/if\(LEGACY_TRANSPORT_QUARANTINED\)/);
+  assert.match(source,/BRIDGE_RUNTIME_QUARANTINED/);
+});
