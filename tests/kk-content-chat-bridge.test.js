@@ -148,7 +148,7 @@ test('bridge comment persists invocation evidence without exposing internal cand
   const result=await Bridge.runBridge({event:event(),payload:payload(),
     ledgerFn:async row=>({ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id})
   });
-  assert.equal(result.status,'PASS');
+  assert.equal(result.status,'PASS',JSON.stringify({blocker:result.blocker,gateway:result.gateway_status,finalization:result.finalization_gate,owner_x_errors:result.finalization?.owner_x_qa?.errors,qa_errors:result.finalization?.qa?.errors,invocation:result.invocation?.invocation_id}));
   const comment=Bridge.buildComment(result);
   assert.match(comment,/KK Content Agent Bridge/);
   assert.match(comment,/Invocation:/);
