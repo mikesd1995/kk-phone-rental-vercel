@@ -86,15 +86,15 @@ test('official event hashtag is required in the event section, not only in the f
   fail(copy(),{official_event_hashtag:'#AnotherEvent',verified_hashtags:[...input.verified_hashtags,'#AnotherEvent']},/OFFICIAL_EVENT_HASHTAG_REQUIRED/);
 });
 test('three distinct source-verified hashtags must close the post',()=>{
-  fail(copy().replace('#ExampleArtist #ExampleFans #ExampleLive','#ExampleArtist #ExampleFans\\n#ExampleLive'),{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
+  fail(copy().replace('#ExampleArtist #ExampleFans #ExampleLive','#ExampleArtist #ExampleFans\n#ExampleLive'),{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
   fail(copy().replace('#ExampleArtist #ExampleFans #ExampleLive','#ExampleArtist #ExampleFans #ExampleFans'),{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
   fail(copy().replace('#ExampleArtist #ExampleFans #ExampleLive','#ExampleArtist #ExampleFans #ExampleFanParty'),{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
-  fail(copy()+'\\nติดต่อทางเว็บไซต์',{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
+  fail(copy()+'\nติดต่อทางเว็บไซต์',{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
 });
 test('owner-hidden and closed days are excluded instead of being falsely labeled full',()=>{
   for(const state of ['closed','hidden','hide','owner_closed','locked']){
     const source=[{date_label:'30 ต.ค.',status:'available'},{date_label:'31 ต.ค.',status:state}];
-    const filtered=copy().replace('31 ต.ค. ❌ เต็ม\\n','');
+    const filtered=copy().replace('31 ต.ค. ❌ เต็ม\n','');
     assert.equal(Policy.validatePost(filtered,{...input,day_statuses:source}).gate,'PASS',state);
     fail(copy(),{day_statuses:source},/LOCKED_DAY_MENTION_FORBIDDEN/);
     fail(copy().replace('31 ต.ค. ❌ เต็ม','31 ต.ค. ✅ ว่าง'),
@@ -103,9 +103,9 @@ test('owner-hidden and closed days are excluded instead of being falsely labeled
 });
 test('multi-day event remains sellable on unlocked date while all locked or event-level locked fails closed',()=>{
   const partial={...input,day_statuses:[{date_label:'30 ต.ค.',status:'available'},{date_label:'31 ต.ค.',status:'owner_closed'}]};
-  assert.equal(Policy.validatePost(copy().replace('31 ต.ค. ❌ เต็ม\\n',''),partial).gate,'PASS');
+  assert.equal(Policy.validatePost(copy().replace('31 ต.ค. ❌ เต็ม\n',''),partial).gate,'PASS');
   const allLocked={...partial,day_statuses:[{date_label:'30 ต.ค.',status:'hidden'},{date_label:'31 ต.ค.',status:'owner_closed'}]};
-  fail(copy().replace('30 ต.ค. ✅ ว่าง\\n','').replace('31 ต.ค. ❌ เต็ม\\n',''),allLocked,/NO_AVAILABLE_DATE_FOR_PROMOTION/);
+  fail(copy().replace('30 ต.ค. ✅ ว่าง\n','').replace('31 ต.ค. ❌ เต็ม\n',''),allLocked,/NO_AVAILABLE_DATE_FOR_PROMOTION/);
   fail(copy(),{...input,owner_event_locked:true},/EVENT_LOCKED_OR_HIDDEN/);
   fail(copy(),{...input,owner_event_hidden:true},/EVENT_LOCKED_OR_HIDDEN/);
 });
