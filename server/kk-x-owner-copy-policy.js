@@ -1,11 +1,13 @@
 'use strict';
 
 // Owner-approved X commercial-copy contract. Read-only; no publishing or spend.
-const VERSION='KK_X_OWNER_COPY_POLICY_V3';
+const VERSION='KK_X_OWNER_COPY_POLICY_V4';
 const BRAND='📱 KK Phone Rental | #เช่ามือถือ';
 const CTA='👉 เลือกวันแล้วจองคิว';
-// Customer-facing X status is binary; internal closed/hidden/owner-locked reasons remain unchanged.
-const STATUS=Object.freeze({available:'✅ ว่าง',full:'❌ เต็ม',closed:'❌ เต็ม',hidden:'❌ เต็ม',hide:'❌ เต็ม',owner_closed:'❌ เต็ม',locked:'❌ เต็ม'});
+// Only confirmed inventory states may appear as binary public status.
+// Owner-closed or hidden dates remain in canonical truth but are excluded from copy.
+const STATUS=Object.freeze({available:'✅ ว่าง',full:'❌ เต็ม'});
+const NON_PROMOTABLE=new Set(['closed','hidden','hide','owner_closed','locked']);
 const SAFETY=Object.freeze({owner_approval_required:true,auto_publish:false,production_writes:0});
 
 function text(value){return String(value===null||value===undefined?'':value).trim();}
@@ -73,19 +75,31 @@ function validatePost(post,input={}){
   const eventDates=Array.isArray(input.event_dates)?input.event_dates.map(text).filter(Boolean):[];
   if(input.event_dates_verified!==true||eventDates.length===0)
     errors.push('OWNER_X_ALL_EVENT_DATES_EVIDENCE_REQUIRED');
+  if(input.owner_event_locked===true || input.owner_event_hidden===true)
+    errors.push('OWNER_X_EVENT_LOCKED_OR_HIDDEN');
   const knownDays=new Set();
+  const promotableDays=new Set();
+  let availableDayCount=0;
   for(const day of rawStatuses){
     const label=text(day&&day.date_label),state=text(day&&day.status).toLowerCase();
-    if(!label||!Object.prototype.hasOwnProperty.call(STATUS,state)){
+    if(!label||(!Object.prototype.hasOwnProperty.call(STATUS,state)&&!NON_PROMOTABLE.has(state))){
       errors.push('OWNER_X_DAY_STATUS_INVALID');continue;
     }
     if(knownDays.has(label))errors.push('OWNER_X_DUPLICATE_SOURCE_DAY:'+label);
     knownDays.add(label);
+    if(NON_PROMOTABLE.has(state)){
+      if(lines.some(line=>line.includes(label)))
+        errors.push('OWNER_X_LOCKED_DAY_MENTION_FORBIDDEN:'+label);
+      continue;
+    }
+    promotableDays.add(label);
+    if(state==='available')availableDayCount++;
     const expected=label+' '+STATUS[state];
     if(lines.filter(line=>line===expected).length!==1)errors.push('OWNER_X_DAY_STATUS_MISSING_OR_WRONG:'+label);
     if(lines.some(line=>line.startsWith(label+' ')&&/✅|❌|🚫/u.test(line)&&line!==expected))
       errors.push('OWNER_X_DAY_STATUS_CONTRADICTS_SOURCE:'+label);
   }
+  if(availableDayCount===0)errors.push('OWNER_X_NO_AVAILABLE_DATE_FOR_PROMOTION');
   for(const label of new Set(eventDates)){
     if(!knownDays.has(label))errors.push('OWNER_X_SOURCE_DATE_OMITTED:'+label);
   }
@@ -93,7 +107,7 @@ function validatePost(post,input={}){
     if(!eventDates.includes(label))errors.push('OWNER_X_UNVERIFIED_SOURCE_DATE:'+label);
   }
   for(const line of lines){
-    if(/(?:✅\s*ว่าง|❌\s*เต็ม|🚫\s*ปิด)$/u.test(line)&&![...knownDays].some(label=>
+    if(/(?:✅\s*ว่าง|❌\s*เต็ม|🚫\s*ปิด)$/u.test(line)&&![...promotableDays].some(label=>
       Object.values(STATUS).some(marker=>line===label+' '+marker)))
       errors.push('OWNER_X_UNVERIFIED_DAY_STATUS:'+line);
   }
@@ -112,4 +126,4 @@ function validateVariants(candidates=[],input={}){
   });
   return {schema_version:VERSION,gate:errors.length?'BLOCKED':'PASS',errors:uniq(errors),results,safety:SAFETY};
 }
-module.exports={VERSION,BRAND,CTA,STATUS,SAFETY,requiresPolicy,validatePost,validateVariants};
+module.exports={VERSION,BRAND,CTA,STATUS,NON_PROMOTABLE,SAFETY,requiresPolicy,validatePost,validateVariants};
