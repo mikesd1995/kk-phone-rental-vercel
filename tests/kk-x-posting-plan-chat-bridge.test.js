@@ -49,7 +49,7 @@ test('bridge strips obvious secrets from request input',()=>{
   assert.deepEqual(clean,{event:'safe'});
 });
 
-test('GitHub Issue payload rejects full Booking Sheet rows or customer PII before any agent invocation',()=>{
+test('GitHub Issue payload rejects full Booking Sheet rows or customer PII before any agent invocation',async()=>{
   const safe=payload();
   safe.request.input.booking_rows=[{booking_status:'confirmed',event_id:'EVT-A',event_date:'17/10/2026'}];
   safe.request.input.visibility_locks=[{event_id:'EVT-A',event_date:'17/10/2026',lock_state:'LOCKED'}];
@@ -68,6 +68,15 @@ test('GitHub Issue payload rejects full Booking Sheet rows or customer PII befor
   delete safe.request.input.storefront_rows[0].line_message_template;
   safe.request.input.post_log=[{event_id:'EVT-A',status:'planned',planned_at:'2026-10-15T12:00:00+07:00',customer_contact:'PRIVATE_TEST_VALUE'}];
   assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:post_log'));
+  let ledgerAttempts=0;
+  const result=await Bridge.runBridge({
+    event:{issue:{number:99,title:'[KK-X-PLAN] private input guard',author_association:'OWNER'}},
+    payload:safe,
+    ledgerFn:async()=>{ledgerAttempts++;return {ok:true,inserted:true};}
+  });
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.gateway_status,'NOT_RUN');
+  assert.equal(ledgerAttempts,0);
 });
 
 test('bridge invokes the real x_posting_plan gateway route and persists invocation evidence',async()=>{
