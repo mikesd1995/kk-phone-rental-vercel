@@ -50,13 +50,20 @@ function parseCsv(text){
   const h=rows[0].map(x=>String(x||'').trim());
   return rows.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]||''])));
 }
+function isBookableWebReadyEvent(row){
+  // Match the canonical public admission contract; package stock alone cannot
+  // re-open owner-hidden/full event dates.
+  if(!row||norm(row.action_for_web)!=='show'||norm(row.booking_status_for_web)!=='เปิดจอง')return false;
+  const n=Number(String(row.available_phone_count===undefined?'':row.available_phone_count).replace(/,/g,'').trim());
+  return Number.isInteger(n)&&n>0;
+}
 async function resolvePoster(booking, fetchImpl=fetch){
   const u=PUBLIC_DATA_BASE+WEB_READY_QUERY;
   const r=await fetchImpl(u,{headers:{'User-Agent':'KK-Line-Webhook/1.0'}});
   if(!r.ok) return '';
   const rows=parseCsv(await r.text());
   const exact=resolveEventRow(rows,booking);
-  if(!exact || !safePosterSource(exact.poster_image_url)) return '';
+  if(!isBookableWebReadyEvent(exact) || !safePosterSource(exact.poster_image_url)) return '';
   const eventId=String(exact.event_id||'').trim();
   return eventId ? 'https://kk-phone-rental.vercel.app/api/line-poster?event_id='+encodeURIComponent(eventId) : '';
 }
@@ -135,7 +142,8 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   if(!eventRes.ok) return null;
   const events=parseCsv(await eventRes.text());
   const event=resolveEventRow(events,booking);
-  const eventId=event&&String(event.event_id||'').trim();
+  if(!isBookableWebReadyEvent(event))return null;
+  const eventId=String(event.event_id||'').trim();
   if(!eventId) return null;
 
   const pkgRes=await fetchImpl(PUBLIC_DATA_BASE+WEB_PACKAGES_QUERY,{headers});
@@ -168,7 +176,7 @@ async function replyFlex(replyToken, message, token, fetchImpl=fetch){
     throw err;
   }
   if(!r||r.ok!==true){
-    // Provider response text can contain the customer's content; never echo to logs.
+    // Never reflect untrusted provider response bytes into webhook error logs.
     const err=new Error('LINE booking reply failed');
     err.code='LINE_BOOKING_REPLY_FAILED';
     if(Number.isInteger(r&&r.status))err.status=r.status;

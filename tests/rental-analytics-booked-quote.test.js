@@ -84,3 +84,36 @@ test('excluded cancelled/no_show/blank never use cash or unverified quotes as Fu
 test('Master header drift rejects unsafe inferred column offsets',()=>{
  assert.throws(()=>Quote.bookedPriceRows([booking('BK-1','EV-1','confirmed','phone_only')],csv([['booking_id','event_id'],['BK-1','EV-1']]),parseCsv),e=>e.code==='RENTAL_MASTER_QUOTE_SCHEMA_INVALID');
 });
+test('duplicate active Helper identities fail closed for CSV and strict Map adapters',()=>{
+ const one=booking('BK-DUP','EV-X','confirmed','phone_only',0);
+ const source=master(row('BK-DUP','EV-X','confirmed','phone_only',890));
+ const index=Quote.buildStrictBookingQuoteMap(source,parseCsv);
+ // Aggregate deduplication includes mutable metadata, so one Master quote could
+ // otherwise be counted twice when the Helper projection differs in these fields.
+ for(const duplicate of [
+  {...one},
+  {...one,created_at:'different'},
+  {...one,event_date:'2026-10-19'},
+  {...one,customer_key:'different'},
+  {...one,status:'prepared'},
+  {...one,source:'ARCHIVE'}
+ ]){
+  for(const input of [source,index])
+   assert.throws(()=>Quote.bookedPriceRows([one,duplicate],input,parseCsv),
+    e=>e.code==='RENTAL_ACTIVE_HELPER_DUPLICATE');
+ }
+});
+test('same booking ID on different events stays valid; excluded duplicate statuses add no revenue',()=>{
+ const a=booking('SHARED','EV-A','confirmed','phone_only',0);
+ const b=booking('SHARED','EV-B','confirmed','phone_only',0);
+ const cancelled=booking('CANCELLED','EV-C','cancelled','phone_only',500);
+ const rows=Quote.bookedPriceRows([a,b,cancelled,{...cancelled}],
+  master(row('SHARED','EV-A','confirmed','phone_only',590),row('SHARED','EV-B','confirmed','phone_only',790)),parseCsv);
+ assert.deepEqual(rows.map(r=>r.package_price),[590,790,null,null]);
+ for(const aggregate of [Core.aggregate,Private.aggregate]){
+  const totals=aggregate(rows,{strictQuotes:true}).metrics;
+  assert.equal(totals.actual_revenue,0);
+  assert.equal(totals.future_revenue,1380);
+  assert.equal(totals.forecast_revenue,1380);
+ }
+});

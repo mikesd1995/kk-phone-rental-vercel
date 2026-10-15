@@ -1,0 +1,715 @@
+{
+  "snapshot_at": "2026-10-16T01:05-01:30+07:00",
+  "repository": "mikesd1995/kk-phone-rental-vercel",
+  "main_sha": "a54a348dd3258d87b1ec0c70e6ffd255d4678018",
+  "initial_open_pr_count": 35,
+  "initial_open_issue_count": 69,
+  "production": {
+    "deployment": "dpl_6BpGtGqNPG246ekTL3nHa73bRpCn",
+    "source_sha": "a54a348dd3258d87b1ec0c70e6ffd255d4678018",
+    "state": "READY",
+    "url": "https://kk-phone-rental.vercel.app/"
+  },
+  "prs": [
+    {
+      "number": 752,
+      "title": "feat(storefront): match owner blue concert hero reference across 8 widths",
+      "head": "feat/hero-blue-reference-responsive-20261015",
+      "sha": "44cedbf663731d04e7a6ec834627d6b60db80355",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 4,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Current owner hero candidate; responsive browser/source checks underway; owner release HOLD",
+      "source_comparison_sha": "44cedbf663731d04e7a6ec834627d6b60db80355"
+    },
+    {
+      "number": 751,
+      "title": "chore(x-marketing): integrated safe release candidate for Content, Visibility and OIDC Ledger [HOLD]",
+      "head": "chore/x-marketing-integrated-release-candidate-20261015",
+      "sha": "98bfd8dc5a92271a4d5ed0d9e4e757e4ce69ee60",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 12,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Existing marketing/ledger candidate; latest owner copy policy reconciled; actual Agent runtime and owner release HOLD",
+      "source_comparison_sha": "98bfd8dc5a92271a4d5ed0d9e4e757e4ce69ee60",
+      "verified_head_after_source_push": "ac4ab3d36f5e607859f10a2d85c71c77819de95f"
+    },
+    {
+      "number": 750,
+      "title": "fix(line): owner replay fail-closed + privacy regression (shadow only, PR #744)",
+      "head": "fix/kk-owner-replay-privacy-shadow-20261015",
+      "sha": "72811d606db68e6811b7df767ccddad1a6772733",
+      "base": "chore/project-cleanup-backlog-20261014",
+      "draft": true,
+      "runtime_paths": 22,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Specific source protections reconciled in #744 where evidenced; runtime/security/identity/permission acceptance still separate HOLD",
+      "source_comparison_sha": "72811d606db68e6811b7df767ccddad1a6772733"
+    },
+    {
+      "number": 746,
+      "title": "fix(agent): eliminate GitHub OIDC invocation-ledger recursion (fail-closed)",
+      "head": "fix/agent-ledger-github-oidc-recursion-20261015",
+      "sha": "fbb7c108117cce03ee13d5264602be8d3b24476a",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 1,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Source integrated in existing #751; retain original until release and reviewed replacement accepted",
+      "source_comparison_sha": "fbb7c108117cce03ee13d5264602be8d3b24476a"
+    },
+    {
+      "number": 744,
+      "title": "[DRAFT][CLEANUP] One owner-command router for 10 workflows + 36-PR governance",
+      "head": "chore/project-cleanup-backlog-20261014",
+      "sha": "edcc8146f86ac81a573529412e1f035b4e0eb4d8",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 31,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Canonical existing cleanup candidate: reviewed revenue+LINE+cadence repairs, source-only HOLD",
+      "source_comparison_sha": "edcc8146f86ac81a573529412e1f035b4e0eb4d8"
+    },
+    {
+      "number": 742,
+      "title": "fix(P0): avoid duplicate LINE customer alerts on owner decision replay",
+      "head": "fix/line-owner-decision-replay-20261014",
+      "sha": "1ac8768ea9275b0f448af35d4b4456dac392cb43",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 2,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Specific source protections reconciled in #744 where evidenced; runtime/security/identity/permission acceptance still separate HOLD",
+      "source_comparison_sha": "1ac8768ea9275b0f448af35d4b4456dac392cb43"
+    },
+    {
+      "number": 739,
+      "title": "[DRAFT][P0][SECURITY] Owner Apps Script private Core read-key isolation & zero-downtime cutover",
+      "head": "fix/core-sheets-privacy-private-read-gates-20261014",
+      "sha": "0e28eccb8cb963b1136533cb20ee820415b9d6da",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 14,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Specific source protections reconciled in #744 where evidenced; runtime/security/identity/permission acceptance still separate HOLD",
+      "source_comparison_sha": "0e28eccb8cb963b1136533cb20ee820415b9d6da"
+    },
+    {
+      "number": 737,
+      "title": "[DRAFT][P0] Rental Future = verified Master X, never cash O (Core + CRM)",
+      "head": "fix/analytics-future-quote-guard-audit-20261014",
+      "sha": "943ccf4ea6f32bcb4ed95a135a04dfe1162b0bc5",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 3,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Specific source protections reconciled in #744 where evidenced; runtime/security/identity/permission acceptance still separate HOLD",
+      "source_comparison_sha": "943ccf4ea6f32bcb4ed95a135a04dfe1162b0bc5"
+    },
+    {
+      "number": 736,
+      "title": "feat(poster): zero-cost AI-ready integrity advisor with gated image evidence",
+      "head": "fix/poster-integrity-advisor-zero-cost-20261014",
+      "sha": "6da938b2a7020bc673492ce872134331218f8916",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 4,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Governance/advisory/shadow enhancement; keep separate from mandatory core runtime closure; no production activation",
+      "source_comparison_sha": "6da938b2a7020bc673492ce872134331218f8916"
+    },
+    {
+      "number": 727,
+      "title": "[DRAFT][HOLD] Storefront premium Hero 560px + poster fit integrated release candidate",
+      "head": "fix/storefront-premium-poster-release-candidate-20261014",
+      "sha": "6d24664964d08fc146242a922b45305d02fa7e0d",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 7,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Storefront/Admin work: preserve distinct behavior and tests; not blanket-superseded by new hero; release HOLD",
+      "source_comparison_sha": "6d24664964d08fc146242a922b45305d02fa7e0d"
+    },
+    {
+      "number": 725,
+      "title": "[DRAFT][HOLD] Premium storefront hero using approved product concept — UX/Visual QA required",
+      "head": "design/hero-premium-product-20261013",
+      "sha": "93204e594dbf51bd97533095c701c5beb1d124bc",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 4,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Storefront/Admin work: preserve distinct behavior and tests; not blanket-superseded by new hero; release HOLD",
+      "source_comparison_sha": "93204e594dbf51bd97533095c701c5beb1d124bc"
+    },
+    {
+      "number": 724,
+      "title": "[DRAFT][HOLD] Ultra Deep October Backscan → Miss Learning reviews and regression gates",
+      "head": "fix/ultradeep-oct-backscan-miss-learning-20261013",
+      "sha": "bfc888bdeb6998c72be394b33b845ed44bf9d69b",
+      "base": "audit/ultra-deep-panpuri-oct21-20261013",
+      "draft": true,
+      "runtime_paths": 15,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "bfc888bdeb6998c72be394b33b845ed44bf9d69b"
+    },
+    {
+      "number": 722,
+      "title": "[DRAFT][HOLD] Poster contain + image-failure Mobile QA on current main (safe port of #673)",
+      "head": "fix/poster-full-artwork-current-main-20261013",
+      "sha": "0c3fd709ff6a361a3227e8acd79851bb269e3e3c",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 4,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Storefront/Admin work: preserve distinct behavior and tests; not blanket-superseded by new hero; release HOLD",
+      "source_comparison_sha": "0c3fd709ff6a361a3227e8acd79851bb269e3e3c"
+    },
+    {
+      "number": 721,
+      "title": "[DRAFT][HOLD] Owner-only Google Drive poster ACL Reader repair with dry-run safeguards",
+      "head": "security/drive-public-acl-owner-review-20261013",
+      "sha": "ab0e59b003f43c0eccd6b764c97913233ee5de08",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 3,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Specific source protections reconciled in #744 where evidenced; runtime/security/identity/permission acceptance still separate HOLD",
+      "source_comparison_sha": "ab0e59b003f43c0eccd6b764c97913233ee5de08"
+    },
+    {
+      "number": 720,
+      "title": "[DRAFT][HOLD] Ultra Deep Oct Discovery V5 / Shards / Owner Core Lineage",
+      "head": "audit/ultra-deep-panpuri-oct21-20261013",
+      "sha": "a51af6319693ab5745a926131a44fb368f46d0bd",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 14,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "a51af6319693ab5745a926131a44fb368f46d0bd"
+    },
+    {
+      "number": 716,
+      "title": "fix(x-marketing): enforce verified storefront availability, 06:00 dedup and evidence-gated learning [DRAFT]",
+      "head": "fix/x-marketing-verified-storefront-gates-20261013",
+      "sha": "38e8a3f61301e334028af74d589ee8fe97b12cea",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 4,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Source integrated in existing #751; retain original until release and reviewed replacement accepted",
+      "source_comparison_sha": "38e8a3f61301e334028af74d589ee8fe97b12cea"
+    },
+    {
+      "number": 711,
+      "title": "fix(storefront): only advertise bookable prices and fully localize LINE booking TH/EN",
+      "head": "fix/storefront-p0-price-line-locales-20261013",
+      "sha": "7802007adfc5a1e2e243cc911eeb766bb6be5b41",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 7,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Storefront/Admin work: preserve distinct behavior and tests; not blanket-superseded by new hero; release HOLD",
+      "source_comparison_sha": "7802007adfc5a1e2e243cc911eeb766bb6be5b41"
+    },
+    {
+      "number": 706,
+      "title": "LINE Owner Approval: canonical booking identity and replay-safe notifications",
+      "head": "fix/line-owner-approval-replay-guard-20261012",
+      "sha": "586d9f22d2d7e959f44281f93b4f718d8d9dba0d",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 3,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Specific source protections reconciled in #744 where evidenced; runtime/security/identity/permission acceptance still separate HOLD",
+      "source_comparison_sha": "586d9f22d2d7e959f44281f93b4f718d8d9dba0d"
+    },
+    {
+      "number": 705,
+      "title": "fix: finish residual owner hero and Admin diagnostics acceptance",
+      "head": "fix/closure-current-main-20261012",
+      "sha": "8ea1bd65877e326f1b14f37a595553d9c849c370",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 18,
+      "runtime_paths_already_equal_main": 7,
+      "disposition": "Storefront/Admin work: preserve distinct behavior and tests; not blanket-superseded by new hero; release HOLD",
+      "source_comparison_sha": "8ea1bd65877e326f1b14f37a595553d9c849c370"
+    },
+    {
+      "number": 703,
+      "title": "fix(ultradeep): isolate effective visibility, public posters and booked-day audits",
+      "head": "fix/oct2026-effective-visibility-readback-20261012",
+      "sha": "df36c9e0cae5444000e263b0abfea1aa8b8da509",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 1,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "df36c9e0cae5444000e263b0abfea1aa8b8da509"
+    },
+    {
+      "number": 700,
+      "title": "fix(inbox): safe fresh-port of private LINE photos on current main",
+      "head": "fix/unified-inbox-private-media-current-main-20261012",
+      "sha": "e454967bb6668d3daa4bf9acd3e859b0fbed81fa",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 18,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Existing Inbox candidate reconciled with current main; local full green; private media runtime/visual HOLD",
+      "source_comparison_sha": "e454967bb6668d3daa4bf9acd3e859b0fbed81fa",
+      "verified_head_after_source_push": "e6e21f9b85a350f0d5e3741d6b99abffc4801888"
+    },
+    {
+      "number": 697,
+      "title": "Make: guarded event-driven owner gateway foundation (no paid runs or production writes)",
+      "head": "fix/make-event-gateway-guarded-20261012",
+      "sha": "46520953c9d3fcf439e3602c34e89a3521a9c9bc",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 6,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "46520953c9d3fcf439e3602c34e89a3521a9c9bc"
+    },
+    {
+      "number": 694,
+      "title": "feat(marketing): enforce owner X copy policy, Agent gates and project memory",
+      "head": "docs/x-copy-owner-rules-20261012",
+      "sha": "0747590ee28ba2f50f033eb40c725cfe02f4c2e5",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 7,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Source integrated in existing #751; retain original until release and reviewed replacement accepted",
+      "source_comparison_sha": "0747590ee28ba2f50f033eb40c725cfe02f4c2e5"
+    },
+    {
+      "number": 689,
+      "title": "feat(oct-only): zero-cost demand pricing shadow, completed package learning & 43-card audit [DRAFT]",
+      "head": "fix/oct2026-demand-pricing-isolated-20261010",
+      "sha": "fc0c12af5e2c4bf12d077b4ca5a4e246fbffe71b",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 4,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Governance/advisory/shadow enhancement; keep separate from mandatory core runtime closure; no production activation",
+      "source_comparison_sha": "fc0c12af5e2c4bf12d077b4ca5a4e246fbffe71b"
+    },
+    {
+      "number": 680,
+      "title": "fix(ultra-deep): October–November monthly recall, guarded pricing, resumable OIDC scanner [DRAFT]",
+      "head": "fix/ultra-deep-oct-brand-schedule-recall-20261009",
+      "sha": "07e6de1c82e106470959acd17679c032cf2b55fc",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 27,
+      "runtime_paths_already_equal_main": 1,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "07e6de1c82e106470959acd17679c032cf2b55fc"
+    },
+    {
+      "number": 678,
+      "title": "fix(agent): one-command owner poster updates + reliability learning",
+      "head": "fix/owner-poster-one-command-learning-20261009",
+      "sha": "bde5f179ba13e34f31e5b3f94764eaf5112e33a1",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 4,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Governance/advisory/shadow enhancement; keep separate from mandatory core runtime closure; no production activation",
+      "source_comparison_sha": "bde5f179ba13e34f31e5b3f94764eaf5112e33a1"
+    },
+    {
+      "number": 665,
+      "title": "fix: preserve owner suppression while tracking event updates",
+      "head": "fix/ultra-deep-suppression-observation-20261007",
+      "sha": "c270d0b87dfef411a9f698426e150472dad1c3d5",
+      "base": "main",
+      "draft": false,
+      "runtime_paths": 1,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "c270d0b87dfef411a9f698426e150472dad1c3d5"
+    },
+    {
+      "number": 655,
+      "title": "Ultra Deep V4: demand evidence, state consistency, calibration hardening",
+      "head": "codex/ultra-deep-demand-hardening-20261007",
+      "sha": "98fa81ce0430dc58978b963ad7908444a4e5d01c",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 9,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "98fa81ce0430dc58978b963ad7908444a4e5d01c"
+    },
+    {
+      "number": 654,
+      "title": "fix: align Ultra Deep Verifier with External Demand gate",
+      "head": "fix/ultra-deep-external-demand-verifier-20261007",
+      "sha": "17f5c283605f882b7b2c96e9ea694f5e980ad524",
+      "base": "main",
+      "draft": true,
+      "runtime_paths": 3,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "17f5c283605f882b7b2c96e9ea694f5e980ad524"
+    },
+    {
+      "number": 638,
+      "title": "Add Inspo pre-design reference gate for major storefront work",
+      "head": "feat/inspo-design-reference-gate",
+      "sha": "ac04572ce7fe18990b6e529fac92f73c078356b5",
+      "base": "main",
+      "draft": false,
+      "runtime_paths": 2,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Governance/advisory/shadow enhancement; keep separate from mandatory core runtime closure; no production activation",
+      "source_comparison_sha": "ac04572ce7fe18990b6e529fac92f73c078356b5"
+    },
+    {
+      "number": 636,
+      "title": "Marketing Activation + Attribution Phase 1 (read-only shadow)",
+      "head": "feat/marketing-attribution-phase1",
+      "sha": "ffe81378ef6918c9d591c19b7ebe2b4f027e73bb",
+      "base": "main",
+      "draft": false,
+      "runtime_paths": 1,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Governance/advisory/shadow enhancement; keep separate from mandatory core runtime closure; no production activation",
+      "source_comparison_sha": "ffe81378ef6918c9d591c19b7ebe2b4f027e73bb"
+    },
+    {
+      "number": 614,
+      "title": "agents: add canonical KK product, design, acceptance and learning skill system",
+      "head": "chore/kk-design-contract",
+      "sha": "037276aa325d37bb4d38e8367fa65b80ab059aab",
+      "base": "main",
+      "draft": false,
+      "runtime_paths": 2,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Governance/advisory/shadow enhancement; keep separate from mandatory core runtime closure; no production activation",
+      "source_comparison_sha": "037276aa325d37bb4d38e8367fa65b80ab059aab"
+    },
+    {
+      "number": 610,
+      "title": "Wire package-aware atomic create for Ultra Deep V2",
+      "head": "feat/ultra-deep-v2-atomic-create-20261004",
+      "sha": "aa1dc5012172393d6e9ff89982ef4bc6674fc7f9",
+      "base": "main",
+      "draft": false,
+      "runtime_paths": 2,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "aa1dc5012172393d6e9ff89982ef4bc6674fc7f9"
+    },
+    {
+      "number": 605,
+      "title": "Wire Ultra Deep V2.2 rentability into live direct runner",
+      "head": "feat/ultra-deep-v2-live-wiring-20261004",
+      "sha": "42e1ea9820c2ba2eb97f8cf2c62d70a724fd17ba",
+      "base": "main",
+      "draft": false,
+      "runtime_paths": 2,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "42e1ea9820c2ba2eb97f8cf2c62d70a724fd17ba"
+    },
+    {
+      "number": 599,
+      "title": "Fresh-port Issue #489 SOT integrity gates onto current main",
+      "head": "fix/issue-489-sot-integrity-freshport-20261004",
+      "sha": "a8b36e8542efc7981a4ece9418dafd2e9ff6c0c8",
+      "base": "main",
+      "draft": false,
+      "runtime_paths": 1,
+      "runtime_paths_already_equal_main": 0,
+      "disposition": "Preserve existing scoped source; reconcile by exact behavior and dependencies before optional rollout; no blanket closure",
+      "source_comparison_sha": "a8b36e8542efc7981a4ece9418dafd2e9ff6c0c8"
+    }
+  ],
+  "issues": [
+    {
+      "number": 49,
+      "title": "Final Production Completion Gate — KK Phone Rental"
+    },
+    {
+      "number": 738,
+      "title": "[P0][SECURITY] Core Booking Google Sheet Anyone Reader exposes customer-data access risk — private read cutover"
+    },
+    {
+      "number": 714,
+      "title": "Booking P0 2026-10-13: LINE contact recovery (3/5), archival ghost cleanup, two contact and price gates"
+    },
+    {
+      "number": 710,
+      "title": "P0: Rental Analytics Future must use booked price (X), not received cash (O)"
+    },
+    {
+      "number": 740,
+      "title": "P0: Restore LINE/Telegram alerts after Make credit reset — fail-closed recovery audit (2026-10-14)"
+    },
+    {
+      "number": 718,
+      "title": "[P0][SECURITY] 242 Drive poster images + 4 folders Anyone Writer — active and archive repair"
+    },
+    {
+      "number": 749,
+      "title": "[CI BASELINE] Triage 21 inherited main failures; keep Agent Ledger release fail-closed"
+    },
+    {
+      "number": 47,
+      "title": "Resolve Scanner/Verifier task persistence before HF production activation"
+    },
+    {
+      "number": 707,
+      "title": "P0 CI: PR #724 exact-head Actions PASS; release and remaining gates HOLD (13 Oct)"
+    },
+    {
+      "number": 555,
+      "title": "[KK-LEARNING] Lock Daily X Posting Selection V2 — storefront-first, fresh-signal, unique-event"
+    },
+    {
+      "number": 708,
+      "title": "Ultra Deep December 2026 — booked-day collision repair, official date corrections, VICTON candidate & guarded launch"
+    },
+    {
+      "number": 686,
+      "title": "Ultra Deep November 2026: 6 brand/fandom events live; LOLLI URLs present; poster/access verification pending"
+    },
+    {
+      "number": 696,
+      "title": "Make.com 2026-10-12 guarded migration: legacy write lockdown, credits and event-driven gates"
+    },
+    {
+      "number": 368,
+      "title": "Complete Ultra Deep V27 Production OIDC + read-only acceptance"
+    },
+    {
+      "number": 692,
+      "title": "P0: Recover Vercel Hobby 10 GB Deployment Storage without spending"
+    },
+    {
+      "number": 743,
+      "title": "[P0][SECURITY] 209 historical poster images grant Anyone Writer — separate owner-controlled ACL repair"
+    },
+    {
+      "number": 713,
+      "title": "Storefront P0 closure gate (13 Oct): Production browser QA + exact-head CI pending, zero-spend"
+    },
+    {
+      "number": 731,
+      "title": "Poster provenance P0: replace nine missing visible event posters with verified originals"
+    },
+    {
+      "number": 733,
+      "title": "[POSTER AUDIT] Owner original FORTREASURE poster live in Core + Web Ready (2026-10-14)"
+    },
+    {
+      "number": 489,
+      "title": "Full Data Integrity & SOT Audit — production hardening"
+    },
+    {
+      "number": 734,
+      "title": "P1: Evidence-bound AI poster review queue — reconcile with agent PR #736"
+    },
+    {
+      "number": 726,
+      "title": "[P1][STORE] Visual QA release blockers outside premium hero — card containment, centered modal policy, poster fallback"
+    },
+    {
+      "number": 730,
+      "title": "[KK-CONTENT-BATCH] 12 event X rental drafts corrected 2026-10-14"
+    },
+    {
+      "number": 729,
+      "title": "[KK-CONTENT-BATCH] 12 event X rental owner draft 2026-10-14"
+    },
+    {
+      "number": 728,
+      "title": "[KK-CONTENT-RUN] MAYA TV AWARDS 2026 owner-selected X rental post"
+    },
+    {
+      "number": 719,
+      "title": "Ultra Deep October miss: PAÑPURI x PHUTATCHAI / THAI Oct 21"
+    },
+    {
+      "number": 685,
+      "title": "Ultra Deep Oct 2026 re-scan: 19 unmatched event-date leads, official-source & booking gates"
+    },
+    {
+      "number": 715,
+      "title": "P0 Unified Inbox + LINE: private images, booking prefill compatibility, owner-gated E2E — 13 Oct 2026"
+    },
+    {
+      "number": 717,
+      "title": "2026 Q4 Full Missing-Event + 12-Shop Rental Price Reconciliation — governed read-only audit"
+    },
+    {
+      "number": 635,
+      "title": "Marketing Activation + Attribution Phase 1 — shadow/read-only"
+    },
+    {
+      "number": 683,
+      "title": "P0: No-deposit rental flow — collect at handover; complete after return and Drive upload"
+    },
+    {
+      "number": 677,
+      "title": "P1: One-command storefront poster replacement — wire owner runbook into agent + Reliability Learning"
+    },
+    {
+      "number": 687,
+      "title": "Demand Pricing Agent + Learning AI — evidence shadow, historical booking calibration, governed rollout"
+    },
+    {
+      "number": 702,
+      "title": "Visual QA follow-up: Hero V6.32 production crop + 8 viewport screenshots"
+    },
+    {
+      "number": 9,
+      "title": "Complete Apps Script 9.5.13 controlled deployment + LINE Gate 2 acceptance"
+    },
+    {
+      "number": 672,
+      "title": "Ultra Deep Oct 2026 recall: esports T-POP, brand Lucky Fan, private experiences"
+    },
+    {
+      "number": 684,
+      "title": "P0: Missed Beauty Buffet LIPTOK × AUAUSAVE Oct 9 — August brand discovery gap"
+    },
+    {
+      "number": 682,
+      "title": "[P0] Fix owner-approved event publish handoff: authenticated createEvent + production readback"
+    },
+    {
+      "number": 671,
+      "title": "[KK-CONTENT-BATCH] WEIRDO MASTERZ MOONSHADOW DEWTEE 2026-10-09"
+    },
+    {
+      "number": 660,
+      "title": "[KK-X-PLAN] 2026-10-07 afternoon-evening continuation"
+    },
+    {
+      "number": 659,
+      "title": "[KK-X-PLAN] durable Agent ledger acceptance 2026-10-07 retry"
+    },
+    {
+      "number": 658,
+      "title": "[KK-X-PLAN] durable Agent ledger acceptance 2026-10-07"
+    },
+    {
+      "number": 649,
+      "title": "[KK-X-PLAN] 2026-10-07 morning-afternoon routine"
+    },
+    {
+      "number": 643,
+      "title": "[KK-X-PLAN] 2026-10-06 morning-noon 06:00 reset"
+    },
+    {
+      "number": 634,
+      "title": "[KK-X-PLAN] 2026-10-05 morning-afternoon daily reset"
+    },
+    {
+      "number": 633,
+      "title": "[KK-CONTENT-RUN] REMASTER CONCERT 2026-10-10"
+    },
+    {
+      "number": 632,
+      "title": "[KK-CONTENT-RUN] DEW TEE SECRET AREA 2026-11-07-08"
+    },
+    {
+      "number": 631,
+      "title": "[KK-CONTENT-RUN] RYO TeeTee Por 2026-10-07"
+    },
+    {
+      "number": 627,
+      "title": "[KK-CONTENT-RUN] NCT127 THE REDLINE 2026-11-01"
+    },
+    {
+      "number": 626,
+      "title": "[KK-X-PLAN] 2026-10-04 20:45 replacement after full same-day dedupe"
+    },
+    {
+      "number": 622,
+      "title": "[KK-CONTENT-RUN] KPOP MASTERZ 2026-11-14"
+    },
+    {
+      "number": 619,
+      "title": "[KK-X-PLAN] 2026-10-04 evening fresh-X + production-gated rerun"
+    },
+    {
+      "number": 616,
+      "title": "[KK-CONTENT-RUN] WILLIAM EST REIGN TOGETHER 2026-12-06-07"
+    },
+    {
+      "number": 593,
+      "title": "[KK-CONTENT-RUN] INK SYNTHPHONY 2026-10-04"
+    },
+    {
+      "number": 592,
+      "title": "[KK-CONTENT-BATCH] KHOM FANIVAL FIRST-RESTART MOONSHADOW NUNEW FOURTH LYKN 2026-10-04"
+    },
+    {
+      "number": 539,
+      "title": "[KK-X-LEARNING] Evidence-based schedule 2026-10-03 06:00-afternoon"
+    },
+    {
+      "number": 493,
+      "title": "[KK-X-LEARNING] Posting cadence + planned schedule 2026-10-02"
+    },
+    {
+      "number": 218,
+      "title": "Ops acceptance 2026-09-27: Apps Script timing and accessory capacity"
+    },
+    {
+      "number": 22,
+      "title": "Dual-sheet cutover: Core Operations + CRM/Intelligence lazy loading"
+    },
+    {
+      "number": 14,
+      "title": "P0: TASK_OFF_RECURRENCE — recurring Scanner/Verifier task persistence"
+    },
+    {
+      "number": 195,
+      "title": "P0: Complete Admin Direct Writer production identity and acceptance"
+    },
+    {
+      "number": 52,
+      "title": "Restore Make organization runtime capacity for CRM sync and owner transport"
+    },
+    {
+      "number": 153,
+      "title": "AI Operations Platform Phase 0: persistent control-plane foundation"
+    },
+    {
+      "number": 58,
+      "title": "Trace Node DEP0169 url.parse warning in production routes"
+    },
+    {
+      "number": 50,
+      "title": "P0: Resolve natural Scanner/Verifier preflight closure defects"
+    },
+    {
+      "number": 46,
+      "title": "Controlled Scanner wiring review for Hugging Face Event Assist"
+    },
+    {
+      "number": 112,
+      "title": "AI quality & observability staging foundation"
+    },
+    {
+      "number": 93,
+      "title": "Optional Discovery Providers — changedetection.io / Firecrawl after control-plane P0"
+    },
+    {
+      "number": 75,
+      "title": "P0/P1: Harden Canary assertion evidence and natural-run provenance"
+    }
+  ]
+}

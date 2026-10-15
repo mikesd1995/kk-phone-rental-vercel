@@ -35,12 +35,17 @@ function buildStrictBookingQuoteMap(csv,parseCsv){
 function bookedPriceRows(rows,csvOrMap,parseCsv){
  if(!Array.isArray(rows))throw error('RENTAL_QUOTE_INPUT_INVALID');
  const quotes=csvOrMap instanceof Map?csvOrMap:buildStrictBookingQuoteMap(csvOrMap,parseCsv);
+ const seenActiveHelper=new Set();
  return rows.map(r=>{
    const status=norm(r.status).toLowerCase();
    if(!ACTIVE.has(status))return {...r,package_price:null};
    const id=norm(r.booking_id),event=norm(r.event_id),pkg=norm(r.package_type).toLowerCase();
    if(!id||!event||!pkg)throw error('MISSING_QUOTE');
-   const found=quotes.get(key(id,event));
+   const helperKey=key(id,event);
+   // One canonical quote cannot authorize two active Helper projections.
+   if(seenActiveHelper.has(helperKey))throw error('RENTAL_ACTIVE_HELPER_DUPLICATE');
+   seenActiveHelper.add(helperKey);
+   const found=quotes.get(helperKey);
    if(found&&found.duplicate)throw error('DUPLICATE_QUOTE');
    if(!found||found.booking_id!==id||found.event_id!==event||!found.price||
       found.status!==status||found.package_type!==pkg)throw error('MISSING_QUOTE');
