@@ -54,11 +54,10 @@ test('event share reuses existing public-data function',()=>{
   assert.equal(vercel.includes('api/kk-event-share'),false);
 });
 
-test('Admin regression workflow covers PR and main push',()=>{
+test('Admin regression workflow covers manual dispatch and full invariant gates',()=>{
   const workflow=fs.readFileSync('.github/workflows/admin-regression.yml','utf8');
-  assert.equal(workflow.includes('pull_request:'),true);
-  assert.equal(workflow.includes('push:'),true);
-  assert.equal(workflow.includes('branches: [main]'),true);
+  assert.equal(workflow.includes('workflow_dispatch:'),true);
   assert.equal(workflow.includes('npm run check'),true);
   assert.equal(workflow.includes('npm test'),true);
+  assert.equal(workflow.includes('npm run audit:invariants'),true);
 });

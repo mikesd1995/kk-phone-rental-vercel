@@ -4,19 +4,57 @@ on:
   pull_request:
     paths:
       - 'server/kk-ultra-deep-*.js'
+      - 'server/kk-public-event-detail-followup.js'
+      - 'server/kk-onebangkok-event-detail.js'
+      - 'tests/kk-ultra-deep-*.test.js'
+      - 'tests/kk-public-event-detail-followup.test.js'
+      - 'tests/kk-onebangkok-event-detail.test.js'
+      - 'tests/kk-knownmiss-identity-boundary.test.js'
+      - 'tests/kk-public-search-availability.test.js'
       - 'tests/kk-ultra-deep-full-loop-v2.test.js'
+      - 'tests/ci-ultra-deep-v2-workflow-safety.test.js'
       - 'package.json'
+      - '.github/workflows/ultra-deep-v2-acceptance.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-ultra-deep-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   v2-acceptance:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      APPROVED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout exact reviewed source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.APPROVED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Require exact SHA and zero-install source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+          test ! -f package-lock.json
+          test ! -f npm-shrinkwrap.json
+          echo "No lockfile; intentionally skip npm ci / npm install and paid network services."
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci
-      - name: Syntax gate
+      - name: Protect zero-install workflow and SHA gate
+        run: node --test tests/ci-ultra-deep-v2-workflow-safety.test.js
+      - name: Syntax gate (source-only)
         run: npm run check
-      - name: Focused V2 regression
+      - name: Focused V2 regression (source-only)
         run: node --test tests/kk-ultra-deep-full-loop-v2.test.js
+      - name: Ultra Deep detail, identity and diagnostic safety regressions (source-only)
+        run: node --test tests/kk-ultra-deep-*.test.js tests/kk-public-event-detail-followup.test.js tests/kk-onebangkok-event-detail.test.js tests/kk-knownmiss-identity-boundary.test.js tests/kk-public-search-availability.test.js
+      - name: Ultra Deep known-miss recall regression (source-only)
+        run: npm run test:ultradeep:recall

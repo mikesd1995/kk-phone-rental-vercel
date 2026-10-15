@@ -1,0 +1,43 @@
+name: Vercel Deployment Source Contract
+
+on:
+  pull_request:
+    paths:
+      - '.vercelignore'
+      - 'tests/vercel-deployment-footprint.test.js'
+      - 'vercel.json'
+      - 'package.json'
+      - '.github/workflows/vercel-storage-source-contract.yml'
+  push:
+    branches:
+      - 'fix/vercel-hobby-storage-free-recovery-20261011'
+    paths:
+      - '.vercelignore'
+      - 'tests/vercel-deployment-footprint.test.js'
+      - '.github/workflows/vercel-storage-source-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-storage-source-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zero-cost-source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check exact checkout source
+        run: |
+          git rev-parse HEAD
+          test -f .vercelignore
+      - name: Verify packaging and existing Vercel build guard
+        run: node --test tests/vercel-deployment-footprint.test.js tests/vercel-ignore-build.test.js
+      - name: Verify Vercel postinstall gates without paid external services
+        run: npm run test:ultradeep:recall && npm run test:siam-halloween:poster

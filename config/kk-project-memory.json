@@ -278,6 +278,25 @@
       ],
       "supersedes": [],
       "source": "owner+sheet+production+repo"
+    },
+    {
+      "memory_id": "kk:memory:vercel-hobby-deployment-storage-recovery:20261012",
+      "occurred_at": "2026-10-12T14:11:00+07:00",
+      "kind": "BLOCKER",
+      "domain": "infrastructure",
+      "summary": "Owner requires recovery of KK Phone Rental Vercel Hobby Deployment Storage 10GB with no paid upgrades and no impact on Production, rollback, bookings, prices or posters. Production alias still READY at deployment dpl_AmYtTipVdrzuT1i5XdYBGp3wdY1L, main 69390a9. Draft PR #693 trims 330 repo-only files (2,933,586 Git-source bytes) without excluding live runtime or postinstall tests, and adds git.deploymentEnabled {'*':false,'main':true} to prevent future automatic non-main previews after merge. Not merged; measured GB-month reclaim and safe new deployment unproven. GitHub Actions fails before runner assignment (runner_id=0, steps=[]), including unrelated production-watch jobs. Vercel retention and measured Team Usage unavailable through this connector; prior Preview suppression PATCH response omitted confirmation. Separate Inbox build error: getMediaMetadata undefined. Canonical handoff: docs/VERCEL_DEPLOYMENT_STORAGE_RECOVERY_20261011.md. Never claim resolved without numerical Usage and successful accepted deployment.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/VERCEL_DEPLOYMENT_STORAGE_RECOVERY_20261011.md",
+        ".vercelignore",
+        "vercel.json",
+        "tests/vercel-deployment-footprint.test.js",
+        ".github/workflows/vercel-storage-source-contract.yml",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/pull/693",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38216813310"
+      ],
+      "supersedes": [],
+      "source": "owner+github+vercel+vercel-docs"
     }
   ]
 }
