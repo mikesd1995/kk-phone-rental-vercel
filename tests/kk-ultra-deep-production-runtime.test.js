@@ -102,7 +102,7 @@ test('production runtime completes zero-write when every verified candidate is s
    month:'2026-10',
    verifier:{
      verified_candidates:[
-       {event_key:'BOOKED',title:'LYKN REFLEXION CONCERT',event_date:'2026-10-23',venue:'IMPACT Arena'},
+       {event_key:'BOOKED',title:'New Fixture Showcase',event_date:'2026-10-23',venue:'IMPACT Arena'},
        {event_key:'HISTORY',title:'Historical Concert',event_date:'2026-10-28',venue:'BITEC'}
      ]
    },

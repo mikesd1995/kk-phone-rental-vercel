@@ -4,6 +4,13 @@ on:
   pull_request:
     paths:
       - 'server/kk-ultra-deep-*.js'
+      - 'server/kk-public-event-detail-followup.js'
+      - 'server/kk-onebangkok-event-detail.js'
+      - 'tests/kk-ultra-deep-*.test.js'
+      - 'tests/kk-public-event-detail-followup.test.js'
+      - 'tests/kk-onebangkok-event-detail.test.js'
+      - 'tests/kk-knownmiss-identity-boundary.test.js'
+      - 'tests/kk-public-search-availability.test.js'
       - 'tests/kk-ultra-deep-full-loop-v2.test.js'
       - 'tests/ci-ultra-deep-v2-workflow-safety.test.js'
       - 'package.json'
@@ -47,5 +54,7 @@ jobs:
         run: npm run check
       - name: Focused V2 regression (source-only)
         run: node --test tests/kk-ultra-deep-full-loop-v2.test.js
+      - name: Ultra Deep detail, identity and diagnostic safety regressions (source-only)
+        run: node --test tests/kk-ultra-deep-*.test.js tests/kk-public-event-detail-followup.test.js tests/kk-onebangkok-event-detail.test.js tests/kk-knownmiss-identity-boundary.test.js tests/kk-public-search-availability.test.js
       - name: Ultra Deep known-miss recall regression (source-only)
         run: npm run test:ultradeep:recall

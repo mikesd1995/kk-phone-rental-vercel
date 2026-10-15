@@ -179,7 +179,8 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
     for(const rev of (node.reverse_dependencies||[]).filter(file=>/^(admin|api|server|cloudflare|supabase\/functions)\//.test(file)).slice(0,3)) addCandidate(candidates,rev,candidate.score-25,'dependent:'+candidate.path,map);
   }
 
-  const sorted=[...candidates.values()].sort((a,b)=>b.score-a.score || a.path.localeCompare(b.path));
+  // Main production stable score ordering; preserve curated route priority from cleanup.
+  const sorted=[...candidates.values()].sort((a,b)=>b.score-a.score);
   const selected=[];
   let tokens=0;
   for(const item of sorted){

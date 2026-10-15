@@ -74,7 +74,7 @@ test('scanner ingress GET acceptance is queue-authorized and permanently read-on
   assert.match(source,/GET_COMMIT_FORBIDDEN/);
   assert.match(source,/executeWrites:false/);
   assert.match(source,/READ_ONLY_WRITE_INVARIANT_BROKEN/);
-  assert.match(source,/ULTRA_DEEP_(?:MACHINE_V26|V2)_READ_ONLY_GET/);
+  assert.match(source,/ULTRA_DEEP_V2_READ_ONLY_GET/);
 });
 
 test('Smart Loop exposes one authenticated operational action without weakening write guards',()=>{

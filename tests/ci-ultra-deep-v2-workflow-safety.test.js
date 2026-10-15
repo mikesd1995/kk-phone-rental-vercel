@@ -46,3 +46,14 @@ test('contract test is wired into CI and cannot be skipped by only running V2 te
  const s=contents();
  assert.match(s,/node --test tests\/ci-ultra-deep-v2-workflow-safety\.test\.js/);
 });
+
+test('detail-only and regression-only changes trigger and execute the added safety guards',()=>{
+ const s=contents();
+ for(const file of ['server/kk-public-event-detail-followup.js','server/kk-onebangkok-event-detail.js','tests/kk-ultra-deep-*.test.js','tests/kk-public-event-detail-followup.test.js','tests/kk-onebangkok-event-detail.test.js','tests/kk-knownmiss-identity-boundary.test.js','tests/kk-public-search-availability.test.js']){
+  assert.ok(s.includes("'"+file+"'"),'missing PR path trigger: '+file);
+ }
+ const commands=s.split(/\r?\n/).filter(line=>/^\s*run:\s*node --test /.test(line)).join('\n');
+ for(const file of ['tests/kk-ultra-deep-*.test.js','tests/kk-public-event-detail-followup.test.js','tests/kk-onebangkok-event-detail.test.js','tests/kk-knownmiss-identity-boundary.test.js','tests/kk-public-search-availability.test.js']){
+  assert.ok(commands.includes(file),'missing executed safety suite: '+file);
+ }
+});

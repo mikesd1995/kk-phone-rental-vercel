@@ -4,7 +4,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 
-const source=fs.readFileSync(require.resolve('../script.js'),'utf8');
+// Normalize fixture text for Windows extraction; keep production code unchanged.
+const source=fs.readFileSync(require.resolve('../script.js'),'utf8').replace(/\r\n/g,'\n');
 function extractFunction(name,nextMarker){
   const start=source.indexOf('function '+name+'(');
   assert.notEqual(start,-1,'missing '+name);

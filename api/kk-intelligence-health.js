@@ -104,9 +104,9 @@ async function appsScriptTimingReadback({env=process.env,fetchImpl=global.fetch,
     const adminApiVersion=String(d.admin_api_version||'').trim();
     const projectTimezone=String(d.project_timezone||'').trim();
     const triggerRows=Array.isArray(d.installed_triggers)?d.installed_triggers:[];
-    const triggerCount=Number.isFinite(Number(d.installed_trigger_count))?Number(d.installed_trigger_count):null;
+    const triggerCount=Number.isSafeInteger(d.installed_trigger_count)&&d.installed_trigger_count>=0?d.installed_trigger_count:null;
     const cleanupPresent=typeof d.cleanup_trigger_present==='boolean'?d.cleanup_trigger_present:null;
-    const cleanupCount=Number.isFinite(Number(d.cleanup_trigger_count))?Number(d.cleanup_trigger_count):null;
+    const cleanupCount=Number.isSafeInteger(d.cleanup_trigger_count)&&d.cleanup_trigger_count>=0?d.cleanup_trigger_count:null;
     return safeTimingPayload('READBACK_COMPLETE','',{
       effective_utc_offset:offsetLabel(offset),
       effective_utc_plus_7_verified:offset===420,
