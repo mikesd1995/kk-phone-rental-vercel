@@ -2470,6 +2470,7 @@ html[lang="en"] .kk-hero-proof-text [lang="th"]{display:none!important}
 }
 @media (min-width:376px) and (max-width:480px){
   html .kk-mock-hero .v3-hero-copy>p{display:none!important}
+  html .kk-mock-hero .v3-secondary{display:inline-flex!important}
 }
 @media (prefers-reduced-motion:reduce){
   html .kk-mock-hero :is(.v3-primary,.v3-secondary){transition:none!important}
