@@ -48,7 +48,7 @@ function copy(tag,artist,event,date,venue,hook){
     '💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ',
     '📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน',
     '☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน',
-    '👉 เลือกวันแล้วจองคิว',
+    '👉 เลือกวันแล้วจองคิวงาน '+event,
     'kk-phone-rental.vercel.app',
     '',
     artist
@@ -57,7 +57,7 @@ function copy(tag,artist,event,date,venue,hook){
 
 function item(n,hookWinner){
   const tag='#Event'+n;
-  const artist='#Artist'+n;
+  const artist='#Artist'+n+' #Fandom'+n+' #Community'+n;
   const eventName='Event '+n;
   const date=n+' ต.ค. 2026';
   const venue='Hall '+n;
@@ -75,7 +75,7 @@ function item(n,hookWinner){
     event_dates:[date],
     day_statuses:[{date_label:date,status:'available'}],
     official_event_hashtag:tag,
-    verified_hashtags:[tag,artist,'#เช่ามือถือ'],
+    verified_hashtags:[tag,'#Artist'+n,'#Fandom'+n,'#Community'+n,'#เช่ามือถือ'],
     recent_context_checked:true,
     recent_posts:[],
     event_dna:['special format '+n,'fandom moment '+n]
