@@ -3,6 +3,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const Bridge=require('../scripts/kk-content-batch-chat-bridge.js');
+const BatchQa=require('../server/kk-content-batch-qa.js');
 
 function event(){
   return {
@@ -124,12 +125,20 @@ test('batch bridge fail-closes when selected hooks overuse the same generic prep
     item(2,'แฟน Event 2 ล็อกเครื่องไว้ก่อน จะได้เก็บทุกช็อตบนเวที'),
     item(3,'ใครรอ Event 3 จองเครื่องไว้ก่อนแล้วค่อยเก็บทุกโมเมนต์ของศิลปิน')
   ]};
+  // Verify the batch-specific guard independently of the earlier per-item QA.
+  const batch=BatchQa.validateFinalPostBatch(payload.items.map(entry=>({
+    post:entry.candidates[1].copy,input:entry.request.input
+  })));
+  assert.equal(batch.gate,'BLOCKED');
+  assert.match(batch.errors.join('|'),/BATCH_GENERIC_ARCHETYPE_OVERUSED:PREPARE_DEVICE/);
   const result=await Bridge.runBridge({event:event(),payload,
     ledgerFn:async row=>({ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id})
   });
+  // A stricter per-item creative gate may correctly reject the generic hook
+  // before the batch validator executes. Neither route may publish a winner.
   assert.equal(result.status,'BLOCKED');
-  assert.equal(result.blocker,'BATCH_DIVERSITY_QA_FAILED');
-  assert.match(result.batch_qa.errors.join('|'),/BATCH_GENERIC_ARCHETYPE_OVERUSED:PREPARE_DEVICE/);
+  assert.match(result.blocker,/^(?:ITEM_FINALIZATION_FAILED|BATCH_DIVERSITY_QA_FAILED)$/);
+  if(result.batch_qa) assert.match(result.batch_qa.errors.join('|'),/BATCH_GENERIC_ARCHETYPE_OVERUSED:PREPARE_DEVICE/);
 });
 
 test('batch bridge rejects non-owner issue authors before agent execution',async()=>{
