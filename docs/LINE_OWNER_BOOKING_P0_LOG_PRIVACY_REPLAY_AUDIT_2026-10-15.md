@@ -30,3 +30,14 @@ Source-based **isolated V8 reproduced with synthetic markers only**:
 
 ## Rollback
 - Revert only this scoped source/test/doc commit on `fix/line-owner-decision-replay-20261014` using a fresh expected HEAD; do not reset Gemini or `main` and do not replay live webhook decisions.
+
+## Independent POST-COMMIT test and readback (15 October 2026 ICT)
+
+- Implementation Git SHA: [`e50471f0e9202a983e2a148b1e217c5870e8b1b9`](https://github.com/mikesd1995/kk-phone-rental-vercel/commit/e50471f0e9202a983e2a148b1e217c5870e8b1b9).
+- Exact GitHub blob SHAs fetched AFTER Git push: `server/line-booking-owner-approval.js` **`3d8c4f97bd93104fa8ef7ab2a72c9ed1c4c16329`**; `server/line-booking-intake.js` **`c3a755e0b04929436e40ce55a6b273ab1da2b4a8`**; preexisting owner test **`0598dc0db98e19604914a0cb2174613a392977ef`**, replay test **`ca8ca1c3b1b8d6da95a33d880cd31e56d88c289d`**, newly committed privacy/recovery test **`ead1a32b36f8b8979173ef3c12ccceb46a308bc3`**.
+- Independently reran **25/25 PASS, 120 assertions, 0 failures** from those exact fetched GitHub source/test bodies using isolated V8 mocked `node:test`, assert, crypto, Buffer, Apps Script source, and provider fetch. No external calls. **Native Node 22 exists in analysis container but full GitHub checkout/remote raw download blocked by host DNS; do not mislabel V8 as native Node CI**. The remote PR did not execute hosted tests for this SHA.
+- Atomic compare to pre-fix `906000ee7786a9c024f44a32af3ddaa906a4ae71` confirms exactly **3 changed paths**: one existing runtime module, one new test file, one new dated document. No GitHub workflows, scripts, package.json or lockfiles edited.
+- Read-only GitHub Actions exact-head query `/actions/runs?head_sha=e50471f0e9202a983e2a148b1e217c5870e8b1b9`: **0**; combined statuses **0**. Not a GREEN CI result.
+- Read-only Vercel full project deployment list: **81 objects**, newest remains **READY Production `dpl_7TYLb87ir9qNzXRtkeb49543dwVm`**, source main `d6dc3bfe4cc0c4dd6fdfec407823752da0572464`, created 2026-10-12 17:49:47 UTC; new #742 SHA not found. This is not a measurement of billed storage GB.
+- Gemini scope isolation freshly checked after its PR #744 advanced to `44833139ae288a438fb7608476f40feb6bc1d818` (49 changed files then): **0 filenames overlapping** with #742, #739 and #737; no writes to these PRs. Separate #700 and #706 DO overlap the owner-approval module and require later integration review, but are outside this isolated change.
+- Future gate: real Apps Script deployment/version and LINE webhook delivery must be independently read back, no blind replay; native `node --test` focused 25, `npm run check`, full `npm test`, CI/safety/owner approvals required before merging. Exactly-once provider receipt/durable outbox remains BLOCKED.
