@@ -92,8 +92,8 @@ test('three distinct source-verified hashtags must close the post',()=>{
   fail(copy().replace('#ExampleArtist #ExampleFans #ExampleLive','#ExampleArtist #ExampleFans #ExampleFanParty'),{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
   fail(copy()+'\nติดต่อทางเว็บไซต์',{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
 });
-test('owner-hidden and closed days are excluded instead of being falsely labeled full',()=>{
-  for(const state of ['closed','hidden','hide','owner_closed','locked']){
+test('owner-hidden and locked days remain excluded from copy',()=>{
+  for(const state of ['hidden','hide','locked']){
     const source=[{date_label:'30 ต.ค.',status:'available'},{date_label:'31 ต.ค.',status:state}];
     const filtered=copy().replace('31 ต.ค. ❌ เต็ม\n','');
     assert.equal(Policy.validatePost(filtered,{...input,day_statuses:source}).gate,'PASS',state);
@@ -102,13 +102,45 @@ test('owner-hidden and closed days are excluded instead of being falsely labeled
       {day_statuses:source},/LOCKED_DAY_MENTION_FORBIDDEN/);
   }
 });
+test('verified shop-closed event dates use the owner full label without changing canonical truth',()=>{
+  for(const state of ['closed','owner_closed']){
+    const source=[{date_label:'30 ต.ค.',status:'available'},{date_label:'31 ต.ค.',status:state}];
+    const original=JSON.stringify(source);
+    assert.equal(Policy.validatePost(copy(),{...input,day_statuses:source}).gate,'PASS',state);
+    fail(copy().replace('31 ต.ค. ❌ เต็ม','31 ต.ค. ✅ ว่าง'),{day_statuses:source},/DAY_STATUS_MISSING_OR_WRONG|DAY_STATUS_CONTRADICTS_SOURCE/);
+    assert.equal(JSON.stringify(source),original);
+  }
+});
 test('multi-day event remains sellable on unlocked date while all locked or event-level locked fails closed',()=>{
   const partial={...input,day_statuses:[{date_label:'30 ต.ค.',status:'available'},{date_label:'31 ต.ค.',status:'owner_closed'}]};
-  assert.equal(Policy.validatePost(copy().replace('31 ต.ค. ❌ เต็ม\n',''),partial).gate,'PASS');
+  assert.equal(Policy.validatePost(copy(),partial).gate,'PASS');
   const allLocked={...partial,day_statuses:[{date_label:'30 ต.ค.',status:'hidden'},{date_label:'31 ต.ค.',status:'owner_closed'}]};
   fail(copy().replace('30 ต.ค. ✅ ว่าง\n','').replace('31 ต.ค. ❌ เต็ม\n',''),allLocked,/NO_AVAILABLE_DATE_FOR_PROMOTION/);
   fail(copy(),{...input,owner_event_locked:true},/EVENT_LOCKED_OR_HIDDEN/);
   fail(copy(),{...input,owner_event_hidden:true},/EVENT_LOCKED_OR_HIDDEN/);
+});
+test('natural event-specific hooks reject the owner banned sales phrases',()=>{
+  for(const phrase of ['อยู่โซนไกล','เตรียมกล้องให้พร้อม','เตรียมเลนส์','ซูม','เก็บทุกโมเมนต์']){
+    fail(copy(phrase+' กับ Example'),{},/GENERIC_SALES_PHRASE_FORBIDDEN/);
+    fail(copy().replace('👉 เลือกวันแล้วจองคิว','👉 '+phrase+' แล้วจองคิว'),{},/GENERIC_SALES_PHRASE_FORBIDDEN/);
+  }
+});
+test('dates belong to status lines and never the hook or CTA',()=>{
+  for(const date of ['30 ต.ค.','30ต.ค.2569','30 ตุลาคม 2026','30–31 ต.ค.','2026-10-30','30 October','October 30','October30','Oct.30','30/10/2026','30-10-2026','30.10.2026','๓๐ ต.ค.']){
+    fail(copy('พบกัน '+date+' กับ Example'),{},/DATE_IN_HOOK_OR_CTA_FORBIDDEN/);
+    fail(copy().replace('👉 เลือกวันแล้วจองคิว','👉 จองคิว Example '+date),{},/DATE_IN_HOOK_OR_CTA_FORBIDDEN/);
+  }
+  assert.equal(Policy.validatePost(copy('Example บทใหม่ที่รอเจอกัน 🎃'),input).gate,'PASS');
+});
+test('structural-looking prose cannot bypass narrative restrictions',()=>{
+  for(const prefix of ['🎁','☁️','📍','💙','📱']){
+    fail(copy(prefix+' 30 ต.ค. ซูมกับ Example'),{},/GENERIC_SALES_PHRASE_FORBIDDEN/);
+    fail(copy(prefix+' 30 ต.ค. กับ Example'),{},/DATE_IN_HOOK_OR_CTA_FORBIDDEN/);
+  }
+  fail(copy('30 ต.ค. ซูมกับ #ExampleFanParty').replace('🎃 งาน #ExampleFanParty\n',''),{},/GENERIC_SALES_PHRASE_FORBIDDEN/);
+  fail(copy('30 ต.ค. กับ #ExampleFanParty').replace('🎃 งาน #ExampleFanParty\n',''),{},/DATE_IN_HOOK_OR_CTA_FORBIDDEN/);
+  fail(copy().replace(input.price_display,input.price_display+' | 30 ต.ค. ซูมกับ Example'),{},/GENERIC_SALES_PHRASE_FORBIDDEN/);
+  fail(copy().replace(input.price_display,input.price_display+' | 30 ต.ค. กับ Example'),{},/DATE_IN_HOOK_OR_CTA_FORBIDDEN/);
 });
 test('unknown or unverified day cannot be relabeled as full',()=>{
   fail(copy(),{day_statuses:[{date_label:'30 ต.ค.',status:'available'},{date_label:'31 ต.ค.',status:'unknown'}]},/DAY_STATUS_INVALID/);

@@ -269,7 +269,7 @@
       "occurred_at": "2026-10-15T00:22:00+07:00",
       "kind": "LOCKED_RULE",
       "domain": "content",
-      "summary": "OWNER LOCK 2026-10-15: Thai request 'ขอโพสปล่อยเช่างานนี้บน X' (or equivalent single/multiple events) means FINISHED X PREMIUM RENTAL COPY, exactly ONE best copy-ready Final per event; never ask owner to pick among variants. Verify live Core/Storefront price, booking/owner locks, all event dates and venue, poster, verified artist/fandom hashtags and X post history. Run real Marketing→Strategy→Content (3 differentiated INTERNAL drafts)→QA→Selector + Batch Diversity; log persistent Agent invocation/PASS. If bridge fails disclose blocker; never call a manual draft Agent-selected. Use measured real engagement/conversions for Learning AI; claim Hugging Face only with successful call evidence and no extra cost. Brand header once; model only in price; five distinct VERIFIED hashtags; event-specific hook and CTA; verified benefits and booking link, no false scarcity or stock counts. Public dates use ✅ ว่าง for verified available days or ❌ เต็ม for confirmed full days; owner-closed/hidden/locked dates are omitted from public copy and kept unchanged in backend. Owner approval before X publication. No production/booking/permission writes, no spend or phantom PASS.",
+      "summary": "OWNER LOCK 2026-10-15: Thai request 'ขอโพสปล่อยเช่างานนี้บน X' (or equivalent single/multiple events) means FINISHED X PREMIUM RENTAL COPY, exactly ONE best copy-ready Final per event; never ask owner to pick among variants. Verify live Core/Storefront price, booking/owner locks, all event dates and venue, poster, verified artist/fandom hashtags and X post history. Run real Marketing→Strategy→Content (3 differentiated INTERNAL drafts)→QA→Selector + Batch Diversity; log persistent Agent invocation/PASS. If bridge fails disclose blocker; never call a manual draft Agent-selected. Use measured real engagement/conversions for Learning AI; claim Hugging Face only with successful call evidence and no extra cost. Brand header once; model only in price; five distinct VERIFIED hashtags; event-specific hook and CTA; verified benefits and booking link, no false scarcity or stock counts. Public labels: verified available ✅ ว่าง; full or shop-closed ❌ เต็ม (copy only); hidden/locked dates omitted from public copy, backend unchanged. Owner approval before X publication. No production/booking/permission writes, no spend or phantom PASS.",
       "status": "ACTIVE",
       "evidence_refs": [
         "docs/X_POST_OWNER_COPY_RULES_2026-10-12.md",
@@ -287,7 +287,7 @@
       "occurred_at": "2026-10-13T02:41:00+07:00",
       "kind": "LOCKED_RULE",
       "domain": "content",
-      "summary": "X owner copy (2026-10-15): For each event provide ONE selected X Premium long-form rental post, not 3 external alternatives. Read current approved price and booking/all event dates first; preserve hidden/owner-closed backend states while excluding locked days from public copy; show ✅ ว่าง for verified available dates and ❌ เต็ม only for genuinely full dates. Header exactly '📱 KK Phone Rental | #เช่ามือถือ' once, no brand repeat, device model only on price line, no stock count or invented urgency. Use at least FIVE distinct verified hashtags: rental header + official event tag + 3 relevant artist/fandom closing tags; fail closed when tags unverified. CTA must invite booking naturally and differ across event/fandom/recent posts; the old fixed CTA is NOT a universal requirement. Specific hook/Lens benefit without guarantees; verify insurance, deposit conditions, venue service, Drive 30 days and discounts. Three internal candidates→QA→Selector→batch diversity; Agent Ledger must persist. No false measured Learning AI/Hugging Face claims, no auto-X posting or paid compute. Detailed rules in referenced docs/skill.",
+      "summary": "X owner copy (2026-10-15): For each event provide ONE selected X Premium long-form rental post, not 3 external alternatives. Read current approved price and booking/all event dates first; preserve backend states while excluding locked days from public copy; hidden days also excluded; show ✅ ว่าง for available dates and ❌ เต็ม for full or verified shop-closed dates (copy label only). Header exactly '📱 KK Phone Rental | #เช่ามือถือ' once, no brand repeat, device model only on price line, no stock count or invented urgency. Use at least FIVE distinct verified hashtags: rental header + official event tag + 3 relevant artist/fandom closing tags; fail closed when tags unverified. CTA must invite booking naturally and differ across event/fandom/recent posts; the old fixed CTA is NOT a universal requirement. Specific hook/Lens benefit without guarantees; verify insurance, deposit conditions, venue service, Drive 30 days and discounts. Three internal candidates→QA→Selector→batch diversity; Agent Ledger must persist. No false measured Learning AI/Hugging Face claims, no auto-X posting or paid compute. Detailed rules in referenced docs/skill.",
       "status": "ACTIVE",
       "evidence_refs": [
         "docs/X_POST_OWNER_COPY_RULES_2026-10-12.md",
@@ -313,6 +313,21 @@
       ],
       "supersedes": [],
       "source": "owner+repo+verified_supabase"
+    },
+    {
+      "memory_id": "kk:memory:content:x-natural-hook-no-dates-20261016",
+      "occurred_at": "2026-10-16T01:05:45+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "content",
+      "summary": "Latest owner copy reconciliation: Hook and CTA must be natural and event-specific without any date; dates belong in verified status lines. Avoid อยู่โซนไกล, เตรียมกล้อง, เตรียมเลนส์, ซูม and เก็บทุกโมเมนต์. Exactly three distinct verified closing hashtags plus brand and primary event tags. A verified shop-closed event date may display ❌ เต็ม only as customer copy; this is NOT evidence of booked-full inventory, and canonical closure reason, owner locks, bookings and availability stay unchanged. Hidden/locked dates and whole hidden/locked events stay excluded; at least one independently available date is required for rental promotion. Unknown states fail closed. Preserve three internal candidates, one final owner-review winner, genuine persisted Agent QA/Selector evidence, no auto-publication/spend. Source-only V5 staged in #751, not live acceptance.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/KK_X_COPY_CLOSURE_RECONCILIATION_2026-10-16.md",
+        "docs/X_POST_OWNER_COPY_RULES_2026-10-12.md",
+        "server/kk-x-owner-copy-policy.js"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
     }
   ]
 }

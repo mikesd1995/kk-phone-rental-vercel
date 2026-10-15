@@ -1,17 +1,49 @@
 'use strict';
 
 // Owner-approved X commercial-copy contract. Read-only; no publishing or spend.
-const VERSION='KK_X_OWNER_COPY_POLICY_V4';
+const VERSION='KK_X_OWNER_COPY_POLICY_V5';
 const BRAND='📱 KK Phone Rental | #เช่ามือถือ';
 const CTA='👉 เลือกวันแล้วจองคิว';
-// Only confirmed inventory states may appear as binary public status.
-// Owner-closed or hidden dates remain in canonical truth but are excluded from copy.
-const STATUS=Object.freeze({available:'✅ ว่าง',full:'❌ เต็ม'});
-const NON_PROMOTABLE=new Set(['closed','hidden','hide','owner_closed','locked']);
+// Owner explicitly permits a full customer label for a verified shop-closed
+// event date. This display mapping never changes canonical booking/lock truth.
+const STATUS=Object.freeze({available:'✅ ว่าง',full:'❌ เต็ม',closed:'❌ เต็ม',owner_closed:'❌ เต็ม'});
+const NON_PROMOTABLE=new Set(['hidden','hide','locked']);
 const SAFETY=Object.freeze({owner_approval_required:true,auto_publish:false,production_writes:0});
 
 function text(value){return String(value===null||value===undefined?'':value).trim();}
 function uniq(a){return [...new Set(a.filter(Boolean))];}
+function narrativeLines(lines,price,input){
+  const plain=line=>line.replace(/^[^\p{L}\p{N}#]+/u,'').trim();
+  const tag=text(input.official_event_hashtag).toLowerCase();
+  const event=text(input.event).toLowerCase();
+  const venues=[input.venue,input.venue_display].map(text).filter(Boolean);
+  const statuses=new Set((Array.isArray(input.day_statuses)?input.day_statuses:[])
+    .filter(day=>Object.prototype.hasOwnProperty.call(STATUS,text(day&&day.status).toLowerCase()))
+    .map(day=>text(day.date_label)+' '+STATUS[text(day.status).toLowerCase()]));
+  return lines.filter(line=>{
+    if(/^👉\s*/u.test(line))return true;
+    if(line===BRAND||plain(line)===price||statuses.has(line))return false;
+    if(venues.some(venue=>plain(line)===venue))return false;
+    if(/^(?:https?:\/\/)?kk-phone-rental\.vercel\.app\/?$/iu.test(line))return false;
+    if(/^#[\p{L}\p{M}\p{N}_]+(?:\s+#[\p{L}\p{M}\p{N}_]+)*$/u.test(line))return false;
+    let header=plain(line).toLowerCase();
+    if(tag&&header.includes(tag)){
+      header=header.replace(tag,'');
+      if(event)header=header.replace(event,'');
+      header=header.replace(/^งาน\s*/u,'');
+      if(!/[\p{L}\p{N}]/u.test(header))return false;
+    }
+    return true;
+  });
+}
+function containsDate(value,labels){
+  value=text(value).replace(/[๐-๙]/gu,d=>String(d.charCodeAt(0)-0x0E50));
+  const normalized=value.replace(/\s+/gu,'').toLowerCase();
+  if(labels.some(label=>normalized.includes(text(label).replace(/\s+/gu,'').toLowerCase())))return true;
+  const months='ม\\.?\\s*ค\\.?|ก\\.?\\s*พ\\.?|มี\\.?\\s*ค\\.?|เม\\.?\\s*ย\\.?|พ\\.?\\s*ค\\.?|มิ\\.?\\s*ย\\.?|ก\\.?\\s*ค\\.?|ส\\.?\\s*ค\\.?|ก\\.?\\s*ย\\.?|ต\\.?\\s*ค\\.?|พ\\.?\\s*ย\\.?|ธ\\.?\\s*ค\\.?|มกราคม|กุมภาพันธ์|มีนาคม|เมษายน|พฤษภาคม|มิถุนายน|กรกฎาคม|สิงหาคม|กันยายน|ตุลาคม|พฤศจิกายน|ธันวาคม';
+  const english='Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
+  return new RegExp('(?<!\\d)(?:\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}|[0-3]?\\d[-/.][01]?\\d(?:[-/.]\\d{2,4})?)(?!\\d)|(?<!\\d)\\d{1,2}(?:\\s*[-–—]\\s*\\d{1,2})?\\s*(?:'+months+'|(?:'+english+')(?![a-z]))|\\b(?:'+english+')\\.?\\s*\\d{1,2}(?!\\d)','iu').test(value);
+}
 function requiresPolicy(input={}){
   return input.owner_x_policy_required===true ||
     text(input.requested_intent).toLowerCase()==='direct_rental_x';
@@ -49,6 +81,11 @@ function validatePost(post,input={}){
   // The brand + official event tag + three relevant closing tags form the
   // owner's minimum X post contract. Do not count scattered tags as a footer.
   const officialTag=text(input.official_event_hashtag).toLowerCase();
+  const narrative=narrativeLines(lines,price,input).join('\n');
+  if(/อยู่โซนไกล|เตรียม(?:กล้อง|เลนส์)(?:ให้พร้อม)?|ซูม|เก็บทุกโมเมนต์/iu.test(copy))
+    errors.push('OWNER_X_GENERIC_SALES_PHRASE_FORBIDDEN');
+  const sourceDateLabels=(Array.isArray(input.event_dates)?input.event_dates:[]).map(text).filter(Boolean);
+  if(containsDate(narrative,sourceDateLabels))errors.push('OWNER_X_DATE_IN_HOOK_OR_CTA_FORBIDDEN');
   if(!/^#[\p{L}\p{M}\p{N}_]+$/u.test(officialTag) ||
     !lines.slice(1,-1).some(line=>(line.match(/#[\p{L}\p{M}\p{N}_]+/gu)||[])
       .some(tag=>tag.toLowerCase()===officialTag)))

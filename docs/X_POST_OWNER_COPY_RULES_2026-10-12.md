@@ -1,3 +1,13 @@
+## Latest owner reconciliation — 2026-10-16 (supersedes conflicting older copy wording below)
+
+Keep the hook and CTA natural, distinct for each event, and free of dates. Reject “อยู่โซนไกล”, “เตรียมกล้อง”, “เตรียมเลนส์”, “ซูม” and “เก็บทุกโมเมนต์”. Dates belong in the verified per-day status block. Close with exactly three distinct verified hashtags in addition to the brand and primary event tags.
+
+For a verified event date the shop explicitly does not accept (`closed`/`owner_closed`), the owner permits the customer label `❌ เต็ม`. This does not assert that actual bookings filled inventory. Keep backend closure reason, bookings, availability and owner locks unchanged. Hidden/locked dates and wholly hidden/locked events remain excluded; an event still needs a separately verified available date for rental promotion. Unknown states never map to full.
+
+Source V5 is staged in existing #751 only. Agent runtime persistence, owner review and release approval remain separate. See `KK_X_COPY_CLOSURE_RECONCILIATION_2026-10-16.md` for tests and limits.
+
+---
+
 # KK Phone Rental — X rental post owner rules (2026-10-12)
 
 Status: Owner-approved editorial requirements. Apply to every future X rental post draft, including batch requests. This file is a persistent source of truth for the marketing/content agents; it does not authorize publishing.
