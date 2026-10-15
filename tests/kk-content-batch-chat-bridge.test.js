@@ -3,6 +3,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const Bridge=require('../scripts/kk-content-batch-chat-bridge.js');
+const BatchQa=require('../server/kk-content-batch-qa.js');
 
 function event(){
   return {
@@ -40,16 +41,16 @@ function copy(tag,artist,event,date,venue,hook){
     '🔥 งาน '+tag,
     '',
     '🎤 vivo X300 Pro 690฿ | + Lens รวม 890฿',
-    '',
-    '🗓️ '+date,
     '📍 '+venue,
+    date+' ✅ ว่าง',
     '',
     hook,
     '',
     '💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ',
     '📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน',
     '☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน',
-    '👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/',
+    '👉 เลือกวันแล้วจองคิวงาน '+event,
+    'kk-phone-rental.vercel.app',
     '',
     artist
   ].join('\n');
@@ -57,7 +58,7 @@ function copy(tag,artist,event,date,venue,hook){
 
 function item(n,hookWinner){
   const tag='#Event'+n;
-  const artist='#Artist'+n;
+  const artist='#Artist'+n+' #Fandom'+n+' #Community'+n;
   const eventName='Event '+n;
   const date=n+' ต.ค. 2026';
   const venue='Hall '+n;
@@ -70,8 +71,12 @@ function item(n,hookWinner){
     verified_pricing:true,
     price_display:'vivo X300 Pro 690฿ | + Lens รวม 890฿',
     inventory_available:true,
+    day_statuses_verified:true,
+    event_dates_verified:true,
+    event_dates:[date],
+    day_statuses:[{date_label:date,status:'available'}],
     official_event_hashtag:tag,
-    verified_hashtags:[tag,artist,'#เช่ามือถือ'],
+    verified_hashtags:[tag,'#Artist'+n,'#Fandom'+n,'#Community'+n,'#เช่ามือถือ'],
     recent_context_checked:true,
     recent_posts:[],
     event_dna:['special format '+n,'fandom moment '+n]
@@ -102,7 +107,7 @@ test('batch bridge runs one five-agent invocation per item and returns winners o
       return {ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id};
     }
   });
-  assert.equal(result.status,'PASS');
+  assert.equal(result.status,'PASS',JSON.stringify({blocker:result.blocker,items:result.items&&result.items.map(x=>({blocker:x.blocker,gateway_status:x.gateway_status,finalization_gate:x.finalization_gate,owner_x_errors:x.finalization&&x.finalization.owner_x_qa&&x.finalization.owner_x_qa.errors}))}));
   assert.equal(result.batch_qa.gate,'PASS');
   assert.equal(result.item_count,3);
   assert.equal(rows.length,3);
@@ -120,10 +125,20 @@ test('batch bridge fail-closes when selected hooks overuse the same generic prep
     item(2,'แฟน Event 2 ล็อกเครื่องไว้ก่อน จะได้เก็บทุกช็อตบนเวที'),
     item(3,'ใครรอ Event 3 จองเครื่องไว้ก่อนแล้วค่อยเก็บทุกโมเมนต์ของศิลปิน')
   ]};
-  const result=await Bridge.runBridge({event:event(),payload,ledgerFn:async row=>({ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id})});
+  // Verify the batch-specific guard independently of the earlier per-item QA.
+  const batch=BatchQa.validateFinalPostBatch(payload.items.map(entry=>({
+    post:entry.candidates[1].copy,input:entry.request.input
+  })));
+  assert.equal(batch.gate,'BLOCKED');
+  assert.match(batch.errors.join('|'),/BATCH_GENERIC_ARCHETYPE_OVERUSED:PREPARE_DEVICE/);
+  const result=await Bridge.runBridge({event:event(),payload,
+    ledgerFn:async row=>({ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id})
+  });
+  // A stricter per-item creative gate may correctly reject the generic hook
+  // before the batch validator executes. Neither route may publish a winner.
   assert.equal(result.status,'BLOCKED');
-  assert.equal(result.blocker,'BATCH_DIVERSITY_QA_FAILED');
-  assert.match(result.batch_qa.errors.join('|'),/BATCH_GENERIC_ARCHETYPE_OVERUSED:PREPARE_DEVICE/);
+  assert.match(result.blocker,/^(?:ITEM_FINALIZATION_FAILED|BATCH_DIVERSITY_QA_FAILED)$/);
+  if(result.batch_qa) assert.match(result.batch_qa.errors.join('|'),/BATCH_GENERIC_ARCHETYPE_OVERUSED:PREPARE_DEVICE/);
 });
 
 test('batch bridge rejects non-owner issue authors before agent execution',async()=>{
@@ -132,4 +147,19 @@ test('batch bridge rejects non-owner issue authors before agent execution',async
   const result=await Bridge.runBridge({event:e,payload:{items:[item(1,'หนึ่ง'),item(2,'สอง')]}});
   assert.equal(result.status,'BLOCKED');
   assert.match(result.blocker,/BATCH_BRIDGE_OWNER_ONLY/);
+});
+
+test('premium batch blocks the same booking CTA repeated across distinct events',async()=>{
+  const first=item(1,'Event 1 มีโมเมนต์ Group Shot กับศิลปินที่แฟนด้อมอยากเก็บ');
+  const second=item(2,'Event 2 มี Synthphony สดในโชว์พิเศษและโทนบรรยากาศอีกแบบ');
+  for(const candidate of second.candidates){
+    candidate.copy=candidate.copy.replace('👉 เลือกวันแล้วจองคิวงาน Event 2','👉 เลือกวันแล้วจองคิวงาน Event 1');
+  }
+  const result=await Bridge.runBridge({
+    event:event(),payload:{items:[first,second]},
+    ledgerFn:async row=>({ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id})
+  });
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.blocker,'BATCH_DIVERSITY_QA_FAILED');
+  assert.match(result.batch_qa.errors.join('|'),/BATCH_CTA_DUPLICATE/);
 });

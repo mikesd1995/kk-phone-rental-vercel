@@ -2,6 +2,40 @@
   "version": "KK_PROJECT_MEMORY_CORPUS_V1",
   "items": [
     {
+      "memory_id": "kk:memory:content:x-post-intent-final-only-mandatory-agent:20261015",
+      "occurred_at": "2026-10-15T00:22:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "content",
+      "summary": "OWNER LOCK 2026-10-15: Thai request 'ขอโพสปล่อยเช่างานนี้บน X' (or equivalent single/multiple events) means FINISHED X PREMIUM RENTAL COPY, exactly ONE best copy-ready Final per event; never ask owner to pick among variants. Verify live Core/Storefront price, booking/owner locks, all event dates and venue, poster, verified artist/fandom hashtags and X post history. Run real Marketing→Strategy→Content (3 differentiated INTERNAL drafts)→QA→Selector + Batch Diversity; log persistent Agent invocation/PASS. If bridge fails disclose blocker; never call a manual draft Agent-selected. Use measured real engagement/conversions for Learning AI; claim Hugging Face only with successful call evidence and no extra cost. Brand header once; model only in price; five distinct VERIFIED hashtags; rich event-specific X Premium hook, distinct booking CTA and canonical link; correct four verified benefits, no scarcity invention, no device counts. Public day status only ✅ ว่าง or ❌ เต็ม (owner-hidden appears ❌ เต็ม publicly but backend untouched). Owner approval before X publication. No production/booking/permission writes, no spend or phantom PASS.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/X_POST_OWNER_COPY_RULES_2026-10-12.md",
+        "skills/kk-content-strategy/SKILL.md",
+        "docs/CHAT_CONTENT_AGENT_BRIDGE_2026-09-28.md",
+        "docs/CONTENT_BATCH_DIVERSITY_AGENT_BRIDGE_2026-10-01.md",
+        "server/kk-content-request-router.js",
+        "server/kk-x-owner-copy-policy.js"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
+    },
+    {
+      "memory_id": "kk:memory:content:x-owner-gated-copy:20261013",
+      "occurred_at": "2026-10-13T02:41:00+07:00",
+      "kind": "LOCKED_RULE",
+      "domain": "content",
+      "summary": "X owner copy (2026-10-15): For each event provide ONE selected X Premium long-form rental post, not 3 external alternatives. Read current approved price and booking/all event dates first; preserve hidden/owner-closed backend states while showing them only as ❌ เต็ม in public copy, available as ✅ ว่าง. Header exactly '📱 KK Phone Rental | #เช่ามือถือ' once, no brand repeat, device model only on price line, no stock count or invented urgency. Use at least FIVE distinct verified hashtags: rental header + official event tag + 3 relevant artist/fandom closing tags; fail closed when tags unverified. CTA must invite booking naturally and differ across event/fandom/recent posts; the old fixed CTA is NOT a universal requirement. Rich event-specific hook, explain actual lens-use benefit without guaranteeing image quality; verified insurance, deposit conditional on X follow, venue pickup/tutorial, Drive 30 days, discounts only when verified. Three internal candidates→QA→Selector→batch diversity; Agent Ledger must persist. No false measured Learning AI/Hugging Face claims, no auto-X posting or paid compute. Detailed rules in referenced docs/skill.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/X_POST_OWNER_COPY_RULES_2026-10-12.md",
+        "server/kk-x-owner-copy-policy.js",
+        "scripts/kk-content-chat-bridge.js",
+        "scripts/kk-content-batch-chat-bridge.js"
+      ],
+      "supersedes": [],
+      "source": "owner+repo"
+    },
+    {
       "memory_id": "kk:memory:agent-runtime:20261002",
       "occurred_at": "2026-10-02T12:00:00+07:00",
       "kind": "LOCKED_RULE",
