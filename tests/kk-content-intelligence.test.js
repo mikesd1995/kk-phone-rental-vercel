@@ -81,7 +81,7 @@ test('copy contract preserves current KK X brand and CTA conventions', () => {
   assert.match(AGENT.COPY_CONTRACT.hashtag_rule, /exactly 3/i);
   assert.match(AGENT.COPY_CONTRACT.hashtag_rule, /Never synthesize/i);
   assert.match(AGENT.COPY_CONTRACT.duplicate_fact_rule, /Do not repeat date\/venue/i);
-  assert.match(AGENT.COPY_CONTRACT.brand_rule, /not repeat/i);
+  assert.match(AGENT.COPY_CONTRACT.brand_rule, /(?:never|not) repeat/i);
   assert.deepEqual(
     AGENT.COPY_CONTRACT.direct_rental_layout,
     ['brand','event_hashtag','offer','date','venue','hook','benefits','booking_cta','reach_hashtags']
