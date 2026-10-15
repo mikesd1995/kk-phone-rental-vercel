@@ -47,3 +47,5 @@ jobs:
         run: npm run check
       - name: Focused V2 regression (source-only)
         run: node --test tests/kk-ultra-deep-full-loop-v2.test.js
+      - name: Ultra Deep known-miss recall regression (source-only)
+        run: npm run test:ultradeep:recall
