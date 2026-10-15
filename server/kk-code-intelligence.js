@@ -164,13 +164,13 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
 
   activeRoutes.forEach((hit,index)=>{
     const routeRankBonus=Math.max(0,24-(index*12));
-    for(const file of hit.route.files||[]) addCandidate(
+    (hit.route.files||[]).forEach((file,fileIdx)=> addCandidate(
       candidates,
       file,
-      100+hit.score+routeRankBonus,
+      100+hit.score+routeRankBonus-(fileIdx*0.01),
       'route:'+hit.route.id,
       map
-    );
+    ));
   });
 
   for(const candidate of [...candidates.values()]){

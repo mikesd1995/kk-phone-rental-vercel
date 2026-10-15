@@ -19,3 +19,9 @@
 - Production Core private-read setup, Apps Script deployment/Script Properties, Vercel env/private feature flags, Google Sheets ACL cutover, actual Rental API readback and PII checks are **not** performed here.
 - The real Core Sheet remains `anyone:reader`, which is a P0 privacy concern. Coordinate #739 first, obtain owner approval for reversible Production cutover, revoke public ACL last after private-only acceptance.
 - No Merge, Production/Preview deploy, Booking/Price/Stock mutation, LINE/X outbound, Google Sheets ACL change, Feature Flag change, or new paid services.
+
+## Follow-up: exact-head Hosted CI failure and remediation, 2026-10-15
+- SHA `54e43aca791273add0b8f124108ef395e127a63d` had Ultra Deep V2 PASS; PR744 focused private Revenue, exact SHA, syntax and source gates PASS; full regression FAIL: 1,523 tests, 1,502 PASS, 21 FAIL. Log: https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38672562727
+- Root causes concentrated in historical tests expecting older Workflow/OIDC router structure, monthly query counts, Admin/Storefront copy, missing `path` import, and mock ledger required by current Content Bridge. `server/kk-code-intelligence.js` had real unstable equal-scored route order; file-index tie-break now restores full Inbox routing.
+- Drive patch was used selectively, never wholesale. Canonical Router `.github/workflows/kk-owner-comment-command-router.yml` is preserved, no extra listener or secret privilege added. Strong Inbox read-only assertions are retained despite drift in `INBOX_ACTIONS` naming and runtime outbound-capability indicator.
+- This is source/test-only remediation, no web UI/booking/pricing changes. The follow-up SHA needs independent Hosted CI readback; do not claim green before test result.

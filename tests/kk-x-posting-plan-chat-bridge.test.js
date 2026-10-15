@@ -43,7 +43,7 @@ test('bridge strips obvious secrets from request input',()=>{
 
 test('bridge invokes the real x_posting_plan gateway route and persists invocation evidence',async()=>{
   const event={issue:{number:99,title:'[KK-X-PLAN] acceptance',author_association:'OWNER'}};
-  const result=await Bridge.runBridge({event,payload:payload()});
+  const result=await Bridge.runBridge({event,payload:payload(),ledgerFn:async row=>({ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id})});
   assert.equal(result.status,'PASS');
   assert.equal(result.gateway_status,'RECORDED');
   assert.equal(result.intent,'x_posting_plan');
