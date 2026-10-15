@@ -30,11 +30,11 @@ test('canonical unresolved event warning carries no webhook ID, event name or cu
  console.warn=(...args)=>warnings.push(args.map(String).join(' '));
  let result;
  const event={type:'message',replyToken:'MOCK_REPLY',webhookEventId:'WEBHOOK_'+SECRET,
-   message:{type:'text',text:'งาน: '+SECRET+'\\nวันที่: 18/10/2026\\nสถานที่: TEST VENUE\\nรุ่น: vivo X300 Pro'}};
+   message:{type:'text',text:'งาน: '+SECRET+'\nวันที่: 18/10/2026\nสถานที่: TEST VENUE\nรุ่น: vivo X300 Pro'}};
  try{
    result=await Webhook.processEvent(event,ENV,async url=>{
      if(String(url).startsWith('https://kk-phone-rental.vercel.app/api/kk-data'))
-       return {ok:true,text:async()=> 'event_id,event_name,event_date_text,venue\\n'};
+       return {ok:true,text:async()=> 'event_id,event_name,event_date_text,venue\n'};
      if(String(url).endsWith('/reply'))return {ok:true,status:200};
      throw Error('Unexpected outbound request '+String(url));
    });
