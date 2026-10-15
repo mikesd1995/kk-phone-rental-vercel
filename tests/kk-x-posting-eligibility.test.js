@@ -145,3 +145,18 @@ test('missing Booking/Owner Lock readback fails closed even when storefront says
   assert.ok(E.eligibility(candidate(),input({booking_rows:[{booking_status:'confirmed',event_date:'??'}]}))
     .errors.includes('ACTIVE_BOOKING_DATE_UNVERIFIED'));
 });
+
+
+test('real Master Booking row-four header does not impersonate an active booking',()=>{
+  const rawHeader=['booking_id','created_at','booking_status','event_id'];
+  rawHeader[21]='event_date';
+  const cancelled=['BK-TEST','','cancelled','EVT-SAMPLE'];
+  cancelled[21]=46311;
+  const result=Planner.plan(input({booking_rows:[rawHeader,cancelled]}));
+  assert.equal(result.status,'READY_FOR_OWNER_REVIEW');
+  const booked=['BK-ACTIVE','','confirmed','OTHER-EVENT'];
+  booked[21]=(Date.UTC(2026,9,17)-Date.UTC(1899,11,30))/86400000;
+  const blocked=Planner.plan(input({booking_rows:[rawHeader,booked]}));
+  assert.equal(blocked.status,'BLOCKED_NO_ELIGIBLE_EVENTS');
+  assert.ok(blocked.rejected_candidates[0].reasons.includes('ACTIVE_BOOKING_DAY_EXCLUDED'));
+});
