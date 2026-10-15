@@ -25,17 +25,20 @@ function adjacent(a,b){
   return Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z')===86400000;
 }
 function audit(bookings=[],options={}){
+  const focusSpecified=Object.prototype.hasOwnProperty.call(options,'focusDates');
   const focus=Array.isArray(options.focusDates)?new Set(options.focusDates.map(isoDate).filter(Boolean)):null;
+  const invalidFocus=focusSpecified&&(!Array.isArray(options.focusDates)||options.focusDates.length===0||options.focusDates.some(date=>!isoDate(date)));
   const rows=[];
   for(const r of Array.isArray(bookings)?bookings:[]){
     const status=clean(r&&r.booking_status).toLowerCase();
-    if(!ACTIVE.has(status))continue;
+    const id=clean(r.phone_asset_id);
+    // A pending request with a reserved phone still participates in asset safety.
+    if(!ACTIVE.has(status)&&!(status==='pending'&&id))continue;
     const day=isoDate(r.event_date);
     if(focus&&(!day||!focus.has(day)))continue;
-    const id=clean(r.phone_asset_id);
     rows.push({day,id,pickup:!!clean(r.pickup_time),return:!!clean(r.return_time)});
   }
-  const counts={active_checked:rows.length,missing_event_date:0,missing_asset:0,missing_pickup:0,missing_return:0,same_day_asset_duplicates:0,adjacent_day_asset_reuse:0,unverified_interday_handover:0};
+  const counts={active_checked:rows.length,invalid_focus_dates:invalidFocus?1:0,missing_event_date:0,missing_asset:0,missing_pickup:0,missing_return:0,same_day_asset_duplicates:0,adjacent_day_asset_reuse:0,unverified_interday_handover:0};
   const byDay=new Map();
   for(const r of rows){
     if(!r.day)counts.missing_event_date++;
@@ -60,7 +63,7 @@ function audit(bookings=[],options={}){
       if(!left.return||!right.pickup)counts.unverified_interday_handover++;
     }
   }
-  const blockers=Object.entries(counts).filter(([key,n])=>key.startsWith('missing_')&&n>0||['same_day_asset_duplicates','unverified_interday_handover'].includes(key)&&n>0).map(([key])=>key.toUpperCase());
+  const blockers=Object.entries(counts).filter(([key,n])=>(key.startsWith('missing_')||key==='invalid_focus_dates')&&n>0||['same_day_asset_duplicates','unverified_interday_handover'].includes(key)&&n>0).map(([key])=>key.toUpperCase());
   const review=counts.adjacent_day_asset_reuse>0;
   return {version:VERSION,mode:'READ_ONLY_SHADOW',status:blockers.length?'BLOCKED':review?'OWNER_REVIEW_REQUIRED':'NO_OBSERVED_BLOCKER',blockers,counts,owner_review_required:review||blockers.length>0,authorizes_booking_write:false,authorizes_asset_allocation:false,production_writes:0};
 }

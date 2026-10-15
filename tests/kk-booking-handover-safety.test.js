@@ -60,3 +60,17 @@ test('adjacent day comparison is strict, not same day or month-number approximat
   assert.equal(Gate.adjacent('2026-10-31','2026-11-01'),true);
   assert.equal(Gate.adjacent('2026-10-17','2026-10-19'),false);
 });
+
+test('pending booking with an assigned asset is a safety hold, unallocated pending is ignored',()=>{
+  const r=Gate.audit([booking('2026-10-17','P1'),booking('2026-10-17','P1',{booking_status:'pending'}),booking('2026-10-17','',{booking_status:'pending'})]);
+  assert.equal(r.counts.active_checked,2);
+  assert.equal(r.counts.same_day_asset_duplicates,1);
+  assert.equal(r.status,'BLOCKED');
+});
+test('invalid or empty focus filters must fail closed rather than returning green',()=>{
+  for(const focusDates of [[],['garbage'],['2026-10-17','garbage'],'2026-10-17']){
+    const r=Gate.audit([booking('2026-10-17','P1')],{focusDates});
+    assert.equal(r.status,'BLOCKED');
+    assert.equal(r.counts.invalid_focus_dates,1);
+  }
+});
