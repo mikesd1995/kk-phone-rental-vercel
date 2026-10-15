@@ -159,8 +159,21 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   return {event_id:eventId,package_id:packageId,template_id:templateId,package_name:packageLabel(row),price_display:price};
 }
 async function replyFlex(replyToken, message, token, fetchImpl=fetch){
-  const r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
-  if(!r.ok){const body=await r.text().catch(()=> ''); throw new Error('LINE reply failed '+r.status+' '+body.slice(0,200));}
+  let r;
+  try{
+    r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
+  }catch(_){
+    const err=new Error('LINE booking reply transport failed');
+    err.code='LINE_BOOKING_REPLY_TRANSPORT_FAILED';
+    throw err;
+  }
+  if(!r||r.ok!==true){
+    // Provider response text can contain the customer's content; never echo to logs.
+    const err=new Error('LINE booking reply failed');
+    err.code='LINE_BOOKING_REPLY_FAILED';
+    if(Number.isInteger(r&&r.status))err.status=r.status;
+    throw err;
+  }
 }
 async function processEvent(event, env=process.env, fetchImpl=fetch){
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
@@ -191,8 +204,7 @@ async function processEvent(event, env=process.env, fetchImpl=fetch){
   }else if(readiness.ready && !canonical){
     console.warn('[line-booking-automation]',JSON.stringify({
       status:'FAIL_CLOSED_CANONICAL_REQUIRED',
-      webhook_event_id:String(event.webhookEventId||'').trim(),
-      event_name:String(booking.event_name||'').trim()
+      reason:'PUBLIC_EVENT_NOT_BOOKABLE_OR_CANONICAL_UNVERIFIED'
     }));
   }
 
