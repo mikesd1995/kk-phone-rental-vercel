@@ -320,7 +320,7 @@ html[data-theme="dark"] .theme-moon{display:grid!important}
 }
 .poster-img-wrap img{
   display:block!important;width:100%!important;max-width:100%!important;height:100%!important;min-width:0!important;
-  object-fit:cover!important;object-position:center!important;transform:none!important;
+  object-fit:contain!important;object-position:center!important;transform:none!important;
 }
 .poster-placeholder{width:100%!important;height:100%!important;display:grid!important;place-items:center!important;background:#eef2f6!important;color:#8792a3!important;font-size:12px!important}
 .status-badge{

@@ -1390,6 +1390,14 @@ function renderConcerts(concerts){
     // A loaded shop-brand illustration is still temporary, not an official event poster.
     // Do not add this label to actual event artwork or change booking/visibility eligibility.
     var temporaryBrandArtwork=isKKTemporaryBrandArtwork(c.rawPoster||c.img);
+    // Exact event/source pair was owner-audited as a temporary profile photograph,
+    // NOT the official LE7EL 15 Oct anniversary event poster. Never infer from
+    // an artist name or relabel an unrelated date or genuine official artwork.
+    var auditedTemporaryLE7EL=
+      String(c.id||"")==="EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY" &&
+      String(c.rawPoster||c.img||"").trim().split(/[?#]/)[0]===
+        "https://www.thai2music.com/uploads/artists/photo_cover/cover_1035_1762919037.jpg";
+    if(auditedTemporaryLE7EL)temporaryBrandArtwork=true;
     if(temporaryBrandArtwork){
       card.dataset.posterStatus="temporary";
       var tempIndicator=document.createElement("span");
@@ -1433,7 +1441,11 @@ function renderConcerts(concerts){
 
     var imgUrl=c.img?String(c.img).trim():"";
     if(imgUrl){
-      var img=document.createElement("img"); img.alt=eventArtworkAlt(c.name,temporaryBrandArtwork,currentLang);
+      var img=document.createElement("img");
+      // This profile photograph is not a KK-made illustration or official event poster.
+      img.alt=auditedTemporaryLE7EL
+        ? (currentLang==="en"?"Temporary artist profile, not event poster: ":"ภาพศิลปินชั่วคราว ไม่ใช่โปสเตอร์งาน: ")+String(c.name||"")
+        : eventArtworkAlt(c.name,temporaryBrandArtwork,currentLang);
       // Keep the first viewport worth of posters eager. Remaining cards stay lazy.
       // Timeout failover handles Safari/iOS requests that remain pending without onerror.
       img.loading=idx<6?"eager":"lazy"; img.decoding="async";
