@@ -93,3 +93,13 @@ test('320px one-column cards never use the 350px offscreen intrinsic placeholder
  assert.match(finish,/aspect-ratio:auto!important/);
  assert.match(finish,/grid-auto-rows:auto!important/);
 });
+
+test('R4 shifts only short-screen chrome and ensures readable mobile backdrop',()=>{
+ const r4=css.slice(css.indexOf('KK hero QA R4'));
+ assert.match(r4,/max-width:359px/);
+ assert.match(r4,/min-height:50px!important/);
+ assert.match(r4,/\.v3-events-heading\{/);
+ assert.match(r4,/var\(--v6-bg\) 495px/);
+ assert.match(r4,/var\(--v6-bg\) 550px/);
+ assert.doesNotMatch(r4,/booking_id|available_count|price_from|action_for_web/);
+});
