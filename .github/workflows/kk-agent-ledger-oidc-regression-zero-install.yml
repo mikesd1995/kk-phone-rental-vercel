@@ -54,4 +54,60 @@ jobs:
             tests/kk-agent-gateway.test.js \
             tests/kk-project-memory.test.js
       - name: Full zero-install repository Node regression suite
-        run: node --test tests/*.test.js
+        shell: bash
+        run: |
+          set +e
+          node --test tests/*.test.js > /tmp/kk-pr-suite.log 2>&1
+          code=$?
+          grep -E '^(not ok [0-9]+ - |# tests |# pass |# fail )' /tmp/kk-pr-suite.log || true
+          exit "$code"
+      - name: Checkout exact baseline for regression attribution (no deploy)
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: baseline-compare
+          persist-credentials: false
+      - name: Compare failing tests against exact main baseline
+        if: ${{ failure() && github.event_name == 'pull_request' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ( cd baseline-compare && node --test tests/*.test.js ) > /tmp/kk-base-suite.log 2>&1 || true
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          def parse(path):
+              content=Path(path).read_text(errors="replace")
+              names=set(re.findall(r"^not ok \d+ - (.+)$",content,re.M))
+              counts={key:int(v) for key,v in re.findall(r"^# (tests|pass|fail) (\d+)$",content,re.M)}
+              return names,counts
+          branch,b=parse("/tmp/kk-pr-suite.log")
+          baseline,a=parse("/tmp/kk-base-suite.log")
+          new=sorted(branch-baseline)
+          existing=sorted(branch&baseline)
+          resolved=sorted(baseline-branch)
+          summary=[
+              "## Agent Ledger PR zero-install baseline comparison",
+              "",
+              f"- PR result: {b}",
+              f"- Exact base result: {a}",
+              f"- New failing test names: {len(new)}",
+              f"- Existing/shared failing test names: {len(existing)}",
+              f"- Baseline failures no longer present: {len(resolved)}",
+              "",
+              "**New failures:**",
+              *(["- "+x for x in new] or ["- None"]),
+              "",
+              "**Common failures:**",
+              *(["- "+x for x in existing] or ["- None"]),
+              "",
+              "This is attribution evidence only; failed full CI remains BLOCKED.",
+          ]
+          result="\n".join(summary)
+          print(result)
+          with open(__import__("os").environ["GITHUB_STEP_SUMMARY"],"a") as file:
+              file.write(result+"\n")
+          if not a.get("tests"):
+              raise SystemExit("BASELINE_TEST_RUN_UNAVAILABLE")
+          PY
