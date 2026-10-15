@@ -55,7 +55,9 @@ function validateBusinessCritical(post,input={}){
    const price=text(input.price_display);
    if(!price) errors.push('PRICE_DISPLAY_MISSING');
    else if(occurrences(p,price)!==1) errors.push(occurrences(p,price)===0?'VERIFIED_PRICE_NOT_IN_COPY':'DUPLICATE_PRICE_BLOCK');
-   if(!(/👉\s*จองคิว\s*\/\s*เช็กคิวว่าง/.test(p)||/👉\s*เลือกวันแล้วจองคิว/.test(p))||!p.includes(BOOKING_HOST))errors.push('BOOKING_CTA_MISSING');
+   const ctaLines=p.split(/\r?\n/).map(line=>line.trim()).filter(line=>/^👉\s*/u.test(line));
+   if(ctaLines.length!==1 || !/(?:จอง|เช็กคิว|สำรอง)/u.test(ctaLines[0]) ||
+      !p.includes(BOOKING_HOST))errors.push('BOOKING_CTA_MISSING');
    if(input.require_date_venue_copy!==false){
      for(const d of dateTokens(input)){if(occurrences(p,d)===0)errors.push('DATE_NOT_IN_COPY:'+d);}
      for(const v of venueTokens(input)){if(occurrences(p,v)===0)errors.push('VENUE_NOT_IN_COPY:'+v);}
