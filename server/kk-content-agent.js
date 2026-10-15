@@ -28,15 +28,15 @@ const COPY_CONTRACT = Object.freeze({
   direct_rental_layout_rule: 'Current preferred baseline is Brand → Event hashtag → Offer/price → Date → Venue → Event-specific hook → Benefits → Booking CTA → 3 closing hashtags. It is a quality baseline, not a rigid order gate; verified facts, brand-first identity, CTA and anti-repeat remain hard requirements.',
   handoff_line: '📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน',
   file_storage_line: '☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน',
-  booking_cta: '👉 เลือกวันแล้วจองคิว\nkk-phone-rental.vercel.app',
-  hashtag_rule: 'Use only hashtags verified for the current event/artist/fandom context. Never synthesize a hashtag from an event name. By default put exactly 3 strongest verified closing hashtags at the end and do not duplicate #เช่ามือถือ or the main event hashtag already used above.',
+  booking_cta: '👉 [event-specific booking invitation]\nkk-phone-rental.vercel.app',
+  hashtag_rule: 'Use only hashtags verified for the current event/artist/fandom context. Never synthesize a hashtag from an event name. By default put exactly 3 strongest verified closing hashtags at the end, resulting in at least FIVE distinct verified tags including #เช่ามือถือ in the header and the main event tag. Do not duplicate or invent unverified tags.',
   duplicate_fact_rule: 'Date and venue have one canonical information block. Do not repeat date/venue inside the hook unless timing itself is the verified marketing message (for example today, tomorrow, DAY 2, or last call).',
   promotion_rule: 'Include discounts or promotions only when they are current, explicitly approved, and verified for the post.',
   pricing_rule: 'Use only current approved pricing from verified business truth. Never infer, copy from stale examples, or invent a price.',
   brand_rule: 'Keep the brand line first; never repeat the shop name KK or KK Phone Rental anywhere else in body, hook, benefits or CTA.',
   owner_x_rule: 'Commercial X posts must show model only in the verified price/offer line, never repeat it in body or CTA. Every verified event date uses a compact status line: 14 ต.ค. ✅ ว่าง, 15 ต.ค. ❌ เต็ม; owner-closed/hidden days also display ❌ เต็ม (public copy only; preserve internal status). Never mention remaining phone counts. Never invent a day status. Use one selected copy only.',
-  creative_freedom_rule: 'Do not force every post into one visual/text template. Preserve event-specific voice, organic pacing, vivid but concise language, and a natural transition back to the rental use case.',
-  hard_gate_rule: 'Hard gates cover verified event facts, live approved price/inventory, verified hashtags, brand identity, booking CTA for commercial posts, recent-copy anti-repeat, three distinct internal candidates, QA and Selector PASS. Multi-event batches additionally require batch-level hook diversity QA before any winners are returned.'
+  creative_freedom_rule: 'Do not force every post into one visual/text template. Preserve event-specific voice, organic pacing and X Premium long-form language when the verified event context benefits from detail; do not impose a non-Premium 280-character cap. Transition naturally to the rental benefit.',
+  hard_gate_rule: 'Hard gates cover verified event facts, live approved price/inventory, FIVE distinct verified hashtags, brand identity, one event-specific booking CTA for commercial posts, recent-copy anti-repeat, three distinct internal candidates, QA and Selector PASS. Multi-event batches additionally require hook and CTA diversity QA before any winners are returned.'
 });
 
 const ANTI_REPEAT_CONTRACT = Object.freeze({
