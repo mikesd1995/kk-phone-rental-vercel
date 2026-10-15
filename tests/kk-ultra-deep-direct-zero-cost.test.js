@@ -2,6 +2,8 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const path=require('node:path');
+const ROOT=path.join(__dirname,'..');
 const Direct=require('../server/kk-ultra-deep-direct-zero-cost.js');
 
 test('V22 rejects malformed month before any live provider call',async()=>{
@@ -72,7 +74,7 @@ test('scanner ingress GET acceptance is queue-authorized and permanently read-on
   assert.match(source,/GET_COMMIT_FORBIDDEN/);
   assert.match(source,/executeWrites:false/);
   assert.match(source,/READ_ONLY_WRITE_INVARIANT_BROKEN/);
-  assert.match(source,/ULTRA_DEEP_MACHINE_V26_READ_ONLY_GET/);
+  assert.match(source,/ULTRA_DEEP_V2_READ_ONLY_GET/);
 });
 
 test('Smart Loop exposes one authenticated operational action without weakening write guards',()=>{

@@ -136,7 +136,7 @@ test('owner bridge runs five-Agent gateway, QA and selector and emits one winner
 });
 
 test('bridge comment persists invocation evidence without exposing internal candidates',async()=>{
-  const result=await Bridge.runBridge({event:event(),payload:payload()});
+  const result=await Bridge.runBridge({event:event(),payload:payload(),ledgerFn:async row=>({ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id})});
   assert.equal(result.status,'PASS');
   const comment=Bridge.buildComment(result);
   assert.match(comment,/KK Content Agent Bridge/);

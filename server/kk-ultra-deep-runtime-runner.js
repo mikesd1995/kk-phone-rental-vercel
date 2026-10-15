@@ -7,7 +7,7 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V14';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V16';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -30,9 +30,10 @@ function executionProof(execution={}){
   const rows=results.map((result,index)=>{
     const attempts=Array.isArray(result&&result.attempts)?result.attempts:[];
     const executed=attempts.some(attemptExecuted);
-    return {index,executed,status:text(result&&result.status)||'MISSING'};
+    const truncated=result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0;
+    return {index,executed,truncated,status:text(result&&result.status)||'MISSING'};
   });
-  return {complete:rows.length>0&&rows.every(x=>x.executed),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,rows};
+  return {complete:rows.length>0&&rows.every(x=>x.executed&&!x.truncated),task_count:rows.length,executed_count:rows.filter(x=>x.executed).length,truncated_task_count:rows.filter(x=>x.truncated).length,rows};
 }
 function sourceUniverseReceipts(plan={},execution={}){
   const tasks=Array.isArray(plan.gap_tasks)?plan.gap_tasks:[];
@@ -161,7 +162,22 @@ function alignKnownMissReferences(discovered=[],references=[]){
  });
 }
 
-function recoverEligibleReferenceCandidates(discovered=[],references=[]){
+function scopeProbeCandidates(rows=[],context={}){
+ return rows.map(row=>{
+  const decision=referenceScopeDecision(row,context);
+  const exactCase=KnownMiss.CORPUS.find(c=>c.event_date===text(row.event_date)&&KnownMiss.sameCase(row,c));
+  const inScope=exactCase&&(exactCase.event_date.startsWith(context.month+'-')||(exactCase.discovery_months||[]).includes(context.month));
+  let sourced=false,foreignHost=false;try{const url=new URL(text(row.source_url));sourced=url.protocol==='https:';foreignHost=/\.hk$/i.test(url.hostname);}catch(_){}
+  // A known brand/cross-month identity may lack generic concert keywords. Its
+  // actual source and exact date are still mandatory; corpus fields are not evidence.
+  const foreign=foreignHost||REFERENCE_FOREIGN_RE.test(text(row.title)+' '+text(row.venue));
+  const noise=REFERENCE_NOISE_RE.test(text(row.title));
+  const eligible=sourced&&!foreign&&!noise&&(!!inScope||decision.eligible);
+  return {...row,eligible_for_discovery:eligible,reference_scope_reason:foreign?'OUTSIDE_BANGKOK_SCOPE':noise?'NON_RENTAL_EVENT_NOISE':!sourced?'MISSING_SOURCE':inScope?'ELIGIBLE_KNOWN_MISS_PROBE':decision.reason};
+ });
+}
+
+function recoverEligibleReferenceCandidates(discovered=[],references=[],origin='INDEPENDENT_REFERENCE_RECOVERY'){
  const out=[...(Array.isArray(discovered)?discovered:[])];
  const titleDate=new Set(out.filter(Reconciliation.hasComparableEventIdentity).map(Reconciliation.reconcileKey));
  const sourceDate=new Set(out.map(Reconciliation.sourceDateKey).filter(Boolean));
@@ -170,7 +186,7 @@ function recoverEligibleReferenceCandidates(discovered=[],references=[]){
   if(!row||row.eligible_for_discovery===false||!Reconciliation.hasComparableEventIdentity(row))continue;
   const rk=Reconciliation.reconcileKey(row),sk=Reconciliation.sourceDateKey(row);
   if(titleDate.has(rk)||(sk&&sourceDate.has(sk)))continue;
-  const next={...row,candidate_origin:'INDEPENDENT_REFERENCE_RECOVERY',verifier_required:true,authoritative:false};
+  const next={...row,candidate_origin:origin,verifier_required:true,authoritative:false};
   out.push(next);titleDate.add(rk);if(sk)sourceDate.add(sk);recovered++;
  }
  return {candidates:out,recovered_count:recovered};
@@ -196,7 +212,17 @@ function summarizeExecution(execution={}){
 
 async function providerPreflight(providers={},input={}){
  const probe={source_tier:'PUBLIC_CALENDAR',query:['Bangkok',text(input.month),'concert'].filter(Boolean).join(' '),providers:[...UNKNOWN_SEARCH_PROVIDERS],evidence_required:true};
- const result=await ProviderExecutor.executeGapTask(probe,{providers});
+ const result=await ProviderExecutor.executeGapTask(probe,{providers,acceptCandidate:row=>{
+   // Reachable HTTPS search results alone do not establish usable event search.
+   // Dates/venues remain optional here; final verification retains its own gates.
+   const title=text(row.title);
+   if(REFERENCE_EVENT_RE.test(title)||/(lucky\s*fan|meet\s*(?:&|and)?\s*greet|private\s+(?:session|talk)|brand\s+event|artist\s+(?:event|appearance)|ลัคกี้แฟน|กิจกรรมศิลปิน|ตารางงานศิลปิน)/i.test(title))return true;
+   try{
+     const host=new URL(text(row.source_url)).hostname.toLowerCase();
+     const trusted=['eventpop.me','thaiticketmajor.com','ticketmelon.com','livenationtero.co.th','songkick.com'].some(domain=>host===domain||host.endsWith('.'+domain));
+     return trusted&&trustedEventPath(row.source_url);
+   }catch(_){return false;}
+ }});
  const usable=new Set((result.attempts||[]).filter(a=>a.status==='EVIDENCE_FOUND').map(a=>text(a.provider).toUpperCase()));
  if(result.provider)usable.add(text(result.provider).toUpperCase());
  return {status:usable.size?'READY':'NO_LIVE_SEARCH_EVIDENCE',usable:[...usable],result};
@@ -204,6 +230,15 @@ async function providerPreflight(providers={},input={}){
 function providerBindingState(providers={}){
   const bound=[...UNKNOWN_SEARCH_PROVIDERS].filter(p=>typeof providers[p]==='function');
   return {bound,unknown_url_search_bound:bound.length>0};
+}
+function detailFollowupProof(publicProviders={}){
+ const keys=['http_requests','cache_hits','hydrated_rows','skipped_rows','budget_deferred','failed_reads','identity_mismatch','field_conflicts','peak_concurrency'];
+ const empty=Object.fromEntries(keys.map(key=>[key,0]));
+ if(typeof publicProviders.detailReadback!=='function')return {enabled:false,complete:true,counts:empty};
+ try{
+  const r=publicProviders.detailReadback();
+  return {enabled:r.enabled===true,complete:r.complete===true,counts:Object.fromEntries(keys.map(key=>[key,Number.isFinite(r.counts&&r.counts[key])?Math.max(0,r.counts[key]):0]))};
+ }catch(_){return {enabled:true,complete:false,counts:empty};}
 }
 
 // Only project fixed contract fields. Provider payloads, URLs, queries and raw
@@ -230,6 +265,7 @@ async function runOperationalDiscovery(input={},options={}){
   const execution=await ProviderExecutor.executeGapPlan(plan,{providers,concurrency:Math.min(4,ProviderExecutor.MAX_CONCURRENCY)});
   const candidates=flattenCandidates(execution);
   const proof=executionProof(execution);
+  const detailFollowup=detailFollowupProof(publicProviders);
   proof.candidate_count=candidates.length;
   proof.has_evidence=candidates.length>0;
   const minimumExecuted=Math.min(3,proof.task_count);
@@ -248,6 +284,7 @@ async function runOperationalDiscovery(input={},options={}){
     month:plan.range.month,
     location:plan.location,
     discovery_proof:proof,
+    detail_followup:detailFollowup,
     candidate_count:candidates.length,
     candidates,
     task_count:proof.task_count,
@@ -269,7 +306,12 @@ async function runMonthlyUltraDeep(input={},options={}){
   // soft-throttle after a large sweep; putting the small regression corpus first
   // prevents broad discovery traffic from starving the recall gate.
   const knownMissPlan=buildKnownMissPlan();
-  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers});
+  const knownCases=new Map(KnownMiss.CORPUS.map(row=>['knownmiss:'+row.case_id,row]));
+  const knownMissExecution=await ProviderExecutor.executeGapPlan(knownMissPlan,{providers,
+    acceptCandidate:(row,task)=>{
+      const expected=knownCases.get(task.source_id);
+      return !!expected&&text(row.event_date)===expected.event_date&&KnownMiss.sameCase(row,expected);
+    }});
   const knownMissCandidates=flattenCandidates(knownMissExecution);
 
   const plan=MonthlyPlan.build(input);
@@ -297,7 +339,9 @@ async function runMonthlyUltraDeep(input={},options={}){
   referenceProof.complete=referenceProof.complete && referenceProof.has_evidence;
   const alignedReferenceCandidates=alignKnownMissReferences(candidates,scopedReferenceCandidates);
   const recovered= recoverEligibleReferenceCandidates(candidates,alignedReferenceCandidates);
-  const verifierCandidates=recovered.candidates;
+  const scopedProbeCandidates=scopeProbeCandidates(knownMissCandidates,{month:plan.range.month,location:plan.location});
+  const probeRecovered=recoverEligibleReferenceCandidates(recovered.candidates,scopedProbeCandidates,'KNOWN_MISS_PROBE_RECOVERY');
+  const verifierCandidates=probeRecovered.candidates;
   const reconciliation=Reconciliation.reconcileCandidateSets(verifierCandidates,alignedReferenceCandidates);
 
   // Preflight is intentionally evaluated only after the established evidence
@@ -314,31 +358,39 @@ async function runMonthlyUltraDeep(input={},options={}){
   // Source-unavailable and unsourced synthetic classifications cannot certify coverage.
   const knownMissLive=KnownMiss.evaluate(knownMissEvidence,input.known_miss_classifications||[],{month:plan.range.month,strict_live:true});
   const knownMiss=KnownMiss.evaluateFixtureRegression();
+  const detailFollowup=detailFollowupProof(publicProviders);
 
   const liveSearchProven=preflight.status==='READY' || discoveryProof.has_evidence || referenceProof.has_evidence || knownMissCandidates.length>0;
-  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete;
+  const complete=binding.unknown_url_search_bound && liveSearchProven && universe.complete && discoveryProof.complete && referenceProof.complete && reconciliation.complete && knownMiss.complete && knownMissLive.complete && detailFollowup.complete;
   const blockers=[
     ...(!binding.unknown_url_search_bound?['UNKNOWN_URL_SEARCH_NOT_BOUND']:[]),
     ...(binding.unknown_url_search_bound&&!liveSearchProven?['UNKNOWN_URL_SEARCH_PREFLIGHT_FAILED']:[]),
     ...(!universe.complete?['SOURCE_UNIVERSE_INCOMPLETE']:[]),
     ...(!discoveryProof.complete?['DISCOVERY_EVIDENCE_EMPTY']:[]),
+    ...(discoveryProof.truncated_task_count>0?['DISCOVERY_RESULTS_TRUNCATED']:[]),
     ...(!referenceProof.complete?['REFERENCE_SWEEP_INCOMPLETE']:[]),
     ...(!reconciliation.complete?['RECONCILIATION_GAPS_REMAIN']:[]),
     ...(!knownMiss.complete?['KNOWN_MISS_REGRESSION_INCOMPLETE']:[]),
-    ...(!knownMissLive.complete?['KNOWN_MISS_LIVE_RECALL_INCOMPLETE']:[])
+    ...(!knownMissLive.complete?['KNOWN_MISS_LIVE_RECALL_INCOMPLETE']:[]),
+    ...(!detailFollowup.complete?['DETAIL_FOLLOWUP_INCOMPLETE']:[])
   ];
   const diagnostic={
     schema:'KK_ULTRA_DEEP_DISCOVERY_DIAGNOSTIC_V1',full:complete,blockers,
     gates:Object.fromEntries(Object.entries({provider_bound:binding.unknown_url_search_bound,live_search:liveSearchProven,
       source_universe:universe.complete,discovery:discoveryProof.complete,reference:referenceProof.complete,
-      reconciliation:reconciliation.complete,known_miss_regression:knownMiss.complete,known_miss_live_recall:knownMissLive.complete}).map(([gate,observed])=>[gate,{expected:true,observed}])),
+      reconciliation:reconciliation.complete,known_miss_regression:knownMiss.complete,known_miss_live_recall:knownMissLive.complete,detail_followup:detailFollowup.complete}).map(([gate,observed])=>[gate,{expected:true,observed}])),
+    detail_followup:detailFollowup,
     counts:{required_sources:universe.required_source_count,passed_sources:universe.passed_required_source_count,
       discovery_tasks:discoveryProof.task_count,discovery_executed:discoveryProof.executed_count,discovery_candidates:candidates.length,
       reference_tasks:referenceProof.task_count,reference_executed:referenceProof.executed_count,reference_candidates:referenceCandidates.length,
-      reference_recovered:recovered.recovered_count,reconciliation_gaps:reconciliation.reconciliation_gap_count,
+      reference_recovered:recovered.recovered_count,known_miss_recovered:probeRecovered.recovered_count,reconciliation_gaps:reconciliation.reconciliation_gap_count,
       known_miss_live_passed:knownMissLive.passed,known_miss_live_total:knownMissLive.case_count},
     missing_required_sources:universe.missing_required_sources,source_tiers:universe.by_tier,
     known_miss_live:{complete:knownMissLive.complete,missing_cases:knownMissLive.missing_cases},
+    known_miss_handoff:scopedProbeCandidates.map(row=>({
+      case_id:(KnownMiss.CORPUS.find(c=>c.event_date===text(row.event_date)&&KnownMiss.sameCase(row,c))||{}).case_id||null,
+      eligible:row.eligible_for_discovery===true,reason:row.reference_scope_reason
+    })),
     receipts:{discovery:diagnosticReceipts(plan,execution),reference:diagnosticReceipts(referencePlan,referenceExecution),
       known_miss:diagnosticReceipts(knownMissPlan,knownMissExecution),preflight:diagnosticReceipts({gap_tasks:[{source_tier:'PUBLIC_CALENDAR'}]},{results:[preflight.result]})},
     production_writes:0
@@ -358,8 +410,10 @@ async function runMonthlyUltraDeep(input={},options={}){
     reconciliation,
     known_miss_regression:knownMiss,
     known_miss_live_recall:knownMissLive,
+    detail_followup:detailFollowup,
     candidate_count:verifierCandidates.length,
     discovery_candidate_count:candidates.length,
+    known_miss_recovered_candidate_count:probeRecovered.recovered_count,
     reference_recovered_candidate_count:recovered.recovered_count,
     candidates:verifierCandidates,
     reference_candidate_count:referenceCandidates.length,
