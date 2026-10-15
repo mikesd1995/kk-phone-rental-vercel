@@ -123,7 +123,7 @@ test('owner bridge runs five-Agent gateway, QA and selector and emits one winner
     }
   });
 
-  assert.equal(result.status,'PASS');
+  assert.equal(result.status,'PASS',JSON.stringify({blocker:result.blocker,gateway:result.gateway_status,finalization:result.finalization_gate,owner_x_errors:result.finalization&&result.finalization.owner_x_qa&&result.finalization.owner_x_qa.errors}));
   assert.equal(result.gateway_status,'READY_FOR_OWNER_REVIEW');
   assert.equal(result.finalization_gate,'PASS');
   assert.equal(result.qa_gate,'PASS');
