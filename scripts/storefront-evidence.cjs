@@ -109,6 +109,18 @@ async function inspectState(page){
         reason:'webpage_screenshot_service'
       }]:[];
     });
+    // A loaded poster must never be cropped by CSS. This is independent of
+    // the decorative blurred backdrop used to fill unused frame space.
+    const posterFitIssues=cards.flatMap(card=>{
+      const img=card.querySelector('.poster-img-wrap img');
+      if(!img||!img.complete||!img.naturalWidth||!img.naturalHeight)return [];
+      const fit=getComputedStyle(img).objectFit;
+      return fit==='contain'?[]:[{
+        event_id:card.dataset.eventId||'',
+        event_name:card.dataset.eventName||'',
+        object_fit:fit
+      }];
+    });
     const posterTreatmentIssues=cards.flatMap(card=>{
       const wrap=card.querySelector('.poster-img-wrap');
       const img=wrap&&wrap.querySelector('img');
@@ -140,7 +152,7 @@ async function inspectState(page){
     const mb=modal?box(modal):null;
     return {scroll_y:scrollY,raw_i18n_keys:raw,document_width:document.documentElement.scrollWidth,viewport_width:innerWidth,
       card_rects:cardRects,card_height_spread_px:Number(cardHeightSpread.toFixed(2)),poster_frame_ratios:posterFrameRatios,
-      escaped_card_elements:escaped,poster_source_issues:posterSourceIssues,poster_treatment_issues:posterTreatmentIssues,
+      escaped_card_elements:escaped,poster_source_issues:posterSourceIssues,poster_fit_issues:posterFitIssues,poster_treatment_issues:posterTreatmentIssues,
       first_event_top:first?first.top+scrollY:null,visible_event_cards_above_fold:cards.filter(el=>{const r=el.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;}).length,
       small_targets:small,clipped_controls:clipped,overlapping_filters:overlappingFilters,theme_icons:[...document.querySelectorAll('.theme-toggle span')].filter(visible).length,
       modal:mb?{...mb,scroll_width:modal.scrollWidth,client_width:modal.clientWidth,viewport_height:innerHeight,focus_inside:modal.contains(document.activeElement),title:modal.querySelector('.modal-title')?.textContent||'',package_count:modal.querySelectorAll('.phone-row').length}:null,
@@ -172,6 +184,7 @@ function stateFindings(state,{width,name}){
     if(width>=901&&(state.poster_frame_ratios||[]).some(r=>r<0.72||r>0.79))add('POSTER_FRAME_RATIO_MISMATCH',JSON.stringify(state.poster_frame_ratios));
     if(state.escaped_card_elements.length)add('CARD_CONTENT_ESCAPES',state.escaped_card_elements.join(','));
     if(state.poster_source_issues?.length)add('POSTER_SOURCE_NOT_ARTWORK',JSON.stringify(state.poster_source_issues));
+    if(state.poster_fit_issues?.length)add('POSTER_ARTWORK_CROPPED',JSON.stringify(state.poster_fit_issues));
     if(state.poster_treatment_issues?.length)add('POSTER_LETTERBOX_UNTREATED',JSON.stringify(state.poster_treatment_issues));
     if(state.theme_icons!==1)add('THEME_ICON_STATE',String(state.theme_icons));
   }else{
@@ -179,7 +192,17 @@ function stateFindings(state,{width,name}){
     if(m.left<0||m.right>width+1||m.top<0||m.bottom>m.viewport_height+1||m.scroll_width>m.client_width+1)add('MODAL_VIEWPORT_CONTAINMENT',JSON.stringify(m));
     if(!m.focus_inside)add('MODAL_FOCUS_ESCAPED',name);
     if(!m.title.trim())add('MODAL_EVENT_IDENTITY_MISSING',name);
-    if(width<=700&&Math.abs(m.bottom-m.viewport_height)>1)add('MOBILE_SHEET_NOT_ANCHORED',name);
+    // Owner-approved mobile dialogs are centered, not legacy bottom sheets.
+    // Allow small fractional layout and safe-area offsets, but reject a sheet
+    // anchored to the viewport bottom or a materially off-center modal.
+    if(width<=700){
+      const centerDelta=Math.abs((m.top+m.bottom-m.viewport_height)/2);
+      if(centerDelta>Math.max(12,m.viewport_height*0.025))
+        add('MOBILE_MODAL_NOT_CENTERED',JSON.stringify({
+          top:m.top,bottom:m.bottom,viewport_height:m.viewport_height,
+          center_delta_px:Number(centerDelta.toFixed(1))
+        }));
+    }
   }
   return findings;
 }

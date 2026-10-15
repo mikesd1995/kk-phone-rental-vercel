@@ -14,3 +14,19 @@ test('derives canonical template id from public package ids',()=>{
   assert.equal(mod._test.templateIdFromWebPackageId('EVT-1-BUNDLE','EVT-1'),'BUNDLE');
   assert.equal(mod._test.templateIdFromWebPackageId('PKG-BUNDLE','EVT-1'),'PKG-BUNDLE');
 });
+
+test('LINE intake parses both new Storefront P0 TH/EN package labels without sending messages',()=>{
+  const samples=[
+    ['สวัสดีค่ะ สนใจเช่าแพ็กเกจนี้ค่ะ\n🎫 งาน: LYKN\n📅 วันที่: 24/10/2026\n📍 สถานที่: IMPACT Arena\n📱 รุ่น/แพ็กเกจ: Phone + Lens\n💰 ราคา: 1,290 THB','Phone + Lens'],
+    ["Hello, I'd like to rent this package.\n🎫 Event: NCT 127\n📅 Date: 31/10/2026\n📍 Venue: Stadium\n📱 Package / model: Lens Only\n💰 Price: 390 THB",'Lens Only'],
+    ['สนใจเช่า Vivo\nงาน: LYKN\nวันที่: 24/10/2026\nสถานที่: Arena\n📱 รุ่น: Vivo X300 Pro','Vivo X300 Pro'],
+    ['Interested in renting model\nEvent: NCT\nDate: 31/10/2026\nVenue: Stadium\n📱 Model: Vivo X300 Pro','Vivo X300 Pro']
+  ];
+  for(const [body,model] of samples){
+    const result=mod._test.parseBookingText(body);
+    assert.ok(result,'booking payload should parse');
+    assert.equal(result.package_name,model,'must preserve specific package instead of generic greeting');
+  }
+  assert.equal(mod._test.parseBookingText('Hello, I would like to rent this package.'),null);
+});
+

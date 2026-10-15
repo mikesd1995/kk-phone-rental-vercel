@@ -38,7 +38,7 @@ function parseBookingText(text) {
   const interest=s.match(/(?:สนใจเช่า|Interested in renting)\s+([^\n]+)/i);
   const event=line('งาน|Event'), date=line('วันที่|Date'), venue=line('สถานที่|Venue'), price=line('ราคา|Price');
   const nickname=line('ชื่อเล่น|Nickname'), phone=line('เบอร์โทร|Phone'), pickup=line('เวลาที่สะดวกรับอุปกรณ์|เวลารับอุปกรณ์|Pickup');
-  const model=line('รุ่น|Model');
+  const model=line('รุ่น/แพ็กเกจ|Package[ \\t]*/[ \\t]*model|รุ่น|Model');
   const packageName=model || (interest && interest[1] ? interest[1].trim() : '');
   if(!event || !date || !venue || !packageName) return null;
   return {event_name:event,event_date:date,venue,package_name:packageName,price_display:price,nickname,phone,pickup_time:pickup};
