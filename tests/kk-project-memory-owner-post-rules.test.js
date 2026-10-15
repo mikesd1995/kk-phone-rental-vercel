@@ -13,7 +13,10 @@ test('canonical project memory bootstraps with the owner X content rule',()=>{
   assert.match(rule.summary,/Agent/);
   assert.match(rule.summary,/✅ ว่าง/);
   assert.match(rule.summary,/❌ เต็ม/);
-  assert.match(rule.summary,/ONLY ✅ ว่าง or ❌ เต็ม/);
+  assert.match(rule.summary,/excluding locked days from public copy/);
+  assert.doesNotMatch(rule.summary,/showing them only as ❌ เต็ม/);
   assert.doesNotMatch(rule.summary,/🚫 ปิด/);
-  assert.match(rule.summary,/owner-facing copy/);
+  const latest=result.context.find(x=>x.memory_id==='kk:memory:content:x-post-intent-final-only-mandatory-agent:20261015');
+  assert.ok(latest,'owner latest intent rule is absent');
+  assert.match(latest.summary,/omitted from public copy/);
 });
