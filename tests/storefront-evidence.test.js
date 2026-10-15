@@ -117,3 +117,10 @@ test('centered mobile dialog requires physical centering, safety clearance and f
    assert.ok(E.stateFindings({...healthy(),modal:{...centered,...bad}},{width:390,name:'modal'}).length,JSON.stringify(bad));
  }
 });
+
+test('poster treatment inspects the direct poster, not a nested fallback brand decoration',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../scripts/storefront-evidence.cjs'),'utf8');
+ assert.match(source,/wrap\.querySelector\(':scope > img'\)/);
+ assert.match(source,/wrap\.classList\.contains\('poster-has-image'\)/);
+ assert.match(source,/POSTER_LETTERBOX_UNTREATED/);
+});
