@@ -1,0 +1,47 @@
+name: KK LINE owner replay safety (shadow only)
+on:
+  push:
+    branches:
+      - fix/kk-owner-replay-privacy-shadow-20261015
+permissions:
+  contents: read
+concurrency:
+  group: kk-line-owner-replay-shadow-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  safe-source-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      KK_LINE_BOOKING_AUTOMATION_ENABLED: 'false'
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Require exact HEAD, no installs, no credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test ! -f package-lock.json
+          test ! -f npm-shrinkwrap.json
+          test "$KK_LINE_BOOKING_AUTOMATION_ENABLED" = false
+          test -z "${LINE_CHANNEL_ACCESS_TOKEN:-}"
+          test -z "${KK_ADMIN_API_KEY:-}"
+          test -z "${KK_INBOX_SUPABASE_SERVICE_ROLE_KEY:-}"
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: npm run check
+      - name: Focused synthetic owner replay and privacy tests
+        run: node --test tests/line-booking-owner-approval*.test.js
+      - name: Full native regression without package installation
+        run: npm test
+      - name: Confirm no production dispatch configuration
+        run: |
+          test "$KK_LINE_BOOKING_AUTOMATION_ENABLED" = false
+          echo "SOURCE_ONLY=1 PROVIDER_SENDS=0 PROD_WRITES=0 INSTALLS=0"
