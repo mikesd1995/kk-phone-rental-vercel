@@ -2,6 +2,7 @@
 // Reads aggregate-helper/event metadata through Google Sheets gviz. Returns aggregate metrics only; no PII leaves this endpoint.
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 const AdminSecurity = require('./admin-session.js');
+const BookedQuote = require('./rental-analytics-booked-quote.js');
 
 function json(res,status,body){
   res.statusCode=status;
@@ -168,7 +169,10 @@ function aggregate(rows){
   for(const r of non){
     const amount=r.amount_received||0;
     const actualAmount=r.status==="completed"?amount:0;
-    const futureAmount=activeSet.has(r.status)?amount:0;
+    const futureAmount=activeSet.has(r.status)?BookedQuote.positivePrice(r.package_price):0;
+    if(activeSet.has(r.status) && futureAmount===null){
+      const err=new Error('RENTAL_ACTIVE_QUOTE_UNVERIFIED');err.code='RENTAL_ACTIVE_QUOTE_UNVERIFIED';throw err;
+    }
     const forecastAmount=actualAmount+futureAmount;
     actualRevenue+=actualAmount;
     futureRevenue+=futureAmount;
@@ -260,7 +264,7 @@ function aggregate(rows){
     `Affiliation Coverage ตอนนี้ ${non.length?((affKnown/non.length)*100).toFixed(1):"0.0"}% ของ booking ที่นับในรายงาน; Unknown ${affUnknown} คิว`,
     "Top Affiliation เรียงจากลูกค้าไม่ซ้ำ → Booking → จำนวนงาน เพื่อใช้ตัดสินใจว่าจะโฟกัสค่ายใดเป็นพิเศษ",
     "รายรับจริง = SUM(amount_received) เฉพาะ booking ที่ status=completed",
-    "รายรับในอนาคต = SUM(amount_received) เฉพาะ booking ที่ยัง Active: pending / confirmed / prepared / picked_up / returned / uploaded",
+    "รายรับในอนาคต = SUM(package_price) จาก Master Booking X ที่ยืนยัน booking_id + event_id + status + package_type ตรงกัน สำหรับ pending / confirmed / prepared / picked_up / returned / uploaded เท่านั้น (ไม่ใช่ amount_received O)",
     "คาดการณ์รายรับรวม = รายรับจริง + รายรับในอนาคต; cancelled / no_show / สถานะว่างไม่ถูกนับ และ booking หนึ่งรายการอยู่ได้เพียง bucket เดียว",
     "metrics.amount_received คงไว้เป็น compatibility alias ของ forecast_revenue; UI ไม่แสดง field นี้ว่าเป็นยอดรับจริงอีก",
     "API response ไม่ส่งชื่อ เบอร์โทร หรือ contact ลูกค้ารายบุคคลกลับ browser"
@@ -276,19 +280,21 @@ module.exports=async function handler(req,res){
   const sheetId=String(process.env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
   const trackerId=String(process.env.KK_EVENT_TRACKER_SHEET_ID||"1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo").trim();
   try{
-    const [helperCsv,currentEventsCsv,archiveEventsCsv,registryResult]=await Promise.all([
+    const [helperCsv,currentEventsCsv,archiveEventsCsv,masterCsv,registryResult]=await Promise.all([
       fetchCsv(sheetId,"_Rental_Dashboard_Data","A1:O"),
       fetchCsv(sheetId,"01_Events","A4:Z"),
       fetchCsv(sheetId,"13_Event_Archive","A1:Z"),
+      fetchCsv(sheetId,"00_Master_Booking","A4:X"),
       fetchCsv(trackerId,"_Artist_Registry","A1:E").then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:""}))
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
     const meta=eventMetadata(currentEventsCsv,archiveEventsCsv,registryRules);
     const rows=parseHelper(helperCsv,meta,registryRules);
-    return json(res,200,{ok:true,data:aggregate(rows)});
+    const verified=BookedQuote.bookedPriceRows(rows,masterCsv,parseCsv);
+    return json(res,200,{ok:true,data:aggregate(verified)});
   }catch(err){
     const msg=err&&err.name==="AbortError"?"Google Sheet analytics timeout":(err&&err.message?err.message:String(err));
-    return json(res,500,{ok:false,error:msg});
+    return json(res,err&&String(err.code||'').startsWith('RENTAL_')?503:500,{ok:false,error:err&&err.code?String(err.code):msg});
   }
 };
 
