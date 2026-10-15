@@ -7,6 +7,7 @@ const OidcBridge=require('../server/runtime-ledger-oidc-bridge');
 const UltraDeepRuntime=require('../server/kk-ultra-deep-runtime-runner');
 const UltraDeepDirect=require('../server/kk-ultra-deep-direct-zero-cost.js');
 const WriteControl=require('../server/admin-write-control-oidc.js');
+const CandidateVerifier=require('../server/kk-ultra-deep-candidate-verifier.js');
 
 function text(value){
   return String(value==null?'':value).trim();
@@ -219,6 +220,28 @@ module.exports=async function handler(req,res){
     const probeMode=queryValue(req,'probe').toLowerCase();
     if(!probeMode){
       return json(res,200,{ok:true,data:readiness});
+    }
+    if(probeMode==='verifier-acceptance'){
+      if(String(process.env.VERCEL_ENV||'')!=='preview') return json(res,404,{ok:false,error_code:'PREVIEW_ONLY',business_writes:0});
+      const html='<!doctype html><html><head><script type="application/ld+json">'+JSON.stringify({
+        '@context':'https://schema.org','@type':'Event',name:'Strong Roots Bright Stars with TeeTee & Por',
+        startDate:'2026-10-07T18:00:00+07:00',location:{'@type':'Place',name:'Union Hall'},image:'https://cdn.example/ryo.jpg'
+      })+'</script></head><body>official event detail</body></html>';
+      const missingDate={title:'Strong Roots Bright Stars with TeeTee & Por',event_date:null,source_url:'https://www.eventpop.me/e/ryo-strong-roots'};
+      const dated={...missingDate,event_date:'2026-10-07'};
+      const ctx={month:'2026-10',verification_scope:'EXTERNAL_DEMAND_IDENTITY'};
+      const externalMissing=CandidateVerifier.verifyHtmlCandidate(missingDate,html,ctx);
+      const legacyMissing=CandidateVerifier.verifyHtmlCandidate(missingDate,html,{month:'2026-10'});
+      const externalDated=CandidateVerifier.verifyHtmlCandidate(dated,html,ctx);
+      const genericPre=CandidateVerifier.prefilter({title:'Strong Roots Bright Stars with TeeTee & Por',event_date:null,source_url:'https://example.com/search-result'},'2026-10',ctx);
+      const checks={
+        external_missing_date_verified:externalMissing.verified===true&&externalMissing.candidate&&externalMissing.candidate.event_date==='2026-10-07',
+        external_keywordless_deferred:externalDated.verified===true&&externalDated.candidate&&externalDated.candidate.publish_eligibility&&externalDated.candidate.publish_eligibility.status==='DEFER_TO_EXTERNAL_DEMAND_GATE',
+        legacy_missing_date_still_blocked:legacyMissing.verified===false&&Array.isArray(legacyMissing.blockers)&&legacyMissing.blockers.includes('EVENT_DATE_REQUIRED'),
+        generic_missing_date_still_blocked:genericPre.eligible===false&&genericPre.reasons.includes('EVENT_DATE_REQUIRED')&&genericPre.reasons.includes('EVENT_IDENTITY_NOT_STRONG_ENOUGH')
+      };
+      const ok=Object.values(checks).every(Boolean);
+      return json(res,ok?200:409,{ok,verifier_version:CandidateVerifier.VERSION,checks,business_writes:0});
     }
     if(probeMode==='ledger'){
       const probe=await ledgerConnectivityProbe({env:process.env});
