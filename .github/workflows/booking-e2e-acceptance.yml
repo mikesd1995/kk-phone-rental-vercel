@@ -33,6 +33,7 @@ jobs:
         with:
           ref: ${{ env.APPROVED_SHA }}
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Verify exact checkout
         run: test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
@@ -75,7 +76,59 @@ jobs:
           test -z "${LINE_CHANNEL_ACCESS_TOKEN:-}"
           test -z "${KK_ADMIN_API_KEY:-}"
           npm run check
-          npm test
+          set +e
+          npm test > /tmp/kk-candidate-native-tests.log 2>&1
+          rc=$?
+          set -e
+          grep -E '^# (tests|pass|fail|skipped|cancelled) ' /tmp/kk-candidate-native-tests.log || true
+          if [ "$rc" -ne 0 ]; then
+            echo "Candidate full regression failed; checking pinned main baseline in a separate read-only directory."
+            exit "$rc"
+          fi
+
+      - name: Checkout pinned pre-existing main baseline for comparison
+        if: ${{ failure() && github.event_name == 'pull_request' && github.event.pull_request.number == 742 }}
+        uses: actions/checkout@v7
+        with:
+          ref: d6dc3bfe4cc0c4dd6fdfec407823752da0572464
+          path: kk-baseline-main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Compare candidate/native-main failures without changing expected tests
+        if: ${{ failure() && github.event_name == 'pull_request' && github.event.pull_request.number == 742 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C kk-baseline-main rev-parse HEAD)" = "d6dc3bfe4cc0c4dd6fdfec407823752da0572464"
+          set +e
+          (cd kk-baseline-main && npm test) > /tmp/kk-baseline-native-tests.log 2>&1
+          baseline_rc=$?
+          set -e
+          echo "Baseline npm test exit=$baseline_rc"
+          grep -E '^# (tests|pass|fail|skipped|cancelled) ' /tmp/kk-baseline-native-tests.log || true
+          node - <<'NODE'
+          const fs=require('node:fs');
+          function failures(file) {
+            const lines=fs.readFileSync(file,'utf8').split(/\r?\n/);
+            return lines.filter(l=>/^not ok [0-9]+ - /.test(l))
+              .map(l=>l.replace(/^not ok [0-9]+ - /,'').trim()).sort();
+          }
+          const candidate=failures('/tmp/kk-candidate-native-tests.log');
+          const baseline=failures('/tmp/kk-baseline-native-tests.log');
+          const introduced=candidate.filter(x=>!baseline.includes(x));
+          const resolved=baseline.filter(x=>!candidate.includes(x));
+          console.log(JSON.stringify({
+            test_mode:'native Node 20, pinned main baseline vs exact PR head',
+            candidate_failures:candidate.length,
+            baseline_failures:baseline.length,
+            introduced_failure_names:introduced,
+            resolved_failure_names:resolved,
+            same_failure_set:introduced.length===0 && resolved.length===0,
+            release_ready:candidate.length===0
+          },null,2));
+          if(introduced.length)process.exitCode=1;
+          NODE
 
       - name: Assert no provider or production acceptance side effects
         run: |
