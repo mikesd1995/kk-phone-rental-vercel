@@ -1,7 +1,7 @@
 'use strict';
 
 // Owner-approved X commercial-copy contract. Read-only; no publishing or spend.
-const VERSION='KK_X_OWNER_COPY_POLICY_V2';
+const VERSION='KK_X_OWNER_COPY_POLICY_V3';
 const BRAND='📱 KK Phone Rental | #เช่ามือถือ';
 const CTA='👉 เลือกวันแล้วจองคิว';
 // Customer-facing X status is binary; internal closed/hidden/owner-locked reasons remain unchanged.
@@ -31,7 +31,21 @@ function validatePost(post,input={}){
   const modelLines=lines.filter(line=>line.toLowerCase().includes(model));
   if(modelLines.length!==1||!offerLines.includes(modelLines[0]))errors.push('OWNER_X_MODEL_ONLY_ON_PRICE_LINE');
 
-  if(!lines.includes(CTA))errors.push('OWNER_X_SHORT_CTA_REQUIRED');
+  // X Premium long-form posts must have one natural booking CTA, not a
+  // single fixed phrase repeated across all artists.
+  const ctaLines=lines.filter(line=>/^👉\s*/u.test(line));
+  if(ctaLines.length!==1 || ctaLines[0].length>180 ||
+    !/(?:จอง|เช็กคิว|สำรอง)/u.test(ctaLines[0]))
+    errors.push('OWNER_X_SINGLE_EVENT_CTA_REQUIRED');
+  const usedTags=uniq((copy.match(/#[\p{L}\p{M}\p{N}_]+/gu)||[]).map(tag=>tag.toLowerCase()));
+  const verifiedTags=new Set([
+    '#เช่ามือถือ',text(input.official_event_hashtag).toLowerCase(),
+    ...(Array.isArray(input.verified_hashtags)
+      ?input.verified_hashtags.map(value=>text(value).toLowerCase()):[])
+  ]);
+  if(usedTags.length<5)errors.push('OWNER_X_FIVE_DISTINCT_HASHTAGS_REQUIRED');
+  if(usedTags.some(tag=>!verifiedTags.has(tag)))
+    errors.push('OWNER_X_UNVERIFIED_HASHTAG');
   if(!copy.includes('kk-phone-rental.vercel.app'))errors.push('OWNER_X_BOOKING_LINK_REQUIRED');
   if(/(?:\d+\s*\/\s*\d+)\s*(?:เครื่อง)?/u.test(copy)||
     /(?:เหลือ|คงเหลือ|สุดท้าย).{0,22}(?:เครื่อง|คิว)|(?:เครื่อง|คิว)(?:สุดท้าย)/iu.test(copy))
