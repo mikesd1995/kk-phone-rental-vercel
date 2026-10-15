@@ -106,7 +106,7 @@ test('batch bridge runs one five-agent invocation per item and returns winners o
       return {ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id};
     }
   });
-  assert.equal(result.status,'PASS');
+  assert.equal(result.status,'PASS',JSON.stringify({blocker:result.blocker,items:result.items&&result.items.map(x=>({blocker:x.blocker,gateway_status:x.gateway_status,finalization_gate:x.finalization_gate,owner_x_errors:x.finalization&&x.finalization.owner_x_qa&&x.finalization.owner_x_qa.errors}))}));
   assert.equal(result.batch_qa.gate,'PASS');
   assert.equal(result.item_count,3);
   assert.equal(rows.length,3);
