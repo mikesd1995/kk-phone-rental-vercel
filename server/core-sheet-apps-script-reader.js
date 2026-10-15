@@ -7,7 +7,7 @@ function scriptState(env=process.env){
   const raw=String(env.KK_ADMIN_SCRIPT_URL||'').trim();
   let url=null;
   try{url=new URL(raw);}catch(_){}
-  const allowed=!!(url&&url.protocol==='https:'&&url.hostname===ALLOWED_HOST&&
+  const allowed=!!(url&&url.protocol==='https:'&&url.hostname===ALLOWED_HOST&&!url.port&&!url.username&&!url.password&&
     /^\/macros\/s\/[A-Za-z0-9_-]+\/exec\/?$/.test(url.pathname)&&!url.search&&!url.hash);
   const readerKey=String(env.KK_CORE_PRIVATE_READ_KEY||'').trim();
   const adminKey=String(env.KK_ADMIN_API_KEY||'').trim();
@@ -38,14 +38,15 @@ async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.
     if(response.status>=300&&response.status<400){
       const location=String(response.headers&&response.headers.get('location')||'');
       let target;try{target=new URL(location)}catch(_){throw err('CORE_APPS_SCRIPT_BAD_REDIRECT')}
-      if(target.protocol!=='https:'||target.hostname!=='script.googleusercontent.com')
+      if(target.protocol!=='https:'||target.hostname!=='script.googleusercontent.com'||
+        target.port||target.username||target.password)
         throw err('CORE_APPS_SCRIPT_BAD_REDIRECT');
       response=await fetchImpl(location,{method:'GET',redirect:'error',signal:controller.signal});
     }
     const finalUrl=String(response.url||'');
     if(finalUrl){
       let parsed;try{parsed=new URL(finalUrl)}catch(_){throw err('CORE_APPS_SCRIPT_BAD_REDIRECT')}
-      if(parsed.protocol!=='https:'||
+      if(parsed.protocol!=='https:'||parsed.port||parsed.username||parsed.password||
         !['script.google.com','script.googleusercontent.com'].includes(parsed.hostname))
           throw err('CORE_APPS_SCRIPT_BAD_REDIRECT');
     }

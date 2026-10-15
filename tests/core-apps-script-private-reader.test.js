@@ -30,7 +30,10 @@ test('alternate transport is strictly opt-in and rejects non-Google/script URL/c
   'https://script.google.com/evil',
   'https://script.google.com/macros/s/example/exec?redirect=https://evil.com',
   'https://script.google.com.evil.test/macros/s/example/exec',
-  'https://script.google.com/macros/s/example/exec#xx'
+  'https://script.google.com/macros/s/example/exec#xx',
+  'https://attacker@script.google.com/macros/s/example/exec',
+  'https://attacker:secret@script.google.com/macros/s/example/exec',
+  'https://script.google.com:8443/macros/s/example/exec'
  ])assert.equal(script.scriptState({...config,KK_ADMIN_SCRIPT_URL:bad}).configured,false,bad);
  assert.equal(script.scriptState({...config,KK_ADMIN_API_KEY:''}).configured,true);
  assert.equal(script.scriptState({...config,KK_CORE_PRIVATE_READ_KEY:''}).configured,false);
@@ -63,6 +66,18 @@ test('no public fallback and reject mismatched IDs, non-Google redirect and unex
   {ok:true,url:'https://script.googleusercontent.com/',json:async()=>({ok:true,data:{spreadsheet_id:env.GOOGLE_SHEET_ID,sheet:'00_Master_Booking',range:'A4:K',values:[['x']]}})}
  ]){
    await assert.rejects(()=>script.readValues({env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',fetchImpl:async()=>response}),e=>String(e.code||'').startsWith('CORE_APPS_SCRIPT_'));
+ }
+});
+test('ContentService redirect and final response reject URL userinfo and nonstandard port without forwarding the private read key',async()=>{
+ for(const redirect of ['https://username@script.googleusercontent.com/macros/echo','https://username:password@script.googleusercontent.com/macros/echo','https://script.googleusercontent.com:8443/macros/echo']){
+  const calls=[];
+  await assert.rejects(()=>script.readValues({env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',fetchImpl:async(url,options)=>{calls.push({url,options});if(calls.length===1)return {status:302,ok:false,url:env.KK_ADMIN_SCRIPT_URL,headers:{get:()=>redirect}};throw Error('unsafe redirect followed');}}),e=>e.code==='CORE_APPS_SCRIPT_BAD_REDIRECT');
+  assert.equal(calls.length,1,redirect);
+ }
+ for(const finalUrl of ['https://attacker@script.googleusercontent.com/macros/echo','https://script.googleusercontent.com:8443/macros/echo']){
+  let calls=0;
+  await assert.rejects(()=>script.readValues({env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',fetchImpl:async()=>{calls++;return {...okResponse([['event_id']]),url:finalUrl}}}),e=>e.code==='CORE_APPS_SCRIPT_BAD_REDIRECT');
+  assert.equal(calls,1);
  }
 });
 test('server private Core API dispatches explicitly selected Apps Script transport and serializes bounded CSV',async()=>{
