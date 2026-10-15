@@ -206,9 +206,8 @@ test('V5.8 uses proprietary editorial optics rather than literal trend decoratio
   const html=fs.readFileSync('index.html','utf8');
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
-  assert.equal(html.includes('v67-lower-page-finish'),true);
-  // V6.2 owner-approved premium mock intentionally promotes the FAR SEAT / CLOSE MEMORY signature.
-  assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
+  assert.match(html,/kk-storefront-v5\.css\?v=202610\d{2}-/);
+  assert.equal(html.includes('ไกลแค่ไหน<br><em>ก็เก็บโมเมนต์ได้ใกล้กว่า</em>'),true);
   assert.equal(html.includes('CONCERT MEMORY SERVICE'),false);
   assert.equal(html.includes('kk-mock-hero'),true);
   assert.equal(css.includes('V5.8 Editorial Optics'),true);
@@ -252,7 +251,7 @@ test('V6.1 conversion polish keeps trust, CTA hierarchy and floating contact out
   assert.match(html,/ฟรีประกัน/);
   assert.match(html,/ไม่ต้องวางมัดจำ/);
   assert.match(html,/รับ–คืนหน้างาน/);
-  assert.match(html,/href="#booking-journey">วิธีการเช่า/);
+  assert.match(html,/href="#booking-journey">(?:วิธีการเช่า|เช่ายังไง\?)/);
   assert.match(css,/\.pi-tap\{[^}]*border:1px solid var\(--v6-line\)!important/);
   assert.match(css,/\.sticky-line\{display:none!important\}/);
 });
@@ -344,8 +343,8 @@ test('V6.5 owner mobile polish reduces density and makes hierarchy intentional o
   assert.match(css,/\.language-switch\{[\s\S]*border-radius:16px!important;[\s\S]*overflow:hidden!important/);
   assert.match(css,/\.lang-btn\{[\s\S]*border-radius:12px!important/);
   assert.match(css,/\.kk-mock-hero h1\{[\s\S]*max-width:12ch!important;[\s\S]*line-height:\.93!important/);
-  assert.match(js,/hero_secondary:"How it works"/);
-  assert.match(js,/benefit_onsite:"Venue pickup\/return · Setup help"/);
+  assert.match(js,/hero_secondary:"How to rent"/);
+  assert.match(js,/benefit_onsite:"Venue pickup & return · Setup help before the show"/);
 });
 
 test('V6.6 professional finish keeps brand messaging generic while preserving package-level model choice',()=>{

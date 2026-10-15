@@ -20,10 +20,10 @@
         "postgrest"
       ],
       "files": [
-        "admin/index.html",
-        "admin/inbox-preview.js",
-        "admin/admin.css",
         "server/line-booking-webhook.js",
+        "admin/inbox-preview.js",
+        "admin/index.html",
+        "admin/admin.css",
         "server/kk-unified-inbox-contract.js",
         "server/kk-inbox-postgrest-store.js",
         "server/kk-line-inbox-tee.js",

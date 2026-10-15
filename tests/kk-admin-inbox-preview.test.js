@@ -37,7 +37,7 @@ test('admin Inbox has readable timestamps, non-text fallbacks and read-state cle
  assert.match(js,/MESSAGE_TYPE_LABELS/);
  assert.match(js,/รูปภาพ \(ยังเปิดดูไฟล์จาก Inbox นี้ไม่ได้\)/);
  assert.match(js,/ข้อความเสียง \(ยังเปิดฟังจาก Inbox นี้ไม่ได้\)/);
- assert.match(js,/unread\+' ใหม่'/);
+ assert.match(js,/unread\+' ใหม่<\/i>'/);
  assert.match(js,/async function markConversationRead/);
  assert.match(js,/shouldMarkRead=options\.markRead!==false/);
  assert.match(js,/clearUnreadBadge/);
