@@ -65,7 +65,15 @@ Earlier day 06:00–13:30 candidate events: Moonshadow, OH MY FOURTH, WEIRDO-101
 - [ ] Verify Production storefront acceptance and venue lens rules.
 - [ ] Run exact-head Node tests / required CI, owner approval, after authorized free capacity is available.
 
-## 5. Handoff and owner action
+## 5. P0 evidence gap found on live Post Log (additional 15 Oct readback)
+
+Of **103 active** rows (`confirmed_posted` + `assumed_posted` + `planned`), **10** legacy `confirmed_posted` rows have **no `planned_at`**, **no X status URL**, and **no views**. All 10 have identical `logged_at=27/09/2026 19:17` consistent with a bulk log/import time, **not a verified X publication timestamp**. This is NOT evidence of actual posts at that time. No private customer fields were exported.
+
+Draft `kk-x-posting-eligibility.logRow(array)` takes `row[1]` for date and draft `kk-x-visibility-recovery.assess` fail-closes on any active unparseable timestamp. Thus a complete 164-row sheet readback supplied as array rows can yield `ACTIVE_POST_LOG_TIME_UNVERIFIED`, blocking all new recommendations. The account-wide blocker is **expected conservative behavior**, not license to suppress/drop the ten rows or backfill imaginary times.
+
+**Safe remediation path:** obtain actual X permalinks/publication timestamps for the ten legacy posts through authorized first-party X readback or owner-validated evidence; distinguish imported historical notes from true publication events, record provenance, then test migration in shadow only. Do not rewrite canonical Post Log statuses or overwrite/import synthetic publish times without owner authorization. When real evidence is unavailable, keep `BLOCKED_VISIBILITY_RECOVERY`; offer editorial content drafts without publication clearance. Test expected fail-closed behavior with exact current source and connector receipts when CI is available.
+
+## 6. Handoff and owner action
 
 The incident corrected **recommendation data and documentary decision gates**, **not** production application code. The existing guard already prevents 6 posts when supplied reliable verified inputs, but its **draft** status and incomplete X authentication mean live protection is **not yet accepted**.
 
