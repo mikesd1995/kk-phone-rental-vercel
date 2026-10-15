@@ -11,6 +11,7 @@ on:
       - 'tests/kk-agent-invocation-oidc-persistence.test.js'
       - 'tests/project-memory-github-oidc.test.js'
       - 'config/kk-project-memory.json'
+      - 'docs/AGENT_BRIDGE_LEDGER_OIDC_INCIDENT_2026-10-15.md'
       - '.github/workflows/kk-agent-ledger-oidc-regression-zero-install.yml'
   workflow_dispatch:
 
