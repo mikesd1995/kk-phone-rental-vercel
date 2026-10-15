@@ -129,3 +129,41 @@ test('compatible Apps Script response with absent optional decision still blocks
  assert.equal(r.status,'CONFIRMED');
  assert.equal(calls.length,3);
 });
+
+test('Apps Script fetch thrown private error is converted to fixed diagnostic',async()=>{
+ let calls=0;
+ await assert.rejects(()=>Approval.appsScriptCall({action:'decideLineBookingPending'},ENV,async()=>{
+  calls++;throw Error('network '+SECRET_MARKER);
+ }),err=>{
+  assert.equal(err.code,'LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED');
+  assert.doesNotMatch(err.message,/SYNTHETIC_PRIVATE|0001234567/);return true;
+ });
+ assert.equal(calls,1);
+});
+test('Apps Script response-body read rejection is sanitized, retaining only HTTP status',async()=>{
+ await assert.rejects(()=>Approval.appsScriptCall({action:'decideLineBookingPending'},ENV,async()=>({
+  ok:true,status:206,text:async()=>{throw Error(SECRET_MARKER)}
+ })),err=>{
+  assert.equal(err.code,'LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED');
+  assert.equal(err.status,206);
+  assert.doesNotMatch(err.message,/SYNTHETIC_PRIVATE|0001234567/);return true;
+ });
+});
+test('LINE provider thrown transport error cannot leak payload to logs',async()=>{
+ await assert.rejects(()=>Approval.pushMessage('UCUSTOMER',{type:'text',text:'synthetic'},ENV,async()=>{
+  throw Error('TLS fail '+SECRET_MARKER);
+ }),err=>{
+  assert.equal(err.code,'LINE_SEND_TRANSPORT_FAILED');
+  assert.doesNotMatch(err.message,/SYNTHETIC_PRIVATE|0001234567/);return true;
+ });
+});
+test('owner decision suppresses owner reply on thrown customer LINE transport error',async()=>{
+ const calls=[];
+ await assert.rejects(()=>Approval.processOwnerPostback(event('approve','BK-TRANSPORT-FAIL'),ENV,async url=>{
+  calls.push(url);
+  if(url.startsWith('https://script.google.com/'))return response(canonical('approve','BK-TRANSPORT-FAIL'));
+  throw Error('line socket failed '+SECRET_MARKER);
+ }),err=>err.code==='LINE_SEND_TRANSPORT_FAILED'&&!err.message.includes(SECRET_MARKER));
+ assert.equal(calls.length,2);
+ assert.match(calls[1],/\/push$/);
+});

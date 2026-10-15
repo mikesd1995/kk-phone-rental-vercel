@@ -42,12 +42,22 @@ async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
     source:'LINE_OWNER_APPROVAL',
     automation_version:VERSION
   });
-  const r=await fetchImpl(text(env.KK_ADMIN_SCRIPT_URL),{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)
-  });
-  const raw=await r.text();
+  let r,raw;
+  try{
+    r=await fetchImpl(text(env.KK_ADMIN_SCRIPT_URL),{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    raw=await r.text();
+  }catch(_){
+    // Both transport exceptions and response-body read exceptions are untrusted.
+    // Never let provider/redirect details reach webhook error logs.
+    const err=new Error('Apps Script booking transport failed');
+    err.code='LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED';
+    if(r&&Number.isInteger(r.status))err.status=r.status;
+    throw err;
+  }
   let parsed={};
   try{parsed=raw?JSON.parse(raw):{};}catch(_){
     const err=new Error('Apps Script returned non-JSON response');
@@ -146,11 +156,19 @@ function ownerApprovalMessage(ctx={},env=process.env){
   };
 }
 async function sendLine(url,body,token,fetchImpl=fetch){
-  const r=await fetchImpl(url,{
-    method:'POST',
-    headers:{Authorization:'Bearer '+text(token),'Content-Type':'application/json'},
-    body:JSON.stringify(body)
-  });
+  let r;
+  try{
+    r=await fetchImpl(url,{
+      method:'POST',
+      headers:{Authorization:'Bearer '+text(token),'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+  }catch(_){
+    // Network/TLS/provider errors can also embed request or customer content.
+    const err=new Error('LINE send transport failed');
+    err.code='LINE_SEND_TRANSPORT_FAILED';
+    throw err;
+  }
   if(!r.ok){
     // Provider response text can reflect private recipient/message details.
     // Keep a fixed diagnostic and HTTP status; do not log upstream body.

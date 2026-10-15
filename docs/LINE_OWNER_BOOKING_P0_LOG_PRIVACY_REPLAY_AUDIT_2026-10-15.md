@@ -41,3 +41,17 @@ Source-based **isolated V8 reproduced with synthetic markers only**:
 - Read-only Vercel full project deployment list: **81 objects**, newest remains **READY Production `dpl_7TYLb87ir9qNzXRtkeb49543dwVm`**, source main `d6dc3bfe4cc0c4dd6fdfec407823752da0572464`, created 2026-10-12 17:49:47 UTC; new #742 SHA not found. This is not a measurement of billed storage GB.
 - Gemini scope isolation freshly checked after its PR #744 advanced to `44833139ae288a438fb7608476f40feb6bc1d818` (49 changed files then): **0 filenames overlapping** with #742, #739 and #737; no writes to these PRs. Separate #700 and #706 DO overlap the owner-approval module and require later integration review, but are outside this isolated change.
 - Future gate: real Apps Script deployment/version and LINE webhook delivery must be independently read back, no blind replay; native `node --test` focused 25, `npm run check`, full `npm test`, CI/safety/owner approvals required before merging. Exactly-once provider receipt/durable outbox remains BLOCKED.
+
+## 15 October 2026 — Native Node CI exact-main comparison and transport exception closure
+
+**Hosted run [38674479946](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38674479946)** on prior `#742` SHA `a76f71bf673b0d70d189f3a733fd6709210ac579`:
+- Exact candidate checked out and Node 20 + Booking E2E **57/57 PASS**, syntax PASS; full `npm test`: **1,515 total / 1,494 PASS / 21 FAIL** (exit 1).
+- Pinned native baseline `main@d6dc3bfe4cc0c4dd6fdfec407823752da0572464`, same runner, same Node 20, source-only: **1,498 total / 1,477 PASS / 21 FAIL**.
+- Names of **all 21 failing cases are identical**, introduced names `[]`, resolved names `[]`, `same_failure_set=true`; no new failed test attributable to #742. The 21 pre-existing failures cover Admin/CRM schemas, scanner, storefront legacy UX and content bridge; they remain full-suite release BLOCKERS. **Do not weaken or edit other subsystem files while Gemini owns master cleanup.**
+- The PR-only full-suite comparison is scoped to PR #742; normal Booking CI stays targeted for future PRs. It remains fail-closed (full test failures cause the workflow to fail). Safety post-condition executes even after test failure; no provider env/key injection, deployment, external writes or paid resources.
+
+**Second-stage transport exception patch** staged in this branch:
+- Apps Script `fetch` rejection / response-body `text()` rejection now return sanitized `LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED` with only numeric HTTP status when known.
+- LINE provider `fetch` rejection returns sanitized `LINE_SEND_TRANSPORT_FAILED`; no upstream exception message reaches webhook logs.
+- 4 additional synthetic no-network Native Node cases ensure thrown exception privacy and no owner reply after a failed customer push. Existing replay/decision/HTTP failure guards remain unchanged.
+- Final Native Node CI outcome must be read back on **new exact HEAD** before acceptance; `[skip ci]` is not used for the source patch so Booking CI can execute. **No release/merge/deploy approved.**
