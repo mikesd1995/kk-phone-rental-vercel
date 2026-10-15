@@ -12,6 +12,9 @@ on:
       - 'tests/kk-content-batch-chat-bridge.test.js'
       - 'tests/kk-content-creative-freedom.test.js'
       - 'tests/kk-content-intelligence.test.js'
+      - 'server/kk-content-agent.js'
+      - 'config/kk-project-memory.json'
+      - 'docs/X_POST_OWNER_COPY_RULES_2026-10-12.md'
       - '.github/workflows/kk-x-premium-copy-zero-install.yml'
   workflow_dispatch:
 
@@ -37,6 +40,10 @@ jobs:
           node --version
           test -z "${VERCEL_TOKEN:-}"
           test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
+      - name: Verify Project Memory schema before Agent execution
+        run: |
+          node scripts/kk-project-memory-bootstrap.js content agent_orchestration > /tmp/kk-x-owner-memory.json
+          node -e "const p=require('/tmp/kk-x-owner-memory.json'); if(p.status!=='READY'||!p.context||!p.context.length) process.exit(1)"
       - name: Run owner X Premium copy and bridge tests
         run: |
           node --test \
