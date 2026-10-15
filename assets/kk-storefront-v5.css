@@ -2241,8 +2241,11 @@ html[data-theme="dark"] .kk-mock-hero .v3-secondary{
    At 320px the one-column card must grow with its poster+details, never constrain
    a full-height info panel inside a card shorter than its content. */
 @media (max-width:359px){
-  .poster-grid{align-items:start!important}
-  .concert-card{height:auto!important;min-height:0!important;align-self:start!important}
+  /* Legacy style.css grid-auto-rows:1fr compressed every 320px card to 352px
+     while a 298px-wide 4:5 poster alone needs 373px. Let content size rows. */
+  .poster-grid{align-items:start!important;grid-auto-rows:max-content!important}
+  .concert-card{height:max-content!important;min-height:max-content!important;align-self:start!important}
+  .concert-card .poster-img-wrap{flex:0 0 auto!important}
   .concert-card .poster-info{height:auto!important;min-height:0!important;flex:0 0 auto!important;overflow:visible!important}
 }
 /* Keep full, truthful prices readable without pushing a flex/grid item outside

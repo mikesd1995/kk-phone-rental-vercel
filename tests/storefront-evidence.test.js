@@ -122,5 +122,6 @@ test('V6.12 owner-approved centered mobile modal is still checked for drift, con
  assert.equal(source.includes("wrap&&wrap.querySelector('img')"),false);
  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
  assert.match(css,/PR #744 visual acceptance: precise narrow-card containment/);
+ assert.equal(css.includes('grid-auto-rows:max-content!important'),true,'320px grid tracks must follow full poster + content height');
  assert.equal(css.includes('.concert-card .pi-price{min-width:0!important;max-width:100%!important;white-space:normal!important'),true);
 });
