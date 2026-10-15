@@ -114,3 +114,33 @@ test('private dashboard preflight uses its actual display header, not machine fi
  assert.equal(Preflight.hasHeader([['Source','booking_id']],'Booking ID'),false);
  assert.equal(Preflight.hasHeader([['Source'],['Booking ID']],'Booking ID'),false);
 });
+
+test('archive schema gate requires archived_at as a genuine header on row 1',async()=>{
+  assert.equal(Preflight.EXTRA_SPECS.event_archive.header,'archived_at');
+  assert.equal(Preflight.hasHeader([['archived_at','event_id']],'archived_at'),true);
+  assert.equal(Preflight.hasHeader([['wrong_header'],['archived_at']],'archived_at'),false);
+  assert.equal(Preflight.hasHeader([['private_row_only']],'archived_at'),false);
+  const keys=Object.fromEntries([...Object.values(AdminFallback.SPECS),...Object.values(Preflight.EXTRA_SPECS)].map(s=>[s.sheet,s.header]));
+  const probe=await Preflight.probe({env,reader:async ({sheet})=>[
+    [sheet==='13_Event_Archive'?'bad_archive':keys[sheet]],
+    ['CUSTOMER_PRIVATE_ROW_NEVER_LOG']
+  ]});
+  assert.equal(probe.datasets_checked,13);
+  assert.equal(probe.passed,12);
+  assert.equal(probe.failed,1);
+  assert.deepEqual(probe.results.filter(x=>!x.ok).map(x=>x.dataset),['event_archive']);
+  assert.doesNotMatch(JSON.stringify(probe),/CUSTOMER_PRIVATE_ROW_NEVER_LOG|bad_archive/);
+});
+test('Apps Script preflight emits only explicitly permitted non-PII diagnostics',()=>{
+  for(const code of [
+    'CORE_APPS_SCRIPT_NOT_CONFIGURED','CORE_APPS_SCRIPT_ID_MISMATCH',
+    'CORE_APPS_SCRIPT_FETCH_UNAVAILABLE','CORE_APPS_SCRIPT_BAD_REDIRECT',
+    'CORE_APPS_SCRIPT_HTTP_FAILURE','CORE_APPS_SCRIPT_RESPONSE_INVALID',
+    'CORE_APPS_SCRIPT_TIMEOUT','CORE_APPS_SCRIPT_UNAVAILABLE'
+  ])assert.equal(Preflight.classify({code}),code);
+  for(const code of [
+    'CORE_APPS_SCRIPT_BAD_REDIRECT_PRIVATE_PHONE',
+    'CORE_APPS_SCRIPT_HTTP_FAILURE;customer=PRIVATE',
+    'CORE_APPS_SCRIPT_UNAVAILABLE;apiKey=PRIVATE'
+  ])assert.equal(Preflight.classify({code}),'CORE_PRIVATE_PROBE_FAILED');
+});

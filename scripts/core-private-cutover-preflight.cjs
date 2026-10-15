@@ -9,7 +9,7 @@ const AdminFallback=require('../server/admin-sheet-fallback.js');
 
 const EXTRA_SPECS=Object.freeze({
   rental_dashboard_data:{sheet:'_Rental_Dashboard_Data',range:'A1:O',header:'Booking ID'},
-  event_archive:{sheet:'13_Event_Archive',range:'A1:Z',header:null}
+  event_archive:{sheet:'13_Event_Archive',range:'A1:Z',header:'archived_at'}
 });
 const SAFE_PRIVATE_FAILURE_CODES=new Set([
   'CORE_PRIVATE_CUTOVER_NOT_ENABLED',
@@ -18,6 +18,15 @@ const SAFE_PRIVATE_FAILURE_CODES=new Set([
   'CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED',
   'CORE_PRIVATE_RANGE_INVALID',
   'CORE_PRIVATE_SCHEMA_INVALID',
+  // Allow fixed non-sensitive Apps Script statuses, never provider error bodies.
+  'CORE_APPS_SCRIPT_NOT_CONFIGURED',
+  'CORE_APPS_SCRIPT_ID_MISMATCH',
+  'CORE_APPS_SCRIPT_FETCH_UNAVAILABLE',
+  'CORE_APPS_SCRIPT_BAD_REDIRECT',
+  'CORE_APPS_SCRIPT_HTTP_FAILURE',
+  'CORE_APPS_SCRIPT_RESPONSE_INVALID',
+  'CORE_APPS_SCRIPT_TIMEOUT',
+  'CORE_APPS_SCRIPT_UNAVAILABLE',
   'CRM_SHEET_ID_CONFLICT',
   'CRM_SHEET_ID_MISSING',
   'CRM_READER_NOT_CONFIGURED',
