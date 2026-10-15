@@ -55,3 +55,52 @@ Source-based **isolated V8 reproduced with synthetic markers only**:
 - LINE provider `fetch` rejection returns sanitized `LINE_SEND_TRANSPORT_FAILED`; no upstream exception message reaches webhook logs.
 - 4 additional synthetic no-network Native Node cases ensure thrown exception privacy and no owner reply after a failed customer push. Existing replay/decision/HTTP failure guards remain unchanged.
 - Final Native Node CI outcome must be read back on **new exact HEAD** before acceptance; `[skip ci]` is not used for the source patch so Booking CI can execute. **No release/merge/deploy approved.**
+
+
+## Native GitHub-hosted Node 20 FINAL source-gate evidence (2026-10-15 Asia/Bangkok)
+
+**Code-fix / exact tested HEAD:** [`2479669d6aa6fc9a5d46730a1ded2ebf078619e4`](https://github.com/mikesd1995/kk-phone-rental-vercel/commit/2479669d6aa6fc9a5d46730a1ded2ebf078619e4). **Automated run:** [#38674739542](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38674739542), job [#116225654794](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38674739542/job/116225654794), event `pull_request`. Runner: standard public-repo `ubuntu-22.04`, Node 20, `permissions: contents: read`, checkout exact head with credentials not persisted, no packages installed, no uploads, no production credentials.
+
+| Exact native check | Result |
+|---|---|
+| Candidate checkout SHA / syntax | PASS |
+| Booking E2E (10 targeted files including all LINE replay + privacy + transport cases) | **61/61 PASS, 0 FAIL** |
+| Full Candidate `npm test` | **1,519 tests: 1,498 PASS, 21 FAIL** |
+| Independent pinned main baseline `d6dc3bfe4cc0c4dd6fdfec407823752da0572464` `npm test` | **1,498 tests: 1,477 PASS, 21 FAIL** |
+| Exact failed-test name comparison | **Same all 21**, `introduced_failure_names=[]`, `resolved_failure_names=[]` |
+| Post-condition: no provider/production activation env | **PASS** |
+| Combined workflow final | **FAIL/HOLD** because Full Suite remains red (did not weaken acceptance). |
+
+**Interpretation:** The LINE candidate adds 21 tests relative to pinned main with 21 more PASS (full suite), while **all 21 failing names are unchanged**. The 21 are baseline failures, not new LINE regression evidence. Full-suite acceptance is still BLOCKED; an unchanged baseline failure is not a waiver of the global release gate.
+
+### Exact baseline failing cases (native GitHub logs; do not modify in this LINE branch)
+
+1. fallback GViz ranges start at each real schema header row
+2. Admin regression workflow covers PR and main push
+3. admin Inbox has readable timestamps, non-text fallbacks and read-state cleanup
+4. Unified Inbox task routes to the actual Admin and LINE/X integration surface
+5. batch bridge fail-closes when selected hooks overuse the same generic prepare-device archetype
+6. bridge comment persists invocation evidence without exposing internal candidates
+7. Inbox reads reuse the existing admin guard and remain zero-write
+8. next month resolves deterministically from supplied date
+9. smart operational query plan stays intentionally small and leaves exhaustive coverage to audit
+10. V25 Vercel-native path requires authenticated production OIDC control before Full Loop
+11. V26 machine ingress is authorization-queue gated and cannot accept arbitrary month or commit
+12. scanner ingress GET acceptance is queue-authorized and permanently read-only
+13. production runtime completes zero-write when every verified candidate is safely terminally skipped
+14. bridge invokes the real x_posting_plan gateway route and persists invocation evidence
+15. Booking form keeps the daily path short and hides overrides under Advanced
+16. new storefront assets are cache-busted
+17. V5 language switch binds hero, benefits and event-discovery DOM
+18. mobile modal scroll lock is valid source and restores the captured position
+19. V5.8 uses proprietary editorial optics rather than literal trend decoration
+20. V6.1 conversion polish keeps trust, CTA hierarchy and floating contact out of the left content rail
+21. V6.5 owner mobile polish reduces density and makes hierarchy intentional on normal phones
+
+Other current task changes: `appsScriptCall()` catches thrown `fetch` and `response.text()` exceptions and returns only `LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED` and optional numeric status; `sendLine()` catches transport exceptions and returns `LINE_SEND_TRANSPORT_FAILED`. This protects private data in thrown transport errors that the previous HTTP-only sanitization did not cover. Customer-first push, static owner identity/HMAC, canonical readback, literal Boolean replay guard and no replay-resend remain in place.
+
+### External readback / hard HOLD boundaries
+- Direct Vercel inventory shows **81 deployments** with most recent Production **READY `dpl_7TYLb87ir9qNzXRtkeb49543dwVm`**, dated 2026-10-12T17:49:47Z on `main d6dc3bfe...`; none of the new #742 CI commits appears as a deployment. No actual storage-GB usage was measured.
+- This work updates only Draft PR #742. Do not merge/deploy or edit Gemini-owned #744/#739/#737. No actual LINE messages, Apps Script/Sheets/booking/inventory writes, Supabase migrations, ACL changes or paid-service calls made by this work.
+- Native Booking E2E test pass means **source-level acceptance of the targeted system**, not provider end-to-end delivery. Pending gates: baseline 21 full failures resolved by owning subsystems (many assigned to Gemini), verified currently deployed Apps Script owner-decision version, recipient delivery receipt/durable outbox (#700), approval version fencing (#706) and explicit owner release permission.
+- Rollback: revert only new #742 commits on its branch, do not reset main or the Gemini branch; never replay real LINE webhook events blindly.
