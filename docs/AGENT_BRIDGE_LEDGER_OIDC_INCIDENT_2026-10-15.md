@@ -70,3 +70,12 @@ The invocation writer calls this function after request schema validation. Its s
 **Precise remaining sequence:** (a) running Node/CI Safety Gates (include full test suite) and independent diff review; (b) owner/release authorization for *only* corrected Supabase Edge function; (c) targeted deployment; (d) authenticated bounded issue-event OIDC invocation with HTTP 200, matching durable audit ledger row and idempotent repeated probe, business_writes=0; (e) separately accept PR #694 style contracts and multi-event Creative Quality review; (f) use only measured post outcomes for Learning AI and verified zero-cost inference for HF; (g) produce one owner-review Final per event, **never auto-post** to X.
 
 **Deployment remains PENDING**; do not label operational incident resolved until live evidence exists.
+
+## 2026-10-15 GitHub Actions exact-main CI regression comparison
+
+- New workflow: .github/workflows/kk-agent-ledger-oidc-regression-zero-install.yml, PR-only, no Secrets and zero installs, Node suite only. No additional paid providers or production writes.
+- GitHub Actions run https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38715949746: exact SHA checkout PASS, no-secrets PASS, focused OIDC agent-ledger regression suite PASS. Full repository suite 1487/1508 PASS; 21 FAIL.
+- GitHub Actions run https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38716213547: focused Agent Ledger/Project Memory tests PASS; full PR suite 1487/1508 PASS (21 FAIL). The same job additionally checked out exact main base SHA d6dc3bfe4cc0c4dd6fdfec407823752da0572464 and ran the same full suite: 1477/1498 PASS (21 FAIL). Exact test-name diff: 0 new failures, 21 shared failures, 0 resolved. The 10 new focused tests all passed.
+- The 21 inherited failures include Storefront, Admin/Inbox, Scanner, legacy Agent Bridge fixtures, and outdated CI-mode test assumptions. Do not silence or weaken baseline tests to claim a green full CI. Track as independent master cleanup debt.
+- **Accepted only as targeted regression evidence** (NO NEW REGRESSIONS), NOT a FULL CI PASS or Release Approval. Production Edge still v2/recursive and audit table has no persisted invocation. No merge or deploy.
+- Separate PR #694 improved event-specific CTA, five verified distinct hashtags, X Premium longform and batch diversity; its Project Memory schema bug (two >1200-character summaries) was identified, corrected to 1143/1153 characters and bootstrap independently returned READY. PR #694 remains DRAFT, not production.
