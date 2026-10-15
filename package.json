@@ -40,7 +40,8 @@
     "test:booking:no-deposit": "node --test tests/kk-no-deposit-booking-create.test.js",
     "test:storefront:temporary-artwork": "node --test tests/storefront-image-fallback.test.js tests/storefront-poster-dom-runtime.test.js",
     "test:security:poster-acl": "node --test ops/drive-security/kk-poster-acl-owner-review-20261013.test.cjs",
-    "test:stable-auto:p0": "node --test tests/core-sheet-privacy-cutover.test.js tests/core-private-cutover-preflight.test.js tests/line-booking-owner-approval-replay-failclosed.test.js tests/line-booking-owner-approval-upstream-privacy.test.js tests/line-booking-webhook-privacy-shadow.test.js && npm run test:security:poster-acl"
+    "test:stable-auto:p0": "node --test tests/core-sheet-privacy-cutover.test.js tests/core-private-cutover-preflight.test.js tests/line-booking-owner-approval-replay-failclosed.test.js tests/line-booking-owner-approval-upstream-privacy.test.js tests/line-booking-webhook-privacy-shadow.test.js && npm run test:security:poster-acl",
+    "test:booking:handover": "node --test tests/kk-booking-handover-safety.test.js"
   },
   "dependencies": {
     "@vercel/functions": "3.9.8"
