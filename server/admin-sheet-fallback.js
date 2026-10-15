@@ -10,6 +10,8 @@ const BookingHandoverSafety=require('./kk-booking-handover-safety.js');
 const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3.1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const FALLBACK_CACHE_TTL_MS = 2000;
+// A credential-rotation-safe cache must not retain unlimited historical PII snapshots.
+const MAX_SNAPSHOT_CACHE_ENTRIES = 64;
 const snapshotCache = new Map();
 const snapshotInflight = new Map();
 const fetchIdentity = new WeakMap();
@@ -306,6 +308,15 @@ function snapshotCacheKey(sheetId,env,fetchImpl){
   return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',transport,credentialTag,fetchIdentityKey(fetchImpl)].join('|');
 }
 
+function pruneSnapshotCache(now=Date.now()){
+  for(const [key,entry] of snapshotCache){
+    if(!entry||!Number.isFinite(entry.expiresAt)||entry.expiresAt<=now) snapshotCache.delete(key);
+  }
+  // Map insertion order is oldest first; never allow unbounded rotated-identity caches.
+  while(snapshotCache.size>MAX_SNAPSHOT_CACHE_ENTRIES){
+    snapshotCache.delete(snapshotCache.keys().next().value);
+  }
+}
 function clearSnapshotCache(){
   snapshotCache.clear();
   snapshotInflight.clear();
@@ -369,6 +380,7 @@ async function buildSnapshot(options={}){
 
   const key=snapshotCacheKey(sheetId,env,fetchImpl);
   const now=Date.now();
+  pruneSnapshotCache(now);
   const cached=snapshotCache.get(key);
   if(cached && now-cached.at<=ttlMs){
     const out=cloneSnapshot(cached.value);
@@ -386,7 +398,9 @@ async function buildSnapshot(options={}){
 
   const pending=buildSnapshotUncached(options)
     .then(snapshot=>{
-      snapshotCache.set(key,{at:Date.now(),value:cloneSnapshot(snapshot)});
+      const storedAt=Date.now();
+      snapshotCache.set(key,{at:storedAt,expiresAt:storedAt+ttlMs,value:cloneSnapshot(snapshot)});
+      pruneSnapshotCache(storedAt);
       return snapshot;
     })
     .finally(()=>snapshotInflight.delete(key));

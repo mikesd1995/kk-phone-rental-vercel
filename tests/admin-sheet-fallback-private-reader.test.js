@@ -171,3 +171,39 @@ test('private Apps Script snapshot cache separates changed /exec deployment URL 
    assert.equal(fresh.fallback_reader,'private-owner-apps-script');
  }finally{Core.readValues=old;F.clearSnapshotCache();}
 });
+
+test('private Admin snapshots stay bounded across many rotated service-account identities',async()=>{
+ const privateSheets=require('../api/lib/private-google-sheets.js');
+ const original=privateSheets.readValues;
+ const headers=Object.fromEntries(Object.values(F.SPECS).map(spec=>[spec.sheet,spec.header]));
+ const env={GOOGLE_SHEET_ID:'bounded-cache-fixture',KK_ADMIN_FALLBACK_REQUIRE_PRIVATE:'1',
+   GOOGLE_SERVICE_ACCOUNT_EMAIL:'reader@example.invalid',
+   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'-----BEGIN PRIVATE KEY-----\\n'+'Z'.repeat(120)+'ROTATION_000'};
+ const network=async()=>{throw Error('PUBLIC_GVIZ_FORBIDDEN');};
+ const opts={sheetId:env.GOOGLE_SHEET_ID,fetchImpl:network,cacheTtlMs:60000};
+ let privateReads=0;
+ privateSheets.readValues=async ({range})=>{
+   privateReads++;
+   const sheet=String(range).split('!')[0];
+   return [[headers[sheet]]];
+ };
+ F.clearSnapshotCache();
+ try{
+   for(let i=0;i<70;i++){
+     const rotated={...env,GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:
+       '-----BEGIN PRIVATE KEY-----\\n'+'Z'.repeat(120)+'ROTATION_'+String(i).padStart(3,'0')};
+     const snapshot=await F.buildSnapshot({...opts,env:rotated});
+     assert.equal(snapshot.fallback_cache_status,'miss');
+     assert.equal(snapshot.write_actions_enabled,false);
+   }
+   assert.equal(privateReads,70*Object.keys(F.SPECS).length);
+   const oldest=await F.buildSnapshot({...opts,env});
+   assert.equal(oldest.fallback_cache_status,'miss',
+     'evicted first credential identity must never reuse retained private snapshot');
+   assert.equal(privateReads,71*Object.keys(F.SPECS).length);
+   const same=await F.buildSnapshot({...opts,env});
+   assert.equal(same.fallback_cache_status,'hit');
+   assert.equal(privateReads,71*Object.keys(F.SPECS).length);
+   assert.doesNotMatch(JSON.stringify(same),/ROTATION_000|reader@example.invalid/);
+ }finally{privateSheets.readValues=original;F.clearSnapshotCache();}
+});
