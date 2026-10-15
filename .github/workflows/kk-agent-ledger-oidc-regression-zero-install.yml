@@ -1,0 +1,57 @@
+name: KK Agent Ledger OIDC Regression (Zero Install)
+
+# PR-only test runner. No dependencies are installed, no secrets and no
+# business/Production writes. Never substitute a green workflow for live
+# authenticated Ledger readback after a separately approved Edge release.
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/kk-project-memory-github-read/index.ts'
+      - 'tests/kk-github-oidc-agent-ledger-runtime-regression.test.js'
+      - 'tests/kk-agent-invocation-oidc-persistence.test.js'
+      - 'tests/project-memory-github-oidc.test.js'
+      - 'config/kk-project-memory.json'
+      - '.github/workflows/kk-agent-ledger-oidc-regression-zero-install.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-agent-ledger-oidc-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-ledger-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact intended source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify checkout SHA
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Use preinstalled Node with zero npm install
+        shell: bash
+        run: |
+          node --version
+          test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          test -z "${VERCEL_TOKEN:-}"
+          test -z "${OPENAI_API_KEY:-}"
+      - name: Focused OIDC audit-ledger regressions
+        run: |
+          node --test \
+            tests/kk-github-oidc-agent-ledger-runtime-regression.test.js \
+            tests/kk-agent-invocation-oidc-persistence.test.js \
+            tests/project-memory-github-oidc.test.js \
+            tests/kk-agent-gateway.test.js \
+            tests/kk-project-memory.test.js
+      - name: Full zero-install repository Node regression suite
+        run: node --test tests/*.test.js
