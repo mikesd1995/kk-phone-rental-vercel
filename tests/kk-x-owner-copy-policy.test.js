@@ -81,6 +81,16 @@ test('enforces five DISTINCT verified hashtags, not five repeated tags',()=>{
   fail(copy().replace('#ExampleArtist #ExampleFans #ExampleLive','#ExampleArtist'),{},/FIVE_DISTINCT_HASHTAGS_REQUIRED/);
   fail(copy().replace('#ExampleLive','#NotVerified'),{},/UNVERIFIED_HASHTAG/);
 });
+test('official event hashtag is required in the event section, not only in the footer',()=>{
+  fail(copy().replace('🎃 งาน #ExampleFanParty','🎃 งาน Example Fan Party'),{},/OFFICIAL_EVENT_HASHTAG_REQUIRED/);
+  fail(copy(),{official_event_hashtag:'#AnotherEvent',verified_hashtags:[...input.verified_hashtags,'#AnotherEvent']},/OFFICIAL_EVENT_HASHTAG_REQUIRED/);
+});
+test('three distinct source-verified hashtags must close the post',()=>{
+  fail(copy().replace('#ExampleArtist #ExampleFans #ExampleLive','#ExampleArtist #ExampleFans\\n#ExampleLive'),{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
+  fail(copy().replace('#ExampleArtist #ExampleFans #ExampleLive','#ExampleArtist #ExampleFans #ExampleFans'),{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
+  fail(copy().replace('#ExampleArtist #ExampleFans #ExampleLive','#ExampleArtist #ExampleFans #ExampleFanParty'),{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
+  fail(copy()+'\\nติดต่อทางเว็บไซต์',{},/THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED/);
+});
 test('verified owner-closed and hidden dates display as FULL only in X copy',()=>{
   for(const state of ['closed','hidden','hide','owner_closed','locked']){
     const source=[{date_label:'30 ต.ค.',status:'available'},{date_label:'31 ต.ค.',status:state}];
