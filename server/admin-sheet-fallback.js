@@ -291,8 +291,18 @@ function snapshotCacheKey(sheetId,env,fetchImpl){
   const crypto=require('node:crypto');
   const source=CorePrivacy.enabled(env)?CorePrivacy.state(env):null;
   const transport=source?source.transport:'legacy';
-  const credential=source&&transport==='apps-script'?String(env.KK_CORE_PRIVATE_READ_KEY||''):'';
-  const credentialTag=credential?crypto.createHash('sha256').update(credential).digest('hex').slice(0,16):'unset';
+  // Isolate cached private snapshots by the FULL credential identity and
+  // transport destination. A service-account key can rotate while keeping
+  // the same email/PEM prefix, and Apps Script can move behind a new /exec URL.
+  // Cache keys contain only SHA-256 digests, never raw credentials or URLs.
+  let identity='';
+  if(source&&transport==='apps-script'){
+    identity='apps-script\\n'+String(env.KK_ADMIN_SCRIPT_URL||'').trim()+'\\n'+String(env.KK_CORE_PRIVATE_READ_KEY||'');
+  }else{
+    const creds=privateSheets.credentialsFromEnv(env);
+    if(creds)identity='service-account\\n'+creds.email+'\\n'+creds.privateKey;
+  }
+  const credentialTag=identity?crypto.createHash('sha256').update(identity).digest('hex'):'unset';
   return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',transport,credentialTag,fetchIdentityKey(fetchImpl)].join('|');
 }
 

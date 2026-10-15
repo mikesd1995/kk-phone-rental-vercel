@@ -116,3 +116,58 @@ test('strict Core admin snapshot rejects data-row values masquerading as headers
    F.clearSnapshotCache();
  }
 });
+
+test('private service-account snapshot cache separates rotated keys even when PEM prefix and email stay the same',async()=>{
+ const Core=require('../server/core-sheet-private-reader.js');
+ const old=Core.readValues;
+ const prefix='-----BEGIN PRIVATE KEY-----\\n'+'A'.repeat(130);
+ const env={GOOGLE_SHEET_ID:'private-rotation-fixture',KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+   KK_CORE_PRIVATE_TRANSPORT:'service-account',
+   GOOGLE_SERVICE_ACCOUNT_EMAIL:'reader@example.invalid',
+   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:prefix+'KEY_A'};
+ const headers=Object.fromEntries(Object.values(F.SPECS).map(s=>[s.sheet,s.header]));
+ const noNetwork=async()=>{throw Error('NETWORK_FORBIDDEN');};
+ let reads=0;
+ Core.readValues=async ({sheet})=>{reads++;return [[headers[sheet]]];};
+ F.clearSnapshotCache();
+ try{
+   const opts={sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noNetwork,cacheTtlMs:60000};
+   const first=await F.buildSnapshot({...opts,env});
+   assert.equal(first.fallback_cache_status,'miss');
+   assert.equal(reads,11);
+   const hit=await F.buildSnapshot({...opts,env});
+   assert.equal(hit.fallback_cache_status,'hit');
+   assert.equal(reads,11);
+   const rotated={...env,GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:prefix+'KEY_B'};
+   const fresh=await F.buildSnapshot({...opts,env:rotated});
+   assert.equal(fresh.fallback_cache_status,'miss');
+   assert.equal(reads,22);
+   assert.equal(fresh.fallback_reader,'private-service-account');
+   assert.doesNotMatch(JSON.stringify(fresh),/KEY_A|KEY_B|reader@example.invalid/);
+ }finally{Core.readValues=old;F.clearSnapshotCache();}
+});
+
+test('private Apps Script snapshot cache separates changed /exec deployment URL with unchanged key',async()=>{
+ const Core=require('../server/core-sheet-private-reader.js');
+ const old=Core.readValues;
+ const env={GOOGLE_SHEET_ID:'apps-script-rotation-fixture',KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+   KK_CORE_PRIVATE_TRANSPORT:'apps-script',
+   KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/fixture_one/exec',
+   KK_CORE_PRIVATE_READ_KEY:'r'.repeat(48),KK_ADMIN_API_KEY:'a'.repeat(48)};
+ const headers=Object.fromEntries(Object.values(F.SPECS).map(s=>[s.sheet,s.header]));
+ const noNetwork=async()=>{throw Error('NETWORK_FORBIDDEN');};
+ let reads=0;
+ Core.readValues=async ({sheet})=>{reads++;return [[headers[sheet]]];};
+ F.clearSnapshotCache();
+ try{
+   const opts={sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noNetwork,cacheTtlMs:60000};
+   assert.equal((await F.buildSnapshot({...opts,env})).fallback_cache_status,'miss');
+   assert.equal((await F.buildSnapshot({...opts,env})).fallback_cache_status,'hit');
+   assert.equal(reads,11);
+   const changed={...env,KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/fixture_two/exec'};
+   const fresh=await F.buildSnapshot({...opts,env:changed});
+   assert.equal(fresh.fallback_cache_status,'miss');
+   assert.equal(reads,22);
+   assert.equal(fresh.fallback_reader,'private-owner-apps-script');
+ }finally{Core.readValues=old;F.clearSnapshotCache();}
+});
