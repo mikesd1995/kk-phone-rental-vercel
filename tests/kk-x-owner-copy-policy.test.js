@@ -12,6 +12,7 @@ const input={
   verified_event:true,
   verified_pricing:true,
   inventory_available:true,
+  official_event_hashtag:'#ExampleFanParty',
   verified_hashtags:['#เช่ามือถือ','#ExampleFanParty','#ExampleArtist','#ExampleFans','#ExampleLive'],
   recent_context_checked:true,
   recent_posts:[],
