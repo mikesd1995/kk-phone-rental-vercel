@@ -112,3 +112,22 @@ test('unrelated outside-window handover evidence is not counted under focused re
   assert.equal(r.counts.adjacent_day_asset_reuse,0);
   assert.equal(r.counts.unverified_interday_handover,0);
 });
+
+test('three-day focused review includes both boundary transfers but not customer identities',()=>{
+  const rows=[
+    booking('2026-10-16','P1',{pickup_time:'',return_time:''}),
+    booking('2026-10-17','P1',{pickup_time:'',return_time:''}),
+    booking('2026-10-17','P2',{pickup_time:'',return_time:''}),
+    booking('2026-10-18','P1',{pickup_time:'',return_time:''}),
+    booking('2026-10-18','P2',{pickup_time:'',return_time:''})
+  ];
+  const focus=Gate.audit(rows,{focusDates:['2026-10-17']});
+  assert.equal(focus.counts.active_checked,2);
+  assert.equal(focus.counts.adjacent_day_asset_reuse,3);
+  assert.equal(focus.counts.unverified_interday_handover,3);
+  assert.equal(focus.status,'BLOCKED');
+  assert.equal(focus.authorizes_asset_allocation,false);
+  const following=Gate.audit(rows,{focusDates:['2026-10-18']});
+  assert.equal(following.counts.adjacent_day_asset_reuse,2);
+  assert.equal(following.status,'BLOCKED');
+});
