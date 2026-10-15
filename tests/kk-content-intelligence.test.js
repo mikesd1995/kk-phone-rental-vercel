@@ -77,7 +77,7 @@ test('copy contract preserves current KK X brand and CTA conventions', () => {
   assert.equal(AGENT.COPY_CONTRACT.brand_first_line, '📱 KK Phone Rental | #เช่ามือถือ');
   assert.equal(AGENT.COPY_CONTRACT.handoff_line, '📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน');
   assert.equal(AGENT.COPY_CONTRACT.file_storage_line, '☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน');
-  assert.equal(AGENT.COPY_CONTRACT.booking_cta, '👉 เลือกวันแล้วจองคิว\nkk-phone-rental.vercel.app');
+  assert.equal(AGENT.COPY_CONTRACT.booking_cta, '👉 [event-specific booking invitation]\nkk-phone-rental.vercel.app');
   assert.match(AGENT.COPY_CONTRACT.hashtag_rule, /exactly 3/i);
   assert.match(AGENT.COPY_CONTRACT.hashtag_rule, /Never synthesize/i);
   assert.match(AGENT.COPY_CONTRACT.duplicate_fact_rule, /Do not repeat date\/venue/i);
