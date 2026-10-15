@@ -11,6 +11,7 @@ on:
       - 'server/rental-dashboard-core.js'
       - 'server/legacy/kk-rental-dashboard-v5.js'
       - 'tests/kk-master-cleanup-private-revenue.test.js'
+      - 'tests/*.test.js'
       - '.github/workflows/kk-pr744-private-revenue-acceptance.yml'
 permissions:
   contents: read
