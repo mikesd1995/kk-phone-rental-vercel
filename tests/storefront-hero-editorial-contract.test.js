@@ -85,3 +85,11 @@ test('R3 mobile patch protects visible prices, narrow cards and business values'
  assert.match(finish,/height:auto!important/);
  assert.doesNotMatch(finish,/price=|available_count|booking_id|owner_hidden/);
 });
+
+test('320px one-column cards never use the 350px offscreen intrinsic placeholder',()=>{
+ const finish=css.slice(css.indexOf('KK hero QA R3'));
+ assert.match(finish,/content-visibility:visible!important/);
+ assert.match(finish,/contain-intrinsic-size:none!important/);
+ assert.match(finish,/aspect-ratio:auto!important/);
+ assert.match(finish,/grid-auto-rows:auto!important/);
+});

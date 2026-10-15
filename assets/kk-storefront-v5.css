@@ -2574,6 +2574,10 @@ html[data-theme="dark"] .kk-benefit-grid .benefit-icon{
 @media (max-width:359px){
   .poster-grid{grid-auto-rows:auto!important}
   .poster-grid .concert-card{
+    /* content-visibility:auto + 350px intrinsic placeholder is smaller than the
+       real 1-column mobile card and produces offscreen scroll jumps/clipping. */
+    content-visibility:visible!important;
+    contain-intrinsic-size:none!important;
     height:auto!important;
     min-height:0!important;
     aspect-ratio:auto!important;
