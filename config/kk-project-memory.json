@@ -2,6 +2,22 @@
   "version": "KK_PROJECT_MEMORY_CORPUS_V1",
   "items": [
     {
+      "memory_id": "kk:memory:agent-ledger:github-oidc-recursion-20261015",
+      "occurred_at": "2026-10-15T13:35:00+07:00",
+      "kind": "INCIDENT",
+      "domain": "agent_orchestration",
+      "summary": "PROVEN GitHub Agent Bridge blocker for KK X posts: issue #745 (6 event batch) returned BLOCKED_LEDGER_UNAVAILABLE before QA/Selector because deployed Supabase Edge `kk-project-memory-github-read` v2 calls `internalRuntime()` recursively inside itself, exhausting stack during `agent-invocation-write`. Supabase logs at 2026-10-14 17:38Z: authenticated memory read HTTP200 then audit write HTTP503. Supabase project zehlsagzrpromtfqqflt public.kk_agent_invocations exists with RLS, service_role INSERT/SELECT only, row count 0. Non-prod GitHub draft fix branch `fix/agent-ledger-github-oidc-recursion-20261015` resolves URL/key via SUPABASE_URL and secretKey() fail-closed, adds test and runbook. NOT DEPLOYED: owner/release approval, CI, targeted Supabase deploy and audited bridge readback remain required. Do not bypass ledger or claim Agent PASS; no business writes or X publishing.",
+      "status": "ACTIVE",
+      "evidence_refs": [
+        "docs/AGENT_BRIDGE_LEDGER_OIDC_INCIDENT_2026-10-15.md",
+        "supabase/functions/kk-project-memory-github-read/index.ts",
+        "tests/kk-github-oidc-agent-ledger-runtime-regression.test.js",
+        "https://github.com/mikesd1995/kk-phone-rental-vercel/issues/745"
+      ],
+      "supersedes": [],
+      "source": "owner+repo+verified_supabase"
+    },
+    {
       "memory_id": "kk:memory:agent-runtime:20261002",
       "occurred_at": "2026-10-02T12:00:00+07:00",
       "kind": "LOCKED_RULE",
