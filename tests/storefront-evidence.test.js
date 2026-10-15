@@ -109,3 +109,11 @@ test('storefront visual evidence blocks webpage screenshots used as poster artwo
   const state={...healthy(),poster_source_issues:[{event_id:'evt',poster_source:'https://image.thum.io/get/width/1200/https://tickets.example/event',reason:'webpage_screenshot_service'}]};
   assert.ok(E.stateFindings(state,{width:390,name:'catalogue'}).some(x=>x.code==='POSTER_SOURCE_NOT_ARTWORK'));
 });
+
+test('centered mobile dialog requires physical centering, safety clearance and focus',()=>{
+ const centered={left:14,right:376,top:111,bottom:733,viewport_height:844,alignment:'center',scroll_width:362,client_width:362,focus_inside:true,title:'Event'};
+ assert.deepEqual(E.stateFindings({...healthy(),modal:centered},{width:390,name:'modal'}),[]);
+ for(const bad of [{top:50,bottom:672},{alignment:'flex-start'},{top:1,bottom:843},{top:-2,bottom:842},{focus_inside:false},{scroll_width:390}]){
+   assert.ok(E.stateFindings({...healthy(),modal:{...centered,...bad}},{width:390,name:'modal'}).length,JSON.stringify(bad));
+ }
+});

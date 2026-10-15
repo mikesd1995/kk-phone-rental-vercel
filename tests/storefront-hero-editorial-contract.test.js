@@ -76,3 +76,12 @@ test('responsive reference explicitly protects 320px phones and supports tablet 
  const policy=require(path.join(root,'config/kk-storefront-ux-policy.json'));
  assert.deepEqual(policy.acceptance_viewports,[320,375,390,430,480,768,1024,1440]);
 });
+
+test('R3 mobile patch protects visible prices, narrow cards and business values',()=>{
+ const finish=css.slice(css.indexOf('KK hero QA R3'));
+ assert.match(finish,/\.poster-grid \.pi-price\{/);
+ assert.match(finish,/overflow-wrap:anywhere!important/);
+ assert.match(finish,/\.poster-grid \.concert-card\{/);
+ assert.match(finish,/height:auto!important/);
+ assert.doesNotMatch(finish,/price=|available_count|booking_id|owner_hidden/);
+});

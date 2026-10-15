@@ -104,8 +104,8 @@ test('lazy fallback does not start timeout chain until image approaches viewport
 test('storefront renders first six posters eagerly and defers timeout chain for later cards',()=>{
   assert.match(source,/img\.loading=idx<6\?"eager":"lazy"/);
   assert.match(source,/firstPoster=page\[0\].*imgThumb\[0\]/);
-  assert.match(source,/if\(idx<6\)[\s\S]*setImgFallback\(img,imgCandidates,\{timeoutMs:4000,onExhausted:posterFailure\}\)/);
-  assert.match(source,/setImgFallbackWhenVisible\(img,imgCandidates,\{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure\}\)/);
+  assert.match(source,/if\(idx<6\)[\s\S]*setImgFallback\(img,imgCandidates,\{timeoutMs:4000,onLoaded:syncPosterTreatment,onExhausted:posterFailure\}\)/);
+  assert.match(source,/setImgFallbackWhenVisible\(img,imgCandidates,\{timeoutMs:6000,rootMargin:"600px 0px",onLoaded:syncPosterTreatment,onExhausted:posterFailure\}\)/);
 });
 
 
@@ -200,7 +200,7 @@ test('show-only gate remains upstream and fallback does not promote owner-hidden
 
 test('script cache key changes when temporary artwork becomes first-class fallback',()=>{
   const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
-  assert.match(html,/script\.js\?v=storefront-temporary-brand-image-20261012/);
+  assert.match(html,/script\.js\?v=20261016-hero-poster-treatment-r3/);
 });
 
 test('a loaded KK-owned brand image is visibly marked temporary; official event artwork is not',()=>{
@@ -300,4 +300,22 @@ test('temporary card artwork has an explicit accessible alt, official poster kee
   assert.equal(ctx.eventArtworkAlt('Real Event Poster',false,'th'),'Real Event Poster');
   assert.equal(ctx.eventArtworkAlt('',false,'en'),'Event poster');
   assert.match(source,/img\.alt=eventArtworkAlt\(c\.name,temporaryBrandArtwork,currentLang\)/);
+});
+
+test('completed decoded poster invokes the backdrop callback even if load is cached',()=>{
+ const img=fakeImg();const received=[];
+ sandbox.setImgFallback(img,['cached-good'],{onLoaded(el){received.push(el);}});
+ img.complete=true;img.naturalWidth=1200;img.naturalHeight=1800;
+ img.onload();
+ assert.equal(received.length,1);
+ assert.equal(received[0],img);
+ assert.equal(img.src,'cached-good');
+});
+test('decoded pixels arriving before timeout do not advance the candidate and invoke treatment',async()=>{
+ const img=fakeImg();let calls=0;
+ sandbox.setImgFallback(img,['painted','wrong-fallback'],{timeoutMs:1000,onLoaded(){calls++;}});
+ img.complete=true;img.naturalWidth=1200;img.naturalHeight=800;
+ await sleep(1050);
+ assert.equal(img.src,'painted');
+ assert.equal(calls,1);
 });
