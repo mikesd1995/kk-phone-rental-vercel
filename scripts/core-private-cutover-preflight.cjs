@@ -8,7 +8,8 @@ const PrivateCore=require('../server/core-sheet-private-reader.js');
 const AdminFallback=require('../server/admin-sheet-fallback.js');
 
 const EXTRA_SPECS=Object.freeze({
-  rental_dashboard_data:{sheet:'_Rental_Dashboard_Data',range:'A1:O',header:'booking_id'},
+  // Canonical header is human-readable `Booking ID`, not `booking_id`.
+  rental_dashboard_data:{sheet:'_Rental_Dashboard_Data',range:'A1:O',header:'Booking ID'},
   event_archive:{sheet:'13_Event_Archive',range:'A1:Z',header:null}
 });
 const SAFE_PRIVATE_FAILURE_CODES=new Set([

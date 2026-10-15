@@ -70,6 +70,26 @@ test('schema error or private auth outage fails the complete probe, with classif
   assert.match(printed,/PRIVATE_SCHEMA_INVALID/);
   assert.match(printed,/CRM_PRIVATE_READ_FAILED/);
 });
+test('actual Rental Dashboard helper header is Booking ID, fail closed on guessed snake_case or data-row header',async()=>{
+  assert.equal(Preflight.EXTRA_SPECS.rental_dashboard_data.header,'Booking ID');
+  assert.equal(Preflight.hasHeader([['Source','Booking ID','Created At'],['MASTER','BK-MOCK','2026-10-15']],'Booking ID'),true);
+  assert.equal(Preflight.hasHeader([['source','booking_id','created_at']],'Booking ID'),false);
+  assert.equal(Preflight.hasHeader([['Source','Other'],['MASTER','Booking ID']],'Booking ID'),false);
+  const specs=[...Object.values(AdminFallback.SPECS),...Object.values(Preflight.EXTRA_SPECS)];
+  const result=await Preflight.probe({env,reader:async ({sheet})=>{
+    const spec=specs.find(s=>s.sheet===sheet);
+    if(!spec)throw Error('Unexpected sheet');
+    return [[spec.header||'Archive Header'],['SANITIZED_ROW']];
+  }});
+  assert.equal(result.datasets_checked,13);
+  assert.equal(result.passed,13);
+  assert.equal(result.failed,0);
+  assert.equal(result.ok,true);
+  assert.equal(result.public_gviz_reads,0);
+  assert.equal(result.permission_writes,0);
+  assert.equal(result.data_writes,0);
+  assert.doesNotMatch(JSON.stringify(result),/SANITIZED_ROW|BK-MOCK/);
+});
 test('preflight explicitly redacts unrecognized error messages',()=>{
   const e=new Error('CUSTOMER_IDENTIFIER_AND_PRIVATE_TOKEN');
   assert.equal(Preflight.classify(e),'CORE_PRIVATE_PROBE_FAILED');
