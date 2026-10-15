@@ -58,7 +58,11 @@ function secretKey(){
 }
 
 function internalRuntime(){
-  const {url,key}=internalRuntime();
+  // Same bounded, service-only binding already used for authenticated memory reads.
+  // Never recursively call this resolver: it must fail closed before an audit write.
+  const url=(Deno.env.get("SUPABASE_URL")||"").replace(/\/+$/,"");
+  const key=secretKey();
+  if(!url||!key)throw new Error("SUPABASE_INTERNAL_CREDENTIALS_MISSING");
   return {url,key};
 }
 function safeText(value:unknown,max=256){

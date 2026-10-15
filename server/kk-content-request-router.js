@@ -4,6 +4,7 @@ const { buildCreativePlan, buildGenerationPrompt } = require('./kk-content-agent
 const MarketingAgent = require('./kk-marketing-agent.js');
 const ContentQa = require('./kk-content-qa-gate.js');
 const ContentSelector = require('./kk-content-selector.js');
+const OwnerXCopy = require('./kk-x-owner-copy-policy.js');
 
 const DIRECT_RENTAL_PATTERNS = Object.freeze([
   /ขอ(?:โพส|โพสต์).*ปล่อยเช่า/i,
@@ -49,9 +50,9 @@ function effectiveInventoryInput(input = {}) {
 }
 
 function commercialTruthRequired(intent, input = {}) {
+  if (intent === 'direct_rental_x') return true;
   if (input.commercial_truth_required === true) return true;
   if (input.commercial_truth_required === false) return false;
-  if (intent === 'direct_rental_x') return true;
   if (String(input.sales_intent || '').toLowerCase() === 'direct') return true;
   return input.verified_pricing !== undefined ||
     input.inventory_available !== undefined ||
@@ -122,6 +123,8 @@ function routeContentRequest({
     selector_required: true,
     selector_version: ContentSelector.VERSION,
     commercial_truth_required: requiresCommercialTruth,
+    owner_x_policy_required: requiresCommercialTruth,
+    owner_x_policy_version: OwnerXCopy.VERSION,
     qa_requirements: requiresCommercialTruth
       ? ['VERIFIED_HASHTAGS','NO_DUPLICATE_DATE_VENUE','VERIFIED_EVENT_PRICE_INVENTORY','BUSINESS_CRITICAL_COPY','ANTI_REPEAT','EXACTLY_3_VARIANTS','CREATIVE_LAYOUT_FLEXIBLE']
       : ['VERIFIED_FACTS_WHEN_APPLICABLE','VERIFIED_HASHTAGS_WHEN_APPLICABLE','NO_DUPLICATE_DATE_VENUE','BRAND_FIRST','ANTI_REPEAT','EXACTLY_3_VARIANTS','CREATIVE_LAYOUT_FLEXIBLE'],
@@ -150,6 +153,19 @@ function finalizeGeneratedCandidates({
   input = {},
   marketingPlan = {}
 } = {}) {
+  const ownerXQa = OwnerXCopy.validateVariants(candidates, input);
+  if (ownerXQa.gate === 'BLOCKED') {
+    return {
+      schema_version:'KK_CONTENT_FINALIZATION_V1',
+      gate:'BLOCKED',
+      blocker:'OWNER_X_COPY_POLICY_FAILED',
+      public_output_mode:'SINGLE_FINAL_POST',
+      public_output_count:0,
+      owner_x_qa:ownerXQa,
+      qa:null,
+      selection:null
+    };
+  }
   const qa = ContentQa.validateVariants(candidates, input);
   if (qa.gate !== 'PASS') {
     return {

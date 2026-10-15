@@ -1,0 +1,54 @@
+name: KK X Marketing Integrated Release Gate (Zero Install)
+
+# Integration rehearsal of content, eligibility, and OIDC ledger PRs.
+# Never deploy, post X, modify Booking, call external paid models, or use secrets.
+on:
+  pull_request:
+    paths:
+      - 'server/kk-content-*.js'
+      - 'server/kk-x-*.js'
+      - 'scripts/kk-content-*.js'
+      - 'scripts/kk-x-posting-plan-chat-bridge.js'
+      - 'supabase/functions/kk-project-memory-github-read/index.ts'
+      - 'config/kk-project-memory.json'
+      - 'tests/*.test.js'
+      - '.github/workflows/kk-x-marketing-integrated-zero-install.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-x-integrated-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact release candidate without credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Confirm exact source and zero paid/prod access
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node --version
+          test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          test -z "${VERCEL_TOKEN:-}"
+          test -z "${OPENAI_API_KEY:-}"
+      - name: Full integrated Node test suite (no npm install)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/*.test.js > /tmp/kk-x-integration.log 2>&1 || {
+            grep -E '^(not ok [0-9]+ - |# tests |# pass |# fail )' /tmp/kk-x-integration.log || true
+            exit 1
+          }
+          grep -E '^(# tests |# pass |# fail )' /tmp/kk-x-integration.log

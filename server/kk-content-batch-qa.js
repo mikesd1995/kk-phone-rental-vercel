@@ -125,6 +125,8 @@ function validateFinalPostBatch(items=[]){
     return {
       index:index+1,
       event:text(item.input&&item.input.event),
+      direct_rental_x:text(item.input&&item.input.requested_intent)==='direct_rental_x',
+      cta:text(item.post).split(/\r?\n/).map(line=>line.trim()).find(line=>/^👉\s*/u.test(line))||'',
       hook,
       skeleton,
       archetypes:archetypeList,
@@ -138,6 +140,17 @@ function validateFinalPostBatch(items=[]){
       if(score>=HOOK_SIMILARITY_THRESHOLD){
         errors.push('BATCH_HOOK_NEAR_DUPLICATE:'+rows[i].index+'-'+rows[j].index+':'+score.toFixed(2));
       }
+    }
+  }
+
+  // Distinct fandom/event CTAs are mandatory across direct-rental batches.
+  // Do not block other content categories or change the caller's data.
+  for(let i=0;i<rows.length;i++){
+    if(!rows[i].direct_rental_x)continue;
+    for(let j=i+1;j<rows.length;j++){
+      if(!rows[j].direct_rental_x)continue;
+      if(rows[i].cta&&rows[i].cta===rows[j].cta)
+        errors.push('BATCH_CTA_DUPLICATE:'+rows[i].index+'-'+rows[j].index);
     }
   }
 
