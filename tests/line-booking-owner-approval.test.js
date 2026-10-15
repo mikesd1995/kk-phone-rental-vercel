@@ -109,7 +109,7 @@ test('owner decision fails closed if canonical customer contact is missing',asyn
       type:'postback',source:{type:'user',userId:'UOWNER'},postback:{data}
     },e,async(url,opt)=>{
       if(String(url).startsWith('https://script.google.com/')){
-        return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed'});
+        return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed',idempotent_replay:false});
       }
       lineSends++;
       return response({ok:true});
@@ -148,4 +148,67 @@ test('Apps Script owner decision is a separate atomic pending-only action',()=>{
   assert.match(body,/customer_contact: customerContact/);
   assert.match(body,/customerContact = String\(current\[5\]/);
   assert.match(body,/String\(persisted\[5\]/);
+});
+
+test('replayed owner approval does not send duplicate customer or owner messages',async()=>{
+  const e=env();
+  const data=Approval.decisionData('approve','BK-REPLAY',e);
+  const calls=[];
+  const r=await Approval.processOwnerPostback({
+    type:'postback',replyToken:'reply-replayed',source:{type:'user',userId:'UOWNER'},postback:{data}
+  },e,async(url,opt)=>{
+    calls.push({url,body:JSON.parse(opt.body)});
+    if(url.startsWith('https://script.google.com/')){
+      return response({ok:true,booking_id:'BK-REPLAY',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:true});
+    }
+    throw new Error('no LINE send allowed for replay');
+  });
+  assert.equal(r.handled,true);
+  assert.equal(r.status,'ALREADY_APPLIED');
+  assert.equal(r.decision_status,'CONFIRMED');
+  assert.equal(r.requires_manual_delivery_review,true);
+  assert.equal(r.idempotent_replay,true);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].body.action,'decideLineBookingPending');
+});
+
+test('owner decision rejects mismatched canonical booking id before any LINE send',async()=>{
+  const e=env();
+  const data=Approval.decisionData('approve','BK-EXPECTED',e);
+  let sends=0;
+  await assert.rejects(
+    ()=>Approval.processOwnerPostback({
+      type:'postback',replyToken:'reply-owner',source:{type:'user',userId:'UOWNER'},postback:{data}
+    },e,async(url)=>{
+      if(String(url).startsWith('https://script.google.com/')){
+        return response({ok:true,booking_id:'BK-OTHER',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:false});
+      }
+      sends++;
+      return response({ok:true});
+    }),
+    err=>err&&err.code==='LINE_OWNER_DECISION_BOOKING_ID_MISMATCH'
+  );
+  assert.equal(sends,0);
+});
+
+test('customer LINE push failure does not falsely acknowledge delivery to owner',async()=>{
+  const e=env();
+  const data=Approval.decisionData('approve','BK-PUSH-FAIL',e);
+  const lineCalls=[];
+  await assert.rejects(
+    ()=>Approval.processOwnerPostback({
+      type:'postback',replyToken:'owner-reply-token',source:{type:'user',userId:'UOWNER'},postback:{data}
+    },e,async(url,opt)=>{
+      if(String(url).startsWith('https://script.google.com/')){
+        return response({ok:true,booking_id:'BK-PUSH-FAIL',booking_status:'confirmed',customer_contact:'UCUSTOMER',idempotent_replay:false});
+      }
+      lineCalls.push({url,body:JSON.parse(opt.body)});
+      if(String(url).includes('/push')) return response('provider temporarily unavailable',503);
+      return response({ok:true});
+    }),
+    err=>err&&err.code==='LINE_SEND_FAILED'&&err.status===503
+  );
+  assert.equal(lineCalls.length,1);
+  assert.ok(lineCalls[0].url.includes('/push'));
+  assert.equal(lineCalls[0].body.to,'UCUSTOMER');
 });
