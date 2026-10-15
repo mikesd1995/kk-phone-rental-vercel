@@ -38,5 +38,41 @@ test('booking CTA destinations and accessible nav are not altered by hero redesi
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261012-v633-temp-brand-image/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261015-blue-hero-reference-r1/);
+});
+
+const referenceMarker='KK HERO REFERENCE 2026-10-15';
+test('owner reference revision is unique and follows the legacy hero override',()=>{
+ assert.equal(css.split(referenceMarker).length-1,1);
+ assert.ok(css.indexOf(referenceMarker)>css.indexOf(marker));
+ const patch=css.slice(css.indexOf(referenceMarker));
+ assert.match(patch,/grid-template-columns:minmax\(0,1\.04fr\) minmax\(0,\.96fr\)!important/);
+ assert.match(patch,/border:1px solid rgba\(46,150,255,\.87\)!important/);
+ assert.match(patch,/background-clip:text!important/);
+ assert.match(patch,/url\("\/assets\/kk-brand-hero-final-20260920\.png"\)/);
+ assert.doesNotMatch(patch,/\/api\/|booking_id|available_count|owner_lock/);
+});
+test('reference proof row remains accessible, bilingual and independent of business truth',()=>{
+ assert.equal((html.match(/class="kk-hero-proof"/g)||[]).length,3);
+ assert.match(html,/class="kk-hero-proofs" aria-label="/);
+ assert.match(html,/<strong lang="th">เครื่องแท้ 100%<\/strong>/);
+ assert.match(html,/<strong lang="en">Genuine phones<\/strong>/);
+ const patch=css.slice(css.indexOf(referenceMarker));
+ assert.match(patch,/html\[lang="th"\] \.kk-hero-proof-text \[lang="en"\]/);
+ assert.match(patch,/html\[lang="en"\] \.kk-hero-proof-text \[lang="th"\]/);
+ assert.match(script,/hero_cta:"เลือกงานที่ต้องการ"/);
+ assert.match(script,/hero_cta:"Explore events"/);
+});
+test('responsive reference explicitly protects 320px phones and supports tablet and desktop widths',()=>{
+ const patch=css.slice(css.indexOf(referenceMarker));
+ for(const range of ['min-width:701px) and (max-width:1100px','max-width:700px','max-width:375px','min-width:376px) and (max-width:480px']){
+   assert.ok(patch.includes(range),range);
+ }
+ assert.match(patch,/html \.kk-mock-hero \.kk-hero-art\{display:none!important\}/);
+ assert.match(patch,/html \.kk-mock-hero \.kk-hero-proofs\{display:none!important\}/);
+ assert.match(patch,/html \.kk-mock-hero \.v3-secondary\{display:inline-flex!important\}/);
+ assert.match(patch,/min-height:44px!important/);
+ assert.match(patch,/prefers-reduced-motion:reduce/);
+ const policy=require(path.join(root,'config/kk-storefront-ux-policy.json'));
+ assert.deepEqual(policy.acceptance_viewports,[320,375,390,430,480,768,1024,1440]);
 });
