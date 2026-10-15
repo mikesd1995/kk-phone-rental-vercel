@@ -63,7 +63,7 @@ test('invalid active post date blocks entire account-wide recommendation',()=>{
   assert.ok(p.visibility_recovery.errors.includes('ACTIVE_POST_LOG_TIME_UNVERIFIED'));
   assert.equal(p.slots.some(s=>s.event),false);
 });
-test('old/superseded posts do not consume today's capacity; Thai timestamp supported',()=>{
+test("old/superseded posts do not consume today's capacity; Thai timestamp supported",()=>{
   const p=Planner.plan(input({post_log:[
     {event_id:'OLD',planned_at:'12/10/2026 16:30',status:'confirmed_posted'},
     {event_id:'IGNORED',planned_at:'13/10/2026 15:00',status:'superseded'}
