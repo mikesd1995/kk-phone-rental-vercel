@@ -26,3 +26,18 @@
 
 ## Rollback
 Revert this isolated commit on #742 only; leave main, #744, #700, #706, #727, #720, all Production deployments and private business state unchanged.
+
+
+## Follow-up exact GitHub HEAD evidence (2026-10-15)
+
+**Pushed and fetched** at commit [`14e36851a2a3b587a622e7b892c9161ef9ca8c78`](https://github.com/mikesd1995/kk-phone-rental-vercel/commit/14e36851a2a3b587a622e7b892c9161ef9ca8c78), PR #742 Draft/Open. Verified changed file set since prior PR head: source, pre-existing test adjustment, new isolated regression file and this evidence document.
+
+**Independent exact-source test readback:** fetched `server/line-booking-owner-approval.js` blob `4f70fe2ff67cda5b6e5b6e0928df4738c8a49d56` and `tests/line-booking-owner-approval-replay-failclosed.test.js` blob `ca8ca1c3b1b8d6da95a33d880cd31e56d88c289d`. Executed **4/4 authored Node-style callbacks / 33 assertions PASS** in an isolated JavaScript V8 executor with mocked `node:test`, assert, HMAC/Buffer, Apps Script and LINE fetch; no network or production writes. Earlier pre-commit manually authored preflight: 22 assertions PASS. These checks **DO NOT replace** native Node full suite, actionlint or hosted CI, which remain unverified. The latest GitHub PR-triggered workflow-run check returned none; this does not prove universal runner/billing silence.
+
+**Canonical source compatibility readback:** current `main` `apps-script/Code.gs` Git blob `6f923036855cd13e58a0ed9c1154fef746ca1ad8` defines `kkApiDecideLineBookingPending_`; both the same-decision replay branch and pending-to-decision branch emit literal `idempotent_replay:true` / `false`, respectively, under document lock and with readback. Thus exact Boolean contract is consistent with source as inspected, though deployed Apps Script version and live runtime have **NOT** been independently verified.
+
+**Storefront P0 finding, no UI mutation:** on draft #727 source `script.js` blob `d0ceccea7fb8af035f65662c2ec6549c8a27884d`, `startingPriceFor()` still considers sold-out `p.avail=false` packages and `buildBookingMsg()` still has a hardcoded Thai introduction and model label. Exact #711 patch fixes both, but #727 has substantial unrelated hero/poster changes, so port only these two source adjustments with targeted tests **after registered `storefront_ux_review` and visual QA gates**. Do not mass-merge #711 into #727 or change price SOT. Source-only discovery, not a rendered/browser QA PASS.
+
+**Scanner integration finding, no runtime mutation:** shared `server/kk-ultra-deep-runtime-runner.js` has three distinct blobs on #720 (`6b23b9d1cacc93c00c3275daf55ebcd42a12715f`), #732 (`682f90b5462078d41154df363692895d50f90818`) and #695 (`404b70b65e9d2ae82f2b7c78b68b9dc88df0e112`). #720 is main-based, while #732 and #695 are stacked onto different parent branches. Preserve each branch's date/source recall, source availability, timeout, booked-day, owner-hidden and `production_writes=0` contracts. Do not automatically merge source merely on overlapping filenames.
+
+**Release gates still HOLD:** no owner-approved merge, no Production/Preview Deploy, no direct LINE webhook test, no live owner postback, no Google Sheets/Booking/ACL write, and no new paid service. Preserve Gemini-owned #744 HEAD independently.
