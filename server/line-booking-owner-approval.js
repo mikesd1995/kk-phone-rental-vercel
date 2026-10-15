@@ -56,8 +56,10 @@ async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
     throw err;
   }
   if(!r.ok||!parsed||parsed.ok!==true){
-    const err=new Error(text(parsed&&parsed.error)||('Apps Script booking write failed '+r.status));
-    err.code=text(parsed&&parsed.error_code)||'LINE_BOOKING_UPSTREAM_FAILED';
+    // Upstream errors are untrusted and may contain customer contact, Booking
+    // IDs or credentials. Never reflect their text or error_code into webhook logs.
+    const err=new Error('Apps Script booking action failed');
+    err.code='LINE_BOOKING_UPSTREAM_FAILED';
     err.status=r.status;
     throw err;
   }
@@ -150,8 +152,9 @@ async function sendLine(url,body,token,fetchImpl=fetch){
     body:JSON.stringify(body)
   });
   if(!r.ok){
-    const raw=await r.text().catch(()=>'');
-    const err=new Error('LINE send failed '+r.status+' '+raw.slice(0,160));
+    // Provider response text can reflect private recipient/message details.
+    // Keep a fixed diagnostic and HTTP status; do not log upstream body.
+    const err=new Error('LINE send failed');
     err.code='LINE_SEND_FAILED';
     err.status=r.status;
     throw err;
@@ -197,6 +200,14 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
   if(text(data.booking_id)!==parsed.booking_id){
     const err=new Error('Owner decision booking identity readback mismatch');
     err.code='LINE_OWNER_DECISION_BOOKING_ID_MISMATCH';
+    throw err;
+  }
+  // Current locked Apps Script writer returns the requested decision in
+  // readback. A conflicting value blocks sends even if status looks plausible.
+  // Missing value remains compatible with older deployment contracts.
+  if(data.decision!==undefined&&text(data.decision)!==decision){
+    const err=new Error('Owner decision readback mismatch');
+    err.code='LINE_OWNER_DECISION_READBACK_MISMATCH';
     throw err;
   }
   const expected=decision==='approve'?'confirmed':'cancelled';
