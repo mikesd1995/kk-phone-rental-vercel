@@ -200,7 +200,7 @@ function plan(input={}){
     readiness_gates:[...new Set([...gate.errors,...visibilityRecovery.errors])],
     visibility_recovery:visibilityRecovery,
     operating_day:gate.operating_day,
-    evidence_policy:'Storefront and Post Log <=6h readback; no assumed posts treated as measured performance',
+    evidence_policy:'Booking, Owner Locks, Storefront and Post Log <=6h readback; planned/assumed not measured published X',
     timezone:text(input.timezone)||TIMEZONE,
     objective:'MAXIMIZE_QUALIFIED_REACH_AND_ENGAGEMENT_WITH_BOOKING_INTENT',
     weights:{...WEIGHTS},

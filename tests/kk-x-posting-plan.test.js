@@ -76,6 +76,8 @@ function candidates(){
 function evidence(candidatesToPlan){
   return {
     now:'2026-10-13T02:39:00+07:00',
+    booking_source:'00_Master_Booking',booking_verified:true,booking_readback_at:'2026-10-13T02:30:00+07:00',booking_rows:[],
+    visibility_source:'18_Event_Visibility_Locks',visibility_verified:true,visibility_readback_at:'2026-10-13T02:30:00+07:00',visibility_locks:[],
     storefront_source:'08_Web_Ready',storefront_verified:true,
     storefront_readback_at:'2026-10-13T02:30:00+07:00',
     storefront_rows:candidatesToPlan.filter(row=>row.verified_event).map(row=>({

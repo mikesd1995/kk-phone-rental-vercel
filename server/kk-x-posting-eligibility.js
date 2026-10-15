@@ -1,7 +1,7 @@
 'use strict';
 
 // Read-only eligibility contract for owner-approved X posting plans.
-// Callers must provide fresh canonical Web Ready + Post Log readbacks;
+// Callers must provide fresh canonical Booking, Owner Locks, Web Ready + Post Log readbacks;
 // an event verified elsewhere is not sufficient evidence of bookability.
 const SOURCE='08_Web_Ready';
 const BLOCKING_STATUSES=new Set(['confirmed_posted','assumed_posted','planned']);
@@ -55,9 +55,39 @@ function logRow(row){
   if(Array.isArray(row))return {id:text(row[2]),date:row[1],status:text(row[6]).toLowerCase()};
   return {id:text(row?.event_id),date:row?.planned_at||row?.published_at||row?.logged_at,status:text(row?.status).toLowerCase()};
 }
+
+const BOOKING_SOURCE='00_Master_Booking';
+const LOCK_SOURCE='18_Event_Visibility_Locks';
+const IGNORED_BOOKING_STATUSES=new Set(['','cancelled','canceled','no_show','no-show']);
+function calendarDay(value){
+  const s=text(value);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
+    const d=Date.parse(s+'T00:00:00Z');
+    return Number.isFinite(d)&&new Date(d).toISOString().slice(0,10)===s?s:'';
+  }
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s))return eventDay(s);
+  const num=Number(s);
+  if(!s||!Number.isInteger(num)||num<20000||num>90000)return '';
+  return new Date(Date.UTC(1899,11,30)+num*86400000).toISOString().slice(0,10);
+}
+function bookingRow(row){
+  return Array.isArray(row)?
+    {status:text(row[2]).toLowerCase(),day:calendarDay(row[21]),id:text(row[3])}:
+    {status:text(row?.booking_status).toLowerCase(),day:calendarDay(row?.event_date),id:text(row?.event_id)};
+}
+function lockRow(row){
+  return Array.isArray(row)?
+    {id:text(row[1]),day:calendarDay(row[3]),state:text(row[6]).toUpperCase()}:
+    {id:text(row?.event_id),day:calendarDay(row?.event_date),state:text(row?.lock_state).toUpperCase()};
+}
+
 function inputGate(input={}){
   const errors=[];
   const now=input.now||new Date().toISOString();
+  if(input.booking_source!==BOOKING_SOURCE||input.booking_verified!==true||!Array.isArray(input.booking_rows)||!fresh(input.booking_readback_at,now))
+    errors.push('FRESH_MASTER_BOOKING_READBACK_REQUIRED');
+  if(input.visibility_source!==LOCK_SOURCE||input.visibility_verified!==true||!Array.isArray(input.visibility_locks)||!fresh(input.visibility_readback_at,now))
+    errors.push('FRESH_OWNER_LOCK_READBACK_REQUIRED');
   if(input.storefront_source!==SOURCE||input.storefront_verified!==true||!Array.isArray(input.storefront_rows)||!fresh(input.storefront_readback_at,now))
     errors.push('FRESH_STOREFRONT_READBACK_REQUIRED');
   if(input.post_log_verified!==true||!Array.isArray(input.post_log)||!fresh(input.post_log_readback_at,now))
@@ -73,6 +103,19 @@ function eligibility(candidate={},input={},context=inputGate(input)){
   if(!id||!eventDay(date))errors.push('EVENT_ID_DATE_REQUIRED');
   if(eventDay(date)&&eventDay(date)<bangkokDate(context.now))errors.push('EVENT_DATE_IN_PAST');
   if(context.errors.length)errors.push(...context.errors);
+  if(!context.errors.includes('FRESH_MASTER_BOOKING_READBACK_REQUIRED')){
+    const bookings=(input.booking_rows||[]).map(bookingRow)
+      .filter(row=>!IGNORED_BOOKING_STATUSES.has(row.status));
+    if(bookings.some(row=>!row.day))errors.push('ACTIVE_BOOKING_DATE_UNVERIFIED');
+    if(bookings.some(row=>row.day===eventDay(date)))
+      errors.push('ACTIVE_BOOKING_DAY_EXCLUDED');
+  }
+  if(!context.errors.includes('FRESH_OWNER_LOCK_READBACK_REQUIRED')){
+    const locks=(input.visibility_locks||[]).map(lockRow);
+    if(locks.some(row=>row.state==='LOCKED'&&!row.id))errors.push('OWNER_LOCK_ID_UNVERIFIED');
+    if(locks.some(row=>row.state==='LOCKED'&&row.id===id&&(!row.day||row.day===eventDay(date))))
+      errors.push('OWNER_LOCKED_EVENT_OR_DAY');
+  }
   if(!context.errors.includes('FRESH_STOREFRONT_READBACK_REQUIRED')){
     const exact=(input.storefront_rows||[]).map(webRow).filter(r=>r.id===id&&r.date===date);
     if(exact.length!==1)errors.push('EXACT_STOREFRONT_ROW_REQUIRED');
@@ -88,4 +131,4 @@ function eligibility(candidate={},input={},context=inputGate(input)){
   }
   return {eligible:errors.length===0,errors:[...new Set(errors)]};
 }
-module.exports={SOURCE,BLOCKING_STATUSES,MAX_READBACK_AGE_MS,operatingDay,bangkokDate,eventDay,webRow,logRow,inputGate,eligibility};
+module.exports={SOURCE,BOOKING_SOURCE,LOCK_SOURCE,BLOCKING_STATUSES,MAX_READBACK_AGE_MS,operatingDay,bangkokDate,eventDay,calendarDay,bookingRow,lockRow,webRow,logRow,inputGate,eligibility};

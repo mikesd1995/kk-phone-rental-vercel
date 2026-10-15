@@ -19,6 +19,8 @@ function candidate(overrides={}){
 }
 function input(overrides={}){
   return {now:NOW,candidates:[candidate()],
+    booking_source:'00_Master_Booking',booking_verified:true,booking_readback_at:RECORD,booking_rows:[],
+    visibility_source:'18_Event_Visibility_Locks',visibility_verified:true,visibility_readback_at:RECORD,visibility_locks:[],
     storefront_source:'08_Web_Ready',storefront_verified:true,storefront_readback_at:RECORD,
     storefront_rows:[{event_id:ID,event_date_text:DAY,action_for_web:'show',booking_status_for_web:'เปิดจอง',available_phone_count:1}],
     post_log_verified:true,post_log_readback_at:RECORD,post_log:[],
@@ -47,6 +49,8 @@ test('strict canonical show/open/positive phone is required, even if event itsel
 });
 test('missing/stale/unverified readbacks and event dates fail closed',()=>{
   for(const props of [
+    {booking_verified:false},{booking_rows:undefined},{booking_readback_at:'2026-10-12T17:00:00+07:00'},
+    {visibility_verified:false},{visibility_locks:undefined},{visibility_readback_at:'2026-10-12T17:00:00+07:00'},
     {storefront_rows:undefined}, {storefront_verified:false},{storefront_readback_at:'2026-10-12T17:00:00+07:00'},
     {post_log_verified:false},{post_log_readback_at:'2026-10-12T17:00:00+07:00'},{post_log:undefined}
   ]){
@@ -101,4 +105,43 @@ test('no X performance learning from assumed rows or bare numbers without verifi
   assert.equal(plan.ranking[0].marketing_agent.evidence_state,'PERFORMANCE_INFORMED');
   assert.equal(plan.ranking[0].confidence,'LOW_NO_VERIFIED_X');
   assert.equal(plan.safety.auto_spend,false);
+});
+
+
+test('Booking Gate excludes all promotional events on actively booked date without changing booking data',()=>{
+  for(const status of ['confirmed','pending','prepared','picked_up','returned','uploaded']){
+    const booking={booking_status:status,event_id:'OTHER-EVENT',event_date:'17/10/2026'};
+    const p=Planner.plan(input({booking_rows:[booking]}));
+    assert.equal(p.status,'BLOCKED_NO_ELIGIBLE_EVENTS',status);
+    assert.ok(p.rejected_candidates[0].reasons.includes('ACTIVE_BOOKING_DAY_EXCLUDED'));
+  }
+  for(const status of ['cancelled','no_show']){
+    assert.equal(Planner.plan(input({booking_rows:[{booking_status:status,event_date:'17/10/2026'}]})).status,'READY_FOR_OWNER_REVIEW');
+  }
+  // Google Sheets numeric date serial must match the canonical calendar day.
+  const serial=(Date.UTC(2026,9,17)-Date.UTC(1899,11,30))/86400000;
+  assert.equal(E.calendarDay(serial),'2026-10-17');
+  assert.equal(Planner.plan(input({booking_rows:[{booking_status:'confirmed',event_date:serial}]})).status,'BLOCKED_NO_ELIGIBLE_EVENTS');
+});
+test('Owner Lock overrides engagement and stock; unrelated/reopened lock does not hide a sellable date',()=>{
+  const lock={event_id:ID,event_date:'17/10/2026',lock_state:'LOCKED'};
+  const p=Planner.plan(input({visibility_locks:[lock]}));
+  assert.equal(p.status,'BLOCKED_NO_ELIGIBLE_EVENTS');
+  assert.ok(p.rejected_candidates[0].reasons.includes('OWNER_LOCKED_EVENT_OR_DAY'));
+  assert.equal(Planner.plan(input({visibility_locks:[{...lock,event_date:'18/10/2026'}]})).status,'READY_FOR_OWNER_REVIEW');
+  assert.equal(Planner.plan(input({visibility_locks:[{...lock,lock_state:'REOPENED'}]})).status,'READY_FOR_OWNER_REVIEW');
+  assert.ok(E.eligibility(candidate(),input({visibility_locks:[{lock_state:'LOCKED',event_date:'17/10/2026'}]})).errors.includes('OWNER_LOCK_ID_UNVERIFIED'));
+});
+test('missing Booking/Owner Lock readback fails closed even when storefront says open',()=>{
+  for(const props of [
+    {booking_rows:undefined},{booking_source:'untrusted'},
+    {booking_verified:false},{visibility_locks:undefined},
+    {visibility_source:'untrusted'},{visibility_verified:false}
+  ]){
+    const p=Planner.plan(input(props));
+    assert.equal(p.status,'BLOCKED_NO_ELIGIBLE_EVENTS');
+    assert.equal(p.slots.some(s=>s.event),false);
+  }
+  assert.ok(E.eligibility(candidate(),input({booking_rows:[{booking_status:'confirmed',event_date:'??'}]}))
+    .errors.includes('ACTIVE_BOOKING_DATE_UNVERIFIED'));
 });

@@ -13,6 +13,8 @@ function payload(){
       message:'ไปตรวจสอบ X ว่าตอนนี้ควรโพสอะไรต่อจากเดิม ตั้งแต่ 19.30 ไปจนถึงช่วง late night',
       input:{
         now:'2026-10-13T02:39:00+07:00',
+        booking_source:'00_Master_Booking',booking_verified:true,booking_readback_at:'2026-10-13T02:30:00+07:00',booking_rows:[],
+        visibility_source:'18_Event_Visibility_Locks',visibility_verified:true,visibility_readback_at:'2026-10-13T02:30:00+07:00',visibility_locks:[],
         storefront_source:'08_Web_Ready',storefront_verified:true,
         storefront_readback_at:'2026-10-13T02:30:00+07:00',
         post_log_verified:true,post_log_readback_at:'2026-10-13T02:30:00+07:00',

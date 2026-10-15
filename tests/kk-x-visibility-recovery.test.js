@@ -12,6 +12,8 @@ function input(overrides={}){
   }));
   return {
     now:NOW,candidates,
+    booking_source:'00_Master_Booking',booking_verified:true,booking_readback_at:READ,booking_rows:[],
+    visibility_source:'18_Event_Visibility_Locks',visibility_verified:true,visibility_readback_at:READ,visibility_locks:[],
     storefront_source:'08_Web_Ready',storefront_verified:true,storefront_readback_at:READ,
     storefront_rows:candidates.map(c=>({
       event_id:c.event_id,event_date_text:c.event_date_text,action_for_web:'show',
