@@ -67,14 +67,16 @@ test('rendered defects fail even when the document itself has no horizontal over
   }
 });
 test('modal clipping, horizontal overflow and focus escape are release blocking',()=>{
-  const modal={left:0,right:390,top:150,bottom:844,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
+  const modal={left:0,right:390,top:150,bottom:694,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
   assert.deepEqual(E.stateFindings({...healthy(),modal},{width:390,name:'modal'}),[]);
   for(const change of [{bottom:850},{scroll_width:420},{focus_inside:false},{title:''}])assert.ok(E.stateFindings({...healthy(),modal:{...modal,...change}},{width:390,name:'modal'}).length);
 });
 test('owner direction approval cannot accept a rendered candidate or changed dependency digest',()=>{
   const widths=[320,375,390,430,480,768,1024,1440];
-  const record={status:'PASS',owner_decision:'ACCEPTED',acceptance_scope:'rendered_candidate',frontend_digest:'a',artifacts:widths.flatMap(width=>['top','catalogue','modal','footer','dark','english','english-modal','dark-modal'].map(state=>({width,state,sha256:'f'.repeat(64)})))};
+  const record={status:'PASS',owner_decision:'ACCEPTED',acceptance_scope:'rendered_candidate',frontend_digest:'a',artifacts:widths.flatMap(width=>['top','catalogue','modal','footer','dark','english','english-modal','dark-modal','english-dark','english-dark-modal'].map(state=>({width,state,sha256:'f'.repeat(64)})))};
   assert.equal(E.ownerApprovalValid(record,{digest:'a'},widths,record.artifacts),true);
+  assert.equal(E.ownerApprovalValid({...record,artifacts:record.artifacts.filter(x=>x.state!=='english-dark')},{digest:'a'},widths,record.artifacts),false,'English Dark screenshots are mandatory');
+  assert.equal(E.ownerApprovalValid({...record,artifacts:record.artifacts.filter(x=>x.state!=='english-dark-modal')},{digest:'a'},widths,record.artifacts),false,'English Dark modal screenshots are mandatory');
   assert.equal(E.ownerApprovalValid(record,{digest:'changed'},widths,record.artifacts),false);
   assert.equal(E.ownerApprovalValid({...record,acceptance_scope:'mock_direction'},{digest:'a'},widths,record.artifacts),false);
   assert.equal(E.ownerApprovalValid({...record,artifacts:record.artifacts.filter(x=>x.width!==1440)},{digest:'a'},widths,record.artifacts),false);
@@ -108,4 +110,14 @@ test('desktop card geometry blocks uneven heights and poster rails outside the v
 test('storefront visual evidence blocks webpage screenshots used as poster artwork',()=>{
   const state={...healthy(),poster_source_issues:[{event_id:'evt',poster_source:'https://image.thum.io/get/width/1200/https://tickets.example/event',reason:'webpage_screenshot_service'}]};
   assert.ok(E.stateFindings(state,{width:390,name:'catalogue'}).some(x=>x.code==='POSTER_SOURCE_NOT_ARTWORK'));
+});
+
+test('owner-approved mobile modal is centered with focus and viewport containment',()=>{
+  const base={...healthy(),document_width:390};
+  const modal={left:14,right:376,top:168,bottom:676,viewport_height:844,scroll_width:362,client_width:362,focus_inside:true,title:'Live event'};
+  assert.deepEqual(E.stateFindings({...base,modal},{width:390,name:'modal'}),[]);
+  const wrong={...modal,top:300,bottom:808};
+  assert.ok(E.stateFindings({...base,modal:wrong},{width:390,name:'modal'}).some(f=>f.code==='MOBILE_MODAL_NOT_CENTERED'));
+  assert.ok(E.stateFindings({...base,modal:{...modal,focus_inside:false}},{width:390,name:'modal'}).some(f=>f.code==='MODAL_FOCUS_ESCAPED'));
+  assert.ok(E.stateFindings({...base,modal:{...modal,bottom:900}},{width:390,name:'modal'}).some(f=>f.code==='MODAL_VIEWPORT_CONTAINMENT'));
 });

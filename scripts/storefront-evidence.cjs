@@ -53,7 +53,7 @@ function frontendIdentity(root=process.cwd()){
 function ownerApprovalValid(record,identity,widths,captured=[]){
   return record?.status==='PASS' && record.owner_decision==='ACCEPTED' &&
     record.acceptance_scope==='rendered_candidate' && record.frontend_digest===identity.digest &&
-    widths.every(width=>['top','catalogue','modal','footer','dark','english','english-modal','dark-modal'].every(state=>
+    widths.every(width=>['top','catalogue','modal','footer','dark','english','english-modal','dark-modal','english-dark','english-dark-modal'].every(state=>
       record.artifacts?.some(x=>x.width===width&&x.state===state&&typeof x.sha256==='string'&&/^[a-f0-9]{64}$/.test(x.sha256)&&captured.some(y=>y.width===width&&y.state===state&&y.sha256===x.sha256))));
 }
 async function invokeWithEvidence(intent,input,{outputDir,sourceSha,identity}){
@@ -109,6 +109,16 @@ async function inspectState(page){
         reason:'webpage_screenshot_service'
       }]:[];
     });
+    const posterFitIssues=cards.flatMap(card=>{
+      const img=card.querySelector('.poster-img-wrap img');
+      if(!img||!img.complete||!img.naturalWidth||!img.naturalHeight)return [];
+      const fit=getComputedStyle(img).objectFit;
+      return fit==='contain'?[]:[{
+        event_id:card.dataset.eventId||'',
+        event_name:card.dataset.eventName||'',
+        object_fit:fit
+      }];
+    });
     const posterTreatmentIssues=cards.flatMap(card=>{
       const wrap=card.querySelector('.poster-img-wrap');
       const img=wrap&&wrap.querySelector('img');
@@ -128,8 +138,21 @@ async function inspectState(page){
         treatment:'missing'
       }]:[];
     });
-    const escaped=[];
-    for(const card of cards){const c=card.getBoundingClientRect();for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){const r=el.getBoundingClientRect();if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1)escaped.push(el.className);}}
+    const escaped=[],escapedDetails=[];
+    for(const card of cards){
+      const c=card.getBoundingClientRect();
+      for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){
+        const r=el.getBoundingClientRect();
+        if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1){
+          escaped.push(el.className);
+          if(escapedDetails.length<24)escapedDetails.push({event_id:card.dataset.eventId||'',
+            child:el.className,card:{left:c.left,right:c.right,top:c.top,bottom:c.bottom,height:c.height},
+            child_rect:{left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height},
+            overshoot:{left:Number((c.left-r.left).toFixed(2)),right:Number((r.right-c.right).toFixed(2)),
+              top:Number((c.top-r.top).toFixed(2)),bottom:Number((r.bottom-c.bottom).toFixed(2))}});
+        }
+      }
+    }
     const modal=document.querySelector('.overlay.active .modal,.faq-overlay.active .modal');
     const scope=modal||document;
     const targets=[...scope.querySelectorAll('button,a[href],input,select')].filter(visible).filter(el=>!el.classList.contains('skip-link'));
@@ -137,10 +160,13 @@ async function inspectState(page){
     const clipped=targets.filter(el=>{const r=el.getBoundingClientRect();return r.left < -1 || r.right > innerWidth+1;}).map(el=>el.id||el.className);
     const filters=[...document.querySelectorAll('.status-filter-bar > *')].filter(visible).map(box);
     const overlappingFilters=filters.some((r,i)=>i>0&&r.left<filters[i-1].right-1);
+    const modalImg=modal&&modal.querySelector('.modal-poster-wrap img');
+    const modalPosterFitIssues=modalImg&&modalImg.complete&&modalImg.naturalWidth>0&&modalImg.naturalHeight>0&&getComputedStyle(modalImg).objectFit!=='contain'
+      ?[{object_fit:getComputedStyle(modalImg).objectFit,title:modal.querySelector('.modal-title')?.textContent||''}]:[];
     const mb=modal?box(modal):null;
     return {scroll_y:scrollY,raw_i18n_keys:raw,document_width:document.documentElement.scrollWidth,viewport_width:innerWidth,
       card_rects:cardRects,card_height_spread_px:Number(cardHeightSpread.toFixed(2)),poster_frame_ratios:posterFrameRatios,
-      escaped_card_elements:escaped,poster_source_issues:posterSourceIssues,poster_treatment_issues:posterTreatmentIssues,
+      escaped_card_elements:escaped,escaped_card_details:escapedDetails,poster_source_issues:posterSourceIssues,poster_fit_issues:posterFitIssues,modal_poster_fit_issues:modalPosterFitIssues,poster_treatment_issues:posterTreatmentIssues,
       first_event_top:first?first.top+scrollY:null,visible_event_cards_above_fold:cards.filter(el=>{const r=el.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;}).length,
       small_targets:small,clipped_controls:clipped,overlapping_filters:overlappingFilters,theme_icons:[...document.querySelectorAll('.theme-toggle span')].filter(visible).length,
       modal:mb?{...mb,scroll_width:modal.scrollWidth,client_width:modal.clientWidth,viewport_height:innerHeight,focus_inside:modal.contains(document.activeElement),title:modal.querySelector('.modal-title')?.textContent||'',package_count:modal.querySelectorAll('.phone-row').length}:null,
@@ -165,6 +191,7 @@ function stateFindings(state,{width,name}){
   if(state.small_targets.length)add('PRIMARY_TARGET_TOO_SMALL',JSON.stringify(state.small_targets));
   if(state.clipped_controls?.length)add('CONTROL_CLIPPED',state.clipped_controls.join(', '));
   if(state.overlapping_filters)add('FILTER_TARGETS_OVERLAP',name);
+  if(Number(state.failed_posters||0)>0)add('POSTER_IMAGE_LOAD_FAILED',JSON.stringify(state.failed_poster_details||[]));
   if(!state.modal){
     if(state.card_columns!==(width<359?1:2))add('CARD_COLUMNS_CONTRACT',String(state.card_columns));
     if(Math.max(...state.column_widths)-Math.min(...state.column_widths)>1)add('CARD_COLUMNS_UNEQUAL',JSON.stringify(state.column_widths));
@@ -172,14 +199,22 @@ function stateFindings(state,{width,name}){
     if(width>=901&&(state.poster_frame_ratios||[]).some(r=>r<0.72||r>0.79))add('POSTER_FRAME_RATIO_MISMATCH',JSON.stringify(state.poster_frame_ratios));
     if(state.escaped_card_elements.length)add('CARD_CONTENT_ESCAPES',state.escaped_card_elements.join(','));
     if(state.poster_source_issues?.length)add('POSTER_SOURCE_NOT_ARTWORK',JSON.stringify(state.poster_source_issues));
+    if(state.poster_fit_issues?.length)add('POSTER_ARTWORK_CROPPED',JSON.stringify(state.poster_fit_issues));
     if(state.poster_treatment_issues?.length)add('POSTER_LETTERBOX_UNTREATED',JSON.stringify(state.poster_treatment_issues));
     if(state.theme_icons!==1)add('THEME_ICON_STATE',String(state.theme_icons));
   }else{
     const m=state.modal;
+    if(state.modal_poster_fit_issues?.length)add('MODAL_POSTER_ARTWORK_CROPPED',JSON.stringify(state.modal_poster_fit_issues));
     if(m.left<0||m.right>width+1||m.top<0||m.bottom>m.viewport_height+1||m.scroll_width>m.client_width+1)add('MODAL_VIEWPORT_CONTAINMENT',JSON.stringify(m));
     if(!m.focus_inside)add('MODAL_FOCUS_ESCAPED',name);
     if(!m.title.trim())add('MODAL_EVENT_IDENTITY_MISSING',name);
-    if(width<=700&&Math.abs(m.bottom-m.viewport_height)>1)add('MOBILE_SHEET_NOT_ANCHORED',name);
+    if(width<=700){
+      // V6.12 owner-approved UX: both event and FAQ modals are centered,
+      // not bottom sheets. Retain containment/focus/title checks above.
+      const modalMid=(m.top+m.bottom)/2,viewportMid=m.viewport_height/2;
+      if(Math.abs(modalMid-viewportMid)>Math.max(12,m.viewport_height*.035))
+        add('MOBILE_MODAL_NOT_CENTERED',JSON.stringify({modal_center:modalMid,viewport_center:viewportMid,name}));
+    }
   }
   return findings;
 }

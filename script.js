@@ -708,6 +708,26 @@ function isKKTemporaryBrandArtwork(url){
   return String(url||"").trim().split(/[?#]/)[0]===
     "https://kk-phone-rental.vercel.app/assets/kk-brand-hero-final-20260920.png";
 }
+// Exact owner-source readback (14 Oct): these external images are NOT the listed event's poster.
+// Keep the event visible with its truthful event-specific fallback rather than advertising wrong art.
+// Replacing the source URL with a verified official poster automatically removes this safeguard.
+function isAuditedNonEventPoster(eventId,url){
+  var id=String(eventId||"").trim(), src=String(url||"").trim();
+  // Source/date-pair embargo: legitimate event-wide art for OTHER show dates
+  // must stay usable. Do not remove the event or affect availability/booking.
+  return (id==="EVT-20261023-LYKN-REFLEXION-CONCERT-2" &&
+          src==="https://drive.google.com/thumbnail?id=1YAcm8q9b9YBJcAKeEgxRB5fnVIPXbiDS&sz=w1200") ||
+         (id==="EVT-20261115-2026-K-POP-MASTERZ-SPECIAL-L" &&
+          src==="https://drive.google.com/thumbnail?id=1yMVpy4pNNuitIb6FFsBiEo4y9-ogFA2i&sz=w1200") ||
+         (id==="EVT-20261127-FORTREASURE-BEYOND-HORIZON" &&
+          src==="https://drive.google.com/thumbnail?id=1OVYGQIlzt-n_la8eKKwgFIBcrrVxix78&sz=w1200") ||
+         (id==="EVT-20261015-LE7EL-1ST-DEBUT-ANNIVERSARY" &&
+          src==="https://www.thai2music.com/uploads/artists/photo_cover/cover_1035_1762919037.jpg") ||
+         (id==="EVT-20261025-VVV-TORNADO-SHOPPING-XIAOMI" &&
+          src==="https://pbs.twimg.com/media/G3iTTicXMAAbtyE.jpg") ||
+         (id==="EVT-20261030-POPPAH4-HALLOWEEN-NAMP" &&
+          src==="https://static.amarintv.com/media/PJVlR0ljpO7yvkfhEH4VNNZ54YMVWAxlVfBQwSENDkv21tWvbtjShU6FnewvzElMDb.jpg");
+}
 function eventArtworkAlt(name,isTemporary,lang){
   var n=String(name||"").trim();
   if(isTemporary){
@@ -792,6 +812,11 @@ function setImgFallback(img, urls, options){
   function imageHasPixels(){ return !!(img && img.complete && Number(img.naturalWidth||0)>0); }
   function settleLoaded(){
     clearTimer(); settled=true;
+    // Explicit positive-pixel readback for cached images whose load event
+    // may be missed by a newly created lazy/candidate fallback chain.
+    if(imageHasPixels() && typeof options.onLoaded==="function"){
+      try{options.onLoaded(img);}catch(_){}
+    }
     img.onerror=null; img.onload=null;
   }
   function exhausted(){
@@ -1390,13 +1415,9 @@ function renderConcerts(concerts){
     // A loaded shop-brand illustration is still temporary, not an official event poster.
     // Do not add this label to actual event artwork or change booking/visibility eligibility.
     var temporaryBrandArtwork=isKKTemporaryBrandArtwork(c.rawPoster||c.img);
-    if(temporaryBrandArtwork){
-      card.dataset.posterStatus="temporary";
-      var tempIndicator=document.createElement("span");
-      tempIndicator.className="poster-temporary-brand-label";
-      tempIndicator.textContent=currentLang==="en"?"TEMPORARY IMAGE":"ภาพประกอบชั่วคราว";
-      imgWrap.appendChild(tempIndicator);
-    }
+    // Incorrect images from a specific historical event/source pair are suppressed
+    // below. This includes the unrelated LE7EL artist profile photo.
+    // The existing blank-feed fallback is retained for safe owner poster replacement.
     // This artwork-like panel is visibly temporary, not an official event poster.
     // Build it entirely from already-visible verified event name/date/venue.
     function eventSummaryFallback(){
@@ -1432,8 +1453,18 @@ function renderConcerts(concerts){
     }
 
     var imgUrl=c.img?String(c.img).trim():"";
-    if(imgUrl){
-      var img=document.createElement("img"); img.alt=eventArtworkAlt(c.name,temporaryBrandArtwork,currentLang);
+    var auditedNonEventPoster=isAuditedNonEventPoster(c.id,c.rawPoster||c.img);
+    var brandPlaceholder=isKKTemporaryBrandArtwork(c.rawPoster||c.img);
+    if(auditedNonEventPoster||brandPlaceholder){
+      // No poster from the organizer is verified: use exact event/date/venue
+      // instead of a misleading old campaign photo or identical shop-brand card.
+      // This is a temporary presentation fix, not a replacement for an official poster.
+      card.dataset.posterReplacementPending="1";
+      card.dataset.posterSourceRejected=auditedNonEventPoster?"wrong-event-art":"shop-placeholder";
+      imgWrap.appendChild(eventSummaryFallback());
+    }else if(imgUrl){
+      var img=document.createElement("img");
+      img.alt=eventArtworkAlt(c.name,temporaryBrandArtwork,currentLang);
       // Keep the first viewport worth of posters eager. Remaining cards stay lazy.
       // Timeout failover handles Safari/iOS requests that remain pending without onerror.
       img.loading=idx<6?"eager":"lazy"; img.decoding="async";
@@ -1462,11 +1493,11 @@ function renderConcerts(concerts){
         // when a single image exhausts its delivery candidates.
       };
       if(idx<6){
-        setImgFallback(img,imgCandidates,{timeoutMs:4000,onExhausted:posterFailure});
+        setImgFallback(img,imgCandidates,{timeoutMs:4000,onLoaded:syncPosterTreatment,onExhausted:posterFailure});
       }else{
         // Do not start a timeout while a native-lazy image is still off-screen.
         // Start the fallback chain when the card is near the viewport.
-        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure});
+        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onLoaded:syncPosterTreatment,onExhausted:posterFailure});
       }
     } else {
       card.dataset.posterMissing="1";
