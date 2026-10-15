@@ -109,7 +109,7 @@ test('owner decision fails closed if canonical customer contact is missing',asyn
       type:'postback',source:{type:'user',userId:'UOWNER'},postback:{data}
     },e,async(url,opt)=>{
       if(String(url).startsWith('https://script.google.com/')){
-        return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed'});
+        return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed',idempotent_replay:false});
       }
       lineSends++;
       return response({ok:true});
@@ -164,7 +164,9 @@ test('replayed owner approval does not send duplicate customer or owner messages
     throw new Error('no LINE send allowed for replay');
   });
   assert.equal(r.handled,true);
-  assert.equal(r.status,'CONFIRMED');
+  assert.equal(r.status,'ALREADY_APPLIED');
+  assert.equal(r.decision_status,'CONFIRMED');
+  assert.equal(r.requires_manual_delivery_review,true);
   assert.equal(r.idempotent_replay,true);
   assert.equal(calls.length,1);
   assert.equal(calls[0].body.action,'decideLineBookingPending');

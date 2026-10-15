@@ -205,16 +205,24 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_OWNER_DECISION_READBACK_MISMATCH';
     throw err;
   }
+  // Missing/stringified replay evidence must never authorize another LINE send.
+  if(typeof data.idempotent_replay!=='boolean'){
+    const err=new Error('Canonical replay status not verified');
+    err.code='LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED';
+    throw err;
+  }
+  // Canonical decision replay is not a receipt for customer LINE delivery.
+  if(data.idempotent_replay===true){
+    return {handled:true,status:'ALREADY_APPLIED',booking_id:parsed.booking_id,
+      decision_status:expected.toUpperCase(),idempotent_replay:true,
+      customer_notifications:0,owner_notifications:0,
+      requires_manual_delivery_review:true};
+  }
   const customerUserId=text(data.customer_contact);
   if(!customerUserId){
     const err=new Error('Canonical LINE customer contact missing after owner decision');
     err.code='LINE_CUSTOMER_CONTACT_READBACK_REQUIRED';
     throw err;
-  }
-  // An idempotent owner postback is already decided. Do not send a second
-  // customer confirmation/rejection on webhook retries or repeated taps.
-  if(data.idempotent_replay===true){
-    return {handled:true,status:expected.toUpperCase(),booking_id:parsed.booking_id,idempotent_replay:true};
   }
   // Customer delivery must finish before telling the owner the notification was sent.
   // This does not make the flow exactly-once: durable outbox/receipt is still required
