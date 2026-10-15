@@ -18,7 +18,8 @@ test('OIDC accepts only exact direct or owner-router reusable workflow refs with
  const repo='mikesd1995/kk-phone-rental-vercel';
  const ref='refs/heads/main';
  const target=repo+'/.github/workflows/ultra-deep-full-loop.yml@';
- const router=repo+'/.github/workflows/kk-owner-comment-command-router.yml@'+ref;
+ assert.equal(OIDC.ROUTER_WORKFLOW_REF,'.github/workflows/kk-owner-comment-command-router.yml@');
+ const router=repo+'/'+OIDC.ROUTER_WORKFLOW_REF+ref;
  const now=Math.floor(Date.now()/1000);
  const claims={
   iss:OIDC.ISSUER,aud:OIDC.AUDIENCE,nbf:now-10,exp:now+300,

@@ -205,3 +205,23 @@ test('full booking blocks fuzzy existing candidates but preserves canonical dire
  assert.equal(direct.dispositions[0].status,'SAFE_EXISTING');
  assert.equal(direct.safe_candidates[0].existing_event_id,'EVT-EX');
 });
+
+test('full booking takes precedence over ambiguous fuzzy event candidates',()=>{
+ const s=snapshot();
+ s.events=[
+  {event_id:'1',event_name:'Artist Live Bangkok',event_date:'2026-10-20',venue:'BITEC',active_on_web:true},
+  {event_id:'2',event_name:'Artist Live Bangkok Special',event_date:'2026-10-20',venue:'BITEC',active_on_web:true}
+ ];
+ s.web_ready=[];s.web_packages=[];s.visibility_locks=[];
+ s.bookings=[
+  {booking_id:'FULL-A',event_date:'2026-10-20',booking_status:'confirmed'},
+  {booking_id:'FULL-B',event_date:'2026-10-20',booking_status:'pending'}
+ ];
+ const candidate={event_key:'FULL-FUZZY',title:'Artist Live Bangkok Show',event_date:'2026-10-20',venue:'BITEC'};
+ const out=R.reconcileCandidates([candidate],s);
+ assert.equal(out.dispositions[0].status,'SKIPPED_FULL_BOOKING_DATE');
+ assert.equal(out.safe_candidates.length,0);
+ const direct=R.reconcileCandidates([{...candidate,canonical_event_id:'1'}],s);
+ assert.equal(direct.dispositions[0].status,'SAFE_EXISTING');
+ assert.equal(direct.safe_candidates[0].existing_event_id,'1');
+});
