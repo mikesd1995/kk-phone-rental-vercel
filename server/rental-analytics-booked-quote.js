@@ -27,10 +27,16 @@ function bookedPriceRows(rows,masterCsv,parseCsv){
     if(byKey.has(k)){byKey.set(k,null);continue;} // duplicate identity is ambiguous, even if prices match
     byKey.set(k,{status:norm(r[idx.status]).toLowerCase(),package_type:norm(r[idx.pkg]).toLowerCase(),price:positivePrice(r[idx.price])});
   }
+  const seenActiveHelper=new Set();
   return rows.map(r=>{
     const status=norm(r.status).toLowerCase();
     if(!ACTIVE.has(status))return {...r,package_price:null};
-    const found=byKey.get(key(r.booking_id,r.event_id));
+    const helperKey=key(r.booking_id,r.event_id);
+    // A duplicated active helper identity would count one real booking twice,
+    // even when each row matches the same canonical Master quote and status.
+    if(seenActiveHelper.has(helperKey))throw error('RENTAL_ACTIVE_HELPER_DUPLICATE');
+    seenActiveHelper.add(helperKey);
+    const found=byKey.get(helperKey);
     if(!found || found.price===null || found.status!==status ||
        !norm(r.package_type) || found.package_type!==norm(r.package_type).toLowerCase()){
       // No guessing across similarly named customers, archive rows or reused booking IDs.

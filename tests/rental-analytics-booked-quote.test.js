@@ -84,3 +84,29 @@ test('excluded cancelled/no_show/blank never use cash or unverified quotes as Fu
 test('Master header drift rejects unsafe inferred column offsets',()=>{
  assert.throws(()=>Quote.bookedPriceRows([booking('BK-1','EV-1','confirmed','phone_only')],csv([['booking_id','event_id'],['BK-1','EV-1']]),parseCsv),e=>e.code==='RENTAL_MASTER_QUOTE_SCHEMA_INVALID');
 });
+
+test('duplicate active helper identity fails closed before Future revenue can be counted twice',()=>{
+ const one=booking('BK-DUP','EV-X','confirmed','phone_only',0);
+ const source=master(row('BK-DUP','EV-X','confirmed','phone_only',890));
+ assert.throws(()=>Quote.bookedPriceRows([one,{...one,created_at:'different'}],source,parseCsv),
+  e=>e.code==='RENTAL_ACTIVE_HELPER_DUPLICATE');
+ assert.throws(()=>Quote.bookedPriceRows([one,{...one,status:'prepared'}],source,parseCsv),
+  e=>e.code==='RENTAL_ACTIVE_HELPER_DUPLICATE'||e.code==='RENTAL_ACTIVE_QUOTE_UNVERIFIED');
+});
+test('same booking ID on different events remains valid and excluded duplicates do not inflate Future',()=>{
+ const a=booking('SHARED','EV-A','confirmed','phone_only',0);
+ const b=booking('SHARED','EV-B','confirmed','phone_only',0);
+ const cancelled=booking('CANCELLED','EV-C','cancelled','phone_only',500);
+ const x=Quote.bookedPriceRows([a,b,cancelled,{...cancelled}],
+  master(row('SHARED','EV-A','confirmed','phone_only',590),row('SHARED','EV-B','confirmed','phone_only',790)),parseCsv);
+ assert.equal(x[0].package_price,590);
+ assert.equal(x[1].package_price,790);
+ assert.equal(x[2].package_price,null);
+ assert.equal(x[3].package_price,null);
+ for(const aggregate of [Core.aggregate,Private.aggregate]){
+  const totals=aggregate(x).metrics;
+  assert.equal(totals.actual_revenue,0);
+  assert.equal(totals.future_revenue,1380);
+  assert.equal(totals.forecast_revenue,1380);
+ }
+});
