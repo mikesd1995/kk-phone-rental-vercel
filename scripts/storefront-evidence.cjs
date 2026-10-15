@@ -131,7 +131,7 @@ async function inspectState(page){
       }]:[];
     });
     const escaped=[];
-    for(const card of cards){const c=card.getBoundingClientRect();for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){const r=el.getBoundingClientRect();if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1)escaped.push(el.className);}}
+    for(const card of cards){const c=card.getBoundingClientRect();for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){const r=el.getBoundingClientRect();if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1)escaped.push(String(el.className)+'[card='+Math.round(c.width)+'x'+Math.round(c.height)+'; offset='+Math.round(r.left-c.left)+','+Math.round(r.top-c.top)+'; child='+Math.round(r.width)+'x'+Math.round(r.height)+'; beyond='+Math.round(r.right-c.right)+','+Math.round(r.bottom-c.bottom)+']');}}
     const modal=document.querySelector('.overlay.active .modal,.faq-overlay.active .modal');
     const scope=modal||document;
     const targets=[...scope.querySelectorAll('button,a[href],input,select')].filter(visible).filter(el=>!el.classList.contains('skip-link'));

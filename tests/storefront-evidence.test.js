@@ -118,9 +118,9 @@ test('V6.12 owner-approved centered mobile modal is still checked for drift, con
   assert.ok(E.stateFindings({...healthy(),modal:{...modal,...drift}},{width:390,name:'modal'}).some(x=>x.code==='MOBILE_DIALOG_NOT_CENTERED'));
  }
  const source=fs.readFileSync('scripts/storefront-evidence.cjs','utf8');
- assert.match(source,/querySelector\\(':scope > img'\\)/);
- assert.doesNotMatch(source,/wrap&&wrap\\.querySelector\\('img'\\)/);
+ assert.equal(source.includes("querySelector(':scope > img')"),true);
+ assert.equal(source.includes("wrap&&wrap.querySelector('img')"),false);
  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
  assert.match(css,/PR #744 visual acceptance: precise narrow-card containment/);
- assert.match(css,/\\.concert-card \\.pi-price\\{[^}]*white-space:normal!important/);
+ assert.equal(css.includes('.concert-card .pi-price{min-width:0!important;max-width:100%!important;white-space:normal!important'),true);
 });
