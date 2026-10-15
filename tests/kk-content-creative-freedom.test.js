@@ -24,7 +24,7 @@ const input={
   day_statuses_verified:true,
   day_statuses:[{date_label:'3 ต.ค.',status:'available'}],
   official_event_hashtag:'#ExampleConcert',
-  verified_hashtags:['#ExampleConcert','#ArtistExample','#เช่ามือถือ']
+  verified_hashtags:['#ExampleConcert','#ArtistExample','#FandomExample','#ExampleLive','#เช่ามือถือ']
 };
 
 function metrics(overrides={}){
@@ -62,7 +62,7 @@ function flexiblePost(hook){
    '👉 เลือกวันแล้วจองคิว',
    'kk-phone-rental.vercel.app',
    '',
-   '#ArtistExample'
+   '#ArtistExample #FandomExample #ExampleLive'
  ].join('\n');
 }
 
