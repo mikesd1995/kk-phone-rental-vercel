@@ -28,7 +28,7 @@ async function fetchCsv(sheetId,sheet,range){
   }finally{ clearTimeout(timer); }
 }
 async function coreCsv(sheetId,sheet,range,env=process.env){
-  if(String(env[CanonicalQuote.FLAG]||'').trim()!=='1')return fetchCsv(sheetId,sheet,range);
+  if(!CorePrivacy.enabled(env))return fetchCsv(sheetId,sheet,range);
   try{return await CorePrivacy.readCsv({sheetId,sheet,range,env});}
   catch(_){const e=new Error('CORE_QUOTE_PRIVATE_READ_FAILED');e.code='CORE_QUOTE_PRIVATE_READ_FAILED';throw e;}
 }

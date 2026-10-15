@@ -4,6 +4,7 @@
 // This module NEVER writes. It reconstructs the Admin snapshot from Google Sheets
 // only when the Apps Script snapshot upstream is unavailable.
 const privateSheets = require('../api/lib/private-google-sheets.js');
+const CorePrivacy = require('./core-sheet-private-reader.js');
 const BookingLifecycleShadow = require('./kk-booking-lifecycle-shadow.js');
 const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3.1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
@@ -141,12 +142,20 @@ function valuesAsObjects(values,requiredHeader,startRow=1){
 
 async function readSpecPrivate(sheetId,key,env,fetchImpl){
   const spec=SPECS[key];
-  const values=await privateSheets.readValues({
-    sheetId,
-    range:spec.sheet+'!'+spec.range,
-    env,
-    fetchImpl
-  });
+  const strictCore=CorePrivacy.enabled(env);
+  const values=strictCore
+    ? await CorePrivacy.readValues({sheetId,sheet:spec.sheet,range:spec.range,env})
+    : await privateSheets.readValues({sheetId,range:spec.sheet+'!'+spec.range,env,fetchImpl});
+  // Strict Core private reads are anchored at A4/A1, the actual schema row.
+  // Do not reinterpret customer/booking values later in the sheet as headers.
+  // Preserve legacy flexible parsing only for non-cutover read modes.
+  if(strictCore&&(!Array.isArray(values)||!Array.isArray(values[0])||
+    !values[0].some(v=>String(v||'').trim()===spec.header))){
+    const err=new Error('CORE_PRIVATE_SCHEMA_INVALID');
+    err.code='CORE_PRIVATE_SCHEMA_INVALID';
+    err.dataset=key;
+    throw err;
+  }
   return valuesAsObjects(values,spec.header,spec.startRow||1);
 }
 
@@ -273,9 +282,16 @@ function fetchIdentityKey(fetchImpl){
 }
 
 function snapshotCacheKey(sheetId,env,fetchImpl){
-  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE);
-  const privateConfigured=!!privateSheets.credentialsFromEnv(env);
-  return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',fetchIdentityKey(fetchImpl)].join('|');
+  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE)||CorePrivacy.enabled(env);
+  const privateConfigured=CorePrivacy.enabled(env) ? CorePrivacy.state(env).configured : !!privateSheets.credentialsFromEnv(env);
+  // Never reuse a snapshot across private transport/credential cutovers.
+  // Hash the credential identity, not the key itself; no secrets in cache keys/logs.
+  const crypto=require('node:crypto');
+  const source=CorePrivacy.enabled(env)?CorePrivacy.state(env):null;
+  const transport=source?source.transport:'legacy';
+  const credential=source&&transport==='apps-script'?String(env.KK_CORE_PRIVATE_READ_KEY||''):'';
+  const credentialTag=credential?crypto.createHash('sha256').update(credential).digest('hex').slice(0,16):'unset';
+  return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',transport,credentialTag,fetchIdentityKey(fetchImpl)].join('|');
 }
 
 function clearSnapshotCache(){
@@ -288,10 +304,11 @@ async function buildSnapshotUncached(options={}){
   const sheetId=String(options.sheetId||env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
   const fetchImpl=options.fetchImpl||fetch;
   if(!sheetId) throw new Error('Fallback sheet id missing');
+  if(CorePrivacy.enabled(env)) CorePrivacy.requireExplicitPrivateSource(sheetId,env);
   const startedAt=Date.now();
   const keys=Object.keys(SPECS);
-  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE);
-  const privateConfigured=!!privateSheets.credentialsFromEnv(env);
+  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE)||CorePrivacy.enabled(env);
+  const privateConfigured=CorePrivacy.enabled(env) ? CorePrivacy.state(env).configured : !!privateSheets.credentialsFromEnv(env);
   let values=null;
   let transportMeta={snapshot_source:'direct-sheet-gviz-readonly-fallback',fallback_reader:'public-gviz',fallback_private_attempted:false,fallback_private_error_code:''};
 
@@ -299,8 +316,9 @@ async function buildSnapshotUncached(options={}){
     transportMeta.fallback_private_attempted=true;
     try{
       values=await Promise.all(keys.map(k=>readSpecPrivate(sheetId,k,env,fetchImpl)));
-      transportMeta.snapshot_source='direct-sheet-private-service-account-readonly-fallback';
-      transportMeta.fallback_reader='private-service-account';
+      const viaScript=CorePrivacy.enabled(env)&&CorePrivacy.state(env).transport==='apps-script';
+      transportMeta.snapshot_source=viaScript?'direct-sheet-private-owner-apps-script-readonly-fallback':'direct-sheet-private-service-account-readonly-fallback';
+      transportMeta.fallback_reader=viaScript?'private-owner-apps-script':'private-service-account';
     }catch(err){
       transportMeta.fallback_private_error_code=String((err&&err.code)||'PRIVATE_FALLBACK_READ_FAILED');
       if(requirePrivate) throw err;

@@ -36,7 +36,7 @@ async function fetchCsv(sheetId,sheet,range){
   }finally{clearTimeout(timer);}
 }
 async function coreCsv(sheetId,sheet,range,env=process.env){
-  if(String(env[CanonicalQuote.FLAG]||'').trim()!=='1')return fetchCsv(sheetId,sheet,range);
+  if(!CorePrivacy.enabled(env))return fetchCsv(sheetId,sheet,range);
   try{return await CorePrivacy.readCsv({sheetId,sheet,range,env});}
   catch(_){const e=new Error('CORE_QUOTE_PRIVATE_READ_FAILED');e.code='CORE_QUOTE_PRIVATE_READ_FAILED';throw e;}
 }
@@ -262,7 +262,7 @@ module.exports=async function handler(req,res){
   const crmSheetId=String(process.env.KK_CRM_SHEET_ID||DEFAULT_CRM_SHEET_ID).trim();
   const trackerId=String(process.env.KK_EVENT_TRACKER_SHEET_ID||DEFAULT_TRACKER_ID).trim();
   const env=Object.assign({},process.env,{KK_CRM_SHEET_ID:crmSheetId});
-  const cfg=privateSheets.configState(env);
+  const cfg=privateSheets.configState(CorePrivacy.enabled(env)?Object.assign({},env,{GOOGLE_SHEET_ID:''}):env);
   if(!cfg.configured){
     if(String(env[CanonicalQuote.FLAG]||'').trim()==='1')
       return json(res,503,{ok:false,error:'Canonical private quote reader unavailable',error_code:'CORE_QUOTE_PRIVATE_READ_FAILED'});
