@@ -12,6 +12,7 @@ const input={
   verified_event:true,
   verified_pricing:true,
   inventory_available:true,
+  verified_hashtags:['#เช่ามือถือ','#ExampleFanParty','#ExampleArtist','#ExampleFans','#ExampleLive'],
   recent_context_checked:true,
   recent_posts:[],
   day_statuses_verified:true,
@@ -42,7 +43,7 @@ function copy(hook='คืนพิเศษที่ได้เจอศิล
     '',
     '👉 เลือกวันแล้วจองคิว',
     'kk-phone-rental.vercel.app',
-    '#ExampleFanParty'
+    '#ExampleArtist #ExampleFans #ExampleLive'
   ].join('\n');
 }
 function fail(post,change={},pattern){
@@ -67,8 +68,18 @@ test('blocks repeated brand or model in prose and quantity or urgency claims',()
   fail(copy().replace('คืนพิเศษ','เหลือ 1 เครื่อง คืนพิเศษ'),{},/STOCK_QUANTITY_OR_SCARCITY_FORBIDDEN/);
   fail(copy().replace('คืนพิเศษ','เครื่องว่าง 1\/2 คืนพิเศษ'),{},/STOCK_QUANTITY_OR_SCARCITY_FORBIDDEN/);
 });
-test('short standard CTA required; long legacy CTA blocked',()=>{
-  fail(copy().replace('👉 เลือกวันแล้วจองคิว','👉 จองคิว / เช็กคิวว่าง'),{},/SHORT_CTA_REQUIRED/);
+test('Premium longform accepts a tailored booking CTA and rejects missing or multiple CTAs',()=>{
+  const personal=copy().replace('👉 เลือกวันแล้วจองคิว','👉 มีบัตรคืนฮาโลวีนแล้ว จองคิวรับเครื่องให้ตรงวันได้เลย');
+  assert.equal(Policy.validatePost(personal,input).gate,'PASS');
+  fail(copy().replace('👉 เลือกวันแล้วจองคิว','👉 ขอบคุณที่ติดตาม'),{},/SINGLE_EVENT_CTA_REQUIRED/);
+  fail(copy()+'\n👉 จองคิวเพิ่มอีกครั้ง',{},/SINGLE_EVENT_CTA_REQUIRED/);
+  const long=copy().replace('คืนพิเศษที่ได้เจอศิลปินในธีมฮาโลวีน 🎃',
+    'คืนพิเศษที่ได้เจอศิลปินในธีมฮาโลวีน 🎃 '.repeat(24));
+  assert.equal(Policy.validatePost(long,input).gate,'PASS');
+});
+test('enforces five DISTINCT verified hashtags, not five repeated tags',()=>{
+  fail(copy().replace('#ExampleArtist #ExampleFans #ExampleLive','#ExampleArtist'),{},/FIVE_DISTINCT_HASHTAGS_REQUIRED/);
+  fail(copy().replace('#ExampleLive','#NotVerified'),{},/UNVERIFIED_HASHTAG/);
 });
 test('verified owner-closed and hidden dates display as FULL only in X copy',()=>{
   for(const state of ['closed','hidden','hide','owner_closed','locked']){
