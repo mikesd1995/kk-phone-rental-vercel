@@ -48,3 +48,6 @@ The invocation writer calls this function after request schema validation. Its s
 - 2026-10-15: GitHub main source and active Supabase Edge source both had self-recursive resolver.
 - 2026-10-15: Supabase logs observed authenticated memory read 200 and audit write 503 in same issue run; no OIDC identity failure.
 - 2026-10-15: Supabase SQL read-only verification: agent invocation table present, RLS enabled, service_role INSERT/SELECT only; 0 rows.
+- 2026-10-15: Executed **11/11** read-only in-memory source checks using the modified branch file (5 runtime resolver cases: valid URL/key, missing URL, missing key, malformed key JSON, empty key; 6 auth/audit source-contract assertions). All passed. These are **not a substitute** for Node CI, Edge deployment, or live database write/readback.
+- 2026-10-15: Node test file syntax parsed successfully and Project Memory bootstrap with new incident entry returned **READY**, domain agent_orchestration. No false PASS asserted.
+- 2026-10-15: Draft PR [#746](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/746) opened with 4 changed files. GitHub commit status and pull-request workflow run queries returned **no status/runs** for PR head at inspection time; full CI remains UNVERIFIED.
