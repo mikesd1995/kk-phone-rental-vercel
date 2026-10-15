@@ -139,3 +139,18 @@ test('batch bridge rejects non-owner issue authors before agent execution',async
   assert.equal(result.status,'BLOCKED');
   assert.match(result.blocker,/BATCH_BRIDGE_OWNER_ONLY/);
 });
+
+test('premium batch blocks the same booking CTA repeated across distinct events',async()=>{
+  const first=item(1,'Event 1 มีโมเมนต์ Group Shot กับศิลปินที่แฟนด้อมอยากเก็บ');
+  const second=item(2,'Event 2 มี Synthphony สดในโชว์พิเศษและโทนบรรยากาศอีกแบบ');
+  for(const candidate of second.candidates){
+    candidate.copy=candidate.copy.replace('👉 เลือกวันแล้วจองคิวงาน Event 2','👉 เลือกวันแล้วจองคิวงาน Event 1');
+  }
+  const result=await Bridge.runBridge({
+    event:event(),payload:{items:[first,second]},
+    ledgerFn:async row=>({ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id})
+  });
+  assert.equal(result.status,'BLOCKED');
+  assert.equal(result.blocker,'BATCH_DIVERSITY_QA_FAILED');
+  assert.match(result.batch_qa.errors.join('|'),/BATCH_CTA_DUPLICATE/);
+});
