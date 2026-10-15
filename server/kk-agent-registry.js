@@ -102,6 +102,14 @@ const AGENTS = Object.freeze({
     production_writes: 0,
     note: 'Locks supplied references, plans image/motion production, and fails closed on identity/reference QA. Cannot publish or mutate business data.'
   }),
+  'kk-poster-integrity-advisor': Object.freeze({
+    version: 'KK_POSTER_INTEGRITY_ADVISOR_V1',
+    authority: 'READ_ONLY_EVIDENCE_TRIAGE',
+    runtime_state: 'CALLABLE_ZERO_COST',
+    surface: 'AGENT_GATEWAY_AND_EXISTING_POSTER_AUDIT',
+    production_writes: 0,
+    note: 'Advisory exact-event poster integrity and delivery checks only; no autonomous image replacement, booking mutation, paid AI calls, external publishing or visual-proof claims.'
+  }),
   'kk-storefront-art-director': Object.freeze({
     version: 'KK_STOREFRONT_ART_DIRECTOR_V3',
     authority: 'READ_ONLY_ART_DIRECTION',
@@ -431,6 +439,15 @@ const ROUTES = Object.freeze({
     downstream_agents: Object.freeze([]),
     runtime_available: true,
     owner_review_required: false,
+    persistent_invocation_evidence_required: true
+  }),
+  poster_integrity_review: Object.freeze({
+    route_id: 'ZERO_COST_POSTER_INTEGRITY_REVIEW',
+    request_type: 'STOREFRONT_POSTER_IDENTITY_DELIVERY_AUDIT',
+    required_agents: Object.freeze(['kk-poster-integrity-advisor']),
+    downstream_agents: Object.freeze([]),
+    runtime_available: true,
+    owner_review_required: true,
     persistent_invocation_evidence_required: true
   }),
   storefront_ai_review: Object.freeze({
