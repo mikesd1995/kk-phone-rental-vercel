@@ -2548,3 +2548,46 @@ html[data-theme="dark"] .kk-benefit-grid .benefit-icon{
     background-size:100% 100%,auto 158%!important;
   }
 }
+
+
+/* KK hero QA R3 — resilient real card content geometry, 2026-10-16.
+   Layout only: never change price or availability values. */
+@media (max-width:700px){
+  .poster-grid .pi-meta{min-width:0!important;max-width:100%!important;}
+  .poster-grid .pi-price{
+    display:block!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+    word-break:normal!important;
+    text-align:right!important;
+    box-sizing:border-box!important;
+  }
+  .poster-grid .poster-info{
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+}
+@media (max-width:359px){
+  .poster-grid{grid-auto-rows:auto!important}
+  .poster-grid .concert-card{
+    height:auto!important;
+    min-height:0!important;
+    aspect-ratio:auto!important;
+    align-self:start!important;
+    overflow:hidden!important;
+  }
+  .poster-grid .poster-img-wrap{
+    flex:0 0 auto!important;
+    height:auto!important;
+    min-height:0!important;
+    aspect-ratio:4/5!important;
+  }
+  .poster-grid .poster-info{
+    height:auto!important;
+    flex:0 0 auto!important;
+  }
+}
