@@ -44,6 +44,20 @@ function validatePost(post,input={}){
       ?input.verified_hashtags.map(value=>text(value).toLowerCase()):[])
   ]);
   if(usedTags.length<5)errors.push('OWNER_X_FIVE_DISTINCT_HASHTAGS_REQUIRED');
+  // The brand + official event tag + three relevant closing tags form the
+  // owner's minimum X post contract. Do not count scattered tags as a footer.
+  const officialTag=text(input.official_event_hashtag).toLowerCase();
+  if(!/^#[\\p{L}\\p{M}\\p{N}_]+$/u.test(officialTag) ||
+    !lines.slice(1,-1).some(line=>(line.match(/#[\\p{L}\\p{M}\\p{N}_]+/gu)||[])
+      .some(tag=>tag.toLowerCase()===officialTag)))
+    errors.push('OWNER_X_OFFICIAL_EVENT_HASHTAG_REQUIRED');
+  const closingTags=(lines[lines.length-1]||'').match(/#[\\p{L}\\p{M}\\p{N}_]+/gu)||[];
+  const closingNormalized=closingTags.map(tag=>tag.toLowerCase());
+  if(closingTags.length!==3 || new Set(closingNormalized).size!==3 ||
+    !closingNormalized.every(tag=>verifiedTags.has(tag)&&tag!=='#เช่ามือถือ'&&tag!==officialTag) ||
+    (lines[lines.length-1]||'').replace(/#[\\p{L}\\p{M}\\p{N}_]+/gu,'').trim()!=='')
+    errors.push('OWNER_X_THREE_VERIFIED_CLOSING_HASHTAGS_REQUIRED');
+
   if(usedTags.some(tag=>!verifiedTags.has(tag)))
     errors.push('OWNER_X_UNVERIFIED_HASHTAG');
   if(!copy.includes('kk-phone-rental.vercel.app'))errors.push('OWNER_X_BOOKING_LINK_REQUIRED');
