@@ -792,6 +792,11 @@ function setImgFallback(img, urls, options){
   function imageHasPixels(){ return !!(img && img.complete && Number(img.naturalWidth||0)>0); }
   function settleLoaded(){
     clearTimer(); settled=true;
+    // Explicit positive-pixel readback for cached images whose load event
+    // may be missed by a newly created lazy/candidate fallback chain.
+    if(imageHasPixels() && typeof options.onLoaded==="function"){
+      try{options.onLoaded(img);}catch(_){}
+    }
     img.onerror=null; img.onload=null;
   }
   function exhausted(){
@@ -1462,11 +1467,11 @@ function renderConcerts(concerts){
         // when a single image exhausts its delivery candidates.
       };
       if(idx<6){
-        setImgFallback(img,imgCandidates,{timeoutMs:4000,onExhausted:posterFailure});
+        setImgFallback(img,imgCandidates,{timeoutMs:4000,onLoaded:syncPosterTreatment,onExhausted:posterFailure});
       }else{
         // Do not start a timeout while a native-lazy image is still off-screen.
         // Start the fallback chain when the card is near the viewport.
-        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure});
+        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onLoaded:syncPosterTreatment,onExhausted:posterFailure});
       }
     } else {
       card.dataset.posterMissing="1";

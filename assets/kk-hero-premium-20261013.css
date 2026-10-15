@@ -1,0 +1,280 @@
+/* Premium Hero 2026-10-13 — isolated presentational override.
+   Artwork is only the right product crop of the owner-selected image.
+   All visible copy, CTA links and bilingual controls remain live DOM. */
+html .kk-mock-hero {
+  grid-template-columns: minmax(0, 1.06fr) minmax(0, .94fr)!important;
+  min-height: 430px!important;
+  gap: clamp(22px, 3vw, 38px)!important;
+  padding: clamp(26px, 3.4vw, 42px)!important;
+  border: 1px solid rgba(80, 160, 255, .58)!important;
+  border-radius: 28px!important;
+  background:
+    radial-gradient(ellipse 60% 82% at 90% 10%, rgba(24,111,229,.30), transparent 75%),
+    radial-gradient(ellipse 75% 95% at 0% 100%, rgba(5,91,193,.17), transparent 75%),
+    linear-gradient(125deg,#061327 0%,#081a36 60%,#0a2550 100%)!important;
+  box-shadow: 0 20px 52px rgba(4,24,55,.17), inset 0 1px rgba(160,209,255,.07)!important;
+}
+html .kk-mock-hero .v3-hero-copy{max-width:100%!important;min-width:0!important}
+html .kk-mock-hero .v3-eyebrow{
+  margin-bottom:20px!important;
+  color:#e8f3ff!important;
+  font-size:12px!important;
+  line-height:1.55!important;
+  font-weight:700!important;
+  letter-spacing:.025em!important;
+}
+html .kk-mock-hero .v3-eyebrow span{color:#66baff!important}
+html .kk-mock-hero h1{
+  font-size:clamp(36px,3.55vw,54px)!important;
+  font-weight:750!important;
+  letter-spacing:-.038em!important;
+  line-height:1.13!important;
+  max-width:100%!important;
+  color:#fff!important;
+  text-wrap:pretty;
+}
+html .kk-mock-hero h1 em{
+  color:#a6d9ff!important;
+  background:linear-gradient(95deg,#83ceff 2%,#fff 95%)!important;
+  background-clip:text!important;
+  -webkit-background-clip:text!important;
+  -webkit-text-fill-color:transparent!important;
+}
+html .kk-mock-hero .v3-hero-copy>p{
+  color:#cedff4!important;
+  max-width:33rem!important;
+  margin-top:19px!important;
+  font-size:14px!important;
+  line-height:1.65!important;
+}
+html .kk-mock-hero .v3-hero-actions{margin-top:25px!important;gap:12px!important}
+html .kk-mock-hero .v3-primary,
+html .kk-mock-hero .v3-secondary{
+  min-height:48px!important;
+  border-radius:999px!important;
+  padding:0 20px!important;
+  font-weight:750!important;
+  font-size:13px!important;
+}
+html .kk-mock-hero .v3-primary{
+  background:linear-gradient(100deg,#1878ff,#0968e7)!important;
+  box-shadow:0 7px 23px rgba(21,112,246,.35),inset 0 1px rgba(255,255,255,.18)!important;
+  border:1px solid rgba(147,203,255,.55)!important;
+}
+html .kk-mock-hero .v3-primary:hover{background:#095fdc!important}
+html .kk-mock-hero .v3-secondary{
+  background:rgba(9,27,53,.6)!important;
+  color:#f2f9ff!important;
+  border:1px solid rgba(135,191,255,.65)!important;
+}
+html .kk-mock-hero .kk-hero-art{
+  align-self:center!important;
+  height:auto!important;
+  aspect-ratio:765/541!important;
+  width:100%!important;
+  min-height:0!important;
+  max-height:none!important;
+  border:1px solid rgba(147,201,255,.75)!important;
+  border-radius:23px!important;
+  background-color:#0e2b56!important;
+  background-image:url('/assets/kk-hero-product-20261013.webp')!important;
+  background-repeat:no-repeat!important;
+  background-position:center center!important;
+  background-size:cover!important;
+  box-shadow:0 18px 42px rgba(0,9,30,.37),0 0 34px rgba(32,120,255,.14)!important;
+}
+html .kk-mock-hero .kk-hero-art::after{
+  background:linear-gradient(180deg,transparent 60%,rgba(3,20,52,.13))!important;
+}
+@media(min-width:701px) and (max-width:1100px){
+  html .kk-mock-hero{
+    grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr)!important;
+    min-height:340px!important;
+    padding:28px!important;
+    gap:20px!important;
+  }
+  html .kk-mock-hero h1{font-size:clamp(33px,3.8vw,44px)!important}
+  html .kk-mock-hero .kk-hero-art{min-height:0!important}
+}
+@media(max-width:700px){
+  html .kk-mock-hero{
+    grid-template-columns:minmax(0,1fr) minmax(110px,.55fr)!important;
+    min-height:0!important;
+    padding:18px!important;
+    gap:12px!important;
+    border-radius:19px!important;
+  }
+  html .kk-mock-hero .v3-eyebrow{
+    margin-bottom:8px!important;
+    font-size:10px!important;
+  }
+  html .kk-mock-hero h1{
+    font-size:clamp(25px,6.2vw,34px)!important;
+    line-height:1.15!important;
+  }
+  html .kk-mock-hero .v3-hero-actions{margin-top:13px!important;gap:8px!important}
+  html .kk-mock-hero .v3-primary, html .kk-mock-hero .v3-secondary{
+    min-height:44px!important;
+    font-size:12px!important;
+    padding:0 12px!important;
+  }
+  html .kk-mock-hero .kk-hero-art{
+    min-height:0!important;
+    max-height:none!important;
+    aspect-ratio:765/541!important;
+    align-self:center!important;
+    border-radius:13px!important;
+  }
+}
+@media(min-width:376px) and (max-width:480px){
+  html .kk-mock-hero{
+    grid-template-columns:minmax(0,1fr) minmax(96px,.48fr)!important;
+    gap:9px!important;
+    padding:15px!important;
+  }
+  html .kk-mock-hero h1{font-size:clamp(25px,6.4vw,30px)!important}
+  html .kk-mock-hero .v3-secondary{display:none!important}
+}
+@media(max-width:375px){
+  html .kk-mock-hero{display:block!important;padding:16px 17px!important}
+  html .kk-mock-hero .kk-hero-art{display:none!important}
+  html .kk-mock-hero h1{font-size:clamp(26px,8vw,30px)!important}
+  html .kk-mock-hero .v3-secondary{display:none!important}
+}
+@media(prefers-reduced-motion:reduce){
+  html .kk-mock-hero .v3-primary,html .kk-mock-hero .v3-secondary{transition:none!important}
+}
+
+/* Mobile typography fix — 2026-10-13
+   Owner-screenshot follow-up: at 390–480px the two-column hero wraps the
+   Thai headline into an orphan final syllable. Stack the isolated image below
+   live text between 376px and 540px; >=541px keeps the split desktop-like hero.
+   Preserve <=375px content-only fallback and clickable first-fold CTA. */
+@media (min-width:376px) and (max-width:540px){
+  html .kk-mock-hero{
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:16px!important;
+    padding:18px!important;
+  }
+  html .kk-mock-hero h1{
+    font-size:clamp(27px,6.9vw,34px)!important;
+    line-height:1.15!important;
+    max-width:100%!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important;
+  }
+  html .kk-mock-hero .kk-hero-art{
+    display:block!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-height:0!important;
+    height:auto!important;
+    aspect-ratio:765/541!important;
+    border-radius:15px!important;
+  }
+  html .kk-mock-hero .v3-hero-actions{margin-top:15px!important}
+  html .kk-mock-hero .v3-primary{min-height:44px!important}
+}
+
+
+/* Intermediate tablet 541–700px — keep Thai headline coherent.
+   Prevent the last Thai syllable from sitting alone when the product column
+   reduces the live title width. Mobile <=540px remains stacked. */
+@media (min-width:541px) and (max-width:700px){
+  html .kk-mock-hero h1{
+    font-size:clamp(27px,5vw,33px)!important;
+    line-height:1.18!important;
+  }
+  html .kk-mock-hero h1 em{
+    font-size:.81em!important;
+    letter-spacing:-.035em!important;
+  }
+}
+
+
+/* Compact mobile hero — 2026-10-13 visual QA P1 fix.
+   Registered exact-HEAD reviewer found HERO_DOMINATES_MOBILE at 390,430,480.
+   The previous 376-540 stacked panel pushed first event below the fold.
+   Use a narrow product showcase alongside smaller balanced live copy instead.
+   Preserve TH/EN DOM text, keyboard links and 44px touch target. */
+@media (min-width:376px) and (max-width:540px){
+  html .kk-mock-hero{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(112px,.56fr)!important;
+    align-items:center!important;
+    gap:10px!important;
+    padding:17px!important;
+    min-height:0!important;
+  }
+  html .kk-mock-hero h1{
+    font-size:clamp(25px,5.8vw,31px)!important;
+    line-height:1.13!important;
+    letter-spacing:-.035em!important;
+  }
+  html .kk-mock-hero h1 em{
+    font-size:.79em!important;
+    letter-spacing:-.03em!important;
+    text-wrap:balance!important;
+  }
+  html .kk-mock-hero .kk-hero-art{
+    display:block!important;
+    min-width:0!important;
+    width:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+    height:auto!important;
+    aspect-ratio:.75!important;
+    background-position:53% center!important;
+    background-size:auto 100%!important;
+    border-radius:14px!important;
+  }
+  html .kk-mock-hero .v3-eyebrow{font-size:10px!important;margin-bottom:10px!important}
+  html .kk-mock-hero .v3-hero-actions{margin-top:16px!important}
+  html .kk-mock-hero .v3-primary{min-height:44px!important}
+  html .kk-mock-hero .v3-secondary{display:none!important}
+}
+
+
+/* 2026-10-13 measured QA card containment: 320px cards measured 352px high
+   against 372px poster + 232px text, while 375–480px prices overflow left
+   because the former nowrap line is wider than its two-column card. */
+@media (max-width:700px){
+  html .poster-grid{grid-auto-rows:auto!important;align-items:stretch!important}
+  html .concert-card{
+    height:auto!important;
+    min-height:0!important;
+    aspect-ratio:auto!important;
+    align-self:stretch!important;
+    box-sizing:border-box!important;
+  }
+  html .concert-card .poster-info{
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+  html .concert-card .pi-meta{min-width:0!important;max-width:100%!important;display:block!important}
+  html .concert-card .pi-price{
+    display:block!important;
+    width:auto!important;
+    max-width:100%!important;
+    min-width:0!important;
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+    word-break:normal!important;
+    text-align:start!important;
+  }
+}
+
+/* Measured offscreen-card visibility correction — 2026-10-13.
+   Native content-visibility:auto + contain-intrinsic-size:350px was measured
+   by full-list QA before offscreen content laid out: card placeholder 352px
+   while poster 372px + text 232px. Eliminate phantom clipping on the 24-card
+   mobile catalogue without hiding any commercial text or changing inventory. */
+@media(max-width:700px){
+  html .poster-grid .concert-card{
+    content-visibility:visible!important;
+    contain-intrinsic-size:none!important;
+    height:auto!important;
+    aspect-ratio:auto!important;
+  }
+}
