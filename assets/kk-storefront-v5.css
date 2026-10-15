@@ -2475,3 +2475,76 @@ html[lang="en"] .kk-hero-proof-text [lang="th"]{display:none!important}
 @media (prefers-reduced-motion:reduce){
   html .kk-mock-hero :is(.v3-primary,.v3-secondary){transition:none!important}
 }
+
+
+/* Reference QA R2, 2026-10-15: mobile first-fold, isolated artwork crop, readable service proofs.
+   Measured against exact PR #752 Chrome screenshots at 320/375/390/430/480/768/1024/1440. */
+html .kk-benefit-grid{
+  background:rgba(3,24,52,.48)!important;
+  border-color:rgba(115,176,245,.35)!important;
+}
+html .kk-benefit-grid>div,
+html[data-theme="dark"] .kk-benefit-grid>div{
+  color:#e0edff!important;
+  border-color:rgba(115,176,245,.25)!important;
+  background:rgba(6,33,73,.28)!important;
+}
+html .kk-benefit-grid .benefit-icon,
+html[data-theme="dark"] .kk-benefit-grid .benefit-icon{
+  background:rgba(20,100,211,.22)!important;
+  color:#8bcdff!important;
+  border-color:rgba(102,183,255,.55)!important;
+}
+@media (min-width:701px){
+  html .kk-mock-hero .kk-hero-art{
+    background-size:100% 100%,auto 168%!important;
+    background-position:center,right center!important;
+  }
+}
+@media (min-width:376px) and (max-width:480px){
+  html .kk-mock-hero{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(106px,.56fr)!important;
+    gap:9px!important;
+    align-items:center!important;
+    padding:16px!important;
+    min-height:0!important;
+  }
+  html .kk-mock-hero .v3-hero-copy{align-self:center!important}
+  html .kk-mock-hero .v3-eyebrow{
+    margin-bottom:9px!important;
+    font-size:9px!important;
+  }
+  html .kk-mock-hero h1{
+    font-size:clamp(23px,5.7vw,28px)!important;
+    line-height:1.16!important;
+    letter-spacing:-.038em!important;
+    text-wrap:pretty!important;
+  }
+  html .kk-mock-hero .v3-hero-copy>p{display:none!important}
+  html .kk-mock-hero .v3-hero-actions{
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    gap:8px!important;
+    margin-top:12px!important;
+  }
+  html .kk-mock-hero .v3-primary,
+  html .kk-mock-hero .v3-secondary{
+    display:inline-flex!important;
+    min-height:44px!important;
+    max-width:100%!important;
+    padding:0 10px!important;
+    font-size:10.5px!important;
+  }
+  html .kk-mock-hero .kk-hero-proofs{display:none!important}
+  html .kk-mock-hero .kk-hero-art{
+    display:block!important;
+    min-height:202px!important;
+    max-height:220px!important;
+    height:210px!important;
+    width:100%!important;
+    align-self:center!important;
+    background-position:center,right center!important;
+    background-size:100% 100%,auto 158%!important;
+  }
+}
