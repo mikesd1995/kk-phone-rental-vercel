@@ -19,3 +19,31 @@ Scope: Draft #742, pre-change HEAD `01842f448fb27e6484e4a9c733e743c104731a6e`. N
 - Since this is backend booking-flow admission behavior, registered UX/owner review still holds for Production release; no Merge/Deploy permitted.
 
 Rollback: revert only the isolated #742 commit. Do not replay LINE events or modify Sheet/Booking/ACL.
+## Verified hosted Native Node 20 completion — final source SHA (15 October 2026)
+
+**Native CI evidence:** [Booking E2E run 38693684661](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38693684661), exact `pull_request` head `c05bcc23bad4bf75a38b093dac6c60626cb42d0f`, ubuntu-22.04 Node20; existing workflow includes exact SHA checkout, source syntax, E2E tests, full `npm test`, pinned-main checkout and failure name equality comparison.
+
+| Check | Observed result |
+|---|---|
+| Booking E2E targeted | **64 / 64 PASS**, 0 fail |
+| Full candidate `npm test` | **1,522 tests: 1,501 PASS, 21 FAIL** |
+| Pinned main `d6dc3bfe...` | **1,498 tests: 1,477 PASS, 21 FAIL** |
+| Compared failed test names | `introduced_failure_names=[]`, `resolved_failure_names=[]`, `same_failure_set=true` |
+| Workflow syntax + exact SHA checkout | PASS |
+| Safety post-condition no provider env activation | PASS |
+| Overall workflow | **FAIL/HOLD**, because 21 baseline full-suite failures remain |
+
+### Resolved new regression after first candidate
+- Initial [run 38693193467](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/38693193467), code SHA `495f76e8234e35bfe18a69eeb8551207650f7e2f`: Booking E2E 64/64 PASS, full 1,522 tests 1,497 PASS / 25 FAIL vs baseline 21. Four introduced names were legacy canonical bundle price, comma price, multiday event/date resolver and safe proxy poster tests.
+- All four introduced names arose from older synthetic WebReady fixtures missing the source-governed `action_for_web`, `booking_status_for_web`, `available_phone_count` fields. Neither test runtime logic nor production business data needed changes.
+- Test fixture-only commits [`bab067e`](https://github.com/mikesd1995/kk-phone-rental-vercel/commit/bab067e820ff6aa60aed9fb3ce4cb05c8f5e20d5) and [`c05bcc2`](https://github.com/mikesd1995/kk-phone-rental-vercel/commit/c05bcc23bad4bf75a38b093dac6c60626cb42d0f) supplied legitimate `show,เปิดจอง,1` to positive and package-negative fixtures. New hide/full/zero-phone tests remain negative and enforced. Final exact run proves the four new failures are cleared with no weakened gate.
+
+### Guard behavior & integration boundary
+- `server/line-booking-webhook.js` requires `action_for_web=show`, `booking_status_for_web=เปิดจอง`, and positive integer available phones before canonical package selection or poster; stale available packages never reopen hidden/full events.
+- LINE reply HTTP/transport error messages never reflect untrusted provider response bodies; a missing canonical source logs a constant static reason, no raw `webhookEventId` or customer-entered event title. This is a source-level risk mitigation, not a certified absence of all possible privacy leaks.
+- No merge, Production or Preview deployment was authorized. No customer LINE push or real Apps Script/Booking/Sheets/ACL write happened in these tests. `main` remains unchanged. No new dependency, package.json, Gemini workflow or paid integration.
+- **Merge remains blocked**: full global 21 baseline failures, registered product/UX reviewer and owner acceptance for this Booking flow change, confirmed deployed Apps Script writer version, durable outbox/recipient receipt / exactly-once semantics with #700 and owner postback version binding with #706, real end-to-end provider UAT. Reconcile #700/#706 later; never cherry-pick blindly.
+
+### Cross-chat handoff
+- Current PR: [#742](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/742), Draft/HOLD. Last native tested code: `c05bcc23bad4bf75a38b093dac6c60626cb42d0f`; this documentation-only commit will follow.
+- Never edit Gemini branches #744/#739/#737. Check exact shared-file lists at any future commit, and keep rollback scoped to this PR's commits. Any merge/deploy must be separately authorized under existing safety gates.
