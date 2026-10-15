@@ -21,8 +21,11 @@ function okResponse(values,extra={}){
  })};
 }
 test('alternate transport is strictly opt-in and rejects non-Google/script URL/credential absent',()=>{
- assert.equal(core.state({}).transport,'service-account');
+ assert.equal(core.state({}).transport,'none');
  assert.equal(core.state(config).configured,true);
+ assert.equal(core.state({KK_CORE_SHEET_REQUIRE_PRIVATE:'1',GOOGLE_SHEET_ID:'owner-test',
+  GOOGLE_SERVICE_ACCOUNT_EMAIL:'read@example.invalid',GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'dummy'}).configured,false,
+  'strict Core cannot silently switch to a service account when the owner-selected transport is unspecified');
  assert.equal(core.state(config).authMode,'apps_script_key');
  for(const bad of [
   'https://evil.com/macros/s/example/exec',

@@ -6,6 +6,7 @@ const AdminFallback=require('../server/admin-sheet-fallback.js');
 
 const env={
   KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+  KK_CORE_PRIVATE_TRANSPORT:'service-account',
   GOOGLE_SHEET_ID:'core-test-sheet',
   GOOGLE_SERVICE_ACCOUNT_EMAIL:'read-only@example.invalid',
   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'test-injected-identity'

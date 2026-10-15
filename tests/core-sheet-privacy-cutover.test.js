@@ -33,6 +33,7 @@ async function envChange(patch,fn){
 }
 const strict={
   KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+  KK_CORE_PRIVATE_TRANSPORT:'service-account',
   GOOGLE_SHEET_ID:'test-core-sheet-id',
   KK_CRM_SHEET_ID:'different-private-crm-id',
   KK_PUBLIC_SHEET_REQUIRE_PRIVATE:undefined,

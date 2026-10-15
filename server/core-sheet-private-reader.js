@@ -12,13 +12,13 @@ function enabled(env=process.env){
 function state(env=process.env){
   const id=String(env.GOOGLE_SHEET_ID||'').trim();
   const credentialsReady=!!privateSheets.credentialsFromEnv(env);
-  const transport=String(env.KK_CORE_PRIVATE_TRANSPORT||'service-account').trim();
+  const transport=String(env.KK_CORE_PRIVATE_TRANSPORT||'none').trim();
   const appsScriptReady=transport==='apps-script'&&AppsScriptReader.scriptState(env).configured;
   const transportReady=transport==='apps-script'?appsScriptReady:transport==='service-account'?credentialsReady:false;
   return {
     strict:enabled(env),sheetId:id,explicitSheetId:!!id,credentialsReady,
     transport,transportReady,configured:!!(id&&transportReady),
-    authMode:transport==='apps-script'?'apps_script_key':credentialsReady?'service_account':'none'
+    authMode:transport==='apps-script'?'apps_script_key':transport==='service-account'&&credentialsReady?'service_account':'none'
   };
 }
 function fail(code){
