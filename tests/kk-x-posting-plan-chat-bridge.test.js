@@ -49,7 +49,11 @@ test('bridge strips obvious secrets from request input',()=>{
 
 test('bridge invokes the real x_posting_plan gateway route and persists invocation evidence',async()=>{
   const event={issue:{number:99,title:'[KK-X-PLAN] acceptance',author_association:'OWNER'}};
-  const result=await Bridge.runBridge({event,payload:payload()});
+  const recorded=[];
+  const result=await Bridge.runBridge({event,payload:payload(),ledgerFn:async row=>{
+    recorded.push(row);
+    return {ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id};
+  }});
   assert.equal(result.status,'PASS');
   assert.equal(result.gateway_status,'RECORDED');
   assert.equal(result.intent,'x_posting_plan');
@@ -59,7 +63,8 @@ test('bridge invokes the real x_posting_plan gateway route and persists invocati
   assert.deepEqual(result.plan.slots.map(x=>x.time),['19:30','21:00','22:30','00:00']);
   assert.equal(result.plan.slots.some(x=>x.event==='Unverified Viral'),false);
   assert.ok(result.plan.rejected_candidates.some(x=>x.event==='Unverified Viral'&&x.reason==='EVENT_NOT_VERIFIED'));
-  assert.equal(result.ledger_rows.length,1);
+  assert.equal(recorded.length,1);
+  assert.equal(result.ledger_rows.length,0);
   assert.equal(result.production_writes,0);
   assert.equal(result.publishes,0);
 });
