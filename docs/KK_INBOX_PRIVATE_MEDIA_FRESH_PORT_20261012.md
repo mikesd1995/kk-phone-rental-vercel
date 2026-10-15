@@ -139,3 +139,38 @@ production acceptance. Source changes were committed to PR #700, branch
    merge/deploy only the reviewed SHA and verify Production/rollback SHA.
    Otherwise remain Draft. Never claim full Inbox fix while 23 historic
    images remain unarchived or booking links remain unverified.
+
+## 2026-10-15 — native source audit and isolated test-boundary repair
+
+- Audited exact #700 source `e454967bb6668d3daa4bf9acd3e859b0fbed81fa`
+  in a detached local worktree using Node `v24.19.0`; no hosted workflow,
+  Preview, production operation, DB migration or provider send was requested.
+- Native `test:inbox:ship-gate` initially reported **149/150 PASS**.
+  The only failure was the no-phone pending-replay source assertion:
+  its `writerBody()` helper ended at the later legacy create-booking
+  function and accidentally included the sibling owner-decision function.
+  The latter contributes two unrelated `customer_contact` fields, so the
+  exact three-field pending-writer invariant incorrectly counted five.
+- Repair only the test helper's end boundary to the next top-level
+  function. The existing three-field assertion is unchanged; all runtime,
+  UI, Apps Script and migration source remains byte-identical to #700.
+  Native `test:inbox:ship-gate` now reports **150/150 PASS**.
+- Full regression remains **FAIL**: before the repair **1,532/1,552 PASS**
+  (20 failures), afterward **1,533/1,552 PASS** (19 failures). Comparing
+  failure names proves only that exact test was removed and no failure
+  was added. The remaining unrelated baseline failures must not be hidden
+  or treated as release acceptance.
+- Independent review accepted the bounded extraction repair without weakening
+  the original invariant. The engineering gate remains **BLOCKED** on full
+  risk regression and release readback; this is a test repair, not acceptance.
+- This audit does not fresh-port #700 onto current canonical #744/main.
+  #700 still includes broader outbound-review, international-contact,
+  Apps Script, UI and migration changes and requires deliberate integration
+  with current security, booking and LINE replay/bookability gates.
+- Actual private media acceptance remains HOLD: a legitimate new consented
+  incoming image, verified signed webhook persistence, private archival,
+  authenticated owner image read, wrong-conversation denial and provider
+  recovery/expiry behavior need fresh runtime evidence. Historical rows
+  without original provider IDs/bytes cannot be called recovered. Outbound
+  concurrency/receipt behavior needs an isolated free test DB and explicit
+  owner-controlled provider acceptance. No production state was changed.

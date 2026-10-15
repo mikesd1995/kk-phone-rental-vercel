@@ -10,8 +10,8 @@ const intake=require('../server/line-booking-intake');
 
 function writerBody(){
   const start=source.indexOf('function kkApiCreateLineBookingPending_');
-  const end=source.indexOf('\nfunction kkApiCreateBooking_',start);
-  assert.ok(start>=0&&end>start,'current-schema LINE pending writer must exist before legacy createBooking');
+  const end=source.indexOf('\nfunction ',start+1);
+  assert.ok(start>=0&&end>start,'current-schema LINE pending writer must end before the next top-level function');
   return source.slice(start,end);
 }
 
