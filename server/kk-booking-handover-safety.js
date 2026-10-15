@@ -29,14 +29,18 @@ function audit(bookings=[],options={}){
   const focus=Array.isArray(options.focusDates)?new Set(options.focusDates.map(isoDate).filter(Boolean)):null;
   const invalidFocus=focusSpecified&&(!Array.isArray(options.focusDates)||options.focusDates.length===0||options.focusDates.some(date=>!isoDate(date)));
   const rows=[];
+  const contextRows=[];
   for(const r of Array.isArray(bookings)?bookings:[]){
     const status=clean(r&&r.booking_status).toLowerCase();
     const id=clean(r.phone_asset_id);
     // A pending request with a reserved phone still participates in asset safety.
     if(!ACTIVE.has(status)&&!(status==='pending'&&id))continue;
     const day=isoDate(r.event_date);
-    if(focus&&(!day||!focus.has(day)))continue;
-    rows.push({day,id,pickup:!!clean(r.pickup_time),return:!!clean(r.return_time)});
+    const context={day,id,pickup:!!clean(r.pickup_time),return:!!clean(r.return_time)};
+    // Day-specific reports must retain neighbors for interday reuse detection.
+    // Missing-time metrics remain scoped to selected dates, never to neighbors.
+    contextRows.push(context);
+    if(!focus||(day&&focus.has(day)))rows.push(context);
   }
   const counts={active_checked:rows.length,invalid_focus_dates:invalidFocus?1:0,missing_event_date:0,missing_asset:0,missing_pickup:0,missing_return:0,same_day_asset_duplicates:0,adjacent_day_asset_reuse:0,unverified_interday_handover:0};
   const byDay=new Map();
@@ -52,10 +56,25 @@ function audit(bookings=[],options={}){
     if(prev)counts.same_day_asset_duplicates++;
     else devices.set(r.id,r);
   }
-  const days=[...byDay.keys()].sort();
+  const contextByDay=new Map();
+  for(const row of contextRows){
+    if(!row.day||!row.id)continue;
+    if(!contextByDay.has(row.day))contextByDay.set(row.day,new Map());
+    const day=contextByDay.get(row.day);
+    if(!day.has(row.id))day.set(row.id,row);
+    else {
+      // An ambiguous duplicate cannot hide missing handover evidence.
+      const seen=day.get(row.id);
+      day.set(row.id,{...seen,pickup:seen.pickup&&row.pickup,return:seen.return&&row.return});
+    }
+  }
+  const days=[...contextByDay.keys()].sort();
   for(let i=0;i<days.length-1;i++){
     if(!adjacent(days[i],days[i+1]))continue;
-    const prev=byDay.get(days[i]),next=byDay.get(days[i+1]);
+    // A one-day focus still checks BOTH neighboring dates. Unrelated pairs
+    // outside the focus are not reported as findings for that day.
+    if(focus&&!focus.has(days[i])&&!focus.has(days[i+1]))continue;
+    const prev=contextByDay.get(days[i]),next=contextByDay.get(days[i+1]);
     for(const [id,left] of prev){
       const right=next.get(id);
       if(!right)continue;

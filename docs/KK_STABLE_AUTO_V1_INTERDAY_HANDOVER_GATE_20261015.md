@@ -23,3 +23,13 @@ Core Master Oct 17 confirmed rows 60/63, Oct 18 rows 52/58; the same two phone a
 - Pending bookings that already claim a phone asset are included in same-day allocation risk; unallocated pending requests remain outside allocated-device analysis.
 - Invalid, empty or malformed date-window filters block instead of misleadingly reporting NO_OBSERVED_BLOCKER.
 - Re-ran exact authored stand-alone Node v22.16.0 source/tests: **11/11 PASS**; 2 additional regressions. Still only a read-only advisory, NOT authorized live dispatch.
+
+## Focus-date interday false-green fixed (2026-10-15, source-only)
+
+**Additional rooted P0 flaw:** Before this commit, `audit(bookings,{focusDates:['2026-10-18']})` discarded Oct 17 records *before* checking whether the same physical phone is booked Oct 17 and Oct 18. With otherwise valid local times it could report `NO_OBSERVED_BLOCKER` for Oct 18 despite an actual adjacent-day asset reuse needing owner review, or miss a prior-day missing return.
+
+**Remediation:** Keep neighboring ACTIVE and assigned-PENDING records solely for adjacent-day reuse analysis. Existing `active_checked`, missing pickup/return counters and same-day duplicate metrics remain restricted to the requested day. A repeated phone across a selected day boundary returns `BLOCKED` if upstream return/next pickup is absent, else `OWNER_REVIEW_REQUIRED`, never automatic allocation. A duplicate context record cannot hide a missing return/pickup. Unrelated outside-window adjacent bookings do not pollute scoped reporting.
+
+**Native Node v22.16.0 exact blob evidence:** re-ran all original 11 + 4 added `tests/kk-booking-handover-safety.test.js` cases: **15/15 PASS, 0 FAIL**, without network calls or npm installs. Source blob `0c53f0d098b4d83e37c8fa1971026334fb3c5adb`; tests blob `5d35d57cca6327973e820da67bdd19694030458f`. Both immutable Git blobs exactly match local files run under Node; source code and test run are **not** a full-repository or hosted exact-head CI pass.
+
+**Remaining HOLD:** Admin Snapshot warning is read-only and does not gate the actual Booking writer. Physical return, actual handover feasibility, Owner signoff, cross-date allocations, authenticated Apps Script/LINE delivery, private 13/13 Core, Drive ACL, exact-head native CI and Production rollout still require separate evidence. No Production/Booking/LINE/ACL/Make/Scanner/X actions authorized or performed.

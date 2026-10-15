@@ -74,3 +74,41 @@ test('invalid or empty focus filters must fail closed rather than returning gree
     assert.equal(r.counts.invalid_focus_dates,1);
   }
 });
+
+
+test('focus on prior day preserves next-day asset reuse and blocks missing return',()=>{
+  const rows=[booking('2026-10-17','P1',{return_time:''}),booking('2026-10-18','P1'),booking('2026-11-01','P2',{return_time:''})];
+  const r=Gate.audit(rows,{focusDates:['2026-10-17']});
+  assert.equal(r.counts.active_checked,1);
+  assert.equal(r.counts.missing_return,1);
+  assert.equal(r.counts.adjacent_day_asset_reuse,1);
+  assert.equal(r.counts.unverified_interday_handover,1);
+  assert.equal(r.status,'BLOCKED');
+  assert.equal(r.authorizes_booking_write,false);
+});
+test('focus on next day checks prior-day return and cannot become a false green',()=>{
+  const rows=[booking('2026-10-17','P1',{return_time:''}),booking('2026-10-18','P1')];
+  const r=Gate.audit(rows,{focusDates:['2026-10-18']});
+  assert.equal(r.counts.active_checked,1);
+  assert.equal(r.counts.missing_return,0);
+  assert.equal(r.counts.adjacent_day_asset_reuse,1);
+  assert.equal(r.counts.unverified_interday_handover,1);
+  assert.equal(r.status,'BLOCKED');
+});
+test('focused clean next-day reuse still requires manual owner review',()=>{
+  const r=Gate.audit([booking('2026-10-17','P1'),booking('2026-10-18','P1')],{focusDates:['2026-10-18']});
+  assert.equal(r.status,'OWNER_REVIEW_REQUIRED');
+  assert.equal(r.counts.adjacent_day_asset_reuse,1);
+  assert.equal(r.counts.unverified_interday_handover,0);
+});
+test('unrelated outside-window handover evidence is not counted under focused report',()=>{
+  const r=Gate.audit([
+    booking('2026-10-17','P1'),
+    booking('2026-11-01','P2',{return_time:''}),
+    booking('2026-11-02','P2',{pickup_time:''})
+  ],{focusDates:['2026-10-17']});
+  assert.equal(r.status,'NO_OBSERVED_BLOCKER');
+  assert.equal(r.counts.active_checked,1);
+  assert.equal(r.counts.adjacent_day_asset_reuse,0);
+  assert.equal(r.counts.unverified_interday_handover,0);
+});
