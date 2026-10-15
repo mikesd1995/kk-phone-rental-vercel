@@ -49,6 +49,27 @@ test('bridge strips obvious secrets from request input',()=>{
   assert.deepEqual(clean,{event:'safe'});
 });
 
+test('GitHub Issue payload rejects full Booking Sheet rows or customer PII before any agent invocation',()=>{
+  const safe=payload();
+  safe.request.input.booking_rows=[{booking_status:'confirmed',event_id:'EVT-A',event_date:'17/10/2026'}];
+  safe.request.input.visibility_locks=[{event_id:'EVT-A',event_date:'17/10/2026',lock_state:'LOCKED'}];
+  assert.equal(Bridge.validateEnvelope(safe).pass,true);
+  safe.request.input.booking_rows[0].customer_phone='PRIVATE_TEST_VALUE';
+  assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:booking_rows'));
+  delete safe.request.input.booking_rows[0].customer_phone;
+  safe.request.input.booking_rows=[Array(39).fill('PRIVATE_TEST_VALUE')];
+  assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:booking_rows'));
+  safe.request.input.booking_rows=[];
+  safe.request.input.visibility_locks[0].notes='PRIVATE_TEST_VALUE';
+  assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:visibility_locks'));
+  delete safe.request.input.visibility_locks[0].notes;
+  safe.request.input.storefront_rows[0].line_message_template='PRIVATE_TEST_VALUE';
+  assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:storefront_rows'));
+  delete safe.request.input.storefront_rows[0].line_message_template;
+  safe.request.input.post_log=[{event_id:'EVT-A',status:'planned',planned_at:'2026-10-15T12:00:00+07:00',customer_contact:'PRIVATE_TEST_VALUE'}];
+  assert.ok(Bridge.validateEnvelope(safe).errors.includes('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:post_log'));
+});
+
 test('bridge invokes the real x_posting_plan gateway route and persists invocation evidence',async()=>{
   const event={issue:{number:99,title:'[KK-X-PLAN] acceptance',author_association:'OWNER'}};
   const recorded=[];
