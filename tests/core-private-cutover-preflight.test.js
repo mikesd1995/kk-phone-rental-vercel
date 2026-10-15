@@ -107,3 +107,10 @@ test('private probe fails closed if a missing header appears only as a data valu
   assert.equal(state.results.find(x=>x.dataset==='bookings').classification,'PRIVATE_SCHEMA_INVALID');
   assert.doesNotMatch(JSON.stringify(state),/PRIVATE_PHONE_SHOULD_NOT_BE_EXPOSED|wrong_heading/);
 });
+
+test('private dashboard preflight uses its actual display header, not machine field aliases',()=>{
+ assert.equal(Preflight.EXTRA_SPECS.rental_dashboard_data.header,'Booking ID');
+ assert.equal(Preflight.hasHeader([['Source','Booking ID','Created At']],'Booking ID'),true);
+ assert.equal(Preflight.hasHeader([['Source','booking_id']],'Booking ID'),false);
+ assert.equal(Preflight.hasHeader([['Source'],['Booking ID']],'Booking ID'),false);
+});

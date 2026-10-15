@@ -2,13 +2,13 @@
 
 // OWNER-ONLY / READ-ONLY acceptance: never fetch public GViz or write to Google.
 // Default mode checks configuration WITHOUT ANY NETWORK. Add --probe only when
-// an authorized private service-account identity has already been provisioned.
+// an owner-approved private transport and independent read-only key are configured.
 // Output is aggregate status only; NEVER emit rows, contacts, OAuth tokens, keys or IDs.
 const PrivateCore=require('../server/core-sheet-private-reader.js');
 const AdminFallback=require('../server/admin-sheet-fallback.js');
 
 const EXTRA_SPECS=Object.freeze({
-  rental_dashboard_data:{sheet:'_Rental_Dashboard_Data',range:'A1:O',header:'booking_id'},
+  rental_dashboard_data:{sheet:'_Rental_Dashboard_Data',range:'A1:O',header:'Booking ID'},
   event_archive:{sheet:'13_Event_Archive',range:'A1:Z',header:null}
 });
 const SAFE_PRIVATE_FAILURE_CODES=new Set([
