@@ -174,3 +174,35 @@ production acceptance. Source changes were committed to PR #700, branch
   without original provider IDs/bytes cannot be called recovered. Outbound
   concurrency/receipt behavior needs an isolated free test DB and explicit
   owner-controlled provider acceptance. No production state was changed.
+
+## 2026-10-15 — preserve current main with a local two-parent merge
+
+- Continued the same #700 lineage after the isolated test repair. Merge the
+  exact current main `a54a348dd3258d87b1ec0c70e6ffd255d4678018` as a second
+  parent; do not merge #700 into main and do not rewrite either ancestry.
+  The common ancestor is `d6dc3bfe4cc0c4dd6fdfec407823752da0572464`.
+- Main changed 67 paths and #700 changed 34 paths since that ancestor.
+  The only shared modified path is `tests/kk-admin-inbox-preview.test.js`:
+  retain both the feature's unread-badge assertion and main's corrected
+  closing-tag assertion. No runtime, UI or business-behavior conflict occurred.
+- Before adding this evidence, index blob comparison proved all **66**
+  main-only changed paths equal exact current main and all **33**
+  feature-only changed paths equal the reviewed repaired #700 source.
+  Private media, outbound reservations/review, international LINE contact,
+  Apps Script and UI behavior are preserved; no speculative repair or test
+  weakening replaces the newer main changes.
+- Independent merge review verified the exact merge parent, the sole dual
+  assertion resolution and preserved source blobs; no blocking source issue.
+- Native Node `v24.19.0`: merged full `npm test` **1,771/1,771 PASS**, Inbox
+  ship-gate **150/150 PASS**, routed `npm run code:test` **50/50 PASS**;
+  `npm run check` and `git diff --check` PASS. Thus the 19 inherited/stale
+  failures above are resolved by preserving current main, not by suppressing
+  them. The earlier failed result remains historical evidence only.
+- This is still a local, source-only candidate with no external push,
+  merge/deploy, production DB migration, customer send, booking edit or
+  added spend. Integration with canonical #744 and its separate LINE
+  replay/privacy/bookability guard must be reviewed before release.
+  Exact-head hosted CI, authenticated visual QA, real media/provider/DB
+  acceptance and owner release gates remain HOLD; source green is not
+  release readback. The engineering gate now has only `RELEASE_READBACK`
+  missing and remains **BLOCKED**.

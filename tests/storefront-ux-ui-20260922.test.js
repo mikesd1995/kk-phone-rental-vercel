@@ -44,8 +44,8 @@ test('V5 intentionally removes the floating sticky LINE CTA',()=>{
 });
 
 test('new storefront assets are cache-busted',()=>{
-  assert.ok(html.includes('/assets/kk-storefront-v5.css?v=20261003-v67-lower-page-finish'));
-  assert.ok(html.includes('script.js?v=storefront-v67-lower-page-finish-20261003'));
+  assert.match(html,/\/assets\/kk-storefront-v5\.css\?v=202610\d{2}-/);
+  assert.match(html,/script\.js\?v=storefront-[a-z0-9-]+-202610\d{2}/);
   assert.doesNotMatch(html,/rel="preload" as="image" href="\/assets\/kk-brand-hero-final-20260920\.png"/);
   assert.match(html,/<meta name="theme-color" content="#f4f6f8">/);
 });
@@ -53,8 +53,8 @@ test('new storefront assets are cache-busted',()=>{
 
 test('V5 language switch binds hero, benefits and event-discovery DOM',()=>{
   assert.match(js,/hero_body:"Phone rental for concerts and fan meetings/);
-  assert.match(js,/hero_secondary:"How it works"/);
-  assert.match(js,/benefit_insurance:"Free insurance · No deposit"/);
+  assert.match(js,/hero_secondary:"How to rent"/);
+  assert.match(js,/benefit_insurance:"Book with less hassle · Free insurance, no deposit"/);
   assert.match(js,/benefit_discount:"New customer −฿40 · Returning review −฿100"/);
   assert.match(js,/setText\("\.v3-hero-copy>p","hero_body"\)/);
   assert.match(js,/setText\("\.v3-secondary","hero_secondary"\)/);
@@ -92,9 +92,9 @@ test('package and async-error surfaces expose assistive semantics',()=>{
 
 
 test('mobile modal scroll lock is valid source and restores the captured position',()=>{
-  assert.match(js,/var modalScrollY=0;\s*function lockBody\(\)/);
-  assert.match(js,/document\.body\.style\.position="fixed"/);
-  assert.match(js,/window\.scrollTo\(0,modalScrollY\)/);
+  assert.match(js,/var modalScrollY=0;\s*var modalScrollX=0;/);
+  assert.match(js,/document\.body\.style\.overflow="hidden"/);
+  assert.match(js,/window\.scrollTo\(x,y\)/);
   assert.doesNotMatch(js,/modalScrollY=0;\\nfunction lockBody/);
 });
 
