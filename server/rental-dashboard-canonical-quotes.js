@@ -1,7 +1,7 @@
 'use strict';
 // Canonical future-quote adapter. Reads the private Master only with explicit owner opt-in.
 // Never fetch 00_Master_Booking through anonymous GViz or expose raw PII/rows to clients.
-const privateSheets=require('../api/lib/private-google-sheets.js');
+const CorePrivacy=require('./core-sheet-private-reader.js');
 const FLAG='KK_CORE_CANONICAL_QUOTE_PRIVATE_ENABLED';
 function fail(code){const err=new Error(code);err.code=code;return err;}
 function parseCsv(input){
@@ -64,14 +64,18 @@ function attachQuotes(rows,quotes){
     return {...r,package_price:quote};
   });
 }
-async function readPrivateMaster(sheetId,env=process.env,reader=privateSheets.readValuesCsv){
+async function readPrivateMaster(sheetId,env=process.env,reader=CorePrivacy.readCsv){
   if(String(env[FLAG]||'').trim()!=='1')return {status:'NOT_ENABLED',csv:''};
-  const explicit=String(env.GOOGLE_SHEET_ID||'').trim();
-  if(!explicit||explicit!==String(sheetId||'').trim()||!privateSheets.credentialsFromEnv(env))
+  const explicit=String(env.GOOGLE_SHEET_ID||'').trim(),state=CorePrivacy.state(env);
+  // Owner-approved Apps Script read-key only. Never silently use a service
+  // account or anonymous GViz for the canonical customer booking source.
+  if(!explicit||explicit!==String(sheetId||'').trim()||
+     !state.strict||state.transport!=='apps-script'||!state.configured)
     throw fail('CORE_QUOTE_PRIVATE_NOT_CONFIGURED');
   try{
-    const csv=await reader({sheetId:explicit,range:'00_Master_Booking!A4:X',env});
-    bookingQuoteMap(csv); // Fail closed on an invalid private schema.
+    const csv=await reader({sheetId:explicit,sheet:'00_Master_Booking',range:'A4:X',env});
+    if(!parseCsv(csv).length)throw fail('CORE_QUOTE_HEADER_INVALID');
+    bookingQuoteMap(csv);
     return {status:'PRIVATE_VERIFIED',csv};
   }catch(_){throw fail('CORE_QUOTE_PRIVATE_READ_FAILED');}
 }

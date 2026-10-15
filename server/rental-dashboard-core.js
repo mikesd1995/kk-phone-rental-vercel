@@ -3,6 +3,8 @@
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 const AdminSecurity = require('./admin-session.js');
 const CanonicalQuote = require('./rental-dashboard-canonical-quotes.js');
+const CorePrivacy = require('./core-sheet-private-reader.js');
+const BookedQuote = require('./rental-analytics-booked-quote.js');
 
 function json(res,status,body){
   res.statusCode=status;
@@ -24,6 +26,11 @@ async function fetchCsv(sheetId,sheet,range){
     if(!r.ok || /<!doctype html|<html/i.test(text)) throw new Error(`อ่าน ${sheet} ไม่สำเร็จ`);
     return text;
   }finally{ clearTimeout(timer); }
+}
+async function coreCsv(sheetId,sheet,range,env=process.env){
+  if(String(env[CanonicalQuote.FLAG]||'').trim()!=='1')return fetchCsv(sheetId,sheet,range);
+  try{return await CorePrivacy.readCsv({sheetId,sheet,range,env});}
+  catch(_){const e=new Error('CORE_QUOTE_PRIVATE_READ_FAILED');e.code='CORE_QUOTE_PRIVATE_READ_FAILED';throw e;}
 }
 function parseCsv(text){
   const rows=[]; let row=[],value="",quoted=false;
@@ -149,7 +156,7 @@ function parseHelper(csv,eventMap,registryRules){
     };
   }).filter(r=>r.booking_id||r.event_id||r.customer_key);
 }
-function aggregate(rows){
+function aggregate(rows,{strictQuotes=false}={}){
   const seen=new Set(),clean=[];
   for(const r of rows){
     // Deduplicate the same booking across current/archive projections. Do not
@@ -169,7 +176,11 @@ function aggregate(rows){
   for(const r of non){
     const amount=r.amount_received||0;
     const actualAmount=r.status==="completed"?amount:0;
-    const futureAmount=activeSet.has(r.status)?(CanonicalQuote.positiveAmount(r.package_price)||amount):0;
+    const quoted=CanonicalQuote.positiveAmount(r.package_price);
+    if(strictQuotes && activeSet.has(r.status) && !quoted){
+      const e=new Error('RENTAL_ACTIVE_QUOTE_UNVERIFIED');e.code='RENTAL_ACTIVE_QUOTE_UNVERIFIED';throw e;
+    }
+    const futureAmount=activeSet.has(r.status)?(strictQuotes?quoted:(quoted||amount)):0;
     const forecastAmount=actualAmount+futureAmount;
     actualRevenue+=actualAmount;
     futureRevenue+=futureAmount;
@@ -278,20 +289,24 @@ module.exports=async function handler(req,res){
   const trackerId=String(process.env.KK_EVENT_TRACKER_SHEET_ID||"1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo").trim();
   try{
     const [helperCsv,currentEventsCsv,archiveEventsCsv,registryResult,privateMaster]=await Promise.all([
-      fetchCsv(sheetId,"_Rental_Dashboard_Data","A1:O"),
-      fetchCsv(sheetId,"01_Events","A4:Z"),
-      fetchCsv(sheetId,"13_Event_Archive","A1:Z"),
+      coreCsv(sheetId,"_Rental_Dashboard_Data","A1:O"),
+      coreCsv(sheetId,"01_Events","A4:Z"),
+      coreCsv(sheetId,"13_Event_Archive","A1:Z"),
       fetchCsv(trackerId,"_Artist_Registry","A1:E").then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:""})),
       CanonicalQuote.readPrivateMaster(sheetId,process.env)
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
     const meta=eventMetadata(currentEventsCsv,archiveEventsCsv,registryRules);
-    const rows=CanonicalQuote.attachQuotes(parseHelper(helperCsv,meta,registryRules),CanonicalQuote.bookingQuoteMap(privateMaster.csv));
-    const data=aggregate(rows);
+    const helperRows=parseHelper(helperCsv,meta,registryRules);
+    const strictQuotes=privateMaster.status==='PRIVATE_VERIFIED';
+    const rows=strictQuotes
+      ? BookedQuote.bookedPriceRows(helperRows,privateMaster.csv,CanonicalQuote.parseCsv)
+      : CanonicalQuote.attachQuotes(helperRows,CanonicalQuote.bookingQuoteMap(privateMaster.csv));
+    const data=aggregate(rows,{strictQuotes});
     data.revenue_quote_source=privateMaster.status;
     return json(res,200,{ok:true,data});
   }catch(err){
-    if(String(process.env[CanonicalQuote.FLAG]||'').trim()==='1'&&String(err&&err.code||'').startsWith('CORE_QUOTE_'))
+    if(String(process.env[CanonicalQuote.FLAG]||'').trim()==='1'&&/^(CORE_QUOTE_|RENTAL_)/.test(String(err&&err.code||'')))
       return json(res,503,{ok:false,error:'Canonical private quote reader unavailable',error_code:'CORE_QUOTE_PRIVATE_READ_FAILED'});
     const msg=err&&err.name==="AbortError"?"Google Sheet analytics timeout":(err&&err.message?err.message:String(err));
     return json(res,500,{ok:false,error:msg});
@@ -299,4 +314,4 @@ module.exports=async function handler(req,res){
 };
 
 
-module.exports._test={eventMetadata,parseHelper,aggregate,eventMonth};
+module.exports._test={eventMetadata,parseHelper,aggregate,eventMonth,coreCsv};
