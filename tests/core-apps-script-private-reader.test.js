@@ -151,3 +151,46 @@ test('Apps Script function exact allowed range returns selected display values w
  assert.equal(result.data.range,'A4:K');
  assert.deepEqual(result.data.values,[['event_id','event_name'],['EVT-1','Concert']]);
 });
+
+test('private Core Apps Script rejects URL credentials and non-default ports before any fetch',()=>{
+ const readKey='r'.repeat(48),adminKey='a'.repeat(48);
+ const envBase={KK_CORE_PRIVATE_READ_KEY:readKey,KK_ADMIN_API_KEY:adminKey};
+ for(const url of [
+   'https://username@script.google.com/macros/s/test_ABC/exec',
+   'https://username:password@script.google.com/macros/s/test_ABC/exec',
+   'https://script.google.com:8443/macros/s/test_ABC/exec'
+ ]){
+   assert.equal(script.scriptState({...envBase,KK_ADMIN_SCRIPT_URL:url}).configured,false,url);
+ }
+ assert.equal(script.scriptState({...envBase,KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/test_ABC/exec'}).configured,true);
+});
+
+test('private Core Apps Script never follows redirect with credentials or non-default port',async()=>{
+ for(const location of [
+   'https://attacker@script.googleusercontent.com/macros/echo',
+   'https://attacker:secret@script.googleusercontent.com/macros/echo',
+   'https://script.googleusercontent.com:8443/macros/echo'
+ ]){
+   let calls=0;
+   await assert.rejects(()=>script.readValues({
+     env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',
+     fetchImpl:async()=>{calls++;if(calls!==1)throw Error('UNSAFE_REDIRECT_FOLLOWED');
+       return {status:302,ok:false,headers:{get:()=>location}};}
+   }),e=>e.code==='CORE_APPS_SCRIPT_BAD_REDIRECT');
+   assert.equal(calls,1,location);
+ }
+});
+
+test('private Core Apps Script rejects credentialed/nonstandard-port final URL',async()=>{
+ for(const finalUrl of [
+   'https://username@script.googleusercontent.com/macros/echo',
+   'https://script.googleusercontent.com:8443/macros/echo'
+ ]){
+   let calls=0;
+   await assert.rejects(()=>script.readValues({
+     env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',
+     fetchImpl:async()=>{calls++;return {...okResponse([['event_id']]),url:finalUrl};}
+   }),e=>e.code==='CORE_APPS_SCRIPT_BAD_REDIRECT');
+   assert.equal(calls,1);
+ }
+});
