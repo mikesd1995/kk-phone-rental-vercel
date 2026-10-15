@@ -50,13 +50,20 @@ function parseCsv(text){
   const h=rows[0].map(x=>String(x||'').trim());
   return rows.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]||''])));
 }
+function isBookableWebReadyEvent(row){
+  // Match the canonical public admission contract; package stock alone cannot
+  // re-open owner-hidden/full event dates.
+  if(!row||norm(row.action_for_web)!=='show'||norm(row.booking_status_for_web)!=='เปิดจอง')return false;
+  const n=Number(String(row.available_phone_count===undefined?'':row.available_phone_count).replace(/,/g,'').trim());
+  return Number.isInteger(n)&&n>0;
+}
 async function resolvePoster(booking, fetchImpl=fetch){
   const u=PUBLIC_DATA_BASE+WEB_READY_QUERY;
   const r=await fetchImpl(u,{headers:{'User-Agent':'KK-Line-Webhook/1.0'}});
   if(!r.ok) return '';
   const rows=parseCsv(await r.text());
   const exact=resolveEventRow(rows,booking);
-  if(!exact || !safePosterSource(exact.poster_image_url)) return '';
+  if(!isBookableWebReadyEvent(exact) || !safePosterSource(exact.poster_image_url)) return '';
   const eventId=String(exact.event_id||'').trim();
   return eventId ? 'https://kk-phone-rental.vercel.app/api/line-poster?event_id='+encodeURIComponent(eventId) : '';
 }
@@ -135,7 +142,8 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   if(!eventRes.ok) return null;
   const events=parseCsv(await eventRes.text());
   const event=resolveEventRow(events,booking);
-  const eventId=event&&String(event.event_id||'').trim();
+  if(!isBookableWebReadyEvent(event))return null;
+  const eventId=String(event.event_id||'').trim();
   if(!eventId) return null;
 
   const pkgRes=await fetchImpl(PUBLIC_DATA_BASE+WEB_PACKAGES_QUERY,{headers});
@@ -159,8 +167,21 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   return {event_id:eventId,package_id:packageId,template_id:templateId,package_name:packageLabel(row),price_display:price};
 }
 async function replyFlex(replyToken, message, token, fetchImpl=fetch){
-  const r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
-  if(!r.ok){const body=await r.text().catch(()=> ''); throw new Error('LINE reply failed '+r.status+' '+body.slice(0,200));}
+  let r;
+  try{
+    r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
+  }catch(_){
+    const err=new Error('LINE booking reply transport failed');
+    err.code='LINE_BOOKING_REPLY_TRANSPORT_FAILED';
+    throw err;
+  }
+  if(!r||r.ok!==true){
+    // Never reflect untrusted provider response bytes into webhook error logs.
+    const err=new Error('LINE booking reply failed');
+    err.code='LINE_BOOKING_REPLY_FAILED';
+    if(Number.isInteger(r&&r.status))err.status=r.status;
+    throw err;
+  }
 }
 async function processEvent(event, env=process.env, fetchImpl=fetch){
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
@@ -191,8 +212,7 @@ async function processEvent(event, env=process.env, fetchImpl=fetch){
   }else if(readiness.ready && !canonical){
     console.warn('[line-booking-automation]',JSON.stringify({
       status:'FAIL_CLOSED_CANONICAL_REQUIRED',
-      webhook_event_id:String(event.webhookEventId||'').trim(),
-      event_name:String(booking.event_name||'').trim()
+      reason:'PUBLIC_EVENT_NOT_BOOKABLE_OR_CANONICAL_UNVERIFIED'
     }));
   }
 
