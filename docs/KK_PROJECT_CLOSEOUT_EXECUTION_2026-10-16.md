@@ -4,6 +4,32 @@
 อ่านสถานะ CODE WRITTEN / LOCAL TEST PASS / CI PASS / PRODUCTION VERIFIED แยกกัน ห้ามนำผล local ไปแทนการเปิดใช้งานจริง
 
 
+## ล่าสุด 16 ต.ค. 2026 — แก้ความถูกต้องของหลักฐานส่งข้อความด้วย PostgreSQL จริงแบบแยกทดสอบ
+
+**ทำเพิ่มสำเร็จ:** PR #700 source `27aa4ec232760fa70f505e4b51373188457cfb8d`, tree `68ef9d12c7b49c5838a6b511fc135a3033841c6d`. พบและแก้ข้อบกพร่องระดับ MATERIAL สองจุดใน migration ที่ยังไม่เคยใช้บน Primary:
+
+| ก่อนแก้ | หลังแก้และหลักฐาน |
+| --- | --- |
+| service_role บันทึก SENT ได้ทั้งที่ไม่มีข้อความ outbound ตรงคำขอ แล้ว owner review อาจอนุญาตส่งซ้ำ | SENT ต้องมีข้อความที่บันทึกจริง ตรงห้อง LINE/ทิศทาง outbound/provider ID/request UUID/retry UUID; baseline24/32ผ่าน8ตก → หลังแก้34/34ทั้งสอง engine |
+| หลัง owner ยืนยันแล้ว การ finish ครั้งหลังเขียนทับ provider IDs ได้โดยคง SENT/VERIFIED_SENT | ล็อกแถวก่อนตรวจ ตัด ID ที่ขัดกัน และคำขอซ้ำเดิมไม่เปลี่ยนแถว; หลักฐานที่ยืนยันแล้วคงเดิม |
+
+ขอบเขตช่องโหว่คือ privileged service-role RPC ไม่ใช่สิทธิ์ anonymous. การส่งตาม server flow เดิมบันทึกข้อความก่อน finish อยู่แล้ว; ซ่อม enforcement ของ SQL เพื่อรับมือการเรียกผิด/เรียกซ้ำ โดยไม่เปลี่ยน API signature, schema, RLS หรือ grants
+
+**ผลตรวจ:** actual embedded PostgreSQL17.5/PGlite0.3.14 และ PostgreSQL18.6/PGlite0.5.10 ผ่าน34/34ต่อ engine, network0/provider0; แอป #700เต็ม1802/1802, routed89/89, ship185/185, postinstall/syntaxผ่าน. รีวิวอิสระยอมรับ final diff ไม่พบ BLOCKER/MATERIALใหม่ และรัน PG17อิสระ34/34. ตัวทดสอบ wrong-request แยก UUID predicateจาก retry keyแล้วและรันสอง engineซ้ำผ่านครบ
+
+**รวมกับ Core ใหม่แล้ว:** canonical `b2d42bbe2086ad12bcc0868c508a30de5367f386` + #700ข้างต้น ใน worktreeแยก ผ่าน **1934/1934 +26/26 ACL**, full postinstall/ship185, syntax149คำสั่ง. Combined tree `27eff1290647a21cfa46485e80632defa298c7c6`. คง canonical-only91และInbox-only40 pathsตรง parentทุก byte; conflictยังมีเพียง package/test2ไฟล์ ไม่มี runtime conflictแก้ด้วยมือ; patch replay2/2เท่ากัน. การเพิ่มจำนวน pathsรอบนี้รวมเอกสารหลักฐานด้วย ไม่ใช่จำนวน runtime fixes
+
+**ลองทางแรกไม่สำเร็จแล้วเปลี่ยนวิธี:** native PostgreSQL ใช้ไม่ได้เพราะสภาพแวดล้อม mapเฉพาะUID0และลดสิทธิ์ไม่ได้ จึงใช้ actual PostgreSQL WASMที่ติดตั้งเฉพาะเครื่องมือ QAนอก repo แทน ไม่เพิ่ม app dependency/lockfile/ค่าSaaS. PG17รอบแรก33/34เพราะทดสอบกรอง PIDไม่ตรงกับ embedded metadata; ตรวจพบ advisory lockจริง แล้วแก้ให้ตรวจ exact64-bit keyและ0→1→0 ไม่ลบ assertion. สอง engineนี้มี backendเดียว จึง **ไม่ใช่หลักฐาน concurrencyข้ามsession** และไม่ใช่ Production17.6แบบเดียวกันทุกส่วน
+
+**ตรวจสดแบบอ่านอย่างเดียว:** Primary `mxjnjujqjybqughsnqbz` เป็นPG17.6 และยังไม่มี outbound table/reserve RPC/finish RPCของ migrationนี้. ไม่มี migration/ข้อมูลลูกค้า/Booking/ACL/automation/deployถูกเปลี่ยน และไม่ส่ง LINEจริง. รายงาน Productionใน checkpointเก่าคือสถานะ ณ เวลานั้น ไม่ได้อ้างเป็น readbackสดของรอบนี้
+
+**สถานะปิดโปรเจ็คยัง HOLD ตามหลักฐาน:** actual engineering gateเรียก evaluateแล้วได้ BLOCKED เฉพาะ RELEASE_READBACK. ยังต้องมี independent-session DB contention/crash, hosted API/private Storage/รูปใหม่และwrong-roomจริง, authenticated visual, provider receipt/booking linkage, Private Core/ACL cutover, natural governed runtime/รับคืนจริง และ release/rollbackที่อนุมัติ. ไม่ใช้ผล localแทนสิ่งเหล่านี้
+
+**บันทึกข้ามแชท:** [manifestรวมรอบฐานข้อมูล](KK_INBOX_DB_CORE_REHEARSAL_20261016.json), [patchแก้conflictรอบนี้](KK_INBOX_DB_CORE_MERGE_RESOLUTION_20261016.patch), [รายละเอียด SQL/RED→GREEN และวิธีทำซ้ำ](https://github.com/mikesd1995/kk-phone-rental-vercel/blob/27aa4ec232760fa70f505e4b51373188457cfb8d/docs/KK_INBOX_POSTGRES_RECEIPT_ACCEPTANCE_20261016.md). Artifactรอบก่อนเก็บไว้ตามเดิม ห้ามนำ patchเก่าที่ผูกกับ73adไปใช้แทนรอบนี้
+
+**จุดเริ่มแชทถัดไป:** อ่าน PR headsสดก่อน; ใช้ #700 `27aa4ec2` และ canonical source `b2d42bbe` สำหรับ rehearsalนี้; sourceไฟล์แอปใน #744อัปเดตเอกสารรอบนี้ยังตรงb2. ทดสอบครบแล้ว ไม่ต้องวนแก้ปัญหา receiptสองจุดเดิมหรือรันชุดเต็มซ้ำโดยไม่มี sourceเปลี่ยน. เดินต่อเฉพาะ acceptanceที่ขาดด้วยบัญชี/ข้อมูลทดสอบที่ได้รับอนุญาต และคงงาน UIของอีกแชทไว้
+
+
 ## ล่าสุด 16 ต.ค. 2026 เวลา 09:36 ไทย — รวมกติกา Inbox/LINE และพิสูจน์การทำงานร่วมกับ Core
 
 งานรอบต่อเนื่องนี้แก้เพิ่มใน **PR #700 เดิม** แล้วบันทึกแบบป้องกันเขียนทับงานอื่น: source **`73adf54d131b4880458ae7917191e4a646d87d62`**, tested tree **`25fe9512535153e3c5f6e5a7bb61e2007f20d4aa`**. เริ่มจาก `e6e21f9b` ผ่าน `6114967a` ก่อนแก้กฎปิด URL source เพิ่ม ไม่มี main merge/deploy/การส่ง LINE หรือแก้ข้อมูลจริง
