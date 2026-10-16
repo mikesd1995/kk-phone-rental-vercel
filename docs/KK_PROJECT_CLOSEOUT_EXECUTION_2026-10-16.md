@@ -4,6 +4,34 @@
 อ่านสถานะ CODE WRITTEN / LOCAL TEST PASS / CI PASS / PRODUCTION VERIFIED แยกกัน ห้ามนำผล local ไปแทนการเปิดใช้งานจริง
 
 
+## ล่าสุด 16 ต.ค. 2026 — เข้า Admin จริงและแก้รายงานสุขภาพที่สรุปผิดเพิ่มแล้ว
+
+**ทำต่อจนจบส่วนแก้โค้ดรอบนี้:** ใช้ PR #744 เดิม พอร์ตเฉพาะ diagnostic-authority fix ที่ผ่านรีวิวจาก #705 `a50df752` และแก้สองข้อสังเกตของผู้รีวิวเพิ่ม ไม่ดึงทั้ง PRเก่าหรือเปลี่ยนหน้า hero. `admin/admin.js`, `server/admin-proxy.js` เปลี่ยนพฤติกรรมรายงาน; `admin/index.html` และ testsเดิม5ไฟล์เปลี่ยนเฉพาะ cache marker; เพิ่ม9regressions, แผน, QA reproducer และหลักฐาน
+
+| ก่อนแก้ที่ยืนยันจาก Admin จริง | หลังแก้ใน source และผลทดสอบ |
+| --- | --- |
+| snapshotเรียก reader `admin-direct-sheet-readonly-fallback-v3.1` ว่า Apps Script และยืนยันSheetbindingจากreaderเอง | แยกSnapshotReaderจากAppsScript; runtime revision/bindingยังไม่ยืนยันจนมีหลักฐานของruntimeจริง |
+| ค่าตั้งโฟลเดอร์/Logที่ไม่ทราบถูกแสดงว่าmissing พร้อมแนะนำSetup/Repair | unknown/null/string/ตัวเลขไม่ถูกเดาว่าขาด; trueพร้อมใช้งาน, falseยังเตือนตามจริง |
+| healthอาจยอมรับHTTP503ที่bodyมีoktrueหรือdataidentityผิดรูป | ต้องHTTPสำเร็จ+okstricttrue+dataobjectไม่ใช่array+SheetIDstringไม่ว่าง จึงนำไปสร้างruntime diagnostics |
+| testfixtureไม่ได้จำลองCorePrivacyอย่างถูกต้อง ทำให้healthyoverallไม่ถูกพิสูจน์ | เพิ่มpositivecaseสุขภาพปกติและ3feedผ่าน; ยืนยันค่าที่พร้อมแล้วไม่แสดงข้อความรอผลตรวจ |
+
+**หลักฐานใหม่:** baseline3/8ผ่าน5ตก →8/8ผ่าน; เพิ่มสองข้อรีวิว7/9ผ่าน2ตก →9/9ผ่าน. Final canonical **1882/1882 +26/26 ACL**, routed **65/65**, postinstall **166/166** และsyntaxผ่าน. ชุดรวมInboxแยกเครื่องมือทดสอบผ่าน **1943/1943 +26/26 ACL**, postinstall166และship185ผ่าน, syntaxผ่าน, ไม่มีskip. IndependentReviewer0BLOCKER/0MATERIAL: initial123/123, final48/48และadversarial12/12; ตัวเลขนี้เป็นชุดที่อาจทับซ้อนกัน ไม่ใช่จำนวนunique testsรวม
+
+**การรวมที่ตรวจจริง:** local-only head `786a4d2842df94c156d3ea306b5b89b74ee4603b`, tree `67770ceba5ed30d4b53990d5a95d99232aca26f0`. พอร์ต9pathsสะอาดบนrehearsalเดิม ไม่มีmanualruntimeconflict; Admin/proxy/newtestตรงcanonicalทุกbyte, InboxSQL4ไฟล์ตรงcurrent#700ทุกbyte. นี่คือapplication/test/SQL rehearsal ไม่ใช่fullunionเอกสาร/QAtoolsหรือProductionreleaseใหม่
+
+**ระบบจริงที่ตรวจได้เพิ่ม:** securePINloginสำเร็จและเห็นauthenticatedAdmin. Read-onlyLiveCheckยืนยันAppsScript`9_5_9`, posterfolderset, audit/errorlogsreadyและSheetbindingตรง; snapshot336events/53bookings/28current/5assets, latency7611ms;browserLiveCheck8509ms. เป็นpoint-in-timehealthread ไม่ใช่writeacceptance. ยังมีข้อเท็จจริงเตือนจริง:6posterขาด,28pastpublished,5venuevariants,12completedขาดหลักฐานรับคืนครบ,1cancelledแต่paidและ1EventID/date drift; ไม่แก้ข้อมูลหรือใส่หลักฐานแทนเจ้าของ
+
+**Productionเปลี่ยนจากอีกงานระหว่างตรวจ:** login/sourceเดิม`a9c0078c`; freshaliasท้ายรอบเป็นREADY`dpl_3roddsMsVB4hcBC9YQmxECDDfXXX`, source`6ec3e94a63380487ba7d2ce403a1b9c6c97500ca`. เทียบGitแล้วAdminทั้งsubtree, proxyและvercel.jsonตรงเดิมทุกbyte จึงยังใช้การวินิจฉัยเดียวกันได้. งานนี้ไม่ได้deployและfixใหม่ยังไม่อยู่Production
+
+**ทางเลือกที่ลองและข้อจำกัดตรงไปตรงมา:** GitHubconnectorไม่เปิดfreshworkflowdispatchและnativepushไม่มีcredential; securebrowserloginไปถึงGoogleverificationแต่OTPrequestถูกdecline จึงไม่ลองcredentialซ้ำ. Publicrepoใช้standardhostedrunnerฟรีตาม[GitHubDocs](https://docs.github.com/en/billing/concepts/product-billing/github-actions); ข้อความเก่าที่เหมารวมว่าไม่มีCIเพราะprivate-minute-budgetไม่ใช่หลักฐานปัจจุบัน แต่รอบนี้CIยังNOT RUN. ตรวจทางเลือกPRsyncแล้วพบว่าจะเลือกworkflowอื่นที่uploadartifactด้วย ขณะที่boundedAdminRegressionเป็นmanualdispatchเท่านั้น จึงคงskipCIและGitPreviewsuppressionเดิม ไม่เพิ่มtriggerใหม่หรืออ้างStoragecapacityที่ยังไม่มีหลักฐาน. ทำstandaloneHTMLจำลอง3สถานะด้วยsourcefunction+CSSจริงและCSPdefaultnoneแล้ว ผู้รีวิวตรวจsyntax/generation/hashผ่าน แต่CUAปิดกั้นfileprotocol จึงไม่อ้อมนโยบายและไม่อ้างว่ามีภาพcandidate
+
+**เกตUI/Release:** RegisteredGatewaypre-reviewรันผู้รีวิวจริงผ่านintentadmin_unified_inbox_review; explicitstorefront_ux_reviewรันหลังimplementation จึงไม่อ้างว่าครบstrictpre-intent/timing. Poststorefront_visual_qaเรียกจริงได้ **BLOCKED_INSUFFICIENT_EVIDENCE**, passfalse. Engineeringgateเรียกจริง6phaseครบ แต่RELEASE_READBACKขาดและมีVISUAL_QA/HOSTED_CIblock. Source+localtest+reviewผ่าน แยกจากpreview/Productionacceptanceชัดเจน
+
+**บันทึกข้ามแชท:** [manifestครบและSHA256หลักฐาน](KK_ADMIN_DIAGNOSTIC_RECONCILIATION_20261016.json), [Gateway/ledger/engineeringผลจริง](KK_ADMIN_DIAGNOSTIC_GATEWAY_EVIDENCE_20261016.json), [แผน](superpowers/plans/2026-10-16-admin-diagnostic-reconciliation.md), [ตัวสร้างfixture3สถานะ](../scripts/qa/admin-diagnostic-visual-fixture.cjs). `ADMIN_DIAGNOSTIC_AUTHORITY_2026-10-14.md` คือoriginnoteย้อนหลัง ไม่ใช้1609testsเก่าแทนผล1882ล่าสุด. Exactremotehead/treeและpublicationreadbackอยู่ในPR#744/Issue#49
+
+**ทำต่อเฉพาะที่ยังขาด:** exact-sourcehostedCI/renderedcandidate/ownerreview, hostedPostgREST/privateStorage/LINEreceiptและรูปใหม่wrong-room, distinctPrivateCorereadkey+13dataset+ACL, signedbookinglinkageและข้อเท็จจริงhandover/return/payment, naturalgovernedruntime/outboxreceiptACK, StorageGBจริงและowner-governedrelease/rollback. ไม่วนแก้nativeDBหรือพอร์ตdiagnosticsเดิมซ้ำ. รอบนี้ไม่มีค่าSaaSเพิ่ม, mainmerge/deploy, Productionconfig/SQL/Booking/customer/ACL/automationเปลี่ยนหรือข้อความLINEจริง; ไม่เปิดInboxที่อาจhydrate/markreadอัตโนมัติ
+
+
 ## ล่าสุด 16 ต.ค. 2026 — ผ่านฐานข้อมูลหลาย session จริงและ process-crash recovery แล้ว
 
 **จุดค้างที่ปิดเพิ่มได้:** isolated PostgreSQL multi-session/lock/recovery ผ่านแล้วใน PR #700 source `ed7e89b8c8eac1745111bb9873d8a2b3a14bfbc2`, tested tree `f2a61c47a0a77d372a657490921ce22775ee8f16`. รอบนี้เพิ่มเฉพาะเครื่องมือ QA/หลักฐาน/วิธีทำซ้ำ ไม่มีการเปลี่ยนโค้ดแอป, SQL, API, Admin, middleware, package หรือ lockfile
