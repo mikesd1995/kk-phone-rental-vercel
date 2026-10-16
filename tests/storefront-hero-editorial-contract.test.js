@@ -38,7 +38,7 @@ test('booking CTA destinations and accessible nav are not altered by hero redesi
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261016-owner-hero-r5/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261016-owner-hero-r6/);
 });
 
 const referenceMarker='KK HERO REFERENCE 2026-10-15';
@@ -113,4 +113,14 @@ test('R5 mobile visual correction keeps full phone frame and both actions at eve
  assert.match(patch,/@media \(max-width:359px\)/);
  assert.match(patch,/html \.kk-mock-hero \.kk-hero-art\{display:block!important/);
  assert.doesNotMatch(patch,/booking_id|owner_hidden|action_for_web|price_from/);
+});
+
+test('R6 isolates legacy phone subjects instead of shipping whole branded marketing image',()=>{
+ const x=css.slice(css.indexOf('KK HERO R6'));
+ assert.match(x,/background-size:100% 100%,auto 168%!important/);
+ assert.match(x,/background-size:100% 100%,auto 195%!important/);
+ assert.match(x,/height:160px!important/);
+ assert.match(x,/max-width:359px/);
+ assert.match(x,/height:106px!important/);
+ assert.doesNotMatch(x,/booking_id|action_for_web|available_count|customer_data/);
 });
