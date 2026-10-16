@@ -38,7 +38,7 @@ test('booking CTA destinations and accessible nav are not altered by hero redesi
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261016-owner-hero-r6/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261016-owner-hero-r7/);
 });
 
 const referenceMarker='KK HERO REFERENCE 2026-10-15';
@@ -123,4 +123,18 @@ test('R6 isolates legacy phone subjects instead of shipping whole branded market
  assert.match(x,/max-width:359px/);
  assert.match(x,/height:106px!important/);
  assert.doesNotMatch(x,/booking_id|action_for_web|available_count|customer_data/);
+});
+
+test('R7 dedicated hero art is first-party, self-contained and uncropped for product camera',()=>{
+ const final=css.slice(css.indexOf('KK HERO R7'));
+ const art=fs.readFileSync(path.join(root,'assets/kk-hero-device-stage-20261016.svg'),'utf8');
+ assert.match(final,/kk-hero-device-stage-20261016\.svg/);
+ assert.match(final,/background-size:cover!important/);
+ assert.match(final,/background-position:center 20%!important/);
+ assert.match(final,/height:113px!important/);
+ assert.match(art,/<svg[\s\S]*viewBox="0 0 800 558"/);
+ assert.match(art,/X300 Pro/);
+ assert.match(art,/circle cx="112" cy="136" r="80"/);
+ assert.doesNotMatch(art,/<script|onload=|href="https?:|foreignObject|KK Phone Rental/);
+ assert.ok(art.length>4000);
 });
