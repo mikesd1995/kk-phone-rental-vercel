@@ -72,3 +72,11 @@ Branch: `fix/hero-theme-parity-20261016`. PR #754. Use the latest branch head as
 - **Current live Production:** `https://kk-phone-rental.vercel.app/` → Vercel `dpl_8KJysN96g3p9FmTiHhD7bLgWBVKF`, `READY`, commit `30673affb9dbbfaf4ce5166ad1ea989734bce6aa`; verified both direct deployment lookup and domain alias lookup; Vercel commit status `success`.
 - If rollback necessary, previous READY `dpl_5FjhPnH9S6mJy7cdsBJKDLa7vUKc` (V8.1, commit `bc1d454289b0701232186c6b9086e0b466155515`). No pricing, booking or user data writes in either revision.
 - **Not fully visually accepted:** real iOS Safari post-deploy screenshot and site-wide GitHub QA acceptance remain pending. Do not claim a passed independent QA suite merely from Vercel READY.
+
+## Post-deployment V8.2 independent visual QA result
+
+GitHub Actions `Storefront Automated Visual QA` run `38932522915`, job `117079797109`, finished **FAIL** overall, but measured **real V8.2 browser-rendered layout** and confirmed the targeted short-phone improvement:
+- At 320px, `hero_height_px=214` (previous V8.1 `324.03125`), `first_event_top_px=550.0625` (previous `677.78125`), and `visible_event_cards_above_fold=1` (previous `0`) in a 320×568 viewport.
+- No `HERO_DOMINATES_MOBILE` and no `NO_EVENT_CONTENT_ABOVE_FOLD` findings in this latest run (both appeared on previous commit). There were no JavaScript runtime errors.
+- Overall failures still report `CARD_CONTENT_ESCAPES`, `POSTER_LETTERBOX_UNTREATED`, `MOBILE_SHEET_NOT_ANCHORED`, and `EVENT_DISCOVERY_TOO_LATE` in other viewport/state combinations. These are **not resolved** by this hero-scoped change. Treat full storefront acceptance as open.
+- Do not infer business conversion uplift, exact pixel match to owner desktop reference on all mobile widths, or Safari acceptance without a real-device screenshot.
