@@ -2270,3 +2270,34 @@ html .kk-mock-hero .kk-hero-art::after{display:none!important;content:none!impor
  html .kk-mock-hero .kk-hero-art{display:block!important;height:170px!important;min-height:170px!important}
  html .kk-mock-hero .v3-secondary{display:inline-flex!important}
 }
+
+/* 2026-10-16 screenshot hotfix: never render full promotional banner in hero.
+   Isolate the phone side via right-side crop, retain live selectable text. */
+html .kk-mock-hero .kk-hero-art{
+ background-image:url("/assets/kk-brand-hero-final-20260920.png")!important;
+ background-size:auto 235%!important;
+ background-position:100% 54%!important;
+ background-repeat:no-repeat!important;
+ background-color:#0b2850!important;
+ border:1px solid rgba(111,173,255,.48)!important;
+ border-radius:20px!important;
+ box-shadow:0 12px 32px rgba(3,20,52,.18)!important;
+}
+html[data-theme="light"] .kk-mock-hero .kk-hero-art{background-color:#c5e2ff!important}
+@media(min-width:701px){
+ html .kk-mock-hero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr)!important;min-height:350px!important}
+ html .kk-mock-hero .kk-hero-art{min-height:300px!important;height:340px!important}
+}
+@media(max-width:700px){
+ html .kk-mock-hero{padding:18px!important;gap:14px!important}
+ html .kk-mock-hero .kk-hero-art{
+   height:175px!important;min-height:175px!important;max-height:175px!important;
+   background-size:auto 215%!important;background-position:100% 54%!important;
+ }
+ html .kk-mock-hero h1{font-size:clamp(25px,7vw,34px)!important}
+ html .kk-mock-hero .v3-hero-copy>p{font-size:12px!important;margin-top:8px!important}
+ html .kk-mock-hero .v3-hero-actions{margin-top:14px!important}
+}
+@media(max-width:375px){
+ html .kk-mock-hero .kk-hero-art{height:155px!important;min-height:155px!important;max-height:155px!important}
+}
