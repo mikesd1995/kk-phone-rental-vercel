@@ -38,7 +38,7 @@ test('booking CTA destinations and accessible nav are not altered by hero redesi
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261016-owner-hero-r7/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261016-owner-hero-r8/);
 });
 
 const referenceMarker='KK HERO REFERENCE 2026-10-15';
@@ -137,4 +137,13 @@ test('R7 dedicated hero art is first-party, self-contained and uncropped for pro
  assert.match(art,/circle cx="112" cy="136" r="80"/);
  assert.doesNotMatch(art,/<script|onload=|href="https?:|foreignObject|KK Phone Rental/);
  assert.ok(art.length>4000);
+});
+
+test('R8 removes dead vertical space while preserving device image on small phones',()=>{
+ const cssFinal=css.slice(css.indexOf('KK HERO R8'));
+ assert.match(cssFinal,/height:152px!important/);
+ assert.match(cssFinal,/height:98px!important/);
+ assert.match(cssFinal,/min-height:44px!important/);
+ assert.match(cssFinal,/background-position:center 10%!important/);
+ assert.doesNotMatch(cssFinal,/display:none!important|owner_hidden|action_for_web|booking_id/);
 });
