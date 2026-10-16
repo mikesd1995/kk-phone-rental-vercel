@@ -8,7 +8,7 @@
 ทำงานบน PR เดิม ตรวจ current main และส่วนที่ซ้ำก่อนแก้ ไม่สร้าง broad PR ใหม่ ไม่ปิด PR เดิมแบบเหมารวม
 
 ## ระบบจริงที่ตรวจ
-- Production alias: https://kk-phone-rental.vercel.app/ — HTTP 200; Vercel READY `dpl_6BpGtGqNPG246ekTL3nHa73bRpCn`, source `a54a348dd3258d87b1ec0c70e6ffd255d4678018`
+- Production alias: https://kk-phone-rental.vercel.app/ — HTTP 200; Vercel READY **`dpl_4TFT2iMxHer24wtV8LvMGnpKvc3Z`**, source **`3d8b58af20550ef9fb093d74747548aedb106dfe`** (fresh16Oct continuation; older01:00 checkpoint was `dpl_6BpGt...` / main`a54a348d`)
 - main native full test: **1,717/1,717 PASS**; Issue #749 เรื่อง 21 inherited failures เป็น baseline เก่า ไม่ใช่ผลปัจจุบัน
 - Public Web Ready / Packages: HTTP 200, 223/669 data rows, 11/14 columns; ไม่พบ customer/booking columns ใน header ที่ตรวจ
 - Public Master Booking request ถูกปฏิเสธ HTTP 400; anonymous Admin snapshot และ Rental Dashboard ถูกปฏิเสธ HTTP 401
@@ -30,7 +30,7 @@
 ## ผลทดสอบที่ห้ามรวมยอดข้าม branch
 - #744 รวม revenue + LINE + cadence: **1,873/1,873 PASS** และ poster ACL **26/26 PASS** แยก report; ไม่มี failed/skipped
 - #700: **1,771/1,771 PASS**; #751: **1,767/1,767 PASS**
-- #752 ล่าสุดอยู่ระหว่าง fresh-head acceptance; ใช้หลักฐานท้าย PR แทนการอ้างผลเก่า ทุก branch ยังเป็น Draft
+- #752: native **1,728/1,728 PASS**, browser geometry/interaction/registered QA **8/8 widths PASS** with official pinned local Thai fonts; **0P0/0P1**, external-poster fallback observations remainP2. Owner/external-delivery acceptance is separate. PR remains Draft even though owner hero3d8 is live.
 - บันทึกที่ source tree เหมือนกันสามารถยืนยัน local test ได้ แต่ไม่ได้แปลว่า hosted checks ของ commit ใหม่ผ่านแล้ว
 - Syntax check และ static invariant audit **10/10 PASS** (เป็น source checks ไม่ใช่ live data audit)
 - Independent Reviewer ตรวจ material changes; engineering execution gate ยัง **BLOCKED: RELEASE_READBACK**
@@ -67,3 +67,10 @@ Next chat: อ่านรายงานนี้ + PR head/readback ล่า�
 Final concurrent-head combined source validation: native `npm test` **1,865/1,865 PASS + 26/26 poster ACL PASS**, zero failures/skips. Prior 1,864 result preceded the separately reviewed concurrent bounded-cache guard and remains historical. Final source/branch SHA must be read from the linked PR checkpoint after push.
 
 A second concurrent privacy repair at `570efaecaead3a421d1a4a41c2c5c83254f0f46d` sanitizes forged provider error codes using locally owned errors. Preserved all three added paths, reviewed the bounded WeakSet classification, and reran combined native regression: **1,873/1,873 PASS + 26/26 ACL PASS**, zero skips/failures. No newer safety fix was overwritten. Issue #749 is now CLOSED after current-main 1,717/1,717 verification; other project release gates remain open.
+
+## 16Oct morning continuation — resolved remaining safe preparation
+- Read fresh GitHub and Vercel state after owner requested continuation. The separate hero work has published3d8 to Production; verified HTML/activeCSS/JS/baseCSS **4/4 byte-identical** to that exact source. Main staysa54. #744/#700/#751 source changes are not implied deployed.
+- Completed the previously blocked font-dependent layout test safely: binary-safe GitHub file reads of official `google/fonts`, Gitblob-verified TTFs/OFLlicenses, loopback font delivery, all external browser requests blocked. Both Thai font families loaded in all8 contexts. **All8 widths and64states/interactions technicalPASS** with actual registered local QA/council receipts, no P0/P1. External poster delivery remains unverified; no owner acceptance invented.
+- Saved source-only modal/cache-test repairs + complete evidence to existing#752; no applicationUI change or new deploy from this continuation. [Hero evidence](https://github.com/mikesd1995/kk-phone-rental-vercel/blob/feat/hero-blue-reference-responsive-20261015/docs/KK_HERO_BLUE_REFERENCE_RESPONSIVE_2026-10-15.md).
+- Finished additional required local gates on#744: CodeIntelligence benchmark **8/8**, required-file/route recall1.0, and complete `npm run postinstall` PASS. [Machine-readable latest acceptance](KK_CLOSEOUT_RUNTIME_ACCEPTANCE_2026-10-16.json).
+- Release state remains HOLD for real private13-source cutover, booking handover facts, privacy/ACL, natural scheduled runtime and signed delivery/provider/owner evidence. These were not fabricated or bypassed to close the project.

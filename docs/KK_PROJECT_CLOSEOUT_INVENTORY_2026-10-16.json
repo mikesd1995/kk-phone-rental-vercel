@@ -5,10 +5,37 @@
   "initial_open_pr_count": 35,
   "initial_open_issue_count": 69,
   "production": {
-    "deployment": "dpl_6BpGtGqNPG246ekTL3nHa73bRpCn",
-    "source_sha": "a54a348dd3258d87b1ec0c70e6ffd255d4678018",
+    "deployment_id": "dpl_4TFT2iMxHer24wtV8LvMGnpKvc3Z",
     "state": "READY",
-    "url": "https://kk-phone-rental.vercel.app/"
+    "source_sha": "3d8b58af20550ef9fb093d74747548aedb106dfe",
+    "main_sha": "a54a348dd3258d87b1ec0c70e6ffd255d4678018",
+    "deployed_by_this_continuation": false,
+    "source_parity": [
+      {
+        "path": "index.html",
+        "bytes": 24679,
+        "sha256": "21ab03330917aee6730edca4ebdf64409225a2589a5d8dafd41bbe93adb42f44",
+        "matches_expected_source": true
+      },
+      {
+        "path": "assets/kk-storefront-v5.css",
+        "bytes": 110497,
+        "sha256": "970d14598f18f80b07e59ac58115ddcb7114a25270c5f274835eec223ae90233",
+        "matches_expected_source": true
+      },
+      {
+        "path": "script.js",
+        "bytes": 108524,
+        "sha256": "3706c49822d3b78fca6b1eb91819e8c44132600f59d77d833842c71eefc5f848",
+        "matches_expected_source": true
+      },
+      {
+        "path": "style.css",
+        "bytes": 52008,
+        "sha256": "012c61ee5c0691f82d5a9af4cc3674a888f5ab49ccacad15c065d6945209ed1c",
+        "matches_expected_source": true
+      }
+    ]
   },
   "prs": [
     {
@@ -711,5 +738,6 @@
       "number": 75,
       "title": "P0/P1: Harden Canary assertion evidence and natural-run provenance"
     }
-  ]
+  ],
+  "latest_continuation": "2026-10-16T02:01:50.663299+00:00"
 }
