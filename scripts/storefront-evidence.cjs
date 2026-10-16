@@ -111,7 +111,9 @@ async function inspectState(page){
     });
     const posterTreatmentIssues=cards.flatMap(card=>{
       const wrap=card.querySelector('.poster-img-wrap');
-      const img=wrap&&wrap.querySelector('img');
+      // Only the direct official poster image is eligible for letterbox treatment.
+      // The exact-event fallback's nested decorative brand <img> is not a poster.
+      const img=wrap&&wrap.querySelector(':scope > img');
       if(!wrap||!img||!img.complete||!img.naturalWidth||!img.naturalHeight)return [];
       const wr=wrap.getBoundingClientRect();
       const fit=getComputedStyle(img).objectFit;
@@ -128,8 +130,21 @@ async function inspectState(page){
         treatment:'missing'
       }]:[];
     });
-    const escaped=[];
-    for(const card of cards){const c=card.getBoundingClientRect();for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){const r=el.getBoundingClientRect();if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1)escaped.push(el.className);}}
+    const escaped=[],escapeSamples=[];
+    for(const card of cards){
+      const c=card.getBoundingClientRect();
+      for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){
+        const r=el.getBoundingClientRect();
+        if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1){
+          escaped.push(el.className);
+          if(escapeSamples.length<8)escapeSamples.push({
+            element:String(el.className||''),card:{x:c.left,y:c.top,w:c.width,h:c.height},
+            child:{x:r.left,y:r.top,w:r.width,h:r.height},
+            card_box_sizing:getComputedStyle(card).boxSizing
+          });
+        }
+      }
+    }
     const modal=document.querySelector('.overlay.active .modal,.faq-overlay.active .modal');
     const scope=modal||document;
     const targets=[...scope.querySelectorAll('button,a[href],input,select')].filter(visible).filter(el=>!el.classList.contains('skip-link'));
@@ -140,10 +155,10 @@ async function inspectState(page){
     const mb=modal?box(modal):null;
     return {scroll_y:scrollY,raw_i18n_keys:raw,document_width:document.documentElement.scrollWidth,viewport_width:innerWidth,
       card_rects:cardRects,card_height_spread_px:Number(cardHeightSpread.toFixed(2)),poster_frame_ratios:posterFrameRatios,
-      escaped_card_elements:escaped,poster_source_issues:posterSourceIssues,poster_treatment_issues:posterTreatmentIssues,
+      escaped_card_elements:escaped,escaped_card_samples:escapeSamples,poster_source_issues:posterSourceIssues,poster_treatment_issues:posterTreatmentIssues,
       first_event_top:first?first.top+scrollY:null,visible_event_cards_above_fold:cards.filter(el=>{const r=el.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;}).length,
       small_targets:small,clipped_controls:clipped,overlapping_filters:overlappingFilters,theme_icons:[...document.querySelectorAll('.theme-toggle span')].filter(visible).length,
-      modal:mb?{...mb,scroll_width:modal.scrollWidth,client_width:modal.clientWidth,viewport_height:innerHeight,focus_inside:modal.contains(document.activeElement),title:modal.querySelector('.modal-title')?.textContent||'',package_count:modal.querySelectorAll('.phone-row').length}:null,
+      modal:mb?{...mb,scroll_width:modal.scrollWidth,client_width:modal.clientWidth,viewport_height:innerHeight,alignment:getComputedStyle(modal.parentElement).alignItems,focus_inside:modal.contains(document.activeElement),title:modal.querySelector('.modal-title')?.textContent||'',package_count:modal.querySelectorAll('.phone-row').length}:null,
       failed_posters:cards.filter(el=>el.dataset.posterFailed==='1').length,
       failed_poster_details:cards.filter(el=>el.dataset.posterFailed==='1').map(el=>({
         event_id:el.dataset.eventId||'',
@@ -179,7 +194,14 @@ function stateFindings(state,{width,name}){
     if(m.left<0||m.right>width+1||m.top<0||m.bottom>m.viewport_height+1||m.scroll_width>m.client_width+1)add('MODAL_VIEWPORT_CONTAINMENT',JSON.stringify(m));
     if(!m.focus_inside)add('MODAL_FOCUS_ESCAPED',name);
     if(!m.title.trim())add('MODAL_EVENT_IDENTITY_MISSING',name);
-    if(width<=700&&Math.abs(m.bottom-m.viewport_height)>1)add('MOBILE_SHEET_NOT_ANCHORED',name);
+    // Owner-approved mobile dialogs are centered cards, not always bottom sheets.
+    // Validate the rendered alignment AND physical viewport center with 12px
+    // clearances; never accept a merely floating, off-screen or clipped dialog.
+    const anchored=m.alignment==='flex-end' && Math.abs(m.bottom-m.viewport_height)<=1;
+    const centered=m.alignment==='center' &&
+      Math.abs((m.top+m.bottom)/2-m.viewport_height/2)<=3 &&
+      m.top>=12 && m.viewport_height-m.bottom>=12;
+    if(width<=700&&!anchored&&!centered)add('MOBILE_MODAL_POSITION_UNSAFE',JSON.stringify(m));
   }
   return findings;
 }

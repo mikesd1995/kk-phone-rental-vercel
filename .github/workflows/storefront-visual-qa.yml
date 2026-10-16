@@ -209,6 +209,14 @@ jobs:
       - name: Syntax-check visual QA harness
         run: node --check scripts/storefront-visual-acceptance.mjs
 
+      - name: Verify storefront hero, image fallback and geometry regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check script.js
+          node --check scripts/storefront-evidence.cjs
+          node --test tests/storefront-hero-editorial-contract.test.js tests/storefront-image-fallback.test.js tests/storefront-evidence.test.js
+
       - name: Reuse runner Chrome with ephemeral Playwright library
         shell: bash
         run: |

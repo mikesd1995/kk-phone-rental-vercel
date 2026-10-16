@@ -38,5 +38,18 @@ test('booking CTA destinations and accessible nav are not altered by hero redesi
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261012-v633-temp-brand-image/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261016-rollback-hero-r10/);
+});
+
+test('owner-rejected R5–R9 hero is rolled back without touching data or booking UI',()=>{
+ assert.equal((html.match(/class="kk-hero-proof"/g)||[]).length,0);
+ assert.doesNotMatch(css,/KK HERO REFERENCE 2026-10-15|KK HERO R5|KK HERO R6|KK HERO R7|KK HERO R8|KK HERO R9/);
+ assert.match(html,/เช็กงานที่ยังว่าง/);
+ assert.match(script,/hero_cta:"เช็กงานที่ยังว่าง"/);
+ assert.match(script,/hero_cta:"Check available events"/);
+ assert.match(css,/2026-10-16 HERO-ONLY ROLLBACK/);
+ assert.match(css,/content-visibility:visible!important/);
+ assert.match(css,/overflow-wrap:anywhere!important/);
+ assert.match(html,/id="event-search"/);
+ assert.match(html,/id="phone-list"/);
 });

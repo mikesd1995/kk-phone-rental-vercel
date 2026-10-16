@@ -2235,3 +2235,22 @@ html[data-theme="dark"] .kk-mock-hero .v3-secondary{
 [data-theme="dark"] .poster-placeholder-event .poster-placeholder-title{
   background:rgba(13,22,38,.86)!important;
 }
+
+
+/* 2026-10-16 HERO-ONLY ROLLBACK · guard existing non-Hero mobile cards.
+   Returned header/hero/benefits/background exactly to main baseline.
+   Preserve verified narrow card containment rather than reviving old 350px virtual placeholder. */
+@media (max-width:700px){
+  .poster-grid .pi-meta,.poster-grid .poster-info{min-width:0!important;max-width:100%!important}
+  .poster-grid .pi-price{min-width:0!important;width:100%!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;box-sizing:border-box!important}
+}
+@media (max-width:359px){
+  .poster-grid{grid-auto-rows:auto!important}
+  .poster-grid .concert-card{
+    content-visibility:visible!important;contain-intrinsic-size:none!important;
+    height:auto!important;min-height:0!important;aspect-ratio:auto!important;
+    align-self:start!important;overflow:hidden!important;
+  }
+  .poster-grid .poster-img-wrap{height:auto!important;min-height:0!important;aspect-ratio:4/5!important}
+  .poster-grid .poster-info{height:auto!important;flex:0 0 auto!important}
+}

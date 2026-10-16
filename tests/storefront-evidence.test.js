@@ -67,7 +67,7 @@ test('rendered defects fail even when the document itself has no horizontal over
   }
 });
 test('modal clipping, horizontal overflow and focus escape are release blocking',()=>{
-  const modal={left:0,right:390,top:150,bottom:844,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
+  const modal={left:0,right:390,top:150,bottom:844,viewport_height:844,alignment:'flex-end',scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
   assert.deepEqual(E.stateFindings({...healthy(),modal},{width:390,name:'modal'}),[]);
   for(const change of [{bottom:850},{scroll_width:420},{focus_inside:false},{title:''}])assert.ok(E.stateFindings({...healthy(),modal:{...modal,...change}},{width:390,name:'modal'}).length);
 });
@@ -108,4 +108,28 @@ test('desktop card geometry blocks uneven heights and poster rails outside the v
 test('storefront visual evidence blocks webpage screenshots used as poster artwork',()=>{
   const state={...healthy(),poster_source_issues:[{event_id:'evt',poster_source:'https://image.thum.io/get/width/1200/https://tickets.example/event',reason:'webpage_screenshot_service'}]};
   assert.ok(E.stateFindings(state,{width:390,name:'catalogue'}).some(x=>x.code==='POSTER_SOURCE_NOT_ARTWORK'));
+});
+
+test('centered mobile dialog requires physical centering, safety clearance and focus',()=>{
+ const centered={left:14,right:376,top:111,bottom:733,viewport_height:844,alignment:'center',scroll_width:362,client_width:362,focus_inside:true,title:'Event'};
+ assert.deepEqual(E.stateFindings({...healthy(),modal:centered},{width:390,name:'modal'}),[]);
+ for(const bad of [{top:50,bottom:672},{alignment:'flex-start'},{top:1,bottom:843},{top:-2,bottom:842},{focus_inside:false},{scroll_width:390}]){
+   assert.ok(E.stateFindings({...healthy(),modal:{...centered,...bad}},{width:390,name:'modal'}).length,JSON.stringify(bad));
+ }
+});
+
+test('a dialog near the viewport bottom needs bottom-aligned layout to qualify as an anchored sheet',()=>{
+ const anchored={left:0,right:390,top:150,bottom:844,viewport_height:844,alignment:'flex-end',scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
+ assert.deepEqual(E.stateFindings({...healthy(),modal:anchored},{width:390,name:'modal'}),[]);
+ for(const alignment of ['center','flex-start',undefined]){
+  const findings=E.stateFindings({...healthy(),modal:{...anchored,alignment}},{width:390,name:'modal'});
+  assert.ok(findings.some(f=>f.code==='MOBILE_MODAL_POSITION_UNSAFE'),String(alignment));
+ }
+});
+
+test('poster treatment inspects the direct poster, not a nested fallback brand decoration',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../scripts/storefront-evidence.cjs'),'utf8');
+ assert.match(source,/wrap\.querySelector\(':scope > img'\)/);
+ assert.match(source,/wrap\.classList\.contains\('poster-has-image'\)/);
+ assert.match(source,/POSTER_LETTERBOX_UNTREATED/);
 });
