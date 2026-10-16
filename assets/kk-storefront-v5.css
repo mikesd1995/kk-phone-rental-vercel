@@ -2360,7 +2360,7 @@ html[data-theme="light"] .kk-mock-hero {
  background:radial-gradient(ellipse at 88% 98%,rgba(39,132,243,.17),transparent 52%),radial-gradient(ellipse at 92% 3%,rgba(68,149,255,.26),transparent 50%),linear-gradient(119deg,#eef7ff 0%,#dcebff 54%,#bcdcff 100%)!important;
 }
 html .kk-mock-hero .v3-primary {gap:10px!important}
-html .kk-mock-hero .v3-primary span[aria-hidden="true"] {
+html .kk-mock-hero .v3-primary .kk-hero-arrow-chip {
  display:inline-grid!important;place-items:center!important;
  flex:0 0 25px!important;width:25px!important;height:25px!important;
  border-radius:50%!important;background:linear-gradient(145deg,#fff,#d8eeff)!important;
@@ -2374,7 +2374,7 @@ html .kk-mock-hero .v3-secondary::after {content:"›";display:inline-block;marg
 }
 @media(max-width:700px) {
  html .kk-mock-hero .v3-primary {gap:6px!important}
- html .kk-mock-hero .v3-primary span[aria-hidden="true"] {width:22px!important;height:22px!important;flex-basis:22px!important;font-size:14px!important}
+ html .kk-mock-hero .v3-primary .kk-hero-arrow-chip {width:22px!important;height:22px!important;flex-basis:22px!important;font-size:14px!important}
  html .kk-mock-hero .v3-secondary::after {margin-left:6px;font-size:16px}
  html .kk-mock-hero .kk-hero-art {border:1px solid rgba(131,180,255,.26)!important;box-shadow:0 5px 19px rgba(0,19,61,.29)!important}
  html .kk-benefit-grid>div {min-height:49px!important;padding:7px!important;font-size:10.5px!important;line-height:1.36!important;font-weight:480!important;gap:6px!important}
@@ -2382,7 +2382,7 @@ html .kk-mock-hero .v3-secondary::after {content:"›";display:inline-block;marg
 }
 @media(max-width:359px) {
  html .kk-mock-hero .v3-primary {gap:4px!important}
- html .kk-mock-hero .v3-primary span[aria-hidden="true"] {width:19px!important;height:19px!important;flex-basis:19px!important;font-size:12px!important}
+ html .kk-mock-hero .v3-primary .kk-hero-arrow-chip {width:19px!important;height:19px!important;flex-basis:19px!important;font-size:12px!important}
  html .kk-mock-hero .v3-secondary::after {margin-left:4px;font-size:15px}
  html .kk-benefit-grid>div {min-height:47px!important;padding:6px!important;font-size:10px!important}
 }
@@ -2491,5 +2491,32 @@ html .kk-mock-hero .v3-secondary::after {content:"›";display:inline-block;marg
  }
  html .kk-mock-hero .kk-hero-trust{
    margin-top:27px!important;
+ }
+}
+
+
+/* Hero V10.2 — reference comparison pixel refinement.
+ * On 1440px cropped owner reference, V10.1 rendered the copy 4–6px too low.
+ * Also restores the reference's separate inline arrow preceding the white circular chip.
+ * Mobile hides only the decorative inline arrow to preserve 44px touch targets. */
+html .kk-mock-hero .kk-hero-inline-arrow{
+  display:inline-block!important;
+  flex:0 0 auto!important;
+  width:auto!important;height:auto!important;
+  margin:0!important;padding:0!important;
+  background:none!important;box-shadow:none!important;border:0!important;
+  color:inherit!important;font-size:13px!important;font-weight:700!important;line-height:1!important;
+}
+@media(min-width:1380px){
+ html .kk-mock-hero .v3-hero-copy{
+   transform:translateY(-5px)!important;
+ }
+ html .kk-mock-hero .v3-primary{
+   gap:5px!important;
+ }
+}
+@media(max-width:700px){
+ html .kk-mock-hero .kk-hero-inline-arrow{
+   display:none!important;
  }
 }
