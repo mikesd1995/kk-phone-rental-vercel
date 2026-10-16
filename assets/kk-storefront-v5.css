@@ -2930,3 +2930,20 @@ html .kk-mock-hero .kk-hero-art{
   }
   html .kk-benefit-grid{margin-top:5px!important;margin-bottom:5px!important}
 }
+
+
+/* KK HERO R9 — 320x568 final safe compression. Keep CTA and filter hit
+   areas at 44px; remove decorative gaps, not controls or event data. */
+@media (max-width:359px){
+  html .v3-header{height:50px!important}
+  html .kk-mock-hero{padding:7px!important;gap:4px!important}
+  html .kk-mock-hero .v3-eyebrow{margin-bottom:0!important}
+  html .kk-benefit-grid{margin-top:4px!important;margin-bottom:4px!important}
+  html .kk-benefit-grid>div{
+    min-height:37px!important;
+    padding:3px 4px!important;
+    line-height:1.18!important;
+    font-size:9px!important;
+  }
+  html .v3-events-heading{margin-bottom:2px!important}
+}
