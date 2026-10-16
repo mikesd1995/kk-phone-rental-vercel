@@ -133,7 +133,7 @@ test('owner decision fails closed if canonical customer contact is missing',asyn
       type:'postback',source:{type:'user',userId:'UOWNER'},postback:{data}
     },e,async(url,opt)=>{
       if(String(url).startsWith('https://script.google.com/')){
-        return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed'});
+        return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed',idempotent_replay:false});
       }
       lineSends++;
       return response({ok:true});

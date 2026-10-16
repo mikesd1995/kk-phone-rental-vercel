@@ -4,7 +4,13 @@
 const VERSION='KK_INBOX_PRIVATE_LINE_IMAGES_V1';
 const BUCKET='kk-inbox-media';
 const MAX_BYTES=8*1024*1024;
-function error(code,status=502){return Object.assign(new Error(code),{code,status});}
+const ownedDiagnostics=new WeakMap();
+function error(code,status=502){
+ const err=Object.assign(new Error(code),{code,status});
+ ownedDiagnostics.set(err,code);
+ return err;
+}
+function diagnosticCode(err){return ownedDiagnostics.get(err)||'INBOX_MEDIA_CAPTURE_FAILED';}
 function config(options={}){
  const url=String(options.url||process.env.KK_INBOX_SUPABASE_URL||'').trim().replace(/\/$/,'');
  const key=String(options.serviceKey||process.env.KK_INBOX_SUPABASE_SERVICE_ROLE_KEY||'').trim();
@@ -96,4 +102,4 @@ async function readOrRecover(metadata,options={}){
  await upload(id,image,options);
  return {...image,source:'recovered'};
 }
-module.exports={VERSION,BUCKET,MAX_BYTES,pathFor,imageType,checkedBytes,downloadFromLine,upload,readArchived,capture,readOrRecover};
+module.exports={VERSION,BUCKET,MAX_BYTES,pathFor,imageType,checkedBytes,downloadFromLine,upload,readArchived,capture,readOrRecover,diagnosticCode};

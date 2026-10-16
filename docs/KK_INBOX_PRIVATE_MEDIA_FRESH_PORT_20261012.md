@@ -206,3 +206,44 @@ production acceptance. Source changes were committed to PR #700, branch
   acceptance and owner release gates remain HOLD; source green is not
   release readback. The engineering gate now has only `RELEASE_READBACK`
   missing and remains **BLOCKED**.
+
+
+## 2026-10-16 02:20 UTC — canonical LINE safety integrated into existing #700
+
+### What changed and why
+
+This is **EXISTING PR #700**, starting remote head `e6e21f9b85a350f0d5e3741d6b99abffc4801888`, preserving main `a54a348dd3258d87b1ec0c70e6ffd255d4678018`. Only the shared LINE safety guards from canonical #744 `e6597b7d82179646932a7c1520bf46a32bd7e1f8` were ported using main as the three-way ancestor; unrelated Core, Revenue, runtime, marketing and storefront code was not absorbed.
+
+- `server/line-booking-webhook.js`: require canonical visible/open/positive integer phone availability before package lookup or poster admission; sanitize reply transport/provider errors and unresolved-event warnings. Preserve #700 private media wiring and both new Thai/English package labels.
+- `server/line-booking-owner-approval.js`: require the exact booking and status readback, matching supplied decision and Boolean replay evidence. A canonical replay causes zero LINE sends and an explicit manual delivery review result. Send customer first; acknowledge the owner only after that succeeds. Sanitize Apps Script/LINE provider and thrown transport errors. Preserve verified international LINE contact without a phone.
+- Signed webhook integration exposed an additional reproducible privacy defect: an arbitrary media transport `error.code` reached `[line-inbox-media]` logs. `server/kk-inbox-media.js` now retains module-owned **original** diagnostic codes in a private WeakMap; `server/kk-line-inbox-tee.js` maps foreign errors to fixed `INBOX_MEDIA_CAPTURE_FAILED`. Even mutating an owned error's public `code` cannot inject contact data into the log. Ordinary archive failure diagnostics remain available.
+- Add the three canonical privacy/replay test files and a signed mixed text/image integration suite. Preserve both independent additions in the sole test merge conflict (`tests/line-webhook.test.js`). Expand `test:inbox:ship-gate` to include the new regressions, so postinstall executes them too.
+- The existing media failure test now invokes the actual capture/upload failure boundary instead of forging a module error. Its original archive-failure assertion remains unchanged.
+
+### Observed failure, repair and acceptance
+
+Before runtime changes, canonical regression tests were **9/31 PASS, 22 FAIL**. Initial signed integration was **1/3 PASS, 2 FAIL**: a hidden event made three forbidden downstream requests (package lookup, pending writer, owner push); the arbitrary private marker in a media error code appeared in logs. Both failures are now covered by passing regression tests.
+
+Final native Node v24.19.0 results:
+
+| Check | Result |
+| --- | --- |
+| Complete `npm test` | **1,800/1,800 PASS**, zero fail/skip |
+| Explicit LINE privacy/replay/prefill/poster/media/integration | **73/73 PASS** |
+| Routed Code Intelligence regression | **69/69 PASS** |
+| Expanded Inbox ship gate | **179/179 PASS** |
+| Full `npm run postinstall` | **PASS**, including syntax and all required contracts |
+| Independent reviewer run | **60/60 PASS**, no BLOCKER/MATERIAL source findings |
+| `git diff --check` | **PASS** |
+
+Synthetic integration proves private image identity is persisted before download/archive; invalid HMAC performs zero I/O; a hidden event causes no package lookup, booking write or owner push; a visible event with blank phone still creates a governed pending request using verified LINE contact and canonical price. All network I/O is synthetic; no customer/provider send, production DB/booking write, migration execution, ACL change, deployment or added spend occurred.
+
+Durable evidence: `docs/KK_INBOX_LINE_SAFETY_ACCEPTANCE_20261016.json` records source blob hashes, commands, log hashes, before/after counts and review scope. `docs/KK_INBOX_LINE_SAFETY_AGENT_EVIDENCE_20261016.json` records actual local registered Gateway pre/post invocations. The final published SHA/tree is pinned in the PR description and canonical closeout checkpoint; do not substitute a local commit SHA for a hosted release.
+
+### What remains genuinely unverified
+
+Registered UX review was invoked before implementation and visual QA afterward. With no authenticated visual evidence supplied, they correctly returned **BLOCKED / BLOCKED_INSUFFICIENT_EVIDENCE**. These durable local artifacts are not Production ledger receipts. No application UI, Apps Script, Admin/API source or business semantics were otherwise changed by this port.
+
+The engineering gate therefore remains **BLOCKED on RELEASE_READBACK**. Exact-head hosted CI, authenticated Inbox/LINE visual acceptance, a legitimate fresh private image, wrong-room denial, isolated real PostgreSQL concurrency, provider receipts, verified conversation-to-booking linkage, and owner-governed production/rollback acceptance remain HOLD. Replay suppression is not an exactly-once delivery receipt: a committed decision followed by a provider failure still needs manual delivery review. Historical images without provider IDs/bytes remain unrecoverable from existing records.
+
+Next: use this exact #700 source in the deliberate #744 integration rehearsal, then complete only legitimate authenticated runtime acceptance. Never automatically send customer messages, replay held sends or apply production migrations to produce a green check. Rollback for this source-only increment is the protected starting #700 head above; no production rollback is needed because this increment was not deployed.

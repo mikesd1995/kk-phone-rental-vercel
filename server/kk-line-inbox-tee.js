@@ -1,5 +1,6 @@
 'use strict';
 const Line=require('./kk-line-webhook.js');
+const Media=require('./kk-inbox-media.js');
 const VERSION='KK_LINE_INBOX_TEE_V2';
 
 async function persistVerifiedEvents(events=[], persistFn, options={}){
@@ -22,7 +23,7 @@ async function persistVerifiedEvents(events=[], persistFn, options={}){
       else writes++;
       if(message.message_type==='image'&&typeof options.mediaFn==='function'){
         try{const saved=await options.mediaFn(event,message);if(saved&&saved.saved)mediaSaved++;}
-        catch(err){mediaErrors.push({code:String(err&&err.code||'INBOX_MEDIA_CAPTURE_FAILED')});}
+        catch(err){mediaErrors.push({code:Media.diagnosticCode(err)});}
       }
     }catch(err){
       errors.push({

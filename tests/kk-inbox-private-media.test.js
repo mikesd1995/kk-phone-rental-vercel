@@ -30,10 +30,22 @@ test('media capture failures are isolated from customer message persistence',asy
  let records=0;
  const event={type:'message',webhookEventId:'webhook-image-2',source:{userId:'U100'},message:{id:'123456789',type:'image'}};
  const result=await Tee.persistVerifiedEvents([event],async()=>{records++;return{duplicate:false};},{
-  mediaFn:async()=>{throw Object.assign(new Error('storage down'),{code:'INBOX_MEDIA_ARCHIVE_FAILED'});}
+  mediaFn:async(_event,message)=>Media.capture(_event,message,{...options,
+   fetchImpl:async url=>url.startsWith('https://api-data.line.me/')?new Response(png):new Response('storage down',{status:503})})
  });
  assert.equal(records,1);assert.equal(result.writes,1);assert.equal(result.status,'PARTIAL');
  assert.deepEqual(result.media_errors,[{code:'INBOX_MEDIA_ARCHIVE_FAILED'}]);
+});
+test('media diagnostics trust module-owned errors and retain their original code if mutated',()=>{
+ let owned;
+ try{Media.pathFor('../private');}catch(err){owned=err;}
+ assert.ok(owned);
+ owned.code='SYNTHETIC_PRIVATE_CUSTOMER';
+ assert.equal(Media.diagnosticCode(owned),'INBOX_MEDIA_ID_INVALID');
+ for(const value of [null,undefined,'SYNTHETIC_PRIVATE_CUSTOMER',Object.assign(Error('private'),{code:'INBOX_MEDIA_ID_INVALID'}),
+   new Proxy({},{get(){throw Error('untrusted getter must not run');}})]){
+  assert.equal(Media.diagnosticCode(value),'INBOX_MEDIA_CAPTURE_FAILED');
+ }
 });
 test('private storage capture keeps secret tokens server-side and never yields a public URL',async()=>{
  const calls=[];

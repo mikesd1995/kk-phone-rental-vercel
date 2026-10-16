@@ -35,13 +35,13 @@ test('poster fetch fails closed on non-image and oversized content',async()=>{
  assert.equal(huge.status,413);
 });
 test('webhook Flex uses same-origin poster delivery URL',async()=>{
- const csv='event_id,event_name,event_date_text,venue,poster_image_url\nEVT-20260930-NINEENTERTAIN-24TH-ANNIVERSARY,Nineentertain 24th Anniversary Charity Concert,30/09/2026,"Parc Paragon, Siam Paragon, Bangkok",https://wx2.sinaimg.cn/cmw960/a.jpg\n';
+ const csv='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-20260930-NINEENTERTAIN-24TH-ANNIVERSARY,Nineentertain 24th Anniversary Charity Concert,30/09/2026,"Parc Paragon, Siam Paragon, Bangkok",https://wx2.sinaimg.cn/cmw960/a.jpg,show,เปิดจอง,1\n';
  const u=await webhook.resolvePoster({event_name:'Nineentertain 24th Anniversary Charity Concert',venue:'Parc Paragon, Siam Paragon, Bangkok'},async()=>({ok:true,text:async()=>csv}));
  assert.equal(u,'');
 });
 
 test('webhook only advertises proxy hero when canonical poster source is LINE-safe',async()=>{
- const csv='event_id,event_name,event_date_text,venue,poster_image_url\nEVT-SAFE-001,Safe Event,01/10/2026,Safe Venue,https://drive.google.com/thumbnail?id=abc\n';
+ const csv='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-SAFE-001,Safe Event,01/10/2026,Safe Venue,https://drive.google.com/thumbnail?id=abc,show,เปิดจอง,1\n';
  const u=await webhook.resolvePoster({event_name:'Safe Event',venue:'Safe Venue'},async()=>({ok:true,text:async()=>csv}));
  assert.equal(u,'https://kk-phone-rental.vercel.app/api/line-poster?event_id=EVT-SAFE-001');
 });

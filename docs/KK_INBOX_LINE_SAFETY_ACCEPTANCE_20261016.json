@@ -1,0 +1,90 @@
+{
+  "schema_version": "KK_INBOX_LINE_SAFETY_ACCEPTANCE_20261016",
+  "recorded_at": "2026-10-16T02:22:10.031469+00:00",
+  "classification": "EXISTING_PR_700_SOURCE_ONLY",
+  "base_main": "a54a348dd3258d87b1ec0c70e6ffd255d4678018",
+  "starting_remote_head": "e6e21f9b85a350f0d5e3741d6b99abffc4801888",
+  "canonical_line_guard_source": "e6597b7d82179646932a7c1520bf46a32bd7e1f8",
+  "checks": {
+    "full": {
+      "command": "npm test",
+      "result": "PASS",
+      "tests": 1800,
+      "log_sha256": "a7ac11a46edc621b2779f94fd68623989e165794e839b9f38437e63b4cecf144"
+    },
+    "targeted": {
+      "command": "node --test LINE owner/privacy/prefill/poster/webhook + private media + signed integration",
+      "result": "PASS",
+      "tests": 73,
+      "log_sha256": "036d8ea1e30f614ff8e96b8e05f2ece7e1366e3b423241e05263f4d77fde7829"
+    },
+    "routed": {
+      "command": "npm run code:test -- \"Unified Inbox private media LINE canonical bookability owner replay strict private Core integration release candidate\"",
+      "result": "PASS",
+      "tests": 69,
+      "log_sha256": "f822e881d6c0626c411f8df4cc5a19295529aeeb7e5d71b5d5f438c4100ab013"
+    },
+    "ship_gate": {
+      "command": "npm run test:inbox:ship-gate",
+      "result": "PASS",
+      "tests": 179,
+      "log_sha256": "2c60993c1855e3e8fd149da1ac080f68cc5b3d3bea6ef4c6132a163acc3a9dc3"
+    },
+    "postinstall": {
+      "command": "npm run postinstall",
+      "result": "PASS",
+      "tests": null,
+      "log_sha256": "ac297e8f6f5cc14cc736c6b6a3f1aef97304c86a30f97af44e23d9e0ef00a9f6"
+    }
+  },
+  "runtime_blobs": {
+    "server/line-booking-webhook.js": "52a8bb1b553a0a6c0025ad3e56d6f844042bec32",
+    "server/line-booking-owner-approval.js": "19c1eaaa47b6539e960cd0940105e0c9880c7063",
+    "server/kk-inbox-media.js": "d09c7e313404c084cb1e967ba3cee349be977e90",
+    "server/kk-line-inbox-tee.js": "23d0b3946c5b839b96c70259153776310ac3951e"
+  },
+  "independent_review": {
+    "reviewer": "/root/inbox_line_safety_review",
+    "blocker_count": 0,
+    "material_count": 0,
+    "independently_run_tests": 60,
+    "read_only": true
+  },
+  "release_status": "HOLD",
+  "production_writes": 0,
+  "provider_sends": 0,
+  "deployments": 0,
+  "added_spend": 0,
+  "red_evidence": {
+    "canonical_guards": {
+      "tests": 31,
+      "pass": 9,
+      "fail": 22
+    },
+    "initial_signed_boundary": {
+      "tests": 3,
+      "pass": 1,
+      "fail": 2
+    },
+    "causes": [
+      "Hidden event reached package lookup, pending writer and owner push",
+      "Provider-controlled image transport error.code was reflected into webhook logs"
+    ]
+  },
+  "preservation": {
+    "application_ui_unchanged": true,
+    "apps_script_unchanged": true,
+    "admin_auth_api_unchanged": true,
+    "private_media_preserved": true,
+    "th_en_package_labels_preserved": true,
+    "verified_line_without_phone_preserved": true
+  },
+  "unverified": [
+    "Exact-head hosted CI",
+    "Authenticated Admin/LINE visual acceptance",
+    "Fresh real private image and wrong-room runtime checks",
+    "Isolated PostgreSQL concurrent reservation acceptance",
+    "Durable provider delivery receipts and conversation/booking linkage",
+    "Production release/rollback readback"
+  ]
+}
