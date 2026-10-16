@@ -104,3 +104,27 @@ GitHub Actions `Storefront Automated Visual QA` run `38932522915`, job `11707979
 **Rollback option:** previous ready production `dpl_8KJysN96g3p9FmTiHhD7bLgWBVKF` at `30673affb9dbbfaf4ce5166ad1ea989734bce6aa`. It had the user-rejected oversized Hero on regular iPhones.
 
 **Known limit:** Local Chromium executable failed to complete a local screenshot attempt (DBus errors/hang) in this run, so independent pixel-level Safari acceptance cannot be claimed from local rendering. Use GitHub Actions `Storefront Automated Visual QA` Chromium screenshots and request owner screenshot only if needed; do not present guessed measurements as measured.
+
+## V9 measured GitHub visual QA — run 38944707704, 2026-10-17
+
+The Chromium screenshot/metrics workflow completed **FAIL** for overall website visual acceptance, not Hero contract. Job id `117121110209`, failed step `Capture screenshots, metrics and reviewer acceptance`.
+
+**Measured first eight viewports (same visual QA harness):**
+| CSS viewport width | V9 Hero height |
+| --- | ---: |
+| 320px (short) | 208.703125px |
+| 375px | 268.5625px |
+| 390px | 273.9375px |
+| 430px | 278.1875px |
+| 480px | 299.46875px |
+| 768px | 316.59375px |
+| 1024px | 393.984375px |
+| 1440px | 456.625px |
+
+**Like-for-like comparison vs V8.1 measured at 375/390/430:** 375px Hero 346.984375 → 268.5625 (−78.421875px / −22.6%), 390px 354.796875 → 273.9375 (−80.859375px / −22.8%), 430px 375.671875 → 278.1875 (−97.484375px / −25.9%). At 320 short, V8.2 already improved to 214px; V9 further shrinks it to 208.70px. **The design is demonstrably denser on normal iPhones.**
+
+**Positive:** No `HERO_DOMINATES_MOBILE` or `NO_EVENT_CONTENT_ABOVE_FOLD` detections in V9 QA, no JavaScript runtime errors, and two event cards partially or fully visible on common 375/390/430 viewports per recorded `visible_event_cards_above_fold=2`.
+
+**Other outstanding site-wide findings:** `CARD_CONTENT_ESCAPES` 143 occurrences, `POSTER_LETTERBOX_UNTREATED` 440, `MOBILE_SHEET_NOT_ANCHORED` 165, and `EVENT_DISCOVERY_TOO_LATE` 4 in this verbose multi-perspective report. These counts include repeated reports of the same observations across different snapshots/sections and are not necessarily that many unique defects. Leave booking/card/modal outside the Hero-only patch until individually validated. Overall `technical_visual_pass=false`, `release_ready=false`; production deployment READY is separate from design acceptance.
+
+**Owner still to verify:** image fidelity on native iPhone Safari and final desktop art proportions. The attached image reference is not a functional demo, and no pixel-exact claim has been made.
