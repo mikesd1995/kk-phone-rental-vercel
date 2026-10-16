@@ -67,7 +67,7 @@ test('very short mobile retains product illustration and both CTAs',()=>{
 });
 
 test('V9.1 adds editorial CTA arrow and readable benefits without rewriting the mobile grid',()=>{
- const latest=css.slice(css.indexOf('/* Hero V9.1'));
+ const latest=css.slice(css.indexOf('/* Hero V9.1'),css.indexOf('/* Hero V10 reference geometry'));
  assert.ok(latest.length>500);
  assert.ok(latest.includes('v3-primary span[aria-hidden="true"]'));
  assert.ok(latest.includes('v3-secondary::after'));
