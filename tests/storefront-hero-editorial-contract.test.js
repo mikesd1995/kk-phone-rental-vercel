@@ -41,5 +41,18 @@ test('booking CTA destinations and accessible navigation remain unchanged',()=>{
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261016-reference-art-v1/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261016-hero-v81-mobile-split/);
+});
+
+test('owner screenshot mobile composes side-by-side actions and phone artwork, not a long stacked banner',()=>{
+ const mobile=css.slice(css.indexOf('/* Hero V8.1'));
+ assert.ok(mobile.length>1000);
+ assert.match(mobile,/grid-template-areas:"eyebrow eyebrow" "headline headline" "description description" "actions artwork" "trust trust"!important/);
+ assert.match(mobile,/grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)!important/);
+ assert.match(mobile,/grid-area:artwork!important/);
+ assert.match(mobile,/grid-area:actions!important/);
+ assert.match(mobile,/grid-area:trust!important/);
+ assert.match(mobile,/display:contents!important/);
+ assert.match(mobile,/min-height:44px!important/);
+ assert.doesNotMatch(mobile,/kk-brand-hero-final-20260920\.png/);
 });
