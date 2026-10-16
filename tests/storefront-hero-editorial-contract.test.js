@@ -41,7 +41,7 @@ test('booking CTA destinations and accessible navigation remain unchanged',()=>{
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261016-hero-v81-mobile-split/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261016-hero-v82-shortphone/);
 });
 
 test('owner screenshot mobile composes side-by-side actions and phone artwork, not a long stacked banner',()=>{
@@ -55,4 +55,14 @@ test('owner screenshot mobile composes side-by-side actions and phone artwork, n
  assert.match(mobile,/display:contents!important/);
  assert.match(mobile,/min-height:44px!important/);
  assert.doesNotMatch(mobile,/kk-brand-hero-final-20260920\.png/);
+});
+
+test('short 320px phones retain art and CTAs while abbreviating nonessential copy',()=>{
+ const short=css.slice(css.indexOf('/* Hero V8.2'));
+ assert.ok(short.length>300);
+ assert.match(short,/@media\(max-width:340px\) and \(max-height:620px\)/);
+ assert.match(short,/\.v3-hero-copy>p\{display:none!important\}/);
+ assert.match(short,/\.kk-hero-trust\{display:none!important\}/);
+ assert.doesNotMatch(short,/\.kk-hero-art\{display:none!important\}/);
+ assert.match(html,/href="#booking-journey"/);
 });
