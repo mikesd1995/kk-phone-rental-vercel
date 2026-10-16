@@ -1,0 +1,207 @@
+{
+  "schema_version": "KK_INBOX_NATIVE_VM_QA_ASSET_LOCK_V1",
+  "qa_only": true,
+  "application_runtime_dependencies_added": 0,
+  "executed_asset_sha256": {
+    "host-qemu/usr/bin/qemu-system-x86_64": "8d2c592a87347b64383f01c531c6a1a13775e85396373d9377593cec1b748a99",
+    "host-qemu/usr/share/seabios/bios-256k.bin": "1a9ea4f17bcfb27bda5728e2c21d9fa074cf7947b9b4910bb28213a735c96735",
+    "host-qemu/usr/lib/x86_64-linux-gnu/qemu/accel-tcg-x86_64.so": "e3a4e7177600fee529975c76578d4c0ea84b607b844440fe4c1cf86d02f45da8",
+    "guest/boot/vmlinuz-virt": "057852afd86f1d8206104caa0e8128045e5adafbc82c5d4e01fc129c1c619a36",
+    "guest/usr/libexec/postgresql17/postgres": "4d79d0dd4272d32383474cd6702f1254757cc2c8c70683542a1326173576de8b",
+    "guest/usr/libexec/postgresql17/psql": "b3362ac70a25ed5c3922c25214ef4a1ce45c17b832142ef682e7d5a933e48a56",
+    "guest/usr/libexec/postgresql17/initdb": "bbd4f45ec918d280ffb5cd9e72a41d54951ce92926ef96497b54ced0f113c8fd",
+    "guest/usr/libexec/postgresql17/pg_ctl": "7eba32ec7ae4616f1e6e582635f50add3de218238cd8e2d963b9473f582315b7",
+    "guest/bin/busybox": "6dcd5f0190e8f4b055c2823b3d97660704b97d70c60cd3d3cf9805922fde1302"
+  },
+  "ubuntu_packages": [
+    {
+      "name": "qemu-system-x86",
+      "version": "1:8.2.2+ds-0ubuntu1.16",
+      "sha256": "6e52d855819b9dd86e5507400380f6a19eace953969170d8f26460d07861291b",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/q/qemu/qemu-system-x86_8.2.2+ds-0ubuntu1.16_amd64.deb"
+    },
+    {
+      "name": "qemu-system-common",
+      "version": "1:8.2.2+ds-0ubuntu1.16",
+      "sha256": "1e0da48efe6c9ef8a6a356aa8c52a64b4ef08eb0c4b6e1a23e0c077c20f05924",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/q/qemu/qemu-system-common_8.2.2+ds-0ubuntu1.16_amd64.deb"
+    },
+    {
+      "name": "qemu-system-data",
+      "version": "1:8.2.2+ds-0ubuntu1.16",
+      "sha256": "4017014ed532e01f7564de4f38c9ff4188a392d6168299206f5c6d7bdd9b8e61",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/q/qemu/qemu-system-data_8.2.2+ds-0ubuntu1.16_all.deb"
+    },
+    {
+      "name": "seabios",
+      "version": "1.16.3-2",
+      "sha256": "cac4e59a66c834d19cae751c22ab3a0391c22f78010fd11aa2e3fe630e6bc0e0",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/s/seabios/seabios_1.16.3-2_all.deb"
+    },
+    {
+      "name": "libaio1t64",
+      "version": "0.3.113-6build1",
+      "sha256": "b1c4ebee35cfc85481443171e6e09943f3b0b530901fdf4fd6a864e242c2a1a5",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/liba/libaio/libaio1t64_0.3.113-6build1_amd64.deb"
+    },
+    {
+      "name": "libfdt1",
+      "version": "1.7.0-2build1",
+      "sha256": "274d20dfab9d6b216b5de85446a93f6ce5b2cd82c847b8dfdc508577f76eb96a",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/d/device-tree-compiler/libfdt1_1.7.0-2build1_amd64.deb"
+    },
+    {
+      "name": "liburing2",
+      "version": "2.5-1build1",
+      "sha256": "c2aef62accee92a06263c3ad4ef46132c13e409b54296c44792a20491830a7b0",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/libu/liburing/liburing2_2.5-1build1_amd64.deb"
+    },
+    {
+      "name": "libslirp0",
+      "version": "4.7.0-1ubuntu3.1",
+      "sha256": "4efa2d1c509de4d10fe965e86a3d864bf542996caf476d9111fd882c73857164",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/libs/libslirp/libslirp0_4.7.0-1ubuntu3.1_amd64.deb"
+    },
+    {
+      "name": "libbpf1",
+      "version": "1:1.3.0-2build2",
+      "sha256": "5654cbb145c2b299472cd208dd06c7dc09bf06cad4c4663fc42a865a51a0d96f",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/libb/libbpf/libbpf1_1.3.0-2build2_amd64.deb"
+    },
+    {
+      "name": "libfuse3-3",
+      "version": "3.14.0-5build1",
+      "sha256": "3042159c6d7d4dcb3df9d49cd21e49ecb57f4ba8c4153a72102f512a4fc534a2",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/f/fuse3/libfuse3-3_3.14.0-5build1_amd64.deb"
+    },
+    {
+      "name": "libpmem1",
+      "version": "1.13.1-1.1ubuntu2",
+      "sha256": "8f1be1cc834a98f0cf5c0950153f7f939a0c2c92095e98cd7bb40c752c545c1b",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/p/pmdk/libpmem1_1.13.1-1.1ubuntu2_amd64.deb"
+    },
+    {
+      "name": "librdmacm1t64",
+      "version": "50.0-2build2",
+      "sha256": "553a33a0ec101d2a0784d27b55288067048df80e87f8a63426813d0ffef40250",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/r/rdma-core/librdmacm1t64_50.0-2build2_amd64.deb"
+    },
+    {
+      "name": "libibverbs1",
+      "version": "50.0-2build2",
+      "sha256": "731e9d88e498b1a8b03a4eaf6e3ed6227f1c4646b9931256f7e234b42ae618dd",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/r/rdma-core/libibverbs1_50.0-2build2_amd64.deb"
+    },
+    {
+      "name": "libnettle8t64",
+      "version": "3.9.1-2.2build1",
+      "sha256": "4cac2064e2984c4bc5a31659d4f00c7efe0c4b691559d536dd726c05d3632a57",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/n/nettle/libnettle8t64_3.9.1-2.2build1_amd64.deb"
+    },
+    {
+      "name": "libhogweed6t64",
+      "version": "3.9.1-2.2build1",
+      "sha256": "594a82d7b70ecff393753ee0ab6611b0b18226c4f922d27ccb3f66caeae3d5d1",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/n/nettle/libhogweed6t64_3.9.1-2.2build1_amd64.deb"
+    },
+    {
+      "name": "libgnutls30t64",
+      "version": "3.8.3-1.1ubuntu3.6",
+      "sha256": "b8944756260c5ea6b7fac019745f931f905aa7a4df0763676b1b25c911b692e2",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/g/gnutls28/libgnutls30t64_3.8.3-1.1ubuntu3.6_amd64.deb"
+    },
+    {
+      "name": "libsasl2-2",
+      "version": "2.1.28+dfsg1-5ubuntu3",
+      "sha256": "9a5b0cf88b19de419e585b91b3837c4d7621df229f78a0a58935761866ca1f4d",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/c/cyrus-sasl2/libsasl2-2_2.1.28+dfsg1-5ubuntu3_amd64.deb"
+    },
+    {
+      "name": "libcap-ng0",
+      "version": "0.8.4-2build2",
+      "sha256": "cf1e9437ac7ddf6539dbe87b68858cbdef84d78c6aac243ab3b6e564a52ed930",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/libc/libcap-ng/libcap-ng0_0.8.4-2build2_amd64.deb"
+    },
+    {
+      "name": "libnuma1",
+      "version": "2.0.18-1build1",
+      "sha256": "508daa855e99959acaa945e6a89d218e0be6b5727fd28773580942ff37cf5805",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/n/numactl/libnuma1_2.0.18-1build1_amd64.deb"
+    },
+    {
+      "name": "libpixman-1-0",
+      "version": "0.42.2-1build1",
+      "sha256": "d9c2931c4c424615eeab9dd5ae08bfc608b84e803c1d3ccddf319270db213421",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/p/pixman/libpixman-1-0_0.42.2-1build1_amd64.deb"
+    },
+    {
+      "name": "libjpeg-turbo8",
+      "version": "2.1.5-2ubuntu2",
+      "sha256": "f68b5b23bc8a1688fb787d2aed7e2cdf895a73022f6a5025e183162dac4500b2",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/libj/libjpeg-turbo/libjpeg-turbo8_2.1.5-2ubuntu2_amd64.deb"
+    },
+    {
+      "name": "libpng16-16t64",
+      "version": "1.6.43-5ubuntu0.6",
+      "sha256": "ac0163f58b8aa52dfdd17cdc10a83f3db084cb91a62686023f5c983d6ff89f8b",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/libp/libpng1.6/libpng16-16t64_1.6.43-5ubuntu0.6_amd64.deb"
+    },
+    {
+      "name": "libndctl6",
+      "version": "77-2ubuntu2",
+      "sha256": "4eab53588a8fa9e3192635e118c2d91bc069cde46a4a3785c77a0bb1ae001d02",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/n/ndctl/libndctl6_77-2ubuntu2_amd64.deb"
+    },
+    {
+      "name": "libdaxctl1",
+      "version": "77-2ubuntu2",
+      "sha256": "c6629b49c79343fb11ae404aeaa3156f051168da6c6d3d9d8d516acd94705061",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/n/ndctl/libdaxctl1_77-2ubuntu2_amd64.deb"
+    },
+    {
+      "name": "libnl-route-3-200",
+      "version": "3.7.0-0.3build1",
+      "sha256": "8abfa9a87f78dbba7edc19ef4cfcb16b70dde562bccc3ff7550bdd3a0487e358",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/libn/libnl3/libnl-route-3-200_3.7.0-0.3build1_amd64.deb"
+    },
+    {
+      "name": "libnl-3-200",
+      "version": "3.7.0-0.3build1",
+      "sha256": "0afff6a14f55122757db02ff7e11ad58f128465fd796e2e33a0b0fe5b45a09ed",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20260828T000000Z/pool/main/libn/libnl3/libnl-3-200_3.7.0-0.3build1_amd64.deb"
+    }
+  ],
+  "alpine_package_sha256": {
+    "busybox-1.37.0-r20.apk": "7cc34c2dda2520b456ab4a55abc37fe245ac90f98ab9f1c7a9be3aec035df48e",
+    "gdbm-1.24-r0.apk": "cb524a457ffbd9c79c6711d9ee883a64a5a9bc6aec4f4b4d047ee67527ac6e6d",
+    "icu-data-full-76.1-r1.apk": "478c438c41359350c824b5276e52cba60da36484eff68f4e6d43e9cbdd462415",
+    "icu-libs-76.1-r1.apk": "0d6d3b9173f388f7450b168f8a98647f21356d1d4e5ae414e160db2843c6a2c8",
+    "libcrypto3-3.5.9-r0.apk": "3f5825ced5fde1c66a5376a3f6076b3c08538ad52d9ef23f069857e212d9175a",
+    "libgcc-14.2.0-r6.apk": "04f3467bc967e705221a843fe4d3de5850db826e571686e0c0ed453d38cb5c59",
+    "libldap-2.6.8-r0.apk": "f3e61557659d696bb47d988eb9bca1e9ac39ec03d4efc643dd75c44f8a7f8ad9",
+    "libncursesw-6.5_p20250503-r0.apk": "aeafdfca68147b014705b4e2564639ade6345198debb522f2c6c51d32e417651",
+    "libpq-17.11-r0.apk": "8033b1e6be177b679de357bce7d6f435e8536fb598017acda89f3c7e7b1abf6a",
+    "libsasl-2.1.28-r8.apk": "a89c2ffee9348bff2b20e94e6731ed8a51477925904314908521ccfbbfba149d",
+    "libssl3-3.5.9-r0.apk": "6801c740b9760b5b08da8db6367ebc18b2cc4dbaf371f7148429538b8bb04e23",
+    "libstdc++-14.2.0-r6.apk": "939f7c99898f3e8154207a17f4acbe8bc40437e1bb1b43f5525620ca9e452a2e",
+    "libxml2-2.13.9-r1.apk": "be361698c6f728f492b99550e99e898ae478940fe593d8c11b14c5f3d1b5a938",
+    "linux-virt-6.12.112-r0.apk": "6694e66849759265135a930306452c944bf2159f259b8c8f1c8731e474f2830b",
+    "lz4-libs-1.10.0-r0.apk": "b4f393b9d8ce5a431788b31c899734f84d60a47487a6b833ee8d8012c501fe3f",
+    "musl-1.2.5-r12.apk": "4990a5e0ba312e478f94cfe431a70efef1538004eb361c8ae424516848be45bb",
+    "ncurses-terminfo-base-6.5_p20250503-r0.apk": "0815a5f0403974bb9c34d456e71dc9c0222cb5455d393bc63c44b573da3d7fe0",
+    "postgresql-common-1.2-r1.apk": "17bdead178843d7b9d5adfac8b287140b31c36b4d23bef0cdb4fcf3a87991cbb",
+    "postgresql17-17.11-r0.apk": "129a9c74047a5bebf04f688725b4d9a09a57c567c19ccff206a48f57c10a07fb",
+    "postgresql17-client-17.11-r0.apk": "41b1d0b7065da4d27b43d4f63eb7918d5b51d589d53996d6dc5b4aa8c5097d11",
+    "readline-8.2.13-r1.apk": "520fa586c689144928191bee13e2c85ff4e170ad87d1471ec48e3e97611673d8",
+    "tzdata-2026e-r0.apk": "f99e81b17a364688f1a953766e1357db83a144a610e7f145e6d0267a84bbd091",
+    "xz-libs-5.8.4-r0.apk": "37e169b7b400304fa7027cab79f9c1c7a280e83acf6c95463384b8abb7ebb254",
+    "yash-2.58.1-r0.apk": "b551c9341c7da1f9ef99fd4aab470e283b4e73c9cd3bab6f1d27aa6da0b91acc",
+    "yash-binsh-2.58.1-r0.apk": "c3e13fab7f554fabfc43a6bffc604e65048d17aa737ba63642be8b3a727dab59",
+    "zlib-1.3.2-r1.apk": "af24e502645e2b392cae833856d776691ac21655362e5db69d7b89f147f76216",
+    "zstd-libs-1.5.7-r0.apk": "1bdd6e57cfbfbfd6e8481cad37ddd5d199950715bec1879b3afb600272dbb09e"
+  },
+  "alpine_base_url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/",
+  "kernel": "6.12.112-r0",
+  "postgresql": "17.11-r0",
+  "qemu": "8.2.2+ds-0ubuntu1.16"
+}

@@ -1,0 +1,42 @@
+KK_ENGINE {"version" : "PostgreSQL 17.11 on x86_64-alpine-linux-musl, compiled by cc (Alpine 14.2.0) 14.2.0, 64-bit", "backend_pid" : 461, "fsync" : "on", "synchronous_commit" : "on", "listen_addresses" : ""}
+KK_CASE {"name":"native PostgreSQL17 under UID70 with no TCP listener and durable commit settings","status":"PASS"}
+psql:/qa/source/0.sql:49: NOTICE:  column "owner_label" of relation "inbox_conversations" already exists, skipping
+psql:/qa/source/0.sql:50: NOTICE:  column "owner_label_updated_at" of relation "inbox_conversations" already exists, skipping
+psql:/qa/source/0.sql:51: NOTICE:  column "owner_label_updated_by" of relation "inbox_conversations" already exists, skipping
+KK_CASE {"name":"source compilation RLS and all Inbox RPC privilege boundaries","status":"PASS"}
+KK_LOCK {"holder_pid" : 497, "waiter_pid" : 511, "waiter_event" : "advisory", "blocked_by_holder" : true}
+KK_CASE {"name":"independent sessions wait on exact advisory lock then commit permits one reservation","status":"PASS"}
+KK_LOCK {"holder_pid" : 544, "waiter_pid" : 558, "waiter_event" : "advisory", "blocked_by_holder" : true}
+KK_CASE {"name":"rollback releases advisory lock and waiting new request becomes sole winner","status":"PASS"}
+KK_LOCK {"holder_pid" : 590, "waiter_pid" : 604, "waiter_event" : "advisory", "blocked_by_holder" : true}
+KK_CASE {"name":"backend termination rolls back uncommitted reservation and releases waiter","status":"PASS"}
+KK_LOCK {"holder_pid" : 641, "waiter_pid" : 655, "waiter_event" : "advisory", "blocked_by_holder" : true}
+KK_CASE {"name":"same request UUID on independent sessions cannot reserve twice","status":"PASS"}
+KK_CASE {"name":"different body fingerprint completes while first transaction remains open","status":"PASS"}
+KK_CASE {"name":"different conversation completes while first transaction remains open","status":"PASS"}
+KK_BURST {"pid" : 740, "reservation" : {"status": "UNRESOLVED_OUTBOUND_IN_WINDOW", "allowed": false}}
+KK_BURST {"pid" : 741, "reservation" : {"status": "UNRESOLVED_OUTBOUND_IN_WINDOW", "allowed": false}}
+KK_BURST {"pid" : 739, "reservation" : {"status": "RESERVED", "allowed": true, "retry_key": "954d79fe-352a-441e-9753-33f40b2c8bb7"}}
+KK_BURST {"pid" : 742, "reservation" : {"status": "UNRESOLVED_OUTBOUND_IN_WINDOW", "allowed": false}}
+KK_BURST {"pid" : 738, "reservation" : {"status": "UNRESOLVED_OUTBOUND_IN_WINDOW", "allowed": false}}
+KK_BURST {"pid" : 744, "reservation" : {"status": "UNRESOLVED_OUTBOUND_IN_WINDOW", "allowed": false}}
+KK_BURST {"pid" : 745, "reservation" : {"status": "UNRESOLVED_OUTBOUND_IN_WINDOW", "allowed": false}}
+KK_BURST {"pid" : 743, "reservation" : {"status": "UNRESOLVED_OUTBOUND_IN_WINDOW", "allowed": false}}
+KK_CASE {"name":"eight simultaneous independent backend requests create one reservation","status":"PASS"}
+KK_CRASH {"unclean_control_state":"in production","mode":"immediate","restarted":true}
+KK_CASE {"name":"committed RESERVED survives immediate server crash and blocks new send","status":"PASS"}
+KK_CRASH {"unclean_control_state":"in production","mode":"immediate","restarted":true}
+KK_CASE {"name":"crash after synthetic provider before persistence preserves unresolved hold","status":"PASS"}
+KK_CRASH {"unclean_control_state":"in production","mode":"immediate","restarted":true}
+KK_CASE {"name":"crash after message persistence before finish keeps receipt and blocks replay","status":"PASS"}
+KK_CRASH {"unclean_control_state":"in production","mode":"immediate","restarted":true}
+KK_CASE {"name":"committed SENT and provider evidence survive immediate server crash","status":"PASS"}
+KK_CRASH {"unclean_control_state":"in production","mode":"immediate","restarted":true}
+KK_CRASH {"unclean_control_state":"in production","mode":"immediate","restarted":true}
+KK_CASE {"name":"owner verified evidence survives crash and only explicit reviewed repeat may reserve","status":"PASS"}
+KK_LOCK {"holder_pid" : 955, "waiter_pid" : 969, "waiter_event" : "advisory", "blocked_by_holder" : true}
+KK_CASE {"name":"simultaneous reviewed-repeat clicks remain one winner with real lock wait","status":"PASS"}
+KK_COMPLETE {"pass":15,"fail":0,"multi_session_concurrency_verified":true,"postgres_process_crash_recovery_verified":true,"vm_power_loss_verified":false,"provider_sends":0,"production_writes":0,"release_ready":false}
+KK_GUEST_EXIT 0
+KK_VM_EXIT 0
+[   39.827751] reboot: Power down
