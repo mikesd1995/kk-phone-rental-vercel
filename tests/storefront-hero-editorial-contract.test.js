@@ -88,7 +88,7 @@ test('V10 matches owner reference desktop header/card/product landmarks',()=>{
  assert.ok(v10.includes('padding:32px 18px 24px 56px!important'));
  assert.ok(html.includes('เลือกงานที่ต้องการ'));
  assert.ok(script.includes('hero_cta:"เลือกงานที่ต้องการ"'));
- assert.ok(html.includes('20261017-hero-v10-desktop-geometry'));
+ assert.ok(html.includes('20261017-hero-v101-typography'));
 });
 
 test('V10.1 aligns owner reference typography and CTA width only on desktop',()=>{
