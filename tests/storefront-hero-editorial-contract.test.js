@@ -41,28 +41,27 @@ test('booking CTA destinations and accessible navigation remain unchanged',()=>{
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261016-hero-v82-shortphone/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261017-hero-v9-compact/);
 });
 
-test('owner screenshot mobile composes side-by-side actions and phone artwork, not a long stacked banner',()=>{
- const mobile=css.slice(css.indexOf('/* Hero V8.1'));
+test('owner reference mobile uses split CTAs and artwork without a second perk strip',()=>{
+ const mobile=css.slice(css.indexOf('/* Hero V9'));
  assert.ok(mobile.length>1000);
- assert.match(mobile,/grid-template-areas:"eyebrow eyebrow" "headline headline" "description description" "actions artwork" "trust trust"!important/);
- assert.match(mobile,/grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)!important/);
+ assert.match(mobile,/grid-template-areas:/);
+ assert.match(mobile,/"actions artwork"!important/);
+ assert.match(mobile,/grid-template-columns:minmax\\(0,1fr\\) minmax\\(0,1fr\\)!important/);
  assert.match(mobile,/grid-area:artwork!important/);
  assert.match(mobile,/grid-area:actions!important/);
- assert.match(mobile,/grid-area:trust!important/);
- assert.match(mobile,/display:contents!important/);
+ assert.match(mobile,/html \\.kk-mock-hero \\.kk-hero-trust\\{display:none!important\\}/);
  assert.match(mobile,/min-height:44px!important/);
- assert.doesNotMatch(mobile,/kk-brand-hero-final-20260920\.png/);
+ assert.match(mobile,/display:contents!important/);
+ assert.doesNotMatch(mobile,/kk-brand-hero-final-20260920\\.png/);
 });
-
-test('short 320px phones retain art and CTAs while abbreviating nonessential copy',()=>{
- const short=css.slice(css.indexOf('/* Hero V8.2'));
- assert.ok(short.length>300);
- assert.match(short,/@media\(max-width:340px\) and \(max-height:620px\)/);
- assert.match(short,/\.v3-hero-copy>p\{display:none!important\}/);
- assert.match(short,/\.kk-hero-trust\{display:none!important\}/);
- assert.doesNotMatch(short,/\.kk-hero-art\{display:none!important\}/);
+test('very short mobile retains product illustration and both CTAs',()=>{
+ const mobile=css.slice(css.indexOf('/* Hero V9'));
+ assert.match(mobile,/@media\\(max-width:340px\\) and \\(max-height:620px\\)/);
+ assert.match(mobile,/\\.v3-hero-copy>p\\{/);
+ assert.doesNotMatch(mobile,/\\.kk-hero-art\\{display:none!important\\}/);
+ assert.match(html,/href="#content"/);
  assert.match(html,/href="#booking-journey"/);
 });
