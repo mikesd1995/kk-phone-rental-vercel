@@ -2827,3 +2827,40 @@ html .kk-benefit-grid .benefit-icon svg{
 @media (prefers-reduced-motion:reduce){
   html .kk-mock-hero :is(.v3-primary,.v3-secondary){transition:none!important}
 }
+
+
+/* KK HERO R6 — isolate camera handset artwork from legacy marketing banner.
+   The banner is never shown fully inside the new hero panel. */
+html .kk-mock-hero .kk-hero-art{
+  aspect-ratio:1.52!important;
+  background-image:
+    linear-gradient(110deg,rgba(2,15,43,.16),rgba(3,32,81,.04)),
+    url("/assets/kk-brand-hero-final-20260920.png")!important;
+  background-size:100% 100%,auto 168%!important;
+  background-position:center,right center!important;
+  background-color:#071f4b!important;
+}
+@media (max-width:700px){
+  html .kk-mock-hero{gap:10px!important;padding:13px!important}
+  html .kk-mock-hero .kk-hero-art{
+    aspect-ratio:auto!important;
+    height:160px!important;
+    min-height:160px!important;
+    max-height:160px!important;
+    background-size:100% 100%,auto 195%!important;
+    background-position:center,right center!important;
+  }
+  html .kk-benefit-grid{margin-top:9px!important;margin-bottom:10px!important}
+  html .kk-benefit-grid>div{min-height:49px!important;padding:6px 7px!important}
+}
+@media (max-width:359px){
+  html .kk-mock-hero{padding:10px!important;gap:7px!important}
+  html .kk-mock-hero .kk-hero-art{
+    display:block!important;
+    height:106px!important;
+    min-height:106px!important;
+    max-height:106px!important;
+    background-size:100% 100%,auto 240%!important;
+  }
+  html .kk-benefit-grid>div{min-height:44px!important;padding:5px!important}
+}
