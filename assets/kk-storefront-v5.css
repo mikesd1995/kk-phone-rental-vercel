@@ -2349,3 +2349,40 @@ html[data-theme="light"] .kk-mock-hero .kk-hero-trust-item:not(:last-child){bord
     font-size:21px!important;
   }
 }
+
+
+/* Hero V9.1 — 2026-10-17: editorial finishing, not a layout rewrite. */
+html[data-theme="dark"] .kk-mock-hero {
+ background:radial-gradient(ellipse at 93% 96%,rgba(13,112,255,.28),transparent 46%),radial-gradient(ellipse at 86% 3%,rgba(41,111,233,.24),transparent 47%),linear-gradient(166deg,transparent 25%,rgba(34,105,213,.06) 66%,transparent 86%),linear-gradient(118deg,#061528 0%,#071a34 54%,#0c2b57 100%)!important;
+ box-shadow:inset 0 -9px 24px rgba(0,100,255,.12),0 14px 34px rgba(0,15,39,.18)!important;
+}
+html[data-theme="light"] .kk-mock-hero {
+ background:radial-gradient(ellipse at 88% 98%,rgba(39,132,243,.17),transparent 52%),radial-gradient(ellipse at 92% 3%,rgba(68,149,255,.26),transparent 50%),linear-gradient(119deg,#eef7ff 0%,#dcebff 54%,#bcdcff 100%)!important;
+}
+html .kk-mock-hero .v3-primary {gap:10px!important}
+html .kk-mock-hero .v3-primary span[aria-hidden="true"] {
+ display:inline-grid!important;place-items:center!important;
+ flex:0 0 25px!important;width:25px!important;height:25px!important;
+ border-radius:50%!important;background:linear-gradient(145deg,#fff,#d8eeff)!important;
+ color:#075fca!important;font-size:16px!important;font-weight:850!important;line-height:1!important;
+ box-shadow:0 0 0 1px rgba(255,255,255,.55),0 1px 5px rgba(6,37,101,.25)!important;
+}
+html .kk-mock-hero .v3-secondary::after {content:"›";display:inline-block;margin-left:12px;font-size:19px;font-weight:400;line-height:1;opacity:.92}
+@media(min-width:701px) {
+ html .kk-mock-hero .kk-hero-trust-item strong {font-size:11px!important}
+ html .kk-mock-hero .kk-hero-trust-item small {font-size:10.5px!important}
+}
+@media(max-width:700px) {
+ html .kk-mock-hero .v3-primary {gap:6px!important}
+ html .kk-mock-hero .v3-primary span[aria-hidden="true"] {width:22px!important;height:22px!important;flex-basis:22px!important;font-size:14px!important}
+ html .kk-mock-hero .v3-secondary::after {margin-left:6px;font-size:16px}
+ html .kk-mock-hero .kk-hero-art {border:1px solid rgba(131,180,255,.26)!important;box-shadow:0 5px 19px rgba(0,19,61,.29)!important}
+ html .kk-benefit-grid>div {min-height:49px!important;padding:7px!important;font-size:10.5px!important;line-height:1.36!important;font-weight:480!important;gap:6px!important}
+ html .kk-benefit-grid .benefit-icon {width:25px!important;height:25px!important;flex-basis:25px!important}
+}
+@media(max-width:359px) {
+ html .kk-mock-hero .v3-primary {gap:4px!important}
+ html .kk-mock-hero .v3-primary span[aria-hidden="true"] {width:19px!important;height:19px!important;flex-basis:19px!important;font-size:12px!important}
+ html .kk-mock-hero .v3-secondary::after {margin-left:4px;font-size:15px}
+ html .kk-benefit-grid>div {min-height:47px!important;padding:6px!important;font-size:10px!important}
+}
