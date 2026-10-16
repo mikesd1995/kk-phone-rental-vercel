@@ -4,6 +4,30 @@
 อ่านสถานะ CODE WRITTEN / LOCAL TEST PASS / CI PASS / PRODUCTION VERIFIED แยกกัน ห้ามนำผล local ไปแทนการเปิดใช้งานจริง
 
 
+## ล่าสุด 16 ต.ค. 2026 — ผ่านฐานข้อมูลหลาย session จริงและ process-crash recovery แล้ว
+
+**จุดค้างที่ปิดเพิ่มได้:** isolated PostgreSQL multi-session/lock/recovery ผ่านแล้วใน PR #700 source `ed7e89b8c8eac1745111bb9873d8a2b3a14bfbc2`, tested tree `f2a61c47a0a77d372a657490921ce22775ee8f16`. รอบนี้เพิ่มเฉพาะเครื่องมือ QA/หลักฐาน/วิธีทำซ้ำ ไม่มีการเปลี่ยนโค้ดแอป, SQL, API, Admin, middleware, package หรือ lockfile
+
+| ก่อนรอบนี้ | หลังดำเนินการ |
+| --- | --- |
+| PGlite มีbackendเดียว จึงยังไม่ผ่านเกตทดสอบหลายsession | ใช้ PostgreSQL17.11 แบบnative/ไม่แก้binary ใน Linux VMชั่วคราว ผ่าน15/15ทั้งรอบหลักและผู้รีวิวอิสระ |
+| ไม่เคยพิสูจน์การแย่งlockข้ามbackend | คำขอพร้อมกัน8backend PIDต่างกัน มีสิทธิ์reserveผู้ชนะเดียว; สังเกตผู้รอadvisorylockจริง5ครั้ง ตรงexact64-bit keyและpg_blocking_pids |
+| ยังไม่พิสูจน์ว่าprocessล้มแล้วกันส่งซ้ำได้ | หยุดPostgreSQLแบบimmediateแล้วเริ่มใหม่6ครั้ง ทุกครั้งcontrolfileยังเป็นunclean/in production; reservation, receipt, ownerreviewและrepeat-holdยังคงอยู่ |
+| ยังไม่มีชุดทดสอบจับการถอดlock | ถอดlock2จุดเฉพาะสำเนาguest ทำให้ตกตามคาด2PASS/1FAILที่advisory-wait; sourceจริงผ่านครบและไม่ถูกแก้ |
+
+**ผลตรวจรอบนี้:** fullแอป1802/1802, routed96/96, postinstall/ship185/185 ผ่าน. รีวิวอิสระ0BLOCKER/0MATERIAL และรันnative15/15เอง. Python/shellsyntax, CLIปฏิเสธpathผิด/assetไม่สมบูรณ์, hashparityผ่าน. ชุดรวมCore1934/1934+26/26ACLเป็นผลรอบก่อนที่ยังใช้กับruntimeเดิมได้ เพราะพิสูจน์ทุกแอป/test/SQLbyteไม่เปลี่ยน; ไม่อ้างว่ารันหรือdeploycombinedcandidateใหม่
+
+**ทางเลือกที่ทำให้สำเร็จ:** hostmapได้เฉพาะUID0 และunshareเพิ่มผู้ใช้ถูกEPERM จึงbootLinuxkernelแยกด้วยQEMU TCG ให้postgresทำงานด้วยUID70จริง. แก้ปัญหาrelocatedmodule/ROM, configquoting, assertionexitcodeของpsql และhardlinkในชุดติดตั้งจนpreparationจากcacheใหม่และผลทดสอบผ่านครบ. เก็บสาเหตุ/ทางแก้ไว้ในmanifest ไม่ใช้การแก้rootguard ไม่ใช้PGlite multiplexerแทนbackendจริง ไม่สร้างฐานข้อมูลSaaSหรือเพิ่มค่าใช้จ่าย
+
+**ขอบเขตที่พิสูจน์ได้:** VMไม่มีNIC/hostshare/hostdisk และไม่รับcredential; PostgreSQLฟังUnixsocketภายในเท่านั้น, fsync/synchronous_commitเปิด. ฐานข้อมูลอยู่RAMของVM จึงพิสูจน์process/WALrecoveryขณะRAMยังอยู่ ไม่ใช่VMดับ/ไฟดับหรือdiskdurability. NativePG17.11ไม่ใช่hostedSupabase17.6แบบเดียวกันทุกส่วน
+
+**ยังเหลือก่อนปิดทั้งโปรเจ็ค:** exacthostedCI, hostedPostgREST/privateStorage, LINEproviderreceipt/รูปใหม่และwrong-roomจริง, authenticatedAdmin/LINEvisual, bookinglinkage, PrivateCore/ACLcutover, naturalgovernedruntime/ข้อเท็จจริงรับคืน และowner-governedrelease/rollback. Engineeringgateเรียกจริงแล้วยังBLOCKEDเฉพาะRELEASE_READBACK. รายการเก่าที่บอกว่ายังไม่ผ่านisolatedmulti-session/processrecoveryถูกแทนที่ด้วยผลล่าสุดนี้; เกตระบบจริงอื่นยังไม่ผ่าน
+
+**หลักฐานข้ามแชท:** [checkpointรอบnativeDB](KK_INBOX_NATIVE_DB_CLOSEOUT_CHECKPOINT_20261016.json), [รายละเอียด/ข้อจำกัด/ขั้นตอนทำซ้ำ](https://github.com/mikesd1995/kk-phone-rental-vercel/blob/ed7e89b8c8eac1745111bb9873d8a2b3a14bfbc2/docs/KK_INBOX_NATIVE_POSTGRES_ACCEPTANCE_20261016.md), [rawผลหลัก](https://github.com/mikesd1995/kk-phone-rental-vercel/blob/ed7e89b8c8eac1745111bb9873d8a2b3a14bfbc2/docs/KK_INBOX_NATIVE_PG17_ACCEPTED_20261016.json), [rawรีวิวอิสระ](https://github.com/mikesd1995/kk-phone-rental-vercel/blob/ed7e89b8c8eac1745111bb9873d8a2b3a14bfbc2/docs/KK_INBOX_NATIVE_PG17_INDEPENDENT_REVIEW_20261016.json). มีseriallogs, negativecontrol, pinnedassets และprepare/runCLIครบใน#700
+
+**เริ่มแชทถัดไป:** refreshPRheadsก่อน ใช้nativeDBmanifestข้างต้น ไม่วนติดปัญหาUID0/PGliteconnectionเดียวอีก. ห้ามนำnegativecontrolมาใช้เป็นชุดผ่าน; หากSQL/harnessไม่เปลี่ยนให้ทำต่อเฉพาะเกตระบบจริงที่ยังขาด. ไม่มีmainmerge/deploy/ProductionSQL/Booking/ลูกค้า/ACL/automationเปลี่ยน และไม่ส่งข้อความจริง งานหน้าตาเว็บของอีกแชทคงเดิม
+
+
 ## ล่าสุด 16 ต.ค. 2026 — แก้ความถูกต้องของหลักฐานส่งข้อความด้วย PostgreSQL จริงแบบแยกทดสอบ
 
 **ทำเพิ่มสำเร็จ:** PR #700 source `27aa4ec232760fa70f505e4b51373188457cfb8d`, tree `68ef9d12c7b49c5838a6b511fc135a3033841c6d`. พบและแก้ข้อบกพร่องระดับ MATERIAL สองจุดใน migration ที่ยังไม่เคยใช้บน Primary:
