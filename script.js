@@ -389,7 +389,7 @@ function applyStaticLanguage(){
   var heroEyebrow=document.querySelector(".v3-eyebrow"); if(heroEyebrow)heroEyebrow.innerHTML=currentLang==="en"?"CONCERT PHONE RENTAL<br><span>EVENT PICKUP</span>":"เช่ามือถือไปคอน<br><span>รับ–คืนหน้างาน</span>";
   var heroTitle=document.querySelector("#v2-intro-title"); if(heroTitle)heroTitle.innerHTML=currentLang==="en"?"BRING THE STAGE<br><em>CLOSER.</em>":"ไกลแค่ไหน<br><em>ก็เก็บโมเมนต์ได้ใกล้กว่า</em>";
   setText(".v3-hero-copy>p","hero_body");
-  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">→</span>';
+  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span class="kk-hero-inline-arrow" aria-hidden="true">→</span> <span class="kk-hero-arrow-chip" aria-hidden="true">→</span>';
   setText(".v3-secondary","hero_secondary");
   var benefits=document.querySelectorAll(".kk-benefit-grid>div>span:last-child");
   ["benefit_insurance","benefit_onsite","benefit_drive","benefit_discount"].forEach(function(key,index){
