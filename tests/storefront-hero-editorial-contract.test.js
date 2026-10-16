@@ -47,21 +47,21 @@ test('booking CTA destinations and accessible navigation remain unchanged',()=>{
 test('owner reference mobile uses split CTAs and artwork without a second perk strip',()=>{
  const mobile=css.slice(css.indexOf('/* Hero V9'));
  assert.ok(mobile.length>1000);
- assert.match(mobile,/grid-template-areas:/);
- assert.match(mobile,/"actions artwork"!important/);
- assert.match(mobile,/grid-template-columns:minmax\\(0,1fr\\) minmax\\(0,1fr\\)!important/);
- assert.match(mobile,/grid-area:artwork!important/);
- assert.match(mobile,/grid-area:actions!important/);
- assert.match(mobile,/html \\.kk-mock-hero \\.kk-hero-trust\\{display:none!important\\}/);
- assert.match(mobile,/min-height:44px!important/);
- assert.match(mobile,/display:contents!important/);
- assert.doesNotMatch(mobile,/kk-brand-hero-final-20260920\\.png/);
+ assert.ok(mobile.includes('grid-template-areas:'));
+ assert.ok(mobile.includes('"actions artwork"!important'));
+ assert.ok(mobile.includes('grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important'));
+ assert.ok(mobile.includes('grid-area:artwork!important'));
+ assert.ok(mobile.includes('grid-area:actions!important'));
+ assert.ok(mobile.includes('html .kk-mock-hero .kk-hero-trust{display:none!important}'));
+ assert.ok(mobile.includes('min-height:44px!important'));
+ assert.ok(mobile.includes('display:contents!important'));
+ assert.ok(!mobile.includes('kk-brand-hero-final-20260920.png'));
 });
 test('very short mobile retains product illustration and both CTAs',()=>{
  const mobile=css.slice(css.indexOf('/* Hero V9'));
- assert.match(mobile,/@media\\(max-width:340px\\) and \\(max-height:620px\\)/);
- assert.match(mobile,/\\.v3-hero-copy>p\\{/);
- assert.doesNotMatch(mobile,/\\.kk-hero-art\\{display:none!important\\}/);
- assert.match(html,/href="#content"/);
- assert.match(html,/href="#booking-journey"/);
+ assert.ok(mobile.includes('@media(max-width:340px) and (max-height:620px)'));
+ assert.ok(mobile.includes('html .kk-mock-hero .v3-hero-copy>p{'));
+ assert.ok(!mobile.includes('html .kk-mock-hero .kk-hero-art{display:none!important}'));
+ assert.ok(html.includes('href="#content"'));
+ assert.ok(html.includes('href="#booking-journey"'));
 });
