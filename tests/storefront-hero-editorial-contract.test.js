@@ -41,7 +41,7 @@ test('booking CTA destinations and accessible navigation remain unchanged',()=>{
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261017-hero-v101-typography/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261017-hero-v102-align/);
 });
 
 test('owner reference mobile uses split CTAs and artwork without a second perk strip',()=>{
@@ -88,7 +88,7 @@ test('V10 matches owner reference desktop header/card/product landmarks',()=>{
  assert.ok(v10.includes('padding:32px 18px 24px 56px!important'));
  assert.ok(html.includes('เลือกงานที่ต้องการ'));
  assert.ok(script.includes('hero_cta:"เลือกงานที่ต้องการ"'));
- assert.ok(html.includes('20261017-hero-v101-typography'));
+ assert.ok(html.includes('20261017-hero-v102-align'));
 });
 
 test('V10.1 aligns owner reference typography and CTA width only on desktop',()=>{
@@ -101,5 +101,19 @@ test('V10.1 aligns owner reference typography and CTA width only on desktop',()=
  assert.ok(polish.includes('min-width:145px!important'));
  assert.ok(polish.includes('@media(min-width:1380px)'));
  assert.ok(!polish.includes('grid-template-columns:'));
- assert.ok(html.includes('20261017-hero-v101-typography'));
+ assert.ok(html.includes('20261017-hero-v102-align'));
+});
+
+test('V10.2 restores both arrows and aligns desktop copy without touching mobile grid',()=>{
+ const v102=css.slice(css.indexOf('/* Hero V10.2'));
+ assert.ok(v102.length>300);
+ assert.ok(v102.includes('translateY(-5px)!important'));
+ assert.ok(v102.includes('gap:5px!important'));
+ assert.ok(v102.includes('kk-hero-inline-arrow'));
+ assert.ok(v102.includes('display:none!important'));
+ assert.ok(html.includes('class="kk-hero-inline-arrow"'));
+ assert.ok(html.includes('class="kk-hero-arrow-chip"'));
+ assert.ok(script.includes('class="kk-hero-inline-arrow"'));
+ assert.ok(html.includes('20261017-hero-v102-align'));
+ assert.ok(!v102.includes('grid-template-columns:'));
 });
