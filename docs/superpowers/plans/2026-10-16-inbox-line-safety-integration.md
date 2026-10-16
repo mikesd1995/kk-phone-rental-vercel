@@ -36,7 +36,7 @@
 - [x] Exercise signed webhook admission and media persistence together with synthetic I/O only.
 - [x] Run routed tests, explicit privacy/replay/media suites, full `npm test`, Inbox ship gate, syntax and diff checks.
 - [x] Obtain independent review, fix material findings with RED to GREEN, record engineering gate accurately.
-- [ ] Publish exact tested text tree to the existing #700 branch using expected-head protection, read back SHA/tree and update cross-chat GitHub records.
+- [x] Publish exact tested text tree to the existing #700 branch using expected-head protection, read back SHA/tree and update cross-chat GitHub records.
 
 ## Execution record
 
@@ -46,3 +46,5 @@
 - RED evidence: canonical guard tests 9/31 pass, 22 fail against unchanged runtime; signed integration 1/3 pass, 2 fail (hidden event caused three forbidden downstream requests; forged media code reached log). Runtime port subsequently passes canonical guard tests 31/31.
 
 - Independent review `/root/inbox_line_safety_review`: no BLOCKER/MATERIAL source findings; independent 60/60 relevant checks PASS. Full 1,800/1,800; targeted 73/73; routed 69/69; expanded Inbox ship gate 179/179; postinstall PASS. Exact-head GitHub publication/readback is the final remaining checklist item.
+
+- Published LINE guard source6114967ab1db7f852bc8b90c4990301d85acc9bf with exact tested tree readback. Combined rehearsal independently found a missing Supabase source-only middleware matcher; minimally fixed in the same #700 lineage. Routing RED4/6 to GREEN6/6, routing+packaging10/10, routed63/63, final full1802/1802, ship185/185 and postinstall PASS. Database/visual/production acceptance remains explicitly unverified.

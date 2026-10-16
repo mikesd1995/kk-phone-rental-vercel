@@ -12,6 +12,7 @@ const SOURCE_ONLY_PREFIXES = [
   '/tests/',
   '/docs/',
   '/apps-script/',
+  '/supabase/',
   '/.github/',
 ];
 
@@ -30,6 +31,7 @@ export const config = {
     '/tests/:path*',
     '/docs/:path*',
     '/apps-script/:path*',
+    '/supabase/:path*',
     '/.github/:path*',
   ],
 };
