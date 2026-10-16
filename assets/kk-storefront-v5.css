@@ -2449,3 +2449,47 @@ html .kk-mock-hero .v3-secondary::after {content:"›";display:inline-block;marg
    z-index:0!important;
  }
 }
+
+
+/* Hero V10.1 — pixel-anchored type scale at 1440/1536 desktop.
+ * Reference crop vs Chromium V10 screenshot: headline first line x=172..458
+ * (rendered x=171..408), second line x=174..713 (rendered x=174..690);
+ * subtitle x=173..680 (rendered x=177..582). Artwork and card already aligned.
+ * Fix typography and CTA widths; do not change measured card/image geometry.
+ */
+@media(min-width:1380px){
+ html .v3-header .v3-brand-copy strong{
+   font-size:18px!important;
+ }
+ html .v3-header .v3-header-actions{
+   gap:10px!important;
+ }
+ html .kk-mock-hero h1{
+   line-height:1.04!important;
+   letter-spacing:-.02em!important;
+ }
+ html .kk-mock-hero h1::first-line{
+   font-size:1.10em!important;
+   letter-spacing:0!important;
+ }
+ html .kk-mock-hero .v3-hero-copy>p{
+   font-size:16px!important;
+   line-height:1.45!important;
+   letter-spacing:.01em!important;
+   margin-top:10px!important;
+   max-width:none!important;
+ }
+ html .kk-mock-hero .v3-hero-actions{
+   gap:17px!important;
+   margin-top:19px!important;
+ }
+ html .kk-mock-hero .v3-primary{
+   min-width:209px!important;
+ }
+ html .kk-mock-hero .v3-secondary{
+   min-width:145px!important;
+ }
+ html .kk-mock-hero .kk-hero-trust{
+   margin-top:27px!important;
+ }
+}
