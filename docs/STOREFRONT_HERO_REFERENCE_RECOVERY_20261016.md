@@ -150,3 +150,38 @@ Local Chromium artifact `summary.md`: `Technical result: FAIL`, `Release ready: 
 Measured V9.1 hero heights: 320x568=208.703125px, 375x812=268.5625px, 390x844=273.9375px, 430x932=278.1875px, 480x932=299.46875px, 768x1024=383.59375px, 1024x768=393.984375px, 1440x900=456.625px. Common 375–430 mobile heights remain unchanged from V9; first 390px event card starts at y≈688.8, 2 event cards at least partly visible above fold. **No JavaScript runtime errors**. Existing site-wide visual findings persist for card contents, poster letterboxing, mobile sheet, and some event-discovery-first-fold cases; do not claim the overall storefront Visual QA is closed.
 
 Vercel Production remains `dpl_7juWAZnGAi2Z4thzU5Z2sfYKbNhV` READY, Git source `75ba6123efe5a5eccfd9181dc62c59840b0f5074`; public hostname alias explicitly verified. Rollback to preceding V9 production `dpl_9XfqXHCJ3mvADnwne85bYhJ7643x` if actual iOS Safari shows a regression.
+
+## 2026-10-17 V10.2 measured owner-reference desktop parity
+
+**Source:** user-supplied screenshot `B5EDEAC1-2AE5-4A44-B40D-85C1E654E4D0(3).jpeg` at 1536×543px. Compared to the actual GitHub Actions Chromium capture at 1440×900 by cropping the owner's reference horizontally x=48..1488 to center-align both at viewport width 1440px. The owner explicitly said "ยังไม่เหมือนแบบนี้นะ"; this is a **measured desktop-fidelity correction**, not another mobile redesign.
+
+**Root geometry cause (V9.1):** desktop body `.wrap` max-width 1180px and header height 72px; owner reference depicts header height≈56px and Hero 1210×456px at x=163,y=56. The older CSS left the whole Hero ≈16px below the reference and the image≈11px too far left. Fix scoped to desktop header/Hero @min-width:1380px only, preserving the 1180px catalog width and mobile Hero V9.
+
+**V10 CSS design landmarks:**
+- `.v3-header` width `calc(100% + 30px)`, margin-left `-15px`, height `56px`, left padding `22px`, right padding `20px`;
+- `.kk-mock-hero` width +30px, x-offset -15px, height `456px`, grid `minmax(0,1fr) minmax(0,564px)`, gap `24px`, padding `32px 18px 24px 56px`;
+- artwork panel width `564px`, height `400px`, x≈742,y≈89 in 1440px QA (owner target cropped x≈742,y≈88).
+- Small translucent blue pedestal ribbon using pseudo-element, no duplicate shop promo art, product remains an isolated panel.
+
+**V10.1 measured text correction (Chromium vs owner):** First headline before x=171..408 vs target 172..458, second x=174..690 vs target 174..713, subtitle x=177..582 vs target 173..680. Scoped desktop typography adjusted: `h1::first-line` 1.10em / 0 letter-spacing, other line -0.02em, subtitle 16px, CTA widths 209px/145px, desktop brand 18px. Thai primary label changed to exact reference `เลือกงานที่ต้องการ` in `index.html` and `script.js` i18n; English now `Choose your event`. Booking anchor `#content` remains unchanged.
+
+**V10.2 final pixel alignment:** Owner CTA contains an inline standalone `→` before the white circular `→` chip; both implemented as separate accessible decorative spans, with the inline arrow hidden only at <=700px to prevent mobile CTA overflow. Desktop copy group translated up 5px, primary CTA gap adjusted to 5px. CSS chrome selectors target `.kk-hero-arrow-chip` explicitly. HTML, script and regression test updated. CSS cache `20261017-hero-v102-align`. No alterations to catalogue data, prices, booking, customers, LINE, admin, permissions or automations.
+
+**Actual post-deploy Chromium screenshot evidence:** GitHub Actions run `38951948865`, job `117145499996`, artifact `12068153634`, archive `storefront-visual-qa-44de0066f0c7edd59e153b2d31c22d65b84de5af`. Inspected `1440x900-dark.jpg`, `390x844-dark.jpg` and compared `1440x900-dark.jpg` against owner cropped reference.
+- First headline text bright-pixel bounds: target x=172..458,y=174..225; V10.2 x=171..452,y=174..225.
+- Second headline: target x=174..713,y=238..288; V10.2 x=174..715,y=237..288.
+- Subtitle: target x=173..680,y=312..323; V10.2 x=174..686,y=313..324.
+- CTA text bright-pixel region: target y=364..387; V10.2 y=365..389.
+- Product artwork: QA image x≈742..1306 and y≈89..489, matching target x≈742..1306 and y≈88..488.
+- Whole Hero pixel mean absolute RGB error (reference-cropped region x=115..1325,y=56..512) improved from V10.1 **17.78** to V10.2 **14.69** (relative decrease≈17.4%). Artwork itself had very small region error≈6.77. This is a screenshot-comparison metric, **not a claim of exact pixel-perfect equality**; antialiasing, fonts, background effects differ.
+- 390x844 Dark screenshot remains usable: compact side-by-side CTA/product, insurance/benefit cards below, visible search/filter and event-card start; no reintroduced promo full-width image.
+
+**Build/retry evidence:**
+- Initial V10 build `dpl_9LvjwXdFZzR71VJeUac2qhLtHuci` failed: V9.1 test scanned V10 grid despite claiming to test V9.1 only. Fixed tests to slice V9.1 CSS marker range.
+- Initial V10.1 build `dpl_68a7LpeVhhGNd6oCrzjFz2RCukex` failed due a test expecting old cache key. Updated all test version references.
+- Initial V10.2 build `dpl_J5CcPYndGUM1BrYXf28VcVCWRiFN` failed because a V9.1 test expected old `span[aria-hidden=true]` selector. Updated expectation to `.kk-hero-arrow-chip`.
+- All related Vercel build-contract tests passed in final V10.2 Production deployment.
+
+**Verified live release:** `https://kk-phone-rental.vercel.app/` maps through Vercel API to deployment `dpl_5CNUZg2fyT7JGqvhegTQxG6wmcd6`, READY, exact Git commit `44de0066f0c7edd59e153b2d31c22d65b84de5af` from branch `fix/hero-theme-parity-20261016`. The earlier V10.1 READY deployment `dpl_HZcvLbyJLYZZ8X4dsrJxxyjEsTCu` is a compatible rollback candidate; V9.1 READY `dpl_7juWAZnGAi2Z4thzU5Z2sfYKbNhV` is older fallback.
+
+**Independent QA distinction:** GitHub Actions Visual QA run `38951948865` concludes **FAIL** overall (technical_visual_pass=false, release_ready=false). QA still reports `CARD_CONTENT_ESCAPES`, `POSTER_LETTERBOX_UNTREATED`, `MOBILE_SHEET_NOT_ANCHORED`, `EVENT_DISCOVERY_TOO_LATE` on some page states; repeated counts are not unique defects. No `HERO_DOMINATES_MOBILE` or `NO_EVENT_CONTENT_ABOVE_FOLD` findings, and no JavaScript runtime errors in report. Hero geometry/image/CTA pixel alignment materially improved, but **real iPhone Safari owner acceptance and broader storefront gates remain open**. Do not merge PR #754 into main or claim all release acceptance passed on the strength of a READY deployment alone.
