@@ -41,7 +41,7 @@ test('booking CTA destinations and accessible navigation remain unchanged',()=>{
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261017-hero-v9-compact/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261017-hero-v91-polish/);
 });
 
 test('owner reference mobile uses split CTAs and artwork without a second perk strip',()=>{
@@ -64,4 +64,15 @@ test('very short mobile retains product illustration and both CTAs',()=>{
  assert.ok(!mobile.includes('html .kk-mock-hero .kk-hero-art{display:none!important}'));
  assert.ok(html.includes('href="#content"'));
  assert.ok(html.includes('href="#booking-journey"'));
+});
+
+test('V9.1 adds editorial CTA arrow and readable benefits without rewriting the mobile grid',()=>{
+ const latest=css.slice(css.indexOf('/* Hero V9.1'));
+ assert.ok(latest.length>500);
+ assert.ok(latest.includes('v3-primary span[aria-hidden="true"]'));
+ assert.ok(latest.includes('v3-secondary::after'));
+ assert.ok(latest.includes('font-size:10.5px!important'));
+ assert.ok(latest.includes('min-height:49px!important'));
+ assert.ok(!latest.includes('grid-template-columns:'));
+ assert.ok(!latest.includes('kk-brand-hero-final-20260920.png'));
 });
