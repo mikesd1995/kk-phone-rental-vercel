@@ -67,7 +67,7 @@ test('rendered defects fail even when the document itself has no horizontal over
   }
 });
 test('modal clipping, horizontal overflow and focus escape are release blocking',()=>{
-  const modal={left:0,right:390,top:150,bottom:844,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
+  const modal={left:0,right:390,top:150,bottom:844,viewport_height:844,alignment:'flex-end',scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
   assert.deepEqual(E.stateFindings({...healthy(),modal},{width:390,name:'modal'}),[]);
   for(const change of [{bottom:850},{scroll_width:420},{focus_inside:false},{title:''}])assert.ok(E.stateFindings({...healthy(),modal:{...modal,...change}},{width:390,name:'modal'}).length);
 });
@@ -115,6 +115,15 @@ test('centered mobile dialog requires physical centering, safety clearance and f
  assert.deepEqual(E.stateFindings({...healthy(),modal:centered},{width:390,name:'modal'}),[]);
  for(const bad of [{top:50,bottom:672},{alignment:'flex-start'},{top:1,bottom:843},{top:-2,bottom:842},{focus_inside:false},{scroll_width:390}]){
    assert.ok(E.stateFindings({...healthy(),modal:{...centered,...bad}},{width:390,name:'modal'}).length,JSON.stringify(bad));
+ }
+});
+
+test('a dialog near the viewport bottom needs bottom-aligned layout to qualify as an anchored sheet',()=>{
+ const anchored={left:0,right:390,top:150,bottom:844,viewport_height:844,alignment:'flex-end',scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
+ assert.deepEqual(E.stateFindings({...healthy(),modal:anchored},{width:390,name:'modal'}),[]);
+ for(const alignment of ['center','flex-start',undefined]){
+  const findings=E.stateFindings({...healthy(),modal:{...anchored,alignment}},{width:390,name:'modal'});
+  assert.ok(findings.some(f=>f.code==='MOBILE_MODAL_POSITION_UNSAFE'),String(alignment));
  }
 });
 

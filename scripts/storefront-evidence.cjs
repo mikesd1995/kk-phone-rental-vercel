@@ -197,7 +197,7 @@ function stateFindings(state,{width,name}){
     // Owner-approved mobile dialogs are centered cards, not always bottom sheets.
     // Validate the rendered alignment AND physical viewport center with 12px
     // clearances; never accept a merely floating, off-screen or clipped dialog.
-    const anchored=Math.abs(m.bottom-m.viewport_height)<=1 && (m.alignment===undefined || m.alignment==='flex-end');
+    const anchored=m.alignment==='flex-end' && Math.abs(m.bottom-m.viewport_height)<=1;
     const centered=m.alignment==='center' &&
       Math.abs((m.top+m.bottom)/2-m.viewport_height/2)<=3 &&
       m.top>=12 && m.viewport_height-m.bottom>=12;
