@@ -27,3 +27,14 @@ This change does **not** edit booking, prices, inventory, customer data, admin f
 ## Continuation / rollback
 
 Branch: `fix/hero-theme-parity-20261016`. PR #754. Use the latest branch head as the production deploy SHA only after verifying the exact source. If image appears blank on any browser, the AVIF inside SVG may need conversion to WebP/PNG embedded SVG or a standalone raster asset. Rollback via prior ready production deployment `dpl_DDm4EKwT5DcDimgUBBE3WCuXGKh3` (commit `91866c68240f6c180fded8137ec373e9aa65268b`) if critical regressions emerge; note old version still displays bad promo-based art. No hidden production booking edits.
+
+## Production deployment evidence (final 2026-10-16)
+
+- Live domain: https://kk-phone-rental.vercel.app/ (alias confirmed via Vercel deployment metadata and list_deployment_aliases).
+- Production deployment ID: `dpl_7GWbpMJWY4hhuYemF8DXsH4rx3eJ`; `state=READY`.
+- Git source deployed exactly: `5e0686765840e813a9a8c3ff89e4a1c53039c05b` on `fix/hero-theme-parity-20261016`.
+- Vercel commit status: `success`; dashboard https://vercel.com/mikesd1995s-projects/kk-phone-rental-vercel/7GWbpMJWY4hhuYemF8DXsH4rx3eJ .
+- Initial attempt `dpl_E5SsKd76mCfHVUW1FgNdiXb9e5FU` failed in `npm install` because existing `tests/storefront-hero-editorial-contract.test.js` asserted the old promo banner and the hidden mobile art. Updated this regression contract to check live bilingual HTML, isolated reference art and mobile CTA targets. The corrected commit was built successfully.
+- **Visual QA is not accepted**: `Storefront Automated Visual QA` run 38924769762 finished `failure`. The existing site-wide QA includes poster-card and mobile-sheet criteria beyond this hero. This deployment is live/READY but must not be represented as an independent full visual acceptance pass.
+- Vercel Git deployment file-tree listing endpoint `/v6/deployments/{id}/files` returned 404 `File tree not found`; hence the published SVG was verified in GitHub and browser-rendered locally, but not fetched independently from live deployment in this run. Web inspection tool also could not open the production URL. Further validation on real iOS / Chrome is necessary to close cross-device acceptance.
+- Production rollback candidate remains `dpl_DDm4EKwT5DcDimgUBBE3WCuXGKh3` but has the rejected promo-image crop. Do not treat that as visually accepted.
