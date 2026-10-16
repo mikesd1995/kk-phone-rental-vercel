@@ -2195,97 +2195,122 @@ html[data-theme="light"] .kk-mock-hero .kk-hero-trust-item:not(:last-child){bord
  }
 }
 
-/* Hero V8.1 — 2026-10-16 owner mobile screenshot corrective action
- * Reference: desktop editorial navy hero with device art RIGHT of conversion buttons.
- * At 320–700px keep headline across full card and the art to the RIGHT of stacked CTAs,
- * not a full-width image below. Avoid the >800px tall first-fold failure.
- * All booking, pricing, poster and inventory data remain unchanged.
- */
-@media (max-width:700px){
+
+/* Hero V9 — 2026-10-17 owner reference parity, mobile conversion-first fit.
+   Desktop V7 matches the reference two-column artwork; mobile preserves the same
+   typography hierarchy with a compact actions-left/artwork-right row.
+   Exactly one visible feature-benefit row on mobile: the existing four factual
+   benefits, not an additional three-item hero trust strip. No booking changes. */
+@media(max-width:700px){
   html .kk-mock-hero{
     display:grid!important;
     grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
-    grid-template-rows:auto auto auto auto auto!important;
-    grid-template-areas:"eyebrow eyebrow" "headline headline" "description description" "actions artwork" "trust trust"!important;
+    grid-template-rows:auto auto auto auto!important;
+    grid-template-areas:
+      "eyebrow eyebrow"
+      "headline headline"
+      "description description"
+      "actions artwork"!important;
     align-items:start!important;
-    column-gap:8px!important;row-gap:8px!important;
-    padding:16px 15px 13px!important;
-    min-height:0!important;border-radius:18px!important;
-    margin:0 0 12px!important;
+    column-gap:8px!important;
+    row-gap:6px!important;
+    padding:12px 13px 12px!important;
+    margin:0 0 10px!important;
+    border-radius:17px!important;
+    min-height:0!important;
   }
   html .kk-mock-hero .v3-hero-copy{display:contents!important}
   html .kk-mock-hero .v3-eyebrow{
-    grid-area:eyebrow!important;display:block!important;
-    margin:0!important;font-size:10.5px!important;line-height:1.42!important;
+    grid-area:eyebrow!important;
+    display:block!important;
+    margin:0!important;
+    font-size:10px!important;
+    line-height:1.35!important;
   }
   html .kk-mock-hero .v3-eyebrow::after{
-    margin-top:5px!important;width:30px!important;
+    margin-top:4px!important;
+    width:27px!important;
+    height:2px!important;
   }
   html .kk-mock-hero h1{
     grid-area:headline!important;
-    margin:0!important;max-width:none!important;
-    font-size:clamp(26px,7.3vw,34px)!important;
-    line-height:1.13!important;letter-spacing:-.055em!important;
-    white-space:normal!important;overflow-wrap:normal!important;
+    max-width:none!important;
+    margin:0!important;
+    font-size:clamp(23px,5.9vw,27px)!important;
+    line-height:1.07!important;
+    letter-spacing:-.055em!important;
+    font-weight:700!important;
+  }
+  html .kk-mock-hero h1 em{
+    font-weight:700!important;
+    white-space:normal!important;
   }
   html .kk-mock-hero .v3-hero-copy>p{
     grid-area:description!important;
-    display:block!important;margin:0!important;max-width:none!important;
-    font-size:12px!important;line-height:1.48!important;
+    display:-webkit-box!important;
+    -webkit-box-orient:vertical!important;
+    -webkit-line-clamp:2!important;
+    overflow:hidden!important;
+    max-width:none!important;
+    margin:0!important;
+    font-size:10.75px!important;
+    line-height:1.4!important;
   }
   html .kk-mock-hero .v3-hero-actions{
     grid-area:actions!important;
-    display:flex!important;flex-direction:column!important;
-    align-items:flex-start!important;justify-content:center!important;
-    align-self:center!important;min-width:0!important;
-    gap:8px!important;margin:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    justify-content:center!important;
+    align-self:center!important;
+    min-width:0!important;
+    gap:7px!important;
+    margin:0!important;
   }
   html .kk-mock-hero .v3-primary,
   html .kk-mock-hero .v3-secondary{
-    display:inline-flex!important;min-height:44px!important;
-    padding:0 10px!important;font-size:11.5px!important;
-    white-space:nowrap!important;max-width:100%!important;
-    gap:6px!important;line-height:1.2!important;
+    display:inline-flex!important;
+    width:auto!important;
+    max-width:100%!important;
+    min-height:44px!important;
+    padding:0 10px!important;
+    gap:5px!important;
+    font-size:11px!important;
+    line-height:1.25!important;
+    border-radius:999px!important;
+    white-space:nowrap!important;
   }
   html .kk-mock-hero .kk-hero-art{
-    grid-area:artwork!important;display:block!important;
-    position:relative!important;align-self:center!important;
-    width:100%!important;min-width:0!important;
-    aspect-ratio:564/402!important;height:auto!important;
-    min-height:0!important;max-height:none!important;
-    border-radius:12px!important;
+    grid-area:artwork!important;
+    display:block!important;
+    align-self:center!important;
+    position:relative!important;
+    width:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    max-height:none!important;
+    height:auto!important;
+    aspect-ratio:564/402!important;
     background-size:100% 100%!important;
+    border-radius:10px!important;
   }
-  html .kk-mock-hero .kk-hero-trust{
-    grid-area:trust!important;
-    display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
-    gap:4px!important;margin:5px 0 0!important;padding-top:9px!important;
-    border-top:1px solid rgba(112,178,249,.25)!important;
+  html .kk-mock-hero .kk-hero-trust{display:none!important}
+  html .kk-benefit-grid{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    margin:0 0 9px!important;
   }
-  html .kk-mock-hero .kk-hero-trust-item{
-    display:flex!important;align-items:center!important;
-    gap:4px!important;padding:0 2px!important;min-width:0!important;
-  }
-  html .kk-mock-hero .kk-hero-trust-icon{
-    flex:0 0 24px!important;width:24px!important;height:24px!important;
-  }
-  html .kk-mock-hero .kk-hero-trust-icon svg{
-    width:14px!important;height:14px!important;
-  }
-  html .kk-mock-hero .kk-hero-trust-item strong{
-    display:block!important;font-size:9px!important;line-height:1.25!important;
-    font-weight:650!important;white-space:normal!important;
-  }
-  html .kk-mock-hero .kk-hero-trust-item small{display:none!important}
-  /* Keep the four commercial benefits and discount truth, but stop
-     100px-high benefit cards from occupying the entire first fold. */
   html .kk-benefit-grid>div{
-    min-height:56px!important;
-    padding:8px 6px!important;
-    font-size:10px!important;line-height:1.42!important;
+    min-height:46px!important;
+    padding:6px!important;
+    font-size:9.25px!important;
+    line-height:1.3!important;
+    gap:5px!important;
   }
   html .kk-benefit-grid .benefit-icon{
-    width:24px!important;height:24px!important;flex-basis:24px!important;
+    width:24px!important;
+    height:24px!important;
+    flex-basis:24px!important;
   }
   html .kk-benefit-grid .benefit-icon svg{
     width:14px!important;height:14px!important;
@@ -2293,32 +2318,34 @@ html[data-theme="light"] .kk-mock-hero .kk-hero-trust-item:not(:last-child){bord
 }
 @media(max-width:359px){
   html .kk-mock-hero{
-    padding:14px 11px 12px!important;
+    padding:10px 10px!important;
+    row-gap:5px!important;
     column-gap:6px!important;
   }
-  html .kk-mock-hero h1{font-size:25px!important}
+  html .kk-mock-hero h1{
+    font-size:22px!important;
+    line-height:1.06!important;
+  }
   html .kk-mock-hero .v3-primary,
   html .kk-mock-hero .v3-secondary{
-    padding:0 8px!important;font-size:10px!important;
+    min-height:44px!important;
+    padding:0 8px!important;
+    font-size:10px!important;
   }
-  html .kk-mock-hero .kk-hero-trust-item strong{font-size:8px!important}
+  html .kk-benefit-grid>div{
+    min-height:43px!important;
+    font-size:9px!important;
+    padding:5px!important;
+  }
 }
-
-/* Hero V8.2 — maintain key conversion controls on short 320x568-class phones.
-   This only applies to viewports <=340px wide AND <=620px tall; taller
-   iPhones keep the complete description and trust badges. */
 @media(max-width:340px) and (max-height:620px){
-  html .kk-mock-hero{
-    row-gap:5px!important;padding:10px 11px!important;
+  html .kk-mock-hero .v3-hero-copy>p{
+    display:none!important;
   }
   html .kk-mock-hero .v3-eyebrow{
-    display:block!important;font-size:9px!important;line-height:1.25!important;
+    font-size:9px!important;
   }
-  html .kk-mock-hero .v3-eyebrow::after{margin-top:3px!important}
-  html .kk-mock-hero h1{font-size:23px!important;line-height:1.05!important}
-  html .kk-mock-hero .v3-hero-copy>p{display:none!important}
-  html .kk-mock-hero .kk-hero-trust{display:none!important}
-  html .kk-benefit-grid>div{
-    min-height:38px!important;font-size:9px!important;padding:5px 6px!important;
+  html .kk-mock-hero h1{
+    font-size:21px!important;
   }
 }
