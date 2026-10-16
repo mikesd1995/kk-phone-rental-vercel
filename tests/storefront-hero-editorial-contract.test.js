@@ -41,7 +41,7 @@ test('booking CTA destinations and accessible navigation remain unchanged',()=>{
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261017-hero-v10-desktop-geometry/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261017-hero-v101-typography/);
 });
 
 test('owner reference mobile uses split CTAs and artwork without a second perk strip',()=>{
@@ -89,4 +89,17 @@ test('V10 matches owner reference desktop header/card/product landmarks',()=>{
  assert.ok(html.includes('เลือกงานที่ต้องการ'));
  assert.ok(script.includes('hero_cta:"เลือกงานที่ต้องการ"'));
  assert.ok(html.includes('20261017-hero-v10-desktop-geometry'));
+});
+
+test('V10.1 aligns owner reference typography and CTA width only on desktop',()=>{
+ const polish=css.slice(css.indexOf('/* Hero V10.1'));
+ assert.ok(polish.length>400);
+ assert.ok(polish.includes('h1::first-line'));
+ assert.ok(polish.includes('font-size:1.10em!important'));
+ assert.ok(polish.includes('font-size:16px!important'));
+ assert.ok(polish.includes('min-width:209px!important'));
+ assert.ok(polish.includes('min-width:145px!important'));
+ assert.ok(polish.includes('@media(min-width:1380px)'));
+ assert.ok(!polish.includes('grid-template-columns:'));
+ assert.ok(html.includes('20261017-hero-v101-typography'));
 });
