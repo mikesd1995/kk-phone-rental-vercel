@@ -82,7 +82,7 @@ var I18N = {
     event_meta_description:"เช่ามือถือสำหรับงาน {event} วันที่ {date} ดูแพ็กเกจและจองผ่าน LINE OA",
     brand_subtitle:"Concert Phone Rental",
     hero_body:"เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต · เลือกงาน เช็กคิวว่าง แล้วรับ–คืนที่หน้างาน",
-    hero_cta:"เช็กงานที่ยังว่าง",
+    hero_cta:"เลือกงานที่ต้องการ",
     hero_secondary:"เช่ายังไง?",
     benefit_insurance:"จองง่ายขึ้น · ฟรีประกันเครื่องและไม่ต้องวางมัดจำ",
     benefit_onsite:"รับ–คืนหน้างาน · พร้อมสอนใช้ก่อนเข้าคอน",
@@ -222,7 +222,7 @@ var I18N = {
     event_meta_description:"Rent a phone for {event} on {date}. View available packages and book via LINE OA.",
     brand_subtitle:"Concert Phone Rental",
     hero_body:"Phone rental for concerts and fan meetings. Choose your event, check availability, then pick up and return at the venue.",
-    hero_cta:"Check available events",
+    hero_cta:"Choose your event",
     hero_secondary:"How to rent",
     benefit_insurance:"Book with less hassle · Free insurance, no deposit",
     benefit_onsite:"Venue pickup & return · Setup help before the show",
@@ -389,7 +389,7 @@ function applyStaticLanguage(){
   var heroEyebrow=document.querySelector(".v3-eyebrow"); if(heroEyebrow)heroEyebrow.innerHTML=currentLang==="en"?"CONCERT PHONE RENTAL<br><span>EVENT PICKUP</span>":"เช่ามือถือไปคอน<br><span>รับ–คืนหน้างาน</span>";
   var heroTitle=document.querySelector("#v2-intro-title"); if(heroTitle)heroTitle.innerHTML=currentLang==="en"?"BRING THE STAGE<br><em>CLOSER.</em>":"ไกลแค่ไหน<br><em>ก็เก็บโมเมนต์ได้ใกล้กว่า</em>";
   setText(".v3-hero-copy>p","hero_body");
-  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">→</span>';
+  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span class="kk-hero-inline-arrow" aria-hidden="true">→</span> <span class="kk-hero-arrow-chip" aria-hidden="true">→</span>';
   setText(".v3-secondary","hero_secondary");
   var benefits=document.querySelectorAll(".kk-benefit-grid>div>span:last-child");
   ["benefit_insurance","benefit_onsite","benefit_drive","benefit_discount"].forEach(function(key,index){
