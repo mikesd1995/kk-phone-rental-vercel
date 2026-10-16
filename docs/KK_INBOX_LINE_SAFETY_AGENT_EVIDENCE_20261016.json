@@ -1,0 +1,369 @@
+{
+  "scope": "Local durable Git artifact; not a production invocation ledger receipt",
+  "pre_review": {
+    "result": {
+      "schema_version": "KK_AGENT_GATEWAY_V5",
+      "status": "RECORDED",
+      "intent": "storefront_ux_review",
+      "matched": true,
+      "invocation": {
+        "invocation_id": "agi_73f5a1363d761abb090926b500a2ef9f60641221",
+        "request_type": "STOREFRONT_UX_REVIEW",
+        "intent": "storefront_ux_review",
+        "route_id": "STOREFRONT_UX_REVIEW",
+        "required_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "invoked_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "agent_versions": {
+          "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+        },
+        "registry_version": "KK_AGENT_REGISTRY_V29",
+        "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+        "gate_status": "RECORDED",
+        "blocked_reason": "",
+        "content_gate": "",
+        "request_hash": "2dc83cef17f6952ed5ccb70dc112a2d248beb52c32ff82ed0f56deebc800ce75",
+        "truth_hash": "e55b5d8647a73c11c3052049cc7ba0ac07166fc4e69d5ac7579e6aacd5e862ca",
+        "source_commit_sha": "",
+        "owner_review_required": true,
+        "production_writes": 0,
+        "publishes": 0
+      },
+      "ledger": {
+        "ok": true,
+        "inserted": true,
+        "invocation_id": "agi_73f5a1363d761abb090926b500a2ef9f60641221",
+        "evidence_scope": "local_source_only"
+      },
+      "invocation_check": {
+        "registry_version": "KK_AGENT_REGISTRY_V29",
+        "applicable": true,
+        "pass": true,
+        "route_id": "STOREFRONT_UX_REVIEW",
+        "runtime_available": true,
+        "required_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "downstream_agents": [],
+        "invoked_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "missing_agents": [],
+        "owner_review_required": true,
+        "persistent_invocation_evidence_required": true,
+        "agent_versions": {
+          "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+        }
+      },
+      "downstream_agents": [],
+      "result": {
+        "schema_version": "KK_STOREFRONT_UX_REVIEWER_V1",
+        "agent": "kk-storefront-ux-reviewer",
+        "mode": "READ_ONLY_DESIGN_ADVISOR",
+        "status": "BLOCKED",
+        "professional_readiness_score": 75,
+        "viewport": {
+          "width": 0,
+          "height": 0,
+          "class": "mobile",
+          "platform": "unknown"
+        },
+        "finding_counts": {
+          "P0": 1,
+          "P1": 0,
+          "P2": 0,
+          "P3": 0
+        },
+        "findings": [
+          {
+            "code": "VIEWPORT_EVIDENCE_MISSING",
+            "severity": "P0",
+            "evidence": "Viewport width/height is required for bounded visual QA.",
+            "recommended_action": "Capture or supply the viewport dimensions with the visual evidence packet.",
+            "acceptance": "Both viewport width and height are positive finite numbers."
+          }
+        ],
+        "recommendations": [
+          {
+            "priority": "P0",
+            "code": "VIEWPORT_EVIDENCE_MISSING",
+            "action": "Capture or supply the viewport dimensions with the visual evidence packet.",
+            "acceptance": "Both viewport width and height are positive finite numbers."
+          }
+        ],
+        "acceptance_matrix": {
+          "widths": [
+            320,
+            375,
+            390,
+            430,
+            480,
+            768,
+            1024,
+            1440
+          ],
+          "required_checks": [
+            "no_horizontal_overflow",
+            "ios_form_controls_at_least_16px",
+            "sticky_controls_within_budget",
+            "bottom_cta_within_budget",
+            "tap_targets_within_budget",
+            "filter_toolbar_not_wrapped_on_mobile",
+            "event_cards_not_obscured",
+            "safe_area_respected",
+            "reduced_motion_respected"
+          ],
+          "owner_visual_review_required": true
+        },
+        "design_constraints": {
+          "sticky_search_allowed": true,
+          "mobile_filter_rows": 1,
+          "min_tap_target_px": 44,
+          "ios_form_font_min_px": 16,
+          "max_sticky_height_px": 170,
+          "max_sticky_viewport_ratio": 0.22,
+          "max_bottom_cta_height_px": 64,
+          "no_horizontal_overflow": true,
+          "preserve_event_truth_and_booking_logic": true
+        },
+        "safety": {
+          "production_writes": 0,
+          "auto_merge": false,
+          "auto_deploy": false,
+          "pricing_mutation": false,
+          "booking_mutation": false,
+          "inventory_mutation": false,
+          "machine_sot_mutation": false,
+          "owner_review_required": true
+        }
+      },
+      "project_memory": {
+        "status": "READY",
+        "context_count": 2,
+        "durable_mode": "disabled",
+        "durable_context_count": 0
+      },
+      "owner_review_required": true,
+      "production_writes": 0,
+      "publishes": 0
+    },
+    "records": [
+      {
+        "invocation_id": "agi_73f5a1363d761abb090926b500a2ef9f60641221",
+        "request_type": "STOREFRONT_UX_REVIEW",
+        "intent": "storefront_ux_review",
+        "route_id": "STOREFRONT_UX_REVIEW",
+        "required_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "invoked_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "agent_versions": {
+          "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+        },
+        "registry_version": "KK_AGENT_REGISTRY_V29",
+        "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+        "gate_status": "RECORDED",
+        "blocked_reason": "",
+        "content_gate": "",
+        "request_hash": "2dc83cef17f6952ed5ccb70dc112a2d248beb52c32ff82ed0f56deebc800ce75",
+        "truth_hash": "e55b5d8647a73c11c3052049cc7ba0ac07166fc4e69d5ac7579e6aacd5e862ca",
+        "source_commit_sha": "",
+        "owner_review_required": true,
+        "production_writes": 0,
+        "publishes": 0
+      }
+    ]
+  },
+  "post_review": {
+    "result": {
+      "schema_version": "KK_AGENT_GATEWAY_V5",
+      "status": "RECORDED",
+      "intent": "storefront_visual_qa",
+      "matched": true,
+      "invocation": {
+        "invocation_id": "agi_885d99210b2f17c26b3fd4994c1d99c950181e92",
+        "request_type": "STOREFRONT_VISUAL_QA",
+        "intent": "storefront_visual_qa",
+        "route_id": "STOREFRONT_VISUAL_QA",
+        "required_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "invoked_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "agent_versions": {
+          "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+        },
+        "registry_version": "KK_AGENT_REGISTRY_V29",
+        "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+        "gate_status": "RECORDED",
+        "blocked_reason": "",
+        "content_gate": "",
+        "request_hash": "7650f4995e8db7a4b5d73eefeedbb3f0d6043b692e699b6a9143492c9fd0e7b9",
+        "truth_hash": "ac97648de3c649e88e2071cb2297ceda8b8e85bc2186964da00cf61348865964",
+        "source_commit_sha": "",
+        "owner_review_required": true,
+        "production_writes": 0,
+        "publishes": 0
+      },
+      "ledger": {
+        "ok": true,
+        "inserted": true,
+        "invocation_id": "agi_885d99210b2f17c26b3fd4994c1d99c950181e92",
+        "evidence_scope": "local_source_only"
+      },
+      "invocation_check": {
+        "registry_version": "KK_AGENT_REGISTRY_V29",
+        "applicable": true,
+        "pass": true,
+        "route_id": "STOREFRONT_VISUAL_QA",
+        "runtime_available": true,
+        "required_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "downstream_agents": [],
+        "invoked_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "missing_agents": [],
+        "owner_review_required": true,
+        "persistent_invocation_evidence_required": true,
+        "agent_versions": {
+          "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+        }
+      },
+      "downstream_agents": [],
+      "result": {
+        "schema_version": "KK_STOREFRONT_VISUAL_QA_V1",
+        "pass": false,
+        "status": "BLOCKED_INSUFFICIENT_EVIDENCE",
+        "review": {
+          "schema_version": "KK_STOREFRONT_UX_REVIEWER_V1",
+          "agent": "kk-storefront-ux-reviewer",
+          "mode": "READ_ONLY_DESIGN_ADVISOR",
+          "status": "BLOCKED",
+          "professional_readiness_score": 75,
+          "viewport": {
+            "width": 0,
+            "height": 0,
+            "class": "mobile",
+            "platform": "unknown"
+          },
+          "finding_counts": {
+            "P0": 1,
+            "P1": 0,
+            "P2": 0,
+            "P3": 0
+          },
+          "findings": [
+            {
+              "code": "VIEWPORT_EVIDENCE_MISSING",
+              "severity": "P0",
+              "evidence": "Viewport width/height is required for bounded visual QA.",
+              "recommended_action": "Capture or supply the viewport dimensions with the visual evidence packet.",
+              "acceptance": "Both viewport width and height are positive finite numbers."
+            }
+          ],
+          "recommendations": [
+            {
+              "priority": "P0",
+              "code": "VIEWPORT_EVIDENCE_MISSING",
+              "action": "Capture or supply the viewport dimensions with the visual evidence packet.",
+              "acceptance": "Both viewport width and height are positive finite numbers."
+            }
+          ],
+          "acceptance_matrix": {
+            "widths": [
+              320,
+              375,
+              390,
+              430,
+              480,
+              768,
+              1024,
+              1440
+            ],
+            "required_checks": [
+              "no_horizontal_overflow",
+              "ios_form_controls_at_least_16px",
+              "sticky_controls_within_budget",
+              "bottom_cta_within_budget",
+              "tap_targets_within_budget",
+              "filter_toolbar_not_wrapped_on_mobile",
+              "event_cards_not_obscured",
+              "safe_area_respected",
+              "reduced_motion_respected"
+            ],
+            "owner_visual_review_required": true
+          },
+          "design_constraints": {
+            "sticky_search_allowed": true,
+            "mobile_filter_rows": 1,
+            "min_tap_target_px": 44,
+            "ios_form_font_min_px": 16,
+            "max_sticky_height_px": 170,
+            "max_sticky_viewport_ratio": 0.22,
+            "max_bottom_cta_height_px": 64,
+            "no_horizontal_overflow": true,
+            "preserve_event_truth_and_booking_logic": true
+          },
+          "safety": {
+            "production_writes": 0,
+            "auto_merge": false,
+            "auto_deploy": false,
+            "pricing_mutation": false,
+            "booking_mutation": false,
+            "inventory_mutation": false,
+            "machine_sot_mutation": false,
+            "owner_review_required": true
+          }
+        },
+        "production_writes": 0,
+        "auto_merge": false,
+        "auto_deploy": false
+      },
+      "project_memory": {
+        "status": "READY",
+        "context_count": 2,
+        "durable_mode": "disabled",
+        "durable_context_count": 0
+      },
+      "owner_review_required": true,
+      "production_writes": 0,
+      "publishes": 0
+    },
+    "records": [
+      {
+        "invocation_id": "agi_885d99210b2f17c26b3fd4994c1d99c950181e92",
+        "request_type": "STOREFRONT_VISUAL_QA",
+        "intent": "storefront_visual_qa",
+        "route_id": "STOREFRONT_VISUAL_QA",
+        "required_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "invoked_agents": [
+          "kk-storefront-ux-reviewer"
+        ],
+        "agent_versions": {
+          "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+        },
+        "registry_version": "KK_AGENT_REGISTRY_V29",
+        "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+        "gate_status": "RECORDED",
+        "blocked_reason": "",
+        "content_gate": "",
+        "request_hash": "7650f4995e8db7a4b5d73eefeedbb3f0d6043b692e699b6a9143492c9fd0e7b9",
+        "truth_hash": "ac97648de3c649e88e2071cb2297ceda8b8e85bc2186964da00cf61348865964",
+        "source_commit_sha": "",
+        "owner_review_required": true,
+        "production_writes": 0,
+        "publishes": 0
+      }
+    ]
+  }
+}

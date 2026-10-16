@@ -21,7 +21,7 @@ test('legacy package-first template remains parseable',()=>{
 });
 
 test('canonical package resolver replaces mismatched client bundle price with package feed price',async()=>{
- const web='event_id,event_name,event_date,venue,poster_image_url\nEVT-1,Nineentertain 24th Anniversary Charity Concert,30/09/2026,"Parc Paragon, Siam Paragon, Bangkok",https://example.com/p.jpg\n';
+ const web='event_id,event_name,event_date,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-1,Nineentertain 24th Anniversary Charity Concert,30/09/2026,"Parc Paragon, Siam Paragon, Bangkok",https://example.com/p.jpg,show,เปิดจอง,1\n';
  const pkg='package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case\nPKG-PHONE,EVT-1,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,590,1,available,10,,1,\nPKG-BUNDLE,EVT-1,phone_lens_bundle,VIVO_X300_PRO,Vivo X300 Pro,ZEISS,Lens Vivo,890,1,available,30,,1,\n';
  const fetchImpl=async url=>({ok:true,text:async()=>String(url).includes('09_Web_Packages')?pkg:web});
  const got=await webhook.resolveCanonicalPackage({event_name:'Nineentertain 24th Anniversary Charity Concert',venue:'Parc Paragon, Siam Paragon, Bangkok',package_name:'Vivo X300 Pro + Lens',price_display:'590 บาท'},fetchImpl);
@@ -29,14 +29,14 @@ test('canonical package resolver replaces mismatched client bundle price with pa
  assert.equal(got.price_display,'890 บาท');
 });
 test('canonical package resolver supports comma-formatted event-specific bundle prices without arithmetic assumptions',async()=>{
- const web='event_id,event_name,event_date,venue,poster_image_url\nEVT-LYKN,LYKN REFLEXION CONCERT,24/10/2026,IMPACT Arena,\n';
+ const web='event_id,event_name,event_date,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-LYKN,LYKN REFLEXION CONCERT,24/10/2026,IMPACT Arena,,show,เปิดจอง,1\n';
  const pkg='package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case\nPKG-BUNDLE,EVT-LYKN,phone_lens_bundle,VIVO_X300_PRO,Vivo X300 Pro,ZEISS,Lens Vivo,"1,290",1,available,30,,1,\n';
  const fetchImpl=async url=>({ok:true,text:async()=>String(url).includes('09_Web_Packages')?pkg:web});
  const got=await webhook.resolveCanonicalPackage({event_name:'LYKN REFLEXION CONCERT',venue:'IMPACT Arena',package_name:'Vivo X300 Pro + Lens'},fetchImpl);
  assert.equal(got.price_display,'1,290 บาท');
 });
 test('canonical resolver fails closed when package cannot be matched uniquely',async()=>{
- const web='event_id,event_name,event_date,venue,poster_image_url\nEVT-1,EVENT,01/10/2026,VENUE,\n';
+ const web='event_id,event_name,event_date,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-1,EVENT,01/10/2026,VENUE,,show,เปิดจอง,1\n';
  const pkg='package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case\n';
  const fetchImpl=async url=>({ok:true,text:async()=>String(url).includes('09_Web_Packages')?pkg:web});
  assert.equal(await webhook.resolveCanonicalPackage({event_name:'EVENT',venue:'VENUE',package_name:'Vivo X300 Pro + Lens',price_display:'590 บาท'},fetchImpl),null);
@@ -52,9 +52,9 @@ test('canonical date normalizes Thai Buddhist and ISO/Gregorian dates',()=>{
 
 test('canonical resolver distinguishes same-name same-venue multi-day events by date',async()=>{
  const web=[
-  'event_id,event_name,event_date_text,venue,poster_image_url',
-  'EVT-16,OH MY FOURTH CONCERT,16/10/2026,BITEC LIVE,https://example.com/16.jpg',
-  'EVT-17,OH MY FOURTH CONCERT,17/10/2026,BITEC LIVE,https://example.com/17.jpg'
+  'event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count',
+  'EVT-16,OH MY FOURTH CONCERT,16/10/2026,BITEC LIVE,https://example.com/16.jpg,show,เปิดจอง,1',
+  'EVT-17,OH MY FOURTH CONCERT,17/10/2026,BITEC LIVE,https://example.com/17.jpg,show,เปิดจอง,1'
  ].join('\n');
  const pkg=[
   'package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case',
@@ -69,7 +69,7 @@ test('canonical resolver distinguishes same-name same-venue multi-day events by 
 });
 
 test('canonical resolver fails closed for hidden or sold-out packages',async()=>{
- const web='event_id,event_name,event_date_text,venue,poster_image_url\nEVT-1,EVENT,18/10/2026,VENUE,\n';
+ const web='event_id,event_name,event_date_text,venue,poster_image_url,action_for_web,booking_status_for_web,available_phone_count\nEVT-1,EVENT,18/10/2026,VENUE,,show,เปิดจอง,1\n';
  const makeFetch=status=>async url=>({ok:true,text:async()=>String(url).includes('09_Web_Packages')
    ? ['package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,raw_available_count,use_case',
       'PKG-1,EVT-1,phone_only,VIVO_X300_PRO,Vivo X300 Pro,NONE,,790,'+(status==='full'?'0':'1')+','+status+',10,,1,'].join('\n')

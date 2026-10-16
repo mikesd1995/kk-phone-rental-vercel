@@ -11,8 +11,11 @@ function requestIdFromLineEvent(event){
 function bookingIntent(event,booking,resolved={}){
   const request_id=requestIdFromLineEvent(event);
   if(!request_id) return {ok:false,code:'LINE_EVENT_ID_REQUIRED'};
-  if(!booking||!text(booking.nickname)||!text(booking.phone)) return {ok:false,code:'CUSTOMER_FIELDS_REQUIRED'};
+  // A verified LINE user ID is a valid customer contact; international renters
+  // must never be rejected solely because they do not have a Thai phone number.
+  if(!booking||!text(booking.nickname)) return {ok:false,code:'CUSTOMER_FIELDS_REQUIRED'};
   if(!text(resolved.event_id)||!text(resolved.template_id)) return {ok:false,code:'CANONICAL_RESOLUTION_REQUIRED'};
+  if(!text(event&&event.source&&event.source.userId)) return {ok:false,code:'LINE_CUSTOMER_USER_ID_REQUIRED'};
   return {ok:true,payload:{
     action:'createLineBookingPending',request_id,
     event_id:text(resolved.event_id),template_id:text(resolved.template_id),

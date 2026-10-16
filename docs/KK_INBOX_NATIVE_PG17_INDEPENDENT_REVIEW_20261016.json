@@ -1,0 +1,247 @@
+{
+  "schema_version": "KK_INBOX_NATIVE_VM_ACCEPTANCE_V1",
+  "source_hashes": {
+    "supabase/kk_inbox_v1.sql": "7d2a7377ad8fe92e87ba872077e76040e3b318a1964e4d9f2a97209ccad7d0e0",
+    "supabase/migrations/20261010213000_kk_inbox_private_line_media.sql": "330f48d9b9bdcc0e18f849db1b3f9f1a8baf239510731f143971486b3ab9f286",
+    "supabase/migrations/20261013152000_kk_inbox_durable_outbound_reservations.sql": "d97836a1f188246962022bd952938f48f26464292eef69d9cd4096dd40349a4e",
+    "supabase/migrations/20261013163000_kk_inbox_outbound_owner_review.sql": "798cedbddf09f120c4942fa91f981a456b24475da4e6347b27e11b7931d7665d"
+  },
+  "executed_source_hashes": {
+    "supabase/kk_inbox_v1.sql": "7d2a7377ad8fe92e87ba872077e76040e3b318a1964e4d9f2a97209ccad7d0e0",
+    "supabase/migrations/20261010213000_kk_inbox_private_line_media.sql": "330f48d9b9bdcc0e18f849db1b3f9f1a8baf239510731f143971486b3ab9f286",
+    "supabase/migrations/20261013152000_kk_inbox_durable_outbound_reservations.sql": "d97836a1f188246962022bd952938f48f26464292eef69d9cd4096dd40349a4e",
+    "supabase/migrations/20261013163000_kk_inbox_outbound_owner_review.sql": "798cedbddf09f120c4942fa91f981a456b24475da4e6347b27e11b7931d7665d"
+  },
+  "harness_hashes": {
+    "run.py": "4b2b91f63517da26e0ac13b2daf733d8cff7fd90475a08cbd55f8833153f7148",
+    "guest-acceptance.sh": "ace4bba96e06e592932ccb163f24728abde7376fe8ae497d457c213bd9c222f2",
+    "assets.lock.json": "be90504ef8b436741cc8f1571e7baf3b83068af2de444bc1c48dc8c00910e9f0",
+    "prepare.py": "a7e2da02a24d3bb0b9e7c4805cdd5c44668be38324977cc39eea83bf981fe610"
+  },
+  "source_modified_for_negative_control": false,
+  "checks": [
+    {
+      "name": "native PostgreSQL17 under UID70 with no TCP listener and durable commit settings",
+      "status": "PASS"
+    },
+    {
+      "name": "source compilation RLS and all Inbox RPC privilege boundaries",
+      "status": "PASS"
+    },
+    {
+      "name": "independent sessions wait on exact advisory lock then commit permits one reservation",
+      "status": "PASS"
+    },
+    {
+      "name": "rollback releases advisory lock and waiting new request becomes sole winner",
+      "status": "PASS"
+    },
+    {
+      "name": "backend termination rolls back uncommitted reservation and releases waiter",
+      "status": "PASS"
+    },
+    {
+      "name": "same request UUID on independent sessions cannot reserve twice",
+      "status": "PASS"
+    },
+    {
+      "name": "different body fingerprint completes while first transaction remains open",
+      "status": "PASS"
+    },
+    {
+      "name": "different conversation completes while first transaction remains open",
+      "status": "PASS"
+    },
+    {
+      "name": "eight simultaneous independent backend requests create one reservation",
+      "status": "PASS"
+    },
+    {
+      "name": "committed RESERVED survives immediate server crash and blocks new send",
+      "status": "PASS"
+    },
+    {
+      "name": "crash after synthetic provider before persistence preserves unresolved hold",
+      "status": "PASS"
+    },
+    {
+      "name": "crash after message persistence before finish keeps receipt and blocks replay",
+      "status": "PASS"
+    },
+    {
+      "name": "committed SENT and provider evidence survive immediate server crash",
+      "status": "PASS"
+    },
+    {
+      "name": "owner verified evidence survives crash and only explicit reviewed repeat may reserve",
+      "status": "PASS"
+    },
+    {
+      "name": "simultaneous reviewed-repeat clicks remain one winner with real lock wait",
+      "status": "PASS"
+    }
+  ],
+  "network_devices": 0,
+  "host_shares": 0,
+  "production_writes": 0,
+  "provider_sends": 0,
+  "hosted_postgrest_verified": false,
+  "production_verified": false,
+  "vm_power_loss_verified": false,
+  "release_ready": false,
+  "assets_lock_sha256": "be90504ef8b436741cc8f1571e7baf3b83068af2de444bc1c48dc8c00910e9f0",
+  "negative_control_mutations": 0,
+  "qemu_exit_code": 0,
+  "engine": {
+    "version": "PostgreSQL 17.11 on x86_64-alpine-linux-musl, compiled by cc (Alpine 14.2.0) 14.2.0, 64-bit",
+    "backend_pid": 460,
+    "fsync": "on",
+    "synchronous_commit": "on",
+    "listen_addresses": ""
+  },
+  "lock_observations": [
+    {
+      "holder_pid": 496,
+      "waiter_pid": 510,
+      "waiter_event": "advisory",
+      "blocked_by_holder": true
+    },
+    {
+      "holder_pid": 543,
+      "waiter_pid": 557,
+      "waiter_event": "advisory",
+      "blocked_by_holder": true
+    },
+    {
+      "holder_pid": 584,
+      "waiter_pid": 598,
+      "waiter_event": "advisory",
+      "blocked_by_holder": true
+    },
+    {
+      "holder_pid": 630,
+      "waiter_pid": 644,
+      "waiter_event": "advisory",
+      "blocked_by_holder": true
+    },
+    {
+      "holder_pid": 944,
+      "waiter_pid": 958,
+      "waiter_event": "advisory",
+      "blocked_by_holder": true
+    }
+  ],
+  "burst_observations": [
+    {
+      "pid": 731,
+      "reservation": {
+        "status": "UNRESOLVED_OUTBOUND_IN_WINDOW",
+        "allowed": false
+      }
+    },
+    {
+      "pid": 730,
+      "reservation": {
+        "status": "UNRESOLVED_OUTBOUND_IN_WINDOW",
+        "allowed": false
+      }
+    },
+    {
+      "pid": 727,
+      "reservation": {
+        "status": "UNRESOLVED_OUTBOUND_IN_WINDOW",
+        "allowed": false
+      }
+    },
+    {
+      "pid": 729,
+      "reservation": {
+        "status": "UNRESOLVED_OUTBOUND_IN_WINDOW",
+        "allowed": false
+      }
+    },
+    {
+      "pid": 728,
+      "reservation": {
+        "status": "RESERVED",
+        "allowed": true,
+        "retry_key": "d97dafe2-e362-4710-9890-b057dc799d24"
+      }
+    },
+    {
+      "pid": 734,
+      "reservation": {
+        "status": "UNRESOLVED_OUTBOUND_IN_WINDOW",
+        "allowed": false
+      }
+    },
+    {
+      "pid": 733,
+      "reservation": {
+        "status": "UNRESOLVED_OUTBOUND_IN_WINDOW",
+        "allowed": false
+      }
+    },
+    {
+      "pid": 732,
+      "reservation": {
+        "status": "UNRESOLVED_OUTBOUND_IN_WINDOW",
+        "allowed": false
+      }
+    }
+  ],
+  "crash_observations": [
+    {
+      "unclean_control_state": "in production",
+      "mode": "immediate",
+      "restarted": true
+    },
+    {
+      "unclean_control_state": "in production",
+      "mode": "immediate",
+      "restarted": true
+    },
+    {
+      "unclean_control_state": "in production",
+      "mode": "immediate",
+      "restarted": true
+    },
+    {
+      "unclean_control_state": "in production",
+      "mode": "immediate",
+      "restarted": true
+    },
+    {
+      "unclean_control_state": "in production",
+      "mode": "immediate",
+      "restarted": true
+    },
+    {
+      "unclean_control_state": "in production",
+      "mode": "immediate",
+      "restarted": true
+    }
+  ],
+  "completion": {
+    "pass": 15,
+    "fail": 0,
+    "multi_session_concurrency_verified": true,
+    "postgres_process_crash_recovery_verified": true,
+    "vm_power_loss_verified": false,
+    "provider_sends": 0,
+    "production_writes": 0,
+    "release_ready": false
+  },
+  "guest_exit_code": 0,
+  "pass": 15,
+  "fail": 0,
+  "technical_pass": true,
+  "multi_session_concurrency_verified": true,
+  "postgres_process_crash_recovery_verified": true,
+  "log_sha256": "3015028145a911948b28a015837aeb3da0f175bf3d824f92b7a2e74808cb05be",
+  "limitations": [
+    "Native guest PostgreSQL17.11 differs from hosted Supabase17.6",
+    "Database lives in guest RAM: process/WAL recovery tested, not VM power loss or disk durability",
+    "Storage schema fixture only; hosted PostgREST, actual provider/image/visual and Production release unverified"
+  ]
+}

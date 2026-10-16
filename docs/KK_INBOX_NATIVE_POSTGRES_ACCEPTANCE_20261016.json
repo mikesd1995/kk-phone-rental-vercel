@@ -1,0 +1,148 @@
+{
+  "schema_version": "KK_INBOX_NATIVE_POSTGRES_ACCEPTANCE_20261016",
+  "recorded_at": "2026-10-16T08:06:36.735148+00:00",
+  "classification": "EXISTING_PR_700_QA_ONLY",
+  "starting_inbox_source": "27aa4ec232760fa70f505e4b51373188457cfb8d",
+  "starting_inbox_tree": "68ef9d12c7b49c5838a6b511fc135a3033841c6d",
+  "canonical_checkpoint": "ad64cf9413d9d664bc17fcf2e5737f6121dc6b5c",
+  "scope": "Native isolated PostgreSQL17 independent-session reservation and process-crash recovery acceptance; no application or SQL behavior change",
+  "reports": {
+    "accepted": {
+      "artifact": "docs/KK_INBOX_NATIVE_PG17_ACCEPTED_20261016.json",
+      "artifact_sha256": "34c62f9f6d70d6702fdcac1f21b0452175e48868073e482a474356f85428e975",
+      "serial_log": "docs/KK_INBOX_NATIVE_PG17_ACCEPTED_20261016_SERIAL.txt",
+      "serial_log_sha256": "5a6ce3275bb74e6dd47480366a82457f05599c201eea34f94fa591ba23158777",
+      "result": true
+    },
+    "review": {
+      "artifact": "docs/KK_INBOX_NATIVE_PG17_INDEPENDENT_REVIEW_20261016.json",
+      "artifact_sha256": "b0bfeca8a66cea7600678b36335d2ba290fde958bddfa423b10cffc01ae4bd27",
+      "serial_log": "docs/KK_INBOX_NATIVE_PG17_INDEPENDENT_REVIEW_20261016_SERIAL.txt",
+      "serial_log_sha256": "3015028145a911948b28a015837aeb3da0f175bf3d824f92b7a2e74808cb05be",
+      "result": true
+    },
+    "no-lock-red": {
+      "artifact": "docs/KK_INBOX_NATIVE_PG17_NO_LOCK_NEGATIVE_CONTROL_20261016.json",
+      "artifact_sha256": "c7d8a3b709aba2f499505fcb3299302f4fbc775d27f4ae34353d3c111b16cfcb",
+      "serial_log": "docs/KK_INBOX_NATIVE_PG17_NO_LOCK_NEGATIVE_CONTROL_20261016_SERIAL.txt",
+      "serial_log_sha256": "76d5cc82fd84428b09c49684872fe862ce89d8a82e553fce8198431dc5d428d4",
+      "result": false
+    }
+  },
+  "checks": {
+    "full": {
+      "result": "PASS",
+      "command": "npm test",
+      "tests": 1802,
+      "log_sha256": "5d56ecc945f609291ef430edb5c7a2f843693a53943420b1dfbcbc8e38f2d99a"
+    },
+    "routed": {
+      "result": "PASS",
+      "command": "npm run code:test with native multi-session task",
+      "tests": 96,
+      "log_sha256": "614495433914a0eb07b481666389495b6e12260c47e387b370ffd7177ccdcdf4"
+    },
+    "postinstall": {
+      "result": "PASS",
+      "command": "npm run postinstall",
+      "tests": 185,
+      "log_sha256": "8f4170b6a58e7b3e84f02103eb1ea82e01c4086fcb98557d813a5e97672dadb2"
+    }
+  },
+  "independent_review": {
+    "reviewer": "/root/inbox_line_safety_review",
+    "status": "ACCEPTED",
+    "tests": 15,
+    "blocker_findings": 0,
+    "material_findings": 0,
+    "sql_and_app_parity": true
+  },
+  "cli_guards": {
+    "relative_tools": {
+      "exit_code": 2,
+      "no_vm_report_created": true
+    },
+    "missing_ready": {
+      "exit_code": 1,
+      "no_vm_report_created": true
+    }
+  },
+  "engineering_gate_actual_evaluation": {
+    "evidence": {
+      "CONTEXT_PACK": true,
+      "PLANNER": true,
+      "IMPLEMENTER": true,
+      "INDEPENDENT_REVIEWER": true,
+      "TARGETED_TESTS": true,
+      "RISK_REGRESSION": true,
+      "RELEASE_READBACK": false
+    },
+    "result": {
+      "version": "KK_ENGINEERING_EXECUTION_GATE_V1",
+      "required_phases": [
+        "CONTEXT_PACK",
+        "PLANNER",
+        "IMPLEMENTER",
+        "INDEPENDENT_REVIEWER",
+        "TARGETED_TESTS",
+        "RISK_REGRESSION",
+        "RELEASE_READBACK"
+      ],
+      "missing": [
+        "RELEASE_READBACK"
+      ],
+      "failures": [],
+      "status": "BLOCKED"
+    }
+  },
+  "failed_approaches_and_corrections": [
+    {
+      "approach": "Host PostgreSQL identity",
+      "failure": "OnlyUID0 mapped; unprivileged setuid unavailable; nested unshare map-user1000 failsEPERM",
+      "alternative": "Separate Linux kernel under QEMU TCG with real guestUID70; unmodified PostgreSQL17.11"
+    },
+    {
+      "approach": "APT metadata cache parsing",
+      "failure": "noble-updates InRelease truncated/incomplete",
+      "alternative": "GPG-verify intact noble and noble-security InRelease; SHA256-verify decompressed indexes and pinned downloaded .deb files"
+    },
+    {
+      "approach": "Relocated QEMU boot",
+      "failure": "TCG module and option-ROM lookup used default host paths",
+      "correction": "Explicit QEMU_MODULE_DIR and -L to extracted QA assets; no system install"
+    },
+    {
+      "approach": "Initial guest config generation",
+      "failure": "Nested shell quoting removed config string delimiters; VM rejected configuration",
+      "correction": "Write fixed PostgreSQL config as a file; no SQL/product change"
+    },
+    {
+      "approach": "Backend-termination assertion",
+      "failure": "Initial functional run4PASS1FAIL because idle psql may exit0 at stdinEOF after server termination",
+      "correction": "Assert actual holder backend disappears, uncommitted row rolls back and blocked waiter is sole winner"
+    },
+    {
+      "approach": "Fresh asset extraction",
+      "failure": "Pinned Alpine package includes hard links; rejecting all hard links produced incomplete assets",
+      "correction": "Validate relative hard-link targets, delay links after regular files; verify hashes; READY marker only after full extraction; fresh offline preparePASS"
+    }
+  ],
+  "external_actions": {
+    "main_merge": false,
+    "deployment": false,
+    "production_sql_or_business_writes": 0,
+    "customer_provider_sends": 0,
+    "acl_changes": 0,
+    "scheduler_changes": 0,
+    "application_runtime_dependencies_added": 0,
+    "paid_resources": 0
+  },
+  "still_unverified": [
+    "VM/host power loss and disk durability",
+    "Exact hosted Supabase17.6 and PostgREST/private Storage behavior",
+    "Actual provider receipt/image bytes and authenticated visual acceptance",
+    "Verified conversation-to-booking linkage",
+    "Private Core/ACL governed cutover and natural runtime/business acceptance",
+    "Exact-head hosted CI and owner-governed release/rollback readback"
+  ]
+}

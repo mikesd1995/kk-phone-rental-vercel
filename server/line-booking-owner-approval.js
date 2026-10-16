@@ -42,12 +42,22 @@ async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
     source:'LINE_OWNER_APPROVAL',
     automation_version:VERSION
   });
-  const r=await fetchImpl(text(env.KK_ADMIN_SCRIPT_URL),{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(body)
-  });
-  const raw=await r.text();
+  let r,raw;
+  try{
+    r=await fetchImpl(text(env.KK_ADMIN_SCRIPT_URL),{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    raw=await r.text();
+  }catch(_){
+    // Both transport exceptions and response-body read exceptions are untrusted.
+    // Never let provider/redirect details reach webhook error logs.
+    const err=new Error('Apps Script booking transport failed');
+    err.code='LINE_BOOKING_UPSTREAM_TRANSPORT_FAILED';
+    if(r&&Number.isInteger(r.status))err.status=r.status;
+    throw err;
+  }
   let parsed={};
   try{parsed=raw?JSON.parse(raw):{};}catch(_){
     const err=new Error('Apps Script returned non-JSON response');
@@ -56,8 +66,10 @@ async function appsScriptCall(payload,env=process.env,fetchImpl=fetch){
     throw err;
   }
   if(!r.ok||!parsed||parsed.ok!==true){
-    const err=new Error(text(parsed&&parsed.error)||('Apps Script booking write failed '+r.status));
-    err.code=text(parsed&&parsed.error_code)||'LINE_BOOKING_UPSTREAM_FAILED';
+    // Upstream errors are untrusted and may contain customer contact, Booking
+    // IDs or credentials. Never reflect their text or error_code into webhook logs.
+    const err=new Error('Apps Script booking action failed');
+    err.code='LINE_BOOKING_UPSTREAM_FAILED';
     err.status=r.status;
     throw err;
   }
@@ -117,7 +129,8 @@ function ownerApprovalMessage(ctx={},env=process.env){
   const packageName=text(ctx.package_name)||'-';
   const price=text(ctx.price_display)||'-';
   const customer=text(ctx.nickname)||'-';
-  const phone=text(ctx.phone)||'-';
+  const phone=text(ctx.phone);
+  const contactLabel=phone?'โทร  '+phone:'ติดต่อทาง LINE · ไม่ระบุเบอร์โทรศัพท์';
   const pickup=text(ctx.pickup_time)||'-';
   return {
     type:'flex',
@@ -133,7 +146,7 @@ function ownerApprovalMessage(ctx={},env=process.env){
         {type:'text',text:'ราคา  '+price,size:'sm',weight:'bold',wrap:true},
         {type:'separator',margin:'md'},
         {type:'text',text:'ลูกค้า  '+customer,size:'sm',wrap:true,margin:'md'},
-        {type:'text',text:'โทร  '+phone,size:'sm',wrap:true},
+        {type:'text',text:contactLabel,size:'sm',wrap:true},
         {type:'text',text:'เวลารับ  '+pickup,size:'sm',wrap:true}
       ]},
       footer:{type:'box',layout:'horizontal',spacing:'sm',contents:[
@@ -144,14 +157,23 @@ function ownerApprovalMessage(ctx={},env=process.env){
   };
 }
 async function sendLine(url,body,token,fetchImpl=fetch){
-  const r=await fetchImpl(url,{
-    method:'POST',
-    headers:{Authorization:'Bearer '+text(token),'Content-Type':'application/json'},
-    body:JSON.stringify(body)
-  });
+  let r;
+  try{
+    r=await fetchImpl(url,{
+      method:'POST',
+      headers:{Authorization:'Bearer '+text(token),'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+  }catch(_){
+    // Network/TLS/provider errors can also embed request or customer content.
+    const err=new Error('LINE send transport failed');
+    err.code='LINE_SEND_TRANSPORT_FAILED';
+    throw err;
+  }
   if(!r.ok){
-    const raw=await r.text().catch(()=>'');
-    const err=new Error('LINE send failed '+r.status+' '+raw.slice(0,160));
+    // Provider response text can reflect private recipient/message details.
+    // Keep a fixed diagnostic and HTTP status; do not log upstream body.
+    const err=new Error('LINE send failed');
     err.code='LINE_SEND_FAILED';
     err.status=r.status;
     throw err;
@@ -192,11 +214,39 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     decision
   },env,fetchImpl);
   const data=result&&result.data||result||{};
+  // The canonical writer must confirm the same booking we authorized.
+  // A mismatched response must never trigger a customer notification.
+  if(text(data.booking_id)!==parsed.booking_id){
+    const err=new Error('Owner decision booking identity readback mismatch');
+    err.code='LINE_OWNER_DECISION_BOOKING_ID_MISMATCH';
+    throw err;
+  }
+  // Current locked Apps Script writer returns the requested decision in
+  // readback. A conflicting value blocks sends even if status looks plausible.
+  // Missing value remains compatible with older deployment contracts.
+  if(data.decision!==undefined&&text(data.decision)!==decision){
+    const err=new Error('Owner decision readback mismatch');
+    err.code='LINE_OWNER_DECISION_READBACK_MISMATCH';
+    throw err;
+  }
   const expected=decision==='approve'?'confirmed':'cancelled';
   if(text(data.booking_status).toLowerCase()!==expected){
     const err=new Error('Owner decision readback mismatch');
     err.code='LINE_OWNER_DECISION_READBACK_MISMATCH';
     throw err;
+  }
+  // Missing/stringified replay evidence must never authorize another LINE send.
+  if(typeof data.idempotent_replay!=='boolean'){
+    const err=new Error('Canonical replay status not verified');
+    err.code='LINE_OWNER_DECISION_REPLAY_READBACK_REQUIRED';
+    throw err;
+  }
+  // Canonical decision replay is not a receipt for customer LINE delivery.
+  if(data.idempotent_replay===true){
+    return {handled:true,status:'ALREADY_APPLIED',booking_id:parsed.booking_id,
+      decision_status:expected.toUpperCase(),idempotent_replay:true,
+      customer_notifications:0,owner_notifications:0,
+      requires_manual_delivery_review:true};
   }
   const customerUserId=text(data.customer_contact);
   if(!customerUserId){
@@ -204,10 +254,13 @@ async function processOwnerPostback(event,env=process.env,fetchImpl=fetch){
     err.code='LINE_CUSTOMER_CONTACT_READBACK_REQUIRED';
     throw err;
   }
-  const sends=[];
-  if(event.replyToken) sends.push(replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl));
-  sends.push(pushMessage(customerUserId,customerDecisionMessage(decision,parsed.booking_id),env,fetchImpl));
-  await Promise.all(sends);
+  // Customer delivery must finish before telling the owner the notification was sent.
+  // This does not make the flow exactly-once: durable outbox/receipt is still required
+  // to recover a committed decision after provider failure.
+  await pushMessage(customerUserId,customerDecisionMessage(decision,parsed.booking_id),env,fetchImpl);
+  if(event.replyToken){
+    await replyMessage(event.replyToken,ownerDecisionMessage(decision,parsed.booking_id),env,fetchImpl);
+  }
   return {handled:true,status:expected.toUpperCase(),booking_id:parsed.booking_id,idempotent_replay:Boolean(data.idempotent_replay)};
 }
 

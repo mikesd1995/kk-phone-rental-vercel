@@ -7,8 +7,6 @@ docs/
 .github/
 .agents/
 skills/
-apps-script/
-supabase/
 DEPLOY_README.txt
 README_AUDIT.md
 README_SAFE_DEPLOY.md

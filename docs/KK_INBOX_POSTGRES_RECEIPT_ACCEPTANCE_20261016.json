@@ -1,0 +1,125 @@
+{
+  "schema_version": "KK_INBOX_POSTGRES_RECEIPT_ACCEPTANCE_20261016",
+  "recorded_at": "2026-10-16T07:39:22.459521+00:00",
+  "classification": "EXISTING_PR_700_SOURCE_ONLY",
+  "starting_source": "73adf54d131b4880458ae7917191e4a646d87d62",
+  "canonical_checkpoint": "b2d42bbe2086ad12bcc0868c508a30de5367f386",
+  "live_preflight": {
+    "project": "mxjnjujqjybqughsnqbz",
+    "name": "kk-unified-inbox",
+    "link_name": "Primary",
+    "server_version": "17.6",
+    "outbound_table_exists": false,
+    "reservation_rpc_exists": false,
+    "finish_rpc_exists": false,
+    "read_only": true
+  },
+  "material_findings": [
+    "SENT accepted without matching persisted outbound receipt; owner review could then authorize deliberate repeat",
+    "Later completion could overwrite owner-verified provider IDs while retaining SENT/VERIFIED_SENT/evidence"
+  ],
+  "baseline": {
+    "tests": 32,
+    "pass": 24,
+    "fail": 8,
+    "artifact": "docs/KK_INBOX_POSTGRES_BASELINE_RED_20261016.json"
+  },
+  "checks": {
+    "full": {
+      "command": "npm test",
+      "result": "PASS",
+      "tests": 1802,
+      "log_sha256": "e5281f4779cccb16bd507f0a785addd3666b4b77f8093773a52fbdb998c30ae0"
+    },
+    "routed": {
+      "command": "npm run code:test -- \"Unified Inbox durable outbound PostgreSQL isolated concurrency reservation owner review migration acceptance\"",
+      "result": "PASS",
+      "tests": 89,
+      "log_sha256": "144e6db9280be636db312b5cba3eecfc66b133b516eede1a569311fa96aab3f1"
+    },
+    "postinstall": {
+      "command": "npm run postinstall",
+      "result": "PASS",
+      "tests": {
+        "inbox_ship_gate": 185
+      },
+      "log_sha256": "420230df6901230ba26c670c628899ab7e4db51c0433552d40fdba7c34afde62"
+    },
+    "syntax": {
+      "command": "npm run check",
+      "result": "PASS",
+      "log_sha256": "3576cc57104c8d2f3904f131a8c129b75d339015737bcf80a27f2622b64f34b6"
+    },
+    "missing_engine": {
+      "result": "PASS",
+      "observed_exit_code": 1,
+      "implicit_install": false
+    }
+  },
+  "qa_engines": [
+    {
+      "package": "@electric-sql/pglite",
+      "version": "0.3.14",
+      "integrity": "sha512-3DB258dhqdsArOI1fIt7cb9RpUOgcDg5hXWVgVHAeqVQ/qxtFy605QKs4gx6mFq3jWsSPqDN8TgSEsqC3OfV9Q==",
+      "postgres_version": "PostgreSQL 17.5 on aarch64-unknown-linux-gnu, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit",
+      "checks": 34,
+      "failures": 0,
+      "network_attempts": 0,
+      "artifact": "docs/KK_INBOX_EMBEDDED_PG17_20261016.json",
+      "artifact_sha256": "4a9d7af4f9ea2827fa34939ae5f3e20eeae696dd3ddcaf251ced6be480cae024"
+    },
+    {
+      "package": "@electric-sql/pglite",
+      "version": "0.5.10",
+      "integrity": "sha512-tXc/25U3ulOkiRQuTFdwIv+JhBqtMdAF7Gvo6CfZZWtSB4+hgC4Wr2vwK5ngvvN5PJfAAEGIsfyCVy1JhCOBYw==",
+      "postgres_version": "PostgreSQL 18.6 (PGlite 0.5.10) on wasm32-unknown-emscripten, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.5 (1db513782be24469589d7cb8a1f1834e9a33f271), 32-bit",
+      "checks": 34,
+      "failures": 0,
+      "network_attempts": 0,
+      "artifact": "docs/KK_INBOX_EMBEDDED_PG18_20261016.json",
+      "artifact_sha256": "f5707ad793313b74e9c01d4b7a5b53687e81243ad56ca9486328c848467fd604"
+    }
+  ],
+  "independent_review": {
+    "original_reproductions": "two findings independently reproduced under service_role",
+    "final_diff_review": "ACCEPTED: no BLOCKER or MATERIAL finding; independent PG17 run34/34 PASS,0 network attempts",
+    "fixture_followup": "Wrong-request negative now preserves actual retry key, isolating request UUID predicate; both engines34/34 again"
+  },
+  "engineering_gate": {
+    "status": "BLOCKED",
+    "missing": [
+      "RELEASE_READBACK"
+    ]
+  },
+  "external_mutations": {
+    "main_merge": false,
+    "deployment": false,
+    "production_sql_or_business_writes": 0,
+    "acl_changes": 0,
+    "provider_messages": 0,
+    "paid_resources": 0
+  },
+  "unverified": [
+    "Independent-session PostgreSQL lock contention and race acceptance",
+    "Actual provider receipts and hosted PostgREST/Storage",
+    "Real new image bytes and authenticated wrong-room read",
+    "Authenticated visual acceptance",
+    "Private Core/ACL cutover and natural governed runtime",
+    "Production release/rollback acceptance"
+  ],
+  "failed_alternatives": [
+    {
+      "approach": "native PostgreSQL under an unprivileged identity",
+      "failure": "only UID0 mapped; setuid1000/1001/65534 EINVAL; no paid service created",
+      "alternative": "isolated PostgreSQL WASM installed outside repository application dependencies"
+    },
+    {
+      "approach": "PG17 advisory lock check filtered by pg_backend_pid",
+      "failure": "PG17 embedded backendPID0 while actual lockPIDNULL: initial33/34",
+      "diagnosis": "exact advisory key was present and released on COMMIT",
+      "correction": "match precise64-bit reservation lock key, assert0 ->1 ->0; final34/34"
+    }
+  ],
+  "runner_sha256": "d4d1b1882fed8380064bfdea7bc00f6ed4ea86cd475613d0673a687e0456fd19",
+  "sql_sha256": "d97836a1f188246962022bd952938f48f26464292eef69d9cd4096dd40349a4e"
+}

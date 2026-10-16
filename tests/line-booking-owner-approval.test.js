@@ -57,6 +57,30 @@ test('pending intake writes only the governed pending action and requires bookin
 });
 
 
+test('foreign customer without phone stays pending via verified LINE contact; owner card is truthful',async()=>{
+ const calls=[];
+ const fetchImpl=async(_url,opt)=>{
+   calls.push(JSON.parse(opt.body));
+   return response({ok:true,booking_id:'BK-FOREIGN-001',row_number:26,booking_status:'pending'});
+ };
+ const result=await Approval.createPendingBooking(
+   {webhookEventId:'evt-international-03',source:{userId:'UFOREIGNCUSTOMER001'}},
+   {nickname:'Alex',phone:''},
+   {event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'},
+   env(),fetchImpl
+ );
+ assert.equal(result.booking_id,'BK-FOREIGN-001');
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].customer_contact,'UFOREIGNCUSTOMER001');
+ assert.equal(calls[0].customer_phone,'');
+ assert.equal(calls[0].booking_status,'pending');
+ assert.equal(calls[0].payment_status,'unpaid');
+ const ownerCard=Approval.ownerApprovalMessage({
+   booking_id:'BK-FOREIGN-001',event_name:'Concert',phone:'',nickname:'Alex'
+ },env());
+ assert.match(JSON.stringify(ownerCard),/ติดต่อทาง LINE · ไม่ระบุเบอร์โทรศัพท์/);
+});
+
 test('missing customer LINE identity fails before any booking write',async()=>{
   let calls=0;
   await assert.rejects(
@@ -109,7 +133,7 @@ test('owner decision fails closed if canonical customer contact is missing',asyn
       type:'postback',source:{type:'user',userId:'UOWNER'},postback:{data}
     },e,async(url,opt)=>{
       if(String(url).startsWith('https://script.google.com/')){
-        return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed'});
+        return response({ok:true,booking_id:'BK-NO-CONTACT',booking_status:'confirmed',idempotent_replay:false});
       }
       lineSends++;
       return response({ok:true});

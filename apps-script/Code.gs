@@ -2554,6 +2554,11 @@ function kkLineBookingClaimReadback_(claim) {
   if (String(readback[2] || '').toLowerCase().trim() !== 'pending') return null;
   if (String(readback[3] || '').trim() !== String(claim.event_id || '').trim()) return null;
   if (String(readback[4] || '').trim() !== String(claim.customer_name || '').trim()) return null;
+  // LINE identity is authoritative even when international renters provide no phone.
+  const lineContact = String(readback[5] || '').trim();
+  if (!lineContact) return null;
+  if (String(claim.customer_contact || '').trim() &&
+      lineContact !== String(claim.customer_contact || '').trim()) return null;
   if (String(readback[6] || '').trim() !== String(claim.customer_phone || '').trim()) return null;
   if (String(readback[7] || '').toUpperCase().trim() !== 'LINE') return null;
   if (String(readback[9] || '').trim() || String(readback[10] || '').trim()) return null;
@@ -2618,10 +2623,12 @@ function kkApiCreateLineBookingPending_(payload) {
     let templateId = String(payload.template_id || '').trim();
     const customerName = String(payload.customer_name || '').trim();
     const customerPhone = String(payload.customer_phone || '').trim();
-    const customerContact = payload.customer_contact || '';
+    // A verified LINE contact identifies international customers without a phone.
+    // Caller identity is enforced upstream; keep canonical customer_contact mandatory.
+    const customerContact = String(payload.customer_contact || '').trim();
     const pickupTime = String(payload.pickup_time || '').trim();
-    if (!eventId || !templateId || !customerName || !customerPhone) {
-      throw new Error('LINE booking requires event_id, template_id, customer_name and customer_phone');
+    if (!eventId || !templateId || !customerName || !customerContact) {
+      throw new Error('LINE booking requires event_id, template_id, customer_name and customer_contact');
     }
     if (payload.phone_asset_id || payload.lens_asset_id) {
       throw new Error('Pending LINE intake must not assign physical assets');
@@ -2643,6 +2650,7 @@ function kkApiCreateLineBookingPending_(payload) {
       event_id: eventId,
       template_id: templateId,
       customer_name: customerName,
+      customer_contact: customerContact,
       customer_phone: customerPhone,
       claimed_at: new Date().toISOString()
     }));
@@ -2658,6 +2666,7 @@ function kkApiCreateLineBookingPending_(payload) {
       event_id: eventId,
       template_id: templateId,
       customer_name: customerName,
+      customer_contact: customerContact,
       customer_phone: customerPhone,
       row_number: row,
       booking_id: bookingId,
@@ -2676,6 +2685,7 @@ function kkApiCreateLineBookingPending_(payload) {
       request_id: requestId,
       event_id: eventId,
       customer_name: customerName,
+      customer_contact: customerContact,
       customer_phone: customerPhone,
       row_number: row,
       booking_id: bookingId
