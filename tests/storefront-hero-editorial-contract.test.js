@@ -38,7 +38,7 @@ test('booking CTA destinations and accessible nav are not altered by hero redesi
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261016-owner-hero-r8/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261016-owner-hero-r9/);
 });
 
 const referenceMarker='KK HERO REFERENCE 2026-10-15';
@@ -146,4 +146,12 @@ test('R8 removes dead vertical space while preserving device image on small phon
  assert.match(cssFinal,/min-height:44px!important/);
  assert.match(cssFinal,/background-position:center 10%!important/);
  assert.doesNotMatch(cssFinal,/display:none!important|owner_hidden|action_for_web|booking_id/);
+});
+
+test('R9 320px reduction preserves 44px critical actions',()=>{
+ const x=css.slice(css.indexOf('KK HERO R9'));
+ assert.match(x,/max-width:359px/);
+ assert.match(x,/min-height:37px!important/);
+ assert.match(x,/height:50px!important/);
+ assert.doesNotMatch(x,/v3-primary|v3-secondary|filter-btn|available_count|booking_id/);
 });
