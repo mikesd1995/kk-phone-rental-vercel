@@ -140,3 +140,13 @@ The Chromium screenshot/metrics workflow completed **FAIL** for overall website 
 **Verified deployment:** Vercel target Production deployment `dpl_7juWAZnGAi2Z4thzU5Z2sfYKbNhV` READY, Git commit `75ba6123efe5a5eccfd9181dc62c59840b0f5074`; independent Vercel lookup by hostname `kk-phone-rental.vercel.app` returns this same deployment as READY with public alias attached. Previous V9 deployment `dpl_9XfqXHCJ3mvADnwne85bYhJ7643x` available as a rollback candidate.
 
 **QA:** Vercel Build/Ready is **not** full visual acceptance. GitHub Storefront Automated Visual QA run `38946598977` was triggered for this commit; result and screenshots must be checked and appended before claiming acceptance. Existing unrelated site-wide poster-card and modal problems may remain. No production data writes.
+
+## V9.1 post-deploy screenshot review (actual GitHub artifact)
+
+Artifact: GitHub Actions `38946598977`, artifact ID `12067030984`, ZIP `storefront-visual-qa-75ba6123efe5a5eccfd9181dc62c59840b0f5074` (3.5 MB). Inspected actual Chromium-rendered screenshots `390x844-dark.jpg`, `390x844-top.jpg` (Light), and `1440x900-dark.jpg`, comparing directly to corresponding V9 artifact `12064866480`. White circular arrow appears on primary CTA and chevron on secondary; theme-specific glow and more readable benefit labels render. Owner layout remains intact, image on right at mobile, no full-width promo banner. This is an aesthetic iteration, **not pixel-exact owner acceptance**.
+
+Local Chromium artifact `summary.md`: `Technical result: FAIL`, `Release ready: BLOCKED`, `Art Director acceptance: BLOCKED`. Workflow API ultimately described run `38946598977` as `cancelled`; the artifact completed and contains rendered image/QA metrics, but this **must not be reported as a passed automated gate**.
+
+Measured V9.1 hero heights: 320x568=208.703125px, 375x812=268.5625px, 390x844=273.9375px, 430x932=278.1875px, 480x932=299.46875px, 768x1024=383.59375px, 1024x768=393.984375px, 1440x900=456.625px. Common 375–430 mobile heights remain unchanged from V9; first 390px event card starts at y≈688.8, 2 event cards at least partly visible above fold. **No JavaScript runtime errors**. Existing site-wide visual findings persist for card contents, poster letterboxing, mobile sheet, and some event-discovery-first-fold cases; do not claim the overall storefront Visual QA is closed.
+
+Vercel Production remains `dpl_7juWAZnGAi2Z4thzU5Z2sfYKbNhV` READY, Git source `75ba6123efe5a5eccfd9181dc62c59840b0f5074`; public hostname alias explicitly verified. Rollback to preceding V9 production `dpl_9XfqXHCJ3mvADnwne85bYhJ7643x` if actual iOS Safari shows a regression.
