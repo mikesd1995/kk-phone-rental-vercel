@@ -38,7 +38,7 @@ test('booking CTA destinations and accessible nav are not altered by hero redesi
  assert.match(html,/id="faq-open-btn"/);
  assert.match(html,/id="language-switch"/);
  assert.match(html,/id="theme-toggle"/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261015-blue-hero-reference-r1/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261016-owner-hero-r5/);
 });
 
 const referenceMarker='KK HERO REFERENCE 2026-10-15';
@@ -102,4 +102,15 @@ test('R4 shifts only short-screen chrome and ensures readable mobile backdrop',(
  assert.match(r4,/var\(--v6-bg\) 495px/);
  assert.match(r4,/var\(--v6-bg\) 550px/);
  assert.doesNotMatch(r4,/booking_id|available_count|price_from|action_for_web/);
+});
+
+test('R5 mobile visual correction keeps full phone frame and both actions at every width',()=>{
+ const patch=css.slice(css.indexOf('KK HERO R5'));
+ assert.match(patch,/aspect-ratio:573\/399!important/);
+ assert.match(patch,/background-size:100% 100%,contain!important/);
+ assert.match(patch,/html \.kk-mock-hero \.v3-secondary\{/);
+ assert.match(patch,/grid-template-columns:minmax\(0,1\.6fr\) minmax\(0,\.8fr\)!important/);
+ assert.match(patch,/@media \(max-width:359px\)/);
+ assert.match(patch,/html \.kk-mock-hero \.kk-hero-art\{display:block!important/);
+ assert.doesNotMatch(patch,/booking_id|owner_hidden|action_for_web|price_from/);
 });
