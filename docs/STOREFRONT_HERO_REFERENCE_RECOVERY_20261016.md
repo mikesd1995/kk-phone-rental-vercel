@@ -38,3 +38,26 @@ Branch: `fix/hero-theme-parity-20261016`. PR #754. Use the latest branch head as
 - **Visual QA is not accepted**: `Storefront Automated Visual QA` run 38924769762 finished `failure`. The existing site-wide QA includes poster-card and mobile-sheet criteria beyond this hero. This deployment is live/READY but must not be represented as an independent full visual acceptance pass.
 - Vercel Git deployment file-tree listing endpoint `/v6/deployments/{id}/files` returned 404 `File tree not found`; hence the published SVG was verified in GitHub and browser-rendered locally, but not fetched independently from live deployment in this run. Web inspection tool also could not open the production URL. Further validation on real iOS / Chrome is necessary to close cross-device acceptance.
 - Production rollback candidate remains `dpl_DDm4EKwT5DcDimgUBBE3WCuXGKh3` but has the rejected promo-image crop. Do not treat that as visually accepted.
+
+## 2026-10-16 23:16+07:00 — V8.1 mobile owner screenshot correction
+
+**Owner-provided before evidence:** `IMG_9479.jpeg` (710×1536 iPhone screenshot) vs `D96911E5-D3D1-4556-BA59-D373CF0097A7(6).jpeg` (1536×543 desktop art direction). On production V7 the hero in a 390px CSS viewport stacked its full-width phone-art panel beneath headline/subtitle/buttons, and the four-item benefits grid remained below. This pushed event discovery far down the screen; desktop and mobile visual hierarchy differed.
+
+**Design decision:** Mobile must be a carefully compressed version of the *same* left-copy/right-phone desktop concept, not a vertically stacked screenshot. On mobile preserve full-width headline and subtitle at top, then two CTA buttons stacked on the **left side** and the phone/pedestal illustration on the **right side**, then three compact trust icons across the card bottom. Leave the four value/offer facts below in the existing benefits grid, with compact cells to reduce scrolling; the source facts are not removed.
+
+**Changes:**
+- `assets/kk-storefront-v5.css`: added scoped `Hero V8.1` mobile grid areas `"eyebrow eyebrow" "headline headline" "description description" "actions artwork" "trust trust"`; `.v3-hero-copy { display: contents !important; }` only at <=700px; 50/50 CTA/artwork row, 44px button touch targets, 24px trust icon circles, 12px subtitle, 26–34px headline, 18px card radius, compressed benefit row; 320px safeguards at <=359px. Desktop, asset source, business logic, and catalogue unchanged.
+- `index.html`: authoritative CSS cache key bumped to `20261016-hero-v81-mobile-split`.
+- `tests/storefront-hero-editorial-contract.test.js`: updated CSS key contract and added regression asserting right-of-actions art, visible trust row, touch targets, and no old banner asset reintroduction.
+
+**Local visual test (headless Chromium prototype using owner artwork, dark and light):**
+- 320px: Hero 323.8px high; search starts y=507.8px.
+- 375px: Hero 347.0px high; search starts y=531.0px.
+- 390px: Hero 354.8px high; search starts y=538.8px.
+- 430px: Hero 375.7px high; search starts y=559.7px.
+- 768px and 1440px prototype renders produced no document horizontal overflow.
+- Each width tested in dark and light palettes. **Caveat:** this is a representative local visual prototype, not production screenshot verification of the full stylesheet and third-party fonts.
+
+**Deployment verified:** Vercel Production `dpl_5FjhPnH9S6mJy7cdsBJKDLa7vUKc` with `state=READY`, mapped alias `kk-phone-rental.vercel.app`; deployed Git SHA `bc1d454289b0701232186c6b9086e0b466155515`. Vercel commit status `success`. Verified separately by hostname lookup through Vercel API after deployment. No merge to main; direct Git-source production deployment of feature branch, preserving rollback version `dpl_7GWbpMJWY4hhuYemF8DXsH4rx3eJ`.
+
+**Pending acceptance:** GitHub Storefront Automated Visual QA run `38931795401` initially in progress. Do not claim the full suite passed until it completes and screenshots are reviewed. Real iPhone Safari owner screenshot after deploy remains the reference for visual acceptance. No booking/price/customer/admin/automation writes were made.
