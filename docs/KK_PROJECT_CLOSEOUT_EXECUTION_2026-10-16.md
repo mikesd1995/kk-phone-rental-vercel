@@ -3,6 +3,37 @@
 **ผลรอบนี้: แก้ตัวบล็อกด้านโค้ดและบันทึกผลแล้ว แต่ยังไม่ผ่านการตรวจรับ Production เพื่อปิดทั้งโปรเจ็ค**
 อ่านสถานะ CODE WRITTEN / LOCAL TEST PASS / CI PASS / PRODUCTION VERIFIED แยกกัน ห้ามนำผล local ไปแทนการเปิดใช้งานจริง
 
+
+## ล่าสุด 16 ต.ค. 2026 เวลา 09:36 ไทย — รวมกติกา Inbox/LINE และพิสูจน์การทำงานร่วมกับ Core
+
+งานรอบต่อเนื่องนี้แก้เพิ่มใน **PR #700 เดิม** แล้วบันทึกแบบป้องกันเขียนทับงานอื่น: source **`73adf54d131b4880458ae7917191e4a646d87d62`**, tested tree **`25fe9512535153e3c5f6e5a7bb61e2007f20d4aa`**. เริ่มจาก `e6e21f9b` ผ่าน `6114967a` ก่อนแก้กฎปิด URL source เพิ่ม ไม่มี main merge/deploy/การส่ง LINE หรือแก้ข้อมูลจริง
+
+| สิ่งที่ดีขึ้น | ก่อน → หลัง / หลักฐาน |
+| --- | --- |
+| Inbox ใช้กติกา LINE ล่าสุดร่วมกับ Core | อีเวนต์ซ่อน/เต็ม/จำนวนเครื่องไม่ถูกต้องหยุดก่อนอ่านแพ็กเกจ เขียน pending หรือ push หาเจ้าของ; เก็บ TH/EN parser, private media และลูกค้าที่มี LINE แต่ไม่มีเบอร์ไว้ครบ |
+| กันอนุมัติซ้ำและอ่านผลผิด Booking | ตรวจ booking/status/decision และ replay ต้องเป็น Boolean; replay ไม่ส่งข้อความซ้ำ; ส่งลูกค้าสำเร็จก่อนแจ้งเจ้าของ |
+| ปิดช่องข้อมูลส่วนตัวใน error log | ตัด provider body/transport และ warning ที่มีข้อมูลลูกค้า; พบช่องเพิ่มใน media `error.code` แล้วใช้ private WeakMap รับเฉพาะรหัสเดิมที่โมดูลสร้างเอง ปลอม/เปลี่ยน code ภายหลังไม่ได้ |
+| ปิด URL ไฟล์ฐานข้อมูลโดยไม่ทำ build เสีย | รีวิวรวมพบ `supabase/` ต้องอยู่ใน build แต่ matcher ยังไม่ปิด URL; เพิ่ม middleware 2 จุดและทดสอบการทำงานจริงของ body ผ่าน matcher จำลอง จาก static200 เป็น404/no-store/nosniff โดย Admin/public assets ยังเหมือนเดิม |
+| พิสูจน์การรวมสอง PR | รวมเฉพาะใน worktree แยก มี conflict2ไฟล์เฉพาะ package/tests, ไม่แก้ runtime conflictด้วยมือ; เก็บ canonical-only89 และ Inbox-only33 paths เท่ากับ parent ทุก byte |
+
+**ผลล่าสุด:** #700 full **1,802/1,802 PASS**, Inbox ship **185/185**, LINE/media boundary73/73, routing+packaging10/10, selected routing regression63/63, postinstall/syntax/diff PASS. ชุดรวม #744`e6597b7d` + #700ล่าสุด **1,934/1,934 +26/26 ACL PASS** และ postinstallครบ. รีวิวอิสระรัน60/60และ119/119; พบ MATERIAL1เรื่อง SQL route แล้วแก้ด้วย RED4/6→GREEN6/6และทดสอบเต็มซ้ำ ไม่ใช้ผลเขียวก่อนหน้าเพื่อกลบจุดนี้
+
+หลักฐานก่อนแก้ที่ทำซ้ำได้: canonical LINE guards9/31ผ่าน22ตก; signed webhook1/3ผ่าน2ตก (hidden eventยังทำ3downstream requests และ media codeส่วนตัวหลุดเข้าlog). หลังแก้ทุกกรณีผ่าน หลักฐานเป็น synthetic/local และไม่แทน provider/Production acceptance
+
+หลักฐานข้ามแชท: [manifest ชุดรวม](KK_INBOX_CORE_INTEGRATION_REHEARSAL_20261016.json), [patch แก้ conflict2ไฟล์](KK_INBOX_CORE_MERGE_RESOLUTION_20261016.patch), [รายละเอียด #700](https://github.com/mikesd1995/kk-phone-rental-vercel/blob/fix/unified-inbox-private-media-current-main-20261012/docs/KK_INBOX_PRIVATE_MEDIA_FRESH_PORT_20261012.md). ไม่สร้าง broad release branchเพิ่ม และไม่ปิด PRเก่าเพื่อทำให้คิวดูว่าง
+
+**ยังปิดทั้งโปรเจ็คไม่ได้:** เกตที่เหลือคือ authenticated Admin/LINE visualและรูปใหม่จริง, isolated DB concurrency/provider receipts/booking linkage, Private Core/ACL cutover, natural governed runtime, ข้อมูลรับ–คืนจริง และ exact release/rollback. Gatewayก่อน–หลังรอบนี้บันทึก BLOCKED visualตามหลักฐานที่ขาดไว้แล้ว ไม่กรอกข้อมูลหรือส่งข้อความเพื่อทำให้เกตผ่าน
+
+การตรวจ Productionสดช่วงปิดรอบยังเป็น READY`dpl_4TFT2iMxHer24wtV8LvMGnpKvc3Z` / source`3d8b58af20550ef9fb093d74747548aedb106dfe`; งานแก้ข้างต้นยังอยู่ source candidate. เก็บงานหน้าตาเว็บของอีกแชทไว้ตามเดิม การทดสอบรวมนี้ไม่มี marketing/heroเพิ่มเข้ามา
+
+### ทำต่อจาก checkpoint นี้โดยไม่วนตรวจซ้ำ
+
+1. อ่าน PR headsสด และ manifestนี้ก่อน หาก sourceถูกเปลี่ยนให้ประเมิน diffก่อนใช้หลักฐานเก่า
+2. หากต้องสร้าง rehearsalเดิม ใช้ canonical`e6597b7d82179646932a7c1520bf46a32bd7e1f8` กับ Inbox`73adf54d131b4880458ae7917191e4a646d87d62`, commonmain`a54a348d`; ทำใน worktreeใหม่เท่านั้น
+3. หลัง mergeแบบไม่commit หาก conflictตรง2ไฟล์เดิม ให้ restoreฝั่ง canonicalเฉพาะ`package.json`และ`tests/line-webhook.test.js`, apply patchที่บันทึกนี้ แล้ว stage2ไฟล์ เป้าหมาย tree **`eb910ac54d4c0364a8efbb14303cb8f8d72ea136`** ต้องตรงก่อนใช้ผล1934+26
+4. ห้ามนำแพตช์ไปapplyทับmainหรือไฟล์อื่นโดยไม่ดูdiff; ไม่มีคำสั่งเปิดAutomation/ส่งลูกค้า/แก้ACLอยู่ในการรับรองนี้ เกตระบบจริงต้องใช้หลักฐานจริง ไม่ใช้localtestแทน
+
+
 ## เป้าหมายและขอบเขต
 คำสั่งเจ้าของ: แก้งานที่ติดทั้งหมดและเตรียมปิด KK Phone Rental ตามเงื่อนไขเดิม ไม่เพิ่มค่าใช้จ่าย ไม่เดาข้อมูลลูกค้า/การจอง ไม่เปลี่ยน Production, สิทธิ์, Automation หรือส่งข้อความก่อนเกตที่เกี่ยวข้องผ่าน
 ทำงานบน PR เดิม ตรวจ current main และส่วนที่ซ้ำก่อนแก้ ไม่สร้าง broad PR ใหม่ ไม่ปิด PR เดิมแบบเหมารวม
@@ -13,7 +44,7 @@
 - Public Web Ready / Packages: HTTP 200, 223/669 data rows, 11/14 columns; ไม่พบ customer/booking columns ใน header ที่ตรวจ
 - Public Master Booking request ถูกปฏิเสธ HTTP 400; anonymous Admin snapshot และ Rental Dashboard ถูกปฏิเสธ HTTP 401
 - Public feeds ยังมี `X-KK-Private-Reader-Strict: 0` และ `public-gviz-fallback` จึงยังไม่ถือว่าปิด Private Core migration
-- Vercel inventory 82 objects = 73 Preview + 9 Production; จำนวน deployment ไม่ใช่หลักฐานว่า Storage GB เหลือพอ ไม่ลบ Production/rollback
+- Historical Vercel inventory ก่อน hero deployment รอบล่าสุด: 82 objects = 73 Preview + 9 Production (ไม่ใช่ยอดปัจจุบัน); จำนวน deployment ไม่ใช่หลักฐานว่า Storage GB เหลือพอ ไม่ลบ Production/rollback
 - Snapshot เริ่มต้น: 35 open PRs / 69 open issues; ตรวจความต่าง 262 runtime paths พร้อม inventory ของทุก PR/Issue ใน [JSON inventory](KK_PROJECT_CLOSEOUT_INVENTORY_2026-10-16.json) ตัวเลขนี้มี timestamp และไม่ใช่สถานะถาวร
 
 ## สิ่งที่แก้สำเร็จจริงใน source
