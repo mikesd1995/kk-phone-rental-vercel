@@ -80,3 +80,27 @@ GitHub Actions `Storefront Automated Visual QA` run `38932522915`, job `11707979
 - No `HERO_DOMINATES_MOBILE` and no `NO_EVENT_CONTENT_ABOVE_FOLD` findings in this latest run (both appeared on previous commit). There were no JavaScript runtime errors.
 - Overall failures still report `CARD_CONTENT_ESCAPES`, `POSTER_LETTERBOX_UNTREATED`, `MOBILE_SHEET_NOT_ANCHORED`, and `EVENT_DISCOVERY_TOO_LATE` in other viewport/state combinations. These are **not resolved** by this hero-scoped change. Treat full storefront acceptance as open.
 - Do not infer business conversion uplift, exact pixel match to owner desktop reference on all mobile widths, or Safari acceptance without a real-device screenshot.
+
+## 2026-10-17 — V9 owner desktop reference fidelity / mobile density
+
+**Explicit owner feedback:** Original 1536×543 design reference `B5EDEAC1-2AE5-4A44-B40D-85C1E654E4D0(2).jpeg` is the approved desktop visual direction. The preceding iPhone screenshot `IMG_9481.png` shows Hero still too visually large, over-weighted heading/device image and duplicate benefit banners despite V8.2.
+
+**Root issue:** V8.1 still placed a full-width headline and description above a large split CTA/image row, with a second three-item trust strip inside the Hero plus the four-item benefits grid below. This needlessly pushed browse and available-event inventory down the viewport. Repeated media-query overrides also made corrections hard to reason about.
+
+**V9 corrective changes:**
+- Authoritative CSS `assets/kk-storefront-v5.css`: removed V8.1/V8.2 tail overrides entirely and replaced them with a single documented mobile V9 rule. Desktop V7 2-column geometry / art panel kept intact (matches supplied desktop composition x≈220 text, x≈790 artwork at 1536 width).
+- At <=700px: full-width eyebrow, 2-line headline, at-most-2-line subtitle; 50/50 row with 44px tall stacked CTA buttons left and actual 564:402 phone-art panel right; headline font clamp 23–27px; card 12–13px padding and 6px row gap. Prevent art from becoming full-width stacked banner.
+- At <=700px hide only the duplicate **three-item** `.kk-hero-trust` strip. Keep all four actual commercial benefit cards (insurance/no deposit, pickup/training, Google Drive 30 days, discounts), but size them compactly 46px minimum.
+- At <=359px reduce headline to 22px; <=340px AND <=620px short phone hide only subtitle, preserving booking CTA and artwork.
+- `index.html` CSS cache version changed to `20261017-hero-v9-compact` so iOS Safari fetches the new stylesheet.
+- `tests/storefront-hero-editorial-contract.test.js` updated to assert new desktop/compact-mobile split-art geometry, no duplicate trust strip, cache bust, and short-phone CTA retention. This is a test fix for the new intended design, not a bypass.
+
+**Production verification:**
+- GitSource branch `fix/hero-theme-parity-20261016`, commit `055ca73bbc80e1d5454e32be5d66ccd07b71e39b`.
+- Vercel deployment `dpl_9XfqXHCJ3mvADnwne85bYhJ7643x`, `READY`.
+- Vercel domain lookup `kk-phone-rental.vercel.app` resolves to the same READY deployment and commit. No changes to booking, customer, inventory, pricing or LINE infrastructure.
+- GitHub visual QA: `38944707704` triggered. **Do not claim full visual acceptance before final result.** If full QA fails because of event cards or legacy modals, report those blockers separately; no merge/deploy of unrelated business logic.
+
+**Rollback option:** previous ready production `dpl_8KJysN96g3p9FmTiHhD7bLgWBVKF` at `30673affb9dbbfaf4ce5166ad1ea989734bce6aa`. It had the user-rejected oversized Hero on regular iPhones.
+
+**Known limit:** Local Chromium executable failed to complete a local screenshot attempt (DBus errors/hang) in this run, so independent pixel-level Safari acceptance cannot be claimed from local rendering. Use GitHub Actions `Storefront Automated Visual QA` Chromium screenshots and request owner screenshot only if needed; do not present guessed measurements as measured.
