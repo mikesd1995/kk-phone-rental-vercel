@@ -1,0 +1,169 @@
+{
+  "schema_version": "KK_INBOX_EMBEDDED_POSTGRES_ACCEPTANCE_V1",
+  "recorded_at": "2026-10-16T07:36:30.262Z",
+  "engine_package": "@electric-sql/pglite",
+  "engine_package_version": "0.5.10",
+  "source_hashes": {
+    "supabase/kk_inbox_v1.sql": "7d2a7377ad8fe92e87ba872077e76040e3b318a1964e4d9f2a97209ccad7d0e0",
+    "supabase/migrations/20261010213000_kk_inbox_private_line_media.sql": "330f48d9b9bdcc0e18f849db1b3f9f1a8baf239510731f143971486b3ab9f286",
+    "supabase/migrations/20261013152000_kk_inbox_durable_outbound_reservations.sql": "d97836a1f188246962022bd952938f48f26464292eef69d9cd4096dd40349a4e",
+    "supabase/migrations/20261013163000_kk_inbox_outbound_owner_review.sql": "798cedbddf09f120c4942fa91f981a456b24475da4e6347b27e11b7931d7665d"
+  },
+  "checks": [
+    {
+      "name": "source SQL compiles and obsolete three-argument reservation RPC is absent",
+      "status": "PASS"
+    },
+    {
+      "name": "all Inbox RPCs deny anonymous/authenticated and allow service_role",
+      "status": "PASS"
+    },
+    {
+      "name": "anon cannot read private rows or invoke reservation",
+      "status": "PASS"
+    },
+    {
+      "name": "authenticated cannot read private rows or invoke reservation",
+      "status": "PASS"
+    },
+    {
+      "name": "private Inbox tables retain RLS and audit/outbound deletion privileges are absent",
+      "status": "PASS"
+    },
+    {
+      "name": "new reservation commits a UUID retry key without any customer text",
+      "status": "PASS"
+    },
+    {
+      "name": "same request is blocked and cross-room/content identity reuse conflicts",
+      "status": "PASS"
+    },
+    {
+      "name": "different request ID with unresolved identical body cannot send",
+      "status": "PASS"
+    },
+    {
+      "name": "reservation holds a transaction advisory lock until commit",
+      "status": "PASS"
+    },
+    {
+      "name": "missing and non-LINE conversations cannot reserve",
+      "status": "PASS"
+    },
+    {
+      "name": "malformed and NULL identities cannot create reservations",
+      "status": "PASS"
+    },
+    {
+      "name": "UNCERTAIN without provider receipt remains an unresolved hold",
+      "status": "PASS"
+    },
+    {
+      "name": "SENT requires a nonblank persisted provider receipt",
+      "status": "PASS"
+    },
+    {
+      "name": "a provider ID alone cannot assert SENT without exact persisted outbound message",
+      "status": "PASS"
+    },
+    {
+      "name": "whitespace provider identity cannot become a SENT receipt",
+      "status": "PASS"
+    },
+    {
+      "name": "persisted receipt from another room cannot finalize this reservation",
+      "status": "PASS"
+    },
+    {
+      "name": "persisted receipt for another request cannot finalize this reservation",
+      "status": "PASS"
+    },
+    {
+      "name": "persisted message with another retry key cannot finalize this reservation",
+      "status": "PASS"
+    },
+    {
+      "name": "completion cannot invent or contradict the persisted provider request header",
+      "status": "PASS"
+    },
+    {
+      "name": "missing optional provider request header remains compatible",
+      "status": "PASS"
+    },
+    {
+      "name": "uppercase UUID payload identity still binds to the canonical reservation UUID",
+      "status": "PASS"
+    },
+    {
+      "name": "genuine persisted receipt finalizes SENT and remains privately listable",
+      "status": "PASS"
+    },
+    {
+      "name": "owner verification requires exact room, durable SENT receipt and evidence",
+      "status": "PASS"
+    },
+    {
+      "name": "intentional repeat needs latest verified SENT parent and explicit reason",
+      "status": "PASS"
+    },
+    {
+      "name": "review annotation cannot silently downgrade VERIFIED_SENT",
+      "status": "PASS"
+    },
+    {
+      "name": "later UNCERTAIN completion cannot overwrite an owner-verified SENT receipt",
+      "status": "PASS"
+    },
+    {
+      "name": "later SENT completion cannot overwrite accepted provider identity",
+      "status": "PASS"
+    },
+    {
+      "name": "same-receipt completion replay is idempotent and preserves proof",
+      "status": "PASS"
+    },
+    {
+      "name": "image metadata returns provider ID only for the exact incoming image conversation",
+      "status": "PASS"
+    },
+    {
+      "name": "private media bucket remains nonpublic",
+      "status": "PASS"
+    },
+    {
+      "name": "server orchestration uses real SQL reserve, persisted message and completion once",
+      "status": "PASS"
+    },
+    {
+      "name": "20 queued same-backend send attempts have one provider invocation (not multi-session proof)",
+      "status": "PASS"
+    },
+    {
+      "name": "provider ambiguity remains UNCERTAIN and blocks subsequent new-click send",
+      "status": "PASS"
+    },
+    {
+      "name": "post-provider persistence failure preserves receipt in UNCERTAIN and prevents replay",
+      "status": "PASS"
+    }
+  ],
+  "network_requests": 0,
+  "production_writes": 0,
+  "provider_sends": 0,
+  "multi_session_concurrency_verified": false,
+  "hosted_postgrest_verified": false,
+  "production_verified": false,
+  "postgres_version": "PostgreSQL 18.6 (PGlite 0.5.10) on wasm32-unknown-emscripten, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.5 (1db513782be24469589d7cb8a1f1834e9a33f271), 32-bit",
+  "pass": 34,
+  "fail": 0,
+  "network_attempts": 0,
+  "technical_pass": true,
+  "release_ready": false,
+  "limitations": [
+    "Embedded PostgreSQL single session; no independent-session advisory lock contention proof",
+    "Storage table is a local schema fixture; no hosted object storage or real image bytes",
+    "Local SQL bridge replaces HTTP; no hosted PostgREST/provider acceptance",
+    "Hosted database version/configuration still requires exact release acceptance",
+    "No live migration, customer message, booking/PII/ACL or automation mutation"
+  ]
+}
