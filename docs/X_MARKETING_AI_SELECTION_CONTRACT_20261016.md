@@ -36,3 +36,20 @@ Production HTML and deployed `script.js` plus both CSV API feeds inspected read-
 - shadow candidate rankings compared with baseline; no auto-post, no merge/deploy until safety gates and owner approval
 
 Reference: PR #716, Issue #555, and the Production incident checkpoint in Issue #555.
+
+
+## Owner clarification — blended full-day objectives (2026-10-16)
+
+**This supersedes any reading that selection should maximize only near-term rentals.** The daily X content mix deliberately combines two independent objectives, provided every advertised event has a verified bookable storefront card and remaining shared physical phone stock:
+
+- **Conversion / near-term rental: 60% initial allocation**. Favor verified near-term dates, actual remaining phones, current bookings, package prices, and expected bookings per available device.
+- **Awareness / engagement: 40% initial allocation**. Favor events with verified fandom conversation, current relevant public interest, measured engagement opportunity, reach to new potential renters, and a longer booking lead time. The event still must be genuinely bookable. A popular event without a bookable phone is ineligible.
+- The **60/40 is a provisional business policy, not a data-derived optimum**. AI ranking may recommend 50/50 or 70/30 only when supported by measured results; report the change and evidence. No fabricated engagement data.
+- Interleave categories across the day rather than concentrating all conversion posts in the morning and awareness at night. Allocate integer slots using a transparent largest-remainder rounding method and avoid duplicates. Example 5 slots -> 3 conversion / 2 awareness; 2 slots -> 1 / 1. A candidate can serve both goals but assign one primary objective for quota accounting.
+- Optimize per-objective metrics: conversion = attributable booking inquiries, bookings, and utilization; awareness = authenticated impressions/reach, engagement rate, profile visits, follows. Track both; do not confuse reach with revenue.
+- AI Agent: filter by hard storefront/booking/owner rules, rank candidates **separately within each objective**, then schedule the blended slate subject to operating-day caps, time spacing, posting history and owner approval.
+- Learning AI: adapt allocation only after sufficient verified sample size with measured outcomes, avoid overfitting and event/fandom leakage; if insufficient, keep 60/40 and label `PROVISIONAL`.
+- Hugging Face: optional zero-cost sentiment/topic classification on legally usable public text, with model execution receipts. It is not required for an advisory slate and cannot be claimed to have run without receipts.
+- Important: PR #716's existing temporary **<=2 new recommendations per operating day** remains binding until separately reviewed and approved; the five-slot example is illustrative, **not authorization** to override the cap. No automatic X publication.
+
+Every future posting schedule must display a `Conversion` or `Awareness` tag per proposed slot, daily actual split vs target, remaining stock and evidence provenance. Distinguish editorial candidates from executable recommendations.
