@@ -22,6 +22,9 @@ test('continuous invariant gate passes the accepted repository baseline',()=>{
     'PUBLIC_INTERNAL_TEXT_REDACTION',
     'OWNER_HIDDEN_TOMBSTONE_END_TO_END',
     'PRIVATE_READER_FAIL_CLOSED',
+    'CANONICAL_IDENTITY_AND_PROJECTION_EVIDENCE',
+    'GENERATED_PRICE_FORMULA_PRESERVED',
+    'REVENUE_POLICY_FAIL_CLOSED',
     'CI_CONTINUOUS_GATE_WIRED'
   ]) assert.ok(ids.has(id),id+' missing');
 });

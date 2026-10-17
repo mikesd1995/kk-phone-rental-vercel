@@ -21,6 +21,9 @@ function audit(){
   const verifier=read('server/kk-verifier-storefront-promotion.js');
   const apps=read('apps-script/Code.gs');
   const workflow=read('.github/workflows/admin-regression.yml');
+  const snapshotHealth=read('admin/snapshot-health.js');
+  const directPhase1=read('server/admin-direct-writer-phase1.js');
+  const revenueCore=read('server/rental-dashboard-core.js');
 
   const route=(vercel.headers||[]).find(x=>x&&x.source==='/api/kk-data');
   const cache=route && (route.headers||[]).find(x=>String(x&&x.key||'').toLowerCase()==='cache-control');
@@ -88,6 +91,32 @@ function audit(){
       /private-read-failed/.test(api) &&
       /if \(requirePrivate\)/.test(api),
       'Strict private-reader mode must return unavailable instead of silently falling back public.'
+    ),
+    result(
+      'CANONICAL_IDENTITY_AND_PROJECTION_EVIDENCE',
+      /missing event_id/.test(snapshotHealth) &&
+      /duplicate booking_id/.test(snapshotHealth) &&
+      /not present in bookings/.test(snapshotHealth) &&
+      /orphan_package_count/.test(snapshotHealth) &&
+      /orphan_web_ready_count/.test(snapshotHealth) &&
+      /negative_availability_count/.test(snapshotHealth),
+      'Repair admission requires canonical identity, booking projection, referential and availability evidence.'
+    ),
+    result(
+      'GENERATED_PRICE_FORMULA_PRESERVED',
+      /function webPackagePriceFormula/.test(directPhase1) &&
+      /04_Event_Overrides/.test(directPhase1) &&
+      /09_Web_Packages/.test(directPhase1) &&
+      /FORMULA/.test(directPhase1) &&
+      /stale hard-coded value/.test(directPhase1),
+      'Generated web price H must remain a canonical formula and be read back as FORMULA after override writes.'
+    ),
+    result(
+      'REVENUE_POLICY_FAIL_CLOSED',
+      /new Set\(\["pending","confirmed","prepared","picked_up","returned","uploaded"\]\)/.test(revenueCore) &&
+      /new Set\(\["completed",\.\.\.activeSet\]\)/.test(revenueCore) &&
+      /cancelled, no_show, blank/.test(revenueCore),
+      'Revenue must include completed as Actual, active workflow states as Future, and exclude cancelled/no_show/blank/unknown.'
     ),
     result(
       'CI_CONTINUOUS_GATE_WIRED',
