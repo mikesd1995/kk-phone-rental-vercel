@@ -198,7 +198,7 @@ test('dry run prints complete asset scope with paged provenance, without editing
   assert.equal(summary.active_public_writer, 39);
   assert.equal(summary.other_public_writer, 7);
   assert.equal(summary.historical_images, 3);
-  assert.equal(f.logs.length, 5, 'summary and 4 detail pages with 20,20,6 items');
+  assert.equal(f.logs.length, 4, 'summary and 3 detail pages with 20,20,6 items');
   const pages = f.logs.slice(1).map(JSON.parse);
   assert.deepEqual(pages.map(x => x.items.length), [20, 20, 6]);
   assert.equal(pages.flatMap(x => x.items).filter(x => x.active_poster).length, 39);
@@ -382,7 +382,7 @@ test('moved Drive asset invalidates previously approved ACL fingerprint', () => 
 test('restricted historical asset is fingerprinted but never made public', () => {
   const f = fixture({privateID: 'brand-logo'});
   const dry = f.api.dry();
-  assert.equal(dry.public_writer, 41);
+  assert.equal(dry.public_writer, 45);
   assert.equal(dry.historical_images, 3);
   assert.equal(f.getWrites(), 0);
   const first = f.api.apply(dry.fingerprint);
@@ -390,7 +390,7 @@ test('restricted historical asset is fingerprinted but never made public', () =>
   assert.equal(first.updated, 25);
   assert.equal(f.roles['brand-logo'], undefined);
   const secondDry = f.api.dry();
-  assert.equal(secondDry.public_writer, 16);
+  assert.equal(secondDry.public_writer, 20);
   const last = f.api.apply(secondDry.fingerprint);
   assert.equal(last.ok, false, 'other two historic public Writers remain');
   assert.equal(last.active_scope_completed, true);
