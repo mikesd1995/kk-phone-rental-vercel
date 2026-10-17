@@ -471,6 +471,7 @@ test('exact-head Core privacy runs before optional storefront source assertions'
   assert.ok(core>0 && optional>core,'run Core privacy before optional design/source tests');
   assert.match(yaml,/APPROVED_SHA:\s*\$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
   assert.match(yaml,/test "\$\(git rev-parse HEAD\)" = "\$APPROVED_SHA"/);
+  assert.match(yaml,/persist-credentials:\s*false/);
   const security=yaml.slice(core,optional);
   for(const entry of [
     'tests/core-sheet-privacy-cutover.test.js',
