@@ -3,6 +3,7 @@
 // KK REA pilot: local, offline, read-only. No REA invocation, browser launch, network or writes.
 const fs = require('node:fs');
 const path = require('node:path');
+const StylesheetSafety = require('./kk-rea-stylesheet-safety.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const OFFICIAL_REA = 'https://github.com/morluto/rea';
@@ -75,9 +76,11 @@ function preflight({ root = ROOT, nodeVersion = process.version, targetUrl = 'ht
     const htmlPath = path.join(root, 'index.html');
     if (regularFile(htmlPath)) html = fs.readFileSync(htmlPath, 'utf8');
   } catch {}
+  const stylesheetContract = StylesheetSafety.inspect(html);
   const nodeCompatible = supportedNode(nodeVersion);
   const blockers = [];
   if (!nodeCompatible) blockers.push('REA_NODE_RUNTIME_NOT_SUPPORTED');
+  if (stylesheetContract.status !== 'PASS') blockers.push('PRIMARY_STYLESHEET_SOURCE_CONTRACT_FAILED');
   if (!target.allowed) blockers.push(target.reason);
   if (files.some(f => !f.exists)) blockers.push('LOCAL_REPO_INCOMPLETE');
   if (gitDeploymentGate !== 'NON_MAIN_AUTO_DEPLOY_DISABLED_IN_SOURCE') blockers.push('DEPLOYMENT_SOURCE_GATE_UNVERIFIED');
@@ -91,6 +94,7 @@ function preflight({ root = ROOT, nodeVersion = process.version, targetUrl = 'ht
     git_deployment_source_gate: gitDeploymentGate,
     file_inventory: files,
     source_diagnostics: inspectStyles(html),
+    source_stylesheet_contract: stylesheetContract,
     limitation: 'Static preflight only. Not a REA result, browser capture, deployed build attestation or end-to-end acceptance.'
   };
 }
