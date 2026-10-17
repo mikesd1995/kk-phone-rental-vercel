@@ -9,6 +9,7 @@ const LegacyAdmin = require('../server/admin-proxy.js');
 const SnapshotHealth = require('../admin/snapshot-health.js');
 const ReservationGuard = require('../admin/reservation-guard.js');
 const AdminSheetFallback = require('../server/admin-sheet-fallback.js');
+const CorePrivacy = require('../server/core-sheet-private-reader.js');
 const VisibilityGuard = require('../server/event-visibility-owner-guard.js');
 const AgentGateway = require('../server/kk-agent-gateway.js');
 const AgentLedger = require('../server/kk-agent-invocation-ledger.js');
@@ -423,10 +424,14 @@ function validateLeanEventIndex(events,expected){
 
 async function fetchLeanEventIndex(sheetId){
   const startedAt=Date.now();
+  // Never read the private Core workbook via unauthenticated GViz after cutover.
+  const read=(sheet,range)=>CorePrivacy.enabled()
+    ? CorePrivacy.readCsv({sheetId,sheet,range})
+    : fetchTextWithTimeout(gvizCsvUrl(sheetId,sheet,range),EVENT_FEED_TIMEOUT_MS);
   const [eventCsv,healthCsv,lockCsv]=await Promise.all([
-    fetchTextWithTimeout(gvizCsvUrl(sheetId,'08_Web_Ready','A4:J500'),EVENT_FEED_TIMEOUT_MS),
-    fetchTextWithTimeout(gvizCsvUrl(sheetId,'10_Admin_Health_Check','A4:B40'),EVENT_FEED_TIMEOUT_MS),
-    fetchTextWithTimeout(gvizCsvUrl(sheetId,'18_Event_Visibility_Locks','A1:N500'),EVENT_FEED_TIMEOUT_MS)
+    read('08_Web_Ready','A4:J500'),
+    read('10_Admin_Health_Check','A4:B40'),
+    read('18_Event_Visibility_Locks','A1:N500')
   ]);
   const checked=validateLeanEventIndex(eventRowsFromCsv(eventCsv),sourceEventCountFromCsv(healthCsv));
   const visibilityLocks=AdminSheetFallback.rowsAsObjects(lockCsv,'lock_id',1).filter(r=>String(r.lock_id||r.event_id||'').trim());
@@ -480,7 +485,7 @@ module.exports=async function handler(req,res){
     const runId=String(payload.run_id||'').trim();
     const sha=String(payload.head_sha||'').trim();
     const eventName=String(payload.event_name||'').trim();
-    if(!/^\d+$/.test(runId)||!/^[0-9a-f]{40}$/.test(sha)||!['issue_comment','workflow_dispatch'].includes(eventName)){
+    if(!/^\d+$/.test(runId)||!/^[0-9a-f]{40}$/.test(sha)||!['issue_comment','workflow_dispatch','issues'].includes(eventName)){
       return reply(res,400,{ok:false,error_code:'FULL_LOOP_IDENTITY_INVALID'});
     }
     let auth;

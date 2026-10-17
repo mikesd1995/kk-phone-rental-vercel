@@ -1,0 +1,105 @@
+{
+  "schema_version": "KK_INBOX_CORE_REHEARSAL_20261016",
+  "recorded_at": "2026-10-16T02:35:40.758697+00:00",
+  "classification": "LOCAL_COMBINATION_REHEARSAL_ONLY",
+  "canonical_source": "e6597b7d82179646932a7c1520bf46a32bd7e1f8",
+  "inbox_source": "73adf54d131b4880458ae7917191e4a646d87d62",
+  "inbox_tested_tree": "25fe9512535153e3c5f6e5a7bb61e2007f20d4aa",
+  "common_ancestor": "a54a348dd3258d87b1ec0c70e6ffd255d4678018",
+  "combined_tree": "eb910ac54d4c0364a8efbb14303cb8f8d72ea136",
+  "conflicts": [
+    "package.json",
+    "tests/line-webhook.test.js"
+  ],
+  "resolution_patch": "docs/KK_INBOX_CORE_MERGE_RESOLUTION_20261016.patch",
+  "resolution_patch_sha256": "4b2d232d49f3d6838941abe2b7f2dee4794b4aa40571a9ac4d1e0de66d3dc85c",
+  "preserved_parent_paths": {
+    "canonical_only": 89,
+    "inbox_only": 33
+  },
+  "manual_runtime_conflicts": 0,
+  "checks": {
+    "inbox_full": {
+      "command": "npm test in Inbox candidate",
+      "result": "PASS",
+      "tests": 1802,
+      "log_sha256": "0f67f8c96e7823a652827cd5f41fba17d3a9bafa3334c3bdd30e8d378d8bdd6c"
+    },
+    "combined_full": {
+      "command": "npm test in combined rehearsal",
+      "result": "PASS",
+      "tests": {
+        "node": 1934,
+        "poster_acl": 26
+      },
+      "log_sha256": "9a54bbfd2f311e458a0da82919d96514ad07be8ca358657a6149cc5b04a3130f"
+    },
+    "inbox_postinstall": {
+      "command": "npm run postinstall in Inbox candidate",
+      "result": "PASS",
+      "tests": {
+        "inbox_ship_gate": 185
+      },
+      "log_sha256": "3cd42ec7d429795930a42a7b616e5390e6f245d56ecf60475c650511de11c7aa"
+    },
+    "combined_postinstall": {
+      "command": "npm run postinstall in combined rehearsal",
+      "result": "PASS",
+      "tests": {
+        "inbox_ship_gate": 185
+      },
+      "log_sha256": "96b34010dd892ce1f94ed1ebdbe032d40ca2ad9161a9fc184dcc9553e5d0457d"
+    },
+    "source_route": {
+      "command": "node --test source-route and deployment packaging tests",
+      "result": "PASS",
+      "tests": 10,
+      "log_sha256": "6087aaadc9af44cef0ed29c19c033b35f8bf446d56e0e2df1582fc78568720a0"
+    },
+    "source_route_routed": {
+      "command": "npm run code:test with source route task",
+      "result": "PASS",
+      "tests": 63,
+      "log_sha256": "35198f9d2362b7437875318575aab40bc0a3a9f22bc5a2e61369d929e472d066"
+    }
+  },
+  "independent_review": {
+    "reviewer": "/root/inbox_line_safety_review",
+    "initial_inbox_test_count": 60,
+    "combined_boundary_test_count": 119,
+    "material_findings": 1,
+    "finding": "Supabase source path missing from pre-filesystem middleware registration",
+    "resolution": "Add source prefix and matcher in existing Inbox PR; RED4/6 to GREEN6/6, no public asset/Admin rewrite regression, full1802 and combined1934+26 green"
+  },
+  "engineering_gate": {
+    "status": "BLOCKED",
+    "missing": [
+      "RELEASE_READBACK"
+    ],
+    "visual_qa": "BLOCKED_INSUFFICIENT_EVIDENCE"
+  },
+  "external_actions": {
+    "source_pr_updated": 700,
+    "main_merge": false,
+    "deployment": false,
+    "production_data_writes": 0,
+    "customer_provider_sends": 0,
+    "acl_changes": 0,
+    "migration_executions": 0,
+    "scheduler_changes": 0,
+    "added_spend": 0
+  },
+  "remaining_runtime_gates": [
+    "Exact-head hosted CI",
+    "Authenticated Admin and LINE visual acceptance",
+    "Legitimate fresh inbound image with private archival, exact owner read and wrong-room denial",
+    "Isolated PostgreSQL concurrency and real provider receipt acceptance",
+    "Verified conversation-to-booking linkage",
+    "Private Core cutover preflight and ACL acceptance",
+    "Natural Scanner/Verifier/Make governed runtime receipts",
+    "Actual pickup/return and owner-confirmed business facts",
+    "Owner-governed exact release and rollback readback"
+  ],
+  "resolution_patch_replay_verified": true,
+  "resolution_replay_matched_files": 2
+}

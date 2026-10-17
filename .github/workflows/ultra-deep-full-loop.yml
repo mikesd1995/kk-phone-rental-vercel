@@ -1,8 +1,10 @@
 name: Ultra Deep Full Loop Direct
 
 on:
-  issue_comment:
-    types: [created]
+  workflow_call:
+    secrets:
+      VERCEL_TOKEN:
+        required: false
   issues:
     types: [labeled]
   workflow_dispatch:

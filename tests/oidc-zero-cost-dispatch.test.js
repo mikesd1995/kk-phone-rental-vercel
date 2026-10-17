@@ -6,10 +6,15 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 const workflowPath=path.join(__dirname,'..','.github','workflows','bounded-oidc-production-acceptance.yml');
+const routerPath=path.join(__dirname,'..','.github','workflows','kk-owner-comment-command-router.yml');
 const source=fs.readFileSync(workflowPath,'utf8');
+const routerSource=fs.readFileSync(routerPath,'utf8');
 
-test('zero-cost OIDC dispatcher is owner-only, issue-scoped, and exact-command scoped',()=>{
-  assert.match(source,/issue_comment:/);
+test('zero-cost OIDC dispatcher is owner-only, issue-scoped, and exact-command scoped via router + workflow_call',()=>{
+  assert.match(routerSource,/issue_comment:/);
+  assert.match(routerSource,/uses: \.\/\.github\/workflows\/bounded-oidc-production-acceptance\.yml/);
+  assert.match(source,/workflow_call:/);
+  assert.doesNotMatch(source,/^\s*issue_comment:/m);
   assert.match(source,/github\.event\.issue\.number == 47/);
   assert.match(source,/github\.event\.comment\.user\.login == github\.repository_owner/);
   assert.match(source,/github\.event\.comment\.author_association == 'OWNER'/);

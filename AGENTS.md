@@ -18,6 +18,18 @@ For a repo/dependency map:
 
     npm run code:map
 
+## Cleanup & cross-chat continuity (2026-10-14)
+
+The [canonical cleanup triage](docs/KK_PROJECT_CLEANUP_CONTROL_2026-10-14.md) is the dated baseline for the 36-PR backlog, 25-workflow audit and the Vercel deployment-capacity HOLD. Its snapshots are not timeless: refresh GitHub/Vercel readbacks before mutating code.
+
+For every new KK work request:
+1. Check current `main`, the matching open PRs/issues and their changed paths **before creating a new branch**. State explicitly whether the work is `EXISTING PR`, `PORT TO CURRENT MAIN`, `REBASE`, or genuinely `NEW`. Filename overlap is not proof of supersession.
+2. Use one bounded subsystem release candidate instead of layering another broad cross-domain PR. Preserve existing reviewable work and regression tests. Do not close older PRs without an independently reviewed replacement and explicit owner authorization.
+3. Distinguish `CODE WRITTEN`, `LOCAL TEST PASS`, `CI PASS`, `PREVIEW VERIFIED`, `PRODUCTION VERIFIED` and `BLOCKED`. Never treat a draft PR or skipped workflow as a successful release.
+4. Keep the established zero-spend Git Preview suppression and existing production/rollback deployments intact. Do not invoke app-origin Vercel deployments without explicit owner approval, verified free capacity and required safety gates.
+5. At handoff, write a dated GitHub record of exact SHA, changed files, evidence, failed alternatives, unresolved conditions, rollback and the next action. Don't duplicate a closed-loop investigation in a later chat.
+6. Treat Booking/Stock/Price/Customer PII/LINE/Drive permissions as P0; no source-of-truth cutover, production write, ACL change, deployment or customer notification without the applicable acceptance and owner approval.
+
 ## Engineering flow
 
 1. Classify the subsystem and risk.

@@ -1,8 +1,10 @@
 name: Phase 4 Zero Cost Existing Preview Recovery
 
 on:
-  issue_comment:
-    types: [created]
+  workflow_call:
+    secrets:
+      VERCEL_TOKEN:
+        required: false
 
 permissions:
   contents: read

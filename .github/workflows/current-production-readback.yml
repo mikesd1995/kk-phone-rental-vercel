@@ -1,8 +1,10 @@
 name: Current Production Readback
 
 on:
-  issue_comment:
-    types: [created]
+  workflow_call:
+    secrets:
+      VERCEL_TOKEN:
+        required: false
 
 permissions:
   contents: read

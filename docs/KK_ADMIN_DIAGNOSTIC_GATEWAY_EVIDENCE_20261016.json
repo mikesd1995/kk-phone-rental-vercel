@@ -1,0 +1,683 @@
+{
+  "scope": "SOURCE_REPAIR_ONLY_NOT_RELEASE_ACCEPTANCE",
+  "initial_pre_review": {
+    "source_production_sha": "a9c0078ce5b0cee2035a2130c6a4a145b43c2e0e",
+    "observed_viewport": {
+      "width": 490,
+      "height": 758
+    },
+    "result": {
+      "schema_version": "KK_AGENT_GATEWAY_V5",
+      "status": "RECORDED",
+      "intent": "admin_unified_inbox_review",
+      "matched": true,
+      "invocation": {
+        "invocation_id": "agi_edec13255d67a20555bdef864631ce1c9b58c4db",
+        "request_type": "ADMIN_UNIFIED_INBOX_REVIEW",
+        "intent": "admin_unified_inbox_review",
+        "route_id": "ADMIN_UNIFIED_INBOX_REVIEW",
+        "required_agents": [
+          "kk-reliability-learning",
+          "kk-storefront-ux-reviewer"
+        ],
+        "invoked_agents": [
+          "kk-reliability-learning",
+          "kk-storefront-ux-reviewer"
+        ],
+        "agent_versions": {
+          "kk-reliability-learning": "2026-09-25",
+          "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+        },
+        "registry_version": "KK_AGENT_REGISTRY_V29",
+        "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+        "gate_status": "RECORDED",
+        "blocked_reason": "",
+        "content_gate": "",
+        "request_hash": "9cf7636546108086851d0f44c4dc257fa4089a7ffa0c4e63ce610ff7fdd01ff1",
+        "truth_hash": "b388aaac37db27be6c4e000bdbdd7519cc74b7bef50f0ae6d80795cc28dec578",
+        "source_commit_sha": "",
+        "owner_review_required": true,
+        "production_writes": 0,
+        "publishes": 0
+      },
+      "ledger": {
+        "ok": true,
+        "inserted": true,
+        "invocation_id": "agi_edec13255d67a20555bdef864631ce1c9b58c4db",
+        "mode": "LOCAL_REAL_UI_EVIDENCE_ONLY"
+      },
+      "invocation_check": {
+        "registry_version": "KK_AGENT_REGISTRY_V29",
+        "applicable": true,
+        "pass": true,
+        "route_id": "ADMIN_UNIFIED_INBOX_REVIEW",
+        "runtime_available": true,
+        "required_agents": [
+          "kk-reliability-learning",
+          "kk-storefront-ux-reviewer"
+        ],
+        "downstream_agents": [],
+        "invoked_agents": [
+          "kk-reliability-learning",
+          "kk-storefront-ux-reviewer"
+        ],
+        "missing_agents": [],
+        "owner_review_required": true,
+        "persistent_invocation_evidence_required": true,
+        "agent_versions": {
+          "kk-reliability-learning": "2026-09-25",
+          "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+        }
+      },
+      "downstream_agents": [],
+      "result": {
+        "schema_version": "KK_ADMIN_UNIFIED_INBOX_AGENT_REVIEW_V1",
+        "status": "PASS",
+        "reliability": {
+          "schema_version": "KK_RELIABILITY_AGENT_REPORT_V1",
+          "mode": "READ_ONLY_LEARNING_ADVISOR",
+          "generated_from_observation_count": 0,
+          "known_incident_count": 0,
+          "unknown_incident_count": 0,
+          "recurring_incident_count": 0,
+          "incidents": [],
+          "next_action_policy": {
+            "known_recurrence": "Reuse the known repair and run its regression guards. Do not create a new runner/transport/source of truth merely because the symptom returned.",
+            "novel_incident": "Preserve evidence, isolate the first failing boundary, and propose a memory entry only after root-cause confidence and regression coverage are explicit."
+          },
+          "safety": {
+            "safe_to_auto_apply": false,
+            "production_writes": 0,
+            "task_mutations": 0,
+            "policy_mutations": 0,
+            "provider_sends": 0,
+            "auto_merge": false,
+            "auto_deploy": false,
+            "human_approval_required": true
+          }
+        },
+        "ux": {
+          "schema_version": "KK_STOREFRONT_UX_REVIEWER_V1",
+          "agent": "kk-storefront-ux-reviewer",
+          "mode": "READ_ONLY_DESIGN_ADVISOR",
+          "status": "PASS_WITH_POLISH",
+          "professional_readiness_score": 95,
+          "viewport": {
+            "width": 490,
+            "height": 758,
+            "class": "tablet",
+            "platform": "web"
+          },
+          "finding_counts": {
+            "P0": 0,
+            "P1": 0,
+            "P2": 1,
+            "P3": 0
+          },
+          "findings": [
+            {
+              "code": "SCREENSHOT_OBSERVATION_1",
+              "severity": "P2",
+              "evidence": "Secure PIN authentication succeeded; Admin dashboard renders at /admin/app. No visual completion claim without screenshot evidence.",
+              "recommended_action": "Review the supplied visual observation before release.",
+              "acceptance": "Observation no longer reproduces at the affected viewport."
+            }
+          ],
+          "recommendations": [
+            {
+              "priority": "P2",
+              "code": "SCREENSHOT_OBSERVATION_1",
+              "action": "Review the supplied visual observation before release.",
+              "acceptance": "Observation no longer reproduces at the affected viewport."
+            }
+          ],
+          "acceptance_matrix": {
+            "widths": [
+              320,
+              375,
+              390,
+              430,
+              480,
+              768,
+              1024,
+              1440
+            ],
+            "required_checks": [
+              "no_horizontal_overflow",
+              "ios_form_controls_at_least_16px",
+              "sticky_controls_within_budget",
+              "bottom_cta_within_budget",
+              "tap_targets_within_budget",
+              "filter_toolbar_not_wrapped_on_mobile",
+              "event_cards_not_obscured",
+              "safe_area_respected",
+              "reduced_motion_respected"
+            ],
+            "owner_visual_review_required": true
+          },
+          "design_constraints": {
+            "sticky_search_allowed": true,
+            "mobile_filter_rows": 1,
+            "min_tap_target_px": 44,
+            "ios_form_font_min_px": 16,
+            "max_sticky_height_px": 190,
+            "max_sticky_viewport_ratio": 0.2,
+            "max_bottom_cta_height_px": 68,
+            "no_horizontal_overflow": true,
+            "preserve_event_truth_and_booking_logic": true
+          },
+          "safety": {
+            "production_writes": 0,
+            "auto_merge": false,
+            "auto_deploy": false,
+            "pricing_mutation": false,
+            "booking_mutation": false,
+            "inventory_mutation": false,
+            "machine_sot_mutation": false,
+            "owner_review_required": true
+          }
+        },
+        "code_context": {
+          "query": "Read-only authenticated live Admin Inbox and System Guard acceptance, no customer writes, no hydration or mark-read, no provider sends, no deployment",
+          "matched_routes": [
+            {
+              "id": "deployment",
+              "score": 6,
+              "matched_keywords": [
+                "deploy",
+                "deployment"
+              ]
+            },
+            {
+              "id": "admin",
+              "score": 4,
+              "matched_keywords": [
+                "admin",
+                "auth"
+              ]
+            },
+            {
+              "id": "canary",
+              "score": 4,
+              "matched_keywords": [
+                "acceptance"
+              ]
+            }
+          ],
+          "files": [
+            "vercel.json",
+            "scripts/resolve-current-production.js",
+            "scripts/vercel-ignore-build.js",
+            ".github/workflows/admin-regression.yml",
+            "admin/admin.js",
+            "admin/operations-engine.js",
+            "admin/operations-ui.js",
+            "admin/snapshot-health.js"
+          ],
+          "tests": [
+            "tests/vercel-ignore-build.test.js",
+            "tests/phase4-zero-cost-existing-preview-recovery.test.js",
+            "tests/rental-analytics-prebuilt-production-recovery.test.js",
+            "tests/admin-auth-gate.test.js",
+            "tests/admin-operations.test.js",
+            "tests/snapshot-contract-v6.test.js",
+            "tests/snapshot-health.test.js",
+            "tests/admin-edit-booking-date-sort-20260926.test.js",
+            "tests/canary-acceptance.test.js"
+          ],
+          "targeted_test_command": "node --test \"tests/vercel-ignore-build.test.js\" \"tests/phase4-zero-cost-existing-preview-recovery.test.js\" \"tests/rental-analytics-prebuilt-production-recovery.test.js\" \"tests/admin-auth-gate.test.js\" \"tests/admin-operations.test.js\" \"tests/snapshot-contract-v6.test.js\" \"tests/snapshot-health.test.js\" \"tests/admin-edit-booking-date-sort-20260926.test.js\" \"tests/canary-acceptance.test.js\""
+        },
+        "reliability_invariants": [
+          "Authenticated reads only; no Booking/customer/ACL/automation mutation.",
+          "Do not open a room if existing UI automatically hydrates profiles or marks it read.",
+          "No provider send or paid service call.",
+          "Persist privacy-safe live evidence only."
+        ],
+        "safety": {
+          "production_writes": 0,
+          "auto_merge": false,
+          "auto_deploy": false,
+          "provider_sends": 0
+        }
+      },
+      "project_memory": {
+        "status": "READY",
+        "context_count": 2,
+        "durable_mode": "disabled",
+        "durable_context_count": 0
+      },
+      "owner_review_required": true,
+      "production_writes": 0,
+      "publishes": 0
+    },
+    "ledger_rows": [
+      {
+        "invocation_id": "agi_edec13255d67a20555bdef864631ce1c9b58c4db",
+        "request_type": "ADMIN_UNIFIED_INBOX_REVIEW",
+        "intent": "admin_unified_inbox_review",
+        "route_id": "ADMIN_UNIFIED_INBOX_REVIEW",
+        "required_agents": [
+          "kk-reliability-learning",
+          "kk-storefront-ux-reviewer"
+        ],
+        "invoked_agents": [
+          "kk-reliability-learning",
+          "kk-storefront-ux-reviewer"
+        ],
+        "agent_versions": {
+          "kk-reliability-learning": "2026-09-25",
+          "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+        },
+        "registry_version": "KK_AGENT_REGISTRY_V29",
+        "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+        "gate_status": "RECORDED",
+        "blocked_reason": "",
+        "content_gate": "",
+        "request_hash": "9cf7636546108086851d0f44c4dc257fa4089a7ffa0c4e63ce610ff7fdd01ff1",
+        "truth_hash": "b388aaac37db27be6c4e000bdbdd7519cc74b7bef50f0ae6d80795cc28dec578",
+        "source_commit_sha": "",
+        "owner_review_required": true,
+        "production_writes": 0,
+        "publishes": 0
+      }
+    ],
+    "production_writes": 0,
+    "provider_sends": 0
+  },
+  "formal_review_timing": "Explicit storefront_ux_review intent invoked after source implementation; initial pre-review used registered reviewer via admin_unified_inbox_review. This does not satisfy a strict pre-implementation intent/timing claim.",
+  "formal_review": {
+    "schema_version": "KK_AGENT_GATEWAY_V5",
+    "status": "RECORDED",
+    "intent": "storefront_ux_review",
+    "matched": true,
+    "invocation": {
+      "invocation_id": "agi_ae49a73bca0b32f6b77ffec74b18e804dbdbf23e",
+      "request_type": "STOREFRONT_UX_REVIEW",
+      "intent": "storefront_ux_review",
+      "route_id": "STOREFRONT_UX_REVIEW",
+      "required_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "invoked_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "agent_versions": {
+        "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+      },
+      "registry_version": "KK_AGENT_REGISTRY_V29",
+      "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+      "gate_status": "RECORDED",
+      "blocked_reason": "",
+      "content_gate": "",
+      "request_hash": "c4f32fb6359258f989de48524087b5921419d3eec4dee5be6ef1f36c662f6bf7",
+      "truth_hash": "3138b5d68cde8b8a1f23eb056500c3f2f7dde8dbd5c343818c7140c3df5a47e8",
+      "source_commit_sha": "",
+      "owner_review_required": true,
+      "production_writes": 0,
+      "publishes": 0
+    },
+    "ledger": {
+      "ok": true,
+      "inserted": true,
+      "invocation_id": "agi_ae49a73bca0b32f6b77ffec74b18e804dbdbf23e",
+      "mode": "LOCAL_DIAGNOSTIC_EVIDENCE_ONLY"
+    },
+    "invocation_check": {
+      "registry_version": "KK_AGENT_REGISTRY_V29",
+      "applicable": true,
+      "pass": true,
+      "route_id": "STOREFRONT_UX_REVIEW",
+      "runtime_available": true,
+      "required_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "downstream_agents": [],
+      "invoked_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "missing_agents": [],
+      "owner_review_required": true,
+      "persistent_invocation_evidence_required": true,
+      "agent_versions": {
+        "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+      }
+    },
+    "downstream_agents": [],
+    "result": {
+      "schema_version": "KK_STOREFRONT_UX_REVIEWER_V1",
+      "agent": "kk-storefront-ux-reviewer",
+      "mode": "READ_ONLY_DESIGN_ADVISOR",
+      "status": "NEEDS_REFINEMENT",
+      "professional_readiness_score": 88,
+      "viewport": {
+        "width": 490,
+        "height": 758,
+        "class": "tablet",
+        "platform": "unknown"
+      },
+      "finding_counts": {
+        "P0": 0,
+        "P1": 1,
+        "P2": 0,
+        "P3": 0
+      },
+      "findings": [
+        {
+          "code": "LIVE_READER_RUNTIME_CONFUSION",
+          "severity": "P1",
+          "evidence": "Authenticated Production snapshot labels read-source v3.1 as Apps Script and unknown folder/log flags as missing; independent read-only Live Check confirms actual Apps Script9.5.9 and settings ready. Candidate source repair is not deployed or rendered.",
+          "recommended_action": "Verify scoped diagnostic-authority repair on the exact rendered release candidate before release.",
+          "acceptance": "Read-source identity and unverified flags remain distinct from actual runtime diagnostics."
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": "P1",
+          "code": "LIVE_READER_RUNTIME_CONFUSION",
+          "action": "Verify scoped diagnostic-authority repair on the exact rendered release candidate before release.",
+          "acceptance": "Read-source identity and unverified flags remain distinct from actual runtime diagnostics."
+        }
+      ],
+      "acceptance_matrix": {
+        "widths": [
+          320,
+          375,
+          390,
+          430,
+          480,
+          768,
+          1024,
+          1440
+        ],
+        "required_checks": [
+          "no_horizontal_overflow",
+          "ios_form_controls_at_least_16px",
+          "sticky_controls_within_budget",
+          "bottom_cta_within_budget",
+          "tap_targets_within_budget",
+          "filter_toolbar_not_wrapped_on_mobile",
+          "event_cards_not_obscured",
+          "safe_area_respected",
+          "reduced_motion_respected"
+        ],
+        "owner_visual_review_required": true
+      },
+      "design_constraints": {
+        "sticky_search_allowed": true,
+        "mobile_filter_rows": 1,
+        "min_tap_target_px": 44,
+        "ios_form_font_min_px": 16,
+        "max_sticky_height_px": 190,
+        "max_sticky_viewport_ratio": 0.2,
+        "max_bottom_cta_height_px": 68,
+        "no_horizontal_overflow": true,
+        "preserve_event_truth_and_booking_logic": true
+      },
+      "safety": {
+        "production_writes": 0,
+        "auto_merge": false,
+        "auto_deploy": false,
+        "pricing_mutation": false,
+        "booking_mutation": false,
+        "inventory_mutation": false,
+        "machine_sot_mutation": false,
+        "owner_review_required": true
+      }
+    },
+    "project_memory": {
+      "status": "READY",
+      "context_count": 2,
+      "durable_mode": "disabled",
+      "durable_context_count": 0
+    },
+    "owner_review_required": true,
+    "production_writes": 0,
+    "publishes": 0
+  },
+  "post_visual_qa": {
+    "schema_version": "KK_AGENT_GATEWAY_V5",
+    "status": "RECORDED",
+    "intent": "storefront_visual_qa",
+    "matched": true,
+    "invocation": {
+      "invocation_id": "agi_06eb46d806e3f178a22e4be73d99a28d99727bfb",
+      "request_type": "STOREFRONT_VISUAL_QA",
+      "intent": "storefront_visual_qa",
+      "route_id": "STOREFRONT_VISUAL_QA",
+      "required_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "invoked_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "agent_versions": {
+        "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+      },
+      "registry_version": "KK_AGENT_REGISTRY_V29",
+      "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+      "gate_status": "RECORDED",
+      "blocked_reason": "",
+      "content_gate": "",
+      "request_hash": "1db0dbd5e55a2cd15f07ce96cdec887696dc332bc76fd70abb1e95d6bab087df",
+      "truth_hash": "325af3c695ffeaea9adbb545b00b0bcf03ae1a786ed96352546f5f842c050152",
+      "source_commit_sha": "",
+      "owner_review_required": true,
+      "production_writes": 0,
+      "publishes": 0
+    },
+    "ledger": {
+      "ok": true,
+      "inserted": true,
+      "invocation_id": "agi_06eb46d806e3f178a22e4be73d99a28d99727bfb",
+      "mode": "LOCAL_DIAGNOSTIC_EVIDENCE_ONLY"
+    },
+    "invocation_check": {
+      "registry_version": "KK_AGENT_REGISTRY_V29",
+      "applicable": true,
+      "pass": true,
+      "route_id": "STOREFRONT_VISUAL_QA",
+      "runtime_available": true,
+      "required_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "downstream_agents": [],
+      "invoked_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "missing_agents": [],
+      "owner_review_required": true,
+      "persistent_invocation_evidence_required": true,
+      "agent_versions": {
+        "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+      }
+    },
+    "downstream_agents": [],
+    "result": {
+      "schema_version": "KK_STOREFRONT_VISUAL_QA_V1",
+      "pass": false,
+      "status": "BLOCKED_INSUFFICIENT_EVIDENCE",
+      "review": {
+        "schema_version": "KK_STOREFRONT_UX_REVIEWER_V1",
+        "agent": "kk-storefront-ux-reviewer",
+        "mode": "READ_ONLY_DESIGN_ADVISOR",
+        "status": "BLOCKED",
+        "professional_readiness_score": 63,
+        "viewport": {
+          "width": 0,
+          "height": 0,
+          "class": "mobile",
+          "platform": "unknown"
+        },
+        "finding_counts": {
+          "P0": 1,
+          "P1": 1,
+          "P2": 0,
+          "P3": 0
+        },
+        "findings": [
+          {
+            "code": "VIEWPORT_EVIDENCE_MISSING",
+            "severity": "P0",
+            "evidence": "Viewport width/height is required for bounded visual QA.",
+            "recommended_action": "Capture or supply the viewport dimensions with the visual evidence packet.",
+            "acceptance": "Both viewport width and height are positive finite numbers."
+          },
+          {
+            "code": "CANDIDATE_RENDER_EVIDENCE_UNAVAILABLE",
+            "severity": "P1",
+            "evidence": "Browser security policy rejects local file protocol. No candidate screenshot or measured candidate viewport was obtained. Generated standalone synthetic fixture and source tests cannot substitute for rendered acceptance.",
+            "recommended_action": "Use a permitted owner-governed candidate environment; preserve the current browser security policy.",
+            "acceptance": "Exact-source candidate screenshot and real layout metrics are available."
+          }
+        ],
+        "recommendations": [
+          {
+            "priority": "P0",
+            "code": "VIEWPORT_EVIDENCE_MISSING",
+            "action": "Capture or supply the viewport dimensions with the visual evidence packet.",
+            "acceptance": "Both viewport width and height are positive finite numbers."
+          },
+          {
+            "priority": "P1",
+            "code": "CANDIDATE_RENDER_EVIDENCE_UNAVAILABLE",
+            "action": "Use a permitted owner-governed candidate environment; preserve the current browser security policy.",
+            "acceptance": "Exact-source candidate screenshot and real layout metrics are available."
+          }
+        ],
+        "acceptance_matrix": {
+          "widths": [
+            320,
+            375,
+            390,
+            430,
+            480,
+            768,
+            1024,
+            1440
+          ],
+          "required_checks": [
+            "no_horizontal_overflow",
+            "ios_form_controls_at_least_16px",
+            "sticky_controls_within_budget",
+            "bottom_cta_within_budget",
+            "tap_targets_within_budget",
+            "filter_toolbar_not_wrapped_on_mobile",
+            "event_cards_not_obscured",
+            "safe_area_respected",
+            "reduced_motion_respected"
+          ],
+          "owner_visual_review_required": true
+        },
+        "design_constraints": {
+          "sticky_search_allowed": true,
+          "mobile_filter_rows": 1,
+          "min_tap_target_px": 44,
+          "ios_form_font_min_px": 16,
+          "max_sticky_height_px": 170,
+          "max_sticky_viewport_ratio": 0.22,
+          "max_bottom_cta_height_px": 64,
+          "no_horizontal_overflow": true,
+          "preserve_event_truth_and_booking_logic": true
+        },
+        "safety": {
+          "production_writes": 0,
+          "auto_merge": false,
+          "auto_deploy": false,
+          "pricing_mutation": false,
+          "booking_mutation": false,
+          "inventory_mutation": false,
+          "machine_sot_mutation": false,
+          "owner_review_required": true
+        }
+      },
+      "production_writes": 0,
+      "auto_merge": false,
+      "auto_deploy": false
+    },
+    "project_memory": {
+      "status": "READY",
+      "context_count": 2,
+      "durable_mode": "disabled",
+      "durable_context_count": 0
+    },
+    "owner_review_required": true,
+    "production_writes": 0,
+    "publishes": 0
+  },
+  "ledger_rows": [
+    {
+      "invocation_id": "agi_ae49a73bca0b32f6b77ffec74b18e804dbdbf23e",
+      "request_type": "STOREFRONT_UX_REVIEW",
+      "intent": "storefront_ux_review",
+      "route_id": "STOREFRONT_UX_REVIEW",
+      "required_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "invoked_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "agent_versions": {
+        "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+      },
+      "registry_version": "KK_AGENT_REGISTRY_V29",
+      "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+      "gate_status": "RECORDED",
+      "blocked_reason": "",
+      "content_gate": "",
+      "request_hash": "c4f32fb6359258f989de48524087b5921419d3eec4dee5be6ef1f36c662f6bf7",
+      "truth_hash": "3138b5d68cde8b8a1f23eb056500c3f2f7dde8dbd5c343818c7140c3df5a47e8",
+      "source_commit_sha": "",
+      "owner_review_required": true,
+      "production_writes": 0,
+      "publishes": 0
+    },
+    {
+      "invocation_id": "agi_06eb46d806e3f178a22e4be73d99a28d99727bfb",
+      "request_type": "STOREFRONT_VISUAL_QA",
+      "intent": "storefront_visual_qa",
+      "route_id": "STOREFRONT_VISUAL_QA",
+      "required_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "invoked_agents": [
+        "kk-storefront-ux-reviewer"
+      ],
+      "agent_versions": {
+        "kk-storefront-ux-reviewer": "KK_STOREFRONT_UX_REVIEWER_V1"
+      },
+      "registry_version": "KK_AGENT_REGISTRY_V29",
+      "gateway_version": "KK_AGENT_ORCHESTRATION_V1",
+      "gate_status": "RECORDED",
+      "blocked_reason": "",
+      "content_gate": "",
+      "request_hash": "1db0dbd5e55a2cd15f07ce96cdec887696dc332bc76fd70abb1e95d6bab087df",
+      "truth_hash": "325af3c695ffeaea9adbb545b00b0bcf03ae1a786ed96352546f5f842c050152",
+      "source_commit_sha": "",
+      "owner_review_required": true,
+      "production_writes": 0,
+      "publishes": 0
+    }
+  ],
+  "engineering": {
+    "version": "KK_ENGINEERING_EXECUTION_GATE_V1",
+    "required_phases": [
+      "CONTEXT_PACK",
+      "PLANNER",
+      "IMPLEMENTER",
+      "INDEPENDENT_REVIEWER",
+      "TARGETED_TESTS",
+      "RISK_REGRESSION",
+      "RELEASE_READBACK"
+    ],
+    "missing": [
+      "RELEASE_READBACK"
+    ],
+    "failures": [
+      "VISUAL_QA:BLOCKED_CANDIDATE_RENDER_UNAVAILABLE",
+      "HOSTED_CI:NOT_RUN_AUTH_DECLINED"
+    ],
+    "status": "BLOCKED"
+  },
+  "production_writes": 0,
+  "provider_sends": 0
+}

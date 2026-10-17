@@ -6,6 +6,7 @@ const VERSION='KK_GITHUB_OIDC_VERIFIER_V1';
 const ISSUER='https://token.actions.githubusercontent.com';
 const AUDIENCE='kk-ultra-deep-production';
 const JWKS_URL='https://token.actions.githubusercontent.com/.well-known/jwks';
+const ROUTER_WORKFLOW_REF='.github/workflows/kk-owner-comment-command-router.yml@';
 
 function text(v){return String(v==null?'':v).trim();}
 function b64url(v){
@@ -44,7 +45,14 @@ async function verifyToken(token,expected={},options={}){
  if(expected.repository&&text(p.repository)!==text(expected.repository))blockers.push('REPOSITORY');
  if(expected.owner&&text(p.repository_owner)!==text(expected.owner))blockers.push('OWNER');
  if(expected.ref&&text(p.ref)!==text(expected.ref))blockers.push('REF');
- if(expected.workflow_ref&&!text(p.workflow_ref).startsWith(text(expected.workflow_ref)))blockers.push('WORKFLOW_REF');
+ const target=text(expected.workflow_ref), branchRef=text(expected.ref), expectedRepo=text(expected.repository);
+ const exactTarget=target&&branchRef?target+branchRef:'';
+ const directOk=target&&(branchRef?text(p.workflow_ref)===exactTarget:text(p.workflow_ref).startsWith(target));
+ // Reusable jobs report the caller as workflow_ref. Require both exact caller
+ // and exact job_workflow_ref at the owner-reviewed branch, never a prefix-only match.
+ const routerRef=expectedRepo&&branchRef?`${expectedRepo}/${ROUTER_WORKFLOW_REF}${branchRef}`:'';
+ const routedOk=!!(routerRef&&exactTarget&&text(p.workflow_ref)===routerRef&&text(p.job_workflow_ref)===exactTarget);
+ if(target&&!directOk&&!routedOk)blockers.push('WORKFLOW_REF');
  if(expected.run_id&&text(p.run_id)!==text(expected.run_id))blockers.push('RUN_ID');
  if(expected.sha&&text(p.sha)!==text(expected.sha))blockers.push('SHA');
  if(expected.actor&&text(p.actor)!==text(expected.actor))blockers.push('ACTOR');
@@ -56,4 +64,4 @@ async function verifyToken(token,expected={},options={}){
  return {version:VERSION,verified:true,claims:{repository:text(p.repository),repository_owner:text(p.repository_owner),ref:text(p.ref),workflow_ref:text(p.workflow_ref),run_id:text(p.run_id),sha:text(p.sha),actor:text(p.actor),event_name:text(p.event_name),sub:text(p.sub)}};
 }
 
-module.exports={VERSION,ISSUER,AUDIENCE,JWKS_URL,text,b64url,parseJwt,jwks,verifyToken};
+module.exports={VERSION,ISSUER,AUDIENCE,JWKS_URL,ROUTER_WORKFLOW_REF,text,b64url,parseJwt,jwks,verifyToken};

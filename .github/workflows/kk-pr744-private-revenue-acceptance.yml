@@ -1,0 +1,65 @@
+name: KK PR744 Private Revenue Zero-Install Acceptance
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'server/core-sheet-private-reader.js'
+      - 'server/core-sheet-apps-script-reader.js'
+      - 'server/rental-analytics-booked-quote.js'
+      - 'server/rental-dashboard-canonical-quotes.js'
+      - 'server/rental-dashboard-core.js'
+      - 'server/legacy/kk-rental-dashboard-v5.js'
+      - 'tests/kk-master-cleanup-private-revenue.test.js'
+      - 'tests/*.test.js'
+      - '.github/workflows/kk-pr744-private-revenue-acceptance.yml'
+permissions:
+  contents: read
+concurrency:
+  group: kk-pr744-private-revenue-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  safe-source-regression:
+    if: ${{ github.event.pull_request.number == 744 && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR HEAD without write credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact SHA and zero-install
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test ! -f package-lock.json
+          test ! -f npm-shrinkwrap.json
+          test ! -d node_modules
+      - name: Syntax for all new/updated private revenue files
+        run: |
+          node --check server/core-sheet-apps-script-reader.js
+          node --check server/core-sheet-private-reader.js
+          node --check server/rental-analytics-booked-quote.js
+          node --check server/rental-dashboard-canonical-quotes.js
+          node --check server/rental-dashboard-core.js
+          node --check server/legacy/kk-rental-dashboard-v5.js
+          node --check tests/kk-master-cleanup-private-revenue.test.js
+      - name: Focused private revenue tests
+        run: node --test tests/kk-master-cleanup-private-revenue.test.js tests/rental-dashboard-canonical-quotes.test.js
+      - name: Zero-write source gates
+        run: |
+          npm run check
+          npm run audit:invariants
+          npm run code:benchmark
+          npm run postinstall
+      - name: Full Node regression
+        run: npm test

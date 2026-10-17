@@ -11,8 +11,10 @@ on:
         description: 'Exact current main SHA approved for Production'
         required: true
         type: string
-  issue_comment:
-    types: [created]
+  workflow_call:
+    secrets:
+      VERCEL_TOKEN:
+        required: false
 
 permissions:
   contents: read

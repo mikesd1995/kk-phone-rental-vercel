@@ -52,3 +52,158 @@ test('private parser maps physical rows from a ranged read',()=>{
   const rows=F.valuesAsObjects([['booking_id','event_id'],['BK1','EV1']],'booking_id',4);
   assert.equal(rows[0].__row_number,5);
 });
+
+
+test('strict Apps Script cache never reuses prior owner read-key snapshot after rotation',async()=>{
+ const appReader=require('../server/core-sheet-apps-script-reader.js');
+ const saved=appReader.readValues;
+ const noopFetch=async()=>{throw Error('PUBLIC_GVIZ_FORBIDDEN');};
+ const key1='r'.repeat(48),key2='s'.repeat(48),adminKey='a'.repeat(48);
+ const env={GOOGLE_SHEET_ID:'safe-sheet-test',KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+   KK_CORE_PRIVATE_TRANSPORT:'apps-script',
+   KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/test_script/exec',
+   KK_ADMIN_API_KEY:adminKey,KK_CORE_PRIVATE_READ_KEY:key1};
+ const headers=Object.values(F.SPECS).reduce((m,c)=>{m[c.sheet]=c.header;return m;},{});
+ let reads=0;
+ appReader.readValues=async x=>{reads++;return [[headers[x.sheet]||'id']];};
+ F.clearSnapshotCache();
+ try{
+   const first=await F.buildSnapshot({env,sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noopFetch,cacheTtlMs:60000});
+   assert.equal(first.fallback_reader,'private-owner-apps-script');
+   assert.equal(reads,11);
+   const same=await F.buildSnapshot({env,sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noopFetch,cacheTtlMs:60000});
+   assert.equal(same.fallback_cache_status,'hit');
+   assert.equal(reads,11);
+   const rotated={...env,KK_CORE_PRIVATE_READ_KEY:key2};
+   const second=await F.buildSnapshot({env:rotated,sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noopFetch,cacheTtlMs:60000});
+   assert.equal(second.fallback_cache_status,'miss');
+   assert.equal(reads,22);
+   assert.doesNotMatch(JSON.stringify(second),new RegExp(key1+'|'+key2));
+ }finally{appReader.readValues=saved;F.clearSnapshotCache();}
+});
+
+
+test('strict Core admin snapshot rejects data-row values masquerading as headers',async()=>{
+ const CorePrivacy=require('../server/core-sheet-private-reader.js');
+ const oldRead=CorePrivacy.readValues;
+ const env={
+   GOOGLE_SHEET_ID:'isolated-core-sot',
+   KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+   KK_CORE_PRIVATE_TRANSPORT:'apps-script',
+   KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/isolated_script/exec',
+   KK_ADMIN_API_KEY:'a'.repeat(48),
+   KK_CORE_PRIVATE_READ_KEY:'r'.repeat(48)
+ };
+ const originalHeaders=Object.fromEntries(Object.values(F.SPECS).map(s=>[s.sheet,s.header]));
+ let privateReads=0;
+ CorePrivacy.readValues=async ({sheet})=>{
+   privateReads++;
+   if(sheet==='00_Master_Booking')return [['wrong_heading'],['booking_id','PRIVATE_CUSTOMER_PHONE_FIXTURE']];
+   return [[originalHeaders[sheet]]];
+ };
+ F.clearSnapshotCache();
+ try{
+   await assert.rejects(
+     ()=>F.buildSnapshot({
+       env,sheetId:env.GOOGLE_SHEET_ID,cache:false,
+       fetchImpl:async()=>{throw Error('ANONYMOUS_GVIZ_FORBIDDEN');}
+     }),
+     e=>e&&e.code==='CORE_PRIVATE_SCHEMA_INVALID'&&e.dataset==='bookings'
+   );
+   assert.equal(privateReads,Object.keys(F.SPECS).length);
+ }finally{
+   CorePrivacy.readValues=oldRead;
+   F.clearSnapshotCache();
+ }
+});
+
+test('private service-account snapshot cache separates rotated keys even when PEM prefix and email stay the same',async()=>{
+ const Core=require('../server/core-sheet-private-reader.js');
+ const old=Core.readValues;
+ const prefix='-----BEGIN PRIVATE KEY-----\\n'+'A'.repeat(130);
+ const env={GOOGLE_SHEET_ID:'private-rotation-fixture',KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+   KK_CORE_PRIVATE_TRANSPORT:'service-account',
+   GOOGLE_SERVICE_ACCOUNT_EMAIL:'reader@example.invalid',
+   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:prefix+'KEY_A'};
+ const headers=Object.fromEntries(Object.values(F.SPECS).map(s=>[s.sheet,s.header]));
+ const noNetwork=async()=>{throw Error('NETWORK_FORBIDDEN');};
+ let reads=0;
+ Core.readValues=async ({sheet})=>{reads++;return [[headers[sheet]]];};
+ F.clearSnapshotCache();
+ try{
+   const opts={sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noNetwork,cacheTtlMs:60000};
+   const first=await F.buildSnapshot({...opts,env});
+   assert.equal(first.fallback_cache_status,'miss');
+   assert.equal(reads,11);
+   const hit=await F.buildSnapshot({...opts,env});
+   assert.equal(hit.fallback_cache_status,'hit');
+   assert.equal(reads,11);
+   const rotated={...env,GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:prefix+'KEY_B'};
+   const fresh=await F.buildSnapshot({...opts,env:rotated});
+   assert.equal(fresh.fallback_cache_status,'miss');
+   assert.equal(reads,22);
+   assert.equal(fresh.fallback_reader,'private-service-account');
+   assert.doesNotMatch(JSON.stringify(fresh),/KEY_A|KEY_B|reader@example.invalid/);
+ }finally{Core.readValues=old;F.clearSnapshotCache();}
+});
+
+test('private Apps Script snapshot cache separates changed /exec deployment URL with unchanged key',async()=>{
+ const Core=require('../server/core-sheet-private-reader.js');
+ const old=Core.readValues;
+ const env={GOOGLE_SHEET_ID:'apps-script-rotation-fixture',KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+   KK_CORE_PRIVATE_TRANSPORT:'apps-script',
+   KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/fixture_one/exec',
+   KK_CORE_PRIVATE_READ_KEY:'r'.repeat(48),KK_ADMIN_API_KEY:'a'.repeat(48)};
+ const headers=Object.fromEntries(Object.values(F.SPECS).map(s=>[s.sheet,s.header]));
+ const noNetwork=async()=>{throw Error('NETWORK_FORBIDDEN');};
+ let reads=0;
+ Core.readValues=async ({sheet})=>{reads++;return [[headers[sheet]]];};
+ F.clearSnapshotCache();
+ try{
+   const opts={sheetId:env.GOOGLE_SHEET_ID,fetchImpl:noNetwork,cacheTtlMs:60000};
+   assert.equal((await F.buildSnapshot({...opts,env})).fallback_cache_status,'miss');
+   assert.equal((await F.buildSnapshot({...opts,env})).fallback_cache_status,'hit');
+   assert.equal(reads,11);
+   const changed={...env,KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/fixture_two/exec'};
+   const fresh=await F.buildSnapshot({...opts,env:changed});
+   assert.equal(fresh.fallback_cache_status,'miss');
+   assert.equal(reads,22);
+   assert.equal(fresh.fallback_reader,'private-owner-apps-script');
+ }finally{Core.readValues=old;F.clearSnapshotCache();}
+});
+
+test('private Admin snapshots stay bounded across many rotated service-account identities',async()=>{
+ const privateSheets=require('../api/lib/private-google-sheets.js');
+ const original=privateSheets.readValues;
+ const headers=Object.fromEntries(Object.values(F.SPECS).map(spec=>[spec.sheet,spec.header]));
+ const env={GOOGLE_SHEET_ID:'bounded-cache-fixture',KK_ADMIN_FALLBACK_REQUIRE_PRIVATE:'1',
+   GOOGLE_SERVICE_ACCOUNT_EMAIL:'reader@example.invalid',
+   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'-----BEGIN PRIVATE KEY-----\\n'+'Z'.repeat(120)+'ROTATION_000'};
+ const network=async()=>{throw Error('PUBLIC_GVIZ_FORBIDDEN');};
+ const opts={sheetId:env.GOOGLE_SHEET_ID,fetchImpl:network,cacheTtlMs:60000};
+ let privateReads=0;
+ privateSheets.readValues=async ({range})=>{
+   privateReads++;
+   const sheet=String(range).split('!')[0];
+   return [[headers[sheet]]];
+ };
+ F.clearSnapshotCache();
+ try{
+   for(let i=0;i<70;i++){
+     const rotated={...env,GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:
+       '-----BEGIN PRIVATE KEY-----\\n'+'Z'.repeat(120)+'ROTATION_'+String(i).padStart(3,'0')};
+     const snapshot=await F.buildSnapshot({...opts,env:rotated});
+     assert.equal(snapshot.fallback_cache_status,'miss');
+     assert.equal(snapshot.write_actions_enabled,false);
+   }
+   assert.equal(privateReads,70*Object.keys(F.SPECS).length);
+   const oldest=await F.buildSnapshot({...opts,env});
+   assert.equal(oldest.fallback_cache_status,'miss',
+     'evicted first credential identity must never reuse retained private snapshot');
+   assert.equal(privateReads,71*Object.keys(F.SPECS).length);
+   const same=await F.buildSnapshot({...opts,env});
+   assert.equal(same.fallback_cache_status,'hit');
+   assert.equal(privateReads,71*Object.keys(F.SPECS).length);
+   assert.doesNotMatch(JSON.stringify(same),/ROTATION_000|reader@example.invalid/);
+ }finally{privateSheets.readValues=original;F.clearSnapshotCache();}
+});
