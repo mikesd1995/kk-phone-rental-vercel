@@ -71,3 +71,42 @@ After GitHub create_file and connector read-back, local git hash-object produced
 - docs/KK_REA_SOURCE_PARITY_EVIDENCE_2026-10-17.json: 10cbf97f2571814cab90175e323932d150dd14b2
 
 This establishes that the locally executed 8/8 tests used exact bytes persisted on the research branch, without borrowing results from a different code revision. Vercel branch-filtered deployment query returned zero deployments, GitHub combined commit status returned no CI contexts (not PASS), and Vercel alias still pointed to READY dpl_5CNUZg2fyT7JGqvhegTQxG6wmcd6. Browser-attached REA and Production acceptance remain blocked/not executed.
+
+
+## 2026-10-17 follow-up: harden offline preflight, zero additional cost
+
+### User directive
+Continue safe REA work without follow-up questions, repair reproducible defects, run tests, and preserve a detailed cross-chat audit. Scope is **local diagnostic utility only**. No authorization was used to alter the customer-facing storefront, production, owners, bookings, LINE, price, privileges, automations, billing, Merge or Deploy.
+
+### Environment readback and actual blockers
+- `node -v`: `v22.16.0`; official REA minimum for Node 22 is 22.19. REA was **not installed or executed**.
+- `npm -v`: `10.9.2`; network probe of `https://registry.npmjs.org/rea-agents` failed DNS resolution (`Could not resolve host`). Do not run repeated npm install attempts or incur paid runtime expenses.
+- Chromium is present (`/usr/bin/chromium`), and Python Playwright is installed. Browser navigation to both local file and `data:` URLs was blocked by administrator policy, although sandboxed `page.set_content` on a synthetic page worked. This does **not** constitute inspection of KK Production.
+- Connected Browser tab access unavailable outside originating browser context.
+- Vercel `list_deployment_files` returned 404 File tree not found and `get_deployment_file_contents` for Git deployment returned 404; cannot attest deployed byte-for-byte artifact using that API. Git commit identity and public alias remain available separately.
+- Connected Vercel recheck: Production alias remained READY `dpl_5CNUZg2fyT7JGqvhegTQxG6wmcd6` from `44de0066f0c7edd59e153b2d31c22d65b84de5af`, branch `fix/hero-theme-parity-20261016`. Research branch filtered deployments **zero**; GitHub combined status contexts **zero**, which means CI is **not proven passed**.
+
+### Three confirmed diagnostic utility defects addressed
+1. Stylesheet parser previously assumed `rel=stylesheet` precedes `href`. Valid HTML with reversed attributes could be missed, creating a false CSS inspection result. Now parses all `link` attributes in any order, handles case-insensitive attribute names, rel token lists, query/hash suffixes, and ignores HTML comments.
+2. Source completeness check used `fs.existsSync` and could count a directory as an expected source file. Now validates regular files.
+3. A symbolic link could previously count as source and permit reads outside repository. Now uses `fs.lstatSync().isFile()` and refuses to read `index.html` or `vercel.json` if they are not regular local files. All changes are inside the offline pilot's own `scripts/kk-rea-readonly-preflight.cjs` only.
+
+### Tests, verification and exact source hashes
+Executed locally in the existing isolated pilot directory:
+```sh
+node --check scripts/kk-rea-readonly-preflight.cjs
+node --check tests/kk-rea-readonly-preflight.test.js
+node --test tests/*.test.js
+```
+Result: **11 tests, 11 passed, 0 failed**; test suite includes the prior 8 cases plus stylesheet attribute ordering, directory-as-file, and symlink-outside-root cases. A syntax mistake in initial **local** test edit was detected and fixed before any GitHub write; the pushed tests are the passing version.
+
+Source code Git blob hashes from local `git hash-object` were verified by GitHub fetch readback after commit:
+- `scripts/kk-rea-readonly-preflight.cjs`: `c69a06b24784d5c4a882d5e3f7a70485e6d7f692` (5,257 bytes)
+- `tests/kk-rea-readonly-preflight.test.js`: `f30f2f73a468c2b805fe3a9d3c933e87b563445e` (5,541 bytes)
+
+The remaining source-parity suite and historical JSON evidence remain unchanged; the CLI still reports `SOURCE_DRIFT_OBSERVED` for the pinned, historical main-vs-deployed commits (not proof of visual bug). The test suite does **not** certify the entirety of KK or actual REA browser analysis.
+
+### Continuation / constraints
+- **Done:** Correct and test 3 concrete diagnostic bugs; prove local/committed file byte identity; leave only research-branch changes with existing safety gates.
+- **Not done / blocked:** REA package execution, live CSS computed-style/screenshots, complete Storefront Visual Acceptance, iOS Safari, current-source-to-runtime build matching and Production P0 approval.
+- **Next safe path:** On a free local environment with Node `>=22.19` in series 22 or supported 24/26, install official, pinned REA; use a disposable loopback Chromium profile and `inspect_web_page` against an authorized local KK test mirror; compare with the existing visual QA. Preserve raw credentials and LINE/customer data by excluding them entirely. Only patch a reproducible customer-facing defect on a separate Draft PR after observing it. No automatic Merge or Deploy.
