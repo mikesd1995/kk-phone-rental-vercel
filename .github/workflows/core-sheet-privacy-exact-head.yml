@@ -20,6 +20,7 @@ on:
       - 'scripts/core-private-cutover-preflight.cjs'
       - 'scripts/core-read-key-owner-setup.cjs'
       - 'tests/core-*.test.js'
+      - 'tests/core-sheet-privacy-workflow-contract.test.js'
       - 'tests/public-data-*.test.js'
       - 'tests/admin-sheet-fallback-private-reader.test.js'
       - '.github/workflows/ultra-deep-v2-acceptance.yml'
@@ -63,6 +64,8 @@ jobs:
           node --check < apps-script/Code.gs
           node --check scripts/core-private-cutover-preflight.cjs
           node --check scripts/core-read-key-owner-setup.cjs
+      - name: Self-check security CI read-only and zero-cost contract
+        run: node --test tests/core-sheet-privacy-workflow-contract.test.js
       - name: Exact-head private reader, no-GViz, API privacy and owner-key tests
         run: |
           node --test \
@@ -74,4 +77,5 @@ jobs:
             tests/core-read-key-owner-setup.test.js \
             tests/admin-sheet-fallback-private-reader.test.js \
             tests/public-data-proxy.test.js \
-            tests/public-data-browser-privacy.test.js
+            tests/public-data-browser-privacy.test.js \
+            tests/core-sheet-privacy-workflow-contract.test.js
