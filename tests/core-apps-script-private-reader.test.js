@@ -38,6 +38,13 @@ test('alternate transport is strictly opt-in and rejects non-Google/script URL/c
  assert.equal(script.scriptState({...config,KK_ADMIN_API_KEY:''}).configured,true);
  assert.equal(script.scriptState({...config,KK_CORE_PRIVATE_READ_KEY:''}).configured,false);
  assert.equal(script.scriptState({...config,KK_CORE_PRIVATE_READ_KEY:'short'}).configured,false);
+ for(const malformed of [
+   env.KK_CORE_PRIVATE_READ_KEY+' ',
+   ' '+env.KK_CORE_PRIVATE_READ_KEY,
+   env.KK_CORE_PRIVATE_READ_KEY+'!',
+   env.KK_CORE_PRIVATE_READ_KEY+'\\n',
+   env.KK_CORE_PRIVATE_READ_KEY.replace('_', ' ')
+ ])assert.equal(script.scriptState({...config,KK_CORE_PRIVATE_READ_KEY:malformed}).configured,false,'malformed reader key must fail closed');
 });
 test('Apps Script Core read stays bound to canonical Core ID and Google HTTPS URL',async()=>{
  let sent=null;
