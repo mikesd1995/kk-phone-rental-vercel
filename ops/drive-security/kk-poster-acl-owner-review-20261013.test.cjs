@@ -104,6 +104,8 @@ function fixture(opts = {}) {
     opts.imageMismatch && row[0] === core[0][0] ? 'https://images.example.test/wrong.jpg' : row[4],
     '', '', '', '', 'show'
   ]);
+  if (opts.duplicateCore) core.push([...core[0]]);
+  if (opts.duplicateWeb) web.push([...web[0]]);
 
   const SpreadsheetApp = {
     openById: () => ({
@@ -253,6 +255,16 @@ test('Core/WebReady image mismatch aborts before writing', () => {
   const f = fixture({imageMismatch: true});
   assert.throws(() => f.api.dry(), /IMAGE_READBACK_DIVERGED/);
   assert.equal(f.getWrites(), 0);
+});
+
+test('duplicate IDs in either canonical or generated source fail before owner ACL writes', () => {
+  for (const option of [{duplicateCore: true}, {duplicateWeb: true}]) {
+    for (const readOnly of [false, true]) {
+      const f = fixture({...option, readOnly});
+      assert.throws(() => f.api.dry(), /DUPLICATE_EVENT_ID_IN_ACTIVE_SOT/);
+      assert.equal(f.getWrites(), 0);
+    }
+  }
 });
 
 test('unexpected ACL role aborts before writing', () => {
