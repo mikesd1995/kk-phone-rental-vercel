@@ -36,8 +36,17 @@ function assessTarget(value) {
 }
 
 function inspectStyles(html) {
-  const found = [...String(html).matchAll(/<link\b[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["']/gi)]
-    .map(match => match[1].split('?')[0]);
+  // Attribute order is not significant in HTML. Ignore commented-out links.
+  const uncommented = String(html).replace(/<!--[\s\S]*?-->/g, '');
+  const links = [...uncommented.matchAll(/<link\b([^<>]*)>/gi)];
+  const found = links.flatMap(match => {
+    const attributes = {};
+    for (const token of match[1].matchAll(/([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) {
+      attributes[token[1].toLowerCase()] = token[2] ?? token[3] ?? token[4];
+    }
+    if (!(attributes.rel || '').toLowerCase().split(/\s+/).includes('stylesheet') || !attributes.href) return [];
+    return [attributes.href.split(/[?#]/, 1)[0]];
+  });
   const css = found.filter(url => url === 'style.css' || url === '/style.css' || url === '/assets/kk-storefront-v5.css');
   return {
     stylesheet_order: css,
@@ -46,9 +55,13 @@ function inspectStyles(html) {
   };
 }
 
+function regularFile(file) {
+  try { return fs.statSync(file).isFile(); } catch { return false; }
+}
+
 function preflight({ root = ROOT, nodeVersion = process.version, targetUrl = 'http://127.0.0.1:3000/' } = {}) {
   const target = assessTarget(targetUrl);
-  const files = REQUIRED.map(relative => ({ path: relative, exists: fs.existsSync(path.join(root, relative)) }));
+  const files = REQUIRED.map(relative => ({ path: relative, exists: regularFile(path.join(root, relative)) }));
   let gitDeploymentGate = 'UNKNOWN';
   try {
     const config = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
