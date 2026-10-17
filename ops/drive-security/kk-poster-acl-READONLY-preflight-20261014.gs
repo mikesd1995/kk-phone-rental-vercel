@@ -27,6 +27,12 @@ function kkAclReadActive_20261013(){
   const ev=a.getRange(5,1,a.getLastRow()-4,9).getDisplayValues(),
         wr=b.getRange(5,1,b.getLastRow()-4,10).getDisplayValues(),
         show=new Map(wr.filter(z=>z[0]).map(z=>[z[0],z]));
+  // Fail closed on duplicate canonical or generated IDs. A Map's last-write
+  // semantics would otherwise conceal an ambiguous poster / ACL membership.
+  const eventIds=ev.filter(z=>z[0]).map(z=>String(z[0]));
+  const webIds=wr.filter(z=>z[0]).map(z=>String(z[0]));
+  if(new Set(eventIds).size!==eventIds.length||new Set(webIds).size!==webIds.length)
+    throw Error('DUPLICATE_EVENT_ID_IN_ACTIVE_SOT');
   const cards=ev.filter(z=>/^\d{1,2}\/(10|11|12)\/2026$/.test(z[2])&&['show','show_full'].includes(show.get(z[0])?.[9]));
   const refs=[];
   for(const row of cards){
