@@ -109,3 +109,17 @@ test('storefront visual evidence blocks webpage screenshots used as poster artwo
   const state={...healthy(),poster_source_issues:[{event_id:'evt',poster_source:'https://image.thum.io/get/width/1200/https://tickets.example/event',reason:'webpage_screenshot_service'}]};
   assert.ok(E.stateFindings(state,{width:390,name:'catalogue'}).some(x=>x.code==='POSTER_SOURCE_NOT_ARTWORK'));
 });
+
+
+test('owner centered mobile dialog and legacy bottom sheet both satisfy placement without masking clipping',()=>{
+ const base={document_width:390,raw_i18n_keys:[],small_targets:[],clipped_controls:[],overlapping_filters:false,
+  modal:{left:15,right:375,top:170,bottom:670,width:360,height:500,viewport_height:840,
+    scroll_width:360,client_width:360,focus_inside:true,title:'Concert'}};
+ const findings=(modal,width=390)=>Evidence.stateFindings({...base,modal},{width,name:'modal'});
+ assert.deepEqual(findings(base.modal),[]);
+ assert.deepEqual(findings({...base.modal,top:340,bottom:840}),[]);
+ const offCenter=findings({...base.modal,top:30,bottom:530});
+ assert.ok(offCenter.some(f=>f.code==='MOBILE_DIALOG_PLACEMENT_INVALID'));
+ const clipped=findings({...base.modal,top:-8,bottom:812});
+ assert.ok(clipped.some(f=>f.code==='MODAL_VIEWPORT_CONTAINMENT'));
+});
