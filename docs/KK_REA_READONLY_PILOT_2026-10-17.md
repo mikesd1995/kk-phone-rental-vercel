@@ -110,3 +110,13 @@ The remaining source-parity suite and historical JSON evidence remain unchanged;
 - **Done:** Correct and test 3 concrete diagnostic bugs; prove local/committed file byte identity; leave only research-branch changes with existing safety gates.
 - **Not done / blocked:** REA package execution, live CSS computed-style/screenshots, complete Storefront Visual Acceptance, iOS Safari, current-source-to-runtime build matching and Production P0 approval.
 - **Next safe path:** On a free local environment with Node `>=22.19` in series 22 or supported 24/26, install official, pinned REA; use a disposable loopback Chromium profile and `inspect_web_page` against an authorized local KK test mirror; compare with the existing visual QA. Preserve raw credentials and LINE/customer data by excluding them entirely. Only patch a reproducible customer-facing defect on a separate Draft PR after observing it. No automatic Merge or Deploy.
+
+
+## 2026-10-18: offline stylesheet false-ready fixed
+Latest safe continuation is fully recorded at [KK_REA_STYLESHEET_PREFLIGHT_HARDENING_2026-10-18.md](./KK_REA_STYLESHEET_PREFLIGHT_HARDENING_2026-10-18.md).
+
+New `scripts/kk-rea-stylesheet-safety.cjs` enforces presence and exact HTML order of the two primary *active screen* CSS links. Integrated into `scripts/kk-rea-readonly-preflight.cjs`; missing/swapped/alternate/disabled/print/conditional CSS now BLOCKS instead of passing solely on file existence. This remedies a diagnostic false-ready, not a proven customer-facing storefront bug.
+
+Local `node --test tests/kk-rea-stylesheet-safety.test.js`: **5/5 PASS**. New test and implementation exactly match GitHub blobs `797642ffaffe17c8c53d921170a6acec9a4660f2` and `d62b32c75f2df4693c3678d446ed70e28b84d2d2`. Separate simulated in-memory integration checks against GitHub's current main HTML, deployed-commit HTML, and five deliberate negative cases: **7/7 PASS**. The changed combined existing Node test suite was **not** executed on a full checkout in this turn; it must not be marked accepted. Syntax compilation of committed preflight and tests passed.
+
+REA itself **still was not installed/run** because this container has Node 22.16.0 and blocked GitHub/npm DNS; no active production network, real REA screenshot, Safari acceptance, booking, Merge, Deploy, or production writes. Production acceptance remains **NOT EVALUATED**. Recheck the actual Production alias and its deployed SHA, then run the full exact-head checks in a free supported environment before any potential owner-approved release.
