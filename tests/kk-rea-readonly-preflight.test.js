@@ -54,3 +54,33 @@ test('readiness checks local evidence and deployment gate without network or wri
   fs.writeFileSync(path.join(temp, 'vercel.json'), '{}');
   assert.ok(Gate.preflight({ root: temp, nodeVersion: 'v24.11.0' }).blockers.includes('DEPLOYMENT_SOURCE_GATE_UNVERIFIED'));
 });
+
+
+test('stylesheet parsing preserves order regardless of attribute order and ignores comments', () => {
+  const source = [
+    '<!-- <link rel="stylesheet" href="/assets/kk-storefront-v5.css"> -->',
+    '<LINK href="style.css?ver=2#fragment" media="all" REL="StyleSheet">',
+    `<link href="/assets/kk-storefront-v5.css?ver=4" rel="alternate stylesheet">`,
+    '<link rel="icon" href="/assets/kk-storefront-v5.css">'
+  ].join('');
+  const report = Gate.inspectStyles(source);
+  assert.deepEqual(report.stylesheet_order, ['style.css', '/assets/kk-storefront-v5.css']);
+  assert.equal(report.multiple_kk_stylesheets, true);
+});
+
+test('required source directories do not pass as regular files', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kk-rea-dir-guard-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  for (const file of [
+    'index.html', 'assets/kk-storefront-v5.css', 'scripts/storefront-evidence.cjs',
+    'scripts/storefront-visual-acceptance.mjs', 'server/kk-storefront-ux-reviewer.js', 'vercel.json'
+  ]) {
+    fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
+    fs.writeFileSync(path.join(dir, file), file === 'vercel.json'
+      ? '{"git":{"deploymentEnabled":{"*":false,"main":true}}}' : 'fixture');
+  }
+  fs.mkdirSync(path.join(dir, 'style.css'));
+  const result = Gate.preflight({ root: dir, nodeVersion: 'v24.11.0' });
+  assert.ok(result.blockers.includes('LOCAL_REPO_INCOMPLETE'));
+  assert.equal(result.file_inventory.find(x => x.path === 'style.css').exists, false);
+});
