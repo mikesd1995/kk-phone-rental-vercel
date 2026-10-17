@@ -24,7 +24,7 @@ function inspect(html) {
     const isAlternate = rel.includes('alternate');
     const isDisabled = Object.hasOwn(attrs, 'disabled');
     const media = String(attrs.media || '').toLowerCase().trim();
-    const screenMedia = !media || media === 'all' || media === 'screen' || /^screen\s+and\s*\(/.test(media);
+    const screenMedia = !media || media === 'all' || media === 'screen';
     const canonical = href === '/style.css' ? 'style.css' : href;
     if (isAlternate || isDisabled || !screenMedia) {
       excluded.push({href: canonical, reason: isAlternate ? 'ALTERNATE' : isDisabled ? 'DISABLED' : 'NON_SCREEN_OR_AMBIGUOUS_MEDIA'});
