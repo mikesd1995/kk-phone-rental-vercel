@@ -51,19 +51,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Zero-cost source safety regression
-        shell: bash
-        run: |
-          set -euo pipefail
-          node --check server/kk-openai-platform.js
-          node --check server/kk-openai-agent-adapters.js
-          node --check server/kk-openai-staging-probe.js
-          node --check server/kk-agent-task-router.js
-          node --check scripts/kk-openai-agent-dry-run.js
-          node --check scripts/storefront-visual-acceptance.mjs
-          node --check api/kk-intelligence-health.js
-          node --test tests/kk-openai-platform.test.js tests/kk-openai-staging-probe.test.js tests/storefront-visual-qa-automation.test.js
-
+      # Run private customer-data guards first so a separate visual/source
+      # failure cannot hide exact-head security regression evidence.
       # Until core-sheet-privacy-exact-head.yml is installed on main, run the
       # exact-head private-Core source tests in an existing standard/public runner.
       # No npm install, provider tokens, production requests or paid services.
@@ -84,6 +73,19 @@ jobs:
             tests/public-data-proxy.test.js \
             tests/public-data-browser-privacy.test.js \
             tests/core-sheet-privacy-workflow-contract.test.js
+
+      - name: Zero-cost source safety regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check server/kk-openai-platform.js
+          node --check server/kk-openai-agent-adapters.js
+          node --check server/kk-openai-staging-probe.js
+          node --check server/kk-agent-task-router.js
+          node --check scripts/kk-openai-agent-dry-run.js
+          node --check scripts/storefront-visual-acceptance.mjs
+          node --check api/kk-intelligence-health.js
+          node --test tests/kk-openai-platform.test.js tests/kk-openai-staging-probe.test.js tests/storefront-visual-qa-automation.test.js
 
       - name: Execute zero-cost no-provider acceptance
         shell: bash
