@@ -39,6 +39,7 @@ jobs:
         with:
           ref: ${{ env.APPROVED_SHA }}
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Verify exact checkout
         shell: bash
