@@ -15,7 +15,7 @@ test('blocked if primary stylesheet is missing, repeated or misordered', () => {
   }
 });
 test('alternate, disabled and print-only stylesheets do not prove effective screen styles', () => {
-  for (const marker of ['rel="alternate stylesheet"', 'rel="stylesheet" disabled', 'rel="stylesheet" media="print"', 'rel="stylesheet" media="(max-width: 100px)"']) {
+  for (const marker of ['rel="alternate stylesheet"', 'rel="stylesheet" disabled', 'rel="stylesheet" media="print"', 'rel="stylesheet" media="(max-width: 100px)"', 'rel="stylesheet" media="screen and (max-width: 1px)"']) {
     const html = '<link rel="stylesheet" href="style.css"><link href="/assets/kk-storefront-v5.css" ' + marker + '>';
     assert.equal(Check.inspect(html).status, 'BLOCKED', marker);
   }
