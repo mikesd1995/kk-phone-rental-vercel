@@ -106,6 +106,9 @@ function fixture(opts = {}) {
   ]);
   if (opts.duplicateCore) core.push([...core[0]]);
   if (opts.duplicateWeb) web.push([...web[0]]);
+  // Also catch duplicate hidden/history rows, not just two visible event cards.
+  if (opts.hiddenDuplicateCore) core.push([core[0][0], 'Historical', '28/09/2026', '', '']);
+  if (opts.hiddenDuplicateWeb) web.push([web[0][0], '', '28/09/2026', '', '', '', '', '', '', 'hide']);
 
   const SpreadsheetApp = {
     openById: () => ({
@@ -259,6 +262,16 @@ test('Core/WebReady image mismatch aborts before writing', () => {
 
 test('duplicate IDs in either canonical or generated source fail before owner ACL writes', () => {
   for (const option of [{duplicateCore: true}, {duplicateWeb: true}]) {
+    for (const readOnly of [false, true]) {
+      const f = fixture({...option, readOnly});
+      assert.throws(() => f.api.dry(), /DUPLICATE_EVENT_ID_IN_ACTIVE_SOT/);
+      assert.equal(f.getWrites(), 0);
+    }
+  }
+});
+
+test('hidden historic duplicate IDs in either source still block owner and read-only flows', () => {
+  for (const option of [{hiddenDuplicateCore: true}, {hiddenDuplicateWeb: true}]) {
     for (const readOnly of [false, true]) {
       const f = fixture({...option, readOnly});
       assert.throws(() => f.api.dry(), /DUPLICATE_EVENT_ID_IN_ACTIVE_SOT/);
