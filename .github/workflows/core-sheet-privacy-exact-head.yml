@@ -60,7 +60,7 @@ jobs:
           node --check server/core-sheet-apps-script-reader.js
           node --check server/admin-sheet-fallback.js
           node --check api/kk-data.js
-          node --check apps-script/Code.gs
+          node --check < apps-script/Code.gs
           node --check scripts/core-private-cutover-preflight.cjs
           node --check scripts/core-read-key-owner-setup.cjs
       - name: Exact-head private reader, no-GViz, API privacy and owner-key tests
