@@ -1,7 +1,7 @@
 # KK Phone Rental — REA read-only pilot / cross-chat handoff (2026-10-17)
 
 ## Objective and decision
-Evaluate [REA](https://github.com/morluto/rea) as a supplemental reverse-engineering / evidence tool, not a replacement for Storefront Visual QA, \`storefront-evidence.cjs\`, browser acceptance or Code Intelligence. Focus: stylesheet load order, actual browser CSS, missing posters, modal/theme visual regressions. Static code analysis **does not prove** Production behavior.
+Evaluate [REA](https://github.com/morluto/rea) as a supplemental reverse-engineering / evidence tool, not a replacement for Storefront Visual QA, `storefront-evidence.cjs`, browser acceptance or Code Intelligence. Focus: stylesheet load order, actual browser CSS, missing posters, modal/theme visual regressions. Static code analysis **does not prove** Production behavior.
 
 ## Constraints
 - No paid upgrades, additional deployments, Merge, security changes, owner/customer/booking/price writes or new automations.
@@ -10,22 +10,22 @@ Evaluate [REA](https://github.com/morluto/rea) as a supplemental reverse-enginee
 - Every report must distinguish **observed** vs **not executed** and specify source commit/deployment/viewport/timestamp.
 
 ## Actual investigation on 2026-10-17
-1. REA [source](https://github.com/morluto/rea), MIT license, npm \`rea-agents\`, source package version \`6.5.0\`, Node \`^22.19.0 || ^24.11.0 || >=26.0.0\`. Browser passive CDP and screenshot comparisons exist, but are **not** a substitute for functional acceptance.
-2. KK main \`index.html\` loads \`style.css\` then \`/assets/kk-storefront-v5.css\`. Later CSS can override earlier declarations; this is a diagnostic lead, **not** a proven visual defect.
-3. Existing KK evidence/acceptance: \`scripts/storefront-visual-acceptance.mjs\`, \`scripts/storefront-evidence.cjs\`, \`server/kk-storefront-ux-reviewer.js\`, \`scripts/kk-code-context.js\`. Reuse rather than replace.
-4. Current \`vercel.json\` source had \`git.deploymentEnabled\` = \`{"*":false,"main":true}\` and \`ignoreCommand\` = \`node scripts/vercel-ignore-build.js\`. This is **source** protection, not proof that no build could ever occur; independently check Vercel if future changes.
-5. Vercel canonical alias on 2026-10-17 was READY Production deployment \`dpl_5CNUZg2fyT7JGqvhegTQxG6wmcd6\`, commit \`44de0066f0c7edd59e153b2d31c22d65b84de5af\`, branch \`fix/hero-theme-parity-20261016\`. Recheck, do not assume identical to current main.
-6. Local execution Node was \`v22.16.0\` (below REA minimum); Github DNS unavailable for REA download. **REA was not installed or run.** No real browser capture or live REA analysis was performed.
+1. REA [source](https://github.com/morluto/rea), MIT license, npm `rea-agents`, source package version `6.5.0`, Node `^22.19.0 || ^24.11.0 || >=26.0.0`. Browser passive CDP and screenshot comparisons exist, but are **not** a substitute for functional acceptance.
+2. KK main `index.html` loads `style.css` then `/assets/kk-storefront-v5.css`. Later CSS can override earlier declarations; this is a diagnostic lead, **not** a proven visual defect.
+3. Existing KK evidence/acceptance: `scripts/storefront-visual-acceptance.mjs`, `scripts/storefront-evidence.cjs`, `server/kk-storefront-ux-reviewer.js`, `scripts/kk-code-context.js`. Reuse rather than replace.
+4. Current `vercel.json` source had `git.deploymentEnabled` = `{"*":false,"main":true}` and `ignoreCommand` = `node scripts/vercel-ignore-build.js`. This is **source** protection, not proof that no build could ever occur; independently check Vercel if future changes.
+5. Vercel canonical alias on 2026-10-17 was READY Production deployment `dpl_5CNUZg2fyT7JGqvhegTQxG6wmcd6`, commit `44de0066f0c7edd59e153b2d31c22d65b84de5af`, branch `fix/hero-theme-parity-20261016`. Recheck, do not assume identical to current main.
+6. Local execution Node was `v22.16.0` (below REA minimum); Github DNS unavailable for REA download. **REA was not installed or run.** No real browser capture or live REA analysis was performed.
 
 ## Implemented safe local preflight
-- \`scripts/kk-rea-readonly-preflight.cjs\`: zero dependency, no network, child-process launch, browser attachment or production writes. Checks runtime, localhost/canonical public URL allowlist, necessary local source files, source Git deploy gate, and CSS inclusion order. A PASS is only readiness for a separate REA trial.
-- \`tests/kk-rea-readonly-preflight.test.js\`: 4 Node built-in tests, executed locally using isolated synthetic fixtures: **4/4 PASS**, \`node --check\` PASS.
+- `scripts/kk-rea-readonly-preflight.cjs`: zero dependency, no network, child-process launch, browser attachment or production writes. Checks runtime, localhost/canonical public URL allowlist, necessary local source files, source Git deploy gate, and CSS inclusion order. A PASS is only readiness for a separate REA trial.
+- `tests/kk-rea-readonly-preflight.test.js`: 4 Node built-in tests, executed locally using isolated synthetic fixtures: **4/4 PASS**, `node --check` PASS.
 - Commands from a repo checkout:
-  \`\`\`sh
+  ```sh
   node --test tests/kk-rea-readonly-preflight.test.js
   node scripts/kk-rea-readonly-preflight.cjs
   node scripts/kk-rea-readonly-preflight.cjs --target=https://kk-phone-rental.vercel.app/
-  \`\`\`
+  ```
   An exit code 2 denotes deliberately blocked readiness.
 
 ## Remaining / strictly separated from this pilot
