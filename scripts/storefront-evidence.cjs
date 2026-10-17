@@ -179,7 +179,17 @@ function stateFindings(state,{width,name}){
     if(m.left<0||m.right>width+1||m.top<0||m.bottom>m.viewport_height+1||m.scroll_width>m.client_width+1)add('MODAL_VIEWPORT_CONTAINMENT',JSON.stringify(m));
     if(!m.focus_inside)add('MODAL_FOCUS_ESCAPED',name);
     if(!m.title.trim())add('MODAL_EVENT_IDENTITY_MISSING',name);
-    if(width<=700&&Math.abs(m.bottom-m.viewport_height)>1)add('MOBILE_SHEET_NOT_ANCHORED',name);
+    // Owner-approved V6.12+ modal is a CENTERED dialog, not a bottom sheet.
+    // Accept either proven bottom anchoring or a real centered, contained dialog;
+    // reject stray/off-center or clipped dialogs rather than enforcing a retired UX.
+    if(width<=700){
+      const bottomAnchored=Math.abs(m.bottom-m.viewport_height)<=1;
+      const centerDelta=Math.abs((m.top+m.bottom)/2-m.viewport_height/2);
+      const centered=centerDelta<=Math.max(24,m.viewport_height*.04);
+      if(!bottomAnchored&&!centered)add('MOBILE_DIALOG_PLACEMENT_INVALID',JSON.stringify({
+        top:m.top,bottom:m.bottom,height:m.height,viewport_height:m.viewport_height,center_delta_px:centerDelta
+      }));
+    }
   }
   return findings;
 }
