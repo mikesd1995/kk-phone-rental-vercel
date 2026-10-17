@@ -202,15 +202,17 @@ test('visual QA watches the complete executable storefront design council surfac
 });
 
 
-test('V5.8 uses proprietary editorial optics rather than literal trend decoration',()=>{
+test('current owner storefront retains proprietary concert optics rather than outdated V5.8 literal headline',()=>{
   const html=fs.readFileSync('index.html','utf8');
   const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
   const art=fs.readFileSync('server/kk-storefront-art-director.js','utf8');
-  assert.equal(html.includes('v67-lower-page-finish'),true);
-  // V6.2 owner-approved premium mock intentionally promotes the FAR SEAT / CLOSE MEMORY signature.
-  assert.equal(html.includes('FAR SEAT.<br><em>CLOSE MEMORY.</em>'),true);
-  assert.equal(html.includes('CONCERT MEMORY SERVICE'),false);
-  assert.equal(html.includes('kk-mock-hero'),true);
+  // The current owner-facing Thai hero replaced the retired V5.8 literal.
+  // Preserve the brand/art direction, semantic structure, and event-first CTA.
+  assert.match(html,/<section class="v3-hero kk-stage kk-mock-hero"[^>]*aria-labelledby="v2-intro-title"/);
+  assert.match(html,/<h1 id="v2-intro-title">ไกลแค่ไหน<br><em>ก็เก็บโมเมนต์ได้ใกล้กว่า<\/em><\/h1>/);
+  assert.match(html,/CONCERT PHONE RENTAL/);
+  assert.match(html,/class="v3-primary" href="#content"/);
+  assert.doesNotMatch(html,/CONCERT MEMORY SERVICE|FROM POSTER TO FRONT ROW/);
   assert.equal(css.includes('V5.8 Editorial Optics'),true);
   assert.equal(art.includes('proprietary-editorial-concert-optics'),true);
   assert.equal(art.includes('Trend references are inputs, not instructions'),true);
@@ -252,7 +254,9 @@ test('V6.1 conversion polish keeps trust, CTA hierarchy and floating contact out
   assert.match(html,/ฟรีประกัน/);
   assert.match(html,/ไม่ต้องวางมัดจำ/);
   assert.match(html,/รับ–คืนหน้างาน/);
-  assert.match(html,/href="#booking-journey">วิธีการเช่า/);
+  // Preserve the real booking steps anchor, regardless of prior microcopy.
+  assert.match(html,/<a class="v3-secondary" href="#booking-journey">เช่ายังไง\?<\/a>/);
+  assert.match(html,/<section class="kk-booking-journey" id="booking-journey"/);
   assert.match(css,/\.pi-tap\{[^}]*border:1px solid var\(--v6-line\)!important/);
   assert.match(css,/\.sticky-line\{display:none!important\}/);
 });
@@ -344,7 +348,8 @@ test('V6.5 owner mobile polish reduces density and makes hierarchy intentional o
   assert.match(css,/\.language-switch\{[\s\S]*border-radius:16px!important;[\s\S]*overflow:hidden!important/);
   assert.match(css,/\.lang-btn\{[\s\S]*border-radius:12px!important/);
   assert.match(css,/\.kk-mock-hero h1\{[\s\S]*max-width:12ch!important;[\s\S]*line-height:\.93!important/);
-  assert.match(js,/hero_secondary:"How it works"/);
+  assert.match(js,/hero_secondary:"How to rent"/);
+  assert.match(js,/hero_secondary:"เช่ายังไง\?"/);
   assert.match(js,/benefit_onsite:"Venue pickup\/return · Setup help"/);
 });
 
