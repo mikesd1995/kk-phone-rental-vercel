@@ -1,0 +1,34 @@
+{
+  "schema": "KK_REA_SOURCE_PARITY_V1",
+  "observed_date": "2026-10-17",
+  "source": {
+    "ref": "main",
+    "files": {
+      "index.html": { "blob_sha": "70c7b53336ea12478a00a0dec1359a01776c49ff", "bytes": 16913 },
+      "style.css": { "blob_sha": "346ff5400d2c2f0fb2dc7553330267c612854950", "bytes": 51896 },
+      "assets/kk-storefront-v5.css": { "blob_sha": "0ed73fba7cb90700f8690399a366aa12113ba80b", "bytes": 95403 },
+      "vercel.json": { "blob_sha": "2c448f66c3a50d9bbf74d85ef01c008b43c828e1", "bytes": 9175 }
+    }
+  },
+  "deployed": {
+    "ref": "44de0066f0c7edd59e153b2d31c22d65b84de5af",
+    "files": {
+      "index.html": { "blob_sha": "73acb944d20e8257048da64b66e7c8f5b1eac9ee", "bytes": 18027 },
+      "style.css": { "blob_sha": "346ff5400d2c2f0fb2dc7553330267c612854950", "bytes": 51896 },
+      "assets/kk-storefront-v5.css": { "blob_sha": "b3af7deb77b439fe62cc5ee2a1ecb7f239d16067", "bytes": 108122 },
+      "vercel.json": { "blob_sha": "2c448f66c3a50d9bbf74d85ef01c008b43c828e1", "bytes": 9175 }
+    }
+  },
+  "production_deployment": {
+    "id": "dpl_5CNUZg2fyT7JGqvhegTQxG6wmcd6",
+    "commit_sha": "44de0066f0c7edd59e153b2d31c22d65b84de5af",
+    "alias": "kk-phone-rental.vercel.app",
+    "target": "production",
+    "ready_state": "READY"
+  },
+  "sources": {
+    "github": "GitHub fetch_file for main and deployment commit, index.html/style.css/assets/kk-storefront-v5.css/vercel.json",
+    "vercel": "Vercel get_deployment for kk-phone-rental.vercel.app with Git repository info"
+  },
+  "limits": "Source snapshots only; no production screenshot, DOM readback, REA runtime execution, end-to-end tests or iOS verification. Revalidate all refs before use."
+}
