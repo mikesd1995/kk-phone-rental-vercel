@@ -42,13 +42,18 @@ test('readiness checks local evidence and deployment gate without network or wri
   for (const file of required) {
     fs.mkdirSync(path.dirname(path.join(temp, file)), { recursive: true });
     fs.writeFileSync(path.join(temp, file), file === 'vercel.json'
-      ? '{"git":{"deploymentEnabled":{"*":false,"main":true}}}' : 'test');
+      ? '{"git":{"deploymentEnabled":{"*":false,"main":true}}}' : file === 'index.html' ? '<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="/assets/kk-storefront-v5.css">' : 'test');
   }
   const result = Gate.preflight({ root: temp, nodeVersion: 'v24.11.0' });
   assert.equal(result.status, 'READY_FOR_SEPARATE_REA_TRIAL');
   assert.equal(result.execution.rea_executed, false);
   assert.equal(result.execution.network_requests, 0);
   assert.equal(result.execution.production_writes, 0);
+  assert.equal(result.source_stylesheet_contract.status, 'PASS');
+  fs.writeFileSync(path.join(temp, 'index.html'), '<link rel="stylesheet" href="style.css">');
+  assert.ok(Gate.preflight({ root: temp, nodeVersion: 'v24.11.0' }).blockers.includes('PRIMARY_STYLESHEET_SOURCE_CONTRACT_FAILED'));
+  fs.writeFileSync(path.join(temp, 'index.html'), '<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="/assets/kk-storefront-v5.css">');
+
   assert.equal(result.git_deployment_source_gate, 'NON_MAIN_AUTO_DEPLOY_DISABLED_IN_SOURCE');
   assert.equal(Gate.preflight({ root: temp, nodeVersion: 'v22.16.0' }).status, 'BLOCKED');
   fs.writeFileSync(path.join(temp, 'vercel.json'), '{}');
