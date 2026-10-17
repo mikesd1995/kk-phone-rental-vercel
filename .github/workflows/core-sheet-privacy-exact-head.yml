@@ -1,0 +1,77 @@
+name: Core Sheet Privacy Exact-Head Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/core-sheet-privacy-exact-head.yml'
+      - 'apps-script/Code.gs'
+      - 'api/kk-data.js'
+      - 'api/kk-admin-guard.js'
+      - 'api/kk-intelligence-health.js'
+      - 'api/kk-rental-dashboard-v6.js'
+      - 'api/lib/private-google-sheets.js'
+      - 'server/core-sheet-private-reader.js'
+      - 'server/core-sheet-apps-script-reader.js'
+      - 'server/admin-sheet-fallback.js'
+      - 'server/admin-proxy.js'
+      - 'script.js'
+      - 'config.js'
+      - 'package.json'
+      - 'scripts/core-private-cutover-preflight.cjs'
+      - 'scripts/core-read-key-owner-setup.cjs'
+      - 'tests/core-*.test.js'
+      - 'tests/public-data-*.test.js'
+      - 'tests/admin-sheet-fallback-private-reader.test.js'
+      - '.github/workflows/ultra-deep-v2-acceptance.yml'
+      - 'tests/ci-ultra-deep-v2-workflow-safety.test.js'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kk-core-privacy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-private-no-cost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact PR revision without write credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify exact PR head
+        env:
+          APPROVED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+          test ! -f package-lock.json
+          test ! -f npm-shrinkwrap.json
+      - name: Use standard included Node.js runner
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax-check touched security entrypoints
+        run: |
+          node --check server/core-sheet-private-reader.js
+          node --check server/core-sheet-apps-script-reader.js
+          node --check server/admin-sheet-fallback.js
+          node --check api/kk-data.js
+          node --check apps-script/Code.gs
+          node --check scripts/core-private-cutover-preflight.cjs
+          node --check scripts/core-read-key-owner-setup.cjs
+      - name: Exact-head private reader, no-GViz, API privacy and owner-key tests
+        run: |
+          node --test \
+            tests/core-sheet-privacy-cutover.test.js \
+            tests/core-private-cutover-preflight.test.js \
+            tests/core-apps-script-private-reader.test.js \
+            tests/core-apps-script-public-get-privacy.test.js \
+            tests/core-read-only-key-isolation.test.js \
+            tests/core-read-key-owner-setup.test.js \
+            tests/admin-sheet-fallback-private-reader.test.js \
+            tests/public-data-proxy.test.js \
+            tests/public-data-browser-privacy.test.js
