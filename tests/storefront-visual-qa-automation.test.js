@@ -350,7 +350,7 @@ test('V6.5 owner mobile polish reduces density and makes hierarchy intentional o
   assert.match(css,/\.kk-mock-hero h1\{[\s\S]*max-width:12ch!important;[\s\S]*line-height:\.93!important/);
   assert.match(js,/hero_secondary:"How to rent"/);
   assert.match(js,/hero_secondary:"เช่ายังไง\?"/);
-  assert.match(js,/benefit_onsite:"Venue pickup\/return · Setup help"/);
+  assert.match(js,/benefit_onsite:"Venue pickup & return · Setup help before the show"/);
 });
 
 test('V6.6 professional finish keeps brand messaging generic while preserving package-level model choice',()=>{
