@@ -48,3 +48,15 @@ Evaluate [REA](https://github.com/morluto/rea) as a supplemental reverse-enginee
 
 ## Rollback / continuation
 Only these three new files were proposed; deleting them fully reverts this research addition without runtime effects. In future chats read this file and refresh live GitHub/Production before continuing. Treat real REA execution and Production P0 acceptance as separate follow-up gates.
+
+
+## 2026-10-17 continuation — source versus deployed version
+- Rechecked: local Node v22.16.0, Chromium present, REA absent, GitHub DNS blocked. Original four tests still PASS (4/4).
+- GitHub source file blob comparison between main and Vercel Production commit 44de0066f0c7edd59e153b2d31c22d65b84de5af proved **two distinct file revisions**: index.html (16,913 vs 18,027 bytes; blob 70c7b53336ea12478a00a0dec1359a01776c49ff vs 73acb944d20e8257048da64b66e7c8f5b1eac9ee) and assets/kk-storefront-v5.css (95,403 vs 108,122 bytes; blob 0ed73fba7cb90700f8690399a366aa12113ba80b vs b3af7deb77b439fe62cc5ee2a1ecb7f239d16067).
+- style.css and vercel.json were identical by blob SHA across both refs. Source HTML CSS revisions: v633 in main, hero-v102-align in deployed ref.
+- Vercel connector read: READY Production deployment dpl_5CNUZg2fyT7JGqvhegTQxG6wmcd6, branch fix/hero-theme-parity-20261016, commit 44de0066f0c7edd59e153b2d31c22d65b84de5af. This is a point-in-time read only; source drift is **not proof of a customer-facing UI bug**.
+- New offline gate: scripts/kk-rea-source-parity.cjs compares pinned GitHub file blobs, checks Vercel deployment lineage and deliberately returns exit 2 when source drift exists. A matching blob pair still reports release acceptance NOT_EVALUATED.
+- New 4-test suite: tests/kk-rea-source-parity.test.js, covering observed drift, equal versions, malformed hashes/deployment lineage and missing fields. Pinned evidence: docs/KK_REA_SOURCE_PARITY_EVIDENCE_2026-10-17.json.
+- Executed node --check on parity script: PASS; combined node --test suite **8/8 PASS** locally. Parity CLI expected exit **2**, result SOURCE_DRIFT_OBSERVED. The committed parity code, test and evidence were read back from GitHub, with exact content length and blob SHA.
+- No installed/running REA; no actual browser capture, visual QA acceptance, production bug fix or full-project CI. Do not promote this research as a Production PASS.
+- These changes live only on research/kk-rea-readonly-preflight-20261017. No Merge, Deploy, billing, Production, booking, customer, price, LINE, permission or automation writes. For future continuation, refresh the GitHub main/deployed commits and Vercel alias, then test the exact deployed revision locally before selecting any CSS fix.
