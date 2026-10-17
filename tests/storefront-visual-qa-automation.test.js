@@ -460,3 +460,41 @@ test('last authoritative mobile stylesheet restores content-sized cards after hi
   assert.match(finalCss,/\.pi-tap\{[\s\S]*min-height:44px!important/);
   assert.doesNotMatch(finalCss,/object-fit:cover!important/);
 });
+
+
+test('exact-head Core privacy runs before optional storefront source assertions',()=>{
+  // Visual/design failures must not suppress private customer-data regression
+  // evidence. No live data, provider token, deploy, or elevated runner needed.
+  const yaml=fs.readFileSync('.github/workflows/openai-platform-staging-acceptance.yml','utf8');
+  const core=yaml.indexOf('- name: Full Core privacy source regression');
+  const optional=yaml.indexOf('- name: Zero-cost source safety regression');
+  assert.ok(core>0 && optional>core,'run Core privacy before optional design/source tests');
+  assert.match(yaml,/APPROVED_SHA:\s*\$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
+  assert.match(yaml,/test "\$\(git rev-parse HEAD\)" = "\$APPROVED_SHA"/);
+  const security=yaml.slice(core,optional);
+  for(const entry of [
+    'tests/core-sheet-privacy-cutover.test.js',
+    'tests/core-apps-script-private-reader.test.js',
+    'tests/core-read-only-key-isolation.test.js',
+    'tests/admin-sheet-fallback-private-reader.test.js',
+    'tests/public-data-proxy.test.js',
+    'tests/public-data-browser-privacy.test.js'
+  ]) assert.ok(security.includes(entry),'missing zero-cost security regression '+entry);
+  assert.doesNotMatch(security,/npm (ci|install)|vercel deploy|curl\s+-X\s+(?:POST|PUT|PATCH|DELETE)|secrets\./i);
+});
+
+test('responsive poster safety guards retain uncropped art and honest release blocking',()=>{
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  const evidence=fs.readFileSync('scripts/storefront-evidence.cjs','utf8');
+  const visual=fs.readFileSync('scripts/storefront-visual-acceptance.mjs','utf8');
+  const finalCss=css.slice(css.lastIndexOf('V6.33'));
+  assert.match(finalCss,/\.poster-grid \.concert-card\{[\s\S]*height:auto!important/);
+  assert.match(finalCss,/\.poster-grid \.concert-card \.poster-img-wrap\{[\s\S]*aspect-ratio:4\/5!important/);
+  assert.doesNotMatch(finalCss,/object-fit:cover!important/);
+  assert.match(evidence,/CARD_CONTENT_ESCAPES/);
+  assert.match(evidence,/POSTER_LETTERBOX_UNTREATED/);
+  assert.match(evidence,/MOBILE_DIALOG_PLACEMENT_INVALID/);
+  assert.match(visual,/screenshotReviewPass=screenshotReview\.status==='PASS' && designUnchanged/);
+  assert.match(visual,/owner_visual_acceptance/);
+  assert.doesNotMatch(visual,/screenshotReviewPass\s*=\s*true\s*;/);
+});
