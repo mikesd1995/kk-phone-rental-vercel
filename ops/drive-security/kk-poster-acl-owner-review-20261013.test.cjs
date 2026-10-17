@@ -13,7 +13,7 @@ const readOnly = fs.readFileSync(path.join(__dirname, 'kk-poster-acl-READONLY-pr
 const match = source.match(/const KKACL_EXPECTED=(\[[^\n]+\]);/);
 assert.ok(match, 'A pinned exact file ID manifest is required');
 const expected = JSON.parse(match[1]);
-assert.equal(expected.length, 35);
+assert.equal(expected.length, 39);
 const folderIDs = [
   '1avy3Up3NJskqB7kCzQoQPWKK3-j1qJqS',
   '1haTk15ElLwZM8NFcLvK36tbyLZo5wnzw',
@@ -80,10 +80,10 @@ function fixture(opts = {}) {
     'EVT-' + i, 'Example event', '21/10/2026', '',
     'https://drive.google.com/thumbnail?id=' + id
   ]);
-  // Preserve 35 active unique file IDs while reducing the number of
-  // reference uses by one: a stale 43/44 reference manifest must fail closed.
+  // Preserve 39 active unique file IDs while reducing the number of
+  // reference uses by one: a stale 47/48 reference manifest must fail closed.
   if (opts.referenceCountDrift) core[refs.length - 1][4] = 'https://images.example.test/replaced-duplicate.jpg';
-  for (let i = core.length; i < 76; i++) {
+  for (let i = core.length; i < 74; i++) {
     core.push(['EVT-' + i, 'Example event', '21/10/2026', '', 'https://images.example.test/poster.jpg']);
   }
   // A past-September public-card reference may be owner-private; do NOT scan it
@@ -164,10 +164,10 @@ test('standalone read-only script has no permission change, trigger or executabl
 test('standalone read-only preflight audits complete mocked current scope without ACL writes', () => {
   const f = fixture({readOnly: true});
   const r = f.api.dry();
-  assert.equal(r.active_files, 35);
-  assert.equal(r.scoped_files, 38);
+  assert.equal(r.active_files, 39);
+  assert.equal(r.scoped_files, 42);
   assert.equal(r.folders, 4);
-  assert.equal(r.public_writer, 42);
+  assert.equal(r.public_writer, 46);
   assert.equal(f.api.apply, 'undefined');
   assert.equal(f.api.owner, 'undefined');
   assert.equal(f.getWrites(), 0);
@@ -181,27 +181,27 @@ test('standalone owner-only Apps Script uses openById; no bound spreadsheet or t
   assert.ok(!source.includes('function doPost('));
 });
 
-test('dry run discovers 76 Oct-Dec visible / 44 references / 35 unique without writing', () => {
+test('dry run discovers 74 Oct-Dec visible / 48 references / 39 unique without writing', () => {
   const f = fixture();
   const r = f.api.dry();
-  assert.equal(r.active_files, 35);
-  assert.equal(r.scoped_files, 38);
+  assert.equal(r.active_files, 39);
+  assert.equal(r.scoped_files, 42);
   assert.equal(r.folders, 4);
-  assert.equal(r.public_writer, 42);
+  assert.equal(r.public_writer, 46);
   assert.equal(f.getWrites(), 0);
 });
 
 test('dry run prints complete asset scope with paged provenance, without editing', () => {
   const f = fixture();
   const summary = f.api.dry();
-  assert.equal(summary.scoped_items, 42);
-  assert.equal(summary.active_public_writer, 35);
+  assert.equal(summary.scoped_items, 46);
+  assert.equal(summary.active_public_writer, 39);
   assert.equal(summary.other_public_writer, 7);
   assert.equal(summary.historical_images, 3);
-  assert.equal(f.logs.length, 4, 'summary and 3 detail pages with 20,20,2 items');
+  assert.equal(f.logs.length, 5, 'summary and 4 detail pages with 20,20,6 items');
   const pages = f.logs.slice(1).map(JSON.parse);
-  assert.deepEqual(pages.map(x => x.items.length), [20, 20, 2]);
-  assert.equal(pages.flatMap(x => x.items).filter(x => x.active_poster).length, 35);
+  assert.deepEqual(pages.map(x => x.items.length), [20, 20, 6]);
+  assert.equal(pages.flatMap(x => x.items).filter(x => x.active_poster).length, 39);
   assert.ok(pages.flatMap(x => x.items).every(x => x.name.startsWith('Mock asset ')));
   assert.ok(pages.flatMap(x => x.items).every(x => x.id_suffix.length === 6));
   assert.equal(f.getWrites(), 0);
@@ -210,17 +210,17 @@ test('dry run prints complete asset scope with paged provenance, without editing
 test('private September reference excluded without weakening active repair guard', () => {
   const f = fixture({pastSeptemberPrivate: true});
   const dry = f.api.dry();
-  assert.equal(dry.active_files, 35);
-  assert.equal(dry.public_writer, 42);
+  assert.equal(dry.active_files, 39);
+  assert.equal(dry.public_writer, 46);
   assert.equal(f.getWrites(), 0);
 });
 
 test('nine missing official posters do not widen the Drive ACL repair scope', () => {
   const f = fixture({missingArtwork: true});
   const result = f.api.dry();
-  assert.equal(result.active_files, 35);
-  assert.equal(result.scoped_files, 38);
-  assert.equal(result.public_writer, 42);
+  assert.equal(result.active_files, 39);
+  assert.equal(result.scoped_files, 42);
+  assert.equal(result.public_writer, 46);
   assert.equal(f.getWrites(), 0);
 });
 
@@ -237,7 +237,7 @@ test('invalid and stale fingerprint cannot write', () => {
   assert.equal(f.getWrites(), 0);
 });
 
-test('44-to-43 thumbnail reference drift stops before any permissions write, even with same 35 file IDs', () => {
+test('48-to-47 thumbnail reference drift stops before any permissions write, even with same 39 file IDs', () => {
   const f = fixture({referenceCountDrift: true});
   assert.throws(() => f.api.dry(), /SCOPED_ACTIVE_POSTER_DRIFT/);
   assert.equal(f.getWrites(), 0);
@@ -267,17 +267,17 @@ test('active file missing from scanned tree aborts before writing', () => {
   assert.equal(f.getWrites(), 0);
 });
 
-test('active-only owner batches 25+14; historical writers remain unresolved and untouched', () => {
+test('active-only owner batches 25+18; historical writers remain unresolved and untouched', () => {
   const f = fixture();
   const dry = f.api.dry();
   const first = f.api.apply(dry.fingerprint);
   assert.equal(first.ok, false, 'must never claim success while writers remain');
   assert.equal(first.partial, true);
   assert.equal(first.updated, 25);
-  assert.equal(first.remaining_writers, 17);
+  assert.equal(first.remaining_writers, 21);
   assert.equal(first.need_new_owner_dry_run, true);
   assert.equal(f.getWrites(), 25);
-  // Stage 1 must harden all 4 risky folders and 21 of 35 active storefront
+  // Stage 1 must harden all 4 risky folders and 21 of 39 active storefront
   // images BEFORE touching any previously hidden or archival image.
   assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
   assert.equal(expected.filter(id => f.roles[id] === 'VIEW').length, 21);
@@ -286,19 +286,19 @@ test('active-only owner batches 25+14; historical writers remain unresolved and 
   assert.equal(f.roles['kit-photo-b'], undefined);
   assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
   const secondDry = f.api.dry();
-  assert.equal(secondDry.public_writer, 17);
+  assert.equal(secondDry.public_writer, 21);
   assert.ok(secondDry.fingerprint !== dry.fingerprint);
   const second = f.api.apply(secondDry.fingerprint);
   assert.equal(second.ok, false, 'historic writers must keep complete remediation open');
   assert.equal(second.active_scope_completed, true);
   assert.equal(second.partial, true);
-  assert.equal(second.updated, 14);
+  assert.equal(second.updated, 18);
   assert.equal(second.remaining_writers, 3);
   assert.equal(second.remaining_active_writers, 0);
   assert.equal(second.historical_public_writers, 3);
-  assert.equal(second.reader_verified, 39);
+  assert.equal(second.reader_verified, 43);
   assert.equal(second.need_new_owner_dry_run, false);
-  assert.equal(f.getWrites(), 39);
+  assert.equal(f.getWrites(), 43);
   assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
   assert.ok(expected.every(id => f.roles[id] === 'VIEW'));
   for (const id of ['brand-logo','kit-photo-a','kit-photo-b']) {
@@ -324,28 +324,28 @@ test('unexpected parent-folder ACL cascading to historical item fails closed', (
   assert.equal(f.roles['brand-logo'], 'VIEW', 'mock simulates unintended inherited change');
 });
 
-test('synthetic 244-image scope: all 209 history stays untouched after 25+14 active updates', () => {
+test('synthetic 248-image scope: all 209 history stays untouched after 25+18 active updates', () => {
   const f = fixture({historicExtras: 206});
   const before = f.api.dry();
-  assert.equal(before.active_files, 35);
-  assert.equal(before.scoped_files, 244);
+  assert.equal(before.active_files, 39);
+  assert.equal(before.scoped_files, 248);
   assert.equal(before.folders, 4);
   assert.equal(before.historical_images, 209);
-  assert.equal(before.public_writer, 248);
-  assert.equal(before.scoped_items, 248);
+  assert.equal(before.public_writer, 252);
+  assert.equal(before.scoped_items, 252);
   assert.equal(f.getWrites(), 0);
   const batch1 = f.api.apply(before.fingerprint);
   assert.equal(batch1.updated, 25);
-  assert.equal(batch1.remaining_active_writers, 14);
+  assert.equal(batch1.remaining_active_writers, 18);
   assert.equal(batch1.historical_public_writers, 209);
   const batch2 = f.api.apply(f.api.dry().fingerprint);
-  assert.equal(batch2.updated, 14);
+  assert.equal(batch2.updated, 18);
   assert.equal(batch2.active_scope_completed, true);
   assert.equal(batch2.remaining_active_writers, 0);
   assert.equal(batch2.historical_public_writers, 209);
   assert.equal(batch2.remaining_writers, 209);
   assert.equal(batch2.ok, false, '209 archived public Writers must prevent false full security PASS');
-  assert.equal(f.getWrites(), 39);
+  assert.equal(f.getWrites(), 43);
   assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
   assert.ok(expected.every(id => f.roles[id] === 'VIEW'));
   assert.equal(f.roles['synthetic-historical-0000'], undefined);
@@ -397,7 +397,7 @@ test('restricted historical asset is fingerprinted but never made public', () =>
   assert.equal(last.remaining_writers, 2);
   assert.equal(last.remaining_active_writers, 0);
   assert.equal(last.historical_public_writers, 2);
-  assert.equal(f.getWrites(), 39);
+  assert.equal(f.getWrites(), 43);
   assert.equal(f.roles['brand-logo'], undefined);
 });
 
