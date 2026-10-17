@@ -60,3 +60,14 @@ Only these three new files were proposed; deleting them fully reverts this resea
 - Executed node --check on parity script: PASS; combined node --test suite **8/8 PASS** locally. Parity CLI expected exit **2**, result SOURCE_DRIFT_OBSERVED. The committed parity code, test and evidence were read back from GitHub, with exact content length and blob SHA.
 - No installed/running REA; no actual browser capture, visual QA acceptance, production bug fix or full-project CI. Do not promote this research as a Production PASS.
 - These changes live only on research/kk-rea-readonly-preflight-20261017. No Merge, Deploy, billing, Production, booking, customer, price, LINE, permission or automation writes. For future continuation, refresh the GitHub main/deployed commits and Vercel alias, then test the exact deployed revision locally before selecting any CSS fix.
+
+
+### Exact-byte local-to-GitHub test attestation
+After GitHub create_file and connector read-back, local git hash-object produced the exact same blob IDs as GitHub for **all five executable/evidence inputs**:
+- scripts/kk-rea-readonly-preflight.cjs: 1e86cc02b82f1236b84049095e5ebb61fe250f77
+- tests/kk-rea-readonly-preflight.test.js: d5f9b045fdf0199773775bec7aaeaaed48343dd5
+- scripts/kk-rea-source-parity.cjs: 3cf5fef399a1c85670d6435e6d1d9507ac40a5ba
+- tests/kk-rea-source-parity.test.js: 0bdfc8d4b663f5e6250a82b2e1a8907bf4d2d76b
+- docs/KK_REA_SOURCE_PARITY_EVIDENCE_2026-10-17.json: 10cbf97f2571814cab90175e323932d150dd14b2
+
+This establishes that the locally executed 8/8 tests used exact bytes persisted on the research branch, without borrowing results from a different code revision. Vercel branch-filtered deployment query returned zero deployments, GitHub combined commit status returned no CI contexts (not PASS), and Vercel alias still pointed to READY dpl_5CNUZg2fyT7JGqvhegTQxG6wmcd6. Browser-attached REA and Production acceptance remain blocked/not executed.
