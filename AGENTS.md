@@ -78,6 +78,14 @@ For every task that changes or reviews customer-facing storefront UI, Admin UI, 
 
 This gate applies to both storefront and Admin/product-flow work. If a task is outside the current reviewer policy, extend the deterministic policy/reviewer/tests first rather than silently bypassing the gate.
 
+## Owner poster replacement — execute from one request
+
+For an owner command such as "เปลี่ยนโปสเตอร์/เปลี่ยนรูปหน้าบ้าน" with supplied media, follow `docs/OWNER_POSTER_UPDATE_RUNBOOK.md` **immediately**; do not request the same instruction or existing image again. Before saying "cannot change production", inspect the connected conversation-image, Google Drive, Sheets and governed-write capabilities. Route through `owner_poster_update` (poster-only advisory plan + Reliability Learning) when available; the existing explicit owner command authorizes the **bounded poster-only operation**, not unrelated writes.
+
+Match official poster to each exact `event_id` and date; resolve ambiguity rather than guessing. Upload each supplied original with a **new immutable Drive file ID**, update **only** `01_Events.poster_image_url` using connected owner-authorized writer, verify `08_Web_Ready`, then production `/api/kk-data` and rendered card. Preserve hidden/tombstoned status, all bookings, inventory, prices, dates, venue and derived formulas. On partial failure, try approved no-cost alternatives and report exactly which gate is blocked; do not claim visual-production success from Sheet readback alone.
+
+The Reliability fingerprint `OWNER_POSTER_UPDATE_REPEATED_HANDOFF` prevents the recurrence of false "cannot write" claims and redundant handoffs. The agent never auto-writes business data; owner authorization, exact-event matching and existing governance remain mandatory.
+
 ## Production discipline
 
 Before production-affecting actions, use the current production-release skill and fresh runtime evidence. A successful API call, timer, deployment request, or workflow start is not acceptance proof.
