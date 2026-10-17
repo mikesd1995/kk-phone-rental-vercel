@@ -793,6 +793,11 @@ function setImgFallback(img, urls, options){
   function settleLoaded(){
     clearTimer(); settled=true;
     img.onerror=null; img.onload=null;
+    // Cached / decoded Safari images can settle before the native load event.
+    // Apply the exact same-poster backdrop deterministically in that path.
+    if(imageHasPixels() && typeof options.onLoaded==="function"){
+      try{options.onLoaded(img);}catch(e){}
+    }
   }
   function exhausted(){
     // Safari/iOS may paint a cross-origin/Drive image before the expected load callback
@@ -1449,7 +1454,6 @@ function renderConcerts(concerts){
         imgWrap.style.setProperty("--poster-bg","url("+JSON.stringify(src)+")");
         imgWrap.classList.add("poster-has-image");
       };
-      img.addEventListener("load",syncPosterTreatment);
       var posterFailure=function(){
         imgWrap.classList.remove("poster-has-image");
         imgWrap.style.removeProperty("--poster-bg");
@@ -1465,11 +1469,11 @@ function renderConcerts(concerts){
         // when a single image exhausts its delivery candidates.
       };
       if(idx<6){
-        setImgFallback(img,imgCandidates,{timeoutMs:4000,onExhausted:posterFailure});
+        setImgFallback(img,imgCandidates,{timeoutMs:4000,onExhausted:posterFailure,onLoaded:syncPosterTreatment});
       }else{
         // Do not start a timeout while a native-lazy image is still off-screen.
         // Start the fallback chain when the card is near the viewport.
-        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure});
+        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure,onLoaded:syncPosterTreatment});
       }
     } else {
       card.dataset.posterMissing="1";
