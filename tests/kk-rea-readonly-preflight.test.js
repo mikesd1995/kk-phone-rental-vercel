@@ -84,3 +84,17 @@ test('required source directories do not pass as regular files', t => {
   assert.ok(result.blockers.includes('LOCAL_REPO_INCOMPLETE'));
   assert.equal(result.file_inventory.find(x => x.path === 'style.css').exists, false);
 });
+
+
+test('symlinks outside repository are not treated as local source files', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kk-rea-link-guard-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const external = fs.mkdtempSync(path.join(os.tmpdir(), 'kk-rea-external-'));
+  t.after(() => fs.rmSync(external, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(external, 'index.html'), '<link rel="stylesheet" href="style.css">');
+  fs.symlinkSync(path.join(external, 'index.html'), path.join(dir, 'index.html'));
+  const result = Gate.preflight({ root: dir, nodeVersion: 'v24.11.0' });
+  assert.equal(result.file_inventory.find(x => x.path === 'index.html').exists, false);
+  assert.deepEqual(result.source_diagnostics.stylesheet_order, []);
+  assert.equal(result.status, 'BLOCKED');
+});
