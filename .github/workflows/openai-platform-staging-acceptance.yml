@@ -64,6 +64,27 @@ jobs:
           node --check api/kk-intelligence-health.js
           node --test tests/kk-openai-platform.test.js tests/kk-openai-staging-probe.test.js tests/storefront-visual-qa-automation.test.js
 
+      # Until core-sheet-privacy-exact-head.yml is installed on main, run the
+      # exact-head private-Core source tests in an existing standard/public runner.
+      # No npm install, provider tokens, production requests or paid services.
+      - name: Full Core privacy source regression (zero provider / exact HEAD)
+        shell: bash
+        env:
+          KK_CORE_SHEET_REQUIRE_PRIVATE: 'false'
+        run: |
+          set -euo pipefail
+          node --test \
+            tests/core-sheet-privacy-cutover.test.js \
+            tests/core-private-cutover-preflight.test.js \
+            tests/core-apps-script-private-reader.test.js \
+            tests/core-apps-script-public-get-privacy.test.js \
+            tests/core-read-only-key-isolation.test.js \
+            tests/core-read-key-owner-setup.test.js \
+            tests/admin-sheet-fallback-private-reader.test.js \
+            tests/public-data-proxy.test.js \
+            tests/public-data-browser-privacy.test.js \
+            tests/core-sheet-privacy-workflow-contract.test.js
+
       - name: Execute zero-cost no-provider acceptance
         shell: bash
         env:
