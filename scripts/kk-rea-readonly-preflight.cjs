@@ -56,7 +56,7 @@ function inspectStyles(html) {
 }
 
 function regularFile(file) {
-  try { return fs.statSync(file).isFile(); } catch { return false; }
+  try { return fs.lstatSync(file).isFile(); } catch { return false; }
 }
 
 function preflight({ root = ROOT, nodeVersion = process.version, targetUrl = 'http://127.0.0.1:3000/' } = {}) {
@@ -64,12 +64,17 @@ function preflight({ root = ROOT, nodeVersion = process.version, targetUrl = 'ht
   const files = REQUIRED.map(relative => ({ path: relative, exists: regularFile(path.join(root, relative)) }));
   let gitDeploymentGate = 'UNKNOWN';
   try {
-    const config = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+    const configPath = path.join(root, 'vercel.json');
+    if (!regularFile(configPath)) throw Error('VERCEL_CONFIG_NOT_REGULAR_FILE');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     gitDeploymentGate = config?.git?.deploymentEnabled?.['*'] === false && config?.git?.deploymentEnabled?.main === true
       ? 'NON_MAIN_AUTO_DEPLOY_DISABLED_IN_SOURCE' : 'NOT_CONFIRMED';
   } catch { gitDeploymentGate = 'UNREADABLE'; }
   let html = '';
-  try { html = fs.readFileSync(path.join(root, 'index.html'), 'utf8'); } catch {}
+  try {
+    const htmlPath = path.join(root, 'index.html');
+    if (regularFile(htmlPath)) html = fs.readFileSync(htmlPath, 'utf8');
+  } catch {}
   const nodeCompatible = supportedNode(nodeVersion);
   const blockers = [];
   if (!nodeCompatible) blockers.push('REA_NODE_RUNTIME_NOT_SUPPORTED');
