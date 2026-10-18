@@ -6,6 +6,7 @@ const AdminFallback=require('../server/admin-sheet-fallback.js');
 
 const env={
   KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+  KK_CORE_PRIVATE_TRANSPORT:'service-account',
   GOOGLE_SHEET_ID:'core-test-sheet',
   GOOGLE_SERVICE_ACCOUNT_EMAIL:'read-only@example.invalid',
   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'test-injected-identity'
@@ -18,6 +19,17 @@ test('configuration-only check never calls any network or writes',()=>{
   assert.equal(p.permission_writes,0);
   assert.equal(p.public_gviz_reads,0);
   assert.doesNotMatch(JSON.stringify(p),/core-test-sheet|read-only@example|test-injected/);
+});
+test('missing explicit Core transport blocks before any of 13 private reads',async()=>{
+ let calls=0;
+ const p=await Preflight.probe({
+   env:{...env,KK_CORE_PRIVATE_TRANSPORT:undefined},
+   reader:async()=>{calls++;throw Error('NO_PRIVATE_READER_MUST_RUN');}
+ });
+ assert.equal(p.ok,false);
+ assert.equal(p.datasets_checked,0);
+ assert.equal(calls,0);
+ assert.equal(Preflight.plan({...env,KK_CORE_PRIVATE_TRANSPORT:undefined}).transport,'none');
 });
 test('missing private credentials block before a single private/public call',async()=>{
   let calls=0;
