@@ -47,3 +47,41 @@ The owner requested Phase A: (1) resolve three OpenAI optional source/design fai
 **Next authorized steps:** obtain new exact-head hosted standard-runner CI or a complete owner local checkout (zero cost) and run Node 10-suite + design tests; perform read-only Chromium multi-viewport visual review on the same SHA; manually reconcile Security with Main/cleanup/Revenue using a single gated integration branch; preserve other PR scopes; only then request owner approval to proceed to Phase B private-key provisioning and finally Phase C public ACL cutover. No task authorizes release or production permission changes.
 
 **All Phase A writes this turn were to #739 Draft branch / GitHub evidence only.**
+
+
+## 18 Oct 2026 — Phase A owner follow-through / exact-head checkpoint
+
+**Owner request:** finish phase A (tasks 1–4) while remaining on Draft source only; no Merge/Deploy, production ownership/ACL, Booking/customer/pricing, secret or automation changes, no added fees. The Service Account *provisioning option* stays cancelled.
+
+### Changed and verified on Draft (this follow-through)
+- Started at observed PR #739 HEAD `6fe862aebf3826b2df1e62806da2d8d84f7889b3`. Read file blob SHA before each update; GitHub's contents writes used the exact SHA to avoid blind overwrites while other workers may update the branch.
+- Commit `9d96bd31e912a66ef2eb09836af15fcf56bfda4b`: `server/core-sheet-private-reader.js` now defaults to `KK_CORE_PRIVATE_TRANSPORT=none` rather than silently selecting a Service Account. Legacy mode remains **explicit** `service-account` compatibility only; Apps Script requires explicit `apps-script`. Unset transport with strict Core read fails with classified `CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED` before any read.
+- Commit `bd02b61cc5d834601d719217576748f9c209c3e7`: `tests/core-sheet-privacy-cutover.test.js` synthetic legacy fixture explicitly opts in to `service-account`, and adds a negative test that even populated legacy env credentials cannot override a missing transport.
+- Commit `f1b9a17427866d54375c82f1dcbcd02044457e3b`: add safe no-secret missing transport code to `scripts/core-private-cutover-preflight.cjs`.
+- Commit `c5d06758e6cfeb119c6f9cd074a6653e1a005071`: add two regression tests to `tests/storefront-visual-qa-automation.test.js` preserving P1 blocking of escaped card details, untreated letterbox, webpage screenshot service, and centered/bottom mobile modal containment/focus. **Do not** weaken screenshot gates or forge owner approval to get a PASS.
+- Commit `8c5457e0fc4763a6dd4036a0df6591272b09a039`: align Apps Script private reader test with no implicit transport and explicit legacy compatibility.
+- Commit `2778f873aea932ce3e90507e1faadead0b3f582c`: `tests/core-private-cutover-preflight.test.js` sets explicit synthetic legacy transport and adds fail-closed no-transport preflight negative test (0 network/row reads).
+
+### Exact GitHub-source **isolated V8** checks (NOT hosted CI/native Node)
+- Visual source + synthetic poster/card/modal blockers: **44/44 PASS** at commit `c5d06758...`, including source readbacks for production stylesheet, JS, page markup, visual runner and workflows.
+- Apps Script private-reader, doGet, auth separation and log safety: **20/20 PASS** at exact HEAD `2778f873...`.
+- Core 13-source preflight suite with intentional fake reader: **9/9 PASS** at exact HEAD `2778f873...`. Configuration fail-closed check does not touch Google.
+- Source syntax parsed for all **6/6 changed critical JavaScript** files (including new tests) at HEAD `2778f873...`. CSS/YAML are not JavaScript and were not passed off as syntax-tested by this check.
+- These are 73 distinct isolated checks total (44+20+9), not equivalent to native repo `node --test`, actual real Private Google data, GitHub-hosted exact SHA acceptance or real Chromium visual screenshot.
+
+### Exact HEAD hosted job status / blockers
+- The last GitHub-hosted PASS/FAIL run at SHA `84713248674eb1035fbff2326883089f5f67a319` is **STALE** and cannot certify these newer commits: earlier Ultra Deep, Booking and Vercel source checks passed; old OpenAI 3 design assertions and Visual QA failed at that old SHA.
+- Exact HEAD `2778f873...` GitHub workflow-run query reported **zero runs** (NOT PASS). Neither normal Draft push to branch nor presence of new PR-only workflow file `core-sheet-privacy-exact-head.yml` provides native acceptance by itself. No manual Actions run/rerun/release was executed.
+- The environment's GitHub CLI/network cannot resolve GitHub domain (container DNS blocked); complete repo worktree / native Node tests and live Chrome screenshots cannot be validated locally. Re-running stale SHA jobs or forcing PR Ready would not prove current Draft SHA. Do not use paid browser automation or unknown-cost new provider services.
+- A1 old OpenAI 3 literal design tests have been corrected at source and visual contract source now passes; A1 **hosted test remains UNVERIFIED**. A2 known CSS/poster/mobile fixes and source blocking tests pass; A2 actual 320/375/390/430/480/768/1024/1440 TH/EN×dark/light screenshot and owner visual acceptance are **BLOCKED**. A3 exact-head full 10-suite native Node security workflow exists, but latest HEAD has **0 hosted runs**, so it is **NOT ACCEPTED**.
+
+### A4 branch collision inventory, checked against latest refs
+- Main HEAD `a54a348dd3258d87b1ec0c70e6ffd255d4678018`. At `2778f873...`, GitHub compare `main...#739` reports `status: diverged`, **120 ahead / 2 behind**. PR #739 remains `draft=true`, `mergeable=false`. Front-end owner changes already live elsewhere; do not blindly merge even if conflicts are resolved mechanically.
+- PR #744 cleanup HEAD `9427ec6093c61deb3b739fe093d61ff3f65b7b60`: **26 overlapping modified file paths** with #739. `api/kk-data.js` blob identical between both candidate refs (`50b721636570169ba7337e755283ca421d7bd0cd`), but `server/core-sheet-private-reader.js`, `server/core-sheet-apps-script-reader.js`, `server/admin-sheet-fallback.js`, `apps-script/Code.gs`, `script.js`, `assets/kk-storefront-v5.css`, `scripts/storefront-evidence.cjs`, `package.json` and rental dashboard code differ. Merge requires hunk-by-hunk owner reviewed reconciliation, preserving no-public GViz and explicit transport.
+- PR #737 Revenue HEAD `943ccf4ea6f32bcb4ed95a135a04dfe1162b0bc5`: **3 overlapping paths** `package.json`, `server/rental-dashboard-core.js`, `server/legacy/kk-rental-dashboard-v5.js`. All three current blob SHA differ among #739, #744 and #737. Preserve revenue rule **Future derives from verified Master Booking X, never cash collected O**. No automatic cherry-pick, merge, rebase, or price/booking write was attempted.
+- Actual Vercel Production READY at readback is `44de0066f0c7edd59e153b2d31c22d65b84de5af` on separate `fix/hero-theme-parity-20261016` track; this is **not** PR #739. Google Core ACL remains `anyone/reader`, Vercel metadata no `KK_CORE_PRIVATE_READ_KEY` or Core strict flags. This is a confirmed current privacy P0 risk, not independently proven exfiltration.
+
+### Phase A exit decision
+- **SOURCE READY (bounded):** A1 corrected stale 3 design assertions, A2 staged technical render fixes + additional fail-closed QA tests, A3 explicit transport selection + stronger simulated privacy/preflight tests, A4 exact overlap/merge-safety matrix.
+- **NOT FULLY ACCEPTED / HARD HOLD:** A1 old failures have no updated hosted green; A2 lacks exact SHA screenshot/owner reviewer acceptance; A3 lacks native full-suite/registered exact SHA CI green; A4 remains branch-diverged with critical financial/security collisions. These cannot be marked DONE based only on isolated V8 source tests.
+- **Safe continuation:** obtain exact-source native Node 10-suite and Chrome visual evidence using standard public GitHub Actions on the CURRENT SHA when workflow admission is possible and budget/no-provider gates verified, inspect artifacts/negative cases, perform manual hunk-level integration on Draft and re-test, then request distinct owner cutover approval. Never enable Private reader or revoke Drive ACL until 13 real owner-authenticated private source reads and no public fallback plus rollback acceptance.
