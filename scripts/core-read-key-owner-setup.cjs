@@ -3,11 +3,13 @@
 // production configuration. Do not run --generate in CI/chat/remote consoles.
 const crypto=require('node:crypto');
 function assess(env=process.env){
-  const read=String(env.KK_CORE_PRIVATE_READ_KEY||'').trim();
+  const rawRead=String(env.KK_CORE_PRIVATE_READ_KEY||'');
+  const read=rawRead.trim();
   const admin=String(env.KK_ADMIN_API_KEY||'').trim();
   const checks={
     reader_key_present:read.length>0,
     reader_key_length_ok:read.length>=32,
+    reader_key_exact_format:rawRead===read,
     separate_from_admin_key:read.length>=32&&admin.length>0&&read!==admin,
     usable_character_set:/^[A-Za-z0-9_-]+$/.test(read)
   };
