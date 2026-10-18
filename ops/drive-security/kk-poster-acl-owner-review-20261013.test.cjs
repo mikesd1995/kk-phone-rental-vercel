@@ -83,7 +83,7 @@ function fixture(opts = {}) {
   // Preserve 39 active unique file IDs while reducing the number of
   // reference uses by one: a stale 47/48 reference manifest must fail closed.
   if (opts.referenceCountDrift) core[refs.length - 1][4] = 'https://images.example.test/replaced-duplicate.jpg';
-  for (let i = core.length; i < 74; i++) {
+  for (let i = core.length; i < 73; i++) {
     core.push(['EVT-' + i, 'Example event', '21/10/2026', '', 'https://images.example.test/poster.jpg']);
   }
   // A past-September public-card reference may be owner-private; do NOT scan it
@@ -186,7 +186,7 @@ test('standalone owner-only Apps Script uses openById; no bound spreadsheet or t
   assert.ok(!source.includes('function doPost('));
 });
 
-test('dry run discovers 74 Oct-Dec visible / 48 references / 39 unique without writing', () => {
+test('dry run discovers 73 Oct-Dec visible / 48 references / 39 unique without writing', () => {
   const f = fixture();
   const r = f.api.dry();
   assert.equal(r.active_files, 39);
