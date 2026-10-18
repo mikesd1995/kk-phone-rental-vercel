@@ -2,8 +2,9 @@
 // Pure, read-only candidate discovery. Never infer DOM visibility from a CSV row.
 const {eventDay,webRow}=require('./kk-x-posting-eligibility.js');
 const MAX_PHONES=2;
+function bangkokToday(){return new Date(Date.now()+7*3600000).toISOString().slice(0,10);}
 function str(v){return String(v==null?'':v).trim();}
-function discover(rows,{today='2026-10-19',locks=[],requireDom=true,domEvidence=[]}={}){
+function discover(rows,{today=bangkokToday(),locks=[],requireDom=true,domEvidence=[]}={}){
   if(!Array.isArray(rows))throw new TypeError('rows must be an array');
   const latest=new Map();
   for(const row of rows){const r=webRow(row);if(r.id)latest.set(r.id,row);}
@@ -20,7 +21,7 @@ function discover(rows,{today='2026-10-19',locks=[],requireDom=true,domEvidence=
     if(lockIds.has(r.id))why.push('OWNER_LOCKED');
     const dom=evidence.get(r.id);
     if(requireDom&&!(dom?.card_visible===true&&dom?.booking_cta_verified===true&&dom?.event_date_text===r.date))why.push('RENDERED_BOOKING_NOT_VERIFIED');
-    const item={event_id:r.id,event_name:str(Array.isArray(row)?row[1]:row.event_name),event_date_text:r.date,available_phone_count:r.available,dom_verified:why.indexOf('RENDERED_BOOKING_NOT_VERIFIED')===-1};
+    const item={event_id:r.id,event_name:str(Array.isArray(row)?row[1]:row.event_name),event_date_text:r.date,available_phone_count:r.available,dom_verified:dom?.card_visible===true&&dom?.booking_cta_verified===true&&dom?.event_date_text===r.date};
     (why.length?rejected:candidates).push(why.length?{...item,reasons:why}:item);
   }
   return {source_rows:rows.length,unique_events:latest.size,candidates,rejected,production_writes:0,auto_publish:false};
