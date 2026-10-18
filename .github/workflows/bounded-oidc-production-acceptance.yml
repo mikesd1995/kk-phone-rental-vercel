@@ -11,8 +11,10 @@ on:
         description: 'Optional exact deployment ID. If supplied, it must equal the auto-resolved current-main Production.'
         required: false
         type: string
-  issue_comment:
-    types: [created]
+  workflow_call:
+    secrets:
+      VERCEL_TOKEN:
+        required: false
 
 permissions:
   contents: read

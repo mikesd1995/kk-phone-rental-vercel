@@ -1,7 +1,6 @@
 name: Storefront Production Screenshot Capture
 on:
-  issue_comment:
-    types: [created]
+  workflow_call:
 permissions:
   contents: read
   issues: write

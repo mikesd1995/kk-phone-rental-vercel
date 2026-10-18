@@ -107,7 +107,7 @@ test('intelligence health stays safe and explicit when private reader is not con
 test('analytics aggregate remains PII-free while preserving operational metrics',()=>{
   const rows=[
     {source:'MASTER',booking_id:'B1',created_at:'',status:'completed',event_id:'E1',event_name:'Event 1',event_date:'2026-09-01',month:'2026-09',customer_key:'phone:111',package_type:'phone_only',payment_status:'paid',amount_received:590,affiliation:'GMMTV',affiliation_source:'explicit'},
-    {source:'MASTER',booking_id:'B2',created_at:'',status:'confirmed',event_id:'E2',event_name:'Event 2',event_date:'2026-09-02',month:'2026-09',customer_key:'phone:111',package_type:'bundle',payment_status:'paid',amount_received:690,affiliation:'GMMTV',affiliation_source:'explicit'}
+    {source:'MASTER',booking_id:'B2',created_at:'',status:'confirmed',event_id:'E2',event_name:'Event 2',event_date:'2026-09-02',month:'2026-09',customer_key:'phone:111',package_type:'bundle',payment_status:'unpaid',amount_received:0,package_price:690,affiliation:'GMMTV',affiliation_source:'explicit'}
   ];
   const out=analytics._test.aggregate(rows);
   assert.equal(out.metrics.unique_customers,1);
@@ -126,8 +126,8 @@ test('analytics aggregate remains PII-free while preserving operational metrics'
 test('analytics revenue split counts completed as actual and active bookings as future exactly once',()=>{
   const rows=[
     {source:'MASTER',booking_id:'B10',created_at:'',status:'completed',event_id:'E10',event_name:'Closed event',event_date:'2026-08-01',month:'2026-08',customer_key:'phone:a',package_type:'bundle',payment_status:'paid',amount_received:1090,affiliation:'GMMTV',affiliation_source:'explicit'},
-    {source:'MASTER',booking_id:'B11',created_at:'',status:'confirmed',event_id:'E11',event_name:'Future event',event_date:'2026-10-01',month:'2026-10',customer_key:'phone:b',package_type:'bundle',payment_status:'pending',amount_received:1290,affiliation:'GMMTV',affiliation_source:'explicit'},
-    {source:'MASTER',booking_id:'B12',created_at:'',status:'returned',event_id:'E12',event_name:'Returned not closed',event_date:'2026-09-20',month:'2026-09',customer_key:'phone:c',package_type:'phone_only',payment_status:'paid',amount_received:890,affiliation:'Domundi / Mandee',affiliation_source:'explicit'},
+    {source:'MASTER',booking_id:'B11',created_at:'',status:'confirmed',event_id:'E11',event_name:'Future event',event_date:'2026-10-01',month:'2026-10',customer_key:'phone:b',package_type:'bundle',payment_status:'pending',amount_received:0,package_price:1290,affiliation:'GMMTV',affiliation_source:'explicit'},
+    {source:'MASTER',booking_id:'B12',created_at:'',status:'returned',event_id:'E12',event_name:'Returned not closed',event_date:'2026-09-20',month:'2026-09',customer_key:'phone:c',package_type:'phone_only',payment_status:'paid',amount_received:890,package_price:890,affiliation:'Domundi / Mandee',affiliation_source:'explicit'},
     {source:'MASTER',booking_id:'B13',created_at:'',status:'cancelled',event_id:'E13',event_name:'Cancelled event',event_date:'2026-10-02',month:'2026-10',customer_key:'phone:d',package_type:'bundle',payment_status:'pending',amount_received:1590,affiliation:'SM Entertainment',affiliation_source:'explicit'},
     {source:'MASTER',booking_id:'B14',created_at:'',status:'no_show',event_id:'E14',event_name:'No show event',event_date:'2026-09-10',month:'2026-09',customer_key:'phone:e',package_type:'bundle',payment_status:'pending',amount_received:990,affiliation:'GMMTV',affiliation_source:'explicit'}
   ];

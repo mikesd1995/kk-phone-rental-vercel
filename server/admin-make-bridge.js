@@ -5,7 +5,10 @@ const crypto=require('node:crypto');
 const VERSION='admin-make-write-bridge-v1';
 const PROTOCOL='kk-admin-write-v1';
 const CORE_SHEET_ID='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
-const WEBHOOK_URL='https://hook.us2.make.com/teflm9cl4c0qikpk7oc2dqdlkeg9unl4';
+// Legacy commercial writer is prohibited independently of routing/config toggles.
+// Use the governed single-writer lane and durable notification outbox instead.
+const LEGACY_TRANSPORT_QUARANTINED=true;
+const WEBHOOK_URL=null; // retired, never keep a Make webhook capability in source
 const MAX_CLOCK_SKEW_MS=2*60*1000;
 const ALLOWED_ACTIONS=new Set([
   'healthProbe',
@@ -132,6 +135,13 @@ function healthPlan(){
 }
 
 async function callBridge(plan,options={}){
+  // A direct caller must not bypass admin-make-gate's quarantine.
+  // Intentionally NOT configurable via environment flags.
+  if(LEGACY_TRANSPORT_QUARANTINED){
+    const error=new Error('Legacy Make commercial transport is quarantined');
+    error.code='BRIDGE_RUNTIME_QUARANTINED';
+    throw error;
+  }
   const env=options.env||process.env;
   const fetchImpl=options.fetchImpl||global.fetch;
   const timeoutMs=Number(options.timeoutMs||15000);

@@ -415,7 +415,9 @@
   }
 
   function bangkokDay(now){
-    return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).format(now || new Date());
+    const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now || new Date());
+    const byType=Object.fromEntries(parts.filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+    return `${byType.year}-${byType.month}-${byType.day}`;
   }
   function currentBookings(data){ return data.bookings.filter(workflowOpen); }
   function todayBookings(data, day){

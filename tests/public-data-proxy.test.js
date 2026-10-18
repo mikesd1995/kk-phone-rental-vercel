@@ -53,7 +53,7 @@ test('public-data proxy emits HTTP-safe ASCII headers and no Sheet ID header', a
   global.fetch = async () => ({
     ok: true,
     status: 200,
-    text: async () => 'event_id,poster_image_url,action_for_web\nE1,https://example.test/p.jpg,show',
+    text: async () => 'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template\nE1,Concert,14/10/2026,Venue,https://example.test/p.jpg,,2,2,available,show,จอง',
   });
   try {
     await withEnv(withoutPrivateCredentials({
@@ -318,4 +318,46 @@ test('public event CSV removes short operational tokens without changing visibil
  assert.equal(rows[2][4],'จอง vivo X300 Pro + Lens');
  assert.equal(rows[3][2],'');assert.equal(rows[3][4],'USB-C พร้อมใช้งาน');
  assert.doesNotMatch(out.text,/OWNER_HIDDEN|owner instruction|PRICE_LOCKED/);
+});
+
+
+test('HTTP public projection rejects unapproved/shifted column and never echoes sensitive payload',async()=>{
+ const prev=global.fetch;
+ for(const feed of [
+   ['08_Web_Ready','A4:K','event_id,event_name,customer_phone,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template'],
+   ['09_Web_Packages','A4:N','package_id,event_id,package_type,model_group,model_display,lens_group,lens_display,price,available_count,package_status,sort_order,web_note,customer_phone,use_case'],
+   ['08_Web_Ready','A4:K','event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template,private_extra']
+ ]){
+   global.fetch=async()=>({ok:true,status:200,text:async()=>feed[2]+'\nTEST,PRIVATE_FIXTURE_EMAIL,9999999999'});
+   try{await withEnv(withoutPrivateCredentials({GOOGLE_SHEET_ID:'sheet-test-123',KK_CRM_SHEET_ID:undefined,KK_CORE_SHEET_REQUIRE_PRIVATE:undefined}),async()=>{
+     const response=fakeRes();await handler({method:'GET',query:{sheet:feed[0],range:feed[1]}},response);
+     assert.equal(response.statusCode,502);
+     assert.doesNotMatch(response.body,/PRIVATE_FIXTURE_EMAIL|9999999999|customer_phone/);
+     assert.equal(response.headers['x-kk-sheet-source'],'public-gviz-fallback');
+   });}finally{global.fetch=prev;}
+ }
+});
+test('public projection rejects row-width overflow, preserves current production safe column shapes',()=>{
+ const header='event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template';
+ const good=header+'\nEVT-1,Event,14/10/2026,Venue,,,2,2,available,show,book';
+ const unsafe=good+',SECRET_PRIVATE_PHONE';
+ assert.ok(handler._test.validatedPublicFeedRows('08_Web_Ready',good));
+ assert.equal(handler._test.validatedPublicFeedRows('08_Web_Ready',unsafe),null);
+});
+
+
+test('public advertising notes redact synthetic contact indicators without affecting event/date/price copy',()=>{
+ const csv=[
+  'event_id,event_name,event_date_text,venue,poster_image_url,event_note,available_phone_count,available_lens_count,booking_status_for_web,action_for_web,line_message_template',
+  'EVT-SAFE,Event,14/10/2026,Venue,,คอนเสิร์ต 2026 ราคา 890 บาท,2,1,available,show,จองทาง LINE',
+  'EVT-MOBILE,Event,14/10/2026,Venue,,ติดต่อ 0999999999,2,1,available,show,จอง',
+  'EVT-EMAIL,Event,14/10/2026,Venue,,อีเมล dummy@example.invalid,2,1,available,show,จอง'
+ ].join('\n');
+ const result=handler._test.sanitizePublicCsv('08_Web_Ready',csv);
+ const parsed=handler._test.parseCsvRows(result.text);
+ assert.equal(result.redacted,2);
+ assert.match(parsed[1][5],/ราคา 890/);
+ assert.equal(parsed[2][5],'');
+ assert.equal(parsed[3][5],'');
+ assert.doesNotMatch(result.text,/0999999999|dummy@example.invalid/);
 });

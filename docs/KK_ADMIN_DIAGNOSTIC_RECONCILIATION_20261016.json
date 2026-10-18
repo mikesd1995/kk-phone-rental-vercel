@@ -1,0 +1,571 @@
+{
+  "schema_version": "KK_ADMIN_DIAGNOSTIC_RECONCILIATION_V1",
+  "recorded_at": "2026-10-16T08:56:58.130116+00:00",
+  "classification": "EXISTING_PR_744_SCOPED_PORT_FROM_705",
+  "source_status": "CODE_WRITTEN_LOCAL_TEST_PASS_INDEPENDENT_SOURCE_REVIEW_PASS_NOT_RELEASED",
+  "authority": {
+    "main": "a54a348dd3258d87b1ec0c70e6ffd255d4678018",
+    "canonical_remote_parent": "08e59a70301bacbf7778f87c1e0e6ead0c64c275",
+    "canonical_local_parent": "065715e904c9f2c725b14cc3f00d94fda628bb4f",
+    "parent_tree": "7bf748981a84384a208d2686a1061bc67a35fcf1",
+    "origin_reviewed_fix": "a50df7526d1a102c9b12fc6e87c8c1df8ba18ecd",
+    "inbox_remote_head": "ed7e89b8c8eac1745111bb9873d8a2b3a14bfbc2",
+    "source_sha256": {
+      "admin/admin.js": "30f174e70ca3784e5f689bd9b16e3388c421fc9f1ac35d72b48859247f1239e9",
+      "admin/index.html": "620b84dde6adb66e245e665f9c9ea509951b044596f2ed14cb9498bd229223ee",
+      "server/admin-proxy.js": "95bac24bb925e8b549593381cac62c977fd5cfdb7baa7834e6758da040ae1853",
+      "tests/admin-diagnostic-authority.test.js": "221c29b40a6c96ceafcaf8dab55bfdafb6065aa41aa0dccf795e009d059a350e"
+    },
+    "publication_readback": "PR744 body and Issue49 identify the exact resulting remote head/tree; this file does not claim a self-referential commit SHA."
+  },
+  "authenticated_live_observation": {
+    "source_at_login": "a9c0078ce5b0cee2035a2130c6a4a145b43c2e0e",
+    "initial_deployment": "dpl_Aoxx96XrwTEFVjstYHUQM8L1x1eN",
+    "latest_alias_deployment": "dpl_3roddsMsVB4hcBC9YQmxECDDfXXX",
+    "latest_alias_source": "6ec3e94a63380487ba7d2ce403a1b9c6c97500ca",
+    "latest_alias_state": "READY",
+    "concurrent_deployment_by_this_task": false,
+    "source_parity_between_live_revisions": [
+      "admin/ (entire subtree)",
+      "server/admin-proxy.js",
+      "vercel.json"
+    ],
+    "admin_secure_login": "SUCCESS_VERIFIED_AUTHENTICATED_DOM",
+    "viewport": {
+      "width": 490,
+      "height": 758,
+      "document_scroll_width": 490
+    },
+    "read_only_live_check": {
+      "apps_script_json": "OK",
+      "apps_script_version": "v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX",
+      "runtime_sheet_binding": "MATCH",
+      "poster_folder": "SET",
+      "audit_error_logs": "READY",
+      "events": 336,
+      "bookings": 53,
+      "current_bookings": 28,
+      "assets": 5,
+      "snapshot_latency_ms": 7611,
+      "browser_live_check_ms": 8509,
+      "direct_writer_ready": false,
+      "writer_allowlisted_actions": 0
+    },
+    "real_business_warnings_preserved": {
+      "missing_posters": 6,
+      "published_past_events": 28,
+      "venue_variants": 5,
+      "completed_without_complete_return_upload_drive_evidence": 12,
+      "cancelled_but_paid": 1,
+      "event_id_date_drift": 1
+    },
+    "privacy": "No names, phones, Booking IDs, Google account identifiers, PIN, OTP, credentials or customer message content persisted."
+  },
+  "defects_fixed": [
+    "Reader snapshot revision no longer certifies Apps Script revision or independent runtime Sheet binding.",
+    "Unknown or invalid booleans stay unverified; true/false polarity and genuine missing-setting warnings remain.",
+    "HTTP failure, rejected application envelope or invalid/blank runtime identity cannot derive successful runtime diagnostics.",
+    "Healthy response with valid feed headers is positively covered; confirmed flags have no misleading wait-for-verification suggestion."
+  ],
+  "tests": {
+    "initial_red": {
+      "file": "admin-diagnostic-reconcile-red-20261016.log",
+      "sha256": "ee1f2fc111f4f78322b1595a1af26699d75baadc1e67067c6b0a3190e0a046eb",
+      "results": [
+        {
+          "tests": 8,
+          "pass": 3,
+          "fail": 5,
+          "skipped": 0
+        }
+      ]
+    },
+    "initial_green": {
+      "file": "admin-diagnostic-reconcile-green-20261016.log",
+      "sha256": "5b7b799f6bd43d82498fc7a0baa48bcacbcdafaed49be1054b9fc8bb892dd820",
+      "results": [
+        {
+          "tests": 8,
+          "pass": 8,
+          "fail": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    "review_red": {
+      "file": "admin-diagnostic-review-red-20261016.log",
+      "sha256": "c61128befc28ab16fffd30914a1906176aaf27df738e319b56442734c356a4e6",
+      "results": [
+        {
+          "tests": 9,
+          "pass": 7,
+          "fail": 2,
+          "skipped": 0
+        }
+      ]
+    },
+    "final_diagnostics": {
+      "file": "admin-diagnostic-review-green-20261016.log",
+      "sha256": "b86203764025ecfdbb0f678e5aa3592c844f65ef49b02638d28052b487fce025",
+      "results": [
+        {
+          "tests": 9,
+          "pass": 9,
+          "fail": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    "routed": {
+      "file": "admin-diagnostic-final-routed-20261016.log",
+      "sha256": "fdf29faaa81c44527c5756c3b8abf6374e9966a1b88d97bf05d3ca5f42372842",
+      "results": [
+        {
+          "tests": 65,
+          "pass": 65,
+          "fail": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    "canonical_full": {
+      "file": "admin-diagnostic-final-canonical-full-20261016.log",
+      "sha256": "41f2b5e25fceaa473aea4e2d7512ac4dec9fa7b9bae9f5266e9f19331c762a78",
+      "results": [
+        {
+          "tests": 1882,
+          "pass": 1882,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    "canonical_postinstall": {
+      "file": "admin-diagnostic-final-canonical-postinstall-20261016.log",
+      "sha256": "7df40ee841462079fe60640f00c482b5afb57db77601411b395f45c933539076",
+      "results": [
+        {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 16,
+          "pass": 16,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 52,
+          "pass": 52,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 31,
+          "pass": 31,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    "combined_full": {
+      "file": "admin-diagnostic-final-combined-full-20261016.log",
+      "sha256": "3b2ed0cc522ed2afb32b8573430860320482940d5ad704fabf2b08130e0414ad",
+      "results": [
+        {
+          "tests": 1943,
+          "pass": 1943,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 26,
+          "pass": 26,
+          "fail": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    "combined_postinstall": {
+      "file": "admin-diagnostic-final-combined-postinstall-20261016.log",
+      "sha256": "3296c2864b22a5b20566850c94084bc6655c975ddca3db27bf659025ed223c47",
+      "results": [
+        {
+          "tests": 6,
+          "pass": 6,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 16,
+          "pass": 16,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 52,
+          "pass": 52,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 4,
+          "pass": 4,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 31,
+          "pass": 31,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 10,
+          "pass": 10,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 14,
+          "pass": 14,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 5,
+          "pass": 5,
+          "fail": 0,
+          "skipped": 0
+        },
+        {
+          "tests": 185,
+          "pass": 185,
+          "fail": 0,
+          "skipped": 0
+        }
+      ]
+    }
+  },
+  "syntax": {
+    "canonical_npm_run_check": "PASS",
+    "combined_postinstall_npm_run_check": "PASS",
+    "fixture_node_check": "PASS",
+    "diff_check": "PASS"
+  },
+  "independent_review": {
+    "agent": "inbox_line_safety_review",
+    "blocker": 0,
+    "material": 0,
+    "initial_focused": {
+      "pass": 123,
+      "total": 123
+    },
+    "final_diagnostics_and_business_boundary": {
+      "pass": 48,
+      "total": 48
+    },
+    "adversarial_health": {
+      "pass": 12,
+      "total": 12
+    },
+    "both_notes_resolved": true,
+    "qa_fixture_syntax_generation_source_and_five_css_hashes": "PASS_3_STATES",
+    "scope": "SOURCE_ONLY; not browser or live acceptance"
+  },
+  "integration": {
+    "local_only_head": "786a4d2842df94c156d3ea306b5b89b74ee4603b",
+    "tree": "67770ceba5ed30d4b53990d5a95d99232aca26f0",
+    "parent": "95c060a575aa35bb925a84becb71acab53f1db1d",
+    "diagnostic_patch": "9_PATHS_APPLIED_CLEAN_NO_MANUAL_RUNTIME_CONFLICT",
+    "exact_canonical_byte_parity": [
+      "admin/admin.js",
+      "server/admin-proxy.js",
+      "tests/admin-diagnostic-authority.test.js"
+    ],
+    "inbox_sql_files_exact_current_700_parity": 4,
+    "sql_changed": false,
+    "scope": "Latest application/test/SQL rehearsal, not a newly deployed or full documentation/QA-tool union of remote branches."
+  },
+  "visual": {
+    "candidate_render_status": "BLOCKED",
+    "reason": "Browser URL policy rejects local file protocol; no workaround attempted. Generated fixture is not observed browser rendering.",
+    "fixture": {
+      "scope": "SYNTHETIC_SCOPED_DIAGNOSTIC_COPY_ONLY",
+      "production_acceptance": false,
+      "network": "CSP default-src none; no bootstrap or external fonts",
+      "source_admin_sha256": "30f174e70ca3784e5f689bd9b16e3388c421fc9f1ac35d72b48859247f1239e9",
+      "css_sources": [
+        {
+          "path": "admin/admin.css",
+          "sha256": "cd30516cb59c8215ff95b9526597c9296e3a58bec1a616a341476dab0cfb388e"
+        },
+        {
+          "path": "admin/admin-ux-v3.css",
+          "sha256": "baf1e6c4187066cf11da6d0caa5aaf279cc3b4aa2a26590ef02e97f29b887e02"
+        },
+        {
+          "path": "admin/admin-ux-v2.css",
+          "sha256": "86cc5849b964e04cc5ce3e083d1c101a5a9fd7089b688ccf295a85042009fbe3"
+        },
+        {
+          "path": "admin/admin-ux-v1.css",
+          "sha256": "d47f8939514b2e731a63e5e90d54f4cf64d76ced38127e2e80441afd2587880d"
+        },
+        {
+          "path": "admin/admin-base.css",
+          "sha256": "bf15b74322fd57c4b67702ca3e3d47ae1b38b6b2d9f9485bdef1db537ed903fb"
+        }
+      ],
+      "cases": [
+        {
+          "name": "unknown",
+          "file": "unknown.html",
+          "sha256": "db833febbd29b0e9fcdf5ed6bc34c512289adc844e6f4af3be7ef099341e60de",
+          "rows": [
+            {
+              "label": "Admin UI Version",
+              "status": "OK",
+              "detail": "admin-snapshot-resilience-3",
+              "suggestion": ""
+            },
+            {
+              "label": "Apps Script Version",
+              "status": "WARN",
+              "detail": "ยังไม่ยืนยันจาก Apps Script",
+              "suggestion": "Verify deployed source; do not deploy repository 9_5_8 over 9_5_9"
+            },
+            {
+              "label": "Vercel Proxy Version",
+              "status": "OK",
+              "detail": "admin-snapshot-resilience-3",
+              "suggestion": ""
+            },
+            {
+              "label": "Sheet ID Match",
+              "status": "WARN",
+              "detail": "ยังไม่ยืนยันจาก Apps Script",
+              "suggestion": "GOOGLE_SHEET_ID in Vercel must match Apps Script spreadsheet"
+            },
+            {
+              "label": "Snapshot Reader",
+              "status": "INFO",
+              "detail": "admin-direct-sheet-readonly-fallback-v3.1",
+              "suggestion": "Read-source version only; Apps Script health remains separate"
+            },
+            {
+              "label": "Poster Folder",
+              "status": "WARN",
+              "detail": "ยังไม่ยืนยัน",
+              "suggestion": "รอผลตรวจค่าจาก Apps Script"
+            },
+            {
+              "label": "Audit/Error Logs",
+              "status": "WARN",
+              "detail": "ยังไม่ยืนยัน",
+              "suggestion": "รอผลตรวจค่าจาก Apps Script"
+            }
+          ]
+        },
+        {
+          "name": "confirmed",
+          "file": "confirmed.html",
+          "sha256": "c411aa8aa289c8b0ba3ede29de0032d3e6e59294ba50a3d76f16ac9fbac41356",
+          "rows": [
+            {
+              "label": "Admin UI Version",
+              "status": "OK",
+              "detail": "admin-snapshot-resilience-3",
+              "suggestion": ""
+            },
+            {
+              "label": "Apps Script Version",
+              "status": "OK",
+              "detail": "v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX",
+              "suggestion": ""
+            },
+            {
+              "label": "Vercel Proxy Version",
+              "status": "OK",
+              "detail": "admin-snapshot-resilience-3",
+              "suggestion": ""
+            },
+            {
+              "label": "Sheet ID Match",
+              "status": "OK",
+              "detail": "synthetic-bound-sheet / synthetic-bound-sheet",
+              "suggestion": "GOOGLE_SHEET_ID in Vercel must match Apps Script spreadsheet"
+            },
+            {
+              "label": "Poster Folder",
+              "status": "OK",
+              "detail": "set",
+              "suggestion": ""
+            },
+            {
+              "label": "Audit/Error Logs",
+              "status": "OK",
+              "detail": "ready",
+              "suggestion": ""
+            }
+          ]
+        },
+        {
+          "name": "missing",
+          "file": "missing.html",
+          "sha256": "65a604b328e0fe96957c884934d32cf649a5ad072c8ae2f1cd924f03cde0ec61",
+          "rows": [
+            {
+              "label": "Admin UI Version",
+              "status": "OK",
+              "detail": "admin-snapshot-resilience-3",
+              "suggestion": ""
+            },
+            {
+              "label": "Apps Script Version",
+              "status": "OK",
+              "detail": "v16.7.0_CRM_PRO_PHASE3_9_5_9_PRICE_INTEGRITY_FIX",
+              "suggestion": ""
+            },
+            {
+              "label": "Vercel Proxy Version",
+              "status": "OK",
+              "detail": "admin-snapshot-resilience-3",
+              "suggestion": ""
+            },
+            {
+              "label": "Sheet ID Match",
+              "status": "OK",
+              "detail": "synthetic-bound-sheet / synthetic-bound-sheet",
+              "suggestion": "GOOGLE_SHEET_ID in Vercel must match Apps Script spreadsheet"
+            },
+            {
+              "label": "Poster Folder",
+              "status": "WARN",
+              "detail": "missing",
+              "suggestion": "Set Script Property KK_POSTER_FOLDER_ID before uploading posters"
+            },
+            {
+              "label": "Audit/Error Logs",
+              "status": "WARN",
+              "detail": "missing",
+              "suggestion": "Run setup/repair in Google Sheet menu"
+            }
+          ]
+        }
+      ]
+    },
+    "registered_gate_evidence": "KK_ADMIN_DIAGNOSTIC_GATEWAY_EVIDENCE_20261016.json",
+    "strict_pre_review_timing": "Initial pre-review used registered reviewer via admin_unified_inbox_review. Explicit storefront_ux_review intent was invoked after implementation, so strict pre-implementation intent/timing is not claimed."
+  },
+  "ci": {
+    "status": "NOT_RUN",
+    "repository_visibility": "public",
+    "standard_public_runners_free_per_official_docs": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+    "existing_workflow": "admin-regression.yml",
+    "connector_fresh_dispatch": "NOT_EXPOSED",
+    "native_git_push_credentials": "UNAVAILABLE",
+    "browser_auth": "DECLINED_DURING_GOOGLE_OTP; no retry after decline",
+    "alternative_workflow_trigger_or_fake_status": false,
+    "read_run_wrapper_limit": "fetch_commit_workflow_runs filters pull-request runs and first page; an empty array is not proof of no runs of any event.",
+    "existing_normal_pr_sync_alternative": "Inspected actual PR744 changed paths and existing workflow triggers. A non-skipped sync would also select Storefront/OpenAI workflows that upload artifacts; bounded Admin Regression is workflow_dispatch only. Did not change triggers or create a trigger-only commit. Standard runner free status does not verify artifact storage capacity.",
+    "git_preview_suppression": {
+      "*": false,
+      "main": true
+    }
+  },
+  "remaining_release_gates": [
+    "Exact-source hosted CI and rendered candidate/owner acceptance",
+    "Hosted PostgREST/private Storage and LINE provider receipt/new-image/wrong-room acceptance",
+    "Private Core distinct reader identity/key,13 real protected datasets and ACL readback",
+    "Signed booking linkage and real handover/return/payment facts",
+    "Governed natural Scanner/Verifier runtime, outbox receipt/ACK and owner-governed release/rollback",
+    "Fresh Storage GB evidence; public runner cost correction does not prove storage free capacity"
+  ],
+  "safety": {
+    "additional_saas_spend": 0,
+    "main_merge": 0,
+    "deployments": 0,
+    "production_sql_or_config_changes": 0,
+    "customer_or_booking_changes": 0,
+    "acl_changes": 0,
+    "automation_changes": 0,
+    "provider_sends": 0,
+    "inbox_opened": false,
+    "profile_hydration_or_mark_read": 0
+  },
+  "next_chat": [
+    "Read this record plus PR744/700 heads and current Production alias before work. Do not repeat native PostgreSQL UID0/PGlite investigation; prior15/15 native process-recovery gate remains valid because all4InboxSQL files are unchanged.",
+    "Do not retry declined GitHub authentication or blocked file-protocol browser navigation without a genuinely permitted new context.",
+    "Use only remaining exact-source/live/owner-fact gates; never invent customer returns, evidence, receipts, keys, CI or visual acceptance.",
+    "Rollback source repair by reverting its scoped commit. No runtime cutover was performed."
+  ]
+}

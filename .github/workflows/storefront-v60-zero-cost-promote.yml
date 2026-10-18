@@ -1,7 +1,9 @@
 name: Storefront V6 Zero Cost Promote
 on:
-  issue_comment:
-    types: [created]
+  workflow_call:
+    secrets:
+      VERCEL_TOKEN:
+        required: false
 permissions:
   contents: read
 concurrency:

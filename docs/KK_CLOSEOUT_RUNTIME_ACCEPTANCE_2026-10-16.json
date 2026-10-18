@@ -1,0 +1,136 @@
+{
+  "observed_at_utc": "2026-10-16T02:01:50.663299+00:00",
+  "production": {
+    "deployment_id": "dpl_4TFT2iMxHer24wtV8LvMGnpKvc3Z",
+    "state": "READY",
+    "source_sha": "3d8b58af20550ef9fb093d74747548aedb106dfe",
+    "main_sha": "a54a348dd3258d87b1ec0c70e6ffd255d4678018",
+    "deployed_by_this_continuation": false,
+    "source_parity": [
+      {
+        "path": "index.html",
+        "bytes": 24679,
+        "sha256": "21ab03330917aee6730edca4ebdf64409225a2589a5d8dafd41bbe93adb42f44",
+        "matches_expected_source": true
+      },
+      {
+        "path": "assets/kk-storefront-v5.css",
+        "bytes": 110497,
+        "sha256": "970d14598f18f80b07e59ac58115ddcb7114a25270c5f274835eec223ae90233",
+        "matches_expected_source": true
+      },
+      {
+        "path": "script.js",
+        "bytes": 108524,
+        "sha256": "3706c49822d3b78fca6b1eb91819e8c44132600f59d77d833842c71eefc5f848",
+        "matches_expected_source": true
+      },
+      {
+        "path": "style.css",
+        "bytes": 52008,
+        "sha256": "012c61ee5c0691f82d5a9af4cc3674a888f5ab49ccacad15c065d6945209ed1c",
+        "matches_expected_source": true
+      }
+    ]
+  },
+  "hero_qa": {
+    "checked_source_sha": "53a327cce3fd3fd225256ccff3d6a46472ddb950",
+    "frontend_digest": "28223ca920d143a1d996d3934da42c6e1a8b07953c6888546fd6675e8de6c8d7",
+    "technical_pass": true,
+    "technical_visual_pass": true,
+    "release_ready": false,
+    "widths": [
+      320,
+      375,
+      390,
+      430,
+      480,
+      768,
+      1024,
+      1440
+    ],
+    "external_browser_requests": 0,
+    "fonts": [
+      {
+        "viewport": {
+          "width": 320,
+          "height": 568
+        },
+        "thai_ready": true,
+        "kanit_ready": true
+      },
+      {
+        "viewport": {
+          "width": 375,
+          "height": 812
+        },
+        "thai_ready": true,
+        "kanit_ready": true
+      },
+      {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "thai_ready": true,
+        "kanit_ready": true
+      },
+      {
+        "viewport": {
+          "width": 430,
+          "height": 932
+        },
+        "thai_ready": true,
+        "kanit_ready": true
+      },
+      {
+        "viewport": {
+          "width": 480,
+          "height": 932
+        },
+        "thai_ready": true,
+        "kanit_ready": true
+      },
+      {
+        "viewport": {
+          "width": 768,
+          "height": 1024
+        },
+        "thai_ready": true,
+        "kanit_ready": true
+      },
+      {
+        "viewport": {
+          "width": 1024,
+          "height": 768
+        },
+        "thai_ready": true,
+        "kanit_ready": true
+      },
+      {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "thai_ready": true,
+        "kanit_ready": true
+      }
+    ],
+    "manifest_sha256": "230331de714edfed1b1d505a26b9a0bcf747af2bd4aba3c98cd6fce1fa19eb44",
+    "poster_delivery": "UNVERIFIED_EXTERNAL_IMAGES_BLOCKED",
+    "owner_acceptance": "UNVERIFIED"
+  },
+  "source_verification": {
+    "main_tests": 1717,
+    "cleanup_tests": 1873,
+    "cleanup_acl_tests": 26,
+    "inbox_tests": 1771,
+    "marketing_tests": 1767,
+    "hero_tests": 1728,
+    "benchmark_cases": 8,
+    "benchmark_pass": true,
+    "postinstall_pass": true,
+    "hosted_exact_new_head_ci": "NOT_CLAIMED"
+  },
+  "final_project_status": "HOLD"
+}

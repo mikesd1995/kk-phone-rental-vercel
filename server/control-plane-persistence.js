@@ -6,6 +6,7 @@ const Control=require('./control-plane-contract.js');
 const NATURAL_ORIGIN='NATURAL_SCHEDULED';
 const DEFAULT_REQUIRED=6;
 const HOUR_MS=60*60*1000;
+const BANGKOK_OFFSET_MS=7*HOUR_MS;
 const REQUIRED_TASK_IDENTITY_FIELDS=Object.freeze([
   'task_id','title','cadence','timezone','prompt_fingerprint'
 ]);
@@ -96,6 +97,77 @@ function validateScheduleEvidence(input,role){
     return {ok:false,classification:'NATURAL_SCHEDULE_ROLE_MINUTE_MISMATCH',scheduled_ms:ms};
   }
   return {ok:true,classification:'NATURAL_SCHEDULE_VALID',scheduled_ms:ms};
+}
+
+function compactBoundaryMs(raw,utc=false){
+  const match=text(raw).match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/);
+  if(!match) return null;
+  const parts=match.slice(1).map(Number);
+  const [year,month,day,hour,minute,second]=parts;
+  const ms=Date.UTC(year,month-1,day,hour,minute,second);
+  const date=new Date(ms);
+  if(year<1970 || date.getUTCFullYear()!==year || date.getUTCMonth()!==month-1 ||
+    date.getUTCDate()!==day || date.getUTCHours()!==hour ||
+    date.getUTCMinutes()!==minute || date.getUTCSeconds()!==second) return null;
+  return utc?ms:ms-BANGKOK_OFFSET_MS;
+}
+
+function canonicalCadence(identity,role){
+  if(identity.timezone!=='Asia/Bangkok') return null;
+  const lines=text(identity.cadence).split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+  const event=lines[0]==='BEGIN:VEVENT' && lines[lines.length-1]==='END:VEVENT';
+  const entries=event?lines.slice(1,-1):lines;
+  if(!entries.length || (!event && entries.length!==1)) return null;
+  const rules=entries.filter(line=>line.startsWith('RRULE:'));
+  const starts=entries.filter(line=>line.startsWith('DTSTART;TZID=Asia/Bangkok:'));
+  if(rules.length!==1 || starts.length>1 || entries.length!==rules.length+starts.length) return null;
+  const fields={};
+  for(const part of rules[0].slice(6).split(';')){
+    const match=part.match(/^([A-Z]+)=([^=]+)$/);
+    if(!match || Object.prototype.hasOwnProperty.call(fields,match[1])) return null;
+    fields[match[1]]=match[2];
+  }
+  const allowed=new Set(['FREQ','INTERVAL','BYHOUR','BYMINUTE','BYSECOND','UNTIL']);
+  if(Object.keys(fields).some(key=>!allowed.has(key)) ||
+    !['HOURLY','DAILY'].includes(fields.FREQ) ||
+    (fields.INTERVAL!==undefined && fields.INTERVAL!=='1') ||
+    fields.BYMINUTE!==String(ROLE_MINUTE[role]) ||
+    (fields.BYSECOND!==undefined && fields.BYSECOND!=='0')) return null;
+  let hours=null;
+  if(fields.FREQ==='DAILY'){
+    if(!/^(?:\d{1,2})(?:,\d{1,2})*$/.test(fields.BYHOUR||'')) return null;
+    hours=fields.BYHOUR.split(',').map(Number);
+    if(hours.some(hour=>hour>23) || new Set(hours).size!==hours.length) return null;
+  }else if(fields.BYHOUR!==undefined) return null;
+  const start=starts.length?compactBoundaryMs(starts[0].slice('DTSTART;TZID=Asia/Bangkok:'.length)):null;
+  if(starts.length && start===null) return null;
+  // Without BYSECOND, a VEVENT inherits DTSTART seconds; only zero-second slots are supported.
+  if(start!==null && fields.BYSECOND===undefined && new Date(start).getUTCSeconds()!==0) return null;
+  const untilRaw=fields.UNTIL;
+  const until=untilRaw===undefined?null:compactBoundaryMs(untilRaw.replace(/Z$/,''),untilRaw.endsWith('Z'));
+  if(untilRaw!==undefined && until===null) return null;
+  if(start!==null && until!==null && start>until) return null;
+  return {hours,minute:ROLE_MINUTE[role],start,until};
+}
+
+function matchesCadence(ms,cadence){
+  if(!cadence || (cadence.start!==null && ms<cadence.start) ||
+    (cadence.until!==null && ms>cadence.until)) return false;
+  const local=new Date(ms+BANGKOK_OFFSET_MS);
+  return local.getUTCMinutes()===cadence.minute && local.getUTCSeconds()===0 &&
+    local.getUTCMilliseconds()===0 && (!cadence.hours || cadence.hours.includes(local.getUTCHours()));
+}
+
+function expectedCadenceSlots(cadence,latestMs,required){
+  const expected=[];
+  let cursor=Math.floor(latestMs/HOUR_MS)*HOUR_MS+cadence.minute*60*1000;
+  if(cursor>latestMs) cursor-=HOUR_MS;
+  // Supported daily rules have at least one slot per day; at most 48 slots are requested.
+  for(let checked=0;checked<required*24+24 && expected.length<required;checked+=1,cursor-=HOUR_MS){
+    if(cadence.start!==null && cursor<cadence.start) break;
+    if(matchesCadence(cursor,cadence)) expected.push(cursor);
+  }
+  return expected.reverse();
 }
 
 function normalizePlannerRows(rows){
@@ -279,6 +351,17 @@ function evaluateNaturalOccurrence(input={},options={}){
     result.blockers.push('canonical task timezone must be Asia/Bangkok');
     return result;
   }
+  const cadence=canonicalCadence(canonical,role);
+  if(!cadence){
+    result.classification='CANONICAL_CADENCE_INVALID';
+    result.blockers.push('canonical cadence must be an explicit supported role schedule');
+    return result;
+  }
+  if(!matchesCadence(schedule.scheduled_ms,cadence)){
+    result.classification='NATURAL_SCHEDULE_OUTSIDE_CANONICAL_CADENCE';
+    result.blockers.push('occurrence is not a slot in the exact canonical schedule');
+    return result;
+  }
 
   const runtime=Control.analyzeNaturalOccurrence(input);
   result.runtime_analysis=runtime;
@@ -327,6 +410,18 @@ function evaluatePersistenceWindow(snapshot={},role,options={}){
       acceptance_credit:0
     };
   }
+  const cadence=canonicalCadence(taskIdentity(canonicalTask),normalizedRole);
+  if(!cadence){
+    return {
+      ok:false,
+      role:normalizedRole,
+      classification:'CANONICAL_CADENCE_INVALID',
+      required,
+      consecutive:0,
+      acceptance_credit:0,
+      occurrences:[]
+    };
+  }
 
   const occurrences=(Array.isArray(snapshot.occurrences)?snapshot.occurrences:[])
     .filter(item=>roleOf(item&&item.role)===normalizedRole)
@@ -352,8 +447,7 @@ function evaluatePersistenceWindow(snapshot={},role,options={}){
     bySlot.set(item.scheduled_ms,list);
   }
   const latestMs=Math.max(...scheduled.map(x=>x.scheduled_ms));
-  const expected=[];
-  for(let i=required-1;i>=0;i-=1) expected.push(latestMs-i*HOUR_MS);
+  const expected=expectedCadenceSlots(cadence,latestMs,required);
 
   const slots=[];
   for(const slot of expected){
@@ -362,7 +456,7 @@ function evaluatePersistenceWindow(snapshot={},role,options={}){
   }
 
   let consecutive=0;
-  for(let slot=latestMs;slot>=latestMs-(required-1)*HOUR_MS;slot-=HOUR_MS){
+  for(const slot of [...expected].reverse()){
     const rows=bySlot.get(slot)||[];
     if(rows.length!==1 || !rows[0].ok) break;
     consecutive+=1;
@@ -370,12 +464,13 @@ function evaluatePersistenceWindow(snapshot={},role,options={}){
 
   const duplicates=slots.filter(x=>x.count>1).map(x=>x.scheduled_ms);
   const missing=slots.filter(x=>x.count===0).map(x=>x.scheduled_ms);
-  const failed=slots.flatMap(x=>x.rows.filter(row=>!row.ok));
+  const missingCount=missing.length+required-expected.length;
+  const failed=scheduled.filter(row=>!row.ok && row.scheduled_ms>=(expected[0]??latestMs));
   const taskIds=[...new Set(slots.flatMap(x=>x.rows.map(row=>row.task_id).filter(Boolean)))];
 
   let classification='PERSISTENCE_WINDOW_PASS';
   if(duplicates.length) classification='PERSISTENCE_WINDOW_DUPLICATE_SLOT';
-  else if(missing.length) classification='PERSISTENCE_WINDOW_GAP';
+  else if(missingCount) classification='PERSISTENCE_WINDOW_GAP';
   else if(failed.length) classification='PERSISTENCE_WINDOW_OCCURRENCE_REJECTED';
   else if(taskIds.length!==1) classification='PERSISTENCE_WINDOW_TASK_ID_DRIFT';
 
@@ -389,7 +484,7 @@ function evaluatePersistenceWindow(snapshot={},role,options={}){
     consecutive,
     acceptance_credit:ok?required:0,
     task_ids:taskIds,
-    missing_slots:missing.length,
+    missing_slots:missingCount,
     duplicate_slots:duplicates.length,
     rejected_occurrences:failed.map(x=>({
       scheduled_at:x.scheduled_at,
