@@ -64,7 +64,10 @@ async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.
     if(!body||body.ok!==true||!p||String(p.spreadsheet_id||'')!==canonical||
         String(p.sheet||'')!==String(sheet)||String(p.range||'')!==String(range)||
         !Array.isArray(p.values)||p.values.length>4000||
-        p.values.some(row=>!Array.isArray(row)||row.length>60)){
+        p.values.some(row=>!Array.isArray(row)||row.length>60||
+          // Apps Script uses getDisplayValues(): every cell MUST be a string.
+          // Reject nested JSON or non-display-value data at the trust boundary.
+          row.some(cell=>typeof cell!=='string'))){
       throw err('CORE_APPS_SCRIPT_RESPONSE_INVALID');
     }
     return p.values;
