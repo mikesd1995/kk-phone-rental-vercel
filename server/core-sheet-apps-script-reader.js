@@ -20,7 +20,10 @@ function scriptState(env=process.env){
   const independent=keyFormatOk&&readerKey!==adminKey;
   return {configured:!!(allowed&&independent),validUrl:allowed,independentReadKey:independent};
 }
-function err(code){const x=new Error(code);x.code=code;return x;}
+// Only errors constructed locally may retain diagnostic codes. Upstream fetch
+// exceptions must never be trusted even when they forge a matching prefix.
+const ownedErrors=new WeakSet();
+function err(code){const x=new Error(code);x.code=code;ownedErrors.add(x);return x;}
 async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.fetch}={}){
   const state=scriptState(env);
   if(!state.configured)throw err('CORE_APPS_SCRIPT_NOT_CONFIGURED');
@@ -67,7 +70,7 @@ async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.
     return p.values;
   }catch(e){
     if(e&&e.name==='AbortError')throw err('CORE_APPS_SCRIPT_TIMEOUT');
-    if(e&&String(e.code||'').startsWith('CORE_APPS_SCRIPT_'))throw e;
+    if(e&&ownedErrors.has(e))throw e;
     throw err('CORE_APPS_SCRIPT_UNAVAILABLE');
   }finally{clearTimeout(timer)}
 }
