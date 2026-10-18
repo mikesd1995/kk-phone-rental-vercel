@@ -149,3 +149,13 @@ Full durable evidence: [SECURITY_SELECTED_1_2_3_2026-10-17.md](SECURITY_SELECTED
 - Latest isolated source unit checks: Core 10/10, Preflight 8/8, privacy workflow contract 4/4, Visual 40/40; none substitute for real Google owner/private 13-dataset probe or signed-out direct ACL denial.
 - No Merge/Deploy/ACL/Secret/Booking/Customer/Price changes from this task. Core still Anyone Reader and dedicated reader key absent. Production READY independently moved to SHA 44de0066f0c7edd59e153b2d31c22d65b84de5af, not PR 739. Reconcile latest Main before any approved release.
 - P0 OPEN; Draft PR HOLD until real Node/Browser, owner visual approval, safe live private-only cutover and revoke permission acceptance.
+
+
+## 2026-10-18 — Phase A (OpenAI/Visual/Core Node/Integration) new checkpoint
+- New canonical report: [SECURITY_PHASE_A_RECONCILIATION_2026-10-18.md](SECURITY_PHASE_A_RECONCILIATION_2026-10-18.md). User-approved Phase A tasks 1,2,3,4 performed on #739 draft only.
+- Confirmed previous 3 OpenAI source design regressions were already patched on 17 Oct; evaluated exact current branch's 42 visual/source-contract cases **42/42 in V8**. No new hosted result.
+- Real mobile/poster fixes staged but screenshot/owner Visual QA still NOT accepted; do not bypass screenshots.
+- Added `WeakSet`-owned local Core Script reader errors and synthetic forged-prefix error regression so untrusted providers cannot masquerade as private diagnostic codes. Current branch source **18/18 Apps Script V8** and focused 3/3 passed.
+- Exact HEAD native Node 10-suite flow remains staged but GitHub Actions returned zero current-head runs. Full native Node PASS cannot be asserted; repository unavailable locally via GitHub DNS.
+- Integrated comparison: #739 vs Main 103 ahead, 2 behind before the new commits; #744 shares 26 paths, #737 shares 3 finance-related paths. Do not perform blind merges, overwrite Revenue Master X quote policy, or substitute cleanup private transport defaults without review.
+- Production READY and independent from #739; Core anyone/reader unchanged, Vercel reader key absent. Phase A remains HOLD for actual CI, screenshot and branch reconciliation; Phase B/C remain approval-gated.
