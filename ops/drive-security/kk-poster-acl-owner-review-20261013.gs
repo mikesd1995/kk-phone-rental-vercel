@@ -81,7 +81,9 @@ function kkAclSnapshot_20261013(){
   if(active.some(id=>!found.has(id)))throw Error('ACTIVE_DRIVE_IMAGE_OUTSIDE_KK_ASSET_TREES');
   // Fingerprint binds identity, name and parent hierarchy as well as role.
   // A file moved/renamed between owner Dry Run and Apply invalidates approval.
-  const manifest=items.map(x=>[x.kind,x.id,x.parent,x.depth,x.obj.getName(),x.role].join('|')).sort().join('\n');
+  // Length/escape-safe serialization binds each metadata field unambiguously.
+  // Folder and artwork names may legally contain pipes and line breaks.
+  const manifest=items.map(x=>JSON.stringify([x.kind,x.id,x.parent,x.depth,x.obj.getName(),x.role])).sort().join('\n');
   const fingerprint=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,manifest)
     .map(b=>('0'+((b+256)%256).toString(16)).slice(-2)).join('');
   return {items,active:active.length,images:found.size,folders:foundFolders.size,
