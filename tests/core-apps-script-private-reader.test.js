@@ -170,3 +170,16 @@ test('Apps Script function exact allowed range returns selected display values w
  assert.equal(result.data.range,'A4:K');
  assert.deepEqual(result.data.values,[['event_id','event_name'],['EVT-1','Concert']]);
 });
+
+
+test('a forged upstream CORE_APPS_SCRIPT diagnostic cannot carry sensitive message or token through the reader',async()=>{
+ const leak='fake_sensitive_fixture_never_log';
+ const spoof=Object.assign(new Error(leak),{code:'CORE_APPS_SCRIPT_'+leak});
+ await assert.rejects(
+   ()=>script.readValues({
+     env:config,sheetId:config.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',
+     fetchImpl:async()=>{throw spoof;}
+   }),
+   e=>e.code==='CORE_APPS_SCRIPT_UNAVAILABLE' && !String(e.message).includes(leak)
+ );
+});
