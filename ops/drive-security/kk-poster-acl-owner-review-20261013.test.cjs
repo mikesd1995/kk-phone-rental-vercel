@@ -437,6 +437,8 @@ test('restricted historical asset is fingerprinted but never made public', () =>
   const first = f.api.apply(dry.fingerprint);
   assert.equal(first.ok, false);
   assert.equal(first.updated, 25);
+  assert.equal(first.reader_verified, 25, 'owner-private historic image must not be reported as a public Reader');
+  assert.equal(first.restricted_historical, 1);
   assert.equal(f.roles['brand-logo'], undefined);
   const secondDry = f.api.dry();
   assert.equal(secondDry.public_writer, 20);
@@ -447,6 +449,8 @@ test('restricted historical asset is fingerprinted but never made public', () =>
   assert.equal(last.remaining_writers, 6);
   assert.equal(last.remaining_active_writers, 0);
   assert.equal(last.historical_public_writers, 2);
+  assert.equal(last.reader_verified, 39);
+  assert.equal(last.restricted_historical, 1);
   assert.equal(f.getWrites(), 39);
   assert.equal(last.folder_public_writers_held, 4);
   assert.equal(f.roles['brand-logo'], undefined);
