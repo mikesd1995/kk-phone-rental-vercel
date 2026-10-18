@@ -499,3 +499,44 @@ test('responsive poster safety guards retain uncropped art and honest release bl
   assert.match(visual,/owner_visual_acceptance/);
   assert.doesNotMatch(visual,/screenshotReviewPass\s*=\s*true\s*;/);
 });
+
+
+test('Phase A rendered poster and card blockers remain P1 even when screenshots are captured',()=>{
+  const E=require('../scripts/storefront-evidence.cjs');
+  const healthy={
+    document_width:390,raw_i18n_keys:[],small_targets:[],
+    card_columns:2,column_widths:[176,176],card_height_spread_px:0,
+    poster_frame_ratios:[.75,.75],escaped_card_elements:[],
+    poster_source_issues:[],poster_treatment_issues:[],theme_icons:1,
+    modal:null
+  };
+  const unsafe={
+    ...healthy,
+    escaped_card_elements:['pi-price'],
+    poster_treatment_issues:[{event_id:'synthetic-event',coverage:.60,treatment:'missing'}],
+    poster_source_issues:[{event_id:'synthetic-event',reason:'webpage_screenshot_service'}]
+  };
+  const codes=E.stateFindings(unsafe,{width:390,name:'catalogue'}).map(x=>x.code);
+  assert.ok(codes.includes('CARD_CONTENT_ESCAPES'));
+  assert.ok(codes.includes('POSTER_LETTERBOX_UNTREATED'));
+  assert.ok(codes.includes('POSTER_SOURCE_NOT_ARTWORK'));
+  assert.deepEqual(E.stateFindings(healthy,{width:390,name:'catalogue'}),[]);
+});
+test('Phase A mobile modal accepts centered-or-bottom placement only with containment and focus',()=>{
+  const E=require('../scripts/storefront-evidence.cjs');
+  const healthy={
+    document_width:390,raw_i18n_keys:[],small_targets:[],
+    card_columns:2,column_widths:[176,176],card_height_spread_px:0,
+    poster_frame_ratios:[],escaped_card_elements:[],
+    poster_source_issues:[],poster_treatment_issues:[],theme_icons:1,
+    modal:null
+  };
+  const base={left:5,right:385,top:200,bottom:644,viewport_height:844,
+    scroll_width:380,client_width:380,focus_inside:true,title:'Synthetic Event'};
+  assert.deepEqual(E.stateFindings({...healthy,modal:base},{width:390,name:'modal'}),[]);
+  const bad=E.stateFindings({...healthy,modal:{...base,top:55,bottom:495}},{width:390,name:'modal'});
+  assert.ok(bad.some(x=>x.code==='MOBILE_DIALOG_PLACEMENT_INVALID'));
+  const clipped=E.stateFindings({...healthy,modal:{...base,right:450,focus_inside:false}},{width:390,name:'modal'});
+  assert.ok(clipped.some(x=>x.code==='MODAL_VIEWPORT_CONTAINMENT'));
+  assert.ok(clipped.some(x=>x.code==='MODAL_FOCUS_ESCAPED'));
+});
