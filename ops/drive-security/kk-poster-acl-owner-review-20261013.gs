@@ -122,12 +122,13 @@ function kkAclApply_20261013(approvedFingerprint){
   if(approvedFingerprint!==before.fingerprint)throw Error('ACL_CHANGED_SINCE_OWNER_APPROVAL');
   // Address currently public-facing surfaces first. Historic images must not
   // consume the first approval batch while active images remain publicly writable.
-  // Roots and descendant folders remain before images; never reorder after approval.
-  const inActiveScope=it=>it.kind==='folder'||(it.kind==='image'&&KKACL_EXPECTED.includes(it.id));
+  // Folder ACL writes are intentionally excluded: a parent role change can
+  // propagate to historic or owner-private descendants before post-write checks.
+  // Folders require a separate, inheritance-aware owner approval and code path.
+  const inActiveScope=it=>it.kind==='image'&&KKACL_EXPECTED.includes(it.id);
   if(KKACL_WRITE_SCOPE!=='ACTIVE_ONLY')throw Error('ACL_WRITE_SCOPE_MUST_BE_ACTIVE_ONLY');
   const ordered=before.items.filter(inActiveScope).sort((a,b)=>
-    (a.kind==='folder'?0:1)-(b.kind==='folder'?0:1)||a.depth-b.depth||
-    (a.id<b.id?-1:a.id>b.id?1:0));
+    a.depth-b.depth||(a.id<b.id?-1:a.id>b.id?1:0));
   const pending=ordered.filter(it=>it.role===String(DriveApp.Permission.EDIT));
   const batch=pending.slice(0,KKACL_MAX_WRITES_PER_APPROVAL);
   const updated=[],failed=[];
@@ -144,10 +145,13 @@ function kkAclApply_20261013(approvedFingerprint){
   const historicalBefore=before.items.filter(it=>!inActiveScope(it)).map(it=>[it.id,it.role]);
   const historicalAfter=new Map(after.items.filter(it=>!inActiveScope(it)).map(it=>[it.id,it.role]));
   const historyChanged=historicalBefore.some(([id,role])=>historicalAfter.get(id)!==role);
+  const folderWriters=after.items.filter(it=>it.kind==='folder'&&it.role===String(DriveApp.Permission.EDIT)).length;
   const result={scope:KKACL_WRITE_SCOPE,updated:updated.length,
                 batch_limit:KKACL_MAX_WRITES_PER_APPROVAL,failures:failed,
                 residual_active_scope_writers:afterActiveWriters,
-                historical_public_writers:after.writers-afterActiveWriters,
+                historical_public_writers:after.writers-afterActiveWriters-folderWriters,
+                folder_public_writers_held:folderWriters,
+                folder_writes:0,
                 historical_acl_changed:historyChanged,active:after.active,
                 images:after.images,folders:after.folders,
                 need_new_owner_dry_run:afterActiveWriters>0};
@@ -158,11 +162,13 @@ function kkAclApply_20261013(approvedFingerprint){
     throw Error('PARTIAL_OR_DRIFTED_ACL_REPAIR:'+JSON.stringify(result));
   // "ok" is the WHOLE historical+active scope, never merely the active subset.
   // The exact active scope may complete while Issue #718 stays OPEN for history.
-  return {ok:after.writers===0,active_scope_completed:afterActiveWriters===0,
+  return {ok:after.writers===0,active_scope_completed:afterActiveWriters===0&&folderWriters===0,
+          active_images_completed:afterActiveWriters===0,
+          folder_writes:0,folder_public_writers_held:folderWriters,
           partial:after.writers>0,scope:KKACL_WRITE_SCOPE,
           updated:updated.length,remaining_writers:after.writers,
           remaining_active_writers:afterActiveWriters,
-          historical_public_writers:after.writers-afterActiveWriters,
+          historical_public_writers:after.writers-afterActiveWriters-folderWriters,
           reader_verified:after.items.length-after.writers,active_files:after.active,
           need_new_owner_dry_run:afterActiveWriters>0};
 }
@@ -171,7 +177,9 @@ function kkAclApply_20261013(approvedFingerprint){
 /**
  * Owner UI entrypoint. Replace the placeholder ONLY after reviewing the Dry Run
  * fingerprint and ALL scoped descendants of Brand/Brand Kit and both Posters
- * directories. Each run changes at most 25 entries; review a NEW Dry Run and
+ * directories. Folder ACLs are HELD (zero folder writes) because their
+ * inherited historic descendants need an independent owner-reviewed plan.
+ * Each run changes at most 25 active image permissions; review a NEW Dry Run and
  * fingerprint before the next batch. Never add an automatic trigger.
  *
  * Note: Google Apps Script's editor cannot pass function arguments directly.
