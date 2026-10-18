@@ -21,7 +21,8 @@ function okResponse(values,extra={}){
  })};
 }
 test('alternate transport is strictly opt-in and rejects non-Google/script URL/credential absent',()=>{
- assert.equal(core.state({}).transport,'service-account');
+ assert.equal(core.state({}).transport,'none');
+ assert.equal(core.state({KK_CORE_PRIVATE_TRANSPORT:'service-account'}).transport,'service-account');
  assert.equal(core.state(config).configured,true);
  assert.equal(core.state(config).authMode,'apps_script_key');
  for(const bad of [
