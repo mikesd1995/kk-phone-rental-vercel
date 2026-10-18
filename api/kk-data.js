@@ -11,6 +11,7 @@
 const {installRuntimeWarningTracer}=require('../server/runtime-warning-tracer');
 installRuntimeWarningTracer('kk-data');
 const privateSheets = require('./lib/private-google-sheets');
+const CorePrivacy = require('../server/core-sheet-private-reader.js');
 const lineBookingWebhook = require('../server/line-booking-webhook');
 
 const KK_APP_VERSION = 'v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STOCK_RESERVATION_FIX';
@@ -82,12 +83,15 @@ function looksInternalPublicText(value) {
 
 function sanitizePublicTextValue(value) {
   const text = String(value == null ? '' : value).replace(/\[INQUIRY_ONLY\]/ig, '').trim();
-  return looksInternalPublicText(text) ? '' : text;
+  // Prevent contact details accidentally copied into owner-facing notes/templates
+  // from becoming public via the derived feeds. Never copy the raw value to logs.
+  const contact=/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|(?:\+66|0)[\s().-]?[689](?:[\s().-]?\d){8}\b/i;
+  return looksInternalPublicText(text)||contact.test(text) ? '' : text;
 }
 
 function sanitizePublicCsv(sheet, text) {
   const rows = parseCsvRows(text);
-  if (!rows.length) return {text: String(text || ''), dropped: 0, redacted: 0};
+  if (!rows.length) return {text:'',dropped:0,redacted:0,invalid:true};
   const header = rows[0].map(v => String(v || '').trim().toLowerCase());
   const idx = name => header.indexOf(name);
   let required = [];
@@ -96,7 +100,7 @@ function sanitizePublicCsv(sheet, text) {
   if (!required.length) return {text: String(text || ''), dropped: 0, redacted: 0};
 
   const requiredIndexes = required.map(idx);
-  if (requiredIndexes.some(i => i < 0)) return {text: String(text || ''), dropped: 0, redacted: 0};
+  if (requiredIndexes.some(i => i < 0)) return {text:'',dropped:0,redacted:0,invalid:true};
 
   const publicTextFields = sheet === '08_Web_Ready'
     ? ['event_note', 'line_message_template']
@@ -274,6 +278,20 @@ function renderEventSharePage(eventId, text) {
     '</head><body><p>กำลังเปิดรายละเอียดงาน… <a href="' + escapeHtml(target) + '">เปิด KK Phone Rental</a></p></body></html>';
 }
 
+const PUBLIC_FEED_HEADERS=Object.freeze({
+  '08_Web_Ready':Object.freeze(['event_id','event_name','event_date_text','venue','poster_image_url','event_note','available_phone_count','available_lens_count','booking_status_for_web','action_for_web','line_message_template']),
+  '09_Web_Packages':Object.freeze(['package_id','event_id','package_type','model_group','model_display','lens_group','lens_display','price','available_count','package_status','sort_order','web_note','raw_available_count','use_case'])
+});
+function validatedPublicFeedRows(sheet,text){
+  const expected=PUBLIC_FEED_HEADERS[sheet];
+  const rows=parseCsvRows(text);
+  if(!expected||rows.length===0)return null;
+  const header=rows[0].map(x=>String(x||'').trim().toLowerCase());
+  if(header.length<=(sheet==='08_Web_Ready'?10:11)||header.length>expected.length
+    ||header.some((name,i)=>name!==expected[i] && !(sheet==='09_Web_Packages' && i===11 && name==='package_note'))
+    ||rows.slice(1).some(row=>row.length>header.length))return null;
+  return rows;
+}
 function csvHeaderLooksValid(sheet, text) {
   const firstLine = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/)[0] || '';
   const normalized = firstLine.toLowerCase();
@@ -348,13 +366,21 @@ module.exports = async function handler(req, res) {
 
   const envSheetId = String(process.env.GOOGLE_SHEET_ID || '').trim();
   const privateEnvSheetId = String(process.env.KK_CRM_SHEET_ID || '').trim();
-  if(envSheetId && privateEnvSheetId && envSheetId!==privateEnvSheetId){
+  const corePrivateStrict=CorePrivacy.enabled(process.env);
+  if(!corePrivateStrict && envSheetId && privateEnvSheetId && envSheetId!==privateEnvSheetId){
     res.setHeader('X-KK-Sheet-Source', 'sheet-id-config-conflict');
     return send(res, 503, 'Public-data reader Sheet ID configuration conflicts.');
   }
-  const sheetId = envSheetId || privateEnvSheetId || DEFAULT_SHEET_ID;
-  const requirePrivate = isTrue(process.env.KK_PUBLIC_SHEET_REQUIRE_PRIVATE);
-  const privateState = privateSheets.configState(process.env);
+  // Private Core and CRM are separate workbooks. In strict Core mode the
+  // independent canonical Core ID takes precedence without a false CRM conflict.
+  const sheetId = corePrivateStrict ? envSheetId : (envSheetId || privateEnvSheetId || DEFAULT_SHEET_ID);
+  const requirePrivate = corePrivateStrict || isTrue(process.env.KK_PUBLIC_SHEET_REQUIRE_PRIVATE);
+  const coreState=CorePrivacy.state(process.env);
+  const privateState = corePrivateStrict ? {
+    configured:coreState.configured,
+    authMode:coreState.authMode,
+    sheetIdState:coreState.explicitSheetId?'CORE_SHEET_ID_EXPLICIT':'CORE_SHEET_ID_MISSING'
+  } : privateSheets.configState(process.env);
   const hasPrivateReader = privateState.configured;
 
   // Non-secret runtime diagnostics for cutover acceptance. Never expose email, key,
@@ -378,8 +404,10 @@ module.exports = async function handler(req, res) {
 
   if (hasPrivateReader) {
     try {
-      text = await readPrivateCsv(sheetId, sheet, range);
-      source = 'private-service-account';
+      text = corePrivateStrict
+        ? await CorePrivacy.readCsv({sheetId,sheet,range})
+        : await readPrivateCsv(sheetId, sheet, range);
+      source = corePrivateStrict && coreState.transport==='apps-script' ? 'private-owner-apps-script' : 'private-service-account';
     } catch (err) {
       privateError = err;
       if (requirePrivate) {
@@ -393,6 +421,12 @@ module.exports = async function handler(req, res) {
   }
 
   if (!text) {
+    // Never attempt public GViz when the privacy cutover is armed, even if
+    // private authentication returned an error or an empty dataset.
+    if(corePrivateStrict){
+      res.setHeader('X-KK-Sheet-Source','core-private-unavailable');
+      return send(res,503,'Private Core reader is unavailable.');
+    }
     try {
       text = await readPublicGvizCsv(sheetId, sheet, range);
       source = privateError ? 'public-gviz-fallback-after-private-error' : 'public-gviz-fallback';
@@ -406,12 +440,16 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  if (!csvHeaderLooksValid(sheet, text)) {
+  if (!csvHeaderLooksValid(sheet, text) || !validatedPublicFeedRows(sheet,text)) {
     res.setHeader('X-KK-Sheet-Source', source || 'unknown');
     return send(res, 502, 'Google Sheets returned an invalid public-data schema.');
   }
 
   const sanitized = sanitizePublicCsv(sheet, text);
+  if(sanitized.invalid){
+    res.setHeader('X-KK-Sheet-Source','invalid-public-projection');
+    return send(res,502,'Public-data projection schema rejected.');
+  }
   text = sanitized.text;
   if (sanitized.dropped > 0) {
     res.setHeader('X-KK-Public-Rows-Dropped', String(sanitized.dropped));
@@ -440,6 +478,7 @@ module.exports = async function handler(req, res) {
 
 module.exports._test = {
   ALLOWED,
+  validatedPublicFeedRows,
   isTrue,
   parseCsvRows,
   serializeCsvRows,

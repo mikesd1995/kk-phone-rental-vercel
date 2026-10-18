@@ -76,19 +76,31 @@ function kkSafeAlert_(message) {
   }
 }
 
+function kkRedactSecretText_(value) {
+  let safe=String(value==null?'':value);
+  try{
+    const props=PropertiesService.getScriptProperties();
+    for(const key of ['KK_ADMIN_API_KEY','KK_CORE_PRIVATE_READ_KEY']){
+      const secret=String(props.getProperty(key)||'');
+      if(secret.length>=16)safe=safe.split(secret).join('[redacted]');
+    }
+  }catch(_){return '[redaction unavailable]';}
+  return safe;
+}
+
 function kkSafeStringify_(value, maxLen) {
   const limit = maxLen || 1500;
   try {
     const clean = JSON.parse(JSON.stringify(value || {}, function(key, val) {
-      if (key === 'apiKey') return '[redacted]';
+      if (key === 'apiKey' || key === 'readKey' || key === 'KK_CORE_PRIVATE_READ_KEY') return '[redacted]';
       if (key === 'base64') return '[base64 omitted]';
       if (typeof val === 'string' && val.length > 300) return val.slice(0, 300) + '…';
       return val;
     }));
     const text = JSON.stringify(clean);
-    return text.length > limit ? text.slice(0, limit) + '…' : text;
+    return kkRedactSecretText_(text.length > limit ? text.slice(0, limit) + '…' : text);
   } catch (err) {
-    return String(value || '').slice(0, limit);
+    return '[unserializable payload]';
   }
 }
 
@@ -146,10 +158,10 @@ function kkErrorLog_(action, payload, err, startedAt) {
     new Date(),
     KK_ADMIN_VERSION,
     action || '',
-    err && err.message ? err.message : String(err),
+    kkRedactSecretText_(err && err.message ? err.message : String(err)),
     duration,
     kkSafeStringify_(payload, 1000),
-    err && err.stack ? String(err.stack).slice(0, 1500) : '',
+    kkRedactSecretText_(err && err.stack ? String(err.stack).slice(0, 1500) : ''),
     payload && payload.proxyVersion ? payload.proxyVersion : ''
   ]);
 }
@@ -1331,6 +1343,62 @@ function kkApiRequireKey_(payload) {
   if (!provided || provided !== expected) throw new Error('Invalid admin API key');
 }
 
+// Separate, read-only capability. The existing Admin key can create/update
+// bookings and MUST NOT be accepted for private Core reads.
+function kkApiRequirePrivateReadKey_(payload){
+  const props=PropertiesService.getScriptProperties();
+  const expected=String(props.getProperty('KK_CORE_PRIVATE_READ_KEY')||'').trim();
+  const admin=String(props.getProperty('KK_ADMIN_API_KEY')||'').trim();
+  const supplied=String(payload&&payload.readKey||'').trim();
+  if(expected.length<32 || (admin&&expected===admin))throw new Error('PRIVATE_CORE_READER_KEY_NOT_READY');
+  // Fixed-size comparison avoids an early exit on a wrong byte.
+  let difference=expected.length^supplied.length;
+  for(let i=0;i<expected.length;i++) difference|=expected.charCodeAt(i)^(supplied.charCodeAt(i)||0);
+  if(difference!==0)throw new Error('PRIVATE_CORE_READER_KEY_INVALID');
+}
+
+// Zero-cost fallback when Google service-account provisioning is unavailable.
+// Explicitly disabled by default in Script Properties. The dedicated
+// KK_CORE_PRIVATE_READ_KEY (NOT the mutating Admin API key) authenticates reads.
+// The action is selected before authentication but dispatch is AFTER auth. No
+// ad-hoc tabs or arbitrary A1 ranges are accepted.
+const KK_PRIVATE_CORE_READ_ALLOWLIST = Object.freeze({
+  '01_Events':['A4:I','A4:Z'],
+  '00_Master_Booking':['A4:X'],
+  '02_Assets':['A4:G'],
+  '03_Packages':['A4:J'],
+  '04_Event_Overrides':['A4:G'],
+  '08_Web_Ready':['A4:K','A4:J500'],
+  '09_Web_Packages':['A4:N','A4:M','A4:L'],
+  '11_Customer_Stats':['A1:H'],
+  '10_Admin_Health_Check':['A4:D','A4:B40'],
+  'Model_Master':['A4:E'],
+  '18_Event_Visibility_Locks':['A1:N','A1:N500'],
+  '_Rental_Dashboard_Data':['A1:O'],
+  '13_Event_Archive':['A1:Z']
+});
+function kkApiPrivateCoreRead_(payload){
+  if(String(PropertiesService.getScriptProperties().getProperty('KK_CORE_PRIVATE_READ_ENABLED')||'')!=='1') throw new Error('PRIVATE_CORE_READ_DISABLED');
+  const ss=SpreadsheetApp.getActive();
+  if(String(payload.coreSheetId||'')!==ss.getId()) throw new Error('PRIVATE_CORE_ID_MISMATCH');
+  const sheet=String(payload.sheet||'');
+  const range=String(payload.range||'');
+  if(!Object.prototype.hasOwnProperty.call(KK_PRIVATE_CORE_READ_ALLOWLIST,sheet) ||
+     KK_PRIVATE_CORE_READ_ALLOWLIST[sheet].indexOf(range)<0) throw new Error('PRIVATE_CORE_RANGE_DENIED');
+  const sh=ss.getSheetByName(sheet);
+  if(!sh) throw new Error('PRIVATE_CORE_SOURCE_MISSING');
+  const match=range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d*)$/);
+  if(!match) throw new Error('PRIVATE_CORE_RANGE_INVALID');
+  const start=Number(match[2]);
+  const requestedEnd=match[4]?Number(match[4]):sh.getLastRow();
+  // Refuse huge datasets rather than secretly truncating or consuming paid quota.
+  if(requestedEnd>4000 || requestedEnd<start) throw new Error('PRIVATE_CORE_RANGE_NOT_READY');
+  const safeRange=match[1]+start+':'+match[3]+requestedEnd;
+  const values=sh.getRange(safeRange).getDisplayValues();
+  return {data:{spreadsheet_id:ss.getId(),sheet:sheet,range:range,values:values}};
+}
+
+
 function kkAcquireDocumentLock_(label, waitMs) {
   const lock = LockService.getDocumentLock();
   const ms = Math.max(1000, Number(waitMs || 8000));
@@ -1357,13 +1425,15 @@ function doPost(e) {
   let keyOk = false;
   try {
     payload = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
-    kkApiRequireKey_(payload);
-    keyOk = true;
     action = String(payload.action || '').trim();
+    if(action==='privateCoreRead') kkApiRequirePrivateReadKey_(payload);
+    else kkApiRequireKey_(payload);
+    keyOk = true;
     let result;
 
     switch (action) {
       case 'snapshot': result = kkApiSnapshot_(payload); break;
+      case 'privateCoreRead': result = kkApiPrivateCoreRead_(payload); break;
       case 'phase1Health': result = { data: kkPhase1Diagnostics_(payload) }; break;
       case 'uploadPoster': result = kkApiUploadPoster_(payload); break;
       case 'createEvent': result = kkApiCreateEvent_(payload); break;
@@ -1382,19 +1452,21 @@ function doPost(e) {
       case 'cleanupOldData': result = kkApiCleanupOldData_(payload); break;
       default: throw new Error('Unknown action: ' + action);
     }
-    if (action && action !== 'snapshot' && action !== 'phase1Health') kkAuditLog_(action, payload, result, startedAt);
+    if (action && action !== 'snapshot' && action !== 'phase1Health' && action !== 'privateCoreRead') kkAuditLog_(action, payload, result, startedAt);
     return kkApiJson_(kkApiOk_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, result || {})));
   } catch (err) {
-    if (keyOk) kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
+    if (keyOk && action !== 'privateCoreRead') kkErrorLog_(action || (payload && payload.action) || '', payload, err, startedAt);
+    if(action==='privateCoreRead') return kkApiJson_({ok:false,admin_api_version:KK_ADMIN_VERSION,error_code:'PRIVATE_CORE_READ_UNAVAILABLE',error:'Private Core read unavailable'});
     return kkApiJson_(Object.assign({ admin_api_version: KK_ADMIN_VERSION }, kkApiFail_(err)));
   }
 }
 
 function doGet() {
+  // Public unauthenticated liveness only; NEVER disclose canonical Sheet ID or
+  // internal workbook metadata. Authenticated phase1Health supplies admin checks.
   return kkApiJson_({
     ok: true,
     version: KK_ADMIN_VERSION,
-    spreadsheet_id: SpreadsheetApp.getActive().getId(),
     message: 'KK Phone Rental Admin CRM API is running. Use POST through the Vercel proxy.'
   });
 }
@@ -2554,6 +2626,11 @@ function kkLineBookingClaimReadback_(claim) {
   if (String(readback[2] || '').toLowerCase().trim() !== 'pending') return null;
   if (String(readback[3] || '').trim() !== String(claim.event_id || '').trim()) return null;
   if (String(readback[4] || '').trim() !== String(claim.customer_name || '').trim()) return null;
+  // LINE identity is authoritative even when international renters provide no phone.
+  const lineContact = String(readback[5] || '').trim();
+  if (!lineContact) return null;
+  if (String(claim.customer_contact || '').trim() &&
+      lineContact !== String(claim.customer_contact || '').trim()) return null;
   if (String(readback[6] || '').trim() !== String(claim.customer_phone || '').trim()) return null;
   if (String(readback[7] || '').toUpperCase().trim() !== 'LINE') return null;
   if (String(readback[9] || '').trim() || String(readback[10] || '').trim()) return null;
@@ -2618,10 +2695,12 @@ function kkApiCreateLineBookingPending_(payload) {
     let templateId = String(payload.template_id || '').trim();
     const customerName = String(payload.customer_name || '').trim();
     const customerPhone = String(payload.customer_phone || '').trim();
-    const customerContact = payload.customer_contact || '';
+    // A verified LINE contact identifies international customers without a phone.
+    // Caller identity is enforced upstream; keep canonical customer_contact mandatory.
+    const customerContact = String(payload.customer_contact || '').trim();
     const pickupTime = String(payload.pickup_time || '').trim();
-    if (!eventId || !templateId || !customerName || !customerPhone) {
-      throw new Error('LINE booking requires event_id, template_id, customer_name and customer_phone');
+    if (!eventId || !templateId || !customerName || !customerContact) {
+      throw new Error('LINE booking requires event_id, template_id, customer_name and customer_contact');
     }
     if (payload.phone_asset_id || payload.lens_asset_id) {
       throw new Error('Pending LINE intake must not assign physical assets');
@@ -2643,6 +2722,7 @@ function kkApiCreateLineBookingPending_(payload) {
       event_id: eventId,
       template_id: templateId,
       customer_name: customerName,
+      customer_contact: customerContact,
       customer_phone: customerPhone,
       claimed_at: new Date().toISOString()
     }));
@@ -2658,6 +2738,7 @@ function kkApiCreateLineBookingPending_(payload) {
       event_id: eventId,
       template_id: templateId,
       customer_name: customerName,
+      customer_contact: customerContact,
       customer_phone: customerPhone,
       row_number: row,
       booking_id: bookingId,
@@ -2676,6 +2757,7 @@ function kkApiCreateLineBookingPending_(payload) {
       request_id: requestId,
       event_id: eventId,
       customer_name: customerName,
+      customer_contact: customerContact,
       customer_phone: customerPhone,
       row_number: row,
       booking_id: bookingId

@@ -207,7 +207,33 @@
           <div id="inboxSafetyNotice" class="card inbox-empty"><strong>โหมดปลอดภัย</strong><span>ชื่อโปรไฟล์ LINE จะอัปเดตอัตโนมัติ · การส่งข้อความต้องยืนยันทุกครั้ง · การตอบผ่าน X ยังปิดอยู่</span></div>
           <div class="inbox-layout">
             <div class="card inbox-list-card"><div class="card-head"><div><h2>บทสนทนา</h2><small id="inboxCount">0 รายการ</small><small id="inboxLiveStatus" class="inbox-live-status" data-state="idle">อัปเดตอัตโนมัติทุก 4 วินาที</small></div></div><div id="inboxConversationList" class="inbox-conversation-list"></div></div>
-            <div class="card inbox-thread-card"><div class="card-head inbox-thread-head"><div><h2 id="inboxThreadTitle">เลือกบทสนทนา</h2><small id="inboxThreadMeta">LINE / X</small></div><button class="btn secondary inbox-rename-trigger" type="button" id="inboxRenameBtn" disabled>แก้ชื่อ</button></div><div id="inboxThread" class="inbox-thread"><div class="inbox-placeholder">เลือกบทสนทนาเพื่อดู timeline</div></div><div class="inbox-compose-disabled"><textarea id="inboxComposeText" maxlength="5000" disabled placeholder="เลือกแชท LINE เพื่อพิมพ์ข้อความ"></textarea><button class="btn primary" type="button" id="inboxSendBtn" disabled>ส่งข้อความ</button></div><small id="inboxComposeStatus" class="hint">เลือกแชท LINE เพื่อเริ่มตอบลูกค้า</small></div>
+            <div class="card inbox-thread-card"><div class="card-head inbox-thread-head"><div><h2 id="inboxThreadTitle">เลือกบทสนทนา</h2><small id="inboxThreadMeta">LINE / X</small></div><button class="btn secondary inbox-rename-trigger" type="button" id="inboxRenameBtn" disabled>แก้ชื่อ</button></div><div id="inboxThread" class="inbox-thread"><div class="inbox-placeholder">เลือกบทสนทนาเพื่อดู timeline</div></div><div class="inbox-compose-disabled"><textarea id="inboxComposeText" maxlength="5000" disabled placeholder="เลือกแชท LINE เพื่อพิมพ์ข้อความ"></textarea><button class="btn primary" type="button" id="inboxSendBtn" disabled>ส่งข้อความ</button></div><small id="inboxComposeStatus" class="hint">เลือกแชท LINE เพื่อเริ่มตอบลูกค้า</small>
+              <div class="inbox-outbound-review" aria-label="ตรวจสอบประวัติส่ง LINE">
+                <button class="btn secondary" type="button" id="inboxOutboundReviewBtn" disabled>ตรวจสถานะส่ง LINE</button>
+                <div id="inboxOutboundReviewPanel" hidden>
+                  <p class="hint"><strong>อ่านหลักฐานก่อนส่งซ้ำ</strong> · RESERVED / UNCERTAIN ห้ามกดส่งซ้ำหรืออนุมานว่าส่งไม่ถึงลูกค้า</p>
+                  <small id="inboxOutboundReviewStatus" role="status">เลือกแชท LINE แล้วกดตรวจสอบ</small>
+                  <div id="inboxOutboundAttempts" aria-live="polite"></div>
+                  <label>ผลตรวจของเจ้าของ
+                    <select id="inboxOutboundReviewVerdict">
+                      <option value="NEEDS_INVESTIGATION">ต้องตรวจสอบเพิ่มเติม — ไม่ปลดล็อก</option>
+                      <option value="VERIFIED_SENT">ตรวจยืนยันส่งสำเร็จจาก LINE OA</option>
+                    </select>
+                  </label>
+                  <label>เลขอ้างอิงจาก LINE OA (ไม่กรอกชื่อหรือเบอร์ลูกค้า)
+                    <input id="inboxOutboundEvidenceRef" maxlength="160" autocomplete="off" placeholder="LINE OA receipt / provider message ID" />
+                  </label>
+                  <label>บันทึกสั้นสำหรับ Audit (ไม่กรอกข้อมูลส่วนตัว)
+                    <textarea id="inboxOutboundReviewNote" maxlength="240"></textarea>
+                  </label>
+                  <button class="btn secondary" id="inboxOutboundSaveReviewBtn" type="button" disabled>ยืนยันบันทึกผลตรวจเท่านั้น</button>
+                  <label>เหตุผลที่ต้องส่งข้อความเดิมซ้ำโดยตั้งใจ (อย่างน้อย 12 ตัวอักษร)
+                    <input id="inboxIntentionalRepeatReason" minlength="12" maxlength="240" autocomplete="off" placeholder="อธิบายเหตุผลทางธุรกิจที่ตรวจแล้ว" />
+                  </label>
+                  <button class="btn secondary" id="inboxPrepareRepeatBtn" type="button" disabled>เตรียมการส่งซ้ำแบบอนุมัติเป็นครั้งใหม่</button>
+                  <button class="btn ghost" id="inboxOutboundReviewCloseBtn" type="button">ปิดประวัติส่ง</button>
+                </div>
+              </div></div>
           </div>
         </section>
 
@@ -919,7 +945,7 @@
 
   <script src="/admin/snapshot-health.js?v=resilience-1"></script>
   <script src="/admin/write-policy.js?v=write-admission-20260924"></script>
-  <script src="/admin/admin.js?v=bulk-event-price-edit-20260927"></script>
+  <script src="/admin/admin.js?v=diagnostic-evidence-authority-20261013"></script>
   <script src="/admin/inbox-preview.js?v=unified-inbox-v1"></script>
 </body>
 </html>

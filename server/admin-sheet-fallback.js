@@ -4,10 +4,14 @@
 // This module NEVER writes. It reconstructs the Admin snapshot from Google Sheets
 // only when the Apps Script snapshot upstream is unavailable.
 const privateSheets = require('../api/lib/private-google-sheets.js');
+const CorePrivacy = require('./core-sheet-private-reader.js');
 const BookingLifecycleShadow = require('./kk-booking-lifecycle-shadow.js');
+const BookingHandoverSafety=require('./kk-booking-handover-safety.js');
 const FALLBACK_VERSION = 'admin-direct-sheet-readonly-fallback-v3.1';
 const DEFAULT_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const FALLBACK_CACHE_TTL_MS = 2000;
+// A credential-rotation-safe cache must not retain unlimited historical PII snapshots.
+const MAX_SNAPSHOT_CACHE_ENTRIES = 64;
 const snapshotCache = new Map();
 const snapshotInflight = new Map();
 const fetchIdentity = new WeakMap();
@@ -74,7 +78,9 @@ function date(v){
   return s;
 }
 function bangkokDay(now){
-  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).format(now||new Date());
+  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now||new Date());
+  const byType=Object.fromEntries(parts.filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+  return `${byType.year}-${byType.month}-${byType.day}`;
 }
 function workflowOpen(s){ return ['pending','confirmed','prepared','picked_up','returned','uploaded'].includes(String(s||'').trim().toLowerCase()); }
 function cleanBookingNote(v){
@@ -139,12 +145,20 @@ function valuesAsObjects(values,requiredHeader,startRow=1){
 
 async function readSpecPrivate(sheetId,key,env,fetchImpl){
   const spec=SPECS[key];
-  const values=await privateSheets.readValues({
-    sheetId,
-    range:spec.sheet+'!'+spec.range,
-    env,
-    fetchImpl
-  });
+  const strictCore=CorePrivacy.enabled(env);
+  const values=strictCore
+    ? await CorePrivacy.readValues({sheetId,sheet:spec.sheet,range:spec.range,env})
+    : await privateSheets.readValues({sheetId,range:spec.sheet+'!'+spec.range,env,fetchImpl});
+  // Strict Core private reads are anchored at A4/A1, the actual schema row.
+  // Do not reinterpret customer/booking values later in the sheet as headers.
+  // Preserve legacy flexible parsing only for non-cutover read modes.
+  if(strictCore&&(!Array.isArray(values)||!Array.isArray(values[0])||
+    !values[0].some(v=>String(v||'').trim()===spec.header))){
+    const err=new Error('CORE_PRIVATE_SCHEMA_INVALID');
+    err.code='CORE_PRIVATE_SCHEMA_INVALID';
+    err.dataset=key;
+    throw err;
+  }
   return valuesAsObjects(values,spec.header,spec.startRow||1);
 }
 
@@ -244,6 +258,7 @@ function buildFromRaw(raw,sheetId,startedAt,transportMeta={}){
     events,packages,overrides,assets,bookings,current_bookings:current,web_ready:webReady,web_packages:webPackages,visibility_locks:visibilityLocks,
     // Aggregates only: no customer PII or mutable booking fields exposed by this audit.
     booking_closure_evidence_shadow:BookingLifecycleShadow.audit(bookings),
+    booking_handover_safety_shadow:BookingHandoverSafety.audit(bookings),
     today_working:todayWorking,today_key:today,model_master:Object.keys(models).map(k=>models[k]),customers,health,
     generated_at:new Date().toISOString(),spreadsheet_id:sheetId,admin_api_version:FALLBACK_VERSION,
     degraded_read_only:true,snapshot_source:transportMeta.snapshot_source||'direct-sheet-gviz-readonly-fallback',
@@ -271,11 +286,37 @@ function fetchIdentityKey(fetchImpl){
 }
 
 function snapshotCacheKey(sheetId,env,fetchImpl){
-  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE);
-  const privateConfigured=!!privateSheets.credentialsFromEnv(env);
-  return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',fetchIdentityKey(fetchImpl)].join('|');
+  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE)||CorePrivacy.enabled(env);
+  const privateConfigured=CorePrivacy.enabled(env) ? CorePrivacy.state(env).configured : !!privateSheets.credentialsFromEnv(env);
+  // Never reuse a snapshot across private transport/credential cutovers.
+  // Hash the credential identity, not the key itself; no secrets in cache keys/logs.
+  const crypto=require('node:crypto');
+  const source=CorePrivacy.enabled(env)?CorePrivacy.state(env):null;
+  const transport=source?source.transport:'legacy';
+  // Isolate cached private snapshots by the FULL credential identity and
+  // transport destination. A service-account key can rotate while keeping
+  // the same email/PEM prefix, and Apps Script can move behind a new /exec URL.
+  // Cache keys contain only SHA-256 digests, never raw credentials or URLs.
+  let identity='';
+  if(source&&transport==='apps-script'){
+    identity='apps-script\\n'+String(env.KK_ADMIN_SCRIPT_URL||'').trim()+'\\n'+String(env.KK_CORE_PRIVATE_READ_KEY||'');
+  }else{
+    const creds=privateSheets.credentialsFromEnv(env);
+    if(creds)identity='service-account\\n'+creds.email+'\\n'+creds.privateKey;
+  }
+  const credentialTag=identity?crypto.createHash('sha256').update(identity).digest('hex'):'unset';
+  return [sheetId,requirePrivate?'private-required':'private-optional',privateConfigured?'private-configured':'public-only',transport,credentialTag,fetchIdentityKey(fetchImpl)].join('|');
 }
 
+function pruneSnapshotCache(now=Date.now()){
+  for(const [key,entry] of snapshotCache){
+    if(!entry||!Number.isFinite(entry.expiresAt)||entry.expiresAt<=now) snapshotCache.delete(key);
+  }
+  // Map insertion order is oldest first; never allow unbounded rotated-identity caches.
+  while(snapshotCache.size>MAX_SNAPSHOT_CACHE_ENTRIES){
+    snapshotCache.delete(snapshotCache.keys().next().value);
+  }
+}
 function clearSnapshotCache(){
   snapshotCache.clear();
   snapshotInflight.clear();
@@ -286,10 +327,11 @@ async function buildSnapshotUncached(options={}){
   const sheetId=String(options.sheetId||env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
   const fetchImpl=options.fetchImpl||fetch;
   if(!sheetId) throw new Error('Fallback sheet id missing');
+  if(CorePrivacy.enabled(env)) CorePrivacy.requireExplicitPrivateSource(sheetId,env);
   const startedAt=Date.now();
   const keys=Object.keys(SPECS);
-  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE);
-  const privateConfigured=!!privateSheets.credentialsFromEnv(env);
+  const requirePrivate=isTrue(env.KK_ADMIN_FALLBACK_REQUIRE_PRIVATE)||CorePrivacy.enabled(env);
+  const privateConfigured=CorePrivacy.enabled(env) ? CorePrivacy.state(env).configured : !!privateSheets.credentialsFromEnv(env);
   let values=null;
   let transportMeta={snapshot_source:'direct-sheet-gviz-readonly-fallback',fallback_reader:'public-gviz',fallback_private_attempted:false,fallback_private_error_code:''};
 
@@ -297,8 +339,9 @@ async function buildSnapshotUncached(options={}){
     transportMeta.fallback_private_attempted=true;
     try{
       values=await Promise.all(keys.map(k=>readSpecPrivate(sheetId,k,env,fetchImpl)));
-      transportMeta.snapshot_source='direct-sheet-private-service-account-readonly-fallback';
-      transportMeta.fallback_reader='private-service-account';
+      const viaScript=CorePrivacy.enabled(env)&&CorePrivacy.state(env).transport==='apps-script';
+      transportMeta.snapshot_source=viaScript?'direct-sheet-private-owner-apps-script-readonly-fallback':'direct-sheet-private-service-account-readonly-fallback';
+      transportMeta.fallback_reader=viaScript?'private-owner-apps-script':'private-service-account';
     }catch(err){
       transportMeta.fallback_private_error_code=String((err&&err.code)||'PRIVATE_FALLBACK_READ_FAILED');
       if(requirePrivate) throw err;
@@ -337,6 +380,7 @@ async function buildSnapshot(options={}){
 
   const key=snapshotCacheKey(sheetId,env,fetchImpl);
   const now=Date.now();
+  pruneSnapshotCache(now);
   const cached=snapshotCache.get(key);
   if(cached && now-cached.at<=ttlMs){
     const out=cloneSnapshot(cached.value);
@@ -354,7 +398,9 @@ async function buildSnapshot(options={}){
 
   const pending=buildSnapshotUncached(options)
     .then(snapshot=>{
-      snapshotCache.set(key,{at:Date.now(),value:cloneSnapshot(snapshot)});
+      const storedAt=Date.now();
+      snapshotCache.set(key,{at:storedAt,expiresAt:storedAt+ttlMs,value:cloneSnapshot(snapshot)});
+      pruneSnapshotCache(storedAt);
       return snapshot;
     })
     .finally(()=>snapshotInflight.delete(key));

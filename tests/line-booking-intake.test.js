@@ -39,3 +39,24 @@ test('E2E intake boundary produces stable pending unpaid mutation only after can
  assert.equal(a.payload.booking_status,'pending'); assert.equal(a.payload.payment_status,'unpaid');
  assert.equal(a.payload.amount_received,0); assert.equal(a.payload.contact_channel,'LINE');
 });
+
+
+test('international customer may book using verified LINE ID without phone',()=>{
+ const event={webhookEventId:'evt-international-01',source:{userId:'UFOREIGNCUSTOMER001'}};
+ const booking={nickname:'Alex',phone:'',pickup_time:''};
+ const canonical={event_id:'EVT-1',template_id:'TPL-1',package_id:'PKG-1'};
+ const r=I.prepareBookingIntent(event,booking,canonical);
+ assert.equal(r.ok,true);
+ assert.equal(r.payload.customer_contact,'UFOREIGNCUSTOMER001');
+ assert.equal(r.payload.customer_phone,'');
+ assert.equal(r.payload.booking_status,'pending');
+ assert.equal(r.payload.payment_status,'unpaid');
+ assert.equal(r.payload.amount_received,0);
+ assert.equal(r.payload.phone_asset_id,undefined);
+ assert.equal(r.payload.lens_asset_id,undefined);
+ const noIdentity=I.prepareBookingIntent(
+   {webhookEventId:'evt-international-02',source:{}},
+   {nickname:'Alex',phone:''},canonical);
+ assert.equal(noIdentity.ok,false);
+ assert.equal(noIdentity.code,'LINE_CUSTOMER_USER_ID_REQUIRED');
+});

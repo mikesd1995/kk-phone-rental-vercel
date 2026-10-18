@@ -34,6 +34,7 @@ function normalizeInbound(input={}){
     received_at:text(input.received_at)||new Date().toISOString(),
     redelivery:input.redelivery===true,
     raw_ref:text(input.raw_ref),
+    line_message_id:channel==='line'?text(input.line_message_id):'',
     status:'new'
   };
 }

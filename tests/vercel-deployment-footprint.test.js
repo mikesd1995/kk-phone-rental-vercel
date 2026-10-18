@@ -12,7 +12,7 @@ const rules = fs.readFileSync(path.join(root, '.vercelignore'), 'utf8')
   .filter(line => line && !line.startsWith('#'));
 
 test('deployment excludes only approved repository-only directories and reports', () => {
-  for (const entry of ['docs/', '.github/', '.agents/', 'skills/', 'apps-script/', 'supabase/']) {
+  for (const entry of ['docs/', '.github/', '.agents/', 'skills/']) {
     assert.ok(rules.includes(entry), 'missing safe exclusion ' + entry);
   }
   assert.ok(rules.includes('README_AUDIT.md'));
@@ -22,7 +22,7 @@ test('deployment excludes only approved repository-only directories and reports'
 test('deployment retains real runtime, assets, scanner, CI test and postinstall inputs', () => {
   const protectedPaths = [
     'api/', 'admin/', 'assets/', 'server/', 'config/', 'scripts/',
-    'tests/', 'index.html', 'script.js', 'style.css', 'middleware.ts',
+    'tests/', 'apps-script/', 'supabase/', 'index.html', 'script.js', 'style.css', 'middleware.ts',
     'package.json', 'vercel.json', '.vercelignore'
   ];
   for (const target of protectedPaths) {

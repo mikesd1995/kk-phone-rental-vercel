@@ -60,7 +60,7 @@ function configState(env = process.env){
 }
 
 function credentialFingerprint(creds){
-  return crypto.createHash('sha256').update(creds.email + '\n' + creds.privateKey.slice(0,64)).digest('hex');
+  return crypto.createHash('sha256').update(creds.email + '\n' + creds.privateKey).digest('hex');
 }
 
 function createAssertion(creds, nowSeconds = Math.floor(Date.now()/1000)){
@@ -153,6 +153,7 @@ module.exports = {
   credentialsFromEnv,
   configState,
   createAssertion,
+  credentialFingerprint,
   getAccessToken,
   readValues,
   readValuesCsv,
