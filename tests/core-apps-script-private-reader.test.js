@@ -183,3 +183,20 @@ test('a forged upstream CORE_APPS_SCRIPT diagnostic cannot carry sensitive messa
    e=>e.code==='CORE_APPS_SCRIPT_UNAVAILABLE' && !String(e.message).includes(leak)
  );
 });
+
+
+test('Apps Script response rejects non-display-value cells before CSV or Admin handling',async()=>{
+  // getDisplayValues() returns strings only. Nested JSON values, null and
+  // numbers are NOT valid private Core cell data, even if array sizes match.
+  const safe=await script.readValues({
+    env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',
+    fetchImpl:async()=>okResponse([['event_id','poster'],['EVT-MOCK','']])
+  });
+  assert.equal(safe[1][1],'');
+  for(const wrong of [0,-1,true,null,{private:'synthetic_fixture'},['nested']]){
+    await assert.rejects(()=>script.readValues({
+      env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',
+      fetchImpl:async()=>okResponse([['event_id'],[wrong]])
+    }),error=>error.code==='CORE_APPS_SCRIPT_RESPONSE_INVALID');
+  }
+});
