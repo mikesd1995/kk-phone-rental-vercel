@@ -1347,10 +1347,14 @@ function kkApiRequireKey_(payload) {
 // bookings and MUST NOT be accepted for private Core reads.
 function kkApiRequirePrivateReadKey_(payload){
   const props=PropertiesService.getScriptProperties();
-  const expected=String(props.getProperty('KK_CORE_PRIVATE_READ_KEY')||'').trim();
+  const expected=String(props.getProperty('KK_CORE_PRIVATE_READ_KEY')||'');
   const admin=String(props.getProperty('KK_ADMIN_API_KEY')||'').trim();
-  const supplied=String(payload&&payload.readKey||'').trim();
-  if(expected.length<32 || (admin&&expected===admin))throw new Error('PRIVATE_CORE_READER_KEY_NOT_READY');
+  const supplied=String(payload&&payload.readKey||'');
+  // Match the exact raw owner-local base64url key contract. Never normalize
+  // either credential: whitespace changes the key at the transport boundary.
+  if(expected.length<32 || expected!==expected.trim() ||
+     !/^[A-Za-z0-9_-]+$/.test(expected) ||
+     (admin&&expected===admin))throw new Error('PRIVATE_CORE_READER_KEY_NOT_READY');
   // Fixed-size comparison avoids an early exit on a wrong byte.
   let difference=expected.length^supplied.length;
   for(let i=0;i<expected.length;i++) difference|=expected.charCodeAt(i)^(supplied.charCodeAt(i)||0);
