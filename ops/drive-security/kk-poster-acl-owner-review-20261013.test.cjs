@@ -292,7 +292,7 @@ test('active file missing from scanned tree aborts before writing', () => {
   assert.equal(f.getWrites(), 0);
 });
 
-test('active-only owner batches 25+18; historical writers remain unresolved and untouched', () => {
+test('active image-only owner batches 25+14; all four folders and historical writers remain on HOLD', () => {
   const f = fixture();
   const dry = f.api.dry();
   const first = f.api.apply(dry.fingerprint);
@@ -302,10 +302,9 @@ test('active-only owner batches 25+18; historical writers remain unresolved and 
   assert.equal(first.remaining_writers, 21);
   assert.equal(first.need_new_owner_dry_run, true);
   assert.equal(f.getWrites(), 25);
-  // Stage 1 must harden all 4 risky folders and 21 of 39 active storefront
-  // images BEFORE touching any previously hidden or archival image.
-  assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
-  assert.equal(expected.filter(id => f.roles[id] === 'VIEW').length, 21);
+  // Never touch a parent folder (inherited historic ACL blast radius).
+  assert.ok(folderIDs.every(id => f.roles[id] === undefined));
+  assert.equal(expected.filter(id => f.roles[id] === 'VIEW').length, 25);
   assert.equal(f.roles['brand-logo'], undefined);
   assert.equal(f.roles['kit-photo-a'], undefined);
   assert.equal(f.roles['kit-photo-b'], undefined);
@@ -315,41 +314,50 @@ test('active-only owner batches 25+18; historical writers remain unresolved and 
   assert.ok(secondDry.fingerprint !== dry.fingerprint);
   const second = f.api.apply(secondDry.fingerprint);
   assert.equal(second.ok, false, 'historic writers must keep complete remediation open');
-  assert.equal(second.active_scope_completed, true);
+  assert.equal(second.active_scope_completed, false,'folders remain a separate unapproved ACL scope');
+  assert.equal(second.active_images_completed, true);
   assert.equal(second.partial, true);
-  assert.equal(second.updated, 18);
-  assert.equal(second.remaining_writers, 3);
+  assert.equal(second.updated, 14);
+  assert.equal(second.remaining_writers, 7);
   assert.equal(second.remaining_active_writers, 0);
   assert.equal(second.historical_public_writers, 3);
-  assert.equal(second.reader_verified, 43);
+  assert.equal(second.folder_public_writers_held, 4);
+  assert.equal(second.folder_writes, 0);
+  assert.equal(second.reader_verified, 39);
   assert.equal(second.need_new_owner_dry_run, false);
-  assert.equal(f.getWrites(), 43);
-  assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
+  assert.equal(f.getWrites(), 39);
+  assert.ok(folderIDs.every(id => f.roles[id] === undefined));
   assert.ok(expected.every(id => f.roles[id] === 'VIEW'));
   for (const id of ['brand-logo','kit-photo-a','kit-photo-b']) {
     assert.equal(f.roles[id], undefined, 'NO historic Drive write allowed');
   }
 });
 
-test('owner can never publish private historical assets even after active scope completes', () => {
+test('owner can never publish private historical assets even after active image-only pass completes', () => {
   const f = fixture({privateID: 'brand-logo'});
   const a = f.api.dry();
   f.api.apply(a.fingerprint);
   const b = f.api.dry();
   const report = f.api.apply(b.fingerprint);
-  assert.equal(report.active_scope_completed, true);
+  assert.equal(report.active_scope_completed, false);
+  assert.equal(report.active_images_completed, true);
+  assert.equal(report.folder_public_writers_held, 4);
   assert.equal(f.roles['brand-logo'], undefined);
   assert.equal(report.ok, false);
 });
 
-test('unexpected parent-folder ACL cascading to historical item fails closed', () => {
+test('parent-folder inheritance blast radius is prevented before any folder write', () => {
   const f = fixture({folderCascadesToHistory: true});
   const dry = f.api.dry();
-  assert.throws(() => f.api.apply(dry.fingerprint), /PARTIAL_OR_DRIFTED_ACL_REPAIR/);
-  assert.equal(f.roles['brand-logo'], 'VIEW', 'mock simulates unintended inherited change');
+  const batch = f.api.apply(dry.fingerprint);
+  assert.equal(batch.updated, 25);
+  assert.equal(batch.folder_writes, 0);
+  assert.equal(batch.folder_public_writers_held, 4);
+  assert.ok(folderIDs.every(id => f.roles[id] === undefined));
+  assert.equal(f.roles['brand-logo'], undefined, 'no inherited historical permission change');
 });
 
-test('synthetic 248-image scope: all 209 history stays untouched after 25+18 active updates', () => {
+test('synthetic 248-image scope: 209 history and four ancestor folders untouched after 25+14 active image updates', () => {
   const f = fixture({historicExtras: 206});
   const before = f.api.dry();
   assert.equal(before.active_files, 39);
@@ -361,17 +369,19 @@ test('synthetic 248-image scope: all 209 history stays untouched after 25+18 act
   assert.equal(f.getWrites(), 0);
   const batch1 = f.api.apply(before.fingerprint);
   assert.equal(batch1.updated, 25);
-  assert.equal(batch1.remaining_active_writers, 18);
+  assert.equal(batch1.remaining_active_writers, 14);
   assert.equal(batch1.historical_public_writers, 209);
   const batch2 = f.api.apply(f.api.dry().fingerprint);
-  assert.equal(batch2.updated, 18);
-  assert.equal(batch2.active_scope_completed, true);
+  assert.equal(batch2.updated, 14);
+  assert.equal(batch2.active_scope_completed, false);
+  assert.equal(batch2.active_images_completed, true);
   assert.equal(batch2.remaining_active_writers, 0);
   assert.equal(batch2.historical_public_writers, 209);
-  assert.equal(batch2.remaining_writers, 209);
+  assert.equal(batch2.remaining_writers, 213);
+  assert.equal(batch2.folder_public_writers_held, 4);
   assert.equal(batch2.ok, false, '209 archived public Writers must prevent false full security PASS');
-  assert.equal(f.getWrites(), 43);
-  assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
+  assert.equal(f.getWrites(), 39);
+  assert.ok(folderIDs.every(id => f.roles[id] === undefined));
   assert.ok(expected.every(id => f.roles[id] === 'VIEW'));
   assert.equal(f.roles['synthetic-historical-0000'], undefined);
   assert.equal(f.roles['synthetic-historical-0205'], undefined);
@@ -418,11 +428,13 @@ test('restricted historical asset is fingerprinted but never made public', () =>
   assert.equal(secondDry.public_writer, 20);
   const last = f.api.apply(secondDry.fingerprint);
   assert.equal(last.ok, false, 'other two historic public Writers remain');
-  assert.equal(last.active_scope_completed, true);
-  assert.equal(last.remaining_writers, 2);
+  assert.equal(last.active_scope_completed, false);
+  assert.equal(last.active_images_completed, true);
+  assert.equal(last.remaining_writers, 6);
   assert.equal(last.remaining_active_writers, 0);
   assert.equal(last.historical_public_writers, 2);
-  assert.equal(f.getWrites(), 43);
+  assert.equal(f.getWrites(), 39);
+  assert.equal(last.folder_public_writers_held, 4);
   assert.equal(f.roles['brand-logo'], undefined);
 });
 
