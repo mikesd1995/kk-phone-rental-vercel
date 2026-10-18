@@ -40,6 +40,18 @@ test('validation fails without reader key, with short key, with missing Admin ke
    const result=Key.assess(env);assert.equal(result.ready,false);
  }
 });
+test('owner readiness rejects keys that the real Apps Script reader rejects after paste',()=>{
+ const malformed=[reader+' ', ' '+reader, reader+'\\n', reader+'\n', '\t'+reader];
+ for(const candidate of malformed){
+   const result=Key.assess({KK_ADMIN_API_KEY:admin,KK_CORE_PRIVATE_READ_KEY:candidate});
+   assert.equal(result.ready,false,'pasted whitespace must fail before cutover');
+   assert.equal(result.checks.reader_key_exact_format,false);
+ }
+ const good=Key.assess({KK_ADMIN_API_KEY:admin,KK_CORE_PRIVATE_READ_KEY:reader});
+ assert.equal(good.ready,true);
+ assert.equal(good.checks.reader_key_exact_format,true);
+});
+
 test('validation checks independent safe characters but never reveals credential',()=>{
  const io=IO({KK_ADMIN_API_KEY:admin,KK_CORE_PRIVATE_READ_KEY:reader},false);
  assert.equal(Key.main(['--validate'],io),0);
