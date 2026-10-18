@@ -42,15 +42,26 @@ const strict={
   GOOGLE_PRIVATE_KEY:undefined,
   GOOGLE_SERVICE_ACCOUNT_JSON:undefined
 };
-const authorized={...strict,GOOGLE_SERVICE_ACCOUNT_EMAIL:'reader@example.invalid',GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'test-key-only-no-real-key'};
+const authorized={...strict,KK_CORE_PRIVATE_TRANSPORT:'service-account',GOOGLE_SERVICE_ACCOUNT_EMAIL:'reader@example.invalid',GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'test-key-only-no-real-key'};
 const request={method:'GET',query:{sheet:'08_Web_Ready',range:'A4:K'}};
 test('Core privacy flag is opt-in and never guesses a missing Core ID',()=>{
   assert.equal(Core.enabled({}),false);
   assert.equal(Core.state(strict).configured,false);
-  assert.throws(()=>Core.requireExplicitPrivateSource(strict.GOOGLE_SHEET_ID,strict),e=>e.code==='CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED');
+  assert.throws(()=>Core.requireExplicitPrivateSource(strict.GOOGLE_SHEET_ID,strict),e=>e.code==='CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED');
   assert.throws(()=>Core.requireExplicitPrivateSource('wrong',{...authorized}),e=>e.code==='CORE_PRIVATE_SHEET_ID_MISMATCH');
   assert.throws(()=>Core.requireExplicitPrivateSource('default',{...authorized,GOOGLE_SHEET_ID:undefined}),e=>e.code==='CORE_PRIVATE_SHEET_ID_NOT_CONFIGURED');
 });
+test('missing transport never silently selects a service account despite present legacy credentials',()=>{
+ const missing={...authorized,KK_CORE_PRIVATE_TRANSPORT:undefined};
+ const state=Core.state(missing);
+ assert.equal(state.transport,'none');
+ assert.equal(state.configured,false);
+ assert.equal(state.authMode,'none');
+ assert.throws(()=>Core.requireExplicitPrivateSource(missing.GOOGLE_SHEET_ID,missing),
+   e=>e.code==='CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED');
+ assert.equal(Core.state(authorized).transport,'service-account');
+});
+
 test('private Core and private CRM sheet IDs can differ when explicit Core cutover is enabled',()=>{
   assert.equal(Core.requireExplicitPrivateSource(strict.GOOGLE_SHEET_ID,authorized),strict.GOOGLE_SHEET_ID);
   assert.equal(Core.verifiedRange('08_Web_Ready','A4:K'),'08_Web_Ready!A4:K');
