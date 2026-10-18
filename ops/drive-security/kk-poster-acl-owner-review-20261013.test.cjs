@@ -402,6 +402,20 @@ test('renamed Drive asset invalidates previously approved ACL fingerprint', () =
   assert.equal(f.getWrites(), 0);
 });
 
+test('Drive ACL fingerprint cannot confuse pipe and newline in asset names', () => {
+  // Owner/standalone both fingerprint a structured field array, not a
+  // delimiter-joined string that could collide with real asset names.
+  assert.match(source, /JSON\.stringify\(\[x\.kind,x\.id,x\.parent,x\.depth,x\.obj\.getName\(\),x\.role\]\)/);
+  assert.match(readOnly, /JSON\.stringify\(\[x\.kind,x\.id,x\.parent,x\.depth,x\.obj\.getName\(\),x\.role\]\)/);
+  const f = fixture();
+  const initial = f.api.dry();
+  f.nodes.get(expected[0]).getName = () => 'Poster | edition\\nsub-folder | source';
+  const changed = f.api.dry();
+  assert.notEqual(initial.fingerprint, changed.fingerprint);
+  assert.throws(() => f.api.apply(initial.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
+  assert.equal(f.getWrites(), 0);
+});
+
 test('moved Drive asset invalidates previously approved ACL fingerprint', () => {
   const f = fixture();
   const dry = f.api.dry();
