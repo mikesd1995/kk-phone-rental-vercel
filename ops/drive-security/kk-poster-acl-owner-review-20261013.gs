@@ -171,7 +171,10 @@ function kkAclApply_20261013(approvedFingerprint){
           updated:updated.length,remaining_writers:after.writers,
           remaining_active_writers:afterActiveWriters,
           historical_public_writers:after.writers-afterActiveWriters-folderWriters,
-          reader_verified:after.items.length-after.writers,active_files:after.active,
+          reader_verified:after.items.filter(it=>it.role===String(DriveApp.Permission.VIEW)).length,
+          restricted_historical:after.items.filter(it=>it.kind==='image'&&
+            String(it.role).startsWith('RESTRICTED_HISTORICAL:')).length,
+          active_files:after.active,
           need_new_owner_dry_run:afterActiveWriters>0};
 }
 
