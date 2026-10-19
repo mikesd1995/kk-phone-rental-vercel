@@ -479,3 +479,23 @@ test('Phase A rendered poster and card blockers remain P1 even when screenshots 
   assert.ok(codes.includes('POSTER_SOURCE_NOT_ARTWORK'));
   assert.deepEqual(E.stateFindings(healthy,{width:390,name:'catalogue'}),[]);
 });
+
+test('320px discovery compacts only the below-Hero four-fact grid without reducing copy or controls',()=>{
+ const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+ const marker=css.lastIndexOf('320px below-Hero discovery spacing');
+ assert.ok(marker>=0,'scoped final correction must be present');
+ const scoped=css.slice(marker);
+ assert.match(scoped,/@media\(max-width:359px\)/);
+ assert.match(scoped,/html \.kk-benefit-grid\{margin-bottom:0px!important\}/);
+ assert.match(scoped,/flex-direction:row!important;align-items:center!important/);
+ assert.match(scoped,/justify-content:flex-start!important;text-align:left!important/);
+ assert.match(scoped,/min-height:43px!important;padding:4px!important;gap:5px!important/);
+ assert.match(scoped,/width:22px!important;height:22px!important;flex-basis:22px!important/);
+ assert.match(scoped,/>span:last-child\{min-width:0!important\}/);
+ assert.doesNotMatch(scoped,/\.v3-header|\.kk-mock-hero|font-size|line-height|display:none|line-clamp|overflow:hidden/);
+ const critic=fs.readFileSync('server/kk-storefront-visual-critic.js','utf8');
+ assert.match(critic,/0\.92|\.92/,'existing discovery threshold must remain strict');
+ const html=fs.readFileSync('index.html','utf8');
+ const facts=html.match(/<section class="kk-benefit-grid"[\s\S]*?<\/section>/)?.[0]||'';
+ for(const text of ['จองง่ายขึ้น · ฟรีประกันเครื่องและไม่ต้องวางมัดจำ','รับ–คืนหน้างาน · พร้อมสอนใช้ก่อนเข้าคอน','ส่งไฟล์ผ่าน Google Drive · เก็บให้ฟรี 30 วัน','ลูกค้าใหม่ลด 40฿ · ลูกค้าเก่ามีรีวิวลด 100฿'])assert.ok(facts.includes(text),text+' fact remains in markup');
+});

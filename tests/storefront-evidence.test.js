@@ -126,3 +126,19 @@ test('V6.12 owner-approved centered mobile modal is still checked for drift, con
  assert.equal(css.includes('content-visibility:visible!important;contain-intrinsic-size:none!important'),true,'320px offscreen cards cannot use the legacy 350px intrinsic placeholder');
  assert.equal(css.includes('.concert-card .pi-price{min-width:0!important;max-width:100%!important;white-space:normal!important'),true);
 });
+
+test('inspection materializes every audited card and restores exact style attributes and scroll in finally',()=>{
+ const source=fs.readFileSync('scripts/storefront-evidence.cjs','utf8');
+ const inspect=source.slice(source.indexOf('async function inspectState(page)'),source.indexOf('function stateFindings('));
+ assert.match(inspect,/getAttribute\('style'\)/);
+ assert.match(inspect,/setProperty\('content-visibility','visible','important'\)/);
+ assert.match(inspect,/setProperty\('contain-intrinsic-size','none','important'\)/);
+ assert.match(inspect,/audited_card_count:cards\.length/);
+ assert.match(inspect,/finally\s*\{/);
+ assert.match(inspect,/style===null[\s\S]*removeAttribute\('style'\)[\s\S]*setAttribute\('style',style\)/);
+ assert.match(inspect,/scrollTo\(\{left:originalScroll\.x,top:originalScroll\.y,behavior:'instant'\}\)/);
+ const cardCollection=inspect.match(/const cards=[^\n]+/)?.[0]||'';
+ assert.doesNotMatch(cardCollection,/innerHeight|checkVisibility/);
+ const defective={...healthy(),escaped_card_elements:['pi-price[late offscreen card]']};
+ assert.equal(E.stateFindings(defective,{width:390,name:'late-card'}).find(x=>x.code==='CARD_CONTENT_ESCAPES').severity,'P1');
+});
