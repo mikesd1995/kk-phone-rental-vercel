@@ -76,3 +76,15 @@ test('the 9 August vote deadline never becomes the 20 October event date',()=>{
  assert.equal(x.event_date,'2026-10-20');
  assert.equal(x.award_access.decision,'VERIFY_ACCESS');
 });
+
+test('the Smart Operational scanner actually plans HOWE award queries in Thai and English',()=>{
+ const Query=require('../server/kk-monthly-deep-scan-query-plan.js');
+ const plan=Query.buildOperational({month:'2026-10'});
+ const awards=plan.gap_tasks.filter(x=>x.source_tier==='AWARD_RED_CARPET');
+ assert.equal(awards.length,1);
+ assert.equal(awards[0].source_id,'smart-award-red-carpet');
+ assert.match(awards[0].query,/HOWE Awards/);
+ assert.ok(awards[0].query_variants.some(q=>q.includes('ประกาศรางวัล')&&q.includes('ตุลาคม 2569')));
+ assert.equal(plan.production_writes,0);
+ assert.equal(plan.verifier_required,true);
+});
