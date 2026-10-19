@@ -350,7 +350,9 @@ test('V6.5 owner mobile polish reduces density and makes hierarchy intentional o
 test('V6.6 professional finish keeps brand messaging generic while preserving package-level model choice',()=>{
   const html=fs.readFileSync('index.html','utf8');
   const js=fs.readFileSync('script.js','utf8');
-  assert.match(html,/PHONE RENTAL<br><span>EVENT PICKUP<\/span>/);
+  // Preserve the exact current owner-approved Hero and its event-selection CTA.
+  assert.match(html,/<div class="v3-eyebrow">เช่ามือถือไปคอน<br><span>รับ–คืนหน้างาน<\/span><\/div>/);
+  assert.match(html,/<a class="v3-primary" href="#content">เลือกงานที่ต้องการ/);
   assert.match(html,/เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต/);
   assert.doesNotMatch(html,/VIVO X300 PRO \+ LENS/i);
   assert.match(js,/hero_body:"Phone rental for concerts and fan meetings/);

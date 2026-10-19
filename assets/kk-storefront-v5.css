@@ -2520,3 +2520,68 @@ html .kk-mock-hero .kk-hero-inline-arrow{
    display:none!important;
  }
 }
+
+
+/* PR #744 visual acceptance: precise narrow-card containment and price wrapping.
+   At 320px the one-column card must grow with its poster+details, never constrain
+   a full-height info panel inside a card shorter than its content. */
+@media (max-width:359px){
+  /* Legacy style.css grid-auto-rows:1fr compressed every 320px card to 352px
+     while a 298px-wide 4:5 poster alone needs 373px. Let content size rows. */
+  .poster-grid{align-items:start!important;grid-auto-rows:max-content!important}
+  /* style.css also applies content-visibility:auto with a 350px intrinsic
+     placeholder (352px with borders), smaller than the 4:5 poster alone.
+     Disable that virtualization only on single-column micro viewports so
+     every booking card is measurable and its copy never sits outside the box. */
+  .concert-card{height:max-content!important;min-height:max-content!important;align-self:start!important;content-visibility:visible!important;contain-intrinsic-size:none!important}
+  .concert-card .poster-img-wrap{flex:0 0 auto!important}
+  .concert-card .poster-info{height:auto!important;min-height:0!important;flex:0 0 auto!important;overflow:visible!important}
+}
+/* Keep full, truthful prices readable without pushing a flex/grid item outside
+   either mobile card. Do not truncate digits or alter booking/business values. */
+@media (max-width:700px){
+  .concert-card .pi-meta{min-width:0!important;max-width:100%!important}
+  .concert-card .pi-price{min-width:0!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important}
+}
+
+/* V6.33 — 2026-10-17 audit: mobile card auto-size restoration.
+   The V6.20 global card/info height:100% equalization is applied after the
+   earlier V6.9 mobile auto-height correction and causes poster-info overflow
+   on narrow phones. Restore content-driven card geometry at the end of the
+   authoritative stylesheet; preserve the uncropped poster and 44px CTA. */
+@media (max-width:700px){
+  .poster-grid .concert-card{
+    height:auto!important;
+    min-height:0!important;
+    align-self:start!important;
+    overflow:hidden!important;
+  }
+  .poster-grid .concert-card .poster-img-wrap{
+    height:auto!important;
+    min-height:0!important;
+    aspect-ratio:4/5!important;
+  }
+  .poster-grid .concert-card .poster-info{
+    height:auto!important;
+    min-height:0!important;
+    flex:0 0 auto!important;
+    overflow:visible!important;
+  }
+  .poster-grid .concert-card .pi-tap{
+    min-height:44px!important;
+  }
+}
+
+/* 320px below-Hero discovery spacing: preserve all four service facts. */
+@media(max-width:359px){
+  html .kk-benefit-grid{margin-bottom:0px!important}
+  html .kk-benefit-grid>div{
+    flex-direction:row!important;align-items:center!important;
+    justify-content:flex-start!important;text-align:left!important;
+    min-height:43px!important;padding:4px!important;gap:5px!important;
+  }
+  html .kk-benefit-grid .benefit-icon{
+    width:22px!important;height:22px!important;flex-basis:22px!important;
+  }
+  html .kk-benefit-grid>div>span:last-child{min-width:0!important}
+}
