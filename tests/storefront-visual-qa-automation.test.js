@@ -350,7 +350,9 @@ test('V6.5 owner mobile polish reduces density and makes hierarchy intentional o
 test('V6.6 professional finish keeps brand messaging generic while preserving package-level model choice',()=>{
   const html=fs.readFileSync('index.html','utf8');
   const js=fs.readFileSync('script.js','utf8');
-  assert.match(html,/PHONE RENTAL<br><span>EVENT PICKUP<\/span>/);
+  // Retain the exact current owner Hero's phone-rental and venue-pickup meaning.
+  assert.match(html,/<div class="v3-eyebrow">เช่ามือถือไปคอน<br><span>รับ–คืนหน้างาน<\/span><\/div>/);
+  assert.match(html,/<a class="v3-primary" href="#content">เลือกงานที่ต้องการ/);
   assert.match(html,/เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต/);
   assert.doesNotMatch(html,/VIVO X300 PRO \+ LENS/i);
   assert.match(js,/hero_body:"Phone rental for concerts and fan meetings/);
@@ -403,4 +405,77 @@ test('production storefront workflows derive the live asset marker from exact ap
   assert.doesNotMatch(prebuilt,/V6\.0 — Premium Concert Editorial Commerce/);
   assert.match(promote,/steps\.runtime\.outputs\.marker/);
   assert.match(promote,/git diff --name-only "\$CANDIDATE_SHA" "\$APPROVED_SHA"/);
+});
+
+test('cached poster images receive backdrop treatment even without a native load event',()=>{
+  const source=fs.readFileSync('script.js','utf8');
+  const match=source.match(/function setImgFallback\(img, urls, options\)\{[\s\S]*?\n\}/);
+  assert.ok(match,'setImgFallback source missing');
+  const fallback=Function('setTimeout','clearTimeout',match[0]+';return setImgFallback;')(()=>1,()=>{});
+  let applied=0,changedSrc=0;
+  const img={
+    complete:true,naturalWidth:750,naturalHeight:1000,
+    style:{display:'block'},get src(){return 'cached-image.jpg';},
+    set src(_value){changedSrc++;}
+  };
+  fallback(img,['cached-image.jpg'],{timeoutMs:1000,onLoaded:()=>{applied++;}});
+  assert.equal(applied,1);
+  assert.equal(changedSrc,0);
+});
+
+test('fresh poster load applies backdrop treatment exactly once and preserves source image',()=>{
+  const source=fs.readFileSync('script.js','utf8');
+  const match=source.match(/function setImgFallback\(img, urls, options\)\{[\s\S]*?\n\}/);
+  assert.ok(match);
+  const fallback=Function('setTimeout','clearTimeout',match[0]+';return setImgFallback;')(()=>1,()=>{});
+  let loaded=0,src='';
+  const img={
+    complete:false,naturalWidth:0,naturalHeight:0,
+    style:{display:'block'},get src(){return src;},
+    set src(v){src=v;}
+  };
+  fallback(img,['official-poster.jpg'],{timeoutMs:1000,onLoaded:()=>{loaded++;}});
+  assert.equal(src,'official-poster.jpg');
+  img.complete=true;img.naturalWidth=750;img.naturalHeight=1000;
+  img.onload();
+  assert.equal(loaded,1);
+  assert.equal(src,'official-poster.jpg');
+  const card=source.slice(source.indexOf('var syncPosterTreatment=function()'),source.indexOf('var posterFailure=function()'));
+  assert.match(card,/imgWrap\.classList\.add\("poster-has-image"\)/);
+  assert.match(source,/onLoaded:syncPosterTreatment/);
+});
+
+test('last authoritative mobile stylesheet restores content-sized cards after historical global 100% heights',()=>{
+  const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+  const marker=css.lastIndexOf('V6.33');
+  const oldRule=css.lastIndexOf('.concert-card{height:100%!important');
+  assert.ok(marker>oldRule,'mobile override must follow the global 100% sizing rule');
+  const finalCss=css.slice(marker);
+  assert.match(finalCss,/@media \(max-width:700px\)/);
+  assert.match(finalCss,/\.poster-grid \.concert-card\{[\s\S]*height:auto!important/);
+  assert.match(finalCss,/\.poster-grid \.concert-card \.poster-info\{[\s\S]*height:auto!important/);
+  assert.match(finalCss,/\.pi-tap\{[\s\S]*min-height:44px!important/);
+  assert.doesNotMatch(finalCss,/object-fit:cover!important/);
+});
+
+test('Phase A rendered poster and card blockers remain P1 even when screenshots are captured',()=>{
+  const E=require('../scripts/storefront-evidence.cjs');
+  const healthy={
+    document_width:390,raw_i18n_keys:[],small_targets:[],
+    card_columns:2,column_widths:[176,176],card_height_spread_px:0,
+    poster_frame_ratios:[.75,.75],escaped_card_elements:[],
+    poster_source_issues:[],poster_treatment_issues:[],theme_icons:1,
+    modal:null
+  };
+  const unsafe={
+    ...healthy,
+    escaped_card_elements:['pi-price'],
+    poster_treatment_issues:[{event_id:'synthetic-event',coverage:.60,treatment:'missing'}],
+    poster_source_issues:[{event_id:'synthetic-event',reason:'webpage_screenshot_service'}]
+  };
+  const codes=E.stateFindings(unsafe,{width:390,name:'catalogue'}).map(x=>x.code);
+  assert.ok(codes.includes('CARD_CONTENT_ESCAPES'));
+  assert.ok(codes.includes('POSTER_LETTERBOX_UNTREATED'));
+  assert.ok(codes.includes('POSTER_SOURCE_NOT_ARTWORK'));
+  assert.deepEqual(E.stateFindings(healthy,{width:390,name:'catalogue'}),[]);
 });

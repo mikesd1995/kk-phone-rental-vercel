@@ -135,3 +135,80 @@ test('store exposes only service-role exact-conversation media lookup and normal
  });
  assert.equal(await missing.getMediaMetadata('other-conv','msg-test'),null);
 });
+
+async function callPrivateImageRoute(fetchImpl){
+ const {Readable}=require('node:stream');
+ const patch={KK_ADMIN_PIN:'fixture-owner-pin',KK_INBOX_SUPABASE_URL:options.url,
+  KK_INBOX_SUPABASE_SERVICE_ROLE_KEY:options.serviceKey,LINE_CHANNEL_ACCESS_TOKEN:options.token};
+ const prior=Object.fromEntries(Object.keys(patch).map(key=>[key,process.env[key]]));
+ const priorFetch=global.fetch;
+ try{
+  Object.assign(process.env,patch);global.fetch=fetchImpl;
+  const request=Readable.from([JSON.stringify({action:'inboxGetImage',conversation_id:cid,message_id:id})]);
+  request.method='POST';request.url='/api/kk-admin-guard';request.headers={'x-admin-pin':patch.KK_ADMIN_PIN};
+  const result={statusCode:0,headers:{},setHeader(key,value){this.headers[key]=value;},end(body){this.body=String(body);}};
+  await require('../api/kk-admin-guard.js')(request,result);
+  return {status:result.statusCode,headers:result.headers,body:JSON.parse(result.body)};
+ }finally{
+  global.fetch=priorFetch;
+  for(const key of Object.keys(patch)){if(prior[key]===undefined)delete process.env[key];else process.env[key]=prior[key];}
+ }
+}
+function imageMetadata(){return new Response(JSON.stringify({message_id:id,conversation_id:cid,channel:'line',direction:'inbound',message_type:'image',provider_message_id:''}),{headers:{'Content-Type':'application/json'}});}
+test('authenticated image route never reflects forged transport diagnostics or status',async()=>{
+ let metadataReads=0,imageReads=0;
+ const privateMarker='SYNTHETIC_PRIVATE_TRANSPORT_DETAIL';
+ const result=await callPrivateImageRoute(async url=>{
+  if(url.endsWith('/rpc/kk_inbox_media_metadata')){metadataReads++;return imageMetadata();}
+  assert.match(url,/\/storage\/v1\/object\/authenticated\/kk-inbox-media\//);imageReads++;
+  throw Object.assign(new Error(privateMarker),{code:'INBOX_MEDIA_'+privateMarker,status:404});
+ });
+ assert.equal(metadataReads,1);assert.equal(imageReads,1);assert.equal(result.status,502);
+ assert.equal(result.body.error_code,'INBOX_MEDIA_CAPTURE_FAILED');assert.equal(result.body.production_writes,0);
+ assert.doesNotMatch(JSON.stringify(result),new RegExp(privateMarker));
+});
+test('authenticated image route does not evaluate untrusted error getters',async()=>{
+ let getterReads=0;
+ const untrusted=new Proxy({},{get(){getterReads++;throw Error('SYNTHETIC_PRIVATE_GETTER');}});
+ const result=await callPrivateImageRoute(async url=>{
+  if(url.endsWith('/rpc/kk_inbox_media_metadata'))return imageMetadata();
+  throw untrusted;
+ });
+ assert.equal(getterReads,0);assert.equal(result.status,502);
+ assert.equal(result.body.error_code,'INBOX_MEDIA_CAPTURE_FAILED');
+ assert.doesNotMatch(JSON.stringify(result),/SYNTHETIC_PRIVATE_GETTER/);
+});
+test('authenticated image metadata transport failures share the private diagnostic boundary',async()=>{
+ let calls=0;
+ const result=await callPrivateImageRoute(async url=>{
+  assert.ok(url.endsWith('/rpc/kk_inbox_media_metadata'));calls++;
+  throw Object.assign(new Error('SYNTHETIC_PRIVATE_METADATA'),{code:'SYNTHETIC_PRIVATE_METADATA',status:503});
+ });
+ assert.equal(calls,1);assert.equal(result.status,502);
+ assert.equal(result.body.error_code,'INBOX_MEDIA_CAPTURE_FAILED');assert.equal(result.body.production_writes,0);
+ assert.doesNotMatch(JSON.stringify(result),/SYNTHETIC_PRIVATE_METADATA/);
+});
+test('authenticated image route preserves the owned missing-archive 404',async()=>{
+ const result=await callPrivateImageRoute(async url=>{
+  if(url.endsWith('/rpc/kk_inbox_media_metadata'))return imageMetadata();
+  return new Response('not found',{status:404});
+ });
+ assert.equal(result.status,404);assert.equal(result.body.error_code,'INBOX_MEDIA_NOT_ARCHIVED');
+ assert.equal(result.body.production_writes,0);
+});
+test('authenticated image route derives owned statuses from fixed diagnostics even if error properties change',async()=>{
+ const cases=[
+  [400,()=>Media.pathFor('../private')],
+  [415,()=>Media.imageType(Buffer.from('<svg>'))],
+  [413,()=>Media.checkedBytes(new Response(png,{headers:{'Content-Length':String(Media.MAX_BYTES+1)}}))],
+  [503,()=>Media.readOrRecover({message_id:id},{...options,url:'https://invalid.example',fetchImpl:async()=>{throw Error('NETWORK_MUST_NOT_RUN');}})]
+ ];
+ for(const [status,makeError]of cases){
+  let owned;try{await makeError();}catch(error){owned=error;}
+  assert.ok(owned);const original=Media.diagnosticCode(owned);
+  owned.code='SYNTHETIC_PRIVATE_MUTATED';owned.status=418;
+  const result=await callPrivateImageRoute(async url=>{if(url.endsWith('/rpc/kk_inbox_media_metadata'))return imageMetadata();throw owned;});
+  assert.equal(result.status,status);assert.equal(result.body.error_code,original);
+  assert.doesNotMatch(JSON.stringify(result),/SYNTHETIC_PRIVATE_MUTATED/);
+ }
+});

@@ -67,7 +67,8 @@ test('V5 language switch binds hero, benefits and event-discovery DOM',()=>{
 test('brand-level storefront copy is model-agnostic and accessibility labels localize with language',()=>{
   assert.doesNotMatch(html,/VIVO X300 PRO \+ LENS/i);
   assert.doesNotMatch(html,/เช่า vivo X300 Pro \+ Lens/i);
-  assert.match(html,/PHONE RENTAL<br><span>EVENT PICKUP<\/span>/);
+  assert.match(html,/<div class="v3-eyebrow">เช่ามือถือไปคอน<br><span>รับ–คืนหน้างาน<\/span><\/div>/);
+  assert.match(html,/<a class="v3-primary" href="#content">เลือกงานที่ต้องการ/);
   assert.match(js,/brand_subtitle:"Concert Phone Rental"/);
   assert.match(js,/meta_title:"KK Phone Rental \| Phone Rental for Concerts and Events"/);
   assert.match(js,/skip_link:"Skip to events"/);

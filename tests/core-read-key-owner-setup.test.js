@@ -53,3 +53,19 @@ test('generation requires explicit --generate and an owner local TTY; no other f
  assert.equal(Key.main(['--generate','--validate'],io),2);
  assert.equal(io.stdoutLines.join(''),'');
 });
+
+test('owner readiness rejects keys that the real Apps Script reader rejects after paste',()=>{
+ const whitespace=[reader+' ', ' '+reader, reader+'\n', '\t'+reader];
+ for(const candidate of whitespace){
+  const result=Key.assess({KK_ADMIN_API_KEY:admin,KK_CORE_PRIVATE_READ_KEY:candidate});
+  assert.equal(result.ready,false,'pasted whitespace must fail before cutover');
+  assert.equal(result.checks.reader_key_exact_format,false);
+ }
+ const invalidCharacters=Key.assess({KK_ADMIN_API_KEY:admin,KK_CORE_PRIVATE_READ_KEY:reader+'\\n'});
+ assert.equal(invalidCharacters.ready,false,'literal backslash-n must fail before cutover');
+ assert.equal(invalidCharacters.checks.usable_character_set,false);
+ const good=Key.assess({KK_ADMIN_API_KEY:admin,KK_CORE_PRIVATE_READ_KEY:reader});
+ assert.equal(good.ready,true);
+ assert.equal(good.checks.reader_key_exact_format,true);
+ assert.equal(good.checks.usable_character_set,true);
+});

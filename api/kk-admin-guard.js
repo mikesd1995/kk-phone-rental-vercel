@@ -38,6 +38,15 @@ const EVENT_GUARDED_ACTIONS = new Set(['createEvent']);
 const EVENT_VISIBILITY_GUARDED_ACTIONS = new Set(['updateEvent']);
 const AGENT_GATEWAY_ACTIONS = new Set(['agentGateway','agentGatewayHealth']);
 const INBOX_ACTIONS = new Set(['inboxListConversations','inboxListMessages','inboxGetImage','inboxHydrateLineProfiles','inboxSetOwnerLabel','inboxMarkRead','inboxListOutboundAttempts','inboxReviewOutboundAttempt','inboxSendLineMessage']);
+const INBOX_IMAGE_ERROR_STATUS = Object.freeze({
+  INBOX_MEDIA_ID_INVALID:400,
+  INBOX_MEDIA_NOT_ARCHIVED:404,
+  INBOX_LINE_MEDIA_ID_MISSING:404,
+  INBOX_LINE_MEDIA_EXPIRED:404,
+  INBOX_MEDIA_TOO_LARGE:413,
+  INBOX_MEDIA_UNSAFE_TYPE:415,
+  INBOX_MEDIA_STORE_UNAVAILABLE:503
+});
 const ULTRA_DEEP_ACTIONS = new Set(['ultraDeepFullLoop','ultraDeepFullLoopHealth','ultraDeepDirectRun','ultraDeepVercelNativeRun','smartLoopRun']);
 const ULTRA_DEEP_REPOSITORY = 'mikesd1995/kk-phone-rental-vercel';
 const ULTRA_DEEP_OWNER = 'mikesd1995';
@@ -550,11 +559,11 @@ module.exports=async function handler(req,res){
         if(!/^conv_[a-f0-9]{24}$/.test(conversationId)||!/^msg_[a-f0-9]{24}$/.test(messageId)){
           return reply(res,400,{ok:false,error:'Invalid inbox image identity',error_code:'INBOX_MEDIA_ID_INVALID',production_writes:0});
         }
-        const metadata=await store.getMediaMetadata(conversationId,messageId);
-        if(!metadata||metadata.channel!=='line'||metadata.message_type!=='image'||metadata.direction!=='inbound'){
-          return reply(res,404,{ok:false,error:'Image message not found',error_code:'INBOX_MEDIA_NOT_FOUND',production_writes:0});
-        }
         try{
+          const metadata=await store.getMediaMetadata(conversationId,messageId);
+          if(!metadata||metadata.channel!=='line'||metadata.message_type!=='image'||metadata.direction!=='inbound'){
+            return reply(res,404,{ok:false,error:'Image message not found',error_code:'INBOX_MEDIA_NOT_FOUND',production_writes:0});
+          }
           const image=await InboxMedia.readOrRecover(metadata,{token:lineToken,fetchImpl:global.fetch});
           res.statusCode=200;
           res.setHeader('Content-Type',image.mime);
@@ -564,9 +573,11 @@ module.exports=async function handler(req,res){
           res.setHeader('Content-Length',String(image.bytes.length));
           return res.end(image.bytes);
         }catch(err){
-          const code=String(err&&err.code||'INBOX_MEDIA_FAILED');
-          const status=Number(err&&err.status)||502;
-          return reply(res,[400,404,413,415,503].includes(status)?status:502,{ok:false,error:'Image unavailable',error_code:code,production_writes:0});
+          // Provider/store exceptions are untrusted, including getters and status.
+          // Only the media module's owned diagnostic can select a fixed response.
+          const code=InboxMedia.diagnosticCode(err);
+          const status=Object.hasOwn(INBOX_IMAGE_ERROR_STATUS,code)?INBOX_IMAGE_ERROR_STATUS[code]:502;
+          return reply(res,status,{ok:false,error:'Image unavailable',error_code:code,production_writes:0});
         }
       }
       if(action==='inboxListMessages'){

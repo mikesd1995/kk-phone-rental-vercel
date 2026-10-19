@@ -194,3 +194,25 @@ test('private Core Apps Script rejects credentialed/nonstandard-port final URL',
    assert.equal(calls,1);
  }
 });
+
+test('private reader configuration rejects malformed exact raw owner keys before any fetch',()=>{
+ for(const malformed of [config.KK_CORE_PRIVATE_READ_KEY+' ', ' '+config.KK_CORE_PRIVATE_READ_KEY, config.KK_CORE_PRIVATE_READ_KEY+'!', config.KK_CORE_PRIVATE_READ_KEY+'\\n', config.KK_CORE_PRIVATE_READ_KEY.replace('_',' ')]){
+  assert.equal(script.scriptState({...config,KK_CORE_PRIVATE_READ_KEY:malformed}).configured,false,'malformed reader key must fail closed');
+ }
+});
+
+test('Apps Script response rejects non-display-value cells before CSV or Admin handling',async()=>{
+  // getDisplayValues() returns strings only. Nested JSON values, null and
+  // numbers are NOT valid private Core cell data, even if array sizes match.
+  const safe=await script.readValues({
+    env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',
+    fetchImpl:async()=>okResponse([['event_id','poster'],['EVT-MOCK','']])
+  });
+  assert.equal(safe[1][1],'');
+  for(const wrong of [0,-1,true,null,{private:'synthetic_fixture'},['nested']]){
+    await assert.rejects(()=>script.readValues({
+      env:config,sheetId:env.GOOGLE_SHEET_ID,sheet:'08_Web_Ready',range:'A4:K',
+      fetchImpl:async()=>okResponse([['event_id'],[wrong]])
+    }),error=>error.code==='CORE_APPS_SCRIPT_RESPONSE_INVALID');
+  }
+});

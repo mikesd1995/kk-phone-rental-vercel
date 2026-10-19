@@ -144,3 +144,20 @@ test('Apps Script preflight emits only explicitly permitted non-PII diagnostics'
     'CORE_APPS_SCRIPT_UNAVAILABLE;apiKey=PRIVATE'
   ])assert.equal(Preflight.classify({code}),'CORE_PRIVATE_PROBE_FAILED');
 });
+
+test('missing explicit Core transport blocks before any of 13 private reads',async()=>{
+ let calls=0;
+ const p=await Preflight.probe({
+   env:{...env,KK_CORE_PRIVATE_TRANSPORT:undefined},
+   reader:async()=>{calls++;throw Error('NO_PRIVATE_READER_MUST_RUN');}
+ });
+ assert.equal(p.ok,false);
+ assert.equal(p.datasets_checked,0);
+ assert.equal(calls,0);
+ assert.equal(Preflight.plan({...env,KK_CORE_PRIVATE_TRANSPORT:undefined}).transport,'none');
+});
+
+test('missing transport diagnostic remains exact and suffixes stay private',()=>{
+ assert.equal(Preflight.classify({code:'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED'}),'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED');
+ assert.equal(Preflight.classify({code:'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED_PRIVATE'}),'CORE_PRIVATE_PROBE_FAILED');
+});

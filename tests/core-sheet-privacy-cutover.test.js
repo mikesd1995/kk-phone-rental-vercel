@@ -172,3 +172,14 @@ test('Core security source contract includes private Health endpoint and forbids
   assert.match(proxy,/if\(corePrivateStrict\)\{/);
   assert.doesNotMatch(browser,/12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU/);
 });
+
+test('missing transport never silently selects a service account despite present legacy credentials',()=>{
+ const missing={...authorized,KK_CORE_PRIVATE_TRANSPORT:undefined};
+ const state=Core.state(missing);
+ assert.equal(state.transport,'none');
+ assert.equal(state.configured,false);
+ assert.equal(state.authMode,'none');
+ assert.throws(()=>Core.requireExplicitPrivateSource(missing.GOOGLE_SHEET_ID,missing),
+   e=>e.code==='CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED');
+ assert.equal(Core.state(authorized).transport,'service-account');
+});

@@ -9,14 +9,19 @@ function scriptState(env=process.env){
   try{url=new URL(raw);}catch(_){}
   const allowed=!!(url&&url.protocol==='https:'&&url.hostname===ALLOWED_HOST&&!url.port&&!url.username&&!url.password&&
     /^\/macros\/s\/[A-Za-z0-9_-]+\/exec\/?$/.test(url.pathname)&&!url.search&&!url.hash);
-  const readerKey=String(env.KK_CORE_PRIVATE_READ_KEY||'').trim();
+  const rawReaderKey=String(env.KK_CORE_PRIVATE_READ_KEY||'');
+  const readerKey=rawReaderKey.trim();
   const adminKey=String(env.KK_ADMIN_API_KEY||'').trim();
+  // Match the owner-local generator's base64url key contract exactly. A pasted
+  // whitespace/special-character value must fail configuration preflight rather
+  // than silently become a different credential at the Apps Script boundary.
+  const keyFormatOk=readerKey===rawReaderKey&&/^[A-Za-z0-9_-]{32,}$/.test(readerKey);
   // A read credential must not also permit booking/admin mutations.
-  const independent=readerKey.length>=32&&readerKey!==adminKey;
+  const independent=keyFormatOk&&readerKey!==adminKey;
   return {configured:!!(allowed&&independent),validUrl:allowed,independentReadKey:independent};
 }
-// Only locally generated failures may retain CORE_APPS_SCRIPT_* diagnostics.
-// Transport/provider errors are untrusted even if they forge this code prefix.
+// Only errors constructed locally may retain diagnostic codes. Upstream fetch
+// exceptions must never be trusted even when they forge a matching prefix.
 const ownedErrors=new WeakSet();
 function err(code){const x=new Error(code);x.code=code;ownedErrors.add(x);return x;}
 async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.fetch}={}){
@@ -59,7 +64,10 @@ async function readValues({sheetId,sheet,range,env=process.env,fetchImpl=global.
     if(!body||body.ok!==true||!p||String(p.spreadsheet_id||'')!==canonical||
         String(p.sheet||'')!==String(sheet)||String(p.range||'')!==String(range)||
         !Array.isArray(p.values)||p.values.length>4000||
-        p.values.some(row=>!Array.isArray(row)||row.length>60)){
+        p.values.some(row=>!Array.isArray(row)||row.length>60||
+          // Apps Script uses getDisplayValues(): every cell MUST be a string.
+          // Reject nested JSON or non-display-value data at the trust boundary.
+          row.some(cell=>typeof cell!=='string'))){
       throw err('CORE_APPS_SCRIPT_RESPONSE_INVALID');
     }
     return p.values;

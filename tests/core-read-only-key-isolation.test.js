@@ -40,6 +40,21 @@ test('owner read key is unique, at least 32 chars, and independent of Admin muta
     KK_ADMIN_API_KEY:ADMIN_KEY,KK_CORE_PRIVATE_READ_KEY:ADMIN_KEY
   }).configured,false);
 });
+test('Apps Script private reader enforces the exact raw key contract',()=>{
+  const factory=Function('PropertiesService',extract('kkApiRequirePrivateReadKey_')+';return kkApiRequirePrivateReadKey_;');
+  const call=(stored,admin=ADMIN_KEY)=>factory({
+    getScriptProperties:()=>({getProperty:k=>k==='KK_CORE_PRIVATE_READ_KEY'?stored:k==='KK_ADMIN_API_KEY'?admin:''})
+  });
+  assert.doesNotThrow(()=>call(READ_KEY)({readKey:READ_KEY}));
+  for(const bad of [' '+READ_KEY,READ_KEY+' ',READ_KEY+'\\n',READ_KEY+'\n',READ_KEY+'!',READ_KEY+'\t']){
+    assert.throws(()=>call(bad)({readKey:bad}),/PRIVATE_CORE_READER_KEY_NOT_READY/);
+  }
+  for(const bad of [' '+READ_KEY,READ_KEY+' ',READ_KEY+'\\n',READ_KEY+'\n',READ_KEY+'!']){
+    assert.throws(()=>call(READ_KEY)({readKey:bad}),/PRIVATE_CORE_READER_KEY_INVALID/);
+  }
+  assert.throws(()=>call(ADMIN_KEY,ADMIN_KEY)({readKey:ADMIN_KEY}),/PRIVATE_CORE_READER_KEY_NOT_READY/);
+});
+
 test('read action authenticates separately and cannot dispatch an Admin write with read key',()=>{
   const calls=[];
   const factory=Function(

@@ -12,6 +12,8 @@ function enabled(env=process.env){
 function state(env=process.env){
   const id=String(env.GOOGLE_SHEET_ID||'').trim();
   const credentialsReady=!!privateSheets.credentialsFromEnv(env);
+  // Never infer service-account from missing config. Owner selected Apps Script;
+  // explicitly selected service-account remains legacy compatibility only.
   const transport=String(env.KK_CORE_PRIVATE_TRANSPORT||'none').trim();
   const appsScriptReady=transport==='apps-script'&&AppsScriptReader.scriptState(env).configured;
   const transportReady=transport==='apps-script'?appsScriptReady:transport==='service-account'?credentialsReady:false;
@@ -29,7 +31,7 @@ function requireExplicitPrivateSource(sheetId,env=process.env){
   if(!s.strict)throw fail('CORE_PRIVATE_CUTOVER_NOT_ENABLED');
   if(!s.explicitSheetId)throw fail('CORE_PRIVATE_SHEET_ID_NOT_CONFIGURED');
   if(String(sheetId||'').trim()!==s.sheetId)throw fail('CORE_PRIVATE_SHEET_ID_MISMATCH');
-  if(!s.transportReady)throw fail(s.transport==='apps-script'?'CORE_APPS_SCRIPT_NOT_CONFIGURED':'CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED');
+  if(!s.transportReady)throw fail(s.transport==='none'?'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED':s.transport==='apps-script'?'CORE_APPS_SCRIPT_NOT_CONFIGURED':'CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED');
   return s.sheetId;
 }
 function verifiedRange(sheet,range){
