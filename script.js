@@ -1351,6 +1351,15 @@ function renderMonthSelect(concerts){
   addOpt("all",tr("select_month"));
   opts.forEach(function(key){addOpt(key,monthLabel(key));});
   sel.value=currentMonth;
+  updateMonthDisplay(sel);
+}
+
+// Mirror selected month at 14px without shrinking the native 16px iOS control.
+function updateMonthDisplay(sel){
+  var wrap=sel&&sel.closest(".month-select-wrap");
+  if(!wrap)return;
+  var option=sel.options[sel.selectedIndex];
+  wrap.setAttribute("data-month-display",option?String(option.textContent||"").trim():"");
 }
 
 function renderConcerts(concerts){
