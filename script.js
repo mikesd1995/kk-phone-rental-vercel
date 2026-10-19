@@ -1343,6 +1343,15 @@ function renderMonthSelect(concerts){
   addOpt("all",tr("select_month"));
   opts.forEach(function(key){addOpt(key,monthLabel(key));});
   sel.value=currentMonth;
+  updateMonthDisplay(sel);
+}
+
+// The native select remains 16px for iOS Safari; its mirrored visual label is 14px.
+function updateMonthDisplay(sel){
+  var wrap=sel&&sel.closest(".month-select-wrap");
+  if(!wrap)return;
+  var option=sel.options[sel.selectedIndex];
+  wrap.setAttribute("data-month-display",option?String(option.textContent||"").trim():"");
 }
 
 function renderConcerts(concerts){
