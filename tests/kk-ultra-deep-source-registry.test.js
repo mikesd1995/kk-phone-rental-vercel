@@ -58,7 +58,7 @@ test('HOWE award organiser is required and a missing direct-source receipt fails
  const tasks=R.buildUniversePlan({month:'2026-10',location:'Bangkok Thailand'}).tasks;
  const howe=tasks.find(x=>x.source_id==='howe-awards-official');
  assert.equal(howe.required,true);
- assert.match(howe.query,/site:howemagazine\\.com/);
+ assert.ok(howe.query.includes('site:howemagazine.com'));
  assert.match(howe.query,/October 2026/);
  const missing=R.allSources().filter(x=>x.source_id!=='howe-awards-official').map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
  const proof=R.buildUniverseProof(missing);
