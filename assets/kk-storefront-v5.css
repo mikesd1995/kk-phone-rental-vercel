@@ -2235,3 +2235,19 @@ html[data-theme="dark"] .kk-mock-hero .v3-secondary{
 [data-theme="dark"] .poster-placeholder-event .poster-placeholder-title{
   background:rgba(13,22,38,.86)!important;
 }
+
+/* Mobile month selector: compact resting label, 44px touch target preserved.
+   Restore 16px on focus to prevent iOS Safari input zoom. Screenshot: 2026-10-19. */
+@media (max-width:700px){
+  .status-filter-bar #month-filter-select{
+    font-size:14px!important;
+    font-weight:600!important;
+    padding-left:7px!important;
+    padding-right:19px!important;
+    text-align:left!important;
+    text-align-last:left!important;
+  }
+  .status-filter-bar #month-filter-select:focus{
+    font-size:16px!important;
+  }
+}
