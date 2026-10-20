@@ -1,5 +1,5 @@
 'use strict';const test=require('node:test');const assert=require('node:assert/strict');const P=require('../server/kk-monthly-deep-scan-query-plan.js');
-test('next month resolves deterministically from supplied date',()=>{const r=P.build({current_date:'2026-09-28',location:'Bangkok Thailand'});assert.equal(r.range.month,'2026-10');assert.equal(r.range.start_date,'2026-10-01');assert.equal(r.range.end_date,'2026-10-31');assert.equal(new Set(r.gap_tasks.map(x=>x.source_tier)).size,18);assert.ok(r.gap_tasks.every(x=>x.date_window&&x.date_window.start==='2026-10-01'&&(x.campaign_lead_time?x.date_window.end==='2026-11-30':x.date_window.end==='2026-10-31')));assert.ok(r.gap_tasks.some(x=>x.query.includes('October 2026')));});
+test('next month resolves deterministically from supplied date',()=>{const r=P.build({current_date:'2026-09-28',location:'Bangkok Thailand'});assert.equal(r.range.month,'2026-10');assert.equal(r.range.start_date,'2026-10-01');assert.equal(r.range.end_date,'2026-10-31');assert.equal(new Set(r.gap_tasks.map(x=>x.source_tier)).size,21);assert.ok(r.gap_tasks.every(x=>x.date_window&&x.date_window.start==='2026-10-01'&&(x.campaign_lead_time?x.date_window.end==='2026-11-30':x.date_window.end==='2026-10-31')));assert.ok(r.gap_tasks.some(x=>x.query.includes('October 2026')));});
 test('explicit month handles leap-year end date',()=>{assert.equal(P.monthRange({month:'2028-02'}).end_date,'2028-02-29');});
 
 test('monthly plan expands named source universe beyond generic tier queries',()=>{
@@ -34,8 +34,8 @@ test('monthly discovery includes bounded broad fallbacks when exact month querie
 test('smart operational query plan stays intentionally small and leaves exhaustive coverage to audit',()=>{
  const r=P.buildOperational({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'});
  assert.equal(r.mode,'SMART_OPERATIONAL');
- assert.equal(r.gap_tasks.length,17);
- assert.equal(r.operational_tiers.length,17);
+ assert.equal(r.gap_tasks.length,20);
+ assert.equal(r.operational_tiers.length,20);
  assert.equal(r.audit_required,true);
  assert.ok(r.gap_tasks.every(x=>x.source_id.startsWith('smart-')));
  assert.ok(r.gap_tasks.every(x=>x.query_variants.length<=3));
@@ -56,4 +56,19 @@ test('HOWE/MAYA award and red-carpet source tier cannot vanish from daily smart 
  assert.ok(monthly.gap_tasks.some(t=>t.source_tier==='AWARD_RED_CARPET'&&/HOWE Awards/.test(t.query)));
  assert.equal(smart.verifier_required,true);
  assert.equal(smart.production_writes,0);
+});
+
+
+test('Showcase/Gallery/Series Mall tiers are present in both daily smart and monthly scan plans',()=>{
+ for(const month of ['2026-10','2026-11','2026-12']){
+  const full=P.build({month}),smart=P.buildOperational({month});
+  for(const tier of ['MUSIC_SHOWCASE','FAN_PROJECT_GALLERY','MALL_IP_ACTIVATION']){
+   assert.ok(full.required_tiers.includes(tier));
+   assert.ok(smart.gap_tasks.some(t=>t.source_tier===tier));
+   assert.equal(smart.gap_tasks.find(t=>t.source_tier===tier).query_variants.length,3);
+   assert.ok(smart.gap_tasks.find(t=>t.source_tier===tier).query.includes(P.TIER_TERMS[tier][0]));
+  }
+  assert.equal(smart.production_writes,0);
+  assert.equal(smart.audit_required,true);
+ }
 });
