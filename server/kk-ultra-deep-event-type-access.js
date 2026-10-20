@@ -66,6 +66,6 @@ function splitVerifiedDates(candidate={}){
     !dates.every(validIsoDate)
   return [{...candidate,source_date_hold:true,event_dates:dates}];
  const unique=[...new Set(dates.map(str))];
- return unique.map(d=>({...candidate,event_date:d,origin_event_dates:unique}));
+ return unique.map(d=>({...candidate,event_key:str(candidate.event_key||candidate.candidate_id||candidate.title)+'-'+d.replace(/-/g,''),origin_event_key:str(candidate.event_key||candidate.candidate_id),event_date:d,origin_event_dates:unique}));
 }
 module.exports={VERSION,category,evaluate,validHttpProof,validIsoDate,splitVerifiedDates};
