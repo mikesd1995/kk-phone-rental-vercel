@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V10';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V11';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -33,8 +33,8 @@ const REGISTRY=Object.freeze({
     {source_id:'gmmtv',label:'GMMTV',domain:'gmmtv.com',required:true},
     {source_id:'one31',label:'one31',domain:'one31.net',required:true},
     {source_id:'domundi-mandee',label:'DOMUNDI / Mandee Work',required:true},
-    {source_id:'dmd-music-single-showcase',label:'DMD MUSIC artist single showcase benefits and release',domain:'x.com/DMDMusicTH',required:true},
-    {source_id:'domundi-artist-weekly-schedule',label:'Domundi TV weekly artist schedule FirstOne music gallery',domain:'x.com/DomundiTV',required:true},
+    {source_id:'dmd-music-single-showcase',label:'@DMDMusicTH DMD MUSIC artist single showcase benefits and release',domain:'x.com',required:true},
+    {source_id:'domundi-artist-weekly-schedule',label:'@DomundiTV Domundi TV weekly artist schedule music gallery',domain:'x.com',required:true},
     {source_id:'star-hunter-series-activation',label:'Star Hunter WeTV original series seasonal mall exhibition artist attendance',required:true},
     {source_id:'deehup-house-ticketing',label:'Dee Hup House official fanmeet ticketing',domain:'deehuphouse.com',required:true},
     {source_id:'looke-gelboys',label:'LOOKE / GELBOYS fanmeeting and ticket announcements',required:true},
@@ -63,7 +63,7 @@ const REGISTRY=Object.freeze({
     {source_id:'x-public',label:'X public discovery',required:true},
     {source_id:'instagram-public',label:'Instagram public discovery',required:true},
     {source_id:'facebook-public',label:'Facebook public discovery',required:true},
-    {source_id:'fan-organised-anniversary-gallery',label:'AuAuSave fan-organised anniversary gallery fan project',domain:'x.com/AuauSaveHouseTH',required:true}
+    {source_id:'fan-organised-anniversary-gallery',label:'@AuauSaveHouseTH fan-organised anniversary gallery fan project',domain:'x.com',required:true}
   ]),
   COMPETITOR:Object.freeze([
     {source_id:'competitor-core-watchlist',label:'KK competitor core watchlist',required:true},
@@ -129,7 +129,7 @@ function buildUniversePlan(input={}){
       domain:row.domain||null,
       query:queries[0],
       query_variants:[...new Set(queries.slice(1))],
-      providers:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+      providers:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI'],
       evidence_required:true
     };
   });
