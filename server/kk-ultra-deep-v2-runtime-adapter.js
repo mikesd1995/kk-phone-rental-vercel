@@ -5,7 +5,7 @@ const AwardAccess=require('./kk-ultra-deep-award-zone-access.js');
 const TypeAccess=require('./kk-ultra-deep-event-type-access.js');
 const V2=require('./kk-ultra-deep-full-loop-v2.js');
 const Requal=require('./kk-ultra-deep-storefront-requalification.js');
-const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V6';
+const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V7';
 function text(v){return String(v==null?'':v).trim();}
 function statusActive(v){return !['cancelled','canceled','no_show'].includes(text(v).toLowerCase());}
 function bookingCountForEvent(snapshot,eventId){return (snapshot.bookings||[]).filter(b=>statusActive(b.booking_status)&&text(b.event_id)===text(eventId)).length;}
@@ -26,7 +26,19 @@ function matchForV2(candidate,events=[]){
 }
 function commercialByKey(commercial={}){return new Map((commercial.candidates||[]).map(x=>[text(x.event_key),x]));}
 function posterFor(row={}){const p=row.poster&&row.poster.selected;return p&&p.verified===true?p:null;}
-function competitorPrices(row={}){return row.pricing&&Array.isArray(row.pricing.evidence)?row.pricing.evidence:[];}
+function competitorPrices(row={},eventKey=''){
+ const target=text(eventKey),evidence=row.pricing&&Array.isArray(row.pricing.evidence)?row.pricing.evidence:[];
+ return evidence.filter(x=>{
+  if(!x||x.exact_event!==true||text(x.event_key)!==target||!text(x.competitor_id))return false;
+  const price=Number(x.price),type=text(x.package_type).toUpperCase(),url=text(x.source_url);
+  if(!Number.isFinite(price)||price<=0||!['PHONE_ONLY','PHONE_LENS'].includes(type))return false;
+  try{
+   const u=new URL(url);
+   if(u.protocol!=='https:'||!['x.com','www.x.com','twitter.com','www.twitter.com'].includes(u.hostname.toLowerCase()))return false;
+   return u.pathname.toLowerCase().split('/').filter(Boolean)[0]===text(x.competitor_id).toLowerCase();
+  }catch{return false;}
+ });
+}
 function signalValue(candidate,key,fallback=null){const n=Number(candidate&&candidate[key]);return Number.isFinite(n)?n:fallback;}
 function averagePresent(values=[]){const xs=values.filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))).map(Number);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;}
 function competitorActivity(count){const n=Math.max(0,Number(count)||0);return n>=4?100:n===3?90:n===2?75:n===1?45:null;}
@@ -37,7 +49,7 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
  const historical=Production.historicalConflict(candidate,snapshot.visibility_locks||[]);
  const lockedHistory=historical&&['LOCKED','SEEN_CORE'].includes(text(historical.lock_state).toUpperCase());
  const blockedNew=Boolean(candidate.source_date_hold===true||candidate.owner_hold===true||candidate.owner_hidden===true||candidate.tombstone_locked===true||lockedHistory||activeDay);
- const exact=competitorPrices(commercialRow);
+ const exact=competitorPrices(commercialRow,candidate.event_key||candidate.candidate_id);
  const competitorCount=new Set(exact.map(x=>x.competitor_id).filter(Boolean)).size;
  const legacyRental=signalValue(candidate,'rental_intent',signalValue(candidate,'rental_fit_score',null));
  const normalizedLegacyRental=legacyRental===null?null:(legacyRental<=10?legacyRental*10:legacyRental);
@@ -119,4 +131,4 @@ function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
    plan,production_writes:0
  };
 }
-module.exports={VERSION,statusActive,bookingCountForEvent,availableOnDate,matchForV2,normalizeCandidate,buildReadOnlyPlan};
+module.exports={VERSION,statusActive,bookingCountForEvent,availableOnDate,matchForV2,competitorPrices,normalizeCandidate,buildReadOnlyPlan};
