@@ -5,8 +5,9 @@ const Orchestrator=require('./kk-ultra-deep-full-loop-orchestrator.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 const VisibilityGuard=require('./event-visibility-owner-guard.js');
 const CandidateVerifier=require('./kk-ultra-deep-candidate-verifier.js');
+const TypeAccess=require('./kk-ultra-deep-event-type-access.js');
 
-const VERSION='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V2';
+const VERSION='KK_ULTRA_DEEP_PRODUCTION_RUNTIME_V3';
 const DEFAULT_SITE='https://kk-phone-rental.vercel.app';
 const DEFAULT_SHEET_ID='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 
@@ -190,7 +191,7 @@ function reconcileCandidates(candidates=[],snapshot={}){
  const booked=activeBookingDateSet(snapshot);
  const fullBooked=fullBookingDateSet(snapshot);
  const safe=[];const dispositions=[];const suppressed_updates=[];
- for(const raw of Array.isArray(candidates)?candidates:[]){
+ for(const raw of (Array.isArray(candidates)?candidates:[]).flatMap(TypeAccess.splitVerifiedDates)){
   const c={...raw,event_date:date(raw.event_date)};
   const canonicalId=candidateCanonicalId(c);
   const directExisting=canonicalId?events.find(e=>text(e.event_id)===canonicalId)||null:null;
@@ -217,6 +218,19 @@ function reconcileCandidates(candidates=[],snapshot={}){
   }
   if(fullBooked.has(c.event_date)){
    dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_FULL_BOOKING_DATE'});
+   continue;
+  }
+  if(booked.has(c.event_date)){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_ACTIVE_BOOKING_DATE'});
+   continue;
+  }
+  if(c.source_date_hold===true){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'HOLD_UNVERIFIED_MULTI_DAY_DATES'});
+   continue;
+  }
+  const typeGate=TypeAccess.evaluate(c);
+  if(typeGate.access_clearance!==true){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:typeGate.decision==='NOT_OFFLINE_EVENT'?'SKIPPED_BROADCAST_ONLY':'HOLD_EVENT_TYPE_ACCESS',category:typeGate.category,missing:typeGate.missing});
    continue;
   }
   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_NEW'});
