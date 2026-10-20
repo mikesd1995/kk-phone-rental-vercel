@@ -36,8 +36,8 @@ test('requires title overlap for exact-event evidence',()=>{
 
 test('scan batch remains zero-write and dedupes evidence',async()=>{
  const runner=async()=>[
-  {href:'https://x.com/minibestt/status/1',title:'LYKN REFLEXION CONCERT vivo X300 790฿'},
-  {href:'https://x.com/minibestt/status/1',title:'LYKN REFLEXION CONCERT vivo X300 790฿'},
+  {href:'https://x.com/minibestt/status/1',title:'LYKN REFLEXION CONCERT เช่ามือถือ vivo X300 790฿'},
+  {href:'https://x.com/minibestt/status/1',title:'LYKN REFLEXION CONCERT เช่ามือถือ vivo X300 790฿'},
   {href:'https://x.com/fundaybuddy/status/2',title:'LYKN REFLEXION CONCERT phone rental 890 บาท'}
  ];
  const out=await P.scanBatch([{event_key:'E1',title:'LYKN REFLEXION CONCERT'}],{ddgs_runner:runner});
@@ -57,7 +57,7 @@ test('query plan explicitly covers all locked competitor accounts',()=>{
  const q=P.buildQueries({title:'LYKN REFLEXION CONCERT'});
  assert.ok(q.length>=3+P.COMPETITORS.length);
  for(const handle of P.COMPETITORS){
-  assert.ok(q.some(x=>x.includes('site:x.com/'+handle)));
+  assert.ok(q.some(x=>x.includes('site:x.com @'+handle)));
  }
 });
 
@@ -67,4 +67,11 @@ test('scan batch reports competitor universe even when exact evidence is absent'
  assert.equal(out.competitor_universe_count,P.COMPETITORS.length);
  assert.deepEqual(out.competitor_universe,P.COMPETITORS);
  assert.equal(out.query_strategy,'GENERIC_PLUS_PER_COMPETITOR_X');
+});
+
+
+test('ticket price from known rental account is not counted as phone rental price',()=>{
+ const candidate={event_key:'E1',title:'LYKN REFLEXION CONCERT'};
+ assert.equal(P.rowToEvidence({href:'https://x.com/minibestt/status/3',body:'LYKN REFLEXION CONCERT บัตรราคา 890 บาท เปิดขาย 23 ต.ค.'},candidate),null);
+ assert.equal(P.rowToEvidence({href:'https://x.com/minibestt/status/4',body:'LYKN REFLEXION CONCERT เช่ามือถือ vivo X300 890 บาท'},candidate).price,890);
 });
