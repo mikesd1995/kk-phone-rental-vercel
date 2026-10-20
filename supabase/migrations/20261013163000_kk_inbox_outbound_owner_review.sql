@@ -162,5 +162,42 @@ drop function if exists public.kk_inbox_reserve_outbound(uuid,text,text);
 comment on function public.kk_inbox_reserve_outbound(uuid,text,text,uuid,text) is
  'Durable at-most-once LINE send; intentional repeats require latest verified SENT owner-reviewed proof and new click. Never retry uncertain.';
 
+-- Historical messages must not be fabricated into reservation/receipt rows.
+-- Read the complete30-day legacy window before a new server reservation instead.
+-- Existing new-ledger messages remain governed by the reservation/review rules.
+create or replace function public.kk_inbox_has_legacy_outbound(
+ p_conversation_id text,p_body_text text
+) returns boolean language plpgsql stable security invoker
+set search_path = pg_catalog,kk_private
+as $$
+declare
+ v_conversation_id text:=nullif(btrim(p_conversation_id),'');
+ v_body text:=nullif(btrim(p_body_text),'');
+begin
+ if v_conversation_id is null or v_body is null or length(p_body_text)>5000 then
+   raise exception 'legacy outbound history identity invalid';
+ end if;
+ if not exists(select 1 from kk_private.inbox_conversations
+               where conversation_id=v_conversation_id and channel='line') then
+   raise exception 'outbound conversation not found';
+ end if;
+ return exists(
+  select 1 from kk_private.inbox_messages m
+  where m.conversation_id=v_conversation_id and m.channel='line'
+    and m.direction='outbound' and btrim(m.body_text)=v_body
+    and coalesce(m.sent_at,m.created_at)>=now()-interval '30 days'
+    and not exists(
+      select 1 from kk_private.inbox_outbound_attempts a
+      where a.conversation_id=m.conversation_id
+        and a.request_id::text=lower(btrim(coalesce(m.payload->>'outbound_request_id','')))
+    )
+ );
+end;
+$$;
+revoke all on function public.kk_inbox_has_legacy_outbound(text,text) from public,anon,authenticated;
+grant execute on function public.kk_inbox_has_legacy_outbound(text,text) to service_role;
+comment on function public.kk_inbox_has_legacy_outbound(text,text) is
+ 'Read-only complete30-day LINE legacy text duplicate check; boolean only, no history backfill or provider call. Service-role only.';
+
 -- The old 3-argument RPC was dropped; refresh PostgREST signature cache.
 notify pgrst, 'reload schema';

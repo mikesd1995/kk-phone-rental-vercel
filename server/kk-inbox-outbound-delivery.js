@@ -40,8 +40,17 @@ async function sendOnce(input={},deps={}){
     typeof deps.store.finishOutbound!=='function'||
     typeof deps.store.recordOutbound!=='function')
    return errorResponse('INBOX_OUTBOUND_LEDGER_UNAVAILABLE',503);
+ if(typeof deps.store.hasLegacyOutbound!=='function')
+   return errorResponse('INBOX_LEGACY_OUTBOUND_UNAVAILABLE',503);
  if(!deps.lineMessaging||typeof deps.lineMessaging.pushText!=='function')
    return errorResponse('INBOX_LINE_PROVIDER_UNAVAILABLE',503);
+ // Legacy sends predate the reservation ledger. Read complete history before
+ // creating a claim; missing/malformed evidence never authorizes a new send.
+ let legacy;
+ try{legacy=await deps.store.hasLegacyOutbound(conversationId,body);}
+ catch(_){return errorResponse('INBOX_LEGACY_OUTBOUND_UNAVAILABLE',503)}
+ if(legacy===true)return errorResponse('INBOX_LEGACY_OUTBOUND_REVIEW_REQUIRED',409);
+ if(legacy!==false)return errorResponse('INBOX_LEGACY_OUTBOUND_UNAVAILABLE',503);
  let digest;
  try{digest=fingerprint(conversationId,body,deps.serviceKey);}
  catch(_){return errorResponse('INBOX_OUTBOUND_LEDGER_UNAVAILABLE',503)}

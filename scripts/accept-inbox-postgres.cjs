@@ -43,6 +43,7 @@ async function main(){
   'select public.kk_inbox_finish_outbound($1::uuid,$2::text,$3::text,$4::text) as result',[id,status,provider,request]);
  const review=(id,status='VERIFIED_SENT',cid=CID,evidence='LINE-OA:synthetic-proof')=>scalar(
   'select public.kk_inbox_review_outbound($1::text,$2::uuid,$3::text,$4::text,$5::text) as result',[cid,id,status,evidence,'Synthetic owner review']);
+ const legacy=(cid=CID,body=BODY)=>scalar('select public.kk_inbox_has_legacy_outbound($1::text,$2::text) as result',[cid,body]);
  async function record(id,provider='synthetic-provider',cid=CID,overrides={}){
   const reservation=(await query('select retry_key::text from kk_private.inbox_outbound_attempts where request_id=$1::uuid',[id])).rows[0];
   return (await query('select * from public.kk_inbox_record_outbound($1::jsonb)',[JSON.stringify({
@@ -70,6 +71,7 @@ async function main(){
  function bridge(){
   const calls=[];
   const rpc={
+   kk_inbox_has_legacy_outbound:{sql:'select public.kk_inbox_has_legacy_outbound($1::text,$2::text) as result',keys:['p_conversation_id','p_body_text']},
    kk_inbox_reserve_outbound:{sql:'select public.kk_inbox_reserve_outbound($1::uuid,$2::text,$3::text,$4::uuid,$5::text) as result',keys:['p_request_id','p_conversation_id','p_body_fingerprint','p_repeat_of','p_repeat_reason']},
    kk_inbox_finish_outbound:{sql:'select public.kk_inbox_finish_outbound($1::uuid,$2::text,$3::text,$4::text) as result',keys:['p_request_id','p_status','p_provider_message_id','p_provider_request_id']},
    kk_inbox_record_outbound:{sql:'select * from public.kk_inbox_record_outbound($1::jsonb)',keys:['p_message'],table:true}
@@ -237,9 +239,49 @@ async function main(){
   await check('private media bucket remains nonpublic',async()=>{
    await db.exec('reset role');assert.equal((await query("select public from storage.buckets where id='kk-inbox-media'")).rows[0].public,false);
   });
+  await check('legacy history boolean is service-only, read-only and validates bounded input',async()=>{
+   const metadata=(await query("select provolatile,prosecdef,proconfig from pg_proc where oid='public.kk_inbox_has_legacy_outbound(text,text)'::regprocedure")).rows[0];
+   assert.equal(metadata.provolatile,'s');assert.equal(metadata.prosecdef,false);
+   assert.deepEqual(metadata.proconfig,['search_path=pg_catalog, kk_private']);
+   assert.equal(await legacy(),false);
+   const before=await scalar('select jsonb_build_array((select count(*) from kk_private.inbox_messages),(select count(*) from kk_private.inbox_audit),(select count(*) from kk_private.inbox_outbound_attempts)) as result');
+   for(const args of [[null,BODY],[CID,null],[CID,'   '],[CID,'x'.repeat(5001)],['conv_missing',BODY],[XROOM,BODY]])await denied(()=>legacy(...args));
+   for(const role of ['anon','authenticated']){
+    await db.exec('reset role;set role '+role);await denied(()=>legacy(),'42501');
+   }
+   await db.exec('reset role;set role service_role');assert.equal(await legacy(),false);
+   assert.deepEqual(await scalar('select jsonb_build_array((select count(*) from kk_private.inbox_messages),(select count(*) from kk_private.inbox_audit),(select count(*) from kk_private.inbox_outbound_attempts)) as result'),before);
+  });
+  await check('legacy duplicate outside newest200 messages blocks before SQL reserve or provider',async()=>{
+   await record(crypto.randomUUID(),'synthetic-legacy-original',CID,{sent_at:new Date(Date.now()-86400000).toISOString(),outbound_request_id:'legacy-not-a-uuid',retry_key:''});
+   await query("insert into kk_private.inbox_messages(message_id,conversation_id,channel,external_message_id,external_user_id,direction,message_type,body_text,sent_at,payload) select 'synthetic_newer_'||i,$1,'line','synthetic_newer_'||i,$2,'outbound','text','Unrelated newer text',now(),'{}'::jsonb from generate_series(1,250) i",[CID,USER]);
+   assert.equal(await scalar('select count(*)::int as result from kk_private.inbox_messages'),251);
+   assert.equal(await legacy(),true);
+   assert.equal(await legacy(OTHER),false);assert.equal(await legacy(CID,'Different new text'),false);
+   const {store,calls}=bridge(),s=sender(store);const result=await s.run();
+   assert.equal(result.error_code,'INBOX_LEGACY_OUTBOUND_REVIEW_REQUIRED');assert.equal(result.http_status,409);
+   assert.deepEqual(calls,['kk_inbox_has_legacy_outbound']);assert.equal(s.calls.length,0);
+   assert.equal(await scalar('select count(*)::int as result from kk_private.inbox_outbound_attempts'),0);
+  });
+  await check('legacy history excludes exact new-ledger conversation membership without UUID casts',async()=>{
+   const id=crypto.randomUUID();await reserve(id);await record(id,'synthetic-ledger-receipt',CID,{outbound_request_id:id.toUpperCase()});
+   assert.equal(await legacy(),false);
+   await query("update kk_private.inbox_messages set payload=jsonb_set(payload,'{outbound_request_id}','\"malformed-uuid\"'::jsonb)");
+   assert.equal(await legacy(),true);
+  });
+  await check('another conversation reservation cannot exempt a legacy body from review',async()=>{
+   const id=crypto.randomUUID();await reserve(id,OTHER);await record(id,'synthetic-other-room-request',CID);
+   assert.equal(await legacy(),true);
+  });
+  await check('legacy history matches trimmed text and ignores records outside30day sent window',async()=>{
+   await record(crypto.randomUUID(),'synthetic-legacy-old',CID,{text:'  '+BODY+'  ',sent_at:new Date(Date.now()-31*86400000).toISOString(),outbound_request_id:''});
+   assert.equal(await legacy(),false);
+   await query("update kk_private.inbox_messages set sent_at=now()-interval '29 days'");
+   assert.equal(await legacy(CID,'  '+BODY+'  '),true);
+  });
   await check('server orchestration uses real SQL reserve, persisted message and completion once',async()=>{
    const {store,calls}=bridge(),s=sender(store),id=crypto.randomUUID();const first=await s.run({requestId:id});
-   assert.equal(first.ok,true);assert.equal(s.calls.length,1);assert.deepEqual(calls,['kk_inbox_reserve_outbound','kk_inbox_record_outbound','kk_inbox_finish_outbound']);
+   assert.equal(first.ok,true);assert.equal(s.calls.length,1);assert.deepEqual(calls,['kk_inbox_has_legacy_outbound','kk_inbox_reserve_outbound','kk_inbox_record_outbound','kk_inbox_finish_outbound']);
    assert.equal((await s.run({requestId:id})).ok,false);assert.equal(s.calls.length,1);
    assert.equal((await query('select status from kk_private.inbox_outbound_attempts')).rows[0].status,'SENT');
   });

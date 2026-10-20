@@ -57,6 +57,15 @@ function createPostgrestStore(options={}){
   const row=Array.isArray(result)?result[0]:result;
   return {ok:true,duplicate:Boolean(row&&row.duplicate),writes:Number(row&&row.writes||0)};
  }
+ async function hasLegacyOutbound(conversationId,body){
+  // This complete, read-only history check must never be replaced by the bounded UI list.
+  const result=await rpc('kk_inbox_has_legacy_outbound',{
+   p_conversation_id:String(conversationId||'').trim(),
+   p_body_text:String(body==null?'':body).trim()
+  },'INBOX_LEGACY_OUTBOUND_UNAVAILABLE');
+  if(typeof result!=='boolean')throw Object.assign(new Error('Invalid legacy outbound history response'),{code:'INBOX_LEGACY_OUTBOUND_UNAVAILABLE'});
+  return result;
+ }
  async function reserveOutbound(requestId,conversationId,fingerprint,options={}){
   // Fail closed until BOTH durable ledger and owner-review migrations exist.
   const result=await rpc('kk_inbox_reserve_outbound',{
@@ -92,6 +101,6 @@ function createPostgrestStore(options={}){
   },'INBOX_OUTBOUND_FINISH_UNAVAILABLE');
   return Array.isArray(result)?(result[0]||null):(result||null);
  }
- return {VERSION,persistInbound,listConversations,listMessages,getMediaMetadata,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound,reserveOutbound,finishOutbound,listOutboundAttempts,reviewOutboundAttempt};
+ return {VERSION,persistInbound,listConversations,listMessages,getMediaMetadata,getConversation,updateLineProfile,setOwnerLabel,markRead,recordOutbound,hasLegacyOutbound,reserveOutbound,finishOutbound,listOutboundAttempts,reviewOutboundAttempt};
 }
 module.exports={VERSION,createPostgrestStore};

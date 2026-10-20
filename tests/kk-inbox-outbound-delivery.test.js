@@ -16,6 +16,7 @@ function makeStore(){
  const byRequest=new Map(),byContent=new Map(),saved=[];
  const store={
   saved,byRequest,
+  async hasLegacyOutbound(){return false},
   async reserveOutbound(requestId,room,digest){
    if(byRequest.has(requestId))return {allowed:false,status:'ALREADY_RESERVED'};
    const key=room+':'+digest;
@@ -202,4 +203,58 @@ test('verified Inbox persistence requires an exact single newly written row',asy
   'string or malformed row counts are not proof of committed Inbox write');
  assert.equal(store.byRequest.get(requestA).status,'UNCERTAIN');
  assert.equal(line.calls.length,1);
+});
+
+test('legacy matching history blocks a fresh request before reservation or provider traffic',async()=>{
+ const store=makeStore(),line=lineMock(),reads=[];
+ store.hasLegacyOutbound=async(room,body)=>{reads.push({room,body});return true};
+ const result=await run(store,line,{...same,body:'  Thanks for contacting KK  '});
+ assert.equal(result.http_status,409);
+ assert.equal(result.error_code,'INBOX_LEGACY_OUTBOUND_REVIEW_REQUIRED');
+ assert.equal(result.provider_sends,0);
+ assert.equal(result.production_writes,0);
+ assert.deepEqual(reads,[{room:conversationId,body:'Thanks for contacting KK'}]);
+ assert.equal(store.byRequest.size,0);
+ assert.equal(store.saved.length,0);
+ assert.equal(line.calls.length,0);
+});
+
+test('missing, failed or malformed legacy history evidence fails closed without a reservation',async()=>{
+ const cases=[
+  {missing:true},
+  {read:async()=>{throw Error('history unavailable')}},
+  ...[null,undefined,0,1,'false','true',[],[false],{exists:false}].map(value=>({read:async()=>value}))
+ ];
+ for(const scenario of cases){
+  const store=makeStore(),line=lineMock();
+  if(scenario.missing)delete store.hasLegacyOutbound;else store.hasLegacyOutbound=scenario.read;
+  const result=await run(store,line);
+  assert.equal(result.http_status,503);
+  assert.equal(result.error_code,'INBOX_LEGACY_OUTBOUND_UNAVAILABLE');
+  assert.equal(result.provider_sends,0);
+  assert.equal(store.byRequest.size,0);
+  assert.equal(line.calls.length,0);
+ }
+});
+
+test('strict false history evidence is checked before the unchanged durable send sequence',async()=>{
+ const store=makeStore(),line=lineMock(),order=[];
+ store.hasLegacyOutbound=async()=>{order.push('legacy');return false};
+ for(const name of ['reserveOutbound','recordOutbound','finishOutbound']){
+  const original=store[name];store[name]=async(...args)=>{order.push(name);return original(...args)};
+ }
+ const result=await run(store,line);
+ assert.equal(result.ok,true);
+ assert.deepEqual(order,['legacy','reserveOutbound','recordOutbound','finishOutbound']);
+ assert.equal(line.calls.length,1);
+ assert.equal(store.byRequest.get(requestA).status,'SENT');
+});
+
+test('repeat approval cannot bypass matching legacy history without a new-ledger receipt',async()=>{
+ const store=makeStore(),line=lineMock();store.hasLegacyOutbound=async()=>true;
+ const result=await run(store,line,{...same,requestId:requestB,repeatOf:requestA,
+  repeatReason:'Owner requested another legacy text',repeatApproved:true});
+ assert.equal(result.error_code,'INBOX_LEGACY_OUTBOUND_REVIEW_REQUIRED');
+ assert.equal(store.byRequest.size,0);
+ assert.equal(line.calls.length,0);
 });

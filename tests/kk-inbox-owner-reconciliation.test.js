@@ -32,6 +32,7 @@ function ledger(parentStatus='SENT',reviewStatus='VERIFIED_SENT',isLatest=true){
              review_evidence_ref:'LINE-OA-12345'};
  const store={
   reservations,saved,parent,
+  async hasLegacyOutbound(){return false},
   async reserveOutbound(requestId,room,digest,options={}){
    if(reservations.has(requestId))return {allowed:false,status:'ALREADY_RESERVED'};
    if(options.repeatOf){
@@ -160,7 +161,14 @@ test('SQL prevents uncertain repeat, requires owner-reviewed evidence and latest
  assert.match(sql,/grant execute on function public\.kk_inbox_reserve_outbound\(uuid,text,text,uuid,text\) to service_role/);
  assert.match(sql,/drop function if exists public\.kk_inbox_reserve_outbound\(uuid,text,text\)/);
  assert.doesNotMatch(sql,/grant execute .* to authenticated/i);
- assert.doesNotMatch(sql,/customer_phone|customer_name|body_text|channel_access_token/i);
+ // The original reservation/review contract still cannot carry customer text.
+ // Only the new read-only legacy checker may read the existing message body.
+ const legacy=sql.match(/create or replace function public\.kk_inbox_has_legacy_outbound\([\s\S]*?\$\$;/)?.[0];
+ assert.ok(legacy,'complete legacy history guard must be present');
+ assert.doesNotMatch(sql.replace(legacy,''),/customer_phone|customer_name|body_text|channel_access_token/i);
+ assert.doesNotMatch(sql,/customer_phone|customer_name|channel_access_token/i);
+ assert.match(legacy,/returns boolean language plpgsql stable security invoker/);
+ assert.doesNotMatch(legacy,/\b(insert|update|delete|truncate)\b/i);
 });
 
 test('API has guarded owner-only review actions, no automatic LINE send',()=>{
