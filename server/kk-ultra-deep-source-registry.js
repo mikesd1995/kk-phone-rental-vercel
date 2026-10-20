@@ -129,7 +129,7 @@ function buildUniversePlan(input={}){
       domain:row.domain||null,
       query:queries[0],
       query_variants:[...new Set(queries.slice(1))],
-      providers:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+      providers:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI'],
       evidence_required:true
     };
   });
