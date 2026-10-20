@@ -55,6 +55,7 @@ test('verified gallery two-day dates split: November 1 full NCT, November 2 allo
  const z=Prod.reconcileCandidates([row],snapshot());
  assert.deepEqual(z.dispositions.map(x=>x.status),['SKIPPED_FULL_BOOKING_DATE','SAFE_NEW']);
  assert.deepEqual(z.safe_candidates.map(x=>x.event_date),['2026-11-02']);
+ assert.equal(z.safe_candidates[0].event_key,'AUAUSAVE-GALLERY-2026-20261102');
  assert.equal(z.safe_candidates.length,1);
  const v=V2.buildReadOnlyPlan({month:'2026-11',snapshot:snapshot(),candidates:[{...verifiedGallery,event_date:'2026-11-02'}]});
  assert.equal(v.production_writes,0);
@@ -127,4 +128,12 @@ test('event dates require actual calendar days, not merely ISO-looking text',()=
  const z=Prod.reconcileCandidates([row],snapshot());
  assert.equal(z.safe_candidates.length,0);
  assert.equal(z.dispositions[0].status,'HOLD_UNVERIFIED_MULTI_DAY_DATES');
+});
+
+
+test('verified two-day splits have unique deterministic event keys without inventing extra dates',()=>{
+ const r=Access.splitVerifiedDates({...gallery,event_dates_verified:true,event_dates:['2026-11-01','2026-11-02','2026-11-02']});
+ assert.equal(r.length,2);
+ assert.deepEqual(r.map(x=>x.event_key),['AUAUSAVE-GALLERY-2026-20261101','AUAUSAVE-GALLERY-2026-20261102']);
+ assert.deepEqual(r.map(x=>x.event_date),['2026-11-01','2026-11-02']);
 });
