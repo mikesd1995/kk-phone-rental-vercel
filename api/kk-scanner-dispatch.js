@@ -107,7 +107,7 @@ function readinessSnapshot(env=process.env){
   const scannerExecutionCapable=externalScannerEnabled && mode==='execute-readonly' && executionEnabled && unknownUrlSearchConfigured;
   return {
     phase:'EXTERNAL_SCANNER_WITNESS_V1',
-    machine_ingress_version:'KK_ULTRA_DEEP_MACHINE_V26',
+    machine_ingress_version:'KK_ULTRA_DEEP_MACHINE_V27_READONLY_CLAIM_GUARD',
     machine_ingress_auth:'SUPABASE_QUEUE_VERCEL_OIDC',
     external_scanner_enabled:externalScannerEnabled,
     mode,
@@ -197,6 +197,8 @@ module.exports=async function handler(req,res){
     const readiness=readinessSnapshot(process.env);
     const readonlyCommandId=queryValue(req,'readonly_command_id');
     if(readonlyCommandId){
+      // Do not claim or mutate a queue entry while this deployment's scanner is disabled.
+      if(!readiness.ready_for_execution) return json(res,503,{ok:false,error_code:'MACHINE_READONLY_EXECUTION_DISABLED',business_writes:0});
       if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(readonlyCommandId)) return json(res,400,{ok:false,error_code:'COMMAND_ID_INVALID',business_writes:0});
       const claim=await WriteControl.call('commandClaim',{request_id:'ultra-deep-command:'+readonlyCommandId,command_id:readonlyCommandId});
       if(!(claim&&claim.ok&&claim.authenticated&&claim.command)) return json(res,409,{ok:false,error_code:text(claim&&claim.error_code)||'COMMAND_CLAIM_REJECTED',business_writes:0});
@@ -263,18 +265,25 @@ module.exports=async function handler(req,res){
   let machineInput={};
   try{machineInput=bodyObject(req);}catch(_err){return json(res,400,{ok:false,error_code:'INVALID_JSON',business_writes:0});}
   if(text(machineInput.action)==='ultraDeepMachineRun'){
+    // Both machine entry paths must honour the same server-owned enabled/configured gate.
+    if(!readinessSnapshot(process.env).ready_for_execution) return json(res,503,{ok:false,error_code:'MACHINE_READONLY_EXECUTION_DISABLED',business_writes:0});
     const commandId=text(machineInput.command_id);
     if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commandId)) return json(res,400,{ok:false,error_code:'COMMAND_ID_INVALID',business_writes:0});
     const claim=await WriteControl.call('commandClaim',{request_id:'ultra-deep-command:'+commandId,command_id:commandId});
     if(!(claim&&claim.ok&&claim.authenticated&&claim.command)) return json(res,409,{ok:false,error_code:text(claim&&claim.error_code)||'COMMAND_CLAIM_REJECTED',business_writes:0});
     const month=text(claim.command.month);
     const commit=claim.command.commit===true;
+    if(commit){
+      // Machine ingress is intentionally read-only; governed Admin Writer has its own approval boundary.
+      await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:'FAILED',production_writes:0,error_code:'MACHINE_COMMIT_FORBIDDEN'}).catch(()=>null);
+      return json(res,405,{ok:false,error_code:'MACHINE_COMMIT_FORBIDDEN',business_writes:0});
+    }
     try{
-      const result=await UltraDeepDirect.run({month,location:'Bangkok Metropolitan Region Thailand'},{executeWrites:commit,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-'+commandId});
-      if(!commit&&Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
-      const complete=machineResultComplete(result,commit);
+      const result=await UltraDeepDirect.run({month,location:'Bangkok Metropolitan Region Thailand'},{executeWrites:false,env:process.env,fetchImpl:global.fetch,correlation_id:'machine-'+commandId});
+      if(Number(result.production_writes||0)!==0) throw Object.assign(new Error('read-only invariant'),{code:'READ_ONLY_WRITE_INVARIANT_BROKEN'});
+      const complete=machineResultComplete(result,false);
       await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:complete?'COMPLETE':'FAILED',production_writes:Number(result.production_writes||0),error_code:complete?null:terminalErrorCode(result)});
-      return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_MACHINE',direct_runtime:UltraDeepDirect.VERSION,command_id:commandId,month,mode:commit?'COMMIT':'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],discovery_diagnostic:result.discovery&&result.discovery.diagnostic||null,verifier_diagnostic:verifierDiagnostic(result.verifier||{}),preflight:result.preflight||null,production:result.production||null,business_writes:Number(result.production_writes||0)});
+      return json(res,complete?200:409,{ok:complete,phase:'ULTRA_DEEP_V2_MACHINE',direct_runtime:UltraDeepDirect.VERSION,command_id:commandId,month,mode:'READ_ONLY_ACCEPTANCE',status:result.status,blockers:result.blockers||[],discovery_diagnostic:result.discovery&&result.discovery.diagnostic||null,verifier_diagnostic:verifierDiagnostic(result.verifier||{}),preflight:result.preflight||null,production:result.production||null,business_writes:Number(result.production_writes||0)});
     }catch(err){
       await WriteControl.call('commandComplete',{request_id:'ultra-deep-command:'+commandId,command_id:commandId,status:'FAILED',production_writes:0,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED'}).catch(()=>null);
       return json(res,500,{ok:false,phase:'ULTRA_DEEP_V2_MACHINE',direct_runtime:UltraDeepDirect.VERSION,command_id:commandId,error_code:text(err&&err.code)||'MACHINE_FULL_LOOP_FAILED',error:text(err&&err.message).slice(0,240),business_writes:0});

@@ -276,7 +276,14 @@ Deno.serve(async (req: Request) => {
       const commandId = String(body.command_id || "").trim();
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commandId)) return fail(400, "COMMAND_ID_INVALID", true);
       const result = await rpc("kk_ultra_deep_command_claim", { p_command_id: commandId });
-      const command = result && typeof result === "object" && !Array.isArray(result) ? result : null;
+      // Deployed runtime-ledger RPC returns TABLE(command_id,month,commit) as a 0/1-element array.
+      // The legacy JSONB RPC returns one object. Fail closed on malformed/multirow results.
+      const command = Array.isArray(result)
+        ? (result.length === 1 && result[0] && typeof result[0] === "object" ? result[0] : null)
+        : (result && typeof result === "object" ? result : null);
+      if (command && (command.commit !== false || !/^20[0-9]{2}-(0[1-9]|1[0-2])$/.test(String(command.month || "")))) {
+        return fail(409, "COMMAND_CLAIM_PAYLOAD_INVALID", true);
+      }
       if (!command) return fail(409, "COMMAND_NOT_PENDING", true);
       return json(200, { ok: true, authenticated: true, command, business_writes: 0, google_sheet_writes: 0 });
     }
