@@ -7,6 +7,7 @@ const OidcBridge=require('../server/runtime-ledger-oidc-bridge');
 const UltraDeepRuntime=require('../server/kk-ultra-deep-runtime-runner');
 const UltraDeepDirect=require('../server/kk-ultra-deep-direct-zero-cost.js');
 const WriteControl=require('../server/admin-write-control-oidc.js');
+const OwnerNotify=require('../server/kk-make-owner-notify.js');
 
 function text(value){
   return String(value==null?'':value).trim();
@@ -49,6 +50,34 @@ function queryValue(req,key){
     }
   }catch(_err){}
   return '';
+}
+
+// The public rewrite may preserve the original URL. Resolve this one mode
+// separately so an invalid/duplicate selector never falls into Scanner work.
+function ownerTransportMode(req){
+  let values=[],pretty=false,invalidUrl=false;
+  const raw=String(req&&req.url||'/');
+  try{
+    const parsed=new URL(raw,'https://kk-local.invalid');
+    values=parsed.searchParams.getAll('owner_transport');
+    pretty=parsed.pathname==='/api/kk-make-owner-notify';
+  }catch(_err){invalidUrl=true;}
+  let queryPresent=false,queryValid=true;
+  try{
+    const desc=req&&Object.getOwnPropertyDescriptor(req,'query');
+    const query=desc&&Object.prototype.hasOwnProperty.call(desc,'value')?desc.value:null;
+    if(query&&typeof query==='object'){
+      const selector=Object.getOwnPropertyDescriptor(query,'owner_transport');
+      if(selector){
+        queryPresent=true;
+        queryValid=Object.prototype.hasOwnProperty.call(selector,'value')&&selector.value==='v1';
+      }
+    }
+  }catch(_err){queryPresent=true;queryValid=false;}
+  const requested=pretty||values.length>0||queryPresent||(invalidUrl&&/owner_transport|\/api\/kk-make-owner-notify/.test(raw));
+  if(!requested) return '';
+  if(invalidUrl||!queryValid||values.length>1||(values.length===1&&values[0]!=='v1')) return 'invalid';
+  return 'v1';
 }
 
 function machineResultComplete(result={},commit=false){
@@ -192,6 +221,9 @@ async function ledgerConnectivityProbe({
 }
 
 module.exports=async function handler(req,res){
+  const ownerMode=ownerTransportMode(req);
+  if(ownerMode==='invalid') return json(res,400,{ok:false,send_allowed:false,error_code:'OWNER_TRANSPORT_SELECTOR_INVALID',business_writes:0});
+  if(ownerMode==='v1') return OwnerNotify(req,res);
   if(req.method==='OPTIONS') return json(res,204,{});
   if(req.method==='GET'){
     const readiness=readinessSnapshot(process.env);
