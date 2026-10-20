@@ -531,6 +531,12 @@ module.exports=async function handler(req,res){
   if(passthrough) return LegacyAdmin(authorizedClone(req,raw,adminPin),res);
 
   if(inboxAction){
+    // Finite release carrier: stop new owner sends before draining legacy calls.
+    // Replaced by the reviewed durable-send release after the database cutover.
+    if(action==='inboxSendLineMessage') return reply(res,503,{
+      ok:false,error:'ระบบส่งข้อความ Inbox พักชั่วคราวระหว่างปรับปรุง กรุณาส่งใหม่เมื่อดำเนินการเสร็จ',
+      error_code:'INBOX_CUTOVER_SEND_HOLD',production_writes:0,provider_sends:0,retryable:false
+    });
     let store;
     try{ store=createPostgrestStore(); }
     catch(_){ return reply(res,503,{ok:false,error:'Inbox durable store unavailable',error_code:'INBOX_STORE_UNAVAILABLE'}); }
