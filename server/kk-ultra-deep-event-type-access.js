@@ -1,6 +1,6 @@
 'use strict';
 // Discovery semantics must not turn a TV poster or community fan installation into a ticketed camera rental.
-const VERSION='KK_ULTRA_DEEP_EVENT_TYPE_ACCESS_V2';
+const VERSION='KK_ULTRA_DEEP_EVENT_TYPE_ACCESS_V3';
 const str=x=>String(x==null?'':x).trim();
 const compact=x=>str(x).toLowerCase().normalize('NFKC');
 function category(row={}){
@@ -9,13 +9,18 @@ function category(row={}){
  const detail=compact([row.description,row.event_description,row.notes,row.caption].join(' '));
  const combined=t+' '+detail;
  // Prefer the specifically advertised offline event over the name of its parent TV series.
+ if(/private_lucky_fan|brand_private_event|exclusive_winner_meet/.test(explicit)||row.private_event===true||row.lucky_winner_access_only===true)return 'BRAND_PRIVATE_EVENT';
+ if(/ticketed_first_ep|first_episode_screening/.test(explicit))return 'OFFLINE_PREMIERE';
+ if(/live_tour|themed_live_concert/.test(explicit))return 'LIVE_TOUR';
  if(/offline_premiere/.test(explicit))return 'OFFLINE_PREMIERE';
  if(/fan_project_gallery|fan_gallery|fan_art_exhibition/.test(explicit))return 'FAN_PROJECT_GALLERY';
  if(/single_showcase|music_showcase/.test(explicit))return 'SINGLE_SHOWCASE';
  if(/fansign/.test(explicit))return 'FANSIGN';
  if(/mall_activation|mall_ip_activation/.test(explicit))return 'MALL_ACTIVATION';
  if(/tv_series|broadcast_only|series_key_visual/.test(explicit)||row.broadcast_only===true)return 'BROADCAST_ONLY';
- if(/\bgrand premiere\b|\bpremiere (?:fan\s*meeting|event|screening)\b|รอบพรีเมียร์|งานเปิดตัวซีรีส์/.test(t))return 'OFFLINE_PREMIERE';
+ if(/\bgrand premiere\b|\bpremiere (?:fan\s*meeting|event|screening)\b|รอบพรีเมียร์|งานเปิดตัวซีรีส์|ชมตอนแรกพร้อมกัน|first\s*(?:ep\.?|episode)\s*(?:fan|screening|special|event)/.test(t))return 'OFFLINE_PREMIERE';
+ if(/\b(?:lucky\s*fans?|private\s*(?:meet|fan|experience)|top\s*spender)\b|ผู้โชคดี(?:\s*\d+)?\s*คน|เฉพาะผู้มีสิทธิ์/.test(combined))return 'BRAND_PRIVATE_EVENT';
+ if(/\blive tour\b/.test(t))return 'LIVE_TOUR';
  if(/\b(?:fan\s*)?gallery\b|\bfan\s*project\b|photo exhibition|นิทรรศการแฟน|แฟนโปรเจกต์/.test(t))return 'FAN_PROJECT_GALLERY';
  if(/\bshowcase\b|single launch|single release event|เปิดตัวซิงเกิล|โชว์เคส/.test(t))return 'SINGLE_SHOWCASE';
  if(/\bfansign\b|แฟนไซน์/.test(t))return 'FANSIGN';
@@ -30,7 +35,7 @@ function validHttpProof(x){
    !['localhost','127.0.0.1'].includes(u.hostname.toLowerCase());
  }catch{return false;}
 }
-const sensitive=new Set(['SINGLE_SHOWCASE','FAN_PROJECT_GALLERY','MALL_ACTIVATION','OFFLINE_PREMIERE','FANSIGN']);
+const sensitive=new Set(['SINGLE_SHOWCASE','FAN_PROJECT_GALLERY','MALL_ACTIVATION','OFFLINE_PREMIERE','FANSIGN','BRAND_PRIVATE_EVENT','LIVE_TOUR']);
 function evaluate(row={}){
  const kind=category(row);
  if(kind==='BROADCAST_ONLY')return {version:VERSION,category:kind,requires_review:true,decision:'NOT_OFFLINE_EVENT',access_clearance:false,
@@ -44,6 +49,11 @@ function evaluate(row={}){
   camera_policy_evidence:row.official_camera_policy_verified===true&&validHttpProof(row.official_camera_policy_url),
   owner_not_blocked:row.owner_hidden!==true&&row.owner_hold!==true&&row.tombstone_locked!==true
  };
+ // A winner-only brand activation is not a public event: require independent rights/access evidence.
+ if(kind==='BRAND_PRIVATE_EVENT'){
+  checks.verified_renter_entry_eligibility=row.eligible_renter_entry_verified===true&&validHttpProof(row.official_entry_eligibility_url);
+  checks.explicit_owner_private_event_approval=row.owner_private_event_approval_verified===true;
+ }
  // Fan-run galleries and brand / mall installations do not imply any actor attends.
  if(['FAN_PROJECT_GALLERY','MALL_ACTIVATION'].includes(kind))
   checks.verified_onsite_artist_or_rental_fit=(row.onsite_artist_presence_verified===true&&validHttpProof(row.onsite_artist_presence_source_url))||
