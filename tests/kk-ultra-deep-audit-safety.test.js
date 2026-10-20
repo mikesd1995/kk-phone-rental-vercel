@@ -98,3 +98,13 @@ test('V2 writer never sends a business request without owner approval AND produc
  await assert.rejects(Writer.executeCreate({title:'New Event',event_date:'2026-11-04'}, {type:'CREATE_EVENT'}, {fetchImpl}),{code:'V2_OWNER_AND_ACCEPTANCE_REQUIRED'});
  assert.equal(calls,0);
 });
+
+
+test('V2 refuses ticket prices, non-matching event keys, mismatched competitor identities and lens-only price evidence',()=>{
+ const candidate={...highDemand,competitor_rental_activity:0,exact_event_verified:true,official_event_source_verified:true};
+ const fake=(patch={})=>({competitor_id:'minibestt',event_key:'new',exact_event:true,source_url:'https://x.com/minibestt/status/42',package_type:'PHONE_ONLY',price:790,...patch});
+ const evidence=[fake({event_key:'OTHER'}),fake({exact_event:false}),fake({source_url:'https://example.com/ticket'}),fake({competitor_id:'fake_shop'}),fake({package_type:'LENS_ONLY'}),fake({price:-10})];
+ assert.deepEqual(V2.competitorPrices({pricing:{evidence}},'new'),[]);
+ assert.equal(V2.normalizeCandidate(candidate,baseSnap(),{pricing:{evidence}}).competitor_prices.length,0);
+ assert.equal(V2.competitorPrices({pricing:{evidence:[fake()]}},'new').length,1);
+});
