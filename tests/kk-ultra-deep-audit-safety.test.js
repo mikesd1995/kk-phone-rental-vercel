@@ -74,3 +74,27 @@ test('public social handles use valid host-scoped site operators, never site hos
   assert.ok(/@[A-Za-z]+/.test(x.query),id);
  }
 });
+
+
+test('automatic scan plans exclude EXA paid fallback on every tier and direct source',()=>{
+ for(const month of ['2026-10','2026-11','2026-12']){
+  const a=P.build({month}),b=P.buildOperational({month});
+  assert.ok(a.gap_tasks.every(x=>!x.providers.includes('EXA')));
+  assert.ok(b.gap_tasks.every(x=>!x.providers.includes('EXA')));
+  assert.ok(Registry.buildUniversePlan({month}).tasks.every(x=>!x.providers.includes('EXA')));
+ }
+});
+
+test('V2 writer never sends a business request without owner approval AND production acceptance',async()=>{
+ const Writer=require('../server/kk-ultra-deep-v2-governed-writer.js');
+ let calls=0;
+ const fetchImpl=async()=>{calls++;throw new Error('NO_NETWORK_ALLOWED');};
+ const plan={decisions:[],mutations:[]};
+ const readOnly=await Writer.execute(plan,{fetchImpl});
+ assert.equal(readOnly.status,'READ_ONLY_COMPILED');
+ assert.equal(readOnly.production_writes,0);
+ await assert.rejects(Writer.execute(plan,{executeWrites:true,fetchImpl}),{code:'V2_OWNER_AND_ACCEPTANCE_REQUIRED'});
+ await assert.rejects(Writer.execute(plan,{executeWrites:true,owner_approved:true,fetchImpl}),{code:'V2_OWNER_AND_ACCEPTANCE_REQUIRED'});
+ await assert.rejects(Writer.executeCreate({title:'New Event',event_date:'2026-11-04'}, {type:'CREATE_EVENT'}, {fetchImpl}),{code:'V2_OWNER_AND_ACCEPTANCE_REQUIRED'});
+ assert.equal(calls,0);
+});
