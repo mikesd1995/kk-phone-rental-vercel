@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V9';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V10';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -26,12 +26,16 @@ const REGISTRY=Object.freeze({
     {source_id:'paragon-hall',label:'Paragon Hall',required:true},
     {source_id:'the-mall-m-grand-hall',label:'The Mall Lifestore / M Grand Hall',required:true},
     {source_id:'pmcu-siam-square',label:'PMCU Siam Square seasonal free music festivals and stages',domain:'pmcu.co.th',required:true},
-    {source_id:'siam-center-free-stage',label:'Siam Center public plaza and POP-Pah free T-Pop programmes',required:true}
+    {source_id:'siam-center-free-stage',label:'Siam Center public plaza and POP-Pah free T-Pop programmes',required:true},
+    {source_id:'siam-center-we-tv-ip-activations',label:'Siam Center WeTV Star Hunter series Halloween exhibit activation',domain:'siamcenter.co.th',required:true}
   ]),
   ARTIST_AGENCY:Object.freeze([
     {source_id:'gmmtv',label:'GMMTV',domain:'gmmtv.com',required:true},
     {source_id:'one31',label:'one31',domain:'one31.net',required:true},
     {source_id:'domundi-mandee',label:'DOMUNDI / Mandee Work',required:true},
+    {source_id:'dmd-music-single-showcase',label:'DMD MUSIC artist single showcase benefits and release',domain:'x.com/DMDMusicTH',required:true},
+    {source_id:'domundi-artist-weekly-schedule',label:'Domundi TV weekly artist schedule FirstOne music gallery',domain:'x.com/DomundiTV',required:true},
+    {source_id:'star-hunter-series-activation',label:'Star Hunter WeTV original series seasonal mall exhibition artist attendance',required:true},
     {source_id:'deehup-house-ticketing',label:'Dee Hup House official fanmeet ticketing',domain:'deehuphouse.com',required:true},
     {source_id:'looke-gelboys',label:'LOOKE / GELBOYS fanmeeting and ticket announcements',required:true},
     {source_id:'change2561',label:'CHANGE2561',required:true},
@@ -58,7 +62,8 @@ const REGISTRY=Object.freeze({
   SOCIAL:Object.freeze([
     {source_id:'x-public',label:'X public discovery',required:true},
     {source_id:'instagram-public',label:'Instagram public discovery',required:true},
-    {source_id:'facebook-public',label:'Facebook public discovery',required:true}
+    {source_id:'facebook-public',label:'Facebook public discovery',required:true},
+    {source_id:'fan-organised-anniversary-gallery',label:'AuAuSave fan-organised anniversary gallery fan project',domain:'x.com/AuauSaveHouseTH',required:true}
   ]),
   COMPETITOR:Object.freeze([
     {source_id:'competitor-core-watchlist',label:'KK competitor core watchlist',required:true},
@@ -70,6 +75,13 @@ const REGISTRY=Object.freeze({
   ])
 });
 
+const TARGET_SOURCE_TERMS=Object.freeze({
+ 'dmd-music-single-showcase':['single showcase 2nd song release','โชว์เคส ซิงเกิล DMD MUSIC สิทธิ์ยืน งานเปิดตัว'],
+ 'domundi-artist-weekly-schedule':['FirstOne music single showcase artist schedule','ตารางงานศิลปิน DMD MUSIC DOMUNDI โชว์เคส'],
+ 'fan-organised-anniversary-gallery':['AuAu Save anniversary gallery fan project','แฟนโปรเจกต์ นิทรรศการ ครบรอบ ศิลปิน Union Mall'],
+ 'siam-center-we-tv-ip-activations':['WeTV Star Hunter Halloween TV series gallery','สยามเซ็นเตอร์ ข่มขลัง กิจกรรมฮาโลวีน นิทรรศการ'],
+ 'star-hunter-series-activation':['WeTV KHOM KHLANG series Halloween Siam Center','ซีรีส์ ข่มขลัง นิทรรศการ ตุลาคม พฤศจิกายน']
+});
 const ACCEPTED_STATUSES=new Set(['EVIDENCE_FOUND','NO_EVIDENCE','VALIDATED','EXECUTED_NO_MATCH','UNCHANGED']);
 
 function text(v){return String(v==null?'':v).trim();}
@@ -108,6 +120,7 @@ function buildUniversePlan(input={}){
       [domain,'concert fanmeeting Bangkok'].filter(Boolean).join(' '),
       [row.label,'Bangkok'].filter(Boolean).join(' ')
     ].filter(Boolean);
+    for(const hint of TARGET_SOURCE_TERMS[row.source_id]||[])queries.push([domain,hint,labels.en,'Bangkok'].filter(Boolean).join(' '));
     return {
       source_id:row.source_id,
       source_tier:row.source_tier,
@@ -163,4 +176,4 @@ function buildUniverseProof(receipts=[]){
   };
 }
 
-module.exports={VERSION,REGISTRY,ACCEPTED_STATUSES,monthLabels,allSources,buildUniversePlan,buildUniverseProof};
+module.exports={VERSION,REGISTRY,TARGET_SOURCE_TERMS,ACCEPTED_STATUSES,monthLabels,allSources,buildUniversePlan,buildUniverseProof};
