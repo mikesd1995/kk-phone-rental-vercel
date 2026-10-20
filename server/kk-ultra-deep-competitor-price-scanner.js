@@ -2,7 +2,7 @@
 
 const PublicWeb=require('./kk-ultra-deep-public-web-adapters.js');
 
-const VERSION='KK_ULTRA_DEEP_COMPETITOR_PRICE_SCANNER_V2';
+const VERSION='KK_ULTRA_DEEP_COMPETITOR_PRICE_SCANNER_V3';
 const COMPETITORS=Object.freeze([
  'minibestt','fundaybuddy','thisisyour3','fejay4rent','by_minnymicky',
  'npforrent','mcjmgoods','winkwink_rent','khaw4rent_2nd'
@@ -63,7 +63,7 @@ function buildQueries(candidate={}){
   `"${title}" เช่าโทรศัพท์ lens ราคา`,
   `"${title}" phone rental bangkok`
  ];
- const perCompetitor=COMPETITORS.map(handle=>`site:x.com/${handle} "${title}" เช่า`);
+ const perCompetitor=COMPETITORS.map(handle=>`site:x.com @${handle} "${title}" เช่ามือถือ`);
  return [...generic,...perCompetitor];
 }
 function rowToEvidence(row,candidate={}){
@@ -71,6 +71,8 @@ function rowToEvidence(row,candidate={}){
  const competitor=competitorFromUrl(url);
  if(!competitor)return null;
  const evidence=[row.title,row.body,row.snippet].filter(Boolean).join(' ');
+ // A ticket-price announcement retweeted by a rental shop is NOT a rental quote.
+ if(!/(เช่า(?:มือถือ|โทรศัพท์|เครื่อง)|ให้เช่า|phone\s*rental|rental\s*(?:phone|vivo)|เช่า\s*(?:vivo|samsung|s2\d|x300))/i.test(evidence))return null;
  const price=parsePrice(evidence);
  if(!price)return null;
  const overlap=titleOverlap(candidate.title,evidence);
