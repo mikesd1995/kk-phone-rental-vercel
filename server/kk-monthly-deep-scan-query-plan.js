@@ -1,10 +1,13 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V13';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V14';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล','free concert radio station Flex1045 PMCU Siam Halloween multi-day October November Bangkok','ฟรีคอนเสิร์ต สยามฮาโลวีน PMCU Flex 104.5 เทศกาล 30 ตุลาคม 1 พฤศจิกายน ศิลปิน'],
  TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล','KAZZ MARKET activity TutorYim fanmeeting one day trip ticket updated date','LOOKE GELBOYS AllTicket fanmeet onsale event date Thailand'],
  VENUE:['Bangkok venue artist event mall hall','สถานที่จัดงาน ศิลปิน ฮอลล์ ห้าง กรุงเทพ ปริมณฑล'],
+ MUSIC_SHOWCASE:['single showcase new song release music debut Bangkok','โชว์เคสซิงเกิลที่สอง เปิดตัวเพลงใหม่ มินิโชว์เคส ศิลปิน กรุงเทพ','artist single release showcase press photo fan benefits registration Bangkok','DMD MUSIC DOMUNDI FirstOne single showcase Union Mall music launch Bangkok'],
+ FAN_PROJECT_GALLERY:['fan project anniversary gallery exhibit idol couple Bangkok','แฟนโปรเจกต์ แกลเลอรี ครบรอบ นิทรรศการแฟนคลับ ศิลปิน กรุงเทพ','fanmade birthday anniversary cafe pop up photo gallery Bangkok union mall','AuAu Save fanbase project gallery two day exhibit Union Mall Bangkok'],
+ MALL_IP_ACTIVATION:['series character IP halloween mall exhibition fan photo zone Bangkok','กิจกรรมฮาโลวีน จัดแสดง ซีรีส์ สยามเซ็นเตอร์ เวทีนักแสดง จุดถ่ายรูป กรุงเทพ','WeTV Star Hunter series mall activation check in popup Halloween Bangkok','Siam Center seasonal series exhibition artist schedule October November Bangkok'],
  ARTIST_AGENCY:['artist agency Thailand event fan meeting appearance','ค่าย ศิลปิน นักแสดง กิจกรรม แฟนมีต กรุงเทพ','GMMTV DOMUNDI Mandee CHANGE2561 IDOLFACT one31 Channel 3 BL GL event Bangkok','ซีรีส์วาย ซีรีส์ยูริ BL GL คู่จิ้น นักแสดง งานแฟน กรุงเทพ'],
  ORGANIZER_PROMOTER:['organizer promoter Bangkok artist event','ผู้จัด งานศิลปิน กรุงเทพ ปริมณฑล','radio music concert station organizer FlexConnect Flex 104.5 PMCU Siam Square October November','radio free entry festival Thai TPOP 2026 city plaza Bangkok','JMNK SHEเสิร์ฟ concert XOXO Entertainment November 21'],
  MALL_COMMUNITY:['mall artist event Bangkok Nonthaburi Pathum Thani Samut Prakan','ห้าง กิจกรรม ศิลปิน กรุงเทพ นนทบุรี ปทุมธานี สมุทรปราการ','performance schedule artist mall brand booth Bangkok','ตารางงานศิลปิน performance schedule ห้าง แบรนด์ กรุงเทพ','Siam Center POP ป่ะห์ Halloween free TPOP cover dance 1 November 2026'],
@@ -22,7 +25,7 @@ const TIER_TERMS={
 };
 const OPERATIONAL_TIERS=Object.freeze([
  'OFFICIAL','TICKETING','ORGANIZER_PROMOTER','VENUE','ARTIST_AGENCY',
- 'MALL_COMMUNITY','FAN_EVENT','CEREMONY','AWARD_RED_CARPET','PRESS_BRAND','CAMPAIGN_LEAD_TIME','VISUAL_SCHEDULE','SPORTS_ENTERTAINMENT','SOCIAL','COMPETITOR','ANNOUNCEMENT_CHANGE','PUBLIC_CALENDAR'
+ 'MALL_COMMUNITY','FAN_EVENT','MUSIC_SHOWCASE','FAN_PROJECT_GALLERY','MALL_IP_ACTIVATION','CEREMONY','AWARD_RED_CARPET','PRESS_BRAND','CAMPAIGN_LEAD_TIME','VISUAL_SCHEDULE','SPORTS_ENTERTAINMENT','SOCIAL','COMPETITOR','ANNOUNCEMENT_CHANGE','PUBLIC_CALENDAR'
 ]);
 function text(v){return String(v==null?'':v).trim();}
 function queryVariantsForTerm(term,range,location,learned=[]){
@@ -48,6 +51,21 @@ function build(input={}){
 function operationalRecallVariants(tier,range){
  const en=SourceRegistry.monthLabels(range.month).en;
  const th=SourceRegistry.monthLabels(range.month).th;
+ if(tier==='MUSIC_SHOWCASE')return [
+  'single song showcase fan benefit registration '+en+' Bangkok',
+  'โชว์เคสซิงเกิล เปิดตัวเพลง ศิลปิน '+th+' Union Mall กรุงเทพ',
+  'DMD MUSIC DOMUNDI concert stage album showcase '+en+' Bangkok'
+ ];
+ if(tier==='FAN_PROJECT_GALLERY')return [
+  'fan anniversary gallery union mall '+en+' Bangkok',
+  'แฟนโปรเจกต์ ครบรอบ นิทรรศการแกลเลอรี '+th+' กรุงเทพ',
+  'idol fandom birthday pop up gallery fanbase '+en+' Bangkok'
+ ];
+ if(tier==='MALL_IP_ACTIVATION')return [
+  'series Halloween exhibition Siam Center WeTV '+en+' Bangkok',
+  'สยามเซ็นเตอร์ ฮาโลวีน ซีรีส์จัดแสดง จุดถ่ายภาพ '+th,
+  'Star Hunter WeTV TV series mall check in exhibit '+en+' Bangkok'
+ ];
  if(tier==='TICKETING')return [
   'site:eventpop.me/e fan concert crossover concert fansign '+en+' Bangkok',
   'site:thaiticketmajor.com premiere OST showcase fanmeeting '+en+' Bangkok',
@@ -93,7 +111,7 @@ function buildOperational(input={}){
   });
  }
  return {
-  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V5',
+  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V6',
   mode:'SMART_OPERATIONAL',
   range,location,gap_tasks,
   operational_tiers:[...OPERATIONAL_TIERS],hot_fandom_query_count:hotFandoms.length,

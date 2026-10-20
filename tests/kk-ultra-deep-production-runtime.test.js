@@ -26,17 +26,17 @@ function snapshot(){
  };
 }
 
-test('reconciliation pins exact existing, skips booked and hidden history, leaves safe new',()=>{
+test('reconciliation pins exact existing, skips active booked day and hidden history, leaves safe new',()=>{
  const out=R.reconcileCandidates([
   {event_key:'A',title:'LYKN REFLEXION CONCERT',event_date:'2026-10-23',venue:'IMPACT Arena'},
   {event_key:'B',title:'Hidden Fan Meeting',event_date:'2026-10-25',venue:'Union Hall'},
   {event_key:'C',title:'New Artist Fan Meeting',event_date:'2026-10-26',venue:'BITEC'},
   {event_key:'D',title:'Another Concert',event_date:'2026-10-27',venue:'BITEC'}
  ],snapshot());
- assert.equal(out.safe_candidates.length,3);
+ assert.equal(out.safe_candidates.length,2);
  assert.equal(out.safe_candidates[0].existing_event_id,'EVT-EX');
  assert.equal(out.dispositions.find(x=>x.event_key==='B').status,'SKIPPED_EVENT_HISTORY');
- assert.equal(out.dispositions.find(x=>x.event_key==='C').status,'SAFE_NEW');
+ assert.equal(out.dispositions.find(x=>x.event_key==='C').status,'SKIPPED_ACTIVE_BOOKING_DATE');
  assert.equal(out.dispositions.find(x=>x.event_key==='D').status,'SAFE_NEW');
  assert.equal(out.phone_capacity,2);
  assert.deepEqual(out.full_booked_dates,[]);
@@ -143,13 +143,13 @@ test('production runtime still fails closed when reconciliation has an ambiguous
 
 
 
-test('full booking date requires all phone capacity; one booking with two phones stays discoverable',()=>{
+test('one existing booking blocks unrelated new offers even when full booking capacity not reached',()=>{
  const s=snapshot();
  s.bookings=[{booking_id:'ONE',event_date:'2026-10-30',booking_status:'confirmed'}];
  assert.equal(R.phoneInventoryCapacity(s),2);
  assert.deepEqual([...R.fullBookingDateSet(s)],[]);
  let out=R.reconcileCandidates([{event_key:'N',title:'New Event',event_date:'2026-10-30',venue:'Bangkok'}],s);
- assert.equal(out.dispositions[0].status,'SAFE_NEW');
+ assert.equal(out.dispositions[0].status,'SKIPPED_ACTIVE_BOOKING_DATE');
  s.bookings.push({booking_id:'TWO',event_date:'2026-10-30',booking_status:'pending'});
  assert.deepEqual([...R.fullBookingDateSet(s)],['2026-10-30']);
  out=R.reconcileCandidates([{event_key:'N',title:'New Event',event_date:'2026-10-30',venue:'Bangkok'}],s);
