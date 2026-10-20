@@ -110,12 +110,12 @@ test('existing Thai punctuated and observed Bai Lu alias forms retain identity c
   ['WeSpark_ official | 48H COUNTDOWN for MEET&LOVE BAILU SPECIAL BANGKOK','bailu wespark']
  ])assert.equal(K.fuzzyAliasMatch(title,alias),true,title);
 });
-test('all forty-one historical fixture identities remain compatible without claiming live recall',()=>{
+test('all forty-three historical fixture identities remain compatible without claiming live recall',()=>{
  for(const row of K.CORPUS){
   const fixture=K.FIXTURE_EVIDENCE[row.case_id]||{};
   assert.equal(K.sameCase({title:fixture.title||row.title,event_date:row.event_date},row),true,row.case_id);
  }
- assert.equal(K.evaluateFixtureRegression().passed,41);
+ assert.equal(K.evaluateFixtureRegression().passed,43);
  assert.equal(K.evaluateFixtureRegression().proof_type,'DETERMINISTIC_HISTORICAL_FIXTURE');
 });
 test('public normalization and token APIs retain their prior behavior',()=>{
