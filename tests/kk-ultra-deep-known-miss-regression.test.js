@@ -3,9 +3,9 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const K=require('../server/kk-ultra-deep-known-miss-regression.js');
 
-const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121'];
+const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121', 'firstone-8-7-showcase-20261019', 'auausave-gallery-20261101', 'auausave-gallery-20261102', 'grim-lover-fansign-20261118', 'scarlet-heart-premiere-20261104', 'khom-khlang-activation-20261029', 'khom-khlang-activation-20261030', 'khom-khlang-activation-20261031', 'khom-khlang-activation-20261101'];
 
-test('known-miss corpus preserves all thirty-two current and historical discovery misses',()=>{
+test('known-miss corpus preserves all forty-one current and historical discovery misses',()=>{
  assert.deepEqual(K.CORPUS.map(x=>x.case_id).sort(),[...REQUIRED_CASE_IDS].sort());
  assert.ok(K.CORPUS.some(x=>x.case_id==='remaster-20261010'));
  assert.ok(K.CORPUS.some(x=>x.case_id==='bai-lu-meet-love-20261025'));
@@ -96,4 +96,23 @@ test('JMNK Oct ticket sale and November concert are both in November discovery o
  const o=K.evaluate([],[],{month:'2026-10',strict_live:true});
  assert.ok(n.missing_cases.includes('jmnk-she-serve-20261121'));
  assert.ok(o.missing_cases.includes('jmnk-she-serve-20261121'));
+});
+
+
+test('miss corpus includes the owner-confirmed first-party showcase, gallery, fansign, premiere and mall activation as distinct dates',()=>{
+ const byId=new Map(K.CORPUS.map(x=>[x.case_id,x]));
+ for(const id of ['firstone-8-7-showcase-20261019','auausave-gallery-20261101','auausave-gallery-20261102','grim-lover-fansign-20261118','scarlet-heart-premiere-20261104','khom-khlang-activation-20261029','khom-khlang-activation-20261030','khom-khlang-activation-20261031','khom-khlang-activation-20261101'])assert.ok(byId.has(id),id);
+ assert.ok(K.sameCase({title:'FirstOne 2nd Single 8/7 Showcase',event_date:'2026-10-19'},byId.get('firstone-8-7-showcase-20261019')));
+ assert.equal(K.sameCase({title:'Scarlet Heart Thailand',event_date:'2026-11-04'},byId.get('scarlet-heart-premiere-20261104')),false);
+ assert.equal(K.sameCase({title:'Journey of AuAuSave Gallery',event_date:'2026-11-01'},byId.get('auausave-gallery-20261102')),false);
+ assert.equal(K.sameCase({title:'Khom Khlang Special Episode 5',event_date:'2026-10-29'},byId.get('khom-khlang-activation-20261029')),false);
+});
+
+test('strict live recall never treats the owner screenshot or absent original URL as direct-source evidence',()=>{
+ const all=K.CORPUS.filter(x=>x.case_id==='firstone-8-7-showcase-20261019'||x.case_id==='auausave-gallery-20261102');
+ const bad=K.evaluate(all.map(x=>({title:x.title,event_date:x.event_date})),[],{month:'2026-10',strict_live:true});
+ for(const x of all)assert.ok(bad.missing_cases.includes(x.case_id));
+ const nov=K.evaluate([],[],{month:'2026-11',strict_live:true});
+ assert.ok(nov.missing_cases.includes('khom-khlang-activation-20261029'));
+ assert.ok(nov.missing_cases.includes('auausave-gallery-20261101'));
 });
