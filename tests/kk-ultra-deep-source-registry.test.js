@@ -52,3 +52,17 @@ test('radio free music festivals and mall public plaza sources are mandatory',()
   assert.ok(a.some(x=>x.source_id===id&&x.required===true),id);
  }
 });
+
+
+test('HOWE award organiser is required and a missing direct-source receipt fails closed',()=>{
+ const tasks=R.buildUniversePlan({month:'2026-10',location:'Bangkok Thailand'}).tasks;
+ const howe=tasks.find(x=>x.source_id==='howe-awards-official');
+ assert.equal(howe.required,true);
+ assert.ok(howe.query.includes('site:howemagazine.com'));
+ assert.match(howe.query,/October 2026/);
+ const missing=R.allSources().filter(x=>x.source_id!=='howe-awards-official').map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ const proof=R.buildUniverseProof(missing);
+ assert.equal(proof.complete,false);
+ assert.ok(proof.missing_required_sources.includes('howe-awards-official'));
+ assert.equal(R.buildUniverseProof([...missing,{source_id:'howe-awards-official',status:'NO_EVIDENCE',executed:true}]).complete,true);
+});
