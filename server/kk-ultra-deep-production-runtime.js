@@ -193,6 +193,10 @@ function reconcileCandidates(candidates=[],snapshot={}){
  const safe=[];const dispositions=[];const suppressed_updates=[];
  for(const raw of (Array.isArray(candidates)?candidates:[]).flatMap(TypeAccess.splitVerifiedDates)){
   const c={...raw,event_date:date(raw.event_date)};
+  if(c.source_date_hold===true){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'HOLD_UNVERIFIED_MULTI_DAY_DATES'});
+   continue;
+  }
   const canonicalId=candidateCanonicalId(c);
   const directExisting=canonicalId?events.find(e=>text(e.event_id)===canonicalId)||null:null;
   const history=historyByCanonicalId(c,snapshot.visibility_locks||[])||historicalConflict(c,snapshot.visibility_locks||[]);
@@ -222,10 +226,6 @@ function reconcileCandidates(candidates=[],snapshot={}){
   }
   if(booked.has(c.event_date)){
    dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_ACTIVE_BOOKING_DATE'});
-   continue;
-  }
-  if(c.source_date_hold===true){
-   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'HOLD_UNVERIFIED_MULTI_DAY_DATES'});
    continue;
   }
   const typeGate=TypeAccess.evaluate(c);
