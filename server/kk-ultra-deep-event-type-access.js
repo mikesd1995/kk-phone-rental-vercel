@@ -1,13 +1,20 @@
 'use strict';
 // Discovery semantics must not turn a TV poster or community fan installation into a ticketed camera rental.
-const VERSION='KK_ULTRA_DEEP_EVENT_TYPE_ACCESS_V1';
+const VERSION='KK_ULTRA_DEEP_EVENT_TYPE_ACCESS_V2';
 const str=x=>String(x==null?'':x).trim();
 const compact=x=>str(x).toLowerCase().normalize('NFKC');
 function category(row={}){
+ const explicit=compact([row.event_type,row.event_category,row.activity_type,row.poster_kind,row.content_type].join(' ')).replace(/[^a-z0-9]+/g,'_');
  const t=compact([row.title,row.event_name,row.event_type,row.event_category].join(' '));
  const detail=compact([row.description,row.event_description,row.notes,row.caption].join(' '));
  const combined=t+' '+detail;
  // Prefer the specifically advertised offline event over the name of its parent TV series.
+ if(/offline_premiere/.test(explicit))return 'OFFLINE_PREMIERE';
+ if(/fan_project_gallery|fan_gallery|fan_art_exhibition/.test(explicit))return 'FAN_PROJECT_GALLERY';
+ if(/single_showcase|music_showcase/.test(explicit))return 'SINGLE_SHOWCASE';
+ if(/fansign/.test(explicit))return 'FANSIGN';
+ if(/mall_activation|mall_ip_activation/.test(explicit))return 'MALL_ACTIVATION';
+ if(/tv_series|broadcast_only|series_key_visual/.test(explicit)||row.broadcast_only===true)return 'BROADCAST_ONLY';
  if(/\bgrand premiere\b|\bpremiere (?:fan\s*meeting|event|screening)\b|รอบพรีเมียร์|งานเปิดตัวซีรีส์/.test(t))return 'OFFLINE_PREMIERE';
  if(/\b(?:fan\s*)?gallery\b|\bfan\s*project\b|photo exhibition|นิทรรศการแฟน|แฟนโปรเจกต์/.test(t))return 'FAN_PROJECT_GALLERY';
  if(/\bshowcase\b|single launch|single release event|เปิดตัวซิงเกิล|โชว์เคส/.test(t))return 'SINGLE_SHOWCASE';
@@ -46,13 +53,19 @@ function evaluate(row={}){
   access_clearance:ok,artist_presence_confirmed:row.onsite_artist_presence_verified===true,
   missing,production_writes:0};
 }
+function validIsoDate(x){
+ const s=str(x);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;
+ const d=new Date(s+'T00:00:00Z');
+ return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===s;
+}
 function splitVerifiedDates(candidate={}){
  if(!Array.isArray(candidate.event_dates))return [candidate];
  const dates=candidate.event_dates;
  if(candidate.event_dates_verified!==true||!dates.length||dates.length>31||
-    !dates.every(x=>/^\d{4}-\d{2}-\d{2}$/.test(str(x))&&!Number.isNaN(Date.parse(str(x)+'T00:00:00Z'))))
+    !dates.every(validIsoDate)
   return [{...candidate,source_date_hold:true,event_dates:dates}];
  const unique=[...new Set(dates.map(str))];
  return unique.map(d=>({...candidate,event_date:d,origin_event_dates:unique}));
 }
-module.exports={VERSION,category,evaluate,validHttpProof,splitVerifiedDates};
+module.exports={VERSION,category,evaluate,validHttpProof,validIsoDate,splitVerifiedDates};
