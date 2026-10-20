@@ -137,3 +137,11 @@ test('verified two-day splits have unique deterministic event keys without inven
  assert.deepEqual(r.map(x=>x.event_key),['AUAUSAVE-GALLERY-2026-20261101','AUAUSAVE-GALLERY-2026-20261102']);
  assert.deepEqual(r.map(x=>x.event_date),['2026-11-01','2026-11-02']);
 });
+
+
+test('unverified date-array updates cannot bypass HOLD by referencing an existing canonical event',()=>{
+ const s=snapshot();s.events=[{event_id:'EX-GALLERY',event_name:gallery.title,event_date:'2026-11-02',venue:gallery.venue}];
+ const z=Prod.reconcileCandidates([{...gallery,canonical_event_id:'EX-GALLERY',event_dates:['2026-11-01','2026-11-02'],event_dates_verified:false}],s);
+ assert.equal(z.safe_candidates.length,0);
+ assert.equal(z.dispositions[0].status,'HOLD_UNVERIFIED_MULTI_DAY_DATES');
+});
