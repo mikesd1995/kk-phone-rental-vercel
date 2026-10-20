@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V13';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V14';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -43,7 +43,9 @@ const CORPUS=Object.freeze([
   {case_id:'khom-khlang-activation-20261029',title:'Khom Khlang WeTV Star Hunter Siam Center Halloween Exhibition',aliases:['ข่มขลัง สยามเซ็นเตอร์ ฮาโลวีน','khom khlang siam center halloween'],search_queries:['Star Hunter WeTV Khom Khlang Siam Center 29 October 2026'],event_date:'2026-10-29',discovery_months:['2026-11'],miss_class:'MALL_IP_ACTIVATION_CROSSMONTH_GAP'},
   {case_id:'khom-khlang-activation-20261030',title:'Khom Khlang WeTV Star Hunter Siam Center Halloween Exhibition',aliases:['ข่มขลัง สยามเซ็นเตอร์ ฮาโลวีน','khom khlang siam center halloween'],search_queries:['Star Hunter WeTV Khom Khlang Siam Center 30 October 2026'],event_date:'2026-10-30',discovery_months:['2026-11'],miss_class:'MALL_IP_ACTIVATION_CROSSMONTH_GAP'},
   {case_id:'khom-khlang-activation-20261031',title:'Khom Khlang WeTV Star Hunter Siam Center Halloween Exhibition',aliases:['ข่มขลัง สยามเซ็นเตอร์ ฮาโลวีน','khom khlang siam center halloween'],search_queries:['Star Hunter WeTV Khom Khlang Siam Center 31 October 2026'],event_date:'2026-10-31',discovery_months:['2026-11'],miss_class:'MALL_IP_ACTIVATION_CROSSMONTH_GAP'},
-  {case_id:'khom-khlang-activation-20261101',title:'Khom Khlang WeTV Star Hunter Siam Center Halloween Exhibition',aliases:['ข่มขลัง สยามเซ็นเตอร์ ฮาโลวีน','khom khlang siam center halloween'],search_queries:['Star Hunter WeTV Khom Khlang Siam Center 1 November 2026'],event_date:'2026-11-01',discovery_months:['2026-10'],miss_class:'MALL_IP_ACTIVATION_CROSSMONTH_GAP'}
+  {case_id:'khom-khlang-activation-20261101',title:'Khom Khlang WeTV Star Hunter Siam Center Halloween Exhibition',aliases:['ข่มขลัง สยามเซ็นเตอร์ ฮาโลวีน','khom khlang siam center halloween'],search_queries:['Star Hunter WeTV Khom Khlang Siam Center 1 November 2026'],event_date:'2026-11-01',discovery_months:['2026-10'],miss_class:'MALL_IP_ACTIVATION_CROSSMONTH_GAP'},
+  {case_id:'lovers-gangsters-legend-begins-20261030',title:'หงเสนคลุกฝุ่น : The Legend Begins',aliases:['หงเสนคลุกฝุ่น the legend begins','lovers and gangsters the legend begins','lovers & gangsters the legend begins'],search_queries:['GMMTV series first episode ticketed screening cast special stage 30 October 2026','GMMTV หงเสนคลุกฝุ่น The Legend Begins 30 ตุลาคม ยูเนี่ยนฮอลล์'],event_date:'2026-10-30',miss_class:'TICKETED_FIRST_EP_CAST_STAGE_MISSING_CANONICAL'},
+  {case_id:'persona-live-tour-resonance-20261027',title:'PERSONA LIVE TOUR 2026 — Resonance',aliases:['persona live tour 2026 resonance','persona live tour 2026'],search_queries:['Eventpop live music tour soundtrack Cloud 11 Hall October 2026','54 Entertainment Persona Live Tour Resonance 27 October 2026'],event_date:'2026-10-27',miss_class:'THEMED_LIVE_TOUR_TRACKER_ONLY_NOT_CANONICAL'}
 ]);
 const FIXTURE_EVIDENCE=Object.freeze({
   'remaster-20261010':{title:'REMASTER CONCERT TIMESHOWBIZ',source_url:'https://www.paragonhall.com/en/events'},
@@ -69,7 +71,9 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'siam-halloween-20261030':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
   'siam-halloween-20261031':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
   'siam-halloween-20261101':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
-  'jmnk-she-serve-20261121':{title:'JMNK SHEเสิร์ฟ CONCERT',source_url:'https://x.com/jmnkofficial'}
+  'jmnk-she-serve-20261121':{title:'JMNK SHEเสิร์ฟ CONCERT',source_url:'https://x.com/jmnkofficial'},
+  'lovers-gangsters-legend-begins-20261030':{title:'หงเสนคลุกฝุ่น : The Legend Begins',source_url:'https://www.gmm-tv.com/news/4492/'},
+  'persona-live-tour-resonance-20261027':{title:'PERSONA LIVE TOUR 2026 — Resonance',source_url:'https://www.eventpop.me/e/171450/personalivetour2026'}
 });
 
 function text(v){return String(v==null?'':v).trim();}
