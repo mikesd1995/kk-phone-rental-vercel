@@ -108,3 +108,23 @@ test('official source receipts are required for individual DMD Music/artist-sche
  assert.equal(proof.complete,false);
  assert.ok(proof.missing_required_sources.includes('dmd-music-single-showcase'));
 });
+
+
+test('typed ingestion never advertises TV-only series or mistakes coded fan gallery and mall activation for a concert',()=>{
+ assert.equal(Access.category({title:'Scarlet Heart Thailand',poster_kind:'SERIES_KEY_VISUAL'}),'BROADCAST_ONLY');
+ assert.equal(Access.category({title:'Scarlet Heart Thailand',event_type:'TV_SERIES'}),'BROADCAST_ONLY');
+ assert.equal(Access.category({title:'Scarlet Heart Thailand The Grand Premiere',event_type:'OFFLINE_PREMIERE'}),'OFFLINE_PREMIERE');
+ assert.equal(Access.category({title:'Journey of AuAuSave',event_category:'FAN_PROJECT_GALLERY'}),'FAN_PROJECT_GALLERY');
+ assert.equal(Access.category({title:'WeTV Khom Khlang',activity_type:'MALL_IP_ACTIVATION'}),'MALL_ACTIVATION');
+ assert.equal(Access.category({title:'FirstOne 8/7',activity_type:'SINGLE_SHOWCASE'}),'SINGLE_SHOWCASE');
+});
+
+test('event dates require actual calendar days, not merely ISO-looking text',()=>{
+ assert.equal(Access.validIsoDate('2026-02-31'),false);
+ assert.equal(Access.validIsoDate('2026-11-31'),false);
+ assert.equal(Access.validIsoDate('2026-11-02'),true);
+ const row={...verifiedGallery,event_dates:['2026-11-01','2026-11-31'],event_dates_verified:true};
+ const z=Prod.reconcileCandidates([row],snapshot());
+ assert.equal(z.safe_candidates.length,0);
+ assert.equal(z.dispositions[0].status,'HOLD_UNVERIFIED_MULTI_DAY_DATES');
+});
