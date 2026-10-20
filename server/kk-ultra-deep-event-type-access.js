@@ -63,7 +63,7 @@ function splitVerifiedDates(candidate={}){
  if(!Array.isArray(candidate.event_dates))return [candidate];
  const dates=candidate.event_dates;
  if(candidate.event_dates_verified!==true||!dates.length||dates.length>31||
-    !dates.every(validIsoDate)
+    !dates.every(validIsoDate))
   return [{...candidate,source_date_hold:true,event_dates:dates}];
  const unique=[...new Set(dates.map(str))];
  return unique.map(d=>({...candidate,event_key:str(candidate.event_key||candidate.candidate_id||candidate.title)+'-'+d.replace(/-/g,''),origin_event_key:str(candidate.event_key||candidate.candidate_id),event_date:d,origin_event_dates:unique}));
