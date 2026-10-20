@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V11';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V12';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -76,6 +76,9 @@ const REGISTRY=Object.freeze({
 });
 
 const TARGET_SOURCE_TERMS=Object.freeze({
+ 'gmmtv':['first episode premiere special screening fansign show on stage Union Hall ticket','ซีรีส์ตอนแรก ชมตอนแรกพร้อมนักแสดง ยูเนี่ยนฮอลล์ จำหน่ายบัตร'],
+ 'eventpop':['live tour anime game soundtrack orchestral concert Bangkok Cloud 11','เกม เพลงประกอบคอนเสิร์ต live tour theme กรุงเทพ คลาวด์ 11'],
+ 'brand-private-experience-campaigns':['lucky fan winners non-transferable private event draw announcement','ผู้โชคดี 30 คน ยืนยันสิทธิ์ เข้างานเฉพาะผู้มีสิทธิ์ แบรนด์ ศิลปิน'], 
  'dmd-music-single-showcase':['single showcase 2nd song release','โชว์เคส ซิงเกิล DMD MUSIC สิทธิ์ยืน งานเปิดตัว'],
  'domundi-artist-weekly-schedule':['FirstOne music single showcase artist schedule','ตารางงานศิลปิน DMD MUSIC DOMUNDI โชว์เคส'],
  'fan-organised-anniversary-gallery':['AuAu Save anniversary gallery fan project','แฟนโปรเจกต์ นิทรรศการ ครบรอบ ศิลปิน Union Mall'],
