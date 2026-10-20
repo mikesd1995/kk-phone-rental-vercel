@@ -5,7 +5,7 @@ const AwardAccess=require('./kk-ultra-deep-award-zone-access.js');
 const TypeAccess=require('./kk-ultra-deep-event-type-access.js');
 const V2=require('./kk-ultra-deep-full-loop-v2.js');
 const Requal=require('./kk-ultra-deep-storefront-requalification.js');
-const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V5';
+const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V6';
 function text(v){return String(v==null?'':v).trim();}
 function statusActive(v){return !['cancelled','canceled','no_show'].includes(text(v).toLowerCase());}
 function bookingCountForEvent(snapshot,eventId){return (snapshot.bookings||[]).filter(b=>statusActive(b.booking_status)&&text(b.event_id)===text(eventId)).length;}
@@ -14,9 +14,14 @@ function availableOnDate(snapshot,eventDate){
 }
 function matchForV2(candidate,events=[]){
  const direct=Production.matchExisting(candidate,events);if(direct.match||direct.ambiguous)return direct;
+ // Repeated annual/multi-day events are NOT a date change. Require existing canonical ID and explicit verified move.
  const sameTitle=events.filter(e=>Production.norm(e.event_name)===Production.norm(candidate.title));
- if(sameTitle.length===1)return {match:{event:sameTitle[0],score:.9,reason:'EXACT_NAME_DATE_CHANGE'},ambiguous:false,candidates:[]};
- if(sameTitle.length>1)return {match:null,ambiguous:true,candidates:sameTitle.slice(0,3).map(event=>({event,score:.9,reason:'EXACT_NAME_AMBIGUOUS_DATE'}))};
+ const id=text(candidate.existing_event_id||candidate.canonical_event_id);
+ if(candidate.date_change_verified===true&&id){
+  const exact=sameTitle.filter(e=>text(e.event_id)===id);
+  if(exact.length===1)return {match:{event:exact[0],score:.9,reason:'VERIFIED_EXPLICIT_CANONICAL_DATE_CHANGE'},ambiguous:false,candidates:[]};
+ }
+ // With no verified identity, let a different date proceed as distinct, subject to all new-event guards.
  return direct;
 }
 function commercialByKey(commercial={}){return new Map((commercial.candidates||[]).map(x=>[text(x.event_key),x]));}
@@ -28,6 +33,10 @@ function competitorActivity(count){const n=Math.max(0,Number(count)||0);return n
 function normalizeCandidate(candidate,snapshot,commercialRow={}){
  const events=Production.snapshotEvents(snapshot),match=matchForV2(candidate,events),existing=match.match&&match.match.event||null;
  const available=availableOnDate(snapshot,candidate.event_date);
+ const activeDay=Production.activeBookingDateSet(snapshot).has(text(candidate.event_date).slice(0,10));
+ const historical=Production.historicalConflict(candidate,snapshot.visibility_locks||[]);
+ const lockedHistory=historical&&['LOCKED','SEEN_CORE'].includes(text(historical.lock_state).toUpperCase());
+ const blockedNew=Boolean(candidate.source_date_hold===true||candidate.owner_hold===true||candidate.owner_hidden===true||candidate.tombstone_locked===true||lockedHistory||activeDay);
  const exact=competitorPrices(commercialRow);
  const competitorCount=new Set(exact.map(x=>x.competitor_id).filter(Boolean)).size;
  const legacyRental=signalValue(candidate,'rental_intent',signalValue(candidate,'rental_fit_score',null));
@@ -54,6 +63,7 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
  const access=AwardAccess.evaluate(candidate),typeAccess=TypeAccess.evaluate(candidate);
  const marketQualification=existing?null:Rent.qualify(scoring);
  const qualification=existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0,internal_business_signals_affect_score:false}:
+  blockedNew?{...marketQualification,external_market_decision:marketQualification.decision,decision:activeDay?'SKIPPED_ACTIVE_BOOKING_DATE':lockedHistory||candidate.owner_hold===true||candidate.owner_hidden===true||candidate.tombstone_locked===true?'SKIPPED_OWNER_HISTORY':'HOLD_UNVERIFIED_MULTI_DAY_DATES',publish_eligible:false,production_writes:0}:
   marketQualification.decision==='NO_CAPACITY'?{...marketQualification,award_access:access,event_type_access:typeAccess}:
   !access.access_clearance?{...marketQualification,external_market_decision:marketQualification.decision,decision:'VERIFY_ACCESS',publish_eligible:false,award_access:access,event_type_access:typeAccess}:
   !typeAccess.access_clearance?{...marketQualification,external_market_decision:marketQualification.decision,decision:typeAccess.decision,publish_eligible:false,award_access:access,event_type_access:typeAccess}:
@@ -82,8 +92,10 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
   price_targets:priceTargets,competitor_prices:exact,current_date:existing&&text(existing.event_date)||'',verified_date:text(candidate.event_date),date_change_verified:!!existing&&text(existing.event_date)!==text(candidate.event_date),
   current_venue:existing&&text(existing.venue)||'',verified_venue:text(candidate.venue),venue_change_verified:!!existing&&!!text(candidate.venue)&&text(existing.venue)!==text(candidate.venue),
   current_poster_url:existing&&text(existing.poster_image_url)||'',latest_official_poster_url:poster&&text(poster.image_url)||'',latest_official_poster_verified:!!poster,
-  exact_event_verified:true,governed_fallback_price:proposal.proposal_available?Number(proposal.proposed_reference_price)||null:null,
-  rentability:qualification,award_access:access,event_type_access:typeAccess,storefront_requalification:requalification,external_scoring:scoring,available_inventory:available
+  exact_event_verified:candidate.exact_event_verified===true&&candidate.official_event_source_verified===true,
+  governed_fallback_price:proposal.proposal_available===true&&proposal.owner_price_approved===true?Number(proposal.proposed_reference_price)||null:null,
+  rentability:qualification,award_access:access,event_type_access:typeAccess,storefront_requalification:requalification,external_scoring:scoring,available_inventory:available,
+  booking_day_blocked:!existing&&activeDay,history_lock_blocked:!existing&&Boolean(lockedHistory)
  };
 }
 function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
