@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V12';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V13';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -31,6 +31,7 @@ const REGISTRY=Object.freeze({
   ]),
   ARTIST_AGENCY:Object.freeze([
     {source_id:'gmmtv',label:'GMMTV',domain:'gmmtv.com',required:true},
+    {source_id:'game-publisher-live-tour-calendar',label:'Official SEGA/ATLUS Persona & gaming soundtrack live-tour announcements',domain:'asia.sega.com',required:true},
     {source_id:'one31',label:'one31',domain:'one31.net',required:true},
     {source_id:'domundi-mandee',label:'DOMUNDI / Mandee Work',required:true},
     {source_id:'dmd-music-single-showcase',label:'@DMDMusicTH DMD MUSIC artist single showcase benefits and release',domain:'x.com',required:true},
@@ -77,6 +78,7 @@ const REGISTRY=Object.freeze({
 
 const TARGET_SOURCE_TERMS=Object.freeze({
  'gmmtv':['first episode premiere special screening fansign show on stage Union Hall ticket','ซีรีส์ตอนแรก ชมตอนแรกพร้อมนักแสดง ยูเนี่ยนฮอลล์ จำหน่ายบัตร'],
+ 'game-publisher-live-tour-calendar':['official gaming soundtrack live concert singers Bangkok tour tickets','SEGA ATLUS live tour Cloud 11 Hall Bangkok 2026'],
  'eventpop':['live tour anime game soundtrack orchestral concert Bangkok Cloud 11','เกม เพลงประกอบคอนเสิร์ต live tour theme กรุงเทพ คลาวด์ 11'],
  'brand-private-experience-campaigns':['lucky fan winners non-transferable private event draw announcement','ผู้โชคดี 30 คน ยืนยันสิทธิ์ เข้างานเฉพาะผู้มีสิทธิ์ แบรนด์ ศิลปิน'], 
  'dmd-music-single-showcase':['single showcase 2nd song release','โชว์เคส ซิงเกิล DMD MUSIC สิทธิ์ยืน งานเปิดตัว'],
