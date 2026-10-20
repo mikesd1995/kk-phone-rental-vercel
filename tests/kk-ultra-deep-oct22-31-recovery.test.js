@@ -31,3 +31,15 @@ test('original sources have generic October first-episode, soundtrack and privat
  const p=Registry.buildUniversePlan({month:'2026-10'});
  for(const id of ['gmmtv','eventpop','brand-private-experience-campaigns']){const s=p.tasks.find(x=>x.source_id===id);assert.ok(s&&s.required,id);assert.ok(s.query_variants.length>6,id);}
 });
+
+test('SEGA/ATLUS is independently checked as required original concert publisher, not just secondary ticket listings',()=>{
+ const p=Registry.buildUniversePlan({month:'2026-10'});
+ const x=p.tasks.find(v=>v.source_id==='game-publisher-live-tour-calendar');
+ assert.ok(x);
+ assert.equal(x.required,true);
+ assert.ok(x.query.startsWith('site:asia.sega.com '));
+ assert.ok(x.query_variants.some(q=>/game|soundtrack|SEGA|ATLUS/i.test(q)));
+ const proof=Registry.buildUniverseProof(Registry.allSources().filter(y=>y.source_id!=='game-publisher-live-tour-calendar').map(y=>({source_id:y.source_id,status:'NO_EVIDENCE',executed:true})));
+ assert.equal(proof.complete,false);
+ assert.ok(proof.missing_required_sources.includes('game-publisher-live-tour-calendar'));
+});
