@@ -2,7 +2,7 @@
 const Production=require('./kk-ultra-deep-production-runtime.js');
 const Promotion=require('./kk-verifier-storefront-promotion.js');
 const Executor=require('./kk-governed-storefront-executor.js');
-const VERSION='KK_ULTRA_DEEP_V2_GOVERNED_WRITER_V2';
+const VERSION='KK_ULTRA_DEEP_V2_GOVERNED_WRITER_V3';
 function text(v){return String(v==null?'':v).trim();}
 function mapMutation(m={},decision={}){
  const eventId=text(decision.canonical_event_id);
@@ -41,8 +41,15 @@ function exactMatch(action,rb={}){
  if(m.type==='CREATE_EVENT')return !!text(e.event_id)&&Production.norm(e.event_name)===Production.norm(a.event_name)&&Production.date(e.event_date)===Production.date(a.event_date)&&text(e.poster_image_url||e.poster_url)===text(a.poster_url);
  return false;
 }
+function requireReleaseApproval(options={}){
+ // Runtime verifier flags in candidate source payloads are not a substitute for owner approval.
+ if(options.owner_approved!==true||options.production_acceptance_verified!==true){
+  throw Object.assign(new Error('independent owner approval and production acceptance required'),{code:'V2_OWNER_AND_ACCEPTANCE_REQUIRED'});
+ }
+}
 async function execute(plan={},options={}){
  const compiled=compile(plan);if(options.executeWrites!==true)return {...compiled,status:'READ_ONLY_COMPILED'};
+ requireReleaseApproval(options);
  const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch,receipts=[];let writes=0;
  for(const x of compiled.actions){
   if(x.mutation.type==='CREATE_EVENT') throw Object.assign(new Error('V2 create must be executed by package-aware create plan'),{code:'V2_CREATE_PLAN_REQUIRED'});
@@ -65,7 +72,8 @@ function createPlan(decision={},mutation={},packageTemplates=[]){
  Promotion.assertReady?Promotion.assertReady(plan):null;return plan;
 }
 async function executeCreate(decision,mutation,options={}){
+ requireReleaseApproval(options);
  const env=options.env||process.env,fetchImpl=options.fetchImpl||global.fetch,plan=createPlan(decision,mutation,options.packageTemplates||[]);
  return Executor.execute(plan,{env,fetchImpl,correlationId:text(options.correlationId),readbackFn:args=>Production.storefrontReadback({...args,env,fetchImpl})});
 }
-module.exports={VERSION,mapMutation,compile,exactMatch,createPlan,executeCreate,execute};
+module.exports={VERSION,mapMutation,compile,exactMatch,createPlan,requireReleaseApproval,executeCreate,execute};
