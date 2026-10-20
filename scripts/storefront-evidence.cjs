@@ -85,11 +85,21 @@ async function settle(page){
 }
 
 async function inspectState(page){
-  return page.evaluate(()=>{
+  return page.evaluate(async()=>{
+    const originalScroll={x:scrollX,y:scrollY};
     const visible=el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0;};
     const box=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height};};
-    const raw=[...new Set((document.body.innerText.match(/\b(?:journey|proof|events|filter|footer|modal|faq|hero|card|search|tap|theme|book|package|no|date|available)_[a-z0-9_]+\b/gi)||[]))];
     const cards=[...document.querySelectorAll('.concert-card:not(.skeleton-card)')].filter(visible);
+    const originalStyles=cards.map(card=>({card,style:card.getAttribute('style')}));
+    try{
+    // Audit natural geometry for every card, including virtualized offscreen cards.
+    // Product virtualization is restored before any screenshot or next interaction.
+    for(const card of cards){
+      card.style.setProperty('content-visibility','visible','important');
+      card.style.setProperty('contain-intrinsic-size','none','important');
+    }
+    void document.documentElement.offsetHeight;
+    const raw=[...new Set((document.body.innerText.match(/\b(?:journey|proof|events|filter|footer|modal|faq|hero|card|search|tap|theme|book|package|no|date|available)_[a-z0-9_]+\b/gi)||[]))];
     const first=cards[0]?.getBoundingClientRect();
     const cardRects=cards.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};});
     const cardHeights=cardRects.map(r=>r.height).filter(Number.isFinite);
@@ -111,7 +121,9 @@ async function inspectState(page){
     });
     const posterTreatmentIssues=cards.flatMap(card=>{
       const wrap=card.querySelector('.poster-img-wrap');
-      const img=wrap&&wrap.querySelector('img');
+      // A nested shop-brand illustration belongs to the exact-event fallback panel,
+      // not to an uncropped organizer poster. Inspect only the direct poster image.
+      const img=wrap&&wrap.querySelector(':scope > img');
       if(!wrap||!img||!img.complete||!img.naturalWidth||!img.naturalHeight)return [];
       const wr=wrap.getBoundingClientRect();
       const fit=getComputedStyle(img).objectFit;
@@ -129,7 +141,7 @@ async function inspectState(page){
       }]:[];
     });
     const escaped=[];
-    for(const card of cards){const c=card.getBoundingClientRect();for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){const r=el.getBoundingClientRect();if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1)escaped.push(el.className);}}
+    for(const card of cards){const c=card.getBoundingClientRect();for(const el of card.querySelectorAll('.poster-img-wrap,.poster-info,.pi-date,.pi-name,.pi-venue,.pi-price,.pi-avail,.pi-tap,.status-badge')){const r=el.getBoundingClientRect();if(r.left<c.left-1||r.right>c.right+1||r.top<c.top-1||r.bottom>c.bottom+1)escaped.push(String(el.className)+'[card='+Math.round(c.width)+'x'+Math.round(c.height)+'; offset='+Math.round(r.left-c.left)+','+Math.round(r.top-c.top)+'; child='+Math.round(r.width)+'x'+Math.round(r.height)+'; beyond='+Math.round(r.right-c.right)+','+Math.round(r.bottom-c.bottom)+']');}}
     const modal=document.querySelector('.overlay.active .modal,.faq-overlay.active .modal');
     const scope=modal||document;
     const targets=[...scope.querySelectorAll('button,a[href],input,select')].filter(visible).filter(el=>!el.classList.contains('skip-link'));
@@ -139,7 +151,7 @@ async function inspectState(page){
     const overlappingFilters=filters.some((r,i)=>i>0&&r.left<filters[i-1].right-1);
     const mb=modal?box(modal):null;
     return {scroll_y:scrollY,raw_i18n_keys:raw,document_width:document.documentElement.scrollWidth,viewport_width:innerWidth,
-      card_rects:cardRects,card_height_spread_px:Number(cardHeightSpread.toFixed(2)),poster_frame_ratios:posterFrameRatios,
+      audited_card_count:cards.length,card_rects:cardRects,card_height_spread_px:Number(cardHeightSpread.toFixed(2)),poster_frame_ratios:posterFrameRatios,
       escaped_card_elements:escaped,poster_source_issues:posterSourceIssues,poster_treatment_issues:posterTreatmentIssues,
       first_event_top:first?first.top+scrollY:null,visible_event_cards_above_fold:cards.filter(el=>{const r=el.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0;}).length,
       small_targets:small,clipped_controls:clipped,overlapping_filters:overlappingFilters,theme_icons:[...document.querySelectorAll('.theme-toggle span')].filter(visible).length,
@@ -152,6 +164,16 @@ async function inspectState(page){
         fallback_mode:el.dataset.posterFallback||'',
         fallback_visible:Boolean(el.querySelector('.poster-placeholder-event'))
       }))};
+    }finally{
+      for(const {card,style} of originalStyles){
+        if(style===null)card.removeAttribute('style');
+        else card.setAttribute('style',style);
+      }
+      scrollTo({left:originalScroll.x,top:originalScroll.y,behavior:'instant'});
+      // Let restored intrinsic sizing settle, then undo any scroll anchoring drift.
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      scrollTo({left:originalScroll.x,top:originalScroll.y,behavior:'instant'});
+    }
   }).then(state=>{
     const geometry=cardColumnGeometry(state.card_rects||[]);
     delete state.card_rects;
@@ -179,7 +201,9 @@ function stateFindings(state,{width,name}){
     if(m.left<0||m.right>width+1||m.top<0||m.bottom>m.viewport_height+1||m.scroll_width>m.client_width+1)add('MODAL_VIEWPORT_CONTAINMENT',JSON.stringify(m));
     if(!m.focus_inside)add('MODAL_FOCUS_ESCAPED',name);
     if(!m.title.trim())add('MODAL_EVENT_IDENTITY_MISSING',name);
-    if(width<=700&&Math.abs(m.bottom-m.viewport_height)>1)add('MOBILE_SHEET_NOT_ANCHORED',name);
+    // Owner-approved mobile UX is a centered dialog (V6.12+), NOT a bottom sheet.
+    // Still fail closed on vertical drift, clipping and focus escape.
+    if(width<=700&&Math.abs((m.top+m.bottom)-m.viewport_height)>2)add('MOBILE_DIALOG_NOT_CENTERED',JSON.stringify(m));
   }
   return findings;
 }

@@ -14,7 +14,7 @@ var KK_APP_VERSION = APP.appVersion || "v16.7.0_CRM_PRO_PHASE3_9_5_4_BOOKING_STO
 var DEFAULT_TITLE = "KK Phone Rental | เช่ามือถือคอนเสิร์ต แฟนมีท และอีเวนต์";
 var DEFAULT_DESCRIPTION = "KK Phone Rental บริการเช่ามือถือสำหรับคอนเสิร์ต แฟนมีต และอีเวนต์ เลือกงาน เช็กคิวว่าง และจองผ่าน LINE OA";
 var DEFAULT_OG_IMAGE = APP.headerImage || "https://lh3.googleusercontent.com/d/16v6ZDbxmqNEkxIpDNsm0ABrDjMT0_tu9=w1600";
-var SHEET_ID  = APP.sheetId      || "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
+var SHEET_ID  = "api-only"; // A customer browser must never contain the private Core workbook ID.
 var WEB_SHEET = APP.webSheetName || "08_Web_Ready";
 var WEB_RANGE = APP.webRange     || "A4:K";
 var PKG_SHEET = APP.pkgSheetName || "09_Web_Packages";
@@ -82,7 +82,7 @@ var I18N = {
     event_meta_description:"เช่ามือถือสำหรับงาน {event} วันที่ {date} ดูแพ็กเกจและจองผ่าน LINE OA",
     brand_subtitle:"Concert Phone Rental",
     hero_body:"เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต · เลือกงาน เช็กคิวว่าง แล้วรับ–คืนที่หน้างาน",
-    hero_cta:"เช็กงานที่ยังว่าง",
+    hero_cta:"เลือกงานที่ต้องการ",
     hero_secondary:"เช่ายังไง?",
     benefit_insurance:"จองง่ายขึ้น · ฟรีประกันเครื่องและไม่ต้องวางมัดจำ",
     benefit_onsite:"รับ–คืนหน้างาน · พร้อมสอนใช้ก่อนเข้าคอน",
@@ -222,7 +222,7 @@ var I18N = {
     event_meta_description:"Rent a phone for {event} on {date}. View available packages and book via LINE OA.",
     brand_subtitle:"Concert Phone Rental",
     hero_body:"Phone rental for concerts and fan meetings. Choose your event, check availability, then pick up and return at the venue.",
-    hero_cta:"Check available events",
+    hero_cta:"Choose your event",
     hero_secondary:"How to rent",
     benefit_insurance:"Book with less hassle · Free insurance, no deposit",
     benefit_onsite:"Venue pickup & return · Setup help before the show",
@@ -389,7 +389,7 @@ function applyStaticLanguage(){
   var heroEyebrow=document.querySelector(".v3-eyebrow"); if(heroEyebrow)heroEyebrow.innerHTML=currentLang==="en"?"CONCERT PHONE RENTAL<br><span>EVENT PICKUP</span>":"เช่ามือถือไปคอน<br><span>รับ–คืนหน้างาน</span>";
   var heroTitle=document.querySelector("#v2-intro-title"); if(heroTitle)heroTitle.innerHTML=currentLang==="en"?"BRING THE STAGE<br><em>CLOSER.</em>":"ไกลแค่ไหน<br><em>ก็เก็บโมเมนต์ได้ใกล้กว่า</em>";
   setText(".v3-hero-copy>p","hero_body");
-  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span aria-hidden="true">→</span>';
+  var heroCta=document.querySelector(".v3-primary"); if(heroCta)heroCta.innerHTML=esc(tr("hero_cta"))+' <span class="kk-hero-inline-arrow" aria-hidden="true">→</span> <span class="kk-hero-arrow-chip" aria-hidden="true">→</span>';
   setText(".v3-secondary","hero_secondary");
   var benefits=document.querySelectorAll(".kk-benefit-grid>div>span:last-child");
   ["benefit_insurance","benefit_onsite","benefit_drive","benefit_discount"].forEach(function(key,index){
@@ -793,6 +793,11 @@ function setImgFallback(img, urls, options){
   function settleLoaded(){
     clearTimer(); settled=true;
     img.onerror=null; img.onload=null;
+    // Cached / decoded Safari images can settle before the native load event.
+    // Apply the exact same-poster backdrop deterministically in that path.
+    if(imageHasPixels() && typeof options.onLoaded==="function"){
+      try{options.onLoaded(img);}catch(e){}
+    }
   }
   function exhausted(){
     // Safari/iOS may paint a cross-origin/Drive image before the expected load callback
@@ -873,7 +878,7 @@ async function withRetry(fn,tries,delay){
   for(var i=0;i<tries;i++){ try{return await fn();}catch(e){err=e;if(i<tries-1)await new Promise(function(r){setTimeout(r,delay);});} }
   throw err;
 }
-function directSheetUrl(name,range){ if(!SHEET_ID) throw new Error("Direct Google Sheet fallback is not configured. Please check config.js sheetId or /api/kk-data."); return "https://docs.google.com/spreadsheets/d/"+encodeURIComponent(SHEET_ID)+"/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now(); }
+function directSheetUrl(){ throw new Error("Direct Google Sheets browser access is disabled; use /api/kk-data"); }
 function apiSheetUrl(name,range){
   var url=API_ENDPOINT+"?sheet="+encodeURIComponent(name)+"&range="+encodeURIComponent(range)+"&t="+Date.now();
   if(SHOW_PAST) url+="&showPast=1";
@@ -902,9 +907,12 @@ async function fetchSheetCsv(name,range,ms){
       // package proxy failed. Direct fallback may not include the newest override, but it is safer
       // than showing every event as package-less / ask-price.
       console.warn("KK proxy failed or returned invalid CSV; falling back to read-only Google Sheets", e);
-      if(APP.disableDirectFallback && name!==PKG_SHEET) throw e;
+      // Privacy contract: package pricing is not exempt from the API-only mode.
+      if(APP.disableDirectFallback) throw e;
     }
   }
+  // Never bypass the server's private reader in a browser whose config is API-only.
+  if(APP.disableDirectFallback || APP.publicDataMode==='api-only') throw new Error('Browser direct Google Sheets access disabled');
   return await fetchValidatedSheetCsv(directSheetUrl(name,range),name,range,ms||9000,"direct Google Sheets");
 }
 
@@ -1446,7 +1454,6 @@ function renderConcerts(concerts){
         imgWrap.style.setProperty("--poster-bg","url("+JSON.stringify(src)+")");
         imgWrap.classList.add("poster-has-image");
       };
-      img.addEventListener("load",syncPosterTreatment);
       var posterFailure=function(){
         imgWrap.classList.remove("poster-has-image");
         imgWrap.style.removeProperty("--poster-bg");
@@ -1462,11 +1469,11 @@ function renderConcerts(concerts){
         // when a single image exhausts its delivery candidates.
       };
       if(idx<6){
-        setImgFallback(img,imgCandidates,{timeoutMs:4000,onExhausted:posterFailure});
+        setImgFallback(img,imgCandidates,{timeoutMs:4000,onExhausted:posterFailure,onLoaded:syncPosterTreatment});
       }else{
         // Do not start a timeout while a native-lazy image is still off-screen.
         // Start the fallback chain when the card is near the viewport.
-        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure});
+        setImgFallbackWhenVisible(img,imgCandidates,{timeoutMs:6000,rootMargin:"600px 0px",onExhausted:posterFailure,onLoaded:syncPosterTreatment});
       }
     } else {
       card.dataset.posterMissing="1";

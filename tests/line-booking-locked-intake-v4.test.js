@@ -10,8 +10,8 @@ const intake=require('../server/line-booking-intake');
 
 function writerBody(){
   const start=source.indexOf('function kkApiCreateLineBookingPending_');
-  const end=source.indexOf('\nfunction kkApiCreateBooking_',start);
-  assert.ok(start>=0&&end>start,'current-schema LINE pending writer must exist before legacy createBooking');
+  const end=source.indexOf('\nfunction ',start+1);
+  assert.ok(start>=0&&end>start,'current-schema LINE pending writer must end before the next top-level function');
   return source.slice(start,end);
 }
 
@@ -27,6 +27,27 @@ test('LINE intake targets dedicated pending writer, never legacy createBooking',
   assert.equal(r.payload.booking_status,'pending');
   assert.equal(r.payload.payment_status,'unpaid');
   assert.equal(r.payload.amount_received,0);
+});
+
+test('pending LINE writer treats verified LINE contact as customer identity; phone is optional',()=>{
+ const writer=writerBody();
+ assert.match(writer,/const customerContact = String\(payload\.customer_contact \|\| ''\)\.trim\(\)/);
+ assert.match(writer,/!eventId \|\| !templateId \|\| !customerName \|\| !customerContact/);
+ assert.doesNotMatch(writer,/!customerPhone\)/);
+ assert.match(writer,/customerContact, customerPhone, 'LINE'/);
+ assert.match(writer,/payment_status: 'unpaid'|pkgType,\s*'',\s*'',\s*pickupTime,\s*'',\s*'unpaid',\s*0/);
+});
+
+test('pending replay and exact readback keep LINE contact identity even without a phone',()=>{
+ const writer=writerBody();
+ const helperStart=source.indexOf('function kkLineBookingClaimReadback_');
+ const helperEnd=source.indexOf('\nfunction kkApiCreateLineBookingPending_',helperStart);
+ const helper=source.slice(helperStart,helperEnd);
+ assert.match(helper,/const lineContact = String\(readback\[5\] \|\| ''\)\.trim\(\)/);
+ assert.match(helper,/if \(!lineContact\) return null/);
+ assert.match(helper,/lineContact !== String\(claim\.customer_contact \|\| ''\)\.trim\(\)/);
+ assert.equal((writer.match(/customer_contact: customerContact,/g)||[]).length,3);
+ assert.match(writer,/bookingId, new Date\(\), 'pending'/);
 });
 
 test('Apps Script exposes a separate pending route while legacy createBooking remains separate',()=>{

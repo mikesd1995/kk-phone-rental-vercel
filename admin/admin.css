@@ -592,3 +592,23 @@ td{font-size:13px!important}
 .inbox-live-status[data-state="ok"]{color:#166534}
 .inbox-live-status[data-state="warn"]{color:#b54708}
 .inbox-live-status[data-state="error"]{color:#b42318}
+
+/* LINE media in governed Inbox: private Blob URL, not a public media link. */
+.inbox-image-slot{margin:6px 0;display:grid;gap:7px;min-width:145px;max-width:min(320px,75vw)}
+.inbox-image-status{color:#667085;font-size:12px}
+.inbox-image-open{appearance:none;border:0;background:transparent;display:block;max-width:100%;padding:0;cursor:zoom-in;text-align:left}
+.inbox-media-image{display:block;max-width:100%;width:auto;max-height:380px;object-fit:contain;border-radius:10px;border:1px solid #e2e8f0;background:#fff}
+.inbox-image-retry{background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;color:#1d4ed8;padding:4px 10px;cursor:pointer;font-weight:600}
+
+/* KK Inbox outbound owner review (not an automated LINE send UI). */
+.inbox-outbound-review{margin:12px 0 0;padding:10px;border:1px solid #cbd5e1;border-radius:10px;background:var(--surface,#fff)}
+#inboxOutboundReviewPanel:not([hidden]){display:grid;gap:10px;margin-top:10px}
+#inboxOutboundReviewPanel label{display:grid;gap:5px;font-size:13px;font-weight:600}
+#inboxOutboundReviewPanel label input,#inboxOutboundReviewPanel label textarea,#inboxOutboundReviewPanel label select{box-sizing:border-box;min-width:0;width:100%;padding:9px;border-radius:8px;border:1px solid #cbd5e1;font:inherit}
+#inboxOutboundReviewPanel label textarea{min-height:62px;resize:vertical}
+#inboxOutboundAttempts{display:flex;flex-wrap:wrap;align-items:start;gap:6px;max-height:220px;overflow-y:auto}
+#inboxOutboundAttempts [data-outbound-request-id]{font-size:12px;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
+#inboxOutboundAttempts [aria-pressed="true"]{outline:2px solid #2563eb;outline-offset:1px}
+#inboxOutboundReviewStatus{display:block;color:#475569;font-size:12px}
+#inboxOutboundReviewPanel .btn{max-width:100%;white-space:normal}
+@media(max-width:620px){.inbox-outbound-review{padding:8px}#inboxOutboundReviewPanel{font-size:13px}}

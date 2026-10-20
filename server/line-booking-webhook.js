@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const {buildBookingFlex} = require('../server/line-booking-flex');
 const {safePosterSource} = require('../server/line-poster');
 const InboxTee = require('./kk-line-inbox-tee');
+const InboxMedia = require('./kk-inbox-media');
 const {createPostgrestStore} = require('./kk-inbox-postgrest-store');
 const LineMessaging = require('./kk-line-messaging-api');
 const OwnerApproval = require('./line-booking-owner-approval');
@@ -38,7 +39,7 @@ function parseBookingText(text) {
   const interest=s.match(/(?:สนใจเช่า|Interested in renting)\s+([^\n]+)/i);
   const event=line('งาน|Event'), date=line('วันที่|Date'), venue=line('สถานที่|Venue'), price=line('ราคา|Price');
   const nickname=line('ชื่อเล่น|Nickname'), phone=line('เบอร์โทร|Phone'), pickup=line('เวลาที่สะดวกรับอุปกรณ์|เวลารับอุปกรณ์|Pickup');
-  const model=line('รุ่น|Model');
+  const model=line('รุ่น/แพ็กเกจ|Package[ \\t]*/[ \\t]*model|รุ่น|Model');
   const packageName=model || (interest && interest[1] ? interest[1].trim() : '');
   if(!event || !date || !venue || !packageName) return null;
   return {event_name:event,event_date:date,venue,package_name:packageName,price_display:price,nickname,phone,pickup_time:pickup};
@@ -50,13 +51,20 @@ function parseCsv(text){
   const h=rows[0].map(x=>String(x||'').trim());
   return rows.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]||''])));
 }
+function isBookableWebReadyEvent(row){
+  // Match the canonical public admission contract; package stock alone cannot
+  // re-open owner-hidden/full event dates.
+  if(!row||norm(row.action_for_web)!=='show'||norm(row.booking_status_for_web)!=='เปิดจอง')return false;
+  const n=Number(String(row.available_phone_count===undefined?'':row.available_phone_count).replace(/,/g,'').trim());
+  return Number.isInteger(n)&&n>0;
+}
 async function resolvePoster(booking, fetchImpl=fetch){
   const u=PUBLIC_DATA_BASE+WEB_READY_QUERY;
   const r=await fetchImpl(u,{headers:{'User-Agent':'KK-Line-Webhook/1.0'}});
   if(!r.ok) return '';
   const rows=parseCsv(await r.text());
   const exact=resolveEventRow(rows,booking);
-  if(!exact || !safePosterSource(exact.poster_image_url)) return '';
+  if(!isBookableWebReadyEvent(exact) || !safePosterSource(exact.poster_image_url)) return '';
   const eventId=String(exact.event_id||'').trim();
   return eventId ? 'https://kk-phone-rental.vercel.app/api/line-poster?event_id='+encodeURIComponent(eventId) : '';
 }
@@ -135,7 +143,8 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   if(!eventRes.ok) return null;
   const events=parseCsv(await eventRes.text());
   const event=resolveEventRow(events,booking);
-  const eventId=event&&String(event.event_id||'').trim();
+  if(!isBookableWebReadyEvent(event))return null;
+  const eventId=String(event.event_id||'').trim();
   if(!eventId) return null;
 
   const pkgRes=await fetchImpl(PUBLIC_DATA_BASE+WEB_PACKAGES_QUERY,{headers});
@@ -159,8 +168,21 @@ async function resolveCanonicalPackage(booking, fetchImpl=fetch){
   return {event_id:eventId,package_id:packageId,template_id:templateId,package_name:packageLabel(row),price_display:price};
 }
 async function replyFlex(replyToken, message, token, fetchImpl=fetch){
-  const r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
-  if(!r.ok){const body=await r.text().catch(()=> ''); throw new Error('LINE reply failed '+r.status+' '+body.slice(0,200));}
+  let r;
+  try{
+    r=await fetchImpl(LINE_REPLY_URL,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({replyToken,messages:[message]})});
+  }catch(_){
+    const err=new Error('LINE booking reply transport failed');
+    err.code='LINE_BOOKING_REPLY_TRANSPORT_FAILED';
+    throw err;
+  }
+  if(!r||r.ok!==true){
+    // Never reflect untrusted provider response bytes into webhook error logs.
+    const err=new Error('LINE booking reply failed');
+    err.code='LINE_BOOKING_REPLY_FAILED';
+    if(Number.isInteger(r&&r.status))err.status=r.status;
+    throw err;
+  }
 }
 async function processEvent(event, env=process.env, fetchImpl=fetch){
   if(!event || event.type!=='message' || !event.replyToken || !event.message || event.message.type!=='text') return {handled:false};
@@ -191,8 +213,7 @@ async function processEvent(event, env=process.env, fetchImpl=fetch){
   }else if(readiness.ready && !canonical){
     console.warn('[line-booking-automation]',JSON.stringify({
       status:'FAIL_CLOSED_CANONICAL_REQUIRED',
-      webhook_event_id:String(event.webhookEventId||'').trim(),
-      event_name:String(booking.event_name||'').trim()
+      reason:'PUBLIC_EVENT_NOT_BOOKABLE_OR_CANONICAL_UNVERIFIED'
     }));
   }
 
@@ -220,7 +241,13 @@ module.exports=async function handler(req,res){
   const events=Array.isArray(payload.events)?payload.events:[];
   // Persist only verified events; Inbox failure remains isolated from the existing booking reply path.
   const inboxPromise=InboxTee.persistVerifiedEvents(events,inboxPersistFn(process.env,fetch),{
-    profileFn:async userId=>LineMessaging.getProfile(userId,token,fetch)
+    profileFn:async userId=>LineMessaging.getProfile(userId,token,fetch),
+    mediaFn:async (event,message)=>InboxMedia.capture(event,message,{
+      token,fetchImpl:fetch
+    })
+  }).then(receipt=>{
+    if(receipt.media_errors&&receipt.media_errors.length)console.warn('[line-inbox-media]',JSON.stringify({count:receipt.media_errors.length,codes:receipt.media_errors.map(x=>x.code)}));
+    return receipt;
   }).catch(err=>({status:'FAILED_ISOLATED',error:err&&err.message?err.message:'inbox failed'}));
   try{
     for(const event of events){

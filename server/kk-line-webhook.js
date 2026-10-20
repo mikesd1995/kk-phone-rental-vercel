@@ -34,7 +34,8 @@ function normalizeEvent(event={}){
     text:msg.type==='text'?String(msg.text||''):'',
     received_at:Number.isFinite(Number(event.timestamp))?new Date(Number(event.timestamp)).toISOString():'',
     redelivery:Boolean(event.deliveryContext&&event.deliveryContext.isRedelivery),
-    raw_ref:String(event.webhookEventId||'').trim()
+    raw_ref:String(event.webhookEventId||'').trim(),
+    line_message_id:String(msg.id||'').trim()
   });
 }
 async function ingest(input={}, options={}){

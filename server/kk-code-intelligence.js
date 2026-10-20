@@ -164,13 +164,13 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
 
   activeRoutes.forEach((hit,index)=>{
     const routeRankBonus=Math.max(0,24-(index*12));
-    for(const file of hit.route.files||[]) addCandidate(
+    (hit.route.files||[]).forEach((file,fileIdx)=> addCandidate(
       candidates,
       file,
-      100+hit.score+routeRankBonus,
+      100+hit.score+routeRankBonus-(fileIdx*0.01),
       'route:'+hit.route.id,
       map
-    );
+    ));
   });
 
   for(const candidate of [...candidates.values()]){
@@ -179,7 +179,7 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
     for(const rev of (node.reverse_dependencies||[]).filter(file=>/^(admin|api|server|cloudflare|supabase\/functions)\//.test(file)).slice(0,3)) addCandidate(candidates,rev,candidate.score-25,'dependent:'+candidate.path,map);
   }
 
-  // Stable sort keeps curated route order when relevance scores tie.
+  // Main production stable score ordering; preserve curated route priority from cleanup.
   const sorted=[...candidates.values()].sort((a,b)=>b.score-a.score);
   const selected=[];
   let tokens=0;

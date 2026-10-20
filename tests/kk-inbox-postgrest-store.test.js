@@ -18,3 +18,27 @@ test('server adapter uses service-role RPCs for read, profile, owner label, mark
  const readPayload=JSON.parse(calls[5].opt.body);assert.equal(readPayload.p_actor,'owner');assert.equal(readPayload.p_conversation_id,'c1');
  assert.equal(calls.every(x=>x.opt.headers.Authorization==='Bearer secret'),true);
 });
+
+test('legacy outbound history reads use the exact service-only RPC and preserve strict booleans',async()=>{
+ for(const expected of [false,true]){
+  let call;const store=Store.createPostgrestStore({url:'https://example.supabase.co',serviceKey:'private-test-only',fetchImpl:async(url,opt)=>{
+   call={url,opt};return {ok:true,status:200,text:async()=>JSON.stringify(expected)};
+  }});
+  assert.equal(typeof store.hasLegacyOutbound,'function');
+  assert.equal(await store.hasLegacyOutbound('  c1  ','  exact body  '),expected);
+  assert.match(call.url,/\/rest\/v1\/rpc\/kk_inbox_has_legacy_outbound$/);
+  assert.equal(call.opt.headers.Authorization,'Bearer private-test-only');
+  assert.deepEqual(JSON.parse(call.opt.body),{p_conversation_id:'c1',p_body_text:'exact body'});
+ }
+});
+
+test('legacy history RPC never coerces null, strings, arrays or objects into negative evidence',async()=>{
+ for(const malformed of [null,'false','true',0,1,[],[false],{exists:false}]){
+  const store=Store.createPostgrestStore({url:'https://example.supabase.co',serviceKey:'private-test-only',fetchImpl:async()=>({ok:true,status:200,text:async()=>JSON.stringify(malformed)})});
+  assert.equal(typeof store.hasLegacyOutbound,'function');
+  await assert.rejects(()=>store.hasLegacyOutbound('c1','exact body'),err=>err.code==='INBOX_LEGACY_OUTBOUND_UNAVAILABLE');
+ }
+ const unavailable=Store.createPostgrestStore({url:'https://example.supabase.co',serviceKey:'private-test-only',fetchImpl:async()=>({ok:false,status:503,text:async()=>'unavailable'})});
+ assert.equal(typeof unavailable.hasLegacyOutbound,'function');
+ await assert.rejects(()=>unavailable.hasLegacyOutbound('c1','exact body'),err=>err.code==='INBOX_LEGACY_OUTBOUND_UNAVAILABLE');
+});

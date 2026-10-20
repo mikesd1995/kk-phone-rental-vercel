@@ -67,9 +67,9 @@ test('rendered defects fail even when the document itself has no horizontal over
   }
 });
 test('modal clipping, horizontal overflow and focus escape are release blocking',()=>{
-  const modal={left:0,right:390,top:150,bottom:844,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
+  const modal={left:0,right:390,top:150,bottom:694,viewport_height:844,scroll_width:390,client_width:390,focus_inside:true,title:'Event'};
   assert.deepEqual(E.stateFindings({...healthy(),modal},{width:390,name:'modal'}),[]);
-  for(const change of [{bottom:850},{scroll_width:420},{focus_inside:false},{title:''}])assert.ok(E.stateFindings({...healthy(),modal:{...modal,...change}},{width:390,name:'modal'}).length);
+  for(const change of [{bottom:850},{top:40},{scroll_width:420},{focus_inside:false},{title:''}])assert.ok(E.stateFindings({...healthy(),modal:{...modal,...change}},{width:390,name:'modal'}).length);
 });
 test('owner direction approval cannot accept a rendered candidate or changed dependency digest',()=>{
   const widths=[320,375,390,430,480,768,1024,1440];
@@ -108,4 +108,37 @@ test('desktop card geometry blocks uneven heights and poster rails outside the v
 test('storefront visual evidence blocks webpage screenshots used as poster artwork',()=>{
   const state={...healthy(),poster_source_issues:[{event_id:'evt',poster_source:'https://image.thum.io/get/width/1200/https://tickets.example/event',reason:'webpage_screenshot_service'}]};
   assert.ok(E.stateFindings(state,{width:390,name:'catalogue'}).some(x=>x.code==='POSTER_SOURCE_NOT_ARTWORK'));
+});
+
+
+test('V6.12 owner-approved centered mobile modal is still checked for drift, containment and focus',()=>{
+ const modal={left:12,right:378,top:118,bottom:726,viewport_height:844,scroll_width:364,client_width:364,focus_inside:true,title:'Example'};
+ assert.deepEqual(E.stateFindings({...healthy(),modal},{width:390,name:'modal'}),[]);
+ for(const drift of [{top:88},{bottom:740}]){
+  assert.ok(E.stateFindings({...healthy(),modal:{...modal,...drift}},{width:390,name:'modal'}).some(x=>x.code==='MOBILE_DIALOG_NOT_CENTERED'));
+ }
+ const source=fs.readFileSync('scripts/storefront-evidence.cjs','utf8');
+ assert.equal(source.includes("querySelector(':scope > img')"),true);
+ assert.equal(source.includes("wrap&&wrap.querySelector('img')"),false);
+ const css=fs.readFileSync('assets/kk-storefront-v5.css','utf8');
+ assert.match(css,/PR #744 visual acceptance: precise narrow-card containment/);
+ assert.equal(css.includes('grid-auto-rows:max-content!important'),true,'320px grid tracks must follow full poster + content height');
+ assert.equal(css.includes('content-visibility:visible!important;contain-intrinsic-size:none!important'),true,'320px offscreen cards cannot use the legacy 350px intrinsic placeholder');
+ assert.equal(css.includes('.concert-card .pi-price{min-width:0!important;max-width:100%!important;white-space:normal!important'),true);
+});
+
+test('inspection materializes every audited card and restores exact style attributes and scroll in finally',()=>{
+ const source=fs.readFileSync('scripts/storefront-evidence.cjs','utf8');
+ const inspect=source.slice(source.indexOf('async function inspectState(page)'),source.indexOf('function stateFindings('));
+ assert.match(inspect,/getAttribute\('style'\)/);
+ assert.match(inspect,/setProperty\('content-visibility','visible','important'\)/);
+ assert.match(inspect,/setProperty\('contain-intrinsic-size','none','important'\)/);
+ assert.match(inspect,/audited_card_count:cards\.length/);
+ assert.match(inspect,/finally\s*\{/);
+ assert.match(inspect,/style===null[\s\S]*removeAttribute\('style'\)[\s\S]*setAttribute\('style',style\)/);
+ assert.match(inspect,/scrollTo\(\{left:originalScroll\.x,top:originalScroll\.y,behavior:'instant'\}\)/);
+ const cardCollection=inspect.match(/const cards=[^\n]+/)?.[0]||'';
+ assert.doesNotMatch(cardCollection,/innerHeight|checkVisibility/);
+ const defective={...healthy(),escaped_card_elements:['pi-price[late offscreen card]']};
+ assert.equal(E.stateFindings(defective,{width:390,name:'late-card'}).find(x=>x.code==='CARD_CONTENT_ESCAPES').severity,'P1');
 });

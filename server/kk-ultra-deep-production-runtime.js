@@ -202,6 +202,10 @@ function reconcileCandidates(candidates=[],snapshot={}){
    if(report.material_update)suppressed_updates.push({...disposition,report});
    continue;
   }
+  if(!directExisting && fullBooked.has(c.event_date)){
+   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_FULL_BOOKING_DATE'});
+   continue;
+  }
   const match=directExisting
    ? {match:{event:directExisting,score:1,reason:'CANONICAL_EVENT_ID'},ambiguous:false,candidates:[]}
    : matchExisting(c,events);
@@ -213,10 +217,6 @@ function reconcileCandidates(candidates=[],snapshot={}){
    c.existing_event_id=text(match.match.event.event_id);
    dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_EXISTING',existing_event_id:c.existing_event_id,match_reason:match.match.reason});
    safe.push(c);
-   continue;
-  }
-  if(fullBooked.has(c.event_date)){
-   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SKIPPED_FULL_BOOKING_DATE'});
    continue;
   }
   dispositions.push({event_key:text(c.event_key),title:text(c.title),event_date:c.event_date,status:'SAFE_NEW'});

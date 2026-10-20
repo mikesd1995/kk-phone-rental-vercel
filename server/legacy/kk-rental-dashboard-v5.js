@@ -6,6 +6,9 @@
 const legacyHandler = require('../rental-dashboard-core.js');
 const privateSheets = require('../../api/lib/private-google-sheets');
 const AdminSecurity = require('../admin-session.js');
+const CanonicalQuote = require('../rental-dashboard-canonical-quotes.js');
+const CorePrivacy = require('../core-sheet-private-reader.js');
+const BookedQuote = require('../rental-analytics-booked-quote.js');
 
 const DEFAULT_CORE_SHEET_ID = '12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
 const DEFAULT_CRM_SHEET_ID = '1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU';
@@ -31,6 +34,18 @@ async function fetchCsv(sheetId,sheet,range){
     if(!r.ok || /<!doctype html|<html/i.test(text)) throw new Error(`อ่าน ${sheet} ไม่สำเร็จ`);
     return text;
   }finally{clearTimeout(timer);}
+}
+async function coreCsv(sheetId,sheet,range,env=process.env){
+  if(!CorePrivacy.enabled(env))return fetchCsv(sheetId,sheet,range);
+  try{return await CorePrivacy.readCsv({sheetId,sheet,range,env});}
+  catch(_){const e=new Error('CORE_QUOTE_PRIVATE_READ_FAILED');e.code='CORE_QUOTE_PRIVATE_READ_FAILED';throw e;}
+}
+function buildStrictBookingQuoteMap(csv){
+ return BookedQuote.buildStrictBookingQuoteMap(csv,CanonicalQuote.parseCsv);
+}
+async function fetchAppsScriptPrivateQuotes(sheetId,env=process.env){
+ // Disabled until owner explicitly enables both private gates and read-key.
+ return CanonicalQuote.fetchAppsScriptPrivateQuotes(sheetId,env);
 }
 function parseCsv(text){
   const rows=[]; let row=[],value='',quoted=false;
@@ -113,7 +128,7 @@ function parseHelper(csv,eventMap,registryRules){
   const ix={source:idx(h,['source'],0),booking:idx(h,['bookingid','booking_id'],1),created:idx(h,['createdat','created_at'],2),status:idx(h,['bookingstatus','booking_status'],3),event:idx(h,['eventid','event_id'],4),eventName:idx(h,['eventname','event_name'],5),eventDate:idx(h,['eventdate','event_date'],6),customerKey:idx(h,['customerkey','customer_key'],7),name:idx(h,['customername','customer_name'],8),phone:idx(h,['phone','customerphone','customer_phone'],9),channel:idx(h,['channel','contactchannel','contact_channel'],10),pkg:idx(h,['packagetype','package_type'],11),payment:idx(h,['paymentstatus','payment_status'],12),amount:idx(h,['amountreceived','amount_received'],13),month:idx(h,['eventmonth','event_month'],14)};
   return t.rows.map(r=>{const eventId=String(cell(r,ix.event)||'').trim();const meta=eventMap[eventId]||{};const eventName=String(cell(r,ix.eventName)||meta.event_name||eventId).trim();const fallback=meta.affiliation&&meta.affiliation!=='ยังไม่ระบุ / Unknown'?meta.affiliation:(inferFromRegistry(eventName,registryRules)||inferAffiliation(eventName));return {source:String(cell(r,ix.source)||'').trim(),booking_id:String(cell(r,ix.booking)||'').trim(),created_at:String(cell(r,ix.created)||'').trim(),status:String(cell(r,ix.status)||'').toLowerCase().trim(),event_id:eventId,event_name:eventName,event_date:String(cell(r,ix.eventDate)||'').trim(),month:String(cell(r,ix.month)||'').trim()||eventMonth(cell(r,ix.eventDate)),customer_key:customerKey(r,ix),package_type:String(cell(r,ix.pkg)||'').trim()||'unknown',payment_status:String(cell(r,ix.payment)||'').toLowerCase().trim(),amount_received:num(cell(r,ix.amount)),affiliation:meta.affiliation&&meta.affiliation!=='ยังไม่ระบุ / Unknown'?meta.affiliation:(fallback||'ยังไม่ระบุ / Unknown'),affiliation_source:meta.affiliation_source&&meta.affiliation_source!=='unknown'?meta.affiliation_source:(fallback?'inferred':'unknown')};}).filter(r=>r.booking_id||r.event_id||r.customer_key);
 }
-function aggregate(rows){
+function aggregate(rows,{strictQuotes=false}={}){
   const seen=new Set(),clean=[];
   for(const r of rows){
     // Deduplicate the same booking across current/archive projections. Do not
@@ -133,7 +148,11 @@ function aggregate(rows){
   for(const r of non){
     const amount=r.amount_received||0;
     const actualAmount=r.status==="completed"?amount:0;
-    const futureAmount=activeSet.has(r.status)?amount:0;
+    const quoted=CanonicalQuote.positiveAmount(r.package_price);
+    if(strictQuotes && activeSet.has(r.status) && !quoted){
+      const e=new Error('RENTAL_ACTIVE_QUOTE_UNVERIFIED');e.code='RENTAL_ACTIVE_QUOTE_UNVERIFIED';throw e;
+    }
+    const futureAmount=activeSet.has(r.status)?(strictQuotes?quoted:(quoted||amount)):0;
     const forecastAmount=actualAmount+futureAmount;
     actualRevenue+=actualAmount;
     futureRevenue+=futureAmount;
@@ -225,7 +244,7 @@ function aggregate(rows){
     `Affiliation Coverage ตอนนี้ ${non.length?((affKnown/non.length)*100).toFixed(1):"0.0"}% ของ booking ที่นับในรายงาน; Unknown ${affUnknown} คิว`,
     "Top Affiliation เรียงจากลูกค้าไม่ซ้ำ → Booking → จำนวนงาน เพื่อใช้ตัดสินใจว่าจะโฟกัสค่ายใดเป็นพิเศษ",
     "รายรับจริง = SUM(amount_received) เฉพาะ booking ที่ status=completed",
-    "รายรับในอนาคต = SUM(amount_received) เฉพาะ booking ที่ยัง Active: pending / confirmed / prepared / picked_up / returned / uploaded",
+    "รายรับในอนาคต = SUM(package_price) คอลัมน์ X เมื่อเปิดและตรวจรับ Private Canonical Quote สำหรับ pending / confirmed / prepared / picked_up / returned / uploaded; ก่อนเปิด Feature Flag ยังคงใช้ amount_received ตาม Legacy",
     "คาดการณ์รายรับรวม = รายรับจริง + รายรับในอนาคต; cancelled / no_show / สถานะว่างไม่ถูกนับ และ booking หนึ่งรายการอยู่ได้เพียง bucket เดียว",
     "metrics.amount_received คงไว้เป็น compatibility alias ของ forecast_revenue; UI ไม่แสดง field นี้ว่าเป็นยอดรับจริงอีก",
     "API response ไม่ส่งชื่อ เบอร์โทร หรือ contact ลูกค้ารายบุคคลกลับ browser"
@@ -243,24 +262,36 @@ module.exports=async function handler(req,res){
   const crmSheetId=String(process.env.KK_CRM_SHEET_ID||DEFAULT_CRM_SHEET_ID).trim();
   const trackerId=String(process.env.KK_EVENT_TRACKER_SHEET_ID||DEFAULT_TRACKER_ID).trim();
   const env=Object.assign({},process.env,{KK_CRM_SHEET_ID:crmSheetId});
-  const cfg=privateSheets.configState(env);
-  if(!cfg.configured)return coreFallback(req,res,'PRIVATE_READER_NOT_CONFIGURED');
+  const cfg=privateSheets.configState(CorePrivacy.enabled(env)?Object.assign({},env,{GOOGLE_SHEET_ID:''}):env);
+  if(!cfg.configured){
+    if(String(env[CanonicalQuote.FLAG]||'').trim()==='1')
+      return json(res,503,{ok:false,error:'Canonical private quote reader unavailable',error_code:'CORE_QUOTE_PRIVATE_READ_FAILED'});
+    return coreFallback(req,res,'PRIVATE_READER_NOT_CONFIGURED');
+  }
 
   const started=Date.now();
   try{
-    const [helperCsv,archiveEventsCsv,currentEventsCsv,registryResult]=await Promise.all([
+    const [helperCsv,archiveEventsCsv,currentEventsCsv,registryResult,privateMaster]=await Promise.all([
       privateSheets.readValuesCsv({sheetId:crmSheetId,range:'_Rental_Dashboard_Data!A1:O',env}),
       privateSheets.readValuesCsv({sheetId:crmSheetId,range:'13_Event_Archive!A1:Z',env}),
-      fetchCsv(coreSheetId,'01_Events','A4:Z'),
-      fetchCsv(trackerId,'_Artist_Registry','A1:E').then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:''}))
+      coreCsv(coreSheetId,'01_Events','A4:Z',env),
+      fetchCsv(trackerId,'_Artist_Registry','A1:E').then(x=>({ok:true,csv:x})).catch(()=>({ok:false,csv:''})),
+      fetchAppsScriptPrivateQuotes(coreSheetId,env)
     ]);
     const registryRules=registryAffiliationRules(registryResult.csv);
     const meta=eventMetadata(currentEventsCsv,archiveEventsCsv,registryRules);
-    const rows=parseHelper(helperCsv,meta,registryRules);
-    const data=aggregate(rows);
+    const helperRows=parseHelper(helperCsv,meta,registryRules);
+    const strictQuotes=privateMaster.status==='PRIVATE_VERIFIED';
+    const rows=strictQuotes
+      ? BookedQuote.bookedPriceRows(helperRows,buildStrictBookingQuoteMap(privateMaster.csv))
+      : CanonicalQuote.attachQuotes(helperRows,CanonicalQuote.bookingQuoteMap(privateMaster.csv));
+    const data=aggregate(rows,{strictQuotes});
+    data.revenue_quote_source=privateMaster.status;
     data.data_source={mode:'crm_private',private_reader:true,auth_mode:cfg.authMode,core_sheet_id:coreSheetId,crm_sheet_id:crmSheetId,latency_ms:Date.now()-started,read_model:'VALUES_ONLY'};
     return json(res,200,{ok:true,data});
   }catch(err){
+    if(String(env[CanonicalQuote.FLAG]||'').trim()==='1'&&/^(CORE_QUOTE_|RENTAL_|DUPLICATE_QUOTE$|MISSING_QUOTE$)/.test(String(err&&err.code||'')))
+      return json(res,503,{ok:false,error:'Canonical private quote reader unavailable',error_code:'CORE_QUOTE_PRIVATE_READ_FAILED'});
     if(String(process.env.KK_CRM_REQUIRE_PRIVATE||'').trim()==='1'){
       return json(res,503,{ok:false,error:'CRM private reader unavailable',error_code:String((err&&err.code)||'CRM_PRIVATE_READ_FAILED')});
     }
@@ -268,4 +299,4 @@ module.exports=async function handler(req,res){
   }
 };
 
-module.exports._test={parseCsv,parseHelper,aggregate,eventMetadata,registryAffiliationRules};
+module.exports._test={parseCsv,parseHelper,aggregate,eventMetadata,registryAffiliationRules,coreCsv,buildStrictBookingQuoteMap,fetchAppsScriptPrivateQuotes};

@@ -234,3 +234,163 @@ test('Scanner rejects coverage rows belonging to another runtime',()=>{
   assert.equal(r.pass,false);
   assert.ok(r.scanner.rejected_occurrences.some(x=>x.blockers.includes('SCANNER_RUN_COVERAGE_EMPTY')));
 });
+
+const DAILY_CADENCE={
+  SCANNER:'BEGIN:VEVENT\nDTSTART;TZID=Asia/Bangkok:20260924T210000\nRRULE:FREQ=DAILY;BYHOUR=1,9,12,15,18,21;BYMINUTE=0;BYSECOND=0;UNTIL=20261231T235959\nEND:VEVENT',
+  VERIFIER:'BEGIN:VEVENT\nDTSTART;TZID=Asia/Bangkok:20260924T213000\nRRULE:FREQ=DAILY;BYHOUR=1,7,9,12,15,18,21;BYMINUTE=30;BYSECOND=0;UNTIL=20261231T235959\nEND:VEVENT'
+};
+
+function dailySnapshot(overnight=false){
+  const s=snapshot();
+  const slots=overnight?{
+    SCANNER:['14T15:00','14T18:00','14T21:00','15T01:00','15T09:00','15T12:00'],
+    VERIFIER:['14T18:30','14T21:30','15T01:30','15T07:30','15T09:30','15T12:30']
+  }:{
+    SCANNER:['15T01:00','15T09:00','15T12:00','15T15:00','15T18:00','15T21:00'],
+    VERIFIER:['15T07:30','15T09:30','15T12:30','15T15:30','15T18:30','15T21:30']
+  };
+  for(const role of ['SCANNER','VERIFIER']){
+    s.canonical_tasks[role].cadence=DAILY_CADENCE[role];
+    s.occurrences.filter(row=>row.role===role).forEach((row,index)=>{
+      row.scheduled_at='2026-10-'+slots[role][index]+':00+07:00';
+      row.launcher_after=row.scheduled_at;
+      row.task_before.cadence=DAILY_CADENCE[role];
+      row.task_after.cadence=DAILY_CADENCE[role];
+    });
+  }
+  return s;
+}
+
+function replaceRoleCadence(s,role,cadence){
+  s.canonical_tasks[role].cadence=cadence;
+  for(const row of s.occurrences.filter(row=>row.role===role)){
+    row.task_before.cadence=cadence;
+    row.task_after.cadence=cadence;
+  }
+}
+
+test('current explicit daily cadences count six scheduled occurrences without inventing hourly gaps',()=>{
+  const r=P.auditPersistenceSnapshot(dailySnapshot());
+  assert.equal(r.pass,true);
+  assert.equal(r.scanner.consecutive,6);
+  assert.equal(r.verifier.consecutive,6);
+  assert.equal(r.production_writes,0);
+  assert.equal(r.task_mutations,0);
+  assert.equal(r.production_stable_authorized,false);
+  assert.equal(r.hf_production_activation_authorized,false);
+});
+
+test('sparse cadence acceptance follows the canonical slots across Bangkok midnight',()=>{
+  const r=P.auditPersistenceSnapshot(dailySnapshot(true));
+  assert.equal(r.pass,true);
+  assert.equal(r.scanner.acceptance_credit,6);
+  assert.equal(r.verifier.acceptance_credit,6);
+});
+
+test('missing one required daily slot cannot be repaired by counting other receipts',()=>{
+  const s=dailySnapshot();
+  s.occurrences=s.occurrences.filter(row=>!(row.role==='SCANNER'&&row.scheduled_at.includes('18:00')));
+  const r=P.auditPersistenceSnapshot(s);
+  assert.equal(r.pass,false);
+  assert.equal(r.scanner.detail_classification,'PERSISTENCE_WINDOW_GAP');
+  assert.equal(r.scanner.missing_slots,1);
+  assert.equal(r.scanner.acceptance_credit,0);
+});
+
+test('an extra off-cadence natural receipt invalidates the window despite six valid scheduled receipts',()=>{
+  const s=dailySnapshot();
+  const extra=structuredClone(s.occurrences.find(row=>row.role==='SCANNER'));
+  extra.scheduled_at='2026-10-15T20:00:00+07:00';
+  extra.launcher_after=extra.scheduled_at;
+  s.occurrences.push(extra);
+  const r=P.auditPersistenceSnapshot(s);
+  assert.equal(r.pass,false);
+  assert.equal(r.scanner.acceptance_credit,0);
+  assert.ok(r.scanner.rejected_occurrences.some(row=>row.classification==='NATURAL_SCHEDULE_OUTSIDE_CANONICAL_CADENCE'));
+});
+
+test('nonzero scheduled seconds cannot receive natural runtime acceptance',()=>{
+  const s=snapshot();
+  const row=s.occurrences.find(row=>row.role==='SCANNER');
+  row.scheduled_at=row.scheduled_at.replace(':00+07:00',':30+07:00');
+  row.launcher_after=row.scheduled_at;
+  const r=P.evaluateNaturalOccurrence(row,{canonical_task:s.canonical_tasks.SCANNER});
+  assert.equal(r.ok,false);
+  assert.equal(r.classification,'NATURAL_SCHEDULE_OUTSIDE_CANONICAL_CADENCE');
+});
+
+test('missing malformed unsupported or role-mismatched cadence fails closed without hourly fallback',()=>{
+  const invalid=[
+    '',
+    'RRULE:FREQ=DAILY;BYMINUTE=0',
+    'RRULE:FREQ=HOURLY;INTERVAL=2;BYMINUTE=0',
+    'RRULE:FREQ=HOURLY;BYMINUTE=30',
+    'RRULE:FREQ=HOURLY;BYMINUTE=0;BYSECOND=30',
+    'RRULE:FREQ=WEEKLY;BYMINUTE=0',
+    'RRULE:FREQ=HOURLY;BYMINUTE=0;BYDAY=MO',
+    'RRULE:FREQ=HOURLY;FREQ=HOURLY;BYMINUTE=0',
+    'RRULE:FREQ=DAILY;BYHOUR=1,1,9;BYMINUTE=0',
+    'RRULE:FREQ=DAILY;BYHOUR=1,24;BYMINUTE=0',
+    'RRULE:FREQ=HOURLY;BYMINUTE=0;UNTIL=20260230T000000',
+    'RRULE:FREQ=HOURLY;BYMINUTE=0\nRRULE:FREQ=HOURLY;BYMINUTE=0',
+    'BEGIN:VEVENT\nDTSTART;TZID=UTC:20260901T100000\nRRULE:FREQ=HOURLY;BYMINUTE=0\nEND:VEVENT'
+  ];
+  for(const cadence of invalid){
+    const s=snapshot();
+    replaceRoleCadence(s,'SCANNER',cadence);
+    const r=P.auditPersistenceSnapshot(s);
+    assert.equal(r.pass,false,cadence||'missing cadence');
+    assert.equal(r.scanner.classification,'CANONICAL_CADENCE_INVALID',cadence||'missing cadence');
+    assert.equal(r.scanner.acceptance_credit,0);
+  }
+});
+
+test('finite schedule start and expiry are enforced instead of crediting out-of-range occurrences',()=>{
+  for(const boundary of ['DTSTART;TZID=Asia/Bangkok:20261016T000000','UNTIL=20261014T235959']){
+    const s=dailySnapshot();
+    const cadence=boundary.startsWith('DTSTART')
+      ?DAILY_CADENCE.SCANNER.replace('DTSTART;TZID=Asia/Bangkok:20260924T210000',boundary)
+      :DAILY_CADENCE.SCANNER.replace('UNTIL=20261231T235959',boundary);
+    replaceRoleCadence(s,'SCANNER',cadence);
+    const r=P.auditPersistenceSnapshot(s);
+    assert.equal(r.pass,false,boundary);
+    assert.equal(r.scanner.acceptance_credit,0);
+    assert.ok(r.scanner.occurrences.some(row=>row.classification==='NATURAL_SCHEDULE_OUTSIDE_CANONICAL_CADENCE'));
+  }
+});
+
+test('five daily receipts remain insufficient even when each occurrence is valid',()=>{
+  const s=dailySnapshot();
+  s.occurrences=s.occurrences.filter(row=>!(row.role==='SCANNER'&&row.scheduled_at.includes('01:00')));
+  const r=P.auditPersistenceSnapshot(s);
+  assert.equal(r.scanner.occurrences.every(row=>row.ok),true);
+  assert.equal(r.scanner.acceptance_credit,0);
+  assert.equal(r.pass,false);
+});
+
+test('nonzero DTSTART seconds without BYSECOND cannot imply zero-second natural slots',()=>{
+  for(const role of ['SCANNER','VERIFIER']){
+    const s=snapshot();
+    const minute=role==='SCANNER'?'00':'30';
+    const cadence=`BEGIN:VEVENT\nDTSTART;TZID=Asia/Bangkok:20260901T09${minute}30\nRRULE:FREQ=HOURLY;BYMINUTE=${Number(minute)}\nEND:VEVENT`;
+    replaceRoleCadence(s,role,cadence);
+    const r=P.auditPersistenceSnapshot(s);
+    assert.equal(r.pass,false,role);
+    assert.equal(r[role.toLowerCase()].classification,'CANONICAL_CADENCE_INVALID');
+    assert.equal(r[role.toLowerCase()].acceptance_credit,0);
+  }
+});
+
+test('explicit BYSECOND zero overrides nonzero DTSTART seconds for the supported hourly rule',()=>{
+  const s=snapshot();
+  for(const role of ['SCANNER','VERIFIER']){
+    const minute=role==='SCANNER'?'00':'30';
+    const cadence=`BEGIN:VEVENT\nDTSTART;TZID=Asia/Bangkok:20260901T09${minute}30\nRRULE:FREQ=HOURLY;BYMINUTE=${Number(minute)};BYSECOND=0\nEND:VEVENT`;
+    replaceRoleCadence(s,role,cadence);
+  }
+  const r=P.auditPersistenceSnapshot(s);
+  assert.equal(r.pass,true);
+  assert.equal(r.scanner.acceptance_credit,6);
+  assert.equal(r.verifier.acceptance_credit,6);
+  assert.equal(r.task_mutations,0);
+});

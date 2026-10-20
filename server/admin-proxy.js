@@ -5,6 +5,7 @@
 const SnapshotHealth = require("../admin/snapshot-health.js");
 const UpstreamResponse = require("../server/upstream-response.js");
 const DirectWriterPhase1 = require("./admin-direct-writer-phase1.js");
+const CorePrivacy = require("./core-sheet-private-reader.js");
 const KK_APP_VERSION = SnapshotHealth.VERSION;
 const DEFAULT_SHEET_ID = "12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU";
 
@@ -165,6 +166,7 @@ async function buildSystemHealth(payload, env) {
   ));
 
   let upstreamData = null;
+  let upstreamAccepted = false;
   if (scriptLooksOk && env.apiKey) {
     try {
       const upstream = await fetchWithTimeout(env.scriptUrl, {
@@ -182,12 +184,16 @@ async function buildSystemHealth(payload, env) {
       const text = await upstream.text();
       try {
         upstreamData = JSON.parse(text);
+        const envelopeOk=!!upstreamData && !Array.isArray(upstreamData) && upstreamData.ok===true;
+        const diagnostics=upstreamData && upstreamData.data;
+        const diagnosticsOk=!!diagnostics && typeof diagnostics==='object' && !Array.isArray(diagnostics) && typeof diagnostics.spreadsheet_id==='string' && !!diagnostics.spreadsheet_id.trim();
+        upstreamAccepted=upstream.ok===true && envelopeOk && diagnosticsOk;
         rows.push(diagnosticRow(
           "apps_script_json",
           "Apps Script JSON Response",
-          upstreamData && upstreamData.ok ? "OK" : "FAIL",
-          upstreamData && upstreamData.admin_api_version ? upstreamData.admin_api_version : "JSON received but ok=false",
-          upstreamData && upstreamData.ok ? "" : (upstreamData && upstreamData.error ? upstreamData.error : "Check Apps Script deployment/API key.")
+          upstreamAccepted ? "OK" : "FAIL",
+          upstream.ok!==true ? "HTTP "+String(upstream.status||"unknown") : (upstreamAccepted ? String(upstreamData.admin_api_version||"JSON diagnostics accepted; version not supplied") : (!envelopeOk ? "JSON response rejected" : "JSON diagnostics identity missing or invalid")),
+          upstreamAccepted ? "" : (upstreamData && typeof upstreamData.error==='string' ? upstreamData.error : "Check Apps Script transport, response identity and API key.")
         ));
       } catch (_) {
         const failure = UpstreamResponse.classifyNonJsonResponse(text, contentType, scriptHost, upstream.status);
@@ -217,7 +223,7 @@ async function buildSystemHealth(payload, env) {
     }
   }
 
-  const upstreamHealth = upstreamData && upstreamData.data ? upstreamData.data : null;
+  const upstreamHealth = upstreamAccepted ? upstreamData.data : null;
   if (upstreamHealth) {
     const sameSheet = !!upstreamHealth.spreadsheet_id && upstreamHealth.spreadsheet_id === frontendSheetId;
     rows.push(diagnosticRow(
@@ -230,16 +236,16 @@ async function buildSystemHealth(payload, env) {
     rows.push(diagnosticRow(
       "poster_folder",
       "KK_POSTER_FOLDER_ID",
-      upstreamHealth.poster_folder_id_set ? "OK" : "WARN",
-      upstreamHealth.poster_folder_id_set ? "set" : "missing",
-      upstreamHealth.poster_folder_id_set ? "" : "Set Script Property KK_POSTER_FOLDER_ID before uploading posters."
+      upstreamHealth.poster_folder_id_set===true ? "OK" : "WARN",
+      typeof upstreamHealth.poster_folder_id_set==='boolean' ? upstreamHealth.poster_folder_id_set ? "set" : "missing" : "not verified",
+      upstreamHealth.poster_folder_id_set===false ? "Set Script Property KK_POSTER_FOLDER_ID before uploading posters." : ""
     ));
     rows.push(diagnosticRow(
       "log_sheets",
       "Audit/Error Log Sheets",
-      upstreamHealth.log_sheets_ready ? "OK" : "WARN",
-      upstreamHealth.log_sheets_ready ? "15/16 logs ready" : "missing",
-      upstreamHealth.log_sheets_ready ? "" : "Run setup/repair menu in Google Sheet."
+      upstreamHealth.log_sheets_ready===true ? "OK" : "WARN",
+      typeof upstreamHealth.log_sheets_ready==='boolean' ? upstreamHealth.log_sheets_ready ? "15/16 logs ready" : "missing" : "not verified",
+      upstreamHealth.log_sheets_ready===false ? "Run setup/repair menu in Google Sheet." : ""
     ));
   }
 
@@ -254,9 +260,14 @@ async function buildSystemHealth(payload, env) {
       continue;
     }
     try {
-      const r = await fetchWithTimeout(gvizCsvUrl(frontendSheetId, sheet, range), {}, 12000);
-      const text = await r.text();
-      const ok = r.ok && csvHeaderLooksValid(sheet, text);
+      const text = CorePrivacy.enabled()
+        ? await CorePrivacy.readCsv({sheetId:frontendSheetId,sheet,range})
+        : await (async()=>{
+            const r=await fetchWithTimeout(gvizCsvUrl(frontendSheetId,sheet,range),{},12000);
+            if(!r.ok) throw new Error('Public diagnostic feed unavailable');
+            return r.text();
+          })();
+      const ok = csvHeaderLooksValid(sheet, text);
       rows.push(diagnosticRow(
         "feed_" + sheet,
         label,
