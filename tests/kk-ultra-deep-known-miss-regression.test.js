@@ -3,9 +3,9 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const K=require('../server/kk-ultra-deep-known-miss-regression.js');
 
-const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121', 'firstone-8-7-showcase-20261019', 'auausave-gallery-20261101', 'auausave-gallery-20261102', 'grim-lover-fansign-20261118', 'scarlet-heart-premiere-20261104', 'khom-khlang-activation-20261029', 'khom-khlang-activation-20261030', 'khom-khlang-activation-20261031', 'khom-khlang-activation-20261101'];
+const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121', 'firstone-8-7-showcase-20261019', 'auausave-gallery-20261101', 'auausave-gallery-20261102', 'grim-lover-fansign-20261118', 'scarlet-heart-premiere-20261104', 'khom-khlang-activation-20261029', 'khom-khlang-activation-20261030', 'khom-khlang-activation-20261031', 'khom-khlang-activation-20261101', 'lovers-gangsters-legend-begins-20261030', 'persona-live-tour-resonance-20261027'];
 
-test('known-miss corpus preserves all forty-one current and historical discovery misses',()=>{
+test('known-miss corpus preserves all forty-three current and historical discovery misses',()=>{
  assert.deepEqual(K.CORPUS.map(x=>x.case_id).sort(),[...REQUIRED_CASE_IDS].sort());
  assert.ok(K.CORPUS.some(x=>x.case_id==='remaster-20261010'));
  assert.ok(K.CORPUS.some(x=>x.case_id==='bai-lu-meet-love-20261025'));
@@ -115,4 +115,19 @@ test('strict live recall never treats the owner screenshot or absent original UR
  const nov=K.evaluate([],[],{month:'2026-11',strict_live:true});
  assert.ok(nov.missing_cases.includes('khom-khlang-activation-20261029'));
  assert.ok(nov.missing_cases.includes('auausave-gallery-20261101'));
+});
+
+
+test('Oct 27 PERSONA and Oct 30 GMMTV first-episode on-site premiere stay distinct from unrelated TV key art',()=>{
+ const p=K.CORPUS.find(x=>x.case_id==='persona-live-tour-resonance-20261027');
+ const l=K.CORPUS.find(x=>x.case_id==='lovers-gangsters-legend-begins-20261030');
+ assert.equal(p.event_date,'2026-10-27');
+ assert.equal(l.event_date,'2026-10-30');
+ assert.equal(K.sameCase({title:'PERSONA LIVE TOUR 2026 - Resonance',event_date:'2026-10-27'},p),true);
+ assert.equal(K.sameCase({title:'Lovers & Gangsters The Legend Begins',event_date:'2026-10-30'},l),true);
+ assert.equal(K.sameCase({title:'หงเสนคลุกฝุ่น Lovers & Gangsters TV channel one31',event_date:'2026-10-30'},l),false);
+ assert.equal(K.sameCase({title:'PERSONA LIVE TOUR 2026',event_date:'2026-10-30'},p),false);
+ const out=K.evaluate([],[],{month:'2026-10',strict_live:true});
+ assert.ok(out.missing_cases.includes(p.case_id));
+ assert.ok(out.missing_cases.includes(l.case_id));
 });
