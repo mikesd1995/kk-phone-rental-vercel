@@ -97,3 +97,26 @@ test('JMNK Oct ticket sale and November concert are both in November discovery o
  assert.ok(n.missing_cases.includes('jmnk-she-serve-20261121'));
  assert.ok(o.missing_cases.includes('jmnk-she-serve-20261121'));
 });
+
+test('October runway discovery includes ELLE official authority, Thai fashion queries, and no write rights',()=>{
+ const Registry=require('../server/kk-ultra-deep-source-registry.js');
+ const Plan=require('../server/kk-monthly-deep-scan-query-plan.js');
+ const source=Registry.allSources().find(s=>s.source_id==='elle-thailand-runway');
+ assert.equal(source?.domain,'ellethailand.com');
+ assert.equal(source.required,false);
+ const plan=Plan.build({month:'2026-10'});
+ assert.ok(plan.gap_tasks.some(t=>t.source_tier==='PRESS_BRAND'&&/fashion week/i.test(t.query)));
+ assert.ok(plan.gap_tasks.some(t=>t.source_tier==='PRESS_BRAND'&&t.query.includes('แฟชั่นวีค')));
+ assert.equal(plan.production_writes,0);
+ assert.equal(plan.verifier_required,true);
+});
+
+test('ELLE 22 October exact official event can pass live recall but wrong day or missing source cannot',()=>{
+ const known=K.CORPUS.find(row=>row.case_id==='elle-free-to-be-20261022');
+ assert.ok(known);
+ const official='https://ellethailand.com/elle-fashion-week-2026-at-iconsiam-schedule-showtime/';
+ const candidate={title:known.title,event_date:'2026-10-22',source_url:official};
+ assert.equal(K.evaluate([candidate],[],{month:'2026-10',strict_live:true}).missing_cases.includes(known.case_id),false);
+ assert.equal(K.evaluate([{...candidate,event_date:'2026-10-23'}],[],{month:'2026-10',strict_live:true}).missing_cases.includes(known.case_id),true);
+ assert.equal(K.evaluate([{...candidate,source_url:''}],[],{month:'2026-10',strict_live:true}).missing_cases.includes(known.case_id),true);
+});
