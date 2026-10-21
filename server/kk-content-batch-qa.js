@@ -60,8 +60,8 @@ function hookLines(post,input={}){
   const bookingLead=ctaLead(post,input);
   return lines.filter(line=>{
     if(bookingLead&&line===bookingLead)return false;
-    if(/^(?:[\\p{Extended_Pictographic}\\uFE0F]\\s*)?งาน\\s+/u.test(line))return false;
-    if(/^\\d{1,2}\\s*(?:ต\\.ค\\.|พ\\.ย\\.|ธ\\.ค\\.)/u.test(line))return false;
+    if(/^(?:[\p{Extended_Pictographic}\uFE0F]\s*)?งาน\s+/u.test(line))return false;
+    if(/^\d{1,2}\s*(?:ต\.ค\.|พ\.ย\.|ธ\.ค\.)/u.test(line))return false;
     if(line===Qa.BRAND_LINE)return false;
     if(line.includes('kk-phone-rental.vercel.app'))return false;
     if(/^#[\p{L}\p{M}\p{N}_]+(?:\s+#[\p{L}\p{M}\p{N}_]+)*$/u.test(line))return false;
