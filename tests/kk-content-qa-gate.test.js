@@ -67,3 +67,30 @@ test('structured internal candidates must use distinct angles',()=>{
  assert.equal(QA.validateVariants([a,b,c],input).gate,'PASS');
  assert.match(QA.validateVariants([a,{...b,angle:'event_theme'},c],input).errors.join('|'),/DUPLICATE_INTERNAL_CANDIDATE_ANGLE/);
 });
+
+
+test('owner CTA style accepts a unique booking lead before a canonical simple link',()=>{
+ const post=base('เสียงเชียร์บนเวทีทำให้แฟน ๆ รู้สึกใกล้กับการแสดงมากขึ้น')
+  .replace('👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/','เสียงเพลงกำลังจะเริ่ม เลือกแพ็กเกจให้เหมาะกับการใช้งานของคุณ\n👉 จองเลย: https://kk-phone-rental.vercel.app/');
+ const result=QA.validatePost(post,{...input,cta_style:'lead_then_book_link'});
+ assert.equal(result.gate,'PASS',result.errors.join('|'));
+});
+
+test('owner CTA style rejects stock counts and generic or absent booking lead',()=>{
+ const strict={...input,cta_style:'lead_then_book_link'};
+ const absent=base('นี่คือข้อความอธิบายงาน').replace('👉 จองคิว / เช็กคิวว่าง','👉 จองเลย:');
+ const result=QA.validatePost(absent,strict);
+ assert.equal(result.gate,'BLOCKED');
+ assert.match(result.errors.join('|'),/BOOKING_CTA_LEAD_MISSING/);
+ const withStock=absent.replace('👉 จองเลย: https:', 'เลือกแพ็กเกจให้เหมาะกับงานที่กำลังจะมาถึง\n👉 จองเลย: https:').replace('นี่คือข้อความอธิบายงาน','เหลือ 2 เครื่อง นี่คือข้อความอธิบายงาน');
+ const blocked=QA.validatePost(withStock,strict);
+ assert.match(blocked.errors.join('|'),/INVENTORY_COUNT_IN_PUBLIC_COPY/);
+});
+
+test('owner CTA style rejects event dates inside booking lead',()=>{
+ const strict={...input,cta_style:'lead_then_book_link'};
+ const post=base('เพลงนี้สร้างบรรยากาศการแสดงที่มีเอกลักษณ์')
+  .replace('👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/','ไปเจอกัน 3–4 ต.ค. เปิดดูราคาแพ็กเกจได้เลย\n👉 จองเลย: https://kk-phone-rental.vercel.app/');
+ const result=QA.validatePost(post,strict);
+ assert.match(result.errors.join('|'),/BOOKING_CTA_LEAD_HAS_DATE/);
+});
