@@ -34,6 +34,7 @@ function metrics(overrides={}){
 }
 
 function copy(tag,artist,event,date,venue,hook){
+  const lead=event.endsWith('1')?'สำหรับจังหวะพิเศษในสนาม ลองดูรายละเอียดแพ็กเกจของงานนี้':event.endsWith('2')?'เสียงเพลงของงานนี้ต่างจากไลฟ์ทั่วไป เลือกใช้บริการรับคืนหน้าฮอลล์ได้เลย':'งานนี้มีช่วงพูดคุยต่อจากพรีเมียร์ เลือกแพ็กเกจที่เข้ากับกิจกรรมได้';
   return [
     '📱 KK Phone Rental | #เช่ามือถือ',
     '',
@@ -49,7 +50,8 @@ function copy(tag,artist,event,date,venue,hook){
     '💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ',
     '📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน',
     '☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน',
-    '👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/',
+    lead,
+    '👉 จองเลย: https://kk-phone-rental.vercel.app/',
     '',
     artist
   ].join('\n');
@@ -72,9 +74,11 @@ function item(n,hookWinner){
     inventory_available:true,
     official_event_hashtag:tag,
     verified_hashtags:[tag,artist,'#เช่ามือถือ'],
+    event_dna:['special format '+n,'fandom moment '+n],
+    cta_style:'lead_then_book_link',
     recent_context_checked:true,
-    recent_posts:[],
-    event_dna:['special format '+n,'fandom moment '+n]
+    recent_context_source:'chat_drafts',
+    recent_posts:['ตัวอย่างโพสต์เก่าที่ตรวจจากประวัติสนทนา']
   };
   return {
     subject:eventName,
