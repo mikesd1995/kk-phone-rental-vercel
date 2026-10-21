@@ -78,7 +78,7 @@ test('owner CTA style accepts a unique booking lead before a canonical simple li
 
 test('owner CTA style rejects stock counts and generic or absent booking lead',()=>{
  const strict={...input,cta_style:'lead_then_book_link'};
- const absent=base('นี่คือข้อความอธิบายงาน').replace('👉 จองคิว / เช็กคิวว่าง','👉 จองเลย:');
+ const absent=base('นี่คือข้อความอธิบายงาน').replace('👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/','👉 จองเลย: https://kk-phone-rental.vercel.app/');
  const result=QA.validatePost(absent,strict);
  assert.equal(result.gate,'BLOCKED');
  assert.match(result.errors.join('|'),/BOOKING_CTA_LEAD_MISSING/);
