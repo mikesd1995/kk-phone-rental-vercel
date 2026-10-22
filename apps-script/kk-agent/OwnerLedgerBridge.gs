@@ -31,7 +31,9 @@ var KKOwnerTelegramBridge={send:function(candidate,claim,properties) {
 function ownerLedgerBridgeConfig_(properties) {
   if (ScriptApp.getScriptId()!=='1NYvGpqhx8QJR6onHX07_8gWxSwIAvhblMDDpMWfYLEKK02sK352J0_WF') throw new Error('OWNER_LEDGER_SCRIPT_SCOPE_INVALID');
   var endpoint=properties.KK_OWNER_LEDGER_PRODUCER_ENDPOINT,secret=properties.KK_OWNER_LEDGER_PRODUCER_SECRET;
-  if (typeof endpoint!=='string' || !/^https:\/\/kk-phone-rental-vercel-[a-z0-9]+-mikesd1995s-projects\.vercel\.app\/api\/kk-make-owner-notify\?owner_transport=v1$/.test(endpoint)) throw new Error('OWNER_LEDGER_ENDPOINT_INVALID');
+  var canonical='https://kk-phone-rental.vercel.app/api/kk-make-owner-notify';
+  if (typeof endpoint!=='string' || (endpoint!==canonical && endpoint!==canonical+'?owner_transport=v1' &&
+    !/^https:\/\/kk-phone-rental-vercel-[a-z0-9]+-mikesd1995s-projects\.vercel\.app\/api\/kk-make-owner-notify\?owner_transport=v1$/.test(endpoint))) throw new Error('OWNER_LEDGER_ENDPOINT_INVALID');
   if (typeof secret!=='string' || secret.length<32 || secret===properties.KK_MAKE_OWNER_TRANSPORT_SIGNING_SECRET) throw new Error('OWNER_LEDGER_PRODUCER_SECRET_UNBOUND');
   return {endpoint:endpoint,secret:secret};
 }
@@ -154,6 +156,7 @@ function ownerLedgerValidateDurableSent_(reply,candidate,claim,envelope) {
 /** Creates new owner-test fixtures only; never re-ages or selects a historical row. */
 function prepareFreshOwnerTransportUatRows() { return prepareOwnerTransportUatRows_(['TELEGRAM_OWNER_ALERTS','LINE_OWNER_ALERTS']); }
 function prepareOwnerLineUat() { return prepareOwnerTransportUatRows_(['LINE_OWNER_ALERTS']); }
+function prepareOwnerTelegramUat() { return prepareOwnerTransportUatRows_(['TELEGRAM_OWNER_ALERTS']); }
 function prepareOwnerTransportUatRows_(transports) {
   var lock=LockService.getScriptLock();if (!lock.tryLock(5000)) throw new Error('OWNER_UAT_PREPARE_LOCK_BUSY');
   try {
@@ -186,14 +189,46 @@ function runOwnerLineUat() {
   if (properties.CORE_V1_TRANSPORT_ENABLED!=='FALSE' || !plan || !plan.line_notification_id || plan.notification_ids.length!==1 || plan.telegram_notification_id) throw new Error('OWNER_LINE_SINGLE_FRESH_PLAN_REQUIRED');
   var context=openLedger_(),ids=parseCsvSet_(plan.line_notification_id),candidates=collectCandidates_(context.values,context.headers,properties,false,{controlledUatIds:ids,enforceQuietHours:true});
   if (candidates.length!==1 || !candidates[0].controlledUat || candidates[0].transport!=='LINE_OWNER_ALERTS') throw new Error('OWNER_LINE_FRESH_IDENTITY_REQUIRED');
-  store.setProperties({CORE_V1_UAT_NOTIFICATION_IDS:plan.line_notification_id,CORE_V1_UAT_ARMED:'TRUE',CORE_V1_UAT_CONFIRMATION:'SEND_ALLOWLISTED_OWNER_ALERTS'},false);
   try {
+    store.setProperties({CORE_V1_UAT_NOTIFICATION_IDS:plan.line_notification_id,CORE_V1_UAT_ARMED:'TRUE',CORE_V1_UAT_CONFIRMATION:'SEND_ALLOWLISTED_OWNER_ALERTS'},false);
     var result=runCoreV1ControlledUat();console.log(JSON.stringify(result));return result;
   } finally {
-    // Core may return before taking its lock, or throw during preflight.
+    // The arming write may apply then throw; Core may also return or throw before taking its lock.
     // An unsuccessful attempt must never leave a reusable armed fuse.
     store.setProperty('CORE_V1_UAT_ARMED','FALSE');
     store.deleteProperty('CORE_V1_UAT_CONFIRMATION');
     if (store.getProperty('CORE_V1_UAT_ARMED')!=='FALSE' || store.getProperty('CORE_V1_UAT_CONFIRMATION')) throw new Error('OWNER_UAT_DISARM_READBACK_FAILED');
   }
+}
+
+/** Editor entrypoints keep target selection in the private exact last plan. */
+function ownerLedgerTelegramUatPlan_(properties) {
+  var raw=properties.KK_OWNER_LEDGER_LAST_UAT_PLAN,plan=raw && safeJson_(raw);
+  if (properties.CORE_V1_TRANSPORT_ENABLED!=='FALSE' || !plan || plan.status!=='PREPARED_NO_SEND' ||
+    !Array.isArray(plan.notification_ids) || plan.notification_ids.length!==1 || typeof plan.telegram_notification_id!=='string' ||
+    !plan.telegram_notification_id || plan.notification_ids[0]!==plan.telegram_notification_id || plan.line_notification_id!=='') throw new Error('OWNER_TELEGRAM_SINGLE_FRESH_PLAN_REQUIRED');
+  return plan;
+}
+function runOwnerTelegramUat() {
+  var store=PropertiesService.getScriptProperties(),properties=store.getProperties(),plan=ownerLedgerTelegramUatPlan_(properties);
+  if (properties.CORE_V1_UAT_ARMED!=='FALSE') throw new Error('OWNER_TELEGRAM_REQUIRES_UAT_DISARMED');
+  // An absent producer binding must reject before arming or consuming a claim.
+  ownerLedgerBridgeConfig_(properties);
+  var context=openLedger_(),ids=parseCsvSet_(plan.telegram_notification_id),candidates=collectCandidates_(context.values,context.headers,properties,false,{controlledUatIds:ids,enforceQuietHours:true});
+  if (candidates.length!==1 || !candidates[0].controlledUat || candidates[0].transport!=='TELEGRAM_OWNER_ALERTS') throw new Error('OWNER_TELEGRAM_FRESH_IDENTITY_REQUIRED');
+  try {
+    store.setProperties({CORE_V1_UAT_NOTIFICATION_IDS:plan.telegram_notification_id,CORE_V1_UAT_ARMED:'TRUE',CORE_V1_UAT_CONFIRMATION:'SEND_ALLOWLISTED_OWNER_ALERTS'},false);
+    var result=runCoreV1ControlledUat();console.log(JSON.stringify(result));return result;
+  } finally {
+    store.setProperty('CORE_V1_UAT_ARMED','FALSE');
+    store.deleteProperty('CORE_V1_UAT_CONFIRMATION');
+    if (store.getProperty('CORE_V1_UAT_ARMED')!=='FALSE' || store.getProperty('CORE_V1_UAT_CONFIRMATION')) throw new Error('OWNER_UAT_DISARM_READBACK_FAILED');
+  }
+}
+function finalizeLastOwnerTelegramUatAck() {
+  var plan=ownerLedgerTelegramUatPlan_(PropertiesService.getScriptProperties().getProperties());
+  var result=finalizeOwnerLedgerBridgeAck(plan.telegram_notification_id);
+  var summary={notification_id:result.notification_id,status:result.status,transport:result.transport,provider_message_id:result.provider_message_id,
+    api_accepted_at:result.api_accepted_at,delivery_confirmed_at:result.delivery_confirmed_at};
+  console.log(JSON.stringify(summary));return summary;
 }
