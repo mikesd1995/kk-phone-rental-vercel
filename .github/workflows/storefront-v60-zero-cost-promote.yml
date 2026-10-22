@@ -45,6 +45,9 @@ jobs:
           marker="$(grep -oE 'kk-storefront-v5\.css\?v=[^"]+' index.html | head -1)"
           test -n "$marker"
           echo "marker=$marker" >> "$GITHUB_OUTPUT"
+      - name: Install pinned test dependencies
+        run: npm ci --ignore-scripts
+
       - name: Source gates
         run: npm run check && npm test
       - name: Require token and inspect candidate
