@@ -39,6 +39,9 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install pinned test dependencies
+        run: npm ci --ignore-scripts
+
       - name: Syntax and regression tests
         run: |
           npm run check

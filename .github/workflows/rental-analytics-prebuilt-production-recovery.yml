@@ -99,6 +99,9 @@ jobs:
           git merge-base --is-ancestor "$RENTAL_ANALYTICS_FIX_SHA" "$APPROVED_SHA"
           echo "sha=$APPROVED_SHA" >> "$GITHUB_OUTPUT"
 
+      - name: Install pinned test dependencies
+        run: npm ci --ignore-scripts
+
       - name: Re-run source acceptance gates
         run: |
           set -euo pipefail

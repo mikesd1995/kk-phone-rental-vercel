@@ -130,6 +130,9 @@ async function prepareDispatch(envelope,options={}){
     ok:true,send_allowed:true,provider_sends:0,protocol:VERSION,
     notification_id:t(envelope.notification_id),
     receipt_id:t(claim.receipt_id),
+    // The consumer must recheck this signed deadline immediately before send.
+    // A successful reservation never renews or replaces the envelope TTL.
+    expires_at:t(envelope.expires_at),
     target_chat_id:t(options.ownerChatId),
     text:t(envelope.text),
     event_type:t(envelope.event_type)

@@ -57,14 +57,16 @@ test('unsigned or tampered body never touches durable store',async()=>{
 });
 test('prepare authorizes only exact reserved notification and fixed owner chat',async()=>{
   let url='',post;
-  const out=res();
-  await API._test.processRequest(req({stage:'prepare',envelope:envelope()}),out,env,async(u,init)=>{
+  const out=res(),signedEnvelope=envelope();
+  await API._test.processRequest(req({stage:'prepare',envelope:signedEnvelope}),out,env,async(u,init)=>{
     url=u;post=JSON.parse(init.body);
     return {ok:true,json:async()=>[{status:'RESERVED',receipt_id:'11111111-2222-4333-8444-555555555555'}]};
   });
   assert.equal(out.statusCode,200);
   assert.equal(out.data().send_allowed,true);
   assert.equal(out.data().target_chat_id,'-123456789');
+  assert.equal(out.data().expires_at,signedEnvelope.expires_at);
+  assert.equal(out.data().expires_at,post.p_expires_at);
   assert.match(url,/kk_make_owner_notification_claim$/);
   assert.equal(post.p_entity_id,'EVT-TEST');
 });

@@ -41,6 +41,9 @@ jobs:
           git cat-file -e "$CANDIDATE_SHA^{commit}"
           git diff --name-only "$CANDIDATE_SHA" "$APPROVED_SHA" -- . ':(exclude)tests/**' ':(exclude)docs/**' ':(exclude).github/**' > runtime-diff.txt
           test ! -s runtime-diff.txt
+      - name: Install pinned test dependencies
+        run: npm ci --ignore-scripts
+
       - name: Source gates
         run: npm run check && npm test
       - name: Require token and inspect candidate

@@ -2,6 +2,14 @@
 
 Status: **NOT RECOVERED**. This runbook is a non-production, zero-cost investigation artifact. Source of truth: GitHub issue #740.
 
+> Historical investigation only. The current live Machine SOT and Active policy
+> take precedence over issue740 and this dated snapshot. Its LINE booking-approval
+> and replacement-activation sequence is not authority for Scanner Ledger alerts.
+> See [21 October preparation and admission boundaries](OWNER_LEDGER_IDENTITY_PREPARATION_2026-10-21.md)
+> before using any recovery step. Policy225/235 still requires the existing
+> Ledger consumers; no sender, task, production configuration or queue is released
+> by this runbook.
+
 ## Live Make organization readback
 | Account | Org | Free unused operations | Last reset UTC | Next reset UTC | Active scenarios | Free active scenario limit |
 | --- | --- | ---: | --- | --- | ---: | ---: |

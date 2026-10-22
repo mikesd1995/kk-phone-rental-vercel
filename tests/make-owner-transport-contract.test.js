@@ -179,4 +179,49 @@ test('a reservation completed after envelope expiry never grants a stale send',a
   assert.equal(result.send_allowed,false);
   assert.equal(result.error_code,'TRANSPORT_EXPIRED');
   assert.equal(result.provider_sends,0);
+  assert.equal(Object.hasOwn(result,'expires_at'),false);
+});
+
+test('approved Prepare exposes original signed expiry without renewing a late reservation',async()=>{
+  const envelope=signed();
+  const late=new Date(NOW.getTime()+105000);
+  let claimed;
+  const result=await C.prepareDispatch(envelope,{
+    secret:KEY,now:late,ownerChatId:'-555',
+    claimFn:async input=>{claimed=input;return {status:'RESERVED',receipt_id:'11111111-2222-4333-8444-555555555555',expires_at:new Date(late.getTime()+C.MAX_AGE_MS).toISOString()};}
+  });
+  assert.equal(result.send_allowed,true);
+  assert.equal(result.expires_at,envelope.expires_at);
+  assert.equal(result.expires_at,claimed.expires_at);
+  assert.equal(Date.parse(result.expires_at)-late.getTime(),15000);
+  assert.equal(result.provider_sends,0);
+});
+
+test('forged signed expiry cannot expose an approved deadline or consume a claim',async()=>{
+  const envelope=signed();
+  envelope.expires_at=new Date(NOW.getTime()+119000).toISOString();
+  let claims=0;
+  const result=await C.prepareDispatch(envelope,{
+    secret:KEY,now:NOW,ownerChatId:'-555',
+    claimFn:async()=>{claims++;return {status:'RESERVED',receipt_id:'11111111-2222-4333-8444-555555555555'};}
+  });
+  assert.equal(result.send_allowed,false);
+  assert.equal(result.error_code,'SIGNATURE_INVALID');
+  assert.equal(Object.hasOwn(result,'expires_at'),false);
+  assert.equal(claims,0);
+});
+
+test('repeated Prepare cannot replace an original deadline or renew a consumed claim',async()=>{
+  const envelope=signed();
+  let claimed=false;
+  const claimFn=async()=>{
+    if(claimed)return null;
+    claimed=true;return {status:'RESERVED',receipt_id:'11111111-2222-4333-8444-555555555555'};
+  };
+  const first=await C.prepareDispatch(envelope,{secret:KEY,now:NOW,ownerChatId:'-555',claimFn});
+  const repeated=await C.prepareDispatch(envelope,{secret:KEY,now:new Date(NOW.getTime()+60000),ownerChatId:'-555',claimFn});
+  assert.equal(first.expires_at,envelope.expires_at);
+  assert.equal(repeated.send_allowed,false);
+  assert.equal(repeated.error_code,'DISPATCH_NOT_RESERVED');
+  assert.equal(Object.hasOwn(repeated,'expires_at'),false);
 });
