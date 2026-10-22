@@ -308,7 +308,7 @@ async function ownerRpc(name:string,parameters:Record<string,unknown>){
 }
 async function ownerGate(raw:string,environment:unknown){
   const key="OWNER_TRANSPORT_UAT:"+raw;
-  const filter='eq."'+key.replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
+  const filter='eq.'+key;
   const params=new URLSearchParams({select:"key,enabled,updated_at,note",key:filter,limit:"2"});
   const rows=await getRows(`kk_control_plane_config?${params}`);
   if(rows.length!==1||rows[0]?.key!==key||rows[0]?.enabled!==true)ownerError("OWNER_UAT_GATE_DISABLED");
