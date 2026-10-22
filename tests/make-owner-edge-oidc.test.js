@@ -31,7 +31,12 @@ function harness(f,{environment='preview',claims={},gate,gateAfter,persisted}={}
       assert.equal(init.headers.apikey,'sb_secret_test_only');
       if(u.pathname.endsWith('/kk_control_plane_config')){
         gates++;const selected=gates>1&&gateAfter!==undefined?gateAfter:gate===undefined?[f.gate]:gate;
-        return Response.json(selected);
+        // PostgREST's standalone eq parser consumes the entire value after eq.
+        // Quotes/backslashes are data here, unlike values inside in.(...) or or=(...).
+        // Select actual rows so a malformed lookup cannot be masked by this double.
+        const filter=u.searchParams.get('key');
+        if(!filter?.startsWith('eq.'))throw new Error('Unexpected gate filter '+filter);
+        return Response.json(selected.filter(row=>row.key===filter.slice(3)).slice(0,Number(u.searchParams.get('limit'))));
       }
       if(u.pathname.endsWith('/kk_runtime_expectations'))return Response.json([]);
       if(u.pathname.endsWith('/rpc/kk_make_owner_notification_readback'))return Response.json(persisted===undefined?f.persisted:persisted);
@@ -79,10 +84,37 @@ test('unknown and inherited operations or extra RPC fields are rejected before n
   }
   const h=harness(f),r=await h.request({...f.body,parameters:{...f.body.parameters,table:'customers'}});assert.equal(r.status,403);assert.equal(h.calls.length,0);
 });
-test('gate filter quotes raw identifiers without query or PostgREST grammar injection',async()=>{
-  const raw='uat|a",or=(enabled.eq.true)&key=bad\\x',f=fixture(raw),h=harness(f),r=await h.request();assert.equal(r.status,200);
-  const u=new URL(h.calls[0].url);assert.equal(u.searchParams.get('key'),'eq."'+('OWNER_TRANSPORT_UAT:'+raw).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"');
-  assert.deepEqual([...u.searchParams.keys()].sort(),['key','limit','select']);
+test('standalone equality finds only the exact UAT gate for normal and reserved-character source IDs',async t=>{
+  for(const raw of ['uat|normal-123','uat|double"quote','uat|comma,value','uat|ไทย🧪','uat|back\\slash','uat|a",or=(enabled.eq.true)&key=bad\\x','uat|url%26+?#=:.*(x)']){
+    await t.test(raw,async()=>{
+      const f=fixture(raw),unrelated={...f.gate,key:f.gate.key+'-other'};
+      const h=harness(f,{gate:[unrelated,f.gate]}),r=await h.request();
+      assert.equal(r.status,200,'an exact, current, authorized native gate must be found');
+      assert.equal(r.body.operation,'enqueue');assert.equal(r.body.provider_sends,0);
+      assert.equal(h.calls.filter(c=>c.url.endsWith('/rpc/kk_make_owner_notification_enqueue')).length,1);
+      for(const call of h.calls.filter(c=>new URL(c.url).pathname.endsWith('/kk_control_plane_config'))){
+        const u=new URL(call.url);
+        assert.deepEqual([...u.searchParams.keys()].sort(),['key','limit','select']);
+        assert.equal(u.searchParams.get('select'),'key,enabled,updated_at,note');assert.equal(u.searchParams.get('limit'),'2');
+      }
+    });
+  }
+});
+test('another current gate cannot authorize a missing normal or query-shaped source ID',async()=>{
+  for(const raw of ['uat|missing-normal','uat|missing",or=(enabled.eq.true)&key=bad\\x']){
+    const f=fixture(raw),other=fixture('uat|authorized-other'),h=harness(f,{gate:[other.gate]}),r=await h.request();
+    assert.equal(r.status,403);assert.equal(r.body.error_code,'OWNER_UAT_GATE_DISABLED');
+    assert.equal(h.calls.filter(c=>c.url.includes('/rpc/')).length,0);
+  }
+});
+test('production owner admission still requires its exact enabled production gate',async()=>{
+  const f=fixture('uat|production-exact'),note=JSON.parse(f.gate.note);note.allowed_environment='production';
+  const gate={...f.gate,note:JSON.stringify(note)};
+  const admitted=harness(f,{environment:'production',gate:[gate]}),r=await admitted.request();
+  assert.equal(r.status,200);assert.equal(r.body.provider_sends,0);
+  const denied=harness(f,{environment:'production',gate:[{...gate,enabled:false}]}),d=await denied.request();
+  assert.equal(d.status,403);assert.equal(d.body.error_code,'OWNER_UAT_GATE_DISABLED');
+  assert.equal(denied.calls.filter(c=>c.url.includes('/rpc/')).length,0);
 });
 test('actual source mapping must remain UAT classified and exact gate hash/audit joined',async()=>{
   const f=fixture();
