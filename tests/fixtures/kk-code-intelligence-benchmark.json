@@ -9,6 +9,12 @@
       "must_include": [
         "admin/admin.js",
         "tests/admin-edit-booking-date-sort-20260926.test.js"
+      ],
+      "must_exclude_routes": [
+        "owner_ledger_transport"
+      ],
+      "must_exclude": [
+        "apps-script/kk-agent/OwnerLedgerBridge.gs"
       ]
     },
     {
@@ -55,6 +61,12 @@
       ],
       "must_include": [
         "server/kk-agent-invocation-ledger.js"
+      ],
+      "must_exclude_routes": [
+        "owner_ledger_transport"
+      ],
+      "must_exclude": [
+        "apps-script/kk-agent/OwnerLedgerBridge.gs"
       ]
     },
     {
@@ -74,7 +86,128 @@
       "must_include": [
         "scripts/verify-apps-script-upstream.js",
         "server/admin-proxy.js"
+      ],
+      "must_exclude_routes": [
+        "owner_ledger_transport"
       ]
+    },
+    {
+      "task": "owner-ledger Supabase database migration ACK",
+      "expected_routes": ["owner_ledger_transport"],
+      "must_include": [
+        "apps-script/kk-agent/OwnerLedgerBridge.gs",
+        "scripts/kk-owner-relay-preflight.js",
+        "server/kk-make-owner-notify.js",
+        "server/make-owner-transport-contract.js",
+        "server/make-owner-ledger-bridge.js",
+        "supabase/functions/kk-runtime-ledger-oidc-probe/index.ts",
+        "tests/kk-agent-owner-ledger-ack.test.js"
+      ]
+    },
+    {
+      "task": "owner-ledger supabase RLS database migration OIDC runtime ledger",
+      "expected_routes": ["owner_ledger_transport"],
+      "must_include": [
+        "apps-script/kk-agent/OwnerLedgerBridge.gs",
+        "scripts/kk-owner-relay-preflight.js",
+        "server/kk-make-owner-notify.js",
+        "server/make-owner-transport-contract.js",
+        "server/make-owner-ledger-bridge.js",
+        "supabase/functions/kk-runtime-ledger-oidc-probe/index.ts"
+      ]
+    },
+    {
+      "task": "ตรวจบัญชีแจ้งเตือนเจ้าของและการตอบรับ",
+      "expected_routes": ["owner_ledger_transport"],
+      "must_include": [
+        "apps-script/kk-agent/OwnerLedgerBridge.gs",
+        "server/kk-make-owner-notify.js",
+        "tests/kk-agent-owner-ledger-ack.test.js"
+      ]
+    },
+    {
+      "task": "apps-script/kk-agent/OwnerLedgerBridge.gs",
+      "expected_routes": ["owner_ledger_transport"],
+      "must_include": ["apps-script/kk-agent/OwnerLedgerBridge.gs"]
+    },
+    {
+      "task": "finalizeOwnerLedgerBridgeAck",
+      "expected_routes": ["owner_ledger_transport"],
+      "must_include": [
+        "apps-script/kk-agent/OwnerLedgerBridge.gs",
+        "tests/kk-agent-owner-ledger-ack.test.js"
+      ]
+    },
+    {
+      "task": "ownerGate",
+      "expected_routes": ["owner_ledger_transport"],
+      "must_include": [
+        "supabase/functions/kk-runtime-ledger-oidc-probe/index.ts",
+        "tests/make-owner-edge-oidc.test.js"
+      ]
+    },
+    {
+      "task": "assertExactOwnerRelay",
+      "expected_routes": ["owner_ledger_transport"],
+      "must_include": [
+        "scripts/kk-owner-relay-preflight.js",
+        "tests/kk-owner-relay-preflight.test.js"
+      ]
+    },
+    {
+      "task": "Make 6176241",
+      "expected_routes": ["owner_ledger_transport"],
+      "must_include": [
+        "server/make-owner-ledger-bridge.js",
+        "tests/make-owner-transport-contract.test.js"
+      ]
+    },
+    {
+      "task": "Make6176241",
+      "expected_routes": ["owner_ledger_transport"],
+      "must_include": ["apps-script/kk-agent/OwnerLedgerBridge.gs"]
+    },
+    {
+      "task": "Telegram",
+      "expected_routes": [],
+      "must_include": [],
+      "must_exclude_routes": ["owner_ledger_transport"],
+      "must_exclude": ["apps-script/kk-agent/OwnerLedgerBridge.gs"]
+    },
+    {
+      "task": "ACK",
+      "expected_routes": [],
+      "must_include": [],
+      "must_exclude_routes": ["owner_ledger_transport"],
+      "must_exclude": ["apps-script/kk-agent/OwnerLedgerBridge.gs"]
+    },
+    {
+      "task": "ส่งแจ้งเตือน LINE",
+      "expected_routes": [],
+      "must_include": [],
+      "must_exclude_routes": ["owner_ledger_transport"],
+      "must_exclude": ["apps-script/kk-agent/OwnerLedgerBridge.gs"]
+    },
+    {
+      "task": "Scanner แจ้งเตือน",
+      "expected_routes": ["discovery_scanner"],
+      "must_include": ["server/discovery-source-watch-contract.js"],
+      "must_exclude_routes": ["owner_ledger_transport"],
+      "must_exclude": ["apps-script/kk-agent/OwnerLedgerBridge.gs"]
+    },
+    {
+      "task": "เชื่อมชีตฐานข้อมูล",
+      "expected_routes": [],
+      "must_include": [],
+      "must_exclude_routes": ["owner_ledger_transport"],
+      "must_exclude": ["apps-script/kk-agent/OwnerLedgerBridge.gs"]
+    },
+    {
+      "task": "Telegram webhook ACK",
+      "expected_routes": ["unified_inbox"],
+      "must_include": ["server/line-booking-webhook.js"],
+      "must_exclude_routes": ["owner_ledger_transport"],
+      "must_exclude": ["apps-script/kk-agent/OwnerLedgerBridge.gs"]
     }
   ]
 }

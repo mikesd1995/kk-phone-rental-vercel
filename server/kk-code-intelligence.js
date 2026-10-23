@@ -135,7 +135,11 @@ function routeScores(task,routes){
       }
     }
     return {route,score,matched};
-  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score || a.route.id.localeCompare(b.route.id));
+  }).filter(x=>x.score>0).sort((a,b)=>{
+    const aPriority=Number.isFinite(a.route.priority)?a.route.priority:0;
+    const bPriority=Number.isFinite(b.route.priority)?b.route.priority:0;
+    return bPriority-aPriority || b.score-a.score || a.route.id.localeCompare(b.route.id);
+  });
 }
 
 function addCandidate(map,file,score,reason,repoMap){
@@ -179,8 +183,11 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
     for(const rev of (node.reverse_dependencies||[]).filter(file=>/^(admin|api|server|cloudflare|supabase\/functions)\//.test(file)).slice(0,3)) addCandidate(candidates,rev,candidate.score-25,'dependent:'+candidate.path,map);
   }
 
-  // Main production stable score ordering; preserve curated route priority from cleanup.
-  const sorted=[...candidates.values()].sort((a,b)=>b.score-a.score);
+  // Explicit priorities apply only to curated files, never incidental dependencies.
+  const priorityForFile=file=>Math.max(0,...activeRoutes
+    .filter(hit=>(hit.route.files||[]).includes(file))
+    .map(hit=>Number.isFinite(hit.route.priority)?hit.route.priority:0));
+  const sorted=[...candidates.values()].sort((a,b)=>priorityForFile(b.path)-priorityForFile(a.path) || b.score-a.score);
   const selected=[];
   let tokens=0;
   for(const item of sorted){
@@ -232,7 +239,7 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
     targeted_tests:tests,
     skills,
     docs,
-    full_regression_required:activeRoutes.some(x=>['deployment','runtime_ledger_supabase','agent_orchestration','booking_inventory'].includes(x.route.id)),
+    full_regression_required:activeRoutes.some(x=>x.route.full_regression_required===true || ['deployment','runtime_ledger_supabase','agent_orchestration','booking_inventory'].includes(x.route.id)),
     notes:[
       'Open selected files before broad repo search.',
       'For large files, inspect named symbols/targeted ranges first instead of loading the whole file.',
