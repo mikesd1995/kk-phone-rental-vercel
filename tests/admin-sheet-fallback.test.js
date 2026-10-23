@@ -103,3 +103,50 @@ test('fallback operational ranges do not reintroduce fixed row ceilings',()=>{
     assert.doesNotMatch(F.SPECS[key].range,/\\d{3,}$/,'fixed row ceiling in '+key);
   }
 });
+
+
+test('GViz CSV snapshots pin headers=1 for all tabs, including bookings, without changing write safety',async()=>{
+  F.clearSnapshotCache();
+  const requests=[];
+  const fetchImpl=async url=>{
+    const u=new URL(String(url));
+    const sheet=u.searchParams.get('sheet');
+    const spec=Object.values(F.SPECS).find(v=>v.sheet===sheet);
+    assert.ok(spec,'unexpected public GViz dataset');
+    assert.equal(u.searchParams.get('headers'),'1','GViz must never guess the header count for '+sheet);
+    assert.equal(u.searchParams.get('range'),spec.range,'start at exact schema row for '+sheet);
+    requests.push(sheet);
+    if(sheet==='00_Master_Booking'){
+      return {ok:true,status:200,text:async()=>'"booking_id","booking_status","event_id"\n"BK-1","confirmed","EVENT-1"\n'};
+    }
+    if(sheet==='01_Events'){
+      return {ok:true,status:200,text:async()=>'"event_id","event_name","event_date"\n"EVENT-1","Test Event","24/10/2026"\n'};
+    }
+    return {ok:true,status:200,text:async()=>JSON.stringify(spec.header)+'\n'};
+  };
+  const snap=await F.buildSnapshot({sheetId:'gviz-header-fixture',env:{},fetchImpl,cache:false});
+  assert.equal(requests.length,Object.keys(F.SPECS).length);
+  assert.equal(snap.bookings.length,1);
+  assert.equal(snap.bookings[0].booking_id,'BK-1');
+  assert.equal(snap.bookings[0].row_number,5);
+  assert.equal(snap.spreadsheet_id,'gviz-header-fixture');
+  assert.equal(snap.degraded_read_only,true);
+  assert.equal(snap.write_actions_enabled,false);
+  F.clearSnapshotCache();
+});
+
+test('GViz still fails closed if its CSV lacks the real booking_id schema after explicit header pinning',async()=>{
+  const fetchImpl=async url=>{
+    const u=new URL(String(url));
+    const sheet=u.searchParams.get('sheet');
+    const spec=Object.values(F.SPECS).find(v=>v.sheet===sheet);
+    assert.equal(u.searchParams.get('headers'),'1');
+    return {ok:true,status:200,text:async()=>sheet==='00_Master_Booking'
+      ? '"col_A","col_B"\n"missing","booking_id"\n'
+      : JSON.stringify(spec.header)+'\n'};
+  };
+  await assert.rejects(
+    ()=>F.buildSnapshot({sheetId:'gviz-invalid-header-fixture',env:{},fetchImpl,cache:false}),
+    e=>e.code==='FALLBACK_SCHEMA_HEADER_MISSING'&&e.dataset==='bookings'
+  );
+});

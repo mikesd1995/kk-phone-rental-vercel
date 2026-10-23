@@ -1,0 +1,62 @@
+name: Admin GViz Header Regression
+
+on:
+  push:
+    branches:
+      - fix/admin-gviz-booking-header-20261024
+    paths:
+      - server/admin-sheet-fallback.js
+      - tests/admin-sheet-fallback.test.js
+      - tests/admin-sheet-fallback-private-reader.test.js
+      - tests/admin-gviz-live-header-probe.test.js
+      - scripts/admin-gviz-live-header-probe.cjs
+      - tests/admin-gviz-live-snapshot-acceptance.test.js
+      - scripts/admin-gviz-live-snapshot-acceptance.cjs
+      - .github/workflows/admin-gviz-header-regression.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - server/admin-sheet-fallback.js
+      - tests/admin-sheet-fallback.test.js
+      - tests/admin-sheet-fallback-private-reader.test.js
+      - tests/admin-gviz-live-header-probe.test.js
+      - scripts/admin-gviz-live-header-probe.cjs
+      - .github/workflows/admin-gviz-header-regression.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-gviz-header-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  read-only-admin-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Read-only Admin schema and security regressions
+        run: |
+          node --test \
+            tests/admin-sheet-fallback.test.js \
+            tests/admin-sheet-fallback-private-reader.test.js \
+            tests/admin-gviz-live-header-probe.test.js \
+            tests/admin-gviz-live-snapshot-acceptance.test.js \
+            tests/core-sheet-privacy-cutover.test.js \
+            tests/snapshot-upstream-error.test.js
+      - name: Live Google GViz zero-row schema acceptance
+        run: node scripts/admin-gviz-live-header-probe.cjs
+      - name: Canonical Admin snapshot read-only live acceptance
+        run: node scripts/admin-gviz-live-snapshot-acceptance.cjs
+      - name: Syntax contract
+        run: npm run check
+      - name: Full repository regression
+        run: npm test
+      - name: Continuous safety invariants
+        run: npm run audit:invariants

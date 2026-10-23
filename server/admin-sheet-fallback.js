@@ -53,7 +53,7 @@ function parseCsv(text){
 
 function rowsAsObjects(csv, requiredHeader, startRow=1){
   const rows=parseCsv(csv);
-  const headerIndex=rows.findIndex(r=>r.some(v=>String(v||'').trim()===requiredHeader));
+  const headerIndex=rows.findIndex(r=>String(r[0]||'').trim()===requiredHeader);
   if(headerIndex<0) throw new Error('Fallback schema header not found: '+requiredHeader);
   const headers=rows[headerIndex].map(v=>String(v||'').trim());
   const out=[];
@@ -94,7 +94,7 @@ function fetchWithTimeout(url, fetchImpl, timeoutMs){
     .finally(()=>clearTimeout(timer));
 }
 function gvizUrl(sheetId,spec){
-  return 'https://docs.google.com/spreadsheets/d/'+encodeURIComponent(sheetId)+'/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(spec.sheet)+'&range='+encodeURIComponent(spec.range)+'&t='+Date.now();
+  return 'https://docs.google.com/spreadsheets/d/'+encodeURIComponent(sheetId)+'/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(spec.sheet)+'&range='+encodeURIComponent(spec.range)+'&headers=1&t='+Date.now();
 }
 async function readSpecPublic(sheetId,key,fetchImpl){
   const spec=SPECS[key];
