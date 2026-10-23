@@ -229,6 +229,95 @@ function prepareOwnerTelegramUatAfterNoSendReconciliation() {
     return plan;
   } finally { lock.releaseLock(); }
 }
+/** Distinct second authorization: both historical claims stay frozen and are never returned for dispatch. */
+function ownerRelayTelegramUatNoSend_(store,properties,context) {
+  assertLedgerLock_();
+  if (ScriptApp.getScriptId()!=='1NYvGpqhx8QJR6onHX07_8gWxSwIAvhblMDDpMWfYLEKK02sK352J0_WF') throw new Error('OWNER_LEDGER_SCRIPT_SCOPE_INVALID');
+  if (properties.CORE_V1_TRANSPORT_ENABLED!=='FALSE') throw new Error('OWNER_UAT_REQUIRES_GLOBAL_DISABLED');
+  if (properties.CORE_V1_UAT_ARMED!=='FALSE' || properties.CORE_V1_UAT_CONFIRMATION) throw new Error('OWNER_UAT_REQUIRES_DISARMED');
+  var pinned=[['KKUAT_TG_41097307-885b-4aa7-8da2-8db97d4b5e74','CLAIM|b871e6e4-ac71-45c8-8587-5f86c3158a16','ADMISSION_UNKNOWN'],
+    ['KKUAT_TG_caf84575-743a-4cbe-8588-6e8ee6d2532c','CLAIM|47af8985-f021-403e-bbbd-1f08dc73f8ed','ADMITTED']];
+  var keys=pinned.map(function(p) { return ownerLedgerPendingKey_(p[0]); });
+  if (Object.keys(properties).some(function(k) { if (k.indexOf('KK_OWNER_LEDGER_PENDING_')!==0 || keys.indexOf(k)>=0) return false;var p=safeJson_(properties[k]);return !p || p.status!=='SHEET_ACK_VERIFIED'; })) throw new Error('OWNER_UAT_PENDING_RECONCILIATION_REQUIRED');
+  var frozen=pinned.map(function(p,i) {
+    var id=p[0],claimId=p[1],raw=store.getProperty(keys[i]),pending=raw && safeJson_(raw);
+    if (!pending || pending.version!=='kk-owner-ledger-local-v1' || pending.status!==p[2] || (i===0?pending.envelope!==null:!pending.envelope) ||
+      !pending.candidate || pending.candidate.notificationId!==id || pending.candidate.controlledUat!==true || pending.candidate.transport!=='TELEGRAM_OWNER_ALERTS' ||
+      !pending.claim || pending.claim.notification_id!==id || pending.claim.transport!=='TELEGRAM_OWNER_ALERTS' || pending.claim.claim_id!==claimId || pending.claim.attempt_count!==1) throw new Error('OWNER_UAT_RELAY_HISTORICAL_NO_SEND_REQUIRED');
+    var exact=readExactLedgerCandidate_(context.sheet,pending.candidate,pending.claim),r=exact.record,created=parseDate_(r['Created At']),attempted=parseDate_(pending.claim.attempted_at);
+    if (!created || !attempted || Date.now()-created.getTime()<=120000 || Date.now()-attempted.getTime()<=120000 ||
+      r['Change Type']!=='TRANSPORT_UAT' || r.Priority!=='TEST' || r['Quiet Hours Policy']!=='OWNER_CONTROLLED_UAT' || r['Event Family ID']!=='' || r['Show ID']!=='' ||
+      r['Audit Event ID']!=='CONTROLLED_UAT|'+id || r['Dedup Key']!=='OWNER_TRANSPORT_UAT|'+id || typeof r.Payload!=='string' || r.Payload.indexOf('ทดสอบระบบแจ้งเตือน')!==0 ||
+      pending.candidate.payload!==r.Payload || pending.candidate.dedupKey!==r['Dedup Key'] || pending.candidate.status!=='QUEUED' || pending.candidate.attemptCount!==0 ||
+      !pending.candidate.sourceRow || !pending.claim.before_row || JSON.stringify(ledgerRecordSnapshot_(pending.candidate.sourceRow))!==JSON.stringify(ledgerRecordSnapshot_(pending.claim.before_row)) ||
+      JSON.stringify(ledgerRecordSnapshot_(r))!==JSON.stringify(ledgerRecordSnapshot_(ledgerPatchedRecord_(pending.claim.before_row,{Status:'SENDING','Attempt Count':1,'Last Attempt At':pending.claim.attempted_at,Notes:appendLedgerNote_(pending.claim.before_row.Notes,claimId)}))) ||
+      pending.claim.before_row.Payload!==r.Payload || pending.claim.before_row.Status!=='QUEUED' || Number(pending.claim.before_row['Attempt Count'])!==0 ||
+      r.Notes!=='OWNER_AUTHORIZED_TRANSPORT_UAT|'+id+' | '+claimId ||
+      ['Delivery Evidence','Next Retry At','HTTP Status','Provider Message ID','API Accepted At','Delivery Confirmed At','Last Error','Feedback Source'].some(function(k) { return hasLedgerValue_(r[k]); })) throw new Error('OWNER_UAT_RELAY_HISTORICAL_NO_SEND_REQUIRED');
+    if (i===1) {
+      ownerLedgerValidateEnvelope_(pending.envelope,pending.candidate,true);
+      if (Date.now()-parseDate_(pending.envelope.expires_at).getTime()<=120000) throw new Error('OWNER_UAT_RELAY_EXPIRED_DESCRIPTOR_REQUIRED');
+    }
+    return {summary:{notification_id:id,claim_id:claimId,pending_status:pending.status,pending_sha256:ownerLedgerHash_(raw),claimed_row_sha256:ownerLedgerHash_(JSON.stringify(ledgerRecordSnapshot_(r)))},
+      key:keys[i],raw:raw,created_at:created.toISOString()};
+  });
+  var priorKey='KK_OWNER_LEDGER_NEW_TG_UAT_GRANT_CONSUMED',priorRaw=store.getProperty(priorKey),prior=priorRaw && safeJson_(priorRaw),priorGrant=prior && prior.grant;
+  var consumedAt=prior && parseDate_(prior.consumed_at),issued=priorGrant && parseDate_(priorGrant.issued_at),expires=priorGrant && parseDate_(priorGrant.expires_at);
+  if (!prior || prior.version!=='kk-owner-new-telegram-uat-consumed-v1' || prior.status!=='CONSUMED_PREPARATION_OUTCOME_UNCONFIRMED' || prior.new_notification_id!==pinned[1][0] ||
+    !priorGrant || priorGrant.version!=='kk-owner-new-telegram-uat-grant-v1' || priorGrant.owner_authorization_reference!=='OWNER_2026-10-23_ONE_NEW_TELEGRAM_UAT' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(priorGrant.grant_id) ||
+    priorGrant.old_notification_id!==pinned[0][0] || priorGrant.old_claim_id!==pinned[0][1] || priorGrant.old_pending_sha256!==frozen[0].summary.pending_sha256 ||
+    priorGrant.old_claimed_row_sha256!==frozen[0].summary.claimed_row_sha256 || !consumedAt || consumedAt.toISOString()!==frozen[1].created_at ||
+    !issued || !expires || consumedAt<issued || consumedAt>=expires || expires-issued>300000) throw new Error('OWNER_UAT_RELAY_PRIOR_CONSUMED_INVALID');
+  return {historical_claims:frozen.map(function(p) { return p.summary; }),frozen:frozen,prior_key:priorKey,prior_raw:priorRaw,prior_grant_id:priorGrant.grant_id,prior_consumed_grant_sha256:ownerLedgerHash_(priorRaw)};
+}
+/** Only hashes and pinned identities leave this no-network preview. */
+function logOwnerRelayTelegramUatNoSendPreview() {
+  var lock=LockService.getScriptLock();if (!lock.tryLock(5000)) throw new Error('OWNER_UAT_PREPARE_LOCK_BUSY');
+  try {
+    var store=PropertiesService.getScriptProperties(),old=ownerRelayTelegramUatNoSend_(store,store.getProperties(),openLedger_());
+    var summary={historical_claims:old.historical_claims,prior_consumed_grant_sha256:old.prior_consumed_grant_sha256};console.log(JSON.stringify(summary));return summary;
+  } finally { lock.releaseLock(); }
+}
+/** New, separately consumed owner grant; original preparation, admission and ACK paths stay unchanged. */
+function prepareOwnerTelegramUatAfterRelayReconciliation() {
+  var lock=LockService.getScriptLock();if (!lock.tryLock(5000)) throw new Error('OWNER_UAT_PREPARE_LOCK_BUSY');
+  try {
+    var store=PropertiesService.getScriptProperties(),properties=store.getProperties(),grantKey='KK_OWNER_LEDGER_RELAY_TG_UAT_GRANT_20261023',consumedKey=grantKey+'_CONSUMED';
+    if (store.getProperty(consumedKey)) throw new Error('OWNER_UAT_RELAY_GRANT_ALREADY_CONSUMED');
+    var context=openLedger_(),old=ownerRelayTelegramUatNoSend_(store,properties,context),raw=store.getProperty(grantKey),grant=raw && safeJson_(raw);
+    var fields=['version','grant_id','owner_authorization_reference','issued_at','expires_at','prior_consumed_grant_sha256','historical_claims','native_reconciliation_evidence_sha256'];
+    var historyFields=['notification_id','claim_id','pending_status','pending_sha256','claimed_row_sha256'],issued=grant && parseDate_(grant.issued_at),expires=grant && parseDate_(grant.expires_at),now=Date.now();
+    if (!grant || Object.keys(grant).length!==fields.length || fields.some(function(k) { return k==='historical_claims'?false:typeof grant[k]!=='string'; }) ||
+      grant.version!=='kk-owner-relay-telegram-uat-grant-v2' || grant.owner_authorization_reference!=='OWNER_2026-10-23_ONE_ADDITIONAL_NEW_TELEGRAM_UAT' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(grant.grant_id) || grant.grant_id===old.prior_grant_id ||
+      !issued || !expires || issued.toISOString()!==grant.issued_at || expires.toISOString()!==grant.expires_at || issued.getTime()>now || expires.getTime()<=now || expires-issued<=0 || expires-issued>300000 ||
+      grant.prior_consumed_grant_sha256!==old.prior_consumed_grant_sha256 || !/^[a-f0-9]{64}$/.test(grant.native_reconciliation_evidence_sha256) ||
+      !Array.isArray(grant.historical_claims) || grant.historical_claims.length!==2 || grant.historical_claims.some(function(p,i) { return !p || Object.keys(p).length!==historyFields.length || historyFields.some(function(k) { return typeof p[k]!=='string' || p[k]!==old.historical_claims[i][k]; }); })) throw new Error('OWNER_UAT_RELAY_GRANT_INVALID');
+    var before=context.values.map(function(row) { return row.map(ledgerComparable_); }),created=new Date().toISOString(),id='KKUAT_TG_'+Utilities.getUuid(),record={};
+    ledgerHeaders_().forEach(function(k) { record[k]=''; });
+    Object.assign(record,{'Notification ID':id,'Created At':created,'Change Type':'TRANSPORT_UAT',Priority:'TEST','Quiet Hours Policy':'OWNER_CONTROLLED_UAT',
+      Payload:'ทดสอบระบบแจ้งเตือนเจ้าของ KK Phone Rental เพื่อตรวจการเชื่อมต่อเท่านั้น ไม่มีข้อมูลอีเวนต์หรือลูกค้า','Audit Event ID':'CONTROLLED_UAT|'+id,
+      Transport:'TELEGRAM_OWNER_ALERTS',Status:'QUEUED','Attempt Count':0,'Dedup Key':'OWNER_TRANSPORT_UAT|'+id,Notes:'OWNER_AUTHORIZED_TRANSPORT_UAT|'+id});
+    if (context.values.length>128 || Utilities.newBlob(JSON.stringify(context.values.slice(1).map(function(row) { return ledgerNamedRow_(row,context.headers); }).concat([record]))).getBytes().length>262144) throw new Error('LEDGER_SOURCE_SNAPSHOT_BOUNDS');
+    if (context.values.some(function(row) { return row[context.headers['Notification ID']]===id; })) throw new Error('OWNER_UAT_NEW_ID_COLLISION');
+    var consumed=JSON.stringify({version:'kk-owner-relay-telegram-uat-consumed-v2',grant:grant,new_notification_id:id,consumed_at:created,status:'CONSUMED_PREPARATION_OUTCOME_UNCONFIRMED'});
+    store.setProperty(consumedKey,consumed);if (store.getProperty(consumedKey)!==consumed) throw new Error('OWNER_UAT_RELAY_GRANT_CONSUME_READBACK_FAILED');
+    context.sheet.getRange(context.values.length+1,1,1,23).setValues([ledgerRecordSnapshot_(record)]);SpreadsheetApp.flush();
+    var fresh=context.sheet.getDataRange().getValues(),freshHeaders=readHeaders_(fresh[0]);
+    if (fresh.length!==before.length+1 || JSON.stringify(fresh.slice(0,before.length).map(function(row) { return row.map(ledgerComparable_); }))!==JSON.stringify(before) ||
+      JSON.stringify(ledgerRecordSnapshot_(ledgerNamedRow_(fresh[fresh.length-1],freshHeaders)))!==JSON.stringify(ledgerRecordSnapshot_(record)) || store.getProperty(old.prior_key)!==old.prior_raw ||
+      old.frozen.some(function(p) { return store.getProperty(p.key)!==p.raw; }) || store.getProperty(consumedKey)!==consumed) throw new Error('OWNER_UAT_RELAY_GRANT_CREATE_READBACK_FAILED');
+    var plan={status:'PREPARED_NO_SEND',notification_ids:[id],telegram_notification_id:id,line_notification_id:'',created_at:created,fresh_until:new Date(Date.parse(created)+120000).toISOString(),
+      telegram_content_version:ownerLedgerHash_(JSON.stringify(ownerLedgerBinding_({notificationId:id,sourceRow:record}))),payload:record.Payload,provider_sends:0,armed:false};
+    var planRaw=JSON.stringify(plan);store.setProperties({CORE_V1_UAT_NOTIFICATION_IDS:id,CORE_V1_UAT_ARMED:'FALSE',KK_OWNER_LEDGER_LAST_UAT_PLAN:planRaw},false);
+    if (store.getProperty('KK_OWNER_LEDGER_LAST_UAT_PLAN')!==planRaw || store.getProperty('CORE_V1_UAT_NOTIFICATION_IDS')!==id || store.getProperty('CORE_V1_UAT_ARMED')!=='FALSE' ||
+      store.getProperty('CORE_V1_TRANSPORT_ENABLED')!=='FALSE' || store.getProperty('CORE_V1_UAT_CONFIRMATION') || store.getProperty(old.prior_key)!==old.prior_raw ||
+      old.frozen.some(function(p) { return store.getProperty(p.key)!==p.raw; }) || store.getProperty(consumedKey)!==consumed ||
+      JSON.stringify(context.sheet.getDataRange().getValues().map(function(row) { return row.map(ledgerComparable_); }))!==JSON.stringify(fresh.map(function(row) { return row.map(ledgerComparable_); }))) throw new Error('OWNER_UAT_RELAY_GRANT_PLAN_READBACK_FAILED');
+    console.log(JSON.stringify({status:plan.status,telegram_notification_id:id,telegram_content_version:plan.telegram_content_version,created_at:created,fresh_until:plan.fresh_until,provider_sends:0,armed:false}));return plan;
+  } finally { lock.releaseLock(); }
+}
 function prepareOwnerTransportUatRows_(transports) {
   var lock=LockService.getScriptLock();if (!lock.tryLock(5000)) throw new Error('OWNER_UAT_PREPARE_LOCK_BUSY');
   try {
