@@ -8,6 +8,8 @@ on:
       - server/admin-sheet-fallback.js
       - tests/admin-sheet-fallback.test.js
       - tests/admin-sheet-fallback-private-reader.test.js
+      - tests/admin-gviz-live-header-probe.test.js
+      - scripts/admin-gviz-live-header-probe.cjs
       - .github/workflows/admin-gviz-header-regression.yml
   pull_request:
     branches: [main]
@@ -15,6 +17,8 @@ on:
       - server/admin-sheet-fallback.js
       - tests/admin-sheet-fallback.test.js
       - tests/admin-sheet-fallback-private-reader.test.js
+      - tests/admin-gviz-live-header-probe.test.js
+      - scripts/admin-gviz-live-header-probe.cjs
       - .github/workflows/admin-gviz-header-regression.yml
   workflow_dispatch:
 
@@ -40,8 +44,11 @@ jobs:
           node --test \
             tests/admin-sheet-fallback.test.js \
             tests/admin-sheet-fallback-private-reader.test.js \
+            tests/admin-gviz-live-header-probe.test.js \
             tests/core-sheet-privacy-cutover.test.js \
             tests/snapshot-upstream-error.test.js
+      - name: Live Google GViz zero-row schema acceptance
+        run: node scripts/admin-gviz-live-header-probe.cjs
       - name: Syntax contract
         run: npm run check
       - name: Full repository regression
