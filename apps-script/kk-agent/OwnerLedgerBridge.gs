@@ -393,3 +393,41 @@ function finalizeLastOwnerTelegramUatAck() {
     api_accepted_at:result.api_accepted_at,delivery_confirmed_at:result.delivery_confirmed_at};
   console.log(JSON.stringify(summary));return summary;
 }
+
+/** Private debugger checkpoint: chunks remain local; only a safe summary may return. */
+function ownerLedgerRelayReadOnlyCheckpoint_(summary,chunks) { return Object.freeze(summary); }
+/** Read-only complete-value inspection; never renews, signs, admits, sends, logs or writes. */
+function inspectLastOwnerTelegramUatRelayReadOnly() {
+  var lock=LockService.getScriptLock();if (!lock.tryLock(5000)) throw new Error('OWNER_RELAY_READ_ONLY_LOCK_BUSY');
+  try {
+    if (ScriptApp.getScriptId()!=='1NYvGpqhx8QJR6onHX07_8gWxSwIAvhblMDDpMWfYLEKK02sK352J0_WF') throw new Error('OWNER_LEDGER_SCRIPT_SCOPE_INVALID');
+    var store=PropertiesService.getScriptProperties(),properties={};
+    ['CORE_V1_TRANSPORT_ENABLED','CORE_V1_UAT_ARMED','CORE_V1_UAT_CONFIRMATION','KK_OWNER_LEDGER_LAST_UAT_PLAN','CORE_V1_SPREADSHEET_ID'].forEach(function(k) { properties[k]=store.getProperty(k); });
+    if (properties.CORE_V1_TRANSPORT_ENABLED!=='FALSE' || properties.CORE_V1_UAT_ARMED!=='FALSE' || properties.CORE_V1_UAT_CONFIRMATION) throw new Error('OWNER_RELAY_READ_ONLY_REQUIRES_DISARMED');
+    var plan=ownerLedgerTelegramUatPlan_(properties),id=plan.telegram_notification_id;
+    if (!/^KKUAT_TG_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id) || plan.provider_sends!==0 || plan.armed!==false) throw new Error('OWNER_RELAY_READ_ONLY_PLAN_INVALID');
+    if (properties.CORE_V1_SPREADSHEET_ID && properties.CORE_V1_SPREADSHEET_ID!==CORE_V1.spreadsheetId) throw new Error('LEDGER_SCOPE_INVALID');
+    var sheet=SpreadsheetApp.openById(CORE_V1.spreadsheetId).getSheetByName(CORE_V1.ledgerSheet);
+    if (!sheet) throw new Error('LEDGER_SHEET_NOT_FOUND');assertLedgerScope_(sheet);
+    var pending=ownerLedgerLoadPending_(id),candidate=pending.candidate,claim=pending.claim;
+    if (pending.status!=='ADMITTED' || !pending.envelope || candidate.controlledUat!==true || candidate.transport!=='TELEGRAM_OWNER_ALERTS' || candidate.status!=='QUEUED' || candidate.attemptCount!==0 ||
+      claim.transport!=='TELEGRAM_OWNER_ALERTS' || claim.attempt_count!==1 || !/^CLAIM\|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(claim.claim_id)) throw new Error('OWNER_RELAY_READ_ONLY_PENDING_INVALID');
+    var exact=readExactLedgerCandidate_(sheet,candidate,claim),r=exact.record,created=parseDate_(r['Created At']);
+    if (!created || plan.created_at!==created.toISOString() || plan.fresh_until!==new Date(created.getTime()+120000).toISOString() || plan.payload!==candidate.payload ||
+      plan.telegram_content_version!==ownerLedgerHash_(JSON.stringify(ownerLedgerBinding_(candidate))) || candidate.payload!==r.Payload || candidate.dedupKey!==r['Dedup Key'] ||
+      r['Change Type']!=='TRANSPORT_UAT' || r.Priority!=='TEST' || r['Quiet Hours Policy']!=='OWNER_CONTROLLED_UAT' || r['Event Family ID']!=='' || r['Show ID']!=='' ||
+      r['Audit Event ID']!=='CONTROLLED_UAT|'+id || r['Dedup Key']!=='OWNER_TRANSPORT_UAT|'+id || typeof r.Payload!=='string' || r.Payload.indexOf('ทดสอบระบบแจ้งเตือน')!==0 ||
+      !candidate.sourceRow || !claim.before_row || JSON.stringify(ledgerRecordSnapshot_(candidate.sourceRow))!==JSON.stringify(ledgerRecordSnapshot_(claim.before_row)) ||
+      JSON.stringify(ledgerRecordSnapshot_(r))!==JSON.stringify(ledgerRecordSnapshot_(ledgerPatchedRecord_(claim.before_row,{Status:'SENDING','Attempt Count':1,'Last Attempt At':claim.attempted_at,Notes:appendLedgerNote_(claim.before_row.Notes,claim.claim_id)}))) ||
+      claim.before_row.Status!=='QUEUED' || Number(claim.before_row['Attempt Count'])!==0 || r.Notes!=='OWNER_AUTHORIZED_TRANSPORT_UAT|'+id+' | '+claim.claim_id ||
+      ['Delivery Evidence','Next Retry At','HTTP Status','Provider Message ID','API Accepted At','Delivery Confirmed At','Last Error','Feedback Source'].some(function(k) { return hasLedgerValue_(r[k]); })) throw new Error('OWNER_RELAY_READ_ONLY_SOURCE_INVALID');
+    ownerLedgerValidateEnvelope_(pending.envelope,candidate,true);
+    var serialized=JSON.stringify(pending.envelope),encoded=Utilities.base64EncodeWebSafe(serialized,Utilities.Charset.UTF_8).replace(/=+$/,''),chunks=[];
+    for (var i=0;i<encoded.length;i+=80) chunks.push(encoded.slice(i,i+80));
+    var summary={status:'READ_ONLY_RELAY_INSPECTION',notification_id:id,field_count:Object.keys(pending.envelope).length,chunk_count:chunks.length,
+      max_chunk_length:Math.max.apply(null,chunks.map(function(s) { return s.length; })),encoded_length:encoded.length,utf8_bytes:Utilities.newBlob(serialized).getBytes().length,
+      envelope_sha256:ownerLedgerHash_(serialized),text_sha256:ownerLedgerHash_(pending.envelope.text),text_length:pending.envelope.text.length,
+      expires_at:pending.envelope.expires_at,expired:Date.now()>=Date.parse(pending.envelope.expires_at),provider_sends:0};
+    return ownerLedgerRelayReadOnlyCheckpoint_(summary,chunks);
+  } finally { lock.releaseLock(); }
+}
