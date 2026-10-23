@@ -28,7 +28,7 @@ concurrency:
 jobs:
   read-only-admin-regression:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@v4
@@ -44,3 +44,7 @@ jobs:
             tests/snapshot-upstream-error.test.js
       - name: Syntax contract
         run: npm run check
+      - name: Full repository regression
+        run: npm test
+      - name: Continuous safety invariants
+        run: npm run audit:invariants
