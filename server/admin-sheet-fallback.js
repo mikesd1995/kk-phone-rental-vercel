@@ -53,7 +53,7 @@ function parseCsv(text){
 
 function rowsAsObjects(csv, requiredHeader, startRow=1){
   const rows=parseCsv(csv);
-  const headerIndex=rows.findIndex(r=>r.some(v=>String(v||'').trim()===requiredHeader));
+  const headerIndex=rows.findIndex(r=>String(r[0]||'').trim()===requiredHeader);
   if(headerIndex<0) throw new Error('Fallback schema header not found: '+requiredHeader);
   const headers=rows[headerIndex].map(v=>String(v||'').trim());
   const out=[];
