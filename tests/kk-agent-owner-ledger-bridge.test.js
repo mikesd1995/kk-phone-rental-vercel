@@ -12,8 +12,8 @@ function setup(options={}){
   const bytes=s=>Array.from(Buffer.from(s,'utf8'));
   const props={getProperties:()=>({...stored}),getProperty:k=>stored[k]||null,setProperty(k,v){propertyWrites.push([k,v]);if(options.onPropertySave&&options.onPropertySave(k,v)===false)return;stored[k]=v;},setProperties(o){propertyWrites.push(...Object.entries(o));if(options.onPropertiesSave&&options.onPropertiesSave(o,stored)===false)return;Object.assign(stored,o);},deleteProperty(k){delete stored[k];}};
   const lock={held:true,hasLock(){return this.held;},tryLock(){if(options.lockBusy)return false;this.held=true;return true;},releaseLock(){this.held=false;}};
-  const sheet={getName:()=>NodeBridge.TAB,getParent:()=>({getId:()=>NodeBridge.SPREADSHEET_ID}),getLastRow:()=>rows.length,getDataRange:()=>({getValues:()=>rows.map(r=>r.slice())}),getRange:(r,c,n,m)=>({setValues(values){writes++;values.forEach((row,i)=>{rows[r+i-1]=rows[r+i-1]||HEADERS.map(()=> '');row.forEach((v,j)=>rows[r+i-1][c+j-1]=v);});},setValue(v){writes++;rows[r-1][c-1]=v;}})};
-  const utilities={Charset:{UTF_8:'UTF_8'},DigestAlgorithm:{SHA_256:'SHA_256'},getUuid:()=>`00000000-0000-4000-8000-${String(++uuid).padStart(12,'0')}`,newBlob:s=>({getBytes:()=>bytes(s)}),computeDigest:(_alg,s)=>Array.from(crypto.createHash('sha256').update(s,'utf8').digest()),computeHmacSha256Signature:(s,key)=>Array.from(crypto.createHmac('sha256',key).update(s,'utf8').digest()),base64EncodeWebSafe:s=>Buffer.from(s,'utf8').toString('base64url')};
+  const sheet={getName:()=>NodeBridge.TAB,getParent:()=>({getId:()=>NodeBridge.SPREADSHEET_ID}),getLastRow:()=>rows.length,getDataRange:()=>({getValues:()=>rows.map(r=>r.slice())}),getRange:(r,c,n,m)=>({setValues(values){writes++;if(options.onSheetWrite)options.onSheetWrite({r,c,values,rows,stored});values.forEach((row,i)=>{rows[r+i-1]=rows[r+i-1]||HEADERS.map(()=> '');row.forEach((v,j)=>rows[r+i-1][c+j-1]=v);});},setValue(v){writes++;rows[r-1][c-1]=v;}})};
+  const utilities={Charset:{UTF_8:'UTF_8'},DigestAlgorithm:{SHA_256:'SHA_256'},getUuid:()=>options.uuids?.shift()||`00000000-0000-4000-8000-${String(++uuid).padStart(12,'0')}`,newBlob:s=>({getBytes:()=>bytes(s)}),computeDigest:(_alg,s)=>Array.from(crypto.createHash('sha256').update(s,'utf8').digest()),computeHmacSha256Signature:(s,key)=>Array.from(crypto.createHmac('sha256',key).update(s,'utf8').digest()),base64EncodeWebSafe:s=>Buffer.from(s,'utf8').toString('base64url')};
   const ctx=vm.createContext({Date:Clock,console:{log(...values){logs.push(values.join(' '));}},PropertiesService:{getScriptProperties:()=>props},LockService:{getScriptLock:()=>lock},ScriptApp:{getScriptId:()=>NodeBridge.SCRIPT_PROJECT_ID},SpreadsheetApp:{openById:()=>({getSheetByName:()=>sheet}),flush(){}},Utilities:utilities,UrlFetchApp:{fetch(url,request){fetches++;if(options.onFetch)return options.onFetch(url,request,{stored,rows});throw new Error('UNIT_NETWORK_UNEXPECTED');}}});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../apps-script/kk-agent/Code.gs'),'utf8'),ctx);
   if(fs.existsSync(sourcePath))vm.runInContext(fs.readFileSync(sourcePath,'utf8'),ctx);
@@ -80,3 +80,252 @@ test('Telegram editor run reports a failed disarm readback instead of claiming i
 test('last Telegram finalizer resolves only the exact single TG plan and logs a safe ACK summary',()=>{const h=setup();const p=h.ctx.prepareOwnerTelegramUat();let called;h.ctx.finalizeOwnerLedgerBridgeAck=id=>{called=id;return {notification_id:id,status:'SENT',transport:'TELEGRAM_OWNER_ALERTS',provider_message_id:'123456789',api_accepted_at:NOW,delivery_confirmed_at:'',envelope:{signature:'never-log'},producerSecret:'never-log'};};assert.equal(h.ctx.finalizeLastOwnerTelegramUatAck.length,0);const result=h.ctx.finalizeLastOwnerTelegramUatAck();assert.equal(called,p.telegram_notification_id);assert.equal(result.status,'SENT');assert.deepEqual(Object.keys(result).sort(),['api_accepted_at','delivery_confirmed_at','notification_id','provider_message_id','status','transport']);assert.equal(JSON.parse(h.logs[h.logs.length-1]).notification_id,called);assert.doesNotMatch(h.logs.join('\n'),/signature|envelope|producerSecret|never-log/);const before=h.fetches;h.ctx.prepareOwnerLineUat();assert.throws(()=>h.ctx.finalizeLastOwnerTelegramUatAck(),/PLAN_REQUIRED/);assert.equal(h.fetches,before);});
 
 test('last Telegram finalizer preserves authenticated durable verification and exact idempotent Sheet projection',()=>{let admission,envelope;const options={onFetch(_url,request){const body=JSON.parse(request.payload);if(body.stage==='admit'){admission=body.attestation;const reply=admitted(admission);envelope=reply.envelope;return response(reply);}return response(durable(admission,envelope));}};const h=setup(options);const p=h.ctx.prepareOwnerTelegramUat();h.ctx.runOwnerTelegramUat();options.now='2026-10-22T03:00:02.000Z';const first=h.ctx.finalizeLastOwnerTelegramUatAck();assert.equal(first.notification_id,p.telegram_notification_id);assert.equal(first.status,'SENT');assert.equal(h.rows[1][HEADERS.indexOf('Provider Message ID')],'123456789');assert.equal(h.rows[1][HEADERS.indexOf('Delivery Confirmed At')],'');const writes=h.writes;assert.equal(h.ctx.finalizeLastOwnerTelegramUatAck().status,'SENT');assert.equal(h.writes,writes);assert.doesNotMatch(h.logs.join('\n'),/signature|envelope|unit-producer-secret/);});
+
+const OLD_TG='KKUAT_TG_41097307-885b-4aa7-8da2-8db97d4b5e74',OLD_CLAIM='CLAIM|b871e6e4-ac71-45c8-8587-5f86c3158a16';
+const GRANT='KK_OWNER_LEDGER_NEW_TG_UAT_GRANT',CONSUMED=GRANT+'_CONSUMED';
+const digest=value=>crypto.createHash('sha256').update(value,'utf8').digest('hex');
+function historicalUnknown(options={}){
+  options.uuids=['41097307-885b-4aa7-8da2-8db97d4b5e74','b871e6e4-ac71-45c8-8587-5f86c3158a16'];
+  const h=setup(options),plan=h.ctx.prepareOwnerTelegramUat();h.lock.held=true;
+  const candidate=h.ctx.collectCandidates_(h.rows,h.ctx.readHeaders_(HEADERS),h.stored,false,{controlledUatIds:h.ctx.parseCsvSet_(plan.telegram_notification_id),enforceQuietHours:true})[0];
+  const claim=h.ctx.claimLedgerCandidate_(h.sheet,h.ctx.readHeaders_(HEADERS),candidate,h.stored);h.ctx.KKOwnerTelegramBridge.send(candidate,claim,h.stored);
+  options.now='2026-10-22T03:03:00.000Z';
+  const pendingKey=Object.keys(h.stored).find(k=>k.startsWith('KK_OWNER_LEDGER_PENDING_'));
+  const rowSnapshot=JSON.stringify(h.rows[1].map(v=>v instanceof Date?v.toISOString():v));
+  const grant={version:'kk-owner-new-telegram-uat-grant-v1',grant_id:'d2698d69-5cb2-4fc0-91fe-93f00b895c81',owner_authorization_reference:'OWNER_2026-10-23_ONE_NEW_TELEGRAM_UAT',
+    issued_at:options.now,expires_at:'2026-10-22T03:08:00.000Z',old_notification_id:OLD_TG,old_claim_id:OLD_CLAIM,
+    old_pending_sha256:digest(h.stored[pendingKey]),old_claimed_row_sha256:digest(rowSnapshot),native_reconciliation_evidence_sha256:'a'.repeat(64)};
+  h.stored[GRANT]=JSON.stringify(grant);return {h,options,pendingKey,grant};
+}
+test('historical preview exposes only safe exact hashes under the existing lock and never mutates',()=>{
+  const {h,pendingKey}=historicalUnknown();const writes=h.writes,props=h.propertyWrites.length,fetches=h.fetches;
+  assert.equal(typeof h.ctx.logOwnerHistoricalTelegramUatNoSendPreview,'function');assert.equal(h.ctx.logOwnerHistoricalTelegramUatNoSendPreview.length,0);
+  const result=h.ctx.logOwnerHistoricalTelegramUatNoSendPreview();
+  assert.deepEqual(JSON.parse(JSON.stringify(result)),{notification_id:OLD_TG,claim_id:OLD_CLAIM,status:'ADMISSION_UNKNOWN',pending_sha256:digest(h.stored[pendingKey]),claimed_row_sha256:digest(JSON.stringify(h.rows[1].map(v=>v instanceof Date?v.toISOString():v)))});
+  assert.equal(h.writes,writes);assert.equal(h.propertyWrites.length,props);assert.equal(h.fetches,fetches);assert.equal(h.lock.held,false);
+  assert.doesNotMatch(h.logs.join('\n'),/signature|envelope|secret|Payload|candidate|"claimed_row":/i);
+});
+test('scoped one-time reconciliation prepares one new TG and preserves every old row and pending byte',()=>{
+  const {h,pendingKey,grant}=historicalUnknown();const before=JSON.stringify(h.rows),pending=h.stored[pendingKey],fetches=h.fetches;
+  assert.equal(typeof h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation,'function');assert.equal(h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation.length,0);
+  const plan=h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation();
+  assert.equal(h.rows.length,3);assert.equal(JSON.stringify(h.rows.slice(0,2)),before);assert.equal(h.stored[pendingKey],pending);assert.equal(h.fetches,fetches);
+  assert.equal(plan.notification_ids.length,1);assert.equal(plan.telegram_notification_id,plan.notification_ids[0]);assert.notEqual(plan.telegram_notification_id,OLD_TG);assert.equal(plan.line_notification_id,'');
+  assert.equal(h.rows[2][HEADERS.indexOf('Status')],'QUEUED');assert.equal(h.rows[2][HEADERS.indexOf('Attempt Count')],0);assert.equal(h.rows[2][HEADERS.indexOf('Priority')],'TEST');
+  const consumed=JSON.parse(h.stored[CONSUMED]);assert.equal(consumed.grant.grant_id,grant.grant_id);assert.equal(consumed.new_notification_id,plan.telegram_notification_id);
+  assert.equal(h.stored.CORE_V1_UAT_ARMED,'FALSE');assert.equal(h.stored.CORE_V1_TRANSPORT_ENABLED,'FALSE');
+  const writes=h.writes;assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation(),/CONSUMED/);assert.equal(h.writes,writes);
+  for(const helper of ['prepareOwnerTelegramUat','prepareOwnerLineUat','prepareFreshOwnerTransportUatRows'])assert.throws(()=>h.ctx[helper](),/PENDING_RECONCILIATION/);
+});
+for(const bad of ['missing','extra','expired','future','longTTL','wrongId','wrongClaim','pendingHash','rowHash','evidenceHash','owner','armed','enabled','busy'])test(`scoped fresh grant rejects ${bad} before Sheet or consumption writes`,()=>{
+  const {h,options,grant}=historicalUnknown();
+  if(bad==='missing')delete h.stored[GRANT];if(bad==='extra')grant.extra=true;if(bad==='expired')grant.expires_at=grant.issued_at;
+  if(bad==='future'){grant.issued_at='2026-10-22T03:03:01.000Z';}if(bad==='longTTL')grant.expires_at='2026-10-22T03:08:00.001Z';
+  if(bad==='wrongId')grant.old_notification_id='KKUAT_TG_other';if(bad==='wrongClaim')grant.old_claim_id='CLAIM|other';
+  if(bad==='pendingHash')grant.old_pending_sha256='b'.repeat(64);if(bad==='rowHash')grant.old_claimed_row_sha256='b'.repeat(64);if(bad==='evidenceHash')grant.native_reconciliation_evidence_sha256='';
+  if(bad==='owner')grant.owner_authorization_reference='some-other-authority';if(bad==='armed')h.stored.CORE_V1_UAT_ARMED='TRUE';if(bad==='enabled')h.stored.CORE_V1_TRANSPORT_ENABLED='TRUE';if(bad==='busy')options.lockBusy=true;
+  if(bad!=='missing')h.stored[GRANT]=JSON.stringify(grant);const writes=h.writes,props=h.propertyWrites.length,fetches=h.fetches;
+  assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation(),/GRANT|DISARMED|DISABLED|LOCK_BUSY/);
+  assert.equal(h.writes,writes);assert.equal(h.propertyWrites.length,props);assert.equal(h.fetches,fetches);assert.equal(h.stored[CONSUMED],undefined);
+});
+for(const bad of ['admitted','pending','missing','otherPending','malformedPending','rowProvider','claimProvider','fresh','freshClaim','candidateSource','candidatePayload','candidateBefore','inconsistentBefore','rowState','claimedMismatch'])test(`scoped fresh grant rejects historical ${bad} instead of exempting a status class`,()=>{
+  const {h,options,pendingKey,grant}=historicalUnknown(),pending=JSON.parse(h.stored[pendingKey]);
+  if(bad==='admitted'){pending.status='ADMITTED';pending.envelope={signature:'never-allowed'};}if(bad==='pending')pending.status='ADMISSION_PENDING';
+  if(bad==='otherPending')h.stored.KK_OWNER_LEDGER_PENDING_other=JSON.stringify({status:'ADMISSION_UNKNOWN'});
+  if(bad==='malformedPending')h.stored.KK_OWNER_LEDGER_PENDING_other='not-json';
+  if(bad==='rowProvider')h.rows[1][HEADERS.indexOf('Provider Message ID')]='123';if(bad==='claimProvider'){pending.claim.claimed_row['Provider Message ID']='123';h.rows[1][HEADERS.indexOf('Provider Message ID')]='123';}
+  if(bad==='fresh')options.now='2026-10-22T03:01:59.999Z';if(bad==='candidateSource')pending.candidate.sourceSnapshot[7]='changed';
+  if(bad==='freshClaim'){pending.claim.attempted_at='2026-10-22T03:02:00.000Z';pending.claim.claimed_row['Last Attempt At']=pending.claim.attempted_at;h.rows[1][HEADERS.indexOf('Last Attempt At')]=pending.claim.attempted_at;}
+  if(bad==='candidatePayload')pending.candidate.payload='a different payload';if(bad==='candidateBefore')pending.claim.before_row.Payload='a different payload';
+  if(bad==='inconsistentBefore'){pending.candidate.sourceRow['Feedback Source']='foreign';pending.claim.before_row['Feedback Source']='foreign';}
+  if(bad==='rowState')h.rows[1][HEADERS.indexOf('Status')]='QUEUED';if(bad==='claimedMismatch')pending.claim.claimed_row.Notes='CLAIM|foreign';
+  h.stored[pendingKey]=JSON.stringify(pending);grant.old_pending_sha256=digest(h.stored[pendingKey]);grant.old_claimed_row_sha256=digest(JSON.stringify(h.rows[1].map(v=>v instanceof Date?v.toISOString():v)));
+  if(bad==='missing')delete h.stored[pendingKey];h.stored[GRANT]=JSON.stringify(grant);const writes=h.writes,props=h.propertyWrites.length,fetches=h.fetches;
+  assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation(),/HISTORICAL|RECONCILIATION|LEDGER_|GRANT/);
+  assert.equal(h.writes,writes);assert.equal(h.propertyWrites.length,props);assert.equal(h.fetches,fetches);
+});
+test('consumption is verified before append and partial append uncertainty prevents another UUID or row',()=>{
+  for(const mode of ['consumeDrop','consumeThrow','partialAppend']){
+    const options={},f=historicalUnknown(options),{h}=f;let expectedId;
+    if(mode==='consumeDrop')options.onPropertySave=(k)=>k!==CONSUMED;
+    if(mode==='consumeThrow')options.onPropertySave=(k,v)=>{if(k===CONSUMED){h.stored[k]=v;throw new Error('consume outcome unknown');}};
+    if(mode==='partialAppend')options.onSheetWrite=({rows,values,stored})=>{const consumed=JSON.parse(stored[CONSUMED]);expectedId=consumed.new_notification_id;assert.equal(values[0][0],expectedId);rows.push(values[0].slice());throw new Error('append outcome unknown');};
+    const writes=h.writes;assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation(),/GRANT|consume outcome|append outcome/);
+    if(mode==='consumeDrop'){assert.equal(h.writes,writes);assert.equal(h.rows.length,2);}
+    else {const consumed=h.stored[CONSUMED],rowCount=h.rows.length;assert.ok(consumed);assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation(),/CONSUMED/);assert.equal(h.rows.length,rowCount);assert.equal(h.stored[CONSUMED],consumed);}
+    if(mode==='partialAppend')assert.equal(h.rows[2][0],expectedId);
+  }
+});
+for(const mode of ['oldRowChanged','oldPendingChanged','planWriteDropped'])test(`fresh preparation preserves a consumed uncertainty fence after ${mode}`,()=>{
+  const options={}, {h,pendingKey}=historicalUnknown(options),previousPlan=h.stored.KK_OWNER_LEDGER_LAST_UAT_PLAN;
+  if(mode==='oldRowChanged')options.onSheetWrite=({rows})=>{rows[1][HEADERS.indexOf('Feedback Source')]='foreign-write';};
+  if(mode==='oldPendingChanged')options.onSheetWrite=({stored})=>{stored[pendingKey]+=' ';};
+  if(mode==='planWriteDropped')options.onPropertiesSave=()=>false;
+  assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation(),/READBACK_FAILED/);
+  assert.ok(h.stored[CONSUMED]);const rowCount=h.rows.length;assert.equal(h.stored.KK_OWNER_LEDGER_LAST_UAT_PLAN,previousPlan);
+  assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation(),/CONSUMED/);assert.equal(h.rows.length,rowCount);
+});
+for(const mode of ['rowCount','utf8Bytes'])test(`fresh preparation rejects prospective ${mode} snapshot bounds before consuming`,()=>{
+  const {h}=historicalUnknown();
+  if(mode==='rowCount')for(let i=0;i<127;i++){const row=HEADERS.map(()=> '');row[0]='HISTORICAL_OTHER_'+i;row[HEADERS.indexOf('Transport')]='OTHER';h.rows.push(row);}
+  else {const row=HEADERS.map(()=> '');row[0]='HISTORICAL_OTHER';row[HEADERS.indexOf('Transport')]='OTHER';row[HEADERS.indexOf('Payload')]='😀'.repeat(66000);h.rows.push(row);}
+  const writes=h.writes;assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation(),/SNAPSHOT_BOUNDS/);assert.equal(h.writes,writes);assert.equal(h.stored[CONSUMED],undefined);
+});
+test('the consumed new fixture remains the only selectable TG identity while the historical send fence is unchanged',()=>{
+  const {h}=historicalUnknown(),old=Object.values(h.stored).map(v=>{try{return JSON.parse(v);}catch{return null;}}).find(v=>v?.status==='ADMISSION_UNKNOWN');
+  const before=h.fetches;h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation();h.lock.held=true;
+  assert.throws(()=>h.ctx.KKOwnerTelegramBridge.send(old.candidate,old.claim,h.stored),/EXISTING_PENDING_NO_RESEND/);assert.equal(h.fetches,before);
+  const candidates=h.ctx.collectCandidates_(h.rows,h.ctx.readHeaders_(HEADERS),h.stored,false,{controlledUatIds:h.ctx.parseCsvSet_(h.stored.CORE_V1_UAT_NOTIFICATION_IDS),enforceQuietHours:true});
+  assert.equal(candidates.length,1);assert.notEqual(candidates[0].notificationId,OLD_TG);assert.equal(candidates[0].status,'QUEUED');
+});
+
+const EXPIRED_TG='KKUAT_TG_caf84575-743a-4cbe-8588-6e8ee6d2532c',EXPIRED_CLAIM='CLAIM|47af8985-f021-403e-bbbd-1f08dc73f8ed';
+const RELAY_GRANT='KK_OWNER_LEDGER_RELAY_TG_UAT_GRANT_20261023',RELAY_CONSUMED=RELAY_GRANT+'_CONSUMED';
+function twoHistoricalClaims(options={}){
+  const f=historicalUnknown(options),{h}=f;
+  options.uuids=['caf84575-743a-4cbe-8588-6e8ee6d2532c','47af8985-f021-403e-bbbd-1f08dc73f8ed'];
+  h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation();
+  options.onFetch=(_url,request)=>{const a=JSON.parse(request.payload).attestation;
+    const plan=Plan.planOwnerLedgerNotification({spreadsheet_id:NodeBridge.SPREADSHEET_ID,tab:NodeBridge.TAB,rows:a.before_rows,exact_notification_id:a.notification_id,
+      fresh_since:new Date(Date.parse(options.now)-120000).toISOString(),supplied_now:options.now,existing_mapping_snapshot:[]});
+    return response({ok:true,status:'ADMITTED',send_allowed:false,source_notification_id:a.notification_id,sheet_claim_id:a.claim_id,
+      envelope:Contract.buildEnvelope(plan.descriptor,'different-transport-signing-secret',new Date(options.now))});};
+  h.ctx.runOwnerTelegramUat();options.now='2026-10-22T03:08:00.000Z';
+  const keys=[OLD_TG,EXPIRED_TG].map(id=>h.ctx.ownerLedgerPendingKey_(id));
+  const histories=keys.map((key,i)=>({notification_id:i?EXPIRED_TG:OLD_TG,claim_id:i?EXPIRED_CLAIM:OLD_CLAIM,
+    pending_status:i?'ADMITTED':'ADMISSION_UNKNOWN',pending_sha256:digest(h.stored[key]),
+    claimed_row_sha256:digest(JSON.stringify(h.rows[i+1].map(v=>v instanceof Date?v.toISOString():v)))}));
+  const grant={version:'kk-owner-relay-telegram-uat-grant-v2',grant_id:'248f94ea-c185-4da1-9e67-84fd166b5814',
+    owner_authorization_reference:'OWNER_2026-10-23_ONE_ADDITIONAL_NEW_TELEGRAM_UAT',issued_at:options.now,expires_at:'2026-10-22T03:13:00.000Z',
+    prior_consumed_grant_sha256:digest(h.stored[CONSUMED]),historical_claims:histories,native_reconciliation_evidence_sha256:'e'.repeat(64)};
+  h.stored[RELAY_GRANT]=JSON.stringify(grant);
+  return {...f,keys,relayGrant:grant};
+}
+function refreshRelayHashes(f){
+  f.relayGrant.prior_consumed_grant_sha256=digest(f.h.stored[CONSUMED]);
+  f.relayGrant.historical_claims.forEach((v,i)=>{v.pending_sha256=digest(f.h.stored[f.keys[i]]);v.claimed_row_sha256=digest(JSON.stringify(f.h.rows[i+1].map(x=>x instanceof Date?x.toISOString():x)));});
+  f.h.stored[RELAY_GRANT]=JSON.stringify(f.relayGrant);
+}
+test('relay preview logs exactly two pinned hash summaries and prior consumed hash without capability or writes',()=>{
+  const {h,relayGrant}=twoHistoricalClaims(),writes=h.writes,props=h.propertyWrites.length,fetches=h.fetches;
+  assert.equal(typeof h.ctx.logOwnerRelayTelegramUatNoSendPreview,'function');assert.equal(h.ctx.logOwnerRelayTelegramUatNoSendPreview.length,0);
+  const preview=h.ctx.logOwnerRelayTelegramUatNoSendPreview();
+  assert.deepEqual(JSON.parse(JSON.stringify(preview)),{historical_claims:relayGrant.historical_claims,prior_consumed_grant_sha256:relayGrant.prior_consumed_grant_sha256});
+  assert.equal(h.writes,writes);assert.equal(h.propertyWrites.length,props);assert.equal(h.fetches,fetches);assert.equal(h.lock.held,false);
+  assert.doesNotMatch(h.logs.join('\n'),/signature|envelope|secret|Payload|candidate|claimed_row":/i);
+});
+test('relay grant consumes separately before one new append and preserves both old claims, old consumed marker and every row',()=>{
+  const {h,keys,relayGrant}=twoHistoricalClaims(),before=JSON.stringify(h.rows),pending=keys.map(k=>h.stored[k]),v1=h.stored[CONSUMED],fetches=h.fetches;
+  assert.equal(typeof h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation,'function');assert.equal(h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation.length,0);
+  const plan=h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation();
+  assert.equal(h.rows.length,4);assert.equal(JSON.stringify(h.rows.slice(0,3)),before);assert.deepEqual(keys.map(k=>h.stored[k]),pending);assert.equal(h.stored[CONSUMED],v1);assert.equal(h.fetches,fetches);
+  const consumed=JSON.parse(h.stored[RELAY_CONSUMED]);assert.equal(consumed.grant.grant_id,relayGrant.grant_id);assert.equal(consumed.new_notification_id,plan.telegram_notification_id);
+  assert.equal(consumed.grant.prior_consumed_grant_sha256,digest(v1));assert.equal(plan.notification_ids.length,1);assert.equal(plan.line_notification_id,'');
+  assert.ok(![OLD_TG,EXPIRED_TG].includes(plan.telegram_notification_id));assert.equal(h.rows[3][HEADERS.indexOf('Priority')],'TEST');assert.equal(h.rows[3][HEADERS.indexOf('Attempt Count')],0);
+  assert.equal(h.stored.CORE_V1_TRANSPORT_ENABLED,'FALSE');assert.equal(h.stored.CORE_V1_UAT_ARMED,'FALSE');
+  const logged=JSON.parse(h.logs.at(-1));assert.equal(logged.telegram_notification_id,plan.telegram_notification_id);
+  assert.deepEqual(Object.keys(logged).sort(),['armed','created_at','fresh_until','provider_sends','status','telegram_content_version','telegram_notification_id']);
+  assert.doesNotMatch(h.logs.join('\n'),/signature|envelope|unit-producer-secret/i);
+  const writes=h.writes;assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation(),/CONSUMED/);assert.equal(h.writes,writes);
+  for(const helper of ['prepareOwnerTelegramUat','prepareOwnerLineUat','prepareFreshOwnerTransportUatRows'])assert.throws(()=>h.ctx[helper](),/PENDING_RECONCILIATION/);
+  assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterNoSendReconciliation(),/CONSUMED/);
+  h.lock.held=true;for(const key of keys){const old=JSON.parse(h.stored[key]);assert.throws(()=>h.ctx.KKOwnerTelegramBridge.send(old.candidate,old.claim,h.stored),/EXISTING_PENDING_NO_RESEND/);}assert.equal(h.fetches,fetches);
+});
+for(const bad of ['missing','extra','wrongType','version','owner','uuid','sameUuid','expired','future','longTTL','noncanonicalDate','priorHash','nativeHash','historyCount','historyOrder','historyExtra','historyType','historyId','historyClaim','historyStatus','historyHash','rowHash','armed','enabled','confirmation','busy','script'])test(`relay grant rejects ${bad} without any new writes or network`,()=>{
+  const f=twoHistoricalClaims(),{h,options,relayGrant:g}=f;
+  if(bad==='missing')delete h.stored[RELAY_GRANT];if(bad==='extra')g.extra=true;if(bad==='wrongType')g.issued_at=9;if(bad==='version')g.version='kk-owner-new-telegram-uat-grant-v1';
+  if(bad==='owner')g.owner_authorization_reference='OWNER_OLD';if(bad==='uuid')g.grant_id='not-a-uuid';if(bad==='sameUuid')g.grant_id=JSON.parse(h.stored[CONSUMED]).grant.grant_id;
+  if(bad==='expired')g.expires_at=g.issued_at;if(bad==='future')g.issued_at='2026-10-22T03:08:00.001Z';if(bad==='longTTL')g.expires_at='2026-10-22T03:13:00.001Z';
+  if(bad==='noncanonicalDate')g.issued_at='2026-10-22T03:08:00Z';if(bad==='priorHash')g.prior_consumed_grant_sha256='a'.repeat(64);if(bad==='nativeHash')g.native_reconciliation_evidence_sha256='';
+  if(bad==='historyCount')g.historical_claims.pop();if(bad==='historyOrder')g.historical_claims.reverse();if(bad==='historyExtra')g.historical_claims[1].extra='x';if(bad==='historyType')g.historical_claims={0:g.historical_claims[0],1:g.historical_claims[1],length:2};
+  if(bad==='historyId')g.historical_claims[1].notification_id=OLD_TG;if(bad==='historyClaim')g.historical_claims[1].claim_id=OLD_CLAIM;if(bad==='historyStatus')g.historical_claims[1].pending_status='ADMISSION_UNKNOWN';
+  if(bad==='historyHash')g.historical_claims[1].pending_sha256='a'.repeat(64);if(bad==='rowHash')g.historical_claims[1].claimed_row_sha256='a'.repeat(64);
+  if(bad==='armed')h.stored.CORE_V1_UAT_ARMED='TRUE';if(bad==='enabled')h.stored.CORE_V1_TRANSPORT_ENABLED='TRUE';if(bad==='confirmation')h.stored.CORE_V1_UAT_CONFIRMATION='SEND_ALLOWLISTED_OWNER_ALERTS';if(bad==='busy')options.lockBusy=true;
+  if(bad==='script')h.ctx.ScriptApp.getScriptId=()=> 'wrong-script';if(bad!=='missing')h.stored[RELAY_GRANT]=JSON.stringify(g);
+  const writes=h.writes,props=h.propertyWrites.length,fetches=h.fetches;assert.equal(typeof h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation,'function');
+  assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation(),/GRANT|DISARMED|DISABLED|LOCK_BUSY|SCOPE/);assert.equal(h.writes,writes);assert.equal(h.propertyWrites.length,props);assert.equal(h.fetches,fetches);assert.equal(h.stored[RELAY_CONSUMED],undefined);
+});
+for(const bad of ['missingPrior','priorIdentity','priorStatus','priorGrant','freshSource','freshClaim','notExpired','unknownSecond','nonnullFirst','badSignature','badTtl','wrongEnvelopeId','wrongPayload','provider','claimMismatch','beforeMismatch','otherPending','malformedPending'])test(`relay isolation refuses historical ${bad} even when supplied hashes match`,()=>{
+  const f=twoHistoricalClaims(),{h,options,keys}=f,pending=JSON.parse(h.stored[keys[1]]),prior=JSON.parse(h.stored[CONSUMED]);
+  if(bad==='priorIdentity')prior.new_notification_id=OLD_TG;if(bad==='priorStatus')prior.status='SUCCESS';if(bad==='priorGrant')prior.grant.version='another-version';h.stored[CONSUMED]=JSON.stringify(prior);
+  if(bad==='freshSource')options.now='2026-10-22T03:04:59.999Z';if(bad==='freshClaim'){pending.claim.attempted_at='2026-10-22T03:07:00.000Z';pending.claim.claimed_row['Last Attempt At']=pending.claim.attempted_at;h.rows[2][HEADERS.indexOf('Last Attempt At')]=pending.claim.attempted_at;}
+  if(bad==='notExpired'){pending.envelope.created_at='2026-10-22T03:07:30.000Z';pending.envelope.expires_at='2026-10-22T03:09:30.000Z';}
+  if(bad==='unknownSecond'){pending.status='ADMISSION_UNKNOWN';pending.envelope=null;}if(bad==='nonnullFirst'){const p=JSON.parse(h.stored[keys[0]]);p.envelope={signature:'private'};h.stored[keys[0]]=JSON.stringify(p);}
+  if(bad==='badSignature')pending.envelope.signature='bad';if(bad==='badTtl')pending.envelope.expires_at='2026-10-22T03:05:00.001Z';if(bad==='wrongEnvelopeId')pending.envelope.notification_id='ks1_other';
+  if(bad==='wrongPayload')pending.candidate.payload='different';if(bad==='provider'){pending.claim.claimed_row['Provider Message ID']='123';h.rows[2][HEADERS.indexOf('Provider Message ID')]='123';}
+  if(bad==='claimMismatch')pending.claim.claim_id='CLAIM|foreign';if(bad==='beforeMismatch'){pending.candidate.sourceRow['Feedback Source']='foreign';pending.claim.before_row['Feedback Source']='foreign';}
+  if(bad==='otherPending')h.stored.KK_OWNER_LEDGER_PENDING_foreign=JSON.stringify({status:'ADMISSION_UNKNOWN'});if(bad==='malformedPending')h.stored.KK_OWNER_LEDGER_PENDING_foreign='not-json';
+  h.stored[keys[1]]=JSON.stringify(pending);refreshRelayHashes(f);if(bad==='missingPrior')delete h.stored[CONSUMED];
+  const writes=h.writes,props=h.propertyWrites.length,fetches=h.fetches;assert.equal(typeof h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation,'function');
+  assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation(),/HISTORICAL|RECONCILIATION|RELAY|GRANT|LEDGER_|TTL|BINDING/);assert.equal(h.writes,writes);assert.equal(h.propertyWrites.length,props);assert.equal(h.fetches,fetches);
+});
+for(const mode of ['consumeDrop','consumeThrow','partialAppend','priorChanged','pendingChanged','rowChanged','planDrop','rowCount','utf8Bytes','collision'])test(`relay consumption preserves uncertainty and no automatic second fixture after ${mode}`,()=>{
+  const f=twoHistoricalClaims(),{h,options,keys}=f;
+  if(mode==='consumeDrop')options.onPropertySave=k=>k!==RELAY_CONSUMED;
+  if(mode==='consumeThrow')options.onPropertySave=(k,v)=>{if(k===RELAY_CONSUMED){h.stored[k]=v;throw new Error('consume outcome unknown');}};
+  if(mode==='partialAppend')options.onSheetWrite=({rows,values})=>{rows.push(values[0].slice());throw new Error('append outcome unknown');};
+  if(mode==='priorChanged')options.onSheetWrite=()=>{h.stored[CONSUMED]+=' ';};if(mode==='pendingChanged')options.onSheetWrite=()=>{h.stored[keys[1]]+=' ';};
+  if(mode==='rowChanged')options.onSheetWrite=()=>{h.rows[1][HEADERS.indexOf('Feedback Source')]='foreign';};if(mode==='planDrop')options.onPropertiesSave=()=>false;
+  if(mode==='rowCount')for(let i=0;i<126;i++){const row=HEADERS.map(()=> '');row[0]='OTHER_'+i;row[HEADERS.indexOf('Transport')]='OTHER';h.rows.push(row);}
+  if(mode==='utf8Bytes'){const row=HEADERS.map(()=> '');row[0]='OTHER';row[HEADERS.indexOf('Transport')]='OTHER';row[HEADERS.indexOf('Payload')]='😀'.repeat(66000);h.rows.push(row);}
+  if(mode==='collision')options.uuids=['caf84575-743a-4cbe-8588-6e8ee6d2532c'];
+  const writes=h.writes,fetches=h.fetches;assert.equal(typeof h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation,'function');
+  assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation(),/GRANT|consume outcome|append outcome|READBACK|SNAPSHOT_BOUNDS|COLLISION/);assert.equal(h.fetches,fetches);
+  if(['consumeDrop','rowCount','utf8Bytes','collision'].includes(mode)){assert.equal(h.writes,writes);if(mode!=='consumeDrop')assert.equal(h.stored[RELAY_CONSUMED],undefined);}
+  else {const consumed=h.stored[RELAY_CONSUMED],rowCount=h.rows.length;assert.ok(consumed);assert.throws(()=>h.ctx.prepareOwnerTelegramUatAfterRelayReconciliation(),/CONSUMED/);assert.equal(h.rows.length,rowCount);assert.equal(h.stored[RELAY_CONSUMED],consumed);}
+});
+
+function expiredInspectionFixture(text){
+  const options={onFetch(_url,request){return response(admitted(JSON.parse(request.payload).attestation));}},h=setup(options),plan=h.ctx.prepareOwnerTelegramUat();
+  if(text){
+    const record=h.ctx.ledgerNamedRow_(h.rows[1],h.ctx.readHeaders_(HEADERS));record.Payload=text;h.rows[1][HEADERS.indexOf('Payload')]=text;
+    plan.payload=text;plan.telegram_content_version=digest(JSON.stringify(h.ctx.ownerLedgerBinding_({notificationId:plan.telegram_notification_id,sourceRow:record})));
+    h.stored.KK_OWNER_LEDGER_LAST_UAT_PLAN=JSON.stringify(plan);
+  }
+  const run=h.ctx.runOwnerTelegramUat();assert.equal(run.results[0].status,'SENDING',JSON.stringify(run));options.now='2026-10-22T03:04:00.000Z';
+  const key=h.ctx.ownerLedgerPendingKey_(plan.telegram_notification_id),pending=JSON.parse(h.stored[key]);return {h,options,plan,key,pending};
+}
+test('read-only private chunks preserve the complete expired envelope without returning or logging a capability',()=>{
+  const f=expiredInspectionFixture(),{h,pending,key}=f,props=JSON.stringify(h.stored),rows=JSON.stringify(h.rows),writes=h.writes,propWrites=h.propertyWrites.length,fetches=h.fetches,logs=h.logs.length;
+  assert.equal(typeof h.ctx.inspectLastOwnerTelegramUatRelayReadOnly,'function');assert.equal(h.ctx.inspectLastOwnerTelegramUatRelayReadOnly.length,0);
+  assert.equal(typeof h.ctx.ownerLedgerRelayReadOnlyCheckpoint_,'function');assert.equal(h.ctx.ownerLedgerRelayReadOnlyCheckpoint_.length,2);
+  let captured,checkpointSummary;const original=h.ctx.ownerLedgerRelayReadOnlyCheckpoint_;
+  h.ctx.ownerLedgerRelayReadOnlyCheckpoint_=(summary,chunks)=>{captured=Array.from(chunks);checkpointSummary=summary;return original(summary,chunks);};
+  const result=h.ctx.inspectLastOwnerTelegramUatRelayReadOnly();
+  assert.ok(captured.length>1);assert.ok(captured.every(s=>typeof s==='string'&&s.length>=1&&s.length<=80&&/^[A-Za-z0-9_-]+$/.test(s)));
+  const decoded=Buffer.from(captured.join(''),'base64url').toString('utf8');assert.equal(decoded,JSON.stringify(pending.envelope));
+  assert.deepEqual(JSON.parse(decoded),pending.envelope);assert.equal(h.stored[key],JSON.stringify(pending));
+  assert.equal(result,checkpointSummary);assert.equal(Object.isFrozen(result),true);assert.equal(result.status,'READ_ONLY_RELAY_INSPECTION');assert.equal(result.expired,true);
+  assert.equal(result.notification_id,pending.candidate.notificationId);assert.equal(result.field_count,11);assert.equal(result.chunk_count,captured.length);assert.equal(result.max_chunk_length,80);
+  assert.equal(result.encoded_length,captured.join('').length);assert.equal(result.utf8_bytes,Buffer.byteLength(decoded,'utf8'));assert.equal(result.envelope_sha256,digest(decoded));
+  assert.equal(result.text_sha256,digest(pending.envelope.text));assert.equal(result.text_length,pending.envelope.text.length);assert.equal(result.expires_at,pending.envelope.expires_at);assert.equal(result.provider_sends,0);
+  assert.equal(result.envelope,undefined);assert.equal(result.chunks,undefined);assert.equal(result.signature,undefined);assert.equal(result.text,undefined);
+  assert.equal(JSON.stringify(h.stored),props);assert.equal(JSON.stringify(h.rows),rows);assert.equal(h.writes,writes);assert.equal(h.propertyWrites.length,propWrites);assert.equal(h.fetches,fetches);assert.equal(h.logs.length,logs);assert.equal(h.lock.held,false);
+  assert.throws(()=>h.ctx.getPreparedOwnerLedgerBridgeEnvelope(pending.candidate.notificationId),/TTL_INVALID/);
+});
+test('read-only relay chunks roundtrip long exact Unicode, quotes, backslashes, newline, emoji and legitimate ellipsis',()=>{
+  const text='ทดสอบระบบแจ้งเตือน '+('คำไทย "quote" \\ path\n🙂 é… '.repeat(8))+'จบ',f=expiredInspectionFixture(text),{h,pending}=f;let chunks;
+  h.ctx.ownerLedgerRelayReadOnlyCheckpoint_=(summary,parts)=>{chunks=Array.from(parts);return Object.freeze(summary);};
+  const summary=h.ctx.inspectLastOwnerTelegramUatRelayReadOnly(),decoded=JSON.parse(Buffer.from(chunks.join(''),'base64url').toString('utf8'));
+  assert.equal(decoded.text,text);assert.deepEqual(decoded,pending.envelope);assert.ok(chunks.every(s=>s.length<=80));assert.equal(summary.text_sha256,digest(text));assert.equal(summary.text_length,text.length);
+});
+test('read-only relay reads only whitelisted property keys and never the full property store',()=>{
+  const {h,key}=expiredInspectionFixture(),store=h.ctx.PropertiesService.getScriptProperties(),get=store.getProperty,read=[];
+  store.getProperties=()=>{throw new Error('BULK_SECRET_STORE_READ_FORBIDDEN');};store.getProperty=k=>{read.push(k);return get(k);};
+  h.ctx.inspectLastOwnerTelegramUatRelayReadOnly();
+  assert.deepEqual([...new Set(read)].sort(),['CORE_V1_TRANSPORT_ENABLED','CORE_V1_UAT_ARMED','CORE_V1_UAT_CONFIRMATION','CORE_V1_SPREADSHEET_ID','KK_OWNER_LEDGER_LAST_UAT_PLAN',key].sort());
+});
+for(const bad of ['enabled','armed','confirmation','busy','script','foreignSheet','mixedPlan','wrongPlan','planContent','planPayload','planCreated','planFreshUntil','pendingUnknown','pendingMissing','claim','candidatePayload','beforeRow','row','envelopeId','envelopeText','envelopeTTL','envelopeExtra'])test(`read-only complete-value inspection rejects ${bad} without any write, network or log`,()=>{
+  const {h,options,plan,key,pending}=expiredInspectionFixture();
+  if(bad==='enabled')h.stored.CORE_V1_TRANSPORT_ENABLED='TRUE';if(bad==='armed')h.stored.CORE_V1_UAT_ARMED='TRUE';if(bad==='confirmation')h.stored.CORE_V1_UAT_CONFIRMATION='SEND_ALLOWLISTED_OWNER_ALERTS';if(bad==='busy')options.lockBusy=true;
+  if(bad==='script')h.ctx.ScriptApp.getScriptId=()=> 'wrong-script';if(bad==='foreignSheet')h.stored.CORE_V1_SPREADSHEET_ID='another-sheet';
+  if(bad==='mixedPlan')plan.line_notification_id='OTHER';if(bad==='wrongPlan'){plan.telegram_notification_id='KKUAT_TG_other';plan.notification_ids=['KKUAT_TG_other'];}
+  if(bad==='planContent')plan.telegram_content_version='f'.repeat(64);if(bad==='planPayload')plan.payload='other';if(bad==='planCreated')plan.created_at='2026-10-22T03:00:01.000Z';if(bad==='planFreshUntil')plan.fresh_until='2026-10-22T03:02:01.000Z';
+  if(bad==='pendingUnknown')pending.status='ADMISSION_UNKNOWN';if(bad==='claim')pending.claim.claim_id='CLAIM|foreign';if(bad==='candidatePayload')pending.candidate.payload='other';
+  if(bad==='beforeRow'){pending.candidate.sourceRow['Feedback Source']='foreign';pending.claim.before_row['Feedback Source']='foreign';}if(bad==='row')h.rows[1][HEADERS.indexOf('Notes')]='CLAIM|foreign';
+  if(bad==='envelopeId')pending.envelope.notification_id='ks1_other';if(bad==='envelopeText')pending.envelope.text+='…';if(bad==='envelopeTTL')pending.envelope.expires_at='2026-10-22T03:02:00.001Z';if(bad==='envelopeExtra')pending.envelope.recipient='other';
+  h.stored.KK_OWNER_LEDGER_LAST_UAT_PLAN=JSON.stringify(plan);h.stored[key]=JSON.stringify(pending);if(bad==='pendingMissing')delete h.stored[key];
+  const props=JSON.stringify(h.stored),rows=JSON.stringify(h.rows),writes=h.writes,propWrites=h.propertyWrites.length,fetches=h.fetches,logs=h.logs.length;
+  assert.equal(typeof h.ctx.inspectLastOwnerTelegramUatRelayReadOnly,'function');assert.throws(()=>h.ctx.inspectLastOwnerTelegramUatRelayReadOnly(),/OWNER_|LEDGER_/);
+  assert.equal(JSON.stringify(h.stored),props);assert.equal(JSON.stringify(h.rows),rows);assert.equal(h.writes,writes);assert.equal(h.propertyWrites.length,propWrites);assert.equal(h.fetches,fetches);assert.equal(h.logs.length,logs);
+});

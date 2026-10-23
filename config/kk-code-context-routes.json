@@ -8,6 +8,58 @@
   },
   "routes": [
     {
+      "id": "owner_ledger_transport",
+      "priority": 10,
+      "full_regression_required": true,
+      "keywords": [
+        "owner-ledger",
+        "owner ledger",
+        "ownerledgerbridge",
+        "ownerGate",
+        "inspectLastOwnerTelegramUatRelayReadOnly",
+        "prepareOwnerTelegramUatAfterRelayReconciliation",
+        "finalizeLastOwnerTelegramUatAck",
+        "assertExactOwnerRelay",
+        "kk-owner-relay-preflight",
+        "make-owner-transport",
+        "kk-make-owner-notify",
+        "make 6176241",
+        "make6176241",
+        "บัญชีแจ้งเตือนเจ้าของ",
+        "ตัวส่งแจ้งเตือนเจ้าของ"
+      ],
+      "files": [
+        "apps-script/kk-agent/OwnerLedgerBridge.gs",
+        "scripts/kk-owner-relay-preflight.js",
+        "server/kk-make-owner-notify.js",
+        "server/make-owner-transport-contract.js",
+        "server/make-owner-ledger-bridge.js",
+        "supabase/functions/kk-runtime-ledger-oidc-probe/index.ts",
+        "apps-script/kk-agent/Code.gs",
+        "server/make-owner-ledger-plan.js"
+      ],
+      "tests": [
+        "tests/kk-agent-owner-ledger-bridge.test.js",
+        "tests/kk-agent-owner-ledger-ack.test.js",
+        "tests/kk-owner-relay-preflight.test.js",
+        "tests/make-owner-transport-contract.test.js",
+        "tests/make-owner-ledger-bridge.test.js",
+        "tests/make-owner-ledger-plan.test.js",
+        "tests/make-owner-notify-api.test.js",
+        "tests/make-owner-gateway-route.test.js",
+        "tests/make-owner-edge-oidc.test.js",
+        "tests/kk-code-intelligence.test.js"
+      ],
+      "skills": [
+        ".agents/skills/kk-code-change/SKILL.md",
+        ".agents/skills/kk-code-review/SKILL.md"
+      ],
+      "docs": [
+        "docs/OWNER_LEDGER_ACCEPTANCE_2026-10-23.md",
+        "docs/OWNER_PRIVATE_RELAY_PREFLIGHT_2026-10-23.md"
+      ]
+    },
+    {
       "id": "unified_inbox",
       "keywords": [
         "unified inbox",
