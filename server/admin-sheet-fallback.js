@@ -94,7 +94,7 @@ function fetchWithTimeout(url, fetchImpl, timeoutMs){
     .finally(()=>clearTimeout(timer));
 }
 function gvizUrl(sheetId,spec){
-  return 'https://docs.google.com/spreadsheets/d/'+encodeURIComponent(sheetId)+'/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(spec.sheet)+'&range='+encodeURIComponent(spec.range)+'&t='+Date.now();
+  return 'https://docs.google.com/spreadsheets/d/'+encodeURIComponent(sheetId)+'/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(spec.sheet)+'&range='+encodeURIComponent(spec.range)+'&headers=1&t='+Date.now();
 }
 async function readSpecPublic(sheetId,key,fetchImpl){
   const spec=SPECS[key];
