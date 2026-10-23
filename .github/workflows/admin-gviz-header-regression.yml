@@ -10,6 +10,8 @@ on:
       - tests/admin-sheet-fallback-private-reader.test.js
       - tests/admin-gviz-live-header-probe.test.js
       - scripts/admin-gviz-live-header-probe.cjs
+      - tests/admin-gviz-live-snapshot-acceptance.test.js
+      - scripts/admin-gviz-live-snapshot-acceptance.cjs
       - .github/workflows/admin-gviz-header-regression.yml
   pull_request:
     branches: [main]
@@ -45,10 +47,13 @@ jobs:
             tests/admin-sheet-fallback.test.js \
             tests/admin-sheet-fallback-private-reader.test.js \
             tests/admin-gviz-live-header-probe.test.js \
+            tests/admin-gviz-live-snapshot-acceptance.test.js \
             tests/core-sheet-privacy-cutover.test.js \
             tests/snapshot-upstream-error.test.js
       - name: Live Google GViz zero-row schema acceptance
         run: node scripts/admin-gviz-live-header-probe.cjs
+      - name: Canonical Admin snapshot read-only live acceptance
+        run: node scripts/admin-gviz-live-snapshot-acceptance.cjs
       - name: Syntax contract
         run: npm run check
       - name: Full repository regression
