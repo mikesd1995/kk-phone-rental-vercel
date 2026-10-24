@@ -5,6 +5,7 @@ const path=require('path');
 const Gateway=require('../server/kk-agent-gateway.js');
 const AgentLedger=require('../server/kk-agent-invocation-ledger.js');
 const Router=require('../server/kk-content-request-router.js');
+const OwnerPolicy=require('../server/kk-owner-x-copy-policy.js');
 const BatchQa=require('../server/kk-content-batch-qa.js');
 
 const VERSION='KK_CONTENT_BATCH_CHAT_BRIDGE_V1';
@@ -72,6 +73,7 @@ function validateEnvelope(payload={}){
     const candidates=item&&Array.isArray(item.candidates)?item.candidates:[];
     if(!request)errors.push(prefix+'REQUEST_REQUIRED');
     if(request&&!text(request.message))errors.push(prefix+'REQUEST_MESSAGE_REQUIRED');
+    if(request)errors.push(...OwnerPolicy.validateRequest(request).errors.map(code=>prefix+code));
     if(candidates.length!==3)errors.push(prefix+'EXACTLY_3_CANDIDATES_REQUIRED');
     candidates.forEach((candidate,index)=>errors.push(...validateCandidate(candidate,index,itemIndex)));
   });
