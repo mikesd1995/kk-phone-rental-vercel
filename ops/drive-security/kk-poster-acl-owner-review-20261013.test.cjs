@@ -104,6 +104,7 @@ function fixture(opts = {}) {
     opts.imageMismatch && row[0] === core[0][0] ? 'https://images.example.test/wrong.jpg' : row[4],
     '', '', '', '', 'show'
   ]);
+  if (opts.dateMismatch) web[0][2] = '22/10/2026';
   if (opts.duplicateCore) core.push([...core[0]]);
   if (opts.duplicateWeb) web.push([...web[0]]);
   // Also catch duplicate hidden/history rows, not just two visible event cards.
@@ -252,6 +253,18 @@ test('source-of-truth card drift aborts before writing', () => {
   const f = fixture({extraCard: true});
   assert.throws(() => f.api.dry(), /SCOPED_ACTIVE_POSTER_DRIFT/);
   assert.equal(f.getWrites(), 0);
+});
+
+test('Core/WebReady active event date mismatch aborts ACL dry run and apply before any writes', () => {
+  for(const readOnly of [true, false]) {
+    const f = fixture({dateMismatch: true, readOnly});
+    assert.throws(() => f.api.dry(), /SCOPED_ACTIVE_EVENT_DATE_DIVERGED/);
+    assert.equal(f.getWrites(), 0);
+    if(!readOnly) {
+      assert.throws(() => f.api.apply('0'.repeat(64)), /SCOPED_ACTIVE_EVENT_DATE_DIVERGED/);
+      assert.equal(f.getWrites(), 0);
+    }
+  }
 });
 
 test('Core/WebReady image mismatch aborts before writing', () => {
