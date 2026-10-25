@@ -105,6 +105,9 @@ function fixture(opts = {}) {
     '', '', '', '', 'show'
   ]);
   if (opts.dateMismatch) web[0][2] = '22/10/2026';
+  if (opts.visibleWebOrphan) web[0][0] = 'EVT-ORPHAN-VISIBLE-IN-WEB-ONLY';
+  if (opts.webMovedIntoScopeFromJan) core[0][2] = '21/01/2027';
+  if (opts.hiddenWebOrphan) web.push(['EVT-HIDDEN-ORPHAN', '', '21/10/2026', '', '', '', '', '', '', 'hide']);
   if (opts.duplicateCore) core.push([...core[0]]);
   if (opts.duplicateWeb) web.push([...web[0]]);
   // Also catch duplicate hidden/history rows, not just two visible event cards.
@@ -252,6 +255,32 @@ test('48-to-47 thumbnail reference drift stops before any permissions write, eve
 test('source-of-truth card drift aborts before writing', () => {
   const f = fixture({extraCard: true});
   assert.throws(() => f.api.dry(), /SCOPED_ACTIVE_POSTER_DRIFT/);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('visible WebReady row without canonical Core event is never silently left outside ACL scope', () => {
+  for (const readOnly of [true, false]) {
+    const f = fixture({visibleWebOrphan: true, readOnly});
+    assert.throws(() => f.api.dry(), /SCOPED_VISIBLE_WEB_ORPHAN/);
+    assert.equal(f.getWrites(), 0);
+    if (!readOnly) {
+      assert.throws(() => f.api.apply('0'.repeat(64)), /SCOPED_VISIBLE_WEB_ORPHAN/);
+      assert.equal(f.getWrites(), 0);
+    }
+  }
+});
+
+test('WebReady cannot move a January Core event into visible October ACL scope', () => {
+  for (const readOnly of [true, false]) {
+    const f = fixture({webMovedIntoScopeFromJan: true, readOnly});
+    assert.throws(() => f.api.dry(), /SCOPED_ACTIVE_EVENT_DATE_DIVERGED/);
+    assert.equal(f.getWrites(), 0);
+  }
+});
+
+test('hidden WebReady-only historical row does not widen active poster repair', () => {
+  const f = fixture({hiddenWebOrphan: true, readOnly: true});
+  assert.equal(f.api.dry().active_files, 39);
   assert.equal(f.getWrites(), 0);
 });
 
