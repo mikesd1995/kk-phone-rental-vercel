@@ -120,6 +120,34 @@ test('schema validation must not mistake a private data row for the header',()=>
   assert.equal(Preflight.hasHeader([],'booking_id'),false);
   assert.equal(Preflight.hasHeader([['not_booking_id']],'booking_id'),false);
 });
+test('strict preflight rejects duplicate or unsafe header keys before private cutover',()=>{
+  assert.equal(Preflight.hasHeader([['booking_id','event_id','booking_id']],'booking_id'),false);
+  assert.equal(Preflight.hasHeader([['booking_id','event_id','event_id']],'booking_id'),false);
+  assert.equal(Preflight.hasHeader([['booking_id','__proto__']],'booking_id'),false);
+  assert.equal(Preflight.hasHeader([['booking_id','constructor']],'booking_id'),false);
+  assert.equal(Preflight.hasHeader([['booking_id','prototype']],'booking_id'),false);
+  assert.equal(Preflight.hasHeader([[]],null),false);
+  assert.equal(Preflight.hasHeader([['archived_at','archived_at']],null),false);
+  assert.equal(Preflight.hasHeader([['booking_id','','event_id']],'booking_id'),true);
+  assert.equal(Preflight.hasHeader([['archived_at','source_row']],null),true);
+});
+
+test('private probe isolates duplicated booking header and malformed archive header without leaking values',async()=>{
+  const specs=[...Object.values(AdminFallback.SPECS),...Object.values(Preflight.EXTRA_SPECS)];
+  const result=await Preflight.probe({env,reader:async ({sheet})=>{
+    if(sheet==='00_Master_Booking')return [['booking_id','customer_contact','booking_id'],['BK-TEST','PRIVATE_CONTACT_FIXTURE','BK-TEST2']];
+    if(sheet==='13_Event_Archive')return [['archived_at','archived_at'],['PRIVATE_ARCHIVE_FIXTURE','X']];
+    const spec=specs.find(s=>s.sheet===sheet);
+    return [[spec.header||'archive_col'],['safe_fixture']];
+  }});
+  assert.equal(result.datasets_checked,13);
+  assert.equal(result.passed,11);
+  assert.equal(result.failed,2);
+  assert.equal(result.ok,false);
+  assert.deepEqual(result.results.filter(x=>!x.ok).map(x=>x.dataset),['bookings','event_archive']);
+  assert.doesNotMatch(JSON.stringify(result),/PRIVATE_CONTACT_FIXTURE|PRIVATE_ARCHIVE_FIXTURE|BK-TEST/);
+});
+
 test('private probe fails closed if a missing header appears only as a data value',async()=>{
   const expected=new Map([...Object.values(AdminFallback.SPECS),...Object.values(Preflight.EXTRA_SPECS)].map(s=>[s.sheet,s.header]));
   const state=await Preflight.probe({
