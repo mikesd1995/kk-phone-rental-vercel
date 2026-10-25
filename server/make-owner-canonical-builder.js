@@ -32,12 +32,17 @@ function prepare(snapshot,binding){
     !Array.isArray(capture.error_module_ids)||JSON.stringify(route.handlerModuleIds)!==JSON.stringify(capture.error_module_ids)||
     modules.length!==11)fail('MAKE_CANONICAL_CAPTURE_ROUTE_INVALID');
   const fields=capture.field_mappings;
-  if(!fields||Object.keys(fields).sort().join(',')!=='attempt_id,http_status,receipt_id,telegram_response'||Object.values(fields).some(v=>typeof v!=='string'||!v||/[\u0000-\u001f]/.test(v)))fail('MAKE_CANONICAL_CAPTURE_MAPPING_INVALID');
+  const captureKeys=['profile_id','scenario_id','module_id','connection_id','source_notification_id','attempt_id','attempt_no','receipt_id','descriptor_sha256','http_status','telegram_response'];
+  if(!fields||Object.keys(fields).sort().join(',')!==captureKeys.slice().sort().join(',')||Object.values(fields).some(v=>typeof v!=='string'||!v||/[\u0000-\u001f]/.test(v))||
+    fields.profile_id!==capture.profile_id||fields.scenario_id!=='6176241'||fields.module_id!=='8'||fields.connection_id!=='10356915')fail('MAKE_CANONICAL_CAPTURE_MAPPING_INVALID');
+  const digest=require('./make-owner-canonical').captureProfileDigest({id:capture.profile_id,scenario_id:'6176241',module_id:8,connection_id:10356915,schema_sha256:capture.schema_sha256,provider_route_sha256:capture.provider_route_sha256,field_mappings:fields});
+  if(digest!==capture.review_sha256)fail('MAKE_CANONICAL_CAPTURE_REVIEW_MISMATCH');
   errorModules=capture.error_module_ids.map(id=>by.get(id));
   if(new Set(capture.error_module_ids).size!==2||errorModules.some(m=>!m||m.module!=='http:MakeRequest'||m.version!==4||m.config?.mapper?.url!==ENDPOINT))fail('MAKE_CANONICAL_CAPTURE_ROUTE_INVALID');
   const rejection=errorModules[0].config.mapper.jsonStringBodyContent,projection=errorModules[1].config.mapper.jsonStringBodyContent;
   if(typeof rejection!=='string'||typeof projection!=='string'||!rejection.includes('canonical-reject')||!projection.includes('canonical-project-rejection')||
-    Object.values(fields).some(v=>!rejection.includes(v))||!projection.includes(fields.attempt_id)||/Break|Resume|Sleep|telegram:Send/i.test(JSON.stringify([route,...errorModules])))fail('MAKE_CANONICAL_CAPTURE_ROUTE_INVALID');
+    captureKeys.some(k=>!rejection.includes('"'+k+'"')||!rejection.includes(fields[k]))||!rejection.includes('"envelope"')||!projection.includes('"envelope"')||!projection.includes(fields.attempt_id)||
+    /Break|Resume|Sleep|telegram:Send/i.test(JSON.stringify([route,...errorModules])))fail('MAKE_CANONICAL_CAPTURE_ROUTE_INVALID');
  }
  if(modules.some(m=>m.id!==8&&(m.parent||m.onError||m.errorHandler||m.routes)))fail('MAKE_CANONICAL_UNREVIEWED_ROUTE');
  const http=(id,follows,body)=>({id,module:'http:MakeRequest',version:4,...(follows?{follows}:{root:'main'}),config:{parameters:{authenticationType:'apiKeyConnection',apiKeyAccount:binding.gatewayConnectionId},mapper:{url:ENDPOINT,method:'post',contentType:'json',inputMethod:'jsonString',jsonStringBodyContent:body,parseResponse:true,stopOnHttpError:true,timeout:30,allowRedirects:false,shareCookies:false,requestCompressedContent:false}}});

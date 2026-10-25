@@ -68,7 +68,8 @@ test('a projected retry keeps source identity while a fresh poll checks due, cou
  assert.throws(()=>V2.planCandidate([{...r,'Attempt Count':4}],r['Notification ID'],c,now));
 });
 test('only fixed bound original Telegram 429 response is retryable',()=>{
- const profile={id:'native-telegram-617-module8-v1',schema_sha256:'a'.repeat(64),scenario_id:'6176241',module_id:8,connection_id:10356915,profile_digest:'b'.repeat(64)};
+ const profile={id:'native-telegram-617-module8-v1',schema_sha256:'a'.repeat(64),provider_route_sha256:'d'.repeat(64),scenario_id:'6176241',module_id:8,connection_id:10356915,field_mappings:Object.fromEntries(['profile_id','scenario_id','module_id','connection_id','source_notification_id','attempt_id','attempt_no','receipt_id','descriptor_sha256','http_status','telegram_response'].map(k=>[k,k]))};
+ profile.profile_digest=V2.captureProfileDigest(profile);
  const current={source_notification_id:'normal-event-123',attempt_id:uuid(),attempt_no:1,receipt_id:uuid(),descriptor_sha256:'c'.repeat(64)};
  const capture={profile_id:profile.id,scenario_id:profile.scenario_id,module_id:8,connection_id:profile.connection_id,attempt_id:current.attempt_id,attempt_no:1,receipt_id:current.receipt_id,source_notification_id:current.source_notification_id,descriptor_sha256:current.descriptor_sha256,http_status:429,telegram_response:{ok:false,error_code:429,description:'Too Many Requests',parameters:{retry_after:600}}};
  const classify=(x,p=profile)=>V2.classifyProviderRejection(x,current,p);
@@ -77,4 +78,11 @@ test('only fixed bound original Telegram 429 response is retryable',()=>{
  assert.equal(classify(capture,null).disposition,'unknown');
  assert.equal(classify({...capture,http_status:403,telegram_response:{ok:false,error_code:403}}).disposition,'failed');
  assert.equal(classify({...capture,http_status:408,telegram_response:{ok:false,error_code:408}}).disposition,'unknown');
+});
+test('runtime capture profile is bound to the reviewed route and field mapping digest',()=>{
+ const API=require('../server/kk-make-owner-notify')._test,base={id:'native-telegram-617-module8-v1',scenario_id:'6176241',module_id:8,connection_id:10356915,schema_sha256:'a'.repeat(64),provider_route_sha256:'b'.repeat(64),field_mappings:Object.fromEntries(V2.CAPTURE_FIELDS.map(k=>[k,k]))};
+ const profile={...base,profile_digest:V2.captureProfileDigest(base)},env={KK_OWNER_CANONICAL_CAPTURE_PROFILE_JSON:JSON.stringify(profile),KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256:profile.profile_digest};
+ assert.equal(API.config(env).captureProfile.profile_digest,profile.profile_digest);
+ assert.equal(API.config({...env,KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256:'f'.repeat(64)}).captureProfile,null);
+ assert.equal(API.config({...env,KK_OWNER_CANONICAL_CAPTURE_PROFILE_JSON:JSON.stringify({...profile,field_mappings:{...profile.field_mappings,http_status:'forged'}})}).captureProfile,null);
 });

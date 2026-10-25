@@ -41,12 +41,18 @@ function planCandidate(rows,id,c,now=Date.now()){
  const binding=['kk-owner-ledger-binding-v2',Legacy.SPREADSHEET_ID,Legacy.TAB,Legacy.TRANSPORT,id,r['Created At'],r.Payload,r['Dedup Key'],r['Event Family ID'],r['Show ID'],r['Change Type'],r.Priority,r['Quiet Hours Policy'],JSON.stringify(c)];
  return {binding,source_row:r,transport_identity:ids.transport_identity,attempt_count:previous+1};
 }
+const CAPTURE_FIELDS=['profile_id','scenario_id','module_id','connection_id','source_notification_id','attempt_id','attempt_no','receipt_id','descriptor_sha256','http_status','telegram_response'];
+function captureProfileDigest(profile){
+ if(!Wire.isPlainObject(profile)||!Wire.isPlainObject(profile.field_mappings)||Reflect.ownKeys(profile.field_mappings).length!==CAPTURE_FIELDS.length||CAPTURE_FIELDS.some(k=>typeof profile.field_mappings[k]!=='string'||!profile.field_mappings[k])||
+   !/^[a-f0-9]{64}$/.test(profile.schema_sha256||'')||!/^[a-f0-9]{64}$/.test(profile.provider_route_sha256||''))fail('CANONICAL_CAPTURE_PROFILE_INVALID');
+ return crypto.createHash('sha256').update(JSON.stringify(['KK_OWNER_CAPTURE_PROFILE_V1',profile.id,profile.scenario_id,profile.module_id,profile.connection_id,profile.schema_sha256,profile.provider_route_sha256,CAPTURE_FIELDS.map(k=>profile.field_mappings[k])])).digest('hex');
+}
 function classifyProviderRejection(capture,current,profile){
  const unknown={disposition:'unknown'};
  if(!Wire.isPlainObject(profile)||!Wire.isPlainObject(current)||!Wire.isPlainObject(capture))return unknown;
  const required=['profile_id','scenario_id','module_id','connection_id','attempt_id','attempt_no','receipt_id','source_notification_id','descriptor_sha256','http_status','telegram_response'];
  if(Reflect.ownKeys(capture).length!==required.length||required.some(k=>!Object.hasOwn(capture,k)))return unknown;
- if(profile.id!=='native-telegram-617-module8-v1'||profile.scenario_id!=='6176241'||profile.module_id!==8||profile.connection_id!==10356915||! /^[a-f0-9]{64}$/.test(profile.schema_sha256||'')||! /^[a-f0-9]{64}$/.test(profile.profile_digest||''))return unknown;
+ try{if(profile.id!=='native-telegram-617-module8-v1'||profile.scenario_id!=='6176241'||profile.module_id!==8||profile.connection_id!==10356915||profile.profile_digest!==captureProfileDigest(profile))return unknown;}catch(_){return unknown;}
  if(capture.profile_id!==profile.id||capture.scenario_id!==profile.scenario_id||capture.module_id!==8||capture.connection_id!==10356915||capture.attempt_id!==current.attempt_id||capture.attempt_no!==current.attempt_no||capture.receipt_id!==current.receipt_id||capture.source_notification_id!==current.source_notification_id||capture.descriptor_sha256!==current.descriptor_sha256)return unknown;
  const response=capture.telegram_response,status=capture.http_status;
  if(!Wire.isPlainObject(response)||response.ok!==false||!Number.isInteger(status)||status<400||status>599||response.error_code!==status||Reflect.ownKeys(response).some(k=>!['ok','error_code','description','parameters'].includes(k))||['result','message_id','request_id'].some(k=>Object.hasOwn(response,k))||Object.hasOwn(capture,'provider_message_id'))return unknown;
@@ -144,7 +150,7 @@ async function runHandle(body,cfg,options={}){
   const record=await store('enqueue',{ticket:body.ticket,binding:JSON.stringify(binding),descriptor:d,claimed_row:claimed},cfg,options);descriptorMatch(record,d);
   if(record.ticket!==t.attempt_id||record.attempt_count!==t.attempt_no||!/^[a-f0-9]{64}$/.test(record.descriptor_sha256||''))fail('CANONICAL_DURABLE_DESCRIPTOR_MISMATCH');
   const envelope={...record.descriptor,signature:Wire.sign(record.descriptor,cfg.secret)};
-  return {ok:true,mode:'CANONICAL_V2',status:'ADMITTED',send_allowed:false,attempt_id:t.attempt_id,attempt_no:t.attempt_no,descriptor_sha256:record.descriptor_sha256,envelope,envelope_json:JSON.stringify(envelope)};
+  return {ok:true,mode:'CANONICAL_V2',status:'ADMITTED',send_allowed:false,source_notification_id:record.source_notification_id,attempt_id:t.attempt_id,attempt_no:t.attempt_no,descriptor_sha256:record.descriptor_sha256,envelope,envelope_json:JSON.stringify(envelope)};
  }
  if(['canonical-prepare','canonical-ack','canonical-project','canonical-reject','canonical-project-rejection'].includes(op)){
   const keys=op==='canonical-ack'?['stage','envelope','attempt_id','receipt_id','provider_message_id']:op==='canonical-reject'?['stage','envelope','attempt_id','receipt_id','capture']:['stage','envelope','attempt_id'];exact(body,keys);
@@ -160,7 +166,7 @@ async function runHandle(body,cfg,options={}){
   if(op==='canonical-prepare'){
    if(Date.parse(e.expires_at)<=Date.now()+15000)fail('CANONICAL_PROVIDER_MARGIN_EXPIRED');
    const prepared=await Wire.prepareDispatch(e,{secret:cfg.secret,ownerChatId:cfg.ownerChatId,claimFn:async()=>store('reserve',selector,cfg,options)});
-   if(!prepared.send_allowed||Date.parse(e.expires_at)<=Date.now()+15000)fail(prepared.error_code||'CANONICAL_PROVIDER_MARGIN_EXPIRED');return {...prepared,attempt_id:body.attempt_id,attempt_no:record.attempt_count,descriptor_sha256:record.descriptor_sha256};
+   if(!prepared.send_allowed||Date.parse(e.expires_at)<=Date.now()+15000)fail(prepared.error_code||'CANONICAL_PROVIDER_MARGIN_EXPIRED');return {...prepared,source_notification_id:record.source_notification_id,attempt_id:body.attempt_id,attempt_no:record.attempt_count,descriptor_sha256:record.descriptor_sha256};
   }
   if(op==='canonical-ack'){
    if(!Wire.isReceiptId(body.receipt_id)||typeof body.provider_message_id!=='string'||! /^[1-9][0-9]{0,19}$/.test(body.provider_message_id))fail('CANONICAL_ACK_INVALID');
@@ -194,4 +200,4 @@ async function runHandle(body,cfg,options={}){
  fail('CANONICAL_STAGE_FORBIDDEN');
 }
 async function handle(body,cfg,options={}){return bounded(signal=>runHandle(body,cfg,{...options,signal}),20000);}
-module.exports={FUNCTIONS,CONTEXT_FIELDS,validateContext,quietHeld,planCandidate,classifyProviderRejection,signContext,verifySigned,executeGas,store,handle};
+module.exports={FUNCTIONS,CONTEXT_FIELDS,validateContext,quietHeld,planCandidate,CAPTURE_FIELDS,captureProfileDigest,classifyProviderRejection,signContext,verifySigned,executeGas,store,handle};

@@ -96,7 +96,7 @@ test('actual gateway and GAS handle two iterator tickets JIT, durable ACK first 
  const h=setup();let at=Date.parse(NOW);t.mock.method(Date,'now',()=>at);
  const second={...h.row,'Notification ID':'normal-event-456','Dedup Key':'dedup456'};h.rows.push(Legacy.HEADERS.map(k=>second[k]));
  const i=integration(h),poll=await i.run({stage:'canonical-poll',version:'v2'});assert.equal(poll.tickets.length,2);assert.equal(h.writes,0);assert.equal(i.records.size,0);
- const first=await i.run({stage:'canonical-admit',version:'v2',ticket:poll.tickets[0].ticket});assert.equal(first.envelope_json,JSON.stringify(first.envelope));assert.match(first.descriptor_sha256,/^[a-f0-9]{64}$/);assert.equal(i.records.size,1);
+ const first=await i.run({stage:'canonical-admit',version:'v2',ticket:poll.tickets[0].ticket});assert.equal(first.envelope_json,JSON.stringify(first.envelope));assert.equal(first.source_notification_id,h.row['Notification ID']);assert.match(first.descriptor_sha256,/^[a-f0-9]{64}$/);assert.equal(i.records.size,1);
  const prepared=await i.run({stage:'canonical-prepare',envelope:first.envelope,attempt_id:first.attempt_id});assert.equal(prepared.send_allowed,true);assert.equal(prepared.descriptor_sha256,first.descriptor_sha256);
  await assert.rejects(i.run({stage:'canonical-prepare',envelope:first.envelope,attempt_id:first.attempt_id}));
  await assert.rejects(i.run({stage:'canonical-ack',envelope:first.envelope,attempt_id:first.attempt_id,receipt_id:crypto.randomUUID(),provider_message_id:'123'}));

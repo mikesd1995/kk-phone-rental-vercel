@@ -11,8 +11,9 @@ function enabled(v){ return /^(1|true|yes|on)$/i.test(t(v)); }
 function captureProfile(env){
   try{
     const profile=JSON.parse(env.KK_OWNER_CANONICAL_CAPTURE_PROFILE_JSON||'null');
-    if(!profile||typeof profile!=='object'||Array.isArray(profile)||profile.id!=='native-telegram-617-module8-v1'||profile.scenario_id!=='6176241'||profile.module_id!==8||profile.connection_id!==10356915||
-      !/^[a-f0-9]{64}$/.test(profile.schema_sha256||'')||!/^[a-f0-9]{64}$/.test(profile.profile_digest||'')||profile.profile_digest!==env.KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256)return null;
+    if(!profile||typeof profile!=='object'||Array.isArray(profile)||Object.keys(profile).sort().join(',')!=='connection_id,field_mappings,id,module_id,profile_digest,provider_route_sha256,scenario_id,schema_sha256'||
+      profile.id!=='native-telegram-617-module8-v1'||profile.scenario_id!=='6176241'||profile.module_id!==8||profile.connection_id!==10356915||
+      profile.profile_digest!==env.KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256||profile.profile_digest!==require('./make-owner-canonical').captureProfileDigest(profile))return null;
     return profile;
   }catch(_){return null;}
 }
