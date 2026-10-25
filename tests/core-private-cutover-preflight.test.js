@@ -31,6 +31,24 @@ test('missing explicit Core transport blocks before any of 13 private reads',asy
  assert.equal(calls,0);
  assert.equal(Preflight.plan({...env,KK_CORE_PRIVATE_TRANSPORT:undefined}).transport,'none');
 });
+test('malformed transport cannot leak secrets into config-only or probe diagnostics',async()=>{
+  const secret='SENSITIVE_PASTED_KEY_FIXTURE_'+('r'.repeat(48));
+  const broken={...env,KK_CORE_PRIVATE_TRANSPORT:secret};
+  const snapshot=Preflight.plan(broken);
+  assert.equal(snapshot.ok,false);
+  assert.equal(snapshot.transport,'invalid');
+  assert.equal(snapshot.transport_ready,false);
+  assert.doesNotMatch(JSON.stringify(snapshot),/SENSITIVE_PASTED_KEY_FIXTURE/);
+  let calls=0;
+  const result=await Preflight.probe({env:broken,reader:async()=>{calls++;throw Error('should never read');}});
+  assert.equal(calls,0);
+  assert.equal(result.datasets_checked,0);
+  assert.equal(result.ok,false);
+  assert.doesNotMatch(JSON.stringify(result),/SENSITIVE_PASTED_KEY_FIXTURE/);
+  assert.equal(Preflight.classify({code:'CORE_PRIVATE_TRANSPORT_INVALID'}),'CORE_PRIVATE_TRANSPORT_INVALID');
+  assert.equal(Preflight.classify({code:'CORE_PRIVATE_TRANSPORT_INVALID:'+secret}),'CORE_PRIVATE_PROBE_FAILED');
+});
+
 test('missing private credentials block before a single private/public call',async()=>{
   let calls=0;
   const state=await Preflight.probe({
