@@ -50,3 +50,12 @@ R1 found Core workbook reported \`anyone:reader\`, and a read-only Vercel enviro
 4. Reconcile old Draft #721/#739 against current main and other overlapping PRs. Record CI/owner approvals before any protected merge/deploy.
 
 **Writes in this turn:** 3 Draft code/test file commits and this evidence document only; Google Drive ACL 0; Production Apps Script saves 0; booking/customer/price/stock 0; LINE/Telegram 0; workflow activation 0; GitHub merge/Vercel deploy 0; paid services 0. Maintain **Security P0 HOLD**.
+
+
+### 7. Complete present-visible Drive metadata check — second, bounded retrieval pass
+
+After the 16-file targeted audit above, repeated read-only Google Drive \`files.get\` in batches respecting connector limits for the **remaining 32 currently referenced Drive image file IDs**. A mistyped manual lookup produced one 404; it was corrected and the exact current ID successfully read. This was a probe input error, **not a verified missing original asset**.
+
+**Final current active set:** **37/37 exact current unique Drive image files were individually checked**, and **all 37 report \`permissions: type=anyone, role=writer\`**. Current-image MIME census: **29 image/jpeg, 6 image/png, 2 image/webp**. The 37 successfully checked IDs were compared against a fresh \`08_Web_Ready!A5:K600\` read; **37 unique in both sets, 0 missing and 0 extraneous IDs**. Including the distinct 7 formerly pinned now out-of-scope images and four poster folders checked earlier, **48/48 exact identified image/folder objects reported \`anyone/writer\` metadata**, with all valid-ID lookups successful. The old history tree beyond these 7 is **not** fully audited.
+
+**Do not interpret this as 37/37 signed-out public image decode or definitive inherited-permission/ownership repair acceptance.** Metadata is a live read-only risk finding. Required next step remains owner-authorized full-tree provenance/fingerprint and scoped ACL decision, then after-change signed-out image/mime/artwork and permissions readback. All ACL writes remain zero.
