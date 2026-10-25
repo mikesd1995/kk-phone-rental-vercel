@@ -33,11 +33,14 @@ function classify(err){
   return SAFE_PRIVATE_FAILURE_CODES.has(code)?code:'CORE_PRIVATE_PROBE_FAILED';
 }
 function hasHeader(values,required){
-  if(!required)return Array.isArray(values)&&values.length>0;
-  // A1/A4 range begins at the required header; data-row values cannot stand in
-  // for a missing header. Fail closed before any owner ACL cutover approval.
-  return Array.isArray(values)&&values.length>0&&Array.isArray(values[0])&&
-    values[0].some(v=>String(v||'').trim()===required);
+  // A1/A4 ranges begin at the canonical header. Reject ambiguous duplicate
+  // names and object-prototype keys: downstream row mapping uses these as
+  // object properties, so a duplicate can overwrite a booking/contact field.
+  const first=Array.isArray(values)&&Array.isArray(values[0])?values[0]:[];
+  const names=first.map(v=>String(v==null?'':v).trim()).filter(Boolean);
+  if(!names.length||new Set(names).size!==names.length)return false;
+  if(names.some(n=>n==='__proto__'||n==='constructor'||n==='prototype'))return false;
+  return !required||names.includes(required);
 }
 function plan(env=process.env){
   const source=PrivateCore.state(env);
