@@ -138,6 +138,14 @@ function valuesAsObjects(values,requiredHeader,startRow=1){
   return out;
 }
 
+function validStrictPrivateHeader(values,required){
+  const first=Array.isArray(values)&&Array.isArray(values[0])?values[0]:[];
+  const names=first.map(v=>String(v==null?'':v).trim()).filter(Boolean);
+  if(!names.length||new Set(names).size!==names.length)return false;
+  if(names.some(n=>n==='__proto__'||n==='constructor'||n==='prototype'))return false;
+  return names.includes(required);
+}
+
 async function readSpecPrivate(sheetId,key,env,fetchImpl){
   const spec=SPECS[key];
   const strictCore=CorePrivacy.enabled(env);
@@ -147,8 +155,7 @@ async function readSpecPrivate(sheetId,key,env,fetchImpl){
   // Strict Core private reads are anchored at A4/A1, the actual schema row.
   // Do not reinterpret customer/booking values later in the sheet as headers.
   // Preserve legacy flexible parsing only for non-cutover read modes.
-  if(strictCore&&(!Array.isArray(values)||!Array.isArray(values[0])||
-    !values[0].some(v=>String(v||'').trim()===spec.header))){
+  if(strictCore&&!validStrictPrivateHeader(values,spec.header)){
     const err=new Error('CORE_PRIVATE_SCHEMA_INVALID');
     err.code='CORE_PRIVATE_SCHEMA_INVALID';
     err.dataset=key;
