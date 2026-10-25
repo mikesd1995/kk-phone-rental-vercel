@@ -276,7 +276,7 @@ const OWNER_OPERATIONS:Record<string,{rpc:string;keys:string[]}>= {
 };
 // Canonical v2 uses additive storage. The DB gate is locked throughout each RPC;
 // the environment comes only from verified same-project OIDC claims.
-const CANONICAL_OPERATIONS:Record<string,string[]>={poll:[],tickets:['context','rows','candidates'],begin:['ticket'],enqueue:['ticket','binding','descriptor','claimed_row'],readback:['notification_id'],reserve:['notification_id'],ack:['notification_id','receipt_id','provider_message_id']};
+const CANONICAL_OPERATIONS:Record<string,string[]>={poll:[],'poll-readback':['poll_id'],tickets:['context','rows','candidates','held'],begin:['ticket'],enqueue:['ticket','binding','descriptor','claimed_row'],readback:['notification_id'],reserve:['notification_id'],ack:['notification_id','receipt_id','provider_message_id']};
 async function canonicalOwnerOperation(body:Record<string,unknown>,identity:Record<string,unknown>){
   if(Deno.env.get('KK_OWNER_CANONICAL_ENABLED')!=='TRUE')ownerError('CANONICAL_DISABLED_OR_UNBOUND');
   ownerExact(body,['probe','version','operation','parameters']);
@@ -285,7 +285,7 @@ async function canonicalOwnerOperation(body:Record<string,unknown>,identity:Reco
   const parameters=ownerExact(body.parameters,CANONICAL_OPERATIONS[operation]);
   if(!['preview','production'].includes(String(identity.environment)))ownerError('CANONICAL_ENVIRONMENT_INVALID');
   const result=await ownerRpc('kk_owner_canonical_operation',{p_operation:operation,p_parameters:parameters,p_environment:identity.environment});
-  return {ok:true,authenticated:true,version:'v2',project_ref:OWNER_PROJECT_REF,operation,provider_sends:0,business_writes:0,read_only:operation==='readback',result};
+  return {ok:true,authenticated:true,version:'v2',project_ref:OWNER_PROJECT_REF,operation,provider_sends:0,business_writes:0,read_only:operation==='readback'||operation==='poll-readback',result};
 }
 function ownerError(code:string):never {throw new Error(code);}
 function ownerExact(value:unknown,keys:string[]):Record<string,unknown>{

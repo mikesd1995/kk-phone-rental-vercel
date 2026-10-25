@@ -38,7 +38,7 @@ test('canonical mode fences competing timed Telegram before claim while LINE rem
 });
 function integration(h){
  const cfg={canonicalEnabled:true,consumerAuthenticated:true,producerEnabled:true,canonicalSecret:secret,secret:'wire-secret-'.repeat(5),gasProjectId:Legacy.SCRIPT_PROJECT_ID,gasDeploymentId:'AKfycb_testdeployment',gasAccessToken:'test-only-token',storeMode:'vercel-oidc',expectedRef:Legacy.PROJECT_REF,ownerChatId:'-123456789'};
- const tickets=new Map(),records=new Map(),calls=[];let rejectProject=false,dropClaimResponse=false;
+ const tickets=new Map(),records=new Map(),calls=[];let rejectProject=false,dropClaimResponse=false,pollRecord;
  const fetchImpl=async(url,init)=>{
   const body=JSON.parse(init.body);calls.push(body);
   if(url.startsWith('https://script.googleapis.com/')){
@@ -47,7 +47,8 @@ function integration(h){
   }
   let result;const p=body.parameters;
   if(body.operation==='poll')result=h.context;
-  if(body.operation==='tickets'){result=p.candidates.map(notification_id=>{const ticket=crypto.randomUUID();tickets.set(ticket,{context:p.context,rows:p.rows,notification_id,state:'NEW'});return ticket;});}
+  if(body.operation==='tickets'){pollRecord={context:p.context,held:p.held,issued:true};result=p.candidates.map(notification_id=>{const ticket=crypto.randomUUID();tickets.set(ticket,{context:p.context,rows:p.rows,notification_id,state:'NEW'});return ticket;});}
+  if(body.operation==='poll-readback')result=pollRecord;
   if(body.operation==='begin'){const t=tickets.get(p.ticket);assert.equal(t.state,'NEW');t.state='CLAIMING';result={context:t.context,rows:t.rows,notification_id:t.notification_id};}
   if(body.operation==='enqueue'){const t=tickets.get(p.ticket);assert.equal(t.state,'CLAIMING');t.state='ADMITTED';result={source_notification_id:t.notification_id,notification_id:p.descriptor.notification_id,context:t.context,source_row:t.rows.find(r=>r['Notification ID']===t.notification_id),claimed_row:p.claimed_row,binding_text:p.binding,descriptor:p.descriptor,status:'QUEUED',receipt_id:null,provider_message_id:null,reserved_at:null,delivered_at:null};records.set(p.descriptor.notification_id,result);}
   if(body.operation==='readback')result=records.get(p.notification_id);
@@ -85,4 +86,17 @@ test('unknown GAS claim outcome fences the actual Sheet claim and consumed ticke
  t.mock.method(Date,'now',()=>Date.parse(NOW));const h=setup(),i=integration(h),poll=await i.run({stage:'canonical-poll',version:'v2'});i.dropClaimResponse=true;
  await assert.rejects(i.run({stage:'canonical-admit',version:'v2',ticket:poll.tickets[0].ticket}));assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Status')],'SENDING');assert.equal(i.records.size,0);assert.ok(i.calls.every(c=>c.operation!=='enqueue'));
  const writes=h.writes;await assert.rejects(i.run({stage:'canonical-admit',version:'v2',ticket:poll.tickets[0].ticket}));assert.equal(h.writes,writes);assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Created At')],h.row['Created At']);
+});
+test('F1 actual GAS and gateway isolate invalid normal rows as bounded operator-visible debt while valid rows admit',async t=>{
+ t.mock.method(Date,'now',()=>Date.parse(NOW));
+ for(const bad of [r=>r.Payload='missing source and action',r=>r.Payload='งาน https://example.invalid/source',r=>r.Payload=' '+r.Payload,r=>r.Payload='x'.repeat(2049),r=>r['Notification ID']='bad',r=>r.Payload=123]){
+  const h=setup(),invalid={...h.row,'Notification ID':'invalid-normal-123','Dedup Key':'invalid-dedup123'};bad(invalid);h.rows.push(Legacy.HEADERS.map(k=>invalid[k]));const before=JSON.stringify(h.rows[2]),i=integration(h);
+  const poll=await i.run({stage:'canonical-poll',version:'v2'});assert.equal(poll.tickets.length,1);assert.equal(poll.held.length,1);assert.equal(poll.held[0].row_index,2);assert.match(poll.held[0].notification_id_sha256,/^[a-f0-9]{64}$/);assert.equal(h.writes,0);assert.doesNotMatch(JSON.stringify(poll.held),/Payload|missing source|invalid-normal/);
+  const read=await i.run({stage:'canonical-poll-readback',version:'v2',poll_id:poll.poll_id});assert.deepEqual(read.held,poll.held);
+  const admitted=await i.run({stage:'canonical-admit',version:'v2',ticket:poll.tickets[0].ticket});assert.equal(admitted.status,'ADMITTED');assert.equal(JSON.stringify(h.rows[2]),before);assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Created At')],h.row['Created At']);
+ }
+});
+test('F1 complete snapshot still holds both candidates sharing a malformed row dedup witness',async t=>{
+ t.mock.method(Date,'now',()=>Date.parse(NOW));const h=setup(),bad={...h.row,'Notification ID':'bad',Payload:'invalid'};h.rows.push(Legacy.HEADERS.map(k=>bad[k]));const i=integration(h),poll=await i.run({stage:'canonical-poll',version:'v2'});
+ assert.equal(poll.tickets.length,0);assert.equal(poll.held.length,2);assert.equal(poll.held[0].reason_code,'CANONICAL_DEDUP_AMBIGUOUS');assert.equal(h.writes,0);
 });

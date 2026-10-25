@@ -10,6 +10,7 @@ const headers=['Notification ID','Created At','Event Family ID','Show ID','Chang
 const hash=s=>crypto.createHash('sha256').update(s).digest('hex');
 const iso=n=>new Date(n).toISOString();
 async function rpc(op,p){
+ if(op==='tickets'&&p&&!Object.hasOwn(p,'held'))p={...p,held:[]};
  await db.exec('set role service_role');
  try{return (await db.query('select public.kk_owner_canonical_operation($1,$2::jsonb,$3) as result',[op,p===undefined?null:JSON.stringify(p),'preview'])).rows[0].result;}
  finally{await db.exec('reset role');}
@@ -53,6 +54,21 @@ try{
  await test('no reset/retry operation can revive unknown attempt',async()=>{const f=await claim(await reset());for(const op of ['reset','retry','renew','replay'])await rejects(()=>rpc(op,{ticket:f.ticket}),/FORBIDDEN/);});
  await test('trusted cutover epoch cannot be rewritten under existing poll identity',async()=>{await reset();await rejects(()=>db.exec("update public.kk_owner_canonical_cutover set activated_at=activated_at-interval '1 second'"),/IMMUTABLE/);});
  await test('native payload and descriptor UTF16 limits match JavaScript wire limits',async()=>{const f=await reset();f.row.Payload='🧪'.repeat(1025);await rejects(()=>rpc('tickets',{context:f.context,rows:[f.row],candidates:[f.row['Notification ID']]}),/PAYLOAD|SOURCE/);const g=await claim(await reset()),p=envelope(g);p.descriptor.text='🧪'.repeat(1025);await rejects(()=>rpc('enqueue',p),/DESCRIPTOR|PAYLOAD/);});
+ await test('F2 missing, null, empty, typed and malformed claimed timestamps never persist a descriptor or become reservable',async()=>{
+  for(const value of [undefined,null,'',0,{},[],'not-a-date','infinity','-infinity']){
+   const f=await claim(await reset()),p=envelope(f);if(value===undefined)delete p.claimed_row['Last Attempt At'];else p.claimed_row['Last Attempt At']=value;
+   await rejects(()=>rpc('enqueue',p));const row=(await db.query('select status,descriptor from public.kk_owner_canonical_delivery where ticket=$1',[f.ticket])).rows[0];assert.equal(row.status,'CLAIMING');assert.equal(row.descriptor,null);
+   await rejects(()=>rpc('reserve',{notification_id:p.descriptor.notification_id}));
+  }
+  const f=await claim(await reset()),p=envelope(f);assert.equal((await rpc('enqueue',p)).status,'QUEUED');
+ });
+ await test('F1 bounded hash-only held debt persists for native poll readback without claiming invalid rows',async()=>{
+  const f=await reset(),bad={...f.row,'Notification ID':'bad','Dedup Key':'invalid-native-dedup',Payload:'missing source'},held=[{row_index:2,notification_id_sha256:hash(JSON.stringify(bad['Notification ID'])),reason_code:'CANONICAL_ID_INVALID'}];
+  const tickets=await rpc('tickets',{context:f.context,rows:[f.row,bad],candidates:[f.row['Notification ID']],held});assert.equal(tickets.length,1);
+  const read=await rpc('poll-readback',{poll_id:f.context.poll_id});assert.deepEqual(read.held,held);assert.equal(read.issued,true);
+  assert.equal((await db.query('select count(*)::integer as n from public.kk_owner_canonical_delivery')).rows[0].n,0);
+  const g=await reset();for(const malicious of [[{row_index:1,notification_id_sha256:hash(JSON.stringify(g.row['Notification ID'])),reason_code:'free text payload'}],[{row_index:1,notification_id_sha256:'0'.repeat(64),reason_code:'CANONICAL_RENDER_INVALID'}]])await rejects(()=>rpc('tickets',{context:g.context,rows:[g.row],candidates:[],held:malicious}),/HELD/);
+ });
  await test('all canonical tables have RLS and RPC has fixed empty search_path',async()=>{const rows=(await db.query("select relname,relrowsecurity from pg_class where relname in ('kk_owner_canonical_cutover','kk_owner_canonical_poll','kk_owner_canonical_ticket','kk_owner_canonical_delivery')")).rows;assert.equal(rows.length,4);assert.ok(rows.every(r=>r.relrowsecurity));const fn=(await db.query("select prosecdef,proconfig from pg_proc where proname='kk_owner_canonical_operation'")).rows[0];assert.equal(fn.prosecdef,true);assert.ok(fn.proconfig.includes('search_path=\"\"'));});
 }finally{await db.close();}
 const proof={scope:'DISPOSABLE_NATIVE_SQL_SYNTHETIC_ONLY_NOT_PROVIDER_OR_PRODUCTION_PROOF',engine:'PostgreSQL18.6 PGlite0.5.11',source_sha256:hash(await fs.readFile(repo+'/supabase/staging/kk-owner-ledger-canonical-v2.sql','utf8')),passed:results.filter(x=>x.passed).length,failed:results.filter(x=>!x.passed).length,cases:results};

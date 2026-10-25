@@ -46,14 +46,53 @@ function canonicalEligible_(candidate,rows,c) {
   if (rows.filter(function(x) { return x['Notification ID']===candidate.notificationId; }).length!==1 || rows.filter(function(x) { return x.Transport===candidate.transport && x['Dedup Key']===candidate.dedupKey; }).length!==1) return false;
   return true;
 }
+/** All witnesses stay in rows. Invalid rows produce hash-only debt, never claims. */
+function canonicalRowReason_(r,rows,c) {
+  if (ledgerHeaders_().some(function(k) { return k!=='Attempt Count' && typeof r[k]!=='string'; })) return 'CANONICAL_SOURCE_TYPE_INVALID';
+  var id=r['Notification ID'];
+  if (/[\u0000-\u001f\u007f-\u009f]/.test(id) || Utilities.newBlob(id).getBytes().length<6 || Utilities.newBlob(id).getBytes().length>93) return 'CANONICAL_ID_INVALID';
+  for(var u=0;u<id.length;u+=1) { var code=id.charCodeAt(u);if(code>=0xd800 && code<=0xdbff) { var next=id.charCodeAt(++u);if(!(next>=0xdc00 && next<=0xdfff)) return 'CANONICAL_ID_INVALID'; } else if(code>=0xdc00 && code<=0xdfff) return 'CANONICAL_ID_INVALID'; }
+  if (rows.filter(function(x) { return x['Notification ID']===id; }).length!==1) return 'CANONICAL_ID_AMBIGUOUS';
+  if (rows.filter(function(x) { return x.Transport===r.Transport && x['Dedup Key']===r['Dedup Key']; }).length!==1) return 'CANONICAL_DEDUP_AMBIGUOUS';
+  if ([0,'0'].indexOf(r['Attempt Count'])<0 || ['Last Attempt At','Delivery Evidence','Next Retry At','HTTP Status','Provider Message ID','API Accepted At','Delivery Confirmed At','Last Error','Feedback Source'].some(function(k) { return r[k]!==''; })) return 'CANONICAL_SOURCE_ALREADY_ATTEMPTED';
+  if (['Event Family ID','Change Type','Priority','Quiet Hours Policy','Audit Event ID','Dedup Key'].some(function(k) { return !r[k]; }) || /^KKUAT_/.test(id) || /^CONTROLLED_UAT\|/.test(r['Audit Event ID']) || /CLAIM\||OWNER_AUTHORIZED_TRANSPORT_UAT/.test(r.Notes)) return 'CANONICAL_NORMAL_SOURCE_REQUIRED';
+  var created=Date.parse(r['Created At']),observed=Date.parse(c.observed_at),cutoff=Date.parse(c.activated_at);
+  if (!isFinite(created) || created<cutoff || created>observed || created>Date.now()) return 'CANONICAL_SOURCE_CUTOVER_INVALID';
+  if (!r.Payload || r.Payload!==r.Payload.trim() || r.Payload.length>2048) return 'CANONICAL_SOURCE_HELD';
+  return '';
+}
+function canonicalAssessment_(context,rows,c,p) {
+  var candidates=[],held=[];
+  rows.forEach(function(r,index) {
+    if (r.Transport!=='TELEGRAM_OWNER_ALERTS' || r.Status!=='QUEUED' || r['Change Type']==='TRANSPORT_UAT' || r.Priority==='TEST' || r['Quiet Hours Policy']==='OWNER_CONTROLLED_UAT') return;
+    var reason=canonicalRowReason_(r,rows,c),candidate;
+    if (!reason) {
+      try {
+        // Core selection is isolated per source; complete snapshot/dedup checks above
+        // and readExactLedgerCandidate_ still see every original ledger witness.
+        var matches=collectCandidates_([context.values[0],context.values[index+1]],context.headers,p,false,{enforceQuietHours:true});
+        if (matches.length!==1 || !canonicalEligible_(matches[0],rows,c)) reason=isQuietHours_(new Date()) && !canBypassQuietHours_(r.Priority,r['Change Type'])?'QUIET_HOURS_HOLD':'CANONICAL_CORE_SELECTION_HELD';
+        else {
+          candidate=matches[0];var text=messageForLedgerCandidate_(candidate);
+          if (typeof text!=='string' || !text.trim() || text.length>2048) reason='CANONICAL_RENDER_INVALID';
+        }
+      } catch (error) {
+        var known=['SOURCE_URL_REQUIRED','OWNER_ACTION_REQUIRED','NOTIFICATION_TOO_LONG','MACHINE_GARBAGE_PAYLOAD_BLOCKED'];
+        reason=known.indexOf(String(error && error.message))>=0?error.message:'CANONICAL_RENDER_INVALID';
+      }
+    }
+    if (reason) held.push({row_index:index+1,notification_id_sha256:ownerLedgerHash_(JSON.stringify(r['Notification ID'])),reason_code:reason});
+    else candidates.push(candidate);
+  });
+  return {candidates:candidates,held:held};
+}
 function runCanonicalOwnerLedgerPoll(a) {
   var p=canonicalConfig_(),c=canonicalVerify_(a,'poll',p,false);canonicalExact_(a.data,[]);
   if (p.CORE_V1_TRANSPORT_ENABLED!=='TRUE') throw new Error('CANONICAL_GLOBAL_TRANSPORT_DISABLED');
   var lock=LockService.getScriptLock();if (!lock.tryLock(5000)) throw new Error('CANONICAL_LOCK_BUSY');
   try {
-    var context=openLedger_(),rows=canonicalRows_(context),candidates=collectCandidates_(context.values,context.headers,p,false,{enforceQuietHours:true});
-    var ids=candidates.filter(function(candidate) { return canonicalEligible_(candidate,rows,c); }).map(function(candidate) { messageForLedgerCandidate_(candidate);return candidate.notificationId; });
-    return canonicalSign_('poll-result',c,{rows:rows,candidates:ids},p);
+    var context=openLedger_(),rows=canonicalRows_(context),assessment=canonicalAssessment_(context,rows,c,p);
+    return canonicalSign_('poll-result',c,{rows:rows,candidates:assessment.candidates.map(function(candidate) { return candidate.notificationId; }),held:assessment.held},p);
   } finally { lock.releaseLock(); }
 }
 function runCanonicalOwnerLedgerClaim(a) {
@@ -62,7 +101,7 @@ function runCanonicalOwnerLedgerClaim(a) {
   if (typeof a.data.ticket!=='string' || !/^[0-9a-f-]{36}$/.test(a.data.ticket) || !Array.isArray(a.data.rows) || a.data.rows.length>128 || Utilities.newBlob(JSON.stringify(a.data.rows)).getBytes().length>262144) throw new Error('CANONICAL_CLAIM_REQUEST_INVALID');
   var lock=LockService.getScriptLock();if (!lock.tryLock(5000)) throw new Error('CANONICAL_LOCK_BUSY');
   try {
-    var context=openLedger_(),rows=canonicalRows_(context),matches=collectCandidates_(context.values,context.headers,p,false,{enforceQuietHours:true}).filter(function(candidate) { return candidate.notificationId===a.data.notification_id && canonicalEligible_(candidate,rows,c); });
+    var context=openLedger_(),rows=canonicalRows_(context),matches=canonicalAssessment_(context,rows,c,p).candidates.filter(function(candidate) { return candidate.notificationId===a.data.notification_id; });
     if (matches.length!==1) throw new Error('CANONICAL_SOURCE_NOT_ELIGIBLE');var candidate=matches[0];
     var before=a.data.rows.filter(function(r) { return r['Notification ID']===candidate.notificationId; });
     if (before.length!==1 || JSON.stringify(ledgerRecordSnapshot_(before[0]))!==JSON.stringify(ledgerRecordSnapshot_(candidate.sourceRow))) throw new Error('CANONICAL_SOURCE_CAS_MISMATCH');

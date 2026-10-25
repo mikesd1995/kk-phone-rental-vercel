@@ -1,0 +1,42 @@
+{
+  "name": "Canonical owner v2 source and native regression",
+  "on": {
+    "pull_request": {
+      "branches": ["main"],
+      "paths": [".github/workflows/canonical-owner-v2.yml", "server/make-owner-*", "server/kk-make-owner-notify.js", "server/runtime-ledger-oidc-bridge.js", "api/kk-scanner-dispatch.js", "apps-script/kk-agent/**", "supabase/functions/kk-runtime-ledger-oidc-probe/**", "supabase/staging/*owner*.sql", "tests/*owner*.test.js", "scripts/test-owner-canonical-native.mjs", "package.json", "package-lock.json", "vercel.json"]
+    },
+    "workflow_dispatch": {}
+  },
+  "permissions": {"contents": "read"},
+  "concurrency": {"group": "canonical-owner-v2-${{ github.ref }}", "cancel-in-progress": true},
+  "env": {"CI": "true", "KK_OWNER_CANONICAL_ENABLED": "FALSE", "KK_MAKE_OWNER_TRANSPORT_ENABLED": "FALSE", "CORE_V1_TRANSPORT_ENABLED": "FALSE"},
+  "jobs": {
+    "source-and-disposable-native-sql": {
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 25,
+      "steps": [
+        {
+          "uses": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+          "with": {"ref": "${{ github.event.pull_request.head.sha || github.sha }}", "persist-credentials": false}
+        },
+        {"uses": "actions/setup-node@v4", "with": {"node-version": "24"}},
+        {"name": "Install locked source dependencies without lifecycle scripts", "run": "npm ci --ignore-scripts"},
+        {"name": "Complete source regression", "run": "npm test"},
+        {"name": "Repository syntax checks", "run": "npm run check"},
+        {
+          "name": "Explicit canonical JavaScript and Apps Script syntax",
+          "run": "node --check server/make-owner-canonical.js\nnode --check server/make-owner-canonical-builder.js\nnode --check server/kk-make-owner-notify.js\nnode --check scripts/test-owner-canonical-native.mjs\nnode -e \"const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');const dir='apps-script/kk-agent';for(const file of fs.readdirSync(dir).filter(n=>n.endsWith('.gs')))new vm.Script(fs.readFileSync(path.join(dir,file),'utf8'),{filename:file});\""
+        },
+        {
+          "name": "Install pinned disposable PostgreSQL engine outside repository",
+          "run": "npm install --prefix \"${RUNNER_TEMP}/kk-canonical-native\" --no-save --ignore-scripts --no-package-lock @electric-sql/pglite@0.5.11"
+        },
+        {
+          "name": "Native canonical SQL regression with synthetic receipts only",
+          "env": {"PGLITE_MODULE": "file://${{ runner.temp }}/kk-canonical-native/node_modules/@electric-sql/pglite/dist/index.js"},
+          "run": "node scripts/test-owner-canonical-native.mjs --output \"${RUNNER_TEMP}/canonical-owner-native.json\""
+        }
+      ]
+    }
+  }
+}

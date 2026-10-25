@@ -7,7 +7,7 @@ create table public.kk_owner_canonical_cutover (
 );
 create table public.kk_owner_canonical_poll (
  poll_id uuid primary key, cutover_id uuid not null references public.kk_owner_canonical_cutover,
- slot_id bigint not null check(slot_id>0), context jsonb not null, issued boolean not null default false,
+ slot_id bigint not null check(slot_id>0), context jsonb not null, issued boolean not null default false, held jsonb not null default '[]'::jsonb,
  unique(cutover_id,slot_id)
 );
 create table public.kk_owner_canonical_ticket (
@@ -49,10 +49,10 @@ declare
  rec public.kk_owner_canonical_delivery; ctx jsonb; r jsonb; other jsonb; d jsonb; b jsonb; claimed jsonb;
  clock_at timestamptz:=pg_catalog.clock_timestamp(); slot bigint; due_at timestamptz; observed timestamptz;
  id text; dedup text; transport_id text; ticket_id uuid; ids jsonb:='[]'; k text; expected jsonb; text_binding text;
- keys text[]; count_keys integer; claim_at timestamptz; utf16_length bigint; payload text;
+ keys text[]; count_keys integer; claim_at timestamptz; utf16_length bigint; payload text; h jsonb; held_index integer; seen_indices integer[]:=array[]::integer[];
 begin
  if p_environment not in ('preview','production') or p_environment is null or p_operation is null or p_parameters is null or pg_catalog.jsonb_typeof(p_parameters) is distinct from 'object' or pg_catalog.octet_length(p_parameters::text)>300000 then raise exception 'CANONICAL_REQUEST_INVALID';end if;
- keys:=case p_operation when 'poll' then array[]::text[] when 'tickets' then array['context','rows','candidates'] when 'begin' then array['ticket'] when 'enqueue' then array['ticket','binding','descriptor','claimed_row'] when 'readback' then array['notification_id'] when 'reserve' then array['notification_id'] when 'ack' then array['notification_id','receipt_id','provider_message_id'] else null end;
+ keys:=case p_operation when 'poll' then array[]::text[] when 'poll-readback' then array['poll_id'] when 'tickets' then array['context','rows','candidates','held'] when 'begin' then array['ticket'] when 'enqueue' then array['ticket','binding','descriptor','claimed_row'] when 'readback' then array['notification_id'] when 'reserve' then array['notification_id'] when 'ack' then array['notification_id','receipt_id','provider_message_id'] else null end;
  select count(*) into count_keys from pg_catalog.jsonb_object_keys(p_parameters);
  if keys is null or count_keys<>pg_catalog.cardinality(keys) or not p_parameters ?& keys then raise exception 'CANONICAL_OPERATION_FORBIDDEN';end if;
  if p_operation in ('begin','enqueue') and pg_catalog.jsonb_typeof(p_parameters->'ticket') is distinct from 'string' then raise exception 'CANONICAL_REQUEST_INVALID';end if;
@@ -60,13 +60,20 @@ begin
  if p_operation='ack' and (pg_catalog.jsonb_typeof(p_parameters->'receipt_id') is distinct from 'string' or pg_catalog.jsonb_typeof(p_parameters->'provider_message_id') is distinct from 'string') then raise exception 'CANONICAL_ACK_INVALID';end if;
  select * into cfg from public.kk_owner_canonical_cutover where environment=p_environment and enabled for share;
  if not found then raise exception 'CANONICAL_DISABLED_OR_UNBOUND';end if;
+ clock_at:=pg_catalog.clock_timestamp(); -- Never trust a clock captured before a blocking lock.
  if p_operation='poll' then
   slot:=floor(extract(epoch from (clock_at-cfg.activated_at))/900);due_at:=cfg.activated_at+slot*interval '900 seconds';
   if slot<1 or clock_at>due_at+interval '120 seconds' then raise exception 'CANONICAL_SLOT_NOT_DUE';end if;
   ctx:=pg_catalog.jsonb_build_object('version','kk-owner-canonical-context-v2','cutover_id',cfg.cutover_id::text,'activated_at',pg_catalog.to_char(cfg.activated_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'policy_version',cfg.policy_version,'consumer_id',cfg.consumer_id,
    'script_project_id','1NYvGpqhx8QJR6onHX07_8gWxSwIAvhblMDDpMWfYLEKK02sK352J0_WF','spreadsheet_id','1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo','tab','_Notification_Ledger','transport','TELEGRAM_OWNER_ALERTS','environment',cfg.environment,
    'poll_id',pg_catalog.gen_random_uuid()::text,'slot_id',slot::text,'due_at',pg_catalog.to_char(due_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'observed_at',pg_catalog.to_char(clock_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'nonce',pg_catalog.gen_random_uuid()::text);
-  insert into public.kk_owner_canonical_poll values((ctx->>'poll_id')::uuid,cfg.cutover_id,slot,ctx,false);return ctx;
+  insert into public.kk_owner_canonical_poll(poll_id,cutover_id,slot_id,context,issued) values((ctx->>'poll_id')::uuid,cfg.cutover_id,slot,ctx,false);return ctx;
+ end if;
+ if p_operation='poll-readback' then
+  if pg_catalog.jsonb_typeof(p_parameters->'poll_id') is distinct from 'string' then raise exception 'CANONICAL_REQUEST_INVALID';end if;
+  select * into pol from public.kk_owner_canonical_poll where poll_id=(p_parameters->>'poll_id')::uuid for share;
+  if not found or pol.cutover_id<>cfg.cutover_id then raise exception 'CANONICAL_POLL_MISSING';end if;
+  return pg_catalog.jsonb_build_object('context',pol.context,'issued',pol.issued,'held',pol.held);
  end if;
  if p_operation='tickets' then
   select * into pol from public.kk_owner_canonical_poll where poll_id=(p_parameters->'context'->>'poll_id')::uuid for update;
@@ -78,6 +85,7 @@ begin
  else
   select * into rec from public.kk_owner_canonical_delivery where notification_id=p_parameters->>'notification_id' for update;
   if not found then raise exception 'CANONICAL_SOURCE_MISSING';end if;
+  clock_at:=pg_catalog.clock_timestamp();
   if rec.context->>'cutover_id'<>cfg.cutover_id::text then raise exception 'CANONICAL_CUTOVER_MISMATCH';end if;
   if p_operation='readback' then return pg_catalog.to_jsonb(rec);end if;
   if rec.descriptor is null or (rec.descriptor->>'expires_at')::timestamptz<=clock_at then raise exception 'CANONICAL_ORIGINAL_DESCRIPTOR_EXPIRED';end if;
@@ -90,15 +98,26 @@ begin
   if rec.status<>'RESERVED' or rec.receipt_id is distinct from (p_parameters->>'receipt_id')::uuid or (p_parameters->>'provider_message_id' ~ '^[1-9][0-9]{0,19}$') is distinct from true then raise exception 'CANONICAL_ACK_MISMATCH';end if;
   update public.kk_owner_canonical_delivery set status='SENT',provider_message_id=p_parameters->>'provider_message_id',delivered_at=clock_at where notification_id=rec.notification_id returning * into rec;return pg_catalog.to_jsonb(rec);
  end if;
+ clock_at:=pg_catalog.clock_timestamp();
  ctx:=pol.context;observed:=(ctx->>'observed_at')::timestamptz;due_at:=(ctx->>'due_at')::timestamptz;
  if pol.cutover_id<>cfg.cutover_id or observed<clock_at-interval '120 seconds' or observed>clock_at+interval '15 seconds' or clock_at>due_at+interval '120 seconds' then raise exception 'CANONICAL_POLL_EXPIRED';end if;
  if p_operation='tickets' then
   if pg_catalog.jsonb_typeof(p_parameters->'context') is distinct from 'object' or pg_catalog.jsonb_typeof(p_parameters->'rows') is distinct from 'array' or pg_catalog.jsonb_array_length(p_parameters->'rows')>128 or pg_catalog.octet_length((p_parameters->'rows')::text)>262144 or pg_catalog.jsonb_typeof(p_parameters->'candidates') is distinct from 'array' or pg_catalog.jsonb_array_length(p_parameters->'candidates')>128 then raise exception 'CANONICAL_SNAPSHOT_BOUNDS';end if;
   if exists(select 1 from pg_catalog.jsonb_array_elements(p_parameters->'candidates') x where pg_catalog.jsonb_typeof(x)<>'string') then raise exception 'CANONICAL_CANDIDATE_INVALID';end if;
+  if pg_catalog.jsonb_typeof(p_parameters->'held') is distinct from 'array' or pg_catalog.jsonb_array_length(p_parameters->'held')>128 or pg_catalog.octet_length((p_parameters->'held')::text)>32768 then raise exception 'CANONICAL_HELD_METADATA_INVALID';end if;
+  for h in select pg_catalog.jsonb_array_elements(p_parameters->'held') loop
+   if pg_catalog.jsonb_typeof(h) is distinct from 'object' then raise exception 'CANONICAL_HELD_METADATA_INVALID';end if;
+   select count(*) into count_keys from pg_catalog.jsonb_object_keys(h);
+   if count_keys<>3 or not h ?& array['row_index','notification_id_sha256','reason_code'] or pg_catalog.jsonb_typeof(h->'row_index') is distinct from 'number' or (h->>'row_index' ~ '^[1-9][0-9]{0,2}$') is distinct from true or pg_catalog.jsonb_typeof(h->'notification_id_sha256') is distinct from 'string' or pg_catalog.jsonb_typeof(h->'reason_code') is distinct from 'string' then raise exception 'CANONICAL_HELD_METADATA_INVALID';end if;
+   held_index:=(h->>'row_index')::integer;
+   if held_index>pg_catalog.jsonb_array_length(p_parameters->'rows') or held_index=any(seen_indices) or h->>'notification_id_sha256' is distinct from pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to((p_parameters->'rows'->(held_index-1)->'Notification ID')::text,'UTF8')),'hex') or h->>'reason_code' not in ('CANONICAL_SOURCE_TYPE_INVALID','CANONICAL_ID_INVALID','CANONICAL_ID_AMBIGUOUS','CANONICAL_DEDUP_AMBIGUOUS','CANONICAL_SOURCE_ALREADY_ATTEMPTED','CANONICAL_NORMAL_SOURCE_REQUIRED','CANONICAL_SOURCE_CUTOVER_INVALID','CANONICAL_SOURCE_HELD','QUIET_HOURS_HOLD','CANONICAL_CORE_SELECTION_HELD','CANONICAL_RENDER_INVALID','SOURCE_URL_REQUIRED','OWNER_ACTION_REQUIRED','NOTIFICATION_TOO_LONG','MACHINE_GARBAGE_PAYLOAD_BLOCKED','GATEWAY_CANDIDATE_REJECTED') then raise exception 'CANONICAL_HELD_METADATA_INVALID';end if;
+   seen_indices:=pg_catalog.array_append(seen_indices,held_index);
+  end loop;
   for id in select pg_catalog.jsonb_array_elements_text(p_parameters->'candidates') loop
    select count(*) into count_keys from pg_catalog.jsonb_array_elements(p_parameters->'rows') x where x->>'Notification ID'=id;
    if count_keys<>1 then raise exception 'CANONICAL_ID_AMBIGUOUS';end if;
    select x into r from pg_catalog.jsonb_array_elements(p_parameters->'rows') x where x->>'Notification ID'=id;
+   if exists(select 1 from pg_catalog.unnest(seen_indices) i where p_parameters->'rows'->(i-1)->>'Notification ID'=id) then raise exception 'CANONICAL_HELD_CANDIDATE_CONFLICT';end if;
    select count(*) into count_keys from pg_catalog.jsonb_object_keys(r);
    if count_keys<>23 or not r ?& array['Notification ID','Created At','Event Family ID','Show ID','Change Type','Priority','Quiet Hours Policy','Payload','Audit Event ID','Transport','Status','Attempt Count','Last Attempt At','Delivery Evidence','Next Retry At','Dedup Key','Notes','HTTP Status','Provider Message ID','API Accepted At','Delivery Confirmed At','Last Error','Feedback Source'] then raise exception 'CANONICAL_ROW_INVALID';end if;
    for k in select pg_catalog.jsonb_object_keys(r) loop
@@ -117,7 +136,7 @@ begin
    if exists(select 1 from public.kk_owner_canonical_delivery q where q.source_notification_id=id or q.dedup_key=dedup) then continue;end if;
    ticket_id:=pg_catalog.gen_random_uuid();insert into public.kk_owner_canonical_ticket values(ticket_id,pol.poll_id,id,dedup,p_parameters->'rows',r,'NEW');ids:=ids||pg_catalog.jsonb_build_array(ticket_id::text);
   end loop;
-  update public.kk_owner_canonical_poll set issued=true where poll_id=pol.poll_id;return ids;
+  update public.kk_owner_canonical_poll set issued=true,held=p_parameters->'held' where poll_id=pol.poll_id;return ids;
  end if;
  if p_operation='begin' then
   if tic.state<>'NEW' then raise exception 'CANONICAL_TICKET_ALREADY_CONSUMED';end if;
@@ -128,6 +147,8 @@ begin
  end if;
  select * into rec from public.kk_owner_canonical_delivery where ticket=tic.ticket for update;
  if not found or rec.status<>'CLAIMING' or tic.state<>'CLAIMING' then raise exception 'CANONICAL_ADMISSION_FENCED';end if;
+ clock_at:=pg_catalog.clock_timestamp();
+ if observed<clock_at-interval '120 seconds' or observed>clock_at+interval '15 seconds' or clock_at>due_at+interval '120 seconds' then raise exception 'CANONICAL_POLL_EXPIRED';end if;
  r:=tic.source_row;claimed:=p_parameters->'claimed_row';text_binding:=p_parameters->>'binding';b:=text_binding::jsonb;d:=p_parameters->'descriptor';
  if pg_catalog.jsonb_typeof(p_parameters->'binding') is distinct from 'string' or pg_catalog.jsonb_typeof(claimed) is distinct from 'object' or pg_catalog.jsonb_typeof(d) is distinct from 'object' or pg_catalog.jsonb_typeof(b) is distinct from 'array' then raise exception 'CANONICAL_ENQUEUE_TYPE_INVALID';end if;
  if exists(select 1 from pg_catalog.jsonb_array_elements(b) x where pg_catalog.jsonb_typeof(x) is distinct from 'string') then raise exception 'CANONICAL_BINDING_TYPE_INVALID';end if;
@@ -136,7 +157,9 @@ begin
  perform (substring(b->>14 from 7))::uuid;
  expected:=pg_catalog.jsonb_build_array(r->>'Created At',r->>'Payload',r->>'Dedup Key',r->>'Event Family ID',r->>'Show ID',r->>'Change Type',r->>'Priority',r->>'Quiet Hours Policy');
  for slot in 0..7 loop if b->(slot::integer+5) is distinct from expected->slot::integer then raise exception 'CANONICAL_IMMUTABLE_SOURCE_CHANGED';end if;end loop;
+ if pg_catalog.jsonb_typeof(claimed->'Last Attempt At') is distinct from 'string' or (claimed->>'Last Attempt At' ~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$') is distinct from true then raise exception 'CANONICAL_CLAIM_TIMESTAMP_INVALID';end if;
  claim_at:=(claimed->>'Last Attempt At')::timestamptz;
+ if claim_at is null or not pg_catalog.isfinite(claim_at) or pg_catalog.to_char(claim_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') is distinct from claimed->>'Last Attempt At' then raise exception 'CANONICAL_CLAIM_TIMESTAMP_INVALID';end if;
  if claim_at<observed or claim_at<clock_at-interval '120 seconds' or claim_at>clock_at+interval '15 seconds' then raise exception 'CANONICAL_CLAIM_EXPIRED';end if;
  expected:=r||pg_catalog.jsonb_build_object('Status','SENDING','Attempt Count',1,'Last Attempt At',claimed->>'Last Attempt At','Notes',case when r->>'Notes'='' then b->>14 else (r->>'Notes')||' | '||(b->>14) end);
  if claimed<>expected then raise exception 'CANONICAL_CLAIM_CAS_MISMATCH';end if;

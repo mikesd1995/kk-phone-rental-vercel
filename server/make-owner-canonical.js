@@ -8,6 +8,7 @@ const Oidc=require('./runtime-ledger-oidc-bridge');
 const FUNCTIONS={poll:'runCanonicalOwnerLedgerPoll',claim:'runCanonicalOwnerLedgerClaim',project:'finalizeCanonicalOwnerLedgerAck'};
 const CONTEXT_FIELDS=['version','cutover_id','activated_at','policy_version','consumer_id','script_project_id','spreadsheet_id','tab','transport','environment','poll_id','slot_id','due_at','observed_at','nonce'];
 const EVIDENCE=['Last Attempt At','Delivery Evidence','Next Retry At','HTTP Status','Provider Message ID','API Accepted At','Delivery Confirmed At','Last Error','Feedback Source'];
+const HELD_CODES=new Set(['CANONICAL_SOURCE_TYPE_INVALID','CANONICAL_ID_INVALID','CANONICAL_ID_AMBIGUOUS','CANONICAL_DEDUP_AMBIGUOUS','CANONICAL_SOURCE_ALREADY_ATTEMPTED','CANONICAL_NORMAL_SOURCE_REQUIRED','CANONICAL_SOURCE_CUTOVER_INVALID','CANONICAL_SOURCE_HELD','QUIET_HOURS_HOLD','CANONICAL_CORE_SELECTION_HELD','CANONICAL_RENDER_INVALID','SOURCE_URL_REQUIRED','OWNER_ACTION_REQUIRED','NOTIFICATION_TOO_LONG','MACHINE_GARBAGE_PAYLOAD_BLOCKED','GATEWAY_CANDIDATE_REJECTED']);
 function fail(code){throw Object.assign(new Error(code),{code});}
 function exact(v,keys){if(!Wire.isPlainObject(v)||Reflect.ownKeys(v).length!==keys.length||Reflect.ownKeys(v).some(k=>typeof k!=='string'||!keys.includes(k)||!Object.hasOwn(Object.getOwnPropertyDescriptor(v,k),'value')))fail('CANONICAL_FIELDS_INVALID');return v;}
 function stamp(v){if(typeof v!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString()!==v)fail('CANONICAL_CLOCK_INVALID');return Date.parse(v);}
@@ -63,19 +64,32 @@ async function store(operation,parameters,cfg,options={}){
  if(!r.ok)fail(r.error_code||'CANONICAL_STORE_UNAVAILABLE');const b=r.body;if(b.ok!==true||b.authenticated!==true||b.project_ref!==Legacy.PROJECT_REF||b.version!=='v2'||b.operation!==operation||b.provider_sends!==0)fail('CANONICAL_STORE_RESPONSE_INVALID');return b.result;});
 }
 function descriptorMatch(record,envelope){if(!Wire.isPlainObject(record)||!Wire.isPlainObject(record.descriptor)||!Object.keys(record.descriptor).every(k=>record.descriptor[k]===envelope[k]))fail('CANONICAL_DURABLE_DESCRIPTOR_MISMATCH');}
+function heldEntry(rows,index,reason_code){return {row_index:index+1,notification_id_sha256:crypto.createHash('sha256').update(JSON.stringify(rows[index]['Notification ID']),'utf8').digest('hex'),reason_code};}
+function validateHeld(held,rows){
+ if(!Array.isArray(held)||held.length>128||Buffer.byteLength(JSON.stringify(held))>32768)fail('CANONICAL_HELD_METADATA_INVALID');const indices=new Set();
+ for(const h of held){exact(h,['row_index','notification_id_sha256','reason_code']);if(!Number.isInteger(h.row_index)||h.row_index<1||h.row_index>rows.length||indices.has(h.row_index)||!HELD_CODES.has(h.reason_code)||h.notification_id_sha256!==heldEntry(rows,h.row_index-1,h.reason_code).notification_id_sha256)fail('CANONICAL_HELD_METADATA_INVALID');indices.add(h.row_index);}return held;
+}
 async function runHandle(body,cfg,options={}){
  if(!cfg.canonicalEnabled||!cfg.producerEnabled||typeof cfg.canonicalSecret!=='string'||cfg.canonicalSecret.length<32||cfg.canonicalSecret===cfg.secret||(!cfg.gasAccessToken&&!(cfg.gasClientId&&cfg.gasClientSecret&&cfg.gasRefreshToken))||!cfg.gasDeploymentId||cfg.gasProjectId!==Legacy.SCRIPT_PROJECT_ID)fail('CANONICAL_DISABLED_OR_UNBOUND');
  if(cfg.consumerAuthenticated!==true)fail('CANONICAL_CONSUMER_UNAUTHENTICATED');
  const op=body.stage;
+ if(op==='canonical-poll-readback'){
+  exact(body,['stage','version','poll_id']);if(body.version!=='v2'||!Wire.isReceiptId(body.poll_id))fail('CANONICAL_FIELDS_INVALID');
+  const read=await store('poll-readback',{poll_id:body.poll_id},cfg,options);if(!Wire.isPlainObject(read)||read.context?.poll_id!==body.poll_id||!Array.isArray(read.held)||read.held.length>128)fail('CANONICAL_POLL_READBACK_INVALID');
+  return {ok:true,mode:'CANONICAL_V2',send_allowed:false,poll_id:body.poll_id,issued:read.issued,held:read.held};
+ }
  if(op==='canonical-poll'){
   exact(body,['stage','version']);if(body.version!=='v2')fail('CANONICAL_FIELDS_INVALID');const context=validateContext(await store('poll',{},cfg,options));
   const result=verifySigned(await executeGas('poll',signContext('poll',context,{},cfg.canonicalSecret),cfg,options),'poll-result',cfg);
   if(JSON.stringify(result.context)!==JSON.stringify(context))fail('CANONICAL_CONTEXT_MISMATCH');
-  exact(result.data,['rows','candidates']);if(!Array.isArray(result.data.candidates)||result.data.candidates.length>128)fail('CANONICAL_SNAPSHOT_BOUNDS');
-  for(const id of result.data.candidates)planCandidate(result.data.rows,id,context);
-  const tickets=await store('tickets',{context,rows:result.data.rows,candidates:result.data.candidates},cfg,options);
+  exact(result.data,['rows','candidates','held']);if(!Array.isArray(result.data.rows)||result.data.rows.length>128||Buffer.byteLength(JSON.stringify(result.data.rows))>262144||!Array.isArray(result.data.candidates)||result.data.candidates.length>128)fail('CANONICAL_SNAPSHOT_BOUNDS');
+  const held=validateHeld(result.data.held,result.data.rows).slice(),candidates=[];
+  for(const id of result.data.candidates){try{planCandidate(result.data.rows,id,context);candidates.push(id);}catch(_){const index=result.data.rows.findIndex(r=>r['Notification ID']===id);if(index<0)fail('CANONICAL_CANDIDATE_INVALID');if(!held.some(h=>h.row_index===index+1))held.push(heldEntry(result.data.rows,index,'GATEWAY_CANDIDATE_REJECTED'));}}
+  validateHeld(held,result.data.rows);
+  if(candidates.some(id=>held.some(h=>result.data.rows[h.row_index-1]['Notification ID']===id)))fail('CANONICAL_HELD_CANDIDATE_CONFLICT');
+  const tickets=await store('tickets',{context,rows:result.data.rows,candidates,held},cfg,options);
   if(!Array.isArray(tickets)||tickets.some(ticket=>!Wire.isReceiptId(ticket)))fail('CANONICAL_TICKET_RESPONSE_INVALID');
-  return {ok:true,mode:'CANONICAL_V2',send_allowed:false,poll_id:context.poll_id,tickets:tickets.map(ticket=>({ticket}))};
+  return {ok:true,mode:'CANONICAL_V2',send_allowed:false,poll_id:context.poll_id,tickets:tickets.map(ticket=>({ticket})),held};
  }
  if(op==='canonical-admit'){
   exact(body,['stage','version','ticket']);if(body.version!=='v2'||!Wire.isReceiptId(body.ticket))fail('CANONICAL_FIELDS_INVALID');
