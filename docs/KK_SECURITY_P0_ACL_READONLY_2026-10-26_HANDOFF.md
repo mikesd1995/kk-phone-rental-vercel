@@ -1,0 +1,36 @@
+# KK Phone Rental — P0 Security 26 Oct 2026: read-only reconciliation and cross-chat handoff
+
+## Scope and authority
+Owner goal: complete Stable Business V1 safely with no additional spending. Preserve the two-physical-phone shared-date booking constraint, owner hidden/booking locks, current prices, LINE, and storefront. This pass is **source preparation on existing Draft PR #721**, not acceptance/approval for Production, an Apps Script save, Drive ACL mutation, GitHub merge, Vercel deploy, or a new scheduled scanner.
+
+Related: [Core private-read PR #739](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/739), [Core privacy incident #738](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/738), [Poster ACL master #718](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/718), [historical ACL #743](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/743), [Final completion gate #49](https://github.com/mikesd1995/kk-phone-rental-vercel/issues/49).
+
+## Current read-only Core and Drive evidence, 2026-10-26 Bangkok
+- Canonical Core spreadsheet (ID recorded in existing config, not reproduced here): Google Drive metadata reported **anyone/reader**; shared but `allowFileDiscovery=false`. Sensitive customer/booking data means **P0 exposure remains**. Do not revoke until the authorized private-reader switch and 13-source runtime E2E have passed.
+- Three directly checked current event poster files (ELLE Oct22, SUPER SUN Nov02, JASP.ER Dec18–20) individually returned **anyone/writer**, `allowFileDiscovery=false`. This is metadata evidence of a possible public-write risk, not proof of unauthorized alteration. No ACL was changed.
+- Native Sheets metadata confirmed all 13 tab names exist. Direct **header-row-only** Google Sheets reads matched the PR #739 preflight schemas in **13/13**: `01_Events`, `00_Master_Booking`, `02_Assets`, `03_Packages`, `04_Event_Overrides`, `08_Web_Ready`, `09_Web_Packages`, `11_Customer_Stats`, `10_Admin_Health_Check`, `Model_Master`, `18_Event_Visibility_Locks`, `_Rental_Dashboard_Data` (literal `Booking ID`), and `13_Event_Archive` (nonempty header). **This is NOT private-key transport acceptance**. No customer rows were needed.
+- Bounded, read-only `01_Events` versus `08_Web_Ready` join returned **390 event IDs each**, **zero duplicate IDs**, **zero displayed poster URL disagreement for visible Oct–Dec cards**, and **110 visible Oct–Dec event/day cards** (Oct39 / Nov44 / Dec27). Those cards reference **48 Drive thumbnail uses / 37 unique Drive file IDs**; **62 cards have non-Drive-thumbnail artwork**. This population is NOT the same as the stale owner repair manifest and includes temporary/off-Drive assets; the absence of thumbnail evidence is not proof of poster rights.
+- The Draft #721 owner ACL tool still pins a **73 visible cards / 48 thumbnail uses / 39 unique Drive IDs** manifest. Its old scope necessarily diverges from today's observed dataset; `SCOPED_ACTIVE_POSTER_DRIFT` must continue to prevent *any* owner ACL Apply. Do NOT silently update pinned IDs or remove size constraints simply to make Apply proceed. A new owner-reviewed manifest, official media/access QA, independent current-permission census and fingerprint are necessary.
+- The Oct–Dec counts above were calculated from date strings in the Google Sheets WebReady feed. Native Core date cells are formatted `dd/mm/yyyy` in checked samples. Live Apps Script `getDisplayValues()` execution was NOT performed here.
+
+## Actual source change on PR #721 (no main/production change)
+1. Source commit `baec04cb39bc7d75c856bca25dc5ddf2c2d42f2d`: `ops/drive-security/kk-poster-acl-owner-review-20261013.gs` now refuses permission work with `SCOPED_ACTIVE_EVENT_DATE_DIVERGED` when `01_Events.event_date` differs from `08_Web_Ready.event_date_text` for a visible Oct–Dec record even if the poster URL matches.
+2. Source commit `1afb7a9e6c6e5ae15a64d2e38c471eea11a1b627`: added byte-matching check to the standalone `kk-poster-acl-READONLY-preflight-20261014.gs`; it still has **no Apply, trigger or setSharing**.
+3. Test commit `8df5f62fea3d9cebd5e33b3b48265b6ccacba456`: appended date-drift regression for both read-only and owner script, including no-writes assertion.
+4. Exact fetched three file blobs were read back after the commits: owner `10ff6a4e394e6093752a0c17568ae3fcb056809d`, readonly `1a21cda7e9d4f3e8dcdd37b83e52813309386390`, tests `1d7a1f011ddb0985294146b052352244f4115c36`.
+
+## Validation — separate confidence classes
+- **PASS (limited synthetic V8): 14/14**: GitHub readback, byte-identical source preflight prefix, readonly contains no setSharing, added regression present, full JS source syntax parsing, and for each real fetched script a 39-pinned baseline + date drift + image URL divergence + cardinality drift synthetic tests. These tests used no external API, customer data or Drive writer.
+- **NOT RUN**: native Node `node --test ops/drive-security/kk-poster-acl-owner-review-20261013.test.cjs` and full `npm test` on an exact source checkout.
+- **NO HOSTED ACCEPTANCE**: exact SHA `8df5f62...` had zero PR-associated workflow runs and an empty combined status response at readback. A blank status is NOT PASS.
+- **NO PROVIDER/PRODUCTION ACCEPTANCE**: no real Apps Script owner dry-run, 13 private secret-auth reads, signed-out image decode/CTA, permission mutation/readback or rollback rehearsal.
+- GitHub PR #721 remains **DRAFT, mergeable=false**, **71 commits ahead / 38 behind** current checked main SHA `64cec7bfa75e8c1f5cfe56570ee701f27bf540fe`. Do not merge/rebase blindly; current production and released Admin/booking paths must be protected.
+
+## Next exact gates (in priority order)
+1. Private reader #739: owner-local dedicated reader key (no credentials in chat/GitHub), Apps Script script-property enablement only in a protected controlled deployment, 13/13 authenticated real range/schema reads, reader/admin credential isolation and negative public-GViz checks, exact-head native CI. Preserve old path until verified.
+2. Poster #721: read-only owner-only fresh full source-to-web snapshot and **current** active poster manifest; include Oct–Dec, owner-hides, historical 209+ and approved folder scopes; independently check effective Drive permissions, media provenance and public signed-out image loading. Reconcile 110/48/37 observation against 73/48/39 pinned source before any change.
+3. Owner fingerprint per 25 permission changes; no folder/historical implicit ACL changes. After each authorized action independently read roles, image accessibility and regression footprint. Historical and folder Writer roles remain separate HOLD.
+4. Admin/Booking/LINE/Storefront public/mobile TH+EN and dark+light E2E, revenue parity, safe rollback and owner approval before protected release.
+5. Re-read actual GitHub main and PR heads; manually port minimal reviewed fixes onto a current integration candidate instead of blindly merging stale PR #721/#739/#744.
+
+**Actual side effects in this pass:** three Draft-only code/test commits plus this evidence document; Google Drive ACL changes 0; production Apps Script saves 0; Booking/customer/pricing/stock mutations 0; Make sends and scenario activations 0; Vercel deployment/merge 0; paid service usage not initiated. Security remains **P0 HOLD**, not closed.
