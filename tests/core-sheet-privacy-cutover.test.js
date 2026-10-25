@@ -62,6 +62,21 @@ test('missing transport never silently selects a service account despite present
  assert.equal(Core.state(authorized).transport,'service-account');
 });
 
+test('unknown Core transport is sanitized and blocks strict private reads without leaking environment input',()=>{
+  const malicious='PRIVATE_READ_CREDENTIAL_FIXTURE_'+('x'.repeat(64));
+  const invalid={...authorized,KK_CORE_PRIVATE_TRANSPORT:malicious};
+  const status=Core.state(invalid);
+  assert.equal(status.transport,'invalid');
+  assert.equal(status.transportReady,false);
+  assert.equal(status.authMode,'none');
+  assert.doesNotMatch(JSON.stringify(status),/PRIVATE_READ_CREDENTIAL_FIXTURE/);
+  assert.throws(()=>Core.requireExplicitPrivateSource(invalid.GOOGLE_SHEET_ID,invalid),
+    e=>e.code==='CORE_PRIVATE_TRANSPORT_INVALID'&&!String(e).includes(malicious));
+  for(const selected of ['none','apps-script','service-account']){
+    assert.equal(Core.state({...authorized,KK_CORE_PRIVATE_TRANSPORT:selected}).transport,selected);
+  }
+});
+
 test('private Core and private CRM sheet IDs can differ when explicit Core cutover is enabled',()=>{
   assert.equal(Core.requireExplicitPrivateSource(strict.GOOGLE_SHEET_ID,authorized),strict.GOOGLE_SHEET_ID);
   assert.equal(Core.verifiedRange('08_Web_Ready','A4:K'),'08_Web_Ready!A4:K');
