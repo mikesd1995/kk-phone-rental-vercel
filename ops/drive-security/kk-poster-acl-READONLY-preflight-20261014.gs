@@ -37,6 +37,10 @@ function kkAclReadActive_20261013(){
   const refs=[];
   for(const row of cards){
     const w=show.get(row[0]);
+    // An unchanged image alone cannot authorize ACL changes for a card whose
+    // canonical date disagrees with the public feed. Abort before Drive writes.
+    if(String(row[2]||'').trim()!==String(w[2]||'').trim())
+      throw Error('SCOPED_ACTIVE_EVENT_DATE_DIVERGED');
     if(String(row[4]||'')!==String(w[4]||''))throw Error('IMAGE_READBACK_DIVERGED:'+row[0]);
     const m=String(row[4]||'').match(/^https:\/\/drive\.google\.com\/thumbnail\?id=([A-Za-z0-9_-]+)/);
     if(m)refs.push(m[1]);
