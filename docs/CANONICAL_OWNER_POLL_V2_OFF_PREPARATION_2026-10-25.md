@@ -1,0 +1,51 @@
+# Canonical owner intake v2 — source preparation, runtime OFF
+
+This change implements an isolated canonical protocol for the existing owner gateway, Make scenario `6176241` and KK Agent Apps Script project. It does not deploy, migrate a live database, save Apps Script, edit Make, activate a transport, replay a row, or send a provider request. Source tests and synthetic SQL ACKs are not provider delivery evidence.
+
+## Implemented flow
+
+1. A dedicated same-consumer bearer credential authenticates every canonical gateway request. The existing transport gate, canonical gate, producer gate, fixed project binding and OAuth binding must all be configured. Missing/disabled configuration rejects before network. Credentials are read only from runtime/provider secret stores; the compiler contains connection IDs, never their credentials.
+2. The authenticated same-project OIDC Edge allowlist calls one narrowly scoped native canonical RPC. A locked, trusted cutover row supplies immutable activation time, policy, environment and consumer. No cutover row is seeded by this staged migration. A unique 900-second slot can produce one poll context during its first 120 seconds.
+3. Fixed Apps Script Execution API calls use `devMode:false` and only `runCanonicalOwnerLedgerPoll`, `runCanonicalOwnerLedgerClaim`, or `finalizeCanonicalOwnerLedgerAck`. OAuth refresh uses the fixed Google token endpoint with no retry; neither access tokens nor provider secrets appear in responses. The separate private Core reader is not used.
+4. GAS verifies a purpose-separated HMAC and exact local cutover/project/environment binding. Poll/claim also honor `CORE_V1_TRANSPORT_ENABLED`. Under the existing ScriptLock it reuses Core candidate selection, quiet hours, message renderer, full-row CAS, dedup witnesses, claim and exact projection/readback. Normal Telegram candidates in the timed Core runner are suppressed before claim when canonical mode is selected; the LINE path is unchanged.
+5. A bounded, complete poll snapshot yields opaque durable tickets. Make iterates `{ticket}` objects and admits each just in time. Native `begin` consumes the ticket and creates a unique identity/dedup fence **before** GAS can claim. Unknown GAS outcomes remain `CLAIMING`/Sheet `SENDING`; there is no reset, expiry renewal, automatic retry or resend transition.
+6. Enqueue atomically verifies the original row, exact claimed row, trusted context and original descriptor, then records the immutable binding and descriptor. Only that persisted descriptor is signed. The response includes `envelope_json`, so Make can preserve exact JSON escaping.
+7. `canonical-prepare` reserves one provider attempt. The gateway checks the original expiry with a 15-second margin before and after reservation; the Make provider filter checks the same deadline immediately before dispatch. `canonical-ack` commits receipt-bound native `SENT` and reads it back. `canonical-project` separately projects/readbacks the Sheet ACK. A projection failure can be repaired after descriptor expiry using the original signed envelope and durable `SENT`, without reservation or provider send.
+
+## Clocks and immutable identity
+
+Business `Created At` stays exactly in binding index 5, including valid original offset strings. It must be at/after the trusted activation cutoff and no later than the current observation. There is no 120-second or current-slot age cap on the business row. A row held during Bangkok 23:00–07:00 remains QUEUED with the same identity and can qualify during a later fresh poll. Only the established P0 cancellation/postponement/date/venue rules bypass quiet hours; generic material updates cannot.
+
+Poll observation and exact claim each remain fresh within 120 seconds with at most 15 seconds of future skew. The original signed descriptor lasts at most 120 seconds. An attempted descriptor is never recreated or extended.
+
+The v2 binding has the established first 13 positions with version `kk-owner-ledger-binding-v2`, followed by the serialized trusted context and exact Sheet claim ID. Normal selection follows the existing governed Core rules and excludes controlled-UAT markers. The current Core/policy has no exhaustive normal change-type enum; this implementation does not invent one from fixtures.
+
+## Additive storage and security
+
+`supabase/staging/kk-owner-ledger-canonical-v2.sql` adds four RLS-enabled canonical tables and a fixed-search-path RPC. No v1 UAT table, validator, trigger or RPC body is changed. Existing UAT grants/claims/fixtures remain untouched.
+
+Public, anon, authenticated and service-role callers have no direct canonical table privileges. Only service_role may execute the allowlisted operation RPC; its `SECURITY DEFINER` body validates and locks the trusted configuration within the same transaction. Unique slot, ticket, raw identity, dedup and receipt constraints fence races. The activation epoch and other cutover bindings cannot be rewritten; only its enable flag may change through a separately authorized owner operation. Explicit JSON type/null checks and UTF16 message bounds match the gateway/wire contract.
+
+All attempted states are reconciliation holds unless exact native receipt evidence reaches durable SENT. Definitive-rejection retry is intentionally unsupported: adding it requires the complete governed rejection/projection/identity contract, not a partial RETRY_WAIT transition. Old rows and consumed UAT fixtures cannot be re-aged or admitted through canonical v2.
+
+## Guarded Make preparation
+
+`server/make-owner-canonical-builder.js` is an offline compiler for the existing scenario. It requires a fresh inactive snapshot, zero incomplete executions, matching `expectedLastEdit`, the verified existing Telegram connection `10356915`, a separately verified HTTP connection scoped to the exact gateway URL, and actual new module IDs returned by a separately approved Make save. It refuses unknown graphs and error-handler/parent routes.
+
+It produces the desired flat poll → iterator → admit → existing 6 prepare → existing 8 Telegram → existing 9 durable ACK → HTTP projection graph, with active false and provider 8 disabled. Old on-demand modules 5/10 and their references are removed. The Telegram mapper uses the native numeric `message_id`, quoted as a JSON string for ACK, and plaintext rendering. The emitted provider filter requires `send_allowed`, a receipt and original expiry > now + 15 seconds.
+
+HTTP v4 and iterator v1 fields were checked against current connected module schemas. The compiler emits native indefinite/900 schedule intent and empty input/output intent; it does not invent unsupported scheduling/interface patch operation names. Exact tool validation of that complete desired graph, schedule, interfaces, filters and readback remains a release gate. Sequential processing, DLQ off, zero incomplete executions and no retry/Break/error routes are required. No incomplete execution may resume at provider 8 after an unknown outcome.
+
+## Source verification and remaining gates
+
+Behavioral tests execute the actual gateway, Edge handler and GAS source, including the actual Core renderer. They cover original post-cutover rows older than 120 seconds, offset preservation, quiet-held same identity, forged contexts, default/global OFF, stale observations, exact claim CAS, duplicate identity/dedup, two-ticket JIT processing, ambiguous claim outcomes, receipt mismatch, durable ACK before Sheet projection and expired projection-only recovery. Existing v1 regression tests run alongside them.
+
+The separate native test runner executes this exact staged SQL on a disposable PostgreSQL-compatible engine. It covers default OFF, ACL/RLS, NULL/type attacks, source/descriptor immutability, original TTL, consumed tickets, one reservation, synthetic exact/idempotent ACK, late ACK rejection, expired SENT readback, cutover immutability and UTF16 bounds. It does not contact a remote database or provider. PGlite uses one backend; simultaneous multi-session PostgreSQL lock contention is not certified by that run.
+
+To reproduce the native tests, install `@electric-sql/pglite@0.5.11` only in a disposable developer directory (not as an application dependency), set `PGLITE_MODULE` to its `dist/index.js` file URL, then run:
+
+```text
+node scripts/test-owner-canonical-native.mjs --output <local-evidence-file.json>
+```
+
+No production acceptance is implied. Independent review/full regression and hosted CI must be reported separately. Applying the staged SQL requires fresh installed catalog/function/ACL comparison, backups and explicit owner approval. GAS executable/OAuth binding, distinct consumer and HMAC secrets, required credential rotation, trusted cutover configuration, same617 migration/readback, protected merge/deployment and finite provider-test authority remain pending. Telegram/LINE native delivery, durable live ACK, actual Sheet projection and natural future-slot runtime remain unverified. Scanner and Verifier stay paused.

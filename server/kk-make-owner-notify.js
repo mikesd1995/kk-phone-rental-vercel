@@ -4,6 +4,7 @@
 const Contract=require('./make-owner-transport-contract.js');
 const Runtime=require('./runtime-ledger.js');
 const LedgerBridge=require('./make-owner-ledger-bridge.js');
+const crypto=require('node:crypto');
 
 function t(v){ return String(v==null?'':v).trim(); }
 function enabled(v){ return /^(1|true|yes|on)$/i.test(t(v)); }
@@ -23,6 +24,12 @@ function config(env=process.env){
     key,secret,ownerChatId,storeMode,expectedRef:expected,
     producerEnabled:enabled(env.KK_OWNER_LEDGER_PRODUCER_ENABLED),
     producerSecret:String(env.KK_OWNER_LEDGER_PRODUCER_SECRET||''),
+    canonicalEnabled:enabled(env.KK_OWNER_CANONICAL_ENABLED),
+    canonicalSecret:String(env.KK_OWNER_CANONICAL_SECRET||''),
+    canonicalConsumerSecret:String(env.KK_OWNER_CANONICAL_CONSUMER_SECRET||''),
+    gasProjectId:t(env.KK_OWNER_CANONICAL_GAS_PROJECT_ID),gasDeploymentId:t(env.KK_OWNER_CANONICAL_GAS_DEPLOYMENT_ID),
+    gasClientId:t(env.KK_OWNER_CANONICAL_OAUTH_CLIENT_ID),gasClientSecret:String(env.KK_OWNER_CANONICAL_OAUTH_CLIENT_SECRET||''),
+    gasRefreshToken:String(env.KK_OWNER_CANONICAL_OAUTH_REFRESH_TOKEN||''),
     bindingMatches:storeMode==='vercel-oidc'?expected===LedgerBridge.PROJECT_REF:!!ref&&!!expected&&ref===expected
   };
 }
@@ -99,6 +106,15 @@ async function processRequest(req,res,env=process.env,fetchImpl=global.fetch,opt
     return response(res,400,{ok:false,send_allowed:false,error_code:'BODY_INVALID'});
   }
   const stage=body.stage;
+  if(typeof stage==='string'&&stage.startsWith('canonical-')){
+    if(cfg.canonicalEnabled){
+      const expected=cfg.canonicalConsumerSecret,authorization=req.headers?.authorization||'',provided=typeof authorization==='string'&&authorization.startsWith('Bearer ')?authorization.slice(7):'';
+      if(expected.length<32||expected===cfg.secret||expected===cfg.canonicalSecret||!provided||!crypto.timingSafeEqual(crypto.createHash('sha256').update(expected).digest(),crypto.createHash('sha256').update(provided).digest()))return response(res,401,{ok:false,send_allowed:false,error_code:'CANONICAL_CONSUMER_UNAUTHENTICATED'});
+      cfg.consumerAuthenticated=true;
+    }
+    try{return response(res,200,await require('./make-owner-canonical').handle(body,cfg,{fetchImpl,...options}));}
+    catch(e){return response(res,503,{ok:false,send_allowed:false,error_code:typeof e?.code==='string'?e.code:'CANONICAL_UNAVAILABLE'});}
+  }
   if(stage==='admit'||stage==='readback'){
     if(Object.keys(fields).length!==2||!Object.hasOwn(fields,'attestation'))return response(res,400,{ok:false,send_allowed:false,error_code:'BODY_INVALID'});
     try{
