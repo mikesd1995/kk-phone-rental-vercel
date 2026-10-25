@@ -83,6 +83,38 @@ test('strict Apps Script cache never reuses prior owner read-key snapshot after 
 });
 
 
+test('strict Core Admin reader rejects duplicate booking columns and dangerous property headers without public fallback',async()=>{
+ const CorePrivacy=require('../server/core-sheet-private-reader.js');
+ const previous=CorePrivacy.readValues;
+ const env={GOOGLE_SHEET_ID:'test-core-sheet',KK_CORE_SHEET_REQUIRE_PRIVATE:'1',
+   KK_CORE_PRIVATE_TRANSPORT:'apps-script',
+   KK_ADMIN_SCRIPT_URL:'https://script.google.com/macros/s/synthetic_script/exec',
+   KK_ADMIN_API_KEY:'a'.repeat(48),KK_CORE_PRIVATE_READ_KEY:'r'.repeat(48)};
+ const headers=Object.fromEntries(Object.values(F.SPECS).map(s=>[s.sheet,s.header]));
+ try{
+   for(const unsafe of [
+     ['booking_id','customer_contact','booking_id'],
+     ['booking_id','customer_contact','customer_contact'],
+     ['booking_id','__proto__'],
+     ['booking_id','constructor'],
+     ['booking_id','prototype']
+   ]){
+     let calls=0;
+     CorePrivacy.readValues=async ({sheet})=>{
+       calls++;
+       if(sheet==='00_Master_Booking')return [unsafe,['BK-FIXTURE','PRIVATE_CUSTOMER_CONTACT','BK-OTHER']];
+       return [[headers[sheet]]];
+     };
+     F.clearSnapshotCache();
+     await assert.rejects(()=>F.buildSnapshot({
+       env,sheetId:env.GOOGLE_SHEET_ID,cache:false,
+       fetchImpl:async()=>{throw Error('PUBLIC_GVIZ_MUST_NEVER_RUN');}
+     }),e=>e&&e.code==='CORE_PRIVATE_SCHEMA_INVALID'&&e.dataset==='bookings');
+     assert.equal(calls,Object.keys(F.SPECS).length);
+   }
+ }finally{CorePrivacy.readValues=previous;F.clearSnapshotCache();}
+});
+
 test('strict Core admin snapshot rejects data-row values masquerading as headers',async()=>{
  const CorePrivacy=require('../server/core-sheet-private-reader.js');
  const oldRead=CorePrivacy.readValues;
