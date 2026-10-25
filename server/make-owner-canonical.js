@@ -5,10 +5,10 @@ const Legacy=require('./make-owner-ledger-bridge');
 const Ledger=require('./make-owner-ledger-plan');
 const Wire=require('./make-owner-transport-contract');
 const Oidc=require('./runtime-ledger-oidc-bridge');
-const FUNCTIONS={poll:'runCanonicalOwnerLedgerPoll',claim:'runCanonicalOwnerLedgerClaim',project:'finalizeCanonicalOwnerLedgerAck'};
-const CONTEXT_FIELDS=['version','cutover_id','activated_at','policy_version','consumer_id','script_project_id','spreadsheet_id','tab','transport','environment','poll_id','slot_id','due_at','observed_at','nonce'];
+const FUNCTIONS={poll:'runCanonicalOwnerLedgerPoll',claim:'runCanonicalOwnerLedgerClaim',project:'finalizeCanonicalOwnerLedgerAck',reject:'finalizeCanonicalOwnerLedgerRejection'};
+const CONTEXT_FIELDS=['version','cutover_id','activated_at','policy_version','consumer_id','max_attempts','script_project_id','spreadsheet_id','tab','transport','environment','poll_id','slot_id','due_at','observed_at','nonce'];
 const EVIDENCE=['Last Attempt At','Delivery Evidence','Next Retry At','HTTP Status','Provider Message ID','API Accepted At','Delivery Confirmed At','Last Error','Feedback Source'];
-const HELD_CODES=new Set(['CANONICAL_SOURCE_TYPE_INVALID','CANONICAL_ID_INVALID','CANONICAL_ID_AMBIGUOUS','CANONICAL_DEDUP_AMBIGUOUS','CANONICAL_SOURCE_ALREADY_ATTEMPTED','CANONICAL_NORMAL_SOURCE_REQUIRED','CANONICAL_SOURCE_CUTOVER_INVALID','CANONICAL_SOURCE_HELD','QUIET_HOURS_HOLD','CANONICAL_CORE_SELECTION_HELD','CANONICAL_RENDER_INVALID','SOURCE_URL_REQUIRED','OWNER_ACTION_REQUIRED','NOTIFICATION_TOO_LONG','MACHINE_GARBAGE_PAYLOAD_BLOCKED','GATEWAY_CANDIDATE_REJECTED']);
+const HELD_CODES=new Set(['CANONICAL_SOURCE_TYPE_INVALID','CANONICAL_ID_INVALID','CANONICAL_ID_AMBIGUOUS','CANONICAL_DEDUP_AMBIGUOUS','CANONICAL_SOURCE_ALREADY_ATTEMPTED','CANONICAL_NORMAL_SOURCE_REQUIRED','CANONICAL_SOURCE_CUTOVER_INVALID','CANONICAL_SOURCE_HELD','QUIET_HOURS_HOLD','CANONICAL_CORE_SELECTION_HELD','CANONICAL_RENDER_INVALID','SOURCE_URL_REQUIRED','OWNER_ACTION_REQUIRED','NOTIFICATION_TOO_LONG','MACHINE_GARBAGE_PAYLOAD_BLOCKED','GATEWAY_CANDIDATE_REJECTED','CANONICAL_RETRY_HISTORY_UNVERIFIED']);
 function fail(code){throw Object.assign(new Error(code),{code});}
 function exact(v,keys){if(!Wire.isPlainObject(v)||Reflect.ownKeys(v).length!==keys.length||Reflect.ownKeys(v).some(k=>typeof k!=='string'||!keys.includes(k)||!Object.hasOwn(Object.getOwnPropertyDescriptor(v,k),'value')))fail('CANONICAL_FIELDS_INVALID');return v;}
 function stamp(v){if(typeof v!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString()!==v)fail('CANONICAL_CLOCK_INVALID');return Date.parse(v);}
@@ -17,7 +17,7 @@ function sourceStamp(v){
  const local=v.slice(0,19)+'Z';if(new Date(local).toISOString().slice(0,19)!==v.slice(0,19))fail('CANONICAL_SOURCE_CLOCK_INVALID');return Date.parse(v);
 }
 function validateContext(c,now=Date.now(),fresh=true){
- exact(c,CONTEXT_FIELDS);if(Object.values(c).some(v=>typeof v!=='string')||c.version!=='kk-owner-canonical-context-v2'||c.policy_version!=='v4.9.44'||c.consumer_id!=='6176241'||c.script_project_id!==Legacy.SCRIPT_PROJECT_ID||c.spreadsheet_id!==Legacy.SPREADSHEET_ID||c.tab!==Legacy.TAB||c.transport!==Legacy.TRANSPORT||!['production','preview'].includes(c.environment)||!['cutover_id','poll_id','nonce'].every(k=>Wire.isReceiptId(c[k]))||! /^[1-9][0-9]*$/.test(c.slot_id))fail('CANONICAL_BINDING_INVALID');
+ exact(c,CONTEXT_FIELDS);if(Object.values(c).some(v=>typeof v!=='string')||c.version!=='kk-owner-canonical-context-v2'||c.policy_version!=='v4.9.44'||c.consumer_id!=='6176241'||! /^[1-4]$/.test(c.max_attempts)||c.script_project_id!==Legacy.SCRIPT_PROJECT_ID||c.spreadsheet_id!==Legacy.SPREADSHEET_ID||c.tab!==Legacy.TAB||c.transport!==Legacy.TRANSPORT||!['production','preview'].includes(c.environment)||!['cutover_id','poll_id','nonce'].every(k=>Wire.isReceiptId(c[k]))||! /^[1-9][0-9]*$/.test(c.slot_id))fail('CANONICAL_BINDING_INVALID');
  const epoch=stamp(c.activated_at),due=stamp(c.due_at),observed=stamp(c.observed_at);
  if(due!==epoch+Number(c.slot_id)*900000||observed<due||observed>due+120000||(fresh&&(observed<now-120000||observed>now+15000||now>due+120000)))fail('CANONICAL_CONTEXT_EXPIRED');return c;
 }
@@ -26,14 +26,39 @@ function planCandidate(rows,id,c,now=Date.now()){
  validateContext(c,now);if(!Array.isArray(rows)||rows.length<1||rows.length>128||Buffer.byteLength(JSON.stringify(rows))>262144)fail('CANONICAL_SNAPSHOT_BOUNDS');
  rows.forEach(r=>exact(r,Legacy.HEADERS));const found=rows.filter(r=>r['Notification ID']===id);if(found.length!==1)fail('CANONICAL_ID_AMBIGUOUS');const r=found[0];
  const ids=Ledger.encodeLedgerIdentity({spreadsheet_id:Legacy.SPREADSHEET_ID,tab:Legacy.TAB,transport:Legacy.TRANSPORT,notification_id:id});
- if(r.Transport!==Legacy.TRANSPORT||r.Status!=='QUEUED'||![0,'0'].includes(r['Attempt Count'])||EVIDENCE.some(k=>r[k]!==''))fail('CANONICAL_SOURCE_ALREADY_ATTEMPTED');
- if(['Event Family ID','Change Type','Priority','Quiet Hours Policy','Audit Event ID','Dedup Key'].some(k=>typeof r[k]!=='string'||!r[k])||r['Change Type']==='TRANSPORT_UAT'||r.Priority==='TEST'||r['Quiet Hours Policy']==='OWNER_CONTROLLED_UAT'||/^(KKUAT_|CONTROLLED_UAT\|)/.test(id)||r['Audit Event ID'].startsWith('CONTROLLED_UAT|')||/OWNER_AUTHORIZED_TRANSPORT_UAT|CLAIM\|/.test(r.Notes))fail('CANONICAL_NORMAL_SOURCE_REQUIRED');
+ const previous=Number(r['Attempt Count']);
+ const first=r.Status==='QUEUED'&&[0,'0'].includes(r['Attempt Count'])&&EVIDENCE.every(k=>r[k]==='');
+ const retry=r.Status==='RETRY_WAIT'&&Number.isInteger(previous)&&previous>0&&previous<Number(c.max_attempts)&&
+   typeof r['Next Retry At']==='string'&&stamp(r['Next Retry At'])<=now&&
+   r['HTTP Status']==='429'&&r['Provider Message ID']===''&&r['API Accepted At']===''&&r['Delivery Confirmed At']===''&&r['Delivery Evidence']===''&&
+   /^TELEGRAM_API_REJECTED_HTTP_429$/.test(r['Last Error'])&&typeof r['Last Attempt At']==='string'&&Number.isFinite(sourceStamp(r['Last Attempt At']));
+ if(r.Transport!==Legacy.TRANSPORT||(!first&&!retry))fail('CANONICAL_SOURCE_ALREADY_ATTEMPTED');
+ if(['Event Family ID','Change Type','Priority','Quiet Hours Policy','Audit Event ID','Dedup Key'].some(k=>typeof r[k]!=='string'||!r[k])||r['Change Type']==='TRANSPORT_UAT'||r.Priority==='TEST'||r['Quiet Hours Policy']==='OWNER_CONTROLLED_UAT'||/^(KKUAT_|CONTROLLED_UAT\|)/.test(id)||r['Audit Event ID'].startsWith('CONTROLLED_UAT|')||/OWNER_AUTHORIZED_TRANSPORT_UAT/.test(r.Notes)||(first&&/CLAIM\|/.test(r.Notes))||(retry&&!/CLAIM\|/.test(r.Notes)))fail('CANONICAL_NORMAL_SOURCE_REQUIRED');
  if(rows.filter(x=>x.Transport===r.Transport&&x['Dedup Key']===r['Dedup Key']).length!==1)fail('CANONICAL_DEDUP_AMBIGUOUS');
  if(Legacy.HEADERS.some(k=>k!=='Attempt Count'&&typeof r[k]!=='string'))fail('CANONICAL_SOURCE_TYPE_INVALID');
  const created=sourceStamp(r['Created At']);if(created<stamp(c.activated_at)||created>stamp(c.observed_at)||created>now)fail('CANONICAL_SOURCE_CUTOVER_INVALID');
  if(typeof r.Payload!=='string'||!r.Payload.trim()||r.Payload!==r.Payload.trim()||r.Payload.length>2048||quietHeld(r,now))fail('CANONICAL_SOURCE_HELD');
  const binding=['kk-owner-ledger-binding-v2',Legacy.SPREADSHEET_ID,Legacy.TAB,Legacy.TRANSPORT,id,r['Created At'],r.Payload,r['Dedup Key'],r['Event Family ID'],r['Show ID'],r['Change Type'],r.Priority,r['Quiet Hours Policy'],JSON.stringify(c)];
- return {binding,source_row:r,transport_identity:ids.transport_identity};
+ return {binding,source_row:r,transport_identity:ids.transport_identity,attempt_count:previous+1};
+}
+function classifyProviderRejection(capture,current,profile){
+ const unknown={disposition:'unknown'};
+ if(!Wire.isPlainObject(profile)||!Wire.isPlainObject(current)||!Wire.isPlainObject(capture))return unknown;
+ const required=['profile_id','scenario_id','module_id','connection_id','attempt_id','attempt_no','receipt_id','source_notification_id','descriptor_sha256','http_status','telegram_response'];
+ if(Reflect.ownKeys(capture).length!==required.length||required.some(k=>!Object.hasOwn(capture,k)))return unknown;
+ if(profile.id!=='native-telegram-617-module8-v1'||profile.scenario_id!=='6176241'||profile.module_id!==8||profile.connection_id!==10356915||! /^[a-f0-9]{64}$/.test(profile.schema_sha256||'')||! /^[a-f0-9]{64}$/.test(profile.profile_digest||''))return unknown;
+ if(capture.profile_id!==profile.id||capture.scenario_id!==profile.scenario_id||capture.module_id!==8||capture.connection_id!==10356915||capture.attempt_id!==current.attempt_id||capture.attempt_no!==current.attempt_no||capture.receipt_id!==current.receipt_id||capture.source_notification_id!==current.source_notification_id||capture.descriptor_sha256!==current.descriptor_sha256)return unknown;
+ const response=capture.telegram_response,status=capture.http_status;
+ if(!Wire.isPlainObject(response)||response.ok!==false||!Number.isInteger(status)||status<400||status>599||response.error_code!==status||Reflect.ownKeys(response).some(k=>!['ok','error_code','description','parameters'].includes(k))||['result','message_id','request_id'].some(k=>Object.hasOwn(response,k))||Object.hasOwn(capture,'provider_message_id'))return unknown;
+ if(Object.hasOwn(response,'description')&&typeof response.description!=='string')return unknown;
+ let retry_after_seconds=0;
+ if(Object.hasOwn(response,'parameters')){
+  if(!Wire.isPlainObject(response.parameters)||Reflect.ownKeys(response.parameters).some(k=>k!=='retry_after')||!Number.isInteger(response.parameters.retry_after)||response.parameters.retry_after<0||response.parameters.retry_after>86400)return unknown;
+  retry_after_seconds=response.parameters.retry_after;
+ }
+ if(status===429)return {disposition:'retry',http_status:status,retry_after_seconds};
+ if(status>=400&&status<500&&![408,409,425].includes(status))return {disposition:'failed',http_status:status,retry_after_seconds:0};
+ return unknown;
 }
 function canonicalSigned(a){return JSON.stringify(['KK_OWNER_CANONICAL_V2',a.action,CONTEXT_FIELDS.map(k=>a.context[k]),a.data]);}
 function signContext(action,context,data,secret){const a={version:'kk-owner-ledger-producer-v2',action,context,data};a.signature=crypto.createHmac('sha256',secret).update(canonicalSigned(a)).digest('hex');return a;}
@@ -95,44 +120,70 @@ async function runHandle(body,cfg,options={}){
   if(candidates.some(id=>held.some(h=>result.data.rows[h.row_index-1]['Notification ID']===id)))fail('CANONICAL_HELD_CANDIDATE_CONFLICT');
   const tickets=await store('tickets',{context,rows:result.data.rows,candidates,held},cfg,options);
   if(!Array.isArray(tickets)||tickets.some(ticket=>!Wire.isReceiptId(ticket)))fail('CANONICAL_TICKET_RESPONSE_INVALID');
-  return {ok:true,mode:'CANONICAL_V2',send_allowed:false,poll_id:context.poll_id,tickets:tickets.map(ticket=>({ticket})),held};
+  const nativeRead=await store('poll-readback',{poll_id:context.poll_id},cfg,options);
+  if(nativeRead?.issued!==true||JSON.stringify(nativeRead.context)!==JSON.stringify(context))fail('CANONICAL_POLL_READBACK_INVALID');
+  const finalHeld=validateHeld(nativeRead.held,result.data.rows);
+  if(held.some(h=>!finalHeld.some(n=>JSON.stringify(n)===JSON.stringify(h))))fail('CANONICAL_HELD_READBACK_MISMATCH');
+  return {ok:true,mode:'CANONICAL_V2',send_allowed:false,poll_id:context.poll_id,tickets:tickets.map(ticket=>({ticket})),held:finalHeld};
  }
  if(op==='canonical-admit'){
   exact(body,['stage','version','ticket']);if(body.version!=='v2'||!Wire.isReceiptId(body.ticket))fail('CANONICAL_FIELDS_INVALID');
   // Durable consumption precedes GAS. Any timeout leaves CLAIMING/SENDING fenced.
-  const t=await store('begin',{ticket:body.ticket},cfg,options);validateContext(t.context);planCandidate(t.rows,t.notification_id,t.context);
+  const t=await store('begin',{ticket:body.ticket},cfg,options);validateContext(t.context);const planned=planCandidate(t.rows,t.notification_id,t.context);
+  if(t.attempt_id!==body.ticket||t.attempt_no!==planned.attempt_count)fail('CANONICAL_ATTEMPT_MISMATCH');
   const signed=verifySigned(await executeGas('claim',signContext('claim',t.context,{ticket:body.ticket,notification_id:t.notification_id,rows:t.rows},cfg.canonicalSecret),cfg,options),'claim-result',cfg);
   if(JSON.stringify(signed.context)!==JSON.stringify(t.context))fail('CANONICAL_CONTEXT_MISMATCH');
   exact(signed.data,['ticket','notification_id','claim_id','claimed_row','text']);if(signed.data.ticket!==body.ticket||signed.data.notification_id!==t.notification_id)fail('CANONICAL_CLAIM_MISMATCH');
   const p=planCandidate(t.rows,t.notification_id,t.context),r=p.source_row,claimed=signed.data.claimed_row;exact(claimed,Legacy.HEADERS);
   if(!/^CLAIM\|/.test(signed.data.claim_id)||!Wire.isReceiptId(signed.data.claim_id.slice(6)))fail('CANONICAL_CLAIM_MISMATCH');
   const at=stamp(claimed['Last Attempt At']),now=Date.now();if(at<stamp(t.context.observed_at)||at<now-120000||at>now+15000)fail('CANONICAL_CLAIM_EXPIRED');
-  const changes={Status:'SENDING','Attempt Count':1,'Last Attempt At':claimed['Last Attempt At'],Notes:(r.Notes?r.Notes+' | ':'')+signed.data.claim_id};
+  const changes={Status:'SENDING','Attempt Count':t.attempt_no,'Last Attempt At':claimed['Last Attempt At'],Notes:(r.Notes?r.Notes+' | ':'')+signed.data.claim_id};
   if(Legacy.HEADERS.some(k=>claimed[k]!== (Object.hasOwn(changes,k)?changes[k]:r[k])))fail('CANONICAL_CLAIM_MISMATCH');
   if(typeof signed.data.text!=='string'||!signed.data.text.trim()||signed.data.text.length>2048)fail('CANONICAL_RENDER_INVALID');
   const binding=[...p.binding,signed.data.claim_id],d={version:Wire.VERSION,audience:Wire.AUDIENCE,...p.transport_identity,event_type:'OWNER_ALERT',content_version:Wire.hash(JSON.stringify(binding)),text:signed.data.text,created_at:new Date(now).toISOString(),expires_at:new Date(now+120000).toISOString()};
   const record=await store('enqueue',{ticket:body.ticket,binding:JSON.stringify(binding),descriptor:d,claimed_row:claimed},cfg,options);descriptorMatch(record,d);
+  if(record.ticket!==t.attempt_id||record.attempt_count!==t.attempt_no||!/^[a-f0-9]{64}$/.test(record.descriptor_sha256||''))fail('CANONICAL_DURABLE_DESCRIPTOR_MISMATCH');
   const envelope={...record.descriptor,signature:Wire.sign(record.descriptor,cfg.secret)};
-  return {ok:true,mode:'CANONICAL_V2',status:'ADMITTED',send_allowed:false,envelope,envelope_json:JSON.stringify(envelope)};
+  return {ok:true,mode:'CANONICAL_V2',status:'ADMITTED',send_allowed:false,attempt_id:t.attempt_id,attempt_no:t.attempt_no,descriptor_sha256:record.descriptor_sha256,envelope,envelope_json:JSON.stringify(envelope)};
  }
- if(['canonical-prepare','canonical-ack','canonical-project'].includes(op)){
-  const keys=op==='canonical-ack'?['stage','envelope','receipt_id','provider_message_id']:['stage','envelope'];exact(body,keys);
+ if(['canonical-prepare','canonical-ack','canonical-project','canonical-reject','canonical-project-rejection'].includes(op)){
+  const keys=op==='canonical-ack'?['stage','envelope','attempt_id','receipt_id','provider_message_id']:op==='canonical-reject'?['stage','envelope','attempt_id','receipt_id','capture']:['stage','envelope','attempt_id'];exact(body,keys);
   const e=body.envelope;
   exact(e,['version','audience','notification_id','request_id','entity_id','event_type','content_version','text','created_at','expires_at','signature']);
   if(Object.values(e).some(v=>typeof v!=='string'))fail('CANONICAL_FIELDS_INVALID');
-  if(op!=='canonical-project'){const v=Wire.verifyEnvelope(e,cfg.secret);if(!v.ok)fail(v.error_code);}
-  const record=await store('readback',{notification_id:e.notification_id},cfg,options);descriptorMatch(record,e);
+  if(!['canonical-project','canonical-project-rejection'].includes(op)){const v=Wire.verifyEnvelope(e,cfg.secret);if(!v.ok)fail(v.error_code);}
+  if(!Wire.isReceiptId(body.attempt_id))fail('CANONICAL_ATTEMPT_MISMATCH');
+  const selector={notification_id:e.notification_id,attempt_id:body.attempt_id};
+  const record=await store('readback',selector,cfg,options);descriptorMatch(record,e);
+  if(record.ticket!==body.attempt_id||record.attempt_count<1||record.attempt_count>4)fail('CANONICAL_ATTEMPT_MISMATCH');
   if(!/^[a-f0-9]{64}$/.test(e.signature||'')||!crypto.timingSafeEqual(Buffer.from(Wire.sign(record.descriptor,cfg.secret),'hex'),Buffer.from(e.signature,'hex')))fail('SIGNATURE_INVALID');
   if(op==='canonical-prepare'){
    if(Date.parse(e.expires_at)<=Date.now()+15000)fail('CANONICAL_PROVIDER_MARGIN_EXPIRED');
-   const prepared=await Wire.prepareDispatch(e,{secret:cfg.secret,ownerChatId:cfg.ownerChatId,claimFn:async()=>store('reserve',{notification_id:e.notification_id},cfg,options)});
-   if(!prepared.send_allowed||Date.parse(e.expires_at)<=Date.now()+15000)fail(prepared.error_code||'CANONICAL_PROVIDER_MARGIN_EXPIRED');return prepared;
+   const prepared=await Wire.prepareDispatch(e,{secret:cfg.secret,ownerChatId:cfg.ownerChatId,claimFn:async()=>store('reserve',selector,cfg,options)});
+   if(!prepared.send_allowed||Date.parse(e.expires_at)<=Date.now()+15000)fail(prepared.error_code||'CANONICAL_PROVIDER_MARGIN_EXPIRED');return {...prepared,attempt_id:body.attempt_id,attempt_no:record.attempt_count,descriptor_sha256:record.descriptor_sha256};
   }
   if(op==='canonical-ack'){
    if(!Wire.isReceiptId(body.receipt_id)||typeof body.provider_message_id!=='string'||! /^[1-9][0-9]{0,19}$/.test(body.provider_message_id))fail('CANONICAL_ACK_INVALID');
-   await store('ack',{notification_id:e.notification_id,receipt_id:body.receipt_id,provider_message_id:body.provider_message_id},cfg,options);
+   await store('ack',{...selector,receipt_id:body.receipt_id,provider_message_id:body.provider_message_id},cfg,options);
   }
-  const durable=await store('readback',{notification_id:e.notification_id},cfg,options);descriptorMatch(durable,e);
+  if(op==='canonical-reject'){
+   if(!Wire.isReceiptId(body.receipt_id)||record.status!=='RESERVED'||record.receipt_id!==body.receipt_id)fail('CANONICAL_REJECTION_UNBOUND');
+   const classified=classifyProviderRejection(body.capture,{source_notification_id:record.source_notification_id,attempt_id:body.attempt_id,attempt_no:record.attempt_count,receipt_id:body.receipt_id,descriptor_sha256:record.descriptor_sha256},cfg.captureProfile);
+   if(classified.disposition==='unknown'||cfg.captureProfile?.profile_digest!==cfg.captureProfileReviewSha256)fail('CANONICAL_REJECTION_OUTCOME_UNKNOWN');
+   const evidence={profile_sha256:cfg.captureProfile.profile_digest,scenario_id:'6176241',module_id:8,connection_id:10356915,attempt_id:body.attempt_id,receipt_id:body.receipt_id,descriptor_sha256:record.descriptor_sha256,http_status:classified.http_status,telegram_response:body.capture.telegram_response};
+   const refused=await store('reject',{...selector,receipt_id:body.receipt_id,evidence},cfg,options);if(refused.status!=='REJECTION_PENDING'||refused.ticket!==body.attempt_id)fail('CANONICAL_REJECTION_PERSISTENCE_UNKNOWN');
+   return {ok:true,send_allowed:false,mode:'CANONICAL_V2',status:'REJECTION_PENDING',attempt_id:body.attempt_id};
+  }
+  const durable=await store('readback',selector,cfg,options);descriptorMatch(durable,e);
+  if(op==='canonical-project-rejection'){
+   if(!['REJECTION_PENDING','RETRY_WAIT','FAILED'].includes(durable.status)||!durable.rejection_evidence)fail('CANONICAL_DURABLE_REJECTION_REQUIRED');
+   const context=durable.context;validateContext(context,Date.now(),false);
+   const projected=verifySigned(await executeGas('reject',signContext('project-rejection',context,{record:durable},cfg.canonicalSecret),cfg,options),'project-rejection-result',cfg,Date.now(),false);
+   if(JSON.stringify(projected.context)!==JSON.stringify(context)||projected.data.notification_id!==durable.source_notification_id||!Wire.isPlainObject(projected.data.projected_row))fail('CANONICAL_PROJECTION_UNCONFIRMED');
+   const confirmed=await store('confirm-rejection',{...selector,projected_row:projected.data.projected_row},cfg,options);
+   if(confirmed.status!==projected.data.projected_row.Status||confirmed.ticket!==body.attempt_id)fail('CANONICAL_PROJECTION_UNCONFIRMED');
+   return {ok:true,send_allowed:false,mode:'CANONICAL_V2',status:confirmed.status,projection_verified:true,attempt_id:body.attempt_id};
+  }
   if(durable.status!=='SENT'||(op==='canonical-ack'&&(durable.receipt_id!==body.receipt_id||durable.provider_message_id!==body.provider_message_id)))fail('CANONICAL_DURABLE_ACK_REQUIRED');
   if(op==='canonical-ack')return {ok:true,send_allowed:false,mode:'CANONICAL_V2',status:'SENT',receipt_id:durable.receipt_id,provider_message_id:durable.provider_message_id,projection_verified:false,delivery_confirmed:false};
   const context=durable.context;validateContext(context,Date.now(),false);
@@ -143,4 +194,4 @@ async function runHandle(body,cfg,options={}){
  fail('CANONICAL_STAGE_FORBIDDEN');
 }
 async function handle(body,cfg,options={}){return bounded(signal=>runHandle(body,cfg,{...options,signal}),20000);}
-module.exports={FUNCTIONS,CONTEXT_FIELDS,validateContext,quietHeld,planCandidate,signContext,verifySigned,executeGas,store,handle};
+module.exports={FUNCTIONS,CONTEXT_FIELDS,validateContext,quietHeld,planCandidate,classifyProviderRejection,signContext,verifySigned,executeGas,store,handle};

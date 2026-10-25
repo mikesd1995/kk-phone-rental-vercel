@@ -4,7 +4,7 @@ const V2=require('../server/make-owner-canonical');
 const Legacy=require('../server/make-owner-ledger-bridge');
 const now=Date.parse('2026-10-25T05:15:01.000Z');
 const uuid=()=>crypto.randomUUID();
-function context(){return {version:'kk-owner-canonical-context-v2',cutover_id:uuid(),activated_at:'2026-10-25T05:00:00.000Z',policy_version:'v4.9.44',consumer_id:'6176241',script_project_id:Legacy.SCRIPT_PROJECT_ID,spreadsheet_id:Legacy.SPREADSHEET_ID,tab:Legacy.TAB,transport:Legacy.TRANSPORT,environment:'preview',poll_id:uuid(),slot_id:'1',due_at:'2026-10-25T05:15:00.000Z',observed_at:new Date(now).toISOString(),nonce:uuid()};}
+function context(){return {version:'kk-owner-canonical-context-v2',cutover_id:uuid(),activated_at:'2026-10-25T05:00:00.000Z',policy_version:'v4.9.44',consumer_id:'6176241',max_attempts:'4',script_project_id:Legacy.SCRIPT_PROJECT_ID,spreadsheet_id:Legacy.SPREADSHEET_ID,tab:Legacy.TAB,transport:Legacy.TRANSPORT,environment:'preview',poll_id:uuid(),slot_id:'1',due_at:'2026-10-25T05:15:00.000Z',observed_at:new Date(now).toISOString(),nonce:uuid()};}
 function row(){return Object.assign(Object.fromEntries(Legacy.HEADERS.map(k=>[k,''])),{'Notification ID':'normal-event-123','Created At':'2026-10-25T05:00:01.000Z','Event Family ID':'family','Show ID':'show','Change Type':'MATERIAL_EVENT_UPDATE',Priority:'P1','Quiet Hours Policy':'DEFAULT',Payload:'รายละเอียดงานที่ยืนยันแล้ว','Audit Event ID':'audit123',Transport:Legacy.TRANSPORT,Status:'QUEUED','Attempt Count':0,'Dedup Key':'normal-dedup-123'});}
 test('canonical preserves old post-cutover source identity and rejects pre-cutover, stale observation and UAT',()=>{
  const c=context(),r=row(),p=V2.planCandidate([r],r['Notification ID'],c,now);
@@ -59,4 +59,22 @@ test('canonical enabled route requires same-consumer secret authentication befor
 });
 test('complete canonical OIDC carrier is bounded before network without truncating the source snapshot',async()=>{
  let calls=0;await assert.rejects(V2.store('tickets',{context:context(),rows:[{Payload:'x'.repeat(262144)}],candidates:['normal-event-123']},{canonicalEnabled:true,storeMode:'vercel-oidc',expectedRef:Legacy.PROJECT_REF},{fetchImpl:async()=>{calls++;throw Error('unexpected');},getTokenImpl:async()=>'test-token'}),e=>e.code==='CANONICAL_REQUEST_BOUNDS');assert.equal(calls,0);
+});
+test('a projected retry keeps source identity while a fresh poll checks due, count and quiet hours',()=>{
+ const c=context(),r=row();r.Status='RETRY_WAIT';r['Attempt Count']=1;r['Last Attempt At']='2026-10-25T05:01:00.000Z';r['HTTP Status']='429';r['Next Retry At']='2026-10-25T05:10:00.000Z';r['Last Error']='TELEGRAM_API_REJECTED_HTTP_429';r.Notes='CLAIM|'+uuid()+' | REJECTED_RETRY_SAFE';
+ const p=V2.planCandidate([r],r['Notification ID'],c,now);
+ assert.equal(p.binding[5],r['Created At']);assert.equal(p.binding[7],r['Dedup Key']);assert.equal(p.attempt_count,2);
+ assert.throws(()=>V2.planCandidate([{...r,'Next Retry At':'2026-10-25T05:20:00.000Z'}],r['Notification ID'],c,now));
+ assert.throws(()=>V2.planCandidate([{...r,'Attempt Count':4}],r['Notification ID'],c,now));
+});
+test('only fixed bound original Telegram 429 response is retryable',()=>{
+ const profile={id:'native-telegram-617-module8-v1',schema_sha256:'a'.repeat(64),scenario_id:'6176241',module_id:8,connection_id:10356915,profile_digest:'b'.repeat(64)};
+ const current={source_notification_id:'normal-event-123',attempt_id:uuid(),attempt_no:1,receipt_id:uuid(),descriptor_sha256:'c'.repeat(64)};
+ const capture={profile_id:profile.id,scenario_id:profile.scenario_id,module_id:8,connection_id:profile.connection_id,attempt_id:current.attempt_id,attempt_no:1,receipt_id:current.receipt_id,source_notification_id:current.source_notification_id,descriptor_sha256:current.descriptor_sha256,http_status:429,telegram_response:{ok:false,error_code:429,description:'Too Many Requests',parameters:{retry_after:600}}};
+ const classify=(x,p=profile)=>V2.classifyProviderRejection(x,current,p);
+ assert.deepEqual(classify(capture),{disposition:'retry',http_status:429,retry_after_seconds:600});
+ for(const bad of [{...capture,http_status:'429'},{...capture,module_id:6},{...capture,receipt_id:uuid()},{...capture,telegram_response:{ok:false,error_code:429,result:{message_id:123}}},{...capture,telegram_response:{ok:false,error_code:500}},{...capture,telegram_response:{ok:true,error_code:429}},{...capture,error:'RateLimitError 429'}])assert.equal(classify(bad).disposition,'unknown');
+ assert.equal(classify(capture,null).disposition,'unknown');
+ assert.equal(classify({...capture,http_status:403,telegram_response:{ok:false,error_code:403}}).disposition,'failed');
+ assert.equal(classify({...capture,http_status:408,telegram_response:{ok:false,error_code:408}}).disposition,'unknown');
 });

@@ -8,6 +8,14 @@ const crypto=require('node:crypto');
 
 function t(v){ return String(v==null?'':v).trim(); }
 function enabled(v){ return /^(1|true|yes|on)$/i.test(t(v)); }
+function captureProfile(env){
+  try{
+    const profile=JSON.parse(env.KK_OWNER_CANONICAL_CAPTURE_PROFILE_JSON||'null');
+    if(!profile||typeof profile!=='object'||Array.isArray(profile)||profile.id!=='native-telegram-617-module8-v1'||profile.scenario_id!=='6176241'||profile.module_id!==8||profile.connection_id!==10356915||
+      !/^[a-f0-9]{64}$/.test(profile.schema_sha256||'')||!/^[a-f0-9]{64}$/.test(profile.profile_digest||'')||profile.profile_digest!==env.KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256)return null;
+    return profile;
+  }catch(_){return null;}
+}
 function config(env=process.env){
   const ref=Runtime.projectRefFromUrl(env.SUPABASE_URL);
   const expected=t(env.KK_MAKE_OWNER_TRANSPORT_PROJECT_REF);
@@ -27,6 +35,7 @@ function config(env=process.env){
     canonicalEnabled:enabled(env.KK_OWNER_CANONICAL_ENABLED),
     canonicalSecret:String(env.KK_OWNER_CANONICAL_SECRET||''),
     canonicalConsumerSecret:String(env.KK_OWNER_CANONICAL_CONSUMER_SECRET||''),
+    captureProfile:captureProfile(env),captureProfileReviewSha256:t(env.KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256),
     gasProjectId:t(env.KK_OWNER_CANONICAL_GAS_PROJECT_ID),gasDeploymentId:t(env.KK_OWNER_CANONICAL_GAS_DEPLOYMENT_ID),
     gasClientId:t(env.KK_OWNER_CANONICAL_OAUTH_CLIENT_ID),gasClientSecret:String(env.KK_OWNER_CANONICAL_OAUTH_CLIENT_SECRET||''),
     gasRefreshToken:String(env.KK_OWNER_CANONICAL_OAUTH_REFRESH_TOKEN||''),

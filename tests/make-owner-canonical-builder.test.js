@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const Builder=require('../server/make-owner-canonical-builder');
+const crypto=require('node:crypto');
 function snapshot(){return {scenario_id:'6176241',active:false,lastEdit:'2026-10-23T09:56:20.706Z',incompleteExecutions:0,modules:[{id:5,module:'scenario-service:StartSubscenario',version:2},{id:6,module:'http:MakeRequest',version:4,config:{parameters:{},mapper:{}}},{id:8,module:'telegram:SendReplyMessage',version:1,disabled:true,config:{parameters:{__IMTCONN__:10356915},mapper:{chatId:'original-config',text:'old'}},filter:{name:'old',conditions:[[{a:'{{5.envelope}}',o:'exist'}]]}},{id:9,module:'http:MakeRequest',version:4,config:{parameters:{},mapper:{}}},{id:10,module:'scenario-service:ReturnData',version:2},{id:11,module:'http:MakeRequest',version:4},{id:12,module:'builtin:BasicFeeder',version:1},{id:13,module:'http:MakeRequest',version:4},{id:14,module:'http:MakeRequest',version:4}]};}
 const binding={expectedLastEdit:'2026-10-23T09:56:20.706Z',gatewayConnectionId:456,connectionAllowedUrl:'https://kk-phone-rental.vercel.app/api/kk-make-owner-notify',assignedIds:{poll:11,iterator:12,admit:13,project:14}};
 test('same617 OFF compiler produces JIT iterator graph preserving provider connection and receipt-bound ACK',()=>{
@@ -14,4 +15,18 @@ test('same617 OFF compiler produces JIT iterator graph preserving provider conne
 test('compiler refuses active/provider-enabled, stale edit, incomplete runs, missing connection and invented IDs',()=>{
  for(const mutate of [s=>s.active=true,s=>s.modules.find(m=>m.id===8).disabled=false,s=>s.lastEdit='changed',s=>s.incompleteExecutions=1,s=>s.modules=s.modules.filter(m=>m.id!==12),s=>s.modules[2].config.parameters.__IMTCONN__=123,s=>s.modules[2].parent={kind:'errorHandler',moduleId:6}]){const s=snapshot();mutate(s);assert.throws(()=>Builder.prepare(s,binding));}
  for(const b of [{...binding,gatewayConnectionId:null},{...binding,connectionAllowedUrl:'https://attacker.invalid'},{...binding,assignedIds:{...binding.assignedIds,poll:6}}])assert.throws(()=>Builder.prepare(snapshot(),b));
+});
+test('negative path remains uncompiled without independently reviewed exact module8 capture route',()=>{
+ const s=snapshot();s.modules.find(m=>m.id===8).errorHandler={sourceModuleId:8,handlerModuleIds:[15,16],terminal:'Commit'};
+ assert.throws(()=>Builder.prepare(s,binding),/UNREVIEWED|CAPTURE/);
+ const digest=crypto.createHash('sha256').update(JSON.stringify(s.modules.find(m=>m.id===8).errorHandler)).digest('hex');
+ const capture={profile_id:'native-telegram-617-module8-v1',schema_sha256:'a'.repeat(64),review_sha256:'b'.repeat(64),provider_route_sha256:digest,error_module_ids:[15,16],field_mappings:{http_status:'observed-http-status',telegram_response:'observed-original-structured-response',attempt_id:'observed-admit-attempt',receipt_id:'observed-reservation-receipt'}};
+ assert.throws(()=>Builder.prepare(s,{...binding,capture}),/CAPTURE|ASSIGNED|ROUTE/);
+ const negativeBody='{"stage":"canonical-reject","attempt_id":"{{observed-admit-attempt}}","receipt_id":"{{observed-reservation-receipt}}","capture":{"http_status":"{{observed-http-status}}","telegram_response":"{{observed-original-structured-response}}"}}';
+ s.modules.push({id:15,module:'http:MakeRequest',version:4,config:{mapper:{url:Builder.ENDPOINT,jsonStringBodyContent:negativeBody}}});
+ s.modules.push({id:16,module:'http:MakeRequest',version:4,config:{mapper:{url:Builder.ENDPOINT,jsonStringBodyContent:'{"stage":"canonical-project-rejection","attempt_id":"{{observed-admit-attempt}}"}'}}});
+ const compiled=Builder.prepare(s,{...binding,capture,reviewedCaptureSha256:capture.review_sha256});
+ assert.equal(compiled.modules.find(m=>m.id===8).disabled,true);assert.deepEqual(compiled.modules.find(m=>m.id===8).errorHandler,s.modules.find(m=>m.id===8).errorHandler);
+ assert.deepEqual(compiled.modules.filter(m=>[15,16].includes(m.id)),s.modules.filter(m=>[15,16].includes(m.id)));
+ assert.equal(compiled.activation_allowed,false);
 });

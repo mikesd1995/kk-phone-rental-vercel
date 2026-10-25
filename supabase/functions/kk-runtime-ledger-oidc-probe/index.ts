@@ -276,7 +276,7 @@ const OWNER_OPERATIONS:Record<string,{rpc:string;keys:string[]}>= {
 };
 // Canonical v2 uses additive storage. The DB gate is locked throughout each RPC;
 // the environment comes only from verified same-project OIDC claims.
-const CANONICAL_OPERATIONS:Record<string,string[]>={poll:[],'poll-readback':['poll_id'],tickets:['context','rows','candidates','held'],begin:['ticket'],enqueue:['ticket','binding','descriptor','claimed_row'],readback:['notification_id'],reserve:['notification_id'],ack:['notification_id','receipt_id','provider_message_id']};
+const CANONICAL_OPERATIONS:Record<string,string[]>={poll:[],'poll-readback':['poll_id'],tickets:['context','rows','candidates','held'],begin:['ticket'],enqueue:['ticket','binding','descriptor','claimed_row'],readback:['notification_id','attempt_id'],reserve:['notification_id','attempt_id'],ack:['notification_id','attempt_id','receipt_id','provider_message_id'],reject:['notification_id','attempt_id','receipt_id','evidence'],'confirm-rejection':['notification_id','attempt_id','projected_row']};
 async function canonicalOwnerOperation(body:Record<string,unknown>,identity:Record<string,unknown>){
   if(Deno.env.get('KK_OWNER_CANONICAL_ENABLED')!=='TRUE')ownerError('CANONICAL_DISABLED_OR_UNBOUND');
   ownerExact(body,['probe','version','operation','parameters']);
