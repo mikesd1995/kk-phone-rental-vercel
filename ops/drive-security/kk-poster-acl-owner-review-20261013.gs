@@ -22,6 +22,18 @@ function kkAclReadActive_20261013(){
   const webIds=wr.filter(z=>z[0]).map(z=>String(z[0]));
   if(new Set(eventIds).size!==eventIds.length||new Set(webIds).size!==webIds.length)
     throw Error('DUPLICATE_EVENT_ID_IN_ACTIVE_SOT');
+  // Check the public-facing side of the join as well. An orphan or a card
+  // moved into Oct-Dec on WebReady must NEVER be omitted from the ACL scope
+  // merely because the canonical Core row is absent or has a different date.
+  const coreById=new Map(ev.filter(z=>z[0]).map(z=>[String(z[0]),z]));
+  for(const w of wr){
+    if(!w[0]||!/^[0-9]{1,2}\/(10|11|12)\/2026$/.test(String(w[2]||''))||
+       !['show','show_full'].includes(String(w[9]||'')))continue;
+    const source=coreById.get(String(w[0]));
+    if(!source)throw Error('SCOPED_VISIBLE_WEB_ORPHAN');
+    if(String(source[2]||'').trim()!==String(w[2]||'').trim())
+      throw Error('SCOPED_ACTIVE_EVENT_DATE_DIVERGED');
+  }
   const cards=ev.filter(z=>/^\d{1,2}\/(10|11|12)\/2026$/.test(z[2])&&['show','show_full'].includes(show.get(z[0])?.[9]));
   const refs=[];
   for(const row of cards){
