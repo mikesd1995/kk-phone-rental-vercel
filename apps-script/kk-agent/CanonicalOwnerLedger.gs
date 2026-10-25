@@ -61,6 +61,12 @@ function canonicalRowReason_(r,rows,c) {
   if (!r.Payload || r.Payload!==r.Payload.trim() || r.Payload.length>2048) return 'CANONICAL_SOURCE_HELD';
   return '';
 }
+function canonicalHeldIdentityHash_(value) {
+  if (typeof value==='string') return ownerLedgerHash_(JSON.stringify(value));
+  var type=value===null || (typeof value==='number' && !isFinite(value))?'null':Array.isArray(value)?'array':typeof value;
+  if (['number','boolean','null','array','object'].indexOf(type)<0) throw new Error('CANONICAL_HELD_METADATA_INVALID');
+  return ownerLedgerHash_('KK_OWNER_CANONICAL_HELD_NONSTRING_V2\n'+type);
+}
 function canonicalAssessment_(context,rows,c,p) {
   var candidates=[],held=[];
   rows.forEach(function(r,index) {
@@ -81,7 +87,7 @@ function canonicalAssessment_(context,rows,c,p) {
         reason=known.indexOf(String(error && error.message))>=0?error.message:'CANONICAL_RENDER_INVALID';
       }
     }
-    if (reason) held.push({row_index:index+1,notification_id_sha256:ownerLedgerHash_(JSON.stringify(r['Notification ID'])),reason_code:reason});
+    if (reason) held.push({row_index:index+1,notification_id_sha256:canonicalHeldIdentityHash_(r['Notification ID']),reason_code:reason});
     else candidates.push(candidate);
   });
   return {candidates:candidates,held:held};

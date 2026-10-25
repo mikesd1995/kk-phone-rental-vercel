@@ -100,3 +100,15 @@ test('F1 complete snapshot still holds both candidates sharing a malformed row d
  t.mock.method(Date,'now',()=>Date.parse(NOW));const h=setup(),bad={...h.row,'Notification ID':'bad',Payload:'invalid'};h.rows.push(Legacy.HEADERS.map(k=>bad[k]));const i=integration(h),poll=await i.run({stage:'canonical-poll',version:'v2'});
  assert.equal(poll.tickets.length,0);assert.equal(poll.held.length,2);assert.equal(poll.held[0].reason_code,'CANONICAL_DEDUP_AMBIGUOUS');assert.equal(h.writes,0);
 });
+test('F1 held identity hashes use fixed JSON type tags for exponent numbers and other non-string IDs across actual GAS/gateway',async t=>{
+ t.mock.method(Date,'now',()=>Date.parse(NOW));
+ for(const value of [1e-7,-1e-7,1e21,-1e21,true,null,[],{nested:1e-7}]){
+  const h=setup(),bad={...h.row,'Notification ID':value,'Dedup Key':'invalid-typed-dedup'};h.rows.push(Legacy.HEADERS.map(k=>bad[k]));const before=JSON.stringify(h.rows[2]),i=integration(h),poll=await i.run({stage:'canonical-poll',version:'v2'});
+  const type=value===null?'null':Array.isArray(value)?'array':typeof value,expected=crypto.createHash('sha256').update('KK_OWNER_CANONICAL_HELD_NONSTRING_V2\n'+type).digest('hex');
+  assert.equal(poll.held[0].notification_id_sha256,expected);assert.equal(poll.held[0].reason_code,'CANONICAL_SOURCE_TYPE_INVALID');assert.equal(poll.tickets.length,1);assert.equal(h.writes,0);
+  assert.deepEqual((await i.run({stage:'canonical-poll-readback',version:'v2',poll_id:poll.poll_id})).held,poll.held);assert.equal((await i.run({stage:'canonical-admit',version:'v2',ticket:poll.tickets[0].ticket})).status,'ADMITTED');assert.equal(JSON.stringify(h.rows[2]),before);
+ }
+ const h=setup();for(const [index,value]of [1e-7,1e21].entries())h.rows.push(Legacy.HEADERS.map(k=>({...h.row,'Notification ID':value,'Dedup Key':'invalid-numeric-'+index})[k]));
+ const original=JSON.stringify(h.rows.slice(2)),i=integration(h),poll=await i.run({stage:'canonical-poll',version:'v2'});assert.equal(poll.tickets.length,1);assert.equal(h.writes,0);assert.deepEqual(poll.held.map(x=>x.row_index),[2,3]);assert.equal(poll.held[0].notification_id_sha256,poll.held[1].notification_id_sha256);
+ assert.deepEqual((await i.run({stage:'canonical-poll-readback',version:'v2',poll_id:poll.poll_id})).held,poll.held);assert.equal((await i.run({stage:'canonical-admit',version:'v2',ticket:poll.tickets[0].ticket})).status,'ADMITTED');assert.equal(JSON.stringify(h.rows.slice(2)),original);
+});

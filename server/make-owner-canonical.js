@@ -64,7 +64,13 @@ async function store(operation,parameters,cfg,options={}){
  if(!r.ok)fail(r.error_code||'CANONICAL_STORE_UNAVAILABLE');const b=r.body;if(b.ok!==true||b.authenticated!==true||b.project_ref!==Legacy.PROJECT_REF||b.version!=='v2'||b.operation!==operation||b.provider_sends!==0)fail('CANONICAL_STORE_RESPONSE_INVALID');return b.result;});
 }
 function descriptorMatch(record,envelope){if(!Wire.isPlainObject(record)||!Wire.isPlainObject(record.descriptor)||!Object.keys(record.descriptor).every(k=>record.descriptor[k]===envelope[k]))fail('CANONICAL_DURABLE_DESCRIPTOR_MISMATCH');}
-function heldEntry(rows,index,reason_code){return {row_index:index+1,notification_id_sha256:crypto.createHash('sha256').update(JSON.stringify(rows[index]['Notification ID']),'utf8').digest('hex'),reason_code};}
+function heldIdentityHash(value){
+ let preimage;if(typeof value==='string')preimage=JSON.stringify(value);else{
+  const type=value===null||(typeof value==='number'&&!Number.isFinite(value))?'null':Array.isArray(value)?'array':typeof value;
+  if(!['number','boolean','null','array','object'].includes(type))fail('CANONICAL_HELD_METADATA_INVALID');preimage='KK_OWNER_CANONICAL_HELD_NONSTRING_V2\n'+type;
+ }return crypto.createHash('sha256').update(preimage,'utf8').digest('hex');
+}
+function heldEntry(rows,index,reason_code){return {row_index:index+1,notification_id_sha256:heldIdentityHash(rows[index]['Notification ID']),reason_code};}
 function validateHeld(held,rows){
  if(!Array.isArray(held)||held.length>128||Buffer.byteLength(JSON.stringify(held))>32768)fail('CANONICAL_HELD_METADATA_INVALID');const indices=new Set();
  for(const h of held){exact(h,['row_index','notification_id_sha256','reason_code']);if(!Number.isInteger(h.row_index)||h.row_index<1||h.row_index>rows.length||indices.has(h.row_index)||!HELD_CODES.has(h.reason_code)||h.notification_id_sha256!==heldEntry(rows,h.row_index-1,h.reason_code).notification_id_sha256)fail('CANONICAL_HELD_METADATA_INVALID');indices.add(h.row_index);}return held;
