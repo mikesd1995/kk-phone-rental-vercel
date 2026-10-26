@@ -156,3 +156,34 @@ test('verifier readback must fail if disabled lens bundle appears available',()=
   assert.equal(bad.verified,false);
   assert.ok(bad.blockers.includes('LENS_BUNDLE_VISIBLE_ON_CREATE:TPL-VIVO-X300-PRO-BUNDLE'));
 });
+
+test('automated new event note must be customer facing, without scanner tokens',()=>{
+  const plan=Writer.createPlan(decision(),mutation(590),templates);
+  const note=plan.admin_payload.note;
+  assert.ok(note.includes('เช่าโทรศัพท์'));
+  assert.ok(note.includes('590 บาท'));
+  assert.ok(note.includes('ยังไม่มีบริการเลนส์เสริม'));
+  assert.ok(!note.includes('ULTRA_DEEP_V2_'));
+  assert.ok(!note.includes('OWNER_'));
+  const withLens=Writer.createPlan(
+    decision({lens_rule:'VERIFIED_ALLOWED',lens_rule_verified:true}),mutation(590),templates
+  );
+  assert.ok(withLens.admin_payload.note.includes('แพ็กเกจพร้อมเลนส์'));
+  assert.ok(!withLens.admin_payload.note.includes('ยังไม่มีบริการเลนส์เสริม'));
+});
+
+test('automatic metadata or visibility updates preserve the existing customer note',()=>{
+  for(const [type,to] of [
+    ['UPDATE_DATE','2026-11-27'],
+    ['UPDATE_VENUE','New Verified Venue'],
+    ['UPDATE_POSTER','https://example.com/newposter.jpg'],
+    ['UPDATE_VISIBILITY',false]
+  ]){
+    const patch=Writer.mapMutation({type,to},{
+      canonical_event_id:'EVT-20261126-TEST',
+      title:'Verified Event',event_date:'2026-11-26'
+    });
+    assert.equal(patch.action,'updateEvent');
+    assert.equal(Object.hasOwn(patch,'note'),false);
+  }
+});
