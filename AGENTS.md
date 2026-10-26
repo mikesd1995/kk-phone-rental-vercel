@@ -114,3 +114,18 @@ Hard rules:
 - Preserve internal notes in internal/admin sources; do not solve a leak by deleting audit rationale unless the owner explicitly requests that data change.
 - Any change touching public notes or derived public feeds must include a regression case proving known internal-token classes are redacted while normal customer copy remains visible.
 - A public API response containing an internal operational token is a release-blocking defect.
+
+
+## Storefront event details — permanent compact-by-default rule (owner directive 2026-10-27)
+
+**Apply to every existing and newly discovered/imported event**, regardless of month, organizer or how events enter the public feed. The reference is the clean BTS World Tour detail sheet; never let a long ZATO-style announcement dominate the booking modal. This is a rendering contract, not an instruction to erase valid source/event details.
+
+- Use the one shared event/package modal renderer for all public events. Do not create event-specific exceptions or styling that lets new events bypass the compact template.
+- First view contains only the full official event title, date, venue, optional short package section heading, available package names/types, true rental prices and actionable booking/waitlist controls. Keep share/close accessible.
+- Keep long event `event_note` / `web_note` and explicit package `use_case` / public `web_note` in collapsed, clearly labelled, keyboard-accessible detail disclosures. No full announcement, agenda, promotional paragraph, emoji-heavy copy, repeated venue/date or generic sales tagline in the default view.
+- Hide the event-details disclosure completely when there is no genuine sanitized public note. Suppress duplicate package model/spec labels and generic marketing taglines in the default view.
+- Preserve the complete sanitized public source note in the disclosure. Do not silently truncate safety-critical venue, date, package inclusion, pickup/return conditions or cancellation terms; these must remain available, and material restrictions should remain easily discoverable. Keep all public text behind the existing sanitization boundaries.
+- Event creation, Ultra Deep Scan, imports, AI agents and bulk updates must **not** rewrite canonical booking, pricing, availability, owner-hidden flags or source notes just to shorten the UI. Ensure every incoming event uses this same shared rendering policy by default.
+- Maintain TH/EN, dark/light, native focus/keyboard behavior, accessible 44px disclosure/booking controls, responsive mobile layout and no horizontal overflow.
+- Every storefront-content/UI change affecting this surface must re-run a regression with one no-note event, one long-note event, one explicit package note, lens-only, multiple available packages, and sold-out/waitlist. Run the normal UX reviewer, visual QA and release gates; no merge/deploy without accepted evidence.
+- Durable specification: `docs/STOREFRONT_COMPACT_EVENT_DETAILS_STANDARD_2026-10-27.md`. Regression: `tests/storefront-compact-event-modal.test.js` and `tests/storefront-compact-event-fixtures.test.js`.

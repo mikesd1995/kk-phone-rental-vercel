@@ -2585,3 +2585,84 @@ html .kk-mock-hero .kk-hero-inline-arrow{
   }
   html .kk-benefit-grid>div>span:last-child{min-width:0!important}
 }
+
+
+/* V6.34 — compact event-package modal (2026-10-27).
+   Non-destructive presentation: preserve all event/package notes in native
+   disclosures, keep price/availability/booking and 44px interactive targets. */
+#overlay .modal-note{
+  margin:12px 22px 0!important;
+  padding:11px 0 5px!important;
+  border-top:1px solid var(--v6-line)!important;
+  border-bottom:0!important;
+  line-height:1.3!important;
+}
+#overlay .modal-note strong{font-size:13px!important;font-weight:800!important}
+#overlay #modal-event-note{
+  margin:6px 0 0!important;
+  padding:0!important;
+  color:var(--v6-sub)!important;
+  font-size:12px!important;
+  line-height:1.5!important;
+}
+#overlay #modal-event-note[hidden]{display:none!important}
+#overlay #modal-event-note summary,
+#overlay .ph-extra summary{
+  cursor:pointer!important;
+  min-height:44px!important;
+  display:flex!important;
+  align-items:center!important;
+  width:fit-content!important;
+  max-width:100%!important;
+  color:var(--v6-sub)!important;
+  font-size:12px!important;
+  font-weight:700!important;
+  line-height:1.4!important;
+  overflow-wrap:anywhere!important;
+}
+#overlay #modal-event-note summary::before,
+#overlay .ph-extra summary::before{
+  content:"▸";
+  display:inline-block;
+  margin-right:7px;
+  color:var(--v6-accent);
+}
+#overlay #modal-event-note[open]>summary::before,
+#overlay .ph-extra[open]>summary::before{content:"▾"}
+#overlay #modal-event-note summary:focus-visible,
+#overlay .ph-extra summary:focus-visible{
+  outline:2px solid var(--v6-accent)!important;
+  outline-offset:2px!important;
+  border-radius:5px!important;
+}
+#overlay #modal-event-note .modal-event-note-copy{
+  padding:0 4px 10px 0!important;
+  white-space:pre-line!important;
+  overflow-wrap:anywhere!important;
+  color:var(--v6-sub)!important;
+  font-size:12px!important;
+  line-height:1.6!important;
+}
+#overlay .phone-list{padding-top:0!important}
+#overlay .phone-row{padding-top:12px!important;padding-bottom:12px!important}
+#overlay .ph-extra{margin:1px 0 0!important}
+#overlay .ph-extra summary{font-size:11px!important}
+#overlay .ph-extra .ph-note{
+  margin:0 0 6px!important;
+  color:var(--v6-sub)!important;
+  font-style:normal!important;
+  font-size:11.5px!important;
+  line-height:1.55!important;
+}
+@media(max-width:700px){
+  #overlay .modal-note{
+    margin:11px 18px 0!important;
+    padding:10px 0 4px!important;
+  }
+  #overlay .phone-list{padding:0 18px!important}
+  #overlay .phone-row{padding:11px 0!important}
+}
+@media(max-width:389px){
+  #overlay .modal-note{margin-left:16px!important;margin-right:16px!important}
+  #overlay .phone-list{padding-left:16px!important;padding-right:16px!important}
+}
