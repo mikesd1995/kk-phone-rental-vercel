@@ -80,3 +80,33 @@ After writing, re-fetched exact GitHub file blobs:
 5. Independently handle poster Drive `anyone:writer` via Draft #721 owner-reviewed current manifest/fingerprint and image QA. Poster metadata audit documents 37/37 current assets with broad writer permission; role changes still require separate authority.
 
 **Actual writes this R3:** 4 source/test commits on existing Draft #739 and this GitHub handoff edit only. **Production/App Script/Drive ACL/booking/price/inventory/customer/automation/merge/deploy writes: 0.** **Security P0 HOLD; Stable Business V1 not yet accepted.**
+
+---
+
+## R4 — Admin fallback untrusted provider diagnostics and native-test blocker (27 Oct 2026 ICT)
+
+### Why this was necessary
+A further source-line audit found `server/admin-sheet-fallback.js:buildSnapshotUncached()` copied arbitrary `err.code` from a failed private provider into `transportMeta.fallback_private_error_code`, which is subsequently included in the Admin fallback snapshot. With optional legacy private-first reading, a provider-supplied code such as `CRM_PRIVATE_READ_FAILED;token=<synthetic token>` could contaminate an Admin diagnostic result or logs. This is a **potential incidental secret/PII echo, not evidence of exploitation**.
+
+### Actual Draft-only changes
+- [8f0971af](https://github.com/mikesd1995/kk-phone-rental-vercel/commit/8f0971af43fdf4bb1dd75fc00198d6ae015d1ca2): `server/admin-sheet-fallback.js` now uses `safePrivateFallbackErrorCode()`: whitelist canonical fixed diagnostic codes, reduce anything unrecognized or suffixed with untrusted text to `PRIVATE_FALLBACK_READ_FAILED`. The new helper is exported for deterministic tests. **Do not change** whether optional legacy mode falls back; **do not change** strict private fail-closed behavior.
+- [46b57d2e](https://github.com/mikesd1995/kk-phone-rental-vercel/commit/46b57d2e9e9308253507a6c0449b0181cf88a9b6): `tests/admin-sheet-fallback-private-reader.test.js` gains a regression for recognized opaque codes, malicious suffixes, synthetic phone/token strings and generic unknown-code classification.
+
+**GitHub content verified after writes:** Admin fallback blob `f1e174a334fd8d9b81ea0ce8c3770c89cbf2add7`, test file blob `be05d304caf07fde414083411880142d902cd993`.
+
+### Read-only validation and exact limits
+- **15/15 PASS**, using isolated V8 evaluation of the precise current GitHub function source and stubbed provider responses. Cases include syntax parsing both complete source/test files, untrusted/private-code redaction, preservation of recognized classes, optional legacy fallback still executing with **sanitized diagnostic metadata**, and strict private mode **not entering any public/legacy fallback** on failure. First simulation failed to supply the required synthetic events/bookings/assets tables, so no code failure was inferred; corrected fixture passed 15/15. No real customer rows, secrets or provider writes used.
+- **NOT NATIVE:** The environment has local Node v22.16.0, but the existing private GitHub repository could not be cloned for exact-head `node --test`; direct `git ls-remote` failed DNS resolution of github.com. No hosted CI run was started because of the owner no-extra-cost constraints and absent release authorization. Latest source commit `46b57d2e` had **0 associated PR workflow runs and 0 combined status checks**; neither is a CI pass.
+- Current #739 remains **Draft / mergeable=false**, comparison to main **133 ahead / 38 behind**. No blind merge or deploy.
+- Fresh owner-connected Core Drive file metadata continues to show **anyone/reader**. Vercel Environment **names only** now reports 24 variables (previously 23), but all three essential private names — `KK_CORE_PRIVATE_READ_KEY`, `KK_CORE_PRIVATE_TRANSPORT` and `KK_CORE_SHEET_REQUIRE_PRIVATE` — are **still absent**. The 23-to-24 difference was not investigated or attributed; do not claim another process did nothing. Secret values never decrypted, generated, viewed or printed. Production alias remains READY on main SHA `64cec7bfa75e8c1f5cfe56570ee701f27bf540fe`, deployment `dpl_HJtYdCsornZ2jngQovaiNj9r7rbe`.
+- Latest prepared Apps Script `apps-script/Code.gs` source includes `KK_CORE_PRIVATE_READ_ENABLED` opt-in, exact `KK_PRIVATE_CORE_READ_ALLOWLIST`, separate `KK_CORE_PRIVATE_READ_KEY`, and special `privateCoreRead` action before ordinary Admin-key auth. The file is source **only**, not evidence that the owner has published that code or configured its Script Properties.
+
+### Actual remaining blockers and next execution checkpoint
+1. **Owner-only prerequisites:** install/run approved Apps Script private reader under its bound Core Google Sheet, generate a distinct high-entropy reader-only secret in an owner-controlled local password manager, and securely configure protected Apps Script property and Vercel sensitive env. Do not put any secret in chat/GitHub. Need authorization for protected changes; do not silently make them.
+2. **Live acceptance:** real authorized 13/13 range reads under Apps Script transport, negative authentication tests, source-header uniqueness, PII-safe public data projection, no legacy fallback under strict flag, and Booking + LINE + Admin + inventory + revenue + storefront visual/browser equality. Ensure documented rollback path.
+3. **CI/integration:** run complete exact-head Node tests and hosting CI using a confirmed no-extra-cost approved environment, reconcile 133-ahead/38-behind Draft with latest main and related Booking/CRM/UX PRs. Draft green-looking V8 tests do not replace native or end-to-end acceptance.
+4. **Protected cutover:** only after readback approval and verified private path, enable strict private read on Production and independently recheck; **then** remove the Core any-one-reader permission and verify signed-out denial without breaking storefront or bookings. Poster ACL #721 requires separate owner fingerprint and media QA.
+
+**Writes R4:** 2 Draft-only code/test commits and this document update, plus PR/issue summary comments if posted. Google Drive ACL mutations 0; Google Sheet/Booking/customer/price/stock changes 0; Apps Script deployment 0; Vercel configuration/deployment 0; GitHub merge 0; paid runner usage 0.
+
+**Final state: Security P0 OPEN / Stable Business V1 NOT RELEASE-ACCEPTED.**
