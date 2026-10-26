@@ -13,11 +13,12 @@ function mapMutation(m={},decision={}){
  }
  if(m.type==='UPDATE_VISIBILITY'){
   if(!eventId) throw Object.assign(new Error('event identity missing'),{code:'V2_EVENT_ID_MISSING'});
-  return {action:'updateEvent',event_id:eventId,active_on_web:m.to===true,visibility_lock_reason:text(m.visibility_lock_reason||'OWNER_MONTHLY_DEMAND_PRUNE'),visibility_changed_by:'OWNER_MONTHLY_RECONCILIATION',visibility_source_evidence:'ULTRA_DEEP_EXTERNAL_DEMAND_REQUALIFICATION',note:'ULTRA_DEEP_V2_EXTERNAL_DEMAND_REQUALIFICATION'};
+  return {action:'updateEvent',event_id:eventId,active_on_web:m.to===true,visibility_lock_reason:text(m.visibility_lock_reason||'OWNER_MONTHLY_DEMAND_PRUNE'),visibility_changed_by:'OWNER_MONTHLY_RECONCILIATION',visibility_source_evidence:'ULTRA_DEEP_EXTERNAL_DEMAND_REQUALIFICATION'};
  }
  if(['UPDATE_DATE','UPDATE_VENUE','UPDATE_POSTER'].includes(m.type)){
   if(!eventId) throw Object.assign(new Error('event identity missing'),{code:'V2_EVENT_ID_MISSING'});
-  const a={action:'updateEvent',event_id:eventId,note:'ULTRA_DEEP_V2_VERIFIED_METADATA'};
+  // An update must preserve the existing customer-facing Core note.
+  const a={action:'updateEvent',event_id:eventId};
   if(m.type==='UPDATE_DATE')a.event_date=text(m.to);
   if(m.type==='UPDATE_VENUE')a.venue=text(m.to);
   if(m.type==='UPDATE_POSTER')a.poster_url=text(m.to);
@@ -66,7 +67,8 @@ function createPlan(decision={},mutation={},packageTemplates=[]){
  const lensPermissionVerified=decision.lens_rule_verified===true||decision.lensPermissionVerified===true;
  const bundleAllowed=lensRule==='VERIFIED_ALLOWED'&&lensPermissionVerified;
  const bundlePrice=bundleAllowed?Math.max(price+lens,november?690:0):0;
- const payload={action:'createEvent',event_name:text(decision.title),event_date:eventDate,venue:text(decision.verified_venue),poster_url:text(mutation.poster_url),status:'open',active_on_web:true,note:'ULTRA_DEEP_V2_VERIFIED_CREATE',event_price_overrides:[
+ const customerNote='เช่าโทรศัพท์สำหรับงานนี้ '+String(price)+' บาท ไม่รวมบัตรหรือสิทธิ์เข้างาน '+(bundleAllowed?'มีแพ็กเกจพร้อมเลนส์ตามราคาที่ร้านระบุในหน้าจอง ':'ยังไม่มีบริการเลนส์เสริมสำหรับงานนี้ ')+'โปรดตรวจสอบข้อกำหนดการถ่ายภาพและการนำอุปกรณ์เข้าสถานที่กับผู้จัดก่อนจอง';
+ const payload={action:'createEvent',event_name:text(decision.title),event_date:eventDate,venue:text(decision.verified_venue),poster_url:text(mutation.poster_url),status:'open',active_on_web:true,note:customerNote,event_price_overrides:[
   {template_id:ids.phone,override_price:price,active_override:true,override_note:'ULTRA_DEEP_V2_APPROVED_PRICE'},
   {template_id:ids.lens,override_price:0,active_override:false,override_note:'LENS_ONLY_ALWAYS_HIDDEN'},
   {template_id:ids.bundle,override_price:bundlePrice,active_override:bundleAllowed,override_note:bundleAllowed?'ULTRA_DEEP_V2_VERIFIED_ORGANIZER_LENS':'ULTRA_DEEP_V2_HOLD_UNVERIFIED_LENS'}]};
