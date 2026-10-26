@@ -2620,6 +2620,15 @@ html .kk-mock-hero .kk-hero-inline-arrow{
   line-height:1.4!important;
   overflow-wrap:anywhere!important;
 }
+#overlay #modal-event-note summary::before,
+#overlay .ph-extra summary::before{
+  content:"▸";
+  display:inline-block;
+  margin-right:7px;
+  color:var(--v6-accent);
+}
+#overlay #modal-event-note[open]>summary::before,
+#overlay .ph-extra[open]>summary::before{content:"▾"}
 #overlay #modal-event-note summary:focus-visible,
 #overlay .ph-extra summary:focus-visible{
   outline:2px solid var(--v6-accent)!important;
