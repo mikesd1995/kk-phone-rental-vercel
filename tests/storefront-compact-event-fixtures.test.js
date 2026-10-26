@@ -30,7 +30,10 @@ function modalHarness(lang) {
       this.open = false;
       this.textContent = '';
       this.className = '';
+      this._innerHTML = '';
     }
+    set innerHTML(value) { this._innerHTML = String(value); this.children = []; }
+    get innerHTML() { return this._innerHTML; }
     appendChild(node) { this.children.push(node); return node; }
     replaceChildren(...children) { this.children = children; }
     insertAdjacentElement(_location, node) { nodes[node.id] = node; return node; }
