@@ -135,7 +135,9 @@ var I18N = {
     modal_title_placeholder:"ชื่องาน",
     modal_date_placeholder:"วันที่",
     modal_venue_placeholder:"สถานที่",
-    modal_note_strong:"เลือกแพ็กเกจที่ต้องการ:",
+    modal_note_strong:"เลือกแพ็กเกจ",
+    modal_more_details:"ดูรายละเอียดงาน",
+    modal_package_details:"รายละเอียดแพ็กเกจ",
     modal_note_body:"ถ้างานยังว่างให้กด “จองเลย” ถ้างานเต็มให้จองคิวหลุดผ่าน LINE ได้เลย",
     close:"ปิด",
     faq_close_aria:"ปิด FAQ",
@@ -275,7 +277,9 @@ var I18N = {
     modal_title_placeholder:"Event name",
     modal_date_placeholder:"Date",
     modal_venue_placeholder:"Venue",
-    modal_note_strong:"Choose a package:",
+    modal_note_strong:"Choose a package",
+    modal_more_details:"Event details",
+    modal_package_details:"Package details",
     modal_note_body:"If slots are open, tap “Book now”. If full, join the waitlist via LINE.",
     close:"Close",
     faq_close_aria:"Close FAQ",
@@ -441,7 +445,7 @@ function applyStaticLanguage(){
   setText("#modal-title","modal_title_placeholder");
   setText("#modal-date","modal_date_placeholder");
   setText("#modal-venue","modal_venue_placeholder");
-  var note=document.querySelector(".modal-note"); if(note)note.innerHTML="<strong>"+esc(tr("modal_note_strong"))+"</strong> "+esc(tr("modal_note_body"));
+  var note=document.querySelector(".modal-note"); if(note)note.innerHTML="<strong>"+esc(tr("modal_note_strong"))+"</strong>";
   setText("#modal-close","close");
   setText("#event-share-btn","share_event");
   setAttr("#faq-x-btn","aria-label","faq_close_aria");
@@ -1568,16 +1572,28 @@ function showModal(c,options){
   document.getElementById("modal-date").textContent=(currentLang==="en"?"Date: ":"วันที่: ")+(c.date||"-");
   var venueEl=document.getElementById("modal-venue");
   venueEl.textContent=(currentLang==="en"?"Venue: ":"สถานที่: ")+(c.venue||"-");
+  // Keep optional event conditions accessible without forcing long descriptions
+  // into the default booking decision path. No source data is discarded.
   var eventNoteEl=document.getElementById("modal-event-note");
   if(!eventNoteEl){
-    eventNoteEl=document.createElement("div");
+    eventNoteEl=document.createElement("details");
     eventNoteEl.id="modal-event-note";
-    eventNoteEl.className="modal-meta";
+    eventNoteEl.className="modal-event-details";
     venueEl.insertAdjacentElement("afterend",eventNoteEl);
   }
   var publicEventNote=sanitizePublicText(c.webNote);
-  eventNoteEl.textContent=publicEventNote?"ℹ️ "+publicEventNote:"";
+  eventNoteEl.replaceChildren();
   eventNoteEl.hidden=!publicEventNote;
+  eventNoteEl.open=false;
+  if(publicEventNote){
+    var eventSummary=document.createElement("summary");
+    eventSummary.textContent=tr("modal_more_details");
+    var eventCopy=document.createElement("div");
+    eventCopy.className="modal-event-note-copy";
+    eventCopy.textContent=publicEventNote;
+    eventNoteEl.appendChild(eventSummary);
+    eventNoteEl.appendChild(eventCopy);
+  }
 
   // UX fix: ไม่แสดงรูปโปสเตอร์ซ้ำใน modal
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
@@ -1613,8 +1629,18 @@ function showModal(c,options){
     var mEl=document.createElement("div"); mEl.className="ph-model"; mEl.textContent=p.model||"";
     var sEl=document.createElement("div"); sEl.className="ph-spec";  sEl.textContent=packageSpecForLanguage(p);
     info.appendChild(mEl); info.appendChild(sEl);
+    // Default marketing taglines add noise; keep explicit customer-facing
+    // package notes discoverable with an accessible native disclosure.
     var publicSubtitle=packagePublicSubtitle(p);
-    if(publicSubtitle){var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=publicSubtitle; info.appendChild(nEl);}
+    var explicitSubtitle=sanitizePublicText(p.useCase)||sanitizePublicText(p.note);
+    if(publicSubtitle&&explicitSubtitle){
+      var packageExtra=document.createElement("details"); packageExtra.className="ph-extra";
+      var packageSummary=document.createElement("summary"); packageSummary.textContent=tr("modal_package_details");
+      var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=publicSubtitle;
+      packageExtra.appendChild(packageSummary);
+      packageExtra.appendChild(nEl);
+      info.appendChild(packageExtra);
+    }
     var right=document.createElement("div"); right.className="ph-right";
     var priceEl=document.createElement("div"); priceEl.className="ph-price";
     if(toNum(p.price)>0){
