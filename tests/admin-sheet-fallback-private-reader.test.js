@@ -12,6 +12,24 @@ test('private values parser locates header and rows',()=>{
   assert.equal(rows[0].__row_number,4);
 });
 
+test('Admin fallback diagnostic code never reflects arbitrary provider secrets, token suffixes or PII',()=>{
+  const safe=F.safePrivateFallbackErrorCode;
+  assert.equal(typeof safe,'function');
+  for(const allowed of ['CRM_PRIVATE_READ_FAILED','CRM_READER_NOT_CONFIGURED',
+    'CORE_PRIVATE_TRANSPORT_INVALID','CORE_APPS_SCRIPT_HTTP_FAILURE']){
+    assert.equal(safe({code:allowed}),allowed);
+  }
+  const raw=['CRM_PRIVATE_READ_FAILED;token=SYNTHETIC_PRIVATE_TOKEN',
+    'CORE_APPS_SCRIPT_HTTP_FAILURE phone=+66800000000',
+    'SYNTHETIC_PRIVATE_KEY_1234567890','PRIVATE_FALLBACK_READ_FAILED__pii',
+    '\\nbooking_contact=SYNTHETIC_CUSTOMER',''];
+  for(const source of raw){
+    assert.equal(safe({code:source,message:'PRIVATE_CUSTOMER_FIXTURE'}),'PRIVATE_FALLBACK_READ_FAILED');
+  }
+  assert.equal(safe(new Error('PRIVATE_CUSTOMER_FIXTURE')),'PRIVATE_FALLBACK_READ_FAILED');
+  assert.equal(safe({code:{toString(){return 'synthetic_token';}}}),'PRIVATE_FALLBACK_READ_FAILED');
+});
+
 test('private-reader-required fails closed when credentials are absent',async()=>{
   await assert.rejects(
     ()=>F.buildSnapshot({sheetId:'sheet',env:{KK_ADMIN_FALLBACK_REQUIRE_PRIVATE:'1'},fetchImpl:async()=>{throw new Error('network should not run');}}),
