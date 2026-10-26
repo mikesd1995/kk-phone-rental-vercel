@@ -71,6 +71,14 @@ test('executed JWT boundary rejects missing token and wrong issuer/audience/subj
     const h=harness(f,{claims}),r=await h.request();assert.equal(r.status,401,JSON.stringify(claims));assert.equal(h.calls.length,0);
   }
 });
+test('adapter dispatch and outcome Edge stages keep exact parameters trusted environment and independent OFF gate',async()=>{
+ const f=fixture(),attempt=crypto.randomUUID(),receipt=crypto.randomUUID(),dispatch=crypto.randomUUID();
+ for(const [operation,parameters] of [['dispatch-start',{notification_id:'ks1_test',attempt_id:attempt,receipt_id:receipt,bot_id:'123456'}],['adapter-ack',{notification_id:'ks1_test',attempt_id:attempt,receipt_id:receipt,dispatch_id:dispatch,provider_message_id:'123456'}],['adapter-reject',{notification_id:'ks1_test',attempt_id:attempt,receipt_id:receipt,dispatch_id:dispatch,evidence:{}}]]){
+  const body={probe:'owner-canonical',version:'v2',operation,parameters},off=harness(f);assert.equal((await off.request(body)).status,403);assert.equal(off.calls.length,0);
+  const h=harness(f,{canonicalEnabled:true}),result=await h.request(body);assert.equal(result.status,200);assert.equal(h.calls.length,1);assert.deepEqual(JSON.parse(h.calls[0].init.body),{p_operation:operation,p_parameters:parameters,p_environment:'preview'});
+  const bad=harness(f,{canonicalEnabled:true});assert.equal((await bad.request({...body,parameters:{...parameters,enabled:true}})).status,403);assert.equal(bad.calls.length,0);
+ }
+});
 test('preview cannot call any existing probe while production bounded runtime read still works',async()=>{
   const f=fixture();
   for(const probe of ['runtime-ledger','project-memory','agent-invocation-read','agent-invocation-write']){

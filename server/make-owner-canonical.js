@@ -5,6 +5,7 @@ const Legacy=require('./make-owner-ledger-bridge');
 const Ledger=require('./make-owner-ledger-plan');
 const Wire=require('./make-owner-transport-contract');
 const Oidc=require('./runtime-ledger-oidc-bridge');
+const Adapter=require('./make-owner-telegram-adapter');
 const FUNCTIONS={poll:'runCanonicalOwnerLedgerPoll',claim:'runCanonicalOwnerLedgerClaim',project:'finalizeCanonicalOwnerLedgerAck',reject:'finalizeCanonicalOwnerLedgerRejection'};
 const CONTEXT_FIELDS=['version','cutover_id','activated_at','policy_version','consumer_id','max_attempts','script_project_id','spreadsheet_id','tab','transport','environment','poll_id','slot_id','due_at','observed_at','nonce'];
 const EVIDENCE=['Last Attempt At','Delivery Evidence','Next Retry At','HTTP Status','Provider Message ID','API Accepted At','Delivery Confirmed At','Last Error','Feedback Source'];
@@ -54,8 +55,11 @@ function classifyProviderRejection(capture,current,profile){
  if(Reflect.ownKeys(capture).length!==required.length||required.some(k=>!Object.hasOwn(capture,k)))return unknown;
  try{if(profile.id!=='native-telegram-617-module8-v1'||profile.scenario_id!=='6176241'||profile.module_id!==8||profile.connection_id!==10356915||profile.profile_digest!==captureProfileDigest(profile))return unknown;}catch(_){return unknown;}
  if(capture.profile_id!==profile.id||capture.scenario_id!==profile.scenario_id||capture.module_id!==8||capture.connection_id!==10356915||capture.attempt_id!==current.attempt_id||capture.attempt_no!==current.attempt_no||capture.receipt_id!==current.receipt_id||capture.source_notification_id!==current.source_notification_id||capture.descriptor_sha256!==current.descriptor_sha256)return unknown;
- const response=capture.telegram_response,status=capture.http_status;
- if(!Wire.isPlainObject(response)||response.ok!==false||!Number.isInteger(status)||status<400||status>599||response.error_code!==status||Reflect.ownKeys(response).some(k=>!['ok','error_code','description','parameters'].includes(k))||['result','message_id','request_id'].some(k=>Object.hasOwn(response,k))||Object.hasOwn(capture,'provider_message_id'))return unknown;
+ return classifyTelegramResponse(capture.telegram_response,capture.http_status);
+}
+function classifyTelegramResponse(response,status){
+ const unknown={disposition:'unknown'};
+ if(!Wire.isPlainObject(response)||response.ok!==false||!Number.isInteger(status)||status<400||status>599||response.error_code!==status||Reflect.ownKeys(response).some(k=>!['ok','error_code','description','parameters'].includes(k))||['result','message_id','request_id'].some(k=>Object.hasOwn(response,k)))return unknown;
  if(Object.hasOwn(response,'description')&&typeof response.description!=='string')return unknown;
  let retry_after_seconds=0;
  if(Object.hasOwn(response,'parameters')){
@@ -110,6 +114,39 @@ async function runHandle(body,cfg,options={}){
  if(!cfg.canonicalEnabled||!cfg.producerEnabled||typeof cfg.canonicalSecret!=='string'||cfg.canonicalSecret.length<32||cfg.canonicalSecret===cfg.secret||(!cfg.gasAccessToken&&!(cfg.gasClientId&&cfg.gasClientSecret&&cfg.gasRefreshToken))||!cfg.gasDeploymentId||cfg.gasProjectId!==Legacy.SCRIPT_PROJECT_ID)fail('CANONICAL_DISABLED_OR_UNBOUND');
  if(cfg.consumerAuthenticated!==true)fail('CANONICAL_CONSUMER_UNAUTHENTICATED');
  const op=body.stage;
+ if(op==='canonical-dispatch-start'||op==='canonical-adapter-result'){
+  exact(body,op==='canonical-dispatch-start'?['stage','envelope_json','attempt_id','receipt_id','bot_id','provider_binding_sha256']:['stage','envelope_json','attempt_id','receipt_id','outcome_frame']);
+  const binding=Adapter.validateBinding(cfg.adapterBinding);
+  let e;try{if(typeof body.envelope_json!=='string'||Buffer.byteLength(body.envelope_json)>12000)fail('CANONICAL_FIELDS_INVALID');e=JSON.parse(body.envelope_json);}catch(_){fail('CANONICAL_FIELDS_INVALID');}
+  exact(e,['version','audience','notification_id','request_id','entity_id','event_type','content_version','text','created_at','expires_at','signature']);
+  const verified=Wire.verifyEnvelope(e,cfg.secret);if(!verified.ok)fail(verified.error_code);
+  if(!Wire.isReceiptId(body.attempt_id)||!Wire.isReceiptId(body.receipt_id))fail('CANONICAL_ATTEMPT_MISMATCH');
+  const selector={notification_id:e.notification_id,attempt_id:body.attempt_id},record=await store('readback',selector,cfg,options);descriptorMatch(record,e);Adapter.sameBinding(record.provider_binding,binding);
+  if(record.ticket!==body.attempt_id||record.receipt_id!==body.receipt_id)fail('CANONICAL_DISPATCH_MISMATCH');
+  if(op==='canonical-dispatch-start'){
+   if(typeof cfg.ownerChatId!=='string'||! /^-?[0-9]{4,25}$/.test(cfg.ownerChatId)||typeof record.descriptor.text!=='string'||!record.descriptor.text.trim()||record.descriptor.text.length>2048)fail('CANONICAL_ADAPTER_BINDING_MISMATCH');
+   if(body.bot_id!==binding.bot_id||body.provider_binding_sha256!==Adapter.bindingDigest(binding))fail('CANONICAL_ADAPTER_BINDING_MISMATCH');
+   if(record.status!=='RESERVED'||Date.parse(e.expires_at)<=Date.now()+15000)fail('CANONICAL_PROVIDER_MARGIN_EXPIRED');
+   const started=await store('dispatch-start',{...selector,receipt_id:body.receipt_id,bot_id:body.bot_id},cfg,options);descriptorMatch(started,e);Adapter.sameBinding(started.provider_binding,binding);
+   const dispatch=started.provider_dispatch;if(!dispatch||!Wire.isReceiptId(dispatch.dispatch_id)||dispatch.attempt_id!==body.attempt_id||dispatch.receipt_id!==body.receipt_id||Date.parse(e.expires_at)<=Date.now()+15000)fail('CANONICAL_DISPATCH_MISMATCH');
+   return {ok:true,send_allowed:true,dispatch_id:dispatch.dispatch_id,attempt_id:body.attempt_id,receipt_id:body.receipt_id,target_chat_id:cfg.ownerChatId,text:record.descriptor.text,expires_at:e.expires_at,provider_binding_sha256:Adapter.bindingDigest(binding),bot_id:binding.bot_id};
+  }
+  const dispatch=record.provider_dispatch;if(!dispatch||!Wire.isReceiptId(dispatch.dispatch_id)||dispatch.attempt_id!==body.attempt_id||dispatch.receipt_id!==body.receipt_id)fail('CANONICAL_DISPATCH_MISMATCH');
+  const outcome=Adapter.parseFrame(body.outcome_frame,dispatch.dispatch_id),response=outcome.telegram_response;
+  if(outcome.http_status===200&&response.ok===true){
+   if(Object.keys(response).sort().join(',')!=='ok,result'||!Wire.isPlainObject(response.result)||!Number.isSafeInteger(response.result.message_id)||response.result.message_id<1||!Wire.isPlainObject(response.result.from)||!Number.isSafeInteger(response.result.from.id)||String(response.result.from.id)!==binding.bot_id||response.result.from.is_bot!==true||!Wire.isPlainObject(response.result.chat)||!Number.isSafeInteger(response.result.chat.id)||String(response.result.chat.id)!==cfg.ownerChatId)fail('CANONICAL_ADAPTER_OUTCOME_UNKNOWN');
+   const sent=await store('adapter-ack',{...selector,receipt_id:body.receipt_id,dispatch_id:dispatch.dispatch_id,provider_message_id:String(response.result.message_id)},cfg,options);
+   if(sent.status!=='SENT'||sent.provider_message_id!==String(response.result.message_id)||sent.ticket!==body.attempt_id)fail('CANONICAL_DURABLE_ACK_REQUIRED');
+   return {ok:true,send_allowed:false,mode:'CANONICAL_V2',status:'SENT',receipt_id:body.receipt_id,provider_message_id:sent.provider_message_id,projection_verified:false};
+  }
+  const classified=classifyTelegramResponse(response,outcome.http_status);if(classified.disposition==='unknown')fail('CANONICAL_ADAPTER_OUTCOME_UNKNOWN');
+  // Validate the complete original response before dropping free text from durable evidence.
+  const clean={ok:false,error_code:response.error_code,...(Object.hasOwn(response,'parameters')?{parameters:response.parameters}:{})};
+  const evidence={profile_sha256:binding.manifest_sha256,scenario_id:'6176241',module_id:binding.module_id,connection_id:binding.connection_id,attempt_id:body.attempt_id,receipt_id:body.receipt_id,descriptor_sha256:record.descriptor_sha256,http_status:outcome.http_status,telegram_response:clean};
+  const refused=await store('adapter-reject',{...selector,receipt_id:body.receipt_id,dispatch_id:dispatch.dispatch_id,evidence},cfg,options);
+  if(refused.status!=='REJECTION_PENDING'||refused.ticket!==body.attempt_id)fail('CANONICAL_REJECTION_PERSISTENCE_UNKNOWN');
+  return {ok:true,send_allowed:false,mode:'CANONICAL_V2',status:'REJECTION_PENDING',attempt_id:body.attempt_id};
+ }
  if(op==='canonical-poll-readback'){
   exact(body,['stage','version','poll_id']);if(body.version!=='v2'||!Wire.isReceiptId(body.poll_id))fail('CANONICAL_FIELDS_INVALID');
   const read=await store('poll-readback',{poll_id:body.poll_id},cfg,options);if(!Wire.isPlainObject(read)||read.context?.poll_id!==body.poll_id||!Array.isArray(read.held)||read.held.length>128)fail('CANONICAL_POLL_READBACK_INVALID');
@@ -164,9 +201,10 @@ async function runHandle(body,cfg,options={}){
   if(record.ticket!==body.attempt_id||record.attempt_count<1||record.attempt_count>4)fail('CANONICAL_ATTEMPT_MISMATCH');
   if(!/^[a-f0-9]{64}$/.test(e.signature||'')||!crypto.timingSafeEqual(Buffer.from(Wire.sign(record.descriptor,cfg.secret),'hex'),Buffer.from(e.signature,'hex')))fail('SIGNATURE_INVALID');
   if(op==='canonical-prepare'){
+   if(record.provider_binding||cfg.adapterBinding)Adapter.sameBinding(record.provider_binding,cfg.adapterBinding);
    if(Date.parse(e.expires_at)<=Date.now()+15000)fail('CANONICAL_PROVIDER_MARGIN_EXPIRED');
    const prepared=await Wire.prepareDispatch(e,{secret:cfg.secret,ownerChatId:cfg.ownerChatId,claimFn:async()=>store('reserve',selector,cfg,options)});
-   if(!prepared.send_allowed||Date.parse(e.expires_at)<=Date.now()+15000)fail(prepared.error_code||'CANONICAL_PROVIDER_MARGIN_EXPIRED');return {...prepared,source_notification_id:record.source_notification_id,attempt_id:body.attempt_id,attempt_no:record.attempt_count,descriptor_sha256:record.descriptor_sha256};
+   if(!prepared.send_allowed||Date.parse(e.expires_at)<=Date.now()+15000)fail(prepared.error_code||'CANONICAL_PROVIDER_MARGIN_EXPIRED');return {...prepared,...(record.provider_binding?{send_allowed:false,adapter_ready:true}:{}),source_notification_id:record.source_notification_id,attempt_id:body.attempt_id,attempt_no:record.attempt_count,descriptor_sha256:record.descriptor_sha256};
   }
   if(op==='canonical-ack'){
    if(!Wire.isReceiptId(body.receipt_id)||typeof body.provider_message_id!=='string'||! /^[1-9][0-9]{0,19}$/.test(body.provider_message_id))fail('CANONICAL_ACK_INVALID');
@@ -200,4 +238,4 @@ async function runHandle(body,cfg,options={}){
  fail('CANONICAL_STAGE_FORBIDDEN');
 }
 async function handle(body,cfg,options={}){return bounded(signal=>runHandle(body,cfg,{...options,signal}),20000);}
-module.exports={FUNCTIONS,CONTEXT_FIELDS,validateContext,quietHeld,planCandidate,CAPTURE_FIELDS,captureProfileDigest,classifyProviderRejection,signContext,verifySigned,executeGas,store,handle};
+module.exports={FUNCTIONS,CONTEXT_FIELDS,validateContext,quietHeld,planCandidate,CAPTURE_FIELDS,captureProfileDigest,classifyProviderRejection,classifyTelegramResponse,signContext,verifySigned,executeGas,store,handle};

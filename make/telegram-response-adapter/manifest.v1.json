@@ -1,0 +1,208 @@
+{
+  "version": 1,
+  "kind": "make-custom-telegram-response-v1",
+  "app_prefix": "kk-telegram-response-adapter",
+  "runtime_retry_granularity": "REQUIRES_LIVE_NO_PROVIDER_REPLAY_ATTESTATION",
+  "base": {
+    "baseUrl": "https://api.telegram.org",
+    "log": {
+      "sanitize": [
+        "request.url",
+        "request.headers.authorization",
+        "request.headers.Authorization",
+        "request.body",
+        "response.body"
+      ]
+    }
+  },
+  "connection": {
+    "name": "ownerTelegramAdapter",
+    "type": "basic",
+    "parameters": [
+      {
+        "name": "botToken",
+        "type": "password",
+        "required": true
+      },
+      {
+        "name": "consumerBearer",
+        "type": "password",
+        "required": true
+      }
+    ],
+    "communication": {
+      "url": "https://api.telegram.org/bot{{parameters.botToken}}/getMe",
+      "method": "GET",
+      "log": {
+        "sanitize": [
+          "request.url",
+          "request.headers.authorization",
+          "request.body",
+          "response.body"
+        ]
+      },
+      "followRedirect": false,
+      "followAllRedirects": false,
+      "response": {
+        "type": "json",
+        "valid": "{{statusCode === 200 && body.ok === true && body.result.is_bot === true}}",
+        "data": {
+          "botId": "{{body.result.id}}",
+          "botToken": "{{parameters.botToken}}",
+          "consumerBearer": "{{parameters.consumerBearer}}"
+        },
+        "metadata": {
+          "type": "text",
+          "value": "{{body.result.id}}"
+        }
+      }
+    }
+  },
+  "module": {
+    "name": "sendCapturedMessage",
+    "typeId": 4,
+    "connection": "ownerTelegramAdapter",
+    "mappable_parameters": [
+      {
+        "name": "envelope_json",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "attempt_id",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "receipt_id",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "provider_binding_sha256",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "communication": [
+      {
+        "url": "https://kk-phone-rental.vercel.app/api/kk-make-owner-notify",
+        "method": "POST",
+        "type": "json",
+        "headers": {
+          "Authorization": "Bearer {{connection.consumerBearer}}"
+        },
+        "body": {
+          "stage": "canonical-dispatch-start",
+          "envelope_json": "{{parameters.envelope_json}}",
+          "attempt_id": "{{parameters.attempt_id}}",
+          "receipt_id": "{{parameters.receipt_id}}",
+          "bot_id": "{{toString(connection.botId)}}",
+          "provider_binding_sha256": "{{parameters.provider_binding_sha256}}"
+        },
+        "followRedirect": false,
+        "followAllRedirects": false,
+        "response": {
+          "type": "json",
+          "valid": "{{statusCode === 200 && body.ok === true && body.send_allowed === true && body.dispatch_id && body.target_chat_id && body.target_chat_id === toString(body.target_chat_id) && length(body.target_chat_id) >= 4 && length(body.target_chat_id) <= 26 && body.text && body.text === toString(body.text) && length(trim(body.text)) > 0 && length(body.text) <= 2048 && body.attempt_id === parameters.attempt_id && body.receipt_id === parameters.receipt_id && body.bot_id === toString(connection.botId) && body.provider_binding_sha256 === parameters.provider_binding_sha256}}",
+          "temp": {
+            "grant": "{{body}}"
+          },
+          "output": null
+        }
+      },
+      {
+        "condition": "{{temp.grant.ok === true && temp.grant.send_allowed === true && temp.grant.attempt_id === parameters.attempt_id && temp.grant.receipt_id === parameters.receipt_id && temp.grant.dispatch_id && temp.grant.target_chat_id && temp.grant.target_chat_id === toString(temp.grant.target_chat_id) && length(temp.grant.target_chat_id) >= 4 && length(temp.grant.target_chat_id) <= 26 && temp.grant.text && temp.grant.text === toString(temp.grant.text) && length(trim(temp.grant.text)) > 0 && length(temp.grant.text) <= 2048 && temp.grant.bot_id === toString(connection.botId) && temp.grant.provider_binding_sha256 === parameters.provider_binding_sha256 && parseDate(temp.grant.expires_at) > addSeconds(now, 15)}}",
+        "url": "/bot{{connection.botToken}}/sendMessage",
+        "method": "POST",
+        "type": "json",
+        "headers": {},
+        "body": {
+          "chat_id": "{{temp.grant.target_chat_id}}",
+          "text": "{{temp.grant.text}}"
+        },
+        "followRedirect": false,
+        "followAllRedirects": false,
+        "response": {
+          "type": "json",
+          "output": {
+            "outcome_frame": "KK_TG_CAPTURE_V1|{{temp.grant.dispatch_id}}|{{statusCode}}|{{createJSON(body)}}"
+          },
+          "error": {
+            "429": {
+              "type": "RuntimeError",
+              "message": "KK_TG_CAPTURE_V1|{{temp.grant.dispatch_id}}|{{statusCode}}|{{createJSON(body)}}"
+            },
+            "type": "RuntimeError",
+            "message": "KK_TG_CAPTURE_V1|{{temp.grant.dispatch_id}}|{{statusCode}}|{{createJSON(body)}}"
+          }
+        }
+      }
+    ],
+    "interface": [
+      {
+        "name": "outcome_frame",
+        "type": "text"
+      }
+    ]
+  },
+  "reporter": {
+    "name": "reportCapturedOutcome",
+    "typeId": 4,
+    "connection": "ownerTelegramAdapter",
+    "mappable_parameters": [
+      {
+        "name": "envelope_json",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "attempt_id",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "receipt_id",
+        "type": "text",
+        "required": true
+      },
+      {
+        "name": "outcome_frame",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "communication": {
+      "url": "https://kk-phone-rental.vercel.app/api/kk-make-owner-notify",
+      "method": "POST",
+      "type": "json",
+      "headers": {
+        "Authorization": "Bearer {{connection.consumerBearer}}"
+      },
+      "body": {
+        "stage": "canonical-adapter-result",
+        "envelope_json": "{{parameters.envelope_json}}",
+        "attempt_id": "{{parameters.attempt_id}}",
+        "receipt_id": "{{parameters.receipt_id}}",
+        "outcome_frame": "{{parameters.outcome_frame}}"
+      },
+      "followRedirect": false,
+      "followAllRedirects": false,
+      "response": {
+        "type": "json",
+        "valid": "{{statusCode === 200 && body.ok === true && body.send_allowed === false}}",
+        "output": "{{body}}"
+      }
+    },
+    "interface": [
+      {
+        "name": "status",
+        "type": "text"
+      },
+      {
+        "name": "provider_message_id",
+        "type": "text"
+      }
+    ]
+  }
+}

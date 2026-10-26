@@ -276,7 +276,7 @@ const OWNER_OPERATIONS:Record<string,{rpc:string;keys:string[]}>= {
 };
 // Canonical v2 uses additive storage. The DB gate is locked throughout each RPC;
 // the environment comes only from verified same-project OIDC claims.
-const CANONICAL_OPERATIONS:Record<string,string[]>={poll:[],'poll-readback':['poll_id'],tickets:['context','rows','candidates','held'],begin:['ticket'],enqueue:['ticket','binding','descriptor','claimed_row'],readback:['notification_id','attempt_id'],reserve:['notification_id','attempt_id'],ack:['notification_id','attempt_id','receipt_id','provider_message_id'],reject:['notification_id','attempt_id','receipt_id','evidence'],'confirm-rejection':['notification_id','attempt_id','projected_row']};
+const CANONICAL_OPERATIONS:Record<string,string[]>={poll:[],'poll-readback':['poll_id'],tickets:['context','rows','candidates','held'],begin:['ticket'],enqueue:['ticket','binding','descriptor','claimed_row'],readback:['notification_id','attempt_id'],reserve:['notification_id','attempt_id'],ack:['notification_id','attempt_id','receipt_id','provider_message_id'],reject:['notification_id','attempt_id','receipt_id','evidence'],'confirm-rejection':['notification_id','attempt_id','projected_row'],'dispatch-start':['notification_id','attempt_id','receipt_id','bot_id'],'adapter-ack':['notification_id','attempt_id','receipt_id','dispatch_id','provider_message_id'],'adapter-reject':['notification_id','attempt_id','receipt_id','dispatch_id','evidence']};
 async function canonicalOwnerOperation(body:Record<string,unknown>,identity:Record<string,unknown>){
   if(Deno.env.get('KK_OWNER_CANONICAL_ENABLED')!=='TRUE')ownerError('CANONICAL_DISABLED_OR_UNBOUND');
   ownerExact(body,['probe','version','operation','parameters']);

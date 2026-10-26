@@ -3,7 +3,7 @@
   "on": {
     "pull_request": {
       "branches": ["main"],
-      "paths": [".github/workflows/canonical-owner-v2.yml", "server/make-owner-*", "server/kk-make-owner-notify.js", "server/runtime-ledger-oidc-bridge.js", "api/kk-scanner-dispatch.js", "apps-script/kk-agent/**", "supabase/functions/kk-runtime-ledger-oidc-probe/**", "supabase/staging/*owner*.sql", "tests/*owner*.test.js", "tests/fixtures/owner-canonical-capture.synthetic.json", "scripts/test-owner-canonical-native.mjs", "scripts/test-owner-canonical-loop.mjs", "package.json", "package-lock.json", "vercel.json"]
+      "paths": [".github/workflows/canonical-owner-v2.yml", "server/make-owner-*", "make/telegram-response-adapter/**", "server/kk-make-owner-notify.js", "server/runtime-ledger-oidc-bridge.js", "api/kk-scanner-dispatch.js", "apps-script/kk-agent/**", "supabase/functions/kk-runtime-ledger-oidc-probe/**", "supabase/staging/*owner*.sql", "tests/*owner*.test.js", "tests/fixtures/owner-canonical-capture.synthetic.json", "scripts/test-owner-canonical-native.mjs", "scripts/test-owner-canonical-loop.mjs", "package.json", "package-lock.json", "vercel.json"]
     },
     "workflow_dispatch": {}
   },
@@ -25,7 +25,7 @@
         {"name": "Repository syntax checks", "run": "npm run check"},
         {
           "name": "Explicit canonical JavaScript and Apps Script syntax",
-          "run": "node --check server/make-owner-canonical.js\nnode --check server/make-owner-canonical-builder.js\nnode --check server/kk-make-owner-notify.js\nnode --check scripts/test-owner-canonical-native.mjs\nnode --check scripts/test-owner-canonical-loop.mjs\nnode -e \"const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');const dir='apps-script/kk-agent';for(const file of fs.readdirSync(dir).filter(n=>n.endsWith('.gs')))new vm.Script(fs.readFileSync(path.join(dir,file),'utf8'),{filename:file});\""
+          "run": "node --check server/make-owner-canonical.js\nnode --check server/make-owner-telegram-adapter.js\nnode --check server/make-owner-canonical-builder.js\nnode --check server/kk-make-owner-notify.js\nnode --check scripts/test-owner-canonical-native.mjs\nnode --check scripts/test-owner-canonical-loop.mjs\nnode -e \"const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');const dir='apps-script/kk-agent';for(const file of fs.readdirSync(dir).filter(n=>n.endsWith('.gs')))new vm.Script(fs.readFileSync(path.join(dir,file),'utf8'),{filename:file});\""
         },
         {
           "name": "Install pinned disposable PostgreSQL engine outside repository",

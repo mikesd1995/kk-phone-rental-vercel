@@ -4,6 +4,7 @@ const {PGlite}=await import(process.env.PGLITE_MODULE || '@electric-sql/pglite')
 import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
+import Adapter from '../server/make-owner-telegram-adapter.js';
 const repo=fileURLToPath(new URL('../',import.meta.url));
 const db=new PGlite(); const results=[];
 const headers=['Notification ID','Created At','Event Family ID','Show ID','Change Type','Priority','Quiet Hours Policy','Payload','Audit Event ID','Transport','Status','Attempt Count','Last Attempt At','Delivery Evidence','Next Retry At','Dedup Key','Notes','HTTP Status','Provider Message ID','API Accepted At','Delivery Confirmed At','Last Error','Feedback Source'];
@@ -16,10 +17,10 @@ async function rpc(op,p){
  finally{await db.exec('reset role');}
 }
 async function rejects(fn,pattern){let error;try{await fn();}catch(e){error=e;}assert.ok(error,'expected rejection');if(pattern)assert.match(error.message,pattern);return error;}
-async function reset(maxAttempts=4){
+async function reset(maxAttempts=4,providerBinding=null){
  await db.exec('truncate public.kk_owner_canonical_attempt, public.kk_owner_canonical_delivery, public.kk_owner_canonical_ticket, public.kk_owner_canonical_poll, public.kk_owner_canonical_cutover cascade');
  const at=Date.now()-901000;
- await db.query('insert into public.kk_owner_canonical_cutover(cutover_id,activated_at,policy_version,consumer_id,environment,enabled,capture_profile_sha256,max_attempts) values($1,$2,$3,$4,$5,true,$6,$7)',[crypto.randomUUID(),iso(at),'v4.9.44','6176241','preview','a'.repeat(64),maxAttempts]);
+ await db.query('insert into public.kk_owner_canonical_cutover(cutover_id,activated_at,policy_version,consumer_id,environment,enabled,capture_profile_sha256,max_attempts,provider_binding) values($1,$2,$3,$4,$5,true,$6,$7,$8)',[crypto.randomUUID(),iso(at),'v4.9.44','6176241','preview','a'.repeat(64),maxAttempts,providerBinding===null?null:JSON.stringify(providerBinding)]);
  const context=await rpc('poll',{});
  const row=Object.assign(Object.fromEntries(headers.map(k=>[k,''])),{'Notification ID':'native-normal-'+crypto.randomUUID(),'Created At':iso(at+1000),'Event Family ID':'native-family','Show ID':'native-show','Change Type':'CANCELLATION',Priority:'P0','Quiet Hours Policy':'DEFAULT',Payload:'Synthetic SQL contract only','Audit Event ID':'native-audit','Transport':'TELEGRAM_OWNER_ALERTS',Status:'QUEUED','Attempt Count':0,'Dedup Key':'native-dedup-'+crypto.randomUUID()});
  return {context,row};
@@ -56,7 +57,7 @@ try{
  await db.exec(await fs.readFile(repo+'/supabase/staging/kk-owner-ledger-canonical-v2.sql','utf8'));
  await test('default-OFF with no trusted epoch denies poll',async()=>{await rejects(()=>rpc('poll',{}),/DISABLED/);});
  await test('anon and authenticated cannot execute canonical RPC',async()=>{for(const role of ['anon','authenticated']){await db.exec('set role '+role);try{await rejects(()=>db.query("select public.kk_owner_canonical_operation('poll','{}','preview')"),/permission denied/);}finally{await db.exec('reset role');}}});
- await test('service_role cannot directly mutate canonical tables',async()=>{await db.exec('set role service_role');try{for(const table of ['cutover','poll','ticket','delivery','attempt'])await rejects(()=>db.exec('delete from public.kk_owner_canonical_'+table),/permission denied/);}finally{await db.exec('reset role');}});
+ await test('service_role cannot directly mutate canonical tables',async()=>{await db.exec('set role service_role');try{for(const table of ['cutover','poll','ticket','delivery','attempt','dispatch'])await rejects(()=>db.exec('delete from public.kk_owner_canonical_'+table),/permission denied/);}finally{await db.exec('reset role');}});
  await test('poll strict parameters reject SQL NULL and caller overrides',async()=>{await reset();await rejects(()=>rpc('poll',undefined),/INVALID|FORBIDDEN/);await rejects(()=>rpc('poll',{enabled:true}),/INVALID|FORBIDDEN/);});
  await test('same consumer slot cannot mint a second poll',async()=>{await reset();await rejects(()=>rpc('poll',{}));});
  await test('post-cutover source older than 120 seconds is preserved',async()=>{const f=await claim(await reset());const p=envelope(f),r=await rpc('enqueue',p);assert.equal(r.source_row['Created At'],f.row['Created At']);assert.ok(Date.now()-Date.parse(r.source_row['Created At'])>120000);assert.equal(r.descriptor.created_at,p.descriptor.created_at);});
@@ -189,7 +190,29 @@ try{
    });
   }
  });
- await test('all canonical tables have RLS and RPC has fixed empty search_path',async()=>{const rows=(await db.query("select relname,relrowsecurity from pg_class where relname in ('kk_owner_canonical_cutover','kk_owner_canonical_poll','kk_owner_canonical_ticket','kk_owner_canonical_delivery','kk_owner_canonical_attempt')")).rows;assert.equal(rows.length,5);assert.ok(rows.every(r=>r.relrowsecurity));const fn=(await db.query("select prosecdef,proconfig from pg_proc where proname='kk_owner_canonical_operation'")).rows[0];assert.equal(fn.prosecdef,true);assert.ok(fn.proconfig.includes('search_path=\"\"'));});
+ const adapterBinding={kind:Adapter.KIND,app_name:'kk-telegram-response-adapter-synthetic',module_id:18,connection_id:456,bot_id:'123456',manifest_sha256:Adapter.MANIFEST_SHA256};
+ await test('adapter native binding rejects NULL and wrong typed metadata independently of gateway',async()=>{
+  for(const key of Object.keys(adapterBinding))for(const value of [null,[],{}])await rejects(()=>reset(4,{...adapterBinding,[key]:value}),/ADAPTER_UNBOUND|scalar|object/);
+ });
+ await test('adapter dispatch is exact receipt bot-bound and consumed only once before provider',async()=>{
+  const f=await claim(await reset(4,adapterBinding)),r=await rpc('enqueue',envelope(f)),selector={notification_id:r.notification_id,attempt_id:f.ticket},reservation=await rpc('reserve',selector);
+  const args={...selector,receipt_id:reservation.receipt_id,bot_id:adapterBinding.bot_id};
+  await rejects(()=>rpc('dispatch-start',{...args,bot_id:'999999'}),/DISPATCH/);await rejects(()=>rpc('dispatch-start',{...args,receipt_id:crypto.randomUUID()}),/DISPATCH/);
+  const started=await rpc('dispatch-start',args);assert.equal(started.provider_dispatch.attempt_id,f.ticket);assert.deepEqual(started.provider_binding,adapterBinding);await rejects(()=>rpc('dispatch-start',args),/ALREADY_STARTED/);
+  const ack={...selector,receipt_id:reservation.receipt_id,dispatch_id:started.provider_dispatch.dispatch_id,provider_message_id:'123456789'};
+  await rejects(()=>rpc('ack',{...selector,receipt_id:reservation.receipt_id,provider_message_id:'123456789'}),/ADAPTER_OUTCOME_REQUIRED/);
+  for(const bad of [{...ack,dispatch_id:crypto.randomUUID()},{...ack,provider_message_id:123},{...ack,provider_message_id:null}])await rejects(()=>rpc('adapter-ack',bad),/DISPATCH|ACK|INVALID/);
+  assert.equal((await rpc('adapter-ack',ack)).status,'SENT');assert.equal((await rpc('adapter-ack',ack)).provider_message_id,'123456789');
+ });
+ await test('adapter refusal requires dispatch, pinned actual binding and original full response constraints',async()=>{
+  const f=await claim(await reset(4,adapterBinding)),r=await rpc('enqueue',envelope(f)),selector={notification_id:r.notification_id,attempt_id:f.ticket},reservation=await rpc('reserve',selector),started=await rpc('dispatch-start',{...selector,receipt_id:reservation.receipt_id,bot_id:adapterBinding.bot_id});
+  const evidence={profile_sha256:Adapter.MANIFEST_SHA256,scenario_id:'6176241',module_id:18,connection_id:456,attempt_id:f.ticket,receipt_id:reservation.receipt_id,descriptor_sha256:r.descriptor_sha256,http_status:429,telegram_response:{ok:false,error_code:429,parameters:{retry_after:600}}};
+  const args={...selector,receipt_id:reservation.receipt_id,dispatch_id:started.provider_dispatch.dispatch_id,evidence};
+  for(const bad of [{...args,dispatch_id:crypto.randomUUID()},{...args,evidence:{...evidence,module_id:8}},{...args,evidence:{...evidence,connection_id:10356915}},{...args,evidence:{...evidence,telegram_response:{ok:false,error_code:429,result:{message_id:123}}}}])await rejects(()=>rpc('adapter-reject',bad));
+  const refused=await rpc('adapter-reject',args);assert.equal(refused.status,'REJECTION_PENDING');assert.ok(Date.parse(refused.next_retry_at)>=Date.parse(started.provider_dispatch.started_at)+600000);
+  const read=await rpc('readback',selector);assert.equal(read.provider_dispatch.dispatch_id,started.provider_dispatch.dispatch_id);assert.deepEqual(read.provider_dispatch.provider_binding,adapterBinding);
+ });
+ await test('all canonical tables have RLS and RPC has fixed empty search_path',async()=>{const rows=(await db.query("select relname,relrowsecurity from pg_class where relname in ('kk_owner_canonical_cutover','kk_owner_canonical_poll','kk_owner_canonical_ticket','kk_owner_canonical_delivery','kk_owner_canonical_attempt','kk_owner_canonical_dispatch')")).rows;assert.equal(rows.length,6);assert.ok(rows.every(r=>r.relrowsecurity));const fn=(await db.query("select prosecdef,proconfig from pg_proc where proname='kk_owner_canonical_operation'")).rows[0];assert.equal(fn.prosecdef,true);assert.ok(fn.proconfig.includes('search_path=\"\"'));});
 }finally{await db.close();}
 const proof={scope:'DISPOSABLE_NATIVE_SQL_SYNTHETIC_ONLY_NOT_PROVIDER_OR_PRODUCTION_PROOF',engine:'PostgreSQL18.6 PGlite0.5.11',source_sha256:hash(await fs.readFile(repo+'/supabase/staging/kk-owner-ledger-canonical-v2.sql','utf8')),passed:results.filter(x=>x.passed).length,failed:results.filter(x=>!x.passed).length,cases:results};
 console.log(JSON.stringify(proof,null,2));

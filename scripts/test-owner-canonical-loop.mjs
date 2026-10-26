@@ -14,6 +14,7 @@ const repo=fileURLToPath(new URL('../',import.meta.url));
 const require=createRequire(path.join(repo,'package.json'));
 const V2=require(path.join(repo,'server/make-owner-canonical.js'));
 const Legacy=require(path.join(repo,'server/make-owner-ledger-bridge.js'));
+const Adapter=require(path.join(repo,'server/make-owner-telegram-adapter.js'));
 const testFile=path.join(repo,'tests/kk-agent-owner-canonical.test.js');
 const testSource=await fs.readFile(testFile,'utf8');
 const prefixMarker='const plain=x=>JSON.parse(JSON.stringify(x));';
@@ -36,12 +37,13 @@ async function run(name,scenario){
  if(scenario.rawSource){h.row['Notification ID']='งาน "A" \\ identity';h.rows[1]=Legacy.HEADERS.map(k=>h.row[k]);}
  const oldNow=Date.now;Date.now=()=>now;
  const max=scenario.max||4;h.stored.CORE_V1_MAX_ATTEMPTS=String(scenario.gasMax||max);
+ const adapterBinding=scenario.adapter?{kind:Adapter.KIND,app_name:'kk-telegram-response-adapter-disposable',module_id:18,connection_id:456,bot_id:'123456',manifest_sha256:Adapter.MANIFEST_SHA256}:null;
  const advance=async ms=>{now+=ms;h.setNow(now);await db.query('update public.retry_test_clock set now_at=$1',[new Date(now).toISOString()]);};
  const rpc=async(operation,parameters)=>{
   nativeCalls.push(operation);
   return (await db.query('select public.kk_owner_canonical_operation($1,$2::jsonb,$3) as result',[operation,JSON.stringify(parameters),'preview'])).rows[0].result;
  };
- const cfg={canonicalEnabled:true,producerEnabled:true,canonicalSecret:harnessContext.harnessSecret,secret:'independent-wire-test-secret-'.repeat(3),consumerAuthenticated:true,gasProjectId:Legacy.SCRIPT_PROJECT_ID,gasDeploymentId:'AKfycb_independent_test_only',gasAccessToken:'synthetic-no-provider-token',storeMode:'vercel-oidc',expectedRef:Legacy.PROJECT_REF,ownerChatId:'-123456789',captureProfile:profile,captureProfileReviewSha256:profile.profile_digest};
+ const cfg={canonicalEnabled:true,producerEnabled:true,canonicalSecret:harnessContext.harnessSecret,secret:'independent-wire-test-secret-'.repeat(3),consumerAuthenticated:true,gasProjectId:Legacy.SCRIPT_PROJECT_ID,gasDeploymentId:'AKfycb_independent_test_only',gasAccessToken:'synthetic-no-provider-token',storeMode:'vercel-oidc',expectedRef:Legacy.PROJECT_REF,ownerChatId:'-123456789',captureProfile:scenario.adapter?null:profile,captureProfileReviewSha256:scenario.adapter?null:profile.profile_digest,adapterBinding};
  const fetchImpl=async(url,init)=>{
   network.push(url);const body=JSON.parse(init.body);
   if(url.includes('.supabase.co/functions/v1/kk-runtime-ledger-oidc-probe'))return {ok:true,status:200,json:async()=>({ok:true,authenticated:true,project_ref:Legacy.PROJECT_REF,version:'v2',operation:body.operation,provider_sends:0,result:await rpc(body.operation,body.parameters)})};
@@ -55,10 +57,29 @@ async function run(name,scenario){
  const setCap=async()=>{await db.exec('create role anon;create role authenticated;create role service_role;');
   await db.exec("create table public.retry_test_clock(now_at timestamptz not null); insert into public.retry_test_clock values('2026-10-25T05:15:01.000Z'); alter function pg_catalog.clock_timestamp() rename to retry_real_clock_timestamp; create function pg_catalog.clock_timestamp() returns timestamptz language sql volatile set search_path='' as 'select now_at from public.retry_test_clock';");
   await db.exec(await fs.readFile(path.join(repo,'supabase/staging/kk-owner-ledger-canonical-v2.sql'),'utf8'));
-  await db.query('insert into public.kk_owner_canonical_cutover(cutover_id,activated_at,policy_version,consumer_id,environment,enabled,max_attempts,capture_profile_sha256) values($1,$2,$3,$4,$5,true,$6,$7)',[h.stored.KK_OWNER_CANONICAL_CUTOVER_ID,h.stored.KK_OWNER_CANONICAL_ACTIVATED_AT,'v4.9.44','6176241','preview',max,profile.profile_digest]);
+  await db.query('insert into public.kk_owner_canonical_cutover(cutover_id,activated_at,policy_version,consumer_id,environment,enabled,max_attempts,capture_profile_sha256,provider_binding) values($1,$2,$3,$4,$5,true,$6,$7,$8)',[h.stored.KK_OWNER_CANONICAL_CUTOVER_ID,h.stored.KK_OWNER_CANONICAL_ACTIVATED_AT,'v4.9.44','6176241','preview',max,scenario.adapter?null:profile.profile_digest,adapterBinding?JSON.stringify(adapterBinding):null]);
  };
- const admit=async()=>{const polled=await call({stage:'canonical-poll',version:'v2'});assert.equal(polled.tickets.length,1);const admitted=await call({stage:'canonical-admit',version:'v2',ticket:polled.tickets[0].ticket});const prepared=await call({stage:'canonical-prepare',envelope:admitted.envelope,attempt_id:admitted.attempt_id});assert.equal(prepared.send_allowed,true);assert.equal(prepared.descriptor_sha256,admitted.descriptor_sha256);return {polled,admitted,prepared};};
+ const templateBody=(body,values)=>Object.fromEntries(Object.entries(body).map(([k,v])=>{if(typeof v==='string'&&v.startsWith('{{')){assert.equal(typeof values[v],'string','known adapter template field '+v);return [k,values[v]];}return [k,v];}));
+ const adapterValues=f=>({'{{parameters.envelope_json}}':f.admitted.envelope_json,'{{parameters.attempt_id}}':f.admitted.attempt_id,'{{parameters.receipt_id}}':f.prepared.receipt_id,'{{toString(connection.botId)}}':adapterBinding.bot_id,'{{parameters.provider_binding_sha256}}':Adapter.bindingDigest(adapterBinding)});
+ const adapterReport=async(f,status,response)=>{
+  const frame=Adapter.MANIFEST.module.communication[1].response.error.message.replace('{{temp.grant.dispatch_id}}',f.dispatch.dispatch_id).replace('{{statusCode}}',String(status)).replace('{{createJSON(body)}}',JSON.stringify(response));
+  return call(templateBody(Adapter.MANIFEST.reporter.communication.body,{...adapterValues(f),'{{parameters.outcome_frame}}':frame}));
+ };
+ const admit=async()=>{const polled=await call({stage:'canonical-poll',version:'v2'});assert.equal(polled.tickets.length,1);const admitted=await call({stage:'canonical-admit',version:'v2',ticket:polled.tickets[0].ticket});
+  if(scenario.adapter){
+   const selector={notification_id:admitted.envelope.notification_id,attempt_id:admitted.attempt_id};
+   for(const wrongBinding of [null,{...adapterBinding,bot_id:'999999'}]){
+    cfg.adapterBinding=wrongBinding;
+    await assert.rejects(call({stage:'canonical-prepare',envelope:admitted.envelope,attempt_id:admitted.attempt_id}));
+    assert.equal((await rpc('readback',selector)).status,'QUEUED','unbound or mismatched adapter cannot reserve a receipt');
+   }
+   cfg.adapterBinding=adapterBinding;
+  }
+  const prepared=await call({stage:'canonical-prepare',envelope:admitted.envelope,attempt_id:admitted.attempt_id});assert.equal(prepared.send_allowed,!scenario.adapter);if(scenario.adapter)assert.equal(prepared.adapter_ready,true);assert.equal(prepared.descriptor_sha256,admitted.descriptor_sha256);const result={polled,admitted,prepared};
+  if(scenario.adapter){const start=templateBody(Adapter.MANIFEST.module.communication[0].body,adapterValues(result));await assert.rejects(call({...start,bot_id:'999999'}));result.dispatch=await call(start);assert.equal(result.dispatch.send_allowed,true);assert.equal(result.dispatch.text,admitted.envelope.text);assert.equal(result.dispatch.target_chat_id,cfg.ownerChatId);await assert.rejects(call(start));}
+  return result;};
  const refuse=async f=>{
+  if(scenario.adapter){const rejected=await adapterReport(f,429,{ok:false,error_code:429,description:'Original provider refusal, synthetic transport only',parameters:{retry_after:600}});assert.equal(rejected.status,'REJECTION_PENDING');assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Status')],'SENDING');return call({stage:'canonical-project-rejection',envelope:f.admitted.envelope,attempt_id:f.admitted.attempt_id});}
   // Substitute only this explicitly synthetic Make binding. This does not
   // assert that the live Telegram connector exposes these original fields.
   const values={'{{13.data.envelope_json}}':f.admitted.envelope_json,'{{13.data.source_notification_id_json}}':f.admitted.source_notification_id_json,'{{13.data.attempt_id}}':f.admitted.attempt_id,'{{13.data.attempt_no}}':String(f.admitted.attempt_no),'{{6.data.receipt_id}}':f.prepared.receipt_id,'{{6.data.descriptor_sha256}}':f.prepared.descriptor_sha256,'{{8.error.status}}':'429','{{toString(8.error.original_response)}}':JSON.stringify({ok:false,error_code:429,description:'Wait "please" \\ retry',parameters:{retry_after:600}})};
@@ -77,7 +98,12 @@ async function run(name,scenario){
   h.rows.push(Legacy.HEADERS.map(k=>fake[k]));const badSnapshot=JSON.stringify(h.rows[2]);
   const first=await admit();assert.ok(first.polled.held.some(x=>x.reason_code==='CANONICAL_RETRY_HISTORY_UNVERIFIED'));
   const originalDescriptor=JSON.stringify(first.admitted.envelope);
+  if(scenario.adapterLate||scenario.lostGrant){
+   if(scenario.adapterLate){await advance(121000);await assert.rejects(adapterReport(first,429,{ok:false,error_code:429}));await advance(779000);}else await advance(900000);
+   assert.equal((await call({stage:'canonical-poll',version:'v2'})).tickets.length,0);assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Status')],'SENDING');assert.equal((await db.query('select count(*)::integer n from public.kk_owner_canonical_dispatch')).rows[0].n,1);return {name,passed:true,native_calls:nativeCalls.length,actual_provider_calls:0};
+  }
   if(scenario.unknown){
+   if(scenario.adapter){await assert.rejects(adapterReport(first,429,{ok:false,error_code:429,result:{message_id:42}}));await advance(900000);assert.equal((await call({stage:'canonical-poll',version:'v2'})).tickets.length,0);assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Status')],'SENDING');return {name,passed:true,native_calls:nativeCalls.length};}
    const contradictory={profile_id:profile.id,scenario_id:'6176241',module_id:8,connection_id:10356915,attempt_id:first.admitted.attempt_id,attempt_no:1,receipt_id:first.prepared.receipt_id,source_notification_id:h.row['Notification ID'],descriptor_sha256:first.prepared.descriptor_sha256,http_status:429,telegram_response:{ok:false,error_code:429,result:{message_id:42}}};
    await assert.rejects(call({stage:'canonical-reject',envelope:first.admitted.envelope,attempt_id:first.admitted.attempt_id,receipt_id:first.prepared.receipt_id,capture:contradictory}));
    await advance(900000);assert.equal((await call({stage:'canonical-poll',version:'v2'})).tickets.length,0);assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Status')],'SENDING');return {name,passed:true,native_calls:nativeCalls.length};
@@ -87,9 +113,11 @@ async function run(name,scenario){
   const writes=h.writes;assert.equal((await call({stage:'canonical-project-rejection',envelope:first.admitted.envelope,attempt_id:first.admitted.attempt_id})).status,'RETRY_WAIT');assert.equal(h.writes,writes,'rejection repair is readback only');
   await advance(900000);const second=await admit();assert.equal(second.admitted.attempt_no,2);assert.equal(second.admitted.envelope.notification_id,first.admitted.envelope.notification_id);assert.notEqual(second.admitted.attempt_id,first.admitted.attempt_id);assert.notEqual(second.prepared.receipt_id,first.prepared.receipt_id);assert.notEqual(second.admitted.envelope.content_version,first.admitted.envelope.content_version);assert.notEqual(second.admitted.envelope.created_at,first.admitted.envelope.created_at);
   await assert.rejects(rpc('ack',{notification_id:first.admitted.envelope.notification_id,attempt_id:first.admitted.attempt_id,receipt_id:first.prepared.receipt_id,provider_message_id:'123456'}));
+  if(scenario.adapter){await assert.rejects(adapterReport(first,429,{ok:false,error_code:429}));const oldDispatch=(await db.query('select dispatch_id from public.kk_owner_canonical_dispatch where attempt_id=$1',[first.admitted.attempt_id])).rows[0];assert.equal(oldDispatch.dispatch_id,first.dispatch.dispatch_id);assert.notEqual(second.dispatch.dispatch_id,first.dispatch.dispatch_id);}
   if(scenario.terminal){assert.equal((await refuse(second)).status,'FAILED');assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Next Retry At')],'');await advance(900000);assert.equal((await call({stage:'canonical-poll',version:'v2'})).tickets.length,0);}
   else{
-   const accepted=await call({stage:'canonical-ack',envelope:second.admitted.envelope,attempt_id:second.admitted.attempt_id,receipt_id:second.prepared.receipt_id,provider_message_id:'123456789'});assert.equal(accepted.status,'SENT');assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Status')],'SENDING');
+   if(scenario.adapter){const valid={ok:true,result:{message_id:123456789,from:{id:123456,is_bot:true},chat:{id:-123456789}}};for(const bad of [{...valid,error_code:429},{...valid,result:{...valid.result,from:{id:'123456',is_bot:true}}},{...valid,result:{...valid.result,from:{id:999999,is_bot:true}}},{...valid,result:{...valid.result,chat:{id:'-123456789'}}}])await assert.rejects(adapterReport(second,200,bad));}
+   const accepted=scenario.adapter?await adapterReport(second,200,{ok:true,result:{message_id:123456789,from:{id:123456,is_bot:true},chat:{id:-123456789}}}):await call({stage:'canonical-ack',envelope:second.admitted.envelope,attempt_id:second.admitted.attempt_id,receipt_id:second.prepared.receipt_id,provider_message_id:'123456789'});assert.equal(accepted.status,'SENT');assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Status')],'SENDING');
    assert.equal((await call({stage:'canonical-project',envelope:second.admitted.envelope,attempt_id:second.admitted.attempt_id})).status,'SENT');assert.equal(h.rows[1][Legacy.HEADERS.indexOf('Status')],'SENT');
    const count=h.writes;await advance(121000);assert.equal((await call({stage:'canonical-project',envelope:second.admitted.envelope,attempt_id:second.admitted.attempt_id})).status,'SENT');assert.equal(h.writes,count,'expired positive projection is readback only');
   }
@@ -104,6 +132,11 @@ findings.push(await run('stricter cap2 terminalizes exact attempt2 refusal',{max
 findings.push(await run('GAS/native cap mismatch denies before Sheet claim',{max:2,gasMax:4,mismatch:true}));
 findings.push(await run('contradictory acceptance/refusal never releases retry',{unknown:true}));
 findings.push(await run('synthetic Make callbacks preserve quoted raw identity through actual retry loop',{rawSource:true}));
+findings.push(await run('owned Make adapter frame and one-use dispatch complete same-source retry',{adapter:true,rawSource:true}));
+findings.push(await run('owned adapter stricter cap terminalizes same-source second refusal',{adapter:true,max:2,terminal:true}));
+findings.push(await run('owned adapter preserves contradictory original full body as unknown',{adapter:true,unknown:true}));
+findings.push(await run('owned adapter expired outcome cannot retry or renew original descriptor',{adapter:true,adapterLate:true}));
+findings.push(await run('lost owned adapter dispatch grant stays consumed without provider or resend',{adapter:true,lostGrant:true}));
 const result={scope:'ACTUAL_SOURCE_AND_EXACT_SQL_WITH_DISPOSABLE_SYNTHETIC_CLOCK_AND_PROVIDER_FIXTURES_ONLY',provider_calls:0,production_connections:0,passed:findings.filter(x=>x.passed).length,failed:findings.filter(x=>!x.passed).length,cases:findings};
 console.log(JSON.stringify(result,null,2));
 const outputIndex=process.argv.indexOf('--output');

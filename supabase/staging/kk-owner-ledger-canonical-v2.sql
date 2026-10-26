@@ -4,7 +4,7 @@ create table public.kk_owner_canonical_cutover (
  cutover_id uuid primary key, activated_at timestamptz not null, policy_version text not null check(policy_version='v4.9.44'),
  consumer_id text not null check(consumer_id='6176241'), environment text not null check(environment in ('preview','production')),
  enabled boolean not null default false, max_attempts integer not null default 4 check(max_attempts between 1 and 4),
- capture_profile_sha256 text check(capture_profile_sha256 ~ '^[a-f0-9]{64}$'), unique(environment)
+ capture_profile_sha256 text check(capture_profile_sha256 ~ '^[a-f0-9]{64}$'), provider_binding jsonb, unique(environment)
 );
 create table public.kk_owner_canonical_poll (
  poll_id uuid primary key, cutover_id uuid not null references public.kk_owner_canonical_cutover,
@@ -41,12 +41,19 @@ create table public.kk_owner_canonical_attempt (
  rejection_evidence jsonb, next_retry_at timestamptz, projected_row jsonb,
  unique(source_notification_id,attempt_no)
 );
+-- One durable permission per attempt. An uncertain/lost grant is never reset.
+create table public.kk_owner_canonical_dispatch (
+ attempt_id uuid primary key references public.kk_owner_canonical_attempt(ticket),
+ dispatch_id uuid not null unique, receipt_id uuid not null, started_at timestamptz not null,
+ provider_binding jsonb not null
+);
 alter table public.kk_owner_canonical_cutover enable row level security;
 alter table public.kk_owner_canonical_poll enable row level security;
 alter table public.kk_owner_canonical_ticket enable row level security;
 alter table public.kk_owner_canonical_delivery enable row level security;
 alter table public.kk_owner_canonical_attempt enable row level security;
-revoke all on public.kk_owner_canonical_cutover,public.kk_owner_canonical_poll,public.kk_owner_canonical_ticket,public.kk_owner_canonical_delivery,public.kk_owner_canonical_attempt from public,anon,authenticated,service_role;
+alter table public.kk_owner_canonical_dispatch enable row level security;
+revoke all on public.kk_owner_canonical_cutover,public.kk_owner_canonical_poll,public.kk_owner_canonical_ticket,public.kk_owner_canonical_delivery,public.kk_owner_canonical_attempt,public.kk_owner_canonical_dispatch from public,anon,authenticated,service_role;
 create function public.kk_owner_canonical_cutover_guard() returns trigger language plpgsql security invoker set search_path='' as $$
 begin
  if (pg_catalog.to_jsonb(new)-'enabled') is distinct from (pg_catalog.to_jsonb(old)-'enabled') then raise exception 'CANONICAL_CUTOVER_IMMUTABLE';end if;
@@ -60,20 +67,30 @@ returns jsonb language plpgsql security definer set search_path=''
 as $$
 declare
  cfg public.kk_owner_canonical_cutover; pol public.kk_owner_canonical_poll; tic public.kk_owner_canonical_ticket;
- rec public.kk_owner_canonical_delivery; att public.kk_owner_canonical_attempt; ctx jsonb; r jsonb; other jsonb; d jsonb; b jsonb; claimed jsonb;
+ rec public.kk_owner_canonical_delivery; att public.kk_owner_canonical_attempt; dispatch public.kk_owner_canonical_dispatch; ctx jsonb; r jsonb; other jsonb; d jsonb; b jsonb; claimed jsonb;
  clock_at timestamptz:=pg_catalog.clock_timestamp(); slot bigint; due_at timestamptz; observed timestamptz;
  id text; dedup text; transport_id text; ticket_id uuid; ids jsonb:='[]'; k text; expected jsonb; text_binding text;
  keys text[]; count_keys integer; claim_at timestamptz; utf16_length bigint; payload text; h jsonb; held_index integer; seen_indices integer[]:=array[]::integer[]; retry_seconds integer; rejection_status integer; internal_held jsonb;
 begin
  if p_environment not in ('preview','production') or p_environment is null or p_operation is null or p_parameters is null or pg_catalog.jsonb_typeof(p_parameters) is distinct from 'object' or pg_catalog.octet_length(p_parameters::text)>300000 then raise exception 'CANONICAL_REQUEST_INVALID';end if;
- keys:=case p_operation when 'poll' then array[]::text[] when 'poll-readback' then array['poll_id'] when 'tickets' then array['context','rows','candidates','held'] when 'begin' then array['ticket'] when 'enqueue' then array['ticket','binding','descriptor','claimed_row'] when 'readback' then array['notification_id','attempt_id'] when 'reserve' then array['notification_id','attempt_id'] when 'ack' then array['notification_id','attempt_id','receipt_id','provider_message_id'] when 'reject' then array['notification_id','attempt_id','receipt_id','evidence'] when 'confirm-rejection' then array['notification_id','attempt_id','projected_row'] else null end;
+ keys:=case p_operation when 'poll' then array[]::text[] when 'poll-readback' then array['poll_id'] when 'tickets' then array['context','rows','candidates','held'] when 'begin' then array['ticket'] when 'enqueue' then array['ticket','binding','descriptor','claimed_row'] when 'readback' then array['notification_id','attempt_id'] when 'reserve' then array['notification_id','attempt_id'] when 'ack' then array['notification_id','attempt_id','receipt_id','provider_message_id'] when 'reject' then array['notification_id','attempt_id','receipt_id','evidence'] when 'dispatch-start' then array['notification_id','attempt_id','receipt_id','bot_id'] when 'adapter-ack' then array['notification_id','attempt_id','receipt_id','dispatch_id','provider_message_id'] when 'adapter-reject' then array['notification_id','attempt_id','receipt_id','dispatch_id','evidence'] when 'confirm-rejection' then array['notification_id','attempt_id','projected_row'] else null end;
  select count(*) into count_keys from pg_catalog.jsonb_object_keys(p_parameters);
  if keys is null or count_keys<>pg_catalog.cardinality(keys) or not p_parameters ?& keys then raise exception 'CANONICAL_OPERATION_FORBIDDEN';end if;
  if p_operation in ('begin','enqueue') and pg_catalog.jsonb_typeof(p_parameters->'ticket') is distinct from 'string' then raise exception 'CANONICAL_REQUEST_INVALID';end if;
- if p_operation in ('readback','reserve','ack','reject','confirm-rejection') and (pg_catalog.jsonb_typeof(p_parameters->'notification_id') is distinct from 'string' or pg_catalog.jsonb_typeof(p_parameters->'attempt_id') is distinct from 'string') then raise exception 'CANONICAL_REQUEST_INVALID';end if;
- if p_operation='ack' and (pg_catalog.jsonb_typeof(p_parameters->'receipt_id') is distinct from 'string' or pg_catalog.jsonb_typeof(p_parameters->'provider_message_id') is distinct from 'string') then raise exception 'CANONICAL_ACK_INVALID';end if;
+ if p_operation in ('readback','reserve','ack','reject','confirm-rejection','dispatch-start','adapter-ack','adapter-reject') and (pg_catalog.jsonb_typeof(p_parameters->'notification_id') is distinct from 'string' or pg_catalog.jsonb_typeof(p_parameters->'attempt_id') is distinct from 'string') then raise exception 'CANONICAL_REQUEST_INVALID';end if;
+ if p_operation in ('dispatch-start','adapter-ack','adapter-reject') and pg_catalog.jsonb_typeof(p_parameters->'receipt_id') is distinct from 'string' then raise exception 'CANONICAL_DISPATCH_INVALID';end if;
+ if p_operation in ('adapter-ack','adapter-reject') and pg_catalog.jsonb_typeof(p_parameters->'dispatch_id') is distinct from 'string' then raise exception 'CANONICAL_DISPATCH_INVALID';end if;
+ if p_operation in ('ack','adapter-ack') and (pg_catalog.jsonb_typeof(p_parameters->'receipt_id') is distinct from 'string' or pg_catalog.jsonb_typeof(p_parameters->'provider_message_id') is distinct from 'string') then raise exception 'CANONICAL_ACK_INVALID';end if;
  select * into cfg from public.kk_owner_canonical_cutover where environment=p_environment and enabled for share;
  if not found then raise exception 'CANONICAL_DISABLED_OR_UNBOUND';end if;
+ if cfg.provider_binding is not null then
+  other:=cfg.provider_binding;select count(*) into count_keys from pg_catalog.jsonb_object_keys(other);
+  if count_keys<>6 or not other ?& array['kind','app_name','module_id','connection_id','bot_id','manifest_sha256'] or other->>'kind' is distinct from 'make-custom-telegram-response-v1' or
+   pg_catalog.jsonb_typeof(other->'module_id') is distinct from 'number' or other->>'module_id' !~ '^[1-9][0-9]{0,8}$' or other->>'module_id'='8' or
+   pg_catalog.jsonb_typeof(other->'connection_id') is distinct from 'number' or other->>'connection_id' !~ '^[1-9][0-9]{0,8}$' or other->>'connection_id'='10356915' or
+   pg_catalog.jsonb_typeof(other->'bot_id') is distinct from 'string' or other->>'bot_id' !~ '^[1-9][0-9]{3,19}$' or
+   pg_catalog.jsonb_typeof(other->'app_name') is distinct from 'string' or pg_catalog.jsonb_typeof(other->'manifest_sha256') is distinct from 'string' or other->>'app_name' !~ '^kk-telegram-response-adapter-[a-zA-Z0-9_-]{1,80}$' or other->>'manifest_sha256' !~ '^[a-f0-9]{64}$' then raise exception 'CANONICAL_ADAPTER_UNBOUND';end if;
+ end if;
  clock_at:=pg_catalog.clock_timestamp(); -- Never trust a clock captured before a blocking lock.
  if p_operation='poll' then
   slot:=floor(extract(epoch from (clock_at-cfg.activated_at))/900);due_at:=cfg.activated_at+slot*interval '900 seconds';
@@ -104,7 +121,7 @@ begin
   if rec.ticket is distinct from (p_parameters->>'attempt_id')::uuid then raise exception 'CANONICAL_ATTEMPT_MISMATCH';end if;
   select * into att from public.kk_owner_canonical_attempt where ticket=rec.ticket for update;
   if not found or att.source_notification_id<>rec.source_notification_id or att.attempt_no<>rec.attempt_count then raise exception 'CANONICAL_ATTEMPT_MISMATCH';end if;
-  if p_operation='readback' then return pg_catalog.to_jsonb(rec);end if;
+  if p_operation='readback' then return pg_catalog.to_jsonb(rec)||case when cfg.provider_binding is null then '{}'::jsonb else pg_catalog.jsonb_build_object('provider_binding',cfg.provider_binding,'provider_dispatch',(select pg_catalog.to_jsonb(x) from public.kk_owner_canonical_dispatch x where x.attempt_id=rec.ticket)) end;end if;
   if p_operation='confirm-rejection' then
    if rec.status not in ('REJECTION_PENDING','RETRY_WAIT','FAILED') or pg_catalog.jsonb_typeof(p_parameters->'projected_row') is distinct from 'object' then raise exception 'CANONICAL_REJECTION_NOT_PENDING';end if;
    expected:=rec.claimed_row||pg_catalog.jsonb_build_object('Status',case when rec.next_retry_at is null then 'FAILED' else 'RETRY_WAIT' end,'Next Retry At',case when rec.next_retry_at is null then '' else pg_catalog.to_char(rec.next_retry_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') end,'HTTP Status',(rec.rejection_evidence->>'http_status'),'Last Error','TELEGRAM_API_REJECTED_HTTP_'||(rec.rejection_evidence->>'http_status'),'Notes',(rec.claimed_row->>'Notes')||' | '||case when rec.next_retry_at is null then 'REJECTED_TERMINAL' else 'REJECTED_RETRY_SAFE' end);
@@ -114,16 +131,26 @@ begin
    return pg_catalog.to_jsonb(rec);
   end if;
   if rec.descriptor is null or (rec.descriptor->>'expires_at')::timestamptz<=clock_at then raise exception 'CANONICAL_ORIGINAL_DESCRIPTOR_EXPIRED';end if;
+  if p_operation='dispatch-start' then
+   if cfg.provider_binding is null or pg_catalog.jsonb_typeof(p_parameters->'bot_id') is distinct from 'string' or p_parameters->>'bot_id' is distinct from cfg.provider_binding->>'bot_id' or rec.status<>'RESERVED' or rec.receipt_id is distinct from (p_parameters->>'receipt_id')::uuid or (rec.descriptor->>'expires_at')::timestamptz<=clock_at+interval '15 seconds' then raise exception 'CANONICAL_DISPATCH_INVALID';end if;
+   if exists(select 1 from public.kk_owner_canonical_dispatch where attempt_id=rec.ticket) then raise exception 'CANONICAL_DISPATCH_ALREADY_STARTED';end if;
+   insert into public.kk_owner_canonical_dispatch(attempt_id,dispatch_id,receipt_id,started_at,provider_binding) values(rec.ticket,pg_catalog.gen_random_uuid(),rec.receipt_id,clock_at,cfg.provider_binding) returning * into dispatch;
+   return pg_catalog.to_jsonb(rec)||pg_catalog.jsonb_build_object('provider_binding',cfg.provider_binding,'provider_dispatch',pg_catalog.to_jsonb(dispatch));
+  end if;
+  if p_operation in ('adapter-ack','adapter-reject') then
+   select * into dispatch from public.kk_owner_canonical_dispatch where attempt_id=rec.ticket;
+   if cfg.provider_binding is null or not found or dispatch.dispatch_id is distinct from (p_parameters->>'dispatch_id')::uuid or dispatch.receipt_id is distinct from rec.receipt_id or dispatch.provider_binding is distinct from cfg.provider_binding then raise exception 'CANONICAL_DISPATCH_MISMATCH';end if;
+  elsif p_operation in ('ack','reject') and cfg.provider_binding is not null then raise exception 'CANONICAL_ADAPTER_OUTCOME_REQUIRED';end if;
   if p_operation='reserve' then
    if rec.status<>'QUEUED' then raise exception 'CANONICAL_ALREADY_ATTEMPTED';end if;
    update public.kk_owner_canonical_delivery set status='RESERVED',receipt_id=pg_catalog.gen_random_uuid(),reserved_at=clock_at where notification_id=rec.notification_id returning * into rec;
    update public.kk_owner_canonical_attempt set status='RESERVED',receipt_id=rec.receipt_id,reserved_at=rec.reserved_at where ticket=att.ticket;
    return pg_catalog.jsonb_build_object('status',rec.status,'receipt_id',rec.receipt_id);
   end if;
-  if p_operation='reject' then
+  if p_operation in ('reject','adapter-reject') then
    other:=p_parameters->'evidence';
-   if cfg.capture_profile_sha256 is null or rec.status<>'RESERVED' or rec.receipt_id is distinct from (p_parameters->>'receipt_id')::uuid or pg_catalog.jsonb_typeof(other) is distinct from 'object' or
-      other->>'profile_sha256' is distinct from cfg.capture_profile_sha256 or other->>'scenario_id' is distinct from '6176241' or other->>'module_id' is distinct from '8' or other->>'connection_id' is distinct from '10356915' or other->>'attempt_id' is distinct from rec.ticket::text or other->>'receipt_id' is distinct from rec.receipt_id::text or other->>'descriptor_sha256' is distinct from rec.descriptor_sha256 or
+   if (cfg.provider_binding is null and cfg.capture_profile_sha256 is null) or rec.status<>'RESERVED' or rec.receipt_id is distinct from (p_parameters->>'receipt_id')::uuid or pg_catalog.jsonb_typeof(other) is distinct from 'object' or
+      other->>'profile_sha256' is distinct from coalesce(cfg.provider_binding->>'manifest_sha256',cfg.capture_profile_sha256) or other->>'scenario_id' is distinct from '6176241' or other->>'module_id' is distinct from coalesce(cfg.provider_binding->>'module_id','8') or other->>'connection_id' is distinct from coalesce(cfg.provider_binding->>'connection_id','10356915') or other->>'attempt_id' is distinct from rec.ticket::text or other->>'receipt_id' is distinct from rec.receipt_id::text or other->>'descriptor_sha256' is distinct from rec.descriptor_sha256 or
       pg_catalog.jsonb_typeof(other->'http_status') is distinct from 'number' or pg_catalog.jsonb_typeof(other->'telegram_response') is distinct from 'object' or other->'telegram_response'->'ok' is distinct from 'false'::jsonb or pg_catalog.jsonb_typeof(other->'telegram_response'->'error_code') is distinct from 'number' or
       other ? 'provider_message_id' or other->'telegram_response' ?| array['result','message_id','request_id'] then raise exception 'CANONICAL_REJECTION_EVIDENCE_INVALID';end if;
    select count(*) into count_keys from pg_catalog.jsonb_object_keys(other);

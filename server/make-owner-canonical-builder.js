@@ -79,4 +79,29 @@ function prepare(snapshot,binding){
   release_status:capture?'OFF_DRAFT_REQUIRES_LIVE_CAPTURE_SCHEMA_AND_BINDING_READBACK':'OFF_DRAFT_POSITIVE_ROUTE_ONLY_NEGATIVE_CAPTURE_UNVERIFIED',
   apply_order:['Refresh same617 inactive snapshot and expectedLastEdit. Never save credentials in a blueprint.','Add inert HTTP/iterator modules under separately approved mutation, then use actual returned IDs and refreshed lastEdit with this compiler.','Validate desired graph and native scheduling/interface payload against current Make tools. Schedule/interface tool operations are deliberately not invented here.','For a negative path, independently verify and hash exact native module8 structured response bindings before compiling; current public logs cannot supply this proof.','Apply module edits with documented operations and expectedLastEdit; keep active false and module8 disabled.','Read back graph, exact filters, interval900, empty input/output, sequential and dlq false; require zero incomplete executions and no Make retry/Break/Resume/sleep.','Do not activate or run. Unknown/expired provider attempts require reconciliation; positive and negative projections are repair only.']};
 }
-module.exports={ENDPOINT,prepare};
+function prepareAdapter(snapshot,binding){
+ const A=require('./make-owner-telegram-adapter'),adapter=A.validateBinding(binding?.adapterBinding),assigned=binding?.assignedIds;
+ const roles=['poll','iterator','admit','project','provider','report','reject','projectReject','commit'];
+ if(!assigned||Object.keys(assigned).sort().join(',')!==roles.slice().sort().join(',')||new Set(Object.values(assigned)).size!==roles.length||roles.some(r=>!Number.isSafeInteger(assigned[r])||assigned[r]<1)||assigned.provider!==adapter.module_id)fail('MAKE_CANONICAL_ASSIGNED_IDS_REQUIRED');
+ const by=new Map(snapshot?.modules?.map(m=>[m.id,m])||[]);if(by.size!==snapshot?.modules?.length||by.size!==14)fail('MAKE_CANONICAL_GRAPH_INVALID');
+ for(const [role,type,version] of [['provider',adapter.app_name+':sendCapturedMessage',1],['report',adapter.app_name+':reportCapturedOutcome',1],['reject',adapter.app_name+':reportCapturedOutcome',1],['projectReject','http:MakeRequest',4],['commit','builtin:Commit',1]]){
+  const m=by.get(assigned[role]);if([5,6,8,9,10].includes(assigned[role])||!m||m.module!==type||m.version!==version||m.parent||m.follows||m.errorHandler||m.routes)fail('MAKE_CANONICAL_ADAPTER_GRAPH_UNVERIFIED');
+  if(['provider','report','reject'].includes(role)&&(m.disabled!==true||m.config?.parameters?.__IMTCONN__!==adapter.connection_id))fail('MAKE_CANONICAL_ADAPTER_GRAPH_UNVERIFIED');
+ }
+ const baseIds=Object.fromEntries(['poll','iterator','admit','project'].map(k=>[k,assigned[k]]));
+ const base=prepare({...snapshot,modules:snapshot.modules.filter(m=>[5,6,8,9,10,...Object.values(baseIds)].includes(m.id))},{...binding,assignedIds:baseIds,capture:undefined});
+ const envelope='{{'+assigned.admit+'.data.envelope_json}}',attempt='{{'+assigned.admit+'.data.attempt_id}}';
+ const mapper={envelope_json:envelope,attempt_id:attempt,receipt_id:'{{6.data.receipt_id}}'};
+ const provider={id:assigned.provider,module:adapter.app_name+':sendCapturedMessage',version:1,follows:6,disabled:true,config:{parameters:{__IMTCONN__:adapter.connection_id},mapper:{...mapper,provider_binding_sha256:A.bindingDigest(adapter)}},filter:structuredClone(base.modules.find(m=>m.id===8).filter)};
+ provider.filter.name='Adapter reservation readiness and original deadline';provider.filter.conditions[0][0].a='{{6.data.adapter_ready}}';
+ const report={id:assigned.report,module:adapter.app_name+':reportCapturedOutcome',version:1,follows:provider.id,disabled:true,config:{parameters:{__IMTCONN__:adapter.connection_id},mapper:{...mapper,outcome_frame:'{{'+provider.id+'.outcome_frame}}'}}};
+ const rejection={...structuredClone(report),id:assigned.reject,parent:{moduleId:provider.id,kind:'errorHandler'},config:{parameters:{__IMTCONN__:adapter.connection_id},mapper:{...mapper,outcome_frame:'{{'+provider.id+'.error.message}}'}}};delete rejection.follows;
+ const project=base.modules.find(m=>m.id===assigned.project);project.follows=report.id;
+ const projectReject={...structuredClone(project),id:assigned.projectReject,follows:rejection.id};projectReject.config.mapper.jsonStringBodyContent='{"stage":"canonical-project-rejection","attempt_id":"'+attempt+'","envelope":'+envelope+'}';
+ const oldProvider=base.modules.find(m=>m.id===8);oldProvider.root='orphan';delete oldProvider.follows;
+ return {...base,version:'kk-owner-canonical-make-capture-adapter-v1',removeModuleIds:[5,9,10],modules:[...base.modules.filter(m=>![8,9].includes(m.id)),provider,report,rejection,projectReject,{id:assigned.commit,module:'builtin:Commit',version:1,follows:projectReject.id,config:{parameters:{},mapper:{}}},oldProvider],adapter_binding:adapter,
+  adapter_manifest_sha256:A.MANIFEST_SHA256,required_readback:{...base.required_readback,provider_filter:['6.data.adapter_ready = true',assigned.admit+'.data.envelope.expires_at > now + 15 seconds'],adapter_module_id:provider.id,adapter_provider_disabled:true,adapter_reporters_disabled:true,adapter_connection_id:adapter.connection_id,old_native8_disabled:true,no_unhandled_or_incomplete_provider_retry:true},
+  release_status:'OFF_SOURCE_ADAPTER_REQUIRES_INSTALLATION_BOT_AND_ENGINE_RETRY_READBACK',capture_profile_required:null,
+  apply_order:[...base.apply_order,'Install the reviewed custom app/secure connection separately; attest getMe bot identity and actual engine retry granularity. Never copy native10356915 credentials or synthetic mappings.','Use actual assigned adapter module IDs and exact secure connection metadata. Keep both providers and reporters disabled; native8 remains a disabled orphan until an approved cutover.']};
+}
+module.exports={ENDPOINT,prepare,prepareAdapter};

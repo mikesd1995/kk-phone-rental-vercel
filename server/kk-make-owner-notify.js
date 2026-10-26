@@ -37,6 +37,7 @@ function config(env=process.env){
     canonicalSecret:String(env.KK_OWNER_CANONICAL_SECRET||''),
     canonicalConsumerSecret:String(env.KK_OWNER_CANONICAL_CONSUMER_SECRET||''),
     captureProfile:captureProfile(env),captureProfileReviewSha256:t(env.KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256),
+    adapterBinding:(()=>{try{return require('./make-owner-telegram-adapter').validateBinding(JSON.parse(env.KK_OWNER_CANONICAL_ADAPTER_BINDING_JSON||'null'));}catch(_){return null;}})(),
     gasProjectId:t(env.KK_OWNER_CANONICAL_GAS_PROJECT_ID),gasDeploymentId:t(env.KK_OWNER_CANONICAL_GAS_DEPLOYMENT_ID),
     gasClientId:t(env.KK_OWNER_CANONICAL_OAUTH_CLIENT_ID),gasClientSecret:String(env.KK_OWNER_CANONICAL_OAUTH_CLIENT_SECRET||''),
     gasRefreshToken:String(env.KK_OWNER_CANONICAL_OAUTH_REFRESH_TOKEN||''),
