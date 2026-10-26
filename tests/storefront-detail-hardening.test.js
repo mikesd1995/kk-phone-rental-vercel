@@ -28,7 +28,7 @@ test('public event_note is mapped, sanitized, and rendered in the package modal'
   assert.match(source, /String\(r\.event_note\|\|r\.web_note\|\|""\)\.trim\(\)/);
   assert.match(source, /modal-event-note/);
   assert.match(source, /var publicEventNote=sanitizePublicText\(c\.webNote\)/);
-  assert.match(source, /eventCopy\\.textContent=publicEventNote/);
+  assert.match(source, /eventCopy\.textContent=publicEventNote/);
 });
 
 test('month and availability filter choices can be reflected in the URL', () => {
@@ -68,7 +68,7 @@ test('package modal has stable public fallback taglines', () => {
 
 test('internal event notes are filtered before rendering', () => {
   assert.match(source, /var publicEventNote=sanitizePublicText\(c\.webNote\)/);
-  assert.match(source, /eventCopy\\.textContent=publicEventNote/);
+  assert.match(source, /eventCopy\.textContent=publicEventNote/);
 });
 
 
