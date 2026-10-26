@@ -1627,8 +1627,13 @@ function showModal(c,options){
     icon.innerHTML='<svg viewBox="0 0 28 28" fill="none"><rect x="6" y="3" width="16" height="22" rx="3" stroke="#5B8DEF" stroke-width="1.8"/><rect x="10" y="6" width="8" height="1.5" rx="0.75" fill="#5B8DEF"/><circle cx="14" cy="22" r="1.2" fill="#5B8DEF"/></svg>';
     var info=document.createElement("div"); info.className="ph-info";
     var mEl=document.createElement("div"); mEl.className="ph-model"; mEl.textContent=p.model||"";
-    var sEl=document.createElement("div"); sEl.className="ph-spec";  sEl.textContent=packageSpecForLanguage(p);
-    info.appendChild(mEl); info.appendChild(sEl);
+    var specText=packageSpecForLanguage(p);
+    info.appendChild(mEl);
+    // Lens-only rows often repeat the same text for model and subtype.
+    if(specText&&String(specText).trim().toLowerCase()!==String(p.model||"").trim().toLowerCase()){
+      var sEl=document.createElement("div"); sEl.className="ph-spec"; sEl.textContent=specText;
+      info.appendChild(sEl);
+    }
     // Default marketing taglines add noise; keep explicit customer-facing
     // package notes discoverable with an accessible native disclosure.
     var publicSubtitle=packagePublicSubtitle(p);
