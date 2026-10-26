@@ -1,6 +1,6 @@
 # Make617 Telegram response adapter — OFF preparation, 26 October 2026
 
-This package is SOURCE preparation for the existing same617 canonical path. It is not an installed app, active sender, provider test or project closure.
+This package remains OFF preparation for the existing same617 canonical path. The reviewed private app is now installed structurally, with disabled unbound orphan modules. This is not an active sender, provider test or project closure.
 
 ## Why an adapter
 Current available live history never invoked Telegram8. Native published module schemas do not prove an original refusal body; generic Make error labels/messages cannot prove safe retry. Active transport policy150/225/235 keeps the physical Telegram writer on Make617. No Telegram provider call is added to GAS or Node gateway.
@@ -17,14 +17,20 @@ The source adapter owns the point where original HTTP status and full Telegram J
 - Native dispatch CAS proves one grant per attempt. It does not certify Make's internal per-request network retry granularity; that must be validated before activation. Unknown outcomes cannot be reset to acquire a new grant.
 
 ## Current access/readback limit
-Live custom_app_list returned UNAUTHORIZED requiring sdk-apps:read. No custom app write was attempted. Do not use an alternative token/browser route to evade that authorization requirement. Existing617 remains inactive, provider8 disabled, no incomplete execution and no provider run/send occurred during this task.
+After the owner reconnected Make A, SDK inventory and app authoring succeeded. Actual private SDK app `kk-telegram-response-adapter-h5mj68` version1 is installed in the existing Make A organization8618622; Base, basic connection API/password-parameter definitions and both actions' sections match the reviewed manifest. The SDK connection definition's actual name is the app name; its label is `ownerTelegramAdapter`. This schema is not an authenticated account connection.
+
+Same617 exact readback at `2026-10-26T13:13:27.132Z` (20:13:27 Bangkok) shows inactive/on-demand, zero incomplete executions, disabled native8 and disabled orphan modules11/12/13. Their actual module identities are `app#kk-telegram-response-adapter-h5mj68:sendCapturedMessage` and `app#kk-telegram-response-adapter-h5mj68:reportCapturedOutcome` (two reporter instances). Their configuration is empty and no secure adapter connection is bound; existing native10356915 remains opaque and is not reused. No provider run/send occurred.
+
+The real `app#` module namespace exposed an offline compiler incompatibility: `prepareAdapter` compared/emitted unprefixed module names. It now uses `app#` only for Make module identities, while the immutable binding retains the raw SDK app name and unchanged validation/digest. Regression covers real names, all three emitted names, and rejection of unprefixed or wrong-app input. The manifest and send/TTL/connection guards are unchanged.
+
+The Make editor save stripped native8's disabled flag in the immediate readback. The scenario remained inactive throughout; a guarded `expectedLastEdit` API save immediately restored disabled flags on8/11/12/13 and exact readback confirmed them. Every future editor save requires this disabled-flag check; do not trust the editor's inactive badge as module-level fencing proof or save a stale editor over guarded changes.
 
 The current _Core_V1_Status table contains historical Sep14 provider-PASS notes. Those timestamps do not replace today's inactive/no-new-ACK runtime evidence. Runtime readback has priority.
 
 ## Concrete future installation sequence
-1. With proper Make account authorization, save the exact reviewed private app/connection/module source without enabling617 or any provider. Read back the compiled manifest/schema; use actual returned app/module/connection identities, never fixture IDs.
+1. Private app/source installation and actual `app#` module schemas are read back. Keep the incomplete modules disabled/orphaned until secure binding is verified; use actual returned app/module/connection identities, never fixture IDs.
 2. The owner enters credentials directly into the appropriate Make connection store. Verify public bot identity read-only and bind the exact reviewed app/manifest/module/connection to a new trusted canonical cutover. No raw credential export, historical fixture reset or source re-aging.
 3. Under explicit final-head release authority, apply only the reviewed canonical native/gateway/GAS changes after fresh current catalog/ACL/deployment/policy and exact readback checks. Save the same617 graph OFF, preserve disabled legacy provider and zero incomplete executions, validate the actual outcome/error-message mapping and retry granularity. Source tests do not satisfy this step.
 4. A separately authorized finite fresh provider test must demonstrate actual receipt → durable native ACK → exact Sheet projection; verified refusal must follow original-identity due retry without old resend. Prove natural future runtime separately.
 
-The current owner request keeps all senders OFF and forbids old replay. This run performs source development, tests/review and draft793 update only.
+The current owner request keeps all senders OFF and forbids old replay. OFF structural installation and this source compatibility repair do not authorize canonical release, scheduling changes, activation, provider execution or a new test fixture. Credential/bot binding, actual engine retry behavior, native/gateway/GAS release and provider ACK → database → Sheet → natural runtime remain separate pending gates.

@@ -84,7 +84,7 @@ function prepareAdapter(snapshot,binding){
  const roles=['poll','iterator','admit','project','provider','report','reject','projectReject','commit'];
  if(!assigned||Object.keys(assigned).sort().join(',')!==roles.slice().sort().join(',')||new Set(Object.values(assigned)).size!==roles.length||roles.some(r=>!Number.isSafeInteger(assigned[r])||assigned[r]<1)||assigned.provider!==adapter.module_id)fail('MAKE_CANONICAL_ASSIGNED_IDS_REQUIRED');
  const by=new Map(snapshot?.modules?.map(m=>[m.id,m])||[]);if(by.size!==snapshot?.modules?.length||by.size!==14)fail('MAKE_CANONICAL_GRAPH_INVALID');
- for(const [role,type,version] of [['provider',adapter.app_name+':sendCapturedMessage',1],['report',adapter.app_name+':reportCapturedOutcome',1],['reject',adapter.app_name+':reportCapturedOutcome',1],['projectReject','http:MakeRequest',4],['commit','builtin:Commit',1]]){
+ for(const [role,type,version] of [['provider','app#'+adapter.app_name+':sendCapturedMessage',1],['report','app#'+adapter.app_name+':reportCapturedOutcome',1],['reject','app#'+adapter.app_name+':reportCapturedOutcome',1],['projectReject','http:MakeRequest',4],['commit','builtin:Commit',1]]){
   const m=by.get(assigned[role]);if([5,6,8,9,10].includes(assigned[role])||!m||m.module!==type||m.version!==version||m.parent||m.follows||m.errorHandler||m.routes)fail('MAKE_CANONICAL_ADAPTER_GRAPH_UNVERIFIED');
   if(['provider','report','reject'].includes(role)&&(m.disabled!==true||m.config?.parameters?.__IMTCONN__!==adapter.connection_id))fail('MAKE_CANONICAL_ADAPTER_GRAPH_UNVERIFIED');
  }
@@ -92,9 +92,9 @@ function prepareAdapter(snapshot,binding){
  const base=prepare({...snapshot,modules:snapshot.modules.filter(m=>[5,6,8,9,10,...Object.values(baseIds)].includes(m.id))},{...binding,assignedIds:baseIds,capture:undefined});
  const envelope='{{'+assigned.admit+'.data.envelope_json}}',attempt='{{'+assigned.admit+'.data.attempt_id}}';
  const mapper={envelope_json:envelope,attempt_id:attempt,receipt_id:'{{6.data.receipt_id}}'};
- const provider={id:assigned.provider,module:adapter.app_name+':sendCapturedMessage',version:1,follows:6,disabled:true,config:{parameters:{__IMTCONN__:adapter.connection_id},mapper:{...mapper,provider_binding_sha256:A.bindingDigest(adapter)}},filter:structuredClone(base.modules.find(m=>m.id===8).filter)};
+ const provider={id:assigned.provider,module:'app#'+adapter.app_name+':sendCapturedMessage',version:1,follows:6,disabled:true,config:{parameters:{__IMTCONN__:adapter.connection_id},mapper:{...mapper,provider_binding_sha256:A.bindingDigest(adapter)}},filter:structuredClone(base.modules.find(m=>m.id===8).filter)};
  provider.filter.name='Adapter reservation readiness and original deadline';provider.filter.conditions[0][0].a='{{6.data.adapter_ready}}';
- const report={id:assigned.report,module:adapter.app_name+':reportCapturedOutcome',version:1,follows:provider.id,disabled:true,config:{parameters:{__IMTCONN__:adapter.connection_id},mapper:{...mapper,outcome_frame:'{{'+provider.id+'.outcome_frame}}'}}};
+ const report={id:assigned.report,module:'app#'+adapter.app_name+':reportCapturedOutcome',version:1,follows:provider.id,disabled:true,config:{parameters:{__IMTCONN__:adapter.connection_id},mapper:{...mapper,outcome_frame:'{{'+provider.id+'.outcome_frame}}'}}};
  const rejection={...structuredClone(report),id:assigned.reject,parent:{moduleId:provider.id,kind:'errorHandler'},config:{parameters:{__IMTCONN__:adapter.connection_id},mapper:{...mapper,outcome_frame:'{{'+provider.id+'.error.message}}'}}};delete rejection.follows;
  const project=base.modules.find(m=>m.id===assigned.project);project.follows=report.id;
  const projectReject={...structuredClone(project),id:assigned.projectReject,follows:rejection.id};projectReject.config.mapper.jsonStringBodyContent='{"stage":"canonical-project-rejection","attempt_id":"'+attempt+'","envelope":'+envelope+'}';
