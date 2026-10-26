@@ -86,3 +86,21 @@ test('runtime capture profile is bound to the reviewed route and field mapping d
  assert.equal(API.config({...env,KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256:'f'.repeat(64)}).captureProfile,null);
  assert.equal(API.config({...env,KK_OWNER_CANONICAL_CAPTURE_PROFILE_JSON:JSON.stringify({...profile,field_mappings:{...profile.field_mappings,http_status:'forged'}})}).captureProfile,null);
 });
+test('admit exposes JSON-escaped raw Sheet identity separately from encoded transport identity',async t=>{
+ t.mock.method(Date,'now',()=>now);
+ const c=context(),source={...row(),'Notification ID':'งาน "A" \\ identity'},ticket=uuid(),claimId='CLAIM|'+uuid();
+ const claimed={...source,Status:'SENDING','Attempt Count':1,'Last Attempt At':new Date(now).toISOString(),Notes:claimId};
+ const cfg={canonicalEnabled:true,consumerAuthenticated:true,producerEnabled:true,canonicalSecret:'canonical-test-'.repeat(4),secret:'wire-test-'.repeat(5),gasProjectId:Legacy.SCRIPT_PROJECT_ID,gasDeploymentId:'AKfycb_testdeployment',gasAccessToken:'test-only-token',storeMode:'vercel-oidc',expectedRef:Legacy.PROJECT_REF};
+ const calls=[];
+ const fetchImpl=async(url,init)=>{
+  const body=JSON.parse(init.body);calls.push(body.operation||body.function);
+  if(url.startsWith('https://script.googleapis.com/'))return {ok:true,json:async()=>({done:true,response:{result:V2.signContext('claim-result',c,{ticket,notification_id:source['Notification ID'],claim_id:claimId,claimed_row:claimed,text:source.Payload},cfg.canonicalSecret)}})};
+  let result;if(body.operation==='begin')result={context:c,rows:[source],notification_id:source['Notification ID'],attempt_id:ticket,attempt_no:1};
+  else if(body.operation==='enqueue')result={ticket,attempt_count:1,source_notification_id:source['Notification ID'],descriptor:body.parameters.descriptor,descriptor_sha256:crypto.createHash('sha256').update(JSON.stringify(body.parameters.descriptor)).digest('hex')};
+  else throw Error('Unexpected synthetic store operation');
+  return {ok:true,json:async()=>({ok:true,authenticated:true,version:'v2',project_ref:Legacy.PROJECT_REF,operation:body.operation,provider_sends:0,result})};
+ };
+ const admitted=await V2.handle({stage:'canonical-admit',version:'v2',ticket},cfg,{fetchImpl,getTokenImpl:async()=>'test-only-oidc'});
+ assert.equal(admitted.source_notification_id,source['Notification ID']);assert.equal(admitted.source_notification_id_json,JSON.stringify(source['Notification ID']));assert.equal(JSON.parse(admitted.source_notification_id_json),source['Notification ID']);
+ assert.notEqual(admitted.envelope.notification_id,source['Notification ID']);assert.match(admitted.envelope.notification_id,/^ks1_/);assert.deepEqual(calls,['begin','runCanonicalOwnerLedgerClaim','enqueue']);
+});

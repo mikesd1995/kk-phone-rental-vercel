@@ -3,6 +3,7 @@
 // assigns live module IDs, changes a schedule or activates a provider.
 const ENDPOINT='https://kk-phone-rental.vercel.app/api/kk-make-owner-notify';
 const crypto=require('node:crypto');
+const {isDeepStrictEqual}=require('node:util');
 function fail(code){throw Object.assign(new Error(code),{code});}
 function prepare(snapshot,binding){
  if(snapshot?.scenario_id!=='6176241'||snapshot.active!==false||snapshot.incompleteExecutions!==0||typeof snapshot.lastEdit!=='string'||snapshot.lastEdit!==binding?.expectedLastEdit)fail('MAKE_CANONICAL_FRESH_OFF_SNAPSHOT_REQUIRED');
@@ -15,37 +16,46 @@ function prepare(snapshot,binding){
  const ids=binding.assignedIds;if(!ids||Object.keys(ids).sort().join(',')!=='admit,iterator,poll,project'||new Set(Object.values(ids)).size!==4)fail('MAKE_CANONICAL_ASSIGNED_IDS_REQUIRED');
  for(const role of Object.keys(ids)){
   const id=ids[role],m=by.get(id),type=role==='iterator'?'builtin:BasicFeeder':'http:MakeRequest',version=role==='iterator'?1:4;
-  if(!Number.isInteger(id)||Object.hasOwn(old,id)||!m||m.module!==type||m.version!==version)fail('MAKE_CANONICAL_ASSIGNED_IDS_REQUIRED');
+  if(!Number.isInteger(id)||id<1||Object.hasOwn(old,id)||!m||m.module!==type||m.version!==version)fail('MAKE_CANONICAL_ASSIGNED_IDS_REQUIRED');
  }
+ const http=(id,follows,body)=>({id,module:'http:MakeRequest',version:4,...(follows?{follows}:{root:'main'}),config:{parameters:{authenticationType:'apiKeyConnection',apiKeyAccount:binding.gatewayConnectionId},mapper:{url:ENDPOINT,method:'post',contentType:'json',inputMethod:'jsonString',jsonStringBodyContent:body,parseResponse:true,stopOnHttpError:true,timeout:30,allowRedirects:false,shareCookies:false,requestCompressedContent:false}}});
  // A negative route can only be carried forward from an independently reviewed
  // native module-8 snapshot. Expressions and Make error-schema keys are never
  // guessed here. A digest is a release binding, not proof of live capture.
- const capture=binding.capture,route=by.get(8).errorHandler;
- if(by.get(8).parent||by.get(8).onError||by.get(8).routes)fail('MAKE_CANONICAL_UNREVIEWED_ROUTE');
+ const capture=binding.capture;
+ if(by.get(8).parent||by.get(8).onError||by.get(8).routes||by.get(8).errorHandler)fail('MAKE_CANONICAL_UNREVIEWED_ROUTE');
  let errorModules=[];
- if(capture||route||modules.length!==9){
+ if(capture||modules.length!==9){
   if(!capture||typeof capture!=='object'||Array.isArray(capture)||Object.keys(capture).sort().join(',')!=='error_module_ids,field_mappings,profile_id,provider_route_sha256,review_sha256,schema_sha256'||
     capture.profile_id!=='native-telegram-617-module8-v1'||!/^[a-f0-9]{64}$/.test(capture.schema_sha256||'')||!/^[a-f0-9]{64}$/.test(capture.review_sha256||'')||
-    binding.reviewedCaptureSha256!==capture.review_sha256||!/^[a-f0-9]{64}$/.test(capture.provider_route_sha256||'')||!route||
-    crypto.createHash('sha256').update(JSON.stringify(route)).digest('hex')!==capture.provider_route_sha256)fail('MAKE_CANONICAL_CAPTURE_UNVERIFIED');
-  if(route.sourceModuleId!==8||!Array.isArray(route.handlerModuleIds)||route.handlerModuleIds.length!==2||route.terminal!=='Commit'||
-    !Array.isArray(capture.error_module_ids)||JSON.stringify(route.handlerModuleIds)!==JSON.stringify(capture.error_module_ids)||
-    modules.length!==11)fail('MAKE_CANONICAL_CAPTURE_ROUTE_INVALID');
+    binding.reviewedCaptureSha256!==capture.review_sha256||!/^[a-f0-9]{64}$/.test(capture.provider_route_sha256||''))fail('MAKE_CANONICAL_CAPTURE_UNVERIFIED');
+  if(!Array.isArray(capture.error_module_ids)||capture.error_module_ids.length!==3||new Set(capture.error_module_ids).size!==3||
+    capture.error_module_ids.some(id=>!Number.isInteger(id)||id<1||Object.hasOwn(old,id)||Object.values(ids).includes(id))||modules.length!==12)fail('MAKE_CANONICAL_CAPTURE_ROUTE_INVALID');
+  errorModules=capture.error_module_ids.map(id=>by.get(id));
+  const [rejectModule,projectModule,commitModule]=errorModules;
+  if(!rejectModule||!projectModule||!commitModule||
+    rejectModule.module!=='http:MakeRequest'||rejectModule.version!==4||!isDeepStrictEqual(rejectModule.parent,{moduleId:8,kind:'errorHandler'})||
+    projectModule.module!=='http:MakeRequest'||projectModule.version!==4||projectModule.follows!==rejectModule.id||
+    commitModule.module!=='builtin:Commit'||commitModule.version!==1||commitModule.follows!==projectModule.id||
+    !isDeepStrictEqual(commitModule,{id:commitModule.id,module:'builtin:Commit',version:1,follows:projectModule.id,config:{parameters:{},mapper:{}}})||
+    crypto.createHash('sha256').update(JSON.stringify(errorModules)).digest('hex')!==capture.provider_route_sha256)fail('MAKE_CANONICAL_CAPTURE_ROUTE_INVALID');
   const fields=capture.field_mappings;
   const captureKeys=['profile_id','scenario_id','module_id','connection_id','source_notification_id','attempt_id','attempt_no','receipt_id','descriptor_sha256','http_status','telegram_response'];
   if(!fields||Object.keys(fields).sort().join(',')!==captureKeys.slice().sort().join(',')||Object.values(fields).some(v=>typeof v!=='string'||!v||/[\u0000-\u001f]/.test(v))||
     fields.profile_id!==capture.profile_id||fields.scenario_id!=='6176241'||fields.module_id!=='8'||fields.connection_id!=='10356915')fail('MAKE_CANONICAL_CAPTURE_MAPPING_INVALID');
+  // The Sheet ID may contain JSON-reserved characters and is not the ks1_
+  // transport identity. Use the gateway's JSON-escaped scalar without quotes.
+  const expected={source_notification_id:'{{'+ids.admit+'.data.source_notification_id_json}}',attempt_id:'{{'+ids.admit+'.data.attempt_id}}',attempt_no:'{{'+ids.admit+'.data.attempt_no}}',receipt_id:'{{6.data.receipt_id}}',descriptor_sha256:'{{6.data.descriptor_sha256}}'};
+  if(Object.entries(expected).some(([k,v])=>fields[k]!==v)||!/^\{\{8\.[^{}\r\n]+\}\}$/.test(fields.http_status)||!/^\{\{toString\(8\.[^{}\r\n;()]+\)\}\}$/.test(fields.telegram_response))fail('MAKE_CANONICAL_CAPTURE_MAPPING_INVALID');
   const digest=require('./make-owner-canonical').captureProfileDigest({id:capture.profile_id,scenario_id:'6176241',module_id:8,connection_id:10356915,schema_sha256:capture.schema_sha256,provider_route_sha256:capture.provider_route_sha256,field_mappings:fields});
   if(digest!==capture.review_sha256)fail('MAKE_CANONICAL_CAPTURE_REVIEW_MISMATCH');
-  errorModules=capture.error_module_ids.map(id=>by.get(id));
-  if(new Set(capture.error_module_ids).size!==2||errorModules.some(m=>!m||m.module!=='http:MakeRequest'||m.version!==4||m.config?.mapper?.url!==ENDPOINT))fail('MAKE_CANONICAL_CAPTURE_ROUTE_INVALID');
-  const rejection=errorModules[0].config.mapper.jsonStringBodyContent,projection=errorModules[1].config.mapper.jsonStringBodyContent;
-  if(typeof rejection!=='string'||typeof projection!=='string'||!rejection.includes('canonical-reject')||!projection.includes('canonical-project-rejection')||
-    captureKeys.some(k=>!rejection.includes('"'+k+'"')||!rejection.includes(fields[k]))||!rejection.includes('"envelope"')||!projection.includes('"envelope"')||!projection.includes(fields.attempt_id)||
-    /Break|Resume|Sleep|telegram:Send/i.test(JSON.stringify([route,...errorModules])))fail('MAKE_CANONICAL_CAPTURE_ROUTE_INVALID');
+  const envelope='{{'+ids.admit+'.data.envelope_json}}';
+  const rejection='{"stage":"canonical-reject","envelope":'+envelope+',"attempt_id":'+JSON.stringify(fields.attempt_id)+',"receipt_id":'+JSON.stringify(fields.receipt_id)+',"capture":{"profile_id":'+JSON.stringify(fields.profile_id)+',"scenario_id":'+JSON.stringify(fields.scenario_id)+',"module_id":8,"connection_id":10356915,"source_notification_id":'+fields.source_notification_id+',"attempt_id":'+JSON.stringify(fields.attempt_id)+',"attempt_no":'+fields.attempt_no+',"receipt_id":'+JSON.stringify(fields.receipt_id)+',"descriptor_sha256":'+JSON.stringify(fields.descriptor_sha256)+',"http_status":'+fields.http_status+',"telegram_response":'+fields.telegram_response+'}}';
+  const projection='{"stage":"canonical-project-rejection","attempt_id":'+JSON.stringify(fields.attempt_id)+',"envelope":'+envelope+'}';
+  const expectedReject=http(rejectModule.id,null,rejection);delete expectedReject.root;expectedReject.parent={moduleId:8,kind:'errorHandler'};
+  if(!isDeepStrictEqual(rejectModule,expectedReject)||!isDeepStrictEqual(projectModule,http(projectModule.id,rejectModule.id,projection)))fail('MAKE_CANONICAL_CAPTURE_ROUTE_INVALID');
  }
- if(modules.some(m=>m.id!==8&&(m.parent||m.onError||m.errorHandler||m.routes)))fail('MAKE_CANONICAL_UNREVIEWED_ROUTE');
- const http=(id,follows,body)=>({id,module:'http:MakeRequest',version:4,...(follows?{follows}:{root:'main'}),config:{parameters:{authenticationType:'apiKeyConnection',apiKeyAccount:binding.gatewayConnectionId},mapper:{url:ENDPOINT,method:'post',contentType:'json',inputMethod:'jsonString',jsonStringBodyContent:body,parseResponse:true,stopOnHttpError:true,timeout:30,allowRedirects:false,shareCookies:false,requestCompressedContent:false}}});
+ if(modules.some(m=>m.id!==8&&!errorModules.includes(m)&&(m.parent||m.onError||m.errorHandler||m.routes)))fail('MAKE_CANONICAL_UNREVIEWED_ROUTE');
  const poll=http(ids.poll,null,JSON.stringify({stage:'canonical-poll',version:'v2'}));
  const iterator={id:ids.iterator,module:'builtin:BasicFeeder',version:1,follows:ids.poll,config:{parameters:{},mapper:{array:'{{'+ids.poll+'.data.tickets}}'}}};
  const admit=http(ids.admit,ids.iterator,'{"stage":"canonical-admit","version":"v2","ticket":"{{'+ids.iterator+'.ticket}}"}');

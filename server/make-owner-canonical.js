@@ -150,7 +150,7 @@ async function runHandle(body,cfg,options={}){
   const record=await store('enqueue',{ticket:body.ticket,binding:JSON.stringify(binding),descriptor:d,claimed_row:claimed},cfg,options);descriptorMatch(record,d);
   if(record.ticket!==t.attempt_id||record.attempt_count!==t.attempt_no||!/^[a-f0-9]{64}$/.test(record.descriptor_sha256||''))fail('CANONICAL_DURABLE_DESCRIPTOR_MISMATCH');
   const envelope={...record.descriptor,signature:Wire.sign(record.descriptor,cfg.secret)};
-  return {ok:true,mode:'CANONICAL_V2',status:'ADMITTED',send_allowed:false,source_notification_id:record.source_notification_id,attempt_id:t.attempt_id,attempt_no:t.attempt_no,descriptor_sha256:record.descriptor_sha256,envelope,envelope_json:JSON.stringify(envelope)};
+  return {ok:true,mode:'CANONICAL_V2',status:'ADMITTED',send_allowed:false,source_notification_id:record.source_notification_id,source_notification_id_json:JSON.stringify(record.source_notification_id),attempt_id:t.attempt_id,attempt_no:t.attempt_no,descriptor_sha256:record.descriptor_sha256,envelope,envelope_json:JSON.stringify(envelope)};
  }
  if(['canonical-prepare','canonical-ack','canonical-project','canonical-reject','canonical-project-rejection'].includes(op)){
   const keys=op==='canonical-ack'?['stage','envelope','attempt_id','receipt_id','provider_message_id']:op==='canonical-reject'?['stage','envelope','attempt_id','receipt_id','capture']:['stage','envelope','attempt_id'];exact(body,keys);

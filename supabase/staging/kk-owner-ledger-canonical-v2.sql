@@ -158,6 +158,7 @@ begin
  if p_operation='tickets' then
   if pg_catalog.jsonb_typeof(p_parameters->'context') is distinct from 'object' or pg_catalog.jsonb_typeof(p_parameters->'rows') is distinct from 'array' or pg_catalog.jsonb_array_length(p_parameters->'rows')>128 or pg_catalog.octet_length((p_parameters->'rows')::text)>262144 or pg_catalog.jsonb_typeof(p_parameters->'candidates') is distinct from 'array' or pg_catalog.jsonb_array_length(p_parameters->'candidates')>128 then raise exception 'CANONICAL_SNAPSHOT_BOUNDS';end if;
   if exists(select 1 from pg_catalog.jsonb_array_elements(p_parameters->'candidates') x where pg_catalog.jsonb_typeof(x)<>'string') then raise exception 'CANONICAL_CANDIDATE_INVALID';end if;
+  if exists(select 1 from pg_catalog.jsonb_array_elements_text(p_parameters->'candidates') x group by x having count(*)>1) then raise exception 'CANONICAL_CANDIDATE_DUPLICATE';end if;
   if pg_catalog.jsonb_typeof(p_parameters->'held') is distinct from 'array' or pg_catalog.jsonb_array_length(p_parameters->'held')>128 or pg_catalog.octet_length((p_parameters->'held')::text)>32768 then raise exception 'CANONICAL_HELD_METADATA_INVALID';end if;
   for h in select pg_catalog.jsonb_array_elements(p_parameters->'held') loop
    if pg_catalog.jsonb_typeof(h) is distinct from 'object' then raise exception 'CANONICAL_HELD_METADATA_INVALID';end if;
@@ -202,8 +203,21 @@ begin
    if count_keys<>1 then raise exception 'CANONICAL_DEDUP_AMBIGUOUS';end if;
    select * into rec from public.kk_owner_canonical_delivery q where q.source_notification_id=id or q.dedup_key=dedup for update;
    clock_at:=pg_catalog.clock_timestamp();
+   if observed<clock_at-interval '120 seconds' or observed>clock_at+interval '15 seconds' or clock_at>due_at+interval '120 seconds' then raise exception 'CANONICAL_POLL_EXPIRED';end if;
    if found then
-    if rec.source_notification_id<>id or rec.dedup_key<>dedup or rec.status<>'RETRY_WAIT' or rec.next_ticket is not null or rec.next_retry_at is null or rec.next_retry_at>clock_at or rec.projected_row is distinct from r or rec.attempt_count<>(r->>'Attempt Count')::integer or rec.attempt_count>=cfg.max_attempts or rec.provider_message_id is not null or rec.source_row->>'Created At'<>r->>'Created At' or rec.source_row->>'Payload'<>r->>'Payload' then
+    -- The locked delivery row serializes every begin transition. A NEW ticket has not
+    -- claimed an attempt; an expired poll may replace that admission pointer only.
+    -- Do not lock its ticket here: begin locks ticket then delivery, so reversing
+    -- that order would deadlock. A waiting old begin fails expiry/pointer fencing.
+    if rec.source_notification_id<>id or rec.dedup_key<>dedup or rec.status<>'RETRY_WAIT' or
+       (rec.next_ticket is not null and not exists(
+        select 1 from public.kk_owner_canonical_ticket pending join public.kk_owner_canonical_poll prior_poll on prior_poll.poll_id=pending.poll_id
+        where pending.ticket=rec.next_ticket and pending.state='NEW' and pending.poll_id<>pol.poll_id and
+         pending.source_notification_id=rec.source_notification_id and pending.dedup_key=rec.dedup_key and pending.source_row=rec.projected_row and
+         prior_poll.cutover_id=cfg.cutover_id and prior_poll.issued and
+         ((prior_poll.context->>'observed_at')::timestamptz<clock_at-interval '120 seconds' or clock_at>(prior_poll.context->>'due_at')::timestamptz+interval '120 seconds') and
+         not exists(select 1 from public.kk_owner_canonical_attempt prior_attempt where prior_attempt.ticket=pending.ticket)
+       )) or rec.next_retry_at is null or rec.next_retry_at>clock_at or rec.projected_row is distinct from r or rec.attempt_count<>(r->>'Attempt Count')::integer or rec.attempt_count>=cfg.max_attempts or rec.provider_message_id is not null or rec.source_row->>'Created At'<>r->>'Created At' or rec.source_row->>'Payload'<>r->>'Payload' then
      if r->>'Status'='RETRY_WAIT' then
       select ord::integer into held_index from pg_catalog.jsonb_array_elements(p_parameters->'rows') with ordinality x(value,ord) where x.value->>'Notification ID'=id;
       internal_held:=internal_held||pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('row_index',held_index,'notification_id_sha256',pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to((r->'Notification ID')::text,'UTF8')),'hex'),'reason_code','CANONICAL_RETRY_HISTORY_UNVERIFIED'));
@@ -224,6 +238,8 @@ begin
   if tic.state<>'NEW' then raise exception 'CANONICAL_TICKET_ALREADY_CONSUMED';end if;
   transport_id:='ks1_'||pg_catalog.rtrim(pg_catalog.translate(pg_catalog.replace(pg_catalog.encode(pg_catalog.convert_to(tic.source_notification_id,'UTF8'),'base64'),E'\n',''),'+/','-_'),'=');
   select * into rec from public.kk_owner_canonical_delivery where source_notification_id=tic.source_notification_id for update;
+  clock_at:=pg_catalog.clock_timestamp(); -- The delivery lock may outlive the original poll.
+  if observed<clock_at-interval '120 seconds' or observed>clock_at+interval '15 seconds' or clock_at>due_at+interval '120 seconds' then raise exception 'CANONICAL_POLL_EXPIRED';end if;
   if found then
    if rec.status<>'RETRY_WAIT' or rec.next_ticket is distinct from tic.ticket or rec.dedup_key<>tic.dedup_key or rec.projected_row is distinct from tic.source_row or rec.next_retry_at>pg_catalog.clock_timestamp() or rec.attempt_count>=cfg.max_attempts then raise exception 'CANONICAL_RETRY_FENCED';end if;
    update public.kk_owner_canonical_delivery set ticket=tic.ticket,context=ctx,before_row=tic.source_row,status='CLAIMING',attempt_count=rec.attempt_count+1,next_ticket=null,binding_text=null,descriptor=null,descriptor_sha256=null,claimed_row=null,receipt_id=null,reserved_at=null,delivered_at=null,provider_message_id=null,next_retry_at=null,projected_row=null,rejection_evidence=null where source_notification_id=tic.source_notification_id returning * into rec;

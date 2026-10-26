@@ -1,0 +1,94 @@
+{
+  "scope": "SYNTHETIC_CAPTURE_PROFILE_FOR_DISPOSABLE_TESTS_ONLY",
+  "live_connector_profile_verified": false,
+  "provider_requests": 0,
+  "note": "The route and field strings below are synthetic placeholders. They are not observed Make expressions or evidence that module 8 exposes the original Telegram response. Never install this fixture as a runtime binding.",
+  "synthetic_route": [
+    {
+      "id": 15,
+      "module": "http:MakeRequest",
+      "version": 4,
+      "parent": {
+        "moduleId": 8,
+        "kind": "errorHandler"
+      },
+      "config": {
+        "parameters": {
+          "authenticationType": "apiKeyConnection",
+          "apiKeyAccount": 456
+        },
+        "mapper": {
+          "url": "https://kk-phone-rental.vercel.app/api/kk-make-owner-notify",
+          "method": "post",
+          "contentType": "json",
+          "inputMethod": "jsonString",
+          "jsonStringBodyContent": "{\"stage\":\"canonical-reject\",\"envelope\":{{13.data.envelope_json}},\"attempt_id\":\"{{13.data.attempt_id}}\",\"receipt_id\":\"{{6.data.receipt_id}}\",\"capture\":{\"profile_id\":\"native-telegram-617-module8-v1\",\"scenario_id\":\"6176241\",\"module_id\":8,\"connection_id\":10356915,\"source_notification_id\":{{13.data.source_notification_id_json}},\"attempt_id\":\"{{13.data.attempt_id}}\",\"attempt_no\":{{13.data.attempt_no}},\"receipt_id\":\"{{6.data.receipt_id}}\",\"descriptor_sha256\":\"{{6.data.descriptor_sha256}}\",\"http_status\":{{8.error.status}},\"telegram_response\":{{toString(8.error.original_response)}}}}",
+          "parseResponse": true,
+          "stopOnHttpError": true,
+          "timeout": 30,
+          "allowRedirects": false,
+          "shareCookies": false,
+          "requestCompressedContent": false
+        }
+      }
+    },
+    {
+      "id": 16,
+      "module": "http:MakeRequest",
+      "version": 4,
+      "follows": 15,
+      "config": {
+        "parameters": {
+          "authenticationType": "apiKeyConnection",
+          "apiKeyAccount": 456
+        },
+        "mapper": {
+          "url": "https://kk-phone-rental.vercel.app/api/kk-make-owner-notify",
+          "method": "post",
+          "contentType": "json",
+          "inputMethod": "jsonString",
+          "jsonStringBodyContent": "{\"stage\":\"canonical-project-rejection\",\"attempt_id\":\"{{13.data.attempt_id}}\",\"envelope\":{{13.data.envelope_json}}}",
+          "parseResponse": true,
+          "stopOnHttpError": true,
+          "timeout": 30,
+          "allowRedirects": false,
+          "shareCookies": false,
+          "requestCompressedContent": false
+        }
+      }
+    },
+    {
+      "id": 17,
+      "module": "builtin:Commit",
+      "version": 1,
+      "follows": 16,
+      "config": {
+        "parameters": {},
+        "mapper": {}
+      }
+    }
+  ],
+  "profile": {
+    "id": "native-telegram-617-module8-v1",
+    "scenario_id": "6176241",
+    "module_id": 8,
+    "connection_id": 10356915,
+    "schema_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "provider_route_sha256": "41a07057808802b6f7643a2ee3ffd28800680c8f82ef6b5390e110224fcd1798",
+    "field_mappings": {
+      "profile_id": "native-telegram-617-module8-v1",
+      "scenario_id": "6176241",
+      "module_id": "8",
+      "connection_id": "10356915",
+      "source_notification_id": "{{13.data.source_notification_id_json}}",
+      "attempt_id": "{{13.data.attempt_id}}",
+      "attempt_no": "{{13.data.attempt_no}}",
+      "receipt_id": "{{6.data.receipt_id}}",
+      "descriptor_sha256": "{{6.data.descriptor_sha256}}",
+      "http_status": "{{8.error.status}}",
+      "telegram_response": "{{toString(8.error.original_response)}}"
+    },
+    "profile_digest": "e9f6fa63076eef58febcd79cccf080f352577fe09b529daee016733ef9a932ea"
+  },
+  "disposable_cutover_capture_profile_sha256": "e9f6fa63076eef58febcd79cccf080f352577fe09b529daee016733ef9a932ea"
+}

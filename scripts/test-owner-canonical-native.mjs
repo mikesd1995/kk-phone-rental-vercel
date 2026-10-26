@@ -25,6 +25,20 @@ async function reset(maxAttempts=4){
  return {context,row};
 }
 async function claim(f){const tickets=await rpc('tickets',{context:f.context,rows:[f.row],candidates:[f.row['Notification ID']]});const ticket=tickets[0];await rpc('begin',{ticket});return {...f,ticket};}
+async function confirmedRetry(){
+ const f=await claim(await reset()),packet=envelope(f),first=await rpc('enqueue',packet),selector={notification_id:first.notification_id,attempt_id:f.ticket},reservation=await rpc('reserve',selector);
+ const evidence={profile_sha256:'a'.repeat(64),scenario_id:'6176241',module_id:8,connection_id:10356915,attempt_id:f.ticket,receipt_id:reservation.receipt_id,descriptor_sha256:first.descriptor_sha256,http_status:429,telegram_response:{ok:false,error_code:429}};
+ const rejected=await rpc('reject',{...selector,receipt_id:reservation.receipt_id,evidence}),row={...packet.claimed_row,Status:'RETRY_WAIT','Next Retry At':iso(Date.parse(rejected.next_retry_at)),'HTTP Status':'429','Last Error':'TELEGRAM_API_REJECTED_HTTP_429',Notes:packet.claimed_row.Notes+' | REJECTED_RETRY_SAFE'};
+ await rpc('confirm-rejection',{...selector,projected_row:row});await db.exec('update public.retry_test_clock set offset_ms=900000');return {context:await rpc('poll',{}),row,selector};
+}
+async function withSimulatedDeliveryLockDelay(statement,fn){
+ // Only the disposable function copy is instrumented. Assignment preserves PL/pgSQL
+ // FOUND; all source guards remain intact. This is not real contention evidence.
+ const original=(await db.query("select pg_get_functiondef('public.kk_owner_canonical_operation(text,jsonb,text)'::regprocedure) definition")).rows[0].definition;
+ assert.equal(original.split(statement).length,2,'exact delivery lock instrumentation point');
+ await db.exec(original.replace(statement,statement+' clock_at:=public.retry_test_after_delivery_lock();'));
+ try{return await fn();}finally{await db.exec(original);await db.exec('update public.retry_test_clock set offset_ms=0');}
+}
 function envelope(f,now=Date.now()){
  const claimId='CLAIM|'+crypto.randomUUID(),claimed={...f.row,Status:'SENDING','Attempt Count':Number(f.row['Attempt Count'])+1,'Last Attempt At':iso(now),Notes:(f.row.Notes?f.row.Notes+' | ':'')+claimId};
  const binding=JSON.stringify(['kk-owner-ledger-binding-v2','1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo','_Notification_Ledger','TELEGRAM_OWNER_ALERTS',f.row['Notification ID'],f.row['Created At'],f.row.Payload,f.row['Dedup Key'],f.row['Event Family ID'],f.row['Show ID'],f.row['Change Type'],f.row.Priority,f.row['Quiet Hours Policy'],JSON.stringify(f.context),claimId]);
@@ -37,6 +51,7 @@ try{
  await db.exec('create table public.retry_test_clock(offset_ms bigint not null); insert into public.retry_test_clock values (0)');
  await db.exec('alter function pg_catalog.clock_timestamp() rename to kk_retry_real_clock_timestamp');
  await db.exec("create function pg_catalog.clock_timestamp() returns timestamptz language sql volatile set search_path='' as 'select pg_catalog.kk_retry_real_clock_timestamp() + (select offset_ms from public.retry_test_clock)*interval ''1 millisecond''' ");
+ await db.exec("create function public.retry_test_after_delivery_lock() returns timestamptz language plpgsql set search_path='' as $$ begin update public.retry_test_clock set offset_ms=offset_ms+121000; return pg_catalog.clock_timestamp(); end $$");
  await db.exec('create role anon; create role authenticated; create role service_role');
  await db.exec(await fs.readFile(repo+'/supabase/staging/kk-owner-ledger-canonical-v2.sql','utf8'));
  await test('default-OFF with no trusted epoch denies poll',async()=>{await rejects(()=>rpc('poll',{}),/DISABLED/);});
@@ -126,6 +141,53 @@ try{
   const projected={...packet.claimed_row,Status:'FAILED','Next Retry At':'','HTTP Status':'429','Last Error':'TELEGRAM_API_REJECTED_HTTP_429',Notes:packet.claimed_row.Notes+' | REJECTED_TERMINAL'};
   assert.equal((await rpc('confirm-rejection',{...selector,projected_row:projected})).status,'FAILED');
   assert.equal((await rpc('readback',selector)).next_retry_at,null);
+ });
+ await test('expired NEW retry admission is replaced without resetting an attempt or source identity',async()=>{
+  const f=await claim(await reset()),packet=envelope(f),first=await rpc('enqueue',packet),selector={notification_id:first.notification_id,attempt_id:f.ticket},reservation=await rpc('reserve',selector);
+  const evidence={profile_sha256:'a'.repeat(64),scenario_id:'6176241',module_id:8,connection_id:10356915,attempt_id:f.ticket,receipt_id:reservation.receipt_id,descriptor_sha256:first.descriptor_sha256,http_status:429,telegram_response:{ok:false,error_code:429}};
+  const rejected=await rpc('reject',{...selector,receipt_id:reservation.receipt_id,evidence}),projected={...packet.claimed_row,Status:'RETRY_WAIT','Next Retry At':iso(Date.parse(rejected.next_retry_at)),'HTTP Status':'429','Last Error':'TELEGRAM_API_REJECTED_HTTP_429',Notes:packet.claimed_row.Notes+' | REJECTED_RETRY_SAFE'};
+  await rpc('confirm-rejection',{...selector,projected_row:projected});
+  try{
+   await db.exec('update public.retry_test_clock set offset_ms=900000');
+   const c2=await rpc('poll',{}),t2=await rpc('tickets',{context:c2,rows:[projected],candidates:[f.row['Notification ID']]});assert.equal(t2.length,1);
+   await db.exec('update public.retry_test_clock set offset_ms=1800000');
+   const c3=await rpc('poll',{}),t3=await rpc('tickets',{context:c3,rows:[projected],candidates:[f.row['Notification ID']]});assert.equal(t3.length,1);assert.notEqual(t3[0],t2[0]);
+   const before=(await rpc('readback',selector));assert.equal(before.attempt_count,1);assert.equal(before.source_row['Created At'],f.row['Created At']);assert.deepEqual(before.descriptor,packet.descriptor);assert.equal(before.next_ticket,t3[0]);
+   assert.equal((await db.query('select state from public.kk_owner_canonical_ticket where ticket=$1',[t2[0]])).rows[0].state,'NEW');assert.equal((await db.query('select count(*)::integer n from public.kk_owner_canonical_attempt where ticket=$1',[t2[0]])).rows[0].n,0);
+   await rejects(()=>rpc('begin',{ticket:t2[0]}),/EXPIRED/);const begun=await rpc('begin',{ticket:t3[0]});assert.equal(begun.attempt_no,2);assert.equal(begun.notification_id,f.row['Notification ID']);assert.equal((await db.query('select count(*)::integer n from public.kk_owner_canonical_attempt')).rows[0].n,2);
+  }finally{await db.exec('update public.retry_test_clock set offset_ms=0');}
+ });
+ await test('consumed retry CLAIMING QUEUED RESERVED and SENT never reclaim after admission expiry',async()=>{
+  for(const status of ['CLAIMING','QUEUED','RESERVED','SENT']){
+   const f=await claim(await reset()),packet=envelope(f),first=await rpc('enqueue',packet),selector={notification_id:first.notification_id,attempt_id:f.ticket},reservation=await rpc('reserve',selector);
+   const evidence={profile_sha256:'a'.repeat(64),scenario_id:'6176241',module_id:8,connection_id:10356915,attempt_id:f.ticket,receipt_id:reservation.receipt_id,descriptor_sha256:first.descriptor_sha256,http_status:429,telegram_response:{ok:false,error_code:429}};
+   const rejected=await rpc('reject',{...selector,receipt_id:reservation.receipt_id,evidence}),projected={...packet.claimed_row,Status:'RETRY_WAIT','Next Retry At':iso(Date.parse(rejected.next_retry_at)),'HTTP Status':'429','Last Error':'TELEGRAM_API_REJECTED_HTTP_429',Notes:packet.claimed_row.Notes+' | REJECTED_RETRY_SAFE'};await rpc('confirm-rejection',{...selector,projected_row:projected});
+   try{
+    await db.exec('update public.retry_test_clock set offset_ms=900000');const c2=await rpc('poll',{}),t2=(await rpc('tickets',{context:c2,rows:[projected],candidates:[f.row['Notification ID']]}))[0];await rpc('begin',{ticket:t2});
+    const selector2={notification_id:first.notification_id,attempt_id:t2};if(status!=='CLAIMING'){await rpc('enqueue',envelope({row:projected,context:c2,ticket:t2},Date.now()+900000));if(status!=='QUEUED'){const r2=await rpc('reserve',selector2);if(status==='SENT')await rpc('ack',{...selector2,receipt_id:r2.receipt_id,provider_message_id:'123456789'});}}
+    await db.exec('update public.retry_test_clock set offset_ms=1800000');const c3=await rpc('poll',{}),t3=await rpc('tickets',{context:c3,rows:[projected],candidates:[f.row['Notification ID']]});assert.deepEqual(t3,[]);const read=await rpc('readback',selector2);assert.equal(read.status,status);assert.equal(read.attempt_count,2);assert.equal(read.next_ticket,null);assert.equal((await db.query('select count(*)::integer n from public.kk_owner_canonical_attempt')).rows[0].n,2);
+   }finally{await db.exec('update public.retry_test_clock set offset_ms=0');}
+  }
+ });
+ await test('duplicate candidate identities reject before creating tickets or held conflicts',async()=>{const f=await reset();await rejects(()=>rpc('tickets',{context:f.context,rows:[f.row],candidates:[f.row['Notification ID'],f.row['Notification ID']]}),/CANONICAL_CANDIDATE_DUPLICATE/);assert.equal((await db.query('select count(*)::integer n from public.kk_owner_canonical_ticket')).rows[0].n,0);assert.equal((await rpc('poll-readback',{poll_id:f.context.poll_id})).issued,false);});
+ await test('simulated delivery-lock delay expires initial and retry begin before CLAIMING',async()=>{
+  for(const retry of [false,true]){
+   const f=retry?await confirmedRetry():await reset(),ticket=(await rpc('tickets',{context:f.context,rows:[f.row],candidates:[f.row['Notification ID']]}))[0];
+   await withSimulatedDeliveryLockDelay('select * into rec from public.kk_owner_canonical_delivery where source_notification_id=tic.source_notification_id for update;',async()=>{
+    await rejects(()=>rpc('begin',{ticket}),/CANONICAL_POLL_EXPIRED/);
+    assert.equal((await db.query('select state from public.kk_owner_canonical_ticket where ticket=$1',[ticket])).rows[0].state,'NEW');assert.equal((await db.query('select count(*)::integer n from public.kk_owner_canonical_attempt where ticket=$1',[ticket])).rows[0].n,0);
+    if(retry){const read=await rpc('readback',f.selector);assert.equal(read.status,'RETRY_WAIT');assert.equal(read.attempt_count,1);assert.equal(read.next_ticket,ticket);}else assert.equal((await db.query('select count(*)::integer n from public.kk_owner_canonical_delivery')).rows[0].n,0);
+   });
+  }
+ });
+ await test('simulated delivery-lock delay expires initial and retry tickets before issue or pointer write',async()=>{
+  for(const retry of [false,true]){
+   const f=retry?await confirmedRetry():await reset();
+   await withSimulatedDeliveryLockDelay('select * into rec from public.kk_owner_canonical_delivery q where q.source_notification_id=id or q.dedup_key=dedup for update;',async()=>{
+    await rejects(()=>rpc('tickets',{context:f.context,rows:[f.row],candidates:[f.row['Notification ID']]}),/CANONICAL_POLL_EXPIRED/);assert.equal((await rpc('poll-readback',{poll_id:f.context.poll_id})).issued,false);assert.equal((await db.query('select count(*)::integer n from public.kk_owner_canonical_ticket where poll_id=$1',[f.context.poll_id])).rows[0].n,0);
+    if(retry){const read=await rpc('readback',f.selector);assert.equal(read.status,'RETRY_WAIT');assert.equal(read.attempt_count,1);assert.equal(read.next_ticket,null);}
+   });
+  }
  });
  await test('all canonical tables have RLS and RPC has fixed empty search_path',async()=>{const rows=(await db.query("select relname,relrowsecurity from pg_class where relname in ('kk_owner_canonical_cutover','kk_owner_canonical_poll','kk_owner_canonical_ticket','kk_owner_canonical_delivery','kk_owner_canonical_attempt')")).rows;assert.equal(rows.length,5);assert.ok(rows.every(r=>r.relrowsecurity));const fn=(await db.query("select prosecdef,proconfig from pg_proc where proname='kk_owner_canonical_operation'")).rows[0];assert.equal(fn.prosecdef,true);assert.ok(fn.proconfig.includes('search_path=\"\"'));});
 }finally{await db.close();}
