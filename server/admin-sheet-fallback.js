@@ -304,6 +304,25 @@ function clearSnapshotCache(){
   snapshotInflight.clear();
 }
 
+// Do not propagate arbitrary provider error codes into the Admin snapshot or
+// its logs. Provider messages/codes can contain customer data or credentials.
+const SAFE_PRIVATE_FALLBACK_FAILURE_CODES=new Set([
+  'CRM_SHEET_ID_CONFLICT','CRM_SHEET_ID_MISSING',
+  'CRM_READER_NOT_CONFIGURED','CRM_TOKEN_EXCHANGE_FAILED',
+  'CRM_PRIVATE_READ_FAILED',
+  'CORE_PRIVATE_CUTOVER_NOT_ENABLED','CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED',
+  'CORE_PRIVATE_TRANSPORT_INVALID','CORE_PRIVATE_SHEET_ID_NOT_CONFIGURED',
+  'CORE_PRIVATE_SHEET_ID_MISMATCH','CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED',
+  'CORE_PRIVATE_SCHEMA_INVALID','CORE_APPS_SCRIPT_NOT_CONFIGURED',
+  'CORE_APPS_SCRIPT_ID_MISMATCH','CORE_APPS_SCRIPT_HTTP_FAILURE',
+  'CORE_APPS_SCRIPT_RESPONSE_INVALID','CORE_APPS_SCRIPT_UNAVAILABLE',
+  'CORE_APPS_SCRIPT_TIMEOUT'
+]);
+function safePrivateFallbackErrorCode(err){
+  const code=String(err&&err.code||'');
+  return SAFE_PRIVATE_FALLBACK_FAILURE_CODES.has(code)?code:'PRIVATE_FALLBACK_READ_FAILED';
+}
+
 async function buildSnapshotUncached(options={}){
   const env=options.env||process.env;
   const sheetId=String(options.sheetId||env.GOOGLE_SHEET_ID||DEFAULT_SHEET_ID).trim();
@@ -325,7 +344,7 @@ async function buildSnapshotUncached(options={}){
       transportMeta.snapshot_source=viaScript?'direct-sheet-private-owner-apps-script-readonly-fallback':'direct-sheet-private-service-account-readonly-fallback';
       transportMeta.fallback_reader=viaScript?'private-owner-apps-script':'private-service-account';
     }catch(err){
-      transportMeta.fallback_private_error_code=String((err&&err.code)||'PRIVATE_FALLBACK_READ_FAILED');
+      transportMeta.fallback_private_error_code=safePrivateFallbackErrorCode(err);
       if(requirePrivate) throw err;
       values=null;
     }
@@ -393,5 +412,6 @@ async function buildSnapshot(options={}){
 
 module.exports={
   FALLBACK_VERSION,FALLBACK_CACHE_TTL_MS,SPECS,parseCsv,rowsAsObjects,valuesAsObjects,
-  buildFromRaw,buildSnapshot,buildSnapshotUncached,clearSnapshotCache,bangkokDay,isTrue
+  buildFromRaw,buildSnapshot,buildSnapshotUncached,clearSnapshotCache,bangkokDay,isTrue,
+  safePrivateFallbackErrorCode
 };
