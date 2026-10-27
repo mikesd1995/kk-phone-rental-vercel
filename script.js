@@ -982,7 +982,7 @@ function packagePublicSubtitle(p){
 // They remain in the authoritative Sheet; do not add a 44px disclosure just to
 // repeat advertising boilerplate for every existing/new event.
 function isGenericPackageMarketingText(raw){
-  var s=String(raw||"").trim().replace(/\\s+/g," ").toLowerCase();
+  var s=String(raw||"").trim().replace(/\s+/g," ").toLowerCase();
   if(!s)return true;
   var known=[
     "เหมาะกับถ่ายเวทีไกล ซูมชัด",
@@ -994,7 +994,7 @@ function isGenericPackageMarketingText(raw){
     tr("pkg_tagline_lens"),
     tr("pkg_tagline_bundle")
   ];
-  return known.some(function(v){return s===String(v||"").trim().replace(/\\s+/g," ").toLowerCase();});
+  return known.some(function(v){return s===String(v||"").trim().replace(/\s+/g," ").toLowerCase();});
 }
 
 // Generated web-package feeds must remain one-row-per-package_id for rendering.
