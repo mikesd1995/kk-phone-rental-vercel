@@ -32,7 +32,7 @@ test('only explicit package notes get optional detail; no default marketing tagl
 });
 
 test('generic price/promotional package notes do not add extra disclosure rows', () => {
-  assert.match(js, /function isGenericPackageMarketingText\\(raw\\)/);
+  assert.match(js, /function isGenericPackageMarketingText\(raw\)/);
   assert.match(js, /เหมาะกับถ่ายเวทีไกล ซูมชัด/);
   assert.match(js, /เลนส์เสริมสำหรับซูมไกล/);
   assert.match(js, /เซ็ตครบ ประหยัดกว่า/);
