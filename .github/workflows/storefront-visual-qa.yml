@@ -216,6 +216,19 @@ jobs:
           google-chrome --version
           npm install --no-save --package-lock=false playwright@1.55.0 >/tmp/playwright-install.log 2>&1
 
+      - name: Verify compact modal and public feed regressions on real Node
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run check
+          node --test \
+            tests/storefront-compact-event-fixtures.test.js \
+            tests/storefront-compact-event-modal.test.js \
+            tests/storefront-detail-hardening.test.js \
+            tests/storefront-ux-ui-20260922.test.js \
+            tests/public-note-redaction-regression.test.js \
+            tests/public-data-proxy.test.js
+
       - name: Start zero-cost localhost storefront
         if: ${{ env.TARGET_MODE == 'local_zero_cost' }}
         shell: bash
