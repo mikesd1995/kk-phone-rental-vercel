@@ -372,6 +372,61 @@ async function main(){
       await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
       await Evidence.settle(page);
 
+      // Owner-reported detail regression: the first catalogue card cannot prove
+      // verbose real event notes are collapsed. Capture a cross-month sample on
+      // mobile from the same verified public fixture. This is read-only, never
+      // edits feed data, and does not substitute for human screenshot acceptance.
+      if(mode==='local_zero_cost' && width===390){
+        const sampleEvents=await page.evaluate(()=>{
+          const all=Array.isArray(concertsData)?concertsData:[];
+          const monthOf=(event)=>{
+            const m=String(event&&event.date||'').match(/^\\d{1,2}\\/(\\d{1,2})\\/(\\d{4})/);
+            return m ? m[2]+'-'+m[1].padStart(2,'0') : '';
+          };
+          const byMonth=['2026-10','2026-11','2026-12','2027-01'].map(month=>{
+            const matching=all.filter(c=>monthOf(c)===month);
+            // The hardest case (long public note) is most useful for visual QA.
+            matching.sort((a,b)=>String(b.webNote||'').length-String(a.webNote||'').length);
+            return matching.length ? {id:String(matching[0].id),month,name:String(matching[0].name||'')} : null;
+          }).filter(Boolean);
+          const zato=all.find(c=>/ZATO|Hariguem Zaboy/i.test(c.name||''));
+          const bts=all.find(c=>/BTS World Tour/i.test(c.name||''));
+          for(const c of [zato,bts]){
+            if(c && !byMonth.some(e=>e.id===String(c.id)))byMonth.push({id:String(c.id),month:monthOf(c),name:String(c.name||'')});
+          }
+          return byMonth;
+        });
+        const detailEvidence=[];
+        for(let sampleIndex=0;sampleIndex<sampleEvents.length;sampleIndex++){
+          const sample=sampleEvents[sampleIndex];
+          const state=await page.evaluate(id=>{
+            const c=concertsData.find(x=>String(x.id)===id);
+            if(!c)return null;
+            showModal(c,{skipTrack:true});
+            const note=document.getElementById('modal-event-note');
+            return {
+              id:String(c.id),name:String(c.name||''),date:String(c.date||''),
+              has_public_note:!!(note&&!note.hidden),
+              note_collapsed:!!(note && (!note.hidden ? note.tagName==='DETAILS'&&!note.open : true)),
+              package_count:document.querySelectorAll('#phone-list .phone-row').length,
+              has_waitlist:!!document.querySelector('#phone-list .waitlist-line-btn')
+            };
+          },sample.id);
+          if(!state||!state.note_collapsed){
+            fail('CROSS_MONTH_MODAL_DETAIL_REGRESSION','Uncollapsed public event note on '+sample.month+' '+sample.name);
+          }
+          const artifact=path.join(outputDir,'390x844-month-'+sampleIndex+'-'+sample.month+'.jpg');
+          await captureState('month-'+sampleIndex+'-'+sample.month,artifact);
+          detailEvidence.push({...sample,...state,screenshot:path.basename(artifact)});
+          await page.keyboard.press('Escape');
+        }
+        fs.writeFileSync(path.join(outputDir,'cross-month-modal-audit.json'),JSON.stringify({
+          schema_version:'KK_CROSS_MONTH_MODAL_QA_V1',source:'verified_public_fixture',
+          approved_sha:approvedSha,months_required:['2026-10','2026-11','2026-12','2027-01'],
+          samples:detailEvidence,production_writes:0
+        },null,2)+'\\n');
+      }
+
       const metrics=await page.evaluate(()=>{
         const visible=el=>{
           if(!el) return false;
