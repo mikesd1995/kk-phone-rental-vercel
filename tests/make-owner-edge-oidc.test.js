@@ -18,13 +18,13 @@ function fixture(raw='uat|'+crypto.randomUUID()){
     persisted:{immutable_binding_text:binding,source_audit_event_id:audit,descriptor:plan.descriptor,text_sha256:Contract.hash(row.Payload)},
     body:{probe:'owner-notification',version:'v1',operation:'enqueue',parameters:{p_immutable_binding:binding,p_source_audit_event_id:audit,p_descriptor:plan.descriptor,p_fresh_since:new Date(Date.now()-120000).toISOString()}}};
 }
-function harness(f,{environment='preview',claims={},gate,gateAfter,persisted}={}){
+function harness(f,{environment='preview',claims={},gate,gateAfter,persisted,canonicalEnabled=false}={}){
   let handler,gates=0;const calls=[];
   const payload={iss:'https://oidc.vercel.com/'+TEAM,aud:'https://vercel.com/'+TEAM,sub:'owner:'+TEAM+':project:'+PROJECT+':environment:'+environment,owner_id:'team_uaeOdVIjXMSW690ZM2wPuJyt',project_id:'prj_snbAmpya7YGmOuMbv1o8T16ouxl6',project:PROJECT,environment,...claims};
   const sandbox={Request,Response,URL,URLSearchParams,TextEncoder,TextDecoder,AbortSignal,DOMException,Error,Date,console,atob,btoa,crypto:crypto.webcrypto,
     createRemoteJWKSet:()=>({}),decodeJwt:()=>payload,
     jwtVerify:async(_token,_jwks,options)=>{if(options.issuer!==payload.iss||options.audience!==payload.aud||options.subject!==payload.sub)throw new Error('bad claims');return {payload};},
-    Deno:{env:{get:key=>key==='SUPABASE_URL'?'https://zehlsagzrpromtfqqflt.supabase.co':key==='SUPABASE_SECRET_KEYS'?JSON.stringify({default:'sb_secret_test_only'}):''},serve:fn=>{handler=fn;}},
+    Deno:{env:{get:key=>key==='KK_OWNER_CANONICAL_ENABLED'?(canonicalEnabled?'TRUE':'FALSE'):key==='SUPABASE_URL'?'https://zehlsagzrpromtfqqflt.supabase.co':key==='SUPABASE_SECRET_KEYS'?JSON.stringify({default:'sb_secret_test_only'}):''},serve:fn=>{handler=fn;}},
     fetch:async(url,init={})=>{
       calls.push({url,init});const u=new URL(url);
       assert.equal(u.origin,'https://zehlsagzrpromtfqqflt.supabase.co');
@@ -39,6 +39,7 @@ function harness(f,{environment='preview',claims={},gate,gateAfter,persisted}={}
         return Response.json(selected.filter(row=>row.key===filter.slice(3)).slice(0,Number(u.searchParams.get('limit'))));
       }
       if(u.pathname.endsWith('/kk_runtime_expectations'))return Response.json([]);
+      if(u.pathname.endsWith('/rpc/kk_owner_canonical_operation'))return Response.json({synthetic:true});
       if(u.pathname.endsWith('/rpc/kk_make_owner_notification_readback'))return Response.json(persisted===undefined?f.persisted:persisted);
       if(u.pathname.endsWith('/rpc/kk_make_owner_notification_enqueue'))return Response.json(f.persisted);
       if(u.pathname.endsWith('/rpc/kk_make_owner_notification_claim'))return Response.json([{receipt_id:crypto.randomUUID(),status:'RESERVED'}]);
@@ -56,11 +57,27 @@ test('executed Edge handler admits exact gated preview owner enqueue through fix
   assert.equal(r.status,200);assert.equal(r.body.authenticated,true);assert.equal(r.body.operation,'enqueue');assert.equal(r.body.provider_sends,0);
   assert.deepEqual(h.calls.map(c=>new URL(c.url).pathname.split('/').pop()),['kk_control_plane_config','kk_make_owner_notification_enqueue','kk_control_plane_config']);
 });
+
+test('canonical v2 Edge operation is independently OFF and forwards only exact allowlisted parameters with trusted JWT environment',async()=>{
+ const f=fixture(),body={probe:'owner-canonical',version:'v2',operation:'poll',parameters:{}};
+ const off=harness(f),blocked=await off.request(body);assert.equal(blocked.status,403);assert.equal(blocked.body.error_code,'CANONICAL_DISABLED_OR_UNBOUND');assert.equal(off.calls.length,0);
+ const h=harness(f,{canonicalEnabled:true}),r=await h.request(body);assert.equal(r.status,200);assert.equal(r.body.version,'v2');assert.equal(r.body.provider_sends,0);
+ assert.equal(h.calls.length,1);assert.deepEqual(JSON.parse(h.calls[0].init.body),{p_operation:'poll',p_parameters:{},p_environment:'preview'});
+ for(const bad of [{...body,operation:'retry'},{...body,operation:'constructor'},{...body,parameters:{activated_at:'2000-01-01'}},{...body,parameters:null},{...body,environment:'production'}]){const x=harness(f,{canonicalEnabled:true});assert.equal((await x.request(bad)).status,403);assert.equal(x.calls.length,0);}
+});
 test('executed JWT boundary rejects missing token and wrong issuer/audience/subject/project/team without native I/O',async()=>{
   const f=fixture(),missing=harness(f);assert.equal((await missing.request(f.body,{'content-type':'application/json'})).status,401);assert.equal(missing.calls.length,0);
   for(const claims of [{iss:'https://evil.invalid'},{aud:'https://vercel.com/other'},{sub:'owner:other'},{project_id:'prj_other'},{project:'other'},{owner_id:'team_other'},{environment:'development'}]){
     const h=harness(f,{claims}),r=await h.request();assert.equal(r.status,401,JSON.stringify(claims));assert.equal(h.calls.length,0);
   }
+});
+test('adapter dispatch and outcome Edge stages keep exact parameters trusted environment and independent OFF gate',async()=>{
+ const f=fixture(),attempt=crypto.randomUUID(),receipt=crypto.randomUUID(),dispatch=crypto.randomUUID();
+ for(const [operation,parameters] of [['dispatch-start',{notification_id:'ks1_test',attempt_id:attempt,receipt_id:receipt,bot_id:'123456'}],['adapter-ack',{notification_id:'ks1_test',attempt_id:attempt,receipt_id:receipt,dispatch_id:dispatch,provider_message_id:'123456'}],['adapter-reject',{notification_id:'ks1_test',attempt_id:attempt,receipt_id:receipt,dispatch_id:dispatch,evidence:{}}]]){
+  const body={probe:'owner-canonical',version:'v2',operation,parameters},off=harness(f);assert.equal((await off.request(body)).status,403);assert.equal(off.calls.length,0);
+  const h=harness(f,{canonicalEnabled:true}),result=await h.request(body);assert.equal(result.status,200);assert.equal(h.calls.length,1);assert.deepEqual(JSON.parse(h.calls[0].init.body),{p_operation:operation,p_parameters:parameters,p_environment:'preview'});
+  const bad=harness(f,{canonicalEnabled:true});assert.equal((await bad.request({...body,parameters:{...parameters,enabled:true}})).status,403);assert.equal(bad.calls.length,0);
+ }
 });
 test('preview cannot call any existing probe while production bounded runtime read still works',async()=>{
   const f=fixture();

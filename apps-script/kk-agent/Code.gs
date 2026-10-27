@@ -2218,6 +2218,8 @@ function runCoreV1Notifier() {
     var candidates = collectCandidates_(context.values, context.headers, properties, true);
     var processed = [];
     for (var i = 0; i < candidates.length; i += 1) {
+      // Canonical Telegram has one writer: Make 6176241. Fence before Core claim.
+      if (properties.KK_OWNER_CANONICAL_ENABLED==='TRUE' && candidates[i].transport==='TELEGRAM_OWNER_ALERTS') continue;
       processed.push(processCandidate_(context.sheet, context.headers, candidates[i], properties));
     }
     return { status: 'OK', processed: processed.length, results: processed };

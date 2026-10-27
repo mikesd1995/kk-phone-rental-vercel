@@ -274,6 +274,19 @@ const OWNER_OPERATIONS:Record<string,{rpc:string;keys:string[]}>= {
   claim:{rpc:"kk_make_owner_notification_claim",keys:["p_notification_id","p_request_id","p_event_type","p_entity_id","p_content_version","p_text_sha256","p_expires_at"]},
   ack:{rpc:"kk_make_owner_notification_ack",keys:["p_notification_id","p_receipt_id","p_provider_message_id"]}
 };
+// Canonical v2 uses additive storage. The DB gate is locked throughout each RPC;
+// the environment comes only from verified same-project OIDC claims.
+const CANONICAL_OPERATIONS:Record<string,string[]>={poll:[],'poll-readback':['poll_id'],tickets:['context','rows','candidates','held'],begin:['ticket'],enqueue:['ticket','binding','descriptor','claimed_row'],readback:['notification_id','attempt_id'],reserve:['notification_id','attempt_id'],ack:['notification_id','attempt_id','receipt_id','provider_message_id'],reject:['notification_id','attempt_id','receipt_id','evidence'],'confirm-rejection':['notification_id','attempt_id','projected_row'],'dispatch-start':['notification_id','attempt_id','receipt_id','bot_id'],'adapter-ack':['notification_id','attempt_id','receipt_id','dispatch_id','provider_message_id'],'adapter-reject':['notification_id','attempt_id','receipt_id','dispatch_id','evidence']};
+async function canonicalOwnerOperation(body:Record<string,unknown>,identity:Record<string,unknown>){
+  if(Deno.env.get('KK_OWNER_CANONICAL_ENABLED')!=='TRUE')ownerError('CANONICAL_DISABLED_OR_UNBOUND');
+  ownerExact(body,['probe','version','operation','parameters']);
+  const operation=typeof body.operation==='string'?body.operation:'';
+  if(!Object.hasOwn(CANONICAL_OPERATIONS,operation))ownerError('CANONICAL_OPERATION_FORBIDDEN');
+  const parameters=ownerExact(body.parameters,CANONICAL_OPERATIONS[operation]);
+  if(!['preview','production'].includes(String(identity.environment)))ownerError('CANONICAL_ENVIRONMENT_INVALID');
+  const result=await ownerRpc('kk_owner_canonical_operation',{p_operation:operation,p_parameters:parameters,p_environment:identity.environment});
+  return {ok:true,authenticated:true,version:'v2',project_ref:OWNER_PROJECT_REF,operation,provider_sends:0,business_writes:0,read_only:operation==='readback'||operation==='poll-readback',result};
+}
 function ownerError(code:string):never {throw new Error(code);}
 function ownerExact(value:unknown,keys:string[]):Record<string,unknown>{
   if(!value||typeof value!=="object"||Array.isArray(value))ownerError("OWNER_REQUEST_INVALID");
@@ -365,12 +378,16 @@ Deno.serve(async (req: Request) => {
   const body=await parseRequest(req);
   let identity:Record<string,unknown>;
   try {
-    identity=await verifyVercelIdentity(token,body?.probe==="owner-notification"&&body?.version==="v1");
+    identity=await verifyVercelIdentity(token,(body?.probe==="owner-notification"&&body?.version==="v1")||(body?.probe==='owner-canonical'&&body?.version==='v2'));
   } catch (err) {
     const code = err instanceof Error ? err.message : "OIDC_VERIFY_FAILED";
     return fail(401, code);
   }
 
+  if(body?.probe==='owner-canonical'&&body?.version==='v2'){
+    try{return json(200,await canonicalOwnerOperation(body,identity));}
+    catch(err){return json(403,{ok:false,error_code:err instanceof Error?err.message:'CANONICAL_OPERATION_FAILED',authenticated:true,send_allowed:false,provider_sends:0,business_writes:0});}
+  }
   if (!body || body.version !== "v1") {
     return json(400,{ok:false,error_code:"OIDC_REQUEST_CONTRACT_INVALID",authenticated:true,read_only:true,bounded_limit:1,business_writes:0});
   }

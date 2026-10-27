@@ -4,9 +4,19 @@
 const Contract=require('./make-owner-transport-contract.js');
 const Runtime=require('./runtime-ledger.js');
 const LedgerBridge=require('./make-owner-ledger-bridge.js');
+const crypto=require('node:crypto');
 
 function t(v){ return String(v==null?'':v).trim(); }
 function enabled(v){ return /^(1|true|yes|on)$/i.test(t(v)); }
+function captureProfile(env){
+  try{
+    const profile=JSON.parse(env.KK_OWNER_CANONICAL_CAPTURE_PROFILE_JSON||'null');
+    if(!profile||typeof profile!=='object'||Array.isArray(profile)||Object.keys(profile).sort().join(',')!=='connection_id,field_mappings,id,module_id,profile_digest,provider_route_sha256,scenario_id,schema_sha256'||
+      profile.id!=='native-telegram-617-module8-v1'||profile.scenario_id!=='6176241'||profile.module_id!==8||profile.connection_id!==10356915||
+      profile.profile_digest!==env.KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256||profile.profile_digest!==require('./make-owner-canonical').captureProfileDigest(profile))return null;
+    return profile;
+  }catch(_){return null;}
+}
 function config(env=process.env){
   const ref=Runtime.projectRefFromUrl(env.SUPABASE_URL);
   const expected=t(env.KK_MAKE_OWNER_TRANSPORT_PROJECT_REF);
@@ -23,6 +33,14 @@ function config(env=process.env){
     key,secret,ownerChatId,storeMode,expectedRef:expected,
     producerEnabled:enabled(env.KK_OWNER_LEDGER_PRODUCER_ENABLED),
     producerSecret:String(env.KK_OWNER_LEDGER_PRODUCER_SECRET||''),
+    canonicalEnabled:enabled(env.KK_OWNER_CANONICAL_ENABLED),
+    canonicalSecret:String(env.KK_OWNER_CANONICAL_SECRET||''),
+    canonicalConsumerSecret:String(env.KK_OWNER_CANONICAL_CONSUMER_SECRET||''),
+    captureProfile:captureProfile(env),captureProfileReviewSha256:t(env.KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256),
+    adapterBinding:(()=>{try{return require('./make-owner-telegram-adapter').validateBinding(JSON.parse(env.KK_OWNER_CANONICAL_ADAPTER_BINDING_JSON||'null'));}catch(_){return null;}})(),
+    gasProjectId:t(env.KK_OWNER_CANONICAL_GAS_PROJECT_ID),gasDeploymentId:t(env.KK_OWNER_CANONICAL_GAS_DEPLOYMENT_ID),
+    gasClientId:t(env.KK_OWNER_CANONICAL_OAUTH_CLIENT_ID),gasClientSecret:String(env.KK_OWNER_CANONICAL_OAUTH_CLIENT_SECRET||''),
+    gasRefreshToken:String(env.KK_OWNER_CANONICAL_OAUTH_REFRESH_TOKEN||''),
     bindingMatches:storeMode==='vercel-oidc'?expected===LedgerBridge.PROJECT_REF:!!ref&&!!expected&&ref===expected
   };
 }
@@ -32,6 +50,25 @@ function response(res,status,body){
   res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
   res.setHeader('X-Content-Type-Options','nosniff');
   res.end(JSON.stringify({transport_version:Contract.VERSION,...body}));
+}
+function probeResponse(res,status,body){
+  res.statusCode=status;
+  res.setHeader('Content-Type','application/json; charset=utf-8');
+  res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('X-Content-Type-Options','nosniff');
+  res.end(JSON.stringify(body));
+}
+async function readProbeJson(req){
+  if(req.body!==undefined&&typeof req.body!=='string'){
+    const body=req.body;
+    if(!require('./make-owner-canonical-readiness').validBody(body))throw new Error('invalid body');
+    if(Buffer.byteLength(JSON.stringify(body))>4096)throw new Error('too large');
+    return body;
+  }
+  const chunks=[];let bytes=0;
+  const source=typeof req.body==='string'?[Buffer.from(req.body,'utf8')]:req;
+  for await(const chunk of source){const buffer=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);bytes+=buffer.length;if(bytes>4096)throw new Error('too large');chunks.push(buffer);}
+  return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
 }
 async function readJson(req,maxBytes=10000){
   let parsed;
@@ -90,6 +127,11 @@ async function rpc(name,body,cfg,fetchImpl=global.fetch){
 async function processRequest(req,res,env=process.env,fetchImpl=global.fetch,options={}){
   if(req.method!=='POST') return response(res,405,{ok:false,send_allowed:false,error_code:'METHOD_NOT_ALLOWED'});
   const cfg=config(env);
+  if(req.headers?.['x-kk-canonical-probe']==='readiness-v1'){
+    let body;try{body=await readProbeJson(req);}catch(_){return probeResponse(res,400,{mode:'canonical-readiness',version:'v1',send_allowed:false,error_code:'BODY_INVALID'});}
+    const outcome=require('./make-owner-canonical-readiness').evaluate(body,cfg,req.headers?.authorization);
+    return probeResponse(res,outcome.status,outcome.body);
+  }
   // No DB call or Telegram send when disabled / improperly project-bound.
   if(!cfg.ready) return response(res,503,{ok:false,send_allowed:false,error_code:'MAKE_OWNER_TRANSPORT_DISABLED_OR_UNBOUND'});
   let body;
@@ -99,6 +141,15 @@ async function processRequest(req,res,env=process.env,fetchImpl=global.fetch,opt
     return response(res,400,{ok:false,send_allowed:false,error_code:'BODY_INVALID'});
   }
   const stage=body.stage;
+  if(typeof stage==='string'&&stage.startsWith('canonical-')){
+    if(cfg.canonicalEnabled){
+      const expected=cfg.canonicalConsumerSecret,authorization=req.headers?.authorization||'',provided=typeof authorization==='string'&&authorization.startsWith('Bearer ')?authorization.slice(7):'';
+      if(expected.length<32||expected===cfg.secret||expected===cfg.canonicalSecret||!provided||!crypto.timingSafeEqual(crypto.createHash('sha256').update(expected).digest(),crypto.createHash('sha256').update(provided).digest()))return response(res,401,{ok:false,send_allowed:false,error_code:'CANONICAL_CONSUMER_UNAUTHENTICATED'});
+      cfg.consumerAuthenticated=true;
+    }
+    try{return response(res,200,await require('./make-owner-canonical').handle(body,cfg,{fetchImpl,...options}));}
+    catch(e){return response(res,503,{ok:false,send_allowed:false,error_code:typeof e?.code==='string'?e.code:'CANONICAL_UNAVAILABLE'});}
+  }
   if(stage==='admit'||stage==='readback'){
     if(Object.keys(fields).length!==2||!Object.hasOwn(fields,'attestation'))return response(res,400,{ok:false,send_allowed:false,error_code:'BODY_INVALID'});
     try{

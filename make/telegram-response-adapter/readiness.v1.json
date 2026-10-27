@@ -1,0 +1,48 @@
+{
+  "name": "checkCanonicalReadiness",
+  "typeId": 4,
+  "connection": "ownerTelegramAdapter",
+  "mappable_parameters": [
+    {
+      "name": "nonce",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "provider_binding_sha256",
+      "type": "text",
+      "required": true
+    }
+  ],
+  "communication": {
+    "url": "https://kk-phone-rental.vercel.app/api/kk-make-owner-notify",
+    "method": "POST",
+    "type": "json",
+    "headers": {
+      "X-KK-Canonical-Probe": "readiness-v1",
+      "Authorization": "Bearer {{connection.consumerBearer}}"
+    },
+    "body": {
+      "stage": "canonical-readiness",
+      "version": "v1",
+      "nonce": "{{parameters.nonce}}",
+      "bot_id": "{{toString(connection.botId)}}",
+      "provider_binding_sha256": "{{parameters.provider_binding_sha256}}"
+    },
+    "followRedirect": false,
+    "followAllRedirects": false,
+    "response": {
+      "type": "json",
+      "valid": "{{statusCode === 200 && body.mode === \"canonical-readiness\" && body.version === \"v1\" && body.authenticated === true && body.nonce === parameters.nonce && body.send_allowed === false}}",
+      "output": "{{body}}"
+    },
+    "log": {
+      "sanitize": [
+        "request.headers.authorization",
+        "request.headers.Authorization",
+        "request.body",
+        "response.body"
+      ]
+    }
+  }
+}
