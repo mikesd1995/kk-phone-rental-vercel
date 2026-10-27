@@ -978,6 +978,25 @@ function packagePublicSubtitle(p){
   return "";
 }
 
+// Clean-modal policy: these are generic marketing slogans, not rental conditions.
+// They remain in the authoritative Sheet; do not add a 44px disclosure just to
+// repeat advertising boilerplate for every existing/new event.
+function isGenericPackageMarketingText(raw){
+  var s=String(raw||"").trim().replace(/\\s+/g," ").toLowerCase();
+  if(!s)return true;
+  var known=[
+    "เหมาะกับถ่ายเวทีไกล ซูมชัด",
+    "เลนส์เสริมสำหรับซูมไกล",
+    "เซ็ตครบ ประหยัดกว่า",
+    "เหมาะกับเก็บโมเมนต์คอนเสิร์ต",
+    "มือถือพร้อมเลนส์สำหรับภาพระยะไกล",
+    tr("pkg_tagline_phone"),
+    tr("pkg_tagline_lens"),
+    tr("pkg_tagline_bundle")
+  ];
+  return known.some(function(v){return s===String(v||"").trim().replace(/\\s+/g," ").toLowerCase();});
+}
+
 // Generated web-package feeds must remain one-row-per-package_id for rendering.
 // If an upstream recovery temporarily leaves duplicate IDs, keep the last occurrence:
 // 09_Web_Packages generators materialize their authoritative output after older/manual rows.
@@ -1638,7 +1657,7 @@ function showModal(c,options){
     // package notes discoverable with an accessible native disclosure.
     var publicSubtitle=packagePublicSubtitle(p);
     var explicitSubtitle=sanitizePublicText(p.useCase)||sanitizePublicText(p.note);
-    if(publicSubtitle&&explicitSubtitle){
+    if(publicSubtitle&&explicitSubtitle&&!isGenericPackageMarketingText(publicSubtitle)){
       var packageExtra=document.createElement("details"); packageExtra.className="ph-extra";
       var packageSummary=document.createElement("summary"); packageSummary.textContent=tr("modal_package_details");
       var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=publicSubtitle;
