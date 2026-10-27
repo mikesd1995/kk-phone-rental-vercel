@@ -22,7 +22,7 @@ In source, 179 package rows associated with these non-hidden event records also 
 - 129 resembling internal machine/pricing/competitor/owner audit annotations under a basic token-class audit.
 - 7 other raw text rows, including 2 additional general marketing slogans and 5 recent December audit markers (numeric-prefixed machine markers, currently not captured by simple letter-prefixed token matching).
 
-**Observation:** the raw generated Sheet mixes customer remarks and internal audit notes. Do not copy raw note content into the storefront or remove audit history. The current server's public-text sanitizer and the browser sanitizer are both necessary; additional source-internal token formats require their own security review as a separate controlled task, because this UI cleanup is not an authorization to rewrite server business/data publication policy.
+**Observation and fix:** the raw generated Sheet mixes customer remarks with internal audit notes. The former public sanitizer did not recognize numeric-date-prefixed 8-digit internal markers. This branch extends **both** the read-only public API sanitizer (`api/kk-data.js`) and the browser sanitizer (`script.js`) to redact that exact machine-token class, with negative/positive regression cases in `tests/public-note-redaction-regression.test.js` and `tests/public-data-proxy.test.js`. Canonical Sheet audit data stays untouched. No business writes or publication-permission changes are introduced.
 
 ## Confirmed structural root cause and permanent clean fix
 
