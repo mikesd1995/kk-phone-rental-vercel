@@ -2572,21 +2572,6 @@ html .kk-mock-hero .kk-hero-inline-arrow{
   }
 }
 
-/* 320px below-Hero discovery spacing: preserve all four service facts. */
-@media(max-width:359px){
-  html .kk-benefit-grid{margin-bottom:0px!important}
-  html .kk-benefit-grid>div{
-    flex-direction:row!important;align-items:center!important;
-    justify-content:flex-start!important;text-align:left!important;
-    min-height:43px!important;padding:4px!important;gap:5px!important;
-  }
-  html .kk-benefit-grid .benefit-icon{
-    width:22px!important;height:22px!important;flex-basis:22px!important;
-  }
-  html .kk-benefit-grid>div>span:last-child{min-width:0!important}
-}
-
-
 /* V6.34 — compact event-package modal (2026-10-27).
    Non-destructive presentation: preserve all event/package notes in native
    disclosures, keep price/availability/booking and 44px interactive targets. */
@@ -2665,4 +2650,18 @@ html .kk-mock-hero .kk-hero-inline-arrow{
 @media(max-width:389px){
   #overlay .modal-note{margin-left:16px!important;margin-right:16px!important}
   #overlay .phone-list{padding-left:16px!important;padding-right:16px!important}
+}
+
+/* 320px below-Hero discovery spacing: preserve all four service facts. */
+@media(max-width:359px){
+  html .kk-benefit-grid{margin-bottom:0px!important}
+  html .kk-benefit-grid>div{
+    flex-direction:row!important;align-items:center!important;
+    justify-content:flex-start!important;text-align:left!important;
+    min-height:43px!important;padding:4px!important;gap:5px!important;
+  }
+  html .kk-benefit-grid .benefit-icon{
+    width:22px!important;height:22px!important;flex-basis:22px!important;
+  }
+  html .kk-benefit-grid>div>span:last-child{min-width:0!important}
 }
