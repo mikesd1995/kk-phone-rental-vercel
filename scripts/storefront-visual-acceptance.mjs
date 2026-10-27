@@ -380,7 +380,7 @@ async function main(){
         const sampleEvents=await page.evaluate(()=>{
           const all=Array.isArray(concertsData)?concertsData:[];
           const monthOf=(event)=>{
-            const m=String(event&&event.date||'').match(/^\\d{1,2}\\/(\\d{1,2})\\/(\\d{4})/);
+            const m=String(event&&event.date||'').match(/^\d{1,2}\/(\d{1,2})\/(\d{4})/);
             return m ? m[2]+'-'+m[1].padStart(2,'0') : '';
           };
           const byMonth=['2026-10','2026-11','2026-12','2027-01'].map(month=>{
@@ -424,7 +424,7 @@ async function main(){
           schema_version:'KK_CROSS_MONTH_MODAL_QA_V1',source:'verified_public_fixture',
           approved_sha:approvedSha,months_required:['2026-10','2026-11','2026-12','2027-01'],
           samples:detailEvidence,production_writes:0
-        },null,2)+'\\n');
+        },null,2)+'\n');
       }
 
       const metrics=await page.evaluate(()=>{
