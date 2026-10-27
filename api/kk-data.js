@@ -75,7 +75,7 @@ function looksInternalPublicText(value) {
   // Fail closed on machine-readable/internal annotations. Customer-facing prose should
   // never contain long ALL_CAPS snake-case operational tokens such as
   // OWNER_PRICE_ADJUST_2026-09-28_BIG_EVENT_COLLISION.
-  const machineToken = /(?:^|[\s([{|])(?:[A-Z][A-Z0-9-]{1,})(?:_[A-Z0-9-]+){1,}(?=$|[\s)\]}.,;:|])/;
+  const machineToken = /(?:^|[\s([{|])(?:[A-Z][A-Z0-9-]{1,}|\d{8}_[A-Z0-9-]+)(?:_[A-Z0-9-]+){1,}(?=$|[\s)\]}.,;:|])/;
   if (machineToken.test(text)) return true;
 
   return /(?:^|\b)v\d+(?:\.\d+){1,3}\b|capacity\s*(?:tight|blocked|readback)|exact\s+capacity|readback|owner[_\s-]?locked|core\s+promotion|promotion\s+repair|reopened\s+after|manifest|write\s+transaction|pass[_\s-]?200|policy\s+version|restored\s+\d{4}-\d{2}-\d{2}|scanner\s+raw|verifier\s+backlog|machine[_\s-]?sot|manual[_\s-]?cutover|internal[_\s-]?(?:note|only)|override[_\s-]?(?:note|reason)/i.test(text);

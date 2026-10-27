@@ -160,6 +160,7 @@ test('public text boundary strips operational tokens from package and event note
     'PROVISIONAL_MARKET_BENCHMARK_2026-09-28',
     'PROVISIONAL_BIG_EVENT_COLLISION_2026-09-28',
     'WEEKDAY_FANDOM_TIER_2026-09-28',
+    '20261026_REAL_DEC_SCAN_PRICE_FALLBACK_NOT_MARKET_MEDIAN',
   ];
 
   const packageCsv = [

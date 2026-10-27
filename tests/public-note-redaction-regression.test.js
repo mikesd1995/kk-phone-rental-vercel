@@ -10,7 +10,8 @@ test('server public CSV redacts one-underscore and pipe-delimited operational ma
     'event_id,event_name,event_note,action_for_web,line_message_template',
     'A,Hidden,OWNER_HIDDEN 2026-09-29 | owner instruction: hide event,hide,สนใจจองผ่าน LINE',
     'B,Pipe,คำแนะนำ|PRICE_LOCKED,show,USB-C พร้อมใช้งาน',
-    'C,Public,ฟรีประกันเครื่อง ไม่มีมัดจำ,show,จองเลย'
+    'C,Public,ฟรีประกันเครื่อง ไม่มีมัดจำ,show,จองเลย',
+    'D,DatePrefix,20261026_REAL_DEC_SCAN_PRICE_FALLBACK_NOT_MARKET_MEDIAN,show,จองเลย'
   ].join('\n');
   const out=api._test.sanitizePublicCsv('08_Web_Ready',csv);
   const rows=api._test.parseCsvRows(out.text);
@@ -18,6 +19,8 @@ test('server public CSV redacts one-underscore and pipe-delimited operational ma
   assert.equal(rows[1][3],'hide');
   assert.equal(rows[2][2],'');
   assert.equal(rows[3][2],'ฟรีประกันเครื่อง ไม่มีมัดจำ');
+  assert.equal(rows[4][2],'');
+  assert.equal(rows[4][3],'show', 'redact only note, never change booking/visibility');
   assert.doesNotMatch(out.text,/OWNER_HIDDEN|PRICE_LOCKED|owner instruction/);
 });
 
@@ -29,6 +32,7 @@ test('browser sanitizer recognizes the same short and pipe-delimited operational
   const looksInternal=Function(source.slice(start,end)+'; return looksInternalPublicText;')();
   assert.equal(looksInternal('OWNER_HIDDEN 2026-09-29 | owner instruction: hide event'),true);
   assert.equal(looksInternal('คำแนะนำ|PRICE_LOCKED'),true);
+  assert.equal(looksInternal('20261026_REAL_DEC_SCAN_PRICE_FALLBACK_NOT_MARKET_MEDIAN'),true);
   assert.equal(looksInternal('ฟรีประกันเครื่อง ไม่มีมัดจำ'),false);
   assert.equal(looksInternal('USB-C พร้อมใช้งาน'),false);
 });

@@ -135,7 +135,9 @@ var I18N = {
     modal_title_placeholder:"ชื่องาน",
     modal_date_placeholder:"วันที่",
     modal_venue_placeholder:"สถานที่",
-    modal_note_strong:"เลือกแพ็กเกจที่ต้องการ:",
+    modal_note_strong:"เลือกแพ็กเกจ",
+    modal_more_details:"ดูรายละเอียดงาน",
+    modal_package_details:"รายละเอียดแพ็กเกจ",
     modal_note_body:"ถ้างานยังว่างให้กด “จองเลย” ถ้างานเต็มให้จองคิวหลุดผ่าน LINE ได้เลย",
     close:"ปิด",
     faq_close_aria:"ปิด FAQ",
@@ -275,7 +277,9 @@ var I18N = {
     modal_title_placeholder:"Event name",
     modal_date_placeholder:"Date",
     modal_venue_placeholder:"Venue",
-    modal_note_strong:"Choose a package:",
+    modal_note_strong:"Choose a package",
+    modal_more_details:"Event details",
+    modal_package_details:"Package details",
     modal_note_body:"If slots are open, tap “Book now”. If full, join the waitlist via LINE.",
     close:"Close",
     faq_close_aria:"Close FAQ",
@@ -441,7 +445,7 @@ function applyStaticLanguage(){
   setText("#modal-title","modal_title_placeholder");
   setText("#modal-date","modal_date_placeholder");
   setText("#modal-venue","modal_venue_placeholder");
-  var note=document.querySelector(".modal-note"); if(note)note.innerHTML="<strong>"+esc(tr("modal_note_strong"))+"</strong> "+esc(tr("modal_note_body"));
+  var note=document.querySelector(".modal-note"); if(note)note.innerHTML="<strong>"+esc(tr("modal_note_strong"))+"</strong>";
   setText("#modal-close","close");
   setText("#event-share-btn","share_event");
   setAttr("#faq-x-btn","aria-label","faq_close_aria");
@@ -941,7 +945,7 @@ function looksInternalPublicText(raw){
 
   // Customer-facing notes must never render machine/internal annotations.
   // This generic guard catches operational tokens even when a new token name appears.
-  var machineToken=/(?:^|[\s([{|])(?:[A-Z][A-Z0-9-]{1,})(?:_[A-Z0-9-]+){1,}(?=$|[\s)\]}.,;:|])/;
+  var machineToken=/(?:^|[\s([{|])(?:[A-Z][A-Z0-9-]{1,}|\d{8}_[A-Z0-9-]+)(?:_[A-Z0-9-]+){1,}(?=$|[\s)\]}.,;:|])/;
   if(machineToken.test(s))return true;
 
   return /(?:^|\b)v\d+(?:\.\d+){1,3}\b|capacity\s*(?:tight|blocked|readback)|exact\s+capacity|readback|owner[_\s-]?locked|core\s+promotion|promotion\s+repair|reopened\s+after|manifest|write\s+transaction|pass[_\s-]?200|policy\s+version|restored\s+\d{4}-\d{2}-\d{2}|scanner\s+raw|verifier\s+backlog|machine[_\s-]?sot|manual[_\s-]?cutover|internal[_\s-]?(?:note|only)|override[_\s-]?(?:note|reason)/i.test(s);
@@ -972,6 +976,25 @@ function packagePublicSubtitle(p){
   if(p.type==="lens_only")return tr("pkg_tagline_lens");
   if(p.type==="phone_lens_bundle")return tr("pkg_tagline_bundle");
   return "";
+}
+
+// Clean-modal policy: these are generic marketing slogans, not rental conditions.
+// They remain in the authoritative Sheet; do not add a 44px disclosure just to
+// repeat advertising boilerplate for every existing/new event.
+function isGenericPackageMarketingText(raw){
+  var s=String(raw||"").trim().replace(/\s+/g," ").toLowerCase();
+  if(!s)return true;
+  var known=[
+    "เหมาะกับถ่ายเวทีไกล ซูมชัด",
+    "เลนส์เสริมสำหรับซูมไกล",
+    "เซ็ตครบ ประหยัดกว่า",
+    "เหมาะกับเก็บโมเมนต์คอนเสิร์ต",
+    "มือถือพร้อมเลนส์สำหรับภาพระยะไกล",
+    tr("pkg_tagline_phone"),
+    tr("pkg_tagline_lens"),
+    tr("pkg_tagline_bundle")
+  ];
+  return known.some(function(v){return s===String(v||"").trim().replace(/\s+/g," ").toLowerCase();});
 }
 
 // Generated web-package feeds must remain one-row-per-package_id for rendering.
@@ -1568,16 +1591,28 @@ function showModal(c,options){
   document.getElementById("modal-date").textContent=(currentLang==="en"?"Date: ":"วันที่: ")+(c.date||"-");
   var venueEl=document.getElementById("modal-venue");
   venueEl.textContent=(currentLang==="en"?"Venue: ":"สถานที่: ")+(c.venue||"-");
+  // Keep optional event conditions accessible without forcing long descriptions
+  // into the default booking decision path. No source data is discarded.
   var eventNoteEl=document.getElementById("modal-event-note");
   if(!eventNoteEl){
-    eventNoteEl=document.createElement("div");
+    eventNoteEl=document.createElement("details");
     eventNoteEl.id="modal-event-note";
-    eventNoteEl.className="modal-meta";
+    eventNoteEl.className="modal-event-details";
     venueEl.insertAdjacentElement("afterend",eventNoteEl);
   }
   var publicEventNote=sanitizePublicText(c.webNote);
-  eventNoteEl.textContent=publicEventNote?"ℹ️ "+publicEventNote:"";
+  eventNoteEl.replaceChildren();
   eventNoteEl.hidden=!publicEventNote;
+  eventNoteEl.open=false;
+  if(publicEventNote){
+    var eventSummary=document.createElement("summary");
+    eventSummary.textContent=tr("modal_more_details");
+    var eventCopy=document.createElement("div");
+    eventCopy.className="modal-event-note-copy";
+    eventCopy.textContent=publicEventNote;
+    eventNoteEl.appendChild(eventSummary);
+    eventNoteEl.appendChild(eventCopy);
+  }
 
   // UX fix: ไม่แสดงรูปโปสเตอร์ซ้ำใน modal
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
@@ -1611,10 +1646,25 @@ function showModal(c,options){
     icon.innerHTML='<svg viewBox="0 0 28 28" fill="none"><rect x="6" y="3" width="16" height="22" rx="3" stroke="#5B8DEF" stroke-width="1.8"/><rect x="10" y="6" width="8" height="1.5" rx="0.75" fill="#5B8DEF"/><circle cx="14" cy="22" r="1.2" fill="#5B8DEF"/></svg>';
     var info=document.createElement("div"); info.className="ph-info";
     var mEl=document.createElement("div"); mEl.className="ph-model"; mEl.textContent=p.model||"";
-    var sEl=document.createElement("div"); sEl.className="ph-spec";  sEl.textContent=packageSpecForLanguage(p);
-    info.appendChild(mEl); info.appendChild(sEl);
+    var specText=packageSpecForLanguage(p);
+    info.appendChild(mEl);
+    // Lens-only rows often repeat the same text for model and subtype.
+    if(specText&&String(specText).trim().toLowerCase()!==String(p.model||"").trim().toLowerCase()){
+      var sEl=document.createElement("div"); sEl.className="ph-spec"; sEl.textContent=specText;
+      info.appendChild(sEl);
+    }
+    // Default marketing taglines add noise; keep explicit customer-facing
+    // package notes discoverable with an accessible native disclosure.
     var publicSubtitle=packagePublicSubtitle(p);
-    if(publicSubtitle){var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=publicSubtitle; info.appendChild(nEl);}
+    var explicitSubtitle=sanitizePublicText(p.useCase)||sanitizePublicText(p.note);
+    if(publicSubtitle&&explicitSubtitle&&!isGenericPackageMarketingText(publicSubtitle)){
+      var packageExtra=document.createElement("details"); packageExtra.className="ph-extra";
+      var packageSummary=document.createElement("summary"); packageSummary.textContent=tr("modal_package_details");
+      var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=publicSubtitle;
+      packageExtra.appendChild(packageSummary);
+      packageExtra.appendChild(nEl);
+      info.appendChild(packageExtra);
+    }
     var right=document.createElement("div"); right.className="ph-right";
     var priceEl=document.createElement("div"); priceEl.className="ph-price";
     if(toNum(p.price)>0){
