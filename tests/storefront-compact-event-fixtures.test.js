@@ -167,6 +167,21 @@ test('empty or internal notes are not shown, while full event metadata remains',
     'model + phone-only specification, no internal note disclosure');
 });
 
+test('common marketing copy is not rendered as a disclosure in any month', () => {
+  const h = modalHarness('th');
+  for (const [month, copy, kind] of [
+    ['10', 'เหมาะกับถ่ายเวทีไกล ซูมชัด', 'phone_only'],
+    ['11', 'เซ็ตครบ ประหยัดกว่า', 'phone_lens_bundle'],
+    ['12', 'เลนส์เสริมสำหรับซูมไกล', 'lens_only'],
+    ['01', 'เหมาะกับเก็บโมเมนต์คอนเสิร์ต', 'phone_only']
+  ]) {
+    h.render(event('2026-' + month + '-CLEAN', 'Sample event', '', [pkg('Vivo X300 Pro', 590, copy, kind)]));
+    const info = h.nodes['phone-list'].children[0].children[1];
+    assert.equal(info.children.some(node => node.tagName === 'details'), false, 'unexpected disclosure for ' + month);
+    assert.equal(h.nodes['modal-event-note'].hidden, true);
+  }
+});
+
 test('fully booked event retains waitlist link and has no fake bookable package', () => {
   const h = modalHarness('th');
   h.render(event('SOLDOUT', 'Sold-out show', '', []));
