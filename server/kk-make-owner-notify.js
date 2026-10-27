@@ -51,6 +51,25 @@ function response(res,status,body){
   res.setHeader('X-Content-Type-Options','nosniff');
   res.end(JSON.stringify({transport_version:Contract.VERSION,...body}));
 }
+function probeResponse(res,status,body){
+  res.statusCode=status;
+  res.setHeader('Content-Type','application/json; charset=utf-8');
+  res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('X-Content-Type-Options','nosniff');
+  res.end(JSON.stringify(body));
+}
+async function readProbeJson(req){
+  if(req.body!==undefined&&typeof req.body!=='string'){
+    const body=req.body;
+    if(!require('./make-owner-canonical-readiness').validBody(body))throw new Error('invalid body');
+    if(Buffer.byteLength(JSON.stringify(body))>4096)throw new Error('too large');
+    return body;
+  }
+  const chunks=[];let bytes=0;
+  const source=typeof req.body==='string'?[Buffer.from(req.body,'utf8')]:req;
+  for await(const chunk of source){const buffer=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);bytes+=buffer.length;if(bytes>4096)throw new Error('too large');chunks.push(buffer);}
+  return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));
+}
 async function readJson(req,maxBytes=10000){
   let parsed;
   if(req.body!==undefined&&typeof req.body!=='string'){
@@ -108,6 +127,11 @@ async function rpc(name,body,cfg,fetchImpl=global.fetch){
 async function processRequest(req,res,env=process.env,fetchImpl=global.fetch,options={}){
   if(req.method!=='POST') return response(res,405,{ok:false,send_allowed:false,error_code:'METHOD_NOT_ALLOWED'});
   const cfg=config(env);
+  if(req.headers?.['x-kk-canonical-probe']==='readiness-v1'){
+    let body;try{body=await readProbeJson(req);}catch(_){return probeResponse(res,400,{mode:'canonical-readiness',version:'v1',send_allowed:false,error_code:'BODY_INVALID'});}
+    const outcome=require('./make-owner-canonical-readiness').evaluate(body,cfg,req.headers?.authorization);
+    return probeResponse(res,outcome.status,outcome.body);
+  }
   // No DB call or Telegram send when disabled / improperly project-bound.
   if(!cfg.ready) return response(res,503,{ok:false,send_allowed:false,error_code:'MAKE_OWNER_TRANSPORT_DISABLED_OR_UNBOUND'});
   let body;

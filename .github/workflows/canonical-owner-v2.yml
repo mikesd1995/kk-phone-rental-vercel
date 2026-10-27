@@ -28,6 +28,10 @@
           "run": "node --check server/make-owner-canonical.js\nnode --check server/make-owner-telegram-adapter.js\nnode --check server/make-owner-canonical-builder.js\nnode --check server/kk-make-owner-notify.js\nnode --check scripts/test-owner-canonical-native.mjs\nnode --check scripts/test-owner-canonical-loop.mjs\nnode -e \"const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');const dir='apps-script/kk-agent';for(const file of fs.readdirSync(dir).filter(n=>n.endsWith('.gs')))new vm.Script(fs.readFileSync(path.join(dir,file),'utf8'),{filename:file});\""
         },
         {
+          "name": "Explicit OFF readiness and independent staging syntax",
+          "run": "node --check server/make-owner-canonical-readiness.js\nnode --check server/make-owner-canonical-off-stage.js"
+        },
+        {
           "name": "Install pinned disposable PostgreSQL engine outside repository",
           "run": "npm install --prefix \"${RUNNER_TEMP}/kk-canonical-native\" --no-save --ignore-scripts --no-package-lock @electric-sql/pglite@0.5.11"
         },
