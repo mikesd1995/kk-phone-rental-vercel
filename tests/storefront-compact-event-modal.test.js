@@ -24,11 +24,18 @@ test('event details are kept but collapsed instead of rendering a long paragraph
 test('only explicit package notes get optional detail; no default marketing tagline clutter', () => {
   assert.match(js, /var publicSubtitle=packagePublicSubtitle\(p\)/);
   assert.match(js, /var explicitSubtitle=sanitizePublicText\(p\.useCase\)\|\|sanitizePublicText\(p\.note\)/);
-  assert.match(js, /if\(publicSubtitle&&explicitSubtitle\)/);
+  assert.match(js, /if\(publicSubtitle&&explicitSubtitle&&!isGenericPackageMarketingText\(publicSubtitle\)\)/);
   assert.match(js, /packageExtra=document\.createElement\("details"\)/);
   assert.match(js, /packageSummary\.textContent=tr\("modal_package_details"\)/);
   assert.match(js, /nEl\.textContent=publicSubtitle/);
   assert.match(js, /String\(specText\)\.trim\(\)\.toLowerCase\(\)!==String\(p\.model\|\|""\)\.trim\(\)\.toLowerCase\(\)/);
+});
+
+test('generic price/promotional package notes do not add extra disclosure rows', () => {
+  assert.match(js, /function isGenericPackageMarketingText\\(raw\\)/);
+  assert.match(js, /เหมาะกับถ่ายเวทีไกล ซูมชัด/);
+  assert.match(js, /เลนส์เสริมสำหรับซูมไกล/);
+  assert.match(js, /เซ็ตครบ ประหยัดกว่า/);
 });
 
 test('core rental and sold-out actions remain intact', () => {
