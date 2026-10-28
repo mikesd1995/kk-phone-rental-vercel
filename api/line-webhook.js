@@ -54,17 +54,24 @@ function signedEnvelopePreflight(rawBody, signature, channelSecret) {
 }
 
 async function handler(req, res) {
+  // Authentication and malformed-envelope responses must not be cached.
+  // Keep this at the public entrypoint because early returns never reach the
+  // booking handler's security headers.
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('Cache-Control','no-store');
+    res.setHeader('X-Content-Type-Options','nosniff');
+  }
   if (req.method === 'POST') {
     try {
       req.rawBody = await readRawBody(req);
     } catch (err) {
-      console.error('[line-webhook-raw-body]', err && err.message ? err.message : 'read failed');
+      console.error('[line-webhook-raw-body]', err && err.code === 'LINE_WEBHOOK_BODY_TOO_LARGE' ? 'size-limit' : 'read-failed');
       res.statusCode = err && err.code === 'LINE_WEBHOOK_BODY_TOO_LARGE' ? 413 : 400;
       return res.end(res.statusCode === 413 ? 'Request body too large' : 'Invalid request body');
     }
     // Preserve the existing 503 config error from the booking handler. A
     // missing secret/token must not be reported as a customer signature error.
-    if(process.env.LINE_CHANNEL_SECRET && process.env.LINE_CHANNEL_ACCESS_TOKEN){
+    if(String(process.env.LINE_CHANNEL_SECRET||'').trim() && String(process.env.LINE_CHANNEL_ACCESS_TOKEN||'').trim()){
       const signature=req.headers && (req.headers['x-line-signature']||req.headers['X-Line-Signature']);
       const admission=signedEnvelopePreflight(req.rawBody,signature,process.env.LINE_CHANNEL_SECRET);
       if(!admission.ok){res.statusCode=admission.statusCode;return res.end(admission.message);}
