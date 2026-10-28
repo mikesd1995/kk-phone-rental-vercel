@@ -52,6 +52,76 @@ function eventDateKey(raw){
   if(!d)return "";
   return String(d.getFullYear()).padStart(4,"0")+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
+
+// Official organizer date scope is informational only; it must never add a
+// bookable date, override the canonical sheet date, or bypass Owner Locks.
+// Key by exact event-day ID and also verify the source date (fail closed).
+var STOREFRONT_OFFICIAL_DATE_CONTEXT=Object.freeze({
+  "EVT-20261030-DAOUOFFROAD-HALLOWEEN-FAN-PARTY":{
+    date:"2026-10-30",
+    th:"งานจัด 30–31 ต.ค. 2569 · การ์ดนี้เป็นวันที่ 30 ต.ค. เท่านั้น",
+    en:"Organizer dates: Oct 30–31, 2026 · This card is for Oct 30 only"
+  },
+  "EVT-20261030-POPPAH4-HALLOWEEN-NAMP":{
+    date:"2026-10-30",
+    th:"เทศกาลจัด 30 ต.ค.–1 พ.ย. · NAMP Live บนการ์ดนี้วันที่ 30 ต.ค. เท่านั้น",
+    en:"Festival: Oct 30–Nov 1 · This NAMP Live card is for Oct 30 only"
+  },
+  "EVT-20261115-2026-K-POP-MASTERZ-SPECIAL-L":{
+    date:"2026-11-15",
+    th:"คอนเสิร์ตจัด 14–15 พ.ย. · ร้านไม่เปิดจองวันที่ 14; การ์ดนี้วันที่ 15",
+    en:"Concert: Nov 14–15 · Nov 14 is not bookable here; this card is Nov 15"
+  },
+  "EVT-20261127-FORTREASURE-BEYOND-HORIZON":{
+    date:"2026-11-27",
+    displayName:"FORTREASURE — FAN BENEFITS (27 NOV)",
+    th:"วันที่ 27 พ.ย. เป็นกิจกรรมสิทธิประโยชน์ ไม่ใช่คอนเสิร์ตหลัก · คอนเสิร์ตหลักวันที่ 29 พ.ย.",
+    en:"Nov 27 is a fan-benefits day, NOT the main concert · Main concert Nov 29"
+  },
+  "EVT-20261129-FORTREASURE-BEYOND-HORIZON":{
+    date:"2026-11-29",
+    th:"คอนเสิร์ตหลักวันที่ 29 พ.ย. · ช่วงสิทธิประโยชน์จัดวันที่ 27–29 พ.ย.",
+    en:"Main concert Nov 29 · Fan-benefits activities run Nov 27–29"
+  },
+  "EVT-20261203-BTS-WORLD-TOUR-ARIRANG":{
+    date:"2026-12-03",
+    th:"ผู้จัดมีรอบ 3, 5 และ 6 ธ.ค. · การ์ดนี้วันที่ 3 เท่านั้น; ร้านไม่เปิดจองวันที่ 6",
+    en:"Shows Dec 3, 5 and 6 · This card is Dec 3 only; Dec 6 not bookable here"
+  },
+  "EVT-20261205-BTS-WORLD-TOUR-ARIRANG":{
+    date:"2026-12-05",
+    th:"ผู้จัดมีรอบ 3, 5 และ 6 ธ.ค. · การ์ดนี้วันที่ 5 เท่านั้น; ร้านไม่เปิดจองวันที่ 6",
+    en:"Shows Dec 3, 5 and 6 · This card is Dec 5 only; Dec 6 not bookable here"
+  },
+  "EVT-20261206-WILLIAM-EST-REIGN-TOGETHER-C":{
+    date:"2026-12-06",
+    th:"คอนเสิร์ตจัด 5–7 ธ.ค. · วันที่ 5 ร้านไม่เปิดจอง; การ์ดนี้วันที่ 6",
+    en:"Concert Dec 5–7 · Dec 5 not bookable here; this card is Dec 6"
+  },
+  "EVT-20261207-WILLIAM-EST-REIGN-TOGETHER-C":{
+    date:"2026-12-07",
+    th:"คอนเสิร์ตจัด 5–7 ธ.ค. · วันที่ 5 ร้านไม่เปิดจอง; การ์ดนี้วันที่ 7",
+    en:"Concert Dec 5–7 · Dec 5 not bookable here; this card is Dec 7"
+  },
+  "EVT-20261230-WHITE-PARTY-BANGKOK-AMAXON-AGM":{
+    date:"2026-12-30",
+    displayName:"White Party Bangkok AmaXon — AGM Night",
+    th:"AGM Night จัดวันที่ 30 ธ.ค. เวลา 19:30 น. · Paragon Hall",
+    en:"AGM Night confirmed Dec 30, 7:30 PM · Paragon Hall"
+  },
+  "EVT-20261231-WHITE-PARTY-BANGKOK-AMAXON-NYE":{
+    date:"2026-12-31",
+    displayName:"White Party Bangkok AmaXon — New Year's Eve",
+    th:"New Year's Eve จัดวันที่ 31 ธ.ค. เวลา 19:30 น. · Paragon Hall",
+    en:"New Year's Eve confirmed Dec 31, 7:30 PM · Paragon Hall"
+  }
+});
+function storefrontOfficialDateContext(eventId,rawDate){
+  var key=String(eventId||"").trim();
+  var context=STOREFRONT_OFFICIAL_DATE_CONTEXT[key];
+  return context&&eventDateKey(rawDate)===context.date?context:null;
+}
+
 var TODAY_TS = bangkokMidnightTs(bangkokDayKey(new Date()));
 var URL_PARAMS = new URLSearchParams(window.location.search);
 var DEBUG_MODE = URL_PARAMS.get("debug")==="1";
@@ -1131,6 +1201,12 @@ async function loadData(){
   return rows.map(function(r){
     var eventId    = String(r.event_id||"").trim();
     var rawDate    = r.event_date_text || r.event_date || r.date || "";
+    var dateContext=storefrontOfficialDateContext(eventId,rawDate);
+    var originalName=String(r.event_name||"").trim();
+    var presentedName=dateContext&&dateContext.displayName?dateContext.displayName:originalName;
+    var originalLineTemplate=String(r.line_message_template||"").trim();
+    var presentedLineTemplate=presentedName===originalName?originalLineTemplate:
+      originalLineTemplate.replace("งาน : "+originalName,"งาน : "+presentedName);
     var rawPoster  = String(r.poster_image_url||"").trim() || storefrontPosterOverride(r);
     var emergencyPoster = storefrontPosterOverride(r);
     var posterThumbCandidates = getImgCandidates(rawPoster,"thumb");
@@ -1174,7 +1250,7 @@ async function loadData(){
 
     return {
       id:           eventId,
-      name:         String(r.event_name||"").trim(),
+      name:         presentedName,
       date:         fmtDate(rawDate),
       rawDate:      rawDate,
       venue:        String(r.venue||"").trim(),
@@ -1184,11 +1260,12 @@ async function loadData(){
       imgThumb:     posterThumbCandidates,
       imgFull:      posterFullCandidates, // canonical first; verified emergency poster is delivery fallback only
       webNote:      String(r.event_note||r.web_note||"").trim(),
+      dateContext:  dateContext,
       phoneCnt:     phoneCnt,
       lensCnt:      lensCnt,
       bookingStatus:String(r.booking_status_for_web||"").trim(),
       action:       String(r.action_for_web||"show").trim().toLowerCase(),
-      lineTemplate: String(r.line_message_template||"").trim(),
+      lineTemplate: presentedLineTemplate,
       packages:     packages,
       hasPkgSheet:  hasPkgSheet
     };
@@ -1490,7 +1567,14 @@ function renderConcerts(concerts){
     metaEl.appendChild(venueEl); metaEl.appendChild(priceEl);
     var availEl=document.createElement("div"); availEl.className="pi-avail"+(avail?(lowStock?" low":""):" none"); availEl.textContent=availText+pkgHint;
     var tap=document.createElement("div"); tap.className="pi-tap"+(avail?"":" full"); tap.textContent=avail?tr("tap_available"):tr("tap_waitlist");
-    info.appendChild(dateEl); info.appendChild(nameEl); info.appendChild(metaEl); info.appendChild(availEl); info.appendChild(tap);
+    info.appendChild(dateEl); info.appendChild(nameEl);
+    if(c.dateContext){
+      var dateContextEl=document.createElement("div");
+      dateContextEl.className="pi-date-scope";
+      dateContextEl.textContent=currentLang==="en"?c.dateContext.en:c.dateContext.th;
+      info.appendChild(dateContextEl);
+    }
+    info.appendChild(metaEl); info.appendChild(availEl); info.appendChild(tap);
     card.appendChild(imgWrap); card.appendChild(info); grid.appendChild(card);
   });
   el.appendChild(grid);
@@ -1576,8 +1660,9 @@ function showModal(c,options){
     venueEl.insertAdjacentElement("afterend",eventNoteEl);
   }
   var publicEventNote=sanitizePublicText(c.webNote);
-  eventNoteEl.textContent=publicEventNote?"ℹ️ "+publicEventNote:"";
-  eventNoteEl.hidden=!publicEventNote;
+  var organizerDateNote=c.dateContext?(currentLang==="en"?c.dateContext.en:c.dateContext.th):"";
+  eventNoteEl.textContent=[organizerDateNote?"📅 "+organizerDateNote:"",publicEventNote?"ℹ️ "+publicEventNote:""].filter(Boolean).join("\n");
+  eventNoteEl.hidden=!organizerDateNote&&!publicEventNote;
 
   // UX fix: ไม่แสดงรูปโปสเตอร์ซ้ำใน modal
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
