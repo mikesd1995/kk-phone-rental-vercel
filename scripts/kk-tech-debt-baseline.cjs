@@ -14,6 +14,7 @@ const LEGACY_PUBLIC_READERS = Object.freeze([
   'api/kk-data.js',
   'server/admin-sheet-fallback.js'
 ]);
+const BROWSER_FILES = Object.freeze(['script.js', 'config.js']);
 const REQUIRED_FILES = Object.freeze([
   ...HOTSPOTS, ...LEGACY_PUBLIC_READERS,
   'config.js', 'package.json'
@@ -51,6 +52,7 @@ function snapshot(root) {
     legacyPublicGviz[relative] = matches(source[relative], /gviz\/tq/g);
   }
   const config = source['config.js'];
+  const publicSourcePattern = /(?:docs\.google\.com\/spreadsheets(?:\/d)?|spreadsheets\.google\.com|script\.google\.com\/macros\/s\/|gviz\/tq)/gi;
   return {
     schema_version: 1,
     modules,
@@ -59,7 +61,9 @@ function snapshot(root) {
       api_only: /publicDataMode:\s*['"]api-only['"]/.test(config),
       direct_fallback_disabled: /disableDirectFallback:\s*true\b/.test(config),
       uses_server_api: /useVercelApi:\s*true\b/.test(config),
-      direct_sheets_urls: matches(source['script.js'], /docs\.google\.com\/spreadsheets\/d\//g)
+      direct_sheets_urls: matches(source['script.js'], /docs\.google\.com\/spreadsheets\/d\//g),
+      public_source_refs: BROWSER_FILES.reduce((count, file) => count + matches(source[file], publicSourcePattern), 0),
+      local_api_endpoint: /apiEndpoint:\s*['"]\/api\/kk-data['"]/.test(config)
     },
     tooling: {
       npm_scripts: Object.keys(p.scripts).length,
@@ -75,15 +79,25 @@ function compare(now, baseline) {
     throw new Error('TECH_DEBT_BASELINE_INVALID');
   }
   const prior = baseline.snapshot;
+  if (!prior.browser || !now.browser || !prior.tooling || !now.tooling || !prior.modules || !now.modules ||
+      !prior.legacy_public_gviz || !now.legacy_public_gviz ||
+      !Number.isSafeInteger(prior.browser.public_source_refs) || prior.browser.public_source_refs < 0 ||
+      !Number.isSafeInteger(prior.tooling.npm_scripts) || prior.tooling.npm_scripts < 0 ||
+      !Number.isSafeInteger(prior.tooling.check_command_chars) || prior.tooling.check_command_chars < 0) {
+    throw new Error('TECH_DEBT_BASELINE_FIELDS_INVALID');
+  }
   const findings = [];
   const add = (id, details) => findings.push({ id, details });
-  for (const key of ['api_only', 'direct_fallback_disabled', 'uses_server_api']) {
+  for (const key of ['api_only', 'direct_fallback_disabled', 'uses_server_api', 'local_api_endpoint']) {
     if (prior.browser[key] === true && now.browser[key] !== true) {
       add('BROWSER_PRIVATE_DATA_GUARD_REMOVED', key);
     }
   }
   if (now.browser.direct_sheets_urls > prior.browser.direct_sheets_urls) {
     add('BROWSER_DIRECT_SHEETS_URL_ADDED', 'Storefront script must use the server API');
+  }
+  if (now.browser.public_source_refs > prior.browser.public_source_refs) {
+    add('BROWSER_PUBLIC_SOURCE_REFERENCE_ADDED', 'Direct Google Sheets, Apps Script, or GViz reference requires review');
   }
   for (const file of LEGACY_PUBLIC_READERS) {
     if ((now.legacy_public_gviz[file] || 0) > (prior.legacy_public_gviz[file] || 0)) {
@@ -100,10 +114,21 @@ function compare(now, baseline) {
     if (current.lines > old.lines + allowance) {
       add('LARGE_MODULE_GROWTH', file);
     }
-    // innerHTML counts are inventory, not a vulnerability assertion.
+    if (!Number.isSafeInteger(old.inner_html_assignments) || old.inner_html_assignments < 0 ||
+        !Number.isSafeInteger(current.inner_html_assignments) || current.inner_html_assignments < 0) {
+      throw new Error('TECH_DEBT_HTML_SINK_COUNT_INVALID');
+    }
+    if (current.inner_html_assignments > old.inner_html_assignments) {
+      add('NEW_HTML_SINK_REQUIRES_REVIEW', file);
+    }
+    // New sinks require review; presence alone does NOT establish an XSS vulnerability.
   }
   if (now.tooling.npm_scripts > prior.tooling.npm_scripts + 10) {
     add('BUILD_SCRIPT_PROLIFERATION', 'package.json');
+  }
+  if (now.tooling.check_command_chars > prior.tooling.check_command_chars +
+      Math.max(2000, Math.ceil(prior.tooling.check_command_chars * 0.25))) {
+    add('BUILD_CHECK_COMMAND_GROWTH', 'package.json');
   }
   if (prior.tooling.has_test_script && !now.tooling.has_test_script) {
     add('TEST_ENTRYPOINT_REMOVED', 'package.json');
@@ -142,4 +167,4 @@ if (require.main === module) {
     process.exitCode = 2;
   }
 }
-module.exports = { HOTSPOTS, LEGACY_PUBLIC_READERS, REQUIRED_FILES, BASELINE_PATH, snapshot, compare, run };
+module.exports = { HOTSPOTS, LEGACY_PUBLIC_READERS, BROWSER_FILES, REQUIRED_FILES, BASELINE_PATH, snapshot, compare, run };
