@@ -76,3 +76,49 @@ test('proposal never becomes final price automatically',()=>{
  assert.equal(r.final_price_write_allowed,false);
  assert.equal(r.production_writes,0);
 });
+
+
+test('competitor median never mixes phone-only quotes with lens bundles',()=>{
+ const phoneQuotes=[
+  {...price('phone-shop-a',690),package_type:'PHONE_ONLY'},
+  {...price('phone-shop-b',790),package_type:'PHONE_ONLY'}
+ ];
+ const bundles=[
+  price('bundle-shop-a',1190),
+  price('bundle-shop-b',1290)
+ ];
+ const r=Prep.prepareCandidate(candidate,{competitor_prices:[...phoneQuotes,...bundles],posters:[poster]});
+ const p=r.pricing;
+ assert.equal(p.independent_competitors,2);
+ assert.equal(p.observed_independent_competitors,4);
+ assert.equal(p.complete,false);
+ assert.equal(p.market_package_type,'PHONE_ONLY');
+ assert.equal(p.market_median,740);
+ assert.equal(p.package_summary.PHONE_ONLY.market_median,740);
+ assert.equal(p.package_summary.PHONE_LENS.market_median,1240);
+ assert.equal(p.proposal.proposal_source,'LIMITED_EXACT_EVENT');
+ assert.equal(p.proposal.proposed_reference_price,740);
+ assert.equal(p.evidence.length,2);
+ assert.ok(p.evidence.every(row=>row.package_type==='PHONE_ONLY'));
+ assert.equal(p.all_package_evidence.length,4);
+});
+
+test('one seller quoting phone and bundle cannot inflate independent market count',()=>{
+ const quotes=[
+  {...price('seller-a',790),package_type:'PHONE_ONLY'},
+  price('seller-a',990),
+  price('seller-b',1090),
+  price('seller-c',1190)
+ ];
+ const r=Prep.prepareCandidate(candidate,{competitor_prices:quotes,posters:[poster]});
+ const p=r.pricing;
+ assert.equal(p.observed_independent_competitors,3);
+ assert.equal(p.independent_competitors,3);
+ assert.equal(p.market_package_type,'PHONE_LENS');
+ assert.equal(p.market_median,1090);
+ assert.equal(p.package_summary.PHONE_ONLY.independent_competitors,1);
+ assert.equal(p.package_summary.PHONE_LENS.independent_competitors,3);
+ assert.equal(p.complete,true);
+ assert.equal(p.proposal.proposal_source,'EXACT_EVENT_MEDIAN');
+ assert.ok(p.evidence.every(row=>row.package_type==='PHONE_LENS'));
+});
