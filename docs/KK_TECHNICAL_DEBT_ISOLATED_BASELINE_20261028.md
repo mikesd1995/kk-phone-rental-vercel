@@ -34,6 +34,16 @@ Output: JSON with ONLY fixed source paths, numeric counts, boolean/source marker
 
 A fresh GitHub main comparison showed HEAD **57ec0227193ea186f034e1628ed331e33620dcc6** as the starting point; main had advanced while this task was running, including Canonical Owner OFF/GAS work. New isolated branch: audit/tech-debt-baseline-readonly-20261028. No existing file, package.json, .github/workflows, production code, Booking/Sheet, Secret, ACL or deployment was edited. Do not force-push over Codex, alter its PR, auto-merge or independently enable a new workflow. Refresh main/PR HEAD before any future integration; if Codex independently introduces an equivalent checker, compare the paths and retire this Draft safely.
 
+### 28 Oct connected GitHub main — actual read-only baseline witness
+
+Directly read the eight fixed sources from main after creating the isolated branch; observed:
+- script.js **1,906** physical lines; admin/admin.js **3,734**; apps-script/Code.gs **3,281**; api/kk-data.js **498**; server/admin-sheet-fallback.js **418**.
+- Browser source witnesses **both true**: config.js has API-only flags and script.js defines a throwing directSheetUrl. This is **static contract evidence only**, not a signed-out browser check.
+- Legacy public GViz/CSV string markers still present in both api/kk-data.js and server/admin-sheet-fallback.js. The checker classifies them as REVIEW_LEGACY_PATH, not proof of a presently reachable vulnerability.
+- package.json has **42** scripts and a **7,380-character** syntax-check command; vercel.json declares ignoreCommand. This documents review debt, not build failure.
+- Source module line thresholds are review prompts (2,000/3,800/3,400/650/550), so these observed line counts do **not** trigger monolith-threshold warnings at this checkpoint.
+- No secret value, Booking/customer row, Core data mutation, Vercel environment value or network fetch was used in this static source inspection.
+
 ### Test provenance and limits
 
 Native local Node v22.16.0: syntax checks passed, 8/8 node:test synthetic fixture cases passed; GitHub source/test file content must be verified by exact Git blob SHA before treating those local results as evidence for the committed files. No full npm test or GitHub-hosted test has been claimed. These source-marker tests can be bypassed by dynamic code and are NOT a penetration test; offline sample warnings cannot prove that Production leaks data.
