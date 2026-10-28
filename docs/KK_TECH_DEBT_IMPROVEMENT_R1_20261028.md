@@ -54,3 +54,28 @@ node --test tests/kk-tech-debt-baseline.test.js
 4. Prioritize protected Core Privacy #738/#739, Poster ACL #718/#721, Booking/LINE #796, release issue #49 and Scanner #777. This new static guard does not replace any Safety Gates.
 
 **Actual writes:** branch-only new files and source code. **No merge, deploy, Studio/Drive ACL, business-data, Booking/customer, price, payment, Agent or Automation writes.**
+
+## Exact readback and completed acceptance — 28 Oct 2026
+
+**GitHub branch:** `audit/tech-debt-guard-20261028-r1` based on `main` `57ec0227193ea186f034e1628ed331e33620dcc6`.
+
+| File | Git blob SHA (matches exact native-Node-tested local copy for source/test/baseline) |
+| --- | --- |
+| `scripts/kk-tech-debt-baseline.cjs` | `450bdd9d272487026d452a5d8346742162d1f721` |
+| `tests/kk-tech-debt-baseline.test.js` | `2dec5f2e2371eb324b1b06af17b0ec3a09e214e0` |
+| `docs/KK_TECH_DEBT_BASELINE_20261028.json` | `7fcbb7fa3ac128520a5fda5ca517e6d6fa660d16` |
+| This handoff, before acceptance addendum | `95dee53c415925b4ce18aecad03fae936f658c3b` |
+
+**GitHub commits:** `b1524622` checker, `fa23a3a2` native Node tests, `6ade5551` baseline JSON, `acb160ff` initial handoff.
+
+**Native commands executed against exact SHA-matching source/test:**
+
+```text
+node --check scripts/kk-tech-debt-baseline.cjs       PASS
+node --check tests/kk-tech-debt-baseline.test.js     PASS
+node --test tests/kk-tech-debt-baseline.test.js      12 PASS / 0 FAIL / 0 SKIP
+```
+
+**Connector readback:** all four files found on separate branch; compare `main...audit/tech-debt-guard-20261028-r1` yielded **ahead 4, behind 0, four `added` paths, zero changed existing paths**. Codex Draft PR #744 remained at `a742fcb2a0f373eacccf9f4f8a31a8a133a68667` when checked; no write or merge to that branch. Vercel Production was **READY** at `57ec0227193ea186f034e1628ed331e33620dcc6`, deployment `dpl_4UsZU37NDxvoSPNL7CPKJY65mZhm`. This work did not initiate that deployment.
+
+**Release disposition:** Source-only tooling delivered and locally verified; existing issues and Production security remain OPEN. No GitHub-hosted Actions, preview builds, CI integration, PR creation, Production writes or provider usage were initiated. Next owner/Codex review may cherry-pick only the four new files after checking latest Main, without overriding active P0 work.
