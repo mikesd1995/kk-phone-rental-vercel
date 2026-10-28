@@ -1567,13 +1567,15 @@ function renderConcerts(concerts){
     metaEl.appendChild(venueEl); metaEl.appendChild(priceEl);
     var availEl=document.createElement("div"); availEl.className="pi-avail"+(avail?(lowStock?" low":""):" none"); availEl.textContent=availText+pkgHint;
     var tap=document.createElement("div"); tap.className="pi-tap"+(avail?"":" full"); tap.textContent=avail?tr("tap_available"):tr("tap_waitlist");
-    info.appendChild(dateEl); info.appendChild(nameEl);
+    // Keep the original card height; the complete organizer date scope is in
+    // the details modal. Tooltip and accessible name expose it without adding
+    // extra lines that cause card CTA overflow on smaller viewports.
     if(c.dateContext){
-      var dateContextEl=document.createElement("div");
-      dateContextEl.className="pi-date-scope";
-      dateContextEl.textContent=currentLang==="en"?c.dateContext.en:c.dateContext.th;
-      info.appendChild(dateContextEl);
+      var scopeText=currentLang==="en"?c.dateContext.en:c.dateContext.th;
+      dateEl.title=scopeText;
+      dateEl.setAttribute("aria-label",String(c.date||"")+" · "+scopeText);
     }
+    info.appendChild(dateEl); info.appendChild(nameEl);
     info.appendChild(metaEl); info.appendChild(availEl); info.appendChild(tap);
     card.appendChild(imgWrap); card.appendChild(info); grid.appendChild(card);
   });
