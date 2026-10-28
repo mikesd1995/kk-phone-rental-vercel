@@ -155,3 +155,55 @@ test('observed helper and adapter connection conflicts fail closed',()=>{
  rejected((s,b)=>b.adapterBinding.manifest_sha256='a'.repeat(64));
  rejected((s,b)=>b.adapterBinding.app_name='kk-telegram-response-adapter-wrong');
 });
+
+test('native omitted empty config domains compile without mutating or fabricating the actual readback',()=>{
+ // Actual Make readback: new HTTP/Iterator/Commit modules have config:{},
+ // while existing SDK modules have only their observed connection parameters.
+ const {snapshot,binding,ids}=fixture();
+ for(const role of Object.keys(ids)){
+  const config=at(snapshot,ids[role]).config;
+  delete config.mapper;
+  if(!['provider','report','reject'].includes(role))delete config.parameters;
+ }
+ const before=structuredClone(snapshot),out=compile(snapshot,binding);
+ assert.deepEqual(snapshot,before);
+ for(const role of Object.keys(ids)){
+  assert.equal(Object.hasOwn(at(snapshot,ids[role]).config,'mapper'),false);
+  assert.equal(Object.hasOwn(at(snapshot,ids[role]).config,'parameters'),['provider','report','reject'].includes(role));
+  assert.equal(at(out,ids[role]).disabled,true);
+ }
+ assert.deepEqual(at(out,ids.poll).config.parameters,{authenticationType:'apiKeyConnection',apiKeyAccount:333333});
+ assert.equal(at(out,ids.poll).config.mapper.jsonStringBodyContent,'{"stage":"canonical-poll","version":"v2"}');
+ assert.equal(at(out,ids.iterator).config.mapper.array,'{{101.data.tickets}}');
+ assert.equal(at(out,ids.provider).config.parameters.__IMTCONN__,222222);
+ assert.equal(at(out,ids.provider).config.mapper.receipt_id,'{{104.data.receipt_id}}');
+ assert.equal(at(out,ids.provider).follows,104);
+ assert.deepEqual(at(out,ids.reject).parent,{moduleId:111,kind:'errorHandler'});
+ assert.deepEqual(at(out,ids.commit).config,{parameters:{},mapper:{}});
+ for(const id of [5,6,8,9,10])assert.deepEqual(at(out,id),at(before,id));
+ assert.deepEqual(out.trigger,before.trigger);assert.deepEqual(out.interface,before.interface);assert.deepEqual(out.settings,before.settings);
+ assert.equal(out.active,false);assert.equal(out.activation_allowed,false);assert.equal(out.send_allowed,false);
+});
+
+test('native omission compatibility never accepts a present malformed domain or missing SDK connection',()=>{
+ for(const role of Object.keys(fixture().ids)){
+  for(const domain of ['parameters','mapper']){
+   for(const value of [undefined,null,[],false,0,'',new Date()]){
+    rejected((s,b,ids)=>{at(s,ids[role]).config[domain]=value;},/MAKE_CANONICAL_OFF_ORPHAN_GRAPH_REQUIRED/);
+   }
+  }
+  rejected((s,b,ids)=>{at(s,ids[role]).config=null;},/MAKE_CANONICAL_OFF_ORPHAN_GRAPH_REQUIRED/);
+ }
+ for(const role of ['provider','report','reject']){
+  rejected((s,b,ids)=>{delete at(s,ids[role]).config.parameters;},/MAKE_CANONICAL_ADAPTER_GRAPH_UNVERIFIED/);
+  rejected((s,b,ids)=>{at(s,ids[role]).config.parameters={};},/MAKE_CANONICAL_ADAPTER_GRAPH_UNVERIFIED/);
+ }
+});
+
+test('absent HTTP domains do not waive conflicting authentication TLS or proxy parameters',()=>{
+ for(const role of ['poll','admit','prepare','project','projectReject']){
+  for(const parameters of [{authenticationType:'noAuth'},{authenticationType:'apiKeyConnection',apiKeyAccount:999999},{tlsType:'mTls'},{proxyKeychain:999999},{caCertificateKeychain:999999}]){
+   rejected((s,b,ids)=>{const config=at(s,ids[role]).config;delete config.mapper;config.parameters=parameters;},/MAKE_CANONICAL_CONNECTION_UNBOUND/);
+  }
+ }
+});

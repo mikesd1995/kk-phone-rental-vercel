@@ -12,6 +12,7 @@ const ROUTES=['parent','onError','errorHandler','routes'];
 const TRIGGER={moduleId:5,module:'scenario-service:StartSubscenario',kind:'on-demand',scheduling:{type:'on-demand'}};
 function fail(code){throw Object.assign(new Error(code),{code});}
 function plain(value){return value!==null&&typeof value==='object'&&!Array.isArray(value)&&[Object.prototype,null].includes(Object.getPrototypeOf(value));}
+function absentOrPlain(value,key){return !Object.hasOwn(value,key)||plain(value[key]);}
 function exactKeys(value,keys){return plain(value)&&isDeepStrictEqual(Object.keys(value).sort(),keys.slice().sort());}
 function hasAny(value,keys){return keys.some(key=>Object.hasOwn(value,key));}
 
@@ -46,15 +47,17 @@ function prepareAdapterOff(snapshot,binding){
   const module=ADAPTER_ROLES.includes(role)?'app#'+adapter.app_name+':'+(role==='provider'?'sendCapturedMessage':'reportCapturedOutcome'):role==='iterator'?'builtin:BasicFeeder':role==='commit'?'builtin:Commit':'http:MakeRequest';
   const version=HTTP_ROLES.includes(role)?4:1;
   if(!m||m.module!==module||m.version!==version||m.disabled!==true||m.root!=='orphan'||hasAny(m,[...ROUTES,'follows'])||
-   !plain(m.config)||!plain(m.config.parameters)||!plain(m.config.mapper))fail('MAKE_CANONICAL_OFF_ORPHAN_GRAPH_REQUIRED');
-  if(ADAPTER_ROLES.includes(role)&&m.config.parameters.__IMTCONN__!==adapter.connection_id)fail('MAKE_CANONICAL_ADAPTER_GRAPH_UNVERIFIED');
+   !plain(m.config)||!absentOrPlain(m.config,'parameters')||!absentOrPlain(m.config,'mapper'))fail('MAKE_CANONICAL_OFF_ORPHAN_GRAPH_REQUIRED');
+  // Native Make omits empty domains. Accept genuine absence without modifying
+  // the observed snapshot; present malformed domains and SDK bindings still fail.
+  if(ADAPTER_ROLES.includes(role)&&(!Object.hasOwn(m.config,'parameters')||!plain(m.config.parameters)||m.config.parameters.__IMTCONN__!==adapter.connection_id))fail('MAKE_CANONICAL_ADAPTER_GRAPH_UNVERIFIED');
   // Empty HTTP parameters are an inert initial module; any observed binding
   // must already agree. Never overwrite a conflicting/noAuth connection.
   if(HTTP_ROLES.includes(role)){
    const p=m.config.parameters;
-   if(Object.keys(p).some(k=>!['authenticationType','apiKeyAccount'].includes(k))||
+   if(Object.hasOwn(m.config,'parameters')&&(Object.keys(p).some(k=>!['authenticationType','apiKeyAccount'].includes(k))||
     (Object.hasOwn(p,'authenticationType')&&p.authenticationType!=='apiKeyConnection')||
-    (Object.hasOwn(p,'apiKeyAccount')&&p.apiKeyAccount!==connection.id))fail('MAKE_CANONICAL_CONNECTION_UNBOUND');
+    (Object.hasOwn(p,'apiKeyAccount')&&p.apiKeyAccount!==connection.id)))fail('MAKE_CANONICAL_CONNECTION_UNBOUND');
   }
  }
  const http=(id,follows,body)=>({id,module:'http:MakeRequest',version:4,disabled:true,...(follows?{follows}:{root:'orphan'}),
