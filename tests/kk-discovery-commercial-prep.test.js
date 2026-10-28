@@ -153,3 +153,21 @@ test('tickets and unrecognized rentals cannot be included as exact phone peers',
  assert.equal(p.market_median,790);
  assert.equal(p.complete,false);
 });
+
+
+test('mixed X300 Pro or Ultra and unrelated-device quotes never certify X300 Pro price',()=>{
+ const rows=[
+  {...price('seller-mixed',600),package_type:'PHONE_LENS',device:'vivo X300 Pro / X300 Ultra +200mm'},
+  {...price('samsung',490),package_type:'PHONE_ONLY',device:'Samsung S26 Ultra'},
+  {...price('vivo-shop',990),package_type:'PHONE_LENS',device:'VIVO X300 Pro + ZEISS 200mm'},
+  {...price('vivo-shop-2',790),package_type:'PHONE_ONLY',device:'VIVO_X300_PRO'}
+ ];
+ const p=Prep.prepareCandidate(candidate,{competitor_prices:rows,posters:[poster]}).pricing;
+ assert.equal(p.observed_independent_competitors,2);
+ assert.equal(p.independent_competitors,1);
+ assert.equal(p.complete,false);
+ assert.equal(p.market_package_type,'PHONE_ONLY');
+ assert.equal(p.market_median,790);
+ assert.equal(p.all_package_evidence.length,2);
+ assert.equal(Prep.normalizeCompetitor(rows[0]).device_model_compatible,false);
+});
