@@ -83,5 +83,5 @@ test('Admin identifies full phone dates independently of lens-only add-ons',()=>
 test('storefront preserves full event as visible waitlist, not an owner hide',()=>{
  assert.match(storefront,/value==="show"\\|\\|value==="show_full"/);
  assert.match(storefront,/if\(availCnt\(c\)<=0\) return tr\("card_waitlist"\)/);
- assert.match(gs,/IF\(G\\$\\{r\\}>0,"show","show_full"\)/);
+ assert.ok(gs.includes('IF(G${r}>0,"show","show_full")'));
 });
