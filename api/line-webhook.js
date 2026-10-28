@@ -1,6 +1,7 @@
 'use strict';
 
 const lineBookingWebhook = require('../server/line-booking-webhook');
+const crypto = require('node:crypto');
 const MAX_LINE_WEBHOOK_BYTES = 1024 * 1024;
 
 function assertBodySize(size) {
@@ -31,6 +32,27 @@ async function readRawBody(req) {
   return Buffer.concat(chunks);
 }
 
+// The booking handler verifies signatures again. This early, bounded preflight
+// protects its JSON shape assumption without altering the Codex-owned handler.
+// Never parse or trust unauthenticated LINE bodies.
+function signedEnvelopePreflight(rawBody, signature, channelSecret) {
+  const secret=String(channelSecret||'').trim();
+  if(!secret) return {ok:false,statusCode:503,message:'LINE Messaging API is not configured'};
+  const supplied=String(signature||'');
+  const expected=crypto.createHmac('sha256',secret).update(rawBody).digest('base64');
+  const a=Buffer.from(expected,'utf8'),b=Buffer.from(supplied,'utf8');
+  if(a.length!==b.length || !crypto.timingSafeEqual(a,b)){
+    return {ok:false,statusCode:401,message:'Invalid signature'};
+  }
+  let payload;
+  try{payload=JSON.parse(rawBody.toString('utf8'));}
+  catch(_){return {ok:false,statusCode:400,message:'Invalid JSON'};}
+  if(!payload || typeof payload!=='object' || Array.isArray(payload) || !Array.isArray(payload.events)){
+    return {ok:false,statusCode:400,message:'Invalid LINE events'};
+  }
+  return {ok:true};
+}
+
 async function handler(req, res) {
   if (req.method === 'POST') {
     try {
@@ -40,6 +62,13 @@ async function handler(req, res) {
       res.statusCode = err && err.code === 'LINE_WEBHOOK_BODY_TOO_LARGE' ? 413 : 400;
       return res.end(res.statusCode === 413 ? 'Request body too large' : 'Invalid request body');
     }
+    // Preserve the existing 503 config error from the booking handler. A
+    // missing secret/token must not be reported as a customer signature error.
+    if(process.env.LINE_CHANNEL_SECRET && process.env.LINE_CHANNEL_ACCESS_TOKEN){
+      const signature=req.headers && (req.headers['x-line-signature']||req.headers['X-Line-Signature']);
+      const admission=signedEnvelopePreflight(req.rawBody,signature,process.env.LINE_CHANNEL_SECRET);
+      if(!admission.ok){res.statusCode=admission.statusCode;return res.end(admission.message);}
+    }
   }
   return lineBookingWebhook(req, res);
 }
@@ -48,4 +77,4 @@ module.exports = handler;
 // LINE signs the exact request bytes. Vercel's JSON body helper parses application/json,
 // which cannot be re-serialized safely for signature verification. Keep parsing disabled.
 module.exports.config = { api: { bodyParser: false } };
-module.exports._test = { readRawBody, assertBodySize, MAX_LINE_WEBHOOK_BYTES };
+module.exports._test = { readRawBody, assertBodySize, MAX_LINE_WEBHOOK_BYTES, signedEnvelopePreflight };
