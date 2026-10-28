@@ -59,3 +59,13 @@ A new guard **rejects unfamiliar Google-hosted image URLs** in in-scope visible 
 6. Core Booking Sheet public Reader **remains a separate P0 (#738 / Draft #739)**; do **NOT** revoke it until authenticated 13/13 private reads and full booking/storefront acceptance. Final release #49 stays HOLD.
 
 **Classification: source-level fix and independent V8 mock acceptance PASS; live Drive ACL repair NOT executed; Stable Business V1 RELEASE HOLD.**
+
+## R2 — Full 36-case owner and read-only synthetic regression (same exact Git blobs)
+
+The **entire existing 36-test offline owner/read-only ACL suite** was executed against the **exact updated GitHub source** using a pure-V8 harness that simulated the minimal Node `test/assert/fs/path/vm/crypto` interfaces. The first harness iteration represented read-only `typeof` results as JS `undefined` instead of the expected literal string `'undefined'`; correcting the **harness only** restored true native-JS `typeof` semantics. The full suite then registered **36 tests / 36 PASS / 0 FAIL / 0 skipped**.
+
+Coverage includes pinned scope, read-only/owner source prefix equality, zero-write dry-run, dry-run inventory pagination, 49→48 reference rejection, new URL/ID rejection, duplicate/orphan/date/artwork drift, role and folder-tree safeguards, 25+13 bounded active-only batches on mocked Drive, historical inheritance protection, provider write errors, filename/move fingerprint drift and private/history exclusion. No real Drive API calls or permission changes occurred.
+
+**Important qualification:** This is **not** a native `node --test` run or GitHub hosted CI. The mock `crypto.createHash` was replaced by a deterministic synthetic 32-byte digest sufficient to test stable/different fingerprint behavior, **not SHA-256 security**. Thus an exact native Node regression run against the accepted original repository remains a mandatory gate before any Owner Dry Run or real ACL modification. Report results with this limitation, not as Production acceptance.
+
+The exact unchanged Git blobs used for R2 are owner `139f3311cb68c5edd9c6f142809fe913aec516f1`, readonly `27955ed180f76b2c3874ae9cba737c55aef6ef61`, and test `437180c988e66d0998b4efaca431bb0c8553f5ef`.
