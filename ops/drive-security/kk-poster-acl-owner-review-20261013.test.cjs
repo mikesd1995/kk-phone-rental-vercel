@@ -99,6 +99,15 @@ function fixture(opts = {}) {
   if (opts.extraCard) {
     core.push(['EVT-EXTRA', 'Extra event', '21/10/2026', '', 'https://images.example.test/extra.jpg']);
   }
+  if (opts.extraGoogleUnknown) {
+    core.push(['EVT-NEW-GOOGLE', 'New Google artwork', '21/10/2026', '',
+      'https://drive.google.com/file/d/NOT_IN_APPROVED_MANIFEST/view']);
+  }
+  if (opts.extraGoogleCanonical) {
+    core.push(['EVT-NEW-DRIVE', 'New Drive artwork', '21/10/2026', '',
+      'https://drive.google.com/thumbnail?id=NOT_IN_APPROVED_MANIFEST']);
+  }
+
   const web = core.map(row => [
     row[0], '', row[2], '',
     opts.imageMismatch && row[0] === core[0][0] ? 'https://images.example.test/wrong.jpg' : row[4],
@@ -252,8 +261,22 @@ test('49-to-48 thumbnail reference drift stops before any permissions write, eve
   assert.equal(f.getWrites(), 0);
 });
 
-test('source-of-truth card drift aborts before writing', () => {
+test('non-Drive card count drift does not invalidate the exact approved Drive scope', () => {
   const f = fixture({extraCard: true});
+  const result = f.api.dry();
+  assert.equal(result.active_files, 38);
+  assert.equal(result.changed, 0);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('new unfamiliar Google Drive URL fails closed before any ACL writes', () => {
+  const f = fixture({extraGoogleUnknown: true});
+  assert.throws(() => f.api.dry(), /SCOPED_GOOGLE_POSTER_URL_UNRECOGNIZED/);
+  assert.equal(f.getWrites(), 0);
+});
+
+test('new canonical Drive image ID fails the approved manifest', () => {
+  const f = fixture({extraGoogleCanonical: true});
   assert.throws(() => f.api.dry(), /SCOPED_ACTIVE_POSTER_DRIFT/);
   assert.equal(f.getWrites(), 0);
 });
