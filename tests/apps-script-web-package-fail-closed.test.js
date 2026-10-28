@@ -5,24 +5,16 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 
-// Exercise the actual Apps Script admission function without calling Google Sheets,
-// LINE, customer records, or a deployed Apps Script endpoint.
+// Exercise the actual Apps Script admission AND normalization/availability helpers.
+// Mock only the Sheets row provider: customer data, LINE, and deployed GAS are untouched.
 function makeGuard(rows){
   const code=fs.readFileSync(path.join(__dirname,'../apps-script/Code.gs'),'utf8');
-  const start=code.indexOf('function kkAssertWebPackageBookable_(eventId, templateId) {');
+  const start=code.indexOf('function kkTemplateIdFromWebPackageId_(packageId, eventId) {');
   const end=code.indexOf('\nfunction kkApiSnapshot_',start);
-  assert.ok(start>=0 && end>start,'live Apps Script admission function must be extractable');
+  assert.ok(start>=0 && end>start,'actual Apps Script admission helper block must be extractable');
   const body=code.slice(start,end);
   return vm.runInNewContext(body+'\nkkAssertWebPackageBookable_',{
-    kkNormalizeTemplateIdForEvent_(_eventId,templateId){return templateId;},
-    kkApiWebPackageRows_(){return rows;},
-    kkTemplateIdFromWebPackageId_(packageId,eventId){
-      return packageId.startsWith(eventId+'-')?packageId.slice(eventId.length+1):packageId;
-    },
-    kkIsWebPackageBookable_(p){
-      return ['available','open'].includes(String(p.package_status||'').toLowerCase())
-        && Number(p.available_count||0)>0 && Number(p.price||0)>0;
-    }
+    kkApiWebPackageRows_(){return rows;}
   });
 }
 const event='EVT-20261226-ALLYMPIC-MAIN';
@@ -56,4 +48,15 @@ test('zero or malformed price cannot make an unknown package bookable',()=>{
 test('present event rows but missing requested template fail closed',()=>{
   const wrong={event_id:event,package_id:event+'-TPL-ZEISS-2-35X-LENS',package_status:'available',available_count:2,price:300};
   assert.throws(()=>makeGuard([wrong])(event,template),/Package is not visible/);
+});
+
+test('full package ID input is normalized by the real Apps Script helpers',()=>{
+  assert.doesNotThrow(()=>makeGuard([row()])(event,event+'-'+template));
+});
+test('fake package status is not a valid reservation even with stock and price',()=>{
+  assert.throws(()=>makeGuard([row(event,{package_status:'pending'})])(event,template),/ไม่พร้อมจอง/);
+});
+test('invalid numeric stock or price never becomes bookable',()=>{
+  assert.throws(()=>makeGuard([row(event,{available_count:'not-a-number'})])(event,template),/ไม่พร้อมจอง/);
+  assert.throws(()=>makeGuard([row(event,{price:'not-a-number'})])(event,template),/ไม่พร้อมจอง/);
 });
