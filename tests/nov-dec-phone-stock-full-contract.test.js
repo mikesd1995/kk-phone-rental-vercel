@@ -18,7 +18,7 @@ function sourceFunction(src,name){
 }
 function compile(src,name,sandbox={}){
  const context=vm.createContext(sandbox);
- return vm.runInContext(sourceFunction(src,name)+'\\n'+name,context);
+ return vm.runInContext(sourceFunction(src,name)+'\n'+name,context);
 }
 const webAction=compile(gs,'kkFormulaWebReadyAction_');
 const webBookingStatus=compile(gs,'kkFormulaWebReadyBookingStatus_');
