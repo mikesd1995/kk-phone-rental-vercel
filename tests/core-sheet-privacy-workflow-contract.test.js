@@ -8,10 +8,11 @@ const source=()=>fs.readFileSync(file,'utf8');
 test('Core P0 CI runs on PR or exact gated Draft push and checks out reviewed SHA without credentials',()=>{
  const s=source();
  assert.match(s,/on:\s*\n\s*pull_request:/);
- assert.match(s,/\\n\\s*push:\\s*\\n\\s*branches:\\s*\\n\\s*- fix\\/core-sheets-privacy-private-read-gates-20261014/);
- assert.doesNotMatch(s,/\\n\\s*- main\\s*(?:\\n|$)/);
- assert.match(s,/'\\.github\\/workflows\\/core-sheet-privacy-exact-head\\.yml'/);
- assert.match(s,/'tests\\/core-sheet-privacy-workflow-contract\\.test\\.js'/);
+ assert.ok(s.includes('  push:'));
+ assert.ok(s.includes('      - fix/core-sheets-privacy-private-read-gates-20261014'));
+ assert.ok(!s.includes('      - main'));
+ assert.ok(s.includes("'.github/workflows/core-sheet-privacy-exact-head.yml'"));
+ assert.ok(s.includes("'tests/core-sheet-privacy-workflow-contract.test.js'"));
  assert.match(s,/permissions:\s*\n\s+contents:\s*read/);
  assert.match(s,/ref:\s*\$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
  assert.match(s,/persist-credentials:\s*false/);
