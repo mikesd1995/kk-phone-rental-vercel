@@ -41,3 +41,18 @@ Test coverage includes valid empty and benign-event envelopes, valid signature o
 4. Existing P0s remain OPEN: Core Private Reader #738/#739, Poster ACL #718/#721, Booking #796, Scanner #777 and release #49.
 
 **No Merge/Deploy, Production/environment, Booking/customer, payment, spreadsheet, ACL, LINE send, external automation or paid service writes occurred.** Branch-only source/tests/doc delivery.
+
+## R2 independent source-level acceptance (2026-10-29 ICT)
+
+**Purpose:** verify that malformed or unsigned inbound webhook content is rejected by the **actual `api/line-webhook.js` entrypoint source** before any downstream booking handler invocation, and that valid signed envelopes still delegate. This is a separate boundary acceptance layer, not full LINE provider E2E.
+
+- Added `tests/line-webhook-no-downstream-on-reject.test.js`, **exact Git blob `d08cd31a049f27497bf958c32144b2df1fab2a2e`** (verified via GitHub readback against native-tested local file).
+- The test loads the **unchanged exact source blob `6024548127ec7a0342919cbe989fb804052c5ac8`** from disk using an isolated Node VM. Only the delegated Booking Handler is replaced by an isolated counter stub. No network, secret, customer data, persistence or real LINE sends occur.
+- Native Node **v22.16.0**: `node --check` passes for the entrypoint and both test files; `node --test tests/line-webhook-signed-envelope.test.js tests/line-webhook-no-downstream-on-reject.test.js` returned **23/23 PASS, 0 FAIL, 0 SKIP**. The previous test blob `133ac92707810e90c396e897b97100c82cd0b829` also matched GitHub exactly.
+- Negative-path checks assert zero delegate calls on valid-HMAC `null`, missing/non-array `events`, invalid JSON, bad/absent HMAC, raw request over 1 MiB, and oversized streaming body. Valid signed `events:[]` delegates once and preserves streamed bytes. Missing token and non-POST intentionally delegate to the Codex-owned handler, preserving its existing 503/405 ownership.
+- **Baseline regression sensitivity:** the exact old main entrypoint blob `3698d9ff23d872bec00e9bca2680e10f7749f9ca` (also verified with native `git hash-object`) produced **6/10 PASS, 4/10 FAIL, nonzero exit** against the new isolation tests; the patched entrypoint produced **10/10 PASS**. Baseline failure proves this suite detects a real improvement instead of only asserting unchanged behavior.
+- **Repo and Codex ownership:** current main still `57ec0227193ea186f034e1628ed331e33620dcc6`; Codex Draft #744 still `a742fcb2a0f373eacccf9f4f8a31a8a133a68667`. Git compare prior to this addendum: branch **4 commits ahead / 0 behind**, exactly four paths (API modified + 2 test files and 1 report added). No path overlap with #744 changed-file list.
+- **Not yet accepted:** real booking handler dependency closure and E2E, native full repository suite, hosted exact-head CI, PR reviewer approval, customer privacy cutover, Production release or runtime LINE provider verification. No PR auto-created to avoid unapproved Preview/Actions cost. Any eventual cherry-pick must rebase against newly refreshed HEAD and verify no semantic contract conflicts.
+- **Release classification:** **ISOLATED TESTS PASS / RELEASE HOLD**. Core security #738, Drive poster ACL #718, Booking #796, Scanner #777 and final gate #49 remain unresolved.
+
+No Production, Booking, LINE provider, Secrets, customer, Google Sheets, ACL, financial values, Scanner/Automation, Merge, Deploy or billing changes were performed.
