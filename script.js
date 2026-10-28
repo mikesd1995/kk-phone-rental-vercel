@@ -1581,7 +1581,9 @@ function showModal(c,options){
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
 
   var list=document.getElementById("phone-list"); list.innerHTML="";
-  var avail=availPkgs(c);
+  // Lens-only availability may be valid for existing phone renters, but it
+  // must not offer a new booking when the event has zero bookable phones.
+  var avail=availCnt(c)>0?availPkgs(c):[];
 
   if(!avail.length){
     var fullBox=document.createElement("div");
