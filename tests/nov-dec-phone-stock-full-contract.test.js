@@ -90,3 +90,15 @@ test('storefront preserves full event as visible waitlist, not an owner hide',()
 test('future approved deploy forces browsers to load the corrected storefront code',()=>{
  assert.ok(html.includes('script.js?v=nov-dec-phone-lens-full-20261029'));
 });
+
+test('phone-full modal offers waitlist instead of a clickable lens-only booking',()=>{
+ const event={phoneCnt:0,lensCnt:1,packages:[
+  {type:'phone_only',avail:false},
+  {type:'phone_lens_bundle',avail:false},
+  {type:'lens_only',avail:true}
+ ]};
+ assert.equal(availCnt(event),0);
+ assert.ok(storefront.includes('var avail=availCnt(c)>0?availPkgs(c):[];'));
+ assert.ok(storefront.includes('waitBtn.href=getWaitlistUrl(c,null)'));
+ assert.ok(storefront.includes('if(!avail.length){'));
+});
