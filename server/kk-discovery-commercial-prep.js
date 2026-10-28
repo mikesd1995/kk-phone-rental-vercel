@@ -13,10 +13,17 @@ function normalizeCompetitor(row={}){
  const rawType=text(row.package_type).toUpperCase();
  const type=['PHONE_ONLY','PHONE'].includes(rawType)?'PHONE_ONLY':
   ['PHONE_LENS','PHONE_LENS_BUNDLE','PHONE_LENS_PACKAGE','BUNDLE','PHONE_PLUS_LENS'].includes(rawType)?'PHONE_LENS':'';
+ // If a seller explicitly states a device, reject other brands/models
+ // and mixed Pro/Ultra offers rather than treating them as exact X300 Pro.
+ const device=text(row.device||row.device_model||row.model);
+ const compact=device.toUpperCase().replace(/[^A-Z0-9]/g,'');
+ const device_model_compatible=!device||(compact.includes('X300PRO')&&
+  !/(ULTRA|SAMSUNG|IPHONE|X200|X100|S25|S26|MIXED)/.test(compact));
  return {
   competitor_id:text(row.competitor_id||row.account||row.shop),
   event_key:text(row.event_key),
   package_type:type,
+  device_model_compatible,
   price:money(row.price),
   source_url:httpsUrl(row.source_url),
   observed_at:text(row.observed_at),
@@ -66,7 +73,7 @@ function publishEligibility(candidate={},input={}){
 
 function priceEvidence(candidate={},rows=[]){
  const key=text(candidate.event_key||candidate.candidate_id);
- const normalized=rows.map(normalizeCompetitor).filter(r=>r.exact_event&&r.event_key===key&&r.competitor_id&&r.package_type&&r.price&&r.source_url);
+ const normalized=rows.map(normalizeCompetitor).filter(r=>r.exact_event&&r.event_key===key&&r.competitor_id&&r.package_type&&r.device_model_compatible&&r.price&&r.source_url);
  // A phone-only rental and a phone+lens package are different markets.
  // Never certify a median by mixing their prices or counting one seller twice.
  const byCompetitor=new Map();
