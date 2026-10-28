@@ -515,3 +515,11 @@ test('non-image file mixed into historical asset tree aborts before mutation', (
   assert.throws(() => f.api.dry(), /NON_IMAGE_IN_KK_ASSET_TREE/);
   assert.equal(f.getWrites(), 0);
 });
+
+test('28 Oct active ACL allowlist is sorted, unique and image-ID shaped', () => {
+  assert.equal(expected.length, 38);
+  assert.deepEqual(expected, [...new Set(expected)].sort(),
+    'the approval manifest must never contain duplicate or out-of-order file IDs');
+  assert.ok(expected.every(id => /^[A-Za-z0-9_-]+$/.test(id)),
+    'approval manifest entries must only contain canonical Drive ID characters');
+});
