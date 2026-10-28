@@ -39,4 +39,4 @@ function evaluate(body,cfg,authorization,observedAt=new Date()){
  const match=binding&&adapterBinding.bot_id===body.bot_id&&Adapter.bindingDigest(adapterBinding)===body.provider_binding_sha256;
  return {status:200,body:{mode:'canonical-readiness',version:'v1',authenticated:true,nonce:body.nonce,observed_at:observedAt.toISOString(),send_allowed:false,transport_enabled:false,canonical_enabled:false,producer_enabled:false,signing_secret_configured:signing,canonical_secret_configured:canonical,producer_secret_configured:producer,gas_project_configured:project,gas_deployment_configured:deployment,gas_oauth_configured:oauth,durable_store_configured:store,owner_chat_configured:owner,adapter_binding_configured:binding,adapter_binding_match:match,off_configuration_ready:!!(signing&&canonical&&producer&&project&&deployment&&oauth&&store&&owner&&match)}};
 }
-module.exports={READINESS_MODULE,READINESS_MODULE_SHA256,evaluate,validBody};
+module.exports={READINESS_MODULE,READINESS_MODULE_SHA256,evaluate,validBody,authenticate};
