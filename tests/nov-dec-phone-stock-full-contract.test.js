@@ -11,7 +11,7 @@ const storefront=fs.readFileSync(path.join(root,'script.js'),'utf8');
 const admin=fs.readFileSync(path.join(root,'admin','admin.js'),'utf8');
 
 function sourceFunction(src,name){
- const pattern=new RegExp('function '+name+'\\([^)]*\\) \\{[\\s\\S]*?\\n\\}');
+ const pattern=new RegExp('function '+name+'\\([^)]*\\)\\s*\\{[\\s\\S]*?\\n\\}');
  const hit=src.match(pattern);
  assert.ok(hit,'Missing function '+name);
  return hit[0];
