@@ -26,6 +26,19 @@ on:
       - '.github/workflows/ultra-deep-v2-acceptance.yml'
       - 'tests/ci-ultra-deep-v2-workflow-safety.test.js'
 
+  # Draft-branch only: default/main does not yet contain this workflow.
+  # No remote providers, secrets, deployment or customer/ACL writes.
+  push:
+    branches:
+      - fix/core-sheets-privacy-private-read-gates-20261014
+    paths:
+      - '.github/workflows/core-sheet-privacy-exact-head.yml'
+      - 'tests/core-sheet-privacy-workflow-contract.test.js'
+      - 'tests/core-*.test.js'
+      - 'server/core-sheet-private-reader.js'
+      - 'server/core-sheet-apps-script-reader.js'
+      - 'scripts/core-private-cutover-preflight.cjs'
+
 permissions:
   contents: read
 
@@ -41,12 +54,12 @@ jobs:
       - name: Checkout exact PR revision without write credentials
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
           fetch-depth: 1
       - name: Verify exact PR head
         env:
-          APPROVED_SHA: ${{ github.event.pull_request.head.sha }}
+          APPROVED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
           test ! -f package-lock.json
