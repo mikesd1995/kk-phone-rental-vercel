@@ -18,21 +18,29 @@ function verifySignature(rawBody, signature, channelSecret){
   return a.length===b.length && crypto.timingSafeEqual(a,b);
 }
 function sourceIdentity(source={}){
+  if(!source||typeof source!=='object'||Array.isArray(source)) return '';
   return String(source.userId||source.groupId||source.roomId||'').trim();
 }
 function normalizeEvent(event={}){
+  if(!event||typeof event!=='object'||Array.isArray(event)) return null;
   const externalUserId=sourceIdentity(event.source);
   if(!externalUserId) return null;
   const type=String(event.type||'').trim();
   if(type!=='message') return null;
-  const msg=event.message||{};
+  const msg=event.message&&typeof event.message==='object'&&!Array.isArray(event.message)?event.message:{};
+  const externalMessageId=String(event.webhookEventId||msg.id||'').trim();
+  if(!externalMessageId) return null;
+  // A malformed provider timestamp must not crash the entire signed batch.
+  const timestamp=Number(event.timestamp);
+  const timestampValid=event.timestamp!==undefined&&event.timestamp!==null&&
+    Number.isFinite(timestamp)&&Number.isFinite(new Date(timestamp).getTime());
   return Inbox.normalizeInbound({
     channel:'line',
-    external_message_id:String(event.webhookEventId||msg.id||'').trim(),
+    external_message_id:externalMessageId,
     external_user_id:externalUserId,
     message_type:String(msg.type||'event'),
     text:msg.type==='text'?String(msg.text||''):'',
-    received_at:Number.isFinite(Number(event.timestamp))?new Date(Number(event.timestamp)).toISOString():'',
+    received_at:timestampValid?new Date(timestamp).toISOString():'',
     redelivery:Boolean(event.deliveryContext&&event.deliveryContext.isRedelivery),
     raw_ref:String(event.webhookEventId||'').trim(),
     line_message_id:String(msg.id||'').trim()
@@ -46,7 +54,7 @@ async function ingest(input={}, options={}){
   let payload;
   try{ payload=JSON.parse(raw.toString('utf8')); }
   catch(_){ return {schema_version:VERSION,status:'REJECTED_INVALID_JSON',http_status:400,writes:0,messages:[]}; }
-  const events=Array.isArray(payload.events)?payload.events:[];
+  const events=payload&&Array.isArray(payload.events)?payload.events:[];
   const messages=events.map(normalizeEvent).filter(Boolean);
   if(typeof options.persistFn!=='function'){
     return {schema_version:VERSION,status:messages.length?'BLOCKED_PERSISTENCE_UNAVAILABLE':'ACCEPTED_NO_EVENTS',http_status:messages.length?503:200,writes:0,messages};
