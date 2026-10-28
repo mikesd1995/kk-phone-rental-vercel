@@ -56,3 +56,23 @@ Test coverage includes valid empty and benign-event envelopes, valid signature o
 - **Release classification:** **ISOLATED TESTS PASS / RELEASE HOLD**. Core security #738, Drive poster ACL #718, Booking #796, Scanner #777 and final gate #49 remain unresolved.
 
 No Production, Booking, LINE provider, Secrets, customer, Google Sheets, ACL, financial values, Scanner/Automation, Merge, Deploy or billing changes were performed.
+
+## R3 — Cache-safe rejection, static privacy logs, blank-config parity (2026-10-29 ICT)
+
+**Reason for work:** The R2 API signature preflight correctly rejects untrusted requests, but its early 400/401/413 responses bypass the inner booking handler's `Cache-Control: no-store` and `X-Content-Type-Options: nosniff` headers. The outer raw-body exception handler also logged arbitrary stream `error.message`, a possible untrusted-data leak to server logs. Its environment check used truthiness rather than the booking handler's trimmed secret/token readiness, misclassifying whitespace-only configuration.
+
+**Patch in only `api/line-webhook.js`:**
+1. Set both defensive headers at the outer request entrypoint before any early return, guarded for minimal synthetic response objects that do not implement `setHeader`.
+2. Log only `size-limit` or `read-failed` with the static `[line-webhook-raw-body]` prefix; do not log any thrown provider error message or raw body.
+3. Use trimmed values for `LINE_CHANNEL_SECRET` and `LINE_CHANNEL_ACCESS_TOKEN` when deciding whether to run early signed-envelope validation. If either is blank, delegate to the inner handler's existing configuration check and its 503 response.
+
+**Native acceptance and regression evidence:**
+- New isolated test file: `tests/line-webhook-security-response.test.js`, SHA-verified Git blob **`7f2fed7386076d77483bcd96a9825f3d0065b6a2`**.
+- Final patched source: `api/line-webhook.js`, SHA-verified Git blob **`7d29d37c1aa7888a4c19f1aa15a0bfb63db9ca31`**.
+- Native Node **v22.16.0**, `node --check` for both files PASS; `node --test tests/line-webhook-security-response.test.js`: **10/10 PASS, 0 FAIL, 0 SKIP**.
+- **Mutation witness:** restore the exact previous R2 source Git blob `6024548127ec7a0342919cbe989fb804052c5ac8` and rerun the same suite: **1/10 PASS, 9/10 FAIL, exit 1**. Restore patched source blob: **10/10 PASS**. Both local source blobs were verified with `git hash-object`, and the GitHub updated source/test blobs matched the same local hashes.
+- Cases cover unauthenticated 401, signed malformed-envelope 400, oversized 413, secrets in simulated stream error messages (must not echo), valid signed stream delegation, whitespace token/secret delegation, GET path unchanged, mixed-case signature header, and backward compatibility with response mocks lacking setHeader.
+- **Scope limitation:** new R3 source VM tests substitute the downstream Booking Handler; they do **not** prove production header behavior on Vercel, actual LINE reply/token delivery, full repository CI or real customer Booking. Prior R2 **23/23** acceptance was run against the earlier R2 source SHA; do not claim 33/33 were rerun on the R3 SHA without doing so.
+- **No new CI workflows, hosting, secrets, credentials, Production, customer, Booking, price, payment, ACL or automation writes.** One existing source file and one additional test file were changed/added; neither touches Codex #744's `server/line-booking-webhook.js`. There is no automatic merge/deploy.
+
+**Remaining release acceptance:** Codex #744 exact-HEAD integration, `node --test` of all three new entrypoint test files plus repository LINE/Booking test suites at the merged candidate SHA, authentication/authorization negative checks, no-customer-write synthetic booking E2E, owner approval, and Security/Poster/Booking P0 gates #738/#718/#796 before Production.
