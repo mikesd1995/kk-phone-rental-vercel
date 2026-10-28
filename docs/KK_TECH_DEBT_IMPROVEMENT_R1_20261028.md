@@ -79,3 +79,32 @@ node --test tests/kk-tech-debt-baseline.test.js      12 PASS / 0 FAIL / 0 SKIP
 **Connector readback:** all four files found on separate branch; compare `main...audit/tech-debt-guard-20261028-r1` yielded **ahead 4, behind 0, four `added` paths, zero changed existing paths**. Codex Draft PR #744 remained at `a742fcb2a0f373eacccf9f4f8a31a8a133a68667` when checked; no write or merge to that branch. Vercel Production was **READY** at `57ec0227193ea186f034e1628ed331e33620dcc6`, deployment `dpl_4UsZU37NDxvoSPNL7CPKJY65mZhm`. This work did not initiate that deployment.
 
 **Release disposition:** Source-only tooling delivered and locally verified; existing issues and Production security remain OPEN. No GitHub-hosted Actions, preview builds, CI integration, PR creation, Production writes or provider usage were initiated. Next owner/Codex review may cherry-pick only the four new files after checking latest Main, without overriding active P0 work.
+
+## 2026-10-28 R2 — Guard blind spots closed, no Codex overlap
+
+**Starting reference:** main and production `57ec0227193ea186f034e1628ed331e33620dcc6`; Codex Draft #744 HEAD `a742fcb2a0f373eacccf9f4f8a31a8a133a68667`. This is a follow-up on the isolated audit branch, **not** a main or Codex-branch update.
+
+### Before / after
+
+| Regression category | R1 | R2 |
+| --- | --- | --- |
+| New public-source URL references in customer browser | `script.js` exact Google Sheets path only | Also inspect `script.js` **and** `config.js` for direct Sheets, Apps Script and GViz literal references |
+| Public API boundary | API-only, fallback disabled flags | Also check `apiEndpoint: '/api/kk-data'` |
+| New HTML rendering sink | Count only | Flag added `innerHTML =` assignments for manual review; **not** a declaration of XSS |
+| Build-check proliferation | npm script count only | Also flag unusually long new `scripts.check` expansions |
+| Baseline corruption | Schema/version check only | Validate R2 guard counter fields and baseline shape, fail closed |
+| Existing code technical debt | Measured, does not fail | Still measured; no change in production risk |
+
+**Exact R2 commit/readback evidence:**
+- Source patch `5e5807cb589e05ff01e626ce4598aba219c907f8`, blob `b3586df4a26885dc6558ac84a0d75bbfdd3af1ce`.
+- Regression tests `79391ee4a83714745e117f7125edd3620b614848`, blob `64f1cd903cac9b91abe3ee6b7b27bcef959772a8`.
+- Pinned JSON baseline `8854f03fde1865d9f77f68e84fade19eff1aabdf`, blob `c8c7049cb8024d3a758a158f21aeb322cdfec214`.
+- After each update, GitHub **branch content readback matched new blob SHA and full text**. Git compare before this documentation append: **8 ahead, 0 behind, exactly four added paths, 0 existing paths modified**, no overlap with Codex #744 changed file set.
+
+**Executed tests:** 18/18 PASS (0 failed) using the exact updated JavaScript source with isolated V8 and in-memory mock implementations of Node's `fs`, `path`, `os`, `assert` and test registry. This included all 12 original cases and 6 additional tests: newly added config Apps Script source reference, storefront GViz reference, HTML sink, sink reduction, long check-script growth, and malformed extended baseline. A first harness run got 17/18 because the V8 test harness failed to provide the `process` argument; **no R2 code was committed on that failure**. After fixing that harness, 18/18 passed and all three source/test/baseline files were committed with exact full-content readback.
+
+**Test tier limitation:** R2 is exact-source **isolated V8 synthetic acceptance**, not native `node --test` on the updated branch, not a GitHub-hosted Actions run, and not customer-browser E2E. The prior R1 native Node 12/12 result does not automatically cover R2. Require native `node --test tests/kk-tech-debt-baseline.test.js` on the exact R2 revision before adopting it as a required CI gate.
+
+**Code guard limitations:** Static literal-pattern scanning cannot guarantee absence of dynamically constructed URLs or XSS. New `innerHTML` assignments are a review trigger only. This tool remains observational and read-only. It must never be used to waive Core Privacy #738, Poster ACL #718, Booking #796, scanner #777, or Final Production Gate #49.
+
+**Operations:** No new GitHub-hosted CI, PR/Preview, Vercel deployment, Apps Script deployment, Secrets, price, customer Booking, LINE, Drive ACL, Google Sheets or production automation writes occurred. No paid services used. Next safe step: native exact-branch Node test and then owner/Codex review of independent branch as an optional guard with no runtime changes.
