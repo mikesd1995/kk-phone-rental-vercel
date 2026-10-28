@@ -43,11 +43,18 @@ function kkAclReadActive_20261013(){
     if(String(row[2]||'').trim()!==String(w[2]||'').trim())
       throw Error('SCOPED_ACTIVE_EVENT_DATE_DIVERGED');
     if(String(row[4]||'')!==String(w[4]||''))throw Error('IMAGE_READBACK_DIVERGED:'+row[0]);
-    const m=String(row[4]||'').match(/^https:\/\/drive\.google\.com\/thumbnail\?id=([A-Za-z0-9_-]+)/);
+    // Cards using non-Drive artwork are not part of this Drive ACL repair.
+    // An unfamiliar Google-hosted URL must fail closed, not bypass the manifest.
+    const artwork=String(row[4]||'').trim();
+    const m=artwork.match(/^https:\/\/drive\.google\.com\/thumbnail\?id=([A-Za-z0-9_-]+)(?:[&#][^\s]*)?$/);
     if(m)refs.push(m[1]);
+    else if(/^https?:\/\/(?:drive\.google\.com|(?:[\w-]+\.)?googleusercontent\.com)\//i.test(artwork))
+      throw Error('SCOPED_GOOGLE_POSTER_URL_UNRECOGNIZED');
   }
   const files=[...new Set(refs)].sort();
-  if(cards.length!==89||refs.length!==49||files.length!==KKACL_EXPECTED.length||
+  // Bind owner approval to the exact pinned Drive IDs and 49 references,
+  // not the mutable count of unrelated non-Drive event cards.
+  if(refs.length!==49||files.length!==KKACL_EXPECTED.length||
      files.some((x,i)=>x!==KKACL_EXPECTED[i]))throw Error('SCOPED_ACTIVE_POSTER_DRIFT');
   return files;
 }
