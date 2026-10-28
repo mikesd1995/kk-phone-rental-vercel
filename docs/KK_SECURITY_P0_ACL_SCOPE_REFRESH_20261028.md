@@ -45,3 +45,10 @@ Removed IDs may remain historical and/or publicly writable. **Do not grant or re
 
 ## Rollback
 If draft source is unsuitable, revert this exact draft commit only. There are **zero live permissions or customer changes** to roll back at this checkpoint. Full release remains under final gate #49.
+
+## 28 Oct 2026 — Regression fixture reconciliation and Draft-only CI trigger
+Follow-up after the initial atomic scope refresh:
+- Corrected test assertions to reflect 38 active images (25 + **13**, not 25 + 14); 45 synthetic mocked nodes (three paginated detail pages **20/20/5**); mock writer count after 25 writes is **20** (13 active + 7 held). Historic private file is excluded from Writer totals (**44** initial mock public writers, **19** after first 25).
+- Added a **push trigger restricted to the existing PR #721 Draft branch** on its offline test/helper paths because the `kk-poster-acl-offline.yml` workflow is *absent on default/main*. A PR-only workflow authored only on the head branch did not produce exact-current-head CI. GitHub Actions runs on `push` to this Draft branch must check out `github.sha`, not `main`; this should not mutate Drive/Sheets/Booking/Production.
+- The workflow explicitly checks exact Git SHA, runs Node syntax and unit tests without npm install, and has no secrets/permission-write steps. Record actual hosted result separately; **do not presume success until the run reports SUCCESS on the new exact SHA**.
+- This fix changes no Drive ACL, poster URL, owner locks, bookings, prices or data.

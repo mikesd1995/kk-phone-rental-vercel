@@ -207,9 +207,9 @@ test('dry run prints complete asset scope with paged provenance, without editing
   assert.equal(summary.active_public_writer, 38);
   assert.equal(summary.other_public_writer, 7);
   assert.equal(summary.historical_images, 3);
-  assert.equal(f.logs.length, 4, 'summary and 3 detail pages with 20,20,6 items');
+  assert.equal(f.logs.length, 4, 'summary and 3 detail pages with 20,20,5 items');
   const pages = f.logs.slice(1).map(JSON.parse);
-  assert.deepEqual(pages.map(x => x.items.length), [20, 20, 6]);
+  assert.deepEqual(pages.map(x => x.items.length), [20, 20, 5]);
   assert.equal(pages.flatMap(x => x.items).filter(x => x.active_poster).length, 38);
   assert.ok(pages.flatMap(x => x.items).every(x => x.name.startsWith('Mock asset ')));
   assert.ok(pages.flatMap(x => x.items).every(x => x.id_suffix.length === 6));
@@ -224,7 +224,7 @@ test('private September reference excluded without weakening active repair guard
   assert.equal(f.getWrites(), 0);
 });
 
-test('nine missing official posters do not widen the Drive ACL repair scope', () => {
+test('non-Drive artwork does not widen the Drive ACL repair scope', () => {
   const f = fixture({missingArtwork: true});
   const result = f.api.dry();
   assert.equal(result.active_files, 38);
@@ -341,7 +341,7 @@ test('active image-only owner batches 25+13; all four folders and historical wri
   assert.equal(first.ok, false, 'must never claim success while writers remain');
   assert.equal(first.partial, true);
   assert.equal(first.updated, 25);
-  assert.equal(first.remaining_writers, 21);
+  assert.equal(first.remaining_writers, 20);
   assert.equal(first.need_new_owner_dry_run, true);
   assert.equal(f.getWrites(), 25);
   // Never touch a parent folder (inherited historic ACL blast radius).
@@ -359,7 +359,7 @@ test('active image-only owner batches 25+13; all four folders and historical wri
   assert.equal(second.active_scope_completed, false,'folders remain a separate unapproved ACL scope');
   assert.equal(second.active_images_completed, true);
   assert.equal(second.partial, true);
-  assert.equal(second.updated, 14);
+  assert.equal(second.updated, 13);
   assert.equal(second.remaining_writers, 7);
   assert.equal(second.remaining_active_writers, 0);
   assert.equal(second.historical_public_writers, 3);
@@ -411,10 +411,10 @@ test('synthetic 247-image scope: 209 history and four ancestor folders untouched
   assert.equal(f.getWrites(), 0);
   const batch1 = f.api.apply(before.fingerprint);
   assert.equal(batch1.updated, 25);
-  assert.equal(batch1.remaining_active_writers, 14);
+  assert.equal(batch1.remaining_active_writers, 13);
   assert.equal(batch1.historical_public_writers, 209);
   const batch2 = f.api.apply(f.api.dry().fingerprint);
-  assert.equal(batch2.updated, 14);
+  assert.equal(batch2.updated, 13);
   assert.equal(batch2.active_scope_completed, false);
   assert.equal(batch2.active_images_completed, true);
   assert.equal(batch2.remaining_active_writers, 0);
@@ -473,7 +473,7 @@ test('moved Drive asset invalidates previously approved ACL fingerprint', () => 
 test('restricted historical asset is fingerprinted but never made public', () => {
   const f = fixture({privateID: 'brand-logo'});
   const dry = f.api.dry();
-  assert.equal(dry.public_writer, 45);
+  assert.equal(dry.public_writer, 44);
   assert.equal(dry.historical_images, 3);
   assert.equal(f.getWrites(), 0);
   const first = f.api.apply(dry.fingerprint);
@@ -483,7 +483,7 @@ test('restricted historical asset is fingerprinted but never made public', () =>
   assert.equal(first.restricted_historical, 1);
   assert.equal(f.roles['brand-logo'], undefined);
   const secondDry = f.api.dry();
-  assert.equal(secondDry.public_writer, 20);
+  assert.equal(secondDry.public_writer, 19);
   const last = f.api.apply(secondDry.fingerprint);
   assert.equal(last.ok, false, 'other two historic public Writers remain');
   assert.equal(last.active_scope_completed, false);

@@ -1,6 +1,16 @@
 name: KK Poster ACL Offline Security Regression
 on:
   workflow_dispatch:
+  # This workflow is not yet on main; a scoped push trigger makes GitHub
+  # run the exact Draft HEAD without changing any customer/Production state.
+  push:
+    branches:
+      - security/drive-public-acl-owner-review-20261013
+    paths:
+      - 'ops/drive-security/kk-poster-acl-owner-review-20261013.gs'
+      - 'ops/drive-security/kk-poster-acl-READONLY-preflight-20261014.gs'
+      - 'ops/drive-security/kk-poster-acl-owner-review-20261013.test.cjs'
+      - '.github/workflows/kk-poster-acl-offline.yml'
   pull_request:
     paths:
       - 'ops/drive-security/kk-poster-acl-owner-review-20261013.gs'
