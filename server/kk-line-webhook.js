@@ -2,6 +2,9 @@
 const crypto=require('crypto');
 const Inbox=require('./kk-unified-inbox-contract.js');
 const VERSION='KK_LINE_WEBHOOK_V1';
+// Bound signed webhook processing before parsing or persisting untrusted events.
+const MAX_WEBHOOK_BYTES=1024*1024;
+const MAX_WEBHOOK_EVENTS=100;
 
 function asBuffer(raw){
   if(Buffer.isBuffer(raw)) return raw;
@@ -27,7 +30,8 @@ function normalizeEvent(event={}){
   if(!externalUserId) return null;
   const type=String(event.type||'').trim();
   if(type!=='message') return null;
-  const msg=event.message&&typeof event.message==='object'&&!Array.isArray(event.message)?event.message:{};
+  if(!event.message||typeof event.message!=='object'||Array.isArray(event.message)) return null;
+  const msg=event.message;
   const externalMessageId=String(event.webhookEventId||msg.id||'').trim();
   if(!externalMessageId) return null;
   // A malformed provider timestamp must not crash the entire signed batch.
@@ -48,6 +52,9 @@ function normalizeEvent(event={}){
 }
 async function ingest(input={}, options={}){
   const raw=asBuffer(input.rawBody);
+  if(raw.length>MAX_WEBHOOK_BYTES){
+    return {schema_version:VERSION,status:'REJECTED_PAYLOAD_TOO_LARGE',http_status:413,writes:0,messages:[]};
+  }
   if(!verifySignature(raw,input.signature,input.channelSecret)){
     return {schema_version:VERSION,status:'REJECTED_INVALID_SIGNATURE',http_status:401,writes:0,messages:[]};
   }
@@ -55,6 +62,9 @@ async function ingest(input={}, options={}){
   try{ payload=JSON.parse(raw.toString('utf8')); }
   catch(_){ return {schema_version:VERSION,status:'REJECTED_INVALID_JSON',http_status:400,writes:0,messages:[]}; }
   const events=payload&&Array.isArray(payload.events)?payload.events:[];
+  if(events.length>MAX_WEBHOOK_EVENTS){
+    return {schema_version:VERSION,status:'REJECTED_TOO_MANY_EVENTS',http_status:413,writes:0,messages:[]};
+  }
   const messages=events.map(normalizeEvent).filter(Boolean);
   if(typeof options.persistFn!=='function'){
     return {schema_version:VERSION,status:messages.length?'BLOCKED_PERSISTENCE_UNAVAILABLE':'ACCEPTED_NO_EVENTS',http_status:messages.length?503:200,writes:0,messages};
@@ -67,4 +77,4 @@ async function ingest(input={}, options={}){
   }
   return {schema_version:VERSION,status:'ACCEPTED',http_status:200,writes,duplicates,messages};
 }
-module.exports={VERSION,verifySignature,normalizeEvent,ingest};
+module.exports={VERSION,MAX_WEBHOOK_BYTES,MAX_WEBHOOK_EVENTS,verifySignature,normalizeEvent,ingest};
