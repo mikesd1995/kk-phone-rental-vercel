@@ -109,3 +109,39 @@ test('normalized event intentionally excludes unreviewed raw fields',()=>{
   assert.equal(msg.accessToken,undefined);
   assert.equal(msg.phone,undefined);
 });
+
+test('signed message event missing its message object is ignored without empty inbox writes',async()=>{
+  let writes=0;
+  const invalid=event({message:null});
+  const r=await Webhook.ingest(signed([invalid,event({webhookEventId:'synthetic-good'})]),{
+    persistFn:async()=>{writes++;return {duplicate:false};}
+  });
+  assert.equal(r.writes,1);
+  assert.equal(writes,1);
+});
+test('raw webhook size is capped before JSON processing or persistence',async()=>{
+  let writes=0;
+  const huge={rawBody:'x'.repeat(Webhook.MAX_WEBHOOK_BYTES+1),signature:'fake',channelSecret:SECRET};
+  const r=await Webhook.ingest(huge,{persistFn:async()=>{writes++;return {duplicate:false};}});
+  assert.equal(r.http_status,413);
+  assert.equal(r.status,'REJECTED_PAYLOAD_TOO_LARGE');
+  assert.equal(r.writes,0);
+  assert.equal(writes,0);
+});
+test('signed event batch limit is enforced before any persisted writes',async()=>{
+  let writes=0;
+  const many=Array.from({length:Webhook.MAX_WEBHOOK_EVENTS+1},(_,i)=>
+    event({webhookEventId:'synthetic-event-'+i}));
+  const r=await Webhook.ingest(signed(many),{persistFn:async()=>{writes++;return {duplicate:false};}});
+  assert.equal(r.status,'REJECTED_TOO_MANY_EVENTS');
+  assert.equal(r.http_status,413);
+  assert.equal(writes,0);
+  assert.equal(r.writes,0);
+});
+test('normal signed batches remain accepted within bounded resource limits',async()=>{
+  const many=Array.from({length:Webhook.MAX_WEBHOOK_EVENTS},(_,i)=>
+    event({webhookEventId:'synthetic-ok-'+i}));
+  const r=await Webhook.ingest(signed(many),{persistFn:async()=>({duplicate:false})});
+  assert.equal(r.http_status,200);
+  assert.equal(r.writes,Webhook.MAX_WEBHOOK_EVENTS);
+});
