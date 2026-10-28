@@ -54,9 +54,47 @@ function publishEligibility(candidate={},input={}){
 function priceEvidence(candidate={},rows=[]){
  const key=text(candidate.event_key||candidate.candidate_id);
  const normalized=rows.map(normalizeCompetitor).filter(r=>r.exact_event&&r.event_key===key&&r.competitor_id&&r.price&&r.source_url);
- const byCompetitor=new Map();for(const r of normalized){const k=r.competitor_id.toLowerCase()+'|'+r.package_type;if(!byCompetitor.has(k))byCompetitor.set(k,r);}
- const unique=[...byCompetitor.values()];const shops=new Set(unique.map(r=>r.competitor_id.toLowerCase()));const prices=unique.map(r=>r.price);const n=shops.size;
- return {evidence_type:'EXACT_EVENT_COMPETITOR_PRICE',minimum_independent_competitors:MIN_EXACT_COMPETITORS,independent_competitors:n,complete:n>=MIN_EXACT_COMPETITORS,market_median:prices.length?median(prices):null,market_min:prices.length?Math.min(...prices):null,market_max:prices.length?Math.max(...prices):null,evidence:unique};
+ // A phone-only rental and a phone+lens package are different markets.
+ // Never certify a median by mixing their prices or counting one seller twice.
+ const byCompetitor=new Map();
+ for(const r of normalized){
+  const key=r.competitor_id.toLowerCase()+'|'+r.package_type;
+  if(!byCompetitor.has(key))byCompetitor.set(key,r);
+ }
+ const unique=[...byCompetitor.values()];
+ const byPackage=new Map();
+ for(const row of unique){
+  if(!byPackage.has(row.package_type))byPackage.set(row.package_type,[]);
+  byPackage.get(row.package_type).push(row);
+ }
+ // Prefer the best-supported package; prefer phone-only on ties to avoid
+ // treating a lens bundle as the base price for a standalone phone.
+ const ranked=[...byPackage.entries()].sort((a,b)=>
+  b[1].length-a[1].length
+  || Number(b[0]==='PHONE_ONLY')-Number(a[0]==='PHONE_ONLY')
+  || a[0].localeCompare(b[0])
+ );
+ const selected=ranked[0]||['',[]];
+ const prices=selected[1].map(row=>row.price);
+ const n=selected[1].length;
+ const package_summary=Object.fromEntries(ranked.map(([type,rows])=>[type,{
+  independent_competitors:rows.length,
+  market_median:median(rows.map(row=>row.price))
+ }]));
+ return {
+  evidence_type:'EXACT_EVENT_COMPETITOR_PRICE',
+  minimum_independent_competitors:MIN_EXACT_COMPETITORS,
+  independent_competitors:n,
+  observed_independent_competitors:new Set(unique.map(row=>row.competitor_id.toLowerCase())).size,
+  complete:n>=MIN_EXACT_COMPETITORS,
+  market_package_type:selected[0],
+  package_summary,
+  market_median:prices.length?median(prices):null,
+  market_min:prices.length?Math.min(...prices):null,
+  market_max:prices.length?Math.max(...prices):null,
+  evidence:selected[1],
+  all_package_evidence:unique
+ };
 }
 
 function proposalEvidence(candidate={},input={},exact={}){
