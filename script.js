@@ -1216,14 +1216,12 @@ function getMonthOptions(concerts){
 }
 function availPkgs(c){ return (c.packages||[]).filter(function(p){return p.avail;}); }
 function availCnt(c){
-  // Event-level stock is the canonical shared pool. Never use MAX(package counts):
-  // phone_only and phone_lens_bundle draw from the same phones, so taking MAX can
-  // make a booked phone appear available again.
+  // Only bookable phones can make an event "available" for a new phone rental.
+  // A lens-only add-on is not a spare phone: count it separately for existing
+  // customers, but never turn a fully booked phone date into an open event.
   var ap=availPkgs(c);
   var hasPhone=ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
-  var hasLensOnly=ap.some(function(p){return p.type==="lens_only";});
   if(hasPhone) return Math.max(0,toNum(c&&c.phoneCnt));
-  if(hasLensOnly) return Math.max(0,toNum(c&&c.lensCnt));
   return 0;
 }
 function availTextFor(c){
