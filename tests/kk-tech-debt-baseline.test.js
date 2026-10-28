@@ -14,7 +14,7 @@ function fixture() {
     'apps-script/Code.gs': 'function ownerOnly() { return true; }\n',
     'api/kk-data.js': 'const gviz = "gviz/tq";\n',
     'server/admin-sheet-fallback.js': 'const old = "gviz/tq";\n',
-    'config.js': 'window.KK_CONFIG={publicDataMode:"api-only",disableDirectFallback:true,useVercelApi:true};\n',
+    'config.js': 'window.KK_CONFIG={publicDataMode:"api-only",disableDirectFallback:true,useVercelApi:true,apiEndpoint:"/api/kk-data"};\n',
     'package.json': JSON.stringify({scripts:{test:'node --test',check:'node --check script.js'}})
   };
   for (const [name, contents] of Object.entries(files)) {
@@ -36,7 +36,7 @@ test('snapshot captures aggregate sizes, known legacy reader counts and explicit
   assert.equal(s.modules['script.js'].lines,2);
   assert.equal(s.legacy_public_gviz['api/kk-data.js'],1);
   assert.equal(s.legacy_public_gviz['server/admin-sheet-fallback.js'],1);
-  assert.deepEqual(s.browser,{api_only:true,direct_fallback_disabled:true,uses_server_api:true,direct_sheets_urls:0});
+  assert.deepEqual(s.browser,{api_only:true,direct_fallback_disabled:true,uses_server_api:true,direct_sheets_urls:0,public_source_refs:0,local_api_endpoint:true});
   assert.equal(s.tooling.npm_scripts,2);
   assert.equal(s.tooling.has_test_script,true);
 }));
@@ -46,7 +46,7 @@ test('known existing debt does not cause false regression failure',()=>withFixtu
 }));
 test('removing each public-data browser guard is a regression',()=>withFixture(({dir})=>{
   const s=Auditor.snapshot(dir);
-  for (const key of ['api_only','direct_fallback_disabled','uses_server_api']) {
+  for (const key of ['api_only','direct_fallback_disabled','uses_server_api','local_api_endpoint']) {
     const change=mutated(s);change.browser[key]=false;
     assert.ok(Auditor.compare(change,baseline(s)).findings.some(f=>f.id==='BROWSER_PRIVATE_DATA_GUARD_REMOVED'));
   }
@@ -106,4 +106,39 @@ test('run returns only aggregate metrics and supports check without network',()=
   }finally{process.stdout.write=old;}
   assert.equal(chunks.length,1);
   assert.doesNotMatch(chunks[0],/private_key|customer_phone|API_TOKEN/);
+}));
+
+test('new browser direct-source reference in config is detected',()=>withFixture(({dir})=>{
+  const before=Auditor.snapshot(dir);
+  fs.appendFileSync(path.join(dir,'config.js'),'// script.google.com/macros/s/legacy\n');
+  const after=Auditor.snapshot(dir);
+  assert.equal(after.browser.public_source_refs,1);
+  assert.ok(Auditor.compare(after,baseline(before)).findings.some(x=>x.id==='BROWSER_PUBLIC_SOURCE_REFERENCE_ADDED'));
+}));
+test('new public GViz in storefront script requires review',()=>withFixture(({dir})=>{
+  const before=Auditor.snapshot(dir);
+  fs.appendFileSync(path.join(dir,'script.js'),'// gviz/tq\n');
+  assert.ok(Auditor.compare(Auditor.snapshot(dir),baseline(before)).findings.some(x=>x.id==='BROWSER_PUBLIC_SOURCE_REFERENCE_ADDED'));
+}));
+test('added innerHTML assignment requires review, not labeled XSS',()=>withFixture(({dir})=>{
+  const before=Auditor.snapshot(dir);
+  fs.appendFileSync(path.join(dir,'script.js'),'el.innerHTML = value;\n');
+  const result=Auditor.compare(Auditor.snapshot(dir),baseline(before));
+  assert.ok(result.findings.some(x=>x.id==='NEW_HTML_SINK_REQUIRES_REVIEW'));
+}));
+test('lower innerHTML usage does not trigger a regression',()=>withFixture(({dir})=>{
+  const before=Auditor.snapshot(dir),after=mutated(before);
+  before.modules['script.js'].inner_html_assignments=3;
+  after.modules['script.js'].inner_html_assignments=2;
+  assert.equal(Auditor.compare(after,baseline(before)).ok,true);
+}));
+test('large check-command expansion is detected',()=>withFixture(({dir})=>{
+  const before=Auditor.snapshot(dir),after=mutated(before);
+  after.tooling.check_command_chars+=2001;
+  assert.ok(Auditor.compare(after,baseline(before)).findings.some(x=>x.id==='BUILD_CHECK_COMMAND_GROWTH'));
+}));
+test('malformed new baseline fields fail closed',()=>withFixture(({dir})=>{
+  const before=Auditor.snapshot(dir),b=baseline(before);
+  delete b.snapshot.browser.public_source_refs;
+  assert.throws(()=>Auditor.compare(before,b),/TECH_DEBT_BASELINE_FIELDS_INVALID/);
 }));
