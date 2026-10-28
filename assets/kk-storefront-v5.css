@@ -2585,3 +2585,14 @@ html .kk-mock-hero .kk-hero-inline-arrow{
   }
   html .kk-benefit-grid>div>span:last-child{min-width:0!important}
 }
+
+
+/* Scope of organizer event vs actual rented-phone date: informational only.
+   Never suggest that a hidden/fully booked day is bookable. */
+.poster-grid .concert-card .pi-date-scope{
+  font-size:12px;
+  line-height:1.45;
+  opacity:.86;
+  overflow-wrap:anywhere;
+  margin:4px 0 6px;
+}
