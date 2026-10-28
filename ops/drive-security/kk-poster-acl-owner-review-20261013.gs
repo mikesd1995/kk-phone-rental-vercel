@@ -2,11 +2,11 @@
 // DO NOT install as trigger. Audit first. Apply needs explicit Dry Run fingerprint.
 // No booking, business spreadsheet, event-price or poster URL writes.
 const KKACL_BOOK='12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU';
-const KKACL_EXPECTED=["11lLELLP0U5s26pSnq83KEoJErDaRVbhc","11n_PykjFNHUaHN_Qn98dAKxRi-is3PY6","1HBgou64T-Njk8qSYxVftlx5Ep90rPRME","1HFY4aRt9jFDME1KXtGMCNakRZyCEpHgl","1HTmp7irQj7Ut97NNPCu_r6j3N1GtAZCy","1IJQ-3QTldmIMN886hs639cDh8l0I7l1N","1IuFwiQGTLFKu_kLy0IRDYQXlwWdeAXxB","1JhOUPGj9Qoi6r--zFEG0Bl-QCM5FK0O1","1MSARhcxKGVuZo4-HxdDmB6le2tl2mkrl","1OVYGQIlzt-n_la8eKKwgFIBcrrVxix78","1ROsveWgaivdG6qyujFJ5ofk5n87yZnr0","1RX-z43Znq0Aav02O_KASNexCHTN62sKf","1TKVc01SYSIP0TLFG9R3Ay3w0SKT-_S83","1UZRolQljkxmbbIWdH0k_Zl3XnQh_Gi8L","1V2sHeGxCuWZxGfL7JJIAAdTDBWGWrgNj","1V7BmLJk4w3DTpa55DlyauDRPZ0XhLkuC","1YAQKhOGwvtug-Z2Uae3wjFEYsxPGPz9J","1a72uNH2xAv_srOWwLY35tmXAvTJDw1Aw","1ayPxgd5_3Qa7DUwLu_5Kka90uwEPBMp2","1bsdn_iG_QEXudZIyqu-EL2gFaAkPZUHo","1dNV0SMV-y1UJraKmor2d7mYY-FvZn-9Y","1gRBzNK9FzB4dFd79Ifmfl_tuKOa4WDV9","1g_FLQ20KKd4hnxgUtJxyS775v5eX6PS2","1lNIh_rrlF_VmV5RBtetzKDQotLmTxwbm","1m-nHtWvAiVjeMycJdpWY5hTyyzNaLAuz","1nC3VeMJdiK3zie_6i1LV6m5aOPpEz_Ka","1oIzFoFiN3fz4mWUBaP82rtWrgLxptX2z","1oqhMwTdMLcIrVCUOTeJqDWvYeey3Fgxc","1qzZg3s9Wshx5IwAQ1ibnUP8oihuJSWL4","1sPjzmpjXPX5ax0e0ecYsC_Oj38K9gENI","1tFUzjXutDTuDTJxSg9vIHU2Pdg-Ob9m4","1tHq2I1PH4G7N0DECJvRCCghMZ8mP91u8","1uBAI1XN1U2MtT_kHFWFG8WLOcKMrXqPb","1usY7HMNml4plj98EQSJ9JGvvAlbsZSs0","1v9hbM_mr2uzd3WF-tEjNWqTFNXcUlwyk","1xCGMxDDqmKadYua8bjmlcHz-bzjMlQAO","1xpd3LaQEYjXB-yb-MS7z5xA_WdNEEp79","1yV2GACqS2IkzfBGGNTQFOwL6zUt1s7mo","1zt_jnwkr7mnFHUHOh8kXVdcd0MlgPErj"];
+const KKACL_EXPECTED=["1-rcnlEaIzpD2c4sY20awWIpgcFL8tPB6","11lLELLP0U5s26pSnq83KEoJErDaRVbhc","11n_PykjFNHUaHN_Qn98dAKxRi-is3PY6","11syuNeglet-52JiZWMoK4JMCzS0ajhYA","1HBgou64T-Njk8qSYxVftlx5Ep90rPRME","1HTmp7irQj7Ut97NNPCu_r6j3N1GtAZCy","1IJQ-3QTldmIMN886hs639cDh8l0I7l1N","1JhOUPGj9Qoi6r--zFEG0Bl-QCM5FK0O1","1MSARhcxKGVuZo4-HxdDmB6le2tl2mkrl","1OVYGQIlzt-n_la8eKKwgFIBcrrVxix78","1ROsveWgaivdG6qyujFJ5ofk5n87yZnr0","1RX-z43Znq0Aav02O_KASNexCHTN62sKf","1TKVc01SYSIP0TLFG9R3Ay3w0SKT-_S83","1UZRolQljkxmbbIWdH0k_Zl3XnQh_Gi8L","1V2sHeGxCuWZxGfL7JJIAAdTDBWGWrgNj","1YAQKhOGwvtug-Z2Uae3wjFEYsxPGPz9J","1ayPxgd5_3Qa7DUwLu_5Kka90uwEPBMp2","1dNV0SMV-y1UJraKmor2d7mYY-FvZn-9Y","1ethDWGhtYdbPJMrOu8oQQuE0ipip6KOj","1gRBzNK9FzB4dFd79Ifmfl_tuKOa4WDV9","1g_FLQ20KKd4hnxgUtJxyS775v5eX6PS2","1lNIh_rrlF_VmV5RBtetzKDQotLmTxwbm","1m-nHtWvAiVjeMycJdpWY5hTyyzNaLAuz","1nC3VeMJdiK3zie_6i1LV6m5aOPpEz_Ka","1oIzFoFiN3fz4mWUBaP82rtWrgLxptX2z","1oqhMwTdMLcIrVCUOTeJqDWvYeey3Fgxc","1sGSDVNYPlk-0k_fEgRVZgHjUUcVbz9DQ","1sPjzmpjXPX5ax0e0ecYsC_Oj38K9gENI","1tFUzjXutDTuDTJxSg9vIHU2Pdg-Ob9m4","1tHq2I1PH4G7N0DECJvRCCghMZ8mP91u8","1uBAI1XN1U2MtT_kHFWFG8WLOcKMrXqPb","1usY7HMNml4plj98EQSJ9JGvvAlbsZSs0","1xCGMxDDqmKadYua8bjmlcHz-bzjMlQAO","1xErT4LJNfnGN7MfXRZo-1B3IGhaH3RwC","1xpd3LaQEYjXB-yb-MS7z5xA_WdNEEp79","1yV2GACqS2IkzfBGGNTQFOwL6zUt1s7mo","1zlzXUfRFNA4yDFkUfYxF_l-PQTUTJL5u","1zt_jnwkr7mnFHUHOh8kXVdcd0MlgPErj"];
 const KKACL_FOLDERS=['1avy3Up3NJskqB7kCzQoQPWKK3-j1qJqS','1haTk15ElLwZM8NFcLvK36tbyLZo5wnzw','1uIfM-KV6FrJRQIP0ZNso7-ibZiSo1nwQ','1m6sOf1vl6l_tHscb-tNkTUjlEy82ELHl'];
 // Limit each explicitly owner-approved run; refresh Dry Run + fingerprint before each batch.
 const KKACL_MAX_WRITES_PER_APPROVAL=25;
-// Default is strictly 39 currently visible image IDs + 4 reviewed folders.
+// Default is strictly 38 currently visible image IDs + 4 reviewed folders.
 // Historical files are inventoried / fingerprinted but NEVER setSharing-ed.
 const KKACL_WRITE_SCOPE='ACTIVE_ONLY';
 
@@ -47,7 +47,7 @@ function kkAclReadActive_20261013(){
     if(m)refs.push(m[1]);
   }
   const files=[...new Set(refs)].sort();
-  if(cards.length!==73||refs.length!==48||files.length!==KKACL_EXPECTED.length||
+  if(cards.length!==89||refs.length!==49||files.length!==KKACL_EXPECTED.length||
      files.some((x,i)=>x!==KKACL_EXPECTED[i]))throw Error('SCOPED_ACTIVE_POSTER_DRIFT');
   return files;
 }
@@ -109,7 +109,7 @@ function kkAclDryRun_20261013(){
   const s=kkAclSnapshot_20261013();
   const info={dry_run:true,active_files:s.active,scoped_files:s.images,folders:s.folders,
               public_writer:s.writers,fingerprint:s.fingerprint,changed:0};
-  // The approved fingerprint encompasses every descendant, not just 39 active
+  // The approved fingerprint encompasses every descendant, not just 38 active
   // files. Make the full proposed blast radius independently reviewable before
   // anyone pastes the fingerprint into the owner-only apply entrypoint.
   info.scoped_items=s.items.length;
