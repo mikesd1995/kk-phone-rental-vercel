@@ -132,7 +132,7 @@ test('Admin snapshot fallback inherits Core private requirement, including cache
   let network=0;
   await assert.rejects(
     ()=>AdminFallback.buildSnapshot({sheetId:strict.GOOGLE_SHEET_ID,env:strict,cache:false,fetchImpl:async()=>{network++;throw Error('public forbidden');}}),
-    e=>e.code==='CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED'
+    e=>e.code==='CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED'
   );
   assert.equal(network,0);
 });

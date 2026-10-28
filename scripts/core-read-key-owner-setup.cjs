@@ -9,7 +9,9 @@ function assess(env=process.env){
   const checks={
     reader_key_present:read.length>0,
     reader_key_length_ok:read.length>=32,
-    reader_key_exact_format:rawRead===read,
+    // Reject pasted literal escape sequences and unsafe raw characters, not only trim drift.
+    // Align owner readiness with the actual Apps Script raw-key character contract.
+    reader_key_exact_format:rawRead===read&&/^[A-Za-z0-9_-]+$/.test(rawRead),
     separate_from_admin_key:read.length>=32&&admin.length>0&&read!==admin,
     usable_character_set:/^[A-Za-z0-9_-]+$/.test(read)
   };
