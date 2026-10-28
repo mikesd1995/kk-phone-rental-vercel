@@ -110,8 +110,80 @@ test('exact competitor evidence drives market-aligned phone and bundle prices',(
   ]
  });
  assert.equal(r.source,'EXACT_EVENT_COMPETITOR_MEDIAN');
- assert.equal(r.needs_price_recheck,false);
- assert.equal(r.pricing_status,'APPROVED_EXACT_EVENT_MEDIAN');
+ assert.equal(r.needs_price_recheck,true);
+ assert.equal(r.pricing_status,'PROVISIONAL_NEEDS_PRICE_RECHECK');
  assert.equal(r.competitor_reference_used_as_final,true);
- assert.deepEqual(r.final_prices.map(x=>x.override_price),[740,200,940]);
+ assert.equal(r.quoted_phone_median,690);
+ assert.equal(r.quoted_bundle_median,990);
+ assert.deepEqual(r.final_prices.map(x=>x.override_price),[690,200,990]);
+ assert.ok(r.final_prices.every(x=>x.override_note.includes('PROVISIONAL_NEEDS_PRICE_RECHECK')));
+});
+
+
+test('three independent shops per package certify two separate exact medians',()=>{
+ const rows=[
+  ...[690,790,890].map((p,i)=>({competitor_id:'shop'+i,package_type:'PHONE_ONLY',price:p})),
+  ...[990,1090,1190].map((p,i)=>({competitor_id:'shop'+i,package_type:'PHONE_LENS',price:p}))
+ ];
+ const r=P.resolve({
+  event_date:'2026-12-07',
+  pricing:{independent_competitors:3,evidence:rows.slice(0,3),all_package_evidence:rows}
+ });
+ assert.equal(r.pricing_status,'APPROVED_EXACT_EVENT_MEDIAN');
+ assert.equal(r.needs_price_recheck,false);
+ assert.equal(r.quoted_phone_median,790);
+ assert.equal(r.quoted_bundle_median,1090);
+ assert.equal(r.exact_independent_phone_sellers,3);
+ assert.equal(r.exact_independent_bundle_sellers,3);
+ assert.deepEqual(r.final_prices.map(p=>p.override_price),[790,200,1090]);
+ assert.equal(r.final_prices[1].active_override,false);
+});
+
+test('single-shop bundle quote cannot become a certified phone-only median',()=>{
+ const r=P.resolve({
+  event_date:'2026-12-19',
+  pricing:{independent_competitors:1,evidence:[
+   {competitor_id:'shop-a',package_type:'PHONE_LENS',price:1290}
+  ]}
+ });
+ assert.equal(r.source,'EXACT_EVENT_COMPETITOR_MEDIAN');
+ assert.equal(r.pricing_status,'PROVISIONAL_NEEDS_PRICE_RECHECK');
+ assert.equal(r.phone_price_derived,true);
+ assert.equal(r.bundle_price_derived,false);
+ assert.equal(r.quoted_phone_median,null);
+ assert.equal(r.quoted_bundle_median,1290);
+ assert.deepEqual(r.final_prices.map(p=>p.override_price),[1090,200,1290]);
+ assert.match(r.final_prices[0].override_note,/DERIVED_BUNDLE_MEDIAN_MINUS_KK_LENS_BASELINE/);
+});
+
+test('mixed alias and duplicate repost never inflate independent package seller count',()=>{
+ const rows=[
+  {competitor_id:'same',package_type:'PHONE',price:690},
+  {competitor_id:'same',package_type:'PHONE_ONLY',price:700},
+  {competitor_id:'same',package_type:'BUNDLE',price:990},
+  {competitor_id:'other',package_type:'PHONE_LENS_BUNDLE',price:1090}
+ ];
+ const r=P.resolve({
+  event_date:'2026-11-27',
+  pricing:{independent_competitors:2,evidence:rows}
+ });
+ assert.equal(r.needs_price_recheck,true);
+ assert.equal(r.exact_independent_phone_sellers,1);
+ assert.equal(r.exact_independent_bundle_sellers,2);
+ assert.equal(r.quoted_phone_median,690);
+ assert.equal(r.quoted_bundle_median,1040);
+ assert.deepEqual(r.final_prices.map(p=>p.override_price),[690,200,1040]);
+});
+
+test('invalid comparator classification without exact quote falls back to approved scored tier',()=>{
+ const r=P.resolve({
+  event_date:'2026-11-27',
+  rental_fit_score:8.1,
+  pricing:{independent_competitors:2,evidence:[
+   {competitor_id:'x',package_type:'TICKET',price:9999}
+  ]}
+ });
+ assert.equal(r.source,'KK_RENTAL_FIT_SCORE_FALLBACK');
+ assert.equal(r.competitor_reference_used_as_final,false);
+ assert.deepEqual(r.final_prices.map(p=>p.override_price),[790,200,990]);
 });
