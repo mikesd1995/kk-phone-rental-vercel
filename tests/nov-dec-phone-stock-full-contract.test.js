@@ -9,6 +9,7 @@ const root=path.join(__dirname,'..');
 const gs=fs.readFileSync(path.join(root,'apps-script','Code.gs'),'utf8');
 const storefront=fs.readFileSync(path.join(root,'script.js'),'utf8');
 const admin=fs.readFileSync(path.join(root,'admin','admin.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 
 function sourceFunction(src,name){
  const pattern=new RegExp('function '+name+'\\([^)]*\\)\\s*\\{[\\s\\S]*?\\n\\}');
@@ -84,4 +85,8 @@ test('storefront preserves full event as visible waitlist, not an owner hide',()
  assert.match(storefront,/value==="show"\\|\\|value==="show_full"/);
  assert.match(storefront,/if\(availCnt\(c\)<=0\) return tr\("card_waitlist"\)/);
  assert.ok(gs.includes('IF(G${r}>0,"show","show_full")'));
+});
+
+test('future approved deploy forces browsers to load the corrected storefront code',()=>{
+ assert.match(html,/script\\.js\\?v=nov-dec-phone-lens-full-20261029/);
 });
