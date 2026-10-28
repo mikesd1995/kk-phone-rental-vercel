@@ -9,7 +9,20 @@ function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:null;}
 function score(v){const n=Number(v);return Number.isFinite(n)&&n>=0&&n<=10?n:null;}
 function httpsUrl(v){try{const u=new URL(text(v));return u.protocol==='https:'?u.toString():'';}catch(_){return '';}}
 function median(values=[]){const a=values.map(Number).filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;}
-function normalizeCompetitor(row={}){return {competitor_id:text(row.competitor_id||row.account||row.shop),event_key:text(row.event_key),package_type:text(row.package_type).toUpperCase(),price:money(row.price),source_url:httpsUrl(row.source_url),observed_at:text(row.observed_at),exact_event:row.exact_event===true};}
+function normalizeCompetitor(row={}){
+ const rawType=text(row.package_type).toUpperCase();
+ const type=['PHONE_ONLY','PHONE'].includes(rawType)?'PHONE_ONLY':
+  ['PHONE_LENS','PHONE_LENS_BUNDLE','PHONE_LENS_PACKAGE','BUNDLE','PHONE_PLUS_LENS'].includes(rawType)?'PHONE_LENS':'';
+ return {
+  competitor_id:text(row.competitor_id||row.account||row.shop),
+  event_key:text(row.event_key),
+  package_type:type,
+  price:money(row.price),
+  source_url:httpsUrl(row.source_url),
+  observed_at:text(row.observed_at),
+  exact_event:row.exact_event===true
+ };
+}
 function normalizeReference(row={},kind='COMPARABLE_EVENT'){return {reference_id:text(row.reference_id||row.event_key||row.package_id),package_type:text(row.package_type).toUpperCase(),price:money(row.price),source_url:httpsUrl(row.source_url),reference_kind:text(row.reference_kind||kind).toUpperCase(),approved:row.approved===true};}
 
 function rentalFitScore(candidate={},input={}){
@@ -53,7 +66,7 @@ function publishEligibility(candidate={},input={}){
 
 function priceEvidence(candidate={},rows=[]){
  const key=text(candidate.event_key||candidate.candidate_id);
- const normalized=rows.map(normalizeCompetitor).filter(r=>r.exact_event&&r.event_key===key&&r.competitor_id&&r.price&&r.source_url);
+ const normalized=rows.map(normalizeCompetitor).filter(r=>r.exact_event&&r.event_key===key&&r.competitor_id&&r.package_type&&r.price&&r.source_url);
  // A phone-only rental and a phone+lens package are different markets.
  // Never certify a median by mixing their prices or counting one seller twice.
  const byCompetitor=new Map();
