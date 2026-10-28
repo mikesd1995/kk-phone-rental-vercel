@@ -122,3 +122,34 @@ test('one seller quoting phone and bundle cannot inflate independent market coun
  assert.equal(p.proposal.proposal_source,'EXACT_EVENT_MEDIAN');
  assert.ok(p.evidence.every(row=>row.package_type==='PHONE_LENS'));
 });
+
+
+test('package aliases combine by economic product, not raw label',()=>{
+ const rows=[
+  {...price('shop-a',990),package_type:'PHONE_LENS'},
+  {...price('shop-a',1090),package_type:'PHONE_LENS_BUNDLE'},
+  {...price('shop-b',1190),package_type:'BUNDLE'},
+  {...price('shop-c',1290),package_type:'PHONE_PLUS_LENS'}
+ ];
+ const p=Prep.prepareCandidate(candidate,{competitor_prices:rows,posters:[poster]}).pricing;
+ assert.equal(p.independent_competitors,3);
+ assert.equal(p.market_package_type,'PHONE_LENS');
+ assert.equal(p.market_median,1190);
+ assert.equal(p.complete,true);
+ assert.equal(p.evidence.length,3);
+ assert.equal(p.all_package_evidence.length,3);
+});
+
+test('tickets and unrecognized rentals cannot be included as exact phone peers',()=>{
+ const rows=[
+  {...price('shop-a',790),package_type:'PHONE'},
+  {...price('ticket-agent',4500),package_type:'TICKET'},
+  {...price('shop-b',990),package_type:'PHONE_LENS_PACKAGE'}
+ ];
+ const p=Prep.prepareCandidate(candidate,{competitor_prices:rows,posters:[poster]}).pricing;
+ assert.equal(p.observed_independent_competitors,2);
+ assert.equal(p.independent_competitors,1);
+ assert.equal(p.market_package_type,'PHONE_ONLY');
+ assert.equal(p.market_median,790);
+ assert.equal(p.complete,false);
+});
