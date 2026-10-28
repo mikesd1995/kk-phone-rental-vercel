@@ -58,10 +58,10 @@ function probeResponse(res,status,body){
   res.setHeader('X-Content-Type-Options','nosniff');
   res.end(JSON.stringify(body));
 }
-async function readProbeJson(req){
+async function readProbeJson(req,validBody=require('./make-owner-canonical-readiness').validBody){
   if(req.body!==undefined&&typeof req.body!=='string'){
     const body=req.body;
-    if(!require('./make-owner-canonical-readiness').validBody(body))throw new Error('invalid body');
+    if(!validBody(body))throw new Error('invalid body');
     if(Buffer.byteLength(JSON.stringify(body))>4096)throw new Error('too large');
     return body;
   }
@@ -130,6 +130,12 @@ async function processRequest(req,res,env=process.env,fetchImpl=global.fetch,opt
   if(req.headers?.['x-kk-canonical-probe']==='readiness-v1'){
     let body;try{body=await readProbeJson(req);}catch(_){return probeResponse(res,400,{mode:'canonical-readiness',version:'v1',send_allowed:false,error_code:'BODY_INVALID'});}
     const outcome=require('./make-owner-canonical-readiness').evaluate(body,cfg,req.headers?.authorization);
+    return probeResponse(res,outcome.status,outcome.body);
+  }
+  if(req.headers?.['x-kk-canonical-probe']==='gas-health-v1'){
+    const probe=require('./make-owner-canonical-off-gas-probe');
+    let body;try{body=await readProbeJson(req,probe.validBody);}catch(_){return probeResponse(res,400,{mode:'canonical-gas-health',version:'v1',send_allowed:false,error_code:'BODY_INVALID'});}
+    const outcome=await probe.evaluate(body,cfg,req.headers?.authorization,{fetchImpl});
     return probeResponse(res,outcome.status,outcome.body);
   }
   // No DB call or Telegram send when disabled / improperly project-bound.

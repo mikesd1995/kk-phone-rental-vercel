@@ -188,18 +188,29 @@ function contextPack(task,{root=path.resolve(__dirname,'..'),repoMap=null,maxFil
     .filter(hit=>(hit.route.files||[]).includes(file))
     .map(hit=>Number.isFinite(hit.route.priority)?hit.route.priority:0));
   const sorted=[...candidates.values()].sort((a,b)=>priorityForFile(b.path)-priorityForFile(a.path) || b.score-a.score);
+  const highestPriority=Math.max(0,...activeRoutes.map(hit=>Number.isFinite(hit.route.priority)?hit.route.priority:0));
+  const priorityFiles=new Set(activeRoutes
+    .filter(hit=>highestPriority>0&&hit.route.priority===highestPriority)
+    .flatMap(hit=>hit.route.files||[]));
   const selected=[];
   let tokens=0;
-  for(const item of sorted){
+  for(const [itemIndex,item] of sorted.entries()){
     if(selected.length>=maxFileCount) break;
     const node=map.nodes[item.path];
     const estimated=node.estimated_tokens||0;
     const large=node.size>largeChars;
     const allocated=large?Math.min(estimated,2500):estimated;
     const directRoute=activeRoutes.some(hit=>(hit.route.files||[]).includes(item.path));
-    if(tokens+allocated>budget){
+    // Growing early files must not erase later curated boundaries of a priority
+    // route. Reserve useful targeted slices only within the existing file cap.
+    const reserved=priorityFiles.has(item.path)?sorted.slice(itemIndex+1)
+      .filter(next=>priorityFiles.has(next.path))
+      .slice(0,Math.max(0,maxFileCount-selected.length-1))
+      .reduce((sum,next)=>sum+Math.min(map.nodes[next.path].estimated_tokens||0,256),0):0;
+    const available=Math.max(0,budget-tokens-reserved);
+    if(allocated>available){
       if(!directRoute) continue;
-      const remaining=Math.max(0,budget-tokens);
+      const remaining=available;
       if(!remaining) continue;
       selected.push({
         ...item,

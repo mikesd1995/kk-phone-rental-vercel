@@ -273,3 +273,36 @@ test('candidate priority applies only to matched curated files and invalid value
     fs.rmdirSync(fixtureRoot);
   }
 });
+
+test('growing priority route files preserve useful late-boundary context within the same budgets',()=>{
+  const fixtureRoot=fs.mkdtempSync(path.join(os.tmpdir(),'kk-code-context-growth-'));
+  const configDir=path.join(fixtureRoot,'config');
+  fs.mkdirSync(configDir);
+  const ownerFiles=['producer.js','relay.js','gateway.js','contract.js','bridge.js','edge.ts'];
+  try{
+    for(const file of [...ownerFiles,'database.js']){
+      fs.writeFileSync(path.join(fixtureRoot,file),'function boundary(){}\n/*'+'x'.repeat(20000)+'*/');
+    }
+    fs.writeFileSync(path.join(configDir,'kk-code-context-routes.json'),JSON.stringify({routes:[
+      {id:'owner',priority:10,keywords:['owner-ledger'],files:ownerFiles},
+      {id:'database',keywords:['supabase','database','migration'],files:['database.js']}
+    ]}));
+    const pack=CodeIntel.contextPack('owner-ledger Supabase database migration',{root:fixtureRoot});
+    assert.deepEqual(pack.selected_files.map(x=>x.path),ownerFiles);
+    assert.ok(pack.estimated_context_tokens<=12000);
+    assert.ok(pack.selected_files.length<=10);
+    const edge=pack.selected_files.find(x=>x.path==='edge.ts');
+    assert.ok(edge.budgeted_tokens>=256,'Edge context must contain a useful targeted slice');
+    assert.equal(edge.read_strategy,'symbols_or_targeted_ranges_first');
+    assert.ok(pack.selected_files.every(x=>x.budgeted_tokens>=256));
+    const limited=CodeIntel.contextPack('owner-ledger Supabase database migration',{root:fixtureRoot,maxFiles:4});
+    assert.deepEqual(limited.selected_files.map(x=>x.path),['producer.js','relay.js','gateway.js','contract.js']);
+    assert.ok(limited.estimated_context_tokens<=12000);
+    assert.ok(limited.selected_files.every(x=>x.budgeted_tokens>=256));
+  }finally{
+    for(const file of [...ownerFiles,'database.js']) fs.unlinkSync(path.join(fixtureRoot,file));
+    fs.unlinkSync(path.join(configDir,'kk-code-context-routes.json'));
+    fs.rmdirSync(configDir);
+    fs.rmdirSync(fixtureRoot);
+  }
+});
