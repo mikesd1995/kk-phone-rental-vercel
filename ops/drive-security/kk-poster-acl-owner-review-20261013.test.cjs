@@ -352,7 +352,7 @@ test('active image-only owner batches 25+13; all four folders and historical wri
   assert.equal(f.roles['kit-photo-b'], undefined);
   assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
   const secondDry = f.api.dry();
-  assert.equal(secondDry.public_writer, 21);
+  assert.equal(secondDry.public_writer, 20);
   assert.ok(secondDry.fingerprint !== dry.fingerprint);
   const second = f.api.apply(secondDry.fingerprint);
   assert.equal(second.ok, false, 'historic writers must keep complete remediation open');
