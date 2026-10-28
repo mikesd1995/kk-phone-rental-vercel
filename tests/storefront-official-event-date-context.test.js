@@ -74,16 +74,17 @@ test('catalog card and modal render organizer date separately from the sheet ren
  assert.match(script,/var dateContext=storefrontOfficialDateContext\(eventId,rawDate\)/);
  assert.match(script,/dateContext:\s+dateContext/);
  assert.match(script,/dateEl\.textContent=c\.date\|\|""/);
- assert.match(script,/dateContextEl\.textContent=currentLang==="en"\?c\.dateContext\.en:c\.dateContext\.th/);
+ assert.match(script,/dateEl\.title=scopeText/);
+ assert.match(script,/dateEl\.setAttribute\("aria-label"/);
  assert.match(script,/organizerDateNote=c\.dateContext\?/);
  assert.match(script,/eventNoteEl\.textContent=\[organizerDateNote/);
  assert.match(script,/dedupeWebRowsByEventId\(webRows\)\.filter\(function\(r\)\{ return isVisibleWebAction\(r\.action_for_web\); \}\)/);
 });
 
-test('cache-bust, mobile scope typography and no new event/booking writer',()=>{
+test('cache-bust without changing fixed card height and without adding booking writers',()=>{
  assert.match(html,/script\.js\?v=official-event-date-scope-20261029/);
- assert.match(html,/kk-storefront-v5\.css\?v=20261029-event-date-scope/);
- assert.match(css,/\.poster-grid \.concert-card \.pi-date-scope/);
+ assert.match(html,/kk-storefront-v5\.css\?v=20261017-hero-v102-align/);
+ assert.doesNotMatch(script,/info\.appendChild\(dateContextEl\)/);
  const helper=script.slice(start,end);
  assert.doesNotMatch(helper,/fetch\(|setFormulas|createEvent|bookings|booking_status/);
 });
