@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "inspected_main_sha": "57ec0227193ea186f034e1628ed331e33620dcc6",
+  "recorded_date": "2026-10-28",
+  "policy": "Existing debt recorded but not used as a CI failure. Fail only on newly introduced browser direct-Sheets access, increased legacy GViz references, guard removal, major hotspot growth, excessive npm script proliferation, or loss of npm test.",
+  "snapshot": {
+    "schema_version": 1,
+    "modules": {
+      "script.js": {"lines": 1907, "inner_html_assignments": 15},
+      "admin/admin.js": {"lines": 3735, "inner_html_assignments": 49},
+      "apps-script/Code.gs": {"lines": 3281, "inner_html_assignments": 0}
+    },
+    "legacy_public_gviz": {
+      "api/kk-data.js": 1,
+      "server/admin-sheet-fallback.js": 1
+    },
+    "browser": {
+      "api_only": true,
+      "direct_fallback_disabled": true,
+      "uses_server_api": true,
+      "direct_sheets_urls": 0
+    },
+    "tooling": {
+      "npm_scripts": 42,
+      "check_command_chars": 7380,
+      "has_test_script": true
+    }
+  }
+}
