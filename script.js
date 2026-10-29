@@ -1575,7 +1575,7 @@ function showModal(c,options){
   if(!avail.length){
     var fullBox=document.createElement("div");
     fullBox.className="full-booked-box waitlist-box";
-    fullBox.innerHTML=esc(tr("full_title"))+'<br><span>'+esc(tr("full_body"))+'</span>';
+    fullBox.textContent=tr("full_title");
     var waitBtn=document.createElement("a");
     waitBtn.className="waitlist-line-btn";
     waitBtn.href=getWaitlistUrl(c,null);
