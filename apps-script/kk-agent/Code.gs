@@ -2202,6 +2202,14 @@ function logCoreV1AlertPreview() {
 }
 
 /** Main timed entry point. */
+/** Missing guard source must never turn configured round metadata into ordinary sends. */
+function ownerRealAcceptanceConfig_() {
+  var p=PropertiesService.getScriptProperties().getProperties();
+  if (typeof realAcceptanceConfig_==='function') return realAcceptanceConfig_(p);
+  if (['KK_OWNER_REAL_ACCEPTANCE_MANIFEST_JSON','KK_OWNER_REAL_ACCEPTANCE_STATE_JSON','KK_OWNER_REAL_ACCEPTANCE_SOURCE_SHA'].some(function(k) { return Object.prototype.hasOwnProperty.call(p,k); }) ||
+    (Object.prototype.hasOwnProperty.call(p,'KK_OWNER_REAL_ACCEPTANCE_ENABLED') && p.KK_OWNER_REAL_ACCEPTANCE_ENABLED!=='FALSE')) throw new Error('REAL_ACCEPTANCE_GUARD_SOURCE_MISSING');
+  return null;
+}
 function runCoreV1Notifier() {
   var properties = PropertiesService.getScriptProperties().getProperties();
   if (String(properties.CORE_V1_TRANSPORT_ENABLED || '').toUpperCase() !== 'TRUE') {
@@ -2214,12 +2222,15 @@ function runCoreV1Notifier() {
   }
 
   try {
+    var round=ownerRealAcceptanceConfig_();
     var context = openLedger_();
+    if (round) realAcceptanceSelect_(canonicalRows_(context),round);
     var candidates = collectCandidates_(context.values, context.headers, properties, true);
     var processed = [];
     for (var i = 0; i < candidates.length; i += 1) {
       // Canonical Telegram has one writer: Make 6176241. Fence before Core claim.
-      if (properties.KK_OWNER_CANONICAL_ENABLED==='TRUE' && candidates[i].transport==='TELEGRAM_OWNER_ALERTS') continue;
+      if ((round || properties.KK_OWNER_CANONICAL_ENABLED==='TRUE') && candidates[i].transport==='TELEGRAM_OWNER_ALERTS') continue;
+      if (round && (candidates[i].transport!=='LINE_OWNER_ALERTS' || candidates[i].notificationId!==round.state.targets.LINE_OWNER_ALERTS.notification_id)) continue;
       processed.push(processCandidate_(context.sheet, context.headers, candidates[i], properties));
     }
     return { status: 'OK', processed: processed.length, results: processed };
@@ -2318,7 +2329,7 @@ function processCandidate_(sheet, headers, candidate, properties) {
       // A prepared asynchronous Make operation is not provider acceptance.
       if (result && result.deferred===true) return {notification_id:candidate.notificationId,status:'SENDING',pending:true,transport:candidate.transport};
     } else if (candidate.transport==='LINE_OWNER_ALERTS') {
-      result=sendLine_(message,properties);
+      result=sendLine_(message,properties,candidate,claim);
     } else throw new Error('TRANSPORT_NOT_SUPPORTED');
   } catch (error) {
     var retrySafe=error.coreV1Disposition==='retry' && claim.attempt_count<maximumAttempts_(properties) && !candidate.controlledUat;
@@ -2441,16 +2452,18 @@ function verifyLedgerPatch_(sheet,candidate,fields,expectedRecord) {
   if (expectedRecord && JSON.stringify(ledgerRecordSnapshot_(ledgerNamedRow_(row,headers)))!==JSON.stringify(ledgerRecordSnapshot_(expectedRecord))) throw new Error('LEDGER_PATCH_READBACK_STATE_CHANGED');
   return ledgerNamedRow_(row,headers);
 }
-function claimLedgerCandidate_(sheet,headers,candidate,properties) {
+function claimLedgerCandidate_(sheet,headers,candidate,properties,canonicalRequest) {
   assertLedgerLock_();
   var exact=readExactLedgerCandidate_(sheet,candidate,null);
   // Bound the independently attested complete source snapshot before any claim write.
   if (exact.sourceRows.length>128) throw new Error('LEDGER_SOURCE_SNAPSHOT_BOUNDS');
   var beforeRows=exact.sourceRows.map(function(row) { return ledgerNamedRow_(row,exact.headers); });
   if (Utilities.newBlob(JSON.stringify(beforeRows)).getBytes().length>262144) throw new Error('LEDGER_SOURCE_SNAPSHOT_BOUNDS');
-  var started=new Date(), claimId='CLAIM|'+Utilities.getUuid();
+  var started=new Date();
   if (candidate.controlledUat && !isFreshControlledTransportUat_(exact.row,exact.headers,parseCsvSet_(candidate.notificationId),started)) throw new Error('UAT_FRESH_IDENTITY_REQUIRED');
   if (candidate.enforceQuietHours && isQuietHours_(started) && !candidate.controlledUat && !canBypassQuietHours_(exact.record.Priority,exact.record['Change Type'])) throw new Error('QUIET_HOURS_HOLD');
+  var round=ownerRealAcceptanceConfig_();
+  var claimId=round?realAcceptanceClaim_(candidate,beforeRows,canonicalRequest):'CLAIM|'+Utilities.getUuid();
   var fields={'Status':'SENDING','Attempt Count':candidate.attemptCount+1,'Last Attempt At':started,'Notes':appendLedgerNote_(candidate.notes,claimId)};
   writeFields_(sheet,exact.headers,exact.rowNumber,fields); SpreadsheetApp.flush();
   var claimed=verifyLedgerPatch_(sheet,candidate,fields,ledgerPatchedRecord_(exact.record,fields));
@@ -2521,9 +2534,10 @@ function sendTelegram_(message, properties) {
   throw new Error('DIRECT_TELEGRAM_SEND_FORBIDDEN_USE_MAKE_6176241');
 }
 
-function sendLine_(message, properties) {
+function sendLine_(message, properties, candidate, claim) {
   var ownerLineId=properties.LINE_OWNER_USER_ID || properties.LINE_USER_ID;
   if (!properties.LINE_CHANNEL_ACCESS_TOKEN || !ownerLineId) throw new Error('LINE_CREDENTIALS_NOT_CONFIGURED');
+  if (ownerRealAcceptanceConfig_()) realAcceptanceBeforeLine_(candidate,claim);
   var response=UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push',{
     method:'post',contentType:'application/json',headers:{Authorization:'Bearer '+properties.LINE_CHANNEL_ACCESS_TOKEN},
     payload:JSON.stringify({to:ownerLineId,messages:[{type:'text',text:message}]}),muteHttpExceptions:true
