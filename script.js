@@ -441,9 +441,7 @@ function applyStaticLanguage(){
   setText("#modal-title","modal_title_placeholder");
   setText("#modal-date","modal_date_placeholder");
   setText("#modal-venue","modal_venue_placeholder");
-  var note=document.querySelector(".modal-note"); if(note)note.innerHTML="<strong>"+esc(tr("modal_note_strong"))+"</strong> "+esc(tr("modal_note_body"));
   setText("#modal-close","close");
-  setText("#event-share-btn","share_event");
   setAttr("#faq-x-btn","aria-label","faq_close_aria");
   setText("#faq-title","faq_title");
   for(var i=1;i<=8;i++)setFaqLanguage(i,"faq_q"+i,"faq_a"+i);
@@ -1568,17 +1566,6 @@ function showModal(c,options){
   document.getElementById("modal-date").textContent=(currentLang==="en"?"Date: ":"วันที่: ")+(c.date||"-");
   var venueEl=document.getElementById("modal-venue");
   venueEl.textContent=(currentLang==="en"?"Venue: ":"สถานที่: ")+(c.venue||"-");
-  var eventNoteEl=document.getElementById("modal-event-note");
-  if(!eventNoteEl){
-    eventNoteEl=document.createElement("div");
-    eventNoteEl.id="modal-event-note";
-    eventNoteEl.className="modal-meta";
-    venueEl.insertAdjacentElement("afterend",eventNoteEl);
-  }
-  var publicEventNote=sanitizePublicText(c.webNote);
-  eventNoteEl.textContent=publicEventNote?"ℹ️ "+publicEventNote:"";
-  eventNoteEl.hidden=!publicEventNote;
-
   // UX fix: ไม่แสดงรูปโปสเตอร์ซ้ำใน modal
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
 
@@ -1588,7 +1575,7 @@ function showModal(c,options){
   if(!avail.length){
     var fullBox=document.createElement("div");
     fullBox.className="full-booked-box waitlist-box";
-    fullBox.innerHTML=esc(tr("full_title"))+'<br><span>'+esc(tr("full_body"))+'</span>';
+    fullBox.textContent=tr("full_title");
     var waitBtn=document.createElement("a");
     waitBtn.className="waitlist-line-btn";
     waitBtn.href=getWaitlistUrl(c,null);
@@ -1611,10 +1598,7 @@ function showModal(c,options){
     icon.innerHTML='<svg viewBox="0 0 28 28" fill="none"><rect x="6" y="3" width="16" height="22" rx="3" stroke="#5B8DEF" stroke-width="1.8"/><rect x="10" y="6" width="8" height="1.5" rx="0.75" fill="#5B8DEF"/><circle cx="14" cy="22" r="1.2" fill="#5B8DEF"/></svg>';
     var info=document.createElement("div"); info.className="ph-info";
     var mEl=document.createElement("div"); mEl.className="ph-model"; mEl.textContent=p.model||"";
-    var sEl=document.createElement("div"); sEl.className="ph-spec";  sEl.textContent=packageSpecForLanguage(p);
-    info.appendChild(mEl); info.appendChild(sEl);
-    var publicSubtitle=packagePublicSubtitle(p);
-    if(publicSubtitle){var nEl=document.createElement("div"); nEl.className="ph-note"; nEl.textContent=publicSubtitle; info.appendChild(nEl);}
+    info.appendChild(mEl);
     var right=document.createElement("div"); right.className="ph-right";
     var priceEl=document.createElement("div"); priceEl.className="ph-price";
     if(toNum(p.price)>0){
@@ -1824,18 +1808,6 @@ document.addEventListener("DOMContentLoaded",function(){
     retry.textContent=tr("loading_text");
     refreshStorefrontData("retry").catch(function(err){console.error("storefront retry failed",err);showError(tr("error_detail"));});
   });
-  var shareBtn=document.getElementById("event-share-btn");
-  if(shareBtn){
-    shareBtn.textContent=tr("share_event");
-    shareBtn.addEventListener("click",async function(){
-      if(!activeModalEvent)return;
-      var shareData={title:activeModalEvent.name||document.title,text:(activeModalEvent.name||"")+" · "+(activeModalEvent.date||""),url:eventShareUrl(activeModalEvent)};
-      try{
-        if(navigator.share){ await navigator.share(shareData); track("share_event",{event_name:activeModalEvent.name,method:"native"}); }
-        else{ await navigator.clipboard.writeText(shareData.url); shareBtn.textContent=tr("share_copied"); setTimeout(function(){shareBtn.textContent=tr("share_event");},1800); track("share_event",{event_name:activeModalEvent.name,method:"copy"}); }
-      }catch(e){ if(e&&e.name!=="AbortError") console.warn("share event failed",e); }
-    });
-  }
   setFilter(currentFilter);
   var bImg=document.querySelector(".brand-header-img"); if(bImg)bImg.addEventListener("error",showBrandFallback);
   var faqBtn=document.getElementById("faq-open-btn"); if(faqBtn)faqBtn.addEventListener("click",openFaq);

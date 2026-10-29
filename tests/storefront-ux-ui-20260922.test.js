@@ -86,8 +86,11 @@ test('brand-level storefront copy is model-agnostic and accessibility labels loc
 });
 
 test('package and async-error surfaces expose assistive semantics',()=>{
-  assert.match(html,/aria-labelledby="modal-title" aria-describedby="modal-note"/);
-  assert.match(html,/class="modal-note" id="modal-note"/);
+  assert.match(html,/aria-labelledby="modal-title"/);
+  assert.doesNotMatch(html,/id="modal-note"|aria-describedby="modal-note"/);
+  assert.match(html,/id="modal-date"/);
+  assert.match(html,/id="modal-venue"/);
+  assert.match(html,/id="phone-list"/);
   assert.match(js,/error-state" role="alert" aria-live="assertive"/);
 });
 
