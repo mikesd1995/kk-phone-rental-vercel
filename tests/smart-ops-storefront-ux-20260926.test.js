@@ -73,11 +73,11 @@ test('Storefront progressively renders 24 events and captures search misses',()=
 
 test('Storefront event modal remains minimal while contextual LINE booking works',()=>{
   assert.doesNotMatch(storeHtml,/id="event-share-btn"|id="modal-note"|id="modal-event-note"/);
-  assert.doesNotMatch(storeJs,/document\\.getElementById\\("event-share-btn"\\)/);
-  assert.match(storeJs,/var waitlisted=availCnt\\(c\\)<=0/);
-  assert.match(storeJs,/a\\.href=waitlisted\\?getWaitlistUrl\\(c,null\\):getEventInquiryUrl\\(c\\)/);
+  assert.ok(!storeJs.includes('document.getElementById("event-share-btn")'));
+  assert.ok(storeJs.includes('var waitlisted=availCnt(c)<=0'));
+  assert.ok(storeJs.includes('a.href=waitlisted?getWaitlistUrl(c,null):getEventInquiryUrl(c)'));
   assert.match(storeJs,/event_inquiry_click/);
-  assert.match(storeHtml,/script\\.js\\?v=[A-Za-z0-9][A-Za-z0-9._-]*/);
+  assert.ok(storeHtml.includes('script.js?v=storefront-minimal-event-details-20261030'));
 });
 
 test('Public feed drops parseable past events by default and can opt into showPast',()=>{
