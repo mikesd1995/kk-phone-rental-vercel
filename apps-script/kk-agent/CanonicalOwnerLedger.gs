@@ -101,16 +101,29 @@ function canonicalAssessment_(context,rows,c,p) {
   return {candidates:candidates,held:held};
 }
 function runCanonicalOwnerLedgerPoll(a) {
-  var p=canonicalConfig_(),c=canonicalVerify_(a,'poll',p,false);canonicalExact_(a.data,[]);
+  var p=canonicalConfig_(),c=canonicalVerify_(a,'poll',p,false),round=ownerRealAcceptanceConfig_();canonicalExact_(a.data,round?['acceptance_round']:[]);
+  if (round) realAcceptanceVerifyRequest_(round,c,a.data.acceptance_round);
   if (p.CORE_V1_TRANSPORT_ENABLED!=='TRUE') throw new Error('CANONICAL_GLOBAL_TRANSPORT_DISABLED');
   var lock=LockService.getScriptLock();if (!lock.tryLock(5000)) throw new Error('CANONICAL_LOCK_BUSY');
   try {
     var context=openLedger_(),rows=canonicalRows_(context),assessment=canonicalAssessment_(context,rows,c,p);
-    return canonicalSign_('poll-result',c,{rows:rows,candidates:assessment.candidates.map(function(candidate) { return candidate.notificationId; }),held:assessment.held},p);
+    round=ownerRealAcceptanceConfig_();
+    if (round) {
+      realAcceptanceVerifyRequest_(round,c,a.data.acceptance_round);realAcceptanceSelect_(rows,round);
+      assessment.candidates=assessment.candidates.filter(function(candidate) {
+        var allowed=candidate.notificationId===round.state.targets.TELEGRAM_OWNER_ALERTS.notification_id && !round.state.consumed.TELEGRAM_OWNER_ALERTS;
+        if (!allowed) assessment.held.push({row_index:rows.indexOf(rows.filter(function(r) { return r['Notification ID']===candidate.notificationId; })[0])+1,notification_id_sha256:canonicalHeldIdentityHash_(candidate.notificationId),reason_code:'CANONICAL_CORE_SELECTION_HELD'});
+        return allowed;
+      });
+    }
+    var data={rows:rows,candidates:assessment.candidates.map(function(candidate) { return candidate.notificationId; }),held:assessment.held};
+    if (round) data.acceptance_round=realAcceptanceAttestation_(round);
+    return canonicalSign_('poll-result',c,data,p);
   } finally { lock.releaseLock(); }
 }
 function runCanonicalOwnerLedgerClaim(a) {
-  var p=canonicalConfig_(),c=canonicalVerify_(a,'claim',p,false);canonicalExact_(a.data,['ticket','notification_id','rows']);
+  var p=canonicalConfig_(),c=canonicalVerify_(a,'claim',p,false),round=ownerRealAcceptanceConfig_();canonicalExact_(a.data,round?['ticket','notification_id','rows','acceptance_round']:['ticket','notification_id','rows']);
+  if (round) realAcceptanceVerifyRequest_(round,c,a.data.acceptance_round);
   if (p.CORE_V1_TRANSPORT_ENABLED!=='TRUE') throw new Error('CANONICAL_GLOBAL_TRANSPORT_DISABLED');
   if (typeof a.data.ticket!=='string' || !/^[0-9a-f-]{36}$/.test(a.data.ticket) || !Array.isArray(a.data.rows) || a.data.rows.length>128 || Utilities.newBlob(JSON.stringify(a.data.rows)).getBytes().length>262144) throw new Error('CANONICAL_CLAIM_REQUEST_INVALID');
   var lock=LockService.getScriptLock();if (!lock.tryLock(5000)) throw new Error('CANONICAL_LOCK_BUSY');
@@ -120,9 +133,11 @@ function runCanonicalOwnerLedgerClaim(a) {
     var before=a.data.rows.filter(function(r) { return r['Notification ID']===candidate.notificationId; });
     if (before.length!==1 || JSON.stringify(ledgerRecordSnapshot_(before[0]))!==JSON.stringify(ledgerRecordSnapshot_(candidate.sourceRow))) throw new Error('CANONICAL_SOURCE_CAS_MISMATCH');
     var text=messageForLedgerCandidate_(candidate);if (typeof text!=='string' || !text.trim() || text.length>2048) throw new Error('CANONICAL_RENDER_INVALID');
-    var claim=claimLedgerCandidate_(context.sheet,context.headers,candidate,p);
+    var claim=claimLedgerCandidate_(context.sheet,context.headers,candidate,p,round?{context:c,attestation:a.data.acceptance_round}:undefined);
     var claimed={};ledgerHeaders_().forEach(function(k) { claimed[k]=ledgerComparable_(claim.claimed_row[k]); });
-    return canonicalSign_('claim-result',c,{ticket:a.data.ticket,notification_id:candidate.notificationId,claim_id:claim.claim_id,claimed_row:claimed,text:text},p);
+    var data={ticket:a.data.ticket,notification_id:candidate.notificationId,claim_id:claim.claim_id,claimed_row:claimed,text:text};
+    if (round) data.acceptance_round=realAcceptanceAttestation_(round);
+    return canonicalSign_('claim-result',c,data,p);
   } finally { lock.releaseLock(); }
 }
 /** Durable ACK is already committed. Repair or read back only; never send or renew. */

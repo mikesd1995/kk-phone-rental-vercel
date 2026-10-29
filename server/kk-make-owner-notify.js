@@ -36,6 +36,7 @@ function config(env=process.env){
     canonicalEnabled:enabled(env.KK_OWNER_CANONICAL_ENABLED),
     canonicalSecret:String(env.KK_OWNER_CANONICAL_SECRET||''),
     canonicalConsumerSecret:String(env.KK_OWNER_CANONICAL_CONSUMER_SECRET||''),
+    realAcceptance:require('./make-owner-real-acceptance').config(env),
     captureProfile:captureProfile(env),captureProfileReviewSha256:t(env.KK_OWNER_CANONICAL_CAPTURE_REVIEW_SHA256),
     adapterBinding:(()=>{try{return require('./make-owner-telegram-adapter').validateBinding(JSON.parse(env.KK_OWNER_CANONICAL_ADAPTER_BINDING_JSON||'null'));}catch(_){return null;}})(),
     gasProjectId:t(env.KK_OWNER_CANONICAL_GAS_PROJECT_ID),gasDeploymentId:t(env.KK_OWNER_CANONICAL_GAS_DEPLOYMENT_ID),
@@ -147,6 +148,7 @@ async function processRequest(req,res,env=process.env,fetchImpl=global.fetch,opt
     return response(res,400,{ok:false,send_allowed:false,error_code:'BODY_INVALID'});
   }
   const stage=body.stage;
+  if(cfg.realAcceptance.configured&&['admit','prepare'].includes(stage))return response(res,503,{ok:false,send_allowed:false,error_code:'REAL_ACCEPTANCE_CANONICAL_REQUIRED'});
   if(typeof stage==='string'&&stage.startsWith('canonical-')){
     if(cfg.canonicalEnabled){
       const expected=cfg.canonicalConsumerSecret,authorization=req.headers?.authorization||'',provided=typeof authorization==='string'&&authorization.startsWith('Bearer ')?authorization.slice(7):'';

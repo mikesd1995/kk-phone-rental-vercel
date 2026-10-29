@@ -8,6 +8,33 @@
   },
   "routes": [
     {
+      "id": "owner_finite_acceptance",
+      "priority": 20,
+      "full_regression_required": true,
+      "keywords": ["bounded real acceptance", "finite round", "owner real acceptance", "ตัวจำกัดรอบส่ง"],
+      "files": [
+        "apps-script/kk-agent/OwnerRealAcceptance.gs",
+        "server/make-owner-real-acceptance.js",
+        "server/make-owner-canonical-real-acceptance-stage.js",
+        "server/make-owner-canonical.js",
+        "apps-script/kk-agent/CanonicalOwnerLedger.gs",
+        "server/kk-make-owner-notify.js",
+        "apps-script/kk-agent/Code.gs"
+      ],
+      "tests": [
+        "tests/kk-agent-real-acceptance.test.js",
+        "tests/make-owner-real-acceptance.test.js",
+        "tests/make-owner-real-acceptance-parity.test.js",
+        "tests/make-owner-canonical-real-acceptance-stage.test.js",
+        "tests/owner-real-acceptance-context.test.js",
+        "tests/kk-agent-owner-canonical.test.js",
+        "tests/make-owner-canonical.test.js",
+        "tests/make-owner-telegram-adapter.test.js"
+      ],
+      "skills": [".agents/skills/kk-code-change/SKILL.md", ".agents/skills/kk-code-review/SKILL.md", ".agents/skills/kk-canary-safety/SKILL.md"],
+      "docs": ["docs/OWNER_BOUNDED_REAL_ACCEPTANCE_2026-10-29.md"]
+    },
+    {
       "id": "owner_ledger_transport",
       "priority": 10,
       "full_regression_required": true,
