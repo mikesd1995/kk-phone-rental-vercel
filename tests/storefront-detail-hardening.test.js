@@ -25,7 +25,7 @@ test('booking and waitlist LINE messages include event venue', () => {
 });
 
 test('source event notes stay available for internal processing but are never displayed in the public event modal', () => {
-  assert.match(source, /String\\(r\\.event_note\\|\\|r\\.web_note\\|\\|""\\)\\.trim\\(\\)/);
+  assert.ok(source.includes('String(r.event_note||r.web_note||"").trim()'));
   const modal = source.slice(source.indexOf('function showModal(c,options){'), source.indexOf('var PACKAGE_CLOSE_SELECTOR'));
   assert.doesNotMatch(modal, /webNote|modal-event-note|sanitizePublicText|publicSubtitle|packageSpecForLanguage/);
 });
@@ -62,16 +62,16 @@ test('modal package rows render only model, price and booking action', () => {
   const modal = source.slice(source.indexOf('function showModal(c,options){'), source.indexOf('var PACKAGE_CLOSE_SELECTOR'));
   assert.match(modal, /className="ph-model"/);
   assert.match(modal, /className="ph-price"/);
-  assert.match(modal, /bookBtn\\.href=getBookingUrl\\(c,p\\)/);
+  assert.ok(modal.includes('bookBtn.href=getBookingUrl(c,p)'));
   assert.doesNotMatch(modal, /className="ph-note"|className="ph-spec"/);
 });
 
 test('event modal contains only name, date, venue, and availability-based packages', () => {
   const modal = source.slice(source.indexOf('function showModal(c,options){'), source.indexOf('var PACKAGE_CLOSE_SELECTOR'));
-  assert.match(modal, /getElementById\\("modal-title"\\)/);
-  assert.match(modal, /getElementById\\("modal-date"\\)/);
-  assert.match(modal, /getElementById\\("modal-venue"\\)/);
-  assert.match(modal, /availPkgs\\(c\\)/);
+  assert.ok(modal.includes('getElementById("modal-title")'));
+  assert.ok(modal.includes('getElementById("modal-date")'));
+  assert.ok(modal.includes('getElementById("modal-venue")'));
+  assert.ok(modal.includes('availPkgs(c)'));
   assert.doesNotMatch(modal, /eventNoteEl|publicEventNote/);
 });
 
