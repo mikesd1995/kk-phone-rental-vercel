@@ -73,22 +73,36 @@ function realAcceptancePersist_(state) {
   store.setProperty('KK_OWNER_REAL_ACCEPTANCE_STATE_JSON',raw);
   if (store.getProperty('KK_OWNER_REAL_ACCEPTANCE_STATE_JSON')!==raw) throw new Error('REAL_ACCEPTANCE_STATE_READBACK_UNCERTAIN');
 }
-function realAcceptanceGenuine_(r,rows,round) {
-  var created=Date.parse(ledgerComparable_(r['Created At']));
-  if (ledgerHeaders_().some(function(k) { return k!=='Attempt Count' && typeof ledgerComparable_(r[k])!=='string'; }) ||
+/** Same source-clock syntax/calendar rules as the gateway's sourceStamp. */
+function realAcceptanceSourceStamp_(value) {
+  var text=ledgerComparable_(value);
+  if (typeof text!=='string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?(?:Z|[+-]\d\d:\d\d)$/.test(text) || !isFinite(Date.parse(text))) return NaN;
+  var local=text.slice(0,19)+'Z';
+  if (new Date(local).toISOString().slice(0,19)!==text.slice(0,19)) return NaN;
+  return Date.parse(text);
+}
+function realAcceptanceNormalizedSource_(record) {
+  var r={};ledgerHeaders_().forEach(function(k) { r[k]=ledgerComparable_(record[k]); });return r;
+}
+function realAcceptanceGenuine_(record,rows,round) {
+  var r=realAcceptanceNormalizedSource_(record),created=realAcceptanceSourceStamp_(r['Created At']);
+  // Reuse complete static canonical checks (cell types, UTF-8 identity bounds,
+  // Unicode/control validity, exact empty evidence, raw payload and scoped uniqueness).
+  // Add gateway-only restrictions before either channel can freeze the pair.
+  if (canonicalRowReason_(r,rows,{activated_at:round.manifest.activated_at,observed_at:new Date().toISOString()}) ||
     REAL_ACCEPTANCE_CHANNELS_.indexOf(r.Transport)<0 || r.Status!=='QUEUED' || [0,'0'].indexOf(r['Attempt Count'])<0 ||
     !isFinite(created) || created<Date.parse(round.manifest.not_before) || created>Date.now() ||
-    ['Notification ID','Event Family ID','Change Type','Priority','Quiet Hours Policy','Payload','Audit Event ID','Dedup Key'].some(function(k) { return !r[k]; }) ||
-    r['Change Type']==='TRANSPORT_UAT' || r.Priority==='TEST' || r['Quiet Hours Policy']==='OWNER_CONTROLLED_UAT' || /^KKUAT_/.test(r['Notification ID']) ||
-    /^CONTROLLED_UAT\|/.test(r['Audit Event ID']) || /OWNER_AUTHORIZED_TRANSPORT_UAT|CLAIM\|/.test(r.Notes) ||
-    ['Last Attempt At','Delivery Evidence','Next Retry At','HTTP Status','Provider Message ID','API Accepted At','Delivery Confirmed At','Last Error','Feedback Source'].some(function(k) { return hasLedgerValue_(r[k]); })) return false;
-  return rows.filter(function(x) { return x['Notification ID']===r['Notification ID']; }).length===1 && rows.filter(function(x) { return x.Transport===r.Transport && x['Dedup Key']===r['Dedup Key']; }).length===1;
+    r['Change Type']==='TRANSPORT_UAT' || r.Priority==='TEST' || r['Quiet Hours Policy']==='OWNER_CONTROLLED_UAT' ||
+    /^CONTROLLED_UAT\|/.test(r['Notification ID'])) return false;
+  return true;
 }
 function realAcceptanceSnapshot_(rows) {
   if (!Array.isArray(rows) || rows.length>128 || Utilities.newBlob(JSON.stringify(rows)).getBytes().length>262144) throw new Error('REAL_ACCEPTANCE_SNAPSHOT_BOUNDS');
 }
 /** Initial pair eligibility reuses each established consumer's truth/quiet/render gates. */
 function realAcceptanceInitialEligible_(rows,round) {
+  // Poll already normalizes Sheet Dates; timer/direct claim must see the same cells.
+  rows=rows.map(realAcceptanceNormalizedSource_);
   var names=ledgerHeaders_(),headers=readHeaders_(names),p=PropertiesService.getScriptProperties().getProperties();
   var values=[names].concat(rows.map(function(r) { return names.map(function(k) { return r[k]; }); }));
   var c={activated_at:round.manifest.activated_at,observed_at:new Date().toISOString()};

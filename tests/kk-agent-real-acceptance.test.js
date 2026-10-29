@@ -43,3 +43,56 @@ test('complete snapshot bounds and lock ownership precede selection/consumption'
 test('initial pair cannot freeze or send LINE when matching Telegram source is held for raw payload whitespace',()=>{const payload=' '+row(TG).Payload;for(const entry of ['poll','timer','claim']){const h=setup([row(TG,{Payload:payload}),row(LINE,{Payload:payload})]);assert.throws(()=>entry==='poll'?h.poll():entry==='timer'?h.ctx.runCoreV1Notifier():h.claim(LINE),/REAL_ACCEPTANCE_GENUINE_PAIR_REQUIRED/);assert.equal(h.propertyWrites,0);assert.equal(h.writes,0);assert.equal(h.calls,0);}});
 test('initial pair requires both channel quiet-hour selections even when LINE has a P0 cancellation override',()=>{for(const entry of ['poll','timer','claim']){const common={'Change Type':'CANCELLATION','Audit Event ID':'cancellation-audit'};const h=setup([row(TG,{...common,Priority:'P1'}),row(LINE,{...common,Priority:'P0'})]);h.ctx.isQuietHours_=()=>true;assert.throws(()=>entry==='poll'?h.poll():entry==='timer'?h.ctx.runCoreV1Notifier():h.claim(LINE),/REAL_ACCEPTANCE_GENUINE_PAIR_REQUIRED/);assert.equal(h.propertyWrites,0);assert.equal(h.writes,0);assert.equal(h.calls,0);}});
 module.exports={setup,manifest,row,TG,LINE,T0,DUE,EXP};
+
+for(const [label,patch] of [
+ ['controlled UAT notification identity',{'Notification ID':'CONTROLLED_UAT|candidate-001'}],
+ ['permissively parseable non-ISO source clock',{'Created At':'2026/10/29 05:00:01 UTC'}]
+])for(const entry of ['poll','timer','claim'])test('initial '+entry+' rejects '+label+' before any durable or provider write',()=>{
+ const h=setup([row(TG,patch),row(LINE)]);
+ assert.throws(()=>V2.planCandidate([row(TG,patch),row(LINE)],row(TG,patch)['Notification ID'],h.context,Date.parse(h.context.observed_at)));
+ assert.throws(()=>entry==='poll'?h.poll():entry==='timer'?h.ctx.runCoreV1Notifier():h.claim(LINE),/REAL_ACCEPTANCE_GENUINE_PAIR_REQUIRED/);
+ assert.equal(h.propertyWrites,0);assert.equal(h.writes,0);assert.equal(h.calls,0);
+});
+
+test('initial pair static source eligibility preserves gateway clock, identity and cell-type exclusions',()=>{
+ const patches=[
+  {'Created At':'2026-10-29T05:00:01.0Z'},
+  {'Created At':'2026-10-28T24:00:00-05:00'},
+  {'Created At':'2026-10-29T05:00:01+24:00'},
+  {'Notification ID':'x'.repeat(94)}, {'Notification ID':'ก'.repeat(32)},
+  {'Notification ID':'short'}, {'Notification ID':'normal\u0001id'}, {'Notification ID':'normal\ud800'},
+  {'Notification ID':12345}, {'Show ID':42}, {Notes:null}, {'Attempt Count':false},
+  {'Event Family ID':''}, {'Change Type':'TRANSPORT_UAT'}, {Priority:'TEST'},
+  {'Quiet Hours Policy':'OWNER_CONTROLLED_UAT'}, {'Notification ID':'KKUAT_telegram'},
+  {'Audit Event ID':'CONTROLLED_UAT|audit-001'}, {Notes:'OWNER_AUTHORIZED_TRANSPORT_UAT'},
+  {Notes:'CLAIM|unexpected'}, {'Last Attempt At':' '}, {'Delivery Evidence':' '},
+  {Payload:' '+row(TG).Payload}, {Payload:'x'.repeat(2049)}
+ ];
+ for(const patch of patches)for(const entry of ['poll','timer','claim']){
+  const input=[row(TG,patch),row(LINE)],h=setup(input),label=entry+' '+JSON.stringify(patch);
+  assert.throws(()=>V2.planCandidate(input,input[0]['Notification ID'],h.context,Date.parse(h.context.observed_at)),undefined,label);
+  assert.throws(()=>entry==='poll'?h.poll():entry==='timer'?h.ctx.runCoreV1Notifier():h.claim(LINE),undefined,label);
+  assert.equal(h.propertyWrites,0,label);assert.equal(h.writes,0,label);assert.equal(h.calls,0,label);
+ }
+});
+
+test('valid ISO offsets, seconds and Date cells retain normalized initial selection and claim behavior',()=>{
+ const variants=['2026-10-29T12:00:01+07:00','2026-10-29T05:00:01Z','2026-10-30T00:00:01+19:00',new Date('2026-10-29T05:00:01.000Z')];
+ for(const created of variants)for(const entry of ['poll','timer','claim']){
+  const h=setup([row(TG,{'Created At':created}),row(LINE,{'Created At':created})]);
+  const normalized=row(TG,{'Created At':created instanceof Date?created.toISOString():created});
+  assert.equal(V2.planCandidate([normalized,row(LINE)],normalized['Notification ID'],h.context,Date.parse(h.context.observed_at)).attempt_count,1);
+  if(entry==='poll')assert.deepEqual(plain(h.poll().data.candidates),['real-telegram-001']);
+  if(entry==='timer'){assert.equal(h.ctx.runCoreV1Notifier().processed,1);assert.equal(h.calls,1);}
+  if(entry==='claim')assert.equal(h.claim(LINE).attempt_count,1);
+  assert.ok(h.propertyWrites>0);
+ }
+});
+
+test('gateway maximum 93-byte source identities remain eligible after normalization',()=>{
+ for(const id of ['x'.repeat(93),'ก'.repeat(31),'normal-😀-id']){
+  const h=setup([row(TG,{'Notification ID':id}),row(LINE)]);
+  assert.equal(V2.planCandidate([row(TG,{'Notification ID':id}),row(LINE)],id,h.context,Date.parse(h.context.observed_at)).attempt_count,1);
+  assert.deepEqual(plain(h.poll().data.candidates),[id]);assert.equal(h.claim(LINE).attempt_count,1);
+ }
+});
