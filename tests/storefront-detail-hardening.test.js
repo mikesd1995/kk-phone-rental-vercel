@@ -73,6 +73,8 @@ test('event modal contains only name, date, venue, and availability-based packag
   assert.ok(modal.includes('getElementById("modal-venue")'));
   assert.ok(modal.includes('availPkgs(c)'));
   assert.doesNotMatch(modal, /eventNoteEl|publicEventNote/);
+  assert.ok(modal.includes('fullBox.textContent=tr("full_title")'));
+  assert.doesNotMatch(modal, /full_body/);
 });
 
 
