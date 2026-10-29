@@ -24,11 +24,10 @@ test('booking and waitlist LINE messages include event venue', () => {
   assert.match(source, /tr\("line_venue"\)\+" : "\+lineVal\(c&&c\.venue\)/);
 });
 
-test('public event_note is mapped, sanitized, and rendered in the package modal', () => {
-  assert.match(source, /String\(r\.event_note\|\|r\.web_note\|\|""\)\.trim\(\)/);
-  assert.match(source, /modal-event-note/);
-  assert.match(source, /var publicEventNote=sanitizePublicText\(c\.webNote\)/);
-  assert.match(source, /eventNoteEl\.textContent=publicEventNote\?"ℹ️ "\+publicEventNote:""/);
+test('source event notes stay available for internal processing but are never displayed in the public event modal', () => {
+  assert.match(source, /String\\(r\\.event_note\\|\\|r\\.web_note\\|\\|""\\)\\.trim\\(\\)/);
+  const modal = source.slice(source.indexOf('function showModal(c,options){'), source.indexOf('var PACKAGE_CLOSE_SELECTOR'));
+  assert.doesNotMatch(modal, /webNote|modal-event-note|sanitizePublicText|publicSubtitle|packageSpecForLanguage/);
 });
 
 test('month and availability filter choices can be reflected in the URL', () => {
@@ -54,21 +53,26 @@ test('internal package notes never reach the customer modal', () => {
   assert.match(source, /function looksInternalPublicText\(raw\)/);
   assert.match(source, /capacity\\s\*\(\?:tight\|blocked\|readback\)/);
   assert.match(source, /function sanitizePublicText\(raw\)/);
-  assert.match(source, /var publicSubtitle=packagePublicSubtitle\(p\)/);
+  assert.doesNotMatch(source, /var publicSubtitle=packagePublicSubtitle\(p\)/);
   assert.doesNotMatch(source, /if\(p\.useCase\)\{var uEl=.*p\.useCase/);
   assert.doesNotMatch(source, /if\(p\.note\)\{var nEl=.*p\.note/);
 });
 
-test('package modal has stable public fallback taglines', () => {
-  assert.match(source, /pkg_tagline_phone:"เหมาะกับถ่ายเวทีไกล ซูมชัด"/);
-  assert.match(source, /pkg_tagline_bundle:"เซ็ตครบ ประหยัดกว่า"/);
-  assert.match(source, /if\(p\.type==="phone_only"\)return tr\("pkg_tagline_phone"\)/);
-  assert.match(source, /if\(p\.type==="phone_lens_bundle"\)return tr\("pkg_tagline_bundle"\)/);
+test('modal package rows render only model, price and booking action', () => {
+  const modal = source.slice(source.indexOf('function showModal(c,options){'), source.indexOf('var PACKAGE_CLOSE_SELECTOR'));
+  assert.match(modal, /className="ph-model"/);
+  assert.match(modal, /className="ph-price"/);
+  assert.match(modal, /bookBtn\\.href=getBookingUrl\\(c,p\\)/);
+  assert.doesNotMatch(modal, /className="ph-note"|className="ph-spec"/);
 });
 
-test('internal event notes are filtered before rendering', () => {
-  assert.match(source, /var publicEventNote=sanitizePublicText\(c\.webNote\)/);
-  assert.match(source, /eventNoteEl\.textContent=publicEventNote\?"ℹ️ "\+publicEventNote:""/);
+test('event modal contains only name, date, venue, and availability-based packages', () => {
+  const modal = source.slice(source.indexOf('function showModal(c,options){'), source.indexOf('var PACKAGE_CLOSE_SELECTOR'));
+  assert.match(modal, /getElementById\\("modal-title"\\)/);
+  assert.match(modal, /getElementById\\("modal-date"\\)/);
+  assert.match(modal, /getElementById\\("modal-venue"\\)/);
+  assert.match(modal, /availPkgs\\(c\\)/);
+  assert.doesNotMatch(modal, /eventNoteEl|publicEventNote/);
 });
 
 
