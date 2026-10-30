@@ -74,3 +74,28 @@ test('M Card / The Mall fan-zone and lighting sources are mandatory, not generic
  assert.equal(proof.by_tier.BRAND_SPONSOR.complete,false);
  assert.ok(proof.missing_required_sources.includes('mcard-the-mall-artist-events'));
 });
+
+test('December cross-month fan events require named M Card, Mediheal, TTM and creative-calendar source receipts',()=>{
+ const plan=R.buildUniversePlan({month:'2026-12',location:'Bangkok Thailand'});
+ const ids=['mcard-future-event-spend-winner-cycle','mediheal-th-artist-lucky-fans','ttm-recent-asia-artist-fancon','illust-fusion-official-events'];
+ for(const id of ids){
+  const row=plan.tasks.find(r=>r.source_id===id);
+  assert.ok(row,id);
+  assert.equal(row.required,true,id);
+  assert.equal(row.evidence_required,true,id);
+  const queries=[row.query,...row.query_variants].join(' | ');
+  assert.match(queries,/December 2026|ธันวาคม 257?0|ธันวาคม 2569/i,id);
+ }
+ assert.match([plan.tasks.find(r=>r.source_id==='mcard-future-event-spend-winner-cycle').query,...plan.tasks.find(r=>r.source_id==='mcard-future-event-spend-winner-cycle').query_variants].join(' '),/top spender|สะสมยอด/i);
+ assert.match([plan.tasks.find(r=>r.source_id==='illust-fusion-official-events').query,...plan.tasks.find(r=>r.source_id==='illust-fusion-official-events').query_variants].join(' '),/WINTER/i);
+ const receipts=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ for(const id of ids){
+  const receipt=receipts.find(r=>r.source_id===id);
+  receipt.executed=false;
+  receipt.status='NOT_BOUND';
+ }
+ const proof=R.buildUniverseProof(receipts);
+ assert.equal(proof.complete,false);
+ for(const id of ids)assert.ok(proof.missing_required_sources.includes(id),id);
+ for(const tier of ['BRAND_SPONSOR','TICKETING','PUBLIC_CALENDAR'])assert.equal(proof.by_tier[tier].complete,false,tier);
+});
