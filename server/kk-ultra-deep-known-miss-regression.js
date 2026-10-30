@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V12';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V13';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -21,6 +21,7 @@ const CORPUS=Object.freeze([
   {case_id:'interstellar-live-20261028',title:'INTERSTELLAR LIVE CONCERT',aliases:['interstellar live concert bangkok'],search_queries:['interstellar live concert bangkok October 2026'],event_date:'2026-10-28',miss_class:'TICKETING_SOURCE_GAP'},
   {case_id:'pixxie-soundscape-20261030',title:'PiXXiE live at Bangkok Soundscape',aliases:['pixxie bangkok soundscape'],search_queries:['pixxie bangkok soundscape October 2026'],event_date:'2026-10-30',miss_class:'THAI_LIVE_SOURCE_GAP'},
   {case_id:'nct127-redline-20261031',title:'NCT 127 5TH TOUR NEO CITY - THE REDLINE',aliases:['nct 127 redline bangkok'],search_queries:['nct 127 redline bangkok October 2026'],event_date:'2026-10-31',miss_class:'INTERNATIONAL_CONCERT_SOURCE_GAP'},
+  {case_id:'the-mall-christmas-lighting-20261106',title:'THE MALL LIFESTORE CHRISTMAS TREE LIGHTING CEREMONY',aliases:['the mall lifestore christmas tree lighting','the mall lifestore mr men little miss christmas tree lighting','great happy new year christmas tree lighting ceremony'],search_queries:['site:mcardmall.com/th/promotions/8300 Christmas Tree Lighting Ceremony','The Mall Lifestore TeeTee Por PROXIE 6 November 2026','เดอะมอลล์ ไลฟ์สโตร์ ตี๋ตี๋ ป๋อ PROXIE 6 พฤศจิกายน 2569'],event_date:'2026-11-06',discovery_months:['2026-10'],miss_class:'MALL_ARTIST_ACTIVATION_DIRECT_SOURCE_GAP'},
   {case_id:'fortreasure-20261129',title:'FORTREASURE BEYOND THE HORIZON CONCERT',aliases:['fortreasure beyond the horizon','fort treasure beyond horizon','fortreasure concert','beyond the horizon concert fortfts','fortfts fortreasure'],search_queries:['FORTREASURE site:eventpop.me','FORTREASURE FortFTS Eventpop'],event_date:'2026-11-29'},
   {case_id:'sing-infinity-20261024',title:'SING INFINITY เพลงเพราะไม่รู้จบ',aliases:['sing infinity','the giving concert sing infinity','เพลงเพราะไม่รู้จบ'],search_queries:['SING INFINITY SiamPic Hall 24 October 2026','NuNew Tle FirstOne SING INFINITY'],event_date:'2026-10-24',miss_class:'PUBLIC_CHARITY_CONCERT_SOURCE_GAP'},
   {case_id:'love-at-first-trip-20261108',title:'Love at First Trip with TleFirstone',aliases:['love at first trip tlefirstone','saraan tle firstone trip','tlefirstone 8 nov 2026'],search_queries:['Saraan Love at First Trip TleFirstone 8 Nov 2026','TleFirstone Saraan November 2026'],event_date:'2026-11-08',miss_class:'BRAND_PURCHASE_CAMPAIGN_GAP'},
@@ -47,6 +48,7 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'scoopify-james-su-20261024':{title:'HOW TO BUY TICKETS SCOOPIFY YOGURT & YOU WITH JAMES SU',source_url:'https://x.com/SummerVibeTH'},
   'tle-firstone-20261022':{title:'EVERPINK A Touch of Love with TleFirstone',source_url:'https://x.com/everpink_th'},
   'ryo-teeteepor-20261007':{title:'RYO Strong Roots, Bright Stars with TeeTee & Por',source_url:'https://x.com/RYOHairThailand'},
+  'the-mall-christmas-lighting-20261106':{title:'THE MALL LIFESTORE × MR. MEN AND LITTLE MISS — CHRISTMAS TREE LIGHTING CEREMONY (TeeTee–Por × PROXIE)',source_url:'https://www.mcardmall.com/th/promotions/8300'},
   'fortreasure-20261129':{title:'FORTREASURE BEYOND THE HORIZON CONCERT',source_url:'https://www.eventpop.me/e/173408/fortreasure-beyond-the-horizon-concert'},
   'sing-infinity-20261024':{title:'SING INFINITY เพลงเพราะไม่รู้จบ',source_url:'https://spacebar.th/culture/the-giving-concert-3-generations-1-heart'},
   'love-at-first-trip-20261108':{title:'Love at First Trip with TleFirstone',source_url:'https://x.com/Saraanofficial'},
