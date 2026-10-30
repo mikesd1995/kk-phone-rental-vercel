@@ -34,10 +34,27 @@ test('monthly discovery includes bounded broad fallbacks when exact month querie
 test('smart operational query plan stays intentionally small and leaves exhaustive coverage to audit',()=>{
  const r=P.buildOperational({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'});
  assert.equal(r.mode,'SMART_OPERATIONAL');
- assert.equal(r.gap_tasks.length,16);
+ assert.equal(r.gap_tasks.length,17);
  assert.equal(r.operational_tiers.length,16);
  assert.equal(r.audit_required,true);
  assert.ok(r.gap_tasks.every(x=>x.source_id.startsWith('smart-')));
  assert.ok(r.gap_tasks.every(x=>x.query_variants.length<=3));
  assert.ok(r.gap_tasks.some(x=>x.providers.includes('LIVENATION_PUBLIC')));
+});
+
+test('daily bounded plan explicitly scans iQIYI FAN ZONE registrations through following month without paid providers',()=>{
+ const p=P.buildOperational({month:'2026-10',location:'Bangkok Thailand'});
+ const row=p.gap_tasks.find(x=>x.source_id==='smart-iqiyi-thailand-platform');
+ assert.ok(row);
+ assert.equal(row.required,true);
+ assert.equal(row.evidence_required,true);
+ assert.equal(row.direct_url,'https://x.com/iQIYI_Thailand');
+ assert.equal(row.stop_condition,'EXECUTE_AND_RECORD_RECEIPT');
+ assert.deepEqual(row.providers,['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML']);
+ assert.equal(row.date_window.start,'2026-10-01');
+ assert.equal(row.date_window.end,'2026-11-30');
+ assert.ok([row.query,...row.query_variants].some(x=>x.includes('November 2026')));
+ assert.ok([row.query,...row.query_variants].some(x=>x.includes('FAN ZONE')));
+ assert.ok(row.query_variants.length<=3);
+ assert.equal(p.production_writes,0);
 });

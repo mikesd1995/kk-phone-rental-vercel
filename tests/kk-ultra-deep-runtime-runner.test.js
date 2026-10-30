@@ -404,3 +404,27 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
  assert.ok(out.candidate_count>0);
  assert.equal(out.production_writes,0);
 });
+
+test('iQIYI iJOY FAN ZONE official dated announcements are eligible reference signals without misclassifying generic VIP subscriptions',()=>{
+ const context={month:'2026-11',location:'Bangkok'};
+ const valid=Runner.referenceScopeDecision({
+   title:'iQIYI iJOY TH 2027 FAN ZONE 400 at ICONSIAM',
+   event_date:'2026-11-05',
+   source_url:'https://x.com/iQIYI_Thailand/status/100'
+ },context);
+ assert.deepEqual(valid,{eligible:true,reason:'ELIGIBLE_REFERENCE'});
+ assert.equal(Runner.referenceScopeDecision({
+  title:'iQIYI iJOY TH 2027 FAN ZONE 400',
+  source_url:'https://x.com/iQIYI_Thailand/status/100'
+ },context).reason,'NO_STRUCTURED_DATE');
+ assert.equal(Runner.referenceScopeDecision({
+  title:'iQIYI VIP annual membership subscription',
+  event_date:'2026-11-05',
+  source_url:'https://x.com/iQIYI_Thailand/status/101'
+ },context).reason,'EVENT_IDENTITY_NOT_STRONG_ENOUGH');
+ assert.equal(Runner.referenceScopeDecision({
+  title:'iQIYI iJOY TH 2027 FAN ZONE 400',
+  event_date:'2026-10-05',
+  source_url:'https://x.com/iQIYI_Thailand/status/102'
+ },context).reason,'OUTSIDE_TARGET_MONTH');
+});

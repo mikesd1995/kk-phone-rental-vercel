@@ -1,6 +1,6 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V11';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V12';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล','free concert radio station Flex1045 PMCU Siam Halloween multi-day October November Bangkok','ฟรีคอนเสิร์ต สยามฮาโลวีน PMCU Flex 104.5 เทศกาล 30 ตุลาคม 1 พฤศจิกายน ศิลปิน'],
  TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล','KAZZ MARKET activity TutorYim fanmeeting one day trip ticket updated date','LOOKE GELBOYS AllTicket fanmeet onsale event date Thailand'],
@@ -72,8 +72,30 @@ function buildOperational(input={}){
    stop_condition:'FIRST_USABLE_EVIDENCE_OR_BOUNDED_NO_EVIDENCE',evidence_required:false,date_window:{start:range.start_date,end:range.end_date}
   });
  }
+ // Required bounded platform catch-up: organizer social announcements often say
+ // FAN ZONE / VIP registration, not concert or fanmeeting. Look into next month
+ // because registration opens before the event. Zero paid search providers here.
+ const thisMonth=SourceRegistry.monthLabels(range.month);
+ const nextMonth=SourceRegistry.monthLabels(leadTimeEnd(range).slice(0,7));
+ gap_tasks.push({
+  source_tier:'PRESS_BRAND',
+  source_id:'smart-iqiyi-thailand-platform',
+  direct_url:'https://x.com/iQIYI_Thailand',
+  query:'iQIYI Thailand iJOY FAN ZONE registration '+thisMonth.en+' Bangkok',
+  query_variants:[
+   'iQIYI_Thailand iJOY FAN ZONE ลงทะเบียน '+thisMonth.th+' ไอคอนสยาม',
+   'iQIYI Thailand iJOY FAN ZONE '+nextMonth.en+' ICONSIAM',
+   '#iQIYIiJOYTH2027 ICONSIAM FAN ZONE 400'
+  ],
+  providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML'],
+  stop_condition:'EXECUTE_AND_RECORD_RECEIPT',
+  evidence_required:true,
+  required:true,
+  campaign_lead_time:true,
+  date_window:{start:range.start_date,end:leadTimeEnd(range)}
+ });
  return {
-  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V3',
+  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V4',
   mode:'SMART_OPERATIONAL',
   range,location,gap_tasks,
   operational_tiers:[...OPERATIONAL_TIERS],hot_fandom_query_count:hotFandoms.length,

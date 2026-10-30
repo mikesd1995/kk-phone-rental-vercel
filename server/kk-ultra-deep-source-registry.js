@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V8';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V9';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -20,7 +20,7 @@ const REGISTRY=Object.freeze({
     {source_id:'impact-thunderdome',label:'IMPACT / Thunder Dome',required:true},
     {source_id:'bitec',label:'BITEC / BITEC LIVE',required:true},
     {source_id:'union-hall-mall',label:'Union Hall / Union Mall',required:true},
-    {source_id:'iconsiam-hall',label:'ICONSIAM Hall',required:true},
+    {source_id:'iconsiam-hall',label:'ICONSIAM Hall',direct_url:'https://www.iconsiamhall.com/en/event-calendar/event-list',required:true},
     {source_id:'mcc-hall',label:'MCC Hall',required:true},
     {source_id:'paragon-hall',label:'Paragon Hall',required:true},
     {source_id:'the-mall-m-grand-hall',label:'The Mall Lifestore / M Grand Hall',required:true},
@@ -44,6 +44,7 @@ const REGISTRY=Object.freeze({
   ]),
   BRAND_SPONSOR:Object.freeze([
     {source_id:'watsons-campaigns',label:'Watsons campaigns',required:true},
+    {source_id:'iqiyi-thailand-platform',label:'iQIYI Thailand official iJOY fan zone registration artist showcase and awards',direct_url:'https://x.com/iQIYI_Thailand',search_terms:['iQIYI iJOY TH','#iQIYIiJOYTH2027','iQIYI FAN ZONE ลงทะเบียน','iQIYI VIP artist showcase'],required:true},
     {source_id:'wetv-campaigns',label:'WeTV campaigns',required:true},
     {source_id:'smtrue-campaigns',label:'SM True campaigns',required:true},
     {source_id:'mall-brand-campaigns',label:'Mall / retail brand campaigns',required:true},
@@ -105,7 +106,11 @@ function buildUniversePlan(input={}){
       [row.label,labels.th,'กรุงเทพ'].filter(Boolean).join(' '),
       [domain,row.label,'Bangkok'].filter(Boolean).join(' '),
       [domain,'concert fanmeeting Bangkok'].filter(Boolean).join(' '),
-      [row.label,'Bangkok'].filter(Boolean).join(' ')
+      [row.label,'Bangkok'].filter(Boolean).join(' '),
+      ...(Array.isArray(row.search_terms)?row.search_terms:[]).flatMap(term=>[
+        [term,labels.en,'Bangkok'].join(' '),
+        [term,labels.th,'กรุงเทพ'].join(' ')
+      ])
     ].filter(Boolean);
     return {
       source_id:row.source_id,
@@ -113,6 +118,7 @@ function buildUniversePlan(input={}){
       required:row.required===true,
       label:row.label,
       domain:row.domain||null,
+      direct_url:row.direct_url||null,
       query:queries[0],
       query_variants:[...new Set(queries.slice(1))],
       providers:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
