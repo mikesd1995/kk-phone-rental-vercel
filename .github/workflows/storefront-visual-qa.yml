@@ -232,6 +232,14 @@ jobs:
           cat /tmp/kk-storefront-http.log || true
           exit 1
 
+      - name: Audit every visible event modal at 390px TH and 1440px EN (read only)
+        if: ${{ env.TARGET_MODE == 'local_zero_cost' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/qa/storefront-all-visible-modals.cjs
+          node scripts/qa/storefront-all-visible-modals.cjs
+
       - name: Capture screenshots, metrics and reviewer acceptance
         shell: bash
         run: |
