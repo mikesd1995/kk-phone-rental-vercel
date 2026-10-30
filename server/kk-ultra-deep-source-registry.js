@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V8';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V9';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -24,6 +24,7 @@ const REGISTRY=Object.freeze({
     {source_id:'mcc-hall',label:'MCC Hall',required:true},
     {source_id:'paragon-hall',label:'Paragon Hall',required:true},
     {source_id:'the-mall-m-grand-hall',label:'The Mall Lifestore / M Grand Hall',required:true},
+    {source_id:'the-mall-lifestore-plaza-artist-activations',label:'The Mall Lifestore branch plaza artist appearances and Christmas tree lighting',domain:'mcardmall.com',required:true},
     {source_id:'pmcu-siam-square',label:'PMCU Siam Square seasonal free music festivals and stages',domain:'pmcu.co.th',required:true},
     {source_id:'siam-center-free-stage',label:'Siam Center public plaza and POP-Pah free T-Pop programmes',required:true}
   ]),
@@ -47,6 +48,7 @@ const REGISTRY=Object.freeze({
     {source_id:'wetv-campaigns',label:'WeTV campaigns',required:true},
     {source_id:'smtrue-campaigns',label:'SM True campaigns',required:true},
     {source_id:'mall-brand-campaigns',label:'Mall / retail brand campaigns',required:true},
+    {source_id:'mcard-the-mall-artist-events',label:'M Card The Mall Lifestore artist fan-zone and Christmas tree lighting events',domain:'mcardmall.com',required:true},
     {source_id:'lucky-fan-top-spender',label:'Lucky fan / top spender campaigns',required:true},
     {source_id:'beauty-personal-care-campaigns',label:'Beauty / personal-care artist campaigns',required:true},
     {source_id:'retail-performance-schedules',label:'Retail / mall artist performance schedules',required:true},
@@ -96,6 +98,15 @@ function buildUniversePlan(input={}){
   const labels=monthLabels(month);
   const tasks=allSources().map(row=>{
     const domain=row.domain?('site:'+row.domain):'';
+    // Do not substitute generic mall/brand source-class coverage for a direct
+    // M Card / The Mall artist-activation sweep. The page may not sell tickets.
+    const mallArtistSource=['the-mall-lifestore-plaza-artist-activations','mcard-the-mall-artist-events'].includes(row.source_id);
+    const mallQueries=mallArtistSource?[
+      [domain,'Christmas Tree Lighting Ceremony','artist performance',labels.en].filter(Boolean).join(' '),
+      [domain,'พิธีเปิดไฟต้นคริสต์มาส','ศิลปิน','แฟนโซน',labels.th].filter(Boolean).join(' '),
+      [domain,'The Mall Lifestore','M Card','fan zone','artist',labels.en].filter(Boolean).join(' '),
+      [domain,'The Mall Lifestore','TeeTee Por PROXIE',labels.en].filter(Boolean).join(' ')
+    ]:[];
     const queries=[
       [domain,row.label,labels.en,'Bangkok'].filter(Boolean).join(' '),
       [domain,'concert fanmeeting',labels.en,'Bangkok'].filter(Boolean).join(' '),
@@ -105,7 +116,8 @@ function buildUniversePlan(input={}){
       [row.label,labels.th,'กรุงเทพ'].filter(Boolean).join(' '),
       [domain,row.label,'Bangkok'].filter(Boolean).join(' '),
       [domain,'concert fanmeeting Bangkok'].filter(Boolean).join(' '),
-      [row.label,'Bangkok'].filter(Boolean).join(' ')
+      [row.label,'Bangkok'].filter(Boolean).join(' '),
+      ...mallQueries
     ].filter(Boolean);
     return {
       source_id:row.source_id,
