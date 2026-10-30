@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V9';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V10';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -14,6 +14,7 @@ const REGISTRY=Object.freeze({
     {source_id:'zipevent',label:'Zipevent',domain:'zipeventapp.com',required:true},
     {source_id:'allticket',label:'AllTicket',domain:'allticket.com',required:true},
     {source_id:'kazz-market-activity',label:'KAZZ Magazine event activity ticketing',domain:'kazzmarket.com',required:true},
+    {source_id:'ttm-recent-asia-artist-fancon',label:'ThaiTicketMajor newly announced Asia artist fancons and December special concerts',domain:'thaiticketmajor.com',required:true},
     {source_id:'megatix',label:'Megatix',domain:'megatix.in.th',required:false}
   ]),
   VENUE:Object.freeze([
@@ -49,6 +50,8 @@ const REGISTRY=Object.freeze({
     {source_id:'smtrue-campaigns',label:'SM True campaigns',required:true},
     {source_id:'mall-brand-campaigns',label:'Mall / retail brand campaigns',required:true},
     {source_id:'mcard-the-mall-artist-events',label:'M Card The Mall Lifestore artist fan-zone and Christmas tree lighting events',domain:'mcardmall.com',required:true},
+    {source_id:'mcard-future-event-spend-winner-cycle',label:'M Card cross-month spending, winner announcement and December artist meet-and-greet',domain:'mcardmall.com',required:true},
+    {source_id:'mediheal-th-artist-lucky-fans',label:'MEDIHEAL Thailand official X artist lucky-fan pop-ups and top-spender activations',domain:'x.com',required:true},
     {source_id:'lucky-fan-top-spender',label:'Lucky fan / top spender campaigns',required:true},
     {source_id:'beauty-personal-care-campaigns',label:'Beauty / personal-care artist campaigns',required:true},
     {source_id:'retail-performance-schedules',label:'Retail / mall artist performance schedules',required:true},
@@ -67,7 +70,8 @@ const REGISTRY=Object.freeze({
   ]),
   PUBLIC_CALENDAR:Object.freeze([
     {source_id:'public-event-calendars',label:'Public event calendars',required:true},
-    {source_id:'venue-event-calendars',label:'Venue event calendars',required:true}
+    {source_id:'venue-event-calendars',label:'Venue event calendars',required:true},
+    {source_id:'illust-fusion-official-events',label:'Illust Fusion EXPO official artist/illustration community calendar',domain:'if.enterdock.com',required:true}
   ])
 });
 
@@ -107,6 +111,28 @@ function buildUniversePlan(input={}){
       [domain,'The Mall Lifestore','M Card','fan zone','artist',labels.en].filter(Boolean).join(' '),
       [domain,'The Mall Lifestore','BL GL TPOP artist appearance',labels.en].filter(Boolean).join(' ')
     ]:[];
+    const decemberRecallQueries={
+      'mcard-future-event-spend-winner-cycle':[
+        'site:mcardmall.com/promotions meet greet artist top spender lucky fan '+labels.en,
+        'site:mcardmall.com สะสมยอด ลุ้นสิทธิ์ พบศิลปิน ประกาศผู้โชคดี '+labels.th,
+        'site:mcardmall.com Sphere Gallery artist event lucky fan December Bangkok'
+      ],
+      'mediheal-th-artist-lucky-fans':[
+        'site:x.com/Mediheal_TH artist top spender lucky fan '+labels.en,
+        'MEDIHEAL Thailand official Jimmy Sea artist event Siam Square '+labels.en,
+        'เมดิฮีล กิจกรรมศิลปิน private talk lucky fan กรุงเทพ '+labels.th
+      ],
+      'ttm-recent-asia-artist-fancon':[
+        'site:event.thaiticketmajor.com/search/ Asia Tour Nine 9 Moment '+labels.en,
+        'site:thaiticketmajor.com new concert fancon December Bangkok',
+        'คอนเสิร์ต เอเชียทัวร์ ศิลปินใหม่ เปิดขายบัตร '+labels.th
+      ],
+      'illust-fusion-official-events':[
+        'site:if.enterdock.com EXPO WINTER '+labels.en,
+        'site:if.enterdock.com งานวาดภาพ cosplay อิลลัสต์ '+labels.th,
+        'illustration creative community events Bangkok '+labels.en
+      ]
+    };
     const queries=[
       [domain,row.label,labels.en,'Bangkok'].filter(Boolean).join(' '),
       [domain,'concert fanmeeting',labels.en,'Bangkok'].filter(Boolean).join(' '),
@@ -117,7 +143,8 @@ function buildUniversePlan(input={}){
       [domain,row.label,'Bangkok'].filter(Boolean).join(' '),
       [domain,'concert fanmeeting Bangkok'].filter(Boolean).join(' '),
       [row.label,'Bangkok'].filter(Boolean).join(' '),
-      ...mallQueries
+      ...mallQueries,
+      ...(decemberRecallQueries[row.source_id]||[])
     ].filter(Boolean);
     return {
       source_id:row.source_id,
