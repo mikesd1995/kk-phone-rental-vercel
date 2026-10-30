@@ -3,9 +3,9 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const K=require('../server/kk-ultra-deep-known-miss-regression.js');
 
-const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121'];
+const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'the-mall-christmas-lighting-20261106', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121'];
 
-test('known-miss corpus preserves all thirty-two current and historical discovery misses',()=>{
+test('known-miss corpus preserves all thirty-three current and historical discovery misses',()=>{
  assert.deepEqual(K.CORPUS.map(x=>x.case_id).sort(),[...REQUIRED_CASE_IDS].sort());
  assert.ok(K.CORPUS.some(x=>x.case_id==='remaster-20261010'));
  assert.ok(K.CORPUS.some(x=>x.case_id==='bai-lu-meet-love-20261025'));
@@ -96,4 +96,24 @@ test('JMNK Oct ticket sale and November concert are both in November discovery o
  const o=K.evaluate([],[],{month:'2026-10',strict_live:true});
  assert.ok(n.missing_cases.includes('jmnk-she-serve-20261121'));
  assert.ok(o.missing_cases.includes('jmnk-she-serve-20261121'));
+});
+
+test('Nov 6 The Mall lighting miss must be found with its exact date and evidence, including October early-warning',()=>{
+ const id='the-mall-christmas-lighting-20261106';
+ const known=K.CORPUS.find(x=>x.case_id===id);
+ assert.ok(known);
+ assert.deepEqual(known.discovery_months,['2026-10']);
+ for(const month of ['2026-10','2026-11']){
+  const missing=K.evaluate([],[],{month,strict_live:true});
+  assert.ok(missing.missing_cases.includes(id),month);
+ }
+ const exact={title:'THE MALL LIFESTORE × MR. MEN AND LITTLE MISS — CHRISTMAS TREE LIGHTING CEREMONY (TeeTee–Por × PROXIE)',event_date:'2026-11-06',source_url:'https://www.mcardmall.com/th/promotions/8300'};
+ const discovered=K.evaluate([exact],[],{month:'2026-11',strict_live:true});
+ assert.ok(!discovered.missing_cases.includes(id));
+ const poster={title:'The Great Happy New Year Christmas Tree Lighting Ceremony',event_date:'2026-11-06',source_url:'https://www.mcardmall.com/th/promotions/8300'};
+ assert.ok(!K.evaluate([poster],[],{month:'2026-10',strict_live:true}).missing_cases.includes(id));
+ const wrongDate=K.evaluate([{...exact,event_date:'2026-11-05'}],[],{month:'2026-11',strict_live:true});
+ assert.ok(wrongDate.missing_cases.includes(id));
+ const unsourced=K.evaluate([{...exact,source_url:''}],[],{month:'2026-11',strict_live:true});
+ assert.ok(unsourced.missing_cases.includes(id));
 });
