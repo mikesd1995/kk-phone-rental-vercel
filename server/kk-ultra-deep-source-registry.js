@@ -105,7 +105,7 @@ function buildUniversePlan(input={}){
       [domain,'Christmas Tree Lighting Ceremony','artist performance',labels.en].filter(Boolean).join(' '),
       [domain,'พิธีเปิดไฟต้นคริสต์มาส','ศิลปิน','แฟนโซน',labels.th].filter(Boolean).join(' '),
       [domain,'The Mall Lifestore','M Card','fan zone','artist',labels.en].filter(Boolean).join(' '),
-      [domain,'The Mall Lifestore','TeeTee Por PROXIE',labels.en].filter(Boolean).join(' ')
+      [domain,'The Mall Lifestore','BL GL TPOP artist appearance',labels.en].filter(Boolean).join(' ')
     ]:[];
     const queries=[
       [domain,row.label,labels.en,'Bangkok'].filter(Boolean).join(' '),
