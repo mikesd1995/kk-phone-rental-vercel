@@ -52,3 +52,25 @@ test('radio free music festivals and mall public plaza sources are mandatory',()
   assert.ok(a.some(x=>x.source_id===id&&x.required===true),id);
  }
 });
+
+test('M Card / The Mall fan-zone and lighting sources are mandatory, not generic mall-category coverage',()=>{
+ const plan=R.buildUniversePlan({month:'2026-11',location:'Bangkok Thailand'});
+ const ids=['mcard-the-mall-artist-events','the-mall-lifestore-plaza-artist-activations'];
+ for(const id of ids){
+  const source=plan.tasks.find(t=>t.source_id===id);
+  assert.ok(source,id);
+  assert.equal(source.required,true);
+  assert.equal(source.domain,'mcardmall.com');
+  const queries=[source.query,...source.query_variants].join(' | ');
+  assert.match(queries,/Christmas Tree Lighting Ceremony/i);
+  assert.match(queries,/พิธีเปิดไฟต้นคริสต์มาส/);
+  assert.match(queries,/fan zone/i);
+ }
+ const receipts=R.allSources().map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ receipts.find(x=>x.source_id==='mcard-the-mall-artist-events').executed=false;
+ receipts.find(x=>x.source_id==='mcard-the-mall-artist-events').status='NOT_BOUND';
+ const proof=R.buildUniverseProof(receipts);
+ assert.equal(proof.complete,false);
+ assert.equal(proof.by_tier.BRAND_SPONSOR.complete,false);
+ assert.ok(proof.missing_required_sources.includes('mcard-the-mall-artist-events'));
+});
