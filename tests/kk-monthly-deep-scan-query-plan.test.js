@@ -41,3 +41,21 @@ test('smart operational query plan stays intentionally small and leaves exhausti
  assert.ok(r.gap_tasks.every(x=>x.query_variants.length<=3));
  assert.ok(r.gap_tasks.some(x=>x.providers.includes('LIVENATION_PUBLIC')));
 });
+
+test('named source universe fallbacks survive monthly execution-plan assembly for December missing cases',()=>{
+ const p=P.build({month:'2026-12',location:'Bangkok Thailand'});
+ const ids=['mcard-future-event-spend-winner-cycle','mediheal-th-artist-lucky-fans','ttm-recent-asia-artist-fancon','illust-fusion-official-events'];
+ for(const id of ids){
+  const task=p.gap_tasks.find(t=>t.source_id===id);
+  assert.ok(task,id);
+  assert.ok(Array.isArray(task.query_variants)&&task.query_variants.length>=2,id);
+  assert.match([task.query,...task.query_variants].join(' | '),/ธันวาคม 2569/,id);
+  assert.equal(task.required,true,id);
+ }
+ const mcard=p.gap_tasks.find(t=>t.source_id===ids[0]);
+ assert.ok(mcard.query_variants.some(q=>/สะสมยอด/.test(q)));
+ const illust=p.gap_tasks.find(t=>t.source_id===ids[3]);
+ assert.ok(illust.query_variants.some(q=>/WINTER/.test(q)));
+ assert.equal(p.production_writes,0);
+ assert.equal(p.verifier_required,true);
+});
