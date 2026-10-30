@@ -52,3 +52,24 @@ test('radio free music festivals and mall public plaza sources are mandatory',()
   assert.ok(a.some(x=>x.source_id===id&&x.required===true),id);
  }
 });
+
+test('iQIYI official Fan Zone and ICONSIAM routes are mandatory and cannot pass without an attempted receipt',()=>{
+ const sources=R.allSources();
+ const platform=sources.find(x=>x.source_id==='iqiyi-thailand-platform');
+ const venue=sources.find(x=>x.source_id==='iconsiam-hall');
+ assert.equal(platform.required,true);
+ assert.equal(platform.direct_url,'https://x.com/iQIYI_Thailand');
+ assert.ok(platform.search_terms.includes('#iQIYIiJOYTH2027'));
+ assert.equal(venue.direct_url,'https://www.iconsiamhall.com/en/event-calendar/event-list');
+ const p=R.buildUniversePlan({month:'2026-11'});
+ const task=p.tasks.find(x=>x.source_id==='iqiyi-thailand-platform');
+ assert.ok(task.query.includes('November 2026'));
+ assert.ok(task.query_variants.some(q=>q.includes('#iQIYIiJOYTH2027')));
+ assert.equal(task.direct_url,platform.direct_url);
+ const receipts=sources.filter(x=>x.source_id!=='iqiyi-thailand-platform').map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ const missing=R.buildUniverseProof(receipts);
+ assert.equal(missing.complete,false);
+ assert.ok(missing.missing_required_sources.includes('iqiyi-thailand-platform'));
+ const recovered=R.buildUniverseProof([...receipts,{source_id:'iqiyi-thailand-platform',status:'EVIDENCE_FOUND',executed:true}]);
+ assert.equal(recovered.complete,true);
+});
