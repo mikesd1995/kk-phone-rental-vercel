@@ -49,3 +49,30 @@ Branch: `fix/p0-phone-lens-inventory-current-main-20261031` (base exact main abo
 - Recheck P0 ACL, poster, LINE and customer privacy, release watcher before Stable Business V1 closure.
 
 Do not represent this code-only checkpoint as a production fix. Reuse the above file links and exact PR readback in future ChatGPT conversations rather than repeating the audit from memory.
+
+
+## Integration checkpoint — 2026-10-31, combined P0 Booking + Stock source candidate
+
+**Repository and changes**
+- Baseline \`main\`: \`30425dd2486d5bd979aded89cfa4984b30af142f\`, still unchanged at latest GitHub readback. Current carrier is [Draft PR #831](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/831); [Draft PR #830](https://github.com/mikesd1995/kk-phone-rental-vercel/pull/830) is preserved without modification, not marked obsolete until independent parity review.
+- Ports #830's smallest fail-closed Apps Script admission correction into the already reviewed #831 source: \`kkAssertWebPackageBookable_\` now throws if canonical \`09_Web_Packages\` contains zero rows for an event. Caller DocumentLock and every other package, stock, price, visibility and identity guard were left intact.
+- Ports #830's **10 exact-source tests** to \`tests/apps-script-web-package-fail-closed.test.js\`, with the existing Booking E2E workflow path and test registration. Both fixes therefore test on the **same exact PR HEAD**, not merely on separate passing PRs.
+- The previously exposed LINE message issue for \`lens_only\` was corrected with a conditional opening line: **"สอบถามเพิ่มเลนส์สำหรับผู้จองมือถือแล้ว"**. New phone rentals retain their original message. The small CTA is inquiry-only and the displayed package model is left unchanged; added a source-function regression for both LINE variants. No customer LINE messages were sent by this change.
+- Existing storefront modal continues showing the **phone waitlist + eligible lens-only inquiry** simultaneously on phone-full dates. The backend, not public text, remains the authority on whether an add-on is permitted.
+
+**Verification and review evidence**
+- [Booking E2E run 41174142075](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/41174142075) on pre-document-edit source SHA \`e8e7f7fe663f2595ffdece7b8b28715db288ddc7\` finished \`SUCCESS\`, **79 tests / 79 pass / 0 fail**, exact checkout and zero-live-write safety assertion. Do not transfer this pass to any later HEAD without fresh readback.
+- The local zero-cost [Storefront Visual QA run 41174142076](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/41174142076) completed its all-visible-modal browser audit step at that SHA; confirm **terminal conclusion, screenshots and acceptance artifact** separately.
+- Independent review by a different Reviewer and registered \`kk-storefront-ux-reviewer\` / \`storefront_visual_qa\` Agent Gateway invocations **remain outstanding**. The GitHub UI workflow is supplemental, not substitute. The complete \`npm run check\` and full \`npm test\` were not executed here.
+
+**Fresh read-only owner evidence on 2026-10-31**
+- \`08_Web_Ready!A37:J38\` still has **BTS 03 Dec / 05 Dec** \`phone=0, lens=1, เปิดจอง, show\`. Both I and J live formulas still use \`MAX(G,H)>0\`; no actual formula repair occurred.
+- Canonical Google backend workbook still grants \`anyone:reader\`, unlisted; one verified current BTS poster still grants \`anyone:writer\`. This is a link-reader privacy risk and a public-writer integrity risk; it is not evidence of a confirmed attack. Exact live file IDs intentionally omitted from public handoff.
+- \`main\` remains unprotected. Production exact deploy/real-world Booking and LINE E2E acceptance were not verified by this integration.
+
+**Final release HOLD / next concrete actions**
+1. Verify terminal exact-HEAD source CI and browser QA, independently review diff and relevant Package/Booking collision paths. Preserve original PR #830 as traceable donor until accepted.
+2. Run complete source full regression, registered storefront UX reviewer before/after, security/negative-auth review and backend deployed Apps Script provenance.
+3. Only after approval and bounded exact readback: repaired formula rollout (owner-hidden events must not reopen), private Core read cutover before revoking sheet anyone-reader, scoped poster reader ACL repair. Do not modify inventory, price, customer PII, Booking or automated runner as a workaround.
+4. Confirm signed-out storefront, Admin, LINE new Booking, existing renter add-on, waitlist and control-plane state on current Production. Resolve production-release drift.
+5. Record actual post-release evidence and rollback before declaring Stable Business V1. **No Merge/Deploy/Google ACL/Sheet/Booking/Machine SOT/Automation/Prod writes in this checkpoint.**
