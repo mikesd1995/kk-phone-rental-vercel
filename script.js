@@ -1515,7 +1515,7 @@ function buildBookingMsg(c,p){
   // Keep LINE OA message short and package-specific.
   // The pick-up field intentionally says "equipment" so lens-only rentals are covered.
   return [
-    "สนใจเช่ามือถือ",
+    (p&&p.type==="lens_only")?"สอบถามเพิ่มเลนส์สำหรับผู้จองมือถือแล้ว":"สนใจเช่ามือถือ",
     "🎫 "+tr("line_event")+": "+lineVal(c&&c.name),
     "📅 "+tr("line_date")+": "+lineVal(c&&c.date),
     "📍 "+tr("line_venue")+": "+lineVal(c&&c.venue),
