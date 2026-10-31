@@ -98,11 +98,15 @@ test('lens-only add-on remains available to an existing verified phone renter',(
   {type:'lens_only',avail:true}
  ]};
  assert.equal(availCnt(event),0,'New phone rental remains full');
- // Do NOT remove an approved lens add-on for an existing phone booking.
- assert.ok(storefront.includes('var avail=availPkgs(c);'));
- assert.ok(storefront.includes('p.avail = p.avail && lensCnt>0;'));
- assert.ok(storefront.includes('if(!avail.length){'));
+ // Do NOT remove a valid existing-renter lens add-on or the phone waitlist.
+ assert.ok(storefront.includes('var phoneBookable=availCnt(c)>0;'));
+ assert.ok(storefront.includes('return phoneBookable || p.type==="lens_only";'));
+ assert.ok(storefront.includes('if(!phoneBookable || !avail.length){'));
+ assert.ok(storefront.includes('if(!avail.length){openModal(); return;}'));
  assert.ok(storefront.includes('waitBtn.href=getWaitlistUrl(c,null)'));
+ assert.ok(storefront.includes('p.avail = p.avail && lensCnt>0;'));
+ assert.ok(storefront.includes('existing phone booking only'));
+ assert.ok(storefront.includes('สำหรับผู้จองมือถือแล้ว'));
 });
 
 test('explicit show_full always prevents phone booking badges with stale positive stock',()=>{
