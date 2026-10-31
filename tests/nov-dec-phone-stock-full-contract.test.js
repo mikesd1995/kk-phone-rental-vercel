@@ -117,3 +117,16 @@ test('explicit show_full always prevents phone booking badges with stale positiv
  const event={action:'show_full',phoneCnt:2,lensCnt:1,packages:[{type:'phone_only',avail:true}]};
  assert.equal(availCnt(event),0);
 });
+
+test('lens-only LINE inquiry says existing-booking add-on rather than a new phone rental',()=>{
+ const render=compile(storefront,'buildBookingMsg',{
+  tr:key=>key,lineVal:value=>String(value||''),fmtPriceLine:value=>String(value)
+ });
+ const event={name:'Test Fanmeet',date:'03/12/2026',venue:'Bangkok'};
+ const lens=render(event,{type:'lens_only',model:'Lens',price:390});
+ const phone=render(event,{type:'phone_only',model:'vivo X300 Pro',price:790});
+ assert.ok(lens.startsWith('สอบถามเพิ่มเลนส์สำหรับผู้จองมือถือแล้ว'));
+ assert.doesNotMatch(lens,/^สนใจเช่ามือถือ/);
+ assert.ok(phone.startsWith('สนใจเช่ามือถือ'));
+ assert.ok(lens.includes('Test Fanmeet'));
+});
