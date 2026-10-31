@@ -8,6 +8,11 @@ on:
       - 'server/line-booking-intake.js'
       - 'server/line-booking-owner-approval.js'
       - 'apps-script/Code.gs'
+      - 'script.js'
+      - 'admin/admin.js'
+      - 'tests/nov-dec-phone-stock-full-contract.test.js'
+      - 'tests/audit-phone-bookability-public-feed.test.js'
+      - 'scripts/audit-phone-bookability-public-feed.cjs'
       - 'tests/line-booking-*.test.js'
       - 'tests/line-webhook*.test.js'
       - 'tests/same-day-inventory-date-normalization.test.js'
@@ -59,6 +64,8 @@ jobs:
             tests/line-webhook.test.js \
             tests/line-webhook-raw-body.test.js \
             tests/same-day-inventory-date-normalization.test.js \
+            tests/nov-dec-phone-stock-full-contract.test.js \
+            tests/audit-phone-bookability-public-feed.test.js \
             tests/booking-id-primary-close-regression-20261002.test.js
 
       - name: Assert no provider or production acceptance side effects
