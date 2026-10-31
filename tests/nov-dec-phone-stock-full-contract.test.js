@@ -108,6 +108,9 @@ test('lens-only add-on remains available to an existing verified phone renter',(
  assert.ok(storefront.includes('existing phone booking only'));
  assert.ok(storefront.includes('สำหรับผู้จองมือถือแล้ว'));
  assert.ok(storefront.includes('p.type==="lens_only" || p.inquiryOnly'));
+ // Keep machine-checked model text unchanged; put eligibility in a separate small label.
+ assert.ok(storefront.includes('mEl.textContent=p.model||"";'));
+ assert.ok(storefront.includes('note.className="ph-addon-eligibility"'));
 });
 
 test('explicit show_full always prevents phone booking badges with stale positive stock',()=>{
