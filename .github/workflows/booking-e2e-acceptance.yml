@@ -11,6 +11,7 @@ on:
       - 'script.js'
       - 'admin/admin.js'
       - 'tests/nov-dec-phone-stock-full-contract.test.js'
+      - 'tests/apps-script-web-package-fail-closed.test.js'
       - 'tests/audit-phone-bookability-public-feed.test.js'
       - 'scripts/audit-phone-bookability-public-feed.cjs'
       - 'tests/line-booking-*.test.js'
@@ -65,6 +66,7 @@ jobs:
             tests/line-webhook-raw-body.test.js \
             tests/same-day-inventory-date-normalization.test.js \
             tests/nov-dec-phone-stock-full-contract.test.js \
+            tests/apps-script-web-package-fail-closed.test.js \
             tests/audit-phone-bookability-public-feed.test.js \
             tests/booking-id-primary-close-regression-20261002.test.js
 
