@@ -1612,7 +1612,7 @@ function showModal(c,options){
     } else {
       priceEl.textContent=tr("ask_price");
     }
-    var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill"; bookBtn.textContent=p.inquiryOnly?tr("ask_this"):tr("book_this");
+    var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill"; bookBtn.textContent=(p.type==="lens_only" || p.inquiryOnly)?tr("ask_this"):tr("book_this");
     bookBtn.href=getBookingUrl(c,p); bookBtn.target="_blank"; bookBtn.rel="noopener";
     bookBtn.setAttribute("aria-label",tr("book_aria",{package:p.model||"",event:c.name||""}));
     // NEW: GA4 track booking click
