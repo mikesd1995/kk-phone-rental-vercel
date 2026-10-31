@@ -1217,11 +1217,12 @@ function availCnt(c){
   // Event-level stock is the canonical shared pool. Never use MAX(package counts):
   // phone_only and phone_lens_bundle draw from the same phones, so taking MAX can
   // make a booked phone appear available again.
+  // This number is for NEW PHONE RENTALS, not standalone lens add-ons.
+  // A phone-full / waitlist card must never reopen because a lens remains.
+  if(String(c&&c.action||"").trim().toLowerCase()==="show_full") return 0;
   var ap=availPkgs(c);
   var hasPhone=ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
-  var hasLensOnly=ap.some(function(p){return p.type==="lens_only";});
   if(hasPhone) return Math.max(0,toNum(c&&c.phoneCnt));
-  if(hasLensOnly) return Math.max(0,toNum(c&&c.lensCnt));
   return 0;
 }
 function availTextFor(c){
