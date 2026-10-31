@@ -1217,11 +1217,12 @@ function availCnt(c){
   // Event-level stock is the canonical shared pool. Never use MAX(package counts):
   // phone_only and phone_lens_bundle draw from the same phones, so taking MAX can
   // make a booked phone appear available again.
+  // This number is for NEW PHONE RENTALS, not standalone lens add-ons.
+  // A phone-full / waitlist card must never reopen because a lens remains.
+  if(String(c&&c.action||"").trim().toLowerCase()==="show_full") return 0;
   var ap=availPkgs(c);
   var hasPhone=ap.some(function(p){return p.type==="phone_only"||p.type==="phone_lens_bundle";});
-  var hasLensOnly=ap.some(function(p){return p.type==="lens_only";});
   if(hasPhone) return Math.max(0,toNum(c&&c.phoneCnt));
-  if(hasLensOnly) return Math.max(0,toNum(c&&c.lensCnt));
   return 0;
 }
 function availTextFor(c){
@@ -1514,7 +1515,7 @@ function buildBookingMsg(c,p){
   // Keep LINE OA message short and package-specific.
   // The pick-up field intentionally says "equipment" so lens-only rentals are covered.
   return [
-    "สนใจเช่ามือถือ",
+    (p&&p.type==="lens_only")?"สอบถามเพิ่มเลนส์สำหรับผู้จองมือถือแล้ว":"สนใจเช่ามือถือ",
     "🎫 "+tr("line_event")+": "+lineVal(c&&c.name),
     "📅 "+tr("line_date")+": "+lineVal(c&&c.date),
     "📍 "+tr("line_venue")+": "+lineVal(c&&c.venue),
@@ -1570,9 +1571,11 @@ function showModal(c,options){
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
 
   var list=document.getElementById("phone-list"); list.innerHTML="";
-  var avail=availPkgs(c);
+  // Phone waitlist and a separately authorized existing-renter lens add-on can coexist.
+  var phoneBookable=availCnt(c)>0;
+  var avail=availPkgs(c).filter(function(p){return phoneBookable || p.type==="lens_only";});
 
-  if(!avail.length){
+  if(!phoneBookable || !avail.length){
     var fullBox=document.createElement("div");
     fullBox.className="full-booked-box waitlist-box";
     fullBox.textContent=tr("full_title");
@@ -1589,7 +1592,7 @@ function showModal(c,options){
     };
     fullBox.appendChild(waitBtn);
     list.appendChild(fullBox);
-    openModal(); return;
+    if(!avail.length){openModal(); return;}
   }
 
   avail.forEach(function(p){
@@ -1599,6 +1602,12 @@ function showModal(c,options){
     var info=document.createElement("div"); info.className="ph-info";
     var mEl=document.createElement("div"); mEl.className="ph-model"; mEl.textContent=p.model||"";
     info.appendChild(mEl);
+    // Keep the canonical package model unchanged; eligibility is a separate note.
+    if(p.type==="lens_only"){
+      var note=document.createElement("small"); note.className="ph-addon-eligibility";
+      note.textContent=currentLang==="en"?"existing phone booking only":"สำหรับผู้จองมือถือแล้ว";
+      info.appendChild(note);
+    }
     var right=document.createElement("div"); right.className="ph-right";
     var priceEl=document.createElement("div"); priceEl.className="ph-price";
     if(toNum(p.price)>0){
@@ -1607,7 +1616,7 @@ function showModal(c,options){
     } else {
       priceEl.textContent=tr("ask_price");
     }
-    var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill"; bookBtn.textContent=p.inquiryOnly?tr("ask_this"):tr("book_this");
+    var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill"; bookBtn.textContent=(p.type==="lens_only" || p.inquiryOnly)?tr("ask_this"):tr("book_this");
     bookBtn.href=getBookingUrl(c,p); bookBtn.target="_blank"; bookBtn.rel="noopener";
     bookBtn.setAttribute("aria-label",tr("book_aria",{package:p.model||"",event:c.name||""}));
     // NEW: GA4 track booking click

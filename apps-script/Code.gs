@@ -889,19 +889,30 @@ function kkFormulaWebReadyAction_(rowNumber) {
   const lockedById = `COUNTIFS('18_Event_Visibility_Locks'!$B$2:$B,A${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
   const lockedByIdentity = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,B${r},'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,D${r},'18_Event_Visibility_Locks'!$G$2:$G,"LOCKED")>0`;
   const historicalDifferentId = `COUNTIFS('18_Event_Visibility_Locks'!$C$2:$C,B${r},'18_Event_Visibility_Locks'!$D$2:$D,IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,3,FALSE),""),'18_Event_Visibility_Locks'!$E$2:$E,D${r},'18_Event_Visibility_Locks'!$B$2:$B,"<>"&A${r})>0`;
-  return `=IF(A${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE),"hide",IF(MAX(G${r},H${r})>0,"show","show_full")))`;
+  return `=IF(A${r}="","",IF(OR(${lockedById},${lockedByIdentity},${historicalDifferentId},IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,9,FALSE),"")<>"OK",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,6,FALSE),"")<>"open",IFERROR(VLOOKUP(A${r},'01_Events'!$A$5:$I,7,FALSE),FALSE)<>TRUE),"hide",IF(G${r}>0,"show","show_full")))`;
+}
+
+function kkFormulaWebReadyBookingStatus_(rowNumber) {
+  const r = rowNumber;
+  // H is lens-only or bundle add-on stock; it must not reopen a sold-out phone rental.
+  // A hidden event remains hidden, and a full phone date stays visible for waitlist.
+  return `=IF(A${r}="","",IF(J${r}="hide","ซ่อนจากเว็บ",IF(G${r}>0,"เปิดจอง","เต็มแล้ว")))`;
 }
 
 function kkRepairOwnerVisibilityLockFormulas_() {
   const startRow = 5;
   const endRow = 1000;
   const rowCount = endRow - startRow + 1;
+  const webReadyBookingStatus = [];
   const webReadyAction = [];
   const webPackageStatus = [];
   for (let row = startRow; row <= endRow; row++) {
+    webReadyBookingStatus.push([kkFormulaWebReadyBookingStatus_(row)]);
     webReadyAction.push([kkFormulaWebReadyAction_(row)]);
     webPackageStatus.push([kkFormulaWebPackageStatus_(row)]);
   }
+  // Repair I and J in one owner-approved operation. Neither formula changes Bookings.
+  kkSheet_(KK.webReady).getRange(startRow, 9, rowCount, 1).setFormulas(webReadyBookingStatus);
   kkSheet_(KK.webReady).getRange(startRow, 10, rowCount, 1).setFormulas(webReadyAction);
   kkSheet_(KK.webPackages).getRange(startRow, 10, rowCount, 1).setFormulas(webPackageStatus);
   SpreadsheetApp.flush();
@@ -1604,7 +1615,9 @@ function kkIsWebPackageBookable_(p) {
 function kkAssertWebPackageBookable_(eventId, templateId) {
   const normalizedTemplateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
   const eventRows = kkApiWebPackageRows_().filter(p => String(p.event_id || '').trim() === String(eventId || '').trim());
-  if (!eventRows.length) return;
+  // An absent/unmaterialized derived Web Package cannot authorize a customer Booking.
+  // Keep the caller's existing DocumentLock and all remaining package admission gates.
+  if (!eventRows.length) throw new Error('Web Package availability is missing for event: ' + String(eventId || '').trim());
   const row = eventRows.find(p => {
     const webPackageId = String(p.package_id || '').trim();
     const webTemplateId = kkTemplateIdFromWebPackageId_(webPackageId, p.event_id || eventId);
