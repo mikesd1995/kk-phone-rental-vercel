@@ -1571,9 +1571,11 @@ function showModal(c,options){
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
 
   var list=document.getElementById("phone-list"); list.innerHTML="";
-  var avail=availPkgs(c);
+  // Phone waitlist and a separately authorized existing-renter lens add-on can coexist.
+  var phoneBookable=availCnt(c)>0;
+  var avail=availPkgs(c).filter(function(p){return phoneBookable || p.type==="lens_only";});
 
-  if(!avail.length){
+  if(!phoneBookable || !avail.length){
     var fullBox=document.createElement("div");
     fullBox.className="full-booked-box waitlist-box";
     fullBox.textContent=tr("full_title");
@@ -1590,7 +1592,7 @@ function showModal(c,options){
     };
     fullBox.appendChild(waitBtn);
     list.appendChild(fullBox);
-    openModal(); return;
+    if(!avail.length){openModal(); return;}
   }
 
   avail.forEach(function(p){
@@ -1598,7 +1600,9 @@ function showModal(c,options){
     var icon=document.createElement("div"); icon.className="ph-icon";
     icon.innerHTML='<svg viewBox="0 0 28 28" fill="none"><rect x="6" y="3" width="16" height="22" rx="3" stroke="#5B8DEF" stroke-width="1.8"/><rect x="10" y="6" width="8" height="1.5" rx="0.75" fill="#5B8DEF"/><circle cx="14" cy="22" r="1.2" fill="#5B8DEF"/></svg>';
     var info=document.createElement("div"); info.className="ph-info";
-    var mEl=document.createElement("div"); mEl.className="ph-model"; mEl.textContent=p.model||"";
+    var mEl=document.createElement("div"); mEl.className="ph-model";
+    // Lens-only is an add-on to an existing verified phone booking, not an open phone slot.
+    mEl.textContent=p.type==="lens_only" ? (p.model||"Lens")+" · "+(currentLang==="en"?"existing phone booking only":"สำหรับผู้จองมือถือแล้ว") : (p.model||"");
     info.appendChild(mEl);
     var right=document.createElement("div"); right.className="ph-right";
     var priceEl=document.createElement("div"); priceEl.className="ph-price";
