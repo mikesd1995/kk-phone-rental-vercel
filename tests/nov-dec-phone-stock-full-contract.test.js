@@ -137,6 +137,83 @@ test('owner repair reports failed post-write readback rather than reporting succ
  assert.equal(a.writes.length,1);
 });
 
+test('lens compatibility status plan preserves a literal hidden package row',()=>{
+ const build=compile(gs,'kkWebPackageStatusRepairPlan_');
+ const formulaRows=Array.from({length:996},()=>['=ARRAY_CONSTRAIN(IF(TRUE,\'18_Event_Visibility_Locks\',\'18_Event_Visibility_Locks\'))']);
+ const rendered=Array.from({length:996},()=>['available']);
+ const output=Array.from({length:996},(_,i)=>['new-'+(i+5)]);
+ formulaRows[139]=[''];rendered[139]=['hidden']; // Real 09_Web_Packages!J144.
+ const spans=build(formulaRows,rendered,output,5);
+ assert.equal(spans.length,2);
+ assert.equal(spans[0].startRow,5);
+ assert.equal(spans[0].formulas.length,139);
+ assert.equal(spans[1].startRow,145);
+ assert.equal(spans[1].formulas.length,856);
+ assert.equal(spans.reduce((count,s)=>count+s.formulas.length,0),995);
+});
+
+test('lens compatibility status plan rejects unknown literal statuses',()=>{
+ const build=compile(gs,'kkWebPackageStatusRepairPlan_');
+ const generated=[['=ANY']],formulas=[['']],displayed=[['available']];
+ assert.throws(()=>build(formulas,displayed,generated,144),/WEB_PACKAGE_STATUS_PREFLIGHT_UNEXPECTED_ROW: 144/);
+});
+
+test('lens repair runs package preflight before any formulas and avoids J144',()=>{
+ const writes=[];
+ const forms=Array.from({length:996},()=>['=ARRAY_CONSTRAIN(IF(TRUE,\'18_Event_Visibility_Locks\',\'18_Event_Visibility_Locks\'))']);
+ const rendered=Array.from({length:996},()=>['available']);
+ forms[139]=[''];rendered[139]=['hidden'];
+ const sheet=name=>({
+  getRange:(row,col,count,width)=>{
+   assert.equal(width,1);
+   const view={
+    getFormulas:()=>forms,
+    getDisplayValues:()=>rendered,
+    setFormulas:values=>writes.push({name,row,col,count,values})
+   };
+   return view;
+  }
+ });
+ const ctx=vm.createContext({
+  kkSheet_:sheet,KK:{webPackages:'packages',bookings:'bookings'},
+  kkFormulaWebPackageAvailable_:(row,raw)=>raw?'raw-'+row:'avail-'+row,
+  kkFormulaWebPackageStatus_:row=>'status-'+row,
+  kkFormulaBookingPrice_:row=>'price-'+row
+ });
+ vm.runInContext(sourceFunction(gs,'kkWebPackageStatusRepairPlan_')+'\n'+
+   sourceFunction(gs,'kkRepairLensCompatibilityFormulas_'),ctx);
+ ctx.kkRepairLensCompatibilityFormulas_();
+ const jWrites=writes.filter(w=>w.name==='packages'&&w.col===10);
+ assert.equal(jWrites.length,2);
+ assert.equal(jWrites[0].row,5);
+ assert.equal(jWrites[0].count,139);
+ assert.equal(jWrites[1].row,145);
+ assert.equal(jWrites[1].count,856);
+ assert.equal(writes.some(w=>w.name==='packages'&&w.col===8),false,'price column must stay untouched');
+});
+
+test('lens repair unknown status blocks ALL writes, including booking formulas',()=>{
+ const writes=[];
+ const formulas=Array.from({length:996},()=>['=ARRAY_CONSTRAIN(IF(TRUE,\'18_Event_Visibility_Locks\',\'18_Event_Visibility_Locks\'))']);
+ const displayed=Array.from({length:996},()=>['available']);
+ formulas[139]=[''];displayed[139]=['available']; // Dangerous unknown manual OPEN status.
+ const ctx=vm.createContext({
+  kkSheet_:name=>({getRange:(row,col,count,width)=>({
+    getFormulas:()=>formulas,
+    getDisplayValues:()=>displayed,
+    setFormulas:values=>writes.push({name,col})
+  })}),
+  KK:{webPackages:'packages',bookings:'bookings'},
+  kkFormulaWebPackageAvailable_:()=>'=I',
+  kkFormulaWebPackageStatus_:()=>'=J',
+  kkFormulaBookingPrice_:()=>'=X'
+ });
+ vm.runInContext(sourceFunction(gs,'kkWebPackageStatusRepairPlan_')+'\n'+
+   sourceFunction(gs,'kkRepairLensCompatibilityFormulas_'),ctx);
+ assert.throws(()=>ctx.kkRepairLensCompatibilityFormulas_(),/WEB_PACKAGE_STATUS_PREFLIGHT_UNEXPECTED_ROW: 144/);
+ assert.equal(writes.length,0);
+});
+
 test('BTS full-booked days keep phone waitlist even with one spare lens',()=>{
  for(const date of ['2026-12-03','2026-12-05']){
   const state={date,phoneCnt:0,lensCnt:1,packages:[

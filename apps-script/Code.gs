@@ -985,6 +985,40 @@ function kkRepairOwnerVisibilityLockFormulas_() {
   return rowCount;
 }
 
+// A manually hidden Web Package must never be promoted by a routine formula refresh.
+// Plan only contiguous formula rows; no mutation occurs in this helper.
+function kkWebPackageStatusRepairPlan_(currentFormulas, displayedValues, generated, startRow) {
+  if (!Array.isArray(currentFormulas) || !Array.isArray(displayedValues) ||
+      currentFormulas.length !== generated.length || displayedValues.length !== generated.length) {
+    throw new Error('WEB_PACKAGE_STATUS_PREFLIGHT_SHAPE_MISMATCH');
+  }
+  const spans = [];
+  let first = -1, values = [];
+  function flush() {
+    if (first >= 0) spans.push({startRow: startRow + first, formulas: values});
+    first = -1;
+    values = [];
+  }
+  for (let i = 0; i < generated.length; i++) {
+    const r = startRow + i;
+    const formula = String(currentFormulas[i] && currentFormulas[i][0] || '').trim();
+    const text = String(displayedValues[i] && displayedValues[i][0] || '').trim();
+    if (!formula && text.toLowerCase() === 'hidden') {
+      flush(); // Preserve an explicit owner-hidden literal, e.g. live J144.
+      continue;
+    }
+    if ((!formula && text) ||
+        (formula && (formula.indexOf('=ARRAY_CONSTRAIN(') !== 0 ||
+          formula.indexOf("'18_Event_Visibility_Locks'") < 0))) {
+      throw new Error('WEB_PACKAGE_STATUS_PREFLIGHT_UNEXPECTED_ROW: ' + r);
+    }
+    if (first < 0) first = i;
+    values.push(generated[i]);
+  }
+  flush();
+  return spans;
+}
+
 // Storefront policy: standalone lens rental is hidden by default.
 // It becomes visible only when the same event has an active phone_only booking,
 // meaning at least one physical lens is spare. active_override=FALSE remains a kill switch.
@@ -1010,11 +1044,17 @@ function kkRepairLensCompatibilityFormulas_() {
     phoneHold.push([`=IF(D${row}="","",AND(Z${row}=TRUE,OR(I${row}="phone_only",I${row}="phone_lens_bundle")))`]);
     lensHold.push([`=IF(D${row}="","",AND(Z${row}=TRUE,OR(I${row}="lens_only",I${row}="phone_lens_bundle")))`]);
   }
+  // Preflight all 996 package statuses BEFORE any stock/booking formula writes.
+  // Never overwrite a literal hidden owner override or an unknown manual status.
+  const currentStatus = web.getRange(startRow, 10, rowCount, 1);
+  const statusPlan = kkWebPackageStatusRepairPlan_(
+    currentStatus.getFormulas(), currentStatus.getDisplayValues(), status, startRow
+  );
   // Phase 3.7.1 safety: do NOT rewrite 09_Web_Packages!H during stock/formula repair.
   // H is the public price source and may contain event-specific override values applied by admin.
   // Rewriting it here makes poster/event updates reset prices back to package defaults.
   web.getRange(startRow, 9, rowCount, 1).setFormulas(avail);      // 09_Web_Packages!I available_count
-  web.getRange(startRow, 10, rowCount, 1).setFormulas(status);     // 09_Web_Packages!J package_status + lens-only auto guard
+  statusPlan.forEach(span => web.getRange(span.startRow, 10, span.formulas.length, 1).setFormulas(span.formulas)); // J: preserve literal hidden overrides
   web.getRange(startRow, 13, rowCount, 1).setFormulas(raw);       // 09_Web_Packages!M raw_available_count
   booking.getRange(startRow, 24, rowCount, 1).setFormulas(bookingPrice); // 00_Master_Booking!X package_price
   booking.getRange(startRow, 26, rowCount, 1).setFormulas(activeHold);   // Z active booking hold
