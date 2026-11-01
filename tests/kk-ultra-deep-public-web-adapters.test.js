@@ -351,3 +351,23 @@ test('createProviders binds Live Nation as credential-free unknown-url evidence'
  const two=await p.LIVENATION_PUBLIC({query:'Young K Bangkok',date_window:{start:'2026-10-01'}});
  assert.equal(one.length,1);assert.equal(two.length,1);assert.equal(calls,1);
 });
+
+test('official direct follows explicit source-registry direct_url and never invents evidence from search query',async()=>{
+ const requested=[];
+ const rows=await A.officialDirect({direct_url:'https://organizer.example/events/ijoy',query:'Fan Zone 5 Nov 2026'},{fetchFn:async(url)=>{
+  requested.push(url);
+  return response('<title>iQIYI iJOY TH 2027 FAN ZONE</title><dt>Show Date</dt><dd>5 November 2026</dd>');
+ }});
+ assert.deepEqual(requested,['https://organizer.example/events/ijoy']);
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].event_date,'2026-11-05');
+ assert.equal(rows[0].source_url,'https://organizer.example/events/ijoy');
+});
+test('official direct combines legacy source_url and new direct_url once without accepting HTTP or credential URLs',async()=>{
+ const urls=[];
+ const rows=await A.officialDirect({source_url:'https://organizer.example/1',direct_url:'https://organizer.example/1',seed_urls:['https://organizer.example/2','http://organizer.example/3','https://user:password@organizer.example/4']},{fetchFn:async(url)=>{
+   urls.push(url);return response('<title>Brand Ambassador</title>');
+ }});
+ assert.deepEqual(urls,['https://organizer.example/1','https://organizer.example/2']);
+ assert.equal(rows.length,2);
+});
