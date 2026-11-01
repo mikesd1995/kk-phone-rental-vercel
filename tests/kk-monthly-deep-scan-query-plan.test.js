@@ -34,7 +34,7 @@ test('monthly discovery includes bounded broad fallbacks when exact month querie
 test('smart operational query plan stays intentionally small and leaves exhaustive coverage to audit',()=>{
  const r=P.buildOperational({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'});
  assert.equal(r.mode,'SMART_OPERATIONAL');
- assert.equal(r.gap_tasks.length,17);
+ assert.equal(r.gap_tasks.length,20);
  assert.equal(r.operational_tiers.length,16);
  assert.equal(r.audit_required,true);
  assert.ok(r.gap_tasks.every(x=>x.source_id.startsWith('smart-')));
@@ -57,4 +57,27 @@ test('daily bounded plan explicitly scans iQIYI FAN ZONE registrations through f
  assert.ok([row.query,...row.query_variants].some(x=>x.includes('FAN ZONE')));
  assert.ok(row.query_variants.length<=3);
  assert.equal(p.production_writes,0);
+});
+
+test('daily plan requires brand-ambassador retailer, Lucky Fan and mall artist cross-month evidence',()=>{
+ const p=P.buildOperational({month:'2026-10',location:'Bangkok Thailand'});
+ const ids=['smart-brand-ambassador-retail','smart-retail-luckyfan-registration','smart-mall-artist-board'];
+ for(const id of ids){
+  const t=p.gap_tasks.find(x=>x.source_id===id);
+  assert.ok(t,id);
+  assert.equal(t.required,true);
+  assert.equal(t.evidence_required,true);
+  assert.equal(t.stop_condition,'EXECUTE_AND_RECORD_RECEIPT');
+  assert.equal(t.date_window.end,'2026-11-30');
+  assert.deepEqual(t.providers,['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML']);
+  assert.ok(t.query_variants.length<=3);
+ }
+ assert.ok(p.gap_tasks.find(x=>x.source_id==='smart-brand-ambassador-retail').query_variants.some(q=>/Ongredients/.test(q)));
+ assert.ok(p.gap_tasks.find(x=>x.source_id==='smart-retail-luckyfan-registration').query_variants.some(q=>/LOLANE/.test(q)));
+ const full=P.build({month:'2026-11'});
+ const source=full.gap_tasks.find(x=>x.source_id==='eveandboy-retail');
+ assert.ok(source);
+ assert.ok(source.query_variants.some(x=>x.includes('Ongredients')),'source-specific variants must survive monthly build');
+ assert.equal(source.direct_url,'https://x.com/EVEANDBOY');
+ assert.equal(full.production_writes,0);
 });
