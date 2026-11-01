@@ -1019,6 +1019,50 @@ function kkWebPackageStatusRepairPlan_(currentFormulas, displayedValues, generat
   return spans;
 }
 
+// Live Core price X5:X1000 contains 37 numeric literal Booking prices (2026-11-01).
+// Never reset a negotiated amount by regenerating all 996 formula cells.
+function kkBookingPriceRepairPlan_(currentFormulas, displayedValues, generated, startRow) {
+  if (!Array.isArray(currentFormulas) || !Array.isArray(displayedValues) ||
+      currentFormulas.length !== generated.length || displayedValues.length !== generated.length) {
+    throw new Error('BOOKING_PRICE_PREFLIGHT_SHAPE_MISMATCH');
+  }
+  const spans = [];
+  let first = -1, formulas = [];
+  function flush() {
+    if (first >= 0) spans.push({startRow: startRow + first, formulas: formulas});
+    first = -1; formulas = [];
+  }
+  for (let i = 0; i < generated.length; i++) {
+    const row = startRow + i;
+    const actual = String(currentFormulas[i] && currentFormulas[i][0] || '').trim();
+    const shown = String(displayedValues[i] && displayedValues[i][0] || '').trim();
+    if (!actual && /^\d[\d,]*(?:\.\d{1,2})?$/.test(shown)) {
+      flush(); // Explicit numeric price is authoritative and must remain unchanged.
+      continue;
+    }
+    if ((!actual && shown) ||
+        (actual && (!actual.startsWith('=IF(I' + row + '="","",IF(I' + row + '="lens_only"') ||
+          actual.indexOf("'09_Web_Packages'") < 0))) {
+      throw new Error('BOOKING_PRICE_PREFLIGHT_UNEXPECTED_ROW: ' + row);
+    }
+    if (first < 0) first = i;
+    formulas.push(generated[i]);
+  }
+  flush();
+  return spans;
+}
+
+function kkPreflightLensCompatibilityBookingPrices_() {
+  const startRow = 5, rowCount = 996;
+  const range = kkSheet_(KK.bookings).getRange(startRow, 24, rowCount, 1);
+  const generated = [];
+  for (let row = startRow; row < startRow + rowCount; row++)
+    generated.push([kkFormulaBookingPrice_(row)]);
+  return kkBookingPriceRepairPlan_(
+    range.getFormulas(), range.getDisplayValues(), generated, startRow
+  ).length;
+}
+
 // Strict nonmutating preflight for the auto-installer and owner repair menu.
 // Check package status literals BEFORE retired-asset/package mutations or Script Properties.
 function kkPreflightLensCompatibilityPatchStatuses_() {
@@ -1065,13 +1109,17 @@ function kkRepairLensCompatibilityFormulas_() {
   const statusPlan = kkWebPackageStatusRepairPlan_(
     currentStatus.getFormulas(), currentStatus.getDisplayValues(), status, startRow
   );
+  const currentPrice = booking.getRange(startRow, 24, rowCount, 1);
+  const pricePlan = kkBookingPriceRepairPlan_(
+    currentPrice.getFormulas(), currentPrice.getDisplayValues(), bookingPrice, startRow
+  );
   // Phase 3.7.1 safety: do NOT rewrite 09_Web_Packages!H during stock/formula repair.
   // H is the public price source and may contain event-specific override values applied by admin.
   // Rewriting it here makes poster/event updates reset prices back to package defaults.
   web.getRange(startRow, 9, rowCount, 1).setFormulas(avail);      // 09_Web_Packages!I available_count
   statusPlan.forEach(span => web.getRange(span.startRow, 10, span.formulas.length, 1).setFormulas(span.formulas)); // J: preserve literal hidden overrides
   web.getRange(startRow, 13, rowCount, 1).setFormulas(raw);       // 09_Web_Packages!M raw_available_count
-  booking.getRange(startRow, 24, rowCount, 1).setFormulas(bookingPrice); // 00_Master_Booking!X package_price
+  pricePlan.forEach(span => booking.getRange(span.startRow, 24, span.formulas.length, 1).setFormulas(span.formulas)); // X: preserve manually negotiated numeric price
   booking.getRange(startRow, 26, rowCount, 1).setFormulas(activeHold);   // Z active booking hold
   booking.getRange(startRow, 36, rowCount, 1).setFormulas(phoneHold);    // AJ reserves a phone by package
   booking.getRange(startRow, 37, rowCount, 1).setFormulas(lensHold);     // AK reserves a lens by package
@@ -1086,6 +1134,7 @@ function kkEnsureLensCompatibilityPatchInstalled_() {
     if (props.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION) return false;
     // Check manual package statuses before any Lens/Asset or Booking formula write.
     kkPreflightLensCompatibilityPatchStatuses_();
+    kkPreflightLensCompatibilityBookingPrices_();
     kkEnsureZeissLensModelMaster_();
     kkRetireG2AssetsAndPackages_();
     kkRepairLensCompatibilityFormulas_();
@@ -1099,6 +1148,7 @@ function kkEnsureLensCompatibilityPatchInstalled_() {
 
 function kkRepairLensCompatibilityPatch() {
   kkPreflightLensCompatibilityPatchStatuses_();
+  kkPreflightLensCompatibilityBookingPrices_();
   PropertiesService.getDocumentProperties().deleteProperty('KK_LENS_COMPAT_PATCH_VERSION');
   const installed = kkEnsureLensCompatibilityPatchInstalled_();
   kkSafeAlert_((installed ? 'Repaired' : 'Already current') + ': lens compatibility formulas are ready. Public Web Packages will count only ZEISS_2_35X/G1 lenses. Standalone lens rental stays hidden unless the event has an active phone-only booking. G2/G_2 rows are retired from selling stock. Price formulas use package_id/template_id from 09_Web_Packages!A, not row order.');

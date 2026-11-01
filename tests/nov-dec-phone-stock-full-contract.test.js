@@ -247,6 +247,65 @@ test('lens status preflight is read-only and checks every generated row before r
  assert.doesNotMatch(fn,/setFormula|setValue|deleteProperty/);
 });
 
+test('Booking X price plan preserves 37 manual prices and maintains row-aligned formulas',()=>{
+ const pricePlan=compile(gs,'kkBookingPriceRepairPlan_');
+ const formulas=Array.from({length:996},(_,i)=>['=IF(I'+(i+5)+'="","",IF(I'+(i+5)+'="lens_only",IFERROR(SUMIFS(\'09_Web_Packages\'!$H$5:$H),0),0))']);
+ const display=Array.from({length:996},()=>['']);
+ const overrides=[16,30,31,34,39,49,50];
+ for(const row of overrides){formulas[row-5]=[''];display[row-5]=['1,090'];}
+ const generated=Array.from({length:996},(_,i)=>['generated-'+(i+5)]);
+ const spans=pricePlan(formulas,display,generated,5);
+ assert.equal(spans.reduce((total,s)=>total+s.formulas.length,0),996-overrides.length);
+ assert.equal(spans.some(s=>overrides.some(row=>row>=s.startRow&&row<s.startRow+s.formulas.length)),false);
+ assert.equal(spans.some(s=>s.startRow===17),true);
+});
+
+test('Booking price repair preflight rejects unknown literal and formula without a write',()=>{
+ const plan=compile(gs,'kkBookingPriceRepairPlan_');
+ for(const bad of [
+   {f:'',shown:'customer note'},
+   {f:'=IF(TRUE,690,0)',shown:'690'}
+ ]){
+  assert.throws(()=>plan([[bad.f]],[[bad.shown]],[['=GENERATED']],144),
+    /BOOKING_PRICE_PREFLIGHT_UNEXPECTED_ROW: 144/);
+ }
+ assert.throws(()=>plan([[]],[],[['=GENERATED']],5),
+   /BOOKING_PRICE_PREFLIGHT_SHAPE_MISMATCH/);
+});
+
+test('lens installer checks booking price preflight before assets and property writes',()=>{
+ const calls=[];
+ const ctx=vm.createContext({
+  PropertiesService:{getDocumentProperties:()=>({getProperty:()=>'',setProperty:()=>calls.push('setVersion')})},
+  KK_LENS_COMPAT_PATCH_VERSION:'next',
+  kkTryDocumentLock_:()=>({releaseLock:()=>calls.push('unlock')}),
+  kkPreflightLensCompatibilityPatchStatuses_:()=>calls.push('statusPreflight'),
+  kkPreflightLensCompatibilityBookingPrices_:()=>{calls.push('pricePreflight');throw Error('BOOKING_PRICE_PREFLIGHT_UNEXPECTED_ROW: 16');},
+  kkEnsureZeissLensModelMaster_:()=>calls.push('modelWrite'),
+  kkRetireG2AssetsAndPackages_:()=>calls.push('retireWrite'),
+  kkRepairLensCompatibilityFormulas_:()=>calls.push('formulaWrite'),
+  SpreadsheetApp:{flush:()=>calls.push('flush')}
+ });
+ vm.runInContext(sourceFunction(gs,'kkEnsureLensCompatibilityPatchInstalled_'),ctx);
+ assert.throws(()=>ctx.kkEnsureLensCompatibilityPatchInstalled_(),/BOOKING_PRICE_PREFLIGHT_UNEXPECTED_ROW/);
+ assert.deepEqual(calls,['statusPreflight','pricePreflight','unlock']);
+});
+
+test('manual lens installer checks Booking X before deleting version property',()=>{
+ const body=sourceFunction(gs,'kkRepairLensCompatibilityPatch');
+ assert.ok(body.indexOf('kkPreflightLensCompatibilityBookingPrices_();')>=0);
+ assert.ok(body.indexOf('kkPreflightLensCompatibilityBookingPrices_();')<
+   body.indexOf("deleteProperty('KK_LENS_COMPAT_PATCH_VERSION')"));
+});
+
+test('Booking X price plan runs before stock writes and cannot bulk-rewrite X',()=>{
+ const body=sourceFunction(gs,'kkRepairLensCompatibilityFormulas_');
+ assert.match(body,/const pricePlan = kkBookingPriceRepairPlan_\(/);
+ assert.ok(body.indexOf('const pricePlan =')<body.indexOf('web.getRange(startRow, 9'));
+ assert.match(body,/pricePlan\.forEach\(span => booking\.getRange\(span\.startRow, 24, span\.formulas\.length, 1\)\.setFormulas\(span\.formulas\)\)/);
+ assert.doesNotMatch(body,/booking\.getRange\(startRow, 24, rowCount, 1\)\.setFormulas\(bookingPrice\)/);
+});
+
 test('BTS full-booked days keep phone waitlist even with one spare lens',()=>{
  for(const date of ['2026-12-03','2026-12-05']){
   const state={date,phoneCnt:0,lensCnt:1,packages:[
