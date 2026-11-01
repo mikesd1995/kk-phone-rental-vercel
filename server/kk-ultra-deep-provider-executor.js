@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V6';
+const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V7';
 const ALLOWED_PROVIDERS=new Set(['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 const MAX_RESULTS=25;
 const DEFAULT_CONCURRENCY=4;
@@ -37,7 +37,12 @@ function taskConcurrency(options={}){
 async function executeGapTask(task={},options={}){
   const providers=(Array.isArray(task.providers)?task.providers:[]).map(upper).filter(p=>ALLOWED_PROVIDERS.has(p));
   const attempts=[];
-  const exhaust=task.stop_condition==='EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS';
+  // Required operational coverage must inspect every bounded query variant.
+  // Otherwise one generic result from the first query can hide a later
+  // brand-specific Fan Zone / Lucky Fan source announcement.
+  // Stop after the first provider yielding evidence to avoid needless traffic.
+  const receiptVariants=task.stop_condition==='EXECUTE_AND_RECORD_RECEIPT';
+  const exhaust=receiptVariants||task.stop_condition==='EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS';
   const collected=[],seen=new Set();let firstProvider=null,dropped=0,uninspected=0;
   for(const provider of providers){
     const fn=options.providers&&options.providers[provider];
@@ -63,6 +68,7 @@ async function executeGapTask(task={},options={}){
         }
       }catch(error){attempts.push({provider,status:'PROVIDER_ERROR',error_class:text(error&&(error.code||error.name))||'ERROR',query});}
     }
+    if(receiptVariants&&firstProvider)break;
   }
   if(exhaust)return {version:VERSION,status:collected.length?'EVIDENCE_FOUND':'GAP_UNRESOLVED',provider:firstProvider,source_tier:upper(task.source_tier),candidates:collected,attempts,candidate_truncated:dropped>0||uninspected>0,dropped_unique_candidate_count:dropped,dropped_uninspected_row_count:uninspected,authoritative:false,verifier_required:true,production_writes:0};
   return {version:VERSION,status:'GAP_UNRESOLVED',provider:null,source_tier:upper(task.source_tier),candidates:[],attempts,authoritative:false,verifier_required:true,production_writes:0};
