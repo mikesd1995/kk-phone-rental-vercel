@@ -163,12 +163,18 @@ test('lens repair runs package preflight before any formulas and avoids J144',()
  const forms=Array.from({length:996},()=>['=ARRAY_CONSTRAIN(IF(TRUE,\'18_Event_Visibility_Locks\',\'18_Event_Visibility_Locks\'))']);
  const rendered=Array.from({length:996},()=>['available']);
  forms[139]=[''];rendered[139]=['hidden'];
+ const manualBookingRows=new Set([16,30,31,34,39,49,50]);
+ const priceFormulas=Array.from({length:996},(_,i)=>[
+   '=IF(I'+(i+5)+'="","",IF(I'+(i+5)+'="lens_only",SUMIFS(\\'09_Web_Packages\\'!$H$5:$H),0))'
+ ]);
+ const priceDisplay=Array.from({length:996},()=>['']);
+ for(const row of manualBookingRows){priceFormulas[row-5]=[''];priceDisplay[row-5]=['1,090'];}
  const sheet=name=>({
   getRange:(row,col,count,width)=>{
    assert.equal(width,1);
    const view={
-    getFormulas:()=>forms,
-    getDisplayValues:()=>rendered,
+    getFormulas:()=>name==='bookings'&&col===24?priceFormulas:forms,
+    getDisplayValues:()=>name==='bookings'&&col===24?priceDisplay:rendered,
     setFormulas:values=>writes.push({name,row,col,count,values})
    };
    return view;
@@ -181,6 +187,7 @@ test('lens repair runs package preflight before any formulas and avoids J144',()
   kkFormulaBookingPrice_:row=>'price-'+row
  });
  vm.runInContext(sourceFunction(gs,'kkWebPackageStatusRepairPlan_')+'\n'+
+   sourceFunction(gs,'kkBookingPriceRepairPlan_')+'\n'+
    sourceFunction(gs,'kkRepairLensCompatibilityFormulas_'),ctx);
  ctx.kkRepairLensCompatibilityFormulas_();
  const jWrites=writes.filter(w=>w.name==='packages'&&w.col===10);
@@ -190,6 +197,12 @@ test('lens repair runs package preflight before any formulas and avoids J144',()
  assert.equal(jWrites[1].row,145);
  assert.equal(jWrites[1].count,856);
  assert.equal(writes.some(w=>w.name==='packages'&&w.col===8),false,'price column must stay untouched');
+ const priceWrites=writes.filter(w=>w.name==='bookings'&&w.col===24);
+ assert.ok(priceWrites.length>=2);
+ assert.equal(priceWrites.reduce((n,w)=>n+w.count,0),996-manualBookingRows.size);
+ for(const amountRow of manualBookingRows)
+   assert.equal(priceWrites.some(w=>amountRow>=w.row&&amountRow<w.row+w.count),false,
+     'manual Booking price row '+amountRow+' must be preserved');
 });
 
 test('lens repair unknown status blocks ALL writes, including booking formulas',()=>{
