@@ -38,7 +38,8 @@ test('Web Ready J: stock 0 phone / 1 lens is full rather than show',()=>{
 
 test('Web Ready I: only phone count can advertise a new phone booking',()=>{
  const formula=webBookingStatus(37);
- assert.match(formula,/IF\(J37="hide","ซ่อนจากเว็บ",IF\(G37>0,"เปิดจอง","เต็มแล้ว"\)\)/);
+ assert.match(formula,/IF\(J37="hide","ซ่อนจากเว็บ",IF\(AND\(J37="show",G37>0\),"เปิดจอง","เต็มแล้ว"\)\)/);
+ assert.doesNotMatch(formula,/IF\(G37>0,"เปิดจอง"/);
  assert.doesNotMatch(formula,/MAX\(G37,H37\)/);
 });
 
@@ -96,6 +97,29 @@ test('real phone availability still offers the correct shared phone pool',()=>{
  ]};
  assert.equal(availCnt(state),1);
  assert.equal(availCnt({...state,phoneCnt:0}),0);
+});
+
+test('headline phone-rental price excludes cheaper lens-only add-ons and inactive offers',()=>{
+ const startingPrice=compile(storefront,'startingPriceFor',{
+  toNum:value=>{const n=Number(value);return Number.isFinite(n)?n:0;}
+ });
+ const date={
+  phoneCnt:1,lensCnt:1,packages:[
+   {type:'lens_only',avail:true,price:390},
+   {type:'phone_only',avail:false,price:490},
+   {type:'phone_only',avail:true,price:790},
+   {type:'phone_lens_bundle',avail:true,price:990}
+  ]
+ };
+ assert.equal(startingPrice(date),790,'phone rental price not lens add-on price');
+ assert.equal(startingPrice({...date,packages:date.packages.filter(p=>p.type!=='phone_only')}),990);
+ assert.equal(startingPrice({...date,packages:[{type:'lens_only',avail:true,price:390}]}),0);
+});
+
+test('Web Ready booking label requires both explicit show action and phone inventory',()=>{
+ const formula=webBookingStatus(38);
+ assert.match(formula,/AND\(J38="show",G38>0\)/);
+ assert.doesNotMatch(formula,/MAX\(G38,H38\)/);
 });
 
 test('lens-only is not a new phone rental even when phone count is stale positive',()=>{

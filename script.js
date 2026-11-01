@@ -1236,9 +1236,12 @@ function availTextFor(c){
   return tr("available");
 }
 function startingPriceFor(c){
+  // The card advertises a NEW PHONE RENTAL; a lens-only existing-renter add-on
+  // must never become the "from" price of a rentable phone.
   var min=0;
   (c&&c.packages||[]).forEach(function(p){
-    var n=toNum(p&&p.price);
+    if(!p || !p.avail || (p.type!=="phone_only" && p.type!=="phone_lens_bundle"))return;
+    var n=toNum(p.price);
     if(n>0&&(min===0||n<min))min=n;
   });
   return min;

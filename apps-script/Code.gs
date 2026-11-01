@@ -896,7 +896,7 @@ function kkFormulaWebReadyBookingStatus_(rowNumber) {
   const r = rowNumber;
   // H is lens-only or bundle add-on stock; it must not reopen a sold-out phone rental.
   // A hidden event remains hidden, and a full phone date stays visible for waitlist.
-  return `=IF(A${r}="","",IF(J${r}="hide","ซ่อนจากเว็บ",IF(G${r}>0,"เปิดจอง","เต็มแล้ว")))`;
+  return `=IF(A${r}="","",IF(J${r}="hide","ซ่อนจากเว็บ",IF(AND(J${r}="show",G${r}>0),"เปิดจอง","เต็มแล้ว")))`;
 }
 
 function kkRepairOwnerVisibilityLockFormulas_() {
