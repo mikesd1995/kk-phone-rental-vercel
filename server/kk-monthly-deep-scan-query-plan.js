@@ -116,7 +116,7 @@ function buildOperational(input={}){
    query_variants:[
     'ซื้อครบ ลงทะเบียน ประกาศรายชื่อ ลัคกี้แฟน วันจัดงาน '+thisMonth.th,
     'LOLANE Dr.PONG PISEN AESTEC PondPhuwin Zee lucky fan '+nextMonth.en,
-    'brand ambassador purchase registration November 2026 EVEANDBOY Siam Square'
+    'brand ambassador purchase registration '+nextMonth.en+' EVEANDBOY Siam Square'
    ]
   },
   {
@@ -140,7 +140,7 @@ function buildOperational(input={}){
   date_window:{start:range.start_date,end:leadTimeEnd(range)}
  });
  return {
-  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V5',
+  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V6',
   mode:'SMART_OPERATIONAL',
   range,location,gap_tasks,
   operational_tiers:[...OPERATIONAL_TIERS],hot_fandom_query_count:hotFandoms.length,
