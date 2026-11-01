@@ -394,11 +394,14 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
    : [];
  const out=await Runner.runOperationalDiscovery(
    {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,BING_RSS:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.mode,'SMART_OPERATIONAL');
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.operational_ready,true);
+ assert.equal(out.required_source_count,4);
+ assert.equal(out.required_source_executed_count,4);
+ assert.deepEqual(out.missing_required_source_ids,[]);
  assert.equal(out.audit_required,true);
  assert.equal(out.audit_blocking,false);
  assert.ok(out.candidate_count>0);
@@ -439,4 +442,22 @@ test('retail lucky fan source signals remain dated event candidates without acce
   assert.equal(Runner.referenceScopeDecision({title,event_date:'2026-11-21',source_url:'https://x.com/brand/status/345'},context).reason,'EVENT_IDENTITY_NOT_STRONG_ENOUGH',title);
  }
  assert.equal(Runner.referenceScopeDecision({title:'Ongredients Brand Ambassador Launch',event_date:null,source_url:'https://x.com/brand/status/456'},context).reason,'NO_STRUCTURED_DATE');
+});
+
+test('operational discovery is HOLD when broad queries work but mandatory retail source provider is not bound',async()=>{
+ const search=async task=>task.source_tier==='OFFICIAL'
+  ?[{title:'Bangkok Fanmeeting',event_date:'2026-10-20',source_url:'https://proof.example/generic'}]
+  :[];
+ const out=await Runner.runOperationalDiscovery(
+  {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
+  {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+ );
+ assert.ok(out.candidate_count>0);
+ assert.equal(out.status,'HOLD_FOR_OPERATIONAL_DISCOVERY');
+ assert.equal(out.operational_ready,false);
+ assert.equal(out.required_source_count,4);
+ assert.equal(out.required_source_executed_count,0);
+ for(const id of ['smart-iqiyi-thailand-platform','smart-brand-ambassador-retail','smart-retail-luckyfan-registration','smart-mall-artist-board'])assert.ok(out.missing_required_source_ids.includes(id),id);
+ assert.ok(out.blockers.includes('OPERATIONAL_REQUIRED_SOURCE_COVERAGE_MISSING'));
+ assert.equal(out.production_writes,0);
 });
