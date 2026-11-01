@@ -269,10 +269,19 @@ async function runOperationalDiscovery(input={},options={}){
   proof.candidate_count=candidates.length;
   proof.has_evidence=candidates.length>0;
   const minimumExecuted=Math.min(3,proof.task_count);
-  const operationalReady=proof.has_evidence&&proof.executed_count>=minimumExecuted;
+  // Broad query success is not proof that required brand, mall, or platform
+  // searches actually ran. Do not give an operational READY on missing receipts.
+  const requiredSources=plan.gap_tasks.map((task,index)=>({task,index})).filter(x=>x.task.required===true);
+  const missingRequired=requiredSources.filter(({index})=>{
+    const result=(execution.results||[])[index]||{};
+    return !Array.isArray(result.attempts)||!result.attempts.some(attemptExecuted)||
+      result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0;
+  }).map(({task})=>task.source_id);
+  const operationalReady=proof.has_evidence&&proof.executed_count>=minimumExecuted&&missingRequired.length===0;
   const blockers=[
     ...(!proof.has_evidence?['OPERATIONAL_DISCOVERY_EMPTY']:[]),
-    ...(proof.executed_count<minimumExecuted?['OPERATIONAL_PROVIDER_EVIDENCE_INSUFFICIENT']:[])
+    ...(proof.executed_count<minimumExecuted?['OPERATIONAL_PROVIDER_EVIDENCE_INSUFFICIENT']:[]),
+    ...(missingRequired.length?['OPERATIONAL_REQUIRED_SOURCE_COVERAGE_MISSING']:[])
   ];
   return {
     version:VERSION,
@@ -289,6 +298,9 @@ async function runOperationalDiscovery(input={},options={}){
     candidates,
     task_count:proof.task_count,
     executed_task_count:proof.executed_count,
+    required_source_count:requiredSources.length,
+    required_source_executed_count:requiredSources.length-missingRequired.length,
+    missing_required_source_ids:missingRequired,
     execution_summary:summarizeExecution(execution),
     blockers,
     authoritative:false,
