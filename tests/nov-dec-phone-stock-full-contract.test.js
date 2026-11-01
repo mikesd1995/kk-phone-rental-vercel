@@ -325,10 +325,10 @@ test('booking admission does not trigger owner lens-compatibility migrations',()
    KK_LENS_COMPAT_PATCH_VERSION:'v16.7.0_PHASE3_9_5_11_SAME_DAY_INVENTORY_20260928'
  });
  assert.equal(guard(),true);
- const actionStart=gs.indexOf("if (action === 'createBooking')");
- assert.ok(actionStart>=0,'real createBooking action must exist');
- const actionEnd=gs.indexOf("if (action === '",actionStart+10);
- const creation=gs.slice(actionStart,actionEnd>actionStart?actionEnd:actionStart+10500);
+ const actionStart=gs.indexOf('function kkApiCreateBooking_(payload) {');
+ assert.ok(actionStart>=0,'real Apps Script create-booking function must exist');
+ const actionEnd=gs.indexOf('\nfunction ',actionStart+10);
+ const creation=gs.slice(actionStart,actionEnd>actionStart?actionEnd:actionStart+14500);
  assert.match(creation,/kkAssertLensCompatibilityPatchReady_\(\)/);
  assert.doesNotMatch(creation,/\bkkEnsureLensCompatibilityPatchInstalled_\(\);/);
  assert.ok(creation.indexOf("if (!eventId || !templateId || !customerName)") <
