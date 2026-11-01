@@ -428,3 +428,15 @@ test('iQIYI iJOY FAN ZONE official dated announcements are eligible reference si
   source_url:'https://x.com/iQIYI_Thailand/status/102'
  },context).reason,'OUTSIDE_TARGET_MONTH');
 });
+
+test('retail lucky fan source signals remain dated event candidates without accepting generic product promotions',()=>{
+ const context={month:'2026-11'};
+ const titles=['Ongredients Brand Ambassador Launch with ThomasKong at EVEANDBOY','BEAUTRIUM 15th Anniversary Artist Appearance','JOURNAL Fourth Lucky Fans','Dr.PONG Zee Pruk Top Spender event'];
+ for(const title of titles){
+  assert.equal(Runner.referenceScopeDecision({title,event_date:'2026-11-21',source_url:'https://x.com/brand/status/123'},context).eligible,true,title);
+ }
+ for(const title of ['EVEANDBOY discount sale for cosmetics','Ongredients price promotion','Dr.PONG G89 product listing']){
+  assert.equal(Runner.referenceScopeDecision({title,event_date:'2026-11-21',source_url:'https://x.com/brand/status/345'},context).reason,'EVENT_IDENTITY_NOT_STRONG_ENOUGH',title);
+ }
+ assert.equal(Runner.referenceScopeDecision({title:'Ongredients Brand Ambassador Launch',event_date:null,source_url:'https://x.com/brand/status/456'},context).reason,'NO_STRUCTURED_DATE');
+});
