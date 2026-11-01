@@ -165,7 +165,7 @@ test('lens repair runs package preflight before any formulas and avoids J144',()
  forms[139]=[''];rendered[139]=['hidden'];
  const manualBookingRows=new Set([16,30,31,34,39,49,50]);
  const priceFormulas=Array.from({length:996},(_,i)=>[
-   '=IF(I'+(i+5)+'="","",IF(I'+(i+5)+'="lens_only",SUMIFS(\\'09_Web_Packages\\'!$H$5:$H),0))'
+   `=IF(I${i+5}="","",IF(I${i+5}="lens_only",SUMIFS('09_Web_Packages'!$H$5:$H),0))`
  ]);
  const priceDisplay=Array.from({length:996},()=>['']);
  for(const row of manualBookingRows){priceFormulas[row-5]=[''];priceDisplay[row-5]=['1,090'];}
