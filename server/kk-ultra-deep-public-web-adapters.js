@@ -6,7 +6,7 @@ const DetailFollowup=require('./kk-public-event-detail-followup.js');
 const OneBangkok=require('./kk-onebangkok-event-detail.js');
 const {createHash}=require('node:crypto');
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V12';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V13';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
@@ -149,7 +149,7 @@ async function fetchPage(url,options={}){
  }
 }
 async function officialDirect(task={},options={}){
- const urls=[task.source_url,...(Array.isArray(task.seed_urls)?task.seed_urls:[])].map(https).filter(Boolean).slice(0,10);
+ const urls=[...new Set([task.source_url,task.direct_url,...(Array.isArray(task.seed_urls)?task.seed_urls:[])].map(https).filter(Boolean))].slice(0,10);
  const out=[];for(const url of urls){try{const body=await fetchPage(url,options);out.push(candidateFromPage(url,body,task));}catch(_){}}
  return out;
 }
