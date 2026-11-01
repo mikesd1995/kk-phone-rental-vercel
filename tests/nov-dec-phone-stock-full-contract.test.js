@@ -43,39 +43,98 @@ test('Web Ready I: only phone count can advertise a new phone booking',()=>{
  assert.doesNotMatch(formula,/MAX\(G37,H37\)/);
 });
 
-test('Owner lock formula repair writes Web Ready I:J as one rectangular batch',()=>{
- assert.match(gs,/webReadyStatusAndAction\.push\(\[/);
- assert.match(gs,/kkFormulaWebReadyBookingStatus_\(row\), kkFormulaWebReadyAction_\(row\)/);
- assert.match(gs,/getRange\(startRow, 9, rowCount, 2\)\.setFormulas\(webReadyStatusAndAction\)/);
- assert.doesNotMatch(gs,/getRange\(startRow, 9, rowCount, 1\)\.setFormulas\(webReadyBookingStatus\)/);
- assert.doesNotMatch(gs,/getRange\(startRow, 10, rowCount, 1\)\.setFormulas\(webReadyAction\)/);
- assert.match(gs,/getRange\(startRow, 10, rowCount, 1\)\.setFormulas\(webPackageStatus\)/);
+test('owner repair is read-only preflight-gated and never writes a package status',()=>{
+ assert.match(gs,/function kkPreflightOwnerVisibilityLockFormulas_\(\)/);
+ assert.match(gs,/WEB_READY_FORMULA_PREFLIGHT_BLOCKED/);
+ assert.match(gs,/WEB_READY_FORMULA_READBACK_MISMATCH/);
+ assert.match(gs,/getRange\(startRow, 9, rowCount, 2\)/);
+ assert.doesNotMatch(sourceFunction(gs,'kkRepairOwnerVisibilityLockFormulas_'),/KK\.webPackages/);
+ assert.doesNotMatch(sourceFunction(gs,'kkRepairOwnerVisibilityLockFormulas_'),/getRange\(startRow, 10, rowCount, 1\)/);
 });
 
-test('Owner repair emits one I:J write and preserves the existing package update',()=>{
+function mockOwnerRepair(options={}){
+ const rows=Array.from({length:996},()=>Array(10).fill(''));
+ const formulaRows=Array.from({length:996},()=>['','']);
+ for(const row of [37,38]){
+  const i=row-5;
+  rows[i][0]='EVT-BTS-'+row;
+  rows[i][6]='0'; rows[i][7]='1'; rows[i][8]='เปิดจอง'; rows[i][9]='show';
+  formulaRows[i][0]='=IF(A'+row+'="","",IF(J'+row+'="hide","ซ่อนจากเว็บ",IF(MAX(G'+row+',H'+row+')>0,"เปิดจอง","เต็มแล้ว")))';
+  formulaRows[i][1]=webAction(row).replace('IF(G'+row+'>0,"show","show_full")','IF(MAX(G'+row+',H'+row+')>0,"show","show_full")');
+ }
+ if(options.badStatus)formulaRows[32][0]='=IF(TRUE,"เปิดจอง","เต็มแล้ว")';
+ if(options.blankCell){rows[50][9]='manual action';}
  const writes=[];
- const sheet=name=>({
-  getRange:(startRow,col,rowCount,colCount)=>({
-   setFormulas:values=>writes.push({name,startRow,col,rowCount,colCount,values})
-  })
- });
- const repair=compile(gs,'kkRepairOwnerVisibilityLockFormulas_',{
-  kkFormulaWebReadyBookingStatus_:row=>'status-'+row,
-  kkFormulaWebReadyAction_:row=>'action-'+row,
-  kkFormulaWebPackageStatus_:row=>'package-'+row,
-  kkSheet_:sheet,
-  KK:{webReady:'ready',webPackages:'packages'},
-  SpreadsheetApp:{flush(){}}
- });
- assert.equal(repair(),996);
- assert.equal(writes.length,2,'one Web Ready I:J update and one existing package-status update');
- const [web,packages]=writes;
- assert.equal(web.name,'ready');
- assert.deepEqual([web.startRow,web.col,web.rowCount,web.colCount],[5,9,996,2]);
- assert.deepEqual(Array.from(web.values[0]),['status-5','action-5']);
- assert.deepEqual(Array.from(web.values[995]),['status-1000','action-1000']);
- assert.deepEqual([packages.name,packages.startRow,packages.col,packages.rowCount,packages.colCount],['packages',5,10,996,1]);
- assert.equal(packages.values[0][0],'package-5');
+ const ready={
+   getRange:(start,col,count,width)=>{
+     assert.equal(start,5);assert.equal(count,996);
+     if(col===1&&width===10)return {getDisplayValues:()=>rows};
+     if(col===9&&width===2)return {
+       getFormulas:()=>formulaRows,
+       setFormulas:values=>{
+         writes.push(values);
+         if(!options.badReadback)values.forEach((pair,i)=>formulaRows[i]=pair);
+       }
+     };
+     throw new Error('Unexpected range '+col+'/'+width);
+   }
+ };
+ const sandbox={
+   kkSheet_:which=>{assert.equal(which,'ready','must not touch 09_Web_Packages');return ready;},
+   KK:{webReady:'ready'},
+   SpreadsheetApp:{flush(){}},
+   kkFormulaWebReadyBookingStatus_:webBookingStatus,
+   kkFormulaWebReadyAction_:webAction
+ };
+ const ctx=vm.createContext(sandbox);
+ vm.runInContext(
+   sourceFunction(gs,'kkPreflightOwnerVisibilityLockFormulas_')+'\n'+
+   sourceFunction(gs,'kkRepairOwnerVisibilityLockFormulas_')+'\n',
+   ctx
+ );
+ return {preflight:ctx.kkPreflightOwnerVisibilityLockFormulas_,
+   repair:ctx.kkRepairOwnerVisibilityLockFormulas_,writes,formulaRows};
+}
+
+test('owner dry-run audits all rows without writes and detects two stale BTS dates',()=>{
+ const a=mockOwnerRepair(),res=a.preflight();
+ assert.equal(res.status,'READY_FOR_OWNER_APPROVAL');
+ assert.equal(res.production_writes,0);
+ assert.equal(res.checked_rows,996);
+ assert.equal(res.populated_rows,2);
+ assert.equal(res.legacy_rows,2);
+ assert.equal(res.unexpected_count,0);
+ assert.equal(a.writes.length,0);
+});
+
+test('owner repair changes only Web Ready I:J and verifies exact post-write formulas',()=>{
+ const a=mockOwnerRepair();
+ assert.equal(a.repair(),996);
+ assert.equal(a.writes.length,1,'one rectangular I:J write, no package status write');
+ assert.deepEqual(Array.from(a.formulaRows[32]),[webBookingStatus(37),webAction(37)]);
+ assert.deepEqual(Array.from(a.formulaRows[33]),[webBookingStatus(38),webAction(38)]);
+});
+
+test('owner repair rejects an unknown manual formula before any writes',()=>{
+ const a=mockOwnerRepair({badStatus:true});
+ const result=a.preflight();
+ assert.equal(result.status,'BLOCKED');
+ assert.ok(result.unexpected_rows.includes(37));
+ assert.throws(()=>a.repair(),/WEB_READY_FORMULA_PREFLIGHT_BLOCKED/);
+ assert.equal(a.writes.length,0);
+});
+
+test('owner repair rejects manual display values in a blank row before any writes',()=>{
+ const a=mockOwnerRepair({blankCell:true});
+ assert.equal(a.preflight().status,'BLOCKED');
+ assert.throws(()=>a.repair(),/WEB_READY_FORMULA_PREFLIGHT_BLOCKED/);
+ assert.equal(a.writes.length,0);
+});
+
+test('owner repair reports failed post-write readback rather than reporting success',()=>{
+ const a=mockOwnerRepair({badReadback:true});
+ assert.throws(()=>a.repair(),/WEB_READY_FORMULA_READBACK_MISMATCH/);
+ assert.equal(a.writes.length,1);
 });
 
 test('BTS full-booked days keep phone waitlist even with one spare lens',()=>{

@@ -899,23 +899,89 @@ function kkFormulaWebReadyBookingStatus_(rowNumber) {
   return `=IF(A${r}="","",IF(J${r}="hide","ซ่อนจากเว็บ",IF(AND(J${r}="show",G${r}>0),"เปิดจอง","เต็มแล้ว")))`;
 }
 
+// READ-ONLY owner preflight. Never overwrite a manual status or a drifted formula.
+// Live evidence on 2026-11-01: 09_Web_Packages!J144 is a deliberate literal "hidden"
+// on an existing-renter lens-only package. Package J is OUT OF SCOPE here.
+function kkPreflightOwnerVisibilityLockFormulas_() {
+  const startRow = 5, rowCount = 996;
+  const web = kkSheet_(KK.webReady);
+  const values = web.getRange(startRow, 1, rowCount, 10).getDisplayValues();
+  const formulas = web.getRange(startRow, 9, rowCount, 2).getFormulas();
+  const issues = [];
+  let populatedRows = 0, legacyRows = 0, alreadySafeRows = 0, blankRows = 0;
+  for (let i = 0; i < rowCount; i++) {
+    const r = startRow + i;
+    const v = values[i] || [];
+    const f = formulas[i] || [];
+    const id = String(v[0] || '').trim();
+    const status = String(f[0] || '').trim();
+    const action = String(f[1] || '').trim();
+    if (!id) {
+      blankRows++;
+      if ((!status && String(v[8] || '').trim()) ||
+          (!action && String(v[9] || '').trim())) issues.push(r);
+      continue;
+    }
+    populatedRows++;
+    const statusHeader = status.indexOf('=IF(A' + r + '="","",IF(J' + r + '="hide"') === 0;
+    const statusLegacy = status.indexOf('MAX(G' + r + ',H' + r + ')>0') >= 0;
+    const statusSafe = status.indexOf('AND(J' + r + '="show",G' + r + '>0)') >= 0;
+    const actionHeader = action.indexOf('=IF(A' + r + '="","",IF(OR(') === 0;
+    const locksPresent = action.indexOf("'18_Event_Visibility_Locks'") >= 0 &&
+      action.indexOf("'01_Events'") >= 0;
+    const actionLegacy = action.indexOf('MAX(G' + r + ',H' + r + ')>0,"show","show_full"') >= 0;
+    const actionSafe = action.indexOf('G' + r + '>0,"show","show_full"') >= 0;
+    if (!statusHeader || (!statusLegacy && !statusSafe) ||
+        !actionHeader || !locksPresent || (!actionLegacy && !actionSafe)) {
+      issues.push(r);
+    } else if (statusLegacy || actionLegacy) {
+      legacyRows++;
+    } else {
+      alreadySafeRows++;
+    }
+  }
+  return {
+    status: issues.length || populatedRows === 0 ? 'BLOCKED' : 'READY_FOR_OWNER_APPROVAL',
+    pass: issues.length === 0 && populatedRows > 0,
+    checked_rows: rowCount,
+    populated_rows: populatedRows,
+    blank_rows: blankRows,
+    legacy_rows: legacyRows,
+    already_safe_rows: alreadySafeRows,
+    unexpected_rows: issues.slice(0, 25),
+    unexpected_count: issues.length,
+    production_writes: 0
+  };
+}
+
+// Explicit owner repair only, never executed by public snapshot/API routes.
+// A successful dry run is NOT release approval. Owner must retain a rollback copy.
 function kkRepairOwnerVisibilityLockFormulas_() {
+  const preflight = kkPreflightOwnerVisibilityLockFormulas_();
+  if (!preflight.pass) throw new Error(
+    'WEB_READY_FORMULA_PREFLIGHT_BLOCKED: unexpected rows=' + preflight.unexpected_rows.join(',')
+  );
   const startRow = 5;
   const endRow = 1000;
   const rowCount = endRow - startRow + 1;
   const webReadyStatusAndAction = [];
-  const webPackageStatus = [];
   for (let row = startRow; row <= endRow; row++) {
     webReadyStatusAndAction.push([
       kkFormulaWebReadyBookingStatus_(row), kkFormulaWebReadyAction_(row)
     ]);
-    webPackageStatus.push([kkFormulaWebPackageStatus_(row)]);
   }
-  // One rectangular write keeps Web Ready I/J in the same update boundary.
-  // The separate Web Packages write still requires owner-gated readback/rollback.
-  kkSheet_(KK.webReady).getRange(startRow, 9, rowCount, 2).setFormulas(webReadyStatusAndAction);
-  kkSheet_(KK.webPackages).getRange(startRow, 10, rowCount, 1).setFormulas(webPackageStatus);
+  // Stock fix concerns Web Ready I:J ONLY. Rewriting 09_Web_Packages!J can
+  // destroy owner-hidden literal package status (verified J144). Preserve it.
+  const target = kkSheet_(KK.webReady).getRange(startRow, 9, rowCount, 2);
+  target.setFormulas(webReadyStatusAndAction);
   SpreadsheetApp.flush();
+  const readback = target.getFormulas();
+  for (let i = 0; i < rowCount; i++) {
+    if (!readback[i] || readback[i][0] !== webReadyStatusAndAction[i][0] ||
+        readback[i][1] !== webReadyStatusAndAction[i][1]) {
+      throw new Error('WEB_READY_FORMULA_READBACK_MISMATCH: row=' + (startRow + i));
+    }
+  }
   return rowCount;
 }
 
