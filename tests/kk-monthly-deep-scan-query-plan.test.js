@@ -95,3 +95,16 @@ test('December and January retail discovery never carries stale November 2026 fi
   assert.equal(task.evidence_required,true);
  }
 });
+
+test('future iQIYI fan-zone discovery uses the active next month and never freezes 2027 edition year or 400 seats',()=>{
+ for(const [month,next] of [['2026-11','December 2026'],['2026-12','January 2027'],['2027-01','February 2027']]){
+  const plan=P.buildOperational({month,location:'Bangkok Thailand'});
+  const task=plan.gap_tasks.find(x=>x.source_id==='smart-iqiyi-thailand-platform');
+  assert.ok(task,month);
+  assert.equal(task.required,true);
+  assert.equal(task.stop_condition,'EXECUTE_AND_RECORD_RECEIPT');
+  assert.equal(task.date_window.end,P.leadTimeEnd(plan.range));
+  assert.ok(task.query_variants.some(q=>q.includes(next)),month);
+  assert.ok(!task.query_variants.some(q=>q.includes('iQIYIiJOYTH2027')||q.includes('FAN ZONE 400')),month);
+ }
+});
