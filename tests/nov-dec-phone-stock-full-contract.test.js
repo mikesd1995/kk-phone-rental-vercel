@@ -214,6 +214,39 @@ test('lens repair unknown status blocks ALL writes, including booking formulas',
  assert.equal(writes.length,0);
 });
 
+test('automatic lens compatibility installer performs preflight before any mutation',()=>{
+ const seq=[];
+ const ctx=vm.createContext({
+  PropertiesService:{getDocumentProperties:()=>({
+    getProperty:()=>'',setProperty:()=>seq.push('property_write')
+  })},
+  KK_LENS_COMPAT_PATCH_VERSION:'test-safe-flag',
+  kkTryDocumentLock_:()=>({releaseLock:()=>seq.push('unlock')}),
+  kkPreflightLensCompatibilityPatchStatuses_:()=>{seq.push('preflight');throw Error('UNEXPECTED_MANUAL_STATUS')},
+  kkEnsureZeissLensModelMaster_:()=>seq.push('model_write'),
+  kkRetireG2AssetsAndPackages_:()=>seq.push('asset_write'),
+  kkRepairLensCompatibilityFormulas_:()=>seq.push('booking_formula_write'),
+  SpreadsheetApp:{flush:()=>seq.push('flush')}
+ });
+ vm.runInContext(sourceFunction(gs,'kkEnsureLensCompatibilityPatchInstalled_'),ctx);
+ assert.throws(()=>ctx.kkEnsureLensCompatibilityPatchInstalled_(),/UNEXPECTED_MANUAL_STATUS/);
+ assert.deepEqual(seq,['preflight','unlock'],'no owner or business writes before rejecting drift');
+});
+
+test('manual lens repair menu preflights before deleting its installed-version property',()=>{
+ const manual=sourceFunction(gs,'kkRepairLensCompatibilityPatch');
+ assert.ok(manual.indexOf('kkPreflightLensCompatibilityPatchStatuses_();')>=0);
+ assert.ok(manual.indexOf('kkPreflightLensCompatibilityPatchStatuses_();') <
+           manual.indexOf("deleteProperty('KK_LENS_COMPAT_PATCH_VERSION')"));
+});
+
+test('lens status preflight is read-only and checks every generated row before repair',()=>{
+ const fn=sourceFunction(gs,'kkPreflightLensCompatibilityPatchStatuses_');
+ assert.match(fn,/getRange\(startRow, 10, rowCount, 1\)/);
+ assert.match(fn,/getFormulas\(\), range\.getDisplayValues\(\), generated, startRow/);
+ assert.doesNotMatch(fn,/setFormula|setValue|deleteProperty/);
+});
+
 test('BTS full-booked days keep phone waitlist even with one spare lens',()=>{
  for(const date of ['2026-12-03','2026-12-05']){
   const state={date,phoneCnt:0,lensCnt:1,packages:[

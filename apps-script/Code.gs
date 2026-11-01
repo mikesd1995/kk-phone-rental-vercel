@@ -1019,6 +1019,21 @@ function kkWebPackageStatusRepairPlan_(currentFormulas, displayedValues, generat
   return spans;
 }
 
+// Strict nonmutating preflight for the auto-installer and owner repair menu.
+// Check package status literals BEFORE retired-asset/package mutations or Script Properties.
+function kkPreflightLensCompatibilityPatchStatuses_() {
+  const startRow = 5, rowCount = 996;
+  const range = kkSheet_(KK.webPackages).getRange(startRow, 10, rowCount, 1);
+  const generated = [];
+  for (let row = startRow; row < startRow + rowCount; row++) {
+    generated.push([kkFormulaWebPackageStatus_(row)]);
+  }
+  // Throws on every unexpected literal or unfamiliar formula, preserving manual hidden.
+  return kkWebPackageStatusRepairPlan_(
+    range.getFormulas(), range.getDisplayValues(), generated, startRow
+  ).length;
+}
+
 // Storefront policy: standalone lens rental is hidden by default.
 // It becomes visible only when the same event has an active phone_only booking,
 // meaning at least one physical lens is spare. active_override=FALSE remains a kill switch.
@@ -1069,6 +1084,8 @@ function kkEnsureLensCompatibilityPatchInstalled_() {
   if (!lock) return false;
   try {
     if (props.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION) return false;
+    // Check manual package statuses before any Lens/Asset or Booking formula write.
+    kkPreflightLensCompatibilityPatchStatuses_();
     kkEnsureZeissLensModelMaster_();
     kkRetireG2AssetsAndPackages_();
     kkRepairLensCompatibilityFormulas_();
@@ -1081,6 +1098,7 @@ function kkEnsureLensCompatibilityPatchInstalled_() {
 }
 
 function kkRepairLensCompatibilityPatch() {
+  kkPreflightLensCompatibilityPatchStatuses_();
   PropertiesService.getDocumentProperties().deleteProperty('KK_LENS_COMPAT_PATCH_VERSION');
   const installed = kkEnsureLensCompatibilityPatchInstalled_();
   kkSafeAlert_((installed ? 'Repaired' : 'Already current') + ': lens compatibility formulas are ready. Public Web Packages will count only ZEISS_2_35X/G1 lenses. Standalone lens rental stays hidden unless the event has an active phone-only booking. G2/G_2 rows are retired from selling stock. Price formulas use package_id/template_id from 09_Web_Packages!A, not row order.');
