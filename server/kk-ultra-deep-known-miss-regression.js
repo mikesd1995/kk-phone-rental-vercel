@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V13';
+const VERSION='KK_ULTRA_DEEP_KNOWN_MISS_V14';
 
 const CORPUS=Object.freeze([
   {case_id:'remaster-20261010',title:'REMASTER CONCERT',aliases:['remaster concert'],event_date:'2026-10-10'},
@@ -35,7 +35,11 @@ const CORPUS=Object.freeze([
   {case_id:'siam-halloween-20261031',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 31 October 2026 Siam Square'],event_date:'2026-10-31',discovery_months:['2026-11'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
   {case_id:'siam-halloween-20261101',title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',aliases:['siam halloween 2026 flex pmcu','สยามฮาโลวีน flex 2026'],search_queries:['Flex 104.5 PMCU Siam Halloween 1 November 2026 Siam Square'],event_date:'2026-11-01',discovery_months:['2026-10'],miss_class:'FREE_PUBLIC_FESTIVAL_RADIO_CROSSMONTH_GAP'},
   {case_id:'jmnk-she-serve-20261121',title:'JMNK SHEเสิร์ฟ CONCERT',aliases:['jmnk she serve concert','jmnk concert november 21 2026'],search_queries:['JMNK SHEเสิร์ฟ Concert Pulse Hall 21 Nov 2026','JMNK Justmine Nika Eventpop ticket public sale Oct31'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'ARTIST_OFFICIAL_SALE_WINDOW_NEXTMONTH_GAP'},
-  {case_id:'iqiyi-ijoy-th-20261105',title:'iQIYI iJOY TH 2027',aliases:['iqiyi ijoy th 2027','iqiyiijoyth2027','iqiyi fan zone 400','ijoy th 2027 iconsiam'],search_queries:['iQIYI_Thailand iQIYI iJOY TH 2027 5 November ICONSIAM','iQIYIiJOYTH2027 FAN ZONE 400 registration October 2026','iQIYI Thailand iJOY artist showcase November 2026'],event_date:'2026-11-05',discovery_months:['2026-10'],miss_class:'PLATFORM_FAN_ZONE_REGISTRATION_SOURCE_GAP'}
+  {case_id:'iqiyi-ijoy-th-20261105',title:'iQIYI iJOY TH 2027',aliases:['iqiyi ijoy th 2027','iqiyiijoyth2027','iqiyi fan zone 400','ijoy th 2027 iconsiam'],search_queries:['iQIYI_Thailand iQIYI iJOY TH 2027 5 November ICONSIAM','iQIYIiJOYTH2027 FAN ZONE 400 registration October 2026','iQIYI Thailand iJOY artist showcase November 2026'],event_date:'2026-11-05',discovery_months:['2026-10'],miss_class:'PLATFORM_FAN_ZONE_REGISTRATION_SOURCE_GAP'},
+  {case_id:'ongredients-thomaskong-20261121',title:'Enter the true Ongredients with ThomasKong',aliases:['ongredients thomaskong eveandboy','eveandboy ongredients thomas kong','enter the true ongredients','EVEANDBOYxOngredientsxThomasKong'],search_queries:['EVEANDBOY Ongredients ThomasKong 21 November 2026 Siam Square One','Ongredients 40 Lucky Fans ThomasKong November 21','EnterthetrueOngredientsxTMK'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'RETAIL_PARTNER_BRAND_AMBASSADOR_LUCKY_FAN_GAP'},
+  {case_id:'beautrium-15th-20261106',title:'BEAUTRIUM 15TH ANNIVERSARY BEAUTY TOGETHER',aliases:['beautrium 15th anniversary','beautrium beauty together 100 artists','beautrium siam square fan zone 300'],search_queries:['BEAUTRIUM 15TH ANNIVERSARY 6 November 2026 Siam Square artist 300 fan zone','BEAUTRIUM BEAUTY TOGETHER 2026 performers'],event_date:'2026-11-06',discovery_months:['2026-10'],miss_class:'RETAIL_MALL_ARTIST_LINEUP_FANZONE_GAP'},
+  {case_id:'journal-fourth-20261110',title:'JOURNAL x FOURTH SIMPLY MAGNETIC',aliases:['journal fourth simply magnetic','journal perfume fourth lucky fan 40','journal x fourth look khunnoo'],search_queries:['journalperfume JOURNAL FOURTH SIMPLY MAGNETIC 10 November 2026 centralwOrld','JOURNAL Fourth lucky fans register October 2026'],event_date:'2026-11-10',discovery_months:['2026-10'],miss_class:'BRAND_LUCKY_FAN_OCT_REG_NOV_EVENT_GAP'},
+  {case_id:'drpong-zee-20261121',title:'Dr.PONG G89 Lucky Fans with Zee Pruk',aliases:['drpong zee pruk g89 lucky fan','drpong zee 21 november','drpongxzeepruk'],search_queries:['drpongofficial Zee Pruk 50 lucky fans 21 November 2026','Dr.PONG G89 October purchase November closed event'],event_date:'2026-11-21',discovery_months:['2026-10'],miss_class:'BRAND_PRIVATE_LUCKY_FAN_SOURCE_GAP'}
 ]);
 const FIXTURE_EVIDENCE=Object.freeze({
   'remaster-20261010':{title:'REMASTER CONCERT TIMESHOWBIZ',source_url:'https://www.paragonhall.com/en/events'},
@@ -62,7 +66,11 @@ const FIXTURE_EVIDENCE=Object.freeze({
   'siam-halloween-20261031':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
   'siam-halloween-20261101':{title:'Flex 104.5 PMCU SIAM HALLOWEEN 2026',source_url:'https://www.flexconnect.net/category/article/entertainment/'},
   'jmnk-she-serve-20261121':{title:'JMNK SHEเสิร์ฟ CONCERT',source_url:'https://x.com/jmnkofficial'},
-  'iqiyi-ijoy-th-20261105':{title:'iQIYI iJOY TH 2027',source_url:'https://x.com/iQIYI_Thailand'}
+  'iqiyi-ijoy-th-20261105':{title:'iQIYI iJOY TH 2027',source_url:'https://x.com/iQIYI_Thailand'},
+  'ongredients-thomaskong-20261121':{title:'Enter the true Ongredients with ThomasKong',source_url:'https://x.com/EVEANDBOY'},
+  'beautrium-15th-20261106':{title:'BEAUTRIUM 15TH ANNIVERSARY BEAUTY TOGETHER',source_url:'https://x.com/TheBeautrium'},
+  'journal-fourth-20261110':{title:'JOURNAL x FOURTH SIMPLY MAGNETIC',source_url:'https://x.com/journalperfume'},
+  'drpong-zee-20261121':{title:'Dr.PONG G89 Lucky Fans with Zee Pruk',source_url:'https://x.com/drpongofficial'}
 });
 
 function text(v){return String(v==null?'':v).trim();}
