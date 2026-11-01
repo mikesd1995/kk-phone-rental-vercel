@@ -85,7 +85,7 @@ function buildOperational(input={}){
   query_variants:[
    'iQIYI_Thailand iJOY FAN ZONE ลงทะเบียน '+thisMonth.th+' ไอคอนสยาม',
    'iQIYI Thailand iJOY FAN ZONE '+nextMonth.en+' ICONSIAM',
-   '#iQIYIiJOYTH2027 ICONSIAM FAN ZONE 400'
+   '#iQIYIiJOYTH iQIYI Thailand '+nextMonth.en+' FAN ZONE'
   ],
   providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML'],
   stop_condition:'EXECUTE_AND_RECORD_RECEIPT',
