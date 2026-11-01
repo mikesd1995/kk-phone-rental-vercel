@@ -74,3 +74,46 @@ jobs:
         run: |
           test -z "${KK_LINE_BOOKING_AUTOMATION_ENABLED:-}"
           echo "Repository acceptance is zero-write; live activation remains separately gated."
+
+  full-regression:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      APPROVED_SHA: ${{ github.event.pull_request.head.sha }}
+      CI: 'true'
+      KK_LINE_BOOKING_AUTOMATION_ENABLED: ''
+    steps:
+      - name: Checkout exact draft source without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.APPROVED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Fail closed on unexpected source identity
+        run: |
+          test -n "$APPROVED_SHA"
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Read bounded Code Intelligence context for Booking P0
+        run: npm run code:context -- "Booking P0 Apps Script fail-closed Web Ready phone stock storefront regression"
+
+      - name: Install locked dependency set with lifecycle scripts disabled
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
+
+      - name: Full repository syntax contract
+        run: npm run check
+
+      - name: Full repository tests and poster ACL offline tests
+        run: npm test
+
+      - name: Assert no booking automation activation
+        run: test -z "${KK_LINE_BOOKING_AUTOMATION_ENABLED:-}"
