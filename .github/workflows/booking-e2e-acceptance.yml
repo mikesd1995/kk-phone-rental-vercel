@@ -115,5 +115,8 @@ jobs:
       - name: Full repository tests and poster ACL offline tests
         run: npm test
 
+      - name: Continuous zero-write business invariant gate
+        run: npm run audit:invariants
+
       - name: Assert no booking automation activation
         run: test -z "${KK_LINE_BOOKING_AUTOMATION_ENABLED:-}"
