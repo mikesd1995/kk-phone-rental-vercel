@@ -319,6 +319,48 @@ test('Booking X price plan runs before stock writes and cannot bulk-rewrite X',(
  assert.doesNotMatch(body,/booking\.getRange\(startRow, 24, rowCount, 1\)\.setFormulas\(bookingPrice\)/);
 });
 
+test('booking admission does not trigger owner lens-compatibility migrations',()=>{
+ const guard=compile(gs,'kkAssertLensCompatibilityPatchReady_',{
+   PropertiesService:{getDocumentProperties:()=>({getProperty:()=> 'v16.7.0_PHASE3_9_5_11_SAME_DAY_INVENTORY_20260928'})},
+   KK_LENS_COMPAT_PATCH_VERSION:'v16.7.0_PHASE3_9_5_11_SAME_DAY_INVENTORY_20260928'
+ });
+ assert.equal(guard(),true);
+ const actionStart=gs.indexOf("if (action === 'createBooking')");
+ assert.ok(actionStart>=0,'real createBooking action must exist');
+ const actionEnd=gs.indexOf("if (action === '",actionStart+10);
+ const creation=gs.slice(actionStart,actionEnd>actionStart?actionEnd:actionStart+10500);
+ assert.match(creation,/kkAssertLensCompatibilityPatchReady_\(\)/);
+ assert.doesNotMatch(creation,/\bkkEnsureLensCompatibilityPatchInstalled_\(\);/);
+ assert.ok(creation.indexOf("if (!eventId || !templateId || !customerName)") <
+           creation.indexOf("kkAssertLensCompatibilityPatchReady_();"));
+});
+
+test('stale or missing owner patch blocks booking before any owner mutation',()=>{
+ const versions=['',null,'OLD_UNVERIFIED'];
+ for(const installed of versions){
+  const writes=[];
+  const guard=compile(gs,'kkAssertLensCompatibilityPatchReady_',{
+   PropertiesService:{getDocumentProperties:()=>({
+      getProperty:()=>installed,
+      setProperty:()=>writes.push('setProperty'),
+      deleteProperty:()=>writes.push('deleteProperty')
+   })},
+   KK_LENS_COMPAT_PATCH_VERSION:'CURRENT_APPROVED'
+  });
+  assert.throws(()=>guard(),/LENS_COMPAT_OWNER_REPAIR_REQUIRED/);
+  assert.deepEqual(writes,[]);
+ }
+});
+
+test('explicit owner installer is still available for separately approved repair',()=>{
+ const owner=sourceFunction(gs,'kkEnsureLensCompatibilityPatchInstalled_');
+ const explicit=sourceFunction(gs,'kkRepairLensCompatibilityPatch');
+ assert.match(owner,/kkPreflightLensCompatibilityPatchStatuses_\(\)/);
+ assert.match(owner,/kkPreflightLensCompatibilityBookingPrices_\(\)/);
+ assert.match(owner,/kkRepairLensCompatibilityFormulas_\(\)/);
+ assert.match(explicit,/kkEnsureLensCompatibilityPatchInstalled_\(\)/);
+});
+
 test('BTS full-booked days keep phone waitlist even with one spare lens',()=>{
  for(const date of ['2026-12-03','2026-12-05']){
   const state={date,phoneCnt:0,lensCnt:1,packages:[

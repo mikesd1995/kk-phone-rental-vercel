@@ -1125,6 +1125,18 @@ function kkRepairLensCompatibilityFormulas_() {
   booking.getRange(startRow, 37, rowCount, 1).setFormulas(lensHold);     // AK reserves a lens by package
 }
 
+// Booking admission must never opportunistically rewrite owner Assets, Package
+// visibility, inventory or customer price formulas. Repair is an explicit owner
+// operation only, and an unapplied patch is a blocking configuration error.
+function kkAssertLensCompatibilityPatchReady_() {
+  const props = PropertiesService.getDocumentProperties();
+  const version = String(props.getProperty('KK_LENS_COMPAT_PATCH_VERSION') || '').trim();
+  if (version !== KK_LENS_COMPAT_PATCH_VERSION) {
+    throw new Error('LENS_COMPAT_OWNER_REPAIR_REQUIRED: booking blocked until owner patch is verified');
+  }
+  return true;
+}
+
 function kkEnsureLensCompatibilityPatchInstalled_() {
   const props = PropertiesService.getDocumentProperties();
   if (props.getProperty('KK_LENS_COMPAT_PATCH_VERSION') === KK_LENS_COMPAT_PATCH_VERSION) return false;
@@ -3071,10 +3083,12 @@ function kkApiCreateBooking_(payload) {
     const amountReceived = kkApiNumber_(payload.amount_received, 'amount_received', true) || 0;
     const bookingNote = kkBookingNoteWithRequest_(payload.booking_note || '', requestId);
 
-    kkEnsureLensCompatibilityPatchInstalled_();
     if (!eventId || !templateId || !customerName) throw new Error('Please fill event_id, template_id and customer_name');
     if (!['pending', 'confirmed', 'prepared', 'picked_up', 'returned', 'uploaded', 'completed', 'no_show', 'cancelled'].includes(bookingStatus)) throw new Error('Invalid booking_status');
     if (!['unpaid', 'partial', 'paid', 'refunded'].includes(paymentStatus)) throw new Error('Invalid payment_status');
+    // Pure read check. Never invoke kkEnsureLensCompatibilityPatchInstalled_()
+    // from an incoming booking request: it mutates Assets and Sheet formulas.
+    kkAssertLensCompatibilityPatchReady_();
 
     templateId = kkNormalizeTemplateIdForEvent_(eventId, templateId);
     const event = kkGetEventById_(eventId);
