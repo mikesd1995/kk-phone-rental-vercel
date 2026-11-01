@@ -16,7 +16,11 @@ test('canonical Apps Script defines lens-only storefront guard', () => {
 test('lens-only guard is repaired into 09_Web_Packages column J', () => {
   assert.match(gs, /const status = \[\]/);
   assert.match(gs, /status\.push\(\[kkFormulaWebPackageStatus_\(row\)\]\)/);
-  assert.match(gs, /getRange\(startRow, 10, rowCount, 1\)\.setFormulas\(status\)/);
+  assert.match(gs, /const statusPlan = kkWebPackageStatusRepairPlan_\(/);
+  assert.match(gs, /currentStatus\.getFormulas\(\), currentStatus\.getDisplayValues\(\), status, startRow/);
+  assert.match(gs, /statusPlan\.forEach\(span => web\.getRange\(span\.startRow, 10, span\.formulas\.length, 1\)\.setFormulas\(span\.formulas\)\)/);
+  assert.match(gs, /text\.toLowerCase\(\) === 'hidden'/);
+  assert.doesNotMatch(gs, /web\.getRange\(startRow, 10, rowCount, 1\)\.setFormulas\(status\)/);
 });
 
 test('manual FALSE override remains an emergency kill switch', () => {
