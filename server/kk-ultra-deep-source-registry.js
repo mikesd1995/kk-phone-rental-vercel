@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V9';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V10';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -44,6 +44,10 @@ const REGISTRY=Object.freeze({
   ]),
   BRAND_SPONSOR:Object.freeze([
     {source_id:'watsons-campaigns',label:'Watsons campaigns',required:true},
+    {source_id:'eveandboy-retail',label:'EVEANDBOY retail official artist appearances and lucky-fan campaigns',direct_url:'https://x.com/EVEANDBOY',search_terms:['EVEANDBOY Ongredients ThomasKong','EVEANDBOY 40 lucky fans','EVEANDBOY ambassador launch buy register win','อีฟแอนด์บอย แบรนด์แอมบาสเดอร์ ลุ้นสิทธิ์ ศิลปิน'],required:true},
+    {source_id:'beautrium-retail',label:'BEAUTRIUM official beauty anniversary stages artist lineups fan zones',direct_url:'https://x.com/TheBeautrium',search_terms:['BEAUTRIUM 15TH ANNIVERSARY FAN ZONE','BEAUTRIUM Siam Square artist schedule','บิวเทรี่ยม เปิดตัวศิลปิน งานกิจกรรม'],required:true},
+    {source_id:'brand-ambassador-lucky-fan-family',label:'Official multi-brand beauty skincare brand ambassador launches top spender lucky fan invited events',search_terms:['brand ambassador launch 40 lucky fans Bangkok','skincare beauty lucky fan top spender artist Bangkok','เปิดตัวพรีเซนเตอร์ ลุ้นสิทธิ์ lucky fans งานศิลปิน','ประกาศผู้โชคดี งานแอมบาสเดอร์ วันที่จัด กรุงเทพ'],required:true},
+    {source_id:'retail-partner-crosspromotion',label:'Brand plus retailer official campaign posts and event date from winner announcements',search_terms:['EVEANDBOY BEAUTRIUM Watsons brand artist event Bangkok','purchase registration winner announced event date artist retail','ร่วมกิจกรรม ซื้อครบ ลงทะเบียน ประกาศรายชื่อ วันจัดงาน ศิลปิน'],required:true},
     {source_id:'iqiyi-thailand-platform',label:'iQIYI Thailand official iJOY fan zone registration artist showcase and awards',direct_url:'https://x.com/iQIYI_Thailand',search_terms:['iQIYI iJOY TH','#iQIYIiJOYTH2027','iQIYI FAN ZONE ลงทะเบียน','iQIYI VIP artist showcase'],required:true},
     {source_id:'wetv-campaigns',label:'WeTV campaigns',required:true},
     {source_id:'smtrue-campaigns',label:'SM True campaigns',required:true},
