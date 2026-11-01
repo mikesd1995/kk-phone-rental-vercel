@@ -81,3 +81,17 @@ test('daily plan requires brand-ambassador retailer, Lucky Fan and mall artist c
  assert.equal(source.direct_url,'https://x.com/EVEANDBOY');
  assert.equal(full.production_writes,0);
 });
+
+test('December and January retail discovery never carries stale November 2026 fixed-month brand queries',()=>{
+ for(const [month,next] of [['2026-11','December 2026'],['2026-12','January 2027'],['2027-01','February 2027']]){
+  const plan=P.buildOperational({month,location:'Bangkok Thailand'});
+  const task=plan.gap_tasks.find(x=>x.source_id==='smart-retail-luckyfan-registration');
+  assert.ok(task,month);
+  assert.equal(task.date_window.end,P.leadTimeEnd(plan.range),month);
+  assert.ok(task.query_variants.some(x=>x.includes('brand ambassador purchase registration '+next)),month);
+  assert.ok(!task.query_variants.some(x=>x.includes('registration November 2026')&&next!=='November 2026'),month);
+  assert.deepEqual(task.providers,['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML']);
+  assert.equal(task.required,true);
+  assert.equal(task.evidence_required,true);
+ }
+});
