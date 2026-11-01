@@ -42,11 +42,39 @@ test('Web Ready I: only phone count can advertise a new phone booking',()=>{
  assert.doesNotMatch(formula,/MAX\(G37,H37\)/);
 });
 
-test('Owner lock formula repair updates I and J together and preserves 09 package status',()=>{
- assert.match(gs,/webReadyBookingStatus\.push\(\[kkFormulaWebReadyBookingStatus_\(row\)\]\)/);
- assert.match(gs,/getRange\(startRow, 9, rowCount, 1\)\.setFormulas\(webReadyBookingStatus\)/);
- assert.match(gs,/getRange\(startRow, 10, rowCount, 1\)\.setFormulas\(webReadyAction\)/);
+test('Owner lock formula repair writes Web Ready I:J as one rectangular batch',()=>{
+ assert.match(gs,/webReadyStatusAndAction\.push\(\[/);
+ assert.match(gs,/kkFormulaWebReadyBookingStatus_\(row\), kkFormulaWebReadyAction_\(row\)/);
+ assert.match(gs,/getRange\(startRow, 9, rowCount, 2\)\.setFormulas\(webReadyStatusAndAction\)/);
+ assert.doesNotMatch(gs,/getRange\(startRow, 9, rowCount, 1\)\.setFormulas\(webReadyBookingStatus\)/);
+ assert.doesNotMatch(gs,/getRange\(startRow, 10, rowCount, 1\)\.setFormulas\(webReadyAction\)/);
  assert.match(gs,/getRange\(startRow, 10, rowCount, 1\)\.setFormulas\(webPackageStatus\)/);
+});
+
+test('Owner repair emits one I:J write and preserves the existing package update',()=>{
+ const writes=[];
+ const sheet=name=>({
+  getRange:(startRow,col,rowCount,colCount)=>({
+   setFormulas:values=>writes.push({name,startRow,col,rowCount,colCount,values})
+  })
+ });
+ const repair=compile(gs,'kkRepairOwnerVisibilityLockFormulas_',{
+  kkFormulaWebReadyBookingStatus_:row=>'status-'+row,
+  kkFormulaWebReadyAction_:row=>'action-'+row,
+  kkFormulaWebPackageStatus_:row=>'package-'+row,
+  kkSheet_:sheet,
+  KK:{webReady:'ready',webPackages:'packages'},
+  SpreadsheetApp:{flush(){}}
+ });
+ assert.equal(repair(),996);
+ assert.equal(writes.length,2,'one Web Ready I:J update and one existing package-status update');
+ const [web,packages]=writes;
+ assert.equal(web.name,'ready');
+ assert.deepEqual([web.startRow,web.col,web.rowCount,web.colCount],[5,9,996,2]);
+ assert.deepEqual(Array.from(web.values[0]),['status-5','action-5']);
+ assert.deepEqual(Array.from(web.values[995]),['status-1000','action-1000']);
+ assert.deepEqual([packages.name,packages.startRow,packages.col,packages.rowCount,packages.colCount],['packages',5,10,996,1]);
+ assert.equal(packages.values[0][0],'package-5');
 });
 
 test('BTS full-booked days keep phone waitlist even with one spare lens',()=>{

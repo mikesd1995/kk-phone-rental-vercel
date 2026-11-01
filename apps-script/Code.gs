@@ -903,17 +903,17 @@ function kkRepairOwnerVisibilityLockFormulas_() {
   const startRow = 5;
   const endRow = 1000;
   const rowCount = endRow - startRow + 1;
-  const webReadyBookingStatus = [];
-  const webReadyAction = [];
+  const webReadyStatusAndAction = [];
   const webPackageStatus = [];
   for (let row = startRow; row <= endRow; row++) {
-    webReadyBookingStatus.push([kkFormulaWebReadyBookingStatus_(row)]);
-    webReadyAction.push([kkFormulaWebReadyAction_(row)]);
+    webReadyStatusAndAction.push([
+      kkFormulaWebReadyBookingStatus_(row), kkFormulaWebReadyAction_(row)
+    ]);
     webPackageStatus.push([kkFormulaWebPackageStatus_(row)]);
   }
-  // Repair I and J in one owner-approved operation. Neither formula changes Bookings.
-  kkSheet_(KK.webReady).getRange(startRow, 9, rowCount, 1).setFormulas(webReadyBookingStatus);
-  kkSheet_(KK.webReady).getRange(startRow, 10, rowCount, 1).setFormulas(webReadyAction);
+  // One rectangular write keeps Web Ready I/J in the same update boundary.
+  // The separate Web Packages write still requires owner-gated readback/rollback.
+  kkSheet_(KK.webReady).getRange(startRow, 9, rowCount, 2).setFormulas(webReadyStatusAndAction);
   kkSheet_(KK.webPackages).getRange(startRow, 10, rowCount, 1).setFormulas(webPackageStatus);
   SpreadsheetApp.flush();
   return rowCount;
