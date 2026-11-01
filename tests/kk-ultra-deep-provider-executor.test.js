@@ -113,3 +113,36 @@ test('exhaustive mode reports uninspected provider overflow rather than silently
  assert.equal(r.candidates.length,Exec.MAX_RESULTS);assert.equal(r.candidate_truncated,true);
  assert.equal(r.dropped_uninspected_row_count,1);assert.equal(r.dropped_unique_candidate_count,0);
 });
+
+test('mandatory brand-source receipt inspects every bounded alias even when its first query has unrelated evidence',async()=>{
+ const seen=[];
+ const task={source_tier:'BRAND_SPONSOR',source_id:'eveandboy-retail',query:'Bangkok concerts',query_variants:['Ongredients ThomasKong lucky fan','brand ambassador event'],providers:['BING_RSS','DDG_HTML'],stop_condition:'EXECUTE_AND_RECORD_RECEIPT',required:true,evidence_required:true};
+ const result=await Exec.executeGapTask(task,{providers:{
+  BING_RSS:async row=>{seen.push(row.query);return [{title:row.query,event_date:row.query.includes('Ongredients')?'2026-11-21':'2026-11-10',source_url:'https://example.org/'+encodeURIComponent(row.query)}];},
+  DDG_HTML:async()=>{throw Error('must stop at first provider after exhausting its bounded variants');}
+ }});
+ assert.deepEqual(seen,['Bangkok concerts','Ongredients ThomasKong lucky fan','brand ambassador event']);
+ assert.equal(result.status,'EVIDENCE_FOUND');
+ assert.equal(result.candidates.length,3);
+ assert.equal(result.attempts.length,3);
+ assert.equal(result.candidates[1].event_date,'2026-11-21');
+ assert.equal(result.candidate_truncated,false);
+ assert.equal(result.production_writes,0);
+});
+test('mandatory brand-source receipt falls back after checking all variants with empty first provider',async()=>{
+ const seen=[];
+ const result=await Exec.executeGapTask({query:'A',query_variants:['B'],providers:['BING_RSS','DDG_HTML','EXA'],stop_condition:'EXECUTE_AND_RECORD_RECEIPT'}, {providers:{
+  BING_RSS:async row=>{seen.push('RSS:'+row.query);return[];},
+  DDG_HTML:async row=>{seen.push('DDG:'+row.query);return row.query==='B'?[{title:'Candidate B',source_url:'https://example.org/b'}]:[];},
+  EXA:async()=>{throw Error('paid source must not run');}
+ }});
+ assert.deepEqual(seen,['RSS:A','RSS:B','DDG:A','DDG:B']);
+ assert.deepEqual(result.attempts.map(x=>x.status),['NO_EVIDENCE','NO_EVIDENCE','NO_EVIDENCE','EVIDENCE_FOUND']);
+ assert.equal(result.candidates.length,1);
+});
+test('mandatory brand-source receipt must surface overflow rather than accepting truncated source evidence',async()=>{
+ const rows=Array.from({length:Exec.MAX_RESULTS+1},(_,i)=>({title:'Brand '+i,source_url:'https://example.org/'+i}));
+ const result=await Exec.executeGapTask({query:'brand',providers:['BING_RSS'],stop_condition:'EXECUTE_AND_RECORD_RECEIPT'},{providers:{BING_RSS:async()=>rows}});
+ assert.equal(result.candidate_truncated,true);
+ assert.equal(result.dropped_uninspected_row_count,1);
+});
