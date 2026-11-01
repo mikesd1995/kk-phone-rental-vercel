@@ -1,6 +1,6 @@
 'use strict';
 const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
-const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V12';
+const VERSION='KK_MONTHLY_DEEP_SCAN_QUERY_PLAN_V13';
 const TIER_TERMS={
  OFFICIAL:['concert fanmeeting fancon showcase mini concert festival Bangkok','คอนเสิร์ต แฟนมีต แฟนคอน โชว์เคส มินิคอนเสิร์ต กรุงเทพ ปริมณฑล','free concert radio station Flex1045 PMCU Siam Halloween multi-day October November Bangkok','ฟรีคอนเสิร์ต สยามฮาโลวีน PMCU Flex 104.5 เทศกาล 30 ตุลาคม 1 พฤศจิกายน ศิลปิน'],
  TICKETING:['Bangkok ticket concert fanmeeting showcase festival','บัตร งานศิลปิน กรุงเทพ ปริมณฑล','KAZZ MARKET activity TutorYim fanmeeting one day trip ticket updated date','LOOKE GELBOYS AllTicket fanmeet onsale event date Thailand'],
@@ -42,7 +42,7 @@ function build(input={}){
   gap_tasks.push({source_tier:'FANDOM_GRAPH',source_id:'fandom-'+fandom.toLowerCase().replace(/[^a-z0-9ก-๙]+/gi,'-').slice(0,60),query:fandom+' fanmeeting fancon fansign brand event birthday Bangkok '+range.month,query_variants:[fandom+' เช่ามือถือ กรุงเทพ '+range.month,fandom+' lucky fan meet greet กรุงเทพ '+range.month,fandom+' added show sold out Bangkok '+range.month],providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','EXA'],stop_condition:'EXHAUST_BOUNDED_VARIANTS_AND_RECORD_RECEIPTS',evidence_required:true,date_window:{start:range.start_date,end:range.end_date}});
  }
   const universe=SourceRegistry.buildUniversePlan({month:range.month,location});
- for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
+ for(const task of universe.tasks)gap_tasks.push({source_tier:task.source_tier,source_id:task.source_id,query:task.query,query_variants:task.query_variants,direct_url:task.direct_url,providers:task.providers,stop_condition:'EXECUTE_AND_RECORD_RECEIPT',evidence_required:true,required:task.required,date_window:{start:range.start_date,end:range.end_date}});
  return {version:VERSION,mode:'ULTRA_DEEP_MONTH_LONG_TAIL',range,location,gap_tasks,source_universe_version:universe.version,source_universe_task_count:universe.tasks.length,required_tiers:Object.keys(TIER_TERMS),learned_query_count:learned.length,hot_fandom_query_count:hotFandoms.length,production_writes:0,authoritative:false,verifier_required:true};
 }
 function buildOperational(input={}){
@@ -94,8 +94,53 @@ function buildOperational(input={}){
   campaign_lead_time:true,
   date_window:{start:range.start_date,end:leadTimeEnd(range)}
  });
+ // Brand and retailer sources are mandatory even if a broad first-hit search
+ // already found an unrelated concert. Pre-event buying/registration may happen
+ // in the preceding month; never mistake the campaign end for the event date.
+ const retailProviders=['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML'];
+ const retailTasks=[
+  {
+   source_id:'smart-brand-ambassador-retail',
+   source_tier:'PRESS_BRAND',
+   query:'brand ambassador launch EVEANDBOY Ongredients BEAUTRIUM artist event '+thisMonth.en+' Bangkok',
+   query_variants:[
+    'Ongredients EVEANDBOY ThomasKong brand launch '+nextMonth.en+' lucky fans',
+    'BEAUTRIUM anniversary JOURNAL Fourth Hiruscar ThomasKong '+thisMonth.en,
+    'แบรนด์แอมบาสเดอร์ ศิลปิน ลัคกี้แฟน อีฟแอนด์บอย บิวเทรี่ยม '+nextMonth.th
+   ]
+  },
+  {
+   source_id:'smart-retail-luckyfan-registration',
+   source_tier:'CAMPAIGN_LEAD_TIME',
+   query:'retail beauty lucky fan top spender purchase register winner announced '+thisMonth.en+' artist Thailand',
+   query_variants:[
+    'ซื้อครบ ลงทะเบียน ประกาศรายชื่อ ลัคกี้แฟน วันจัดงาน '+thisMonth.th,
+    'LOLANE Dr.PONG PISEN AESTEC PondPhuwin Zee lucky fan '+nextMonth.en,
+    'brand ambassador purchase registration November 2026 EVEANDBOY Siam Square'
+   ]
+  },
+  {
+   source_id:'smart-mall-artist-board',
+   source_tier:'MALL_COMMUNITY',
+   query:'mall beauty stage red carpet artist schedule launch '+thisMonth.en+' Bangkok',
+   query_variants:[
+    'Siam Square BEAUTRIUM artists brand event '+thisMonth.en,
+    'centralwOrld ICONSIAM Siam Square One artist event '+nextMonth.en,
+    'ตารางศิลปิน งานเปิดตัวแบรนด์ ห้าง สยามสแควร์ '+thisMonth.th
+   ]
+  }
+ ];
+ for(const task of retailTasks)gap_tasks.push({
+  ...task,
+  providers:retailProviders,
+  stop_condition:'EXECUTE_AND_RECORD_RECEIPT',
+  required:true,
+  evidence_required:true,
+  campaign_lead_time:true,
+  date_window:{start:range.start_date,end:leadTimeEnd(range)}
+ });
  return {
-  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V4',
+  version:'KK_SMART_OPERATIONAL_QUERY_PLAN_V5',
   mode:'SMART_OPERATIONAL',
   range,location,gap_tasks,
   operational_tiers:[...OPERATIONAL_TIERS],hot_fandom_query_count:hotFandoms.length,
