@@ -73,3 +73,20 @@ test('iQIYI official Fan Zone and ICONSIAM routes are mandatory and cannot pass 
  const recovered=R.buildUniverseProof([...receipts,{source_id:'iqiyi-thailand-platform',status:'EVIDENCE_FOUND',executed:true}]);
  assert.equal(recovered.complete,true);
 });
+
+test('brand and retailer source families remain required, with official partner query variants',()=>{
+ const ids=['eveandboy-retail','beautrium-retail','brand-ambassador-lucky-fan-family','retail-partner-crosspromotion'];
+ const plan=R.buildUniversePlan({month:'2026-11',location:'Bangkok Thailand'});
+ for(const id of ids){
+  const t=plan.tasks.find(x=>x.source_id===id);
+  assert.ok(t,id);
+  assert.equal(t.required,true,id);
+  assert.ok(t.query_variants.length>=2,id);
+ }
+ assert.equal(plan.tasks.find(x=>x.source_id==='eveandboy-retail').direct_url,'https://x.com/EVEANDBOY');
+ assert.ok(plan.tasks.find(x=>x.source_id==='eveandboy-retail').query_variants.some(q=>q.includes('Ongredients')));
+ const reports=R.allSources().filter(x=>x.source_id!=='retail-partner-crosspromotion').map(x=>({source_id:x.source_id,executed:true,status:'NO_EVIDENCE'}));
+ const proof=R.buildUniverseProof(reports);
+ assert.equal(proof.complete,false);
+ assert.ok(proof.missing_required_sources.includes('retail-partner-crosspromotion'));
+});
