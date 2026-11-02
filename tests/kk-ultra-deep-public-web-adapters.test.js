@@ -2,7 +2,7 @@
 const test=require('node:test');const assert=require('node:assert/strict');const A=require('../server/kk-ultra-deep-public-web-adapters.js');
 function response(body,status=200){return {ok:status>=200&&status<300,status,headers:{get:()=>String(Buffer.byteLength(body))},text:async()=>body};}
 test('official direct fetches bounded HTTPS evidence',async()=>{const rows=await A.officialDirect({source_url:'https://example.com/event'},{fetchFn:async()=>response('<html><title>Concert Bangkok</title></html>')});assert.equal(rows.length,1);assert.equal(rows[0].title,'Concert Bangkok');assert.equal(rows[0].source_url,'https://example.com/event');});
-test('official direct rejects non HTTPS seeds',async()=>{let calls=0;const rows=await A.officialDirect({source_url:'http://example.com/event'},{fetchFn:async()=>{calls++;return response('x');}});assert.equal(rows.length,0);assert.equal(calls,0);});
+test('official direct rejects non HTTPS seeds instead of recording false no-evidence',async()=>{let calls=0;await assert.rejects(A.officialDirect({source_url:'http://example.com/event'},{fetchFn:async()=>{calls++;return response('x');}}),{code:'OFFICIAL_DIRECT_NO_HTTPS_URL'});assert.equal(calls,0);});
 
 test('official page reads labeled show date and venue without using the ticket sale date',async()=>{
  const body='<title>Sample 1st FANMEETING | Organizer</title><dl><dt>Venue</dt><dd>ONE BANGKOK FORUM</dd><dt>Show Date</dt><dd>24 October 2026 | Showtime: 04:00 PM (GMT+7)</dd><dt>Ticket On Sale</dt><dd>4 October 2026 | From 10:00 AM</dd></dl>';
@@ -370,4 +370,39 @@ test('official direct combines legacy source_url and new direct_url once without
  }});
  assert.deepEqual(urls,['https://organizer.example/1','https://organizer.example/2']);
  assert.equal(rows.length,2);
+});
+
+test('official HTTP 403/404 never becomes a successful no-evidence source receipt',async()=>{
+ for(const status of [403,404,429,500]){
+  await assert.rejects(A.officialDirect({direct_url:'https://brand.example/official'},{
+   fetchFn:async()=>response('blocked',status)
+  }),{code:'HTTP_'+status});
+ }
+});
+test('official first-party network failure and timeout are surfaced, never silently swallowed',async()=>{
+ const blocked=Object.assign(new Error('request failed'),{code:'FETCH_UNAVAILABLE'});
+ await assert.rejects(A.officialDirect({direct_url:'https://brand.example/official'},{
+  fetchFn:async()=>{throw blocked;}
+ }),{code:'FETCH_UNAVAILABLE'});
+ await assert.rejects(A.officialDirect({direct_url:'https://brand.example/official'},{
+  fetchFn:async()=>{throw Object.assign(new Error('timeout'),{name:'AbortError',code:'TIMEOUT'});}
+ }),{code:'TIMEOUT'});
+});
+test('fallback seed cannot mask an inaccessible canonical organizer profile',async()=>{
+ const requests=[];
+ await assert.rejects(A.officialDirect({
+  direct_url:'https://brand.example/official',seed_urls:['https://mirror.example/event']
+ },{
+  fetchFn:async url=>{requests.push(url);return url.includes('brand.example')?response('forbidden',403):response('<title>Event Mirror</title>');}
+ }),{code:'HTTP_403'});
+ assert.deepEqual(requests,['https://brand.example/official']);
+});
+test('secondary seed failures do not erase successful canonical organizer read',async()=>{
+ const rows=await A.officialDirect({
+  direct_url:'https://brand.example/official',seed_urls:['https://mirror.example/offline']
+ },{
+  fetchFn:async url=>url.includes('brand.example')?response('<title>Official Brand</title>'):response('blocked',403)
+ });
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].source_url,'https://brand.example/official');
 });
