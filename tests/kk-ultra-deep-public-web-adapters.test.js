@@ -406,3 +406,19 @@ test('secondary seed failures do not erase successful canonical organizer read',
  assert.equal(rows.length,1);
  assert.equal(rows[0].source_url,'https://brand.example/official');
 });
+
+test('required first-party homepage visit without a dated event yields zero event candidates, not an invented brand event',async()=>{
+ let visits=0;
+ const rows=await A.officialDirect({required:true,direct_url:'https://brand.example/official'},{
+  fetchFn:async()=>{visits++;return response('<html><title>Official Brand Homepage</title><p>Subscribe to get news</p></html>');}
+ });
+ assert.equal(visits,1);
+ assert.deepEqual(rows,[]);
+});
+test('required first-party dated event retains a genuine candidate',async()=>{
+ const rows=await A.officialDirect({required:true,direct_url:'https://brand.example/event/ijoy'},{
+  fetchFn:async()=>response('<html><title>iQIYI iJOY TH 2027 FAN ZONE</title><dt>Show Date</dt><dd>5 November 2026</dd></html>')
+ });
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].event_date,'2026-11-05');
+});
