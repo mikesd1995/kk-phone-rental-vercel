@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V10';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V11';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -125,7 +125,8 @@ function buildUniversePlan(input={}){
       direct_url:row.direct_url||null,
       query:queries[0],
       query_variants:[...new Set(queries.slice(1))],
-      providers:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+      providers:row.direct_url?['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']:['BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA'],
+      ...(row.direct_url?{stop_condition:'EXECUTE_AND_RECORD_RECEIPT'}:{}),
       evidence_required:true
     };
   });
