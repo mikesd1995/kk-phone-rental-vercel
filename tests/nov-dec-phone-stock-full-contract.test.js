@@ -65,6 +65,17 @@ function mockOwnerRepair(options={}){
  if(options.badStatus)formulaRows[32][0]='=IF(TRUE,"เปิดจอง","เต็มแล้ว")';
  if(options.blankCell){rows[50][9]='manual action';}
  const writes=[];
+ const sequence=[];
+ let locked=false;
+ const lock=()=>{
+   sequence.push('acquire');
+   if(options.lockUnavailable)throw Error('OWNER_FORMULA_LOCK_UNAVAILABLE');
+   locked=true;
+   return {releaseLock(){
+     sequence.push('release');
+     locked=false;
+   }};
+ };
  const ready={
    getRange:(start,col,count,width)=>{
      assert.equal(start,5);assert.equal(count,996);
@@ -84,7 +95,8 @@ function mockOwnerRepair(options={}){
    KK:{webReady:'ready'},
    SpreadsheetApp:{flush(){}},
    kkFormulaWebReadyBookingStatus_:webBookingStatus,
-   kkFormulaWebReadyAction_:webAction
+   kkFormulaWebReadyAction_:webAction,
+   kkAcquireDocumentLock_:lock
  };
  const ctx=vm.createContext(sandbox);
  vm.runInContext(
@@ -93,7 +105,8 @@ function mockOwnerRepair(options={}){
    ctx
  );
  return {preflight:ctx.kkPreflightOwnerVisibilityLockFormulas_,
-   repair:ctx.kkRepairOwnerVisibilityLockFormulas_,writes,formulaRows};
+   repair:ctx.kkRepairOwnerVisibilityLockFormulas_,writes,formulaRows,sequence,
+   isLocked:()=>locked};
 }
 
 test('owner dry-run audits all rows without writes and detects two stale BTS dates',()=>{
@@ -135,6 +148,31 @@ test('owner repair reports failed post-write readback rather than reporting succ
  const a=mockOwnerRepair({badReadback:true});
  assert.throws(()=>a.repair(),/WEB_READY_FORMULA_READBACK_MISMATCH/);
  assert.equal(a.writes.length,1);
+});
+
+test('owner Stock repair holds one document lock through preflight, formula write and readback',()=>{
+ const a=mockOwnerRepair();
+ assert.equal(a.repair(),996);
+ assert.deepEqual(a.sequence,['acquire','release']);
+ assert.equal(a.isLocked(),false);
+ assert.equal(a.writes.length,1);
+});
+
+test('owner Stock repair releases document lock on rejected preflight or failed readback',()=>{
+ for(const options of [{badStatus:true},{badReadback:true},{blankCell:true}]){
+   const a=mockOwnerRepair(options);
+   assert.throws(()=>a.repair());
+   assert.deepEqual(a.sequence,['acquire','release']);
+   assert.equal(a.isLocked(),false);
+ }
+});
+
+test('owner Stock repair never reads or writes when exclusive document lock is unavailable',()=>{
+ const a=mockOwnerRepair({lockUnavailable:true});
+ assert.throws(()=>a.repair(),/OWNER_FORMULA_LOCK_UNAVAILABLE/);
+ assert.deepEqual(a.sequence,['acquire']);
+ assert.equal(a.writes.length,0);
+ assert.equal(a.isLocked(),false);
 });
 
 test('lens compatibility status plan preserves a literal hidden package row',()=>{

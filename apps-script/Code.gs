@@ -957,6 +957,10 @@ function kkPreflightOwnerVisibilityLockFormulas_() {
 // Explicit owner repair only, never executed by public snapshot/API routes.
 // A successful dry run is NOT release approval. Owner must retain a rollback copy.
 function kkRepairOwnerVisibilityLockFormulas_() {
+  // Serialize owner read / preflight / write / readback with all other
+  // document-lock-aware Booking and owner mutations. Never preflight outside lock.
+  const lock = kkAcquireDocumentLock_('owner Web Ready I:J formula repair', 12000);
+  try {
   const preflight = kkPreflightOwnerVisibilityLockFormulas_();
   if (!preflight.pass) throw new Error(
     'WEB_READY_FORMULA_PREFLIGHT_BLOCKED: unexpected rows=' + preflight.unexpected_rows.join(',')
@@ -983,6 +987,9 @@ function kkRepairOwnerVisibilityLockFormulas_() {
     }
   }
   return rowCount;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // A manually hidden Web Package must never be promoted by a routine formula refresh.
