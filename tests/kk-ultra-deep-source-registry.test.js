@@ -93,7 +93,7 @@ test('brand and retailer source families remain required, with official partner 
 
 test('official-source plans execute direct URL before brand/indexed query evidence instead of equating a search with a visit',()=>{
  const plan=R.buildUniversePlan({month:'2026-11',location:'Bangkok Thailand'});
- for(const id of ['iqiyi-thailand-platform','eveandboy-retail','beautrium-retail','iconsiam-hall']){
+ for(const id of ['iqiyi-thailand-platform','eveandboy-retail','beautrium-retail','iconsiam-hall','gmmtv']){
   const t=plan.tasks.find(x=>x.source_id===id);
   assert.ok(t?.direct_url,id);
   assert.equal(t.providers[0],'OFFICIAL_DIRECT');
@@ -105,4 +105,16 @@ test('official-source plans execute direct URL before brand/indexed query eviden
  const generic=plan.tasks.find(t=>t.source_id==='retail-partner-crosspromotion');
  assert.equal(generic.direct_url,null);
  assert.notEqual(generic.providers[0],'OFFICIAL_DIRECT');
+});
+
+test('GMMTV entertainment launch uses first-party official account not generic concert-only search',()=>{
+ const s=R.allSources().find(x=>x.source_id==='gmmtv');
+ assert.equal(s.direct_url,'https://x.com/GMMTV');
+ assert.ok(s.search_terms.some(x=>x.includes('GMMTVNEXT')));
+ assert.ok(s.search_terms.some(x=>x.includes('register.gmm-tv.com')));
+ const plan=R.buildUniversePlan({month:'2026-11'});
+ const t=plan.tasks.find(x=>x.source_id==='gmmtv');
+ assert.ok(t.providers.includes('OFFICIAL_DIRECT'));
+ assert.ok(t.query_variants.some(x=>x.includes('GMMTVNEXT')));
+ assert.ok(t.required);
 });
