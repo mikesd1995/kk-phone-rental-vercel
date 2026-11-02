@@ -62,10 +62,14 @@ function auditQueueReconciliation(input={}){
    unresolved.push({event_id:key.id,event_date:key.date,reason:'AUDIT_LEAD_IDENTITY_INSUFFICIENT'});
    continue;
   }
-  const present=readback&&queue.some(q=>match(q,key));
+  const matchedRow=readback?rawQueue.find(q=>match(auditIdentity(q),key)):null;
+  const requiredVariants=Array.isArray(lead.required_access_variants)?lead.required_access_variants:[];
+  const actualVariants=Array.isArray(matchedRow?.access_variants)?matchedRow.access_variants:[];
+  const absentVariants=requiredVariants.filter(x=>!actualVariants.includes(x));
   const safelyClosed=allowed.some(q=>match(q,key));
-  if(present||safelyClosed)accounted.push({event_id:key.id,event_date:key.date,disposition:present?'CANDIDATE_QUEUE_READBACK':'SAFE_TERMINAL_DISPOSITION'});
-  else unresolved.push({event_id:key.id,event_date:key.date,reason:readback?'AUDIT_LEAD_NOT_IN_CANDIDATE_QUEUE':'CANDIDATE_QUEUE_READBACK_NOT_VERIFIED'});
+  if((matchedRow&&absentVariants.length===0)||safelyClosed)
+   accounted.push({event_id:key.id,event_date:key.date,disposition:safelyClosed?'SAFE_TERMINAL_DISPOSITION':'CANDIDATE_QUEUE_READBACK'});
+  else unresolved.push({event_id:key.id,event_date:key.date,reason:!readback?'CANDIDATE_QUEUE_READBACK_NOT_VERIFIED':!matchedRow?'AUDIT_LEAD_NOT_IN_CANDIDATE_QUEUE':'ACCESS_VARIANT_COVERAGE_INCOMPLETE',missing_access_variants:absentVariants});
  }
  const complete=!required||(readback && leads.length>0 && unresolved.length===0);
  return {required,complete,lead_count:leads.length,readback_verified:readback,accounted_count:accounted.length,
