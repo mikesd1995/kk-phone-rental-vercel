@@ -51,7 +51,7 @@ test('runtime runner can prove FULL only from executed provider evidence',async(
    }
    return [{title:'Shared Reference Concert Bangkok',event_date:'2026-10-20',source_url:'https://proof.example/'+(task.source_id||'generic')}];
  };
- const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
+ const out=await Runner.runMonthlyUltraDeep({month:'2026-10',location:'Bangkok Thailand'},{providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS});
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
  assert.equal(out.provider_binding.unknown_url_search_bound,true);
@@ -83,7 +83,7 @@ test('runtime known-miss probe can recover through an alias-only query without w
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.status,'READY_FOR_VERIFIER');
  assert.equal(out.full,true);
@@ -116,7 +116,7 @@ test('runtime executes known-miss probes before the broad monthly sweep',async()
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.full,true);
  assert.ok(calls[0].startsWith('knownmiss:'));
@@ -142,7 +142,7 @@ test('runtime known-miss gate accepts a governed hit from the main discovery swe
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand',known_miss_classifications:classifications},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.known_miss_regression.complete,true);
  assert.equal(out.known_miss_live_recall.complete,false);
@@ -188,7 +188,7 @@ test('deterministic historical regression remains complete even when live recall
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.known_miss_regression.complete,true);
  assert.ok(out.known_miss_live_recall.passed<out.known_miss_live_recall.case_count);
@@ -208,7 +208,7 @@ test('empty current-month discovery blocks FULL even when provider calls execute
  };
  const out=await Runner.runMonthlyUltraDeep(
    {month:'2026-10',location:'Bangkok Thailand'},
-   {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.discovery_proof.has_evidence,false);
  assert.ok(out.blockers.includes('DISCOVERY_EVIDENCE_EMPTY'));
@@ -394,7 +394,7 @@ test('operational discovery can proceed without exhaustive audit gates',async()=
    : [];
  const out=await Runner.runOperationalDiscovery(
    {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
-   {providers:{SEARXNG:search,BING_RSS:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+   {providers:{SEARXNG:search,BING_RSS:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.equal(out.mode,'SMART_OPERATIONAL');
  assert.equal(out.status,'READY_FOR_VERIFIER');
@@ -450,7 +450,7 @@ test('operational discovery is HOLD when broad queries work but mandatory retail
   :[];
  const out=await Runner.runOperationalDiscovery(
   {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
-  {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+  {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.ok(out.candidate_count>0);
  assert.equal(out.status,'HOLD_FOR_OPERATIONAL_DISCOVERY');
@@ -458,6 +458,38 @@ test('operational discovery is HOLD when broad queries work but mandatory retail
  assert.equal(out.required_source_count,4);
  assert.equal(out.required_source_executed_count,0);
  for(const id of ['smart-iqiyi-thailand-platform','smart-brand-ambassador-retail','smart-retail-luckyfan-registration','smart-mall-artist-board'])assert.ok(out.missing_required_source_ids.includes(id),id);
+ assert.ok(out.blockers.includes('OPERATIONAL_REQUIRED_SOURCE_COVERAGE_MISSING'));
+ assert.equal(out.production_writes,0);
+});
+
+test('official source URL must be visited; Bing search-only evidence cannot mark required Source Universe complete',()=>{
+ const task={source_id:'iqiyi-thailand-platform',required:true,direct_url:'https://x.com/iQIYI_Thailand'};
+ const plan={gap_tasks:[task]};
+ const searched={results:[{status:'EVIDENCE_FOUND',attempts:[{provider:'BING_RSS',status:'EVIDENCE_FOUND'}]}]};
+ let r=Runner.sourceUniverseReceipts(plan,searched)[0];
+ assert.equal(r.executed,false);
+ assert.equal(r.direct_source_verified,false);
+ assert.equal(r.status,'DIRECT_SOURCE_NOT_VERIFIED');
+ r=Runner.sourceUniverseReceipts(plan,{results:[{status:'EVIDENCE_FOUND',attempts:[
+   {provider:'OFFICIAL_DIRECT',status:'PROVIDER_ERROR'},{provider:'BING_RSS',status:'EVIDENCE_FOUND'}]}]})[0];
+ assert.equal(r.executed,false);
+ assert.equal(r.status,'DIRECT_SOURCE_NOT_VERIFIED');
+ r=Runner.sourceUniverseReceipts(plan,{results:[{status:'EVIDENCE_FOUND',attempts:[
+   {provider:'OFFICIAL_DIRECT',status:'NO_EVIDENCE'},{provider:'BING_RSS',status:'EVIDENCE_FOUND'}]}]})[0];
+ assert.equal(r.executed,true);
+ assert.equal(r.direct_source_verified,true);
+ assert.equal(r.status,'EVIDENCE_FOUND');
+});
+test('operational gate refuses to certify search-only brand evidence without official direct-profile visit',async()=>{
+ const out=await Runner.runOperationalDiscovery({month:'2026-11',location:'Bangkok Thailand'},{
+  use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS,
+  providers:{BING_RSS:async task=>[{title:'Artist brand ambassador launch Fan Zone',
+   event_date:'2026-11-21',source_url:'https://example.com/brand'}]}
+ });
+ assert.ok(out.candidate_count>0);
+ assert.equal(out.status,'HOLD_FOR_OPERATIONAL_DISCOVERY');
+ assert.equal(out.operational_ready,false);
+ assert.ok(out.missing_required_source_ids.includes('smart-iqiyi-thailand-platform'));
  assert.ok(out.blockers.includes('OPERATIONAL_REQUIRED_SOURCE_COVERAGE_MISSING'));
  assert.equal(out.production_writes,0);
 });
