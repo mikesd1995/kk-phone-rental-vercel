@@ -157,10 +157,11 @@ async function officialDirect(task={},options={}){
   const error=new Error('OFFICIAL_DIRECT_NO_HTTPS_URL');
   error.code='OFFICIAL_DIRECT_NO_HTTPS_URL';throw error;
  }
- const out=[];let lastError;
+ const out=[];let lastError,successfulFetches=0;
  for(const url of urls){
   try{
    const body=await fetchPage(url,options);
+   successfulFetches++;
    const candidate=candidateFromPage(url,body,task);
    // A fetched brand homepage is a source visit, not an event. A required
    // direct profile cannot generate an event lead without a dated identity.
@@ -173,6 +174,7 @@ async function officialDirect(task={},options={}){
    lastError=error;
   }
  }
+ if(!out.length&&successfulFetches>0)return []; // HTTP 200, but no dated event candidate.
  if(!out.length){
   const error=new Error('OFFICIAL_DIRECT_ALL_FETCHES_FAILED');
   error.code=(lastError&&lastError.code)||'OFFICIAL_DIRECT_ALL_FETCHES_FAILED';
