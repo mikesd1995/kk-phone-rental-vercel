@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V11';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V12';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -28,7 +28,7 @@ const REGISTRY=Object.freeze({
     {source_id:'siam-center-free-stage',label:'Siam Center public plaza and POP-Pah free T-Pop programmes',required:true}
   ]),
   ARTIST_AGENCY:Object.freeze([
-    {source_id:'gmmtv',label:'GMMTV',domain:'gmmtv.com',required:true},
+    {source_id:'gmmtv',label:'GMMTV official new-series and projects fan audience launch registration',domain:'gmmtv.com',direct_url:'https://x.com/GMMTV',search_terms:['GMMTVNEXT GENERATION HAPPY','GMMTV NEXT 3 November 2026 Union Hall','GMMTV เปิดตัวโปรเจกต์ ลงทะเบียนเข้าร่วมงาน','register.gmm-tv.com','GMMTVNEXT press launch 2000 seats 500 waitlist'],required:true},
     {source_id:'one31',label:'one31',domain:'one31.net',required:true},
     {source_id:'domundi-mandee',label:'DOMUNDI / Mandee Work',required:true},
     {source_id:'deehup-house-ticketing',label:'Dee Hup House official fanmeet ticketing',domain:'deehuphouse.com',required:true},
