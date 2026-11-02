@@ -99,6 +99,7 @@ test('official-source plans execute direct URL before brand/indexed query eviden
   assert.equal(t.providers[0],'OFFICIAL_DIRECT');
   assert.equal(t.stop_condition,'EXECUTE_AND_RECORD_RECEIPT');
   assert.ok(t.providers.includes('BING_RSS'));
+  assert.equal(t.providers.includes('EXA'),false,'required official-source checks cannot consume paid Exa credits');
   assert.equal(t.required,true);
  }
  const generic=plan.tasks.find(t=>t.source_id==='retail-partner-crosspromotion');
