@@ -382,7 +382,12 @@ test('failed FULL gates expose bounded source/task/provider receipts without pro
  assert.equal(out.diagnostic.gates.discovery.observed,false);
  assert.ok(out.diagnostic.receipts.discovery.length>20);
  assert.ok(out.diagnostic.receipts.discovery.some(r=>r.source_id==='eventpop'));
- assert.ok(out.diagnostic.receipts.discovery.every(r=>r.attempts.some(a=>a.provider==='EXA'&&a.status==='PROVIDER_ERROR')));
+ // New first-party direct routes intentionally exclude EXA to avoid paid usage.
+ assert.ok(out.diagnostic.receipts.discovery.some(r=>r.attempts.some(a=>a.provider==='OFFICIAL_DIRECT')));
+ assert.ok(out.diagnostic.receipts.discovery.every(r=>
+  r.attempts.some(a=>a.provider==='OFFICIAL_DIRECT')
+   ? !r.attempts.some(a=>a.provider==='EXA')
+   : r.attempts.some(a=>a.provider==='EXA'&&a.status==='PROVIDER_ERROR')));
  assert.equal(JSON.stringify(out.diagnostic).includes('sensitive-token'),false);
  assert.equal(JSON.stringify(out.diagnostic).includes('secret-provider-payload'),false);
  assert.equal(out.diagnostic.production_writes,0);
