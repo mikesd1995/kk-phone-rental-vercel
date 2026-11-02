@@ -7,13 +7,19 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V16';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V17';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
 function attemptExecuted(attempt={}){
-  return UNKNOWN_SEARCH_PROVIDERS.has(text(attempt.provider).toUpperCase()) &&
+  const provider=text(attempt.provider).toUpperCase();
+  return (UNKNOWN_SEARCH_PROVIDERS.has(provider)||provider==='OFFICIAL_DIRECT')&&
     ['EVIDENCE_FOUND','NO_EVIDENCE'].includes(text(attempt.status).toUpperCase());
+}
+function directSourceVerified(task={},result={}){
+  if(!text(task.direct_url))return true;
+  return (Array.isArray(result.attempts)?result.attempts:[]).some(a=>
+    text(a.provider).toUpperCase()==='OFFICIAL_DIRECT'&&attemptExecuted(a));
 }
 function flattenCandidates(execution={}){
   const out=[];const seen=new Set();
@@ -43,11 +49,14 @@ function sourceUniverseReceipts(plan={},execution={}){
     const task=tasks[i];if(!task.source_id)continue;
     const result=results[i]||{};
     const attempts=Array.isArray(result.attempts)?result.attempts:[];
-    const executed=attempts.some(attemptExecuted);
+    const searched=attempts.some(attemptExecuted);
+    const directVerified=directSourceVerified(task,result);
+    const executed=searched&&directVerified;
     receipts.push({
       source_id:task.source_id,
       executed,
-      status:executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
+      direct_source_verified:directVerified,
+      status:executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):(searched&&!directVerified?'DIRECT_SOURCE_NOT_VERIFIED':'NOT_BOUND'),
       provider:result.provider||null
     });
   }
@@ -275,6 +284,7 @@ async function runOperationalDiscovery(input={},options={}){
   const missingRequired=requiredSources.filter(({index})=>{
     const result=(execution.results||[])[index]||{};
     return !Array.isArray(result.attempts)||!result.attempts.some(attemptExecuted)||
+      !directSourceVerified(task,result)||
       result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0;
   }).map(({task})=>task.source_id);
   const operationalReady=proof.has_evidence&&proof.executed_count>=minimumExecuted&&missingRequired.length===0;
@@ -448,6 +458,6 @@ async function runMonthlyUltraDeep(input={},options={}){
 }
 
 module.exports={
-  VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
+  VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,directSourceVerified,executionProof,flattenCandidates,sourceUniverseReceipts,
   buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,recoverEligibleReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runOperationalDiscovery,runMonthlyUltraDeep
 };
