@@ -109,6 +109,7 @@ test('exact dated Candidate Queue readback closes GMMTVNEXT handoff debt, not un
  const unrelated={event_id:'EVT-20261103-THE-FALL-OF-TROY-BANGKOK',event_date:'2026-11-03',
   title:'The Fall of Troy Live in Bangkok',status:'READY_FOR_VERIFIER'};
  assert.equal(Gate.evaluate({...input,candidate_queue_readback:[unrelated]}).complete,false);
+ assert.equal(Gate.evaluate({...input,candidate_queue_readback:[{...launchQueue,event_id:'WRONG-ID'}]}).complete,false);
  const good=Gate.evaluate({...input,candidate_queue_readback:[unrelated,launchQueue]});
  assert.equal(good.complete,true);
  assert.equal(good.audit_reconciliation.accounted_count,1);
