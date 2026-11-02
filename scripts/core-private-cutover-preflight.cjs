@@ -47,7 +47,11 @@ function hasHeader(values,required){
   const first=Array.isArray(values)&&Array.isArray(values[0])?values[0]:[];
   const names=first.map(v=>String(v==null?'':v).trim()).filter(Boolean);
   if(!names.length || new Set(names).size!==names.length)return false;
-  if(names.some(name=>name==='__proto__'||name==='constructor'||name==='prototype'))return false;
+  // Mirror AdminFallback.assertSafeHeaderKeys_ (including the synthesized
+  // __row_number field and every Object.prototype key). Do not report a 13/13
+  // cutover PASS for headers the actual Admin reader will refuse to parse.
+  if(names.some(name=>name==='__row_number'||name==='prototype'||
+      Object.prototype.hasOwnProperty.call(Object.prototype,name)))return false;
   return !required||names.includes(required);
 }
 function plan(env=process.env){

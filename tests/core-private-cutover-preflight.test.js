@@ -205,3 +205,36 @@ test('13-range probe rejects ambiguous master booking and archive headers withou
  assert.deepEqual(result.results.filter(x=>!x.ok).map(x=>x.dataset),['bookings','event_archive']);
  assert.doesNotMatch(JSON.stringify(result),/PRIVATE_CONTACT_FIXTURE|PRIVATE_ARCHIVE_FIXTURE|BK-FIXTURE|BK-DUPLICATE/);
 });
+
+test('13-range preflight and real Admin reader reject the same reserved headers',()=>{
+ const runtime=AdminFallback.valuesAsObjects;
+ for(const reserved of ['__row_number','__proto__','constructor','prototype',
+   'toString','valueOf','hasOwnProperty','__defineGetter__','isPrototypeOf']){
+   const row=['booking_id',reserved,'event_id'];
+   assert.equal(Preflight.hasHeader([row],'booking_id'),false,
+     'Preflight must reject reserved field '+reserved);
+   assert.throws(()=>runtime([row,['B-FIXTURE','PRIVATE_FIXTURE','E-FIXTURE']],'booking_id',4),
+     err=>err.code==='CORE_PRIVATE_SCHEMA_INVALID',
+     'Real Admin reader must reject the same field '+reserved);
+ }
+ assert.equal(Preflight.hasHeader([['booking_id','event_id']],'booking_id'),true);
+ assert.equal(runtime([['booking_id','event_id'],['B-FIXTURE','E-FIXTURE']],'booking_id',4).length,1);
+});
+
+test('13-source probe fails on runtime-reserved headers without exposing row values',async()=>{
+ const expected=new Map([...Object.values(AdminFallback.SPECS),...Object.values(Preflight.EXTRA_SPECS)]
+   .map(spec=>[spec.sheet,spec.header]));
+ const realSecret='PRIVATE_FIXTURE_MUST_NOT_LEAK';
+ const result=await Preflight.probe({env,reader:async ({sheet})=>{
+   const header=expected.get(sheet)||'generic_field';
+   return [[header,sheet==='00_Master_Booking'?'__row_number':'safe_field'],
+     [realSecret,'VALUE']];
+ }});
+ assert.equal(result.datasets_checked,13);
+ assert.equal(result.passed,12);
+ assert.equal(result.failed,1);
+ assert.equal(result.results.find(x=>x.dataset==='bookings').classification,'PRIVATE_SCHEMA_INVALID');
+ assert.doesNotMatch(JSON.stringify(result),/PRIVATE_FIXTURE_MUST_NOT_LEAK|VALUE/);
+ assert.equal(result.data_writes,0);
+ assert.equal(result.public_gviz_reads,0);
+});
