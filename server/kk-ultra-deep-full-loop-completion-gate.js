@@ -55,7 +55,7 @@ function auditQueueReconciliation(input={}){
  const queue=rawQueue.map(auditIdentity);
  const allowed=terminals.filter(r=>SAFE_TERMINAL_DISPOSITIONS.has(text(r.status).toUpperCase())).map(auditIdentity);
  const unresolved=[],accounted=[];
- const match=(row,expected)=>row.date===expected.date && (expected.id&&row.id===expected.id || expected.title&&row.title===expected.title);
+ const match=(row,expected)=>row.date===expected.date && (expected.id&&row.id?row.id===expected.id:!!(expected.title&&row.title===expected.title));
  for(const lead of leads){
   const key=auditIdentity(lead);
   if(!key.date||(!key.id&&!key.title)) {
