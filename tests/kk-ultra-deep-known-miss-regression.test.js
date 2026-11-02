@@ -3,9 +3,9 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const K=require('../server/kk-ultra-deep-known-miss-regression.js');
 
-const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121','iqiyi-ijoy-th-20261105','ongredients-thomaskong-20261121','beautrium-15th-20261106','journal-fourth-20261110','drpong-zee-20261121','gmmtvnext-generation-happy-20261103'];
+const REQUIRED_CASE_IDS=['remaster-20261010', 'pink-aura-20260928', 'minmin-frozen-candy-20260930', 'sport-day-after-match-20261001', 'you-maniac-blind-date-20261003', 'bai-lu-meet-love-20261025', 'tutoryim-updated-20261018', 'scoopify-james-su-20261024', 'tle-firstone-20261022', 'ryo-teeteepor-20261007', 'the-weeknd-20261011', 'mindaryn-20261016', 'klive-bandage-20261017', 'meme-fest-20261017', '0wave-20261021', 'interstellar-live-20261028', 'pixxie-soundscape-20261030', 'nct127-redline-20261031', 'fortreasure-20261129', 'sing-infinity-20261024', 'love-at-first-trip-20261108', 'elseve-auau-20261120', 'curel-auu-save-20261219', 'tops-beauty-schedule-20261001', 'mrfanboy-busking-20261011', 'teeheng-gen-of-us-20261024', 'gelboys-last-painting-20261122', 'dexx-labx-private-20261122', 'siam-halloween-20261030', 'siam-halloween-20261031', 'siam-halloween-20261101', 'jmnk-she-serve-20261121','iqiyi-ijoy-th-20261105','ongredients-thomaskong-20261121','beautrium-15th-20261106','journal-fourth-20261110','drpong-zee-20261121','gmmtvnext-generation-happy-20261103','love-of-siam-musical-20261211','nine-9moment-tour-20261219','blkgem-concert-20261206'];
 
-test('known-miss corpus preserves all thirty-eight current and historical discovery misses',()=>{
+test('known-miss corpus preserves all forty-one current and historical discovery misses',()=>{
  assert.deepEqual(K.CORPUS.map(x=>x.case_id).sort(),[...REQUIRED_CASE_IDS].sort());
  assert.ok(K.CORPUS.some(x=>x.case_id==='remaster-20261010'));
  assert.ok(K.CORPUS.some(x=>x.case_id==='bai-lu-meet-love-20261025'));
@@ -150,4 +150,30 @@ test('iQIYI same-day green carpet and fan zone are linked as access variants not
  assert.ok(f.aliases.some(x=>x.includes('green carpet 1600')));
  assert.ok(f.aliases.some(x=>x.includes('fan zone 400')));
  assert.ok(f.search_queries.some(x=>x.includes('Green Carpet 1600')));
+});
+
+test('December newly discovered ticket and GMMTV multishow misses are recalled across earlier registration months',()=>{
+ const targets=[
+  ['love-of-siam-musical-20261211','2026-10','2026-12-11'],
+  ['nine-9moment-tour-20261219','2026-11','2026-12-19'],
+  ['blkgem-concert-20261206','2026-11','2026-12-06']
+ ];
+ for(const [id,scanMonth,event_date] of targets){
+  const f=K.CORPUS.find(x=>x.case_id===id);
+  assert.ok(f,id);assert.equal(f.event_date,event_date);
+  assert.ok(f.discovery_months.includes(scanMonth));
+  assert.ok(K.evaluate([],[],{month:scanMonth,strict_live:true}).missing_cases.includes(id));
+  const original=K.FIXTURE_EVIDENCE[id];
+  assert.ok(original?.source_url);
+  const caught=K.evaluate([{title:f.title,event_date,source_url:original.source_url}],[],{month:scanMonth,strict_live:true});
+  assert.ok(!caught.missing_cases.includes(id));
+  const wrong=K.evaluate([{title:f.title,event_date:'2026-12-31',source_url:original.source_url}],[],{month:scanMonth,strict_live:true});
+  assert.ok(wrong.missing_cases.includes(id));
+ }
+});
+test('December Love of Siam is one show family with 17 rounds not 15 synthetic daily rentals',()=>{
+ const f=K.CORPUS.find(x=>x.case_id==='love-of-siam-musical-20261211');
+ assert.equal(f.event_date,'2026-12-11');
+ assert.ok(f.search_queries.some(x=>x.includes('17 performances')));
+ assert.ok(f.search_queries.some(x=>x.includes('Gala 9 December')));
 });
