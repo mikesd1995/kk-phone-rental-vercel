@@ -51,11 +51,24 @@ function parseCsv(text){
   return rows;
 }
 
+function assertSafeHeaderKeys_(header){
+  const keys=(Array.isArray(header)?header:[]).map(v=>String(v==null?'':v).trim());
+  const nonempty=keys.filter(Boolean);
+  // Prevent silent field overwrites and prototype pollution before any row maps.
+  if(!nonempty.length || new Set(nonempty).size!==nonempty.length ||
+      nonempty.some(k=>k==='__row_number'||Object.prototype.hasOwnProperty.call(Object.prototype,k))){
+    const err=new Error('CORE_PRIVATE_SCHEMA_INVALID');
+    err.code='CORE_PRIVATE_SCHEMA_INVALID';
+    throw err;
+  }
+  return keys;
+}
+
 function rowsAsObjects(csv, requiredHeader, startRow=1){
   const rows=parseCsv(csv);
   const headerIndex=rows.findIndex(r=>String(r[0]||'').trim()===requiredHeader);
   if(headerIndex<0) throw new Error('Fallback schema header not found: '+requiredHeader);
-  const headers=rows[headerIndex].map(v=>String(v||'').trim());
+  const headers=assertSafeHeaderKeys_(rows[headerIndex]);
   const out=[];
   for(let i=headerIndex+1;i<rows.length;i++){
     const r=rows[i];
@@ -131,7 +144,7 @@ function valuesAsObjects(values,requiredHeader,startRow=1){
   const rows=Array.isArray(values)?values:[];
   const headerIndex=rows.findIndex(r=>Array.isArray(r) && r.some(v=>String(v||'').trim()===requiredHeader));
   if(headerIndex<0) throw new Error('Fallback private schema header not found: '+requiredHeader);
-  const headers=(rows[headerIndex]||[]).map(v=>String(v||'').trim());
+  const headers=assertSafeHeaderKeys_(rows[headerIndex]);
   const out=[];
   for(let i=headerIndex+1;i<rows.length;i++){
     const r=Array.isArray(rows[i])?rows[i]:[];
