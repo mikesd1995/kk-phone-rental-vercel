@@ -10,6 +10,7 @@ on:
       - 'tests/core-private-cutover-preflight.test.js'
       - 'server/admin-sheet-fallback.js'
       - 'tests/admin-sheet-fallback-private-reader.test.js'
+      - 'tests/hardening-phase2-share-runtime.test.js'
       - '.github/workflows/core-private-cutover-current-main.yml'
   workflow_dispatch:
 
