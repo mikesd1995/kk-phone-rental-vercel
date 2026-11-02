@@ -71,7 +71,7 @@ function auditQueueReconciliation(input={}){
    accounted.push({event_id:key.id,event_date:key.date,disposition:safelyClosed?'SAFE_TERMINAL_DISPOSITION':'CANDIDATE_QUEUE_READBACK'});
   else unresolved.push({event_id:key.id,event_date:key.date,reason:!readback?'CANDIDATE_QUEUE_READBACK_NOT_VERIFIED':!matchedRow?'AUDIT_LEAD_NOT_IN_CANDIDATE_QUEUE':'ACCESS_VARIANT_COVERAGE_INCOMPLETE',missing_access_variants:absentVariants});
  }
- const complete=!required||(readback && leads.length>0 && unresolved.length===0);
+ const complete=!required||(leads.length>0&&unresolved.length===0&&(readback||accounted.every(r=>r.disposition==='SAFE_TERMINAL_DISPOSITION')));
  return {required,complete,lead_count:leads.length,readback_verified:readback,accounted_count:accounted.length,
   missing_count:unresolved.length,unresolved,accounted};
 }
