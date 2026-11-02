@@ -146,3 +146,32 @@ test('mandatory brand-source receipt must surface overflow rather than accepting
  assert.equal(result.candidate_truncated,true);
  assert.equal(result.dropped_uninspected_row_count,1);
 });
+
+test('mandatory first-party source is fetched exactly once before index queries cover every campaign alias',async()=>{
+ const calls=[];
+ const task={source_id:'eveandboy-retail',source_tier:'BRAND_SPONSOR',direct_url:'https://x.com/EVEANDBOY',
+  query:'EVEANDBOY official November 2026',query_variants:['Ongredients ThomasKong November 21','BEAUTRIUM November'],
+  providers:['OFFICIAL_DIRECT','BING_RSS','DDG_HTML'],stop_condition:'EXECUTE_AND_RECORD_RECEIPT',required:true};
+ const r=await Exec.executeGapTask(task,{providers:{
+  OFFICIAL_DIRECT:async t=>{calls.push('DIRECT:'+t.direct_url);return [{title:'Official retail source',source_url:t.direct_url}];},
+  BING_RSS:async t=>{calls.push('SEARCH:'+t.query);return t.query.includes('ThomasKong')?[{title:'Ongredients ThomasKong Brand Ambassador Launch',event_date:'2026-11-21',source_url:'https://x.com/EVEANDBOY/status/123'}]:[];},
+  DDG_HTML:async()=>{throw Error('should stop after confirmed source and indexed post');}
+ }});
+ assert.deepEqual(calls,['DIRECT:https://x.com/EVEANDBOY','SEARCH:EVEANDBOY official November 2026',
+   'SEARCH:Ongredients ThomasKong November 21','SEARCH:BEAUTRIUM November']);
+ assert.ok(r.attempts.some(a=>a.provider==='OFFICIAL_DIRECT'&&a.status==='EVIDENCE_FOUND'));
+ assert.ok(r.candidates.some(a=>a.event_date==='2026-11-21'));
+ assert.equal(r.candidate_truncated,false);
+ assert.equal(r.production_writes,0);
+});
+test('first-party lookup error cannot be laundered into a source receipt by successful Bing search',async()=>{
+ const task={source_id:'iqiyi-thailand-platform',direct_url:'https://x.com/iQIYI_Thailand',query:'iQIYI iJOY',
+  providers:['OFFICIAL_DIRECT','BING_RSS'],stop_condition:'EXECUTE_AND_RECORD_RECEIPT'};
+ const r=await Exec.executeGapTask(task,{providers:{
+  OFFICIAL_DIRECT:async()=>{throw Object.assign(new Error('blocked'),{code:'HTTP_403'});},
+  BING_RSS:async()=>[{title:'iQIYI iJOY TH 2027',event_date:'2026-11-05',source_url:'https://example.com/mirror'}]
+ }});
+ assert.equal(r.status,'EVIDENCE_FOUND');
+ assert.equal(r.attempts.find(a=>a.provider==='OFFICIAL_DIRECT').status,'PROVIDER_ERROR');
+ assert.equal(r.attempts.find(a=>a.provider==='BING_RSS').status,'EVIDENCE_FOUND');
+});
