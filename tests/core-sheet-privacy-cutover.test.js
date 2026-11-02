@@ -183,3 +183,16 @@ test('missing transport never silently selects a service account despite present
    e=>e.code==='CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED');
  assert.equal(Core.state(authorized).transport,'service-account');
 });
+
+test('malformed private transport cannot echo credentials or select a fallback reader',()=>{
+ const sentinel='PRIVATE_SECRET_TOKEN_PLACEHOLDER_NOT_A_REAL_KEY';
+ const cfg={...authorized,KK_CORE_PRIVATE_TRANSPORT:sentinel};
+ const state=Core.state(cfg);
+ assert.equal(state.transport,'invalid');
+ assert.equal(state.transportReady,false);
+ assert.equal(state.configured,false);
+ assert.equal(state.authMode,'none');
+ assert.doesNotMatch(JSON.stringify(state),/PRIVATE_SECRET_TOKEN_PLACEHOLDER_NOT_A_REAL_KEY/);
+ assert.throws(()=>Core.requireExplicitPrivateSource(cfg.GOOGLE_SHEET_ID,cfg),
+   e=>e.code==='CORE_PRIVATE_TRANSPORT_INVALID');
+});

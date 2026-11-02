@@ -161,3 +161,47 @@ test('missing transport diagnostic remains exact and suffixes stay private',()=>
  assert.equal(Preflight.classify({code:'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED'}),'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED');
  assert.equal(Preflight.classify({code:'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED_PRIVATE'}),'CORE_PRIVATE_PROBE_FAILED');
 });
+
+test('private-cutover diagnostic does not repeat an unrecognized transport secret',async()=>{
+ const injected='PRIVATE_TRANSPORT_TOKEN_DO_NOT_PRINT';
+ const malformed={...env,KK_CORE_PRIVATE_TRANSPORT:injected};
+ let readCount=0;
+ const plan=Preflight.plan(malformed);
+ assert.equal(plan.transport,'invalid');
+ assert.equal(plan.ok,false);
+ assert.equal(plan.transport_ready,false);
+ assert.doesNotMatch(JSON.stringify(plan),/PRIVATE_TRANSPORT_TOKEN_DO_NOT_PRINT/);
+ const probe=await Preflight.probe({env:malformed,reader:async()=>{readCount++;throw Error('MUST_NOT_READ');}});
+ assert.equal(readCount,0);
+ assert.equal(probe.datasets_checked,0);
+ assert.equal(probe.status,'NOT_READY');
+ assert.equal(Preflight.classify({code:'CORE_PRIVATE_TRANSPORT_INVALID'}),'CORE_PRIVATE_TRANSPORT_INVALID');
+ assert.equal(Preflight.classify({code:'CORE_PRIVATE_TRANSPORT_INVALID_PRIVATE_CONTACT'}),'CORE_PRIVATE_PROBE_FAILED');
+});
+test('private-cutover schema rejects duplicate and prototype headers, even without mandatory key',()=>{
+ const header=Preflight.hasHeader;
+ assert.equal(header([['booking_id','event_id','booking_id']],'booking_id'),false);
+ assert.equal(header([['booking_id','event_id','event_id']],'booking_id'),false);
+ for(const key of ['__proto__','constructor','prototype']){
+   assert.equal(header([['booking_id',key]],'booking_id'),false);
+ }
+ assert.equal(header([[]],null),false);
+ assert.equal(header([['archived_at','archived_at']],null),false);
+ assert.equal(header([['booking_id','','event_id']],'booking_id'),true);
+ assert.equal(header([['archived_at','source_row']],null),true);
+});
+test('13-range probe rejects ambiguous master booking and archive headers without exposing rows',async()=>{
+ const all=[...Object.values(AdminFallback.SPECS),...Object.values(Preflight.EXTRA_SPECS)];
+ const result=await Preflight.probe({env,reader:async({sheet})=>{
+   if(sheet==='00_Master_Booking')return [['booking_id','customer_contact','booking_id'],['BK-FIXTURE','PRIVATE_CONTACT_FIXTURE','BK-DUPLICATE']];
+   if(sheet==='13_Event_Archive')return [['archived_at','archived_at'],['PRIVATE_ARCHIVE_FIXTURE','X']];
+   const spec=all.find(x=>x.sheet===sheet);
+   return [[spec.header||'archive_col'],['valid_fixture']];
+ }});
+ assert.equal(result.datasets_checked,13);
+ assert.equal(result.passed,11);
+ assert.equal(result.failed,2);
+ assert.equal(result.ok,false);
+ assert.deepEqual(result.results.filter(x=>!x.ok).map(x=>x.dataset),['bookings','event_archive']);
+ assert.doesNotMatch(JSON.stringify(result),/PRIVATE_CONTACT_FIXTURE|PRIVATE_ARCHIVE_FIXTURE|BK-FIXTURE|BK-DUPLICATE/);
+});
