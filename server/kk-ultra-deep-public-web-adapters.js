@@ -6,7 +6,7 @@ const DetailFollowup=require('./kk-public-event-detail-followup.js');
 const OneBangkok=require('./kk-onebangkok-event-detail.js');
 const {createHash}=require('node:crypto');
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V14';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V15';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
@@ -161,7 +161,11 @@ async function officialDirect(task={},options={}){
  for(const url of urls){
   try{
    const body=await fetchPage(url,options);
-   out.push(candidateFromPage(url,body,task));
+   const candidate=candidateFromPage(url,body,task);
+   // A fetched brand homepage is a source visit, not an event. A required
+   // direct profile cannot generate an event lead without a dated identity.
+   if(task.required===true&&canonical&&(!candidate.title||!candidate.event_date))continue;
+   out.push(candidate);
   }catch(error){
    // Fail closed on the declared first-party URL, even if a secondary seed
    // could otherwise return unrelated evidence.
