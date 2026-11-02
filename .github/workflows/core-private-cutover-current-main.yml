@@ -44,6 +44,12 @@ jobs:
           node --check tests/core-private-cutover-preflight.test.js
       - name: Strict private-reader offline regression
         run: node --test tests/core-private-cutover-preflight.test.js tests/core-sheet-privacy-cutover.test.js
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
+      - name: Complete repository syntax regression
+        run: npm run check
+      - name: Full repository regression and poster permission offline tests
+        run: npm test
       - name: Continuous invariant source gate
         run: npm run audit:invariants
       - name: No provider keys or mutating privileges
