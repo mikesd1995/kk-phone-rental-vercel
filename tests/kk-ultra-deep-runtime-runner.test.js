@@ -382,12 +382,16 @@ test('failed FULL gates expose bounded source/task/provider receipts without pro
  assert.equal(out.diagnostic.gates.discovery.observed,false);
  assert.ok(out.diagnostic.receipts.discovery.length>20);
  assert.ok(out.diagnostic.receipts.discovery.some(r=>r.source_id==='eventpop'));
- // New first-party direct routes intentionally exclude EXA to avoid paid usage.
- assert.ok(out.diagnostic.receipts.discovery.some(r=>r.attempts.some(a=>a.provider==='OFFICIAL_DIRECT')));
- assert.ok(out.diagnostic.receipts.discovery.every(r=>
-  r.attempts.some(a=>a.provider==='OFFICIAL_DIRECT')
-   ? !r.attempts.some(a=>a.provider==='EXA')
-   : r.attempts.some(a=>a.provider==='EXA'&&a.status==='PROVIDER_ERROR')));
+ // First-party direct sources must never run paid EXA; legacy sources may do so.
+ const directIds=['iqiyi-thailand-platform','eveandboy-retail','beautrium-retail','iconsiam-hall'];
+ for(const id of directIds){
+  const row=out.diagnostic.receipts.discovery.find(r=>r.source_id===id);
+  assert.ok(row,id);
+  assert.ok(row.attempts.some(a=>a.provider==='OFFICIAL_DIRECT'&&a.status==='NOT_BOUND'),id);
+  assert.ok(!row.attempts.some(a=>a.provider==='EXA'),id);
+ }
+ assert.ok(out.diagnostic.receipts.discovery.find(r=>r.source_id==='eventpop')
+  .attempts.some(a=>a.provider==='EXA'&&a.status==='PROVIDER_ERROR'));
  assert.equal(JSON.stringify(out.diagnostic).includes('sensitive-token'),false);
  assert.equal(JSON.stringify(out.diagnostic).includes('secret-provider-payload'),false);
  assert.equal(out.diagnostic.production_writes,0);
