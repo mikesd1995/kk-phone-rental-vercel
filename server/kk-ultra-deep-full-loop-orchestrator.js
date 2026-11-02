@@ -94,6 +94,12 @@ function completionCandidate(candidate,meta={}){
 }
 async function run(input={},options={}){
  const discovery=input.discovery||{};
+ const auditPreflight=Completion.auditQueueReconciliation({...input,discovery});
+ if(!auditPreflight.complete){
+  return {version:VERSION,status:'BLOCKED_AUDIT_RECONCILIATION',month:text(discovery.month||input.month),rows:[],
+   acceptance:{complete:false,blockers:['AUDIT_LEAD_TO_CANDIDATE_RECONCILIATION_INCOMPLETE'],audit_reconciliation:auditPreflight,production_completion_claim_allowed:false},
+   production_writes:0,production_completion_claim_allowed:false};
+ }
  const candidates=Array.isArray(input.candidates)&&input.candidates.length?input.candidates:(Array.isArray(discovery.candidates)?discovery.candidates:[]);
  const rows=[];let writes=0;
  for(const candidate of candidates){
