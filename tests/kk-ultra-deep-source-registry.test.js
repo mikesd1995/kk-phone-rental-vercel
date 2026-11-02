@@ -90,3 +90,18 @@ test('brand and retailer source families remain required, with official partner 
  assert.equal(proof.complete,false);
  assert.ok(proof.missing_required_sources.includes('retail-partner-crosspromotion'));
 });
+
+test('official-source plans execute direct URL before brand/indexed query evidence instead of equating a search with a visit',()=>{
+ const plan=R.buildUniversePlan({month:'2026-11',location:'Bangkok Thailand'});
+ for(const id of ['iqiyi-thailand-platform','eveandboy-retail','beautrium-retail','iconsiam-hall']){
+  const t=plan.tasks.find(x=>x.source_id===id);
+  assert.ok(t?.direct_url,id);
+  assert.equal(t.providers[0],'OFFICIAL_DIRECT');
+  assert.equal(t.stop_condition,'EXECUTE_AND_RECORD_RECEIPT');
+  assert.ok(t.providers.includes('BING_RSS'));
+  assert.equal(t.required,true);
+ }
+ const generic=plan.tasks.find(t=>t.source_id==='retail-partner-crosspromotion');
+ assert.equal(generic.direct_url,null);
+ assert.notEqual(generic.providers[0],'OFFICIAL_DIRECT');
+});
