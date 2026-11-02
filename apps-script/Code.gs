@@ -916,29 +916,35 @@ function kkPreflightOwnerVisibilityLockFormulas_() {
     const id = String(v[0] || '').trim();
     const status = String(f[0] || '').trim();
     const action = String(f[1] || '').trim();
+    // Owner-gated cutover MUST compare complete A1 expressions. Checking only
+    // substrings lets an altered formula piggyback on known stock/lock fragments.
+    const safeStatus = kkFormulaWebReadyBookingStatus_(r);
+    const safeAction = kkFormulaWebReadyAction_(r);
+    const legacyStatus = '=IF(A' + r + '="","",IF(J' + r +
+      '="hide","ซ่อนจากเว็บ",IF(MAX(G' + r + ',H' + r +
+      ')>0,"เปิดจอง","เต็มแล้ว")))';
+    const legacyAction = safeAction.replace(
+      'IF(G' + r + '>0,"show","show_full")',
+      'IF(MAX(G' + r + ',H' + r + ')>0,"show","show_full")'
+    );
+    const recognized = (status === legacyStatus || status === safeStatus) &&
+      (action === legacyAction || action === safeAction);
     if (!id) {
       blankRows++;
-      if ((!status && String(v[8] || '').trim()) ||
-          (!action && String(v[9] || '').trim())) issues.push(r);
+      // Blank rows may contain full, known fill-down formulas (actual owner
+      // workbook has 568), or may have neither formula. Unknown/mixed partial
+      // formulas are never overwritten under a blanket 996-row repair.
+      if (status || action) {
+        if (!recognized) issues.push(r);
+      } else if (String(v[8] || '').trim() || String(v[9] || '').trim()) {
+        issues.push(r);
+      }
       continue;
     }
     populatedRows++;
-    const statusHeader = status.indexOf('=IF(A' + r + '="","",IF(J' + r + '="hide"') === 0;
-    const statusLegacy = status.indexOf('MAX(G' + r + ',H' + r + ')>0') >= 0;
-    const statusSafe = status.indexOf('AND(J' + r + '="show",G' + r + '>0)') >= 0;
-    const actionHeader = action.indexOf('=IF(A' + r + '="","",IF(OR(') === 0;
-    const locksPresent = action.indexOf("'18_Event_Visibility_Locks'") >= 0 &&
-      action.indexOf("'01_Events'") >= 0;
-    const actionLegacy = action.indexOf('MAX(G' + r + ',H' + r + ')>0,"show","show_full"') >= 0;
-    const actionSafe = action.indexOf('G' + r + '>0,"show","show_full"') >= 0;
-    if (!statusHeader || (!statusLegacy && !statusSafe) ||
-        !actionHeader || !locksPresent || (!actionLegacy && !actionSafe)) {
-      issues.push(r);
-    } else if (statusLegacy || actionLegacy) {
-      legacyRows++;
-    } else {
-      alreadySafeRows++;
-    }
+    if (!recognized) issues.push(r);
+    else if (status !== safeStatus || action !== safeAction) legacyRows++;
+    else alreadySafeRows++;
   }
   return {
     status: issues.length || populatedRows === 0 ? 'BLOCKED' : 'READY_FOR_OWNER_APPROVAL',

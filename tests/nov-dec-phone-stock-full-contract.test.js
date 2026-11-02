@@ -63,7 +63,15 @@ function mockOwnerRepair(options={}){
   formulaRows[i][1]=webAction(row).replace('IF(G'+row+'>0,"show","show_full")','IF(MAX(G'+row+',H'+row+')>0,"show","show_full")');
  }
  if(options.badStatus)formulaRows[32][0]='=IF(TRUE,"เปิดจอง","เต็มแล้ว")';
+ if(options.piggybackAction)formulaRows[32][1]+='&"MALICIOUS_EXTRA"';
+ if(options.piggybackStatus)formulaRows[32][0]+='&"MALICIOUS_EXTRA"';
  if(options.blankCell){rows[50][9]='manual action';}
+ if(options.blankUnknownFormula)formulaRows[50][0]='=HYPERLINK("https://bad.example","x")';
+ if(options.blankPartialFormula)formulaRows[50][0]=webBookingStatus(55);
+ if(options.blankKnownFormula){
+   formulaRows[50][0]=webBookingStatus(55);
+   formulaRows[50][1]=webAction(55);
+ }
  const writes=[];
  const sequence=[];
  let locked=false;
@@ -141,6 +149,36 @@ test('owner repair rejects manual display values in a blank row before any write
  const a=mockOwnerRepair({blankCell:true});
  assert.equal(a.preflight().status,'BLOCKED');
  assert.throws(()=>a.repair(),/WEB_READY_FORMULA_PREFLIGHT_BLOCKED/);
+ assert.equal(a.writes.length,0);
+});
+
+test('owner exact formula preflight rejects piggybacked formula edits despite matching stock and lock substrings',()=>{
+ for(const key of ['piggybackStatus','piggybackAction']){
+   const a=mockOwnerRepair({[key]:true}), result=a.preflight();
+   assert.equal(result.pass,false,key);
+   assert.ok(result.unexpected_rows.includes(37),key);
+   assert.throws(()=>a.repair(),/WEB_READY_FORMULA_PREFLIGHT_BLOCKED/);
+   assert.equal(a.writes.length,0);
+   assert.deepEqual(a.sequence,['acquire','release']);
+ }
+});
+
+test('owner exact formula preflight protects blank rows from unknown or partial manual formulas',()=>{
+ for(const key of ['blankUnknownFormula','blankPartialFormula']){
+   const a=mockOwnerRepair({[key]:true}), result=a.preflight();
+   assert.equal(result.pass,false,key);
+   assert.ok(result.unexpected_rows.includes(55),key);
+   assert.throws(()=>a.repair(),/WEB_READY_FORMULA_PREFLIGHT_BLOCKED/);
+   assert.equal(a.writes.length,0);
+ }
+});
+
+test('owner preflight accepts a safe complete formula pair in an empty template row',()=>{
+ const a=mockOwnerRepair({blankKnownFormula:true});
+ const result=a.preflight();
+ assert.equal(result.pass,true);
+ assert.equal(result.legacy_rows,2);
+ assert.equal(result.unexpected_count,0);
  assert.equal(a.writes.length,0);
 });
 
