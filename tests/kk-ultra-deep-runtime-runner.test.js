@@ -450,7 +450,7 @@ test('operational discovery is HOLD when broad queries work but mandatory retail
   :[];
  const out=await Runner.runOperationalDiscovery(
   {month:'2026-10',location:'Bangkok Metropolitan Region Thailand'},
-  {providers:{SEARXNG:search,OFFICIAL_DIRECT:async()=>[]},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
+  {providers:{SEARXNG:search},use_only_injected_providers:true,publicWebOptions:OFFLINE_PUBLIC_WEB_OPTIONS}
  );
  assert.ok(out.candidate_count>0);
  assert.equal(out.status,'HOLD_FOR_OPERATIONAL_DISCOVERY');
