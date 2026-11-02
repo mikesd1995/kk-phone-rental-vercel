@@ -281,7 +281,7 @@ async function runOperationalDiscovery(input={},options={}){
   // Broad query success is not proof that required brand, mall, or platform
   // searches actually ran. Do not give an operational READY on missing receipts.
   const requiredSources=plan.gap_tasks.map((task,index)=>({task,index})).filter(x=>x.task.required===true);
-  const missingRequired=requiredSources.filter(({index})=>{
+  const missingRequired=requiredSources.filter(({task,index})=>{
     const result=(execution.results||[])[index]||{};
     return !Array.isArray(result.attempts)||!result.attempts.some(attemptExecuted)||
       !directSourceVerified(task,result)||
