@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V7';
+const VERSION='KK_ULTRA_DEEP_PROVIDER_EXECUTOR_V8';
 const ALLOWED_PROVIDERS=new Set(['OFFICIAL_DIRECT','RSS_OR_PUBLIC_FEED','LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 const MAX_RESULTS=25;
 const DEFAULT_CONCURRENCY=4;
@@ -47,7 +47,10 @@ async function executeGapTask(task={},options={}){
   for(const provider of providers){
     const fn=options.providers&&options.providers[provider];
     if(typeof fn!=='function'){attempts.push({provider,status:'NOT_BOUND'});continue;}
-    for(const query of queryVariants(task)){
+    // Direct URLs are fetched once; repeated alias queries target indexed search only.
+    // We still query search providers after a direct page response to discover
+    // social/media posts that the official homepage may not expose.
+    for(const query of provider==='OFFICIAL_DIRECT'&&task.direct_url?[task.query||null]:queryVariants(task)){
       const callTask=query===null?{...task,provider}:{...task,provider,query};
       try{
         const raw=await fn(callTask);
@@ -68,7 +71,8 @@ async function executeGapTask(task={},options={}){
         }
       }catch(error){attempts.push({provider,status:'PROVIDER_ERROR',error_class:text(error&&(error.code||error.name))||'ERROR',query});}
     }
-    if(receiptVariants&&firstProvider)break;
+    if(receiptVariants&&firstProvider&&provider!=='OFFICIAL_DIRECT'&&
+       attempts.some(a=>a.provider!=='OFFICIAL_DIRECT'&&a.status==='EVIDENCE_FOUND'))break;
   }
   if(exhaust)return {version:VERSION,status:collected.length?'EVIDENCE_FOUND':'GAP_UNRESOLVED',provider:firstProvider,source_tier:upper(task.source_tier),candidates:collected,attempts,candidate_truncated:dropped>0||uninspected>0,dropped_unique_candidate_count:dropped,dropped_uninspected_row_count:uninspected,authoritative:false,verifier_required:true,production_writes:0};
   return {version:VERSION,status:'GAP_UNRESOLVED',provider:null,source_tier:upper(task.source_tier),candidates:[],attempts,authoritative:false,verifier_required:true,production_writes:0};
