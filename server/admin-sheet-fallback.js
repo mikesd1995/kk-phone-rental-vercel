@@ -56,7 +56,7 @@ function assertSafeHeaderKeys_(header){
   const nonempty=keys.filter(Boolean);
   // Prevent silent field overwrites and prototype pollution before any row maps.
   if(!nonempty.length || new Set(nonempty).size!==nonempty.length ||
-      nonempty.some(k=>k==='__row_number'||Object.prototype.hasOwnProperty.call(Object.prototype,k))){
+      nonempty.some(k=>k==='__row_number'||k==='prototype'||Object.prototype.hasOwnProperty.call(Object.prototype,k))){
     const err=new Error('CORE_PRIVATE_SCHEMA_INVALID');
     err.code='CORE_PRIVATE_SCHEMA_INVALID';
     throw err;
