@@ -172,7 +172,13 @@ async function readSpecPrivate(sheetId,key,env,fetchImpl){
     err.dataset=key;
     throw err;
   }
-  return valuesAsObjects(values,spec.header,spec.startRow||1);
+  try{
+    return valuesAsObjects(values,spec.header,spec.startRow||1);
+  }catch(err){
+    if(!err.code) err.code='CORE_PRIVATE_SCHEMA_INVALID';
+    err.dataset=key; // Exact source dataset only; no row values or customer PII.
+    throw err;
+  }
 }
 
 function modelMap(rows){

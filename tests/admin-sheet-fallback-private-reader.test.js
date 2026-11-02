@@ -217,7 +217,7 @@ test('runtime Admin header mapping rejects duplicate, prototype and reserved key
  ]){
    const values=[cols,cols.map(()=> 'sensitive_fixture')];
    assert.throws(()=>F.valuesAsObjects(values,'booking_id'),e=>e.code==='CORE_PRIVATE_SCHEMA_INVALID');
-   const csv=values.map(row=>row.join(',')).join('\\n');
+   const csv=values.map(row=>row.join(',')).join('\n');
    assert.throws(()=>F.rowsAsObjects(csv,'booking_id'),e=>e.code==='CORE_PRIVATE_SCHEMA_INVALID');
  }
  const correct=F.valuesAsObjects([['booking_id','event_id'],['BK-TEST','EV-TEST']],'booking_id',4);
