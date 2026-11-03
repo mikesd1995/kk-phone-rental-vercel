@@ -31,7 +31,7 @@ test('BUS owner-reopen plan never writes and stays blocked without release gates
   assert.equal(p.safe_to_execute_by_this_function,false);
   assert.equal(p.status,'BLOCKED');
   assert.equal(p.proposed_rows.length,2);
-  assert.equal(p.proposed_rows.every(x=>x.proposed_admin_action&&x.expected_action==='show_full'),true);
+  assert.equal(p.proposed_rows.every(x=>!x.proposed_admin_action&&x.expected_action==='show_full'),true);
   containsCode(p,'RELEASE_GATE_MISSING');
 });
 test('exact fully-booked BUS dates produce two distinct gated Admin payloads only',()=>{
@@ -114,4 +114,13 @@ test('missing phone count, missing package availability and blank Core visibilit
   containsCode(preflightBusWaitlist(b,approved()),'PACKAGES_MUST_BE_UNAVAILABLE');
   const c=base();delete c.events[0].active_on_web;
   containsCode(preflightBusWaitlist(c,approved()),'EVENT_SOURCE_NOT_EXACT_HIDDEN');
+});
+
+test('any failed date or release gate withholds ALL Admin payloads, even a valid other date',()=>{
+  const x=base();x.events[1].active_on_web=true;
+  const r=preflightBusWaitlist(x,approved());
+  assert.equal(r.status,'BLOCKED');
+  assert.equal(r.proposed_rows.every(row=>!Object.hasOwn(row,'proposed_admin_action')),true);
+  const y=preflightBusWaitlist(base(),{});
+  assert.equal(y.proposed_rows.every(row=>!Object.hasOwn(row,'proposed_admin_action')),true);
 });
