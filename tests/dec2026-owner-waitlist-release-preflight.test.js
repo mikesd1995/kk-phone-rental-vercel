@@ -106,3 +106,12 @@ test('date moved in derived Web Ready cannot be published with stale event poste
   const x=base();x.web_ready[0].event_date_text='04/12/2026';
   containsCode(preflightBusWaitlist(x,approved()),'WEB_READY_UNEXPECTED_BASELINE');
 });
+
+test('missing phone count, missing package availability and blank Core visibility fail closed',()=>{
+  const a=base();delete a.web_ready[0].available_phone_count;
+  containsCode(preflightBusWaitlist(a,approved()),'WEB_READY_UNEXPECTED_BASELINE');
+  const b=base();delete b.web_packages[0].available_count;
+  containsCode(preflightBusWaitlist(b,approved()),'PACKAGES_MUST_BE_UNAVAILABLE');
+  const c=base();delete c.events[0].active_on_web;
+  containsCode(preflightBusWaitlist(c,approved()),'EVENT_SOURCE_NOT_EXACT_HIDDEN');
+});
