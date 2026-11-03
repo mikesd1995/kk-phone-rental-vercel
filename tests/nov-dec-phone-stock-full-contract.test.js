@@ -55,79 +55,84 @@ test('owner repair is read-only preflight-gated and never writes a package statu
 function mockOwnerRepair(options={}){
  const rows=Array.from({length:996},()=>Array(10).fill(''));
  const formulaRows=Array.from({length:996},()=>['','']);
+ const legacy=(r)=>[
+   '=IF(A'+r+'="","",IF(J'+r+'="hide","ซ่อนจากเว็บ",IF(MAX(G'+r+',H'+r+')>0,"เปิดจอง","เต็มแล้ว")))',
+   webAction(r).replace('IF(G'+r+'>0,"show","show_full")','IF(MAX(G'+r+',H'+r+')>0,"show","show_full")')
+ ];
  for(const row of [37,38]){
-  const i=row-5;
-  rows[i][0]='EVT-BTS-'+row;
-  rows[i][6]='0'; rows[i][7]='1'; rows[i][8]='เปิดจอง'; rows[i][9]='show';
-  formulaRows[i][0]='=IF(A'+row+'="","",IF(J'+row+'="hide","ซ่อนจากเว็บ",IF(MAX(G'+row+',H'+row+')>0,"เปิดจอง","เต็มแล้ว")))';
-  formulaRows[i][1]=webAction(row).replace('IF(G'+row+'>0,"show","show_full")','IF(MAX(G'+row+',H'+row+')>0,"show","show_full")');
+   const i=row-5;
+   rows[i][0]='EVT-BTS-'+row;
+   rows[i][6]='0';rows[i][7]='1';rows[i][8]='เปิดจอง';rows[i][9]='show';
+   formulaRows[i]=legacy(row);
  }
+ if(options.allSafe || options.safeRow37)formulaRows[32]=[webBookingStatus(37),webAction(37)];
+ if(options.allSafe)formulaRows[33]=[webBookingStatus(38),webAction(38)];
  if(options.badStatus)formulaRows[32][0]='=IF(TRUE,"เปิดจอง","เต็มแล้ว")';
  if(options.piggybackAction)formulaRows[32][1]+='&"MALICIOUS_EXTRA"';
  if(options.piggybackStatus)formulaRows[32][0]+='&"MALICIOUS_EXTRA"';
- if(options.blankCell){rows[50][9]='manual action';}
+ if(options.blankCell)rows[50][9]='manual action';
  if(options.blankUnknownFormula)formulaRows[50][0]='=HYPERLINK("https://bad.example","x")';
  if(options.blankPartialFormula)formulaRows[50][0]=webBookingStatus(55);
- if(options.blankKnownFormula){
-   formulaRows[50][0]=webBookingStatus(55);
-   formulaRows[50][1]=webAction(55);
- }
- const writes=[];
- const original=formulaRows.map(pair=>pair.slice());
- const sequence=[];
- let locked=false;
+ if(options.blankKnownFormula)formulaRows[50]=[webBookingStatus(55),webAction(55)];
+ if(options.blankLegacyFormula)formulaRows[50]=legacy(55);
+ const writes=[],sequence=[],original=formulaRows.map(pair=>pair.slice());
+ let locked=false,fullReads=0;
  const lock=()=>{
    sequence.push('acquire');
    if(options.lockUnavailable)throw Error('OWNER_FORMULA_LOCK_UNAVAILABLE');
    locked=true;
-   return {releaseLock(){
-     sequence.push('release');
-     locked=false;
-   }};
+   return {releaseLock(){sequence.push('release');locked=false;}};
  };
  const ready={
    getRange:(start,col,count,width)=>{
-     assert.equal(start,5);assert.equal(count,996);
-     if(col===1&&width===10)return {getDisplayValues:()=>rows};
+     const offset=start-5;
+     assert.ok(offset>=0&&offset+count<=996,'range bounded to Web Ready rows');
+     if(col===1&&width===10&&start===5&&count===996)
+       return {getDisplayValues:()=>rows};
+     if(col===1&&width===1&&start===5&&count===996)
+       return {getDisplayValues:()=>rows.map(r=>[r[0]])};
      if(col===9&&width===2)return {
-       getFormulas:()=>formulaRows.map(pair=>pair.slice()),
+       getFormulas:()=>{
+         if(start===5&&count===996&&++fullReads===2&&options.snapshotDrift)
+           formulaRows[32][0]='=UNSAFE_MANUAL_EDIT';
+         return formulaRows.slice(offset,offset+count).map(pair=>pair.slice());
+       },
        setFormulas:values=>{
-         writes.push(values.map(pair=>pair.slice()));
-         if(writes.length===1 && (options.badReadback||options.partialWriteThrows)){
-           formulaRows[32]=values[32].slice(); // Simulate a partially committed I:J.
-           if(options.partialWriteThrows)throw Error('SYNTHETIC_UPSTREAM_PRIVATE_DETAIL');
+         assert.equal(values.length,count);
+         writes.push({start,count,values:values.map(pair=>pair.slice())});
+         const n=writes.length;
+         const partial=(n===1&&(options.badReadback||options.partialWriteThrows)) ||
+           (n===2&&options.partialSecondWriteThrows);
+         if(partial){
+           formulaRows[offset]=values[0].slice();
+           if(options.partialWriteThrows||options.partialSecondWriteThrows)
+             throw Error('SYNTHETIC_UPSTREAM_PRIVATE_DETAIL');
            return;
          }
-         if(writes.length===2&&options.rollbackWriteFails)
-           throw Error('SYNTHETIC_UPSTREAM_PRIVATE_DETAIL');
-         values.forEach((pair,i)=>formulaRows[i]=pair.slice());
-         if(writes.length===2&&options.rollbackReadbackFails)
-           formulaRows[32]=['=CORRUPTED_ROLLBACK_FORMULA','=UNEXPECTED'];
+         if(n===2&&options.rollbackWriteFails)throw Error('SYNTHETIC_UPSTREAM_PRIVATE_DETAIL');
+         values.forEach((pair,i)=>formulaRows[offset+i]=pair.slice());
+         if(n===2&&options.rollbackReadbackFails)
+           formulaRows[offset]=['=CORRUPTED_ROLLBACK','=UNEXPECTED'];
        }
      };
-     throw new Error('Unexpected range '+col+'/'+width);
+     throw Error('unexpected range '+start+'/'+col+'/'+count+'/'+width);
    }
  };
- const sandbox={
-   kkSheet_:which=>{assert.equal(which,'ready','must not touch 09_Web_Packages');return ready;},
-   KK:{webReady:'ready'},
-   SpreadsheetApp:{flush(){}},
+ const ctx=vm.createContext({
+   kkSheet_:which=>{assert.equal(which,'ready','no Web Packages writes');return ready;},
+   KK:{webReady:'ready'},SpreadsheetApp:{flush(){}},
    kkFormulaWebReadyBookingStatus_:webBookingStatus,
-   kkFormulaWebReadyAction_:webAction,
-   kkAcquireDocumentLock_:lock
- };
- const ctx=vm.createContext(sandbox);
- vm.runInContext(
-   sourceFunction(gs,'kkPreflightOwnerVisibilityLockFormulas_')+'\n'+
-   sourceFunction(gs,'kkRepairOwnerVisibilityLockFormulas_')+'\n',
-   ctx
- );
+   kkFormulaWebReadyAction_:webAction,kkAcquireDocumentLock_:lock
+ });
+ vm.runInContext(sourceFunction(gs,'kkPreflightOwnerVisibilityLockFormulas_')+'\n'+
+   sourceFunction(gs,'kkWebReadyOwnerRepairSpans_')+'\n'+
+   sourceFunction(gs,'kkRepairOwnerVisibilityLockFormulas_'),ctx);
  return {preflight:ctx.kkPreflightOwnerVisibilityLockFormulas_,
    repair:ctx.kkRepairOwnerVisibilityLockFormulas_,writes,formulaRows,original,sequence,
    isLocked:()=>locked};
 }
 
-test('owner dry-run audits all rows without writes and detects two stale BTS dates',()=>{
+test('owner dry-run audits all 996 rows without writes and recognizes stale BTS rows',()=>{
  const a=mockOwnerRepair(),res=a.preflight();
  assert.equal(res.status,'READY_FOR_OWNER_APPROVAL');
  assert.equal(res.production_writes,0);
@@ -138,122 +143,96 @@ test('owner dry-run audits all rows without writes and detects two stale BTS dat
  assert.equal(a.writes.length,0);
 });
 
-test('owner repair changes only Web Ready I:J and verifies exact post-write formulas',()=>{
+test('owner repair changes only two legacy rows, never 994 blank templates',()=>{
  const a=mockOwnerRepair();
- assert.equal(a.repair(),996);
- assert.equal(a.writes.length,1,'one rectangular I:J write, no package status write');
+ assert.equal(a.repair(),2);
+ assert.equal(a.writes.length,1);
+ assert.equal(a.writes[0].start,37);
+ assert.equal(a.writes[0].count,2);
  assert.deepEqual(Array.from(a.formulaRows[32]),[webBookingStatus(37),webAction(37)]);
  assert.deepEqual(Array.from(a.formulaRows[33]),[webBookingStatus(38),webAction(38)]);
+ assert.deepEqual(a.formulaRows[996-1],['','']);
+ assert.deepEqual(a.sequence,['acquire','release']);
 });
 
-test('owner repair rejects an unknown manual formula before any writes',()=>{
- const a=mockOwnerRepair({badStatus:true});
- const result=a.preflight();
- assert.equal(result.status,'BLOCKED');
- assert.ok(result.unexpected_rows.includes(37));
- assert.throws(()=>a.repair(),/WEB_READY_FORMULA_PREFLIGHT_BLOCKED/);
+test('owner repair is idempotent and keeps safe formula rows untouched',()=>{
+ const a=mockOwnerRepair({allSafe:true});
+ assert.equal(a.repair(),0);
  assert.equal(a.writes.length,0);
+ const b=mockOwnerRepair({safeRow37:true});
+ assert.equal(b.repair(),1);
+ assert.deepEqual(b.writes.map(w=>[w.start,w.count]),[[38,1]]);
 });
 
-test('owner repair rejects manual display values in a blank row before any writes',()=>{
- const a=mockOwnerRepair({blankCell:true});
- assert.equal(a.preflight().status,'BLOCKED');
- assert.throws(()=>a.repair(),/WEB_READY_FORMULA_PREFLIGHT_BLOCKED/);
- assert.equal(a.writes.length,0);
+test('owner repair keeps safe blank formulas and untouched empty template row',()=>{
+ const a=mockOwnerRepair({blankKnownFormula:true});
+ assert.equal(a.repair(),2);
+ assert.deepEqual(a.writes.map(w=>[w.start,w.count]),[[37,2]]);
+ assert.deepEqual(a.formulaRows[50],[webBookingStatus(55),webAction(55)]);
 });
 
-test('owner exact formula preflight rejects piggybacked formula edits despite matching stock and lock substrings',()=>{
- for(const key of ['piggybackStatus','piggybackAction']){
-   const a=mockOwnerRepair({[key]:true}), result=a.preflight();
-   assert.equal(result.pass,false,key);
-   assert.ok(result.unexpected_rows.includes(37),key);
+test('owner repair can change separated legacy runs while preserving gap',()=>{
+ const a=mockOwnerRepair({blankLegacyFormula:true});
+ assert.equal(a.repair(),3);
+ assert.deepEqual(a.writes.map(w=>[w.start,w.count]),[[37,2],[55,1]]);
+ assert.deepEqual(a.formulaRows[50],[webBookingStatus(55),webAction(55)]);
+});
+
+test('owner repair rejects unknown manual formula or displayed literal before any write',()=>{
+ for(const option of [{badStatus:true},{blankCell:true},{piggybackAction:true},
+   {piggybackStatus:true},{blankUnknownFormula:true},{blankPartialFormula:true}]){
+   const a=mockOwnerRepair(option);
+   assert.equal(a.preflight().pass,false);
    assert.throws(()=>a.repair(),/WEB_READY_FORMULA_PREFLIGHT_BLOCKED/);
    assert.equal(a.writes.length,0);
    assert.deepEqual(a.sequence,['acquire','release']);
  }
 });
 
-test('owner exact formula preflight protects blank rows from unknown or partial manual formulas',()=>{
- for(const key of ['blankUnknownFormula','blankPartialFormula']){
-   const a=mockOwnerRepair({[key]:true}), result=a.preflight();
-   assert.equal(result.pass,false,key);
-   assert.ok(result.unexpected_rows.includes(55),key);
-   assert.throws(()=>a.repair(),/WEB_READY_FORMULA_PREFLIGHT_BLOCKED/);
-   assert.equal(a.writes.length,0);
+test('owner repair fails on snapshot drift after preflight without writing',()=>{
+ const a=mockOwnerRepair({snapshotDrift:true});
+ assert.throws(()=>a.repair(),/WEB_READY_FORMULA_SNAPSHOT_DRIFT/);
+ assert.equal(a.writes.length,0);
+ assert.deepEqual(a.sequence,['acquire','release']);
+});
+
+test('owner repair rolls back one partially written span with exact readback',()=>{
+ for(const option of [{badReadback:true},{partialWriteThrows:true}]){
+   const a=mockOwnerRepair(option);
+   assert.throws(()=>a.repair(),e=>e.message==='WEB_READY_FORMULA_REPAIR_ROLLED_BACK');
+   assert.deepEqual(a.writes.map(w=>[w.start,w.count]),[[37,2],[37,2]]);
+   assert.deepEqual(a.formulaRows,a.original);
+   assert.deepEqual(a.sequence,['acquire','release']);
  }
 });
 
-test('owner preflight accepts a safe complete formula pair in an empty template row',()=>{
- const a=mockOwnerRepair({blankKnownFormula:true});
- const result=a.preflight();
- assert.equal(result.pass,true);
- assert.equal(result.legacy_rows,2);
- assert.equal(result.unexpected_count,0);
- assert.equal(a.writes.length,0);
-});
-
-test('owner repair restores complete original formulas after partial-write readback mismatch',()=>{
- const a=mockOwnerRepair({badReadback:true});
+test('owner repair rolls back earlier span and failing second span in reverse',()=>{
+ const a=mockOwnerRepair({blankLegacyFormula:true,partialSecondWriteThrows:true});
  assert.throws(()=>a.repair(),/WEB_READY_FORMULA_REPAIR_ROLLED_BACK/);
- assert.equal(a.writes.length,2,'one attempted repair plus one rollback');
- assert.deepEqual(a.formulaRows,a.original,'original owner I:J formulas restored');
- assert.deepEqual(a.sequence,['acquire','release']);
+ assert.deepEqual(a.writes.map(w=>[w.start,w.count]),[[37,2],[55,1],[55,1],[37,2]]);
+ assert.deepEqual(a.formulaRows,a.original);
  assert.equal(a.isLocked(),false);
 });
 
-test('owner repair restores original formulas after setFormulas throws following partial writes',()=>{
- const a=mockOwnerRepair({partialWriteThrows:true});
- assert.throws(()=>a.repair(),e=>e.message==='WEB_READY_FORMULA_REPAIR_ROLLED_BACK');
- assert.equal(a.writes.length,2);
- assert.deepEqual(a.formulaRows,a.original);
- assert.deepEqual(a.sequence,['acquire','release']);
-});
-
-test('owner repair fails closed when rollback write fails or rollback readback mismatches',()=>{
- for(const mode of ['rollbackWriteFails','rollbackReadbackFails']){
-   const a=mockOwnerRepair({badReadback:true,[mode]:true});
-   assert.throws(()=>a.repair(),e=>
-     e.message==='WEB_READY_FORMULA_REPAIR_ROLLBACK_FAILED' &&
+test('owner repair explicitly blocks when rollback write or readback fails',()=>{
+ for(const option of [{badReadback:true,rollbackWriteFails:true},
+   {badReadback:true,rollbackReadbackFails:true}]){
+   const a=mockOwnerRepair(option);
+   assert.throws(()=>a.repair(),e=>e.message==='WEB_READY_FORMULA_REPAIR_ROLLBACK_FAILED'&&
      !/SYNTHETIC_UPSTREAM_PRIVATE_DETAIL/.test(e.message));
    assert.equal(a.writes.length,2);
    assert.deepEqual(a.sequence,['acquire','release']);
-   assert.equal(a.isLocked(),false);
  }
 });
 
-test('owner formula repair captures snapshot and verifies rollback before reporting rolled-back',()=>{
- const fn=sourceFunction(gs,'kkRepairOwnerVisibilityLockFormulas_');
- assert.match(fn,/const previous = target\.getFormulas\(\)/);
- assert.match(fn,/WEB_READY_FORMULA_REPAIR_ROLLED_BACK/);
- assert.match(fn,/WEB_READY_FORMULA_REPAIR_ROLLBACK_FAILED/);
- assert.ok(fn.indexOf('const previous = target.getFormulas()') <
-   fn.indexOf('target.setFormulas(webReadyStatusAndAction)'));
- assert.match(fn,/target\.setFormulas\(previous\)/);
-});
-
-test('owner Stock repair holds one document lock through preflight, formula write and readback',()=>{
+test('owner selective repair always holds document lock; unavailable lock writes nothing',()=>{
  const a=mockOwnerRepair();
- assert.equal(a.repair(),996);
+ assert.equal(a.repair(),2);
  assert.deepEqual(a.sequence,['acquire','release']);
- assert.equal(a.isLocked(),false);
- assert.equal(a.writes.length,1);
-});
-
-test('owner Stock repair releases document lock on rejected preflight or failed readback',()=>{
- for(const options of [{badStatus:true},{badReadback:true},{blankCell:true}]){
-   const a=mockOwnerRepair(options);
-   assert.throws(()=>a.repair());
-   assert.deepEqual(a.sequence,['acquire','release']);
-   assert.equal(a.isLocked(),false);
- }
-});
-
-test('owner Stock repair never reads or writes when exclusive document lock is unavailable',()=>{
- const a=mockOwnerRepair({lockUnavailable:true});
- assert.throws(()=>a.repair(),/OWNER_FORMULA_LOCK_UNAVAILABLE/);
- assert.deepEqual(a.sequence,['acquire']);
- assert.equal(a.writes.length,0);
- assert.equal(a.isLocked(),false);
+ const b=mockOwnerRepair({lockUnavailable:true});
+ assert.throws(()=>b.repair(),/OWNER_FORMULA_LOCK_UNAVAILABLE/);
+ assert.deepEqual(b.sequence,['acquire']);
+ assert.equal(b.writes.length,0);
 });
 
 test('lens compatibility status plan preserves a literal hidden package row',()=>{
