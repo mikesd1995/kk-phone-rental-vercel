@@ -1,0 +1,209 @@
+{
+  "schema_version": "KK_DEC2026_OWNER_PUBLICATION_INTENT_V1",
+  "observed_at": "2026-11-03T13:22:00+07:00",
+  "state": "NONPRODUCTION_STAGED_HOLD",
+  "permitted_business_writes": false,
+  "owner_request": {
+    "description": "Expose Love of Siam only for confirmed event dates that are not already fully booked or owner-exclusive. Expose Happy BUSDAY Dec 5/6 for LINE dropped-slot waitlist even when both KK phones are booked, never as a new phone rental.",
+    "source": "explicit owner ChatGPT request 2026-11-03",
+    "scope": "only specified Love of Siam candidate day-cards and exact two existing BUS event identities"
+  },
+  "shared_inventory_rule": {
+    "phone_assets": [
+      "PHONE-001",
+      "PHONE-002"
+    ],
+    "max_total_phones_per_calendar_date": 2,
+    "active_booking_statuses": [
+      "confirmed"
+    ],
+    "exclude_booking_statuses": [
+      "cancelled",
+      "completed",
+      "no_show"
+    ],
+    "no_event_local_phantom_capacity": true
+  },
+  "prohibited_dates_for_new_love_of_siam": [
+    "2026-12-18",
+    "2026-12-19",
+    "2026-12-20"
+  ],
+  "prohibited_reason": "Owner DAY_EXCLUSIVE 2026-10-19: JASP.ER TEMPTATION CONCERT only on Dec18/19/20, even where one phone on Dec19 appears unused.",
+  "love_of_siam": {
+    "title": "รักแห่งสยาม The Musical",
+    "source_of_truth_event_id_exists": false,
+    "venue": "Muangthai Rachadalai Theatre, Esplanade Ratchada",
+    "organizer": "GMMTV",
+    "official_primary_evidence": [
+      "https://www.gmm-tv.com/news/4485",
+      "https://www.gmm-tv.com/news/4506/"
+    ],
+    "schedule_evidence_secondary": [
+      "https://taomeoticket.com/en/guides/ve-the-love-of-siam-the-musical-2026",
+      "https://www.thaiticketmajor.com/performance/the-love-of-siam-the-musical.html"
+    ],
+    "confirmed_aggregate_statement": "17 regular performances between 11 and 25 December 2026; Gala Night Dec09 separately announced, exact show-set and session IDs require primary ticket confirmation.",
+    "tentative_day_cards": [
+      {
+        "date": "2026-12-09",
+        "sessions": [
+          "19:30"
+        ],
+        "kind": "GALA"
+      },
+      {
+        "date": "2026-12-11",
+        "sessions": [
+          "19:30"
+        ],
+        "kind": "MUSICAL"
+      },
+      {
+        "date": "2026-12-12",
+        "sessions": [
+          "14:00",
+          "19:00"
+        ],
+        "kind": "MUSICAL"
+      },
+      {
+        "date": "2026-12-13",
+        "sessions": [
+          "14:00",
+          "19:00"
+        ],
+        "kind": "MUSICAL"
+      },
+      {
+        "date": "2026-12-16",
+        "sessions": [
+          "19:30"
+        ],
+        "kind": "MUSICAL"
+      },
+      {
+        "date": "2026-12-17",
+        "sessions": [
+          "19:30"
+        ],
+        "kind": "MUSICAL"
+      },
+      {
+        "date": "2026-12-23",
+        "sessions": [
+          "19:30"
+        ],
+        "kind": "MUSICAL"
+      },
+      {
+        "date": "2026-12-24",
+        "sessions": [
+          "19:30"
+        ],
+        "kind": "MUSICAL"
+      },
+      {
+        "date": "2026-12-25",
+        "sessions": [
+          "14:00",
+          "19:30"
+        ],
+        "kind": "MUSICAL"
+      }
+    ],
+    "excluded_existing_schedule_dates": [
+      "2026-12-18",
+      "2026-12-19",
+      "2026-12-20"
+    ],
+    "proposed_state": "NEW_EVENT_CANDIDATE_ONLY",
+    "final_price_thb": null,
+    "licensed_correct_2026_poster_file_id": null,
+    "recording_rights_status": "UNVERIFIED_THEATRE_NO_LENS_ADVERTISING",
+    "booking_enabled": false,
+    "required_before_authorized_publication": [
+      "verified date/session identity on primary ticketing",
+      "correct original 2026 event artwork + allowed use",
+      "verified phone/filming and detachable lens rules",
+      "approved phone-only offer and final price",
+      "fresh booking + owner lock + shared date inventory readback",
+      "independent UX and customer E2E safety gates",
+      "exact Core/Web Ready/Package and production visual readback"
+    ]
+  },
+  "bus_waitlist": {
+    "title": "Happy BUSDAY 1 + 2 = 3",
+    "confirmed_venue": "Exhibition Hall 3–4 Level G, Queen Sirikit National Convention Center",
+    "official_venue_url": "https://www.qsncc.com/en/whats-on/event-calendar/happy-busday-1--2--3/",
+    "exact_existing_rows": [
+      {
+        "date": "2026-12-05",
+        "event_id": "EVT-20261205-HAPPY-BUSDAY-1-2-3",
+        "core_sheet_row": 71,
+        "web_ready_row": 71,
+        "lock_sheet_row": 168,
+        "poster_file_id": "1QwU7u1YqE6Bg2M36EpLF6MfrHbfWnoaP",
+        "occupied_phones": [
+          "PHONE-001",
+          "PHONE-002"
+        ],
+        "expected_phone_available": 0,
+        "proposed_web_action": "show_full",
+        "proposed_web_status": "เต็มแล้ว",
+        "booking_enabled": false,
+        "waitlist_cta": "สอบถามคิวหลุดผ่าน LINE"
+      },
+      {
+        "date": "2026-12-06",
+        "event_id": "EVT-20261206-HAPPY-BUSDAY-1-2-3",
+        "core_sheet_row": 72,
+        "web_ready_row": 72,
+        "lock_sheet_row": 171,
+        "poster_file_id": "1w4S7FPokElqBgWppHOGeWUQGdK4dtXx-",
+        "occupied_phones": [
+          "PHONE-001",
+          "PHONE-002"
+        ],
+        "expected_phone_available": 0,
+        "proposed_web_action": "show_full",
+        "proposed_web_status": "เต็มแล้ว",
+        "booking_enabled": false,
+        "waitlist_cta": "สอบถามคิวหลุดผ่าน LINE"
+      }
+    ],
+    "historical_lock_state": "LOCKED",
+    "historical_reason": "BOOKED_DAY_OTHER_EVENT_HIDE_2026-10-12",
+    "explicit_override_scope": "only reopen these two BUS event identities for informational FULL/LINE waitlist; preserve all other locks, all booking/price/package rows and actual device inventory",
+    "must_never_use": "show/เปิดจอง new phone when actual available_phone_count=0",
+    "poster_current_status": "CANONICAL_URL_PRESENT_VISUAL_AND_LICENSE_REVALIDATION_REQUIRED"
+  },
+  "runtime_release_gates": {
+    "pr831": "DRAFT_RELEASE_HOLD_AS_OF_2026-11-03",
+    "existing_standalone_waitlist_contract": "docs/STOREFRONT_HIDDEN_PACKAGES_WAITLIST_2026-09-25.md",
+    "gated_admin_path_required": true,
+    "do_not_direct_write_01_events": true,
+    "do_not_direct_write_18_locks": true,
+    "do_not_deploy_without_acceptance": true,
+    "do_not_claim_live_until_verified": true,
+    "forbidden_side_effects": [
+      "Booking change",
+      "event price change",
+      "other lock change",
+      "stock creation",
+      "customer notification send",
+      "paid services",
+      "production deploy without passing independent gates"
+    ],
+    "required_release_readback": [
+      "BUS 2 exact ids show_full not show",
+      "BUS 0 available phones and no book button, LINE waitlist only",
+      "Love only verified date cards excluding Dec18–20",
+      "all 11 confirmed Dec bookings unchanged",
+      "all other owner-hidden/tombstoned dates unchanged",
+      "correct 2026 posters served in live storefront",
+      "customer booking E2E and LINE waitlist validated",
+      "source SHA, deployed GAS identity, exact production URL readback"
+    ]
+  }
+}
