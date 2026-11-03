@@ -7,18 +7,18 @@ function base(){
   TARGETS.forEach((target,i)=>{
     const date=target.date;
     events.push({event_id:target.event_id,event_name:'Happy BUSDAY 1 + 2 = 3',
-      event_date:date,status:'open',active_on_web:false,data_health:'OK',
+      event_date:date,event_status:'open',active_on_web:false,data_health:'OK',
       poster_image_url:'https://drive.google.com/thumbnail?id='+target.poster_id+'&sz=w1200'});
     visibility_locks.push({event_id:target.event_id,lock_state:'LOCKED',
       lock_reason:'BOOKED_DAY_OTHER_EVENT_HIDE_2026-10-12'});
-    web_ready.push({event_id:target.event_id,available_phone_count:0,available_lens_count:i===0?1:0,
+    web_ready.push({event_id:target.event_id,event_date_text:date,available_phone_count:0,available_lens_count:i===0?1:0,
       action_for_web:'hide'});
     ['phone_only','lens_only','phone_lens_bundle'].forEach(type=>
-      web_packages.push({event_id:target.event_id,package_type:type,
+      web_packages.push({package_id:target.event_id+'-TPL-'+type,event_id:target.event_id,package_type:type,
         package_status:'hidden',available_count:type==='lens_only'&&i===0?1:0}));
     PHONES.forEach((phone,j)=>{
       const event_id=i===0?'EVT-20261205-BTS-WORLD-TOUR-ARIRANG':'EVT-20261206-WILLIAM-EST-REIGN-TOGETHER-C';
-      bookings.push({event_id,status:'confirmed',phone_id:phone});
+      bookings.push({event_id,booking_status:'confirmed',phone_asset_id:phone});
     });
   });
   return {events,bookings,web_ready,visibility_locks,web_packages};
@@ -51,11 +51,11 @@ test('wrong historical owner lock does not become automatic authorization',()=>{
   containsCode(preflightBusWaitlist(x,approved()),'OWNER_TOMBSTONE_NOT_EXPECTED');
 });
 test('lost date-stock reservation blocks reopening instead of fabricating new phone',()=>{
-  const x=base();x.bookings[0].status='cancelled';
+  const x=base();x.bookings[0].booking_status='cancelled';
   containsCode(preflightBusWaitlist(x,approved()),'DATE_SHARED_STOCK_NOT_EXACTLY_FULL');
 });
 test('unknown phone identifier and overbooking both block',()=>{
-  const x=base();x.bookings[0].phone_id='PHONE-999';
+  const x=base();x.bookings[0].phone_asset_id='PHONE-999';
   containsCode(preflightBusWaitlist(x,approved()),'BOOKED_DEVICE_ID_UNKNOWN');
   const y=base();y.bookings.push({...y.bookings[0]});
   containsCode(preflightBusWaitlist(y,approved()),'DATE_SHARED_STOCK_NOT_EXACTLY_FULL');
@@ -86,4 +86,23 @@ test('empty snapshot or current BUS customer booking fails closed',()=>{
   containsCode(preflightBusWaitlist({},approved()),'REQUIRED_LIVE_SNAPSHOT_MISSING');
   const x=base();x.bookings[0].event_id=TARGETS[0].event_id;
   containsCode(preflightBusWaitlist(x,approved()),'DATE_SHARED_STOCK_NOT_EXACTLY_FULL');
+});
+
+test('canonical Google Sheets field names are authoritative over loose aliases',()=>{
+  const x=base();
+  x.bookings[0].status='cancelled';
+  x.events[0].status='closed';
+  assert.equal(preflightBusWaitlist(x,approved()).status,'PROPOSAL_READY_FOR_GOVERNED_OWNER_ADMIN');
+  x.bookings[0].booking_status='cancelled';
+  containsCode(preflightBusWaitlist(x,approved()),'DATE_SHARED_STOCK_NOT_EXACTLY_FULL');
+});
+test('missing lens-only row or duplicated package identity blocks operator plan',()=>{
+  const x=base();x.web_packages=x.web_packages.filter(p=>!(p.event_id===TARGETS[0].event_id&&p.package_type==='lens_only'));
+  containsCode(preflightBusWaitlist(x,approved()),'PACKAGES_MUST_BE_UNAVAILABLE');
+  const y=base();y.web_packages[1].package_id=y.web_packages[0].package_id;
+  containsCode(preflightBusWaitlist(y,approved()),'PACKAGES_MUST_BE_UNAVAILABLE');
+});
+test('date moved in derived Web Ready cannot be published with stale event poster',()=>{
+  const x=base();x.web_ready[0].event_date_text='04/12/2026';
+  containsCode(preflightBusWaitlist(x,approved()),'WEB_READY_UNEXPECTED_BASELINE');
 });
