@@ -3,6 +3,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const vm=require('node:vm');
 const publicData=require('../api/kk-data.js');
 
 test('event share id validation',()=>{
@@ -33,10 +34,19 @@ test('homepage contains Organization, Service and visible FAQ structured data',(
   assert.equal(html.includes('"name":"ไฟล์บน Google Drive เก็บไว้ได้กี่วัน?"'),true);
 });
 
-test('share CTA uses server event route',()=>{
+test('server event-share URL stays valid without reintroducing a removed share control',()=>{
   const js=fs.readFileSync('script.js','utf8');
-  assert.equal(js.includes('function eventShareUrl(c)'),true);
-  assert.equal(js.includes('url:eventShareUrl(activeModalEvent)'),true);
+  const start=js.indexOf('function eventShareUrl(c){');
+  const end=js.indexOf('function resetMeta(){',start);
+  assert.ok(start>=0 && end>start,'public event-share helper must remain present');
+  const scope={window:{location:{origin:'https://kk-phone-rental.vercel.app'}},
+    eventUrl:()=>'/event-fallback'};
+  vm.createContext(scope);
+  vm.runInContext(js.slice(start,end),scope);
+  assert.equal(scope.eventShareUrl({id:'EVT-2026 FANMEET'}),
+    'https://kk-phone-rental.vercel.app/event/EVT-2026%20FANMEET');
+  assert.doesNotMatch(js,/getElementById\("event-share-btn"\)/,
+    'minimal event modal must not silently regain the share CTA');
 });
 
 test('runtime warning tracer is installed',()=>{

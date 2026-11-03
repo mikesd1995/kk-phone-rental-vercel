@@ -1391,7 +1391,8 @@
       const web=webReadyForEvent(id);
       const phones=toNum(web&&web.available_phone_count);
       const lenses=toNum(web&&web.available_lens_count);
-      const full=(phones<=0 && lenses<=0) || String(web&&web.action_for_web||"").toLowerCase()==="show_full";
+      // Standalone spare lens stock is not a spare rental phone.
+      const full=phones<=0 || String(web&&web.action_for_web||"").toLowerCase()==="show_full";
       const posterUrl=String(web&&web.poster_image_url||"").trim();
       const sourcePoster=String(event.poster_url||"").trim();
       const effective=effectiveStorefrontState(event,web);

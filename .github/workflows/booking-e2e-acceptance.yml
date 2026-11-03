@@ -8,6 +8,12 @@ on:
       - 'server/line-booking-intake.js'
       - 'server/line-booking-owner-approval.js'
       - 'apps-script/Code.gs'
+      - 'script.js'
+      - 'admin/admin.js'
+      - 'tests/nov-dec-phone-stock-full-contract.test.js'
+      - 'tests/apps-script-web-package-fail-closed.test.js'
+      - 'tests/audit-phone-bookability-public-feed.test.js'
+      - 'scripts/audit-phone-bookability-public-feed.cjs'
       - 'tests/line-booking-*.test.js'
       - 'tests/line-webhook*.test.js'
       - 'tests/same-day-inventory-date-normalization.test.js'
@@ -59,9 +65,58 @@ jobs:
             tests/line-webhook.test.js \
             tests/line-webhook-raw-body.test.js \
             tests/same-day-inventory-date-normalization.test.js \
+            tests/nov-dec-phone-stock-full-contract.test.js \
+            tests/apps-script-web-package-fail-closed.test.js \
+            tests/audit-phone-bookability-public-feed.test.js \
             tests/booking-id-primary-close-regression-20261002.test.js
 
       - name: Assert no provider or production acceptance side effects
         run: |
           test -z "${KK_LINE_BOOKING_AUTOMATION_ENABLED:-}"
           echo "Repository acceptance is zero-write; live activation remains separately gated."
+
+  full-regression:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      APPROVED_SHA: ${{ github.event.pull_request.head.sha }}
+      CI: 'true'
+      KK_LINE_BOOKING_AUTOMATION_ENABLED: ''
+    steps:
+      - name: Checkout exact draft source without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.APPROVED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Fail closed on unexpected source identity
+        run: |
+          test -n "$APPROVED_SHA"
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Read bounded Code Intelligence context for Booking P0
+        run: npm run code:context -- "Booking P0 Apps Script fail-closed Web Ready phone stock storefront regression"
+
+      - name: Install locked dependency set with lifecycle scripts disabled
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
+
+      - name: Full repository syntax contract
+        run: npm run check
+
+      - name: Full repository tests and poster ACL offline tests
+        run: npm test
+
+      - name: Continuous zero-write business invariant gate
+        run: npm run audit:invariants
+
+      - name: Assert no booking automation activation
+        run: test -z "${KK_LINE_BOOKING_AUTOMATION_ENABLED:-}"

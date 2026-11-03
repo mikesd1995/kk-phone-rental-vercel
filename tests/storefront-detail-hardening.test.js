@@ -44,7 +44,9 @@ test('verified promotion can expose inquiry-only events without inventing a pric
   assert.match(source, /if\(price<=0 && !inquiryOnly\) avail = false;/);
   assert.match(source, /badge_inquiry:"สอบถามราคา"/);
   assert.match(source, /inquiry_available:"เช็กคิว \/ สอบถามราคากับร้าน"/);
-  assert.match(source, /p\.inquiryOnly\?tr\("ask_this"\):tr\("book_this"\)/);
+  assert.match(source, /\(p\.type==="lens_only" \|\| p\.inquiryOnly\)\?tr\("ask_this"\):tr\("book_this"\)/);
+  assert.match(source, /p\.type==="lens_only"\)\{/);
+  assert.match(source, /"สำหรับผู้จองมือถือแล้ว"/);
   assert.match(source, /\(p&&p\.inquiryOnly\)\?tr\("ask_price"\):fmtPriceLine/);
 });
 
