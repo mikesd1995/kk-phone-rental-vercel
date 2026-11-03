@@ -71,3 +71,12 @@ test('owner intent must not override shared phone inventory, booked prices, or o
   assert.ok(manifest.runtime_release_gates.required_release_readback.some(x=>x.includes('11 confirmed Dec bookings')));
   assert.ok(manifest.runtime_release_gates.required_release_readback.some(x=>x.includes('0 available phones')));
 });
+
+test('official 17-show main-run count and separately announced gala remain explicitly unreconciled', () => {
+  const love=manifest.love_of_siam;
+  assert.equal(love.main_run_official_advertised_performances,17);
+  assert.equal(love.gala_date,'2026-12-09');
+  assert.equal(love.expected_total_sessions_including_excluded_days,null);
+  assert.equal(love.show_count_reconciliation,'UNRESOLVED_PRIMARY_COUNT_VS_SECONDARY_SESSION_MATRIX');
+  assert.match(love.session_validation_notes,/validate each exact TTM session\/date before publish/i);
+});
