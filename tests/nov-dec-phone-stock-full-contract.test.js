@@ -75,6 +75,9 @@ function mockOwnerRepair(options={}){
  if(options.blankPartialFormula)formulaRows[50][0]=webBookingStatus(55);
  if(options.blankKnownFormula)formulaRows[50]=[webBookingStatus(55),webAction(55)];
  if(options.blankLegacyFormula)formulaRows[50]=legacy(55);
+ if(options.manySpans){
+   for(let row=70;row<160;row+=3)formulaRows[row-5]=legacy(row);
+ }
  const writes=[],sequence=[],original=formulaRows.map(pair=>pair.slice());
  let locked=false,fullReads=0;
  const lock=()=>{
@@ -168,14 +171,22 @@ test('owner repair keeps safe blank formulas and untouched empty template row',(
  const a=mockOwnerRepair({blankKnownFormula:true});
  assert.equal(a.repair(),2);
  assert.deepEqual(a.writes.map(w=>[w.start,w.count]),[[37,2]]);
- assert.deepEqual(a.formulaRows[50],[webBookingStatus(55),webAction(55)]);
+ assert.deepEqual(Array.from(a.formulaRows[50]),[webBookingStatus(55),webAction(55)]);
 });
 
 test('owner repair can change separated legacy runs while preserving gap',()=>{
  const a=mockOwnerRepair({blankLegacyFormula:true});
  assert.equal(a.repair(),3);
  assert.deepEqual(a.writes.map(w=>[w.start,w.count]),[[37,2],[55,1]]);
- assert.deepEqual(a.formulaRows[50],[webBookingStatus(55),webAction(55)]);
+ assert.deepEqual(Array.from(a.formulaRows[50]),[webBookingStatus(55),webAction(55)]);
+});
+
+test('owner repair refuses over-fragmented legacy formula plan before any writes',()=>{
+ const a=mockOwnerRepair({manySpans:true});
+ assert.equal(a.preflight().pass,true);
+ assert.throws(()=>a.repair(),/WEB_READY_FORMULA_REPAIR_FRAGMENTED/);
+ assert.equal(a.writes.length,0);
+ assert.deepEqual(a.sequence,['acquire','release']);
 });
 
 test('owner repair rejects unknown manual formula or displayed literal before any write',()=>{
