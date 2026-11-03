@@ -1566,6 +1566,10 @@ function showModal(c,options){
   document.getElementById("modal-date").textContent=(currentLang==="en"?"Date: ":"วันที่: ")+(c.date||"-");
   var venueEl=document.getElementById("modal-venue");
   venueEl.textContent=(currentLang==="en"?"Venue: ":"สถานที่: ")+(c.venue||"-");
+  var shareBtn=document.getElementById("modal-share-btn");
+  if(shareBtn)shareBtn.textContent=tr("share_event");
+  var shareStatus=document.getElementById("modal-share-status");
+  if(shareStatus)shareStatus.textContent="";
   // UX fix: ไม่แสดงรูปโปสเตอร์ซ้ำใน modal
   // รูปยังแสดงเฉพาะบนการ์ด เพื่อให้ modal กระชับและพอดีกับจอมากขึ้น
 
@@ -1801,6 +1805,34 @@ document.addEventListener("DOMContentLoaded",function(){
   }
   var clearBrowse=document.getElementById("clear-browse-btn");
   if(clearBrowse)clearBrowse.addEventListener("click",clearBrowseFilters);
+  var modalShareButton=document.getElementById("modal-share-btn");
+  if(modalShareButton)modalShareButton.addEventListener("click",function(){
+    if(!activeModalEvent)return;
+    var c=activeModalEvent;
+    var shareStatus=document.getElementById("modal-share-status");
+    function finishShare(mode){
+      if(!activeModalEvent || activeModalEvent.id!==c.id)return;
+      if(mode==="copied"&&shareStatus)shareStatus.textContent=tr("share_copied");
+      track("event_share_click",{event_id:c.id||"",event_name:c.name||"",method:mode});
+    }
+    function copyEventUrl(){
+      var url=eventShareUrl(c);
+      function showCopyPrompt(){
+        if(typeof window.prompt==="function"){
+          var entered=window.prompt(tr("share_event"),url);
+          if(entered!==null)finishShare("manual_copy_prompt");
+        }
+      }
+      if(navigator.clipboard && typeof navigator.clipboard.writeText==="function"){
+        navigator.clipboard.writeText(url).then(function(){finishShare("copied");}).catch(showCopyPrompt);
+      }else showCopyPrompt();
+    }
+    if(typeof navigator.share==="function"){
+      navigator.share({title:(c.name||tr("event_details"))+" | KK Phone Rental",url:eventShareUrl(activeModalEvent)})
+        .then(function(){finishShare("native");})
+        .catch(function(err){if(err&&err.name==="AbortError")return;copyEventUrl();});
+    }else copyEventUrl();
+  });
   document.addEventListener("click",function(e){
     var retry=e.target&&e.target.closest&&e.target.closest("#storefront-retry-btn");
     if(!retry)return;
