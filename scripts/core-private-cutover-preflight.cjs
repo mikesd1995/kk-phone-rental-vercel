@@ -14,6 +14,7 @@ const EXTRA_SPECS=Object.freeze({
 const SAFE_PRIVATE_FAILURE_CODES=new Set([
   'CORE_PRIVATE_CUTOVER_NOT_ENABLED',
   'CORE_PRIVATE_TRANSPORT_NOT_CONFIGURED',
+  'CORE_PRIVATE_TRANSPORT_INVALID',
   'CORE_PRIVATE_SHEET_ID_NOT_CONFIGURED',
   'CORE_PRIVATE_SHEET_ID_MISMATCH',
   'CORE_PRIVATE_CREDENTIALS_NOT_CONFIGURED',
@@ -41,11 +42,17 @@ function classify(err){
   return SAFE_PRIVATE_FAILURE_CODES.has(code)?code:'CORE_PRIVATE_PROBE_FAILED';
 }
 function hasHeader(values,required){
-  if(!required)return Array.isArray(values)&&values.length>0;
-  // A1/A4 range begins at the required header; data-row values cannot stand in
-  // for a missing header. Fail closed before any owner ACL cutover approval.
-  return Array.isArray(values)&&values.length>0&&Array.isArray(values[0])&&
-    values[0].some(v=>String(v||'').trim()===required);
+  // A1/A4 range must begin with an unambiguous, safe header. Duplicate keys can
+  // silently replace fields when row values are mapped to JS objects later.
+  const first=Array.isArray(values)&&Array.isArray(values[0])?values[0]:[];
+  const names=first.map(v=>String(v==null?'':v).trim()).filter(Boolean);
+  if(!names.length || new Set(names).size!==names.length)return false;
+  // Mirror AdminFallback.assertSafeHeaderKeys_ (including the synthesized
+  // __row_number field and every Object.prototype key). Do not report a 13/13
+  // cutover PASS for headers the actual Admin reader will refuse to parse.
+  if(names.some(name=>name==='__row_number'||name==='prototype'||
+      Object.prototype.hasOwnProperty.call(Object.prototype,name)))return false;
+  return !required||names.includes(required);
 }
 function plan(env=process.env){
   const source=PrivateCore.state(env);
