@@ -45,7 +45,7 @@
       "https://www.thaiticketmajor.com/performance/the-love-of-siam-the-musical.html",
       "https://bbfanguide.vercel.app/schedule/ev-loveofsiam-musical-20261211"
     ],
-    "confirmed_aggregate_statement": "17 total scheduled performances including the 2026-12-09 Gala: 16 performances on 11-25 December and 1 Gala; each session still requires primary ticketing confirmation before publication.",
+    "confirmed_aggregate_statement": "GMMTV officially states 17 performances during 11–25 December 2026 and separately announces the 9 December Gala Night. Whether the Gala is counted within the 17 is not explicitly reconciled; do not assert the exact combined total.",
     "tentative_day_cards": [
       {
         "date": "2026-12-09",
@@ -133,7 +133,11 @@
       "independent UX and customer E2E safety gates",
       "exact Core/Web Ready/Package and production visual readback"
     ],
-    "expected_total_sessions_including_excluded_days": 17
+    "expected_total_sessions_including_excluded_days": null,
+    "main_run_official_advertised_performances": 17,
+    "gala_date": "2026-12-09",
+    "show_count_reconciliation": "UNRESOLVED_PRIMARY_COUNT_VS_SECONDARY_SESSION_MATRIX",
+    "session_validation_notes": "The secondary 12-date matrix sums 17 including Gala, while official GMMTV says 17 on Dec11–25 plus separately notes Gala on Dec09. Do not treat secondary times or tally as exact official ticketing truth; validate each exact TTM session/date before publish."
   },
   "bus_waitlist": {
     "title": "Happy BUSDAY 1 + 2 = 3",
