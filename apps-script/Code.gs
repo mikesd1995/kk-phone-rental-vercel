@@ -983,14 +983,41 @@ function kkRepairOwnerVisibilityLockFormulas_() {
   // Stock fix concerns Web Ready I:J ONLY. Rewriting 09_Web_Packages!J can
   // destroy owner-hidden literal package status (verified J144). Preserve it.
   const target = kkSheet_(KK.webReady).getRange(startRow, 9, rowCount, 2);
-  target.setFormulas(webReadyStatusAndAction);
-  SpreadsheetApp.flush();
-  const readback = target.getFormulas();
-  for (let i = 0; i < rowCount; i++) {
-    if (!readback[i] || readback[i][0] !== webReadyStatusAndAction[i][0] ||
-        readback[i][1] !== webReadyStatusAndAction[i][1]) {
-      throw new Error('WEB_READY_FORMULA_READBACK_MISMATCH: row=' + (startRow + i));
+  // Capture the owner formula state *inside* the document lock, before writing.
+  // A failed/partial write must not quietly leave a mixed booking-visibility feed.
+  const previous = target.getFormulas();
+  if (previous.length !== rowCount || previous.some(pair =>
+      !Array.isArray(pair) || pair.length !== 2 ||
+      typeof pair[0] !== 'string' || typeof pair[1] !== 'string')) {
+    throw new Error('WEB_READY_FORMULA_ROLLBACK_SNAPSHOT_INVALID');
+  }
+  try {
+    target.setFormulas(webReadyStatusAndAction);
+    SpreadsheetApp.flush();
+    const readback = target.getFormulas();
+    for (let i = 0; i < rowCount; i++) {
+      if (!readback[i] || readback[i][0] !== webReadyStatusAndAction[i][0] ||
+          readback[i][1] !== webReadyStatusAndAction[i][1]) {
+        throw new Error('WEB_READY_FORMULA_READBACK_MISMATCH');
+      }
     }
+  } catch (writeError) {
+    // The first write may have partially succeeded even if setFormulas threw.
+    // Restore and independently verify the complete original formula matrix.
+    // Never include Sheets/provider error bodies, formulas or customer data.
+    try {
+      target.setFormulas(previous);
+      SpreadsheetApp.flush();
+      const restored = target.getFormulas();
+      if (restored.length !== rowCount || previous.some((pair, i) =>
+          !restored[i] || restored[i][0] !== pair[0] ||
+          restored[i][1] !== pair[1])) {
+        throw new Error('WEB_READY_ROLLBACK_READBACK_MISMATCH');
+      }
+    } catch (rollbackError) {
+      throw new Error('WEB_READY_FORMULA_REPAIR_ROLLBACK_FAILED');
+    }
+    throw new Error('WEB_READY_FORMULA_REPAIR_ROLLED_BACK');
   }
   return rowCount;
   } finally {

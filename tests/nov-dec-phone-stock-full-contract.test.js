@@ -73,6 +73,7 @@ function mockOwnerRepair(options={}){
    formulaRows[50][1]=webAction(55);
  }
  const writes=[];
+ const original=formulaRows.map(pair=>pair.slice());
  const sequence=[];
  let locked=false;
  const lock=()=>{
@@ -89,10 +90,19 @@ function mockOwnerRepair(options={}){
      assert.equal(start,5);assert.equal(count,996);
      if(col===1&&width===10)return {getDisplayValues:()=>rows};
      if(col===9&&width===2)return {
-       getFormulas:()=>formulaRows,
+       getFormulas:()=>formulaRows.map(pair=>pair.slice()),
        setFormulas:values=>{
-         writes.push(values);
-         if(!options.badReadback)values.forEach((pair,i)=>formulaRows[i]=pair);
+         writes.push(values.map(pair=>pair.slice()));
+         if(writes.length===1 && (options.badReadback||options.partialWriteThrows)){
+           formulaRows[32]=values[32].slice(); // Simulate a partially committed I:J.
+           if(options.partialWriteThrows)throw Error('SYNTHETIC_UPSTREAM_PRIVATE_DETAIL');
+           return;
+         }
+         if(writes.length===2&&options.rollbackWriteFails)
+           throw Error('SYNTHETIC_UPSTREAM_PRIVATE_DETAIL');
+         values.forEach((pair,i)=>formulaRows[i]=pair.slice());
+         if(writes.length===2&&options.rollbackReadbackFails)
+           formulaRows[32]=['=CORRUPTED_ROLLBACK_FORMULA','=UNEXPECTED'];
        }
      };
      throw new Error('Unexpected range '+col+'/'+width);
@@ -113,7 +123,7 @@ function mockOwnerRepair(options={}){
    ctx
  );
  return {preflight:ctx.kkPreflightOwnerVisibilityLockFormulas_,
-   repair:ctx.kkRepairOwnerVisibilityLockFormulas_,writes,formulaRows,sequence,
+   repair:ctx.kkRepairOwnerVisibilityLockFormulas_,writes,formulaRows,original,sequence,
    isLocked:()=>locked};
 }
 
@@ -182,10 +192,43 @@ test('owner preflight accepts a safe complete formula pair in an empty template 
  assert.equal(a.writes.length,0);
 });
 
-test('owner repair reports failed post-write readback rather than reporting success',()=>{
+test('owner repair restores complete original formulas after partial-write readback mismatch',()=>{
  const a=mockOwnerRepair({badReadback:true});
- assert.throws(()=>a.repair(),/WEB_READY_FORMULA_READBACK_MISMATCH/);
- assert.equal(a.writes.length,1);
+ assert.throws(()=>a.repair(),/WEB_READY_FORMULA_REPAIR_ROLLED_BACK/);
+ assert.equal(a.writes.length,2,'one attempted repair plus one rollback');
+ assert.deepEqual(a.formulaRows,a.original,'original owner I:J formulas restored');
+ assert.deepEqual(a.sequence,['acquire','release']);
+ assert.equal(a.isLocked(),false);
+});
+
+test('owner repair restores original formulas after setFormulas throws following partial writes',()=>{
+ const a=mockOwnerRepair({partialWriteThrows:true});
+ assert.throws(()=>a.repair(),e=>e.message==='WEB_READY_FORMULA_REPAIR_ROLLED_BACK');
+ assert.equal(a.writes.length,2);
+ assert.deepEqual(a.formulaRows,a.original);
+ assert.deepEqual(a.sequence,['acquire','release']);
+});
+
+test('owner repair fails closed when rollback write fails or rollback readback mismatches',()=>{
+ for(const mode of ['rollbackWriteFails','rollbackReadbackFails']){
+   const a=mockOwnerRepair({badReadback:true,[mode]:true});
+   assert.throws(()=>a.repair(),e=>
+     e.message==='WEB_READY_FORMULA_REPAIR_ROLLBACK_FAILED' &&
+     !/SYNTHETIC_UPSTREAM_PRIVATE_DETAIL/.test(e.message));
+   assert.equal(a.writes.length,2);
+   assert.deepEqual(a.sequence,['acquire','release']);
+   assert.equal(a.isLocked(),false);
+ }
+});
+
+test('owner formula repair captures snapshot and verifies rollback before reporting rolled-back',()=>{
+ const fn=sourceFunction(gs,'kkRepairOwnerVisibilityLockFormulas_');
+ assert.match(fn,/const previous = target\.getFormulas\(\)/);
+ assert.match(fn,/WEB_READY_FORMULA_REPAIR_ROLLED_BACK/);
+ assert.match(fn,/WEB_READY_FORMULA_REPAIR_ROLLBACK_FAILED/);
+ assert.ok(fn.indexOf('const previous = target.getFormulas()') <
+   fn.indexOf('target.setFormulas(webReadyStatusAndAction)'));
+ assert.match(fn,/target\.setFormulas\(previous\)/);
 });
 
 test('owner Stock repair holds one document lock through preflight, formula write and readback',()=>{
