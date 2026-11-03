@@ -783,3 +783,9 @@ footer .footer-tagline{
   .filter-clear-row{margin-top:-4px;margin-bottom:6px;}
   .filter-clear-btn{min-height:44px;padding-top:7px;padding-bottom:7px;}
 }
+
+/* December owner-curation: accessible event-share CTA supports distribution
+   without opening any booking inventory or changing waitlist eligibility. */
+.modal-share-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;margin-top:10px;padding:9px 15px;border:1.5px solid var(--blue);border-radius:999px;background:var(--blue2);color:var(--navy);font:600 14px var(--font-main);cursor:pointer}
+.modal-share-btn:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+.modal-share-status{display:block;margin-top:4px;color:var(--navy);font-size:13px}
