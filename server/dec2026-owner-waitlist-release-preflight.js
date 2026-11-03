@@ -27,7 +27,7 @@ const GATES=Object.freeze([
 ]);
 const text=v=>String(v===null||v===undefined?'':v).trim();
 const asBool=v=>v===true||['true','yes','1'].includes(text(v).toLowerCase());
-const num=v=>{const n=Number(text(v).replace(/,/g,''));return Number.isFinite(n)?n:NaN;};
+const num=v=>{const raw=text(v).replace(/,/g,'');if(raw==='')return NaN;const n=Number(raw);return Number.isFinite(n)?n:NaN;};
 
 function bookDate(booking,events){
   const event=events.find(x=>x.event_id===booking.event_id);
@@ -64,7 +64,7 @@ function preflightBusWaitlist(snapshot={},releaseGates={}){
     const canonicalDate=bookDate({event_id:key},events);
     if(canonicalDate!==t.date || text(e.event_name)!=='Happy BUSDAY 1 + 2 = 3' ||
        text(e.event_status||e.status).toLowerCase()!=='open' || text(e.data_health)!=='OK' ||
-       asBool(e.active_on_web)){
+       !['false','0','no'].includes(text(e.active_on_web).toLowerCase())){
       blockers.push(key+':EVENT_SOURCE_NOT_EXACT_HIDDEN_HEALTHY');continue;
     }
     if(text(l.lock_state).toUpperCase()!=='LOCKED' ||
