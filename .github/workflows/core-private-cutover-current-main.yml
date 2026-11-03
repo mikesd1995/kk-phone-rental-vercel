@@ -5,6 +5,10 @@ on:
     branches: [fix/p0-core-private-preflight-current-main-20261102]
     paths:
       - 'server/core-sheet-private-reader.js'
+      - 'server/core-sheet-apps-script-reader.js'
+      - 'tests/core-apps-script-untrusted-error.test.js'
+      - 'tests/core-apps-script-private-reader.test.js'
+      - 'tests/core-read-only-key-isolation.test.js'
       - 'scripts/core-private-cutover-preflight.cjs'
       - 'tests/core-sheet-privacy-cutover.test.js'
       - 'tests/core-private-cutover-preflight.test.js'
@@ -42,13 +46,17 @@ jobs:
       - name: Source syntax
         run: |
           node --check server/core-sheet-private-reader.js
+          node --check server/core-sheet-apps-script-reader.js
+          node --check tests/core-apps-script-untrusted-error.test.js
+          node --check tests/core-apps-script-private-reader.test.js
+          node --check tests/core-read-only-key-isolation.test.js
           node --check scripts/core-private-cutover-preflight.cjs
           node --check tests/core-sheet-privacy-cutover.test.js
           node --check tests/core-private-cutover-preflight.test.js
           node --check server/admin-sheet-fallback.js
           node --check tests/admin-sheet-fallback-private-reader.test.js
       - name: Strict private-reader offline regression
-        run: node --test tests/core-private-cutover-preflight.test.js tests/core-sheet-privacy-cutover.test.js tests/admin-sheet-fallback-private-reader.test.js
+        run: node --test tests/core-private-cutover-preflight.test.js tests/core-sheet-privacy-cutover.test.js tests/admin-sheet-fallback-private-reader.test.js tests/core-apps-script-untrusted-error.test.js tests/core-apps-script-private-reader.test.js tests/core-read-only-key-isolation.test.js
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund --prefer-offline
       - name: Complete repository syntax regression
