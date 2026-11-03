@@ -63,7 +63,7 @@ function preflightBusWaitlist(snapshot={},releaseGates={}){
     const e=event[0],w=ready[0],l=lock[0];
     const canonicalDate=bookDate({event_id:key},events);
     if(canonicalDate!==t.date || text(e.event_name)!=='Happy BUSDAY 1 + 2 = 3' ||
-       text(e.status).toLowerCase()!=='open' || text(e.data_health)!=='OK' ||
+       text(e.event_status||e.status).toLowerCase()!=='open' || text(e.data_health)!=='OK' ||
        asBool(e.active_on_web)){
       blockers.push(key+':EVENT_SOURCE_NOT_EXACT_HIDDEN_HEALTHY');continue;
     }
@@ -74,16 +74,18 @@ function preflightBusWaitlist(snapshot={},releaseGates={}){
     if(text(e.poster_image_url).indexOf(t.poster_id)<0){
       blockers.push(key+':EXISTING_POSTER_ID_CHANGED');continue;
     }
-    if(num(w.available_phone_count)!==0||text(w.action_for_web)!=='hide'){
+    if(bookDate({event_id:key,event_date_text:w.event_date_text||t.date},events)!==t.date||
+       num(w.available_phone_count)!==0||text(w.action_for_web)!=='hide'){
       blockers.push(key+':WEB_READY_UNEXPECTED_BASELINE');continue;
     }
-    const types=['phone_only','phone_lens_bundle'];
-    if(!types.every(type=>packs.some(p=>text(p.package_type)===type)) ||
+    const types=['phone_only','lens_only','phone_lens_bundle'];
+    if(packs.length!==types.length || new Set(packs.map(p=>text(p.package_id))).size!==packs.length ||
+       !types.every(type=>packs.filter(p=>text(p.package_type)===type).length===1) ||
        packs.some(p=>text(p.package_status).toLowerCase()!=='hidden') ||
-       packs.some(p=>types.includes(text(p.package_type)) && num(p.available_count)!==0)){
+       packs.some(p=>['phone_only','phone_lens_bundle'].includes(text(p.package_type)) && num(p.available_count)!==0)){
       blockers.push(key+':PACKAGES_MUST_BE_UNAVAILABLE_AND_HIDDEN');continue;
     }
-    const taken=booking.filter(b=>ACTIVE_BOOKING_STATUSES.has(text(b.status).toLowerCase())&&bookDate(b,events)===t.date);
+    const taken=booking.filter(b=>ACTIVE_BOOKING_STATUSES.has(text(b.booking_status||b.status).toLowerCase())&&bookDate(b,events)===t.date);
     if(taken.some(b=>!PHONES.includes(text(b.phone_id||b.phone_asset_id)))){
       blockers.push(key+':BOOKED_DEVICE_ID_UNKNOWN');continue;
     }
