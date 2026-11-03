@@ -60,3 +60,43 @@
 ## Result and blocker for future chats
 **RESEARCH + STRUCTURED STAGING = DONE; PRODUCTION PUBLICATION = NOT DONE.**
 Reason: canonical P0 fail-open phone booking behavior and Draft #831 release hold; no independent gate or licensed original Love of Siam event poster / recording rule proof. Owner intent is recorded, not acted on in Production. Never bypass this by direct Google Sheet toggles, manual `show` edits, static fake event cards, or duplicate scanner.
+
+---
+
+## 2026-11-03 later owner retry: executable read-only BUS release preflight (not a write)
+
+Source-only `server/dec2026-owner-waitlist-release-preflight.js` has been added with matching tests `tests/dec2026-owner-waitlist-release-preflight.test.js` to replace the earlier manifest-only handoff with a real, deterministic fail-closed gate. It calls the existing `server/event-visibility-owner-guard.js.evaluateSnapshotTransition` to ensure only explicit owner Admin reopen can pass persistent `LOCKED` records.
+
+### Exact live source findings (fresh Google Sheets readback)
+- `01_Events!A71:I72`: BUS 05/06 Dec `open/active_on_web=FALSE/data_health=OK`, correct established poster IDs have URL values but **visual/rights proof is not yet accepted**.
+- `08_Web_Ready!A71:K72`: both show `phone=0,lens=0,action=hide`.
+- `18_Event_Visibility_Locks` exact old rows 168/171 still LOCKED `BOOKED_DAY_OTHER_EVENT_HIDE_2026-10-12`.
+- `09_Web_Packages` Dec05 exact rows **203–205**, Dec06 exact rows **206–208**. All three packages per date are `hidden`. Dec05 lens-only has **raw 1 lens** remaining but **hidden**, phone-only and bundle have `available_count=0`. Dec06 all zero. **Never treat that spare lens as a fresh rentable phone**.
+- Two confirmed BTS bookings occupy `PHONE-001` and `PHONE-002` on Dec05; two confirmed William Est bookings occupy those same phones on Dec06. No BUS booking exists in those two daily allocations.
+- BTS Dec03/Dec05 `08_Web_Ready` STILL falsely reports `show/เปิดจอง` at zero phones and one lens; P0 #831 remains DRAFT and **has zero independent PR review submissions** as of the current read, despite earlier CI green.
+
+### New preflight contract
+`preflightBusWaitlist(snapshot, releaseGates)` reads a snapshot in the repo's existing named-object convention (`events`, `bookings`, `visibility_locks`, `web_ready`, `web_packages`), and rejects:
+- missing or duplicate BUS event IDs, changed official poster file ID, unexpected status, stale/altered web baseline;
+- owner tombstone missing/not LOCKED as expected, or owner-reopen guard not accepting exactly this explicit intent;
+- booking list not confirming **both exact physical phones booked on the corresponding calendar day** by another event, extra bookings or unrecognized phone IDs;
+- any visible/available fresh-phone package, or incomplete relevant package records;
+- missing independent release proofs for actual deployed P0, GAS identity, authenticated owner Admin, LINE customer waitlist E2E, poster visual readback, full Core/Package readback and production release authorization.
+
+Only with *all* independent gates passed does it return **two prospective Admin `updateEvent` payloads**:
+```json
+[
+  {"action":"updateEvent","payload":{"event_id":"EVT-20261205-HAPPY-BUSDAY-1-2-3","active_on_web":true,"visibility_owner_intent":"explicit_owner_reopen"}},
+  {"action":"updateEvent","payload":{"event_id":"EVT-20261206-HAPPY-BUSDAY-1-2-3","active_on_web":true,"visibility_owner_intent":"explicit_owner_reopen"}}
+]
+```
+These are **proposals** only, not connector calls. `production_writes=0` and `safe_to_execute_by_this_function=false` remain invariant. A separately authenticated governed owner Admin executor must re-read date-wide bookings and lock state immediately before each actual update, then verify `REOPENED` lock history, both `08_Web_Ready` as `show_full/เต็มแล้ว`, all six relevant packages hidden, real LINE waitlist URL, and actual storefront rendering. This exact-row two-action contract avoids creating duplicate BUS records, altering package prices, or reopening other owner-locked events.
+
+### New official and photography-rights evidence
+- GMMTV official announcement `https://www.gmm-tv.com/news/4485` confirms 11–25 December, 17 advertised regular performances, casts, and venue; ThaiTicketMajor `https://www.thaiticketmajor.com/performance/the-love-of-siam-the-musical.html` indexes the separate Gala on Dec09. Official advertiser social description `https://imginn.com/p/De1CHAcsFEV/` also notes Gala available Balcony only.
+- The secondary guide `https://taomeoticket.com/en/guides/ve-the-love-of-siam-the-musical-2026` explicitly states **photography, video and live streaming are prohibited during the performance**, permitted for curtain calls only. This is NOT a verified organizer/venue policy document; treat as `THEATRE_FILMING_PROHIBITION_SECONDARY_REQUIRES_OFFICIAL_CONFIRMATION`. Do not advertise shooting the show, 200mm lens access or rentable filming capability without exact official confirmation. Avoid misleading pricing for a non-filmable event.
+- A fan-made `https://theloveofsiamthemusical.channorn.com/` site explicitly says its GMMTV visual rights are **noncommercial fan use only**; **do not upload/reuse fan site's image as rental-business poster**. Use a validated organizer-controlled exact 2026 poster asset with applicable rights, not a 2025 press-event photo.
+- The old candidate matrix sums 17 including Gala, while organizer describes 17 main performances PLUS separate Gala. This discrepancy remains explicitly UNRESOLVED, and only exact TTM performance dates/sessions may be put into commercial production.
+
+### Status
+**Owner BUS preflight code prepared; source-only CI required; NO production writes.** Do not confuse an accepted preflight proposal with the real visibility transition, poster upload or storefront readback. Merge/Deploy/Production remain RELEASE HOLD until every existing safety gate passes.
