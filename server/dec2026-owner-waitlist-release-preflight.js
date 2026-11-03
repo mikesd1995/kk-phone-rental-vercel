@@ -103,6 +103,8 @@ function preflightBusWaitlist(snapshot={},releaseGates={}){
     item.proposed_admin_action={action:'updateEvent',payload};
   }
   for(const gate of GATES)if(releaseGates[gate]!==true)blockers.push('RELEASE_GATE_MISSING:'+gate);
+  // Never emit even a partial executable Admin payload if ANY row or release gate fails.
+  if(blockers.length)for(const item of rows)delete item.proposed_admin_action;
   // Even with all checks green, no service API is called here. An authenticated,
   // audited Admin executor must re-read actual date-wide stock before each write.
   return {
