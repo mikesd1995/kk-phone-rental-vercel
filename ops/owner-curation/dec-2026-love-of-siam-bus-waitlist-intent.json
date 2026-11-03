@@ -37,13 +37,15 @@
     "organizer": "GMMTV",
     "official_primary_evidence": [
       "https://www.gmm-tv.com/news/4485",
-      "https://www.gmm-tv.com/news/4506/"
+      "https://www.gmm-tv.com/news/4506/",
+      "https://event.thaiticketmajor.com/search/"
     ],
     "schedule_evidence_secondary": [
       "https://taomeoticket.com/en/guides/ve-the-love-of-siam-the-musical-2026",
-      "https://www.thaiticketmajor.com/performance/the-love-of-siam-the-musical.html"
+      "https://www.thaiticketmajor.com/performance/the-love-of-siam-the-musical.html",
+      "https://bbfanguide.vercel.app/schedule/ev-loveofsiam-musical-20261211"
     ],
-    "confirmed_aggregate_statement": "17 regular performances between 11 and 25 December 2026; Gala Night Dec09 separately announced, exact show-set and session IDs require primary ticket confirmation.",
+    "confirmed_aggregate_statement": "17 total scheduled performances including the 2026-12-09 Gala: 16 performances on 11-25 December and 1 Gala; each session still requires primary ticketing confirmation before publication.",
     "tentative_day_cards": [
       {
         "date": "2026-12-09",
@@ -130,7 +132,8 @@
       "fresh booking + owner lock + shared date inventory readback",
       "independent UX and customer E2E safety gates",
       "exact Core/Web Ready/Package and production visual readback"
-    ]
+    ],
+    "expected_total_sessions_including_excluded_days": 17
   },
   "bus_waitlist": {
     "title": "Happy BUSDAY 1 + 2 = 3",
