@@ -3,6 +3,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const vm=require('node:vm');
 const publicData=require('../api/kk-data.js');
 
 test('event share id validation',()=>{
@@ -33,10 +34,16 @@ test('homepage contains Organization, Service and visible FAQ structured data',(
   assert.equal(html.includes('"name":"ไฟล์บน Google Drive เก็บไว้ได้กี่วัน?"'),true);
 });
 
-test('share CTA uses server event route',()=>{
+test('client share helper uses the encoded server event route',()=>{
   const js=fs.readFileSync('script.js','utf8');
-  assert.equal(js.includes('function eventShareUrl(c)'),true);
-  assert.equal(js.includes('url:eventShareUrl(activeModalEvent)'),true);
+  const start=js.indexOf('function eventShareUrl(c){');
+  const end=js.indexOf('\nfunction resetMeta()',start);
+  assert.ok(start>=0&&end>start,'client share helper is present');
+  const context={window:{location:{origin:'https://kk-phone-rental.vercel.app'}}};
+  vm.createContext(context);vm.runInContext(js.slice(start,end),context);
+  for(const id of ['KK2026_123','งาน / ?x=1#fragment']){
+    assert.equal(context.eventShareUrl({id}),'https://kk-phone-rental.vercel.app/event/'+encodeURIComponent(id));
+  }
 });
 
 test('runtime warning tracer is installed',()=>{
