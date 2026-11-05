@@ -93,3 +93,52 @@ test('new health marker does not widen readiness or operational gates and cannot
  for(const marker of ['',undefined,'GAS-HEALTH-V1','gas-health-v1 ',['gas-health-v1']]){const req=request();if(marker===undefined)delete req.headers['x-kk-canonical-probe'];else req.headers['x-kk-canonical-probe']=marker;const {res,calls}=await call({req,replies:[]});assert.equal(res.statusCode,503);assert.equal(calls.length,0);}
  const get=request();get.method='GET';assert.equal((await call({req:get,replies:[]})).res.statusCode,405);assert.equal(Adapter.MANIFEST_SHA256,'35f3a0e0909b29e1dd796b9a0ec3fecabc13ed1498e943a891ecdbbe12a8d1ce');
 });
+
+test('known OAuth rejection exposes only its numeric status and exact allowlisted enum',async()=>{
+ const codes=['invalid_request','invalid_client','invalid_grant','unauthorized_client','unsupported_grant_type','invalid_scope','access_denied','server_error','temporarily_unavailable','deleted_client'];
+ for(const code of codes){
+  const {res,calls}=await call({replies:[json({error:code,error_description:'test-refresh-token',error_subtype:'test-oauth-secret',access_token:token.access_token},400)]});
+  assert.equal(res.statusCode,503);assert.equal(calls.length,1);
+  assert.deepEqual(res.data(),{mode:'canonical-gas-health',version:'v1',send_allowed:false,error_code:'GAS_HEALTH_OAUTH_REJECTED',oauth_http_status:400,oauth_error_code:code});noSecretLeaks(res);
+ }
+ for(const status of [401,403,429,500,503]){
+  const {res,calls}=await call({replies:[json({error:'invalid_client'},status)]});assert.equal(calls.length,1);assert.equal(res.data().oauth_http_status,status);assert.equal(res.data().oauth_error_code,'invalid_client');
+ }
+});
+
+test('unknown or attacker-controlled OAuth errors cannot reflect provider fields or credential canaries',async()=>{
+ const codes=['test-oauth-secret','invalid_grant test-refresh-token',' invalid_grant','INVALID_CLIENT','invalid_client\n',null,400,{},[],true];
+ for(const error of codes){
+  const {res,calls}=await call({replies:[json({error,error_description:'test-refresh-token',error_uri:'https://attacker.invalid/test-oauth-secret',error_subtype:'test-oauth-secret',client_id:'test-oauth-client'},400)]});
+  assert.equal(calls.length,1);assert.deepEqual(res.data(),{mode:'canonical-gas-health',version:'v1',send_allowed:false,error_code:'GAS_HEALTH_OAUTH_REJECTED',oauth_http_status:400,oauth_error_code:'unknown'});noSecretLeaks(res);
+ }
+});
+
+test('malformed and oversized OAuth rejection bodies preserve a safe known rejection without retry',async()=>{
+ const malformed=[new Response('test-oauth-secret',{status:400}),new Response('{bad',{status:400,headers:{'Content-Type':'application/json'}}),new Response(Buffer.from([0xff]),{status:400,headers:{'Content-Type':'application/json'}}),json(['invalid_grant'],400),json({error:'invalid_grant',extra:'test-refresh-token'.repeat(1500)},400),new Response('{}',{status:400,headers:{'Content-Type':'application/json','Content-Length':'17000'}})];
+ for(const reply of malformed){const {res,calls}=await call({replies:[reply]});assert.equal(calls.length,1);assert.equal(res.statusCode,503);assert.equal(res.data().error_code,'GAS_HEALTH_OAUTH_REJECTED');assert.equal(res.data().oauth_http_status,400);assert.equal(res.data().oauth_error_code,'unknown');noSecretLeaks(res);}
+});
+
+test('invalid OAuth status metadata is not coerced or reflected',async()=>{
+ for(const status of ['400',99,600,NaN,Infinity,{},null]){
+  const reply=json({error:'invalid_grant'},400);const fake={ok:false,status,body:reply.body,headers:reply.headers};
+  const {res,calls}=await call({replies:[fake]});assert.equal(calls.length,1);assert.equal(res.data().oauth_http_status,null);assert.equal(res.data().oauth_error_code,'invalid_grant');noSecretLeaks(res);
+ }
+});
+
+test('known rejection with a stalled body obeys the existing deadline and cancels once',async(t)=>{
+ t.mock.timers.enable({apis:['setTimeout']});let cancelled=0,calls=0;
+ const stalled=new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('{"error":"invalid_grant'));},cancel(){cancelled++;}}),{status:400,headers:{'Content-Type':'application/json'}});
+ const res=response(),pending=Gateway._test.processRequest(request(),res,env,async()=>{calls++;return stalled;});await new Promise(resolve=>setImmediate(resolve));t.mock.timers.tick(10001);await pending;
+ assert.equal(calls,1);assert.equal(cancelled,1);assert.equal(res.statusCode,503);assert.deepEqual(res.data(),{mode:'canonical-gas-health',version:'v1',send_allowed:false,error_code:'GAS_HEALTH_OAUTH_REJECTED',oauth_http_status:400,oauth_error_code:'unknown'});noSecretLeaks(res);
+});
+
+test('rejection diagnostics never log, invoke native storage or continue to GAS',async(t)=>{
+ const spies=[];for(const [target,name] of [[console,'log'],[console,'warn'],[console,'error'],[require('../server/make-owner-canonical'),'handle'],[require('../server/make-owner-canonical'),'executeGas'],[Legacy,'storeRpc']])spies.push(t.mock.method(target,name,()=>{throw Error('forbidden rejection side effect');}));
+ const {res,calls}=await call({replies:[json({error:'invalid_grant',error_description:'test-refresh-token'},400)]});assert.equal(calls.length,1);assert.equal(res.data().oauth_error_code,'invalid_grant');for(const spy of spies)assert.equal(spy.mock.callCount(),0);noSecretLeaks(res);
+});
+
+test('rejection metadata is absent from success, unauthenticated, OFF conflict and transport errors',async()=>{
+ const outcomes=[await call(),await call({req:request(payload,'gas-health-v1','wrong'),replies:[]}),await call({cfg:{...env,KK_MAKE_OWNER_TRANSPORT_ENABLED:'true'},replies:[]}),await call({replies:[new Error('test-oauth-secret')]})];
+ for(const {res} of outcomes){assert.equal(res.data().oauth_http_status,undefined);assert.equal(res.data().oauth_error_code,undefined);noSecretLeaks(res);}
+});
