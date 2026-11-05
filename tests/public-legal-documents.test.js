@@ -91,3 +91,16 @@ for (const pathname of publicPaths) {
     assert.doesNotMatch(css, /@import|url\s*\(/i, 'legal document stylesheet must not fetch remote dependencies');
   });
 }
+
+test('legal pages use storefront brand tokens and business contact wording', () => {
+  const css = read('assets/kk-legal.css');
+  const privacy = read('privacy/index.html');
+  assert.match(css, /--kk-legal-blue:\s*#1378f3/i);
+  assert.match(css, /--kk-legal-bg:\s*#f7f7f4/i);
+  assert.match(css, /@media\s*\(prefers-color-scheme:\s*dark\)/i);
+  assert.match(css, /\.legal-section\s*\{/);
+  assert.match(css, /\.legal-contact\s*\{/);
+  assert.match(privacy, /ผู้ควบคุมข้อมูลส่วนบุคคลสำหรับบริการนี้คือผู้ประกอบกิจการที่ให้บริการภายใต้ชื่อ/);
+  assert.match(privacy, /<strong>KK Phone Rental<\/strong>/);
+  assert.match(privacy, /@827blnmo/);
+});
