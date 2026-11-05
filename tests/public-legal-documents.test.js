@@ -91,3 +91,36 @@ for (const pathname of publicPaths) {
     assert.doesNotMatch(css, /@import|url\s*\(/i, 'legal document stylesheet must not fetch remote dependencies');
   });
 }
+
+test('legal pages use storefront brand tokens and business contact wording', () => {
+  const css = read('assets/kk-legal.css');
+  const privacy = read('privacy/index.html');
+  assert.match(css, /--kk-legal-blue:\s*#1378f3/i);
+  assert.match(css, /--kk-legal-bg:\s*#f7f7f4/i);
+  assert.match(css, /@media\s*\(prefers-color-scheme:\s*dark\)/i);
+  assert.match(css, /\.legal-section\s*\{/);
+  assert.match(css, /\.legal-contact\s*\{/);
+  assert.match(privacy, /บริการนี้ดำเนินการภายใต้ชื่อ/);
+  assert.match(privacy, /<strong>KK Phone Rental<\/strong>/);
+  assert.match(privacy, /@827blnmo/);
+});
+
+test('public policies omit owner-system internals while preserving customer privacy rights', () => {
+  const privacy = read('privacy/index.html');
+  const terms = read('terms/index.html');
+  const homepage = read('index.html');
+  const contact = privacy.match(/<section class="legal-section" id="contact">([\s\S]*?)<\/section>/)?.[1] || '';
+  assert.match(contact, /KK Phone Rental/);
+  assert.match(contact, /@827blnmo/);
+  for (const html of [privacy, terms]) {
+    assert.doesNotMatch(html, /https:\/\/www\.googleapis\.com\/auth\//);
+    assert.doesNotMatch(html, /\b(?:Supabase|Telegram|Make)\b/);
+    assert.doesNotMatch(html, /\b(?:client_secret|private_key|api_key|consumerBearer)\b/i);
+  }
+  const footer = homepage.match(/<div class="legal-footer-google">([\s\S]*?)<\/div>/)?.[1] || '';
+  assert.match(footer, /href="\/privacy\/#google"/);
+  assert.doesNotMatch(footer, /Apps Script|Google Sheets|เจ้าของร้าน|ผู้ดูแลร้าน/);
+  assert.match(privacy, /id="rights"/);
+  assert.match(privacy, /id="retention"/);
+  assert.match(privacy, /Google API Services User Data Policy/);
+});
