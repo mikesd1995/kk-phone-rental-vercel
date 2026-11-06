@@ -70,11 +70,11 @@ for (const pathname of allPublicPaths) {
     assert.ok(links.some(link => link.href === home), `missing language-preserving home link ${home}`);
     const sibling = pathname.includes("/terms/") ? routePrefix + "/privacy/" : routePrefix + "/terms/";
     assert.ok(links.some(link => link.href === sibling), `missing same-language policy link ${sibling}`);
-    const counterpart = locale === "en" ? pathname.replace(/^\\/en/, "") : "/en" + pathname;
+    const counterpart = locale === "en" ? pathname.replace(/^\/en/, "") : "/en" + pathname;
     assert.ok(links.some(link => link.href === counterpart), `missing TH/EN switch link ${counterpart}`);
-    const switcher = html.match(/<span class="legal-lang-switch"[^>]*>([\\s\\S]*?)<\\/span>/)?.[1] || "";
-    assert.match(switcher, /href="[^"]+"[^>]*>TH<\\/a>/);
-    assert.match(switcher, /href="[^"]+"[^>]*>EN<\\/a>/);
+    const switcher = html.match(/<span class="legal-lang-switch"[^>]*>([\s\S]*?)<\/span>/)?.[1] || "";
+    assert.match(switcher, /href="[^"]+"[^>]*>TH<\/a>/);
+    assert.match(switcher, /href="[^"]+"[^>]*>EN<\/a>/);
     assert.match(html, new RegExp('rel="alternate" hreflang="'+locale+'"'));
     assert.match(html, new RegExp('rel="alternate" hreflang="'+(locale === "en" ? "th" : "en")+'"'));
     assert.ok(links.some(link => link.href === 'https://line.me/R/ti/p/%40827blnmo'), 'public rights/contact route must work without scripting');
@@ -160,7 +160,7 @@ test('English policy pages are complete, same-version public translations withou
   assert.match(enPrivacy, /rights and how to submit a request/i);
   assert.match(enPrivacy, /@827blnmo/);
   for (const text of [enTerms,enPrivacy]) {
-    assert.doesNotMatch(text, /(?:\\bSupabase\\b|\\bTelegram\\b|\\bMake\\b|client_secret|private_key)/i);
+    assert.doesNotMatch(text, /(?:\bSupabase\b|\bTelegram\b|\bMake\b|client_secret|private_key)/i);
   }
 });
 
