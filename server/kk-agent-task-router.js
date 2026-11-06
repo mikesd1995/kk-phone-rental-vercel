@@ -28,6 +28,7 @@ const UltraDeepFullLoop = require('./kk-ultra-deep-full-loop-orchestrator.js');
 const StorefrontDesignCouncil = require('./kk-storefront-design-council.js');
 const OpenAiAgents = require('./kk-openai-agent-adapters.js');
 const XPostingPlan = require('./kk-x-posting-plan.js');
+const PosterIntegrity = require('./kk-poster-integrity-agent.js');
 
 const TASK_ROUTER_VERSION = 'KK_AGENT_TASK_ROUTER_V19';
 
@@ -54,6 +55,12 @@ async function executeTask(taskType, input = {}, options = {}) {
       return {
         invoked_agents: ['kk-marketing-agent'],
         result: XPostingPlan.plan(input)
+      };
+
+    case 'poster_integrity_review':
+      return {
+        invoked_agents: ['kk-poster-integrity-advisor'],
+        result: PosterIntegrity.triage(input)
       };
 
     case 'storefront_ai_review': {
