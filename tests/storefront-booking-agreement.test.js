@@ -15,7 +15,9 @@ test('booking acknowledgement is opt-in, visible at checkout and independent of 
   assert.match(html, /id="kk-booking-terms-continue"[^>]*disabled/);
   assert.match(html, /<a href="\/terms\/" target="_blank" rel="noopener">เงื่อนไขการใช้บริการ<\/a>/);
   assert.match(html, /<a href="\/privacy\/" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว<\/a>/);
-  assert.match(html, /คิวจะได้รับการยืนยันเมื่อร้านตอบกลับ/);
+  assert.match(html, /ลูกค้าต้องตรวจสอบและกดส่งเอง/);
+  assert.match(html, /คิวยังไม่สำเร็จจนกว่าร้านยืนยัน/);
+  assert.match(html, /ฉบับ 6 พ.ย. 2569/);
   assert.match(html, /src="\/assets\/kk-booking-agreement.js" defer/);
   assert.match(html, /href="\/assets\/kk-booking-agreement.css"/);
   assert.doesNotMatch(html, /ยินยอม(?:การตลาด|ให้ใช้ข้อมูลส่วนบุคคลทุก)/);
