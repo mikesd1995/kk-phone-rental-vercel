@@ -1714,7 +1714,11 @@ function showModal(c,options){
     // NEW: GA4 track booking click
     bookBtn.onclick=function(e){
       e.stopPropagation();
-      track("booking_click",{event_id:c.id||"", event_name:c.name, package_type:p.type||"", package:p.model, price:p.price, source:"modal"});
+      track(isExistingRenterLens?"lens_addon_inquiry_click":"booking_click",{
+        event_id:c.id||"",event_name:c.name,package_type:p.type||"",
+        package:p.model,price:p.price,
+        source:isExistingRenterLens?"modal_existing_renter_lens":"modal"
+      });
     };
     right.appendChild(priceEl); right.appendChild(bookBtn);
     row.appendChild(icon); row.appendChild(info); row.appendChild(right); list.appendChild(row);
