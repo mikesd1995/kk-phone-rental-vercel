@@ -11,8 +11,8 @@
 
 ## Confirmed P0 #1 — Core customer data ACL
 
-Direct Google Drive file metadata readback for canonical workbook **KK Phone rental backend** (`12Z3e_T89jVr5tR5_0tEOSRLrarB-s0YwHgUTRQq6SZU`) shows `anyone:reader`, link-discoverability false. Contains `00_Master_Booking` and customer-related fields. This is **not private merely because the URL is unlisted**.
-- Event Tracker `1O1PwrnR4DOa5PH8j8vdcgMnSi7pXVEFWk0Gh-_esWMo` and CRM `1mmXkDAk3NJtyWqp7qC8ByQyEgKsTY5IO1ca9xLQijaU` were owner-only at audit.
+Direct Google Drive file metadata readback for canonical workbook **KK Phone rental backend** (`[redacted-public-sheet-id]`) shows `anyone:reader`, link-discoverability false. Contains `00_Master_Booking` and customer-related fields. This is **not private merely because the URL is unlisted**.
+- Event Tracker `[redacted-public-sheet-id]` and CRM `[redacted-public-sheet-id]` were owner-only at audit.
 - Current `api/kk-data.js` still supports public GViz fallback unless strict private-reader flags/credentials are ready. Disabling anyone-reader blindly can break the storefront.
 - Production environment metadata did not list `KK_CORE_SHEET_REQUIRE_PRIVATE`, `KK_CORE_PRIVATE_TRANSPORT` or private Apps Script reader flags; absence of env metadata alone is not a functional end-to-end readback.
 - Pending: private authenticated transport + exact deployed GAS identity, 13/13 source parity, negative auth tests, public/signed-out storefront (packages, posters, waitlists), independent review and rollback rehearsal. After successful cutover, revoke public reader, verify actual Drive ACL and revisit historical linked copies.
