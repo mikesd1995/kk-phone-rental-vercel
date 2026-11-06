@@ -1523,7 +1523,10 @@ function buildBookingMsg(c,p){
     "⏰ "+tr("line_pickup")+": ",
     "",
     "👤 "+tr("line_nickname")+": ",
-    "📞 "+tr("line_phone")+": "
+    "📞 "+tr("line_phone")+": ",
+    "",
+    "✅ ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental (KK-TERMS-2026-11-05)",
+    "ℹ️ รับทราบนโยบายความเป็นส่วนตัว: https://kk-phone-rental.vercel.app/privacy/"
   ].join("\n");
 }
 function getBookingUrl(c,p){ return LINE_OA+encodeURIComponent(buildBookingMsg(c,p)); }
@@ -1537,7 +1540,10 @@ function buildWaitlistMsg(c,p){
     "",
     tr("line_nickname")+" : ",
     tr("line_phone")+" : ",
-    tr("waitlist_note")
+    tr("waitlist_note"),
+    "",
+    "✅ ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental (KK-TERMS-2026-11-05)",
+    "ℹ️ รับทราบนโยบายความเป็นส่วนตัว: https://kk-phone-rental.vercel.app/privacy/"
   ].join("\n");
 }
 function getWaitlistUrl(c,p){ return LINE_OA+encodeURIComponent(buildWaitlistMsg(c,p)); }
