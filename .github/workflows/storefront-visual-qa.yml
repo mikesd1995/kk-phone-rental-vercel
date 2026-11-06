@@ -115,7 +115,7 @@ jobs:
           node-version: '20'
 
       - name: Test public legal documents and customer privacy boundary
-        run: node --test tests/public-legal-documents.test.js tests/storefront-booking-agreement.test.js
+        run: node --test tests/public-legal-documents.test.js tests/storefront-booking-agreement.test.js tests/kk-booking-terms-evidence.test.js tests/line-booking-intake.test.js tests/line-webhook.test.js
 
       - name: Validate remote deployment identity
         if: ${{ env.TARGET_MODE != 'local_zero_cost' }}

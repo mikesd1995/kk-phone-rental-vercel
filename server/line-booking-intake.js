@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto=require('node:crypto');
+const TermsEvidence=require('./kk-booking-terms-evidence');
 
 function text(v){return String(v===undefined||v===null?'':v).trim();}
 function requestIdFromLineEvent(event){
@@ -23,7 +24,10 @@ function bookingIntent(event,booking,resolved={}){
     customer_phone:text(booking.phone),contact_channel:'LINE',
     booking_status:'pending',pickup_time:text(booking.pickup_time),
     payment_status:'unpaid',amount_received:0,
-    booking_note:'LINE webhook intake '+request_id
+    booking_note:'LINE webhook intake '+request_id+
+      (booking.terms_acknowledged===true && booking.terms_version===TermsEvidence.VERSION
+        ? ' | TERMS_ACK:'+TermsEvidence.VERSION
+        : ' | TERMS_NOT_CONFIRMED')
   }};
 }
 function buildCanonicalResolution(canonical={}){
