@@ -4,10 +4,13 @@ const {Readable}=require('node:stream');
 const Gateway=require('../server/kk-make-owner-notify');
 const Adapter=require('../server/make-owner-telegram-adapter');
 const Legacy=require('../server/make-owner-ledger-bridge');
+const Bridge=require('../server/runtime-ledger-oidc-bridge');
+const attemptId='a23e4567-e89b-42d3-a456-426614174000';
+test.beforeEach(t=>t.mock.method(Bridge,'officialVercelOidcToken',async()=>'test-control-oidc'));
 const nonce='123e4567-e89b-42d3-a456-426614174000',consumer='consumer-off-health-'.repeat(3);
 const deployment='AKfycbyHqSoCTQtOWjvcl_2Q73RC5W5oQwPOcbJigm88jTMlA3mRDmdXFCmAiN4kPfhoDhHQkw';
 const binding={kind:Adapter.KIND,app_name:'kk-telegram-response-adapter-test',module_id:11,connection_id:11956776,bot_id:'8903740881',manifest_sha256:Adapter.MANIFEST_SHA256};
-const env={KK_OWNER_CANONICAL_CONSUMER_SECRET:consumer,KK_MAKE_OWNER_TRANSPORT_SIGNING_SECRET:'signing-secret-'.repeat(3),KK_OWNER_CANONICAL_SECRET:'canonical-secret-'.repeat(3),KK_OWNER_LEDGER_PRODUCER_SECRET:'producer-secret-'.repeat(3),KK_MAKE_OWNER_TRANSPORT_PROJECT_REF:Legacy.PROJECT_REF,KK_MAKE_OWNER_TRANSPORT_STORE_MODE:'vercel-oidc',KK_OWNER_TELEGRAM_CHAT_ID:'-123456789',KK_OWNER_CANONICAL_GAS_PROJECT_ID:Legacy.SCRIPT_PROJECT_ID,KK_OWNER_CANONICAL_GAS_DEPLOYMENT_ID:deployment,KK_OWNER_CANONICAL_OAUTH_CLIENT_ID:'test-oauth-client',KK_OWNER_CANONICAL_OAUTH_CLIENT_SECRET:'test-oauth-secret',KK_OWNER_CANONICAL_OAUTH_REFRESH_TOKEN:'test-refresh-token',KK_OWNER_CANONICAL_ADAPTER_BINDING_JSON:JSON.stringify(binding)};
+const env={KK_OWNER_CANONICAL_GAS_HEALTH_ATTEMPT_ID:attemptId,VERCEL_GIT_COMMIT_SHA:'a'.repeat(40),VERCEL_DEPLOYMENT_ID:'dpl_test123',VERCEL_ENV:'production',KK_OWNER_CANONICAL_CONSUMER_SECRET:consumer,KK_MAKE_OWNER_TRANSPORT_SIGNING_SECRET:'signing-secret-'.repeat(3),KK_OWNER_CANONICAL_SECRET:'canonical-secret-'.repeat(3),KK_OWNER_LEDGER_PRODUCER_SECRET:'producer-secret-'.repeat(3),KK_MAKE_OWNER_TRANSPORT_PROJECT_REF:Legacy.PROJECT_REF,KK_MAKE_OWNER_TRANSPORT_STORE_MODE:'vercel-oidc',KK_OWNER_TELEGRAM_CHAT_ID:'-123456789',KK_OWNER_CANONICAL_GAS_PROJECT_ID:Legacy.SCRIPT_PROJECT_ID,KK_OWNER_CANONICAL_GAS_DEPLOYMENT_ID:deployment,KK_OWNER_CANONICAL_OAUTH_CLIENT_ID:'test-oauth-client',KK_OWNER_CANONICAL_OAUTH_CLIENT_SECRET:'test-oauth-secret',KK_OWNER_CANONICAL_OAUTH_REFRESH_TOKEN:'test-refresh-token',KK_OWNER_CANONICAL_ADAPTER_BINDING_JSON:JSON.stringify(binding)};
 const payload={stage:'canonical-gas-health',version:'v1',nonce,bot_id:binding.bot_id,provider_binding_sha256:Adapter.bindingDigest(binding)};
 const health={transport_enabled:false,send_not_before:'2026-10-28T00:00:00.000Z',telegram_configured:true,line_configured:true,uat_armed:false,uat_target_count:1,trigger_count:1,trigger_handlers:['runKKLineMonitor'],ledger_sheet:'_Notification_Ledger'};
 const token={access_token:'test-access-token',token_type:'Bearer',expires_in:3600,scope:'https://www.googleapis.com/auth/script.scriptapp'};
@@ -15,7 +18,13 @@ const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:
 const execution=value=>({done:true,response:{'@type':'type.googleapis.com/google.apps.script.v1.ExecutionResponse',result:value}});
 function request(body=payload,marker='gas-health-v1',bearer=consumer){const req=Readable.from([Buffer.from(JSON.stringify(body))]);req.method='POST';req.headers={'x-kk-canonical-probe':marker,authorization:'Bearer '+bearer};return req;}
 function response(){return {statusCode:0,headers:{},body:'',setHeader(k,v){this.headers[k.toLowerCase()]=v;},end(v){this.body=String(v);},data(){return JSON.parse(this.body);}};}
-async function call({req=request(),cfg=env,replies=[json(token),json(execution(health))],fetchImpl}={}){const calls=[],res=response();await Gateway._test.processRequest(req,res,cfg,fetchImpl||(async(url,init)=>{calls.push({url,init});if(calls.length>replies.length)throw Error('unexpected additional request');const item=replies[calls.length-1];if(item instanceof Error)throw item;return item;}));assert.equal(res.data().send_allowed,false);return {res,calls};}
+function claimReceipt(body,claimed=true){return {ok:true,authenticated:true,probe:'owner-health-attempt-claim',version:'v1',send_allowed:false,provider_sends:0,claimed,attempt_id:body.attempt_id,nonce:body.nonce,source_sha:body.source_sha,deployment_id:body.deployment_id,environment:'production',control_writes:claimed?1:0,business_writes:0};}
+async function call({req=request(),cfg=env,replies=[json(token),json(execution(health))],fetchImpl,claimFetch}={}){
+ const calls=[],claims=[],res=response();
+ const google=fetchImpl||(async(url,init)=>{calls.push({url,init});if(calls.length>replies.length)throw Error('unexpected additional request');const item=replies[calls.length-1];if(item instanceof Error)throw item;return item;});
+ await Gateway._test.processRequest(req,res,cfg,async(url,init)=>{if(url===Bridge.endpoint()){claims.push({url,init});return claimFetch?claimFetch(url,init):new Response(JSON.stringify(claimReceipt(JSON.parse(init.body))),{headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});}return google(url,init);});
+ assert.equal(res.data().send_allowed,false);return {res,calls,claims};
+}
 function noSecretLeaks(res){for(const value of [consumer,...Object.entries(env).filter(([k])=>/SECRET|TOKEN|CLIENT_ID/.test(k)).map(([,v])=>v),token.access_token]){assert.ok(!res.body.includes(value));assert.ok(!res.body.includes(crypto.createHash('sha256').update(value).digest('hex')));}assert.doesNotMatch(res.body,/authorization|Bearer|refresh_token|access_token|client_secret|error_description|stack|ready_to_send/i);}
 
 test('OFF health refreshes OAuth once and executes only the pinned deployed no-argument health function',async()=>{
@@ -27,12 +36,12 @@ test('OFF health refreshes OAuth once and executes only the pinned deployed no-a
 });
 
 test('wrong consumer or any enabled execution flag stops before Google or any other I/O',async()=>{
- for(const [cfg,bearer,want] of [[env,'wrong',401],[{...env,KK_OWNER_CANONICAL_CONSUMER_SECRET:'short'},'short',401],[{...env,KK_OWNER_CANONICAL_CONSUMER_SECRET:env.KK_OWNER_LEDGER_PRODUCER_SECRET},env.KK_OWNER_LEDGER_PRODUCER_SECRET,401],...['KK_MAKE_OWNER_TRANSPORT_ENABLED','KK_OWNER_CANONICAL_ENABLED','KK_OWNER_LEDGER_PRODUCER_ENABLED'].map(k=>[{...env,[k]:'true'},consumer,409])]){const {res,calls}=await call({req:request(payload,'gas-health-v1',bearer),cfg,replies:[]});assert.equal(res.statusCode,want);assert.equal(calls.length,0);noSecretLeaks(res);}
+ for(const [cfg,bearer,want] of [[env,'wrong',401],[{...env,KK_OWNER_CANONICAL_CONSUMER_SECRET:'short'},'short',401],[{...env,KK_OWNER_CANONICAL_CONSUMER_SECRET:env.KK_OWNER_LEDGER_PRODUCER_SECRET},env.KK_OWNER_LEDGER_PRODUCER_SECRET,401],...['KK_MAKE_OWNER_TRANSPORT_ENABLED','KK_OWNER_CANONICAL_ENABLED','KK_OWNER_LEDGER_PRODUCER_ENABLED'].map(k=>[{...env,[k]:'true'},consumer,409])]){const {res,calls,claims}=await call({req:request(payload,'gas-health-v1',bearer),cfg,replies:[]});assert.equal(res.statusCode,want);assert.equal(calls.length,0);assert.equal(claims.length,0);noSecretLeaks(res);}
 });
 
 test('project deployment OAuth adapter bot and digest mismatches fail closed without refresh',async()=>{
  const cases=[{cfg:{...env,KK_OWNER_CANONICAL_GAS_PROJECT_ID:'wrong-project'}},{cfg:{...env,KK_OWNER_CANONICAL_GAS_DEPLOYMENT_ID:'other-deployment-0123456789'}},{cfg:{...env,KK_MAKE_OWNER_TRANSPORT_PROJECT_REF:'wrong-project'}},{cfg:{...env,KK_MAKE_OWNER_TRANSPORT_STORE_MODE:'direct'}},{cfg:{...env,KK_OWNER_CANONICAL_OAUTH_CLIENT_ID:''}},{cfg:{...env,KK_OWNER_CANONICAL_OAUTH_CLIENT_SECRET:''}},{cfg:{...env,KK_OWNER_CANONICAL_OAUTH_REFRESH_TOKEN:''}},{cfg:{...env,KK_OWNER_CANONICAL_ADAPTER_BINDING_JSON:'null'}},{req:request({...payload,bot_id:'1234567890'})},{req:request({...payload,provider_binding_sha256:'a'.repeat(64)})}];
- for(const c of cases){const {res,calls}=await call({...c,replies:[]});assert.equal(res.statusCode,503);assert.equal(calls.length,0);assert.equal(res.data().error_code,'GAS_HEALTH_DISABLED_OR_UNBOUND');noSecretLeaks(res);}
+ for(const c of cases){const {res,calls,claims}=await call({...c,replies:[]});assert.equal(res.statusCode,503);assert.equal(calls.length,0);assert.equal(claims.length,0);assert.equal(res.data().error_code,'GAS_HEALTH_DISABLED_OR_UNBOUND');noSecretLeaks(res);}
 });
 
 test('health route rejects arbitrary caller work and object traps before network',async()=>{
@@ -81,13 +90,13 @@ test('oversized internal OAuth request is rejected before any credential-bearing
 test('one overall deadline cancels a stalled response body and never starts GAS or retries',async(t)=>{
  t.mock.timers.enable({apis:['setTimeout']});let cancelled=0,calls=0;
  const stalled=new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('{"access_token":"pending'));},cancel(){cancelled++;}}),{headers:{'Content-Type':'application/json'}});
- const res=response(),pending=Gateway._test.processRequest(request(),res,env,async()=>{calls++;return stalled;});await new Promise(resolve=>setImmediate(resolve));assert.equal(calls,1);t.mock.timers.tick(10001);await pending;
+ const pending=call({fetchImpl:async()=>{calls++;return stalled;}});await new Promise(resolve=>setImmediate(resolve));assert.equal(calls,1);t.mock.timers.tick(10001);const {res,claims}=await pending;assert.equal(claims.length,1);
  assert.equal(res.statusCode,503);assert.equal(res.data().error_code,'GAS_HEALTH_OUTCOME_UNKNOWN');assert.equal(calls,1);assert.equal(cancelled,1);noSecretLeaks(res);
 });
 
-test('new health marker does not widen readiness or operational gates and cannot touch native or providers',async(t)=>{
- const spies=[];for(const [target,name] of [[require('../server/make-owner-canonical'),'handle'],[require('../server/make-owner-canonical'),'executeGas'],[require('../server/make-owner-canonical'),'store'],[Legacy,'storeRpc'],[require('../server/runtime-ledger-oidc-bridge'),'request'],[console,'log'],[console,'warn'],[console,'error']])spies.push(t.mock.method(target,name,()=>{throw Error('forbidden diagnostic side effect');}));
- const {res,calls}=await call();assert.equal(res.statusCode,200);assert.equal(calls.length,2);for(const spy of spies)assert.equal(spy.mock.callCount(),0);
+test('health marker allows only the dedicated control claim and cannot touch business storage or providers',async(t)=>{
+ const spies=[];for(const [target,name] of [[require('../server/make-owner-canonical'),'handle'],[require('../server/make-owner-canonical'),'executeGas'],[require('../server/make-owner-canonical'),'store'],[Legacy,'storeRpc'],[console,'log'],[console,'warn'],[console,'error']])spies.push(t.mock.method(target,name,()=>{throw Error('forbidden diagnostic side effect');}));
+ const {res,calls,claims}=await call();assert.equal(res.statusCode,200);assert.equal(calls.length,2);assert.equal(claims.length,1);for(const spy of spies)assert.equal(spy.mock.callCount(),0);
  const old={...payload,stage:'canonical-readiness'};const ready=await call({req:request(old,'readiness-v1'),replies:[]});assert.equal(ready.res.statusCode,200);assert.equal(ready.res.data().off_configuration_ready,true);assert.equal(ready.calls.length,0);
  assert.equal((await call({req:request(payload,'readiness-v1'),replies:[]})).res.statusCode,400);
  for(const marker of ['',undefined,'GAS-HEALTH-V1','gas-health-v1 ',['gas-health-v1']]){const req=request();if(marker===undefined)delete req.headers['x-kk-canonical-probe'];else req.headers['x-kk-canonical-probe']=marker;const {res,calls}=await call({req,replies:[]});assert.equal(res.statusCode,503);assert.equal(calls.length,0);}
@@ -129,11 +138,11 @@ test('invalid OAuth status metadata is not coerced or reflected',async()=>{
 test('known rejection with a stalled body obeys the existing deadline and cancels once',async(t)=>{
  t.mock.timers.enable({apis:['setTimeout']});let cancelled=0,calls=0;
  const stalled=new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('{"error":"invalid_grant'));},cancel(){cancelled++;}}),{status:400,headers:{'Content-Type':'application/json'}});
- const res=response(),pending=Gateway._test.processRequest(request(),res,env,async()=>{calls++;return stalled;});await new Promise(resolve=>setImmediate(resolve));t.mock.timers.tick(10001);await pending;
+ const pending=call({fetchImpl:async()=>{calls++;return stalled;}});await new Promise(resolve=>setImmediate(resolve));t.mock.timers.tick(10001);const {res,claims}=await pending;assert.equal(claims.length,1);
  assert.equal(calls,1);assert.equal(cancelled,1);assert.equal(res.statusCode,503);assert.deepEqual(res.data(),{mode:'canonical-gas-health',version:'v1',send_allowed:false,error_code:'GAS_HEALTH_OAUTH_REJECTED',oauth_http_status:400,oauth_error_code:'unknown'});noSecretLeaks(res);
 });
 
-test('rejection diagnostics never log, invoke native storage or continue to GAS',async(t)=>{
+test('rejection diagnostics never log, invoke business native storage or continue to GAS',async(t)=>{
  const spies=[];for(const [target,name] of [[console,'log'],[console,'warn'],[console,'error'],[require('../server/make-owner-canonical'),'handle'],[require('../server/make-owner-canonical'),'executeGas'],[Legacy,'storeRpc']])spies.push(t.mock.method(target,name,()=>{throw Error('forbidden rejection side effect');}));
  const {res,calls}=await call({replies:[json({error:'invalid_grant',error_description:'test-refresh-token'},400)]});assert.equal(calls.length,1);assert.equal(res.data().oauth_error_code,'invalid_grant');for(const spy of spies)assert.equal(spy.mock.callCount(),0);noSecretLeaks(res);
 });
@@ -141,4 +150,63 @@ test('rejection diagnostics never log, invoke native storage or continue to GAS'
 test('rejection metadata is absent from success, unauthenticated, OFF conflict and transport errors',async()=>{
  const outcomes=[await call(),await call({req:request(payload,'gas-health-v1','wrong'),replies:[]}),await call({cfg:{...env,KK_MAKE_OWNER_TRANSPORT_ENABLED:'true'},replies:[]}),await call({replies:[new Error('test-oauth-secret')]})];
  for(const {res} of outcomes){assert.equal(res.data().oauth_http_status,undefined);assert.equal(res.data().oauth_error_code,undefined);noSecretLeaks(res);}
+});
+
+test('unconfigured attempt identity fails closed before any claim or Google request',async()=>{
+ const {res,calls,claims}=await call({cfg:{...env,KK_OWNER_CANONICAL_GAS_HEALTH_ATTEMPT_ID:''}});
+ assert.equal(res.statusCode,503);
+ assert.equal(res.data().error_code,'GAS_HEALTH_ATTEMPT_UNCONFIGURED');
+ assert.equal(calls.length,0);assert.equal(claims.length,0);
+});
+
+test('all missing invalid or nonproduction server identities stop before OIDC and Google',async()=>{
+ for(const patch of [{KK_OWNER_CANONICAL_GAS_HEALTH_ATTEMPT_ID:undefined},{KK_OWNER_CANONICAL_GAS_HEALTH_ATTEMPT_ID:'bad'},{VERCEL_GIT_COMMIT_SHA:''},{VERCEL_GIT_COMMIT_SHA:'A'.repeat(40)},{VERCEL_DEPLOYMENT_ID:''},{VERCEL_DEPLOYMENT_ID:'https://attacker.invalid'},{VERCEL_ENV:'preview'},{VERCEL_ENV:'development'},{VERCEL_ENV:'production '}]){
+  const {res,calls,claims}=await call({cfg:{...env,...patch}});assert.equal(res.statusCode,503);assert.equal(res.data().error_code,'GAS_HEALTH_ATTEMPT_UNCONFIGURED');assert.equal(calls.length,0);assert.equal(claims.length,0);noSecretLeaks(res);
+ }
+});
+
+test('simultaneous requests and later carrier retries share one native grant and one OAuth and GAS call',async()=>{
+ let consumed=false;
+ const claimFetch=async(_url,init)=>{const body=JSON.parse(init.body),winner=!consumed&&body.attempt_id===attemptId&&body.nonce===nonce;consumed=true;return new Response(JSON.stringify(claimReceipt(body,winner)),{headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});};
+ const results=await Promise.all([call({claimFetch}),call({claimFetch})]);
+ assert.deepEqual(results.map(r=>r.res.statusCode).sort(),[200,503]);assert.equal(results.reduce((n,r)=>n+r.calls.length,0),2);assert.equal(results.reduce((n,r)=>n+r.claims.length,0),2);
+ const retry=await call({claimFetch}),newNonce=await call({req:request({...payload,nonce:'223e4567-e89b-42d3-a456-426614174000'}),claimFetch});
+ for(const r of [retry,newNonce]){assert.equal(r.res.data().error_code,'GAS_HEALTH_ATTEMPT_DENIED');assert.equal(r.calls.length,0);assert.equal(r.claims.length,1);}
+});
+
+test('consumed claim with lost response makes no Google call and cannot refund or retry the grant',async()=>{
+ let consumed=false;
+ const claimFetch=async(_url,init)=>{const body=JSON.parse(init.body);if(!consumed){consumed=true;throw Object.assign(Error('test-refresh-token'),{code:'GAS_HEALTH_OAUTH_REJECTED'});}return new Response(JSON.stringify(claimReceipt(body,false)),{headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});};
+ const first=await call({claimFetch}),retry=await call({claimFetch});
+ assert.equal(first.res.data().error_code,'GAS_HEALTH_ATTEMPT_OUTCOME_UNKNOWN');assert.equal(retry.res.data().error_code,'GAS_HEALTH_ATTEMPT_DENIED');
+ for(const r of [first,retry]){assert.equal(r.calls.length,0);assert.equal(r.claims.length,1);noSecretLeaks(r.res);}assert.equal(consumed,true);
+});
+
+test('unarmed expired mismatched denied and malformed native receipts cannot reach Google',async()=>{
+ const changes=[{claimed:false,control_writes:0},{claimed:true,control_writes:0},{source_sha:'b'.repeat(40)},{deployment_id:'dpl_wrong'},{environment:'preview'},{attempt_id:nonce},{nonce:attemptId},{business_writes:1},{error_code:'test-refresh-token'}];
+ for(const patch of changes){const {res,calls,claims}=await call({claimFetch:async(_url,init)=>new Response(JSON.stringify({...claimReceipt(JSON.parse(init.body)),...patch}),{headers:{'Content-Type':'application/json','Cache-Control':'no-store'}})});assert.equal(res.statusCode,503);assert.equal(calls.length,0);assert.equal(claims.length,1);noSecretLeaks(res);}
+});
+
+test('the overall ten second deadline includes a lost claim and a late winner cannot start Google',async(t)=>{
+ t.mock.timers.enable({apis:['setTimeout']});let resolveClaim,claimBody;
+ const pending=call({claimFetch:async(_url,init)=>{claimBody=JSON.parse(init.body);return new Promise(resolve=>{resolveClaim=resolve;});}});
+ await new Promise(setImmediate);t.mock.timers.tick(10001);const result=await pending;
+ assert.equal(result.res.data().error_code,'GAS_HEALTH_OUTCOME_UNKNOWN');assert.equal(result.calls.length,0);assert.equal(result.claims.length,1);
+ resolveClaim(new Response(JSON.stringify(claimReceipt(claimBody)),{headers:{'Content-Type':'application/json','Cache-Control':'no-store'}}));await new Promise(setImmediate);assert.equal(result.calls.length,0);noSecretLeaks(result.res);
+});
+
+test('stalled OIDC token lookup exhausts the same deadline without claim or Google request',async(t)=>{
+ t.mock.timers.enable({apis:['setTimeout']});let resolveToken;
+ t.mock.method(Bridge,'officialVercelOidcToken',()=>new Promise(resolve=>{resolveToken=resolve;}));
+ const pending=call();await new Promise(setImmediate);t.mock.timers.tick(10001);const result=await pending;
+ assert.equal(result.res.data().error_code,'GAS_HEALTH_OUTCOME_UNKNOWN');assert.equal(result.calls.length,0);assert.equal(result.claims.length,0);
+ resolveToken('late-oidc');await new Promise(setImmediate);assert.equal(result.claims.length,0);assert.equal(result.calls.length,0);
+});
+
+test('claim time is not followed by a fresh ten seconds for OAuth or private GAS',async(t)=>{
+ t.mock.timers.enable({apis:['setTimeout']});let resolveClaim,claimBody,cancelled=0;
+ const stalled=new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode('{"access_token":'));},cancel(){cancelled++;}}),{headers:{'Content-Type':'application/json'}});
+ const pending=call({claimFetch:async(_url,init)=>{claimBody=JSON.parse(init.body);return new Promise(resolve=>{resolveClaim=resolve;});},fetchImpl:async()=>stalled});
+ await new Promise(setImmediate);t.mock.timers.tick(7000);resolveClaim(new Response(JSON.stringify(claimReceipt(claimBody)),{headers:{'Content-Type':'application/json','Cache-Control':'no-store'}}));await new Promise(setImmediate);t.mock.timers.tick(3001);
+ const result=await pending;assert.equal(result.res.data().error_code,'GAS_HEALTH_OUTCOME_UNKNOWN');assert.equal(result.claims.length,1);assert.equal(cancelled,1);assert.equal(result.res.data().gas_health_executed,undefined);
 });

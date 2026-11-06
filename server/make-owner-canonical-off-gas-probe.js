@@ -1,8 +1,9 @@
 'use strict';
-// Read-only, finite deployed health diagnostic. It cannot select operational
-// functions, invoke native storage, change flags or call a provider.
+// Finite deployed health diagnostic. Its dedicated control claim is the only
+// native write; no notification/business storage or sender is accessible.
 const Readiness=require('./make-owner-canonical-readiness');
 const Legacy=require('./make-owner-ledger-bridge');
+const Attempt=require('./make-owner-health-attempt');
 const DEPLOYMENT_ID='AKfycbyHqSoCTQtOWjvcl_2Q73RC5W5oQwPOcbJigm88jTMlA3mRDmdXFCmAiN4kPfhoDhHQkw';
 const HEALTH_FIELDS=['transport_enabled','send_not_before','telegram_configured','line_configured','uat_armed','uat_target_count','trigger_count','trigger_handlers','ledger_sheet'];
 const MAX_RESPONSE_BYTES=16384;
@@ -55,9 +56,13 @@ async function evaluate(body,cfg,authorization,{fetchImpl=global.fetch}={}){
  if(readiness.status!==200||readiness.body.off_configuration_ready!==true||cfg.storeMode!=='vercel-oidc'||cfg.expectedRef!==Legacy.PROJECT_REF||cfg.gasProjectId!==Legacy.SCRIPT_PROJECT_ID||cfg.gasDeploymentId!==DEPLOYMENT_ID)return bare(503,'GAS_HEALTH_DISABLED_OR_UNBOUND');
  const oauthRequest=new URLSearchParams({grant_type:'refresh_token',client_id:cfg.gasClientId,client_secret:cfg.gasClientSecret,refresh_token:cfg.gasRefreshToken}).toString();
  if(Buffer.byteLength(oauthRequest)>32768)return bare(503,'GAS_HEALTH_DISABLED_OR_UNBOUND');
+ if(!Attempt.configured(cfg))return bare(503,'GAS_HEALTH_ATTEMPT_UNCONFIGURED');
  const controller=new AbortController();let timer,rejectionStatus;
  const operation=async()=>{
   const signal=controller.signal;
+  const claim=await Attempt.claim(body,cfg,{fetchImpl,signal});
+  if(signal.aborted)fail('GAS_HEALTH_OUTCOME_UNKNOWN');
+  if(!claim.claimed)return bare(503,claim.error_code);
   const oauthReply=await fetchImpl('https://oauth2.googleapis.com/token',{method:'POST',redirect:'error',signal,headers:{'Content-Type':'application/x-www-form-urlencoded',Accept:'application/json'},body:oauthRequest});
   if(!oauthReply.ok){
    const status=oauthReply.status;rejectionStatus=Number.isInteger(status)&&status>=100&&status<=599?status:null;
