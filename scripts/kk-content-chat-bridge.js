@@ -179,7 +179,8 @@ async function runBridge({event,payload,ledgerFn}={}){
     ...request.input,
     requested_intent:gateway.intent,
     commercial_truth_required:routed.commercial_truth_required===true,
-    event_truth_required:Boolean(routed.finalization_contract&&routed.finalization_contract.event_truth_required)
+    event_truth_required:Boolean(routed.finalization_contract&&routed.finalization_contract.event_truth_required),
+    owner_x_policy_required:routed.owner_x_policy_required===true
   };
   const finalization=Router.finalizeGeneratedCandidates({
     candidates:envelope.candidates,

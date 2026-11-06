@@ -40,6 +40,31 @@ function validateBridgeEvent(event={}){
   return {pass:errors.length===0,errors,issue_number:Number(issue.number)||0,title,author_association:association};
 }
 
+// GitHub Issues are not private storage. Refuse full Sheet rows (including
+// names, phone numbers and booking notes) before invoking any Marketing Agent.
+const SNAPSHOT_FIELDS=Object.freeze({
+  booking_rows:new Set(['booking_status','event_id','event_date']),
+  visibility_locks:new Set(['event_id','event_date','lock_state']),
+  storefront_rows:new Set(['event_id','event_date_text','action_for_web','booking_status_for_web','available_phone_count']),
+  post_log:new Set(['event_id','planned_at','published_at','logged_at','status'])
+});
+function snapshotPrivacyErrors(input={}){
+  const errors=[];
+  for(const [field,allowed] of Object.entries(SNAPSHOT_FIELDS)){
+    const rows=input[field];
+    if(rows===undefined||!Array.isArray(rows))continue; // Canonical-source type check happens separately.
+    if(rows.length>2000){errors.push('BRIDGE_SNAPSHOT_TOO_LARGE:'+field);continue;}
+    for(const row of rows){
+      if(!row||typeof row!=='object'||Array.isArray(row)||
+        Object.keys(row).some(key=>!allowed.has(key))){
+        errors.push('BRIDGE_UNSANITIZED_SNAPSHOT_FORBIDDEN:'+field);
+        break;
+      }
+    }
+  }
+  return errors;
+}
+
 function validateEnvelope(payload={}){
   const request=payload.request&&typeof payload.request==='object'&&!Array.isArray(payload.request)?payload.request:null;
   const errors=[];
@@ -47,6 +72,7 @@ function validateEnvelope(payload={}){
   if(request&&!text(request.message))errors.push('BRIDGE_REQUEST_MESSAGE_REQUIRED');
   const input=request&&request.input&&typeof request.input==='object'&&!Array.isArray(request.input)?request.input:{};
   if(!Array.isArray(input.candidates)||!input.candidates.length)errors.push('BRIDGE_CANDIDATES_REQUIRED');
+  errors.push(...snapshotPrivacyErrors(input));
   return {pass:errors.length===0,errors,request,input};
 }
 
@@ -142,6 +168,19 @@ async function runBridge({event,payload,ledgerFn}={}){
       publishes:0
     };
   }
+  // A recorded invocation is not proof of a promotable event.
+  // Never turn a fail-closed planner result into a PASS owner schedule.
+  if(gateway.result.status!=='READY_FOR_OWNER_REVIEW'){
+    return {
+      schema_version:VERSION,status:'BLOCKED',
+      gateway_status:gateway.status,intent:gateway.intent,
+      blocker:text(gateway.result.status)||'POSTING_PLAN_NOT_READY',
+      event_check:eventCheck,invocation:gateway.invocation,
+      plan:gateway.result,project_memory:gateway.project_memory,
+      ledger_rows:ledgerRows,owner_review_required:true,
+      production_writes:0,publishes:0
+    };
+  }
   return {
     schema_version:VERSION,
     status:'PASS',
@@ -191,4 +230,4 @@ if(require.main===module){
   });
 }
 
-module.exports={VERSION,START,END,TITLE_PREFIX,MAX_BODY_BYTES,extractPayload,validateBridgeEvent,validateEnvelope,safeInput,buildComment,runBridge};
+module.exports={VERSION,START,END,TITLE_PREFIX,MAX_BODY_BYTES,extractPayload,validateBridgeEvent,validateEnvelope,snapshotPrivacyErrors,safeInput,buildComment,runBridge};

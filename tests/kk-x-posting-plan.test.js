@@ -22,6 +22,7 @@ function candidates(){
       fandom_strength:92,
       competitor_activity:70,
       booking_opportunity:88,
+      recent_posted_evidence_verified:true,
       recent_posted_hours_ago:1
     },
     {
@@ -36,6 +37,7 @@ function candidates(){
       fandom_strength:88,
       competitor_activity:76,
       booking_opportunity:94,
+      recent_posted_evidence_verified:true,
       recent_posted_hours_ago:9
     },
     {
@@ -49,6 +51,7 @@ function candidates(){
       fandom_strength:82,
       competitor_activity:60,
       booking_opportunity:76,
+      recent_posted_evidence_verified:true,
       recent_posted_hours_ago:24
     },
     {
@@ -62,13 +65,32 @@ function candidates(){
       fandom_strength:74,
       competitor_activity:45,
       booking_opportunity:62,
+      recent_posted_evidence_verified:true,
       recent_posted_hours_ago:24
     }
-  ];
+  ].map((row,index)=>({
+    ...row,event_id:'EVT-TEST-'+index,event_date_text:'17/10/2026'
+  }));
+}
+
+function evidence(candidatesToPlan){
+  return {
+    now:'2026-10-13T02:39:00+07:00',
+    booking_source:'00_Master_Booking',booking_verified:true,booking_readback_at:'2026-10-13T02:30:00+07:00',booking_rows:[],
+    visibility_source:'18_Event_Visibility_Locks',visibility_verified:true,visibility_readback_at:'2026-10-13T02:30:00+07:00',visibility_locks:[],
+    storefront_source:'08_Web_Ready',storefront_verified:true,
+    storefront_readback_at:'2026-10-13T02:30:00+07:00',
+    storefront_rows:candidatesToPlan.filter(row=>row.verified_event).map(row=>({
+      event_id:row.event_id,event_date_text:row.event_date_text,
+      action_for_web:'show',booking_status_for_web:'เปิดจอง',available_phone_count:1
+    })),
+    post_log_verified:true,post_log_readback_at:'2026-10-13T02:30:00+07:00',
+    post_log:[],candidates:candidatesToPlan
+  };
 }
 
 test('X posting planner uses Bangkok evening slots and penalizes recent-post fatigue',()=>{
-  const result=Planner.plan({candidates:candidates()});
+  const result=Planner.plan(evidence(candidates()));
   assert.equal(result.schema_version,'KK_X_POSTING_PLAN_V1');
   assert.equal(result.timezone,'Asia/Bangkok');
   assert.deepEqual(result.slots.map(x=>x.time),['19:30','21:00','22:30','00:00']);
@@ -83,7 +105,7 @@ test('X posting planner uses Bangkok evening slots and penalizes recent-post fat
 });
 
 test('planner exposes the six scoring dimensions plus recent-post fatigue',()=>{
-  const result=Planner.plan({candidates:candidates()});
+  const result=Planner.plan(evidence(candidates()));
   const row=result.ranking.find(x=>x.event==='Event B');
   assert.ok(row);
   assert.deepEqual(Object.keys(row.dimensions).sort(),[
@@ -102,7 +124,7 @@ test('plain Thai/X planning request auto-routes through the Agent Gateway',async
   const ledger=[];
   const result=await Gateway.executeAgentRequest({
     message:'ไปตรวจสอบ X ว่าตอนนี้ควรโพสอะไรต่อจากเดิม ตั้งแต่ 19.30 ไปจนถึงช่วง late night',
-    input:{candidates:candidates()}
+    input:evidence(candidates())
   },{
     projectMemoryListFn:async()=>({rows:[]}),
     ledgerFn:async row=>{ledger.push(row);return {ok:true,inserted:true,invocation_id:row.invocation_id};}
@@ -139,7 +161,7 @@ test('project memory locks X posting planning as a cross-chat default',()=>{
 
 
 test('unverified event candidates are rejected and never assigned to a posting slot',()=>{
-  const result=Planner.plan({candidates:[
+  const result=Planner.plan(evidence([
     {
       event:'Unverified Viral Event',
       verified_event:false,
@@ -151,7 +173,7 @@ test('unverified event candidates are rejected and never assigned to a posting s
       event_is_tomorrow:true
     },
     ...candidates()
-  ]});
+  ]));
   assert.ok(result.rejected_candidates.some(x=>x.event==='Unverified Viral Event'&&x.reason==='EVENT_NOT_VERIFIED'));
   assert.equal(result.slots.some(x=>x.event==='Unverified Viral Event'),false);
 });

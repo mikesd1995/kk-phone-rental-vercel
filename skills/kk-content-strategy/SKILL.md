@@ -21,6 +21,16 @@ This skill is guidance only. It never becomes event truth, pricing truth, invent
 6. No auto-publish, auto-schedule, auto-spend, price write, inventory write, or Machine SOT write.
 7. If event/pricing/inventory is not verified, useful educational content may still be planned only when its factual claims are independently verified; direct rental copy stays blocked.
 
+## Hard owner trigger (2026-10-15): final-only X rental requests
+
+The phrases **"ขอโพสปล่อยเช่างานนี้บน X"**, **"ขอโพสงานนี้บน X"**, **"ขอโพสต์ปล่อยเช่า"**, and equivalent multi-event table requests mean **produce the final selected post**, not provide three versions, a choice menu, or ask the owner to pick a tone.
+
+For every named event: verify live booking/status including all dates, current package price, event identity/venue, owner locks, original poster, verified hashtags, and recent X posts; run the genuine five-Agent chat bridge using 3 INTERNAL candidates; require actual persistent QA/Selector PASS; one best copyable box per event; multi-event requests also require batch CTA/hook diversity. If an invocation cannot be evidenced, say **not executed** and do not label any self-drafted post as Agent-selected.
+
+**Brand once** (`📱 KK Phone Rental | #เช่ามือถือ`) and never inside body; device model only on price line; every date in customer post is verified `✅ ว่าง` or `❌ เต็ม` (confirmed full or verified shop-closed event dates map to ❌ เต็ม in customer copy only; hidden/locked dates remain excluded and canonical truth stays unchanged); no remaining device quantity. Minimum 5 distinct **verified** hashtags: rental header 1 + primary event 1 + closing 3. Hook and CTA must never contain dates. Avoid อยู่โซนไกล, เตรียมกล้อง, เตรียมเลนส์, ซูม and เก็บทุกโมเมนต์. CTA must be short, specific to fandom/event, not repeated across batch, followed by canonical site URL. No invented urgency, metrics, model calls, pricing, artist facts, or engagement. Use real measured content outcomes for learning; claim Hugging Face only if successfully invoked with provenance, no new cost. One OWNER-REVIEW winner only; never auto-post or spend.
+
+This trigger supersedes any old fixed CTA wording or invitation to show multiple drafts. It is a **skill/policy**, not an automatically-installed ChatGPT hook; every runtime must execute its actual bridge and read back PASS.
+
 ## Mandatory routing for X content
 
 Any request equivalent to **“ขอโพสปล่อยเช่างานนี้บน X”**, **“ขอโพสต์งานนี้บน X”**, or another KK content/caption request must route through:
@@ -102,7 +112,7 @@ Fail closed when any of these are true:
 
 - event hashtags have not been verified for the current event context;
 - copy uses a hashtag that was synthesized from an event name or is absent from the verified hashtag set;
-- canonical date or venue is repeated in the hook and the Date/Venue block without a deliberate timing reason;
+- any date appears in the hook or CTA, or venue is duplicated without a verified reason;
 - business-critical copy is missing (brand identity, verified commercial offer, required date/venue facts, or booking CTA for a commercial post);
 - event, pricing, or inventory truth is unverified;
 - copy uses unverified/synthesized hashtags;
@@ -182,9 +192,15 @@ For direct rental posts:
 - Use current verified offer/pricing only.
 - Keep: 📱 รับ-คืนเครื่องหน้างาน + สอนใช้ก่อนเข้างาน
 - Keep: ☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน
-- Booking CTA: 👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
-- Put **exactly 3 strongest verified closing hashtags at the end by default**. Do not duplicate `#เช่ามือถือ` or the main event hashtag already used above.
+- Booking CTA: one concise **event/fandom-specific invitation to book**, unique among the batch and recent posts; vary the actual booking action, not just emoji. Always put `kk-phone-rental.vercel.app` on the next line. Avoid a fixed generic phrase repeated across all events.
+- **At least 5 DISTINCT verified, relevant hashtags per X rental post (mandatory):** `#เช่ามือถือ` once in the brand header + one verified main event hashtag + **at least 3 other distinct, verified closing hashtags at the end**. Prefer 3 strong closing tags and do not exceed existing QA reach-tag limits. Do not repeat the main event tag or `#เช่ามือถือ` at the end. If adequate verified tags cannot be found, fail closed rather than inventing tags.
 - Do not repeat the brand line at the bottom.
+- Brand/header appears **once only**. Do not name "KK" or the shop again in the body or hook.
+- Device model must be visible only in the verified offer/price line. Never repeat it in story paragraphs or CTA.
+- Verify every canonical event day internally. Use `14 ต.ค. ✅ ว่าง` for verified available days and `15 ต.ค. ❌ เต็ม` for full or verified shop-closed event dates, as a customer label only. Keep hidden/owner-locked dates excluded and backend closure reasons unchanged. For multi-day events, keep genuinely sellable dates. Block fully locked events or events without a verified available date. Never infer status from missing rows or display stock counts.
+- Use a different, verifiable artist/fandom/format-specific angle for each post. Repeating generic hook/closing skeletons is unacceptable.
+- Reject all commercial X content without verified `event_dates`, `event_dates_verified`, `day_statuses` and `day_statuses_verified`. The actual validator is `server/kk-x-owner-copy-policy.js`.
+- The owner rules source is `docs/X_POST_OWNER_COPY_RULES_2026-10-12.md`. If a ChatGPT request has no persistent PASS bridge invocation, say so and do not imply Agent/learning/Hugging Face scoring was used. Learning means actual performance evidence, not autonomous retraining.
 - Add a promotion/discount line only when the promotion is currently approved and verified.
 
 For awareness/education posts, do not mechanically paste the full rental footer. Lead with utility; add a soft rental mention only if it naturally helps the reader.
@@ -231,3 +247,6 @@ When asked for any final KK social copy, generate three differentiated candidate
 ## Rollout rule
 
 Start manually. Capture real post results for 1–2 weeks before using performance history to materially narrow creative choices. Scale by evidence, not by component count.
+
+## Owner CTA update — 2026-10-14
+Owner requires **distinct natural, event-specific CTAs** for all X rental drafts. No repeated universal sentence like `👉 เลือกวันแล้วจองคิว` across every event. Anchor each CTA to the artist, fandom, show format, booking intent without dates while remaining short, professional, and conversion-oriented. Compare the final CTA and its lead-in across all posts and recent history; reject identical or near-duplicate CTA structures. Keep booking link `kk-phone-rental.vercel.app` unchanged, never repeat KK/shop name or phone model in CTA, and never invent scarcity, booking pressure or unverified benefits. This supersedes earlier fixed CTA guidance. **Staged Draft runtime owner-X validator V5 and batch CTA duplicate QA require exact-head CI/acceptance before Production**; documentation is not proof of live enforcement.

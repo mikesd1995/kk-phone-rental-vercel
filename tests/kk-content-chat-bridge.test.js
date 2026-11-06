@@ -16,21 +16,25 @@ function event(body=''){
 }
 
 function copy(hook){
-  return `📱 KK Phone Rental | #เช่ามือถือ
-
-🔥 #ExampleConcert
-
-${hook}
-
-🎤 vivo X300 Pro 690฿ | เพิ่ม Lens +200฿
-📍 3 ต.ค. | Example Hall
-
-💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ
-📍 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน
-☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน
-👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
-
-#ArtistExample`;
+  return [
+    '📱 KK Phone Rental | #เช่ามือถือ',
+    '',
+    '🔥 #ExampleConcert',
+    '',
+    hook,
+    '',
+    '🎤 vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
+    '📍 Example Hall',
+    '3 ต.ค. ✅ ว่าง',
+    '',
+    '💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ',
+    '📱 รับ-คืนหน้างาน + สอนใช้ก่อนเข้างาน',
+    '☁️ เก็บไฟล์ Google Drive ฟรี 30 วัน',
+    '👉 เลือกวันแล้วจองคิว',
+    'kk-phone-rental.vercel.app',
+    '',
+    '#ArtistExample #FandomExample #ExampleLive'
+  ].join('\n');
 }
 
 function metrics(overrides={}){
@@ -63,8 +67,13 @@ function payload(){
         verified_pricing:true,
         price_display:'vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
         inventory_available:true,
+        recent_context_checked:true,
+        day_statuses_verified:true,
+        event_dates_verified:true,
+        event_dates:['3 ต.ค.'],
+        day_statuses:[{date_label:'3 ต.ค.',status:'available'}],
         official_event_hashtag:'#ExampleConcert',
-        verified_hashtags:['#ExampleConcert','#ArtistExample','#เช่ามือถือ']
+        verified_hashtags:['#ExampleConcert','#ArtistExample','#FandomExample','#ExampleLive','#เช่ามือถือ']
       }
     },
     candidates:[
@@ -114,7 +123,7 @@ test('owner bridge runs five-Agent gateway, QA and selector and emits one winner
     }
   });
 
-  assert.equal(result.status,'PASS');
+  assert.equal(result.status,'PASS',JSON.stringify({blocker:result.blocker,gateway:result.gateway_status,finalization:result.finalization_gate,owner_x_errors:result.finalization&&result.finalization.owner_x_qa&&result.finalization.owner_x_qa.errors}));
   assert.equal(result.gateway_status,'READY_FOR_OWNER_REVIEW');
   assert.equal(result.finalization_gate,'PASS');
   assert.equal(result.qa_gate,'PASS');
@@ -136,8 +145,10 @@ test('owner bridge runs five-Agent gateway, QA and selector and emits one winner
 });
 
 test('bridge comment persists invocation evidence without exposing internal candidates',async()=>{
-  const result=await Bridge.runBridge({event:event(),payload:payload(),ledgerFn:async row=>({ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id})});
-  assert.equal(result.status,'PASS');
+  const result=await Bridge.runBridge({event:event(),payload:payload(),
+    ledgerFn:async row=>({ok:true,inserted:true,provider:'test',invocation_id:row.invocation_id})
+  });
+  assert.equal(result.status,'PASS',JSON.stringify({blocker:result.blocker,gateway:result.gateway_status,finalization:result.finalization_gate,owner_x_errors:result.finalization?.owner_x_qa?.errors,qa_errors:result.finalization?.qa?.errors,invocation:result.invocation?.invocation_id}));
   const comment=Bridge.buildComment(result);
   assert.match(comment,/KK Content Agent Bridge/);
   assert.match(comment,/Invocation:/);
