@@ -80,3 +80,25 @@ test('every-visible-modal browser QA verifies separate waitlist and lens inquiry
   assert.match(qa,/EXISTING_RENTER_LENS_INQUIRY_MISSING/);
   assert.match(qa,/LENS_FALSLY_NEW_PHONE_BOOKING/);
 });
+
+test('actual signed-LINE booking parser rejects all lens add-on enquiries, even with edited booking labels',()=>{
+  const Webhook=require('../server/line-booking-webhook')._test;
+  const start=source.indexOf('function buildExistingRenterLensMsg(');
+  const end=source.indexOf('function getExistingRenterLensUrl(',start);
+  assert.ok(start>0&&end>start);
+  const dictionary={line_event:'งาน',line_date:'วันที่',line_venue:'สถานที่'};
+  const ctx={tr:key=>dictionary[key]||key,lineVal:v=>String(v||''),currentLang:'th'};
+  vm.runInNewContext(source.slice(start,end),ctx,{timeout:300});
+  const message=ctx.buildExistingRenterLensMsg({
+    name:'Synthetic BTS Event',date:'03/12/2026',venue:'Demo Venue'
+  },{model:'ZEISS 2.35X'});
+  assert.match(message,/เลนส์ที่ต้องการ/);
+  assert.doesNotMatch(message,/(?:^|\n)[^\n]*(?:รุ่น|Model)\s*:/i);
+  assert.equal(Webhook.parseBookingText(message),null);
+  assert.equal(Webhook.parseBookingText(message+'\n📱 รุ่น: vivo X300 Pro'),null);
+  assert.equal(Webhook.parseBookingText(message+'\n💰 ราคา: 590 บาท'),null);
+  const genuine='สนใจเช่ามือถือ\n🎫 งาน: Synthetic BTS Event\n📅 วันที่: 03/12/2026\n📍 สถานที่: Demo Venue\n📱 รุ่น: vivo X300 Pro';
+  assert.ok(Webhook.parseBookingText(genuine),'ordinary phone inquiries must remain supported');
+  ctx.currentLang='en';
+  assert.match(ctx.buildExistingRenterLensMsg({name:'Synthetic BTS Event',date:'03/12/2026',venue:'Demo Venue'},{model:'ZEISS 2.35X'}),/Lens requested/);
+});
