@@ -77,7 +77,7 @@ test('Storefront event modal remains minimal while contextual LINE booking works
   assert.ok(storeJs.includes('var waitlisted=availCnt(c)<=0'));
   assert.ok(storeJs.includes('a.href=waitlisted?getWaitlistUrl(c,null):getEventInquiryUrl(c)'));
   assert.match(storeJs,/event_inquiry_click/);
-  assert.ok(storeHtml.includes('script.js?v=bilingual-legal-20261106'));
+  assert.ok(storeHtml.includes('script.js?v=phone-lens-safety-20261107'));
 });
 
 test('Public feed drops parseable past events by default and can opt into showPast',()=>{
