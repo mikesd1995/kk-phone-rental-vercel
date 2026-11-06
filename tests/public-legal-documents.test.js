@@ -9,6 +9,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 const publicPaths = ['/privacy/', '/terms/'];
+const allPublicPaths = [...publicPaths, '/en/privacy/', '/en/terms/'];
 const documentFile = pathname => path.join(root, pathname.slice(1), 'index.html');
 const attributes = source => Object.fromEntries(Array.from(source.matchAll(/([\w-]+)\s*=\s*(["'])(.*?)\2/gs), match => [match[1].toLowerCase(), match[3]]));
 
@@ -43,7 +44,7 @@ test('document routes remain outside the actual authenticated middleware matcher
   const context = { URL, Response, rewrite: () => { throw new Error('public document must not need an Admin rewrite'); } };
   vm.runInNewContext(source + '\nthis.matcher = config.matcher;', context);
   const rewrites = JSON.parse(read('vercel.json')).rewrites || [];
-  for (const pathname of publicPaths) {
+  for (const pathname of allPublicPaths) {
     assert.ok(fs.existsSync(documentFile(pathname)), `missing public document ${pathname}`);
     for (const pattern of context.matcher) {
       const base = pattern.replace(/\/:path\*$/, '');
@@ -53,19 +54,29 @@ test('document routes remain outside the actual authenticated middleware matcher
   }
 });
 
-for (const pathname of publicPaths) {
+for (const pathname of allPublicPaths) {
   test(`${pathname} provides readable content and working navigation with scripting disabled`, () => {
     assert.ok(fs.existsSync(documentFile(pathname)), `missing public document ${pathname}`);
     const html = fs.readFileSync(documentFile(pathname), 'utf8');
-    assert.match(html, /<html\b[^>]*\blang="th"/i);
+    const locale = pathname.startsWith("/en/") ? "en" : "th";
+    assert.match(html, new RegExp('<html\\b[^>]*\\blang="'+locale+'"', "i"));
     assert.match(html, /<meta\b[^>]*\bname="viewport"/i);
     assert.match(html, /<title>[^<]+<\/title>/i);
     assert.equal(Array.from(html.matchAll(/<h1\b/gi)).length, 1);
     assert.match(html, /<main\b[^>]*>[\s\S]*<\/main>/i);
     const links = Array.from(html.matchAll(/<a\b([^>]*)>/gi), match => attributes(match[1]));
-    for (const destination of ['/', ...publicPaths.filter(value => value !== pathname)]) {
-      assert.ok(links.some(link => link.href === destination), `missing cross-navigation to ${destination}`);
-    }
+    const routePrefix = locale === "en" ? "/en" : "";
+    const home = locale === "en" ? "/?lang=en" : "/?lang=th";
+    assert.ok(links.some(link => link.href === home), `missing language-preserving home link ${home}`);
+    const sibling = pathname.includes("/terms/") ? routePrefix + "/privacy/" : routePrefix + "/terms/";
+    assert.ok(links.some(link => link.href === sibling), `missing same-language policy link ${sibling}`);
+    const counterpart = locale === "en" ? pathname.replace(/^\\/en/, "") : "/en" + pathname;
+    assert.ok(links.some(link => link.href === counterpart), `missing TH/EN switch link ${counterpart}`);
+    const switcher = html.match(/<span class="legal-lang-switch"[^>]*>([\\s\\S]*?)<\\/span>/)?.[1] || "";
+    assert.match(switcher, /href="[^"]+"[^>]*>TH<\\/a>/);
+    assert.match(switcher, /href="[^"]+"[^>]*>EN<\\/a>/);
+    assert.match(html, new RegExp('rel="alternate" hreflang="'+locale+'"'));
+    assert.match(html, new RegExp('rel="alternate" hreflang="'+(locale === "en" ? "th" : "en")+'"'));
     assert.ok(links.some(link => link.href === 'https://line.me/R/ti/p/%40827blnmo'), 'public rights/contact route must work without scripting');
     const ids = Array.from(html.matchAll(/\bid="([^"]+)"/g), match => match[1]);
     assert.equal(new Set(ids).size, ids.length, 'duplicate anchor IDs');
@@ -82,6 +93,10 @@ for (const pathname of publicPaths) {
     for (const match of html.matchAll(/<(?:link|img|video|audio|source)\b([^>]*)>/gi)) {
       const attr = attributes(match[1]);
       if (attr.rel === 'canonical') continue; // Metadata is not a fetched subresource.
+      if (attr.rel === 'alternate' && ['en','th'].includes(attr.hreflang)) {
+        assert.match(attr.href || '', /^https:\/\/kk-phone-rental\.vercel\.app\/(?:en\/)?(?:privacy|terms)\/$/);
+        continue; // Same-domain hreflang metadata is not a fetched resource.
+      }
       const resource = attr.href || attr.src;
       if (!resource) continue;
       assert.ok(resource.startsWith('/') && !resource.startsWith('//'), `unexpected third-party resource ${resource}`);
@@ -123,4 +138,45 @@ test('public policies omit owner-system internals while preserving customer priv
   assert.match(privacy, /id="rights"/);
   assert.match(privacy, /id="retention"/);
   assert.match(privacy, /Google API Services User Data Policy/);
+});
+
+test('English policy pages are complete, same-version public translations without owner identifiers', () => {
+  const thTerms = read('terms/index.html');
+  const enTerms = read('en/terms/index.html');
+  const enPrivacy = read('en/privacy/index.html');
+  for (const id of ['booking','price','handover','changes','equipment','files','privacy','contact']) {
+    assert.match(thTerms, new RegExp('id="'+id+'"'));
+    assert.match(enTerms, new RegExp('id="'+id+'"'));
+  }
+  for (const id of ['contact','data','purposes','google','providers','browser','retention','rights','changes']) {
+    assert.match(enPrivacy, new RegExp('id="'+id+'"'));
+  }
+  assert.match(enTerms, /KK-TERMS-2026-11-06/);
+  assert.match(enTerms, /<time datetime="2026-11-06">6 November 2026<\/time>/);
+  assert.match(enTerms, /does not process a payment/);
+  assert.match(enTerms, /not evidence that you sent an acknowledgement/);
+  assert.match(enPrivacy, /Google API Services User Data Policy/);
+  assert.match(enPrivacy, /Limited Use/);
+  assert.match(enPrivacy, /rights and how to submit a request/i);
+  assert.match(enPrivacy, /@827blnmo/);
+  for (const text of [enTerms,enPrivacy]) {
+    assert.doesNotMatch(text, /(?:\\bSupabase\\b|\\bTelegram\\b|\\bMake\\b|client_secret|private_key)/i);
+  }
+});
+
+test('homepage language selection translates legal footer and agreement without changing checkbox safety', () => {
+  const html = read('index.html');
+  const script = read('script.js');
+  for (const id of ['kk-footer-customer-title','kk-footer-policies-title','kk-footer-terms-link','kk-footer-privacy-link','kk-booking-terms-check']) {
+    assert.match(html, new RegExp('id="'+id+'"'));
+  }
+  assert.match(script, /function applyPublicLegalLanguage\(\)/);
+  assert.match(script, /applyPublicLegalLanguage\(\);/);
+  assert.match(script, /currentLang==="en"/);
+  assert.match(script, /isEn\?"\/en\/terms\/"\:"\/terms\/"/);
+  assert.match(script, /isEn\?"\/en\/privacy\/"\:"\/privacy\/"/);
+  assert.match(script, /"I have read and accept "/);
+  assert.match(script, /"Accept and open LINE"/);
+  assert.match(script, /"TERMS_ACK:"|KK-TERMS-2026-11-06/);
+  assert.doesNotMatch(html, /id="kk-booking-terms-check"[^>]*checked/);
 });
