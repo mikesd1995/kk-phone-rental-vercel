@@ -7,13 +7,19 @@ const SourceRegistry=require('./kk-ultra-deep-source-registry.js');
 const Reconciliation=require('./kk-ultra-deep-reconciliation.js');
 const KnownMiss=require('./kk-ultra-deep-known-miss-regression.js');
 
-const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V16';
+const VERSION='KK_ULTRA_DEEP_RUNTIME_RUNNER_V17';
 const UNKNOWN_SEARCH_PROVIDERS=new Set(['LIVENATION_PUBLIC','BING_RSS','DDG_HTML','BING_HTML','SEARXNG','DDGS_TRAFILATURA','CRAWL4AI','EXA']);
 
 function text(v){return String(v==null?'':v).trim();}
 function attemptExecuted(attempt={}){
-  return UNKNOWN_SEARCH_PROVIDERS.has(text(attempt.provider).toUpperCase()) &&
+  const provider=text(attempt.provider).toUpperCase();
+  return (UNKNOWN_SEARCH_PROVIDERS.has(provider)||provider==='OFFICIAL_DIRECT')&&
     ['EVIDENCE_FOUND','NO_EVIDENCE'].includes(text(attempt.status).toUpperCase());
+}
+function directSourceVerified(task={},result={}){
+  if(!text(task.direct_url))return true;
+  return (Array.isArray(result.attempts)?result.attempts:[]).some(a=>
+    text(a.provider).toUpperCase()==='OFFICIAL_DIRECT'&&attemptExecuted(a));
 }
 function flattenCandidates(execution={}){
   const out=[];const seen=new Set();
@@ -43,11 +49,14 @@ function sourceUniverseReceipts(plan={},execution={}){
     const task=tasks[i];if(!task.source_id)continue;
     const result=results[i]||{};
     const attempts=Array.isArray(result.attempts)?result.attempts:[];
-    const executed=attempts.some(attemptExecuted);
+    const searched=attempts.some(attemptExecuted);
+    const directVerified=directSourceVerified(task,result);
+    const executed=searched&&directVerified;
     receipts.push({
       source_id:task.source_id,
       executed,
-      status:executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):'NOT_BOUND',
+      direct_source_verified:directVerified,
+      status:executed?(result.status==='EVIDENCE_FOUND'?'EVIDENCE_FOUND':'NO_EVIDENCE'):(searched&&!directVerified?'DIRECT_SOURCE_NOT_VERIFIED':'NOT_BOUND'),
       provider:result.provider||null
     });
   }
@@ -100,7 +109,7 @@ function buildKnownMissPlan(){
   };
 }
 
-const REFERENCE_EVENT_RE=/(concert|fan\s*-?\s*meet|fanmeet|fancon|fansign|showcase|festival|world\s+tour|live\s+in|award|premiere|birthday|คอนเสิร์ต|แฟนมีต|แฟนคอน|แฟนไซน์|โชว์เคส|เฟสติวัล|งานแฟน|อีเวนต์ศิลปิน)/i;
+const REFERENCE_EVENT_RE=/(concert|fan\s*-?\s*meet|fanmeet|fancon|fansign|showcase|festival|world\s+tour|live\s+in|award|premiere|birthday|คอนเสิร์ต|แฟนมีต|แฟนคอน|แฟนไซน์|โชว์เคส|เฟสติวัล|งานแฟน|อีเวนต์ศิลปิน|\bfan[\s-]*zone\b|\bijoy\b|แฟนโซน|พรมเขียว|brand[\s-]*ambassador|lucky[\s-]*fans?|top[\s-]*spender|artist[\s-]*appearance|ลัคกี้แฟน|เปิดตัวพรีเซนเตอร์)/i;
 const REFERENCE_NOISE_RE=/(\bcodes?\b|breathwork|masterclass|workshop|webinar|anniversary memories album|เกม|รหัสเกม)/i;
 const REFERENCE_FOREIGN_RE=/(hong\s+kong|singapore|kuala\s+lumpur|manila|jakarta|taipei|tokyo|osaka|seoul|ho\s+chi\s+minh|hanoi)/i;
 
@@ -269,10 +278,20 @@ async function runOperationalDiscovery(input={},options={}){
   proof.candidate_count=candidates.length;
   proof.has_evidence=candidates.length>0;
   const minimumExecuted=Math.min(3,proof.task_count);
-  const operationalReady=proof.has_evidence&&proof.executed_count>=minimumExecuted;
+  // Broad query success is not proof that required brand, mall, or platform
+  // searches actually ran. Do not give an operational READY on missing receipts.
+  const requiredSources=plan.gap_tasks.map((task,index)=>({task,index})).filter(x=>x.task.required===true);
+  const missingRequired=requiredSources.filter(({task,index})=>{
+    const result=(execution.results||[])[index]||{};
+    return !Array.isArray(result.attempts)||!result.attempts.some(attemptExecuted)||
+      !directSourceVerified(task,result)||
+      result.candidate_truncated===true||Number(result.dropped_unique_candidate_count)>0;
+  }).map(({task})=>task.source_id);
+  const operationalReady=proof.has_evidence&&proof.executed_count>=minimumExecuted&&missingRequired.length===0;
   const blockers=[
     ...(!proof.has_evidence?['OPERATIONAL_DISCOVERY_EMPTY']:[]),
-    ...(proof.executed_count<minimumExecuted?['OPERATIONAL_PROVIDER_EVIDENCE_INSUFFICIENT']:[])
+    ...(proof.executed_count<minimumExecuted?['OPERATIONAL_PROVIDER_EVIDENCE_INSUFFICIENT']:[]),
+    ...(missingRequired.length?['OPERATIONAL_REQUIRED_SOURCE_COVERAGE_MISSING']:[])
   ];
   return {
     version:VERSION,
@@ -289,6 +308,9 @@ async function runOperationalDiscovery(input={},options={}){
     candidates,
     task_count:proof.task_count,
     executed_task_count:proof.executed_count,
+    required_source_count:requiredSources.length,
+    required_source_executed_count:requiredSources.length-missingRequired.length,
+    missing_required_source_ids:missingRequired,
     execution_summary:summarizeExecution(execution),
     blockers,
     authoritative:false,
@@ -436,6 +458,6 @@ async function runMonthlyUltraDeep(input={},options={}){
 }
 
 module.exports={
-  VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,executionProof,flattenCandidates,sourceUniverseReceipts,
+  VERSION,UNKNOWN_SEARCH_PROVIDERS,attemptExecuted,directSourceVerified,executionProof,flattenCandidates,sourceUniverseReceipts,
   buildReferencePlan,buildKnownMissPlan,referenceScopeDecision,scopeReferenceCandidates,alignKnownMissReferences,recoverEligibleReferenceCandidates,summarizeExecution,providerPreflight,providerBindingState,runOperationalDiscovery,runMonthlyUltraDeep
 };

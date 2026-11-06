@@ -34,10 +34,77 @@ test('monthly discovery includes bounded broad fallbacks when exact month querie
 test('smart operational query plan stays intentionally small and leaves exhaustive coverage to audit',()=>{
  const r=P.buildOperational({month:'2026-10',location:'Bangkok Metropolitan Region Thailand'});
  assert.equal(r.mode,'SMART_OPERATIONAL');
- assert.equal(r.gap_tasks.length,16);
+ assert.equal(r.gap_tasks.length,20);
  assert.equal(r.operational_tiers.length,16);
  assert.equal(r.audit_required,true);
  assert.ok(r.gap_tasks.every(x=>x.source_id.startsWith('smart-')));
  assert.ok(r.gap_tasks.every(x=>x.query_variants.length<=3));
  assert.ok(r.gap_tasks.some(x=>x.providers.includes('LIVENATION_PUBLIC')));
+});
+
+test('daily bounded plan explicitly scans iQIYI FAN ZONE registrations through following month without paid providers',()=>{
+ const p=P.buildOperational({month:'2026-10',location:'Bangkok Thailand'});
+ const row=p.gap_tasks.find(x=>x.source_id==='smart-iqiyi-thailand-platform');
+ assert.ok(row);
+ assert.equal(row.required,true);
+ assert.equal(row.evidence_required,true);
+ assert.equal(row.direct_url,'https://x.com/iQIYI_Thailand');
+ assert.equal(row.stop_condition,'EXECUTE_AND_RECORD_RECEIPT');
+ assert.deepEqual(row.providers,['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML']);
+ assert.equal(row.date_window.start,'2026-10-01');
+ assert.equal(row.date_window.end,'2026-11-30');
+ assert.ok([row.query,...row.query_variants].some(x=>x.includes('November 2026')));
+ assert.ok([row.query,...row.query_variants].some(x=>x.includes('FAN ZONE')));
+ assert.ok(row.query_variants.length<=3);
+ assert.equal(p.production_writes,0);
+});
+
+test('daily plan requires brand-ambassador retailer, Lucky Fan and mall artist cross-month evidence',()=>{
+ const p=P.buildOperational({month:'2026-10',location:'Bangkok Thailand'});
+ const ids=['smart-brand-ambassador-retail','smart-retail-luckyfan-registration','smart-mall-artist-board'];
+ for(const id of ids){
+  const t=p.gap_tasks.find(x=>x.source_id===id);
+  assert.ok(t,id);
+  assert.equal(t.required,true);
+  assert.equal(t.evidence_required,true);
+  assert.equal(t.stop_condition,'EXECUTE_AND_RECORD_RECEIPT');
+  assert.equal(t.date_window.end,'2026-11-30');
+  assert.deepEqual(t.providers,['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML']);
+  assert.ok(t.query_variants.length<=3);
+ }
+ assert.ok(p.gap_tasks.find(x=>x.source_id==='smart-brand-ambassador-retail').query_variants.some(q=>/Ongredients/.test(q)));
+ assert.ok(p.gap_tasks.find(x=>x.source_id==='smart-retail-luckyfan-registration').query_variants.some(q=>/LOLANE/.test(q)));
+ const full=P.build({month:'2026-11'});
+ const source=full.gap_tasks.find(x=>x.source_id==='eveandboy-retail');
+ assert.ok(source);
+ assert.ok(source.query_variants.some(x=>x.includes('Ongredients')),'source-specific variants must survive monthly build');
+ assert.equal(source.direct_url,'https://x.com/EVEANDBOY');
+ assert.equal(full.production_writes,0);
+});
+
+test('December and January retail discovery never carries stale November 2026 fixed-month brand queries',()=>{
+ for(const [month,next] of [['2026-11','December 2026'],['2026-12','January 2027'],['2027-01','February 2027']]){
+  const plan=P.buildOperational({month,location:'Bangkok Thailand'});
+  const task=plan.gap_tasks.find(x=>x.source_id==='smart-retail-luckyfan-registration');
+  assert.ok(task,month);
+  assert.equal(task.date_window.end,P.leadTimeEnd(plan.range),month);
+  assert.ok(task.query_variants.some(x=>x.includes('brand ambassador purchase registration '+next)),month);
+  assert.ok(!task.query_variants.some(x=>x.includes('registration November 2026')&&next!=='November 2026'),month);
+  assert.deepEqual(task.providers,['OFFICIAL_DIRECT','BING_RSS','DDG_HTML','BING_HTML']);
+  assert.equal(task.required,true);
+  assert.equal(task.evidence_required,true);
+ }
+});
+
+test('future iQIYI fan-zone discovery uses the active next month and never freezes 2027 edition year or 400 seats',()=>{
+ for(const [month,next] of [['2026-11','December 2026'],['2026-12','January 2027'],['2027-01','February 2027']]){
+  const plan=P.buildOperational({month,location:'Bangkok Thailand'});
+  const task=plan.gap_tasks.find(x=>x.source_id==='smart-iqiyi-thailand-platform');
+  assert.ok(task,month);
+  assert.equal(task.required,true);
+  assert.equal(task.stop_condition,'EXECUTE_AND_RECORD_RECEIPT');
+  assert.equal(task.date_window.end,P.leadTimeEnd(plan.range));
+  assert.ok(task.query_variants.some(q=>q.includes(next)),month);
+  assert.ok(!task.query_variants.some(q=>q.includes('iQIYIiJOYTH2027')||q.includes('FAN ZONE 400')),month);
+ }
 });

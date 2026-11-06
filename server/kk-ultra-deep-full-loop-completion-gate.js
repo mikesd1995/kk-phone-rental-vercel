@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_FULL_LOOP_COMPLETION_GATE_V2';
+const VERSION='KK_ULTRA_DEEP_FULL_LOOP_COMPLETION_GATE_V3';
 const REQUIRED_STAGES=Object.freeze([
   'discovery','verification_dedup','commercial_pricing','poster',
   'storefront_comparison','governed_publish','production_readback','final_report'
@@ -36,9 +36,50 @@ function evaluateCandidate(candidate={},index=0){
   return {candidate_id:id,complete:blockers.length===0,blockers};
 }
 
+// A discovery audit can find an event days before the storefront accepts it.
+// Never accept a final report unless the exact dated identity is evidenced
+// in a read-back Candidate Queue or explicitly safe terminal disposition.
+// Date-only matches are forbidden: shared-date events have different owners/stock.
+function auditIdentity(row={}){
+ const id=text(row.event_id||row.event_key||row.candidate_id).toLowerCase();
+ const date=text(row.event_date||row.date);
+ const title=text(row.title||row.event_name||row.name).toLowerCase().replace(/[^a-z0-9\u0e00-\u0e7f]+/g,' ').trim();
+ return {id,date,title};
+}
+function auditQueueReconciliation(input={}){
+ const leads=Array.isArray(input.audit_discovery_leads)?input.audit_discovery_leads:[];
+ const required=input.discovery?.audit_required===true||leads.length>0;
+ const rawQueue=Array.isArray(input.candidate_queue_readback)?input.candidate_queue_readback:[];
+ const terminals=Array.isArray(input.terminal_dispositions)?input.terminal_dispositions:[];
+ const readback=input.candidate_queue_readback_verified===true;
+ const queue=rawQueue.map(auditIdentity);
+ const allowed=terminals.filter(r=>SAFE_TERMINAL_DISPOSITIONS.has(text(r.status).toUpperCase())).map(auditIdentity);
+ const unresolved=[],accounted=[];
+ const match=(row,expected)=>row.date===expected.date && (expected.id&&row.id?row.id===expected.id:!!(expected.title&&row.title===expected.title));
+ for(const lead of leads){
+  const key=auditIdentity(lead);
+  if(!key.date||(!key.id&&!key.title)) {
+   unresolved.push({event_id:key.id,event_date:key.date,reason:'AUDIT_LEAD_IDENTITY_INSUFFICIENT'});
+   continue;
+  }
+  const matchedRow=readback?rawQueue.find(q=>match(auditIdentity(q),key)):null;
+  const requiredVariants=Array.isArray(lead.required_access_variants)?lead.required_access_variants:[];
+  const actualVariants=Array.isArray(matchedRow?.access_variants)?matchedRow.access_variants:[];
+  const absentVariants=requiredVariants.filter(x=>!actualVariants.includes(x));
+  const safelyClosed=allowed.some(q=>match(q,key));
+  if((matchedRow&&absentVariants.length===0)||safelyClosed)
+   accounted.push({event_id:key.id,event_date:key.date,disposition:safelyClosed?'SAFE_TERMINAL_DISPOSITION':'CANDIDATE_QUEUE_READBACK'});
+  else unresolved.push({event_id:key.id,event_date:key.date,reason:!readback?'CANDIDATE_QUEUE_READBACK_NOT_VERIFIED':!matchedRow?'AUDIT_LEAD_NOT_IN_CANDIDATE_QUEUE':'ACCESS_VARIANT_COVERAGE_INCOMPLETE',missing_access_variants:absentVariants});
+ }
+ const complete=!required||(leads.length>0&&unresolved.length===0&&(readback||accounted.every(r=>r.disposition==='SAFE_TERMINAL_DISPOSITION')));
+ return {required,complete,lead_count:leads.length,readback_verified:readback,accounted_count:accounted.length,
+  missing_count:unresolved.length,unresolved,accounted};
+}
 function evaluate(input={}){
   const blockers=[];
   const discovery=input.discovery||{};
+  const audit_reconciliation=auditQueueReconciliation(input);
+  if(!audit_reconciliation.complete)blockers.push('AUDIT_LEAD_TO_CANDIDATE_RECONCILIATION_INCOMPLETE');
   if(!ok(discovery.full)||text(discovery.status).toUpperCase()!=='READY_FOR_VERIFIER') blockers.push('DISCOVERY_COVERAGE_NOT_FULL');
 
   const candidates=Array.isArray(input.candidates)?input.candidates:[];
@@ -71,6 +112,7 @@ function evaluate(input={}){
     completion_mode:completionMode,
     blockers:[...new Set(blockers)],
     required_stages:[...REQUIRED_STAGES],
+    audit_reconciliation,
     verified_candidate_count:verifiedCandidateCount,
     terminal_disposition_count:terminal.length,
     terminal_dispositions:terminal.map(row=>({event_key:text(row&&row.event_key),status:text(row&&row.status).toUpperCase()})),
@@ -79,4 +121,4 @@ function evaluate(input={}){
   };
 }
 
-module.exports={VERSION,REQUIRED_STAGES,SAFE_TERMINAL_DISPOSITIONS,evaluateCandidate,evaluate};
+module.exports={VERSION,REQUIRED_STAGES,SAFE_TERMINAL_DISPOSITIONS,auditIdentity,auditQueueReconciliation,evaluateCandidate,evaluate};

@@ -52,3 +52,69 @@ test('radio free music festivals and mall public plaza sources are mandatory',()
   assert.ok(a.some(x=>x.source_id===id&&x.required===true),id);
  }
 });
+
+test('iQIYI official Fan Zone and ICONSIAM routes are mandatory and cannot pass without an attempted receipt',()=>{
+ const sources=R.allSources();
+ const platform=sources.find(x=>x.source_id==='iqiyi-thailand-platform');
+ const venue=sources.find(x=>x.source_id==='iconsiam-hall');
+ assert.equal(platform.required,true);
+ assert.equal(platform.direct_url,'https://x.com/iQIYI_Thailand');
+ assert.ok(platform.search_terms.includes('#iQIYIiJOYTH2027'));
+ assert.equal(venue.direct_url,'https://www.iconsiamhall.com/en/event-calendar/event-list');
+ const p=R.buildUniversePlan({month:'2026-11'});
+ const task=p.tasks.find(x=>x.source_id==='iqiyi-thailand-platform');
+ assert.ok(task.query.includes('November 2026'));
+ assert.ok(task.query_variants.some(q=>q.includes('#iQIYIiJOYTH2027')));
+ assert.equal(task.direct_url,platform.direct_url);
+ const receipts=sources.filter(x=>x.source_id!=='iqiyi-thailand-platform').map(x=>({source_id:x.source_id,status:'NO_EVIDENCE',executed:true}));
+ const missing=R.buildUniverseProof(receipts);
+ assert.equal(missing.complete,false);
+ assert.ok(missing.missing_required_sources.includes('iqiyi-thailand-platform'));
+ const recovered=R.buildUniverseProof([...receipts,{source_id:'iqiyi-thailand-platform',status:'EVIDENCE_FOUND',executed:true}]);
+ assert.equal(recovered.complete,true);
+});
+
+test('brand and retailer source families remain required, with official partner query variants',()=>{
+ const ids=['eveandboy-retail','beautrium-retail','brand-ambassador-lucky-fan-family','retail-partner-crosspromotion'];
+ const plan=R.buildUniversePlan({month:'2026-11',location:'Bangkok Thailand'});
+ for(const id of ids){
+  const t=plan.tasks.find(x=>x.source_id===id);
+  assert.ok(t,id);
+  assert.equal(t.required,true,id);
+  assert.ok(t.query_variants.length>=2,id);
+ }
+ assert.equal(plan.tasks.find(x=>x.source_id==='eveandboy-retail').direct_url,'https://x.com/EVEANDBOY');
+ assert.ok(plan.tasks.find(x=>x.source_id==='eveandboy-retail').query_variants.some(q=>q.includes('Ongredients')));
+ const reports=R.allSources().filter(x=>x.source_id!=='retail-partner-crosspromotion').map(x=>({source_id:x.source_id,executed:true,status:'NO_EVIDENCE'}));
+ const proof=R.buildUniverseProof(reports);
+ assert.equal(proof.complete,false);
+ assert.ok(proof.missing_required_sources.includes('retail-partner-crosspromotion'));
+});
+
+test('official-source plans execute direct URL before brand/indexed query evidence instead of equating a search with a visit',()=>{
+ const plan=R.buildUniversePlan({month:'2026-11',location:'Bangkok Thailand'});
+ for(const id of ['iqiyi-thailand-platform','eveandboy-retail','beautrium-retail','iconsiam-hall','gmmtv']){
+  const t=plan.tasks.find(x=>x.source_id===id);
+  assert.ok(t?.direct_url,id);
+  assert.equal(t.providers[0],'OFFICIAL_DIRECT');
+  assert.equal(t.stop_condition,'EXECUTE_AND_RECORD_RECEIPT');
+  assert.ok(t.providers.includes('BING_RSS'));
+  assert.equal(t.providers.includes('EXA'),false,'required official-source checks cannot consume paid Exa credits');
+  assert.equal(t.required,true);
+ }
+ const generic=plan.tasks.find(t=>t.source_id==='retail-partner-crosspromotion');
+ assert.equal(generic.direct_url,null);
+ assert.notEqual(generic.providers[0],'OFFICIAL_DIRECT');
+});
+
+test('GMMTV entertainment launch uses first-party official account not generic concert-only search',()=>{
+ const s=R.allSources().find(x=>x.source_id==='gmmtv');
+ assert.equal(s.direct_url,'https://x.com/GMMTV');
+ assert.ok(s.search_terms.some(x=>x.includes('GMMTVNEXT')));
+ assert.ok(s.search_terms.some(x=>x.includes('register.gmm-tv.com')));
+ const plan=R.buildUniversePlan({month:'2026-11'});
+ const t=plan.tasks.find(x=>x.source_id==='gmmtv');
+ assert.ok(t.providers.includes('OFFICIAL_DIRECT'));
+ assert.ok(t.query_variants.some(x=>x.includes('GMMTVNEXT')));
+ assert.ok(t.required);
+});

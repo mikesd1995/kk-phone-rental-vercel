@@ -6,7 +6,7 @@ const DetailFollowup=require('./kk-public-event-detail-followup.js');
 const OneBangkok=require('./kk-onebangkok-event-detail.js');
 const {createHash}=require('node:crypto');
 
-const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V12';
+const VERSION='KK_ULTRA_DEEP_PUBLIC_WEB_ADAPTERS_V15';
 const MAX_BYTES=1024*1024;
 const DEFAULT_TIMEOUT_MS=12000;
 const DEFAULT_SEARXNG_ENDPOINT='';
@@ -149,8 +149,37 @@ async function fetchPage(url,options={}){
  }
 }
 async function officialDirect(task={},options={}){
- const urls=[task.source_url,...(Array.isArray(task.seed_urls)?task.seed_urls:[])].map(https).filter(Boolean).slice(0,10);
- const out=[];for(const url of urls){try{const body=await fetchPage(url,options);out.push(candidateFromPage(url,body,task));}catch(_){}}
+ // The required canonical organizer profile is always read first. A mirror
+ // or optional seed succeeding must not mask a 403/404/timeout on direct_url.
+ const canonical=https(task.direct_url);
+ const urls=[...new Set([task.direct_url,task.source_url,...(Array.isArray(task.seed_urls)?task.seed_urls:[])].map(https).filter(Boolean))].slice(0,10);
+ if(!urls.length){
+  const error=new Error('OFFICIAL_DIRECT_NO_HTTPS_URL');
+  error.code='OFFICIAL_DIRECT_NO_HTTPS_URL';throw error;
+ }
+ const out=[];let lastError,successfulFetches=0;
+ for(const url of urls){
+  try{
+   const body=await fetchPage(url,options);
+   successfulFetches++;
+   const candidate=candidateFromPage(url,body,task);
+   // A fetched brand homepage is a source visit, not an event. A required
+   // direct profile cannot generate an event lead without a dated identity.
+   if(task.required===true&&canonical&&(!candidate.title||!candidate.event_date))continue;
+   out.push(candidate);
+  }catch(error){
+   // Fail closed on the declared first-party URL, even if a secondary seed
+   // could otherwise return unrelated evidence.
+   if(canonical&&url===canonical)throw error;
+   lastError=error;
+  }
+ }
+ if(!out.length&&successfulFetches>0)return []; // HTTP 200, but no dated event candidate.
+ if(!out.length){
+  const error=new Error('OFFICIAL_DIRECT_ALL_FETCHES_FAILED');
+  error.code=(lastError&&lastError.code)||'OFFICIAL_DIRECT_ALL_FETCHES_FAILED';
+  throw error;
+ }
  return out;
 }
 async function rssOrPublicFeed(task={},options={}){
