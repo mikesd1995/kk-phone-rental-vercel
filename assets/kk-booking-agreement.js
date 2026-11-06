@@ -87,6 +87,8 @@
       return;
     }
     if (event.key !== 'Tab') return;
+    // Prevent the underlying package modal from stealing the focus trap.
+    event.stopImmediatePropagation();
     var focusable = Array.prototype.slice.call(dialog.querySelectorAll('a[href], input:not([disabled]), button:not([disabled])'))
       .filter(function (el) { return el.getClientRects().length > 0; });
     if (!focusable.length) { event.preventDefault(); return; }
