@@ -1592,7 +1592,7 @@ function buildExistingRenterLensMsg(c,p){
     "🎫 "+tr("line_event")+": "+lineVal(c&&c.name),
     "📅 "+tr("line_date")+": "+lineVal(c&&c.date),
     "📍 "+tr("line_venue")+": "+lineVal(c&&c.venue),
-    "🔭 "+tr("line_package")+": "+lineVal(p&&p.model),
+    "🔭 "+(currentLang==="en"?"Lens requested":"เลนส์ที่ต้องการ")+": "+lineVal(p&&p.model),
     "🔖 รหัสจองมือถือเดิม: ",
     "",
     "✅ ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental (KK-TERMS-2026-11-06)",
