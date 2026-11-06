@@ -27,6 +27,7 @@ on:
       - 'config/kk-storefront-v5-screenshot-review.json'
       - 'config/kk-storefront-ux-policy.json'
       - 'scripts/storefront-visual-acceptance.mjs'
+      - 'scripts/qa/storefront-all-visible-modals.cjs'
       - '.github/workflows/storefront-visual-qa.yml'
       - 'tests/storefront-visual-qa-automation.test.js'
       - 'tests/kk-storefront-art-director.test.js'
