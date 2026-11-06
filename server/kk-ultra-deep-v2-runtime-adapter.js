@@ -1,9 +1,10 @@
 'use strict';
 const Production=require('./kk-ultra-deep-production-runtime.js');
 const Rent=require('./kk-ultra-deep-rentability-score.js');
+const AwardAccess=require('./kk-ultra-deep-award-zone-access.js');
 const V2=require('./kk-ultra-deep-full-loop-v2.js');
 const Requal=require('./kk-ultra-deep-storefront-requalification.js');
-const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V3';
+const VERSION='KK_ULTRA_DEEP_V2_RUNTIME_ADAPTER_V4';
 function text(v){return String(v==null?'':v).trim();}
 function statusActive(v){return !['cancelled','canceled','no_show'].includes(text(v).toLowerCase());}
 function bookingCountForEvent(snapshot,eventId){return (snapshot.bookings||[]).filter(b=>statusActive(b.booking_status)&&text(b.event_id)===text(eventId)).length;}
@@ -49,7 +50,12 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
    kk_inquiry_count:signalValue(candidate,'kk_inquiry_count',null),
    kk_revenue:signalValue(candidate,'kk_revenue',null)
  };
- const qualification=existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0,internal_business_signals_affect_score:false}:Rent.qualify(scoring);
+ const access=AwardAccess.evaluate(candidate);
+ const marketQualification=existing?null:Rent.qualify(scoring);
+ const qualification=existing?{decision:'EXISTING_CANONICAL_MAINTENANCE',production_writes:0,internal_business_signals_affect_score:false}:
+  (!access.access_clearance&&marketQualification.decision!=='NO_CAPACITY'?
+   {...marketQualification,external_market_decision:marketQualification.decision,decision:'VERIFY_ACCESS',publish_eligible:false,award_access:access}:
+   {...marketQualification,award_access:access});
  const requalification=existing?Requal.requalify({
    external_scoring:scoring,
    active_booking_count:bookingCountForEvent(snapshot,existing.event_id),
@@ -75,7 +81,7 @@ function normalizeCandidate(candidate,snapshot,commercialRow={}){
   current_venue:existing&&text(existing.venue)||'',verified_venue:text(candidate.venue),venue_change_verified:!!existing&&!!text(candidate.venue)&&text(existing.venue)!==text(candidate.venue),
   current_poster_url:existing&&text(existing.poster_image_url)||'',latest_official_poster_url:poster&&text(poster.image_url)||'',latest_official_poster_verified:!!poster,
   exact_event_verified:true,governed_fallback_price:proposal.proposal_available?Number(proposal.proposed_reference_price)||null:null,
-  rentability:qualification,storefront_requalification:requalification,external_scoring:scoring,available_inventory:available
+  rentability:qualification,award_access:access,storefront_requalification:requalification,external_scoring:scoring,available_inventory:available
  };
 }
 function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
@@ -86,7 +92,8 @@ function buildReadOnlyPlan({month,candidates=[],snapshot={},commercial={}}={}){
    event_key:c.event_key,title:c.title,decision:c.rentability.decision,
    score:c.rentability.rentability&&c.rentability.rentability.total,
    tier:c.rentability.rentability&&c.rentability.rentability.tier,
-   signal_coverage:c.rentability.signal_coverage||null
+   signal_coverage:c.rentability.signal_coverage||null,
+   award_access:c.award_access||null
  }));
  const plan=V2.buildPlan({month,candidates:selected});
  return {
