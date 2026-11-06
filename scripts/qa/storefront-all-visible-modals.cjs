@@ -98,20 +98,30 @@ async function inspectViewport(browser,{width,height,lang},fixtures,knownVisible
         if((modal?.textContent||'').includes('OFFICIAL=https://') ||
            (modal?.textContent||'').includes('POLICY_MIRROR=https://'))
           failures.push('RAW_SOURCE_EVIDENCE_LEAK');
-        const expected=availPkgs(event);
+        const allAvailable=availPkgs(event);
+        const phoneFull=availCnt(event)<=0;
+        const expected=phoneFull?[]:allAvailable;
         const packages=Array.from(content?.querySelectorAll('.phone-row')||[]);
         if(packages.length!==expected.length)failures.push('PACKAGE_COUNT_MISMATCH');
         for(let i=0;i<expected.length;i++){
           const pkg=expected[i],row=packages[i],btn=row?.querySelector('a.book-pill');
           if(row?.querySelector('.ph-model')?.textContent!==pkg.model)failures.push('PACKAGE_MODEL_'+i);
           if(!row?.querySelector('.ph-price')?.textContent.trim())failures.push('PACKAGE_PRICE_'+i);
-          if(!btn||btn.getAttribute('href')!==getBookingUrl(event,pkg))failures.push('BOOKING_HREF_'+i);
+          const expectedUrl=pkg.type==="lens_only"
+            ? getExistingRenterLensUrl(event,pkg):getBookingUrl(event,pkg);
+          if(!btn||btn.getAttribute('href')!==expectedUrl)failures.push('PACKAGE_HREF_'+i);
           if(btn&&!btn.href.startsWith('https://line.me/'))failures.push('BOOKING_DESTINATION_'+i);
         }
-        if(!expected.length){
-          const wait=content?.querySelector('a.waitlist-line-btn');
-          if(!wait||wait.getAttribute('href')!==getWaitlistUrl(event,null))
-            failures.push('WAITLIST_HREF');
+        if(phoneFull || !expected.length){
+          const buttons=Array.from(content?.querySelectorAll('a.waitlist-line-btn')||[]);
+          const wait=buttons.find(link=>link.getAttribute('href')===getWaitlistUrl(event,null));
+          if(!wait)failures.push('PHONE_FULL_WAITLIST_MISSING');
+          const lens=allAvailable.find(p=>p.type==="lens_only");
+          const addOn=lens?buttons.find(link=>link.getAttribute('href')===getExistingRenterLensUrl(event,lens)):null;
+          if(lens && !addOn)failures.push('EXISTING_RENTER_LENS_INQUIRY_MISSING');
+          if(lens && buttons.some(link=>link.getAttribute('href')===getBookingUrl(event,lens)))
+            failures.push('LENS_FALSLY_NEW_PHONE_BOOKING');
+          if(!lens && buttons.length!==1)failures.push('UNEXPECTED_FULL_ACTION');
         }
         document.getElementById('modal-close').click();
         if(overlay?.classList.contains('active'))failures.push('MODAL_NOT_CLOSED');
