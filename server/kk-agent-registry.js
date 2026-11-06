@@ -1,6 +1,6 @@
 'use strict';
 
-const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V29';
+const REGISTRY_VERSION = 'KK_AGENT_REGISTRY_V30';
 
 const AGENTS = Object.freeze({
   'kk-discovery-scanner': Object.freeze({
@@ -33,6 +33,14 @@ const AGENTS = Object.freeze({
     surface: 'AGENT_GATEWAY',
     production_writes: 0,
     note: 'No-drop reconciliation and governed storefront promotion are callable. Promotion can only execute an approved READY_FOR_GOVERNED_ADMIN_CREATE plan through the existing authenticated Admin createEvent guard.'
+  }),
+  'kk-owner-poster-ops': Object.freeze({
+    version: 'KK_OWNER_POSTER_OPS_V1',
+    authority: 'OWNER_POSTER_ONLY_READ_ONLY_PLAN_AND_ACCEPTANCE',
+    runtime_state: 'CALLABLE_PLAN_AND_READBACK_ONLY',
+    surface: 'AGENT_GATEWAY',
+    production_writes: 0,
+    note: 'Validates exact event/date, immutable Drive file ID, owner authority and three-stage poster readback. Advisory only: actual owner-authorized exact-field Sheet update must use a connected governed writer. No price, booking, inventory, visibility or deployment mutations.'
   }),
   'kk-canary-safety': Object.freeze({
     version: '2026-09-27',
@@ -197,6 +205,15 @@ const ROUTES = Object.freeze({
     runtime_available: true,
     owner_review_required: true,
     persistent_invocation_evidence_required: true
+  }),
+  owner_poster_update: Object.freeze({
+    route_id:'OWNER_STOREFRONT_POSTER_UPDATE',
+    request_type:'OWNER_POSTER_ONLY_UPDATE_PLAN_AND_ACCEPTANCE',
+    required_agents:Object.freeze(['kk-owner-poster-ops','kk-reliability-learning']),
+    downstream_agents:Object.freeze([]),
+    runtime_available:true,
+    owner_review_required:true,
+    persistent_invocation_evidence_required:true
   }),
   storefront_design_council: Object.freeze({ route_id:'STOREFRONT_DESIGN_COUNCIL', request_type:'STOREFRONT_DESIGN_COUNCIL', required_agents:Object.freeze(['kk-storefront-art-director','kk-storefront-ux-reviewer','kk-storefront-conversion-reviewer','kk-storefront-fandom-reviewer','kk-storefront-accessibility-reviewer','kk-storefront-performance-reviewer','kk-storefront-visual-critic']), downstream_agents:Object.freeze([]), runtime_available:true, owner_review_required:true, persistent_invocation_evidence_required:true }),
   storefront_design_council_acceptance: Object.freeze({ route_id:'STOREFRONT_DESIGN_COUNCIL_ACCEPTANCE', request_type:'STOREFRONT_DESIGN_COUNCIL_ACCEPTANCE', required_agents:Object.freeze(['kk-storefront-art-director','kk-storefront-ux-reviewer','kk-storefront-conversion-reviewer','kk-storefront-fandom-reviewer','kk-storefront-accessibility-reviewer','kk-storefront-performance-reviewer','kk-storefront-visual-critic']), downstream_agents:Object.freeze([]), runtime_available:true, owner_review_required:true, persistent_invocation_evidence_required:true }),
@@ -580,6 +597,7 @@ function publicRegistry() {
       'Legacy verify_event remains disabled; governed storefront create is exposed only through execute_storefront_promotion after READY_FOR_GOVERNED_ADMIN_CREATE.',
       'hf_event_assist remains nonauthoritative and may be skipped unless HF_EVENT_ASSIST_ENABLED and scanner evidence gates pass.',
       'Operating Partner Phase 1 is callable but not yet a scheduled autonomous daily runner; live signal collectors must be wired deliberately before proactive delivery.',
+      'Owner poster update agent is plan/readback-only. Explicit owner-approved connector write is still required between planning and acceptance; do not describe its plan as completed production update.',
       'Storefront UX Reviewer consumes supplied viewport/layout metrics and screenshot observations; browser visual evidence remains required for final visual acceptance.',
       'All post-generation routes that enter this gateway now require Marketing → Strategy → Content → QA → Selector and a single-winner contract. X posting-plan requests are auto-detected as x_posting_plan inside the gateway and invoke the Marketing Agent with persistent evidence. External chat surfaces still must call this private gateway rather than bypass it.'
     ]

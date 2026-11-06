@@ -495,6 +495,50 @@
         "skip commercial/poster/storefront evidence because discovery is FULL",
         "claim production completion before exact readback"
       ]
+    },
+    {
+      "id": "OWNER_POSTER_UPDATE_REPEATED_HANDOFF",
+      "severity": "P1",
+      "domains": [
+        "storefront",
+        "owner_ops",
+        "agent_routing",
+        "reliability"
+      ],
+      "known_recurrence": true,
+      "root_cause_confidence": "PROVEN",
+      "match": {
+        "codes": [
+          "OWNER_POSTER_UPDATE_REPEATED_HANDOFF",
+          "POSTER_UPDATE_WRONGLY_DECLINED"
+        ],
+        "phrases_any": [
+          "poster update repeated",
+          "asked to replace poster again",
+          "poster tool access incorrectly denied",
+          "เปลี่ยนโปสเตอร์ต้องสั่งซ้ำ"
+        ],
+        "phrases_all": [
+          "poster",
+          "repeat"
+        ]
+      },
+      "known_repair": "On the FIRST explicit owner poster-replacement request, resolve already-attached originals, exact event/date, existing Drive/Sheets tools and docs/OWNER_POSTER_UPDATE_RUNBOOK.md. Use owner_poster_update advisory agent for identity/readback gates, then execute only owner-authorized poster field writes through connected governed tools. Upload immutable new Drive IDs; exact Core + Web Ready + production feed + visual acceptance. Do not demand repeat instructions or claim unsupported before checking connected tool access.",
+      "regression_guards": [
+        "owner poster update route exists and invokes poster/reliability advisors with an evidence ledger",
+        "plan rejects wrong event/date, repeated ID, missing original and stale Drive ID",
+        "owner-authorized connector writes only exact poster_image_url field",
+        "source and derived sheet readback agree on fresh Drive ID",
+        "report BACKEND_DONE_BUT_VISUAL_UNVERIFIED until rendered production evidence",
+        "one command supports multiple mapped posters without repeated owner prompt"
+      ],
+      "never_do": [
+        "insist the owner repeat already clear authorization",
+        "claim writes are impossible without checking connected tools",
+        "overwrite the old Drive file ID",
+        "treat advisory plan or sheet readback as rendered production visual proof",
+        "edit booking, price, availability, owner-hidden state or unrelated rows"
+      ]
     }
   ]
 }
