@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_CONTENT_QA_GATE_V3';
+const VERSION='KK_CONTENT_QA_GATE_V4';
 const SAFETY=Object.freeze({authority:'READ_ONLY_VALIDATOR',production_writes:0,publishes:0,human_approval_required:true});
 const NEAR_DUPLICATE_THRESHOLD=0.78;
 const RECENT_REPEAT_THRESHOLD=0.82;
@@ -55,7 +55,18 @@ function validateBusinessCritical(post,input={}){
    const price=text(input.price_display);
    if(!price) errors.push('PRICE_DISPLAY_MISSING');
    else if(occurrences(p,price)!==1) errors.push(occurrences(p,price)===0?'VERIFIED_PRICE_NOT_IN_COPY':'DUPLICATE_PRICE_BLOCK');
-   if(!/👉\s*จองคิว\s*\/\s*เช็กคิวว่าง/.test(p)||!p.includes(BOOKING_HOST))errors.push('BOOKING_CTA_MISSING');
+   const strictCta=text(input.cta_style)==='lead_then_book_link';
+   const lines=p.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+   if(strictCta){
+     const idx=lines.findIndex(line=>/^👉\s*จองเลย\s*:\s*https:\/\/kk-phone-rental\.vercel\.app\/?$/u.test(line));
+     if(idx<1)errors.push('BOOKING_CTA_CANONICAL_LINE_MISSING');
+     else{
+       const lead=lines[idx-1];
+       if(lead.length<18||/^(?:💙|📱|☁️|🎁|📸|📍|#|https?:)/u.test(lead)||/^\d{1,2}\s*(?:ต\.ค\.|พ\.ย\.|ธ\.ค\.)/u.test(lead))errors.push('BOOKING_CTA_LEAD_MISSING');
+       for(const d of dateTokens(input)){if(d&&occurrences(lead,d)>0)errors.push('BOOKING_CTA_LEAD_HAS_DATE:'+d);}
+     }
+     if(/(?:เหลือ|คงเหลือ)\s*\d+\s*เครื่อง/u.test(p))errors.push('INVENTORY_COUNT_IN_PUBLIC_COPY');
+   }else if(!/👉\s*จองคิว\s*\/\s*เช็กคิวว่าง/.test(p)||!p.includes(BOOKING_HOST))errors.push('BOOKING_CTA_MISSING');
    if(input.require_date_venue_copy!==false){
      for(const d of dateTokens(input)){if(occurrences(p,d)===0)errors.push('DATE_NOT_IN_COPY:'+d);}
      for(const v of venueTokens(input)){if(occurrences(p,v)===0)errors.push('VENUE_NOT_IN_COPY:'+v);}
