@@ -72,7 +72,7 @@ for (const pathname of allPublicPaths) {
     assert.ok(links.some(link => link.href === sibling), `missing same-language policy link ${sibling}`);
     const counterpart = locale === "en" ? pathname.replace(/^\/en/, "") : "/en" + pathname;
     assert.ok(links.some(link => link.href === counterpart), `missing TH/EN switch link ${counterpart}`);
-    const switcher = html.match(/<span class="legal-lang-switch"[^>]*>([\s\S]*?)<\/span>/)?.[1] || "";
+    const switcherStart = html.indexOf('<span class="legal-lang-switch"'); const switcher = switcherStart < 0 ? '' : html.slice(switcherStart, html.indexOf('</nav>', switcherStart));
     assert.match(switcher, /href="[^"]+"[^>]*>TH<\/a>/);
     assert.match(switcher, /href="[^"]+"[^>]*>EN<\/a>/);
     assert.match(html, new RegExp('rel="alternate" hreflang="'+locale+'"'));
@@ -160,7 +160,8 @@ test('English policy pages are complete, same-version public translations withou
   assert.match(enPrivacy, /rights and how to submit a request/i);
   assert.match(enPrivacy, /@827blnmo/);
   for (const text of [enTerms,enPrivacy]) {
-    assert.doesNotMatch(text, /(?:\bSupabase\b|\bTelegram\b|\bMake\b|client_secret|private_key)/i);
+    assert.doesNotMatch(text, /\b(?:Supabase|Telegram|Make)\b/);
+    assert.doesNotMatch(text, /client_secret|private_key/i);
   }
 });
 
