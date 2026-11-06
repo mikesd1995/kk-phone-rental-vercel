@@ -1,0 +1,54 @@
+name: KK X Premium Copy Regression (Zero Install)
+
+on:
+  pull_request:
+    paths:
+      - 'server/kk-x-owner-copy-policy.js'
+      - 'server/kk-content-qa-gate.js'
+      - 'server/kk-content-batch-qa.js'
+      - 'server/kk-content-request-router.js'
+      - 'tests/kk-x-owner-copy-policy.test.js'
+      - 'tests/kk-content-chat-bridge.test.js'
+      - 'tests/kk-content-batch-chat-bridge.test.js'
+      - 'tests/kk-content-creative-freedom.test.js'
+      - 'tests/kk-content-intelligence.test.js'
+      - 'server/kk-content-agent.js'
+      - 'config/kk-project-memory.json'
+      - 'docs/X_POST_OWNER_COPY_RULES_2026-10-12.md'
+      - '.github/workflows/kk-x-premium-copy-zero-install.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  x-owner-copy-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout exact PR source without stored credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact SHA and zero-install runtime
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node --version
+          test -z "${VERCEL_TOKEN:-}"
+          test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
+      - name: Verify Project Memory schema before Agent execution
+        run: |
+          node scripts/kk-project-memory-bootstrap.js content agent_orchestration > /tmp/kk-x-owner-memory.json
+          node -e "const p=require('/tmp/kk-x-owner-memory.json'); if(p.status!=='READY'||!p.context||!p.context.length) process.exit(1)"
+      - name: Run owner X Premium copy and bridge tests
+        run: |
+          node --test \
+            tests/kk-x-owner-copy-policy.test.js \
+            tests/kk-content-chat-bridge.test.js \
+            tests/kk-content-batch-chat-bridge.test.js \
+            tests/kk-content-creative-freedom.test.js \
+            tests/kk-content-intelligence.test.js

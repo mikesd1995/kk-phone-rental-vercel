@@ -17,8 +17,14 @@ const input={
   verified_pricing:true,
   price_display:'vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
   inventory_available:true,
+  recent_context_checked:true,
+  recent_posts:[],
+  event_dates_verified:true,
+  event_dates:['3 ต.ค.'],
+  day_statuses_verified:true,
+  day_statuses:[{date_label:'3 ต.ค.',status:'available'}],
   official_event_hashtag:'#ExampleConcert',
-  verified_hashtags:['#ExampleConcert','#ArtistExample','#เช่ามือถือ']
+  verified_hashtags:['#ExampleConcert','#ArtistExample','#FandomExample','#ExampleLive','#เช่ามือถือ']
 };
 
 function metrics(overrides={}){
@@ -40,20 +46,24 @@ function metrics(overrides={}){
 }
 
 function flexiblePost(hook){
- return `📱 KK Phone Rental | #เช่ามือถือ
-
-${hook}
-
-💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ
-
-🎤 vivo X300 Pro 690฿ | เพิ่ม Lens +200฿
-
-🔥 #ExampleConcert
-📍 3 ต.ค. | Example Hall
-
-👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
-
-#ArtistExample`;
+ return [
+   '📱 KK Phone Rental | #เช่ามือถือ',
+   '',
+   hook,
+   '',
+   '💙 ฟรีประกันเครื่อง + ไม่ต้องวางมัดจำ',
+   '',
+   '🎤 vivo X300 Pro 690฿ | เพิ่ม Lens +200฿',
+   '',
+   '🔥 #ExampleConcert',
+   '📍 Example Hall',
+   '3 ต.ค. ✅ ว่าง',
+   '',
+   '👉 เลือกวันแล้วจองคิว',
+   'kk-phone-rental.vercel.app',
+   '',
+   '#ArtistExample #FandomExample #ExampleLive'
+ ].join('\n');
 }
 
 test('creative paragraph order can vary when business-critical facts remain correct',()=>{
@@ -82,12 +92,12 @@ test('commercial copy blocks when verified price/date/venue or CTA is missing',(
   assert.equal(r1.gate,'BLOCKED');
   assert.match(r1.errors.join('|'),/VERIFIED_PRICE_NOT_IN_COPY/);
 
-  const missingVenue=flexiblePost('Hook venue').replace(' | Example Hall','');
+  const missingVenue=flexiblePost('Hook venue').replace('📍 Example Hall','');
   const r2=Qa.validatePost(missingVenue,input);
   assert.equal(r2.gate,'BLOCKED');
   assert.match(r2.errors.join('|'),/VENUE_NOT_IN_COPY/);
 
-  const missingCta=flexiblePost('Hook CTA').replace('👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/\n\n','');
+  const missingCta=flexiblePost('Hook CTA').replace('👉 เลือกวันแล้วจองคิว\n','');
   const r3=Qa.validatePost(missingCta,input);
   assert.equal(r3.gate,'BLOCKED');
   assert.match(r3.errors.join('|'),/BOOKING_CTA_MISSING/);
@@ -103,33 +113,11 @@ test('recent-copy near duplicate is blocked while fresh event-specific hook pass
   assert.equal(fresh.gate,'PASS');
 });
 
-test('finalizer accepts three structurally different factual candidates and returns one winner',()=>{
+test('finalizer accepts three distinct owner-policy candidates and returns one winner',()=>{
   const candidates=[
     {id:'a',angle:'event_theme',copy:flexiblePost('ธีมงานรอบนี้มีภาพจำชัดตั้งแต่โปสเตอร์ ใครชอบเก็บบรรยากาศรอบเวทีน่าจะมีช็อตให้เล่นเยอะ'),metrics:metrics({hook_strength:86})},
-    {id:'b',angle:'fandom',copy:`📱 KK Phone Rental | #เช่ามือถือ
-
-🔥 #ExampleConcert
-
-คืนนี้ไม่ได้มีแค่เวที แต่มีโมเมนต์ที่แฟนรอกันทั้งงาน ✨
-
-📍 3 ต.ค. | Example Hall
-
-🎤 vivo X300 Pro 690฿ | เพิ่ม Lens +200฿
-
-ใครอยากเก็บทั้งรีแอคชันและช่วงบนเวทีแบบไม่รีบค่อย ๆ เตรียมเครื่องไว้ก่อนวันงาน
-
-👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
-#ArtistExample`,metrics:metrics({hook_strength:94,event_specificity:97,naturalness:96,non_template_feel:96,hook_originality:95})},
-    {id:'c',angle:'trust',copy:`📱 KK Phone Rental | #เช่ามือถือ
-
-🎤 vivo X300 Pro 690฿ | เพิ่ม Lens +200฿
-
-3 ต.ค. | Example Hall
-
-งาน #ExampleConcert รอบนี้ใครอยากลดเรื่องวุ่นวายก่อนเข้าฮอลล์ ร้านเตรียมเครื่องและสอนใช้ให้ก่อนเข้าได้เลย
-
-👉 จองคิว / เช็กคิวว่าง https://kk-phone-rental.vercel.app/
-#ArtistExample`,metrics:metrics({hook_strength:82,naturalness:88,non_template_feel:86})}
+    {id:'b',angle:'fandom',copy:flexiblePost('คืนนี้ไม่ได้มีแค่เวที แต่มีช่วงพิเศษที่แฟน ๆ ตั้งตารอ แรงเชียร์ของทั้งฮอลล์คือส่วนสำคัญของงาน ✨'),metrics:metrics({hook_strength:94,event_specificity:97,naturalness:96,non_template_feel:96,hook_originality:95})},
+    {id:'c',angle:'trust',copy:flexiblePost('บริการรับและคืนที่งานช่วยลดขั้นตอนก่อนเริ่มโชว์ เหมาะกับคนที่อยากใช้เวลาในงานได้เต็มที่'),metrics:metrics({hook_strength:82,naturalness:88,non_template_feel:86})}
   ];
   const result=Router.finalizeGeneratedCandidates({
     candidates,
