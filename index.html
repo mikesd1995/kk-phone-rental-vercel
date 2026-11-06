@@ -188,15 +188,15 @@
     </div>
     <div class="kk-footer-columns">
       <div class="kk-footer-column">
-        <h2>บริการลูกค้า</h2>
-        <a href="#booking-journey">ขั้นตอนการเช่า</a>
-        <a href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">ติดต่อ LINE OA</a>
+        <h2 id="kk-footer-customer-title">บริการลูกค้า</h2>
+        <a id="kk-footer-how-to-rent" href="#booking-journey">ขั้นตอนการเช่า</a>
+        <a id="kk-footer-line-contact" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">ติดต่อ LINE OA</a>
       </div>
       <div class="kk-footer-column">
-        <h2>ข้อมูลและข้อตกลง</h2>
+        <h2 id="kk-footer-policies-title">ข้อมูลและข้อตกลง</h2>
         <nav class="legal-footer-nav" aria-label="ข้อมูลการใช้บริการ">
-          <a href="/terms/">เงื่อนไขการใช้บริการ</a>
-          <a href="/privacy/">นโยบายความเป็นส่วนตัว</a>
+          <a id="kk-footer-terms-link" href="/terms/">เงื่อนไขการใช้บริการ</a>
+          <a id="kk-footer-privacy-link" href="/privacy/">นโยบายความเป็นส่วนตัว</a>
         </nav>
       </div>
     </div>
@@ -204,8 +204,8 @@
   <div class="kk-footer-bottom">
     <span>© 2026 KK Phone Rental</span>
     <div class="legal-footer-google">
-      <p lang="th"><a href="/privacy/#google">ข้อมูลการใช้บริการ Google</a></p>
-      <p lang="en"><a href="/privacy/#google">Google services &amp; privacy</a></p>
+      <p lang="th"><a id="kk-footer-google-th" href="/privacy/#google">ข้อมูลการใช้บริการ Google</a></p>
+      <p lang="en"><a id="kk-footer-google-en" href="/en/privacy/#google">Google services &amp; privacy</a></p>
     </div>
   </div>
 </footer>
@@ -278,7 +278,7 @@
     <p id="kk-booking-agreement-description">โปรดตรวจสอบเงื่อนไขก่อนเปิด LINE เพื่อส่งคำขอจองหรือจองคิวหลุด</p>
     <label class="kk-booking-agreement-check" for="kk-booking-terms-check">
       <input id="kk-booking-terms-check" type="checkbox" autocomplete="off" required>
-      <span>ฉันได้อ่านและยอมรับ <a href="/terms/" target="_blank" rel="noopener">เงื่อนไขการใช้บริการ</a> และรับทราบ <a href="/privacy/" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว</a></span>
+      <span><span class="kk-terms-check-prefix">ฉันได้อ่านและยอมรับ </span><a href="/terms/" target="_blank" rel="noopener">เงื่อนไขการใช้บริการ</a><span class="kk-terms-check-middle"> และรับทราบ </span><a href="/privacy/" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว</a></span>
     </label>
     <p class="kk-booking-agreement-note">ระบบจะเตรียมข้อความยอมรับเงื่อนไขฉบับ 6 พ.ย. 2569 ต่อท้ายคำขอใน LINE ลูกค้าต้องตรวจสอบและกดส่งเอง จึงจะมีข้อความยืนยันในแชต คิวยังไม่สำเร็จจนกว่าร้านยืนยัน</p>
     <div class="kk-booking-agreement-actions">
@@ -289,7 +289,7 @@
 </div>
 
 <script src="config.js" defer></script>
-<script src="script.js?v=terms-evidence-20261106" defer></script>
+<script src="script.js?v=bilingual-legal-20261106" defer></script>
 <script src="/assets/kk-booking-agreement.js" defer></script>
 </body>
 </html>

@@ -54,6 +54,26 @@ async function runViewport(browser,width,scheme){
     await page.keyboard.press('Escape');
     assert.equal(await gate.isVisible(),false,'Escape cancels');
     assert.equal(await page.evaluate(()=>window.__kkQaApproved),1);
+    // English from the existing homepage switch must translate the real checkout
+    // dialog and link to English documents while keeping the checkbox unchecked.
+    await page.locator('#language-switch [data-lang="en"]').click();
+    assert.equal(await page.locator('#kk-footer-terms-link').getAttribute('href'),'/en/terms/');
+    assert.equal(await page.locator('#kk-footer-privacy-link').getAttribute('href'),'/en/privacy/');
+    assert.equal((await page.locator('#kk-footer-customer-title').textContent()).trim(),'Customer support');
+    await trigger.click();
+    assert.equal(await check.isChecked(),false,'English checkout must still require a fresh tick');
+    assert.equal(await confirm.isDisabled(),true,'English continue must not bypass acceptance');
+    assert.equal((await page.locator('#kk-booking-agreement-title').textContent()).trim(),'Review rental terms');
+    assert.equal(await page.locator('#kk-booking-agreement .kk-booking-agreement-check a').nth(0).getAttribute('href'),'/en/terms/');
+    assert.equal(await page.locator('#kk-booking-agreement .kk-booking-agreement-check a').nth(1).getAttribute('href'),'/en/privacy/');
+    assert.equal((await confirm.textContent()).trim(),'Accept and open LINE');
+    await page.keyboard.press('Escape');
+    assert.equal(await gate.isVisible(),false);
+    // Return to Thai; policy destinations must follow the selected language.
+    await page.locator('#language-switch [data-lang="th"]').click();
+    assert.equal(await page.locator('#kk-footer-terms-link').getAttribute('href'),'/terms/');
+    assert.equal(await page.locator('#kk-footer-privacy-link').getAttribute('href'),'/privacy/');
+    assert.equal(await page.evaluate(()=>window.__kkQaApproved),1);
     const box=await page.locator('.kk-booking-agreement-card').evaluate(el=>({
       width:el.getBoundingClientRect().width,
       viewport:innerWidth,
