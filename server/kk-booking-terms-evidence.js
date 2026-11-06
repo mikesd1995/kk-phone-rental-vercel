@@ -2,7 +2,7 @@
 
 // The LINE message, not the browser checkbox, is the customer-origin record.
 // Exact matching avoids accepting edited, stale, or merely linked notices.
-const VERSION='KK-TERMS-2026-11-05';
+const VERSION='KK-TERMS-2026-11-06';
 const ACK_LINE='✅ ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental ('+VERSION+')';
 const PRIVACY_LINE='ℹ️ รับทราบนโยบายความเป็นส่วนตัว: https://kk-phone-rental.vercel.app/privacy/';
 
