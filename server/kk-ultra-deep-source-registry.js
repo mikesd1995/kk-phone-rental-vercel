@@ -1,6 +1,6 @@
 'use strict';
 
-const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V8';
+const VERSION='KK_ULTRA_DEEP_SOURCE_REGISTRY_V9';
 
 const REGISTRY=Object.freeze({
   OFFICIAL:Object.freeze([
@@ -22,6 +22,7 @@ const REGISTRY=Object.freeze({
     {source_id:'union-hall-mall',label:'Union Hall / Union Mall',required:true},
     {source_id:'iconsiam-hall',label:'ICONSIAM Hall',required:true},
     {source_id:'mcc-hall',label:'MCC Hall',required:true},
+    {source_id:'mgi-hall-bravo-bkk',label:'MGI Hall Bravo BKK concert final episode fan screening',required:true},
     {source_id:'paragon-hall',label:'Paragon Hall',required:true},
     {source_id:'the-mall-m-grand-hall',label:'The Mall Lifestore / M Grand Hall',required:true},
     {source_id:'pmcu-siam-square',label:'PMCU Siam Square seasonal free music festivals and stages',domain:'pmcu.co.th',required:true},
@@ -29,6 +30,7 @@ const REGISTRY=Object.freeze({
   ]),
   ARTIST_AGENCY:Object.freeze([
     {source_id:'gmmtv',label:'GMMTV',domain:'gmmtv.com',required:true},
+    {source_id:'star-hunter-gl-final-episodes',label:'STAR HUNTER Entertainment WeTV GL BL final episodes Khom Khlang ข่มขลัง Puinoon Bint',required:true},
     {source_id:'one31',label:'one31',domain:'one31.net',required:true},
     {source_id:'domundi-mandee',label:'DOMUNDI / Mandee Work',required:true},
     {source_id:'deehup-house-ticketing',label:'Dee Hup House official fanmeet ticketing',domain:'deehuphouse.com',required:true},
