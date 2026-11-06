@@ -13,11 +13,12 @@ function mapMutation(m={},decision={}){
  }
  if(m.type==='UPDATE_VISIBILITY'){
   if(!eventId) throw Object.assign(new Error('event identity missing'),{code:'V2_EVENT_ID_MISSING'});
-  return {action:'updateEvent',event_id:eventId,active_on_web:m.to===true,visibility_lock_reason:text(m.visibility_lock_reason||'OWNER_MONTHLY_DEMAND_PRUNE'),visibility_changed_by:'OWNER_MONTHLY_RECONCILIATION',visibility_source_evidence:'ULTRA_DEEP_EXTERNAL_DEMAND_REQUALIFICATION',note:'ULTRA_DEEP_V2_EXTERNAL_DEMAND_REQUALIFICATION'};
+  return {action:'updateEvent',event_id:eventId,active_on_web:m.to===true,visibility_lock_reason:text(m.visibility_lock_reason||'OWNER_MONTHLY_DEMAND_PRUNE'),visibility_changed_by:'OWNER_MONTHLY_RECONCILIATION',visibility_source_evidence:'ULTRA_DEEP_EXTERNAL_DEMAND_REQUALIFICATION'};
  }
  if(['UPDATE_DATE','UPDATE_VENUE','UPDATE_POSTER'].includes(m.type)){
   if(!eventId) throw Object.assign(new Error('event identity missing'),{code:'V2_EVENT_ID_MISSING'});
-  const a={action:'updateEvent',event_id:eventId,note:'ULTRA_DEEP_V2_VERIFIED_METADATA'};
+  // An update must preserve the existing customer-facing Core note.
+  const a={action:'updateEvent',event_id:eventId};
   if(m.type==='UPDATE_DATE')a.event_date=text(m.to);
   if(m.type==='UPDATE_VENUE')a.venue=text(m.to);
   if(m.type==='UPDATE_POSTER')a.poster_url=text(m.to);
@@ -57,10 +58,20 @@ function createPlan(decision={},mutation={},packageTemplates=[]){
  const ids={phone:'',lens:'',bundle:''};for(const p of packageTemplates||[]){const id=text(p.template_id||p.package_id),t=text(p.package_type).toLowerCase();if(t==='phone_only')ids.phone=id;else if(t==='lens_only')ids.lens=id;else if(t==='phone_lens_bundle')ids.bundle=id;}
  const price=Number(mutation.price),lensRow=(packageTemplates||[]).find(p=>text(p.package_type).toLowerCase()==='lens_only'),lens=Number(lensRow&&lensRow.standard_price)||200;
  if(!ids.phone||!ids.lens||!ids.bundle||!Number.isFinite(price)||price<=0)throw Object.assign(new Error('package template/price unavailable'),{code:'V2_CREATE_PACKAGE_IDENTITY_REQUIRED'});
- const payload={action:'createEvent',event_name:text(decision.title),event_date:text(decision.event_date),venue:text(decision.verified_venue),poster_url:text(mutation.poster_url),status:'open',active_on_web:true,note:'ULTRA_DEEP_V2_VERIFIED_CREATE',event_price_overrides:[
+ if(decision.owner_hidden===true||decision.tombstone_locked===true||Number(decision.booking_count)>0)throw Object.assign(new Error('booked or owner-hidden date is not eligible for new event create'),{code:'V2_CREATE_OWNER_OR_BOOKING_LOCK'});
+ const phoneRule=text(decision.phone_rule||decision.phoneRule).toUpperCase();
+ if(['PROHIBITED','NO_PHOTOGRAPHY','NO_PHONE','NO_PHOTO_VIDEO'].includes(phoneRule))throw Object.assign(new Error('organizer prohibits phone photography'),{code:'V2_CREATE_PHONE_CAPTURE_PROHIBITED'});
+ const eventDate=text(decision.event_date),november=eventDate.startsWith('2026-11-');
+ if(november&&price<590&&decision.owner_price_exception_verified!==true)throw Object.assign(new Error('November 2026 minimum phone rental price is 590 THB'),{code:'V2_NOVEMBER_PHONE_MINIMUM'});
+ const lensRule=text(decision.lens_rule||decision.lensRule||'UNRESOLVED').toUpperCase();
+ const lensPermissionVerified=decision.lens_rule_verified===true||decision.lensPermissionVerified===true;
+ const bundleAllowed=lensRule==='VERIFIED_ALLOWED'&&lensPermissionVerified;
+ const bundlePrice=bundleAllowed?Math.max(price+lens,november?690:0):0;
+ const customerNote='เช่าโทรศัพท์สำหรับงานนี้ '+String(price)+' บาท ไม่รวมบัตรหรือสิทธิ์เข้างาน '+(bundleAllowed?'มีแพ็กเกจพร้อมเลนส์ตามราคาที่ร้านระบุในหน้าจอง ':'ยังไม่มีบริการเลนส์เสริมสำหรับงานนี้ ')+'โปรดตรวจสอบข้อกำหนดการถ่ายภาพและการนำอุปกรณ์เข้าสถานที่กับผู้จัดก่อนจอง';
+ const payload={action:'createEvent',event_name:text(decision.title),event_date:eventDate,venue:text(decision.verified_venue),poster_url:text(mutation.poster_url),status:'open',active_on_web:true,note:customerNote,event_price_overrides:[
   {template_id:ids.phone,override_price:price,active_override:true,override_note:'ULTRA_DEEP_V2_APPROVED_PRICE'},
-  {template_id:ids.lens,override_price:lens,active_override:false,override_note:'LENS_ONLY_HIDDEN_STORE_BASELINE'},
-  {template_id:ids.bundle,override_price:price+lens,active_override:true,override_note:'ULTRA_DEEP_V2_APPROVED_PRICE_PLUS_LENS'}]};
+  {template_id:ids.lens,override_price:0,active_override:false,override_note:'LENS_ONLY_ALWAYS_HIDDEN'},
+  {template_id:ids.bundle,override_price:bundlePrice,active_override:bundleAllowed,override_note:bundleAllowed?'ULTRA_DEEP_V2_VERIFIED_ORGANIZER_LENS':'ULTRA_DEEP_V2_HOLD_UNVERIFIED_LENS'}]};
  const plan={status:'READY_FOR_GOVERNED_ADMIN_CREATE',admin_action:'createEvent',admin_payload:payload,duplicate_guard_required:true,exact_storefront_readback_required:true,pricing_status:text(mutation.price_basis),needs_price_recheck:false};
  Promotion.assertReady?Promotion.assertReady(plan):null;return plan;
 }
