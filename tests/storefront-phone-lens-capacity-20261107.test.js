@@ -70,3 +70,11 @@ test('pre-LINE policy version and site script source remain identical across rel
   assert.match(source,/getBookingUrl\(c,p\)/);
   assert.match(source,/getWaitlistUrl\(c,p\)/);
 });
+
+test('every-visible-modal browser QA verifies separate waitlist and lens inquiry paths',()=>{
+  const qa=fs.readFileSync(path.join(root,'scripts/qa/storefront-all-visible-modals.cjs'),'utf8');
+  assert.match(qa,/const phoneFull=availCnt\(event\)<=0/);
+  assert.match(qa,/PHONE_FULL_WAITLIST_MISSING/);
+  assert.match(qa,/EXISTING_RENTER_LENS_INQUIRY_MISSING/);
+  assert.match(qa,/LENS_FALSLY_NEW_PHONE_BOOKING/);
+});
