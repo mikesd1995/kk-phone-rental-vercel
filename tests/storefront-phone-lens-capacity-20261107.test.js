@@ -52,6 +52,8 @@ test('FULL modal offers phone waitlist and separate existing-renter lens inquiry
   assert.match(source,/lensAsk\.href=getExistingRenterLensUrl\(c,existingRenterLens\)/);
   assert.match(source,/lensAsk\.className="waitlist-line-btn"/);
   assert.match(source,/isExistingRenterLens\?getExistingRenterLensUrl\(c,p\):getBookingUrl\(c,p\)/);
+  assert.match(source,/track\(isExistingRenterLens\?"lens_addon_inquiry_click":"booking_click"/);
+  assert.match(source,/source:isExistingRenterLens\?"modal_existing_renter_lens":"modal"/);
   assert.match(source,/getWaitlistUrl\(c,null\)/);
   assert.match(gate,/a\.waitlist-line-btn/); // both paths still require unchecked agreement
   const start=source.indexOf('function buildExistingRenterLensMsg(');
