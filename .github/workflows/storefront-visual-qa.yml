@@ -115,7 +115,7 @@ jobs:
           node-version: '20'
 
       - name: Test public legal documents and customer privacy boundary
-        run: node --test tests/public-legal-documents.test.js
+        run: node --test tests/public-legal-documents.test.js tests/storefront-booking-agreement.test.js
 
       - name: Validate remote deployment identity
         if: ${{ env.TARGET_MODE != 'local_zero_cost' }}
@@ -242,6 +242,14 @@ jobs:
           set -euo pipefail
           node --check scripts/qa/legal-pages-visual-qa.cjs
           node scripts/qa/legal-pages-visual-qa.cjs
+
+      - name: Verify customer terms gate at 390px and 1440px (read only)
+        if: ${{ env.TARGET_MODE == 'local_zero_cost' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/qa/storefront-booking-agreement-qa.cjs
+          node scripts/qa/storefront-booking-agreement-qa.cjs
 
       - name: Audit every visible event modal at 390px TH and 1440px EN (read only)
         if: ${{ env.TARGET_MODE == 'local_zero_cost' }}
