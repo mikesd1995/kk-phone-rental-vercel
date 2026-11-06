@@ -4,14 +4,14 @@ const compiled=ts.transpileModule(fs.readFileSync(path.join(__dirname,'../supaba
 assert.deepEqual(compiled.diagnostics.filter(d=>d.category===ts.DiagnosticCategory.Error),[]);
 const body={probe:'owner-health-attempt-claim',version:'v1',attempt_id:'11111111-1111-4111-8111-111111111111',nonce:'22222222-2222-4222-8222-222222222222',source_sha:'a'.repeat(40),deployment_id:'dpl_123456789012345678901234'};
 const receipt=(claimed=true)=>({claimed,attempt_id:body.attempt_id,nonce:body.nonce,source_sha:body.source_sha,deployment_id:body.deployment_id,environment:'production',control_writes:claimed?1:0,business_writes:0});
-function harness({environment='production',claims={},result=receipt(),reject=false}={}){
- let handler;const calls=[],team='mikesd1995s-projects',project='kk-phone-rental-vercel';
+function harness({environment='production',claims={},result=receipt(),reject=false,loseReply=false}={}){
+ let handler,nativeCommitted=false;const calls=[],team='mikesd1995s-projects',project='kk-phone-rental-vercel';
  const payload={iss:'https://oidc.vercel.com/'+team,aud:'https://vercel.com/'+team,sub:`owner:${team}:project:${project}:environment:${environment}`,owner_id:'team_uaeOdVIjXMSW690ZM2wPuJyt',project_id:'prj_snbAmpya7YGmOuMbv1o8T16ouxl6',project,environment,...claims};
  vm.runInNewContext(compiled.outputText,{Request,Response,URL,URLSearchParams,TextEncoder,TextDecoder,AbortSignal,DOMException,Date,Error,console,
  createRemoteJWKSet:()=>({}),decodeJwt:()=>payload,jwtVerify:async(_,__,o)=>{if(o.issuer!==payload.iss||o.audience!==payload.aud||o.subject!==payload.sub)throw Error('bad');return {payload};},
  Deno:{serve:fn=>handler=fn,env:{get:k=>k==='SUPABASE_URL'?'https://zehlsagzrpromtfqqflt.supabase.co':k==='SUPABASE_SECRET_KEYS'?JSON.stringify({default:'sb_secret_synthetic'}):'FALSE'}},
- fetch:async(url,init)=>{calls.push({url,init});assert.equal(url,'https://zehlsagzrpromtfqqflt.supabase.co/rest/v1/rpc/kk_claim_owner_health_attempt_v1');return reject?Response.json({error:'PRIVATE_RAW_MARKER'},{status:500}):Response.json(result);}});
- return {calls,request:async(value=body,headers={authorization:'Bearer synthetic','content-type':'application/json'})=>{const r=await handler(new Request('https://example.invalid',{method:'POST',headers,body:JSON.stringify(value)}));return {status:r.status,body:await r.json()};}};
+ fetch:async(url,init)=>{calls.push({url,init});assert.equal(url,'https://zehlsagzrpromtfqqflt.supabase.co/rest/v1/rpc/kk_claim_owner_health_attempt_v1');if(loseReply){nativeCommitted=true;throw Error('PRIVATE_RAW_MARKER');}return reject?Response.json({error:'PRIVATE_RAW_MARKER'},{status:500}):Response.json(result);}});
+ return {calls,get nativeCommitted(){return nativeCommitted;},request:async(value=body,headers={authorization:'Bearer synthetic','content-type':'application/json'})=>{const r=await handler(new Request('https://example.invalid',{method:'POST',headers,body:JSON.stringify(value)}));return {status:r.status,body:await r.json()};}};
 }
 test('Production-only exact health claim uses one fixed service RPC while operational flags are OFF',async()=>{
  const h=harness(),r=await h.request();assert.equal(r.status,200);assert.deepEqual(r.body,{ok:true,authenticated:true,probe:body.probe,version:'v1',send_allowed:false,provider_sends:0,...receipt()});assert.equal(h.calls.length,1);
@@ -31,3 +31,15 @@ test('malformed mismatched or unsafe native results produce only fixed safe reje
  for(const result of [null,[],{...receipt(),secret:'PRIVATE_RAW_MARKER'},{...receipt(),nonce:body.attempt_id},{...receipt(),source_sha:'b'.repeat(40)},{...receipt(),environment:'preview'},{...receipt(),control_writes:0},{...receipt(false),control_writes:1},{...receipt(),business_writes:1},{...receipt(),claimed:'true'}]){const h=harness({result}),r=await h.request();assert.equal(r.status,403);assert.equal(r.body.error_code,'HEALTH_ATTEMPT_CLAIM_REJECTED');assert.equal(JSON.stringify(r).includes('PRIVATE_RAW_MARKER'),false);assert.equal(h.calls.length,1);}
 });
 test('native errors never reflect arbitrary provider or DB content',async()=>{const h=harness({reject:true}),r=await h.request();assert.equal(r.status,403);assert.equal(r.body.error_code,'HEALTH_ATTEMPT_CLAIM_REJECTED');assert.equal(JSON.stringify(r).includes('PRIVATE_RAW_MARKER'),false);});
+
+test('committed claim with a lost or malformed receipt never asserts zero control writes',async()=>{
+ for(const options of [{loseReply:true},{result:{...receipt(),extra:'PRIVATE_RAW_MARKER'}}]){
+  const h=harness(options),r=await h.request();
+  if(options.loseReply)assert.equal(h.nativeCommitted,true);
+  assert.equal(h.calls.length,1);assert.equal(r.status,403);
+  assert.equal(r.body.error_code,'HEALTH_ATTEMPT_CLAIM_REJECTED');
+  assert.equal(Object.hasOwn(r.body,'control_writes'),false);
+  assert.equal(r.body.control_write_outcome,'UNKNOWN');
+  assert.equal(JSON.stringify(r).includes('PRIVATE_RAW_MARKER'),false);
+ }
+});

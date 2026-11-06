@@ -403,7 +403,9 @@ Deno.serve(async (req: Request) => {
 
   if(body?.probe==='owner-health-attempt-claim'){
     try{return json(200,await ownerHealthAttemptClaim(body,identity));}
-    catch{return json(403,{ok:false,authenticated:true,probe:'owner-health-attempt-claim',version:'v1',send_allowed:false,provider_sends:0,business_writes:0,control_writes:0,error_code:'HEALTH_ATTEMPT_CLAIM_REJECTED'});}
+    // The RPC may have committed before its receipt was lost or rejected.
+    // Never turn an uncertain terminal control write into a false zero claim.
+    catch{return json(403,{ok:false,authenticated:true,probe:'owner-health-attempt-claim',version:'v1',send_allowed:false,provider_sends:0,business_writes:0,control_write_outcome:'UNKNOWN',error_code:'HEALTH_ATTEMPT_CLAIM_REJECTED'});}
   }
 
   if(body?.probe==='owner-canonical'&&body?.version==='v2'){
