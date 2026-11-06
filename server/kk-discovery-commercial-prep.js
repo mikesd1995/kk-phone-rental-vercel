@@ -9,7 +9,27 @@ function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?n:null;}
 function score(v){const n=Number(v);return Number.isFinite(n)&&n>=0&&n<=10?n:null;}
 function httpsUrl(v){try{const u=new URL(text(v));return u.protocol==='https:'?u.toString():'';}catch(_){return '';}}
 function median(values=[]){const a=values.map(Number).filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;}
-function normalizeCompetitor(row={}){return {competitor_id:text(row.competitor_id||row.account||row.shop),event_key:text(row.event_key),package_type:text(row.package_type).toUpperCase(),price:money(row.price),source_url:httpsUrl(row.source_url),observed_at:text(row.observed_at),exact_event:row.exact_event===true};}
+function normalizeCompetitor(row={}){
+ const rawType=text(row.package_type).toUpperCase();
+ const type=['PHONE_ONLY','PHONE'].includes(rawType)?'PHONE_ONLY':
+  ['PHONE_LENS','PHONE_LENS_BUNDLE','PHONE_LENS_PACKAGE','BUNDLE','PHONE_PLUS_LENS'].includes(rawType)?'PHONE_LENS':'';
+ // If a seller explicitly states a device, reject other brands/models
+ // and mixed Pro/Ultra offers rather than treating them as exact X300 Pro.
+ const device=text(row.device||row.device_model||row.model);
+ const compact=device.toUpperCase().replace(/[^A-Z0-9]/g,'');
+ const device_model_compatible=!device||(compact.includes('X300PRO')&&
+  !/(ULTRA|SAMSUNG|IPHONE|X200|X100|S25|S26|MIXED)/.test(compact));
+ return {
+  competitor_id:text(row.competitor_id||row.account||row.shop),
+  event_key:text(row.event_key),
+  package_type:type,
+  device_model_compatible,
+  price:money(row.price),
+  source_url:httpsUrl(row.source_url),
+  observed_at:text(row.observed_at),
+  exact_event:row.exact_event===true
+ };
+}
 function normalizeReference(row={},kind='COMPARABLE_EVENT'){return {reference_id:text(row.reference_id||row.event_key||row.package_id),package_type:text(row.package_type).toUpperCase(),price:money(row.price),source_url:httpsUrl(row.source_url),reference_kind:text(row.reference_kind||kind).toUpperCase(),approved:row.approved===true};}
 
 function rentalFitScore(candidate={},input={}){
@@ -53,10 +73,48 @@ function publishEligibility(candidate={},input={}){
 
 function priceEvidence(candidate={},rows=[]){
  const key=text(candidate.event_key||candidate.candidate_id);
- const normalized=rows.map(normalizeCompetitor).filter(r=>r.exact_event&&r.event_key===key&&r.competitor_id&&r.price&&r.source_url);
- const byCompetitor=new Map();for(const r of normalized){const k=r.competitor_id.toLowerCase()+'|'+r.package_type;if(!byCompetitor.has(k))byCompetitor.set(k,r);}
- const unique=[...byCompetitor.values()];const shops=new Set(unique.map(r=>r.competitor_id.toLowerCase()));const prices=unique.map(r=>r.price);const n=shops.size;
- return {evidence_type:'EXACT_EVENT_COMPETITOR_PRICE',minimum_independent_competitors:MIN_EXACT_COMPETITORS,independent_competitors:n,complete:n>=MIN_EXACT_COMPETITORS,market_median:prices.length?median(prices):null,market_min:prices.length?Math.min(...prices):null,market_max:prices.length?Math.max(...prices):null,evidence:unique};
+ const normalized=rows.map(normalizeCompetitor).filter(r=>r.exact_event&&r.event_key===key&&r.competitor_id&&r.package_type&&r.device_model_compatible&&r.price&&r.source_url);
+ // A phone-only rental and a phone+lens package are different markets.
+ // Never certify a median by mixing their prices or counting one seller twice.
+ const byCompetitor=new Map();
+ for(const r of normalized){
+  const key=r.competitor_id.toLowerCase()+'|'+r.package_type;
+  if(!byCompetitor.has(key))byCompetitor.set(key,r);
+ }
+ const unique=[...byCompetitor.values()];
+ const byPackage=new Map();
+ for(const row of unique){
+  if(!byPackage.has(row.package_type))byPackage.set(row.package_type,[]);
+  byPackage.get(row.package_type).push(row);
+ }
+ // Prefer the best-supported package; prefer phone-only on ties to avoid
+ // treating a lens bundle as the base price for a standalone phone.
+ const ranked=[...byPackage.entries()].sort((a,b)=>
+  b[1].length-a[1].length
+  || Number(b[0]==='PHONE_ONLY')-Number(a[0]==='PHONE_ONLY')
+  || a[0].localeCompare(b[0])
+ );
+ const selected=ranked[0]||['',[]];
+ const prices=selected[1].map(row=>row.price);
+ const n=selected[1].length;
+ const package_summary=Object.fromEntries(ranked.map(([type,rows])=>[type,{
+  independent_competitors:rows.length,
+  market_median:median(rows.map(row=>row.price))
+ }]));
+ return {
+  evidence_type:'EXACT_EVENT_COMPETITOR_PRICE',
+  minimum_independent_competitors:MIN_EXACT_COMPETITORS,
+  independent_competitors:n,
+  observed_independent_competitors:new Set(unique.map(row=>row.competitor_id.toLowerCase())).size,
+  complete:n>=MIN_EXACT_COMPETITORS,
+  market_package_type:selected[0],
+  package_summary,
+  market_median:prices.length?median(prices):null,
+  market_min:prices.length?Math.min(...prices):null,
+  market_max:prices.length?Math.max(...prices):null,
+  evidence:selected[1],
+  all_package_evidence:unique
+ };
 }
 
 function proposalEvidence(candidate={},input={},exact={}){
