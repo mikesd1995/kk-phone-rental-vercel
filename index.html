@@ -178,7 +178,36 @@
 </a>
 </main>
 
-<footer><div class="footer-brand">KK Phone Rental</div><div class="footer-tagline">เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต</div><div class="trust-note">รับ–คืนหน้างาน · จองผ่าน LINE</div><nav class="legal-footer-nav" aria-label="ข้อมูลการใช้บริการ"><a href="/privacy/">ความเป็นส่วนตัว · Privacy</a><a href="/terms/">เงื่อนไขบริการ · Terms</a></nav><div class="legal-footer-google"><p lang="th">จองผ่าน LINE ได้โดยไม่ต้องใช้บัญชี Google · <a href="/privacy/#google">อ่านวิธีดูแลข้อมูลส่วนบุคคล</a></p><p lang="en">Book through LINE without a Google account · <a href="/privacy/#google">How we handle your data</a></p></div></footer>
+<footer class="kk-public-footer">
+  <div class="kk-footer-main">
+    <div class="kk-footer-about">
+      <div class="footer-brand">KK Phone Rental</div>
+      <div class="footer-tagline">เช่ามือถือสำหรับคอนเสิร์ตและแฟนมีต</div>
+      <div class="trust-note">เลือกงาน · เช็กคิวว่าง · รับ–คืนหน้างาน</div>
+    </div>
+    <div class="kk-footer-columns">
+      <div class="kk-footer-column">
+        <h2>บริการลูกค้า</h2>
+        <a href="#booking-journey">ขั้นตอนการเช่า</a>
+        <a href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener">ติดต่อ LINE OA</a>
+      </div>
+      <div class="kk-footer-column">
+        <h2>ข้อมูลและข้อตกลง</h2>
+        <nav class="legal-footer-nav" aria-label="ข้อมูลการใช้บริการ">
+          <a href="/terms/">เงื่อนไขการใช้บริการ</a>
+          <a href="/privacy/">นโยบายความเป็นส่วนตัว</a>
+        </nav>
+      </div>
+    </div>
+  </div>
+  <div class="kk-footer-bottom">
+    <span>© 2026 KK Phone Rental</span>
+    <div class="legal-footer-google">
+      <p lang="th"><a href="/privacy/#google">ข้อมูลการใช้บริการ Google</a></p>
+      <p lang="en"><a href="/privacy/#google">Google services &amp; privacy</a></p>
+    </div>
+  </div>
+</footer>
 </div>
 <a class="sticky-line" href="https://line.me/R/ti/p/%40827blnmo" target="_blank" rel="noopener"><span id="sticky-line-label">ทัก LINE จองคิว</span></a>
 
@@ -241,7 +270,25 @@
   </div>
 </div>
 
+<div class="kk-booking-agreement-backdrop" id="kk-booking-agreement" hidden>
+  <section class="kk-booking-agreement-card" id="kk-booking-agreement-dialog" role="dialog" aria-modal="true" aria-labelledby="kk-booking-agreement-title" aria-describedby="kk-booking-agreement-description">
+    <span class="kk-booking-agreement-kicker">ก่อนดำเนินการจอง</span>
+    <h2 id="kk-booking-agreement-title">ยืนยันเงื่อนไขการเช่า</h2>
+    <p id="kk-booking-agreement-description">โปรดตรวจสอบเงื่อนไขก่อนเปิด LINE เพื่อส่งคำขอจองหรือจองคิวหลุด</p>
+    <label class="kk-booking-agreement-check" for="kk-booking-terms-check">
+      <input id="kk-booking-terms-check" type="checkbox" autocomplete="off" required>
+      <span>ฉันได้อ่านและยอมรับ <a href="/terms/" target="_blank" rel="noopener">เงื่อนไขการใช้บริการ</a> และรับทราบ <a href="/privacy/" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว</a></span>
+    </label>
+    <p class="kk-booking-agreement-note">การดำเนินการต่อจะเปิด LINE เท่านั้น คิวจะได้รับการยืนยันเมื่อร้านตอบกลับและยืนยันรายละเอียดการเช่า</p>
+    <div class="kk-booking-agreement-actions">
+      <button id="kk-booking-terms-cancel" class="kk-booking-terms-cancel" type="button">ยกเลิก</button>
+      <button id="kk-booking-terms-continue" class="kk-booking-terms-continue" type="button" disabled>ยอมรับและเปิด LINE</button>
+    </div>
+  </section>
+</div>
+
 <script src="config.js" defer></script>
 <script src="script.js?v=storefront-minimal-event-details-20261030" defer></script>
+<script src="/assets/kk-booking-agreement.js" defer></script>
 </body>
 </html>
