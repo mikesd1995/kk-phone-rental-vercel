@@ -6,7 +6,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 
 const widths = [320, 375, 390, 430, 480, 768, 1024, 1440];
-const routes = ['/privacy/', '/terms/'];
+const routes = ['/privacy/', '/terms/', '/en/privacy/', '/en/terms/'];
 const base = 'http://127.0.0.1:4173';
 const output = path.resolve(process.cwd(), 'artifacts/storefront-visual-qa/legal');
 const findings = [];
@@ -54,6 +54,14 @@ async function main() {
               fontFamily: css.fontFamily
             };
           });
+          const locale = route.startsWith('/en/') ? 'en' : 'th';
+          const actualLocale = await page.locator('html').getAttribute('lang');
+          if (actualLocale !== locale) throw new Error('LEGAL_LANGUAGE_MISMATCH ' + route + ' ' + actualLocale);
+          const switchLinks = page.locator('.legal-lang-switch a');
+          if (await switchLinks.count() !== 2) throw new Error('LEGAL_LANGUAGE_SWITCH_MISSING ' + route);
+          const alternate = locale === 'en' ? route.slice(3) : '/en' + route;
+          const alternateHref = await switchLinks.nth(locale === 'en' ? 0 : 1).getAttribute('href');
+          if (alternateHref !== alternate) throw new Error('LEGAL_SWITCH_WRONG_TARGET ' + route + ' ' + alternateHref);
           if (errors.length) throw new Error('LEGAL_BROWSER_ERROR ' + errors.join('; '));
           if (!metrics.mainVisible || !metrics.title || metrics.sectionCount < 7) {
             throw new Error('LEGAL_CONTENT_MISSING ' + route + ' ' + width + ' ' + scheme);
@@ -64,7 +72,7 @@ async function main() {
           if (metrics.navTargetMinHeight < 43) {
             throw new Error('LEGAL_NAV_TAP_TARGET_TOO_SMALL ' + route + ' ' + width + ' ' + scheme);
           }
-          const name = route.slice(1, -1) + '-' + width + '-' + scheme;
+          const name = route.slice(1, -1).replace(/\//g, '-') + '-' + width + '-' + scheme;
           await page.screenshot({ path: path.join(output, name + '.png'), fullPage: false, animations: 'disabled' });
           findings.push({ route, width, scheme, ...metrics, status: 'PASS' });
           await context.close();
