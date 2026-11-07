@@ -60,6 +60,12 @@ function fixture(opts = {}) {
   }
 
   const [brand, legacy, kit, newer] = folderIDs.map(id => node(id, true));
+  // Independently cleared-ancestor case exists ONLY in simulated tests.
+  // Current real four poster folders are still public Writer.
+  if(opts.folderSafe) {
+    for(const id of folderIDs) roles[id]='VIEW';
+    if(opts.oneUnsafeFolder) roles[folderIDs[1]]='EDIT';
+  }
   brand.folders.push(legacy, kit);
   brand.files.push(node('brand-logo'));
   kit.files.push(node('kit-photo-a'), node('kit-photo-b'));
@@ -366,79 +372,79 @@ test('active file missing from scanned tree aborts before writing', () => {
   assert.equal(f.getWrites(), 0);
 });
 
-test('active image-only owner batches 25+20; all four folders and historical writers remain on HOLD', () => {
-  const f = fixture();
+test('safe-parent mock batches 25+20 but historical writers remain on HOLD', () => {
+  const f = fixture({folderSafe:true});
   const dry = f.api.dry();
   const first = f.api.apply(dry.fingerprint);
   assert.equal(first.ok, false, 'must never claim success while writers remain');
   assert.equal(first.partial, true);
   assert.equal(first.updated, 25);
-  assert.equal(first.remaining_writers, 27);
+  assert.equal(first.remaining_writers, 23);
   assert.equal(first.need_new_owner_dry_run, true);
   assert.equal(f.getWrites(), 25);
   // Never touch a parent folder (inherited historic ACL blast radius).
-  assert.ok(folderIDs.every(id => f.roles[id] === undefined));
+  assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
   assert.equal(expected.filter(id => f.roles[id] === 'VIEW').length, 25);
   assert.equal(f.roles['brand-logo'], undefined);
   assert.equal(f.roles['kit-photo-a'], undefined);
   assert.equal(f.roles['kit-photo-b'], undefined);
   assert.throws(() => f.api.apply(dry.fingerprint), /ACL_CHANGED_SINCE_OWNER_APPROVAL/);
   const secondDry = f.api.dry();
-  assert.equal(secondDry.public_writer, 27);
+  assert.equal(secondDry.public_writer, 23);
   assert.ok(secondDry.fingerprint !== dry.fingerprint);
   const second = f.api.apply(secondDry.fingerprint);
   assert.equal(second.ok, false, 'historic writers must keep complete remediation open');
-  assert.equal(second.active_scope_completed, false,'folders remain a separate unapproved ACL scope');
+  assert.equal(second.active_scope_completed, true, 'safe-parent case can finish active scope but history remains');
   assert.equal(second.active_images_completed, true);
   assert.equal(second.partial, true);
   assert.equal(second.updated, 20);
-  assert.equal(second.remaining_writers, 7);
+  assert.equal(second.remaining_writers, 3);
   assert.equal(second.remaining_active_writers, 0);
   assert.equal(second.historical_public_writers, 3);
-  assert.equal(second.folder_public_writers_held, 4);
+  assert.equal(second.folder_public_writers_held, 0);
   assert.equal(second.folder_writes, 0);
-  assert.equal(second.reader_verified, 45);
+  assert.equal(second.reader_verified, 49);
   assert.equal(second.need_new_owner_dry_run, false);
   assert.equal(f.getWrites(), 45);
-  assert.ok(folderIDs.every(id => f.roles[id] === undefined));
+  assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
   assert.ok(expected.every(id => f.roles[id] === 'VIEW'));
   for (const id of ['brand-logo','kit-photo-a','kit-photo-b']) {
     assert.equal(f.roles[id], undefined, 'NO historic Drive write allowed');
   }
 });
 
-test('owner can never publish private historical assets even after active image-only pass completes', () => {
-  const f = fixture({privateID: 'brand-logo'});
+test('safe-parent mock never publishes private historical assets', () => {
+  const f = fixture({privateID: 'brand-logo',folderSafe:true});
   const a = f.api.dry();
   f.api.apply(a.fingerprint);
   const b = f.api.dry();
   const report = f.api.apply(b.fingerprint);
-  assert.equal(report.active_scope_completed, false);
+  assert.equal(report.active_scope_completed, true);
   assert.equal(report.active_images_completed, true);
-  assert.equal(report.folder_public_writers_held, 4);
+  assert.equal(report.folder_public_writers_held, 0);
   assert.equal(f.roles['brand-logo'], undefined);
   assert.equal(report.ok, false);
 });
 
-test('parent-folder inheritance blast radius is prevented before any folder write', () => {
-  const f = fixture({folderCascadesToHistory: true});
+test('unsafe public Writer ancestors block image-only ACL before any changes', () => {
+  const f = fixture({folderCascadesToHistory:true});
   const dry = f.api.dry();
-  const batch = f.api.apply(dry.fingerprint);
-  assert.equal(batch.updated, 25);
-  assert.equal(batch.folder_writes, 0);
-  assert.equal(batch.folder_public_writers_held, 4);
-  assert.ok(folderIDs.every(id => f.roles[id] === undefined));
-  assert.equal(f.roles['brand-logo'], undefined, 'no inherited historical permission change');
+  assert.equal(dry.blocking_public_writer_folders,4);
+  assert.equal(dry.owner_folder_inheritance_review_required,true);
+  assert.throws(()=>f.api.apply(dry.fingerprint),/PUBLIC_WRITER_ANCESTOR_HOLD:4/);
+  assert.equal(f.getWrites(),0);
+  assert.ok(folderIDs.every(id=>f.roles[id]===undefined));
+  assert.equal(f.roles['brand-logo'],undefined);
 });
 
-test('synthetic 254-image scope: 209 history and four ancestor folders untouched after 25+20 active image updates', () => {
-  const f = fixture({historicExtras: 206});
+test('safe-parent 254-image synthetic scope leaves 209 history untouched after 25+20', () => {
+  const f = fixture({historicExtras:206,folderSafe:true});
   const before = f.api.dry();
   assert.equal(before.active_files, 45);
   assert.equal(before.scoped_files, 254);
   assert.equal(before.folders, 4);
   assert.equal(before.historical_images, 209);
-  assert.equal(before.public_writer, 258);
+  assert.equal(before.public_writer, 254);
   assert.equal(before.scoped_items, 258);
   assert.equal(f.getWrites(), 0);
   const batch1 = f.api.apply(before.fingerprint);
@@ -447,22 +453,22 @@ test('synthetic 254-image scope: 209 history and four ancestor folders untouched
   assert.equal(batch1.historical_public_writers, 209);
   const batch2 = f.api.apply(f.api.dry().fingerprint);
   assert.equal(batch2.updated, 20);
-  assert.equal(batch2.active_scope_completed, false);
+  assert.equal(batch2.active_scope_completed, true);
   assert.equal(batch2.active_images_completed, true);
   assert.equal(batch2.remaining_active_writers, 0);
   assert.equal(batch2.historical_public_writers, 209);
-  assert.equal(batch2.remaining_writers, 213);
-  assert.equal(batch2.folder_public_writers_held, 4);
+  assert.equal(batch2.remaining_writers, 209);
+  assert.equal(batch2.folder_public_writers_held, 0);
   assert.equal(batch2.ok, false, '209 archived public Writers must prevent false full security PASS');
   assert.equal(f.getWrites(), 45);
-  assert.ok(folderIDs.every(id => f.roles[id] === undefined));
+  assert.ok(folderIDs.every(id => f.roles[id] === 'VIEW'));
   assert.ok(expected.every(id => f.roles[id] === 'VIEW'));
   assert.equal(f.roles['synthetic-historical-0000'], undefined);
   assert.equal(f.roles['synthetic-historical-0205'], undefined);
 });
 
-test('provider write failure is partial and never reported as success', () => {
-  const f = fixture({failID: expected[4]});
+test('provider write failure remains partial in independently cleared-parent mock', () => {
+  const f = fixture({failID:expected[4],folderSafe:true});
   const dry = f.api.dry();
   assert.throws(() => f.api.apply(dry.fingerprint), /PARTIAL_OR_DRIFTED_ACL_REPAIR/);
   assert.ok(f.getWrites() > 0, 'partial updates must be detected, not rolled back to Writer');
@@ -502,31 +508,31 @@ test('moved Drive asset invalidates previously approved ACL fingerprint', () => 
   assert.equal(f.getWrites(), 0);
 });
 
-test('restricted historical asset is fingerprinted but never made public', () => {
-  const f = fixture({privateID: 'brand-logo'});
+test('safe-parent mock fingerprints restricted history without publishing it', () => {
+  const f = fixture({privateID:'brand-logo',folderSafe:true});
   const dry = f.api.dry();
-  assert.equal(dry.public_writer, 51);
+  assert.equal(dry.public_writer, 47);
   assert.equal(dry.historical_images, 3);
   assert.equal(f.getWrites(), 0);
   const first = f.api.apply(dry.fingerprint);
   assert.equal(first.ok, false);
   assert.equal(first.updated, 25);
-  assert.equal(first.reader_verified, 25, 'owner-private historic image must not be reported as a public Reader');
+  assert.equal(first.reader_verified, 29, 'four safe folders + 25 active public Reader; private history excluded');
   assert.equal(first.restricted_historical, 1);
   assert.equal(f.roles['brand-logo'], undefined);
   const secondDry = f.api.dry();
-  assert.equal(secondDry.public_writer, 26);
+  assert.equal(secondDry.public_writer, 22);
   const last = f.api.apply(secondDry.fingerprint);
   assert.equal(last.ok, false, 'other two historic public Writers remain');
-  assert.equal(last.active_scope_completed, false);
+  assert.equal(last.active_scope_completed, true);
   assert.equal(last.active_images_completed, true);
-  assert.equal(last.remaining_writers, 6);
+  assert.equal(last.remaining_writers, 2);
   assert.equal(last.remaining_active_writers, 0);
   assert.equal(last.historical_public_writers, 2);
-  assert.equal(last.reader_verified, 45);
+  assert.equal(last.reader_verified, 49);
   assert.equal(last.restricted_historical, 1);
   assert.equal(f.getWrites(), 45);
-  assert.equal(last.folder_public_writers_held, 4);
+  assert.equal(last.folder_public_writers_held, 0);
   assert.equal(f.roles['brand-logo'], undefined);
 });
 
@@ -623,4 +629,33 @@ test('coordinated Core/WebReady in-scope date change invalidates approval with u
       assert.equal(f.getWrites(),0);
     }
   }
+});
+
+test('one remaining public Writer ancestor blocks even when three are Reader', () => {
+  const f=fixture({folderSafe:true,oneUnsafeFolder:true});
+  const dry=f.api.dry();
+  assert.equal(dry.blocking_public_writer_folders,1);
+  assert.equal(dry.owner_folder_inheritance_review_required,true);
+  assert.throws(()=>f.api.apply(dry.fingerprint),/PUBLIC_WRITER_ANCESTOR_HOLD:1/);
+  assert.equal(f.getWrites(),0);
+});
+
+test('realistic four public Writer folders must all be resolved first', () => {
+  const f=fixture();
+  const dry=f.api.dry();
+  assert.equal(dry.blocking_public_writer_folders,4);
+  assert.equal(dry.owner_folder_inheritance_review_required,true);
+  assert.throws(()=>f.api.apply(dry.fingerprint),/PUBLIC_WRITER_ANCESTOR_HOLD:4/);
+  assert.equal(f.getWrites(),0);
+});
+
+test('all-Reader synthetic ancestor case permits owner-reviewed image-only batch', () => {
+  const f=fixture({folderSafe:true});
+  const dry=f.api.dry();
+  assert.equal(dry.blocking_public_writer_folders,0);
+  assert.equal(dry.owner_folder_inheritance_review_required,false);
+  const result=f.api.apply(dry.fingerprint);
+  assert.equal(result.updated,25);
+  assert.equal(result.folder_writes,0);
+  assert.ok(folderIDs.every(id=>f.roles[id]==='VIEW'));
 });
