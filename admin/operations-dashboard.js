@@ -38,11 +38,18 @@ function normalize(source,now=new Date()){
  const root=(source&&typeof source==='object')?source:{};
  if(root.ok===false)throw new Error('SNAPSHOT_REJECTED');
  const d=root.data&&typeof root.data==='object'?root.data:root.snapshot&&typeof root.snapshot==='object'?root.snapshot:root;
- const required=['events','web_ready','web_packages','bookings','visibility_locks'];
+ // Core arrays are required. Deployed Apps Script's primary snapshot may omit Owner Locks.
+ // Missing locks must downgrade every event to HOLD, not hide the entire read-only dashboard.
+ const required=['events','web_ready','web_packages','bookings'];
+ const locksAvailable=Array.isArray(d.visibility_locks);
  const missing=required.filter(k=>!Array.isArray(d[k]));
  if(missing.length)throw new Error('SOURCE_INCOMPLETE:'+missing.join(','));
  if(!d.web_ready.length||!d.web_packages.length||!d.events.length)throw new Error('SOURCE_EMPTY');
- const fetched=Date.parse(String(d.generated_at||''));
+ const sourceTime=String(d.generated_at||'').trim();
+ // The canonical Apps Script formats generated_at in the spreadsheet's Bangkok timezone
+ // without any UTC offset; use +07:00 rather than the viewer's browser timezone.
+ const localBangkokTime=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(sourceTime);
+ const fetched=Date.parse(localBangkokTime?sourceTime+'+07:00':sourceTime);
  const fresh=Number.isFinite(fetched)&&fetched<=+now+15000&&(+now-fetched)<=MAX_AGE_MS;
  const reader=String(d.fallback_reader||'');
  const viaPublic=reader==='public-gviz'||String(d.snapshot_source||'').includes('public-gviz');
@@ -61,7 +68,7 @@ function normalize(source,now=new Date()){
   if(!CLOSED.has(status)&&!ACTIVE.has(status))badBooking.add(id);
   const n=bookingById.get(id)||{total:0,active:0};n.total++;if(ACTIVE.has(status))n.active++;bookingById.set(id,n);
  });
- const lockById=new Map();d.visibility_locks.forEach(l=>{
+ const lockById=new Map();(locksAvailable?d.visibility_locks:[]).forEach(l=>{
   const id=String(l.event_id||'');if(!id)return;
   const v=String(l.lock_state||'').trim().toUpperCase();
   const list=lockById.get(id)||[];list.push(v);lockById.set(id,list);
@@ -77,9 +84,11 @@ function normalize(source,now=new Date()){
   const pricePhone=p?amount(p.price):null,priceBundle=b?amount(b.price):null;
   const validPrice=pricePhone!==null&&pricePhone>0&&priceBundle!==null&&priceBundle>=pricePhone;
   const countPhone=p?stockCount(p.available_count):null,countBundle=b?stockCount(b.available_count):null;
-  const phoneReady=!!(p&&p.package_status==='available'&&countPhone!==null&&countPhone>0);
-  const bundleReady=!!(b&&b.package_status==='available'&&countBundle!==null&&countBundle>0);
   const stockClaim=stockCount(r.available_phone_count);
+  // Both independent sources must indicate actual rentable phone capacity.
+  // A package count cannot reopen a day the canonical Web Ready phone stock says is zero.
+  const phoneReady=!!(stockClaim!==null&&stockClaim>0&&p&&p.package_status==='available'&&countPhone!==null&&countPhone>0);
+  const bundleReady=!!(stockClaim!==null&&stockClaim>0&&b&&b.package_status==='available'&&countBundle!==null&&countBundle>0);
   const ambiguous=phone.length>1||bundle.length>1;
   const book=bookingById.get(id)||{total:0,active:0};
   const lockStates=[...new Set(lockById.get(id)||[])];
@@ -112,7 +121,7 @@ function normalize(source,now=new Date()){
   return {id,name:display(r.event_name||sourceEvent.event_name,220),date:eventDate,venue:display(r.venue||sourceEvent.venue,180),poster,web,phone:pricePhone,bundle:priceBundle,phoneReady,bundleReady,stock:stockClaim,bookings:badBooking.has(id)?null:book.active,bookingTotal:badBooking.has(id)?null:book.total,lock:conflict?'CONFLICT':(!lockStates.length||lockStates.includes(''))?'UNKNOWN':locked?'LOCKED':lockStates.join(','),qa,gate,validPrice,ambiguous};
  }).filter(x=>x.id);
  if(duplicateIds.size)throw new Error('DUPLICATE_EVENT_ID');
- return {records,meta:{generatedAt:Number.isFinite(fetched)?new Date(fetched).toISOString():null,fresh,viaPublic,snapshotSource:display(d.snapshot_source||'unknown'),xLogAvailable:false,complete:missing.length===0}};
+ return {records,meta:{generatedAt:Number.isFinite(fetched)?new Date(fetched).toISOString():null,fresh,viaPublic,snapshotSource:display(d.snapshot_source||'unknown'),xLogAvailable:false,locksAvailable,complete:missing.length===0&&locksAvailable}};
 }
 function mount(doc,win){
  const $=id=>doc.getElementById(id);const state={records:[],view:'table',meta:null,plans:[],ratio:60};
@@ -166,7 +175,7 @@ function mount(doc,win){
   if(!response.ok)throw new Error('API_HTTP_'+response.status);
   const payload=await response.json();const data=normalize(payload);
   state.records=data.records;state.meta=data.meta;render();
-  const issues=[];if(!data.meta.fresh)issues.push('Snapshot ไม่สดหรือไม่มี generated_at');if(data.meta.viaPublic)issues.push('Reader ยังเป็น public GViz fallback');issues.push('ยังไม่มี X Post Log ใน Snapshot และยังไม่ได้ยืนยัน Production ที่ลูกค้าเห็น');
+  const issues=[];if(!data.meta.fresh)issues.push('Snapshot ไม่สดหรือไม่มี generated_at');if(data.meta.viaPublic)issues.push('Reader ยังเป็น public GViz fallback');if(!data.meta.locksAvailable)issues.push('Owner Locks ไม่อยู่ใน Snapshot: งานทั้งหมด HOLD รอตรวจ');issues.push('ยังไม่มี X Post Log ใน Snapshot และยังไม่ได้ยืนยัน Production ที่ลูกค้าเห็น');
   status('อ่านข้อมูลหลังบ้านสำเร็จ '+data.records.length+' งาน · '+(data.meta.generatedAt||'ไม่ทราบเวลาต้นทาง')+' · '+issues.join(' · '),issues.length?'':'ready');
  }catch(e){state.records=[];state.meta=null;$('app').hidden=true;status('HOLD — ไม่แสดงข้อมูลหลังบ้าน เพราะ '+(e.message==='LOGIN_REQUIRED'?'ยังไม่ได้เข้าสู่ระบบ Admin: เปิด /admin เพื่อเข้าสู่ระบบ':display(e.message,100)),'error')}
  finally{$('refresh').disabled=false}}
