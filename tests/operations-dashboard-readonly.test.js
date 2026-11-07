@@ -34,3 +34,12 @@ test('dates and posters validated',()=>{
 test('all post candidates remain unverified without real X log',()=>{
   const row=Ops.normalize(mk(),NOW).records[0];assert.ok(row.gate.includes('ยังไม่ยืนยัน Production และ X Post Log สด'));
 });
+test('no Owner Lock evidence is not considered release-safe',()=>{
+  const row=Ops.normalize(mk({visibility_locks:[]}),NOW).records[0];
+  assert.ok(row.gate.includes('Owner Locks ไม่มีหลักฐาน'));
+});
+test('unknown booking status cannot imply zero active customers',()=>{
+  const x=Ops.normalize(mk({bookings:[{event_id:'EVT-20261203-BTS-ARIRANG',booking_status:'unexpected_future_value'}]}),NOW).records[0];
+  assert.equal(x.bookings,null);assert.equal(x.bookingTotal,null);
+  assert.ok(x.gate.includes('สถานะ Booking ไม่รู้จัก'));
+});
