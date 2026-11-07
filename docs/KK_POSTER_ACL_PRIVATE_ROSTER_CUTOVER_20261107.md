@@ -14,11 +14,11 @@
 - A **separate mandatory owner-private manifest** is now required before any real Apply. Owner sets Script Property `KKACL_OWNER_REVIEWED_ACTIVE_IDS_V20261107` to a JSON array containing exactly the **45 current sorted Drive File IDs**, after privately inspecting each name, parent, role, booking/visibility context and rights. Do not put the JSON in GitHub/PR/issue/LINE. Missing/invalid/duplicate/unsorted/mismatched private roster fails before any write.
 - `kkAclDryRun_20261013()` remains read-only and can inspect all descendants, paged metadata and SHA-256 fingerprint without the property. `kkAclOwnerApprovedApply_20261013()` retains its unfilled owner fingerprint placeholder. The owner must independently approve a NEW actual fingerprint before **each** <=25-image batch. The provider code still performs `ANYONE_WITH_LINK` EDIT -> VIEW only for active images, with role readback; folder and historical image writes remain zero.
 - Standalone `kk-poster-acl-READONLY-preflight-20261014.gs` mirrors the exact owner source prefix and contains no Apply or `setSharing` method.
-- Offline test file extended from 34 to **36 cases** (the branch's V8 simulated Node-compatible test harness reports **36/36**). Cases include missing/malformed/drifted private roster and alternate Google URL. This is **not native Node CI, not hosted Google Apps Script, not owner execution, not browser/signed-out production QA**.
+- **Exact-source Native Node CI: 38/38 PASS, 0 fail/skip/cancel**, GitHub Actions [run #42362824361](https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/42362824361) on source head `e5a9792c1e000ce1a263b179c01a9709a396ab73`. Real `node --test` on a standard GitHub-hosted runner (public repo). The 38 cases use **synthetic/mock Google APIs**, including missing/malformed/duplicate/unsorted/private roster, new 46th Drive poster, inherited folder blast-radius protection and exact 25+20 batch behavior. This is **not live Google Apps Script, not a real Drive ACL write, not owner authorization, not independent reviewer sign-off or guest/signed-out production image QA**.
 
 ## Safe owner execution / strict gates
 1. Verify branch ownership and exact PR #721 HEAD plus Codex changes; only one approved ACL writer. Treat this child branch as proposed source, never as an auto-merge or provider-change instruction.
-2. Independently review source and run native `node --test ops/drive-security/kk-poster-acl-owner-review-20261013.test.cjs` against exact accepted SHA, with available no-cost CI quota verified if hosted CI is considered.
+2. Native exact-source `node --test ops/drive-security/kk-poster-acl-owner-review-20261013.test.cjs` is **PASS 38/38 on source HEAD** (run linked above). **Independent owner/security code review and acceptance of the final SHA remain required**, including rechecking CI if code changes after review.
 3. In owner-controlled **restricted standalone** Google Apps Script (not bound to link-readable Core Booking Sheet), install the vetted code; perform `kkAclDryRun_20261013()` first. Verify exactly 45 active/57 references, all four folders and every descendant, record fingerprint privately, inspect inherited permissions.
 4. Privately enumerate the 45 exact IDs from the audited live SOT and compare every file; store the full sorted JSON in the private Script Property named above. Do **not** paste raw IDs or fingerprint in the public repo. If one image is outside known asset trees or private, halt and review scope.
 5. BEFORE changing permissions, establish a signed-out successful image load baseline for **all 57 Oct–Dec referenced image URLs** and compare artwork/venue/date. If signed-out baseline or owner identity cannot be tested, remain HOLD.
@@ -27,7 +27,7 @@
 8. Separately address 4 public Writer folders with inheritance-aware owner approval and historical #743. Do not close master security #718 until all applicable files/folders have no public Writer and the storefront passes guest QA.
 
 ## Execution status and cost boundary
-- Code changed only on isolated `fix/poster-acl-private-roster-20261107` branched off exact PR #721 parent commit `7bd37d1eb8a8cb60af02d6fd81227139ccd4a3d5`. No writes to PR #721, Codex branches, `main`, Vercel, Apps Script runtime, Sheets, Booking, customers, LINE, Make, prices, Drive permissions or public website.
+- Code changed only on isolated `fix/poster-acl-private-roster-20261107` branched off exact PR #721 parent commit `7bd37d1eb8a8cb60af02d6fd81227139ccd4a3d5`. No writes to PR #721, Codex branches, `main`, Vercel, Apps Script runtime, Sheets, Booking, customers, LINE, Make, prices, Drive permissions or public website. The standalone child Draft PR #849 targets the owner branch for review and is not approved/merged.
 - Connected Google Drive supports ACL metadata reads but no existing permission downgrade endpoint. Both connected Make organizations were checked previously and had **zero usable Google Drive OAuth connections** for their native ACL update module. Browser control and no-charge guest image QA are not available in this chat.
 - **Actual ACL roles downgraded: 0.** Security P0 remains OPEN, risk score unchanged. Do not claim production repair from synthetic/hosted source tests.
 
@@ -38,3 +38,8 @@
 - Historical security #743: https://github.com/mikesd1995/kk-phone-rental-vercel/issues/743
 - Core privacy #738: https://github.com/mikesd1995/kk-phone-rental-vercel/issues/738
 - Whole-project audit #489: https://github.com/mikesd1995/kk-phone-rental-vercel/issues/489
+
+## New 7 November CI closure checkpoint
+- Child integration draft: https://github.com/mikesd1995/kk-phone-rental-vercel/pull/849
+- Native Node exact-source result: https://github.com/mikesd1995/kk-phone-rental-vercel/actions/runs/42362824361 (38/38 PASS). Standard public-repo runner, no external provider credentials or billed service requested.
+- **Remaining: owner-private Apps Script access and script property, independent approval, signed-out 57/57 baseline, current identity/inheritance inventory and controlled 25+20 ACL writer→reader cutover.** No live ACL changes have occurred; do not mark security incident fixed based on synthetic CI.
