@@ -1153,7 +1153,14 @@ function kkRepairOwnerVisibilityLockFormulas_() {
     // Fail closed on drift after preflight and before any write. A blank row
     // without formulas is kept blank; a safe row is kept unchanged.
     const spans = kkWebReadyOwnerRepairSpans_(previous, ids, safe, startRow);
-    if (!spans.length) return 0;
+    if (!spans.length) {
+      // Idempotence is safe only when the displayed customer outcome is also
+      // correct. A no-op must not certify stale OPEN phones or invalid rows.
+      const verified = kkValidateOwnerWebReadyPhoneResults_(beforeValues, startRow);
+      if (!verified.pass || verified.verified_event_rows !== preflight.populated_rows)
+        throw new Error('WEB_READY_OWNER_ALREADY_SAFE_FORMULAS_BAD_VALUES');
+      return 0;
+    }
     let attempted = 0;
     try {
       for (const span of spans) {
