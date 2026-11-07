@@ -909,6 +909,12 @@ function kkPreflightOwnerVisibilityLockFormulas_() {
   const formulas = web.getRange(startRow, 9, rowCount, 2).getFormulas();
   const issues = [];
   let populatedRows = 0, legacyRows = 0, alreadySafeRows = 0, blankRows = 0;
+  // Count the ACTUAL write blast radius, including the blank-event fill-down
+  // formulas. legacy_rows alone counts only populated event IDs and therefore
+  // substantially understates how many formula pairs Apply would replace.
+  let blankFormulaRows = 0, blankEmptyRows = 0,
+    plannedChangeRows = 0, safeFormulaPairsAll = 0,
+    phoneZeroMarkedOpen = 0, phoneZeroLensPositiveMarkedOpen = 0;
   for (let i = 0; i < rowCount; i++) {
     const r = startRow + i;
     const v = values[i] || [];
@@ -931,20 +937,41 @@ function kkPreflightOwnerVisibilityLockFormulas_() {
       (action === legacyAction || action === safeAction);
     if (!id) {
       blankRows++;
-      // Blank rows may contain full, known fill-down formulas (actual owner
-      // workbook has 568), or may have neither formula. Unknown/mixed partial
-      // formulas are never overwritten under a blanket 996-row repair.
+      // Empty event rows may still contain legitimate fill-down formulas.
+      // Count them as planned writes; a truly blank cell pair stays untouched.
       if (status || action) {
         if (!recognized) issues.push(r);
+        else {
+          blankFormulaRows++;
+          if (status === safeStatus && action === safeAction) safeFormulaPairsAll++;
+          else plannedChangeRows++;
+        }
       } else if (String(v[8] || '').trim() || String(v[9] || '').trim()) {
         issues.push(r);
-      }
+      } else blankEmptyRows++;
       continue;
     }
     populatedRows++;
     if (!recognized) issues.push(r);
-    else if (status !== safeStatus || action !== safeAction) legacyRows++;
-    else alreadySafeRows++;
+    else if (status !== safeStatus || action !== safeAction) {
+      legacyRows++;
+      plannedChangeRows++;
+    } else {
+      alreadySafeRows++;
+      safeFormulaPairsAll++;
+    }
+    // Aggregate anomaly counts only: never log event IDs or customer data.
+    // These are actual rendered I/J values, not proof of a valid booking.
+    const phoneCount = Number(String(v[6] == null ? '' : v[6]).replace(/,/g, ''));
+    const lensCount = Number(String(v[7] == null ? '' : v[7]).replace(/,/g, ''));
+    if (String(v[6] == null ? '' : v[6]).trim() &&
+        Number.isFinite(phoneCount) && phoneCount === 0 &&
+        String(v[9] || '').trim() === 'show' &&
+        String(v[8] || '').trim() === 'เปิดจอง') {
+      phoneZeroMarkedOpen++;
+      if (Number.isFinite(lensCount) && lensCount > 0)
+        phoneZeroLensPositiveMarkedOpen++;
+    }
   }
   return {
     status: issues.length || populatedRows === 0 ? 'BLOCKED' : 'READY_FOR_OWNER_APPROVAL',
@@ -952,8 +979,18 @@ function kkPreflightOwnerVisibilityLockFormulas_() {
     checked_rows: rowCount,
     populated_rows: populatedRows,
     blank_rows: blankRows,
+    // A no-write preflight receipt. Expected live baseline at 8 Nov:
+    // 996 scanned, 438 populated, 557 blank-event formula pairs, 1 truly
+    // empty pair, 995 planned writes (1990 formula cells), 2 phone-zero OPEN.
+    blank_formula_rows: blankFormulaRows,
+    blank_without_formula_rows: blankEmptyRows,
     legacy_rows: legacyRows,
     already_safe_rows: alreadySafeRows,
+    planned_change_rows: plannedChangeRows,
+    planned_change_cells: plannedChangeRows * 2,
+    safe_formula_pairs_all: safeFormulaPairsAll,
+    phone_zero_marked_open: phoneZeroMarkedOpen,
+    phone_zero_lens_positive_marked_open: phoneZeroLensPositiveMarkedOpen,
     unexpected_rows: issues.slice(0, 25),
     unexpected_count: issues.length,
     production_writes: 0
