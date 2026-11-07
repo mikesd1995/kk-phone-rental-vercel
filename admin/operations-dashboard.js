@@ -95,8 +95,8 @@ function normalize(source,now=new Date()){
   const stockClaim=stockCount(r.available_phone_count);
   // Both independent sources must indicate actual rentable phone capacity.
   // A package count cannot reopen a day the canonical Web Ready phone stock says is zero.
-  const phoneReady=!!(canAdvertiseReady&&stockClaim!==null&&stockClaim>0&&p&&p.package_status==='available'&&countPhone!==null&&countPhone>0);
-  const bundleReady=!!(canAdvertiseReady&&stockClaim!==null&&stockClaim>0&&b&&b.package_status==='available'&&countBundle!==null&&countBundle>0);
+  let phoneReady=!!(canAdvertiseReady&&stockClaim!==null&&stockClaim>0&&p&&p.package_status==='available'&&countPhone!==null&&countPhone>0);
+  let bundleReady=!!(canAdvertiseReady&&stockClaim!==null&&stockClaim>0&&b&&b.package_status==='available'&&countBundle!==null&&countBundle>0);
   const ambiguous=phone.length>1||bundle.length>1;
   const book=bookingById.get(id)||{total:0,active:0};
   const lockStates=[...new Set(lockById.get(id)||[])];
@@ -109,6 +109,8 @@ function normalize(source,now=new Date()){
   const webVenue=String(r.venue||'').trim().normalize('NFKC').toLocaleLowerCase('th');
   const dateRisk=!eventDate||!!(guessedDate&&`${guessedDate[1]}-${guessedDate[2]}-${guessedDate[3]}`!==eventDate)
    ||!!(coreRow&&(!coreDate||coreDate!==eventDate||coreVenue&&webVenue&&coreVenue!==webVenue));
+  // A stale/contradictory date or venue is not an advertise-ready rental day.
+  if(dateRisk){phoneReady=false;bundleReady=false;}
   const poster=safePoster(r.poster_image_url||sourceEvent.poster_url||sourceEvent.poster_image_url);
   const badPoster=!poster||/kk-brand-hero|placeholder|default-poster/i.test(poster);
   const qa=[];
