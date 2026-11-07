@@ -937,6 +937,10 @@ function kkPreflightOwnerVisibilityLockFormulas_() {
       (action === legacyAction || action === safeAction);
     if (!id) {
       blankRows++;
+      // A blank event ID with other A:H data is an orphan, not a safe empty
+      // fill-down slot. Block BEFORE formula writes or owner approval.
+      if (v.slice(1, 8).some(value =>
+          String(value == null ? '' : value).trim())) issues.push(r);
       // Empty event rows may still contain legitimate fill-down formulas.
       // Count them as planned writes; a truly blank cell pair stays untouched.
       if (status || action) {
