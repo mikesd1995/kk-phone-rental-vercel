@@ -9,9 +9,11 @@ const AUTH='/api/kk-admin-auth', SNAPSHOT='/api/kk-admin?action=snapshot';
 const MAX_AGE_MS=180000;
 const CLOSED=new Set(['completed','complete','cancelled','canceled','no_show','rejected','closed']);
 const ACTIVE=new Set(['pending','confirmed','prepared','picked_up','returned','uploaded']);
-const SAFE_LOCK=new Set(['SEEN_CORE','REOPENED','']);
+const SAFE_LOCK=new Set(['SEEN_CORE','REOPENED']);
 const display=(v,max=180)=>String(v??'').slice(0,max);
 const amount=v=>{if(v===null||v===undefined||v==='')return null;const n=Number(String(v).replace(/,/g,''));return Number.isFinite(n)&&n>=0?n:null};
+// Inventory counts must be non-negative whole units, not fractions or overflow values.
+const stockCount=v=>{const n=amount(v);return n!==null&&Number.isSafeInteger(n)?n:null};
 function isoDate(v){
  const s=display(v,40).trim();let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
  if(!m){const d=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(d)m=[s,d[3],d[2],d[1]];}
@@ -44,10 +46,17 @@ function normalize(source,now=new Date()){
  const fresh=Number.isFinite(fetched)&&fetched<=+now+15000&&(+now-fetched)<=MAX_AGE_MS;
  const reader=String(d.fallback_reader||'');
  const viaPublic=reader==='public-gviz'||String(d.snapshot_source||'').includes('public-gviz');
+ const uniqueIds=(rows,key)=>{const seen=new Set();for(const row of rows){const id=String(row&&row[key]||'').trim();if(!id)continue;if(seen.has(id))throw new Error('DUPLICATE_'+key.toUpperCase());seen.add(id);}};
+ uniqueIds(d.events,'event_id');uniqueIds(d.web_packages,'package_id');
  const eventById=new Map(d.events.map(e=>[String(e.event_id||''),e]));
  const byPackage=new Map();d.web_packages.forEach(p=>{const id=String(p.event_id||'');if(!id)return;const a=byPackage.get(id)||[];a.push(p);byPackage.set(id,a)});
- const bookingById=new Map(),badBooking=new Set();d.bookings.forEach(b=>{
-  const id=String(b.event_id||'');if(!id)return;
+ const bookingById=new Map(),badBooking=new Set(),seenBookings=new Map();d.bookings.forEach(b=>{
+  const id=String(b.event_id||'').trim();if(!id)return;
+  const bookingId=String(b.booking_id||'').trim();
+  // Never treat records without a unique Booking identity as verified counts.
+  if(!bookingId)badBooking.add(id);
+  else if(seenBookings.has(bookingId)){badBooking.add(id);badBooking.add(seenBookings.get(bookingId));}
+  else seenBookings.set(bookingId,id);
   const status=String(b.booking_status||'').trim().toLowerCase();
   if(!CLOSED.has(status)&&!ACTIVE.has(status))badBooking.add(id);
   const n=bookingById.get(id)||{total:0,active:0};n.total++;if(ACTIVE.has(status))n.active++;bookingById.set(id,n);
@@ -67,10 +76,10 @@ function normalize(source,now=new Date()){
   const p=phone.length===1?phone[0]:null,b=bundle.length===1?bundle[0]:null;
   const pricePhone=p?amount(p.price):null,priceBundle=b?amount(b.price):null;
   const validPrice=pricePhone!==null&&pricePhone>0&&priceBundle!==null&&priceBundle>=pricePhone;
-  const countPhone=p?amount(p.available_count):null,countBundle=b?amount(b.available_count):null;
+  const countPhone=p?stockCount(p.available_count):null,countBundle=b?stockCount(b.available_count):null;
   const phoneReady=!!(p&&p.package_status==='available'&&countPhone!==null&&countPhone>0);
   const bundleReady=!!(b&&b.package_status==='available'&&countBundle!==null&&countBundle>0);
-  const stockClaim=amount(r.available_phone_count);
+  const stockClaim=stockCount(r.available_phone_count);
   const ambiguous=phone.length>1||bundle.length>1;
   const book=bookingById.get(id)||{total:0,active:0};
   const lockStates=[...new Set(lockById.get(id)||[])];
@@ -86,7 +95,7 @@ function normalize(source,now=new Date()){
   if(badPoster)qa.push('โปสเตอร์หายหรือเป็นภาพร้าน');
   if(dateRisk||!/\S/.test(r.venue||'')||/รอยืนยัน|not yet confirmed/i.test(r.venue||''))qa.push('วันที่/สถานที่ต้องตรวจ');
   if(!validPrice||ambiguous)qa.push('ราคา/แพ็กเกจไม่ครบหรือกำกวม');
-  if(web==='show'&&(!phoneReady&&!bundleReady||stockClaim===0))qa.push('สถานะเปิดแต่มือถือไม่พร้อม');
+  if(web==='show'&&(!phoneReady&&!bundleReady||stockClaim===0||stockClaim===null))qa.push('สถานะเปิดแต่มือถือไม่พร้อม');
   if(eventDate>=bangkokToday(now)&&!book.total)qa.push('ไม่พบบุกกิ้งใน Snapshot');
   qa.push('ยังไม่มีหลักฐานราคาคู่แข่งใน Snapshot');
   const gate=[];
@@ -94,13 +103,13 @@ function normalize(source,now=new Date()){
   if(!phoneReady&&!bundleReady||stockClaim===0||stockClaim===null)gate.push('มือถือ/แพ็กเกจไม่พร้อม');
   if(!validPrice||ambiguous)gate.push('ราคา/รุ่นไม่ผ่าน');
   if(locked||conflict)gate.push('Owner Lock');
-  if(!lockStates.length)gate.push('Owner Locks ไม่มีหลักฐาน');
-  if(badBooking.has(id))gate.push('สถานะ Booking ไม่รู้จัก');
+  if(!lockStates.length||lockStates.includes(''))gate.push('Owner Locks ไม่มีหลักฐาน');
+  if(badBooking.has(id))gate.push('Booking ไม่ครบ/ID ซ้ำ/สถานะไม่รู้จัก');
   if(badPoster||dateRisk)gate.push('โปสเตอร์/วันที่');
   if(!fresh)gate.push('Snapshot ไม่สด');
   if(viaPublic)gate.push('Source เป็น public GViz fallback');
   gate.push('ยังไม่ยืนยัน Production และ X Post Log สด');
-  return {id,name:display(r.event_name||sourceEvent.event_name,220),date:eventDate,venue:display(r.venue||sourceEvent.venue,180),poster,web,phone:pricePhone,bundle:priceBundle,phoneReady,bundleReady,stock:stockClaim,bookings:badBooking.has(id)?null:book.active,bookingTotal:badBooking.has(id)?null:book.total,lock:locked?'LOCKED':conflict?'CONFLICT':lockStates.join(',')||'UNKNOWN',qa,gate,validPrice,ambiguous};
+  return {id,name:display(r.event_name||sourceEvent.event_name,220),date:eventDate,venue:display(r.venue||sourceEvent.venue,180),poster,web,phone:pricePhone,bundle:priceBundle,phoneReady,bundleReady,stock:stockClaim,bookings:badBooking.has(id)?null:book.active,bookingTotal:badBooking.has(id)?null:book.total,lock:conflict?'CONFLICT':(!lockStates.length||lockStates.includes(''))?'UNKNOWN':locked?'LOCKED':lockStates.join(','),qa,gate,validPrice,ambiguous};
  }).filter(x=>x.id);
  if(duplicateIds.size)throw new Error('DUPLICATE_EVENT_ID');
  return {records,meta:{generatedAt:Number.isFinite(fetched)?new Date(fetched).toISOString():null,fresh,viaPublic,snapshotSource:display(d.snapshot_source||'unknown'),xLogAvailable:false,complete:missing.length===0}};
