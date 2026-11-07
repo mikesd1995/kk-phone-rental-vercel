@@ -53,7 +53,7 @@ function evaluateCandidate(candidate={},snapshot={},options={}){
  if(!snapshot.snapshot_verified||!Number.isFinite(checked)||!Number.isFinite(now)||ageMs<0||ageMs>maxAgeMs)blockers.push('FRESH_SOT_READBACK_REQUIRED');
  if(!clean(candidate.title||candidate.name)||!clean(candidate.venue))blockers.push('EVENT_IDENTITY_INCOMPLETE');
  const rentalFit=Number(candidate.rental_fit_score);
- if(candidate.rental_fit_score==null||!Number.isFinite(rentalFit)||rentalFit<7||rentalFit>10)blockers.push('RENTAL_FIT_NOT_VERIFIED_OR_BELOW_PUBLISH_GATE');
+ if(candidate.rental_fit_score==null||!Number.isFinite(rentalFit)||rentalFit<7||rentalFit>10||candidate.rental_fit_verified!==true||!clean(candidate.rental_fit_evidence))blockers.push('RENTAL_FIT_NOT_VERIFIED_OR_BELOW_PUBLISH_GATE');
  if(!validHttps(candidate.primary_source_url)||candidate.primary_source_verified!==true)blockers.push('PRIMARY_EVENT_SOURCE_NOT_VERIFIED');
  if(!validHttps(candidate.poster_url)||candidate.poster_verified!==true)blockers.push('OFFICIAL_POSTER_NOT_VERIFIED');
  if(candidate.photo_allowed!==true)blockers.push('PHONE_PHOTOGRAPHY_PERMISSION_NOT_VERIFIED');
@@ -69,6 +69,14 @@ function evaluateCandidate(candidate={},snapshot={},options={}){
  }
  if(booked)blockers.push('ANY_CONFIRMED_OR_NONCANCELLED_BOOKING_ON_DATE');
  if(unresolved)blockers.push('BOOKING_DATE_UNRESOLVED');
+ // Day-wide physical availability: NEVER derive bookability from detachable lens stock or from any single event's Web Ready row.
+ const stock=snapshot.stock_by_day&&date&&snapshot.stock_by_day[date];
+ if(!stock||stock.verified!==true||stock.source!=='CANONICAL_ASSET_BOOKING_RECONCILIATION')blockers.push('CANONICAL_DAY_STOCK_RECONCILIATION_MISSING');
+ else{
+  if(!Number.isInteger(stock.phones_available)||stock.phones_available<1)blockers.push('NO_AVAILABLE_PHONES_DAY_WIDE');
+  if(candidate.bundle_requested!==false&&(!Number.isInteger(stock.lenses_available)||stock.lenses_available<1))
+   blockers.push('NO_AVAILABLE_ADDON_LENS_DAY_WIDE');
+ }
  if(date&&events)for(const e of events)if(sameEvent(e,candidate,date))duplicates++;
  if(duplicates)blockers.push('EXISTING_CORE_RECORD_RECONCILE_NOT_CREATE');
  if(date&&locks)for(const lock of locks){
