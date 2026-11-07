@@ -200,7 +200,7 @@ test('show-only gate remains upstream and fallback does not promote owner-hidden
 
 test('public storefront script uses the current cache-busted release key',()=>{
   const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
-  assert.match(html,/script\.js\?v=bilingual-legal-20261106/);
+  assert.match(html,/script\.js\?v=phone-lens-safety-20261107/);
 });
 
 test('a loaded KK-owned brand image is visibly marked temporary; official event artwork is not',()=>{
