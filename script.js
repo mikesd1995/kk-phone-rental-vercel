@@ -1710,7 +1710,7 @@ function showModal(c,options){
       : (p.inquiryOnly?tr("ask_this"):tr("book_this"));
     bookBtn.href=isExistingRenterLens?getExistingRenterLensUrl(c,p):getBookingUrl(c,p);
     bookBtn.target="_blank"; bookBtn.rel="noopener";
-    bookBtn.setAttribute("aria-label",tr("book_aria",{package:p.model||"",event:c.name||""}));
+    bookBtn.setAttribute("aria-label",isExistingRenterLens?bookBtn.textContent+": "+(p.model||"")+" - "+(c.name||""):tr("book_aria",{package:p.model||"",event:c.name||""}));
     // NEW: GA4 track booking click
     bookBtn.onclick=function(e){
       e.stopPropagation();

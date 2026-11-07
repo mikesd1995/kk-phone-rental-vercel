@@ -112,7 +112,53 @@ test('LINE journeys keep internal attribution out of customer-facing copy',()=>{
   assert.doesNotMatch(storeJs,/KK-(?:BK|WL|EV|SRCH)-/);
   assert.doesNotMatch(adminHtml,/name="lead_ref"/);
   assert.doesNotMatch(adminJs,/payload\.lead_ref|\[LEAD_REF:/);
-  assert.match(storeJs,/track\("booking_click",\{event_id:c\.id\|\|"", event_name:c\.name, package_type:p\.type\|\|""/);
+  const messageStart=storeJs.indexOf('function buildBookingMsg(c,p){');
+  const messageEnd=storeJs.indexOf('function showModal(c,options){',messageStart);
+  const buttonStart=storeJs.indexOf('var bookBtn=document.createElement("a"); bookBtn.className="badge book-pill";');
+  const buttonEnd=storeJs.indexOf('right.appendChild(priceEl);',buttonStart);
+  assert.ok(messageStart>=0 && messageEnd>messageStart && buttonStart>=0 && buttonEnd>buttonStart);
+  // Execute the production message builders and button dispatch, without opening LINE.
+  const makeButton=Function('c','p','track',`
+    var LINE_OA="https://line.me/R/oaMessage/%40fixture/?", currentLang="th";
+    var tr=function(key){return {line_event:"Event",line_date:"Date",line_venue:"Venue",line_price:"Price"}[key]||key;};
+    var lineVal=function(value){return String(value||"").trim()||"-";};
+    var fmtPriceLine=function(value){return String(value)+" THB";};
+    var document={createElement:function(){return {setAttribute:function(){}};}};
+    ${storeJs.slice(messageStart,messageEnd)}
+    ${storeJs.slice(buttonStart,buttonEnd)}
+    return bookBtn;
+  `);
+  const event={id:'EVENT_FIXTURE',name:'Public event',date:'10/11/2026',venue:'Public venue',internalRef:'KK-BK-PRIVATE'};
+  for(const fixture of [
+    {type:'phone_only',model:'Phone example',event:'booking_click',source:'modal',intent:'สนใจเช่ามือถือ'},
+    {type:'phone_lens_bundle',model:'Phone and lens example',event:'booking_click',source:'modal',intent:'สนใจเช่ามือถือ'},
+    {type:'lens_only',model:'Lens example',event:'lens_addon_inquiry_click',source:'modal_existing_renter_lens',intent:'สอบถามเพิ่มเลนส์สำหรับผู้จองมือถือแล้ว'}
+  ]){
+    const pkg={type:fixture.type,model:fixture.model,price:690,note:'[LEAD_REF:PRIVATE]'};
+    const clicks=[];
+    const button=makeButton(event,pkg,(name,params)=>clicks.push({name,params}));
+    button.onclick({stopPropagation(){}});
+    assert.deepEqual(clicks,[{name:fixture.event,params:{
+      event_id:'EVENT_FIXTURE',event_name:'Public event',package_type:fixture.type,
+      package:fixture.model,price:690,source:fixture.source
+    }}]);
+    assert.ok(button.href.startsWith('https://line.me/R/oaMessage/%40fixture/?'));
+    const message=decodeURIComponent(button.href.split('/?')[1]);
+    assert.equal(message.split('\n')[0],fixture.intent);
+    assert.ok(message.includes(fixture.model));
+    assert.ok(message.includes('Event: Public event'));
+    assert.ok(message.includes('Venue: Public venue'));
+    assert.ok(message.includes('ยืนยันยอมรับเงื่อนไขการเช่า KK Phone Rental (KK-TERMS-2026-11-06)'));
+    assert.ok(message.includes('https://kk-phone-rental.vercel.app/privacy/'));
+    assert.doesNotMatch(message,/KK-(?:BK|WL|EV|SRCH)-|\[LEAD_REF:|\blead_ref\b|Ref\s*:/i);
+    if(fixture.type==='lens_only'){
+      assert.ok(message.includes('รหัสจองมือถือเดิม:'));
+      assert.doesNotMatch(message,/สนใจเช่ามือถือ|📱 รุ่น:/);
+    }else{
+      assert.ok(message.includes('📱 รุ่น: '+fixture.model));
+      assert.doesNotMatch(message,/รหัสจองมือถือเดิม:/);
+    }
+  }
   assert.match(storeJs,/track\("waitlist_click",\{event_id:c\.id\|\|"", event_name:c\.name, available:0, source:"modal"\}/);
   assert.match(storeJs,/event_inquiry_click/);
   assert.match(storeJs,/search_inquiry_click/);
