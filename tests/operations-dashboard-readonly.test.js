@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const Ops=require('../admin/operations-dashboard.js');
 const NOW=new Date('2026-11-07T09:00:00.000Z');
 const mk=(over={})=>({
-  ok:true,data:{generated_at:NOW.toISOString(),snapshot_source:'private-service-account',fallback_reader:'private-service-account',
+  ok:true,data:{projection_version:'kk-admin-ops-projection-v1',generated_at:NOW.toISOString(),snapshot_source:'private-service-account',fallback_reader:'private-service-account',
   events:[{event_id:'EVT-20261203-BTS-ARIRANG',event_name:'BTS World Tour',event_date:'2026-12-03',status:'open',active_on_web:true}],
   web_ready:[{event_id:'EVT-20261203-BTS-ARIRANG',event_name:'BTS World Tour',event_date:'2026-12-03',venue:'Rajamangala',poster_image_url:'https://example.org/poster.jpg',available_phone_count:0,available_lens_count:1,action_for_web:'show'}],
   web_packages:[{event_id:'EVT-20261203-BTS-ARIRANG',package_id:'P1',package_type:'phone_only',price:1190,available_count:0,package_status:'full'}, {event_id:'EVT-20261203-BTS-ARIRANG',package_id:'P2',package_type:'phone_lens_bundle',price:1490,available_count:0,package_status:'full'},{event_id:'EVT-20261203-BTS-ARIRANG',package_id:'P3',package_type:'lens_only',price:390,available_count:1,package_status:'available'}],
@@ -152,4 +152,9 @@ test('Core venue drift cannot look rent-ready with positive package stock',()=>{
  const x=Ops.normalize(d,NOW).records[0];
  assert.equal(x.phoneReady,false);
  assert.ok(x.qa.some(v=>v.includes('วันที่/สถานที่')));
+});
+
+test('reject unfiltered raw Admin response even when its other arrays look valid',()=>{
+ const source=mk();delete source.data.projection_version;
+ assert.throws(()=>Ops.normalize(source,NOW),/OPS_PROJECTION_REQUIRED/);
 });
