@@ -1056,6 +1056,77 @@ function kkWebReadyOwnerRepairSpans_(previous, ids, generated, startRow) {
   return spans;
 }
 
+// Inspect recalculated DISPLAY values after owner-only formula replacement.
+// Formula-text readback alone can report a false success if Google Sheets still
+// renders an OPEN phone slot with G=0. This function is pure/read-only; no PII,
+// identifiers or raw cell contents appear in its returned diagnostic receipt.
+function kkValidateOwnerWebReadyPhoneResults_(rows, startRow) {
+  const offset = Number(startRow == null ? 5 : startRow);
+  if (!Array.isArray(rows) || rows.length !== 996 || offset !== 5)
+    throw new Error('WEB_READY_OWNER_RESULTS_SHAPE_INVALID');
+  let populated = 0, open = 0, full = 0, hidden = 0, blank = 0;
+  const issues = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i], at = offset + i;
+    if (!Array.isArray(row) || row.length < 10)
+      throw new Error('WEB_READY_OWNER_RESULTS_SHAPE_INVALID');
+    const id = String(row[0] == null ? '' : row[0]).trim();
+    if (!id) {
+      // An orphan row can hide a real formula/data issue behind blank event ID.
+      if (row.some(v => String(v == null ? '' : v).trim())) issues.push(at);
+      else blank++;
+      continue;
+    }
+    populated++;
+    const rawPhone = String(row[6] == null ? '' : row[6]).replace(/,/g, '').trim();
+    const count = Number(rawPhone);
+    const status = String(row[8] == null ? '' : row[8]).trim();
+    const action = String(row[9] == null ? '' : row[9]).trim();
+    if (!rawPhone || !Number.isSafeInteger(count) || count < 0) {
+      issues.push(at);
+      continue;
+    }
+    if (action === 'hide' && status === 'ซ่อนจากเว็บ') hidden++;
+    else if (action === 'show' && count > 0 && status === 'เปิดจอง') open++;
+    else if (action === 'show_full' && count === 0 && status === 'เต็มแล้ว') full++;
+    else issues.push(at);
+  }
+  return {
+    pass: issues.length === 0 && populated > 0,
+    verified_event_rows: populated,
+    verified_open: open,
+    verified_full: full,
+    verified_hidden: hidden,
+    empty_rows: blank,
+    invalid_count: issues.length,
+    invalid_rows: issues.slice(0, 25),
+    owner_production_writes: 0
+  };
+}
+
+// Assert upstream A:H is unchanged across the provider write boundary. This
+// includes event, date, poster, phone/lens availability and owner-controlled
+// details but returns only a count; it never exposes identifiers.
+function kkOwnerWebReadyUpstreamChanged_(before, after) {
+  if (!Array.isArray(before) || !Array.isArray(after) ||
+      before.length !== 996 || after.length !== 996)
+    throw new Error('WEB_READY_OWNER_UPSTREAM_SHAPE_INVALID');
+  let changed = 0;
+  for (let i = 0; i < before.length; i++) {
+    if (!Array.isArray(before[i]) || !Array.isArray(after[i]) ||
+        before[i].length < 10 || after[i].length < 10)
+      throw new Error('WEB_READY_OWNER_UPSTREAM_SHAPE_INVALID');
+    for (let j = 0; j < 8; j++) {
+      if (String(before[i][j] == null ? '' : before[i][j]) !==
+          String(after[i][j] == null ? '' : after[i][j])) {
+        changed++;
+        break;
+      }
+    }
+  }
+  return changed;
+}
+
 // Explicit owner repair only, never executed by public snapshot/API routes.
 // Preserve existing source and owner locks. External backup still required
 // before any authorized owner invocation.
@@ -1076,6 +1147,7 @@ function kkRepairOwnerVisibilityLockFormulas_() {
       ]);
     }
     const web = kkSheet_(KK.webReady);
+    const beforeValues = web.getRange(startRow, 1, rowCount, 10).getDisplayValues();
     const previous = web.getRange(startRow, 9, rowCount, 2).getFormulas();
     const ids = web.getRange(startRow, 1, rowCount, 1).getDisplayValues();
     // Fail closed on drift after preflight and before any write. A blank row
@@ -1099,6 +1171,14 @@ function kkRepairOwnerVisibilityLockFormulas_() {
           throw new Error('WEB_READY_FORMULA_READBACK_MISMATCH');
         }
       }
+      // Validate actual recalculated outcomes rather than treating exact
+      // formula text as proof that customers see the correct booking status.
+      const afterValues = web.getRange(startRow, 1, rowCount, 10).getDisplayValues();
+      if (kkOwnerWebReadyUpstreamChanged_(beforeValues, afterValues) > 0)
+        throw new Error('WEB_READY_OWNER_UPSTREAM_CHANGED');
+      const verified = kkValidateOwnerWebReadyPhoneResults_(afterValues, startRow);
+      if (!verified.pass || verified.verified_event_rows !== preflight.populated_rows)
+        throw new Error('WEB_READY_OWNER_RECALCULATION_NOT_SAFE');
     } catch (writeError) {
       // Restore only spans that may have been touched, in reverse order.
       // Provider error messages and private owner formulas never leave this API.
