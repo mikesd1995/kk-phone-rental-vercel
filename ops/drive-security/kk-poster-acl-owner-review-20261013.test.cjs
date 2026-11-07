@@ -828,7 +828,7 @@ test('advanced provenance refuses unreviewed or missing private file manifest',(
 test('advanced provenance shared-drive membership remains independent owner review gate',()=>{
   const f=advancedProvenanceFixture({sharedDrive:true});
   const r=f.inspect();
-  assert.equal(r.unresolved_permission_origins,49);
+  assert.equal(r.unresolved_permission_origins,50, '45 images + 4 folders + shared-drive root each require independent membership provenance review');
   assert.equal(r.ready_for_acl_write,false);
   assert.equal(f.getWrites(),0);
 });
