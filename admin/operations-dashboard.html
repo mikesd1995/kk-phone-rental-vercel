@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src https: data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<title>KK Phone Rental | Operations Dashboard</title>
+<link rel="stylesheet" href="/admin/operations-dashboard.css">
+<script src="/admin/operations-dashboard.js" defer></script>
+</head>
+<body>
+<div class="shell">
+<header class="top"><div><div class="eyebrow">KK PHONE RENTAL · ADMIN ONLY</div><h1>Operations Dashboard</h1><p>ปฏิทิน งานหน้าร้าน บุกกิ้ง ราคา โปสเตอร์ และแผนโพสต์ X</p></div><div class="header-actions"><span class="pill">READ ONLY / AUDIT</span><a href="/admin/app" class="btn">← กลับ Admin</a><button id="refresh" class="btn primary" type="button">รีเฟรชข้อมูล</button></div></header>
+<div id="status" class="status" role="status" aria-live="polite">กำลังตรวจสิทธิ์และโหลดข้อมูลจากหลังบ้าน...</div>
+<div id="app" hidden>
+ <div id="kpis" class="kpis"></div>
+ <section class="panel"><div class="paneltop"><h2>ค้นหาและกรองงาน</h2><small>ข้อมูลอ่านจาก Snapshot ที่ยืนยันตัวตน ไม่ใช่หลักฐานว่าเว็บ Production แสดงตรงกัน</small></div><div class="filters">
+  <label>ค้นหางาน / สถานที่ / Event ID<input id="search" type="search" placeholder="ค้นหาชื่องานหรือสถานที่"></label>
+  <label>เดือน<select id="month"><option value="">ทุกเดือน</option></select></label>
+  <label>วันที่<input id="date" type="date"></label>
+  <label>สถานที่<select id="venue"><option value="">ทุกสถานที่</option></select></label>
+  <label>หน้าร้าน<select id="visibility"><option value="">ทั้งหมด</option><option value="show">เปิด</option><option value="show_full">เต็ม (แสดงบนเว็บ)</option><option value="hide">ซ่อน</option><option value="unknown">ไม่ทราบ</option></select></label>
+  <label>มือถือ<select id="stock"><option value="">ทั้งหมด</option><option value="ready">มีแพ็กเกจพร้อม</option><option value="full">ไม่มีมือถือพร้อม</option><option value="unknown">ต้องตรวจ</option></select></label>
+  <label>บุกกิ้ง<select id="booking"><option value="">ทั้งหมด</option><option value="yes">มีบุกกิ้ง</option><option value="no">ไม่พบบุกกิ้งใน Snapshot</option><option value="unknown">ต้องตรวจ</option></select></label>
+  <label>ราคา<select id="price"><option value="">ทุกระดับราคา</option><option value="490/590">490/590</option><option value="590/690">590/690</option><option value="790/990">790/990</option><option value="other">ราคาอื่น</option><option value="missing">ข้อมูลไม่ครบ</option></select></label>
+ </div><div class="paneltop spaced"><div id="resultCount"></div><div class="tabs"><button type="button" class="tab active" data-view="table">ตาราง</button><button type="button" class="tab" data-view="calendar">ปฏิทิน</button><button type="button" class="tab" data-view="qa">ติดตาม QA</button><button type="button" class="tab" data-view="x">แผนโพสต์ X</button></div></div></section>
+ <section id="tableView" class="panel"><div class="tablewrap"><table><thead><tr><th>งาน / วันที่</th><th>สถานที่</th><th>หน้าร้าน</th><th>มือถือ</th><th>ราคาเครื่อง/พร้อมเลนส์</th><th>บุกกิ้ง</th><th>ตรวจ</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+ <section id="calendarView" class="panel" hidden><h2>ปฏิทินงานตามเดือน</h2><p class="muted">เลือกเดือนจากตัวกรองด้านบนเพื่อจำกัดรายการ</p><div id="calendar" class="calendar"></div></section>
+ <section id="qaView" class="panel" hidden><h2>รายการติดตามความถูกต้อง</h2><p class="muted">ตรวจจากข้อมูลหลังบ้านที่โหลดมาเท่านั้น การมี/ไม่มีรายการไม่ได้เป็นหลักฐาน Production</p><div id="qa" class="qa"></div></section>
+ <section id="xView" class="panel" hidden><h2>ตารางโพสต์บน X · Draft เท่านั้น</h2><p class="muted">ไม่มีสิทธิ์โพสต์อัตโนมัติ และ Snapshot นี้ไม่มี X Post Log สด จึงไม่รับรองว่าโพสต์ได้</p><div class="ratio"><label>งานใกล้วันเช่า <strong id="ratioNear">60%</strong> <input type="range" id="ratio" min="0" max="100" value="60" step="5"></label><span>เพิ่มเอนเกจ <strong id="ratioEng">40%</strong></span></div><div class="filters plan"><label>เลือกงาน<select id="postEvent"><option value="">เลือกงาน</option></select></label><label>เวลาโพสต์ (เวลาไทย)<input id="postAt" type="datetime-local"></label><label>วัตถุประสงค์<select id="postType"><option value="near">ใกล้วันเช่า</option><option value="engagement">เพิ่มเอนเกจ</option></select></label><label class="wide">เหตุผลการเลือกงาน<input id="postReason" maxlength="350" placeholder="อธิบายเหตุผลและแหล่งหลักฐานเอนเกจ"></label></div><button class="btn primary" type="button" id="addPost">บันทึกร่างรอตรวจ</button><div id="postMessage" class="muted" aria-live="polite"></div><div id="plans"></div></section>
+ <section id="details" class="panel" hidden aria-label="รายละเอียดงาน"><div class="paneltop"><h2>รายละเอียดงานและ Gate</h2><button id="closeDetails" type="button" class="btn">ปิด</button></div><div id="detailBody"></div></section>
+</div>
+<footer>KK Operations V4 · ไม่เขียน Booking, ราคา, Inventory, Owner Locks หรือ X · ต้องตรวจ Production ก่อนใช้ตัดสินใจจริง</footer>
+</div>
+</body></html>
